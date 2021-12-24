@@ -58,12 +58,47 @@ source-repository head
   type:               git
   location:           git://github.com/Mikolaj/mostly-harmless.git
 
-common warnings
-    ghc-options: -Wall
+flag with_expensive_assertions
+  description:        turn on expensive assertions of well-tested code
+  default:            False
+  manual:             True
+
+flag release
+  description:        prepare for a release (expose internal functions and types, etc.)
+  default:            True
+  manual:             True
+
+common options
+  default-language:   Haskell2010
+  default-extensions: MonoLocalBinds, ScopedTypeVariables, OverloadedStrings,
+                      BangPatterns, RecordWildCards, NamedFieldPuns, MultiWayIf,
+                      LambdaCase, DefaultSignatures, InstanceSigs,
+                      PatternSynonyms, StrictData, TypeApplications
+  other-extensions:   TemplateHaskell, MultiParamTypeClasses, RankNTypes,
+                      TypeFamilies, FlexibleContexts, FlexibleInstances,
+                      DeriveFunctor, FunctionalDependencies,
+                      GeneralizedNewtypeDeriving, TupleSections,
+                      DeriveFoldable, DeriveTraversable,
+                      ExistentialQuantification, GADTs, StandaloneDeriving,
+                      DataKinds, KindSignatures, DeriveGeneric, DeriveLift, CPP
+  ghc-options:        -Wall -Wcompat -Worphans -Wincomplete-uni-patterns -Wincomplete-record-updates -Wimplicit-prelude -Wmissing-home-modules -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages
+  ghc-options:        -fno-ignore-asserts
+
+--  ghc-options:        -fexpose-all-unfoldings -fspecialise-aggressively -fsimpl-tick-factor=200
+
+  if flag(with_expensive_assertions)
+    cpp-options:      -DWITH_EXPENSIVE_ASSERTIONS
+
+  if flag(release)
+    cpp-options:      -DEXPOSE_INTERNAL
+
+common exe-options
+  ghc-options:        -rtsopts
+--  ghc-options:        "-with-rtsopts=-A99m -I5"
 
 library
     -- Import common warning flags.
-    import:           warnings
+    import:           options
 
     -- Modules exported by the library.
     exposed-modules:  MyLib
@@ -80,12 +115,9 @@ library
     -- Directories containing source files.
     hs-source-dirs:   src
 
-    -- Base language which the package is written in.
-    default-language: Haskell2010
-
 executable mostly-harmless
     -- Import common warning flags.
-    import:           warnings
+    import:           options, exe-options
 
     -- .hs or .lhs file containing the Main module.
     main-is:          Main.hs
@@ -104,15 +136,9 @@ executable mostly-harmless
     -- Directories containing source files.
     hs-source-dirs:   app
 
-    -- Base language which the package is written in.
-    default-language: Haskell2010
-
 test-suite mostly-harmless-test
     -- Import common warning flags.
-    import:           warnings
-
-    -- Base language which the package is written in.
-    default-language: Haskell2010
+    import:           options, exe-options
 
     -- Modules included in this executable, other than Main.
     -- other-modules:
