@@ -2,7 +2,9 @@ module MyLib (someFunc) where
 
 import Prelude
 
-import AD ()
+import AD
 
 someFunc :: IO ()
-someFunc = putStrLn "someFunc"
+someFunc = do
+  r <- result
+  print r
