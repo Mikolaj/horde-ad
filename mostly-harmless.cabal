@@ -26,7 +26,7 @@ version:            0.1.0.0
 synopsis:           Experiments with AD
 
 -- A longer description of the package.
--- description:
+description:        Experiments with AD based on SPJ's talk "Provably correct, asymptotically efficient, higher-order reverse-mode automatic differentiation"
 
 -- The license under which the package is released.
 license:            AGPL-3.0-or-later
@@ -101,7 +101,8 @@ library
     import:           options
 
     -- Modules exported by the library.
-    exposed-modules:  MyLib
+    exposed-modules:    MyLib
+                      , AD
 
     -- Modules included in this library but not exported.
     -- other-modules:
@@ -110,7 +111,10 @@ library
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base ^>=4.14.3.0
+    build-depends:      base ^>=4.14.3.0
+                      , enummapset
+                      , transformers
+                      , vector
 
     -- Directories containing source files.
     hs-source-dirs:   src

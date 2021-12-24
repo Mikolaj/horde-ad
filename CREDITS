@@ -1,0 +1,9 @@
+Credits go to
+
+Conal Elliott, talking beautifully about the Essence of Automatic Differentiation
+
+Simon Peyton Jones, who sketched in "Provably correct, asymptotically efficient, higher-order reverse-mode automatic differentiation" talk at https://www.youtube.com/watch?v=EPGqzkEZWyw algorithms that this codebase implements in Haskell and for Haskell
+
+Faustyna Krawiec, Neel Krishnaswami, Tom Ellis, Andrew Fitzgibbon, Richard Eisenberg, the remaining authors of the paper "Provably correct, asymptotically efficient, higher-order reverse-mode automatic differentiation" from POPL 2022 that reportedly contains or describes an implementation of AD that translates a functional code to C++
+
+Oleg Grenrus, whose https://hackage.haskell.org/package/overloaded contained inspiring examples related to AD
