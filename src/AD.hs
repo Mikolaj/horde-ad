@@ -30,10 +30,14 @@ data Delta =
   | Add Delta Delta
   | Var DeltaId
 
--- This can't be environment, because subtrees enter their own
--- identifiers, for sharing, not parents name their subtrees.
--- Each variable is created only once, but the subexpression it's in
--- can get duplicated grossly.
+-- This can't be environment in a Reader, because subtrees add their own
+-- identifiers for sharing, instead of parents naming their subtrees.
+-- This must be the "evaluate Let backwards" from SPJ's talk.
+-- This and the need to control evaluation order contribute to
+-- the difficulty of applying any HOAS concept instead of the monad
+-- with bindings accumulated in state.
+-- Note that each variable is created only once, but the subexpression
+-- it's a part of can get duplicated grossly.
 data DeltaState = DeltaState
   { deltaCounter  :: DeltaId
   , deltaBindings :: EML.EnumMap DeltaId Delta
