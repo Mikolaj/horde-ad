@@ -44,7 +44,7 @@ data DeltaState = DeltaState
   }
 
 newtype DeltaImplementation a = DeltaImplementation
-  { runDeltaImplementation :: StateT DeltaState IO a }
+  { runDeltaImplementation :: State DeltaState a }
   deriving (Monad, Functor, Applicative)
 
 eval :: EML.EnumMap DeltaId Delta -> Int -> Delta -> Vec Result
@@ -77,16 +77,16 @@ dlet v = DeltaImplementation $ do
 
 df :: (Vec (Dual Delta) -> DeltaImplementation (Dual Delta))
    -> Vec Float
-   -> IO (Vec Result)
-df f deltaInput = do
+   -> Vec Result
+df f deltaInput =
   let dx :: Vec (Dual Delta)
       dx = V.imap (\i xi -> D xi (OneHot i)) deltaInput
       initialState = DeltaState
         { deltaCounter = DeltaId 0
         , deltaBindings = EML.empty
         }
-  (D _result d, st) <- runStateT (runDeltaImplementation (f dx)) initialState
-  return $! eval (deltaBindings st) (V.length deltaInput) d
+      (D _result d, st) = runState (runDeltaImplementation (f dx)) initialState
+  in eval (deltaBindings st) (V.length deltaInput) d
 
 (*\) :: Dual Delta -> Dual Delta -> DeltaImplementation (Dual Delta)
 (*\) (D u u') (D v v') = do
@@ -159,9 +159,8 @@ fquad vec = do
   tmp <- x2 +\ y2
   tmp +\ scalar 5
 
-result :: IO [Vec Result]
-result =
-  mapM (uncurry df)
+result :: [Vec Result]
+result = map (uncurry df)
   [ (fX, V.fromList [99])  -- 1
   , (fX1Y, V.fromList [3, 2])  -- 2, 4
   , (fXXY, V.fromList [3, 2])  -- 12, 9
