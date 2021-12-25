@@ -109,10 +109,20 @@ relu (D u u') = do
   d <- dlet $ Scale (if u > 0 then 1 else 0) u'
   return $! D (max 0 u) (Var d)
 
+scalar :: Float -> Dual Delta
+scalar k = D k Zero
+
 fX :: Vec (Dual Delta) -> DeltaImplementation (Dual Delta)
 fX vec = do
   let x = vec V.! 0
   return x
+
+fX1Y :: Vec (Dual Delta) -> DeltaImplementation (Dual Delta)
+fX1Y vec = do
+  let x = vec V.! 0
+      y = vec V.! 1
+  x1 <- x +\ scalar 1
+  x1 *\ y
 
 fXXY :: Vec (Dual Delta) -> DeltaImplementation (Dual Delta)
 fXXY vec = do
@@ -140,10 +150,20 @@ freluX vec = do
   let x = vec V.! 0
   relu x
 
+fquad :: Vec (Dual Delta) -> DeltaImplementation (Dual Delta)
+fquad vec = do
+  let x = vec V.! 0
+      y = vec V.! 1
+  x2 <- x *\ x
+  y2 <- y *\ y
+  tmp <- x2 +\ y2
+  tmp +\ scalar 5
+
 result :: IO [Vec Result]
 result =
   mapM (uncurry df)
   [ (fX, V.fromList [99])  -- 1
+  , (fX1Y, V.fromList [3, 2])  -- 2, 4
   , (fXXY, V.fromList [3, 2])  -- 12, 9
   , (fXYplusZ, V.fromList [1, 2, 3])  -- 2, 1, 1
   , (fXtoY, V.fromList [0.00000000000001, 2])  -- ~0, ~0
@@ -152,6 +172,7 @@ result =
   , (freluX, V.fromList [0])  -- ? (0)
   , (freluX, V.fromList [0.0001])  -- 1
   , (freluX, V.fromList [99])  -- 1
+  , (fquad, V.fromList [2, 3])  -- 4, 6
   ]
 
 
