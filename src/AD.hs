@@ -88,6 +88,17 @@ df f deltaInput =
       (D _result d, st) = runState (runDeltaImplementation (f dx)) initialState
   in eval (deltaBindings st) (V.length deltaInput) d
 
+gradDesc :: Float
+         -> (Vec (Dual Delta) -> DeltaImplementation (Dual Delta))
+         -> Vec Float
+         -> [Vec Result]
+gradDesc gamma f = iterate go where
+  go :: Vec Float -> Vec Float
+  go vecInitial =
+    let res = df f vecInitial
+        scaled = V.map (* gamma) res
+    in V.zipWith (-) vecInitial scaled
+
 (*\) :: Dual Delta -> Dual Delta -> DeltaImplementation (Dual Delta)
 (*\) (D u u') (D v v') = do
   d <- dlet $ Add (Scale v u') (Scale u v')
@@ -160,19 +171,25 @@ fquad vec = do
   tmp +\ scalar 5
 
 result :: [Vec Result]
-result = map (uncurry df)
-  [ (fX, V.fromList [99])  -- 1
-  , (fX1Y, V.fromList [3, 2])  -- 2, 4
-  , (fXXY, V.fromList [3, 2])  -- 12, 9
-  , (fXYplusZ, V.fromList [1, 2, 3])  -- 2, 1, 1
-  , (fXtoY, V.fromList [0.00000000000001, 2])  -- ~0, ~0
-  , (fXtoY, V.fromList [1, 2])  -- 2, 0
-  , (freluX, V.fromList [-1])  -- 0
-  , (freluX, V.fromList [0])  -- ? (0)
-  , (freluX, V.fromList [0.0001])  -- 1
-  , (freluX, V.fromList [99])  -- 1
-  , (fquad, V.fromList [2, 3])  -- 4, 6
-  ]
+result =
+  map (uncurry df)
+    [ (fX, V.fromList [99])  -- 1
+    , (fX1Y, V.fromList [3, 2])  -- 2, 4
+    , (fXXY, V.fromList [3, 2])  -- 12, 9
+    , (fXYplusZ, V.fromList [1, 2, 3])  -- 2, 1, 1
+    , (fXtoY, V.fromList [0.00000000000001, 2])  -- ~0, ~0
+    , (fXtoY, V.fromList [1, 2])  -- 2, 0
+    , (freluX, V.fromList [-1])  -- 0
+    , (freluX, V.fromList [0])  -- ? (0)
+    , (freluX, V.fromList [0.0001])  -- 1
+    , (freluX, V.fromList [99])  -- 1
+    , (fquad, V.fromList [2, 3])  -- 4, 6
+    ]
+  ++ [ gradDesc 0.1 fquad (V.fromList [2, 3]) !! 30  -- 2.47588e-3, 3.7138206e-3
+     , gradDesc 0.01 fquad (V.fromList [2, 3]) !! 30
+     , gradDesc 0.01 fquad (V.fromList [2, 3]) !! 300
+     , gradDesc 0.01 fquad (V.fromList [2, 3]) !! 300000  -- 3.5e-44, 3.5e-44
+     ]
 
 
 
