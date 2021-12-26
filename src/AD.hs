@@ -1,4 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# OPTIONS_GHC -Wno-missing-export-lists #-}
 module AD where
 
 import Prelude
@@ -98,15 +99,6 @@ gradDesc gamma f = iterate go where
     let res = fst $ df f vecInitial
         scaled = V.map (* gamma) res
     in V.zipWith (-) vecInitial scaled
-
-gradDescShow :: Float
-             -> (Vec (Dual Delta) -> DeltaImplementation (Dual Delta))
-             -> Vec Float
-             -> Int
-             -> (Vec Result, Float)
-gradDescShow gamma f initVec n =
-  let res = gradDesc gamma f initVec !! n
-  in (res, snd $ df f res)
 
 (*\) :: Dual Delta -> Dual Delta -> DeltaImplementation (Dual Delta)
 (*\) (D u u') (D v v') = do

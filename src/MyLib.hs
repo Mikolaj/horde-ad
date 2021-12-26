@@ -3,4 +3,4 @@ module MyLib (someFunc) where
 import Prelude
 
 someFunc :: IO ()
-someFunc = print "TODO"
+someFunc = print ("TODO" :: String)

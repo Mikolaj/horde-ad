@@ -3,11 +3,35 @@ module Main (main) where
 import Prelude
 
 import qualified Data.Vector as V
+import           Test.Tasty
+import           Test.Tasty.HUnit
 
 import AD
 
 main :: IO ()
-main = mapM_ print result
+main = defaultMain tests
+
+dfShow :: (Vec (Dual Delta) -> DeltaImplementation (Dual Delta))
+       -> [Float]
+       -> ([Result], Float)
+dfShow f deltaInput =
+  let (results, value) = df f (V.fromList deltaInput)
+  in (V.toList results, value)
+
+gradDescShow :: Float
+             -> (Vec (Dual Delta) -> DeltaImplementation (Dual Delta))
+             -> [Float]
+             -> Int
+             -> ([Result], Float)
+gradDescShow gamma f initVec n =
+  let res = V.toList $ gradDesc gamma f (V.fromList initVec) !! n
+  in (res, snd $ dfShow f res)
+
+tests :: TestTree
+tests = testGroup "Tests" [ dfTests
+                          , gradDescTests
+                          , xorTests
+                          ]
 
 fX :: Vec (Dual Delta) -> DeltaImplementation (Dual Delta)
 fX vec = do
@@ -55,6 +79,40 @@ fquad vec = do
   y2 <- y *\ y
   tmp <- x2 +\ y2
   tmp +\ scalar 5
+
+dfTests :: TestTree
+dfTests = testGroup "df application tests" $
+  map (\(txt, f, v, expected) ->
+        testCase txt $ dfShow f v @?= expected)
+    [ ("fX", fX, [99], ([1.0],99.0))
+    , ("fX1Y", fX1Y, [3, 2], ([2.0,4.0],8.0))
+    , ("fXXY", fXXY, [3, 2], ([12.0,9.0],18.0))
+    , ("fXYplusZ", fXYplusZ, [1, 2, 3], ([2.0,1.0,1.0],5.0))
+    , ( "fXtoY", fXtoY, [0.00000000000001, 2]
+      , ([2.0e-14,-3.2236188e-27],9.9999994e-29) )
+    , ("fXtoY2", fXtoY, [1, 2], ([2.0,0.0],1.0))
+    , ("freluX", freluX, [-1], ([0.0],0.0))
+    , ("freluX2", freluX, [0], ([0.0],0.0))
+    , ("freluX3", freluX, [0.0001], ([1.0],1.0e-4))
+    , ("freluX4", freluX, [99], ([1.0],99.0))
+    , ("fquad", fquad, [2, 3], ([4.0,6.0],18.0))
+    ]
+
+gradDescTests :: TestTree
+gradDescTests = testGroup "simple gradDesc tests"
+  [ testCase "0.1 30"
+    $ gradDescShow 0.1 fquad [2, 3] 30
+      @?= ([2.47588e-3,3.7138206e-3],5.00002)
+  , testCase "0.01 30"
+    $ gradDescShow 0.01 fquad [2, 3] 30
+      @?= ([1.0909687,1.6364527],8.86819)
+  , testCase "0.01 300"
+    $ gradDescShow 0.01 fquad [2, 3] 300
+      @?= ([4.665013e-3,6.9975173e-3],5.0000706)
+  , testCase "0.01 300000"
+    $ gradDescShow 0.01 fquad [2, 3] 300000
+      @?= ([3.5e-44,3.5e-44],5.0)
+  ]
 
 scaleAddWithBias :: Dual Delta -> Dual Delta -> Int -> Vec (Dual Delta)
                  -> DeltaImplementation (Dual Delta)
@@ -106,34 +164,25 @@ setLoss factivation vec = do
   n34 <- n3 +\ n4
   n12 +\ n34
 
-initWeights, initWeights2 :: Vec Float
-initWeights = let w = [0.37, 0.28, 0.19] in V.fromList $ w ++ w ++ w
-initWeights2 = let w = [-1.37, 2.28, -0.19] in V.fromList $ w ++ w ++ w
+ws, ws2 :: [Float]
+ws = let w = [0.37, 0.28, 0.19] in w ++ w ++ w
+ws2 = let w = [-1.37, 2.28, -0.19] in w ++ w ++ w
 
-result :: [(Vec Result, Float)]
-result =
-  map (\(f, v) -> df f v)
-    [ (fX, V.fromList [99])  -- 1
-    , (fX1Y, V.fromList [3, 2])  -- 2, 4
-    , (fXXY, V.fromList [3, 2])  -- 12, 9
-    , (fXYplusZ, V.fromList [1, 2, 3])  -- 2, 1, 1
-    , (fXtoY, V.fromList [0.00000000000001, 2])  -- ~0, ~0
-    , (fXtoY, V.fromList [1, 2])  -- 2, 0
-    , (freluX, V.fromList [-1])  -- 0
-    , (freluX, V.fromList [0])  -- ? (0)
-    , (freluX, V.fromList [0.0001])  -- 1
-    , (freluX, V.fromList [99])  -- 1
-    , (fquad, V.fromList [2, 3])  -- 4, 6
-    ]
-  ++ [ gradDescShow 0.1 fquad (V.fromList [2, 3]) 30
-         -- 2.47588e-3, 3.7138206e-3
-     , gradDescShow 0.01 fquad (V.fromList [2, 3]) 30
-     , gradDescShow 0.01 fquad (V.fromList [2, 3]) 300
-     , gradDescShow 0.01 fquad (V.fromList [2, 3]) 300000
-         -- 3.5e-44, 3.5e-44
-     , gradDescShow 0.1 (setLoss tanhAct) initWeights 500  -- 1.205092e-2
-     , gradDescShow 0.1 (setLoss tanhAct) initWeights 5000  -- 1.8422995e-4
-     , gradDescShow 0.01 (setLoss tanhAct) initWeights2 5000
-     , gradDescShow 0.01 (setLoss reluAct) initWeights 5000  -- no cookie
-     , gradDescShow 0.1 (setLoss reluAct) initWeights2 5000  -- no cookie
-     ]
+xorTests :: TestTree
+xorTests = testGroup "XOR neural net tests"
+  [ testCase "0.1 tanhAct ws 500"
+    $ gradDescShow 0.1 (setLoss tanhAct) ws 500
+      @?= ([2.256964,2.255974,-0.6184605,0.94326925,0.94314164,-1.2784436,1.8050723,-1.992514,-0.70439947],1.205092e-2)
+  , testCase "0.1 tanhAct ws 5000"
+    $ gradDescShow 0.1 (setLoss tanhAct) ws 5000
+      @?= ([2.4474483,2.4467785,-0.83506805,1.3046683,1.3045536,-1.8912246,2.3819222,-2.555036,-0.8139771],1.8422995e-4)
+  , testCase "0.01 tanhAct ws2 5000"
+    $ gradDescShow 0.01 (setLoss tanhAct) ws2 5000
+      @?= ([-1.7960823,2.514643,0.47817805,-1.603419,2.1351767,-0.84762865,-2.0108552,2.029199,2.2952797],2.2369889e-3)
+  , testCase "0.01 reluAct ws 50000"
+    $ gradDescShow 0.01 (setLoss reluAct) ws 5000  -- no cookie
+      @?= ([0.18997861,0.14774865,0.2541552,0.2825405,0.21788016,0.22178593,8.9811325e-2,-6.0578037e-2,0.49060056],1.0)
+  , testCase "0.1 reluAct ws2 5000"
+    $ gradDescShow 0.1 (setLoss reluAct) ws2 5000  -- no cookie
+      @?= ([-1.2425352,2.6025252,0.13252532,-1.5821311,1.7432425,-0.72675747,-1.7345629,1.9154371,-0.42541993],2.0)
+  ]
