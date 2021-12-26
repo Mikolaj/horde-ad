@@ -77,7 +77,7 @@ dlet v = DeltaImplementation $ do
 
 df :: (Vec (Dual Delta) -> DeltaImplementation (Dual Delta))
    -> Vec Float
-   -> Vec Result
+   -> (Vec Result, Float)
 df f deltaInput =
   let dx :: Vec (Dual Delta)
       dx = V.imap (\i xi -> D xi (OneHot i)) deltaInput
@@ -85,8 +85,8 @@ df f deltaInput =
         { deltaCounter = DeltaId 0
         , deltaBindings = EML.empty
         }
-      (D _result d, st) = runState (runDeltaImplementation (f dx)) initialState
-  in eval (deltaBindings st) (V.length deltaInput) d
+      (D value d, st) = runState (runDeltaImplementation (f dx)) initialState
+  in (eval (deltaBindings st) (V.length deltaInput) d, value)
 
 gradDesc :: Float
          -> (Vec (Dual Delta) -> DeltaImplementation (Dual Delta))
@@ -95,9 +95,18 @@ gradDesc :: Float
 gradDesc gamma f = iterate go where
   go :: Vec Float -> Vec Float
   go vecInitial =
-    let res = df f vecInitial
+    let res = fst $ df f vecInitial
         scaled = V.map (* gamma) res
     in V.zipWith (-) vecInitial scaled
+
+gradDescShow :: Float
+             -> (Vec (Dual Delta) -> DeltaImplementation (Dual Delta))
+             -> Vec Float
+             -> Int
+             -> (Vec Result, Float)
+gradDescShow gamma f initVec n =
+  let res = gradDesc gamma f initVec !! n
+  in (res, snd $ df f res)
 
 (*\) :: Dual Delta -> Dual Delta -> DeltaImplementation (Dual Delta)
 (*\) (D u u') (D v v') = do
@@ -109,19 +118,35 @@ gradDesc gamma f = iterate go where
   d <- dlet $ Add u' v'
   return $! D (u + v) (Var d)
 
+(-\) :: Dual Delta -> Dual Delta -> DeltaImplementation (Dual Delta)
+(-\) (D u u') (D v v') = do
+  d <- dlet $ Add u' (Scale (-1) v')
+  return $! D (u - v) (Var d)
+
 (**\) :: Dual Delta -> Dual Delta -> DeltaImplementation (Dual Delta)
 (**\) (D u u') (D v v') = do
   d <- dlet $ Add (Scale (v * (u ** (v - 1))) u')
                   (Scale ((u ** v) * log u) v')
   return $! D (u ** v) (Var d)
 
-relu :: Dual Delta -> DeltaImplementation (Dual Delta)
-relu (D u u') = do
-  d <- dlet $ Scale (if u > 0 then 1 else 0) u'
-  return $! D (max 0 u) (Var d)
-
 scalar :: Float -> Dual Delta
 scalar k = D k Zero
+
+_scale :: Float -> Dual Delta -> DeltaImplementation (Dual Delta)
+_scale k (D u u') = do
+  d <- dlet $ Scale k u'
+  return $! D (k * u) (Var d)
+
+tanhAct :: Dual Delta -> DeltaImplementation (Dual Delta)
+tanhAct (D u u') = do
+  let y = tanh u
+  d <- dlet $ Scale (1 - y * y) u'
+  return $! D y (Var d)
+
+reluAct :: Dual Delta -> DeltaImplementation (Dual Delta)
+reluAct (D u u') = do
+  d <- dlet $ Scale (if u > 0 then 1 else 0) u'
+  return $! D (max 0 u) (Var d)
 
 fX :: Vec (Dual Delta) -> DeltaImplementation (Dual Delta)
 fX vec = do
@@ -159,7 +184,7 @@ fXtoY vec = do
 freluX :: Vec (Dual Delta) -> DeltaImplementation (Dual Delta)
 freluX vec = do
   let x = vec V.! 0
-  relu x
+  reluAct x
 
 fquad :: Vec (Dual Delta) -> DeltaImplementation (Dual Delta)
 fquad vec = do
@@ -170,9 +195,63 @@ fquad vec = do
   tmp <- x2 +\ y2
   tmp +\ scalar 5
 
-result :: [Vec Result]
+scaleAddWithBias :: Dual Delta -> Dual Delta -> Int -> Vec (Dual Delta)
+                 -> DeltaImplementation (Dual Delta)
+scaleAddWithBias x y ixWeight vec = do
+  let wx = vec V.! ixWeight
+      wy = vec V.! (ixWeight + 1)
+      bias = vec V.! (ixWeight + 2)
+  sx <- x *\ wx
+  sy <- y *\ wy
+  sxy <- sx +\ sy
+  sxy +\ bias
+
+neuron :: (Dual Delta -> DeltaImplementation (Dual Delta))
+       -> Dual Delta -> Dual Delta -> Int -> Vec (Dual Delta)
+       -> DeltaImplementation (Dual Delta)
+neuron factivation x y ixWeight vec = do
+  sc <- scaleAddWithBias x y ixWeight vec
+  factivation sc
+
+nnXor :: (Dual Delta -> DeltaImplementation (Dual Delta))
+      -> Dual Delta -> Dual Delta -> Vec (Dual Delta)
+      -> DeltaImplementation (Dual Delta)
+nnXor factivation x y vec = do
+  n1 <- neuron factivation x y 0 vec
+  n2 <- neuron factivation x y 3 vec
+  neuron factivation n1 n2 6 vec
+
+lossXor :: Dual Delta -> Dual Delta -> DeltaImplementation (Dual Delta)
+lossXor u v = do
+  diff <- u -\ v
+  diff *\ diff
+
+nnLoss :: (Dual Delta -> DeltaImplementation (Dual Delta))
+      -> Float -> Float -> Float -> Vec (Dual Delta)
+      -> DeltaImplementation (Dual Delta)
+nnLoss factivation x y res vec = do
+  r <- nnXor factivation (scalar x) (scalar y) vec
+  lossXor r (scalar res)
+
+setLoss :: (Dual Delta -> DeltaImplementation (Dual Delta))
+        -> Vec (Dual Delta)
+        -> DeltaImplementation (Dual Delta)
+setLoss factivation vec = do
+  n1 <- nnLoss factivation 0 0 0 vec
+  n2 <- nnLoss factivation 0 1 1 vec
+  n3 <- nnLoss factivation 1 0 1 vec
+  n4 <- nnLoss factivation 1 1 0 vec
+  n12 <- n1 +\ n2
+  n34 <- n3 +\ n4
+  n12 +\ n34
+
+initWeights, initWeights2 :: Vec Float
+initWeights = let w = [0.37, 0.28, 0.19] in V.fromList $ w ++ w ++ w
+initWeights2 = let w = [-1.37, 2.28, -0.19] in V.fromList $ w ++ w ++ w
+
+result :: [(Vec Result, Float)]
 result =
-  map (uncurry df)
+  map (\(f, v) -> df f v)
     [ (fX, V.fromList [99])  -- 1
     , (fX1Y, V.fromList [3, 2])  -- 2, 4
     , (fXXY, V.fromList [3, 2])  -- 12, 9
@@ -185,14 +264,18 @@ result =
     , (freluX, V.fromList [99])  -- 1
     , (fquad, V.fromList [2, 3])  -- 4, 6
     ]
-  ++ [ gradDesc 0.1 fquad (V.fromList [2, 3]) !! 30  -- 2.47588e-3, 3.7138206e-3
-     , gradDesc 0.01 fquad (V.fromList [2, 3]) !! 30
-     , gradDesc 0.01 fquad (V.fromList [2, 3]) !! 300
-     , gradDesc 0.01 fquad (V.fromList [2, 3]) !! 300000  -- 3.5e-44, 3.5e-44
+  ++ [ gradDescShow 0.1 fquad (V.fromList [2, 3]) 30
+         -- 2.47588e-3, 3.7138206e-3
+     , gradDescShow 0.01 fquad (V.fromList [2, 3]) 30
+     , gradDescShow 0.01 fquad (V.fromList [2, 3]) 300
+     , gradDescShow 0.01 fquad (V.fromList [2, 3]) 300000
+         -- 3.5e-44, 3.5e-44
+     , gradDescShow 0.1 (setLoss tanhAct) initWeights 500  -- 1.205092e-2
+     , gradDescShow 0.1 (setLoss tanhAct) initWeights 5000  -- 1.8422995e-4
+     , gradDescShow 0.01 (setLoss tanhAct) initWeights2 5000
+     , gradDescShow 0.01 (setLoss reluAct) initWeights 5000  -- no cookie
+     , gradDescShow 0.1 (setLoss reluAct) initWeights2 5000  -- no cookie
      ]
-
-
-
 
 
 
@@ -212,7 +295,7 @@ result =
 
 -- higher order types of vars
 -- recursion and recursive types
--- fusion and checkpointing
+-- fusion (eliminating spurious lets?) and checkpointing (limiting space usage?)
 
 
 

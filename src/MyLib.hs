@@ -5,4 +5,4 @@ import Prelude
 import AD
 
 someFunc :: IO ()
-someFunc = print result
+someFunc = mapM_ print result
