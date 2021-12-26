@@ -111,10 +111,11 @@ library
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:      base ^>=4.14.3.0
-                      , enummapset
-                      , transformers
-                      , vector
+    build-depends:
+        base ^>=4.14.3.0
+      , enummapset
+      , transformers
+      , vector
 
     -- Directories containing source files.
     hs-source-dirs:   src
@@ -134,8 +135,8 @@ executable mostly-harmless
 
     -- Other library packages from which modules are imported.
     build-depends:
-        base ^>=4.14.3.0,
-        mostly-harmless
+        base ^>=4.14.3.0
+      , mostly-harmless
 
     -- Directories containing source files.
     hs-source-dirs:   app
@@ -161,5 +162,6 @@ test-suite mostly-harmless-test
 
     -- Test dependencies.
     build-depends:
-        base ^>=4.14.3.0,
-        mostly-harmless
+        base ^>=4.14.3.0
+      , mostly-harmless
+      , vector
