@@ -2,7 +2,7 @@ module Main (main) where
 
 import Prelude
 
-import qualified Data.Vector as V
+import qualified Data.Vector.Generic as V
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
@@ -11,7 +11,7 @@ import AD
 main :: IO ()
 main = defaultMain tests
 
-dfShow :: (Vec (Dual Delta) -> DeltaImplementation (Dual Delta))
+dfShow :: (VecDualDelta -> DeltaImplementation (Dual Delta))
        -> [Float]
        -> ([Result], Float)
 dfShow f deltaInput =
@@ -19,7 +19,7 @@ dfShow f deltaInput =
   in (V.toList results, value)
 
 gradDescShow :: Float
-             -> (Vec (Dual Delta) -> DeltaImplementation (Dual Delta))
+             -> (VecDualDelta -> DeltaImplementation (Dual Delta))
              -> [Float]
              -> Int
              -> ([Result], Float)
@@ -33,26 +33,26 @@ tests = testGroup "Tests" [ dfTests
                           , xorTests
                           ]
 
-fX :: Vec (Dual Delta) -> DeltaImplementation (Dual Delta)
+fX :: VecDualDelta -> DeltaImplementation (Dual Delta)
 fX vec = do
   let x = vec V.! 0
   return x
 
-fX1Y :: Vec (Dual Delta) -> DeltaImplementation (Dual Delta)
+fX1Y :: VecDualDelta -> DeltaImplementation (Dual Delta)
 fX1Y vec = do
   let x = vec V.! 0
       y = vec V.! 1
   x1 <- x +\ scalar 1
   x1 *\ y
 
-fXXY :: Vec (Dual Delta) -> DeltaImplementation (Dual Delta)
+fXXY :: VecDualDelta -> DeltaImplementation (Dual Delta)
 fXXY vec = do
   let x = vec V.! 0
       y = vec V.! 1
   xy <- x *\ y
   x *\ xy
 
-fXYplusZ :: Vec (Dual Delta) -> DeltaImplementation (Dual Delta)
+fXYplusZ :: VecDualDelta -> DeltaImplementation (Dual Delta)
 fXYplusZ vec = do
   let x = vec V.! 0
       y = vec V.! 1
@@ -60,18 +60,18 @@ fXYplusZ vec = do
   xy <- x *\ y
   xy +\ z
 
-fXtoY :: Vec (Dual Delta) -> DeltaImplementation (Dual Delta)
+fXtoY :: VecDualDelta -> DeltaImplementation (Dual Delta)
 fXtoY vec = do
   let x = vec V.! 0
       y = vec V.! 1
   x **\ y
 
-freluX :: Vec (Dual Delta) -> DeltaImplementation (Dual Delta)
+freluX :: VecDualDelta -> DeltaImplementation (Dual Delta)
 freluX vec = do
   let x = vec V.! 0
   reluAct x
 
-fquad :: Vec (Dual Delta) -> DeltaImplementation (Dual Delta)
+fquad :: VecDualDelta -> DeltaImplementation (Dual Delta)
 fquad vec = do
   let x = vec V.! 0
       y = vec V.! 1
@@ -114,7 +114,7 @@ gradDescTests = testGroup "simple gradDesc tests"
       @?= ([3.5e-44,3.5e-44],5.0)
   ]
 
-scaleAddWithBias :: Dual Delta -> Dual Delta -> Int -> Vec (Dual Delta)
+scaleAddWithBias :: Dual Delta -> Dual Delta -> Int -> VecDualDelta
                  -> DeltaImplementation (Dual Delta)
 scaleAddWithBias x y ixWeight vec = do
   let wx = vec V.! ixWeight
@@ -126,14 +126,14 @@ scaleAddWithBias x y ixWeight vec = do
   sxy +\ bias
 
 neuron :: (Dual Delta -> DeltaImplementation (Dual Delta))
-       -> Dual Delta -> Dual Delta -> Int -> Vec (Dual Delta)
+       -> Dual Delta -> Dual Delta -> Int -> VecDualDelta
        -> DeltaImplementation (Dual Delta)
 neuron factivation x y ixWeight vec = do
   sc <- scaleAddWithBias x y ixWeight vec
   factivation sc
 
 nnXor :: (Dual Delta -> DeltaImplementation (Dual Delta))
-      -> Dual Delta -> Dual Delta -> Vec (Dual Delta)
+      -> Dual Delta -> Dual Delta -> VecDualDelta
       -> DeltaImplementation (Dual Delta)
 nnXor factivation x y vec = do
   n1 <- neuron factivation x y 0 vec
@@ -146,14 +146,14 @@ lossXor u v = do
   diff *\ diff
 
 nnLoss :: (Dual Delta -> DeltaImplementation (Dual Delta))
-      -> Float -> Float -> Float -> Vec (Dual Delta)
+      -> Float -> Float -> Float -> VecDualDelta
       -> DeltaImplementation (Dual Delta)
 nnLoss factivation x y res vec = do
   r <- nnXor factivation (scalar x) (scalar y) vec
   lossXor r (scalar res)
 
 setLoss :: (Dual Delta -> DeltaImplementation (Dual Delta))
-        -> Vec (Dual Delta)
+        -> VecDualDelta
         -> DeltaImplementation (Dual Delta)
 setLoss factivation vec = do
   n1 <- nnLoss factivation 0 0 0 vec

@@ -6,13 +6,17 @@ import Prelude
 
 import           Control.Monad.Trans.State.Strict
 import qualified Data.EnumMap.Lazy as EML
-import qualified Data.Vector as V
+import qualified Data.Vector
+import qualified Data.Vector.Generic as V
+import qualified Data.Vector.Unboxed
 
 type Result = Float
 
 data Dual d = D Float d
 
-type Vec a = V.Vector a
+type Vec a = Data.Vector.Unboxed.Vector a
+
+type VecDualDelta = Data.Vector.Vector (Dual Delta)
 
 newtype DeltaId = DeltaId Int
   deriving (Show, Eq, Ord, Enum)
@@ -76,12 +80,13 @@ dlet v = DeltaImplementation $ do
       }
   return i
 
-df :: (Vec (Dual Delta) -> DeltaImplementation (Dual Delta))
+df :: (VecDualDelta -> DeltaImplementation (Dual Delta))
    -> Vec Float
    -> (Vec Result, Float)
 df f deltaInput =
-  let dx :: Vec (Dual Delta)
-      dx = V.imap (\i xi -> D xi (OneHot i)) deltaInput
+  let dx :: VecDualDelta
+      dx = V.fromList $ zipWith (\i xi -> D xi (OneHot i)) [0 ..]
+                                                           (V.toList deltaInput)
       initialState = DeltaState
         { deltaCounter = DeltaId 0
         , deltaBindings = EML.empty
@@ -90,7 +95,7 @@ df f deltaInput =
   in (eval (deltaBindings st) (V.length deltaInput) d, value)
 
 gradDesc :: Float
-         -> (Vec (Dual Delta) -> DeltaImplementation (Dual Delta))
+         -> (VecDualDelta -> DeltaImplementation (Dual Delta))
          -> Vec Float
          -> [Vec Result]
 gradDesc gamma f = iterate go where
