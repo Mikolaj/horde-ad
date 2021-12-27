@@ -4,13 +4,13 @@ module AD where
 
 import Prelude
 
+import           Control.Monad.ST.Strict (ST, runST)
 import           Control.Monad.Trans.State.Strict
-import qualified Data.EnumMap.Lazy as EML
 import           Data.List (foldl')
-import           Data.Maybe (fromMaybe)
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Unboxed
+import qualified Data.Vector.Unboxed.Mutable as VM
 
 type Result = Float
 
@@ -53,25 +53,32 @@ newtype DeltaImplementation a = DeltaImplementation
   { runDeltaImplementation :: State DeltaState a }
   deriving (Monad, Functor, Applicative)
 
-type Store = EML.EnumMap DeltaId Result
+type Store = Vec Result
 
 eval :: Float -> Store -> Delta -> Store
-eval scale store = \case
-  Zero -> store
-  Scale k d -> eval (k * scale) store d
-  Add d1 d2 -> eval scale (eval scale store d1) d2
-  Var i -> addDelta i scale store
-
-addDelta :: DeltaId -> Float -> Store -> Store
-addDelta i scale =
-  let alt mr = Just $ fromMaybe 0 mr + scale
-  in EML.alter alt i
+eval scale0 store0 d0 =
+  let mutate :: forall s. ST s Store
+      mutate = do
+        -- This thaw is safe, because it's always the same single vector
+        -- that is mutated sequentially regardless of any sharing.
+        -- Equivalently, the definition and all uses of @eval@ could be
+        -- defined in context of the single mutable vector.
+        storeThawed <- V.unsafeThaw store0
+        let ev :: Float -> Delta -> ST s ()
+            ev scale = \case
+              Zero -> return ()
+              Scale k d -> ev (k * scale) d
+              Add d1 d2 -> ev scale d1 >> ev scale d2
+              Var (DeltaId i) -> VM.modify storeThawed (+ scale) i
+        ev scale0 d0
+        V.unsafeFreeze storeThawed
+  in runST mutate
 
 dlet :: Delta -> DeltaImplementation DeltaId
 dlet v = DeltaImplementation $ do
-  i <- succ <$> gets deltaCounter
+  i <- gets deltaCounter
   modify $ \s ->
-    s { deltaCounter = i
+    s { deltaCounter = succ i
       , deltaBindings = (i, v) : deltaBindings s
       }
   return i
@@ -89,15 +96,15 @@ df f deltaInput =
         , deltaBindings = []
         }
       (D value d, st) = runState (runDeltaImplementation (f dx)) initialState
-      initialStore = eval 1 EML.empty d  -- dt is 1
+      DeltaId storeSize = deltaCounter st
+      emptyStore = V.replicate storeSize 0
+      firstStore = eval 1 emptyStore d  -- dt is 1
       evalUnlessZero :: Store -> (DeltaId, Delta) -> Store
-      evalUnlessZero store (i, d2) =
-        let scale = EML.findWithDefault 0 i store
-        in if scale == 0 then store else eval scale (EML.delete i store) d2
-      finalStore = foldl' evalUnlessZero initialStore (deltaBindings st)
-      rFromStore :: Int -> Result
-      rFromStore i = fromMaybe 0 $ EML.lookup (DeltaId i) finalStore
-  in (V.generate dim rFromStore, value)
+      evalUnlessZero store (DeltaId i, d2) =
+        let scale = store V.! i
+        in if scale == 0 then store else eval scale store d2
+      finalStore = foldl' evalUnlessZero firstStore (deltaBindings st)
+  in (V.slice 0 dim finalStore, value)
 
 gradDesc :: Float
          -> (VecDualDelta -> DeltaImplementation (Dual Delta))
