@@ -6,6 +6,8 @@ import Prelude
 
 import           Control.Monad.Trans.State.Strict
 import qualified Data.EnumMap.Lazy as EML
+import           Data.List (foldl')
+import           Data.Maybe (fromMaybe)
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Unboxed
@@ -30,7 +32,6 @@ newtype DeltaId = DeltaId Int
 -- (whatever it is for a given differentiated program).
 data Delta =
     Zero
-  | OneHot Int
   | Scale Float Delta
   | Add Delta Delta
   | Var DeltaId
@@ -45,38 +46,33 @@ data Delta =
 -- it's a part of can get duplicated grossly.
 data DeltaState = DeltaState
   { deltaCounter  :: DeltaId
-  , deltaBindings :: EML.EnumMap DeltaId Delta
+  , deltaBindings :: [(DeltaId, Delta)]
   }
 
 newtype DeltaImplementation a = DeltaImplementation
   { runDeltaImplementation :: State DeltaState a }
   deriving (Monad, Functor, Applicative)
 
-eval :: EML.EnumMap DeltaId Delta -> Int -> Delta -> Vec Result
-eval deltaBindings dim d0 =
-  let ev store = \case
-        Zero -> (V.replicate dim 0, store)
-        OneHot i -> (V.replicate dim 0 V.// [(i, 1)], store)  -- dt is 1
-        Scale k d ->
-          let (v1, storeNew) = ev store d
-          in (V.map (* k) v1, storeNew)
-        Add d1 d2 ->
-          let (v1, store1) = ev store d1
-              (v2, store2) = ev store1 d2
-          in (V.zipWith (+) v1 v2, store2)
-        Var i -> case EML.lookup i store of
-          Nothing ->
-            let (v, storeNew) = ev store $ deltaBindings EML.! i
-            in (v, EML.insert i v storeNew)
-          Just v -> (v, store)
-  in fst $ ev EML.empty d0
+type Store = EML.EnumMap DeltaId Result
+
+eval :: Float -> Store -> Delta -> Store
+eval scale store = \case
+  Zero -> store
+  Scale k d -> eval (k * scale) store d
+  Add d1 d2 -> eval scale (eval scale store d1) d2
+  Var i -> addDelta i scale store
+
+addDelta :: DeltaId -> Float -> Store -> Store
+addDelta i scale =
+  let alt mr = Just $ fromMaybe 0 mr + scale
+  in EML.alter alt i
 
 dlet :: Delta -> DeltaImplementation DeltaId
 dlet v = DeltaImplementation $ do
   i <- succ <$> gets deltaCounter
   modify $ \s ->
     s { deltaCounter = i
-      , deltaBindings = EML.insert i v $ deltaBindings s
+      , deltaBindings = (i, v) : deltaBindings s
       }
   return i
 
@@ -84,15 +80,24 @@ df :: (VecDualDelta -> DeltaImplementation (Dual Delta))
    -> Vec Float
    -> (Vec Result, Float)
 df f deltaInput =
-  let dx :: VecDualDelta
-      dx = V.fromList $ zipWith (\i xi -> D xi (OneHot i)) [0 ..]
-                                                           (V.toList deltaInput)
+  let dualizeInput i xi = D xi (Var $ DeltaId i)
+      dx :: VecDualDelta
+      dx = V.fromList $ zipWith dualizeInput [0 ..] (V.toList deltaInput)
+      dim = V.length deltaInput
       initialState = DeltaState
-        { deltaCounter = DeltaId 0
-        , deltaBindings = EML.empty
+        { deltaCounter = DeltaId dim
+        , deltaBindings = []
         }
       (D value d, st) = runState (runDeltaImplementation (f dx)) initialState
-  in (eval (deltaBindings st) (V.length deltaInput) d, value)
+      initialStore = eval 1 EML.empty d  -- dt is 1
+      evalUnlessZero :: Store -> (DeltaId, Delta) -> Store
+      evalUnlessZero store (i, d2) =
+        let scale = EML.findWithDefault 0 i store
+        in if scale == 0 then store else eval scale (EML.delete i store) d2
+      finalStore = foldl' evalUnlessZero initialStore (deltaBindings st)
+      rFromStore :: Int -> Result
+      rFromStore i = fromMaybe 0 $ EML.lookup (DeltaId i) finalStore
+  in (V.generate dim rFromStore, value)
 
 gradDesc :: Float
          -> (VecDualDelta -> DeltaImplementation (Dual Delta))
