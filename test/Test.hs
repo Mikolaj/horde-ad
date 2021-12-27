@@ -176,13 +176,13 @@ xorTests = testGroup "XOR neural net tests"
   , testCase "0.1 tanhAct ws 5000"
     $ gradDescShow 0.1 (setLoss tanhAct) ws 5000
       @?= ([2.4474483,2.4467785,-0.83506805,1.3046683,1.3045536,-1.8912246,2.3819222,-2.555036,-0.8139771],1.8422995e-4)
-  , testCase "0.01 tanhAct ws2 5000"
-    $ gradDescShow 0.01 (setLoss tanhAct) ws2 5000
-      @?= ([-1.7960823,2.514643,0.47817805,-1.603419,2.1351767,-0.84762865,-2.0108552,2.029199,2.2952797],2.2369889e-3)
-  , testCase "0.01 reluAct ws 50000"
+  , testCase "0.01 tanhAct ws2 50000"
+    $ gradDescShow 0.01 (setLoss tanhAct) ws2 50000
+      @?= ([-1.987227,2.576038,0.66793245,-1.7813855,2.2283037,-0.98668087,-2.1694314,2.1973305,2.9272888],2.1781538e-4)
+  , testCase "0.01 reluAct ws 5000"
     $ gradDescShow 0.01 (setLoss reluAct) ws 5000  -- no cookie
       @?= ([0.18997861,0.14774865,0.2541552,0.2825405,0.21788016,0.22178593,8.9811325e-2,-6.0578037e-2,0.49060056],1.0)
-  , testCase "0.1 reluAct ws2 5000"
-    $ gradDescShow 0.1 (setLoss reluAct) ws2 5000  -- no cookie
+  , testCase "0.1 reluAct ws2 50000"
+    $ gradDescShow 0.1 (setLoss reluAct) ws2 50000  -- no cookie
       @?= ([-1.2425352,2.6025252,0.13252532,-1.5821311,1.7432425,-0.72675747,-1.7345629,1.9154371,-0.42541993],2.0)
   ]
