@@ -152,7 +152,7 @@ test-suite mostly-harmless-test
     hs-source-dirs:   test
 
     -- The entrypoint to the test suite.
-    main-is:          Main.hs
+    main-is:          Test.hs
 
     -- Test dependencies.
     build-depends:
