@@ -51,7 +51,7 @@ eval :: EML.EnumMap DeltaId Delta -> Int -> Delta -> Vec Result
 eval deltaBindings dim d0 =
   let ev store = \case
         Zero -> (V.replicate dim 0, store)
-        OneHot i -> (V.replicate dim 0 V.// [(i, 1)], store)
+        OneHot i -> (V.replicate dim 0 V.// [(i, 1)], store)  -- dt is 1
         Scale k d ->
           let (v1, storeNew) = ev store d
           in (V.map (* k) v1, storeNew)
@@ -75,11 +75,6 @@ dlet v = DeltaImplementation $ do
       }
   return i
 
-(*\) :: Dual Delta -> Dual Delta -> DeltaImplementation (Dual Delta)
-(*\) (D u u') (D v v') = do
-  d <- dlet $ Add (Scale v u') (Scale u v')
-  return $! D (u * v) (Var d)
-
 df :: (Vec (Dual Delta) -> DeltaImplementation (Dual Delta))
    -> Vec Float
    -> IO (Vec Result)
@@ -93,15 +88,83 @@ df f deltaInput = do
   (D _result d, st) <- runStateT (runDeltaImplementation (f dx)) initialState
   return $! eval (deltaBindings st) (V.length deltaInput) d
 
-xsquared :: Vec (Dual Delta) -> DeltaImplementation (Dual Delta)
-xsquared vec = do
+(*\) :: Dual Delta -> Dual Delta -> DeltaImplementation (Dual Delta)
+(*\) (D u u') (D v v') = do
+  d <- dlet $ Add (Scale v u') (Scale u v')
+  return $! D (u * v) (Var d)
+
+(+\) :: Dual Delta -> Dual Delta -> DeltaImplementation (Dual Delta)
+(+\) (D u u') (D v v') = do
+  d <- dlet $ Add u' v'
+  return $! D (u + v) (Var d)
+
+(**\) :: Dual Delta -> Dual Delta -> DeltaImplementation (Dual Delta)
+(**\) (D u u') (D v v') = do
+  d <- dlet $ Add (Scale (v * (u ** (v - 1))) u')
+                  (Scale ((u ** v) * log u) v')
+  return $! D (u ** v) (Var d)
+
+relu :: Dual Delta -> DeltaImplementation (Dual Delta)
+relu (D u u') = do
+  d <- dlet $ Scale (if u > 0 then 1 else 0) u'
+  return $! D (max 0 u) (Var d)
+
+fX :: Vec (Dual Delta) -> DeltaImplementation (Dual Delta)
+fX vec = do
+  let x = vec V.! 0
+  return x
+
+fXXY :: Vec (Dual Delta) -> DeltaImplementation (Dual Delta)
+fXXY vec = do
   let x = vec V.! 0
       y = vec V.! 1
   xy <- x *\ y
   x *\ xy
 
-result :: IO (Vec Result)
-result = df xsquared $ V.fromList [3, 2]
+fXYplusZ :: Vec (Dual Delta) -> DeltaImplementation (Dual Delta)
+fXYplusZ vec = do
+  let x = vec V.! 0
+      y = vec V.! 1
+      z = vec V.! 2
+  xy <- x *\ y
+  xy +\ z
+
+fXtoY :: Vec (Dual Delta) -> DeltaImplementation (Dual Delta)
+fXtoY vec = do
+  let x = vec V.! 0
+      y = vec V.! 1
+  x **\ y
+
+freluX :: Vec (Dual Delta) -> DeltaImplementation (Dual Delta)
+freluX vec = do
+  let x = vec V.! 0
+  relu x
+
+result :: IO [Vec Result]
+result =
+  mapM (uncurry df)
+  [ (fX, V.fromList [99])  -- 1
+  , (fXXY, V.fromList [3, 2])  -- 12, 9
+  , (fXYplusZ, V.fromList [1, 2, 3])  -- 2, 1, 1
+  , (fXtoY, V.fromList [0.00000000000001, 2])  -- ~0, ~0
+  , (fXtoY, V.fromList [1, 2])  -- 2, 0
+  , (freluX, V.fromList [-1])  -- 0
+  , (freluX, V.fromList [0])  -- ? (0)
+  , (freluX, V.fromList [0.0001])  -- 1
+  , (freluX, V.fromList [99])  -- 1
+  ]
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
