@@ -164,4 +164,7 @@ reluAct (D u u') = do
 
 -- higher order types of vars
 -- recursion and recursive types
--- fusion (eliminating spurious lets?) and checkpointing (limiting space usage?)
+-- selective fusion of delta (for individual subfunctions: pre-computing,
+--   inlining results and simplifying delta-expressions; the usual inlining
+--   considerations apply)
+-- checkpointing (limiting space usage?)

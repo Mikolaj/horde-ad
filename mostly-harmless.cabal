@@ -26,7 +26,7 @@ version:            0.1.0.0
 synopsis:           Experiments with AD
 
 -- A longer description of the package.
-description:        Experiments with AD based on SPJ's talk "Provably correct, asymptotically efficient, higher-order reverse-mode automatic differentiation"
+description:        Experiments with automatic differentiation, based on the paper "Provably correct, asymptotically efficient, higher-order reverse-mode automatic differentiation" by Faustyna Krawiec, Neel Krishnaswami, Simon Peyton Jones, Tom Ellis, Andrew Fitzgibbon and Richard Eisenberg.
 
 -- The license under which the package is released.
 license:            AGPL-3.0-or-later
