@@ -95,7 +95,7 @@ gradDesc :: Float
          -> [Vec Result]
 gradDesc gamma f = iterate go where
   go :: Vec Float -> Vec Float
-  go vecInitial =
+  go !vecInitial =
     let res = fst $ df f vecInitial
         scaled = V.map (* gamma) res
     in V.zipWith (-) vecInitial scaled
