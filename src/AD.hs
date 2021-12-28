@@ -12,17 +12,13 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Unboxed
 
-type Domain r = Vec r  -- s
+type Domain r = Data.Vector.Unboxed.Vector r  -- s
 
 type Domain' r = Domain r  -- ds
 
-type Codomain = Float  -- t
-
 data DualDeltaR r = D r (DeltaR r)
 
-type DualDelta = DualDeltaR Codomain
-
-type Vec a = Data.Vector.Unboxed.Vector a
+type DualDelta = DualDeltaR Float
 
 type VecDualDeltaR r = Data.Vector.Vector (DualDeltaR r)
 
@@ -44,8 +40,6 @@ data DeltaR r =
   | Add (DeltaR r) (DeltaR r)
   | Var DeltaId
 
-type Delta = DeltaR Float
-
 -- This can't be environment in a Reader, because subtrees add their own
 -- identifiers for sharing, instead of parents naming their subtrees.
 -- This must be the "evaluate Let backwards" from SPJ's talk.
@@ -58,8 +52,6 @@ data DeltaStateR r = DeltaState
   { deltaCounter  :: DeltaId
   , deltaBindings :: [(DeltaId, DeltaR r)]
   }
-
-type DeltaState = DeltaStateR Float
 
 newtype DeltaImplementationR r a = DeltaImplementation
   { runDeltaImplementation :: State (DeltaStateR r) a }

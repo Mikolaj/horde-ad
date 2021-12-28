@@ -13,7 +13,7 @@ main = defaultMain tests
 
 dfShow :: (VecDualDelta -> DeltaImplementation DualDelta)
        -> [Float]
-       -> ([Float], Codomain)
+       -> ([Float], Float)
 dfShow f deltaInput =
   let (results, value) = df f (V.fromList deltaInput)
   in (V.toList results, value)
@@ -22,7 +22,7 @@ gradDescShow :: Float
              -> (VecDualDelta -> DeltaImplementation DualDelta)
              -> [Float]
              -> Int
-             -> ([Float], Codomain)
+             -> ([Float], Float)
 gradDescShow gamma f initVec n =
   let res = V.toList $ gradDesc gamma f n (V.fromList initVec)
   in (res, snd $ dfShow f res)
