@@ -18,11 +18,13 @@ type Domain' = Domain  -- ds
 
 type Codomain = Float  -- t
 
-data Dual d = D Codomain d
+data DualDeltaR r = D r (DeltaR r)
+
+type DualDelta = DualDeltaR Codomain
 
 type Vec a = Data.Vector.Unboxed.Vector a
 
-type VecDualDeltaR r = Data.Vector.Vector (Dual (DeltaR r))
+type VecDualDeltaR r = Data.Vector.Vector (DualDeltaR r)
 
 type VecDualDelta = VecDualDeltaR Float
 
@@ -30,7 +32,7 @@ newtype DeltaId = DeltaId Int
   deriving (Show, Eq, Ord, Enum)
 
 -- Tagless final doesn't seem to work well, because we need to gather
--- @Delta@ while doing @Dual Delta@ operations, but evaluate on concrete
+-- @Delta@ while doing @DualDelta@ operations, but evaluate on concrete
 -- vectors that correspond to only the second component of dual numbers.
 -- Also, initial encoding gives us full control over
 -- when to evaluate. With final, we'd need to be careful
@@ -101,9 +103,9 @@ evalBindingsV ds st d0 = V.create $ buildVector ds st d0
 
 generalDf :: (s -> (VecDualDeltaR r, Int))
           -> (VecDualDeltaR r -> DeltaStateR r -> DeltaR r -> ds)
-          -> (VecDualDeltaR r -> DeltaImplementationR r (Dual (DeltaR r)))
+          -> (VecDualDeltaR r -> DeltaImplementationR r (DualDeltaR r))
           -> s
-          -> (ds, Codomain)
+          -> (ds, r)
 {-# INLINE generalDf #-}
 generalDf initVars evalBindings f deltaInput =
   let (ds, dim) = initVars deltaInput
@@ -115,7 +117,7 @@ generalDf initVars evalBindings f deltaInput =
       res = evalBindings ds st d
   in (res, value)
 
-df :: (VecDualDelta -> DeltaImplementation (Dual Delta))
+df :: (VecDualDelta -> DeltaImplementation DualDelta)
    -> Domain
    -> (Domain', Codomain)
 df =
@@ -127,7 +129,7 @@ df =
   in generalDf initVars evalBindingsV
 
 gradDesc :: Float
-         -> (VecDualDelta -> DeltaImplementation (Dual Delta))
+         -> (VecDualDelta -> DeltaImplementation DualDelta)
          -> Int
          -> Domain
          -> Domain'
@@ -139,42 +141,42 @@ gradDesc gamma f = go where
         v = V.zipWith (\i r -> i - gamma * r) vecInitial res
     in go (pred n) v
 
-(*\) :: Dual Delta -> Dual Delta -> DeltaImplementation (Dual Delta)
+(*\) :: DualDelta -> DualDelta -> DeltaImplementation DualDelta
 (*\) (D u u') (D v v') = do
   d <- dlet $ Add (Scale v u') (Scale u v')
   return $! D (u * v) (Var d)
 
-(+\) :: Dual Delta -> Dual Delta -> DeltaImplementation (Dual Delta)
+(+\) :: DualDelta -> DualDelta -> DeltaImplementation DualDelta
 (+\) (D u u') (D v v') = do
   d <- dlet $ Add u' v'
   return $! D (u + v) (Var d)
 
-(-\) :: Dual Delta -> Dual Delta -> DeltaImplementation (Dual Delta)
+(-\) :: DualDelta -> DualDelta -> DeltaImplementation DualDelta
 (-\) (D u u') (D v v') = do
   d <- dlet $ Add u' (Scale (-1) v')
   return $! D (u - v) (Var d)
 
-(**\) :: Dual Delta -> Dual Delta -> DeltaImplementation (Dual Delta)
+(**\) :: DualDelta -> DualDelta -> DeltaImplementation DualDelta
 (**\) (D u u') (D v v') = do
   d <- dlet $ Add (Scale (v * (u ** (v - 1))) u')
                   (Scale ((u ** v) * log u) v')
   return $! D (u ** v) (Var d)
 
-scalar :: Float -> Dual Delta
+scalar :: Float -> DualDelta
 scalar k = D k Zero
 
-_scale :: Float -> Dual Delta -> DeltaImplementation (Dual Delta)
+_scale :: Float -> DualDelta -> DeltaImplementation DualDelta
 _scale k (D u u') = do
   d <- dlet $ Scale k u'
   return $! D (k * u) (Var d)
 
-tanhAct :: Dual Delta -> DeltaImplementation (Dual Delta)
+tanhAct :: DualDelta -> DeltaImplementation DualDelta
 tanhAct (D u u') = do
   let y = tanh u
   d <- dlet $ Scale (1 - y * y) u'
   return $! D y (Var d)
 
-reluAct :: Dual Delta -> DeltaImplementation (Dual Delta)
+reluAct :: DualDelta -> DeltaImplementation DualDelta
 reluAct (D u u') = do
   d <- dlet $ Scale (if u > 0 then 1 else 0) u'
   return $! D (max 0 u) (Var d)
