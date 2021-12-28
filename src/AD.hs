@@ -12,8 +12,6 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Unboxed
 
-type Scalar = Float
-
 type Domain = Vec Float  -- s
 
 type Domain' = Domain  -- ds
@@ -24,7 +22,9 @@ data Dual d = D Codomain d
 
 type Vec a = Data.Vector.Unboxed.Vector a
 
-type VecDualDelta = Data.Vector.Vector (Dual Delta)
+type VecDualDeltaR r = Data.Vector.Vector (Dual (DeltaR r))
+
+type VecDualDelta = VecDualDeltaR Float
 
 newtype DeltaId = DeltaId Int
   deriving (Show, Eq, Ord, Enum)
@@ -36,11 +36,13 @@ newtype DeltaId = DeltaId Int
 -- when to evaluate. With final, we'd need to be careful
 -- about laziness to ensure the optimal evaluation order is chosen
 -- (whatever it is for a given differentiated program).
-data Delta =
+data DeltaR r =
     Zero
-  | Scale Scalar Delta
-  | Add Delta Delta
+  | Scale r (DeltaR r)
+  | Add (DeltaR r) (DeltaR r)
   | Var DeltaId
+
+type Delta = DeltaR Float
 
 -- This can't be environment in a Reader, because subtrees add their own
 -- identifiers for sharing, instead of parents naming their subtrees.
@@ -50,16 +52,20 @@ data Delta =
 -- with bindings accumulated in state.
 -- Note that each variable is created only once, but the subexpression
 -- it's a part of can get duplicated grossly.
-data DeltaState = DeltaState
+data DeltaStateR r = DeltaState
   { deltaCounter  :: DeltaId
-  , deltaBindings :: [(DeltaId, Delta)]
+  , deltaBindings :: [(DeltaId, DeltaR r)]
   }
 
-newtype DeltaImplementation a = DeltaImplementation
-  { runDeltaImplementation :: State DeltaState a }
+type DeltaState = DeltaStateR Float
+
+newtype DeltaImplementationR r a = DeltaImplementation
+  { runDeltaImplementation :: State (DeltaStateR r) a }
   deriving (Monad, Functor, Applicative)
 
-dlet :: Delta -> DeltaImplementation DeltaId
+type DeltaImplementation = DeltaImplementationR Float
+
+dlet :: DeltaR r -> DeltaImplementationR r DeltaId
 dlet v = DeltaImplementation $ do
   i <- gets deltaCounter
   modify $ \s ->
@@ -68,39 +74,39 @@ dlet v = DeltaImplementation $ do
       }
   return i
 
-buildVector :: forall s v. VM.MVector (V.Mutable v) Float
-            => VecDualDelta -> DeltaState -> Delta
-            -> ST s (V.Mutable v s Float)
+buildVector :: forall s v r. (Eq r, Num r, VM.MVector (V.Mutable v) r)
+            => VecDualDeltaR r -> DeltaStateR r -> DeltaR r
+            -> ST s (V.Mutable v s r)
 buildVector ds st d0 = do
   let DeltaId storeSize = deltaCounter st
   store <- VM.replicate storeSize 0
-  let eval :: Scalar -> Delta -> ST s ()
+  let eval :: r -> DeltaR r -> ST s ()
       eval scale = \case
         Zero -> return ()
         Scale k d -> eval (k * scale) d
         Add d1 d2 -> eval scale d1 >> eval scale d2
         Var (DeltaId i) -> VM.modify store (+ scale) i
   eval 1 d0  -- dt is 1 or hardwired in f
-  let evalUnlessZero :: (DeltaId, Delta) -> ST s ()
+  let evalUnlessZero :: (DeltaId, DeltaR r) -> ST s ()
       evalUnlessZero (DeltaId i, d) = do
         scale <- store `VM.read` i
-        when (scale /= 0) $
+        when (scale /= 0) $  -- TODO: dodgy for reals?
           eval scale d
   mapM_ evalUnlessZero (deltaBindings st)
   return $! VM.slice 0 (V.length ds) store
 
-evalBindingsV :: VecDualDelta -> DeltaState -> Delta -> Domain'
+evalBindingsV :: (Eq r, Num r, V.Vector v r)
+              => VecDualDeltaR r -> DeltaStateR r -> DeltaR r -> v r
 evalBindingsV ds st d0 = V.create $ buildVector ds st d0
 
-generalDf :: (s -> (VecDualDelta, Int))
-          -> (VecDualDelta -> DeltaState -> Delta -> ds)
-          -> (VecDualDelta -> DeltaImplementation (Dual Delta))
+generalDf :: (s -> (VecDualDeltaR r, Int))
+          -> (VecDualDeltaR r -> DeltaStateR r -> DeltaR r -> ds)
+          -> (VecDualDeltaR r -> DeltaImplementationR r (Dual (DeltaR r)))
           -> s
           -> (ds, Codomain)
 {-# INLINE generalDf #-}
 generalDf initVars evalBindings f deltaInput =
-  let ds :: VecDualDelta
-      (ds, dim) = initVars deltaInput
+  let (ds, dim) = initVars deltaInput
       initialState = DeltaState
         { deltaCounter = DeltaId dim
         , deltaBindings = []
@@ -120,7 +126,7 @@ df =
            , V.length deltaInput )
   in generalDf initVars evalBindingsV
 
-gradDesc :: Scalar
+gradDesc :: Float
          -> (VecDualDelta -> DeltaImplementation (Dual Delta))
          -> Int
          -> Domain
@@ -154,10 +160,10 @@ gradDesc gamma f = go where
                   (Scale ((u ** v) * log u) v')
   return $! D (u ** v) (Var d)
 
-scalar :: Scalar -> Dual Delta
+scalar :: Float -> Dual Delta
 scalar k = D k Zero
 
-_scale :: Scalar -> Dual Delta -> DeltaImplementation (Dual Delta)
+_scale :: Float -> Dual Delta -> DeltaImplementation (Dual Delta)
 _scale k (D u u') = do
   d <- dlet $ Scale k u'
   return $! D (k * u) (Var d)

@@ -18,7 +18,7 @@ dfShow f deltaInput =
   let (results, value) = df f (V.fromList deltaInput)
   in (V.toList results, value)
 
-gradDescShow :: Scalar
+gradDescShow :: Float
              -> (VecDualDelta -> DeltaImplementation (Dual Delta))
              -> [Float]
              -> Int
@@ -164,7 +164,7 @@ setLoss factivation vec = do
   n34 <- n3 +\ n4
   n12 +\ n34
 
-ws, ws2 :: [Scalar]
+ws, ws2 :: [Float]
 ws = let w = [0.37, 0.28, 0.19] in w ++ w ++ w
 ws2 = let w = [-1.37, 2.28, -0.19] in w ++ w ++ w
 
