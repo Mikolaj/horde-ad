@@ -12,9 +12,9 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Unboxed
 
-type Domain = Vec Float  -- s
+type Domain r = Vec r  -- s
 
-type Domain' = Domain  -- ds
+type Domain' r = Domain r  -- ds
 
 type Codomain = Float  -- t
 
@@ -77,9 +77,9 @@ dlet v = DeltaImplementation $ do
   return i
 
 buildVector :: forall s v r. (Eq r, Num r, VM.MVector (V.Mutable v) r)
-            => VecDualDeltaR r -> DeltaStateR r -> DeltaR r
+            => Int -> DeltaStateR r -> DeltaR r
             -> ST s (V.Mutable v s r)
-buildVector ds st d0 = do
+buildVector dim st d0 = do
   let DeltaId storeSize = deltaCounter st
   store <- VM.replicate storeSize 0
   let eval :: r -> DeltaR r -> ST s ()
@@ -95,11 +95,11 @@ buildVector ds st d0 = do
         when (scale /= 0) $  -- TODO: dodgy for reals?
           eval scale d
   mapM_ evalUnlessZero (deltaBindings st)
-  return $! VM.slice 0 (V.length ds) store
+  return $! VM.slice 0 dim store
 
 evalBindingsV :: (Eq r, Num r, V.Vector v r)
-              => VecDualDeltaR r -> DeltaStateR r -> DeltaR r -> v r
-evalBindingsV ds st d0 = V.create $ buildVector ds st d0
+              => VecDualDeltaR i -> DeltaStateR r -> DeltaR r -> v r
+evalBindingsV ds st d0 = V.create $ buildVector (V.length ds) st d0
 
 generalDf :: (s -> (VecDualDeltaR r, Int))
           -> (VecDualDeltaR r -> DeltaStateR r -> DeltaR r -> ds)
@@ -117,24 +117,26 @@ generalDf initVars evalBindings f deltaInput =
       res = evalBindings ds st d
   in (res, value)
 
-df :: (VecDualDelta -> DeltaImplementation DualDelta)
-   -> Domain
-   -> (Domain', Codomain)
+df :: forall r . (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+   => (VecDualDeltaR r -> DeltaImplementationR r (DualDeltaR r))
+   -> Domain r
+   -> (Domain' r, r)
 df =
-  let initVars :: Domain -> (VecDualDelta, Int)
+  let initVars :: Domain r -> (VecDualDeltaR r, Int)
       initVars deltaInput =
         let dualizeInput i xi = D xi (Var $ DeltaId i)
         in ( V.fromList $ zipWith dualizeInput [0 ..] (V.toList deltaInput)
            , V.length deltaInput )
   in generalDf initVars evalBindingsV
 
-gradDesc :: Float
-         -> (VecDualDelta -> DeltaImplementation DualDelta)
+gradDesc :: forall r . (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+         => r
+         -> (VecDualDeltaR r -> DeltaImplementationR r (DualDeltaR r))
          -> Int
-         -> Domain
-         -> Domain'
+         -> Domain r
+         -> Domain' r
 gradDesc gamma f = go where
-  go :: Int -> Domain -> Domain'
+  go :: Int -> Domain r -> Domain' r
   go 0 !vecInitial = vecInitial
   go n vecInitial =
     let res = fst $ df f vecInitial
