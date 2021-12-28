@@ -16,7 +16,7 @@ type Domain r = Data.Vector.Unboxed.Vector r  -- s
 
 type Domain' r = Domain r  -- ds
 
-data DualDeltaR r = D r (DeltaR r)
+data DualDeltaR r = D r (Delta r)
 
 type DualDelta = DualDeltaR Float
 
@@ -34,10 +34,10 @@ newtype DeltaId = DeltaId Int
 -- when to evaluate. With final, we'd need to be careful
 -- about laziness to ensure the optimal evaluation order is chosen
 -- (whatever it is for a given differentiated program).
-data DeltaR r =
+data Delta r =
     Zero
-  | Scale r (DeltaR r)
-  | Add (DeltaR r) (DeltaR r)
+  | Scale r (Delta r)
+  | Add (Delta r) (Delta r)
   | Var DeltaId
 
 -- This can't be environment in a Reader, because subtrees add their own
@@ -48,18 +48,18 @@ data DeltaR r =
 -- with bindings accumulated in state.
 -- Note that each variable is created only once, but the subexpression
 -- it's a part of can get duplicated grossly.
-data DeltaStateR r = DeltaState
+data DeltaState r = DeltaState
   { deltaCounter  :: DeltaId
-  , deltaBindings :: [(DeltaId, DeltaR r)]
+  , deltaBindings :: [(DeltaId, Delta r)]
   }
 
 newtype DeltaImplementationR r a = DeltaImplementation
-  { runDeltaImplementation :: State (DeltaStateR r) a }
+  { runDeltaImplementation :: State (DeltaState r) a }
   deriving (Monad, Functor, Applicative)
 
 type DeltaImplementation = DeltaImplementationR Float
 
-dlet :: DeltaR r -> DeltaImplementationR r DeltaId
+dlet :: Delta r -> DeltaImplementationR r DeltaId
 dlet v = DeltaImplementation $ do
   i <- gets deltaCounter
   modify $ \s ->
@@ -69,19 +69,19 @@ dlet v = DeltaImplementation $ do
   return i
 
 buildVector :: forall s v r. (Eq r, Num r, VM.MVector (V.Mutable v) r)
-            => Int -> DeltaStateR r -> DeltaR r
+            => Int -> DeltaState r -> Delta r
             -> ST s (V.Mutable v s r)
 buildVector dim st d0 = do
   let DeltaId storeSize = deltaCounter st
   store <- VM.replicate storeSize 0
-  let eval :: r -> DeltaR r -> ST s ()
+  let eval :: r -> Delta r -> ST s ()
       eval scale = \case
         Zero -> return ()
         Scale k d -> eval (k * scale) d
         Add d1 d2 -> eval scale d1 >> eval scale d2
         Var (DeltaId i) -> VM.modify store (+ scale) i
   eval 1 d0  -- dt is 1 or hardwired in f
-  let evalUnlessZero :: (DeltaId, DeltaR r) -> ST s ()
+  let evalUnlessZero :: (DeltaId, Delta r) -> ST s ()
       evalUnlessZero (DeltaId i, d) = do
         scale <- store `VM.read` i
         when (scale /= 0) $  -- TODO: dodgy for reals?
@@ -90,11 +90,11 @@ buildVector dim st d0 = do
   return $! VM.slice 0 dim store
 
 evalBindingsV :: (Eq r, Num r, V.Vector v r)
-              => VecDualDeltaR i -> DeltaStateR r -> DeltaR r -> v r
+              => VecDualDeltaR i -> DeltaState r -> Delta r -> v r
 evalBindingsV ds st d0 = V.create $ buildVector (V.length ds) st d0
 
 generalDf :: (s -> (VecDualDeltaR r, Int))
-          -> (VecDualDeltaR r -> DeltaStateR r -> DeltaR r -> ds)
+          -> (VecDualDeltaR r -> DeltaState r -> Delta r -> ds)
           -> (VecDualDeltaR r -> DeltaImplementationR r (DualDeltaR r))
           -> s
           -> (ds, r)
