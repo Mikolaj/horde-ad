@@ -12,9 +12,15 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Unboxed
 import qualified Data.Vector.Unboxed.Mutable as VM
 
-type Result = Float
+type Scalar = Float
 
-data Dual d = D Float d
+type Domain = Vec Float  -- s
+
+type Domain' = Domain  -- ds
+
+type Codomain = Float  -- t
+
+data Dual d = D Codomain d
 
 type Vec a = Data.Vector.Unboxed.Vector a
 
@@ -32,7 +38,7 @@ newtype DeltaId = DeltaId Int
 -- (whatever it is for a given differentiated program).
 data Delta =
     Zero
-  | Scale Float Delta
+  | Scale Scalar Delta
   | Add Delta Delta
   | Var DeltaId
 
@@ -62,9 +68,9 @@ dlet v = DeltaImplementation $ do
       }
   return i
 
-type Store = Vec Result
+type Store = Domain'
 
-eval :: Float -> Store -> Delta -> Store
+eval :: Scalar -> Store -> Delta -> Store
 eval scale0 store0 d0 =
   let mutate :: forall s. ST s Store
       mutate = do
@@ -73,7 +79,7 @@ eval scale0 store0 d0 =
         -- Equivalently, the definition and all uses of @eval@ could be
         -- defined in context of the single mutable vector.
         storeThawed <- V.unsafeThaw store0
-        let ev :: Float -> Delta -> ST s ()
+        let ev :: Scalar -> Delta -> ST s ()
             ev scale = \case
               Zero -> return ()
               Scale k d -> ev (k * scale) d
@@ -83,7 +89,7 @@ eval scale0 store0 d0 =
         V.unsafeFreeze storeThawed
   in runST mutate
 
-evalBindingsV :: VecDualDelta -> DeltaState -> Delta -> Vec Result
+evalBindingsV :: VecDualDelta -> DeltaState -> Delta -> Domain'
 evalBindingsV ds st d =
   let DeltaId storeSize = deltaCounter st
       emptyStore = V.replicate storeSize 0
@@ -95,11 +101,11 @@ evalBindingsV ds st d =
       finalStore = foldl' evalUnlessZero firstStore (deltaBindings st)
   in V.slice 0 (V.length ds) finalStore
 
-generalDf :: (Vec Float -> (VecDualDelta, Int))
-          -> (VecDualDelta -> DeltaState -> Delta -> Vec Result)
+generalDf :: (s -> (VecDualDelta, Int))
+          -> (VecDualDelta -> DeltaState -> Delta -> ds)
           -> (VecDualDelta -> DeltaImplementation (Dual Delta))
-          -> Vec Float
-          -> (Vec Result, Float)
+          -> s
+          -> (ds, Codomain)
 {-# INLINE generalDf #-}
 generalDf initVars evalBindings f deltaInput =
   let ds :: VecDualDelta
@@ -113,23 +119,23 @@ generalDf initVars evalBindings f deltaInput =
   in (res, value)
 
 df :: (VecDualDelta -> DeltaImplementation (Dual Delta))
-   -> Vec Float
-   -> (Vec Result, Float)
+   -> Domain
+   -> (Domain', Codomain)
 df =
-  let initVars :: Vec Float -> (VecDualDelta, Int)
+  let initVars :: Domain -> (VecDualDelta, Int)
       initVars deltaInput =
         let dualizeInput i xi = D xi (Var $ DeltaId i)
         in ( V.fromList $ zipWith dualizeInput [0 ..] (V.toList deltaInput)
            , V.length deltaInput )
   in generalDf initVars evalBindingsV
 
-gradDesc :: Float
+gradDesc :: Scalar
          -> (VecDualDelta -> DeltaImplementation (Dual Delta))
          -> Int
-         -> Vec Float
-         -> Vec Result
+         -> Domain
+         -> Domain'
 gradDesc gamma f = go where
-  go :: Int -> Vec Float -> Vec Float
+  go :: Int -> Domain -> Domain'
   go 0 !vecInitial = vecInitial
   go n vecInitial =
     let res = fst $ df f vecInitial
@@ -157,10 +163,10 @@ gradDesc gamma f = go where
                   (Scale ((u ** v) * log u) v')
   return $! D (u ** v) (Var d)
 
-scalar :: Float -> Dual Delta
+scalar :: Scalar -> Dual Delta
 scalar k = D k Zero
 
-_scale :: Float -> Dual Delta -> DeltaImplementation (Dual Delta)
+_scale :: Scalar -> Dual Delta -> DeltaImplementation (Dual Delta)
 _scale k (D u u') = do
   d <- dlet $ Scale k u'
   return $! D (k * u) (Var d)

@@ -13,16 +13,16 @@ main = defaultMain tests
 
 dfShow :: (VecDualDelta -> DeltaImplementation (Dual Delta))
        -> [Float]
-       -> ([Result], Float)
+       -> ([Float], Codomain)
 dfShow f deltaInput =
   let (results, value) = df f (V.fromList deltaInput)
   in (V.toList results, value)
 
-gradDescShow :: Float
+gradDescShow :: Scalar
              -> (VecDualDelta -> DeltaImplementation (Dual Delta))
              -> [Float]
              -> Int
-             -> ([Result], Float)
+             -> ([Float], Codomain)
 gradDescShow gamma f initVec n =
   let res = V.toList $ gradDesc gamma f n (V.fromList initVec)
   in (res, snd $ dfShow f res)
@@ -164,7 +164,7 @@ setLoss factivation vec = do
   n34 <- n3 +\ n4
   n12 +\ n34
 
-ws, ws2 :: [Float]
+ws, ws2 :: [Scalar]
 ws = let w = [0.37, 0.28, 0.19] in w ++ w ++ w
 ws2 = let w = [-1.37, 2.28, -0.19] in w ++ w ++ w
 
