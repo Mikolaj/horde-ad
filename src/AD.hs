@@ -53,6 +53,15 @@ newtype DeltaImplementation a = DeltaImplementation
   { runDeltaImplementation :: State DeltaState a }
   deriving (Monad, Functor, Applicative)
 
+dlet :: Delta -> DeltaImplementation DeltaId
+dlet v = DeltaImplementation $ do
+  i <- gets deltaCounter
+  modify $ \s ->
+    s { deltaCounter = succ i
+      , deltaBindings = (i, v) : deltaBindings s
+      }
+  return i
+
 type Store = Vec Result
 
 eval :: Float -> Store -> Delta -> Store
@@ -74,37 +83,45 @@ eval scale0 store0 d0 =
         V.unsafeFreeze storeThawed
   in runST mutate
 
-dlet :: Delta -> DeltaImplementation DeltaId
-dlet v = DeltaImplementation $ do
-  i <- gets deltaCounter
-  modify $ \s ->
-    s { deltaCounter = succ i
-      , deltaBindings = (i, v) : deltaBindings s
-      }
-  return i
-
-df :: (VecDualDelta -> DeltaImplementation (Dual Delta))
-   -> Vec Float
-   -> (Vec Result, Float)
-df f deltaInput =
-  let dualizeInput i xi = D xi (Var $ DeltaId i)
-      dx :: VecDualDelta
-      dx = V.fromList $ zipWith dualizeInput [0 ..] (V.toList deltaInput)
-      dim = V.length deltaInput
-      initialState = DeltaState
-        { deltaCounter = DeltaId dim
-        , deltaBindings = []
-        }
-      (D value d, st) = runState (runDeltaImplementation (f dx)) initialState
-      DeltaId storeSize = deltaCounter st
+evalBindingsV :: VecDualDelta -> DeltaState -> Delta -> Vec Result
+evalBindingsV ds st d =
+  let DeltaId storeSize = deltaCounter st
       emptyStore = V.replicate storeSize 0
-      firstStore = eval 1 emptyStore d  -- dt is 1
+      firstStore = eval 1 emptyStore d  -- dt is 1 or hardwired in f
       evalUnlessZero :: Store -> (DeltaId, Delta) -> Store
       evalUnlessZero store (DeltaId i, d2) =
         let scale = store V.! i
         in if scale == 0 then store else eval scale store d2
       finalStore = foldl' evalUnlessZero firstStore (deltaBindings st)
-  in (V.slice 0 dim finalStore, value)
+  in V.slice 0 (V.length ds) finalStore
+
+generalDf :: (Vec Float -> (VecDualDelta, Int))
+          -> (VecDualDelta -> DeltaState -> Delta -> Vec Result)
+          -> (VecDualDelta -> DeltaImplementation (Dual Delta))
+          -> Vec Float
+          -> (Vec Result, Float)
+{-# INLINE generalDf #-}
+generalDf initVars evalBindings f deltaInput =
+  let ds :: VecDualDelta
+      (ds, dim) = initVars deltaInput
+      initialState = DeltaState
+        { deltaCounter = DeltaId dim
+        , deltaBindings = []
+        }
+      (D value d, st) = runState (runDeltaImplementation (f ds)) initialState
+      res = evalBindings ds st d
+  in (res, value)
+
+df :: (VecDualDelta -> DeltaImplementation (Dual Delta))
+   -> Vec Float
+   -> (Vec Result, Float)
+df =
+  let initVars :: Vec Float -> (VecDualDelta, Int)
+      initVars deltaInput =
+        let dualizeInput i xi = D xi (Var $ DeltaId i)
+        in ( V.fromList $ zipWith dualizeInput [0 ..] (V.toList deltaInput)
+           , V.length deltaInput )
+  in generalDf initVars evalBindingsV
 
 gradDesc :: Float
          -> (VecDualDelta -> DeltaImplementation (Dual Delta))
