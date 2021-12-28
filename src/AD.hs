@@ -1,12 +1,12 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE FlexibleContexts, GeneralizedNewtypeDeriving #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 module AD where
 
 import Prelude
 
-import           Control.Monad.ST.Strict (ST, runST)
+import           Control.Monad (when)
+import           Control.Monad.ST.Strict (ST)
 import           Control.Monad.Trans.State.Strict
-import           Data.List (foldl')
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
@@ -68,38 +68,29 @@ dlet v = DeltaImplementation $ do
       }
   return i
 
-type Store = Domain'
-
-eval :: Scalar -> Store -> Delta -> Store
-eval scale0 store0 d0 =
-  let mutate :: forall s. ST s Store
-      mutate = do
-        -- This thaw is safe, because it's always the same single vector
-        -- that is mutated sequentially regardless of any sharing.
-        -- Equivalently, the definition and all uses of @eval@ could be
-        -- defined in context of the single mutable vector.
-        storeThawed <- V.unsafeThaw store0
-        let ev :: Scalar -> Delta -> ST s ()
-            ev scale = \case
-              Zero -> return ()
-              Scale k d -> ev (k * scale) d
-              Add d1 d2 -> ev scale d1 >> ev scale d2
-              Var (DeltaId i) -> VM.modify storeThawed (+ scale) i
-        ev scale0 d0
-        V.unsafeFreeze storeThawed
-  in runST mutate
+buildVector :: forall s v. VM.MVector (V.Mutable v) Float
+            => VecDualDelta -> DeltaState -> Delta
+            -> ST s (V.Mutable v s Float)
+buildVector ds st d0 = do
+  let DeltaId storeSize = deltaCounter st
+  store <- VM.replicate storeSize 0
+  let eval :: Scalar -> Delta -> ST s ()
+      eval scale = \case
+        Zero -> return ()
+        Scale k d -> eval (k * scale) d
+        Add d1 d2 -> eval scale d1 >> eval scale d2
+        Var (DeltaId i) -> VM.modify store (+ scale) i
+  eval 1 d0  -- dt is 1 or hardwired in f
+  let evalUnlessZero :: (DeltaId, Delta) -> ST s ()
+      evalUnlessZero (DeltaId i, d) = do
+        scale <- store `VM.read` i
+        when (scale /= 0) $
+          eval scale d
+  mapM_ evalUnlessZero (deltaBindings st)
+  return $! VM.slice 0 (V.length ds) store
 
 evalBindingsV :: VecDualDelta -> DeltaState -> Delta -> Domain'
-evalBindingsV ds st d =
-  let DeltaId storeSize = deltaCounter st
-      emptyStore = V.replicate storeSize 0
-      firstStore = eval 1 emptyStore d  -- dt is 1 or hardwired in f
-      evalUnlessZero :: Store -> (DeltaId, Delta) -> Store
-      evalUnlessZero store (DeltaId i, d2) =
-        let scale = store V.! i
-        in if scale == 0 then store else eval scale store d2
-      finalStore = foldl' evalUnlessZero firstStore (deltaBindings st)
-  in V.slice 0 (V.length ds) finalStore
+evalBindingsV ds st d0 = V.create $ buildVector ds st d0
 
 generalDf :: (s -> (VecDualDelta, Int))
           -> (VecDualDelta -> DeltaState -> Delta -> ds)
