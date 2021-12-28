@@ -24,7 +24,7 @@ gradDescShow :: Float
              -> Int
              -> ([Result], Float)
 gradDescShow gamma f initVec n =
-  let res = V.toList $ gradDesc gamma f (V.fromList initVec) !! n
+  let res = V.toList $ gradDesc gamma f n (V.fromList initVec)
   in (res, snd $ dfShow f res)
 
 tests :: TestTree

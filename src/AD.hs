@@ -108,14 +108,16 @@ df f deltaInput =
 
 gradDesc :: Float
          -> (VecDualDelta -> DeltaImplementation (Dual Delta))
+         -> Int
          -> Vec Float
-         -> [Vec Result]
-gradDesc gamma f = iterate go where
-  go :: Vec Float -> Vec Float
-  go !vecInitial =
+         -> Vec Result
+gradDesc gamma f = go where
+  go :: Int -> Vec Float -> Vec Float
+  go 0 !vecInitial = vecInitial
+  go n vecInitial =
     let res = fst $ df f vecInitial
-        scaled = V.map (* gamma) res
-    in V.zipWith (-) vecInitial scaled
+        v = V.zipWith (\i r -> i - gamma * r) vecInitial res
+    in go (pred n) v
 
 (*\) :: Dual Delta -> Dual Delta -> DeltaImplementation (Dual Delta)
 (*\) (D u u') (D v v') = do
