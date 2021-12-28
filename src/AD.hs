@@ -9,8 +9,8 @@ import           Control.Monad.Trans.State.Strict
 import           Data.List (foldl')
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
+import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Unboxed
-import qualified Data.Vector.Unboxed.Mutable as VM
 
 type Scalar = Float
 
