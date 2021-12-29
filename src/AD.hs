@@ -89,6 +89,9 @@ type VecDualDeltaR r = Data.Vector.Vector (DualDeltaR r)
 
 type VecDualDelta = VecDualDeltaR Float
 
+var :: Int -> VecDualDeltaR r -> DualDeltaR r
+var i vec = vec V.! i
+
 generalDf :: (s -> (VecDualDeltaR r, Int))
           -> (VecDualDeltaR r -> DeltaState r -> Delta r -> ds)
           -> (VecDualDeltaR r -> DeltaImplementationR r (DualDeltaR r))

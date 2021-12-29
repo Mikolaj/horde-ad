@@ -35,46 +35,46 @@ tests = testGroup "Tests" [ dfTests
 
 fX :: VecDualDelta -> DeltaImplementation DualDelta
 fX vec = do
-  let x = vec V.! 0
+  let x = var 0 vec
   return x
 
 fX1Y :: VecDualDelta -> DeltaImplementation DualDelta
 fX1Y vec = do
-  let x = vec V.! 0
-      y = vec V.! 1
+  let x = var 0 vec
+      y = var 1 vec
   x1 <- x +\ scalar 1
   x1 *\ y
 
 fXXY :: VecDualDelta -> DeltaImplementation DualDelta
 fXXY vec = do
-  let x = vec V.! 0
-      y = vec V.! 1
+  let x = var 0 vec
+      y = var 1 vec
   xy <- x *\ y
   x *\ xy
 
 fXYplusZ :: VecDualDelta -> DeltaImplementation DualDelta
 fXYplusZ vec = do
-  let x = vec V.! 0
-      y = vec V.! 1
-      z = vec V.! 2
+  let x = var 0 vec
+      y = var 1 vec
+      z = var 2 vec
   xy <- x *\ y
   xy +\ z
 
 fXtoY :: VecDualDelta -> DeltaImplementation DualDelta
 fXtoY vec = do
-  let x = vec V.! 0
-      y = vec V.! 1
+  let x = var 0 vec
+      y = var 1 vec
   x **\ y
 
 freluX :: VecDualDelta -> DeltaImplementation DualDelta
 freluX vec = do
-  let x = vec V.! 0
+  let x = var 0 vec
   reluAct x
 
 fquad :: VecDualDelta -> DeltaImplementation DualDelta
 fquad vec = do
-  let x = vec V.! 0
-      y = vec V.! 1
+  let x = var 0 vec
+      y = var 1 vec
   x2 <- x *\ x
   y2 <- y *\ y
   tmp <- x2 +\ y2
@@ -117,9 +117,9 @@ gradDescTests = testGroup "simple gradDesc tests"
 scaleAddWithBias :: DualDelta -> DualDelta -> Int -> VecDualDelta
                  -> DeltaImplementation DualDelta
 scaleAddWithBias x y ixWeight vec = do
-  let wx = vec V.! ixWeight
-      wy = vec V.! (ixWeight + 1)
-      bias = vec V.! (ixWeight + 2)
+  let wx = var ixWeight vec
+      wy = var (ixWeight + 1) vec
+      bias = var (ixWeight + 2) vec
   sx <- x *\ wx
   sy <- y *\ wy
   sxy <- sx +\ sy
