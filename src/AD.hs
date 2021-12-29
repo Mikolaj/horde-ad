@@ -130,11 +130,15 @@ gradDesc :: forall r . (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
          -> Int
          -> Domain r
          -> Domain' r
-gradDesc gamma f = go where
+gradDesc gamma f n0 vecInitial0 = go n0 vecInitial0 where
+  dim = V.length vecInitial0
+  vVar = V.generate dim (Var . DeltaId)
   go :: Int -> Domain r -> Domain' r
   go 0 !vecInitial = vecInitial
   go n vecInitial =
-    let res = fst $ df f vecInitial
+    let initVars :: (VecDualDeltaR r, Int)
+        initVars = ((vecInitial, vVar), dim)
+        res = fst $ generalDf (const initVars) evalBindingsV f vecInitial
         v = V.zipWith (\i r -> i - gamma * r) vecInitial res
     in go (pred n) v
 
