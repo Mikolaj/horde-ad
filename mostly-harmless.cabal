@@ -141,3 +141,27 @@ test-suite mostly-harmless-test
       , tasty >= 1.0
       , tasty-hunit
       , vector
+
+test-suite ad-test
+    -- Import common warning flags.
+    import:           options, exe-options
+
+    -- Modules included in this executable, other than Main.
+    -- other-modules:
+
+    -- The interface type and version of the test suite.
+    type:             exitcode-stdio-1.0
+
+    -- Directories containing source files.
+    hs-source-dirs:   ad-test
+
+    -- The entrypoint to the test suite.
+    main-is:          AdTest.hs
+
+    -- Test dependencies.
+    build-depends:
+        base
+      , ad
+      , tasty >= 1.0
+      , tasty-hunit
+      , vector
