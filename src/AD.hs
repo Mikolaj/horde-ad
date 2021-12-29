@@ -64,7 +64,7 @@ buildVector dim st d0 = do
 
 evalBindingsV :: (Eq r, Num r, V.Vector v r)
               => VecDualDeltaR i -> DeltaState r -> Delta r -> v r
-evalBindingsV ds st d0 = V.create $ buildVector (V.length ds) st d0
+evalBindingsV ds st d0 = V.create $ buildVector (V.length $ snd ds) st d0
 
 newtype DeltaImplementationR r a = DeltaImplementation
   { runDeltaImplementation :: State (DeltaState r) a }
@@ -85,12 +85,13 @@ data DualDeltaR r = D r (Delta r)
 
 type DualDelta = DualDeltaR Float
 
-type VecDualDeltaR r = Data.Vector.Vector (DualDeltaR r)
+type VecDualDeltaR r = (Domain r, Data.Vector.Vector (Delta r))
 
 type VecDualDelta = VecDualDeltaR Float
 
-var :: Int -> VecDualDeltaR r -> DualDeltaR r
-var i vec = vec V.! i
+var :: Data.Vector.Unboxed.Unbox r
+    => Int -> VecDualDeltaR r -> DualDeltaR r
+var i (vValue, vVar) = D (vValue V.! i) (vVar V.! i)
 
 generalDf :: (s -> (VecDualDeltaR r, Int))
           -> (VecDualDeltaR r -> DeltaState r -> Delta r -> ds)
@@ -119,9 +120,8 @@ df :: forall r . (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
 df =
   let initVars :: Domain r -> (VecDualDeltaR r, Int)
       initVars deltaInput =
-        let dualizeInput i xi = D xi (Var $ DeltaId i)
-        in ( V.fromList $ zipWith dualizeInput [0 ..] (V.toList deltaInput)
-           , V.length deltaInput )
+        let dim = V.length deltaInput
+        in ((deltaInput, V.generate dim (Var . DeltaId)), dim)
   in generalDf initVars evalBindingsV
 
 gradDesc :: forall r . (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
