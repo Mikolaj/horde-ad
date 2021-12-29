@@ -66,14 +66,14 @@ evalBindingsV :: (Eq r, Num r, V.Vector v r)
               => VecDualDeltaR i -> DeltaState r -> Delta r -> v r
 evalBindingsV ds st d0 = V.create $ buildVector (V.length $ snd ds) st d0
 
-newtype DeltaImplementationR r a = DeltaImplementation
-  { runDeltaImplementation :: State (DeltaState r) a }
+newtype DeltaMonadR r a = DeltaMonad
+  { runDeltaMonad :: State (DeltaState r) a }
   deriving (Monad, Functor, Applicative)
 
-type DeltaImplementation = DeltaImplementationR Float
+type DeltaMonad = DeltaMonadR Float
 
-dlet :: Delta r -> DeltaImplementationR r DeltaId
-dlet v = DeltaImplementation $ do
+dlet :: Delta r -> DeltaMonadR r DeltaId
+dlet v = DeltaMonad $ do
   i <- gets deltaCounter
   modify $ \s ->
     s { deltaCounter = succ i
@@ -95,7 +95,7 @@ var i (vValue, vVar) = D (vValue V.! i) (vVar V.! i)
 
 generalDf :: (s -> (VecDualDeltaR r, Int))
           -> (VecDualDeltaR r -> DeltaState r -> Delta r -> ds)
-          -> (VecDualDeltaR r -> DeltaImplementationR r (DualDeltaR r))
+          -> (VecDualDeltaR r -> DeltaMonadR r (DualDeltaR r))
           -> s
           -> (ds, r)
 {-# INLINE generalDf #-}
@@ -105,7 +105,7 @@ generalDf initVars evalBindings f deltaInput =
         { deltaCounter = DeltaId dim
         , deltaBindings = []
         }
-      (D value d, st) = runState (runDeltaImplementation (f ds)) initialState
+      (D value d, st) = runState (runDeltaMonad (f ds)) initialState
       res = evalBindings ds st d
   in (res, value)
 
@@ -114,7 +114,7 @@ type Domain r = Data.Vector.Unboxed.Vector r  -- s
 type Domain' r = Domain r  -- ds
 
 df :: forall r . (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
-   => (VecDualDeltaR r -> DeltaImplementationR r (DualDeltaR r))
+   => (VecDualDeltaR r -> DeltaMonadR r (DualDeltaR r))
    -> Domain r
    -> (Domain' r, r)
 df =
@@ -126,7 +126,7 @@ df =
 
 gradDesc :: forall r . (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
          => r
-         -> (VecDualDeltaR r -> DeltaImplementationR r (DualDeltaR r))
+         -> (VecDualDeltaR r -> DeltaMonadR r (DualDeltaR r))
          -> Int
          -> Domain r
          -> Domain' r
@@ -142,22 +142,22 @@ gradDesc gamma f n0 vecInitial0 = go n0 vecInitial0 where
         v = V.zipWith (\i r -> i - gamma * r) vecInitial res
     in go (pred n) v
 
-(*\) :: DualDelta -> DualDelta -> DeltaImplementation DualDelta
+(*\) :: DualDelta -> DualDelta -> DeltaMonad DualDelta
 (*\) (D u u') (D v v') = do
   d <- dlet $ Add (Scale v u') (Scale u v')
   return $! D (u * v) (Var d)
 
-(+\) :: DualDelta -> DualDelta -> DeltaImplementation DualDelta
+(+\) :: DualDelta -> DualDelta -> DeltaMonad DualDelta
 (+\) (D u u') (D v v') = do
   d <- dlet $ Add u' v'
   return $! D (u + v) (Var d)
 
-(-\) :: DualDelta -> DualDelta -> DeltaImplementation DualDelta
+(-\) :: DualDelta -> DualDelta -> DeltaMonad DualDelta
 (-\) (D u u') (D v v') = do
   d <- dlet $ Add u' (Scale (-1) v')
   return $! D (u - v) (Var d)
 
-(**\) :: DualDelta -> DualDelta -> DeltaImplementation DualDelta
+(**\) :: DualDelta -> DualDelta -> DeltaMonad DualDelta
 (**\) (D u u') (D v v') = do
   d <- dlet $ Add (Scale (v * (u ** (v - 1))) u')
                   (Scale ((u ** v) * log u) v')
@@ -166,18 +166,18 @@ gradDesc gamma f n0 vecInitial0 = go n0 vecInitial0 where
 scalar :: Float -> DualDelta
 scalar k = D k Zero
 
-_scale :: Float -> DualDelta -> DeltaImplementation DualDelta
+_scale :: Float -> DualDelta -> DeltaMonad DualDelta
 _scale k (D u u') = do
   d <- dlet $ Scale k u'
   return $! D (k * u) (Var d)
 
-tanhAct :: DualDelta -> DeltaImplementation DualDelta
+tanhAct :: DualDelta -> DeltaMonad DualDelta
 tanhAct (D u u') = do
   let y = tanh u
   d <- dlet $ Scale (1 - y * y) u'
   return $! D y (Var d)
 
-reluAct :: DualDelta -> DeltaImplementation DualDelta
+reluAct :: DualDelta -> DeltaMonad DualDelta
 reluAct (D u u') = do
   d <- dlet $ Scale (if u > 0 then 1 else 0) u'
   return $! D (max 0 u) (Var d)

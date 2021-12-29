@@ -11,7 +11,7 @@ import AD
 main :: IO ()
 main = defaultMain tests
 
-dfShow :: (VecDualDelta -> DeltaImplementation DualDelta)
+dfShow :: (VecDualDelta -> DeltaMonad DualDelta)
        -> [Float]
        -> ([Float], Float)
 dfShow f deltaInput =
@@ -19,7 +19,7 @@ dfShow f deltaInput =
   in (V.toList results, value)
 
 gradDescShow :: Float
-             -> (VecDualDelta -> DeltaImplementation DualDelta)
+             -> (VecDualDelta -> DeltaMonad DualDelta)
              -> [Float]
              -> Int
              -> ([Float], Float)
@@ -33,26 +33,26 @@ tests = testGroup "Tests" [ dfTests
                           , xorTests
                           ]
 
-fX :: VecDualDelta -> DeltaImplementation DualDelta
+fX :: VecDualDelta -> DeltaMonad DualDelta
 fX vec = do
   let x = var 0 vec
   return x
 
-fX1Y :: VecDualDelta -> DeltaImplementation DualDelta
+fX1Y :: VecDualDelta -> DeltaMonad DualDelta
 fX1Y vec = do
   let x = var 0 vec
       y = var 1 vec
   x1 <- x +\ scalar 1
   x1 *\ y
 
-fXXY :: VecDualDelta -> DeltaImplementation DualDelta
+fXXY :: VecDualDelta -> DeltaMonad DualDelta
 fXXY vec = do
   let x = var 0 vec
       y = var 1 vec
   xy <- x *\ y
   x *\ xy
 
-fXYplusZ :: VecDualDelta -> DeltaImplementation DualDelta
+fXYplusZ :: VecDualDelta -> DeltaMonad DualDelta
 fXYplusZ vec = do
   let x = var 0 vec
       y = var 1 vec
@@ -60,18 +60,18 @@ fXYplusZ vec = do
   xy <- x *\ y
   xy +\ z
 
-fXtoY :: VecDualDelta -> DeltaImplementation DualDelta
+fXtoY :: VecDualDelta -> DeltaMonad DualDelta
 fXtoY vec = do
   let x = var 0 vec
       y = var 1 vec
   x **\ y
 
-freluX :: VecDualDelta -> DeltaImplementation DualDelta
+freluX :: VecDualDelta -> DeltaMonad DualDelta
 freluX vec = do
   let x = var 0 vec
   reluAct x
 
-fquad :: VecDualDelta -> DeltaImplementation DualDelta
+fquad :: VecDualDelta -> DeltaMonad DualDelta
 fquad vec = do
   let x = var 0 vec
       y = var 1 vec
@@ -115,7 +115,7 @@ gradDescTests = testGroup "simple gradDesc tests"
   ]
 
 scaleAddWithBias :: DualDelta -> DualDelta -> Int -> VecDualDelta
-                 -> DeltaImplementation DualDelta
+                 -> DeltaMonad DualDelta
 scaleAddWithBias x y ixWeight vec = do
   let wx = var ixWeight vec
       wy = var (ixWeight + 1) vec
@@ -125,36 +125,36 @@ scaleAddWithBias x y ixWeight vec = do
   sxy <- sx +\ sy
   sxy +\ bias
 
-neuron :: (DualDelta -> DeltaImplementation DualDelta)
+neuron :: (DualDelta -> DeltaMonad DualDelta)
        -> DualDelta -> DualDelta -> Int -> VecDualDelta
-       -> DeltaImplementation DualDelta
+       -> DeltaMonad DualDelta
 neuron factivation x y ixWeight vec = do
   sc <- scaleAddWithBias x y ixWeight vec
   factivation sc
 
-nnXor :: (DualDelta -> DeltaImplementation DualDelta)
+nnXor :: (DualDelta -> DeltaMonad DualDelta)
       -> DualDelta -> DualDelta -> VecDualDelta
-      -> DeltaImplementation DualDelta
+      -> DeltaMonad DualDelta
 nnXor factivation x y vec = do
   n1 <- neuron factivation x y 0 vec
   n2 <- neuron factivation x y 3 vec
   neuron factivation n1 n2 6 vec
 
-lossXor :: DualDelta -> DualDelta -> DeltaImplementation DualDelta
+lossXor :: DualDelta -> DualDelta -> DeltaMonad DualDelta
 lossXor u v = do
   diff <- u -\ v
   diff *\ diff
 
-nnLoss :: (DualDelta -> DeltaImplementation DualDelta)
+nnLoss :: (DualDelta -> DeltaMonad DualDelta)
       -> Float -> Float -> Float -> VecDualDelta
-      -> DeltaImplementation DualDelta
+      -> DeltaMonad DualDelta
 nnLoss factivation x y res vec = do
   r <- nnXor factivation (scalar x) (scalar y) vec
   lossXor r (scalar res)
 
-setLoss :: (DualDelta -> DeltaImplementation DualDelta)
+setLoss :: (DualDelta -> DeltaMonad DualDelta)
         -> VecDualDelta
-        -> DeltaImplementation DualDelta
+        -> DeltaMonad DualDelta
 setLoss factivation vec = do
   n1 <- nnLoss factivation 0 0 0 vec
   n2 <- nnLoss factivation 0 1 1 vec
