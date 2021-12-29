@@ -12,21 +12,6 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Unboxed
 
-type Domain r = Data.Vector.Unboxed.Vector r  -- s
-
-type Domain' r = Domain r  -- ds
-
-data DualDeltaR r = D r (Delta r)
-
-type DualDelta = DualDeltaR Float
-
-type VecDualDeltaR r = Data.Vector.Vector (DualDeltaR r)
-
-type VecDualDelta = VecDualDeltaR Float
-
-newtype DeltaId = DeltaId Int
-  deriving (Show, Eq, Ord, Enum)
-
 -- Tagless final doesn't seem to work well, because we need to gather
 -- @Delta@ while doing @DualDelta@ operations, but evaluate on concrete
 -- vectors that correspond to only the second component of dual numbers.
@@ -40,6 +25,9 @@ data Delta r =
   | Add (Delta r) (Delta r)
   | Var DeltaId
 
+newtype DeltaId = DeltaId Int
+  deriving (Show, Eq, Ord, Enum)
+
 -- This can't be environment in a Reader, because subtrees add their own
 -- identifiers for sharing, instead of parents naming their subtrees.
 -- This must be the "evaluate Let backwards" from SPJ's talk.
@@ -52,21 +40,6 @@ data DeltaState r = DeltaState
   { deltaCounter  :: DeltaId
   , deltaBindings :: [(DeltaId, Delta r)]
   }
-
-newtype DeltaImplementationR r a = DeltaImplementation
-  { runDeltaImplementation :: State (DeltaState r) a }
-  deriving (Monad, Functor, Applicative)
-
-type DeltaImplementation = DeltaImplementationR Float
-
-dlet :: Delta r -> DeltaImplementationR r DeltaId
-dlet v = DeltaImplementation $ do
-  i <- gets deltaCounter
-  modify $ \s ->
-    s { deltaCounter = succ i
-      , deltaBindings = (i, v) : deltaBindings s
-      }
-  return i
 
 buildVector :: forall s v r. (Eq r, Num r, VM.MVector (V.Mutable v) r)
             => Int -> DeltaState r -> Delta r
@@ -93,6 +66,29 @@ evalBindingsV :: (Eq r, Num r, V.Vector v r)
               => VecDualDeltaR i -> DeltaState r -> Delta r -> v r
 evalBindingsV ds st d0 = V.create $ buildVector (V.length ds) st d0
 
+newtype DeltaImplementationR r a = DeltaImplementation
+  { runDeltaImplementation :: State (DeltaState r) a }
+  deriving (Monad, Functor, Applicative)
+
+type DeltaImplementation = DeltaImplementationR Float
+
+dlet :: Delta r -> DeltaImplementationR r DeltaId
+dlet v = DeltaImplementation $ do
+  i <- gets deltaCounter
+  modify $ \s ->
+    s { deltaCounter = succ i
+      , deltaBindings = (i, v) : deltaBindings s
+      }
+  return i
+
+data DualDeltaR r = D r (Delta r)
+
+type DualDelta = DualDeltaR Float
+
+type VecDualDeltaR r = Data.Vector.Vector (DualDeltaR r)
+
+type VecDualDelta = VecDualDeltaR Float
+
 generalDf :: (s -> (VecDualDeltaR r, Int))
           -> (VecDualDeltaR r -> DeltaState r -> Delta r -> ds)
           -> (VecDualDeltaR r -> DeltaImplementationR r (DualDeltaR r))
@@ -108,6 +104,10 @@ generalDf initVars evalBindings f deltaInput =
       (D value d, st) = runState (runDeltaImplementation (f ds)) initialState
       res = evalBindings ds st d
   in (res, value)
+
+type Domain r = Data.Vector.Unboxed.Vector r  -- s
+
+type Domain' r = Domain r  -- ds
 
 df :: forall r . (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
    => (VecDualDeltaR r -> DeltaImplementationR r (DualDeltaR r))
