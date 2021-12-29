@@ -101,8 +101,7 @@ library
     import:           options
 
     -- Modules exported by the library.
-    exposed-modules:    MyLib
-                      , AD
+    exposed-modules:    AD
 
     -- Modules included in this library but not exported.
     -- other-modules:
@@ -118,24 +117,6 @@ library
 
     -- Directories containing source files.
     hs-source-dirs:   src
-
-executable mostly-harmless
-    -- Import common warning flags.
-    import:           options, exe-options
-
-    -- .hs or .lhs file containing the Main module.
-    main-is:          Main.hs
-
-    -- Modules included in this executable, other than Main.
-    -- other-modules:
-
-    -- Other library packages from which modules are imported.
-    build-depends:
-        base
-      , mostly-harmless
-
-    -- Directories containing source files.
-    hs-source-dirs:   app
 
 test-suite mostly-harmless-test
     -- Import common warning flags.
