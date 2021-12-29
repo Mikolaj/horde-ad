@@ -93,11 +93,11 @@ var :: Data.Vector.Unboxed.Unbox r
     => Int -> VecDualDeltaR r -> DualDeltaR r
 var i (vValue, vVar) = D (vValue V.! i) (vVar V.! i)
 
-generalDf :: (s -> (VecDualDeltaR r, Int))
-          -> (VecDualDeltaR r -> DeltaState r -> Delta r -> ds)
+generalDf :: (domain -> (VecDualDeltaR r, Int))
+          -> (VecDualDeltaR r -> DeltaState r -> Delta r -> domain')
           -> (VecDualDeltaR r -> DeltaMonadR r (DualDeltaR r))
-          -> s
-          -> (ds, r)
+          -> domain
+          -> (domain', r)
 {-# INLINE generalDf #-}
 generalDf initVars evalBindings f deltaInput =
   let (ds, dim) = initVars deltaInput
@@ -109,9 +109,9 @@ generalDf initVars evalBindings f deltaInput =
       res = evalBindings ds st d
   in (res, value)
 
-type Domain r = Data.Vector.Unboxed.Vector r  -- s
+type Domain r = Data.Vector.Unboxed.Vector r
 
-type Domain' r = Domain r  -- ds
+type Domain' r = Domain r
 
 df :: forall r . (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
    => (VecDualDeltaR r -> DeltaMonadR r (DualDeltaR r))
