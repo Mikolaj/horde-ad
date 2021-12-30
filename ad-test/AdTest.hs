@@ -28,7 +28,7 @@ gradDesc :: forall r . (Ord r, Floating r)  -- Data.Vector.Unboxed.Unbox r
          -> Int
          -> Domain r
          -> Domain' r
-gradDesc gamma f n0 vecInitial0 = go n0 vecInitial0 where
+gradDesc gamma f = go where
   go :: Int -> Domain r -> Domain' r
   go 0 !vecInitial = vecInitial
   go n vecInitial =
