@@ -35,6 +35,7 @@ tests = testGroup "Tests" [ dfTests
                           , gradDescTests
                           , xorTests
                           , fitTests
+                          , fit2Tests
                           ]
 
 fX :: VecDualDelta -> DeltaMonad DualDelta
@@ -194,8 +195,9 @@ xorTests = testGroup "XOR neural net tests"
 hiddenLayerFit :: (DualDelta -> DeltaMonad DualDelta)
                -> Float
                -> VecDualDelta
+               -> Int
                -> DeltaMonad (Data.Vector.Vector DualDelta)
-hiddenLayerFit factivation x vec = do
+hiddenLayerFit factivation x vec width = do
   let f :: Int -> DeltaMonad DualDelta
       f i = do
         let weight = var (2 * i) vec
@@ -203,9 +205,6 @@ hiddenLayerFit factivation x vec = do
         sx <- scale x weight
         sxBias <- sx +\ bias
         factivation sxBias
-      -- One bias of the outer layer, a list of weights of the outer layer,
-      -- a list of the same length of weights and biases of the hidden layer.
-      width = (V.length (fst vec) - 1) `div` 3
   V.generateM width f
 
 outputLayerFit :: (DualDelta -> DeltaMonad DualDelta)
@@ -221,9 +220,11 @@ nnFit :: (DualDelta -> DeltaMonad DualDelta)
       -> (DualDelta -> DeltaMonad DualDelta)
       -> Float -> VecDualDelta -> DeltaMonad DualDelta
 nnFit factivationHidden factivationOutput x vec = do
-  hiddenVec <- hiddenLayerFit factivationHidden x vec
-  let offset = V.length hiddenVec * 2
-  outputLayerFit factivationOutput hiddenVec offset vec
+  -- One bias of the outer layer, a list of weights of the outer layer,
+  -- a list of the same length of weights and biases of the hidden layer.
+  let width = (V.length (fst vec) - 1) `div` 3
+  hiddenVec <- hiddenLayerFit factivationHidden x vec width
+  outputLayerFit factivationOutput hiddenVec (2 * width) vec
 
 nnFitLoss :: (DualDelta -> DeltaMonad DualDelta)
           -> (DualDelta -> DeltaMonad DualDelta)
@@ -257,7 +258,7 @@ wsFit range seed k =
   in V.zip (rolls k g1) (rolls k g2)
 
 fitTests :: TestTree
-fitTests = testGroup "Sample fitting neural net tests"
+fitTests = testGroup "Sample fitting fully connected neural net tests"
   [ testCase "wsFit (-1, 1) 42 10" $
       V.toList (wsFit (-1, 1) 42 20) @?= [(-0.22217941,-0.5148219),(0.25622618,0.4266206),(7.7941775e-2,-0.530113),(0.38453794,0.89582694),(-0.60279465,-0.54253376),(0.47347665,0.19495821),(0.39216015,0.8963258),(-2.6791573e-2,-0.43389952),(-8.326125e-2,-0.17110145),(-6.933606e-2,-0.66025615),(-0.7554468,0.9077623),(-0.17885447,0.14958933),(-0.49340177,0.13965562),(0.47034466,-0.4875852),(-0.37681377,-0.39065874),(-0.982054,-0.109050274),(0.6628231,0.11808494),(4.3375194e-3,-7.504225e-3),(-0.27033293,0.9103447),(2.8155297e-2,-0.994154)]
   , testCase "tanhAct tanhAct (-1, 1) 42 7 31 0.1 10000" $ do
@@ -271,8 +272,87 @@ fitTests = testGroup "Sample fitting neural net tests"
       snd (gradDescShow 0.01 (nnFitLossTotal tanhAct tanhAct samples) vec 100000)
         @?= 1.6422749e-2
   , testCase "tanhAct tanhAct (-1, 1) 42 10 31 0.01 100000" $ do
+      -- It seems that more hidden layer neurons that samples doesn't help,
+      -- regardless of how long it runs.
       let samples = wsFit (-1, 1) 42 10
           vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
       snd (gradDescShow 0.01 (nnFitLossTotal tanhAct tanhAct samples) vec 100000)
         @?= 0.11910388  -- 10 seems to be the limit for this data
+  ]
+
+middleLayerFit2 :: (DualDelta -> DeltaMonad DualDelta)
+                -> Data.Vector.Vector DualDelta
+                -> Int
+                -> VecDualDelta
+                -> DeltaMonad (Data.Vector.Vector DualDelta)
+middleLayerFit2 factivation hiddenVec offset vec = do
+  let f :: Int -> DualDelta -> DeltaMonad DualDelta
+      f i x = do
+        let weight = var (offset + 2 * i) vec
+            bias = var (offset + 1 + 2 * i) vec
+        sx <- x *\ weight
+        sxBias <- sx +\ bias
+        factivation sxBias
+  V.imapM f hiddenVec
+
+nnFit2 :: (DualDelta -> DeltaMonad DualDelta)
+       -> (DualDelta -> DeltaMonad DualDelta)
+       -> (DualDelta -> DeltaMonad DualDelta)
+       -> Float -> VecDualDelta -> DeltaMonad DualDelta
+nnFit2 factivationHidden factivationMiddle factivationOutput x vec = do
+  -- One bias of the outer layer, a list of weights of the outer layer,
+  -- a list of the same length of weights and biases of the hidden layer.
+  let width = (V.length (fst vec) - 1) `div` 5
+  hiddenVec <- hiddenLayerFit factivationHidden x vec width
+  middleVec <- middleLayerFit2 factivationMiddle hiddenVec (2 * width) vec
+  outputLayerFit factivationOutput middleVec (4 * width) vec
+
+nnFit2Loss :: (DualDelta -> DeltaMonad DualDelta)
+           -> (DualDelta -> DeltaMonad DualDelta)
+           -> (DualDelta -> DeltaMonad DualDelta)
+           -> Float -> Float -> VecDualDelta -> DeltaMonad DualDelta
+nnFit2Loss factivationHidden factivationMiddle factivationOutput x res vec = do
+  r <- nnFit2 factivationHidden factivationMiddle factivationOutput x vec
+  lossSquared r res
+
+nnFit2LossTotal :: (DualDelta -> DeltaMonad DualDelta)
+                -> (DualDelta -> DeltaMonad DualDelta)
+                -> (DualDelta -> DeltaMonad DualDelta)
+                -> Data.Vector.Unboxed.Vector (Float, Float)
+                -> VecDualDelta
+                -> DeltaMonad DualDelta
+nnFit2LossTotal factivationHidden factivationMiddle factivationOutput
+                samples vec = do
+  let f :: DualDelta -> (Float, Float) -> DeltaMonad DualDelta
+      f (D acc acc') (x, res) = do
+        D fl fl' <-
+          nnFit2Loss factivationHidden factivationMiddle factivationOutput
+                    x res vec
+        return $! D (acc + fl) (Add acc' fl')
+  V.foldM' f (scalar 0) samples
+
+fit2Tests :: TestTree
+fit2Tests = testGroup "Sample fitting 2 hidded layer fc nn tests"
+  [ testCase "tanhAct tanhAct (-1, 1) 42 7 31 0.1 10000" $ do
+      let samples = wsFit (-1, 1) 42 8
+          vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescShow 0.1 (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
+                        vec 10000)
+        @?= 1.2184165e-2
+  , testCase "tanhAct tanhAct (-1, 1) 42 9 31 0.01 100000" $ do
+      let samples = wsFit (-1, 1) 42 9
+          vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescShow 0.01 (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
+                        vec 100000)
+        @?= 3.8852803e-2
+  , testCase "tanhAct tanhAct (-1, 1) 42 16 61 0.01 700000" $ do
+      -- With 1 layer, adding hidden layer neurons above the number
+      -- of samples didn't help. Here it helps to an exten5,
+      -- if iterations go up as well, considerably but not yet outrageously
+      -- (here 7 times per twice more neurons).
+      let samples = wsFit (-1, 1) 42 16
+          vec = V.unfoldrExactN 61 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescShow 0.01 (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
+                        vec 700000)
+        @?= 0.100869074  -- 16 seems to be the limit for this data
   ]
