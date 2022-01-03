@@ -106,8 +106,8 @@ generalDf initVars evalBindings f deltaInput =
         , deltaBindings = []
         }
       (D value d, st) = runState (runDeltaMonad (f ds)) initialState
-      res = evalBindings ds st d
-  in (res, value)
+      gradient = evalBindings ds st d
+  in (gradient, value)
 
 type Domain r = Data.Vector.Unboxed.Vector r
 
@@ -130,17 +130,17 @@ gradDesc :: forall r . (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
          -> Int
          -> Domain r
          -> Domain' r
-gradDesc gamma f n0 vecInitial0 = go n0 vecInitial0 where
-  dim = V.length vecInitial0
+gradDesc gamma f n0 params0 = go n0 params0 where
+  dim = V.length params0
   vVar = V.generate dim (Var . DeltaId)
   go :: Int -> Domain r -> Domain' r
-  go 0 !vecInitial = vecInitial
-  go n vecInitial =
+  go 0 !params = params
+  go n params =
     let initVars :: (VecDualDeltaR r, Int)
-        initVars = ((vecInitial, vVar), dim)
-        res = fst $ generalDf (const initVars) evalBindingsV f vecInitial
-        v = V.zipWith (\i r -> i - gamma * r) vecInitial res
-    in go (pred n) v
+        initVars = ((params, vVar), dim)
+        gradient = fst $ generalDf (const initVars) evalBindingsV f params
+        paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
+    in go (pred n) paramsNew
 
 (*\) :: DualDelta -> DualDelta -> DeltaMonad DualDelta
 (*\) (D u u') (D v v') = do

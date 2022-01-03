@@ -36,6 +36,8 @@ tests = testGroup "Tests" [ dfTests
                           , xorTests
                           , fitTests
                           , fit2Tests
+                          , smartFitTests
+                          , smartFit2Tests
                           ]
 
 fX :: VecDualDelta -> DeltaMonad DualDelta
@@ -347,7 +349,7 @@ fit2Tests = testGroup "Sample fitting 2 hidded layer fc nn tests"
         @?= 3.8852803e-2
   , testCase "tanhAct tanhAct (-1, 1) 42 16 61 0.01 700000" $ do
       -- With 1 layer, adding hidden layer neurons above the number
-      -- of samples didn't help. Here it helps to an exten5,
+      -- of samples didn't help. Here it helps to an extent,
       -- if iterations go up as well, considerably but not yet outrageously
       -- (here 7 times per twice more neurons).
       let samples = wsFit (-1, 1) 42 16
@@ -355,4 +357,93 @@ fit2Tests = testGroup "Sample fitting 2 hidded layer fc nn tests"
       snd (gradDescShow 0.01 (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
                         vec 700000)
         @?= 0.100869074  -- 16 seems to be the limit for this data
+  ]
+
+-- Based on @gradientDescent@ from package @ad@ which is in turn based
+-- on the one from the VLAD compiler.
+gradDescSmart :: forall r . (Ord r, Fractional r, Data.Vector.Unboxed.Unbox r)
+              => (VecDualDeltaR r -> DeltaMonadR r (DualDeltaR r))
+              -> Int
+              -> Domain r
+              -> (Domain' r, r)
+gradDescSmart f n0 params0 = go n0 params0 0.1 gradient0 value0 0 where
+  dim = V.length params0
+  vVar = V.generate dim (Var . DeltaId)
+  initVars0 :: (VecDualDeltaR r, Int)
+  initVars0 = ((params0, vVar), dim)
+  (gradient0, value0) = generalDf (const initVars0) evalBindingsV f params0
+  go :: Int -> Domain r -> r -> Domain r -> r -> Int -> (Domain' r, r)
+  go 0 !params !gamma _gradientPrev _valuePrev !_i = (params, gamma)
+  go _ params 0 _ _ _ = (params, 0)
+  go n params gamma gradientPrev valuePrev i =
+    -- The trick is that we use the previous gradient here,
+    -- and the new gradient is only computed by accident together
+    -- with the new value that is needed now to revert if we overshoot.
+    let paramsNew = V.zipWith (\p r -> p - gamma * r) params gradientPrev
+        initVars = ((paramsNew, vVar), dim)
+        (gradient, value) = generalDf (const initVars) evalBindingsV f paramsNew
+    in if | V.all (== 0) gradientPrev -> (params, gamma)
+          | value > valuePrev ->
+              go n params (gamma / 2) gradientPrev valuePrev 0  -- overshot
+          | i == 10 -> go (pred n) paramsNew (gamma * 2) gradient value 0
+          | otherwise -> go (pred n) paramsNew gamma gradient value (i + 1)
+
+gradDescSmartShow :: (VecDualDelta -> DeltaMonad DualDelta)
+                  -> Domain Float
+                  -> Int
+                  -> ([Float], (Float, Float))
+gradDescSmartShow f initVec n =
+  let (res, gamma) = gradDescSmart f n initVec
+      l = V.toList $ res
+  in (l, (snd $ dfShow f l, gamma))
+
+-- It seems the approximation overshoots all the time and makes smaller
+-- and smaller steps, getting nowhere. This probably means
+-- approximation with this number of neurons is not possible.
+-- However, adding neurons doesn't help (without huge increases of iterations).
+-- The fact that results are worse than when freely overshooting
+-- suggests there are local minima, which confirms too low dimensionality.
+smartFitTests :: TestTree
+smartFitTests = testGroup "Sample fitting smart descent fc nn tests"
+  [ testCase "tanhAct tanhAct (-1, 1) 42 7 31 10000" $ do
+      let samples = wsFit (-1, 1) 42 8
+          vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescSmartShow (nnFitLossTotal tanhAct tanhAct samples)
+                             vec 10000)
+        @?= (2.3912373e-3,2.5e-2)
+  , testCase "tanhAct tanhAct (-1, 1) 42 9 31 100000" $ do
+      let samples = wsFit (-1, 1) 42 9
+          vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescSmartShow (nnFitLossTotal tanhAct tanhAct samples)
+                             vec 100000)
+        @?= (2.7362056e-2,4.7683717e-8)
+  , testCase "tanhAct tanhAct (-1, 1) 42 10 31 100000" $ do
+      let samples = wsFit (-1, 1) 42 10
+          vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescSmartShow (nnFitLossTotal tanhAct tanhAct samples)
+                             vec 100000)
+        @?= (0.12360282,3.0517579e-6)
+  ]
+
+smartFit2Tests :: TestTree
+smartFit2Tests =
+ testGroup "Sample fitting smart descent 2 hidded layer fc nn tests"
+  [ testCase "tanhAct tanhAct (-1, 1) 42 7 31 10000" $ do
+      let samples = wsFit (-1, 1) 42 8
+          vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescSmartShow (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
+                             vec 10000)
+        @?= (5.270035e-3,1.25e-2)
+  , testCase "tanhAct tanhAct (-1, 1) 42 9 31 100000" $ do
+      let samples = wsFit (-1, 1) 42 9
+          vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescSmartShow (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
+                             vec 100000)
+        @?= (5.852994e-2,3.0517579e-6)
+  , testCase "tanhAct tanhAct (-1, 1) 42 16 61 700000" $ do
+      let samples = wsFit (-1, 1) 42 16
+          vec = V.unfoldrExactN 61 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescSmartShow (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
+                             vec 700000)
+        @?= (1.8046868,7.6293946e-7)
   ]
