@@ -48,17 +48,17 @@ buildVector dim st d0 = do
   let DeltaId storeSize = deltaCounter st
   store <- VM.replicate storeSize 0
   let eval :: r -> Delta r -> ST s ()
-      eval scale = \case
+      eval r = \case
         Zero -> return ()
-        Scale k d -> eval (k * scale) d
-        Add d1 d2 -> eval scale d1 >> eval scale d2
-        Var (DeltaId i) -> VM.modify store (+ scale) i
+        Scale k d -> eval (k * r) d
+        Add d1 d2 -> eval r d1 >> eval r d2
+        Var (DeltaId i) -> VM.modify store (+ r) i
   eval 1 d0  -- dt is 1 or hardwired in f
   let evalUnlessZero :: (DeltaId, Delta r) -> ST s ()
       evalUnlessZero (DeltaId i, d) = do
-        scale <- store `VM.read` i
-        when (scale /= 0) $  -- TODO: dodgy for reals?
-          eval scale d
+        r <- store `VM.read` i
+        when (r /= 0) $  -- TODO: dodgy for reals?
+          eval r d
   mapM_ evalUnlessZero (deltaBindings st)
   return $! VM.slice 0 dim store
 
@@ -166,8 +166,8 @@ gradDesc gamma f n0 vecInitial0 = go n0 vecInitial0 where
 scalar :: Float -> DualDelta
 scalar k = D k Zero
 
-_scale :: Float -> DualDelta -> DeltaMonad DualDelta
-_scale k (D u u') = do
+scale :: Float -> DualDelta -> DeltaMonad DualDelta
+scale k (D u u') = do
   d <- dlet $ Scale k u'
   return $! D (k * u) (Var d)
 
@@ -182,9 +182,19 @@ reluAct (D u u') = do
   d <- dlet $ Scale (if u > 0 then 1 else 0) u'
   return $! D (max 0 u) (Var d)
 
-
-
-
+scaleAddVecWithBias :: Data.Vector.Vector DualDelta
+                    -> Int
+                    -> VecDualDelta
+                    -> DeltaMonad DualDelta
+scaleAddVecWithBias xs offset vec = do
+  let bias = var offset vec
+      f :: DualDelta -> Int -> DualDelta -> DualDelta
+      f (D acc acc') i (D u u') =
+        let (D v v') = var (offset + 1 + i) vec
+        in D (acc + u * v) (Add acc' (Add (Scale v u') (Scale u v')))
+      D xsum xsum' = V.ifoldl' f bias xs
+  d <- dlet xsum'
+  return $! D xsum (Var d)
 
 
 
