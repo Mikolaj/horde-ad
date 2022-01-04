@@ -373,7 +373,7 @@ nnFit2LossTotal factivationHidden factivationMiddle factivationOutput
       f (D acc acc') (x, res) = do
         D fl fl' <-
           nnFit2Loss factivationHidden factivationMiddle factivationOutput
-                    x res vec
+                     x res vec
         return $! D (acc + fl) (Add acc' fl')
   V.foldM' f (scalar 0) samples
 

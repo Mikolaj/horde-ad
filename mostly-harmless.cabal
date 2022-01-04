@@ -163,6 +163,8 @@ test-suite ad-test
     build-depends:
         base
       , ad
+      , random
+      , reflection
       , tasty >= 1.0
       , tasty-hunit
       , vector
