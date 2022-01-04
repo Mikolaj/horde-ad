@@ -158,7 +158,7 @@ scaleAddVecWithBias :: Num r
                     -> r
 scaleAddVecWithBias xs offset vec =
   let bias = var offset vec
-      f acc i u =
+      f !acc i u =
         let v = var (offset + 1 + i) vec
         in acc + u * v
   in V.ifoldl' f bias xs
@@ -216,7 +216,7 @@ nnFitLossTotal :: forall s. Reifies s Tape
                -> Reverse s Double
 nnFitLossTotal factivationHidden factivationOutput samples vec =
   let f :: Reverse s Double -> (Double, Double) -> Reverse s Double
-      f acc (x, res) =
+      f !acc (x, res) =
         let fl = nnFitLoss factivationHidden factivationOutput
                            (auto x) (auto res) vec
         in acc + fl
@@ -308,7 +308,7 @@ middleLayerFit2 factivation hiddenVec offset vec =
         in factivation sxBias
   in V.imap f hiddenVec
 
-nnFit2 :: forall r. Num r
+nnFit2 :: Num r
        => (r -> r)
        -> (r -> r)
        -> (r -> r)
@@ -321,7 +321,7 @@ nnFit2 factivationHidden factivationMiddle factivationOutput x vec =
       middleVec = middleLayerFit2 factivationMiddle hiddenVec (2 * width) vec
   in outputLayerFit factivationOutput middleVec (4 * width) vec
 
-nnFit2Loss :: forall r. Num r
+nnFit2Loss :: Num r
            => (r -> r)
            -> (r -> r)
            -> (r -> r)
@@ -340,7 +340,7 @@ nnFit2LossTotal :: forall s. Reifies s Tape
 nnFit2LossTotal factivationHidden factivationMiddle factivationOutput
                 samples vec =
   let f :: Reverse s Double -> (Double, Double) -> Reverse s Double
-      f acc (x, res) =
+      f !acc (x, res) =
         let fl =
               nnFit2Loss factivationHidden factivationMiddle factivationOutput
                          (auto x) (auto res) vec
