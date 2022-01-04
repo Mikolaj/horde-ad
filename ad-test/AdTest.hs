@@ -8,9 +8,8 @@ import           Data.Reflection (Reifies)
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Unboxed
-import           Numeric.AD hiding (diff)
-import           Numeric.AD.Internal.Reverse (Tape)
-import           Numeric.AD.Mode.Reverse hiding (diff)
+import           Numeric.AD.Internal.Reverse.Double (Tape)
+import           Numeric.AD.Mode.Reverse.Double hiding (diff)
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -32,27 +31,25 @@ type Domain r = Data.Vector.Vector r
 
 type Domain' r = Domain r
 
-gradDesc :: forall r . Floating r  -- Data.Vector.Unboxed.Unbox r
-         => r
-         -> (forall s. Reifies s Tape => Domain (Reverse s r) -> Reverse s r)
+gradDesc :: Double
+         -> (forall s. Reifies s Tape => Domain (ReverseDouble s) -> ReverseDouble s)
          -> Int
-         -> Domain r
-         -> Domain' r
+         -> Domain Double
+         -> Domain' Double
 gradDesc gamma f = go where
-  go :: Int -> Domain r -> Domain' r
+  go :: Int -> Domain Double -> Domain' Double
   go 0 !vecInitial = vecInitial
   go n vecInitial =
     let combine i r = i - gamma * r
         v = gradWith combine f vecInitial
     in go (pred n) v
 
-gradDescShow :: Floating r
-             => r
+gradDescShow :: Double
              -> (forall s. Reifies s Tape
-                 => Domain (Reverse s r) -> Reverse s r)
-             -> Domain r
+                 => Domain (ReverseDouble s) -> ReverseDouble s)
+             -> Domain Double
              -> Int
-             -> ([r], r)
+             -> ([Double], Double)
 gradDescShow gamma f initVec n =
   let res = gradDesc gamma f n initVec
       (value, _) = grad' f res
@@ -126,7 +123,10 @@ setLoss factivation vec =
       n34 = n3 + n4
   in n12 + n34
 
-ws, ws2 :: Domain Float
+-- These tests work on @Float@ in mostly-harmless-test, but here they can't
+-- because I can't share polymorphic code between @Float@ and @Double@
+-- if I want to use @ReverseDouble@, which is require to plug memory leaks.
+ws, ws2 :: Domain Double
 ws = let w = [0.37, 0.28, 0.19] in V.fromList $ w ++ w ++ w
 ws2 = let w = [-1.37, 2.28, -0.19] in V.fromList $ w ++ w ++ w
 
@@ -209,13 +209,13 @@ nnFitLoss factivationHidden factivationOutput x res vec =
   in lossSquared r res
 
 nnFitLossTotal :: forall s. Reifies s Tape
-               => (Reverse s Double -> Reverse s Double)
-               -> (Reverse s Double -> Reverse s Double)
+               => (ReverseDouble s -> ReverseDouble s)
+               -> (ReverseDouble s -> ReverseDouble s)
                -> Data.Vector.Unboxed.Vector (Double, Double)
-               -> Domain (Reverse s Double)
-               -> Reverse s Double
+               -> Domain (ReverseDouble s)
+               -> ReverseDouble s
 nnFitLossTotal factivationHidden factivationOutput samples vec =
-  let f :: Reverse s Double -> (Double, Double) -> Reverse s Double
+  let f :: ReverseDouble s -> (Double, Double) -> ReverseDouble s
       f !acc (x, res) =
         let fl = nnFitLoss factivationHidden factivationOutput
                            (auto x) (auto res) vec
@@ -331,15 +331,15 @@ nnFit2Loss factivationHidden factivationMiddle factivationOutput x res vec =
   in lossSquared r res
 
 nnFit2LossTotal :: forall s. Reifies s Tape
-                => (Reverse s Double -> Reverse s Double)
-                -> (Reverse s Double -> Reverse s Double)
-                -> (Reverse s Double -> Reverse s Double)
+                => (ReverseDouble s -> ReverseDouble s)
+                -> (ReverseDouble s -> ReverseDouble s)
+                -> (ReverseDouble s -> ReverseDouble s)
                 -> Data.Vector.Unboxed.Vector (Double, Double)
-                -> Domain (Reverse s Double)
-                -> (Reverse s Double)
+                -> Domain (ReverseDouble s)
+                -> (ReverseDouble s)
 nnFit2LossTotal factivationHidden factivationMiddle factivationOutput
                 samples vec =
-  let f :: Reverse s Double -> (Double, Double) -> Reverse s Double
+  let f :: ReverseDouble s -> (Double, Double) -> ReverseDouble s
       f !acc (x, res) =
         let fl =
               nnFit2Loss factivationHidden factivationMiddle factivationOutput
@@ -383,24 +383,55 @@ fit2Tests = testGroup "Sample fitting 2 hidden layer fc nn tests"
         @?= 1.9398514673723763e-2
   ]
 
-gradDescSmart :: forall r. (Ord r, Floating r)
-              => (forall s. Reifies s Tape
-                  => Domain (Reverse s r) -> Reverse s r)
+-- Based on @gradientDescent@ from package @ad@ which is in turn based
+-- on the one from the VLAD compiler.
+--
+-- The ad package tests took 4 to 12 times more runtime that corresponding
+-- main tests, which is mysterious and prompted a trade-off optimization.
+-- Namely, loosing polymorphism and make Float test impossible,
+-- this code is rewritten from @Reverse@ (that leaks memory and/or
+-- doesn't unbox) to @ReverseDouble@.
+--
+-- The below had to be coded, because @gradientDescent@ from ad doesn't work
+-- with @ReverseDouble@. Also, the original @gradientDescent@ allocates
+-- lots of thunks so is leak suspect, too.
+-- Even after switching to @ReverseDouble@ and coding this @gradDescSmart@,
+-- the ad tests GC a lot and also use gigabytes of RAM at a time,
+-- while the non-ad tests GC less (but still a lot) and use megabytes
+-- in analogous code. Perhaps it's just the allocation of lots of symbols
+-- in ad, compared to only tiny deltas in main code.
+gradDescSmart :: (forall s. Reifies s Tape
+                  => Domain (ReverseDouble s) -> ReverseDouble s)
               -> Int
-              -> Domain r
-              -> Domain' r
-gradDescSmart f n0 params0 = gradientDescent f params0 !! n0
+              -> Domain Double
+              -> (Domain' Double, Double)
+gradDescSmart f n0 params0 = go n0 params0 0.1 gradient0 value0 0 where
+  (value0, gradient0) = grad' f params0
+  go :: Int -> Domain Double -> Double -> Domain Double -> Double -> Int
+     -> (Domain' Double, Double)
+  go 0 !params !gamma _gradientPrev _valuePrev !_i = (params, gamma)
+  go _ params 0 _ _ _ = (params, 0)
+  go n params gamma gradientPrev valuePrev i =
+    -- The trick is that we use the previous gradient here,
+    -- and the new gradient is only computed by accident together
+    -- with the new value that is needed now to revert if we overshoot.
+    let paramsNew = V.zipWith (\p r -> p - gamma * r) params gradientPrev
+        (value, gradient) = grad' f paramsNew
+    in if | V.all (== 0) gradientPrev -> (params, gamma)
+          | value > valuePrev ->
+              go n params (gamma / 2) gradientPrev valuePrev 0  -- overshot
+          | i == 10 -> go (pred n) paramsNew (gamma * 2) gradient value 0
+          | otherwise -> go (pred n) paramsNew gamma gradient value (i + 1)
 
-gradDescSmartShow :: forall r. (Ord r, Floating r)
-                  => (forall s. Reifies s Tape
-                      => Domain (Reverse s r) -> Reverse s r)
-                  -> Domain r
+gradDescSmartShow :: (forall s. Reifies s Tape
+                      => Domain (ReverseDouble s) -> ReverseDouble s)
+                  -> Domain Double
                   -> Int
-                  -> ([r], r)
+                  -> ([Double], (Double, Double))
 gradDescSmartShow f initVec n =
-  let res = gradDescSmart f n initVec
+  let (res, gamma) = gradDescSmart f n initVec
       (value, _) = grad' f res
-  in (V.toList res, value)
+  in (V.toList res, (value, gamma))
 
 -- With Float, the approximation overshoots all the time and makes smaller
 -- and smaller steps, getting nowhere. This probably means
@@ -419,49 +450,49 @@ smartFitTests = testGroup "Smart descent sample fitting fc nn tests"
           vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
       snd (gradDescSmartShow (nnFitLossTotal tanhAct tanhAct samples)
                              vec 10000)
-        @?= 2.0585450568797953e-3
+        @?= (2.0585450568797953e-3,1.25e-2)
   , testCase "tanhAct tanhAct (-1, 1) 42 10 61 1000000" $ do
       let samples = wsFit (-1, 1) 42 10
           vec = V.unfoldrExactN 61 (uniformR (-1, 1)) $ mkStdGen 33
       snd (gradDescSmartShow (nnFitLossTotal tanhAct tanhAct samples)
                              vec 1000000)  -- 31 not enough, 700000 not enough
-        @?= 9.072288039580448e-2
+        @?= (9.072288039580448e-2,6.25e-3)
   , testCase "tanhAct tanhAct (-1, 1) 42 16 61 1700000" $ do
       let samples = wsFit (-1, 1) 42 16
           vec = V.unfoldrExactN 61 (uniformR (-1, 1)) $ mkStdGen 33
       snd (gradDescSmartShow (nnFitLossTotal tanhAct tanhAct samples)
                              vec 1700000)
-        @?= 4.8336260347113275e-2
+        @?= (4.8336260347113275e-2,1.5625e-3)
   , testCase "Separated (-1, 1) 42 8 31 10000" $ do
       let samples = wsFitSeparated (-1, 1) 42 8
           vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
       snd (gradDescSmartShow (nnFitLossTotal tanhAct tanhAct samples)
                              vec 10000)
-        @?= 1.5742022677967708e-2
+        @?= (1.5742022677967708e-2,2.5e-2)
   , testCase "Separated (-1, 1) 42 10 31 100000" $ do
       let samples = wsFitSeparated (-1, 1) 42 10
           vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
       snd (gradDescSmartShow (nnFitLossTotal tanhAct tanhAct samples)
                              vec 100000)
-        @?= 4.506881373306206e-10
+        @?= (4.506881373306206e-10,2.5e-2)
   , testCase "Separated (-1, 1) 42 16 31 100000" $ do
       let samples = wsFitSeparated (-1, 1) 42 16
           vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
       snd (gradDescSmartShow (nnFitLossTotal tanhAct tanhAct samples)
                              vec 100000)
-        @?= 5.197706771219677e-2
+        @?= (5.197706771219677e-2,6.25e-3)
   , testCase "Separated (-1, 1) 42 24 101 700000" $ do
       let samples = wsFitSeparated (-1, 1) 42 24
           vec = V.unfoldrExactN 101 (uniformR (-1, 1)) $ mkStdGen 33
       snd (gradDescSmartShow (nnFitLossTotal tanhAct tanhAct samples)
                              vec 700000)  -- 61 1300000 not enough
-        @?= 2.967249104936791e-2
+        @?= (2.967249104936791e-2,6.25e-3)
   , testCase "Separated (-1, 1) 42 32 61 1700000" $ do
       let samples = wsFitSeparated (-1, 1) 42 32
           vec = V.unfoldrExactN 61 (uniformR (-1, 1)) $ mkStdGen 33
       snd (gradDescSmartShow (nnFitLossTotal tanhAct tanhAct samples)
                              vec 1700000)
-        @?= 3.828456463288314e-2
+        @?= (3.828456463288314e-2,6.25e-3)
         -- 151 1000000 not enough, despite taking twice longer
   ]
 
@@ -473,44 +504,44 @@ smartFit2Tests =
           vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
       snd (gradDescSmartShow (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
                              vec 10000)
-        @?= 4.896924209457198e-3
+        @?= (4.896924209457198e-3,2.5e-2)
   , testCase "tanhAct tanhAct (-1, 1) 42 10 31 400000" $ do
       let samples = wsFit (-1, 1) 42 10
           vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
       snd (gradDescSmartShow (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
                              vec 400000)
-        @?= 8.470989419560765e-2
+        @?= (8.470989419560765e-2,2.5e-2)
   , testCase "tanhAct tanhAct (-1, 1) 42 16 61 700000" $ do
       let samples = wsFit (-1, 1) 42 16
           vec = V.unfoldrExactN 61 (uniformR (-1, 1)) $ mkStdGen 33
       snd (gradDescSmartShow (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
                              vec 700000)
-        @?= 5.149610997592684e-2
+        @?= (5.149610997592684e-2,3.90625e-4)
         -- 61 1000000 not enough for 20, 101 700000 enough
   , testCase "Separated (-1, 1) 42 8 31 10000" $ do
       let samples = wsFitSeparated (-1, 1) 42 8
           vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
       snd (gradDescSmartShow (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
                              vec 10000)
-        @?= 1.832621758590325e-2
+        @?= (1.832621758590325e-2,1.25e-2)
   , testCase "Separated (-1, 1) 42 10 31 100000" $ do
       let samples = wsFitSeparated (-1, 1) 42 10
           vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
       snd (gradDescSmartShow (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
                              vec 100000)
-        @?= 2.6495249749522148e-2
+        @?= (2.6495249749522148e-2,3.125e-3)
   , testCase "Separated (-1, 1) 42 16 61 100000" $ do
       let samples = wsFitSeparated (-1, 1) 42 16
           vec = V.unfoldrExactN 61 (uniformR (-1, 1)) $ mkStdGen 33
       snd (gradDescSmartShow (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
                              vec 100000)
-        @?= 1.8617700399788891e-3
+        @?= (1.8617700399788891e-3,3.125e-3)
   , testCase "Separated (-1, 1) 42 24 61 1300000" $ do
       let samples = wsFitSeparated (-1, 1) 42 24
           vec = V.unfoldrExactN 61 (uniformR (-1, 1)) $ mkStdGen 33
       snd (gradDescSmartShow (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
                              vec 1300000)
-        @?= 1.0411445668840221e-2
+        @?= (1.0411445668840221e-2,3.125e-3)
         -- this faster, but less accurate than 101 1000000
         -- 151 700000 is not enough
   ]
