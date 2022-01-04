@@ -250,14 +250,26 @@ nnFitLossTotal factivationHidden factivationOutput samples vec = do
 -- We will use this with fixes known good seeds, so we don't care
 -- whether any first element of the pair (nearly) repeats,
 -- creating (nearly) unsatisfiable samples.
+--
+-- Alas, this happens too often and is hard to pinpoint
 wsFit :: (Float, Float) -> Int -> Int
       -> Data.Vector.Unboxed.Vector (Float, Float)
 wsFit range seed k =
-  let rolls :: RandomGen g
-            => Int -> g -> Data.Vector.Unboxed.Vector Float
-      rolls n = V.unfoldrExactN n (uniformR range)
+  let rolls :: RandomGen g => g -> Data.Vector.Unboxed.Vector Float
+      rolls = V.unfoldrExactN k (uniformR range)
       (g1, g2) = split $ mkStdGen seed
-  in V.zip (rolls k g1) (rolls k g2)
+  in V.zip (rolls g1) (rolls g2)
+
+wsFitSeparated :: (Float, Float) -> Int -> Int
+               -> Data.Vector.Unboxed.Vector (Float, Float)
+wsFitSeparated range@(low, hi) seed k =
+  let rolls :: RandomGen g => g -> Data.Vector.Unboxed.Vector Float
+      rolls = V.unfoldrExactN k (uniformR range)
+      width = hi - low
+      steps = V.generate k (\n ->
+        low + fromIntegral n * width / (fromIntegral k - 1))
+      g = mkStdGen seed
+  in V.zip steps (rolls g)
 
 fitTests :: TestTree
 fitTests = testGroup "Sample fitting fully connected neural net tests"
@@ -280,6 +292,28 @@ fitTests = testGroup "Sample fitting fully connected neural net tests"
           vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
       snd (gradDescShow 0.01 (nnFitLossTotal tanhAct tanhAct samples) vec 100000)
         @?= 0.11910388  -- 10 seems to be the limit for this data
+  , testCase "wsFitSeparated (-1, 1) 42 10" $
+      V.toList (wsFitSeparated (-1, 1) 42 20) @?= [(-1.0,-0.533108),(-0.8947368,0.89127314),(-0.78947365,-0.22217941),(-0.68421054,0.25622618),(-0.57894737,7.7941775e-2),(-0.4736842,0.38453794),(-0.36842108,-0.60279465),(-0.2631579,0.47347665),(-0.15789473,0.39216015),(-5.2631557e-2,-2.6791573e-2),(5.2631617e-2,-8.326125e-2),(0.15789473,-6.933606e-2),(0.26315784,-0.7554468),(0.36842108,-0.17885447),(0.4736842,-0.49340177),(0.5789474,0.47034466),(0.68421054,-0.37681377),(0.78947365,-0.982054),(0.8947369,0.6628231),(1.0,4.3375194e-3)]
+  , testCase "Separated (-1, 1) 42 7 31 0.1 10000" $ do
+      let samples = wsFitSeparated (-1, 1) 42 8
+          vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescShow 0.1 (nnFitLossTotal tanhAct tanhAct samples) vec 10000)
+        @?= 1.8856211
+  , testCase "Separated (-1, 1) 42 9 31 0.01 100000" $ do
+      let samples = wsFitSeparated (-1, 1) 42 9
+          vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescShow 0.01 (nnFitLossTotal tanhAct tanhAct samples) vec 100000)
+        @?= 8.3821e-9
+  , testCase "Separated (-1, 1) 42 10 31 0.01 100000" $ do
+      let samples = wsFitSeparated (-1, 1) 42 10
+          vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescShow 0.01 (nnFitLossTotal tanhAct tanhAct samples) vec 100000)
+        @?= 1.6819966e-8
+  , testCase "Separated (-1, 1) 42 16 31 0.01 100000" $ do
+      let samples = wsFitSeparated (-1, 1) 42 16
+          vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescShow 0.01 (nnFitLossTotal tanhAct tanhAct samples) vec 100000)
+        @?= 0.3413926
   ]
 
 middleLayerFit2 :: (DualDelta -> DeltaMonad DualDelta)
@@ -334,7 +368,7 @@ nnFit2LossTotal factivationHidden factivationMiddle factivationOutput
   V.foldM' f (scalar 0) samples
 
 fit2Tests :: TestTree
-fit2Tests = testGroup "Sample fitting 2 hidded layer fc nn tests"
+fit2Tests = testGroup "Sample fitting 2 hidden layer fc nn tests"
   [ testCase "tanhAct tanhAct (-1, 1) 42 7 31 0.1 10000" $ do
       let samples = wsFit (-1, 1) 42 8
           vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
@@ -347,7 +381,7 @@ fit2Tests = testGroup "Sample fitting 2 hidded layer fc nn tests"
       snd (gradDescShow 0.01 (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
                         vec 100000)
         @?= 3.8852803e-2
-  , testCase "tanhAct tanhAct (-1, 1) 42 16 61 0.01 700000" $ do
+  , testCase "tanhAct tanhAct (-1, 1) 42 16 61 0.01 100000" $ do
       -- With 1 layer, adding hidden layer neurons above the number
       -- of samples didn't help. Here it helps to an extent,
       -- if iterations go up as well, considerably but not yet outrageously
@@ -355,8 +389,32 @@ fit2Tests = testGroup "Sample fitting 2 hidded layer fc nn tests"
       let samples = wsFit (-1, 1) 42 16
           vec = V.unfoldrExactN 61 (uniformR (-1, 1)) $ mkStdGen 33
       snd (gradDescShow 0.01 (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
-                        vec 700000)
-        @?= 0.100869074  -- 16 seems to be the limit for this data
+                        vec 100000)  -- 700000 needed to get close
+        @?= 0.28223497  -- 16 seems to be the limit for this data
+  , testCase "Separated (-1, 1) 42 7 31 0.1 10000" $ do
+      let samples = wsFitSeparated (-1, 1) 42 8
+          vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescShow 0.1 (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
+                        vec 10000)
+        @?= 1.4805155
+  , testCase "Separated (-1, 1) 42 9 31 0.01 100000" $ do
+      let samples = wsFitSeparated (-1, 1) 42 9
+          vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescShow 0.01 (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
+                        vec 100000)
+        @?= 1.6218979e-2
+  , testCase "Separated (-1, 1) 42 16 61 0.01 100000" $ do
+      let samples = wsFitSeparated (-1, 1) 42 16
+          vec = V.unfoldrExactN 61 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescShow 0.01 (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
+                        vec 100000)
+        @?= 2.2715058e-3
+  , testCase "Separated (-1, 1) 42 20 61 0.01 100000" $ do
+      let samples = wsFitSeparated (-1, 1) 42 20
+          vec = V.unfoldrExactN 61 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescShow 0.01 (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
+                        vec 100000)
+        @?= 0.8966881
   ]
 
 -- Based on @gradientDescent@ from package @ad@ which is in turn based
@@ -403,6 +461,8 @@ gradDescSmartShow f initVec n =
 -- However, adding neurons doesn't help (without huge increases of iterations).
 -- The fact that results are worse than when freely overshooting
 -- suggests there are local minima, which confirms too low dimensionality.
+--
+-- The experiments with separated samples seem to confirm both hypotheses.
 smartFitTests :: TestTree
 smartFitTests = testGroup "Sample fitting smart descent fc nn tests"
   [ testCase "tanhAct tanhAct (-1, 1) 42 7 31 10000" $ do
@@ -423,11 +483,35 @@ smartFitTests = testGroup "Sample fitting smart descent fc nn tests"
       snd (gradDescSmartShow (nnFitLossTotal tanhAct tanhAct samples)
                              vec 100000)
         @?= (0.12360282,3.0517579e-6)
+  , testCase "Separated (-1, 1) 42 7 31 10000" $ do
+      let samples = wsFitSeparated (-1, 1) 42 8
+          vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescSmartShow (nnFitLossTotal tanhAct tanhAct samples)
+                             vec 10000)
+        @?= (0.1171444,5.0e-2)
+  , testCase "Separated (-1, 1) 42 9 31 100000" $ do
+      let samples = wsFitSeparated (-1, 1) 42 9
+          vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescSmartShow (nnFitLossTotal tanhAct tanhAct samples)
+                             vec 100000)
+        @?= (3.2441253e-6,1.953125e-4)
+  , testCase "Separated (-1, 1) 42 10 31 100000" $ do
+      let samples = wsFitSeparated (-1, 1) 42 10
+          vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescSmartShow (nnFitLossTotal tanhAct tanhAct samples)
+                             vec 100000)
+        @?= (3.2457123e-5,2.4414063e-5)
+  , testCase "Separated (-1, 1) 42 16 31 100000" $ do
+      let samples = wsFitSeparated (-1, 1) 42 16
+          vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescSmartShow (nnFitLossTotal tanhAct tanhAct samples)
+                             vec 100000)
+        @?= (0.40494907,6.1035157e-6)
   ]
 
 smartFit2Tests :: TestTree
 smartFit2Tests =
- testGroup "Sample fitting smart descent 2 hidded layer fc nn tests"
+ testGroup "Sample fitting smart descent 2 hidden layer fc nn tests"
   [ testCase "tanhAct tanhAct (-1, 1) 42 7 31 10000" $ do
       let samples = wsFit (-1, 1) 42 8
           vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
@@ -440,10 +524,34 @@ smartFit2Tests =
       snd (gradDescSmartShow (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
                              vec 100000)
         @?= (5.852994e-2,3.0517579e-6)
-  , testCase "tanhAct tanhAct (-1, 1) 42 16 61 700000" $ do
+  , testCase "tanhAct tanhAct (-1, 1) 42 16 61 100000" $ do
       let samples = wsFit (-1, 1) 42 16
           vec = V.unfoldrExactN 61 (uniformR (-1, 1)) $ mkStdGen 33
       snd (gradDescSmartShow (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
-                             vec 700000)
-        @?= (1.8046868,7.6293946e-7)
+                             vec 100000)  -- 700000 needed to get close
+        @?= (1.8046868,3.8146973e-7)
+  , testCase "Separated (-1, 1) 42 7 31 10000" $ do
+      let samples = wsFitSeparated (-1, 1) 42 8
+          vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescSmartShow (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
+                             vec 10000)
+        @?= (5.3525884e-2,5.0e-2)
+  , testCase "Separated (-1, 1) 42 9 31 100000" $ do
+      let samples = wsFitSeparated (-1, 1) 42 9
+          vec = V.unfoldrExactN 31 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescSmartShow (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
+                             vec 100000)
+        @?= (1.450565e-7,2.4414063e-5)
+  , testCase "Separated (-1, 1) 42 16 61 100000" $ do
+      let samples = wsFitSeparated (-1, 1) 42 16
+          vec = V.unfoldrExactN 61 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescSmartShow (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
+                             vec 100000)
+        @?= (1.789534e-4,1.2207031e-5)
+  , testCase "Separated (-1, 1) 42 20 61 100000" $ do
+      let samples = wsFitSeparated (-1, 1) 42 20
+          vec = V.unfoldrExactN 61 (uniformR (-1, 1)) $ mkStdGen 33
+      snd (gradDescSmartShow (nnFit2LossTotal tanhAct tanhAct tanhAct samples)
+                             vec 100000)
+        @?= (1.0836166,1.5258789e-6)
   ]
