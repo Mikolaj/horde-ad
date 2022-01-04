@@ -7,6 +7,7 @@ import           Control.Arrow (first)
 import           Data.Reflection (Reifies)
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
+import qualified Data.Vector.Unboxed
 import           Numeric.AD hiding (diff)
 import           Numeric.AD.Internal.Reverse (Tape)
 import           Numeric.AD.Mode.Reverse hiding (diff)
@@ -210,7 +211,7 @@ nnFitLoss factivationHidden factivationOutput x res vec =
 nnFitLossTotal :: forall s. Reifies s Tape
                => (Reverse s Double -> Reverse s Double)
                -> (Reverse s Double -> Reverse s Double)
-               -> Data.Vector.Vector (Double, Double)
+               -> Data.Vector.Unboxed.Vector (Double, Double)
                -> Domain (Reverse s Double)
                -> Reverse s Double
 nnFitLossTotal factivationHidden factivationOutput samples vec =
@@ -232,18 +233,18 @@ nnFitLossTotal factivationHidden factivationOutput samples vec =
 -- and now more old tests pass and new tests pass with more CPU
 -- usage that couldn't pass with floats no matter what, due to numeric errors.
 wsFit :: (Float, Float) -> Int -> Int
-      -> Data.Vector.Vector (Double, Double)
+      -> Data.Vector.Unboxed.Vector (Double, Double)
 wsFit range seed k =
-  let rolls :: RandomGen g => g -> Data.Vector.Vector Double
+  let rolls :: RandomGen g => g -> Data.Vector.Unboxed.Vector Double
       rolls = V.unfoldrExactN k (first realToFrac . uniformR range)
       (g1, g2) = split $ mkStdGen seed
   in V.zip (rolls g1) (rolls g2)
 
 -- Here a huge separation is ensured.
 wsFitSeparated :: (Double, Double) -> Int -> Int
-               -> Data.Vector.Vector (Double, Double)
+               -> Data.Vector.Unboxed.Vector (Double, Double)
 wsFitSeparated range@(low, hi) seed k =
-  let rolls :: RandomGen g => g -> Data.Vector.Vector Double
+  let rolls :: RandomGen g => g -> Data.Vector.Unboxed.Vector Double
       rolls = V.unfoldrExactN k (uniformR range)
       width = hi - low
       steps = V.generate k (\n ->
@@ -333,7 +334,7 @@ nnFit2LossTotal :: forall s. Reifies s Tape
                 => (Reverse s Double -> Reverse s Double)
                 -> (Reverse s Double -> Reverse s Double)
                 -> (Reverse s Double -> Reverse s Double)
-                -> Data.Vector.Vector (Double, Double)
+                -> Data.Vector.Unboxed.Vector (Double, Double)
                 -> Domain (Reverse s Double)
                 -> (Reverse s Double)
 nnFit2LossTotal factivationHidden factivationMiddle factivationOutput
