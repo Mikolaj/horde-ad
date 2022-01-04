@@ -142,53 +142,55 @@ gradDesc gamma f n0 params0 = go n0 params0 where
         paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
     in go (pred n) paramsNew
 
-(*\) :: DualDelta -> DualDelta -> DeltaMonad DualDelta
+(*\) :: Num r => DualDeltaR r -> DualDeltaR r -> DeltaMonadR r (DualDeltaR r)
 (*\) (D u u') (D v v') = do
   d <- dlet $ Add (Scale v u') (Scale u v')
   return $! D (u * v) (Var d)
 
-(+\) :: DualDelta -> DualDelta -> DeltaMonad DualDelta
+(+\) :: Num r => DualDeltaR r -> DualDeltaR r -> DeltaMonadR r (DualDeltaR r)
 (+\) (D u u') (D v v') = do
   d <- dlet $ Add u' v'
   return $! D (u + v) (Var d)
 
-(-\) :: DualDelta -> DualDelta -> DeltaMonad DualDelta
+(-\) :: Num r => DualDeltaR r -> DualDeltaR r -> DeltaMonadR r (DualDeltaR r)
 (-\) (D u u') (D v v') = do
   d <- dlet $ Add u' (Scale (-1) v')
   return $! D (u - v) (Var d)
 
-(**\) :: DualDelta -> DualDelta -> DeltaMonad DualDelta
+(**\) :: Floating r
+      => DualDeltaR r -> DualDeltaR r -> DeltaMonadR r (DualDeltaR r)
 (**\) (D u u') (D v v') = do
   d <- dlet $ Add (Scale (v * (u ** (v - 1))) u')
                   (Scale ((u ** v) * log u) v')
   return $! D (u ** v) (Var d)
 
-scalar :: Float -> DualDelta
+scalar :: r -> DualDeltaR r
 scalar k = D k Zero
 
-scale :: Float -> DualDelta -> DeltaMonad DualDelta
+scale :: Num r => r -> DualDeltaR r -> DeltaMonadR r (DualDeltaR r)
 scale k (D u u') = do
   d <- dlet $ Scale k u'
   return $! D (k * u) (Var d)
 
-tanhAct :: DualDelta -> DeltaMonad DualDelta
+tanhAct :: Floating r => DualDeltaR r -> DeltaMonadR r (DualDeltaR r)
 tanhAct (D u u') = do
   let y = tanh u
   d <- dlet $ Scale (1 - y * y) u'
   return $! D y (Var d)
 
-reluAct :: DualDelta -> DeltaMonad DualDelta
+reluAct :: (Num r, Ord r) => DualDeltaR r -> DeltaMonadR r (DualDeltaR r)
 reluAct (D u u') = do
   d <- dlet $ Scale (if u > 0 then 1 else 0) u'
   return $! D (max 0 u) (Var d)
 
-scaleAddVecWithBias :: Data.Vector.Vector DualDelta
+scaleAddVecWithBias :: forall r. (Num r, Data.Vector.Unboxed.Unbox r)
+                    => Data.Vector.Vector (DualDeltaR r)
                     -> Int
-                    -> VecDualDelta
-                    -> DeltaMonad DualDelta
+                    -> VecDualDeltaR r
+                    -> DeltaMonadR r (DualDeltaR r)
 scaleAddVecWithBias xs offset vec = do
   let bias = var offset vec
-      f :: DualDelta -> Int -> DualDelta -> DualDelta
+      f :: (DualDeltaR r) -> Int -> (DualDeltaR r) -> (DualDeltaR r)
       f (D acc acc') i (D u u') =
         let (D v v') = var (offset + 1 + i) vec
         in D (acc + u * v) (Add acc' (Add (Scale v u') (Scale u v')))

@@ -21,14 +21,16 @@ dfShow f deltaInput =
   let (results, value) = df f (V.fromList deltaInput)
   in (V.toList results, value)
 
-gradDescShow :: Float
-             -> (VecDualDelta -> DeltaMonad DualDelta)
-             -> Domain Float
+gradDescShow :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+             => r
+             -> (VecDualDeltaR r -> DeltaMonadR r (DualDeltaR r))
+             -> Domain r
              -> Int
-             -> ([Float], Float)
+             -> ([r], r)
 gradDescShow gamma f initVec n =
-  let res = V.toList $ gradDesc gamma f n initVec
-  in (res, snd $ dfShow f res)
+  let res = gradDesc gamma f n initVec
+      (_, value) = df f res
+  in (V.toList res, value)
 
 tests :: TestTree
 tests = testGroup "Tests" [ dfTests
@@ -147,7 +149,7 @@ nnXor factivation x y vec = do
   n2 <- neuron factivation x y 3 vec
   neuron factivation n1 n2 6 vec
 
-lossSquared :: DualDelta -> Float -> DeltaMonad DualDelta
+lossSquared :: Num r => DualDeltaR r -> r -> DeltaMonadR r (DualDeltaR r)
 lossSquared u res = do
   diff <- u -\ (scalar res)
   diff *\ diff
@@ -194,13 +196,19 @@ xorTests = testGroup "XOR neural net tests"
       @?= ([-1.2425352,2.6025252,0.13252532,-1.5821311,1.7432425,-0.72675747,-1.7345629,1.9154371,-0.42541993],2.0)
   ]
 
-hiddenLayerFit :: (DualDelta -> DeltaMonad DualDelta)
-               -> Float
-               -> VecDualDelta
+type DualDeltaD = DualDeltaR Double
+
+type VecDualDeltaD = VecDualDeltaR Double
+
+type DeltaMonadD = DeltaMonadR Double
+
+hiddenLayerFit :: (DualDeltaD -> DeltaMonadD DualDeltaD)
+               -> Double
+               -> VecDualDeltaD
                -> Int
-               -> DeltaMonad (Data.Vector.Vector DualDelta)
+               -> DeltaMonadD (Data.Vector.Vector DualDeltaD)
 hiddenLayerFit factivation x vec width = do
-  let f :: Int -> DeltaMonad DualDelta
+  let f :: Int -> DeltaMonadD DualDeltaD
       f i = do
         let weight = var (2 * i) vec
             bias = var (2 * i + 1) vec
@@ -209,18 +217,18 @@ hiddenLayerFit factivation x vec width = do
         factivation sxBias
   V.generateM width f
 
-outputLayerFit :: (DualDelta -> DeltaMonad DualDelta)
-               -> Data.Vector.Vector DualDelta
+outputLayerFit :: (DualDeltaD -> DeltaMonadD DualDeltaD)
+               -> Data.Vector.Vector DualDeltaD
                -> Int
-               -> VecDualDelta
-               -> DeltaMonad DualDelta
+               -> VecDualDeltaD
+               -> DeltaMonadD DualDeltaD
 outputLayerFit factivation hiddenVec offset vec = do
   outSum <- scaleAddVecWithBias hiddenVec offset vec
   factivation outSum
 
-nnFit :: (DualDelta -> DeltaMonad DualDelta)
-      -> (DualDelta -> DeltaMonad DualDelta)
-      -> Float -> VecDualDelta -> DeltaMonad DualDelta
+nnFit :: (DualDeltaD -> DeltaMonadD DualDeltaD)
+      -> (DualDeltaD -> DeltaMonadD DualDeltaD)
+      -> Double -> VecDualDeltaD -> DeltaMonadD DualDeltaD
 nnFit factivationHidden factivationOutput x vec = do
   -- One bias of the outer layer, a list of weights of the outer layer,
   -- a list of the same length of weights and biases of the hidden layer.
@@ -228,20 +236,20 @@ nnFit factivationHidden factivationOutput x vec = do
   hiddenVec <- hiddenLayerFit factivationHidden x vec width
   outputLayerFit factivationOutput hiddenVec (2 * width) vec
 
-nnFitLoss :: (DualDelta -> DeltaMonad DualDelta)
-          -> (DualDelta -> DeltaMonad DualDelta)
-          -> Float -> Float -> VecDualDelta -> DeltaMonad DualDelta
+nnFitLoss :: (DualDeltaD -> DeltaMonadD DualDeltaD)
+          -> (DualDeltaD -> DeltaMonadD DualDeltaD)
+          -> Double -> Double -> VecDualDeltaD -> DeltaMonadD DualDeltaD
 nnFitLoss factivationHidden factivationOutput x res vec = do
   r <- nnFit factivationHidden factivationOutput x vec
   lossSquared r res
 
-nnFitLossTotal :: (DualDelta -> DeltaMonad DualDelta)
-               -> (DualDelta -> DeltaMonad DualDelta)
-               -> Data.Vector.Unboxed.Vector (Float, Float)
-               -> VecDualDelta
-               -> DeltaMonad DualDelta
+nnFitLossTotal :: (DualDeltaD -> DeltaMonadD DualDeltaD)
+               -> (DualDeltaD -> DeltaMonadD DualDeltaD)
+               -> Data.Vector.Unboxed.Vector (Double, Double)
+               -> VecDualDeltaD
+               -> DeltaMonadD DualDeltaD
 nnFitLossTotal factivationHidden factivationOutput samples vec = do
-  let f :: DualDelta -> (Float, Float) -> DeltaMonad DualDelta
+  let f :: DualDeltaD -> (Double, Double) -> DeltaMonadD DualDeltaD
       f (D acc acc') (x, res) = do
         D fl fl' <- nnFitLoss factivationHidden factivationOutput x res vec
         return $! D (acc + fl) (Add acc' fl')
@@ -252,18 +260,18 @@ nnFitLossTotal factivationHidden factivationOutput samples vec = do
 -- creating (nearly) unsatisfiable samples.
 --
 -- Alas, this happens too often and is hard to pinpoint
-wsFit :: (Float, Float) -> Int -> Int
-      -> Data.Vector.Unboxed.Vector (Float, Float)
+wsFit :: (Double, Double) -> Int -> Int
+      -> Data.Vector.Unboxed.Vector (Double, Double)
 wsFit range seed k =
-  let rolls :: RandomGen g => g -> Data.Vector.Unboxed.Vector Float
+  let rolls :: RandomGen g => g -> Data.Vector.Unboxed.Vector Double
       rolls = V.unfoldrExactN k (uniformR range)
       (g1, g2) = split $ mkStdGen seed
   in V.zip (rolls g1) (rolls g2)
 
-wsFitSeparated :: (Float, Float) -> Int -> Int
-               -> Data.Vector.Unboxed.Vector (Float, Float)
+wsFitSeparated :: (Double, Double) -> Int -> Int
+               -> Data.Vector.Unboxed.Vector (Double, Double)
 wsFitSeparated range@(low, hi) seed k =
-  let rolls :: RandomGen g => g -> Data.Vector.Unboxed.Vector Float
+  let rolls :: RandomGen g => g -> Data.Vector.Unboxed.Vector Double
       rolls = V.unfoldrExactN k (uniformR range)
       width = hi - low
       steps = V.generate k (\n ->
@@ -316,13 +324,13 @@ fitTests = testGroup "Sample fitting fully connected neural net tests"
         @?= 0.3413926
   ]
 
-middleLayerFit2 :: (DualDelta -> DeltaMonad DualDelta)
-                -> Data.Vector.Vector DualDelta
+middleLayerFit2 :: (DualDeltaD -> DeltaMonadD DualDeltaD)
+                -> Data.Vector.Vector DualDeltaD
                 -> Int
-                -> VecDualDelta
-                -> DeltaMonad (Data.Vector.Vector DualDelta)
+                -> VecDualDeltaD
+                -> DeltaMonadD (Data.Vector.Vector DualDeltaD)
 middleLayerFit2 factivation hiddenVec offset vec = do
-  let f :: Int -> DualDelta -> DeltaMonad DualDelta
+  let f :: Int -> DualDeltaD -> DeltaMonadD DualDeltaD
       f i x = do
         let weight = var (offset + 2 * i) vec
             bias = var (offset + 1 + 2 * i) vec
@@ -331,10 +339,10 @@ middleLayerFit2 factivation hiddenVec offset vec = do
         factivation sxBias
   V.imapM f hiddenVec
 
-nnFit2 :: (DualDelta -> DeltaMonad DualDelta)
-       -> (DualDelta -> DeltaMonad DualDelta)
-       -> (DualDelta -> DeltaMonad DualDelta)
-       -> Float -> VecDualDelta -> DeltaMonad DualDelta
+nnFit2 :: (DualDeltaD -> DeltaMonadD DualDeltaD)
+       -> (DualDeltaD -> DeltaMonadD DualDeltaD)
+       -> (DualDeltaD -> DeltaMonadD DualDeltaD)
+       -> Double -> VecDualDeltaD -> DeltaMonadD DualDeltaD
 nnFit2 factivationHidden factivationMiddle factivationOutput x vec = do
   -- One bias of the outer layer, a list of weights of the outer layer,
   -- a list of the same length of weights and biases of the hidden layer.
@@ -343,23 +351,23 @@ nnFit2 factivationHidden factivationMiddle factivationOutput x vec = do
   middleVec <- middleLayerFit2 factivationMiddle hiddenVec (2 * width) vec
   outputLayerFit factivationOutput middleVec (4 * width) vec
 
-nnFit2Loss :: (DualDelta -> DeltaMonad DualDelta)
-           -> (DualDelta -> DeltaMonad DualDelta)
-           -> (DualDelta -> DeltaMonad DualDelta)
-           -> Float -> Float -> VecDualDelta -> DeltaMonad DualDelta
+nnFit2Loss :: (DualDeltaD -> DeltaMonadD DualDeltaD)
+           -> (DualDeltaD -> DeltaMonadD DualDeltaD)
+           -> (DualDeltaD -> DeltaMonadD DualDeltaD)
+           -> Double -> Double -> VecDualDeltaD -> DeltaMonadD DualDeltaD
 nnFit2Loss factivationHidden factivationMiddle factivationOutput x res vec = do
   r <- nnFit2 factivationHidden factivationMiddle factivationOutput x vec
   lossSquared r res
 
-nnFit2LossTotal :: (DualDelta -> DeltaMonad DualDelta)
-                -> (DualDelta -> DeltaMonad DualDelta)
-                -> (DualDelta -> DeltaMonad DualDelta)
-                -> Data.Vector.Unboxed.Vector (Float, Float)
-                -> VecDualDelta
-                -> DeltaMonad DualDelta
+nnFit2LossTotal :: (DualDeltaD -> DeltaMonadD DualDeltaD)
+                -> (DualDeltaD -> DeltaMonadD DualDeltaD)
+                -> (DualDeltaD -> DeltaMonadD DualDeltaD)
+                -> Data.Vector.Unboxed.Vector (Double, Double)
+                -> VecDualDeltaD
+                -> DeltaMonadD DualDeltaD
 nnFit2LossTotal factivationHidden factivationMiddle factivationOutput
                 samples vec = do
-  let f :: DualDelta -> (Float, Float) -> DeltaMonad DualDelta
+  let f :: DualDeltaD -> (Double, Double) -> DeltaMonadD DualDeltaD
       f (D acc acc') (x, res) = do
         D fl fl' <-
           nnFit2Loss factivationHidden factivationMiddle factivationOutput
@@ -446,14 +454,14 @@ gradDescSmart f n0 params0 = go n0 params0 0.1 gradient0 value0 0 where
           | i == 10 -> go (pred n) paramsNew (gamma * 2) gradient value 0
           | otherwise -> go (pred n) paramsNew gamma gradient value (i + 1)
 
-gradDescSmartShow :: (VecDualDelta -> DeltaMonad DualDelta)
-                  -> Domain Float
+gradDescSmartShow :: (VecDualDeltaD -> DeltaMonadD DualDeltaD)
+                  -> Domain Double
                   -> Int
-                  -> ([Float], (Float, Float))
+                  -> ([Double], (Double, Double))
 gradDescSmartShow f initVec n =
   let (res, gamma) = gradDescSmart f n initVec
-      l = V.toList $ res
-  in (l, (snd $ dfShow f l, gamma))
+      (_, value) = df f res
+  in (V.toList res, (value, gamma))
 
 -- It seems the approximation overshoots all the time and makes smaller
 -- and smaller steps, getting nowhere. This probably means
