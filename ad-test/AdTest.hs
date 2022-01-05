@@ -133,7 +133,7 @@ ws2 = let w = [-1.37, 2.28, -0.19] in V.fromList $ w ++ w ++ w
 -- The values below are copied from the other tests to compare results
 -- They seem to be pretty close.
 adXorTests :: TestTree
-adXorTests = testGroup "XOR neural net tests (3 errors are expected)"
+adXorTests = testGroup "XOR neural net tests (errors are expected here and in all latter tests, because expected results come from the main library (the difference is usually tiny, due to floating point arithmetics))"
   [ testCase "0.1 tanhAct ws 500"
     $ gradDescShow 0.1 (nnXorLossTotal tanhAct) ws 500
       @?= ([2.256964,2.255974,-0.6184606,0.943269,0.9431414,-1.2784432,1.805072,-1.9925138,-0.704399],1.20509565e-2)
