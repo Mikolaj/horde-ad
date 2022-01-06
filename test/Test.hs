@@ -25,12 +25,6 @@ tests = testGroup "Tests" [ dfTests
                           , smartFit2Tests
                           ]
 
-type DualDeltaF = DualDelta Float
-
-type VecDualDeltaF = VecDualDelta Float
-
-type DeltaMonadF = DeltaMonad Float
-
 dfShow :: (VecDualDeltaF -> DeltaMonadF DualDeltaF)
        -> [Float]
        -> ([Float], Float)
@@ -202,12 +196,6 @@ xorTests = testGroup "XOR neural net tests"
     $ gradDescShow 0.1 (nnXorLossTotal reluAct) ws2 50000  -- no cookie
       @?= ([-1.2425352,2.6025252,0.13252532,-1.5821311,1.7432425,-0.72675747,-1.7345629,1.9154371,-0.42541993],2.0)
   ]
-
-type DualDeltaD = DualDelta Double
-
-type VecDualDeltaD = VecDualDelta Double
-
-type DeltaMonadD = DeltaMonad Double
 
 hiddenLayerFit :: (DualDeltaD -> DeltaMonadD DualDeltaD)
                -> Double
@@ -420,35 +408,6 @@ fit2Tests = testGroup "Sample fitting 2 hidden layer fc nn tests"
   , gradDescSeparatedTestCase
       (nnFit2LossTotal tanhAct) 42 16 61 0.01 100000 1.9398514673723763e-2
   ]
-
--- Based on @gradientDescent@ from package @ad@ which is in turn based
--- on the one from the VLAD compiler.
-gradDescSmart :: forall r . (Ord r, Fractional r, Data.Vector.Unboxed.Unbox r)
-              => (VecDualDelta r -> DeltaMonad r (DualDelta r))
-              -> Int
-              -> Domain r
-              -> (Domain' r, r)
-gradDescSmart f n0 params0 = go n0 params0 0.1 gradient0 value0 0 where
-  dim = V.length params0
-  vVar = V.generate dim (Var . DeltaId)
-  initVars0 :: (VecDualDelta r, Int)
-  initVars0 = ((params0, vVar), dim)
-  (gradient0, value0) = generalDf (const initVars0) evalBindingsV f params0
-  go :: Int -> Domain r -> r -> Domain r -> r -> Int -> (Domain' r, r)
-  go 0 !params !gamma _gradientPrev _valuePrev !_i = (params, gamma)
-  go _ params 0 _ _ _ = (params, 0)
-  go n params gamma gradientPrev valuePrev i =
-    -- The trick is that we use the previous gradient here,
-    -- and the new gradient is only computed by accident together
-    -- with the new value that is needed now to revert if we overshoot.
-    let paramsNew = V.zipWith (\p r -> p - gamma * r) params gradientPrev
-        initVars = ((paramsNew, vVar), dim)
-        (gradient, value) = generalDf (const initVars) evalBindingsV f paramsNew
-    in if | V.all (== 0) gradientPrev -> (params, gamma)
-          | value > valuePrev ->
-              go n params (gamma / 2) gradientPrev valuePrev 0  -- overshot
-          | i == 10 -> go (pred n) paramsNew (gamma * 2) gradient value 0
-          | otherwise -> go (pred n) paramsNew gamma gradient value (i + 1)
 
 gradDescSmartShow :: (VecDualDeltaD -> DeltaMonadD DualDeltaD)
                   -> Domain Double

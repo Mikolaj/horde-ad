@@ -136,6 +136,35 @@ gradDesc gamma f n0 params0 = go n0 params0 where
         paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
     in go (pred n) paramsNew
 
+-- Based on @gradientDescent@ from package @ad@ which is in turn based
+-- on the one from the VLAD compiler.
+gradDescSmart :: forall r . (Ord r, Fractional r, Data.Vector.Unboxed.Unbox r)
+              => (VecDualDelta r -> DeltaMonad r (DualDelta r))
+              -> Int
+              -> Domain r
+              -> (Domain' r, r)
+gradDescSmart f n0 params0 = go n0 params0 0.1 gradient0 value0 0 where
+  dim = V.length params0
+  vVar = V.generate dim (Var . DeltaId)
+  initVars0 :: (VecDualDelta r, Int)
+  initVars0 = ((params0, vVar), dim)
+  (gradient0, value0) = generalDf (const initVars0) evalBindingsV f params0
+  go :: Int -> Domain r -> r -> Domain r -> r -> Int -> (Domain' r, r)
+  go 0 !params !gamma _gradientPrev _valuePrev !_i = (params, gamma)
+  go _ params 0 _ _ _ = (params, 0)
+  go n params gamma gradientPrev valuePrev i =
+    -- The trick is that we use the previous gradient here,
+    -- and the new gradient is only computed by accident together
+    -- with the new value that is needed now to revert if we overshoot.
+    let paramsNew = V.zipWith (\p r -> p - gamma * r) params gradientPrev
+        initVars = ((paramsNew, vVar), dim)
+        (gradient, value) = generalDf (const initVars) evalBindingsV f paramsNew
+    in if | V.all (== 0) gradientPrev -> (params, gamma)
+          | value > valuePrev ->
+              go n params (gamma / 2) gradientPrev valuePrev 0  -- overshot
+          | i == 10 -> go (pred n) paramsNew (gamma * 2) gradient value 0
+          | otherwise -> go (pred n) paramsNew gamma gradient value (i + 1)
+
 (*\) :: Num r => DualDelta r -> DualDelta r -> DeltaMonad r (DualDelta r)
 (*\) (D u u') (D v v') = do
   d <- dlet $ Add (Scale v u') (Scale u v')
@@ -192,6 +221,17 @@ scaleAddVecWithBias xs offset vec = do
   d <- dlet xsum'
   return $! D xsum (Var d)
 
+type DualDeltaF = DualDelta Float
+
+type VecDualDeltaF = VecDualDelta Float
+
+type DeltaMonadF = DeltaMonad Float
+
+type DualDeltaD = DualDelta Double
+
+type VecDualDeltaD = VecDualDelta Double
+
+type DeltaMonadD = DeltaMonad Double
 
 
 
@@ -199,8 +239,6 @@ scaleAddVecWithBias xs offset vec = do
 
 
 
-
--- higher order types of vars
 -- recursion and recursive types
 -- selective fusion of delta (for individual subfunctions: pre-computing,
 --   inlining results and simplifying delta-expressions; the usual inlining
