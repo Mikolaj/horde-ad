@@ -15,24 +15,6 @@ import AD
 main :: IO ()
 main = defaultMain tests
 
-dfShow :: (VecDualDelta -> DeltaMonad DualDelta)
-       -> [Float]
-       -> ([Float], Float)
-dfShow f deltaInput =
-  let (results, value) = df f (V.fromList deltaInput)
-  in (V.toList results, value)
-
-gradDescShow :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
-             => r
-             -> (VecDualDeltaR r -> DeltaMonadR r (DualDeltaR r))
-             -> Domain r
-             -> Int
-             -> ([r], r)
-gradDescShow gamma f initVec n =
-  let res = gradDesc gamma f n initVec
-      (_, value) = df f res
-  in (V.toList res, value)
-
 tests :: TestTree
 tests = testGroup "Tests" [ dfTests
                           , gradDescTests
@@ -43,26 +25,50 @@ tests = testGroup "Tests" [ dfTests
                           , smartFit2Tests
                           ]
 
-fX :: VecDualDelta -> DeltaMonad DualDelta
+type DualDeltaF = DualDelta Float
+
+type VecDualDeltaF = VecDualDelta Float
+
+type DeltaMonadF = DeltaMonad Float
+
+dfShow :: (VecDualDeltaF -> DeltaMonadF DualDeltaF)
+       -> [Float]
+       -> ([Float], Float)
+dfShow f deltaInput =
+  let (results, value) = df f (V.fromList deltaInput)
+  in (V.toList results, value)
+
+gradDescShow :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+             => r
+             -> (VecDualDelta r -> DeltaMonad r (DualDelta r))
+             -> Domain r
+             -> Int
+             -> ([r], r)
+gradDescShow gamma f initVec n =
+  let res = gradDesc gamma f n initVec
+      (_, value) = df f res
+  in (V.toList res, value)
+
+fX :: VecDualDeltaF -> DeltaMonadF DualDeltaF
 fX vec = do
   let x = var 0 vec
   return x
 
-fX1Y :: VecDualDelta -> DeltaMonad DualDelta
+fX1Y :: VecDualDeltaF -> DeltaMonadF DualDeltaF
 fX1Y vec = do
   let x = var 0 vec
       y = var 1 vec
   x1 <- x +\ scalar 1
   x1 *\ y
 
-fXXY :: VecDualDelta -> DeltaMonad DualDelta
+fXXY :: VecDualDeltaF -> DeltaMonadF DualDeltaF
 fXXY vec = do
   let x = var 0 vec
       y = var 1 vec
   xy <- x *\ y
   x *\ xy
 
-fXYplusZ :: VecDualDelta -> DeltaMonad DualDelta
+fXYplusZ :: VecDualDeltaF -> DeltaMonadF DualDeltaF
 fXYplusZ vec = do
   let x = var 0 vec
       y = var 1 vec
@@ -70,18 +76,18 @@ fXYplusZ vec = do
   xy <- x *\ y
   xy +\ z
 
-fXtoY :: VecDualDelta -> DeltaMonad DualDelta
+fXtoY :: VecDualDeltaF -> DeltaMonadF DualDeltaF
 fXtoY vec = do
   let x = var 0 vec
       y = var 1 vec
   x **\ y
 
-freluX :: VecDualDelta -> DeltaMonad DualDelta
+freluX :: VecDualDeltaF -> DeltaMonadF DualDeltaF
 freluX vec = do
   let x = var 0 vec
   reluAct x
 
-fquad :: VecDualDelta -> DeltaMonad DualDelta
+fquad :: VecDualDeltaF -> DeltaMonadF DualDeltaF
 fquad vec = do
   let x = var 0 vec
       y = var 1 vec
@@ -124,8 +130,8 @@ gradDescTests = testGroup "simple gradDesc tests"
       @?= ([3.5e-44,3.5e-44],5.0)
   ]
 
-scaleAddWithBias :: DualDelta -> DualDelta -> Int -> VecDualDelta
-                 -> DeltaMonad DualDelta
+scaleAddWithBias :: DualDeltaF -> DualDeltaF -> Int -> VecDualDeltaF
+                 -> DeltaMonadF DualDeltaF
 scaleAddWithBias x y ixWeight vec = do
   let wx = var ixWeight vec
       wy = var (ixWeight + 1) vec
@@ -135,36 +141,36 @@ scaleAddWithBias x y ixWeight vec = do
   sxy <- sx +\ sy
   sxy +\ bias
 
-neuron :: (DualDelta -> DeltaMonad DualDelta)
-       -> DualDelta -> DualDelta -> Int -> VecDualDelta
-       -> DeltaMonad DualDelta
+neuron :: (DualDeltaF -> DeltaMonadF DualDeltaF)
+       -> DualDeltaF -> DualDeltaF -> Int -> VecDualDeltaF
+       -> DeltaMonadF DualDeltaF
 neuron factivation x y ixWeight vec = do
   sc <- scaleAddWithBias x y ixWeight vec
   factivation sc
 
-nnXor :: (DualDelta -> DeltaMonad DualDelta)
-      -> DualDelta -> DualDelta -> VecDualDelta
-      -> DeltaMonad DualDelta
+nnXor :: (DualDeltaF -> DeltaMonadF DualDeltaF)
+      -> DualDeltaF -> DualDeltaF -> VecDualDeltaF
+      -> DeltaMonadF DualDeltaF
 nnXor factivation x y vec = do
   n1 <- neuron factivation x y 0 vec
   n2 <- neuron factivation x y 3 vec
   neuron factivation n1 n2 6 vec
 
-lossSquared :: Num r => DualDeltaR r -> r -> DeltaMonadR r (DualDeltaR r)
+lossSquared :: Num r => DualDelta r -> r -> DeltaMonad r (DualDelta r)
 lossSquared u res = do
   diff <- u -\ (scalar res)
   diff *\ diff
 
-nnXorLoss :: (DualDelta -> DeltaMonad DualDelta)
-          -> Float -> Float -> Float -> VecDualDelta
-          -> DeltaMonad DualDelta
+nnXorLoss :: (DualDeltaF -> DeltaMonadF DualDeltaF)
+          -> Float -> Float -> Float -> VecDualDeltaF
+          -> DeltaMonadF DualDeltaF
 nnXorLoss factivation x y res vec = do
   r <- nnXor factivation (scalar x) (scalar y) vec
   lossSquared r res
 
-nnXorLossTotal :: (DualDelta -> DeltaMonad DualDelta)
-               -> VecDualDelta
-               -> DeltaMonad DualDelta
+nnXorLossTotal :: (DualDeltaF -> DeltaMonadF DualDeltaF)
+               -> VecDualDeltaF
+               -> DeltaMonadF DualDeltaF
 nnXorLossTotal factivation vec = do
   n1 <- nnXorLoss factivation 0 0 0 vec
   n2 <- nnXorLoss factivation 0 1 1 vec
@@ -197,11 +203,11 @@ xorTests = testGroup "XOR neural net tests"
       @?= ([-1.2425352,2.6025252,0.13252532,-1.5821311,1.7432425,-0.72675747,-1.7345629,1.9154371,-0.42541993],2.0)
   ]
 
-type DualDeltaD = DualDeltaR Double
+type DualDeltaD = DualDelta Double
 
-type VecDualDeltaD = VecDualDeltaR Double
+type VecDualDeltaD = VecDualDelta Double
 
-type DeltaMonadD = DeltaMonadR Double
+type DeltaMonadD = DeltaMonad Double
 
 hiddenLayerFit :: (DualDeltaD -> DeltaMonadD DualDeltaD)
                -> Double
@@ -418,14 +424,14 @@ fit2Tests = testGroup "Sample fitting 2 hidden layer fc nn tests"
 -- Based on @gradientDescent@ from package @ad@ which is in turn based
 -- on the one from the VLAD compiler.
 gradDescSmart :: forall r . (Ord r, Fractional r, Data.Vector.Unboxed.Unbox r)
-              => (VecDualDeltaR r -> DeltaMonadR r (DualDeltaR r))
+              => (VecDualDelta r -> DeltaMonad r (DualDelta r))
               -> Int
               -> Domain r
               -> (Domain' r, r)
 gradDescSmart f n0 params0 = go n0 params0 0.1 gradient0 value0 0 where
   dim = V.length params0
   vVar = V.generate dim (Var . DeltaId)
-  initVars0 :: (VecDualDeltaR r, Int)
+  initVars0 :: (VecDualDelta r, Int)
   initVars0 = ((params0, vVar), dim)
   (gradient0, value0) = generalDf (const initVars0) evalBindingsV f params0
   go :: Int -> Domain r -> r -> Domain r -> r -> Int -> (Domain' r, r)
