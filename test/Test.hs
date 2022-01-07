@@ -91,8 +91,19 @@ fquad vec = do
   tmp <- x2 +\ y2
   tmp +\ scalar 5
 
+fblowup :: VecDualDeltaF -> DeltaMonadF DualDeltaF
+fblowup vec = do
+  let blowup :: Int -> DualDeltaF -> DeltaMonadF DualDeltaF
+      blowup 0 y = return y
+      blowup n y = do
+        ysum <- y +\ y
+        yscaled <- scale 0.499999985 ysum  -- otherwise, we'd get NaN at once
+        blowup (pred n) yscaled
+  y0 <- fquad vec
+  blowup 100 y0
+
 dfTests :: TestTree
-dfTests = testGroup "df application tests" $
+dfTests = testGroup "Simple df application tests" $
   map (\(txt, f, v, expected) ->
         testCase txt $ dfShow f v @?= expected)
     [ ("fX", fX, [99], ([1.0],99.0))
@@ -110,7 +121,7 @@ dfTests = testGroup "df application tests" $
     ]
 
 gradDescTests :: TestTree
-gradDescTests = testGroup "simple gradDesc tests"
+gradDescTests = testGroup "Simple gradient descent tests"
   [ testCase "0.1 30"
     $ gradDescShow 0.1 fquad (V.fromList [2, 3]) 30
       @?= ([2.47588e-3,3.7138206e-3],5.00002)
@@ -123,6 +134,22 @@ gradDescTests = testGroup "simple gradDesc tests"
   , testCase "0.01 300000"
     $ gradDescShow 0.01 fquad (V.fromList [2, 3]) 300000
       @?= ([3.5e-44,3.5e-44],5.0)
+  -- The (no) blowup tests.
+  , testCase "blowup 0.1 30"
+    $ gradDescShow 0.1 fblowup (V.fromList [2, 3]) 30
+      @?= ([2.475991e-3,3.7139843e-3],4.9999723)
+  , testCase "blowup 0.01 30"
+    $ gradDescShow 0.01 fblowup (V.fromList [2, 3]) 30
+      @?= ([1.0909724,1.6364591],8.868124)
+  , testCase "blowup 0.01 300"
+    $ gradDescShow 0.01 fblowup (V.fromList [2, 3]) 300
+      @?= ([4.665179e-3,6.9977706e-3],5.000023)
+  , testCase "blowup 0.01 300000"
+    $ gradDescShow 0.01 fblowup (V.fromList [2, 3]) 300000
+      @?= ([3.5e-44,3.5e-44],4.9999523)
+  , testCase "blowup 0.01 3000000"
+    $ gradDescShow 0.01 fblowup (V.fromList [2, 3]) 3000000
+      @?= ([3.5e-44,3.5e-44],4.9999523)
   ]
 
 scaleAddWithBias :: DualDeltaF -> DualDeltaF -> Int -> VecDualDeltaF

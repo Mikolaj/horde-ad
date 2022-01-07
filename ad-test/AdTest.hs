@@ -18,7 +18,8 @@ main :: IO ()
 main = defaultMain tests
 
 tests :: TestTree
-tests = testGroup "Ad Tests" [ adXorTests
+tests = testGroup "Ad Tests" [ gradDescTests
+                             , adXorTests
                              , fitTests
                              , fit2Tests
                              , smartFitTests
@@ -58,6 +59,58 @@ gradDescShow gamma f initVec n =
 
 var :: Int -> Domain r -> r
 var i vec = vec V.! i
+
+fquad :: Num r => Domain r -> r
+fquad vec =
+  let x = var 0 vec
+      y = var 1 vec
+      x2 = x * x
+      y2 = y * y
+      tmp = x2 + y2
+  in tmp + 5
+
+fblowup :: forall r. Fractional r => Domain r -> r
+fblowup vec =
+  let blowup :: Int -> r -> r
+      blowup 0 y =  y
+      blowup n y =
+        let ysum = y + y
+            yscaled = 0.499999985 * ysum  -- otherwise, we'd get NaN at once
+        in blowup (pred n) yscaled
+      y0 = fquad vec
+  in blowup 100 y0
+
+gradDescTests :: TestTree
+gradDescTests = testGroup "Simple gradient descent tests (errors are expected here and in all latter tests, because the declared results come from the main library and library ad applies the floating point operations in different order, resulting in accumulation of tiny differences)"
+  [ testCase "0.1 30"
+    $ gradDescShow 0.1 fquad (V.fromList [2, 3]) 30
+      @?= ([2.47588e-3,3.7138206e-3],5.00002)
+  , testCase "0.01 30"
+    $ gradDescShow 0.01 fquad (V.fromList [2, 3]) 30
+      @?= ([1.0909687,1.6364527],8.86819)
+  , testCase "0.01 300"
+    $ gradDescShow 0.01 fquad (V.fromList [2, 3]) 300
+      @?= ([4.665013e-3,6.9975173e-3],5.0000706)
+  , testCase "0.01 300000"
+    $ gradDescShow 0.01 fquad (V.fromList [2, 3]) 300000
+      @?= ([3.5e-44,3.5e-44],5.0)
+  -- The (no) blowup tests.
+  , testCase "blowup 0.1 30"
+    $ gradDescShow 0.1 fblowup (V.fromList [2, 3]) 30
+      @?= ([2.475991e-3,3.7139843e-3],4.9999723)
+  , testCase "blowup 0.01 30"
+    $ gradDescShow 0.01 fblowup (V.fromList [2, 3]) 30
+      @?= ([1.0909724,1.6364591],8.868124)
+  , testCase "blowup 0.01 300"
+    $ gradDescShow 0.01 fblowup (V.fromList [2, 3]) 300
+      @?= ([4.665179e-3,6.9977706e-3],5.000023)
+  , testCase "blowup 0.01 300000"
+    $ gradDescShow 0.01 fblowup (V.fromList [2, 3]) 300000
+      @?= ([3.5e-44,3.5e-44],4.9999523)
+  , testCase "blowup 0.01 3000000"
+    $ gradDescShow 0.01 fblowup (V.fromList [2, 3]) 3000000
+      @?= ([3.5e-44,3.5e-44],4.9999523)
+  ]
 
 tanhAct :: Floating r
         => r -> r
@@ -134,7 +187,7 @@ ws2 = let w = [-1.37, 2.28, -0.19] in V.fromList $ w ++ w ++ w
 -- The values below are copied from the other tests to compare results
 -- They seem to be pretty close.
 adXorTests :: TestTree
-adXorTests = testGroup "XOR neural net tests (errors are expected here and in all latter tests, because expected results come from the main library (the difference is usually tiny, due to floating point arithmetics))"
+adXorTests = testGroup "XOR neural net tests"
   [ testCase "0.1 tanhAct ws 500"
     $ gradDescShow 0.1 (nnXorLossTotal tanhAct) ws 500
       @?= ([2.256964,2.255974,-0.6184606,0.943269,0.9431414,-1.2784432,1.805072,-1.9925138,-0.704399],1.20509565e-2)
