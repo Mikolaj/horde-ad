@@ -410,15 +410,20 @@ lenP2 width = 5 * width + 1
 fit2Tests :: TestTree
 fit2Tests = testGroup "Sample fitting 2 hidden layer not fully connected nn tests"
   [ gradDescWsTestCase
-      (nnFit2LossTotal tanhAct) 42 8 (lenP2 6) 0.1 10000 1.2856619684390336e-2
+      (nnFit2LossTotal tanhAct) 42 8 (lenP2 6) 0.1 10000
+      1.2856619684390336e-2
   , gradDescWsTestCase
-      (nnFit2LossTotal tanhAct) 42 10 (lenP2 6) 0.01 400000 3.835053990072211e-2
+      (nnFit2LossTotal tanhAct) 42 10 (lenP2 6) 0.01 400000
+      3.835053990072211e-2
   , gradDescSeparatedTestCase
-      (nnFit2LossTotal tanhAct) 42 8 (lenP2 6) 0.1 10000 0.31692351465375723
+      (nnFit2LossTotal tanhAct) 42 8 (lenP2 6) 0.1 10000
+      0.31692351465375723
   , gradDescSeparatedTestCase
-      (nnFit2LossTotal tanhAct) 42 10 (lenP2 6) 0.01 100000 1.2308485318049472e-3
+      (nnFit2LossTotal tanhAct) 42 10 (lenP2 6) 0.01 100000
+      1.2308485318049472e-3
   , gradDescSeparatedTestCase
-      (nnFit2LossTotal tanhAct) 42 16 (lenP2 12) 0.01 100000 1.9398514673723763e-2
+      (nnFit2LossTotal tanhAct) 42 16 (lenP2 12) 0.01 100000
+      1.9398514673723763e-2
   ]
 
 gradDescSmartShow :: (VecDualDeltaD -> DeltaMonadD DualDeltaD)
@@ -486,23 +491,31 @@ gradSmartSeparatedTestCase =
 smartFitTests :: TestTree
 smartFitTests = testGroup "Smart descent sample fitting fully connected nn tests"
   [ gradSmartWsTestCase
-      nnFitLossTotal 42 8 (lenP 10) 10000 (2.0585450568797953e-3,1.25e-2)
+      nnFitLossTotal 42 8 (lenP 10) 10000
+      (2.0585450568797953e-3,1.25e-2)
   , gradSmartWsTestCase
-      nnFitLossTotal 42 10 (lenP 20) 1000000 (9.072288039580448e-2,6.25e-3)
+      nnFitLossTotal 42 10 (lenP 20) 1000000
+      (9.072288039580448e-2,6.25e-3)
         -- 31 not enough, 700000 not enough
   , gradSmartWsTestCase
-      nnFitLossTotal 42 16 (lenP 20) 1700000 (4.8336260347113275e-2,1.5625e-3)
+      nnFitLossTotal 42 16 (lenP 20) 1700000
+      (4.8336260347113275e-2,1.5625e-3)
   , gradSmartSeparatedTestCase
-      nnFitLossTotal 42 8 (lenP 10) 10000 (1.5742022677967708e-2,2.5e-2)
+      nnFitLossTotal 42 8 (lenP 10) 10000
+      (1.5742022677967708e-2,2.5e-2)
   , gradSmartSeparatedTestCase
-      nnFitLossTotal 42 10 (lenP 10) 100000 (4.506881373306206e-10,2.5e-2)
+      nnFitLossTotal 42 10 (lenP 10) 100000
+      (4.506881373306206e-10,2.5e-2)
   , gradSmartSeparatedTestCase
-      nnFitLossTotal 42 16 (lenP 10) 100000 (5.197706771219677e-2,6.25e-3)
+      nnFitLossTotal 42 16 (lenP 10) 100000
+      (5.197706771219677e-2,6.25e-3)
   , gradSmartSeparatedTestCase
-      nnFitLossTotal 42 24 (lenP 33) 700000 (2.967249104936791e-2,6.25e-3)
+      nnFitLossTotal 42 24 (lenP 33) 700000
+      (2.967249104936791e-2,6.25e-3)
         -- 61 1300000 not enough
   , gradSmartSeparatedTestCase
-      nnFitLossTotal 42 32 (lenP 20) 1700000 (3.828456463288314e-2,6.25e-3)
+      nnFitLossTotal 42 32 (lenP 20) 1700000
+      (3.828456463288314e-2,6.25e-3)
         -- 151 1000000 not enough, despite taking twice longer
   ]
 
@@ -510,19 +523,24 @@ smartFit2Tests :: TestTree
 smartFit2Tests =
  testGroup "Smart descent sample fitting 2 hidden layer not fully connected nn tests"
   [ gradSmartWsTestCase
-      (nnFit2LossTotal tanhAct) 42 8 (lenP2 6) 10000 (4.896924209457198e-3,2.5e-2)
+      (nnFit2LossTotal tanhAct) 42 8 (lenP2 6) 10000
+      (4.896924209457198e-3,2.5e-2)
   , gradSmartWsTestCase
-      (nnFit2LossTotal tanhAct) 42 10 (lenP2 6) 400000 (8.470989419560765e-2,2.5e-2)
+      (nnFit2LossTotal tanhAct) 42 10 (lenP2 6) 400000
+      (8.470989419560765e-2,2.5e-2)
   , gradSmartWsTestCase
       (nnFit2LossTotal tanhAct) 42 16 (lenP2 12) 700000
       (5.149610997592684e-2,3.90625e-4)
         -- 61 1000000 not enough for 20, 101 700000 enough
   , gradSmartSeparatedTestCase
-      (nnFit2LossTotal tanhAct) 42 8 (lenP2 6) 10000 (1.832621758590325e-2,1.25e-2)
+      (nnFit2LossTotal tanhAct) 42 8 (lenP2 6) 10000
+      (1.832621758590325e-2,1.25e-2)
   , gradSmartSeparatedTestCase
-      (nnFit2LossTotal tanhAct) 42 10 (lenP2 6) 100000 (2.6495249749522148e-2,3.125e-3)
+      (nnFit2LossTotal tanhAct) 42 10 (lenP2 6) 100000
+      (2.6495249749522148e-2,3.125e-3)
   , gradSmartSeparatedTestCase
-      (nnFit2LossTotal tanhAct) 42 16 (lenP2 12) 100000 (1.8617700399788891e-3,3.125e-3)
+      (nnFit2LossTotal tanhAct) 42 16 (lenP2 12) 100000
+      (1.8617700399788891e-3,3.125e-3)
   , gradSmartSeparatedTestCase
       (nnFit2LossTotal tanhAct) 42 24 (lenP2 12) 1300000
       (1.0411445668840221e-2,3.125e-3)
