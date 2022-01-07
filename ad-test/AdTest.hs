@@ -81,7 +81,12 @@ fblowup vec =
   in blowup 100 y0
 
 gradDescTests :: TestTree
-gradDescTests = testGroup "Simple gradient descent tests (errors are expected here and in all latter tests, because the declared results come from the main library and library ad applies the floating point operations in different order, resulting in accumulation of tiny differences)"
+gradDescTests = testGroup "Simple gradient descent tests (errors are expected here and in all latter tests, because the declared results come from the main library)"
+  -- and library ad applies the floating point operations in different order,
+  -- resulting in accumulation of tiny differences;
+  -- and also here and in the adXorTests testsuite the ad library
+  -- can't replicate the Float examples without loosing a lot of performance,
+  -- so it uses Double instead, compounding the error.
   [ testCase "0.1 30"
     $ gradDescShow 0.1 fquad (V.fromList [2, 3]) 30
       @?= ([2.47588e-3,3.7138206e-3],5.00002)
