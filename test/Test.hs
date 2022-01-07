@@ -322,6 +322,9 @@ gradDescSeparatedTestCase :: ((DualDeltaD -> DeltaMonadD DualDeltaD)
                           -> TestTree
 gradDescSeparatedTestCase = gradDescTestCase "gradDesc Separated" wsFitSeparated
 
+lenP :: Int -> Int
+lenP width = 3 * width + 1
+
 -- Some tests here fail due to not smart enough gradient descent
 -- (overshooting, mostly).
 fitTests :: TestTree
@@ -329,18 +332,18 @@ fitTests = testGroup "Sample fitting fully connected neural net tests"
   [ testCase "wsFit (-1, 1) 42 10" $
       V.toList (wsFit (-1, 1) 42 20) @?= [(-0.22217941284179688,-0.5148218870162964),(0.25622618198394775,0.42662060260772705),(7.794177532196045e-2,-0.5301129817962646),(0.384537935256958,0.8958269357681274),(-0.6027946472167969,-0.5425337553024292),(0.4734766483306885,0.19495820999145508),(0.3921601474285126,0.8963258266448975),(-2.679157257080078e-2,-0.43389952182769775),(-8.326125144958496e-2,-0.17110145092010498),(-6.933605670928955e-2,-0.6602561473846436),(-0.7554467916488647,0.9077622890472412),(-0.17885446548461914,0.14958932995796204),(-0.49340176582336426,0.13965561985969543),(0.4703446626663208,-0.487585186958313),(-0.37681376934051514,-0.39065873622894287),(-0.9820539951324463,-0.10905027389526367),(0.6628230810165405,0.11808493733406067),(4.337519407272339e-3,-7.50422477722168e-3),(-0.270332932472229,0.9103447198867798),(2.815529704093933e-2,-0.9941539764404297)]
   , gradDescWsTestCase
-      nnFitLossTotal 42 8 31 0.1 10000 1.6225349272445413e-2
+      nnFitLossTotal 42 8 (lenP 10) 0.1 10000 1.6225349272445413e-2
   , gradDescWsTestCase
-      nnFitLossTotal 42 10 31 0.01 100000 0.11821681957239855
+      nnFitLossTotal 42 10 (lenP 10) 0.01 100000 0.11821681957239855
       -- failed; even 61 1000000 was not enough
   , testCase "wsFitSeparated (-1, 1) 42 10" $
       V.toList (wsFitSeparated (-1, 1) 42 20) @?= [(-1.0,0.8617048050432681),(-0.8947368421052632,-0.12944690839124995),(-0.7894736842105263,0.7709385349363602),(-0.6842105263157895,0.7043981517795999),(-0.5789473684210527,0.5002907568304664),(-0.4736842105263158,-0.20067467322001753),(-0.368421052631579,-5.526582421799997e-2),(-0.26315789473684215,0.3006213813725571),(-0.1578947368421053,0.12350686811659489),(-5.2631578947368474e-2,-0.7621608299731257),(5.263157894736836e-2,-3.550743010902346e-2),(0.1578947368421053,-0.32868601453242263),(0.26315789473684204,0.7784360517385773),(0.368421052631579,-0.6715107907491862),(0.4736842105263157,-0.41971965075782536),(0.5789473684210527,-0.4920995297212283),(0.6842105263157894,-0.8809132509345221),(0.7894736842105263,-7.615997455596313e-2),(0.894736842105263,0.36412224491658224),(1.0,-0.31352088018219515)]
   , gradDescSeparatedTestCase
-      nnFitLossTotal 42 8 31 0.1 10000 0.3884360171054549
+      nnFitLossTotal 42 8 (lenP 10) 0.1 10000 0.3884360171054549
   , gradDescSeparatedTestCase
-      nnFitLossTotal 42 10 31 0.01 100000 1.9817301995554423e-2
+      nnFitLossTotal 42 10 (lenP 10) 0.01 100000 1.9817301995554423e-2
   , gradDescSeparatedTestCase
-      nnFitLossTotal 42 16 31 0.01 100000 6.88603932297595e-2
+      nnFitLossTotal 42 16 (lenP 10) 0.01 100000 6.88603932297595e-2
   ]
 
 -- This connects with only one neuron from the first hidden layer.
@@ -399,20 +402,23 @@ nnFit2LossTotal factivationHidden factivationMiddle factivationOutput
         return $! D (acc + fl) (Add acc' fl')
   V.foldM' f (scalar 0) samples
 
+lenP2 :: Int -> Int
+lenP2 width = 5 * width + 1
+
 -- Two layers seem to be an advantage for data with points very close
 -- together. Otherwise, having all neurons on one layer is more effective.
 fit2Tests :: TestTree
 fit2Tests = testGroup "Sample fitting 2 hidden layer not fully connected nn tests"
   [ gradDescWsTestCase
-      (nnFit2LossTotal tanhAct) 42 8 31 0.1 10000 1.2856619684390336e-2
+      (nnFit2LossTotal tanhAct) 42 8 (lenP2 6) 0.1 10000 1.2856619684390336e-2
   , gradDescWsTestCase
-      (nnFit2LossTotal tanhAct) 42 10 31 0.01 400000 3.835053990072211e-2
+      (nnFit2LossTotal tanhAct) 42 10 (lenP2 6) 0.01 400000 3.835053990072211e-2
   , gradDescSeparatedTestCase
-      (nnFit2LossTotal tanhAct) 42 8 31 0.1 10000 0.31692351465375723
+      (nnFit2LossTotal tanhAct) 42 8 (lenP2 6) 0.1 10000 0.31692351465375723
   , gradDescSeparatedTestCase
-      (nnFit2LossTotal tanhAct) 42 10 31 0.01 100000 1.2308485318049472e-3
+      (nnFit2LossTotal tanhAct) 42 10 (lenP2 6) 0.01 100000 1.2308485318049472e-3
   , gradDescSeparatedTestCase
-      (nnFit2LossTotal tanhAct) 42 16 61 0.01 100000 1.9398514673723763e-2
+      (nnFit2LossTotal tanhAct) 42 16 (lenP2 12) 0.01 100000 1.9398514673723763e-2
   ]
 
 gradDescSmartShow :: (VecDualDeltaD -> DeltaMonadD DualDeltaD)
@@ -480,23 +486,23 @@ gradSmartSeparatedTestCase =
 smartFitTests :: TestTree
 smartFitTests = testGroup "Smart descent sample fitting fully connected nn tests"
   [ gradSmartWsTestCase
-      nnFitLossTotal 42 8 31 10000 (2.0585450568797953e-3,1.25e-2)
+      nnFitLossTotal 42 8 (lenP 10) 10000 (2.0585450568797953e-3,1.25e-2)
   , gradSmartWsTestCase
-      nnFitLossTotal 42 10 61 1000000 (9.072288039580448e-2,6.25e-3)
+      nnFitLossTotal 42 10 (lenP 20) 1000000 (9.072288039580448e-2,6.25e-3)
         -- 31 not enough, 700000 not enough
   , gradSmartWsTestCase
-      nnFitLossTotal 42 16 61 1700000 (4.8336260347113275e-2,1.5625e-3)
+      nnFitLossTotal 42 16 (lenP 20) 1700000 (4.8336260347113275e-2,1.5625e-3)
   , gradSmartSeparatedTestCase
-      nnFitLossTotal 42 8 31 10000 (1.5742022677967708e-2,2.5e-2)
+      nnFitLossTotal 42 8 (lenP 10) 10000 (1.5742022677967708e-2,2.5e-2)
   , gradSmartSeparatedTestCase
-      nnFitLossTotal 42 10 31 100000 (4.506881373306206e-10,2.5e-2)
+      nnFitLossTotal 42 10 (lenP 10) 100000 (4.506881373306206e-10,2.5e-2)
   , gradSmartSeparatedTestCase
-      nnFitLossTotal 42 16 31 100000 (5.197706771219677e-2,6.25e-3)
+      nnFitLossTotal 42 16 (lenP 10) 100000 (5.197706771219677e-2,6.25e-3)
   , gradSmartSeparatedTestCase
-      nnFitLossTotal 42 24 101 700000 (2.967249104936791e-2,6.25e-3)
+      nnFitLossTotal 42 24 (lenP 33) 700000 (2.967249104936791e-2,6.25e-3)
         -- 61 1300000 not enough
   , gradSmartSeparatedTestCase
-      nnFitLossTotal 42 32 61 1700000 (3.828456463288314e-2,6.25e-3)
+      nnFitLossTotal 42 32 (lenP 20) 1700000 (3.828456463288314e-2,6.25e-3)
         -- 151 1000000 not enough, despite taking twice longer
   ]
 
@@ -504,21 +510,21 @@ smartFit2Tests :: TestTree
 smartFit2Tests =
  testGroup "Smart descent sample fitting 2 hidden layer not fully connected nn tests"
   [ gradSmartWsTestCase
-      (nnFit2LossTotal tanhAct) 42 8 31 10000 (4.896924209457198e-3,2.5e-2)
+      (nnFit2LossTotal tanhAct) 42 8 (lenP2 6) 10000 (4.896924209457198e-3,2.5e-2)
   , gradSmartWsTestCase
-      (nnFit2LossTotal tanhAct) 42 10 31 400000 (8.470989419560765e-2,2.5e-2)
+      (nnFit2LossTotal tanhAct) 42 10 (lenP2 6) 400000 (8.470989419560765e-2,2.5e-2)
   , gradSmartWsTestCase
-      (nnFit2LossTotal tanhAct) 42 16 61 700000
+      (nnFit2LossTotal tanhAct) 42 16 (lenP2 12) 700000
       (5.149610997592684e-2,3.90625e-4)
         -- 61 1000000 not enough for 20, 101 700000 enough
   , gradSmartSeparatedTestCase
-      (nnFit2LossTotal tanhAct) 42 8 31 10000 (1.832621758590325e-2,1.25e-2)
+      (nnFit2LossTotal tanhAct) 42 8 (lenP2 6) 10000 (1.832621758590325e-2,1.25e-2)
   , gradSmartSeparatedTestCase
-      (nnFit2LossTotal tanhAct) 42 10 31 100000 (2.6495249749522148e-2,3.125e-3)
+      (nnFit2LossTotal tanhAct) 42 10 (lenP2 6) 100000 (2.6495249749522148e-2,3.125e-3)
   , gradSmartSeparatedTestCase
-      (nnFit2LossTotal tanhAct) 42 16 61 100000 (1.8617700399788891e-3,3.125e-3)
+      (nnFit2LossTotal tanhAct) 42 16 (lenP2 12) 100000 (1.8617700399788891e-3,3.125e-3)
   , gradSmartSeparatedTestCase
-      (nnFit2LossTotal tanhAct) 42 24 61 1300000
+      (nnFit2LossTotal tanhAct) 42 24 (lenP2 12) 1300000
       (1.0411445668840221e-2,3.125e-3)
         -- this is faster but less accurate than 101 1000000
         -- 151 700000 is not enough
