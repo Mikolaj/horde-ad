@@ -4,7 +4,8 @@ module AD where
 
 import Prelude
 
-import           Control.Monad (when)
+import           Control.Exception (assert)
+import           Control.Monad (foldM, when)
 import           Control.Monad.ST.Strict (ST)
 import           Control.Monad.Trans.State.Strict
 import qualified Data.Vector
@@ -38,7 +39,7 @@ newtype DeltaId = DeltaId Int
 -- it's a part of can get duplicated grossly.
 data DeltaState r = DeltaState
   { deltaCounter  :: DeltaId
-  , deltaBindings :: [(DeltaId, Delta r)]
+  , deltaBindings :: [Delta r]
   }
 
 buildVector :: forall s v r. (Eq r, Num r, VM.MVector (V.Mutable v) r)
@@ -54,12 +55,14 @@ buildVector dim st d0 = do
         Add d1 d2 -> eval r d1 >> eval r d2
         Var (DeltaId i) -> VM.modify store (+ r) i
   eval 1 d0  -- dt is 1 or hardwired in f
-  let evalUnlessZero :: (DeltaId, Delta r) -> ST s ()
-      evalUnlessZero (DeltaId i, d) = do
+  let evalUnlessZero :: DeltaId -> Delta r -> ST s DeltaId
+      evalUnlessZero !delta@(DeltaId i) d = do
         r <- store `VM.read` i
         when (r /= 0) $  -- TODO: dodgy for reals?
           eval r d
-  mapM_ evalUnlessZero (deltaBindings st)
+        return $! pred delta
+  minusOne <- foldM evalUnlessZero (DeltaId $ pred storeSize) (deltaBindings st)
+  let _A = assert (minusOne == DeltaId (-1)) ()
   return $! VM.slice 0 dim store
 
 evalBindingsV :: (Eq r, Num r, V.Vector v r)
@@ -75,7 +78,7 @@ dlet v = DeltaMonad $ do
   i <- gets deltaCounter
   modify $ \s ->
     s { deltaCounter = succ i
-      , deltaBindings = (i, v) : deltaBindings s
+      , deltaBindings = v : deltaBindings s
       }
   return i
 
