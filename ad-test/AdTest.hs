@@ -23,6 +23,7 @@ tests = testGroup "Ad Tests" [ adXorTests
                              , fit2Tests
                              , smartFitTests
                              , smartFit2Tests
+                             , smartFit3Tests
                              ]
 
 type Domain r = Data.Vector.Vector r
@@ -317,6 +318,9 @@ fitTests = testGroup "Sample fitting fully connected neural net tests"
       nnFitLossTotal 42 16 31 0.01 100000 6.88603932297595e-2
   ]
 
+-- This connects with only one neuron from the first hidden layer.
+-- No wonder the extra hidden layer was not particulary effective
+-- compared to wider single hidden layer.
 middleLayerFit2 :: forall r. Num r
                 => (r -> r)
                 -> Domain r
@@ -339,8 +343,10 @@ nnFit2 :: Num r
        -> (r -> r)
        -> r -> Domain r -> r
 nnFit2 factivationHidden factivationMiddle factivationOutput x vec =
-  -- One bias of the outer layer, a list of weights of the outer layer,
-  -- a list of the same length of weights and biases of the hidden layer.
+  -- Due to not being fully connected, the parameters are only:
+  -- one bias of the outer layer, a list of weights of the outer layer,
+  -- a list of the same length of weights and biases of the first hidden layer
+  -- and of the middle hidden layer.
   let width = (V.length vec - 1) `div` 5
       hiddenVec = hiddenLayerFit factivationHidden x vec width
       middleVec = middleLayerFit2 factivationMiddle hiddenVec (2 * width) vec
@@ -375,7 +381,7 @@ nnFit2LossTotal factivationHidden factivationMiddle factivationOutput
 -- Two layers seem to be an advantage for data with points very close
 -- together. Otherwise, having all neurons on one layer is more effective.
 fit2Tests :: TestTree
-fit2Tests = testGroup "Sample fitting 2 hidden layer fc nn tests"
+fit2Tests = testGroup "Sample fitting 2 hidden layer not fully connected nn tests"
   [ gradDescWsTestCase
       (nnFit2LossTotal tanhAct) 42 8 31 0.1 10000 1.2856619684390336e-2
   , gradDescWsTestCase
@@ -495,7 +501,7 @@ gradSmartSeparatedTestCase =
 -- With Double, it scales well to twice as many samples or even more,
 -- but it takes too long to verify when errors crop in again.
 smartFitTests :: TestTree
-smartFitTests = testGroup "Smart descent sample fitting fc nn tests"
+smartFitTests = testGroup "Smart descent sample fitting fully connected nn tests"
   [ gradSmartWsTestCase
       nnFitLossTotal 42 8 31 10000 (2.0585450568797953e-3,1.25e-2)
   , gradSmartWsTestCase
@@ -519,7 +525,7 @@ smartFitTests = testGroup "Smart descent sample fitting fc nn tests"
 
 smartFit2Tests :: TestTree
 smartFit2Tests =
- testGroup "Smart descent sample fitting 2 hidden layer fc nn tests"
+ testGroup "Smart descent sample fitting 2 hidden layer not fully connected nn tests"
   [ gradSmartWsTestCase
       (nnFit2LossTotal tanhAct) 42 8 31 10000 (4.896924209457198e-3,2.5e-2)
   , gradSmartWsTestCase
@@ -539,4 +545,128 @@ smartFit2Tests =
       (1.0411445668840221e-2,3.125e-3)
         -- this is faster but less accurate than 101 1000000
         -- 151 700000 is not enough
+  ]
+
+-- This is really fully connected.
+middleLayerFit3 :: forall r. Num r
+                => (r -> r)
+                -> Domain r
+                -> Int
+                -> Domain r
+                -> Domain r
+middleLayerFit3 factivation hiddenVec offset vec =
+  let width = V.length hiddenVec
+      nWeightsAndBias = width + 1
+      f :: Int -> r
+      f i =
+        let outSum = scaleAddVecWithBias hiddenVec
+                                         (offset + i * nWeightsAndBias)
+                                         vec
+        in factivation outSum
+  in V.generate width f
+
+nnFit3 :: Num r
+       => (r -> r)
+       -> (r -> r)
+       -> (r -> r)
+       -> r -> Domain r -> r
+nnFit3 factivationHidden factivationMiddle factivationOutput x vec =
+  -- This is fully connected, so given width w, the number of parameters is:
+  -- one bias of the outer layer, a list of weights of the outer layer
+  -- of length w, a list of the same length of weights and biases of the first
+  -- hidden layer, w * w weigths in the middle hidden layer and w biases.
+  -- In total, #params == 1 + w + 2 * w + w^2 + w == w^2 + 4 * w + 1,
+  -- so the equation to solve is w^2 + 4 * w + (1 - #params) = 0.
+  -- Length 31 gives almost 3. Length 61 gives exactly 6.
+  let len :: Double
+      len = fromIntegral $ V.length vec  -- #params
+      width = floor $ (-4 + sqrt (12 + 4 * len)) / 2
+      hiddenVec = hiddenLayerFit factivationHidden x vec width
+      middleVec = middleLayerFit3 factivationMiddle hiddenVec (2 * width) vec
+  in outputLayerFit factivationOutput middleVec ((3 + width) * width) vec
+
+nnFit3Loss :: Num r
+           => (r -> r)
+           -> (r -> r)
+           -> (r -> r)
+           -> r -> r -> Domain r -> r
+nnFit3Loss factivationHidden factivationMiddle factivationOutput x res vec =
+  let r = nnFit3 factivationHidden factivationMiddle factivationOutput x vec
+  in lossSquared r res
+
+nnFit3LossTotal :: forall s. Reifies s Tape
+                => (ReverseDouble s -> ReverseDouble s)
+                -> (ReverseDouble s -> ReverseDouble s)
+                -> (ReverseDouble s -> ReverseDouble s)
+                -> Data.Vector.Unboxed.Vector (Double, Double)
+                -> Domain (ReverseDouble s)
+                -> (ReverseDouble s)
+nnFit3LossTotal factivationHidden factivationMiddle factivationOutput
+                samples vec =
+  let f :: ReverseDouble s -> (Double, Double) -> ReverseDouble s
+      f !acc (x, res) =
+        let fl =
+              nnFit3Loss factivationHidden factivationMiddle factivationOutput
+                         (auto x) (auto res) vec
+        in acc + fl
+  in V.foldl' f 0 samples
+
+lenP3 :: Int -> Int
+lenP3 width = (4 + width) * width + 1
+
+smartFit3Tests :: TestTree
+smartFit3Tests =
+ testGroup "Smart descent sample fitting 2 hidden layer really fully connected nn tests"
+  -- The same (or slightly lower) number of parameters, but on many layers
+  -- gives much worse results, except if there are few samples.
+  -- It is also less costly for some reason.
+  [ gradSmartWsTestCase
+      (nnFit3LossTotal tanhAct) 42 8 (lenP3 4) 10000
+      (3.5604072240265575e-3,2.5e-2)
+  , gradSmartWsTestCase
+      (nnFit3LossTotal tanhAct) 42 10 (lenP3 4) 400000
+      (0.10126792765437645,3.125e-3)
+        -- failed, because too narrow (4 neurons in each hidden layer)
+  , gradSmartWsTestCase
+      (nnFit3LossTotal tanhAct) 42 16 (lenP3 6) 700000
+      (0.19318876323310907,1.5625e-3)
+        -- failed, because too narrow (6 neurons in each hidden layer)
+  , gradSmartSeparatedTestCase
+      (nnFit3LossTotal tanhAct) 42 8 (lenP3 4) 10000
+      (6.291648505851797e-3,6.25e-3)
+  , gradSmartSeparatedTestCase
+      (nnFit3LossTotal tanhAct) 42 10 (lenP3 4) 100000
+      (4.34890234424764e-7,6.25e-3)
+  , gradSmartSeparatedTestCase
+      (nnFit3LossTotal tanhAct) 42 16 (lenP3 6) 100000
+      (0.3434691592146121,1.5625e-3)
+        -- failed, because too narrow (6 neurons in each hidden layer)
+  , gradSmartSeparatedTestCase
+      (nnFit3LossTotal tanhAct) 42 24 (lenP3 6) 1300000
+      (1.665065359469462,9.765625e-5)
+        -- failed, because too narrow (6 neurons in each hidden layer)
+  -- The same width of fully connected nn, but with 2 instead of 1 hidden
+  -- layer has many more parameters and is usually more costly,
+  -- but also much more powerful given enough training:
+  , gradSmartWsTestCase
+      (nnFit3LossTotal tanhAct) 42 8 (lenP3 6) 10000
+      (2.1767148242940303e-3,1.25e-2)
+  , gradSmartWsTestCase
+      (nnFit3LossTotal tanhAct) 42 10 (lenP3 6) 400000
+      (1.3871923964300112e-4,6.25e-3)
+  , gradSmartWsTestCase
+      (nnFit3LossTotal tanhAct) 42 16 (lenP3 12) 700000
+      (2.131955325962636e-5,7.8125e-4)
+  , gradSmartSeparatedTestCase
+      (nnFit3LossTotal tanhAct) 42 8 (lenP3 6) 10000
+      (2.0369556559640215e-4,5.0e-2)
+  , gradSmartSeparatedTestCase
+      (nnFit3LossTotal tanhAct) 42 10 (lenP3 6) 100000
+      (4.0282344474667426e-16,6.25e-3)
+  , gradSmartSeparatedTestCase
+      (nnFit3LossTotal tanhAct) 42 16 (lenP3 12) 100000
+      (1.5819824634756573e-5,3.125e-3)
+  , gradSmartSeparatedTestCase
+      (nnFit3LossTotal tanhAct) 42 24 (lenP3 12) 1300000
+      (1.1354796858869852e-6,1.5625e-3)
   ]
