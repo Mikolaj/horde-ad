@@ -49,7 +49,7 @@ buildVector dim st d0 = do
   let DeltaId storeSize = deltaCounter st
   store <- VM.replicate storeSize 0
   let eval :: r -> Delta r -> ST s ()
-      eval r = \case
+      eval !r = \case
         Zero -> return ()
         Scale k d -> eval (k * r) d
         Add d1 d2 -> eval r d1 >> eval r d2
