@@ -168,3 +168,13 @@ test-suite ad-test
       , tasty >= 1.0
       , tasty-hunit
       , vector
+
+benchmark prod-manual
+    import:           options, exe-options
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   misc-bench
+    main-is:          ProdManual.hs
+    build-depends:
+        base
+      , criterion
+      , random

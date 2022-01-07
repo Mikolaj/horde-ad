@@ -9,3 +9,7 @@ Faustyna Krawiec, Neel Krishnaswami, Tom Ellis, Andrew Fitzgibbon, Richard Eisen
 Oleg Grenrus, whose https://hackage.haskell.org/package/overloaded contain inspiring examples related to AD
 
 Edward Kmett, author of the archetype Haskell ad library
+
+
+
+Authors of file https://github.com/microsoft/knossos-ksc/blob/93d454592705a2847d58db5e1f741710bfcf076d/users/awf/prod.hs copied into this repo as misc-bench/ProdManual.hs, copyright (c) Microsoft Corporation, licensed under the MIT license.
