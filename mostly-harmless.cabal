@@ -178,3 +178,15 @@ benchmark prod-manual
         base
       , criterion
       , random
+
+benchmark prod-mostly-harmless
+    import:           options, exe-options
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   bench
+    main-is:          ProdMostlyHarmless.hs
+    build-depends:
+        base
+      , mostly-harmless
+      , random
+      , criterion
+      , vector
