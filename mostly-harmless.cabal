@@ -202,3 +202,15 @@ benchmark prod-ad
       , random
       , criterion
       , vector
+
+benchmark prod-backprop
+    import:           options, exe-options
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   backprop-bench
+    main-is:          ProdBackprop.hs
+    build-depends:
+        base
+      , backprop
+      , random
+      , criterion
+      , vector
