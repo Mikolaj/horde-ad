@@ -105,11 +105,17 @@ vec_grad_prod :: Data.Vector.Vector Double -> Data.Vector.Vector Double
 vec_grad_prod = gradBP vec_prod_aux
 
 
--- These are extremely fast, because they have hand-written gradients.
+-- These are extremely fast, because they have fast (not sure if accurate,
+-- given the multiplication and then division) hand-written gradients.
 
 {-
 product :: (Foldable t, Functor t, Backprop (t a), Fractional a, Reifies s W)
         => BVar s (t a) -> BVar s a
+product af = liftOp1 af . op1 $ \xs ->
+    let p = P.product xs
+    in ( p
+       , \d -> (\x -> p * d / x) P.<$> xs
+       )
 -}
 
 handwritten_prod_aux :: (Fractional r, Backprop r, Reifies s W)

@@ -19,45 +19,35 @@ main = do
       vec10000000 = V.fromList $ take 10000000 allxs
   defaultMain
     [ bgroup "100"
-        [ bench "func" $ nf prod (take 100 allxs)
-        , bench "grad" $ nf grad_prod (take 100 allxs)
-        , bench "both" $ nf both_prod (take 100 allxs)
-        , bench "vec_both" $ nf grad_prod_aux vec100
-        , bench "vec_both2" $ nf grad_prod_aux2 vec100
+        [ bench "vec_func" $ nf vec_prod vec100
+        , bench "vec_grad" $ nf vec_grad_prod vec100
+        , bench "toList_grad" $ nf toList_grad_prod (take 100 allxs)
         ]
     , bgroup "200"
-        [ bench "func" $ nf prod (take 200 allxs)
-        , bench "grad" $ nf grad_prod (take 200 allxs)
-        , bench "both" $ nf both_prod (take 200 allxs)
-        , bench "vec_both" $ nf grad_prod_aux vec200
-        , bench "vec_both2" $ nf grad_prod_aux2 vec200
+        [ bench "vec_func" $ nf vec_prod vec200
+        , bench "vec_grad" $ nf vec_grad_prod vec200
+        , bench "toList_grad" $ nf toList_grad_prod (take 200 allxs)
         ]
     , bgroup "1000"
-        [ bench "func" $ nf prod (take 1000 allxs)
-        , bench "grad" $ nf grad_prod (take 1000 allxs)
-        , bench "both" $ nf both_prod (take 1000 allxs)
-        , bench "vec_both" $ nf grad_prod_aux vec1000
-        , bench "vec_both2" $ nf grad_prod_aux2 vec1000
+        [ bench "vec_func" $ nf vec_prod vec1000
+        , bench "vec_grad" $ nf vec_grad_prod vec1000
+        , bench "toList_grad" $ nf toList_grad_prod (take 1000 allxs)
         ]
     , bgroup "1000000"
-        [ bench "func" $ nf prod (take 1000000 allxs)
-        , bench "grad" $ nf grad_prod (take 1000000 allxs)
-        , bench "both" $ nf both_prod (take 1000000 allxs)
-        , bench "vec_both" $ nf grad_prod_aux vec1000000
-        , bench "vec_both2" $ nf grad_prod_aux2 vec1000000
+        [ bench "vec_func" $ nf vec_prod vec1000000
+        , bench "vec_grad" $ nf vec_grad_prod vec1000000
+        , bench "toList_grad" $ nf toList_grad_prod (take 1000000 allxs)
         ]
     , bgroup "10000000"
-        [ bench "func" $ nf prod (take 10000000 allxs)
-        , bench "grad" $ nf grad_prod (take 10000000 allxs)
-        , bench "both" $ nf both_prod (take 10000000 allxs)
-        , bench "vec_both" $ nf grad_prod_aux vec10000000
-        , bench "vec_both2" $ nf grad_prod_aux2 vec10000000
+        [ bench "vec_func" $ nf vec_prod vec10000000
+        , bench "vec_grad" $ nf vec_grad_prod vec10000000
+        , bench "toList_grad" $ nf toList_grad_prod (take 10000000 allxs)
         ]
     ]
 
-prod_aux :: forall r. (Num r, Data.Vector.Unboxed.Unbox r)
-         => VecDualDelta r -> DeltaMonad r (DualDelta r)
-prod_aux vec = do
+vec_prod_aux :: forall r. (Num r, Data.Vector.Unboxed.Unbox r)
+             => VecDualDelta r -> DeltaMonad r (DualDelta r)
+vec_prod_aux vec = do
   let f :: DualDelta r -> Int -> r -> DeltaMonad r (DualDelta r)
       f !acc !i !valX = do
         -- Micro-optimization, instead of calling just @var i vec@.
@@ -66,40 +56,28 @@ prod_aux vec = do
         -- for gradient descent, which works fine there, but costs us
         -- some cycles here, even with micro-optimizations and hacks.
         let x = D valX (snd vec V.! i)
-        acc *\ x
+        acc *\ x  -- no handwritten gradients; only gradient for * is provided
   V.ifoldM' f (scalar 1) $ fst vec
 
-grad_prod_aux :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
-              => Domain r -> (Domain' r, r)
-grad_prod_aux = df prod_aux
+vec_grad_prod :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+              => Domain r -> Domain' r
+vec_grad_prod = fst . df vec_prod_aux
 
-prod :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
-     => [r] -> r
-prod l =
-  let vec = V.fromList l
-      (_, value) = grad_prod_aux vec
-  in value
+vec_prod :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+         => Domain r -> r
+vec_prod = snd . df vec_prod_aux
 
-grad_prod :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
-          => [r] -> [r]
-grad_prod l =
-  let vec = V.fromList l
-      (gradient, _) = grad_prod_aux vec
-  in V.toList gradient
+toList_grad_prod :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+                 => [r] -> [r]
+toList_grad_prod l = V.toList $ vec_grad_prod $ V.fromList l
 
-both_prod :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
-          => [r] -> ([r], r)
-both_prod l =
-  let vec = V.fromList l
-      (gradient, value) = grad_prod_aux vec
-  in (V.toList gradient, value)
-
+{-
 -- This is a real speedup, side-stepping a part of the optimization
 -- for gradients, but it's fragile and doesn't scale to more
--- complex expressions.
-prod_aux2 :: forall r. (Num r, Data.Vector.Unboxed.Unbox r)
-          => VecDualDelta r -> DeltaMonad r (DualDelta r)
-prod_aux2 vec = do
+-- complex expressions and larger data that doesn't fit in cache.
+vec_prod_aux2 :: forall r. (Num r, Data.Vector.Unboxed.Unbox r)
+              => VecDualDelta r -> DeltaMonad r (DualDelta r)
+vec_prod_aux2 vec = do
   let f :: DualDelta r -> Int -> r -> DeltaMonad r (DualDelta r)
       f !acc !i !valX = do
         -- The ugliest possible hack.
@@ -107,15 +85,14 @@ prod_aux2 vec = do
         acc *\ x
   V.ifoldM' f (scalar 1) $ fst vec
 
-grad_prod_aux2 :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
-               => Domain r -> (Domain' r, r)
-grad_prod_aux2 = df prod_aux2
+vec_grad_prod2 :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+               => Domain r -> Domain' r
+vec_grad_prod2 = fst . df vec_prod_aux2
 
-{-
 -- This verifies that changing the nesting of multiplications doesn't matter.
-prod_aux3 :: forall r. (Num r, Data.Vector.Unboxed.Unbox r)
-          => VecDualDelta r -> DeltaMonad r (DualDelta r)
-prod_aux3 vec = do
+vec_prod_aux3 :: forall r. (Num r, Data.Vector.Unboxed.Unbox r)
+              => VecDualDelta r -> DeltaMonad r (DualDelta r)
+vec_prod_aux3 vec = do
   let f :: DualDelta r -> Int -> r -> DeltaMonad r (DualDelta r)
       f !acc !i !valX = do
         -- Micro-optimization, instead of calling just @var i vec@.
@@ -123,7 +100,7 @@ prod_aux3 vec = do
         x *\ acc  -- !!!
   V.ifoldM' f (scalar 1) $ fst vec
 
-grad_prod_aux3 :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
-               => Domain r -> (Domain' r, r)
-grad_prod_aux3 = df prod_aux3
+vec_grad_prod3 :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+               => Domain r -> Domain' r
+vec_grad_prod3 = fst . df vec_prod_aux3
 -}
