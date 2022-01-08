@@ -1,7 +1,7 @@
 -- Copyright (c) Microsoft Corporation.
 -- Licensed under the MIT license.
-import System.Random
 import Criterion.Main
+import System.Random
 
 
 -- Product of list of numbers
@@ -13,14 +13,14 @@ prod (x:xs) = x * prod xs
 -- Quadratic time, as recurses twice
 grad_prod_slow :: Fractional a => [a] -> [a]
 grad_prod_slow [_] = [1.0]
-grad_prod_slow (x:xs) = 
-    (prod xs : map (* x) (grad_prod_slow xs)) 
+grad_prod_slow (x:xs) =
+    (prod xs : map (* x) (grad_prod_slow xs))
 
 -- Gradient of prod
 -- Computed in linear time
 grad_prod_aux :: Fractional a => a -> [a] -> (a, [a])
 grad_prod_aux _ [] = (1.0, [])
-grad_prod_aux q (x:xs) = 
+grad_prod_aux q (x:xs) =
     let (p1,out) = grad_prod_aux (q * x) xs
     in (x * p1, q * p1 : out)
 
@@ -30,7 +30,7 @@ grad_prod xs = snd $ grad_prod_aux 1.0 xs
 del :: Num a => a -> [a] -> [a] -> [[a]]
 del d pref [x] = [pref ++ [x + d]]
 del d pref (x:xs) =
-    (pref ++ ((x+d) : xs)) : 
+    (pref ++ ((x+d) : xs)) :
     del d (pref ++ [x]) xs
 
 go :: Int -> IO ()
@@ -54,17 +54,17 @@ go seed = do
     putStrLn $ ("prod        = " ++ show (prod xs))
 
 main :: IO ()
-main = 
+main =
   let allxs = map (\ x -> x + 0.55) $ randoms (mkStdGen 42) :: [Double] in
   defaultMain [
     bgroup "100" [ bench "func" $ nf prod (take 100 allxs)
-                  , bench "grad" $ nf grad_prod (take 100 allxs)
-                  , bench "grad_slow" $ nf grad_prod_slow (take 100 allxs)
-                  ],
+                 , bench "grad" $ nf grad_prod (take 100 allxs)
+                 , bench "grad_slow" $ nf grad_prod_slow (take 100 allxs)
+                 ],
     bgroup "200" [ bench "func" $ nf prod (take 200 allxs)
-                  , bench "grad" $ nf grad_prod (take 200 allxs)
-                  , bench "grad_slow" $ nf grad_prod_slow (take 200 allxs)
-                  ],
+                 , bench "grad" $ nf grad_prod (take 200 allxs)
+                 , bench "grad_slow" $ nf grad_prod_slow (take 200 allxs)
+                 ],
     bgroup "1000" [ bench "func" $ nf prod (take 1000 allxs)
                   , bench "grad" $ nf grad_prod (take 1000 allxs)
                   , bench "grad_slow" $ nf grad_prod_slow (take 1000 allxs)
