@@ -190,3 +190,15 @@ benchmark prod-mostly-harmless
       , random
       , criterion
       , vector
+
+benchmark prod-ad
+    import:           options, exe-options
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   ad-bench
+    main-is:          ProdAd.hs
+    build-depends:
+        base
+      , ad
+      , random
+      , criterion
+      , vector
