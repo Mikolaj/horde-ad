@@ -23,8 +23,10 @@ main = do
       vec100 = V.fromList $ take 100 allxs
       vec200 = V.fromList $ take 200 allxs
       vec1000 = V.fromList $ take 1000 allxs
-      vec1000000 = V.fromList $ take 1000000 allxs
-      vec10000000 = V.fromList $ take 10000000 allxs
+      vec10e5 = V.fromList $ take 100000 allxs
+      vec10e6 = V.fromList $ take 1000000 allxs
+      vec10e7 = V.fromList $ take 10000000 allxs
+      vec5e8 = V.fromList $ take 50000000 allxs
   defaultMain
     [ bgroup "100"
         [ bench "func" $ nf prod (take 100 allxs)
@@ -56,25 +58,35 @@ main = do
         , bench "handwritten_vec_func" $ nf handwritten_vec_prod vec1000
         , bench "handwritten_vec_grad" $ nf handwritten_vec_grad_prod vec1000
         ]
-    , bgroup "1000000"
-        [ bench "func" $ nf prod (take 1000000 allxs)
-        , bench "grad" $ nf grad_prod (take 1000000 allxs)
-        , bench "vec_func" $ nf vec_prod vec1000000
-        , bench "vec_grad" $ nf vec_grad_prod vec1000000
-        , bench "handwritten_func" $ nf handwritten_prod (take 1000000 allxs)
-        , bench "handwritten_grad" $ nf handwritten_grad_prod
-                                        (take 1000000 allxs)
-        , bench "handwritten_vec_func" $ nf handwritten_vec_prod vec1000000
-        , bench "handwritten_vec_grad" $ nf handwritten_vec_grad_prod vec1000000
+    , bgroup "10e5"
+        -- backprop takes forever except with vector-based handwritten gradients
+        [ bench "func" $ nf prod (take 100000 allxs)
+        , bench "vec_func" $ nf vec_prod vec10e5
+        , bench "handwritten_func" $ nf handwritten_prod (take 100000 allxs)
+        , bench "handwritten_vec_func" $ nf handwritten_vec_prod vec10e5
+        , bench "handwritten_vec_grad" $ nf handwritten_vec_grad_prod vec10e5
         ]
-    , bgroup "10000000"
-        -- backprop can't cope, except with handwritten gradients
+    , bgroup "10e6"
+        -- backprop takes forever except with vector-based handwritten gradients
+        [ bench "func" $ nf prod (take 1000000 allxs)
+        , bench "vec_func" $ nf vec_prod vec10e6
+        , bench "handwritten_func" $ nf handwritten_prod (take 1000000 allxs)
+        , bench "handwritten_vec_func" $ nf handwritten_vec_prod vec10e6
+        , bench "handwritten_vec_grad" $ nf handwritten_vec_grad_prod vec10e6
+        ]
+    , bgroup "10e7"
+        -- backprop takes forever except with vector-based handwritten gradients
         [ bench "handwritten_func" $ nf handwritten_prod (take 10000000 allxs)
-        , bench "handwritten_grad" $ nf handwritten_grad_prod
-                                        (take 10000000 allxs)
-        , bench "handwritten_vec_func" $ nf handwritten_vec_prod vec10000000
+        , bench "handwritten_vec_func" $ nf handwritten_vec_prod vec10e7
         , bench "handwritten_vec_grad" $ nf handwritten_vec_grad_prod
-                                            vec10000000
+                                            vec10e7
+        ]
+    , bgroup "5e8"
+        -- backprop takes forever except with vector-based handwritten gradients
+        [ bench "handwritten_func" $ nf handwritten_prod (take 50000000 allxs)
+        , bench "handwritten_vec_func" $ nf handwritten_vec_prod vec5e8
+        , bench "handwritten_vec_grad" $ nf handwritten_vec_grad_prod
+                                            vec5e8  -- 5.68s
         ]
     ]
 
@@ -94,6 +106,8 @@ prod = evalBP prod_aux
 grad_prod :: [Double] -> [Double]
 grad_prod = gradBP prod_aux
 
+-- Apparently, vectors degrade performance (except when using the handwritten
+-- @product@), so there may be conversion(s) to list going on.
 vec_prod_aux :: (Fractional r, Backprop r, Reifies s W)
              => BVar s (Data.Vector.Vector r) -> BVar s r
 vec_prod_aux = Prelude.Backprop.foldl' (*) 1

@@ -69,10 +69,16 @@ main =
                   , bench "grad" $ nf grad_prod (take 1000 allxs)
                   , bench "grad_slow" $ nf grad_prod_slow (take 1000 allxs)
                   ],
-    bgroup "1000000" [ bench "func" $ nf prod (take 1000000 allxs)
-                     , bench "grad" $ nf grad_prod (take 1000000 allxs)
-                     ],
-    bgroup "10000000" [ bench "func" $ nf prod (take 10000000 allxs)
-                      , bench "grad" $ nf grad_prod (take 10000000 allxs)
-                      ]
+    bgroup "10e5" [ bench "func" $ nf prod (take 100000 allxs)
+                  , bench "grad" $ nf grad_prod (take 100000 allxs)
+                  ],
+    bgroup "10e6" [ bench "func" $ nf prod (take 1000000 allxs)
+                  , bench "grad" $ nf grad_prod (take 1000000 allxs)
+                  ],
+    bgroup "10e7" [ bench "func" $ nf prod (take 10000000 allxs)
+                  , bench "grad" $ nf grad_prod (take 10000000 allxs)
+                  ],
+    bgroup "5e8" [ bench "func" $ nf prod (take 50000000 allxs)
+                 , bench "grad" $ nf grad_prod (take 50000000 allxs)  -- 13.05s
+                 ]
   ]
