@@ -180,7 +180,7 @@ nnXor factivation x y vec = do
 
 lossSquared :: Num r => DualDelta r -> r -> DeltaMonad r (DualDelta r)
 lossSquared u res = do
-  diff <- u -\ (scalar res)
+  diff <- u -\ scalar res
   diff *\ diff
 
 nnXorLoss :: (DualDeltaF -> DeltaMonadF DualDeltaF)

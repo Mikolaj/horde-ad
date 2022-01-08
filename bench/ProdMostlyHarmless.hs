@@ -11,7 +11,7 @@ import AD
 
 main :: IO ()
 main = do
-  let allxs = map (\x -> x + 0.55) $ randoms (mkStdGen 42) :: [Double]
+  let allxs = map (+ 0.55) $ randoms (mkStdGen 42) :: [Double]
       vec100 = V.fromList $ take 100 allxs
       vec200 = V.fromList $ take 200 allxs
       vec1000 = V.fromList $ take 1000 allxs

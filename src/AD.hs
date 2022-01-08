@@ -56,7 +56,7 @@ buildVector dim st d0 = do
         Var (DeltaId i) -> VM.modify store (+ r) i
   eval 1 d0  -- dt is 1 or hardwired in f
   let evalUnlessZero :: DeltaId -> Delta r -> ST s DeltaId
-      evalUnlessZero !delta@(DeltaId i) d = do
+      evalUnlessZero delta@(DeltaId !i) d = do
         r <- store `VM.read` i
         when (r /= 0) $  -- TODO: dodgy for reals?
           eval r d
@@ -216,7 +216,7 @@ scaleAddVecWithBias :: forall r. (Num r, Data.Vector.Unboxed.Unbox r)
                     -> DeltaMonad r (DualDelta r)
 scaleAddVecWithBias xs offset vec = do
   let bias = var offset vec
-      f :: (DualDelta r) -> Int -> (DualDelta r) -> (DualDelta r)
+      f :: DualDelta r -> Int -> DualDelta r -> DualDelta r
       f (D acc acc') i (D u u') =
         let (D v v') = var (offset + 1 + i) vec
         in D (acc + u * v) (Add acc' (Add (Scale v u') (Scale u v')))

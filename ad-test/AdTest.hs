@@ -433,7 +433,7 @@ nnFit2LossTotal :: forall s. Reifies s Tape
                 -> (ReverseDouble s -> ReverseDouble s)
                 -> Data.Vector.Unboxed.Vector (Double, Double)
                 -> Domain (ReverseDouble s)
-                -> (ReverseDouble s)
+                -> ReverseDouble s
 nnFit2LossTotal factivationHidden factivationMiddle factivationOutput
                 samples vec =
   let f :: ReverseDouble s -> (Double, Double) -> ReverseDouble s
@@ -687,7 +687,7 @@ nnFit3LossTotal :: forall s. Reifies s Tape
                 -> (ReverseDouble s -> ReverseDouble s)
                 -> Data.Vector.Unboxed.Vector (Double, Double)
                 -> Domain (ReverseDouble s)
-                -> (ReverseDouble s)
+                -> ReverseDouble s
 nnFit3LossTotal factivationHidden factivationMiddle factivationOutput
                 samples vec =
   let f :: ReverseDouble s -> (Double, Double) -> ReverseDouble s

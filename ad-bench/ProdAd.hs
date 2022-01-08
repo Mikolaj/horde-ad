@@ -11,7 +11,7 @@ import Numeric.AD.Mode.Reverse.Double hiding (diff)
 
 main :: IO ()
 main = do
-  let allxs = map (\x -> x + 0.55) $ randoms (mkStdGen 42) :: [Double]
+  let allxs = map (+ 0.55) $ randoms (mkStdGen 42) :: [Double]
       vec100 = V.fromList $ take 100 allxs
       vec200 = V.fromList $ take 200 allxs
       vec1000 = V.fromList $ take 1000 allxs
@@ -46,7 +46,7 @@ list_grad_prod = grad list_prod
 -- so that's the best structure to use.
 prod_aux :: forall r. Num r
          => Data.Vector.Vector r -> r
-prod_aux vec = V.foldl1' (*) vec
+prod_aux = V.foldl1' (*)
 
 grad_prod_aux :: Data.Vector.Vector Double -> Data.Vector.Vector Double
 grad_prod_aux = grad prod_aux
