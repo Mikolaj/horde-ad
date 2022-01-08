@@ -31,6 +31,11 @@ type Domain r = Data.Vector.Vector r
 -- Bummer. Unboxed vectors can't be Traversable due to their constraint.
 -- type Domain r = Data.Vector.Unboxed.Vector r
 
+-- TODO: when benchmarks are in place, try using lists here in place
+-- of vectors --- it seems ad converts to lists ASAP (and back at the end),
+-- so using vectors is just conversion overhead at each call to gradient
+-- computation.
+
 type Domain' r = Domain r
 
 gradDesc :: Double
