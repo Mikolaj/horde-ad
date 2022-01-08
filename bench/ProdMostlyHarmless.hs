@@ -15,6 +15,8 @@ main = do
       vec100 = V.fromList $ take 100 allxs
       vec200 = V.fromList $ take 200 allxs
       vec1000 = V.fromList $ take 1000 allxs
+      vec1000000 = V.fromList $ take 1000000 allxs
+      vec10000000 = V.fromList $ take 10000000 allxs
   defaultMain
     [ bgroup "100"
         [ bench "func" $ nf prod (take 100 allxs)
@@ -36,6 +38,20 @@ main = do
         , bench "both" $ nf both_prod (take 1000 allxs)
         , bench "vec_both" $ nf grad_prod_aux vec1000
         , bench "vec_both2" $ nf grad_prod_aux2 vec1000
+        ]
+    , bgroup "1000000"
+        [ bench "func" $ nf prod (take 1000000 allxs)
+        , bench "grad" $ nf grad_prod (take 1000000 allxs)
+        , bench "both" $ nf both_prod (take 1000000 allxs)
+        , bench "vec_both" $ nf grad_prod_aux vec1000000
+        , bench "vec_both2" $ nf grad_prod_aux2 vec1000000
+        ]
+    , bgroup "10000000"
+        [ bench "func" $ nf prod (take 10000000 allxs)
+        , bench "grad" $ nf grad_prod (take 10000000 allxs)
+        , bench "both" $ nf both_prod (take 10000000 allxs)
+        , bench "vec_both" $ nf grad_prod_aux vec10000000
+        , bench "vec_both2" $ nf grad_prod_aux2 vec10000000
         ]
     ]
 

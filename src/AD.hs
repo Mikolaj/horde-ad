@@ -129,6 +129,10 @@ gradDesc :: forall r . (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
          -> Domain' r
 gradDesc gamma f n0 params0 = go n0 params0 where
   dim = V.length params0
+  -- Pre-allocating the vars once, vs gradually allocating on the spot in each
+  -- gradient computation, initially incurs overhead (looking up in a vector),
+  -- but pays off greatly as soon as the working set doesn't fit in any cache
+  -- and so allocations are made in RAM.
   vVar = V.generate dim (Var . DeltaId)
   go :: Int -> Domain r -> Domain' r
   go 0 !params = params
