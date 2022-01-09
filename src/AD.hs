@@ -58,7 +58,7 @@ buildVector dim st d0 = do
   let evalUnlessZero :: DeltaId -> Delta r -> ST s DeltaId
       evalUnlessZero delta@(DeltaId !i) d = do
         r <- store `VM.read` i
-        when (r /= 0) $  -- TODO: dodgy for reals?
+        when (r /= 0) $  -- we init with exactly 0 above so the comparison is OK
           eval r d
         return $! pred delta
   minusOne <- foldM evalUnlessZero (DeltaId $ pred storeSize) (deltaBindings st)
