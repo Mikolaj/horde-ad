@@ -514,7 +514,7 @@ gradSmartSeparatedTestCase =
 -- The experiments with separated samples seem to confirm both hypotheses.
 --
 -- With Double, it scales well to twice as many samples or even more,
--- but it takes too long to verify when errors crop in again.
+-- but it takes too long to verify if/when errors crop in again.
 smartFitTests :: TestTree
 smartFitTests = testGroup "Smart descent sample fitting fully connected nn tests"
   [ gradSmartWsTestCase
