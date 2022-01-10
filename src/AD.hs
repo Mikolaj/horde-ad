@@ -213,17 +213,40 @@ reluAct (D u u') = do
   d <- dlet $ Scale (if u > 0 then 1 else 0) u'
   return $! D (max 0 u) (Var d)
 
-scaleAddVecWithBias :: forall r. (Num r, Data.Vector.Unboxed.Unbox r)
-                    => Data.Vector.Vector (DualDelta r)
-                    -> Int
-                    -> VecDualDelta r
-                    -> DeltaMonad r (DualDelta r)
-scaleAddVecWithBias xs offset vec = do
+-- | Compute the output of a neuron, without applying activation function,
+-- from trainable inputs in @xs@ and parameters (the bias and weights)
+-- at @vec@ starting at @offset@. Useful for neurons in the middle
+-- of the network, receiving inputs from other neurons.
+sumTrainableInputs :: forall r. (Num r, Data.Vector.Unboxed.Unbox r)
+                   => Data.Vector.Vector (DualDelta r)
+                   -> Int
+                   -> VecDualDelta r
+                   -> DeltaMonad r (DualDelta r)
+sumTrainableInputs xs offset vec = do
   let bias = var offset vec
       f :: DualDelta r -> Int -> DualDelta r -> DualDelta r
       f (D acc acc') i (D u u') =
         let (D v v') = var (offset + 1 + i) vec
         in D (acc + u * v) (Add acc' (Add (Scale v u') (Scale u v')))
+      D xsum xsum' = V.ifoldl' f bias xs
+  d <- dlet xsum'
+  return $! D xsum (Var d)
+
+-- | Compute the output of a neuron, without applying activation function,
+-- from constant data in @xs@ and parameters (the bias and weights)
+-- at @vec@ starting at @offset@. Useful for neurons at the bottom
+-- of the network, tasked with ingesting the data.
+sumConstantData :: forall r. (Num r, Data.Vector.Unboxed.Unbox r)
+                => Data.Vector.Unboxed.Vector r
+                -> Int
+                -> VecDualDelta r
+                -> DeltaMonad r (DualDelta r)
+sumConstantData xs offset vec = do
+  let bias = var offset vec
+      f :: DualDelta r -> Int -> r -> DualDelta r
+      f (D acc acc') i r =
+        let (D v v') = var (offset + 1 + i) vec
+        in D (acc + r * v) (Add acc' (Scale r v'))
       D xsum xsum' = V.ifoldl' f bias xs
   d <- dlet xsum'
   return $! D xsum (Var d)

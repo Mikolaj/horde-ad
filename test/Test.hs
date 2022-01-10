@@ -246,7 +246,7 @@ outputLayerFit :: (DualDeltaD -> DeltaMonadD DualDeltaD)
                -> VecDualDeltaD
                -> DeltaMonadD DualDeltaD
 outputLayerFit factivation hiddenVec offset vec = do
-  outSum <- scaleAddVecWithBias hiddenVec offset vec
+  outSum <- sumTrainableInputs hiddenVec offset vec
   factivation outSum
 
 nnFit :: (DualDeltaD -> DeltaMonadD DualDeltaD)
@@ -586,9 +586,9 @@ middleLayerFit3 factivation hiddenVec offset vec = do
       nWeightsAndBias = width + 1
       f :: Int -> DeltaMonadD DualDeltaD
       f i = do
-        outSum <- scaleAddVecWithBias hiddenVec
-                                      (offset + i * nWeightsAndBias)
-                                      vec
+        outSum <- sumTrainableInputs hiddenVec
+                                     (offset + i * nWeightsAndBias)
+                                     vec
         factivation outSum
   V.generateM width f
 
