@@ -2,11 +2,16 @@ module Main (main) where
 
 import Prelude
 
+import           Codec.Compression.GZip (decompress)
 import           Control.Arrow (first)
 import           Control.Exception (assert)
+import qualified Data.ByteString.Lazy as LBS
+import           Data.IDX
+import           Data.Maybe (fromMaybe)
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Unboxed
+import           System.IO (IOMode (ReadMode), withBinaryFile)
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -26,6 +31,7 @@ tests = testGroup "Tests" [ dfTests
                           , smartFit2Tests
                           , smartFit3Tests
                           , dumbMnistTests
+                          , smallMnistTests
                           ]
 
 dfShow :: (VecDualDeltaF -> DeltaMonadF DualDeltaF)
@@ -747,6 +753,37 @@ nnMnistLoss factivationHidden factivationOutput widthHidden (xs, targ) vec = do
   res <- nnMnist factivationHidden factivationOutput widthHidden xs vec
   lossCrossEntropyUnfused targ res
 
+readMnistData :: LBS.ByteString -> LBS.ByteString -> [MnistData]
+readMnistData glyphsBS labelsBS =
+  let glyphs = fromMaybe (error "wrong MNIST glyphs file")
+               $ decodeIDX glyphsBS
+      labels = fromMaybe (error "wrong MNIST labels file")
+               $ decodeIDXLabels labelsBS
+      intData = fromMaybe (error "can't decode MNIST file into integers")
+                $ labeledIntData labels glyphs
+      f :: (Int, Data.Vector.Unboxed.Vector Int) -> MnistData
+      -- Copied from library backprop to enable comparison of results.
+      -- I have no idea how this is different from @labeledDoubleData@, etc.
+      f (labN, v) =
+        ( V.map (\r -> fromIntegral r / 255) v
+        , V.generate sizeMnistLabel (\i -> if i == labN then 1 else 0) )
+  in map f intData
+
+trainGlyphsPath, trainLabelsPath, testGlyphsPath, testLabelsPath :: FilePath
+trainGlyphsPath = "samplesData/train-images-idx3-ubyte.gz"
+trainLabelsPath = "samplesData/train-labels-idx1-ubyte.gz"
+testGlyphsPath  = "samplesData/t10k-images-idx3-ubyte.gz"
+testLabelsPath  = "samplesData/t10k-labels-idx1-ubyte.gz"
+
+loadMnistData :: FilePath -> FilePath -> IO [MnistData]
+loadMnistData glyphsPath labelsPath =
+  withBinaryFile glyphsPath ReadMode $ \glyphsHandle ->
+    withBinaryFile labelsPath ReadMode $ \labelsHandle -> do
+      glyphsContents <- LBS.hGetContents glyphsHandle
+      labelsContents <- LBS.hGetContents labelsHandle
+      return $! readMnistData (decompress glyphsContents)
+                              (decompress labelsContents)
+
 gradDescStochasticShow
   :: forall r a . (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
   => r
@@ -761,7 +798,7 @@ gradDescStochasticShow gamma f trainingData params0 =
 
 gradDescStochasticTestCase
   :: String
-  -> [MnistData]
+  -> IO [MnistData]
   -> ((DualDeltaD -> DeltaMonadD DualDeltaD)
       -> (Data.Vector.Vector DualDeltaD
           -> DeltaMonadD (Data.Vector.Vector DualDeltaD))
@@ -771,17 +808,18 @@ gradDescStochasticTestCase
       -> DeltaMonadD DualDeltaD)
   -> Double -> Double
   -> TestTree
-gradDescStochasticTestCase prefix trainingData lossFunction gamma expected =
+gradDescStochasticTestCase prefix trainingDataIO lossFunction gamma expected =
   let widthHidden = 250
       nParams = lenMnist widthHidden
       vec = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
       name = prefix ++ " "
              ++ unwords [show widthHidden, show nParams, show gamma]
-  in testCase name $
-       snd (gradDescStochasticShow
-              gamma (lossFunction logisticAct softMaxActUnfused widthHidden)
-              trainingData vec)
-       @?= expected
+  in testCase name $ do
+       trainingData <- trainingDataIO
+       (snd (gradDescStochasticShow
+               gamma (lossFunction logisticAct softMaxActUnfused widthHidden)
+               trainingData vec))
+          @?= expected
 
 sizeMnistGlyph :: Int
 sizeMnistGlyph = 784
@@ -799,20 +837,27 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
         blackLabel = V.replicate sizeMnistLabel 0
         trainingData = replicate 10 (blackGlyph, blackLabel)
     in gradDescStochasticTestCase "MNIST black"
-         trainingData nnMnistLoss 0.02 (-0.0)
+         (return trainingData) nnMnistLoss 0.02 (-0.0)
   , let whiteGlyph = V.replicate sizeMnistGlyph 1
         whiteLabel = V.replicate sizeMnistLabel 1
         trainingData = replicate 20 (whiteGlyph, whiteLabel)
     in gradDescStochasticTestCase "MNIST white"
-         trainingData nnMnistLoss 0.02 25.190345811686004
+         (return trainingData) nnMnistLoss 0.02 25.190345811686004
   , let blackGlyph = V.replicate sizeMnistGlyph 0
         whiteLabel = V.replicate sizeMnistLabel 1
         trainingData = replicate 50 (blackGlyph, whiteLabel)
     in gradDescStochasticTestCase "MNIST black/white"
-         trainingData nnMnistLoss 0.02 23.02585092994046
+         (return trainingData) nnMnistLoss 0.02 23.02585092994046
   , let glyph g = V.unfoldrExactN sizeMnistGlyph (uniformR (0, 1)) g
         label g = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1)) g
         trainingData = map (\g -> (glyph g, label g)) $ map mkStdGen [1 .. 100]
     in gradDescStochasticTestCase "MNIST random 100"
-         trainingData nnMnistLoss 0.02 12.87153985968679
+         (return trainingData) nnMnistLoss 0.02 12.87153985968679
+  ]
+
+smallMnistTests :: TestTree
+smallMnistTests = testGroup "MNIST tests with a small nn"
+  [ gradDescStochasticTestCase "MNIST first 1000 samples"
+      (take 1000 <$> loadMnistData trainGlyphsPath trainLabelsPath)
+      nnMnistLoss 0.02 4.1506160235356315
   ]

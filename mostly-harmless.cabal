@@ -137,11 +137,14 @@ test-suite mostly-harmless-test
     -- Test dependencies.
     build-depends:
         base
+      , bytestring
+      , mnist-idx
       , mostly-harmless
       , random
       , tasty >= 1.0
       , tasty-hunit
       , vector
+      , zlib
 
 test-suite ad-test
     -- Import common warning flags.
