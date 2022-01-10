@@ -3,12 +3,13 @@ module Main (main) where
 import Prelude
 
 import           Control.Arrow (first)
+import           Control.Exception (assert)
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Unboxed
 import           System.Random
 import           Test.Tasty
-import           Test.Tasty.HUnit
+import           Test.Tasty.HUnit hiding (assert)
 
 import AD
 
@@ -24,6 +25,7 @@ tests = testGroup "Tests" [ dfTests
                           , smartFitTests
                           , smartFit2Tests
                           , smartFit3Tests
+                          , dumbMnistTests
                           ]
 
 dfShow :: (VecDualDeltaF -> DeltaMonadF DualDeltaF)
@@ -689,4 +691,129 @@ smartFit3Tests =
   , gradSmartSeparatedTestCase
       (nnFit3LossTotal tanhAct) 42 24 (lenP3 12) 1300000
       (1.1354796858869852e-6,1.5625e-3)
+  ]
+
+hiddenLayerMnist :: (DualDeltaD -> DeltaMonadD DualDeltaD)
+                 -> Data.Vector.Unboxed.Vector Double
+                 -> VecDualDeltaD
+                 -> Int
+                 -> DeltaMonadD (Data.Vector.Vector DualDeltaD)
+hiddenLayerMnist factivation xs vec width = do
+  let nWeightsAndBias = V.length xs + 1
+      f :: Int -> DeltaMonadD DualDeltaD
+      f i = do
+        outSum <- sumConstantData xs (i * nWeightsAndBias) vec
+        factivation outSum
+  V.generateM width f
+
+outputLayerMnist :: (Data.Vector.Vector DualDeltaD
+                     -> DeltaMonadD (Data.Vector.Vector DualDeltaD))
+                 -> Data.Vector.Vector DualDeltaD
+                 -> Int
+                 -> VecDualDeltaD
+                 -> Int
+                 -> DeltaMonadD (Data.Vector.Vector DualDeltaD)
+outputLayerMnist factivation hiddenVec offset vec width = do
+  let nWeightsAndBias = V.length hiddenVec + 1
+      f :: Int -> DeltaMonadD DualDeltaD
+      f i = sumTrainableInputs hiddenVec (offset + i * nWeightsAndBias) vec
+  vOfSums <- V.generateM width f
+  factivation vOfSums
+
+nnMnist :: (DualDeltaD -> DeltaMonadD DualDeltaD)
+        -> (Data.Vector.Vector DualDeltaD
+            -> DeltaMonadD (Data.Vector.Vector DualDeltaD))
+        -> Int
+        -> Data.Vector.Unboxed.Vector Double
+        -> VecDualDeltaD
+        -> DeltaMonadD (Data.Vector.Vector DualDeltaD)
+nnMnist factivationHidden factivationOutput widthHidden xs vec = do
+  hiddenVec <- hiddenLayerMnist factivationHidden xs vec widthHidden
+  let !_A = assert (sizeMnistData == V.length xs) ()
+  outputLayerMnist factivationOutput hiddenVec
+                   (widthHidden * (sizeMnistData + 1)) vec
+                   widthMnistOutput
+
+nnMnistLoss :: (DualDeltaD -> DeltaMonadD DualDeltaD)
+            -> (Data.Vector.Vector DualDeltaD
+                -> DeltaMonadD (Data.Vector.Vector DualDeltaD))
+            -> Int
+            -> ( Data.Vector.Unboxed.Vector Double
+               , Data.Vector.Unboxed.Vector Double )
+            -> VecDualDeltaD
+            -> DeltaMonadD DualDeltaD
+nnMnistLoss factivationHidden factivationOutput widthHidden (xs, targ) vec = do
+  res <- nnMnist factivationHidden factivationOutput widthHidden xs vec
+  lossCrossEntropyUnfused targ res
+
+gradDescStochasticShow
+  :: forall r a . (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+  => r
+  -> (a -> VecDualDelta r -> DeltaMonad r (DualDelta r))
+  -> [a]  -- ^ training data
+  -> Domain r  -- ^ initial parameters
+  -> ([r], r)
+gradDescStochasticShow gamma f trainingData params0 =
+  let res = gradDescStochastic gamma f trainingData params0
+      (_, value) = df (f $ head trainingData) res
+  in (V.toList res, value)
+
+gradDescStochasticTestCase
+  :: String
+  -> [( Data.Vector.Unboxed.Vector Double
+      , Data.Vector.Unboxed.Vector Double )]
+  -> ((DualDeltaD -> DeltaMonadD DualDeltaD)
+      -> (Data.Vector.Vector DualDeltaD
+          -> DeltaMonadD (Data.Vector.Vector DualDeltaD))
+      -> Int
+      -> ( Data.Vector.Unboxed.Vector Double
+         , Data.Vector.Unboxed.Vector Double )
+      -> VecDualDeltaD
+      -> DeltaMonadD DualDeltaD)
+  -> Double -> Double
+  -> TestTree
+gradDescStochasticTestCase prefix trainingData lossFunction gamma expected =
+  let widthHidden = 250
+      nParams = lenMnist widthHidden
+      vec = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
+      name = prefix ++ " "
+             ++ unwords [show widthHidden, show nParams, show gamma]
+  in testCase name $
+       snd (gradDescStochasticShow
+              gamma (lossFunction logisticAct softMaxActUnfused widthHidden)
+              trainingData vec)
+       @?= expected
+
+sizeMnistData :: Int
+sizeMnistData = 784
+
+widthMnistOutput :: Int
+widthMnistOutput = 10
+
+lenMnist :: Int -> Int
+lenMnist widthHidden =
+  widthHidden * (sizeMnistData + 1) + 10 * (widthHidden + 1)
+
+dumbMnistTests :: TestTree
+dumbMnistTests = testGroup "Dumb MNIST tests"
+  [ let blackLetter = V.replicate sizeMnistData 0
+        blackLabel = V.replicate widthMnistOutput 0
+        trainingData = replicate 10 (blackLetter, blackLabel)
+    in gradDescStochasticTestCase "MNIST black"
+         trainingData nnMnistLoss 0.02 (-0.0)
+  , let whiteLetter = V.replicate sizeMnistData 1
+        whiteLabel = V.replicate widthMnistOutput 1
+        trainingData = replicate 20 (whiteLetter, whiteLabel)
+    in gradDescStochasticTestCase "MNIST white"
+         trainingData nnMnistLoss 0.02 25.190345811686004
+  , let blackLetter = V.replicate sizeMnistData 0
+        whiteLabel = V.replicate widthMnistOutput 1
+        trainingData = replicate 50 (blackLetter, whiteLabel)
+    in gradDescStochasticTestCase "MNIST black/white"
+         trainingData nnMnistLoss 0.02 23.02585092994046
+  , let letter g = V.unfoldrExactN sizeMnistData (uniformR (0, 1)) g
+        label g = V.unfoldrExactN widthMnistOutput (uniformR (0, 1)) g
+        trainingData = map (\g -> (letter g, label g)) $ map mkStdGen [1 .. 100]
+    in gradDescStochasticTestCase "MNIST random 100"
+         trainingData nnMnistLoss 0.02 12.87153985968679
   ]

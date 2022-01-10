@@ -128,8 +128,8 @@ df =
 gradDesc :: forall r . (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
          => r
          -> (VecDualDelta r -> DeltaMonad r (DualDelta r))
-         -> Int
-         -> Domain r
+         -> Int  -- ^ requested number of iterations
+         -> Domain r  -- ^ initial parameters
          -> Domain' r
 gradDesc gamma f n0 params0 = go n0 params0 where
   dim = V.length params0
@@ -147,12 +147,34 @@ gradDesc gamma f n0 params0 = go n0 params0 where
         paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
     in go (pred n) paramsNew
 
+gradDescStochastic :: forall r a . (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+                   => r
+                   -> (a -> VecDualDelta r -> DeltaMonad r (DualDelta r))
+                   -> [a]  -- ^ training data
+                   -> Domain r  -- ^ initial parameters
+                   -> Domain' r
+gradDescStochastic gamma f trainingData params0 = go trainingData params0 where
+  dim = V.length params0
+  -- Pre-allocating the vars once, vs gradually allocating on the spot in each
+  -- gradient computation, initially incurs overhead (looking up in a vector),
+  -- but pays off greatly as soon as the working set doesn't fit in any cache
+  -- and so allocations are made in RAM.
+  vVar = V.generate dim (Var . DeltaId)
+  go :: [a] -> Domain r -> Domain' r
+  go [] !params = params
+  go (a : rest) params =
+    let initVars :: (VecDualDelta r, Int)
+        initVars = ((params, vVar), dim)
+        gradient = fst $ generalDf (const initVars) evalBindingsV (f a) params
+        paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
+    in go rest paramsNew
+
 -- Based on @gradientDescent@ from package @ad@ which is in turn based
 -- on the one from the VLAD compiler.
 gradDescSmart :: forall r . (Ord r, Fractional r, Data.Vector.Unboxed.Unbox r)
               => (VecDualDelta r -> DeltaMonad r (DualDelta r))
-              -> Int
-              -> Domain r
+              -> Int  -- ^ requested number of iterations
+              -> Domain r  -- ^ initial parameters
               -> (Domain' r, r)
 gradDescSmart f n0 params0 = go n0 params0 0.1 gradient0 value0 0 where
   dim = V.length params0
@@ -191,12 +213,35 @@ gradDescSmart f n0 params0 = go n0 params0 0.1 gradient0 value0 0 where
   d <- dlet $ Add u' (Scale (-1) v')
   return $! D (u - v) d
 
+negateDual :: Num r => DualDelta r -> DeltaMonad r (DualDelta r)
+negateDual (D v v') = do
+  d <- dlet $ Scale (-1) v'
+  return $! D (- v) d
+
+-- Should be denoted by @/\@, but it would be misleading.
+divideDual :: Fractional r
+           => DualDelta r -> DualDelta r -> DeltaMonad r (DualDelta r)
+divideDual (D u u') (D v v') = do
+  d <- dlet $ Scale (recip $ v * v) (Add (Scale v u') (Scale (- u) v'))
+  return $! D (u / v) d
+
 (**\) :: Floating r
       => DualDelta r -> DualDelta r -> DeltaMonad r (DualDelta r)
 (**\) (D u u') (D v v') = do
   d <- dlet $ Add (Scale (v * (u ** (v - 1))) u')
                   (Scale ((u ** v) * log u) v')
   return $! D (u ** v) d
+
+expDual :: Floating r => DualDelta r -> DeltaMonad r (DualDelta r)
+expDual (D u u') = do
+  let expU = exp u
+  d <- dlet $ Scale expU u'
+  return $! D expU d
+
+logDual :: Floating r => DualDelta r -> DeltaMonad r (DualDelta r)
+logDual (D u u') = do
+  d <- dlet $ Scale (recip u) u'
+  return $! D (log u) d
 
 scalar :: r -> DualDelta r
 scalar k = D k Zero
@@ -258,6 +303,20 @@ reluAct (D u u') = do
   d <- dlet $ Scale (if u > 0 then 1 else 0) u'
   return $! D (max 0 u) d
 
+logisticAct :: Floating r => DualDelta r -> DeltaMonad r (DualDelta r)
+logisticAct (D u u') = do
+  let y = recip (1 + exp (- u))
+  d <- dlet $ Scale (y * (1 - y)) u'
+  return $! D y d
+
+softMaxActUnfused :: Floating r
+                  => Data.Vector.Vector (DualDelta r)
+                  -> DeltaMonad r (Data.Vector.Vector (DualDelta r))
+softMaxActUnfused us = do
+  expUs <- V.mapM expDual us
+  sumExpUs <- V.foldM' (+\) (scalar 0) expUs
+  V.mapM (`divideDual` sumExpUs) expUs
+
 -- | Compute the output of a neuron, without applying activation function,
 -- from trainable inputs in @xs@ and parameters (the bias and weights)
 -- at @vec@ starting at @offset@. Useful for neurons in the middle
@@ -300,6 +359,20 @@ lossSquaredUnfused :: Num r => r -> DualDelta r -> DeltaMonad r (DualDelta r)
 lossSquaredUnfused targ res = do
   diff <- res -\ scalar targ
   diff *\ diff
+
+-- In terms of hmatrix: @-(log res <.> targ)@.
+lossCrossEntropyUnfused :: forall r. (Floating r, Data.Vector.Unboxed.Unbox r)
+                        => Data.Vector.Unboxed.Vector r
+                        -> Data.Vector.Vector (DualDelta r)
+                        -> DeltaMonad r (DualDelta r)
+lossCrossEntropyUnfused targ res = do
+  let f :: DualDelta r -> Int -> DualDelta r -> DeltaMonad r (DualDelta r)
+      f !acc !i d = do
+        rLog <- logDual d
+        rLogScaled <- scale (targ V.! i) rLog
+        acc +\ rLogScaled
+  dotProductLog <- V.ifoldM' f (scalar 0) res
+  negateDual dotProductLog
 
 type DualDeltaF = DualDelta Float
 
