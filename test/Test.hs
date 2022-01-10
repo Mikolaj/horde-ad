@@ -152,6 +152,8 @@ gradDescTests = testGroup "Simple gradient descent tests"
       @?= ([3.5e-44,3.5e-44],4.9999523)
   ]
 
+-- This, and other XOR nn operations, are unfused, which is fine,
+-- just not enough for comprehensive benchmarks.
 scaleAddWithBias :: DualDeltaF -> DualDeltaF -> Int -> VecDualDeltaF
                  -> DeltaMonadF DualDeltaF
 scaleAddWithBias x y ixWeight vec = do
@@ -220,6 +222,8 @@ xorTests = testGroup "XOR neural net tests"
       @?= ([-1.2425352,2.6025252,0.13252532,-1.5821311,1.7432425,-0.72675747,-1.7345629,1.9154371,-0.42541993],2.0)
   ]
 
+-- This, and other Fit and Fit2 nn operations, are unfused, which is fine,
+-- just not enough for comprehensive benchmarks.
 hiddenLayerFit :: (DualDeltaD -> DeltaMonadD DualDeltaD)
                -> Double
                -> VecDualDeltaD
@@ -272,6 +276,9 @@ nnFitLossTotal factivationHidden factivationOutput samples vec = do
         D fl fl' <- nnFitLoss factivationHidden factivationOutput x res vec
         return $! D (acc + fl) (Add acc' fl')
   V.foldM' f (scalar 0) samples
+    -- an implementation that doesn't delve into implementation details
+    -- of dual numbers, but uses @sumListDual@ instead is up to twice slower,
+    -- due to no list fusion happening across monadic operations
 
 -- We will use the samples with fixed known good seeds, so we don't care
 -- whether any first element of the pair (nearly) repeats,

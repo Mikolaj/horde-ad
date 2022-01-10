@@ -8,6 +8,7 @@ import           Control.Exception (assert)
 import           Control.Monad (foldM, when)
 import           Control.Monad.ST.Strict (ST)
 import           Control.Monad.Trans.State.Strict
+import           Data.List (foldl')
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
@@ -204,6 +205,31 @@ scale :: Num r => r -> DualDelta r -> DeltaMonad r (DualDelta r)
 scale k (D u u') = do
   d <- dlet $ Scale k u'
   return $! D (k * u) d
+
+-- In addition to convenience, this offers fusion of all bindings
+-- coming from binary addition into a single binding.
+sumDual :: forall r . Num r
+        => Data.Vector.Vector (DualDelta r)
+        -> DeltaMonad r (DualDelta r)
+sumDual us = do
+  let f :: DualDelta r -> DualDelta r -> DualDelta r
+      f (D acc acc') (D u u') = D (acc + u) (Add acc' u')
+      D sumUs sumUs' = V.foldl' f (scalar 0) us
+  d <- dlet sumUs'
+  return $! D sumUs d
+
+-- The same as @sumDual@ but for lists. Inlined to help list fusion,
+-- which is, alas, not guaranteed regardless.
+sumListDual :: forall r . Num r
+            => [DualDelta r]
+            -> DeltaMonad r (DualDelta r)
+{-# INLINE sumListDual #-}
+sumListDual us = do
+  let f :: DualDelta r -> DualDelta r -> DualDelta r
+      f (D acc acc') (D u u') = D (acc + u) (Add acc' u')
+      D sumUs sumUs' = foldl' f (scalar 0) us
+  d <- dlet sumUs'
+  return $! D sumUs d
 
 tanhAct :: Floating r => DualDelta r -> DeltaMonad r (DualDelta r)
 tanhAct (D u u') = do
