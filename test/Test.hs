@@ -693,6 +693,9 @@ smartFit3Tests =
       (1.1354796858869852e-6,1.5625e-3)
   ]
 
+type MnistData = ( Data.Vector.Unboxed.Vector Double
+                 , Data.Vector.Unboxed.Vector Double )
+
 hiddenLayerMnist :: (DualDeltaD -> DeltaMonadD DualDeltaD)
                  -> Data.Vector.Unboxed.Vector Double
                  -> VecDualDeltaD
@@ -729,17 +732,15 @@ nnMnist :: (DualDeltaD -> DeltaMonadD DualDeltaD)
         -> DeltaMonadD (Data.Vector.Vector DualDeltaD)
 nnMnist factivationHidden factivationOutput widthHidden xs vec = do
   hiddenVec <- hiddenLayerMnist factivationHidden xs vec widthHidden
-  let !_A = assert (sizeMnistData == V.length xs) ()
+  let !_A = assert (sizeMnistGlyph == V.length xs) ()
   outputLayerMnist factivationOutput hiddenVec
-                   (widthHidden * (sizeMnistData + 1)) vec
-                   widthMnistOutput
+                   (widthHidden * (sizeMnistGlyph + 1)) vec sizeMnistLabel
 
 nnMnistLoss :: (DualDeltaD -> DeltaMonadD DualDeltaD)
             -> (Data.Vector.Vector DualDeltaD
                 -> DeltaMonadD (Data.Vector.Vector DualDeltaD))
             -> Int
-            -> ( Data.Vector.Unboxed.Vector Double
-               , Data.Vector.Unboxed.Vector Double )
+            -> MnistData
             -> VecDualDeltaD
             -> DeltaMonadD DualDeltaD
 nnMnistLoss factivationHidden factivationOutput widthHidden (xs, targ) vec = do
@@ -760,14 +761,12 @@ gradDescStochasticShow gamma f trainingData params0 =
 
 gradDescStochasticTestCase
   :: String
-  -> [( Data.Vector.Unboxed.Vector Double
-      , Data.Vector.Unboxed.Vector Double )]
+  -> [MnistData]
   -> ((DualDeltaD -> DeltaMonadD DualDeltaD)
       -> (Data.Vector.Vector DualDeltaD
           -> DeltaMonadD (Data.Vector.Vector DualDeltaD))
       -> Int
-      -> ( Data.Vector.Unboxed.Vector Double
-         , Data.Vector.Unboxed.Vector Double )
+      -> MnistData
       -> VecDualDeltaD
       -> DeltaMonadD DualDeltaD)
   -> Double -> Double
@@ -784,36 +783,36 @@ gradDescStochasticTestCase prefix trainingData lossFunction gamma expected =
               trainingData vec)
        @?= expected
 
-sizeMnistData :: Int
-sizeMnistData = 784
+sizeMnistGlyph :: Int
+sizeMnistGlyph = 784
 
-widthMnistOutput :: Int
-widthMnistOutput = 10
+sizeMnistLabel :: Int
+sizeMnistLabel = 10
 
 lenMnist :: Int -> Int
 lenMnist widthHidden =
-  widthHidden * (sizeMnistData + 1) + 10 * (widthHidden + 1)
+  widthHidden * (sizeMnistGlyph + 1) + 10 * (widthHidden + 1)
 
 dumbMnistTests :: TestTree
 dumbMnistTests = testGroup "Dumb MNIST tests"
-  [ let blackLetter = V.replicate sizeMnistData 0
-        blackLabel = V.replicate widthMnistOutput 0
-        trainingData = replicate 10 (blackLetter, blackLabel)
+  [ let blackGlyph = V.replicate sizeMnistGlyph 0
+        blackLabel = V.replicate sizeMnistLabel 0
+        trainingData = replicate 10 (blackGlyph, blackLabel)
     in gradDescStochasticTestCase "MNIST black"
          trainingData nnMnistLoss 0.02 (-0.0)
-  , let whiteLetter = V.replicate sizeMnistData 1
-        whiteLabel = V.replicate widthMnistOutput 1
-        trainingData = replicate 20 (whiteLetter, whiteLabel)
+  , let whiteGlyph = V.replicate sizeMnistGlyph 1
+        whiteLabel = V.replicate sizeMnistLabel 1
+        trainingData = replicate 20 (whiteGlyph, whiteLabel)
     in gradDescStochasticTestCase "MNIST white"
          trainingData nnMnistLoss 0.02 25.190345811686004
-  , let blackLetter = V.replicate sizeMnistData 0
-        whiteLabel = V.replicate widthMnistOutput 1
-        trainingData = replicate 50 (blackLetter, whiteLabel)
+  , let blackGlyph = V.replicate sizeMnistGlyph 0
+        whiteLabel = V.replicate sizeMnistLabel 1
+        trainingData = replicate 50 (blackGlyph, whiteLabel)
     in gradDescStochasticTestCase "MNIST black/white"
          trainingData nnMnistLoss 0.02 23.02585092994046
-  , let letter g = V.unfoldrExactN sizeMnistData (uniformR (0, 1)) g
-        label g = V.unfoldrExactN widthMnistOutput (uniformR (0, 1)) g
-        trainingData = map (\g -> (letter g, label g)) $ map mkStdGen [1 .. 100]
+  , let glyph g = V.unfoldrExactN sizeMnistGlyph (uniformR (0, 1)) g
+        label g = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1)) g
+        trainingData = map (\g -> (glyph g, label g)) $ map mkStdGen [1 .. 100]
     in gradDescStochasticTestCase "MNIST random 100"
          trainingData nnMnistLoss 0.02 12.87153985968679
   ]
