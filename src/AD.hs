@@ -231,6 +231,22 @@ sumListDual us = do
   d <- dlet sumUs'
   return $! D sumUs d
 
+-- Inlined to avoid the tiny overhead of calling an unknown function.
+-- This operation is needed, because @sumListDual@ doesn't (always) fuse.
+sumResultsDual :: forall a r. (Num r, Data.Vector.Unboxed.Unbox a)
+               => (a -> DeltaMonad r (DualDelta r))
+               -> Data.Vector.Unboxed.Vector a
+               -> DeltaMonad r (DualDelta r)
+{-# INLINE sumResultsDual #-}
+sumResultsDual f as = do
+  let g :: DualDelta r -> a -> DeltaMonad r (DualDelta r)
+      g (D acc acc') a = do
+        (D u u') <- f a
+        return $! D (acc + u) (Add acc' u')
+  D sumUs sumUs' <- V.foldM g (scalar 0) as
+  d <- dlet sumUs'
+  return $! D sumUs d
+
 tanhAct :: Floating r => DualDelta r -> DeltaMonad r (DualDelta r)
 tanhAct (D u u') = do
   let y = tanh u

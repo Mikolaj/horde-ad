@@ -271,11 +271,9 @@ nnFitLossTotal :: (DualDeltaD -> DeltaMonadD DualDeltaD)
                -> VecDualDeltaD
                -> DeltaMonadD DualDeltaD
 nnFitLossTotal factivationHidden factivationOutput samples vec = do
-  let f :: DualDeltaD -> (Double, Double) -> DeltaMonadD DualDeltaD
-      f (D acc acc') (x, res) = do
-        D fl fl' <- nnFitLoss factivationHidden factivationOutput x res vec
-        return $! D (acc + fl) (Add acc' fl')
-  V.foldM' f (scalar 0) samples
+  let f :: (Double, Double) -> DeltaMonadD DualDeltaD
+      f (x, res) = nnFitLoss factivationHidden factivationOutput x res vec
+  sumResultsDual f samples
     -- an implementation that doesn't delve into implementation details
     -- of dual numbers, but uses @sumListDual@ instead is up to twice slower,
     -- due to no list fusion happening across monadic operations
@@ -423,13 +421,11 @@ nnFit2LossTotal :: (DualDeltaD -> DeltaMonadD DualDeltaD)
                 -> DeltaMonadD DualDeltaD
 nnFit2LossTotal factivationHidden factivationMiddle factivationOutput
                 samples vec = do
-  let f :: DualDeltaD -> (Double, Double) -> DeltaMonadD DualDeltaD
-      f (D acc acc') (x, res) = do
-        D fl fl' <-
-          nnFit2Loss factivationHidden factivationMiddle factivationOutput
-                     x res vec
-        return $! D (acc + fl) (Add acc' fl')
-  V.foldM' f (scalar 0) samples
+  let f :: (Double, Double) -> DeltaMonadD DualDeltaD
+      f (x, res) =
+        nnFit2Loss factivationHidden factivationMiddle factivationOutput
+                   x res vec
+  sumResultsDual f samples
 
 lenP2 :: Int -> Int
 lenP2 width = 5 * width + 1
@@ -629,13 +625,11 @@ nnFit3LossTotal :: (DualDeltaD -> DeltaMonadD DualDeltaD)
                 -> DeltaMonadD DualDeltaD
 nnFit3LossTotal factivationHidden factivationMiddle factivationOutput
                 samples vec = do
-  let f :: DualDeltaD -> (Double, Double) -> DeltaMonadD DualDeltaD
-      f (D acc acc') (x, res) = do
-        D fl fl' <-
-          nnFit3Loss factivationHidden factivationMiddle factivationOutput
-                     x res vec
-        return $! D (acc + fl) (Add acc' fl')
-  V.foldM' f (scalar 0) samples
+  let f :: (Double, Double) -> DeltaMonadD DualDeltaD
+      f (x, res) =
+        nnFit3Loss factivationHidden factivationMiddle factivationOutput
+                   x res vec
+  sumResultsDual f samples
 
 lenP3 :: Int -> Int
 lenP3 width = (4 + width) * width + 1
