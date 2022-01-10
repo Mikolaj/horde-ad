@@ -178,17 +178,12 @@ nnXor factivation x y vec = do
   n2 <- neuron factivation x y 3 vec
   neuron factivation n1 n2 6 vec
 
-lossSquared :: Num r => DualDelta r -> r -> DeltaMonad r (DualDelta r)
-lossSquared u res = do
-  diff <- u -\ scalar res
-  diff *\ diff
-
 nnXorLoss :: (DualDeltaF -> DeltaMonadF DualDeltaF)
           -> Float -> Float -> Float -> VecDualDeltaF
           -> DeltaMonadF DualDeltaF
-nnXorLoss factivation x y res vec = do
-  r <- nnXor factivation (scalar x) (scalar y) vec
-  lossSquared r res
+nnXorLoss factivation x y targ vec = do
+  res <- nnXor factivation (scalar x) (scalar y) vec
+  lossSquared targ res
 
 nnXorLossTotal :: (DualDeltaF -> DeltaMonadF DualDeltaF)
                -> VecDualDeltaF
@@ -262,9 +257,9 @@ nnFit factivationHidden factivationOutput x vec = do
 nnFitLoss :: (DualDeltaD -> DeltaMonadD DualDeltaD)
           -> (DualDeltaD -> DeltaMonadD DualDeltaD)
           -> Double -> Double -> VecDualDeltaD -> DeltaMonadD DualDeltaD
-nnFitLoss factivationHidden factivationOutput x res vec = do
-  r <- nnFit factivationHidden factivationOutput x vec
-  lossSquared r res
+nnFitLoss factivationHidden factivationOutput x targ vec = do
+  res <- nnFit factivationHidden factivationOutput x vec
+  lossSquared targ res
 
 nnFitLossTotal :: (DualDeltaD -> DeltaMonadD DualDeltaD)
                -> (DualDeltaD -> DeltaMonadD DualDeltaD)
@@ -409,9 +404,9 @@ nnFit2Loss :: (DualDeltaD -> DeltaMonadD DualDeltaD)
            -> (DualDeltaD -> DeltaMonadD DualDeltaD)
            -> (DualDeltaD -> DeltaMonadD DualDeltaD)
            -> Double -> Double -> VecDualDeltaD -> DeltaMonadD DualDeltaD
-nnFit2Loss factivationHidden factivationMiddle factivationOutput x res vec = do
-  r <- nnFit2 factivationHidden factivationMiddle factivationOutput x vec
-  lossSquared r res
+nnFit2Loss factivationHidden factivationMiddle factivationOutput x targ vec = do
+  res <- nnFit2 factivationHidden factivationMiddle factivationOutput x vec
+  lossSquared targ res
 
 nnFit2LossTotal :: (DualDeltaD -> DeltaMonadD DualDeltaD)
                 -> (DualDeltaD -> DeltaMonadD DualDeltaD)
@@ -615,9 +610,9 @@ nnFit3Loss :: (DualDeltaD -> DeltaMonadD DualDeltaD)
            -> (DualDeltaD -> DeltaMonadD DualDeltaD)
            -> (DualDeltaD -> DeltaMonadD DualDeltaD)
            -> Double -> Double -> VecDualDeltaD -> DeltaMonadD DualDeltaD
-nnFit3Loss factivationHidden factivationMiddle factivationOutput x res vec = do
-  r <- nnFit3 factivationHidden factivationMiddle factivationOutput x vec
-  lossSquared r res
+nnFit3Loss factivationHidden factivationMiddle factivationOutput x targ vec = do
+  res <- nnFit3 factivationHidden factivationMiddle factivationOutput x vec
+  lossSquared targ res
 
 nnFit3LossTotal :: (DualDeltaD -> DeltaMonadD DualDeltaD)
                 -> (DualDeltaD -> DeltaMonadD DualDeltaD)

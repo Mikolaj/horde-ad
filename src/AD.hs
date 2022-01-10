@@ -251,6 +251,11 @@ sumConstantData xs offset vec = do
   d <- dlet xsum'
   return $! D xsum (Var d)
 
+lossSquared :: Num r => r -> DualDelta r -> DeltaMonad r (DualDelta r)
+lossSquared targ res = do
+  diff <- res -\ scalar targ
+  diff *\ diff
+
 type DualDeltaF = DualDelta Float
 
 type VecDualDeltaF = VecDualDelta Float
