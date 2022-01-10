@@ -94,6 +94,10 @@ var :: Data.Vector.Unboxed.Unbox r
     => Int -> VecDualDelta r -> DualDelta r
 var i (vValue, vVar) = D (vValue V.! i) (vVar V.! i)
 
+-- TODO: paramaterize this and others by the monad (with dlet)
+-- and produce a variant with a trivial monad so that calculating
+-- solely the value of the function is not almost as expensive
+-- as calculating the pair of gradient and value.
 generalDf :: (domain -> (VecDualDelta r, Int))
           -> (VecDualDelta r -> DeltaState r -> Delta r -> domain')
           -> (VecDualDelta r -> DeltaMonad r (DualDelta r))
