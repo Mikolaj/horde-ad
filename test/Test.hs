@@ -884,7 +884,8 @@ mnistTestCase prefix epochs maxBatches lossFunction widthHidden gamma expected =
   let nParams = lenMnist widthHidden
       params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
       name = prefix ++ " "
-             ++ unwords [show widthHidden, show nParams, show gamma]
+             ++ unwords [ show epochs, show maxBatches, show widthHidden
+                        , show nParams, show gamma ]
   in testCase name $ do
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- loadMnistData testGlyphsPath testLabelsPath
@@ -902,17 +903,17 @@ mnistTestCase prefix epochs maxBatches lossFunction widthHidden gamma expected =
              printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
              return res
        let runEpoch :: Int -> Domain Double -> IO (Domain Double)
-           runEpoch 0 params = return params
+           runEpoch n params | n > epochs = return params
            runEpoch n params = do
              printf "[Epoch %d]\n" n
              let trainDataShuffled = shuffle (mkStdGen n) trainData
                  chunks = take maxBatches
                           $ zip [1 ..] $ chunksOf 5000 trainDataShuffled
              !res <- foldM runBatch params chunks
-             runEpoch (pred n) res
+             runEpoch (succ n) res
        printf "\nEpochs to run/max batches per epoch: %d/%d\n"
               epochs maxBatches
-       res <- runEpoch epochs params0
+       res <- runEpoch 1 params0
        let testErrorFinal = 1 - testMnist testData res widthHidden
        testErrorFinal @?= expected
 
@@ -967,6 +968,8 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
 
 smallMnistTests :: TestTree
 smallMnistTests = testGroup "MNIST tests with a small nn"
-  [ mnistTestCase "first batch only" 1 1 nnMnistLoss 250 0.02
-                  0.11829999999999996
+  [ mnistTestCase "2 epochs, but only 1 batch" 2 1 nnMnistLoss 250 0.02
+                  0.10909999999999997
+  , mnistTestCase "1 epoch, 7 batches" 1 7 nnMnistLoss 250 0.02
+                  6.640000000000001e-2
   ]
