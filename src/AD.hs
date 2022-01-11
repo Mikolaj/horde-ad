@@ -1,4 +1,5 @@
-{-# LANGUAGE FlexibleContexts, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, FunctionalDependencies,
+             GeneralizedNewtypeDeriving, RankNTypes #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 module AD where
 
@@ -70,21 +71,24 @@ evalBindingsV :: (Eq r, Num r, V.Vector v r)
               => VecDualDelta i -> DeltaState r -> Delta r -> v r
 evalBindingsV ds st d0 = V.create $ buildVector (V.length $ snd ds) st d0
 
-newtype DeltaMonad r a = DeltaMonad
-  { runDeltaMonad :: State (DeltaState r) a }
+class (Monad m, Functor m, Applicative m) => DeltaMonad r m | m -> r where
+  returnLetD :: r -> Delta r -> m (DualDelta r)
+
+newtype DeltaMonadGradient r a = DeltaMonadGradient
+  { runDeltaMonadGradient :: State (DeltaState r) a }
   deriving (Monad, Functor, Applicative)
 
--- TODO: when varied benchmarks are available, check if returning v always,
--- except for @Add@, is faster. Probably @Zero@ and @Var@ appear too rarely
--- to matter if @Scale@ turns out to require bindings.
-returnLetD :: r -> Delta r -> DeltaMonad r (DualDelta r)
-returnLetD r v = DeltaMonad $ do
-  i <- gets deltaCounter
-  modify $ \s ->
-    s { deltaCounter = succ i
-      , deltaBindings = v : deltaBindings s
-      }
-  return $! D r (Var i)
+instance DeltaMonad r (DeltaMonadGradient r) where
+  -- TODO: when varied benchmarks are available, check if returning v always,
+  -- except for @Add@, is faster. Probably @Zero@ and @Var@ appear too rarely
+  -- to matter if @Scale@ turns out to require bindings.
+  returnLetD r v = DeltaMonadGradient $ do
+    i <- gets deltaCounter
+    modify $ \s ->
+      s { deltaCounter = succ i
+        , deltaBindings = v : deltaBindings s
+        }
+    return $! D r (Var i)
 
 data DualDelta r = D r (Delta r)
 
@@ -101,7 +105,7 @@ var i (vValue, vVar) = D (vValue V.! i) (vVar V.! i)
 -- This will also make @bundleDual@ less ugly.
 generalDf :: (domain -> (VecDualDelta r, Int))
           -> (VecDualDelta r -> DeltaState r -> Delta r -> domain')
-          -> (VecDualDelta r -> DeltaMonad r (DualDelta r))
+          -> (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
           -> domain
           -> (domain', r)
 {-# INLINE generalDf #-}
@@ -111,12 +115,12 @@ generalDf initVars evalBindings f deltaInput =
         { deltaCounter = DeltaId dim
         , deltaBindings = []
         }
-      (D value d, st) = runState (runDeltaMonad (f ds)) initialState
+      (D value d, st) = runState (runDeltaMonadGradient (f ds)) initialState
       gradient = evalBindings ds st d
   in (gradient, value)
 
 bundleDual :: Data.Vector.Unboxed.Unbox r
-          => (VecDualDelta r -> DeltaMonad q a)
+          => (VecDualDelta r -> DeltaMonadGradient r a)
           -> Domain r
           -> a
 bundleDual f ds =
@@ -126,14 +130,14 @@ bundleDual f ds =
         { deltaCounter = DeltaId dim
         , deltaBindings = []
         }
-  in evalState (runDeltaMonad (f (ds, vVar))) initialState
+  in evalState (runDeltaMonadGradient (f (ds, vVar))) initialState
 
 type Domain r = Data.Vector.Unboxed.Vector r
 
 type Domain' r = Domain r
 
-df :: forall r . (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
-   => (VecDualDelta r -> DeltaMonad r (DualDelta r))
+df :: forall r. (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+   => (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
    -> Domain r
    -> (Domain' r, r)
 df =
@@ -143,9 +147,9 @@ df =
         in ((deltaInput, V.generate dim (Var . DeltaId)), dim)
   in generalDf initVars evalBindingsV
 
-gradDesc :: forall r . (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+gradDesc :: forall r. (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
          => r
-         -> (VecDualDelta r -> DeltaMonad r (DualDelta r))
+         -> (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
          -> Int  -- ^ requested number of iterations
          -> Domain r  -- ^ initial parameters
          -> Domain' r
@@ -165,12 +169,13 @@ gradDesc gamma f n0 params0 = go n0 params0 where
         paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
     in go (pred n) paramsNew
 
-gradDescStochastic :: forall r a . (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
-                   => r
-                   -> (a -> VecDualDelta r -> DeltaMonad r (DualDelta r))
-                   -> [a]  -- ^ training data
-                   -> Domain r  -- ^ initial parameters
-                   -> Domain' r
+gradDescStochastic
+  :: forall r a. (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+  => r
+  -> (a -> VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
+  -> [a]  -- ^ training data
+  -> Domain r  -- ^ initial parameters
+  -> Domain' r
 gradDescStochastic gamma f trainingData params0 = go trainingData params0 where
   dim = V.length params0
   -- Pre-allocating the vars once, vs gradually allocating on the spot in each
@@ -189,8 +194,8 @@ gradDescStochastic gamma f trainingData params0 = go trainingData params0 where
 
 -- Based on @gradientDescent@ from package @ad@ which is in turn based
 -- on the one from the VLAD compiler.
-gradDescSmart :: forall r . (Ord r, Fractional r, Data.Vector.Unboxed.Unbox r)
-              => (VecDualDelta r -> DeltaMonad r (DualDelta r))
+gradDescSmart :: forall r. (Ord r, Fractional r, Data.Vector.Unboxed.Unbox r)
+              => (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
               -> Int  -- ^ requested number of iterations
               -> Domain r  -- ^ initial parameters
               -> (Domain' r, r)
@@ -216,55 +221,55 @@ gradDescSmart f n0 params0 = go n0 params0 0.1 gradient0 value0 0 where
           | i == 10 -> go (pred n) paramsNew (gamma * 2) gradient value 0
           | otherwise -> go (pred n) paramsNew gamma gradient value (i + 1)
 
-(*\) :: Num r => DualDelta r -> DualDelta r -> DeltaMonad r (DualDelta r)
+(*\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
 (*\) (D u u') (D v v') =
   returnLetD (u * v) (Add (Scale v u') (Scale u v'))
 
-(+\) :: Num r => DualDelta r -> DualDelta r -> DeltaMonad r (DualDelta r)
+(+\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
 (+\) (D u u') (D v v') =
   returnLetD (u + v) (Add u' v')
 
-(-\) :: Num r => DualDelta r -> DualDelta r -> DeltaMonad r (DualDelta r)
+(-\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
 (-\) (D u u') (D v v') =
   returnLetD (u - v) (Add u' (Scale (-1) v'))
 
-negateDual :: Num r => DualDelta r -> DeltaMonad r (DualDelta r)
+negateDual :: (DeltaMonad r m, Num r) => DualDelta r -> m (DualDelta r)
 negateDual (D v v') =
   returnLetD (- v) (Scale (-1) v')
 
 -- Should be denoted by @/\@, but it would be misleading.
-divideDual :: Fractional r
-           => DualDelta r -> DualDelta r -> DeltaMonad r (DualDelta r)
+divideDual :: (DeltaMonad r m, Fractional r)
+           => DualDelta r -> DualDelta r -> m (DualDelta r)
 divideDual (D u u') (D v v') =
   returnLetD (u / v) (Scale (recip $ v * v) (Add (Scale v u') (Scale (- u) v')))
 
-(**\) :: Floating r
-      => DualDelta r -> DualDelta r -> DeltaMonad r (DualDelta r)
+(**\) :: (DeltaMonad r m, Floating r)
+      => DualDelta r -> DualDelta r -> m (DualDelta r)
 (**\) (D u u') (D v v') =
   returnLetD (u ** v) (Add (Scale (v * (u ** (v - 1))) u')
                            (Scale ((u ** v) * log u) v'))
 
-expDual :: Floating r => DualDelta r -> DeltaMonad r (DualDelta r)
+expDual :: (DeltaMonad r m, Floating r) => DualDelta r -> m (DualDelta r)
 expDual (D u u') = do
   let expU = exp u
   returnLetD expU (Scale expU u')
 
-logDual :: Floating r => DualDelta r -> DeltaMonad r (DualDelta r)
+logDual :: (DeltaMonad r m, Floating r) => DualDelta r -> m (DualDelta r)
 logDual (D u u') =
   returnLetD (log u) (Scale (recip u) u')
 
 scalar :: r -> DualDelta r
 scalar k = D k Zero
 
-scale :: Num r => r -> DualDelta r -> DeltaMonad r (DualDelta r)
+scale :: (DeltaMonad r m, Num r) => r -> DualDelta r -> m (DualDelta r)
 scale k (D u u') =
   returnLetD (k * u) (Scale k u')
 
 -- In addition to convenience, this offers fusion of all bindings
 -- coming from binary addition into a single binding.
-sumDual :: forall r . Num r
+sumDual :: forall m r . (DeltaMonad r m, Num r)
         => Data.Vector.Vector (DualDelta r)
-        -> DeltaMonad r (DualDelta r)
+        -> m (DualDelta r)
 sumDual us = do
   let f :: DualDelta r -> DualDelta r -> DualDelta r
       f (D acc acc') (D u u') = D (acc + u) (Add acc' u')
@@ -273,9 +278,9 @@ sumDual us = do
 
 -- The same as @sumDual@ but for lists. Inlined to help list fusion,
 -- which is, alas, not guaranteed regardless.
-sumListDual :: forall r . Num r
+sumListDual :: forall m r . (DeltaMonad r m, Num r)
             => [DualDelta r]
-            -> DeltaMonad r (DualDelta r)
+            -> m (DualDelta r)
 {-# INLINE sumListDual #-}
 sumListDual us = do
   let f :: DualDelta r -> DualDelta r -> DualDelta r
@@ -285,36 +290,37 @@ sumListDual us = do
 
 -- Inlined to avoid the tiny overhead of calling an unknown function.
 -- This operation is needed, because @sumListDual@ doesn't (always) fuse.
-sumResultsDual :: forall a r. (Num r, Data.Vector.Unboxed.Unbox a)
-               => (a -> DeltaMonad r (DualDelta r))
+sumResultsDual :: forall m a r.
+                    (DeltaMonad r m, Num r, Data.Vector.Unboxed.Unbox a)
+               => (a -> m (DualDelta r))
                -> Data.Vector.Unboxed.Vector a
-               -> DeltaMonad r (DualDelta r)
+               -> m (DualDelta r)
 {-# INLINE sumResultsDual #-}
 sumResultsDual f as = do
-  let g :: DualDelta r -> a -> DeltaMonad r (DualDelta r)
+  let g :: DualDelta r -> a -> m (DualDelta r)
       g (D acc acc') a = do
         (D u u') <- f a
         return $! D (acc + u) (Add acc' u')
   D sumUs sumUs' <- V.foldM g (scalar 0) as
   returnLetD sumUs sumUs'
 
-tanhAct :: Floating r => DualDelta r -> DeltaMonad r (DualDelta r)
+tanhAct :: (DeltaMonad r m, Floating r) => DualDelta r -> m (DualDelta r)
 tanhAct (D u u') = do
   let y = tanh u
   returnLetD y (Scale (1 - y * y) u')
 
-reluAct :: (Num r, Ord r) => DualDelta r -> DeltaMonad r (DualDelta r)
+reluAct :: (DeltaMonad r m, Num r, Ord r) => DualDelta r -> m (DualDelta r)
 reluAct (D u u') =
   returnLetD (max 0 u) (Scale (if u > 0 then 1 else 0) u')
 
-logisticAct :: Floating r => DualDelta r -> DeltaMonad r (DualDelta r)
+logisticAct :: (DeltaMonad r m, Floating r) => DualDelta r -> m (DualDelta r)
 logisticAct (D u u') = do
   let y = recip (1 + exp (- u))
   returnLetD y (Scale (y * (1 - y)) u')
 
-softMaxActUnfused :: Floating r
+softMaxActUnfused :: (DeltaMonad r m, Floating r)
                   => Data.Vector.Vector (DualDelta r)
-                  -> DeltaMonad r (Data.Vector.Vector (DualDelta r))
+                  -> m (Data.Vector.Vector (DualDelta r))
 softMaxActUnfused us = do
   expUs <- V.mapM expDual us
   sumExpUs <- V.foldM' (+\) (scalar 0) expUs
@@ -324,11 +330,12 @@ softMaxActUnfused us = do
 -- from trainable inputs in @xs@ and parameters (the bias and weights)
 -- at @vec@ starting at @offset@. Useful for neurons in the middle
 -- of the network, receiving inputs from other neurons.
-sumTrainableInputs :: forall r. (Num r, Data.Vector.Unboxed.Unbox r)
+sumTrainableInputs :: forall m r.
+                        (DeltaMonad r m, Num r, Data.Vector.Unboxed.Unbox r)
                    => Data.Vector.Vector (DualDelta r)
                    -> Int
                    -> VecDualDelta r
-                   -> DeltaMonad r (DualDelta r)
+                   -> m (DualDelta r)
 sumTrainableInputs xs offset vec = do
   let bias = var offset vec
       f :: DualDelta r -> Int -> DualDelta r -> DualDelta r
@@ -342,11 +349,12 @@ sumTrainableInputs xs offset vec = do
 -- from constant data in @xs@ and parameters (the bias and weights)
 -- at @vec@ starting at @offset@. Useful for neurons at the bottom
 -- of the network, tasked with ingesting the data.
-sumConstantData :: forall r. (Num r, Data.Vector.Unboxed.Unbox r)
+sumConstantData :: forall m r.
+                     (DeltaMonad r m, Num r, Data.Vector.Unboxed.Unbox r)
                 => Domain r
                 -> Int
                 -> VecDualDelta r
-                -> DeltaMonad r (DualDelta r)
+                -> m (DualDelta r)
 sumConstantData xs offset vec = do
   let bias = var offset vec
       f :: DualDelta r -> Int -> r -> DualDelta r
@@ -356,38 +364,26 @@ sumConstantData xs offset vec = do
       D xsum xsum' = V.ifoldl' f bias xs
   returnLetD xsum xsum'
 
-lossSquaredUnfused :: Num r => r -> DualDelta r -> DeltaMonad r (DualDelta r)
+lossSquaredUnfused :: (DeltaMonad r m, Num r)
+                   => r -> DualDelta r -> m (DualDelta r)
 lossSquaredUnfused targ res = do
   diff <- res -\ scalar targ
   diff *\ diff
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropyUnfused :: forall r. (Floating r, Data.Vector.Unboxed.Unbox r)
-                        => Data.Vector.Unboxed.Vector r
-                        -> Data.Vector.Vector (DualDelta r)
-                        -> DeltaMonad r (DualDelta r)
+lossCrossEntropyUnfused
+  :: forall m r. (DeltaMonad r m, Floating r, Data.Vector.Unboxed.Unbox r)
+  => Data.Vector.Unboxed.Vector r
+  -> Data.Vector.Vector (DualDelta r)
+  -> m (DualDelta r)
 lossCrossEntropyUnfused targ res = do
-  let f :: DualDelta r -> Int -> DualDelta r -> DeltaMonad r (DualDelta r)
+  let f :: DualDelta r -> Int -> DualDelta r -> m (DualDelta r)
       f !acc !i d = do
         rLog <- logDual d
         rLogScaled <- scale (targ V.! i) rLog
         acc +\ rLogScaled
   dotProductLog <- V.ifoldM' f (scalar 0) res
   negateDual dotProductLog
-
-type DualDeltaF = DualDelta Float
-
-type VecDualDeltaF = VecDualDelta Float
-
-type DeltaMonadF = DeltaMonad Float
-
-type DualDeltaD = DualDelta Double
-
-type VecDualDeltaD = VecDualDelta Double
-
-type DeltaMonadD = DeltaMonad Double
-
-
 
 
 

@@ -39,7 +39,8 @@ type Domain r = Data.Vector.Vector r
 type Domain' r = Domain r
 
 gradDesc :: Double
-         -> (forall s. Reifies s Tape => Domain (ReverseDouble s) -> ReverseDouble s)
+         -> (forall s. Reifies s Tape
+             => Domain (ReverseDouble s) -> ReverseDouble s)
          -> Int
          -> Domain Double
          -> Domain' Double
