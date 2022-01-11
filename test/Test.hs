@@ -800,9 +800,9 @@ gradDescStochasticShow
   -> [a]  -- ^ training data
   -> Domain r  -- ^ initial parameters
   -> ([r], r)
-gradDescStochasticShow gamma f trainingData params0 =
-  let res = gradDescStochastic gamma f trainingData params0
-      (_, value) = df (f $ head trainingData) res
+gradDescStochasticShow gamma f trainData params0 =
+  let res = gradDescStochastic gamma f trainData params0
+      (_, value) = df (f $ head trainData) res
   in (V.toList res, value)
 
 gradDescStochasticTestCase
@@ -815,19 +815,20 @@ gradDescStochasticTestCase
       -> MnistData
       -> VecDualDeltaD
       -> DeltaMonadD DualDeltaD)
-  -> Double -> Double
+  -> Double
+  -> Double
   -> TestTree
-gradDescStochasticTestCase prefix trainingDataIO lossFunction gamma expected =
+gradDescStochasticTestCase prefix trainDataIO lossFunction gamma expected =
   let widthHidden = 250
       nParams = lenMnist widthHidden
       vec = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
       name = prefix ++ " "
              ++ unwords [show widthHidden, show nParams, show gamma]
   in testCase name $ do
-       trainingData <- trainingDataIO
+       trainData <- trainDataIO
        (snd (gradDescStochasticShow
                gamma (lossFunction logisticAct softMaxActUnfused widthHidden)
-               trainingData vec))
+               trainData vec))
           @?= expected
 
 sizeMnistGlyph :: Int
@@ -844,24 +845,24 @@ dumbMnistTests :: TestTree
 dumbMnistTests = testGroup "Dumb MNIST tests"
   [ let blackGlyph = V.replicate sizeMnistGlyph 0
         blackLabel = V.replicate sizeMnistLabel 0
-        trainingData = replicate 10 (blackGlyph, blackLabel)
+        trainData = replicate 10 (blackGlyph, blackLabel)
     in gradDescStochasticTestCase "MNIST black"
-         (return trainingData) nnMnistLoss 0.02 (-0.0)
+         (return trainData) nnMnistLoss 0.02 (-0.0)
   , let whiteGlyph = V.replicate sizeMnistGlyph 1
         whiteLabel = V.replicate sizeMnistLabel 1
-        trainingData = replicate 20 (whiteGlyph, whiteLabel)
+        trainData = replicate 20 (whiteGlyph, whiteLabel)
     in gradDescStochasticTestCase "MNIST white"
-         (return trainingData) nnMnistLoss 0.02 25.190345811686004
+         (return trainData) nnMnistLoss 0.02 25.190345811686004
   , let blackGlyph = V.replicate sizeMnistGlyph 0
         whiteLabel = V.replicate sizeMnistLabel 1
-        trainingData = replicate 50 (blackGlyph, whiteLabel)
+        trainData = replicate 50 (blackGlyph, whiteLabel)
     in gradDescStochasticTestCase "MNIST black/white"
-         (return trainingData) nnMnistLoss 0.02 23.02585092994046
+         (return trainData) nnMnistLoss 0.02 23.02585092994046
   , let glyph g = V.unfoldrExactN sizeMnistGlyph (uniformR (0, 1)) g
         label g = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1)) g
-        trainingData = map (\g -> (glyph g, label g)) $ map mkStdGen [1 .. 100]
+        trainData = map (\g -> (glyph g, label g)) $ map mkStdGen [1 .. 100]
     in gradDescStochasticTestCase "MNIST random 100"
-         (return trainingData) nnMnistLoss 0.02 12.87153985968679
+         (return trainData) nnMnistLoss 0.02 12.87153985968679
   ]
 
 smallMnistTests :: TestTree
