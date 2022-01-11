@@ -77,14 +77,14 @@ newtype DeltaMonad r a = DeltaMonad
 -- TODO: when varied benchmarks are available, check if returning v always,
 -- except for @Add@, is faster. Probably @Zero@ and @Var@ appear too rarely
 -- to matter if @Scale@ turns out to require bindings.
-dlet :: Delta r -> DeltaMonad r (Delta r)
-dlet v = DeltaMonad $ do
+returnLetD :: r -> Delta r -> DeltaMonad r (DualDelta r)
+returnLetD r v = DeltaMonad $ do
   i <- gets deltaCounter
   modify $ \s ->
     s { deltaCounter = succ i
       , deltaBindings = v : deltaBindings s
       }
-  return $! Var i
+  return $! D r (Var i)
 
 data DualDelta r = D r (Delta r)
 
@@ -94,7 +94,7 @@ var :: Data.Vector.Unboxed.Unbox r
     => Int -> VecDualDelta r -> DualDelta r
 var i (vValue, vVar) = D (vValue V.! i) (vVar V.! i)
 
--- TODO: paramaterize this and others by the monad (with dlet)
+-- TODO: paramaterize this and others by the monad (with returnLetD)
 -- and produce a variant with a trivial monad so that calculating
 -- solely the value of the function is not almost as expensive
 -- as calculating the pair of gradient and value.
@@ -217,57 +217,48 @@ gradDescSmart f n0 params0 = go n0 params0 0.1 gradient0 value0 0 where
           | otherwise -> go (pred n) paramsNew gamma gradient value (i + 1)
 
 (*\) :: Num r => DualDelta r -> DualDelta r -> DeltaMonad r (DualDelta r)
-(*\) (D u u') (D v v') = do
-  d <- dlet $ Add (Scale v u') (Scale u v')
-  return $! D (u * v) d
+(*\) (D u u') (D v v') =
+  returnLetD (u * v) (Add (Scale v u') (Scale u v'))
 
 (+\) :: Num r => DualDelta r -> DualDelta r -> DeltaMonad r (DualDelta r)
-(+\) (D u u') (D v v') = do
-  d <- dlet $ Add u' v'
-  return $! D (u + v) d
+(+\) (D u u') (D v v') =
+  returnLetD (u + v) (Add u' v')
 
 (-\) :: Num r => DualDelta r -> DualDelta r -> DeltaMonad r (DualDelta r)
-(-\) (D u u') (D v v') = do
-  d <- dlet $ Add u' (Scale (-1) v')
-  return $! D (u - v) d
+(-\) (D u u') (D v v') =
+  returnLetD (u - v) (Add u' (Scale (-1) v'))
 
 negateDual :: Num r => DualDelta r -> DeltaMonad r (DualDelta r)
-negateDual (D v v') = do
-  d <- dlet $ Scale (-1) v'
-  return $! D (- v) d
+negateDual (D v v') =
+  returnLetD (- v) (Scale (-1) v')
 
 -- Should be denoted by @/\@, but it would be misleading.
 divideDual :: Fractional r
            => DualDelta r -> DualDelta r -> DeltaMonad r (DualDelta r)
-divideDual (D u u') (D v v') = do
-  d <- dlet $ Scale (recip $ v * v) (Add (Scale v u') (Scale (- u) v'))
-  return $! D (u / v) d
+divideDual (D u u') (D v v') =
+  returnLetD (u / v) (Scale (recip $ v * v) (Add (Scale v u') (Scale (- u) v')))
 
 (**\) :: Floating r
       => DualDelta r -> DualDelta r -> DeltaMonad r (DualDelta r)
-(**\) (D u u') (D v v') = do
-  d <- dlet $ Add (Scale (v * (u ** (v - 1))) u')
-                  (Scale ((u ** v) * log u) v')
-  return $! D (u ** v) d
+(**\) (D u u') (D v v') =
+  returnLetD (u ** v) (Add (Scale (v * (u ** (v - 1))) u')
+                           (Scale ((u ** v) * log u) v'))
 
 expDual :: Floating r => DualDelta r -> DeltaMonad r (DualDelta r)
 expDual (D u u') = do
   let expU = exp u
-  d <- dlet $ Scale expU u'
-  return $! D expU d
+  returnLetD expU (Scale expU u')
 
 logDual :: Floating r => DualDelta r -> DeltaMonad r (DualDelta r)
-logDual (D u u') = do
-  d <- dlet $ Scale (recip u) u'
-  return $! D (log u) d
+logDual (D u u') =
+  returnLetD (log u) (Scale (recip u) u')
 
 scalar :: r -> DualDelta r
 scalar k = D k Zero
 
 scale :: Num r => r -> DualDelta r -> DeltaMonad r (DualDelta r)
-scale k (D u u') = do
-  d <- dlet $ Scale k u'
-  return $! D (k * u) d
+scale k (D u u') =
+  returnLetD (k * u) (Scale k u')
 
 -- In addition to convenience, this offers fusion of all bindings
 -- coming from binary addition into a single binding.
@@ -278,8 +269,7 @@ sumDual us = do
   let f :: DualDelta r -> DualDelta r -> DualDelta r
       f (D acc acc') (D u u') = D (acc + u) (Add acc' u')
       D sumUs sumUs' = V.foldl' f (scalar 0) us
-  d <- dlet sumUs'
-  return $! D sumUs d
+  returnLetD sumUs sumUs'
 
 -- The same as @sumDual@ but for lists. Inlined to help list fusion,
 -- which is, alas, not guaranteed regardless.
@@ -291,8 +281,7 @@ sumListDual us = do
   let f :: DualDelta r -> DualDelta r -> DualDelta r
       f (D acc acc') (D u u') = D (acc + u) (Add acc' u')
       D sumUs sumUs' = foldl' f (scalar 0) us
-  d <- dlet sumUs'
-  return $! D sumUs d
+  returnLetD sumUs sumUs'
 
 -- Inlined to avoid the tiny overhead of calling an unknown function.
 -- This operation is needed, because @sumListDual@ doesn't (always) fuse.
@@ -307,25 +296,21 @@ sumResultsDual f as = do
         (D u u') <- f a
         return $! D (acc + u) (Add acc' u')
   D sumUs sumUs' <- V.foldM g (scalar 0) as
-  d <- dlet sumUs'
-  return $! D sumUs d
+  returnLetD sumUs sumUs'
 
 tanhAct :: Floating r => DualDelta r -> DeltaMonad r (DualDelta r)
 tanhAct (D u u') = do
   let y = tanh u
-  d <- dlet $ Scale (1 - y * y) u'
-  return $! D y d
+  returnLetD y (Scale (1 - y * y) u')
 
 reluAct :: (Num r, Ord r) => DualDelta r -> DeltaMonad r (DualDelta r)
-reluAct (D u u') = do
-  d <- dlet $ Scale (if u > 0 then 1 else 0) u'
-  return $! D (max 0 u) d
+reluAct (D u u') =
+  returnLetD (max 0 u) (Scale (if u > 0 then 1 else 0) u')
 
 logisticAct :: Floating r => DualDelta r -> DeltaMonad r (DualDelta r)
 logisticAct (D u u') = do
   let y = recip (1 + exp (- u))
-  d <- dlet $ Scale (y * (1 - y)) u'
-  return $! D y d
+  returnLetD y (Scale (y * (1 - y)) u')
 
 softMaxActUnfused :: Floating r
                   => Data.Vector.Vector (DualDelta r)
@@ -351,8 +336,7 @@ sumTrainableInputs xs offset vec = do
         let (D v v') = var (offset + 1 + i) vec
         in D (acc + u * v) (Add acc' (Add (Scale v u') (Scale u v')))
       D xsum xsum' = V.ifoldl' f bias xs
-  d <- dlet xsum'
-  return $! D xsum d
+  returnLetD xsum xsum'
 
 -- | Compute the output of a neuron, without applying activation function,
 -- from constant data in @xs@ and parameters (the bias and weights)
@@ -370,8 +354,7 @@ sumConstantData xs offset vec = do
         let (D v v') = var (offset + 1 + i) vec
         in D (acc + r * v) (Add acc' (Scale r v'))
       D xsum xsum' = V.ifoldl' f bias xs
-  d <- dlet xsum'
-  return $! D xsum d
+  returnLetD xsum xsum'
 
 lossSquaredUnfused :: Num r => r -> DualDelta r -> DeltaMonad r (DualDelta r)
 lossSquaredUnfused targ res = do
