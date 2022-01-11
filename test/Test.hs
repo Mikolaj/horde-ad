@@ -5,8 +5,10 @@ import Prelude
 import           Codec.Compression.GZip (decompress)
 import           Control.Arrow (first)
 import           Control.Exception (assert)
+import           Control.Monad (foldM)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.IDX
+import           Data.List (sortOn)
 import           Data.Maybe (fromMaybe)
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
@@ -15,6 +17,7 @@ import           System.IO (IOMode (ReadMode), withBinaryFile)
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
+import           Text.Printf
 
 import AD
 
@@ -831,6 +834,68 @@ gradDescStochasticTestCase prefix trainDataIO lossFunction gamma expected =
                trainData vec))
           @?= expected
 
+mnistTestCase :: String
+              -> Int
+              -> Int
+              -> ((DualDeltaD -> DeltaMonadD DualDeltaD)
+                  -> (Data.Vector.Vector DualDeltaD
+                      -> DeltaMonadD (Data.Vector.Vector DualDeltaD))
+                  -> Int
+                  -> MnistData
+                  -> VecDualDeltaD
+                  -> DeltaMonadD DualDeltaD)
+              -> Int
+              -> Double
+              -> Double
+              -> TestTree
+mnistTestCase prefix epochs maxBatches lossFunction widthHidden gamma expected =
+  let nParams = lenMnist widthHidden
+      params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
+      name = prefix ++ " "
+             ++ unwords [show widthHidden, show nParams, show gamma]
+  in testCase name $ do
+       trainData <- loadMnistData trainGlyphsPath trainLabelsPath
+       testData <- loadMnistData testGlyphsPath testLabelsPath
+       -- Mimic how backprop tests and display it, even though tests
+       -- should not print, in principle.
+       let runBatch :: Domain Double -> (Int, [MnistData]) -> IO (Domain Double)
+           runBatch !params (k, chunk) = do
+             printf "(Batch %d)\n" k
+             let f = lossFunction logisticAct softMaxActUnfused widthHidden
+                 !res = gradDescStochastic gamma f chunk params
+             printf "Trained on %d points.\n" (length chunk)
+             let trainScore = testMnist chunk res widthHidden
+                 testScore  = testMnist testData res widthHidden
+             printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
+             printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
+             return res
+       let runEpoch :: Int -> Domain Double -> IO (Domain Double)
+           runEpoch 0 params = return params
+           runEpoch n params = do
+             printf "[Epoch %d]\n" n
+             let trainDataShuffled = shuffle (mkStdGen n) trainData
+                 chunks = take maxBatches
+                          $ zip [1 ..] $ chunksOf 5000 trainDataShuffled
+             !res <- foldM runBatch params chunks
+             runEpoch (pred n) res
+       printf "\nEpochs to run/max batches per epoch: %d/%d\n"
+              epochs maxBatches
+       res <- runEpoch epochs params0
+       let testErrorFinal = 1 - testMnist testData res widthHidden
+       testErrorFinal @?= expected
+
+chunksOf :: Int -> [e] -> [[e]]
+chunksOf n = go where
+  go [] = []
+  go l = let (chunk, rest) = splitAt n l
+         in chunk : go rest
+
+-- Good enough for QuickCheck, so good enough for me.
+shuffle :: RandomGen g => g -> [a] -> [a]
+shuffle g l =
+  let rnds = randoms g :: [Int]
+  in map fst $ sortOn snd $ zip l rnds
+
 sizeMnistGlyph :: Int
 sizeMnistGlyph = 784
 
@@ -846,28 +911,30 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
   [ let blackGlyph = V.replicate sizeMnistGlyph 0
         blackLabel = V.replicate sizeMnistLabel 0
         trainData = replicate 10 (blackGlyph, blackLabel)
-    in gradDescStochasticTestCase "MNIST black"
+    in gradDescStochasticTestCase "black"
          (return trainData) nnMnistLoss 0.02 (-0.0)
   , let whiteGlyph = V.replicate sizeMnistGlyph 1
         whiteLabel = V.replicate sizeMnistLabel 1
         trainData = replicate 20 (whiteGlyph, whiteLabel)
-    in gradDescStochasticTestCase "MNIST white"
+    in gradDescStochasticTestCase "white"
          (return trainData) nnMnistLoss 0.02 25.190345811686004
   , let blackGlyph = V.replicate sizeMnistGlyph 0
         whiteLabel = V.replicate sizeMnistLabel 1
         trainData = replicate 50 (blackGlyph, whiteLabel)
-    in gradDescStochasticTestCase "MNIST black/white"
+    in gradDescStochasticTestCase "black/white"
          (return trainData) nnMnistLoss 0.02 23.02585092994046
   , let glyph g = V.unfoldrExactN sizeMnistGlyph (uniformR (0, 1)) g
         label g = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1)) g
         trainData = map (\g -> (glyph g, label g)) $ map mkStdGen [1 .. 100]
-    in gradDescStochasticTestCase "MNIST random 100"
+    in gradDescStochasticTestCase "random 100"
          (return trainData) nnMnistLoss 0.02 12.87153985968679
+  , gradDescStochasticTestCase "first 100 samples only"
+      (take 100 <$> loadMnistData trainGlyphsPath trainLabelsPath)
+      nnMnistLoss 0.02 4.761561312781972
   ]
 
 smallMnistTests :: TestTree
 smallMnistTests = testGroup "MNIST tests with a small nn"
-  [ gradDescStochasticTestCase "MNIST first 1000 samples"
-      (take 1000 <$> loadMnistData trainGlyphsPath trainLabelsPath)
-      nnMnistLoss 0.02 4.1506160235356315
+  [ mnistTestCase "first batch only" 1 1 nnMnistLoss 250 0.02
+                  0.11829999999999996
   ]
