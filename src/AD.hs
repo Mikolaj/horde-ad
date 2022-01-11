@@ -345,7 +345,7 @@ softMaxActUnfused :: (DeltaMonad r m, Floating r)
                   -> m (Data.Vector.Vector (DualDelta r))
 softMaxActUnfused us = do
   expUs <- V.mapM expDual us
-  sumExpUs <- V.foldM' (+\) (scalar 0) expUs
+  sumExpUs <- sumDual expUs
   V.mapM (`divideDual` sumExpUs) expUs
 
 -- | Compute the output of a neuron, without applying activation function,
@@ -406,6 +406,21 @@ lossCrossEntropyUnfused targ res = do
         acc +\ rLogScaled
   dotProductLog <- V.ifoldM' f (scalar 0) res
   negateDual dotProductLog
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
