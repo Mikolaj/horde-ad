@@ -703,7 +703,7 @@ type MnistData = ( Data.Vector.Unboxed.Vector Double
                  , Data.Vector.Unboxed.Vector Double )
 
 hiddenLayerMnist :: (DualDeltaD -> DeltaMonadD DualDeltaD)
-                 -> Data.Vector.Unboxed.Vector Double
+                 -> Domain Double
                  -> VecDualDeltaD
                  -> Int
                  -> DeltaMonadD (Data.Vector.Vector DualDeltaD)
@@ -733,7 +733,7 @@ nnMnist :: (DualDeltaD -> DeltaMonadD DualDeltaD)
         -> (Data.Vector.Vector DualDeltaD
             -> DeltaMonadD (Data.Vector.Vector DualDeltaD))
         -> Int
-        -> Data.Vector.Unboxed.Vector Double
+        -> Domain Double
         -> VecDualDeltaD
         -> DeltaMonadD (Data.Vector.Vector DualDeltaD)
 nnMnist factivationHidden factivationOutput widthHidden xs vec = do
@@ -752,6 +752,15 @@ nnMnistLoss :: (DualDeltaD -> DeltaMonadD DualDeltaD)
 nnMnistLoss factivationHidden factivationOutput widthHidden (xs, targ) vec = do
   res <- nnMnist factivationHidden factivationOutput widthHidden xs vec
   lossCrossEntropyUnfused targ res
+
+testMnist :: [MnistData] -> Domain Double -> Int -> Double
+testMnist xs res widthHidden =
+  let f = nnMnist logisticAct softMaxActUnfused widthHidden
+      matchesLabels :: MnistData -> Bool
+      matchesLabels (glyphs, labels) =
+        let value = V.map (\(D r _) -> r) $ bundleDual (f glyphs) res
+        in V.maxIndex value == V.maxIndex labels
+  in fromIntegral (length (filter matchesLabels xs)) / fromIntegral (length xs)
 
 readMnistData :: LBS.ByteString -> LBS.ByteString -> [MnistData]
 readMnistData glyphsBS labelsBS =

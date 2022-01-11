@@ -98,6 +98,7 @@ var i (vValue, vVar) = D (vValue V.! i) (vVar V.! i)
 -- and produce a variant with a trivial monad so that calculating
 -- solely the value of the function is not almost as expensive
 -- as calculating the pair of gradient and value.
+-- This will also make @bundleDual@ less ugly.
 generalDf :: (domain -> (VecDualDelta r, Int))
           -> (VecDualDelta r -> DeltaState r -> Delta r -> domain')
           -> (VecDualDelta r -> DeltaMonad r (DualDelta r))
@@ -113,6 +114,19 @@ generalDf initVars evalBindings f deltaInput =
       (D value d, st) = runState (runDeltaMonad (f ds)) initialState
       gradient = evalBindings ds st d
   in (gradient, value)
+
+bundleDual :: Data.Vector.Unboxed.Unbox r
+          => (VecDualDelta r -> DeltaMonad q a)
+          -> Domain r
+          -> a
+bundleDual f ds =
+  let dim = V.length ds
+      vVar = V.generate dim (Var . DeltaId)
+      initialState = DeltaState
+        { deltaCounter = DeltaId dim
+        , deltaBindings = []
+        }
+  in evalState (runDeltaMonad (f (ds, vVar))) initialState
 
 type Domain r = Data.Vector.Unboxed.Vector r
 
@@ -345,7 +359,7 @@ sumTrainableInputs xs offset vec = do
 -- at @vec@ starting at @offset@. Useful for neurons at the bottom
 -- of the network, tasked with ingesting the data.
 sumConstantData :: forall r. (Num r, Data.Vector.Unboxed.Unbox r)
-                => Data.Vector.Unboxed.Vector r
+                => Domain r
                 -> Int
                 -> VecDualDelta r
                 -> DeltaMonad r (DualDelta r)
