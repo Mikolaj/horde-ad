@@ -9,6 +9,7 @@ import           Control.Exception (assert)
 import           Control.Monad (foldM, when)
 import           Control.Monad.ST.Strict (ST)
 import           Control.Monad.Trans.State.Strict
+import           Data.Functor.Identity
 import           Data.List (foldl')
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
@@ -43,6 +44,20 @@ data DeltaState r = DeltaState
   { deltaCounter  :: DeltaId
   , deltaBindings :: [Delta r]
   }
+
+-- Making the second field non-strict makes computing value of a function
+-- twice faster, but computing the gradient slower by 30% (it's then hard
+-- to keep the accumulator in argument function to @foldl'@ fully strict, etc.),
+-- which is much bigger a difference in absolute terms. Then @valueDual.vVar@
+-- can be set to @undefined@. The decision depends on the application.
+-- Another option is to make @var@ part of the @DeltaMonad@ API
+-- and provide a cheaper one for @DeltaMonadValue@. A comprehensive solution
+-- could be putting all constructors of @Delta@ inside the @DeltaMonad@ class,
+-- as a mock final tagless approach, that would probably be implemented
+-- as an inductive type for @DeltaMonadGradient@ anyway.
+data DualDelta r = D r (Delta r)
+
+type VecDualDelta r = (Domain r, Data.Vector.Vector (Delta r))
 
 buildVector :: forall s v r. (Eq r, Num r, VM.MVector (V.Mutable v) r)
             => Int -> DeltaState r -> Delta r
@@ -90,19 +105,39 @@ instance DeltaMonad r (DeltaMonadGradient r) where
         }
     return $! D r (Var i)
 
-data DualDelta r = D r (Delta r)
+type DeltaMonadValue r = Identity
 
-type VecDualDelta r = (Domain r, Data.Vector.Vector (Delta r))
+instance DeltaMonad r (DeltaMonadValue r) where
+  returnLetD r _v = Identity $ D r Zero
+
+-- Small enough that inline won't hurt.
+valueDual :: Data.Vector.Unboxed.Unbox r
+          => (VecDualDelta r -> DeltaMonadValue r a)
+          -> Domain r
+          -> a
+{-# INLINE valueDual #-}
+valueDual f ds =
+  let dim = V.length ds
+      vVar = V.replicate dim Zero  -- dummy
+  in runIdentity $ f (ds, vVar)
+
+-- A common case, but not the only one, see MNIST.
+valueDualDelta :: Data.Vector.Unboxed.Unbox r
+               => (VecDualDelta r -> DeltaMonadValue r (DualDelta r))
+               -> Domain r
+               -> r
+{-# INLINE valueDualDelta #-}
+valueDualDelta f ds =
+  let D value _ = valueDual f ds
+  in value
 
 var :: Data.Vector.Unboxed.Unbox r
     => Int -> VecDualDelta r -> DualDelta r
 var i (vValue, vVar) = D (vValue V.! i) (vVar V.! i)
 
--- TODO: paramaterize this and others by the monad (with returnLetD)
--- and produce a variant with a trivial monad so that calculating
--- solely the value of the function is not almost as expensive
--- as calculating the pair of gradient and value.
--- This will also make @bundleDual@ less ugly.
+-- Takes a lot of functions as arguments, hence the inline,
+-- but the functions in which it inlines and which are used in client code
+-- are not inlined there, so the bloat is limited.
 generalDf :: (domain -> (VecDualDelta r, Int))
           -> (VecDualDelta r -> DeltaState r -> Delta r -> domain')
           -> (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
@@ -118,19 +153,6 @@ generalDf initVars evalBindings f deltaInput =
       (D value d, st) = runState (runDeltaMonadGradient (f ds)) initialState
       gradient = evalBindings ds st d
   in (gradient, value)
-
-bundleDual :: Data.Vector.Unboxed.Unbox r
-          => (VecDualDelta r -> DeltaMonadGradient r a)
-          -> Domain r
-          -> a
-bundleDual f ds =
-  let dim = V.length ds
-      vVar = V.generate dim (Var . DeltaId)
-      initialState = DeltaState
-        { deltaCounter = DeltaId dim
-        , deltaBindings = []
-        }
-  in evalState (runDeltaMonadGradient (f (ds, vVar))) initialState
 
 type Domain r = Data.Vector.Unboxed.Vector r
 

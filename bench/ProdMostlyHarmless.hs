@@ -77,9 +77,9 @@ vec_grad_prod :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
               => Domain r -> Domain' r
 vec_grad_prod = fst . df vec_prod_aux
 
-vec_prod :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+vec_prod :: (Num r, Data.Vector.Unboxed.Unbox r)
          => Domain r -> r
-vec_prod = snd . df vec_prod_aux
+vec_prod = valueDualDelta vec_prod_aux
 
 toList_grad_prod :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
                  => [r] -> [r]

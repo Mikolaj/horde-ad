@@ -793,7 +793,7 @@ testMnist xs res widthHidden =
   let f = nnMnist logisticAct softMaxActUnfused widthHidden
       matchesLabels :: MnistData -> Bool
       matchesLabels (glyphs, labels) =
-        let value = V.map (\(D r _) -> r) $ bundleDual (f glyphs) res
+        let value = V.map (\(D r _) -> r) $ valueDual (f glyphs) res
         in V.maxIndex value == V.maxIndex labels
   in fromIntegral (length (filter matchesLabels xs)) / fromIntegral (length xs)
 
