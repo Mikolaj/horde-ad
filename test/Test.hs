@@ -881,7 +881,7 @@ mnistTestCase
   -> TestTree
 mnistTestCase prefix epochs maxBatches mnistLoss widthHidden gamma expected =
   let nParams = lenMnist widthHidden
-      params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
+      params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 44
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches, show widthHidden
                         , show nParams, show gamma ]
@@ -905,7 +905,7 @@ mnistTestCase prefix epochs maxBatches mnistLoss widthHidden gamma expected =
            runEpoch n params | n > epochs = return params
            runEpoch n params = do
              printf "[Epoch %d]\n" n
-             let trainDataShuffled = shuffle (mkStdGen n) trainData
+             let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches
                           $ zip [1 ..] $ chunksOf 5000 trainDataShuffled
              !res <- foldM runBatch params chunks
@@ -927,6 +927,24 @@ shuffle :: RandomGen g => g -> [a] -> [a]
 shuffle g l =
   let rnds = randoms g :: [Int]
   in map fst $ sortOn snd $ zip l rnds
+
+nnMnistLossTanh :: DeltaMonad Double m
+                => Int
+                -> MnistData
+                -> VecDualDeltaD
+                -> m DualDeltaD
+nnMnistLossTanh widthHidden (xs, targ) vec = do
+  res <- nnMnist tanhAct softMaxAct widthHidden xs vec
+  lossCrossEntropy targ res
+
+nnMnistLossRelu :: DeltaMonad Double m
+                => Int
+                -> MnistData
+                -> VecDualDeltaD
+                -> m DualDeltaD
+nnMnistLossRelu widthHidden (xs, targ) vec = do
+  res <- nnMnist reluAct softMaxAct widthHidden xs vec
+  lossCrossEntropy targ res
 
 dumbMnistTests :: TestTree
 dumbMnistTests = testGroup "Dumb MNIST tests"
@@ -972,8 +990,14 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
 
 smallMnistTests :: TestTree
 smallMnistTests = testGroup "MNIST tests with a small nn"
-  [ mnistTestCase "2 epochs, but only 1 batch" 2 1 nnMnistLoss 250 0.02
-                  0.10909999999999997
-  , mnistTestCase "1 epoch, 7 batches" 1 7 nnMnistLoss 250 0.02
-                  6.640000000000001e-2
+  [ mnistTestCase "1 epoch, 2 batches" 1 2 nnMnistLoss 250 0.02
+                  9.260000000000002e-2
+  , mnistTestCase "tanh: 1 epoch, 2 batches" 1 2 nnMnistLossTanh 250 0.02
+                  0.32509999999999994
+  , mnistTestCase "relu: 1 epoch, 2 batches" 1 2 nnMnistLossRelu 250 0.02
+                  0.1582
+  , mnistTestCase "2 epochs, but only 1 batch" 2 1 nnMnistLoss 250 0.02
+                  9.819999999999995e-2
+  , mnistTestCase "1 epoch, all batches" 1 99 nnMnistLoss 250 0.02
+                  5.469999999999997e-2
   ]
