@@ -966,9 +966,24 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
         trainData = map ((\g -> (glyph g, label g)) . mkStdGen) [1 .. 100]
     in gradDescStochasticTestCase "random 100"
          (return trainData) nnMnistLoss 0.02 12.87153985968679
-  , gradDescStochasticTestCase "first 100 samples only"
+  , gradDescStochasticTestCase "first 100 trainset samples only"
       (take 100 <$> loadMnistData trainGlyphsPath trainLabelsPath)
       nnMnistLoss 0.02 4.761561312781972
+  , testCase "testMnist on 0.1 params 250 width 10k testset" $ do
+      let nParams = lenMnist 250
+          params = V.replicate nParams 0.1
+      testData <- loadMnistData testGlyphsPath testLabelsPath
+      (1 - testMnist testData params 250) @?= 0.902
+  , testCase "testMnist on random params 250 width 10k testset" $ do
+      let nParams = lenMnist 250
+          params = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
+      testData <- loadMnistData testGlyphsPath testLabelsPath
+      (1 - testMnist testData params 250) @?= 0.8489
+  , testCase "testMnist on 0.1 params 2500 width 1k testset" $ do
+      let nParams = lenMnist 2500
+          params = V.replicate nParams 0.1
+      testData <- take 1000 <$> loadMnistData testGlyphsPath testLabelsPath
+      (1 - testMnist testData params 2500) @?= 0.915
   ]
 
 smallMnistTests :: TestTree
