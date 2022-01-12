@@ -339,17 +339,18 @@ wsFitSeparated range@(low, hi) seed k =
       g = mkStdGen seed
   in V.zip steps (rolls g)
 
-gradDescTestCase :: Num a
-                 => String
-                 -> ((a, a) -> Int -> Int
-                     -> Data.Vector.Unboxed.Vector (Double, Double))
-                 -> ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-                     -> (DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-                     -> Data.Vector.Unboxed.Vector (Double, Double)
-                     -> VecDualDeltaD
-                     -> DeltaMonadGradient Double DualDeltaD)
-                 -> Int -> Int -> Int -> Double -> Int -> Double
-                 -> TestTree
+gradDescTestCase
+  :: Num a
+  => String
+  -> ((a, a) -> Int -> Int
+      -> Data.Vector.Unboxed.Vector (Double, Double))
+  -> ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
+      -> (DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
+      -> Data.Vector.Unboxed.Vector (Double, Double)
+      -> VecDualDeltaD
+      -> DeltaMonadGradient Double DualDeltaD)
+  -> Int -> Int -> Int -> Double -> Int -> Double
+  -> TestTree
 gradDescTestCase prefix sampleFunction lossFunction
                  seedSamples nSamples nParams gamma nIterations expected =
   let samples = sampleFunction (-1, 1) seedSamples nSamples
@@ -362,22 +363,24 @@ gradDescTestCase prefix sampleFunction lossFunction
                          vec nIterations)
        @?= expected
 
-gradDescWsTestCase :: ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-                       -> (DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-                       -> Data.Vector.Unboxed.Vector (Double, Double)
-                       -> VecDualDeltaD
-                       -> DeltaMonadGradient Double DualDeltaD)
-                   -> Int -> Int -> Int -> Double -> Int -> Double
-                   -> TestTree
+gradDescWsTestCase
+  :: ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
+      -> (DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
+      -> Data.Vector.Unboxed.Vector (Double, Double)
+      -> VecDualDeltaD
+      -> DeltaMonadGradient Double DualDeltaD)
+  -> Int -> Int -> Int -> Double -> Int -> Double
+  -> TestTree
 gradDescWsTestCase = gradDescTestCase "gradDesc Ws" wsFit
 
-gradDescSeparatedTestCase :: ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-                              -> (DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-                              -> Data.Vector.Unboxed.Vector (Double, Double)
-                              -> VecDualDeltaD
-                              -> DeltaMonadGradient Double DualDeltaD)
-                          -> Int -> Int -> Int -> Double -> Int -> Double
-                          -> TestTree
+gradDescSeparatedTestCase
+  :: ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
+      -> (DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
+      -> Data.Vector.Unboxed.Vector (Double, Double)
+      -> VecDualDeltaD
+      -> DeltaMonadGradient Double DualDeltaD)
+  -> Int -> Int -> Int -> Double -> Int -> Double
+  -> TestTree
 gradDescSeparatedTestCase = gradDescTestCase "gradDesc Separated" wsFitSeparated
 
 lenP :: Int -> Int
@@ -518,23 +521,24 @@ gradSmartTestCase prefix sampleFunction lossFunction
                               vec nIterations)
        @?= expected
 
-gradSmartWsTestCase :: ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-                        -> (DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-                        -> Data.Vector.Unboxed.Vector (Double, Double)
-                        -> VecDualDeltaD
-                        -> DeltaMonadGradient Double DualDeltaD)
-                    -> Int -> Int -> Int -> Int -> (Double, Double)
-                    -> TestTree
+gradSmartWsTestCase
+  :: ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
+      -> (DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
+      -> Data.Vector.Unboxed.Vector (Double, Double)
+      -> VecDualDeltaD
+      -> DeltaMonadGradient Double DualDeltaD)
+  -> Int -> Int -> Int -> Int -> (Double, Double)
+  -> TestTree
 gradSmartWsTestCase = gradSmartTestCase "gradSmart Ws" wsFit
 
-gradSmartSeparatedTestCase :: ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-                               -> (DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-                               -> Data.Vector.Unboxed.Vector (Double, Double)
-                               -> VecDualDeltaD
-                               -> DeltaMonadGradient Double DualDeltaD)
-                           -> Int -> Int -> Int -> Int
-                           -> (Double, Double)
-                           -> TestTree
+gradSmartSeparatedTestCase
+  :: ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
+      -> (DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
+      -> Data.Vector.Unboxed.Vector (Double, Double)
+      -> VecDualDeltaD
+      -> DeltaMonadGradient Double DualDeltaD)
+  -> Int -> Int -> Int -> Int -> (Double, Double)
+  -> TestTree
 gradSmartSeparatedTestCase =
   gradSmartTestCase "gradSmart Separated" wsFitSeparated
 
@@ -866,20 +870,21 @@ gradDescStochasticTestCase prefix trainDataIO lossFunction gamma expected =
                trainData vec)
           @?= expected
 
-mnistTestCase :: String
-              -> Int
-              -> Int
-              -> ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-                  -> (Data.Vector.Vector DualDeltaD
-                      -> DeltaMonadGradient Double (Data.Vector.Vector DualDeltaD))
-                  -> Int
-                  -> MnistData
-                  -> VecDualDeltaD
-                  -> DeltaMonadGradient Double DualDeltaD)
-              -> Int
-              -> Double
-              -> Double
-              -> TestTree
+mnistTestCase
+  :: String
+  -> Int
+  -> Int
+  -> ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
+      -> (Data.Vector.Vector DualDeltaD
+          -> DeltaMonadGradient Double (Data.Vector.Vector DualDeltaD))
+      -> Int
+      -> MnistData
+      -> VecDualDeltaD
+      -> DeltaMonadGradient Double DualDeltaD)
+  -> Int
+  -> Double
+  -> Double
+  -> TestTree
 mnistTestCase prefix epochs maxBatches lossFunction widthHidden gamma expected =
   let nParams = lenMnist widthHidden
       params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
