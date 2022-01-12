@@ -4,32 +4,23 @@ module Main (main) where
 
 import Prelude
 
-import           Codec.Compression.GZip (decompress)
 import           Control.Arrow (first)
-import           Control.Exception (assert)
 import           Control.Monad (foldM)
-import qualified Data.ByteString.Lazy as LBS
-import           Data.IDX
 import           Data.List (sortOn)
-import           Data.Maybe (fromMaybe)
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Unboxed
-import           System.IO (IOMode (ReadMode), withBinaryFile)
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 import           Text.Printf
 
 import AD
+import MnistTools
 
 type DualDeltaF = DualDelta Float
 
 type VecDualDeltaF = VecDualDelta Float
-
-type DualDeltaD = DualDelta Double
-
-type VecDualDeltaD = VecDualDelta Double
 
 main :: IO ()
 main = defaultMain tests
@@ -734,104 +725,6 @@ smartFit3Tests =
       (1.1354796858869852e-6,1.5625e-3)
   ]
 
-type MnistData = ( Data.Vector.Unboxed.Vector Double
-                 , Data.Vector.Unboxed.Vector Double )
-
-hiddenLayerMnist :: forall m. DeltaMonad Double m
-                 => (DualDeltaD -> m DualDeltaD)
-                 -> Domain Double
-                 -> VecDualDeltaD
-                 -> Int
-                 -> m (Data.Vector.Vector DualDeltaD)
-hiddenLayerMnist factivation xs vec width = do
-  let nWeightsAndBias = V.length xs + 1
-      f :: Int -> m DualDeltaD
-      f i = do
-        outSum <- sumConstantData xs (i * nWeightsAndBias) vec
-        factivation outSum
-  V.generateM width f
-
-outputLayerMnist :: forall m. DeltaMonad Double m
-                 => (Data.Vector.Vector DualDeltaD
-                     -> m (Data.Vector.Vector DualDeltaD))
-                 -> Data.Vector.Vector DualDeltaD
-                 -> Int
-                 -> VecDualDeltaD
-                 -> Int
-                 -> m (Data.Vector.Vector DualDeltaD)
-outputLayerMnist factivation hiddenVec offset vec width = do
-  let nWeightsAndBias = V.length hiddenVec + 1
-      f :: Int -> m DualDeltaD
-      f i = sumTrainableInputs hiddenVec (offset + i * nWeightsAndBias) vec
-  vOfSums <- V.generateM width f
-  factivation vOfSums
-
-nnMnist :: DeltaMonad Double m
-        => (DualDeltaD -> m DualDeltaD)
-        -> (Data.Vector.Vector DualDeltaD
-            -> m (Data.Vector.Vector DualDeltaD))
-        -> Int
-        -> Domain Double
-        -> VecDualDeltaD
-        -> m (Data.Vector.Vector DualDeltaD)
-nnMnist factivationHidden factivationOutput widthHidden xs vec = do
-  hiddenVec <- hiddenLayerMnist factivationHidden xs vec widthHidden
-  let !_A = assert (sizeMnistGlyph == V.length xs) ()
-  outputLayerMnist factivationOutput hiddenVec
-                   (widthHidden * (sizeMnistGlyph + 1)) vec sizeMnistLabel
-
-nnMnistLoss :: DeltaMonad Double m
-            => (DualDeltaD -> m DualDeltaD)
-            -> (Data.Vector.Vector DualDeltaD
-            -> m (Data.Vector.Vector DualDeltaD))
-            -> Int
-            -> MnistData
-            -> VecDualDeltaD
-            -> m DualDeltaD
-nnMnistLoss factivationHidden factivationOutput widthHidden (xs, targ) vec = do
-  res <- nnMnist factivationHidden factivationOutput widthHidden xs vec
-  lossCrossEntropyUnfused targ res
-
-testMnist :: [MnistData] -> Domain Double -> Int -> Double
-testMnist xs res widthHidden =
-  let f = nnMnist logisticAct softMaxActUnfused widthHidden
-      matchesLabels :: MnistData -> Bool
-      matchesLabels (glyphs, labels) =
-        let value = V.map (\(D r _) -> r) $ valueDual (f glyphs) res
-        in V.maxIndex value == V.maxIndex labels
-  in fromIntegral (length (filter matchesLabels xs)) / fromIntegral (length xs)
-
-readMnistData :: LBS.ByteString -> LBS.ByteString -> [MnistData]
-readMnistData glyphsBS labelsBS =
-  let glyphs = fromMaybe (error "wrong MNIST glyphs file")
-               $ decodeIDX glyphsBS
-      labels = fromMaybe (error "wrong MNIST labels file")
-               $ decodeIDXLabels labelsBS
-      intData = fromMaybe (error "can't decode MNIST file into integers")
-                $ labeledIntData labels glyphs
-      f :: (Int, Data.Vector.Unboxed.Vector Int) -> MnistData
-      -- Copied from library backprop to enable comparison of results.
-      -- I have no idea how this is different from @labeledDoubleData@, etc.
-      f (labN, v) =
-        ( V.map (\r -> fromIntegral r / 255) v
-        , V.generate sizeMnistLabel (\i -> if i == labN then 1 else 0) )
-  in map f intData
-
-trainGlyphsPath, trainLabelsPath, testGlyphsPath, testLabelsPath :: FilePath
-trainGlyphsPath = "samplesData/train-images-idx3-ubyte.gz"
-trainLabelsPath = "samplesData/train-labels-idx1-ubyte.gz"
-testGlyphsPath  = "samplesData/t10k-images-idx3-ubyte.gz"
-testLabelsPath  = "samplesData/t10k-labels-idx1-ubyte.gz"
-
-loadMnistData :: FilePath -> FilePath -> IO [MnistData]
-loadMnistData glyphsPath labelsPath =
-  withBinaryFile glyphsPath ReadMode $ \glyphsHandle ->
-    withBinaryFile labelsPath ReadMode $ \labelsHandle -> do
-      glyphsContents <- LBS.hGetContents glyphsHandle
-      labelsContents <- LBS.hGetContents labelsHandle
-      return $! readMnistData (decompress glyphsContents)
-                              (decompress labelsContents)
-
 gradDescStochasticShow
   :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
   => r
@@ -933,16 +826,6 @@ shuffle :: RandomGen g => g -> [a] -> [a]
 shuffle g l =
   let rnds = randoms g :: [Int]
   in map fst $ sortOn snd $ zip l rnds
-
-sizeMnistGlyph :: Int
-sizeMnistGlyph = 784
-
-sizeMnistLabel :: Int
-sizeMnistLabel = 10
-
-lenMnist :: Int -> Int
-lenMnist widthHidden =
-  widthHidden * (sizeMnistGlyph + 1) + 10 * (widthHidden + 1)
 
 dumbMnistTests :: TestTree
 dumbMnistTests = testGroup "Dumb MNIST tests"

@@ -102,6 +102,7 @@ library
 
     -- Modules exported by the library.
     exposed-modules:    AD
+                      , MnistTools
 
     -- Modules included in this library but not exported.
     -- other-modules:
@@ -112,8 +113,11 @@ library
     -- Other library packages from which modules are imported.
     build-depends:
         base >= 4.10 && < 99
+      , bytestring
+      , mnist-idx
       , transformers
       , vector
+      , zlib
 
     -- Directories containing source files.
     hs-source-dirs:   src
@@ -137,14 +141,11 @@ test-suite mostly-harmless-test
     -- Test dependencies.
     build-depends:
         base
-      , bytestring
-      , mnist-idx
       , mostly-harmless
       , random
       , tasty >= 1.0
       , tasty-hunit
       , vector
-      , zlib
 
 test-suite ad-test
     -- Import common warning flags.
@@ -187,6 +188,18 @@ benchmark prod-mostly-harmless
     type:             exitcode-stdio-1.0
     hs-source-dirs:   bench
     main-is:          ProdMostlyHarmless.hs
+    build-depends:
+        base
+      , mostly-harmless
+      , random
+      , criterion
+      , vector
+
+benchmark mnist-mostly-harmless
+    import:           options, exe-options
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   bench
+    main-is:          MnistMostlyHarmless.hs
     build-depends:
         base
       , mostly-harmless
