@@ -13,6 +13,7 @@ import           Data.Maybe (fromMaybe)
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Unboxed
+import           GHC.Exts (inline)
 import           System.IO (IOMode (ReadMode), withBinaryFile)
 
 import AD
@@ -63,6 +64,10 @@ outputLayerMnist factivation hiddenVec offset vec width = do
   vOfSums <- V.generateM width f
   factivation vOfSums
 
+-- @inline@ used to fix performance loss due to calling unknown functions.
+-- Benchmarks show barely any improvement, probably due to the activation
+-- functions being called only @width@ times per gradient calculation
+-- and also the cost dominated by GC. So, it's safe to revert this optimization.
 nnMnist :: DeltaMonad Double m
         => (DualDeltaD -> m DualDeltaD)
         -> (Data.Vector.Vector DualDeltaD
@@ -73,25 +78,23 @@ nnMnist :: DeltaMonad Double m
         -> m (Data.Vector.Vector DualDeltaD)
 nnMnist factivationHidden factivationOutput widthHidden xs vec = do
   let !_A = assert (sizeMnistGlyph == V.length xs) ()
-  hiddenVec <- hiddenLayerMnist factivationHidden xs vec widthHidden
-  outputLayerMnist factivationOutput hiddenVec
-                   (widthHidden * (sizeMnistGlyph + 1)) vec sizeMnistLabel
+  hiddenVec <- inline hiddenLayerMnist factivationHidden xs vec widthHidden
+  inline outputLayerMnist factivationOutput hiddenVec
+                          (widthHidden * (sizeMnistGlyph + 1))
+                          vec sizeMnistLabel
 
 nnMnistLoss :: DeltaMonad Double m
-            => (DualDeltaD -> m DualDeltaD)
-            -> (Data.Vector.Vector DualDeltaD
-            -> m (Data.Vector.Vector DualDeltaD))
-            -> Int
+            => Int
             -> MnistData
             -> VecDualDeltaD
             -> m DualDeltaD
-nnMnistLoss factivationHidden factivationOutput widthHidden (xs, targ) vec = do
-  res <- nnMnist factivationHidden factivationOutput widthHidden xs vec
+nnMnistLoss widthHidden (xs, targ) vec = do
+  res <- inline nnMnist logisticAct softMaxActUnfused widthHidden xs vec
   lossCrossEntropyUnfused targ res
 
 testMnist :: [MnistData] -> Domain Double -> Int -> Double
 testMnist xs res widthHidden =
-  let f = nnMnist logisticAct softMaxActUnfused widthHidden
+  let f = inline nnMnist logisticAct softMaxActUnfused widthHidden
       matchesLabels :: MnistData -> Bool
       matchesLabels (glyphs, labels) =
         let value = V.map (\(D r _) -> r) $ valueDual (f glyphs) res

@@ -21,7 +21,7 @@ mnistTrainBench :: Int -> [MnistData] -> Int -> Double -> Benchmark
 mnistTrainBench chunkLength xs widthHidden gamma = do
   let nParams = lenMnist widthHidden
       params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
-      f = nnMnistLoss logisticAct softMaxActUnfused widthHidden
+      f = nnMnistLoss widthHidden
       chunk = take chunkLength xs
       grad c = gradDescStochastic gamma f c params0
       name = "train a 1-hidden-layer MNIST nn "

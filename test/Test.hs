@@ -740,17 +740,14 @@ gradDescStochasticShow gamma f trainData params0 =
 gradDescStochasticTestCase
   :: String
   -> IO [MnistData]
-  -> ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-      -> (Data.Vector.Vector DualDeltaD
-          -> DeltaMonadGradient Double (Data.Vector.Vector DualDeltaD))
-      -> Int
+  -> (Int
       -> MnistData
       -> VecDualDeltaD
       -> DeltaMonadGradient Double DualDeltaD)
   -> Double
   -> Double
   -> TestTree
-gradDescStochasticTestCase prefix trainDataIO lossFunction gamma expected =
+gradDescStochasticTestCase prefix trainDataIO mnistLoss gamma expected =
   let widthHidden = 250
       nParams = lenMnist widthHidden
       vec = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
@@ -758,19 +755,14 @@ gradDescStochasticTestCase prefix trainDataIO lossFunction gamma expected =
              ++ unwords [show widthHidden, show nParams, show gamma]
   in testCase name $ do
        trainData <- trainDataIO
-       snd (gradDescStochasticShow
-               gamma (lossFunction logisticAct softMaxActUnfused widthHidden)
-               trainData vec)
+       snd (gradDescStochasticShow gamma (mnistLoss widthHidden) trainData vec)
           @?= expected
 
 mnistTestCase
   :: String
   -> Int
   -> Int
-  -> ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-      -> (Data.Vector.Vector DualDeltaD
-          -> DeltaMonadGradient Double (Data.Vector.Vector DualDeltaD))
-      -> Int
+  -> (Int
       -> MnistData
       -> VecDualDeltaD
       -> DeltaMonadGradient Double DualDeltaD)
@@ -778,7 +770,7 @@ mnistTestCase
   -> Double
   -> Double
   -> TestTree
-mnistTestCase prefix epochs maxBatches lossFunction widthHidden gamma expected =
+mnistTestCase prefix epochs maxBatches mnistLoss widthHidden gamma expected =
   let nParams = lenMnist widthHidden
       params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
       name = prefix ++ " "
@@ -792,7 +784,7 @@ mnistTestCase prefix epochs maxBatches lossFunction widthHidden gamma expected =
        let runBatch :: Domain Double -> (Int, [MnistData]) -> IO (Domain Double)
            runBatch !params (k, chunk) = do
              printf "(Batch %d)\n" k
-             let f = lossFunction logisticAct softMaxActUnfused widthHidden
+             let f = mnistLoss widthHidden
                  !res = gradDescStochastic gamma f chunk params
              printf "Trained on %d points.\n" (length chunk)
              let trainScore = testMnist chunk res widthHidden
