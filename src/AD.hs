@@ -377,11 +377,12 @@ logisticAct (D u u') = do
   let y = recip (1 + exp (- u))
   returnLet $ D y (Scale (y * (1 - y)) u')
 
-softMaxActUnfused :: (DeltaMonad r m, Floating r)
+softMaxAct :: (DeltaMonad r m, Floating r)
                   => Data.Vector.Vector (DualDelta r)
                   -> m (Data.Vector.Vector (DualDelta r))
-softMaxActUnfused us = do
-  expUs <- V.mapM expDual us
+softMaxAct us = do
+  let expUs = V.map exp us
+  -- This has to be let-bound, becuse it's used many times below.
   sumExpUs <- sumDual expUs
   V.mapM (`divideDual` sumExpUs) expUs
 
@@ -426,19 +427,15 @@ lossSquared :: (DeltaMonad r m, Num r)
 lossSquared targ res = squareDual $ res - scalar targ
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropyUnfused
+lossCrossEntropy
   :: forall m r. (DeltaMonad r m, Floating r, Data.Vector.Unboxed.Unbox r)
   => Data.Vector.Unboxed.Vector r
   -> Data.Vector.Vector (DualDelta r)
   -> m (DualDelta r)
-lossCrossEntropyUnfused targ res = do
-  let f :: DualDelta r -> Int -> DualDelta r -> m (DualDelta r)
-      f !acc !i d = do
-        rLog <- logDual d
-        rLogScaled <- scaleDual (targ V.! i) rLog
-        acc +\ rLogScaled
-  dotProductLog <- V.ifoldM' f (scalar 0) res
-  negateDual dotProductLog
+lossCrossEntropy targ res = do
+  let f :: DualDelta r -> Int -> DualDelta r -> DualDelta r
+      f !acc i d = acc + scale (targ V.! i) (log d)
+  negateDual $ V.ifoldl' f (scalar 0) res
 
 
 

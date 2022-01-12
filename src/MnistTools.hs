@@ -89,12 +89,12 @@ nnMnistLoss :: DeltaMonad Double m
             -> VecDualDeltaD
             -> m DualDeltaD
 nnMnistLoss widthHidden (xs, targ) vec = do
-  res <- inline nnMnist logisticAct softMaxActUnfused widthHidden xs vec
-  lossCrossEntropyUnfused targ res
+  res <- inline nnMnist logisticAct softMaxAct widthHidden xs vec
+  lossCrossEntropy targ res
 
 testMnist :: [MnistData] -> Domain Double -> Int -> Double
 testMnist xs res widthHidden =
-  let f = inline nnMnist logisticAct softMaxActUnfused widthHidden
+  let f = inline nnMnist logisticAct softMaxAct widthHidden
       matchesLabels :: MnistData -> Bool
       matchesLabels (glyphs, labels) =
         let value = V.map (\(D r _) -> r) $ valueDual (f glyphs) res
