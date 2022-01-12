@@ -31,9 +31,12 @@ tests = testGroup "Tests" [ dfTests
                           , xorTests
                           , fitTests
                           , fit2Tests
+                          , fit2TestsL
                           , smartFitTests
                           , smartFit2Tests
+                          , smartFit2TestsL
                           , smartFit3Tests
+                          , smartFit3TestsL
                           , dumbMnistTests
                           , smallMnistTests
                           ]
@@ -231,12 +234,20 @@ xorTests = testGroup "XOR neural net tests"
   , testCase "0.01 tanhAct ws2 50000"
     $ gradDescShow 0.01 (nnXorLossTotal tanhAct) ws2 50000
       @?= ([-1.9872262,2.576039,0.66793317,-1.7813873,2.2283037,-0.9866766,-2.1694322,2.1973324,2.9272876],2.1781659e-4)
-  , testCase "0.01 reluAct ws 5000"
-    $ gradDescShow 0.01 (nnXorLossTotal reluAct) ws 5000  -- no cookie
-      @?= ([0.18997861,0.14774871,0.25415534,0.28254044,0.21788013,0.22178599,8.981165e-2,-6.05783e-2,0.49060053],1.0)
-  , testCase "0.1 reluAct ws2 50000"
-    $ gradDescShow 0.1 (nnXorLossTotal reluAct) ws2 50000  -- no cookie
-      @?= ([-1.2425352,2.6025252,0.13252532,-1.5821311,1.7432425,-0.72675747,-1.7345629,1.9154371,-0.42541993],2.0)
+  -- the same, but logisticAct for the first hidden layer instead of tanhAct
+  , testCase "0.1 logisticAct ws 5000"
+    $ gradDescShow 0.1 (nnXorLossTotal logisticAct) ws 5000
+      @?= ([5.5609226,5.553409,-2.2246428,3.4135451,3.4121408,-5.2069902,6.8810863,-7.41155,-3.086779],2.4756126e-2)
+  , testCase "0.01 logisticAct ws2 50000"
+    $ gradDescShow 0.01 (nnXorLossTotal logisticAct) ws2 50000
+      @?= ([-5.276363,5.5221853,2.641188,-5.2796497,5.2037635,-2.8858855,-7.5792775,7.997162,3.5127592],6.759104e-3)
+  -- the same, but reluAct for the first hidden layer instead of tanhAct
+  , testCase "0.1 reluAct ws 5000"
+    $ gradDescShow 0.1 (nnXorLossTotal reluAct) ws 5000  -- no cookie
+      @?= ([0.18908867,0.14627013,0.25409937,0.2798127,0.21643773,0.22213355,8.865212e-2,-5.99097e-2,0.4907815],0.9999999)
+  , testCase "0.01 reluAct ws2 50000"
+    $ gradDescShow 0.01 (nnXorLossTotal reluAct) ws2 50000  -- no cookie
+      @?= ([-1.3572536,2.3245132,-0.14548694,-1.3912132,2.2069085,-0.2630923,-1.4252249,2.2264564,-0.22221938],1.0)
   ]
 
 -- This, and other Fit and Fit2 nn operations, are unfused, which is fine,
@@ -480,6 +491,27 @@ fit2Tests = testGroup "Sample fitting 2 hidden layer not fully connected nn test
       1.9398514673723763e-2
   ]
 
+-- The same tests, but with logisticAct for the first hidden layer instead
+-- of tanhAct. Usually worse results.
+fit2TestsL :: TestTree
+fit2TestsL = testGroup "logisticAct: Sample fitting 2 hidden layer not fully connected nn tests"
+  [ gradDescWsTestCase
+      (nnFit2LossTotal logisticAct) 42 8 (lenP2 6) 0.1 10000
+      9.323867115794165e-3
+  , gradDescWsTestCase
+      (nnFit2LossTotal logisticAct) 42 10 (lenP2 6) 0.01 400000
+      0.12307345215742066
+  , gradDescSeparatedTestCase
+      (nnFit2LossTotal logisticAct) 42 8 (lenP2 6) 0.1 10000
+      0.2978076625110597
+  , gradDescSeparatedTestCase
+      (nnFit2LossTotal logisticAct) 42 10 (lenP2 6) 0.01 100000
+      8.707658552473477e-2
+  , gradDescSeparatedTestCase
+      (nnFit2LossTotal logisticAct) 42 16 (lenP2 12) 0.01 100000
+      1.2453082870396885
+  ]
+
 gradDescSmartShow :: (VecDualDeltaD -> DeltaMonadGradient Double DualDeltaD)
                   -> Domain Double
                   -> Int
@@ -601,6 +633,34 @@ smartFit2Tests =
       (1.0411445668840221e-2,3.125e-3)
         -- this is faster but less accurate than 101 1000000
         -- 151 700000 is not enough
+  ]
+
+-- The same tests, but with logisticAct for the first hidden layer instead
+-- of tanhAct. Usually worse results.
+smartFit2TestsL :: TestTree
+smartFit2TestsL =
+ testGroup "logisticAct: Smart descent sample fitting 2 hidden layer not fully connected nn tests"
+  [ gradSmartWsTestCase
+      (nnFit2LossTotal logisticAct) 42 8 (lenP2 6) 10000
+      (5.277048486983709e-3,5.0e-2)
+  , gradSmartWsTestCase
+      (nnFit2LossTotal logisticAct) 42 10 (lenP2 6) 400000
+      (0.12231013820426907,2.5e-2)
+  , gradSmartWsTestCase
+      (nnFit2LossTotal logisticAct) 42 16 (lenP2 12) 700000
+      (0.625388101609215,3.125e-3)
+  , gradSmartSeparatedTestCase
+      (nnFit2LossTotal logisticAct) 42 8 (lenP2 6) 10000
+      (0.486980368199192,2.5e-2)
+  , gradSmartSeparatedTestCase
+      (nnFit2LossTotal logisticAct) 42 10 (lenP2 6) 100000
+      (2.9673291826644015e-2,3.125e-3)
+  , gradSmartSeparatedTestCase
+      (nnFit2LossTotal logisticAct) 42 16 (lenP2 12) 100000
+      (2.1703256232095827,1.25e-2)
+  , gradSmartSeparatedTestCase
+      (nnFit2LossTotal logisticAct) 42 24 (lenP2 12) 1300000
+      (2.225663713307959,3.90625e-4)
   ]
 
 -- This is really fully connected.
@@ -725,6 +785,55 @@ smartFit3Tests =
       (1.1354796858869852e-6,1.5625e-3)
   ]
 
+-- The same tests, but with logisticAct for the first hidden layer instead
+-- of tanhAct. Usually worse results.
+smartFit3TestsL :: TestTree
+smartFit3TestsL =
+ testGroup "logisticAct: Smart descent sample fitting 2 hidden layer really fully connected nn tests"
+  [ gradSmartWsTestCase
+      (nnFit3LossTotal logisticAct) 42 8 (lenP3 4) 10000
+      (4.262690053475572e-3,2.5e-2)
+  , gradSmartWsTestCase
+      (nnFit3LossTotal logisticAct) 42 10 (lenP3 4) 400000
+      (8.133312854575311e-2,0.1)
+  , gradSmartWsTestCase
+      (nnFit3LossTotal logisticAct) 42 16 (lenP3 6) 700000
+      (0.35607225062502207,1.5625e-3)
+  , gradSmartSeparatedTestCase
+      (nnFit3LossTotal logisticAct) 42 8 (lenP3 4) 10000
+      (8.041780516044969e-2,1.25e-2)
+  , gradSmartSeparatedTestCase
+      (nnFit3LossTotal logisticAct) 42 10 (lenP3 4) 100000
+      (1.0877770623826884e-2,6.25e-3)
+  , gradSmartSeparatedTestCase
+      (nnFit3LossTotal logisticAct) 42 16 (lenP3 6) 100000
+      (1.444649714852858,1.25e-2)
+  , gradSmartSeparatedTestCase
+      (nnFit3LossTotal logisticAct) 42 24 (lenP3 6) 1300000
+      (1.7847189651694308,1.953125e-4)
+  , gradSmartWsTestCase
+      (nnFit3LossTotal logisticAct) 42 8 (lenP3 6) 10000
+      (5.436829414964154e-3,2.5e-2)
+  , gradSmartWsTestCase
+      (nnFit3LossTotal logisticAct) 42 10 (lenP3 6) 400000
+      (0.11938665766915235,1.25e-2)
+  , gradSmartWsTestCase
+      (nnFit3LossTotal logisticAct) 42 16 (lenP3 12) 700000
+      (0.24271694671964975,6.25e-3)
+  , gradSmartSeparatedTestCase
+      (nnFit3LossTotal logisticAct) 42 8 (lenP3 6) 10000
+      (8.700033031145113e-2,1.25e-2)
+  , gradSmartSeparatedTestCase
+      (nnFit3LossTotal logisticAct) 42 10 (lenP3 6) 100000
+      (7.225917500882556e-6,1.25e-2)
+  , gradSmartSeparatedTestCase
+      (nnFit3LossTotal logisticAct) 42 16 (lenP3 12) 100000
+      (2.3379235156826658e-2,3.125e-3)
+  , gradSmartSeparatedTestCase
+      (nnFit3LossTotal logisticAct) 42 24 (lenP3 12) 1300000
+      (0.6440964543158452,3.125e-3)
+  ]
+
 gradDescStochasticShow
   :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
   => r
@@ -830,7 +939,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
         whiteLabel = V.replicate sizeMnistLabel 1
         trainData = replicate 20 (whiteGlyph, whiteLabel)
     in gradDescStochasticTestCase "white"
-         (return trainData) nnMnistLoss 0.02 25.190345811686004
+         (return trainData) nnMnistLoss 0.02 25.190345811686015
   , let blackGlyph = V.replicate sizeMnistGlyph 0
         whiteLabel = V.replicate sizeMnistLabel 1
         trainData = replicate 50 (blackGlyph, whiteLabel)
@@ -840,7 +949,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
         label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
         trainData = map ((\g -> (glyph g, label g)) . mkStdGen) [1 .. 100]
     in gradDescStochasticTestCase "random 100"
-         (return trainData) nnMnistLoss 0.02 12.87153985968679
+         (return trainData) nnMnistLoss 0.02 12.871539859686754
   , gradDescStochasticTestCase "first 100 trainset samples only"
       (take 100 <$> loadMnistData trainGlyphsPath trainLabelsPath)
       nnMnistLoss 0.02 4.761561312781972
