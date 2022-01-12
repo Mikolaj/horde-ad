@@ -244,10 +244,10 @@ gradDescSmart f n0 params0 = go n0 params0 0.1 gradient0 value0 0 where
           | otherwise -> go (pred n) paramsNew gamma gradient value (i + 1)
 
 scalar :: r -> DualDelta r
-scalar k = D k Zero
+scalar r = D r Zero
 
-scale :: (DeltaMonad r m, Num r) => r -> DualDelta r -> m (DualDelta r)
-scale k (D u u') = returnLet $ D (k * u) (Scale k u')
+scale :: Num r => r -> DualDelta r -> DualDelta r
+scale r (D u u') = D (r * u) (Scale r u')
 
 -- These instances are dangerous. Expressions should be wrapped in
 -- the monadic @returnLet@ whenever there is a possibility they can be
@@ -326,6 +326,13 @@ tanhDual u = returnLet $ tanh u
 -- In principle, they should be coded in a way that guarantees that
 -- no exponential explosion can happen regardless of context
 -- in which they are used, if only all their arguments are let-bound.
+
+scaleDual :: (DeltaMonad r m, Num r) => r -> DualDelta r -> m (DualDelta r)
+scaleDual r u = returnLet $ scale r u
+
+-- Optimized and clearer to write @u ** 2@.
+squareDual :: (DeltaMonad r m, Num r) => DualDelta r -> m (DualDelta r)
+squareDual (D u u') = returnLet $ D (u * u) (Scale (2 * u) u')
 
 -- In addition to convenience, this offers fusion of all bindings
 -- coming from binary addition into a single binding.
@@ -414,11 +421,9 @@ sumConstantData xs offset vec = do
         in acc + scale r v
   returnLet $ V.ifoldl' f bias xs
 
-lossSquaredUnfused :: (DeltaMonad r m, Num r)
-                   => r -> DualDelta r -> m (DualDelta r)
-lossSquaredUnfused targ res = do
-  diff <- res -\ scalar targ
-  diff *\ diff
+lossSquared :: (DeltaMonad r m, Num r)
+            => r -> DualDelta r -> m (DualDelta r)
+lossSquared targ res = squareDual $ res - scalar targ
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
 lossCrossEntropyUnfused
@@ -430,7 +435,7 @@ lossCrossEntropyUnfused targ res = do
   let f :: DualDelta r -> Int -> DualDelta r -> m (DualDelta r)
       f !acc !i d = do
         rLog <- logDual d
-        rLogScaled <- scale (targ V.! i) rLog
+        rLogScaled <- scaleDual (targ V.! i) rLog
         acc +\ rLogScaled
   dotProductLog <- V.ifoldM' f (scalar 0) res
   negateDual dotProductLog

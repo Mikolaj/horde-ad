@@ -98,7 +98,7 @@ fquad :: DeltaMonad Float m => VecDualDeltaF -> m DualDeltaF
 fquad vec = do
   let x = var 0 vec
       y = var 1 vec
-  x2 <- x *\ x
+  x2 <- squareDual x
   y2 <- y *\ y
   tmp <- x2 +\ y2
   tmp +\ scalar 5
@@ -109,7 +109,7 @@ fblowup vec = do
       blowup 0 y = return y
       blowup n y = do
         ysum <- y +\ y
-        yscaled <- scale 0.499999985 ysum  -- otherwise, we'd get NaN at once
+        yscaled <- scaleDual 0.499999985 ysum  -- otherwise we'd get NaN at once
         blowup (pred n) yscaled
   y0 <- fquad vec
   blowup 100 y0
@@ -201,7 +201,7 @@ nnXorLoss :: DeltaMonad Float m
           -> m DualDeltaF
 nnXorLoss factivation x y targ vec = do
   res <- nnXor factivation (scalar x) (scalar y) vec
-  lossSquaredUnfused targ res
+  lossSquared targ res
 
 nnXorLossTotal :: DeltaMonad Float m
                => (DualDeltaF -> m DualDeltaF)
@@ -252,7 +252,7 @@ hiddenLayerFit factivation x vec width = do
       f i = do
         let weight = var (2 * i) vec
             bias = var (2 * i + 1) vec
-        sx <- scale x weight
+        sx <- scaleDual x weight
         sxBias <- sx +\ bias
         factivation sxBias
   V.generateM width f
@@ -284,7 +284,7 @@ nnFitLoss :: DeltaMonad Double m
           -> Double -> Double -> VecDualDeltaD -> m DualDeltaD
 nnFitLoss factivationHidden factivationOutput x targ vec = do
   res <- nnFit factivationHidden factivationOutput x vec
-  lossSquaredUnfused targ res
+  lossSquared targ res
 
 nnFitLossTotal :: forall m. DeltaMonad Double m
                => (DualDeltaD -> m DualDeltaD)
@@ -439,7 +439,7 @@ nnFit2Loss :: DeltaMonad Double m
            -> Double -> Double -> VecDualDeltaD -> m DualDeltaD
 nnFit2Loss factivationHidden factivationMiddle factivationOutput x targ vec = do
   res <- nnFit2 factivationHidden factivationMiddle factivationOutput x vec
-  lossSquaredUnfused targ res
+  lossSquared targ res
 
 nnFit2LossTotal :: forall m. DeltaMonad Double m
                 => (DualDeltaD -> m DualDeltaD)
@@ -648,7 +648,7 @@ nnFit3Loss :: DeltaMonad Double m
            -> Double -> Double -> VecDualDeltaD -> m DualDeltaD
 nnFit3Loss factivationHidden factivationMiddle factivationOutput x targ vec = do
   res <- nnFit3 factivationHidden factivationMiddle factivationOutput x vec
-  lossSquaredUnfused targ res
+  lossSquared targ res
 
 nnFit3LossTotal :: forall m. DeltaMonad Double m
                 => (DualDeltaD -> m DualDeltaD)
