@@ -322,16 +322,17 @@ logDual u = returnLet $ log u
 tanhDual :: (DeltaMonad r m, Floating r) => DualDelta r -> m (DualDelta r)
 tanhDual u = returnLet $ tanh u
 
+-- Most of the operations below are selectively fused.
+-- In principle, they should be coded in a way that guarantees that
+-- no exponential explosion can happen regardless of context
+-- in which they are used, if only all their arguments are let-bound.
+
 -- In addition to convenience, this offers fusion of all bindings
 -- coming from binary addition into a single binding.
 sumDual :: forall m r . (DeltaMonad r m, Num r)
         => Data.Vector.Vector (DualDelta r)
         -> m (DualDelta r)
-sumDual us = do
-  let f :: DualDelta r -> DualDelta r -> DualDelta r
-      f (D acc acc') (D u u') = D (acc + u) (Add acc' u')
-      D sumUs sumUs' = V.foldl' f (scalar 0) us
-  returnLet $ D sumUs sumUs'
+sumDual us = returnLet $ V.foldl' (+) (scalar 0) us
 
 -- The same as @sumDual@ but for lists. Inlined to help list fusion,
 -- which is, alas, not guaranteed regardless.
@@ -339,11 +340,7 @@ sumListDual :: forall m r . (DeltaMonad r m, Num r)
             => [DualDelta r]
             -> m (DualDelta r)
 {-# INLINE sumListDual #-}
-sumListDual us = do
-  let f :: DualDelta r -> DualDelta r -> DualDelta r
-      f (D acc acc') (D u u') = D (acc + u) (Add acc' u')
-      D sumUs sumUs' = foldl' f (scalar 0) us
-  returnLet $ D sumUs sumUs'
+sumListDual us = returnLet $ foldl' (+) (scalar 0) us
 
 -- Inlined to avoid the tiny overhead of calling an unknown function.
 -- This operation is needed, because @sumListDual@ doesn't (always) fuse.
@@ -355,11 +352,11 @@ sumResultsDual :: forall m a r.
 {-# INLINE sumResultsDual #-}
 sumResultsDual f as = do
   let g :: DualDelta r -> a -> m (DualDelta r)
-      g (D acc acc') a = do
-        (D u u') <- f a
-        return $! D (acc + u) (Add acc' u')
-  D sumUs sumUs' <- V.foldM g (scalar 0) as
-  returnLet $ D sumUs sumUs'
+      g !acc a = do
+        u <- f a
+        return $! acc + u
+  sumUs <- V.foldM g (scalar 0) as
+  returnLet sumUs
 
 tanhAct :: (DeltaMonad r m, Floating r) => DualDelta r -> m (DualDelta r)
 tanhAct = tanhDual
@@ -394,11 +391,10 @@ sumTrainableInputs :: forall m r.
 sumTrainableInputs xs offset vec = do
   let bias = var offset vec
       f :: DualDelta r -> Int -> DualDelta r -> DualDelta r
-      f (D acc acc') i (D u u') =
-        let (D v v') = var (offset + 1 + i) vec
-        in D (acc + u * v) (Add acc' (Add (Scale v u') (Scale u v')))
-      D xsum xsum' = V.ifoldl' f bias xs
-  returnLet $ D xsum xsum'
+      f !acc i u =
+        let v = var (offset + 1 + i) vec
+        in acc + u * v
+  returnLet $ V.ifoldl' f bias xs
 
 -- | Compute the output of a neuron, without applying activation function,
 -- from constant data in @xs@ and parameters (the bias and weights)
@@ -413,11 +409,10 @@ sumConstantData :: forall m r.
 sumConstantData xs offset vec = do
   let bias = var offset vec
       f :: DualDelta r -> Int -> r -> DualDelta r
-      f (D acc acc') i r =
-        let (D v v') = var (offset + 1 + i) vec
-        in D (acc + r * v) (Add acc' (Scale r v'))
-      D xsum xsum' = V.ifoldl' f bias xs
-  returnLet $ D xsum xsum'
+      f !acc i r =
+        let v = var (offset + 1 + i) vec
+        in acc + scale r v
+  returnLet $ V.ifoldl' f bias xs
 
 lossSquaredUnfused :: (DeltaMonad r m, Num r)
                    => r -> DualDelta r -> m (DualDelta r)
