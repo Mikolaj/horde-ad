@@ -78,7 +78,8 @@ main =
     bgroup "10e7" [ bench "func" $ nf prod (take 10000000 allxs)
                   , bench "grad" $ nf grad_prod (take 10000000 allxs)
                   ],
-    bgroup "5e8" [ bench "func" $ nf prod (take 50000000 allxs)
+    bgroup "Half10e8"
+                 [ bench "func" $ nf prod (take 50000000 allxs)
                  , bench "grad" $ nf grad_prod (take 50000000 allxs)  -- 13.05s
                  ]
   ]

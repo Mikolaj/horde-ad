@@ -26,7 +26,7 @@ main = do
       vec10e5 = V.fromList $ take 100000 allxs
       vec10e6 = V.fromList $ take 1000000 allxs
       vec10e7 = V.fromList $ take 10000000 allxs
-      vec5e8 = V.fromList $ take 50000000 allxs
+      vecHalf10e8 = V.fromList $ take 50000000 allxs
   defaultMain
     [ bgroup "100"
         [ bench "func" $ nf prod (take 100 allxs)
@@ -81,12 +81,12 @@ main = do
         , bench "handwritten_vec_grad" $ nf handwritten_vec_grad_prod
                                             vec10e7
         ]
-    , bgroup "5e8"
+    , bgroup "Half10e8"
         -- backprop takes forever except with vector-based handwritten gradients
         [ bench "handwritten_func" $ nf handwritten_prod (take 50000000 allxs)
-        , bench "handwritten_vec_func" $ nf handwritten_vec_prod vec5e8
+        , bench "handwritten_vec_func" $ nf handwritten_vec_prod vecHalf10e8
         , bench "handwritten_vec_grad" $ nf handwritten_vec_grad_prod
-                                            vec5e8  -- 5.68s
+                                            vecHalf10e8  -- 5.68s
         ]
     ]
 

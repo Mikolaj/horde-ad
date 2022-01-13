@@ -18,7 +18,7 @@ main = do
       vec10e5 = V.fromList $ take 100000 allxs
       vec10e6 = V.fromList $ take 1000000 allxs
       vec10e7 = V.fromList $ take 10000000 allxs
-      vec5e8 = V.fromList $ take 50000000 allxs
+      vecHalf10e8 = V.fromList $ take 50000000 allxs
   defaultMain
     [ bgroup "100"
         [ bench "vec_func" $ nf vec_prod vec100
@@ -50,9 +50,9 @@ main = do
         , bench "vec_grad" $ nf vec_grad_prod vec10e7
         , bench "toList_grad" $ nf toList_grad_prod (take 10000000 allxs)
         ]
-    , bgroup "5e8"
-        [ bench "vec_func" $ nf vec_prod vec5e8
-        , bench "vec_grad" $ nf vec_grad_prod vec5e8  -- 11.47s
+    , bgroup "Half10e8"
+        [ bench "vec_func" $ nf vec_prod vecHalf10e8
+        , bench "vec_grad" $ nf vec_grad_prod vecHalf10e8  -- 11.47s
 -- this already takes 35G, so the worse variants not attempted:
 --        , bench "toList_grad" $ nf toList_grad_prod (take 50000000 allxs)
         ]
