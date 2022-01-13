@@ -34,7 +34,7 @@ mnistTestBench chunkLength xs widthHidden = do
   let nParams = lenMnist widthHidden
       params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
       chunk = take chunkLength xs
-      score c = testMnist c params0 widthHidden
+      score c = testMnist widthHidden c params0
       name = "test a 1-hidden-layer MNIST nn "
              ++ unwords [show chunkLength, show widthHidden, show nParams]
   bench name $ whnf score chunk

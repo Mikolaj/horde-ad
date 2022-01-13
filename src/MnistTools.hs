@@ -92,14 +92,22 @@ nnMnistLoss widthHidden (xs, targ) vec = do
   res <- inline nnMnist logisticAct softMaxAct widthHidden xs vec
   lossCrossEntropy targ res
 
-testMnist :: [MnistData] -> Domain Double -> Int -> Double
-testMnist xs res widthHidden =
-  let f = inline nnMnist logisticAct softMaxAct widthHidden
-      matchesLabels :: MnistData -> Bool
+generalTestMnist :: (Domain Double
+                     -> VecDualDeltaD
+                     -> DeltaMonadValue Double (Data.Vector.Vector DualDeltaD))
+                 -> [MnistData] -> Domain Double
+                 -> Double
+{-# INLINE generalTestMnist #-}
+generalTestMnist nn xs res =
+  let matchesLabels :: MnistData -> Bool
       matchesLabels (glyphs, labels) =
-        let value = V.map (\(D r _) -> r) $ valueDual (f glyphs) res
+        let value = V.map (\(D r _) -> r) $ valueDual (nn glyphs) res
         in V.maxIndex value == V.maxIndex labels
   in fromIntegral (length (filter matchesLabels xs)) / fromIntegral (length xs)
+
+testMnist :: Int -> [MnistData] -> Domain Double -> Double
+testMnist widthHidden xs res =
+  generalTestMnist (inline nnMnist logisticAct softMaxAct widthHidden) xs res
 
 readMnistData :: LBS.ByteString -> LBS.ByteString -> [MnistData]
 readMnistData glyphsBS labelsBS =

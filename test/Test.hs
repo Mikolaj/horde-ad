@@ -926,8 +926,8 @@ mnistTestCase prefix epochs maxBatches trainWithLoss widthHidden gamma
              let f = trainWithLoss widthHidden
                  !res = gradDescStochastic gamma f chunk params
              printf "Trained on %d points.\n" (length chunk)
-             let trainScore = testMnist chunk res widthHidden
-                 testScore  = testMnist testData res widthHidden
+             let trainScore = testMnist widthHidden chunk res
+                 testScore  = testMnist widthHidden testData res
              printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
              printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
              return res
@@ -943,7 +943,7 @@ mnistTestCase prefix epochs maxBatches trainWithLoss widthHidden gamma
        printf "\nEpochs to run/max batches per epoch: %d/%d\n"
               epochs maxBatches
        res <- runEpoch 1 params0
-       let testErrorFinal = 1 - testMnist testData res widthHidden
+       let testErrorFinal = 1 - testMnist widthHidden testData res
        testErrorFinal @?= expected
 
 chunksOf :: Int -> [e] -> [[e]]
@@ -1005,17 +1005,17 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       let nParams = lenMnist 250
           params = V.replicate nParams 0.1
       testData <- loadMnistData testGlyphsPath testLabelsPath
-      (1 - testMnist testData params 250) @?= 0.902
+      (1 - testMnist 250 testData params) @?= 0.902
   , testCase "testMnist on random params 250 width 10k testset" $ do
       let nParams = lenMnist 250
           params = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
       testData <- loadMnistData testGlyphsPath testLabelsPath
-      (1 - testMnist testData params 250) @?= 0.8489
+      (1 - testMnist 250 testData params) @?= 0.8489
   , testCase "testMnist on 0.1 params 2500 width 1k testset" $ do
       let nParams = lenMnist 2500
           params = V.replicate nParams 0.1
       testData <- take 1000 <$> loadMnistData testGlyphsPath testLabelsPath
-      (1 - testMnist testData params 2500) @?= 0.915
+      (1 - testMnist 2500 testData params) @?= 0.915
   ]
 
 smallMnistTests :: TestTree
