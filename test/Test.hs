@@ -672,16 +672,8 @@ middleLayerFit3 :: forall m. DeltaMonad Double m
                 -> Int
                 -> VecDualDeltaD
                 -> m (Data.Vector.Vector DualDeltaD)
-middleLayerFit3 factivation hiddenVec offset vec = do
-  let width = V.length hiddenVec
-      nWeightsAndBias = width + 1
-      f :: Int -> m DualDeltaD
-      f i = do
-        outSum <- sumTrainableInputs hiddenVec
-                                     (offset + i * nWeightsAndBias)
-                                     vec
-        factivation outSum
-  V.generateM width f
+middleLayerFit3 factivation hiddenVec offset vec =
+  middleLayerMnist factivation hiddenVec offset vec $ V.length hiddenVec
 
 nnFit3 :: DeltaMonad Double m
        => (DualDeltaD -> m DualDeltaD)
