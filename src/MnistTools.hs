@@ -18,6 +18,8 @@ import           System.IO (IOMode (ReadMode), withBinaryFile)
 
 import AD
 
+-- * General tools
+
 type DualDeltaD = DualDelta Double
 
 type VecDualDeltaD = VecDualDelta Double
@@ -27,10 +29,6 @@ sizeMnistGlyph = 784
 
 sizeMnistLabel :: Int
 sizeMnistLabel = 10
-
-lenMnist :: Int -> Int
-lenMnist widthHidden =
-  widthHidden * (sizeMnistGlyph + 1) + 10 * (widthHidden + 1)
 
 type MnistData = ( Data.Vector.Unboxed.Vector Double
                  , Data.Vector.Unboxed.Vector Double )
@@ -49,6 +47,23 @@ hiddenLayerMnist factivation xs vec width = do
         factivation outSum
   V.generateM width f
 
+middleLayerMnist :: forall m. DeltaMonad Double m
+                 => (DualDeltaD -> m DualDeltaD)
+                 -> Data.Vector.Vector DualDeltaD
+                 -> Int
+                 -> VecDualDeltaD
+                 -> Int
+                 -> m (Data.Vector.Vector DualDeltaD)
+middleLayerMnist factivation hiddenVec offset vec width = do
+  let nWeightsAndBias = V.length hiddenVec + 1
+      f :: Int -> m DualDeltaD
+      f i = do
+        outSum <- sumTrainableInputs hiddenVec
+                                     (offset + i * nWeightsAndBias)
+                                     vec
+        factivation outSum
+  V.generateM width f
+
 outputLayerMnist :: forall m. DeltaMonad Double m
                  => (Data.Vector.Vector DualDeltaD
                      -> m (Data.Vector.Vector DualDeltaD))
@@ -64,6 +79,14 @@ outputLayerMnist factivation hiddenVec offset vec width = do
   vOfSums <- V.generateM width f
   factivation vOfSums
 
+-- * 1 hidden layer
+
+lenMnist :: Int -> Int
+lenMnist widthHidden =
+  widthHidden * (sizeMnistGlyph + 1) + sizeMnistLabel * (widthHidden + 1)
+
+-- One hidden layer of width @widthHidden@.
+--
 -- @inline@ used to fix performance loss due to calling unknown functions.
 -- Benchmarks show barely any improvement, probably due to the activation
 -- functions being called only @width@ times per gradient calculation
@@ -108,6 +131,54 @@ generalTestMnist nn xs res =
 testMnist :: Int -> [MnistData] -> Domain Double -> Double
 testMnist widthHidden xs res =
   generalTestMnist (inline nnMnist logisticAct softMaxAct widthHidden) xs res
+
+-- * 2 hidden layers
+
+lenMnist2 :: Int -> Int -> Int
+lenMnist2 widthHidden widthHidden2 =
+  widthHidden * (sizeMnistGlyph + 1)
+  + widthHidden2 * (widthHidden + 1)
+  + sizeMnistLabel * (widthHidden + 1)
+
+-- Two hidden layers of width @widthHidden@ and (the middle one) @widthHidden2@.
+-- Both hidden layers use the same activation function.
+nnMnist2 :: DeltaMonad Double m
+         => (DualDeltaD -> m DualDeltaD)
+         -> (Data.Vector.Vector DualDeltaD
+             -> m (Data.Vector.Vector DualDeltaD))
+         -> Int
+         -> Int
+         -> Domain Double
+         -> VecDualDeltaD
+         -> m (Data.Vector.Vector DualDeltaD)
+nnMnist2 factivationHidden factivationOutput widthHidden widthHidden2
+         xs vec = do
+  let !_A = assert (sizeMnistGlyph == V.length xs) ()
+  hiddenVec <- inline hiddenLayerMnist factivationHidden xs vec widthHidden
+  let offsetMiddle = widthHidden * (sizeMnistGlyph + 1)
+  middleVec <- inline middleLayerMnist factivationHidden hiddenVec
+                                       offsetMiddle vec widthHidden2
+  let offsetOutput = offsetMiddle + widthHidden2 * (widthHidden + 1)
+  inline outputLayerMnist factivationOutput middleVec
+                          offsetOutput vec sizeMnistLabel
+
+nnMnistLoss2 :: DeltaMonad Double m
+             => Int
+             -> Int
+             -> MnistData
+             -> VecDualDeltaD
+             -> m DualDeltaD
+nnMnistLoss2 widthHidden widthHidden2 (xs, targ) vec = do
+  res <- inline nnMnist2 logisticAct softMaxAct widthHidden widthHidden2 xs vec
+  lossCrossEntropy targ res
+
+testMnist2 :: Int -> Int -> [MnistData] -> Domain Double -> Double
+testMnist2 widthHidden widthHidden2 xs res =
+  generalTestMnist (inline nnMnist2 logisticAct softMaxAct
+                                    widthHidden widthHidden2)
+                   xs res
+
+-- * Reading data files
 
 readMnistData :: LBS.ByteString -> LBS.ByteString -> [MnistData]
 readMnistData glyphsBS labelsBS =
