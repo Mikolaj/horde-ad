@@ -30,6 +30,15 @@ sizeMnistGlyph = 784
 sizeMnistLabel :: Int
 sizeMnistLabel = 10
 
+-- Actually, a better representation, supported by @Data.IDX@,
+-- is an integer label and a picture (the same vector as below).
+-- Then we'd use @lossCrossEntropy@ that picks a component according
+-- to the label instead of performing a dot product with scaling.
+-- This results in much smaller Delta expressions.
+-- Our library makes this easy to express and gradients compute fine.
+-- OTOH, methods with only matrix operations and graphs can't handle that.
+-- However, the goal of the exercise it too implement the same
+-- neural net that backprop uses for benchmarks and compare.
 type MnistData = ( Data.Vector.Unboxed.Vector Double
                  , Data.Vector.Unboxed.Vector Double )
 
