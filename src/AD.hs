@@ -334,8 +334,9 @@ scaleDual r u = returnLet $ scale r u
 squareDual :: (DeltaMonad r m, Num r) => DualDelta r -> m (DualDelta r)
 squareDual (D u u') = returnLet $ D (u * u) (Scale (2 * u) u')
 
--- In addition to convenience, this offers fusion of all bindings
--- coming from binary addition into a single binding.
+-- In addition to convenience, this eliminates all Delta bindings
+-- coming from binary addition into a single binding
+-- (and so makes automatic fusion possible in the future).
 sumDual :: forall m r . (DeltaMonad r m, Num r)
         => Data.Vector.Vector (DualDelta r)
         -> m (DualDelta r)

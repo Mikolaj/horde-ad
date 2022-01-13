@@ -55,8 +55,8 @@ main = do
         , bench "vec_grad" $ nf vec_grad_prod vecHalf1e8  -- 11.47s
 -- this already takes 35G, so the worse variants not attempted:
 --        , bench "toList_grad" $ nf toList_grad_prod (take 50000000 allxs)
-        , bench "fusion_vec_func" $ nf fusion_vec_prod vecHalf1e8
-        , bench "fusion_vec_grad" $ nf fusion_vec_grad_prod vecHalf1e8
+        , bench "omit_vec_func" $ nf omit_vec_prod vecHalf1e8
+        , bench "omit_vec_grad" $ nf omit_vec_grad_prod vecHalf1e8
         ]
     ]
 
@@ -65,7 +65,7 @@ vec_prod_aux :: forall m r. (DeltaMonad r m, Num r, Data.Vector.Unboxed.Unbox r)
 vec_prod_aux vec = do
   let f :: DualDelta r -> Int -> r -> m (DualDelta r)
       f !acc !i !valX = do
-        -- An awkard use of internals that can't be avoided without
+        -- An awkward use of internals that can't be avoided without
         -- some other awkward bits of code and an extra performance hit.
         -- The whole business with @vec@ being a pair of vectors,
         -- instead of one vector, is an optimization for gradient descent,
@@ -73,7 +73,7 @@ vec_prod_aux vec = do
         -- where there's no gradient descent to manage the vectors.
         let x = D valX (snd vec V.! i)
         acc *\ x  -- no handwritten gradients; only gradient for * is provided;
-                  -- also, no seletive fusion; all let-bindings are present
+                  -- also, not omitting bindings; all let-bindings are present
   V.ifoldM' f (scalar 1) $ fst vec
 
 vec_grad_prod :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
@@ -88,24 +88,26 @@ toList_grad_prod :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
                  => [r] -> [r]
 toList_grad_prod l = V.toList $ vec_grad_prod $ V.fromList l
 
--- A version with selective fusion. Just one let stuck at the end
--- in case the outcome of this functions is used multiple time
--- by it's consumers.
+-- A version that omits all Delta bindings except for just one let
+-- placed at the end in case the outcome of this function is used
+-- multiple times by it's consumers. In the future, such omission
+-- of bindings may ease automatic fusion of Delta expressions.
+-- It probably wouldn't help in this case, though.
 
-fusion_vec_prod_aux
+omit_vec_prod_aux
   :: forall m r. (DeltaMonad r m, Num r, Data.Vector.Unboxed.Unbox r)
    => VecDualDelta r -> m (DualDelta r)
-fusion_vec_prod_aux vec = do
+omit_vec_prod_aux vec = do
   let f :: DualDelta r -> Int -> r -> DualDelta r
       f !acc !i !valX =
         let x = D valX (snd vec V.! i)
-        in acc * x  -- selective fusion, we know nothing repeats here
+        in acc * x  -- omitting bindings, because we know nothing repeats here
   returnLet $ V.ifoldl' f (scalar 1) $ fst vec
 
-fusion_vec_grad_prod :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
-                     => Domain r -> Domain' r
-fusion_vec_grad_prod = fst . df fusion_vec_prod_aux
+omit_vec_grad_prod :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+                   => Domain r -> Domain' r
+omit_vec_grad_prod = fst . df omit_vec_prod_aux
 
-fusion_vec_prod :: (Num r, Data.Vector.Unboxed.Unbox r)
-                => Domain r -> r
-fusion_vec_prod = valueDualDelta fusion_vec_prod_aux
+omit_vec_prod :: (Num r, Data.Vector.Unboxed.Unbox r)
+              => Domain r -> r
+omit_vec_prod = valueDualDelta omit_vec_prod_aux
