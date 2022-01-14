@@ -66,58 +66,47 @@ bgroup1000 =
         ]
 
 bgroup1e4 =
-      env (return (take 10000 allxs, V.fromList $ take 10000 allxs)) $
-      \ ~(list, vec) ->
+      env (return $ V.fromList $ take 10000 allxs) $
+      \ ~vec ->
       bgroup "1e4"
         -- backprop takes quite long, so many benches pruned
-        [ bench "func" $ nf prod list
-        , bench "func_vec" $ nf vec_prod vec
-        , bench "func_handwritten" $ nf handwritten_prod list
-        , bench "func_handwritten_vec" $ nf handwritten_vec_prod vec
+        [ bench "func_handwritten_vec" $ nf handwritten_vec_prod vec
         , bench "grad_handwritten_vec" $ nf grad_handwritten_vec_prod vec
         ]
 
 bgroup1e5 =
-      env (return (take 100000 allxs, V.fromList $ take 100000 allxs)) $
-      \ ~(list, vec) ->
+      env (return $ V.fromList $ take 100000 allxs) $
+      \ ~vec ->
       bgroup "1e5"
         -- backprop takes forever except with vector-based handwritten gradients
-        [ bench "func" $ nf prod list
-        , bench "func_vec" $ nf vec_prod vec
-        , bench "func_handwritten" $ nf handwritten_prod list
-        , bench "func_handwritten_vec" $ nf handwritten_vec_prod vec
+        [ bench "func_handwritten_vec" $ nf handwritten_vec_prod vec
         , bench "grad_handwritten_vec" $ nf grad_handwritten_vec_prod vec
         ]
 
 bgroup1e6 =
-      env (return (take 1000000 allxs, V.fromList $ take 1000000 allxs)) $
-      \ ~(list, vec) ->
+      env (return $ V.fromList $ take 1000000 allxs) $
+      \ ~vec ->
       bgroup "1e6"
         -- backprop takes forever except with vector-based handwritten gradients
-        [ bench "func" $ nf prod list
-        , bench "func_vec" $ nf vec_prod vec
-        , bench "func_handwritten" $ nf handwritten_prod list
-        , bench "func_handwritten_vec" $ nf handwritten_vec_prod vec
+        [ bench "func_handwritten_vec" $ nf handwritten_vec_prod vec
         , bench "grad_handwritten_vec" $ nf grad_handwritten_vec_prod vec
         ]
 
 bgroup1e7 =
-      env (return (take 10000000 allxs, V.fromList $ take 10000000 allxs)) $
-      \ ~(list, vec) ->
+      env (return $ V.fromList $ take 10000000 allxs) $
+      \ ~vec ->
       bgroup "1e7"
         -- backprop takes forever except with vector-based handwritten gradients
-        [ bench "func_handwritten" $ nf handwritten_prod list
-        , bench "func_handwritten_vec" $ nf handwritten_vec_prod vec
+        [ bench "func_handwritten_vec" $ nf handwritten_vec_prod vec
         , bench "grad_handwritten_vec" $ nf grad_handwritten_vec_prod vec
         ]
 
 bgroup5e7 =
-      env (return (take 50000000 allxs, V.fromList $ take 50000000 allxs)) $
-      \ ~(list, vec) ->
+      env (return $ V.fromList $ take 50000000 allxs) $
+      \ ~vec ->
       bgroup "5e7"  -- 5e7 == 5 * 10^7 == 0.5 * 10^8 == 0.5e8
         -- backprop takes forever except with vector-based handwritten gradients
-        [ bench "func_handwritten" $ nf handwritten_prod list
-        , bench "func_handwritten_vec" $ nf handwritten_vec_prod vec
+        [ bench "func_handwritten_vec" $ nf handwritten_vec_prod vec
         , bench "grad_handwritten_vec" $ nf grad_handwritten_vec_prod vec
         ]
 
