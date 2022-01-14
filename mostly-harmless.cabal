@@ -178,6 +178,7 @@ benchmark prod-manual
     type:             exitcode-stdio-1.0
     hs-source-dirs:   misc-bench
     main-is:          ProdManual.hs
+    other-modules:    ProdManualTools
     build-depends:
         base
       , criterion
@@ -188,6 +189,7 @@ benchmark prod-mostly-harmless
     type:             exitcode-stdio-1.0
     hs-source-dirs:   bench
     main-is:          ProdMostlyHarmless.hs
+    other-modules:    ProdMostlyHarmlessTools
     build-depends:
         base
       , criterion
@@ -212,6 +214,7 @@ benchmark prod-ad
     type:             exitcode-stdio-1.0
     hs-source-dirs:   ad-bench
     main-is:          ProdAd.hs
+    other-modules:    ProdAdTools
     build-depends:
         base
       , ad
@@ -224,6 +227,7 @@ benchmark prod-backprop
     type:             exitcode-stdio-1.0
     hs-source-dirs:   backprop-bench
     main-is:          ProdBackprop.hs
+    other-modules:    ProdBackpropTools
     build-depends:
         base
       , backprop
