@@ -190,9 +190,9 @@ benchmark prod-mostly-harmless
     main-is:          ProdMostlyHarmless.hs
     build-depends:
         base
+      , criterion
       , mostly-harmless
       , random
-      , criterion
       , vector
 
 benchmark mnist-mostly-harmless
@@ -202,9 +202,9 @@ benchmark mnist-mostly-harmless
     main-is:          MnistMostlyHarmless.hs
     build-depends:
         base
+      , criterion
       , mostly-harmless
       , random
-      , criterion
       , vector
 
 benchmark prod-ad
@@ -215,8 +215,8 @@ benchmark prod-ad
     build-depends:
         base
       , ad
-      , random
       , criterion
+      , random
       , vector
 
 benchmark prod-backprop
@@ -227,6 +227,24 @@ benchmark prod-backprop
     build-depends:
         base
       , backprop
-      , random
       , criterion
+      , random
+      , vector
+
+benchmark mnist-backprop
+    import:           options, exe-options
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   backprop-bench
+    main-is:          bench.hs
+    build-depends:
+        base
+      , backprop
+      , criterion
+      , directory
+      , deepseq
+      , hmatrix
+      , microlens
+      , microlens-th
+      , mwc-random
+      , time
       , vector
