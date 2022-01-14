@@ -1,18 +1,8 @@
-{-# LANGUAGE BangPatterns         #-}
-{-# LANGUAGE DataKinds            #-}
-{-# LANGUAGE DeriveGeneric        #-}
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE GADTs                #-}
-{-# LANGUAGE LambdaCase           #-}
-{-# LANGUAGE PolyKinds            #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE StandaloneDeriving   #-}
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE TypeApplications     #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE ViewPatterns         #-}
+{-# LANGUAGE BangPatterns, DataKinds, DeriveGeneric, FlexibleContexts,
+             FlexibleInstances, GADTs, LambdaCase, PolyKinds,
+             ScopedTypeVariables, StandaloneDeriving, TemplateHaskell,
+             TypeApplications, TypeFamilies, TypeSynonymInstances,
+             ViewPatterns #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 import           Control.DeepSeq
@@ -21,17 +11,17 @@ import           Criterion.Types
 import           Data.Char
 import           Data.Functor.Identity
 import           Data.Time
-import           GHC.Generics                 (Generic)
+import qualified Data.Vector as V
+import           GHC.Generics (Generic)
 import           GHC.TypeLits
 import           Lens.Micro
 import           Lens.Micro.TH
 import           Numeric.Backprop
 import           Numeric.Backprop.Class
+import qualified Numeric.LinearAlgebra as HM
 import           Numeric.LinearAlgebra.Static
 import           System.Directory
-import qualified Data.Vector                  as V
-import qualified Numeric.LinearAlgebra        as HM
-import qualified System.Random.MWC            as MWC
+import qualified System.Random.MWC as MWC
 
 type family HKD f a where
     HKD Identity a = a
