@@ -101,8 +101,8 @@ library
     import:           options
 
     -- Modules exported by the library.
-    exposed-modules:    AD
-                      , MnistTools
+    exposed-modules:  AD
+                      MnistTools
 
     -- Modules included in this library but not exported.
     -- other-modules:
@@ -273,5 +273,25 @@ benchmark prod-all
       , criterion
       , deepseq
       , mostly-harmless
+      , random
+      , vector
+
+benchmark mnist-all
+    import:           options, exe-options
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   misc-bench, bench, backprop-bench
+    main-is:          MnistAll.hs
+    other-modules:    MnistMostlyHarmlessTools
+                      MnistBackpropTools
+    build-depends:
+        base
+      , backprop
+      , criterion
+      , deepseq
+      , hmatrix
+      , microlens
+      , microlens-th
+      , mostly-harmless
+      , mwc-random
       , random
       , vector

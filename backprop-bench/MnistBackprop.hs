@@ -18,4 +18,11 @@ main = do
        . map (fromIntegral . ord)
        $ "hello world"
   test0 <- MWC.uniformR @(R 784, R 10) ((0,0),(1,1)) g
-  defaultMain $ backproprBgroup test0
+  defaultMain
+     [ bgroup "1"
+        [backpropBgroup [test0] 1]
+     , bgroup "5"
+        [backpropBgroup (replicate 5 test0) 5]
+     , bgroup "50"
+        [backpropBgroup (replicate 50 test0) 50]
+     ]

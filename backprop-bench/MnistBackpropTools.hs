@@ -13,7 +13,10 @@ import           Control.DeepSeq
 import           Criterion.Main
 import           Data.Char
 import           Data.Functor.Identity
+import           Data.Maybe (fromJust)
 import qualified Data.Vector as V
+import qualified Data.Vector.Generic as VG
+import qualified Data.Vector.Unboxed
 import           GHC.Generics (Generic)
 import           GHC.TypeLits
 import           Lens.Micro
@@ -55,15 +58,25 @@ instance NFData (Network i h1 h2 o)
 
 makeLenses ''Network'
 
-backproprBgroup :: (R 784, R 10) -> [Benchmark]
-backproprBgroup test =
-  [ env (do
+backpropBgroupUnboxed :: [( Data.Vector.Unboxed.Vector Double
+                          , Data.Vector.Unboxed.Vector Double )]
+                      -> Int
+                      -> Benchmark
+backpropBgroupUnboxed test n =
+  let f (glyphs, labels) =
+        ( fromJust $ create $ VG.convert glyphs
+        , fromJust $ create $ VG.convert labels )
+  in backpropBgroup (map f test) n
+
+backpropBgroup :: [(R 784, R 10)] -> Int -> Benchmark
+backpropBgroup test _ =  -- TODO
+    env (do
       g <- MWC.initialize
            . V.fromList
            . map (fromIntegral . ord)
            $ "hello world"
       net <- MWC.uniformR @(Network 784 300 100 10) (-0.5, 0.5) g
-      return (test, net)) $
+      return ((\(x : _) -> x) test, net)) $
     \ ~(test0, net0) ->
     bgroup "backprop"
 --      [ bgroup "gradient"
@@ -97,7 +110,6 @@ backproprBgroup test =
 --            in  bench "hybrid"  $ nf runTest (fst test0)
           ]
       ]
-  ]
 
 -- ------------------------------
 -- - "Backprop" Lens Mode       -
