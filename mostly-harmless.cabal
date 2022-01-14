@@ -248,13 +248,11 @@ benchmark mnist-backprop
         base
       , backprop
       , criterion
-      , directory
       , deepseq
       , hmatrix
       , microlens
       , microlens-th
       , mwc-random
-      , time
       , vector
 
 benchmark prod-all

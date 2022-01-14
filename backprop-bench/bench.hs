@@ -10,10 +10,8 @@ import Prelude
 
 import           Control.DeepSeq
 import           Criterion.Main
-import           Criterion.Types
 import           Data.Char
 import           Data.Functor.Identity
-import           Data.Time
 import qualified Data.Vector as V
 import           GHC.Generics (Generic)
 import           GHC.TypeLits
@@ -23,7 +21,6 @@ import           Numeric.Backprop
 import           Numeric.Backprop.Class
 import qualified Numeric.LinearAlgebra as HM
 import           Numeric.LinearAlgebra.Static
-import           System.Directory
 import qualified System.Random.MWC as MWC
 
 type family HKD f a where
@@ -59,50 +56,56 @@ makeLenses ''Network'
 
 main :: IO ()
 main = do
-    g     <- MWC.initialize
+  g <- MWC.initialize
+       . V.fromList
+       . map (fromIntegral . ord)
+       $ "hello world"
+  test0 <- MWC.uniformR @(R 784, R 10) ((0,0),(1,1)) g
+  defaultMain $ backproprBgroup test0
+
+backproprBgroup :: (R 784, R 10) -> [Benchmark]
+backproprBgroup test =
+  [ env (do
+      g <- MWC.initialize
            . V.fromList
            . map (fromIntegral . ord)
            $ "hello world"
-    test0 <- MWC.uniformR @(R 784, R 10) ((0,0),(1,1)) g
-    net0  <- MWC.uniformR @(Network 784 300 100 10) (-0.5, 0.5) g
-    t     <- getZonedTime
-    let tstr = formatTime defaultTimeLocale "%Y%m%d-%H%M%S" t
-    createDirectoryIfMissing True "bench-results"
-    defaultMainWith defaultConfig
-          { reportFile = Just $ "bench-results/mnist-bench_" ++ tstr ++ ".html"
-          , timeLimit  = 10
-          } [
-        bgroup "gradient"
-          [ let runTest x y     = gradNetManual x y net0
-            in  bench "manual"  $ nf (uncurry runTest) test0
-          , let runTest x y     = gradBP (netErr x y) net0
-            in  bench "bp-lens" $ nf (uncurry runTest) test0
-          , let runTest x y     = gradBP (netErrHKD x y) net0
-            in  bench "bp-hkd"  $ nf (uncurry runTest) test0
-          , let runTest x y     = gradBP (\n' -> netErrHybrid n' y x) net0
-            in  bench "hybrid"  $ nf (uncurry runTest) test0
-          ]
-      , bgroup "descent"
+      net <- MWC.uniformR @(Network 784 300 100 10) (-0.5, 0.5) g
+      return (test, net)) $
+    \ ~(test0, net0) ->
+    bgroup "backprop"
+--      [ bgroup "gradient"
+--          [ let runTest x y     = gradNetManual x y net0
+--            in  bench "manual"  $ nf (uncurry runTest) test0
+--          , let runTest x y     = gradBP (netErr x y) net0
+--            in  bench "bp-lens" $ nf (uncurry runTest) test0
+--          , let runTest x y     = gradBP (netErrHKD x y) net0
+--            in  bench "bp-hkd"  $ nf (uncurry runTest) test0
+--          , let runTest x y     = gradBP (\n' -> netErrHybrid n' y x) net0
+--            in  bench "hybrid"  $ nf (uncurry runTest) test0
+--          ]
+      [ bgroup "descent"
           [ let runTest x y     = trainStepManual 0.02 x y net0
             in  bench "manual"  $ nf (uncurry runTest) test0
           , let runTest x y     = trainStep 0.02 x y net0
             in  bench "bp-lens" $ nf (uncurry runTest) test0
           , let runTest x y     = trainStepHKD 0.02 x y net0
             in  bench "bp-hkd"  $ nf (uncurry runTest) test0
-          , let runTest x y     = trainStepHybrid 0.02 x y net0
-            in  bench "hybrid"  $ nf (uncurry runTest) test0
+--          , let runTest x y     = trainStepHybrid 0.02 x y net0
+--            in  bench "hybrid"  $ nf (uncurry runTest) test0
           ]
-      , bgroup "run"
+      , bgroup "func"
           [ let runTest         = runNetManual net0
             in  bench "manual"  $ nf runTest (fst test0)
           , let runTest x       = evalBP (`runNetwork` x) net0
             in  bench "bp-lens" $ nf runTest (fst test0)
           , let runTest x       = evalBP (`runNetworkHKD` x) net0
             in  bench "bp-hkd"  $ nf runTest (fst test0)
-          , let runTest x       = evalBP (`runNetHybrid` x) net0
-            in  bench "hybrid"  $ nf runTest (fst test0)
+--          , let runTest x       = evalBP (`runNetHybrid` x) net0
+--            in  bench "hybrid"  $ nf runTest (fst test0)
           ]
       ]
+  ]
 
 -- ------------------------------
 -- - "Backprop" Lens Mode       -
@@ -335,46 +338,46 @@ softMaxCrossEntropyOp targ = op1 $ \x ->
         )
 {-# INLINE softMaxCrossEntropyOp #-}
 
-runNetHybrid
+_runNetHybrid
     :: (KnownNat i, KnownNat h1, KnownNat h2, KnownNat o, Reifies s W)
     => BVar s (Network i h1 h2 o)
     -> R i
     -> BVar s (R o)
-runNetHybrid n = liftOp1 softMaxOp
+_runNetHybrid n = liftOp1 softMaxOp
                . liftOp2 layerOp (n ^^. nLayer3)
                . liftOp1 logisticOp
                . liftOp2 layerOp (n ^^. nLayer2)
                . liftOp1 logisticOp
                . liftOp2 layerOp (n ^^. nLayer1)
                . auto
-{-# INLINE runNetHybrid #-}
+{-# INLINE _runNetHybrid #-}
 
-netErrHybrid
+_netErrHybrid
     :: (KnownNat i, KnownNat h1, KnownNat h2, KnownNat o, Reifies s W)
     => BVar s (Network i h1 h2 o)
     -> R o
     -> R i
     -> BVar s Double
-netErrHybrid n t = liftOp1 (softMaxCrossEntropyOp t)
+_netErrHybrid n t = liftOp1 (softMaxCrossEntropyOp t)
                  . liftOp2 layerOp (n ^^. nLayer3)
                  . liftOp1 logisticOp
                  . liftOp2 layerOp (n ^^. nLayer2)
                  . liftOp1 logisticOp
                  . liftOp2 layerOp (n ^^. nLayer1)
                  . auto
-{-# INLINE netErrHybrid #-}
+{-# INLINE _netErrHybrid #-}
 
-trainStepHybrid
+_trainStepHybrid
     :: forall i h1 h2 o. (KnownNat i, KnownNat h1, KnownNat h2, KnownNat o)
     => Double
     -> R i
     -> R o
     -> Network i h1 h2 o
     -> Network i h1 h2 o
-trainStepHybrid r !x !t !n =
-    let gN = gradBP (\n' -> netErrHybrid n' t x) n
+_trainStepHybrid r !x !t !n =
+    let gN = gradBP (\n' -> _netErrHybrid n' t x) n
     in  n - (realToFrac r * gN)
-{-# INLINE trainStepHybrid #-}
+{-# INLINE _trainStepHybrid #-}
 
 -- ------------------------------
 -- - Operations                 -
