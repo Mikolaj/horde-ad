@@ -252,3 +252,21 @@ benchmark mnist-backprop
       , mwc-random
       , time
       , vector
+
+benchmark prod-all
+    import:           options, exe-options
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   misc-bench, bench, ad-bench, backprop-bench
+    main-is:          ProdAll.hs
+    other-modules:    ProdManualTools
+                      ProdMostlyHarmlessTools
+                      ProdAdTools
+                      ProdBackpropTools
+    build-depends:
+        base
+      , ad
+      , backprop
+      , criterion
+      , mostly-harmless
+      , random
+      , vector
