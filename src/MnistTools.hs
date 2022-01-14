@@ -134,9 +134,9 @@ generalTestMnist :: (Domain Double
 {-# INLINE generalTestMnist #-}
 generalTestMnist nn xs res =
   let matchesLabels :: MnistData -> Bool
-      matchesLabels (glyphs, labels) =
-        let value = V.map (\(D r _) -> r) $ valueDual (nn glyphs) res
-        in V.maxIndex value == V.maxIndex labels
+      matchesLabels (glyph, label) =
+        let value = V.map (\(D r _) -> r) $ valueDual (nn glyph) res
+        in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels xs)) / fromIntegral (length xs)
 
 testMnist :: Int -> [MnistData] -> Domain Double -> Double

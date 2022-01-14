@@ -13,6 +13,7 @@ import           Control.DeepSeq
 import           Criterion.Main
 import           Data.Char
 import           Data.Functor.Identity
+import           Data.List (foldl')
 import           Data.Maybe (fromJust)
 import qualified Data.Vector as V
 import qualified Data.Vector.Generic as VG
@@ -69,14 +70,14 @@ backpropBgroupUnboxed test n =
   in backpropBgroup (map f test) n
 
 backpropBgroup :: [(R 784, R 10)] -> Int -> Benchmark
-backpropBgroup test _ =  -- TODO
+backpropBgroup test n =
     env (do
       g <- MWC.initialize
            . V.fromList
            . map (fromIntegral . ord)
            $ "hello world"
       net <- MWC.uniformR @(Network 784 300 100 10) (-0.5, 0.5) g
-      return ((\(x : _) -> x) test, net)) $
+      return (take n test, net)) $
     \ ~(test0, net0) ->
     bgroup "backprop"
 --      [ bgroup "gradient"
@@ -89,27 +90,45 @@ backpropBgroup test _ =  -- TODO
 --          , let runTest x y     = gradBP (\n' -> netErrHybrid n' y x) net0
 --            in  bench "hybrid"  $ nf (uncurry runTest) test0
 --          ]
-      [ bgroup "descent"
-          [ let runTest x y     = trainStepManual 0.02 x y net0
-            in  bench "manual"  $ nf (uncurry runTest) test0
-          , let runTest x y     = trainStep 0.02 x y net0
-            in  bench "bp-lens" $ nf (uncurry runTest) test0
-          , let runTest x y     = trainStepHKD 0.02 x y net0
-            in  bench "bp-hkd"  $ nf (uncurry runTest) test0
+      [ bgroup "train"
+          [ let runTest !net (x, y) = trainStepManual 0.02 x y net
+            in  bench "manual"  $ nf (trainMnist2 runTest net0) test0
+          , let runTest !net (x, y) = trainStep 0.02 x y net
+            in  bench "bp-lens" $ nf (trainMnist2 runTest net0) test0
+          , let runTest !net (x, y) = trainStepHKD 0.02 x y net
+            in  bench "bp-hkd"  $ nf (trainMnist2 runTest net0) test0
 --          , let runTest x y     = trainStepHybrid 0.02 x y net0
 --            in  bench "hybrid"  $ nf (uncurry runTest) test0
           ]
-      , bgroup "func"
+      , bgroup "test"
           [ let runTest         = runNetManual net0
-            in  bench "manual"  $ nf runTest (fst test0)
+            in  bench "manual"  $ nf (testMnist2 runTest) test0
           , let runTest x       = evalBP (`runNetwork` x) net0
-            in  bench "bp-lens" $ nf runTest (fst test0)
+            in  bench "bp-lens" $ nf (testMnist2 runTest) test0
           , let runTest x       = evalBP (`runNetworkHKD` x) net0
-            in  bench "bp-hkd"  $ nf runTest (fst test0)
+            in  bench "bp-hkd"  $ nf (testMnist2 runTest) test0
 --          , let runTest x       = evalBP (`runNetHybrid` x) net0
 --            in  bench "hybrid"  $ nf runTest (fst test0)
           ]
       ]
+
+testMnist2 :: (R 784 -> R 10) -> [(R 784, R 10)] -> Double
+{-# INLINE testMnist2 #-}
+testMnist2 f xs =
+  let matchesLabels :: (R 784, R 10) -> Bool
+      matchesLabels (glyph, label) =
+        let value = f glyph
+        in HM.maxIndex (extract value) == HM.maxIndex (extract label)
+  in fromIntegral (length (filter matchesLabels xs)) / fromIntegral (length xs)
+
+trainMnist2 :: (Network 784 h1 h2 10
+                -> (R 784, R 10)
+                -> Network 784 h1 h2 10)
+            -> Network 784 h1 h2 10
+            -> [(R 784, R 10)]
+            -> Network 784 h1 h2 10
+{-# INLINE trainMnist2 #-}
+trainMnist2 f x0 xs = foldl' f x0 xs
 
 -- ------------------------------
 -- - "Backprop" Lens Mode       -
