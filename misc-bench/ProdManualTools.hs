@@ -56,12 +56,9 @@ go seed = do
     let xs = (map (\ x -> x + 0.55) $ take 10000 (randoms (mkStdGen seed) :: [Double]))
     putStrLn $ ("prod        = " ++ show (prod xs))
 
-allxs :: [Double]
-allxs = map (\ x -> x + 0.55) $ randoms (mkStdGen 42)
+bgroup100, bgroup200, bgroup1000, bgroup1e4, bgroup1e5, bgroup1e6, bgroup1e7, bgroup5e7 :: [Double] -> Benchmark
 
-bgroup100, bgroup200, bgroup1000, bgroup1e4, bgroup1e5, bgroup1e6, bgroup1e7, bgroup5e7 :: Benchmark
-
-bgroup100 =
+bgroup100 allxs =
       env (return (take 100 allxs)) $
       \ ~list ->
       bgroup "100"
@@ -70,7 +67,7 @@ bgroup100 =
         , bench "grad_slow" $ nf grad_prod_slow list
         ]
 
-bgroup200 =
+bgroup200 allxs =
       env (return (take 200 allxs)) $
       \ ~list ->
       bgroup "200"
@@ -79,7 +76,7 @@ bgroup200 =
         , bench "grad_slow" $ nf grad_prod_slow list
         ]
 
-bgroup1000 =
+bgroup1000 allxs =
       env (return (take 1000 allxs)) $
       \ ~list ->
       bgroup "1000"
@@ -88,7 +85,7 @@ bgroup1000 =
         , bench "grad_slow" $ nf grad_prod_slow list
         ]
 
-bgroup1e4 =
+bgroup1e4 allxs =
       env (return (take 10000 allxs)) $
       \ ~list ->
       bgroup "1e4"
@@ -97,7 +94,7 @@ bgroup1e4 =
         , bench "grad" $ nf grad_prod list
         ]
 
-bgroup1e5 =
+bgroup1e5 allxs =
       env (return (take 100000 allxs)) $
       \ ~list ->
       bgroup "1e5"
@@ -105,7 +102,7 @@ bgroup1e5 =
         , bench "grad" $ nf grad_prod list
         ]
 
-bgroup1e6 =
+bgroup1e6 allxs =
       env (return (take 1000000 allxs)) $
       \ ~list ->
       bgroup "1e6"
@@ -113,7 +110,7 @@ bgroup1e6 =
         , bench "grad" $ nf grad_prod list
         ]
 
-bgroup1e7 =
+bgroup1e7 allxs =
       env (return (take 10000000 allxs)) $
       \ ~list ->
       bgroup "1e7"
@@ -121,7 +118,7 @@ bgroup1e7 =
         , bench "grad" $ nf grad_prod list
         ]
 
-bgroup5e7 =
+bgroup5e7 allxs =
       env (return (take 50000000 allxs)) $
       \ ~list ->
       bgroup "5e7"  -- 5e7 == 5 * 10^7 == 0.5 * 10^8 == 0.5e8

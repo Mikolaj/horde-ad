@@ -182,6 +182,7 @@ benchmark prod-manual
     build-depends:
         base
       , criterion
+      , deepseq
       , random
 
 benchmark prod-mostly-harmless
@@ -193,6 +194,7 @@ benchmark prod-mostly-harmless
     build-depends:
         base
       , criterion
+      , deepseq
       , mostly-harmless
       , random
       , vector
@@ -219,6 +221,7 @@ benchmark prod-ad
         base
       , ad
       , criterion
+      , deepseq
       , random
       , vector
 
@@ -232,6 +235,7 @@ benchmark prod-backprop
         base
       , backprop
       , criterion
+      , deepseq
       , random
       , vector
 
@@ -267,6 +271,7 @@ benchmark prod-all
       , ad
       , backprop
       , criterion
+      , deepseq
       , mostly-harmless
       , random
       , vector

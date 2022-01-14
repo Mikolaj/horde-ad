@@ -7,7 +7,6 @@ import Prelude
 import           Criterion.Main
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
-import           System.Random
 
 import           Numeric.Backprop
 import qualified Prelude.Backprop
@@ -18,12 +17,9 @@ import qualified Prelude.Backprop
 -- how to use them. Perhaps using hmatrix would be easier and with
 -- better performance than boxed vectors.
 
-allxs :: [Double]
-allxs = map (\ x -> x + 0.55) $ randoms (mkStdGen 42)
+bgroup100, bgroup200, bgroup1000, bgroup1e4, bgroup1e5, bgroup1e6, bgroup1e7, bgroup5e7 :: [Double] -> Benchmark
 
-bgroup100, bgroup200, bgroup1000, bgroup1e4, bgroup1e5, bgroup1e6, bgroup1e7, bgroup5e7 :: Benchmark
-
-bgroup100 =
+bgroup100 allxs =
       env (return (take 100 allxs, V.fromList $ take 100 allxs)) $
       \ ~(list, vec) ->
       bgroup "100"
@@ -37,7 +33,7 @@ bgroup100 =
         , bench "grad_handwritten_vec" $ nf grad_handwritten_vec_prod vec
         ]
 
-bgroup200 =
+bgroup200 allxs =
       env (return (take 200 allxs, V.fromList $ take 200 allxs)) $
       \ ~(list, vec) ->
       bgroup "200"
@@ -51,7 +47,7 @@ bgroup200 =
         , bench "grad_handwritten_vec" $ nf grad_handwritten_vec_prod vec
         ]
 
-bgroup1000 =
+bgroup1000 allxs =
       env (return (take 1000 allxs, V.fromList $ take 1000 allxs)) $
       \ ~(list, vec) ->
       bgroup "1000"
@@ -65,7 +61,7 @@ bgroup1000 =
         , bench "grad_handwritten_vec" $ nf grad_handwritten_vec_prod vec
         ]
 
-bgroup1e4 =
+bgroup1e4 allxs =
       env (return $ V.fromList $ take 10000 allxs) $
       \ ~vec ->
       bgroup "1e4"
@@ -74,7 +70,7 @@ bgroup1e4 =
         , bench "grad_handwritten_vec" $ nf grad_handwritten_vec_prod vec
         ]
 
-bgroup1e5 =
+bgroup1e5 allxs =
       env (return $ V.fromList $ take 100000 allxs) $
       \ ~vec ->
       bgroup "1e5"
@@ -83,7 +79,7 @@ bgroup1e5 =
         , bench "grad_handwritten_vec" $ nf grad_handwritten_vec_prod vec
         ]
 
-bgroup1e6 =
+bgroup1e6 allxs =
       env (return $ V.fromList $ take 1000000 allxs) $
       \ ~vec ->
       bgroup "1e6"
@@ -92,7 +88,7 @@ bgroup1e6 =
         , bench "grad_handwritten_vec" $ nf grad_handwritten_vec_prod vec
         ]
 
-bgroup1e7 =
+bgroup1e7 allxs =
       env (return $ V.fromList $ take 10000000 allxs) $
       \ ~vec ->
       bgroup "1e7"
@@ -101,7 +97,7 @@ bgroup1e7 =
         , bench "grad_handwritten_vec" $ nf grad_handwritten_vec_prod vec
         ]
 
-bgroup5e7 =
+bgroup5e7 allxs =
       env (return $ V.fromList $ take 50000000 allxs) $
       \ ~vec ->
       bgroup "5e7"  -- 5e7 == 5 * 10^7 == 0.5 * 10^8 == 0.5e8
