@@ -59,7 +59,7 @@ go seed = do
 allxs :: [Double]
 allxs = map (\ x -> x + 0.55) $ randoms (mkStdGen 42)
 
-bgroup100, bgroup200, bgroup1000, bgroup1e4, bgroup1e5, bgroup1e6, bgroup1e7, bgroupHalf1e8 :: Benchmark
+bgroup100, bgroup200, bgroup1000, bgroup1e4, bgroup1e5, bgroup1e6, bgroup1e7, bgroup5e7 :: Benchmark
 
 bgroup100 =
       env (return (take 100 allxs)) $
@@ -121,10 +121,10 @@ bgroup1e7 =
         , bench "grad" $ nf grad_prod list
         ]
 
-bgroupHalf1e8 =
+bgroup5e7 =
       env (return (take 50000000 allxs)) $
       \ ~list ->
-      bgroup "Half1e8"  -- 5e7 == 5 * 10^7 == 0.5 * 10^8 == 0.5e8
+      bgroup "5e7"  -- 5e7 == 5 * 10^7 == 0.5 * 10^8 == 0.5e8
         [ bench "func" $ nf prod list
         , bench "grad" $ nf grad_prod list
         ]

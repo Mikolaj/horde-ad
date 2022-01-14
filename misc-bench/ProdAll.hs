@@ -41,16 +41,16 @@ main = defaultMain
       ]
   , bgroup "5e7"
       [ bgroup "manual"
-          [ ProdManualTools.bgroupHalf1e8
+          [ ProdManualTools.bgroup5e7
           ]
       , bgroup "ours"
-          [ ProdMostlyHarmlessTools.bgroupHalf1e8
+          [ ProdMostlyHarmlessTools.bgroup5e7
           ]
       , bgroup "ad"
-          [ ProdAdTools.bgroupHalf1e8
+          [ ProdAdTools.bgroup5e7
           ]
       , bgroup "backprop"
-          [ ProdBackpropTools.bgroupHalf1e8
+          [ ProdBackpropTools.bgroup5e7
           ]
       ]
   ]

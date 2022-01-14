@@ -16,5 +16,5 @@ main =
     , bgroup1e5
     , bgroup1e6
     , bgroup1e7
-    , bgroupHalf1e8
+    , bgroup5e7
     ]
