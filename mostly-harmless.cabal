@@ -227,6 +227,21 @@ benchmark prod-ad
       , random
       , vector
 
+benchmark mnist-ad
+    import:           options, exe-options
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   ad-bench
+    main-is:          MnistAd.hs
+    other-modules:    MnistAdTools
+    build-depends:
+        base
+      , ad
+      , criterion
+      , mostly-harmless
+      , random
+      , reflection
+      , vector
+
 benchmark prod-backprop
     import:           options, exe-options
     type:             exitcode-stdio-1.0
@@ -280,12 +295,14 @@ benchmark prod-all
 benchmark mnist-all
     import:           options, exe-options
     type:             exitcode-stdio-1.0
-    hs-source-dirs:   misc-bench, bench, backprop-bench
+    hs-source-dirs:   misc-bench, bench, ad-bench, backprop-bench
     main-is:          MnistAll.hs
     other-modules:    MnistMostlyHarmlessTools
+                      MnistAdTools
                       MnistBackpropTools
     build-depends:
         base
+      , ad
       , backprop
       , criterion
       , deepseq
@@ -295,4 +312,5 @@ benchmark mnist-all
       , mostly-harmless
       , mwc-random
       , random
+      , reflection
       , vector

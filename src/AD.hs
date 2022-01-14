@@ -337,14 +337,14 @@ squareDual (D u u') = returnLet $ D (u * u) (Scale (2 * u) u')
 -- In addition to convenience, this eliminates all Delta bindings
 -- coming from binary addition into a single binding
 -- (and so makes automatic fusion possible in the future).
-sumDual :: forall m r . (DeltaMonad r m, Num r)
+sumDual :: forall m r. (DeltaMonad r m, Num r)
         => Data.Vector.Vector (DualDelta r)
         -> m (DualDelta r)
 sumDual us = returnLet $ V.foldl' (+) (scalar 0) us
 
 -- The same as @sumDual@ but for lists. Inlined to help list fusion,
 -- which is, alas, not guaranteed regardless.
-sumListDual :: forall m r . (DeltaMonad r m, Num r)
+sumListDual :: forall m r. (DeltaMonad r m, Num r)
             => [DualDelta r]
             -> m (DualDelta r)
 {-# INLINE sumListDual #-}
@@ -379,8 +379,8 @@ logisticAct (D u u') = do
   returnLet $ D y (Scale (y * (1 - y)) u')
 
 softMaxAct :: (DeltaMonad r m, Floating r)
-                  => Data.Vector.Vector (DualDelta r)
-                  -> m (Data.Vector.Vector (DualDelta r))
+           => Data.Vector.Vector (DualDelta r)
+           -> m (Data.Vector.Vector (DualDelta r))
 softMaxAct us = do
   let expUs = V.map exp us
   -- This has to be let-bound, becuse it's used many times below.
