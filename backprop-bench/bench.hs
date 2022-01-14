@@ -4,6 +4,9 @@
              TypeApplications, TypeFamilies, TypeSynonymInstances,
              ViewPatterns #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+module Main (main) where
+
+import Prelude
 
 import           Control.DeepSeq
 import           Criterion.Main
