@@ -12,22 +12,16 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Unboxed
 import           GHC.Exts (inline)
 import           Numeric.AD.Internal.Reverse.Double (Tape)
+import           Numeric.AD.Mode.Reverse.Double hiding (diff)
 import           System.Random
-
-import Numeric.AD.Mode.Reverse.Double hiding (diff)
 
 type Domain r = Data.Vector.Vector r
 
 type Domain' r = Domain r
 
-type VecDualDelta r = Domain r
-type VecDualDeltaD = Domain Double
-
-type DualDelta r = r
-type DualDeltaD = Double
-
 gradDescStochastic
-  :: forall a. Double
+  :: forall a.
+     Double
   -> (a -> (forall s. Reifies s Tape
              => Data.Vector.Vector (ReverseDouble s) -> ReverseDouble s))
   -> [a]  -- ^ training data
@@ -45,19 +39,19 @@ var :: Int -> Domain r -> r
 var i vec = vec V.! i
 
 sumDual :: forall r. Num r
-        => Data.Vector.Vector (DualDelta r)
-        -> DualDelta r
+        => Data.Vector.Vector r
+        -> r
 sumDual us = V.foldl' (+) 0 us
 
 sumConstantData, sumTrainableInputs
                 :: forall r. Num r
                 => Domain r
                 -> Int
-                -> VecDualDelta r
-                -> DualDelta r
+                -> Data.Vector.Vector r
+                -> r
 sumConstantData xs offset vec =
   let bias = var offset vec
-      f :: DualDelta r -> Int -> r -> DualDelta r
+      f :: r -> Int -> r -> r
       f !acc i r =
         let v = var (offset + 1 + i) vec
         in acc + r * v
@@ -65,12 +59,12 @@ sumConstantData xs offset vec =
 
 sumTrainableInputs = sumConstantData
 
-logisticAct :: Floating r => DualDelta r -> r
+logisticAct :: Floating r => r -> r
 logisticAct u = recip (1 + exp (- u))
 
 softMaxAct :: Floating r
-           => Data.Vector.Vector (DualDelta r)
-           -> Data.Vector.Vector (DualDelta r)
+           => Data.Vector.Vector r
+           -> Data.Vector.Vector r
 softMaxAct us =
   let expUs = V.map exp us
       sumExpUs = sumDual expUs
@@ -80,10 +74,10 @@ softMaxAct us =
 lossCrossEntropy
   :: forall r. Floating r
   => Data.Vector.Vector r
-  -> Data.Vector.Vector (DualDelta r)
-  -> DualDelta r
+  -> Data.Vector.Vector r
+  -> r
 lossCrossEntropy targ res =
-  let f :: DualDelta r -> Int -> DualDelta r -> DualDelta r
+  let f :: r -> Int -> r -> r
       f !acc i d = acc + (targ V.! i) * (log d)
   in negate $ V.ifoldl' f 0 res
 
@@ -99,7 +93,7 @@ type MnistData = ( Data.Vector.Vector Double
 hiddenLayerMnist :: forall r. Num r
                  => (r -> r)
                  -> Domain r
-                 -> VecDualDelta r
+                 -> Data.Vector.Vector r
                  -> Int
                  -> Data.Vector.Vector r
 hiddenLayerMnist factivation xs vec width =
@@ -114,7 +108,7 @@ middleLayerMnist :: forall r. Num r
                  => (r -> r)
                  -> Data.Vector.Vector r
                  -> Int
-                 -> VecDualDelta r
+                 -> Data.Vector.Vector r
                  -> Int
                  -> Data.Vector.Vector r
 middleLayerMnist factivation hiddenVec offset vec width =
@@ -132,7 +126,7 @@ outputLayerMnist :: forall r. Num r
                      -> Data.Vector.Vector r)
                  -> Data.Vector.Vector r
                  -> Int
-                 -> VecDualDelta r
+                 -> Data.Vector.Vector r
                  -> Int
                  -> Data.Vector.Vector r
 outputLayerMnist factivation hiddenVec offset vec width =
@@ -157,7 +151,7 @@ nnMnist2 :: forall r. Num r
          -> Int
          -> Int
          -> Domain r
-         -> VecDualDelta r
+         -> Data.Vector.Vector r
          -> Data.Vector.Vector r
 nnMnist2 factivationHidden factivationOutput widthHidden widthHidden2
          xs vec =
@@ -174,16 +168,16 @@ nnMnistLoss2 :: forall s. Reifies s Tape
              => Int
              -> Int
              -> MnistData
-             -> VecDualDelta (ReverseDouble s)
-             -> DualDelta (ReverseDouble s)
-nnMnistLoss2 widthHidden widthHidden2 (xs, targ) vec =
-  let res =
-        inline nnMnist2 logisticAct softMaxAct widthHidden widthHidden2 (V.map auto xs) vec
+             -> Data.Vector.Vector (ReverseDouble s)
+             -> ReverseDouble s
+nnMnistLoss2 widthHidden widthHidden2 (x, targ) vec =
+  let res = inline nnMnist2 logisticAct softMaxAct widthHidden widthHidden2
+                            (V.map auto x) vec
   in lossCrossEntropy (V.map auto targ) res
 
 generalTestMnist :: (Domain Double
-                     -> VecDualDeltaD
-                     -> Data.Vector.Vector DualDeltaD)
+                     -> Data.Vector.Vector Double
+                     -> Data.Vector.Vector Double)
                  -> [MnistData] -> Domain Double
                  -> Double
 {-# INLINE generalTestMnist #-}

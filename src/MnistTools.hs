@@ -122,8 +122,8 @@ nnMnistLoss :: DeltaMonad Double m
             -> MnistData
             -> VecDualDeltaD
             -> m DualDeltaD
-nnMnistLoss widthHidden (xs, targ) vec = do
-  res <- inline nnMnist logisticAct softMaxAct widthHidden xs vec
+nnMnistLoss widthHidden (x, targ) vec = do
+  res <- inline nnMnist logisticAct softMaxAct widthHidden x vec
   lossCrossEntropy targ res
 
 generalTestMnist :: (Domain Double
@@ -179,8 +179,8 @@ nnMnistLoss2 :: DeltaMonad Double m
              -> MnistData
              -> VecDualDeltaD
              -> m DualDeltaD
-nnMnistLoss2 widthHidden widthHidden2 (xs, targ) vec = do
-  res <- inline nnMnist2 logisticAct softMaxAct widthHidden widthHidden2 xs vec
+nnMnistLoss2 widthHidden widthHidden2 (x, targ) vec = do
+  res <- inline nnMnist2 logisticAct softMaxAct widthHidden widthHidden2 x vec
   lossCrossEntropy targ res
 
 testMnist2 :: Int -> Int -> [MnistData] -> Domain Double -> Double
