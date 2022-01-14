@@ -15,6 +15,7 @@ main = do
       vec100 = V.fromList $ take 100 allxs
       vec200 = V.fromList $ take 200 allxs
       vec1000 = V.fromList $ take 1000 allxs
+      vec1e4 = V.fromList $ take 10000 allxs
       vec1e5 = V.fromList $ take 100000 allxs
       vec1e6 = V.fromList $ take 1000000 allxs
       vec1e7 = V.fromList $ take 10000000 allxs
@@ -37,6 +38,12 @@ main = do
         , bench "grad" $ nf grad_prod (take 1000 allxs)
         , bench "vec_func" $ nf vec_prod vec1000
         , bench "vec_grad" $ nf vec_grad_prod vec1000
+        ]
+    , bgroup "1e4"
+        [ bench "func" $ nf prod (take 10000 allxs)
+        , bench "grad" $ nf grad_prod (take 10000 allxs)
+        , bench "vec_func" $ nf vec_prod vec1e4
+        , bench "vec_grad" $ nf vec_grad_prod vec1e4
         ]
     , bgroup "1e5"
         [ bench "func" $ nf prod (take 100000 allxs)
