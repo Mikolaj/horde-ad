@@ -17,7 +17,7 @@ prod (x:xs) = x * prod xs
 grad_prod_slow :: Fractional a => [a] -> [a]
 grad_prod_slow [_] = [1.0]
 grad_prod_slow (x:xs) =
-    (prod xs : map (* x) (grad_prod_slow xs))
+    prod xs : map (* x) (grad_prod_slow xs)
 
 -- Gradient of prod
 -- Computed in linear time
@@ -53,7 +53,7 @@ go seed = do
     putStrLn $ ("grad_f_ad = " ++ show grad_f_ad)
     putStrLn $ ("grad_f_slow = " ++ show (grad_prod_slow x))
     putStrLn $ ("dif       = " ++ show (maximum $ map abs $ zipWith (-) grad_f_ad grad_f_fd))
-    let xs = (map (\ x -> x + 0.55) $ take 10000 (randoms (mkStdGen seed) :: [Double]))
+    let xs = (map (+ 0.55) $ take 10000 (randoms (mkStdGen seed) :: [Double]))
     putStrLn $ ("prod        = " ++ show (prod xs))
 
 bgroup100, bgroup200, bgroup1000, bgroup1e4, bgroup1e5, bgroup1e6, bgroup1e7, bgroup5e7 :: [Double] -> Benchmark

@@ -12,7 +12,7 @@ import qualified ProdManualTools
 import qualified ProdMostlyHarmlessTools
 
 allxs :: [Double]
-allxs = let xs = map (\ x -> x + 0.55) $ randoms (mkStdGen 42)
+allxs = let xs = map (+ 0.55) $ randoms (mkStdGen 42)
         in deepseq (take 50000000 xs) xs
 
 main :: IO ()

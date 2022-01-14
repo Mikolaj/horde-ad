@@ -204,6 +204,7 @@ benchmark mnist-mostly-harmless
     type:             exitcode-stdio-1.0
     hs-source-dirs:   bench
     main-is:          MnistMostlyHarmless.hs
+    other-modules:    MnistMostlyHarmlessTools
     build-depends:
         base
       , criterion
@@ -243,7 +244,8 @@ benchmark mnist-backprop
     import:           options, exe-options
     type:             exitcode-stdio-1.0
     hs-source-dirs:   backprop-bench
-    main-is:          bench.hs
+    main-is:          MnistBackprop.hs
+    other-modules:    MnistBackpropTools
     build-depends:
         base
       , backprop

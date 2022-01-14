@@ -4,7 +4,8 @@
              TypeApplications, TypeFamilies, TypeSynonymInstances,
              ViewPatterns #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-module Main (main) where
+{-# OPTIONS_GHC -Wno-missing-export-lists #-}
+module MnistBackpropTools where
 
 import Prelude
 
@@ -53,15 +54,6 @@ deriving instance (KnownNat i, KnownNat h1, KnownNat h2, KnownNat o) => Show (Ne
 instance NFData (Network i h1 h2 o)
 
 makeLenses ''Network'
-
-main :: IO ()
-main = do
-  g <- MWC.initialize
-       . V.fromList
-       . map (fromIntegral . ord)
-       $ "hello world"
-  test0 <- MWC.uniformR @(R 784, R 10) ((0,0),(1,1)) g
-  defaultMain $ backproprBgroup test0
 
 backproprBgroup :: (R 784, R 10) -> [Benchmark]
 backproprBgroup test =
