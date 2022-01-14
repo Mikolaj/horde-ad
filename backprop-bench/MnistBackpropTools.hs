@@ -1,3 +1,9 @@
+-- Copyright   : (c) Justin Le 2018-2021
+-- License     : BSD3
+--
+-- Taken from
+-- https://github.com/mstksg/backprop/blob/master/src/Numeric/Backprop.hs
+-- and modified as below.
 {-# LANGUAGE BangPatterns, DataKinds, DeriveGeneric, FlexibleContexts,
              FlexibleInstances, GADTs, LambdaCase, PolyKinds,
              ScopedTypeVariables, StandaloneDeriving, TemplateHaskell,
