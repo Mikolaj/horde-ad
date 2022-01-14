@@ -115,6 +115,7 @@ library
         base >= 4.10 && < 99
       , bytestring
       , mnist-idx
+      , random
       , transformers
       , vector
       , zlib

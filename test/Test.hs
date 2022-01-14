@@ -6,7 +6,6 @@ import Prelude
 
 import           Control.Arrow (first)
 import           Control.Monad (foldM)
-import           Data.List (sortOn)
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Unboxed
@@ -997,12 +996,6 @@ chunksOf n = go where
   go [] = []
   go l = let (chunk, rest) = splitAt n l
          in chunk : go rest
-
--- Good enough for QuickCheck, so good enough for me.
-shuffle :: RandomGen g => g -> [a] -> [a]
-shuffle g l =
-  let rnds = randoms g :: [Int]
-  in map fst $ sortOn snd $ zip l rnds
 
 nnMnistLossTanh :: DeltaMonad Double m
                 => Int

@@ -4,6 +4,7 @@ import Prelude
 
 import Control.DeepSeq
 import Criterion.Main
+import System.Random
 
 import qualified MnistBackpropTools
 import qualified MnistMostlyHarmlessTools
@@ -12,7 +13,8 @@ import           MnistTools
 main :: IO ()
 main = do
   testData0 <- loadMnistData testGlyphsPath testLabelsPath  -- 10k total
-  let !testData = deepseq testData0 testData0
+  let testData1 = shuffle (mkStdGen 42) testData0
+      !testData = deepseq testData1 testData1
   defaultMain
     [ bgroup "5"
         [ bgroup "ours"

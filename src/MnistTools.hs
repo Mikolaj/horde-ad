@@ -9,12 +9,14 @@ import           Codec.Compression.GZip (decompress)
 import           Control.Exception (assert)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.IDX
+import           Data.List (sortOn)
 import           Data.Maybe (fromMaybe)
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Unboxed
 import           GHC.Exts (inline)
 import           System.IO (IOMode (ReadMode), withBinaryFile)
+import           System.Random
 
 import AD
 
@@ -219,3 +221,9 @@ loadMnistData glyphsPath labelsPath =
       labelsContents <- LBS.hGetContents labelsHandle
       return $! readMnistData (decompress glyphsContents)
                               (decompress labelsContents)
+
+-- Good enough for QuickCheck, so good enough for me.
+shuffle :: RandomGen g => g -> [a] -> [a]
+shuffle g l =
+  let rnds = randoms g :: [Int]
+  in map fst $ sortOn snd $ zip l rnds
