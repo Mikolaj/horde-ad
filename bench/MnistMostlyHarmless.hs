@@ -42,7 +42,9 @@ mnistTestBench chunkLength xs widthHidden = do
   bench name $ whnf score chunk
 
 mnistTrainBGroup :: [MnistData] -> Int -> Benchmark
-mnistTrainBGroup xs chunkLength =
+mnistTrainBGroup xs0 chunkLength =
+  env (return xs0) $
+  \ ~xs ->
   bgroup ("1-hidden-layer MNIST nn with samples: " ++ show chunkLength)
     [ mnistTestBench chunkLength xs 25  -- toy width
     , mnistTrainBench chunkLength xs 25 0.02
@@ -76,7 +78,9 @@ mnistTestBench2 chunkLength xs widthHidden widthHidden2 = do
   bench name $ whnf score chunk
 
 mnistTrainBGroup2 :: [MnistData] -> Int -> Benchmark
-mnistTrainBGroup2 xs chunkLength =
+mnistTrainBGroup2 xs0 chunkLength =
+  env (return xs0) $
+  \ ~xs ->
   bgroup ("2-hidden-layer MNIST nn with samples: " ++ show chunkLength)
     [ mnistTestBench2 chunkLength xs 30 10  -- toy width
     , mnistTrainBench2 chunkLength xs 30 10 0.02
