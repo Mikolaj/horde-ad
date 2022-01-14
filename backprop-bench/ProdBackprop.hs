@@ -20,82 +20,88 @@ import qualified Prelude.Backprop
 main :: IO ()
 main = do
   let allxs = map (+ 0.55) $ randoms (mkStdGen 42) :: [Double]
-      vec100 = V.fromList $ take 100 allxs
-      vec200 = V.fromList $ take 200 allxs
-      vec1000 = V.fromList $ take 1000 allxs
-      vec1e4 = V.fromList $ take 10000 allxs
-      vec1e5 = V.fromList $ take 100000 allxs
-      vec1e6 = V.fromList $ take 1000000 allxs
-      vec1e7 = V.fromList $ take 10000000 allxs
-      vecHalf1e8 = V.fromList $ take 50000000 allxs
   defaultMain
-    [ bgroup "100"
-        [ bench "func" $ nf prod (take 100 allxs)
-        , bench "grad" $ nf grad_prod (take 100 allxs)
-        , bench "vec_func" $ nf vec_prod vec100
-        , bench "vec_grad" $ nf vec_grad_prod vec100
-        , bench "handwritten_func" $ nf handwritten_prod (take 100 allxs)
-        , bench "handwritten_grad" $ nf handwritten_grad_prod (take 100 allxs)
-        , bench "handwritten_vec_func" $ nf handwritten_vec_prod vec100
-        , bench "handwritten_vec_grad" $ nf handwritten_vec_grad_prod vec100
+    [ env (return (take 100 allxs, V.fromList $ take 100 allxs)) $
+      \ ~(list, vec) ->
+      bgroup "100"
+        [ bench "func" $ nf prod list
+        , bench "grad" $ nf grad_prod list
+        , bench "vec_func" $ nf vec_prod vec
+        , bench "vec_grad" $ nf vec_grad_prod vec
+        , bench "handwritten_func" $ nf handwritten_prod list
+        , bench "handwritten_grad" $ nf handwritten_grad_prod list
+        , bench "handwritten_vec_func" $ nf handwritten_vec_prod vec
+        , bench "handwritten_vec_grad" $ nf handwritten_vec_grad_prod vec
         ]
-    , bgroup "200"
-        [ bench "func" $ nf prod (take 200 allxs)
-        , bench "grad" $ nf grad_prod (take 200 allxs)
-        , bench "vec_func" $ nf vec_prod vec200
-        , bench "vec_grad" $ nf vec_grad_prod vec200
-        , bench "handwritten_func" $ nf handwritten_prod (take 200 allxs)
-        , bench "handwritten_grad" $ nf handwritten_grad_prod (take 200 allxs)
-        , bench "handwritten_vec_func" $ nf handwritten_vec_prod vec200
-        , bench "handwritten_vec_grad" $ nf handwritten_vec_grad_prod vec200
+    , env (return (take 200 allxs, V.fromList $ take 200 allxs)) $
+      \ ~(list, vec) ->
+      bgroup "200"
+        [ bench "func" $ nf prod list
+        , bench "grad" $ nf grad_prod list
+        , bench "vec_func" $ nf vec_prod vec
+        , bench "vec_grad" $ nf vec_grad_prod vec
+        , bench "handwritten_func" $ nf handwritten_prod list
+        , bench "handwritten_grad" $ nf handwritten_grad_prod list
+        , bench "handwritten_vec_func" $ nf handwritten_vec_prod vec
+        , bench "handwritten_vec_grad" $ nf handwritten_vec_grad_prod vec
         ]
-    , bgroup "1000"
-        [ bench "func" $ nf prod (take 1000 allxs)
-        , bench "grad" $ nf grad_prod (take 1000 allxs)
-        , bench "vec_func" $ nf vec_prod vec1000
-        , bench "vec_grad" $ nf vec_grad_prod vec1000
-        , bench "handwritten_func" $ nf handwritten_prod (take 1000 allxs)
-        , bench "handwritten_grad" $ nf handwritten_grad_prod (take 1000 allxs)
-        , bench "handwritten_vec_func" $ nf handwritten_vec_prod vec1000
-        , bench "handwritten_vec_grad" $ nf handwritten_vec_grad_prod vec1000
+    , env (return (take 1000 allxs, V.fromList $ take 1000 allxs)) $
+      \ ~(list, vec) ->
+      bgroup "1000"
+        [ bench "func" $ nf prod list
+        , bench "grad" $ nf grad_prod list
+        , bench "vec_func" $ nf vec_prod vec
+        , bench "vec_grad" $ nf vec_grad_prod vec
+        , bench "handwritten_func" $ nf handwritten_prod list
+        , bench "handwritten_grad" $ nf handwritten_grad_prod list
+        , bench "handwritten_vec_func" $ nf handwritten_vec_prod vec
+        , bench "handwritten_vec_grad" $ nf handwritten_vec_grad_prod vec
         ]
-    , bgroup "1e4"
+    , env (return (take 10000 allxs, V.fromList $ take 10000 allxs)) $
+      \ ~(list, vec) ->
+      bgroup "1e4"
         -- backprop takes quite long, so many benches pruned
-        [ bench "func" $ nf prod (take 10000 allxs)
-        , bench "vec_func" $ nf vec_prod vec1e4
-        , bench "handwritten_func" $ nf handwritten_prod (take 10000 allxs)
-        , bench "handwritten_vec_func" $ nf handwritten_vec_prod vec1e4
-        , bench "handwritten_vec_grad" $ nf handwritten_vec_grad_prod vec1e4
+        [ bench "func" $ nf prod list
+        , bench "vec_func" $ nf vec_prod vec
+        , bench "handwritten_func" $ nf handwritten_prod list
+        , bench "handwritten_vec_func" $ nf handwritten_vec_prod vec
+        , bench "handwritten_vec_grad" $ nf handwritten_vec_grad_prod vec
         ]
-    , bgroup "1e5"
+    , env (return (take 100000 allxs, V.fromList $ take 100000 allxs)) $
+      \ ~(list, vec) ->
+      bgroup "1e5"
         -- backprop takes forever except with vector-based handwritten gradients
-        [ bench "func" $ nf prod (take 100000 allxs)
-        , bench "vec_func" $ nf vec_prod vec1e5
-        , bench "handwritten_func" $ nf handwritten_prod (take 100000 allxs)
-        , bench "handwritten_vec_func" $ nf handwritten_vec_prod vec1e5
-        , bench "handwritten_vec_grad" $ nf handwritten_vec_grad_prod vec1e5
+        [ bench "func" $ nf prod list
+        , bench "vec_func" $ nf vec_prod vec
+        , bench "handwritten_func" $ nf handwritten_prod list
+        , bench "handwritten_vec_func" $ nf handwritten_vec_prod vec
+        , bench "handwritten_vec_grad" $ nf handwritten_vec_grad_prod vec
         ]
-    , bgroup "1e6"
+    , env (return (take 1000000 allxs, V.fromList $ take 1000000 allxs)) $
+      \ ~(list, vec) ->
+      bgroup "1e6"
         -- backprop takes forever except with vector-based handwritten gradients
-        [ bench "func" $ nf prod (take 1000000 allxs)
-        , bench "vec_func" $ nf vec_prod vec1e6
-        , bench "handwritten_func" $ nf handwritten_prod (take 1000000 allxs)
-        , bench "handwritten_vec_func" $ nf handwritten_vec_prod vec1e6
-        , bench "handwritten_vec_grad" $ nf handwritten_vec_grad_prod vec1e6
+        [ bench "func" $ nf prod list
+        , bench "vec_func" $ nf vec_prod vec
+        , bench "handwritten_func" $ nf handwritten_prod list
+        , bench "handwritten_vec_func" $ nf handwritten_vec_prod vec
+        , bench "handwritten_vec_grad" $ nf handwritten_vec_grad_prod vec
         ]
-    , bgroup "1e7"
+    , env (return (take 10000000 allxs, V.fromList $ take 10000000 allxs)) $
+      \ ~(list, vec) ->
+      bgroup "1e7"
         -- backprop takes forever except with vector-based handwritten gradients
-        [ bench "handwritten_func" $ nf handwritten_prod (take 10000000 allxs)
-        , bench "handwritten_vec_func" $ nf handwritten_vec_prod vec1e7
-        , bench "handwritten_vec_grad" $ nf handwritten_vec_grad_prod
-                                            vec1e7
+        [ bench "handwritten_func" $ nf handwritten_prod list
+        , bench "handwritten_vec_func" $ nf handwritten_vec_prod vec
+        , bench "handwritten_vec_grad" $ nf handwritten_vec_grad_prod vec
         ]
-    , bgroup "Half1e8"  -- 5e7 == 5 * 10^7 == 0.5 * 10^8 == 0.5e8
+    , env (return (take 50000000 allxs, V.fromList $ take 50000000 allxs)) $
+      \ ~(list, vec) ->
+      bgroup "Half1e8"  -- 5e7 == 5 * 10^7 == 0.5 * 10^8 == 0.5e8
         -- backprop takes forever except with vector-based handwritten gradients
-        [ bench "handwritten_func" $ nf handwritten_prod (take 50000000 allxs)
-        , bench "handwritten_vec_func" $ nf handwritten_vec_prod vecHalf1e8
-        , bench "handwritten_vec_grad" $ nf handwritten_vec_grad_prod
-                                            vecHalf1e8  -- 5.68s
+        [ bench "handwritten_func" $ nf handwritten_prod list
+        , bench "handwritten_vec_func" $ nf handwritten_vec_prod vec
+        , bench "handwritten_vec_grad" $ nf handwritten_vec_grad_prod vec
         ]
     ]
 

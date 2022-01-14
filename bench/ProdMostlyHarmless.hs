@@ -12,57 +12,79 @@ import AD
 main :: IO ()
 main = do
   let allxs = map (+ 0.55) $ randoms (mkStdGen 42) :: [Double]
-      vec100 = V.fromList $ take 100 allxs
-      vec200 = V.fromList $ take 200 allxs
-      vec1000 = V.fromList $ take 1000 allxs
-      vec1e4 = V.fromList $ take 10000 allxs
-      vec1e5 = V.fromList $ take 100000 allxs
-      vec1e6 = V.fromList $ take 1000000 allxs
-      vec1e7 = V.fromList $ take 10000000 allxs
-      vecHalf1e8 = V.fromList $ take 50000000 allxs
   defaultMain
-    [ bgroup "100"
-        [ bench "vec_func" $ nf vec_prod vec100
-        , bench "vec_grad" $ nf vec_grad_prod vec100
-        , bench "toList_grad" $ nf toList_grad_prod (take 100 allxs)
+    [ env (return (take 100 allxs, V.fromList $ take 100 allxs)) $
+      \ ~(list, vec) ->
+      bgroup "100"
+        [ bench "vec_func" $ nf vec_prod vec
+        , bench "vec_grad" $ nf vec_grad_prod vec
+        , bench "toList_grad" $ nf toList_grad_prod list
+        , bench "omit_vec_func" $ nf omit_vec_prod vec
+        , bench "omit_vec_grad" $ nf omit_vec_grad_prod vec
         ]
-    , bgroup "200"
-        [ bench "vec_func" $ nf vec_prod vec200
-        , bench "vec_grad" $ nf vec_grad_prod vec200
-        , bench "toList_grad" $ nf toList_grad_prod (take 200 allxs)
+    , env (return (take 200 allxs, V.fromList $ take 200 allxs)) $
+      \ ~(list, vec) ->
+      bgroup "200"
+        [ bench "vec_func" $ nf vec_prod vec
+        , bench "vec_grad" $ nf vec_grad_prod vec
+        , bench "toList_grad" $ nf toList_grad_prod list
+        , bench "omit_vec_func" $ nf omit_vec_prod vec
+        , bench "omit_vec_grad" $ nf omit_vec_grad_prod vec
         ]
-    , bgroup "1000"
-        [ bench "vec_func" $ nf vec_prod vec1000
-        , bench "vec_grad" $ nf vec_grad_prod vec1000
-        , bench "toList_grad" $ nf toList_grad_prod (take 1000 allxs)
+    , env (return (take 1000 allxs, V.fromList $ take 1000 allxs)) $
+      \ ~(list, vec) ->
+      bgroup "1000"
+        [ bench "vec_func" $ nf vec_prod vec
+        , bench "vec_grad" $ nf vec_grad_prod vec
+        , bench "toList_grad" $ nf toList_grad_prod list
+        , bench "omit_vec_func" $ nf omit_vec_prod vec
+        , bench "omit_vec_grad" $ nf omit_vec_grad_prod vec
         ]
-    , bgroup "1e4"
-        [ bench "vec_func" $ nf vec_prod vec1e4
-        , bench "vec_grad" $ nf vec_grad_prod vec1e4
-        , bench "toList_grad" $ nf toList_grad_prod (take 10000 allxs)
+    , env (return (take 10000 allxs, V.fromList $ take 10000 allxs)) $
+      \ ~(list, vec) ->
+      bgroup "1e4"
+        [ bench "vec_func" $ nf vec_prod vec
+        , bench "vec_grad" $ nf vec_grad_prod vec
+        , bench "toList_grad" $ nf toList_grad_prod list
+        , bench "omit_vec_func" $ nf omit_vec_prod vec
+        , bench "omit_vec_grad" $ nf omit_vec_grad_prod vec
         ]
-    , bgroup "1e5"
-        [ bench "vec_func" $ nf vec_prod vec1e5
-        , bench "vec_grad" $ nf vec_grad_prod vec1e5
-        , bench "toList_grad" $ nf toList_grad_prod (take 100000 allxs)
+    , env (return (take 100000 allxs, V.fromList $ take 100000 allxs)) $
+      \ ~(list, vec) ->
+      bgroup "1e5"
+        [ bench "vec_func" $ nf vec_prod vec
+        , bench "vec_grad" $ nf vec_grad_prod vec
+        , bench "toList_grad" $ nf toList_grad_prod list
+        , bench "omit_vec_func" $ nf omit_vec_prod vec
+        , bench "omit_vec_grad" $ nf omit_vec_grad_prod vec
         ]
-    , bgroup "1e6"
-        [ bench "vec_func" $ nf vec_prod vec1e6
-        , bench "vec_grad" $ nf vec_grad_prod vec1e6
-        , bench "toList_grad" $ nf toList_grad_prod (take 1000000 allxs)
+    , env (return (take 1000000 allxs, V.fromList $ take 1000000 allxs)) $
+      \ ~(list, vec) ->
+      bgroup "1e6"
+        [ bench "vec_func" $ nf vec_prod vec
+        , bench "vec_grad" $ nf vec_grad_prod vec
+        , bench "toList_grad" $ nf toList_grad_prod list
+        , bench "omit_vec_func" $ nf omit_vec_prod vec
+        , bench "omit_vec_grad" $ nf omit_vec_grad_prod vec
         ]
-    , bgroup "1e7"
-        [ bench "vec_func" $ nf vec_prod vec1e7
-        , bench "vec_grad" $ nf vec_grad_prod vec1e7
-        , bench "toList_grad" $ nf toList_grad_prod (take 10000000 allxs)
+    , env (return (take 10000000 allxs, V.fromList $ take 10000000 allxs)) $
+      \ ~(list, vec) ->
+      bgroup "1e7"
+        [ bench "vec_func" $ nf vec_prod vec
+        , bench "vec_grad" $ nf vec_grad_prod vec
+        , bench "toList_grad" $ nf toList_grad_prod list
+        , bench "omit_vec_func" $ nf omit_vec_prod vec
+        , bench "omit_vec_grad" $ nf omit_vec_grad_prod vec
         ]
-    , bgroup "Half1e8"  -- 5e7 == 5 * 10^7 == 0.5 * 10^8 == 0.5e8
-        [ bench "vec_func" $ nf vec_prod vecHalf1e8
-        , bench "vec_grad" $ nf vec_grad_prod vecHalf1e8  -- 11.47s
+    , env (return (take 50000000 allxs, V.fromList $ take 50000000 allxs)) $
+      \ ~(_list, vec) ->
+      bgroup "Half1e8"  -- 5e7 == 5 * 10^7 == 0.5 * 10^8 == 0.5e8
+        [ bench "vec_func" $ nf vec_prod vec
+        , bench "vec_grad" $ nf vec_grad_prod vec
 -- this already takes 35G, so the worse variants not attempted:
---        , bench "toList_grad" $ nf toList_grad_prod (take 50000000 allxs)
-        , bench "omit_vec_func" $ nf omit_vec_prod vecHalf1e8
-        , bench "omit_vec_grad" $ nf omit_vec_grad_prod vecHalf1e8
+--        , bench "toList_grad" $ nf toList_grad_prod list
+        , bench "omit_vec_func" $ nf omit_vec_prod vec
+        , bench "omit_vec_grad" $ nf omit_vec_grad_prod vec
         ]
     ]
 
