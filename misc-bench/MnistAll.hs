@@ -18,7 +18,8 @@ main = do
   defaultMain
     [ bgroup "5"
         [ bgroup "ours"
-            [ MnistMostlyHarmlessTools.mnistTrainBGroup2 testData 5
+            [ MnistMostlyHarmlessTools.mnistTestBench2 5 testData 300 100
+            , MnistMostlyHarmlessTools.mnistTrainBench2 5 testData 300 100 0.02
             ]
         , bgroup "backprop"
             [ MnistBackpropTools.backpropBgroupUnboxed testData 5
@@ -26,7 +27,8 @@ main = do
         ]
     , bgroup "50"
         [ bgroup "ours"
-            [ MnistMostlyHarmlessTools.mnistTrainBGroup2 testData 50
+            [ MnistMostlyHarmlessTools.mnistTestBench2 50 testData 300 100
+            , MnistMostlyHarmlessTools.mnistTrainBench2 50 testData 300 100 0.02
             ]
         , bgroup "backprop"
             [ MnistBackpropTools.backpropBgroupUnboxed testData 50
@@ -34,7 +36,8 @@ main = do
         ]
     , bgroup "500"
         [ bgroup "ours"
-            [ MnistMostlyHarmlessTools.mnistTrainBGroup2 testData 500
+            [ MnistMostlyHarmlessTools.mnistTestBench2 500 testData 300 100
+            ,MnistMostlyHarmlessTools.mnistTrainBench2 500 testData 300 100 0.02
             ]
         , bgroup "backprop"
             [ MnistBackpropTools.backpropBgroupUnboxed testData 500
