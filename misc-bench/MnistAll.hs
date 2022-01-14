@@ -16,20 +16,28 @@ main = do
   let testData1 = shuffle (mkStdGen 42) testData0
       !testData = deepseq testData1 testData1
   defaultMain
-    [ bgroup "50"
+    [ bgroup "30 10"
         [ bgroup "ours"
-            [ MnistMostlyHarmlessTools.mnistTestBench2 50 testData 300 100
-            , MnistMostlyHarmlessTools.mnistTrainBench2 50 testData 300 100
+            [ MnistMostlyHarmlessTools.mnistTrainBench2 500 testData 30 10
                                                         0.02
+            , MnistMostlyHarmlessTools.mnistTestBench2 500 testData 30 10
             ]
-        , MnistBackpropTools.backpropBgroupUnboxed testData 50
+        , MnistBackpropTools.backpropBgroupUnboxed3010 testData 500
         ]
-    , bgroup "500"
+    , bgroup "300 100"
         [ bgroup "ours"
-            [ MnistMostlyHarmlessTools.mnistTestBench2 500 testData 300 100
-            , MnistMostlyHarmlessTools.mnistTrainBench2 500 testData 300 100
+            [ MnistMostlyHarmlessTools.mnistTrainBench2 500 testData 300 100
                                                         0.02
+            , MnistMostlyHarmlessTools.mnistTestBench2 500 testData 300 100
             ]
         , MnistBackpropTools.backpropBgroupUnboxed testData 500
+        ]
+    , bgroup "500 150"
+        [ bgroup "ours"
+            [ MnistMostlyHarmlessTools.mnistTrainBench2 500 testData 500 150
+                                                        0.02
+            , MnistMostlyHarmlessTools.mnistTestBench2 500 testData 500 150
+            ]
+        , MnistBackpropTools.backpropBgroupUnboxed500150 testData 500
         ]
     ]
