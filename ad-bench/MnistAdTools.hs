@@ -23,8 +23,8 @@ type Domain' r = Domain r
 gradDescStochastic
   :: forall a.
      Double
-  -> (a -> (forall s. Reifies s Tape
-             => Data.Vector.Vector (ReverseDouble s) -> ReverseDouble s))
+  -> (forall s. Reifies s Tape
+      => a -> Data.Vector.Vector (ReverseDouble s) -> ReverseDouble s)
   -> [a]  -- ^ training data
   -> Domain Double  -- ^ initial parameters
   -> Domain' Double
@@ -117,8 +117,8 @@ middleLayerMnist factivation hiddenVec offset vec width =
       f :: Int -> r
       f i =
         let outSum = sumTrainableInputs hiddenVec
-                                     (offset + i * nWeightsAndBias)
-                                     vec
+                                        (offset + i * nWeightsAndBias)
+                                        vec
         in factivation outSum
   in V.generate width f
 
@@ -160,10 +160,10 @@ nnMnist2 factivationHidden factivationOutput widthHidden widthHidden2
       hiddenVec = inline hiddenLayerMnist factivationHidden xs vec widthHidden
       offsetMiddle = widthHidden * (sizeMnistGlyph + 1)
       middleVec = inline middleLayerMnist factivationHidden hiddenVec
-                                       offsetMiddle vec widthHidden2
+                                          offsetMiddle vec widthHidden2
       offsetOutput = offsetMiddle + widthHidden2 * (widthHidden + 1)
   in inline outputLayerMnist factivationOutput middleVec
-                          offsetOutput vec sizeMnistLabel
+                             offsetOutput vec sizeMnistLabel
 
 nnMnistLoss2 :: forall s. Reifies s Tape
              => Int
@@ -202,9 +202,9 @@ mnistTrainBench2 :: Int -> [MnistData] -> Int -> Int -> Double -> Benchmark
 mnistTrainBench2 chunkLength xs widthHidden widthHidden2 gamma = do
   let nParams = lenMnist2 widthHidden widthHidden2
       params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
-      f :: MnistData
-        -> (forall s. Reifies s Tape
-            => Data.Vector.Vector (ReverseDouble s) -> ReverseDouble s)
+      f :: forall s. Reifies s Tape
+        => MnistData
+        -> Data.Vector.Vector (ReverseDouble s) -> ReverseDouble s
       f = nnMnistLoss2 widthHidden widthHidden2
       chunk = take chunkLength xs
       gradd c = gradDescStochastic gamma f c params0
