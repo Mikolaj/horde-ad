@@ -141,7 +141,7 @@ lenMnist2 :: Int -> Int -> Int
 lenMnist2 widthHidden widthHidden2 =
   widthHidden * (sizeMnistGlyph + 1)
   + widthHidden2 * (widthHidden + 1)
-  + sizeMnistLabel * (widthHidden + 1)
+  + sizeMnistLabel * (widthHidden2 + 1)
 
 -- Two hidden layers of width @widthHidden@ and (the middle one) @widthHidden2@.
 -- Both hidden layers use the same activation function.
