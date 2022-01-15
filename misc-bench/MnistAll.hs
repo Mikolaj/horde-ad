@@ -2,6 +2,7 @@ module Main (main) where
 
 import Prelude
 
+import           Control.Arrow ((***))
 import           Control.DeepSeq
 import           Criterion.Main
 import qualified Data.Vector.Generic as V
@@ -22,10 +23,10 @@ main = do
         [ env (return testData) $
           \ ~xs ->
           bgroup "ours"
-            [ MnistMostlyHarmlessTools.mnistTrainBench2 500 xs 30 10 0.02
-            , MnistMostlyHarmlessTools.mnistTestBench2 500 xs 30 10
+            [ MnistMostlyHarmlessTools.mnistTrainBench2 "" 500 xs 30 10 0.02
+            , MnistMostlyHarmlessTools.mnistTestBench2 "" 500 xs 30 10
             ]
-        , env (return $ map (\(x, y) -> (V.convert x, V.convert y)) testData) $
+        , env (return $ map (V.convert *** V.convert) testData) $
           \ ~xs ->
           bgroup "ad"
             [ MnistAdTools.mnistTrainBench2 500 xs 30 10 0.02
@@ -37,10 +38,10 @@ main = do
         [ env (return testData) $
           \ ~xs ->
           bgroup "ours"
-            [ MnistMostlyHarmlessTools.mnistTrainBench2 500 xs 300 100 0.02
-            , MnistMostlyHarmlessTools.mnistTestBench2 500 xs 300 100
+            [ MnistMostlyHarmlessTools.mnistTrainBench2 "" 500 xs 300 100 0.02
+            , MnistMostlyHarmlessTools.mnistTestBench2 "" 500 xs 300 100
             ]
-        , env (return $ map (\(x, y) -> (V.convert x, V.convert y)) testData) $
+        , env (return $ map (V.convert *** V.convert) testData) $
           \ ~xs ->
           bgroup "ad"
             [ MnistAdTools.mnistTrainBench2 500 xs 300 100 0.02
@@ -52,11 +53,11 @@ main = do
         [ env (return testData) $
           \ ~xs ->
           bgroup "ours"
-            [ MnistMostlyHarmlessTools.mnistTrainBench2 500 xs 500 150  0.02
-            , MnistMostlyHarmlessTools.mnistTestBench2 500 xs 500 150
+            [ MnistMostlyHarmlessTools.mnistTrainBench2 "" 500 xs 500 150  0.02
+            , MnistMostlyHarmlessTools.mnistTestBench2 "" 500 xs 500 150
             ]
 -- too slow
---        , env (return $ map (\(x, y) -> (V.convert x, V.convert y)) testData) $
+--        , env (return $ map (V.convert *** V.convert) testData) $
 --          \ ~xs ->
 --          bgroup "ad"
 --            [ MnistAdTools.mnistTrainBench2 500 testData 500 150

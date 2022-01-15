@@ -3,14 +3,18 @@ module MnistMostlyHarmlessTools where
 
 import Prelude
 
+import           Control.Arrow ((***))
 import           Criterion.Main
 import qualified Data.Vector.Generic as V
+import qualified Data.Vector.Unboxed
 import           System.Random
 
 import AD
 import MnistTools
 
-mnistTrainBench :: Int -> [MnistData] -> Int -> Double -> Benchmark
+mnistTrainBench :: ( Show r, Eq r, Floating r, UniformRange r
+                   , Data.Vector.Unboxed.Unbox r )
+                => Int -> [MnistData r] -> Int -> r -> Benchmark
 mnistTrainBench chunkLength xs widthHidden gamma = do
   let nParams = lenMnist widthHidden
       params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
@@ -22,7 +26,9 @@ mnistTrainBench chunkLength xs widthHidden gamma = do
                         , show gamma ]
   bench name $ whnf grad chunk
 
-mnistTestBench :: Int -> [MnistData] -> Int -> Benchmark
+mnistTestBench :: ( Ord r, Floating r, UniformRange r
+                  , Data.Vector.Unboxed.Unbox r )
+               => Int -> [MnistData r] -> Int -> Benchmark
 mnistTestBench chunkLength xs widthHidden = do
   let nParams = lenMnist widthHidden
       params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
@@ -32,7 +38,9 @@ mnistTestBench chunkLength xs widthHidden = do
              ++ unwords [show chunkLength, show widthHidden, show nParams]
   bench name $ whnf score chunk
 
-mnistTrainBGroup :: [MnistData] -> Int -> Benchmark
+mnistTrainBGroup :: ( Show r, Ord r, Floating r, UniformRange r
+                    , Data.Vector.Unboxed.Unbox r )
+                    => [MnistData r] -> Int -> Benchmark
 mnistTrainBGroup xs0 chunkLength =
   env (return xs0) $
   \ ~xs ->
@@ -45,36 +53,44 @@ mnistTrainBGroup xs0 chunkLength =
     , mnistTrainBench chunkLength xs 2500 0.02
     ]
 
-mnistTrainBench2 :: Int -> [MnistData] -> Int -> Int -> Double -> Benchmark
-mnistTrainBench2 chunkLength xs widthHidden widthHidden2 gamma = do
+mnistTrainBench2 :: ( Eq r, Floating r, UniformRange r
+                    , Data.Vector.Unboxed.Unbox r )
+                 => String -> Int -> [MnistData r] -> Int -> Int -> r
+                 -> Benchmark
+mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
   let nParams = lenMnist2 widthHidden widthHidden2
       params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
       f = nnMnistLoss2 widthHidden widthHidden2
       chunk = take chunkLength xs
       grad c = gradDescStochastic gamma f c params0
-      name = "train2 "
+      name = "train2 " ++ extraPrefix
              ++ unwords [show widthHidden, show widthHidden2, show nParams]
   bench name $ whnf grad chunk
 
-mnistTestBench2 :: Int -> [MnistData] -> Int -> Int -> Benchmark
-mnistTestBench2 chunkLength xs widthHidden widthHidden2 = do
+mnistTestBench2 :: ( Ord r, Floating r, UniformRange r
+                   , Data.Vector.Unboxed.Unbox r )
+                => String -> Int -> [MnistData r] -> Int -> Int -> Benchmark
+mnistTestBench2 extraPrefix chunkLength xs widthHidden widthHidden2 = do
   let nParams = lenMnist2 widthHidden widthHidden2
       params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
       chunk = take chunkLength xs
       score c = testMnist2 widthHidden widthHidden2 c params0
-      name = "test2 "
+      name = "test2 " ++ extraPrefix
              ++ unwords [show widthHidden, show widthHidden2, show nParams ]
   bench name $ whnf score chunk
 
-mnistTrainBGroup2 :: [MnistData] -> Int -> Benchmark
+mnistTrainBGroup2 :: [MnistData Double] -> Int -> Benchmark
 mnistTrainBGroup2 xs0 chunkLength =
-  env (return xs0) $
-  \ ~xs ->
+  env (return (xs0, map (V.map realToFrac *** V.map realToFrac) xs0)) $
+  \ ~(xs, xsFloat) ->
   bgroup ("2-hidden-layer MNIST nn with samples: " ++ show chunkLength)
-    [ mnistTestBench2 chunkLength xs 30 10  -- toy width
-    , mnistTrainBench2 chunkLength xs 30 10 0.02
-    , mnistTestBench2 chunkLength xs 300 100  -- ordinary width
-    , mnistTrainBench2 chunkLength xs 300 100 0.02
-    , mnistTestBench2 chunkLength xs 500 150  -- another common size
-    , mnistTrainBench2 chunkLength xs 500 150 0.02
+    [ mnistTestBench2 "" chunkLength xs 30 10  -- toy width
+    , mnistTrainBench2 "" chunkLength xs 30 10 0.02
+    , mnistTestBench2 "" chunkLength xs 300 100  -- ordinary width
+    , mnistTrainBench2 "" chunkLength xs 300 100 0.02
+    , mnistTestBench2 "" chunkLength xs 500 150  -- another common size
+    , mnistTrainBench2 "" chunkLength xs 500 150 0.02
+    , mnistTestBench2 "" chunkLength xs 500 150  -- another common size
+    , mnistTrainBench2 "(Float) " chunkLength xsFloat 500 150 (0.02 :: Float)
+    , mnistTestBench2 "(Float) " chunkLength xsFloat 500 150  -- Float test
     ]

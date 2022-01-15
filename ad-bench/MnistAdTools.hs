@@ -4,6 +4,7 @@ module MnistAdTools where
 
 import Prelude
 
+import           Control.Arrow ((***))
 import           Control.Exception (assert)
 import           Criterion.Main
 import           Data.Reflection (Reifies)
@@ -27,7 +28,7 @@ gradDescStochastic
   -> [a]  -- ^ training data
   -> Domain Double  -- ^ initial parameters
   -> Domain' Double
-gradDescStochastic gamma f trainingData params0 = go trainingData params0 where
+gradDescStochastic gamma f = go where
   go :: [a] -> Domain Double -> Domain' Double
   go [] !params = params
   go (a : rest) params =
@@ -41,7 +42,7 @@ var i vec = vec V.! i
 sumDual :: forall r. Num r
         => Data.Vector.Vector r
         -> r
-sumDual us = V.foldl' (+) 0 us
+sumDual = V.foldl' (+) 0
 
 sumConstantData, sumTrainableInputs
                 :: forall r. Num r
@@ -78,7 +79,7 @@ lossCrossEntropy
   -> r
 lossCrossEntropy targ res =
   let f :: r -> Int -> r -> r
-      f !acc i d = acc + (targ V.! i) * (log d)
+      f !acc i d = acc + (targ V.! i) * log d
   in negate $ V.ifoldl' f 0 res
 
 sizeMnistGlyph :: Int
@@ -223,7 +224,7 @@ mnistTestBench2 chunkLength xs widthHidden widthHidden2 = do
 
 mnistTrainBGroup2 :: [MnistDataUnboxed] -> Int -> Benchmark
 mnistTrainBGroup2 xs0 chunkLength =
-  env (return $ map (\(x, y) -> (V.convert x, V.convert y)) xs0) $
+  env (return $ map (V.convert *** V.convert) xs0) $
   \ ~xs ->
   bgroup ("2-hidden-layer MNIST nn with samples: " ++ show chunkLength)
     [ mnistTestBench2 chunkLength xs 30 10  -- toy width

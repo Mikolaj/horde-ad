@@ -22,10 +22,6 @@ import AD
 
 -- * General tools
 
-type DualDeltaD = DualDelta Double
-
-type VecDualDeltaD = VecDualDelta Double
-
 sizeMnistGlyph :: Int
 sizeMnistGlyph = 784
 
@@ -41,33 +37,35 @@ sizeMnistLabel = 10
 -- OTOH, methods with only matrix operations and graphs can't handle that.
 -- However, the goal of the exercise it too implement the same
 -- neural net that backprop uses for benchmarks and compare.
-type MnistData = ( Data.Vector.Unboxed.Vector Double
-                 , Data.Vector.Unboxed.Vector Double )
+type MnistData r = ( Data.Vector.Unboxed.Vector r
+                   , Data.Vector.Unboxed.Vector r )
 
-hiddenLayerMnist :: forall m. DeltaMonad Double m
-                 => (DualDeltaD -> m DualDeltaD)
-                 -> Domain Double
-                 -> VecDualDeltaD
+hiddenLayerMnist :: forall m r.
+                      (DeltaMonad r m, Num r, Data.Vector.Unboxed.Unbox r)
+                 => (DualDelta r -> m (DualDelta r))
+                 -> Domain r
+                 -> VecDualDelta r
                  -> Int
-                 -> m (Data.Vector.Vector DualDeltaD)
+                 -> m (Data.Vector.Vector (DualDelta r))
 hiddenLayerMnist factivation xs vec width = do
   let nWeightsAndBias = V.length xs + 1
-      f :: Int -> m DualDeltaD
+      f :: Int -> m (DualDelta r)
       f i = do
         outSum <- sumConstantData xs (i * nWeightsAndBias) vec
         factivation outSum
   V.generateM width f
 
-middleLayerMnist :: forall m. DeltaMonad Double m
-                 => (DualDeltaD -> m DualDeltaD)
-                 -> Data.Vector.Vector DualDeltaD
+middleLayerMnist :: forall m r.
+                      (DeltaMonad r m, Num r, Data.Vector.Unboxed.Unbox r)
+                 => (DualDelta r -> m (DualDelta r))
+                 -> Data.Vector.Vector (DualDelta r)
                  -> Int
-                 -> VecDualDeltaD
+                 -> VecDualDelta r
                  -> Int
-                 -> m (Data.Vector.Vector DualDeltaD)
+                 -> m (Data.Vector.Vector (DualDelta r))
 middleLayerMnist factivation hiddenVec offset vec width = do
   let nWeightsAndBias = V.length hiddenVec + 1
-      f :: Int -> m DualDeltaD
+      f :: Int -> m (DualDelta r)
       f i = do
         outSum <- sumTrainableInputs hiddenVec
                                      (offset + i * nWeightsAndBias)
@@ -75,17 +73,18 @@ middleLayerMnist factivation hiddenVec offset vec width = do
         factivation outSum
   V.generateM width f
 
-outputLayerMnist :: forall m. DeltaMonad Double m
-                 => (Data.Vector.Vector DualDeltaD
-                     -> m (Data.Vector.Vector DualDeltaD))
-                 -> Data.Vector.Vector DualDeltaD
+outputLayerMnist :: forall m r.
+                      (DeltaMonad r m, Num r, Data.Vector.Unboxed.Unbox r)
+                 => (Data.Vector.Vector (DualDelta r)
+                     -> m (Data.Vector.Vector (DualDelta r)))
+                 -> Data.Vector.Vector (DualDelta r)
                  -> Int
-                 -> VecDualDeltaD
+                 -> VecDualDelta r
                  -> Int
-                 -> m (Data.Vector.Vector DualDeltaD)
+                 -> m (Data.Vector.Vector (DualDelta r))
 outputLayerMnist factivation hiddenVec offset vec width = do
   let nWeightsAndBias = V.length hiddenVec + 1
-      f :: Int -> m DualDeltaD
+      f :: Int -> m (DualDelta r)
       f i = sumTrainableInputs hiddenVec (offset + i * nWeightsAndBias) vec
   vOfSums <- V.generateM width f
   factivation vOfSums
@@ -102,14 +101,14 @@ lenMnist widthHidden =
 -- Benchmarks show barely any improvement, probably due to the activation
 -- functions being called only @width@ times per gradient calculation
 -- and also the cost dominated by GC. So, it's safe to revert this optimization.
-nnMnist :: DeltaMonad Double m
-        => (DualDeltaD -> m DualDeltaD)
-        -> (Data.Vector.Vector DualDeltaD
-            -> m (Data.Vector.Vector DualDeltaD))
+nnMnist :: (DeltaMonad r m, Floating r, Data.Vector.Unboxed.Unbox r)
+        => (DualDelta r -> m (DualDelta r))
+        -> (Data.Vector.Vector (DualDelta r)
+            -> m (Data.Vector.Vector (DualDelta r)))
         -> Int
-        -> Domain Double
-        -> VecDualDeltaD
-        -> m (Data.Vector.Vector DualDeltaD)
+        -> Domain r
+        -> VecDualDelta r
+        -> m (Data.Vector.Vector (DualDelta r))
 nnMnist factivationHidden factivationOutput widthHidden xs vec = do
   let !_A = assert (sizeMnistGlyph == V.length xs) ()
   hiddenVec <- inline hiddenLayerMnist factivationHidden xs vec widthHidden
@@ -117,29 +116,32 @@ nnMnist factivationHidden factivationOutput widthHidden xs vec = do
                           (widthHidden * (sizeMnistGlyph + 1))
                           vec sizeMnistLabel
 
-nnMnistLoss :: DeltaMonad Double m
+nnMnistLoss :: (DeltaMonad r m, Floating r, Data.Vector.Unboxed.Unbox r)
             => Int
-            -> MnistData
-            -> VecDualDeltaD
-            -> m DualDeltaD
+            -> MnistData r
+            -> VecDualDelta r
+            -> m (DualDelta r)
 nnMnistLoss widthHidden (x, targ) vec = do
   res <- inline nnMnist logisticAct softMaxAct widthHidden x vec
   lossCrossEntropy targ res
 
-generalTestMnist :: (Domain Double
-                     -> VecDualDeltaD
-                     -> DeltaMonadValue Double (Data.Vector.Vector DualDeltaD))
-                 -> [MnistData] -> Domain Double
-                 -> Double
+generalTestMnist :: forall r. (Ord r, Fractional r, Data.Vector.Unboxed.Unbox r)
+                 => (Domain r
+                     -> VecDualDelta r
+                     -> DeltaMonadValue r
+                          (Data.Vector.Vector (DualDelta r)))
+                 -> [MnistData r] -> Domain r
+                 -> r
 {-# INLINE generalTestMnist #-}
 generalTestMnist nn xs res =
-  let matchesLabels :: MnistData -> Bool
+  let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
         let value = V.map (\(D r _) -> r) $ valueDual (nn glyph) res
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels xs)) / fromIntegral (length xs)
 
-testMnist :: Int -> [MnistData] -> Domain Double -> Double
+testMnist :: (Ord r, Floating r, Data.Vector.Unboxed.Unbox r)
+          => Int -> [MnistData r] -> Domain r -> r
 testMnist widthHidden xs res =
   generalTestMnist (inline nnMnist logisticAct softMaxAct widthHidden) xs res
 
@@ -153,15 +155,15 @@ lenMnist2 widthHidden widthHidden2 =
 
 -- Two hidden layers of width @widthHidden@ and (the middle one) @widthHidden2@.
 -- Both hidden layers use the same activation function.
-nnMnist2 :: DeltaMonad Double m
-         => (DualDeltaD -> m DualDeltaD)
-         -> (Data.Vector.Vector DualDeltaD
-             -> m (Data.Vector.Vector DualDeltaD))
+nnMnist2 :: (DeltaMonad r m, Fractional r, Data.Vector.Unboxed.Unbox r)
+         => (DualDelta r -> m (DualDelta r))
+         -> (Data.Vector.Vector (DualDelta r)
+             -> m (Data.Vector.Vector (DualDelta r)))
          -> Int
          -> Int
-         -> Domain Double
-         -> VecDualDeltaD
-         -> m (Data.Vector.Vector DualDeltaD)
+         -> Domain r
+         -> VecDualDelta r
+         -> m (Data.Vector.Vector (DualDelta r))
 nnMnist2 factivationHidden factivationOutput widthHidden widthHidden2
          xs vec = do
   let !_A = assert (sizeMnistGlyph == V.length xs) ()
@@ -173,17 +175,19 @@ nnMnist2 factivationHidden factivationOutput widthHidden widthHidden2
   inline outputLayerMnist factivationOutput middleVec
                           offsetOutput vec sizeMnistLabel
 
-nnMnistLoss2 :: DeltaMonad Double m
+nnMnistLoss2 :: (Floating r, Data.Vector.Unboxed.Unbox r)
+             => DeltaMonad r m
              => Int
              -> Int
-             -> MnistData
-             -> VecDualDeltaD
-             -> m DualDeltaD
+             -> MnistData r
+             -> VecDualDelta r
+             -> m (DualDelta r)
 nnMnistLoss2 widthHidden widthHidden2 (x, targ) vec = do
   res <- inline nnMnist2 logisticAct softMaxAct widthHidden widthHidden2 x vec
   lossCrossEntropy targ res
 
-testMnist2 :: Int -> Int -> [MnistData] -> Domain Double -> Double
+testMnist2 :: (Ord r, Floating r, Data.Vector.Unboxed.Unbox r)
+           => Int -> Int -> [MnistData r] -> Domain r -> r
 testMnist2 widthHidden widthHidden2 xs res =
   generalTestMnist (inline nnMnist2 logisticAct softMaxAct
                                     widthHidden widthHidden2)
@@ -191,7 +195,7 @@ testMnist2 widthHidden widthHidden2 xs res =
 
 -- * Reading data files
 
-readMnistData :: LBS.ByteString -> LBS.ByteString -> [MnistData]
+readMnistData :: LBS.ByteString -> LBS.ByteString -> [MnistData Double]
 readMnistData glyphsBS labelsBS =
   let glyphs = fromMaybe (error "wrong MNIST glyphs file")
                $ decodeIDX glyphsBS
@@ -199,7 +203,7 @@ readMnistData glyphsBS labelsBS =
                $ decodeIDXLabels labelsBS
       intData = fromMaybe (error "can't decode MNIST file into integers")
                 $ labeledIntData labels glyphs
-      f :: (Int, Data.Vector.Unboxed.Vector Int) -> MnistData
+      f :: (Int, Data.Vector.Unboxed.Vector Int) -> MnistData Double
       -- Copied from library backprop to enable comparison of results.
       -- I have no idea how this is different from @labeledDoubleData@, etc.
       f (labN, v) =
@@ -213,7 +217,7 @@ trainLabelsPath = "samplesData/train-labels-idx1-ubyte.gz"
 testGlyphsPath  = "samplesData/t10k-images-idx3-ubyte.gz"
 testLabelsPath  = "samplesData/t10k-labels-idx1-ubyte.gz"
 
-loadMnistData :: FilePath -> FilePath -> IO [MnistData]
+loadMnistData :: FilePath -> FilePath -> IO [MnistData Double]
 loadMnistData glyphsPath labelsPath =
   withBinaryFile glyphsPath ReadMode $ \glyphsHandle ->
     withBinaryFile labelsPath ReadMode $ \labelsHandle -> do

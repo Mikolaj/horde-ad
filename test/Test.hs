@@ -21,6 +21,10 @@ type DualDeltaF = DualDelta Float
 
 type VecDualDeltaF = VecDualDelta Float
 
+type DualDeltaD = DualDelta Double
+
+type VecDualDeltaD = VecDualDelta Double
+
 main :: IO ()
 main = defaultMain tests
 
@@ -893,7 +897,7 @@ mnistTestCase
   -> Int
   -> Int
   -> (Int
-      -> MnistData
+      -> MnistData Double
       -> VecDualDeltaD
       -> DeltaMonadGradient Double DualDeltaD)
   -> Int
@@ -912,7 +916,8 @@ mnistTestCase prefix epochs maxBatches trainWithLoss widthHidden gamma
        testData <- loadMnistData testGlyphsPath testLabelsPath
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: Domain Double -> (Int, [MnistData]) -> IO (Domain Double)
+       let runBatch :: Domain Double -> (Int, [MnistData Double])
+                    -> IO (Domain Double)
            runBatch !params (k, chunk) = do
              printf "(Batch %d)\n" k
              let f = trainWithLoss widthHidden
@@ -944,7 +949,7 @@ mnistTestCase2
   -> Int
   -> (Int
       -> Int
-      -> MnistData
+      -> MnistData Double
       -> VecDualDeltaD
       -> DeltaMonadGradient Double DualDeltaD)
   -> Int
@@ -965,7 +970,8 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
        testData <- loadMnistData testGlyphsPath testLabelsPath
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: Domain Double -> (Int, [MnistData]) -> IO (Domain Double)
+       let runBatch :: Domain Double -> (Int, [MnistData Double])
+                    -> IO (Domain Double)
            runBatch !params (k, chunk) = do
              printf "(Batch %d)\n" k
              let f = trainWithLoss widthHidden widthHidden2
@@ -999,7 +1005,7 @@ chunksOf n = go where
 
 nnMnistLossTanh :: DeltaMonad Double m
                 => Int
-                -> MnistData
+                -> MnistData Double
                 -> VecDualDeltaD
                 -> m DualDeltaD
 nnMnistLossTanh widthHidden (xs, targ) vec = do
@@ -1008,7 +1014,7 @@ nnMnistLossTanh widthHidden (xs, targ) vec = do
 
 nnMnistLossRelu :: DeltaMonad Double m
                 => Int
-                -> MnistData
+                -> MnistData Double
                 -> VecDualDeltaD
                 -> m DualDeltaD
 nnMnistLossRelu widthHidden (xs, targ) vec = do

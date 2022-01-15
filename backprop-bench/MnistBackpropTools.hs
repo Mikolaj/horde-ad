@@ -7,8 +7,7 @@
 {-# LANGUAGE BangPatterns, DataKinds, DeriveGeneric, FlexibleContexts,
              FlexibleInstances, GADTs, LambdaCase, PolyKinds,
              ScopedTypeVariables, StandaloneDeriving, TemplateHaskell,
-             TypeApplications, TypeFamilies, TypeSynonymInstances,
-             ViewPatterns #-}
+             TypeApplications, TypeFamilies, ViewPatterns #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 module MnistBackpropTools where
@@ -242,7 +241,7 @@ trainMnist2 :: (Network 784 h1 h2 10
             -> [(R 784, R 10)]
             -> Network 784 h1 h2 10
 {-# INLINE trainMnist2 #-}
-trainMnist2 f x0 xs = foldl' f x0 xs
+trainMnist2 = foldl'
 
 -- ------------------------------
 -- - "Backprop" Lens Mode       -
