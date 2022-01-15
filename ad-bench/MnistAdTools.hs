@@ -5,6 +5,7 @@ module MnistAdTools where
 import Prelude
 
 import           Control.Arrow ((***))
+import           Control.DeepSeq
 import           Control.Exception (assert)
 import           Criterion.Main
 import           Data.Reflection (Reifies)
@@ -34,7 +35,7 @@ gradDescStochastic gamma f = go where
   go (a : rest) params =
     let combine i r = i - gamma * r
         v = gradWith combine (f a) params
-    in go rest v
+    in go rest (force v)
 
 var :: Int -> Domain r -> r
 var i vec = vec V.! i

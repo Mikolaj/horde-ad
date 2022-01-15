@@ -237,6 +237,7 @@ benchmark mnist-ad
         base
       , ad
       , criterion
+      , deepseq
       , mostly-harmless
       , random
       , reflection
