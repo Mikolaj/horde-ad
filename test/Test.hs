@@ -1080,6 +1080,10 @@ smallMnistTests = testGroup "MNIST tests with a 1-hidden-layer nn"
                   9.819999999999995e-2
   , mnistTestCase "1 epoch, all batches" 1 99 nnMnistLoss 250 0.02
                   5.469999999999997e-2
+  , mnistTestCase "artificial 1 2 3 4" 1 2 nnMnistLoss 3 4
+                  0.897
+  , mnistTestCase "artificial 4 3 2 1" 4 3 nnMnistLoss 2 1
+                  0.6563
   ]
 
 bigMnistTests :: TestTree
@@ -1093,4 +1097,8 @@ bigMnistTests = testGroup "MNIST tests with a 2-hidden-layer nn"
   , mnistTestCase2 "1 epoch, all batches" 1 99 nnMnistLoss2 300 100 0.02
                    5.5300000000000016e-2
                      -- doh, worse than 1-hidden-layer, but twice slower
+  , mnistTestCase2 "artificial 1 2 3 4 5" 1 2 nnMnistLoss2 3 4 5
+                   0.8972
+  , mnistTestCase2 "artificial 5 4 3 2 1" 5 4 nnMnistLoss2 3 2 1
+                   0.7686
   ]
