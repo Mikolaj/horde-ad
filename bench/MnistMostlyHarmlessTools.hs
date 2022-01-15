@@ -42,7 +42,7 @@ mnistTrainBGroup :: ( Show r, Ord r, Floating r, UniformRange r
                     , Data.Vector.Unboxed.Unbox r )
                     => [MnistData r] -> Int -> Benchmark
 mnistTrainBGroup xs0 chunkLength =
-  env (return xs0) $
+  env (return $ take chunkLength xs0) $
   \ ~xs ->
   bgroup ("1-hidden-layer MNIST nn with samples: " ++ show chunkLength)
     [ mnistTestBench chunkLength xs 25  -- toy width
@@ -81,7 +81,8 @@ mnistTestBench2 extraPrefix chunkLength xs widthHidden widthHidden2 = do
 
 mnistTrainBGroup2 :: [MnistData Double] -> Int -> Benchmark
 mnistTrainBGroup2 xs0 chunkLength =
-  env (return (xs0, map (V.map realToFrac *** V.map realToFrac) xs0)) $
+  env (return (xs0, map (V.map realToFrac *** V.map realToFrac)
+                    $ take chunkLength xs0)) $
   \ ~(xs, xsFloat) ->
   bgroup ("2-hidden-layer MNIST nn with samples: " ++ show chunkLength)
     [ mnistTestBench2 "" chunkLength xs 30 10  -- toy width
