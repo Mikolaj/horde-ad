@@ -68,6 +68,7 @@ ifoldMDelta' :: forall m a r. (Monad m, Data.Vector.Unboxed.Unbox r)
              -> a
              -> VecDualDelta r
              -> m a
+{-# INLINE ifoldMDelta' #-}
 ifoldMDelta' f a (vecR, vecD) = do
   let g :: a -> Int -> r -> m a
       g !acc i valX = do
@@ -80,6 +81,7 @@ foldMDelta' :: forall m a r. (Monad m, Data.Vector.Unboxed.Unbox r)
             -> a
             -> VecDualDelta r
             -> m a
+{-# INLINE foldMDelta' #-}
 foldMDelta' f a (vecR, vecD) = do
   let g :: a -> Int -> r -> m a
       g !acc i valX = do
@@ -92,6 +94,7 @@ ifoldlDelta' :: forall a r. Data.Vector.Unboxed.Unbox r
              -> a
              -> VecDualDelta r
              -> a
+{-# INLINE ifoldlDelta' #-}
 ifoldlDelta' f a (vecR, vecD) = do
   let g :: a -> Int -> r -> a
       g !acc i valX =
@@ -104,6 +107,7 @@ foldlDelta' :: forall a r. Data.Vector.Unboxed.Unbox r
             -> a
             -> VecDualDelta r
             -> a
+{-# INLINE foldlDelta' #-}
 foldlDelta' f a (vecR, vecD) = do
   let g :: a -> Int -> r -> a
       g !acc i valX =
