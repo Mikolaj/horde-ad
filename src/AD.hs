@@ -15,6 +15,7 @@ import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Unboxed
+import qualified Data.Vector.Unboxed.Mutable
 
 -- Tagless final doesn't seem to work well, because we need to gather
 -- @Delta@ while doing @DualDelta@ operations, but evaluate on concrete
@@ -59,9 +60,9 @@ data DualDelta r = D r (Delta r)
 
 type VecDualDelta r = (Domain r, Data.Vector.Vector (Delta r))
 
-buildVector :: forall s v r. (Eq r, Num r, VM.MVector (V.Mutable v) r)
+buildVector :: forall s r. (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
             => Int -> DeltaState r -> Delta r
-            -> ST s (V.Mutable v s r)
+            -> ST s (Data.Vector.Unboxed.Mutable.MVector s r)
 buildVector dim st d0 = do
   let DeltaId storeSize = deltaCounter st
   store <- VM.replicate storeSize 0
@@ -82,8 +83,9 @@ buildVector dim st d0 = do
   let _A = assert (minusOne == DeltaId (-1)) ()
   return $! VM.slice 0 dim store
 
-evalBindingsV :: (Eq r, Num r, V.Vector v r)
-              => VecDualDelta i -> DeltaState r -> Delta r -> v r
+evalBindingsV :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+              => VecDualDelta i -> DeltaState r -> Delta r
+              -> Data.Vector.Unboxed.Vector r
 evalBindingsV ds st d0 = V.create $ buildVector (V.length $ snd ds) st d0
 
 class (Monad m, Functor m, Applicative m) => DeltaMonad r m | m -> r where
