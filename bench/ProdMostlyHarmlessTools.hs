@@ -110,7 +110,7 @@ bgroup5e7 allxs =
 vec_prod_aux :: forall m r. (DeltaMonad r m, Num r, Data.Vector.Unboxed.Unbox r)
              => VecDualDelta r -> m (DualDelta r)
 vec_prod_aux vec = foldMDelta' (*\) (scalar 1) vec
-  -- no handwritten gradients; only gradient for * is provided;
+  -- no handwritten gradients; only the gradient for @(*)@ is provided;
   -- also, not omitting bindings; all let-bindings are present, see below
 
 vec_prod :: (Num r, Data.Vector.Unboxed.Unbox r)
