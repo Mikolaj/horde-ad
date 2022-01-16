@@ -113,13 +113,13 @@ vec_prod_aux vec = foldMDelta' (*\) (scalar 1) vec
   -- no handwritten gradients; only gradient for * is provided;
   -- also, not omitting bindings; all let-bindings are present, see below
 
-grad_vec_prod :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
-              => Domain r -> Domain' r
-grad_vec_prod = fst . df vec_prod_aux
-
 vec_prod :: (Num r, Data.Vector.Unboxed.Unbox r)
          => Domain r -> r
 vec_prod = valueDualDelta vec_prod_aux
+
+grad_vec_prod :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+              => Domain r -> Domain' r
+grad_vec_prod = fst . df vec_prod_aux
 
 grad_toList_prod :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
                  => [r] -> [r]
@@ -137,10 +137,10 @@ vec_omit_prod_aux
 vec_omit_prod_aux vec = returnLet $ foldlDelta' (*) (scalar 1) vec
   -- omitting most bindings, because we know nothing repeats inside
 
-grad_vec_omit_prod :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
-                   => Domain r -> Domain' r
-grad_vec_omit_prod = fst . df vec_omit_prod_aux
-
 vec_omit_prod :: (Num r, Data.Vector.Unboxed.Unbox r)
               => Domain r -> r
 vec_omit_prod = valueDualDelta vec_omit_prod_aux
+
+grad_vec_omit_prod :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+                   => Domain r -> Domain' r
+grad_vec_omit_prod = fst . df vec_omit_prod_aux
