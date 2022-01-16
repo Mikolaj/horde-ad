@@ -391,6 +391,15 @@ softMaxAct us = do
 -- from trainable inputs in @xs@ and parameters (the bias and weights)
 -- at @vec@ starting at @offset@. Useful for neurons in the middle
 -- of the network, receiving inputs from other neurons.
+--
+-- Note that functions like that, with Delta in the type signature
+-- (which is really indispensable due to accessing variable parameters
+-- in a special way) make it impossible to implement the function
+-- to be differentiated as fully polymorphic @:: Num r => [r] -> m r@
+-- function and so have no overhead when computing the value
+-- with a dummy monad. Another case is selectively fused operations,
+-- unless we include all of them, even very ad hoc ones,
+-- in a class with implementations both on @D@ and on plain @r@.
 sumTrainableInputs :: forall m r.
                         (DeltaMonad r m, Num r, Data.Vector.Unboxed.Unbox r)
                    => Data.Vector.Vector (DualDelta r)
