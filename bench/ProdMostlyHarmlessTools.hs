@@ -100,21 +100,18 @@ bgroup5e7 allxs =
         , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
         ]
 
+-- The @foldMDelta'@, instead of the standard @foldM'@, is an awkward clutch
+-- that can't be avoided without changing the representation of the vector
+-- of dual numbers. The use of a pair of vectors to represent
+-- a vector of dual numbers is an optimization for gradient descent,
+-- which works fine there, but costs us some cycles and the use
+-- of a custom operation here, where there's no gradient descent
+-- to manage the vectors for us.
 vec_prod_aux :: forall m r. (DeltaMonad r m, Num r, Data.Vector.Unboxed.Unbox r)
              => VecDualDelta r -> m (DualDelta r)
-vec_prod_aux vec = do
-  let f :: DualDelta r -> Int -> r -> m (DualDelta r)
-      f !acc !i !valX = do
-        -- An awkward use of internals that can't be avoided without
-        -- some other awkward bits of code and an extra performance hit.
-        -- The whole business with @vec@ being a pair of vectors,
-        -- instead of one vector, is an optimization for gradient descent,
-        -- which works fine there, but costs us some cycles and clarity here,
-        -- where there's no gradient descent to manage the vectors.
-        let x = D valX (snd vec V.! i)
-        acc *\ x  -- no handwritten gradients; only gradient for * is provided;
-                  -- also, not omitting bindings; all let-bindings are present
-  V.ifoldM' f (scalar 1) $ fst vec
+vec_prod_aux vec = foldMDelta' (*\) (scalar 1) vec
+  -- no handwritten gradients; only gradient for * is provided;
+  -- also, not omitting bindings; all let-bindings are present, see below
 
 grad_vec_prod :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
               => Domain r -> Domain' r
@@ -136,13 +133,9 @@ grad_toList_prod l = V.toList $ grad_vec_prod $ V.fromList l
 
 vec_omit_prod_aux
   :: forall m r. (DeltaMonad r m, Num r, Data.Vector.Unboxed.Unbox r)
-   => VecDualDelta r -> m (DualDelta r)
-vec_omit_prod_aux vec = do
-  let f :: DualDelta r -> Int -> r -> DualDelta r
-      f !acc !i !valX =
-        let x = D valX (snd vec V.! i)
-        in acc * x  -- omitting bindings, because we know nothing repeats here
-  returnLet $ V.ifoldl' f (scalar 1) $ fst vec
+  => VecDualDelta r -> m (DualDelta r)
+vec_omit_prod_aux vec = returnLet $ foldlDelta' (*) (scalar 1) vec
+  -- omitting most bindings, because we know nothing repeats inside
 
 grad_vec_omit_prod :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
                    => Domain r -> Domain' r
