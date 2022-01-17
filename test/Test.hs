@@ -174,20 +174,24 @@ atanReadmePoly vec =
 -- gradient computations. If the code above had any repeated
 -- non-variable expressions, the user would need to make it monadic
 -- and apply another binding-introducing operation already there.
-atanReadmeMPoly :: forall r m. ( RealFloat r, DeltaMonad r m
-                               , Data.Vector.Unboxed.Unbox r )
+atanReadmeMPoly :: ( RealFloat r, DeltaMonad r m
+                   , Data.Vector.Unboxed.Unbox r )
                 => VecDualDelta r -> m (DualDelta r)
 atanReadmeMPoly vec =
   sumDual $ atanReadmePoly vec
     -- dot product with ones is the sum of all elements
 
+dfAtanReadmeMPoly :: (RealFloat r, Data.Vector.Unboxed.Unbox r)
+                  => Domain r -> (Domain' r, r)
+dfAtanReadmeMPoly = df atanReadmeMPoly
+
 readmeTests :: TestTree
 readmeTests = testGroup "Tests of code from the library's README" $
   [ testCase "(1.1, 2.2, 3.3)"
-    $ df atanReadmeMPoly (V.fromList [1.1 :: Float, 2.2, 3.3])
+    $ dfAtanReadmeMPoly (V.fromList [1.1 :: Float, 2.2, 3.3])
       @?= (V.fromList [3.0715904, 0.18288425, 1.1761366], 4.937552)
   , testCase "(1.1, 2.2, 3.3)"
-    $ df atanReadmeMPoly (V.fromList [1.1 :: Double, 2.2, 3.3])
+    $ dfAtanReadmeMPoly (V.fromList [1.1 :: Double, 2.2, 3.3])
       @?= ( V.fromList [ 3.071590389300859
                        , 0.18288422990948425
                        , 1.1761365368997136 ]
