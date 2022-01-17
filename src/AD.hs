@@ -232,13 +232,14 @@ df =
         in ((deltaInput, V.generate dim (Var . DeltaId)), dim)
   in generalDf initVars evalBindingsV
 
-gradDesc :: forall r. (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+-- | Simple Gradient Descent.
+gdSimple :: forall r. (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
          => r
          -> (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
          -> Int  -- ^ requested number of iterations
          -> Domain r  -- ^ initial parameters
          -> Domain' r
-gradDesc gamma f n0 params0 = go n0 params0 where
+gdSimple gamma f n0 params0 = go n0 params0 where
   dim = V.length params0
   -- Pre-allocating the vars once, vs gradually allocating on the spot in each
   -- gradient computation, initially incurs overhead (looking up in a vector),
@@ -254,14 +255,14 @@ gradDesc gamma f n0 params0 = go n0 params0 where
         paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
     in go (pred n) paramsNew
 
-gradDescStochastic
-  :: forall r a. (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
-  => r
-  -> (a -> VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
-  -> [a]  -- ^ training data
-  -> Domain r  -- ^ initial parameters
-  -> Domain' r
-gradDescStochastic gamma f trainingData params0 = go trainingData params0 where
+-- | Stochastic Gradient Descent.
+sgd :: forall r a. (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+    => r
+    -> (a -> VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
+    -> [a]  -- ^ training data
+    -> Domain r  -- ^ initial parameters
+    -> Domain' r
+sgd gamma f trainingData params0 = go trainingData params0 where
   dim = V.length params0
   -- Pre-allocating the vars once, vs gradually allocating on the spot in each
   -- gradient computation, initially incurs overhead (looking up in a vector),
@@ -277,14 +278,15 @@ gradDescStochastic gamma f trainingData params0 = go trainingData params0 where
         paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
     in go rest paramsNew
 
+-- | Relatively Smart Gradient Descent.
 -- Based on @gradientDescent@ from package @ad@ which is in turn based
 -- on the one from the VLAD compiler.
-gradDescSmart :: forall r. (Ord r, Fractional r, Data.Vector.Unboxed.Unbox r)
-              => (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
-              -> Int  -- ^ requested number of iterations
-              -> Domain r  -- ^ initial parameters
-              -> (Domain' r, r)
-gradDescSmart f n0 params0 = go n0 params0 0.1 gradient0 value0 0 where
+gdSmart :: forall r. (Ord r, Fractional r, Data.Vector.Unboxed.Unbox r)
+        => (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
+        -> Int  -- ^ requested number of iterations
+        -> Domain r  -- ^ initial parameters
+        -> (Domain' r, r)
+gdSmart f n0 params0 = go n0 params0 0.1 gradient0 value0 0 where
   dim = V.length params0
   vVar = V.generate dim (Var . DeltaId)
   initVars0 :: (VecDualDelta r, Int)

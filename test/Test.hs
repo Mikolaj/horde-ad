@@ -31,7 +31,7 @@ main = defaultMain tests
 tests :: TestTree
 tests = testGroup "Tests" [ dfTests
                           , readmeTests
-                          , gradDescTests
+                          , gdSimpleTests
                           , xorTests
                           , fitTests
                           , fit2Tests
@@ -54,14 +54,14 @@ dfShow f deltaInput =
   let (results, value) = df f (V.fromList deltaInput)
   in (V.toList results, value)
 
-gradDescShow :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+gdSimpleShow :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
              => r
              -> (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
              -> Domain r
              -> Int
              -> ([r], r)
-gradDescShow gamma f initVec n =
-  let res = gradDesc gamma f n initVec
+gdSimpleShow gamma f initVec n =
+  let res = gdSimple gamma f n initVec
       (_, value) = df f res
   in (V.toList res, value)
 
@@ -196,35 +196,35 @@ readmeTests = testGroup "Tests of code from the library's README" $
           , 4.9375516951604155 )
   ]
 
-gradDescTests :: TestTree
-gradDescTests = testGroup "Simple gradient descent tests"
+gdSimpleTests :: TestTree
+gdSimpleTests = testGroup "Simple gradient descent tests"
   [ testCase "0.1 30"
-    $ gradDescShow 0.1 fquad (V.fromList [2, 3]) 30
+    $ gdSimpleShow 0.1 fquad (V.fromList [2, 3]) 30
       @?= ([2.47588e-3,3.7138206e-3],5.00002)
   , testCase "0.01 30"
-    $ gradDescShow 0.01 fquad (V.fromList [2, 3]) 30
+    $ gdSimpleShow 0.01 fquad (V.fromList [2, 3]) 30
       @?= ([1.0909687,1.6364527],8.86819)
   , testCase "0.01 300"
-    $ gradDescShow 0.01 fquad (V.fromList [2, 3]) 300
+    $ gdSimpleShow 0.01 fquad (V.fromList [2, 3]) 300
       @?= ([4.665013e-3,6.9975173e-3],5.0000706)
   , testCase "0.01 300000"
-    $ gradDescShow 0.01 fquad (V.fromList [2, 3]) 300000
+    $ gdSimpleShow 0.01 fquad (V.fromList [2, 3]) 300000
       @?= ([3.5e-44,3.5e-44],5.0)
   -- The (no) blowup tests.
   , testCase "blowup 0.1 30"
-    $ gradDescShow 0.1 fblowup (V.fromList [2, 3]) 30
+    $ gdSimpleShow 0.1 fblowup (V.fromList [2, 3]) 30
       @?= ([2.475991e-3,3.7139843e-3],4.9999723)
   , testCase "blowup 0.01 30"
-    $ gradDescShow 0.01 fblowup (V.fromList [2, 3]) 30
+    $ gdSimpleShow 0.01 fblowup (V.fromList [2, 3]) 30
       @?= ([1.0909724,1.6364591],8.868124)
   , testCase "blowup 0.01 300"
-    $ gradDescShow 0.01 fblowup (V.fromList [2, 3]) 300
+    $ gdSimpleShow 0.01 fblowup (V.fromList [2, 3]) 300
       @?= ([4.665179e-3,6.9977706e-3],5.000023)
   , testCase "blowup 0.01 300000"
-    $ gradDescShow 0.01 fblowup (V.fromList [2, 3]) 300000
+    $ gdSimpleShow 0.01 fblowup (V.fromList [2, 3]) 300000
       @?= ([3.5e-44,3.5e-44],4.9999523)
   , testCase "blowup 0.01 3000000"
-    $ gradDescShow 0.01 fblowup (V.fromList [2, 3]) 3000000
+    $ gdSimpleShow 0.01 fblowup (V.fromList [2, 3]) 3000000
       @?= ([3.5e-44,3.5e-44],4.9999523)
   ]
 
@@ -287,27 +287,27 @@ ws2 = let w = [-1.37, 2.28, -0.19] in V.fromList $ w ++ w ++ w
 xorTests :: TestTree
 xorTests = testGroup "XOR neural net tests"
   [ testCase "0.1 tanhAct ws 500"
-    $ gradDescShow 0.1 (nnXorLossTotal tanhAct) ws 500
+    $ gdSimpleShow 0.1 (nnXorLossTotal tanhAct) ws 500
       @?= ([2.256964,2.255974,-0.6184606,0.943269,0.9431414,-1.2784432,1.805072,-1.9925138,-0.704399],1.20509565e-2)
   , testCase "0.1 tanhAct ws 5000"
-    $ gradDescShow 0.1 (nnXorLossTotal tanhAct) ws 5000
+    $ gdSimpleShow 0.1 (nnXorLossTotal tanhAct) ws 5000
       @?= ([2.4474504,2.4467778,-0.8350617,1.3046894,1.3045748,-1.8912042,2.3819275,-2.5550227,-0.8139653],1.8524402e-4)
   , testCase "0.01 tanhAct ws2 50000"
-    $ gradDescShow 0.01 (nnXorLossTotal tanhAct) ws2 50000
+    $ gdSimpleShow 0.01 (nnXorLossTotal tanhAct) ws2 50000
       @?= ([-1.9872262,2.576039,0.66793317,-1.7813873,2.2283037,-0.9866766,-2.1694322,2.1973324,2.9272876],2.1781659e-4)
   -- the same, but logisticAct for the first hidden layer instead of tanhAct
   , testCase "0.1 logisticAct ws 5000"
-    $ gradDescShow 0.1 (nnXorLossTotal logisticAct) ws 5000
+    $ gdSimpleShow 0.1 (nnXorLossTotal logisticAct) ws 5000
       @?= ([5.5609226,5.553409,-2.2246428,3.4135451,3.4121408,-5.2069902,6.8810863,-7.41155,-3.086779],2.4756126e-2)
   , testCase "0.01 logisticAct ws2 50000"
-    $ gradDescShow 0.01 (nnXorLossTotal logisticAct) ws2 50000
+    $ gdSimpleShow 0.01 (nnXorLossTotal logisticAct) ws2 50000
       @?= ([-5.276363,5.5221853,2.641188,-5.2796497,5.2037635,-2.8858855,-7.5792775,7.997162,3.5127592],6.759104e-3)
   -- the same, but reluAct for the first hidden layer instead of tanhAct
   , testCase "0.1 reluAct ws 5000"
-    $ gradDescShow 0.1 (nnXorLossTotal reluAct) ws 5000  -- no cookie
+    $ gdSimpleShow 0.1 (nnXorLossTotal reluAct) ws 5000  -- no cookie
       @?= ([0.18908867,0.14627013,0.25409937,0.2798127,0.21643773,0.22213355,8.865212e-2,-5.99097e-2,0.4907815],0.9999999)
   , testCase "0.01 reluAct ws2 50000"
-    $ gradDescShow 0.01 (nnXorLossTotal reluAct) ws2 50000  -- no cookie
+    $ gdSimpleShow 0.01 (nnXorLossTotal reluAct) ws2 50000  -- no cookie
       @?= ([-1.3572536,2.3245132,-0.14548694,-1.3912132,2.2069085,-0.2630923,-1.4252249,2.2264564,-0.22221938],1.0)
   ]
 
@@ -402,7 +402,7 @@ wsFitSeparated range@(low, hi) seed k =
       g = mkStdGen seed
   in V.zip steps (rolls g)
 
-gradDescTestCase
+gdSimpleTestCase
   :: Num a
   => String
   -> ((a, a) -> Int -> Int
@@ -414,7 +414,7 @@ gradDescTestCase
       -> DeltaMonadGradient Double DualDeltaD)
   -> Int -> Int -> Int -> Double -> Int -> Double
   -> TestTree
-gradDescTestCase prefix sampleFunction lossFunction
+gdSimpleTestCase prefix sampleFunction lossFunction
                  seedSamples nSamples nParams gamma nIterations expected =
   let samples = sampleFunction (-1, 1) seedSamples nSamples
       vec = V.unfoldrExactN nParams (uniformR (-1, 1)) $ mkStdGen 33
@@ -422,11 +422,11 @@ gradDescTestCase prefix sampleFunction lossFunction
              ++ unwords [ show seedSamples, show nSamples
                         , show nParams, show gamma, show nIterations ]
   in testCase name $
-       snd (gradDescShow gamma (lossFunction tanhAct tanhAct samples)
+       snd (gdSimpleShow gamma (lossFunction tanhAct tanhAct samples)
                          vec nIterations)
        @?= expected
 
-gradDescWsTestCase
+gdSimpleWsTestCase
   :: ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
       -> (DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
       -> Data.Vector.Unboxed.Vector (Double, Double)
@@ -434,9 +434,9 @@ gradDescWsTestCase
       -> DeltaMonadGradient Double DualDeltaD)
   -> Int -> Int -> Int -> Double -> Int -> Double
   -> TestTree
-gradDescWsTestCase = gradDescTestCase "gradDesc Ws" wsFit
+gdSimpleWsTestCase = gdSimpleTestCase "gdSimple Ws" wsFit
 
-gradDescSeparatedTestCase
+gdSimpleSeparatedTestCase
   :: ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
       -> (DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
       -> Data.Vector.Unboxed.Vector (Double, Double)
@@ -444,7 +444,7 @@ gradDescSeparatedTestCase
       -> DeltaMonadGradient Double DualDeltaD)
   -> Int -> Int -> Int -> Double -> Int -> Double
   -> TestTree
-gradDescSeparatedTestCase = gradDescTestCase "gradDesc Separated" wsFitSeparated
+gdSimpleSeparatedTestCase = gdSimpleTestCase "gdSimple Separated" wsFitSeparated
 
 lenP :: Int -> Int
 lenP width = 3 * width + 1
@@ -455,18 +455,18 @@ fitTests :: TestTree
 fitTests = testGroup "Sample fitting fully connected neural net tests"
   [ testCase "wsFit (-1, 1) 42 20" $
       V.toList (wsFit (-1, 1) 42 20) @?= [(-0.22217941284179688,-0.5148218870162964),(0.25622618198394775,0.42662060260772705),(7.794177532196045e-2,-0.5301129817962646),(0.384537935256958,0.8958269357681274),(-0.6027946472167969,-0.5425337553024292),(0.4734766483306885,0.19495820999145508),(0.3921601474285126,0.8963258266448975),(-2.679157257080078e-2,-0.43389952182769775),(-8.326125144958496e-2,-0.17110145092010498),(-6.933605670928955e-2,-0.6602561473846436),(-0.7554467916488647,0.9077622890472412),(-0.17885446548461914,0.14958932995796204),(-0.49340176582336426,0.13965561985969543),(0.4703446626663208,-0.487585186958313),(-0.37681376934051514,-0.39065873622894287),(-0.9820539951324463,-0.10905027389526367),(0.6628230810165405,0.11808493733406067),(4.337519407272339e-3,-7.50422477722168e-3),(-0.270332932472229,0.9103447198867798),(2.815529704093933e-2,-0.9941539764404297)]
-  , gradDescWsTestCase
+  , gdSimpleWsTestCase
       nnFitLossTotal 42 8 (lenP 10) 0.1 10000 1.6225349272445413e-2
-  , gradDescWsTestCase
+  , gdSimpleWsTestCase
       nnFitLossTotal 42 10 (lenP 10) 0.01 100000 0.11821681957239855
       -- failed; even 61 1000000 was not enough
   , testCase "wsFitSeparated (-1, 1) 42 20" $
       V.toList (wsFitSeparated (-1, 1) 42 20) @?= [(-1.0,0.8617048050432681),(-0.8947368421052632,-0.12944690839124995),(-0.7894736842105263,0.7709385349363602),(-0.6842105263157895,0.7043981517795999),(-0.5789473684210527,0.5002907568304664),(-0.4736842105263158,-0.20067467322001753),(-0.368421052631579,-5.526582421799997e-2),(-0.26315789473684215,0.3006213813725571),(-0.1578947368421053,0.12350686811659489),(-5.2631578947368474e-2,-0.7621608299731257),(5.263157894736836e-2,-3.550743010902346e-2),(0.1578947368421053,-0.32868601453242263),(0.26315789473684204,0.7784360517385773),(0.368421052631579,-0.6715107907491862),(0.4736842105263157,-0.41971965075782536),(0.5789473684210527,-0.4920995297212283),(0.6842105263157894,-0.8809132509345221),(0.7894736842105263,-7.615997455596313e-2),(0.894736842105263,0.36412224491658224),(1.0,-0.31352088018219515)]
-  , gradDescSeparatedTestCase
+  , gdSimpleSeparatedTestCase
       nnFitLossTotal 42 8 (lenP 10) 0.1 10000 0.3884360171054549
-  , gradDescSeparatedTestCase
+  , gdSimpleSeparatedTestCase
       nnFitLossTotal 42 10 (lenP 10) 0.01 100000 1.9817301995554423e-2
-  , gradDescSeparatedTestCase
+  , gdSimpleSeparatedTestCase
       nnFitLossTotal 42 16 (lenP 10) 0.01 100000 6.88603932297595e-2
   ]
 
@@ -535,19 +535,19 @@ lenP2 width = 5 * width + 1
 -- together. Otherwise, having all neurons on one layer is more effective.
 fit2Tests :: TestTree
 fit2Tests = testGroup "Sample fitting 2 hidden layer not fully connected nn tests"
-  [ gradDescWsTestCase
+  [ gdSimpleWsTestCase
       (nnFit2LossTotal tanhAct) 42 8 (lenP2 6) 0.1 10000
       1.2856619684390336e-2
-  , gradDescWsTestCase
+  , gdSimpleWsTestCase
       (nnFit2LossTotal tanhAct) 42 10 (lenP2 6) 0.01 400000
       3.835053990072211e-2
-  , gradDescSeparatedTestCase
+  , gdSimpleSeparatedTestCase
       (nnFit2LossTotal tanhAct) 42 8 (lenP2 6) 0.1 10000
       0.31692351465375723
-  , gradDescSeparatedTestCase
+  , gdSimpleSeparatedTestCase
       (nnFit2LossTotal tanhAct) 42 10 (lenP2 6) 0.01 100000
       1.2308485318049472e-3
-  , gradDescSeparatedTestCase
+  , gdSimpleSeparatedTestCase
       (nnFit2LossTotal tanhAct) 42 16 (lenP2 12) 0.01 100000
       1.9398514673723763e-2
   ]
@@ -556,29 +556,29 @@ fit2Tests = testGroup "Sample fitting 2 hidden layer not fully connected nn test
 -- of tanhAct. Usually worse results.
 fit2TestsL :: TestTree
 fit2TestsL = testGroup "logisticAct: Sample fitting 2 hidden layer not fully connected nn tests"
-  [ gradDescWsTestCase
+  [ gdSimpleWsTestCase
       (nnFit2LossTotal logisticAct) 42 8 (lenP2 6) 0.1 10000
       9.323867115794165e-3
-  , gradDescWsTestCase
+  , gdSimpleWsTestCase
       (nnFit2LossTotal logisticAct) 42 10 (lenP2 6) 0.01 400000
       0.12307345215742066
-  , gradDescSeparatedTestCase
+  , gdSimpleSeparatedTestCase
       (nnFit2LossTotal logisticAct) 42 8 (lenP2 6) 0.1 10000
       0.2978076625110597
-  , gradDescSeparatedTestCase
+  , gdSimpleSeparatedTestCase
       (nnFit2LossTotal logisticAct) 42 10 (lenP2 6) 0.01 100000
       8.707658552473477e-2
-  , gradDescSeparatedTestCase
+  , gdSimpleSeparatedTestCase
       (nnFit2LossTotal logisticAct) 42 16 (lenP2 12) 0.01 100000
       1.2453082870396885
   ]
 
-gradDescSmartShow :: (VecDualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-                  -> Domain Double
-                  -> Int
-                  -> ([Double], (Double, Double))
-gradDescSmartShow f initVec n =
-  let (res, gamma) = gradDescSmart f n initVec
+gdSmartShow :: (VecDualDeltaD -> DeltaMonadGradient Double DualDeltaD)
+            -> Domain Double
+            -> Int
+            -> ([Double], (Double, Double))
+gdSmartShow f initVec n =
+  let (res, gamma) = gdSmart f n initVec
       (_, value) = df f res
   in (V.toList res, (value, gamma))
 
@@ -601,8 +601,7 @@ gradSmartTestCase prefix sampleFunction lossFunction
              ++ unwords [ show seedSamples, show nSamples
                         , show nParams, show nIterations ]
   in testCase name $
-       snd (gradDescSmartShow (lossFunction tanhAct tanhAct samples)
-                              vec nIterations)
+       snd (gdSmartShow (lossFunction tanhAct tanhAct samples) vec nIterations)
        @?= expected
 
 gradSmartWsTestCase
@@ -887,19 +886,18 @@ smartFit3TestsL =
       (0.6440964543158452,3.125e-3)
   ]
 
-gradDescStochasticShow
-  :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
-  => r
-  -> (a -> VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
-  -> [a]  -- ^ training data
-  -> Domain r  -- ^ initial parameters
-  -> ([r], r)
-gradDescStochasticShow gamma f trainData params0 =
-  let res = gradDescStochastic gamma f trainData params0
+sgdShow :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+        => r
+        -> (a -> VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
+        -> [a]  -- ^ training data
+        -> Domain r  -- ^ initial parameters
+        -> ([r], r)
+sgdShow gamma f trainData params0 =
+  let res = sgd gamma f trainData params0
       (_, value) = df (f $ head trainData) res
   in (V.toList res, value)
 
-gradDescStochasticTestCase
+sgdTestCase
   :: String
   -> IO [a]
   -> (Int
@@ -909,7 +907,7 @@ gradDescStochasticTestCase
   -> Double
   -> Double
   -> TestTree
-gradDescStochasticTestCase prefix trainDataIO trainWithLoss gamma expected =
+sgdTestCase prefix trainDataIO trainWithLoss gamma expected =
   let widthHidden = 250
       nParams = lenMnist widthHidden
       vec = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
@@ -917,8 +915,7 @@ gradDescStochasticTestCase prefix trainDataIO trainWithLoss gamma expected =
              ++ unwords [show widthHidden, show nParams, show gamma]
   in testCase name $ do
        trainData <- trainDataIO
-       snd (gradDescStochasticShow gamma (trainWithLoss widthHidden)
-                                   trainData vec)
+       snd (sgdShow gamma (trainWithLoss widthHidden) trainData vec)
           @?= expected
 
 nnFit3ForStochastic :: Int
@@ -932,19 +929,19 @@ stochasticFit3Tests :: TestTree
 stochasticFit3Tests =
  testGroup "Stochastic gradient descent sample fitting 2 hidden layer really fully connected nn tests"
   [ let trainData = V.toList $ wsFit (-1, 1) 42 2
-    in gradDescStochasticTestCase "Ws 42 2"
+    in sgdTestCase "Ws 42 2"
          (return trainData) nnFit3ForStochastic 0.1 2.2943674347313845
   , let trainData = take 200 $ cycle $ V.toList $ wsFit (-1, 1) 42 2
-    in gradDescStochasticTestCase "Ws 42 2(200)"
+    in sgdTestCase "Ws 42 2(200)"
          (return trainData) nnFit3ForStochastic 0.1 0.23539780131842747
   , let trainData = V.toList $ wsFitSeparated (-1, 1) 42 128
-    in gradDescStochasticTestCase "separated 42 128"
+    in sgdTestCase "separated 42 128"
          (return trainData) nnFit3ForStochastic 0.1 3.465944781121193
   , let trainData = V.toList $ wsFitSeparated (-1, 1) 42 256
-    in gradDescStochasticTestCase "separated 42 256"
+    in sgdTestCase "separated 42 256"
          (return trainData) nnFit3ForStochastic 0.1 1.912556094812049e-2
   , let trainData = take 1280 $ cycle $ V.toList $ wsFitSeparated (-1, 1) 42 128
-    in gradDescStochasticTestCase "separated 42 128(1280)"
+    in sgdTestCase "separated 42 128(1280)"
          (return trainData) nnFit3ForStochastic 0.1 1.911520785708457e-2
   ]
 
@@ -977,7 +974,7 @@ mnistTestCase prefix epochs maxBatches trainWithLoss widthHidden gamma
            runBatch !params (k, chunk) = do
              printf "(Batch %d)\n" k
              let f = trainWithLoss widthHidden
-                 !res = gradDescStochastic gamma f chunk params
+                 !res = sgd gamma f chunk params
              printf "Trained on %d points.\n" (length chunk)
              let trainScore = testMnist widthHidden chunk res
                  testScore  = testMnist widthHidden testData res
@@ -1031,7 +1028,7 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
            runBatch !params (k, chunk) = do
              printf "(Batch %d)\n" k
              let f = trainWithLoss widthHidden widthHidden2
-                 !res = gradDescStochastic gamma f chunk params
+                 !res = sgd gamma f chunk params
              printf "Trained on %d points.\n" (length chunk)
              let trainScore = testMnist2 widthHidden widthHidden2 chunk res
                  testScore  = testMnist2 widthHidden widthHidden2 testData res
@@ -1082,24 +1079,24 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
   [ let blackGlyph = V.replicate sizeMnistGlyph 0
         blackLabel = V.replicate sizeMnistLabel 0
         trainData = replicate 10 (blackGlyph, blackLabel)
-    in gradDescStochasticTestCase "black"
+    in sgdTestCase "black"
          (return trainData) nnMnistLoss 0.02 (-0.0)
   , let whiteGlyph = V.replicate sizeMnistGlyph 1
         whiteLabel = V.replicate sizeMnistLabel 1
         trainData = replicate 20 (whiteGlyph, whiteLabel)
-    in gradDescStochasticTestCase "white"
+    in sgdTestCase "white"
          (return trainData) nnMnistLoss 0.02 25.190345811686015
   , let blackGlyph = V.replicate sizeMnistGlyph 0
         whiteLabel = V.replicate sizeMnistLabel 1
         trainData = replicate 50 (blackGlyph, whiteLabel)
-    in gradDescStochasticTestCase "black/white"
+    in sgdTestCase "black/white"
          (return trainData) nnMnistLoss 0.02 23.02585092994046
   , let glyph = V.unfoldrExactN sizeMnistGlyph (uniformR (0, 1))
         label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
         trainData = map ((\g -> (glyph g, label g)) . mkStdGen) [1 .. 100]
-    in gradDescStochasticTestCase "random 100"
+    in sgdTestCase "random 100"
          (return trainData) nnMnistLoss 0.02 12.871539859686754
-  , gradDescStochasticTestCase "first 100 trainset samples only"
+  , sgdTestCase "first 100 trainset samples only"
       (take 100 <$> loadMnistData trainGlyphsPath trainLabelsPath)
       nnMnistLoss 0.02 4.761561312781972
   , testCase "testMnist on 0.1 params 250 width 10k testset" $ do
