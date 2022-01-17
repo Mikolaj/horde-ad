@@ -67,46 +67,46 @@ gradDescShow gamma f initVec n =
 
 fX :: DeltaMonad Float m => VecDualDeltaF -> m DualDeltaF
 fX vec = do
-  let x = var 0 vec
+  let x = var vec 0
   return x
 
 fX1Y :: DeltaMonad Float m => VecDualDeltaF -> m DualDeltaF
 fX1Y vec = do
-  let x = var 0 vec
-      y = var 1 vec
+  let x = var vec 0
+      y = var vec 1
   x1 <- x +\ scalar 1
   x1 *\ y
 
 fXXY :: DeltaMonad Float m => VecDualDeltaF -> m DualDeltaF
 fXXY vec = do
-  let x = var 0 vec
-      y = var 1 vec
+  let x = var vec 0
+      y = var vec 1
   xy <- x *\ y
   x *\ xy
 
 fXYplusZ :: DeltaMonad Float m => VecDualDeltaF -> m DualDeltaF
 fXYplusZ vec = do
-  let x = var 0 vec
-      y = var 1 vec
-      z = var 2 vec
+  let x = var vec 0
+      y = var vec 1
+      z = var vec 2
   xy <- x *\ y
   xy +\ z
 
 fXtoY :: DeltaMonad Float m => VecDualDeltaF -> m DualDeltaF
 fXtoY vec = do
-  let x = var 0 vec
-      y = var 1 vec
+  let x = var vec 0
+      y = var vec 1
   x **\ y
 
 freluX :: DeltaMonad Float m => VecDualDeltaF -> m DualDeltaF
 freluX vec = do
-  let x = var 0 vec
+  let x = var vec 0
   reluAct x
 
 fquad :: DeltaMonad Float m => VecDualDeltaF -> m DualDeltaF
 fquad vec = do
-  let x = var 0 vec
-      y = var 1 vec
+  let x = var vec 0
+      y = var vec 1
   x2 <- squareDual x
   y2 <- y *\ y
   tmp <- x2 +\ y2
@@ -156,9 +156,7 @@ dfTests = testGroup "Simple df application tests" $
 atanReadmePoly :: (RealFloat r, Data.Vector.Unboxed.Unbox r)
                => VecDualDelta r -> Data.Vector.Vector (DualDelta r)
 atanReadmePoly vec =
-  let x = var 0 vec
-      y = var 1 vec
-      z = var 2 vec
+  let x : y : z : _ = vars vec
       w = x * sin y
   in V.fromList [atan2 z w, z * x]
 
@@ -187,10 +185,10 @@ dfAtanReadmeMPoly = df atanReadmeMPoly
 
 readmeTests :: TestTree
 readmeTests = testGroup "Tests of code from the library's README" $
-  [ testCase "(1.1, 2.2, 3.3)"
+  [ testCase "Poly Float (1.1, 2.2, 3.3)"
     $ dfAtanReadmeMPoly (V.fromList [1.1 :: Float, 2.2, 3.3])
       @?= (V.fromList [3.0715904, 0.18288425, 1.1761366], 4.937552)
-  , testCase "(1.1, 2.2, 3.3)"
+  , testCase "Poly Double (1.1, 2.2, 3.3)"
     $ dfAtanReadmeMPoly (V.fromList [1.1 :: Double, 2.2, 3.3])
       @?= ( V.fromList [ 3.071590389300859
                        , 0.18288422990948425
@@ -236,9 +234,9 @@ scaleAddWithBias :: DeltaMonad Float m
                  => DualDeltaF -> DualDeltaF -> Int -> VecDualDeltaF
                  -> m DualDeltaF
 scaleAddWithBias x y ixWeight vec = do
-  let wx = var ixWeight vec
-      wy = var (ixWeight + 1) vec
-      bias = var (ixWeight + 2) vec
+  let wx = var vec ixWeight
+      wy = var vec (ixWeight + 1)
+      bias = var vec (ixWeight + 2)
   sx <- x *\ wx
   sy <- y *\ wy
   sxy <- sx +\ sy
@@ -324,8 +322,8 @@ hiddenLayerFit :: forall m. DeltaMonad Double m
 hiddenLayerFit factivation x vec width = do
   let f :: Int -> m DualDeltaD
       f i = do
-        let weight = var (2 * i) vec
-            bias = var (2 * i + 1) vec
+        let weight = var vec (2 * i)
+            bias = var vec (2 * i + 1)
         sx <- scaleDual x weight
         sxBias <- sx +\ bias
         factivation sxBias
@@ -484,8 +482,8 @@ middleLayerFit2 :: forall m. DeltaMonad Double m
 middleLayerFit2 factivation hiddenVec offset vec = do
   let f :: Int -> DualDeltaD -> m DualDeltaD
       f i x = do
-        let weight = var (offset + 2 * i) vec
-            bias = var (offset + 1 + 2 * i) vec
+        let weight = var vec (offset + 2 * i)
+            bias = var vec (offset + 1 + 2 * i)
         sx <- x *\ weight
         sxBias <- sx +\ bias
         factivation sxBias

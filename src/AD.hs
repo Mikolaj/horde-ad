@@ -190,8 +190,13 @@ valueDualDelta f ds =
   in value
 
 var :: Data.Vector.Unboxed.Unbox r
-    => Int -> VecDualDelta r -> DualDelta r
-var i (vValue, vVar) = D (vValue V.! i) (vVar V.! i)
+    => VecDualDelta r -> Int -> DualDelta r
+var (vValue, vVar) i = D (vValue V.! i) (vVar V.! i)
+
+-- Unsafe, but handy for toy examples.
+vars :: Data.Vector.Unboxed.Unbox r
+     => VecDualDelta r -> [DualDelta r]
+vars vec = map (var vec) [0 ..]
 
 -- Takes a lot of functions as arguments, hence the inline,
 -- but the functions in which it inlines and which are used in client code
@@ -487,10 +492,10 @@ sumTrainableInputs :: forall m r.
                    -> VecDualDelta r
                    -> m (DualDelta r)
 sumTrainableInputs xs offset vec = do
-  let bias = var offset vec
+  let bias = var vec offset
       f :: DualDelta r -> Int -> DualDelta r -> DualDelta r
       f !acc i u =
-        let v = var (offset + 1 + i) vec
+        let v = var vec (offset + 1 + i)
         in acc + u * v
   returnLet $ V.ifoldl' f bias xs
 
@@ -505,10 +510,10 @@ sumConstantData :: forall m r.
                 -> VecDualDelta r
                 -> m (DualDelta r)
 sumConstantData xs offset vec = do
-  let bias = var offset vec
+  let bias = var vec offset
       f :: DualDelta r -> Int -> r -> DualDelta r
       f !acc i r =
-        let v = var (offset + 1 + i) vec
+        let v = var vec (offset + 1 + i)
         in acc + scale r v
   returnLet $ V.ifoldl' f bias xs
 
