@@ -226,7 +226,7 @@ mnistTestBench2 chunkLength xs widthHidden widthHidden2 = do
 mnistTrainBGroup2 :: [MnistDataUnboxed] -> Int -> Benchmark
 mnistTrainBGroup2 xs0 chunkLength =
   env (return $ map (V.convert *** V.convert) $ take chunkLength xs0) $
-  \ ~xs ->
+  \ xs ->
   bgroup ("2-hidden-layer MNIST nn with samples: " ++ show chunkLength)
     [ mnistTestBench2 chunkLength xs 30 10  -- toy width
     , mnistTrainBench2 chunkLength xs 30 10 0.02

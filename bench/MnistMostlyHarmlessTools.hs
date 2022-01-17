@@ -43,7 +43,7 @@ mnistTrainBGroup :: ( Show r, Ord r, Floating r, UniformRange r
                     => [MnistData r] -> Int -> Benchmark
 mnistTrainBGroup xs0 chunkLength =
   env (return $ take chunkLength xs0) $
-  \ ~xs ->
+  \ xs ->
   bgroup ("1-hidden-layer MNIST nn with samples: " ++ show chunkLength)
     [ mnistTestBench chunkLength xs 25  -- toy width
     , mnistTrainBench chunkLength xs 25 0.02
@@ -98,7 +98,7 @@ mnistTrainBGroup2 xs0 chunkLength =
 mnistTrainBGroup2500 :: [MnistData Double] -> Int -> Benchmark
 mnistTrainBGroup2500 xs0 chunkLength =
   env (return $ take chunkLength xs0) $
-  \ ~xs ->
+  \ xs ->
   bgroup ("huge 2-hidden-layer MNIST nn with samples: " ++ show chunkLength)
     [ mnistTestBench2 "" chunkLength xs 2500 750  -- probably mostly wasted
     , mnistTrainBench2 "" chunkLength xs 2500 750 0.02

@@ -90,7 +90,7 @@ bgroup1e7 allxs =
 
 bgroup5e7 allxs =
       env (return $ V.fromList $ take 50000000 allxs) $
-      \ ~vec ->
+      \ vec ->
       bgroup "5e7"  -- 5e7 == 5 * 10^7 == 0.5 * 10^8 == 0.5e8
         [ bench "func_vec" $ nf vec_prod vec
         , bench "grad_vec" $ nf grad_vec_prod vec

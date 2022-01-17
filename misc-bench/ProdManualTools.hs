@@ -60,7 +60,7 @@ bgroup100, bgroup200, bgroup1000, bgroup1e4, bgroup1e5, bgroup1e6, bgroup1e7, bg
 
 bgroup100 allxs =
       env (return (take 100 allxs)) $
-      \ ~list ->
+      \ list ->
       bgroup "100"
         [ bench "func" $ nf prod list
         , bench "grad" $ nf grad_prod list
@@ -69,7 +69,7 @@ bgroup100 allxs =
 
 bgroup200 allxs =
       env (return (take 200 allxs)) $
-      \ ~list ->
+      \ list ->
       bgroup "200"
         [ bench "func" $ nf prod list
         , bench "grad" $ nf grad_prod list
@@ -78,7 +78,7 @@ bgroup200 allxs =
 
 bgroup1000 allxs =
       env (return (take 1000 allxs)) $
-      \ ~list ->
+      \ list ->
       bgroup "1000"
         [ bench "func" $ nf prod list
         , bench "grad" $ nf grad_prod list
@@ -87,7 +87,7 @@ bgroup1000 allxs =
 
 bgroup1e4 allxs =
       env (return (take 10000 allxs)) $
-      \ ~list ->
+      \ list ->
       bgroup "1e4"
         -- grad_slow too slow at this point
         [ bench "func" $ nf prod list
@@ -96,7 +96,7 @@ bgroup1e4 allxs =
 
 bgroup1e5 allxs =
       env (return (take 100000 allxs)) $
-      \ ~list ->
+      \ list ->
       bgroup "1e5"
         [ bench "func" $ nf prod list
         , bench "grad" $ nf grad_prod list
@@ -104,7 +104,7 @@ bgroup1e5 allxs =
 
 bgroup1e6 allxs =
       env (return (take 1000000 allxs)) $
-      \ ~list ->
+      \ list ->
       bgroup "1e6"
         [ bench "func" $ nf prod list
         , bench "grad" $ nf grad_prod list
@@ -112,7 +112,7 @@ bgroup1e6 allxs =
 
 bgroup1e7 allxs =
       env (return (take 10000000 allxs)) $
-      \ ~list ->
+      \ list ->
       bgroup "1e7"
         [ bench "func" $ nf prod list
         , bench "grad" $ nf grad_prod list
@@ -120,7 +120,7 @@ bgroup1e7 allxs =
 
 bgroup5e7 allxs =
       env (return (take 50000000 allxs)) $
-      \ ~list ->
+      \ list ->
       bgroup "5e7"  -- 5e7 == 5 * 10^7 == 0.5 * 10^8 == 0.5e8
         [ bench "func" $ nf prod list
         , bench "grad" $ nf grad_prod list

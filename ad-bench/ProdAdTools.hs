@@ -83,7 +83,7 @@ bgroup1e7 allxs =
 
 bgroup5e7 allxs =
       env (return $ take 50000000 allxs) $
-      \ ~list ->
+      \ list ->
       bgroup "5e7"  -- 5e7 == 5 * 10^7 == 0.5 * 10^8 == 0.5e8
         [ bench "func" $ nf prod list
         , bench "grad" $ nf grad_prod list
