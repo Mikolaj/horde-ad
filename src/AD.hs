@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, FunctionalDependencies,
-             GeneralizedNewtypeDeriving, RankNTypes #-}
-{-# OPTIONS_GHC -Wno-missing-export-lists #-}
+             GeneralizedNewtypeDeriving, RankNTypes, StandaloneDeriving #-}
+{-# OPTIONS_GHC -Wno-missing-export-lists -Wno-missing-methods #-}
 module AD where
 
 import Prelude
@@ -29,6 +29,7 @@ data Delta r =
   | Scale r (Delta r)
   | Add (Delta r) (Delta r)
   | Var DeltaId
+  deriving (Show, Eq, Ord)
 
 newtype DeltaId = DeltaId Int
   deriving (Show, Eq, Ord, Enum)
@@ -306,6 +307,13 @@ scalar r = D r Zero
 scale :: Num r => r -> DualDelta r -> DualDelta r
 scale r (D u u') = D (r * u) (Scale r u')
 
+-- This instances are required by the @Real@ instance, which is required
+-- by @RealFloat@, which gives @atan2@. No idea what properties
+-- @Real@ requires here, so defaulting to the derived instance.
+deriving instance Eq r => Eq (DualDelta r)
+
+deriving instance Ord r => Ord (DualDelta r)
+
 -- These instances are dangerous. Expressions should be wrapped in
 -- the monadic @returnLet@ whenever there is a possibility they can be
 -- used multiple times in a larger expression. Safer yet, monadic arithmetic
@@ -332,6 +340,9 @@ instance Num r => Num (DualDelta r) where
 negateDual :: (DeltaMonad r m, Num r) => DualDelta r -> m (DualDelta r)
 negateDual v = returnLet $ -v
 
+instance Real r => Real (DualDelta r) where
+  toRational = undefined  -- TODO?
+
 instance Fractional r => Fractional (DualDelta r) where
   D u u' / D v v' =
     D (u / v) (Scale (recip $ v * v) (Add (Scale v u') (Scale (- u) v')))
@@ -352,8 +363,8 @@ instance Floating r => Floating (DualDelta r) where
   D u u' ** D v v' = D (u ** v) (Add (Scale (v * (u ** (v - 1))) u')
                                      (Scale ((u ** v) * log u) v'))
   logBase = undefined  -- TODO
-  sin = undefined  -- TODO
-  cos = undefined  -- TODO
+  sin (D u u') = D (sin u) (Scale (cos u) u')
+  cos (D u u') = D (cos u) (Scale (- (sin u)) u')
   tan = undefined  -- TODO
   asin = undefined  -- TODO
   acos = undefined  -- TODO
@@ -379,6 +390,17 @@ logDual u = returnLet $ log u
 tanhDual :: (DeltaMonad r m, Floating r) => DualDelta r -> m (DualDelta r)
 tanhDual u = returnLet $ tanh u
 
+instance RealFrac r => RealFrac (DualDelta r) where
+  properFraction = undefined
+    -- very low priority, since these are all extremely not continuous
+
+instance RealFloat r => RealFloat (DualDelta r) where
+  atan2 (D u u') (D v v') =
+    let t = 1 / (u * u + v * v)
+    in D (atan2 u v) (Add (Scale (- u * t) v') (Scale (v * t) u'))
+      -- we can be selective here and omit the other methods,
+      -- most of which don't even have a continuous codomain
+
 -- Most of the operations below are selectively fused.
 -- In principle, they should be coded in a way that guarantees that
 -- no exponential explosion can happen regardless of context
@@ -394,6 +416,7 @@ squareDual (D u u') = returnLet $ D (u * u) (Scale (2 * u) u')
 -- In addition to convenience, this eliminates all Delta bindings
 -- coming from binary addition into a single binding
 -- (and so makes automatic fusion possible in the future).
+-- BTW, this is also a dot product with a vector that contains only ones.
 sumDual :: forall m r. (DeltaMonad r m, Num r)
         => Data.Vector.Vector (DualDelta r)
         -> m (DualDelta r)

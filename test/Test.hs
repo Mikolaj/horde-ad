@@ -30,6 +30,7 @@ main = defaultMain tests
 
 tests :: TestTree
 tests = testGroup "Tests" [ dfTests
+                          , readmeTests
                           , gradDescTests
                           , xorTests
                           , fitTests
@@ -139,6 +140,59 @@ dfTests = testGroup "Simple df application tests" $
     , ("freluX4", freluX, [99], ([1.0],99.0))
     , ("fquad", fquad, [2, 3], ([4.0,6.0],18.0))
     ]
+
+-- The input vector is meant to have 3 elements, the output vector
+-- two elements. In the future we may use something like
+-- https://hackage.haskell.org/package/vector-sized-1.5.0
+-- to express the sizes in types, or we may be able to handle tuples
+-- automatically. For now, the user has to translate from tuples
+-- to vectors manually and we omit this straightforward boilerplate code here.
+--
+-- TODO: work on user-friendly errors if the input record is too short.
+-- TODO: give the output vector the same type as the input vector,
+-- which is a pair of an unboxed vector of scalars and a boxed vector
+-- of deltas (the output vector currently is a boxed vector of pairs;
+-- this is related to the ongoing work on shapes of scalar containers).
+atanReadmePoly :: (RealFloat r, Data.Vector.Unboxed.Unbox r)
+               => VecDualDelta r -> Data.Vector.Vector (DualDelta r)
+atanReadmePoly vec =
+  let x = var 0 vec
+      y = var 1 vec
+      z = var 2 vec
+      w = x * sin y
+  in V.fromList [atan2 z w, z * x]
+
+-- According to the paper, to handle functions with non-scalar results,
+-- we dot-product them with dt which, for simplicity, we here set
+-- to a record containing only ones. We could also apply the dot-product
+-- automatically in the library code (though perhaps we should
+-- emit a warning too, in case the user just forgot to apply
+-- a loss function and that's the only reason the result is not a scalar?).
+-- For now, let's perform the dot product in user code.
+--
+-- The @sumDual@ introduces the only Delta-binding in this reverse
+-- gradient computations. If the code above had any repeated
+-- non-variable expressions, the user would need to make it monadic
+-- and apply another binding-introducing operation already there.
+atanReadmeMPoly :: forall r m. ( RealFloat r, DeltaMonad r m
+                               , Data.Vector.Unboxed.Unbox r )
+                => VecDualDelta r -> m (DualDelta r)
+atanReadmeMPoly vec =
+  sumDual $ atanReadmePoly vec
+    -- dot product with ones is the sum of all elements
+
+readmeTests :: TestTree
+readmeTests = testGroup "Tests of code from the library's README" $
+  [ testCase "(1.1, 2.2, 3.3)"
+    $ df atanReadmeMPoly (V.fromList [1.1 :: Float, 2.2, 3.3])
+      @?= (V.fromList [3.0715904, 0.18288425, 1.1761366], 4.937552)
+  , testCase "(1.1, 2.2, 3.3)"
+    $ df atanReadmeMPoly (V.fromList [1.1 :: Double, 2.2, 3.3])
+      @?= ( V.fromList [ 3.071590389300859
+                       , 0.18288422990948425
+                       , 1.1761365368997136 ]
+          , 4.9375516951604155 )
+  ]
 
 gradDescTests :: TestTree
 gradDescTests = testGroup "Simple gradient descent tests"
