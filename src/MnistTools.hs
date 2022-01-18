@@ -35,7 +35,7 @@ sizeMnistLabel = 10
 -- This results in much smaller Delta expressions.
 -- Our library makes this easy to express and gradients compute fine.
 -- OTOH, methods with only matrix operations and graphs can't handle that.
--- However, the goal of the exercise it too implement the same
+-- However, the goal of the exercise it to implement the same
 -- neural net that backprop uses for benchmarks and compare.
 type MnistData r = ( Data.Vector.Unboxed.Vector r
                    , Data.Vector.Unboxed.Vector r )
@@ -43,15 +43,15 @@ type MnistData r = ( Data.Vector.Unboxed.Vector r
 hiddenLayerMnist :: forall m r.
                       (DeltaMonad r m, Num r, Data.Vector.Unboxed.Unbox r)
                  => (DualDelta r -> m (DualDelta r))
-                 -> Domain r
+                 -> Data.Vector.Unboxed.Vector r
                  -> VecDualDelta r
                  -> Int
                  -> m (Data.Vector.Vector (DualDelta r))
-hiddenLayerMnist factivation xs vec width = do
-  let nWeightsAndBias = V.length xs + 1
+hiddenLayerMnist factivation x vec width = do
+  let nWeightsAndBias = V.length x + 1
       f :: Int -> m (DualDelta r)
       f i = do
-        outSum <- sumConstantData xs (i * nWeightsAndBias) vec
+        outSum <- sumConstantData x (i * nWeightsAndBias) vec
         factivation outSum
   V.generateM width f
 
@@ -106,12 +106,12 @@ nnMnist :: (DeltaMonad r m, Floating r, Data.Vector.Unboxed.Unbox r)
         -> (Data.Vector.Vector (DualDelta r)
             -> m (Data.Vector.Vector (DualDelta r)))
         -> Int
-        -> Domain r
+        -> Data.Vector.Unboxed.Vector r
         -> VecDualDelta r
         -> m (Data.Vector.Vector (DualDelta r))
-nnMnist factivationHidden factivationOutput widthHidden xs vec = do
-  let !_A = assert (sizeMnistGlyph == V.length xs) ()
-  hiddenVec <- inline hiddenLayerMnist factivationHidden xs vec widthHidden
+nnMnist factivationHidden factivationOutput widthHidden x vec = do
+  let !_A = assert (sizeMnistGlyph == V.length x) ()
+  hiddenVec <- inline hiddenLayerMnist factivationHidden x vec widthHidden
   inline outputLayerMnist factivationOutput hiddenVec
                           (widthHidden * (sizeMnistGlyph + 1))
                           vec sizeMnistLabel
@@ -161,13 +161,13 @@ nnMnist2 :: (DeltaMonad r m, Fractional r, Data.Vector.Unboxed.Unbox r)
              -> m (Data.Vector.Vector (DualDelta r)))
          -> Int
          -> Int
-         -> Domain r
+         -> Data.Vector.Unboxed.Vector r
          -> VecDualDelta r
          -> m (Data.Vector.Vector (DualDelta r))
 nnMnist2 factivationHidden factivationOutput widthHidden widthHidden2
-         xs vec = do
-  let !_A = assert (sizeMnistGlyph == V.length xs) ()
-  hiddenVec <- inline hiddenLayerMnist factivationHidden xs vec widthHidden
+         x vec = do
+  let !_A = assert (sizeMnistGlyph == V.length x) ()
+  hiddenVec <- inline hiddenLayerMnist factivationHidden x vec widthHidden
   let offsetMiddle = widthHidden * (sizeMnistGlyph + 1)
   middleVec <- inline middleLayerMnist factivationHidden hiddenVec
                                        offsetMiddle vec widthHidden2
@@ -175,8 +175,7 @@ nnMnist2 factivationHidden factivationOutput widthHidden widthHidden2
   inline outputLayerMnist factivationOutput middleVec
                           offsetOutput vec sizeMnistLabel
 
-nnMnistLoss2 :: (Floating r, Data.Vector.Unboxed.Unbox r)
-             => DeltaMonad r m
+nnMnistLoss2 :: (DeltaMonad r m, Floating r, Data.Vector.Unboxed.Unbox r)
              => Int
              -> Int
              -> MnistData r

@@ -470,7 +470,7 @@ softMaxAct :: (DeltaMonad r m, Floating r)
            -> m (Data.Vector.Vector (DualDelta r))
 softMaxAct us = do
   let expUs = V.map exp us
-  -- This has to be let-bound, becuse it's used many times below.
+  -- This has to be let-bound, because it's used many times below.
   sumExpUs <- sumDual expUs
   V.mapM (`divideDual` sumExpUs) expUs
 
