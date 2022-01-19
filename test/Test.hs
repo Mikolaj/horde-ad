@@ -1085,20 +1085,20 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
         whiteLabel = V.replicate sizeMnistLabel 1
         trainData = replicate 20 (whiteGlyph, whiteLabel)
     in sgdTestCase "white"
-         (return trainData) nnMnistLoss 0.02 25.190345811686015
+         (return trainData) nnMnistLoss 0.02 25.190345811686008
   , let blackGlyph = V.replicate sizeMnistGlyph 0
         whiteLabel = V.replicate sizeMnistLabel 1
         trainData = replicate 50 (blackGlyph, whiteLabel)
     in sgdTestCase "black/white"
-         (return trainData) nnMnistLoss 0.02 23.02585092994046
+         (return trainData) nnMnistLoss 0.02 23.025850929940457
   , let glyph = V.unfoldrExactN sizeMnistGlyph (uniformR (0, 1))
         label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
         trainData = map ((\g -> (glyph g, label g)) . mkStdGen) [1 .. 100]
     in sgdTestCase "random 100"
-         (return trainData) nnMnistLoss 0.02 12.871539859686754
+         (return trainData) nnMnistLoss 0.02 12.871539859686832
   , sgdTestCase "first 100 trainset samples only"
       (take 100 <$> loadMnistData trainGlyphsPath trainLabelsPath)
-      nnMnistLoss 0.02 4.761561312781972
+      nnMnistLoss 0.02 4.7615613127819705
   , testCase "testMnist on 0.1 params 250 width 10k testset" $ do
       let nParams = lenMnist 250
           params = V.replicate nParams 0.1
@@ -1134,9 +1134,9 @@ smallMnistTests = testGroup "MNIST tests with a 1-hidden-layer nn"
   , mnistTestCase "1 epoch, all batches" 1 99 nnMnistLoss 250 0.02
                   5.469999999999997e-2
   , mnistTestCase "artificial 1 2 3 4" 1 2 nnMnistLoss 3 4
-                  0.897
+                  0.8972
   , mnistTestCase "artificial 4 3 2 1" 4 3 nnMnistLoss 2 1
-                  0.6563
+                  0.7306
   ]
 
 bigMnistTests :: TestTree
@@ -1153,5 +1153,5 @@ bigMnistTests = testGroup "MNIST tests with a 2-hidden-layer nn"
   , mnistTestCase2 "artificial 1 2 3 4 5" 1 2 nnMnistLoss2 3 4 5
                    0.8972
   , mnistTestCase2 "artificial 5 4 3 2 1" 5 4 nnMnistLoss2 3 2 1
-                   0.7686
+                   0.7132000000000001
   ]

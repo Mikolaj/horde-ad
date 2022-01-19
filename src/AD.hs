@@ -352,8 +352,11 @@ instance Real r => Real (DualDelta r) where
 
 instance Fractional r => Fractional (DualDelta r) where
   D u u' / D v v' =
-    D (u / v) (Scale (recip $ v * v) (Add (Scale v u') (Scale (- u) v')))
-  recip = undefined  -- TODO
+    let recipSq = recip (v * v)
+    in D (u / v) (Add (Scale (v * recipSq) u') (Scale (- u * recipSq) v'))
+  recip (D v v') =
+    let minusRecipSq = - recip (v * v)
+    in D (recip v) (Scale minusRecipSq v')
   fromRational = scalar . fromRational
 
 -- Should be denoted by @/\@, but it would be misleading.
@@ -472,7 +475,8 @@ softMaxAct us = do
   let expUs = V.map exp us
   -- This has to be let-bound, because it's used many times below.
   sumExpUs <- sumDual expUs
-  V.mapM (`divideDual` sumExpUs) expUs
+  let recipSum = recip sumExpUs
+  V.mapM (*\ recipSum) expUs
 
 -- | Compute the output of a neuron, without applying activation function,
 -- from trainable inputs in @xs@ and parameters (the bias and weights)
