@@ -555,10 +555,11 @@ lossCrossEntropy targ res = do
 
 
 
-
-
--- recursion and recursive types
--- selective fusion of delta (for individual subfunctions: pre-computing,
---   inlining results and simplifying delta-expressions; the usual inlining
---   considerations apply)
+-- selective fusion (hand-writing gradients of larger expressions,
+-- sometimes, as in the case of the composition of cross-entropy and softMax,
+-- enabling simplification and always saving the time and space needed
+-- to auto-derive that; so it seems it should never hurt;
+-- however, sometimes the best handwritten gradient is exactly as large
+-- and as complex as the derived one)
+--
 -- checkpointing (limiting space usage?)
