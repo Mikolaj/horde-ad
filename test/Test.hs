@@ -228,7 +228,8 @@ gdSimpleTests = testGroup "Simple gradient descent tests"
       @?= ([3.5e-44,3.5e-44],4.9999523)
   ]
 
--- This, and other XOR nn operations, are unfused, which is fine,
+-- This, and other XOR nn operations, have unfused Delta let-bindings
+-- (one binding per each subexpression, even when not needed), which is fine,
 -- just not enough for comprehensive benchmarks.
 scaleAddWithBias :: DeltaMonad Float m
                  => DualDeltaF -> DualDeltaF -> Int -> VecDualDeltaF
@@ -311,7 +312,8 @@ xorTests = testGroup "XOR neural net tests"
       @?= ([-1.3572536,2.3245132,-0.14548694,-1.3912132,2.2069085,-0.2630923,-1.4252249,2.2264564,-0.22221938],1.0)
   ]
 
--- This, and other Fit and Fit2 nn operations, are unfused, which is fine,
+-- This, and other Fit and Fit2 nn operations, have unfused Delta let-bindings
+-- (one binding per each subexpression, even when not needed), which is fine,
 -- just not enough for comprehensive benchmarks.
 hiddenLayerFit :: forall m. DeltaMonad Double m
                => (DualDeltaD -> m DualDeltaD)

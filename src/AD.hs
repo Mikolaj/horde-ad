@@ -411,8 +411,9 @@ instance RealFloat r => RealFloat (DualDelta r) where
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a continuous codomain
 
--- Most of the operations below are selectively fused.
--- In principle, they should be coded in a way that guarantees that
+-- Most of the operations below are selectively have Delta
+-- let-bindings --- close to only as many as really needed.
+-- The number of let-bindings is enough to guarantee that
 -- no exponential explosion can happen regardless of context
 -- in which they are used, if only all their arguments are let-bound.
 
