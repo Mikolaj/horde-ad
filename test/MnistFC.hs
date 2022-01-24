@@ -14,15 +14,43 @@ import           Text.Printf
 import AD
 import MnistTools
 
-type DualDeltaD = DualDelta Double
-
-type VecDualDeltaD = VecDualDelta Double
-
 testTrees :: [TestTree]
 testTrees = [ dumbMnistTests
             , smallMnistTests
             , bigMnistTests
             ]
+
+sgdShow :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+        => r
+        -> (a -> VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
+        -> [a]  -- ^ training data
+        -> Domain r  -- ^ initial parameters
+        -> ([r], r)
+sgdShow gamma f trainData params0 =
+  let res = sgd gamma f trainData params0
+      (_, value) = df (f $ head trainData) res
+  in (V.toList res, value)
+
+sgdTestCase
+  :: String
+  -> IO [a]
+  -> (Int
+      -> a
+      -> VecDualDelta Double
+      -> DeltaMonadGradient Double (DualDelta Double))
+  -> Double
+  -> Double
+  -> TestTree
+sgdTestCase prefix trainDataIO trainWithLoss gamma expected =
+  let widthHidden = 250
+      nParams = lenMnist widthHidden
+      vec = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
+      name = prefix ++ " "
+             ++ unwords [show widthHidden, show nParams, show gamma]
+  in testCase name $ do
+       trainData <- trainDataIO
+       snd (sgdShow gamma (trainWithLoss widthHidden) trainData vec)
+          @?= expected
 
 mnistTestCase
   :: String
@@ -30,8 +58,8 @@ mnistTestCase
   -> Int
   -> (Int
       -> MnistData Double
-      -> VecDualDeltaD
-      -> DeltaMonadGradient Double DualDeltaD)
+      -> VecDualDelta Double
+      -> DeltaMonadGradient Double (DualDelta Double))
   -> Int
   -> Double
   -> Double
@@ -82,8 +110,8 @@ mnistTestCase2
   -> (Int
       -> Int
       -> MnistData Double
-      -> VecDualDeltaD
-      -> DeltaMonadGradient Double DualDeltaD)
+      -> VecDualDelta Double
+      -> DeltaMonadGradient Double (DualDelta Double))
   -> Int
   -> Int
   -> Double
@@ -138,8 +166,8 @@ chunksOf n = go where
 nnMnistLossTanh :: DeltaMonad Double m
                 => Int
                 -> MnistData Double
-                -> VecDualDeltaD
-                -> m DualDeltaD
+                -> VecDualDelta Double
+                -> m (DualDelta Double)
 nnMnistLossTanh widthHidden (xs, targ) vec = do
   res <- nnMnist tanhAct softMaxAct widthHidden xs vec
   lossCrossEntropy targ res
@@ -147,43 +175,11 @@ nnMnistLossTanh widthHidden (xs, targ) vec = do
 nnMnistLossRelu :: DeltaMonad Double m
                 => Int
                 -> MnistData Double
-                -> VecDualDeltaD
-                -> m DualDeltaD
+                -> VecDualDelta Double
+                -> m (DualDelta Double)
 nnMnistLossRelu widthHidden (xs, targ) vec = do
   res <- nnMnist reluAct softMaxAct widthHidden xs vec
   lossCrossEntropy targ res
-
-sgdShow :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
-        => r
-        -> (a -> VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
-        -> [a]  -- ^ training data
-        -> Domain r  -- ^ initial parameters
-        -> ([r], r)
-sgdShow gamma f trainData params0 =
-  let res = sgd gamma f trainData params0
-      (_, value) = df (f $ head trainData) res
-  in (V.toList res, value)
-
-sgdTestCase
-  :: String
-  -> IO [a]
-  -> (Int
-      -> a
-      -> VecDualDeltaD
-      -> DeltaMonadGradient Double DualDeltaD)
-  -> Double
-  -> Double
-  -> TestTree
-sgdTestCase prefix trainDataIO trainWithLoss gamma expected =
-  let widthHidden = 250
-      nParams = lenMnist widthHidden
-      vec = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
-      name = prefix ++ " "
-             ++ unwords [show widthHidden, show nParams, show gamma]
-  in testCase name $ do
-       trainData <- trainDataIO
-       snd (sgdShow gamma (trainWithLoss widthHidden) trainData vec)
-          @?= expected
 
 dumbMnistTests :: TestTree
 dumbMnistTests = testGroup "Dumb MNIST tests"
