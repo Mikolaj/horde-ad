@@ -464,6 +464,12 @@ reluAct :: (DeltaMonad r m, Num r, Ord r) => DualDelta r -> m (DualDelta r)
 reluAct (D u u') =
   returnLet $ D (max 0 u) (Scale (if u > 0 then 1 else 0) u')
 
+reluLeakyAct :: (DeltaMonad r m, Fractional r, Ord r)
+             => DualDelta r -> m (DualDelta r)
+reluLeakyAct (D u u') =
+  returnLet $ D (if u > 0 then u else 0.01 * u)
+                (Scale (if u > 0 then 1 else 0.01) u')
+
 logisticAct :: (DeltaMonad r m, Floating r) => DualDelta r -> m (DualDelta r)
 logisticAct (D u u') = do
   let y = recip (1 + exp (- u))

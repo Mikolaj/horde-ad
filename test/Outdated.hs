@@ -617,6 +617,73 @@ smartFit3TestsL =
       (0.6440964543158452,3.125e-3)
   ]
 
+{-
+nnFit3LossTotalOutput :: forall m. DeltaMonad Double m
+                      => (DualDeltaD -> m DualDeltaD)
+                      -> (DualDeltaD -> m DualDeltaD)
+                      -> (DualDeltaD -> m DualDeltaD)
+                      -> Data.Vector.Unboxed.Vector (Double, Double)
+                      -> VecDualDeltaD
+                      -> m DualDeltaD
+nnFit3LossTotalOutput f1 f2 f3 samples vec =
+  nnFit3LossTotal f2 f3 f1 samples vec
+
+-- The same tests, but with logisticAct for the output layer instead of tanhAct.
+-- Somewhat better results than with tanhAct, but not worth recording.
+-- OTOH, with reluAct (understandable, it rules out any negative values)
+-- and with reluLeakyAct (gradient explosion for positive values?)
+-- the results are disastrous. Also they are disastrous with either relu
+-- in any other position (no idea why, there is one more layer to recover
+-- anything that's lost; perhaps the sums overflow due to no normalization?)
+-- and mediocre with logisticAct in other positions.
+smartFit3TestsL3 :: TestTree
+smartFit3TestsL3 =
+ testGroup "logisticAct3: Smart descent sample fitting 2 hidden layer really fully connected nn tests"
+  [ gradSmartWsTestCase
+      (nnFit3LossTotalOutput logisticAct) 42 8 (lenP3 4) 10000
+      (3.5604072240265575e-3,2.5e-2)
+  , gradSmartWsTestCase
+      (nnFit3LossTotalOutput logisticAct) 42 10 (lenP3 4) 400000
+      (0.10126792765437645,3.125e-3)
+  , gradSmartWsTestCase
+      (nnFit3LossTotalOutput logisticAct) 42 16 (lenP3 6) 700000
+      (0.19318876323310907,1.5625e-3)
+  , gradSmartSeparatedTestCase
+      (nnFit3LossTotalOutput logisticAct) 42 8 (lenP3 4) 10000
+      (6.291648505851797e-3,6.25e-3)
+  , gradSmartSeparatedTestCase
+      (nnFit3LossTotalOutput logisticAct) 42 10 (lenP3 4) 100000
+      (4.34890234424764e-7,6.25e-3)
+  , gradSmartSeparatedTestCase
+      (nnFit3LossTotalOutput logisticAct) 42 16 (lenP3 6) 100000
+      (0.3434691592146121,1.5625e-3)
+  , gradSmartSeparatedTestCase
+      (nnFit3LossTotalOutput logisticAct) 42 24 (lenP3 6) 1300000
+      (1.665065359469462,9.765625e-5)
+  , gradSmartWsTestCase
+      (nnFit3LossTotalOutput logisticAct) 42 8 (lenP3 6) 10000
+      (2.1767148242940303e-3,1.25e-2)
+  , gradSmartWsTestCase
+      (nnFit3LossTotalOutput logisticAct) 42 10 (lenP3 6) 400000
+      (1.3871923964300112e-4,6.25e-3)
+  , gradSmartWsTestCase
+      (nnFit3LossTotalOutput logisticAct) 42 16 (lenP3 12) 700000
+      (2.131955325962636e-5,7.8125e-4)
+  , gradSmartSeparatedTestCase
+      (nnFit3LossTotalOutput logisticAct) 42 8 (lenP3 6) 10000
+      (2.0369556559640215e-4,5.0e-2)
+  , gradSmartSeparatedTestCase
+      (nnFit3LossTotalOutput logisticAct) 42 10 (lenP3 6) 100000
+      (4.0282344474667426e-16,6.25e-3)
+  , gradSmartSeparatedTestCase
+      (nnFit3LossTotalOutput logisticAct) 42 16 (lenP3 12) 100000
+      (1.5819824634756573e-5,3.125e-3)
+  , gradSmartSeparatedTestCase
+      (nnFit3LossTotalOutput logisticAct) 42 24 (lenP3 12) 1300000
+      (1.1354796858869852e-6,1.5625e-3)
+  ]
+-}
+
 sgdShow :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
         => r
         -> (a -> VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
