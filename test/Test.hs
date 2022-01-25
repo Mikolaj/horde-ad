@@ -4,6 +4,7 @@ import Prelude
 
 import Test.Tasty
 
+import qualified ConditionalSynth
 import qualified MnistFC
 import qualified Outdated
 import qualified SimpleDescent
@@ -17,4 +18,5 @@ tests = testGroup "Tests" $
   SingleGradient.testTrees
   ++ SimpleDescent.testTrees
   ++ Outdated.testTrees
+--  ++ ConditionalSynth.testTrees
   ++ MnistFC.testTrees

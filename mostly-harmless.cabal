@@ -128,7 +128,8 @@ test-suite mostly-harmless-test
     import:           options, exe-options
 
     -- Modules included in this executable, other than Main.
-    other-modules:    MnistFC
+    other-modules:    ConditionalSynth
+                      MnistFC
                       Outdated
                       SimpleDescent
                       SingleGradient
