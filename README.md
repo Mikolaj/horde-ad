@@ -3,7 +3,7 @@ Higher Order Reverse Derivatives Efficiently - Automatic Differentiation library
 
 This is very much WIP, both engine and API. For now it can do MNIST digit recognition via fully connected neural networks, but it can also handle exotic variants of such networks that wouldn't express well in a language of matrices and their operations (which we don't have). It can also do all kinds of wild Haskell toy examples but the API is not toy-friendly ATM, see a sample below.
 
-Mature Haskell libraries with similar and greater capabilities, but varying efficiency, are https://hackage.haskell.org/package/ad and https://hackage.haskell.org/package/backprop. We owe them; see https://github.com/Mikolaj/horde-ad/blob/master/CREDITS.
+Mature Haskell libraries with similar and greater capabilities, but varying efficiency, are https://hackage.haskell.org/package/ad and https://hackage.haskell.org/package/backprop. We owe them; see https://github.com/Mikolaj/horde-ad/blob/master/CREDITS.md.
 
 Here is an example, with WIP noise visible in notation and comments, of computing the gradient of a function that goes from `R^3` to `R^2`
 
