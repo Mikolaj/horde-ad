@@ -76,11 +76,11 @@ gradSmartTestCase prefix lossFunction seedSamples
        @?= expected
 
 a :: Int
-a = 2
+a = 1
 
 lenSynth :: Int -> Int -> Int
 lenSynth width nSamples = width * (nSamples * 2 + 1)
-                          + a * nSamples * 2 * (width + 1)
+                          + a * nSamples * 4 * (width + 1)
 
 synthValue :: forall m. DeltaMonad Double m
            => (DualDelta Double -> m (DualDelta Double))
@@ -136,7 +136,7 @@ synthLossBareTotal factivation factivationHidden factivationMiddle
       sampleData = V.convert inputs <> V.convert outputs
   hiddenVec <- hiddenLayerMnist factivationHidden sampleData vec width
   ys <- middleLayerMnist factivationMiddle hiddenVec
-                         (width * (nSamples * 2 + 1)) vec (a * nSamples * 2)
+                         (width * (nSamples * 2 + 1)) vec (a * nSamples * 4)
   synthLossAll factivation samples ys
 
 conditionalSynthTests:: TestTree
