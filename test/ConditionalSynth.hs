@@ -37,9 +37,6 @@ integerPairSamples range seed k =
   in V.zip (V.fromListN k $ map fromIntegral inputs)
            (V.fromListN k $ map fromIntegral $ rolls g2)
 
-tanhAct1000 :: (DeltaMonad r m, Floating r) => DualDelta r -> m (DualDelta r)
-tanhAct1000 u = returnLet $ scale 1000 $ tanh (scale (recip 1000) u)
-
 gdSmartShow :: (VecDualDelta Double
                 -> DeltaMonadGradient Double (DualDelta Double))
             -> Domain Double
@@ -71,7 +68,7 @@ gradSmartTestCase prefix lossFunction seedSamples
                         , show nParams, show nIterations ]
   in testCase name $
        snd (gdSmartShow
-              (lossFunction reluAct tanhAct1000 tanhAct1000 samples width)
+              (lossFunction reluAct tanhAct tanhAct samples width)
               vec nIterations)
        @?= expected
 
@@ -82,6 +79,8 @@ lenSynth :: Int -> Int -> Int
 lenSynth width nSamples = width * (nSamples * 2 + 1)
                           + a * nSamples * 4 * (width + 1)
 
+-- To reproduce the samples, divide argument and multiply result;
+-- see @synthLossSquared@.
 synthValue :: forall m. DeltaMonad Double m
            => (DualDelta Double -> m (DualDelta Double))
            -> Double
@@ -106,8 +105,8 @@ synthLossSquared :: DeltaMonad Double m
                  -> Double
                  -> m (DualDelta Double)
 synthLossSquared factivation x ys targ = do
-  res <- synthValue factivation x ys
-  lossSquared targ res
+  res <- synthValue factivation (x / 1000) ys
+  lossSquared (targ / 10000) res  -- smaller target to overcome @tanh@ clamping
 
 synthLossAll
   :: forall m. DeltaMonad Double m
