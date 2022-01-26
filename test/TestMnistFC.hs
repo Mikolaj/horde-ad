@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
-module MnistFC (testTrees) where
+module TestMnistFC (testTrees) where
 
 import Prelude
 
@@ -11,8 +11,8 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 import           Text.Printf
 
-import AD
-import MnistTools
+import HordeAd.Engine
+import HordeAd.MnistTools
 
 testTrees :: [TestTree]
 testTrees = [ dumbMnistTests

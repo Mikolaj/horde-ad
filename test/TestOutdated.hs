@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
-module Outdated (testTrees) where
+module TestOutdated (testTrees) where
 
 import Prelude
 
@@ -11,8 +11,8 @@ import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
-import AD
-import MnistTools
+import HordeAd.Engine
+import HordeAd.MnistTools
 
 type DualDeltaD = DualDelta Double
 

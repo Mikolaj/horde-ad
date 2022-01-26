@@ -5,8 +5,9 @@ import Prelude
 import Criterion.Main
 import System.Random
 
-import MnistMostlyHarmlessTools
-import MnistTools
+import HordeAd.MnistTools
+
+import BenchMnistTools
 
 main :: IO ()
 main = do

@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, FunctionalDependencies,
              GeneralizedNewtypeDeriving, RankNTypes, StandaloneDeriving #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists -Wno-missing-methods #-}
-module AD where
+module HordeAd.Engine where
 
 import Prelude
 

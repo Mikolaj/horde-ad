@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
-module SingleGradient (testTrees) where
+module TestSingleGradient (testTrees) where
 
 import Prelude
 
@@ -9,7 +9,7 @@ import qualified Data.Vector.Unboxed
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
-import AD
+import HordeAd.Engine
 
 type DualDeltaF = DualDelta Float
 

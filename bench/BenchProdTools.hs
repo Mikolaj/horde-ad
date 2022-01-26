@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
-module ProdMostlyHarmlessTools where
+module BenchProdTools where
 
 import Prelude
 
@@ -7,7 +7,7 @@ import           Criterion.Main
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Unboxed
 
-import AD
+import HordeAd.Engine
 
 bgroup100, bgroup200, bgroup1000, bgroup1e4, bgroup1e5, bgroup1e6, bgroup1e7, bgroup5e7 :: [Double] -> Benchmark
 

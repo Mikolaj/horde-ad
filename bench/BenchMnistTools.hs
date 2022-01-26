@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
-module MnistMostlyHarmlessTools where
+module BenchMnistTools where
 
 import Prelude
 
@@ -9,8 +9,8 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Unboxed
 import           System.Random
 
-import AD
-import MnistTools
+import HordeAd.Engine
+import HordeAd.MnistTools
 
 mnistTrainBench :: ( Show r, Eq r, Floating r, UniformRange r
                    , Data.Vector.Unboxed.Unbox r )

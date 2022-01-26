@@ -6,7 +6,7 @@ import Control.DeepSeq
 import Criterion.Main
 import System.Random
 
-import ProdMostlyHarmlessTools
+import BenchProdTools
 
 allxs :: [Double]
 allxs = let xs = map (+ 0.55) $ randoms (mkStdGen 42)

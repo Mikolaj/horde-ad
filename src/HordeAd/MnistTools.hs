@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses,
              RankNTypes #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
-module MnistTools where
+module HordeAd.MnistTools where
 
 import Prelude
 
@@ -18,7 +18,7 @@ import           GHC.Exts (inline)
 import           System.IO (IOMode (ReadMode), withBinaryFile)
 import           System.Random
 
-import AD
+import HordeAd.Engine
 
 -- * General tools
 
