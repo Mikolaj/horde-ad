@@ -17,6 +17,8 @@ import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Unboxed
 import qualified Data.Vector.Unboxed.Mutable
 
+-- import Debug.Trace
+
 -- Tagless final doesn't seem to work well, because we need to gather
 -- @Delta@ while doing @DualDelta@ operations, but evaluate on concrete
 -- vectors that correspond to only the second component of dual numbers.
@@ -281,7 +283,11 @@ sgd gamma f trainingData params0 = go trainingData params0 where
 -- | Relatively Smart Gradient Descent.
 -- Based on @gradientDescent@ from package @ad@ which is in turn based
 -- on the one from the VLAD compiler.
-gdSmart :: forall r. (Ord r, Fractional r, Data.Vector.Unboxed.Unbox r)
+gdSmart :: forall r.
+             (
+--               Show r,
+               Ord r, Fractional r, Data.Vector.Unboxed.Unbox r
+             )
         => (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
         -> Int  -- ^ requested number of iterations
         -> Domain r  -- ^ initial parameters
@@ -296,6 +302,10 @@ gdSmart f n0 params0 = go n0 params0 0.1 gradient0 value0 0 where
   go 0 !params !gamma _gradientPrev _valuePrev !_i = (params, gamma)
   go _ params 0 _ _ _ = (params, 0)
   go n params gamma gradientPrev valuePrev i =
+--    traceShow (n, gamma, valuePrev, i) $
+--    traceShow ("params" :: String, params) $
+--    traceShow ("gradient" :: String, gradientPrev) $
+    --
     -- The trick is that we use the previous gradient here,
     -- and the new gradient is only computed by accident together
     -- with the new value that is needed now to revert if we overshoot.
@@ -304,6 +314,7 @@ gdSmart f n0 params0 = go n0 params0 0.1 gradient0 value0 0 where
         (gradient, value) = generalDf (const initVars) evalBindingsV f paramsNew
     in if | V.all (== 0) gradientPrev -> (params, gamma)
           | value > valuePrev ->
+--              traceShow ("value > valuePrev" :: String, value, valuePrev) $
               go n params (gamma / 2) gradientPrev valuePrev 0  -- overshot
           | i == 10 -> go (pred n) paramsNew (gamma * 2) gradient value 0
           | otherwise -> go (pred n) paramsNew gamma gradient value (i + 1)
