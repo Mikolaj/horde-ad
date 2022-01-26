@@ -179,6 +179,7 @@ jobs:
           $CABAL v2-build $ARG_COMPILER $ARG_TESTS $ARG_BENCH all --write-ghc-environment-files=always
       - name: tests
         run: |
+          ln -s $GITHUB_WORKSPACE/source/samplesData ${PKGDIR_horde_ad}
           $CABAL v2-test $ARG_COMPILER $ARG_TESTS $ARG_BENCH shortTestForCI --test-show-details=direct
       - name: cabal check
         run: |
