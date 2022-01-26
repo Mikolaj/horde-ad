@@ -5,7 +5,7 @@ This is very much WIP, both engine and API. For now it can do MNIST digit recogn
 
 Mature Haskell libraries with similar and greater capabilities, but varying efficiency, are https://hackage.haskell.org/package/ad and https://hackage.haskell.org/package/backprop. We owe them; see https://github.com/Mikolaj/horde-ad/blob/master/CREDITS.md.
 
-Here is an example, with WIP noise visible in notation and comments, of computing the gradient of a function that goes from `R^3` to `R^2`
+Here is an example of computing the gradient of a function that goes from `R^3` to `R^2`
 
 ```Haskell
 f (x, y, z) =
@@ -15,4 +15,4 @@ f (x, y, z) =
 
 https://github.com/Mikolaj/horde-ad/blob/bdcc42fadca3b29a1c5ab302c4ada8d3e2fb7ec4/test/TestSingleGradient.hs#L95-L148
 
-The ratio of signal to noise raises once you settle on a scalar type, define a toolbox of functions for the task at hand and start composing the functions.
+The WIP noise is visible in notation and in comments. The ratio of signal to noise raises once you settle on a scalar type, define a toolbox of functions for the task at hand and start composing the functions.
