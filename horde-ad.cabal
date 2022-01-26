@@ -154,6 +154,33 @@ test-suite test
       , tasty-hunit
       , vector
 
+test-suite shortTestForCI
+    -- Import common warning flags.
+    import:           options, exe-options
+
+    -- Modules included in this executable, other than Main.
+    other-modules:    TestMnistFC
+                      TestSimpleDescent
+                      TestSingleGradient
+
+    -- The interface type and version of the test suite.
+    type:             exitcode-stdio-1.0
+
+    -- Directories containing source files.
+    hs-source-dirs:   test
+
+    -- The entrypoint to the test suite.
+    main-is:          ShortTestForCI.hs
+
+    -- Test dependencies.
+    build-depends:
+        base
+      , horde-ad
+      , random
+      , tasty >= 1.0
+      , tasty-hunit
+      , vector
+
 benchmark prod
     import:           options, exe-options
     type:             exitcode-stdio-1.0

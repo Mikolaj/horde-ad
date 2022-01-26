@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
-module TestMnistFC (testTrees) where
+module TestMnistFC (testTrees, shortTestForCITrees) where
 
 import Prelude
 
@@ -19,6 +19,11 @@ testTrees = [ dumbMnistTests
             , smallMnistTests
             , bigMnistTests
             ]
+
+shortTestForCITrees :: [TestTree]
+shortTestForCITrees = [ dumbMnistTests
+                      , shortCIMnistTests
+                      ]
 
 sgdShow :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
         => r
@@ -257,6 +262,20 @@ bigMnistTests = testGroup "MNIST tests with a 2-hidden-layer nn"
   , mnistTestCase2 "1 epoch, all batches" 1 99 nnMnistLoss2 300 100 0.02
                    5.5300000000000016e-2
                      -- doh, worse than 1-hidden-layer, but twice slower
+  , mnistTestCase2 "artificial 1 2 3 4 5" 1 2 nnMnistLoss2 3 4 5
+                   0.8972
+  , mnistTestCase2 "artificial 5 4 3 2 1" 5 4 nnMnistLoss2 3 2 1
+                   0.7132000000000001
+  ]
+
+shortCIMnistTests :: TestTree
+shortCIMnistTests = testGroup "Short CI MNIST tests"
+  [ mnistTestCase "artificial 1 2 3 4" 1 2 nnMnistLoss 3 4
+                  0.8972
+  , mnistTestCase "artificial 4 3 2 1" 4 3 nnMnistLoss 2 1
+                  0.7306
+  , mnistTestCase2 "1 epoch, 1 batch" 1 1 nnMnistLoss2 300 100 0.02
+                   0.1452
   , mnistTestCase2 "artificial 1 2 3 4 5" 1 2 nnMnistLoss2 3 4 5
                    0.8972
   , mnistTestCase2 "artificial 5 4 3 2 1" 5 4 nnMnistLoss2 3 2 1
