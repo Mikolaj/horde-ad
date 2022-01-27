@@ -60,12 +60,12 @@ instance DeltaMonad r (DeltaMonadGradient r) where
   -- except for @Add@, is faster. Probably @Zero@ and @Var@ appear too rarely
   -- to matter if @Scale@ turns out to require bindings.
   returnLet (D u u') = DeltaMonadGradient $ do
-    i <- gets deltaCounter
+    DeltaId i <- gets deltaCounter
     modify $ \s ->
-      s { deltaCounter = succ i
+      s { deltaCounter = DeltaId $ succ i
         , deltaBindings = u' : deltaBindings s
         }
-    return $! D u (Var i)
+    return $! D u (Var $ DeltaId i)
 
 -- Takes a lot of functions as arguments, hence the inline,
 -- but the functions in which it inlines and which are used in client code

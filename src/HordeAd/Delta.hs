@@ -31,7 +31,7 @@ data Delta r =
   deriving (Show, Eq, Ord)
 
 newtype DeltaId = DeltaId Int
-  deriving (Show, Eq, Ord, Enum)
+  deriving (Show, Eq, Ord)
 
 -- This can't be environment in a Reader, because subtrees add their own
 -- identifiers for sharing, instead of parents naming their subtrees.
@@ -60,11 +60,11 @@ buildVector dim st d0 = do
         Var (DeltaId i) -> VM.modify store (+ r) i
   eval 1 d0  -- dt is 1 or hardwired in f
   let evalUnlessZero :: DeltaId -> Delta r -> ST s DeltaId
-      evalUnlessZero delta@(DeltaId !i) d = do
+      evalUnlessZero (DeltaId !i) d = do
         r <- store `VM.read` i
         when (r /= 0) $  -- we init with exactly 0 above so the comparison is OK
           eval r d
-        return $! pred delta
+        return $! DeltaId (pred i)
   minusOne <- foldM evalUnlessZero (DeltaId $ pred storeSize) (deltaBindings st)
   let _A = assert (minusOne == DeltaId (-1)) ()
   return $! VM.slice 0 dim store
