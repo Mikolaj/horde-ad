@@ -1,4 +1,11 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+-- | The second component of dual numbers, @Delta@, with it's evaluation
+-- function.
+--
+-- The algebraic structure here is, more or less, a vector space.
+-- The extra ingenious variable constructor is used both for avoiding
+-- exponential blowup and replacing the one-hot functionality with
+-- something much cheaper.
 module HordeAd.Delta
   ( Delta (..)
   , DeltaId (..)

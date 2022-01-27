@@ -1,6 +1,9 @@
 {-# LANGUAGE FlexibleInstances, GeneralizedNewtypeDeriving,
              MultiParamTypeClasses #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists -Wno-orphans #-}
+-- | Two implementations of the monad in which our dual numbers live,
+-- an implementation of deriving a gradient and several gradient descent
+-- schemes.
 module HordeAd.Engine where
 
 import Prelude

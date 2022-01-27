@@ -1,4 +1,6 @@
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
+-- | Specialized tools for processing MNIST data and building fully connected
+-- neural networks that can classify MNIST digits.
 module HordeAd.MnistTools where
 
 import Prelude

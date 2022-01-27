@@ -1,3 +1,8 @@
+-- | The "pair of vectors" implementation of vectors of dual numbers.
+-- This is much faster than "vector of pairs" implementation, but terribly
+-- hard to use, in particular to efficiently construct such pairs
+-- of vectors using monadic operations in @ST@ (a bit easier in @IO@,
+-- but so far we've managed to avoid it).
 module HordeAd.PairOfVectors
   ( VecDualDelta
   , var, vars

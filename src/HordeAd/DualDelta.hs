@@ -1,5 +1,7 @@
 {-# LANGUAGE FunctionalDependencies, StandaloneDeriving #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists -Wno-missing-methods #-}
+-- | Dual numbers and operations on them, which are extensions of normal
+-- arithmetic and other operations to also cover gradients.
 module HordeAd.DualDelta where
 
 import Prelude

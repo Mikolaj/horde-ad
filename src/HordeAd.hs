@@ -1,3 +1,7 @@
+-- | An API of the library that should be sufficient for general use.
+-- To (ab)use implementation details or to access ready tools for specific
+-- applications, such as fully connect neural networks operating on MNIST
+-- data, some extra imports may be needed not covered here.
 module HordeAd
   ( module HordeAd.DualDelta
   , module HordeAd.Engine
