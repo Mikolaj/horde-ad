@@ -9,7 +9,7 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Unboxed
 import           System.Random
 
-import HordeAd.Engine
+import HordeAd
 import HordeAd.MnistTools
 
 mnistTrainBench :: ( Show r, Eq r, Floating r, UniformRange r

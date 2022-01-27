@@ -11,7 +11,7 @@ import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
-import HordeAd.Engine
+import HordeAd
 import HordeAd.MnistTools
 
 testTrees :: [TestTree]

@@ -7,7 +7,7 @@ import           Criterion.Main
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Unboxed
 
-import HordeAd.Engine
+import HordeAd
 
 bgroup100, bgroup200, bgroup1000, bgroup1e4, bgroup1e5, bgroup1e6, bgroup1e7, bgroup5e7 :: [Double] -> Benchmark
 

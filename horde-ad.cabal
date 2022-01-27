@@ -105,8 +105,11 @@ library
 
     -- Modules exported by the library.
     exposed-modules:  HordeAd
+                      HordeAd.Delta
+                      HordeAd.DualDelta
                       HordeAd.Engine
                       HordeAd.MnistTools
+                      HordeAd.PairOfVectors
 
     -- Modules included in this library but not exported.
     -- other-modules:

@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses,
-             RankNTypes #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 module HordeAd.MnistTools where
 
@@ -18,9 +16,56 @@ import           GHC.Exts (inline)
 import           System.IO (IOMode (ReadMode), withBinaryFile)
 import           System.Random
 
+import HordeAd.DualDelta
 import HordeAd.Engine
+import HordeAd.PairOfVectors (VecDualDelta, var)
 
 -- * General tools
+
+-- | Compute the output of a neuron, without applying activation function,
+-- from trainable inputs in @xs@ and parameters (the bias and weights)
+-- at @vec@ starting at @offset@. Useful for neurons in the middle
+-- of the network, receiving inputs from other neurons.
+--
+-- Note that functions like that, with Delta in the type signature
+-- (which is really indispensable due to accessing variable parameters
+-- in a special way) make it impossible to implement the function
+-- to be differentiated as fully polymorphic @:: Num r => [r] -> m r@
+-- function and so have no overhead when computing the value
+-- with a dummy monad. Another case is selectively fused operations,
+-- unless we include all of them, even very ad hoc ones,
+-- in a class with implementations both on @D@ and on plain @r@.
+sumTrainableInputs :: forall m r.
+                        (DeltaMonad r m, Num r, Data.Vector.Unboxed.Unbox r)
+                   => Data.Vector.Vector (DualDelta r)
+                   -> Int
+                   -> VecDualDelta r
+                   -> m (DualDelta r)
+sumTrainableInputs xs offset vec = do
+  let bias = var vec offset
+      f :: DualDelta r -> Int -> DualDelta r -> DualDelta r
+      f !acc i u =
+        let v = var vec (offset + 1 + i)
+        in acc + u * v
+  returnLet $ V.ifoldl' f bias xs
+
+-- | Compute the output of a neuron, without applying activation function,
+-- from constant data in @xs@ and parameters (the bias and weights)
+-- at @vec@ starting at @offset@. Useful for neurons at the bottom
+-- of the network, tasked with ingesting the data.
+sumConstantData :: forall m r.
+                     (DeltaMonad r m, Num r, Data.Vector.Unboxed.Unbox r)
+                => Domain r
+                -> Int
+                -> VecDualDelta r
+                -> m (DualDelta r)
+sumConstantData xs offset vec = do
+  let bias = var vec offset
+      f :: DualDelta r -> Int -> r -> DualDelta r
+      f !acc i r =
+        let v = var vec (offset + 1 + i)
+        in acc + scale r v
+  returnLet $ V.ifoldl' f bias xs
 
 sizeMnistGlyph :: Int
 sizeMnistGlyph = 784

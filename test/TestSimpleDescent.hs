@@ -8,7 +8,7 @@ import qualified Data.Vector.Unboxed
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
-import HordeAd.Engine
+import HordeAd
 
 type DualDeltaF = DualDelta Float
 
