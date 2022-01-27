@@ -1,11 +1,13 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 -- | The second component of dual numbers, @Delta@, with it's evaluation
--- function.
+-- function. Neel Krishnaswami calls that "sparse vector expressions",
+-- and indeed the codomain of the evaluation function is a vector,
+-- because the gradient of an @R^n@ to @R@ function is an @R^n@ vector.
 --
 -- The algebraic structure here is, more or less, a vector space.
--- The extra ingenious variable constructor is used both for avoiding
--- exponential blowup and replacing the one-hot functionality with
--- something much cheaper.
+-- The extra ingenious variable constructor is used both to represent
+-- sharing in order to avoid exponential blowup and to replace the one-hot
+-- functionality with something cheaper and more uniform.
 module HordeAd.Delta
   ( Delta (..)
   , DeltaId (..)
