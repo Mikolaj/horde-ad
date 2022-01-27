@@ -181,6 +181,10 @@ jobs:
         run: |
           ln -s $GITHUB_WORKSPACE/source/samplesData ${PKGDIR_horde_ad}
           $CABAL v2-test $ARG_COMPILER $ARG_TESTS $ARG_BENCH shortTestForCI --test-show-details=direct
+      - name: benches
+        run: |
+          $CABAL v2-bench $ARG_COMPILER $ARG_TESTS $ARG_BENCH mnist
+          $CABAL v2-bench $ARG_COMPILER $ARG_TESTS $ARG_BENCH prod
       - name: cabal check
         run: |
           cd ${PKGDIR_horde_ad} || false
