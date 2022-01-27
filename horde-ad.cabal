@@ -211,6 +211,20 @@ benchmark prod
       , random
       , vector
 
+benchmark shortProdForCI
+    import:           options, exe-options
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   bench
+    main-is:          ShortProdForCI.hs
+    other-modules:    BenchProdTools
+    build-depends:
+        base
+      , criterion
+      , deepseq
+      , horde-ad
+      , random
+      , vector
+
 -- The data files for this are not included in the cabal package,
 -- hence 'buildable: False'.
 benchmark mnist
@@ -224,6 +238,27 @@ benchmark mnist
     type:             exitcode-stdio-1.0
     hs-source-dirs:   bench
     main-is:          BenchMnist.hs
+    other-modules:    BenchMnistTools
+    build-depends:
+        base
+      , criterion
+      , horde-ad
+      , random
+      , vector
+
+-- The data files for this are not included in the cabal package,
+-- hence 'buildable: False'.
+benchmark shortMnistForCI
+    import:           options, exe-options
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
+
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   bench
+    main-is:          ShortMnistForCI.hs
     other-modules:    BenchMnistTools
     build-depends:
         base
