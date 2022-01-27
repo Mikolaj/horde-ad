@@ -23,7 +23,7 @@ name:               horde-ad
 version:            0.1.0.0
 
 -- A short (one-line) description of the package.
-synopsis:           Higher Order Reverse Derivatives Efficiently - Automatic Differentiation library
+synopsis:           Higher Order Reverse Derivatives Efficiently - Automatic Differentiation
 
 -- A longer description of the package.
 description:        An Automatic Differentiation library based on the paper "Provably correct, asymptotically efficient, higher-order reverse-mode automatic differentiation" by Faustyna Krawiec, Neel Krishnaswami, Simon Peyton Jones, Tom Ellis, Andrew Fitzgibbon and Richard Eisenberg.
@@ -40,6 +40,8 @@ author:             Mikolaj Konarski
 -- An email address to which users can send suggestions, bug reports, and patches.
 maintainer:         mikolaj.konarski@funktory.com
 
+category:           Machine Learning, Automatic Differentiation
+
 -- A copyright notice.
 -- copyright:
 build-type:         Simple
@@ -50,7 +52,7 @@ extra-doc-files:    CHANGELOG.md
 -- Extra source files to be distributed with the package, such as examples, or a tutorial module.
 -- extra-source-files:
 
-tested-with:        GHC==8.10.7, GHC==9.0.1, GHC==9.2.1
+tested-with:        GHC ==8.10.7 || ==9.0.2 || ==9.2.1
 
 bug-reports:        https://github.com/Mikolaj/horde-ad/issues
 
@@ -64,9 +66,9 @@ flag with_expensive_assertions
   manual:             True
 
 flag release
-  description:        prepare for a release (expose internal functions and types, etc.)
-  default:            True
-  manual:             True
+  description:        remember to set before tagging for a release (to expose internal functions and types, disable tests that depend on not packaged data, etc.)
+  default:            False
+  manual:             False
 
 common options
   default-language:   Haskell2010
@@ -125,9 +127,16 @@ library
     -- Directories containing source files.
     hs-source-dirs:   src
 
+-- The data files for this are not included in the cabal package,
+-- hence 'buildable: False'.
 test-suite test
     -- Import common warning flags.
     import:           options, exe-options
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
 
     -- Modules included in this executable, other than Main.
     other-modules:    TestConditionalSynth
@@ -154,6 +163,40 @@ test-suite test
       , tasty-hunit
       , vector
 
+-- The data files for this are not included in the cabal package,
+-- hence 'buildable: False'.
+test-suite shortTestForCI
+    -- Import common warning flags.
+    import:           options, exe-options
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
+
+    -- Modules included in this executable, other than Main.
+    other-modules:    TestMnistFC
+                      TestSimpleDescent
+                      TestSingleGradient
+
+    -- The interface type and version of the test suite.
+    type:             exitcode-stdio-1.0
+
+    -- Directories containing source files.
+    hs-source-dirs:   test
+
+    -- The entrypoint to the test suite.
+    main-is:          ShortTestForCI.hs
+
+    -- Test dependencies.
+    build-depends:
+        base
+      , horde-ad
+      , random
+      , tasty >= 1.0
+      , tasty-hunit
+      , vector
+
 benchmark prod
     import:           options, exe-options
     type:             exitcode-stdio-1.0
@@ -168,13 +211,54 @@ benchmark prod
       , random
       , vector
 
--- The data files for this and possibly some other benchmarks and tests
--- are not included in the cabal package.
-benchmark mnist
+benchmark shortProdForCI
     import:           options, exe-options
     type:             exitcode-stdio-1.0
     hs-source-dirs:   bench
+    main-is:          ShortProdForCI.hs
+    other-modules:    BenchProdTools
+    build-depends:
+        base
+      , criterion
+      , deepseq
+      , horde-ad
+      , random
+      , vector
+
+-- The data files for this are not included in the cabal package,
+-- hence 'buildable: False'.
+benchmark mnist
+    import:           options, exe-options
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
+
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   bench
     main-is:          BenchMnist.hs
+    other-modules:    BenchMnistTools
+    build-depends:
+        base
+      , criterion
+      , horde-ad
+      , random
+      , vector
+
+-- The data files for this are not included in the cabal package,
+-- hence 'buildable: False'.
+benchmark shortMnistForCI
+    import:           options, exe-options
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
+
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   bench
+    main-is:          ShortMnistForCI.hs
     other-modules:    BenchMnistTools
     build-depends:
         base

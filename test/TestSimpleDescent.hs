@@ -151,8 +151,10 @@ xorTests = testGroup "XOR neural net tests"
       @?= ([-1.9872262,2.576039,0.66793317,-1.7813873,2.2283037,-0.9866766,-2.1694322,2.1973324,2.9272876],2.1781659e-4)
   -- the same, but logisticAct for the first hidden layer instead of tanhAct
   , testCase "0.1 logisticAct ws 5000"
-    $ gdSimpleShow 0.1 (nnXorLossTotal logisticAct) ws 5000
-      @?= ([5.5609226,5.553409,-2.2246428,3.4135451,3.4121408,-5.2069902,6.8810863,-7.41155,-3.086779],2.4756126e-2)
+    $ assertBool "test case 0.1 logisticAct ws 5000 did not produce any of the known good results (one only seen on CI)"
+      $ gdSimpleShow 0.1 (nnXorLossTotal logisticAct) ws 5000
+        `elem` [ ([5.5609226,5.553409,-2.2246428,3.4135451,3.4121408,-5.2069902,6.8810863,-7.41155,-3.086779],2.4756126e-2)
+               , ([5.560923,5.553408,-2.2246423,3.4135454,3.412141,-5.2069907,6.881085,-7.411549,-3.0867786],2.4756145e-2) ]
   , testCase "0.01 logisticAct ws2 50000"
     $ gdSimpleShow 0.01 (nnXorLossTotal logisticAct) ws2 50000
       @?= ([-5.276363,5.5221853,2.641188,-5.2796497,5.2037635,-2.8858855,-7.5792775,7.997162,3.5127592],6.759104e-3)
