@@ -23,7 +23,7 @@ name:               horde-ad
 version:            0.1.0.0
 
 -- A short (one-line) description of the package.
-synopsis:           Higher Order Reverse Derivatives Efficiently - Automatic Differentiation library
+synopsis:           Higher Order Reverse Derivatives Efficiently - Automatic Differentiation
 
 -- A longer description of the package.
 description:        An Automatic Differentiation library based on the paper "Provably correct, asymptotically efficient, higher-order reverse-mode automatic differentiation" by Faustyna Krawiec, Neel Krishnaswami, Simon Peyton Jones, Tom Ellis, Andrew Fitzgibbon and Richard Eisenberg.
@@ -39,6 +39,8 @@ author:             Mikolaj Konarski
 
 -- An email address to which users can send suggestions, bug reports, and patches.
 maintainer:         mikolaj.konarski@funktory.com
+
+category:           Machine Learning, Automatic Differentiation
 
 -- A copyright notice.
 -- copyright:
