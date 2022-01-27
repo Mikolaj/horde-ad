@@ -20,6 +20,7 @@ import Prelude
 import           Control.Exception (assert)
 import           Control.Monad (foldM, when)
 import           Control.Monad.ST.Strict (ST)
+import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Unboxed
@@ -37,6 +38,7 @@ data Delta r =
   | Scale r (Delta r)
   | Add (Delta r) (Delta r)
   | Var DeltaId
+  | Dot (Data.Vector.Unboxed.Vector r) (Data.Vector.Vector (Delta r))
   deriving (Show, Eq, Ord)
 
 newtype DeltaId = DeltaId Int
@@ -67,6 +69,11 @@ buildVector dim st d0 = do
         Scale k d -> eval (k * r) d
         Add d1 d2 -> eval r d1 >> eval r d2
         Var (DeltaId i) -> VM.modify store (+ r) i
+        Dot vr vd -> evalV (V.map (* r) vr) vd
+      evalV :: Data.Vector.Unboxed.Vector r
+            -> Data.Vector.Vector (Delta r)
+            -> ST s ()
+      evalV !vr = undefined
   eval 1 d0  -- dt is 1 or hardwired in f
   let evalUnlessZero :: DeltaId -> Delta r -> ST s DeltaId
       evalUnlessZero (DeltaId !i) d = do
