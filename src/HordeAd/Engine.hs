@@ -142,9 +142,9 @@ buildVector dim st d0 = do
   return $! VM.slice 0 dim store
 
 evalBindingsV :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
-              => VecDualDelta i -> DeltaState r -> Delta r
+              => Int -> DeltaState r -> Delta r
               -> Data.Vector.Unboxed.Vector r
-evalBindingsV ds st d0 = V.create $ buildVector (V.length $ snd ds) st d0
+evalBindingsV dim st d0 = V.create $ buildVector dim st d0
 
 class (Monad m, Functor m, Applicative m) => DeltaMonad r m | m -> r where
   returnLet :: DualDelta r -> m (DualDelta r)
@@ -204,7 +204,7 @@ vars vec = map (var vec) [0 ..]
 -- but the functions in which it inlines and which are used in client code
 -- are not inlined there, so the bloat is limited.
 generalDf :: (domain -> (VecDualDelta r, Int))
-          -> (VecDualDelta r -> DeltaState r -> Delta r -> domain')
+          -> (Int -> DeltaState r -> Delta r -> domain')
           -> (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
           -> domain
           -> (domain', r)
@@ -216,7 +216,7 @@ generalDf initVars evalBindings f deltaInput =
         , deltaBindings = []
         }
       (D value d, st) = runState (runDeltaMonadGradient (f ds)) initialState
-      gradient = evalBindings ds st d
+      gradient = evalBindings (V.length $ snd ds) st d
   in (gradient, value)
 
 type Domain r = Data.Vector.Unboxed.Vector r
