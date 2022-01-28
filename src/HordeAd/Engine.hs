@@ -16,7 +16,7 @@ import           Foreign.Storable (Storable)
 
 import HordeAd.Delta
 import HordeAd.DualDelta (DeltaMonad (..), DualDelta (..))
-import HordeAd.PairOfVectors (VecDualDelta)
+import HordeAd.PairOfVectors (VecDualDelta, lengthDualDelta)
 
 -- import Debug.Trace
 
@@ -40,7 +40,7 @@ valueDual :: Storable r
 valueDual f ds =
   let dim = V.length ds
       vVar = V.replicate dim Zero  -- dummy
-  in runIdentity $ f (ds, vVar)
+  in runIdentity $ f (ds, vVar, V.empty)
 
 -- A common case, but not the only one, see MNIST.
 valueDualDelta :: Storable r
@@ -82,7 +82,8 @@ instance DeltaMonad r (DeltaMonadGradient r) where
 -- Takes a lot of functions as arguments, hence the inline,
 -- but the functions in which it inlines and which are used in client code
 -- are not inlined there, so the bloat is limited.
-generalDf :: (domain -> (VecDualDelta r, Int))
+generalDf :: Storable r
+          => (domain -> (VecDualDelta r, Int))
           -> (Int -> DeltaState r -> Delta r -> domain')
           -> (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
           -> domain
@@ -95,7 +96,7 @@ generalDf initVars evalBindings f deltaInput =
         , deltaBindings = []
         }
       (D value d, st) = runState (runDeltaMonadGradient (f ds)) initialState
-      gradient = evalBindings (V.length $ snd ds) st d
+      gradient = evalBindings (lengthDualDelta ds) st d
   in (gradient, value)
 
 type Domain r = Data.Vector.Storable.Vector r
@@ -110,7 +111,7 @@ df =
   let initVars :: Domain r -> (VecDualDelta r, Int)
       initVars deltaInput =
         let dim = V.length deltaInput
-        in ((deltaInput, V.generate dim (Var . DeltaId)), dim)
+        in ((deltaInput, V.generate dim (Var . DeltaId), V.empty), dim)
   in generalDf initVars evalBindingsV
 
 -- | Simple Gradient Descent.
@@ -131,7 +132,7 @@ gdSimple gamma f n0 params0 = go n0 params0 where
   go 0 !params = params
   go n params =
     let initVars :: (VecDualDelta r, Int)
-        initVars = ((params, vVar), dim)
+        initVars = ((params, vVar, V.empty), dim)
         gradient = fst $ generalDf (const initVars) evalBindingsV f params
         paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
     in go (pred n) paramsNew
@@ -154,7 +155,7 @@ sgd gamma f trainingData params0 = go trainingData params0 where
   go [] !params = params
   go (a : rest) params =
     let initVars :: (VecDualDelta r, Int)
-        initVars = ((params, vVar), dim)
+        initVars = ((params, vVar, V.empty), dim)
         gradient = fst $ generalDf (const initVars) evalBindingsV (f a) params
         paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
     in go rest paramsNew
@@ -175,7 +176,7 @@ gdSmart f n0 params0 = go n0 params0 0.1 gradient0 value0 0 where
   dim = V.length params0
   vVar = V.generate dim (Var . DeltaId)
   initVars0 :: (VecDualDelta r, Int)
-  initVars0 = ((params0, vVar), dim)
+  initVars0 = ((params0, vVar, V.empty), dim)
   (gradient0, value0) = generalDf (const initVars0) evalBindingsV f params0
   go :: Int -> Domain r -> r -> Domain r -> r -> Int -> (Domain' r, r)
   go 0 !params !gamma _gradientPrev _valuePrev !_i = (params, gamma)
@@ -189,7 +190,7 @@ gdSmart f n0 params0 = go n0 params0 0.1 gradient0 value0 0 where
     -- and the new gradient is only computed by accident together
     -- with the new value that is needed now to revert if we overshoot.
     let paramsNew = V.zipWith (\p r -> p - gamma * r) params gradientPrev
-        initVars = ((paramsNew, vVar), dim)
+        initVars = ((paramsNew, vVar, V.empty), dim)
         (gradient, value) = generalDf (const initVars) evalBindingsV f paramsNew
     in if | V.all (== 0) gradientPrev -> (params, gamma)
           | value > valuePrev ->

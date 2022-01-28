@@ -5,7 +5,7 @@
 -- but so far we've managed to avoid it).
 module HordeAd.PairOfVectors
   ( VecDualDelta
-  , var, vars
+  , lengthDualDelta, var, vars, varV
   , ifoldMDelta', foldMDelta', ifoldlDelta', foldlDelta'
   ) where
 
@@ -22,12 +22,23 @@ import HordeAd.DualDelta (DualDelta (..))
 -- The "pair of vectors" type representing a vector of @DualDelta r@
 -- in an efficient way (especially, or only, with gradient descent,
 -- where the vectors are reused in some ways).
-type VecDualDelta r = ( Data.Vector.Storable.Vector r
-                      , Data.Vector.Vector (Delta r) )
+type VecDualDelta r =
+  ( -- The component for scalars, optimized as pair of vectors.
+    Data.Vector.Storable.Vector r
+  , Data.Vector.Vector (Delta r)
+  , -- The component for vectors. This is a normal vector of "pairs".
+    Data.Vector.Vector (DualDelta (Data.Vector.Storable.Vector r))
+  )
+lengthDualDelta :: Storable r
+                => VecDualDelta r -> Int
+lengthDualDelta (vValue, _, _) = V.length vValue
 
 var :: Storable r
     => VecDualDelta r -> Int -> DualDelta r
-var (vValue, vVar) i = D (vValue V.! i) (vVar V.! i)
+var (vValue, vVar, _) i = D (vValue V.! i) (vVar V.! i)
+
+varV :: VecDualDelta r -> Int -> DualDelta (Data.Vector.Storable.Vector r)
+varV (_, _, vVecVars) i = vVecVars V.! i
 
 -- Unsafe, but handy for toy examples.
 vars :: Storable r
@@ -40,7 +51,7 @@ ifoldMDelta' :: forall m a r. (Monad m, Storable r)
              -> VecDualDelta r
              -> m a
 {-# INLINE ifoldMDelta' #-}
-ifoldMDelta' f a (vecR, vecD) = do
+ifoldMDelta' f a (vecR, vecD, _) = do
   let g :: a -> Int -> r -> m a
       g !acc i valX = do
         let !b = D valX (vecD V.! i)
@@ -53,7 +64,7 @@ foldMDelta' :: forall m a r. (Monad m, Storable r)
             -> VecDualDelta r
             -> m a
 {-# INLINE foldMDelta' #-}
-foldMDelta' f a (vecR, vecD) = do
+foldMDelta' f a (vecR, vecD, _) = do
   let g :: a -> Int -> r -> m a
       g !acc i valX = do
         let !b = D valX (vecD V.! i)
@@ -66,7 +77,7 @@ ifoldlDelta' :: forall a r. Storable r
              -> VecDualDelta r
              -> a
 {-# INLINE ifoldlDelta' #-}
-ifoldlDelta' f a (vecR, vecD) = do
+ifoldlDelta' f a (vecR, vecD, _) = do
   let g :: a -> Int -> r -> a
       g !acc i valX =
         let !b = D valX (vecD V.! i)
@@ -79,7 +90,7 @@ foldlDelta' :: forall a r. Storable r
             -> VecDualDelta r
             -> a
 {-# INLINE foldlDelta' #-}
-foldlDelta' f a (vecR, vecD) = do
+foldlDelta' f a (vecR, vecD, _) = do
   let g :: a -> Int -> r -> a
       g !acc i valX =
         let !b = D valX (vecD V.! i)

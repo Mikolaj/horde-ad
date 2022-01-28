@@ -68,7 +68,7 @@ nnFit :: DeltaMonad Double m
 nnFit factivationHidden factivationOutput x vec = do
   -- One bias of the outer layer, a list of weights of the outer layer,
   -- a list of the same length of weights and biases of the hidden layer.
-  let width = (V.length (fst vec) - 1) `div` 3
+  let width = (lengthDualDelta vec - 1) `div` 3
   hiddenVec <- hiddenLayerFit factivationHidden x vec width
   outputLayerFit factivationOutput hiddenVec (2 * width) vec
 
@@ -232,7 +232,7 @@ nnFit2 factivationHidden factivationMiddle factivationOutput x vec = do
   -- one bias of the outer layer, a list of weights of the outer layer,
   -- a list of the same length of weights and biases of the first hidden layer
   -- and of the middle hidden layer.
-  let width = (V.length (fst vec) - 1) `div` 5
+  let width = (lengthDualDelta vec - 1) `div` 5
   hiddenVec <- hiddenLayerFit factivationHidden x vec width
   middleVec <- middleLayerFit2 factivationMiddle hiddenVec (2 * width) vec
   outputLayerFit factivationOutput middleVec (4 * width) vec
@@ -480,7 +480,7 @@ nnFit3 factivationHidden factivationMiddle factivationOutput x vec = do
   -- so the equation to solve is w^2 + 4 * w + (1 - #params) = 0.
   -- Length 31 gives almost 3. Length 61 gives exactly 6.
   let len :: Double
-      len = fromIntegral $ V.length (fst vec)  -- #params
+      len = fromIntegral $ lengthDualDelta vec  -- #params
       width = floor $ (-4 + sqrt (12 + 4 * len)) / 2
   hiddenVec <- hiddenLayerFit factivationHidden x vec width
   middleVec <- middleLayerFit3 factivationMiddle hiddenVec (2 * width) vec
