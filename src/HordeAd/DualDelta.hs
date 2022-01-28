@@ -226,6 +226,21 @@ lossCrossEntropy targ res = do
 -- but definition of dot product would type check with @Scale@ replaced
 -- by @Dot@.
 
+infixr 8 <.>
+(<.>) :: Data.Vector.Vector r
+      -> Data.Vector.Vector r
+      -> r
+(<.>) _u _v = undefined  -- eventually, take from C
+
+infixr 8 <.>!
+(<.>!) :: DualDelta (Data.Vector.Vector r)
+       -> DualDelta (Data.Vector.Vector r)
+       -> DualDelta r
+(<.>!) (D u u') (D v v') = D (u <.> v) (Add (Dot v u') (Dot u v'))
+
+
+{-
+
 softMaxAct :: ( DeltaMonad (Array r) m, Floating r
               , Floating (Data.Vector.Storable.Vector r), Coord r )
            => DualDelta (Array r)
@@ -267,14 +282,6 @@ infixr 8 #>!!
       vV = asVector v
   in D (fromVector None $ uM #> vV) (Scale v u')  -- probably too naive
 
-infixr 8 <.>!
-(<.>!) :: Coord r
-       => DualDelta (Array r) -> DualDelta (Array r) -> DualDelta (Array r)
-(<.>!) (D u u') (D v v') =
-  let uV = asVector u
-      vV = asVector v
-  in D (Util.scalar $ uV <.> vV) (Add (Scale v u')  -- probably too naive
-                                      (Scale u v'))
 infixr 8 <.>!!
 (<.>!!) :: Coord r
         => DualDelta (Array r) -> Array r -> DualDelta (Array r)
@@ -294,3 +301,4 @@ sumElements' (D u _u') =
   let uV = asVector u
   in D (Util.scalar $ sumElements uV)
        Zero  -- definitely wrong; should be konst u' n
+-}
