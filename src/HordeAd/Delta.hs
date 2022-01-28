@@ -1,4 +1,4 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GADTs, GeneralizedNewtypeDeriving, KindSignatures #-}
 -- | The second component of dual numbers, @Delta@, with it's evaluation
 -- function. Neel Krishnaswami calls that "sparse vector expressions",
 -- and indeed the codomain of the evaluation function is a vector,
@@ -20,6 +20,7 @@ import Prelude
 import           Control.Exception (assert)
 import           Control.Monad (foldM, when)
 import           Control.Monad.ST.Strict (ST)
+import           Data.Kind (Type)
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
@@ -33,12 +34,12 @@ import qualified Data.Vector.Unboxed.Mutable
 -- when to evaluate. With final, we'd need to be careful
 -- about laziness to ensure the optimal evaluation order is chosen
 -- (whatever it is for a given differentiated program).
-data Delta r =
-    Zero
-  | Scale r (Delta r)
-  | Add (Delta r) (Delta r)
-  | Var DeltaId
-  | Dot (Data.Vector.Vector r) (Delta (Data.Vector.Vector r))
+data Delta :: Type -> Type where
+  Zero :: Delta r
+  Scale :: r -> Delta r -> Delta r
+  Add :: Delta r -> Delta r -> Delta r
+  Var :: DeltaId ->  Delta r
+  Dot :: Data.Vector.Vector r -> Delta (Data.Vector.Vector r) -> Delta r
   deriving (Show, Eq, Ord)
 
 newtype DeltaId = DeltaId Int
@@ -57,6 +58,9 @@ data DeltaState r = DeltaState
   , deltaBindings :: [Delta r]
   }
 
+instance Num a => Num (Data.Vector.Vector a) where
+  -- TODO
+
 buildVector :: forall s r. (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
             => Int -> DeltaState r -> Delta r
             -> ST s (Data.Vector.Unboxed.Mutable.MVector s r)
@@ -70,10 +74,16 @@ buildVector dim st d0 = do
         Add d1 d2 -> eval r d1 >> eval r d2
         Var (DeltaId i) -> VM.modify store (+ r) i
         Dot vr vd -> evalV (V.map (* r) vr) vd
-      evalV :: Data.Vector.Vector r
-            -> Delta (Data.Vector.Vector r)
+      evalV :: Num a
+            => Data.Vector.Vector a
+            -> Delta (Data.Vector.Vector a)
             -> ST s ()
-      evalV !vr = undefined
+      evalV !vr = \case
+        Zero -> return ()
+        Scale k d -> evalV (V.zipWith (*) k vr) d
+        Add d1 d2 -> evalV vr d1 >> evalV vr d2
+        Var (DeltaId i) -> undefined   -- fails: VM.modify store (+ vr) i
+        Dot vr2 vd2 -> evalV (V.map (V.zipWith (*) vr) vr2) vd2
   eval 1 d0  -- dt is 1 or hardwired in f
   let evalUnlessZero :: DeltaId -> Delta r -> ST s DeltaId
       evalUnlessZero (DeltaId !i) d = do
