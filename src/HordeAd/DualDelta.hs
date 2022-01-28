@@ -223,8 +223,6 @@ lossCrossEntropy targ res = do
 
 
 -- * Copied from branch hTensor. Does not typecheck without hTensor library.
--- but definition of dot product would type check with @Scale@ replaced
--- by @Dot@.
 
 infixr 8 <.>
 (<.>) :: Data.Vector.Unboxed.Vector r
@@ -238,6 +236,13 @@ infixr 8 <.>!
        -> DualDelta r
 (<.>!) (D u u') (D v v') = D (u <.> v) (Add (Dot v u') (Dot u v'))
 
+konst' :: Data.Vector.Unboxed.Unbox r
+       => DualDelta r -> Int -> DualDelta (Data.Vector.Unboxed.Vector r)
+konst' (D u u') n = D (V.replicate n u) (Konst u' n)
+
+sumElements' :: (Num r, Data.Vector.Unboxed.Unbox r)
+             => DualDelta (Data.Vector.Unboxed.Vector r) -> DualDelta r
+sumElements' (D u u') = D (V.sum u) (Dot (V.replicate (V.length u) 1) u')
 
 {-
 

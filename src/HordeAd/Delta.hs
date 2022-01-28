@@ -1,5 +1,4 @@
-{-# LANGUAGE GADTs, GeneralizedNewtypeDeriving, KindSignatures,
-             StandaloneDeriving #-}
+{-# LANGUAGE GADTs, GeneralizedNewtypeDeriving, KindSignatures #-}
 -- | The second component of dual numbers, @Delta@, with it's evaluation
 -- function. Neel Krishnaswami calls that "sparse vector expressions",
 -- and indeed the codomain of the evaluation function is a vector,
@@ -43,6 +42,7 @@ data Delta :: Type -> Type where
   Var :: DeltaId -> Delta r
   Dot :: Data.Vector.Unboxed.Vector r -> Delta (Data.Vector.Unboxed.Vector r)
       -> Delta r
+  Konst :: Delta r -> Int -> Delta (Data.Vector.Unboxed.Vector r)
 
 newtype DeltaId = DeltaId Int
   deriving (Show, Eq, Ord)
@@ -68,6 +68,7 @@ buildVector :: forall s r. (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
 buildVector dim st d0 = do
   let DeltaId storeSize = deltaCounter st
   store <- VM.replicate storeSize 0
+  -- TODO: this allocation costs us 7% runtime in 25/train2 2500 750:
   storeV <- VM.replicate storeSize (V.empty :: Data.Vector.Unboxed.Vector r)
   let eval :: r -> Delta r -> ST s ()
       eval !r = \case
@@ -76,6 +77,7 @@ buildVector dim st d0 = do
         Add d1 d2 -> eval r d1 >> eval r d2
         Var (DeltaId i) -> VM.modify store (+ r) i
         Dot vr vd -> evalV (V.map (* r) vr) vd
+        Konst{} -> error "buildVector: konst can't result in a scalar"
       evalV :: Data.Vector.Unboxed.Vector r
             -> Delta (Data.Vector.Unboxed.Vector r)
             -> ST s ()
@@ -85,6 +87,7 @@ buildVector dim st d0 = do
         Add d1 d2 -> evalV vr d1 >> evalV vr d2
         Var (DeltaId i) -> VM.modify storeV (V.zipWith (+) vr) i
         Dot{} -> error "buildVector: unboxed vectors of vectors not possible"
+        Konst d _n -> V.mapM_ (\r -> eval r d) vr
   eval 1 d0  -- dt is 1 or hardwired in f
   let evalUnlessZero :: DeltaId
                      -> Either (Delta r) (Delta (Data.Vector.Unboxed.Vector r))
