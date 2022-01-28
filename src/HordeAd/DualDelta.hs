@@ -1,4 +1,4 @@
-{-# LANGUAGE FunctionalDependencies, StandaloneDeriving #-}
+{-# LANGUAGE FlexibleContexts, FunctionalDependencies #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists -Wno-missing-methods #-}
 -- | Dual numbers and operations on them, which are extensions of normal
 -- arithmetic and other operations to also cover gradients.
@@ -11,6 +11,8 @@ import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
 import           Foreign.Storable (Storable)
+import           Numeric.LinearAlgebra
+  (Container, Numeric, konst, sumElements, (<.>))
 
 import HordeAd.Delta (Delta (..))
 
@@ -225,25 +227,20 @@ lossCrossEntropy targ res = do
 
 -- * Copied from branch hTensor. Does not typecheck without hTensor library.
 
-infixr 8 <.>
-(<.>) :: Data.Vector.Storable.Vector r
-      -> Data.Vector.Storable.Vector r
-      -> r
-(<.>) _u _v = undefined  -- eventually, take from C
-
 infixr 8 <.>!
-(<.>!) :: DualDelta (Data.Vector.Storable.Vector r)
+(<.>!) :: Numeric r
+       => DualDelta (Data.Vector.Storable.Vector r)
        -> DualDelta (Data.Vector.Storable.Vector r)
        -> DualDelta r
 (<.>!) (D u u') (D v v') = D (u <.> v) (Add (Dot v u') (Dot u v'))
 
-konst' :: Storable r
+konst' :: Container Data.Vector.Storable.Vector r
        => DualDelta r -> Int -> DualDelta (Data.Vector.Storable.Vector r)
-konst' (D u u') n = D (V.replicate n u) (Konst u' n)
+konst' (D u u') n = D (konst u n) (Konst u' n)
 
-sumElements' :: (Num r, Storable r)
+sumElements' :: (Num r, Container Data.Vector.Storable.Vector r)
              => DualDelta (Data.Vector.Storable.Vector r) -> DualDelta r
-sumElements' (D u u') = D (V.sum u) (Dot (V.replicate (V.length u) 1) u')
+sumElements' (D u u') = D (sumElements u) (Dot (konst 1 (V.length u)) u')
 
 {-
 

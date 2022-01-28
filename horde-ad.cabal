@@ -121,6 +121,7 @@ library
     build-depends:
         base >= 4.10 && < 99
       , bytestring
+      , hmatrix
       , mnist-idx
       , random
       , transformers
