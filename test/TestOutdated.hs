@@ -131,8 +131,8 @@ gdSimpleShow :: (Eq r, Num r, Storable r)
              -> Int
              -> ([r], r)
 gdSimpleShow gamma f initVec n =
-  let res = gdSimple gamma f n initVec
-      (_, value) = df f res
+  let res = gdSimple gamma f n (initVec, undefined)
+      (_, value) = df f (res, undefined)
   in (V.toList res, value)
 
 gdSimpleTestCase
@@ -311,8 +311,8 @@ gdSmartShow :: (VecDualDeltaD -> DeltaMonadGradient Double DualDeltaD)
             -> Int
             -> ([Double], (Double, Double))
 gdSmartShow f initVec n =
-  let (res, gamma) = gdSmart f n initVec
-      (_, value) = df f res
+  let (res, gamma) = gdSmart f n (initVec, undefined)
+      (_, value) = df f (res, undefined)
   in (V.toList res, (value, gamma))
 
 gradSmartTestCase :: Num a
@@ -693,8 +693,8 @@ sgdShow :: (Eq r, Num r, Storable r)
         -> Domain r  -- ^ initial parameters
         -> ([r], r)
 sgdShow gamma f trainData params0 =
-  let res = sgd gamma f trainData params0
-      (_, value) = df (f $ head trainData) res
+  let res = sgd gamma f trainData (params0, undefined)
+      (_, value) = df (f $ head trainData) (res, undefined)
   in (V.toList res, value)
 
 sgdTestCase

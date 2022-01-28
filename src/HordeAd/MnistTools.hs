@@ -185,7 +185,8 @@ generalTestMnist :: forall r. (Ord r, Fractional r, Storable r)
 generalTestMnist nn xs res =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let value = V.map (\(D r _) -> r) $ valueDual (nn glyph) res
+        let value = V.map (\(D r _) -> r)
+                    $ valueDual (nn glyph) (res, undefined)
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels xs)) / fromIntegral (length xs)
 

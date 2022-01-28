@@ -20,7 +20,7 @@ mnistTrainBench chunkLength xs widthHidden gamma = do
       params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
       f = nnMnistLoss widthHidden
       chunk = take chunkLength xs
-      grad c = sgd gamma f c params0
+      grad c = sgd gamma f c (params0, undefined)
       name = "train a 1-hidden-layer MNIST nn "
              ++ unwords [ show chunkLength, show widthHidden, show nParams
                         , show gamma ]
@@ -62,7 +62,7 @@ mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
       params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
       f = nnMnistLoss2 widthHidden widthHidden2
       chunk = take chunkLength xs
-      grad c = sgd gamma f c params0
+      grad c = sgd gamma f c (params0, undefined)
       name = "train2 " ++ extraPrefix
              ++ unwords [show widthHidden, show widthHidden2, show nParams]
   bench name $ whnf grad chunk
