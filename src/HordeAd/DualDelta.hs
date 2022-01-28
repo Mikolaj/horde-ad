@@ -36,10 +36,10 @@ scale r (D u u') = D (r * u) (Scale r u')
 
 -- This instances are required by the @Real@ instance, which is required
 -- by @RealFloat@, which gives @atan2@. No idea what properties
--- @Real@ requires here, so defaulting to the derived instance.
-deriving instance Eq r => Eq (DualDelta r)
+-- @Real@ requires here, so let it crash if it's really needed.
+instance Eq (DualDelta r) where
 
-deriving instance Ord r => Ord (DualDelta r)
+instance Ord (DualDelta r) where
 
 -- These instances are dangerous. Expressions should be wrapped in
 -- the monadic @returnLet@ whenever there is a possibility they can be
@@ -227,14 +227,14 @@ lossCrossEntropy targ res = do
 -- by @Dot@.
 
 infixr 8 <.>
-(<.>) :: Data.Vector.Vector r
-      -> Data.Vector.Vector r
+(<.>) :: Data.Vector.Unboxed.Vector r
+      -> Data.Vector.Unboxed.Vector r
       -> r
 (<.>) _u _v = undefined  -- eventually, take from C
 
 infixr 8 <.>!
-(<.>!) :: DualDelta (Data.Vector.Vector r)
-       -> DualDelta (Data.Vector.Vector r)
+(<.>!) :: DualDelta (Data.Vector.Unboxed.Vector r)
+       -> DualDelta (Data.Vector.Unboxed.Vector r)
        -> DualDelta r
 (<.>!) (D u u') (D v v') = D (u <.> v) (Add (Dot v u') (Dot u v'))
 

@@ -1,4 +1,5 @@
-{-# LANGUAGE GADTs, GeneralizedNewtypeDeriving, KindSignatures #-}
+{-# LANGUAGE GADTs, GeneralizedNewtypeDeriving, KindSignatures,
+             StandaloneDeriving #-}
 -- | The second component of dual numbers, @Delta@, with it's evaluation
 -- function. Neel Krishnaswami calls that "sparse vector expressions",
 -- and indeed the codomain of the evaluation function is a vector,
@@ -40,8 +41,8 @@ data Delta :: Type -> Type where
   Scale :: r -> Delta r -> Delta r
   Add :: Delta r -> Delta r -> Delta r
   Var :: DeltaId -> Delta r
-  Dot :: Data.Vector.Vector r -> Delta (Data.Vector.Vector r) -> Delta r
-  deriving (Show, Eq, Ord)
+  Dot :: Data.Vector.Unboxed.Vector r -> Delta (Data.Vector.Unboxed.Vector r)
+      -> Delta r
 
 newtype DeltaId = DeltaId Int
   deriving (Show, Eq, Ord)
@@ -56,17 +57,18 @@ newtype DeltaId = DeltaId Int
 -- it's a part of can get duplicated grossly.
 data DeltaState r = DeltaState
   { deltaCounter  :: DeltaId
-  , deltaBindings :: [Either (Delta r) (Delta (Data.Vector.Vector r))]
+  , deltaBindings :: [Either (Delta r) (Delta (Data.Vector.Unboxed.Vector r))]
   }
 
 buildVector :: forall s r. (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
             => Int -> DeltaState r -> Delta r
             -> ST s ( Data.Vector.Unboxed.Mutable.MVector s r
-                    , Data.Vector.Mutable.MVector s (Data.Vector.Vector r) )
+                    , Data.Vector.Mutable.MVector
+                        s (Data.Vector.Unboxed.Vector r) )
 buildVector dim st d0 = do
   let DeltaId storeSize = deltaCounter st
   store <- VM.replicate storeSize 0
-  storeV <- VM.replicate storeSize (V.empty :: Data.Vector.Vector r)
+  storeV <- VM.replicate storeSize (V.empty :: Data.Vector.Unboxed.Vector r)
   let eval :: r -> Delta r -> ST s ()
       eval !r = \case
         Zero -> return ()
@@ -74,19 +76,18 @@ buildVector dim st d0 = do
         Add d1 d2 -> eval r d1 >> eval r d2
         Var (DeltaId i) -> VM.modify store (+ r) i
         Dot vr vd -> evalV (V.map (* r) vr) vd
-      evalV :: Data.Vector.Vector r
-            -> Delta (Data.Vector.Vector r)
+      evalV :: Data.Vector.Unboxed.Vector r
+            -> Delta (Data.Vector.Unboxed.Vector r)
             -> ST s ()
       evalV !vr = \case
         Zero -> return ()
         Scale k d -> evalV (V.zipWith (*) k vr) d
         Add d1 d2 -> evalV vr d1 >> evalV vr d2
         Var (DeltaId i) -> VM.modify storeV (V.zipWith (+) vr) i
-        Dot _vr2 _vd2 -> error "buildVector: vectors of vectors not permitted"
-                           -- evalV (V.map (V.zipWith (*) vr) vr2) vd2
+        Dot{} -> error "buildVector: unboxed vectors of vectors not possible"
   eval 1 d0  -- dt is 1 or hardwired in f
   let evalUnlessZero :: DeltaId
-                     -> Either (Delta r) (Delta (Data.Vector.Vector r))
+                     -> Either (Delta r) (Delta (Data.Vector.Unboxed.Vector r))
                      -> ST s DeltaId
       evalUnlessZero (DeltaId !i) (Left d) = do
         r <- store `VM.read` i
@@ -105,11 +106,12 @@ buildVector dim st d0 = do
 evalBindingsV2 :: forall r. (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
                => Int -> DeltaState r -> Delta r
                -> ( Data.Vector.Unboxed.Vector r
-                  , Data.Vector.Vector (Data.Vector.Vector r) )
+                  , Data.Vector.Vector (Data.Vector.Unboxed.Vector r) )
 evalBindingsV2 dim st d0 =
   let built :: forall s.
                  ST s ( Data.Vector.Unboxed.Mutable.MVector s r
-                      , Data.Vector.Mutable.MVector s (Data.Vector.Vector r) )
+                      , Data.Vector.Mutable.MVector
+                          s (Data.Vector.Unboxed.Vector r) )
       built = buildVector dim st d0
   in ( V.create $ fst <$> built
      , V.create $ snd <$> built )
