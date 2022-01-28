@@ -6,14 +6,14 @@ import Prelude
 import           Control.Arrow ((***))
 import           Criterion.Main
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Unboxed
+import           Foreign.Storable (Storable)
 import           System.Random
 
 import HordeAd
 import HordeAd.MnistTools
 
 mnistTrainBench :: ( Show r, Eq r, Floating r, UniformRange r
-                   , Data.Vector.Unboxed.Unbox r )
+                   , Storable r )
                 => Int -> [MnistData r] -> Int -> r -> Benchmark
 mnistTrainBench chunkLength xs widthHidden gamma = do
   let nParams = lenMnist widthHidden
@@ -27,7 +27,7 @@ mnistTrainBench chunkLength xs widthHidden gamma = do
   bench name $ whnf grad chunk
 
 mnistTestBench :: ( Ord r, Floating r, UniformRange r
-                  , Data.Vector.Unboxed.Unbox r )
+                  , Storable r )
                => Int -> [MnistData r] -> Int -> Benchmark
 mnistTestBench chunkLength xs widthHidden = do
   let nParams = lenMnist widthHidden
@@ -39,7 +39,7 @@ mnistTestBench chunkLength xs widthHidden = do
   bench name $ whnf score chunk
 
 mnistTrainBGroup :: ( Show r, Ord r, Floating r, UniformRange r
-                    , Data.Vector.Unboxed.Unbox r )
+                    , Storable r )
                     => [MnistData r] -> Int -> Benchmark
 mnistTrainBGroup xs0 chunkLength =
   env (return $ take chunkLength xs0) $
@@ -54,7 +54,7 @@ mnistTrainBGroup xs0 chunkLength =
     ]
 
 mnistTrainBench2 :: ( Eq r, Floating r, UniformRange r
-                    , Data.Vector.Unboxed.Unbox r )
+                    , Storable r )
                  => String -> Int -> [MnistData r] -> Int -> Int -> r
                  -> Benchmark
 mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
@@ -68,7 +68,7 @@ mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
   bench name $ whnf grad chunk
 
 mnistTestBench2 :: ( Ord r, Floating r, UniformRange r
-                   , Data.Vector.Unboxed.Unbox r )
+                   , Storable r )
                 => String -> Int -> [MnistData r] -> Int -> Int -> Benchmark
 mnistTestBench2 extraPrefix chunkLength xs widthHidden widthHidden2 = do
   let nParams = lenMnist2 widthHidden widthHidden2

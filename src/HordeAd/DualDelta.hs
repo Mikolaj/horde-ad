@@ -9,7 +9,8 @@ import Prelude
 import           Data.List (foldl')
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Unboxed
+import qualified Data.Vector.Storable
+import           Foreign.Storable (Storable)
 
 import HordeAd.Delta (Delta (..))
 
@@ -164,9 +165,9 @@ sumListDual us = returnLet $ foldl' (+) (scalar 0) us
 -- Inlined to avoid the tiny overhead of calling an unknown function.
 -- This operation is needed, because @sumListDual@ doesn't (always) fuse.
 sumResultsDual :: forall m a r.
-                    (DeltaMonad r m, Num r, Data.Vector.Unboxed.Unbox a)
+                    (DeltaMonad r m, Num r, Storable a)
                => (a -> m (DualDelta r))
-               -> Data.Vector.Unboxed.Vector a
+               -> Data.Vector.Storable.Vector a
                -> m (DualDelta r)
 {-# INLINE sumResultsDual #-}
 sumResultsDual f as = do
@@ -211,8 +212,8 @@ lossSquared targ res = squareDual $ res - scalar targ
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
 lossCrossEntropy
-  :: forall m r. (DeltaMonad r m, Floating r, Data.Vector.Unboxed.Unbox r)
-  => Data.Vector.Unboxed.Vector r
+  :: forall m r. (DeltaMonad r m, Floating r, Storable r)
+  => Data.Vector.Storable.Vector r
   -> Data.Vector.Vector (DualDelta r)
   -> m (DualDelta r)
 lossCrossEntropy targ res = do
@@ -225,23 +226,23 @@ lossCrossEntropy targ res = do
 -- * Copied from branch hTensor. Does not typecheck without hTensor library.
 
 infixr 8 <.>
-(<.>) :: Data.Vector.Unboxed.Vector r
-      -> Data.Vector.Unboxed.Vector r
+(<.>) :: Data.Vector.Storable.Vector r
+      -> Data.Vector.Storable.Vector r
       -> r
 (<.>) _u _v = undefined  -- eventually, take from C
 
 infixr 8 <.>!
-(<.>!) :: DualDelta (Data.Vector.Unboxed.Vector r)
-       -> DualDelta (Data.Vector.Unboxed.Vector r)
+(<.>!) :: DualDelta (Data.Vector.Storable.Vector r)
+       -> DualDelta (Data.Vector.Storable.Vector r)
        -> DualDelta r
 (<.>!) (D u u') (D v v') = D (u <.> v) (Add (Dot v u') (Dot u v'))
 
-konst' :: Data.Vector.Unboxed.Unbox r
-       => DualDelta r -> Int -> DualDelta (Data.Vector.Unboxed.Vector r)
+konst' :: Storable r
+       => DualDelta r -> Int -> DualDelta (Data.Vector.Storable.Vector r)
 konst' (D u u') n = D (V.replicate n u) (Konst u' n)
 
-sumElements' :: (Num r, Data.Vector.Unboxed.Unbox r)
-             => DualDelta (Data.Vector.Unboxed.Vector r) -> DualDelta r
+sumElements' :: (Num r, Storable r)
+             => DualDelta (Data.Vector.Storable.Vector r) -> DualDelta r
 sumElements' (D u u') = D (V.sum u) (Dot (V.replicate (V.length u) 1) u')
 
 {-

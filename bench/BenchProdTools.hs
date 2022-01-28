@@ -5,7 +5,7 @@ import Prelude
 
 import           Criterion.Main
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Unboxed
+import           Foreign.Storable (Storable)
 
 import HordeAd
 
@@ -107,21 +107,21 @@ bgroup5e7 allxs =
 -- which works fine there, but costs us some cycles and the use
 -- of a custom operation here, where there's no gradient descent
 -- to manage the vectors for us.
-vec_prod_aux :: forall m r. (DeltaMonad r m, Num r, Data.Vector.Unboxed.Unbox r)
+vec_prod_aux :: forall m r. (DeltaMonad r m, Num r, Storable r)
              => VecDualDelta r -> m (DualDelta r)
 vec_prod_aux vec = foldMDelta' (*\) (scalar 1) vec
   -- no handwritten gradients; only the gradient for @(*)@ is provided;
   -- also, not omitting bindings; all let-bindings are present, see below
 
-vec_prod :: (Num r, Data.Vector.Unboxed.Unbox r)
+vec_prod :: (Num r, Storable r)
          => Domain r -> r
 vec_prod = valueDualDelta vec_prod_aux
 
-grad_vec_prod :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+grad_vec_prod :: (Eq r, Num r, Storable r)
               => Domain r -> Domain' r
 grad_vec_prod = fst . df vec_prod_aux
 
-grad_toList_prod :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+grad_toList_prod :: (Eq r, Num r, Storable r)
                  => [r] -> [r]
 grad_toList_prod l = V.toList $ grad_vec_prod $ V.fromList l
 
@@ -132,15 +132,15 @@ grad_toList_prod l = V.toList $ grad_vec_prod $ V.fromList l
 -- It probably wouldn't help in this case, though.
 
 vec_omit_prod_aux
-  :: forall m r. (DeltaMonad r m, Num r, Data.Vector.Unboxed.Unbox r)
+  :: forall m r. (DeltaMonad r m, Num r, Storable r)
   => VecDualDelta r -> m (DualDelta r)
 vec_omit_prod_aux vec = returnLet $ foldlDelta' (*) (scalar 1) vec
   -- omitting most bindings, because we know nothing repeats inside
 
-vec_omit_prod :: (Num r, Data.Vector.Unboxed.Unbox r)
+vec_omit_prod :: (Num r, Storable r)
               => Domain r -> r
 vec_omit_prod = valueDualDelta vec_omit_prod_aux
 
-grad_vec_omit_prod :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+grad_vec_omit_prod :: (Eq r, Num r, Storable r)
                    => Domain r -> Domain' r
 grad_vec_omit_prod = fst . df vec_omit_prod_aux

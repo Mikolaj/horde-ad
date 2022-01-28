@@ -4,7 +4,7 @@ module TestSimpleDescent (testTrees) where
 import Prelude
 
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Unboxed
+import           Foreign.Storable (Storable)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
@@ -18,7 +18,7 @@ testTrees :: [TestTree]
 testTrees = [ gdSimpleTests
             , xorTests ]
 
-gdSimpleShow :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+gdSimpleShow :: (Eq r, Num r, Storable r)
              => r
              -> (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
              -> Domain r

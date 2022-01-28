@@ -13,7 +13,8 @@ import Prelude
 
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Unboxed
+import qualified Data.Vector.Storable
+import           Foreign.Storable (Storable)
 
 import HordeAd.Delta
 import HordeAd.DualDelta (DualDelta (..))
@@ -21,19 +22,19 @@ import HordeAd.DualDelta (DualDelta (..))
 -- The "pair of vectors" type representing a vector of @DualDelta r@
 -- in an efficient way (especially, or only, with gradient descent,
 -- where the vectors are reused in some ways).
-type VecDualDelta r = ( Data.Vector.Unboxed.Vector r
+type VecDualDelta r = ( Data.Vector.Storable.Vector r
                       , Data.Vector.Vector (Delta r) )
 
-var :: Data.Vector.Unboxed.Unbox r
+var :: Storable r
     => VecDualDelta r -> Int -> DualDelta r
 var (vValue, vVar) i = D (vValue V.! i) (vVar V.! i)
 
 -- Unsafe, but handy for toy examples.
-vars :: Data.Vector.Unboxed.Unbox r
+vars :: Storable r
      => VecDualDelta r -> [DualDelta r]
 vars vec = map (var vec) [0 ..]
 
-ifoldMDelta' :: forall m a r. (Monad m, Data.Vector.Unboxed.Unbox r)
+ifoldMDelta' :: forall m a r. (Monad m, Storable r)
              => (a -> Int -> DualDelta r -> m a)
              -> a
              -> VecDualDelta r
@@ -46,7 +47,7 @@ ifoldMDelta' f a (vecR, vecD) = do
         f acc i b
   V.ifoldM' g a vecR
 
-foldMDelta' :: forall m a r. (Monad m, Data.Vector.Unboxed.Unbox r)
+foldMDelta' :: forall m a r. (Monad m, Storable r)
             => (a -> DualDelta r -> m a)
             -> a
             -> VecDualDelta r
@@ -59,7 +60,7 @@ foldMDelta' f a (vecR, vecD) = do
         f acc b
   V.ifoldM' g a vecR
 
-ifoldlDelta' :: forall a r. Data.Vector.Unboxed.Unbox r
+ifoldlDelta' :: forall a r. Storable r
              => (a -> Int -> DualDelta r -> a)
              -> a
              -> VecDualDelta r
@@ -72,7 +73,7 @@ ifoldlDelta' f a (vecR, vecD) = do
         in f acc i b
   V.ifoldl' g a vecR
 
-foldlDelta' :: forall a r. Data.Vector.Unboxed.Unbox r
+foldlDelta' :: forall a r. Storable r
             => (a -> DualDelta r -> a)
             -> a
             -> VecDualDelta r

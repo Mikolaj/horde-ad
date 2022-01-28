@@ -5,7 +5,7 @@ import Prelude
 
 import           Control.Monad (foldM)
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Unboxed
+import           Foreign.Storable (Storable)
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -25,7 +25,7 @@ shortTestForCITrees = [ dumbMnistTests
                       , shortCIMnistTests
                       ]
 
-sgdShow :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+sgdShow :: (Eq r, Num r, Storable r)
         => r
         -> (a -> VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
         -> [a]  -- ^ training data

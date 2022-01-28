@@ -6,7 +6,9 @@ import Prelude
 import           Control.Arrow (first)
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Unboxed
+import qualified Data.Vector.Storable
+import           Foreign.Storable (Storable)
+import           Foreign.Storable.Tuple ()
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -81,7 +83,7 @@ nnFitLoss factivationHidden factivationOutput x targ vec = do
 nnFitLossTotal :: forall m. DeltaMonad Double m
                => (DualDeltaD -> m DualDeltaD)
                -> (DualDeltaD -> m DualDeltaD)
-               -> Data.Vector.Unboxed.Vector (Double, Double)
+               -> Data.Vector.Storable.Vector (Double, Double)
                -> VecDualDeltaD
                -> m DualDeltaD
 nnFitLossTotal factivationHidden factivationOutput samples vec = do
@@ -103,18 +105,18 @@ nnFitLossTotal factivationHidden factivationOutput samples vec = do
 -- and now more old tests pass and new tests pass with more CPU
 -- usage that couldn't pass with floats no matter what, due to numeric errors.
 wsFit :: (Float, Float) -> Int -> Int
-      -> Data.Vector.Unboxed.Vector (Double, Double)
+      -> Data.Vector.Storable.Vector (Double, Double)
 wsFit range seed k =
-  let rolls :: RandomGen g => g -> Data.Vector.Unboxed.Vector Double
+  let rolls :: RandomGen g => g -> Data.Vector.Storable.Vector Double
       rolls = V.unfoldrExactN k (first realToFrac . uniformR range)
       (g1, g2) = split $ mkStdGen seed
   in V.zip (rolls g1) (rolls g2)
 
 -- Here a huge separation is ensured.
 wsFitSeparated :: (Double, Double) -> Int -> Int
-               -> Data.Vector.Unboxed.Vector (Double, Double)
+               -> Data.Vector.Storable.Vector (Double, Double)
 wsFitSeparated range@(low, hi) seed k =
-  let rolls :: RandomGen g => g -> Data.Vector.Unboxed.Vector Double
+  let rolls :: RandomGen g => g -> Data.Vector.Storable.Vector Double
       rolls = V.unfoldrExactN k (uniformR range)
       width = hi - low
       steps = V.generate k (\n ->
@@ -122,7 +124,7 @@ wsFitSeparated range@(low, hi) seed k =
       g = mkStdGen seed
   in V.zip steps (rolls g)
 
-gdSimpleShow :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+gdSimpleShow :: (Eq r, Num r, Storable r)
              => r
              -> (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
              -> Domain r
@@ -137,10 +139,10 @@ gdSimpleTestCase
   :: Num a
   => String
   -> ((a, a) -> Int -> Int
-      -> Data.Vector.Unboxed.Vector (Double, Double))
+      -> Data.Vector.Storable.Vector (Double, Double))
   -> ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
       -> (DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-      -> Data.Vector.Unboxed.Vector (Double, Double)
+      -> Data.Vector.Storable.Vector (Double, Double)
       -> VecDualDeltaD
       -> DeltaMonadGradient Double DualDeltaD)
   -> Int -> Int -> Int -> Double -> Int -> Double
@@ -160,7 +162,7 @@ gdSimpleTestCase prefix sampleFunction lossFunction
 gdSimpleWsTestCase
   :: ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
       -> (DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-      -> Data.Vector.Unboxed.Vector (Double, Double)
+      -> Data.Vector.Storable.Vector (Double, Double)
       -> VecDualDeltaD
       -> DeltaMonadGradient Double DualDeltaD)
   -> Int -> Int -> Int -> Double -> Int -> Double
@@ -170,7 +172,7 @@ gdSimpleWsTestCase = gdSimpleTestCase "gdSimple Ws" wsFit
 gdSimpleSeparatedTestCase
   :: ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
       -> (DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-      -> Data.Vector.Unboxed.Vector (Double, Double)
+      -> Data.Vector.Storable.Vector (Double, Double)
       -> VecDualDeltaD
       -> DeltaMonadGradient Double DualDeltaD)
   -> Int -> Int -> Int -> Double -> Int -> Double
@@ -248,7 +250,7 @@ nnFit2LossTotal :: forall m. DeltaMonad Double m
                 => (DualDeltaD -> m DualDeltaD)
                 -> (DualDeltaD -> m DualDeltaD)
                 -> (DualDeltaD -> m DualDeltaD)
-                -> Data.Vector.Unboxed.Vector (Double, Double)
+                -> Data.Vector.Storable.Vector (Double, Double)
                 -> VecDualDeltaD
                 -> m DualDeltaD
 nnFit2LossTotal factivationHidden factivationMiddle factivationOutput
@@ -316,10 +318,10 @@ gdSmartShow f initVec n =
 gradSmartTestCase :: Num a
                   => String
                   -> ((a, a) -> Int -> Int
-                      -> Data.Vector.Unboxed.Vector (Double, Double))
+                      -> Data.Vector.Storable.Vector (Double, Double))
                   -> ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
                       -> (DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-                      -> Data.Vector.Unboxed.Vector (Double, Double)
+                      -> Data.Vector.Storable.Vector (Double, Double)
                       -> VecDualDeltaD
                       -> DeltaMonadGradient Double DualDeltaD)
                   -> Int -> Int -> Int -> Int -> (Double, Double)
@@ -338,7 +340,7 @@ gradSmartTestCase prefix sampleFunction lossFunction
 gradSmartWsTestCase
   :: ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
       -> (DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-      -> Data.Vector.Unboxed.Vector (Double, Double)
+      -> Data.Vector.Storable.Vector (Double, Double)
       -> VecDualDeltaD
       -> DeltaMonadGradient Double DualDeltaD)
   -> Int -> Int -> Int -> Int -> (Double, Double)
@@ -348,7 +350,7 @@ gradSmartWsTestCase = gradSmartTestCase "gradSmart Ws" wsFit
 gradSmartSeparatedTestCase
   :: ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
       -> (DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-      -> Data.Vector.Unboxed.Vector (Double, Double)
+      -> Data.Vector.Storable.Vector (Double, Double)
       -> VecDualDeltaD
       -> DeltaMonadGradient Double DualDeltaD)
   -> Int -> Int -> Int -> Int -> (Double, Double)
@@ -497,7 +499,7 @@ nnFit3LossTotal :: forall m. DeltaMonad Double m
                 => (DualDeltaD -> m DualDeltaD)
                 -> (DualDeltaD -> m DualDeltaD)
                 -> (DualDeltaD -> m DualDeltaD)
-                -> Data.Vector.Unboxed.Vector (Double, Double)
+                -> Data.Vector.Storable.Vector (Double, Double)
                 -> VecDualDeltaD
                 -> m DualDeltaD
 nnFit3LossTotal factivationHidden factivationMiddle factivationOutput
@@ -622,7 +624,7 @@ nnFit3LossTotalOutput :: forall m. DeltaMonad Double m
                       => (DualDeltaD -> m DualDeltaD)
                       -> (DualDeltaD -> m DualDeltaD)
                       -> (DualDeltaD -> m DualDeltaD)
-                      -> Data.Vector.Unboxed.Vector (Double, Double)
+                      -> Data.Vector.Storable.Vector (Double, Double)
                       -> VecDualDeltaD
                       -> m DualDeltaD
 nnFit3LossTotalOutput f1 f2 f3 samples vec =
@@ -684,7 +686,7 @@ smartFit3TestsL3 =
   ]
 -}
 
-sgdShow :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+sgdShow :: (Eq r, Num r, Storable r)
         => r
         -> (a -> VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
         -> [a]  -- ^ training data

@@ -11,7 +11,8 @@ import Prelude
 import           Control.Monad.Trans.State.Strict
 import           Data.Functor.Identity
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Unboxed
+import qualified Data.Vector.Storable
+import           Foreign.Storable (Storable)
 
 import HordeAd.Delta
 import HordeAd.DualDelta (DeltaMonad (..), DualDelta (..))
@@ -30,7 +31,7 @@ instance DeltaMonad r (DeltaMonadValue r) where
 -- The general case.
 --
 -- Small enough that inline won't hurt.
-valueDual :: Data.Vector.Unboxed.Unbox r
+valueDual :: Storable r
           => (VecDualDelta r -> DeltaMonadValue r a)
           -> Domain r
           -> a
@@ -41,7 +42,7 @@ valueDual f ds =
   in runIdentity $ f (ds, vVar)
 
 -- A common case, but not the only one, see MNIST.
-valueDualDelta :: Data.Vector.Unboxed.Unbox r
+valueDualDelta :: Storable r
                => (VecDualDelta r -> DeltaMonadValue r (DualDelta r))
                -> Domain r
                -> r
@@ -89,11 +90,11 @@ generalDf initVars evalBindings f deltaInput =
       gradient = evalBindings (V.length $ snd ds) st d
   in (gradient, value)
 
-type Domain r = Data.Vector.Unboxed.Vector r
+type Domain r = Data.Vector.Storable.Vector r
 
 type Domain' r = Domain r
 
-df :: forall r. (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+df :: forall r. (Eq r, Num r, Storable r)
    => (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
    -> Domain r
    -> (Domain' r, r)
@@ -105,7 +106,7 @@ df =
   in generalDf initVars evalBindingsV
 
 -- | Simple Gradient Descent.
-gdSimple :: forall r. (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+gdSimple :: forall r. (Eq r, Num r, Storable r)
          => r
          -> (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
          -> Int  -- ^ requested number of iterations
@@ -128,7 +129,7 @@ gdSimple gamma f n0 params0 = go n0 params0 where
     in go (pred n) paramsNew
 
 -- | Stochastic Gradient Descent.
-sgd :: forall r a. (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+sgd :: forall r a. (Eq r, Num r, Storable r)
     => r
     -> (a -> VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
     -> [a]  -- ^ training data
@@ -156,7 +157,7 @@ sgd gamma f trainingData params0 = go trainingData params0 where
 gdSmart :: forall r.
              (
 --               Show r,
-               Ord r, Fractional r, Data.Vector.Unboxed.Unbox r
+               Ord r, Fractional r, Storable r
              )
         => (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
         -> Int  -- ^ requested number of iterations

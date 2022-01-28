@@ -5,7 +5,7 @@ import Prelude
 
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Unboxed
+import           Foreign.Storable (Storable)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
@@ -104,7 +104,7 @@ dfTests = testGroup "Simple df application tests" $
 -- which is a pair of an unboxed vector of scalars and a boxed vector
 -- of deltas (the output vector currently is a boxed vector of pairs;
 -- this is related to the ongoing work on shapes of scalar containers).
-atanReadmePoly :: (RealFloat r, Data.Vector.Unboxed.Unbox r)
+atanReadmePoly :: (RealFloat r, Storable r)
                => VecDualDelta r -> Data.Vector.Vector (DualDelta r)
 atanReadmePoly vec =
   let x : y : z : _ = vars vec
@@ -124,13 +124,13 @@ atanReadmePoly vec =
 -- non-variable expressions, the user would need to make it monadic
 -- and apply another binding-introducing operation already there.
 atanReadmeMPoly :: ( RealFloat r, DeltaMonad r m
-                   , Data.Vector.Unboxed.Unbox r )
+                   , Storable r )
                 => VecDualDelta r -> m (DualDelta r)
 atanReadmeMPoly vec =
   sumDual $ atanReadmePoly vec
     -- dot product with ones is the sum of all elements
 
-dfAtanReadmeMPoly :: (RealFloat r, Data.Vector.Unboxed.Unbox r)
+dfAtanReadmeMPoly :: (RealFloat r, Storable r)
                   => Domain r -> (Domain' r, r)
 dfAtanReadmeMPoly = df atanReadmeMPoly
 

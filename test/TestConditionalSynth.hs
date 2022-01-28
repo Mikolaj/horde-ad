@@ -6,7 +6,8 @@ import Prelude
 import           Data.List (nub, sort, unfoldr)
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Unboxed
+import qualified Data.Vector.Storable
+import           Foreign.Storable.Tuple ()
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -20,7 +21,7 @@ testTrees = [ conditionalSynthTests
 
 -- Pair samples sorted and made unique wrt first element of the pair.
 integerPairSamples :: (Int, Int) -> Int -> Int
-                   -> Data.Vector.Unboxed.Vector (Double, Double)
+                   -> Data.Vector.Storable.Vector (Double, Double)
 integerPairSamples range seed k =
   let rolls :: RandomGen g => g -> [Int]
       rolls = unfoldr (Just . uniformR range)
@@ -52,7 +53,7 @@ gradSmartTestCase
   -> (((DualDelta Double) -> DeltaMonadGradient Double (DualDelta Double))
       -> ((DualDelta Double) -> DeltaMonadGradient Double (DualDelta Double))
       -> ((DualDelta Double) -> DeltaMonadGradient Double (DualDelta Double))
-      -> Data.Vector.Unboxed.Vector (Double, Double)
+      -> Data.Vector.Storable.Vector (Double, Double)
       -> Int
       -> VecDualDelta Double
       -> DeltaMonadGradient Double (DualDelta Double))
@@ -111,7 +112,7 @@ synthLossSquared factivation x ys targ = do
 synthLossAll
   :: forall m. DeltaMonad Double m
   => (DualDelta Double -> m (DualDelta Double))
-  -> Data.Vector.Unboxed.Vector (Double, Double)
+  -> Data.Vector.Storable.Vector (Double, Double)
   -> Data.Vector.Vector (DualDelta Double)
   -> m (DualDelta Double)
 synthLossAll factivation samples ys = do
@@ -124,7 +125,7 @@ synthLossBareTotal
   => (DualDelta Double -> m (DualDelta Double))
   -> (DualDelta Double -> m (DualDelta Double))
   -> (DualDelta Double -> m (DualDelta Double))
-  -> Data.Vector.Unboxed.Vector (Double, Double)
+  -> Data.Vector.Storable.Vector (Double, Double)
   -> Int
   -> VecDualDelta Double
   -> m (DualDelta Double)

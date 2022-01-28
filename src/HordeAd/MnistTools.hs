@@ -13,7 +13,9 @@ import           Data.List (sortOn)
 import           Data.Maybe (fromMaybe)
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
+import qualified Data.Vector.Storable
 import qualified Data.Vector.Unboxed
+import           Foreign.Storable (Storable)
 import           GHC.Exts (inline)
 import           System.IO (IOMode (ReadMode), withBinaryFile)
 import           System.Random
@@ -38,7 +40,7 @@ import HordeAd.PairOfVectors (VecDualDelta, var)
 -- unless we include all of them, even very ad hoc ones,
 -- in a class with implementations both on @D@ and on plain @r@.
 sumTrainableInputs :: forall m r.
-                        (DeltaMonad r m, Num r, Data.Vector.Unboxed.Unbox r)
+                        (DeltaMonad r m, Num r, Storable r)
                    => Data.Vector.Vector (DualDelta r)
                    -> Int
                    -> VecDualDelta r
@@ -56,7 +58,7 @@ sumTrainableInputs xs offset vec = do
 -- at @vec@ starting at @offset@. Useful for neurons at the bottom
 -- of the network, tasked with ingesting the data.
 sumConstantData :: forall m r.
-                     (DeltaMonad r m, Num r, Data.Vector.Unboxed.Unbox r)
+                     (DeltaMonad r m, Num r, Storable r)
                 => Domain r
                 -> Int
                 -> VecDualDelta r
@@ -84,13 +86,13 @@ sizeMnistLabel = 10
 -- OTOH, methods with only matrix operations and graphs can't handle that.
 -- However, the goal of the exercise it to implement the same
 -- neural net that backprop uses for benchmarks and compare.
-type MnistData r = ( Data.Vector.Unboxed.Vector r
-                   , Data.Vector.Unboxed.Vector r )
+type MnistData r = ( Data.Vector.Storable.Vector r
+                   , Data.Vector.Storable.Vector r )
 
 hiddenLayerMnist :: forall m r.
-                      (DeltaMonad r m, Num r, Data.Vector.Unboxed.Unbox r)
+                      (DeltaMonad r m, Num r, Storable r)
                  => (DualDelta r -> m (DualDelta r))
-                 -> Data.Vector.Unboxed.Vector r
+                 -> Data.Vector.Storable.Vector r
                  -> VecDualDelta r
                  -> Int
                  -> m (Data.Vector.Vector (DualDelta r))
@@ -103,7 +105,7 @@ hiddenLayerMnist factivation x vec width = do
   V.generateM width f
 
 middleLayerMnist :: forall m r.
-                      (DeltaMonad r m, Num r, Data.Vector.Unboxed.Unbox r)
+                      (DeltaMonad r m, Num r, Storable r)
                  => (DualDelta r -> m (DualDelta r))
                  -> Data.Vector.Vector (DualDelta r)
                  -> Int
@@ -121,7 +123,7 @@ middleLayerMnist factivation hiddenVec offset vec width = do
   V.generateM width f
 
 outputLayerMnist :: forall m r.
-                      (DeltaMonad r m, Num r, Data.Vector.Unboxed.Unbox r)
+                      (DeltaMonad r m, Num r, Storable r)
                  => (Data.Vector.Vector (DualDelta r)
                      -> m (Data.Vector.Vector (DualDelta r)))
                  -> Data.Vector.Vector (DualDelta r)
@@ -148,12 +150,12 @@ lenMnist widthHidden =
 -- Benchmarks show barely any improvement, probably due to the activation
 -- functions being called only @width@ times per gradient calculation
 -- and also the cost dominated by GC. So, it's safe to revert this optimization.
-nnMnist :: (DeltaMonad r m, Floating r, Data.Vector.Unboxed.Unbox r)
+nnMnist :: (DeltaMonad r m, Floating r, Storable r)
         => (DualDelta r -> m (DualDelta r))
         -> (Data.Vector.Vector (DualDelta r)
             -> m (Data.Vector.Vector (DualDelta r)))
         -> Int
-        -> Data.Vector.Unboxed.Vector r
+        -> Data.Vector.Storable.Vector r
         -> VecDualDelta r
         -> m (Data.Vector.Vector (DualDelta r))
 nnMnist factivationHidden factivationOutput widthHidden x vec = do
@@ -163,7 +165,7 @@ nnMnist factivationHidden factivationOutput widthHidden x vec = do
                           (widthHidden * (sizeMnistGlyph + 1))
                           vec sizeMnistLabel
 
-nnMnistLoss :: (DeltaMonad r m, Floating r, Data.Vector.Unboxed.Unbox r)
+nnMnistLoss :: (DeltaMonad r m, Floating r, Storable r)
             => Int
             -> MnistData r
             -> VecDualDelta r
@@ -172,7 +174,7 @@ nnMnistLoss widthHidden (x, targ) vec = do
   res <- inline nnMnist logisticAct softMaxAct widthHidden x vec
   lossCrossEntropy targ res
 
-generalTestMnist :: forall r. (Ord r, Fractional r, Data.Vector.Unboxed.Unbox r)
+generalTestMnist :: forall r. (Ord r, Fractional r, Storable r)
                  => (Domain r
                      -> VecDualDelta r
                      -> DeltaMonadValue r
@@ -187,7 +189,7 @@ generalTestMnist nn xs res =
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels xs)) / fromIntegral (length xs)
 
-testMnist :: (Ord r, Floating r, Data.Vector.Unboxed.Unbox r)
+testMnist :: (Ord r, Floating r, Storable r)
           => Int -> [MnistData r] -> Domain r -> r
 testMnist widthHidden xs res =
   generalTestMnist (inline nnMnist logisticAct softMaxAct widthHidden) xs res
@@ -202,13 +204,13 @@ lenMnist2 widthHidden widthHidden2 =
 
 -- Two hidden layers of width @widthHidden@ and (the middle one) @widthHidden2@.
 -- Both hidden layers use the same activation function.
-nnMnist2 :: (DeltaMonad r m, Fractional r, Data.Vector.Unboxed.Unbox r)
+nnMnist2 :: (DeltaMonad r m, Fractional r, Storable r)
          => (DualDelta r -> m (DualDelta r))
          -> (Data.Vector.Vector (DualDelta r)
              -> m (Data.Vector.Vector (DualDelta r)))
          -> Int
          -> Int
-         -> Data.Vector.Unboxed.Vector r
+         -> Data.Vector.Storable.Vector r
          -> VecDualDelta r
          -> m (Data.Vector.Vector (DualDelta r))
 nnMnist2 factivationHidden factivationOutput widthHidden widthHidden2
@@ -222,7 +224,7 @@ nnMnist2 factivationHidden factivationOutput widthHidden widthHidden2
   inline outputLayerMnist factivationOutput middleVec
                           offsetOutput vec sizeMnistLabel
 
-nnMnistLoss2 :: (DeltaMonad r m, Floating r, Data.Vector.Unboxed.Unbox r)
+nnMnistLoss2 :: (DeltaMonad r m, Floating r, Storable r)
              => Int
              -> Int
              -> MnistData r
@@ -232,7 +234,7 @@ nnMnistLoss2 widthHidden widthHidden2 (x, targ) vec = do
   res <- inline nnMnist2 logisticAct softMaxAct widthHidden widthHidden2 x vec
   lossCrossEntropy targ res
 
-testMnist2 :: (Ord r, Floating r, Data.Vector.Unboxed.Unbox r)
+testMnist2 :: (Ord r, Floating r, Storable r)
            => Int -> Int -> [MnistData r] -> Domain r -> r
 testMnist2 widthHidden widthHidden2 xs res =
   generalTestMnist (inline nnMnist2 logisticAct softMaxAct
@@ -253,7 +255,7 @@ readMnistData glyphsBS labelsBS =
       -- Copied from library backprop to enable comparison of results.
       -- I have no idea how this is different from @labeledDoubleData@, etc.
       f (labN, v) =
-        ( V.map (\r -> fromIntegral r / 255) v
+        ( V.map (\r -> fromIntegral r / 255) $ V.convert v
         , V.generate sizeMnistLabel (\i -> if i == labN then 1 else 0) )
   in map f intData
 
