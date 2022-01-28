@@ -66,7 +66,7 @@ instance DeltaMonad r (DeltaMonadGradient r) where
     DeltaId i <- gets deltaCounter
     modify $ \s ->
       s { deltaCounter = DeltaId $ succ i
-        , deltaBindings = u' : deltaBindings s
+        , deltaBindings = Left u' : deltaBindings s
         }
     return $! D u (Var $ DeltaId i)
 

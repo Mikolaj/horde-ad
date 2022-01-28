@@ -24,6 +24,7 @@ import           Data.Kind (Type)
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
+import qualified Data.Vector.Mutable
 import qualified Data.Vector.Unboxed
 import qualified Data.Vector.Unboxed.Mutable
 
@@ -38,7 +39,7 @@ data Delta :: Type -> Type where
   Zero :: Delta r
   Scale :: r -> Delta r -> Delta r
   Add :: Delta r -> Delta r -> Delta r
-  Var :: DeltaId ->  Delta r
+  Var :: DeltaId -> Delta r
   Dot :: Data.Vector.Vector r -> Delta (Data.Vector.Vector r) -> Delta r
   deriving (Show, Eq, Ord)
 
@@ -55,18 +56,17 @@ newtype DeltaId = DeltaId Int
 -- it's a part of can get duplicated grossly.
 data DeltaState r = DeltaState
   { deltaCounter  :: DeltaId
-  , deltaBindings :: [Delta r]
+  , deltaBindings :: [Either (Delta r) (Delta (Data.Vector.Vector r))]
   }
-
-instance Num a => Num (Data.Vector.Vector a) where
-  -- TODO
 
 buildVector :: forall s r. (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
             => Int -> DeltaState r -> Delta r
-            -> ST s (Data.Vector.Unboxed.Mutable.MVector s r)
+            -> ST s ( Data.Vector.Unboxed.Mutable.MVector s r
+                    , Data.Vector.Mutable.MVector s (Data.Vector.Vector r) )
 buildVector dim st d0 = do
   let DeltaId storeSize = deltaCounter st
   store <- VM.replicate storeSize 0
+  storeV <- VM.replicate storeSize (V.empty :: Data.Vector.Vector r)
   let eval :: r -> Delta r -> ST s ()
       eval !r = \case
         Zero -> return ()
@@ -74,28 +74,50 @@ buildVector dim st d0 = do
         Add d1 d2 -> eval r d1 >> eval r d2
         Var (DeltaId i) -> VM.modify store (+ r) i
         Dot vr vd -> evalV (V.map (* r) vr) vd
-      evalV :: Num a
-            => Data.Vector.Vector a
-            -> Delta (Data.Vector.Vector a)
+      evalV :: Data.Vector.Vector r
+            -> Delta (Data.Vector.Vector r)
             -> ST s ()
       evalV !vr = \case
         Zero -> return ()
         Scale k d -> evalV (V.zipWith (*) k vr) d
         Add d1 d2 -> evalV vr d1 >> evalV vr d2
-        Var (DeltaId i) -> undefined   -- fails: VM.modify store (+ vr) i
-        Dot vr2 vd2 -> evalV (V.map (V.zipWith (*) vr) vr2) vd2
+        Var (DeltaId i) -> VM.modify storeV (V.zipWith (+) vr) i
+        Dot _vr2 _vd2 -> error "buildVector: vectors of vectors not permitted"
+                           -- evalV (V.map (V.zipWith (*) vr) vr2) vd2
   eval 1 d0  -- dt is 1 or hardwired in f
-  let evalUnlessZero :: DeltaId -> Delta r -> ST s DeltaId
-      evalUnlessZero (DeltaId !i) d = do
+  let evalUnlessZero :: DeltaId
+                     -> Either (Delta r) (Delta (Data.Vector.Vector r))
+                     -> ST s DeltaId
+      evalUnlessZero (DeltaId !i) (Left d) = do
         r <- store `VM.read` i
         when (r /= 0) $  -- we init with exactly 0 above so the comparison is OK
           eval r d
         return $! DeltaId (pred i)
+      evalUnlessZero (DeltaId !i) (Right d) = do
+        r <- storeV `VM.read` i
+        when (r /= V.empty) $
+          evalV r d
+        return $! DeltaId (pred i)
   minusOne <- foldM evalUnlessZero (DeltaId $ pred storeSize) (deltaBindings st)
   let _A = assert (minusOne == DeltaId (-1)) ()
-  return $! VM.slice 0 dim store
+  return (VM.slice 0 dim store, VM.slice 0 dim storeV)
 
-evalBindingsV :: (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+evalBindingsV2 :: forall r. (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
+               => Int -> DeltaState r -> Delta r
+               -> ( Data.Vector.Unboxed.Vector r
+                  , Data.Vector.Vector (Data.Vector.Vector r) )
+evalBindingsV2 dim st d0 =
+  let built :: forall s.
+                 ST s ( Data.Vector.Unboxed.Mutable.MVector s r
+                      , Data.Vector.Mutable.MVector s (Data.Vector.Vector r) )
+      built = buildVector dim st d0
+  in ( V.create $ fst <$> built
+     , V.create $ snd <$> built )
+       -- TODO: this probably runs buildVector twice;
+       -- thawing/freezing or IO is needed?
+
+-- for compatibility with old engine
+evalBindingsV :: forall r. (Eq r, Num r, Data.Vector.Unboxed.Unbox r)
               => Int -> DeltaState r -> Delta r
-              -> Data.Vector.Unboxed.Vector r
-evalBindingsV dim st d0 = V.create $ buildVector dim st d0
+              -> (Data.Vector.Unboxed.Vector r)
+evalBindingsV dim st d0 = fst $ evalBindingsV2 dim st d0
