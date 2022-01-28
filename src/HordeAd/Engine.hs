@@ -92,15 +92,13 @@ instance DeltaMonad r (DeltaMonadGradient r) where
 -- but the functions in which it inlines and which are used in client code
 -- are not inlined there, so the bloat is limited.
 generalDf :: Storable r
-          => ((domain, domainV) -> (VecDualDelta r, Int))
+          => (VecDualDelta r, Int)
           -> (Int -> DeltaState r -> Delta r -> domain')
           -> (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
-          -> (domain, domainV)
           -> (domain', r)
 {-# INLINE generalDf #-}
-generalDf initVars evalBindings f (deltaInput, deltaInputV) =
-  let (ds, dim) = initVars (deltaInput, deltaInputV)
-      initialState = DeltaState
+generalDf (ds, dim) evalBindings f =
+  let initialState = DeltaState
         { deltaCounter = DeltaId dim
         , deltaBindings = []
         }
@@ -112,15 +110,15 @@ df :: forall r. (Eq r, Num r, Storable r)
    => (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
    -> (Domain r, DomainV r)
    -> (Domain' r, r)
-df =
-  let initVars :: (Domain r, DomainV r) -> (VecDualDelta r, Int)
-      initVars (deltaInput, _deltaInputV) =
+df f (deltaInput, _deltaInputV) =
+  let initVars :: (VecDualDelta r, Int)
+      initVars =
         let dim = V.length deltaInput
         in ( ( deltaInput
              , V.generate dim (Var . DeltaId)
              , V.empty )
            , dim )
-  in generalDf initVars evalBindingsV
+  in generalDf initVars evalBindingsV f
 
 -- | Simple Gradient Descent.
 gdSimple :: forall r. (Eq r, Num r, Storable r)
@@ -129,7 +127,7 @@ gdSimple :: forall r. (Eq r, Num r, Storable r)
          -> Int  -- ^ requested number of iterations
          -> (Domain r, DomainV r)  -- ^ initial parameters
          -> Domain' r
-gdSimple gamma f n0 (params0, paramsV0) = go n0 params0 where
+gdSimple gamma f n0 (params0, _paramsV0) = go n0 params0 where
   dim = V.length params0
   -- Pre-allocating the vars once, vs gradually allocating on the spot in each
   -- gradient computation, initially incurs overhead (looking up in a vector),
@@ -141,8 +139,7 @@ gdSimple gamma f n0 (params0, paramsV0) = go n0 params0 where
   go n params =
     let initVars :: (VecDualDelta r, Int)
         initVars = ((params, vVar, V.empty), dim)
-        gradient = fst $ generalDf (const initVars) evalBindingsV f
-                                   (params0, paramsV0)
+        gradient = fst $ generalDf initVars evalBindingsV f
         paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
     in go (pred n) paramsNew
 
@@ -153,7 +150,7 @@ sgd :: forall r a. (Eq r, Num r, Storable r)
     -> [a]  -- ^ training data
     -> (Domain r, DomainV r)  -- ^ initial parameters
     -> Domain' r
-sgd gamma f trainingData (params0, paramsV0) = go trainingData params0 where
+sgd gamma f trainingData (params0, _paramsV0) = go trainingData params0 where
   dim = V.length params0
   -- Pre-allocating the vars once, vs gradually allocating on the spot in each
   -- gradient computation, initially incurs overhead (looking up in a vector),
@@ -165,8 +162,7 @@ sgd gamma f trainingData (params0, paramsV0) = go trainingData params0 where
   go (a : rest) params =
     let initVars :: (VecDualDelta r, Int)
         initVars = ((params, vVar, V.empty), dim)
-        gradient = fst $ generalDf (const initVars) evalBindingsV (f a)
-                                   (params0, paramsV0)
+        gradient = fst $ generalDf initVars evalBindingsV (f a)
         paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
     in go rest paramsNew
 
@@ -182,13 +178,12 @@ gdSmart :: forall r.
         -> Int  -- ^ requested number of iterations
         -> (Domain r, DomainV r)  -- ^ initial parameters
         -> (Domain' r, r)
-gdSmart f n0 (params0, paramsV0) = go n0 params0 0.1 gradient0 value0 0 where
+gdSmart f n0 (params0, _paramsV0) = go n0 params0 0.1 gradient0 value0 0 where
   dim = V.length params0
   vVar = V.generate dim (Var . DeltaId)
   initVars0 :: (VecDualDelta r, Int)
   initVars0 = ((params0, vVar, V.empty), dim)
-  (gradient0, value0) = generalDf (const initVars0) evalBindingsV f
-                                  (params0, paramsV0)
+  (gradient0, value0) = generalDf initVars0 evalBindingsV f
   go :: Int -> Domain r -> r -> Domain r -> r -> Int -> (Domain' r, r)
   go 0 !params !gamma _gradientPrev _valuePrev !_i = (params, gamma)
   go _ params 0 _ _ _ = (params, 0)
@@ -202,8 +197,7 @@ gdSmart f n0 (params0, paramsV0) = go n0 params0 0.1 gradient0 value0 0 where
     -- with the new value that is needed now to revert if we overshoot.
     let paramsNew = V.zipWith (\p r -> p - gamma * r) params gradientPrev
         initVars = ((paramsNew, vVar, V.empty), dim)
-        (gradient, value) = generalDf (const initVars) evalBindingsV f
-                                      (paramsNew, undefined)
+        (gradient, value) = generalDf initVars evalBindingsV f
     in if | V.all (== 0) gradientPrev -> (params, gamma)
           | value > valuePrev ->
 --              traceShow ("value > valuePrev" :: String, value, valuePrev) $
