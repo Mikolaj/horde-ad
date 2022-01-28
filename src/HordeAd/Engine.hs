@@ -27,6 +27,7 @@ type DeltaMonadValue r = Identity
 
 instance DeltaMonad r (DeltaMonadValue r) where
   returnLet (D u _u') = Identity $ D u Zero
+  returnLetV (D u _u') = Identity $ D u Zero
 
 -- The general case.
 --
@@ -68,6 +69,13 @@ instance DeltaMonad r (DeltaMonadGradient r) where
     modify $ \s ->
       s { deltaCounter = DeltaId $ succ i
         , deltaBindings = Left u' : deltaBindings s
+        }
+    return $! D u (Var $ DeltaId i)
+  returnLetV (D u u') = DeltaMonadGradient $ do
+    DeltaId i <- gets deltaCounter
+    modify $ \s ->
+      s { deltaCounter = DeltaId $ succ i
+        , deltaBindings = Right u' : deltaBindings s
         }
     return $! D u (Var $ DeltaId i)
 

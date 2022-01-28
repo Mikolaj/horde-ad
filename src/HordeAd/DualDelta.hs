@@ -30,6 +30,8 @@ data DualDelta r = D r (Delta r)
 
 class (Monad m, Functor m, Applicative m) => DeltaMonad r m | m -> r where
   returnLet :: DualDelta r -> m (DualDelta r)
+  returnLetV :: DualDelta (Data.Vector.Storable.Vector r)
+             -> m (DualDelta (Data.Vector.Storable.Vector r))
 
 scalar :: r -> DualDelta r
 scalar r = D r Zero
