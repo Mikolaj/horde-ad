@@ -86,9 +86,13 @@ buildVector dim dimV st d0 = do
         Zero -> return ()
         Scale k d -> evalV (V.zipWith (*) k vr) d
         Add d1 d2 -> evalV vr d1 >> evalV vr d2
-        Var (DeltaId i) -> VM.modify storeV (V.zipWith (+) vr) i
+        Var (DeltaId i) -> VM.modify storeV (addToVector vr) i
         Dot{} -> error "buildVector: unboxed vectors of vectors not possible"
         Konst d _n -> V.mapM_ (`eval` d) vr
+      addToVector :: Data.Vector.Storable.Vector r
+                  -> Data.Vector.Storable.Vector r
+                  -> Data.Vector.Storable.Vector r
+      addToVector vr v = if V.null v then vr else V.zipWith (+) v vr
   eval 1 d0  -- dt is 1 or hardwired in f
   let evalUnlessZero :: DeltaId
                      -> Either (Delta r) (Delta (Data.Vector.Storable.Vector r))
@@ -105,7 +109,7 @@ buildVector dim dimV st d0 = do
         return $! DeltaId (pred i)
   minusOne <- foldM evalUnlessZero (DeltaId $ pred storeSize) (deltaBindings st)
   let _A = assert (minusOne == DeltaId (-1)) ()
-  return (VM.slice 0 dim store, VM.slice 0 dimV storeV)
+  return (VM.slice 0 dim store, VM.slice dim dimV storeV)
 
 evalBindingsV :: forall r. (Eq r, Num r, Storable r)
               => Int -> Int -> DeltaState r -> Delta r
