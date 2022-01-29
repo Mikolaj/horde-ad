@@ -225,47 +225,30 @@ lossCrossEntropy targ res = do
       f !acc i d = acc + scale (targ V.! i) (log d)
   negateDual $ V.ifoldl' f (scalar 0) res
 
+-- * The vector-based versions, not yet used.
 
-
--- * Copied from branch hTensor. Does not typecheck without hTensor library.
-
-infixr 8 <.>!
-(<.>!) :: Numeric r
-       => DualDelta (Data.Vector.Storable.Vector r)
-       -> DualDelta (Data.Vector.Storable.Vector r)
-       -> DualDelta r
-(<.>!) (D u u') (D v v') = D (u <.> v) (Add (Dot v u') (Dot u v'))
-
-konst' :: Container Data.Vector.Storable.Vector r
-       => DualDelta r -> Int -> DualDelta (Data.Vector.Storable.Vector r)
-konst' (D u u') n = D (konst u n) (Konst u' n)
-
-sumElements' :: (Num r, Container Data.Vector.Storable.Vector r)
-             => DualDelta (Data.Vector.Storable.Vector r) -> DualDelta r
-sumElements' (D u u') = D (sumElements u) (Dot (konst 1 (V.length u)) u')
-
-{-
-
-softMaxAct :: ( DeltaMonad (Array r) m, Floating r
-              , Floating (Data.Vector.Storable.Vector r), Coord r )
-           => DualDelta (Array r)
-           -> m (DualDelta (Array r))
-softMaxAct u@(D ud _) = do
-  let expU = exp u
+softMaxActV :: ( DeltaMonad (Data.Vector.Storable.Vector r) m
+               , Fractional r, Numeric r
+               , Floating (Data.Vector.Storable.Vector r) )
+            => DualDelta (Data.Vector.Storable.Vector r)
+            -> m (DualDelta (Data.Vector.Storable.Vector r))
+softMaxActV d@(D u _) = do
+  let expU = exp d
       sumExpU = sumElements' expU
       recipSum = recip sumExpU
-      uv = asVector ud
-  returnLet $ konst' recipSum (V.length uv) * expU
+  returnLet $ konst' recipSum (V.length u) * expU
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropy
-  :: forall m r. ( DeltaMonad (Array r) m, Floating r
-                 , Floating (Data.Vector.Storable.Vector r), Coord r )
-  => Array r
-  -> DualDelta (Array r)
-  -> m (DualDelta (Array r))
-lossCrossEntropy targ res =
-  negateDual $ log res <.>!! targ
+lossCrossEntropyV
+  :: ( DeltaMonad r m, Numeric r
+     , Floating (Data.Vector.Storable.Vector r) )
+  => Data.Vector.Storable.Vector r
+  -> DualDelta (Data.Vector.Storable.Vector r)
+  -> m (DualDelta r)
+lossCrossEntropyV targ res = negateDual $ log res <.>!! targ
+
+{-
+-- A version from hTensor branch.
 
 -- | Dense matrix-vector product.
 infixr 8 #>!
@@ -286,24 +269,26 @@ infixr 8 #>!!
   let uM = asMatrix u
       vV = asVector v
   in D (fromVector None $ uM #> vV) (Scale v u')  -- probably too naive
+-}
+
+infixr 8 <.>!
+(<.>!) :: Numeric r
+       => DualDelta (Data.Vector.Storable.Vector r)
+       -> DualDelta (Data.Vector.Storable.Vector r)
+       -> DualDelta r
+(<.>!) (D u u') (D v v') = D (u <.> v) (Add (Dot v u') (Dot u v'))
 
 infixr 8 <.>!!
-(<.>!!) :: Coord r
-        => DualDelta (Array r) -> Array r -> DualDelta (Array r)
-(<.>!!) (D u u') v =
-  let uV = asVector u
-      vV = asVector v
-  in D (Util.scalar $ uV <.> vV) (Scale v u')  -- probably too naive
+(<.>!!) :: Numeric r
+        => DualDelta (Data.Vector.Storable.Vector r)
+        -> Data.Vector.Storable.Vector r
+        -> DualDelta r
+(<.>!!) (D u u') v = D (u <.> v) (Dot v u')
 
-konst' :: Coord r
-       => DualDelta (Array r) -> Int -> DualDelta (Array r)
-konst' (D u _u') n = D (fromVector None $ konst (asScalar u) n)
-                       Zero  -- definitely wrong; should be sumElements u'
+konst' :: Container Data.Vector.Storable.Vector r
+       => DualDelta r -> Int -> DualDelta (Data.Vector.Storable.Vector r)
+konst' (D u u') n = D (konst u n) (Konst u' n)
 
-sumElements' :: Coord r
-             => DualDelta (Array r) -> DualDelta (Array r)
-sumElements' (D u _u') =
-  let uV = asVector u
-  in D (Util.scalar $ sumElements uV)
-       Zero  -- definitely wrong; should be konst u' n
--}
+sumElements' :: (Num r, Container Data.Vector.Storable.Vector r)
+             => DualDelta (Data.Vector.Storable.Vector r) -> DualDelta r
+sumElements' (D u u') = D (sumElements u) (Dot (konst 1 (V.length u)) u')
