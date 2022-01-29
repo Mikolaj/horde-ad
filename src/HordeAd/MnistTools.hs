@@ -192,8 +192,8 @@ generalTestMnist nn xs res =
 
 testMnist :: (Ord r, Floating r, Storable r)
           => Int -> [MnistData r] -> Domain r -> r
-testMnist widthHidden xs res =
-  generalTestMnist (inline nnMnist logisticAct softMaxAct widthHidden) xs res
+testMnist widthHidden =
+  generalTestMnist (inline nnMnist logisticAct softMaxAct widthHidden)
 
 -- * 2 hidden layers
 
@@ -237,10 +237,9 @@ nnMnistLoss2 widthHidden widthHidden2 (x, targ) vec = do
 
 testMnist2 :: (Ord r, Floating r, Storable r)
            => Int -> Int -> [MnistData r] -> Domain r -> r
-testMnist2 widthHidden widthHidden2 xs res =
+testMnist2 widthHidden widthHidden2 =
   generalTestMnist (inline nnMnist2 logisticAct softMaxAct
                                     widthHidden widthHidden2)
-                   xs res
 
 -- * Reading data files
 

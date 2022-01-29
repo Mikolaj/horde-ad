@@ -1,4 +1,4 @@
-{-# LANGUAGE GADTs, GeneralizedNewtypeDeriving, KindSignatures #-}
+{-# LANGUAGE GADTs, KindSignatures #-}
 -- | The second component of dual numbers, @Delta@, with it's evaluation
 -- function. Neel Krishnaswami calls that "sparse vector expressions",
 -- and indeed the codomain of the evaluation function is a vector,
@@ -88,7 +88,7 @@ buildVector dim dimV st d0 = do
         Add d1 d2 -> evalV vr d1 >> evalV vr d2
         Var (DeltaId i) -> VM.modify storeV (V.zipWith (+) vr) i
         Dot{} -> error "buildVector: unboxed vectors of vectors not possible"
-        Konst d _n -> V.mapM_ (\r -> eval r d) vr
+        Konst d _n -> V.mapM_ (`eval` d) vr
   eval 1 d0  -- dt is 1 or hardwired in f
   let evalUnlessZero :: DeltaId
                      -> Either (Delta r) (Delta (Data.Vector.Storable.Vector r))

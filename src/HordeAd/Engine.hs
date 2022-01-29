@@ -50,7 +50,7 @@ valueDual :: Storable r
 valueDual f (ds, dsV) =
   let dim = V.length ds
       vVar = V.replicate dim Zero  -- dummy
-  in runIdentity $ f (ds, vVar, V.map (\v -> D v Zero) dsV)
+  in runIdentity $ f (ds, vVar, V.map (`D` Zero) dsV)
 
 -- A common case, but not the only one, see MNIST.
 valueDualDelta :: Storable r

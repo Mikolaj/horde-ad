@@ -722,8 +722,7 @@ nnFit3ForStochastic :: Int
                     -> (Double, Double)
                     -> VecDualDeltaD
                     -> DeltaMonadGradient Double DualDeltaD
-nnFit3ForStochastic _ (x, res) vec =
-  nnFit3Loss tanhAct tanhAct tanhAct x res vec
+nnFit3ForStochastic _ (x, res) = nnFit3Loss tanhAct tanhAct tanhAct x res
 
 stochasticFit3Tests :: TestTree
 stochasticFit3Tests =

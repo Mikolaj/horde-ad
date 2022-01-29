@@ -109,7 +109,7 @@ bgroup5e7 allxs =
 -- to manage the vectors for us.
 vec_prod_aux :: forall m r. (DeltaMonad r m, Num r, Storable r)
              => VecDualDelta r -> m (DualDelta r)
-vec_prod_aux vec = foldMDelta' (*\) (scalar 1) vec
+vec_prod_aux = foldMDelta' (*\) (scalar 1)
   -- no handwritten gradients; only the gradient for @(*)@ is provided;
   -- also, not omitting bindings; all let-bindings are present, see below
 

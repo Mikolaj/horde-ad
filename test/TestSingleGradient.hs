@@ -137,7 +137,7 @@ dfAtanReadmeMPoly ds =
   in (res, value)
 
 readmeTests :: TestTree
-readmeTests = testGroup "Tests of code from the library's future README" $
+readmeTests = testGroup "Tests of code from the library's future README"
   [ testCase "Poly Float (1.1, 2.2, 3.3)"
     $ dfAtanReadmeMPoly (V.fromList [1.1 :: Float, 2.2, 3.3])
       @?= (V.fromList [3.0715904, 0.18288425, 1.1761366], 4.937552)

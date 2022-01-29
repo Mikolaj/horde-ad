@@ -50,9 +50,9 @@ gdSmartShow f initVec n =
 
 gradSmartTestCase
   :: String
-  -> (((DualDelta Double) -> DeltaMonadGradient Double (DualDelta Double))
-      -> ((DualDelta Double) -> DeltaMonadGradient Double (DualDelta Double))
-      -> ((DualDelta Double) -> DeltaMonadGradient Double (DualDelta Double))
+  -> ((DualDelta Double -> DeltaMonadGradient Double (DualDelta Double))
+      -> (DualDelta Double -> DeltaMonadGradient Double (DualDelta Double))
+      -> (DualDelta Double -> DeltaMonadGradient Double (DualDelta Double))
       -> Data.Vector.Storable.Vector (Double, Double)
       -> Int
       -> VecDualDelta Double
