@@ -119,7 +119,7 @@ vec_prod ds = valueDualDelta vec_prod_aux (ds, undefined)
 
 grad_vec_prod :: (Eq r, Num r, Storable r)
               => Domain r -> Domain' r
-grad_vec_prod ds = fst $ df vec_prod_aux (ds, undefined)
+grad_vec_prod ds = fst $ fst $ df vec_prod_aux (ds, undefined)
 
 grad_toList_prod :: (Eq r, Num r, Storable r)
                  => [r] -> [r]
@@ -143,4 +143,4 @@ vec_omit_prod ds = valueDualDelta vec_omit_prod_aux (ds, undefined)
 
 grad_vec_omit_prod :: (Eq r, Num r, Storable r)
                    => Domain r -> Domain' r
-grad_vec_omit_prod ds = fst $ df vec_omit_prod_aux (ds, undefined)
+grad_vec_omit_prod ds = fst $ fst $ df vec_omit_prod_aux (ds, undefined)

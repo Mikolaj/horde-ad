@@ -161,6 +161,7 @@ test-suite test
     -- Test dependencies.
     build-depends:
         base
+      , hmatrix
       , horde-ad
       , random
       , storable-tuple
@@ -196,6 +197,7 @@ test-suite shortTestForCI
     -- Test dependencies.
     build-depends:
         base
+      , hmatrix
       , horde-ad
       , random
       , tasty >= 1.0
@@ -247,6 +249,7 @@ benchmark mnist
     build-depends:
         base
       , criterion
+      , hmatrix
       , horde-ad
       , random
       , vector
@@ -268,6 +271,7 @@ benchmark shortMnistForCI
     build-depends:
         base
       , criterion
+      , hmatrix
       , horde-ad
       , random
       , vector

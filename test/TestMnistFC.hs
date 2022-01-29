@@ -5,7 +5,8 @@ import Prelude
 
 import           Control.Monad (foldM)
 import qualified Data.Vector.Generic as V
-import           Foreign.Storable (Storable)
+import qualified Data.Vector.Storable
+import           Numeric.LinearAlgebra (Container)
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -25,14 +26,16 @@ shortTestForCITrees = [ dumbMnistTests
                       , shortCIMnistTests
                       ]
 
-sgdShow :: (Eq r, Num r, Storable r)
+sgdShow :: ( Eq r, Num r
+           , Num (Data.Vector.Storable.Vector r)
+           , Container Data.Vector.Storable.Vector r )
         => r
         -> (a -> VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
         -> [a]  -- ^ training data
         -> Domain r  -- ^ initial parameters
         -> ([r], r)
 sgdShow gamma f trainData params0 =
-  let res = sgd gamma f trainData (params0, undefined)
+  let (res, _) = sgd gamma f trainData (params0, undefined)
       (_, value) = df (f $ head trainData) (res, undefined)
   in (V.toList res, value)
 
@@ -86,7 +89,7 @@ mnistTestCase prefix epochs maxBatches trainWithLoss widthHidden gamma
            runBatch !params (k, chunk) = do
              printf "(Batch %d)\n" k
              let f = trainWithLoss widthHidden
-                 !res = sgd gamma f chunk (params, undefined)
+                 (!res, _) = sgd gamma f chunk (params, undefined)
              printf "Trained on %d points.\n" (length chunk)
              let trainScore = testMnist widthHidden chunk res
                  testScore  = testMnist widthHidden testData res
@@ -140,7 +143,7 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
            runBatch !params (k, chunk) = do
              printf "(Batch %d)\n" k
              let f = trainWithLoss widthHidden widthHidden2
-                 !res = sgd gamma f chunk (params, undefined)
+                 (!res, _) = sgd gamma f chunk (params, undefined)
              printf "Trained on %d points.\n" (length chunk)
              let trainScore = testMnist2 widthHidden widthHidden2 chunk res
                  testScore  = testMnist2 widthHidden widthHidden2 testData res

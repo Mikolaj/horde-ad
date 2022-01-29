@@ -62,11 +62,11 @@ data DeltaState r = DeltaState
   }
 
 buildVector :: forall s r. (Eq r, Num r, Storable r)
-            => Int -> DeltaState r -> Delta r
+            => Int -> Int -> DeltaState r -> Delta r
             -> ST s ( Data.Vector.Storable.Mutable.MVector s r
                     , Data.Vector.Mutable.MVector
                         s (Data.Vector.Storable.Vector r) )
-buildVector dim st d0 = do
+buildVector dim dimV st d0 = do
   let DeltaId storeSize = deltaCounter st
   store <- VM.replicate storeSize 0
   -- TODO: this allocation costs us 7% runtime in 25/train2 2500 750:
@@ -105,25 +105,19 @@ buildVector dim st d0 = do
         return $! DeltaId (pred i)
   minusOne <- foldM evalUnlessZero (DeltaId $ pred storeSize) (deltaBindings st)
   let _A = assert (minusOne == DeltaId (-1)) ()
-  return (VM.slice 0 dim store, VM.slice 0 dim storeV)
+  return (VM.slice 0 dim store, VM.slice 0 dimV storeV)
 
-evalBindingsV2 :: forall r. (Eq r, Num r, Storable r)
-               => Int -> DeltaState r -> Delta r
-               -> ( Data.Vector.Storable.Vector r
-                  , Data.Vector.Vector (Data.Vector.Storable.Vector r) )
-evalBindingsV2 dim st d0 =
+evalBindingsV :: forall r. (Eq r, Num r, Storable r)
+              => Int -> Int -> DeltaState r -> Delta r
+              -> ( Data.Vector.Storable.Vector r
+                 , Data.Vector.Vector (Data.Vector.Storable.Vector r) )
+evalBindingsV dim dimV st d0 =
   let built :: forall s.
                  ST s ( Data.Vector.Storable.Mutable.MVector s r
                       , Data.Vector.Mutable.MVector
                           s (Data.Vector.Storable.Vector r) )
-      built = buildVector dim st d0
+      built = buildVector dim dimV st d0
   in ( V.create $ fst <$> built
      , V.create $ snd <$> built )
        -- TODO: this probably runs buildVector twice;
        -- thawing/freezing or IO is needed?
-
--- for compatibility with old engine
-evalBindingsV :: forall r. (Eq r, Num r, Storable r)
-              => Int -> DeltaState r -> Delta r
-              -> (Data.Vector.Storable.Vector r)
-evalBindingsV dim st d0 = fst $ evalBindingsV2 dim st d0

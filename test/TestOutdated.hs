@@ -7,8 +7,8 @@ import           Control.Arrow (first)
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
-import           Foreign.Storable (Storable)
 import           Foreign.Storable.Tuple ()
+import           Numeric.LinearAlgebra (Container)
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -124,14 +124,16 @@ wsFitSeparated range@(low, hi) seed k =
       g = mkStdGen seed
   in V.zip steps (rolls g)
 
-gdSimpleShow :: (Eq r, Num r, Storable r)
+gdSimpleShow :: ( Eq r, Num r
+                , Num (Data.Vector.Storable.Vector r)
+                , Container Data.Vector.Storable.Vector r )
              => r
              -> (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
              -> Domain r
              -> Int
              -> ([r], r)
 gdSimpleShow gamma f initVec n =
-  let res = gdSimple gamma f n (initVec, undefined)
+  let (res, _) = gdSimple gamma f n (initVec, undefined)
       (_, value) = df f (res, undefined)
   in (V.toList res, value)
 
@@ -311,7 +313,7 @@ gdSmartShow :: (VecDualDeltaD -> DeltaMonadGradient Double DualDeltaD)
             -> Int
             -> ([Double], (Double, Double))
 gdSmartShow f initVec n =
-  let (res, gamma) = gdSmart f n (initVec, undefined)
+  let ((res, _), gamma) = gdSmart f n (initVec, undefined)
       (_, value) = df f (res, undefined)
   in (V.toList res, (value, gamma))
 
@@ -686,14 +688,16 @@ smartFit3TestsL3 =
   ]
 -}
 
-sgdShow :: (Eq r, Num r, Storable r)
+sgdShow :: ( Eq r, Num r
+           , Num (Data.Vector.Storable.Vector r)
+           , Container Data.Vector.Storable.Vector r )
         => r
         -> (a -> VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
         -> [a]  -- ^ training data
         -> Domain r  -- ^ initial parameters
         -> ([r], r)
 sgdShow gamma f trainData params0 =
-  let res = sgd gamma f trainData (params0, undefined)
+  let (res, _) = sgd gamma f trainData (params0, undefined)
       (_, value) = df (f $ head trainData) (res, undefined)
   in (V.toList res, value)
 

@@ -4,7 +4,8 @@ module TestSimpleDescent (testTrees) where
 import Prelude
 
 import qualified Data.Vector.Generic as V
-import           Foreign.Storable (Storable)
+import qualified Data.Vector.Storable
+import           Numeric.LinearAlgebra (Container)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
@@ -18,14 +19,16 @@ testTrees :: [TestTree]
 testTrees = [ gdSimpleTests
             , xorTests ]
 
-gdSimpleShow :: (Eq r, Num r, Storable r)
+gdSimpleShow :: ( Eq r, Num r
+                , Num (Data.Vector.Storable.Vector r)
+                , Container Data.Vector.Storable.Vector r )
              => r
              -> (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
              -> Domain r
              -> Int
              -> ([r], r)
 gdSimpleShow gamma f initVec n =
-  let res = gdSimple gamma f n (initVec, undefined)
+  let (res, _) = gdSimple gamma f n (initVec, undefined)
       (_, value) = df f (res, undefined)
   in (V.toList res, value)
 

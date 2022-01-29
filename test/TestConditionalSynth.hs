@@ -44,7 +44,7 @@ gdSmartShow :: (VecDualDelta Double
             -> Int
             -> ([Double], (Double, Double))
 gdSmartShow f initVec n =
-  let (res, gamma) = gdSmart f n (initVec, undefined)
+  let ((res, _), gamma) = gdSmart f n (initVec, undefined)
       (_, value) = df f (res, undefined)
   in (V.toList res, (value, gamma))
 
