@@ -26,3 +26,22 @@ the OS needs libraries that on Ubuntu/Debian are called
 libgsl0-dev, liblapack-dev and libatlas-base-dev.
 See https://github.com/haskell-numerics/hmatrix/blob/master/INSTALL.md
 for information about other OSes.
+
+
+Coding style
+------------
+
+Stylish Haskell is used for slight auto-formatting at buffer save; see
+[.stylish-haskell.yaml](https://github.com/Mikolaj/horde-ad/blob/master/.stylish-haskell.yaml).
+As defined in the file, indentation is 2 spaces wide and screen is
+80-columns wide. Spaces are used, not tabs. Spurious whitespace avoided.
+Spaces around arithmetic operators encouraged.
+Generally, relax and try to stick to the style apparent in a file
+you are editing. Put big formatting changes in separate commits.
+
+Haddocks should be provided for all module headers and for all functions
+and types from most important modules. Apart of that, only particularly
+significant functions and types are distinguished by having a haddock.
+If minor ones have comments, they should not be haddocks and they are
+permitted to describe implementation details and be out of date.
+Prefer assertions instead of comments, unless too verbose.
