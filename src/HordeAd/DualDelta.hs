@@ -291,3 +291,9 @@ konst' (D u u') n = D (konst u n) (Konst u' n)
 sumElements' :: Numeric r
              => DualDelta (Data.Vector.Storable.Vector r) -> DualDelta r
 sumElements' (D u u') = D (sumElements u) (Dot (konst 1 (V.length u)) u')
+
+deltaSeq :: Numeric r
+         => Data.Vector.Vector (DualDelta r)
+         -> DualDelta (Data.Vector.Storable.Vector r)
+deltaSeq v = D (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
+               (Seq $ V.map (\(D _ u') -> u') v)

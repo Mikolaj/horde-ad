@@ -44,6 +44,7 @@ data Delta :: Type -> Type where
   Dot :: Data.Vector.Storable.Vector r -> Delta (Data.Vector.Storable.Vector r)
       -> Delta r
   Konst :: Delta r -> Int -> Delta (Data.Vector.Storable.Vector r)
+  Seq :: Data.Vector.Vector (Delta r) -> Delta (Data.Vector.Storable.Vector r)
 
 newtype DeltaId = DeltaId Int
   deriving (Show, Eq, Ord)
@@ -78,7 +79,8 @@ buildVector dim dimV st d0 = do
         Add d1 d2 -> eval r d1 >> eval r d2
         Var (DeltaId i) -> VM.modify store (+ r) i
         Dot vr vd -> evalV (V.map (* r) vr) vd
-        Konst{} -> error "buildVector: konst can't result in a scalar"
+        Konst{} -> error "buildVector: Konst can't result in a scalar"
+        Seq{} -> error "buildVector: Seq can't result in a scalar"
       evalV :: Data.Vector.Storable.Vector r
             -> Delta (Data.Vector.Storable.Vector r)
             -> ST s ()
@@ -89,6 +91,7 @@ buildVector dim dimV st d0 = do
         Var (DeltaId i) -> VM.modify storeV (addToVector vr) i
         Dot{} -> error "buildVector: unboxed vectors of vectors not possible"
         Konst d _n -> V.mapM_ (`eval` d) vr
+        Seq vd -> V.imapM_ (\i d -> eval (vr V.! i) d) vd
       addToVector :: Data.Vector.Storable.Vector r
                   -> Data.Vector.Storable.Vector r
                   -> Data.Vector.Storable.Vector r
