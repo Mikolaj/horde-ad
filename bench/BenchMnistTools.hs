@@ -9,15 +9,14 @@ import           Criterion.Main
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
 import           Foreign.Storable (Storable)
-import           Numeric.LinearAlgebra (Container)
+import           Numeric.LinearAlgebra (Numeric)
 import           System.Random
 
 import HordeAd
 import HordeAd.MnistTools
 
 mnistTrainBench :: ( Show r, Eq r, Floating r, UniformRange r
-                   , Num (Data.Vector.Storable.Vector r)
-                   , Container Data.Vector.Storable.Vector r )
+                   , Numeric r, Num (Data.Vector.Storable.Vector r) )
                 => Int -> [MnistData r] -> Int -> r -> Benchmark
 mnistTrainBench chunkLength xs widthHidden gamma = do
   let nParams = lenMnist widthHidden
@@ -43,8 +42,7 @@ mnistTestBench chunkLength xs widthHidden = do
   bench name $ whnf score chunk
 
 mnistTrainBGroup :: ( Show r, Ord r, Floating r, UniformRange r
-                    , Num (Data.Vector.Storable.Vector r)
-                    , Container Data.Vector.Storable.Vector r )
+                    , Numeric r, Num (Data.Vector.Storable.Vector r) )
                     => [MnistData r] -> Int -> Benchmark
 mnistTrainBGroup xs0 chunkLength =
   env (return $ take chunkLength xs0) $
@@ -59,8 +57,7 @@ mnistTrainBGroup xs0 chunkLength =
     ]
 
 mnistTrainBench2 :: ( Eq r, Floating r, UniformRange r
-                    , Num (Data.Vector.Storable.Vector r)
-                    , Container Data.Vector.Storable.Vector r )
+                    , Numeric r, Num (Data.Vector.Storable.Vector r) )
                  => String -> Int -> [MnistData r] -> Int -> Int -> r
                  -> Benchmark
 mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do

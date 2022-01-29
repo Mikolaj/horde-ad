@@ -14,7 +14,7 @@ import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
 import           Foreign.Storable (Storable)
-import           Numeric.LinearAlgebra (Container, konst)
+import           Numeric.LinearAlgebra (Numeric, konst)
 
 import HordeAd.Delta
 import HordeAd.DualDelta (DeltaMonad (..), DualDelta (..))
@@ -124,9 +124,7 @@ df f (deltaInput, deltaInputV) =
   in generalDf initVars evalBindingsV f
 
 -- | Simple Gradient Descent.
-gdSimple :: forall r. ( Eq r, Num r
-                      , Num (Data.Vector.Storable.Vector r)
-                      , Container Data.Vector.Storable.Vector r )
+gdSimple :: forall r. (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
          => r
          -> (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
          -> Int  -- ^ requested number of iterations
@@ -153,9 +151,7 @@ gdSimple gamma f n0 (params0, paramsV0) = go n0 params0 paramsV0 where
     in go (pred n) paramsNew paramsVNew
 
 -- | Stochastic Gradient Descent.
-sgd :: forall r a. ( Eq r, Num r
-                   , Num (Data.Vector.Storable.Vector r)
-                   , Container Data.Vector.Storable.Vector r )
+sgd :: forall r a. (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
     => r
     -> (a -> VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
     -> [a]  -- ^ training data
@@ -190,8 +186,7 @@ gdSmart :: forall r.
              (
 --               Show r,
                Ord r, Fractional r
-             , Num (Data.Vector.Storable.Vector r)
-             , Container Data.Vector.Storable.Vector r
+             , Numeric r, Num (Data.Vector.Storable.Vector r)
              )
         => (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
         -> Int  -- ^ requested number of iterations

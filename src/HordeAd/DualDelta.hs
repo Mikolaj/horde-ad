@@ -11,8 +11,7 @@ import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
 import           Foreign.Storable (Storable)
-import           Numeric.LinearAlgebra
-  (Container, Numeric, konst, sumElements, (<.>))
+import           Numeric.LinearAlgebra (Numeric, konst, sumElements, (<.>))
 
 import HordeAd.Delta (Delta (..))
 
@@ -285,10 +284,10 @@ infixr 8 <.>!!
         -> DualDelta r
 (<.>!!) (D u u') v = D (u <.> v) (Dot v u')
 
-konst' :: Container Data.Vector.Storable.Vector r
+konst' :: Numeric r
        => DualDelta r -> Int -> DualDelta (Data.Vector.Storable.Vector r)
 konst' (D u u') n = D (konst u n) (Konst u' n)
 
-sumElements' :: (Num r, Container Data.Vector.Storable.Vector r)
+sumElements' :: Numeric r
              => DualDelta (Data.Vector.Storable.Vector r) -> DualDelta r
 sumElements' (D u u') = D (sumElements u) (Dot (konst 1 (V.length u)) u')

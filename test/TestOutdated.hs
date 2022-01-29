@@ -8,7 +8,7 @@ import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
 import           Foreign.Storable.Tuple ()
-import           Numeric.LinearAlgebra (Container)
+import           Numeric.LinearAlgebra (Numeric)
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -124,9 +124,7 @@ wsFitSeparated range@(low, hi) seed k =
       g = mkStdGen seed
   in V.zip steps (rolls g)
 
-gdSimpleShow :: ( Eq r, Num r
-                , Num (Data.Vector.Storable.Vector r)
-                , Container Data.Vector.Storable.Vector r )
+gdSimpleShow :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
              => r
              -> (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
              -> Domain r
@@ -688,9 +686,7 @@ smartFit3TestsL3 =
   ]
 -}
 
-sgdShow :: ( Eq r, Num r
-           , Num (Data.Vector.Storable.Vector r)
-           , Container Data.Vector.Storable.Vector r )
+sgdShow :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
         => r
         -> (a -> VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
         -> [a]  -- ^ training data

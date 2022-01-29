@@ -6,7 +6,7 @@ import Prelude
 import           Control.Monad (foldM)
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
-import           Numeric.LinearAlgebra (Container)
+import           Numeric.LinearAlgebra (Numeric)
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -26,9 +26,7 @@ shortTestForCITrees = [ dumbMnistTests
                       , shortCIMnistTests
                       ]
 
-sgdShow :: ( Eq r, Num r
-           , Num (Data.Vector.Storable.Vector r)
-           , Container Data.Vector.Storable.Vector r )
+sgdShow :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
         => r
         -> (a -> VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
         -> [a]  -- ^ training data

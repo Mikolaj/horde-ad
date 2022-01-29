@@ -5,7 +5,7 @@ import Prelude
 
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
-import           Numeric.LinearAlgebra (Container)
+import           Numeric.LinearAlgebra (Numeric)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
@@ -19,9 +19,7 @@ testTrees :: [TestTree]
 testTrees = [ gdSimpleTests
             , xorTests ]
 
-gdSimpleShow :: ( Eq r, Num r
-                , Num (Data.Vector.Storable.Vector r)
-                , Container Data.Vector.Storable.Vector r )
+gdSimpleShow :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
              => r
              -> (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
              -> Domain r
