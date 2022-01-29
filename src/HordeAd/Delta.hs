@@ -19,7 +19,7 @@ import Prelude
 
 import           Control.Exception (assert)
 import           Control.Monad (foldM, when)
-import           Control.Monad.ST.Strict (ST)
+import           Control.Monad.ST.Strict (ST, runST)
 import           Data.Kind (Type)
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
@@ -112,12 +112,9 @@ evalBindingsV :: forall r. (Eq r, Num r, Storable r)
               -> ( Data.Vector.Storable.Vector r
                  , Data.Vector.Vector (Data.Vector.Storable.Vector r) )
 evalBindingsV dim dimV st d0 =
-  let built :: forall s.
-                 ST s ( Data.Vector.Storable.Mutable.MVector s r
-                      , Data.Vector.Mutable.MVector
-                          s (Data.Vector.Storable.Vector r) )
-      built = buildVector dim dimV st d0
-  in ( V.create $ fst <$> built
-     , V.create $ snd <$> built )
-       -- TODO: this probably runs buildVector twice;
-       -- thawing/freezing or IO is needed?
+  -- We can't just call @V.create@ twice, because it runs the @ST@ action twice.
+  runST $ do
+    (res, resV) <- buildVector dim dimV st d0
+    r <- V.unsafeFreeze res
+    rV <- V.unsafeFreeze resV
+    return (r, rV)
