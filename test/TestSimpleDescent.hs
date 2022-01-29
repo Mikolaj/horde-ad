@@ -28,8 +28,8 @@ gdSimpleShow :: ( Eq r, Num r
              -> Int
              -> ([r], r)
 gdSimpleShow gamma f initVec n =
-  let (res, _) = gdSimple gamma f n (initVec, undefined)
-      (_, value) = df f (res, undefined)
+  let (res, _) = gdSimple gamma f n (initVec, V.empty)
+      (_, value) = df f (res, V.empty)
   in (V.toList res, value)
 
 fquad :: DeltaMonad Float m => VecDualDeltaF -> m DualDeltaF

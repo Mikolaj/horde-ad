@@ -35,8 +35,8 @@ sgdShow :: ( Eq r, Num r
         -> Domain r  -- ^ initial parameters
         -> ([r], r)
 sgdShow gamma f trainData params0 =
-  let (res, _) = sgd gamma f trainData (params0, undefined)
-      (_, value) = df (f $ head trainData) (res, undefined)
+  let (res, _) = sgd gamma f trainData (params0, V.empty)
+      (_, value) = df (f $ head trainData) (res, V.empty)
   in (V.toList res, value)
 
 sgdTestCase
@@ -89,7 +89,7 @@ mnistTestCase prefix epochs maxBatches trainWithLoss widthHidden gamma
            runBatch !params (k, chunk) = do
              printf "(Batch %d)\n" k
              let f = trainWithLoss widthHidden
-                 (!res, _) = sgd gamma f chunk (params, undefined)
+                 (!res, _) = sgd gamma f chunk (params, V.empty)
              printf "Trained on %d points.\n" (length chunk)
              let trainScore = testMnist widthHidden chunk res
                  testScore  = testMnist widthHidden testData res
@@ -143,7 +143,7 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
            runBatch !params (k, chunk) = do
              printf "(Batch %d)\n" k
              let f = trainWithLoss widthHidden widthHidden2
-                 (!res, _) = sgd gamma f chunk (params, undefined)
+                 (!res, _) = sgd gamma f chunk (params, V.empty)
              printf "Trained on %d points.\n" (length chunk)
              let trainScore = testMnist2 widthHidden widthHidden2 chunk res
                  testScore  = testMnist2 widthHidden widthHidden2 testData res
