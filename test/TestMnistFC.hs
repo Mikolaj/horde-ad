@@ -19,6 +19,7 @@ testTrees :: [TestTree]
 testTrees = [ dumbMnistTests
             , smallMnistTests
             , bigMnistTests
+            , vectorMnistTests
             ]
 
 shortTestForCITrees :: [TestTree]
@@ -163,6 +164,68 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
        let testErrorFinal = 1 - testMnist2 widthHidden widthHidden2 testData res
        testErrorFinal @?= expected
 
+mnistTestCase2V
+  :: String
+  -> Int
+  -> Int
+  -> (Int
+      -> Int
+      -> MnistData Double
+      -> VecDualDelta Double
+      -> DeltaMonadGradient Double (DualDelta Double))
+  -> Int
+  -> Int
+  -> Double
+  -> Double
+  -> TestTree
+mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
+                gamma expected =
+  let nParams = lenMnist2V widthHidden widthHidden2
+      nParamsV = lenVectorsMnist2V widthHidden widthHidden2
+      params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 44
+      paramsV0 =
+        V.map (\nPV -> V.unfoldrExactN nPV (uniformR (-0.5, 0.5))
+                                       (mkStdGen $ 44 + nPV))
+              nParamsV
+      name = prefix ++ " "
+             ++ unwords [ show epochs, show maxBatches
+                        , show widthHidden, show widthHidden2
+                        , show nParams, show gamma ]
+  in testCase name $ do
+       trainData <- loadMnistData trainGlyphsPath trainLabelsPath
+       testData <- loadMnistData testGlyphsPath testLabelsPath
+       -- Mimic how backprop tests and display it, even though tests
+       -- should not print, in principle.
+       let runBatch :: (Domain Double, DomainV Double)
+                    -> (Int, [MnistData Double])
+                    -> IO (Domain Double, DomainV Double)
+           runBatch (!params, !paramsV) (k, chunk) = do
+             printf "(Batch %d)\n" k
+             let f = trainWithLoss widthHidden widthHidden2
+                 res = sgd gamma f chunk (params, paramsV)
+             printf "Trained on %d points.\n" (length chunk)
+             let trainScore = testMnist2V widthHidden widthHidden2 chunk res
+                 testScore  = testMnist2V widthHidden widthHidden2 testData res
+             printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
+             printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
+             return res
+       let runEpoch :: Int -> (Domain Double, DomainV Double)
+                    -> IO (Domain Double, DomainV Double)
+           runEpoch n params2 | n > epochs = return params2
+           runEpoch n params2 = do
+             printf "[Epoch %d]\n" n
+             let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
+                 chunks = take maxBatches
+                          $ zip [1 ..] $ chunksOf 5000 trainDataShuffled
+             !res <- foldM runBatch params2 chunks
+             runEpoch (succ n) res
+       printf "\nEpochs to run/max batches per epoch: %d/%d\n"
+              epochs maxBatches
+       res <- runEpoch 1 (params0, paramsV0)
+       let testErrorFinal =
+             1 - testMnist2V widthHidden widthHidden2 testData res
+       testErrorFinal @?= expected
+
 chunksOf :: Int -> [e] -> [[e]]
 chunksOf n = go where
   go [] = []
@@ -232,6 +295,13 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           params = V.replicate nParams 0.1
       testData <- loadMnistData testGlyphsPath testLabelsPath
       (1 - testMnist2 300 100 testData params) @?= 0.902
+  , testCase "testMnist2V on 0.1 params 300 100 width 10k testset" $ do
+      let nParams = lenMnist2V 300 100
+          params = V.replicate nParams 0.1
+          nParamsV = lenVectorsMnist2V 300 100
+          paramsV = V.map (\nPV -> V.replicate nPV 0.1) nParamsV
+      testData <- loadMnistData testGlyphsPath testLabelsPath
+      (1 - testMnist2V 300 100 testData (params, paramsV)) @?= 0.902
  ]
 
 smallMnistTests :: TestTree
@@ -269,16 +339,39 @@ bigMnistTests = testGroup "MNIST tests with a 2-hidden-layer nn"
                    0.7132000000000001
   ]
 
+vectorMnistTests :: TestTree
+vectorMnistTests = testGroup "MNIST V tests with a 2-hidden-layer nn"
+  [ mnistTestCase2V "1 epoch, 1 batch" 1 1 nnMnistLoss2V 300 100 0.02
+                    0.15890000000000004
+  , mnistTestCase2V "1 epoch, 1 batch, wider" 1 1 nnMnistLoss2V 500 150 0.02
+                    0.15959999999999996
+  , mnistTestCase2V "2 epochs, but only 1 batch" 2 1 nnMnistLoss2V 300 100 0.02
+                    0.10970000000000002
+  , mnistTestCase2V "1 epoch, all batches" 1 99 nnMnistLoss2V 300 100 0.02
+                    5.700000000000005e-2
+                      -- doh, worse than 1-hidden-layer, but twice slower
+  , mnistTestCase2V "artificial 1 2 3 4 5" 1 2 nnMnistLoss2V 3 4 5
+                    0.8972
+  , mnistTestCase2V "artificial 5 4 3 2 1" 5 4 nnMnistLoss2V 3 2 1
+                    0.7090000000000001
+  ]
+
 shortCIMnistTests :: TestTree
 shortCIMnistTests = testGroup "Short CI MNIST tests"
   [ mnistTestCase "artificial 1 2 3 4" 1 2 nnMnistLoss 3 4
                   0.8972
   , mnistTestCase "artificial 4 3 2 1" 4 3 nnMnistLoss 2 1
                   0.7306
-  , mnistTestCase2 "1 epoch, 1 batch" 1 1 nnMnistLoss2 300 100 0.02
+  , mnistTestCase2 "2 - 1 epoch, 1 batch" 1 1 nnMnistLoss2 300 100 0.02
                    0.1452
-  , mnistTestCase2 "artificial 1 2 3 4 5" 1 2 nnMnistLoss2 3 4 5
+  , mnistTestCase2 "2 artificial 1 2 3 4 5" 1 2 nnMnistLoss2 3 4 5
                    0.8972
-  , mnistTestCase2 "artificial 5 4 3 2 1" 5 4 nnMnistLoss2 3 2 1
+  , mnistTestCase2 "2 artificial 5 4 3 2 1" 5 4 nnMnistLoss2 3 2 1
                    0.7132000000000001
+  , mnistTestCase2V "V 1 epoch, 1 batch" 1 1 nnMnistLoss2V 300 100 0.02
+                    0.15890000000000004
+  , mnistTestCase2V "V artificial 1 2 3 4 5" 1 2 nnMnistLoss2V 3 4 5
+                    0.8972
+  , mnistTestCase2V "V artificial 5 4 3 2 1" 5 4 nnMnistLoss2V 3 2 1
+                    0.7090000000000001
   ]

@@ -19,4 +19,5 @@ main = do
     , mnistTrainBGroup2 testData 500
 --    , mnistTrainBGroup2 testData 5000  -- ordinary chunk size, takes too long
     , mnistTrainBGroup2500 testData 25
+    , mnistTrainBGroup2V testData 500
     ]

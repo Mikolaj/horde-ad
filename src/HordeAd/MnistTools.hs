@@ -17,12 +17,13 @@ import qualified Data.Vector.Storable
 import qualified Data.Vector.Unboxed
 import           Foreign.Storable (Storable)
 import           GHC.Exts (inline)
+import           Numeric.LinearAlgebra (Numeric)
 import           System.IO (IOMode (ReadMode), withBinaryFile)
 import           System.Random
 
 import HordeAd.DualDelta
 import HordeAd.Engine
-import HordeAd.PairOfVectors (VecDualDelta, var)
+import HordeAd.PairOfVectors (VecDualDelta, var, varV)
 
 -- * General tools
 
@@ -59,7 +60,7 @@ sumTrainableInputs xs offset vec = do
 -- of the network, tasked with ingesting the data.
 sumConstantData :: forall m r.
                      (DeltaMonad r m, Num r, Storable r)
-                => Domain r
+                => Data.Vector.Storable.Vector r
                 -> Int
                 -> VecDualDelta r
                 -> m (DualDelta r)
@@ -240,6 +241,93 @@ testMnist2 :: (Ord r, Floating r, Storable r)
 testMnist2 widthHidden widthHidden2 =
   generalTestMnist (inline nnMnist2 logisticAct softMaxAct
                                     widthHidden widthHidden2)
+
+-- * 2 hidden layers with whole-vector operations
+
+sumConstantDataV :: Numeric r
+                 => Data.Vector.Storable.Vector r
+                 -> Int
+                 -> VecDualDelta r
+                 -> DualDelta r
+sumConstantDataV x offset vec =
+  let v = varV vec offset
+  in v <.>!! x
+
+hiddenLayerMnistV :: forall m r. (DeltaMonad r m, Numeric r)
+                  => (DualDelta r -> m (DualDelta r))
+                  -> Data.Vector.Storable.Vector r
+                  -> VecDualDelta r
+                  -> Int
+                  -> m (Data.Vector.Vector (DualDelta r))
+hiddenLayerMnistV factivation x vec width = do
+  let f :: Int -> m (DualDelta r)
+      f i = do
+        let outSum = sumConstantDataV x i vec + var vec i  -- the var is bias
+        factivation outSum
+  V.generateM width f
+
+lenMnist2V :: Int -> Int -> Int
+lenMnist2V widthHidden widthHidden2 =
+  widthHidden
+  + widthHidden2 * (widthHidden + 1)
+  + sizeMnistLabel * (widthHidden2 + 1)
+
+lenVectorsMnist2V :: Int -> Int -> Data.Vector.Vector Int
+lenVectorsMnist2V widthHidden _widthHidden2 =
+  V.replicate widthHidden sizeMnistGlyph
+
+-- Two hidden layers of width @widthHidden@ and (the middle one) @widthHidden2@.
+-- Both hidden layers use the same activation function.
+nnMnist2V :: (DeltaMonad r m, Fractional r, Numeric r)
+          => (DualDelta r -> m (DualDelta r))
+          -> (Data.Vector.Vector (DualDelta r)
+             -> m (Data.Vector.Vector (DualDelta r)))
+          -> Int
+          -> Int
+          -> Data.Vector.Storable.Vector r
+          -> VecDualDelta r
+          -> m (Data.Vector.Vector (DualDelta r))
+nnMnist2V factivationHidden factivationOutput widthHidden widthHidden2
+          x vec = do
+  let !_A = assert (sizeMnistGlyph == V.length x) ()
+  hiddenVec <- inline hiddenLayerMnistV factivationHidden x vec widthHidden
+  let offsetMiddle = widthHidden
+  middleVec <- inline middleLayerMnist factivationHidden hiddenVec
+                                       offsetMiddle vec widthHidden2
+  let offsetOutput = offsetMiddle + widthHidden2 * (widthHidden + 1)
+  inline outputLayerMnist factivationOutput middleVec
+                          offsetOutput vec sizeMnistLabel
+
+nnMnistLoss2V :: (DeltaMonad r m, Floating r, Numeric r)
+              => Int
+              -> Int
+              -> MnistData r
+              -> VecDualDelta r
+              -> m (DualDelta r)
+nnMnistLoss2V widthHidden widthHidden2 (x, targ) vec = do
+  res <- inline nnMnist2V logisticAct softMaxAct widthHidden widthHidden2 x vec
+  lossCrossEntropy targ res
+
+generalTestMnistV :: forall r. (Ord r, Fractional r, Storable r)
+                  => (Data.Vector.Storable.Vector r
+                      -> VecDualDelta r
+                      -> DeltaMonadValue r
+                           (Data.Vector.Vector (DualDelta r)))
+                  -> [MnistData r] -> (Domain r, DomainV r)
+                  -> r
+{-# INLINE generalTestMnistV #-}
+generalTestMnistV nn xs res =
+  let matchesLabels :: MnistData r -> Bool
+      matchesLabels (glyph, label) =
+        let value = V.map (\(D r _) -> r) $ valueDual (nn glyph) res
+        in V.maxIndex value == V.maxIndex label
+  in fromIntegral (length (filter matchesLabels xs)) / fromIntegral (length xs)
+
+testMnist2V :: (Ord r, Floating r, Numeric r)
+            => Int -> Int -> [MnistData r] -> (Domain r, DomainV r) -> r
+testMnist2V widthHidden widthHidden2 =
+  generalTestMnistV (inline nnMnist2V logisticAct softMaxAct
+                                      widthHidden widthHidden2)
 
 -- * Reading data files
 
