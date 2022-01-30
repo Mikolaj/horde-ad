@@ -321,9 +321,9 @@ bigMnistTests = testGroup "MNIST tests with a 2-hidden-layer nn"
   [ mnistTestCase2 "1 epoch, 1 batch" 1 1 nnMnistLoss2 300 100 0.02
                    0.1452
   , mnistTestCase2 "tanh: 1 epoch, 1 batch" 1 1 nnMnistLossTanh 300 100 0.02
-                  0.32509999999999994
+                   0.5261
   , mnistTestCase2 "relu: 1 epoch, 1 batch" 1 1 nnMnistLossRelu 300 100 0.02
-                  0.1582
+                   0.7444999999999999
   , mnistTestCase2 "1 epoch, 1 batch, wider" 1 1 nnMnistLoss2 500 150 0.02
                    0.12680000000000002
   , mnistTestCase2 "2 epochs, but only 1 batch" 2 1 nnMnistLoss2 300 100 0.02
