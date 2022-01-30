@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 module BenchProdTools where
 
@@ -5,7 +6,8 @@ import Prelude
 
 import           Criterion.Main
 import qualified Data.Vector.Generic as V
-import           Foreign.Storable (Storable)
+import qualified Data.Vector.Storable
+import           Numeric.LinearAlgebra (Numeric)
 
 import HordeAd
 
@@ -107,21 +109,21 @@ bgroup5e7 allxs =
 -- which works fine there, but costs us some cycles and the use
 -- of a custom operation here, where there's no gradient descent
 -- to manage the vectors for us.
-vec_prod_aux :: forall m r. (DeltaMonad r m, Num r, Storable r)
+vec_prod_aux :: forall m r. (DeltaMonad r m, Numeric r)
              => VecDualDelta r -> m (DualDelta r)
 vec_prod_aux = foldMDelta' (*\) (scalar 1)
   -- no handwritten derivatives; only the derivative for @(*)@ is provided;
   -- also, not omitting bindings; all let-bindings are present, see below
 
-vec_prod :: (Num r, Storable r)
+vec_prod :: Numeric r
          => Domain r -> r
 vec_prod ds = valueDualDelta vec_prod_aux (ds, V.empty)
 
-grad_vec_prod :: (Eq r, Num r, Storable r)
+grad_vec_prod :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
               => Domain r -> Domain' r
 grad_vec_prod ds = fst $ fst $ df vec_prod_aux (ds, V.empty)
 
-grad_toList_prod :: (Eq r, Num r, Storable r)
+grad_toList_prod :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
                  => [r] -> [r]
 grad_toList_prod l = V.toList $ grad_vec_prod $ V.fromList l
 
@@ -132,15 +134,15 @@ grad_toList_prod l = V.toList $ grad_vec_prod $ V.fromList l
 -- It probably wouldn't help in this case, though.
 
 vec_omit_prod_aux
-  :: forall m r. (DeltaMonad r m, Num r, Storable r)
+  :: forall m r. (DeltaMonad r m, Numeric r)
   => VecDualDelta r -> m (DualDelta r)
 vec_omit_prod_aux vec = returnLet $ foldlDelta' (*) (scalar 1) vec
   -- omitting most bindings, because we know nothing repeats inside
 
-vec_omit_prod :: (Num r, Storable r)
+vec_omit_prod :: Numeric r
               => Domain r -> r
 vec_omit_prod ds = valueDualDelta vec_omit_prod_aux (ds, V.empty)
 
-grad_vec_omit_prod :: (Eq r, Num r, Storable r)
+grad_vec_omit_prod :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
                    => Domain r -> Domain' r
 grad_vec_omit_prod ds = fst $ fst $ df vec_omit_prod_aux (ds, V.empty)

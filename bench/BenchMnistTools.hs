@@ -8,7 +8,6 @@ import           Control.Arrow ((***))
 import           Criterion.Main
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
-import           Foreign.Storable (Storable)
 import           Numeric.LinearAlgebra (Numeric)
 import           System.Random
 
@@ -29,8 +28,7 @@ mnistTrainBench chunkLength xs widthHidden gamma = do
                         , show gamma ]
   bench name $ whnf grad chunk
 
-mnistTestBench :: ( Ord r, Floating r, UniformRange r
-                  , Storable r )
+mnistTestBench :: (Ord r, Floating r, UniformRange r, Numeric r)
                => Int -> [MnistData r] -> Int -> Benchmark
 mnistTestBench chunkLength xs widthHidden = do
   let nParams = lenMnist widthHidden
@@ -70,8 +68,7 @@ mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
              ++ unwords [show widthHidden, show widthHidden2, show nParams]
   bench name $ whnf grad chunk
 
-mnistTestBench2 :: ( Ord r, Floating r, UniformRange r
-                   , Storable r )
+mnistTestBench2 :: (Ord r, Floating r, UniformRange r, Numeric r)
                 => String -> Int -> [MnistData r] -> Int -> Int -> Benchmark
 mnistTestBench2 extraPrefix chunkLength xs widthHidden widthHidden2 = do
   let nParams = lenMnist2 widthHidden widthHidden2

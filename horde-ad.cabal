@@ -214,6 +214,7 @@ benchmark prod
         base
       , criterion
       , deepseq
+      , hmatrix
       , horde-ad
       , random
       , vector
@@ -228,6 +229,7 @@ benchmark shortProdForCI
         base
       , criterion
       , deepseq
+      , hmatrix
       , horde-ad
       , random
       , vector

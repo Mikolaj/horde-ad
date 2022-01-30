@@ -167,8 +167,7 @@ sumListDual us = returnLet $ foldl' (+) (scalar 0) us
 
 -- Inlined to avoid the tiny overhead of calling an unknown function.
 -- This operation is needed, because @sumListDual@ doesn't (always) fuse.
-sumResultsDual :: forall m a r.
-                    (DeltaMonad r m, Num r, Storable a)
+sumResultsDual :: forall m a r. (DeltaMonad r m, Num r, Storable a)
                => (a -> m (DualDelta r))
                -> Data.Vector.Storable.Vector a
                -> m (DualDelta r)
@@ -224,7 +223,7 @@ lossSquared targ res = squareDual $ res - scalar targ
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
 lossCrossEntropy
-  :: forall m r. (DeltaMonad r m, Floating r, Storable r)
+  :: forall m r. (DeltaMonad r m, Floating r, Numeric r)
   => Data.Vector.Storable.Vector r
   -> Data.Vector.Vector (DualDelta r)
   -> m (DualDelta r)

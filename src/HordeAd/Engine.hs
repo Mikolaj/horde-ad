@@ -13,7 +13,6 @@ import           Data.Functor.Identity
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
-import           Foreign.Storable (Storable)
 import           Numeric.LinearAlgebra (Numeric, konst)
 
 import HordeAd.Delta
@@ -42,7 +41,7 @@ instance DeltaMonad r (DeltaMonadValue r) where
 -- The general case, needed for old, hacky tests before 'Delta' extension.
 --
 -- Small enough that inline won't hurt.
-valueDual :: Storable r
+valueDual :: Numeric r
           => (VecDualDelta r -> DeltaMonadValue r a)
           -> (Domain r, DomainV r)
           -> a
@@ -52,7 +51,7 @@ valueDual f (ds, dsV) =
       vVar = V.replicate dim Zero  -- dummy
   in runIdentity $ f (ds, vVar, V.map (`D` Zero) dsV)
 
-valueDualDelta :: Storable r
+valueDualDelta :: Numeric r
                => (VecDualDelta r -> DeltaMonadValue r (DualDelta a))
                -> (Domain r, DomainV r)
                -> a
@@ -105,7 +104,7 @@ generalDf (ds, dim, dimV) evalBindings f =
       gradient = evalBindings dim dimV st d
   in (gradient, value)
 
-df :: forall r. (Eq r, Num r, Storable r)
+df :: forall r. (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
    => (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
    -> (Domain r, DomainV r)
    -> ((Domain' r, DomainV' r), r)
