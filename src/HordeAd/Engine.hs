@@ -88,16 +88,14 @@ instance DeltaMonad r (DeltaMonadGradient r) where
         }
     return $! D u (Var $ DeltaId i)
 
--- Takes a lot of functions as arguments, hence the inline,
--- but the functions in which it inlines and which are used in client code
+-- The functions in which it inlines and which are used in client code
 -- are not inlined there, so the bloat is limited.
-generalDf :: Numeric r
+generalDf :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
           => VecDualDelta r
-          -> (Int -> Int -> DeltaState r -> Delta r -> domain')
           -> (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
-          -> (domain', r)
+          -> ((Domain' r, DomainV' r), r)
 {-# INLINE generalDf #-}
-generalDf ds@(vs, _, vv) evalBindings f =
+generalDf ds@(vs, _, vv) f =
   let dim = V.length vs
       dimV = V.length vv
       initialState = DeltaState
@@ -118,7 +116,7 @@ df f (params, paramsV) =
       vVar = V.generate dim (Var . DeltaId)
       vVarV = V.generate dimV (Var . DeltaId . (+ dim))
       vecDualDelta = vecDualDeltaFromVars vVar vVarV (params, paramsV)
-  in generalDf vecDualDelta evalBindingsV f
+  in generalDf vecDualDelta f
 
 -- | Simple Gradient Descent.
 gdSimple :: forall r. (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
@@ -140,7 +138,7 @@ gdSimple gamma f n0 (params0, paramsV0) = go n0 params0 paramsV0 where
   go 0 !params !paramsV = (params, paramsV)
   go n params paramsV =
     let vecDualDelta = vecDualDeltaFromVars vVar vVarV (params, paramsV)
-        (gradient, gradientV) = fst $ generalDf vecDualDelta evalBindingsV f
+        (gradient, gradientV) = fst $ generalDf vecDualDelta f
         paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
         paramsVNew = V.zipWith (\i r -> i - konst gamma (V.length r) * r)
                                paramsV gradientV
@@ -164,7 +162,7 @@ sgd gamma f trainingData (params0, paramsV0) =
   go [] !params !paramsV = (params, paramsV)
   go (a : rest) params paramsV =
     let vecDualDelta = vecDualDeltaFromVars vVar vVarV (params, paramsV)
-        (gradient, gradientV) = fst $ generalDf vecDualDelta evalBindingsV (f a)
+        (gradient, gradientV) = fst $ generalDf vecDualDelta (f a)
         paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
         paramsVNew = V.zipWith (\i r -> i - konst gamma (V.length r) * r)
                                paramsV gradientV
@@ -190,7 +188,7 @@ gdSmart f n0 (params0, paramsV0) =
   vVar = V.generate dim (Var . DeltaId)
   vVarV = V.generate dimV (Var . DeltaId . (+ dim))
   vecDualDelta0 = vecDualDeltaFromVars vVar vVarV (params0, paramsV0)
-  ((gradient0, gradientV0), value0) = generalDf vecDualDelta0 evalBindingsV f
+  ((gradient0, gradientV0), value0) = generalDf vecDualDelta0 f
   go :: Int -> Domain r -> DomainV r -> r -> Domain' r -> DomainV' r -> r -> Int
      -> ((Domain' r, DomainV' r), r)
   go 0 !params !paramsV !gamma _gradientPrev _gradientVPrev _valuePrev !_i =
@@ -208,7 +206,7 @@ gdSmart f n0 (params0, paramsV0) =
         paramsVNew = V.zipWith (\p r -> p - konst gamma (V.length r) * r)
                                paramsV gradientVPrev
         vecDualDelta = vecDualDeltaFromVars vVar vVarV (paramsNew, paramsVNew)
-        ((gradient, gradientV), value) = generalDf vecDualDelta evalBindingsV f
+        ((gradient, gradientV), value) = generalDf vecDualDelta f
     in if | V.all (== 0) gradientPrev
             && V.all (== V.empty) gradientVPrev -> ((params, paramsV), gamma)
           | value > valuePrev ->

@@ -12,7 +12,7 @@ module HordeAd.Delta
   ( Delta (..)
   , DeltaId (..)
   , DeltaState (..)
-  , evalBindingsV
+  , evalBindings
   ) where
 
 import Prelude
@@ -113,12 +113,12 @@ buildVector dim dimV st d0 = do
   let _A = assert (minusOne == DeltaId (-1)) ()
   return (VM.slice 0 dim store, VM.slice dim dimV storeV)
 
-evalBindingsV :: forall r.
-                   (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
-              => Int -> Int -> DeltaState r -> Delta r
-              -> ( Data.Vector.Storable.Vector r
-                 , Data.Vector.Vector (Data.Vector.Storable.Vector r) )
-evalBindingsV dim dimV st d0 =
+evalBindings :: forall r.
+                  (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
+             => Int -> Int -> DeltaState r -> Delta r
+             -> ( Data.Vector.Storable.Vector r
+                , Data.Vector.Vector (Data.Vector.Storable.Vector r) )
+evalBindings dim dimV st d0 =
   -- We can't just call @V.create@ twice, because it runs the @ST@ action twice.
   runST $ do
     (res, resV) <- buildVector dim dimV st d0
