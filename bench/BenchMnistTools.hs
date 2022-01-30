@@ -8,7 +8,7 @@ import           Control.Arrow ((***))
 import           Criterion.Main
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
-import           Numeric.LinearAlgebra (Numeric)
+import           Numeric.LinearAlgebra (Numeric, uniformSample)
 import           System.Random
 
 import HordeAd
@@ -114,4 +114,59 @@ mnistTrainBGroup2V xs0 chunkLength =
     , mnistTrainBench2V "" chunkLength xs 500 150 0.02
     , mnistTestBench2V "(Float) " chunkLength xsFloat 500 150  -- Float test
     , mnistTrainBench2V "(Float) " chunkLength xsFloat 500 150 (0.02 :: Float)
+    ]
+
+mnistTrainBench2L :: String -> Int -> [MnistData Double] -> Int -> Int
+                  -> Double
+                  -> Benchmark
+mnistTrainBench2L extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
+  let nParams = lenMnist2L widthHidden widthHidden2
+      nParamsV = lenVectorsMnist2L widthHidden widthHidden2
+      nParamsL = lenMatrixMnist2L widthHidden widthHidden2
+      params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
+      paramsV0 =
+        V.imap (\i nPV -> V.unfoldrExactN nPV (uniformR (-0.5, 0.5))
+                                          (mkStdGen $ 33 + nPV + i))
+               nParamsV
+      paramsL0 = V.imap (\i (rows, cols) ->
+                           uniformSample (33 + rows + i) rows
+                                         (replicate cols (-0.5, 0.5)))
+                        nParamsL
+      f = nnMnistLoss2L
+      chunk = take chunkLength xs
+      grad c = sgd gamma f c (params0, paramsV0, paramsL0)
+      name = "train2 " ++ extraPrefix
+             ++ unwords [show widthHidden, show widthHidden2, show nParams]
+  bench name $ whnf grad chunk
+
+mnistTestBench2L :: String -> Int -> [MnistData Double] -> Int -> Int
+                 -> Benchmark
+mnistTestBench2L extraPrefix chunkLength xs widthHidden widthHidden2 = do
+  let nParams = lenMnist2L widthHidden widthHidden2
+      nParamsV = lenVectorsMnist2L widthHidden widthHidden2
+      nParamsL = lenMatrixMnist2L widthHidden widthHidden2
+      params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
+      paramsV0 =
+        V.imap (\i nPV -> V.unfoldrExactN nPV (uniformR (-0.5, 0.5))
+                                          (mkStdGen $ 33 + nPV + i))
+               nParamsV
+      paramsL0 = V.imap (\i (rows, cols) ->
+                           uniformSample (33 + rows + i) rows
+                                         (replicate cols (-0.5, 0.5)))
+                        nParamsL
+      chunk = take chunkLength xs
+      score c = testMnist2L c (params0, paramsV0, paramsL0)
+      name = "test2 " ++ extraPrefix
+             ++ unwords [show widthHidden, show widthHidden2, show nParams ]
+  bench name $ whnf score chunk
+
+mnistTrainBGroup2L :: [MnistData Double] -> Int -> Benchmark
+mnistTrainBGroup2L xs chunkLength =
+  bgroup ("2-hidden-layer L MNIST nn with samples: " ++ show chunkLength)
+    [ mnistTestBench2L "" chunkLength xs 30 10  -- toy width
+    , mnistTrainBench2L "" chunkLength xs 30 10 0.02
+    , mnistTestBench2L "" chunkLength xs 300 100  -- ordinary width
+    , mnistTrainBench2L "" chunkLength xs 300 100 0.02
+    , mnistTestBench2L "" chunkLength xs 500 150  -- another common size
+    , mnistTrainBench2L "" chunkLength xs 500 150 0.02
     ]

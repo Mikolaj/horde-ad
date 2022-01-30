@@ -17,4 +17,5 @@ main = do
     [ mnistTrainBGroup2 testData 50
     , mnistTrainBGroup2500 testData 5
     , mnistTrainBGroup2V testData 50
+    , mnistTrainBGroup2L testData 50
     ]
