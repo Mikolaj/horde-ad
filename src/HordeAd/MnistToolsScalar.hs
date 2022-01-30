@@ -122,7 +122,7 @@ generalTestMnist nn xs res =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
         let value = V.map (\(D r _) -> r)
-                    $ valueDual (nn glyph) (res, V.empty)
+                    $ valueDual (nn glyph) (res, V.empty, V.empty)
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels xs)) / fromIntegral (length xs)
 

@@ -25,7 +25,7 @@ dfShow :: (VecDualDeltaF -> DeltaMonadGradient Float DualDeltaF)
        -> [Float]
        -> ([Float], Float)
 dfShow f deltaInput =
-  let ((results, _), value) = df f (V.fromList deltaInput, V.empty)
+  let ((results, _, _), value) = df f (V.fromList deltaInput, V.empty, V.empty)
   in (V.toList results, value)
 
 fX :: DeltaMonad Float m => VecDualDeltaF -> m DualDeltaF
@@ -134,7 +134,7 @@ dfAtanReadmeMPoly :: ( RealFloat r, Numeric r
                      , Num (Data.Vector.Storable.Vector r) )
                   => Domain r -> (Domain' r, r)
 dfAtanReadmeMPoly ds =
-  let ((res, _), value) = df atanReadmeMPoly (ds, V.empty)
+  let ((res, _, _), value) = df atanReadmeMPoly (ds, V.empty, V.empty)
   in (res, value)
 
 readmeTests :: TestTree

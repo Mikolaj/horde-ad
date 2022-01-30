@@ -33,8 +33,8 @@ sgdShow :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
         -> Domain r  -- ^ initial parameters
         -> ([r], r)
 sgdShow gamma f trainData params0 =
-  let (res, _) = sgd gamma f trainData (params0, V.empty)
-      (_, value) = df (f $ head trainData) (res, V.empty)
+  let (res, _, _) = sgd gamma f trainData (params0, V.empty, V.empty)
+      (_, value) = df (f $ head trainData) (res, V.empty, V.empty)
   in (V.toList res, value)
 
 sgdTestCase
@@ -93,7 +93,7 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
            runBatch !params (k, chunk) = do
              printf "(Batch %d)\n" k
              let f = trainWithLoss widthHidden widthHidden2
-                 (!res, _) = sgd gamma f chunk (params, V.empty)
+                 (!res, _, _) = sgd gamma f chunk (params, V.empty, V.empty)
              printf "Trained on %d points.\n" (length chunk)
              let trainScore = testMnist2 widthHidden widthHidden2 chunk res
                  testScore  = testMnist2 widthHidden widthHidden2 testData res
@@ -154,10 +154,11 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
            runBatch (!params, !paramsV) (k, chunk) = do
              printf "(Batch %d)\n" k
              let f = trainWithLoss widthHidden widthHidden2
-                 res = sgd gamma f chunk (params, paramsV)
+                 (resS, resV, _) = sgd gamma f chunk (params, paramsV, V.empty)
+                 res = (resS, resV)
              printf "Trained on %d points.\n" (length chunk)
              let trainScore = testMnist2V widthHidden widthHidden2 chunk res
-                 testScore  = testMnist2V widthHidden widthHidden2 testData res
+                 testScore = testMnist2V widthHidden widthHidden2 testData res
              printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
              printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
              return res

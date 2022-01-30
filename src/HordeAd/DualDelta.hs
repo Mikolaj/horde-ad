@@ -11,9 +11,12 @@ import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
 import           Foreign.Storable (Storable)
-import           Numeric.LinearAlgebra (Numeric, konst, sumElements, (<.>))
+import           Numeric.LinearAlgebra
+  (Matrix, Numeric, fromRows, konst, rows, sumElements, (#>), (<.>))
 
 import HordeAd.Delta (Delta (..))
+
+-- * The main dual number types
 
 data DualDelta r = D r (Delta r)
 
@@ -21,6 +24,10 @@ class (Monad m, Functor m, Applicative m) => DeltaMonad r m | m -> r where
   returnLet :: DualDelta r -> m (DualDelta r)
   returnLetV :: DualDelta (Data.Vector.Storable.Vector r)
              -> m (DualDelta (Data.Vector.Storable.Vector r))
+  returnLetL :: DualDelta (Matrix r) -> m (DualDelta (Matrix r))
+
+
+-- * General non-monadic operations
 
 scalar :: r -> DualDelta r
 scalar r = D r Zero
@@ -95,7 +102,8 @@ instance RealFloat r => RealFloat (DualDelta r) where
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a continuous codomain
 
--- Non-monadic operations related to vectors
+
+-- * Non-monadic operations related to vectors
 
 infixr 8 <.>!
 (<.>!) :: Numeric r
@@ -125,29 +133,24 @@ deltaSeq :: Numeric r
 deltaSeq v = D (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
                (Seq $ V.map (\(D _ u') -> u') v)
 
-{-
--- A version from hTensor branch.
-
 -- | Dense matrix-vector product.
 infixr 8 #>!
-(#>!) :: Coord r
-      => DualDelta (Array r) -> DualDelta (Array r) -> DualDelta (Array r)
+(#>!) :: Numeric r
+      => DualDelta (Matrix r)
+      -> DualDelta (Data.Vector.Storable.Vector r)
+      -> DualDelta (Data.Vector.Storable.Vector r)
 (#>!) (D u u') (D v v') =
-  let uM = asMatrix u
-      vV = asVector v
-      uMT = fromMatrix None None (tr uM)
-  in D (fromVector None $ uM #> vV) (Add (Scale v u')  -- probably too naive
-                                         (Scale uMT v'))
+  D (u #> v) (Add (DotL (fromRows (replicate (rows u) v)) u')
+                  (DotL u (SeqL (V.replicate (rows u) v'))))
 
 -- | Dense matrix-vector product with a constant vector.
 infixr 8 #>!!
-(#>!!) :: Coord r
-       => DualDelta (Array r) -> Array r -> DualDelta (Array r)
-(#>!!) (D u u') v =
-  let uM = asMatrix u
-      vV = asVector v
-  in D (fromVector None $ uM #> vV) (Scale v u')  -- probably too naive
--}
+(#>!!) :: Numeric r
+       => DualDelta (Matrix r)
+       -> Data.Vector.Storable.Vector r
+       -> DualDelta (Data.Vector.Storable.Vector r)
+(#>!!) (D u u') v = D (u #> v) (DotL (fromRows (replicate (rows u) v)) u')
+
 
 -- * Monadic operations for scalars
 
@@ -271,6 +274,7 @@ lossCrossEntropy targ res = do
   let f :: DualDelta r -> Int -> DualDelta r -> DualDelta r
       f !acc i d = acc + scale (targ V.! i) (log d)
   negateDual $ V.ifoldl' f (scalar 0) res
+
 
 -- * Monadic operations for vectors
 

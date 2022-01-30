@@ -139,10 +139,10 @@ generalTestMnistV :: forall r. (Ord r, Fractional r, Numeric r)
                   -> [MnistData r] -> (Domain r, DomainV r)
                   -> r
 {-# INLINE generalTestMnistV #-}
-generalTestMnistV nn xs res =
+generalTestMnistV nn xs (resS, resV) =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let value = valueDualDelta (nn glyph) res
+        let value = valueDualDelta (nn glyph) (resS, resV, V.empty)
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels xs)) / fromIntegral (length xs)
 

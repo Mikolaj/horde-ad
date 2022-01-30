@@ -117,11 +117,12 @@ vec_prod_aux = foldMDelta' (*\) (scalar 1)
 
 vec_prod :: Numeric r
          => Domain r -> r
-vec_prod ds = valueDualDelta vec_prod_aux (ds, V.empty)
+vec_prod ds = valueDualDelta vec_prod_aux (ds, V.empty, V.empty)
 
 grad_vec_prod :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
               => Domain r -> Domain' r
-grad_vec_prod ds = fst $ fst $ df vec_prod_aux (ds, V.empty)
+grad_vec_prod ds =
+  (\(v, _, _) -> v) $ fst $ df vec_prod_aux (ds, V.empty, V.empty)
 
 grad_toList_prod :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
                  => [r] -> [r]
@@ -141,8 +142,9 @@ vec_omit_prod_aux vec = returnLet $ foldlDelta' (*) (scalar 1) vec
 
 vec_omit_prod :: Numeric r
               => Domain r -> r
-vec_omit_prod ds = valueDualDelta vec_omit_prod_aux (ds, V.empty)
+vec_omit_prod ds = valueDualDelta vec_omit_prod_aux (ds, V.empty, V.empty)
 
 grad_vec_omit_prod :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
                    => Domain r -> Domain' r
-grad_vec_omit_prod ds = fst $ fst $ df vec_omit_prod_aux (ds, V.empty)
+grad_vec_omit_prod ds =
+  (\(v, _, _) -> v) $ fst $ df vec_omit_prod_aux (ds, V.empty, V.empty)

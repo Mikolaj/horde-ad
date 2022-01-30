@@ -44,8 +44,8 @@ gdSmartShow :: (VecDualDelta Double
             -> Int
             -> ([Double], (Double, Double))
 gdSmartShow f initVec n =
-  let ((res, _), gamma) = gdSmart f n (initVec, V.empty)
-      (_, value) = df f (res, V.empty)
+  let ((res, _, _), gamma) = gdSmart f n (initVec, V.empty, V.empty)
+      (_, value) = df f (res, V.empty, V.empty)
   in (V.toList res, (value, gamma))
 
 gradSmartTestCase

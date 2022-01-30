@@ -34,7 +34,7 @@ testTrees = [ fitTests
             ]
 
 lengthDualDelta :: Storable r => VecDualDelta r -> Int
-lengthDualDelta (vValue, _, _) = V.length vValue
+lengthDualDelta (vValue, _, _, _) = V.length vValue
 
 -- This, and other Fit and Fit2 nn operations, have unfused Delta let-bindings
 -- (one binding per each subexpression, even when not needed), which is fine,
@@ -135,8 +135,8 @@ gdSimpleShow :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
              -> Int
              -> ([r], r)
 gdSimpleShow gamma f initVec n =
-  let (res, _) = gdSimple gamma f n (initVec, V.empty)
-      (_, value) = df f (res, V.empty)
+  let (res, _, _) = gdSimple gamma f n (initVec, V.empty, V.empty)
+      (_, value) = df f (res, V.empty, V.empty)
   in (V.toList res, value)
 
 gdSimpleTestCase
@@ -315,8 +315,8 @@ gdSmartShow :: (VecDualDeltaD -> DeltaMonadGradient Double DualDeltaD)
             -> Int
             -> ([Double], (Double, Double))
 gdSmartShow f initVec n =
-  let ((res, _), gamma) = gdSmart f n (initVec, V.empty)
-      (_, value) = df f (res, V.empty)
+  let ((res, _, _), gamma) = gdSmart f n (initVec, V.empty, V.empty)
+      (_, value) = df f (res, V.empty, V.empty)
   in (V.toList res, (value, gamma))
 
 gradSmartTestCase :: Num a
@@ -697,8 +697,8 @@ sgdShow :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
         -> Domain r  -- ^ initial parameters
         -> ([r], r)
 sgdShow gamma f trainData params0 =
-  let (res, _) = sgd gamma f trainData (params0, V.empty)
-      (_, value) = df (f $ head trainData) (res, V.empty)
+  let (res, _, _) = sgd gamma f trainData (params0, V.empty, V.empty)
+      (_, value) = df (f $ head trainData) (res, V.empty, V.empty)
   in (V.toList res, value)
 
 sgdTestCase
