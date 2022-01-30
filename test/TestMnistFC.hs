@@ -178,12 +178,6 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
              1 - testMnist2V widthHidden widthHidden2 testData res
        testErrorFinal @?= expected
 
-chunksOf :: Int -> [e] -> [[e]]
-chunksOf n = go where
-  go [] = []
-  go l = let (chunk, rest) = splitAt n l
-         in chunk : go rest
-
 nnMnistLossTanh :: DeltaMonad Double m
                 => Int
                 -> Int

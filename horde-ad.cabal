@@ -109,6 +109,9 @@ library
                       HordeAd.DualDelta
                       HordeAd.Engine
                       HordeAd.MnistTools
+                      HordeAd.MnistToolsData
+                      HordeAd.MnistToolsScalar
+                      HordeAd.MnistToolsVector
                       HordeAd.PairOfVectors
 
     -- Modules included in this library but not exported.
