@@ -25,7 +25,7 @@ import HordeAd.DualDelta
 import HordeAd.Engine
 import HordeAd.PairOfVectors (VecDualDelta, var, varV)
 
--- * General tools
+-- * General tools (mostly for the scalar-based implementations)
 
 -- | Compute the output of a neuron, without applying activation function,
 -- from trainable inputs in @xs@ and parameters (the bias and weights)

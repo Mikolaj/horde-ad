@@ -198,15 +198,6 @@ logisticAct (D u u') = do
   let y = recip (1 + exp (- u))
   returnLet $ D y (Scale (y * (1 - y)) u')
 
--- The monad sadly force duplication of the code. Probably better
--- to define a non-monadic version and insert lets by hand.
-logisticActV :: ( DeltaMonad r m, Floating (Data.Vector.Storable.Vector r) )
-             => DualDelta (Data.Vector.Storable.Vector r)
-             -> m (DualDelta (Data.Vector.Storable.Vector r))
-logisticActV (D u u') = do
-  let y = recip (1 + exp (- u))
-  returnLetV $ D y (Scale (y * (1 - y)) u')
-
 softMaxAct :: (DeltaMonad r m, Floating r)
            => Data.Vector.Vector (DualDelta r)
            -> m (Data.Vector.Vector (DualDelta r))
@@ -232,7 +223,16 @@ lossCrossEntropy targ res = do
       f !acc i d = acc + scale (targ V.! i) (log d)
   negateDual $ V.ifoldl' f (scalar 0) res
 
--- * The vector-based versions, not yet used.
+-- * The vector-based versions.
+
+-- The monad sadly forces duplication of the code. Probably better
+-- to define a non-monadic version and insert @Let@ by hand.
+logisticActV :: ( DeltaMonad r m, Floating (Data.Vector.Storable.Vector r) )
+             => DualDelta (Data.Vector.Storable.Vector r)
+             -> m (DualDelta (Data.Vector.Storable.Vector r))
+logisticActV (D u u') = do
+  let y = recip (1 + exp (- u))
+  returnLetV $ D y (Scale (y * (1 - y)) u')
 
 softMaxActV :: ( DeltaMonad r m, Fractional r, Numeric r
                , Floating (Data.Vector.Storable.Vector r) )

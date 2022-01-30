@@ -51,6 +51,7 @@ valueDual f (ds, dsV) =
       vVar = V.replicate dim Zero  -- dummy
   in runIdentity $ f (ds, vVar, V.map (`D` Zero) dsV)
 
+-- Small enough that inline won't hurt.
 valueDualDelta :: Numeric r
                => (VecDualDelta r -> DeltaMonadValue r (DualDelta a))
                -> (Domain r, DomainV r)

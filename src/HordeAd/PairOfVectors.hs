@@ -5,7 +5,7 @@
 -- but so far we've managed to avoid it).
 module HordeAd.PairOfVectors
   ( VecDualDelta
-  , lengthDualDelta, var, vars, varV
+  , var, vars, varV
   , ifoldMDelta', foldMDelta', ifoldlDelta', foldlDelta'
   ) where
 
@@ -29,9 +29,6 @@ type VecDualDelta r =
   , -- The component for vectors. This is a normal vector of "pairs".
     Data.Vector.Vector (DualDelta (Data.Vector.Storable.Vector r))
   )
-lengthDualDelta :: Storable r
-                => VecDualDelta r -> Int
-lengthDualDelta (vValue, _, _) = V.length vValue
 
 var :: Storable r
     => VecDualDelta r -> Int -> DualDelta r

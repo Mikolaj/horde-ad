@@ -7,6 +7,7 @@ import           Control.Arrow (first)
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
+import           Foreign.Storable (Storable)
 import           Foreign.Storable.Tuple ()
 import           Numeric.LinearAlgebra (Numeric)
 import           System.Random
@@ -31,6 +32,9 @@ testTrees = [ fitTests
             , smartFit3TestsL
             , stochasticFit3Tests
             ]
+
+lengthDualDelta :: Storable r => VecDualDelta r -> Int
+lengthDualDelta (vValue, _, _) = V.length vValue
 
 -- This, and other Fit and Fit2 nn operations, have unfused Delta let-bindings
 -- (one binding per each subexpression, even when not needed), which is fine,
