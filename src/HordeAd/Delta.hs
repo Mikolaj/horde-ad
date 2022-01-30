@@ -30,13 +30,6 @@ import qualified Data.Vector.Storable.Mutable
 import           Numeric.LinearAlgebra (Numeric)
 import qualified Numeric.LinearAlgebra
 
--- Tagless final doesn't seem to work well, because we need to gather
--- @Delta@ while doing @DualDelta@ operations, but evaluate on concrete
--- vectors that correspond to only the second component of dual numbers.
--- Also, initial encoding gives us full control over
--- when to evaluate. With final, we'd need to be careful
--- about laziness to ensure the optimal evaluation order is chosen
--- (whatever it is for a given differentiated program).
 data Delta :: Type -> Type where
   Zero :: Delta r
   Scale :: r -> Delta r -> Delta r
@@ -50,14 +43,6 @@ data Delta :: Type -> Type where
 newtype DeltaId = DeltaId Int
   deriving (Show, Eq, Ord)
 
--- This can't be environment in a Reader, because subtrees add their own
--- identifiers for sharing, instead of parents naming their subtrees.
--- This must be the "evaluate Let backwards" from SPJ's talk.
--- This and the need to control evaluation order contribute to
--- the difficulty of applying any HOAS concept instead of the monad
--- with bindings accumulated in state.
--- Note that each variable is created only once, but the subexpression
--- it's a part of can get duplicated grossly.
 data DeltaState r = DeltaState
   { deltaCounter  :: DeltaId
   , deltaBindings :: [Either (Delta r) (Delta (Data.Vector.Storable.Vector r))]
@@ -72,7 +57,8 @@ buildVector :: forall s r.
 buildVector dim dimV st d0 = do
   let DeltaId storeSize = deltaCounter st
   store <- VM.replicate storeSize 0
-  -- TODO: this allocation costs us 7% runtime in 25/train2 2500 750:
+  -- TODO: this allocation costs us 7% runtime in 25/train2 2500 750
+  -- (in general, it's costly whenever there's a lot of scalars):
   storeV <- VM.replicate storeSize (V.empty :: Data.Vector.Storable.Vector r)
   let eval :: r -> Delta r -> ST s ()
       eval !r = \case
@@ -119,7 +105,8 @@ evalBindings :: forall r.
              -> ( Data.Vector.Storable.Vector r
                 , Data.Vector.Vector (Data.Vector.Storable.Vector r) )
 evalBindings dim dimV st d0 =
-  -- We can't just call @V.create@ twice, because it runs the @ST@ action twice.
+  -- We can't just call @V.create@ twice, because it would run
+  -- the @ST@ action twice.
   runST $ do
     (res, resV) <- buildVector dim dimV st d0
     r <- V.unsafeFreeze res

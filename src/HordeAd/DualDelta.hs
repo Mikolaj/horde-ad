@@ -15,16 +15,6 @@ import           Numeric.LinearAlgebra (Numeric, konst, sumElements, (<.>))
 
 import HordeAd.Delta (Delta (..))
 
--- Making the second field non-strict makes computing value of a function
--- twice faster, but computing the gradient slower by 30% (it's then hard
--- to keep the accumulator in argument function to @foldl'@ fully strict, etc.),
--- which is much bigger a difference in absolute terms. Then @valueDual.vVar@
--- can be set to @undefined@. The decision depends on the application.
--- Another option is to make @var@ part of the @DeltaMonad@ API
--- and provide a cheaper one for @DeltaMonadValue@. A comprehensive solution
--- could be putting all constructors of @Delta@ inside the @DeltaMonad@ class,
--- as a mock final tagless approach, that would probably be implemented
--- as an inductive type for @DeltaMonadGradient@ anyway.
 data DualDelta r = D r (Delta r)
 
 class (Monad m, Functor m, Applicative m) => DeltaMonad r m | m -> r where
@@ -135,7 +125,7 @@ instance RealFloat r => RealFloat (DualDelta r) where
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a continuous codomain
 
--- Most of the operations below are selectively have Delta
+-- Most of the operations below contain few Delta
 -- let-bindings --- close to only as many as really needed.
 -- The number of let-bindings is enough to guarantee that
 -- no exponential explosion can happen regardless of context

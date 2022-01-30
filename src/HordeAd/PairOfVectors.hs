@@ -19,7 +19,8 @@ import           Foreign.Storable (Storable)
 import HordeAd.Delta
 import HordeAd.DualDelta (DualDelta (..))
 
--- The "pair of vectors" type representing a vector of @DualDelta r@
+-- The first two components of the triple are the "pair of vectors"
+-- type representing a vector of @DualDelta r@
 -- in an efficient way (especially, or only, with gradient descent,
 -- where the vectors are reused in some ways).
 type VecDualDelta r =
