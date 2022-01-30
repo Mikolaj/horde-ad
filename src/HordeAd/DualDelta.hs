@@ -12,7 +12,7 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
 import           Foreign.Storable (Storable)
 import           Numeric.LinearAlgebra
-  (Matrix, Numeric, fromRows, konst, rows, sumElements, (#>), (<.>))
+  (Matrix, Numeric, asRow, fromRows, konst, rows, sumElements, (#>), (<.>))
 
 import HordeAd.Delta (Delta (..))
 
@@ -140,7 +140,7 @@ infixr 8 #>!
       -> DualDelta (Data.Vector.Storable.Vector r)
       -> DualDelta (Data.Vector.Storable.Vector r)
 (#>!) (D u u') (D v v') =
-  D (u #> v) (Add (DotL (fromRows (replicate (rows u) v)) u')
+  D (u #> v) (Add (DotL (asRow v) u')
                   (DotL u (SeqL (V.replicate (rows u) v'))))
 
 -- | Dense matrix-vector product with a constant vector.
@@ -149,7 +149,7 @@ infixr 8 #>!!
        => DualDelta (Matrix r)
        -> Data.Vector.Storable.Vector r
        -> DualDelta (Data.Vector.Storable.Vector r)
-(#>!!) (D u u') v = D (u #> v) (DotL (fromRows (replicate (rows u) v)) u')
+(#>!!) (D u u') v = D (u #> v) (DotL (asRow v) u')
 
 
 -- * Monadic operations for scalars
