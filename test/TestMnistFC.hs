@@ -357,18 +357,18 @@ vectorMnistTests = testGroup "MNIST VV tests with a 2-hidden-layer nn"
 matrixMnistTests :: TestTree
 matrixMnistTests = testGroup "MNIST LL tests with a 2-hidden-layer nn"
   [ mnistTestCase2L "1 epoch, 1 batch" 1 1 nnMnistLoss2L 300 100 0.02
-                    0.14390000000000003
+                    0.13129999999999997
   , mnistTestCase2L "1 epoch, 1 batch, wider" 1 1 nnMnistLoss2L 500 150 0.02
-                    0.1421
+                    0.14480000000000004
   , mnistTestCase2L "2 epochs, but only 1 batch" 2 1 nnMnistLoss2L 300 100 0.02
-                    9.619999999999995e-2
+                    9.48e-2
   , mnistTestCase2L "1 epoch, all batches" 1 99 nnMnistLoss2L 300 100 0.02
-                    5.4200000000000026e-2
+                    5.6599999999999984e-2
                       -- doh, worse than 1-hidden-layer, but twice slower
   , mnistTestCase2L "artificial 1 2 3 4 5" 1 2 nnMnistLoss2L 3 4 5
                     0.8972
   , mnistTestCase2L "artificial 5 4 3 2 1" 5 4 nnMnistLoss2L 3 2 1
-                    0.7755
+                    0.8991
   ]
 
 shortCIMnistTests :: TestTree
@@ -386,9 +386,9 @@ shortCIMnistTests = testGroup "Short CI MNIST tests"
   , mnistTestCase2V "VV artificial 5 4 3 2 1" 5 4 nnMnistLoss2V 3 2 1
                     0.7755
   , mnistTestCase2L "LL 1 epoch, 1 batch" 1 1 nnMnistLoss2L 300 100 0.02
-                    0.14390000000000003
+                    0.13129999999999997
   , mnistTestCase2L "LL artificial 1 2 3 4 5" 1 2 nnMnistLoss2L 3 4 5
                     0.8972
   , mnistTestCase2L "LL artificial 5 4 3 2 1" 5 4 nnMnistLoss2L 3 2 1
-                    0.7755
+                    0.8991
   ]
