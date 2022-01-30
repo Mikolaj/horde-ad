@@ -107,8 +107,8 @@ mnistTrainBGroup2500 xs0 chunkLength =
     , mnistTrainBench2 "" chunkLength xs 2500 750 0.02
     ]
 
-mnistTrainBench2V :: ( Eq r, Floating r, UniformRange r
-                     , Numeric r, Num (Data.Vector.Storable.Vector r) )
+mnistTrainBench2V :: ( Eq r, Floating r, Numeric r, UniformRange r
+                     , Floating (Data.Vector.Storable.Vector r) )
                   => String -> Int -> [MnistData r] -> Int -> Int -> r
                   -> Benchmark
 mnistTrainBench2V extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
@@ -116,9 +116,9 @@ mnistTrainBench2V extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
       nParamsV = lenVectorsMnist2V widthHidden widthHidden2
       params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
       paramsV0 =
-        V.map (\nPV -> V.unfoldrExactN nPV (uniformR (-0.5, 0.5))
-                                       (mkStdGen $ 33 + nPV))
-              nParamsV
+        V.imap (\i nPV -> V.unfoldrExactN nPV (uniformR (-0.5, 0.5))
+                                          (mkStdGen $ 33 + nPV + i))
+               nParamsV
       f = nnMnistLoss2V widthHidden widthHidden2
       chunk = take chunkLength xs
       grad c = sgd gamma f c (params0, paramsV0)
@@ -126,16 +126,17 @@ mnistTrainBench2V extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
              ++ unwords [show widthHidden, show widthHidden2, show nParams]
   bench name $ whnf grad chunk
 
-mnistTestBench2V :: (Ord r, Floating r, Numeric r, UniformRange r)
+mnistTestBench2V :: ( Ord r, Floating r, Numeric r, UniformRange r
+                    , Floating (Data.Vector.Storable.Vector r) )
                  => String -> Int -> [MnistData r] -> Int -> Int -> Benchmark
 mnistTestBench2V extraPrefix chunkLength xs widthHidden widthHidden2 = do
   let nParams = lenMnist2V widthHidden widthHidden2
       nParamsV = lenVectorsMnist2V widthHidden widthHidden2
       params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
       paramsV0 =
-        V.map (\nPV -> V.unfoldrExactN nPV (uniformR (-0.5, 0.5))
-                                       (mkStdGen $ 33 + nPV))
-              nParamsV
+        V.imap (\i nPV -> V.unfoldrExactN nPV (uniformR (-0.5, 0.5))
+                                          (mkStdGen $ 33 + nPV + i))
+               nParamsV
       chunk = take chunkLength xs
       score c = testMnist2V widthHidden widthHidden2 c (params0, paramsV0)
       name = "test2 " ++ extraPrefix

@@ -39,7 +39,7 @@ instance DeltaMonad r (DeltaMonadValue r) where
   returnLet (D u _u') = Identity $ D u Zero
   returnLetV (D u _u') = Identity $ D u Zero
 
--- The general case.
+-- The general case, needed for old, hacky tests before 'Delta' extension.
 --
 -- Small enough that inline won't hurt.
 valueDual :: Storable r
@@ -52,11 +52,10 @@ valueDual f (ds, dsV) =
       vVar = V.replicate dim Zero  -- dummy
   in runIdentity $ f (ds, vVar, V.map (`D` Zero) dsV)
 
--- A common case, but not the only one, see MNIST.
 valueDualDelta :: Storable r
-               => (VecDualDelta r -> DeltaMonadValue r (DualDelta r))
+               => (VecDualDelta r -> DeltaMonadValue r (DualDelta a))
                -> (Domain r, DomainV r)
-               -> r
+               -> a
 {-# INLINE valueDualDelta #-}
 valueDualDelta f ds =
   let D value _ = valueDual f ds

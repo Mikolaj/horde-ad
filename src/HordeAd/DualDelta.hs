@@ -199,6 +199,15 @@ logisticAct (D u u') = do
   let y = recip (1 + exp (- u))
   returnLet $ D y (Scale (y * (1 - y)) u')
 
+-- The monad sadly force duplication of the code. Probably better
+-- to define a non-monadic version and insert lets by hand.
+logisticActV :: ( DeltaMonad r m, Floating (Data.Vector.Storable.Vector r) )
+             => DualDelta (Data.Vector.Storable.Vector r)
+             -> m (DualDelta (Data.Vector.Storable.Vector r))
+logisticActV (D u u') = do
+  let y = recip (1 + exp (- u))
+  returnLetV $ D y (Scale (y * (1 - y)) u')
+
 softMaxAct :: (DeltaMonad r m, Floating r)
            => Data.Vector.Vector (DualDelta r)
            -> m (Data.Vector.Vector (DualDelta r))
@@ -226,8 +235,7 @@ lossCrossEntropy targ res = do
 
 -- * The vector-based versions, not yet used.
 
-softMaxActV :: ( DeltaMonad (Data.Vector.Storable.Vector r) m
-               , Fractional r, Numeric r
+softMaxActV :: ( DeltaMonad r m, Fractional r, Numeric r
                , Floating (Data.Vector.Storable.Vector r) )
             => DualDelta (Data.Vector.Storable.Vector r)
             -> m (DualDelta (Data.Vector.Storable.Vector r))
@@ -235,7 +243,7 @@ softMaxActV d@(D u _) = do
   let expU = exp d
       sumExpU = sumElements' expU
       recipSum = recip sumExpU
-  returnLet $ konst' recipSum (V.length u) * expU
+  returnLetV $ konst' recipSum (V.length u) * expU
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
 lossCrossEntropyV

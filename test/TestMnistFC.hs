@@ -184,13 +184,14 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
       nParamsV = lenVectorsMnist2V widthHidden widthHidden2
       params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 44
       paramsV0 =
-        V.map (\nPV -> V.unfoldrExactN nPV (uniformR (-0.5, 0.5))
-                                       (mkStdGen $ 44 + nPV))
-              nParamsV
+        V.imap (\i nPV -> V.unfoldrExactN nPV (uniformR (-0.5, 0.5))
+                                          (mkStdGen $ 44 + nPV + i))
+               nParamsV
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show nParams, show gamma ]
+                        , show nParams, show (V.length nParamsV)
+                        , show (V.sum nParamsV + nParams), show gamma ]
   in testCase name $ do
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- loadMnistData testGlyphsPath testLabelsPath
@@ -295,7 +296,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           params = V.replicate nParams 0.1
       testData <- loadMnistData testGlyphsPath testLabelsPath
       (1 - testMnist2 300 100 testData params) @?= 0.902
-  , testCase "testMnist2V on 0.1 params 300 100 width 10k testset" $ do
+  , testCase "testMnist2VV on 0.1 params 300 100 width 10k testset" $ do
       let nParams = lenMnist2V 300 100
           params = V.replicate nParams 0.1
           nParamsV = lenVectorsMnist2V 300 100
@@ -340,20 +341,20 @@ bigMnistTests = testGroup "MNIST tests with a 2-hidden-layer nn"
   ]
 
 vectorMnistTests :: TestTree
-vectorMnistTests = testGroup "MNIST V tests with a 2-hidden-layer nn"
+vectorMnistTests = testGroup "MNIST VV tests with a 2-hidden-layer nn"
   [ mnistTestCase2V "1 epoch, 1 batch" 1 1 nnMnistLoss2V 300 100 0.02
-                    0.15890000000000004
+                    0.14390000000000003
   , mnistTestCase2V "1 epoch, 1 batch, wider" 1 1 nnMnistLoss2V 500 150 0.02
-                    0.15959999999999996
+                    0.1421
   , mnistTestCase2V "2 epochs, but only 1 batch" 2 1 nnMnistLoss2V 300 100 0.02
-                    0.10970000000000002
+                    9.619999999999995e-2
   , mnistTestCase2V "1 epoch, all batches" 1 99 nnMnistLoss2V 300 100 0.02
-                    5.700000000000005e-2
+                    5.4200000000000026e-2
                       -- doh, worse than 1-hidden-layer, but twice slower
   , mnistTestCase2V "artificial 1 2 3 4 5" 1 2 nnMnistLoss2V 3 4 5
                     0.8972
   , mnistTestCase2V "artificial 5 4 3 2 1" 5 4 nnMnistLoss2V 3 2 1
-                    0.7090000000000001
+                    0.7755
   ]
 
 shortCIMnistTests :: TestTree
@@ -368,10 +369,10 @@ shortCIMnistTests = testGroup "Short CI MNIST tests"
                    0.8972
   , mnistTestCase2 "2 artificial 5 4 3 2 1" 5 4 nnMnistLoss2 3 2 1
                    0.7132000000000001
-  , mnistTestCase2V "V 1 epoch, 1 batch" 1 1 nnMnistLoss2V 300 100 0.02
+  , mnistTestCase2V "VV 1 epoch, 1 batch" 1 1 nnMnistLoss2V 300 100 0.02
                     0.15890000000000004
-  , mnistTestCase2V "V artificial 1 2 3 4 5" 1 2 nnMnistLoss2V 3 4 5
+  , mnistTestCase2V "VV artificial 1 2 3 4 5" 1 2 nnMnistLoss2V 3 4 5
                     0.8972
-  , mnistTestCase2V "V artificial 5 4 3 2 1" 5 4 nnMnistLoss2V 3 2 1
+  , mnistTestCase2V "VV artificial 5 4 3 2 1" 5 4 nnMnistLoss2V 3 2 1
                     0.7090000000000001
   ]
