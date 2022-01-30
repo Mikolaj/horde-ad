@@ -229,23 +229,3 @@ gdSmart f n0 (params0, paramsV0) =
                           gradient gradientV value 0
           | otherwise -> go (pred n) paramsNew paramsVNew gamma
                             gradient gradientV value (i + 1)
-
-
-
-
-
-
-
-
-
-
-
-
--- selective fusion (hand-writing gradients of larger expressions,
--- sometimes, as in the case of the composition of cross-entropy and softMax,
--- enabling simplification and always saving the time and space needed
--- to auto-derive that; so it seems it should never hurt;
--- however, sometimes the best handwritten gradient is exactly as large
--- and as complex as the derived one)
---
--- checkpointing (limiting space usage?)
