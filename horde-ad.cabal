@@ -110,6 +110,7 @@ library
                       HordeAd.Engine
                       HordeAd.MnistTools
                       HordeAd.MnistToolsData
+                      HordeAd.MnistToolsMatrix
                       HordeAd.MnistToolsScalar
                       HordeAd.MnistToolsVector
                       HordeAd.PairOfVectors

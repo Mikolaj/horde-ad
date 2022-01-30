@@ -60,15 +60,15 @@ sumConstantDataL x offset vec width =
       f i = sumConstantDataV x (offset + i) vec
   in deltaSeq $ V.generate width f
 
-hiddenLayerMnistV :: forall m r.
+initialLayerMnistV :: forall m r.
                        (Numeric r, Num (Data.Vector.Storable.Vector r))
-                  => (DualDelta (Data.Vector.Storable.Vector r)
-                      -> m (DualDelta (Data.Vector.Storable.Vector r)))
-                  -> Data.Vector.Storable.Vector r
-                  -> VecDualDelta r
-                  -> Int
-                  -> m (DualDelta (Data.Vector.Storable.Vector r))
-hiddenLayerMnistV factivation x vec width = do
+                   => (DualDelta (Data.Vector.Storable.Vector r)
+                       -> m (DualDelta (Data.Vector.Storable.Vector r)))
+                   -> Data.Vector.Storable.Vector r
+                   -> VecDualDelta r
+                   -> Int
+                   -> m (DualDelta (Data.Vector.Storable.Vector r))
+initialLayerMnistV factivation x vec width = do
   let multiplied = sumConstantDataL x 0 vec width
       biased = multiplied + varV vec width
   factivation biased
@@ -111,7 +111,7 @@ nnMnist2V :: (DeltaMonad r m, Numeric r, Num (Data.Vector.Storable.Vector r))
 nnMnist2V factivationHidden factivationOutput widthHidden widthHidden2
           x vec = do
   let !_A = assert (sizeMnistGlyph == V.length x) ()
-  hiddenVec <- inline hiddenLayerMnistV factivationHidden x vec widthHidden
+  hiddenVec <- inline initialLayerMnistV factivationHidden x vec widthHidden
   let offsetMiddle = widthHidden + 1
   middleVec <- inline middleLayerMnistV factivationHidden hiddenVec
                                         offsetMiddle vec widthHidden2
