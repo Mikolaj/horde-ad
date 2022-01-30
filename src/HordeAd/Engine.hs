@@ -13,7 +13,8 @@ import           Data.Functor.Identity
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
-import           Numeric.LinearAlgebra (Numeric, konst)
+import           Numeric.LinearAlgebra (Numeric)
+import qualified Numeric.LinearAlgebra
 
 import HordeAd.Delta
 import HordeAd.DualDelta (DeltaMonad (..), DualDelta (..))
@@ -140,7 +141,7 @@ gdSimple gamma f n0 (params0, paramsV0) = go n0 params0 paramsV0 where
     let vecDualDelta = vecDualDeltaFromVars vVar vVarV (params, paramsV)
         (gradient, gradientV) = fst $ generalDf vecDualDelta f
         paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
-        paramsVNew = V.zipWith (\i r -> i - konst gamma (V.length r) * r)
+        paramsVNew = V.zipWith (\i r -> i - Numeric.LinearAlgebra.scale gamma r)
                                paramsV gradientV
     in go (pred n) paramsNew paramsVNew
 
@@ -164,7 +165,7 @@ sgd gamma f trainingData (params0, paramsV0) =
     let vecDualDelta = vecDualDeltaFromVars vVar vVarV (params, paramsV)
         (gradient, gradientV) = fst $ generalDf vecDualDelta (f a)
         paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
-        paramsVNew = V.zipWith (\i r -> i - konst gamma (V.length r) * r)
+        paramsVNew = V.zipWith (\i r -> i - Numeric.LinearAlgebra.scale gamma r)
                                paramsV gradientV
     in go rest paramsNew paramsVNew
 
@@ -203,7 +204,7 @@ gdSmart f n0 (params0, paramsV0) =
     -- and the new gradient is only computed by accident together
     -- with the new value that is needed now to revert if we overshoot.
     let paramsNew = V.zipWith (\p r -> p - gamma * r) params gradientPrev
-        paramsVNew = V.zipWith (\p r -> p - konst gamma (V.length r) * r)
+        paramsVNew = V.zipWith (\p r -> p - Numeric.LinearAlgebra.scale gamma r)
                                paramsV gradientVPrev
         vecDualDelta = vecDualDeltaFromVars vVar vVarV (paramsNew, paramsVNew)
         ((gradient, gradientV), value) = generalDf vecDualDelta f
