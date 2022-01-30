@@ -49,18 +49,6 @@ instance Num r => Num (DualDelta r) where
   signum = undefined  -- TODO
   fromInteger = scalar . fromInteger
 
-(+\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
-(+\) u v = returnLet $ u + v
-
-(-\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
-(-\) u v = returnLet $ u - v
-
-(*\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
-(*\) u v = returnLet $ u * v
-
-negateDual :: (DeltaMonad r m, Num r) => DualDelta r -> m (DualDelta r)
-negateDual v = returnLet $ -v
-
 instance Real r => Real (DualDelta r) where
   toRational = undefined  -- TODO?
 
@@ -72,11 +60,6 @@ instance Fractional r => Fractional (DualDelta r) where
     let minusRecipSq = - recip (v * v)
     in D (recip v) (Scale minusRecipSq v')
   fromRational = scalar . fromRational
-
--- Should be denoted by @/\@, but it would be misleading.
-divideDual :: (DeltaMonad r m, Fractional r)
-           => DualDelta r -> DualDelta r -> m (DualDelta r)
-divideDual u v = returnLet $ u / v
 
 instance Floating r => Floating (DualDelta r) where
   pi = scalar pi
@@ -101,6 +84,93 @@ instance Floating r => Floating (DualDelta r) where
   acosh = undefined  -- TODO
   atanh = undefined  -- TODO
 
+instance RealFrac r => RealFrac (DualDelta r) where
+  properFraction = undefined
+    -- very low priority, since these are all extremely not continuous
+
+instance RealFloat r => RealFloat (DualDelta r) where
+  atan2 (D u u') (D v v') =
+    let t = 1 / (u * u + v * v)
+    in D (atan2 u v) (Add (Scale (- u * t) v') (Scale (v * t) u'))
+      -- we can be selective here and omit the other methods,
+      -- most of which don't even have a continuous codomain
+
+-- Non-monadic operations related to vectors
+
+infixr 8 <.>!
+(<.>!) :: Numeric r
+       => DualDelta (Data.Vector.Storable.Vector r)
+       -> DualDelta (Data.Vector.Storable.Vector r)
+       -> DualDelta r
+(<.>!) (D u u') (D v v') = D (u <.> v) (Add (Dot v u') (Dot u v'))
+
+infixr 8 <.>!!
+(<.>!!) :: Numeric r
+        => DualDelta (Data.Vector.Storable.Vector r)
+        -> Data.Vector.Storable.Vector r
+        -> DualDelta r
+(<.>!!) (D u u') v = D (u <.> v) (Dot v u')
+
+konst' :: Numeric r
+       => DualDelta r -> Int -> DualDelta (Data.Vector.Storable.Vector r)
+konst' (D u u') n = D (konst u n) (Konst u' n)
+
+sumElements' :: Numeric r
+             => DualDelta (Data.Vector.Storable.Vector r) -> DualDelta r
+sumElements' (D u u') = D (sumElements u) (Dot (konst 1 (V.length u)) u')
+
+deltaSeq :: Numeric r
+         => Data.Vector.Vector (DualDelta r)
+         -> DualDelta (Data.Vector.Storable.Vector r)
+deltaSeq v = D (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
+               (Seq $ V.map (\(D _ u') -> u') v)
+
+{-
+-- A version from hTensor branch.
+
+-- | Dense matrix-vector product.
+infixr 8 #>!
+(#>!) :: Coord r
+      => DualDelta (Array r) -> DualDelta (Array r) -> DualDelta (Array r)
+(#>!) (D u u') (D v v') =
+  let uM = asMatrix u
+      vV = asVector v
+      uMT = fromMatrix None None (tr uM)
+  in D (fromVector None $ uM #> vV) (Add (Scale v u')  -- probably too naive
+                                         (Scale uMT v'))
+
+-- | Dense matrix-vector product with a constant vector.
+infixr 8 #>!!
+(#>!!) :: Coord r
+       => DualDelta (Array r) -> Array r -> DualDelta (Array r)
+(#>!!) (D u u') v =
+  let uM = asMatrix u
+      vV = asVector v
+  in D (fromVector None $ uM #> vV) (Scale v u')  -- probably too naive
+-}
+
+-- * Monadic operations for scalars
+
+-- Unfortunately, monadic versions of these operations are not
+-- polymorphic over whether they operate on scalars, vectors or other types.
+
+(+\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
+(+\) u v = returnLet $ u + v
+
+(-\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
+(-\) u v = returnLet $ u - v
+
+(*\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
+(*\) u v = returnLet $ u * v
+
+negateDual :: (DeltaMonad r m, Num r) => DualDelta r -> m (DualDelta r)
+negateDual v = returnLet $ -v
+
+-- Should be denoted by @/\@, but it would be misleading.
+divideDual :: (DeltaMonad r m, Fractional r)
+           => DualDelta r -> DualDelta r -> m (DualDelta r)
+divideDual u v = returnLet $ u / v
+
 expDual :: (DeltaMonad r m, Floating r) => DualDelta r -> m (DualDelta r)
 expDual u = returnLet $ exp u
 
@@ -113,17 +183,6 @@ logDual u = returnLet $ log u
 
 tanhDual :: (DeltaMonad r m, Floating r) => DualDelta r -> m (DualDelta r)
 tanhDual u = returnLet $ tanh u
-
-instance RealFrac r => RealFrac (DualDelta r) where
-  properFraction = undefined
-    -- very low priority, since these are all extremely not continuous
-
-instance RealFloat r => RealFloat (DualDelta r) where
-  atan2 (D u u') (D v v') =
-    let t = 1 / (u * u + v * v)
-    in D (atan2 u v) (Add (Scale (- u * t) v') (Scale (v * t) u'))
-      -- we can be selective here and omit the other methods,
-      -- most of which don't even have a continuous codomain
 
 -- Most of the operations below contain few Delta
 -- let-bindings --- close to only as many as really needed.
@@ -213,10 +272,11 @@ lossCrossEntropy targ res = do
       f !acc i d = acc + scale (targ V.! i) (log d)
   negateDual $ V.ifoldl' f (scalar 0) res
 
--- * The vector-based versions.
+-- * Monadic operations for vectors
 
--- The monad sadly forces duplication of the code. Probably better
+-- The monad sadly forces duplication of code. Probably better
 -- to define a non-monadic version and insert @Let@ by hand.
+
 logisticActV :: ( DeltaMonad r m, Floating (Data.Vector.Storable.Vector r) )
              => DualDelta (Data.Vector.Storable.Vector r)
              -> m (DualDelta (Data.Vector.Storable.Vector r))
@@ -242,55 +302,3 @@ lossCrossEntropyV
   -> DualDelta (Data.Vector.Storable.Vector r)
   -> m (DualDelta r)
 lossCrossEntropyV targ res = negateDual $ log res <.>!! targ
-
-{-
--- A version from hTensor branch.
-
--- | Dense matrix-vector product.
-infixr 8 #>!
-(#>!) :: Coord r
-      => DualDelta (Array r) -> DualDelta (Array r) -> DualDelta (Array r)
-(#>!) (D u u') (D v v') =
-  let uM = asMatrix u
-      vV = asVector v
-      uMT = fromMatrix None None (tr uM)
-  in D (fromVector None $ uM #> vV) (Add (Scale v u')  -- probably too naive
-                                         (Scale uMT v'))
-
--- | Dense matrix-vector product with a constant vector.
-infixr 8 #>!!
-(#>!!) :: Coord r
-       => DualDelta (Array r) -> Array r -> DualDelta (Array r)
-(#>!!) (D u u') v =
-  let uM = asMatrix u
-      vV = asVector v
-  in D (fromVector None $ uM #> vV) (Scale v u')  -- probably too naive
--}
-
-infixr 8 <.>!
-(<.>!) :: Numeric r
-       => DualDelta (Data.Vector.Storable.Vector r)
-       -> DualDelta (Data.Vector.Storable.Vector r)
-       -> DualDelta r
-(<.>!) (D u u') (D v v') = D (u <.> v) (Add (Dot v u') (Dot u v'))
-
-infixr 8 <.>!!
-(<.>!!) :: Numeric r
-        => DualDelta (Data.Vector.Storable.Vector r)
-        -> Data.Vector.Storable.Vector r
-        -> DualDelta r
-(<.>!!) (D u u') v = D (u <.> v) (Dot v u')
-
-konst' :: Numeric r
-       => DualDelta r -> Int -> DualDelta (Data.Vector.Storable.Vector r)
-konst' (D u u') n = D (konst u n) (Konst u' n)
-
-sumElements' :: Numeric r
-             => DualDelta (Data.Vector.Storable.Vector r) -> DualDelta r
-sumElements' (D u u') = D (sumElements u) (Dot (konst 1 (V.length u)) u')
-
-deltaSeq :: Numeric r
-         => Data.Vector.Vector (DualDelta r)
-         -> DualDelta (Data.Vector.Storable.Vector r)
-deltaSeq v = D (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
-               (Seq $ V.map (\(D _ u') -> u') v)
