@@ -14,46 +14,6 @@ import           System.Random
 import HordeAd
 import HordeAd.MnistTools
 
-mnistTrainBench :: ( Show r, Eq r, Floating r, UniformRange r
-                   , Numeric r, Num (Data.Vector.Storable.Vector r) )
-                => Int -> [MnistData r] -> Int -> r -> Benchmark
-mnistTrainBench chunkLength xs widthHidden gamma = do
-  let nParams = lenMnist widthHidden
-      params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
-      f = nnMnistLoss widthHidden
-      chunk = take chunkLength xs
-      grad c = sgd gamma f c (params0, V.empty)
-      name = "train a 1-hidden-layer MNIST nn "
-             ++ unwords [ show chunkLength, show widthHidden, show nParams
-                        , show gamma ]
-  bench name $ whnf grad chunk
-
-mnistTestBench :: (Ord r, Floating r, UniformRange r, Numeric r)
-               => Int -> [MnistData r] -> Int -> Benchmark
-mnistTestBench chunkLength xs widthHidden = do
-  let nParams = lenMnist widthHidden
-      params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
-      chunk = take chunkLength xs
-      score c = testMnist widthHidden c params0
-      name = "test a 1-hidden-layer MNIST nn "
-             ++ unwords [show chunkLength, show widthHidden, show nParams]
-  bench name $ whnf score chunk
-
-mnistTrainBGroup :: ( Show r, Ord r, Floating r, UniformRange r
-                    , Numeric r, Num (Data.Vector.Storable.Vector r) )
-                    => [MnistData r] -> Int -> Benchmark
-mnistTrainBGroup xs0 chunkLength =
-  env (return $ take chunkLength xs0) $
-  \ xs ->
-  bgroup ("1-hidden-layer MNIST nn with samples: " ++ show chunkLength)
-    [ mnistTestBench chunkLength xs 25  -- toy width
-    , mnistTrainBench chunkLength xs 25 0.02
-    , mnistTestBench chunkLength xs 250  -- ordinary width
-    , mnistTrainBench chunkLength xs 250 0.02
-    , mnistTestBench chunkLength xs 2500  -- probably mostly wasted
-    , mnistTrainBench chunkLength xs 2500 0.02
-    ]
-
 mnistTrainBench2 :: ( Eq r, Floating r, UniformRange r
                     , Numeric r, Num (Data.Vector.Storable.Vector r) )
                  => String -> Int -> [MnistData r] -> Int -> Int -> r

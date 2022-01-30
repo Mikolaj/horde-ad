@@ -722,6 +722,10 @@ sgdTestCase prefix trainDataIO trainWithLoss gamma expected =
        snd (sgdShow gamma (trainWithLoss widthHidden) trainData vec)
           @?= expected
 
+lenMnist :: Int -> Int
+lenMnist widthHidden =
+  widthHidden * (sizeMnistGlyph + 1) + sizeMnistLabel * (widthHidden + 1)
+
 nnFit3ForStochastic :: Int
                     -> (Double, Double)
                     -> VecDualDeltaD

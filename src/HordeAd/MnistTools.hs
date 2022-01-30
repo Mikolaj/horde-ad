@@ -25,7 +25,7 @@ import HordeAd.DualDelta
 import HordeAd.Engine
 import HordeAd.PairOfVectors (VecDualDelta, var, varV)
 
--- * General tools (mostly for the scalar-based implementations)
+-- * General tools (but mostly for the scalar-based implementations)
 
 -- | Compute the output of a neuron, without applying activation function,
 -- from trainable inputs in @xs@ and parameters (the bias and weights)
@@ -138,42 +138,6 @@ outputLayerMnist factivation hiddenVec offset vec width = do
   vOfSums <- V.generateM width f
   factivation vOfSums
 
--- * 1 hidden layer
-
-lenMnist :: Int -> Int
-lenMnist widthHidden =
-  widthHidden * (sizeMnistGlyph + 1) + sizeMnistLabel * (widthHidden + 1)
-
--- One hidden layer of width @widthHidden@.
---
--- @inline@ used to fix performance loss due to calling unknown functions.
--- Benchmarks show barely any improvement, probably due to the activation
--- functions being called only @width@ times per gradient calculation
--- and also the cost dominated by GC. So, it's safe to revert this optimization.
-nnMnist :: (DeltaMonad r m, Numeric r)
-        => (DualDelta r -> m (DualDelta r))
-        -> (Data.Vector.Vector (DualDelta r)
-            -> m (Data.Vector.Vector (DualDelta r)))
-        -> Int
-        -> Data.Vector.Storable.Vector r
-        -> VecDualDelta r
-        -> m (Data.Vector.Vector (DualDelta r))
-nnMnist factivationHidden factivationOutput widthHidden x vec = do
-  let !_A = assert (sizeMnistGlyph == V.length x) ()
-  hiddenVec <- inline hiddenLayerMnist factivationHidden x vec widthHidden
-  inline outputLayerMnist factivationOutput hiddenVec
-                          (widthHidden * (sizeMnistGlyph + 1))
-                          vec sizeMnistLabel
-
-nnMnistLoss :: (DeltaMonad r m, Floating r, Numeric r)
-            => Int
-            -> MnistData r
-            -> VecDualDelta r
-            -> m (DualDelta r)
-nnMnistLoss widthHidden (x, targ) vec = do
-  res <- inline nnMnist logisticAct softMaxAct widthHidden x vec
-  lossCrossEntropy targ res
-
 generalTestMnist :: forall r. (Ord r, Fractional r, Numeric r)
                  => (Domain r
                      -> VecDualDelta r
@@ -190,12 +154,7 @@ generalTestMnist nn xs res =
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels xs)) / fromIntegral (length xs)
 
-testMnist :: (Ord r, Floating r, Numeric r)
-          => Int -> [MnistData r] -> Domain r -> r
-testMnist widthHidden =
-  generalTestMnist (inline nnMnist logisticAct softMaxAct widthHidden)
-
--- * 2 hidden layers
+-- * 2 hidden layers implemented with scalars only
 
 lenMnist2 :: Int -> Int -> Int
 lenMnist2 widthHidden widthHidden2 =
