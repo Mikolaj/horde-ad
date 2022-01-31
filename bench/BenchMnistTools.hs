@@ -161,7 +161,9 @@ mnistTestBench2L extraPrefix chunkLength xs widthHidden widthHidden2 = do
   bench name $ whnf score chunk
 
 mnistTrainBGroup2L :: [MnistData Double] -> Int -> Benchmark
-mnistTrainBGroup2L xs chunkLength =
+mnistTrainBGroup2L xs0 chunkLength =
+  env (return $ take chunkLength xs0) $
+  \ xs ->
   bgroup ("2-hidden-layer L MNIST nn with samples: " ++ show chunkLength)
     [ mnistTestBench2L "" chunkLength xs 30 10  -- toy width
     , mnistTrainBench2L "" chunkLength xs 30 10 0.02
