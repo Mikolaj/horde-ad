@@ -11,7 +11,7 @@ module HordeAd.PairOfVectors
 
 import Prelude
 
-import qualified Data.Vector
+import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Foreign.Storable (Storable)
 import           Numeric.LinearAlgebra (Matrix, Vector)

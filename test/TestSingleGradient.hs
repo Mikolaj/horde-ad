@@ -3,7 +3,7 @@ module TestSingleGradient (testTrees) where
 
 import Prelude
 
-import qualified Data.Vector
+import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
 import           Numeric.LinearAlgebra (Numeric)

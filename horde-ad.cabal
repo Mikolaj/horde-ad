@@ -128,6 +128,7 @@ library
       , hmatrix
       , mnist-idx
       , random
+      , strict-containers
       , transformers
       , vector
       , zlib
@@ -169,6 +170,7 @@ test-suite test
       , horde-ad
       , random
       , storable-tuple
+      , strict-containers
       , tasty >= 1.0
       , tasty-hunit
       , vector
@@ -204,6 +206,7 @@ test-suite shortTestForCI
       , hmatrix
       , horde-ad
       , random
+      , strict-containers
       , tasty >= 1.0
       , tasty-hunit
       , vector

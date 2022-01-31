@@ -10,7 +10,7 @@ import Prelude
 
 import           Control.Monad.Trans.State.Strict
 import           Data.Functor.Identity
-import qualified Data.Vector
+import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, rows)
 import qualified Numeric.LinearAlgebra

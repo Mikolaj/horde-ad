@@ -22,10 +22,10 @@ import           Control.Exception (assert)
 import           Control.Monad (foldM, when, zipWithM_)
 import           Control.Monad.ST.Strict (ST, runST)
 import           Data.Kind (Type)
-import qualified Data.Vector
+import qualified Data.Strict.Vector as Data.Vector
+import qualified Data.Strict.Vector.Autogen.Mutable as Data.Vector.Mutable
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
-import qualified Data.Vector.Mutable
 import qualified Data.Vector.Storable.Mutable
 import           Numeric.LinearAlgebra
   (Matrix, Numeric, Vector, asColumn, fromRows, rows, toRows)

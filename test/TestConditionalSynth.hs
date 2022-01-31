@@ -4,7 +4,7 @@ module TestConditionalSynth (testTrees) where
 import Prelude
 
 import           Data.List (nub, sort, unfoldr)
-import qualified Data.Vector
+import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
 import           Foreign.Storable.Tuple ()
