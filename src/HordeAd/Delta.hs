@@ -67,11 +67,14 @@ buildVector :: forall s r.
                     , Data.Vector.Mutable.MVector s (Matrix r) )
 buildVector dim dimV dimL st d0 = do
   let DeltaId storeSize = deltaCounter st
+      dimSV = dim + dimV
   store <- VM.replicate storeSize 0
   -- TODO: this allocation costs us 7% runtime in 25/train2 2500 750
   -- (in general, it's costly whenever there's a lot of scalars):
-  storeV <- VM.replicate storeSize (V.empty :: Data.Vector.Storable.Vector r)
-  storeL <- VM.replicate storeSize (fromRows [] :: Matrix r)
+  storeV <- VM.replicate (storeSize - dim)
+                         (V.empty :: Data.Vector.Storable.Vector r)
+  storeL <- VM.replicate (storeSize - dimSV)
+                         (fromRows [] :: Matrix r)
   let eval :: r -> Delta r -> ST s ()
       eval !r = \case
         Zero -> return ()
@@ -91,7 +94,7 @@ buildVector dim dimV dimL st d0 = do
         Scale k d -> evalV (k * r) d
         Add d1 d2 -> evalV r d1 >> evalV r d2
         Var (DeltaId i) -> let addToVector v = if V.null v then r else v + r
-                           in VM.modify storeV addToVector i
+                           in VM.modify storeV addToVector (i - dim)
         Dot{} -> error "buildVector: unboxed vectors of vectors not possible"
         Konst d _n -> V.mapM_ (`eval` d) r
         Seq vd -> V.imapM_ (\i d -> eval (r V.! i) d) vd
@@ -102,7 +105,7 @@ buildVector dim dimV dimL st d0 = do
         Scale k d -> evalL (k * r) d
         Add d1 d2 -> evalL r d1 >> evalL r d2
         Var (DeltaId i) -> let addToMatrix m = if rows m <= 0 then r else m + r
-                           in VM.modify storeL addToMatrix i
+                           in VM.modify storeL addToMatrix (i - dimSV)
         Dot{} -> error "buildVector: unboxed vectors of vectors not possible"
         SeqL md -> mapM_ (\(di, ri) -> evalV ri di)
                          (zip (V.toList md) (toRows r))
@@ -114,20 +117,20 @@ buildVector dim dimV dimL st d0 = do
           eval r d
         return $! DeltaId (pred i)
       evalUnlessZero (DeltaId !i) (DVector d) = do
-        r <- storeV `VM.read` i
+        r <- storeV `VM.read` (i - dim)
         when (not $ V.null r) $
           evalV r d
         return $! DeltaId (pred i)
       evalUnlessZero (DeltaId !i) (DMatrix d) = do
-        r <- storeL `VM.read` i
+        r <- storeL `VM.read` (i - dimSV)
         when (rows r > 0) $
           evalL r d
         return $! DeltaId (pred i)
   minusOne <- foldM evalUnlessZero (DeltaId $ pred storeSize) (deltaBindings st)
   let _A = assert (minusOne == DeltaId (-1)) ()
   return ( VM.slice 0 dim store
-         , VM.slice dim dimV storeV
-         , VM.slice (dim + dimV) dimL storeL )
+         , VM.slice 0 dimV storeV
+         , VM.slice 0 dimL storeL )
 
 evalBindings :: forall r. (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
              => Int -> Int -> Int -> DeltaState r -> Delta r

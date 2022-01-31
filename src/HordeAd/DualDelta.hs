@@ -12,7 +12,7 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
 import           Foreign.Storable (Storable)
 import           Numeric.LinearAlgebra
-  (Matrix, Numeric, asRow, fromRows, konst, rows, sumElements, (#>), (<.>))
+  (Matrix, Numeric, asRow, konst, rows, sumElements, (#>), (<.>))
 
 import HordeAd.Delta (Delta (..))
 
