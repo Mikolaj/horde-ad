@@ -12,8 +12,7 @@ import           Control.Monad.Trans.State.Strict
 import           Data.Functor.Identity
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Storable
-import           Numeric.LinearAlgebra (Matrix, Numeric, rows)
+import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, rows)
 import qualified Numeric.LinearAlgebra
 
 import HordeAd.Delta
@@ -25,11 +24,11 @@ import HordeAd.PairOfVectors (VecDualDelta, vecDualDeltaFromVars)
 -- * First comes the dummy monad implementation that does not collect deltas.
 -- It's intended for efficiently calculating the value of the function only.
 
-type Domain r = Data.Vector.Storable.Vector r
+type Domain r = Vector r
 
 type Domain' r = Domain r
 
-type DomainV r = Data.Vector.Vector (Data.Vector.Storable.Vector r)
+type DomainV r = Data.Vector.Vector (Vector r)
 
 type DomainV' r = DomainV r
 
@@ -103,7 +102,7 @@ instance DeltaMonad r (DeltaMonadGradient r) where
 
 -- The functions in which it inlines and which are used in client code
 -- are not inlined there, so the bloat is limited.
-generalDf :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
+generalDf :: (Eq r, Numeric r, Num (Vector r))
           => VecDualDelta r
           -> (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
           -> ((Domain' r, DomainV' r, DomainL' r), r)
@@ -120,7 +119,7 @@ generalDf ds@(vs, _, vv, vm) f =
       gradient = evalBindings dim dimV dimL st d
   in (gradient, value)
 
-df :: forall r. (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
+df :: forall r. (Eq r, Numeric r, Num (Vector r))
    => (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
    -> (Domain r, DomainV r, DomainL r)
    -> ((Domain' r, DomainV' r, DomainL' r), r)
@@ -136,7 +135,7 @@ df f (params, paramsV, paramsL) =
   in generalDf vecDualDelta f
 
 -- | Simple Gradient Descent.
-gdSimple :: forall r. (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
+gdSimple :: forall r. (Eq r, Numeric r, Num (Vector r))
          => r
          -> (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
          -> Int  -- ^ requested number of iterations
@@ -170,7 +169,7 @@ gdSimple gamma f n0 (params0, paramsV0, paramsL0) =
     in go (pred n) paramsNew paramsVNew paramsLNew
 
 -- | Stochastic Gradient Descent.
-sgd :: forall r a. (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
+sgd :: forall r a. (Eq r, Numeric r, Num (Vector r))
     => r
     -> (a -> VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
     -> [a]  -- ^ training data
@@ -205,7 +204,7 @@ sgd gamma f trainingData (params0, paramsV0, paramsL0) =
 gdSmart :: forall r. (
 --                     Show r,
                        Ord r, Fractional r, Numeric r
-                     , Num (Data.Vector.Storable.Vector r)
+                     , Num (Vector r)
                      )
         => (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
         -> Int  -- ^ requested number of iterations

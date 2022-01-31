@@ -11,9 +11,8 @@ import Prelude
 import           Control.Exception (assert)
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Storable
 import           GHC.Exts (inline)
-import           Numeric.LinearAlgebra (Numeric)
+import           Numeric.LinearAlgebra (Numeric, Vector)
 
 import HordeAd.DualDelta
 import HordeAd.Engine
@@ -21,7 +20,7 @@ import HordeAd.MnistToolsData
 import HordeAd.PairOfVectors (VecDualDelta, varV)
 
 sumTrainableInputsV :: Numeric r
-                    => DualDelta (Data.Vector.Storable.Vector r)
+                    => DualDelta (Vector r)
                     -> Int
                     -> VecDualDelta r
                     -> DualDelta r
@@ -30,18 +29,18 @@ sumTrainableInputsV x offset vec =
   in v <.>! x
 
 sumTrainableInputsL :: forall r. Numeric r
-                    => DualDelta (Data.Vector.Storable.Vector r)
+                    => DualDelta (Vector r)
                     -> Int
                     -> VecDualDelta r
                     -> Int
-                    -> DualDelta (Data.Vector.Storable.Vector r)
+                    -> DualDelta (Vector r)
 sumTrainableInputsL x offset vec width =
   let f :: Int -> DualDelta r
       f i = sumTrainableInputsV x (offset + i) vec
   in deltaSeq $ V.generate width f
 
 sumConstantDataV :: Numeric r
-                 => Data.Vector.Storable.Vector r
+                 => Vector r
                  -> Int
                  -> VecDualDelta r
                  -> DualDelta r
@@ -50,38 +49,34 @@ sumConstantDataV x offset vec =
   in v <.>!! x
 
 sumConstantDataL :: forall r. Numeric r
-                 => Data.Vector.Storable.Vector r
+                 => Vector r
                  -> Int
                  -> VecDualDelta r
                  -> Int
-                 -> DualDelta (Data.Vector.Storable.Vector r)
+                 -> DualDelta (Vector r)
 sumConstantDataL x offset vec width =
   let f :: Int -> DualDelta r
       f i = sumConstantDataV x (offset + i) vec
   in deltaSeq $ V.generate width f
 
-initialLayerMnistV :: forall m r.
-                       (Numeric r, Num (Data.Vector.Storable.Vector r))
-                   => (DualDelta (Data.Vector.Storable.Vector r)
-                       -> m (DualDelta (Data.Vector.Storable.Vector r)))
-                   -> Data.Vector.Storable.Vector r
+initialLayerMnistV :: forall m r. (Numeric r, Num (Vector r))
+                   => (DualDelta (Vector r) -> m (DualDelta (Vector r)))
+                   -> Vector r
                    -> VecDualDelta r
                    -> Int
-                   -> m (DualDelta (Data.Vector.Storable.Vector r))
+                   -> m (DualDelta (Vector r))
 initialLayerMnistV factivation x vec width = do
   let multiplied = sumConstantDataL x 0 vec width
       biased = multiplied + varV vec width
   factivation biased
 
-middleLayerMnistV :: forall m r.
-                       (Numeric r, Num (Data.Vector.Storable.Vector r))
-                  => (DualDelta (Data.Vector.Storable.Vector r)
-                      -> m (DualDelta (Data.Vector.Storable.Vector r)))
-                  -> DualDelta (Data.Vector.Storable.Vector r)
+middleLayerMnistV :: forall m r. (Numeric r, Num (Vector r))
+                  => (DualDelta (Vector r) -> m (DualDelta (Vector r)))
+                  -> DualDelta (Vector r)
                   -> Int
                   -> VecDualDelta r
                   -> Int
-                  -> m (DualDelta (Data.Vector.Storable.Vector r))
+                  -> m (DualDelta (Vector r))
 middleLayerMnistV factivation hiddenVec offset vec width = do
   let multiplied = sumTrainableInputsL hiddenVec offset vec width
       biased = multiplied + varV vec (offset + width)
@@ -98,16 +93,14 @@ lenVectorsMnist2V widthHidden widthHidden2 =
 
 -- Two hidden layers of width @widthHidden@ and (the middle one) @widthHidden2@.
 -- Both hidden layers use the same activation function.
-nnMnist2V :: (DeltaMonad r m, Numeric r, Num (Data.Vector.Storable.Vector r))
-          => (DualDelta (Data.Vector.Storable.Vector r)
-              -> m (DualDelta (Data.Vector.Storable.Vector r)))
-          -> (DualDelta (Data.Vector.Storable.Vector r)
-              -> m (DualDelta (Data.Vector.Storable.Vector r)))
+nnMnist2V :: (DeltaMonad r m, Numeric r, Num (Vector r))
+          => (DualDelta (Vector r) -> m (DualDelta (Vector r)))
+          -> (DualDelta (Vector r) -> m (DualDelta (Vector r)))
           -> Int
           -> Int
-          -> Data.Vector.Storable.Vector r
+          -> Vector r
           -> VecDualDelta r
-          -> m (DualDelta (Data.Vector.Storable.Vector r))
+          -> m (DualDelta (Vector r))
 nnMnist2V factivationHidden factivationOutput widthHidden widthHidden2
           x vec = do
   let !_A = assert (sizeMnistGlyph == V.length x) ()
@@ -120,7 +113,7 @@ nnMnist2V factivationHidden factivationOutput widthHidden widthHidden2
                            offsetOutput vec sizeMnistLabel
 
 nnMnistLoss2V :: ( DeltaMonad r m, Floating r, Numeric r
-                 , Floating (Data.Vector.Storable.Vector r) )
+                 , Floating (Vector r) )
               => Int
               -> Int
               -> MnistData r
@@ -132,10 +125,9 @@ nnMnistLoss2V widthHidden widthHidden2 (x, targ) vec = do
   lossCrossEntropyV targ res
 
 generalTestMnistV :: forall r. (Ord r, Fractional r, Numeric r)
-                  => (Data.Vector.Storable.Vector r
+                  => (Vector r
                       -> VecDualDelta r
-                      -> DeltaMonadValue r
-                           (DualDelta (Data.Vector.Storable.Vector r)))
+                      -> DeltaMonadValue r (DualDelta (Vector r)))
                   -> [MnistData r] -> (Domain r, DomainV r)
                   -> r
 {-# INLINE generalTestMnistV #-}
@@ -147,7 +139,7 @@ generalTestMnistV nn xs (resS, resV) =
   in fromIntegral (length (filter matchesLabels xs)) / fromIntegral (length xs)
 
 testMnist2V :: ( Ord r, Floating r, Numeric r
-               , Floating (Data.Vector.Storable.Vector r) )
+               , Floating (Vector r) )
             => Int -> Int -> [MnistData r] -> (Domain r, DomainV r) -> r
 testMnist2V widthHidden widthHidden2 =
   generalTestMnistV (inline nnMnist2V logisticActV softMaxActV

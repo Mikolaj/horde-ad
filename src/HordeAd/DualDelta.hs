@@ -9,10 +9,9 @@ import Prelude
 import           Data.List (foldl')
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Storable
 import           Foreign.Storable (Storable)
 import           Numeric.LinearAlgebra
-  (Matrix, Numeric, asRow, konst, rows, sumElements, (#>), (<.>))
+  (Matrix, Numeric, Vector, asRow, konst, rows, sumElements, (#>), (<.>))
 
 import HordeAd.Delta (Delta (..))
 
@@ -22,8 +21,7 @@ data DualDelta r = D r (Delta r)
 
 class (Monad m, Functor m, Applicative m) => DeltaMonad r m | m -> r where
   returnLet :: DualDelta r -> m (DualDelta r)
-  returnLetV :: DualDelta (Data.Vector.Storable.Vector r)
-             -> m (DualDelta (Data.Vector.Storable.Vector r))
+  returnLetV :: DualDelta (Vector r) -> m (DualDelta (Vector r))
   returnLetL :: DualDelta (Matrix r) -> m (DualDelta (Matrix r))
 
 
@@ -107,29 +105,29 @@ instance RealFloat r => RealFloat (DualDelta r) where
 
 infixr 8 <.>!
 (<.>!) :: Numeric r
-       => DualDelta (Data.Vector.Storable.Vector r)
-       -> DualDelta (Data.Vector.Storable.Vector r)
+       => DualDelta (Vector r)
+       -> DualDelta (Vector r)
        -> DualDelta r
 (<.>!) (D u u') (D v v') = D (u <.> v) (Add (Dot v u') (Dot u v'))
 
 infixr 8 <.>!!
 (<.>!!) :: Numeric r
-        => DualDelta (Data.Vector.Storable.Vector r)
-        -> Data.Vector.Storable.Vector r
+        => DualDelta (Vector r)
+        -> Vector r
         -> DualDelta r
 (<.>!!) (D u u') v = D (u <.> v) (Dot v u')
 
 konst' :: Numeric r
-       => DualDelta r -> Int -> DualDelta (Data.Vector.Storable.Vector r)
+       => DualDelta r -> Int -> DualDelta (Vector r)
 konst' (D u u') n = D (konst u n) (Konst u' n)
 
 sumElements' :: Numeric r
-             => DualDelta (Data.Vector.Storable.Vector r) -> DualDelta r
+             => DualDelta (Vector r) -> DualDelta r
 sumElements' (D u u') = D (sumElements u) (Dot (konst 1 (V.length u)) u')
 
 deltaSeq :: Numeric r
          => Data.Vector.Vector (DualDelta r)
-         -> DualDelta (Data.Vector.Storable.Vector r)
+         -> DualDelta (Vector r)
 deltaSeq v = D (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
                (Seq $ V.map (\(D _ u') -> u') v)
 
@@ -137,8 +135,8 @@ deltaSeq v = D (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
 infixr 8 #>!
 (#>!) :: Numeric r
       => DualDelta (Matrix r)
-      -> DualDelta (Data.Vector.Storable.Vector r)
-      -> DualDelta (Data.Vector.Storable.Vector r)
+      -> DualDelta (Vector r)
+      -> DualDelta (Vector r)
 (#>!) (D u u') (D v v') =
   D (u #> v) (Add (DotL (asRow v) u')
                   (DotL u (SeqL (V.replicate (rows u) v'))))
@@ -147,8 +145,8 @@ infixr 8 #>!
 infixr 8 #>!!
 (#>!!) :: Numeric r
        => DualDelta (Matrix r)
-       -> Data.Vector.Storable.Vector r
-       -> DualDelta (Data.Vector.Storable.Vector r)
+       -> Vector r
+       -> DualDelta (Vector r)
 (#>!!) (D u u') v = D (u #> v) (DotL (asRow v) u')
 
 
@@ -221,7 +219,7 @@ sumListDual us = returnLet $ foldl' (+) (scalar 0) us
 -- This operation is needed, because @sumListDual@ doesn't (always) fuse.
 sumResultsDual :: forall m a r. (DeltaMonad r m, Num r, Storable a)
                => (a -> m (DualDelta r))
-               -> Data.Vector.Storable.Vector a
+               -> Vector a
                -> m (DualDelta r)
 {-# INLINE sumResultsDual #-}
 sumResultsDual f as = do
@@ -267,7 +265,7 @@ lossSquared targ res = squareDual $ res - scalar targ
 -- In terms of hmatrix: @-(log res <.> targ)@.
 lossCrossEntropy
   :: forall m r. (DeltaMonad r m, Floating r, Numeric r)
-  => Data.Vector.Storable.Vector r
+  => Vector r
   -> Data.Vector.Vector (DualDelta r)
   -> m (DualDelta r)
 lossCrossEntropy targ res = do
@@ -281,17 +279,17 @@ lossCrossEntropy targ res = do
 -- The monad sadly forces duplication of code. Probably better
 -- to define a non-monadic version and insert @Let@ by hand.
 
-logisticActV :: ( DeltaMonad r m, Floating (Data.Vector.Storable.Vector r) )
-             => DualDelta (Data.Vector.Storable.Vector r)
-             -> m (DualDelta (Data.Vector.Storable.Vector r))
+logisticActV :: ( DeltaMonad r m, Floating (Vector r) )
+             => DualDelta (Vector r)
+             -> m (DualDelta (Vector r))
 logisticActV (D u u') = do
   let y = recip (1 + exp (- u))
   returnLetV $ D y (Scale (y * (1 - y)) u')
 
 softMaxActV :: ( DeltaMonad r m, Fractional r, Numeric r
-               , Floating (Data.Vector.Storable.Vector r) )
-            => DualDelta (Data.Vector.Storable.Vector r)
-            -> m (DualDelta (Data.Vector.Storable.Vector r))
+               , Floating (Vector r) )
+            => DualDelta (Vector r)
+            -> m (DualDelta (Vector r))
 softMaxActV d@(D u _) = do
   let expU = exp d
       sumExpU = sumElements' expU
@@ -301,8 +299,8 @@ softMaxActV d@(D u _) = do
 -- In terms of hmatrix: @-(log res <.> targ)@.
 lossCrossEntropyV
   :: ( DeltaMonad r m, Numeric r
-     , Floating (Data.Vector.Storable.Vector r) )
-  => Data.Vector.Storable.Vector r
-  -> DualDelta (Data.Vector.Storable.Vector r)
+     , Floating (Vector r) )
+  => Vector r
+  -> DualDelta (Vector r)
   -> m (DualDelta r)
 lossCrossEntropyV targ res = negateDual $ log res <.>!! targ

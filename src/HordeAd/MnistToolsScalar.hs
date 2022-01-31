@@ -8,9 +8,8 @@ import Prelude
 import           Control.Exception (assert)
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Storable
 import           GHC.Exts (inline)
-import           Numeric.LinearAlgebra (Numeric)
+import           Numeric.LinearAlgebra (Numeric, Vector)
 
 import HordeAd.DualDelta
 import HordeAd.Engine
@@ -30,8 +29,7 @@ import HordeAd.PairOfVectors (VecDualDelta, var)
 -- with a dummy monad. Another case is selectively fused operations,
 -- unless we include all of them, even very ad hoc ones,
 -- in a class with implementations both on @D@ and on plain @r@.
-sumTrainableInputs :: forall m r.
-                        (DeltaMonad r m, Numeric r)
+sumTrainableInputs :: forall m r. (DeltaMonad r m, Numeric r)
                    => Data.Vector.Vector (DualDelta r)
                    -> Int
                    -> VecDualDelta r
@@ -48,9 +46,8 @@ sumTrainableInputs xs offset vec = do
 -- from constant data in @xs@ and parameters (the bias and weights)
 -- at @vec@ starting at @offset@. Useful for neurons at the bottom
 -- of the network, tasked with ingesting the data.
-sumConstantData :: forall m r.
-                     (DeltaMonad r m, Numeric r)
-                => Data.Vector.Storable.Vector r
+sumConstantData :: forall m r. (DeltaMonad r m, Numeric r)
+                => Vector r
                 -> Int
                 -> VecDualDelta r
                 -> m (DualDelta r)
@@ -62,10 +59,9 @@ sumConstantData xs offset vec = do
         in acc + scale r v
   returnLet $ V.ifoldl' f bias xs
 
-hiddenLayerMnist :: forall m r.
-                      (DeltaMonad r m, Numeric r)
+hiddenLayerMnist :: forall m r. (DeltaMonad r m, Numeric r)
                  => (DualDelta r -> m (DualDelta r))
-                 -> Data.Vector.Storable.Vector r
+                 -> Vector r
                  -> VecDualDelta r
                  -> Int
                  -> m (Data.Vector.Vector (DualDelta r))
@@ -77,8 +73,7 @@ hiddenLayerMnist factivation x vec width = do
         factivation outSum
   V.generateM width f
 
-middleLayerMnist :: forall m r.
-                      (DeltaMonad r m, Numeric r)
+middleLayerMnist :: forall m r. (DeltaMonad r m, Numeric r)
                  => (DualDelta r -> m (DualDelta r))
                  -> Data.Vector.Vector (DualDelta r)
                  -> Int
@@ -140,7 +135,7 @@ nnMnist2 :: (DeltaMonad r m, Numeric r)
              -> m (Data.Vector.Vector (DualDelta r)))
          -> Int
          -> Int
-         -> Data.Vector.Storable.Vector r
+         -> Vector r
          -> VecDualDelta r
          -> m (Data.Vector.Vector (DualDelta r))
 nnMnist2 factivationHidden factivationOutput widthHidden widthHidden2

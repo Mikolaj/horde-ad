@@ -13,9 +13,8 @@ import Prelude
 
 import qualified Data.Vector
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Storable
 import           Foreign.Storable (Storable)
-import           Numeric.LinearAlgebra (Matrix)
+import           Numeric.LinearAlgebra (Matrix, Vector)
 
 import HordeAd.Delta
 import HordeAd.DualDelta (DualDelta (..))
@@ -26,20 +25,20 @@ import HordeAd.DualDelta (DualDelta (..))
 -- where the vectors are reused in some ways).
 type VecDualDelta r =
   ( -- The component for scalars, optimized as pair of vectors.
-    Data.Vector.Storable.Vector r
+    Vector r
   , Data.Vector.Vector (Delta r)
   , -- The component for vectors. This is a normal vector of "pairs".
-    Data.Vector.Vector (DualDelta (Data.Vector.Storable.Vector r))
+    Data.Vector.Vector (DualDelta (Vector r))
   , -- The component for matrices.
     Data.Vector.Vector (DualDelta (Matrix r))
   )
 
 vecDualDeltaFromVars
   :: Data.Vector.Vector (Delta r)
-  -> Data.Vector.Vector (Delta (Data.Vector.Storable.Vector r))
+  -> Data.Vector.Vector (Delta (Vector r))
   -> Data.Vector.Vector (Delta (Matrix r))
-  -> ( Data.Vector.Storable.Vector r
-     , Data.Vector.Vector (Data.Vector.Storable.Vector r)
+  -> ( Vector r
+     , Data.Vector.Vector (Vector r)
      , Data.Vector.Vector (Matrix r) )
   -> VecDualDelta r
 {-# INLINE vecDualDeltaFromVars #-}
@@ -50,7 +49,7 @@ var :: Storable r
     => VecDualDelta r -> Int -> DualDelta r
 var (vValue, vVar, _, _) i = D (vValue V.! i) (vVar V.! i)
 
-varV :: VecDualDelta r -> Int -> DualDelta (Data.Vector.Storable.Vector r)
+varV :: VecDualDelta r -> Int -> DualDelta (Vector r)
 varV (_, _, v, _) i = v V.! i
 
 varL :: VecDualDelta r -> Int -> DualDelta (Matrix r)

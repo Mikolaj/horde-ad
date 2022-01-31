@@ -26,10 +26,9 @@ import qualified Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Mutable
-import qualified Data.Vector.Storable
 import qualified Data.Vector.Storable.Mutable
 import           Numeric.LinearAlgebra
-  (Matrix, Numeric, asColumn, fromRows, rows, toRows)
+  (Matrix, Numeric, Vector, asColumn, fromRows, rows, toRows)
 import qualified Numeric.LinearAlgebra
 
 data Delta :: Type -> Type where
@@ -37,20 +36,18 @@ data Delta :: Type -> Type where
   Scale :: r -> Delta r -> Delta r
   Add :: Delta r -> Delta r -> Delta r
   Var :: DeltaId -> Delta r
-  Dot :: Data.Vector.Storable.Vector r -> Delta (Data.Vector.Storable.Vector r)
-      -> Delta r
-  Konst :: Delta r -> Int -> Delta (Data.Vector.Storable.Vector r)
-  Seq :: Data.Vector.Vector (Delta r) -> Delta (Data.Vector.Storable.Vector r)
-  DotL :: Matrix r -> Delta (Matrix r) -> Delta (Data.Vector.Storable.Vector r)
-  SeqL :: Data.Vector.Vector (Delta (Data.Vector.Storable.Vector r))
-       -> Delta (Matrix r)
+  Dot :: Vector r -> Delta (Vector r) -> Delta r
+  Konst :: Delta r -> Int -> Delta (Vector r)
+  Seq :: Data.Vector.Vector (Delta r) -> Delta (Vector r)
+  DotL :: Matrix r -> Delta (Matrix r) -> Delta (Vector r)
+  SeqL :: Data.Vector.Vector (Delta (Vector r)) -> Delta (Matrix r)
 
 newtype DeltaId = DeltaId Int
   deriving (Show, Eq, Ord)
 
 data DeltaBinding r =
     DScalar (Delta r)
-  | DVector (Delta (Data.Vector.Storable.Vector r))
+  | DVector (Delta (Vector r))
   | DMatrix (Delta (Matrix r))
 
 data DeltaState r = DeltaState
@@ -58,12 +55,10 @@ data DeltaState r = DeltaState
   , deltaBindings :: [DeltaBinding r]
   }
 
-buildVector :: forall s r.
-                 (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
+buildVector :: forall s r. (Eq r, Numeric r, Num (Vector r))
             => Int -> Int -> Int -> DeltaState r -> Delta r
             -> ST s ( Data.Vector.Storable.Mutable.MVector s r
-                    , Data.Vector.Mutable.MVector
-                        s (Data.Vector.Storable.Vector r)
+                    , Data.Vector.Mutable.MVector s (Vector r)
                     , Data.Vector.Mutable.MVector s (Matrix r) )
 buildVector dim dimV dimL st d0 = do
   let DeltaId storeSize = deltaCounter st
@@ -77,7 +72,7 @@ buildVector dim dimV dimL st d0 = do
   -- If no vector parameters, assume there will be no vector vars.
   -- If no vector parameters, assume there will be no matrix vars.
   storeV <- VM.replicate (if dimV == 0 then 0 else storeSize - dim)
-                         (V.empty :: Data.Vector.Storable.Vector r)
+                         (V.empty :: Vector r)
   storeL <- VM.replicate (if dimL == 0 then 0 else storeSize - dimSV)
                          (fromRows [] :: Matrix r)
   let eval :: r -> Delta r -> ST s ()
@@ -91,9 +86,7 @@ buildVector dim dimV dimL st d0 = do
         Seq{} -> error "buildVector: Seq can't result in a scalar"
         DotL{} -> error "buildVector: DotL can't result in a scalar"
         SeqL{} -> error "buildVector: SeqL can't result in a scalar"
-      evalV :: Data.Vector.Storable.Vector r
-            -> Delta (Data.Vector.Storable.Vector r)
-            -> ST s ()
+      evalV :: Vector r -> Delta (Vector r) -> ST s ()
       evalV !r = \case
         Zero -> return ()
         Scale k d -> evalV (k * r) d
@@ -137,10 +130,10 @@ buildVector dim dimV dimL st d0 = do
          , VM.slice 0 dimV storeV
          , VM.slice 0 dimL storeL )
 
-evalBindings :: forall r. (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
+evalBindings :: forall r. (Eq r, Numeric r, Num (Vector r))
              => Int -> Int -> Int -> DeltaState r -> Delta r
-             -> ( Data.Vector.Storable.Vector r
-                , Data.Vector.Vector (Data.Vector.Storable.Vector r)
+             -> ( Vector r
+                , Data.Vector.Vector (Vector r)
                 , Data.Vector.Vector (Matrix r) )
 evalBindings dim dimV dimL st d0 =
   -- We can't just call @V.create@ thrice, because it would run

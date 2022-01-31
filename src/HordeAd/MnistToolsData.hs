@@ -10,8 +10,8 @@ import           Data.IDX
 import           Data.List (sortOn)
 import           Data.Maybe (fromMaybe)
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Storable
 import qualified Data.Vector.Unboxed
+import           Numeric.LinearAlgebra (Vector)
 import           System.IO (IOMode (ReadMode), withBinaryFile)
 import           System.Random
 
@@ -30,8 +30,7 @@ sizeMnistLabel = 10
 -- OTOH, methods with only matrix operations and graphs can't handle that.
 -- However, the goal of the exercise it to implement the same
 -- neural net that backprop uses for benchmarks and compare.
-type MnistData r = ( Data.Vector.Storable.Vector r
-                   , Data.Vector.Storable.Vector r )
+type MnistData r = (Vector r, Vector r )
 
 readMnistData :: LBS.ByteString -> LBS.ByteString -> [MnistData Double]
 readMnistData glyphsBS labelsBS =
