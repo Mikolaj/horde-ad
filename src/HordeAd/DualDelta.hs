@@ -172,6 +172,9 @@ divideDual :: (DeltaMonad r m, Fractional r)
            => DualDelta r -> DualDelta r -> m (DualDelta r)
 divideDual u v = returnLet $ u / v
 
+recipDual :: (DeltaMonad r m, Fractional r) => DualDelta r -> m (DualDelta r)
+recipDual v = returnLet $ recip v
+
 expDual :: (DeltaMonad r m, Floating r) => DualDelta r -> m (DualDelta r)
 expDual u = returnLet $ exp u
 
@@ -253,9 +256,9 @@ softMaxAct :: (DeltaMonad r m, Floating r)
            -> m (Data.Vector.Vector (DualDelta r))
 softMaxAct us = do
   let expUs = V.map exp us
-  -- This has to be let-bound, because it's used many times below.
   sumExpUs <- sumDual expUs
-  let recipSum = recip sumExpUs
+  -- This has to be let-bound, because it's used many times below.
+  recipSum <- recipDual sumExpUs
   V.mapM (*\ recipSum) expUs
 
 lossSquared :: (DeltaMonad r m, Num r)
@@ -293,7 +296,8 @@ softMaxActV :: ( DeltaMonad r m, Fractional r, Numeric r
 softMaxActV d@(D u _) = do
   let expU = exp d
       sumExpU = sumElements' expU
-      recipSum = recip sumExpU
+  -- This has to be let-bound, because it's used many times below.
+  recipSum <- recipDual sumExpU
   returnLetV $ konst' recipSum (V.length u) * expU
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
