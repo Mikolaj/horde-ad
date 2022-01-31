@@ -97,6 +97,13 @@ buildVector dim dimV dimL st d0 = do
         Konst d _n -> V.mapM_ (`eval` d) r
         Seq vd -> V.imapM_ (\i d -> eval (r V.! i) d) vd
         DotL mr md -> evalL (asColumn r * mr) md
+          -- this @asColumn@ interacts disastrously with @mr = asRow v@
+          -- in @(#>!)@, causing an allocation of a whole new @n^2@ array
+          -- from two length @n@ vectors (r and v); when doing the same
+          -- computation by hand using @Vector@ instead of @Matrix@,
+          -- we can avoid any similar allocations; the cost of the manual
+          -- computation is many extra delta expression which, however,
+          -- with square enough arrays, don't dominate
       evalL :: Matrix r -> Delta (Matrix r) -> ST s ()
       evalL !r = \case
         Zero -> return ()

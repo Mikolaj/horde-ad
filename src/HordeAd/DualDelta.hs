@@ -140,6 +140,7 @@ infixr 8 #>!
 (#>!) (D u u') (D v v') =
   D (u #> v) (Add (DotL (asRow v) u')
                   (DotL u (SeqL (V.replicate (rows u) v'))))
+    -- this @asRow@ interacts disastrously with @asColumn@ in @evalV@
 
 -- | Dense matrix-vector product with a constant vector.
 infixr 8 #>!!
