@@ -68,12 +68,17 @@ buildVector :: forall s r.
 buildVector dim dimV dimL st d0 = do
   let DeltaId storeSize = deltaCounter st
       dimSV = dim + dimV
+  -- This is relatively very cheap allocation, so no problem even when most
+  -- parameters and vars are not scalars:
   store <- VM.replicate storeSize 0
-  -- TODO: this allocation costs us 7% runtime in 25/train2 2500 750
-  -- (in general, it's costly whenever there's a lot of scalars):
-  storeV <- VM.replicate (storeSize - dim)
+  -- TODO: this is probably not a safe asumption (it would be clearly wrong
+  -- for scalars) and, regardless, should be communicated to the user:
+  -- These allocations are very expensive, so let's try to avoid them.
+  -- If no vector parameters, assume there will be no vector vars.
+  -- If no vector parameters, assume there will be no matrix vars.
+  storeV <- VM.replicate (if dimV == 0 then 0 else storeSize - dim)
                          (V.empty :: Data.Vector.Storable.Vector r)
-  storeL <- VM.replicate (storeSize - dimSV)
+  storeL <- VM.replicate (if dimL == 0 then 0 else storeSize - dimSV)
                          (fromRows [] :: Matrix r)
   let eval :: r -> Delta r -> ST s ()
       eval !r = \case
