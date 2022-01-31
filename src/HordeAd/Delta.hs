@@ -19,7 +19,7 @@ module HordeAd.Delta
 import Prelude
 
 import           Control.Exception (assert)
-import           Control.Monad (foldM, when)
+import           Control.Monad (foldM, when, zipWithM_)
 import           Control.Monad.ST.Strict (ST, runST)
 import           Data.Kind (Type)
 import qualified Data.Vector
@@ -105,8 +105,7 @@ buildVector dim dimV dimL st d0 = do
         Var (DeltaId i) -> let addToMatrix m = if rows m <= 0 then r else m + r
                            in VM.modify storeL addToMatrix (i - dimSV)
         Dot{} -> error "buildVector: unboxed vectors of vectors not possible"
-        SeqL md -> mapM_ (\(di, ri) -> evalV ri di)
-                         (zip (V.toList md) (toRows r))
+        SeqL md -> zipWithM_ evalV (toRows r) (V.toList md)
   eval 1 d0  -- dt is 1 or hardwired in f
   let evalUnlessZero :: DeltaId -> DeltaBinding r -> ST s DeltaId
       evalUnlessZero (DeltaId !i) (DScalar d) = do
