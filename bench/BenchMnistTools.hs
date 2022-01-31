@@ -41,9 +41,8 @@ mnistTestBench2 extraPrefix chunkLength xs widthHidden widthHidden2 = do
 
 mnistTrainBGroup2 :: [MnistData Double] -> Int -> Benchmark
 mnistTrainBGroup2 xs0 chunkLength =
-  env (return (xs0, map (V.map realToFrac *** V.map realToFrac)
-                    $ take chunkLength xs0)) $
-  \ ~(xs, xsFloat) ->
+  env (return $ take chunkLength xs0) $
+  \ xs ->
   bgroup ("2-hidden-layer MNIST nn with samples: " ++ show chunkLength)
     [ mnistTestBench2 "" chunkLength xs 30 10  -- toy width
     , mnistTrainBench2 "" chunkLength xs 30 10 0.02
@@ -51,17 +50,18 @@ mnistTrainBGroup2 xs0 chunkLength =
     , mnistTrainBench2 "" chunkLength xs 300 100 0.02
     , mnistTestBench2 "" chunkLength xs 500 150  -- another common size
     , mnistTrainBench2 "" chunkLength xs 500 150 0.02
-    , mnistTestBench2 "(Float) " chunkLength xsFloat 500 150  -- Float test
-    , mnistTrainBench2 "(Float) " chunkLength xsFloat 500 150 (0.02 :: Float)
     ]
 
 mnistTrainBGroup2500 :: [MnistData Double] -> Int -> Benchmark
 mnistTrainBGroup2500 xs0 chunkLength =
-  env (return $ take chunkLength xs0) $
-  \ xs ->
+  env (return (xs0, map (V.map realToFrac *** V.map realToFrac)
+                    $ take chunkLength xs0)) $
+  \ ~(xs, xsFloat) ->
   bgroup ("huge 2-hidden-layer MNIST nn with samples: " ++ show chunkLength)
     [ mnistTestBench2 "" chunkLength xs 2500 750  -- probably mostly wasted
     , mnistTrainBench2 "" chunkLength xs 2500 750 0.02
+    , mnistTestBench2 "(Float) " chunkLength xsFloat 2500 750  -- Float test
+    , mnistTrainBench2 "(Float) " chunkLength xsFloat 2500 750 (0.02 :: Float)
     ]
 
 mnistTrainBench2V :: ( Eq r, Floating r, Numeric r, UniformRange r
@@ -102,9 +102,8 @@ mnistTestBench2V extraPrefix chunkLength xs widthHidden widthHidden2 = do
 
 mnistTrainBGroup2V :: [MnistData Double] -> Int -> Benchmark
 mnistTrainBGroup2V xs0 chunkLength =
-  env (return (xs0, map (V.map realToFrac *** V.map realToFrac)
-                    $ take chunkLength xs0)) $
-  \ ~(xs, xsFloat) ->
+  env (return $ take chunkLength xs0) $
+  \ xs ->
   bgroup ("2-hidden-layer V MNIST nn with samples: " ++ show chunkLength)
     [ mnistTestBench2V "" chunkLength xs 30 10  -- toy width
     , mnistTrainBench2V "" chunkLength xs 30 10 0.02
@@ -112,8 +111,6 @@ mnistTrainBGroup2V xs0 chunkLength =
     , mnistTrainBench2V "" chunkLength xs 300 100 0.02
     , mnistTestBench2V "" chunkLength xs 500 150  -- another common size
     , mnistTrainBench2V "" chunkLength xs 500 150 0.02
-    , mnistTestBench2V "(Float) " chunkLength xsFloat 500 150  -- Float test
-    , mnistTrainBench2V "(Float) " chunkLength xsFloat 500 150 (0.02 :: Float)
     ]
 
 mnistTrainBench2L :: String -> Int -> [MnistData Double] -> Int -> Int
