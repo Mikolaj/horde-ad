@@ -186,9 +186,6 @@ logDual u = returnLet $ log u
       => DualDelta r -> DualDelta r -> m (DualDelta r)
 (**\) u v = returnLet $ u ** v
 
-tanhDual :: (DeltaMonad r m, Floating r) => DualDelta r -> m (DualDelta r)
-tanhDual u = returnLet $ tanh u
-
 -- Most of the operations below contain few Delta
 -- let-bindings --- close to only as many as really needed.
 -- The number of let-bindings is enough to guarantee that
@@ -235,17 +232,11 @@ sumResultsDual f as = do
   returnLet sumUs
 
 tanhAct :: (DeltaMonad r m, Floating r) => DualDelta r -> m (DualDelta r)
-tanhAct = tanhDual
+tanhAct = returnLet . tanh
 
 reluAct :: (DeltaMonad r m, Num r, Ord r) => DualDelta r -> m (DualDelta r)
 reluAct (D u u') =
   returnLet $ D (max 0 u) (Scale (if u > 0 then 1 else 0) u')
-
-reluLeakyAct :: (DeltaMonad r m, Fractional r, Ord r)
-             => DualDelta r -> m (DualDelta r)
-reluLeakyAct (D u u') =
-  returnLet $ D (if u > 0 then u else 0.01 * u)
-                (Scale (if u > 0 then 1 else 0.01) u')
 
 logisticAct :: (DeltaMonad r m, Floating r) => DualDelta r -> m (DualDelta r)
 logisticAct (D u u') = do
@@ -282,6 +273,10 @@ lossCrossEntropy targ res = do
 
 -- The monad sadly forces duplication of code. Probably better
 -- to define a non-monadic version and insert @Let@ by hand.
+
+tanhActV :: (DeltaMonad r m, Floating (Vector r))
+         => DualDelta (Vector r) -> m (DualDelta (Vector r))
+tanhActV = returnLetV . tanh
 
 logisticActV :: ( DeltaMonad r m, Floating (Vector r) )
              => DualDelta (Vector r)

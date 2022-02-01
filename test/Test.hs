@@ -18,5 +18,5 @@ tests = testGroup "Tests" $
   TestSingleGradient.testTrees
   ++ TestSimpleDescent.testTrees
   ++ TestOutdated.testTrees
---  ++ TestConditionalSynth.testTrees
+  ++ TestConditionalSynth.testTrees
   ++ TestMnistFC.testTrees
