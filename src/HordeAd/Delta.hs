@@ -32,10 +32,10 @@ import           Numeric.LinearAlgebra
 import qualified Numeric.LinearAlgebra
 
 data Delta :: Type -> Type where
-  Zero :: Delta r
-  Scale :: r -> Delta r -> Delta r
-  Add :: Delta r -> Delta r -> Delta r
-  Var :: DeltaId -> Delta r
+  Zero :: Delta a
+  Scale :: a -> Delta a -> Delta a
+  Add :: Delta a -> Delta a -> Delta a
+  Var :: DeltaId -> Delta a
   Dot :: Vector r -> Delta (Vector r) -> Delta r
   Konst :: Delta r -> Int -> Delta (Vector r)
   Seq :: Data.Vector.Vector (Delta r) -> Delta (Vector r)
