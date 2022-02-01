@@ -24,12 +24,12 @@ testTrees = [ conditionalSynthTests
 -- Inlined to avoid the tiny overhead of calling an unknown function.
 -- This operation is needed, because @sumListDual@ doesn't (always) fuse.
 sumResultsDual :: forall m a r. (DeltaMonad r m, Num r, Storable a)
-               => (a -> m (DualDelta r))
+               => (a -> m (DualNumber r))
                -> Vector a
-               -> m (DualDelta r)
+               -> m (DualNumber r)
 {-# INLINE sumResultsDual #-}
 sumResultsDual f as = do
-  let g :: DualDelta r -> a -> m (DualDelta r)
+  let g :: DualNumber r -> a -> m (DualNumber r)
       g !acc a = do
         u <- f a
         return $! acc + u
@@ -55,8 +55,8 @@ integerPairSamples range seed k =
   in V.zip (V.fromListN k $ map fromIntegral inputs)
            (V.fromListN k $ map fromIntegral $ rolls g2)
 
-gdSmartShow :: (VecDualDelta Double
-                -> DeltaMonadGradient Double (DualDelta Double))
+gdSmartShow :: (VecDualNumber Double
+                -> DeltaMonadGradient Double (DualNumber Double))
             -> DomainV Double
             -> Int
             -> ([Data.Vector.Storable.Vector Double], (Double, Double))
@@ -67,16 +67,16 @@ gdSmartShow f initVec n =
 
 gradSmartTestCase
   :: String
-  -> ((DualDelta (Vector Double)
-       -> DeltaMonadGradient Double (DualDelta (Vector Double)))
-      -> (DualDelta (Vector Double)
-          -> DeltaMonadGradient Double (DualDelta (Vector Double)))
-      -> (DualDelta (Vector Double)
-          -> DeltaMonadGradient Double (DualDelta (Vector Double)))
+  -> ((DualNumber (Vector Double)
+       -> DeltaMonadGradient Double (DualNumber (Vector Double)))
+      -> (DualNumber (Vector Double)
+          -> DeltaMonadGradient Double (DualNumber (Vector Double)))
+      -> (DualNumber (Vector Double)
+          -> DeltaMonadGradient Double (DualNumber (Vector Double)))
       -> Data.Vector.Storable.Vector (Double, Double)
       -> Int
-      -> VecDualDelta Double
-      -> DeltaMonadGradient Double (DualDelta Double))
+      -> VecDualNumber Double
+      -> DeltaMonadGradient Double (DualNumber Double))
   -> Int -> Int -> Int -> Int -> (Double, Double)
   -> TestTree
 gradSmartTestCase prefix lossFunction seedSamples
@@ -109,68 +109,68 @@ lenSynthV width nSamples =
 -- To reproduce the samples, divide argument and multiply result;
 -- see @synthLossSquared@.
 synthValue :: forall m. DeltaMonad Double m
-           => (DualDelta (Vector Double) -> m (DualDelta (Vector Double)))
+           => (DualNumber (Vector Double) -> m (DualNumber (Vector Double)))
            -> Double
-           -> DualDelta (Vector Double)
-           -> DualDelta (Vector Double)
-           -> DualDelta (Vector Double)
-           -> DualDelta (Vector Double)
-           -> m (DualDelta Double)
+           -> DualNumber (Vector Double)
+           -> DualNumber (Vector Double)
+           -> DualNumber (Vector Double)
+           -> DualNumber (Vector Double)
+           -> m (DualNumber Double)
 synthValue factivation x ys1@(D u _) ys2 ys3 ys4 = do
   activated <- factivation $ scale (konst x (V.length u)) ys1 + ys2
   returnLet $ sumElements' $ activated * ys3 + ys4
 
 synthLossSquared :: DeltaMonad Double m
-                 => (DualDelta (Vector Double) -> m (DualDelta (Vector Double)))
+                 => (DualNumber (Vector Double) -> m (DualNumber (Vector Double)))
                  -> Double
-                 -> DualDelta (Vector Double)
-                 -> DualDelta (Vector Double)
-                 -> DualDelta (Vector Double)
-                 -> DualDelta (Vector Double)
+                 -> DualNumber (Vector Double)
+                 -> DualNumber (Vector Double)
+                 -> DualNumber (Vector Double)
+                 -> DualNumber (Vector Double)
                  -> Double
-                 -> m (DualDelta Double)
+                 -> m (DualNumber Double)
 synthLossSquared factivation x ys1 ys2 ys3 ys4 targ = do
   res <- synthValue factivation (x / 1000) ys1 ys2 ys3 ys4
   lossSquared (targ / 10000) res  -- smaller target to overcome @tanh@ clamping
 
 synthLossAll
   :: forall m. DeltaMonad Double m
-  => (DualDelta (Vector Double) -> m (DualDelta (Vector Double)))
+  => (DualNumber (Vector Double) -> m (DualNumber (Vector Double)))
   -> Data.Vector.Storable.Vector (Double, Double)
-  -> DualDelta (Vector Double)
-  -> DualDelta (Vector Double)
-  -> DualDelta (Vector Double)
-  -> DualDelta (Vector Double)
-  -> m (DualDelta Double)
+  -> DualNumber (Vector Double)
+  -> DualNumber (Vector Double)
+  -> DualNumber (Vector Double)
+  -> DualNumber (Vector Double)
+  -> m (DualNumber Double)
 synthLossAll factivation samples ys1 ys2 ys3 ys4 = do
-  let f :: (Double, Double) -> m (DualDelta Double)
+  let f :: (Double, Double) -> m (DualNumber Double)
       f (x, res) = synthLossSquared factivation x ys1 ys2 ys3 ys4 res
   sumResultsDual f samples
 
-sumTrainableInputsS :: DualDelta (Vector Double)
+sumTrainableInputsS :: DualNumber (Vector Double)
                     -> Int
-                    -> VecDualDelta Double
+                    -> VecDualNumber Double
                     -> Int
-                    -> Data.Vector.Vector (DualDelta Double)
+                    -> Data.Vector.Vector (DualNumber Double)
 sumTrainableInputsS x offset vec width =
-  let f :: Int -> DualDelta Double
+  let f :: Int -> DualNumber Double
       f i = sumTrainableInputsV x (offset + i) vec
   in V.generate width f
 
 splitLayerV :: forall m. DeltaMonad Double m
-            => (DualDelta (Vector Double) -> m (DualDelta (Vector Double)))
-            -> DualDelta (Vector Double)
+            => (DualNumber (Vector Double) -> m (DualNumber (Vector Double)))
+            -> DualNumber (Vector Double)
             -> Int
-            -> VecDualDelta Double
+            -> VecDualNumber Double
             -> Int
-            -> m ( DualDelta (Vector Double)
-                 , DualDelta (Vector Double)
-                 , DualDelta (Vector Double)
-                 , DualDelta (Vector Double) )
+            -> m ( DualNumber (Vector Double)
+                 , DualNumber (Vector Double)
+                 , DualNumber (Vector Double)
+                 , DualNumber (Vector Double) )
 splitLayerV factivation hiddenVec offset vec width = do
   let multiplied = sumTrainableInputsS hiddenVec offset vec width
       chunkWidth = width `div` 4
-      activate :: Int -> m (DualDelta (Vector Double))
+      activate :: Int -> m (DualNumber (Vector Double))
       activate n = do
         let v = V.slice (n * chunkWidth) chunkWidth multiplied
         factivation $ deltaSeq v + varV vec (offset + width + n)
@@ -182,13 +182,13 @@ splitLayerV factivation hiddenVec offset vec width = do
 
 synthLossBareTotal
   :: DeltaMonad Double m
-  => (DualDelta (Vector Double) -> m (DualDelta (Vector Double)))
-  -> (DualDelta (Vector Double) -> m (DualDelta (Vector Double)))
-  -> (DualDelta (Vector Double) -> m (DualDelta (Vector Double)))
+  => (DualNumber (Vector Double) -> m (DualNumber (Vector Double)))
+  -> (DualNumber (Vector Double) -> m (DualNumber (Vector Double)))
+  -> (DualNumber (Vector Double) -> m (DualNumber (Vector Double)))
   -> Data.Vector.Storable.Vector (Double, Double)
   -> Int
-  -> VecDualDelta Double
-  -> m (DualDelta Double)
+  -> VecDualNumber Double
+  -> m (DualNumber Double)
 synthLossBareTotal factivation factivationHidden factivationMiddle
                    samples width vec = do
   let (inputs, outputs) = V.unzip samples

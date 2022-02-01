@@ -14,28 +14,28 @@ import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 
-import HordeAd.DualDelta
+import HordeAd.DualNumber
 import HordeAd.Engine
 import HordeAd.MnistToolsData
-import HordeAd.PairOfVectors (VecDualDelta, varL, varV)
+import HordeAd.PairOfVectors (VecDualNumber, varL, varV)
 
 initialLayerMnistL :: forall m r. (Numeric r, Num (Vector r))
-                   => (DualDelta (Vector r) -> m (DualDelta (Vector r)))
+                   => (DualNumber (Vector r) -> m (DualNumber (Vector r)))
                    -> Vector r
-                   -> DualDelta (Matrix r)
-                   -> DualDelta (Vector r)
-                   -> m (DualDelta (Vector r))
+                   -> DualNumber (Matrix r)
+                   -> DualNumber (Vector r)
+                   -> m (DualNumber (Vector r))
 initialLayerMnistL factivation x weightsL biasesV = do
   let multiplied = weightsL #>!! x
       biased = multiplied + biasesV
   factivation biased
 
 middleLayerMnistL :: forall m r. (Numeric r, Num (Vector r))
-                  => (DualDelta (Vector r) -> m (DualDelta (Vector r)))
-                  -> DualDelta (Vector r)
-                  -> DualDelta (Matrix r)
-                  -> DualDelta (Vector r)
-                  -> m (DualDelta (Vector r))
+                  => (DualNumber (Vector r) -> m (DualNumber (Vector r)))
+                  -> DualNumber (Vector r)
+                  -> DualNumber (Matrix r)
+                  -> DualNumber (Vector r)
+                  -> m (DualNumber (Vector r))
 middleLayerMnistL factivation hiddenVec weightsL biasesV = do
   let multiplied = weightsL #>! hiddenVec
       biased = multiplied + biasesV
@@ -57,11 +57,11 @@ lenMatrixMnist2L widthHidden widthHidden2 =
 -- Two hidden layers of width @widthHidden@ and (the middle one) @widthHidden2@.
 -- Both hidden layers use the same activation function.
 nnMnist2L :: (DeltaMonad r m, Numeric r, Num (Vector r))
-          => (DualDelta (Vector r) -> m (DualDelta (Vector r)))
-          -> (DualDelta (Vector r) -> m (DualDelta (Vector r)))
+          => (DualNumber (Vector r) -> m (DualNumber (Vector r)))
+          -> (DualNumber (Vector r) -> m (DualNumber (Vector r)))
           -> Vector r
-          -> VecDualDelta r
-          -> m (DualDelta (Vector r))
+          -> VecDualNumber r
+          -> m (DualNumber (Vector r))
 nnMnist2L factivationHidden factivationOutput x vec = do
   let !_A = assert (sizeMnistGlyph == V.length x) ()
       weightsL0 = varL vec 0
@@ -77,23 +77,23 @@ nnMnist2L factivationHidden factivationOutput x vec = do
 
 nnMnistLoss2L :: (DeltaMonad r m, Floating r, Numeric r, Floating (Vector r))
               => MnistData r
-              -> VecDualDelta r
-              -> m (DualDelta r)
+              -> VecDualNumber r
+              -> m (DualNumber r)
 nnMnistLoss2L (x, targ) vec = do
   res <- inline nnMnist2L logisticActV softMaxActV x vec
   lossCrossEntropyV targ res
 
 generalTestMnistL :: forall r. (Ord r, Fractional r, Numeric r)
                   => (Vector r
-                      -> VecDualDelta r
-                      -> DeltaMonadValue r (DualDelta (Vector r)))
+                      -> VecDualNumber r
+                      -> DeltaMonadValue r (DualNumber (Vector r)))
                   -> [MnistData r] -> (Domain r, DomainV r, DomainL r)
                   -> r
 {-# INLINE generalTestMnistL #-}
 generalTestMnistL nn xs res =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let value = valueDualDelta (nn glyph) res
+        let value = valueDualNumber (nn glyph) res
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels xs)) / fromIntegral (length xs)
 

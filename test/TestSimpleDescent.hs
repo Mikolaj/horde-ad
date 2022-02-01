@@ -11,9 +11,9 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 
-type DualDeltaF = DualDelta Float
+type DualNumberF = DualNumber Float
 
-type VecDualDeltaF = VecDualDelta Float
+type VecDualNumberF = VecDualNumber Float
 
 testTrees :: [TestTree]
 testTrees = [ gdSimpleTests
@@ -23,21 +23,23 @@ testTrees = [ gdSimpleTests
 -- polymorphic over whether they operate on scalars, vectors or other types,
 -- so we should probably abandon them.
 
-(+\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
+(+\) :: (DeltaMonad r m, Num r)
+     => DualNumber r -> DualNumber r -> m (DualNumber r)
 (+\) u v = returnLet $ u + v
 
-(*\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
+(*\) :: (DeltaMonad r m, Num r)
+     => DualNumber r -> DualNumber r -> m (DualNumber r)
 (*\) u v = returnLet $ u * v
 
-scaleDual :: (DeltaMonad r m, Num r) => r -> DualDelta r -> m (DualDelta r)
+scaleDual :: (DeltaMonad r m, Num r) => r -> DualNumber r -> m (DualNumber r)
 scaleDual r u = returnLet $ scale r u
 
-squareDual :: (DeltaMonad r m, Num r) => DualDelta r -> m (DualDelta r)
+squareDual :: (DeltaMonad r m, Num r) => DualNumber r -> m (DualNumber r)
 squareDual = returnLet . square
 
 gdSimpleShow :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
              => r
-             -> (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
+             -> (VecDualNumber r -> DeltaMonadGradient r (DualNumber r))
              -> Domain r
              -> Int
              -> ([r], r)
@@ -46,7 +48,7 @@ gdSimpleShow gamma f initVec n =
       (_, value) = df f (res, V.empty, V.empty)
   in (V.toList res, value)
 
-fquad :: DeltaMonad Float m => VecDualDeltaF -> m DualDeltaF
+fquad :: DeltaMonad Float m => VecDualNumberF -> m DualNumberF
 fquad vec = do
   let x = var vec 0
       y = var vec 1
@@ -55,9 +57,9 @@ fquad vec = do
   tmp <- x2 +\ y2
   tmp +\ scalar 5
 
-fblowup :: forall m. DeltaMonad Float m => VecDualDeltaF -> m DualDeltaF
+fblowup :: forall m. DeltaMonad Float m => VecDualNumberF -> m DualNumberF
 fblowup vec = do
-  let blowup :: Int -> DualDeltaF -> m DualDeltaF
+  let blowup :: Int -> DualNumberF -> m DualNumberF
       blowup 0 y = return y
       blowup n y = do
         ysum <- y +\ y
@@ -102,8 +104,8 @@ gdSimpleTests = testGroup "Simple gradient descent tests"
 -- (one binding per each subexpression, even when not needed), which is fine,
 -- just not enough for comprehensive benchmarks.
 scaleAddWithBias :: DeltaMonad Float m
-                 => DualDeltaF -> DualDeltaF -> Int -> VecDualDeltaF
-                 -> m DualDeltaF
+                 => DualNumberF -> DualNumberF -> Int -> VecDualNumberF
+                 -> m DualNumberF
 scaleAddWithBias x y ixWeight vec = do
   let wx = var vec ixWeight
       wy = var vec (ixWeight + 1)
@@ -114,34 +116,34 @@ scaleAddWithBias x y ixWeight vec = do
   sxy +\ bias
 
 neuron :: DeltaMonad Float m
-       => (DualDeltaF -> m DualDeltaF)
-       -> DualDeltaF -> DualDeltaF -> Int -> VecDualDeltaF
-       -> m DualDeltaF
+       => (DualNumberF -> m DualNumberF)
+       -> DualNumberF -> DualNumberF -> Int -> VecDualNumberF
+       -> m DualNumberF
 neuron factivation x y ixWeight vec = do
   sc <- scaleAddWithBias x y ixWeight vec
   factivation sc
 
 nnXor :: DeltaMonad Float m
-      => (DualDeltaF -> m DualDeltaF)
-      -> DualDeltaF -> DualDeltaF -> VecDualDeltaF
-      -> m DualDeltaF
+      => (DualNumberF -> m DualNumberF)
+      -> DualNumberF -> DualNumberF -> VecDualNumberF
+      -> m DualNumberF
 nnXor factivation x y vec = do
   n1 <- neuron factivation x y 0 vec
   n2 <- neuron factivation x y 3 vec
   neuron factivation n1 n2 6 vec
 
 nnXorLoss :: DeltaMonad Float m
-          => (DualDeltaF -> m DualDeltaF)
-          -> Float -> Float -> Float -> VecDualDeltaF
-          -> m DualDeltaF
+          => (DualNumberF -> m DualNumberF)
+          -> Float -> Float -> Float -> VecDualNumberF
+          -> m DualNumberF
 nnXorLoss factivation x y targ vec = do
   res <- nnXor factivation (scalar x) (scalar y) vec
   lossSquared targ res
 
 nnXorLossTotal :: DeltaMonad Float m
-               => (DualDeltaF -> m DualDeltaF)
-               -> VecDualDeltaF
-               -> m DualDeltaF
+               => (DualNumberF -> m DualNumberF)
+               -> VecDualNumberF
+               -> m DualNumberF
 nnXorLossTotal factivation vec = do
   n1 <- nnXorLoss factivation 0 0 0 vec
   n2 <- nnXorLoss factivation 0 1 1 vec

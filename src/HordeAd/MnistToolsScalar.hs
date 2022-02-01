@@ -11,10 +11,10 @@ import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 
-import HordeAd.DualDelta
+import HordeAd.DualNumber
 import HordeAd.Engine
 import HordeAd.MnistToolsData
-import HordeAd.PairOfVectors (VecDualDelta, var)
+import HordeAd.PairOfVectors (VecDualNumber, var)
 
 -- | Compute the output of a neuron, without applying activation function,
 -- from trainable inputs in @xs@ and parameters (the bias and weights)
@@ -30,13 +30,13 @@ import HordeAd.PairOfVectors (VecDualDelta, var)
 -- unless we include all of them, even very ad hoc ones,
 -- in a class with implementations both on @D@ and on plain @r@.
 sumTrainableInputs :: forall m r. (DeltaMonad r m, Numeric r)
-                   => Data.Vector.Vector (DualDelta r)
+                   => Data.Vector.Vector (DualNumber r)
                    -> Int
-                   -> VecDualDelta r
-                   -> m (DualDelta r)
+                   -> VecDualNumber r
+                   -> m (DualNumber r)
 sumTrainableInputs xs offset vec = do
   let bias = var vec offset
-      f :: DualDelta r -> Int -> DualDelta r -> DualDelta r
+      f :: DualNumber r -> Int -> DualNumber r -> DualNumber r
       f !acc i u =
         let v = var vec (offset + 1 + i)
         in acc + u * v
@@ -49,40 +49,40 @@ sumTrainableInputs xs offset vec = do
 sumConstantData :: forall m r. (DeltaMonad r m, Numeric r)
                 => Vector r
                 -> Int
-                -> VecDualDelta r
-                -> m (DualDelta r)
+                -> VecDualNumber r
+                -> m (DualNumber r)
 sumConstantData xs offset vec = do
   let bias = var vec offset
-      f :: DualDelta r -> Int -> r -> DualDelta r
+      f :: DualNumber r -> Int -> r -> DualNumber r
       f !acc i r =
         let v = var vec (offset + 1 + i)
         in acc + scale r v
   returnLet $ V.ifoldl' f bias xs
 
 hiddenLayerMnist :: forall m r. (DeltaMonad r m, Numeric r)
-                 => (DualDelta r -> m (DualDelta r))
+                 => (DualNumber r -> m (DualNumber r))
                  -> Vector r
-                 -> VecDualDelta r
+                 -> VecDualNumber r
                  -> Int
-                 -> m (Data.Vector.Vector (DualDelta r))
+                 -> m (Data.Vector.Vector (DualNumber r))
 hiddenLayerMnist factivation x vec width = do
   let nWeightsAndBias = V.length x + 1
-      f :: Int -> m (DualDelta r)
+      f :: Int -> m (DualNumber r)
       f i = do
         outSum <- sumConstantData x (i * nWeightsAndBias) vec
         factivation outSum
   V.generateM width f
 
 middleLayerMnist :: forall m r. (DeltaMonad r m, Numeric r)
-                 => (DualDelta r -> m (DualDelta r))
-                 -> Data.Vector.Vector (DualDelta r)
+                 => (DualNumber r -> m (DualNumber r))
+                 -> Data.Vector.Vector (DualNumber r)
                  -> Int
-                 -> VecDualDelta r
+                 -> VecDualNumber r
                  -> Int
-                 -> m (Data.Vector.Vector (DualDelta r))
+                 -> m (Data.Vector.Vector (DualNumber r))
 middleLayerMnist factivation hiddenVec offset vec width = do
   let nWeightsAndBias = V.length hiddenVec + 1
-      f :: Int -> m (DualDelta r)
+      f :: Int -> m (DualNumber r)
       f i = do
         outSum <- sumTrainableInputs hiddenVec
                                      (offset + i * nWeightsAndBias)
@@ -91,25 +91,25 @@ middleLayerMnist factivation hiddenVec offset vec width = do
   V.generateM width f
 
 outputLayerMnist :: forall m r. (DeltaMonad r m, Numeric r)
-                 => (Data.Vector.Vector (DualDelta r)
-                     -> m (Data.Vector.Vector (DualDelta r)))
-                 -> Data.Vector.Vector (DualDelta r)
+                 => (Data.Vector.Vector (DualNumber r)
+                     -> m (Data.Vector.Vector (DualNumber r)))
+                 -> Data.Vector.Vector (DualNumber r)
                  -> Int
-                 -> VecDualDelta r
+                 -> VecDualNumber r
                  -> Int
-                 -> m (Data.Vector.Vector (DualDelta r))
+                 -> m (Data.Vector.Vector (DualNumber r))
 outputLayerMnist factivation hiddenVec offset vec width = do
   let nWeightsAndBias = V.length hiddenVec + 1
-      f :: Int -> m (DualDelta r)
+      f :: Int -> m (DualNumber r)
       f i = sumTrainableInputs hiddenVec (offset + i * nWeightsAndBias) vec
   vOfSums <- V.generateM width f
   factivation vOfSums
 
 generalTestMnist :: forall r. (Ord r, Fractional r, Numeric r)
                  => (Domain r
-                     -> VecDualDelta r
+                     -> VecDualNumber r
                      -> DeltaMonadValue r
-                          (Data.Vector.Vector (DualDelta r)))
+                          (Data.Vector.Vector (DualNumber r)))
                  -> [MnistData r] -> Domain r
                  -> r
 {-# INLINE generalTestMnist #-}
@@ -130,14 +130,14 @@ lenMnist2 widthHidden widthHidden2 =
 -- Two hidden layers of width @widthHidden@ and (the middle one) @widthHidden2@.
 -- Both hidden layers use the same activation function.
 nnMnist2 :: (DeltaMonad r m, Numeric r)
-         => (DualDelta r -> m (DualDelta r))
-         -> (Data.Vector.Vector (DualDelta r)
-             -> m (Data.Vector.Vector (DualDelta r)))
+         => (DualNumber r -> m (DualNumber r))
+         -> (Data.Vector.Vector (DualNumber r)
+             -> m (Data.Vector.Vector (DualNumber r)))
          -> Int
          -> Int
          -> Vector r
-         -> VecDualDelta r
-         -> m (Data.Vector.Vector (DualDelta r))
+         -> VecDualNumber r
+         -> m (Data.Vector.Vector (DualNumber r))
 nnMnist2 factivationHidden factivationOutput widthHidden widthHidden2
          x vec = do
   let !_A = assert (sizeMnistGlyph == V.length x) ()
@@ -153,8 +153,8 @@ nnMnistLoss2 :: (DeltaMonad r m, Floating r, Numeric r)
              => Int
              -> Int
              -> MnistData r
-             -> VecDualDelta r
-             -> m (DualDelta r)
+             -> VecDualNumber r
+             -> m (DualNumber r)
 nnMnistLoss2 widthHidden widthHidden2 (x, targ) vec = do
   res <- inline nnMnist2 logisticAct softMaxAct widthHidden widthHidden2 x vec
   lossCrossEntropy targ res

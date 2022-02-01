@@ -102,7 +102,7 @@ bgroup5e7 allxs =
         , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
         ]
 
-(*\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
+(*\) :: (DeltaMonad r m, Num r) => DualNumber r -> DualNumber r -> m (DualNumber r)
 (*\) u v = returnLet $ u * v
 
 -- The @foldMDelta'@, instead of the standard @foldM'@, is an awkward clutch
@@ -113,14 +113,14 @@ bgroup5e7 allxs =
 -- of a custom operation here, where there's no gradient descent
 -- to manage the vectors for us.
 vec_prod_aux :: forall m r. (DeltaMonad r m, Numeric r)
-             => VecDualDelta r -> m (DualDelta r)
+             => VecDualNumber r -> m (DualNumber r)
 vec_prod_aux = foldMDelta' (*\) (scalar 1)
   -- no handwritten derivatives; only the derivative for @(*)@ is provided;
   -- also, not omitting bindings; all let-bindings are present, see below
 
 vec_prod :: Numeric r
          => Domain r -> r
-vec_prod ds = valueDualDelta vec_prod_aux (ds, V.empty, V.empty)
+vec_prod ds = valueDualNumber vec_prod_aux (ds, V.empty, V.empty)
 
 grad_vec_prod :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
               => Domain r -> Domain' r
@@ -139,13 +139,13 @@ grad_toList_prod l = V.toList $ grad_vec_prod $ V.fromList l
 
 vec_omit_prod_aux
   :: forall m r. (DeltaMonad r m, Numeric r)
-  => VecDualDelta r -> m (DualDelta r)
+  => VecDualNumber r -> m (DualNumber r)
 vec_omit_prod_aux vec = returnLet $ foldlDelta' (*) (scalar 1) vec
   -- omitting most bindings, because we know nothing repeats inside
 
 vec_omit_prod :: Numeric r
               => Domain r -> r
-vec_omit_prod ds = valueDualDelta vec_omit_prod_aux (ds, V.empty, V.empty)
+vec_omit_prod ds = valueDualNumber vec_omit_prod_aux (ds, V.empty, V.empty)
 
 grad_vec_omit_prod :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
                    => Domain r -> Domain' r

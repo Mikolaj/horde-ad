@@ -12,9 +12,9 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 
-type DualDeltaF = DualDelta Float
+type DualNumberF = DualNumber Float
 
-type VecDualDeltaF = VecDualDelta Float
+type VecDualNumberF = VecDualNumber Float
 
 testTrees :: [TestTree]
 testTrees = [ dfTests
@@ -25,54 +25,56 @@ testTrees = [ dfTests
 -- polymorphic over whether they operate on scalars, vectors or other types,
 -- so we should probably abandon them.
 
-(+\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
+(+\) :: (DeltaMonad r m, Num r)
+     => DualNumber r -> DualNumber r -> m (DualNumber r)
 (+\) u v = returnLet $ u + v
 
-(*\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
+(*\) :: (DeltaMonad r m, Num r)
+     => DualNumber r -> DualNumber r -> m (DualNumber r)
 (*\) u v = returnLet $ u * v
 
 (**\) :: (DeltaMonad r m, Floating r)
-      => DualDelta r -> DualDelta r -> m (DualDelta r)
+      => DualNumber r -> DualNumber r -> m (DualNumber r)
 (**\) u v = returnLet $ u ** v
 
-squareDual :: (DeltaMonad r m, Num r) => DualDelta r -> m (DualDelta r)
+squareDual :: (DeltaMonad r m, Num r) => DualNumber r -> m (DualNumber r)
 squareDual = returnLet . square
 
 -- In addition to convenience, this eliminates all Delta bindings
 -- coming from binary addition into a single binding
 -- (and so makes automatic fusion possible in the future).
 sumDual :: forall m r. (DeltaMonad r m, Num r)
-        => Data.Vector.Vector (DualDelta r)
-        -> m (DualDelta r)
+        => Data.Vector.Vector (DualNumber r)
+        -> m (DualNumber r)
 sumDual = returnLet . sumElementsVectorOfDelta
 
-dfShow :: (VecDualDeltaF -> DeltaMonadGradient Float DualDeltaF)
+dfShow :: (VecDualNumberF -> DeltaMonadGradient Float DualNumberF)
        -> [Float]
        -> ([Float], Float)
 dfShow f deltaInput =
   let ((results, _, _), value) = df f (V.fromList deltaInput, V.empty, V.empty)
   in (V.toList results, value)
 
-fX :: DeltaMonad Float m => VecDualDeltaF -> m DualDeltaF
+fX :: DeltaMonad Float m => VecDualNumberF -> m DualNumberF
 fX vec = do
   let x = var vec 0
   return x
 
-fX1Y :: DeltaMonad Float m => VecDualDeltaF -> m DualDeltaF
+fX1Y :: DeltaMonad Float m => VecDualNumberF -> m DualNumberF
 fX1Y vec = do
   let x = var vec 0
       y = var vec 1
   x1 <- x +\ scalar 1
   x1 *\ y
 
-fXXY :: DeltaMonad Float m => VecDualDeltaF -> m DualDeltaF
+fXXY :: DeltaMonad Float m => VecDualNumberF -> m DualNumberF
 fXXY vec = do
   let x = var vec 0
       y = var vec 1
   xy <- x *\ y
   x *\ xy
 
-fXYplusZ :: DeltaMonad Float m => VecDualDeltaF -> m DualDeltaF
+fXYplusZ :: DeltaMonad Float m => VecDualNumberF -> m DualNumberF
 fXYplusZ vec = do
   let x = var vec 0
       y = var vec 1
@@ -80,18 +82,18 @@ fXYplusZ vec = do
   xy <- x *\ y
   xy +\ z
 
-fXtoY :: DeltaMonad Float m => VecDualDeltaF -> m DualDeltaF
+fXtoY :: DeltaMonad Float m => VecDualNumberF -> m DualNumberF
 fXtoY vec = do
   let x = var vec 0
       y = var vec 1
   x **\ y
 
-freluX :: DeltaMonad Float m => VecDualDeltaF -> m DualDeltaF
+freluX :: DeltaMonad Float m => VecDualNumberF -> m DualNumberF
 freluX vec = do
   let x = var vec 0
   reluAct x
 
-fquad :: DeltaMonad Float m => VecDualDeltaF -> m DualDeltaF
+fquad :: DeltaMonad Float m => VecDualNumberF -> m DualNumberF
 fquad vec = do
   let x = var vec 0
       y = var vec 1
@@ -131,7 +133,7 @@ dfTests = testGroup "Simple df application tests" $
 -- of deltas (the output vector currently is a boxed vector of pairs;
 -- this is related to the ongoing work on shapes of scalar containers).
 atanReadmePoly :: (RealFloat r, Numeric r)
-               => VecDualDelta r -> Data.Vector.Vector (DualDelta r)
+               => VecDualNumber r -> Data.Vector.Vector (DualNumber r)
 atanReadmePoly vec =
   let x : y : z : _ = vars vec
       w = x * sin y
@@ -150,7 +152,7 @@ atanReadmePoly vec =
 -- non-variable expressions, the user would need to make it monadic
 -- and apply another binding-introducing operation already there.
 atanReadmeMPoly :: (RealFloat r, DeltaMonad r m, Numeric r)
-                => VecDualDelta r -> m (DualDelta r)
+                => VecDualNumber r -> m (DualNumber r)
 atanReadmeMPoly vec =
   sumDual $ atanReadmePoly vec
     -- dot product with ones is the sum of all elements

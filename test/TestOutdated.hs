@@ -16,9 +16,9 @@ import           Test.Tasty.HUnit hiding (assert)
 import HordeAd
 import HordeAd.MnistTools
 
-type DualDeltaD = DualDelta Double
+type DualNumberD = DualNumber Double
 
-type VecDualDeltaD = VecDualDelta Double
+type VecDualNumberD = VecDualNumber Double
 
 testTrees :: [TestTree]
 testTrees = [ fitTests
@@ -32,44 +32,44 @@ testTrees = [ fitTests
             , stochasticFit3Tests
             ]
 
-(+\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
+(+\) :: (DeltaMonad r m, Num r) => DualNumber r -> DualNumber r -> m (DualNumber r)
 (+\) u v = returnLet $ u + v
 
-(*\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
+(*\) :: (DeltaMonad r m, Num r) => DualNumber r -> DualNumber r -> m (DualNumber r)
 (*\) u v = returnLet $ u * v
 
-scaleDual :: (DeltaMonad r m, Num r) => r -> DualDelta r -> m (DualDelta r)
+scaleDual :: (DeltaMonad r m, Num r) => r -> DualNumber r -> m (DualNumber r)
 scaleDual r u = returnLet $ scale r u
 
 -- Inlined to avoid the tiny overhead of calling an unknown function.
 -- This operation is needed, because @sumListDual@ doesn't (always) fuse.
 sumResultsDual :: forall m a r. (DeltaMonad r m, Num r, Storable a)
-               => (a -> m (DualDelta r))
+               => (a -> m (DualNumber r))
                -> Vector a
-               -> m (DualDelta r)
+               -> m (DualNumber r)
 {-# INLINE sumResultsDual #-}
 sumResultsDual f as = do
-  let g :: DualDelta r -> a -> m (DualDelta r)
+  let g :: DualNumber r -> a -> m (DualNumber r)
       g !acc a = do
         u <- f a
         return $! acc + u
   sumUs <- V.foldM g (scalar 0) as
   returnLet sumUs
 
-lengthDualDelta :: Storable r => VecDualDelta r -> Int
-lengthDualDelta (vValue, _, _, _) = V.length vValue
+lengthDualNumber :: Storable r => VecDualNumber r -> Int
+lengthDualNumber (vValue, _, _, _) = V.length vValue
 
 -- This, and other Fit and Fit2 nn operations, have unfused Delta let-bindings
 -- (one binding per each subexpression, even when not needed), which is fine,
 -- just not enough for comprehensive benchmarks.
 hiddenLayerFit :: forall m. DeltaMonad Double m
-               => (DualDeltaD -> m DualDeltaD)
+               => (DualNumberD -> m DualNumberD)
                -> Double
-               -> VecDualDeltaD
+               -> VecDualNumberD
                -> Int
-               -> m (Data.Vector.Vector DualDeltaD)
+               -> m (Data.Vector.Vector DualNumberD)
 hiddenLayerFit factivation x vec width = do
-  let f :: Int -> m DualDeltaD
+  let f :: Int -> m DualNumberD
       f i = do
         let weight = var vec (2 * i)
             bias = var vec (2 * i + 1)
@@ -79,42 +79,42 @@ hiddenLayerFit factivation x vec width = do
   V.generateM width f
 
 outputLayerFit :: DeltaMonad Double m
-               => (DualDeltaD -> m DualDeltaD)
-               -> Data.Vector.Vector DualDeltaD
+               => (DualNumberD -> m DualNumberD)
+               -> Data.Vector.Vector DualNumberD
                -> Int
-               -> VecDualDeltaD
-               -> m DualDeltaD
+               -> VecDualNumberD
+               -> m DualNumberD
 outputLayerFit factivation hiddenVec offset vec = do
   outSum <- sumTrainableInputs hiddenVec offset vec
   factivation outSum
 
 nnFit :: DeltaMonad Double m
-      => (DualDeltaD -> m DualDeltaD)
-      -> (DualDeltaD -> m DualDeltaD)
-      -> Double -> VecDualDeltaD -> m DualDeltaD
+      => (DualNumberD -> m DualNumberD)
+      -> (DualNumberD -> m DualNumberD)
+      -> Double -> VecDualNumberD -> m DualNumberD
 nnFit factivationHidden factivationOutput x vec = do
   -- One bias of the outer layer, a list of weights of the outer layer,
   -- a list of the same length of weights and biases of the hidden layer.
-  let width = (lengthDualDelta vec - 1) `div` 3
+  let width = (lengthDualNumber vec - 1) `div` 3
   hiddenVec <- hiddenLayerFit factivationHidden x vec width
   outputLayerFit factivationOutput hiddenVec (2 * width) vec
 
 nnFitLoss :: DeltaMonad Double m
-          => (DualDeltaD -> m DualDeltaD)
-          -> (DualDeltaD -> m DualDeltaD)
-          -> Double -> Double -> VecDualDeltaD -> m DualDeltaD
+          => (DualNumberD -> m DualNumberD)
+          -> (DualNumberD -> m DualNumberD)
+          -> Double -> Double -> VecDualNumberD -> m DualNumberD
 nnFitLoss factivationHidden factivationOutput x targ vec = do
   res <- nnFit factivationHidden factivationOutput x vec
   lossSquared targ res
 
 nnFitLossTotal :: forall m. DeltaMonad Double m
-               => (DualDeltaD -> m DualDeltaD)
-               -> (DualDeltaD -> m DualDeltaD)
+               => (DualNumberD -> m DualNumberD)
+               -> (DualNumberD -> m DualNumberD)
                -> Vector (Double, Double)
-               -> VecDualDeltaD
-               -> m DualDeltaD
+               -> VecDualNumberD
+               -> m DualNumberD
 nnFitLossTotal factivationHidden factivationOutput samples vec = do
-  let f :: (Double, Double) -> m DualDeltaD
+  let f :: (Double, Double) -> m DualNumberD
       f (x, res) = nnFitLoss factivationHidden factivationOutput x res vec
   sumResultsDual f samples
     -- an implementation that doesn't delve into implementation details
@@ -153,7 +153,7 @@ wsFitSeparated range@(low, hi) seed k =
 
 gdSimpleShow :: (Eq r, Numeric r, Num (Vector r))
              => r
-             -> (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
+             -> (VecDualNumber r -> DeltaMonadGradient r (DualNumber r))
              -> Domain r
              -> Int
              -> ([r], r)
@@ -167,11 +167,11 @@ gdSimpleTestCase
   => String
   -> ((a, a) -> Int -> Int
       -> Vector (Double, Double))
-  -> ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-      -> (DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
+  -> ((DualNumberD -> DeltaMonadGradient Double DualNumberD)
+      -> (DualNumberD -> DeltaMonadGradient Double DualNumberD)
       -> Vector (Double, Double)
-      -> VecDualDeltaD
-      -> DeltaMonadGradient Double DualDeltaD)
+      -> VecDualNumberD
+      -> DeltaMonadGradient Double DualNumberD)
   -> Int -> Int -> Int -> Double -> Int -> Double
   -> TestTree
 gdSimpleTestCase prefix sampleFunction lossFunction
@@ -187,21 +187,21 @@ gdSimpleTestCase prefix sampleFunction lossFunction
        @?= expected
 
 gdSimpleWsTestCase
-  :: ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-      -> (DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
+  :: ((DualNumberD -> DeltaMonadGradient Double DualNumberD)
+      -> (DualNumberD -> DeltaMonadGradient Double DualNumberD)
       -> Vector (Double, Double)
-      -> VecDualDeltaD
-      -> DeltaMonadGradient Double DualDeltaD)
+      -> VecDualNumberD
+      -> DeltaMonadGradient Double DualNumberD)
   -> Int -> Int -> Int -> Double -> Int -> Double
   -> TestTree
 gdSimpleWsTestCase = gdSimpleTestCase "gdSimple Ws" wsFit
 
 gdSimpleSeparatedTestCase
-  :: ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-      -> (DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
+  :: ((DualNumberD -> DeltaMonadGradient Double DualNumberD)
+      -> (DualNumberD -> DeltaMonadGradient Double DualNumberD)
       -> Vector (Double, Double)
-      -> VecDualDeltaD
-      -> DeltaMonadGradient Double DualDeltaD)
+      -> VecDualNumberD
+      -> DeltaMonadGradient Double DualNumberD)
   -> Int -> Int -> Int -> Double -> Int -> Double
   -> TestTree
 gdSimpleSeparatedTestCase = gdSimpleTestCase "gdSimple Separated" wsFitSeparated
@@ -234,13 +234,13 @@ fitTests = testGroup "Sample fitting fully connected neural net tests"
 -- No wonder the extra hidden layer was not particulary effective
 -- compared to wider single hidden layer.
 middleLayerFit2 :: forall m. DeltaMonad Double m
-                => (DualDeltaD -> m DualDeltaD)
-                -> Data.Vector.Vector DualDeltaD
+                => (DualNumberD -> m DualNumberD)
+                -> Data.Vector.Vector DualNumberD
                 -> Int
-                -> VecDualDeltaD
-                -> m (Data.Vector.Vector DualDeltaD)
+                -> VecDualNumberD
+                -> m (Data.Vector.Vector DualNumberD)
 middleLayerFit2 factivation hiddenVec offset vec = do
-  let f :: Int -> DualDeltaD -> m DualDeltaD
+  let f :: Int -> DualNumberD -> m DualNumberD
       f i x = do
         let weight = var vec (offset + 2 * i)
             bias = var vec (offset + 1 + 2 * i)
@@ -250,39 +250,39 @@ middleLayerFit2 factivation hiddenVec offset vec = do
   V.imapM f hiddenVec
 
 nnFit2 :: DeltaMonad Double m
-       => (DualDeltaD -> m DualDeltaD)
-       -> (DualDeltaD -> m DualDeltaD)
-       -> (DualDeltaD -> m DualDeltaD)
-       -> Double -> VecDualDeltaD -> m DualDeltaD
+       => (DualNumberD -> m DualNumberD)
+       -> (DualNumberD -> m DualNumberD)
+       -> (DualNumberD -> m DualNumberD)
+       -> Double -> VecDualNumberD -> m DualNumberD
 nnFit2 factivationHidden factivationMiddle factivationOutput x vec = do
   -- Due to not being fully connected, the parameters are only:
   -- one bias of the outer layer, a list of weights of the outer layer,
   -- a list of the same length of weights and biases of the first hidden layer
   -- and of the middle hidden layer.
-  let width = (lengthDualDelta vec - 1) `div` 5
+  let width = (lengthDualNumber vec - 1) `div` 5
   hiddenVec <- hiddenLayerFit factivationHidden x vec width
   middleVec <- middleLayerFit2 factivationMiddle hiddenVec (2 * width) vec
   outputLayerFit factivationOutput middleVec (4 * width) vec
 
 nnFit2Loss :: DeltaMonad Double m
-           => (DualDeltaD -> m DualDeltaD)
-           -> (DualDeltaD -> m DualDeltaD)
-           -> (DualDeltaD -> m DualDeltaD)
-           -> Double -> Double -> VecDualDeltaD -> m DualDeltaD
+           => (DualNumberD -> m DualNumberD)
+           -> (DualNumberD -> m DualNumberD)
+           -> (DualNumberD -> m DualNumberD)
+           -> Double -> Double -> VecDualNumberD -> m DualNumberD
 nnFit2Loss factivationHidden factivationMiddle factivationOutput x targ vec = do
   res <- nnFit2 factivationHidden factivationMiddle factivationOutput x vec
   lossSquared targ res
 
 nnFit2LossTotal :: forall m. DeltaMonad Double m
-                => (DualDeltaD -> m DualDeltaD)
-                -> (DualDeltaD -> m DualDeltaD)
-                -> (DualDeltaD -> m DualDeltaD)
+                => (DualNumberD -> m DualNumberD)
+                -> (DualNumberD -> m DualNumberD)
+                -> (DualNumberD -> m DualNumberD)
                 -> Vector (Double, Double)
-                -> VecDualDeltaD
-                -> m DualDeltaD
+                -> VecDualNumberD
+                -> m DualNumberD
 nnFit2LossTotal factivationHidden factivationMiddle factivationOutput
                 samples vec = do
-  let f :: (Double, Double) -> m DualDeltaD
+  let f :: (Double, Double) -> m DualNumberD
       f (x, res) =
         nnFit2Loss factivationHidden factivationMiddle factivationOutput
                    x res vec
@@ -333,7 +333,7 @@ fit2TestsL = testGroup "logisticAct: Sample fitting 2 hidden layer not fully con
       1.2453082870396885
   ]
 
-gdSmartShow :: (VecDualDeltaD -> DeltaMonadGradient Double DualDeltaD)
+gdSmartShow :: (VecDualNumberD -> DeltaMonadGradient Double DualNumberD)
             -> Domain Double
             -> Int
             -> ([Double], (Double, Double))
@@ -346,11 +346,11 @@ gradSmartTestCase :: Num a
                   => String
                   -> ((a, a) -> Int -> Int
                       -> Vector (Double, Double))
-                  -> ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-                      -> (DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
+                  -> ((DualNumberD -> DeltaMonadGradient Double DualNumberD)
+                      -> (DualNumberD -> DeltaMonadGradient Double DualNumberD)
                       -> Vector (Double, Double)
-                      -> VecDualDeltaD
-                      -> DeltaMonadGradient Double DualDeltaD)
+                      -> VecDualNumberD
+                      -> DeltaMonadGradient Double DualNumberD)
                   -> Int -> Int -> Int -> Int -> (Double, Double)
                   -> TestTree
 gradSmartTestCase prefix sampleFunction lossFunction
@@ -365,21 +365,21 @@ gradSmartTestCase prefix sampleFunction lossFunction
        @?= expected
 
 gradSmartWsTestCase
-  :: ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-      -> (DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
+  :: ((DualNumberD -> DeltaMonadGradient Double DualNumberD)
+      -> (DualNumberD -> DeltaMonadGradient Double DualNumberD)
       -> Vector (Double, Double)
-      -> VecDualDeltaD
-      -> DeltaMonadGradient Double DualDeltaD)
+      -> VecDualNumberD
+      -> DeltaMonadGradient Double DualNumberD)
   -> Int -> Int -> Int -> Int -> (Double, Double)
   -> TestTree
 gradSmartWsTestCase = gradSmartTestCase "gradSmart Ws" wsFit
 
 gradSmartSeparatedTestCase
-  :: ((DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
-      -> (DualDeltaD -> DeltaMonadGradient Double DualDeltaD)
+  :: ((DualNumberD -> DeltaMonadGradient Double DualNumberD)
+      -> (DualNumberD -> DeltaMonadGradient Double DualNumberD)
       -> Vector (Double, Double)
-      -> VecDualDeltaD
-      -> DeltaMonadGradient Double DualDeltaD)
+      -> VecDualNumberD
+      -> DeltaMonadGradient Double DualNumberD)
   -> Int -> Int -> Int -> Int -> (Double, Double)
   -> TestTree
 gradSmartSeparatedTestCase =
@@ -485,19 +485,19 @@ smartFit2TestsL =
 
 -- This is really fully connected.
 middleLayerFit3 :: forall m. DeltaMonad Double m
-                => (DualDeltaD -> m DualDeltaD)
-                -> Data.Vector.Vector DualDeltaD
+                => (DualNumberD -> m DualNumberD)
+                -> Data.Vector.Vector DualNumberD
                 -> Int
-                -> VecDualDeltaD
-                -> m (Data.Vector.Vector DualDeltaD)
+                -> VecDualNumberD
+                -> m (Data.Vector.Vector DualNumberD)
 middleLayerFit3 factivation hiddenVec offset vec =
   middleLayerMnist factivation hiddenVec offset vec $ V.length hiddenVec
 
 nnFit3 :: DeltaMonad Double m
-       => (DualDeltaD -> m DualDeltaD)
-       -> (DualDeltaD -> m DualDeltaD)
-       -> (DualDeltaD -> m DualDeltaD)
-       -> Double -> VecDualDeltaD -> m DualDeltaD
+       => (DualNumberD -> m DualNumberD)
+       -> (DualNumberD -> m DualNumberD)
+       -> (DualNumberD -> m DualNumberD)
+       -> Double -> VecDualNumberD -> m DualNumberD
 nnFit3 factivationHidden factivationMiddle factivationOutput x vec = do
   -- This is fully connected, so given width w, the number of parameters is:
   -- one bias of the outer layer, a list of weights of the outer layer
@@ -507,31 +507,31 @@ nnFit3 factivationHidden factivationMiddle factivationOutput x vec = do
   -- so the equation to solve is w^2 + 4 * w + (1 - #params) = 0.
   -- Length 31 gives almost 3. Length 61 gives exactly 6.
   let len :: Double
-      len = fromIntegral $ lengthDualDelta vec  -- #params
+      len = fromIntegral $ lengthDualNumber vec  -- #params
       width = floor $ (-4 + sqrt (12 + 4 * len)) / 2
   hiddenVec <- hiddenLayerFit factivationHidden x vec width
   middleVec <- middleLayerFit3 factivationMiddle hiddenVec (2 * width) vec
   outputLayerFit factivationOutput middleVec ((3 + width) * width) vec
 
 nnFit3Loss :: DeltaMonad Double m
-           => (DualDeltaD -> m DualDeltaD)
-           -> (DualDeltaD -> m DualDeltaD)
-           -> (DualDeltaD -> m DualDeltaD)
-           -> Double -> Double -> VecDualDeltaD -> m DualDeltaD
+           => (DualNumberD -> m DualNumberD)
+           -> (DualNumberD -> m DualNumberD)
+           -> (DualNumberD -> m DualNumberD)
+           -> Double -> Double -> VecDualNumberD -> m DualNumberD
 nnFit3Loss factivationHidden factivationMiddle factivationOutput x targ vec = do
   res <- nnFit3 factivationHidden factivationMiddle factivationOutput x vec
   lossSquared targ res
 
 nnFit3LossTotal :: forall m. DeltaMonad Double m
-                => (DualDeltaD -> m DualDeltaD)
-                -> (DualDeltaD -> m DualDeltaD)
-                -> (DualDeltaD -> m DualDeltaD)
+                => (DualNumberD -> m DualNumberD)
+                -> (DualNumberD -> m DualNumberD)
+                -> (DualNumberD -> m DualNumberD)
                 -> Vector (Double, Double)
-                -> VecDualDeltaD
-                -> m DualDeltaD
+                -> VecDualNumberD
+                -> m DualNumberD
 nnFit3LossTotal factivationHidden factivationMiddle factivationOutput
                 samples vec = do
-  let f :: (Double, Double) -> m DualDeltaD
+  let f :: (Double, Double) -> m DualNumberD
       f (x, res) =
         nnFit3Loss factivationHidden factivationMiddle factivationOutput
                    x res vec
@@ -648,12 +648,12 @@ smartFit3TestsL =
 
 {-
 nnFit3LossTotalOutput :: forall m. DeltaMonad Double m
-                      => (DualDeltaD -> m DualDeltaD)
-                      -> (DualDeltaD -> m DualDeltaD)
-                      -> (DualDeltaD -> m DualDeltaD)
+                      => (DualNumberD -> m DualNumberD)
+                      -> (DualNumberD -> m DualNumberD)
+                      -> (DualNumberD -> m DualNumberD)
                       -> Vector (Double, Double)
-                      -> VecDualDeltaD
-                      -> m DualDeltaD
+                      -> VecDualNumberD
+                      -> m DualNumberD
 nnFit3LossTotalOutput f1 f2 f3 samples vec =
   nnFit3LossTotal f2 f3 f1 samples vec
 
@@ -715,7 +715,7 @@ smartFit3TestsL3 =
 
 sgdShow :: (Eq r, Numeric r, Num (Vector r))
         => r
-        -> (a -> VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
+        -> (a -> VecDualNumber r -> DeltaMonadGradient r (DualNumber r))
         -> [a]  -- ^ training data
         -> Domain r  -- ^ initial parameters
         -> ([r], r)
@@ -729,8 +729,8 @@ sgdTestCase
   -> IO [a]
   -> (Int
       -> a
-      -> VecDualDeltaD
-      -> DeltaMonadGradient Double DualDeltaD)
+      -> VecDualNumberD
+      -> DeltaMonadGradient Double DualNumberD)
   -> Double
   -> Double
   -> TestTree
@@ -751,8 +751,8 @@ lenMnist widthHidden =
 
 nnFit3ForStochastic :: Int
                     -> (Double, Double)
-                    -> VecDualDeltaD
-                    -> DeltaMonadGradient Double DualDeltaD
+                    -> VecDualNumberD
+                    -> DeltaMonadGradient Double DualNumberD
 nnFit3ForStochastic _ (x, res) = nnFit3Loss tanhAct tanhAct tanhAct x res
 
 stochasticFit3Tests :: TestTree

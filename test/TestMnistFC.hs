@@ -29,7 +29,7 @@ shortTestForCITrees = [ dumbMnistTests
 
 sgdShow :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
         => r
-        -> (a -> VecDualDelta r -> DeltaMonadGradient r (DualDelta r))
+        -> (a -> VecDualNumber r -> DeltaMonadGradient r (DualNumber r))
         -> [a]  -- ^ training data
         -> Domain r  -- ^ initial parameters
         -> ([r], r)
@@ -44,8 +44,8 @@ sgdTestCase
   -> (Int
       -> Int
       -> a
-      -> VecDualDelta Double
-      -> DeltaMonadGradient Double (DualDelta Double))
+      -> VecDualNumber Double
+      -> DeltaMonadGradient Double (DualNumber Double))
   -> Double
   -> Double
   -> TestTree
@@ -69,8 +69,8 @@ mnistTestCase2
   -> (Int
       -> Int
       -> MnistData Double
-      -> VecDualDelta Double
-      -> DeltaMonadGradient Double (DualDelta Double))
+      -> VecDualNumber Double
+      -> DeltaMonadGradient Double (DualNumber Double))
   -> Int
   -> Int
   -> Double
@@ -123,8 +123,8 @@ mnistTestCase2V
   -> (Int
       -> Int
       -> MnistData Double
-      -> VecDualDelta Double
-      -> DeltaMonadGradient Double (DualDelta Double))
+      -> VecDualNumber Double
+      -> DeltaMonadGradient Double (DualNumber Double))
   -> Int
   -> Int
   -> Double
@@ -184,8 +184,8 @@ nnMnistLossTanh :: DeltaMonad Double m
                 => Int
                 -> Int
                 -> MnistData Double
-                -> VecDualDelta Double
-                -> m (DualDelta Double)
+                -> VecDualNumber Double
+                -> m (DualNumber Double)
 nnMnistLossTanh widthHidden widthHidden2 (xs, targ) vec = do
   res <- nnMnist2 tanhAct softMaxAct widthHidden widthHidden2 xs vec
   lossCrossEntropy targ res
@@ -194,8 +194,8 @@ nnMnistLossRelu :: DeltaMonad Double m
                 => Int
                 -> Int
                 -> MnistData Double
-                -> VecDualDelta Double
-                -> m (DualDelta Double)
+                -> VecDualNumber Double
+                -> m (DualNumber Double)
 nnMnistLossRelu widthHidden widthHidden2 (xs, targ) vec = do
   res <- nnMnist2 reluAct softMaxAct widthHidden widthHidden2 xs vec
   lossCrossEntropy targ res
@@ -205,8 +205,8 @@ mnistTestCase2L
   -> Int
   -> Int
   -> (MnistData Double
-      -> VecDualDelta Double
-      -> DeltaMonadGradient Double (DualDelta Double))
+      -> VecDualNumber Double
+      -> DeltaMonadGradient Double (DualNumber Double))
   -> Int
   -> Int
   -> Double

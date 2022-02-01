@@ -106,7 +106,7 @@ library
     -- Modules exported by the library.
     exposed-modules:  HordeAd
                       HordeAd.Delta
-                      HordeAd.DualDelta
+                      HordeAd.DualNumber
                       HordeAd.Engine
                       HordeAd.MnistTools
                       HordeAd.MnistToolsData

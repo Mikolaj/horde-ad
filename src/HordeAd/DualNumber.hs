@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -Wno-missing-export-lists -Wno-missing-methods #-}
 -- | Dual numbers and operations on them, which are extensions of normal
 -- arithmetic and other operations to also cover derivatives.
-module HordeAd.DualDelta where
+module HordeAd.DualNumber where
 
 import Prelude
 
@@ -15,12 +15,12 @@ import HordeAd.Delta (Delta (..))
 
 -- * The main dual number types
 
-data DualDelta r = D r (Delta r)
+data DualNumber r = D r (Delta r)
 
 class (Monad m, Functor m, Applicative m) => DeltaMonad r m | m -> r where
-  returnLet :: DualDelta r -> m (DualDelta r)
-  returnLetV :: DualDelta (Vector r) -> m (DualDelta (Vector r))
-  returnLetL :: DualDelta (Matrix r) -> m (DualDelta (Matrix r))
+  returnLet :: DualNumber r -> m (DualNumber r)
+  returnLetV :: DualNumber (Vector r) -> m (DualNumber (Vector r))
+  returnLetL :: DualNumber (Matrix r) -> m (DualNumber (Matrix r))
 
 
 -- * General non-monadic operations
@@ -28,16 +28,16 @@ class (Monad m, Functor m, Applicative m) => DeltaMonad r m | m -> r where
 -- This instances are required by the @Real@ instance, which is required
 -- by @RealFloat@, which gives @atan2@. No idea what properties
 -- @Real@ requires here, so let it crash if it's really needed.
-instance Eq (DualDelta r) where
+instance Eq (DualNumber r) where
 
-instance Ord (DualDelta r) where
+instance Ord (DualNumber r) where
 
 -- These instances are dangerous. Expressions should be wrapped in
 -- the monadic @returnLet@ whenever there is a possibility they can be
 -- used multiple times in a larger expression. Safer yet, monadic arithmetic
 -- operations that already include @returnLet@ should be used instead,
 -- such as @+\@, @*\@, etc.
-instance Num r => Num (DualDelta r) where
+instance Num r => Num (DualNumber r) where
   D u u' + D v v' = D (u + v) (Add u' v')
   D u u' - D v v' = D (u - v) (Add u' (Scale (-1) v'))
   D u u' * D v v' = D (u * v) (Add (Scale v u') (Scale u v'))
@@ -46,10 +46,10 @@ instance Num r => Num (DualDelta r) where
   signum = undefined  -- TODO
   fromInteger = scalar . fromInteger
 
-instance Real r => Real (DualDelta r) where
+instance Real r => Real (DualNumber r) where
   toRational = undefined  -- TODO?
 
-instance Fractional r => Fractional (DualDelta r) where
+instance Fractional r => Fractional (DualNumber r) where
   D u u' / D v v' =
     let recipSq = recip (v * v)
     in D (u / v) (Add (Scale (v * recipSq) u') (Scale (- u * recipSq) v'))
@@ -58,7 +58,7 @@ instance Fractional r => Fractional (DualDelta r) where
     in D (recip v) (Scale minusRecipSq v')
   fromRational = scalar . fromRational
 
-instance Floating r => Floating (DualDelta r) where
+instance Floating r => Floating (DualNumber r) where
   pi = scalar pi
   exp (D u u') = let expU = exp u
                  in D expU (Scale expU u')
@@ -81,33 +81,33 @@ instance Floating r => Floating (DualDelta r) where
   acosh = undefined  -- TODO
   atanh = undefined  -- TODO
 
-instance RealFrac r => RealFrac (DualDelta r) where
+instance RealFrac r => RealFrac (DualNumber r) where
   properFraction = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance RealFloat r => RealFloat (DualDelta r) where
+instance RealFloat r => RealFloat (DualNumber r) where
   atan2 (D u u') (D v v') =
     let t = 1 / (u * u + v * v)
     in D (atan2 u v) (Add (Scale (- u * t) v') (Scale (v * t) u'))
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a continuous codomain
 
-scalar :: r -> DualDelta r
+scalar :: r -> DualNumber r
 scalar r = D r Zero
 
-scale :: Num r => r -> DualDelta r -> DualDelta r
+scale :: Num r => r -> DualNumber r -> DualNumber r
 scale r (D u u') = D (r * u) (Scale r u')
 
 -- Optimized and more clearly written @u ** 2@.
-square :: Num r => DualDelta r -> DualDelta r
+square :: Num r => DualNumber r -> DualNumber r
 square (D u u') = D (u * u) (Scale (2 * u) u')
 
-logistic :: Floating r => DualDelta r -> DualDelta r
+logistic :: Floating r => DualNumber r -> DualNumber r
 logistic (D u u') =
   let y = recip (1 + exp (- u))
   in D y (Scale (y * (1 - y)) u')
 
-squaredDifference :: Num r => r -> DualDelta r -> DualDelta r
+squaredDifference :: Num r => r -> DualNumber r -> DualNumber r
 squaredDifference targ res = square $ res - scalar targ
 
 
@@ -115,35 +115,35 @@ squaredDifference targ res = square $ res - scalar targ
 
 infixr 8 <.>!
 (<.>!) :: Numeric r
-       => DualDelta (Vector r)
-       -> DualDelta (Vector r)
-       -> DualDelta r
+       => DualNumber (Vector r)
+       -> DualNumber (Vector r)
+       -> DualNumber r
 (<.>!) (D u u') (D v v') = D (u <.> v) (Add (Dot v u') (Dot u v'))
 
 infixr 8 <.>!!
 (<.>!!) :: Numeric r
-        => DualDelta (Vector r)
+        => DualNumber (Vector r)
         -> Vector r
-        -> DualDelta r
+        -> DualNumber r
 (<.>!!) (D u u') v = D (u <.> v) (Dot v u')
 
-konst' :: Numeric r => DualDelta r -> Int -> DualDelta (Vector r)
+konst' :: Numeric r => DualNumber r -> Int -> DualNumber (Vector r)
 konst' (D u u') n = D (konst u n) (Konst u' n)
 
-sumElements' :: Numeric r => DualDelta (Vector r) -> DualDelta r
+sumElements' :: Numeric r => DualNumber (Vector r) -> DualNumber r
 sumElements' (D u u') = D (sumElements u) (Dot (konst 1 (V.length u)) u')
 
 deltaSeq :: Numeric r
-         => Data.Vector.Vector (DualDelta r) -> DualDelta (Vector r)
+         => Data.Vector.Vector (DualNumber r) -> DualNumber (Vector r)
 deltaSeq v = D (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
                (Seq $ V.map (\(D _ u') -> u') v)
 
 -- | Dense matrix-vector product.
 infixr 8 #>!
 (#>!) :: Numeric r
-      => DualDelta (Matrix r)
-      -> DualDelta (Vector r)
-      -> DualDelta (Vector r)
+      => DualNumber (Matrix r)
+      -> DualNumber (Vector r)
+      -> DualNumber (Vector r)
 (#>!) (D u u') (D v v') =
   D (u #> v) (Add (DotL (asRow v) u')
                   (DotL u (SeqL (V.replicate (rows u) v'))))
@@ -152,9 +152,9 @@ infixr 8 #>!
 -- | Dense matrix-vector product with a constant vector.
 infixr 8 #>!!
 (#>!!) :: Numeric r
-       => DualDelta (Matrix r)
+       => DualNumber (Matrix r)
        -> Vector r
-       -> DualDelta (Vector r)
+       -> DualNumber (Vector r)
 (#>!!) (D u u') v = D (u #> v) (DotL (asRow v) u')
 
 
@@ -164,23 +164,23 @@ infixr 8 #>!!
 -- polymorphic over whether they operate on scalars, vectors or other types,
 -- so further down they are duplicated.
 
-tanhAct :: (DeltaMonad r m, Floating r) => DualDelta r -> m (DualDelta r)
+tanhAct :: (DeltaMonad r m, Floating r) => DualNumber r -> m (DualNumber r)
 tanhAct = returnLet . tanh
 
-reluAct :: (DeltaMonad r m, Num r, Ord r) => DualDelta r -> m (DualDelta r)
+reluAct :: (DeltaMonad r m, Num r, Ord r) => DualNumber r -> m (DualNumber r)
 reluAct (D u u') = returnLet $ D (max 0 u) (Scale (if u > 0 then 1 else 0) u')
 
-logisticAct :: (DeltaMonad r m, Floating r) => DualDelta r -> m (DualDelta r)
+logisticAct :: (DeltaMonad r m, Floating r) => DualNumber r -> m (DualNumber r)
 logisticAct = returnLet . logistic
 
 sumElementsVectorOfDelta :: Num r
-                         => Data.Vector.Vector (DualDelta r)
-                         -> DualDelta r
+                         => Data.Vector.Vector (DualNumber r)
+                         -> DualNumber r
 sumElementsVectorOfDelta us = V.foldl' (+) (scalar 0) us
 
 softMaxAct :: (DeltaMonad r m, Floating r)
-           => Data.Vector.Vector (DualDelta r)
-           -> m (Data.Vector.Vector (DualDelta r))
+           => Data.Vector.Vector (DualNumber r)
+           -> m (Data.Vector.Vector (DualNumber r))
 softMaxAct us = do
   let expUs = V.map exp us
       sumExpUs = sumElementsVectorOfDelta expUs
@@ -188,16 +188,16 @@ softMaxAct us = do
   recipSum <- returnLet $ recip sumExpUs
   V.mapM (\r -> returnLet $ r * recipSum) expUs
 
-lossSquared :: (DeltaMonad r m, Num r) => r -> DualDelta r -> m (DualDelta r)
+lossSquared :: (DeltaMonad r m, Num r) => r -> DualNumber r -> m (DualNumber r)
 lossSquared targ res = returnLet $ squaredDifference targ res
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
 lossCrossEntropy :: forall m r. (DeltaMonad r m, Floating r, Numeric r)
                  => Vector r
-                 -> Data.Vector.Vector (DualDelta r)
-                 -> m (DualDelta r)
+                 -> Data.Vector.Vector (DualNumber r)
+                 -> m (DualNumber r)
 lossCrossEntropy targ res = do
-  let f :: DualDelta r -> Int -> DualDelta r -> DualDelta r
+  let f :: DualNumber r -> Int -> DualNumber r -> DualNumber r
       f !acc i d = acc + scale (targ V.! i) (log d)
   returnLet $ negate $ V.ifoldl' f (scalar 0) res
 
@@ -207,17 +207,17 @@ lossCrossEntropy targ res = do
 -- The monad sadly forces duplication of code.
 
 tanhActV :: (DeltaMonad r m, Floating (Vector r))
-         => DualDelta (Vector r) -> m (DualDelta (Vector r))
+         => DualNumber (Vector r) -> m (DualNumber (Vector r))
 tanhActV = returnLetV . tanh
 
 logisticActV :: (DeltaMonad r m, Floating (Vector r))
-             => DualDelta (Vector r)
-             -> m (DualDelta (Vector r))
+             => DualNumber (Vector r)
+             -> m (DualNumber (Vector r))
 logisticActV = returnLetV . logistic
 
 softMaxActV :: (DeltaMonad r m, Fractional r, Numeric r, Floating (Vector r))
-            => DualDelta (Vector r)
-            -> m (DualDelta (Vector r))
+            => DualNumber (Vector r)
+            -> m (DualNumber (Vector r))
 softMaxActV d@(D u _) = do
   let expU = exp d
       sumExpU = sumElements' expU
@@ -228,6 +228,6 @@ softMaxActV d@(D u _) = do
 -- In terms of hmatrix: @-(log res <.> targ)@.
 lossCrossEntropyV :: (DeltaMonad r m, Numeric r, Floating (Vector r))
                   => Vector r
-                  -> DualDelta (Vector r)
-                  -> m (DualDelta r)
+                  -> DualNumber (Vector r)
+                  -> m (DualNumber r)
 lossCrossEntropyV targ res = returnLet $ negate $ log res <.>!! targ
