@@ -102,6 +102,9 @@ bgroup5e7 allxs =
         , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
         ]
 
+(*\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
+(*\) u v = returnLet $ u * v
+
 -- The @foldMDelta'@, instead of the standard @foldM'@, is an awkward clutch
 -- that can't be avoided without changing the representation of the vector
 -- of dual numbers. The use of a pair of vectors to represent

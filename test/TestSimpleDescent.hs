@@ -19,6 +19,22 @@ testTrees :: [TestTree]
 testTrees = [ gdSimpleTests
             , xorTests ]
 
+-- Unfortunately, monadic versions of the operations below are not
+-- polymorphic over whether they operate on scalars, vectors or other types,
+-- so we should probably abandon them.
+
+(+\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
+(+\) u v = returnLet $ u + v
+
+(*\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
+(*\) u v = returnLet $ u * v
+
+scaleDual :: (DeltaMonad r m, Num r) => r -> DualDelta r -> m (DualDelta r)
+scaleDual r u = returnLet $ scale r u
+
+squareDual :: (DeltaMonad r m, Num r) => DualDelta r -> m (DualDelta r)
+squareDual = returnLet . square
+
 gdSimpleShow :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
              => r
              -> (VecDualDelta r -> DeltaMonadGradient r (DualDelta r))

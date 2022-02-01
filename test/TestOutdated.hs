@@ -33,6 +33,15 @@ testTrees = [ fitTests
             , stochasticFit3Tests
             ]
 
+(+\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
+(+\) u v = returnLet $ u + v
+
+(*\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
+(*\) u v = returnLet $ u * v
+
+scaleDual :: (DeltaMonad r m, Num r) => r -> DualDelta r -> m (DualDelta r)
+scaleDual r u = returnLet $ scale r u
+
 lengthDualDelta :: Storable r => VecDualDelta r -> Int
 lengthDualDelta (vValue, _, _, _) = V.length vValue
 

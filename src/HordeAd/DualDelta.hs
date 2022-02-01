@@ -27,12 +27,6 @@ class (Monad m, Functor m, Applicative m) => DeltaMonad r m | m -> r where
 
 -- * General non-monadic operations
 
-scalar :: r -> DualDelta r
-scalar r = D r Zero
-
-scale :: Num r => r -> DualDelta r -> DualDelta r
-scale r (D u u') = D (r * u) (Scale r u')
-
 -- This instances are required by the @Real@ instance, which is required
 -- by @RealFloat@, which gives @atan2@. No idea what properties
 -- @Real@ requires here, so let it crash if it's really needed.
@@ -100,6 +94,16 @@ instance RealFloat r => RealFloat (DualDelta r) where
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a continuous codomain
 
+scalar :: r -> DualDelta r
+scalar r = D r Zero
+
+scale :: Num r => r -> DualDelta r -> DualDelta r
+scale r (D u u') = D (r * u) (Scale r u')
+
+-- Optimized and more clearly written @u ** 2@.
+square :: Num r => DualDelta r -> DualDelta r
+square (D u u') = D (u * u) (Scale (2 * u) u')
+
 
 -- * Non-monadic operations related to vectors
 
@@ -156,58 +160,6 @@ infixr 8 #>!!
 -- Unfortunately, monadic versions of these operations are not
 -- polymorphic over whether they operate on scalars, vectors or other types.
 
-(+\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
-(+\) u v = returnLet $ u + v
-
-(-\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
-(-\) u v = returnLet $ u - v
-
-(*\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
-(*\) u v = returnLet $ u * v
-
-negateDual :: (DeltaMonad r m, Num r) => DualDelta r -> m (DualDelta r)
-negateDual v = returnLet $ -v
-
--- Should be denoted by @/\@, but it would be misleading.
-divideDual :: (DeltaMonad r m, Fractional r)
-           => DualDelta r -> DualDelta r -> m (DualDelta r)
-divideDual u v = returnLet $ u / v
-
-recipDual :: (DeltaMonad r m, Fractional r) => DualDelta r -> m (DualDelta r)
-recipDual v = returnLet $ recip v
-
-expDual :: (DeltaMonad r m, Floating r) => DualDelta r -> m (DualDelta r)
-expDual u = returnLet $ exp u
-
-logDual :: (DeltaMonad r m, Floating r) => DualDelta r -> m (DualDelta r)
-logDual u = returnLet $ log u
-
-(**\) :: (DeltaMonad r m, Floating r)
-      => DualDelta r -> DualDelta r -> m (DualDelta r)
-(**\) u v = returnLet $ u ** v
-
--- Most of the operations below contain few Delta
--- let-bindings --- close to only as many as really needed.
--- The number of let-bindings is enough to guarantee that
--- no exponential explosion can happen regardless of context
--- in which they are used, if only all their arguments are let-bound.
-
-scaleDual :: (DeltaMonad r m, Num r) => r -> DualDelta r -> m (DualDelta r)
-scaleDual r u = returnLet $ scale r u
-
--- Optimized and clearer to write @u ** 2@.
-squareDual :: (DeltaMonad r m, Num r) => DualDelta r -> m (DualDelta r)
-squareDual (D u u') = returnLet $ D (u * u) (Scale (2 * u) u')
-
--- In addition to convenience, this eliminates all Delta bindings
--- coming from binary addition into a single binding
--- (and so makes automatic fusion possible in the future).
--- BTW, this is also a dot product with a vector that contains only ones.
-sumDual :: forall m r. (DeltaMonad r m, Num r)
-        => Data.Vector.Vector (DualDelta r)
-        -> m (DualDelta r)
-sumDual us = returnLet $ V.foldl' (+) (scalar 0) us
-
 -- The same as @sumDual@ but for lists. Inlined to help list fusion,
 -- which is, alas, not guaranteed regardless.
 sumListDual :: forall m r. (DeltaMonad r m, Num r)
@@ -243,6 +195,14 @@ logisticAct (D u u') = do
   let y = recip (1 + exp (- u))
   returnLet $ D y (Scale (y * (1 - y)) u')
 
+-- In addition to convenience, this eliminates all Delta bindings
+-- coming from binary addition into a single binding
+-- (and so makes automatic fusion possible in the future).
+sumDual :: forall m r. (DeltaMonad r m, Num r)
+        => Data.Vector.Vector (DualDelta r)
+        -> m (DualDelta r)
+sumDual us = returnLet $ V.foldl' (+) (scalar 0) us
+
 softMaxAct :: (DeltaMonad r m, Floating r)
            => Data.Vector.Vector (DualDelta r)
            -> m (Data.Vector.Vector (DualDelta r))
@@ -250,12 +210,12 @@ softMaxAct us = do
   let expUs = V.map exp us
   sumExpUs <- sumDual expUs
   -- This has to be let-bound, because it's used many times below.
-  recipSum <- recipDual sumExpUs
-  V.mapM (*\ recipSum) expUs
+  recipSum <- returnLet $ recip sumExpUs
+  V.mapM (\r -> returnLet $ r * recipSum) expUs
 
 lossSquared :: (DeltaMonad r m, Num r)
             => r -> DualDelta r -> m (DualDelta r)
-lossSquared targ res = squareDual $ res - scalar targ
+lossSquared targ res = returnLet $ square $ res - scalar targ
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
 lossCrossEntropy
@@ -266,7 +226,7 @@ lossCrossEntropy
 lossCrossEntropy targ res = do
   let f :: DualDelta r -> Int -> DualDelta r -> DualDelta r
       f !acc i d = acc + scale (targ V.! i) (log d)
-  negateDual $ V.ifoldl' f (scalar 0) res
+  returnLet $ negate $ V.ifoldl' f (scalar 0) res
 
 
 -- * Monadic operations for vectors
@@ -293,7 +253,7 @@ softMaxActV d@(D u _) = do
   let expU = exp d
       sumExpU = sumElements' expU
   -- This has to be let-bound, because it's used many times below.
-  recipSum <- recipDual sumExpU
+  recipSum <- returnLet $ recip sumExpU
   returnLetV $ konst' recipSum (V.length u) * expU
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
@@ -303,4 +263,4 @@ lossCrossEntropyV
   => Vector r
   -> DualDelta (Vector r)
   -> m (DualDelta r)
-lossCrossEntropyV targ res = negateDual $ log res <.>!! targ
+lossCrossEntropyV targ res = returnLet $ negate $ log res <.>!! targ

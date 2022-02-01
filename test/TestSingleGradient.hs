@@ -21,6 +21,23 @@ testTrees = [ dfTests
             , readmeTests
             ]
 
+-- Unfortunately, monadic versions of the operations below are not
+-- polymorphic over whether they operate on scalars, vectors or other types,
+-- so we should probably abandon them.
+
+(+\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
+(+\) u v = returnLet $ u + v
+
+(*\) :: (DeltaMonad r m, Num r) => DualDelta r -> DualDelta r -> m (DualDelta r)
+(*\) u v = returnLet $ u * v
+
+(**\) :: (DeltaMonad r m, Floating r)
+      => DualDelta r -> DualDelta r -> m (DualDelta r)
+(**\) u v = returnLet $ u ** v
+
+squareDual :: (DeltaMonad r m, Num r) => DualDelta r -> m (DualDelta r)
+squareDual = returnLet . square
+
 dfShow :: (VecDualDeltaF -> DeltaMonadGradient Float DualDeltaF)
        -> [Float]
        -> ([Float], Float)
