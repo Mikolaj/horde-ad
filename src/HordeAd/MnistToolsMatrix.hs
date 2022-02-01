@@ -75,8 +75,7 @@ nnMnist2L factivationHidden factivationOutput x vec = do
                                         weightsL1 biasesV1
   inline middleLayerMnistL factivationOutput middleVec weightsL2 biasesV2
 
-nnMnistLoss2L :: ( DeltaMonad r m, Floating r, Numeric r
-                 , Floating (Vector r) )
+nnMnistLoss2L :: (DeltaMonad r m, Floating r, Numeric r, Floating (Vector r))
               => MnistData r
               -> VecDualDelta r
               -> m (DualDelta r)
@@ -98,7 +97,6 @@ generalTestMnistL nn xs res =
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels xs)) / fromIntegral (length xs)
 
-testMnist2L :: ( Ord r, Floating r, Numeric r
-               , Floating (Vector r) )
+testMnist2L :: (Ord r, Floating r, Numeric r, Floating (Vector r))
             => [MnistData r] -> (Domain r, DomainV r, DomainL r) -> r
 testMnist2L = generalTestMnistL (inline nnMnist2L logisticActV softMaxActV)

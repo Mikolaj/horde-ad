@@ -112,8 +112,7 @@ nnMnist2V factivationHidden factivationOutput widthHidden widthHidden2
   inline middleLayerMnistV factivationOutput middleVec
                            offsetOutput vec sizeMnistLabel
 
-nnMnistLoss2V :: ( DeltaMonad r m, Floating r, Numeric r
-                 , Floating (Vector r) )
+nnMnistLoss2V :: (DeltaMonad r m, Floating r, Numeric r, Floating (Vector r))
               => Int
               -> Int
               -> MnistData r
@@ -138,8 +137,7 @@ generalTestMnistV nn xs (resS, resV) =
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels xs)) / fromIntegral (length xs)
 
-testMnist2V :: ( Ord r, Floating r, Numeric r
-               , Floating (Vector r) )
+testMnist2V :: (Ord r, Floating r, Numeric r, Floating (Vector r))
             => Int -> Int -> [MnistData r] -> (Domain r, DomainV r) -> r
 testMnist2V widthHidden widthHidden2 =
   generalTestMnistV (inline nnMnist2V logisticActV softMaxActV

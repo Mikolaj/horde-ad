@@ -127,17 +127,14 @@ infixr 8 <.>!!
         -> DualDelta r
 (<.>!!) (D u u') v = D (u <.> v) (Dot v u')
 
-konst' :: Numeric r
-       => DualDelta r -> Int -> DualDelta (Vector r)
+konst' :: Numeric r => DualDelta r -> Int -> DualDelta (Vector r)
 konst' (D u u') n = D (konst u n) (Konst u' n)
 
-sumElements' :: Numeric r
-             => DualDelta (Vector r) -> DualDelta r
+sumElements' :: Numeric r => DualDelta (Vector r) -> DualDelta r
 sumElements' (D u u') = D (sumElements u) (Dot (konst 1 (V.length u)) u')
 
 deltaSeq :: Numeric r
-         => Data.Vector.Vector (DualDelta r)
-         -> DualDelta (Vector r)
+         => Data.Vector.Vector (DualDelta r) -> DualDelta (Vector r)
 deltaSeq v = D (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
                (Seq $ V.map (\(D _ u') -> u') v)
 
@@ -171,8 +168,7 @@ tanhAct :: (DeltaMonad r m, Floating r) => DualDelta r -> m (DualDelta r)
 tanhAct = returnLet . tanh
 
 reluAct :: (DeltaMonad r m, Num r, Ord r) => DualDelta r -> m (DualDelta r)
-reluAct (D u u') =
-  returnLet $ D (max 0 u) (Scale (if u > 0 then 1 else 0) u')
+reluAct (D u u') = returnLet $ D (max 0 u) (Scale (if u > 0 then 1 else 0) u')
 
 logisticAct :: (DeltaMonad r m, Floating r) => DualDelta r -> m (DualDelta r)
 logisticAct = returnLet . logistic
@@ -192,16 +188,14 @@ softMaxAct us = do
   recipSum <- returnLet $ recip sumExpUs
   V.mapM (\r -> returnLet $ r * recipSum) expUs
 
-lossSquared :: (DeltaMonad r m, Num r)
-            => r -> DualDelta r -> m (DualDelta r)
+lossSquared :: (DeltaMonad r m, Num r) => r -> DualDelta r -> m (DualDelta r)
 lossSquared targ res = returnLet $ squaredDifference targ res
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropy
-  :: forall m r. (DeltaMonad r m, Floating r, Numeric r)
-  => Vector r
-  -> Data.Vector.Vector (DualDelta r)
-  -> m (DualDelta r)
+lossCrossEntropy :: forall m r. (DeltaMonad r m, Floating r, Numeric r)
+                 => Vector r
+                 -> Data.Vector.Vector (DualDelta r)
+                 -> m (DualDelta r)
 lossCrossEntropy targ res = do
   let f :: DualDelta r -> Int -> DualDelta r -> DualDelta r
       f !acc i d = acc + scale (targ V.! i) (log d)
@@ -216,13 +210,12 @@ tanhActV :: (DeltaMonad r m, Floating (Vector r))
          => DualDelta (Vector r) -> m (DualDelta (Vector r))
 tanhActV = returnLetV . tanh
 
-logisticActV :: ( DeltaMonad r m, Floating (Vector r) )
+logisticActV :: (DeltaMonad r m, Floating (Vector r))
              => DualDelta (Vector r)
              -> m (DualDelta (Vector r))
 logisticActV = returnLetV . logistic
 
-softMaxActV :: ( DeltaMonad r m, Fractional r, Numeric r
-               , Floating (Vector r) )
+softMaxActV :: (DeltaMonad r m, Fractional r, Numeric r, Floating (Vector r))
             => DualDelta (Vector r)
             -> m (DualDelta (Vector r))
 softMaxActV d@(D u _) = do
@@ -233,10 +226,8 @@ softMaxActV d@(D u _) = do
   returnLetV $ konst' recipSum (V.length u) * expU
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropyV
-  :: ( DeltaMonad r m, Numeric r
-     , Floating (Vector r) )
-  => Vector r
-  -> DualDelta (Vector r)
-  -> m (DualDelta r)
+lossCrossEntropyV :: (DeltaMonad r m, Numeric r, Floating (Vector r))
+                  => Vector r
+                  -> DualDelta (Vector r)
+                  -> m (DualDelta r)
 lossCrossEntropyV targ res = returnLet $ negate $ log res <.>!! targ

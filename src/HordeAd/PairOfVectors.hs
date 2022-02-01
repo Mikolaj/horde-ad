@@ -45,8 +45,7 @@ vecDualDeltaFromVars
 vecDualDeltaFromVars vVar vVarV vVarL (params, paramsV, paramsL) =
   (params, vVar, V.zipWith D paramsV vVarV, V.zipWith D paramsL vVarL)
 
-var :: Storable r
-    => VecDualDelta r -> Int -> DualDelta r
+var :: Storable r => VecDualDelta r -> Int -> DualDelta r
 var (vValue, vVar, _, _) i = D (vValue V.! i) (vVar V.! i)
 
 varV :: VecDualDelta r -> Int -> DualDelta (Vector r)
@@ -56,8 +55,7 @@ varL :: VecDualDelta r -> Int -> DualDelta (Matrix r)
 varL (_, _, _, v) i = v V.! i
 
 -- Unsafe, but handy for toy examples.
-vars :: Storable r
-     => VecDualDelta r -> [DualDelta r]
+vars :: Storable r => VecDualDelta r -> [DualDelta r]
 vars vec = map (var vec) [0 ..]
 
 ifoldMDelta' :: forall m a r. (Monad m, Storable r)

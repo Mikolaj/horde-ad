@@ -30,7 +30,7 @@ sizeMnistLabel = 10
 -- OTOH, methods with only matrix operations and graphs can't handle that.
 -- However, the goal of the exercise it to implement the same
 -- neural net that backprop uses for benchmarks and compare.
-type MnistData r = (Vector r, Vector r )
+type MnistData r = (Vector r, Vector r)
 
 readMnistData :: LBS.ByteString -> LBS.ByteString -> [MnistData Double]
 readMnistData glyphsBS labelsBS =
