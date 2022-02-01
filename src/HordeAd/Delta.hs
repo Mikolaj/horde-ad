@@ -101,8 +101,8 @@ buildVector dim dimV dimL st d0 = do
           -- in @(#>!)@, causing an allocation of a whole new @n^2@ array
           -- from two length @n@ vectors (r and v); when doing the same
           -- computation by hand using @Vector@ instead of @Matrix@,
-          -- we can avoid any similar allocations; the cost of the manual
-          -- computation is many extra delta expression which, however,
+          -- we can avoid any similar allocations; the cost for the manual
+          -- computation is many extra delta expressions which, however,
           -- with square enough arrays, don't dominate
       evalL :: Matrix r -> Delta (Matrix r) -> ST s ()
       evalL !r = \case

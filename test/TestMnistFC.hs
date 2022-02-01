@@ -284,7 +284,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
         whiteLabel = V.replicate sizeMnistLabel 1
         trainData = replicate 50 (blackGlyph, whiteLabel)
     in sgdTestCase "black/white"
-         (return trainData) nnMnistLoss2 0.02 23.02585092994046
+         (return trainData) nnMnistLoss2 0.02 23.025850929940464
   , let glyph = V.unfoldrExactN sizeMnistGlyph (uniformR (0, 1))
         label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
         trainData = map ((\g -> (glyph g, label g)) . mkStdGen) [1 .. 100]
@@ -351,7 +351,7 @@ vectorMnistTests = testGroup "MNIST VV tests with a 2-hidden-layer nn"
   , mnistTestCase2V "artificial 1 2 3 4 5" 1 2 nnMnistLoss2V 3 4 5
                     0.8972
   , mnistTestCase2V "artificial 5 4 3 2 1" 5 4 nnMnistLoss2V 3 2 1
-                    0.7755
+                    0.8225
   ]
 
 matrixMnistTests :: TestTree
@@ -384,7 +384,7 @@ shortCIMnistTests = testGroup "Short CI MNIST tests"
   , mnistTestCase2V "VV artificial 1 2 3 4 5" 1 2 nnMnistLoss2V 3 4 5
                     0.8972
   , mnistTestCase2V "VV artificial 5 4 3 2 1" 5 4 nnMnistLoss2V 3 2 1
-                    0.7755
+                    0.8225
   , mnistTestCase2L "LL 1 epoch, 1 batch" 1 1 nnMnistLoss2L 300 100 0.02
                     0.13129999999999997
   , mnistTestCase2L "LL artificial 1 2 3 4 5" 1 2 nnMnistLoss2L 3 4 5
