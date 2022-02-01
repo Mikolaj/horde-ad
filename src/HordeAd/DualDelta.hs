@@ -6,10 +6,8 @@ module HordeAd.DualDelta where
 
 import Prelude
 
-import           Data.List (foldl')
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           Foreign.Storable (Storable)
 import           Numeric.LinearAlgebra
   (Matrix, Numeric, Vector, asRow, konst, rows, sumElements, (#>), (<.>))
 
@@ -104,6 +102,14 @@ scale r (D u u') = D (r * u) (Scale r u')
 square :: Num r => DualDelta r -> DualDelta r
 square (D u u') = D (u * u) (Scale (2 * u) u')
 
+logistic :: Floating r => DualDelta r -> DualDelta r
+logistic (D u u') =
+  let y = recip (1 + exp (- u))
+  in D y (Scale (y * (1 - y)) u')
+
+squaredDifference :: Num r => r -> DualDelta r -> DualDelta r
+squaredDifference targ res = square $ res - scalar targ
+
 
 -- * Non-monadic operations related to vectors
 
@@ -158,30 +164,8 @@ infixr 8 #>!!
 -- * Monadic operations for scalars
 
 -- Unfortunately, monadic versions of these operations are not
--- polymorphic over whether they operate on scalars, vectors or other types.
-
--- The same as @sumDual@ but for lists. Inlined to help list fusion,
--- which is, alas, not guaranteed regardless.
-sumListDual :: forall m r. (DeltaMonad r m, Num r)
-            => [DualDelta r]
-            -> m (DualDelta r)
-{-# INLINE sumListDual #-}
-sumListDual us = returnLet $ foldl' (+) (scalar 0) us
-
--- Inlined to avoid the tiny overhead of calling an unknown function.
--- This operation is needed, because @sumListDual@ doesn't (always) fuse.
-sumResultsDual :: forall m a r. (DeltaMonad r m, Num r, Storable a)
-               => (a -> m (DualDelta r))
-               -> Vector a
-               -> m (DualDelta r)
-{-# INLINE sumResultsDual #-}
-sumResultsDual f as = do
-  let g :: DualDelta r -> a -> m (DualDelta r)
-      g !acc a = do
-        u <- f a
-        return $! acc + u
-  sumUs <- V.foldM g (scalar 0) as
-  returnLet sumUs
+-- polymorphic over whether they operate on scalars, vectors or other types,
+-- so further down they are duplicated.
 
 tanhAct :: (DeltaMonad r m, Floating r) => DualDelta r -> m (DualDelta r)
 tanhAct = returnLet . tanh
@@ -191,31 +175,26 @@ reluAct (D u u') =
   returnLet $ D (max 0 u) (Scale (if u > 0 then 1 else 0) u')
 
 logisticAct :: (DeltaMonad r m, Floating r) => DualDelta r -> m (DualDelta r)
-logisticAct (D u u') = do
-  let y = recip (1 + exp (- u))
-  returnLet $ D y (Scale (y * (1 - y)) u')
+logisticAct = returnLet . logistic
 
--- In addition to convenience, this eliminates all Delta bindings
--- coming from binary addition into a single binding
--- (and so makes automatic fusion possible in the future).
-sumDual :: forall m r. (DeltaMonad r m, Num r)
-        => Data.Vector.Vector (DualDelta r)
-        -> m (DualDelta r)
-sumDual us = returnLet $ V.foldl' (+) (scalar 0) us
+sumElementsVectorOfDelta :: Num r
+                         => Data.Vector.Vector (DualDelta r)
+                         -> DualDelta r
+sumElementsVectorOfDelta us = V.foldl' (+) (scalar 0) us
 
 softMaxAct :: (DeltaMonad r m, Floating r)
            => Data.Vector.Vector (DualDelta r)
            -> m (Data.Vector.Vector (DualDelta r))
 softMaxAct us = do
   let expUs = V.map exp us
-  sumExpUs <- sumDual expUs
+      sumExpUs = sumElementsVectorOfDelta expUs
   -- This has to be let-bound, because it's used many times below.
   recipSum <- returnLet $ recip sumExpUs
   V.mapM (\r -> returnLet $ r * recipSum) expUs
 
 lossSquared :: (DeltaMonad r m, Num r)
             => r -> DualDelta r -> m (DualDelta r)
-lossSquared targ res = returnLet $ square $ res - scalar targ
+lossSquared targ res = returnLet $ squaredDifference targ res
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
 lossCrossEntropy
@@ -231,8 +210,7 @@ lossCrossEntropy targ res = do
 
 -- * Monadic operations for vectors
 
--- The monad sadly forces duplication of code. Probably better
--- to define a non-monadic version and insert @Let@ by hand.
+-- The monad sadly forces duplication of code.
 
 tanhActV :: (DeltaMonad r m, Floating (Vector r))
          => DualDelta (Vector r) -> m (DualDelta (Vector r))
@@ -241,9 +219,7 @@ tanhActV = returnLetV . tanh
 logisticActV :: ( DeltaMonad r m, Floating (Vector r) )
              => DualDelta (Vector r)
              -> m (DualDelta (Vector r))
-logisticActV (D u u') = do
-  let y = recip (1 + exp (- u))
-  returnLetV $ D y (Scale (y * (1 - y)) u')
+logisticActV = returnLetV . logistic
 
 softMaxActV :: ( DeltaMonad r m, Fractional r, Numeric r
                , Floating (Vector r) )

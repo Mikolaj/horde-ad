@@ -38,6 +38,14 @@ testTrees = [ dfTests
 squareDual :: (DeltaMonad r m, Num r) => DualDelta r -> m (DualDelta r)
 squareDual = returnLet . square
 
+-- In addition to convenience, this eliminates all Delta bindings
+-- coming from binary addition into a single binding
+-- (and so makes automatic fusion possible in the future).
+sumDual :: forall m r. (DeltaMonad r m, Num r)
+        => Data.Vector.Vector (DualDelta r)
+        -> m (DualDelta r)
+sumDual = returnLet . sumElementsVectorOfDelta
+
 dfShow :: (VecDualDeltaF -> DeltaMonadGradient Float DualDeltaF)
        -> [Float]
        -> ([Float], Float)

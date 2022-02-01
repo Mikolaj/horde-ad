@@ -7,6 +7,7 @@ import           Data.List (nub, sort, unfoldr)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
+import           Foreign.Storable (Storable)
 import           Foreign.Storable.Tuple ()
 import           Numeric.LinearAlgebra (Vector, konst)
 import           System.Random
@@ -19,6 +20,21 @@ import HordeAd.MnistTools
 testTrees :: [TestTree]
 testTrees = [ conditionalSynthTests
             ]
+
+-- Inlined to avoid the tiny overhead of calling an unknown function.
+-- This operation is needed, because @sumListDual@ doesn't (always) fuse.
+sumResultsDual :: forall m a r. (DeltaMonad r m, Num r, Storable a)
+               => (a -> m (DualDelta r))
+               -> Vector a
+               -> m (DualDelta r)
+{-# INLINE sumResultsDual #-}
+sumResultsDual f as = do
+  let g :: DualDelta r -> a -> m (DualDelta r)
+      g !acc a = do
+        u <- f a
+        return $! acc + u
+  sumUs <- V.foldM g (scalar 0) as
+  returnLet sumUs
 
 -- Pair samples sorted and made unique wrt first element of the pair.
 integerPairSamples :: (Int, Int) -> Int -> Int
@@ -81,14 +97,14 @@ gradSmartTestCase prefix lossFunction seedSamples
               paramsV0 nIterations)
        @?= expected
 
-a :: Int
-a = 1
+bloat :: Int
+bloat = 1
 
 lenSynthV :: Int -> Int -> Data.Vector.Vector Int
 lenSynthV width nSamples =
   V.fromList $ replicate width (nSamples * 2) ++ [width]
-               ++ replicate (a * nSamples * 4) width
-               ++ replicate 4 (a * nSamples)
+               ++ replicate (bloat * nSamples * 4) width
+               ++ replicate 4 (bloat * nSamples)
 
 -- To reproduce the samples, divide argument and multiply result;
 -- see @synthLossSquared@.
@@ -181,7 +197,7 @@ synthLossBareTotal factivation factivationHidden factivationMiddle
   hiddenVec <- initialLayerMnistV factivationHidden sampleData vec width
   let offsetMiddle = width + 1
   (ys1, ys2, ys3, ys4) <- splitLayerV factivationMiddle hiddenVec
-                                      offsetMiddle vec (a * nSamples * 4)
+                                      offsetMiddle vec (bloat * nSamples * 4)
   synthLossAll factivation samples ys1 ys2 ys3 ys4
 
 conditionalSynthTests:: TestTree
