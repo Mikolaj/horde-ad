@@ -93,7 +93,7 @@ gradSmartTestCase prefix lossFunction seedSamples
                         , show nIterations ]
   in testCase name $
        snd (gdSmartShow
-              (lossFunction {-reluActV-} tanhActV tanhActV tanhActV samples width)
+              (lossFunction reluActV tanhActV tanhActV samples width)
               paramsV0 nIterations)
        @?= expected
 
@@ -121,7 +121,8 @@ synthValue factivation x ys1@(D u _) ys2 ys3 ys4 = do
   returnLet $ sumElements' $ activated * ys3 + ys4
 
 synthLossSquared :: DeltaMonad Double m
-                 => (DualNumber (Vector Double) -> m (DualNumber (Vector Double)))
+                 => (DualNumber (Vector Double)
+                     -> m (DualNumber (Vector Double)))
                  -> Double
                  -> DualNumber (Vector Double)
                  -> DualNumber (Vector Double)

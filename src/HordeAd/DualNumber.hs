@@ -210,6 +210,20 @@ tanhActV :: (DeltaMonad r m, Floating (Vector r))
          => DualNumber (Vector r) -> m (DualNumber (Vector r))
 tanhActV = returnLetV . tanh
 
+reluActV :: (DeltaMonad r m, Numeric r, Ord r, Num (Vector r))
+         => DualNumber (Vector r) -> m (DualNumber (Vector r))
+reluActV dn@(D u _) = do
+  let oneIfGtZero = V.map (\x -> if x > 0 then 1 else 0) u
+  returnLetV $ scale oneIfGtZero dn
+    -- I have a bad feeling about this
+
+reluLeakyActV :: ( DeltaMonad r m, Numeric r, Fractional r, Ord r
+                 , Num (Vector r) )
+              => DualNumber (Vector r) -> m (DualNumber (Vector r))
+reluLeakyActV dn@(D u _) = do
+  let oneIfGtZero = V.map (\x -> if x > 0 then 1 else 0.01) u
+  returnLetV $ scale oneIfGtZero dn
+
 logisticActV :: (DeltaMonad r m, Floating (Vector r))
              => DualNumber (Vector r)
              -> m (DualNumber (Vector r))
