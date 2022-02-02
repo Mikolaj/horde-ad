@@ -131,7 +131,7 @@ konst' :: Numeric r => DualNumber r -> Int -> DualNumber (Vector r)
 konst' (D u u') n = D (konst u n) (Konst u')
 
 sumElements' :: Numeric r => DualNumber (Vector r) -> DualNumber r
-sumElements' (D u u') = D (sumElements u) (Dot (konst 1 (V.length u)) u')
+sumElements' (D u u') = D (sumElements u) (SumElements u' (V.length u))
 
 deltaSeq :: Numeric r
          => Data.Vector.Vector (DualNumber r) -> DualNumber (Vector r)

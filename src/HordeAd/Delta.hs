@@ -30,7 +30,7 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Storable.Mutable
 import           Numeric.LinearAlgebra
-  (Matrix, Numeric, Vector, asColumn, fromRows, outer, rows, toRows)
+  (Matrix, Numeric, Vector, asColumn, fromRows, konst, outer, rows, toRows)
 import qualified Numeric.LinearAlgebra
 
 data Delta :: Type -> Type where
@@ -39,6 +39,7 @@ data Delta :: Type -> Type where
   Add :: Delta a -> Delta a -> Delta a
   Var :: DeltaId -> Delta a
   Dot :: Vector r -> Delta (Vector r) -> Delta r
+  SumElements :: Delta (Vector r) -> Int -> Delta r
   Konst :: Delta r -> Delta (Vector r)
   Seq :: Data.Vector.Vector (Delta r) -> Delta (Vector r)
   DotL :: Matrix r -> Delta (Matrix r) -> Delta (Vector r)
@@ -106,6 +107,7 @@ buildVector dim dimV dimL st d0 = do
         Add d1 d2 -> eval r d1 >> eval r d2
         Var (DeltaId i) -> VM.modify store (+ r) i
         Dot vr vd -> evalV (Numeric.LinearAlgebra.scale r vr) vd
+        SumElements vd n -> evalV (konst r n) vd
         Konst{} -> error "buildVector: Konst can't result in a scalar"
         Seq{} -> error "buildVector: Seq can't result in a scalar"
         DotL{} -> error "buildVector: DotL can't result in a scalar"
@@ -119,6 +121,8 @@ buildVector dim dimV dimL st d0 = do
         Add d1 d2 -> evalV r d1 >> evalV r d2
         Var (DeltaId i) -> addToVector i r
         Dot{} -> error "buildVector: unboxed vectors of vectors not possible"
+        SumElements{} ->
+          error "buildVector: unboxed vectors of vectors not possible"
         Konst d -> V.mapM_ (`eval` d) r
         Seq vd -> V.imapM_ (\i d -> eval (r V.! i) d) vd
         DotL mr md -> evalL (asColumn r * mr) md
@@ -145,6 +149,8 @@ buildVector dim dimV dimL st d0 = do
         Add d1 d2 -> evalL r d1 >> evalL r d2
         Var (DeltaId i) -> addToMatrix i r
         Dot{} -> error "buildVector: unboxed vectors of vectors not possible"
+        SumElements{} ->
+          error "buildVector: unboxed vectors of vectors not possible"
         KonstL d -> mapM_ (`evalV` d) (toRows r)
         SeqL md -> zipWithM_ evalV (toRows r) (V.toList md)
   eval 1 d0  -- dt is 1 or hardwired in f
