@@ -77,9 +77,6 @@ newtype DeltaMonadGradient r a = DeltaMonadGradient
   deriving (Monad, Functor, Applicative)
 
 instance DeltaMonad r (DeltaMonadGradient r) where
-  -- TODO: when varied benchmarks are available, check if returning v always,
-  -- except for @Add@, is faster. Probably @Zero@ and @Var@ appear too rarely
-  -- to matter if @Scale@ turns out to require bindings.
   returnLet (D u u') = DeltaMonadGradient $ do
     DeltaId i <- gets deltaCounter
     modify $ \s ->

@@ -91,7 +91,7 @@ lenVectorsMnist2V widthHidden widthHidden2 =
                ++ replicate widthHidden2 widthHidden ++ [widthHidden2]
                ++ replicate sizeMnistLabel widthHidden2 ++ [sizeMnistLabel]
 
--- Two hidden layers of width @widthHidden@ and (the middle one) @widthHidden2@.
+-- Two hidden layers: width @widthHidden@ and (the middle one) @widthHidden2@.
 -- Both hidden layers use the same activation function.
 nnMnist2V :: (DeltaMonad r m, Numeric r, Num (Vector r))
           => (DualNumber (Vector r) -> m (DualNumber (Vector r)))

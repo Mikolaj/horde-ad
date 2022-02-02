@@ -127,7 +127,7 @@ lenMnist2 widthHidden widthHidden2 =
   + widthHidden2 * (widthHidden + 1)
   + sizeMnistLabel * (widthHidden2 + 1)
 
--- Two hidden layers of width @widthHidden@ and (the middle one) @widthHidden2@.
+-- Two hidden layers: width @widthHidden@ and (the middle one) @widthHidden2@.
 -- Both hidden layers use the same activation function.
 nnMnist2 :: (DeltaMonad r m, Numeric r)
          => (DualNumber r -> m (DualNumber r))

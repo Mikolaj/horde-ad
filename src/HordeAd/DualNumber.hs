@@ -90,7 +90,7 @@ instance RealFloat r => RealFloat (DualNumber r) where
     let t = 1 / (u * u + v * v)
     in D (atan2 u v) (Add (Scale (- u * t) v') (Scale (v * t) u'))
       -- we can be selective here and omit the other methods,
-      -- most of which don't even have a continuous codomain
+      -- most of which don't even have a differentiable codomain
 
 scalar :: r -> DualNumber r
 scalar r = D r Zero
