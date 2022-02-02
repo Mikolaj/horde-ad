@@ -112,7 +112,7 @@ generalDf ds@(vs, _, vv, vm) f =
       dimV = V.length vv
       dimL = V.length vm
       initialState = DeltaState
-        { deltaCounter = DeltaId $ dim + dimV
+        { deltaCounter = DeltaId $ dim + dimV + dimL
         , deltaBindings = []
         }
       (D value d, st) = runState (runDeltaMonadGradient (f ds)) initialState
