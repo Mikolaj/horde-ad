@@ -57,7 +57,7 @@ sumResultsDual f as = do
   returnLet sumUs
 
 lengthDualNumber :: Storable r => VecDualNumber r -> Int
-lengthDualNumber (vValue, _, _, _) = V.length vValue
+lengthDualNumber (vValue, _, _, _, _, _) = V.length vValue
 
 -- This, and other Fit and Fit2 nn operations, have unfused Delta let-bindings
 -- (one binding per each subexpression, even when not needed), which is fine,

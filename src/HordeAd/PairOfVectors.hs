@@ -19,40 +19,38 @@ import           Numeric.LinearAlgebra (Matrix, Vector)
 import HordeAd.Delta
 import HordeAd.DualNumber (DualNumber (..))
 
--- The first two components of the triple are the "pair of vectors"
--- type representing a vector of @DualNumber r@
+-- These are optimized as "pair of vectors" representing vectors of @DualNumber@
 -- in an efficient way (especially, or only, with gradient descent,
 -- where the vectors are reused in some ways).
 type VecDualNumber r =
-  ( -- The component for scalars, optimized as pair of vectors.
-    Vector r
+  ( Vector r
   , Data.Vector.Vector (Delta r)
-  , -- The component for vectors. This is a normal vector of "pairs".
-    Data.Vector.Vector (DualNumber (Vector r))
-  , -- The component for matrices.
-    Data.Vector.Vector (DualNumber (Matrix r))
+  , Data.Vector.Vector (Vector r)
+  , Data.Vector.Vector (Delta (Vector r))
+  , Data.Vector.Vector (Matrix r)
+  , Data.Vector.Vector (Delta (Matrix r))
   )
 
 vecDualNumberFromVars
-  :: Data.Vector.Vector (Delta r)
-  -> Data.Vector.Vector (Delta (Vector r))
-  -> Data.Vector.Vector (Delta (Matrix r))
-  -> ( Vector r
+  :: ( Vector r
      , Data.Vector.Vector (Vector r)
      , Data.Vector.Vector (Matrix r) )
+  -> ( Data.Vector.Vector (Delta r)
+     , Data.Vector.Vector (Delta (Vector r))
+     , Data.Vector.Vector (Delta (Matrix r)) )
   -> VecDualNumber r
 {-# INLINE vecDualNumberFromVars #-}
-vecDualNumberFromVars vVar vVarV vVarL (params, paramsV, paramsL) =
-  (params, vVar, V.zipWith D paramsV vVarV, V.zipWith D paramsL vVarL)
+vecDualNumberFromVars (params, paramsV, paramsL) (vs, vsV, vsL)
+  = (params, vs, paramsV, vsV, paramsL, vsL)
 
 var :: Storable r => VecDualNumber r -> Int -> DualNumber r
-var (vValue, vVar, _, _) i = D (vValue V.! i) (vVar V.! i)
+var (vValue, vVar, _, _, _, _) i = D (vValue V.! i) (vVar V.! i)
 
 varV :: VecDualNumber r -> Int -> DualNumber (Vector r)
-varV (_, _, v, _) i = v V.! i
+varV (_, _, vValue, vVar, _, _) i = D (vValue V.! i) (vVar V.! i)
 
 varL :: VecDualNumber r -> Int -> DualNumber (Matrix r)
-varL (_, _, _, v) i = v V.! i
+varL (_, _, _, _, vValue, vVar) i = D (vValue V.! i) (vVar V.! i)
 
 -- Unsafe, but handy for toy examples.
 vars :: Storable r => VecDualNumber r -> [DualNumber r]
@@ -64,7 +62,7 @@ ifoldMDelta' :: forall m a r. (Monad m, Storable r)
              -> VecDualNumber r
              -> m a
 {-# INLINE ifoldMDelta' #-}
-ifoldMDelta' f a (vecR, vecD, _, _) = do
+ifoldMDelta' f a (vecR, vecD, _, _, _, _) = do
   let g :: a -> Int -> r -> m a
       g !acc i valX = do
         let !b = D valX (vecD V.! i)
@@ -77,7 +75,7 @@ foldMDelta' :: forall m a r. (Monad m, Storable r)
             -> VecDualNumber r
             -> m a
 {-# INLINE foldMDelta' #-}
-foldMDelta' f a (vecR, vecD, _, _) = do
+foldMDelta' f a (vecR, vecD, _, _, _, _) = do
   let g :: a -> Int -> r -> m a
       g !acc i valX = do
         let !b = D valX (vecD V.! i)
@@ -90,7 +88,7 @@ ifoldlDelta' :: forall a r. Storable r
              -> VecDualNumber r
              -> a
 {-# INLINE ifoldlDelta' #-}
-ifoldlDelta' f a (vecR, vecD, _, _) = do
+ifoldlDelta' f a (vecR, vecD, _, _, _, _) = do
   let g :: a -> Int -> r -> a
       g !acc i valX =
         let !b = D valX (vecD V.! i)
@@ -103,7 +101,7 @@ foldlDelta' :: forall a r. Storable r
             -> VecDualNumber r
             -> a
 {-# INLINE foldlDelta' #-}
-foldlDelta' f a (vecR, vecD, _, _) = do
+foldlDelta' f a (vecR, vecD, _, _, _, _) = do
   let g :: a -> Int -> r -> a
       g !acc i valX =
         let !b = D valX (vecD V.! i)

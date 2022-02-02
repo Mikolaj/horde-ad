@@ -52,9 +52,11 @@ valueDual :: Numeric r
           -> a
 {-# INLINE valueDual #-}
 valueDual f (ds, dsV, dsL) =
-  let dim = V.length ds
-      vVar = V.replicate dim Zero  -- dummy
-  in runIdentity $ f (ds, vVar, V.map (`D` Zero) dsV, V.map (`D` Zero) dsL)
+  let vec = vecDualNumberFromVars (ds, dsV, dsL)
+                                  ( V.replicate (V.length ds) Zero  -- dummy
+                                  , V.replicate (V.length dsV) Zero
+                                  , V.replicate (V.length dsL) Zero )
+  in runIdentity $ f vec
 
 -- Small enough that inline won't hurt.
 valueDualNumber :: Numeric r
@@ -107,15 +109,15 @@ generalDf :: (Eq r, Numeric r, Num (Vector r))
           -> (VecDualNumber r -> DeltaMonadGradient r (DualNumber r))
           -> ((Domain' r, DomainV' r, DomainL' r), r)
 {-# INLINE generalDf #-}
-generalDf ds@(vs, _, vv, vm) f =
-  let dim = V.length vs
-      dimV = V.length vv
-      dimL = V.length vm
+generalDf vec@(ds, _, dsV, _, dsL, _) f =
+  let dim = V.length ds
+      dimV = V.length dsV
+      dimL = V.length dsL
       initialState = DeltaState
         { deltaCounter = DeltaId $ dim + dimV + dimL
         , deltaBindings = []
         }
-      (D value d, st) = runState (runDeltaMonadGradient (f ds)) initialState
+      (D value d, st) = runState (runDeltaMonadGradient (f vec)) initialState
       gradient = evalBindings dim dimV dimL st d
   in (gradient, value)
 
@@ -130,8 +132,8 @@ df f (params, paramsV, paramsL) =
       vVar = V.generate dim (Var . DeltaId)
       vVarV = V.generate dimV (Var . DeltaId . (+ dim))
       vVarL = V.generate dimL (Var . DeltaId . (+ (dim + dimV)))
-      vecDualNumber =
-        vecDualNumberFromVars vVar vVarV vVarL (params, paramsV, paramsL)
+      variables = (vVar, vVarV, vVarL)
+      vecDualNumber = vecDualNumberFromVars (params, paramsV, paramsL) variables
   in generalDf vecDualNumber f
 
 -- | Simple Gradient Descent.
@@ -154,12 +156,13 @@ gdSimple gamma f n0 (params0, paramsV0, paramsL0) =
   vVar = V.generate dim (Var . DeltaId)
   vVarV = V.generate dimV (Var . DeltaId . (+ dim))
   vVarL = V.generate dimL (Var . DeltaId . (+ (dim + dimV)))
+  variables = (vVar, vVarV, vVarL)
   go :: Int -> Domain r -> DomainV r -> DomainL r
      -> (Domain' r, DomainV' r, DomainL' r)
   go 0 !params !paramsV !paramsL = (params, paramsV, paramsL)
   go n params paramsV paramsL =
     let vecDualNumber =
-          vecDualNumberFromVars vVar vVarV vVarL (params, paramsV, paramsL)
+          vecDualNumberFromVars (params, paramsV, paramsL) variables
         (gradient, gradientV, gradientL) = fst $ generalDf vecDualNumber f
         paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
         paramsVNew = V.zipWith (\i r -> i - Numeric.LinearAlgebra.scale gamma r)
@@ -184,12 +187,13 @@ sgd gamma f trainingData (params0, paramsV0, paramsL0) =
   vVar = V.generate dim (Var . DeltaId)
   vVarV = V.generate dimV (Var . DeltaId . (+ dim))
   vVarL = V.generate dimL (Var . DeltaId . (+ (dim + dimV)))
+  variables = (vVar, vVarV, vVarL)
   go :: [a] -> Domain r -> DomainV r -> DomainL r
      -> (Domain' r, DomainV' r, DomainL' r)
   go [] !params !paramsV !paramsL = (params, paramsV, paramsL)
   go (a : rest) params paramsV paramsL =
     let vecDualNumber =
-          vecDualNumberFromVars vVar vVarV vVarL (params, paramsV, paramsL)
+          vecDualNumberFromVars (params, paramsV, paramsL) variables
         (gradient, gradientV, gradientL) = fst $ generalDf vecDualNumber (f a)
         paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
         paramsVNew = V.zipWith (\i r -> i - Numeric.LinearAlgebra.scale gamma r)
@@ -219,8 +223,8 @@ gdSmart f n0 (params0, paramsV0, paramsL0) =
   vVar = V.generate dim (Var . DeltaId)
   vVarV = V.generate dimV (Var . DeltaId . (+ dim))
   vVarL = V.generate dimL (Var . DeltaId . (+ (dim + dimV)))
-  vecDualNumber0 =
-    vecDualNumberFromVars vVar vVarV vVarL (params0, paramsV0, paramsL0)
+  variables = (vVar, vVarV, vVarL)
+  vecDualNumber0 = vecDualNumberFromVars (params0, paramsV0, paramsL0) variables
   ((gradient0, gradientV0, gradientL0), value0) = generalDf vecDualNumber0 f
   go :: Int -> Domain r -> DomainV r -> DomainL r -> r
      -> Domain' r -> DomainV' r -> DomainL' r -> r -> Int
@@ -243,8 +247,8 @@ gdSmart f n0 (params0, paramsV0, paramsL0) =
                                paramsV gradientVPrev
         paramsLNew = V.zipWith (\p r -> p - Numeric.LinearAlgebra.scale gamma r)
                                paramsL gradientLPrev
-        vecDualNumber = vecDualNumberFromVars vVar vVarV vVarL
-                                            (paramsNew, paramsVNew, paramsLNew)
+        vecDualNumber =
+          vecDualNumberFromVars (paramsNew, paramsVNew, paramsLNew) variables
         ((gradient, gradientV, gradientL), value) = generalDf vecDualNumber f
     in if | V.all (== 0) gradientPrev
             && V.all (== V.empty) gradientVPrev
