@@ -9,7 +9,7 @@ import Prelude
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra
-  (Matrix, Numeric, Vector, asRow, konst, sumElements, (#>), (<.>))
+  (Matrix, Numeric, Vector, konst, sumElements, (#>), (<.>))
 
 import HordeAd.Delta (Delta (..))
 
@@ -145,7 +145,7 @@ infixr 8 #>!
       -> DualNumber (Vector r)
       -> DualNumber (Vector r)
 (#>!) (D u u') (D v v') =
-  D (u #> v) (Add (DotL (asRow v) u')
+  D (u #> v) (Add (DotRowL v u')
                   (DotL u (KonstL v')))
     -- this @asRow@ interacts disastrously with @asColumn@ in @evalV@
 
@@ -155,7 +155,7 @@ infixr 8 #>!!
        => DualNumber (Matrix r)
        -> Vector r
        -> DualNumber (Vector r)
-(#>!!) (D u u') v = D (u #> v) (DotL (asRow v) u')
+(#>!!) (D u u') v = D (u #> v) (DotRowL v u')
 
 
 -- * Monadic operations for scalars

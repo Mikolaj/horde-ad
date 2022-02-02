@@ -28,7 +28,7 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Storable.Mutable
 import           Numeric.LinearAlgebra
-  (Matrix, Numeric, Vector, asColumn, fromRows, rows, toRows)
+  (Matrix, Numeric, Vector, asColumn, fromRows, outer, rows, toRows)
 import qualified Numeric.LinearAlgebra
 
 data Delta :: Type -> Type where
@@ -40,6 +40,7 @@ data Delta :: Type -> Type where
   Konst :: Delta r -> Delta (Vector r)
   Seq :: Data.Vector.Vector (Delta r) -> Delta (Vector r)
   DotL :: Matrix r -> Delta (Matrix r) -> Delta (Vector r)
+  DotRowL :: Vector r -> Delta (Matrix r) -> Delta (Vector r)
   KonstL :: Delta (Vector r) -> Delta (Matrix r)
   SeqL :: Data.Vector.Vector (Delta (Vector r)) -> Delta (Matrix r)
 
@@ -86,6 +87,7 @@ buildVector dim dimV dimL st d0 = do
         Konst{} -> error "buildVector: Konst can't result in a scalar"
         Seq{} -> error "buildVector: Seq can't result in a scalar"
         DotL{} -> error "buildVector: DotL can't result in a scalar"
+        DotRowL{} -> error "buildVector: DotRowL can't result in a scalar"
         KonstL{} -> error "buildVector: KonstL can't result in a scalar"
         SeqL{} -> error "buildVector: SeqL can't result in a scalar"
       evalV :: Vector r -> Delta (Vector r) -> ST s ()
@@ -99,14 +101,22 @@ buildVector dim dimV dimL st d0 = do
         Konst d -> V.mapM_ (`eval` d) r
         Seq vd -> V.imapM_ (\i d -> eval (r V.! i) d) vd
         DotL mr md -> evalL (asColumn r * mr) md
-          -- this @asColumn@ interacts disastrously with @mr = asRow v@
-          -- in @(#>!)@, causing an allocation of a whole new @n^2@ array
-          -- from two length @n@ vectors (r and v, the matrix is the outer
-          -- product of the two vectors); when doing the same
-          -- computation by hand using @Vector@ instead of @Matrix@,
-          -- we can avoid any similar allocations; the cost for the manual
-          -- computation is many extra delta expressions which, however,
-          -- with square enough arrays, don't dominate
+          -- this @asColumn@ interacted disastrously with @mr = asRow v@
+          -- in @(#>!)@, each causing an allocation of a whole new @n^2@ matrix
+          -- and then a third with their outer product;
+          -- when doing the same computation by hand using @Vector@
+          -- instead of @Matrix@, we can avoid even a single matrix allocation;
+          -- the cost for the manual computation is many extra delta
+          -- expressions which, however, with square enough matrices,
+          -- don't dominate
+        DotRowL row md -> evalL (r `outer` row) md
+          -- this is a way to alleviate the ephemeral matrices problem,
+          -- by polluting the API with the detail about the shape
+          -- of the passed array (the replicated row shape),
+          -- which eliminates two of the three matrix allocations;
+          -- we could do even better keeping such matrices unevaluated
+          -- and we could sometimes get away with modifying only the vectors
+          -- but, e.g., @Scale@ forces allocation of a whole matrix regardless
       evalL :: Matrix r -> Delta (Matrix r) -> ST s ()
       evalL !r = \case
         Zero -> return ()
