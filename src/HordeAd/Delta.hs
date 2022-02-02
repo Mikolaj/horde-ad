@@ -99,7 +99,8 @@ buildVector dim dimV dimL st d0 = do
         DotL mr md -> evalL (asColumn r * mr) md
           -- this @asColumn@ interacts disastrously with @mr = asRow v@
           -- in @(#>!)@, causing an allocation of a whole new @n^2@ array
-          -- from two length @n@ vectors (r and v); when doing the same
+          -- from two length @n@ vectors (r and v, the matrix is the outer
+          -- product of the two vectors); when doing the same
           -- computation by hand using @Vector@ instead of @Matrix@,
           -- we can avoid any similar allocations; the cost for the manual
           -- computation is many extra delta expressions which, however,
