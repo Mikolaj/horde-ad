@@ -37,7 +37,7 @@ data Delta :: Type -> Type where
   Add :: Delta a -> Delta a -> Delta a
   Var :: DeltaId -> Delta a
   Dot :: Vector r -> Delta (Vector r) -> Delta r
-  Konst :: Delta r -> Int -> Delta (Vector r)
+  Konst :: Delta r -> Delta (Vector r)
   Seq :: Data.Vector.Vector (Delta r) -> Delta (Vector r)
   DotL :: Matrix r -> Delta (Matrix r) -> Delta (Vector r)
   SeqL :: Data.Vector.Vector (Delta (Vector r)) -> Delta (Matrix r)
@@ -94,7 +94,7 @@ buildVector dim dimV dimL st d0 = do
         Var (DeltaId i) -> let addToVector v = if V.null v then r else v + r
                            in VM.modify storeV addToVector (i - dim)
         Dot{} -> error "buildVector: unboxed vectors of vectors not possible"
-        Konst d _n -> V.mapM_ (`eval` d) r
+        Konst d -> V.mapM_ (`eval` d) r
         Seq vd -> V.imapM_ (\i d -> eval (r V.! i) d) vd
         DotL mr md -> evalL (asColumn r * mr) md
           -- this @asColumn@ interacts disastrously with @mr = asRow v@

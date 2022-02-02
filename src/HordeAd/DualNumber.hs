@@ -128,7 +128,7 @@ infixr 8 <.>!!
 (<.>!!) (D u u') v = D (u <.> v) (Dot v u')
 
 konst' :: Numeric r => DualNumber r -> Int -> DualNumber (Vector r)
-konst' (D u u') n = D (konst u n) (Konst u' n)
+konst' (D u u') n = D (konst u n) (Konst u')
 
 sumElements' :: Numeric r => DualNumber (Vector r) -> DualNumber r
 sumElements' (D u u') = D (sumElements u) (Dot (konst 1 (V.length u)) u')
