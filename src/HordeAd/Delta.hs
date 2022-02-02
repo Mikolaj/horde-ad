@@ -40,6 +40,7 @@ data Delta :: Type -> Type where
   Konst :: Delta r -> Delta (Vector r)
   Seq :: Data.Vector.Vector (Delta r) -> Delta (Vector r)
   DotL :: Matrix r -> Delta (Matrix r) -> Delta (Vector r)
+  KonstL :: Delta (Vector r) -> Delta (Matrix r)
   SeqL :: Data.Vector.Vector (Delta (Vector r)) -> Delta (Matrix r)
 
 newtype DeltaId = DeltaId Int
@@ -85,6 +86,7 @@ buildVector dim dimV dimL st d0 = do
         Konst{} -> error "buildVector: Konst can't result in a scalar"
         Seq{} -> error "buildVector: Seq can't result in a scalar"
         DotL{} -> error "buildVector: DotL can't result in a scalar"
+        KonstL{} -> error "buildVector: KonstL can't result in a scalar"
         SeqL{} -> error "buildVector: SeqL can't result in a scalar"
       evalV :: Vector r -> Delta (Vector r) -> ST s ()
       evalV !r = \case
@@ -113,6 +115,7 @@ buildVector dim dimV dimL st d0 = do
         Var (DeltaId i) -> let addToMatrix m = if rows m <= 0 then r else m + r
                            in VM.modify storeL addToMatrix (i - dimSV)
         Dot{} -> error "buildVector: unboxed vectors of vectors not possible"
+        KonstL d -> mapM_ (`evalV` d) (toRows r)
         SeqL md -> zipWithM_ evalV (toRows r) (V.toList md)
   eval 1 d0  -- dt is 1 or hardwired in f
   let evalUnlessZero :: DeltaId -> DeltaBinding r -> ST s DeltaId

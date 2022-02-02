@@ -9,7 +9,7 @@ import Prelude
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra
-  (Matrix, Numeric, Vector, asRow, konst, rows, sumElements, (#>), (<.>))
+  (Matrix, Numeric, Vector, asRow, konst, sumElements, (#>), (<.>))
 
 import HordeAd.Delta (Delta (..))
 
@@ -146,7 +146,7 @@ infixr 8 #>!
       -> DualNumber (Vector r)
 (#>!) (D u u') (D v v') =
   D (u #> v) (Add (DotL (asRow v) u')
-                  (DotL u (SeqL (V.replicate (rows u) v'))))
+                  (DotL u (KonstL v')))
     -- this @asRow@ interacts disastrously with @asColumn@ in @evalV@
 
 -- | Dense matrix-vector product with a constant vector.
