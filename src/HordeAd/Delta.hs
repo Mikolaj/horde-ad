@@ -19,9 +19,11 @@ module HordeAd.Delta
 import Prelude
 
 import           Control.Exception (assert)
-import           Control.Monad (foldM, when, zipWithM_)
+import           Control.Monad (foldM, unless, zipWithM_)
 import           Control.Monad.ST.Strict (ST, runST)
 import           Data.Kind (Type)
+import           Data.STRef
+import qualified Data.Strict.IntMap as IM
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Strict.Vector.Autogen.Mutable as Data.Vector.Mutable
 import qualified Data.Vector.Generic as V
@@ -65,18 +67,38 @@ buildVector :: forall s r. (Eq r, Numeric r, Num (Vector r))
 buildVector dim dimV dimL st d0 = do
   let DeltaId storeSize = deltaCounter st
       dimSV = dim + dimV
+      dimSVL = dim + dimV + dimL
   -- This is relatively very cheap allocation, so no problem even when most
-  -- parameters and vars are not scalars:
-  store <- VM.replicate storeSize 0
-  -- TODO: this is probably not a safe asumption (it would be clearly wrong
-  -- for scalars) and, regardless, should be communicated to the user:
-  -- These allocations are very expensive, so let's try to avoid them.
-  -- If no vector parameters, assume there will be no vector vars.
-  -- If no vector parameters, assume there will be no matrix vars.
-  storeV <- VM.replicate (if dimV == 0 then 0 else storeSize - dim)
-                         (V.empty :: Vector r)
-  storeL <- VM.replicate (if dimL == 0 then 0 else storeSize - dimSV)
-                         (fromRows [] :: Matrix r)
+  -- or all parameters and vars are inside vectors, matrices, etc.
+  -- (and vectors and matrices are usually orders of magnitude less numerous
+  -- than the sum total of individual parameters):
+  store <- VM.replicate storeSize 0  -- correct value
+  -- Here, for performance, we partially undo the nice unification
+  -- of parameters and delta-variables. Fortunately, this is completely local.
+  -- Allocating all these as boxed vectors would be very costly
+  -- if most parameters are scalars and so most cells are unused,
+  -- so we keep them in a sparse map, except for those that are guaranteed
+  -- to be used, because they represent parameters:
+  storeV <- VM.replicate dimV (V.empty :: Vector r)  -- dummy value, crashes
+  storeL <- VM.replicate dimL (fromRows [] :: Matrix r)  -- dummy value, crashes
+  intMapV <- newSTRef IM.empty
+  intMapL <- newSTRef IM.empty
+  let addToVector :: Int -> Vector r -> ST s ()
+      {-# INLINE addToVector #-}
+      addToVector i r = let addToStore v = if V.null v then r else v + r
+                            addToIntMap (Just v) = Just $ v + r
+                            addToIntMap Nothing = Just r
+                        in if i < dimSV
+                           then VM.modify storeV addToStore (i - dim)
+                           else modifySTRef' intMapV (IM.alter addToIntMap i)
+      addToMatrix :: Int -> Matrix r -> ST s ()
+      {-# INLINE addToMatrix #-}
+      addToMatrix i r = let addToStore v = if rows v <= 0 then r else v + r
+                            addToIntMap (Just v) = Just $ v + r
+                            addToIntMap Nothing = Just r
+                        in if i < dimSVL
+                           then VM.modify storeL addToStore (i - dimSV)
+                           else modifySTRef' intMapL (IM.alter addToIntMap i)
   let eval :: r -> Delta r -> ST s ()
       eval !r = \case
         Zero -> return ()
@@ -95,8 +117,7 @@ buildVector dim dimV dimL st d0 = do
         Zero -> return ()
         Scale k d -> evalV (k * r) d
         Add d1 d2 -> evalV r d1 >> evalV r d2
-        Var (DeltaId i) -> let addToVector v = if V.null v then r else v + r
-                           in VM.modify storeV addToVector (i - dim)
+        Var (DeltaId i) -> addToVector i r
         Dot{} -> error "buildVector: unboxed vectors of vectors not possible"
         Konst d -> V.mapM_ (`eval` d) r
         Seq vd -> V.imapM_ (\i d -> eval (r V.! i) d) vd
@@ -122,8 +143,7 @@ buildVector dim dimV dimL st d0 = do
         Zero -> return ()
         Scale k d -> evalL (k * r) d
         Add d1 d2 -> evalL r d1 >> evalL r d2
-        Var (DeltaId i) -> let addToMatrix m = if rows m <= 0 then r else m + r
-                           in VM.modify storeL addToMatrix (i - dimSV)
+        Var (DeltaId i) -> addToMatrix i r
         Dot{} -> error "buildVector: unboxed vectors of vectors not possible"
         KonstL d -> mapM_ (`evalV` d) (toRows r)
         SeqL md -> zipWithM_ evalV (toRows r) (V.toList md)
@@ -131,24 +151,30 @@ buildVector dim dimV dimL st d0 = do
   let evalUnlessZero :: DeltaId -> DeltaBinding r -> ST s DeltaId
       evalUnlessZero (DeltaId !i) (DScalar d) = do
         r <- store `VM.read` i
-        when (r /= 0) $  -- we init with exactly 0 above so the comparison is OK
+        unless (r == 0) $  -- we init with exactly 0 so the comparison is OK
           eval r d
         return $! DeltaId (pred i)
       evalUnlessZero (DeltaId !i) (DVector d) = do
-        r <- storeV `VM.read` (i - dim)
-        when (not $ V.null r) $
-          evalV r d
+        if i < dimSV then do
+          r <- storeV `VM.read` (i - dim)
+          unless (V.null r) $
+            evalV r d
+        else do
+          mr <- IM.lookup i <$> readSTRef intMapV
+          maybe (pure ()) (`evalV` d) mr
         return $! DeltaId (pred i)
       evalUnlessZero (DeltaId !i) (DMatrix d) = do
-        r <- storeL `VM.read` (i - dimSV)
-        when (rows r > 0) $
-          evalL r d
+        if i < dimSVL then do
+          r <- storeL `VM.read` (i - dimSV)
+          unless (rows r <= 0) $
+            evalL r d
+        else do
+          mr <- IM.lookup i <$> readSTRef intMapL
+          maybe (pure ()) (`evalL` d) mr
         return $! DeltaId (pred i)
   minusOne <- foldM evalUnlessZero (DeltaId $ pred storeSize) (deltaBindings st)
   let _A = assert (minusOne == DeltaId (-1)) ()
-  return ( VM.slice 0 dim store
-         , VM.slice 0 dimV storeV
-         , VM.slice 0 dimL storeL )
+  return (VM.slice 0 dim store, storeV, storeL)
 
 evalBindings :: forall r. (Eq r, Numeric r, Num (Vector r))
              => Int -> Int -> Int -> DeltaState r -> Delta r
@@ -164,3 +190,11 @@ evalBindings dim dimV dimL st d0 =
     rV <- V.unsafeFreeze resV
     rL <- V.unsafeFreeze resL
     return (r, rV, rL)
+
+-- Note: we can't re-use the same three vectors all the time for the parameters,
+-- because we need both the old parameters and the new gradient to compute
+-- the new parameters. Double-buffering/cycling two sets of vectors
+-- would work, but would be complex and both sets would not fit in cache
+-- all the time, so it may even be cheaper to allocate them anew
+-- than read from distant RAM and overwrite at once. Perhaps library ad does
+-- something smart here, so worth a look.
