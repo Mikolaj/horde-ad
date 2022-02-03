@@ -22,7 +22,13 @@ testTrees = [ conditionalSynthTests
             ]
 
 
--- * Neural net
+-- * A neural net that learns to represent a list of input and result pairs
+-- as a function that is a sum of conditionals with linear conditions
+-- and linear or zero results.
+--
+-- The samples are easy: inputs and results are integers and inputs
+-- are sorted and not repeating (with input repetition it would not be
+-- a function or the output would need to be repeated as well).
 
 bloat :: Int
 bloat = 1
@@ -30,22 +36,29 @@ bloat = 1
 lenSynthV :: Int -> Int -> Data.Vector.Vector Int
 lenSynthV width nSamples =
   V.fromList $ replicate width (nSamples * 2) ++ [width]
-               ++ replicate (bloat * nSamples * 4) width
-               ++ replicate 4 (bloat * nSamples)
+               ++ replicate (bloat * nSamples * 3) width
+               ++ replicate 3 (bloat * nSamples)
 
--- To reproduce the samples, divide argument and multiply result;
--- see @synthLossSquared@.
+-- If ai ranges over ps1, bi over ps2 and ci over ps4,
+-- the value of the function on input x is
+-- the sum of if x * ai + bi > 0 then (x * ai + bi) * ci else 0, which is
+-- the sum of if x * ai + bi > 0 then x * ai * ci + bi * ci else 0
+-- so each condition depends in a linear way on x and each result,
+-- if not 0, depends in a linear way on input x.
+--
+-- To approximate the samples (a list of input and result pairs on which
+-- parameters are trained or tested) using this code, divide the input
+-- and multiply result appropriately, see @synthLossSquared@.
 synthValue :: forall m. DeltaMonad Double m
            => (DualNumber (Vector Double) -> m (DualNumber (Vector Double)))
            -> Double
            -> DualNumber (Vector Double)
            -> DualNumber (Vector Double)
            -> DualNumber (Vector Double)
-           -> DualNumber (Vector Double)
            -> m (DualNumber Double)
-synthValue factivation x ps1@(D u _) ps2 ps3 ps4 = do
+synthValue factivation x ps1@(D u _) ps2 ps3 = do
   activated <- factivation $ scale (konst x (V.length u)) ps1 + ps2
-  returnLet $ sumElements' $ activated * ps3 + ps4
+  returnLet $ activated <.>! ps3
 
 synthLossSquared :: DeltaMonad Double m
                  => (DualNumber (Vector Double)
@@ -54,11 +67,10 @@ synthLossSquared :: DeltaMonad Double m
                  -> DualNumber (Vector Double)
                  -> DualNumber (Vector Double)
                  -> DualNumber (Vector Double)
-                 -> DualNumber (Vector Double)
                  -> Double
                  -> m (DualNumber Double)
-synthLossSquared factivation x ps1 ps2 ps3 ps4 targ = do
-  y <- synthValue factivation (x / 1000) ps1 ps2 ps3 ps4
+synthLossSquared factivation x ps1 ps2 ps3 targ = do
+  y <- synthValue factivation (x / 1000) ps1 ps2 ps3
   lossSquared (targ / 10000) y  -- smaller target to overcome @tanh@ clamping
 
 -- Inlined to avoid the tiny overhead of calling an unknown function.
@@ -82,11 +94,10 @@ synthLossAll
   -> DualNumber (Vector Double)
   -> DualNumber (Vector Double)
   -> DualNumber (Vector Double)
-  -> DualNumber (Vector Double)
   -> m (DualNumber Double)
-synthLossAll factivation samples ps1 ps2 ps3 ps4 = do
+synthLossAll factivation samples ps1 ps2 ps3 = do
   let f :: (Double, Double) -> m (DualNumber Double)
-      f (x, y) = synthLossSquared factivation x ps1 ps2 ps3 ps4 y
+      f (x, y) = synthLossSquared factivation x ps1 ps2 ps3 y
   sumResultsDual f samples
 
 sumTrainableInputsS :: DualNumber (Vector Double)
@@ -107,11 +118,10 @@ splitLayerV :: forall m. DeltaMonad Double m
             -> Int
             -> m ( DualNumber (Vector Double)
                  , DualNumber (Vector Double)
-                 , DualNumber (Vector Double)
                  , DualNumber (Vector Double) )
 splitLayerV factivation hiddenVec offset variables width = do
   let multiplied = sumTrainableInputsS hiddenVec offset variables width
-      chunkWidth = width `div` 4
+      chunkWidth = width `div` 3
       activate :: Int -> m (DualNumber (Vector Double))
       activate n = do
         let v = V.slice (n * chunkWidth) chunkWidth multiplied
@@ -119,8 +129,7 @@ splitLayerV factivation hiddenVec offset variables width = do
   a0 <- activate 0
   a1 <- activate 1
   a2 <- activate 2
-  a3 <- activate 3
-  return (a0, a1, a2, a3)
+  return (a0, a1, a2)
 
 synthLossBareTotal
   :: DeltaMonad Double m
@@ -140,10 +149,9 @@ synthLossBareTotal factivation factivationHidden factivationMiddle
                      + varV variables width  -- bias
   nonlinearLayer1 <- factivationHidden hiddenLayer1
   let offsetMiddle = width + 1
-  (ps1, ps2, ps3, ps4) <-
-    splitLayerV factivationMiddle nonlinearLayer1
-                offsetMiddle variables (bloat * nSamples * 4)
-  synthLossAll factivation samples ps1 ps2 ps3 ps4
+  (ps1, ps2, ps3) <- splitLayerV factivationMiddle nonlinearLayer1
+                                 offsetMiddle variables (bloat * nSamples * 3)
+  synthLossAll factivation samples ps1 ps2 ps3
 
 
 -- * Tests and generation of random data
@@ -214,7 +222,7 @@ conditionalSynthTests =
  testGroup "reluAct: synthesizing a sum of linear conditionals matching samples"
   [ gradSmartTestCase "reluAct"
       synthLossBareTotal 42 1 10 100000
-      (1.925929944387236e-34,0.2)
+      (5.58009e-3,0.1)
 {-
   , gradSmartTestCase "reluAct"
       synthLossBareTotal 42 2 10 100000
