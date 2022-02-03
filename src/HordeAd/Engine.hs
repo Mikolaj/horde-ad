@@ -159,8 +159,8 @@ gdSimple :: forall r. (Eq r, Numeric r, Num (Vector r))
          -> Int  -- ^ requested number of iterations
          -> Domains r  -- ^ initial parameters
          -> Domains' r
-gdSimple gamma f n0 (params0, paramsV0, paramsL0) =
-  go n0 params0 paramsV0 paramsL0
+gdSimple gamma f n0 parameters0@(params0, paramsV0, paramsL0) =
+  go n0 parameters0
  where
   dim = V.length params0
   dimV = V.length paramsV0
@@ -173,15 +173,13 @@ gdSimple gamma f n0 (params0, paramsV0, paramsL0) =
   vVarV = V.generate dimV (Var . DeltaId . (+ dim))
   vVarL = V.generate dimL (Var . DeltaId . (+ (dim + dimV)))
   varDeltas = (vVar, vVarV, vVarL)
-  go :: Int -> Domain r -> DomainV r -> DomainL r
-     -> Domains' r
-  go 0 !params !paramsV !paramsL = (params, paramsV, paramsL)
-  go n params paramsV paramsL =
-    let variables = makeDualNumberVariables (params, paramsV, paramsL) varDeltas
+  go :: Int -> Domains r -> Domains' r
+  go 0 parameters = parameters
+  go n parameters =
+    let variables = makeDualNumberVariables parameters varDeltas
         gradients = fst $ generalDf variables f
-        (paramsNew, paramsVNew, paramsLNew) =
-          updateWithGradient gamma (params, paramsV, paramsL) gradients
-    in go (pred n) paramsNew paramsVNew paramsLNew
+        parametersNew = updateWithGradient gamma parameters gradients
+    in go (pred n) parametersNew
 
 -- | Stochastic Gradient Descent.
 sgd :: forall r a. (Eq r, Numeric r, Num (Vector r))
@@ -190,8 +188,8 @@ sgd :: forall r a. (Eq r, Numeric r, Num (Vector r))
     -> [a]  -- ^ training data
     -> Domains r  -- ^ initial parameters
     -> Domains' r
-sgd gamma f trainingData (params0, paramsV0, paramsL0) =
-  go trainingData params0 paramsV0 paramsL0
+sgd gamma f trainingData parameters0@(params0, paramsV0, paramsL0) =
+  go trainingData parameters0
  where
   dim = V.length params0
   dimV = V.length paramsV0
@@ -200,15 +198,13 @@ sgd gamma f trainingData (params0, paramsV0, paramsL0) =
   vVarV = V.generate dimV (Var . DeltaId . (+ dim))
   vVarL = V.generate dimL (Var . DeltaId . (+ (dim + dimV)))
   varDeltas = (vVar, vVarV, vVarL)
-  go :: [a] -> Domain r -> DomainV r -> DomainL r
-     -> Domains' r
-  go [] !params !paramsV !paramsL = (params, paramsV, paramsL)
-  go (a : rest) params paramsV paramsL =
-    let variables = makeDualNumberVariables (params, paramsV, paramsL) varDeltas
+  go :: [a] -> Domains r -> Domains' r
+  go [] parameters = parameters
+  go (a : rest) parameters =
+    let variables = makeDualNumberVariables parameters varDeltas
         gradients = fst $ generalDf variables (f a)
-        (paramsNew, paramsVNew, paramsLNew) =
-          updateWithGradient gamma (params, paramsV, paramsL) gradients
-    in go rest paramsNew paramsVNew paramsLNew
+        parametersNew = updateWithGradient gamma parameters gradients
+    in go rest parametersNew
 
 -- | Relatively Smart Gradient Descent.
 -- Based on @gradientDescent@ from package @ad@ which is in turn based
@@ -222,8 +218,8 @@ gdSmart :: forall r. (
         -> Int  -- ^ requested number of iterations
         -> Domains r  -- ^ initial parameters
         -> (Domains' r, r)
-gdSmart f n0 (params0, paramsV0, paramsL0) =
-  go n0 params0 paramsV0 paramsL0 0.1 gradient0 gradientV0 gradientL0 value0 0
+gdSmart f n0 parameters0@(params0, paramsV0, paramsL0) =
+  go n0 parameters0 0.1 gradients0 value0 0
  where
   dim = V.length params0
   dimV = V.length paramsV0
@@ -232,39 +228,31 @@ gdSmart f n0 (params0, paramsV0, paramsL0) =
   vVarV = V.generate dimV (Var . DeltaId . (+ dim))
   vVarL = V.generate dimL (Var . DeltaId . (+ (dim + dimV)))
   varDeltas = (vVar, vVarV, vVarL)
-  variables0 = makeDualNumberVariables (params0, paramsV0, paramsL0) varDeltas
-  ((gradient0, gradientV0, gradientL0), value0) = generalDf variables0 f
-  go :: Int -> Domain r -> DomainV r -> DomainL r -> r
-     -> Domain' r -> DomainV' r -> DomainL' r -> r -> Int
-     -> (Domains' r, r)
-  go 0 !params !paramsV !paramsL !gamma
-     _gradientPrev _gradientVPrev _gradientLPrev _valuePrev !_i =
-    ((params, paramsV, paramsL), gamma)
-  go _ params paramsV paramsL 0 _ _ _ _ _ = ((params, paramsV, paramsL), 0)
-  go n params paramsV paramsL gamma
-     gradientPrev gradientVPrev gradientLPrev valuePrev i =
+  variables0 = makeDualNumberVariables parameters0 varDeltas
+  (gradients0, value0) = generalDf variables0 f
+  go :: Int -> Domains r -> r -> Domains' r -> r -> Int -> (Domains' r, r)
+  go 0 parameters !gamma _gradientsPrev _valuePrev !_i = (parameters, gamma)
+  go _ parameters 0 _ _ _ = (parameters, 0)
+  go n parameters gamma gradientsPrev valuePrev i =
 --    traceShow (n, gamma, valuePrev, i) $
---    traceShow ("params" :: String, params) $
---    traceShow ("gradient" :: String, gradientPrev) $
+--    traceShow ("parameters" :: String, parameters) $
+--    traceShow ("gradients" :: String, gradientsPrev) $
     --
     -- The trick is that we use the previous gradient here,
     -- and the new gradient is only computed by accident together
     -- with the new value that is needed now to revert if we overshoot.
-    let (paramsNew, paramsVNew, paramsLNew) =
-          updateWithGradient gamma (params, paramsV, paramsL)
-                                   (gradientPrev, gradientVPrev, gradientLPrev)
-        variables =
-          makeDualNumberVariables (paramsNew, paramsVNew, paramsLNew) varDeltas
-        ((gradient, gradientV, gradientL), value) = generalDf variables f
-    in if | V.all (== 0) gradientPrev
-            && V.all (== V.empty) gradientVPrev
-            && V.all (\r -> rows r <= 0) gradientLPrev
-            -> ((params, paramsV, paramsL), gamma)
+    let parametersNew = updateWithGradient gamma parameters gradientsPrev
+        variables = makeDualNumberVariables parametersNew varDeltas
+        (gradients, value) = generalDf variables f
+    in if | gradientIsNil gradientsPrev -> (parameters, gamma)
           | value > valuePrev ->
 --              traceShow ("value > valuePrev" :: String, value, valuePrev) $
-              go n params paramsV paramsL (gamma / 2)  -- overshot
-                 gradientPrev gradientVPrev gradientLPrev valuePrev 0
-          | i == 10 -> go (pred n) paramsNew paramsVNew paramsLNew (gamma * 2)
-                          gradient gradientV gradientL value 0
-          | otherwise -> go (pred n) paramsNew paramsVNew paramsLNew gamma
-                            gradient gradientV gradientL value (i + 1)
+              go n parameters (gamma / 2) gradientsPrev valuePrev 0  -- overshot
+          | i == 10 -> go (pred n) parametersNew gamma gradients value 0
+          | otherwise -> go (pred n) parametersNew gamma gradients value (i + 1)
+
+gradientIsNil :: (Ord r, Numeric r) => Domains' r -> Bool
+gradientIsNil (gradient, gradientV, gradientL) =
+  V.all (== 0) gradient
+  && V.all (== V.empty) gradientV
+  && V.all (\r -> rows r <= 0) gradientL
