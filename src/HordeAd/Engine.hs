@@ -134,6 +134,20 @@ df f (params, paramsV, paramsL) =
       variables = makeDualNumberVariables (params, paramsV, paramsL) varDeltas
   in generalDf variables f
 
+updateWithGradient :: (Numeric r, Num (Vector r))
+                   => r
+                   -> (Domain' r, DomainV' r, DomainL' r)
+                   -> (Domain' r, DomainV' r, DomainL' r)
+                   -> (Domain' r, DomainV' r, DomainL' r)
+updateWithGradient gamma (params, paramsV, paramsL)
+                         (gradient, gradientV, gradientL) =
+  let paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
+      paramsVNew = V.zipWith (\i r -> i - Numeric.LinearAlgebra.scale gamma r)
+                             paramsV gradientV
+      paramsLNew = V.zipWith (\i r -> i - Numeric.LinearAlgebra.scale gamma r)
+                             paramsL gradientL
+  in (paramsNew, paramsVNew, paramsLNew)
+
 -- | Simple Gradient Descent.
 gdSimple :: forall r. (Eq r, Numeric r, Num (Vector r))
          => r
@@ -160,12 +174,9 @@ gdSimple gamma f n0 (params0, paramsV0, paramsL0) =
   go 0 !params !paramsV !paramsL = (params, paramsV, paramsL)
   go n params paramsV paramsL =
     let variables = makeDualNumberVariables (params, paramsV, paramsL) varDeltas
-        (gradient, gradientV, gradientL) = fst $ generalDf variables f
-        paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
-        paramsVNew = V.zipWith (\i r -> i - Numeric.LinearAlgebra.scale gamma r)
-                               paramsV gradientV
-        paramsLNew = V.zipWith (\i r -> i - Numeric.LinearAlgebra.scale gamma r)
-                               paramsL gradientL
+        gradients = fst $ generalDf variables f
+        (paramsNew, paramsVNew, paramsLNew) =
+          updateWithGradient gamma (params, paramsV, paramsL) gradients
     in go (pred n) paramsNew paramsVNew paramsLNew
 
 -- | Stochastic Gradient Descent.
@@ -190,12 +201,9 @@ sgd gamma f trainingData (params0, paramsV0, paramsL0) =
   go [] !params !paramsV !paramsL = (params, paramsV, paramsL)
   go (a : rest) params paramsV paramsL =
     let variables = makeDualNumberVariables (params, paramsV, paramsL) varDeltas
-        (gradient, gradientV, gradientL) = fst $ generalDf variables (f a)
-        paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
-        paramsVNew = V.zipWith (\i r -> i - Numeric.LinearAlgebra.scale gamma r)
-                               paramsV gradientV
-        paramsLNew = V.zipWith (\i r -> i - Numeric.LinearAlgebra.scale gamma r)
-                               paramsL gradientL
+        gradients = fst $ generalDf variables (f a)
+        (paramsNew, paramsVNew, paramsLNew) =
+          updateWithGradient gamma (params, paramsV, paramsL) gradients
     in go rest paramsNew paramsVNew paramsLNew
 
 -- | Relatively Smart Gradient Descent.
@@ -238,11 +246,9 @@ gdSmart f n0 (params0, paramsV0, paramsL0) =
     -- The trick is that we use the previous gradient here,
     -- and the new gradient is only computed by accident together
     -- with the new value that is needed now to revert if we overshoot.
-    let paramsNew = V.zipWith (\p r -> p - gamma * r) params gradientPrev
-        paramsVNew = V.zipWith (\p r -> p - Numeric.LinearAlgebra.scale gamma r)
-                               paramsV gradientVPrev
-        paramsLNew = V.zipWith (\p r -> p - Numeric.LinearAlgebra.scale gamma r)
-                               paramsL gradientLPrev
+    let (paramsNew, paramsVNew, paramsLNew) =
+          updateWithGradient gamma (params, paramsV, paramsL)
+                                   (gradientPrev, gradientVPrev, gradientLPrev)
         variables =
           makeDualNumberVariables (paramsNew, paramsVNew, paramsLNew) varDeltas
         ((gradient, gradientV, gradientL), value) = generalDf variables f
