@@ -204,3 +204,16 @@ evalBindings dim dimV dimL st d0 =
 -- all the time, so it may even be cheaper to allocate them anew
 -- than read from distant RAM and overwrite at once. Perhaps library ad does
 -- something smart here, so worth a look.
+--
+-- It seems we can keep reusing the same vector if, for scalars, vectors
+-- and matrices, when we update the parameters in the @Var@ cases of @eval@
+-- we immediately multiply the increments by @gamma@. That may be what
+-- library ad is doing in its @gradWith combine (f input) parameters@ calls.
+-- However, for this we need to implement Adam and other gradient descent
+-- schemes first, because already our @gdSmart@ gradient descent operation
+-- uses both old and new values of parameters. Probably it could use only
+-- the new values without much worse results, but other schemes may be
+-- less forgiving. OTOH, library ad uses something like our @gdSmart@
+-- and Python libraries require "zeroing gradients" so perhaps the popular
+-- assumption is that old values of parameters should not be available after
+-- gradient is computed?
