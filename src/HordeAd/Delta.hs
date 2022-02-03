@@ -19,7 +19,7 @@ module HordeAd.Delta
 import Prelude
 
 import           Control.Exception (assert)
-import           Control.Monad (foldM, unless, void, zipWithM_)
+import           Control.Monad (foldM, unless, zipWithM_)
 import           Control.Monad.ST.Strict (ST, runST)
 import           Data.Kind (Type)
 import           Data.STRef
@@ -86,38 +86,20 @@ buildVector dim dimV dimL st d0 = do
   intMapL <- newSTRef IM.empty
   let addToVector :: Int -> Vector r -> ST s ()
       {-# INLINE addToVector #-}
-      addToVector i r =
-        let addToStore = do  -- this saves almost nothing on MNIST 500 x500
-              let j = i - dim
-              v <- VM.read storeV j
-              if V.null v
-              then VM.write storeV j r
-              else do
-                vm <- V.unsafeThaw v
-                VM.imapM_ (\k x -> VM.write vm k (x + (r V.! k))) vm
-                void $ V.unsafeFreeze vm
-            addToIntMap = do  -- this saves 3% allocations and runtime
-                              -- but a well compiled zip would do better
-                              -- and a single big sliced vector even better
-              mv <- IM.lookup i <$> readSTRef intMapV
-              case mv of
-                Nothing -> modifySTRef' intMapV (IM.insert i r)
-                Just v -> do
-                  vm <- V.unsafeThaw v
-                  VM.imapM_ (\k x -> VM.write vm k (x + (r V.! k))) vm
-                  void $ V.unsafeFreeze vm
-        in if i < dimSV
-           then addToStore
-           else addToIntMap
+      addToVector i r = let addToStore v = if V.null v then r else v + r
+                            addToIntMap (Just v) = Just $ v + r
+                            addToIntMap Nothing = Just r
+                        in if i < dimSV
+                           then VM.modify storeV addToStore (i - dim)
+                           else modifySTRef' intMapV (IM.alter addToIntMap i)
       addToMatrix :: Int -> Matrix r -> ST s ()
       {-# INLINE addToMatrix #-}
-      addToMatrix i r =
-        let addToStore v = if rows v <= 0 then r else v + r
-            addToIntMap (Just v) = Just $ v + r
-            addToIntMap Nothing = Just r
-        in if i < dimSVL
-           then VM.modify storeL addToStore (i - dimSV)
-           else modifySTRef' intMapL (IM.alter addToIntMap i)
+      addToMatrix i r = let addToStore v = if rows v <= 0 then r else v + r
+                            addToIntMap (Just v) = Just $ v + r
+                            addToIntMap Nothing = Just r
+                        in if i < dimSVL
+                           then VM.modify storeL addToStore (i - dimSV)
+                           else modifySTRef' intMapL (IM.alter addToIntMap i)
   let eval :: r -> Delta r -> ST s ()
       eval !r = \case
         Zero -> return ()
