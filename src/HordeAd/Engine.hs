@@ -56,12 +56,12 @@ primalValueGeneric :: Numeric r
                    -> a
 {-# INLINE primalValueGeneric #-}
 primalValueGeneric f (params, paramsV, paramsL) =
-  let vec = makeDualNumberVariables
-              (params, paramsV, paramsL)
-              ( V.replicate (V.length params) Zero  -- dummy
-              , V.replicate (V.length paramsV) Zero
-              , V.replicate (V.length paramsL) Zero )
-  in runIdentity $ f vec
+  let variables = makeDualNumberVariables
+                    (params, paramsV, paramsL)
+                    ( V.replicate (V.length params) Zero  -- dummy
+                    , V.replicate (V.length paramsV) Zero
+                    , V.replicate (V.length paramsL) Zero )
+  in runIdentity $ f variables
 
 -- Small enough that inline won't hurt.
 primalValue :: Numeric r
@@ -111,7 +111,7 @@ generalDf :: (Eq r, Numeric r, Num (Vector r))
           -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
           -> (Domains' r, r)
 {-# INLINE generalDf #-}
-generalDf vec@(params, _, paramsV, _, paramsL, _) f =
+generalDf variables@(params, _, paramsV, _, paramsL, _) f =
   let dim = V.length params
       dimV = V.length paramsV
       dimL = V.length paramsL
@@ -119,7 +119,8 @@ generalDf vec@(params, _, paramsV, _, paramsL, _) f =
         { deltaCounter = DeltaId $ dim + dimV + dimL
         , deltaBindings = []
         }
-      (D value d, st) = runState (runDeltaMonadGradient (f vec)) initialState
+      (D value d, st) = runState (runDeltaMonadGradient (f variables))
+                                 initialState
       gradient = evalBindings dim dimV dimL st d
   in (gradient, value)
 
@@ -127,16 +128,23 @@ df :: forall r. (Eq r, Numeric r, Num (Vector r))
    => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
    -> Domains r
    -> (Domains' r, r)
-df f (params, paramsV, paramsL) =
+df f parameters =
+  let varDeltas = generateDeltaVars parameters
+      variables = makeDualNumberVariables parameters varDeltas
+  in generalDf variables f
+
+generateDeltaVars :: Numeric r
+                  => Domains r -> ( Data.Vector.Vector (Delta r)
+                                  , Data.Vector.Vector (Delta (Vector r))
+                                  , Data.Vector.Vector (Delta (Matrix r)) )
+generateDeltaVars (params, paramsV, paramsL) =
   let dim = V.length params
       dimV = V.length paramsV
       dimL = V.length paramsL
       vVar = V.generate dim (Var . DeltaId)
       vVarV = V.generate dimV (Var . DeltaId . (+ dim))
       vVarL = V.generate dimL (Var . DeltaId . (+ (dim + dimV)))
-      varDeltas = (vVar, vVarV, vVarL)
-      variables = makeDualNumberVariables (params, paramsV, paramsL) varDeltas
-  in generalDf variables f
+  in (vVar, vVarV, vVarL)
 
 updateWithGradient :: (Numeric r, Num (Vector r))
                    => r
@@ -159,20 +167,12 @@ gdSimple :: forall r. (Eq r, Numeric r, Num (Vector r))
          -> Int  -- ^ requested number of iterations
          -> Domains r  -- ^ initial parameters
          -> Domains' r
-gdSimple gamma f n0 parameters0@(params0, paramsV0, paramsL0) =
-  go n0 parameters0
- where
-  dim = V.length params0
-  dimV = V.length paramsV0
-  dimL = V.length paramsL0
+gdSimple gamma f n0 parameters0 = go n0 parameters0 where
   -- Pre-allocating the vars once, vs gradually allocating on the spot in each
   -- gradient computation, initially incurs overhead (looking up in a vector),
   -- but pays off greatly as soon as the working set doesn't fit in any cache
   -- and so allocations are made in RAM.
-  vVar = V.generate dim (Var . DeltaId)
-  vVarV = V.generate dimV (Var . DeltaId . (+ dim))
-  vVarL = V.generate dimL (Var . DeltaId . (+ (dim + dimV)))
-  varDeltas = (vVar, vVarV, vVarL)
+  varDeltas = generateDeltaVars parameters0
   go :: Int -> Domains r -> Domains' r
   go 0 parameters = parameters
   go n parameters =
@@ -188,16 +188,8 @@ sgd :: forall r a. (Eq r, Numeric r, Num (Vector r))
     -> [a]  -- ^ training data
     -> Domains r  -- ^ initial parameters
     -> Domains' r
-sgd gamma f trainingData parameters0@(params0, paramsV0, paramsL0) =
-  go trainingData parameters0
- where
-  dim = V.length params0
-  dimV = V.length paramsV0
-  dimL = V.length paramsL0
-  vVar = V.generate dim (Var . DeltaId)
-  vVarV = V.generate dimV (Var . DeltaId . (+ dim))
-  vVarL = V.generate dimL (Var . DeltaId . (+ (dim + dimV)))
-  varDeltas = (vVar, vVarV, vVarL)
+sgd gamma f trainingData parameters0 = go trainingData parameters0 where
+  varDeltas = generateDeltaVars parameters0
   go :: [a] -> Domains r -> Domains' r
   go [] parameters = parameters
   go (a : rest) parameters =
@@ -218,16 +210,8 @@ gdSmart :: forall r. (
         -> Int  -- ^ requested number of iterations
         -> Domains r  -- ^ initial parameters
         -> (Domains' r, r)
-gdSmart f n0 parameters0@(params0, paramsV0, paramsL0) =
-  go n0 parameters0 0.1 gradients0 value0 0
- where
-  dim = V.length params0
-  dimV = V.length paramsV0
-  dimL = V.length paramsL0
-  vVar = V.generate dim (Var . DeltaId)
-  vVarV = V.generate dimV (Var . DeltaId . (+ dim))
-  vVarL = V.generate dimL (Var . DeltaId . (+ (dim + dimV)))
-  varDeltas = (vVar, vVarV, vVarL)
+gdSmart f n0 parameters0 = go n0 parameters0 0.1 gradients0 value0 0 where
+  varDeltas = generateDeltaVars parameters0
   variables0 = makeDualNumberVariables parameters0 varDeltas
   (gradients0, value0) = generalDf variables0 f
   go :: Int -> Domains r -> r -> Domains' r -> r -> Int -> (Domains' r, r)
