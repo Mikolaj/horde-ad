@@ -47,25 +47,26 @@ instance DeltaMonad r (DeltaMonadValue r) where
 --
 -- Small enough that inline won't hurt.
 primalValueGeneric :: Numeric r
-          => (DualNumberVariables r -> DeltaMonadValue r a)
-          -> (Domain r, DomainV r, DomainL r)
-          -> a
+                   => (DualNumberVariables r -> DeltaMonadValue r a)
+                   -> (Domain r, DomainV r, DomainL r)
+                   -> a
 {-# INLINE primalValueGeneric #-}
-primalValueGeneric f (ds, dsV, dsL) =
-  let vec = makeDualNumberVariables (ds, dsV, dsL)
-                                  ( V.replicate (V.length ds) Zero  -- dummy
-                                  , V.replicate (V.length dsV) Zero
-                                  , V.replicate (V.length dsL) Zero )
+primalValueGeneric f (params, paramsV, paramsL) =
+  let vec = makeDualNumberVariables
+              (params, paramsV, paramsL)
+              ( V.replicate (V.length params) Zero  -- dummy
+              , V.replicate (V.length paramsV) Zero
+              , V.replicate (V.length paramsL) Zero )
   in runIdentity $ f vec
 
 -- Small enough that inline won't hurt.
 primalValue :: Numeric r
-               => (DualNumberVariables r -> DeltaMonadValue r (DualNumber a))
-               -> (Domain r, DomainV r, DomainL r)
-               -> a
+            => (DualNumberVariables r -> DeltaMonadValue r (DualNumber a))
+            -> (Domain r, DomainV r, DomainL r)
+            -> a
 {-# INLINE primalValue #-}
-primalValue f ds =
-  let D value _ = primalValueGeneric f ds
+primalValue f parameters =
+  let D value _ = primalValueGeneric f parameters
   in value
 
 -- * Here's the fully-fledged monad implementation for gradients
@@ -106,10 +107,10 @@ generalDf :: (Eq r, Numeric r, Num (Vector r))
           -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
           -> ((Domain' r, DomainV' r, DomainL' r), r)
 {-# INLINE generalDf #-}
-generalDf vec@(ds, _, dsV, _, dsL, _) f =
-  let dim = V.length ds
-      dimV = V.length dsV
-      dimL = V.length dsL
+generalDf vec@(params, _, paramsV, _, paramsL, _) f =
+  let dim = V.length params
+      dimV = V.length paramsV
+      dimL = V.length paramsL
       initialState = DeltaState
         { deltaCounter = DeltaId $ dim + dimV + dimL
         , deltaBindings = []
@@ -158,8 +159,7 @@ gdSimple gamma f n0 (params0, paramsV0, paramsL0) =
      -> (Domain' r, DomainV' r, DomainL' r)
   go 0 !params !paramsV !paramsL = (params, paramsV, paramsL)
   go n params paramsV paramsL =
-    let variables =
-          makeDualNumberVariables (params, paramsV, paramsL) varDeltas
+    let variables = makeDualNumberVariables (params, paramsV, paramsL) varDeltas
         (gradient, gradientV, gradientL) = fst $ generalDf variables f
         paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
         paramsVNew = V.zipWith (\i r -> i - Numeric.LinearAlgebra.scale gamma r)
@@ -189,8 +189,7 @@ sgd gamma f trainingData (params0, paramsV0, paramsL0) =
      -> (Domain' r, DomainV' r, DomainL' r)
   go [] !params !paramsV !paramsL = (params, paramsV, paramsL)
   go (a : rest) params paramsV paramsL =
-    let variables =
-          makeDualNumberVariables (params, paramsV, paramsL) varDeltas
+    let variables = makeDualNumberVariables (params, paramsV, paramsL) varDeltas
         (gradient, gradientV, gradientL) = fst $ generalDf variables (f a)
         paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
         paramsVNew = V.zipWith (\i r -> i - Numeric.LinearAlgebra.scale gamma r)

@@ -102,7 +102,8 @@ bgroup5e7 allxs =
         , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
         ]
 
-(*\) :: (DeltaMonad r m, Num r) => DualNumber r -> DualNumber r -> m (DualNumber r)
+(*\) :: (DeltaMonad r m, Num r)
+     => DualNumber r -> DualNumber r -> m (DualNumber r)
 (*\) u v = returnLet $ u * v
 
 -- The @foldMDelta'@, instead of the standard @foldM'@, is an awkward clutch

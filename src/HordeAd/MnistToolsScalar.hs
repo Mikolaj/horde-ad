@@ -147,7 +147,7 @@ nnMnistLoss2 widthHidden widthHidden2 (input, target) variables = do
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 testMnist2 :: forall r. (Ord r, Floating r, Numeric r)
-            => Int -> Int -> [MnistData r] -> Domain r -> r
+           => Int -> Int -> [MnistData r] -> Domain r -> r
 testMnist2 widthHidden widthHidden2 inputs params =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =

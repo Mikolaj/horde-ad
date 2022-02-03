@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 module TestSingleGradient (testTrees) where
 
 import Prelude

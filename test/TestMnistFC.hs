@@ -38,17 +38,16 @@ sgdShow gamma f trainData params0 =
       (_, value) = df (f $ head trainData) (res, V.empty, V.empty)
   in (V.toList res, value)
 
-sgdTestCase
-  :: String
-  -> IO [a]
-  -> (Int
-      -> Int
-      -> a
-      -> DualNumberVariables Double
-      -> DeltaMonadGradient Double (DualNumber Double))
-  -> Double
-  -> Double
-  -> TestTree
+sgdTestCase :: String
+            -> IO [a]
+            -> (Int
+                -> Int
+                -> a
+                -> DualNumberVariables Double
+                -> DeltaMonadGradient Double (DualNumber Double))
+            -> Double
+            -> Double
+            -> TestTree
 sgdTestCase prefix trainDataIO trainWithLoss gamma expected =
   let widthHidden = 250
       widthHidden2 = 50

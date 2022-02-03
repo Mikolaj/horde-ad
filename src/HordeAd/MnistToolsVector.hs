@@ -84,7 +84,7 @@ nnMnist2V :: (DeltaMonad r m, Numeric r, Num (Vector r))
           -> DualNumberVariables r
           -> m (DualNumber (Vector r))
 nnMnist2V factivationHidden factivationOutput widthHidden widthHidden2
-           input variables = do
+          input variables = do
   let !_A = assert (sizeMnistGlyph == V.length input) ()
   let hiddenLayer1 = sumConstantDataL input 0 variables widthHidden
                      + varV variables widthHidden  -- bias
