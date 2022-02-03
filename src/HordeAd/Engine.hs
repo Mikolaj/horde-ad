@@ -146,7 +146,7 @@ generateDeltaVars (params, paramsV, paramsL) =
       vVarL = V.generate dimL (Var . DeltaId . (+ (dim + dimV)))
   in (vVar, vVarV, vVarL)
 
-updateWithGradient :: (Numeric r, Num (Vector r))
+updateWithGradient :: (Eq r, Numeric r, Num (Vector r))
                    => r
                    -> Domains' r
                    -> Domains' r
@@ -154,11 +154,21 @@ updateWithGradient :: (Numeric r, Num (Vector r))
 updateWithGradient gamma (params, paramsV, paramsL)
                          (gradient, gradientV, gradientL) =
   let paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
-      paramsVNew = V.zipWith (\i r -> i - Numeric.LinearAlgebra.scale gamma r)
-                             paramsV gradientV
-      paramsLNew = V.zipWith (\i r -> i - Numeric.LinearAlgebra.scale gamma r)
-                             paramsL gradientL
+      updateV i r = if r == V.empty  -- even didn't update it, would crash
+                    then i
+                    else i - Numeric.LinearAlgebra.scale gamma r
+      paramsVNew = V.zipWith updateV paramsV gradientV
+      updateL i r = if rows r <= 0  -- even didn't update it, would crash
+                    then i
+                    else i - Numeric.LinearAlgebra.scale gamma r
+      paramsLNew = V.zipWith updateL paramsL gradientL
   in (paramsNew, paramsVNew, paramsLNew)
+
+gradientIsNil :: (Eq r, Numeric r) => Domains' r -> Bool
+gradientIsNil (gradient, gradientV, gradientL) =
+  V.all (== 0) gradient
+  && V.all (== V.empty) gradientV
+  && V.all (\r -> rows r <= 0) gradientL
 
 -- | Simple Gradient Descent.
 gdSimple :: forall r. (Eq r, Numeric r, Num (Vector r))
@@ -234,9 +244,3 @@ gdSmart f n0 parameters0 = go n0 parameters0 0.1 gradients0 value0 0 where
               go n parameters (gamma / 2) gradientsPrev valuePrev 0  -- overshot
           | i == 10 -> go (pred n) parametersNew gamma gradients value 0
           | otherwise -> go (pred n) parametersNew gamma gradients value (i + 1)
-
-gradientIsNil :: (Ord r, Numeric r) => Domains' r -> Bool
-gradientIsNil (gradient, gradientV, gradientL) =
-  V.all (== 0) gradient
-  && V.all (== V.empty) gradientV
-  && V.all (\r -> rows r <= 0) gradientL

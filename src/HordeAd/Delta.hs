@@ -48,7 +48,7 @@ data Delta :: Type -> Type where
   SeqL :: Data.Vector.Vector (Delta (Vector r)) -> Delta (Matrix r)
 
 newtype DeltaId = DeltaId Int
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq)
 
 data DeltaBinding r =
     DScalar (Delta r)
@@ -80,8 +80,8 @@ buildVector dim dimV dimL st d0 = do
   -- if most parameters are scalars and so most cells are unused,
   -- so we keep them in a sparse map, except for those that are guaranteed
   -- to be used, because they represent parameters:
-  storeV <- VM.replicate dimV (V.empty :: Vector r)  -- dummy value, crashes
-  storeL <- VM.replicate dimL (fromRows [] :: Matrix r)  -- dummy value, crashes
+  storeV <- VM.replicate dimV (V.empty :: Vector r)  -- dummy value
+  storeL <- VM.replicate dimL (fromRows [] :: Matrix r)  -- dummy value
   intMapV <- newSTRef IM.empty
   intMapL <- newSTRef IM.empty
   let addToVector :: Int -> Vector r -> ST s ()
