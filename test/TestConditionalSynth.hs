@@ -21,81 +21,8 @@ testTrees :: [TestTree]
 testTrees = [ conditionalSynthTests
             ]
 
--- Inlined to avoid the tiny overhead of calling an unknown function.
--- This operation is needed, because @sumListDual@ doesn't (always) fuse.
-sumResultsDual :: forall m a r. (DeltaMonad r m, Num r, Storable a)
-               => (a -> m (DualNumber r))
-               -> Vector a
-               -> m (DualNumber r)
-{-# INLINE sumResultsDual #-}
-sumResultsDual f as = do
-  let g :: DualNumber r -> a -> m (DualNumber r)
-      g !acc a = do
-        u <- f a
-        return $! acc + u
-  sumUs <- V.foldM g (scalar 0) as
-  returnLet sumUs
 
--- Pair samples sorted and made unique wrt first element of the pair.
-integerPairSamples :: (Int, Int) -> Int -> Int
-                   -> Data.Vector.Storable.Vector (Double, Double)
-integerPairSamples range seed k =
-  let rolls :: RandomGen g => g -> [Int]
-      rolls = unfoldr (Just . uniformR range)
-      (g1, g2) = split $ mkStdGen seed
-      nubInputs :: [Int] -> [Int] -> [Int]
-      nubInputs candidates rest =
-        let len = length candidates
-        in if len == k
-           then candidates
-           else let (candidatesExtra, restExtra) = splitAt (k - len) rest
-                    candidatesUniq = nub $ sort $ candidates ++ candidatesExtra
-                in nubInputs candidatesUniq restExtra
-      inputs = nubInputs [] (rolls g1)
-  in V.zip (V.fromListN k $ map fromIntegral inputs)
-           (V.fromListN k $ map fromIntegral $ rolls g2)
-
-gdSmartShow :: (DualNumberVariables Double
-                -> DeltaMonadGradient Double (DualNumber Double))
-            -> DomainV Double
-            -> Int
-            -> ([Data.Vector.Storable.Vector Double], (Double, Double))
-gdSmartShow f initVec n =
-  let ((_, res, _), gamma) = gdSmart f n (V.empty, initVec, V.empty)
-      (_, value) = df f (V.empty, res, V.empty)
-  in (V.toList res, (value, gamma))
-
-gradSmartTestCase
-  :: String
-  -> ((DualNumber (Vector Double)
-       -> DeltaMonadGradient Double (DualNumber (Vector Double)))
-      -> (DualNumber (Vector Double)
-          -> DeltaMonadGradient Double (DualNumber (Vector Double)))
-      -> (DualNumber (Vector Double)
-          -> DeltaMonadGradient Double (DualNumber (Vector Double)))
-      -> Data.Vector.Storable.Vector (Double, Double)
-      -> Int
-      -> DualNumberVariables Double
-      -> DeltaMonadGradient Double (DualNumber Double))
-  -> Int -> Int -> Int -> Int -> (Double, Double)
-  -> TestTree
-gradSmartTestCase prefix lossFunction seedSamples
-                  nSamples width nIterations expected =
-  let samples = integerPairSamples (-1000, 1000) seedSamples nSamples
-      nParamsV = lenSynthV width nSamples
-      paramsV0 =
-        V.imap (\i nPV -> V.unfoldrExactN nPV (uniformR (-0.5, 0.5))
-                                          (mkStdGen $ 33 + nPV + i))
-               nParamsV
-      name = prefix ++ " "
-             ++ unwords [ show seedSamples, show nSamples, show width
-                        , show (V.length nParamsV), show (V.sum nParamsV)
-                        , show nIterations ]
-  in testCase name $
-       snd (gdSmartShow
-              (lossFunction reluActV tanhActV tanhActV samples width)
-              paramsV0 nIterations)
-       @?= expected
+-- * Neural net
 
 bloat :: Int
 bloat = 1
@@ -133,6 +60,21 @@ synthLossSquared :: DeltaMonad Double m
 synthLossSquared factivation x ys1 ys2 ys3 ys4 targ = do
   res <- synthValue factivation (x / 1000) ys1 ys2 ys3 ys4
   lossSquared (targ / 10000) res  -- smaller target to overcome @tanh@ clamping
+
+-- Inlined to avoid the tiny overhead of calling an unknown function.
+-- This operation is needed, because @sumListDual@ doesn't (always) fuse.
+sumResultsDual :: forall m a r. (DeltaMonad r m, Num r, Storable a)
+               => (a -> m (DualNumber r))
+               -> Vector a
+               -> m (DualNumber r)
+{-# INLINE sumResultsDual #-}
+sumResultsDual f as = do
+  let g :: DualNumber r -> a -> m (DualNumber r)
+      g !acc a = do
+        u <- f a
+        return $! acc + u
+  sumUs <- V.foldM g (scalar 0) as
+  returnLet sumUs
 
 synthLossAll
   :: forall m. DeltaMonad Double m
@@ -203,6 +145,70 @@ synthLossBareTotal factivation factivationHidden factivationMiddle
     splitLayerV factivationMiddle nonlinearLayer1
                 offsetMiddle variables (bloat * nSamples * 4)
   synthLossAll factivation samples ys1 ys2 ys3 ys4
+
+
+-- * Tests and generation of random data
+
+-- Pair samples sorted and made unique wrt first element of the pair.
+integerPairSamples :: (Int, Int) -> Int -> Int
+                   -> Data.Vector.Storable.Vector (Double, Double)
+integerPairSamples range seed k =
+  let rolls :: RandomGen g => g -> [Int]
+      rolls = unfoldr (Just . uniformR range)
+      (g1, g2) = split $ mkStdGen seed
+      nubInputs :: [Int] -> [Int] -> [Int]
+      nubInputs candidates rest =
+        let len = length candidates
+        in if len == k
+           then candidates
+           else let (candidatesExtra, restExtra) = splitAt (k - len) rest
+                    candidatesUniq = nub $ sort $ candidates ++ candidatesExtra
+                in nubInputs candidatesUniq restExtra
+      inputs = nubInputs [] (rolls g1)
+  in V.zip (V.fromListN k $ map fromIntegral inputs)
+           (V.fromListN k $ map fromIntegral $ rolls g2)
+
+gdSmartShow :: (DualNumberVariables Double
+                -> DeltaMonadGradient Double (DualNumber Double))
+            -> DomainV Double
+            -> Int
+            -> ([Data.Vector.Storable.Vector Double], (Double, Double))
+gdSmartShow f initVec n =
+  let ((_, res, _), gamma) = gdSmart f n (V.empty, initVec, V.empty)
+      (_, value) = df f (V.empty, res, V.empty)
+  in (V.toList res, (value, gamma))
+
+gradSmartTestCase
+  :: String
+  -> ((DualNumber (Vector Double)
+       -> DeltaMonadGradient Double (DualNumber (Vector Double)))
+      -> (DualNumber (Vector Double)
+          -> DeltaMonadGradient Double (DualNumber (Vector Double)))
+      -> (DualNumber (Vector Double)
+          -> DeltaMonadGradient Double (DualNumber (Vector Double)))
+      -> Data.Vector.Storable.Vector (Double, Double)
+      -> Int
+      -> DualNumberVariables Double
+      -> DeltaMonadGradient Double (DualNumber Double))
+  -> Int -> Int -> Int -> Int -> (Double, Double)
+  -> TestTree
+gradSmartTestCase prefix lossFunction seedSamples
+                  nSamples width nIterations expected =
+  let samples = integerPairSamples (-1000, 1000) seedSamples nSamples
+      nParamsV = lenSynthV width nSamples
+      paramsV0 =
+        V.imap (\i nPV -> V.unfoldrExactN nPV (uniformR (-0.5, 0.5))
+                                          (mkStdGen $ 33 + nPV + i))
+               nParamsV
+      name = prefix ++ " "
+             ++ unwords [ show seedSamples, show nSamples, show width
+                        , show (V.length nParamsV), show (V.sum nParamsV)
+                        , show nIterations ]
+  in testCase name $
+       snd (gdSmartShow
+              (lossFunction reluActV tanhActV tanhActV samples width)
+              paramsV0 nIterations)
+       @?= expected
 
 conditionalSynthTests:: TestTree
 conditionalSynthTests =
