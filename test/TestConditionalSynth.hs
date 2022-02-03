@@ -43,9 +43,9 @@ synthValue :: forall m. DeltaMonad Double m
            -> DualNumber (Vector Double)
            -> DualNumber (Vector Double)
            -> m (DualNumber Double)
-synthValue factivation x ys1@(D u _) ys2 ys3 ys4 = do
-  activated <- factivation $ scale (konst x (V.length u)) ys1 + ys2
-  returnLet $ sumElements' $ activated * ys3 + ys4
+synthValue factivation x ps1@(D u _) ps2 ps3 ps4 = do
+  activated <- factivation $ scale (konst x (V.length u)) ps1 + ps2
+  returnLet $ sumElements' $ activated * ps3 + ps4
 
 synthLossSquared :: DeltaMonad Double m
                  => (DualNumber (Vector Double)
@@ -57,12 +57,11 @@ synthLossSquared :: DeltaMonad Double m
                  -> DualNumber (Vector Double)
                  -> Double
                  -> m (DualNumber Double)
-synthLossSquared factivation x ys1 ys2 ys3 ys4 targ = do
-  res <- synthValue factivation (x / 1000) ys1 ys2 ys3 ys4
-  lossSquared (targ / 10000) res  -- smaller target to overcome @tanh@ clamping
+synthLossSquared factivation x ps1 ps2 ps3 ps4 targ = do
+  y <- synthValue factivation (x / 1000) ps1 ps2 ps3 ps4
+  lossSquared (targ / 10000) y  -- smaller target to overcome @tanh@ clamping
 
 -- Inlined to avoid the tiny overhead of calling an unknown function.
--- This operation is needed, because @sumListDual@ doesn't (always) fuse.
 sumResultsDual :: forall m a r. (DeltaMonad r m, Num r, Storable a)
                => (a -> m (DualNumber r))
                -> Vector a
@@ -85,9 +84,9 @@ synthLossAll
   -> DualNumber (Vector Double)
   -> DualNumber (Vector Double)
   -> m (DualNumber Double)
-synthLossAll factivation samples ys1 ys2 ys3 ys4 = do
+synthLossAll factivation samples ps1 ps2 ps3 ps4 = do
   let f :: (Double, Double) -> m (DualNumber Double)
-      f (x, res) = synthLossSquared factivation x ys1 ys2 ys3 ys4 res
+      f (x, y) = synthLossSquared factivation x ps1 ps2 ps3 ps4 y
   sumResultsDual f samples
 
 sumTrainableInputsS :: DualNumber (Vector Double)
@@ -141,10 +140,10 @@ synthLossBareTotal factivation factivationHidden factivationMiddle
                      + varV variables width  -- bias
   nonlinearLayer1 <- factivationHidden hiddenLayer1
   let offsetMiddle = width + 1
-  (ys1, ys2, ys3, ys4) <-
+  (ps1, ps2, ps3, ps4) <-
     splitLayerV factivationMiddle nonlinearLayer1
                 offsetMiddle variables (bloat * nSamples * 4)
-  synthLossAll factivation samples ys1 ys2 ys3 ys4
+  synthLossAll factivation samples ps1 ps2 ps3 ps4
 
 
 -- * Tests and generation of random data
@@ -173,10 +172,10 @@ gdSmartShow :: (DualNumberVariables Double
             -> DomainV Double
             -> Int
             -> ([Data.Vector.Storable.Vector Double], (Double, Double))
-gdSmartShow f initVec n =
-  let ((_, res, _), gamma) = gdSmart f n (V.empty, initVec, V.empty)
-      (_, value) = df f (V.empty, res, V.empty)
-  in (V.toList res, (value, gamma))
+gdSmartShow f paramsV0 n =
+  let ((_, paramsV, _), gamma) = gdSmart f n (V.empty, paramsV0, V.empty)
+      (_, value) = df f (V.empty, paramsV, V.empty)
+  in (V.toList paramsV, (value, gamma))
 
 gradSmartTestCase
   :: String
