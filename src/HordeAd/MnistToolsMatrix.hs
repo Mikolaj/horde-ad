@@ -73,7 +73,7 @@ nnMnistLoss2L (input, target) variables = do
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 testMnist2L :: forall r. (Ord r, Floating r, Numeric r, Floating (Vector r))
-            => [MnistData r] -> (Domain r, DomainV r, DomainL r) -> r
+            => [MnistData r] -> Domains r -> r
 testMnist2L inputs parameters =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =

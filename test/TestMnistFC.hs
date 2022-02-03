@@ -238,9 +238,9 @@ mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
        testData <- loadMnistData testGlyphsPath testLabelsPath
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: (Domain Double, DomainV Double, DomainL Double)
+       let runBatch :: Domains Double
                     -> (Int, [MnistData Double])
-                    -> IO (Domain Double, DomainV Double, DomainL Double)
+                    -> IO (Domains Double)
            runBatch (!params, !paramsV, !paramsL) (k, chunk) = do
              printf "(Batch %d)\n" k
              let f = trainWithLoss
@@ -251,8 +251,9 @@ mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
              printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
              printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (Domain Double, DomainV Double, DomainL Double)
-                    -> IO (Domain Double, DomainV Double, DomainL Double)
+       let runEpoch :: Int
+                    -> Domains Double
+                    -> IO (Domains Double)
            runEpoch n params2 | n > epochs = return params2
            runEpoch n params2 = do
              printf "[Epoch %d]\n" n
