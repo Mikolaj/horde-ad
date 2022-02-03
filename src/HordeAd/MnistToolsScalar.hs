@@ -18,44 +18,35 @@ import HordeAd.PairOfVectors (VecDualNumber, var)
 
 -- | Compute the output of a neuron, without applying activation function,
 -- from trainable inputs in @xs@ and parameters (the bias and weights)
--- at @vec@ starting at @offset@. Useful for neurons in the middle
+-- at @variables@ starting at @offset@. Useful for neurons in the middle
 -- of the network, receiving inputs from other neurons.
---
--- Note that functions like that, with Delta in the type signature
--- (which is really indispensable due to accessing variable parameters
--- in a special way) make it impossible to implement the function
--- to be differentiated as fully polymorphic @:: Num r => [r] -> m r@
--- function and so have no overhead when computing the value
--- with a dummy monad. Another case is selectively fused operations,
--- unless we include all of them, even very ad hoc ones,
--- in a class with implementations both on @D@ and on plain @r@.
 sumTrainableInputs :: forall m r. (DeltaMonad r m, Numeric r)
                    => Data.Vector.Vector (DualNumber r)
                    -> Int
                    -> VecDualNumber r
                    -> m (DualNumber r)
-sumTrainableInputs xs offset vec = do
-  let bias = var vec offset
+sumTrainableInputs xs offset variables = do
+  let bias = var variables offset
       f :: DualNumber r -> Int -> DualNumber r -> DualNumber r
       f !acc i u =
-        let v = var vec (offset + 1 + i)
+        let v = var variables (offset + 1 + i)
         in acc + u * v
   returnLet $ V.ifoldl' f bias xs
 
 -- | Compute the output of a neuron, without applying activation function,
 -- from constant data in @xs@ and parameters (the bias and weights)
--- at @vec@ starting at @offset@. Useful for neurons at the bottom
+-- at @variables@ starting at @offset@. Useful for neurons at the bottom
 -- of the network, tasked with ingesting the data.
 sumConstantData :: forall m r. (DeltaMonad r m, Numeric r)
                 => Vector r
                 -> Int
                 -> VecDualNumber r
                 -> m (DualNumber r)
-sumConstantData xs offset vec = do
-  let bias = var vec offset
+sumConstantData xs offset variables = do
+  let bias = var variables offset
       f :: DualNumber r -> Int -> r -> DualNumber r
       f !acc i r =
-        let v = var vec (offset + 1 + i)
+        let v = var variables (offset + 1 + i)
         in acc + scale r v
   returnLet $ V.ifoldl' f bias xs
 
@@ -65,11 +56,11 @@ hiddenLayerMnist :: forall m r. (DeltaMonad r m, Numeric r)
                  -> VecDualNumber r
                  -> Int
                  -> m (Data.Vector.Vector (DualNumber r))
-hiddenLayerMnist factivation x vec width = do
-  let nWeightsAndBias = V.length x + 1
+hiddenLayerMnist factivation input variables width = do
+  let nWeightsAndBias = V.length input + 1
       f :: Int -> m (DualNumber r)
       f i = do
-        outSum <- sumConstantData x (i * nWeightsAndBias) vec
+        outSum <- sumConstantData input (i * nWeightsAndBias) variables
         factivation outSum
   V.generateM width f
 
@@ -80,13 +71,13 @@ middleLayerMnist :: forall m r. (DeltaMonad r m, Numeric r)
                  -> VecDualNumber r
                  -> Int
                  -> m (Data.Vector.Vector (DualNumber r))
-middleLayerMnist factivation hiddenVec offset vec width = do
+middleLayerMnist factivation hiddenVec offset variables width = do
   let nWeightsAndBias = V.length hiddenVec + 1
       f :: Int -> m (DualNumber r)
       f i = do
         outSum <- sumTrainableInputs hiddenVec
                                      (offset + i * nWeightsAndBias)
-                                     vec
+                                     variables
         factivation outSum
   V.generateM width f
 
@@ -98,28 +89,14 @@ outputLayerMnist :: forall m r. (DeltaMonad r m, Numeric r)
                  -> VecDualNumber r
                  -> Int
                  -> m (Data.Vector.Vector (DualNumber r))
-outputLayerMnist factivation hiddenVec offset vec width = do
+outputLayerMnist factivation hiddenVec offset variables width = do
   let nWeightsAndBias = V.length hiddenVec + 1
       f :: Int -> m (DualNumber r)
-      f i = sumTrainableInputs hiddenVec (offset + i * nWeightsAndBias) vec
+      f i = sumTrainableInputs hiddenVec
+                               (offset + i * nWeightsAndBias)
+                               variables
   vOfSums <- V.generateM width f
   factivation vOfSums
-
-generalTestMnist :: forall r. (Ord r, Fractional r, Numeric r)
-                 => (Domain r
-                     -> VecDualNumber r
-                     -> DeltaMonadValue r
-                          (Data.Vector.Vector (DualNumber r)))
-                 -> [MnistData r] -> Domain r
-                 -> r
-{-# INLINE generalTestMnist #-}
-generalTestMnist nn xs res =
-  let matchesLabels :: MnistData r -> Bool
-      matchesLabels (glyph, label) =
-        let value = V.map (\(D r _) -> r)
-                    $ valueDual (nn glyph) (res, V.empty, V.empty)
-        in V.maxIndex value == V.maxIndex label
-  in fromIntegral (length (filter matchesLabels xs)) / fromIntegral (length xs)
 
 lenMnist2 :: Int -> Int -> Int
 lenMnist2 widthHidden widthHidden2 =
@@ -127,8 +104,12 @@ lenMnist2 widthHidden widthHidden2 =
   + widthHidden2 * (widthHidden + 1)
   + sizeMnistLabel * (widthHidden2 + 1)
 
--- Two hidden layers: width @widthHidden@ and (the middle one) @widthHidden2@.
--- Both hidden layers use the same activation function.
+-- | Fully connected neural network for the MNIST digit classification task.
+-- There are two hidden layers and both use the same activation function.
+-- The output layer uses a different activation function.
+-- The widths of the hidden layers are @widthHidden@ and @widthHidden2@
+-- and from these, the @lenMnist2@ function computes the number
+-- of scalar dual number parameters (variables) to be given to the program.
 nnMnist2 :: (DeltaMonad r m, Numeric r)
          => (DualNumber r -> m (DualNumber r))
          -> (Data.Vector.Vector (DualNumber r)
@@ -139,28 +120,41 @@ nnMnist2 :: (DeltaMonad r m, Numeric r)
          -> VecDualNumber r
          -> m (Data.Vector.Vector (DualNumber r))
 nnMnist2 factivationHidden factivationOutput widthHidden widthHidden2
-         x vec = do
-  let !_A = assert (sizeMnistGlyph == V.length x) ()
-  hiddenVec <- inline hiddenLayerMnist factivationHidden x vec widthHidden
+         input variables = do
+  let !_A = assert (sizeMnistGlyph == V.length input) ()
+  layer1 <- inline hiddenLayerMnist factivationHidden input
+                                    variables widthHidden
   let offsetMiddle = widthHidden * (sizeMnistGlyph + 1)
-  middleVec <- inline middleLayerMnist factivationHidden hiddenVec
-                                       offsetMiddle vec widthHidden2
+  layer2 <- inline middleLayerMnist factivationHidden layer1
+                                    offsetMiddle variables widthHidden2
   let offsetOutput = offsetMiddle + widthHidden2 * (widthHidden + 1)
-  inline outputLayerMnist factivationOutput middleVec
-                          offsetOutput vec sizeMnistLabel
+  inline outputLayerMnist factivationOutput layer2
+                          offsetOutput variables sizeMnistLabel
 
+-- | The neural network applied to concrete activation functions
+-- and composed with the appropriate loss function.
 nnMnistLoss2 :: (DeltaMonad r m, Floating r, Numeric r)
              => Int
              -> Int
              -> MnistData r
              -> VecDualNumber r
              -> m (DualNumber r)
-nnMnistLoss2 widthHidden widthHidden2 (x, targ) vec = do
-  res <- inline nnMnist2 logisticAct softMaxAct widthHidden widthHidden2 x vec
-  lossCrossEntropy targ res
+nnMnistLoss2 widthHidden widthHidden2 (input, target) variables = do
+  result <- inline nnMnist2 logisticAct softMaxAct
+                            widthHidden widthHidden2 input variables
+  lossCrossEntropy target result
 
-testMnist2 :: (Ord r, Floating r, Numeric r)
-           => Int -> Int -> [MnistData r] -> Domain r -> r
-testMnist2 widthHidden widthHidden2 =
-  generalTestMnist (inline nnMnist2 logisticAct softMaxAct
-                                    widthHidden widthHidden2)
+-- | A function testing the neural network given testing set of inputs
+-- and the trained parameters.
+testMnist2 :: forall r. (Ord r, Floating r, Numeric r)
+            => Int -> Int -> [MnistData r] -> Domain r -> r
+testMnist2 widthHidden widthHidden2 inputs params =
+  let matchesLabels :: MnistData r -> Bool
+      matchesLabels (glyph, label) =
+        let nn = inline nnMnist2 logisticAct softMaxAct
+                                 widthHidden widthHidden2 glyph
+            value = V.map (\(D r _) -> r)
+                    $ valueDual nn (params, V.empty, V.empty)
+        in V.maxIndex value == V.maxIndex label
+  in fromIntegral (length (filter matchesLabels inputs))
+     / fromIntegral (length inputs)

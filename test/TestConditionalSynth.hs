@@ -153,9 +153,9 @@ sumTrainableInputsS :: DualNumber (Vector Double)
                     -> VecDualNumber Double
                     -> Int
                     -> Data.Vector.Vector (DualNumber Double)
-sumTrainableInputsS x offset vec width =
+sumTrainableInputsS x offset variables width =
   let f :: Int -> DualNumber Double
-      f i = sumTrainableInputsV x (offset + i) vec
+      f i = sumTrainableInputsV x (offset + i) variables
   in V.generate width f
 
 splitLayerV :: forall m. DeltaMonad Double m
@@ -168,13 +168,13 @@ splitLayerV :: forall m. DeltaMonad Double m
                  , DualNumber (Vector Double)
                  , DualNumber (Vector Double)
                  , DualNumber (Vector Double) )
-splitLayerV factivation hiddenVec offset vec width = do
-  let multiplied = sumTrainableInputsS hiddenVec offset vec width
+splitLayerV factivation hiddenVec offset variables width = do
+  let multiplied = sumTrainableInputsS hiddenVec offset variables width
       chunkWidth = width `div` 4
       activate :: Int -> m (DualNumber (Vector Double))
       activate n = do
         let v = V.slice (n * chunkWidth) chunkWidth multiplied
-        factivation $ deltaSeq v + varV vec (offset + width + n)
+        factivation $ deltaSeq v + varV variables (offset + width + n)
   a0 <- activate 0
   a1 <- activate 1
   a2 <- activate 2
@@ -191,14 +191,17 @@ synthLossBareTotal
   -> VecDualNumber Double
   -> m (DualNumber Double)
 synthLossBareTotal factivation factivationHidden factivationMiddle
-                   samples width vec = do
+                   samples width variables = do
   let (inputs, outputs) = V.unzip samples
       nSamples = V.length samples
       sampleData = inputs <> outputs
-  hiddenVec <- initialLayerMnistV factivationHidden sampleData vec width
+      hiddenLayer1 = sumConstantDataL sampleData 0 variables width
+                     + varV variables width  -- bias
+  nonlinearLayer1 <- factivationHidden hiddenLayer1
   let offsetMiddle = width + 1
-  (ys1, ys2, ys3, ys4) <- splitLayerV factivationMiddle hiddenVec
-                                      offsetMiddle vec (bloat * nSamples * 4)
+  (ys1, ys2, ys3, ys4) <-
+    splitLayerV factivationMiddle nonlinearLayer1
+                offsetMiddle variables (bloat * nSamples * 4)
   synthLossAll factivation samples ys1 ys2 ys3 ys4
 
 conditionalSynthTests:: TestTree

@@ -12,34 +12,12 @@ import           Control.Exception (assert)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
-import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
+import           Numeric.LinearAlgebra (Numeric, Vector)
 
 import HordeAd.DualNumber
 import HordeAd.Engine
 import HordeAd.MnistToolsData
 import HordeAd.PairOfVectors (VecDualNumber, varL, varV)
-
-initialLayerMnistL :: forall m r. (Numeric r, Num (Vector r))
-                   => (DualNumber (Vector r) -> m (DualNumber (Vector r)))
-                   -> Vector r
-                   -> DualNumber (Matrix r)
-                   -> DualNumber (Vector r)
-                   -> m (DualNumber (Vector r))
-initialLayerMnistL factivation x weightsL biasesV = do
-  let multiplied = weightsL #>!! x
-      biased = multiplied + biasesV
-  factivation biased
-
-middleLayerMnistL :: forall m r. (Numeric r, Num (Vector r))
-                  => (DualNumber (Vector r) -> m (DualNumber (Vector r)))
-                  -> DualNumber (Vector r)
-                  -> DualNumber (Matrix r)
-                  -> DualNumber (Vector r)
-                  -> m (DualNumber (Vector r))
-middleLayerMnistL factivation hiddenVec weightsL biasesV = do
-  let multiplied = weightsL #>! hiddenVec
-      biased = multiplied + biasesV
-  factivation biased
 
 lenMnist2L :: Int -> Int -> Int
 lenMnist2L _widthHidden _widthHidden2 = 0
@@ -54,49 +32,53 @@ lenMatrixMnist2L widthHidden widthHidden2 =
                , (widthHidden2, widthHidden)
                , (sizeMnistLabel, widthHidden2) ]
 
--- Two hidden layers: width @widthHidden@ and (the middle one) @widthHidden2@.
--- Both hidden layers use the same activation function.
+-- | Fully connected neural network for the MNIST digit classification task.
+-- There are two hidden layers and both use the same activation function.
+-- The output layer uses a different activation function.
+-- The width of the layers is determined by the dimensions of the matrices
+-- and vectors given as dual number parameters (variables).
+-- The dimensions, in turn, can be computed by the @len*@ functions
+-- on the basis of the requested widths, see above.
 nnMnist2L :: (DeltaMonad r m, Numeric r, Num (Vector r))
           => (DualNumber (Vector r) -> m (DualNumber (Vector r)))
           -> (DualNumber (Vector r) -> m (DualNumber (Vector r)))
           -> Vector r
           -> VecDualNumber r
           -> m (DualNumber (Vector r))
-nnMnist2L factivationHidden factivationOutput x vec = do
-  let !_A = assert (sizeMnistGlyph == V.length x) ()
-      weightsL0 = varL vec 0
-      biasesV0 = varV vec 0
-      weightsL1 = varL vec 1
-      biasesV1 = varV vec 1
-      weightsL2 = varL vec 2
-      biasesV2 = varV vec 2
-  hiddenVec <- inline initialLayerMnistL factivationHidden x weightsL0 biasesV0
-  middleVec <- inline middleLayerMnistL factivationHidden hiddenVec
-                                        weightsL1 biasesV1
-  inline middleLayerMnistL factivationOutput middleVec weightsL2 biasesV2
+nnMnist2L factivationHidden factivationOutput input variables = do
+  let !_A = assert (sizeMnistGlyph == V.length input) ()
+      weightsL0 = varL variables 0
+      biasesV0 = varV variables 0
+      weightsL1 = varL variables 1
+      biasesV1 = varV variables 1
+      weightsL2 = varL variables 2
+      biasesV2 = varV variables 2
+  let hiddenLayer1 = weightsL0 #>!! input + biasesV0
+  nonlinearLayer1 <- factivationHidden hiddenLayer1
+  let hiddenLayer2 = weightsL1 #>! nonlinearLayer1 + biasesV1
+  nonlinearLayer2 <- factivationHidden hiddenLayer2
+  let outputLayer = weightsL2 #>! nonlinearLayer2 + biasesV2
+  factivationOutput outputLayer
 
-nnMnistLoss2L :: (DeltaMonad r m, Floating r, Numeric r, Floating (Vector r))
+-- | The neural network applied to concrete activation functions
+-- and composed with the appropriate loss function.
+nnMnistLoss2L :: (DeltaMonad r m, Numeric r, Floating r, Floating (Vector r))
               => MnistData r
               -> VecDualNumber r
               -> m (DualNumber r)
-nnMnistLoss2L (x, targ) vec = do
-  res <- inline nnMnist2L logisticActV softMaxActV x vec
-  lossCrossEntropyV targ res
+nnMnistLoss2L (input, target) variables = do
+  result <- inline nnMnist2L logisticActV softMaxActV input variables
+  lossCrossEntropyV target result
 
-generalTestMnistL :: forall r. (Ord r, Fractional r, Numeric r)
-                  => (Vector r
-                      -> VecDualNumber r
-                      -> DeltaMonadValue r (DualNumber (Vector r)))
-                  -> [MnistData r] -> (Domain r, DomainV r, DomainL r)
-                  -> r
-{-# INLINE generalTestMnistL #-}
-generalTestMnistL nn xs res =
+-- | A function testing the neural network given testing set of inputs
+-- and the trained parameters.
+testMnist2L :: forall r. (Ord r, Floating r, Numeric r, Floating (Vector r))
+            => [MnistData r] -> (Domain r, DomainV r, DomainL r) -> r
+testMnist2L inputs parameters =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let value = valueDualNumber (nn glyph) res
+        let nn = inline nnMnist2L logisticActV softMaxActV glyph
+            value = valueDualNumber nn parameters
         in V.maxIndex value == V.maxIndex label
-  in fromIntegral (length (filter matchesLabels xs)) / fromIntegral (length xs)
-
-testMnist2L :: (Ord r, Floating r, Numeric r, Floating (Vector r))
-            => [MnistData r] -> (Domain r, DomainV r, DomainL r) -> r
-testMnist2L = generalTestMnistL (inline nnMnist2L logisticActV softMaxActV)
+  in fromIntegral (length (filter matchesLabels inputs))
+     / fromIntegral (length inputs)
