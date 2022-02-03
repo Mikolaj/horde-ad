@@ -55,7 +55,7 @@ integerPairSamples range seed k =
   in V.zip (V.fromListN k $ map fromIntegral inputs)
            (V.fromListN k $ map fromIntegral $ rolls g2)
 
-gdSmartShow :: (VecDualNumber Double
+gdSmartShow :: (DualNumberVariables Double
                 -> DeltaMonadGradient Double (DualNumber Double))
             -> DomainV Double
             -> Int
@@ -75,7 +75,7 @@ gradSmartTestCase
           -> DeltaMonadGradient Double (DualNumber (Vector Double)))
       -> Data.Vector.Storable.Vector (Double, Double)
       -> Int
-      -> VecDualNumber Double
+      -> DualNumberVariables Double
       -> DeltaMonadGradient Double (DualNumber Double))
   -> Int -> Int -> Int -> Int -> (Double, Double)
   -> TestTree
@@ -150,7 +150,7 @@ synthLossAll factivation samples ys1 ys2 ys3 ys4 = do
 
 sumTrainableInputsS :: DualNumber (Vector Double)
                     -> Int
-                    -> VecDualNumber Double
+                    -> DualNumberVariables Double
                     -> Int
                     -> Data.Vector.Vector (DualNumber Double)
 sumTrainableInputsS x offset variables width =
@@ -162,7 +162,7 @@ splitLayerV :: forall m. DeltaMonad Double m
             => (DualNumber (Vector Double) -> m (DualNumber (Vector Double)))
             -> DualNumber (Vector Double)
             -> Int
-            -> VecDualNumber Double
+            -> DualNumberVariables Double
             -> Int
             -> m ( DualNumber (Vector Double)
                  , DualNumber (Vector Double)
@@ -188,7 +188,7 @@ synthLossBareTotal
   -> (DualNumber (Vector Double) -> m (DualNumber (Vector Double)))
   -> Data.Vector.Storable.Vector (Double, Double)
   -> Int
-  -> VecDualNumber Double
+  -> DualNumberVariables Double
   -> m (DualNumber Double)
 synthLossBareTotal factivation factivationHidden factivationMiddle
                    samples width variables = do

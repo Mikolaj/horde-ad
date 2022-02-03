@@ -29,7 +29,7 @@ shortTestForCITrees = [ dumbMnistTests
 
 sgdShow :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
         => r
-        -> (a -> VecDualNumber r -> DeltaMonadGradient r (DualNumber r))
+        -> (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
         -> [a]  -- ^ training data
         -> Domain r  -- ^ initial parameters
         -> ([r], r)
@@ -44,7 +44,7 @@ sgdTestCase
   -> (Int
       -> Int
       -> a
-      -> VecDualNumber Double
+      -> DualNumberVariables Double
       -> DeltaMonadGradient Double (DualNumber Double))
   -> Double
   -> Double
@@ -69,7 +69,7 @@ mnistTestCase2
   -> (Int
       -> Int
       -> MnistData Double
-      -> VecDualNumber Double
+      -> DualNumberVariables Double
       -> DeltaMonadGradient Double (DualNumber Double))
   -> Int
   -> Int
@@ -123,7 +123,7 @@ mnistTestCase2V
   -> (Int
       -> Int
       -> MnistData Double
-      -> VecDualNumber Double
+      -> DualNumberVariables Double
       -> DeltaMonadGradient Double (DualNumber Double))
   -> Int
   -> Int
@@ -184,7 +184,7 @@ nnMnistLossTanh :: DeltaMonad Double m
                 => Int
                 -> Int
                 -> MnistData Double
-                -> VecDualNumber Double
+                -> DualNumberVariables Double
                 -> m (DualNumber Double)
 nnMnistLossTanh widthHidden widthHidden2 (xs, targ) vec = do
   res <- nnMnist2 tanhAct softMaxAct widthHidden widthHidden2 xs vec
@@ -194,7 +194,7 @@ nnMnistLossRelu :: DeltaMonad Double m
                 => Int
                 -> Int
                 -> MnistData Double
-                -> VecDualNumber Double
+                -> DualNumberVariables Double
                 -> m (DualNumber Double)
 nnMnistLossRelu widthHidden widthHidden2 (xs, targ) vec = do
   res <- nnMnist2 reluAct softMaxAct widthHidden widthHidden2 xs vec
@@ -205,7 +205,7 @@ mnistTestCase2L
   -> Int
   -> Int
   -> (MnistData Double
-      -> VecDualNumber Double
+      -> DualNumberVariables Double
       -> DeltaMonadGradient Double (DualNumber Double))
   -> Int
   -> Int

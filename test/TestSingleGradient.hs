@@ -14,7 +14,7 @@ import HordeAd
 
 type DualNumberF = DualNumber Float
 
-type VecDualNumberF = VecDualNumber Float
+type DualNumberVariablesF = DualNumberVariables Float
 
 testTrees :: [TestTree]
 testTrees = [ dfTests
@@ -48,33 +48,33 @@ sumDual :: forall m r. (DeltaMonad r m, Num r)
         -> m (DualNumber r)
 sumDual = returnLet . sumElementsVectorOfDelta
 
-dfShow :: (VecDualNumberF -> DeltaMonadGradient Float DualNumberF)
+dfShow :: (DualNumberVariablesF -> DeltaMonadGradient Float DualNumberF)
        -> [Float]
        -> ([Float], Float)
 dfShow f deltaInput =
   let ((results, _, _), value) = df f (V.fromList deltaInput, V.empty, V.empty)
   in (V.toList results, value)
 
-fX :: DeltaMonad Float m => VecDualNumberF -> m DualNumberF
+fX :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
 fX vec = do
   let x = var vec 0
   return x
 
-fX1Y :: DeltaMonad Float m => VecDualNumberF -> m DualNumberF
+fX1Y :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
 fX1Y vec = do
   let x = var vec 0
       y = var vec 1
   x1 <- x +\ scalar 1
   x1 *\ y
 
-fXXY :: DeltaMonad Float m => VecDualNumberF -> m DualNumberF
+fXXY :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
 fXXY vec = do
   let x = var vec 0
       y = var vec 1
   xy <- x *\ y
   x *\ xy
 
-fXYplusZ :: DeltaMonad Float m => VecDualNumberF -> m DualNumberF
+fXYplusZ :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
 fXYplusZ vec = do
   let x = var vec 0
       y = var vec 1
@@ -82,18 +82,18 @@ fXYplusZ vec = do
   xy <- x *\ y
   xy +\ z
 
-fXtoY :: DeltaMonad Float m => VecDualNumberF -> m DualNumberF
+fXtoY :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
 fXtoY vec = do
   let x = var vec 0
       y = var vec 1
   x **\ y
 
-freluX :: DeltaMonad Float m => VecDualNumberF -> m DualNumberF
+freluX :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
 freluX vec = do
   let x = var vec 0
   reluAct x
 
-fquad :: DeltaMonad Float m => VecDualNumberF -> m DualNumberF
+fquad :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
 fquad vec = do
   let x = var vec 0
       y = var vec 1
@@ -133,7 +133,7 @@ dfTests = testGroup "Simple df application tests" $
 -- of deltas (the output vector currently is a boxed vector of pairs;
 -- this is related to the ongoing work on shapes of scalar containers).
 atanReadmePoly :: (RealFloat r, Numeric r)
-               => VecDualNumber r -> Data.Vector.Vector (DualNumber r)
+               => DualNumberVariables r -> Data.Vector.Vector (DualNumber r)
 atanReadmePoly vec =
   let x : y : z : _ = vars vec
       w = x * sin y
@@ -152,7 +152,7 @@ atanReadmePoly vec =
 -- non-variable expressions, the user would need to make it monadic
 -- and apply another binding-introducing operation already there.
 atanReadmeMPoly :: (RealFloat r, DeltaMonad r m, Numeric r)
-                => VecDualNumber r -> m (DualNumber r)
+                => DualNumberVariables r -> m (DualNumber r)
 atanReadmeMPoly vec =
   sumDual $ atanReadmePoly vec
     -- dot product with ones is the sum of all elements

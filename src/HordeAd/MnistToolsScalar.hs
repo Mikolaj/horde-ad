@@ -14,7 +14,7 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import HordeAd.DualNumber
 import HordeAd.Engine
 import HordeAd.MnistToolsData
-import HordeAd.PairOfVectors (VecDualNumber, var)
+import HordeAd.PairOfVectors (DualNumberVariables, var)
 
 -- | Compute the output of a neuron, without applying activation function,
 -- from trainable inputs in @xs@ and parameters (the bias and weights)
@@ -23,7 +23,7 @@ import HordeAd.PairOfVectors (VecDualNumber, var)
 sumTrainableInputs :: forall m r. (DeltaMonad r m, Numeric r)
                    => Data.Vector.Vector (DualNumber r)
                    -> Int
-                   -> VecDualNumber r
+                   -> DualNumberVariables r
                    -> m (DualNumber r)
 sumTrainableInputs xs offset variables = do
   let bias = var variables offset
@@ -40,7 +40,7 @@ sumTrainableInputs xs offset variables = do
 sumConstantData :: forall m r. (DeltaMonad r m, Numeric r)
                 => Vector r
                 -> Int
-                -> VecDualNumber r
+                -> DualNumberVariables r
                 -> m (DualNumber r)
 sumConstantData xs offset variables = do
   let bias = var variables offset
@@ -53,7 +53,7 @@ sumConstantData xs offset variables = do
 hiddenLayerMnist :: forall m r. (DeltaMonad r m, Numeric r)
                  => (DualNumber r -> m (DualNumber r))
                  -> Vector r
-                 -> VecDualNumber r
+                 -> DualNumberVariables r
                  -> Int
                  -> m (Data.Vector.Vector (DualNumber r))
 hiddenLayerMnist factivation input variables width = do
@@ -68,7 +68,7 @@ middleLayerMnist :: forall m r. (DeltaMonad r m, Numeric r)
                  => (DualNumber r -> m (DualNumber r))
                  -> Data.Vector.Vector (DualNumber r)
                  -> Int
-                 -> VecDualNumber r
+                 -> DualNumberVariables r
                  -> Int
                  -> m (Data.Vector.Vector (DualNumber r))
 middleLayerMnist factivation hiddenVec offset variables width = do
@@ -86,7 +86,7 @@ outputLayerMnist :: forall m r. (DeltaMonad r m, Numeric r)
                      -> m (Data.Vector.Vector (DualNumber r)))
                  -> Data.Vector.Vector (DualNumber r)
                  -> Int
-                 -> VecDualNumber r
+                 -> DualNumberVariables r
                  -> Int
                  -> m (Data.Vector.Vector (DualNumber r))
 outputLayerMnist factivation hiddenVec offset variables width = do
@@ -117,7 +117,7 @@ nnMnist2 :: (DeltaMonad r m, Numeric r)
          -> Int
          -> Int
          -> Vector r
-         -> VecDualNumber r
+         -> DualNumberVariables r
          -> m (Data.Vector.Vector (DualNumber r))
 nnMnist2 factivationHidden factivationOutput widthHidden widthHidden2
          input variables = do
@@ -137,7 +137,7 @@ nnMnistLoss2 :: (DeltaMonad r m, Floating r, Numeric r)
              => Int
              -> Int
              -> MnistData r
-             -> VecDualNumber r
+             -> DualNumberVariables r
              -> m (DualNumber r)
 nnMnistLoss2 widthHidden widthHidden2 (input, target) variables = do
   result <- inline nnMnist2 logisticAct softMaxAct

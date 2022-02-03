@@ -13,7 +13,7 @@ import HordeAd
 
 type DualNumberF = DualNumber Float
 
-type VecDualNumberF = VecDualNumber Float
+type DualNumberVariablesF = DualNumberVariables Float
 
 testTrees :: [TestTree]
 testTrees = [ gdSimpleTests
@@ -39,7 +39,7 @@ squareDual = returnLet . square
 
 gdSimpleShow :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
              => r
-             -> (VecDualNumber r -> DeltaMonadGradient r (DualNumber r))
+             -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
              -> Domain r
              -> Int
              -> ([r], r)
@@ -48,7 +48,7 @@ gdSimpleShow gamma f initVec n =
       (_, value) = df f (res, V.empty, V.empty)
   in (V.toList res, value)
 
-fquad :: DeltaMonad Float m => VecDualNumberF -> m DualNumberF
+fquad :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
 fquad vec = do
   let x = var vec 0
       y = var vec 1
@@ -57,7 +57,7 @@ fquad vec = do
   tmp <- x2 +\ y2
   tmp +\ scalar 5
 
-fblowup :: forall m. DeltaMonad Float m => VecDualNumberF -> m DualNumberF
+fblowup :: forall m. DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
 fblowup vec = do
   let blowup :: Int -> DualNumberF -> m DualNumberF
       blowup 0 y = return y
@@ -104,7 +104,7 @@ gdSimpleTests = testGroup "Simple gradient descent tests"
 -- (one binding per each subexpression, even when not needed), which is fine,
 -- just not enough for comprehensive benchmarks.
 scaleAddWithBias :: DeltaMonad Float m
-                 => DualNumberF -> DualNumberF -> Int -> VecDualNumberF
+                 => DualNumberF -> DualNumberF -> Int -> DualNumberVariablesF
                  -> m DualNumberF
 scaleAddWithBias x y ixWeight vec = do
   let wx = var vec ixWeight
@@ -117,7 +117,7 @@ scaleAddWithBias x y ixWeight vec = do
 
 neuron :: DeltaMonad Float m
        => (DualNumberF -> m DualNumberF)
-       -> DualNumberF -> DualNumberF -> Int -> VecDualNumberF
+       -> DualNumberF -> DualNumberF -> Int -> DualNumberVariablesF
        -> m DualNumberF
 neuron factivation x y ixWeight vec = do
   sc <- scaleAddWithBias x y ixWeight vec
@@ -125,7 +125,7 @@ neuron factivation x y ixWeight vec = do
 
 nnXor :: DeltaMonad Float m
       => (DualNumberF -> m DualNumberF)
-      -> DualNumberF -> DualNumberF -> VecDualNumberF
+      -> DualNumberF -> DualNumberF -> DualNumberVariablesF
       -> m DualNumberF
 nnXor factivation x y vec = do
   n1 <- neuron factivation x y 0 vec
@@ -134,7 +134,7 @@ nnXor factivation x y vec = do
 
 nnXorLoss :: DeltaMonad Float m
           => (DualNumberF -> m DualNumberF)
-          -> Float -> Float -> Float -> VecDualNumberF
+          -> Float -> Float -> Float -> DualNumberVariablesF
           -> m DualNumberF
 nnXorLoss factivation x y targ vec = do
   res <- nnXor factivation (scalar x) (scalar y) vec
@@ -142,7 +142,7 @@ nnXorLoss factivation x y targ vec = do
 
 nnXorLossTotal :: DeltaMonad Float m
                => (DualNumberF -> m DualNumberF)
-               -> VecDualNumberF
+               -> DualNumberVariablesF
                -> m DualNumberF
 nnXorLossTotal factivation vec = do
   n1 <- nnXorLoss factivation 0 0 0 vec

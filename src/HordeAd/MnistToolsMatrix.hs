@@ -17,7 +17,7 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import HordeAd.DualNumber
 import HordeAd.Engine
 import HordeAd.MnistToolsData
-import HordeAd.PairOfVectors (VecDualNumber, varL, varV)
+import HordeAd.PairOfVectors (DualNumberVariables, varL, varV)
 
 lenMnist2L :: Int -> Int -> Int
 lenMnist2L _widthHidden _widthHidden2 = 0
@@ -43,7 +43,7 @@ nnMnist2L :: (DeltaMonad r m, Numeric r, Num (Vector r))
           => (DualNumber (Vector r) -> m (DualNumber (Vector r)))
           -> (DualNumber (Vector r) -> m (DualNumber (Vector r)))
           -> Vector r
-          -> VecDualNumber r
+          -> DualNumberVariables r
           -> m (DualNumber (Vector r))
 nnMnist2L factivationHidden factivationOutput input variables = do
   let !_A = assert (sizeMnistGlyph == V.length input) ()
@@ -64,7 +64,7 @@ nnMnist2L factivationHidden factivationOutput input variables = do
 -- and composed with the appropriate loss function.
 nnMnistLoss2L :: (DeltaMonad r m, Numeric r, Floating r, Floating (Vector r))
               => MnistData r
-              -> VecDualNumber r
+              -> DualNumberVariables r
               -> m (DualNumber r)
 nnMnistLoss2L (input, target) variables = do
   result <- inline nnMnist2L logisticActV softMaxActV input variables

@@ -1,11 +1,14 @@
 -- | The "pair of vectors" implementation of vectors of dual numbers.
 -- This is much faster than "vector of pairs" implementation, but terribly
--- hard to use, in particular to efficiently construct such pairs
--- of vectors using monadic operations in @ST@ (a bit easier in @IO@,
--- but so far we've managed to avoid it).
+-- hard to use in case of scalar dual numbers, in particular to efficiently
+-- construct in @ST@ such pairs of vectors from monadic operations that create
+-- vector elements (a bit easier in @IO@, but so far we managed to avoid @IO@).
+-- For this reason, this representation is currently used only to represent
+-- the inputs of functions, that is, dual numbers with initial values
+-- of parameters and with `Delta` variables assigned to each.
 module HordeAd.PairOfVectors
-  ( VecDualNumber
-  , vecDualNumberFromVars, var, vars, varV, varL
+  ( DualNumberVariables
+  , makeDualNumberVariables, var, vars, varV, varL
   , ifoldMDelta', foldMDelta', ifoldlDelta', foldlDelta'
   ) where
 
@@ -22,7 +25,7 @@ import HordeAd.DualNumber (DualNumber (..))
 -- These are optimized as "pair of vectors" representing vectors of @DualNumber@
 -- in an efficient way (especially, or only, with gradient descent,
 -- where the vectors are reused in some ways).
-type VecDualNumber r =
+type DualNumberVariables r =
   ( Vector r
   , Data.Vector.Vector (Delta r)
   , Data.Vector.Vector (Vector r)
@@ -31,35 +34,35 @@ type VecDualNumber r =
   , Data.Vector.Vector (Delta (Matrix r))
   )
 
-vecDualNumberFromVars
+makeDualNumberVariables
   :: ( Vector r
      , Data.Vector.Vector (Vector r)
      , Data.Vector.Vector (Matrix r) )
   -> ( Data.Vector.Vector (Delta r)
      , Data.Vector.Vector (Delta (Vector r))
      , Data.Vector.Vector (Delta (Matrix r)) )
-  -> VecDualNumber r
-{-# INLINE vecDualNumberFromVars #-}
-vecDualNumberFromVars (params, paramsV, paramsL) (vs, vsV, vsL)
+  -> DualNumberVariables r
+{-# INLINE makeDualNumberVariables #-}
+makeDualNumberVariables (params, paramsV, paramsL) (vs, vsV, vsL)
   = (params, vs, paramsV, vsV, paramsL, vsL)
 
-var :: Storable r => VecDualNumber r -> Int -> DualNumber r
+var :: Storable r => DualNumberVariables r -> Int -> DualNumber r
 var (vValue, vVar, _, _, _, _) i = D (vValue V.! i) (vVar V.! i)
 
-varV :: VecDualNumber r -> Int -> DualNumber (Vector r)
+varV :: DualNumberVariables r -> Int -> DualNumber (Vector r)
 varV (_, _, vValue, vVar, _, _) i = D (vValue V.! i) (vVar V.! i)
 
-varL :: VecDualNumber r -> Int -> DualNumber (Matrix r)
+varL :: DualNumberVariables r -> Int -> DualNumber (Matrix r)
 varL (_, _, _, _, vValue, vVar) i = D (vValue V.! i) (vVar V.! i)
 
 -- Unsafe, but handy for toy examples.
-vars :: Storable r => VecDualNumber r -> [DualNumber r]
+vars :: Storable r => DualNumberVariables r -> [DualNumber r]
 vars vec = map (var vec) [0 ..]
 
 ifoldMDelta' :: forall m a r. (Monad m, Storable r)
              => (a -> Int -> DualNumber r -> m a)
              -> a
-             -> VecDualNumber r
+             -> DualNumberVariables r
              -> m a
 {-# INLINE ifoldMDelta' #-}
 ifoldMDelta' f a (vecR, vecD, _, _, _, _) = do
@@ -72,7 +75,7 @@ ifoldMDelta' f a (vecR, vecD, _, _, _, _) = do
 foldMDelta' :: forall m a r. (Monad m, Storable r)
             => (a -> DualNumber r -> m a)
             -> a
-            -> VecDualNumber r
+            -> DualNumberVariables r
             -> m a
 {-# INLINE foldMDelta' #-}
 foldMDelta' f a (vecR, vecD, _, _, _, _) = do
@@ -85,7 +88,7 @@ foldMDelta' f a (vecR, vecD, _, _, _, _) = do
 ifoldlDelta' :: forall a r. Storable r
              => (a -> Int -> DualNumber r -> a)
              -> a
-             -> VecDualNumber r
+             -> DualNumberVariables r
              -> a
 {-# INLINE ifoldlDelta' #-}
 ifoldlDelta' f a (vecR, vecD, _, _, _, _) = do
@@ -98,7 +101,7 @@ ifoldlDelta' f a (vecR, vecD, _, _, _, _) = do
 foldlDelta' :: forall a r. Storable r
             => (a -> DualNumber r -> a)
             -> a
-            -> VecDualNumber r
+            -> DualNumberVariables r
             -> a
 {-# INLINE foldlDelta' #-}
 foldlDelta' f a (vecR, vecD, _, _, _, _) = do

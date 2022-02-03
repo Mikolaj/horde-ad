@@ -17,12 +17,12 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import HordeAd.DualNumber
 import HordeAd.Engine
 import HordeAd.MnistToolsData
-import HordeAd.PairOfVectors (VecDualNumber, varV)
+import HordeAd.PairOfVectors (DualNumberVariables, varV)
 
 sumTrainableInputsV :: Numeric r
                     => DualNumber (Vector r)
                     -> Int
-                    -> VecDualNumber r
+                    -> DualNumberVariables r
                     -> DualNumber r
 sumTrainableInputsV x offset variables =
   let v = varV variables offset
@@ -31,7 +31,7 @@ sumTrainableInputsV x offset variables =
 sumTrainableInputsL :: forall r. Numeric r
                     => DualNumber (Vector r)
                     -> Int
-                    -> VecDualNumber r
+                    -> DualNumberVariables r
                     -> Int
                     -> DualNumber (Vector r)
 sumTrainableInputsL x offset variables width =
@@ -42,7 +42,7 @@ sumTrainableInputsL x offset variables width =
 sumConstantDataV :: Numeric r
                  => Vector r
                  -> Int
-                 -> VecDualNumber r
+                 -> DualNumberVariables r
                  -> DualNumber r
 sumConstantDataV x offset variables =
   let v = varV variables offset
@@ -51,7 +51,7 @@ sumConstantDataV x offset variables =
 sumConstantDataL :: forall r. Numeric r
                  => Vector r
                  -> Int
-                 -> VecDualNumber r
+                 -> DualNumberVariables r
                  -> Int
                  -> DualNumber (Vector r)
 sumConstantDataL x offset variables width =
@@ -81,7 +81,7 @@ nnMnist2V :: (DeltaMonad r m, Numeric r, Num (Vector r))
           -> Int
           -> Int
           -> Vector r
-          -> VecDualNumber r
+          -> DualNumberVariables r
           -> m (DualNumber (Vector r))
 nnMnist2V factivationHidden factivationOutput widthHidden widthHidden2
            input variables = do
@@ -106,7 +106,7 @@ nnMnistLoss2V :: (DeltaMonad r m, Floating r, Numeric r, Floating (Vector r))
               => Int
               -> Int
               -> MnistData r
-              -> VecDualNumber r
+              -> DualNumberVariables r
               -> m (DualNumber r)
 nnMnistLoss2V widthHidden widthHidden2 (input, target) variables = do
   result <- inline nnMnist2V logisticActV softMaxActV

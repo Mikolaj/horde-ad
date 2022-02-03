@@ -113,7 +113,7 @@ bgroup5e7 allxs =
 -- of a custom operation here, where there's no gradient descent
 -- to manage the vectors for us.
 vec_prod_aux :: forall m r. (DeltaMonad r m, Numeric r)
-             => VecDualNumber r -> m (DualNumber r)
+             => DualNumberVariables r -> m (DualNumber r)
 vec_prod_aux = foldMDelta' (*\) (scalar 1)
   -- no handwritten derivatives; only the derivative for @(*)@ is provided;
   -- also, not omitting bindings; all let-bindings are present, see below
@@ -139,7 +139,7 @@ grad_toList_prod l = V.toList $ grad_vec_prod $ V.fromList l
 
 vec_omit_prod_aux
   :: forall m r. (DeltaMonad r m, Numeric r)
-  => VecDualNumber r -> m (DualNumber r)
+  => DualNumberVariables r -> m (DualNumber r)
 vec_omit_prod_aux vec = returnLet $ foldlDelta' (*) (scalar 1) vec
   -- omitting most bindings, because we know nothing repeats inside
 
