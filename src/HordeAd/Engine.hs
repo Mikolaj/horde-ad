@@ -46,12 +46,12 @@ instance DeltaMonad r (DeltaMonadValue r) where
 -- The general case, needed for old, hacky tests before 'Delta' extension.
 --
 -- Small enough that inline won't hurt.
-valueDual :: Numeric r
+primalValueGeneric :: Numeric r
           => (DualNumberVariables r -> DeltaMonadValue r a)
           -> (Domain r, DomainV r, DomainL r)
           -> a
-{-# INLINE valueDual #-}
-valueDual f (ds, dsV, dsL) =
+{-# INLINE primalValueGeneric #-}
+primalValueGeneric f (ds, dsV, dsL) =
   let vec = makeDualNumberVariables (ds, dsV, dsL)
                                   ( V.replicate (V.length ds) Zero  -- dummy
                                   , V.replicate (V.length dsV) Zero
@@ -59,13 +59,13 @@ valueDual f (ds, dsV, dsL) =
   in runIdentity $ f vec
 
 -- Small enough that inline won't hurt.
-valueDualNumber :: Numeric r
+primalValue :: Numeric r
                => (DualNumberVariables r -> DeltaMonadValue r (DualNumber a))
                -> (Domain r, DomainV r, DomainL r)
                -> a
-{-# INLINE valueDualNumber #-}
-valueDualNumber f ds =
-  let D value _ = valueDual f ds
+{-# INLINE primalValue #-}
+primalValue f ds =
+  let D value _ = primalValueGeneric f ds
   in value
 
 -- * Here's the fully-fledged monad implementation for gradients

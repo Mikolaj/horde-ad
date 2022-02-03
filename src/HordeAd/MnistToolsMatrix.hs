@@ -78,7 +78,7 @@ testMnist2L inputs parameters =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
         let nn = inline nnMnist2L logisticActV softMaxActV glyph
-            value = valueDualNumber nn parameters
+            value = primalValue nn parameters
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)

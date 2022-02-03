@@ -120,7 +120,7 @@ vec_prod_aux = foldMDelta' (*\) (scalar 1)
 
 vec_prod :: Numeric r
          => Domain r -> r
-vec_prod ds = valueDualNumber vec_prod_aux (ds, V.empty, V.empty)
+vec_prod ds = primalValue vec_prod_aux (ds, V.empty, V.empty)
 
 grad_vec_prod :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
               => Domain r -> Domain' r
@@ -145,7 +145,7 @@ vec_omit_prod_aux vec = returnLet $ foldlDelta' (*) (scalar 1) vec
 
 vec_omit_prod :: Numeric r
               => Domain r -> r
-vec_omit_prod ds = valueDualNumber vec_omit_prod_aux (ds, V.empty, V.empty)
+vec_omit_prod ds = primalValue vec_omit_prod_aux (ds, V.empty, V.empty)
 
 grad_vec_omit_prod :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
                    => Domain r -> Domain' r
