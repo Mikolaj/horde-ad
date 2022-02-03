@@ -17,7 +17,7 @@ https://github.com/Mikolaj/horde-ad/blob/bdcc42fadca3b29a1c5ab302c4ada8d3e2fb7ec
 
 The WIP noise is visible in notation and in comments. The ratio of signal to noise raises once you settle on a scalar type, define a toolbox of functions for the task at hand and start composing the functions.
 
-Larger examples with the library are the fully connected neural networks for MNIST digit classification constructed using, in turn: [matrices](https://github.com/Mikolaj/horde-ad/blob/delta-vector/src/HordeAd/MnistToolsMatrix.hs), [vectors](https://github.com/Mikolaj/horde-ad/blob/delta-vector/src/HordeAd/MnistToolsVector.hs) and [scalars](https://github.com/Mikolaj/horde-ad/blob/delta-vector/src/HordeAd/MnistToolsScalar.hs).
+Larger examples with the library are the fully connected neural networks for MNIST digit classification constructed using, in turn: [matrices](https://github.com/Mikolaj/horde-ad/blob/master/src/HordeAd/MnistToolsMatrix.hs), [vectors](https://github.com/Mikolaj/horde-ad/blob/master/src/HordeAd/MnistToolsVector.hs) and [scalars](https://github.com/Mikolaj/horde-ad/blob/master/src/HordeAd/MnistToolsScalar.hs).
 
 
 Compilation from source
