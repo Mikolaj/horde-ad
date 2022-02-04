@@ -84,6 +84,21 @@ buildVector dim dimV dimL st d0 = do
   storeL <- VM.replicate dimL (fromRows [] :: Matrix r)  -- dummy value
   intMapV <- newSTRef IM.empty
   intMapL <- newSTRef IM.empty
+  -- This is probably not worth optimizing further, e.g., reusing the same
+  -- three parameter vectors (only the initial portion of @store@ for scalars)
+  -- or updating in-place inside vectors and matrices. Experiments indicate
+  -- that allocation and runtime gains of the latter optimization are
+  -- a few percent (because the vector and matrix arithmetic's in the forward
+  -- pass are done immutably anyway), and for both optimizations, any thunk
+  -- pointing inside the mutated vectors can easily be catastrophic.
+  -- Maintaining this brittle optimization would also make harder any future
+  -- parallelization, whether on CPU or GPU.
+  --
+  -- OTOH, removing @storeV@ and @storeL@ increases GC for vector-based
+  -- MNIST500x500 by half, so let's keep them. Probably CPU manages cache better
+  -- when vectors are stored in a (mutable?) vector, not a tree spread
+  -- all around the heap. For few but very long vectors this may not matter
+  -- much, though.
   let addToVector :: Int -> Vector r -> ST s ()
       {-# INLINE addToVector #-}
       addToVector i r = let addToStore v = if V.null v then r else v + r
@@ -188,32 +203,12 @@ evalBindings :: forall r. (Eq r, Numeric r, Num (Vector r))
                 , Data.Vector.Vector (Vector r)
                 , Data.Vector.Vector (Matrix r) )
 evalBindings dim dimV dimL st d0 =
-  -- We can't just call @V.create@ thrice, because it would run
-  -- the @ST@ action thrice.
+  -- This is morally @V.create@ and so totally safe,
+  -- but we can't just call @V.create@ thrice, because it would run
+  -- the @ST@ action thrice, so we inline and extend @V.create@ here.
   runST $ do
     (res, resV, resL) <- buildVector dim dimV dimL st d0
     r <- V.unsafeFreeze res
     rV <- V.unsafeFreeze resV
     rL <- V.unsafeFreeze resL
     return (r, rV, rL)
-
--- Note: we can't re-use the same three vectors all the time for the parameters,
--- because we need both the old parameters and the new gradient to compute
--- the new parameters. Double-buffering/cycling two sets of vectors
--- would work, but would be complex and both sets would not fit in cache
--- all the time, so it may even be cheaper to allocate them anew
--- than read from distant RAM and overwrite at once. Perhaps library ad does
--- something smart here, so worth a look.
---
--- It seems we can keep reusing the same vector if, for scalars, vectors
--- and matrices, when we update the parameters in the @Var@ cases of @eval@
--- we immediately multiply the increments by @gamma@. That may be what
--- library ad is doing in its @gradWith combine (f input) parameters@ calls.
--- However, for this we need to implement Adam and other gradient descent
--- schemes first, because already our @gdSmart@ gradient descent operation
--- uses both old and new values of parameters. Probably it could use only
--- the new values without much worse results, but other schemes may be
--- less forgiving. OTOH, library ad uses something like our @gdSmart@
--- and Python libraries require "zeroing gradients" so perhaps the popular
--- assumption is that old values of parameters should not be available after
--- gradient is computed?
