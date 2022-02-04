@@ -176,7 +176,7 @@ logisticAct = returnLet . logistic
 sumElementsVectorOfDelta :: Num r
                          => Data.Vector.Vector (DualNumber r)
                          -> DualNumber r
-sumElementsVectorOfDelta us = V.foldl' (+) (scalar 0) us
+sumElementsVectorOfDelta = V.foldl' (+) (scalar 0)
 
 softMaxAct :: (DeltaMonad r m, Floating r)
            => Data.Vector.Vector (DualNumber r)

@@ -6,12 +6,11 @@ import Prelude
 
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Storable
-import           Numeric.LinearAlgebra (Numeric)
+import           Numeric.LinearAlgebra (Numeric, Vector)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
-import HordeAd
+import HordeAd hiding (sumElementsVectorOfDelta)
 
 type DualNumberF = DualNumber Float
 
@@ -41,14 +40,6 @@ testTrees = [ dfTests
 squareDual :: (DeltaMonad r m, Num r) => DualNumber r -> m (DualNumber r)
 squareDual = returnLet . square
 
--- In addition to convenience, this eliminates all Delta bindings
--- coming from binary addition into a single binding
--- (and so makes automatic fusion possible in the future).
-sumDual :: forall m r. (DeltaMonad r m, Num r)
-        => Data.Vector.Vector (DualNumber r)
-        -> m (DualNumber r)
-sumDual = returnLet . sumElementsVectorOfDelta
-
 dfShow :: (DualNumberVariablesF -> DeltaMonadGradient Float DualNumberF)
        -> [Float]
        -> ([Float], Float)
@@ -57,47 +48,47 @@ dfShow f deltaInput =
   in (V.toList results, value)
 
 fX :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
-fX vec = do
-  let x = var vec 0
+fX variables = do
+  let x = var variables 0
   return x
 
 fX1Y :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
-fX1Y vec = do
-  let x = var vec 0
-      y = var vec 1
+fX1Y variables = do
+  let x = var variables 0
+      y = var variables 1
   x1 <- x +\ scalar 1
   x1 *\ y
 
 fXXY :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
-fXXY vec = do
-  let x = var vec 0
-      y = var vec 1
+fXXY variables = do
+  let x = var variables 0
+      y = var variables 1
   xy <- x *\ y
   x *\ xy
 
 fXYplusZ :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
-fXYplusZ vec = do
-  let x = var vec 0
-      y = var vec 1
-      z = var vec 2
+fXYplusZ variables = do
+  let x = var variables 0
+      y = var variables 1
+      z = var variables 2
   xy <- x *\ y
   xy +\ z
 
 fXtoY :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
-fXtoY vec = do
-  let x = var vec 0
-      y = var vec 1
+fXtoY variables = do
+  let x = var variables 0
+      y = var variables 1
   x **\ y
 
 freluX :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
-freluX vec = do
-  let x = var vec 0
+freluX variables = do
+  let x = var variables 0
   reluAct x
 
 fquad :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
-fquad vec = do
-  let x = var vec 0
-      y = var vec 1
+fquad variables = do
+  let x = var variables 0
+      y = var variables 1
   x2 <- squareDual x
   y2 <- y *\ y
   tmp <- x2 +\ y2
@@ -127,16 +118,12 @@ dfTests = testGroup "Simple df application tests" $
 -- to express the sizes in types, or we may be able to handle tuples
 -- automatically. For now, the user has to translate from tuples
 -- to vectors manually and we omit this straightforward boilerplate code here.
---
--- TODO: work on user-friendly errors if the input record is too short.
--- TODO: give the output vector the same type as the input vector,
--- which is a pair of an unboxed vector of scalars and a boxed vector
--- of deltas (the output vector currently is a boxed vector of pairs;
--- this is related to the ongoing work on shapes of scalar containers).
+-- TODO: while we used weakly-typed vectors, work on user-friendly errors
+-- if the input record is too short.
 atanReadmePoly :: (RealFloat r, Numeric r)
                => DualNumberVariables r -> Data.Vector.Vector (DualNumber r)
-atanReadmePoly vec =
-  let x : y : z : _ = vars vec
+atanReadmePoly variables =
+  let x : y : z : _ = vars variables
       w = x * sin y
   in V.fromList [atan2 z w, z * x]
 
@@ -147,19 +134,28 @@ atanReadmePoly vec =
 -- emit a warning too, in case the user just forgot to apply
 -- a loss function and that's the only reason the result is not a scalar?).
 -- For now, let's perform the dot product in user code.
---
--- The @sumDual@ introduces the only Delta-binding in this reverse
--- gradient computations. If the code above had any repeated
--- non-variable expressions, the user would need to make it monadic
--- and apply another binding-introducing operation already there.
-atanReadmeMPoly :: (RealFloat r, DeltaMonad r m, Numeric r)
-                => DualNumberVariables r -> m (DualNumber r)
-atanReadmeMPoly vec =
-  sumDual $ atanReadmePoly vec
-    -- dot product with ones is the sum of all elements
+-- Here is the code for dot product with ones, which is just the sum
+-- of elements of a vector:
+sumElementsVectorOfDelta :: Num r
+                         => Data.Vector.Vector (DualNumber r)
+                         -> DualNumber r
+sumElementsVectorOfDelta = V.foldl' (+) (scalar 0)
 
-dfAtanReadmeMPoly :: ( RealFloat r, Numeric r
-                     , Num (Data.Vector.Storable.Vector r) )
+-- Here we introduce the only Delta-let binding (@returnLet@) to ensure
+-- that if this code is used in a larger context and repeated,
+-- no explosion of delta-expression can happen.
+-- If the code above had any repeated non-variable expressions
+-- (e.g., if @w@ appeared twice) the user would need to make it monadic
+-- and apply @returnLet@ already there.
+atanReadmeMPoly :: (DeltaMonad r m, RealFloat r, Numeric r)
+                => DualNumberVariables r -> m (DualNumber r)
+atanReadmeMPoly variables =
+  returnLet $ sumElementsVectorOfDelta $ atanReadmePoly variables
+
+-- The underscores and empty vectors are placeholders for the vector
+-- and matrix components of the parameters triple, which we here don't use
+-- (we construct vectors, but from scalar parameters).
+dfAtanReadmeMPoly :: (RealFloat r, Numeric r, Num (Vector r))
                   => Domain r -> (Domain' r, r)
 dfAtanReadmeMPoly ds =
   let ((res, _, _), value) = df atanReadmeMPoly (ds, V.empty, V.empty)
