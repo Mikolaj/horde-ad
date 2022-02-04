@@ -42,6 +42,7 @@ data Delta :: Type -> Type where
   SumElements :: Delta (Vector r) -> Int -> Delta r
   Konst :: Delta r -> Delta (Vector r)
   Seq :: Data.Vector.Vector (Delta r) -> Delta (Vector r)
+  Index :: Delta (Vector r) -> Int -> Int -> Delta r
   DotL :: Matrix r -> Delta (Matrix r) -> Delta (Vector r)
   DotRowL :: Vector r -> Delta (Matrix r) -> Delta (Vector r)
   KonstL :: Delta (Vector r) -> Delta (Matrix r)
@@ -125,6 +126,7 @@ buildVector dim dimV dimL st d0 = do
         SumElements vd n -> evalV (konst r n) vd
         Konst{} -> error "buildVector: Konst can't result in a scalar"
         Seq{} -> error "buildVector: Seq can't result in a scalar"
+        Index d i n -> evalV (konst 0 n V.// [(i, r)]) d
         DotL{} -> error "buildVector: DotL can't result in a scalar"
         DotRowL{} -> error "buildVector: DotRowL can't result in a scalar"
         KonstL{} -> error "buildVector: KonstL can't result in a scalar"
@@ -140,6 +142,7 @@ buildVector dim dimV dimL st d0 = do
           error "buildVector: unboxed vectors of vectors not possible"
         Konst d -> V.mapM_ (`eval` d) r
         Seq vd -> V.imapM_ (\i d -> eval (r V.! i) d) vd
+        Index{} -> error "buildVector: unboxed vectors of vectors not possible"
         DotL mr md -> evalL (asColumn r * mr) md
           -- this @asColumn@ interacted disastrously with @mr = asRow v@
           -- in @(#>!)@, each causing an allocation of a whole new @n^2@ matrix
@@ -166,6 +169,7 @@ buildVector dim dimV dimL st d0 = do
         Dot{} -> error "buildVector: unboxed vectors of vectors not possible"
         SumElements{} ->
           error "buildVector: unboxed vectors of vectors not possible"
+        Index{} -> error "buildVector: unboxed vectors of vectors not possible"
         KonstL d -> mapM_ (`evalV` d) (toRows r)
         SeqL md -> zipWithM_ evalV (toRows r) (V.toList md)
   eval 1 d0  -- dt is 1 or hardwired in f

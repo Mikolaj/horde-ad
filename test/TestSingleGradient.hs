@@ -6,7 +6,7 @@ import Prelude
 
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Numeric, Vector, konst)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
@@ -19,6 +19,7 @@ type DualNumberVariablesF = DualNumberVariables Float
 testTrees :: [TestTree]
 testTrees = [ dfTests
             , readmeTests
+            , readmeTestsV
             ]
 
 -- Unfortunately, monadic versions of the operations below are not
@@ -158,11 +159,11 @@ atanReadmeMPoly variables =
 dfAtanReadmeMPoly :: (RealFloat r, Numeric r, Num (Vector r))
                   => Domain r -> (Domain' r, r)
 dfAtanReadmeMPoly ds =
-  let ((res, _, _), value) = df atanReadmeMPoly (ds, V.empty, V.empty)
-  in (res, value)
+  let ((result, _, _), value) = df atanReadmeMPoly (ds, V.empty, V.empty)
+  in (result, value)
 
 readmeTests :: TestTree
-readmeTests = testGroup "Tests of code from the library's future README"
+readmeTests = testGroup "Tests of code from the library's README"
   [ testCase "Poly Float (1.1, 2.2, 3.3)"
     $ dfAtanReadmeMPoly (V.fromList [1.1 :: Float, 2.2, 3.3])
       @?= (V.fromList [3.0715904, 0.18288425, 1.1761366], 4.937552)
@@ -171,5 +172,48 @@ readmeTests = testGroup "Tests of code from the library's future README"
       @?= ( V.fromList [ 3.071590389300859
                        , 0.18288422990948425
                        , 1.1761365368997136 ]
+          , 4.9375516951604155 )
+  ]
+
+-- And here's a version of the example that uses vector parameters
+-- (quite wasteful in this case) and transforms intermediate results
+-- via a primitive differentiable type of vectors instead of inside
+-- vectors of primitive differentiable scalars.
+
+atanReadmePolyV :: (RealFloat r, Numeric r)
+                => DualNumberVariables r -> DualNumber (Vector r)
+atanReadmePolyV variables =
+  let xyzVector = varV variables 0
+      x = indexDeltaOfVector xyzVector 0
+      y = indexDeltaOfVector xyzVector 1
+      z = indexDeltaOfVector xyzVector 2
+      w = x * sin y
+  in deltaSeq $ V.fromList [atan2 z w, z * x]
+
+atanReadmeMPolyV :: (DeltaMonad r m, RealFloat r, Numeric r)
+                 => DualNumberVariables r -> m (DualNumber r)
+atanReadmeMPolyV variables =
+  returnLet $ atanReadmePolyV variables <.>!! konst 1 2
+
+-- The underscores and empty vectors are placeholders for the vector
+-- and matrix components of the parameters triple, which we here don't use
+-- (we construct vectors, but from scalar parameters).
+dfAtanReadmeMPolyV :: (RealFloat r, Numeric r, Num (Vector r))
+                   => DomainV r -> (DomainV' r, r)
+dfAtanReadmeMPolyV dsV =
+  let ((_, result, _), value) = df atanReadmeMPolyV (V.empty, dsV, V.empty)
+  in (result, value)
+
+readmeTestsV :: TestTree
+readmeTestsV = testGroup "Tests of vector-based code from the library's README"
+  [ testCase "PolyV Float (1.1, 2.2, 3.3)"
+    $ dfAtanReadmeMPolyV (V.singleton $ V.fromList [1.1 :: Float, 2.2, 3.3])
+      @?= ( V.singleton $ V.fromList [3.0715904, 0.18288425, 1.1761366]
+          , 4.937552 )
+  , testCase "PolyV Double (1.1, 2.2, 3.3)"
+    $ dfAtanReadmeMPolyV (V.singleton $ V.fromList [1.1 :: Double, 2.2, 3.3])
+      @?= ( V.singleton $ V.fromList [ 3.071590389300859
+                                     , 0.18288422990948425
+                                     , 1.1761365368997136 ]
           , 4.9375516951604155 )
   ]

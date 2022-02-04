@@ -138,6 +138,10 @@ deltaSeq :: Numeric r
 deltaSeq v = D (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
                (Seq $ V.map (\(D _ u') -> u') v)
 
+indexDeltaOfVector :: Numeric r
+                   => DualNumber (Vector r) -> Int -> DualNumber r
+indexDeltaOfVector (D u u') i = D (u V.! i) (Index u' i (V.length u))
+
 -- | Dense matrix-vector product.
 infixr 8 #>!
 (#>!) :: Numeric r
