@@ -9,11 +9,11 @@ Here is an example of computing the gradient of a function that goes from `R^3` 
 
 ```Haskell
 f (x, y, z) =
-   let w = x * sin y
-   in (atan2 (z, w), z * x)
+    let w = x * sin y
+    in (atan2 (z, w), z * x)
 ```
 
-https://github.com/Mikolaj/horde-ad/blob/bdcc42fadca3b29a1c5ab302c4ada8d3e2fb7ec4/test/TestSingleGradient.hs#L95-L148
+https://github.com/Mikolaj/horde-ad/blob/e7912a7b44b8174701bd59016e1d52b99cc26a3b/test/TestSingleGradient.hs#L116-L176
 
 The WIP noise is visible in notation and in comments. The ratio of signal to noise raises once you settle on a scalar type, define a toolbox of functions for the task at hand and start composing the functions.
 
