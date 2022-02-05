@@ -151,7 +151,6 @@ infixr 8 #>!
 (#>!) (D u u') (D v v') =
   D (u #> v) (Add (DotRowL v u')
                   (DotL u (KonstL v')))
-    -- this @asRow@ interacts disastrously with @asColumn@ in @evalV@
 
 -- | Dense matrix-vector product with a constant vector.
 infixr 8 #>!!

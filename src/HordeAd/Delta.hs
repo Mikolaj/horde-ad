@@ -22,7 +22,6 @@ import           Control.Exception (assert)
 import           Control.Monad (foldM, unless, zipWithM_)
 import           Control.Monad.ST.Strict (ST, runST)
 import           Data.Kind (Type)
-import           Data.Maybe (fromMaybe)
 import           Data.STRef
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Strict.Vector as Data.Vector
@@ -31,22 +30,28 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Storable.Mutable
 import           Numeric.LinearAlgebra
-  (Matrix, Numeric, Vector, asColumn, fromRows, konst, outer, rows, toRows)
+  (Matrix, Numeric, Vector, cols, fromRows, konst, outer, rows, toRows)
 import qualified Numeric.LinearAlgebra
 
 -- | A matrix representation as a product of a basic matrix
--- and an outer product of two vectors.
+-- and an outer product of two vectors, each defaulting to a vector of ones.
 data MatrixOuter r = MatrixOuter (Maybe (Matrix r))
-                                 (Maybe (Vector r, Vector r))
+                                 (Maybe (Vector r)) (Maybe (Vector r))
 
 convertMatrixOuter :: (Numeric r, Num (Vector r)) => MatrixOuter r -> Matrix r
-convertMatrixOuter (MatrixOuter mm Nothing) =
-  fromMaybe (error "convertMatrixOuter: dimensions can't be determined") mm
-convertMatrixOuter (MatrixOuter Nothing mcr) =
-  maybe (error "convertMatrixOuter: dimensions can't be determined")
-        (uncurry outer)
-        mcr
-convertMatrixOuter (MatrixOuter (Just m) (Just cr)) = m * uncurry outer cr
+convertMatrixOuter (MatrixOuter (Just m) Nothing Nothing) = m
+convertMatrixOuter (MatrixOuter (Just m) (Just c) Nothing) =
+  -- m * asColumn c  -- strangely, this allocates much more; probably
+  -- multiplication by @outer@ is somehow fused, but I can't see this in code;
+  -- it doesn't matter if @m@ comes first
+  m * outer c (konst 1 (cols m))
+convertMatrixOuter (MatrixOuter (Just m) Nothing (Just r)) =
+  -- m * asRow r
+  m * outer (konst 1 (rows m)) r
+convertMatrixOuter (MatrixOuter (Just m) (Just c) (Just r)) = m * outer c r
+convertMatrixOuter (MatrixOuter Nothing (Just c) (Just r)) = outer c r
+convertMatrixOuter _ =
+  error "convertMatrixOuter: dimensions can't be determined"
 
 data Delta :: Type -> Type where
   Zero :: Delta a
@@ -159,10 +164,8 @@ buildVector dim dimV dimL st d0 = do
         Konst d -> V.mapM_ (`eval` d) r
         Seq vd -> V.imapM_ (\i d -> eval (r V.! i) d) vd
         Index{} -> error "buildVector: unboxed vectors of vectors not possible"
-        DotL mr md ->
-          let !m = asColumn r * mr
-          in evalL (MatrixOuter (Just m) Nothing) md
-          -- this @asColumn@ interacted disastrously with @mr = asRow v@
+        DotL mr md -> evalL (MatrixOuter (Just mr) (Just r) Nothing) md
+          -- this column vector interacted disastrously with @mr = asRow v@
           -- in @(#>!)@, each causing an allocation of a whole new @n^2@ matrix
           -- and then a third with their outer product;
           -- when doing the same computation by hand using @Vector@
@@ -170,17 +173,17 @@ buildVector dim dimV dimL st d0 = do
           -- the cost for the manual computation is many extra delta
           -- expressions which, however, with square enough matrices,
           -- don't dominate
-        DotRowL row md -> evalL (MatrixOuter Nothing (Just (r, row))) md
+        DotRowL row md -> evalL (MatrixOuter Nothing (Just r) (Just row)) md
           -- this is a way to alleviate the ephemeral matrices problem,
           -- by polluting the API with the detail about the shape
           -- of the passed array (the replicated row shape),
           -- which eliminates two of the three matrix allocations;
       evalL :: MatrixOuter r -> Delta (Matrix r) -> ST s ()
-      evalL !r@(MatrixOuter mm mcr) = \case
+      evalL !r@(MatrixOuter mm mc mr) = \case
         Zero -> return ()
         Scale k d ->
           let !m = maybe k (k *) mm
-          in evalL (MatrixOuter (Just m) mcr) d
+          in evalL (MatrixOuter (Just m) mc mr) d
         Add d1 d2 -> evalL r d1 >> evalL r d2
         Var (DeltaId i) -> addToMatrix i r
         Dot{} -> error "buildVector: unboxed vectors of vectors not possible"
@@ -209,10 +212,12 @@ buildVector dim dimV dimL st d0 = do
         if i < dimSVL then do
           r <- storeL `VM.read` (i - dimSV)
           unless (rows r <= 0) $
-            evalL (MatrixOuter (Just r) Nothing) d
+            evalL (MatrixOuter (Just r) Nothing Nothing) d
         else do
           mr <- IM.lookup i <$> readSTRef intMapL
-          maybe (pure ()) (\ !r -> evalL (MatrixOuter (Just r) Nothing) d) mr
+          maybe (pure ())
+                (\ !r -> evalL (MatrixOuter (Just r) Nothing Nothing) d)
+                mr
         return $! DeltaId (pred i)
   minusOne <- foldM evalUnlessZero (DeltaId $ pred storeSize) (deltaBindings st)
   let _A = assert (minusOne == DeltaId (-1)) ()
