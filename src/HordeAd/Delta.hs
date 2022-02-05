@@ -30,11 +30,11 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Storable.Mutable
 import           Numeric.LinearAlgebra
-  (Matrix, Numeric, Vector, cols, konst, outer, rows, toRows)
+  (Matrix, Numeric, Vector, asColumn, asRow, konst, outer, toRows)
 import qualified Numeric.LinearAlgebra
 
--- | A matrix representation as a product of a basic matrix
--- and an outer product of two vectors, each defaulting to a vector of ones.
+-- | A representation of a matrix as a product of a basic matrix
+-- and an outer product of two vectors. Each component defaults to ones.
 data MatrixOuter r = MatrixOuter (Maybe (Matrix r))
                                  (Maybe (Vector r)) (Maybe (Vector r))
 
@@ -44,14 +44,13 @@ nullMatrixOuter _ = False
 
 convertMatrixOuter :: (Numeric r, Num (Vector r)) => MatrixOuter r -> Matrix r
 convertMatrixOuter (MatrixOuter (Just m) Nothing Nothing) = m
-convertMatrixOuter (MatrixOuter (Just m) (Just c) Nothing) =
-  -- m * asColumn c  -- strangely, this allocates much more; probably
-  -- multiplication by @outer@ is somehow fused, but I can't see this in code;
+convertMatrixOuter (MatrixOuter (Just m) (Just c) Nothing) = m * asColumn c
+  -- beware, depending on context, @m * outer c (konst 1 (cols m))@
+  -- may allocate much less and perhaps @fromRows . toRowsMatrixOuter@
+  -- may be even better; that's probably blas fusing, but I can't see
+  -- in hmatrix's code how it makes this possible;
   -- it doesn't matter if @m@ comes first
-  m * outer c (konst 1 (cols m))
-convertMatrixOuter (MatrixOuter (Just m) Nothing (Just r)) =
-  -- m * asRow r
-  m * outer (konst 1 (rows m)) r
+convertMatrixOuter (MatrixOuter (Just m) Nothing (Just r)) = m * asRow r
 convertMatrixOuter (MatrixOuter (Just m) (Just c) (Just r)) = m * outer c r
 convertMatrixOuter (MatrixOuter Nothing (Just c) (Just r)) = outer c r
 convertMatrixOuter _ =
@@ -79,8 +78,8 @@ toRowsMatrixOuter _ =
 plusMatrixOuter :: (Numeric r, Num (Vector r))
                 => MatrixOuter r -> MatrixOuter r -> MatrixOuter r
 plusMatrixOuter o1 o2 =
-  MatrixOuter (Just $ convertMatrixOuter o1 + convertMatrixOuter o2)
-              Nothing Nothing
+  let !o = convertMatrixOuter o1 + convertMatrixOuter o2
+  in MatrixOuter (Just o) Nothing Nothing
     -- Here we allocate up to 5 matrices, but we should allocate one
     -- and in-place add to it and multiply it, etc., ideally using raw FFI.
 
@@ -210,7 +209,7 @@ buildVector dim dimV dimL st d0 = do
           -- this is a way to alleviate the ephemeral matrices problem,
           -- by polluting the API with the detail about the shape
           -- of the passed array (the replicated row shape),
-          -- which eliminates two of the three matrix allocations;
+          -- which eliminates two of the three matrix allocations
       evalL :: MatrixOuter r -> Delta (Matrix r) -> ST s ()
       evalL !r@(MatrixOuter mm mc mr) = \case
         Zero -> return ()
