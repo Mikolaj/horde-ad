@@ -53,6 +53,25 @@ convertMatrixOuter (MatrixOuter Nothing (Just c) (Just r)) = outer c r
 convertMatrixOuter _ =
   error "convertMatrixOuter: dimensions can't be determined"
 
+toRowsMatrixOuter :: (Numeric r, Num (Vector r)) => MatrixOuter r -> [Vector r]
+toRowsMatrixOuter (MatrixOuter (Just m) Nothing Nothing) = toRows m
+toRowsMatrixOuter (MatrixOuter (Just m) mc Nothing) =
+  maybe id
+        (\c -> zipWith (\s row -> Numeric.LinearAlgebra.scale s row)
+                       (V.toList c))
+        mc
+  $ toRows m
+toRowsMatrixOuter (MatrixOuter (Just m) mc (Just r)) =
+  maybe (map (r *))
+        (\c -> zipWith (\s row -> r * Numeric.LinearAlgebra.scale s row)
+                       (V.toList c))
+        mc
+  $ toRows m
+toRowsMatrixOuter (MatrixOuter Nothing (Just c) (Just r)) =
+  map (`Numeric.LinearAlgebra.scale` r) $ V.toList c
+toRowsMatrixOuter _ =
+  error "toRowsMatrixOuter: dimensions can't be determined"
+
 data Delta :: Type -> Type where
   Zero :: Delta a
   Scale :: a -> Delta a -> Delta a
@@ -190,8 +209,8 @@ buildVector dim dimV dimL st d0 = do
         SumElements{} ->
           error "buildVector: unboxed vectors of vectors not possible"
         Index{} -> error "buildVector: unboxed vectors of vectors not possible"
-        KonstL d -> mapM_ (`evalV` d) (toRows $ convertMatrixOuter r)
-        SeqL md -> zipWithM_ evalV (toRows $ convertMatrixOuter r) (V.toList md)
+        KonstL d -> mapM_ (`evalV` d) (toRowsMatrixOuter r)
+        SeqL md -> zipWithM_ evalV (toRowsMatrixOuter r) (V.toList md)
   eval 1 d0  -- dt is 1 or hardwired in f
   let evalUnlessZero :: DeltaId -> DeltaBinding r -> ST s DeltaId
       evalUnlessZero (DeltaId !i) (DScalar d) = do
