@@ -1,8 +1,20 @@
 {-# LANGUAGE FlexibleContexts #-}
 -- | An ad-hoc representation of matrices that saves allocations and probably
--- speeds up computing gradients. The improvements are very likely tied
--- to the vagaries of hmatrix/blas/lapack that work underneath and apparently
--- conspire to fuse some matrix operations.
+-- speeds up computing gradients. The major improvement comes from,
+-- often, not constructing some matrices at all, e.g., outer products
+-- or repeated columns that naturally occur in delta-expressions.
+-- Minor improvements come from better fusion and so less allocation
+-- of intermediate matrix results of arithmetic and other operations.
+--
+-- The latter improvements are very likely tied to the vagaries
+-- of hmatrix/vector (blas/lapack much less likely) that work underneath
+-- and apparently conspire to fuse some matrix operations but not others.
+-- That would explain why vector-based MNIST nn allocates less, despite
+-- producing much larger delta-expressions. Matrix operations probably
+-- fuse worse, even though they are really vector operations on the underlying
+-- vector representation, because the matrix dimensions book-keeping comes
+-- in the way and possibly also because some operations work on columns,
+-- against the grain of the representation.
 module HordeAd.Internal.MatrixOuter
   ( MatrixOuter (..)
   , nullMatrixOuter, convertMatrixOuter, toRowsMatrixOuter, plusMatrixOuter
@@ -29,8 +41,7 @@ convertMatrixOuter (MatrixOuter (Just m) Nothing Nothing) = m
 convertMatrixOuter (MatrixOuter (Just m) (Just c) Nothing) = m * asColumn c
   -- beware, depending on context, @m * outer c (konst 1 (cols m))@
   -- may allocate much less and perhaps @fromRows . toRowsMatrixOuter@
-  -- may be even better; that's probably blas fusing, but I can't see
-  -- in hmatrix's code how it makes this possible;
+  -- may be even better; that's probably vector being picky about fusing;
   -- it doesn't matter if @m@ comes first
 convertMatrixOuter (MatrixOuter (Just m) Nothing (Just r)) = m * asRow r
 convertMatrixOuter (MatrixOuter (Just m) (Just c) (Just r)) = m * outer c r
@@ -63,4 +74,7 @@ plusMatrixOuter o1 o2 =
   let !o = convertMatrixOuter o1 + convertMatrixOuter o2
   in MatrixOuter (Just o) Nothing Nothing
     -- TODO: Here we allocate up to 5 matrices, but we should allocate one
-    -- and in-place add to it and multiply it, etc., ideally using raw FFI.
+    -- and in-place add to it and multiply it, etc., ideally using raw FFI
+    -- or at least vector streams/bundles; an easy option to have only
+    -- one allocation is to do this pointwise, but then the speedup, if any,
+    -- from blas/lapack does not apply
