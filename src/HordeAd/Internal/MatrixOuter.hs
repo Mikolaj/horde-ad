@@ -9,12 +9,13 @@
 -- The latter improvements are very likely tied to the vagaries
 -- of hmatrix/vector (blas/lapack much less likely) that work underneath
 -- and apparently conspire to fuse some matrix operations but not others.
--- That would explain why vector-based MNIST nn allocates less, despite
--- producing much larger delta-expressions. Matrix operations probably
--- fuse worse, even though they are really vector operations on the underlying
--- vector representation, because the matrix dimensions book-keeping comes
--- in the way and possibly also because some operations work on columns,
--- against the grain of the representation.
+-- That would explain why vector-based MNIST nn allocates not much less
+-- than matrix-based MNIST, despite producing much larger delta-expressions.
+-- Matrix operations probably fuse worse, even though they are really
+-- vector operations on the underlying vector representation,
+-- because the dimensions book-keeping of the matrix comes in the way
+-- and also because some operations work on columns, against the grain
+-- of the representation.
 module HordeAd.Internal.MatrixOuter
   ( MatrixOuter (..)
   , nullMatrixOuter, convertMatrixOuter, toRowsMatrixOuter, plusMatrixOuter

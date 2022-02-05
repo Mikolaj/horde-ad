@@ -14,6 +14,7 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, rows)
 import qualified Numeric.LinearAlgebra
+import           Numeric.LinearAlgebra.Devel (liftMatrix2)
 
 import HordeAd.Delta
 import HordeAd.DualNumber (DeltaMonad (..), DualNumber (..))
@@ -154,13 +155,14 @@ updateWithGradient :: (Numeric r, Num (Vector r))
 updateWithGradient gamma (params, paramsV, paramsL)
                          (gradient, gradientV, gradientL) =
   let paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
+      updateVector i r = i - Numeric.LinearAlgebra.scale gamma r
       updateV i r = if V.null r  -- eval didn't update it, would crash
                     then i
-                    else i - Numeric.LinearAlgebra.scale gamma r
+                    else updateVector i r
       paramsVNew = V.zipWith updateV paramsV gradientV
       updateL i r = if rows r <= 0  -- eval didn't update it, would crash
                     then i
-                    else i - Numeric.LinearAlgebra.scale gamma r
+                    else liftMatrix2 updateVector i r
       paramsLNew = V.zipWith updateL paramsL gradientL
   in (paramsNew, paramsVNew, paramsLNew)
 
