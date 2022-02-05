@@ -146,7 +146,7 @@ generateDeltaVars (params, paramsV, paramsL) =
       vVarL = V.generate dimL (Var . DeltaId . (+ (dim + dimV)))
   in (vVar, vVarV, vVarL)
 
-updateWithGradient :: (Eq r, Numeric r, Num (Vector r))
+updateWithGradient :: (Numeric r, Num (Vector r))
                    => r
                    -> Domains' r
                    -> Domains' r
@@ -154,11 +154,11 @@ updateWithGradient :: (Eq r, Numeric r, Num (Vector r))
 updateWithGradient gamma (params, paramsV, paramsL)
                          (gradient, gradientV, gradientL) =
   let paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
-      updateV i r = if r == V.empty  -- even didn't update it, would crash
+      updateV i r = if V.null r  -- eval didn't update it, would crash
                     then i
                     else i - Numeric.LinearAlgebra.scale gamma r
       paramsVNew = V.zipWith updateV paramsV gradientV
-      updateL i r = if rows r <= 0  -- even didn't update it, would crash
+      updateL i r = if rows r <= 0  -- eval didn't update it, would crash
                     then i
                     else i - Numeric.LinearAlgebra.scale gamma r
       paramsLNew = V.zipWith updateL paramsL gradientL
@@ -167,7 +167,7 @@ updateWithGradient gamma (params, paramsV, paramsL)
 gradientIsNil :: (Eq r, Numeric r) => Domains' r -> Bool
 gradientIsNil (gradient, gradientV, gradientL) =
   V.all (== 0) gradient
-  && V.all (== V.empty) gradientV
+  && V.all V.null gradientV
   && V.all (\r -> rows r <= 0) gradientL
 
 -- | Simple Gradient Descent.

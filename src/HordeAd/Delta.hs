@@ -29,7 +29,8 @@ import qualified Data.Strict.Vector.Autogen.Mutable as Data.Vector.Mutable
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Storable.Mutable
-import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, konst)
+import           Numeric.LinearAlgebra
+  (Matrix, Numeric, Vector, fromRows, konst)
 import qualified Numeric.LinearAlgebra
 
 import HordeAd.Internal.MatrixOuter
@@ -218,4 +219,7 @@ evalBindings dim dimV dimL st d0 =
     r <- V.unsafeFreeze res
     rV <- V.unsafeFreeze resV
     rL <- V.unsafeFreeze resL
-    return (r, rV, V.map convertMatrixOuter rL)
+    -- Prevent a crash if a parameter not updated.
+    let convertMatrix (MatrixOuter Nothing Nothing Nothing) = fromRows []
+        convertMatrix o = convertMatrixOuter o
+    return (r, rV, V.map convertMatrix rL)
