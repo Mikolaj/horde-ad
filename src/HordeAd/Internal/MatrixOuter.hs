@@ -1,13 +1,14 @@
 {-# LANGUAGE FlexibleContexts #-}
--- | An ad-hoc representation of matrices that saves allocations and probably
--- speeds up computing gradients. The major improvement comes from,
--- often, not constructing some matrices at all, e.g., outer products
--- or repeated columns that naturally occur in delta-expressions.
--- Minor improvements come from better fusion and so less allocation
--- of intermediate matrix results of arithmetic and other operations.
+-- | An ad-hoc representation of matrices that saves allocations and
+-- speeds up computing gradients. The major improvement comes from
+-- avoiding, often, the construction of some matrices, e.g., outer
+-- products or repeated columns that naturally occur in delta-expressions.
+-- Minor improvements come from better fusion (via vector or hmatrix/lapack)
+-- and so less allocation of intermediate matrix results of arithmetic
+-- and other operations.
 --
 -- The latter improvements are very likely tied to the vagaries
--- of hmatrix/vector (blas/lapack much less likely) that work underneath
+-- of hmatrix (or, less likely, vector or lapack) that work underneath
 -- and apparently conspire to fuse some matrix operations but not others.
 -- That would explain why vector-based MNIST nn allocates not much less
 -- than matrix-based MNIST, despite producing much larger delta-expressions.
@@ -16,6 +17,11 @@
 -- because the dimensions book-keeping of the matrix comes in the way
 -- and also because some operations work on columns, against the grain
 -- of the representation.
+--
+-- For fully connected MNIST nns 10 times larger than usual, vector-based
+-- implementation allocates similarly and runs faster than matrix-based,
+-- despite the latter spending 8 times less in GC. probably because
+-- matrices don't fit in cache at this size and vectors still do.
 module HordeAd.Internal.MatrixOuter
   ( MatrixOuter (..)
   , nullMatrixOuter, convertMatrixOuter, toRowsMatrixOuter, plusMatrixOuter

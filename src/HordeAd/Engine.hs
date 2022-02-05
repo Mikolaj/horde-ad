@@ -147,6 +147,49 @@ generateDeltaVars (params, paramsV, paramsL) =
       vVarL = V.generate dimL (Var . DeltaId . (+ (dim + dimV)))
   in (vVar, vVarV, vVarL)
 
+{-
+65% of heap allocation in matrix-based MNIST is performed
+by @updateWithGradient.updateVector@ below
+
+  let updateVector i r = i - Numeric.LinearAlgebra.scale gamma r
+
+due to allocating once in @scale@ and again in @-@
+(and there seem to be one more allocation judging by the numbers).
+Something like the following code would be needed to eliminate
+one allocations, but we'd need to convince the hmatrix maintainer
+to expose internal modules.
+
+import           Internal.Vectorized
+  ( FunCodeSV (Scale), FunCodeVV (Sub), applyRaw, c_vectorMapValR
+  , c_vectorZipR, createVector )
+
+minusTimesGamma :: Storable r => r -> Vector r -> Vector r -> Vector r
+minusTimesGamma gamma u v = unsafePerformIO $ do
+  r <- createVector (dim u)
+  pval <- newArray [gamma]
+  (v `applyRaw` (r `applyRaw` id))
+    (c_vectorMapValR (fromei Scale) pval)
+    #| "minusTimesGamma1"
+  free pval
+  (u `applyRaw` (v `applyRaw` (r `applyRaw` id)))
+    (c_vectorZipR (fromei Sub))
+    #| "minusTimesGamma2"
+  return r
+
+BTW, a version with Numeric.LinearAlgebra.Devel.zipVectorWith is twice slower
+and allocates twice more
+
+  let updateVector = zipVectorWith (\i r -> i - gamma * r)
+
+and a version with Vector.Storable is thrice slower and allocates thrice more
+
+  let updateVector = V.zipWith (\i r -> i - gamma * r)
+
+which is probably a bug in stream fusion that, in this case,
+can't fuse with anything and so pay for its overhead.
+
+-}
+
 updateWithGradient :: (Numeric r, Num (Vector r))
                    => r
                    -> Domains' r
