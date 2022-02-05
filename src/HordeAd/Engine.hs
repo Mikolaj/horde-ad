@@ -154,8 +154,8 @@ updateWithGradient :: (Numeric r, Num (Vector r))
                    -> Domains' r
 updateWithGradient gamma (params, paramsV, paramsL)
                          (gradient, gradientV, gradientL) =
-  let paramsNew = V.zipWith (\i r -> i - gamma * r) params gradient
-      updateVector i r = i - Numeric.LinearAlgebra.scale gamma r
+  let updateVector i r = i - Numeric.LinearAlgebra.scale gamma r
+      paramsNew = updateVector params gradient
       updateV i r = if V.null r  -- eval didn't update it, would crash
                     then i
                     else updateVector i r
