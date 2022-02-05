@@ -108,6 +108,7 @@ library
                       HordeAd.Delta
                       HordeAd.DualNumber
                       HordeAd.Engine
+                      HordeAd.Internal.MatrixOuter
                       HordeAd.MnistTools
                       HordeAd.MnistToolsData
                       HordeAd.MnistToolsMatrix
