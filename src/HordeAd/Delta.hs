@@ -30,13 +30,17 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Storable.Mutable
 import           Numeric.LinearAlgebra
-  (Matrix, Numeric, Vector, cols, fromRows, konst, outer, rows, toRows)
+  (Matrix, Numeric, Vector, cols, konst, outer, rows, toRows)
 import qualified Numeric.LinearAlgebra
 
 -- | A matrix representation as a product of a basic matrix
 -- and an outer product of two vectors, each defaulting to a vector of ones.
 data MatrixOuter r = MatrixOuter (Maybe (Matrix r))
                                  (Maybe (Vector r)) (Maybe (Vector r))
+
+nullMatrixOuter :: (MatrixOuter r) -> Bool
+nullMatrixOuter (MatrixOuter Nothing Nothing Nothing) = True
+nullMatrixOuter _ = False
 
 convertMatrixOuter :: (Numeric r, Num (Vector r)) => MatrixOuter r -> Matrix r
 convertMatrixOuter (MatrixOuter (Just m) Nothing Nothing) = m
@@ -72,6 +76,14 @@ toRowsMatrixOuter (MatrixOuter Nothing (Just c) (Just r)) =
 toRowsMatrixOuter _ =
   error "toRowsMatrixOuter: dimensions can't be determined"
 
+plusMatrixOuter :: (Numeric r, Num (Vector r))
+                => MatrixOuter r -> MatrixOuter r -> MatrixOuter r
+plusMatrixOuter o1 o2 =
+  MatrixOuter (Just $ convertMatrixOuter o1 + convertMatrixOuter o2)
+              Nothing Nothing
+    -- Here we allocate up to 5 matrices, but we should allocate one
+    -- and in-place add to it and multiply it, etc., ideally using raw FFI.
+
 data Delta :: Type -> Type where
   Zero :: Delta a
   Scale :: a -> Delta a -> Delta a
@@ -104,7 +116,7 @@ buildVector :: forall s r. (Eq r, Numeric r, Num (Vector r))
             => Int -> Int -> Int -> DeltaState r -> Delta r
             -> ST s ( Data.Vector.Storable.Mutable.MVector s r
                     , Data.Vector.Mutable.MVector s (Vector r)
-                    , Data.Vector.Mutable.MVector s (Matrix r) )
+                    , Data.Vector.Mutable.MVector s (MatrixOuter r) )
 buildVector dim dimV dimL st d0 = do
   let DeltaId storeSize = deltaCounter st
       dimSV = dim + dimV
@@ -121,7 +133,8 @@ buildVector dim dimV dimL st d0 = do
   -- so we keep them in a sparse map, except for those that are guaranteed
   -- to be used, because they represent parameters:
   storeV <- VM.replicate dimV (V.empty :: Vector r)  -- dummy value
-  storeL <- VM.replicate dimL (fromRows [] :: Matrix r)  -- dummy value
+  storeL <- VM.replicate dimL (MatrixOuter Nothing Nothing Nothing
+                               :: MatrixOuter r)  -- dummy value
   intMapV <- newSTRef IM.empty
   intMapL <- newSTRef IM.empty
   -- This is probably not worth optimizing further, e.g., reusing the same
@@ -149,9 +162,10 @@ buildVector dim dimV dimL st d0 = do
                            else modifySTRef' intMapV (IM.alter addToIntMap i)
       addToMatrix :: Int -> MatrixOuter r -> ST s ()
       {-# INLINE addToMatrix #-}
-      addToMatrix i o = let r = convertMatrixOuter o
-                            addToStore v = if rows v <= 0 then r else v + r
-                            addToIntMap (Just v) = Just $ v + r
+      addToMatrix i r = let addToStore v = if nullMatrixOuter v
+                                           then r
+                                           else plusMatrixOuter v r
+                            addToIntMap (Just v) = Just $ plusMatrixOuter v r
                             addToIntMap Nothing = Just r
                         in if i < dimSVL
                            then VM.modify storeL addToStore (i - dimSV)
@@ -230,13 +244,11 @@ buildVector dim dimV dimL st d0 = do
       evalUnlessZero (DeltaId !i) (DMatrix d) = do
         if i < dimSVL then do
           r <- storeL `VM.read` (i - dimSV)
-          unless (rows r <= 0) $
-            evalL (MatrixOuter (Just r) Nothing Nothing) d
+          unless (nullMatrixOuter r) $
+            evalL r d
         else do
           mr <- IM.lookup i <$> readSTRef intMapL
-          maybe (pure ())
-                (\ !r -> evalL (MatrixOuter (Just r) Nothing Nothing) d)
-                mr
+          maybe (pure ()) (`evalL` d) mr
         return $! DeltaId (pred i)
   minusOne <- foldM evalUnlessZero (DeltaId $ pred storeSize) (deltaBindings st)
   let _A = assert (minusOne == DeltaId (-1)) ()
@@ -256,4 +268,4 @@ evalBindings dim dimV dimL st d0 =
     r <- V.unsafeFreeze res
     rV <- V.unsafeFreeze resV
     rL <- V.unsafeFreeze resL
-    return (r, rV, rL)
+    return (r, rV, V.map convertMatrixOuter rL)
