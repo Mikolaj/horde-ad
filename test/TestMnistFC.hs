@@ -5,8 +5,7 @@ import Prelude
 
 import           Control.Monad (foldM)
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Storable
-import           Numeric.LinearAlgebra (Numeric, konst, uniformSample)
+import           Numeric.LinearAlgebra (Numeric, Vector, konst, uniformSample)
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -27,16 +26,15 @@ shortTestForCITrees = [ dumbMnistTests
                       , shortCIMnistTests
                       ]
 
-sgdShow :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
+sgdShow :: (Eq r, Numeric r, Num (Vector r))
         => r
         -> (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
         -> [a]  -- ^ training data
         -> Domain r  -- ^ initial parameters
-        -> ([r], r)
+        -> r
 sgdShow gamma f trainData params0 =
-  let (res, _, _) = sgd gamma f trainData (params0, V.empty, V.empty)
-      (_, value) = df (f $ head trainData) (res, V.empty, V.empty)
-  in (V.toList res, value)
+  let result = sgd gamma f trainData (params0, V.empty, V.empty)
+  in snd $ df (f $ head trainData) result
 
 sgdTestCase :: String
             -> IO [a]
@@ -57,9 +55,9 @@ sgdTestCase prefix trainDataIO trainWithLoss gamma expected =
              ++ unwords [show widthHidden, show nParams, show gamma]
   in testCase name $ do
        trainData <- trainDataIO
-       snd (sgdShow gamma (trainWithLoss widthHidden widthHidden2)
-                          trainData vec)
-          @?= expected
+       sgdShow gamma (trainWithLoss widthHidden widthHidden2)
+                     trainData vec
+         @?= expected
 
 mnistTestCase2
   :: String
@@ -226,7 +224,7 @@ mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                                          (replicate cols (-0.5, 0.5)))
                         nParamsL
       totalParams = nParams + V.sum nParamsV
-                    + V.sum (V.map (uncurry (+)) nParamsL)
+                    + V.sum (V.map (uncurry (*)) nParamsL)
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2

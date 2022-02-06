@@ -49,23 +49,23 @@ gdSimpleShow gamma f initVec n =
   in (V.toList res, value)
 
 fquad :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
-fquad vec = do
-  let x = var vec 0
-      y = var vec 1
+fquad variables = do
+  let x = var variables 0
+      y = var variables 1
   x2 <- squareDual x
   y2 <- y *\ y
   tmp <- x2 +\ y2
   tmp +\ scalar 5
 
 fblowup :: forall m. DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
-fblowup vec = do
+fblowup variables = do
   let blowup :: Int -> DualNumberF -> m DualNumberF
       blowup 0 y = return y
       blowup n y = do
         ysum <- y +\ y
         yscaled <- scaleDual 0.499999985 ysum  -- otherwise we'd get NaN at once
         blowup (pred n) yscaled
-  y0 <- fquad vec
+  y0 <- fquad variables
   blowup 100 y0
 
 gdSimpleTests :: TestTree
@@ -106,10 +106,10 @@ gdSimpleTests = testGroup "Simple gradient descent tests"
 scaleAddWithBias :: DeltaMonad Float m
                  => DualNumberF -> DualNumberF -> Int -> DualNumberVariablesF
                  -> m DualNumberF
-scaleAddWithBias x y ixWeight vec = do
-  let wx = var vec ixWeight
-      wy = var vec (ixWeight + 1)
-      bias = var vec (ixWeight + 2)
+scaleAddWithBias x y ixWeight variables = do
+  let wx = var variables ixWeight
+      wy = var variables (ixWeight + 1)
+      bias = var variables (ixWeight + 2)
   sx <- x *\ wx
   sy <- y *\ wy
   sxy <- sx +\ sy
@@ -119,36 +119,36 @@ neuron :: DeltaMonad Float m
        => (DualNumberF -> m DualNumberF)
        -> DualNumberF -> DualNumberF -> Int -> DualNumberVariablesF
        -> m DualNumberF
-neuron factivation x y ixWeight vec = do
-  sc <- scaleAddWithBias x y ixWeight vec
+neuron factivation x y ixWeight variables = do
+  sc <- scaleAddWithBias x y ixWeight variables
   factivation sc
 
 nnXor :: DeltaMonad Float m
       => (DualNumberF -> m DualNumberF)
       -> DualNumberF -> DualNumberF -> DualNumberVariablesF
       -> m DualNumberF
-nnXor factivation x y vec = do
-  n1 <- neuron factivation x y 0 vec
-  n2 <- neuron factivation x y 3 vec
-  neuron factivation n1 n2 6 vec
+nnXor factivation x y variables = do
+  n1 <- neuron factivation x y 0 variables
+  n2 <- neuron factivation x y 3 variables
+  neuron factivation n1 n2 6 variables
 
 nnXorLoss :: DeltaMonad Float m
           => (DualNumberF -> m DualNumberF)
           -> Float -> Float -> Float -> DualNumberVariablesF
           -> m DualNumberF
-nnXorLoss factivation x y targ vec = do
-  res <- nnXor factivation (scalar x) (scalar y) vec
+nnXorLoss factivation x y targ variables = do
+  res <- nnXor factivation (scalar x) (scalar y) variables
   lossSquared targ res
 
 nnXorLossTotal :: DeltaMonad Float m
                => (DualNumberF -> m DualNumberF)
                -> DualNumberVariablesF
                -> m DualNumberF
-nnXorLossTotal factivation vec = do
-  n1 <- nnXorLoss factivation 0 0 0 vec
-  n2 <- nnXorLoss factivation 0 1 1 vec
-  n3 <- nnXorLoss factivation 1 0 1 vec
-  n4 <- nnXorLoss factivation 1 1 0 vec
+nnXorLossTotal factivation variables = do
+  n1 <- nnXorLoss factivation 0 0 0 variables
+  n2 <- nnXorLoss factivation 0 1 1 variables
+  n3 <- nnXorLoss factivation 1 0 1 variables
+  n4 <- nnXorLoss factivation 1 1 0 variables
   n12 <- n1 +\ n2
   n34 <- n3 +\ n4
   n12 +\ n34

@@ -6,6 +6,7 @@ import Test.Tasty
 
 import qualified TestConditionalSynth
 import qualified TestMnistFC
+import qualified TestMnistRNN
 import qualified TestOutdated
 import qualified TestSimpleDescent
 import qualified TestSingleGradient
@@ -20,3 +21,4 @@ tests = testGroup "Tests" $
   ++ TestOutdated.testTrees
   ++ TestConditionalSynth.testTrees
   ++ TestMnistFC.testTrees
+  ++ TestMnistRNN.testTrees
