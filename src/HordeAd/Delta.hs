@@ -92,17 +92,18 @@ buildVector dim dimV dimL st d0 = do
   -- three parameter vectors (only the initial portion of @store@ for scalars)
   -- or updating in-place inside vectors and matrices. Experiments indicate
   -- that allocation and runtime gains of the latter optimization are
-  -- a few percent (because the vector and matrix arithmetic's in the forward
-  -- pass are done immutably anyway), and for both optimizations, any thunk
+  -- a few percent (because the vector and matrix arithmetics
+  -- in the forward pass and the adjustment of parameters by gradients
+  -- are done immutably anyway), and for both optimizations, any thunk
   -- pointing inside the mutated vectors can easily be catastrophic.
   -- Maintaining this brittle optimization would also make harder any future
   -- parallelization, whether on CPU or GPU.
   --
-  -- OTOH, removing @storeV@ and @storeL@ increases GC for vector-based
-  -- MNIST500x500 by half, so let's keep them. Probably CPU manages cache better
-  -- when vectors are stored in a (mutable?) vector, not a tree spread
-  -- all around the heap. For few but very long vectors this may not matter
-  -- much, though.
+  -- OTOH, removing @storeV@ and @storeL@ and using the @IntMap@
+  -- througout increases GC time for vector-based MNIST500x500 by half,
+  -- so let's keep them. Probably CPU manages cache better when vectors
+  -- are stored in a (mutable?) vector, not a tree spread all around the heap.
+  -- For few but very long vectors this may not matter much, though.
   let addToVector :: Int -> Vector r -> ST s ()
       {-# INLINE addToVector #-}
       addToVector i r = let addToStore v = if V.null v then r else v + r
@@ -223,3 +224,22 @@ evalBindings dim dimV dimL st d0 =
     let convertMatrix (MatrixOuter Nothing Nothing Nothing) = fromRows []
         convertMatrix o = convertMatrixOuter o
     return (r, rV, V.map convertMatrix rL)
+
+
+-- Note: We can probably gain performance if we eliminate the explicit step
+-- of adjusting parameters by gradients and, instead, we immediately
+-- multiply the increments by @gamma@ and subtract, whenever we update
+-- the parameters in the @Var@ cases of @eval@. In other words,
+-- we don't construct gradients at all, but instead gradually construct
+-- the new parameters, starting with the old ones. That may be what
+-- library ad is doing in its @gradWith combine (f input) parameters@ calls.
+-- However, for this we need to implement Adam and other gradient descent
+-- schemes first, because already our @gdSmart@ gradient descent operation
+-- uses both old and new values of gradients. Probably it could use only
+-- the new values applied to parameters, but other schemes may be
+-- less forgiving.
+--
+-- This approach involves one more multiplication whenever a parameter
+-- is adjusted, which would be almost free, if not for the implementation
+-- detail that it incurs also one more allocation, the way it's currently
+-- done in hmatrix. Low-level FFI work would be needed to fix that.
