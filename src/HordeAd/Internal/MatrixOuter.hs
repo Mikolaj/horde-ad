@@ -1,14 +1,14 @@
 {-# LANGUAGE FlexibleContexts #-}
--- | An ad-hoc representation of matrices that saves allocations and
--- speeds up computing gradients. The major improvement comes from
--- avoiding, often, the construction of some matrices, e.g., outer
--- products or repeated columns that naturally occur in delta-expressions.
--- Minor improvements come from better fusion (via vector or hmatrix/lapack)
--- and so less allocation of intermediate matrix results of arithmetic
--- and other operations.
+-- | An ad-hoc representation of matrices that saves allocations
+-- and speeds up computing gradients. The major improvement comes
+-- from avoiding, often, the construction of some matrices,
+-- e.g., outer products or repeated columns that naturally occur
+-- in delta-expressions. Minor improvements come from better fusion
+-- (via vector or hmatrix/blas/lapack) and so less allocation
+-- of intermediate matrix results of arithmetic and other operations.
 --
 -- The latter improvements are very likely tied to the vagaries
--- of hmatrix (or, less likely, vector or lapack) that work underneath
+-- of hmatrix (or, less likely, vector or blas/lapack) that work underneath
 -- and apparently conspire to fuse some matrix operations but not others.
 -- That would explain why vector-based MNIST nn allocates not much less
 -- than matrix-based MNIST, despite producing much larger delta-expressions.
