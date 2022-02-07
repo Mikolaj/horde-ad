@@ -341,7 +341,6 @@ vectorMnistTests = testGroup "MNIST VV tests with a 2-hidden-layer nn"
                     9.619999999999995e-2
   , mnistTestCase2V "1 epoch, all batches" 1 99 nnMnistLoss2V 300 100 0.02
                     5.4200000000000026e-2
-                      -- doh, worse than 1-hidden-layer, but twice slower
   , mnistTestCase2V "artificial 1 2 3 4 5" 1 2 nnMnistLoss2V 3 4 5
                     0.8972
   , mnistTestCase2V "artificial 5 4 3 2 1" 5 4 nnMnistLoss2V 3 2 1
@@ -358,7 +357,6 @@ matrixMnistTests = testGroup "MNIST LL tests with a 2-hidden-layer nn"
                     9.48e-2
   , mnistTestCase2L "1 epoch, all batches" 1 99 nnMnistLoss2L 300 100 0.02
                     5.6599999999999984e-2
-                      -- doh, worse than 1-hidden-layer, but twice slower
   , mnistTestCase2L "artificial 1 2 3 4 5" 1 2 nnMnistLoss2L 3 4 5
                     0.8972
   , mnistTestCase2L "artificial 5 4 3 2 1" 5 4 nnMnistLoss2L 3 2 1
