@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
 module TestSimpleDescent (testTrees) where
 
 import Prelude

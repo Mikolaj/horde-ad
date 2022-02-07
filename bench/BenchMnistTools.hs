@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 module BenchMnistTools where
 

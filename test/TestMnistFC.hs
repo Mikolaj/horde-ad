@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
 module TestMnistFC (testTrees, shortTestForCITrees) where
 
 import Prelude

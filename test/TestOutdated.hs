@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
 module TestOutdated (testTrees) where
 
 import Prelude

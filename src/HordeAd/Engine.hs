@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, GeneralizedNewtypeDeriving,
+{-# LANGUAGE FlexibleInstances, GeneralizedNewtypeDeriving,
              MultiParamTypeClasses #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists -Wno-orphans #-}
 -- | Two implementations of the monad in which our dual numbers live,

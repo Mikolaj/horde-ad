@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, GADTs, KindSignatures #-}
+{-# LANGUAGE GADTs, KindSignatures #-}
 -- | The second component of dual numbers, @Delta@, with it's evaluation
 -- function. Neel Krishnaswami calls that "sparse vector expressions",
 -- and indeed the codomain of the evaluation function is a vector,

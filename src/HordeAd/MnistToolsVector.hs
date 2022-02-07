@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 -- | Vector-based (meaning that dual numbers for gradient computation
 -- consider vectors, not scalars, as the primitive differentiable type)

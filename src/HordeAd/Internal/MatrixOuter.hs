@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
 -- | An ad-hoc representation of matrices that saves allocations
 -- and speeds up computing gradients. The major improvement comes
 -- from avoiding, often, the construction of some matrices,

@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
 module TestConditionalSynth (testTrees) where
 
 import Prelude

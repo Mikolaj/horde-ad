@@ -75,9 +75,10 @@ common options
   default-extensions: MonoLocalBinds, ScopedTypeVariables, OverloadedStrings,
                       BangPatterns, RecordWildCards, NamedFieldPuns, MultiWayIf,
                       LambdaCase, DefaultSignatures, InstanceSigs,
-                      PatternSynonyms, StrictData, TypeApplications
+                      PatternSynonyms, StrictData, TypeApplications,
+                      FlexibleContexts
   other-extensions:   TemplateHaskell, MultiParamTypeClasses, RankNTypes,
-                      TypeFamilies, FlexibleContexts, FlexibleInstances,
+                      TypeFamilies, FlexibleInstances,
                       DeriveFunctor, FunctionalDependencies,
                       GeneralizedNewtypeDeriving, TupleSections,
                       DeriveFoldable, DeriveTraversable,
