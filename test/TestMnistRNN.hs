@@ -21,7 +21,7 @@ shortTestForCITrees = [ sinRNNTests
                       ]
 
 
--- * A recurrent net for sine, input 1, state/hidden 30, output 1, following
+-- * A (weak) recurrent net and an autoregressive model for sine, following
 -- https://blog.jle.im/entry/purely-functional-typed-models-2.html
 -- and obtaining matching results
 
@@ -246,6 +246,29 @@ nnSinRNNLossV (xs, target) variables = do
   result <- zeroState (unrollLast' fcfcrnnV) xs variables
   lossSquared target result
 
+-- Autoregressive model with degree 2
+
+ar2Sin :: (DeltaMonad r m, Numeric r)
+       => r
+       -> DualNumber (Vector r)
+       -> DualNumberVariables r
+       -> m (DualNumber r, DualNumber (Vector r))
+ar2Sin yLast s variables = do
+  let c = var variables 0
+      phi1 = var variables 1
+      phi2 = var variables 2
+      yLastLast = indexDeltaOfVector s 0  -- dummy vector for compatibility
+  y <- returnLet $ c + scale yLast phi1 + phi2 * yLastLast
+  return (y, scalar $ V.singleton yLast)
+
+ar2SinLoss :: (DeltaMonad r m, Numeric r)
+           => (Vector r, r)
+           -> DualNumberVariables r
+           -> m (DualNumber r)
+ar2SinLoss (xs, target) variables = do
+  result <- zeroState (unrollLast' ar2Sin) xs variables
+  lossSquared target result
+
 sinRNNTests :: TestTree
 sinRNNTests = testGroup "Sine RNN tests"
   [ sgdTestCase "train" nnSinRNNLoss (1, [30, 30], [(30, 1), (30, 30)])
@@ -262,4 +285,10 @@ sinRNNTests = testGroup "Sine RNN tests"
                      (1, replicate 33 30, [])
                      (take 10000 samples)
                      [-0.9980267284282716,-0.9634123298992812,-0.8847335504597839,-0.7622853687776576,-0.5962848755420429,-0.38884074710283445,-0.14654599247925756,0.11757603905860295,0.38437938161262064,0.6323324161445587,0.8436159306746334,1.009006310264001,1.1284972482500732,1.2081446932687734,1.2560009904674736,1.2792814156548193,1.2831268046191948,1.2703983550132165,1.2419052564483004,1.1967293095390061,1.1325415817990008,1.0459466765807786,0.9329720084923336,0.789865350066696,0.6143550789522167,0.4073941707753075,0.17505714838370537,-7.029722905472535e-2,-0.31086676131884383,-0.5269348888108187]
+  , sgdTestCase "trainAR" ar2SinLoss (3, [], [])
+                (take 30000 samples) 6.327624899257216e-23
+  , feedbackTestCase "feedbackAR" ar2Sin ar2SinLoss
+                     (3, [], [])
+                     (take 10000 samples)
+                     [-0.9980267284282716,-0.9510565162972417,-0.8443279255081759,-0.6845471059406962,-0.48175367412103653,-0.2486898871925689,-3.6737446418300124e-11,0.24868988711895013,0.48175367404699826,0.6845471058659989,0.844327925432636,0.9510565162207483,0.9980267283507966,0.9822872506502913,0.9048270523889226,0.7705132427021705,0.5877852522243453,0.3681245526237753,0.1253332335119829,-0.1253332336071473,-0.3681245527176618,-0.5877852523157625,-0.7705132427900947,-0.904827052472567,-0.9822872507291597,-0.9980267284247172,-0.9510565162898854,-0.8443279254974799,-0.6845471059273327,-0.48175367410584524]
   ]
