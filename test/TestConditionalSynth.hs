@@ -220,7 +220,7 @@ conditionalSynthTests:: TestTree
 conditionalSynthTests =
  testGroup "reluAct: synthesizing a sum of linear conditionals matching samples"
   [ gradSmartTestCase "reluAct"
-      synthLossBareTotal 42 1 10 100000
+      synthLossBareTotal 42 1 10 1
       (5.58009e-3,0.1)
 {-
   , gradSmartTestCase "reluAct"

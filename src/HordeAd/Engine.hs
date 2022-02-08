@@ -288,5 +288,5 @@ gdSmart f n0 parameters0 = go n0 parameters0 0.1 gradients0 value0 0 where
           | value > valuePrev ->
 --              traceShow ("value > valuePrev" :: String, value, valuePrev) $
               go n parameters (gamma / 2) gradientsPrev valuePrev 0  -- overshot
-          | i == 10 -> go (pred n) parametersNew gamma gradients value 0
+          | i == 10 -> go (pred n) parametersNew (gamma * 2) gradients value 0
           | otherwise -> go (pred n) parametersNew gamma gradients value (i + 1)
