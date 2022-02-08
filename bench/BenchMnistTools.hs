@@ -23,8 +23,8 @@ mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
       f = nnMnistLoss2 widthHidden widthHidden2
       chunk = take chunkLength xs
       grad c = sgd gamma f c (params0, V.empty, V.empty)
-      name = "train2 " ++ extraPrefix
-             ++ unwords [show widthHidden, show widthHidden2, show nParams]
+      name = "" ++ extraPrefix
+             ++ unwords ["s" ++ show nParams, "v0", "m0" ++ "=" ++ show nParams]
   bench name $ whnf grad chunk
 
 mnistTestBench2 :: (Ord r, Floating r, UniformRange r, Numeric r)
@@ -34,8 +34,8 @@ mnistTestBench2 extraPrefix chunkLength xs widthHidden widthHidden2 = do
       params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
       chunk = take chunkLength xs
       score c = testMnist2 widthHidden widthHidden2 c params0
-      name = "test2 " ++ extraPrefix
-             ++ unwords [show widthHidden, show widthHidden2, show nParams ]
+      name = "test " ++ extraPrefix
+             ++ unwords ["s" ++ show nParams, "v0", "m0" ++ "=" ++ show nParams]
   bench name $ whnf score chunk
 
 mnistTrainBGroup2 :: [MnistData Double] -> Int -> Benchmark
@@ -43,12 +43,12 @@ mnistTrainBGroup2 xs0 chunkLength =
   env (return $ take chunkLength xs0) $
   \ xs ->
   bgroup ("2-hidden-layer MNIST nn with samples: " ++ show chunkLength)
-    [ mnistTestBench2 "" chunkLength xs 30 10  -- toy width
-    , mnistTrainBench2 "" chunkLength xs 30 10 0.02
-    , mnistTestBench2 "" chunkLength xs 300 100  -- ordinary width
-    , mnistTrainBench2 "" chunkLength xs 300 100 0.02
-    , mnistTestBench2 "" chunkLength xs 500 150  -- another common size
-    , mnistTrainBench2 "" chunkLength xs 500 150 0.02
+    [ mnistTestBench2 "30 10" chunkLength xs 30 10  -- toy width
+    , mnistTrainBench2 "30 10" chunkLength xs 30 10 0.02
+    , mnistTestBench2 "300 100" chunkLength xs 300 100  -- ordinary width
+    , mnistTrainBench2 "300 100" chunkLength xs 300 100 0.02
+    , mnistTestBench2 "500 150" chunkLength xs 500 150  -- another common size
+    , mnistTrainBench2 "500 150" chunkLength xs 500 150 0.02
     ]
 
 mnistTrainBGroup2500 :: [MnistData Double] -> Int -> Benchmark
@@ -57,10 +57,13 @@ mnistTrainBGroup2500 xs0 chunkLength =
                     $ take chunkLength xs0)) $
   \ ~(xs, xsFloat) ->
   bgroup ("huge 2-hidden-layer MNIST nn with samples: " ++ show chunkLength)
-    [ mnistTestBench2 "" chunkLength xs 2500 750  -- probably mostly wasted
-    , mnistTrainBench2 "" chunkLength xs 2500 750 0.02
-    , mnistTestBench2 "(Float) " chunkLength xsFloat 2500 750  -- Float test
-    , mnistTrainBench2 "(Float) " chunkLength xsFloat 2500 750 (0.02 :: Float)
+    [ mnistTestBench2 "2500 750" chunkLength xs 2500 750
+        -- probably mostly wasted
+    , mnistTrainBench2 "2500 750" chunkLength xs 2500 750 0.02
+    , mnistTestBench2 "(Float) 2500 750" chunkLength xsFloat 2500 750
+        -- Float test
+    , mnistTrainBench2 "(Float) 2500 750" chunkLength xsFloat 2500 750
+        (0.02 :: Float)
     ]
 
 mnistTrainBench2V :: ( Eq r, Floating r, Numeric r, UniformRange r
@@ -78,8 +81,10 @@ mnistTrainBench2V extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
       f = nnMnistLoss2V widthHidden widthHidden2
       chunk = take chunkLength xs
       grad c = sgd gamma f c (params0, paramsV0, V.empty)
-      name = "train2 " ++ extraPrefix
-             ++ unwords [show widthHidden, show widthHidden2, show nParams]
+      totalParams = nParams + V.sum nParamsV
+      name = "" ++ extraPrefix
+             ++ unwords [ "s" ++ show nParams, "v" ++ show (V.length nParamsV)
+                        , "m0" ++ "=" ++ show totalParams ]
   bench name $ whnf grad chunk
 
 mnistTestBench2V :: ( Ord r, Floating r, Numeric r, UniformRange r
@@ -95,8 +100,10 @@ mnistTestBench2V extraPrefix chunkLength xs widthHidden widthHidden2 = do
                nParamsV
       chunk = take chunkLength xs
       score c = testMnist2V widthHidden widthHidden2 c (params0, paramsV0)
-      name = "test2 " ++ extraPrefix
-             ++ unwords [show widthHidden, show widthHidden2, show nParams ]
+      totalParams = nParams + V.sum nParamsV
+      name = "test " ++ extraPrefix
+             ++ unwords [ "s" ++ show nParams, "v" ++ show (V.length nParamsV)
+                        , "m0" ++ "=" ++ show totalParams ]
   bench name $ whnf score chunk
 
 mnistTrainBGroup2V :: [MnistData Double] -> Int -> Benchmark
@@ -104,12 +111,12 @@ mnistTrainBGroup2V xs0 chunkLength =
   env (return $ take chunkLength xs0) $
   \ xs ->
   bgroup ("2-hidden-layer V MNIST nn with samples: " ++ show chunkLength)
-    [ mnistTestBench2V "" chunkLength xs 30 10  -- toy width
-    , mnistTrainBench2V "" chunkLength xs 30 10 0.02
-    , mnistTestBench2V "" chunkLength xs 300 100  -- ordinary width
-    , mnistTrainBench2V "" chunkLength xs 300 100 0.02
-    , mnistTestBench2V "" chunkLength xs 500 150  -- another common size
-    , mnistTrainBench2V "" chunkLength xs 500 150 0.02
+    [ mnistTestBench2V "30 10" chunkLength xs 30 10  -- toy width
+    , mnistTrainBench2V "30 10" chunkLength xs 30 10 0.02
+    , mnistTestBench2V "300 100" chunkLength xs 300 100  -- ordinary width
+    , mnistTrainBench2V "300 100" chunkLength xs 300 100 0.02
+    , mnistTestBench2V "500 150" chunkLength xs 500 150  -- another common size
+    , mnistTrainBench2V "500 150" chunkLength xs 500 150 0.02
     ]
 
 mnistTrainBench2L :: String -> Int -> [MnistData Double] -> Int -> Int
@@ -131,8 +138,12 @@ mnistTrainBench2L extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
       f = nnMnistLoss2L
       chunk = take chunkLength xs
       grad c = sgd gamma f c (params0, paramsV0, paramsL0)
-      name = "train2 " ++ extraPrefix
-             ++ unwords [show widthHidden, show widthHidden2, show nParams]
+      totalParams = nParams + V.sum nParamsV
+                    + V.sum (V.map (uncurry (*)) nParamsL)
+      name = "" ++ extraPrefix
+             ++ unwords [ "s" ++ show nParams, "v" ++ show (V.length nParamsV)
+                        , "m" ++ show (V.length nParamsL)
+                          ++ "=" ++ show totalParams ]
   bench name $ whnf grad chunk
 
 mnistTestBench2L :: String -> Int -> [MnistData Double] -> Int -> Int
@@ -152,8 +163,12 @@ mnistTestBench2L extraPrefix chunkLength xs widthHidden widthHidden2 = do
                         nParamsL
       chunk = take chunkLength xs
       score c = testMnist2L c (params0, paramsV0, paramsL0)
-      name = "test2 " ++ extraPrefix
-             ++ unwords [show widthHidden, show widthHidden2, show nParams ]
+      totalParams = nParams + V.sum nParamsV
+                    + V.sum (V.map (uncurry (*)) nParamsL)
+      name = "test " ++ extraPrefix
+             ++ unwords [ "s" ++ show nParams, "v" ++ show (V.length nParamsV)
+                        , "m" ++ show (V.length nParamsL)
+                          ++ "=" ++ show totalParams ]
   bench name $ whnf score chunk
 
 mnistTrainBGroup2L :: [MnistData Double] -> Int -> Benchmark
@@ -161,10 +176,10 @@ mnistTrainBGroup2L xs0 chunkLength =
   env (return $ take chunkLength xs0) $
   \ xs ->
   bgroup ("2-hidden-layer L MNIST nn with samples: " ++ show chunkLength)
-    [ mnistTestBench2L "" chunkLength xs 30 10  -- toy width
-    , mnistTrainBench2L "" chunkLength xs 30 10 0.02
-    , mnistTestBench2L "" chunkLength xs 300 100  -- ordinary width
-    , mnistTrainBench2L "" chunkLength xs 300 100 0.02
-    , mnistTestBench2L "" chunkLength xs 500 150  -- another common size
-    , mnistTrainBench2L "" chunkLength xs 500 150 0.02
+    [ mnistTestBench2L "30 10" chunkLength xs 30 10  -- toy width
+    , mnistTrainBench2L "30 10" chunkLength xs 30 10 0.02
+    , mnistTestBench2L "300 100" chunkLength xs 300 100  -- ordinary width
+    , mnistTrainBench2L "300 100" chunkLength xs 300 100 0.02
+    , mnistTestBench2L "500 150" chunkLength xs 500 150  -- another common size
+    , mnistTrainBench2L "500 150" chunkLength xs 500 150 0.02
     ]
