@@ -47,7 +47,7 @@ data Delta :: Type -> Type where
   Index :: Delta (Vector r) -> Int -> Int -> Delta r
   DotL :: Matrix r -> Delta (Matrix r) -> Delta (Vector r)
   DotRowL :: Vector r -> Delta (Matrix r) -> Delta (Vector r)
-  KonstL :: Delta (Vector r) -> Delta (Matrix r)
+  AsRow :: Delta (Vector r) -> Delta (Matrix r)
   SeqL :: Data.Vector.Vector (Delta (Vector r)) -> Delta (Matrix r)
 
 newtype DeltaId = DeltaId Int
@@ -135,7 +135,7 @@ buildVector dim dimV dimL st d0 = do
         Index d i n -> evalV (konst 0 n V.// [(i, r)]) d
         DotL{} -> error "buildVector: DotL can't result in a scalar"
         DotRowL{} -> error "buildVector: DotRowL can't result in a scalar"
-        KonstL{} -> error "buildVector: KonstL can't result in a scalar"
+        AsRow{} -> error "buildVector: AsRow can't result in a scalar"
         SeqL{} -> error "buildVector: SeqL can't result in a scalar"
       evalV :: Vector r -> Delta (Vector r) -> ST s ()
       evalV !r = \case
@@ -175,7 +175,7 @@ buildVector dim dimV dimL st d0 = do
         SumElements{} ->
           error "buildVector: unboxed vectors of vectors not possible"
         Index{} -> error "buildVector: unboxed vectors of vectors not possible"
-        KonstL d -> mapM_ (`evalV` d) (toRowsMatrixOuter r)
+        AsRow d -> mapM_ (`evalV` d) (toRowsMatrixOuter r)
         SeqL md -> zipWithM_ evalV (toRowsMatrixOuter r) (V.toList md)
   eval 1 d0  -- dt is 1 or hardwired in f
   let evalUnlessZero :: DeltaId -> DeltaBinding r -> ST s DeltaId

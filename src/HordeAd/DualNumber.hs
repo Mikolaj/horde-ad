@@ -150,7 +150,11 @@ infixr 8 #>!
       -> DualNumber (Vector r)
 (#>!) (D u u') (D v v') =
   D (u #> v) (Add (DotRowL v u')
-                  (DotL u (KonstL v')))
+                  (DotL u (AsRow v')))
+
+-- The unoptimized version:
+-- D (u #> v) (Add (DotL (asRow v) u')
+--                 (DotL u (AsRow v')))
 
 -- | Dense matrix-vector product with a constant vector.
 infixr 8 #>!!
@@ -159,6 +163,9 @@ infixr 8 #>!!
        -> Vector r
        -> DualNumber (Vector r)
 (#>!!) (D u u') v = D (u #> v) (DotRowL v u')
+
+-- The unoptimized version:
+-- (#>!!) (D u u') v = D (u #> v) (DotL (asRow v) u')
 
 
 -- * Monadic operations for scalars
