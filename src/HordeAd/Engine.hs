@@ -8,6 +8,7 @@ module HordeAd.Engine where
 
 import Prelude
 
+import           Control.Monad (foldM)
 import           Control.Monad.Trans.State.Strict
 import           Data.Functor.Identity
 import qualified Data.Strict.Vector as Data.Vector
@@ -193,9 +194,9 @@ can't fuse with anything and so can't pay for its overhead.
 
 updateWithGradient :: (Numeric r, Num (Vector r))
                    => r
+                   -> Domains r
                    -> Domains' r
-                   -> Domains' r
-                   -> Domains' r
+                   -> Domains r
 updateWithGradient gamma (params, paramsV, paramsL)
                          (gradient, gradientV, gradientL) =
   let updateVector i r = i - Numeric.LinearAlgebra.scale gamma r
@@ -251,6 +252,65 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   go (a : rest) parameters =
     let variables = makeDualNumberVariables parameters varDeltas
         gradients = fst $ generalDf variables (f a)
+        parametersNew = updateWithGradient gamma parameters gradients
+    in go rest parametersNew
+
+_minimumGradient :: (Ord r, Numeric r) => Domains' r -> r
+_minimumGradient (gradient, gradientV, gradientL) =
+  min (if V.null gradient then 0 else V.minimum gradient)
+      (min (if V.null gradientV then 0
+            else V.minimum (V.map Numeric.LinearAlgebra.minElement gradientV))
+           (if V.null gradientL then 0
+            else V.minimum (V.map Numeric.LinearAlgebra.minElement gradientL)))
+
+_maximumGradient :: (Ord r, Numeric r) => Domains' r -> r
+_maximumGradient (gradient, gradientV, gradientL) =
+  max (if V.null gradient then 0 else V.maximum gradient)
+      (max (if V.null gradientV then 0
+            else V.maximum (V.map Numeric.LinearAlgebra.maxElement gradientV))
+           (if V.null gradientL then 0
+            else V.maximum (V.map Numeric.LinearAlgebra.maxElement gradientL)))
+
+-- | Stochastic Gradient Descent with mini-batches, taking the mean
+-- of the results from each mini-batch.
+--
+-- TODO: vectorize and only then take the mean of the vector of results
+-- and also parallelize taking advantage of vectorization (but currently
+-- we have a global state, so that's tricky).
+sgdBatch :: forall r a. (
+--                          Show r,
+                          Ord r, Numeric r, Fractional r, Num (Vector r)
+                        )
+         => Int  -- ^ batch size
+         -> r  -- ^ gamma (learning_rate?)
+         -> (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+         -> [a]  -- ^ training data
+         -> Domains r  -- ^ initial parameters
+         -> Domains' r
+sgdBatch batchSize gamma f trainingData parameters0 =
+  go trainingData parameters0
+ where
+  varDeltas = generateDeltaVars parameters0
+  go :: [a] -> Domains r -> Domains' r
+  go [] parameters = parameters
+  go l parameters =
+    let variables = makeDualNumberVariables parameters varDeltas
+        (batch, rest) = splitAt batchSize l
+        fAdd :: DualNumberVariables r -> DualNumber r -> a
+             -> DeltaMonadGradient r (DualNumber r)
+        fAdd vars !acc a = do
+          res <- f a vars
+          return $! acc + res
+        fBatch :: DualNumberVariables r
+               -> DeltaMonadGradient r (DualNumber r)
+        fBatch vars = do
+          resBatch <- foldM (fAdd vars) 0 batch
+          return $! resBatch / (fromIntegral $ length batch)
+        gradients = fst $ generalDf variables fBatch
+--        !_ = traceShow (fromIntegral (length l) / fromIntegral batchSize
+--                          :: Double) $
+--             traceShow (_minimumGradient gradients) $
+--             traceShow (_maximumGradient gradients) $ ()
         parametersNew = updateWithGradient gamma parameters gradients
     in go rest parametersNew
 
