@@ -263,7 +263,7 @@ ar2Sin yLast s variables = do
   let c = var variables 0
       phi1 = var variables 1
       phi2 = var variables 2
-      yLastLast = indexDeltaOfVector s 0  -- dummy vector for compatibility
+      yLastLast = index1 s 0  -- dummy vector for compatibility
   y <- returnLet $ c + scale yLast phi1 + phi2 * yLastLast
   return (y, scalar $ V.singleton yLast)
 

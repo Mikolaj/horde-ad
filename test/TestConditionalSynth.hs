@@ -124,7 +124,7 @@ splitLayerV factivation hiddenVec offset variables width = do
       activate :: Int -> m (DualNumber (Vector Double))
       activate n = do
         let v = V.slice (n * chunkWidth) chunkWidth multiplied
-        factivation $ deltaSeq v + varV variables (offset + width + n)
+        factivation $ deltaSeq1 v + varV variables (offset + width + n)
   a0 <- activate 0
   a1 <- activate 1
   a2 <- activate 2

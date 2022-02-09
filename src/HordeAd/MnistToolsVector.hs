@@ -36,7 +36,7 @@ sumTrainableInputsL :: forall r. Numeric r
 sumTrainableInputsL x offset variables width =
   let f :: Int -> DualNumber r
       f i = sumTrainableInputsV x (offset + i) variables
-  in deltaSeq $ V.generate width f
+  in deltaSeq1 $ V.generate width f
 
 sumConstantDataV :: Numeric r
                  => Vector r
@@ -56,7 +56,7 @@ sumConstantDataL :: forall r. Numeric r
 sumConstantDataL x offset variables width =
   let f :: Int -> DualNumber r
       f i = sumConstantDataV x (offset + i) variables
-  in deltaSeq $ V.generate width f
+  in deltaSeq1 $ V.generate width f
 
 lenMnist2V :: Int -> Int -> Int
 lenMnist2V _widthHidden _widthHidden2 = 0

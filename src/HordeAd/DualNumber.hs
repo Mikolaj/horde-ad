@@ -127,30 +127,32 @@ infixr 8 <.>!!
         -> DualNumber r
 (<.>!!) (D u u') v = D (u <.> v) (Dot v u')
 
-konst' :: Numeric r => DualNumber r -> Int -> DualNumber (Vector r)
-konst' (D u u') n = D (konst u n) (Konst u')
+konst1 :: Numeric r => DualNumber r -> Int -> DualNumber (Vector r)
+konst1 (D u u') n = D (konst u n) (Konst u')
 
-sumElements' :: Numeric r => DualNumber (Vector r) -> DualNumber r
-sumElements' (D u u') = D (sumElements u) (SumElements u' (V.length u))
+sumElements1 :: Numeric r => DualNumber (Vector r) -> DualNumber r
+sumElements1 (D u u') = D (sumElements u) (SumElements u' (V.length u))
 
-deltaSeq :: Numeric r
-         => Data.Vector.Vector (DualNumber r) -> DualNumber (Vector r)
-deltaSeq v = D (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
+-- @1@ means rank one, that is, creating delta expression of a vector.
+deltaSeq1 :: Numeric r
+          => Data.Vector.Vector (DualNumber r) -> DualNumber (Vector r)
+deltaSeq1 v = D (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
                (Seq $ V.map (\(D _ u') -> u') v)
 
-indexDeltaOfVector :: Numeric r
-                   => DualNumber (Vector r) -> Int -> DualNumber r
-indexDeltaOfVector (D u u') i = D (u V.! i) (Index u' i (V.length u))
+-- @1@ means rank one, that is, indexing a vector.
+index1 :: Numeric r
+       => DualNumber (Vector r) -> Int -> DualNumber r
+index1 (D u u') i = D (u V.! i) (Index u' i (V.length u))
 
-appendDeltaOfVector :: Numeric r
-                    => DualNumber (Vector r) -> DualNumber (Vector r)
-                    -> DualNumber (Vector r)
-appendDeltaOfVector (D u u') (D v v') = D (u V.++ v) (Append u' (V.length u) v')
+append1 :: Numeric r
+        => DualNumber (Vector r) -> DualNumber (Vector r)
+        -> DualNumber (Vector r)
+append1 (D u u') (D v v') = D (u V.++ v) (Append u' (V.length u) v')
 
-sliceDeltaOfVector :: Numeric r
-                   => Int -> Int -> DualNumber (Vector r)
-                   -> DualNumber (Vector r)
-sliceDeltaOfVector i n (D u u') = D (V.slice i n u) (Slice i n u' (V.length u))
+slice1 :: Numeric r
+       => Int -> Int -> DualNumber (Vector r)
+       -> DualNumber (Vector r)
+slice1 i n (D u u') = D (V.slice i n u) (Slice i n u' (V.length u))
 
 -- | Dense matrix-vector product.
 infixr 8 #>!
@@ -254,10 +256,10 @@ softMaxActV :: (DeltaMonad r m, Fractional r, Numeric r, Floating (Vector r))
             -> m (DualNumber (Vector r))
 softMaxActV d@(D u _) = do
   let expU = exp d
-      sumExpU = sumElements' expU
+      sumExpU = sumElements1 expU
   -- This has to be let-bound, because it's used many times below.
   recipSum <- returnLet $ recip sumExpU
-  returnLetV $ konst' recipSum (V.length u) * expU
+  returnLetV $ konst1 recipSum (V.length u) * expU
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
 lossCrossEntropyV :: (DeltaMonad r m, Numeric r, Floating (Vector r))
