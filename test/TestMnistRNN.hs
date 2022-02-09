@@ -350,18 +350,18 @@ fcfcrnnMnistL :: (DeltaMonad r m, Numeric r, Floating (Vector r))
               -> m (DualNumber (Vector r), DualNumber (Vector r))
 fcfcrnnMnistL = hiddenLayerMnistRNNL
 
--- TODO: add differentiable operations for concatenating and splicing vectors?
 fcfcrnnMnistL2 :: (DeltaMonad r m, Numeric r, Floating (Vector r))
                => Vector r
                -> DualNumber (Vector r)
-               -> DualNumber (Vector r)
                -> DualNumberVariables r
-               -> m ( DualNumber (Vector r)
-                    , DualNumber (Vector r), DualNumber (Vector r) )
-fcfcrnnMnistL2 x s1 s2 variables = do
+               -> m (DualNumber (Vector r), DualNumber (Vector r))
+fcfcrnnMnistL2 x s@(D u _) variables = do
+  let len = V.length u `div` 2
+      s1 = slice1 0 len s
+      s2 = slice1 len len s
   (vec1, s1') <- hiddenLayerMnistRNNL x s1 variables
   (vec2, s2') <- middleLayerMnistRNNL vec1 s2 variables
-  return (vec2, s1', s2')
+  return (vec2, append1 s1' s2')
 
 unrollLastG :: forall a m r. (DeltaMonad r m)
             => (a
@@ -387,50 +387,13 @@ nnMnistRNNL width x variables = do
   rnnLayer <- zeroState width (unrollLastG fcfcrnnMnistL) x variables
   outputLayerMnistRNNL rnnLayer variables
 
-unrollLastG2 :: forall a m r. (DeltaMonad r m)
-             => (a
-                 -> DualNumber (Vector r)
-                 -> DualNumber (Vector r)
-                 -> DualNumberVariables r
-                 -> m ( DualNumber (Vector r)
-                      , DualNumber (Vector r), DualNumber (Vector r) ))
-             -> ([a]
-                 -> DualNumber (Vector r)
-                 -> DualNumber (Vector r)
-                 -> DualNumberVariables r
-                 -> m ( DualNumber (Vector r)
-                      , DualNumber (Vector r), DualNumber (Vector r) ))
-unrollLastG2 f xs s01 s02 variables =
-  let g :: ( DualNumber (Vector r)
-           , DualNumber (Vector r), DualNumber (Vector r) )
-        -> a
-        -> m ( DualNumber (Vector r)
-             , DualNumber (Vector r), DualNumber (Vector r) )
-      g (_, s1, s2) x = f x s1 s2 variables
-  in foldM g (undefined, s01, s02) xs
-
-zeroState2 :: (DeltaMonad r m, Numeric r)
-           => Int
-           -> (a
-               -> DualNumber (Vector r)
-               -> DualNumber (Vector r)
-               -> DualNumberVariables r
-               -> m ( DualNumber r2
-                    , DualNumber (Vector r), DualNumber (Vector r) ))
-           -> (a
-               -> DualNumberVariables r
-               -> m (DualNumber r2))
-zeroState2 k f xs variables =
-  (\(res, _, _) -> res)
-  <$> f xs (scalar $ konst 0 k) (scalar $ konst 0 k) variables
-
 nnMnistRNNL2 :: (DeltaMonad r m, Numeric r, Floating (Vector r))
              => Int
              -> [Vector r]
              -> DualNumberVariables r
              -> m (DualNumber (Vector r))
 nnMnistRNNL2 width x variables = do
-  rnnLayer <- zeroState2 width (unrollLastG2 fcfcrnnMnistL2) x variables
+  rnnLayer <- zeroState (2 * width) (unrollLastG fcfcrnnMnistL2) x variables
   outputLayerMnistRNNL rnnLayer variables
 
 nnMnistRNNLossL :: ( DeltaMonad r m, Numeric r, Fractional r
