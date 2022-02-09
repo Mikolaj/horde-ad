@@ -40,17 +40,17 @@ data Delta :: Type -> Type where
   Scale :: a -> Delta a -> Delta a
   Add :: Delta a -> Delta a -> Delta a
   Var :: DeltaId -> Delta a
-  Dot :: Vector r -> Delta (Vector r) -> Delta r
-  SumElements :: Delta (Vector r) -> Int -> Delta r
-  Konst :: Delta r -> Delta (Vector r)
-  Seq :: Data.Vector.Vector (Delta r) -> Delta (Vector r)
-  Index :: Delta (Vector r) -> Int -> Int -> Delta r
-  Append :: Delta (Vector r) -> Int -> Delta (Vector r) -> Delta (Vector r)
-  Slice :: Int -> Int -> Delta (Vector r) -> Int -> Delta (Vector r)
-  DotL :: Matrix r -> Delta (Matrix r) -> Delta (Vector r)
-  DotRowL :: Vector r -> Delta (Matrix r) -> Delta (Vector r)
-  AsRow :: Delta (Vector r) -> Delta (Matrix r)
-  SeqL :: Data.Vector.Vector (Delta (Vector r)) -> Delta (Matrix r)
+  Dot1 :: Vector r -> Delta (Vector r) -> Delta r
+  SumElements1 :: Delta (Vector r) -> Int -> Delta r
+  Konst1 :: Delta r -> Delta (Vector r)
+  Seq1 :: Data.Vector.Vector (Delta r) -> Delta (Vector r)
+  Index1 :: Delta (Vector r) -> Int -> Int -> Delta r
+  Append1 :: Delta (Vector r) -> Int -> Delta (Vector r) -> Delta (Vector r)
+  Slice1 :: Int -> Int -> Delta (Vector r) -> Int -> Delta (Vector r)
+  Dot2 :: Matrix r -> Delta (Matrix r) -> Delta (Vector r)
+  DotRow2 :: Vector r -> Delta (Matrix r) -> Delta (Vector r)
+  AsRow2 :: Delta (Vector r) -> Delta (Matrix r)
+  Seq2 :: Data.Vector.Vector (Delta (Vector r)) -> Delta (Matrix r)
 
 newtype DeltaId = DeltaId Int
   deriving (Show, Eq)
@@ -130,32 +130,32 @@ buildVector dim dimV dimL st d0 = do
         Scale k d -> eval (k * r) d
         Add d1 d2 -> eval r d1 >> eval r d2
         Var (DeltaId i) -> VM.modify store (+ r) i
-        Dot vr vd -> evalV (Numeric.LinearAlgebra.scale r vr) vd
-        SumElements vd n -> evalV (konst r n) vd
-        Konst{} -> error "buildVector: Konst can't result in a scalar"
-        Seq{} -> error "buildVector: Seq can't result in a scalar"
-        Index d i k -> evalV (konst 0 k V.// [(i, r)]) d
-        Append{} -> error "buildVector: Append can't result in a scalar"
-        Slice{} -> error "buildVector: Slice can't result in a scalar"
-        DotL{} -> error "buildVector: DotL can't result in a scalar"
-        DotRowL{} -> error "buildVector: DotRowL can't result in a scalar"
-        AsRow{} -> error "buildVector: AsRow can't result in a scalar"
-        SeqL{} -> error "buildVector: SeqL can't result in a scalar"
+        Dot1 vr vd -> evalV (Numeric.LinearAlgebra.scale r vr) vd
+        SumElements1 vd n -> evalV (konst r n) vd
+        Konst1{} -> error "buildVector: Konst1 can't result in a scalar"
+        Seq1{} -> error "buildVector: Seq1 can't result in a scalar"
+        Index1 d i k -> evalV (konst 0 k V.// [(i, r)]) d
+        Append1{} -> error "buildVector: Append1 can't result in a scalar"
+        Slice1{} -> error "buildVector: Slice1 can't result in a scalar"
+        Dot2{} -> error "buildVector: Dot2 can't result in a scalar"
+        DotRow2{} -> error "buildVector: DotRow2 can't result in a scalar"
+        AsRow2{} -> error "buildVector: AsRow2 can't result in a scalar"
+        Seq2{} -> error "buildVector: Seq2 can't result in a scalar"
       evalV :: Vector r -> Delta (Vector r) -> ST s ()
       evalV !r = \case
         Zero -> return ()
         Scale k d -> evalV (k * r) d
         Add d1 d2 -> evalV r d1 >> evalV r d2
         Var (DeltaId i) -> addToVector i r
-        Dot{} -> error "buildVector: unboxed vectors of vectors not possible"
-        SumElements{} ->
+        Dot1{} -> error "buildVector: unboxed vectors of vectors not possible"
+        SumElements1{} ->
           error "buildVector: unboxed vectors of vectors not possible"
-        Konst d -> V.mapM_ (`eval` d) r
-        Seq vd -> V.imapM_ (\i d -> eval (r V.! i) d) vd
-        Index{} -> error "buildVector: unboxed vectors of vectors not possible"
-        Append d1 k d2 -> evalV (V.take k r) d1 >> evalV (V.drop k r) d2
-        Slice i n d k -> evalV (konst 0 i V.++ r V.++ konst 0 (k - i - n)) d
-        DotL mr md -> evalL (MatrixOuter (Just mr) (Just r) Nothing) md
+        Konst1 d -> V.mapM_ (`eval` d) r
+        Seq1 vd -> V.imapM_ (\i d -> eval (r V.! i) d) vd
+        Index1{} -> error "buildVector: unboxed vectors of vectors not possible"
+        Append1 d1 k d2 -> evalV (V.take k r) d1 >> evalV (V.drop k r) d2
+        Slice1 i n d k -> evalV (konst 0 i V.++ r V.++ konst 0 (k - i - n)) d
+        Dot2 mr md -> evalL (MatrixOuter (Just mr) (Just r) Nothing) md
           -- this column vector interacted disastrously with @mr = asRow v@
           -- in @(#>!)@, each causing an allocation of a whole new @n^2@ matrix
           -- and then a third with their outer product;
@@ -164,7 +164,7 @@ buildVector dim dimV dimL st d0 = do
           -- the cost for the manual computation is many extra delta
           -- expressions which, however, with square enough matrices,
           -- don't dominate
-        DotRowL row md -> evalL (MatrixOuter Nothing (Just r) (Just row)) md
+        DotRow2 row md -> evalL (MatrixOuter Nothing (Just r) (Just row)) md
           -- this is a way to alleviate the ephemeral matrices problem,
           -- by polluting the API with the detail about the shape
           -- of the passed array (the replicated row shape),
@@ -177,12 +177,12 @@ buildVector dim dimV dimL st d0 = do
           in evalL (MatrixOuter (Just m) mc mr) d
         Add d1 d2 -> evalL r d1 >> evalL r d2
         Var (DeltaId i) -> addToMatrix i r
-        Dot{} -> error "buildVector: unboxed vectors of vectors not possible"
-        SumElements{} ->
+        Dot1{} -> error "buildVector: unboxed vectors of vectors not possible"
+        SumElements1{} ->
           error "buildVector: unboxed vectors of vectors not possible"
-        Index{} -> error "buildVector: unboxed vectors of vectors not possible"
-        AsRow d -> mapM_ (`evalV` d) (toRowsMatrixOuter r)
-        SeqL md -> zipWithM_ evalV (toRowsMatrixOuter r) (V.toList md)
+        Index1{} -> error "buildVector: unboxed vectors of vectors not possible"
+        AsRow2 d -> mapM_ (`evalV` d) (toRowsMatrixOuter r)
+        Seq2 md -> zipWithM_ evalV (toRowsMatrixOuter r) (V.toList md)
   eval 1 d0  -- dt is 1 or hardwired in f
   let evalUnlessZero :: DeltaId -> DeltaBinding r -> ST s DeltaId
       evalUnlessZero (DeltaId !i) (DScalar d) = do

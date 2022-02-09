@@ -118,41 +118,41 @@ infixr 8 <.>!
        => DualNumber (Vector r)
        -> DualNumber (Vector r)
        -> DualNumber r
-(<.>!) (D u u') (D v v') = D (u <.> v) (Add (Dot v u') (Dot u v'))
+(<.>!) (D u u') (D v v') = D (u <.> v) (Add (Dot1 v u') (Dot1 u v'))
 
 infixr 8 <.>!!
 (<.>!!) :: Numeric r
         => DualNumber (Vector r)
         -> Vector r
         -> DualNumber r
-(<.>!!) (D u u') v = D (u <.> v) (Dot v u')
+(<.>!!) (D u u') v = D (u <.> v) (Dot1 v u')
 
 konst1 :: Numeric r => DualNumber r -> Int -> DualNumber (Vector r)
-konst1 (D u u') n = D (konst u n) (Konst u')
+konst1 (D u u') n = D (konst u n) (Konst1 u')
 
 sumElements1 :: Numeric r => DualNumber (Vector r) -> DualNumber r
-sumElements1 (D u u') = D (sumElements u) (SumElements u' (V.length u))
+sumElements1 (D u u') = D (sumElements u) (SumElements1 u' (V.length u))
 
 -- @1@ means rank one, that is, creating delta expression of a vector.
 deltaSeq1 :: Numeric r
           => Data.Vector.Vector (DualNumber r) -> DualNumber (Vector r)
 deltaSeq1 v = D (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
-               (Seq $ V.map (\(D _ u') -> u') v)
+               (Seq1 $ V.map (\(D _ u') -> u') v)
 
 -- @1@ means rank one, that is, indexing a vector.
 index1 :: Numeric r
        => DualNumber (Vector r) -> Int -> DualNumber r
-index1 (D u u') i = D (u V.! i) (Index u' i (V.length u))
+index1 (D u u') i = D (u V.! i) (Index1 u' i (V.length u))
 
 append1 :: Numeric r
         => DualNumber (Vector r) -> DualNumber (Vector r)
         -> DualNumber (Vector r)
-append1 (D u u') (D v v') = D (u V.++ v) (Append u' (V.length u) v')
+append1 (D u u') (D v v') = D (u V.++ v) (Append1 u' (V.length u) v')
 
 slice1 :: Numeric r
        => Int -> Int -> DualNumber (Vector r)
        -> DualNumber (Vector r)
-slice1 i n (D u u') = D (V.slice i n u) (Slice i n u' (V.length u))
+slice1 i n (D u u') = D (V.slice i n u) (Slice1 i n u' (V.length u))
 
 -- | Dense matrix-vector product.
 infixr 8 #>!
@@ -161,12 +161,12 @@ infixr 8 #>!
       -> DualNumber (Vector r)
       -> DualNumber (Vector r)
 (#>!) (D u u') (D v v') =
-  D (u #> v) (Add (DotRowL v u')
-                  (DotL u (AsRow v')))
+  D (u #> v) (Add (DotRow2 v u')
+                  (Dot2 u (AsRow2 v')))
 
 -- The unoptimized version:
--- D (u #> v) (Add (DotL (asRow v) u')
---                 (DotL u (AsRow v')))
+-- D (u #> v) (Add (Dot2 (asRow v) u')
+--                 (Dot2 u (AsRow2 v')))
 
 -- | Dense matrix-vector product with a constant vector.
 infixr 8 #>!!
@@ -174,10 +174,10 @@ infixr 8 #>!!
        => DualNumber (Matrix r)
        -> Vector r
        -> DualNumber (Vector r)
-(#>!!) (D u u') v = D (u #> v) (DotRowL v u')
+(#>!!) (D u u') v = D (u #> v) (DotRow2 v u')
 
 -- The unoptimized version:
--- (#>!!) (D u u') v = D (u #> v) (DotL (asRow v) u')
+-- (#>!!) (D u u') v = D (u #> v) (Dot2 (asRow v) u')
 
 
 -- * Monadic operations for scalars
