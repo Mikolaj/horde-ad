@@ -142,6 +142,16 @@ indexDeltaOfVector :: Numeric r
                    => DualNumber (Vector r) -> Int -> DualNumber r
 indexDeltaOfVector (D u u') i = D (u V.! i) (Index u' i (V.length u))
 
+appendDeltaOfVector :: Numeric r
+                    => DualNumber (Vector r) -> DualNumber (Vector r)
+                    -> DualNumber (Vector r)
+appendDeltaOfVector (D u u') (D v v') = D (u V.++ v) (Append u' (V.length u) v')
+
+sliceDeltaOfVector :: Numeric r
+                   => Int -> Int -> DualNumber (Vector r)
+                   -> DualNumber (Vector r)
+sliceDeltaOfVector i n (D u u') = D (V.slice i n u) (Slice i n u' (V.length u))
+
 -- | Dense matrix-vector product.
 infixr 8 #>!
 (#>!) :: Numeric r

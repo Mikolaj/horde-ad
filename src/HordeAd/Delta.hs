@@ -45,6 +45,8 @@ data Delta :: Type -> Type where
   Konst :: Delta r -> Delta (Vector r)
   Seq :: Data.Vector.Vector (Delta r) -> Delta (Vector r)
   Index :: Delta (Vector r) -> Int -> Int -> Delta r
+  Append :: Delta (Vector r) -> Int -> Delta (Vector r) -> Delta (Vector r)
+  Slice :: Int -> Int -> Delta (Vector r) -> Int -> Delta (Vector r)
   DotL :: Matrix r -> Delta (Matrix r) -> Delta (Vector r)
   DotRowL :: Vector r -> Delta (Matrix r) -> Delta (Vector r)
   AsRow :: Delta (Vector r) -> Delta (Matrix r)
@@ -132,7 +134,9 @@ buildVector dim dimV dimL st d0 = do
         SumElements vd n -> evalV (konst r n) vd
         Konst{} -> error "buildVector: Konst can't result in a scalar"
         Seq{} -> error "buildVector: Seq can't result in a scalar"
-        Index d i n -> evalV (konst 0 n V.// [(i, r)]) d
+        Index d i k -> evalV (konst 0 k V.// [(i, r)]) d
+        Append{} -> error "buildVector: Append can't result in a scalar"
+        Slice{} -> error "buildVector: Slice can't result in a scalar"
         DotL{} -> error "buildVector: DotL can't result in a scalar"
         DotRowL{} -> error "buildVector: DotRowL can't result in a scalar"
         AsRow{} -> error "buildVector: AsRow can't result in a scalar"
@@ -149,6 +153,8 @@ buildVector dim dimV dimL st d0 = do
         Konst d -> V.mapM_ (`eval` d) r
         Seq vd -> V.imapM_ (\i d -> eval (r V.! i) d) vd
         Index{} -> error "buildVector: unboxed vectors of vectors not possible"
+        Append d1 k d2 -> evalV (V.take k r) d1 >> evalV (V.drop k r) d2
+        Slice i n d k -> evalV (konst 0 i V.++ r V.++ konst 0 (k - i - n)) d
         DotL mr md -> evalL (MatrixOuter (Just mr) (Just r) Nothing) md
           -- this column vector interacted disastrously with @mr = asRow v@
           -- in @(#>!)@, each causing an allocation of a whole new @n^2@ matrix
