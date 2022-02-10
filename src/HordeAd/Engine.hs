@@ -9,13 +9,18 @@ module HordeAd.Engine where
 import Prelude
 
 import           Control.Monad (foldM)
+import           Control.Monad.ST.Strict (runST)
 import           Control.Monad.Trans.State.Strict
 import           Data.Functor.Identity
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, rows)
+import qualified Data.Vector.Generic.Mutable as VM
+import           Numeric.LinearAlgebra
+  (Element, Matrix, Numeric, Vector, konst, rows, size, tr')
 import qualified Numeric.LinearAlgebra
-import           Numeric.LinearAlgebra.Devel (liftMatrix2)
+import           Numeric.LinearAlgebra.Data (flatten)
+import           Numeric.LinearAlgebra.Devel
+  (MatrixOrder (..), liftMatrix, liftMatrix2, matrixFromVector, orderOf)
 
 import HordeAd.Delta
 import HordeAd.DualNumber (DeltaMonad (..), DualNumber (..))
@@ -223,7 +228,7 @@ gdSimple :: forall r. (Eq r, Numeric r, Num (Vector r))
          -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
          -> Int  -- ^ requested number of iterations
          -> Domains r  -- ^ initial parameters
-         -> Domains' r
+         -> Domains r
 gdSimple gamma f n0 parameters0 = go n0 parameters0 where
   -- Pre-allocating the vars once, vs gradually allocating on the spot in each
   -- gradient computation, initially incurs overhead (looking up in a vector),
@@ -244,7 +249,7 @@ sgd :: forall r a. (Eq r, Numeric r, Num (Vector r))
     -> (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
     -> [a]  -- ^ training data
     -> Domains r  -- ^ initial parameters
-    -> Domains' r
+    -> Domains r
 sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   varDeltas = generateDeltaVars parameters0
   go :: [a] -> Domains r -> Domains' r
@@ -286,7 +291,7 @@ sgdBatch :: forall r a. (
          -> (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
          -> [a]  -- ^ training data
          -> Domains r  -- ^ initial parameters
-         -> Domains' r
+         -> Domains r
 sgdBatch batchSize gamma f trainingData parameters0 =
   go trainingData parameters0
  where
@@ -314,6 +319,193 @@ sgdBatch batchSize gamma f trainingData parameters0 =
         parametersNew = updateWithGradient gamma parameters gradients
     in go rest parametersNew
 
+data ArgsAdam r = ArgsAdam
+  { alpha   :: r
+  , beta1   :: r
+  , beta2   :: r
+  , epsilon :: r
+  }
+
+-- The defaults taken from
+-- https://www.tensorflow.org/api_docs/python/tf/keras/optimizers/Adam
+defaultArgsAdam :: Fractional r => ArgsAdam r
+defaultArgsAdam = ArgsAdam
+  { alpha = 0.001
+  , beta1 = 0.9
+  , beta2 = 0.999
+  , epsilon = 1e-7
+  }
+
+data StateAdam r = StateAdam
+  { tAdam :: Int  -- iteration count
+  , mAdam :: Domains' r
+  , vAdam :: Domains' r
+  }
+
+zeroParameters :: Numeric r => Domains r -> Domains r
+zeroParameters (params, paramsV, paramsL) =  -- sample params, for dimensions
+  let zeroVector v = runST $ do
+        vThawed <- V.thaw v
+        VM.set vThawed 0
+        V.unsafeFreeze vThawed
+  in ( zeroVector params
+     , V.map zeroVector paramsV
+     , V.map (liftMatrix zeroVector) paramsL )
+
+initialStateAdam :: Numeric r => Domains r -> StateAdam r
+initialStateAdam parameters0 =
+  let zeroP = zeroParameters parameters0
+  in StateAdam
+       { tAdam = 0
+       , mAdam = zeroP
+       , vAdam = zeroP
+       }
+
+-- | Application of a vector function on the flattened matrices elements.
+liftMatrix43 :: ( Numeric a, Numeric b, Numeric c, Numeric d
+                , Element x, Element y, Element z )
+             => (Vector a -> Vector b -> Vector c -> Vector d
+                 -> (Vector x, Vector y, Vector z))
+             -> Matrix a -> Matrix b -> Matrix c -> Matrix d
+             -> (Matrix x, Matrix y, Matrix z)
+liftMatrix43 f m1 m2 m3 m4 =
+  let sz@(r, c) = size m1
+      rowOrder = orderOf m1
+  in if sz == size m2 && sz == size m3 && sz == size m4
+     then
+       let (vx, vy, vz) = case rowOrder of
+             RowMajor -> f (flatten m1) (flatten m2) (flatten m3) (flatten m4)
+             ColumnMajor -> f (flatten (tr' m1)) (flatten (tr' m2))
+                              (flatten (tr' m3)) (flatten (tr' m4))
+               -- TODO: check if keeping RowMajor is faster
+       in ( matrixFromVector rowOrder r c vx
+          , matrixFromVector rowOrder r c vy
+          , matrixFromVector rowOrder r c vz
+          )
+     else error $ "nonconformant matrices in liftMatrix43: "
+                  ++ show (size m1, size m2, size m3, size m4)
+
+updateWithGradientAdam :: forall r. (Floating r, Numeric r, Floating (Vector r))
+                       => ArgsAdam r
+                       -> StateAdam r
+                       -> Domains r
+                       -> Domains' r
+                       -> (Domains r, StateAdam r)
+updateWithGradientAdam ArgsAdam{..}
+                       StateAdam{ tAdam
+                                , mAdam = (mAdam, mAdamV, mAdamL)
+                                , vAdam = (vAdam, vAdamV, vAdamL)
+                                }
+                       (params, paramsV, paramsL)
+                       (gradient, gradientV, gradientL) =
+  let tAdamNew = tAdam + 1
+      oneMinusBeta1 = 1 - beta1
+      oneMinusBeta2 = 1 - beta2
+      updateVector :: Vector r -> Vector r -> Vector r -> Vector r
+                   -> (Vector r, Vector r, Vector r)
+      updateVector mA vA p g =
+        let mANew = Numeric.LinearAlgebra.scale beta1 mA
+                    + Numeric.LinearAlgebra.scale oneMinusBeta1 g
+            vANew = Numeric.LinearAlgebra.scale beta2 vA
+                    + Numeric.LinearAlgebra.scale oneMinusBeta2 (g * g)
+            alphat = alpha * sqrt (1 - beta2 ^ tAdamNew)
+                             / (1 - beta1 ^ tAdamNew)
+        in ( mANew
+           , vANew
+           , p - Numeric.LinearAlgebra.scale alphat mANew
+                 / (sqrt vANew + konst epsilon (V.length vANew)) )
+                      -- @addConstant@ would be better, but it's not exposed
+      (mAdamNew, vAdamNew, paramsNew) = updateVector mAdam vAdam params gradient
+      updateV mA vA p g = if V.null g  -- eval didn't update it, would crash
+                          then (mA, vA, p)
+                          else updateVector mA vA p g
+      (mAdamVNew, vAdamVNew, paramsVNew) =
+        V.unzip3 $ V.zipWith4 updateV mAdamV vAdamV paramsV gradientV
+      updateL mA vA p g = if rows g <= 0  -- eval didn't update it, would crash
+                          then (mA, vA, p)
+                          else liftMatrix43 updateVector mA vA p g
+      (mAdamLNew, vAdamLNew, paramsLNew) =
+        V.unzip3 $ V.zipWith4 updateL mAdamL vAdamL paramsL gradientL
+  in ( (paramsNew, paramsVNew, paramsLNew)
+     , StateAdam { tAdam = tAdamNew
+                 , mAdam = (mAdamNew, mAdamVNew, mAdamLNew)
+                 , vAdam = (vAdamNew, vAdamVNew, vAdamLNew)
+                 }
+     )
+
+sgdAdam :: forall r a. (Eq r, Floating r, Numeric r, Floating (Vector r))
+        => (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+        -> [a]
+        -> Domains r
+        -> StateAdam r
+        -> (Domains r, StateAdam r)
+sgdAdam = sgdAdamArgs defaultArgsAdam
+
+sgdAdamArgs :: forall r a. (Eq r, Floating r, Numeric r, Floating (Vector r))
+            => ArgsAdam r
+            -> (a -> DualNumberVariables r
+                -> DeltaMonadGradient r (DualNumber r))
+            -> [a]
+            -> Domains r
+            -> StateAdam r
+            -> (Domains r, StateAdam r)
+sgdAdamArgs argsAdam f trainingData parameters0 stateAdam0 =
+  go trainingData parameters0 stateAdam0
+ where
+  varDeltas = generateDeltaVars parameters0
+  go :: [a] -> Domains r-> StateAdam r -> (Domains r, StateAdam r)
+  go [] parameters stateAdam = (parameters, stateAdam)
+  go (a : rest) parameters stateAdam =
+    let variables = makeDualNumberVariables parameters varDeltas
+        gradients = fst $ generalDf variables (f a)
+        (parametersNew, stateAdamNew) =
+          updateWithGradientAdam argsAdam stateAdam parameters gradients
+    in go rest parametersNew stateAdamNew
+
+sgdAdamBatch
+  :: forall r a. (Eq r, Floating r, Numeric r, Floating (Vector r))
+  => Int  -- ^ batch size
+  -> (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+  -> [a]
+  -> Domains r
+  -> StateAdam r
+  -> (Domains r, StateAdam r)
+sgdAdamBatch = sgdAdamBatchArgs defaultArgsAdam
+
+sgdAdamBatchArgs
+  :: forall r a. (Eq r, Floating r, Numeric r, Floating (Vector r))
+  => ArgsAdam r
+  -> Int  -- ^ batch size
+  -> (a -> DualNumberVariables r
+      -> DeltaMonadGradient r (DualNumber r))
+  -> [a]
+  -> Domains r
+  -> StateAdam r
+  -> (Domains r, StateAdam r)
+sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
+  go trainingData parameters0 stateAdam0
+ where
+  varDeltas = generateDeltaVars parameters0
+  go :: [a] -> Domains r-> StateAdam r -> (Domains r, StateAdam r)
+  go [] parameters stateAdam = (parameters, stateAdam)
+  go l parameters stateAdam =
+    let variables = makeDualNumberVariables parameters varDeltas
+        (batch, rest) = splitAt batchSize l
+        fAdd :: DualNumberVariables r -> DualNumber r -> a
+             -> DeltaMonadGradient r (DualNumber r)
+        fAdd vars !acc a = do
+          res <- f a vars
+          return $! acc + res
+        fBatch :: DualNumberVariables r
+               -> DeltaMonadGradient r (DualNumber r)
+        fBatch vars = do
+          resBatch <- foldM (fAdd vars) 0 batch
+          return $! resBatch / (fromIntegral $ length batch)
+        gradients = fst $ generalDf variables fBatch
+        (parametersNew, stateAdamNew) =
+          updateWithGradientAdam argsAdam stateAdam parameters gradients
+    in go rest parametersNew stateAdamNew
+
 -- | Relatively Smart Gradient Descent.
 -- Based on @gradientDescent@ from package @ad@ which is in turn based
 -- on the one from the VLAD compiler.
@@ -325,7 +517,7 @@ gdSmart :: forall r. (
         => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
         -> Int  -- ^ requested number of iterations
         -> Domains r  -- ^ initial parameters
-        -> (Domains' r, r)
+        -> (Domains r, r)
 gdSmart f n0 parameters0 = go n0 parameters0 0.1 gradients0 value0 0 where
   varDeltas = generateDeltaVars parameters0
   variables0 = makeDualNumberVariables parameters0 varDeltas

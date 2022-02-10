@@ -300,13 +300,16 @@ sinRNNTests = testGroup "Sine RNN tests"
   ]
 
 
--- * A 1 recurrent layer net with 256 (was 128) neurons for MNIST, based on
+-- * A 1 recurrent layer net with 128 neurons for MNIST, based on
 -- https://medium.com/machine-learning-algorithms/mnist-using-recurrent-neural-network-2d070a5915a2
 -- *Not* LSTM.
 -- Doesn't train without Adam, regardless of whether mini-batch sgd
--- is used and whether a second recurrent layer. Widh many-fold reduced
--- data and 50 epochs it trains vs the tiny training data only.
--- TODO: add Adam and see if that was really the reason.
+-- is used and whether a second recurrent layer. It does train with Adam,
+-- but only after very carefully tweaking initialization. This is
+-- extremely sensitive to initial parameters, more than to anything
+-- else. Probably, gradient is vanishing if parameters are initialized
+-- with a probability distribution that doesn't have the right variance. See
+-- https://stats.stackexchange.com/questions/301285/what-is-vanishing-gradient.
 
 hiddenLayerMnistRNNL :: (DeltaMonad r m, Numeric r, Floating (Vector r))
                      => Vector r
@@ -541,14 +544,14 @@ mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
   let (nParams, lPV, lPL) = flen width nLayers
       nParamsV = V.fromList lPV
       nParamsL = V.fromList lPL
-      params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
+      params0 = V.unfoldrExactN nParams (uniformR (-0.2, 0.2)) $ mkStdGen 44
       paramsV0 =
-        V.imap (\i nPV -> V.unfoldrExactN nPV (uniformR (-0.5, 0.5))
-                                          (mkStdGen $ 33 + nPV + i))
+        V.imap (\i nPV -> V.unfoldrExactN nPV (uniformR (-0.2, 0.2))
+                                          (mkStdGen $ 44 + nPV + i))
                nParamsV
       paramsL0 = V.imap (\i (rows, cols) ->
-                           uniformSample (33 + rows + i) rows
-                                         (replicate cols (-0.5, 0.5)))
+                           uniformSample (44 + rows + i) rows
+                                         (replicate cols (-0.2, 0.2)))
                         nParamsL
       totalParams = nParams + V.sum nParamsV
                     + V.sum (V.map (uncurry (*)) nParamsL)
@@ -561,38 +564,38 @@ mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
        let rws (input, target) =
              ( map (\k -> V.slice (k * 28) 28 input) [0 .. 27]
              , target )
-       trainData' <- map rws <$> loadMnistData trainGlyphsPath trainLabelsPath
-       let trainData = take 200 trainData'
-         -- trains badly, so repeat data to see in tests if trains at all
+       trainData <- map rws <$> loadMnistData trainGlyphsPath trainLabelsPath
        testData <- map rws <$> loadMnistData testGlyphsPath testLabelsPath
        -- There is some visual feedback, because some of these take long.
-       let runBatch :: Domains Double
+       let runBatch :: (Domains Double, StateAdam Double)
                     -> (Int, [([Vector Double], Vector Double)])
-                    -> IO (Domains Double)
-           runBatch (!params, !paramsV, !paramsL) (k, chunk) = do
+                    -> IO (Domains Double, StateAdam Double)
+           runBatch (parameters@(!_, !_, !_), stateAdam) (k, chunk) = do
              printf "(Batch %d with %d points)\n" k (length chunk)
-             let res = sgdBatch 7 0.2 (f width) chunk
-                                (params, paramsV, paramsL)
-             let trainScore = ftest width chunk res
+             let res@(parameters2, _) =
+                   sgdAdamBatch 128 (f width) chunk parameters stateAdam
+                 trainScore = ftest width chunk parameters2
+                 testScore = ftest width testData parameters2
              printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
+             printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int
-                    -> Domains Double
+           runEpoch :: Int
+                    -> (Domains Double, StateAdam Double)
                     -> IO (Domains Double)
-           runEpoch n params2 | n > epochs = return params2
-           runEpoch n params2 = do
+           runEpoch n (params2, _) | n > epochs = return params2
+           runEpoch n paramsStateAdam = do
              printf "[Epoch %d]\n" n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches
-                          $ zip [1 ..] $ chunksOf 200 trainDataShuffled
-             !res <- foldM runBatch params2 chunks
+                          $ zip [1 ..] $ chunksOf 5000 trainDataShuffled
+             !res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
        printf "\nEpochs to run/max batches per epoch: %d/%d\n"
               epochs maxBatches
-       res <- runEpoch 1 (params0, paramsV0, paramsL0)
-       let testScore = ftest width testData res
-       printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
-       let testErrorFinal = 1 - ftest width trainData res  -- ftest width testData res
+       let parameters0 = (params0, paramsV0, paramsL0)
+           stateAdam0 = initialStateAdam parameters0
+       res <- runEpoch 1 (parameters0, stateAdam0)
+       let testErrorFinal = 1 - ftest width testData res
        testErrorFinal @?= expected
 
 mnistRNNTests :: TestTree
@@ -602,68 +605,68 @@ mnistRNNTests = testGroup "MnistRNN tests"
         rws v = map (\k -> V.slice (k * 28) 28 v) [0 .. 27]
         trainData = map ((\g -> (rws (glyph g), label g)) . mkStdGen) [1 .. 100]
     in sgdTestCase "randomLL 100"
-                   (nnMnistRNNLossL 256)
-                   (lenMnistRNNL 256 1)
+                   (nnMnistRNNLossL 128)
+                   (lenMnistRNNL 128 1)
                    (return trainData)
-                   11.066229258143183
+                   11.059762667225318
   , let rws (input, target) =
           (map (\k -> V.slice (k * 28) 28 input) [0 .. 27], target)
     in sgdTestCase "firstLL 100 trainset samples only"
-                   (nnMnistRNNLossL 256)
-                   (lenMnistRNNL 256 1)
+                   (nnMnistRNNLossL 128)
+                   (lenMnistRNNL 128 1)
                    (map rws <$> take 100
                     <$> loadMnistData trainGlyphsPath trainLabelsPath)
-                   2.7864058958350717
+                   2.747593539816777
   , mnistTestCaseRNN "1LL 1 epoch, 1 batch" 1 1
-                     nnMnistRNNLossL testMnistRNNL lenMnistRNNL 256 1
-                     0.885
-  , mnistTestCaseRNN "99LL 50 epochs, all batches" 50 99
-                     nnMnistRNNLossL testMnistRNNL lenMnistRNNL 256 1
-                     2.0000000000000018e-2
+                     nnMnistRNNLossL testMnistRNNL lenMnistRNNL 128 1
+                     0.37250000000000005
+  , mnistTestCaseRNN "99LL 1 epoch, all batches" 1 99
+                     nnMnistRNNLossL testMnistRNNL lenMnistRNNL 128 1
+                     6.579999999999997e-2
   , let glyph = V.unfoldrExactN sizeMnistGlyph (uniformR (0, 1))
         label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
         rws v = map (\k -> V.slice (k * 28) 28 v) [0 .. 27]
         trainData = map ((\g -> (rws (glyph g), label g)) . mkStdGen) [1 .. 100]
     in sgdTestCase "randomVV 100"
-                   (nnMnistRNNLossV 256)
-                   (lenMnistRNNV 256 1)
+                   (nnMnistRNNLossV 128)
+                   (lenMnistRNNV 128 1)
                    (return trainData)
-                   11.062723320433353
+                   11.076679980718604
   , let rws (input, target) =
           (map (\k -> V.slice (k * 28) 28 input) [0 .. 27], target)
     in sgdTestCase "firstVV 100 trainset samples only"
-                   (nnMnistRNNLossV 256)
-                   (lenMnistRNNV 256 1)
+                   (nnMnistRNNLossV 128)
+                   (lenMnistRNNV 128 1)
                    (map rws <$> take 100
                     <$> loadMnistData trainGlyphsPath trainLabelsPath)
-                   2.797806499237735
+                   2.7348332349644084
   , mnistTestCaseRNN "1VV 1 epoch, 1 batch" 1 1
-                     nnMnistRNNLossV testMnistRNNV lenMnistRNNV 256 1
-                     0.875
-  , mnistTestCaseRNN "99VV 50 epochs, all batches" 50 99
-                     nnMnistRNNLossV testMnistRNNV lenMnistRNNV 256 1
-                     0.405
+                     nnMnistRNNLossV testMnistRNNV lenMnistRNNV 128 1
+                     0.3123
+  , mnistTestCaseRNN "99VV 1 epoch, all batches" 1 99
+                     nnMnistRNNLossV testMnistRNNV lenMnistRNNV 128 1
+                     7.310000000000005e-2
   , let glyph = V.unfoldrExactN sizeMnistGlyph (uniformR (0, 1))
         label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
         rws v = map (\k -> V.slice (k * 28) 28 v) [0 .. 27]
         trainData = map ((\g -> (rws (glyph g), label g)) . mkStdGen) [1 .. 100]
     in sgdTestCase "randomLL2 100"
-                   (nnMnistRNNLossL2 256)
-                   (lenMnistRNNL 256 2)
+                   (nnMnistRNNLossL2 128)
+                   (lenMnistRNNL 128 2)
                    (return trainData)
-                   11.067285270858907
+                   11.052455624269294
   , let rws (input, target) =
           (map (\k -> V.slice (k * 28) 28 input) [0 .. 27], target)
     in sgdTestCase "firstLL2 100 trainset samples only"
-                   (nnMnistRNNLossL2 256)
-                   (lenMnistRNNL 256 2)
+                   (nnMnistRNNLossL2 128)
+                   (lenMnistRNNL 128 2)
                    (map rws <$> take 100
                     <$> loadMnistData trainGlyphsPath trainLabelsPath)
-                   2.823790930213958
+                   2.7330660939846974
   , mnistTestCaseRNN "1LL2 1 epoch, 1 batch" 1 1
-                     nnMnistRNNLossL2 testMnistRNNL2 lenMnistRNNL 256 2
-                     0.885
-  , mnistTestCaseRNN "99LL2 50 epochs, all batches" 50 99
-                     nnMnistRNNLossL2 testMnistRNNL2 lenMnistRNNL 256 2
-                     0.755
+                     nnMnistRNNLossL2 testMnistRNNL2 lenMnistRNNL 128 2
+                     0.32110000000000005
+  , mnistTestCaseRNN "99LL2 1 epoch, all batches" 1 99
+                     nnMnistRNNLossL2 testMnistRNNL2 lenMnistRNNL 128 2
+                     6.410000000000005e-2
   ]
