@@ -18,6 +18,7 @@ testTrees = [ dumbMnistTests
             , bigMnistTests
             , vectorMnistTests
             , matrixMnistTests
+            , fusedMnistTests
             ]
 
 shortTestForCITrees :: [TestTree]
@@ -363,6 +364,24 @@ matrixMnistTests = testGroup "MNIST LL tests with a 2-hidden-layer nn"
                     0.8991
   ]
 
+fusedMnistTests :: TestTree
+fusedMnistTests = testGroup "MNIST fused LL tests with a 2-hidden-layer nn"
+  [ mnistTestCase2L "1 epoch, 1 batch" 1 1 nnMnistLossFused2L 300 100 0.02
+                    0.13129999999999997
+  , mnistTestCase2L "1 epoch, 1 batch, wider" 1 1
+                    nnMnistLossFused2L 500 150 0.02
+                    0.14480000000000004
+  , mnistTestCase2L "2 epochs, but only 1 batch" 2 1
+                    nnMnistLossFused2L 300 100 0.02
+                    9.48e-2
+  , mnistTestCase2L "1 epoch, all batches" 1 99 nnMnistLossFused2L 300 100 0.02
+                    5.6599999999999984e-2
+  , mnistTestCase2L "artificial 1 2 3 4 5" 1 2 nnMnistLossFused2L 3 4 5
+                    0.8972
+  , mnistTestCase2L "artificial 5 4 3 2 1" 5 4 nnMnistLossFused2L 3 2 1
+                    0.8046
+  ]
+
 shortCIMnistTests :: TestTree
 shortCIMnistTests = testGroup "Short CI MNIST tests"
   [ mnistTestCase2 "2 - 1 epoch, 1 batch" 1 1 nnMnistLoss2 300 100 0.02
@@ -383,4 +402,10 @@ shortCIMnistTests = testGroup "Short CI MNIST tests"
                     0.8972
   , mnistTestCase2L "LL artificial 5 4 3 2 1" 5 4 nnMnistLoss2L 3 2 1
                     0.8991
+  , mnistTestCase2L "fused LL 1/1 batch" 1 1 nnMnistLossFused2L 300 100 0.02
+                    0.13129999999999997
+  , mnistTestCase2L "fused LL artificial 1 2 3 4 5" 1 2 nnMnistLossFused2L 3 4 5
+                    0.8972
+  , mnistTestCase2L "fused LL artificial 5 4 3 2 1" 5 4 nnMnistLossFused2L 3 2 1
+                    0.8046
   ]

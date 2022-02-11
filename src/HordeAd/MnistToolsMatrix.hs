@@ -69,6 +69,18 @@ nnMnistLoss2L (input, target) variables = do
   result <- inline nnMnist2L logisticActV softMaxActV input variables
   lossCrossEntropyV target result
 
+-- | The neural network applied to concrete activation functions
+-- and composed with the appropriate loss function, using fused
+-- softMax and cross entropy as the loss function.
+nnMnistLossFused2L
+  :: (DeltaMonad r m, Numeric r, Floating r, Floating (Vector r))
+  => MnistData r
+  -> DualNumberVariables r
+  -> m (DualNumber r)
+nnMnistLossFused2L (input, target) variables = do
+  result <- inline nnMnist2L logisticActV (\x -> return x) input variables
+  lossSoftMaxCrossEntropyV target result
+
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 testMnist2L :: forall r. (Ord r, Floating r, Numeric r, Floating (Vector r))

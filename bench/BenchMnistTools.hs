@@ -43,12 +43,12 @@ mnistTrainBGroup2 xs0 chunkLength =
   env (return $ take chunkLength xs0) $
   \ xs ->
   bgroup ("2-hidden-layer MNIST nn with samples: " ++ show chunkLength)
-    [ mnistTestBench2 "30 10" chunkLength xs 30 10  -- toy width
-    , mnistTrainBench2 "30 10" chunkLength xs 30 10 0.02
-    , mnistTestBench2 "300 100" chunkLength xs 300 100  -- ordinary width
-    , mnistTrainBench2 "300 100" chunkLength xs 300 100 0.02
-    , mnistTestBench2 "500 150" chunkLength xs 500 150  -- another common size
-    , mnistTrainBench2 "500 150" chunkLength xs 500 150 0.02
+    [ mnistTestBench2 "30|10 " chunkLength xs 30 10  -- toy width
+    , mnistTrainBench2 "30|10 " chunkLength xs 30 10 0.02
+    , mnistTestBench2 "300|100 " chunkLength xs 300 100  -- ordinary width
+    , mnistTrainBench2 "300|100 " chunkLength xs 300 100 0.02
+    , mnistTestBench2 "500|150 " chunkLength xs 500 150  -- another common size
+    , mnistTrainBench2 "500|150 " chunkLength xs 500 150 0.02
     ]
 
 mnistTrainBGroup2500 :: [MnistData Double] -> Int -> Benchmark
@@ -57,12 +57,12 @@ mnistTrainBGroup2500 xs0 chunkLength =
                     $ take chunkLength xs0)) $
   \ ~(xs, xsFloat) ->
   bgroup ("huge 2-hidden-layer MNIST nn with samples: " ++ show chunkLength)
-    [ mnistTestBench2 "2500 750" chunkLength xs 2500 750
+    [ mnistTestBench2 "2500|750 " chunkLength xs 2500 750
         -- probably mostly wasted
-    , mnistTrainBench2 "2500 750" chunkLength xs 2500 750 0.02
-    , mnistTestBench2 "(Float) 2500 750" chunkLength xsFloat 2500 750
+    , mnistTrainBench2 "2500|750 " chunkLength xs 2500 750 0.02
+    , mnistTestBench2 "(Float) 2500|750 " chunkLength xsFloat 2500 750
         -- Float test
-    , mnistTrainBench2 "(Float) 2500 750" chunkLength xsFloat 2500 750
+    , mnistTrainBench2 "(Float) 2500|750 " chunkLength xsFloat 2500 750
         (0.02 :: Float)
     ]
 
@@ -111,12 +111,12 @@ mnistTrainBGroup2V xs0 chunkLength =
   env (return $ take chunkLength xs0) $
   \ xs ->
   bgroup ("2-hidden-layer V MNIST nn with samples: " ++ show chunkLength)
-    [ mnistTestBench2V "30 10" chunkLength xs 30 10  -- toy width
-    , mnistTrainBench2V "30 10" chunkLength xs 30 10 0.02
-    , mnistTestBench2V "300 100" chunkLength xs 300 100  -- ordinary width
-    , mnistTrainBench2V "300 100" chunkLength xs 300 100 0.02
-    , mnistTestBench2V "500 150" chunkLength xs 500 150  -- another common size
-    , mnistTrainBench2V "500 150" chunkLength xs 500 150 0.02
+    [ mnistTestBench2V "30|10 " chunkLength xs 30 10  -- toy width
+    , mnistTrainBench2V "30|10 " chunkLength xs 30 10 0.02
+    , mnistTestBench2V "300|100 " chunkLength xs 300 100  -- ordinary width
+    , mnistTrainBench2V "300|100 " chunkLength xs 300 100 0.02
+    , mnistTestBench2V "500|150 " chunkLength xs 500 150  -- another common size
+    , mnistTrainBench2V "500|150 " chunkLength xs 500 150 0.02
     ]
 
 mnistTrainBench2L :: String -> Int -> [MnistData Double] -> Int -> Int
@@ -135,7 +135,10 @@ mnistTrainBench2L extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
                            uniformSample (33 + rows + i) rows
                                          (replicate cols (-0.5, 0.5)))
                         nParamsL
-      f = nnMnistLoss2L
+      -- Using the fused version to benchmark against the manual gradient
+      -- from backprop that uses it at least in its forward pass,
+      -- not againts the derived gradients that are definitively slower.
+      f = nnMnistLossFused2L
       chunk = take chunkLength xs
       grad c = sgd gamma f c (params0, paramsV0, paramsL0)
       totalParams = nParams + V.sum nParamsV
@@ -176,10 +179,10 @@ mnistTrainBGroup2L xs0 chunkLength =
   env (return $ take chunkLength xs0) $
   \ xs ->
   bgroup ("2-hidden-layer L MNIST nn with samples: " ++ show chunkLength)
-    [ mnistTestBench2L "30 10" chunkLength xs 30 10  -- toy width
-    , mnistTrainBench2L "30 10" chunkLength xs 30 10 0.02
-    , mnistTestBench2L "300 100" chunkLength xs 300 100  -- ordinary width
-    , mnistTrainBench2L "300 100" chunkLength xs 300 100 0.02
-    , mnistTestBench2L "500 150" chunkLength xs 500 150  -- another common size
-    , mnistTrainBench2L "500 150" chunkLength xs 500 150 0.02
+    [ mnistTestBench2L "30|10 " chunkLength xs 30 10  -- toy width
+    , mnistTrainBench2L "30|10 " chunkLength xs 30 10 0.02
+    , mnistTestBench2L "300|100 " chunkLength xs 300 100  -- ordinary width
+    , mnistTrainBench2L "300|100 " chunkLength xs 300 100 0.02
+    , mnistTestBench2L "500|150 " chunkLength xs 500 150  -- another common size
+    , mnistTrainBench2L "500|150 " chunkLength xs 500 150 0.02
     ]

@@ -267,3 +267,21 @@ lossCrossEntropyV :: (DeltaMonad r m, Numeric r, Floating (Vector r))
                   -> DualNumber (Vector r)
                   -> m (DualNumber r)
 lossCrossEntropyV targ res = returnLet $ negate $ log res <.>!! targ
+
+lossSoftMaxCrossEntropyV :: ( DeltaMonad r m, Fractional r, Numeric r
+                            , Floating (Vector r) )
+                         => Vector r
+                         -> DualNumber (Vector r)
+                         -> m (DualNumber r)
+lossSoftMaxCrossEntropyV target (D u u') = do
+  let expU = exp u
+  -- The following would protect from overflows and exploding gradients,
+  -- but I have yet to find a test that requires this and guards
+  -- against removing or weakening this mechanism.
+  -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106.
+  --  expU = exp (u - konst (V.maximum u) (V.length u))
+      sumExpU = sumElements expU
+      recipSum = recip sumExpU
+      softMaxU = konst recipSum (V.length u) * expU
+  returnLet $ D (negate $ log softMaxU <.> target)
+                (Dot1 (softMaxU - target) u')

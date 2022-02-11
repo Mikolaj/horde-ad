@@ -407,8 +407,7 @@ nnMnistRNNLossL :: ( DeltaMonad r m, Numeric r, Fractional r
                 -> m (DualNumber r)
 nnMnistRNNLossL width (xs, target) variables = do
   result <- nnMnistRNNL width xs variables
-  softMaxResult <- softMaxActV result
-  lossCrossEntropyV target softMaxResult
+  lossSoftMaxCrossEntropyV target result
 
 nnMnistRNNLossL2 :: ( DeltaMonad r m, Numeric r, Fractional r
                     , Floating (Vector r) )
@@ -418,8 +417,7 @@ nnMnistRNNLossL2 :: ( DeltaMonad r m, Numeric r, Fractional r
                  -> m (DualNumber r)
 nnMnistRNNLossL2 width (xs, target) variables = do
   result <- nnMnistRNNL2 width xs variables
-  softMaxResult <- softMaxActV result
-  lossCrossEntropyV target softMaxResult
+  lossSoftMaxCrossEntropyV target result
 
 testMnistRNNL :: forall r. (Ord r, Floating r, Numeric r, Floating (Vector r))
               => Int -> [([Vector r], Vector r)] -> Domains r -> r
@@ -493,8 +491,7 @@ nnMnistRNNLossV :: ( DeltaMonad r m, Numeric r, Fractional r
                 -> m (DualNumber r)
 nnMnistRNNLossV width (xs, target) variables = do
   result <- nnMnistRNNV width xs variables
-  softMaxResult <- softMaxActV result
-  lossCrossEntropyV target softMaxResult
+  lossSoftMaxCrossEntropyV target result
 
 testMnistRNNV :: forall r. (Ord r, Floating r, Numeric r, Floating (Vector r))
               => Int -> [([Vector r], Vector r)] -> Domains r -> r
@@ -608,7 +605,7 @@ mnistRNNTests = testGroup "MnistRNN tests"
                    (nnMnistRNNLossL 128)
                    (lenMnistRNNL 128 1)
                    (return trainData)
-                   11.059762667225318
+                   67.48023157739416
   , let rws (input, target) =
           (map (\k -> V.slice (k * 28) 28 input) [0 .. 27], target)
     in sgdTestCase "firstLL 100 trainset samples only"
@@ -616,7 +613,7 @@ mnistRNNTests = testGroup "MnistRNN tests"
                    (lenMnistRNNL 128 1)
                    (map rws <$> take 100
                     <$> loadMnistData trainGlyphsPath trainLabelsPath)
-                   2.747593539816777
+                   2.7475935398167763
   , mnistTestCaseRNN "1LL 1 epoch, 1 batch" 1 1
                      nnMnistRNNLossL testMnistRNNL lenMnistRNNL 128 1
                      0.37250000000000005
@@ -631,7 +628,7 @@ mnistRNNTests = testGroup "MnistRNN tests"
                    (nnMnistRNNLossV 128)
                    (lenMnistRNNV 128 1)
                    (return trainData)
-                   11.076679980718604
+                   58.4107481776972
   , let rws (input, target) =
           (map (\k -> V.slice (k * 28) 28 input) [0 .. 27], target)
     in sgdTestCase "firstVV 100 trainset samples only"
@@ -654,7 +651,7 @@ mnistRNNTests = testGroup "MnistRNN tests"
                    (nnMnistRNNLossL2 128)
                    (lenMnistRNNL 128 2)
                    (return trainData)
-                   11.052455624269294
+                   50.79613986201308
   , let rws (input, target) =
           (map (\k -> V.slice (k * 28) 28 input) [0 .. 27], target)
     in sgdTestCase "firstLL2 100 trainset samples only"
