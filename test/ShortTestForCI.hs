@@ -17,4 +17,4 @@ tests = testGroup "Short tests for CI" $
   TestSingleGradient.testTrees
   ++ TestSimpleDescent.testTrees
   ++ TestMnistFC.shortTestForCITrees
-  ++ TestMnistRNN.testTrees
+  ++ TestMnistRNN.shortTestForCITrees

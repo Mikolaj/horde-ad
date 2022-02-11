@@ -16,12 +16,13 @@ import HordeAd.MnistTools
 
 testTrees :: [TestTree]
 testTrees = [ sinRNNTests
-            , mnistRNNTests
+            , mnistRNNTestsShort
+            , mnistRNNTestsLong
             ]
 
 shortTestForCITrees :: [TestTree]
 shortTestForCITrees = [ sinRNNTests
---                      , mnistRNNTests
+                      , mnistRNNTestsShort
                       ]
 
 
@@ -595,8 +596,21 @@ mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
        let testErrorFinal = 1 - ftest width testData res
        testErrorFinal @?= expected
 
-mnistRNNTests :: TestTree
-mnistRNNTests = testGroup "MnistRNN tests"
+mnistRNNTestsLong :: TestTree
+mnistRNNTestsLong = testGroup "MnistRNN tests long"
+  [ mnistTestCaseRNN "99LL 1 epoch, all batches" 1 99
+                     nnMnistRNNLossL testMnistRNNL lenMnistRNNL 128 1
+                     6.579999999999997e-2
+  , mnistTestCaseRNN "99VV 1 epoch, all batches" 1 99
+                     nnMnistRNNLossV testMnistRNNV lenMnistRNNV 128 1
+                     7.310000000000005e-2
+  , mnistTestCaseRNN "99LL2 1 epoch, all batches" 1 99
+                     nnMnistRNNLossL2 testMnistRNNL2 lenMnistRNNL 128 2
+                     6.410000000000005e-2
+  ]
+
+mnistRNNTestsShort :: TestTree
+mnistRNNTestsShort = testGroup "MnistRNN tests short"
   [ let glyph = V.unfoldrExactN sizeMnistGlyph (uniformR (0, 1))
         label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
         rws v = map (\k -> V.slice (k * 28) 28 v) [0 .. 27]
@@ -617,9 +631,6 @@ mnistRNNTests = testGroup "MnistRNN tests"
   , mnistTestCaseRNN "1LL 1 epoch, 1 batch" 1 1
                      nnMnistRNNLossL testMnistRNNL lenMnistRNNL 128 1
                      0.37250000000000005
-  , mnistTestCaseRNN "99LL 1 epoch, all batches" 1 99
-                     nnMnistRNNLossL testMnistRNNL lenMnistRNNL 128 1
-                     6.579999999999997e-2
   , let glyph = V.unfoldrExactN sizeMnistGlyph (uniformR (0, 1))
         label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
         rws v = map (\k -> V.slice (k * 28) 28 v) [0 .. 27]
@@ -640,9 +651,6 @@ mnistRNNTests = testGroup "MnistRNN tests"
   , mnistTestCaseRNN "1VV 1 epoch, 1 batch" 1 1
                      nnMnistRNNLossV testMnistRNNV lenMnistRNNV 128 1
                      0.3123
-  , mnistTestCaseRNN "99VV 1 epoch, all batches" 1 99
-                     nnMnistRNNLossV testMnistRNNV lenMnistRNNV 128 1
-                     7.310000000000005e-2
   , let glyph = V.unfoldrExactN sizeMnistGlyph (uniformR (0, 1))
         label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
         rws v = map (\k -> V.slice (k * 28) 28 v) [0 .. 27]
@@ -663,7 +671,4 @@ mnistRNNTests = testGroup "MnistRNN tests"
   , mnistTestCaseRNN "1LL2 1 epoch, 1 batch" 1 1
                      nnMnistRNNLossL2 testMnistRNNL2 lenMnistRNNL 128 2
                      0.32110000000000005
-  , mnistTestCaseRNN "99LL2 1 epoch, all batches" 1 99
-                     nnMnistRNNLossL2 testMnistRNNL2 lenMnistRNNL 128 2
-                     6.410000000000005e-2
   ]
