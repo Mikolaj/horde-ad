@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 -- | Parsing and pre-processing MNIST data.
-module HordeAd.MnistToolsData where
+module HordeAd.Tool.MnistData where
 
 import Prelude
 

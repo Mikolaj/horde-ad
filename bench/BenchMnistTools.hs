@@ -11,7 +11,7 @@ import           Numeric.LinearAlgebra (Numeric, uniformSample)
 import           System.Random
 
 import HordeAd
-import HordeAd.MnistTools
+import HordeAd.Tool.MnistTools
 
 mnistTrainBench2 :: ( Eq r, Floating r, UniformRange r
                     , Numeric r, Num (Data.Vector.Storable.Vector r) )

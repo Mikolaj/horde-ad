@@ -14,7 +14,7 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
-import HordeAd.MnistTools
+import HordeAd.Tool.MnistTools
 
 testTrees :: [TestTree]
 testTrees = [ conditionalSynthTests

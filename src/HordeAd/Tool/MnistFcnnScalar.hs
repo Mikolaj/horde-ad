@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 -- | Scalar-based implementation of fully connected neutral network
 -- for classification of MNIST digits. Sports 2 hidden layers.
-module HordeAd.MnistToolsScalar where
+module HordeAd.Tool.MnistFcnnScalar where
 
 import Prelude
 
@@ -11,10 +11,10 @@ import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 
-import HordeAd.DualNumber
-import HordeAd.Engine
-import HordeAd.MnistToolsData
-import HordeAd.PairOfVectors (DualNumberVariables, var)
+import HordeAd.Core.DualNumber
+import HordeAd.Core.Engine
+import HordeAd.Core.PairOfVectors (DualNumberVariables, var)
+import HordeAd.Tool.MnistData
 
 -- | Compute the output of a neuron, without applying activation function,
 -- from trainable inputs in @xs@ and parameters (the bias and weights)

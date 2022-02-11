@@ -6,7 +6,7 @@
 -- For this reason, this representation is currently used only to represent
 -- the inputs of functions, that is, dual numbers with initial values
 -- of parameters and with `Delta` variables assigned to each.
-module HordeAd.PairOfVectors
+module HordeAd.Core.PairOfVectors
   ( DualNumberVariables
   , makeDualNumberVariables, var, vars, varV, varL
   , ifoldMDelta', foldMDelta', ifoldlDelta', foldlDelta'
@@ -19,8 +19,8 @@ import qualified Data.Vector.Generic as V
 import           Foreign.Storable (Storable)
 import           Numeric.LinearAlgebra (Matrix, Vector)
 
-import HordeAd.Delta
-import HordeAd.DualNumber (DualNumber (..))
+import HordeAd.Core.Delta
+import HordeAd.Core.DualNumber (DualNumber (..))
 
 -- These are optimized as "pair of vectors" representing vectors of @DualNumber@
 -- in an efficient way (especially, or only, with gradient descent,

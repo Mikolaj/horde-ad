@@ -8,7 +8,7 @@
 -- The crucial extra constructor for variables is used both to represent
 -- sharing in order to avoid exponential blowup and to replace the one-hot
 -- functionality with something cheaper and more uniform.
-module HordeAd.Delta
+module HordeAd.Core.Delta
   ( Delta (..)
   , DeltaId (..)
   , DeltaBinding (..)

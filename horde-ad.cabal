@@ -106,16 +106,16 @@ library
 
     -- Modules exported by the library.
     exposed-modules:  HordeAd
-                      HordeAd.Delta
-                      HordeAd.DualNumber
-                      HordeAd.Engine
+                      HordeAd.Core.Delta
+                      HordeAd.Core.DualNumber
+                      HordeAd.Core.Engine
+                      HordeAd.Core.PairOfVectors
                       HordeAd.Internal.MatrixOuter
-                      HordeAd.MnistTools
-                      HordeAd.MnistToolsData
-                      HordeAd.MnistToolsMatrix
-                      HordeAd.MnistToolsScalar
-                      HordeAd.MnistToolsVector
-                      HordeAd.PairOfVectors
+                      HordeAd.Tool.MnistTools
+                      HordeAd.Tool.MnistData
+                      HordeAd.Tool.MnistFcnnMatrix
+                      HordeAd.Tool.MnistFcnnScalar
+                      HordeAd.Tool.MnistFcnnVector
 
     -- Modules included in this library but not exported.
     -- other-modules:

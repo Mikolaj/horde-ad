@@ -12,7 +12,7 @@ import           Test.Tasty.HUnit hiding (assert)
 import           Text.Printf
 
 import HordeAd
-import HordeAd.MnistTools
+import HordeAd.Tool.MnistTools
 
 testTrees :: [TestTree]
 testTrees = [ sinRNNTests

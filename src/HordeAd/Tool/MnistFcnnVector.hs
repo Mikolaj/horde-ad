@@ -3,7 +3,7 @@
 -- consider vectors, not scalars, as the primitive differentiable type)
 -- implementation of fully connected neutral network for classification
 -- of MNIST digits. Sports 2 hidden layers.
-module HordeAd.MnistToolsVector where
+module HordeAd.Tool.MnistFcnnVector where
 
 import Prelude
 
@@ -13,10 +13,10 @@ import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 
-import HordeAd.DualNumber
-import HordeAd.Engine
-import HordeAd.MnistToolsData
-import HordeAd.PairOfVectors (DualNumberVariables, varV)
+import HordeAd.Core.DualNumber
+import HordeAd.Core.Engine
+import HordeAd.Core.PairOfVectors (DualNumberVariables, varV)
+import HordeAd.Tool.MnistData
 
 sumTrainableInputsV :: Numeric r
                     => DualNumber (Vector r)

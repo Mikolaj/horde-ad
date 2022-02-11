@@ -4,7 +4,7 @@
 -- | Two implementations of the monad in which our dual numbers live,
 -- an implementation of deriving a gradient and several gradient descent
 -- schemes.
-module HordeAd.Engine where
+module HordeAd.Core.Engine where
 
 import Prelude
 
@@ -22,9 +22,9 @@ import           Numeric.LinearAlgebra.Data (flatten)
 import           Numeric.LinearAlgebra.Devel
   (MatrixOrder (..), liftMatrix, liftMatrix2, matrixFromVector, orderOf)
 
-import HordeAd.Delta
-import HordeAd.DualNumber (DeltaMonad (..), DualNumber (..))
-import HordeAd.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
+import HordeAd.Core.Delta
+import HordeAd.Core.DualNumber (DeltaMonad (..), DualNumber (..))
+import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 
 -- import Debug.Trace
 

@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -Wno-missing-export-lists -Wno-missing-methods #-}
 -- | Dual numbers and operations on them, which are extensions of normal
 -- arithmetic and other operations to also cover derivatives.
-module HordeAd.DualNumber where
+module HordeAd.Core.DualNumber where
 
 import Prelude
 
@@ -11,7 +11,7 @@ import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra
   (Matrix, Numeric, Vector, konst, sumElements, (#>), (<.>))
 
-import HordeAd.Delta (Delta (..))
+import HordeAd.Core.Delta (Delta (..))
 
 -- * The main dual number types
 
