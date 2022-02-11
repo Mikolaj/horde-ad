@@ -510,7 +510,7 @@ testMnistRNNV width inputs parameters =
 lenMnistRNNL :: Int -> Int -> (Int, [Int], [(Int, Int)])
 lenMnistRNNL width nLayers =
   ( 0
-  , [width, 10, width] ++ replicate (nLayers - 1) width
+  , [width, 10] ++ replicate (nLayers - 1) width
   , [(width, 28), (width, width), (10, width)]
     ++ concat (replicate (nLayers - 1) [(width, width), (width, width)])
   )
