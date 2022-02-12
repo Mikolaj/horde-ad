@@ -35,11 +35,28 @@ import qualified Numeric.LinearAlgebra
 
 import HordeAd.Internal.MatrixOuter
 
+-- | This is the grammar of delta-expressions.
+-- They have different but inter-related semantics at the level
+-- of scalars, vectors and matrices (WIP: and arbitrary tensors).
+-- Some make sense only on one of the levels, as expressed by the GADT
+-- type constraints (WIP: currently this is broken by conflating
+-- level-polymorphism and the polymorphism wrt the underlying scalar type
+-- (Float, Double, etc.)).
+--
+-- In other words, for each choice of the underlying scalar type @r@,
+-- we have three primitive differentiable types based on the scalar:
+-- the scalar type @r@ itself, @Vector r@ and @Matrix r@.
 data Delta :: Type -> Type where
+  -- These constructors make sense at all levels: scalars, vectors, matrices,
+  -- tensors. All constructors focusing on scalars belong to this group,
+  -- that is, they make sense also for vectors, etc., and have more or less
+  -- analogous semantics at the non-scalar levels.
   Zero :: Delta a
   Scale :: a -> Delta a -> Delta a
   Add :: Delta a -> Delta a -> Delta a
   Var :: DeltaId -> Delta a
+
+  -- Constructors related to vectors.
   Dot1 :: Vector r -> Delta (Vector r) -> Delta r
   SumElements1 :: Delta (Vector r) -> Int -> Delta r
   Konst1 :: Delta r -> Delta (Vector r)
@@ -47,6 +64,8 @@ data Delta :: Type -> Type where
   Index1 :: Delta (Vector r) -> Int -> Int -> Delta r
   Append1 :: Delta (Vector r) -> Int -> Delta (Vector r) -> Delta (Vector r)
   Slice1 :: Int -> Int -> Delta (Vector r) -> Int -> Delta (Vector r)
+
+  -- Constructors related to matrices.
   Dot2 :: Matrix r -> Delta (Matrix r) -> Delta (Vector r)
   DotRow2 :: Vector r -> Delta (Matrix r) -> Delta (Vector r)
   AsRow2 :: Delta (Vector r) -> Delta (Matrix r)
@@ -64,6 +83,26 @@ data DeltaState r = DeltaState
   { deltaCounter  :: DeltaId
   , deltaBindings :: [DeltaBinding r]
   }
+
+-- | Semantics of delta expressions.
+evalBindings :: forall r. (Eq r, Numeric r, Num (Vector r))
+             => Int -> Int -> Int -> DeltaState r -> Delta r
+             -> ( Vector r
+                , Data.Vector.Vector (Vector r)
+                , Data.Vector.Vector (Matrix r) )
+evalBindings dim dimV dimL st d0 =
+  -- This is morally @V.create@ and so totally safe,
+  -- but we can't just call @V.create@ thrice, because it would run
+  -- the @ST@ action thrice, so we inline and extend @V.create@ here.
+  runST $ do
+    (res, resV, resL) <- buildVector dim dimV dimL st d0
+    r <- V.unsafeFreeze res
+    rV <- V.unsafeFreeze resV
+    rL <- V.unsafeFreeze resL
+    -- Prevent a crash if a parameter not updated.
+    let convertMatrix (MatrixOuter Nothing Nothing Nothing) = fromRows []
+        convertMatrix o = convertMatrixOuter o
+    return (r, rV, V.map convertMatrix rL)
 
 buildVector :: forall s r. (Eq r, Numeric r, Num (Vector r))
             => Int -> Int -> Int -> DeltaState r -> Delta r
@@ -132,9 +171,12 @@ buildVector dim dimV dimL st d0 = do
         Var (DeltaId i) -> VM.modify store (+ r) i
         Dot1 vr vd -> evalV (Numeric.LinearAlgebra.scale r vr) vd
         SumElements1 vd n -> evalV (konst r n) vd
+        Index1 d i k -> evalV (konst 0 k V.// [(i, r)]) d
+
+        -- Most of the impossible cases will be ruled out by GADT
+        -- once the conflation fo polymorphisms is cleared.
         Konst1{} -> error "buildVector: Konst1 can't result in a scalar"
         Seq1{} -> error "buildVector: Seq1 can't result in a scalar"
-        Index1 d i k -> evalV (konst 0 k V.// [(i, r)]) d
         Append1{} -> error "buildVector: Append1 can't result in a scalar"
         Slice1{} -> error "buildVector: Slice1 can't result in a scalar"
         Dot2{} -> error "buildVector: Dot2 can't result in a scalar"
@@ -147,12 +189,8 @@ buildVector dim dimV dimL st d0 = do
         Scale k d -> evalV (k * r) d
         Add d1 d2 -> evalV r d1 >> evalV r d2
         Var (DeltaId i) -> addToVector i r
-        Dot1{} -> error "buildVector: unboxed vectors of vectors not possible"
-        SumElements1{} ->
-          error "buildVector: unboxed vectors of vectors not possible"
         Konst1 d -> V.mapM_ (`eval` d) r
         Seq1 vd -> V.imapM_ (\i d -> eval (r V.! i) d) vd
-        Index1{} -> error "buildVector: unboxed vectors of vectors not possible"
         Append1 d1 k d2 -> evalV (V.take k r) d1 >> evalV (V.drop k r) d2
         Slice1 i n d k -> evalV (konst 0 i V.++ r V.++ konst 0 (k - i - n)) d
         Dot2 mr md -> evalL (MatrixOuter (Just mr) (Just r) Nothing) md
@@ -169,6 +207,11 @@ buildVector dim dimV dimL st d0 = do
           -- by polluting the API with the detail about the shape
           -- of the passed array (the replicated row shape),
           -- which eliminates two of the three matrix allocations
+
+        Dot1{} -> error "buildVector: unboxed vectors of vectors not possible"
+        SumElements1{} ->
+          error "buildVector: unboxed vectors of vectors not possible"
+        Index1{} -> error "buildVector: unboxed vectors of vectors not possible"
       evalL :: MatrixOuter r -> Delta (Matrix r) -> ST s ()
       evalL !r@(MatrixOuter mm mc mr) = \case
         Zero -> return ()
@@ -177,12 +220,13 @@ buildVector dim dimV dimL st d0 = do
           in evalL (MatrixOuter (Just m) mc mr) d
         Add d1 d2 -> evalL r d1 >> evalL r d2
         Var (DeltaId i) -> addToMatrix i r
+        AsRow2 d -> mapM_ (`evalV` d) (toRowsMatrixOuter r)
+        Seq2 md -> zipWithM_ evalV (toRowsMatrixOuter r) (V.toList md)
+
         Dot1{} -> error "buildVector: unboxed vectors of vectors not possible"
         SumElements1{} ->
           error "buildVector: unboxed vectors of vectors not possible"
         Index1{} -> error "buildVector: unboxed vectors of vectors not possible"
-        AsRow2 d -> mapM_ (`evalV` d) (toRowsMatrixOuter r)
-        Seq2 md -> zipWithM_ evalV (toRowsMatrixOuter r) (V.toList md)
   eval 1 d0  -- dt is 1 or hardwired in f
   let evalUnlessZero :: DeltaId -> DeltaBinding r -> ST s DeltaId
       evalUnlessZero (DeltaId !i) (DScalar d) = do
@@ -211,41 +255,3 @@ buildVector dim dimV dimL st d0 = do
   minusOne <- foldM evalUnlessZero (DeltaId $ pred storeSize) (deltaBindings st)
   let _A = assert (minusOne == DeltaId (-1)) ()
   return (VM.slice 0 dim store, storeV, storeL)
-
-evalBindings :: forall r. (Eq r, Numeric r, Num (Vector r))
-             => Int -> Int -> Int -> DeltaState r -> Delta r
-             -> ( Vector r
-                , Data.Vector.Vector (Vector r)
-                , Data.Vector.Vector (Matrix r) )
-evalBindings dim dimV dimL st d0 =
-  -- This is morally @V.create@ and so totally safe,
-  -- but we can't just call @V.create@ thrice, because it would run
-  -- the @ST@ action thrice, so we inline and extend @V.create@ here.
-  runST $ do
-    (res, resV, resL) <- buildVector dim dimV dimL st d0
-    r <- V.unsafeFreeze res
-    rV <- V.unsafeFreeze resV
-    rL <- V.unsafeFreeze resL
-    -- Prevent a crash if a parameter not updated.
-    let convertMatrix (MatrixOuter Nothing Nothing Nothing) = fromRows []
-        convertMatrix o = convertMatrixOuter o
-    return (r, rV, V.map convertMatrix rL)
-
-
--- Note: We can probably gain performance if we eliminate the explicit step
--- of adjusting parameters by gradients and, instead, we immediately
--- multiply the increments by @gamma@ and subtract, whenever we update
--- the parameters in the @Var@ cases of @eval@. In other words,
--- we don't construct gradients at all, but instead gradually construct
--- the new parameters, starting with the old ones. That may be what
--- library ad is doing in its @gradWith combine (f input) parameters@ calls.
--- However, for this we need to implement Adam and other gradient descent
--- schemes first, because already our @gdSmart@ gradient descent operation
--- uses both old and new values of gradients. Probably it could use only
--- the new values applied to parameters, but other schemes may be
--- less forgiving.
---
--- This approach involves one more multiplication whenever a parameter
--- is adjusted, which would be almost free, if not for the implementation
--- detail that it incurs also one more allocation, the way it's currently
--- done in hmatrix. Low-level FFI work would be needed to fix that.
