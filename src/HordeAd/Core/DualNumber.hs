@@ -161,11 +161,9 @@ infixr 8 #>!
       => DualNumber (Matrix r)
       -> DualNumber (Vector r)
       -> DualNumber (Vector r)
-(#>!) (D u u') (D v v') =
-  D (u #> v) (Add (DotRow2 v u')
-                  (Dot2 u (AsRow2 v')))
+(#>!) (D u u') (D v v') = D (u #> v) (Add (VxM2 v u') (MxV2 u v'))
 
--- The unoptimized version:
+-- The old unoptimized version:
 -- D (u #> v) (Add (Dot2 (asRow v) u')
 --                 (Dot2 u (AsRow2 v')))
 
@@ -175,9 +173,9 @@ infixr 8 #>!!
        => DualNumber (Matrix r)
        -> Vector r
        -> DualNumber (Vector r)
-(#>!!) (D u u') v = D (u #> v) (DotRow2 v u')
+(#>!!) (D u u') v = D (u #> v) (VxM2 v u')
 
--- The unoptimized version:
+-- The old unoptimized version:
 -- (#>!!) (D u u') v = D (u #> v) (Dot2 (asRow v) u')
 
 

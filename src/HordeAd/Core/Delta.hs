@@ -72,9 +72,8 @@ data Delta :: Type -> Type where
   Slice1 :: Int -> Int -> Delta (Vector r) -> Int -> Delta (Vector r)
 
   -- Constructors related to matrices.
-  Dot2 :: Matrix r -> Delta (Matrix r) -> Delta (Vector r)
-  DotRow2 :: Vector r -> Delta (Matrix r) -> Delta (Vector r)
-  AsRow2 :: Delta (Vector r) -> Delta (Matrix r)
+  MxV2 :: Matrix r -> Delta (Vector r) -> Delta (Vector r)
+  VxM2 :: Vector r -> Delta (Matrix r) -> Delta (Vector r)
   Seq2 :: Data.Vector.Vector (Delta (Vector r)) -> Delta (Matrix r)
 
 newtype DeltaId a = DeltaId Int
@@ -154,9 +153,8 @@ buildVectors st dTopLevel = do
         Seq1{} -> error "buildVectors: Seq1 can't result in a scalar"
         Append1{} -> error "buildVectors: Append1 can't result in a scalar"
         Slice1{} -> error "buildVectors: Slice1 can't result in a scalar"
-        Dot2{} -> error "buildVectors: Dot2 can't result in a scalar"
-        DotRow2{} -> error "buildVectors: DotRow2 can't result in a scalar"
-        AsRow2{} -> error "buildVectors: AsRow2 can't result in a scalar"
+        MxV2{} -> error "buildVectors: MxV2 can't result in a scalar"
+        VxM2{} -> error "buildVectors: VxM2 can't result in a scalar"
         Seq2{} -> error "buildVectors: Seq2 can't result in a scalar"
       eval1 :: Vector r -> Delta (Vector r) -> ST s ()
       eval1 !r = \case
@@ -169,19 +167,10 @@ buildVectors st dTopLevel = do
         Append1 d k e -> eval1 (V.take k r) d >> eval1 (V.drop k r) e
         Slice1 i n d k ->
           eval1 (HM.konst 0 i V.++ r V.++ HM.konst 0 (k - i - n)) d
-        Dot2 mr md -> eval2 (MatrixOuter (Just mr) (Just r) Nothing) md
-          -- this column vector interacted disastrously with @mr = asRow v@
-          -- in @(#>!)@, each causing an allocation of a whole new @n^2@ matrix
-          -- and then a third with their outer product;
-          -- by expressing the same function at the level of vectors
-          -- instead of matrices, we can avoid even a single matrix allocation,
-          -- at the cost of many extra delta expressions (per vector,
-          -- not per matrix); another solution is just below
-        DotRow2 row md -> eval2 (MatrixOuter Nothing (Just r) (Just row)) md
-          -- this is a way to alleviate the ephemeral matrices problem,
-          -- by polluting the API with the detail about the shape
-          -- of the passed array (the replicated row shape),
-          -- which eliminates two of the three matrix allocations
+        MxV2 m dRow ->
+          mapM_ (`eval1` dRow)
+                (toRowsMatrixOuter (MatrixOuter (Just m) (Just r) Nothing))
+        VxM2 row md -> eval2 (MatrixOuter Nothing (Just r) (Just row)) md
 
         Dot1{} -> error "buildVectors: unboxed vectors of vectors not possible"
         SumElements1{} ->
@@ -194,7 +183,6 @@ buildVectors st dTopLevel = do
         Scale k d -> eval2 (multiplyMatrixNormalAndOuter k r) d
         Add d e -> eval2 r d >> eval2 r e
         Var (DeltaId i) -> VM.modify store2 (addToMatrix r) i
-        AsRow2 d -> mapM_ (`eval1` d) (toRowsMatrixOuter r)
         Seq2 md -> zipWithM_ eval1 (toRowsMatrixOuter r) (V.toList md)
 
         Dot1{} -> error "buildVectors: unboxed vectors of vectors not possible"
