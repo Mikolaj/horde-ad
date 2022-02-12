@@ -23,7 +23,9 @@
 -- matrices don't fit in cache at this size and vectors still do.
 module HordeAd.Internal.MatrixOuter
   ( MatrixOuter (..)
-  , nullMatrixOuter, convertMatrixOuter, toRowsMatrixOuter, plusMatrixOuter
+  , emptyMatrixOuter, nullMatrixOuter
+  , convertMatrixOuter, convertMatrixOuterOrNull
+  , toRowsMatrixOuter, plusMatrixOuter, multiplyMatrixNormalAndOuter
   ) where
 
 import Prelude
@@ -31,12 +33,15 @@ import Prelude
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra
   (Matrix, Numeric, Vector, asColumn, asRow, outer, toRows)
-import qualified Numeric.LinearAlgebra
+import qualified Numeric.LinearAlgebra as LinearAlgebra
 
 -- | A representation of a matrix as a product of a basic matrix
 -- and an outer product of two vectors. Each component defaults to ones.
 data MatrixOuter r = MatrixOuter (Maybe (Matrix r))
                                  (Maybe (Vector r)) (Maybe (Vector r))
+
+emptyMatrixOuter :: MatrixOuter r
+emptyMatrixOuter = MatrixOuter Nothing Nothing Nothing
 
 nullMatrixOuter :: (MatrixOuter r) -> Bool
 nullMatrixOuter (MatrixOuter Nothing Nothing Nothing) = True
@@ -55,22 +60,28 @@ convertMatrixOuter (MatrixOuter Nothing (Just c) (Just r)) = outer c r
 convertMatrixOuter _ =
   error "convertMatrixOuter: dimensions can't be determined"
 
+convertMatrixOuterOrNull
+  :: (Numeric r, Num (Vector r)) => MatrixOuter r -> Matrix r
+convertMatrixOuterOrNull (MatrixOuter Nothing Nothing Nothing) =
+  LinearAlgebra.fromRows []
+convertMatrixOuterOrNull m = convertMatrixOuter m
+
 toRowsMatrixOuter :: (Numeric r, Num (Vector r)) => MatrixOuter r -> [Vector r]
 toRowsMatrixOuter (MatrixOuter (Just m) Nothing Nothing) = toRows m
 toRowsMatrixOuter (MatrixOuter (Just m) mc Nothing) =
   maybe id
-        (\c -> zipWith (\s row -> Numeric.LinearAlgebra.scale s row)
+        (\c -> zipWith (\s row -> LinearAlgebra.scale s row)
                        (V.toList c))
         mc
   $ toRows m
 toRowsMatrixOuter (MatrixOuter (Just m) mc (Just r)) =
   maybe (map (r *))
-        (\c -> zipWith (\s row -> r * Numeric.LinearAlgebra.scale s row)
+        (\c -> zipWith (\s row -> r * LinearAlgebra.scale s row)
                        (V.toList c))
         mc
   $ toRows m
 toRowsMatrixOuter (MatrixOuter Nothing (Just c) (Just r)) =
-  map (`Numeric.LinearAlgebra.scale` r) $ V.toList c
+  map (`LinearAlgebra.scale` r) $ V.toList c
 toRowsMatrixOuter _ =
   error "toRowsMatrixOuter: dimensions can't be determined"
 
@@ -84,3 +95,9 @@ plusMatrixOuter o1 o2 =
     -- or at least vector streams/bundles; an easy option to have only
     -- one allocation is to do this pointwise, but then the speedup, if any,
     -- from blas/lapack does not apply
+
+multiplyMatrixNormalAndOuter :: (Numeric r, Num (Vector r))
+                             => Matrix r -> MatrixOuter r -> MatrixOuter r
+multiplyMatrixNormalAndOuter k (MatrixOuter mm mc mr) =
+  let !m = maybe k (k *) mm
+  in MatrixOuter (Just m) mc mr

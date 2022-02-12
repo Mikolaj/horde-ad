@@ -26,9 +26,8 @@ import qualified Data.Strict.Vector.Autogen.Mutable as Data.Vector.Mutable
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Storable.Mutable
-import           Numeric.LinearAlgebra
-  (Matrix, Numeric, Vector, fromRows, konst)
-import qualified Numeric.LinearAlgebra
+import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
+import qualified Numeric.LinearAlgebra as LinearAlgebra
 
 import HordeAd.Internal.MatrixOuter
 
@@ -109,10 +108,9 @@ evalBindings dim0 dim1 dim2 st dTopLevel =
     v0 <- V.unsafeFreeze $ VM.take dim0 finiteMap0
     v1 <- V.unsafeFreeze $ VM.take dim1 finiteMap1
     v2 <- V.unsafeFreeze $ VM.take dim2 finiteMap2
-    -- Prevent a crash if a parameter not updated.
-    let convertMatrix (MatrixOuter Nothing Nothing Nothing) = fromRows []
-        convertMatrix m = convertMatrixOuter m
-    return (v0, v1, V.map convertMatrix v2)
+    -- Convert to normal matrices, but only the portion of vector
+    -- that is not discarded.
+    return (v0, v1, V.map convertMatrixOuterOrNull v2)
 
 buildVectors :: forall s r. (Eq r, Numeric r, Num (Vector r))
              => DeltaState r -> Delta r
@@ -125,8 +123,7 @@ buildVectors st dTopLevel = do
       DeltaId counter2 = deltaCounter2 st
   store0 <- VM.replicate counter0 0  -- correct value
   store1 <- VM.replicate counter1 (V.empty :: Vector r)  -- dummy value
-  store2 <- VM.replicate counter2 (MatrixOuter Nothing Nothing Nothing
-                                   :: MatrixOuter r)  -- dummy value
+  store2 <- VM.replicate counter2 emptyMatrixOuter  -- dummy value
   let addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
       addToMatrix :: MatrixOuter r -> MatrixOuter r -> MatrixOuter r
@@ -137,12 +134,12 @@ buildVectors st dTopLevel = do
         Scale k d -> eval0 (k * r) d
         Add d e -> eval0 r d >> eval0 r e
         Var (DeltaId i) -> VM.modify store0 (+ r) i
-        Dot1 vr vd -> eval1 (Numeric.LinearAlgebra.scale r vr) vd
-        SumElements1 vd n -> eval1 (konst r n) vd
-        Index1 d i k -> eval1 (konst 0 k V.// [(i, r)]) d
+        Dot1 vr vd -> eval1 (LinearAlgebra.scale r vr) vd
+        SumElements1 vd n -> eval1 (LinearAlgebra.konst r n) vd
+        Index1 d i k -> eval1 (LinearAlgebra.konst 0 k V.// [(i, r)]) d
 
         -- Most of the impossible cases will be ruled out by GADT
-        -- once the conflation fo polymorphisms is cleared.
+        -- once the conflation fo parameterizations is cleared.
         Konst1{} -> error "buildVectors: Konst1 can't result in a scalar"
         Seq1{} -> error "buildVectors: Seq1 can't result in a scalar"
         Append1{} -> error "buildVectors: Append1 can't result in a scalar"
@@ -160,16 +157,18 @@ buildVectors st dTopLevel = do
         Konst1 d -> V.mapM_ (`eval0` d) r
         Seq1 vd -> V.imapM_ (\i d -> eval0 (r V.! i) d) vd
         Append1 d k e -> eval1 (V.take k r) d >> eval1 (V.drop k r) e
-        Slice1 i n d k -> eval1 (konst 0 i V.++ r V.++ konst 0 (k - i - n)) d
+        Slice1 i n d k -> eval1 (LinearAlgebra.konst 0 i
+                                 V.++ r
+                                 V.++ LinearAlgebra.konst 0 (k - i - n))
+                                d
         Dot2 mr md -> eval2 (MatrixOuter (Just mr) (Just r) Nothing) md
           -- this column vector interacted disastrously with @mr = asRow v@
           -- in @(#>!)@, each causing an allocation of a whole new @n^2@ matrix
           -- and then a third with their outer product;
-          -- when doing the same computation by hand using @Vector@
-          -- instead of @Matrix@, we can avoid even a single matrix allocation;
-          -- the cost for the manual computation is many extra delta
-          -- expressions which, however, with square enough matrices,
-          -- don't dominate
+          -- by expressing the same function at the level of vectors
+          -- instead of matrices, we can avoid even a single matrix allocation,
+          -- at the cost of many extra delta expressions (per vector,
+          -- not per matrix); another solution is just below
         DotRow2 row md -> eval2 (MatrixOuter Nothing (Just r) (Just row)) md
           -- this is a way to alleviate the ephemeral matrices problem,
           -- by polluting the API with the detail about the shape
@@ -182,11 +181,9 @@ buildVectors st dTopLevel = do
         Index1{} ->
           error "buildVectors: unboxed vectors of vectors not possible"
       eval2 :: MatrixOuter r -> Delta (Matrix r) -> ST s ()
-      eval2 !r@(MatrixOuter mm mc mr) = \case
+      eval2 !r = \case
         Zero -> return ()
-        Scale k d ->
-          let !m = maybe k (k *) mm
-          in eval2 (MatrixOuter (Just m) mc mr) d
+        Scale k d -> eval2 (multiplyMatrixNormalAndOuter k r) d
         Add d e -> eval2 r d >> eval2 r e
         Var (DeltaId i) -> VM.modify store2 (addToMatrix r) i
         AsRow2 d -> mapM_ (`eval1` d) (toRowsMatrixOuter r)
