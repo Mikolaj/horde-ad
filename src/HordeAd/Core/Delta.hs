@@ -37,7 +37,7 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Storable.Mutable
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
-import qualified Numeric.LinearAlgebra as LinearAlgebra
+import qualified Numeric.LinearAlgebra as HM
 
 import HordeAd.Internal.MatrixOuter
 
@@ -144,9 +144,9 @@ buildVectors st dTopLevel = do
         Scale k d -> eval0 (k * r) d
         Add d e -> eval0 r d >> eval0 r e
         Var (DeltaId i) -> VM.modify store0 (+ r) i
-        Dot1 vr vd -> eval1 (LinearAlgebra.scale r vr) vd
-        SumElements1 vd n -> eval1 (LinearAlgebra.konst r n) vd
-        Index1 d i k -> eval1 (LinearAlgebra.konst 0 k V.// [(i, r)]) d
+        Dot1 vr vd -> eval1 (HM.scale r vr) vd
+        SumElements1 vd n -> eval1 (HM.konst r n) vd
+        Index1 d i k -> eval1 (HM.konst 0 k V.// [(i, r)]) d
 
         -- Most of the impossible cases will be ruled out by GADT
         -- once the conflation fo parameterizations is cleared.
@@ -167,10 +167,8 @@ buildVectors st dTopLevel = do
         Konst1 d -> V.mapM_ (`eval0` d) r
         Seq1 vd -> V.imapM_ (\i d -> eval0 (r V.! i) d) vd
         Append1 d k e -> eval1 (V.take k r) d >> eval1 (V.drop k r) e
-        Slice1 i n d k -> eval1 (LinearAlgebra.konst 0 i
-                                 V.++ r
-                                 V.++ LinearAlgebra.konst 0 (k - i - n))
-                                d
+        Slice1 i n d k ->
+          eval1 (HM.konst 0 i V.++ r V.++ HM.konst 0 (k - i - n)) d
         Dot2 mr md -> eval2 (MatrixOuter (Just mr) (Just r) Nothing) md
           -- this column vector interacted disastrously with @mr = asRow v@
           -- in @(#>!)@, each causing an allocation of a whole new @n^2@ matrix

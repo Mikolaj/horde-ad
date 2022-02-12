@@ -10,7 +10,7 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra
   (Matrix, Numeric, Vector, konst, sumElements, (#>), (<.>))
-import qualified Numeric.LinearAlgebra as LinearAlgebra
+import qualified Numeric.LinearAlgebra as HM
 
 import HordeAd.Core.Delta (Delta (..))
 
@@ -283,7 +283,7 @@ lossSoftMaxCrossEntropyV target (D u u') = do
   --  expU = exp (u - konst (V.maximum u) (V.length u))
       sumExpU = sumElements expU
       recipSum = recip sumExpU
--- not exposed: softMaxU = LinearAlgebra.scaleRecip sumExpU expU
-      softMaxU = LinearAlgebra.scale recipSum expU
+-- not exposed: softMaxU = HM.scaleRecip sumExpU expU
+      softMaxU = HM.scale recipSum expU
   returnLet $ D (negate $ log softMaxU <.> target)
                 (Dot1 (softMaxU - target) u')

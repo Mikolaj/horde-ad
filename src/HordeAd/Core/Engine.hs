@@ -17,7 +17,7 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import           Numeric.LinearAlgebra
   (Element, Matrix, Numeric, Vector, konst, rows, size, tr')
-import qualified Numeric.LinearAlgebra as LinearAlgebra
+import qualified Numeric.LinearAlgebra as HM
 import           Numeric.LinearAlgebra.Data (flatten)
 import           Numeric.LinearAlgebra.Devel
   (MatrixOrder (..), liftMatrix, liftMatrix2, matrixFromVector, orderOf)
@@ -159,7 +159,7 @@ generateDeltaVars (params, paramsV, paramsL) =
 60% of heap allocation in matrix- and vector-based MNIST is performed
 by @updateWithGradient.updateVector@ below
 
-  let updateVector i r = i - LinearAlgebra.scale gamma r
+  let updateVector i r = i - HM.scale gamma r
 
 due to allocating once in @scale@ and again in @-@
 (and there seems to be one more allocation judging by the numbers).
@@ -184,7 +184,7 @@ minusTimesGamma gamma u v = unsafePerformIO $ do
     #| "minusTimesGamma2"
   return r
 
-BTW, a version with LinearAlgebra.Devel.zipVectorWith makes
+BTW, a version with HM.Devel.zipVectorWith makes
 the test twice slower and allocate twice more
 
   let updateVector = zipVectorWith (\i r -> i - gamma * r)
@@ -206,7 +206,7 @@ updateWithGradient :: (Numeric r, Num (Vector r))
                    -> Domains r
 updateWithGradient gamma (params, paramsV, paramsL)
                          (gradient, gradientV, gradientL) =
-  let updateVector i r = i - LinearAlgebra.scale gamma r
+  let updateVector i r = i - HM.scale gamma r
       paramsNew = updateVector params gradient
       updateV i r = if V.null r  -- eval didn't update it, would crash
                     then i
@@ -266,17 +266,17 @@ _minimumGradient :: (Ord r, Numeric r) => Domains' r -> r
 _minimumGradient (gradient, gradientV, gradientL) =
   min (if V.null gradient then 0 else V.minimum gradient)
       (min (if V.null gradientV then 0
-            else V.minimum (V.map LinearAlgebra.minElement gradientV))
+            else V.minimum (V.map HM.minElement gradientV))
            (if V.null gradientL then 0
-            else V.minimum (V.map LinearAlgebra.minElement gradientL)))
+            else V.minimum (V.map HM.minElement gradientL)))
 
 _maximumGradient :: (Ord r, Numeric r) => Domains' r -> r
 _maximumGradient (gradient, gradientV, gradientL) =
   max (if V.null gradient then 0 else V.maximum gradient)
       (max (if V.null gradientV then 0
-            else V.maximum (V.map LinearAlgebra.maxElement gradientV))
+            else V.maximum (V.map HM.maxElement gradientV))
            (if V.null gradientL then 0
-            else V.maximum (V.map LinearAlgebra.maxElement gradientL)))
+            else V.maximum (V.map HM.maxElement gradientL)))
 
 -- | Stochastic Gradient Descent with mini-batches, taking the mean
 -- of the results from each mini-batch.
@@ -406,15 +406,13 @@ updateWithGradientAdam ArgsAdam{..}
       updateVector :: Vector r -> Vector r -> Vector r -> Vector r
                    -> (Vector r, Vector r, Vector r)
       updateVector mA vA p g =
-        let mANew = LinearAlgebra.scale beta1 mA
-                    + LinearAlgebra.scale oneMinusBeta1 g
-            vANew = LinearAlgebra.scale beta2 vA
-                    + LinearAlgebra.scale oneMinusBeta2 (g * g)
+        let mANew = HM.scale beta1 mA + HM.scale oneMinusBeta1 g
+            vANew = HM.scale beta2 vA + HM.scale oneMinusBeta2 (g * g)
             alphat = alpha * sqrt (1 - beta2 ^ tAdamNew)
                              / (1 - beta1 ^ tAdamNew)
         in ( mANew
            , vANew
-           , p - LinearAlgebra.scale alphat mANew
+           , p - HM.scale alphat mANew
                  / (sqrt vANew + konst epsilon (V.length vANew)) )
                       -- @addConstant@ would be better, but it's not exposed
       (mAdamNew, vAdamNew, paramsNew) = updateVector mAdam vAdam params gradient

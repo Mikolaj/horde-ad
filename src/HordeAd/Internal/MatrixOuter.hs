@@ -33,7 +33,7 @@ import Prelude
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra
   (Matrix, Numeric, Vector, asColumn, asRow, outer, toRows)
-import qualified Numeric.LinearAlgebra as LinearAlgebra
+import qualified Numeric.LinearAlgebra as HM
 
 -- | A representation of a matrix as a product of a basic matrix
 -- and an outer product of two vectors. Each component defaults to ones.
@@ -62,26 +62,23 @@ convertMatrixOuter _ =
 
 convertMatrixOuterOrNull
   :: (Numeric r, Num (Vector r)) => MatrixOuter r -> Matrix r
-convertMatrixOuterOrNull (MatrixOuter Nothing Nothing Nothing) =
-  LinearAlgebra.fromRows []
+convertMatrixOuterOrNull (MatrixOuter Nothing Nothing Nothing) = HM.fromRows []
 convertMatrixOuterOrNull m = convertMatrixOuter m
 
 toRowsMatrixOuter :: (Numeric r, Num (Vector r)) => MatrixOuter r -> [Vector r]
 toRowsMatrixOuter (MatrixOuter (Just m) Nothing Nothing) = toRows m
 toRowsMatrixOuter (MatrixOuter (Just m) mc Nothing) =
   maybe id
-        (\c -> zipWith (\s row -> LinearAlgebra.scale s row)
-                       (V.toList c))
+        (\c -> zipWith (\s row -> HM.scale s row) (V.toList c))
         mc
   $ toRows m
 toRowsMatrixOuter (MatrixOuter (Just m) mc (Just r)) =
   maybe (map (r *))
-        (\c -> zipWith (\s row -> r * LinearAlgebra.scale s row)
-                       (V.toList c))
+        (\c -> zipWith (\s row -> r * HM.scale s row) (V.toList c))
         mc
   $ toRows m
 toRowsMatrixOuter (MatrixOuter Nothing (Just c) (Just r)) =
-  map (`LinearAlgebra.scale` r) $ V.toList c
+  map (`HM.scale` r) $ V.toList c
 toRowsMatrixOuter _ =
   error "toRowsMatrixOuter: dimensions can't be determined"
 
