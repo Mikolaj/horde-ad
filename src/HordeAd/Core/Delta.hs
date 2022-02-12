@@ -19,7 +19,7 @@ module HordeAd.Core.Delta
 import Prelude
 
 import           Control.Exception (assert)
-import           Control.Monad (foldM, unless, zipWithM_)
+import           Control.Monad (unless, zipWithM_)
 import           Control.Monad.ST.Strict (ST, runST)
 import           Data.Kind (Type)
 import           Data.STRef
@@ -54,7 +54,7 @@ data Delta :: Type -> Type where
   Zero :: Delta a
   Scale :: a -> Delta a -> Delta a
   Add :: Delta a -> Delta a -> Delta a
-  Var :: DeltaId -> Delta a
+  Var :: DeltaId a -> Delta a
 
   -- Constructors related to vectors.
   Dot1 :: Vector r -> Delta (Vector r) -> Delta r
@@ -71,16 +71,18 @@ data Delta :: Type -> Type where
   AsRow2 :: Delta (Vector r) -> Delta (Matrix r)
   Seq2 :: Data.Vector.Vector (Delta (Vector r)) -> Delta (Matrix r)
 
-newtype DeltaId = DeltaId Int
+newtype DeltaId a = DeltaId Int
   deriving (Show, Eq)
 
 data DeltaBinding r =
-    DScalar (Delta r)
-  | DVector (Delta (Vector r))
-  | DMatrix (Delta (Matrix r))
+    DScalar (DeltaId r) (Delta r)
+  | DVector (DeltaId (Vector r)) (Delta (Vector r))
+  | DMatrix (DeltaId (Matrix r)) (Delta (Matrix r))
 
 data DeltaState r = DeltaState
-  { deltaCounter  :: DeltaId
+  { deltaCounter0 :: DeltaId r
+  , deltaCounter1 :: DeltaId (Vector r)
+  , deltaCounter2 :: DeltaId (Matrix r)
   , deltaBindings :: [DeltaBinding r]
   }
 
@@ -110,20 +112,13 @@ buildVector :: forall s r. (Eq r, Numeric r, Num (Vector r))
                     , Data.Vector.Mutable.MVector s (Vector r)
                     , Data.Vector.Mutable.MVector s (MatrixOuter r) )
 buildVector dim dimV dimL st d0 = do
-  let DeltaId storeSize = deltaCounter st
-      dimSV = dim + dimV
-      dimSVL = dim + dimV + dimL
-  -- This is relatively very cheap allocation, so no problem even when most
-  -- or all parameters and vars are inside vectors, matrices, etc.
-  -- (and vectors and matrices are usually orders of magnitude less numerous
-  -- than the sum total of individual parameters):
-  store <- VM.replicate storeSize 0  -- correct value
-  -- Here, for performance, we partially undo the nice unification
-  -- of parameters and delta-variables. Fortunately, this is completely local.
-  -- Allocating all these as boxed vectors would be very costly
-  -- if most parameters are scalars and so most cells are unused,
-  -- so we keep them in a sparse map, except for those that are guaranteed
-  -- to be used, because they represent parameters:
+  let DeltaId counter0 = deltaCounter0 st
+      DeltaId _counter1 = deltaCounter1 st
+      DeltaId _counter2 = deltaCounter2 st
+      !_A = assert (dim <= counter0
+                    && dimV <= _counter1
+                    && dimL <= _counter2) ()
+  store <- VM.replicate counter0 0  -- correct value
   storeV <- VM.replicate dimV (V.empty :: Vector r)  -- dummy value
   storeL <- VM.replicate dimL (MatrixOuter Nothing Nothing Nothing
                                :: MatrixOuter r)  -- dummy value
@@ -139,19 +134,13 @@ buildVector dim dimV dimL st d0 = do
   -- pointing inside the mutated vectors can easily be catastrophic.
   -- Maintaining this brittle optimization would also make harder any future
   -- parallelization, whether on CPU or GPU.
-  --
-  -- OTOH, removing @storeV@ and @storeL@ and using the @IntMap@
-  -- througout increases GC time for vector-based MNIST500x500 by half,
-  -- so let's keep them. Probably CPU manages cache better when vectors
-  -- are stored in a (mutable?) vector, not a tree spread all around the heap.
-  -- For few but very long vectors this may not matter much, though.
   let addToVector :: Int -> Vector r -> ST s ()
       {-# INLINE addToVector #-}
       addToVector i r = let addToStore v = if V.null v then r else v + r
                             addToIntMap (Just v) = Just $ v + r
                             addToIntMap Nothing = Just r
-                        in if i < dimSV
-                           then VM.modify storeV addToStore (i - dim)
+                        in if i < dimV
+                           then VM.modify storeV addToStore i
                            else modifySTRef' intMapV (IM.alter addToIntMap i)
       addToMatrix :: Int -> MatrixOuter r -> ST s ()
       {-# INLINE addToMatrix #-}
@@ -160,8 +149,8 @@ buildVector dim dimV dimL st d0 = do
                                            else plusMatrixOuter v r
                             addToIntMap (Just v) = Just $ plusMatrixOuter v r
                             addToIntMap Nothing = Just r
-                        in if i < dimSVL
-                           then VM.modify storeL addToStore (i - dimSV)
+                        in if i < dimL
+                           then VM.modify storeL addToStore i
                            else modifySTRef' intMapL (IM.alter addToIntMap i)
   let eval :: r -> Delta r -> ST s ()
       eval !r = \case
@@ -228,30 +217,26 @@ buildVector dim dimV dimL st d0 = do
           error "buildVector: unboxed vectors of vectors not possible"
         Index1{} -> error "buildVector: unboxed vectors of vectors not possible"
   eval 1 d0  -- dt is 1 or hardwired in f
-  let evalUnlessZero :: DeltaId -> DeltaBinding r -> ST s DeltaId
-      evalUnlessZero (DeltaId !i) (DScalar d) = do
+  let evalUnlessZero :: DeltaBinding r -> ST s ()
+      evalUnlessZero (DScalar (DeltaId i) d) = do
         r <- store `VM.read` i
         unless (r == 0) $  -- we init with exactly 0 so the comparison is OK
           eval r d
-        return $! DeltaId (pred i)
-      evalUnlessZero (DeltaId !i) (DVector d) = do
-        if i < dimSV then do
-          r <- storeV `VM.read` (i - dim)
+      evalUnlessZero (DVector (DeltaId i) d) = do
+        if i < dimV then do
+          r <- storeV `VM.read` i
           unless (V.null r) $
             evalV r d
         else do
           mr <- IM.lookup i <$> readSTRef intMapV
           maybe (pure ()) (`evalV` d) mr
-        return $! DeltaId (pred i)
-      evalUnlessZero (DeltaId !i) (DMatrix d) = do
-        if i < dimSVL then do
-          r <- storeL `VM.read` (i - dimSV)
+      evalUnlessZero (DMatrix (DeltaId i) d) = do
+        if i < dimL then do
+          r <- storeL `VM.read` i
           unless (nullMatrixOuter r) $
             evalL r d
         else do
           mr <- IM.lookup i <$> readSTRef intMapL
           maybe (pure ()) (`evalL` d) mr
-        return $! DeltaId (pred i)
-  minusOne <- foldM evalUnlessZero (DeltaId $ pred storeSize) (deltaBindings st)
-  let _A = assert (minusOne == DeltaId (-1)) ()
+  mapM_ evalUnlessZero (deltaBindings st)
   return (VM.slice 0 dim store, storeV, storeL)

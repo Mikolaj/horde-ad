@@ -90,24 +90,24 @@ newtype DeltaMonadGradient r a = DeltaMonadGradient
 
 instance DeltaMonad r (DeltaMonadGradient r) where
   returnLet (D u u') = DeltaMonadGradient $ do
-    DeltaId i <- gets deltaCounter
+    did@(DeltaId i) <- gets deltaCounter0
     modify $ \s ->
-      s { deltaCounter = DeltaId $ succ i
-        , deltaBindings = DScalar u' : deltaBindings s
+      s { deltaCounter0 = DeltaId $ succ i
+        , deltaBindings = DScalar did u' : deltaBindings s
         }
     return $! D u (Var $ DeltaId i)
   returnLetV (D u u') = DeltaMonadGradient $ do
-    DeltaId i <- gets deltaCounter
+    did@(DeltaId i) <- gets deltaCounter1
     modify $ \s ->
-      s { deltaCounter = DeltaId $ succ i
-        , deltaBindings = DVector u' : deltaBindings s
+      s { deltaCounter1 = DeltaId $ succ i
+        , deltaBindings = DVector did u' : deltaBindings s
         }
     return $! D u (Var $ DeltaId i)
   returnLetL (D u u') = DeltaMonadGradient $ do
-    DeltaId i <- gets deltaCounter
+    did@(DeltaId i) <- gets deltaCounter2
     modify $ \s ->
-      s { deltaCounter = DeltaId $ succ i
-        , deltaBindings = DMatrix u' : deltaBindings s
+      s { deltaCounter2 = DeltaId $ succ i
+        , deltaBindings = DMatrix did u' : deltaBindings s
         }
     return $! D u (Var $ DeltaId i)
 
@@ -123,7 +123,9 @@ generalDf variables@(params, _, paramsV, _, paramsL, _) f =
       dimV = V.length paramsV
       dimL = V.length paramsL
       initialState = DeltaState
-        { deltaCounter = DeltaId $ dim + dimV + dimL
+        { deltaCounter0 = DeltaId dim
+        , deltaCounter1 = DeltaId dimV
+        , deltaCounter2 = DeltaId dimL
         , deltaBindings = []
         }
       (D value d, st) = runState (runDeltaMonadGradient (f variables))
@@ -149,8 +151,8 @@ generateDeltaVars (params, paramsV, paramsL) =
       dimV = V.length paramsV
       dimL = V.length paramsL
       vVar = V.generate dim (Var . DeltaId)
-      vVarV = V.generate dimV (Var . DeltaId . (+ dim))
-      vVarL = V.generate dimL (Var . DeltaId . (+ (dim + dimV)))
+      vVarV = V.generate dimV (Var . DeltaId)
+      vVarL = V.generate dimL (Var . DeltaId)
   in (vVar, vVarV, vVarL)
 
 {-
