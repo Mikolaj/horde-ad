@@ -18,7 +18,6 @@ module HordeAd.Core.Delta
 
 import Prelude
 
-import           Control.Exception (assert)
 import           Control.Monad (unless, zipWithM_)
 import           Control.Monad.ST.Strict (ST, runST)
 import           Data.Kind (Type)
@@ -95,42 +94,33 @@ evalBindings dim dimV dimL st d0 =
   -- but we can't just call @V.create@ thrice, because it would run
   -- the @ST@ action thrice, so we inline and extend @V.create@ here.
   runST $ do
-    (res, resV, resL) <- buildVector dim dimV dimL st d0
-    r <- V.unsafeFreeze res
-    rV <- V.unsafeFreeze resV
-    rL <- V.unsafeFreeze resL
+    (res, resV, resL) <- buildVector st d0
+    r <- V.unsafeFreeze $ VM.slice 0 dim res
+    rV <- V.unsafeFreeze $ VM.slice 0 dimV resV
+    rL <- V.unsafeFreeze $ VM.slice 0 dimL resL
     -- Prevent a crash if a parameter not updated.
     let convertMatrix (MatrixOuter Nothing Nothing Nothing) = fromRows []
         convertMatrix o = convertMatrixOuter o
     return (r, rV, V.map convertMatrix rL)
 
 buildVector :: forall s r. (Eq r, Numeric r, Num (Vector r))
-            => Int -> Int -> Int -> DeltaState r -> Delta r
+            => DeltaState r -> Delta r
             -> ST s ( Data.Vector.Storable.Mutable.MVector s r
                     , Data.Vector.Mutable.MVector s (Vector r)
                     , Data.Vector.Mutable.MVector s (MatrixOuter r) )
-buildVector dim dimV dimL st d0 = do
+buildVector st d0 = do
   let DeltaId counter0 = deltaCounter0 st
       DeltaId counter1 = deltaCounter1 st
       DeltaId counter2 = deltaCounter2 st
-      !_A = assert (dim <= counter0
-                    && dimV <= counter1
-                    && dimL <= counter2) ()
   store <- VM.replicate counter0 0  -- correct value
   storeV <- VM.replicate counter1 (V.empty :: Vector r)  -- dummy value
   storeL <- VM.replicate counter2 (MatrixOuter Nothing Nothing Nothing
                                    :: MatrixOuter r)  -- dummy value
-  let addToVector :: Int -> Vector r -> ST s ()
-      {-# INLINE addToVector #-}
-      addToVector i r = let addToStore v = if V.null v then r else v + r
-                        in VM.modify storeV addToStore i
-      addToMatrix :: Int -> MatrixOuter r -> ST s ()
-      {-# INLINE addToMatrix #-}
-      addToMatrix i r = let addToStore v = if nullMatrixOuter v
-                                           then r
-                                           else plusMatrixOuter v r
-                        in VM.modify storeL addToStore i
-  let eval :: r -> Delta r -> ST s ()
+  let addToVector :: Vector r -> Vector r -> Vector r
+      addToVector r = \v -> if V.null v then r else v + r
+      addToMatrix :: MatrixOuter r -> MatrixOuter r -> MatrixOuter r
+      addToMatrix r = \v -> if nullMatrixOuter v then r else plusMatrixOuter v r
+      eval :: r -> Delta r -> ST s ()
       eval !r = \case
         Zero -> return ()
         Scale k d -> eval (k * r) d
@@ -155,7 +145,7 @@ buildVector dim dimV dimL st d0 = do
         Zero -> return ()
         Scale k d -> evalV (k * r) d
         Add d1 d2 -> evalV r d1 >> evalV r d2
-        Var (DeltaId i) -> addToVector i r
+        Var (DeltaId i) -> VM.modify storeV (addToVector r) i
         Konst1 d -> V.mapM_ (`eval` d) r
         Seq1 vd -> V.imapM_ (\i d -> eval (r V.! i) d) vd
         Append1 d1 k d2 -> evalV (V.take k r) d1 >> evalV (V.drop k r) d2
@@ -186,7 +176,7 @@ buildVector dim dimV dimL st d0 = do
           let !m = maybe k (k *) mm
           in evalL (MatrixOuter (Just m) mc mr) d
         Add d1 d2 -> evalL r d1 >> evalL r d2
-        Var (DeltaId i) -> addToMatrix i r
+        Var (DeltaId i) -> VM.modify storeL (addToMatrix r) i
         AsRow2 d -> mapM_ (`evalV` d) (toRowsMatrixOuter r)
         Seq2 md -> zipWithM_ evalV (toRowsMatrixOuter r) (V.toList md)
 
@@ -209,4 +199,4 @@ buildVector dim dimV dimL st d0 = do
         unless (nullMatrixOuter r) $
           evalL r d
   mapM_ evalUnlessZero (deltaBindings st)
-  return (VM.slice 0 dim store, VM.slice 0 dimV storeV, VM.slice 0 dimL storeL)
+  return (store, storeV, storeL)
