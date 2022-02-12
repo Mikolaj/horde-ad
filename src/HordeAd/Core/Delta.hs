@@ -22,8 +22,6 @@ import           Control.Exception (assert)
 import           Control.Monad (unless, zipWithM_)
 import           Control.Monad.ST.Strict (ST, runST)
 import           Data.Kind (Type)
-import           Data.STRef
-import qualified Data.Strict.IntMap as IM
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Strict.Vector.Autogen.Mutable as Data.Vector.Mutable
 import qualified Data.Vector.Generic as V
@@ -113,45 +111,25 @@ buildVector :: forall s r. (Eq r, Numeric r, Num (Vector r))
                     , Data.Vector.Mutable.MVector s (MatrixOuter r) )
 buildVector dim dimV dimL st d0 = do
   let DeltaId counter0 = deltaCounter0 st
-      DeltaId _counter1 = deltaCounter1 st
-      DeltaId _counter2 = deltaCounter2 st
+      DeltaId counter1 = deltaCounter1 st
+      DeltaId counter2 = deltaCounter2 st
       !_A = assert (dim <= counter0
-                    && dimV <= _counter1
-                    && dimL <= _counter2) ()
+                    && dimV <= counter1
+                    && dimL <= counter2) ()
   store <- VM.replicate counter0 0  -- correct value
-  storeV <- VM.replicate dimV (V.empty :: Vector r)  -- dummy value
-  storeL <- VM.replicate dimL (MatrixOuter Nothing Nothing Nothing
-                               :: MatrixOuter r)  -- dummy value
-  intMapV <- newSTRef IM.empty
-  intMapL <- newSTRef IM.empty
-  -- This is probably not worth optimizing further, e.g., reusing the same
-  -- three parameter vectors (only the initial portion of @store@ for scalars)
-  -- or updating in-place inside vectors and matrices. Experiments indicate
-  -- that allocation and runtime gains of the latter optimization are
-  -- a few percent (because the vector and matrix arithmetics
-  -- in the forward pass and the adjustment of parameters by gradients
-  -- are done immutably anyway), and for both optimizations, any thunk
-  -- pointing inside the mutated vectors can easily be catastrophic.
-  -- Maintaining this brittle optimization would also make harder any future
-  -- parallelization, whether on CPU or GPU.
+  storeV <- VM.replicate counter1 (V.empty :: Vector r)  -- dummy value
+  storeL <- VM.replicate counter2 (MatrixOuter Nothing Nothing Nothing
+                                   :: MatrixOuter r)  -- dummy value
   let addToVector :: Int -> Vector r -> ST s ()
       {-# INLINE addToVector #-}
       addToVector i r = let addToStore v = if V.null v then r else v + r
-                            addToIntMap (Just v) = Just $ v + r
-                            addToIntMap Nothing = Just r
-                        in if i < dimV
-                           then VM.modify storeV addToStore i
-                           else modifySTRef' intMapV (IM.alter addToIntMap i)
+                        in VM.modify storeV addToStore i
       addToMatrix :: Int -> MatrixOuter r -> ST s ()
       {-# INLINE addToMatrix #-}
       addToMatrix i r = let addToStore v = if nullMatrixOuter v
                                            then r
                                            else plusMatrixOuter v r
-                            addToIntMap (Just v) = Just $ plusMatrixOuter v r
-                            addToIntMap Nothing = Just r
-                        in if i < dimL
-                           then VM.modify storeL addToStore i
-                           else modifySTRef' intMapL (IM.alter addToIntMap i)
+                        in VM.modify storeL addToStore i
   let eval :: r -> Delta r -> ST s ()
       eval !r = \case
         Zero -> return ()
@@ -223,20 +201,12 @@ buildVector dim dimV dimL st d0 = do
         unless (r == 0) $  -- we init with exactly 0 so the comparison is OK
           eval r d
       evalUnlessZero (DVector (DeltaId i) d) = do
-        if i < dimV then do
-          r <- storeV `VM.read` i
-          unless (V.null r) $
-            evalV r d
-        else do
-          mr <- IM.lookup i <$> readSTRef intMapV
-          maybe (pure ()) (`evalV` d) mr
+        r <- storeV `VM.read` i
+        unless (V.null r) $
+          evalV r d
       evalUnlessZero (DMatrix (DeltaId i) d) = do
-        if i < dimL then do
-          r <- storeL `VM.read` i
-          unless (nullMatrixOuter r) $
-            evalL r d
-        else do
-          mr <- IM.lookup i <$> readSTRef intMapL
-          maybe (pure ()) (`evalL` d) mr
+        r <- storeL `VM.read` i
+        unless (nullMatrixOuter r) $
+          evalL r d
   mapM_ evalUnlessZero (deltaBindings st)
-  return (VM.slice 0 dim store, storeV, storeL)
+  return (VM.slice 0 dim store, VM.slice 0 dimV storeV, VM.slice 0 dimL storeL)
