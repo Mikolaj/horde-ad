@@ -71,6 +71,9 @@ data Delta :: Type -> Type where
 newtype DeltaId a = DeltaId Int
   deriving (Show, Eq)
 
+-- The @DeltaId@ components could be computed on the fly when evaluating,
+-- but it costs more (they are boxed) than storing them here at the time
+-- of binding creation.
 data DeltaBinding r =
     DScalar (DeltaId r) (Delta r)
   | DVector (DeltaId (Vector r)) (Delta (Vector r))
@@ -83,7 +86,15 @@ data DeltaState r = DeltaState
   , deltaBindings :: [DeltaBinding r]
   }
 
--- | Semantics of delta expressions.
+-- | This is the semantics of delta expressions. An expression of type @Delta a@
+-- denotes a collection of finite maps from @DeltaId xi@ to @xi@, where
+-- @xi@ belong to a finite set of types with the same underlying scalar type
+-- as @a@. Each map is represented as a vector, small examples of which
+-- are those in the result type of @evalBindings@. Requested lengths
+-- of the vectors in the result type are given in the first few arguments.
+-- The delta state contains a list of mutually-referencing delta bindings
+-- that are to be evaluated, in the given order, starting with the top-level
+-- binding provided in the remaining argument.
 evalBindings :: forall r. (Eq r, Numeric r, Num (Vector r))
              => Int -> Int -> Int -> DeltaState r -> Delta r
              -> ( Vector r
