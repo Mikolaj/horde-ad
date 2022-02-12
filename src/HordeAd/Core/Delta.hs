@@ -1,13 +1,23 @@
 {-# LANGUAGE GADTs, KindSignatures #-}
 -- | The second component of dual numbers, @Delta@, with it's evaluation
 -- function. Neel Krishnaswami calls that "sparse vector expressions",
--- and indeed the codomain of the evaluation function is a vector,
+-- and indeed even in the simplest case of a function defined on scalars only,
+-- the non-empty portion of the codomain of the evaluation function is a vector,
 -- because the gradient of an @R^n@ to @R@ function is an @R^n@ vector.
+--
+-- This gets muddled when the domain of the function may consist
+-- of multiple vectors and matrices and when the expressions themselves
+-- start containing vectors and matrices. However, a single tiny delta
+-- expression (e.g., a sum of two variables) may denote a vector of matrices.
+-- Even a delta expression containing a big matrix denotes something much
+-- bigger: a whole vector of such matrices (and vectors and scalars).
 --
 -- The algebraic structure here is an extension of vector space.
 -- The crucial extra constructor for variables is used both to represent
 -- sharing in order to avoid exponential blowup and to replace the one-hot
 -- functionality with something cheaper and more uniform.
+-- A lot of the remaining additional structure is for introducing
+-- and reducing dimensions.
 module HordeAd.Core.Delta
   ( Delta (..)
   , DeltaId (..)
