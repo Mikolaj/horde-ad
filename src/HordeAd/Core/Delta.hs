@@ -72,8 +72,10 @@ data Delta :: Type -> Type where
   Slice1 :: Int -> Int -> Delta (Vector r) -> Int -> Delta (Vector r)
 
   -- Constructors related to matrices.
-  MxV2 :: Matrix r -> Delta (Vector r) -> Delta (Vector r)
-  VxM2 :: Vector r -> Delta (Matrix r) -> Delta (Vector r)
+  M_VD2 :: Matrix r -> Delta (Vector r) -> Delta (Vector r)
+  MD_V2 :: Delta (Matrix r) -> Vector r -> Delta (Vector r)
+  M_MD2 :: Matrix r -> Delta (Matrix r) -> Delta (Matrix r)
+  MD_M2 :: Delta (Matrix r) -> Matrix r -> Delta (Matrix r)
   Seq2 :: Data.Vector.Vector (Delta (Vector r)) -> Delta (Matrix r)
 
 newtype DeltaId a = DeltaId Int
@@ -153,8 +155,10 @@ buildVectors st dTopLevel = do
         Seq1{} -> error "buildVectors: Seq1 can't result in a scalar"
         Append1{} -> error "buildVectors: Append1 can't result in a scalar"
         Slice1{} -> error "buildVectors: Slice1 can't result in a scalar"
-        MxV2{} -> error "buildVectors: MxV2 can't result in a scalar"
-        VxM2{} -> error "buildVectors: VxM2 can't result in a scalar"
+        M_VD2{} -> error "buildVectors: MxVD2 can't result in a scalar"
+        MD_V2{} -> error "buildVectors: MDxV2 can't result in a scalar"
+        M_MD2{} -> error "buildVectors: MxMD2 can't result in a scalar"
+        MD_M2{} -> error "buildVectors: MDxM2 can't result in a scalar"
         Seq2{} -> error "buildVectors: Seq2 can't result in a scalar"
       eval1 :: Vector r -> Delta (Vector r) -> ST s ()
       eval1 !r = \case
@@ -167,10 +171,10 @@ buildVectors st dTopLevel = do
         Append1 d k e -> eval1 (V.take k r) d >> eval1 (V.drop k r) e
         Slice1 i n d k ->
           eval1 (HM.konst 0 i V.++ r V.++ HM.konst 0 (k - i - n)) d
-        MxV2 m dRow ->
+        M_VD2 m dRow ->
           mapM_ (`eval1` dRow)
                 (toRowsMatrixOuter (MatrixOuter (Just m) (Just r) Nothing))
-        VxM2 row md -> eval2 (MatrixOuter Nothing (Just r) (Just row)) md
+        MD_V2 md row -> eval2 (MatrixOuter Nothing (Just r) (Just row)) md
 
         Dot1{} -> error "buildVectors: unboxed vectors of vectors not possible"
         SumElements1{} ->
@@ -183,6 +187,18 @@ buildVectors st dTopLevel = do
         Scale k d -> eval2 (multiplyMatrixNormalAndOuter k r) d
         Add d e -> eval2 r d >> eval2 r e
         Var (DeltaId i) -> VM.modify store2 (addToMatrix r) i
+        M_MD2 m md -> zipWithM_ (\rRow row -> eval1 rRow (MD_V2 md row))
+                                (toRowsMatrixOuter r) (HM.toRows m)
+--      M_MD2 m md ->
+--        zipWithM_ (\rRow row ->
+--                     eval2 (MatrixOuter Nothing (Just rRow) (Just row)) md)
+--                  (toRowsMatrixOuter r) (HM.toRows m)
+        MD_M2 md m -> zipWithM_ (\rCol col -> eval1 rCol (MD_V2 md col))
+                                (toColumnsMatrixOuter r) (HM.toColumns m)
+--      MD_M2 md m ->
+--        zipWithM_ (\rCol col ->
+--                     eval2 (MatrixOuter Nothing (Just rCol) (Just col)) md)
+--                  (toColumnsMatrixOuter r) (HM.toColumns m)
         Seq2 md -> zipWithM_ eval1 (toRowsMatrixOuter r) (V.toList md)
 
         Dot1{} -> error "buildVectors: unboxed vectors of vectors not possible"

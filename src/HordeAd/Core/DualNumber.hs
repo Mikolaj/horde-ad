@@ -161,7 +161,7 @@ infixr 8 #>!
       => DualNumber (Matrix r)
       -> DualNumber (Vector r)
       -> DualNumber (Vector r)
-(#>!) (D u u') (D v v') = D (u #> v) (Add (VxM2 v u') (MxV2 u v'))
+(#>!) (D u u') (D v v') = D (u #> v) (Add (MD_V2 u' v) (M_VD2 u v'))
 
 -- The old unoptimized version:
 -- D (u #> v) (Add (Dot2 (asRow v) u')
@@ -173,11 +173,30 @@ infixr 8 #>!!
        => DualNumber (Matrix r)
        -> Vector r
        -> DualNumber (Vector r)
-(#>!!) (D u u') v = D (u #> v) (VxM2 v u')
+(#>!!) (D u u') v = D (u #> v) (MD_V2 u' v)
 
 -- The old unoptimized version:
 -- (#>!!) (D u u') v = D (u #> v) (Dot2 (asRow v) u')
 
+-- | Dense matrix-matrix product.
+--
+-- If @u@ is a m x n (number of rows x number of columns) matrix
+-- and @v@ is a n x p matrix then the result of @u <>! v@ is a m x p matrix.
+-- matrix.
+infixr 8 <>!
+(<>!) :: Numeric r
+      => DualNumber (Matrix r)
+      -> DualNumber (Matrix r)
+      -> DualNumber (Matrix r)
+(<>!) (D u u') (D v v') = D (u HM.<> v) (Add (MD_M2 u' v) (M_MD2 u v'))
+
+-- | Dense matrix-matrix product with a constant matrix.
+infixr 8 <>!!
+(<>!!) :: Numeric r
+       => DualNumber (Matrix r)
+       -> Matrix r
+       -> DualNumber (Matrix r)
+(<>!!) (D u u') v = D (u HM.<> v) (MD_M2 u' v)
 
 -- * Monadic operations for scalars
 

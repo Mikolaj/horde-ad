@@ -25,14 +25,15 @@ module HordeAd.Internal.MatrixOuter
   ( MatrixOuter (..)
   , emptyMatrixOuter, nullMatrixOuter
   , convertMatrixOuter, convertMatrixOuterOrNull
-  , toRowsMatrixOuter, plusMatrixOuter, multiplyMatrixNormalAndOuter
+  , toRowsMatrixOuter, toColumnsMatrixOuter
+  , plusMatrixOuter, multiplyMatrixNormalAndOuter
   ) where
 
 import Prelude
 
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra
-  (Matrix, Numeric, Vector, asColumn, asRow, outer, toRows)
+  (Matrix, Numeric, Vector, asColumn, asRow)
 import qualified Numeric.LinearAlgebra as HM
 
 -- | A representation of a matrix as a product of a basic matrix
@@ -55,8 +56,8 @@ convertMatrixOuter (MatrixOuter (Just m) (Just c) Nothing) = m * asColumn c
   -- may be even better; that's probably vector being picky about fusing;
   -- it doesn't matter if @m@ comes first
 convertMatrixOuter (MatrixOuter (Just m) Nothing (Just r)) = m * asRow r
-convertMatrixOuter (MatrixOuter (Just m) (Just c) (Just r)) = m * outer c r
-convertMatrixOuter (MatrixOuter Nothing (Just c) (Just r)) = outer c r
+convertMatrixOuter (MatrixOuter (Just m) (Just c) (Just r)) = m * HM.outer c r
+convertMatrixOuter (MatrixOuter Nothing (Just c) (Just r)) = HM.outer c r
 convertMatrixOuter _ =
   error "convertMatrixOuter: dimensions can't be determined"
 
@@ -66,21 +67,39 @@ convertMatrixOuterOrNull (MatrixOuter Nothing Nothing Nothing) = HM.fromRows []
 convertMatrixOuterOrNull m = convertMatrixOuter m
 
 toRowsMatrixOuter :: (Numeric r, Num (Vector r)) => MatrixOuter r -> [Vector r]
-toRowsMatrixOuter (MatrixOuter (Just m) Nothing Nothing) = toRows m
+toRowsMatrixOuter (MatrixOuter (Just m) Nothing Nothing) = HM.toRows m
 toRowsMatrixOuter (MatrixOuter (Just m) mc Nothing) =
   maybe id
         (\c -> zipWith (\s row -> HM.scale s row) (V.toList c))
         mc
-  $ toRows m
+  $ HM.toRows m
 toRowsMatrixOuter (MatrixOuter (Just m) mc (Just r)) =
   maybe (map (r *))
         (\c -> zipWith (\s row -> r * HM.scale s row) (V.toList c))
         mc
-  $ toRows m
+  $ HM.toRows m
 toRowsMatrixOuter (MatrixOuter Nothing (Just c) (Just r)) =
   map (`HM.scale` r) $ V.toList c
 toRowsMatrixOuter _ =
   error "toRowsMatrixOuter: dimensions can't be determined"
+
+toColumnsMatrixOuter :: (Numeric r, Num (Vector r))
+                     => MatrixOuter r -> [Vector r]
+toColumnsMatrixOuter (MatrixOuter (Just m) Nothing Nothing) = HM.toColumns m
+toColumnsMatrixOuter (MatrixOuter (Just m) Nothing mr) =
+  maybe id
+        (\r -> zipWith (\s col -> HM.scale s col) (V.toList r))
+        mr
+  $ HM.toColumns m
+toColumnsMatrixOuter (MatrixOuter (Just m) (Just c) mr) =
+  maybe (map (c *))
+        (\r -> zipWith (\s col -> c * HM.scale s col) (V.toList r))
+        mr
+  $ HM.toColumns m
+toColumnsMatrixOuter (MatrixOuter Nothing (Just c) (Just r)) =
+  map (`HM.scale` c) $ V.toList r
+toColumnsMatrixOuter _ =
+  error "toColumnsMatrixOuter: dimensions can't be determined"
 
 plusMatrixOuter :: (Numeric r, Num (Vector r))
                 => MatrixOuter r -> MatrixOuter r -> MatrixOuter r
