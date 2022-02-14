@@ -39,7 +39,7 @@ import qualified Data.Vector.Storable.Mutable
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 
-import HordeAd.Internal.MatrixOuter
+import qualified HordeAd.Internal.MatrixOuter as MO
 
 -- | This is the grammar of delta-expressions.
 -- They have different but inter-related semantics at the level
@@ -133,24 +133,24 @@ evalBindings dim0 dim1 dim2 st dTopLevel =
     v2 <- V.unsafeFreeze $ VM.take dim2 finiteMap2
     -- Convert to normal matrices, but only the portion of vector
     -- that is not discarded.
-    return (v0, v1, V.map convertMatrixOuterOrNull v2)
+    return (v0, v1, V.map MO.convertMatrixOuterOrNull v2)
 
 buildVectors :: forall s r. (Eq r, Numeric r, Num (Vector r))
              => DeltaState r -> Delta r
              -> ST s ( Data.Vector.Storable.Mutable.MVector s r
                      , Data.Vector.Mutable.MVector s (Vector r)
-                     , Data.Vector.Mutable.MVector s (MatrixOuter r) )
+                     , Data.Vector.Mutable.MVector s (MO.MatrixOuter r) )
 buildVectors st dTopLevel = do
   let DeltaId counter0 = deltaCounter0 st
       DeltaId counter1 = deltaCounter1 st
       DeltaId counter2 = deltaCounter2 st
   store0 <- VM.replicate counter0 0  -- correct value
   store1 <- VM.replicate counter1 (V.empty :: Vector r)  -- dummy value
-  store2 <- VM.replicate counter2 emptyMatrixOuter  -- dummy value
+  store2 <- VM.replicate counter2 MO.emptyMatrixOuter  -- dummy value
   let addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
-      addToMatrix :: MatrixOuter r -> MatrixOuter r -> MatrixOuter r
-      addToMatrix r = \v -> if nullMatrixOuter v then r else plusMatrixOuter v r
+      addToMatrix :: MO.MatrixOuter r -> MO.MatrixOuter r -> MO.MatrixOuter r
+      addToMatrix r = \v -> if MO.nullMatrixOuter v then r else MO.plus v r
       eval0 :: r -> Delta r -> ST s ()
       eval0 !r = \case
         Zero -> return ()
@@ -199,51 +199,51 @@ buildVectors st dTopLevel = do
           eval1 (HM.konst 0 i V.++ r V.++ HM.konst 0 (len - i - n)) d
         M_VD2 m dRow ->
           mapM_ (`eval1` dRow)
-                (toRowsMatrixOuter (MatrixOuter (Just m) (Just r) Nothing))
-        MD_V2 md row -> eval2 (MatrixOuter Nothing (Just r) (Just row)) md
-        SumRows2 dm ncols -> eval2 (asColumnMatrixOuter r ncols) dm
-        SumColumns2 dm nrows -> eval2 (asRowMatrixOuter r nrows) dm
+                (MO.toRows (MO.MatrixOuter (Just m) (Just r) Nothing))
+        MD_V2 md row -> eval2 (MO.MatrixOuter Nothing (Just r) (Just row)) md
+        SumRows2 dm ncols -> eval2 (MO.asColumn r ncols) dm
+        SumColumns2 dm nrows -> eval2 (MO.asRow r nrows) dm
 
         Dot1{} -> error "buildVectors: unboxed vectors of vectors not possible"
         SumElements1{} ->
           error "buildVectors: unboxed vectors of vectors not possible"
         Index1{} ->
           error "buildVectors: unboxed vectors of vectors not possible"
-      eval2 :: MatrixOuter r -> Delta (Matrix r) -> ST s ()
+      eval2 :: MO.MatrixOuter r -> Delta (Matrix r) -> ST s ()
       eval2 !r = \case
         Zero -> return ()
-        Scale k d -> eval2 (multiplyMatrixNormalAndOuter k r) d
+        Scale k d -> eval2 (MO.multiplyWithOuter k r) d
         Add d e -> eval2 r d >> eval2 r e
         Var (DeltaId i) -> VM.modify store2 (addToMatrix r) i
-        Seq2 md -> zipWithM_ eval1 (toRowsMatrixOuter r) (V.toList md)
-        Transpose2 md -> eval2 (transposeMatrixOuter r) md  -- TODO: test!
+        Seq2 md -> zipWithM_ eval1 (MO.toRows r) (V.toList md)
+        Transpose2 md -> eval2 (MO.transpose r) md  -- TODO: test!
         M_MD2 m md -> zipWithM_ (\rRow row -> eval1 rRow (MD_V2 md row))
-                                (HM.toRows m) (toRowsMatrixOuter r)
+                                (HM.toRows m) (MO.toRows r)
 --      M_MD2 m md ->
 --        zipWithM_ (\rRow row ->
---                     eval2 (MatrixOuter Nothing (Just rRow) (Just row)) md)
---                  (HM.toRows m) (toRowsMatrixOuter r)
+--                     eval2 (MO.MatrixOuter Nothing (Just rRow) (Just row)) md)
+--                  (HM.toRows m) (MO.toRows r)
         MD_M2 md m -> zipWithM_ (\rCol col -> eval1 rCol (MD_V2 md col))
-                                (toColumnsMatrixOuter r) (HM.toColumns m)
+                                (MO.toColumns r) (HM.toColumns m)
 --      MD_M2 md m ->
 --        zipWithM_ (\rCol col ->
---                     eval2 (MatrixOuter Nothing (Just rCol) (Just col)) md)
---                  (toColumnsMatrixOuter r) (HM.toColumns m)
-        AsRow2 dRow -> mapM_ (`eval1` dRow) (toRowsMatrixOuter r)
-        AsColumn2 dCol -> mapM_ (`eval1` dCol) (toColumnsMatrixOuter r)
-        RowAppend2 d k e -> eval2 (takeRowsMatrixOuter k r) d
-                            >> eval2 (dropRowsMatrixOuter k r) e
-        ColumnAppend2 d k e -> eval2 (takeColumnsMatrixOuter k r) d
-                            >> eval2 (dropColumnsMatrixOuter k r) e
+--                     eval2 (MO.MatrixOuter Nothing (Just rCol) (Just col)) md)
+--                  (MO.toColumns r) (HM.toColumns m)
+        AsRow2 dRow -> mapM_ (`eval1` dRow) (MO.toRows r)
+        AsColumn2 dCol -> mapM_ (`eval1` dCol) (MO.toColumns r)
+        RowAppend2 d k e -> eval2 (MO.takeRows k r) d
+                            >> eval2 (MO.dropRows k r) e
+        ColumnAppend2 d k e -> eval2 (MO.takeColumns k r) d
+                            >> eval2 (MO.dropColumns k r) e
         RowSlice2 i n d nrows ncols ->
-          eval2 (konstMatrixOuter 0 i ncols `rowAppendMatrixOuter` r
-                `rowAppendMatrixOuter`
-                konstMatrixOuter 0 (nrows - i - n) ncols)
+          eval2 (MO.konst 0 i ncols `MO.rowAppend` r
+                `MO.rowAppend`
+                MO.konst 0 (nrows - i - n) ncols)
                 d
         ColumnSlice2 i n d nrows ncols ->
-          eval2 (konstMatrixOuter 0 nrows i `columnAppendMatrixOuter` r
-                `columnAppendMatrixOuter`
-                konstMatrixOuter 0 nrows (ncols - i - n))
+          eval2 (MO.konst 0 nrows i `MO.columnAppend` r
+                `MO.columnAppend`
+                MO.konst 0 nrows (ncols - i - n))
                 d
 
         Dot1{} -> error "buildVectors: unboxed vectors of vectors not possible"
@@ -263,7 +263,7 @@ buildVectors st dTopLevel = do
           eval1 r d
       evalUnlessZero (DMatrix (DeltaId i) d) = do
         r <- store2 `VM.read` i
-        unless (nullMatrixOuter r) $
+        unless (MO.nullMatrixOuter r) $
           eval2 r d
   mapM_ evalUnlessZero (deltaBindings st)
   return (store0, store1, store2)
