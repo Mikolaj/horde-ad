@@ -792,7 +792,7 @@ mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
        testErrorFinal @?= expected
 
 mnistRNNTestsLong :: TestTree
-mnistRNNTestsLong = testGroup "MnistRNNlong tests"
+mnistRNNTestsLong = testGroup "MNIST RNN long tests"
   [ mnistTestCaseRNN "99LL 1 epoch, all batches" 1 99
                      nnMnistRNNLossL testMnistRNNL lenMnistRNNL 128 1
                      6.820000000000004e-2
@@ -811,7 +811,7 @@ mnistRNNTestsLong = testGroup "MnistRNNlong tests"
   ]
 
 mnistRNNTestsShort :: TestTree
-mnistRNNTestsShort = testGroup "MnistRNNshort tests"
+mnistRNNTestsShort = testGroup "MNIST RNN short tests"
   [ let glyph = V.unfoldrExactN sizeMnistGlyph (uniformR (0, 1))
         label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
         rws v = map (\k -> V.slice (k * 28) 28 v) [0 .. 27]
