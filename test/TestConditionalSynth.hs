@@ -8,7 +8,8 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
 import           Foreign.Storable (Storable)
 import           Foreign.Storable.Tuple ()
-import           Numeric.LinearAlgebra (Vector, konst)
+import           Numeric.LinearAlgebra (Vector)
+import qualified Numeric.LinearAlgebra as HM
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -57,7 +58,7 @@ synthValue :: forall m. DeltaMonad Double m
            -> DualNumber (Vector Double)
            -> m (DualNumber Double)
 synthValue factivation x ps1@(D u _) ps2 ps3 = do
-  activated <- factivation $ scale (konst x (V.length u)) ps1 + ps2
+  activated <- factivation $ scale (HM.konst x (V.length u)) ps1 + ps2
   returnLet $ activated <.>! ps3
 
 synthLossSquared :: DeltaMonad Double m

@@ -5,8 +5,7 @@ import Prelude
 import           Control.Monad (foldM)
 import           Data.List (foldl', unfoldr)
 import qualified Data.Vector.Generic as V
-import           Numeric.LinearAlgebra
-  (Matrix, Numeric, Vector, konst, uniformSample)
+import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           System.Random
 import           Test.Tasty
@@ -92,7 +91,7 @@ zeroState :: (DeltaMonad r m, Numeric r)
               -> DualNumberVariables r
               -> m (DualNumber r2))
 zeroState k f xs variables =
-  fst <$> f xs (scalar $ konst 0 k) variables
+  fst <$> f xs (scalar $ HM.konst 0 k) variables
 
 nnSinRNN :: (DeltaMonad r m, Numeric r, Floating (Vector r))
          => Vector r
@@ -138,8 +137,8 @@ sgdTestCase prefix f (nParams, nParamsV, nParamsL) trainDataIO expected =
                                           (mkStdGen $ 44 + nPV + i))
                (V.fromList nParamsV)
       paramsL0 = V.imap (\i (rows, cols) ->
-                           uniformSample (44 + rows + i) rows
-                                         (replicate cols (-0.05, 0.05)))
+                           HM.uniformSample (44 + rows + i) rows
+                                            (replicate cols (-0.05, 0.05)))
                         (V.fromList nParamsL)
       totalParams = nParams + sum nParamsV
                     + sum (map (uncurry (*)) nParamsL)
@@ -199,8 +198,8 @@ feedbackTestCase prefix fp f (nParams, nParamsV, nParamsL) trainData expected =
                                           (mkStdGen $ 44 + nPV + i))
                (V.fromList nParamsV)
       paramsL0 = V.imap (\i (rows, cols) ->
-                           uniformSample (44 + rows + i) rows
-                                         (replicate cols (-0.05, 0.05)))
+                           HM.uniformSample (44 + rows + i) rows
+                                            (replicate cols (-0.05, 0.05)))
                         (V.fromList nParamsL)
       totalParams = nParams + sum nParamsV
                     + sum (map (uncurry (*)) nParamsL)
@@ -208,7 +207,7 @@ feedbackTestCase prefix fp f (nParams, nParamsV, nParamsL) trainData expected =
              ++ unwords [ show nParams, show (length nParamsV)
                         , show (length nParamsL), show totalParams ]
       trained = sgd 0.1 f trainData (params0, paramsV0, paramsL0)
-      primed = prime fp trained (konst 0 30) (take 19 series)
+      primed = prime fp trained (HM.konst 0 30) (take 19 series)
       output = feedback fp trained primed (series !! 19)
   in testCase name $
        take 30 output @?= expected
@@ -224,7 +223,7 @@ hiddenLayerSinRNNV x s variables = do
   let wX = varV variables 0
       b = varV variables 31
   y <- returnLetV
-       $ scale (konst x 30) wX + sumTrainableInputsL s 1 variables 30 + b
+       $ scale (HM.konst x 30) wX + sumTrainableInputsL s 1 variables 30 + b
   yLogistic <- logisticActV y
   return (y, yLogistic)
 
@@ -543,8 +542,8 @@ mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
                                           (mkStdGen $ 44 + nPV + i))
                nParamsV
       paramsL0 = V.imap (\i (rows, cols) ->
-                           uniformSample (44 + rows + i) rows
-                                         (replicate cols (-0.2, 0.2)))
+                           HM.uniformSample (44 + rows + i) rows
+                                            (replicate cols (-0.2, 0.2)))
                         nParamsL
       totalParams = nParams + V.sum nParamsV
                     + V.sum (V.map (uncurry (*)) nParamsL)
@@ -662,7 +661,7 @@ zeroStateB :: (DeltaMonad r m, Numeric r)
                -> DualNumberVariables r
                -> m (DualNumber r2))
 zeroStateB ij f xs variables =
-  fst <$> f xs (scalar $ konst 0 ij) variables
+  fst <$> f xs (scalar $ HM.konst 0 ij) variables
 
 nnMnistRNNB :: (DeltaMonad r m, Numeric r, Floating (Matrix r))
             => Int
@@ -734,8 +733,8 @@ mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
                                           (mkStdGen $ 44 + nPV + i))
                nParamsV
       paramsL0 = V.imap (\i (rows, cols) ->
-                           uniformSample (44 + rows + i) rows
-                                         (replicate cols (-0.2, 0.2)))
+                           HM.uniformSample (44 + rows + i) rows
+                                            (replicate cols (-0.2, 0.2)))
                         nParamsL
       totalParams = nParams + V.sum nParamsV
                     + V.sum (V.map (uncurry (*)) nParamsL)

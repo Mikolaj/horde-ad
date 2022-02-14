@@ -8,8 +8,7 @@ import Prelude
 
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           Numeric.LinearAlgebra
-  (Matrix, Numeric, Vector, konst, sumElements, (#>), (<.>))
+import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, (#>), (<.>))
 import qualified Numeric.LinearAlgebra as HM
 
 import HordeAd.Core.Delta (Delta (..))
@@ -135,10 +134,10 @@ infixr 8 <.>!!
 (<.>!!) (D u u') v = D (u <.> v) (Dot1 v u')
 
 sumElements1 :: Numeric r => DualNumber (Vector r) -> DualNumber r
-sumElements1 (D u u') = D (sumElements u) (SumElements1 u' (V.length u))
+sumElements1 (D u u') = D (HM.sumElements u) (SumElements1 u' (V.length u))
 
 konst1 :: Numeric r => DualNumber r -> Int -> DualNumber (Vector r)
-konst1 (D u u') n = D (konst u n) (Konst1 u')
+konst1 (D u u') n = D (HM.konst u n) (Konst1 u')
 
 index1 :: Numeric r
        => DualNumber (Vector r) -> Int -> DualNumber r
@@ -345,8 +344,8 @@ lossSoftMaxCrossEntropyV target (D u u') = do
   -- but I have yet to find a test that requires this and guards
   -- against removing or weakening this mechanism.
   -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106.
-  --  expU = exp (u - konst (V.maximum u) (V.length u))
-      sumExpU = sumElements expU
+  --  expU = exp (u - HM.konst (V.maximum u) (V.length u))
+      sumExpU = HM.sumElements expU
       recipSum = recip sumExpU
 -- not exposed: softMaxU = HM.scaleRecip sumExpU expU
       softMaxU = HM.scale recipSum expU

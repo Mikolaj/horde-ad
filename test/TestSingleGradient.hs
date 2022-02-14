@@ -5,7 +5,8 @@ import Prelude
 
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           Numeric.LinearAlgebra (Numeric, Vector, konst)
+import           Numeric.LinearAlgebra (Numeric, Vector)
+import qualified Numeric.LinearAlgebra as HM
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
@@ -192,7 +193,7 @@ atanReadmePolyV variables =
 atanReadmeMPolyV :: (DeltaMonad r m, RealFloat r, Numeric r)
                  => DualNumberVariables r -> m (DualNumber r)
 atanReadmeMPolyV variables =
-  returnLet $ atanReadmePolyV variables <.>!! konst 1 2
+  returnLet $ atanReadmePolyV variables <.>!! HM.konst 1 2
 
 -- The underscores and empty vectors are placeholders for the vector
 -- and matrix components of the parameters triple, which we here don't use

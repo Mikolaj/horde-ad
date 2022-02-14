@@ -7,7 +7,8 @@ import           Control.Arrow ((***))
 import           Criterion.Main
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
-import           Numeric.LinearAlgebra (Numeric, uniformSample)
+import           Numeric.LinearAlgebra (Numeric)
+import qualified Numeric.LinearAlgebra as HM
 import           System.Random
 
 import HordeAd
@@ -132,8 +133,8 @@ mnistTrainBench2L extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
                                           (mkStdGen $ 33 + nPV + i))
                nParamsV
       paramsL0 = V.imap (\i (rows, cols) ->
-                           uniformSample (33 + rows + i) rows
-                                         (replicate cols (-0.5, 0.5)))
+                           HM.uniformSample (33 + rows + i) rows
+                                            (replicate cols (-0.5, 0.5)))
                         nParamsL
       -- Using the fused version to benchmark against the manual gradient
       -- from backprop that uses it at least in its forward pass,
@@ -161,8 +162,8 @@ mnistTestBench2L extraPrefix chunkLength xs widthHidden widthHidden2 = do
                                           (mkStdGen $ 33 + nPV + i))
                nParamsV
       paramsL0 = V.imap (\i (rows, cols) ->
-                           uniformSample (33 + rows + i) rows
-                                         (replicate cols (-0.5, 0.5)))
+                           HM.uniformSample (33 + rows + i) rows
+                                            (replicate cols (-0.5, 0.5)))
                         nParamsL
       chunk = take chunkLength xs
       score c = testMnist2L c (params0, paramsV0, paramsL0)

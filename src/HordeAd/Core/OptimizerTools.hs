@@ -12,8 +12,7 @@ import Prelude
 import           Control.Monad.ST.Strict (runST)
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
-import           Numeric.LinearAlgebra
-  (Element, Matrix, Numeric, Vector, konst, rows, size, tr')
+import           Numeric.LinearAlgebra (Element, Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           Numeric.LinearAlgebra.Data (flatten)
 import           Numeric.LinearAlgebra.Devel
@@ -78,7 +77,7 @@ updateWithGradient gamma (params, paramsV, paramsL)
                     then i
                     else updateVector i r
       paramsVNew = V.zipWith updateV paramsV gradientV
-      updateL i r = if rows r <= 0  -- eval didn't update it, would crash
+      updateL i r = if HM.rows r <= 0  -- eval didn't update it, would crash
                     then i
                     else liftMatrix2 updateVector i r
       paramsLNew = V.zipWith updateL paramsL gradientL
@@ -88,7 +87,7 @@ gradientIsNil :: (Eq r, Numeric r) => Domains' r -> Bool
 gradientIsNil (gradient, gradientV, gradientL) =
   V.all (== 0) gradient
   && V.all V.null gradientV
-  && V.all (\r -> rows r <= 0) gradientL
+  && V.all (\r -> HM.rows r <= 0) gradientL
 
 minimumGradient :: (Ord r, Numeric r) => Domains' r -> r
 minimumGradient (gradient, gradientV, gradientL) =
@@ -156,21 +155,21 @@ liftMatrix43 :: ( Numeric a, Numeric b, Numeric c, Numeric d
              -> Matrix a -> Matrix b -> Matrix c -> Matrix d
              -> (Matrix x, Matrix y, Matrix z)
 liftMatrix43 f m1 m2 m3 m4 =
-  let sz@(r, c) = size m1
+  let sz@(r, c) = HM.size m1
       rowOrder = orderOf m1
-  in if sz == size m2 && sz == size m3 && sz == size m4
+  in if sz == HM.size m2 && sz == HM.size m3 && sz == HM.size m4
      then
        let (vx, vy, vz) = case rowOrder of
              RowMajor -> f (flatten m1) (flatten m2) (flatten m3) (flatten m4)
-             ColumnMajor -> f (flatten (tr' m1)) (flatten (tr' m2))
-                              (flatten (tr' m3)) (flatten (tr' m4))
+             ColumnMajor -> f (flatten (HM.tr' m1)) (flatten (HM.tr' m2))
+                              (flatten (HM.tr' m3)) (flatten (HM.tr' m4))
                -- TODO: check if keeping RowMajor is faster
        in ( matrixFromVector rowOrder r c vx
           , matrixFromVector rowOrder r c vy
           , matrixFromVector rowOrder r c vz
           )
      else error $ "nonconformant matrices in liftMatrix43: "
-                  ++ show (size m1, size m2, size m3, size m4)
+                  ++ show (HM.size m1, HM.size m2, HM.size m3, HM.size m4)
 
 updateWithGradientAdam :: forall r. (Floating r, Numeric r, Floating (Vector r))
                        => ArgsAdam r
@@ -198,7 +197,7 @@ updateWithGradientAdam ArgsAdam{..}
         in ( mANew
            , vANew
            , p - HM.scale alphat mANew
-                 / (sqrt vANew + konst epsilon (V.length vANew)) )
+                 / (sqrt vANew + HM.konst epsilon (V.length vANew)) )
                       -- @addConstant@ would be better, but it's not exposed
       (mAdamNew, vAdamNew, paramsNew) = updateVector mAdam vAdam params gradient
       updateV mA vA p g = if V.null g  -- eval didn't update it, would crash
@@ -206,7 +205,7 @@ updateWithGradientAdam ArgsAdam{..}
                           else updateVector mA vA p g
       (mAdamVNew, vAdamVNew, paramsVNew) =
         V.unzip3 $ V.zipWith4 updateV mAdamV vAdamV paramsV gradientV
-      updateL mA vA p g = if rows g <= 0  -- eval didn't update it, would crash
+      updateL mA vA p g = if HM.rows g <= 0  -- eval didn't update it; crash
                           then (mA, vA, p)
                           else liftMatrix43 updateVector mA vA p g
       (mAdamLNew, vAdamLNew, paramsLNew) =

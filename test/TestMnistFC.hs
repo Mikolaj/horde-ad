@@ -4,7 +4,8 @@ import Prelude
 
 import           Control.Monad (foldM)
 import qualified Data.Vector.Generic as V
-import           Numeric.LinearAlgebra (Numeric, Vector, konst, uniformSample)
+import           Numeric.LinearAlgebra (Numeric, Vector)
+import qualified Numeric.LinearAlgebra as HM
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -220,8 +221,8 @@ mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                                           (mkStdGen $ 44 + nPV + i))
                nParamsV
       paramsL0 = V.imap (\i (rows, cols) ->
-                           uniformSample (44 + rows + i) rows
-                                         (replicate cols (-0.5, 0.5)))
+                           HM.uniformSample (44 + rows + i) rows
+                                            (replicate cols (-0.5, 0.5)))
                         nParamsL
       totalParams = nParams + V.sum nParamsV
                     + V.sum (V.map (uncurry (*)) nParamsL)
@@ -309,7 +310,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           nParamsV = lenVectorsMnist2L 300 100
           paramsV = V.map (`V.replicate` 0.1) nParamsV
           nParamsL = lenMatrixMnist2L 300 100
-          paramsL = V.map (konst 0.1) nParamsL
+          paramsL = V.map (HM.konst 0.1) nParamsL
       testData <- loadMnistData testGlyphsPath testLabelsPath
       (1 - testMnist2L testData (params, paramsV, paramsL)) @?= 0.902
  ]
