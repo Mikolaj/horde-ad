@@ -157,9 +157,8 @@ prime :: Numeric r
       -> Vector r
       -> [r]
       -> Vector r
-prime f parameters s0 as =
-  foldl' (\s x ->
-            primalValue (\vs -> snd <$> f x (scalar s) vs) parameters) s0 as
+prime f parameters =
+  foldl' (\s x -> primalValue (fmap snd . f x (scalar s)) parameters)
 
 feedback :: Numeric r
          => (r
@@ -625,7 +624,7 @@ mnistRNNTestsShort = testGroup "MnistRNN tests short"
     in sgdTestCase "firstLL 100 trainset samples only"
                    (nnMnistRNNLossL 128)
                    (lenMnistRNNL 128 1)
-                   (map rws <$> take 100
+                   (map rws . take 100
                     <$> loadMnistData trainGlyphsPath trainLabelsPath)
                    2.7475935398167763
   , mnistTestCaseRNN "1LL 1 epoch, 1 batch" 1 1
@@ -665,7 +664,7 @@ mnistRNNTestsShort = testGroup "MnistRNN tests short"
     in sgdTestCase "firstLL2 100 trainset samples only"
                    (nnMnistRNNLossL2 128)
                    (lenMnistRNNL 128 2)
-                   (map rws <$> take 100
+                   (map rws . take 100
                     <$> loadMnistData trainGlyphsPath trainLabelsPath)
                    2.7330660939846974
   , mnistTestCaseRNN "1LL2 1 epoch, 1 batch" 1 1

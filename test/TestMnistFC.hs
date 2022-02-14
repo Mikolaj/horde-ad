@@ -300,16 +300,16 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       let nParams = lenMnist2V 300 100
           params = V.replicate nParams 0.1
           nParamsV = lenVectorsMnist2V 300 100
-          paramsV = V.map (\nPV -> V.replicate nPV 0.1) nParamsV
+          paramsV = V.map (`V.replicate` 0.1) nParamsV
       testData <- loadMnistData testGlyphsPath testLabelsPath
       (1 - testMnist2V 300 100 testData (params, paramsV)) @?= 0.902
   , testCase "testMnist2LL on 0.1 params 300 100 width 10k testset" $ do
       let nParams = lenMnist2L 300 100
           params = V.replicate nParams 0.1
           nParamsV = lenVectorsMnist2L 300 100
-          paramsV = V.map (\nPV -> V.replicate nPV 0.1) nParamsV
+          paramsV = V.map (`V.replicate` 0.1) nParamsV
           nParamsL = lenMatrixMnist2L 300 100
-          paramsL = V.map (\ij -> konst 0.1 ij) nParamsL
+          paramsL = V.map (konst 0.1) nParamsL
       testData <- loadMnistData testGlyphsPath testLabelsPath
       (1 - testMnist2L testData (params, paramsV, paramsL)) @?= 0.902
  ]
