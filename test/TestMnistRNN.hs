@@ -14,6 +14,7 @@ import           Test.Tasty.HUnit hiding (assert)
 import           Text.Printf
 
 import HordeAd
+import HordeAd.Core.OutdatedOptimizer
 import HordeAd.Tool.MnistTools
 
 testTrees :: [TestTree]

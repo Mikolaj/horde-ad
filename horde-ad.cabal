@@ -109,6 +109,9 @@ library
                       HordeAd.Core.Delta
                       HordeAd.Core.DualNumber
                       HordeAd.Core.Engine
+                      HordeAd.Core.Optimizer
+                      HordeAd.Core.OptimizerTools
+                      HordeAd.Core.OutdatedOptimizer
                       HordeAd.Core.PairOfVectors
                       HordeAd.Internal.MatrixOuter
                       HordeAd.Tool.MnistTools
