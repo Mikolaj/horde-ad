@@ -71,14 +71,9 @@ convertMatrixOuterOrNull m = convertMatrixOuter m
 toRowsMatrixOuter :: (Numeric r, Num (Vector r)) => MatrixOuter r -> [Vector r]
 toRowsMatrixOuter (MatrixOuter (Just m) Nothing Nothing) = HM.toRows m
 toRowsMatrixOuter (MatrixOuter (Just m) mc Nothing) =
-  maybe id
-        (\c -> zipWith (\s row -> HM.scale s row) (V.toList c))
-        mc
-  $ HM.toRows m
+  maybe id (zipWith HM.scale . V.toList) mc $ HM.toRows m
 toRowsMatrixOuter (MatrixOuter (Just m) mc (Just r)) =
-  maybe (map (r *))
-        (\c -> zipWith (\s row -> r * HM.scale s row) (V.toList c))
-        mc
+  maybe (map (r *)) (zipWith (\s row -> r * HM.scale s row) . V.toList) mc
   $ HM.toRows m
 toRowsMatrixOuter (MatrixOuter Nothing (Just c) (Just r)) =
   map (`HM.scale` r) $ V.toList c
@@ -89,14 +84,10 @@ toColumnsMatrixOuter :: (Numeric r, Num (Vector r))
                      => MatrixOuter r -> [Vector r]
 toColumnsMatrixOuter (MatrixOuter (Just m) Nothing Nothing) = HM.toColumns m
 toColumnsMatrixOuter (MatrixOuter (Just m) Nothing mr) =
-  maybe id
-        (\r -> zipWith (\s col -> HM.scale s col) (V.toList r))
-        mr
-  $ HM.toColumns m
+  maybe id (zipWith HM.scale . V.toList) mr $ HM.toColumns m
 toColumnsMatrixOuter (MatrixOuter (Just m) (Just c) mr) =
-  maybe (map (c *))
-        (\r -> zipWith (\s col -> c * HM.scale s col) (V.toList r))
-        mr
+-- traceShow (sizeMatrixOuter (MatrixOuter (Just m) (Just c) mr)) $
+  maybe (map (c *)) (zipWith (\s col -> c * HM.scale s col) . V.toList) mr
   $ HM.toColumns m
 toColumnsMatrixOuter (MatrixOuter Nothing (Just c) (Just r)) =
   map (`HM.scale` c) $ V.toList r

@@ -27,9 +27,9 @@ lenVectorsMnist2L widthHidden widthHidden2 =
 
 lenMatrixMnist2L :: Int -> Int -> Data.Vector.Vector (Int, Int)
 lenMatrixMnist2L widthHidden widthHidden2 =
-  V.fromList $ [ (widthHidden, sizeMnistGlyph)
-               , (widthHidden2, widthHidden)
-               , (sizeMnistLabel, widthHidden2) ]
+  V.fromList [ (widthHidden, sizeMnistGlyph)
+             , (widthHidden2, widthHidden)
+             , (sizeMnistLabel, widthHidden2) ]
 
 -- | Fully connected neural network for the MNIST digit classification task.
 -- There are two hidden layers and both use the same activation function.
@@ -78,7 +78,7 @@ nnMnistLossFused2L
   -> DualNumberVariables r
   -> m (DualNumber r)
 nnMnistLossFused2L (input, target) variables = do
-  result <- inline nnMnist2L logisticActV (\x -> return x) input variables
+  result <- inline nnMnist2L logisticActV return input variables
   lossSoftMaxCrossEntropyV target result
 
 -- | A function testing the neural network given testing set of inputs

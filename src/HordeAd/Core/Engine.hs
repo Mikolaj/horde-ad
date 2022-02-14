@@ -312,7 +312,7 @@ sgdBatch batchSize gamma f trainingData parameters0 =
                -> DeltaMonadGradient r (DualNumber r)
         fBatch vars = do
           resBatch <- foldM (fAdd vars) 0 batch
-          return $! resBatch / (fromIntegral $ length batch)
+          return $! resBatch / fromIntegral (length batch)
         gradients = fst $ generalDf variables fBatch
 --        !_ = traceShow (fromIntegral (length l) / fromIntegral batchSize
 --                          :: Double) $
@@ -500,7 +500,7 @@ sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
                -> DeltaMonadGradient r (DualNumber r)
         fBatch vars = do
           resBatch <- foldM (fAdd vars) 0 batch
-          return $! resBatch / (fromIntegral $ length batch)
+          return $! resBatch / fromIntegral (length batch)
         gradients = fst $ generalDf variables fBatch
         (parametersNew, stateAdamNew) =
           updateWithGradientAdam argsAdam stateAdam parameters gradients
