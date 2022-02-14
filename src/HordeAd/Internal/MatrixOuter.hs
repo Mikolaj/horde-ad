@@ -27,6 +27,11 @@ module HordeAd.Internal.MatrixOuter
   , convertMatrixOuter, convertMatrixOuterOrNull
   , toRowsMatrixOuter, toColumnsMatrixOuter
   , plusMatrixOuter, multiplyMatrixNormalAndOuter
+  , konstMatrixOuter, asRowMatrixOuter, asColumnMatrixOuter
+  , rowAppendMatrixOuter, columnAppendMatrixOuter
+  , takeRowsMatrixOuter, takeColumnsMatrixOuter
+  , dropRowsMatrixOuter, dropColumnsMatrixOuter
+  , transposeMatrixOuter
   ) where
 
 import Prelude
@@ -34,8 +39,7 @@ import Prelude
 import           Control.Exception.Assert.Sugar
 import           Data.Maybe (fromJust)
 import qualified Data.Vector.Generic as V
-import           Numeric.LinearAlgebra
-  (Matrix, Numeric, Vector, asColumn, asRow)
+import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 
 -- | A representation of a matrix as a product of a basic matrix
@@ -46,18 +50,20 @@ data MatrixOuter r = MatrixOuter (Maybe (Matrix r))
 emptyMatrixOuter :: MatrixOuter r
 emptyMatrixOuter = MatrixOuter Nothing Nothing Nothing
 
-nullMatrixOuter :: (MatrixOuter r) -> Bool
+nullMatrixOuter :: MatrixOuter r -> Bool
 nullMatrixOuter (MatrixOuter Nothing Nothing Nothing) = True
 nullMatrixOuter _ = False
 
 convertMatrixOuter :: (Numeric r, Num (Vector r)) => MatrixOuter r -> Matrix r
 convertMatrixOuter (MatrixOuter (Just m) Nothing Nothing) = m
-convertMatrixOuter (MatrixOuter (Just m) (Just c) Nothing) = m * asColumn c
-  -- beware, depending on context, @m * outer c (konst 1 (cols m))@
-  -- may allocate much less and perhaps @fromRows . toRowsMatrixOuter@
-  -- may be even better; that's probably vector being picky about fusing;
-  -- it doesn't matter if @m@ comes first
-convertMatrixOuter (MatrixOuter (Just m) Nothing (Just r)) = m * asRow r
+convertMatrixOuter (MatrixOuter (Just m) (Just c) Nothing) =
+  m * HM.asColumn c  -- this @asColumn@ is safe, because it's expanded via @m@
+    -- beware, depending on context, @m * outer c (konst 1 (cols m))@
+    -- may allocate much less and perhaps @fromRows . toRowsMatrixOuter@
+    -- may be even better; that's probably vector being picky about fusing;
+    -- it doesn't matter if @m@ comes first
+convertMatrixOuter (MatrixOuter (Just m) Nothing (Just r)) =
+  m * HM.asRow r  -- this @asRow@ is safe, because it's expanded via @m@
 convertMatrixOuter (MatrixOuter (Just m) (Just c) (Just r)) = m * HM.outer c r
 convertMatrixOuter (MatrixOuter Nothing (Just c) (Just r)) = HM.outer c r
 convertMatrixOuter _ =
@@ -119,3 +125,58 @@ multiplyMatrixNormalAndOuter k o@(MatrixOuter mm mc mr) =
      `blame` (HM.size k, sizeMatrixOuter o)) $
   let !m = maybe k (k *) mm
   in MatrixOuter (Just m) mc mr
+
+konstMatrixOuter :: Numeric r => r -> Int -> Int -> MatrixOuter r
+konstMatrixOuter x nrows ncols =
+  let !c = HM.konst x nrows
+      !r = HM.konst x ncols
+  in MatrixOuter Nothing (Just c) (Just r)
+
+asRowMatrixOuter :: Numeric r => Vector r -> Int -> MatrixOuter r
+asRowMatrixOuter !r nrows =
+  let !c = HM.konst 1 nrows
+  in MatrixOuter Nothing (Just c) (Just r)
+
+asColumnMatrixOuter :: Numeric r => Vector r -> Int -> MatrixOuter r
+asColumnMatrixOuter !c ncols =
+  let !r = HM.konst 1 ncols
+  in MatrixOuter Nothing (Just c) (Just r)
+
+rowAppendMatrixOuter :: (Numeric r, Num (Vector r))
+                     => MatrixOuter r -> MatrixOuter r -> MatrixOuter r
+rowAppendMatrixOuter o1 o2 =
+  let !o = convertMatrixOuter o1 HM.=== convertMatrixOuter o2
+  in MatrixOuter (Just o) Nothing Nothing
+
+columnAppendMatrixOuter :: (Numeric r, Num (Vector r))
+                        => MatrixOuter r -> MatrixOuter r -> MatrixOuter r
+columnAppendMatrixOuter o1 o2 =
+  let !o = convertMatrixOuter o1 HM.||| convertMatrixOuter o2
+  in MatrixOuter (Just o) Nothing Nothing
+
+takeRowsMatrixOuter :: Numeric r => Int -> MatrixOuter r -> MatrixOuter r
+takeRowsMatrixOuter k (MatrixOuter mm mc mr) =
+  MatrixOuter (HM.takeRows k <$> mm)
+              (V.take k <$> mc)
+              mr
+
+takeColumnsMatrixOuter :: Numeric r => Int -> MatrixOuter r -> MatrixOuter r
+takeColumnsMatrixOuter k (MatrixOuter mm mc mr) =
+  MatrixOuter (HM.takeColumns k <$> mm)
+              mc
+              (V.take k <$> mr)
+
+dropRowsMatrixOuter :: Numeric r => Int -> MatrixOuter r -> MatrixOuter r
+dropRowsMatrixOuter k (MatrixOuter mm mc mr) =
+  MatrixOuter (HM.dropRows k <$> mm)
+              (V.drop k <$> mc)
+              mr
+
+dropColumnsMatrixOuter :: Numeric r => Int -> MatrixOuter r -> MatrixOuter r
+dropColumnsMatrixOuter k (MatrixOuter mm mc mr) =
+  MatrixOuter (HM.dropColumns k <$> mm)
+              mc
+              (V.drop k <$> mr)
+
+transposeMatrixOuter :: Numeric r => MatrixOuter r -> MatrixOuter r
+transposeMatrixOuter (MatrixOuter mm mc mr) = MatrixOuter (HM.tr' <$> mm) mr mc

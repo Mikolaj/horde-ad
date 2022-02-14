@@ -63,20 +63,32 @@ data Delta :: Type -> Type where
   Var :: DeltaId a -> Delta a
 
   -- Constructors related to vectors.
+  Seq1 :: Data.Vector.Vector (Delta r) -> Delta (Vector r)
   Dot1 :: Vector r -> Delta (Vector r) -> Delta r
   SumElements1 :: Delta (Vector r) -> Int -> Delta r
   Konst1 :: Delta r -> Delta (Vector r)
-  Seq1 :: Data.Vector.Vector (Delta r) -> Delta (Vector r)
   Index1 :: Delta (Vector r) -> Int -> Int -> Delta r
   Append1 :: Delta (Vector r) -> Int -> Delta (Vector r) -> Delta (Vector r)
   Slice1 :: Int -> Int -> Delta (Vector r) -> Int -> Delta (Vector r)
 
   -- Constructors related to matrices.
+  Seq2 :: Data.Vector.Vector (Delta (Vector r)) -> Delta (Matrix r)
+  Transpose2 :: Delta (Matrix r) -> Delta (Matrix r)
   M_VD2 :: Matrix r -> Delta (Vector r) -> Delta (Vector r)
   MD_V2 :: Delta (Matrix r) -> Vector r -> Delta (Vector r)
   M_MD2 :: Matrix r -> Delta (Matrix r) -> Delta (Matrix r)
   MD_M2 :: Delta (Matrix r) -> Matrix r -> Delta (Matrix r)
-  Seq2 :: Data.Vector.Vector (Delta (Vector r)) -> Delta (Matrix r)
+  SumRows2 :: Delta (Matrix r) -> Int -> Delta (Vector r)
+  AsRow2 :: Delta (Vector r) -> Delta (Matrix r)
+  RowAppend2 :: Delta (Matrix r) -> Int -> Delta (Matrix r) -> Delta (Matrix r)
+  RowSlice2 :: Int -> Int -> Delta (Matrix r) -> Int -> Int -> Delta (Matrix r)
+
+  SumColumns2 :: Delta (Matrix r) -> Int -> Delta (Vector r)
+  AsColumn2 :: Delta (Vector r) -> Delta (Matrix r)
+  ColumnAppend2
+    :: Delta (Matrix r) -> Int -> Delta (Matrix r) -> Delta (Matrix r)
+  ColumnSlice2
+    :: Int -> Int -> Delta (Matrix r) -> Int -> Int -> Delta (Matrix r)
 
 newtype DeltaId a = DeltaId Int
   deriving (Show, Eq)
@@ -151,30 +163,46 @@ buildVectors st dTopLevel = do
 
         -- Most of the impossible cases will be ruled out by GADT
         -- once the conflation fo parameterizations is cleared.
-        Konst1{} -> error "buildVectors: Konst1 can't result in a scalar"
         Seq1{} -> error "buildVectors: Seq1 can't result in a scalar"
+        Konst1{} -> error "buildVectors: Konst1 can't result in a scalar"
         Append1{} -> error "buildVectors: Append1 can't result in a scalar"
         Slice1{} -> error "buildVectors: Slice1 can't result in a scalar"
+        Seq2{} -> error "buildVectors: Seq2 can't result in a scalar"
+        Transpose2{} ->
+          error "buildVectors: Transpose2 can't result in a scalar"
         M_VD2{} -> error "buildVectors: MxVD2 can't result in a scalar"
         MD_V2{} -> error "buildVectors: MDxV2 can't result in a scalar"
         M_MD2{} -> error "buildVectors: MxMD2 can't result in a scalar"
         MD_M2{} -> error "buildVectors: MDxM2 can't result in a scalar"
-        Seq2{} -> error "buildVectors: Seq2 can't result in a scalar"
+        SumRows2{} -> error "buildVectors: SumRows2 can't result in a scalar"
+        SumColumns2{} ->
+          error "buildVectors: SumColumns2 can't result in a scalar"
+        AsRow2{} -> error "buildVectors: AsRow2 can't result in a scalar"
+        AsColumn2{} -> error "buildVectors: AsColumn2 can't result in a scalar"
+        RowAppend2{} ->
+          error "buildVectors: RowAppend2 can't result in a scalar"
+        ColumnAppend2{} ->
+          error "buildVectors: ColumnAppend2 can't result in a scalar"
+        RowSlice2{} -> error "buildVectors: RowSlice2 can't result in a scalar"
+        ColumnSlice2{} ->
+          error "buildVectors: ColumnSlice2 can't result in a scalar"
       eval1 :: Vector r -> Delta (Vector r) -> ST s ()
       eval1 !r = \case
         Zero -> return ()
         Scale k d -> eval1 (k * r) d
         Add d e -> eval1 r d >> eval1 r e
         Var (DeltaId i) -> VM.modify store1 (addToVector r) i
-        Konst1 d -> V.mapM_ (`eval0` d) r
         Seq1 vd -> V.imapM_ (\i d -> eval0 (r V.! i) d) vd
+        Konst1 d -> V.mapM_ (`eval0` d) r
         Append1 d k e -> eval1 (V.take k r) d >> eval1 (V.drop k r) e
-        Slice1 i n d k ->
-          eval1 (HM.konst 0 i V.++ r V.++ HM.konst 0 (k - i - n)) d
+        Slice1 i n d len ->
+          eval1 (HM.konst 0 i V.++ r V.++ HM.konst 0 (len - i - n)) d
         M_VD2 m dRow ->
           mapM_ (`eval1` dRow)
                 (toRowsMatrixOuter (MatrixOuter (Just m) (Just r) Nothing))
         MD_V2 md row -> eval2 (MatrixOuter Nothing (Just r) (Just row)) md
+        SumRows2 dm ncols -> eval2 (asColumnMatrixOuter r ncols) dm
+        SumColumns2 dm nrows -> eval2 (asRowMatrixOuter r nrows) dm
 
         Dot1{} -> error "buildVectors: unboxed vectors of vectors not possible"
         SumElements1{} ->
@@ -187,19 +215,36 @@ buildVectors st dTopLevel = do
         Scale k d -> eval2 (multiplyMatrixNormalAndOuter k r) d
         Add d e -> eval2 r d >> eval2 r e
         Var (DeltaId i) -> VM.modify store2 (addToMatrix r) i
+        Seq2 md -> zipWithM_ eval1 (toRowsMatrixOuter r) (V.toList md)
+        Transpose2 md -> eval2 (transposeMatrixOuter r) md  -- TODO: test!
         M_MD2 m md -> zipWithM_ (\rRow row -> eval1 rRow (MD_V2 md row))
-                                (toRowsMatrixOuter r) (HM.toRows m)
+                                (HM.toRows m) (toRowsMatrixOuter r)
 --      M_MD2 m md ->
 --        zipWithM_ (\rRow row ->
 --                     eval2 (MatrixOuter Nothing (Just rRow) (Just row)) md)
---                  (toRowsMatrixOuter r) (HM.toRows m)
+--                  (HM.toRows m) (toRowsMatrixOuter r)
         MD_M2 md m -> zipWithM_ (\rCol col -> eval1 rCol (MD_V2 md col))
                                 (toColumnsMatrixOuter r) (HM.toColumns m)
 --      MD_M2 md m ->
 --        zipWithM_ (\rCol col ->
 --                     eval2 (MatrixOuter Nothing (Just rCol) (Just col)) md)
 --                  (toColumnsMatrixOuter r) (HM.toColumns m)
-        Seq2 md -> zipWithM_ eval1 (toRowsMatrixOuter r) (V.toList md)
+        AsRow2 dRow -> mapM_ (`eval1` dRow) (toRowsMatrixOuter r)
+        AsColumn2 dCol -> mapM_ (`eval1` dCol) (toColumnsMatrixOuter r)
+        RowAppend2 d k e -> eval2 (takeRowsMatrixOuter k r) d
+                            >> eval2 (dropRowsMatrixOuter k r) e
+        ColumnAppend2 d k e -> eval2 (takeColumnsMatrixOuter k r) d
+                            >> eval2 (dropColumnsMatrixOuter k r) e
+        RowSlice2 i n d nrows ncols ->
+          eval2 (konstMatrixOuter 0 i ncols `rowAppendMatrixOuter` r
+                `rowAppendMatrixOuter`
+                konstMatrixOuter 0 (nrows - i - n) ncols)
+                d
+        ColumnSlice2 i n d nrows ncols ->
+          eval2 (konstMatrixOuter 0 nrows i `columnAppendMatrixOuter` r
+                `columnAppendMatrixOuter`
+                konstMatrixOuter 0 nrows (ncols - i - n))
+                d
 
         Dot1{} -> error "buildVectors: unboxed vectors of vectors not possible"
         SumElements1{} ->

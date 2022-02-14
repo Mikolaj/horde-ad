@@ -114,6 +114,12 @@ squaredDifference targ res = square $ res - scalar targ
 
 -- * Non-monadic operations related to vectors
 
+-- @1@ means rank one, that is, creating delta expression of a vector.
+deltaSeq1 :: Numeric r
+          => Data.Vector.Vector (DualNumber r) -> DualNumber (Vector r)
+deltaSeq1 v = D (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
+               (Seq1 $ V.map (\(D _ u') -> u') v)
+
 infixr 8 <.>!
 (<.>!) :: Numeric r
        => DualNumber (Vector r)
@@ -128,19 +134,12 @@ infixr 8 <.>!!
         -> DualNumber r
 (<.>!!) (D u u') v = D (u <.> v) (Dot1 v u')
 
-konst1 :: Numeric r => DualNumber r -> Int -> DualNumber (Vector r)
-konst1 (D u u') n = D (konst u n) (Konst1 u')
-
 sumElements1 :: Numeric r => DualNumber (Vector r) -> DualNumber r
 sumElements1 (D u u') = D (sumElements u) (SumElements1 u' (V.length u))
 
--- @1@ means rank one, that is, creating delta expression of a vector.
-deltaSeq1 :: Numeric r
-          => Data.Vector.Vector (DualNumber r) -> DualNumber (Vector r)
-deltaSeq1 v = D (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
-               (Seq1 $ V.map (\(D _ u') -> u') v)
+konst1 :: Numeric r => DualNumber r -> Int -> DualNumber (Vector r)
+konst1 (D u u') n = D (konst u n) (Konst1 u')
 
--- @1@ means rank one, that is, indexing a vector.
 index1 :: Numeric r
        => DualNumber (Vector r) -> Int -> DualNumber r
 index1 (D u u') i = D (u V.! i) (Index1 u' i (V.length u))
@@ -154,6 +153,16 @@ slice1 :: Numeric r
        => Int -> Int -> DualNumber (Vector r)
        -> DualNumber (Vector r)
 slice1 i n (D u u') = D (V.slice i n u) (Slice1 i n u' (V.length u))
+
+-- @2@ means rank two, that is, creating delta expression of a matrix.
+deltaSeq2 :: Numeric r
+          => Data.Vector.Vector (DualNumber (Vector r))
+          -> DualNumber (Matrix r)
+deltaSeq2 v = D (HM.fromRows $ map (\(D u _) -> u) $ V.toList v)
+                (Seq2 $ V.map (\(D _ u') -> u') v)
+
+transpose2 :: Numeric r => DualNumber (Matrix r) -> DualNumber (Matrix r)
+transpose2 (D u u') = D (HM.tr' u) (Transpose2 u')
 
 -- | Dense matrix-vector product.
 infixr 8 #>!
@@ -197,6 +206,45 @@ infixr 8 <>!!
        -> Matrix r
        -> DualNumber (Matrix r)
 (<>!!) (D u u') v = D (u HM.<> v) (MD_M2 u' v)
+
+sumRows2 :: Numeric r => DualNumber (Matrix r) -> DualNumber (Vector r)
+sumRows2 (D u u') = D (V.fromList $ map HM.sumElements $ HM.toRows u)
+                      (SumRows2 u' (HM.cols u))
+
+sumColumns2 :: Numeric r => DualNumber (Matrix r) -> DualNumber (Vector r)
+sumColumns2 (D u u') = D (V.fromList $ map HM.sumElements $ HM.toColumns u)
+                         (SumColumns2 u' (HM.rows u))
+
+asRow2 :: Numeric r => DualNumber (Vector r) -> Int -> DualNumber (Matrix r)
+asRow2 (D u u') n = D (HM.fromRows $ replicate n u) (AsRow2 u')
+
+asColumn2 :: Numeric r => DualNumber (Vector r) -> Int -> DualNumber (Matrix r)
+asColumn2 (D u u') n = D (HM.fromColumns $ replicate n u) (AsColumn2 u')
+
+rowAppend2 :: Numeric r
+           => DualNumber (Matrix r) -> DualNumber (Matrix r)
+           -> DualNumber (Matrix r)
+rowAppend2 (D u u') (D v v') =
+  D (u HM.=== v) (RowAppend2 u' (HM.rows u) v')
+
+columnAppend2 :: Numeric r
+              => DualNumber (Matrix r) -> DualNumber (Matrix r)
+              -> DualNumber (Matrix r)
+columnAppend2 (D u u') (D v v') =
+  D (u HM.||| v) (ColumnAppend2 u' (HM.cols u) v')
+
+rowSlice2 :: Numeric r
+          => Int -> Int -> DualNumber (Matrix r)
+          -> DualNumber (Matrix r)
+rowSlice2 i n (D u u') = D (HM.subMatrix (i, 0) (n, HM.cols u) u)
+                           (RowSlice2 i n u' (HM.rows u) (HM.cols u))
+
+columnSlice2 :: Numeric r
+             => Int -> Int -> DualNumber (Matrix r)
+             -> DualNumber (Matrix r)
+columnSlice2 i n (D u u') = D (HM.subMatrix (0, i) (HM.rows u, n) u)
+                              (ColumnSlice2 i n u' (HM.rows u) (HM.cols u))
+
 
 -- * Monadic operations for scalars
 
@@ -304,3 +352,19 @@ lossSoftMaxCrossEntropyV target (D u u') = do
       softMaxU = HM.scale recipSum expU
   returnLet $ D (negate $ log softMaxU <.> target)
                 (Dot1 (softMaxU - target) u')
+
+
+-- * Monadic operations for matrices
+
+lossSoftMaxCrossEntropyL :: ( DeltaMonad r m, Fractional r, Numeric r
+                            , Num (Vector r), Floating (Matrix r) )
+                         => Matrix r
+                         -> DualNumber (Matrix r)
+                         -> m (DualNumber (Vector r))
+lossSoftMaxCrossEntropyL target (D u u') = do
+  let expU = exp u
+      sumExpU = V.fromList $ map HM.sumElements $ HM.toColumns expU
+      recipSum = recip sumExpU
+      softMaxU = HM.asRow recipSum * expU
+      scaled = D (log softMaxU * target) (Scale (softMaxU - target) u')
+  returnLetV $ sumColumns2 scaled
