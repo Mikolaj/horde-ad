@@ -344,7 +344,7 @@ lossSoftMaxCrossEntropyV target (D u u') = do
   -- but I have yet to find a test that requires this and guards
   -- against removing or weakening this mechanism.
   -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106.
-  --  expU = exp (u - HM.konst (V.maximum u) (V.length u))
+  --  expU = exp (u - HM.scalar (V.maximum u))
       sumExpU = HM.sumElements expU
       recipSum = recip sumExpU
 -- not exposed: softMaxU = HM.scaleRecip sumExpU expU
@@ -365,5 +365,6 @@ lossSoftMaxCrossEntropyL target (D u u') = do
       sumExpU = V.fromList $ map HM.sumElements $ HM.toColumns expU
       recipSum = recip sumExpU
       softMaxU = HM.asRow recipSum * expU
+                   -- this @asRow@ is safe; multiplied at once
       scaled = D (log softMaxU * target) (Scale (softMaxU - target) u')
   returnLetV $ sumColumns2 scaled

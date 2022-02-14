@@ -157,13 +157,14 @@ liftMatrix43 :: ( Numeric a, Numeric b, Numeric c, Numeric d
 liftMatrix43 f m1 m2 m3 m4 =
   let sz@(r, c) = HM.size m1
       rowOrder = orderOf m1
+        -- checking @m4@ (gradient) makes RNN LL test much faster and BB slower
+        -- so this needs much more benchmarking and understading to tweak
   in if sz == HM.size m2 && sz == HM.size m3 && sz == HM.size m4
      then
        let (vx, vy, vz) = case rowOrder of
              RowMajor -> f (flatten m1) (flatten m2) (flatten m3) (flatten m4)
              ColumnMajor -> f (flatten (HM.tr' m1)) (flatten (HM.tr' m2))
                               (flatten (HM.tr' m3)) (flatten (HM.tr' m4))
-               -- TODO: check if keeping RowMajor is faster
        in ( matrixFromVector rowOrder r c vx
           , matrixFromVector rowOrder r c vy
           , matrixFromVector rowOrder r c vz
@@ -197,7 +198,7 @@ updateWithGradientAdam ArgsAdam{..}
         in ( mANew
            , vANew
            , p - HM.scale alphat mANew
-                 / (sqrt vANew + HM.konst epsilon (V.length vANew)) )
+                 / (sqrt vANew + HM.scalar epsilon) )  -- the @scalar@ is safe
                       -- @addConstant@ would be better, but it's not exposed
       (mAdamNew, vAdamNew, paramsNew) = updateVector mAdam vAdam params gradient
       updateV mA vA p g = if V.null g  -- eval didn't update it, would crash

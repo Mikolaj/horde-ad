@@ -17,7 +17,7 @@ import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 -- | Stochastic Gradient Descent with mini-batches, taking the mean
 -- of the results from each mini-batch.
 --
--- TODO: vectorize and only then take the mean of the vector of results
+-- An option: vectorize and only then take the mean of the vector of results
 -- and also parallelize taking advantage of vectorization (but currently
 -- we have a global state, so that's tricky).
 sgdBatch :: forall r a. (
