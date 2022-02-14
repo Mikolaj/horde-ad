@@ -31,6 +31,8 @@ module HordeAd.Internal.MatrixOuter
 
 import Prelude
 
+import           Control.Exception.Assert.Sugar
+import           Data.Maybe (fromJust)
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra
   (Matrix, Numeric, Vector, asColumn, asRow)
@@ -101,6 +103,11 @@ toColumnsMatrixOuter (MatrixOuter Nothing (Just c) (Just r)) =
 toColumnsMatrixOuter _ =
   error "toColumnsMatrixOuter: dimensions can't be determined"
 
+sizeMatrixOuter :: Numeric r
+                => MatrixOuter r -> (Maybe (Int, Int), Maybe Int, Maybe Int)
+sizeMatrixOuter (MatrixOuter mm mc mr) =
+  (HM.size <$> mm, HM.size <$> mc, HM.size <$> mr)
+
 plusMatrixOuter :: (Numeric r, Num (Vector r))
                 => MatrixOuter r -> MatrixOuter r -> MatrixOuter r
 plusMatrixOuter o1 o2 =
@@ -114,6 +121,10 @@ plusMatrixOuter o1 o2 =
 
 multiplyMatrixNormalAndOuter :: (Numeric r, Num (Vector r))
                              => Matrix r -> MatrixOuter r -> MatrixOuter r
-multiplyMatrixNormalAndOuter k (MatrixOuter mm mc mr) =
+multiplyMatrixNormalAndOuter k o@(MatrixOuter mm mc mr) =
+  assert
+    (HM.size k
+     == maybe (HM.size $ fromJust mc, HM.size $ fromJust mr) HM.size mm
+     `blame` (HM.size k, sizeMatrixOuter o)) $
   let !m = maybe k (k *) mm
   in MatrixOuter (Just m) mc mr

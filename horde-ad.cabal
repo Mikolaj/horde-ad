@@ -125,7 +125,8 @@ library
 
     -- Other library packages from which modules are imported.
     build-depends:
-        base >= 4.10 && < 99
+        assert-failure
+      , base >= 4.10 && < 99
       , bytestring
       , hmatrix
       , mnist-idx
