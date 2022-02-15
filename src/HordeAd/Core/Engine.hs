@@ -6,7 +6,7 @@
 module HordeAd.Core.Engine
   ( Domain, Domain', DomainV, DomainV', DomainL, DomainL', Domains, Domains'
   , DeltaMonadValue, primalValueGeneric, primalValue
-  , DeltaMonadGradient, generalDf, df, generateDeltaVars
+  , DeltaMonadGradient, generalDf, df, generateDeltaVars, initializerFixed
   ) where
 
 import Prelude
@@ -16,6 +16,8 @@ import           Data.Functor.Identity
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
+import qualified Numeric.LinearAlgebra as HM
+import           System.Random
 
 import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber (DeltaMonad (..), DualNumber (..))
@@ -149,3 +151,36 @@ generateDeltaVars (params, paramsV, paramsL) =
       vVarV = V.generate dimV (Var . DeltaId)
       vVarL = V.generate dimL (Var . DeltaId)
   in (vVar, vVarV, vVarL)
+
+-- | Initialize parameters using a uniform distribution with a fixed range
+-- taken from an argument.
+--
+-- Must be Double, because @uniformSample@ only works on that.
+--
+-- This only works fine for nets with levels that have similar size and use
+-- the same activation function. Otherwise, the range should vary per level.
+-- A rule of thumb range for weights is @sqrt(6 / (F_in + F_out)@,
+-- where @F_in + F_out@ is the sum of inputs and outputs of the largest level.
+-- See https://github.com/pytorch/pytorch/issues/15314 and their newer code.
+initializerFixed :: Int -> Double -> (Int, [Int], [(Int, Int)])
+                     -> ((Int, Int, Int), Int, Double, Domains Double)
+initializerFixed seed range (nParams, lParamsV, lParamsL) =
+  let vParamsV = V.fromList lParamsV
+      vParamsL = V.fromList lParamsL
+      params0 = V.unfoldrExactN nParams (uniformR (- range, range))
+                $ mkStdGen seed
+      paramsV0 =
+        V.imap (\i nPV -> V.unfoldrExactN nPV (uniformR (- range, range))
+                                          (mkStdGen $ seed + nPV + i))
+               vParamsV
+      paramsL0 = V.imap (\i (rows, cols) ->
+                           HM.uniformSample (seed + rows + i) rows
+                                            (replicate cols (- range, range)))
+                        vParamsL
+      totalParams = nParams
+                    + V.sum vParamsV
+                    + V.sum (V.map (uncurry (*)) vParamsL)
+  in ( (nParams, V.length vParamsV, V.length vParamsL)
+     , totalParams
+     , range
+     , (params0, paramsV0, paramsL0) )

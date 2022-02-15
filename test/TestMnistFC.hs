@@ -212,26 +212,13 @@ mnistTestCase2L
   -> TestTree
 mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                 gamma expected =
-  let nParams = lenMnist2L widthHidden widthHidden2
-      nParamsV = lenVectorsMnist2L widthHidden widthHidden2
-      nParamsL = lenMatrixMnist2L widthHidden widthHidden2
-      params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 44
-      paramsV0 =
-        V.imap (\i nPV -> V.unfoldrExactN nPV (uniformR (-0.5, 0.5))
-                                          (mkStdGen $ 44 + nPV + i))
-               nParamsV
-      paramsL0 = V.imap (\i (rows, cols) ->
-                           HM.uniformSample (44 + rows + i) rows
-                                            (replicate cols (-0.5, 0.5)))
-                        nParamsL
-      totalParams = nParams + V.sum nParamsV
-                    + V.sum (V.map (uncurry (*)) nParamsL)
+  let ((nParams, nParamsV, nParamsL), totalParams, range, parameters0) =
+        initializerFixed 44 0.5 (lenMnistFcnn2L widthHidden widthHidden2)
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show nParams, show (V.length nParamsV)
-                        , show (V.length nParamsL), show totalParams
-                        , show gamma ]
+                        , show nParams, show nParamsV, show nParamsL
+                        , show totalParams, show gamma, show range]
   in testCase name $ do
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- loadMnistData testGlyphsPath testLabelsPath
@@ -263,7 +250,7 @@ mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
              runEpoch (succ n) res
        printf "\nEpochs to run/max batches per epoch: %d/%d\n"
               epochs maxBatches
-       res <- runEpoch 1 (params0, paramsV0, paramsL0)
+       res <- runEpoch 1 parameters0
        let testErrorFinal = 1 - testMnist2L testData res
        testErrorFinal @?= expected
 
@@ -305,12 +292,12 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       testData <- loadMnistData testGlyphsPath testLabelsPath
       (1 - testMnist2V 300 100 testData (params, paramsV)) @?= 0.902
   , testCase "testMnist2LL on 0.1 params 300 100 width 10k testset" $ do
-      let nParams = lenMnist2L 300 100
+      let (nParams, lParamsV, lParamsL) = lenMnistFcnn2L 300 100
+          vParamsV = V.fromList lParamsV
+          vParamsL = V.fromList lParamsL
           params = V.replicate nParams 0.1
-          nParamsV = lenVectorsMnist2L 300 100
-          paramsV = V.map (`V.replicate` 0.1) nParamsV
-          nParamsL = lenMatrixMnist2L 300 100
-          paramsL = V.map (HM.konst 0.1) nParamsL
+          paramsV = V.map (`V.replicate` 0.1) vParamsV
+          paramsL = V.map (HM.konst 0.1) vParamsL
       testData <- loadMnistData testGlyphsPath testLabelsPath
       (1 - testMnist2L testData (params, paramsV, paramsL)) @?= 0.902
  ]

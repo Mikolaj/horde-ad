@@ -130,24 +130,15 @@ sgdTestCase :: String
             -> IO [a]
             -> Double
             -> TestTree
-sgdTestCase prefix f (nParams, nParamsV, nParamsL) trainDataIO expected =
-  let params0 = V.unfoldrExactN nParams (uniformR (-0.05, 0.05)) $ mkStdGen 44
-      paramsV0 =
-        V.imap (\i nPV -> V.unfoldrExactN nPV (uniformR (-0.05, 0.05))
-                                          (mkStdGen $ 44 + nPV + i))
-               (V.fromList nParamsV)
-      paramsL0 = V.imap (\i (rows, cols) ->
-                           HM.uniformSample (44 + rows + i) rows
-                                            (replicate cols (-0.05, 0.05)))
-                        (V.fromList nParamsL)
-      totalParams = nParams + sum nParamsV
-                    + sum (map (uncurry (*)) nParamsL)
+sgdTestCase prefix f nParameters trainDataIO expected =
+  let ((nParams, nParamsV, nParamsL), totalParams, range, parameters0) =
+        initializerFixed 44 0.05 nParameters
       name = prefix ++ " "
-             ++ unwords [ show nParams, show (length nParamsV)
-                        , show (length nParamsL), show totalParams ]
+             ++ unwords [ show nParams, show nParamsV, show nParamsL
+                        , show totalParams, show range ]
   in testCase name $ do
        trainData <- trainDataIO
-       sgdShow f trainData (params0, paramsV0, paramsL0)
+       sgdShow f trainData parameters0
          @?= expected
 
 prime :: Numeric r
@@ -191,22 +182,13 @@ feedbackTestCase :: String
                  -> [a]
                  -> [Double]
                  -> TestTree
-feedbackTestCase prefix fp f (nParams, nParamsV, nParamsL) trainData expected =
-  let params0 = V.unfoldrExactN nParams (uniformR (-0.05, 0.05)) $ mkStdGen 44
-      paramsV0 =
-        V.imap (\i nPV -> V.unfoldrExactN nPV (uniformR (-0.05, 0.05))
-                                          (mkStdGen $ 44 + nPV + i))
-               (V.fromList nParamsV)
-      paramsL0 = V.imap (\i (rows, cols) ->
-                           HM.uniformSample (44 + rows + i) rows
-                                            (replicate cols (-0.05, 0.05)))
-                        (V.fromList nParamsL)
-      totalParams = nParams + sum nParamsV
-                    + sum (map (uncurry (*)) nParamsL)
+feedbackTestCase prefix fp f nParameters trainData expected =
+  let ((nParams, nParamsV, nParamsL), totalParams, range, parameters0) =
+        initializerFixed 44 0.05 nParameters
       name = prefix ++ " "
-             ++ unwords [ show nParams, show (length nParamsV)
-                        , show (length nParamsL), show totalParams ]
-      trained = sgd 0.1 f trainData (params0, paramsV0, paramsL0)
+             ++ unwords [ show nParams, show nParamsV, show nParamsL
+                        , show totalParams, show range ]
+      trained = sgd 0.1 f trainData parameters0
       primed = prime fp trained (HM.konst 0 30) (take 19 series)
       output = feedback fp trained primed (series !! 19)
   in testCase name $
@@ -533,25 +515,13 @@ mnistTestCaseRNN
   -> TestTree
 mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
                  expected =
-  let (nParams, lPV, lPL) = flen width nLayers
-      nParamsV = V.fromList lPV
-      nParamsL = V.fromList lPL
-      params0 = V.unfoldrExactN nParams (uniformR (-0.2, 0.2)) $ mkStdGen 44
-      paramsV0 =
-        V.imap (\i nPV -> V.unfoldrExactN nPV (uniformR (-0.2, 0.2))
-                                          (mkStdGen $ 44 + nPV + i))
-               nParamsV
-      paramsL0 = V.imap (\i (rows, cols) ->
-                           HM.uniformSample (44 + rows + i) rows
-                                            (replicate cols (-0.2, 0.2)))
-                        nParamsL
-      totalParams = nParams + V.sum nParamsV
-                    + V.sum (V.map (uncurry (*)) nParamsL)
+  let ((nParams, nParamsV, nParamsL), totalParams, range, parameters0) =
+        initializerFixed 44 0.2 (flen width nLayers)
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
                         , show width, show nLayers
-                        , show nParams, show (V.length nParamsV)
-                        , show (V.length nParamsL), show totalParams ]
+                        , show nParams, show nParamsV, show nParamsL
+                        , show totalParams, show range ]
   in testCase name $ do
        let rws (input, target) =
              ( map (\k -> V.slice (k * 28) 28 input) [0 .. 27]
@@ -584,9 +554,7 @@ mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
              runEpoch (succ n) res
        printf "\nEpochs to run/max batches per epoch: %d/%d\n"
               epochs maxBatches
-       let parameters0 = (params0, paramsV0, paramsL0)
-           stateAdam0 = initialStateAdam parameters0
-       res <- runEpoch 1 (parameters0, stateAdam0)
+       res <- runEpoch 1 (parameters0, initialStateAdam parameters0)
        let testErrorFinal = 1 - ftest width testData res
        testErrorFinal @?= expected
 
@@ -724,25 +692,13 @@ mnistTestCaseRNNB
   -> TestTree
 mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
                   expected =
-  let (nParams, lPV, lPL) = flen width nLayers
-      nParamsV = V.fromList lPV
-      nParamsL = V.fromList lPL
-      params0 = V.unfoldrExactN nParams (uniformR (-0.2, 0.2)) $ mkStdGen 44
-      paramsV0 =
-        V.imap (\i nPV -> V.unfoldrExactN nPV (uniformR (-0.2, 0.2))
-                                          (mkStdGen $ 44 + nPV + i))
-               nParamsV
-      paramsL0 = V.imap (\i (rows, cols) ->
-                           HM.uniformSample (44 + rows + i) rows
-                                            (replicate cols (-0.2, 0.2)))
-                        nParamsL
-      totalParams = nParams + V.sum nParamsV
-                    + V.sum (V.map (uncurry (*)) nParamsL)
+  let ((nParams, nParamsV, nParamsL), totalParams, range, parameters0) =
+        initializerFixed 44 0.2 (flen width nLayers)
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
                         , show width, show nLayers
-                        , show nParams, show (V.length nParamsV)
-                        , show (V.length nParamsL), show totalParams ]
+                        , show nParams, show nParamsV, show nParamsL
+                        , show totalParams, show range ]
   in testCase name $ do
        let rws (input, target) =
              ( map (\k -> V.slice (k * 28) 28 input) [0 .. 27]
@@ -784,9 +740,7 @@ mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
              runEpoch (succ n) res
        printf "\nEpochs to run/max batches per epoch: %d/%d\n"
               epochs maxBatches
-       let parameters0 = (params0, paramsV0, paramsL0)
-           stateAdam0 = initialStateAdam parameters0
-       res <- runEpoch 1 (parameters0, stateAdam0)
+       res <- runEpoch 1 (parameters0, initialStateAdam parameters0)
        let testErrorFinal = 1 - ftest width testData res
        testErrorFinal @?= expected
 

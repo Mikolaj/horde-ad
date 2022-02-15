@@ -8,7 +8,6 @@ module HordeAd.Tool.MnistFcnnMatrix where
 import Prelude
 
 import           Control.Exception (assert)
-import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 import           Numeric.LinearAlgebra (Numeric, Vector)
@@ -18,18 +17,14 @@ import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors (DualNumberVariables, varL, varV)
 import HordeAd.Tool.MnistData
 
-lenMnist2L :: Int -> Int -> Int
-lenMnist2L _widthHidden _widthHidden2 = 0
-
-lenVectorsMnist2L :: Int -> Int -> Data.Vector.Vector Int
-lenVectorsMnist2L widthHidden widthHidden2 =
-  V.fromList [widthHidden, widthHidden2, sizeMnistLabel]
-
-lenMatrixMnist2L :: Int -> Int -> Data.Vector.Vector (Int, Int)
-lenMatrixMnist2L widthHidden widthHidden2 =
-  V.fromList [ (widthHidden, sizeMnistGlyph)
-             , (widthHidden2, widthHidden)
-             , (sizeMnistLabel, widthHidden2) ]
+lenMnistFcnn2L :: Int -> Int -> (Int, [Int], [(Int, Int)])
+lenMnistFcnn2L widthHidden widthHidden2 =
+  ( 0
+  , [widthHidden, widthHidden2, sizeMnistLabel]
+  , [ (widthHidden, sizeMnistGlyph)
+    , (widthHidden2, widthHidden)
+    , (sizeMnistLabel, widthHidden2) ]
+  )
 
 -- | Fully connected neural network for the MNIST digit classification task.
 -- There are two hidden layers and both use the same activation function.

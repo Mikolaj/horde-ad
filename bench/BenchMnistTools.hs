@@ -8,7 +8,6 @@ import           Criterion.Main
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
 import           Numeric.LinearAlgebra (Numeric)
-import qualified Numeric.LinearAlgebra as HM
 import           System.Random
 
 import HordeAd
@@ -124,54 +123,30 @@ mnistTrainBench2L :: String -> Int -> [MnistData Double] -> Int -> Int
                   -> Double
                   -> Benchmark
 mnistTrainBench2L extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
-  let nParams = lenMnist2L widthHidden widthHidden2
-      nParamsV = lenVectorsMnist2L widthHidden widthHidden2
-      nParamsL = lenMatrixMnist2L widthHidden widthHidden2
-      params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
-      paramsV0 =
-        V.imap (\i nPV -> V.unfoldrExactN nPV (uniformR (-0.5, 0.5))
-                                          (mkStdGen $ 33 + nPV + i))
-               nParamsV
-      paramsL0 = V.imap (\i (rows, cols) ->
-                           HM.uniformSample (33 + rows + i) rows
-                                            (replicate cols (-0.5, 0.5)))
-                        nParamsL
+  let ((nParams, nParamsV, nParamsL), totalParams, _reach, parameters0) =
+        initializerFixed 33 0.5 (lenMnistFcnn2L widthHidden widthHidden2)
       -- Using the fused version to benchmark against the manual gradient
       -- from backprop that uses it at least in its forward pass,
       -- not againts the derived gradients that are definitively slower.
       f = nnMnistLossFused2L
       chunk = take chunkLength xs
-      grad c = sgd gamma f c (params0, paramsV0, paramsL0)
-      totalParams = nParams + V.sum nParamsV
-                    + V.sum (V.map (uncurry (*)) nParamsL)
+      grad c = sgd gamma f c parameters0
       name = "" ++ extraPrefix
-             ++ unwords [ "s" ++ show nParams, "v" ++ show (V.length nParamsV)
-                        , "m" ++ show (V.length nParamsL)
+             ++ unwords [ "s" ++ show nParams, "v" ++ show nParamsV
+                        , "m" ++ show nParamsL
                           ++ "=" ++ show totalParams ]
   bench name $ whnf grad chunk
 
 mnistTestBench2L :: String -> Int -> [MnistData Double] -> Int -> Int
                  -> Benchmark
 mnistTestBench2L extraPrefix chunkLength xs widthHidden widthHidden2 = do
-  let nParams = lenMnist2L widthHidden widthHidden2
-      nParamsV = lenVectorsMnist2L widthHidden widthHidden2
-      nParamsL = lenMatrixMnist2L widthHidden widthHidden2
-      params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
-      paramsV0 =
-        V.imap (\i nPV -> V.unfoldrExactN nPV (uniformR (-0.5, 0.5))
-                                          (mkStdGen $ 33 + nPV + i))
-               nParamsV
-      paramsL0 = V.imap (\i (rows, cols) ->
-                           HM.uniformSample (33 + rows + i) rows
-                                            (replicate cols (-0.5, 0.5)))
-                        nParamsL
+  let ((nParams, nParamsV, nParamsL), totalParams, _reach, parameters0) =
+        initializerFixed 33 0.5 (lenMnistFcnn2L widthHidden widthHidden2)
       chunk = take chunkLength xs
-      score c = testMnist2L c (params0, paramsV0, paramsL0)
-      totalParams = nParams + V.sum nParamsV
-                    + V.sum (V.map (uncurry (*)) nParamsL)
+      score c = testMnist2L c parameters0
       name = "test " ++ extraPrefix
-             ++ unwords [ "s" ++ show nParams, "v" ++ show (V.length nParamsV)
-                        , "m" ++ show (V.length nParamsL)
+             ++ unwords [ "s" ++ show nParams, "v" ++ show nParamsV
+                        , "m" ++ show nParamsL
                           ++ "=" ++ show totalParams ]
   bench name $ whnf score chunk
 
