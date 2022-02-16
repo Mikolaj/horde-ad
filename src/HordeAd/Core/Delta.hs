@@ -1,4 +1,4 @@
-{-# LANGUAGE GADTs, KindSignatures, StandaloneDeriving #-}
+{-# LANGUAGE GADTs, KindSignatures, StandaloneDeriving, TypeFamilies #-}
 -- | The second component of dual numbers, @Delta@, with it's evaluation
 -- function. Neel Krishnaswami calls that "sparse vector expressions",
 -- and indeed even in the simplest case of a function defined on scalars only,
@@ -41,26 +41,29 @@ import qualified Numeric.LinearAlgebra as HM
 
 import qualified HordeAd.Internal.MatrixOuter as MO
 
-class Delta f where
-  scaleDelta :: r -> f r -> f r
+class Delta d where
+  scaleDelta :: TensorType d r -> d r -> d r
+  type TensorType d r
 
 instance Delta DeltaScalar where
   scaleDelta = ScaleScalar
+  type TensorType DeltaScalar r = r
 
 instance Delta DeltaVector where
   scaleDelta = ScaleVector
+  type TensorType DeltaVector r = Vector r
 
 instance Delta DeltaMatrix where
   scaleDelta = ScaleMatrix
+  type TensorType DeltaMatrix r = Matrix r
 
-{- then
+data DualNumber a = forall d r. D a (d r)  -- a == TensorType d r
 
-data DualNumber r = D r (Delta r)
+scale :: Num a => a -> DualNumber a -> DualNumber a
+scale a (D u u') = D (a * u) (scaleDelta a u')
 
-scale :: Num r => r -> DualNumber r -> DualNumber r
-scale r (D u u') = D (r * u) (Scale r u')
-
--}
+sumElements1 :: Numeric r => DualNumber (Vector r) -> DualNumber r
+sumElements1 (D u u') = D (HM.sumElements u) (SumElements1 u' (V.length u))
 
 -- | This is the grammar of delta-expressions.
 -- They have different but inter-related semantics at the level
