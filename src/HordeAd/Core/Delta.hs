@@ -62,31 +62,29 @@ data Delta :: Type -> Type where
   Add :: Delta a -> Delta a -> Delta a
   Var :: DeltaId a -> Delta a
 
-  -- Constructors related to vectors.
-  Seq1 :: Data.Vector.Vector (Delta r) -> Delta (Vector r)
   Dot1 :: Vector r -> Delta (Vector r) -> Delta r
   SumElements1 :: Delta (Vector r) -> Int -> Delta r
-  Konst1 :: Delta r -> Delta (Vector r)
   Index1 :: Delta (Vector r) -> Int -> Int -> Delta r
+
+  Seq1 :: Data.Vector.Vector (Delta r) -> Delta (Vector r)
+  Konst1 :: Delta r -> Delta (Vector r)
   Append1 :: Delta (Vector r) -> Int -> Delta (Vector r) -> Delta (Vector r)
   Slice1 :: Int -> Int -> Delta (Vector r) -> Int -> Delta (Vector r)
-
-  -- Constructors related to matrices.
-  Seq2 :: Data.Vector.Vector (Delta (Vector r)) -> Delta (Matrix r)
-  Transpose2 :: Delta (Matrix r) -> Delta (Matrix r)
   M_VD2 :: Matrix r -> Delta (Vector r) -> Delta (Vector r)
   MD_V2 :: Delta (Matrix r) -> Vector r -> Delta (Vector r)
+  SumRows2 :: Delta (Matrix r) -> Int -> Delta (Vector r)
+  SumColumns2 :: Delta (Matrix r) -> Int -> Delta (Vector r)
+
+  Seq2 :: Data.Vector.Vector (Delta (Vector r)) -> Delta (Matrix r)
+  Transpose2 :: Delta (Matrix r) -> Delta (Matrix r)
   M_MD2 :: Matrix r -> Delta (Matrix r) -> Delta (Matrix r)
   MD_M2 :: Delta (Matrix r) -> Matrix r -> Delta (Matrix r)
-  SumRows2 :: Delta (Matrix r) -> Int -> Delta (Vector r)
   AsRow2 :: Delta (Vector r) -> Delta (Matrix r)
-  RowAppend2 :: Delta (Matrix r) -> Int -> Delta (Matrix r) -> Delta (Matrix r)
-  RowSlice2 :: Int -> Int -> Delta (Matrix r) -> Int -> Int -> Delta (Matrix r)
-
-  SumColumns2 :: Delta (Matrix r) -> Int -> Delta (Vector r)
   AsColumn2 :: Delta (Vector r) -> Delta (Matrix r)
+  RowAppend2 :: Delta (Matrix r) -> Int -> Delta (Matrix r) -> Delta (Matrix r)
   ColumnAppend2
     :: Delta (Matrix r) -> Int -> Delta (Matrix r) -> Delta (Matrix r)
+  RowSlice2 :: Int -> Int -> Delta (Matrix r) -> Int -> Int -> Delta (Matrix r)
   ColumnSlice2
     :: Int -> Int -> Delta (Matrix r) -> Int -> Int -> Delta (Matrix r)
 
