@@ -269,8 +269,8 @@ softMaxAct :: (DeltaMonad r m, Floating r)
            => Data.Vector.Vector (DualNumber r)
            -> m (Data.Vector.Vector (DualNumber r))
 softMaxAct us = do
-  let expUs = V.map exp us
-      sumExpUs = sumElementsVectorOfDelta expUs
+  expUs <- V.mapM (returnLet . exp) us
+  let sumExpUs = sumElementsVectorOfDelta expUs
   -- This has to be let-bound, because it's used many times below.
   recipSum <- returnLet $ recip sumExpUs
   V.mapM (\r -> returnLet $ r * recipSum) expUs
@@ -320,8 +320,8 @@ softMaxActV :: (DeltaMonad r m, Fractional r, Numeric r, Floating (Vector r))
             => DualNumber (Vector r)
             -> m (DualNumber (Vector r))
 softMaxActV d@(D u _) = do
-  let expU = exp d
-      sumExpU = sumElements1 expU
+  expU <- returnLetV $ exp d
+  let sumExpU = sumElements1 expU
   -- This has to be let-bound, because it's used many times below.
   recipSum <- returnLet $ recip sumExpU
   returnLetV $ konst1 recipSum (V.length u) * expU
