@@ -1,10 +1,10 @@
+{-# LANGUAGE TypeFamilies #-}
 module TestMnistFC (testTrees, shortTestForCITrees) where
 
 import Prelude
 
 import           Control.Monad (foldM)
 import qualified Data.Vector.Generic as V
-import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           System.Random
 import           Test.Tasty
@@ -27,7 +27,7 @@ shortTestForCITrees = [ dumbMnistTests
                       , shortCIMnistTests
                       ]
 
-sgdShow :: (Eq r, Numeric r, Num (Vector r))
+sgdShow :: (Eq r, IsScalar r)
         => r
         -> (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
         -> [a]  -- ^ training data

@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 -- | Matrix-based (meaning that dual numbers for gradient computation
 -- consider matrices, not scalars, as the primitive differentiable type)
@@ -10,7 +11,7 @@ import Prelude
 import           Control.Exception (assert)
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
@@ -33,7 +34,7 @@ lenMnistFcnn2L widthHidden widthHidden2 =
 -- and vectors given as dual number parameters (variables).
 -- The dimensions, in turn, can be computed by the @len*@ functions
 -- on the basis of the requested widths, see above.
-nnMnist2L :: (DeltaMonad r m, Numeric r, Num (Vector r))
+nnMnist2L :: DeltaMonad r m
           => (DualNumber (Vector r) -> m (DualNumber (Vector r)))
           -> (DualNumber (Vector r) -> m (DualNumber (Vector r)))
           -> Vector r
@@ -56,7 +57,7 @@ nnMnist2L factivationHidden factivationOutput input variables = do
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
-nnMnistLoss2L :: (DeltaMonad r m, Numeric r, Floating r, Floating (Vector r))
+nnMnistLoss2L :: (DeltaMonad r m, Floating r, Floating (Vector r))
               => MnistData r
               -> DualNumberVariables r
               -> m (DualNumber r)
@@ -68,7 +69,7 @@ nnMnistLoss2L (input, target) variables = do
 -- and composed with the appropriate loss function, using fused
 -- softMax and cross entropy as the loss function.
 nnMnistLossFused2L
-  :: (DeltaMonad r m, Numeric r, Floating r, Floating (Vector r))
+  :: (DeltaMonad r m, Floating r, Floating (Vector r))
   => MnistData r
   -> DualNumberVariables r
   -> m (DualNumber r)
@@ -78,7 +79,7 @@ nnMnistLossFused2L (input, target) variables = do
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
-testMnist2L :: forall r. (Ord r, Floating r, Numeric r, Floating (Vector r))
+testMnist2L :: forall r. (Ord r, Floating r, IsScalar r, Floating (Vector r))
             => [MnistData r] -> Domains r -> r
 testMnist2L inputs parameters =
   let matchesLabels :: MnistData r -> Bool

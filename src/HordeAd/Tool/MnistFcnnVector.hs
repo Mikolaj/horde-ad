@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 -- | Vector-based (meaning that dual numbers for gradient computation
 -- consider vectors, not scalars, as the primitive differentiable type)
@@ -11,14 +12,14 @@ import           Control.Exception (assert)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors (DualNumberVariables, varV)
 import HordeAd.Tool.MnistData
 
-sumTrainableInputsV :: Numeric r
+sumTrainableInputsV :: IsScalar r
                     => DualNumber (Vector r)
                     -> Int
                     -> DualNumberVariables r
@@ -27,7 +28,7 @@ sumTrainableInputsV x offset variables =
   let v = varV variables offset
   in v <.>! x
 
-sumTrainableInputsL :: forall r. Numeric r
+sumTrainableInputsL :: forall r. IsScalar r
                     => DualNumber (Vector r)
                     -> Int
                     -> DualNumberVariables r
@@ -38,7 +39,7 @@ sumTrainableInputsL x offset variables width =
       f i = sumTrainableInputsV x (offset + i) variables
   in deltaSeq1 $ V.generate width f
 
-sumConstantDataV :: Numeric r
+sumConstantDataV :: IsScalar r
                  => Vector r
                  -> Int
                  -> DualNumberVariables r
@@ -47,7 +48,7 @@ sumConstantDataV x offset variables =
   let v = varV variables offset
   in v <.>!! x
 
-sumConstantDataL :: forall r. Numeric r
+sumConstantDataL :: forall r. IsScalar r
                  => Vector r
                  -> Int
                  -> DualNumberVariables r
@@ -74,7 +75,7 @@ lenVectorsMnist2V widthHidden widthHidden2 =
 -- and from these, the @len*@ functions compute the number and dimensions
 -- of scalars (none in this case) and vectors of dual number parameters
 -- (variables) to be given to the program.
-nnMnist2V :: (DeltaMonad r m, Numeric r, Num (Vector r))
+nnMnist2V :: DeltaMonad r m
           => (DualNumber (Vector r) -> m (DualNumber (Vector r)))
           -> (DualNumber (Vector r) -> m (DualNumber (Vector r)))
           -> Int
@@ -101,7 +102,7 @@ nnMnist2V factivationHidden factivationOutput widthHidden widthHidden2
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
-nnMnistLoss2V :: (DeltaMonad r m, Floating r, Numeric r, Floating (Vector r))
+nnMnistLoss2V :: (DeltaMonad r m, Floating r, Floating (Vector r))
               => Int
               -> Int
               -> MnistData r
@@ -114,7 +115,7 @@ nnMnistLoss2V widthHidden widthHidden2 (input, target) variables = do
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
-testMnist2V :: forall r. (Ord r, Floating r, Numeric r, Floating (Vector r))
+testMnist2V :: forall r. (Ord r, Floating r, IsScalar r, Floating (Vector r))
             => Int -> Int -> [MnistData r] -> (Domain r, DomainV r) -> r
 testMnist2V widthHidden widthHidden2 inputs (params, paramsV) =
   let matchesLabels :: MnistData r -> Bool

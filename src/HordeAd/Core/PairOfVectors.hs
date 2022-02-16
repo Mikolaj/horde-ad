@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 -- | The "pair of vectors" implementation of vectors of dual numbers.
 -- This is much faster than "vector of pairs" implementation, but terribly
 -- hard to use in case of scalar dual numbers, in particular to efficiently
@@ -16,7 +17,6 @@ import Prelude
 
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           Foreign.Storable (Storable)
 import           Numeric.LinearAlgebra (Matrix, Vector)
 
 import HordeAd.Core.Delta
@@ -27,26 +27,26 @@ import HordeAd.Core.DualNumber (DualNumber (..))
 -- where the vectors are reused in some ways).
 type DualNumberVariables r =
   ( Vector r
-  , Data.Vector.Vector (Delta r)
+  , Data.Vector.Vector (DeltaScalar r)
   , Data.Vector.Vector (Vector r)
-  , Data.Vector.Vector (Delta (Vector r))
+  , Data.Vector.Vector (DeltaVector r)
   , Data.Vector.Vector (Matrix r)
-  , Data.Vector.Vector (Delta (Matrix r))
+  , Data.Vector.Vector (DeltaMatrix r)
   )
 
 makeDualNumberVariables
   :: ( Vector r
      , Data.Vector.Vector (Vector r)
      , Data.Vector.Vector (Matrix r) )
-  -> ( Data.Vector.Vector (Delta r)
-     , Data.Vector.Vector (Delta (Vector r))
-     , Data.Vector.Vector (Delta (Matrix r)) )
+  -> ( Data.Vector.Vector (DeltaScalar r)
+     , Data.Vector.Vector (DeltaVector r)
+     , Data.Vector.Vector (DeltaMatrix r) )
   -> DualNumberVariables r
 {-# INLINE makeDualNumberVariables #-}
 makeDualNumberVariables (params, paramsV, paramsL) (vs, vsV, vsL)
   = (params, vs, paramsV, vsV, paramsL, vsL)
 
-var :: Storable r => DualNumberVariables r -> Int -> DualNumber r
+var :: IsScalar r => DualNumberVariables r -> Int -> DualNumber r
 var (vValue, vVar, _, _, _, _) i = D (vValue V.! i) (vVar V.! i)
 
 varV :: DualNumberVariables r -> Int -> DualNumber (Vector r)
@@ -56,10 +56,10 @@ varL :: DualNumberVariables r -> Int -> DualNumber (Matrix r)
 varL (_, _, _, _, vValue, vVar) i = D (vValue V.! i) (vVar V.! i)
 
 -- Unsafe, but handy for toy examples.
-vars :: Storable r => DualNumberVariables r -> [DualNumber r]
+vars :: IsScalar r => DualNumberVariables r -> [DualNumber r]
 vars vec = map (var vec) [0 ..]
 
-ifoldMDelta' :: forall m a r. (Monad m, Storable r)
+ifoldMDelta' :: forall m a r. (Monad m, IsScalar r)
              => (a -> Int -> DualNumber r -> m a)
              -> a
              -> DualNumberVariables r
@@ -72,7 +72,7 @@ ifoldMDelta' f a (vecR, vecD, _, _, _, _) = do
         f acc i b
   V.ifoldM' g a vecR
 
-foldMDelta' :: forall m a r. (Monad m, Storable r)
+foldMDelta' :: forall m a r. (Monad m, IsScalar r)
             => (a -> DualNumber r -> m a)
             -> a
             -> DualNumberVariables r
@@ -85,7 +85,7 @@ foldMDelta' f a (vecR, vecD, _, _, _, _) = do
         f acc b
   V.ifoldM' g a vecR
 
-ifoldlDelta' :: forall a r. Storable r
+ifoldlDelta' :: forall a r. IsScalar r
              => (a -> Int -> DualNumber r -> a)
              -> a
              -> DualNumberVariables r
@@ -98,7 +98,7 @@ ifoldlDelta' f a (vecR, vecD, _, _, _, _) = do
         in f acc i b
   V.ifoldl' g a vecR
 
-foldlDelta' :: forall a r. Storable r
+foldlDelta' :: forall a r. IsScalar r
             => (a -> DualNumber r -> a)
             -> a
             -> DualNumberVariables r

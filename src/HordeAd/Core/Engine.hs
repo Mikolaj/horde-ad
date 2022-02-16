@@ -1,10 +1,11 @@
-{-# LANGUAGE FlexibleInstances, GeneralizedNewtypeDeriving,
-             MultiParamTypeClasses #-}
+{-# LANGUAGE ConstraintKinds, FlexibleInstances, GeneralizedNewtypeDeriving,
+             MultiParamTypeClasses, TypeFamilies, UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Two implementations of the monad in which our dual numbers live
 -- and the implementation of deriving a gradient.
 module HordeAd.Core.Engine
-  ( Domain, Domain', DomainV, DomainV', DomainL, DomainL', Domains, Domains'
+  ( IsScalar
+  , Domain, Domain', DomainV, DomainV', DomainL, DomainL', Domains, Domains'
   , DeltaMonadValue, primalValueGeneric, primalValue
   , DeltaMonadGradient, generalDf, df, generateDeltaVars, initializerFixed
   ) where
@@ -15,7 +16,7 @@ import           Control.Monad.Trans.State.Strict
 import           Data.Functor.Identity
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
+import           Numeric.LinearAlgebra (Matrix, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           System.Random
 
@@ -46,15 +47,15 @@ type Domains' r = (Domain' r, DomainV' r, DomainL' r)
 
 type DeltaMonadValue r = Identity
 
-instance DeltaMonad r (DeltaMonadValue r) where
-  returnLet (D u _u') = Identity $ D u Zero
-  returnLetV (D u _u') = Identity $ D u Zero
-  returnLetL (D u _u') = Identity $ D u Zero
+instance IsScalar r => DeltaMonad r (DeltaMonadValue r) where
+  returnLet (D u _u') = Identity $ D u zeroD
+  returnLetV (D u _u') = Identity $ D u zeroD
+  returnLetL (D u _u') = Identity $ D u zeroD
 
 -- The general case, needed for old, hacky tests before 'Delta' extension.
 --
 -- Small enough that inline won't hurt.
-primalValueGeneric :: Numeric r
+primalValueGeneric :: IsScalar r
                    => (DualNumberVariables r -> DeltaMonadValue r a)
                    -> Domains r
                    -> a
@@ -62,13 +63,13 @@ primalValueGeneric :: Numeric r
 primalValueGeneric f (params, paramsV, paramsL) =
   let variables = makeDualNumberVariables
                     (params, paramsV, paramsL)
-                    ( V.replicate (V.length params) Zero  -- dummy
-                    , V.replicate (V.length paramsV) Zero
-                    , V.replicate (V.length paramsL) Zero )
+                    ( V.replicate (V.length params) zeroD  -- dummy
+                    , V.replicate (V.length paramsV) zeroD
+                    , V.replicate (V.length paramsL) zeroD )
   in runIdentity $ f variables
 
 -- Small enough that inline won't hurt.
-primalValue :: Numeric r
+primalValue :: IsScalar r
             => (DualNumberVariables r -> DeltaMonadValue r (DualNumber a))
             -> Domains r
             -> a
@@ -85,32 +86,32 @@ newtype DeltaMonadGradient r a = DeltaMonadGradient
   { runDeltaMonadGradient :: State (DeltaState r) a }
   deriving (Monad, Functor, Applicative)
 
-instance DeltaMonad r (DeltaMonadGradient r) where
+instance IsScalar r => DeltaMonad r (DeltaMonadGradient r) where
   returnLet (D u u') = DeltaMonadGradient $ do
     did@(DeltaId i) <- gets deltaCounter0
     modify $ \s ->
       s { deltaCounter0 = DeltaId $ succ i
         , deltaBindings = DScalar did u' : deltaBindings s
         }
-    return $! D u (Var $ DeltaId i)
+    return $! D u (varD $ DeltaId i)
   returnLetV (D u u') = DeltaMonadGradient $ do
     did@(DeltaId i) <- gets deltaCounter1
     modify $ \s ->
       s { deltaCounter1 = DeltaId $ succ i
         , deltaBindings = DVector did u' : deltaBindings s
         }
-    return $! D u (Var $ DeltaId i)
+    return $! D u (varD $ DeltaId i)
   returnLetL (D u u') = DeltaMonadGradient $ do
     did@(DeltaId i) <- gets deltaCounter2
     modify $ \s ->
       s { deltaCounter2 = DeltaId $ succ i
         , deltaBindings = DMatrix did u' : deltaBindings s
         }
-    return $! D u (Var $ DeltaId i)
+    return $! D u (varD $ DeltaId i)
 
 -- The functions in which it inlines and which are used in client code
 -- are not inlined there, so the bloat is limited.
-generalDf :: (Eq r, Numeric r, Num (Vector r))
+generalDf :: (Eq r, IsScalar r)
           => DualNumberVariables r
           -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
           -> (Domains' r, r)
@@ -130,7 +131,7 @@ generalDf variables@(params, _, paramsV, _, paramsL, _) f =
       gradient = evalBindings dim dimV dimL st d
   in (gradient, value)
 
-df :: forall r. (Eq r, Numeric r, Num (Vector r))
+df :: forall r. (Eq r, IsScalar r)
    => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
    -> Domains r
    -> (Domains' r, r)
@@ -139,17 +140,17 @@ df f parameters =
       variables = makeDualNumberVariables parameters varDeltas
   in generalDf variables f
 
-generateDeltaVars :: Numeric r
-                  => Domains r -> ( Data.Vector.Vector (Delta r)
-                                  , Data.Vector.Vector (Delta (Vector r))
-                                  , Data.Vector.Vector (Delta (Matrix r)) )
+generateDeltaVars :: IsScalar r
+                  => Domains r -> ( Data.Vector.Vector (DeltaScalar r)
+                                  , Data.Vector.Vector (DeltaVector r)
+                                  , Data.Vector.Vector (DeltaMatrix r) )
 generateDeltaVars (params, paramsV, paramsL) =
   let dim = V.length params
       dimV = V.length paramsV
       dimL = V.length paramsL
-      vVar = V.generate dim (Var . DeltaId)
-      vVarV = V.generate dimV (Var . DeltaId)
-      vVarL = V.generate dimL (Var . DeltaId)
+      vVar = V.generate dim (varD . DeltaId)
+      vVarV = V.generate dimV (varD . DeltaId)
+      vVarL = V.generate dimL (varD . DeltaId)
   in (vVar, vVarV, vVarL)
 
 -- | Initialize parameters using a uniform distribution with a fixed range
@@ -163,7 +164,7 @@ generateDeltaVars (params, paramsV, paramsL) =
 -- where @F_in + F_out@ is the sum of inputs and outputs of the largest level.
 -- See https://github.com/pytorch/pytorch/issues/15314 and their newer code.
 initializerFixed :: Int -> Double -> (Int, [Int], [(Int, Int)])
-                     -> ((Int, Int, Int), Int, Double, Domains Double)
+                 -> ((Int, Int, Int), Int, Double, Domains Double)
 initializerFixed seed range (nParams, lParamsV, lParamsL) =
   let vParamsV = V.fromList lParamsV
       vParamsL = V.fromList lParamsL

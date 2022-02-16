@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 -- | A couple of gradient descent scheme implementations.
 module HordeAd.Core.Optimizer
   ( gdSimple
@@ -8,7 +9,7 @@ module HordeAd.Core.Optimizer
 
 import Prelude
 
-import Numeric.LinearAlgebra (Numeric, Vector)
+import Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.DualNumber (DualNumber (..))
 import HordeAd.Core.Engine
@@ -16,7 +17,7 @@ import HordeAd.Core.OptimizerTools
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 
 -- | Simple Gradient Descent.
-gdSimple :: forall r. (Eq r, Numeric r, Num (Vector r))
+gdSimple :: forall r. (Eq r, IsScalar r)
          => r
          -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
          -> Int  -- ^ requested number of iterations
@@ -37,7 +38,7 @@ gdSimple gamma f n0 parameters0 = go n0 parameters0 where
     in go (pred n) parametersNew
 
 -- | Stochastic Gradient Descent.
-sgd :: forall r a. (Eq r, Numeric r, Num (Vector r))
+sgd :: forall r a. (Eq r, IsScalar r)
     => r
     -> (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
     -> [a]  -- ^ training data
@@ -53,7 +54,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
         parametersNew = updateWithGradient gamma parameters gradients
     in go rest parametersNew
 
-sgdAdam :: forall r a. (Eq r, Floating r, Numeric r, Floating (Vector r))
+sgdAdam :: forall r a. (Eq r, Floating r, IsScalar r, Floating (Vector r))
         => (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
         -> [a]
         -> Domains r
@@ -61,7 +62,7 @@ sgdAdam :: forall r a. (Eq r, Floating r, Numeric r, Floating (Vector r))
         -> (Domains r, StateAdam r)
 sgdAdam = sgdAdamArgs defaultArgsAdam
 
-sgdAdamArgs :: forall r a. (Eq r, Floating r, Numeric r, Floating (Vector r))
+sgdAdamArgs :: forall r a. (Eq r, Floating r, IsScalar r, Floating (Vector r))
             => ArgsAdam r
             -> (a -> DualNumberVariables r
                 -> DeltaMonadGradient r (DualNumber r))

@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 module TestOutdated (testTrees) where
 
 import Prelude
@@ -7,7 +8,7 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Foreign.Storable (Storable)
 import           Foreign.Storable.Tuple ()
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Vector)
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -32,18 +33,18 @@ testTrees = [ fitTests
             , stochasticFit3Tests
             ]
 
-(+\) :: (DeltaMonad r m, Num r) => DualNumber r -> DualNumber r -> m (DualNumber r)
+(+\) :: DeltaMonad r m => DualNumber r -> DualNumber r -> m (DualNumber r)
 (+\) u v = returnLet $ u + v
 
-(*\) :: (DeltaMonad r m, Num r) => DualNumber r -> DualNumber r -> m (DualNumber r)
+(*\) :: DeltaMonad r m => DualNumber r -> DualNumber r -> m (DualNumber r)
 (*\) u v = returnLet $ u * v
 
-scaleDual :: (DeltaMonad r m, Num r) => r -> DualNumber r -> m (DualNumber r)
+scaleDual :: DeltaMonad r m => r -> DualNumber r -> m (DualNumber r)
 scaleDual r u = returnLet $ scale r u
 
 -- Inlined to avoid the tiny overhead of calling an unknown function.
 -- This operation is needed, because @sumListDual@ doesn't (always) fuse.
-sumResultsDual :: forall m a r. (DeltaMonad r m, Num r, Storable a)
+sumResultsDual :: forall m a r. (DeltaMonad r m, Storable a)
                => (a -> m (DualNumber r))
                -> Vector a
                -> m (DualNumber r)
@@ -151,7 +152,7 @@ wsFitSeparated range@(low, hi) seed k =
       g = mkStdGen seed
   in V.zip steps (rolls g)
 
-gdSimpleShow :: (Eq r, Numeric r, Num (Vector r))
+gdSimpleShow :: (Eq r, IsScalar r)
              => r
              -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
              -> Domain r
@@ -713,7 +714,7 @@ smartFit3TestsL3 =
   ]
 -}
 
-sgdShow :: (Eq r, Numeric r, Num (Vector r))
+sgdShow :: (Eq r, IsScalar r)
         => r
         -> (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
         -> [a]  -- ^ training data

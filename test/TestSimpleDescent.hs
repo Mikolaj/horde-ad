@@ -1,10 +1,9 @@
+{-# LANGUAGE TypeFamilies #-}
 module TestSimpleDescent (testTrees) where
 
 import Prelude
 
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Storable
-import           Numeric.LinearAlgebra (Numeric)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
@@ -22,21 +21,21 @@ testTrees = [ gdSimpleTests
 -- polymorphic over whether they operate on scalars, vectors or other types,
 -- so we should probably abandon them.
 
-(+\) :: (DeltaMonad r m, Num r)
+(+\) :: DeltaMonad r m
      => DualNumber r -> DualNumber r -> m (DualNumber r)
 (+\) u v = returnLet $ u + v
 
-(*\) :: (DeltaMonad r m, Num r)
+(*\) :: DeltaMonad r m
      => DualNumber r -> DualNumber r -> m (DualNumber r)
 (*\) u v = returnLet $ u * v
 
-scaleDual :: (DeltaMonad r m, Num r) => r -> DualNumber r -> m (DualNumber r)
+scaleDual :: DeltaMonad r m => r -> DualNumber r -> m (DualNumber r)
 scaleDual r u = returnLet $ scale r u
 
-squareDual :: (DeltaMonad r m, Num r) => DualNumber r -> m (DualNumber r)
+squareDual :: DeltaMonad r m => DualNumber r -> m (DualNumber r)
 squareDual = returnLet . square
 
-gdSimpleShow :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
+gdSimpleShow :: (Eq r, IsScalar r)
              => r
              -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
              -> Domain r

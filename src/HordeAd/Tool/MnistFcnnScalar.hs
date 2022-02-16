@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 -- | Scalar-based implementation of fully connected neutral network
 -- for classification of MNIST digits. Sports 2 hidden layers.
@@ -9,7 +10,7 @@ import           Control.Exception (assert)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
@@ -20,7 +21,7 @@ import HordeAd.Tool.MnistData
 -- from trainable inputs in @xs@ and parameters (the bias and weights)
 -- at @variables@ starting at @offset@. Useful for neurons in the middle
 -- of the network, receiving inputs from other neurons.
-sumTrainableInputs :: forall m r. (DeltaMonad r m, Numeric r)
+sumTrainableInputs :: forall m r. DeltaMonad r m
                    => Data.Vector.Vector (DualNumber r)
                    -> Int
                    -> DualNumberVariables r
@@ -37,7 +38,7 @@ sumTrainableInputs xs offset variables = do
 -- from constant data in @xs@ and parameters (the bias and weights)
 -- at @variables@ starting at @offset@. Useful for neurons at the bottom
 -- of the network, tasked with ingesting the data.
-sumConstantData :: forall m r. (DeltaMonad r m, Numeric r)
+sumConstantData :: forall m r. DeltaMonad r m
                 => Vector r
                 -> Int
                 -> DualNumberVariables r
@@ -50,7 +51,7 @@ sumConstantData xs offset variables = do
         in acc + scale r v
   returnLet $ V.ifoldl' f bias xs
 
-hiddenLayerMnist :: forall m r. (DeltaMonad r m, Numeric r)
+hiddenLayerMnist :: forall m r. DeltaMonad r m
                  => (DualNumber r -> m (DualNumber r))
                  -> Vector r
                  -> DualNumberVariables r
@@ -64,7 +65,7 @@ hiddenLayerMnist factivation input variables width = do
         factivation outSum
   V.generateM width f
 
-middleLayerMnist :: forall m r. (DeltaMonad r m, Numeric r)
+middleLayerMnist :: forall m r. DeltaMonad r m
                  => (DualNumber r -> m (DualNumber r))
                  -> Data.Vector.Vector (DualNumber r)
                  -> Int
@@ -81,7 +82,7 @@ middleLayerMnist factivation hiddenVec offset variables width = do
         factivation outSum
   V.generateM width f
 
-outputLayerMnist :: forall m r. (DeltaMonad r m, Numeric r)
+outputLayerMnist :: forall m r. DeltaMonad r m
                  => (Data.Vector.Vector (DualNumber r)
                      -> m (Data.Vector.Vector (DualNumber r)))
                  -> Data.Vector.Vector (DualNumber r)
@@ -110,7 +111,7 @@ lenMnist2 widthHidden widthHidden2 =
 -- The widths of the hidden layers are @widthHidden@ and @widthHidden2@
 -- and from these, the @lenMnist2@ function computes the number
 -- of scalar dual number parameters (variables) to be given to the program.
-nnMnist2 :: (DeltaMonad r m, Numeric r)
+nnMnist2 :: DeltaMonad r m
          => (DualNumber r -> m (DualNumber r))
          -> (Data.Vector.Vector (DualNumber r)
              -> m (Data.Vector.Vector (DualNumber r)))
@@ -133,7 +134,7 @@ nnMnist2 factivationHidden factivationOutput widthHidden widthHidden2
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
-nnMnistLoss2 :: (DeltaMonad r m, Floating r, Numeric r)
+nnMnistLoss2 :: (DeltaMonad r m, Floating r)
              => Int
              -> Int
              -> MnistData r
@@ -146,7 +147,7 @@ nnMnistLoss2 widthHidden widthHidden2 (input, target) variables = do
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
-testMnist2 :: forall r. (Ord r, Floating r, Numeric r)
+testMnist2 :: forall r. (Ord r, Floating r, IsScalar r)
            => Int -> Int -> [MnistData r] -> Domain r -> r
 testMnist2 widthHidden widthHidden2 inputs params =
   let matchesLabels :: MnistData r -> Bool

@@ -229,7 +229,6 @@ benchmark prod
         base
       , criterion
       , deepseq
-      , hmatrix
       , horde-ad
       , random
       , vector
@@ -244,7 +243,6 @@ benchmark shortProdForCI
         base
       , criterion
       , deepseq
-      , hmatrix
       , horde-ad
       , random
       , vector
@@ -266,7 +264,6 @@ benchmark mnist
     build-depends:
         base
       , criterion
-      , hmatrix
       , horde-ad
       , random
       , vector
@@ -288,7 +285,6 @@ benchmark shortMnistForCI
     build-depends:
         base
       , criterion
-      , hmatrix
       , horde-ad
       , random
       , vector

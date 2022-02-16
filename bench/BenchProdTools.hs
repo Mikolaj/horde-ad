@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 module BenchProdTools where
 
@@ -5,8 +6,6 @@ import Prelude
 
 import           Criterion.Main
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Storable
-import           Numeric.LinearAlgebra (Numeric)
 
 import HordeAd
 
@@ -101,7 +100,7 @@ bgroup5e7 allxs =
         , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
         ]
 
-(*\) :: (DeltaMonad r m, Num r)
+(*\) :: DeltaMonad r m
      => DualNumber r -> DualNumber r -> m (DualNumber r)
 (*\) u v = returnLet $ u * v
 
@@ -112,22 +111,22 @@ bgroup5e7 allxs =
 -- which works fine there, but costs us some cycles and the use
 -- of a custom operation here, where there's no gradient descent
 -- to manage the vectors for us.
-vec_prod_aux :: forall m r. (DeltaMonad r m, Numeric r)
+vec_prod_aux :: forall m r. DeltaMonad r m
              => DualNumberVariables r -> m (DualNumber r)
 vec_prod_aux = foldMDelta' (*\) (scalar 1)
   -- no handwritten derivatives; only the derivative for @(*)@ is provided;
   -- also, not omitting bindings; all let-bindings are present, see below
 
-vec_prod :: Numeric r
+vec_prod :: IsScalar r
          => Domain r -> r
 vec_prod ds = primalValue vec_prod_aux (ds, V.empty, V.empty)
 
-grad_vec_prod :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
+grad_vec_prod :: (Eq r, IsScalar r)
               => Domain r -> Domain' r
 grad_vec_prod ds =
   (\(v, _, _) -> v) $ fst $ df vec_prod_aux (ds, V.empty, V.empty)
 
-grad_toList_prod :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
+grad_toList_prod :: (Eq r, IsScalar r)
                  => [r] -> [r]
 grad_toList_prod l = V.toList $ grad_vec_prod $ V.fromList l
 
@@ -138,16 +137,16 @@ grad_toList_prod l = V.toList $ grad_vec_prod $ V.fromList l
 -- It probably wouldn't help in this case, though.
 
 vec_omit_prod_aux
-  :: forall m r. (DeltaMonad r m, Numeric r)
+  :: forall m r. DeltaMonad r m
   => DualNumberVariables r -> m (DualNumber r)
 vec_omit_prod_aux vec = returnLet $ foldlDelta' (*) (scalar 1) vec
   -- omitting most bindings, because we know nothing repeats inside
 
-vec_omit_prod :: Numeric r
+vec_omit_prod :: IsScalar r
               => Domain r -> r
 vec_omit_prod ds = primalValue vec_omit_prod_aux (ds, V.empty, V.empty)
 
-grad_vec_omit_prod :: (Eq r, Numeric r, Num (Data.Vector.Storable.Vector r))
+grad_vec_omit_prod :: (Eq r, IsScalar r)
                    => Domain r -> Domain' r
 grad_vec_omit_prod ds =
   (\(v, _, _) -> v) $ fst $ df vec_omit_prod_aux (ds, V.empty, V.empty)

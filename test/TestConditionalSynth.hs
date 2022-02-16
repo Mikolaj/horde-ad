@@ -75,7 +75,7 @@ synthLossSquared factivation x ps1 ps2 ps3 targ = do
   lossSquared (targ / 10000) y  -- smaller target to overcome @tanh@ clamping
 
 -- Inlined to avoid the tiny overhead of calling an unknown function.
-sumResultsDual :: forall m a r. (DeltaMonad r m, Num r, Storable a)
+sumResultsDual :: forall m a r. (DeltaMonad r m, Storable a)
                => (a -> m (DualNumber r))
                -> Vector a
                -> m (DualNumber r)

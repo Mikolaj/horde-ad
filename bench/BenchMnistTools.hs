@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 module BenchMnistTools where
 
@@ -7,14 +8,12 @@ import           Control.Arrow ((***))
 import           Criterion.Main
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
-import           Numeric.LinearAlgebra (Numeric)
 import           System.Random
 
 import HordeAd
 import HordeAd.Tool.MnistTools
 
-mnistTrainBench2 :: ( Eq r, Floating r, UniformRange r
-                    , Numeric r, Num (Data.Vector.Storable.Vector r) )
+mnistTrainBench2 :: (Eq r, Floating r, UniformRange r, IsScalar r)
                  => String -> Int -> [MnistData r] -> Int -> Int -> r
                  -> Benchmark
 mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
@@ -27,7 +26,7 @@ mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
              ++ unwords ["s" ++ show nParams, "v0", "m0" ++ "=" ++ show nParams]
   bench name $ whnf grad chunk
 
-mnistTestBench2 :: (Ord r, Floating r, UniformRange r, Numeric r)
+mnistTestBench2 :: (Ord r, Floating r, UniformRange r, IsScalar r)
                 => String -> Int -> [MnistData r] -> Int -> Int -> Benchmark
 mnistTestBench2 extraPrefix chunkLength xs widthHidden widthHidden2 = do
   let nParams = lenMnist2 widthHidden widthHidden2
@@ -66,7 +65,7 @@ mnistTrainBGroup2500 xs0 chunkLength =
         (0.02 :: Float)
     ]
 
-mnistTrainBench2V :: ( Eq r, Floating r, Numeric r, UniformRange r
+mnistTrainBench2V :: ( Eq r, Floating r, IsScalar r, UniformRange r
                      , Floating (Data.Vector.Storable.Vector r) )
                   => String -> Int -> [MnistData r] -> Int -> Int -> r
                   -> Benchmark
@@ -87,7 +86,7 @@ mnistTrainBench2V extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
                         , "m0" ++ "=" ++ show totalParams ]
   bench name $ whnf grad chunk
 
-mnistTestBench2V :: ( Ord r, Floating r, Numeric r, UniformRange r
+mnistTestBench2V :: ( Ord r, Floating r, IsScalar r, UniformRange r
                     , Floating (Data.Vector.Storable.Vector r) )
                  => String -> Int -> [MnistData r] -> Int -> Int -> Benchmark
 mnistTestBench2V extraPrefix chunkLength xs widthHidden widthHidden2 = do

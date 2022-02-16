@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 module TestSingleGradient (testTrees) where
 
@@ -5,7 +6,7 @@ import Prelude
 
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -26,11 +27,11 @@ testTrees = [ dfTests
 -- polymorphic over whether they operate on scalars, vectors or other types,
 -- so we should probably abandon them.
 
-(+\) :: (DeltaMonad r m, Num r)
+(+\) :: DeltaMonad r m
      => DualNumber r -> DualNumber r -> m (DualNumber r)
 (+\) u v = returnLet $ u + v
 
-(*\) :: (DeltaMonad r m, Num r)
+(*\) :: DeltaMonad r m
      => DualNumber r -> DualNumber r -> m (DualNumber r)
 (*\) u v = returnLet $ u * v
 
@@ -38,7 +39,7 @@ testTrees = [ dfTests
       => DualNumber r -> DualNumber r -> m (DualNumber r)
 (**\) u v = returnLet $ u ** v
 
-squareDual :: (DeltaMonad r m, Num r) => DualNumber r -> m (DualNumber r)
+squareDual :: DeltaMonad r m => DualNumber r -> m (DualNumber r)
 squareDual = returnLet . square
 
 dfShow :: (DualNumberVariablesF -> DeltaMonadGradient Float DualNumberF)
@@ -121,7 +122,7 @@ dfTests = testGroup "Simple df application tests" $
 -- to vectors manually and we omit this straightforward boilerplate code here.
 -- TODO: while we used weakly-typed vectors, work on user-friendly errors
 -- if the input record is too short.
-atanReadmePoly :: (RealFloat r, Numeric r)
+atanReadmePoly :: (RealFloat r, IsScalar r)
                => DualNumberVariables r -> Data.Vector.Vector (DualNumber r)
 atanReadmePoly variables =
   let x : y : z : _ = vars variables
@@ -137,7 +138,7 @@ atanReadmePoly variables =
 -- For now, let's perform the dot product in user code.
 -- Here is the code for dot product with ones, which is just the sum
 -- of elements of a vector:
-sumElementsVectorOfDelta :: Num r
+sumElementsVectorOfDelta :: IsScalar r
                          => Data.Vector.Vector (DualNumber r)
                          -> DualNumber r
 sumElementsVectorOfDelta = V.foldl' (+) (scalar 0)
@@ -148,7 +149,7 @@ sumElementsVectorOfDelta = V.foldl' (+) (scalar 0)
 -- If the code above had any repeated non-variable expressions
 -- (e.g., if @w@ appeared twice) the user would need to make it monadic
 -- and apply @returnLet@ already there.
-atanReadmeMPoly :: (DeltaMonad r m, RealFloat r, Numeric r)
+atanReadmeMPoly :: (DeltaMonad r m, RealFloat r)
                 => DualNumberVariables r -> m (DualNumber r)
 atanReadmeMPoly variables =
   returnLet $ sumElementsVectorOfDelta $ atanReadmePoly variables
@@ -156,7 +157,7 @@ atanReadmeMPoly variables =
 -- The underscores and empty vectors are placeholders for the vector
 -- and matrix components of the parameters triple, which we here don't use
 -- (we construct vectors, but from scalar parameters).
-dfAtanReadmeMPoly :: (RealFloat r, Numeric r, Num (Vector r))
+dfAtanReadmeMPoly :: (RealFloat r, IsScalar r)
                   => Domain r -> (Domain' r, r)
 dfAtanReadmeMPoly ds =
   let ((result, _, _), value) = df atanReadmeMPoly (ds, V.empty, V.empty)
@@ -180,7 +181,7 @@ readmeTests = testGroup "Tests of code from the library's README"
 -- via a primitive differentiable type of vectors instead of inside
 -- vectors of primitive differentiable scalars.
 
-atanReadmePolyV :: (RealFloat r, Numeric r)
+atanReadmePolyV :: (RealFloat r, IsScalar r)
                 => DualNumberVariables r -> DualNumber (Vector r)
 atanReadmePolyV variables =
   let xyzVector = varV variables 0
@@ -190,7 +191,7 @@ atanReadmePolyV variables =
       w = x * sin y
   in deltaSeq1 $ V.fromList [atan2 z w, z * x]
 
-atanReadmeMPolyV :: (DeltaMonad r m, RealFloat r, Numeric r)
+atanReadmeMPolyV :: (DeltaMonad r m, RealFloat r)
                  => DualNumberVariables r -> m (DualNumber r)
 atanReadmeMPolyV variables =
   returnLet $ atanReadmePolyV variables <.>!! HM.konst 1 2
@@ -198,7 +199,7 @@ atanReadmeMPolyV variables =
 -- The underscores and empty vectors are placeholders for the vector
 -- and matrix components of the parameters triple, which we here don't use
 -- (we construct vectors, but from scalar parameters).
-dfAtanReadmeMPolyV :: (RealFloat r, Numeric r, Num (Vector r))
+dfAtanReadmeMPolyV :: (RealFloat r, IsScalar r)
                    => DomainV r -> (DomainV' r, r)
 dfAtanReadmeMPolyV dsV =
   let ((_, result, _), value) = df atanReadmeMPolyV (V.empty, dsV, V.empty)
