@@ -1,14 +1,13 @@
-{-# LANGUAGE ConstraintKinds, FlexibleInstances, GADTs,
-             TypeFamilyDependencies #-}
+{-# LANGUAGE ConstraintKinds, TypeFamilyDependencies #-}
 -- | The second component of dual numbers, @Delta@, with it's evaluation
 -- function. Neel Krishnaswami calls that "sparse vector expressions",
 -- and indeed even in the simplest case of a function defined on scalars only,
 -- the non-empty portion of the codomain of the evaluation function is a vector,
 -- because the gradient of an @R^n@ to @R@ function is an @R^n@ vector.
 --
--- This gets muddled when the domain of the function may consist
+-- The 'sparcity' is less obvious when the domain of the function consists
 -- of multiple vectors and matrices and when the expressions themselves
--- start containing vectors and matrices. However, a single tiny delta
+-- contain vectors and matrices. However, a single tiny delta
 -- expression (e.g., a sum of two variables) may denote a vector of matrices.
 -- Even a delta expression containing a big matrix denotes something much
 -- bigger: a whole vector of such matrices (and vectors and scalars).
@@ -16,11 +15,11 @@
 -- The algebraic structure here is an extension of vector space.
 -- The crucial extra constructor for variables is used both to represent
 -- sharing in order to avoid exponential blowup and to replace the one-hot
--- functionality with something cheaper and more uniform.
+-- access to parameters with something cheaper and more uniform.
 -- A lot of the remaining additional structure is for introducing
 -- and reducing dimensions.
 module HordeAd.Core.Delta
-  ( IsScalar, IsTensor(..)
+  ( IsScalar, IsTensor(DeltaExpression, zeroD, scaleD, addD, varD)
   , DeltaScalar (..), DeltaVector (..), DeltaMatrix (..)
   , DeltaId (..)
   , DeltaBinding (..)
@@ -32,7 +31,6 @@ import Prelude
 
 import           Control.Monad (unless, zipWithM_)
 import           Control.Monad.ST.Strict (ST, runST)
-import           Data.Kind (Type)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Strict.Vector.Autogen.Mutable as Data.Vector.Mutable
 import qualified Data.Vector.Generic as V
@@ -43,6 +41,9 @@ import qualified Numeric.LinearAlgebra as HM
 
 import qualified HordeAd.Internal.MatrixOuter as MO
 
+-- | Each shape of a containers of parameters ('tensor') has its own
+-- collection of vector space-like constructors with which the sparse
+-- vector expression (`delta expressions`) are built.
 class IsTensor a where
   type DeltaExpression a = result | result -> a
   zeroD :: DeltaExpression a
@@ -78,67 +79,63 @@ instance IsTensor (Matrix r) where
   addD = AddMatrix
   varD = VarMatrix
 
--- A mega-shorthand.
+-- | This is a mega-shorthand for a bundle of connected type constraints.
 type IsScalar r = ( DeltaExpression r ~ DeltaScalar r
                   , IsTensor r, IsTensor (Vector r), IsTensor (Matrix r)
                   , Numeric r, Num (Vector r), Num (Matrix r) )
 
--- | This is the grammar of delta-expressions.
--- They have different but inter-related semantics at the level
--- of scalars, vectors and matrices (WIP: and arbitrary tensors).
--- Some make sense only on one of the levels, as expressed by the GADT
--- type constraints (WIP: currently this is broken by conflating
--- level-polymorphism and the polymorphism wrt the underlying scalar type
--- (Float, Double, etc.)).
+-- | This is the grammar of delta-expressions at tensor rank 0, that is,
+-- at scalar level. Some of these operations have different but inter-related
+-- semantics at the level of vectors and matrices (WIP: and arbitrary tensors).
 --
 -- In other words, for each choice of the underlying scalar type @r@,
 -- we have three primitive differentiable types based on the scalar:
 -- the scalar type @r@ itself, @Vector r@ and @Matrix r@.
-data DeltaScalar :: Type -> Type where
-  -- These constructors make sense at all levels: scalars, vectors, matrices,
-  -- tensors. All constructors focusing on scalars belong to this group,
-  -- that is, they make sense also for vectors, etc., and have more or less
-  -- analogous semantics at the non-scalar levels.
-  ZeroScalar :: DeltaScalar r
-  ScaleScalar :: r -> DeltaScalar r -> DeltaScalar r
-  AddScalar :: DeltaScalar r -> DeltaScalar r -> DeltaScalar r
-  VarScalar :: DeltaId r -> DeltaScalar r
+data DeltaScalar r =
+    ZeroScalar
+  | ScaleScalar r (DeltaScalar r)
+  | AddScalar (DeltaScalar r) (DeltaScalar r)
+  | VarScalar (DeltaId r)
 
-  Dot1 :: Vector r -> DeltaVector r -> DeltaScalar r
-  SumElements1 :: DeltaVector r -> Int -> DeltaScalar r
-  Index1 :: DeltaVector r -> Int -> Int -> DeltaScalar r
+  | Dot1 (Vector r) (DeltaVector r)
+  | SumElements1 (DeltaVector r) Int
+  | Index1 (DeltaVector r) Int Int
 
-data DeltaVector :: Type -> Type where
-  ZeroVector :: DeltaVector r
-  ScaleVector :: Vector r -> DeltaVector r -> DeltaVector r
-  AddVector :: DeltaVector r -> DeltaVector r -> DeltaVector r
-  VarVector :: DeltaId (Vector r) -> DeltaVector r
+-- | This is the grammar of delta-expressions at tensor rank 1, that is,
+-- at vector level.
+data DeltaVector r =
+    ZeroVector
+  | ScaleVector (Vector r) (DeltaVector r)
+  | AddVector (DeltaVector r) (DeltaVector r)
+  | VarVector (DeltaId (Vector r))
 
-  Seq1 :: Data.Vector.Vector (DeltaScalar r) -> DeltaVector r
-  Konst1 :: DeltaScalar r -> DeltaVector r
-  Append1 :: DeltaVector r -> Int -> DeltaVector r -> DeltaVector r
-  Slice1 :: Int -> Int -> DeltaVector r -> Int -> DeltaVector r
-  M_VD2 :: Matrix r -> DeltaVector r -> DeltaVector r
-  MD_V2 :: DeltaMatrix r -> Vector r -> DeltaVector r
-  SumRows2 :: DeltaMatrix r -> Int -> DeltaVector r
-  SumColumns2 :: DeltaMatrix r -> Int -> DeltaVector r
+  | Seq1 (Data.Vector.Vector (DeltaScalar r))
+  | Konst1 (DeltaScalar r)
+  | Append1 (DeltaVector r) Int (DeltaVector r)
+  | Slice1 Int Int (DeltaVector r) Int
+  | M_VD2 (Matrix r) (DeltaVector r)
+  | MD_V2 (DeltaMatrix r) (Vector r)
+  | SumRows2 (DeltaMatrix r) Int
+  | SumColumns2 (DeltaMatrix r) Int
 
-data DeltaMatrix :: Type -> Type where
-  ZeroMatrix :: DeltaMatrix r
-  ScaleMatrix :: Matrix r -> DeltaMatrix r -> DeltaMatrix r
-  AddMatrix :: DeltaMatrix r -> DeltaMatrix r -> DeltaMatrix r
-  VarMatrix :: DeltaId (Matrix r) -> DeltaMatrix r
+-- | This is the grammar of delta-expressions at tensor rank 1, that is,
+-- at matrix level.
+data DeltaMatrix r =
+    ZeroMatrix
+  | ScaleMatrix (Matrix r) (DeltaMatrix r)
+  | AddMatrix (DeltaMatrix r) (DeltaMatrix r)
+  | VarMatrix (DeltaId (Matrix r))
 
-  Seq2 :: Data.Vector.Vector (DeltaVector r) -> DeltaMatrix r
-  Transpose2 :: DeltaMatrix r -> DeltaMatrix r
-  M_MD2 :: Matrix r -> DeltaMatrix r -> DeltaMatrix r
-  MD_M2 :: DeltaMatrix r -> Matrix r -> DeltaMatrix r
-  AsRow2 :: DeltaVector r -> DeltaMatrix r
-  AsColumn2 :: DeltaVector r -> DeltaMatrix r
-  RowAppend2 :: DeltaMatrix r -> Int -> DeltaMatrix r -> DeltaMatrix r
-  ColumnAppend2 :: DeltaMatrix r -> Int -> DeltaMatrix r -> DeltaMatrix r
-  RowSlice2 :: Int -> Int -> DeltaMatrix r -> Int -> Int -> DeltaMatrix r
-  ColumnSlice2 :: Int -> Int -> DeltaMatrix r -> Int -> Int -> DeltaMatrix r
+  | Seq2 (Data.Vector.Vector (DeltaVector r))
+  | Transpose2 (DeltaMatrix r)
+  | M_MD2 (Matrix r) (DeltaMatrix r)
+  | MD_M2 (DeltaMatrix r) (Matrix r)
+  | AsRow2 (DeltaVector r)
+  | AsColumn2 (DeltaVector r)
+  | RowAppend2 (DeltaMatrix r) Int (DeltaMatrix r)
+  | ColumnAppend2 (DeltaMatrix r) Int (DeltaMatrix r)
+  | RowSlice2 Int Int (DeltaMatrix r) Int Int
+  | ColumnSlice2 Int Int (DeltaMatrix r) Int Int
 
 newtype DeltaId a = DeltaId Int
   deriving (Show, Eq)
@@ -172,12 +169,12 @@ evalBindings :: (Eq r, IsScalar r)
              -> ( Vector r
                 , Data.Vector.Vector (Vector r)
                 , Data.Vector.Vector (Matrix r) )
-evalBindings dim0 dim1 dim2 st dTopLevel =
+evalBindings dim0 dim1 dim2 st deltaTopLevel =
   -- This is morally @V.create@ and so totally safe,
   -- but we can't just call @V.create@ thrice, because it would run
   -- the @ST@ action thrice, so we inline and extend @V.create@ here.
   runST $ do
-    (finiteMap0, finiteMap1, finiteMap2) <- buildVectors st dTopLevel
+    (finiteMap0, finiteMap1, finiteMap2) <- buildVectors st deltaTopLevel
     v0 <- V.unsafeFreeze $ VM.take dim0 finiteMap0
     v1 <- V.unsafeFreeze $ VM.take dim1 finiteMap1
     v2 <- V.unsafeFreeze $ VM.take dim2 finiteMap2
@@ -190,7 +187,7 @@ buildVectors :: forall s r. (Eq r, IsScalar r)
              -> ST s ( Data.Vector.Storable.Mutable.MVector s r
                      , Data.Vector.Mutable.MVector s (Vector r)
                      , Data.Vector.Mutable.MVector s (MO.MatrixOuter r) )
-buildVectors st dTopLevel = do
+buildVectors st deltaTopLevel = do
   let DeltaId counter0 = deltaCounter0 st
       DeltaId counter1 = deltaCounter1 st
       DeltaId counter2 = deltaCounter2 st
@@ -266,7 +263,7 @@ buildVectors st dTopLevel = do
                 `MO.columnAppend`
                 MO.konst 0 nrows (ncols - i - n))
                 d
-  eval0 1 dTopLevel  -- dt is 1 or hardwired in f
+  eval0 1 deltaTopLevel  -- dt is 1 or hardwired in f
   let evalUnlessZero :: DeltaBinding r -> ST s ()
       evalUnlessZero (DScalar (DeltaId i) d) = do
         r <- store0 `VM.read` i
