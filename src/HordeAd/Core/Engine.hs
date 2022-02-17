@@ -7,7 +7,8 @@ module HordeAd.Core.Engine
   ( IsScalar
   , Domain, DomainV, DomainL,  Domains
   , DeltaMonadValue, primalValueGeneric, primalValue
-  , DeltaMonadGradient, generalDf, df, generateDeltaVars, initializerFixed
+  , DeltaMonadGradient, generalDf, df, prettyPrintDf
+  , generateDeltaVars, initializerFixed
   ) where
 
 import Prelude
@@ -107,7 +108,7 @@ generalDf variables@(params, _, paramsV, _, paramsL, _) f =
       gradient = evalBindings dim dimV dimL st d
   in (gradient, value)
 
-df :: forall r. (Eq r, IsScalar r)
+df :: (Eq r, IsScalar r)
    => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
    -> Domains r
    -> (Domains r, r)
@@ -115,6 +116,32 @@ df f parameters =
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
   in generalDf variables f
+
+prettyPrintDf :: forall r. (Show r, IsScalar r)
+              => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+              -> Domains r
+              -> String
+prettyPrintDf f parameters@(params, paramsV, paramsL) =
+  let varDeltas = generateDeltaVars parameters
+      variables = makeDualNumberVariables parameters varDeltas
+      dim = V.length params
+      dimV = V.length paramsV
+      dimL = V.length paramsL
+      initialState = DeltaState
+        { deltaCounter0 = DeltaId dim
+        , deltaCounter1 = DeltaId dimV
+        , deltaCounter2 = DeltaId dimL
+        , deltaBindings = []
+        }
+      (D _ d0, st) = runState (runDeltaMonadGradient (f variables))
+                             initialState
+      ppBinding :: DeltaBinding r -> [String]
+      ppBinding = \case
+        DScalar (DeltaId i) d -> ["letS x", show i, " = ", show d, "\n"]
+        DVector (DeltaId i) d -> ["letV x", show i, " = ", show d, "\n"]
+        DMatrix (DeltaId i) d -> ["letM x", show i, " = ", show d, "\n"]
+  in concat $ foldr (\b l -> ppBinding b ++ l) [show d0]
+                    (deltaBindings st)
 
 generateDeltaVars :: IsScalar r
                   => Domains r -> ( Data.Vector.Vector (DeltaScalar r)

@@ -139,6 +139,7 @@ data DeltaScalar r =
   | Dot1 (Vector r) (DeltaVector r)
   | SumElements1 (DeltaVector r) Int
   | Index1 (DeltaVector r) Int Int
+  deriving Show
 
 -- | This is the grammar of delta-expressions at tensor rank 1, that is,
 -- at vector level.
@@ -156,6 +157,7 @@ data DeltaVector r =
   | MD_V2 (DeltaMatrix r) (Vector r)
   | SumRows2 (DeltaMatrix r) Int
   | SumColumns2 (DeltaMatrix r) Int
+  deriving Show
 
 -- | This is the grammar of delta-expressions at tensor rank 1, that is,
 -- at matrix level.
@@ -175,9 +177,10 @@ data DeltaMatrix r =
   | ColumnAppend2 (DeltaMatrix r) Int (DeltaMatrix r)
   | RowSlice2 Int Int (DeltaMatrix r) Int Int
   | ColumnSlice2 Int Int (DeltaMatrix r) Int Int
+  deriving Show
 
 newtype DeltaId a = DeltaId Int
-  deriving (Show, Eq)
+  deriving Show
 
 -- The @DeltaId@ components could be computed on the fly when evaluating,
 -- but it costs more (they are boxed) than storing them here at the time
