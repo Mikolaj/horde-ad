@@ -27,12 +27,10 @@ testTrees = [ dfTests
 -- polymorphic over whether they operate on scalars, vectors or other types,
 -- so we should probably abandon them.
 
-(+\) :: DeltaMonad r m
-     => DualNumber r -> DualNumber r -> m (DualNumber r)
+(+\) :: DeltaMonad r m => DualNumber r -> DualNumber r -> m (DualNumber r)
 (+\) u v = returnLet $ u + v
 
-(*\) :: DeltaMonad r m
-     => DualNumber r -> DualNumber r -> m (DualNumber r)
+(*\) :: DeltaMonad r m => DualNumber r -> DualNumber r -> m (DualNumber r)
 (*\) u v = returnLet $ u * v
 
 (**\) :: (DeltaMonad r m, Floating r)

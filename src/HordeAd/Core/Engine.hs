@@ -39,6 +39,7 @@ type Domains r = (Domain r, DomainV r, DomainL r)
 
 type DeltaMonadValue r = Identity
 
+-- This the only place that requires @UndecidableInstances@.
 instance IsScalar r => DeltaMonad r (DeltaMonadValue r) where
   returnLet (D u _u') = Identity $ D u zeroD
   returnLetV (D u _u') = Identity $ D u zeroD
@@ -53,11 +54,12 @@ primalValueGeneric :: IsScalar r
                    -> a
 {-# INLINE primalValueGeneric #-}
 primalValueGeneric f (params, paramsV, paramsL) =
-  let variables = makeDualNumberVariables
+  let replicateZeros p = V.replicate (V.length p) zeroD
+      variables = makeDualNumberVariables
                     (params, paramsV, paramsL)
-                    ( V.replicate (V.length params) zeroD  -- dummy
-                    , V.replicate (V.length paramsV) zeroD
-                    , V.replicate (V.length paramsL) zeroD )
+                    ( replicateZeros params  -- dummy
+                    , replicateZeros paramsV
+                    , replicateZeros paramsL )
   in runIdentity $ f variables
 
 -- Small enough that inline won't hurt.
@@ -101,7 +103,7 @@ instance IsScalar r => DeltaMonad r (DeltaMonadGradient r) where
         }
     return $! D u (varD $ DeltaId i)
 
--- The functions in which it inlines and which are used in client code
+-- The functions in which @generalDf@ inlines and which are used in client code
 -- are not inlined there, so the bloat is limited.
 generalDf :: (Eq r, IsScalar r)
           => DualNumberVariables r
@@ -137,13 +139,8 @@ generateDeltaVars :: IsScalar r
                                   , Data.Vector.Vector (DeltaVector r)
                                   , Data.Vector.Vector (DeltaMatrix r) )
 generateDeltaVars (params, paramsV, paramsL) =
-  let dim = V.length params
-      dimV = V.length paramsV
-      dimL = V.length paramsL
-      vVar = V.generate dim (varD . DeltaId)
-      vVarV = V.generate dimV (varD . DeltaId)
-      vVarL = V.generate dimL (varD . DeltaId)
-  in (vVar, vVarV, vVarL)
+  let vVar p = V.generate (V.length p) (varD . DeltaId)
+  in (vVar params, vVar paramsV, vVar paramsL)
 
 -- | Initialize parameters using a uniform distribution with a fixed range
 -- taken from an argument.

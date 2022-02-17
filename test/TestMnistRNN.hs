@@ -377,8 +377,7 @@ nnMnistRNNL2 width x variables = do
   rnnLayer <- zeroState (2 * width) (unrollLastG fcfcrnnMnistL2) x variables
   outputLayerMnistRNNL rnnLayer variables
 
-nnMnistRNNLossL :: ( DeltaMonad r m, Fractional r
-                   , Floating (Vector r) )
+nnMnistRNNLossL :: (DeltaMonad r m, Fractional r, Floating (Vector r))
                 => Int
                 -> ([Vector r], Vector r)
                 -> DualNumberVariables r
@@ -387,8 +386,7 @@ nnMnistRNNLossL width (xs, target) variables = do
   result <- nnMnistRNNL width xs variables
   lossSoftMaxCrossEntropyV target result
 
-nnMnistRNNLossL2 :: ( DeltaMonad r m, Fractional r
-                    , Floating (Vector r) )
+nnMnistRNNLossL2 :: (DeltaMonad r m, Fractional r, Floating (Vector r))
                  => Int
                  -> ([Vector r], Vector r)
                  -> DualNumberVariables r
