@@ -214,7 +214,7 @@ gradSmartTestCase prefix lossFunction seedSamples
                         , show nIterations ]
   in testCase name $
        snd (gdSmartShow
-              (lossFunction reluActV tanhActV tanhActV samples width)
+              (lossFunction reluActV tanhAct tanhAct samples width)
               paramsV0 nIterations)
        @?= expected
 

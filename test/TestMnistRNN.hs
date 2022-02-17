@@ -45,7 +45,7 @@ hiddenLayerSinRNN x s variables = do
       wS = varL variables 1
       b = varV variables 0
   y <- returnLet $ wX #>!! V.singleton x + wS #>! s + b
-  yLogistic <- logisticActV y
+  yLogistic <- logisticAct y
   return (y, yLogistic)
 
 outputLayerSinRNN :: DeltaMonad r m
@@ -207,7 +207,7 @@ hiddenLayerSinRNNV x s variables = do
       b = varV variables 31
   y <- returnLet
        $ scale (HM.konst x 30) wX + sumTrainableInputsL s 1 variables 30 + b
-  yLogistic <- logisticActV y
+  yLogistic <- logisticAct y
   return (y, yLogistic)
 
 outputLayerSinRNNV :: DeltaMonad r m
@@ -306,7 +306,7 @@ hiddenLayerMnistRNNL x s variables = do
       wS = varL variables 1  -- 128x128
       b = varV variables 0  -- 128
       y = wX #>!! x + wS #>! s + b
-  yTanh <- tanhActV y
+  yTanh <- tanhAct y
   return (yTanh, yTanh)  -- tanh in both, as per https://github.com/keras-team/keras/blob/v2.8.0/keras/layers/legacy_rnn/rnn_cell_impl.py#L468
 
 middleLayerMnistRNNL :: (DeltaMonad r m, Floating (Vector r))
@@ -319,7 +319,7 @@ middleLayerMnistRNNL vec s variables = do
       wS = varL variables 4  -- 128x128
       b = varV variables 2  -- 128
       y = wX #>! vec + wS #>! s + b
-  yTanh <- tanhActV y
+  yTanh <- tanhAct y
   return (yTanh, yTanh)
 
 outputLayerMnistRNNL :: DeltaMonad r m
@@ -430,7 +430,7 @@ hiddenLayerMnistRNNV width x s variables = do
       y = sumConstantDataL x 0 variables width
           + sumTrainableInputsL s width variables width
           + b
-  yTanh <- tanhActV y
+  yTanh <- tanhAct y
   return (yTanh, yTanh)
 
 outputLayerMnistRNNV :: DeltaMonad r m

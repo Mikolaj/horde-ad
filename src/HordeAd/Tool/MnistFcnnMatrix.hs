@@ -62,7 +62,7 @@ nnMnistLoss2L :: (DeltaMonad r m, Floating r, Floating (Vector r))
               -> DualNumberVariables r
               -> m (DualNumber r)
 nnMnistLoss2L (input, target) variables = do
-  result <- inline nnMnist2L logisticActV softMaxActV input variables
+  result <- inline nnMnist2L logisticAct softMaxActV input variables
   lossCrossEntropyV target result
 
 -- | The neural network applied to concrete activation functions
@@ -74,7 +74,7 @@ nnMnistLossFused2L
   -> DualNumberVariables r
   -> m (DualNumber r)
 nnMnistLossFused2L (input, target) variables = do
-  result <- inline nnMnist2L logisticActV return input variables
+  result <- inline nnMnist2L logisticAct return input variables
   lossSoftMaxCrossEntropyV target result
 
 -- | A function testing the neural network given testing set of inputs
@@ -84,7 +84,7 @@ testMnist2L :: forall r. (Ord r, Floating r, IsScalar r, Floating (Vector r))
 testMnist2L inputs parameters =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let nn = inline nnMnist2L logisticActV softMaxActV glyph
+        let nn = inline nnMnist2L logisticAct softMaxActV glyph
             value = primalValue nn parameters
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))

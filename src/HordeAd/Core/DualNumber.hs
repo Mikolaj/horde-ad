@@ -97,18 +97,6 @@ scalar a = D a zeroD
 scale :: (Num a, IsTensor a) => a -> DualNumber a -> DualNumber a
 scale a (D u u') = D (a * u) (scaleD a u')
 
--- Optimized and more clearly written @u ** 2@.
-square :: (Num r, IsTensor r) => DualNumber r -> DualNumber r
-square (D u u') = D (u * u) (scaleD (2 * u) u')
-
-logistic :: (Floating r, IsTensor r) => DualNumber r -> DualNumber r
-logistic (D u u') =
-  let y = recip (1 + exp (- u))
-  in D y (scaleD (y * (1 - y)) u')
-
-squaredDifference :: (Num r, IsTensor r) => r -> DualNumber r -> DualNumber r
-squaredDifference targ res = square $ res - scalar targ
-
 
 -- * Non-monadic operations related to vectors
 
@@ -244,20 +232,10 @@ columnSlice2 i n (D u u') = D (HM.subMatrix (0, i) (HM.rows u, n) u)
                               (ColumnSlice2 i n u' (HM.rows u) (HM.cols u))
 
 
--- * Monadic operations for scalars
-
--- Unfortunately, monadic versions of these operations are not
--- polymorphic over whether they operate on scalars, vectors or other types,
--- so further down they are duplicated.
-
-tanhAct :: (DeltaMonad r m, Floating r) => DualNumber r -> m (DualNumber r)
-tanhAct = returnLet . tanh
+-- * Monadic operations for scalars only
 
 reluAct :: (DeltaMonad r m, Ord r) => DualNumber r -> m (DualNumber r)
 reluAct (D u u') = returnLet $ D (max 0 u) (scaleD (if u > 0 then 1 else 0) u')
-
-logisticAct :: (DeltaMonad r m, Floating r) => DualNumber r -> m (DualNumber r)
-logisticAct = returnLet . logistic
 
 sumElementsVectorOfDelta :: IsScalar r
                          => Data.Vector.Vector (DualNumber r)
@@ -274,9 +252,6 @@ softMaxAct us = do
   recipSum <- returnLet $ recip sumExpUs
   V.mapM (\r -> returnLet $ r * recipSum) expUs
 
-lossSquared :: DeltaMonad r m => r -> DualNumber r -> m (DualNumber r)
-lossSquared targ res = returnLet $ squaredDifference targ res
-
 -- In terms of hmatrix: @-(log res <.> targ)@.
 lossCrossEntropy :: forall m r. (DeltaMonad r m, Floating r)
                  => Vector r
@@ -288,13 +263,34 @@ lossCrossEntropy targ res = do
   returnLet $ negate $ V.ifoldl' f (scalar 0) res
 
 
+-- * Monadic operations for scalars and other ranks of tensors
+
+tanhAct :: (IsTensorWithScalar a r, DeltaMonad r m, Floating a)
+        => DualNumber a -> m (DualNumber a)
+tanhAct = returnLet . tanh
+
+logistic :: (Floating r, IsTensor r) => DualNumber r -> DualNumber r
+logistic (D u u') =
+  let y = recip (1 + exp (- u))
+  in D y (scaleD (y * (1 - y)) u')
+
+logisticAct :: (IsTensorWithScalar a r, DeltaMonad r m, Floating a)
+            => DualNumber a -> m (DualNumber a)
+logisticAct = returnLet . logistic
+
+-- Optimized and more clearly written @u ** 2@.
+square :: (Num r, IsTensor r) => DualNumber r -> DualNumber r
+square (D u u') = D (u * u) (scaleD (2 * u) u')
+
+squaredDifference :: (Num r, IsTensor r) => r -> DualNumber r -> DualNumber r
+squaredDifference targ res = square $ res - scalar targ
+
+lossSquared :: (IsTensorWithScalar a r, DeltaMonad r m, Num a)
+            => a -> DualNumber a -> m (DualNumber a)
+lossSquared targ res = returnLet $ squaredDifference targ res
+
+
 -- * Monadic operations for vectors
-
--- The monad sadly forces duplication of code.
-
-tanhActV :: (DeltaMonad r m, Floating (Vector r))
-         => DualNumber (Vector r) -> m (DualNumber (Vector r))
-tanhActV = returnLet . tanh
 
 reluActV :: (DeltaMonad r m, Ord r)
          => DualNumber (Vector r) -> m (DualNumber (Vector r))
@@ -308,11 +304,6 @@ reluLeakyActV :: (DeltaMonad r m, Fractional r, Ord r)
 reluLeakyActV dn@(D u _) = do
   let oneIfGtZero = V.map (\x -> if x > 0 then 1 else 0.01) u
   returnLet $ scale oneIfGtZero dn
-
-logisticActV :: (DeltaMonad r m, Floating (Vector r))
-             => DualNumber (Vector r)
-             -> m (DualNumber (Vector r))
-logisticActV = returnLet . logistic
 
 softMaxActV :: (DeltaMonad r m, Fractional r, Floating (Vector r))
             => DualNumber (Vector r)

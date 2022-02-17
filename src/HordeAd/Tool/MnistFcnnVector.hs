@@ -109,7 +109,7 @@ nnMnistLoss2V :: (DeltaMonad r m, Floating r, Floating (Vector r))
               -> DualNumberVariables r
               -> m (DualNumber r)
 nnMnistLoss2V widthHidden widthHidden2 (input, target) variables = do
-  result <- inline nnMnist2V logisticActV softMaxActV
+  result <- inline nnMnist2V logisticAct softMaxActV
                              widthHidden widthHidden2 input variables
   lossCrossEntropyV target result
 
@@ -120,7 +120,7 @@ testMnist2V :: forall r. (Ord r, Floating r, IsScalar r, Floating (Vector r))
 testMnist2V widthHidden widthHidden2 inputs (params, paramsV) =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let nn = inline nnMnist2V logisticActV softMaxActV
+        let nn = inline nnMnist2V logisticAct softMaxActV
                                   widthHidden widthHidden2 glyph
             value = primalValue nn (params, paramsV, V.empty)
         in V.maxIndex value == V.maxIndex label
