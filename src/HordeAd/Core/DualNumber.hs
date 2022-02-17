@@ -353,5 +353,6 @@ lossSoftMaxCrossEntropyL target (D u u') = do
       recipSum = recip sumExpU
       softMaxU = HM.asRow recipSum * expU
                    -- this @asRow@ is safe; multiplied at once
-      scaled = D (log softMaxU * target) (scaleD (softMaxU - target) u')
+      scaled = D (negate $ log softMaxU * target)
+                 (scaleD (softMaxU - target) u')
   returnLet $ sumColumns2 scaled
