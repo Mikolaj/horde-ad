@@ -47,3 +47,10 @@ significant functions and types are distinguished by having a haddock.
 If minor ones have comments, they should not be haddocks and they are
 permitted to describe implementation details and be out of date.
 Prefer assertions instead of comments, unless too verbose.
+
+
+Copyright
+---------
+
+Copyright 2022 Mikolaj Konarski and others (see git history)
+License: BSD-3-Clause (see file LICENSE)

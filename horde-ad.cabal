@@ -29,13 +29,13 @@ synopsis:           Higher Order Reverse Derivatives Efficiently - Automatic Dif
 description:        An Automatic Differentiation library based on the paper "Provably correct, asymptotically efficient, higher-order reverse-mode automatic differentiation" by Faustyna Krawiec, Neel Krishnaswami, Simon Peyton Jones, Tom Ellis, Andrew Fitzgibbon and Richard Eisenberg.
 
 -- The license under which the package is released.
-license:            AGPL-3.0-or-later
+license:            BSD-3-Clause
 
 -- The file containing the license text.
 license-file:       LICENSE
 
 -- The package author(s).
-author:             Mikolaj Konarski
+author:             Mikolaj Konarski and others
 
 -- An email address to which users can send suggestions, bug reports, and patches.
 maintainer:         mikolaj.konarski@funktory.com

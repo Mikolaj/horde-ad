@@ -1,5 +1,7 @@
 Credits go to
 
+Mikolaj Konarski, the original author of the library
+
 Conal Elliott, talking beautifully about the Essence of Automatic Differentiation
 
 Simon Peyton Jones, who sketched in "Provably correct, asymptotically efficient, higher-order reverse-mode automatic differentiation" talk at https://www.youtube.com/watch?v=EPGqzkEZWyw algorithms that this Haskell codebase implements
