@@ -5,7 +5,7 @@
 -- and the implementation of deriving a gradient.
 module HordeAd.Core.Engine
   ( IsScalar
-  , Domain, Domain', DomainV, DomainV', DomainL, DomainL', Domains, Domains'
+  , Domain, DomainV, DomainL,  Domains
   , DeltaMonadValue, primalValueGeneric, primalValue
   , DeltaMonadGradient, generalDf, df, generateDeltaVars, initializerFixed
   ) where
@@ -28,19 +28,11 @@ import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 
 type Domain r = Vector r
 
-type Domain' r = Domain r
-
 type DomainV r = Data.Vector.Vector (Vector r)
-
-type DomainV' r = DomainV r
 
 type DomainL r = Data.Vector.Vector (Matrix r)
 
-type DomainL' r = DomainL r
-
 type Domains r = (Domain r, DomainV r, DomainL r)
-
-type Domains' r = (Domain' r, DomainV' r, DomainL' r)
 
 -- * First comes the dummy monad implementation that does not collect deltas.
 -- It's intended for efficiently calculating the value of the function only.
@@ -114,7 +106,7 @@ instance IsScalar r => DeltaMonad r (DeltaMonadGradient r) where
 generalDf :: (Eq r, IsScalar r)
           => DualNumberVariables r
           -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
-          -> (Domains' r, r)
+          -> (Domains r, r)
 {-# INLINE generalDf #-}
 generalDf variables@(params, _, paramsV, _, paramsL, _) f =
   let dim = V.length params
@@ -134,7 +126,7 @@ generalDf variables@(params, _, paramsV, _, paramsL, _) f =
 df :: forall r. (Eq r, IsScalar r)
    => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
    -> Domains r
-   -> (Domains' r, r)
+   -> (Domains r, r)
 df f parameters =
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas

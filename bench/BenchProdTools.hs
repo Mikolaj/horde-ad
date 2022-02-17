@@ -122,7 +122,7 @@ vec_prod :: IsScalar r
 vec_prod ds = primalValue vec_prod_aux (ds, V.empty, V.empty)
 
 grad_vec_prod :: (Eq r, IsScalar r)
-              => Domain r -> Domain' r
+              => Domain r -> Domain r
 grad_vec_prod ds =
   (\(v, _, _) -> v) $ fst $ df vec_prod_aux (ds, V.empty, V.empty)
 
@@ -147,6 +147,6 @@ vec_omit_prod :: IsScalar r
 vec_omit_prod ds = primalValue vec_omit_prod_aux (ds, V.empty, V.empty)
 
 grad_vec_omit_prod :: (Eq r, IsScalar r)
-                   => Domain r -> Domain' r
+                   => Domain r -> Domain r
 grad_vec_omit_prod ds =
   (\(v, _, _) -> v) $ fst $ df vec_omit_prod_aux (ds, V.empty, V.empty)

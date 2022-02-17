@@ -158,7 +158,7 @@ atanReadmeMPoly variables =
 -- and matrix components of the parameters triple, which we here don't use
 -- (we construct vectors, but from scalar parameters).
 dfAtanReadmeMPoly :: (RealFloat r, IsScalar r)
-                  => Domain r -> (Domain' r, r)
+                  => Domain r -> (Domain r, r)
 dfAtanReadmeMPoly ds =
   let ((result, _, _), value) = df atanReadmeMPoly (ds, V.empty, V.empty)
   in (result, value)
@@ -200,7 +200,7 @@ atanReadmeMPolyV variables =
 -- and matrix components of the parameters triple, which we here don't use
 -- (we construct vectors, but from scalar parameters).
 dfAtanReadmeMPolyV :: (RealFloat r, IsScalar r)
-                   => DomainV r -> (DomainV' r, r)
+                   => DomainV r -> (DomainV r, r)
 dfAtanReadmeMPolyV dsV =
   let ((_, result, _), value) = df atanReadmeMPolyV (V.empty, dsV, V.empty)
   in (result, value)

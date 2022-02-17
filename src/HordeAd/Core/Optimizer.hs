@@ -29,7 +29,7 @@ gdSimple gamma f n0 parameters0 = go n0 parameters0 where
   -- but pays off greatly as soon as the working set doesn't fit in any cache
   -- and so allocations are made in RAM.
   varDeltas = generateDeltaVars parameters0
-  go :: Int -> Domains r -> Domains' r
+  go :: Int -> Domains r -> Domains r
   go 0 parameters = parameters
   go n parameters =
     let variables = makeDualNumberVariables parameters varDeltas
@@ -46,7 +46,7 @@ sgd :: forall r a. (Eq r, IsScalar r)
     -> Domains r
 sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   varDeltas = generateDeltaVars parameters0
-  go :: [a] -> Domains r -> Domains' r
+  go :: [a] -> Domains r -> Domains r
   go [] parameters = parameters
   go (a : rest) parameters =
     let variables = makeDualNumberVariables parameters varDeltas

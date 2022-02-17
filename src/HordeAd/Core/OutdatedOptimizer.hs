@@ -32,7 +32,7 @@ sgdBatch batchSize gamma f trainingData parameters0 =
   go trainingData parameters0
  where
   varDeltas = generateDeltaVars parameters0
-  go :: [a] -> Domains r -> Domains' r
+  go :: [a] -> Domains r -> Domains r
   go [] parameters = parameters
   go l parameters =
     let variables = makeDualNumberVariables parameters varDeltas
@@ -107,7 +107,7 @@ gdSmart f n0 parameters0 = go n0 parameters0 0.1 gradients0 value0 0 where
   varDeltas = generateDeltaVars parameters0
   variables0 = makeDualNumberVariables parameters0 varDeltas
   (gradients0, value0) = generalDf variables0 f
-  go :: Int -> Domains r -> r -> Domains' r -> r -> Int -> (Domains' r, r)
+  go :: Int -> Domains r -> r -> Domains r -> r -> Int -> (Domains r, r)
   go 0 parameters !gamma _gradientsPrev _valuePrev !_i = (parameters, gamma)
   go _ parameters 0 _ _ _ = (parameters, 0)
   go n parameters gamma gradientsPrev valuePrev i =

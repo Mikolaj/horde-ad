@@ -67,7 +67,7 @@ can't fuse with anything and so can't pay for its overhead.
 updateWithGradient :: (Numeric r, Num (Vector r))
                    => r
                    -> Domains r
-                   -> Domains' r
+                   -> Domains r
                    -> Domains r
 updateWithGradient gamma (params, paramsV, paramsL)
                          (gradient, gradientV, gradientL) =
@@ -83,13 +83,13 @@ updateWithGradient gamma (params, paramsV, paramsL)
       paramsLNew = V.zipWith updateL paramsL gradientL
   in (paramsNew, paramsVNew, paramsLNew)
 
-gradientIsNil :: (Eq r, Numeric r) => Domains' r -> Bool
+gradientIsNil :: (Eq r, Numeric r) => Domains r -> Bool
 gradientIsNil (gradient, gradientV, gradientL) =
   V.all (== 0) gradient
   && V.all V.null gradientV
   && V.all (\r -> HM.rows r <= 0) gradientL
 
-minimumGradient :: (Ord r, Numeric r) => Domains' r -> r
+minimumGradient :: (Ord r, Numeric r) => Domains r -> r
 minimumGradient (gradient, gradientV, gradientL) =
   min (if V.null gradient then 0 else V.minimum gradient)
       (min (if V.null gradientV then 0
@@ -97,7 +97,7 @@ minimumGradient (gradient, gradientV, gradientL) =
            (if V.null gradientL then 0
             else V.minimum (V.map HM.minElement gradientL)))
 
-maximumGradient :: (Ord r, Numeric r) => Domains' r -> r
+maximumGradient :: (Ord r, Numeric r) => Domains r -> r
 maximumGradient (gradient, gradientV, gradientL) =
   max (if V.null gradient then 0 else V.maximum gradient)
       (max (if V.null gradientV then 0
@@ -124,8 +124,8 @@ defaultArgsAdam = ArgsAdam
 
 data StateAdam r = StateAdam
   { tAdam :: Int  -- iteration count
-  , mAdam :: Domains' r
-  , vAdam :: Domains' r
+  , mAdam :: Domains r
+  , vAdam :: Domains r
   }
 
 zeroParameters :: Numeric r => Domains r -> Domains r
@@ -176,7 +176,7 @@ updateWithGradientAdam :: forall r. (Floating r, Numeric r, Floating (Vector r))
                        => ArgsAdam r
                        -> StateAdam r
                        -> Domains r
-                       -> Domains' r
+                       -> Domains r
                        -> (Domains r, StateAdam r)
 updateWithGradientAdam ArgsAdam{..}
                        StateAdam{ tAdam
