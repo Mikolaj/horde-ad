@@ -42,8 +42,6 @@ type DeltaMonadValue r = Identity
 -- This the only place that requires @UndecidableInstances@.
 instance IsScalar r => DeltaMonad r (DeltaMonadValue r) where
   returnLet (D u _u') = Identity $ D u zeroD
-  returnLetV (D u _u') = Identity $ D u zeroD
-  returnLetL (D u _u') = Identity $ D u zeroD
 
 -- The general case, needed for old, hacky tests before 'Delta' extension.
 --
@@ -82,26 +80,10 @@ newtype DeltaMonadGradient r a = DeltaMonadGradient
 
 instance IsScalar r => DeltaMonad r (DeltaMonadGradient r) where
   returnLet (D u u') = DeltaMonadGradient $ do
-    did@(DeltaId i) <- gets deltaCounter0
-    modify $ \s ->
-      s { deltaCounter0 = DeltaId $ succ i
-        , deltaBindings = DScalar did u' : deltaBindings s
-        }
-    return $! D u (varD $ DeltaId i)
-  returnLetV (D u u') = DeltaMonadGradient $ do
-    did@(DeltaId i) <- gets deltaCounter1
-    modify $ \s ->
-      s { deltaCounter1 = DeltaId $ succ i
-        , deltaBindings = DVector did u' : deltaBindings s
-        }
-    return $! D u (varD $ DeltaId i)
-  returnLetL (D u u') = DeltaMonadGradient $ do
-    did@(DeltaId i) <- gets deltaCounter2
-    modify $ \s ->
-      s { deltaCounter2 = DeltaId $ succ i
-        , deltaBindings = DMatrix did u' : deltaBindings s
-        }
-    return $! D u (varD $ DeltaId i)
+    st <- get
+    let (!stNew, !dId) = bindInState u' st
+    put stNew
+    return $! D u (varD dId)
 
 -- The functions in which @generalDf@ inlines and which are used in client code
 -- are not inlined there, so the bloat is limited.

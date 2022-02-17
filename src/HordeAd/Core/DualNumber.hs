@@ -19,9 +19,7 @@ data DualNumber a = D a (DeltaExpression a)
 
 class (Monad m, Functor m, Applicative m, IsScalar r)
       => DeltaMonad r m | m -> r where
-  returnLet :: DualNumber r -> m (DualNumber r)
-  returnLetV :: DualNumber (Vector r) -> m (DualNumber (Vector r))
-  returnLetL :: DualNumber (Matrix r) -> m (DualNumber (Matrix r))
+  returnLet :: IsTensorWithScalar a r => DualNumber a -> m (DualNumber a)
 
 
 -- * General non-monadic operations
@@ -296,35 +294,35 @@ lossCrossEntropy targ res = do
 
 tanhActV :: (DeltaMonad r m, Floating (Vector r))
          => DualNumber (Vector r) -> m (DualNumber (Vector r))
-tanhActV = returnLetV . tanh
+tanhActV = returnLet . tanh
 
 reluActV :: (DeltaMonad r m, Ord r)
          => DualNumber (Vector r) -> m (DualNumber (Vector r))
 reluActV dn@(D u _) = do
   let oneIfGtZero = V.map (\x -> if x > 0 then 1 else 0) u
-  returnLetV $ scale oneIfGtZero dn
+  returnLet $ scale oneIfGtZero dn
     -- I have a bad feeling about this
 
 reluLeakyActV :: (DeltaMonad r m, Fractional r, Ord r)
               => DualNumber (Vector r) -> m (DualNumber (Vector r))
 reluLeakyActV dn@(D u _) = do
   let oneIfGtZero = V.map (\x -> if x > 0 then 1 else 0.01) u
-  returnLetV $ scale oneIfGtZero dn
+  returnLet $ scale oneIfGtZero dn
 
 logisticActV :: (DeltaMonad r m, Floating (Vector r))
              => DualNumber (Vector r)
              -> m (DualNumber (Vector r))
-logisticActV = returnLetV . logistic
+logisticActV = returnLet . logistic
 
 softMaxActV :: (DeltaMonad r m, Fractional r, Floating (Vector r))
             => DualNumber (Vector r)
             -> m (DualNumber (Vector r))
 softMaxActV d@(D u _) = do
-  expU <- returnLetV $ exp d
+  expU <- returnLet $ exp d
   let sumExpU = sumElements1 expU
   -- This has to be let-bound, because it's used many times below.
   recipSum <- returnLet $ recip sumExpU
-  returnLetV $ konst1 recipSum (V.length u) * expU
+  returnLet $ konst1 recipSum (V.length u) * expU
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
 lossCrossEntropyV :: (DeltaMonad r m, Floating (Vector r))
@@ -365,4 +363,4 @@ lossSoftMaxCrossEntropyL target (D u u') = do
       softMaxU = HM.asRow recipSum * expU
                    -- this @asRow@ is safe; multiplied at once
       scaled = D (log softMaxU * target) (scaleD (softMaxU - target) u')
-  returnLetV $ sumColumns2 scaled
+  returnLet $ sumColumns2 scaled

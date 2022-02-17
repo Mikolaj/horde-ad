@@ -19,7 +19,8 @@
 -- A lot of the remaining additional structure is for introducing
 -- and reducing dimensions.
 module HordeAd.Core.Delta
-  ( IsScalar, IsTensor(DeltaExpression, zeroD, scaleD, addD, varD)
+  ( IsScalar, IsTensorWithScalar
+  , IsTensor(DeltaExpression, zeroD, scaleD, addD, varD, bindInState)
   , DeltaScalar (..), DeltaVector (..), DeltaMatrix (..)
   , DeltaId (..)
   , DeltaBinding (..)
@@ -50,6 +51,19 @@ class IsTensor a where
   scaleD :: a -> DeltaExpression a -> DeltaExpression a
   addD :: DeltaExpression a -> DeltaExpression a -> DeltaExpression a
   varD :: DeltaId a -> DeltaExpression a
+  type ScalarOfTensor a
+  bindInState :: DeltaExpression a
+              -> DeltaState (ScalarOfTensor a)
+              -> (DeltaState (ScalarOfTensor a), DeltaId a)
+
+bindScalarInState :: DeltaScalar r -> DeltaState r -> (DeltaState r, DeltaId r)
+{-# INLINE bindScalarInState #-}
+bindScalarInState u' st =
+  let dId@(DeltaId i) = deltaCounter0 st
+  in ( st { deltaCounter0 = DeltaId $ succ i
+          , deltaBindings = DScalar dId u' : deltaBindings st
+          }
+     , dId )
 
 instance IsTensor Double where
   type DeltaExpression Double = DeltaScalar Double
@@ -57,6 +71,9 @@ instance IsTensor Double where
   scaleD = ScaleScalar
   addD = AddScalar
   varD = VarScalar
+  type ScalarOfTensor Double = Double
+  {-# INLINE bindInState #-}
+  bindInState = bindScalarInState
 
 instance IsTensor Float where
   type DeltaExpression Float = DeltaScalar Float
@@ -64,6 +81,9 @@ instance IsTensor Float where
   scaleD = ScaleScalar
   addD = AddScalar
   varD = VarScalar
+  type ScalarOfTensor Float = Float
+  {-# INLINE bindInState #-}
+  bindInState = bindScalarInState
 
 instance IsTensor (Vector r) where
   type DeltaExpression (Vector r) = DeltaVector r
@@ -71,6 +91,14 @@ instance IsTensor (Vector r) where
   scaleD = ScaleVector
   addD = AddVector
   varD = VarVector
+  type ScalarOfTensor (Vector r) = r
+  {-# INLINE bindInState #-}
+  bindInState u' st =
+    let dId@(DeltaId i) = deltaCounter1 st
+    in ( st { deltaCounter1 = DeltaId $ succ i
+            , deltaBindings = DVector dId u' : deltaBindings st
+            }
+       , dId )
 
 instance IsTensor (Matrix r) where
   type DeltaExpression (Matrix r) = DeltaMatrix r
@@ -78,11 +106,22 @@ instance IsTensor (Matrix r) where
   scaleD = ScaleMatrix
   addD = AddMatrix
   varD = VarMatrix
+  type ScalarOfTensor (Matrix r) = r
+  {-# INLINE bindInState #-}
+  bindInState u' st =
+    let dId@(DeltaId i) = deltaCounter2 st
+    in ( st { deltaCounter2 = DeltaId $ succ i
+            , deltaBindings = DMatrix dId u' : deltaBindings st
+            }
+       , dId )
 
 -- | This is a mega-shorthand for a bundle of connected type constraints.
-type IsScalar r = ( DeltaExpression r ~ DeltaScalar r
+type IsScalar r = ( DeltaExpression r ~ DeltaScalar r, ScalarOfTensor r ~ r
                   , IsTensor r, IsTensor (Vector r), IsTensor (Matrix r)
                   , Numeric r, Num (Vector r), Num (Matrix r) )
+
+-- | A more modest shorthand.
+type IsTensorWithScalar a r = (IsTensor a, ScalarOfTensor a ~ r)
 
 -- | This is the grammar of delta-expressions at tensor rank 0, that is,
 -- at scalar level. Some of these operations have different but inter-related

@@ -44,7 +44,7 @@ hiddenLayerSinRNN x s variables = do
   let wX = varL variables 0
       wS = varL variables 1
       b = varV variables 0
-  y <- returnLetV $ wX #>!! V.singleton x + wS #>! s + b
+  y <- returnLet $ wX #>!! V.singleton x + wS #>! s + b
   yLogistic <- logisticActV y
   return (y, yLogistic)
 
@@ -205,7 +205,7 @@ hiddenLayerSinRNNV :: (DeltaMonad r m, Floating (Vector r))
 hiddenLayerSinRNNV x s variables = do
   let wX = varV variables 0
       b = varV variables 31
-  y <- returnLetV
+  y <- returnLet
        $ scale (HM.konst x 30) wX + sumTrainableInputsL s 1 variables 30 + b
   yLogistic <- logisticActV y
   return (y, yLogistic)
@@ -329,7 +329,7 @@ outputLayerMnistRNNL :: DeltaMonad r m
 outputLayerMnistRNNL vec variables = do
   let w = varL variables 2  -- 10x128
       b = varV variables 1  -- 10
-  returnLetV $ w #>! vec + b  -- I assume there is no activations, as per https://www.tensorflow.org/api_docs/python/tf/compat/v1/layers/dense
+  returnLet $ w #>! vec + b  -- I assume there is no activations, as per https://www.tensorflow.org/api_docs/python/tf/compat/v1/layers/dense
 
 fcfcrnnMnistL :: (DeltaMonad r m, Floating (Vector r))
               => Vector r
@@ -440,7 +440,7 @@ outputLayerMnistRNNV :: DeltaMonad r m
                      -> m (DualNumber (Vector r))
 outputLayerMnistRNNV width vec variables = do
   let b = varV variables (width + width + 1 + 10)  -- 10
-  returnLetV $ sumTrainableInputsL vec (width + width + 1) variables 10 + b
+  returnLet $ sumTrainableInputsL vec (width + width + 1) variables 10 + b
 
 fcfcrnnMnistV :: (DeltaMonad r m, Floating (Vector r))
               => Int
@@ -570,7 +570,7 @@ hiddenLayerMnistRNNB x s variables = do
       b = varV variables 0  -- 128
       batchSize = HM.cols x
       y = wX <>!! x + wS <>! s + asColumn2 b batchSize
-  yTanh <- returnLetL $ tanh y
+  yTanh <- returnLet $ tanh y
   return (yTanh, yTanh)
 
 middleLayerMnistRNNB :: (DeltaMonad r m, Floating (Matrix r))
@@ -584,7 +584,7 @@ middleLayerMnistRNNB batchOfVec@(D u _) s variables = do
       b = varV variables 2  -- 128
       batchSize = HM.cols u
       y = wX <>! batchOfVec + wS <>! s + asColumn2 b batchSize
-  yTanh <- returnLetL $ tanh y
+  yTanh <- returnLet $ tanh y
   return (yTanh, yTanh)
 
 outputLayerMnistRNNB :: DeltaMonad r m
@@ -595,7 +595,7 @@ outputLayerMnistRNNB batchOfVec@(D u _) variables = do
   let w = varL variables 2  -- 10x128
       b = varV variables 1  -- 10
       batchSize = HM.cols u
-  returnLetL $ w <>! batchOfVec + asColumn2 b batchSize
+  returnLet $ w <>! batchOfVec + asColumn2 b batchSize
 
 fcfcrnnMnistB :: (DeltaMonad r m, Floating (Matrix r))
               => Matrix r
