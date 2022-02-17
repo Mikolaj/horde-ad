@@ -15,11 +15,13 @@ import Prelude
 
 import           Control.Monad.Trans.State.Strict
 import           Data.Functor.Identity
+import           Data.List (foldl')
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           System.Random
+import           Text.Show.Pretty (ppShow)
 
 import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber (DeltaMonad (..), DualNumber (..))
@@ -137,11 +139,14 @@ prettyPrintDf f parameters@(params, paramsV, paramsL) =
                              initialState
       ppBinding :: DeltaBinding r -> [String]
       ppBinding = \case
-        DScalar (DeltaId i) d -> ["letS x", show i, " = ", show d, "\n"]
-        DVector (DeltaId i) d -> ["letV x", show i, " = ", show d, "\n"]
-        DMatrix (DeltaId i) d -> ["letM x", show i, " = ", show d, "\n"]
-  in concat $ foldr (\b l -> ppBinding b ++ l) [show d0]
-                    (deltaBindings st)
+        DScalar (DeltaId i) d ->
+          ["letS DeltaId_", show i, " = ", ppShow d, "\n"]
+        DVector (DeltaId i) d ->
+          ["letV DeltaId_", show i, " = ", ppShow d, "\n"]
+        DMatrix (DeltaId i) d ->
+          ["letM DeltaId_", show i, " = ", ppShow d, "\n"]
+  in concat $ foldl' (\ !l b -> ppBinding b ++ l) ["in " ++ ppShow d0]
+                     (deltaBindings st)
 
 generateDeltaVars :: IsScalar r
                   => Domains r -> ( Data.Vector.Vector (DeltaScalar r)

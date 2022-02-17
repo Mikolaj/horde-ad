@@ -257,19 +257,19 @@ mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
 dumbMnistTests :: TestTree
 dumbMnistTests = testGroup "Dumb MNIST tests"
   [ testCase "1pretty-print in grey 3 2" $ do
-      let (nParams, lParamsV, lParamsL) = lenMnistFcnn2L 3 2
+      let (nParams, lParamsV, lParamsL) = lenMnistFcnn2L 4 3
           vParamsV = V.fromList lParamsV
           vParamsL = V.fromList lParamsL
-          params = V.replicate nParams (0.1 :: Float)
-          paramsV = V.map (`V.replicate` 0.2) vParamsV
-          paramsL = V.map (HM.konst 0.3) vParamsL
-          blackGlyph = V.replicate sizeMnistGlyph 0.4
-          blackLabel = V.replicate sizeMnistLabel 0.5
+          params = V.replicate nParams (1 :: Float)
+          paramsV = V.map (`V.replicate` 2) vParamsV
+          paramsL = V.map (HM.konst 3) vParamsL
+          blackGlyph = V.replicate sizeMnistGlyph 4
+          blackLabel = V.replicate sizeMnistLabel 5
           trainData = (blackGlyph, blackLabel)
           output = prettyPrintDf (nnMnistLoss2L trainData)
                                  (params, paramsV, paramsL)
       -- printf "%s" output
-      length output @?= 4493
+      length output @?= 13492
   , let blackGlyph = V.replicate sizeMnistGlyph 0
         blackLabel = V.replicate sizeMnistLabel 0
         trainData = replicate 10 (blackGlyph, blackLabel)

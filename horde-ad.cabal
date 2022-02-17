@@ -133,6 +133,7 @@ library
       , bytestring
       , hmatrix
       , mnist-idx
+      , pretty-show
       , random
       , strict-containers
       , transformers
