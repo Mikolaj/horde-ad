@@ -140,11 +140,11 @@ prettyPrintDf f parameters@(params, paramsV, paramsL) =
                              initialState
       ppBinding :: DeltaBinding r -> [String]
       ppBinding = \case
-        DScalar (DeltaId i) d ->
+        DeltaBinding0 (DeltaId i) d ->
           ["letS DeltaId_", show i, " = ", ppShow d, "\n"]
-        DVector (DeltaId i) d ->
+        DeltaBinding1 (DeltaId i) d ->
           ["letV DeltaId_", show i, " = ", ppShow d, "\n"]
-        DMatrix (DeltaId i) d ->
+        DeltaBinding2 (DeltaId i) d ->
           ["letM DeltaId_", show i, " = ", ppShow d, "\n"]
   in concat $ foldl' (\ !l b -> ppBinding b ++ l) ["in " ++ ppShow d0]
                      (deltaBindings st)

@@ -248,7 +248,7 @@ ar2Sin yLast s variables = do
   let c = var variables 0
       phi1 = var variables 1
       phi2 = var variables 2
-      yLastLast = index1 s 0  -- dummy vector for compatibility
+      yLastLast = index0 s 0  -- dummy vector for compatibility
   y <- returnLet $ c + scale yLast phi1 + phi2 * yLastLast
   return (y, scalar $ V.singleton yLast)
 
@@ -660,7 +660,7 @@ nnMnistRNNLossB width (xs, target) variables = do
   result <- nnMnistRNNB width xs variables
   vec@(D u _) <- lossSoftMaxCrossEntropyL target result
     -- this @asRow@ is safe, because it gets multiplied/subtracted right away
-  returnLet $ scale (recip $ fromIntegral $ V.length u) $ sumElements1 vec
+  returnLet $ scale (recip $ fromIntegral $ V.length u) $ sumElements0 vec
 
 nnMnistRNNLossB2 :: (DeltaMonad r m, Fractional r, Floating (Matrix r))
                  => Int
@@ -670,7 +670,7 @@ nnMnistRNNLossB2 :: (DeltaMonad r m, Fractional r, Floating (Matrix r))
 nnMnistRNNLossB2 width (xs, target) variables = do
   result <- nnMnistRNNB2 width xs variables
   vec@(D u _) <- lossSoftMaxCrossEntropyL target result
-  returnLet $ scale (recip $ fromIntegral $ V.length u) $ sumElements1 vec
+  returnLet $ scale (recip $ fromIntegral $ V.length u) $ sumElements0 vec
 
 mnistTestCaseRNNB
   :: String

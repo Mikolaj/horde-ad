@@ -51,20 +51,20 @@ makeDualNumberVariables
 
 type DualNumberVariables r =
   ( Vector r
-  , Data.Vector.Vector (DeltaScalar r)
+  , Data.Vector.Vector (Delta0 r)
   , Data.Vector.Vector (Vector r)
-  , Data.Vector.Vector (DeltaVector r)
+  , Data.Vector.Vector (Delta1 r)
   , Data.Vector.Vector (Matrix r)
-  , Data.Vector.Vector (DeltaMatrix r)
+  , Data.Vector.Vector (Delta2 r)
   )
 
 makeDualNumberVariables
   :: ( Vector r
      , Data.Vector.Vector (Vector r)
      , Data.Vector.Vector (Matrix r) )
-  -> ( Data.Vector.Vector (DeltaScalar r)
-     , Data.Vector.Vector (DeltaVector r)
-     , Data.Vector.Vector (DeltaMatrix r) )
+  -> ( Data.Vector.Vector (Delta0 r)
+     , Data.Vector.Vector (Delta1 r)
+     , Data.Vector.Vector (Delta2 r) )
   -> DualNumberVariables r
 {-# INLINE makeDualNumberVariables #-}
 makeDualNumberVariables (params, paramsV, paramsL) (vs, vsV, vsL)

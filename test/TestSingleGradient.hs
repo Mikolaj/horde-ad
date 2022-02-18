@@ -183,9 +183,9 @@ atanReadmePolyV :: (RealFloat r, IsScalar r)
                 => DualNumberVariables r -> DualNumber (Vector r)
 atanReadmePolyV variables =
   let xyzVector = varV variables 0
-      x = index1 xyzVector 0
-      y = index1 xyzVector 1
-      z = index1 xyzVector 2
+      x = index0 xyzVector 0
+      y = index0 xyzVector 1
+      z = index0 xyzVector 2
       w = x * sin y
   in deltaSeq1 $ V.fromList [atan2 z w, z * x]
 

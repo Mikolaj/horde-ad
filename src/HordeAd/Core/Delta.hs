@@ -19,7 +19,7 @@
 -- and reducing dimensions.
 module HordeAd.Core.Delta
   ( -- * Abstract syntax trees of the delta expressions
-    DeltaScalar (..), DeltaVector (..), DeltaMatrix (..)
+    Delta0 (..), Delta1 (..), Delta2 (..)
   , -- * Delta expression identifiers
     DeltaId (..)
   , -- * Evaluation of the delta expressions
@@ -51,53 +51,53 @@ import qualified HordeAd.Internal.MatrixOuter as MO
 -- In other words, for each choice of the underlying scalar type @r@,
 -- we have three primitive differentiable types based on the scalar:
 -- the scalar type @r@ itself, @Vector r@ and @Matrix r@.
-data DeltaScalar r =
-    ZeroScalar
-  | ScaleScalar r (DeltaScalar r)
-  | AddScalar (DeltaScalar r) (DeltaScalar r)
-  | VarScalar (DeltaId r)
+data Delta0 r =
+    Zero0
+  | Scale0 r (Delta0 r)
+  | Add0 (Delta0 r) (Delta0 r)
+  | Var0 (DeltaId r)
 
-  | Dot1 (Vector r) (DeltaVector r)
-  | SumElements1 (DeltaVector r) Int
-  | Index1 (DeltaVector r) Int Int
+  | Dot0 (Vector r) (Delta1 r)
+  | SumElements0 (Delta1 r) Int
+  | Index0 (Delta1 r) Int Int
   deriving Show
 
 -- | This is the grammar of delta-expressions at tensor rank 1, that is,
 -- at vector level.
-data DeltaVector r =
-    ZeroVector
-  | ScaleVector (Vector r) (DeltaVector r)
-  | AddVector (DeltaVector r) (DeltaVector r)
-  | VarVector (DeltaId (Vector r))
+data Delta1 r =
+    Zero1
+  | Scale1 (Vector r) (Delta1 r)
+  | Add1 (Delta1 r) (Delta1 r)
+  | Var1 (DeltaId (Vector r))
 
-  | Seq1 (Data.Vector.Vector (DeltaScalar r))
-  | Konst1 (DeltaScalar r)
-  | Append1 (DeltaVector r) Int (DeltaVector r)
-  | Slice1 Int Int (DeltaVector r) Int
-  | M_VD2 (Matrix r) (DeltaVector r)
-  | MD_V2 (DeltaMatrix r) (Vector r)
-  | SumRows2 (DeltaMatrix r) Int
-  | SumColumns2 (DeltaMatrix r) Int
+  | Seq1 (Data.Vector.Vector (Delta0 r))
+  | Konst1 (Delta0 r)
+  | Append1 (Delta1 r) Int (Delta1 r)
+  | Slice1 Int Int (Delta1 r) Int
+  | M_VD1 (Matrix r) (Delta1 r)
+  | MD_V1 (Delta2 r) (Vector r)
+  | SumRows1 (Delta2 r) Int
+  | SumColumns1 (Delta2 r) Int
   deriving Show
 
 -- | This is the grammar of delta-expressions at tensor rank 1, that is,
 -- at matrix level.
-data DeltaMatrix r =
-    ZeroMatrix
-  | ScaleMatrix (Matrix r) (DeltaMatrix r)
-  | AddMatrix (DeltaMatrix r) (DeltaMatrix r)
-  | VarMatrix (DeltaId (Matrix r))
+data Delta2 r =
+    Zero2
+  | Scale2 (Matrix r) (Delta2 r)
+  | Add2 (Delta2 r) (Delta2 r)
+  | Var2 (DeltaId (Matrix r))
 
-  | Seq2 (Data.Vector.Vector (DeltaVector r))
-  | Transpose2 (DeltaMatrix r)
-  | M_MD2 (Matrix r) (DeltaMatrix r)
-  | MD_M2 (DeltaMatrix r) (Matrix r)
-  | AsRow2 (DeltaVector r)
-  | AsColumn2 (DeltaVector r)
-  | RowAppend2 (DeltaMatrix r) Int (DeltaMatrix r)
-  | ColumnAppend2 (DeltaMatrix r) Int (DeltaMatrix r)
-  | RowSlice2 Int Int (DeltaMatrix r) Int Int
-  | ColumnSlice2 Int Int (DeltaMatrix r) Int Int
+  | Seq2 (Data.Vector.Vector (Delta1 r))
+  | Transpose2 (Delta2 r)
+  | M_MD2 (Matrix r) (Delta2 r)
+  | MD_M2 (Delta2 r) (Matrix r)
+  | AsRow2 (Delta1 r)
+  | AsColumn2 (Delta1 r)
+  | RowAppend2 (Delta2 r) Int (Delta2 r)
+  | ColumnAppend2 (Delta2 r) Int (Delta2 r)
+  | RowSlice2 Int Int (Delta2 r) Int Int
+  | ColumnSlice2 Int Int (Delta2 r) Int Int
   deriving Show
 
 
@@ -113,9 +113,9 @@ newtype DeltaId a = DeltaId Int
 -- but it costs more (they are boxed) than storing them here at the time
 -- of binding creation.
 data DeltaBinding r =
-    DScalar (DeltaId r) (DeltaScalar r)
-  | DVector (DeltaId (Vector r)) (DeltaVector r)
-  | DMatrix (DeltaId (Matrix r)) (DeltaMatrix r)
+    DeltaBinding0 (DeltaId r) (Delta0 r)
+  | DeltaBinding1 (DeltaId (Vector r)) (Delta1 r)
+  | DeltaBinding2 (DeltaId (Matrix r)) (Delta2 r)
 
 data DeltaState r = DeltaState
   { deltaCounter0 :: DeltaId r
@@ -134,7 +134,7 @@ data DeltaState r = DeltaState
 -- that are to be evaluated, in the given order, starting with the top-level
 -- binding of a scalar type provided in the remaining argument.
 evalBindings :: (Eq r, Numeric r, Num (Vector r))
-             => Int -> Int -> Int -> DeltaState r -> DeltaScalar r
+             => Int -> Int -> Int -> DeltaState r -> Delta0 r
              -> ( Vector r
                 , Data.Vector.Vector (Vector r)
                 , Data.Vector.Vector (Matrix r) )
@@ -152,7 +152,7 @@ evalBindings dim0 dim1 dim2 st deltaTopLevel =
     return (v0, v1, V.map MO.convertMatrixOuterOrNull v2)
 
 buildVectors :: forall s r. (Eq r, Numeric r, Num (Vector r))
-             => DeltaState r -> DeltaScalar r
+             => DeltaState r -> Delta0 r
              -> ST s ( Data.Vector.Storable.Mutable.MVector s r
                      , Data.Vector.Mutable.MVector s (Vector r)
                      , Data.Vector.Mutable.MVector s (MO.MatrixOuter r) )
@@ -167,50 +167,50 @@ buildVectors st deltaTopLevel = do
       addToVector r = \v -> if V.null v then r else v + r
       addToMatrix :: MO.MatrixOuter r -> MO.MatrixOuter r -> MO.MatrixOuter r
       addToMatrix r = \v -> if MO.nullMatrixOuter v then r else MO.plus v r
-      eval0 :: r -> DeltaScalar r -> ST s ()
+      eval0 :: r -> Delta0 r -> ST s ()
       eval0 !r = \case
-        ZeroScalar -> return ()
-        ScaleScalar k d -> eval0 (k * r) d
-        AddScalar d e -> eval0 r d >> eval0 r e
-        VarScalar (DeltaId i) -> VM.modify store0 (+ r) i
+        Zero0 -> return ()
+        Scale0 k d -> eval0 (k * r) d
+        Add0 d e -> eval0 r d >> eval0 r e
+        Var0 (DeltaId i) -> VM.modify store0 (+ r) i
 
-        Dot1 vr vd -> eval1 (HM.scale r vr) vd
-        SumElements1 vd n -> eval1 (HM.konst r n) vd
-        Index1 d i k -> eval1 (HM.konst 0 k V.// [(i, r)]) d
-      eval1 :: Vector r -> DeltaVector r -> ST s ()
+        Dot0 vr vd -> eval1 (HM.scale r vr) vd
+        SumElements0 vd n -> eval1 (HM.konst r n) vd
+        Index0 d i k -> eval1 (HM.konst 0 k V.// [(i, r)]) d
+      eval1 :: Vector r -> Delta1 r -> ST s ()
       eval1 !r = \case
-        ZeroVector -> return ()
-        ScaleVector k d -> eval1 (k * r) d
-        AddVector d e -> eval1 r d >> eval1 r e
-        VarVector (DeltaId i) -> VM.modify store1 (addToVector r) i
+        Zero1 -> return ()
+        Scale1 k d -> eval1 (k * r) d
+        Add1 d e -> eval1 r d >> eval1 r e
+        Var1 (DeltaId i) -> VM.modify store1 (addToVector r) i
 
         Seq1 vd -> V.imapM_ (\i d -> eval0 (r V.! i) d) vd
         Konst1 d -> V.mapM_ (`eval0` d) r
         Append1 d k e -> eval1 (V.take k r) d >> eval1 (V.drop k r) e
         Slice1 i n d len ->
           eval1 (HM.konst 0 i V.++ r V.++ HM.konst 0 (len - i - n)) d
-        M_VD2 m dRow ->
+        M_VD1 m dRow ->
           mapM_ (`eval1` dRow)
                 (MO.toRows (MO.MatrixOuter (Just m) (Just r) Nothing))
-        MD_V2 md row -> eval2 (MO.MatrixOuter Nothing (Just r) (Just row)) md
-        SumRows2 dm ncols -> eval2 (MO.asColumn r ncols) dm
-        SumColumns2 dm nrows -> eval2 (MO.asRow r nrows) dm
-      eval2 :: MO.MatrixOuter r -> DeltaMatrix r -> ST s ()
+        MD_V1 md row -> eval2 (MO.MatrixOuter Nothing (Just r) (Just row)) md
+        SumRows1 dm ncols -> eval2 (MO.asColumn r ncols) dm
+        SumColumns1 dm nrows -> eval2 (MO.asRow r nrows) dm
+      eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
       eval2 !r = \case
-        ZeroMatrix -> return ()
-        ScaleMatrix k d -> eval2 (MO.multiplyWithOuter k r) d
-        AddMatrix d e -> eval2 r d >> eval2 r e
-        VarMatrix (DeltaId i) -> VM.modify store2 (addToMatrix r) i
+        Zero2 -> return ()
+        Scale2 k d -> eval2 (MO.multiplyWithOuter k r) d
+        Add2 d e -> eval2 r d >> eval2 r e
+        Var2 (DeltaId i) -> VM.modify store2 (addToMatrix r) i
 
         Seq2 md -> zipWithM_ eval1 (MO.toRows r) (V.toList md)
         Transpose2 md -> eval2 (MO.transpose r) md  -- TODO: test!
-        M_MD2 m md -> zipWithM_ (\rRow row -> eval1 rRow (MD_V2 md row))
+        M_MD2 m md -> zipWithM_ (\rRow row -> eval1 rRow (MD_V1 md row))
                                 (HM.toRows m) (MO.toRows r)
 --      M_MD2 m md ->
 --        zipWithM_ (\rRow row ->
 --                     eval2 (MO.MatrixOuter Nothing (Just rRow) (Just row)) md)
 --                  (HM.toRows m) (MO.toRows r)
-        MD_M2 md m -> zipWithM_ (\rCol col -> eval1 rCol (MD_V2 md col))
+        MD_M2 md m -> zipWithM_ (\rCol col -> eval1 rCol (MD_V1 md col))
                                 (MO.toColumns r) (HM.toColumns m)
 --      MD_M2 md m ->
 --        zipWithM_ (\rCol col ->
@@ -234,15 +234,15 @@ buildVectors st deltaTopLevel = do
                 d
   eval0 1 deltaTopLevel  -- dt is 1 or hardwired in f
   let evalUnlessZero :: DeltaBinding r -> ST s ()
-      evalUnlessZero (DScalar (DeltaId i) d) = do
+      evalUnlessZero (DeltaBinding0 (DeltaId i) d) = do
         r <- store0 `VM.read` i
         unless (r == 0) $  -- we init with exactly 0 so the comparison is OK
           eval0 r d
-      evalUnlessZero (DVector (DeltaId i) d) = do
+      evalUnlessZero (DeltaBinding1 (DeltaId i) d) = do
         r <- store1 `VM.read` i
         unless (V.null r) $
           eval1 r d
-      evalUnlessZero (DMatrix (DeltaId i) d) = do
+      evalUnlessZero (DeltaBinding2 (DeltaId i) d) = do
         r <- store2 `VM.read` i
         unless (MO.nullMatrixOuter r) $
           eval2 r d

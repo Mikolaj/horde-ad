@@ -269,7 +269,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           output = prettyPrintDf (nnMnistLoss2L trainData)
                                  (params, paramsV, paramsL)
       -- printf "%s" output
-      length output @?= 13492
+      length output @?= 13344
   , testCase "2pretty-print in grey 3 2 fused" $ do
       let (nParams, lParamsV, lParamsL) = lenMnistFcnn2L 4 3
           vParamsV = V.fromList lParamsV
@@ -283,7 +283,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           output = prettyPrintDf (nnMnistLossFused2L trainData)
                                  (params, paramsV, paramsL)
       -- printf "%s" output
-      length output @?= 12510
+      length output @?= 12419
   , let blackGlyph = V.replicate sizeMnistGlyph 0
         blackLabel = V.replicate sizeMnistLabel 0
         trainData = replicate 10 (blackGlyph, blackLabel)

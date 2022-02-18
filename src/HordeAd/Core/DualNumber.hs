@@ -11,7 +11,7 @@ import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, (#>), (<.>))
 import qualified Numeric.LinearAlgebra as HM
 
-import HordeAd.Core.Delta (DeltaMatrix (..), DeltaScalar (..), DeltaVector (..))
+import HordeAd.Core.Delta (Delta0 (..), Delta1 (..), Delta2 (..))
 import HordeAd.Core.IsTensor
 
 -- * The main dual number types
@@ -112,24 +112,24 @@ infixr 8 <.>!
        => DualNumber (Vector r)
        -> DualNumber (Vector r)
        -> DualNumber r
-(<.>!) (D u u') (D v v') = D (u <.> v) (addD (Dot1 v u') (Dot1 u v'))
+(<.>!) (D u u') (D v v') = D (u <.> v) (addD (Dot0 v u') (Dot0 u v'))
 
 infixr 8 <.>!!
 (<.>!!) :: IsScalar r
         => DualNumber (Vector r)
         -> Vector r
         -> DualNumber r
-(<.>!!) (D u u') v = D (u <.> v) (Dot1 v u')
+(<.>!!) (D u u') v = D (u <.> v) (Dot0 v u')
 
-sumElements1 :: IsScalar r => DualNumber (Vector r) -> DualNumber r
-sumElements1 (D u u') = D (HM.sumElements u) (SumElements1 u' (V.length u))
+sumElements0 :: IsScalar r => DualNumber (Vector r) -> DualNumber r
+sumElements0 (D u u') = D (HM.sumElements u) (SumElements0 u' (V.length u))
 
 konst1 :: IsScalar r => DualNumber r -> Int -> DualNumber (Vector r)
 konst1 (D u u') n = D (HM.konst u n) (Konst1 u')
 
-index1 :: IsScalar r
+index0 :: IsScalar r
        => DualNumber (Vector r) -> Int -> DualNumber r
-index1 (D u u') i = D (u V.! i) (Index1 u' i (V.length u))
+index0 (D u u') i = D (u V.! i) (Index0 u' i (V.length u))
 
 append1 :: Numeric r
         => DualNumber (Vector r) -> DualNumber (Vector r)
@@ -157,11 +157,7 @@ infixr 8 #>!
       => DualNumber (Matrix r)
       -> DualNumber (Vector r)
       -> DualNumber (Vector r)
-(#>!) (D u u') (D v v') = D (u #> v) (addD (MD_V2 u' v) (M_VD2 u v'))
-
--- The old unoptimized version:
--- D (u #> v) (addD (Dot2 (asRow v) u')
---                  (Dot2 u (AsRow2 v')))
+(#>!) (D u u') (D v v') = D (u #> v) (addD (MD_V1 u' v) (M_VD1 u v'))
 
 -- | Dense matrix-vector product with a constant vector.
 infixr 8 #>!!
@@ -169,10 +165,7 @@ infixr 8 #>!!
        => DualNumber (Matrix r)
        -> Vector r
        -> DualNumber (Vector r)
-(#>!!) (D u u') v = D (u #> v) (MD_V2 u' v)
-
--- The old unoptimized version:
--- (#>!!) (D u u') v = D (u #> v) (Dot2 (asRow v) u')
+(#>!!) (D u u') v = D (u #> v) (MD_V1 u' v)
 
 -- | Dense matrix-matrix product.
 --
@@ -194,13 +187,13 @@ infixr 8 <>!!
        -> DualNumber (Matrix r)
 (<>!!) (D u u') v = D (u HM.<> v) (MD_M2 u' v)
 
-sumRows2 :: Numeric r => DualNumber (Matrix r) -> DualNumber (Vector r)
-sumRows2 (D u u') = D (V.fromList $ map HM.sumElements $ HM.toRows u)
-                      (SumRows2 u' (HM.cols u))
+sumRows1 :: Numeric r => DualNumber (Matrix r) -> DualNumber (Vector r)
+sumRows1 (D u u') = D (V.fromList $ map HM.sumElements $ HM.toRows u)
+                      (SumRows1 u' (HM.cols u))
 
-sumColumns2 :: Numeric r => DualNumber (Matrix r) -> DualNumber (Vector r)
-sumColumns2 (D u u') = D (V.fromList $ map HM.sumElements $ HM.toColumns u)
-                         (SumColumns2 u' (HM.rows u))
+sumColumns1 :: Numeric r => DualNumber (Matrix r) -> DualNumber (Vector r)
+sumColumns1 (D u u') = D (V.fromList $ map HM.sumElements $ HM.toColumns u)
+                         (SumColumns1 u' (HM.rows u))
 
 asRow2 :: Numeric r => DualNumber (Vector r) -> Int -> DualNumber (Matrix r)
 asRow2 (D u u') n = D (HM.fromRows $ replicate n u) (AsRow2 u')
@@ -311,7 +304,7 @@ softMaxActV :: (DeltaMonad r m, Fractional r, Floating (Vector r))
             -> m (DualNumber (Vector r))
 softMaxActV d@(D u _) = do
   expU <- returnLet $ exp d
-  let sumExpU = sumElements1 expU
+  let sumExpU = sumElements0 expU
   -- This has to be let-bound, because it's used many times below.
   recipSum <- returnLet $ recip sumExpU
   returnLet $ konst1 recipSum (V.length u) * expU
@@ -339,7 +332,7 @@ lossSoftMaxCrossEntropyV target (D u u') = do
 -- not exposed: softMaxU = HM.scaleRecip sumExpU expU
       softMaxU = HM.scale recipSum expU
   returnLet $ D (negate $ log softMaxU <.> target)
-                (Dot1 (softMaxU - target) u')
+                (Dot0 (softMaxU - target) u')
 
 
 -- * Monadic operations for matrices
@@ -356,4 +349,4 @@ lossSoftMaxCrossEntropyL target (D u u') = do
                    -- this @asRow@ is safe; multiplied at once
       scaled = D (negate $ log softMaxU * target)
                  (scaleD (softMaxU - target) u')
-  returnLet $ sumColumns2 scaled
+  returnLet $ sumColumns1 scaled
