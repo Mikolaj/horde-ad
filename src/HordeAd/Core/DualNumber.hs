@@ -11,7 +11,8 @@ import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, (#>), (<.>))
 import qualified Numeric.LinearAlgebra as HM
 
-import HordeAd.Core.Delta
+import HordeAd.Core.Delta (DeltaMatrix (..), DeltaScalar (..), DeltaVector (..))
+import HordeAd.Core.IsTensor
 
 -- * The main dual number types
 

@@ -19,28 +19,28 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Vector)
 
-import HordeAd.Core.Delta
 import HordeAd.Core.DualNumber (DualNumber (..))
+import HordeAd.Core.IsTensor
 
 -- These are optimized as "pair of vectors" representing vectors of @DualNumber@
 -- in an efficient way (especially, or only, with gradient descent,
 -- where the vectors are reused in some ways).
 type DualNumberVariables r =
   ( Vector r
-  , Data.Vector.Vector (DeltaScalar r)
+  , Data.Vector.Vector (DeltaExpression r)
   , Data.Vector.Vector (Vector r)
-  , Data.Vector.Vector (DeltaVector r)
+  , Data.Vector.Vector (DeltaExpression (Vector r))
   , Data.Vector.Vector (Matrix r)
-  , Data.Vector.Vector (DeltaMatrix r)
+  , Data.Vector.Vector (DeltaExpression (Matrix r))
   )
 
 makeDualNumberVariables
   :: ( Vector r
      , Data.Vector.Vector (Vector r)
      , Data.Vector.Vector (Matrix r) )
-  -> ( Data.Vector.Vector (DeltaScalar r)
-     , Data.Vector.Vector (DeltaVector r)
-     , Data.Vector.Vector (DeltaMatrix r) )
+  -> ( Data.Vector.Vector (DeltaExpression r)
+     , Data.Vector.Vector (DeltaExpression (Vector r))
+     , Data.Vector.Vector (DeltaExpression (Matrix r)) )
   -> DualNumberVariables r
 {-# INLINE makeDualNumberVariables #-}
 makeDualNumberVariables (params, paramsV, paramsL) (vs, vsV, vsL)

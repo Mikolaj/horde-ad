@@ -4,8 +4,7 @@
 -- | Two implementations of the monad in which our dual numbers live
 -- and the implementation of deriving a gradient.
 module HordeAd.Core.Engine
-  ( IsScalar
-  , Domain, DomainV, DomainL,  Domains
+  ( Domain, DomainV, DomainL,  Domains
   , DeltaMonadValue, primalValueGeneric, primalValue
   , DeltaMonadGradient, generalDf, df, prettyPrintDf
   , generateDeltaVars, initializerFixed
@@ -24,7 +23,9 @@ import           System.Random
 import           Text.Show.Pretty (ppShow)
 
 import HordeAd.Core.Delta
+  (DeltaBinding (..), DeltaId (..), DeltaState (..), evalBindings)
 import HordeAd.Core.DualNumber (DeltaMonad (..), DualNumber (..))
+import HordeAd.Core.IsTensor
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 
 -- import Debug.Trace
@@ -149,9 +150,10 @@ prettyPrintDf f parameters@(params, paramsV, paramsL) =
                      (deltaBindings st)
 
 generateDeltaVars :: IsScalar r
-                  => Domains r -> ( Data.Vector.Vector (DeltaScalar r)
-                                  , Data.Vector.Vector (DeltaVector r)
-                                  , Data.Vector.Vector (DeltaMatrix r) )
+                  => Domains r
+                  -> ( Data.Vector.Vector (DeltaExpression r)
+                     , Data.Vector.Vector (DeltaExpression (Vector r))
+                     , Data.Vector.Vector (DeltaExpression (Matrix r)) )
 generateDeltaVars (params, paramsV, paramsL) =
   let vVar p = V.generate (V.length p) (varD . DeltaId)
   in (vVar params, vVar paramsV, vVar paramsL)
