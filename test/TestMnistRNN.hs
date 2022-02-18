@@ -146,7 +146,7 @@ prime :: IsScalar r
       => (r
           -> DualNumber (Vector r)
           -> DualNumberVariables r
-          -> DeltaMonadValue Double (DualNumber r, DualNumber (Vector r)))
+          -> DeltaMonadValue r (DualNumber r, DualNumber (Vector r)))
       -> Domains r
       -> Vector r
       -> [r]
@@ -158,7 +158,7 @@ feedback :: IsScalar r
          => (r
              -> DualNumber (Vector r)
              -> DualNumberVariables r
-             -> DeltaMonadValue Double (DualNumber r, DualNumber (Vector r)))
+             -> DeltaMonadValue r (DualNumber r, DualNumber (Vector r)))
          -> Domains r
          -> Vector r
          -> r

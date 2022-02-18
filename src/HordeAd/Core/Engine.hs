@@ -1,6 +1,5 @@
 {-# LANGUAGE ConstraintKinds, FlexibleInstances, GeneralizedNewtypeDeriving,
-             MultiParamTypeClasses, TypeFamilies, UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
+             MultiParamTypeClasses, TypeFamilies #-}
 -- | Two implementations of the monad in which our dual numbers live
 -- and the implementation of deriving a gradient.
 module HordeAd.Core.Engine
@@ -40,11 +39,16 @@ type Domains r = (Domain r, DomainV r, DomainL r)
 -- * First comes the dummy monad implementation that does not collect deltas.
 -- It's intended for efficiently calculating the value of the function only.
 
-type DeltaMonadValue r = Identity
+-- An overcomplicated
+-- @type DeltaMonadValue r = Identity@
+-- to avoid @-Wno-orphans@ and @UndecidableInstances@.
+newtype DeltaMonadValue r a = DeltaMonadValue
+  { runDeltaMonadValue :: Identity a }
+  deriving (Monad, Functor, Applicative)
 
 -- This the only place that requires @UndecidableInstances@.
 instance IsScalar r => DeltaMonad r (DeltaMonadValue r) where
-  returnLet (D u _u') = Identity $ D u zeroD
+  returnLet (D u _u') = DeltaMonadValue $ Identity $ D u zeroD
 
 -- The general case, needed for old, hacky tests before 'Delta' extension.
 --
@@ -61,7 +65,7 @@ primalValueGeneric f (params, paramsV, paramsL) =
                     ( replicateZeros params  -- dummy
                     , replicateZeros paramsV
                     , replicateZeros paramsL )
-  in runIdentity $ f variables
+  in runIdentity $ runDeltaMonadValue $ f variables
 
 -- Small enough that inline won't hurt.
 primalValue :: IsScalar r
