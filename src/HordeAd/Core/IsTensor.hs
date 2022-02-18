@@ -21,9 +21,6 @@
 module HordeAd.Core.IsTensor
   ( IsScalar, IsTensorWithScalar
   , IsTensor(DeltaExpression, zeroD, scaleD, addD, varD, bindInState)
-  , -- only needed, because GHC doesn't specialize fully without them
-    -- in "HordeAd.Core.PairOfVectors"
-    Delta0, Delta1, Delta2
   ) where
 
 import Prelude

@@ -87,8 +87,6 @@ common options
   ghc-options:        -Wall -Wcompat -Worphans -Wincomplete-uni-patterns -Wincomplete-record-updates -Wimplicit-prelude -Wmissing-home-modules -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages
   ghc-options:        -fno-ignore-asserts
 
-  ghc-options:        -Wall-missed-specialisations
-
   -- Disabling this breaks performance:
   ghc-options:        -fexpose-all-unfoldings -fspecialise-aggressively -fsimpl-tick-factor=200
 
