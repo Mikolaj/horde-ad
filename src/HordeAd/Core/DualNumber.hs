@@ -23,7 +23,7 @@ class (Monad m, Functor m, Applicative m, IsScalar r)
   returnLet :: IsTensorWithScalar a r => DualNumber a -> m (DualNumber a)
 
 
--- * General non-monadic operations
+-- * General non-monadic operations, for any scalar rank
 
 -- This instances are required by the @Real@ instance, which is required
 -- by @RealFloat@, which gives @atan2@. No idea what properties
@@ -99,13 +99,14 @@ scale :: (Num a, IsTensor a) => a -> DualNumber a -> DualNumber a
 scale a (D u u') = D (a * u) (scaleD a u')
 
 
--- * Non-monadic operations related to vectors
+-- * Non-monadic operations resulting in a scalar
 
--- @1@ means rank one, that is, creating delta expression of a vector.
-deltaSeq1 :: IsScalar r
-          => Data.Vector.Vector (DualNumber r) -> DualNumber (Vector r)
-deltaSeq1 v = D (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
-                (Seq1 $ V.map (\(D _ u') -> u') v)
+sumElements0 :: IsScalar r => DualNumber (Vector r) -> DualNumber r
+sumElements0 (D u u') = D (HM.sumElements u) (SumElements0 u' (V.length u))
+
+index0 :: IsScalar r
+       => DualNumber (Vector r) -> Int -> DualNumber r
+index0 (D u u') i = D (u V.! i) (Index0 u' i (V.length u))
 
 infixr 8 <.>!
 (<.>!) :: IsScalar r
@@ -121,15 +122,17 @@ infixr 8 <.>!!
         -> DualNumber r
 (<.>!!) (D u u') v = D (u <.> v) (Dot0 v u')
 
-sumElements0 :: IsScalar r => DualNumber (Vector r) -> DualNumber r
-sumElements0 (D u u') = D (HM.sumElements u) (SumElements0 u' (V.length u))
+
+-- * Non-monadic operations resulting in a vector
+
+-- @1@ means rank one, that is, creating delta expression of a vector.
+deltaSeq1 :: IsScalar r
+          => Data.Vector.Vector (DualNumber r) -> DualNumber (Vector r)
+deltaSeq1 v = D (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
+                (Seq1 $ V.map (\(D _ u') -> u') v)
 
 konst1 :: IsScalar r => DualNumber r -> Int -> DualNumber (Vector r)
 konst1 (D u u') n = D (HM.konst u n) (Konst1 u')
-
-index0 :: IsScalar r
-       => DualNumber (Vector r) -> Int -> DualNumber r
-index0 (D u u') i = D (u V.! i) (Index0 u' i (V.length u))
 
 append1 :: Numeric r
         => DualNumber (Vector r) -> DualNumber (Vector r)
@@ -141,15 +144,13 @@ slice1 :: Numeric r
        -> DualNumber (Vector r)
 slice1 i n (D u u') = D (V.slice i n u) (Slice1 i n u' (V.length u))
 
--- @2@ means rank two, that is, creating delta expression of a matrix.
-deltaSeq2 :: Numeric r
-          => Data.Vector.Vector (DualNumber (Vector r))
-          -> DualNumber (Matrix r)
-deltaSeq2 v = D (HM.fromRows $ map (\(D u _) -> u) $ V.toList v)
-                (Seq2 $ V.map (\(D _ u') -> u') v)
+sumRows1 :: Numeric r => DualNumber (Matrix r) -> DualNumber (Vector r)
+sumRows1 (D u u') = D (V.fromList $ map HM.sumElements $ HM.toRows u)
+                      (SumRows1 u' (HM.cols u))
 
-transpose2 :: Numeric r => DualNumber (Matrix r) -> DualNumber (Matrix r)
-transpose2 (D u u') = D (HM.tr' u) (Transpose2 u')
+sumColumns1 :: Numeric r => DualNumber (Matrix r) -> DualNumber (Vector r)
+sumColumns1 (D u u') = D (V.fromList $ map HM.sumElements $ HM.toColumns u)
+                         (SumColumns1 u' (HM.rows u))
 
 -- | Dense matrix-vector product.
 infixr 8 #>!
@@ -166,6 +167,19 @@ infixr 8 #>!!
        -> Vector r
        -> DualNumber (Vector r)
 (#>!!) (D u u') v = D (u #> v) (MD_V1 u' v)
+
+
+-- * Non-monadic operations resulting in a matrix
+
+-- @2@ means rank two, that is, creating delta expression of a matrix.
+deltaSeq2 :: Numeric r
+          => Data.Vector.Vector (DualNumber (Vector r))
+          -> DualNumber (Matrix r)
+deltaSeq2 v = D (HM.fromRows $ map (\(D u _) -> u) $ V.toList v)
+                (Seq2 $ V.map (\(D _ u') -> u') v)
+
+transpose2 :: Numeric r => DualNumber (Matrix r) -> DualNumber (Matrix r)
+transpose2 (D u u') = D (HM.tr' u) (Transpose2 u')
 
 -- | Dense matrix-matrix product.
 --
@@ -186,20 +200,6 @@ infixr 8 <>!!
        -> Matrix r
        -> DualNumber (Matrix r)
 (<>!!) (D u u') v = D (u HM.<> v) (MD_M2 u' v)
-
-sumRows1 :: Numeric r => DualNumber (Matrix r) -> DualNumber (Vector r)
-sumRows1 (D u u') = D (V.fromList $ map HM.sumElements $ HM.toRows u)
-                      (SumRows1 u' (HM.cols u))
-
-sumColumns1 :: Numeric r => DualNumber (Matrix r) -> DualNumber (Vector r)
-sumColumns1 (D u u') = D (V.fromList $ map HM.sumElements $ HM.toColumns u)
-                         (SumColumns1 u' (HM.rows u))
-
-asRow2 :: Numeric r => DualNumber (Vector r) -> Int -> DualNumber (Matrix r)
-asRow2 (D u u') n = D (HM.fromRows $ replicate n u) (AsRow2 u')
-
-asColumn2 :: Numeric r => DualNumber (Vector r) -> Int -> DualNumber (Matrix r)
-asColumn2 (D u u') n = D (HM.fromColumns $ replicate n u) (AsColumn2 u')
 
 rowAppend2 :: Numeric r
            => DualNumber (Matrix r) -> DualNumber (Matrix r)
@@ -225,9 +225,43 @@ columnSlice2 :: Numeric r
 columnSlice2 i n (D u u') = D (HM.subMatrix (0, i) (HM.rows u, n) u)
                               (ColumnSlice2 i n u' (HM.rows u) (HM.cols u))
 
+asRow2 :: Numeric r => DualNumber (Vector r) -> Int -> DualNumber (Matrix r)
+asRow2 (D u u') n = D (HM.fromRows $ replicate n u) (AsRow2 u')
 
--- * Monadic operations for scalars only
+asColumn2 :: Numeric r => DualNumber (Vector r) -> Int -> DualNumber (Matrix r)
+asColumn2 (D u u') n = D (HM.fromColumns $ replicate n u) (AsColumn2 u')
 
+
+-- * General monadic operations, for any scalar rank
+
+tanhAct :: (IsTensorWithScalar a r, DeltaMonad r m, Floating a)
+        => DualNumber a -> m (DualNumber a)
+tanhAct = returnLet . tanh
+
+logistic :: (Floating a, IsTensor a) => DualNumber a -> DualNumber a
+logistic (D u u') =
+  let y = recip (1 + exp (- u))
+  in D y (scaleD (y * (1 - y)) u')
+
+logisticAct :: (IsTensorWithScalar a r, DeltaMonad r m, Floating a)
+            => DualNumber a -> m (DualNumber a)
+logisticAct = returnLet . logistic
+
+-- Optimized and more clearly written @u ** 2@.
+square :: (Num a, IsTensor a) => DualNumber a -> DualNumber a
+square (D u u') = D (u * u) (scaleD (2 * u) u')
+
+squaredDifference :: (Num a, IsTensor a) => a -> DualNumber a -> DualNumber a
+squaredDifference targ res = square $ res - scalar targ
+
+lossSquared :: (IsTensorWithScalar a r, DeltaMonad r m, Num a)
+            => a -> DualNumber a -> m (DualNumber a)
+lossSquared targ res = returnLet $ squaredDifference targ res
+
+
+-- * Monadic operations resulting in a scalar
+
+-- The type permits other ranks, but it's nonsense.
 reluAct :: (DeltaMonad r m, Ord r) => DualNumber r -> m (DualNumber r)
 reluAct (D u u') = returnLet $ D (max 0 u) (scaleD (if u > 0 then 1 else 0) u')
 
@@ -256,59 +290,6 @@ lossCrossEntropy targ res = do
       f !acc i d = acc + scale (targ V.! i) (log d)
   returnLet $ negate $ V.ifoldl' f (scalar 0) res
 
-
--- * Monadic operations for scalars and other ranks of tensors
-
-tanhAct :: (IsTensorWithScalar a r, DeltaMonad r m, Floating a)
-        => DualNumber a -> m (DualNumber a)
-tanhAct = returnLet . tanh
-
-logistic :: (Floating r, IsTensor r) => DualNumber r -> DualNumber r
-logistic (D u u') =
-  let y = recip (1 + exp (- u))
-  in D y (scaleD (y * (1 - y)) u')
-
-logisticAct :: (IsTensorWithScalar a r, DeltaMonad r m, Floating a)
-            => DualNumber a -> m (DualNumber a)
-logisticAct = returnLet . logistic
-
--- Optimized and more clearly written @u ** 2@.
-square :: (Num r, IsTensor r) => DualNumber r -> DualNumber r
-square (D u u') = D (u * u) (scaleD (2 * u) u')
-
-squaredDifference :: (Num r, IsTensor r) => r -> DualNumber r -> DualNumber r
-squaredDifference targ res = square $ res - scalar targ
-
-lossSquared :: (IsTensorWithScalar a r, DeltaMonad r m, Num a)
-            => a -> DualNumber a -> m (DualNumber a)
-lossSquared targ res = returnLet $ squaredDifference targ res
-
-
--- * Monadic operations for vectors
-
-reluActV :: (DeltaMonad r m, Ord r)
-         => DualNumber (Vector r) -> m (DualNumber (Vector r))
-reluActV dn@(D u _) = do
-  let oneIfGtZero = V.map (\x -> if x > 0 then 1 else 0) u
-  returnLet $ scale oneIfGtZero dn
-    -- I have a bad feeling about this
-
-reluLeakyActV :: (DeltaMonad r m, Fractional r, Ord r)
-              => DualNumber (Vector r) -> m (DualNumber (Vector r))
-reluLeakyActV dn@(D u _) = do
-  let oneIfGtZero = V.map (\x -> if x > 0 then 1 else 0.01) u
-  returnLet $ scale oneIfGtZero dn
-
-softMaxActV :: (DeltaMonad r m, Fractional r, Floating (Vector r))
-            => DualNumber (Vector r)
-            -> m (DualNumber (Vector r))
-softMaxActV d@(D u _) = do
-  expU <- returnLet $ exp d
-  let sumExpU = sumElements0 expU
-  -- This has to be let-bound, because it's used many times below.
-  recipSum <- returnLet $ recip sumExpU
-  returnLet $ konst1 recipSum (V.length u) * expU
-
 -- In terms of hmatrix: @-(log res <.> targ)@.
 lossCrossEntropyV :: (DeltaMonad r m, Floating (Vector r))
                   => Vector r
@@ -335,7 +316,30 @@ lossSoftMaxCrossEntropyV target (D u u') = do
                 (Dot0 (softMaxU - target) u')
 
 
--- * Monadic operations for matrices
+-- * Monadic operations resulting in a vector
+
+reluActV :: (DeltaMonad r m, Ord r)
+         => DualNumber (Vector r) -> m (DualNumber (Vector r))
+reluActV dn@(D u _) = do
+  let oneIfGtZero = V.map (\x -> if x > 0 then 1 else 0) u
+  returnLet $ scale oneIfGtZero dn
+    -- I have a bad feeling about this
+
+reluLeakyActV :: (DeltaMonad r m, Fractional r, Ord r)
+              => DualNumber (Vector r) -> m (DualNumber (Vector r))
+reluLeakyActV dn@(D u _) = do
+  let oneIfGtZero = V.map (\x -> if x > 0 then 1 else 0.01) u
+  returnLet $ scale oneIfGtZero dn
+
+softMaxActV :: (DeltaMonad r m, Fractional r, Floating (Vector r))
+            => DualNumber (Vector r)
+            -> m (DualNumber (Vector r))
+softMaxActV d@(D u _) = do
+  expU <- returnLet $ exp d
+  let sumExpU = sumElements0 expU
+  -- This has to be let-bound, because it's used many times below.
+  recipSum <- returnLet $ recip sumExpU
+  returnLet $ konst1 recipSum (V.length u) * expU
 
 lossSoftMaxCrossEntropyL :: (DeltaMonad r m, Fractional r, Floating (Matrix r))
                          => Matrix r
@@ -350,3 +354,9 @@ lossSoftMaxCrossEntropyL target (D u u') = do
       scaled = D (negate $ log softMaxU * target)
                  (scaleD (softMaxU - target) u')
   returnLet $ sumColumns1 scaled
+
+
+-- * Monadic operations resulting in a matrix
+
+-- none so far, usually matrices come from parameters and are reduced
+-- and only the results are then bound in the monad

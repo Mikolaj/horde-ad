@@ -57,9 +57,10 @@ data Delta0 r =
   | Add0 (Delta0 r) (Delta0 r)
   | Var0 (DeltaId r)
 
-  | Dot0 (Vector r) (Delta1 r)
   | SumElements0 (Delta1 r) Int
   | Index0 (Delta1 r) Int Int
+
+  | Dot0 (Vector r) (Delta1 r)  -- Dot0 v sd == SumElements0 (Scale1 v sd) n
   deriving Show
 
 -- | This is the grammar of delta-expressions at tensor rank 1, that is,
@@ -74,10 +75,11 @@ data Delta1 r =
   | Konst1 (Delta0 r)
   | Append1 (Delta1 r) Int (Delta1 r)
   | Slice1 Int Int (Delta1 r) Int
-  | M_VD1 (Matrix r) (Delta1 r)
-  | MD_V1 (Delta2 r) (Vector r)
   | SumRows1 (Delta2 r) Int
   | SumColumns1 (Delta2 r) Int
+
+  | M_VD1 (Matrix r) (Delta1 r)  -- M_VD1 m vd == SumRows1 (M_MD2 m (AsRow2 vd))
+  | MD_V1 (Delta2 r) (Vector r)  -- MD_V1 md v == SumRows1 (MD_M2 md (asRow v))
   deriving Show
 
 -- | This is the grammar of delta-expressions at tensor rank 1, that is,
@@ -92,12 +94,13 @@ data Delta2 r =
   | Transpose2 (Delta2 r)
   | M_MD2 (Matrix r) (Delta2 r)
   | MD_M2 (Delta2 r) (Matrix r)
-  | AsRow2 (Delta1 r)
-  | AsColumn2 (Delta1 r)
   | RowAppend2 (Delta2 r) Int (Delta2 r)
   | ColumnAppend2 (Delta2 r) Int (Delta2 r)
   | RowSlice2 Int Int (Delta2 r) Int Int
   | ColumnSlice2 Int Int (Delta2 r) Int Int
+
+  | AsRow2 (Delta1 r)  --  AsRow2 vd == Seq2 (V.replicate n vd)
+  | AsColumn2 (Delta1 r)
   deriving Show
 
 
