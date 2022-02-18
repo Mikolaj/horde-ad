@@ -46,15 +46,6 @@ class IsTensor a where
               -> DeltaState (ScalarOfTensor a)
               -> (DeltaState (ScalarOfTensor a), DeltaId a)
 
-bindInState0 :: Delta0 r -> DeltaState r -> (DeltaState r, DeltaId r)
-{-# INLINE bindInState0 #-}
-bindInState0 u' st =
-  let dId@(DeltaId i) = deltaCounter0 st
-  in ( st { deltaCounter0 = DeltaId $ succ i
-          , deltaBindings = DeltaBinding0 dId u' : deltaBindings st
-          }
-     , dId )
-
 instance IsTensor Double where
   type DeltaExpression Double = Delta0 Double
   zeroD = Zero0
@@ -83,12 +74,7 @@ instance IsTensor (Vector r) where
   varD = Var1
   type ScalarOfTensor (Vector r) = r
   {-# INLINE bindInState #-}
-  bindInState u' st =
-    let dId@(DeltaId i) = deltaCounter1 st
-    in ( st { deltaCounter1 = DeltaId $ succ i
-            , deltaBindings = DeltaBinding1 dId u' : deltaBindings st
-            }
-       , dId )
+  bindInState = bindInState1
 
 instance IsTensor (Matrix r) where
   type DeltaExpression (Matrix r) = Delta2 r
@@ -98,12 +84,7 @@ instance IsTensor (Matrix r) where
   varD = Var2
   type ScalarOfTensor (Matrix r) = r
   {-# INLINE bindInState #-}
-  bindInState u' st =
-    let dId@(DeltaId i) = deltaCounter2 st
-    in ( st { deltaCounter2 = DeltaId $ succ i
-            , deltaBindings = DeltaBinding2 dId u' : deltaBindings st
-            }
-       , dId )
+  bindInState = bindInState2
 
 -- | A shorthand for a useful set of constraints.
 type IsTensorWithScalar a r = (IsTensor a, ScalarOfTensor a ~ r)

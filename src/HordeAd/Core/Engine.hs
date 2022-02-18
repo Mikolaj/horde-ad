@@ -22,8 +22,7 @@ import qualified Numeric.LinearAlgebra as HM
 import           System.Random
 import           Text.Show.Pretty (ppShow)
 
-import HordeAd.Core.Delta
-  (DeltaId (..), DeltaState (..), evalBindings, ppBinding)
+import HordeAd.Core.Delta (DeltaState (..), evalBindings, ppBinding, toDeltaId)
 import HordeAd.Core.DualNumber (DeltaMonad (..), DualNumber (..))
 import HordeAd.Core.IsTensor
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
@@ -101,9 +100,9 @@ generalDf variables@(params, _, paramsV, _, paramsL, _) f =
       dimV = V.length paramsV
       dimL = V.length paramsL
       initialState = DeltaState
-        { deltaCounter0 = DeltaId dim
-        , deltaCounter1 = DeltaId dimV
-        , deltaCounter2 = DeltaId dimL
+        { deltaCounter0 = toDeltaId dim
+        , deltaCounter1 = toDeltaId dimV
+        , deltaCounter2 = toDeltaId dimL
         , deltaBindings = []
         }
       (D value d, st) = runState (runDeltaMonadGradient (f variables))
@@ -131,9 +130,9 @@ prettyPrintDf f parameters@(params, paramsV, paramsL) =
       dimV = V.length paramsV
       dimL = V.length paramsL
       initialState = DeltaState
-        { deltaCounter0 = DeltaId dim
-        , deltaCounter1 = DeltaId dimV
-        , deltaCounter2 = DeltaId dimL
+        { deltaCounter0 = toDeltaId dim
+        , deltaCounter1 = toDeltaId dimV
+        , deltaCounter2 = toDeltaId dimL
         , deltaBindings = []
         }
       (D _ d0, st) = runState (runDeltaMonadGradient (f variables))
@@ -147,7 +146,7 @@ generateDeltaVars :: IsScalar r
                      , Data.Vector.Vector (DeltaExpression (Vector r))
                      , Data.Vector.Vector (DeltaExpression (Matrix r)) )
 generateDeltaVars (params, paramsV, paramsL) =
-  let vVar p = V.generate (V.length p) (varD . DeltaId)
+  let vVar p = V.generate (V.length p) (varD . toDeltaId)
   in (vVar params, vVar paramsV, vVar paramsL)
 
 -- | Initialize parameters using a uniform distribution with a fixed range

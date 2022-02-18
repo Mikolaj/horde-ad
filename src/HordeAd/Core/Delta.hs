@@ -21,12 +21,12 @@ module HordeAd.Core.Delta
   ( -- * Abstract syntax trees of the delta expressions
     Delta0 (..), Delta1 (..), Delta2 (..)
   , -- * Delta expression identifiers
-    DeltaId (..)
+    DeltaId, toDeltaId
   , -- * Evaluation of the delta expressions
-    DeltaBinding (..)
+    DeltaBinding
   , DeltaState (..)
-  , evalBindings
-  , ppBinding
+  , evalBindings, ppBinding
+  , bindInState0, bindInState1, bindInState2
   ) where
 
 import Prelude
@@ -112,6 +112,12 @@ data Delta2 r =
 newtype DeltaId a = DeltaId Int
   deriving Show
 
+toDeltaId :: Int -> DeltaId a
+toDeltaId = DeltaId
+
+-- The key is that it preserves the phantom type.
+succDeltaId :: DeltaId a -> DeltaId a
+succDeltaId (DeltaId i) = DeltaId (succ i)
 
 -- * Evaluation of the delta expressions
 
@@ -264,3 +270,30 @@ ppBinding = \case
     ["letV DeltaId_", show i, " = ", ppShow d, "\n"]
   DeltaBinding2 (DeltaId i) d ->
     ["letM DeltaId_", show i, " = ", ppShow d, "\n"]
+
+bindInState0 :: Delta0 r -> DeltaState r -> (DeltaState r, DeltaId r)
+{-# INLINE bindInState0 #-}
+bindInState0 u' st =
+  let dId = deltaCounter0 st
+  in ( st { deltaCounter0 = succDeltaId dId
+          , deltaBindings = DeltaBinding0 dId u' : deltaBindings st
+          }
+     , dId )
+
+bindInState1 :: Delta1 r -> DeltaState r -> (DeltaState r, DeltaId (Vector r))
+{-# INLINE bindInState1 #-}
+bindInState1 u' st =
+  let dId = deltaCounter1 st
+  in ( st { deltaCounter1 = succDeltaId dId
+          , deltaBindings = DeltaBinding1 dId u' : deltaBindings st
+          }
+     , dId )
+
+bindInState2 :: Delta2 r -> DeltaState r -> (DeltaState r, DeltaId (Matrix r))
+{-# INLINE bindInState2 #-}
+bindInState2 u' st =
+  let dId = deltaCounter2 st
+  in ( st { deltaCounter2 = succDeltaId dId
+          , deltaBindings = DeltaBinding2 dId u' : deltaBindings st
+          }
+     , dId )
