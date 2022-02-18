@@ -115,13 +115,12 @@ instance IsTensor (Matrix r) where
             }
        , dId )
 
--- | This is a mega-shorthand for a bundle of connected type constraints.
-type IsScalar r = ( DeltaExpression r ~ DeltaScalar r, ScalarOfTensor r ~ r
-                  , IsTensor r, IsTensor (Vector r), IsTensor (Matrix r)
-                  , Numeric r, Num (Vector r), Num (Matrix r) )
-
--- | A more modest shorthand.
+-- | A shorthand for a useful set of constraints.
 type IsTensorWithScalar a r = (IsTensor a, ScalarOfTensor a ~ r)
+
+-- | A mega-shorthand for a bundle of connected type constraints.
+type IsScalar r = ( IsTensorWithScalar r r, DeltaExpression r ~ DeltaScalar r
+                  , Numeric r, Num (Vector r), Num (Matrix r) )
 
 -- | This is the grammar of delta-expressions at tensor rank 0, that is,
 -- at scalar level. Some of these operations have different but inter-related
@@ -206,7 +205,7 @@ data DeltaState r = DeltaState
 -- The delta state contains a list of mutually-referencing delta bindings
 -- that are to be evaluated, in the given order, starting with the top-level
 -- binding of a scalar type provided in the remaining argument.
-evalBindings :: (Eq r, IsScalar r)
+evalBindings :: (Eq r, Numeric r, Num (Vector r))
              => Int -> Int -> Int -> DeltaState r -> DeltaScalar r
              -> ( Vector r
                 , Data.Vector.Vector (Vector r)
@@ -224,7 +223,7 @@ evalBindings dim0 dim1 dim2 st deltaTopLevel =
     -- that is not discarded.
     return (v0, v1, V.map MO.convertMatrixOuterOrNull v2)
 
-buildVectors :: forall s r. (Eq r, IsScalar r)
+buildVectors :: forall s r. (Eq r, Numeric r, Num (Vector r))
              => DeltaState r -> DeltaScalar r
              -> ST s ( Data.Vector.Storable.Mutable.MVector s r
                      , Data.Vector.Mutable.MVector s (Vector r)
