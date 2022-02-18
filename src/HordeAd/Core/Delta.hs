@@ -90,7 +90,8 @@ data Delta2 r =
   | Add2 (Delta2 r) (Delta2 r)
   | Var2 (DeltaId (Matrix r))
 
-  | Seq2 (Data.Vector.Vector (Delta1 r))
+  | FromRows2 (Data.Vector.Vector (Delta1 r))
+  | FromColumns2 (Data.Vector.Vector (Delta1 r))
   | Transpose2 (Delta2 r)
   | M_MD2 (Matrix r) (Delta2 r)
   | MD_M2 (Delta2 r) (Matrix r)
@@ -99,8 +100,8 @@ data Delta2 r =
   | RowSlice2 Int Int (Delta2 r) Int Int
   | ColumnSlice2 Int Int (Delta2 r) Int Int
 
-  | AsRow2 (Delta1 r)  --  AsRow2 vd == Seq2 (V.replicate n vd)
-  | AsColumn2 (Delta1 r)
+  | AsRow2 (Delta1 r)  -- AsRow2 vd == FromRows2 (V.replicate n vd)
+  | AsColumn2 (Delta1 r)  -- AsColumn2 vd == FromColumns2 (V.replicate n vd)
   deriving Show
 
 
@@ -187,7 +188,7 @@ buildVectors st deltaTopLevel = do
         Add1 d e -> eval1 r d >> eval1 r e
         Var1 (DeltaId i) -> VM.modify store1 (addToVector r) i
 
-        Seq1 vd -> V.imapM_ (\i d -> eval0 (r V.! i) d) vd
+        Seq1 lsd -> V.imapM_ (\i d -> eval0 (r V.! i) d) lsd
         Konst1 d -> V.mapM_ (`eval0` d) r
         Append1 d k e -> eval1 (V.take k r) d >> eval1 (V.drop k r) e
         Slice1 i n d len ->
@@ -205,7 +206,8 @@ buildVectors st deltaTopLevel = do
         Add2 d e -> eval2 r d >> eval2 r e
         Var2 (DeltaId i) -> VM.modify store2 (addToMatrix r) i
 
-        Seq2 md -> zipWithM_ eval1 (MO.toRows r) (V.toList md)
+        FromRows2 lvd -> zipWithM_ eval1 (MO.toRows r) (V.toList lvd)
+        FromColumns2 lvd -> zipWithM_ eval1 (MO.toColumns r) (V.toList lvd)
         Transpose2 md -> eval2 (MO.transpose r) md  -- TODO: test!
         M_MD2 m md -> zipWithM_ (\rRow row -> eval1 rRow (MD_V1 md row))
                                 (HM.toRows m) (MO.toRows r)

@@ -172,11 +172,17 @@ infixr 8 #>!!
 -- * Non-monadic operations resulting in a matrix
 
 -- @2@ means rank two, that is, creating delta expression of a matrix.
-deltaSeq2 :: Numeric r
+fromRows2 :: Numeric r
           => Data.Vector.Vector (DualNumber (Vector r))
           -> DualNumber (Matrix r)
-deltaSeq2 v = D (HM.fromRows $ map (\(D u _) -> u) $ V.toList v)
-                (Seq2 $ V.map (\(D _ u') -> u') v)
+fromRows2 v = D (HM.fromRows $ map (\(D u _) -> u) $ V.toList v)
+                (FromRows2 $ V.map (\(D _ u') -> u') v)
+
+fromColumns2 :: Numeric r
+             => Data.Vector.Vector (DualNumber (Vector r))
+             -> DualNumber (Matrix r)
+fromColumns2 v = D (HM.fromRows $ map (\(D u _) -> u) $ V.toList v)
+                   (FromColumns2 $ V.map (\(D _ u') -> u') v)
 
 transpose2 :: Numeric r => DualNumber (Matrix r) -> DualNumber (Matrix r)
 transpose2 (D u u') = D (HM.tr' u) (Transpose2 u')
