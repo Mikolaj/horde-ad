@@ -26,9 +26,6 @@ import HordeAd.Core.IsTensor
 -- in an efficient way (especially, or only, with gradient descent,
 -- where the vectors are reused in some ways).
 
-{- this causes GHC not to specialize stuff fully causing 6 times slowdown
-   in benchmark @mnist -n 10 -m prefix "2-hidden-layer MNIST nn with samples: 500/test 500" +RTS -s@
-
 type DualNumberVariables r =
   ( Vector r
   , Data.Vector.Vector (DeltaExpression r)
@@ -45,26 +42,6 @@ makeDualNumberVariables
   -> ( Data.Vector.Vector (DeltaExpression r)
      , Data.Vector.Vector (DeltaExpression (Vector r))
      , Data.Vector.Vector (DeltaExpression (Matrix r)) )
-  -> DualNumberVariables r
-
--}
-
-type DualNumberVariables r =
-  ( Vector r
-  , Data.Vector.Vector (Delta0 r)
-  , Data.Vector.Vector (Vector r)
-  , Data.Vector.Vector (Delta1 r)
-  , Data.Vector.Vector (Matrix r)
-  , Data.Vector.Vector (Delta2 r)
-  )
-
-makeDualNumberVariables
-  :: ( Vector r
-     , Data.Vector.Vector (Vector r)
-     , Data.Vector.Vector (Matrix r) )
-  -> ( Data.Vector.Vector (Delta0 r)
-     , Data.Vector.Vector (Delta1 r)
-     , Data.Vector.Vector (Delta2 r) )
   -> DualNumberVariables r
 {-# INLINE makeDualNumberVariables #-}
 makeDualNumberVariables (params, paramsV, paramsL) (vs, vsV, vsL)
