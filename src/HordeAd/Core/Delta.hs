@@ -26,6 +26,7 @@ module HordeAd.Core.Delta
     DeltaBinding (..)
   , DeltaState (..)
   , evalBindings
+  , ppBinding
   ) where
 
 import Prelude
@@ -39,6 +40,7 @@ import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Storable.Mutable
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
+import           Text.Show.Pretty (ppShow)
 
 import qualified HordeAd.Internal.MatrixOuter as MO
 
@@ -253,3 +255,12 @@ buildVectors st deltaTopLevel = do
           eval2 r d
   mapM_ evalUnlessZero (deltaBindings st)
   return (store0, store1, store2)
+
+ppBinding :: (Show r, Numeric r) => DeltaBinding r -> [String]
+ppBinding = \case
+  DeltaBinding0 (DeltaId i) d ->
+    ["letS DeltaId_", show i, " = ", ppShow d, "\n"]
+  DeltaBinding1 (DeltaId i) d ->
+    ["letV DeltaId_", show i, " = ", ppShow d, "\n"]
+  DeltaBinding2 (DeltaId i) d ->
+    ["letM DeltaId_", show i, " = ", ppShow d, "\n"]

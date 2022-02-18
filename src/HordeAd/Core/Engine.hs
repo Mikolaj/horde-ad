@@ -23,7 +23,7 @@ import           System.Random
 import           Text.Show.Pretty (ppShow)
 
 import HordeAd.Core.Delta
-  (DeltaBinding (..), DeltaId (..), DeltaState (..), evalBindings)
+  (DeltaId (..), DeltaState (..), evalBindings, ppBinding)
 import HordeAd.Core.DualNumber (DeltaMonad (..), DualNumber (..))
 import HordeAd.Core.IsTensor
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
@@ -138,14 +138,6 @@ prettyPrintDf f parameters@(params, paramsV, paramsL) =
         }
       (D _ d0, st) = runState (runDeltaMonadGradient (f variables))
                              initialState
-      ppBinding :: DeltaBinding r -> [String]
-      ppBinding = \case
-        DeltaBinding0 (DeltaId i) d ->
-          ["letS DeltaId_", show i, " = ", ppShow d, "\n"]
-        DeltaBinding1 (DeltaId i) d ->
-          ["letV DeltaId_", show i, " = ", ppShow d, "\n"]
-        DeltaBinding2 (DeltaId i) d ->
-          ["letM DeltaId_", show i, " = ", ppShow d, "\n"]
   in concat $ foldl' (\ !l b -> ppBinding b ++ l) ["in " ++ ppShow d0]
                      (deltaBindings st)
 
