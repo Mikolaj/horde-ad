@@ -101,8 +101,8 @@ data Delta2 r =
   | MD_M2 (Delta2 r) (Matrix r)
   | RowAppend2 (Delta2 r) Int (Delta2 r)
   | ColumnAppend2 (Delta2 r) Int (Delta2 r)
-  | RowSlice2 Int Int (Delta2 r) Int Int
-  | ColumnSlice2 Int Int (Delta2 r) Int Int
+  | RowSlice2 Int Int (Delta2 r) Int
+  | ColumnSlice2 Int Int (Delta2 r) Int
 
   | AsRow2 (Delta1 r)  -- AsRow2 vd == FromRows2 (V.replicate n vd)
   | AsColumn2 (Delta1 r)  -- AsColumn2 vd == FromColumns2 (V.replicate n vd)
@@ -256,16 +256,20 @@ buildVectors st deltaTopLevel = do
                             >> eval2 (MO.dropRows k r) e
         ColumnAppend2 d k e -> eval2 (MO.takeColumns k r) d
                             >> eval2 (MO.dropColumns k r) e
-        RowSlice2 i n d nrows ncols ->
-          eval2 (MO.konst 0 i ncols `MO.rowAppend` r
-                `MO.rowAppend`
-                MO.konst 0 (nrows - i - n) ncols)
-                d
-        ColumnSlice2 i n d nrows ncols ->
-          eval2 (MO.konst 0 nrows i `MO.columnAppend` r
-                `MO.columnAppend`
-                MO.konst 0 nrows (ncols - i - n))
-                d
+        RowSlice2 i n d nrows ->
+          assert (MO.rows r == n) $
+          let ncols = MO.cols r
+          in eval2 (MO.konst 0 i ncols
+                    `MO.rowAppend` r
+                    `MO.rowAppend` MO.konst 0 (nrows - i - n) ncols)
+                   d
+        ColumnSlice2 i n d ncols ->
+          assert (MO.cols r == n) $
+          let nrows = MO.rows r
+          in eval2 (MO.konst 0 nrows i
+                    `MO.columnAppend` r
+                    `MO.columnAppend` MO.konst 0 nrows (ncols - i - n))
+                   d
       eval_ :: OT.Array r -> Delta_ r -> ST s ()
       eval_ !r = \case
         Zero_ -> return ()

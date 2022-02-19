@@ -223,13 +223,13 @@ rowSlice2 :: Numeric r
           => Int -> Int -> DualNumber (Matrix r)
           -> DualNumber (Matrix r)
 rowSlice2 i n (D u u') = D (HM.subMatrix (i, 0) (n, HM.cols u) u)
-                           (RowSlice2 i n u' (HM.rows u) (HM.cols u))
+                           (RowSlice2 i n u' (HM.rows u))
 
 columnSlice2 :: Numeric r
              => Int -> Int -> DualNumber (Matrix r)
              -> DualNumber (Matrix r)
 columnSlice2 i n (D u u') = D (HM.subMatrix (0, i) (HM.rows u, n) u)
-                              (ColumnSlice2 i n u' (HM.rows u) (HM.cols u))
+                              (ColumnSlice2 i n u' (HM.rows u))
 
 asRow2 :: Numeric r => DualNumber (Vector r) -> Int -> DualNumber (Matrix r)
 asRow2 (D u u') n = D (HM.fromRows $ replicate n u) (AsRow2 u')

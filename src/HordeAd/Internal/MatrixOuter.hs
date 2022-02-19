@@ -23,7 +23,7 @@
 -- matrices don't fit in cache at this size and vectors still do.
 module HordeAd.Internal.MatrixOuter
   ( MatrixOuter (..)
-  , emptyMatrixOuter, nullMatrixOuter
+  , emptyMatrixOuter, nullMatrixOuter, rows, cols
   , convertMatrixOuter, convertMatrixOuterOrNull
   , toRows, toColumns, plus, multiplyWithOuter
   , konst, asRow, asColumn, rowAppend, columnAppend
@@ -50,6 +50,16 @@ emptyMatrixOuter = MatrixOuter Nothing Nothing Nothing
 nullMatrixOuter :: MatrixOuter r -> Bool
 nullMatrixOuter (MatrixOuter Nothing Nothing Nothing) = True
 nullMatrixOuter _ = False
+
+rows :: Numeric r => MatrixOuter r -> Int
+rows (MatrixOuter (Just m) _ _) = HM.rows m
+rows (MatrixOuter Nothing (Just c) _) = V.length c
+rows _ = error "rows: dimensions can't be determined"
+
+cols :: Numeric r => MatrixOuter r -> Int
+cols (MatrixOuter (Just m) _ _) = HM.cols m
+cols (MatrixOuter Nothing _ (Just r)) = V.length r
+cols _ = error "cols: dimensions can't be determined"
 
 convertMatrixOuter :: (Numeric r, Num (Vector r)) => MatrixOuter r -> Matrix r
 convertMatrixOuter (MatrixOuter (Just m) Nothing Nothing) = m
