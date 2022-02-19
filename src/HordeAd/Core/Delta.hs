@@ -28,6 +28,8 @@ module HordeAd.Core.Delta
   , DeltaState (..)
   , evalBindings, ppBinding
   , bindInState0, bindInState1, bindInState2, bindInState_
+  , -- * experimental
+    ArrayS(..), DomainS
   ) where
 
 import Prelude
@@ -426,3 +428,10 @@ bindInState_ u' st =
           , deltaBindings = DeltaBinding_ dId u' : deltaBindings st
           }
      , dId )
+
+-- experimental; a pity we lose guarantees here and later have to check
+-- at runtime whether the parameters (kept as the vector of tensors)
+-- have the types we expect; can we do better?
+data ArrayS r = forall sh. ArrayS (OS.Array sh r)
+
+type DomainS r = Data.Vector.Vector (ArrayS r)
