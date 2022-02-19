@@ -11,8 +11,10 @@ import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, (#>), (<.>))
 import qualified Numeric.LinearAlgebra as HM
 
-import HordeAd.Core.Delta (Delta0 (..), Delta1 (..), Delta2 (..))
-import HordeAd.Core.IsTensor
+import qualified Data.Array.DynamicS as OT
+import           HordeAd.Core.Delta
+  (Delta0 (..), Delta1 (..), Delta2 (..), Delta_ (..))
+import           HordeAd.Core.IsTensor
 
 -- * The main dual number types
 
@@ -236,6 +238,22 @@ asRow2 (D u u') n = D (HM.fromRows $ replicate n u) (AsRow2 u')
 
 asColumn2 :: Numeric r => DualNumber (Vector r) -> Int -> DualNumber (Matrix r)
 asColumn2 (D u u') n = D (HM.fromColumns $ replicate n u) (AsColumn2 u')
+
+
+-- * Non-monadic operations resulting in an arbitrary tensor
+
+-- Warning: not tested nor benchmarked.
+
+append_ :: Numeric r
+        => DualNumber (OT.Array r) -> DualNumber (OT.Array r)
+        -> DualNumber (OT.Array r)
+append_ (D u u') (D v v') =
+  D (u `OT.append` v) (Append_ u' (head $ OT.shapeL u) v')
+
+slice_ :: Int -> Int -> DualNumber (OT.Array r)
+       -> DualNumber (OT.Array r)
+slice_ i n (D u u') = D (OT.slice [(i, n)] u)
+                        (Slice_ i n u' (head $ OT.shapeL u))
 
 
 -- * General monadic operations, for any scalar rank
