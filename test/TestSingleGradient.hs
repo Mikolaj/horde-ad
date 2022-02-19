@@ -44,7 +44,8 @@ dfShow :: (DualNumberVariablesF -> DeltaMonadGradient Float DualNumberF)
        -> [Float]
        -> ([Float], Float)
 dfShow f deltaInput =
-  let ((results, _, _), value) = df f (V.fromList deltaInput, V.empty, V.empty)
+  let ((results, _, _, _), value) =
+        df f (V.fromList deltaInput, V.empty, V.empty, V.empty)
   in (V.toList results, value)
 
 fX :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
@@ -158,7 +159,8 @@ atanReadmeMPoly variables =
 dfAtanReadmeMPoly :: (RealFloat r, IsScalar r)
                   => Domain r -> (Domain r, r)
 dfAtanReadmeMPoly ds =
-  let ((result, _, _), value) = df atanReadmeMPoly (ds, V.empty, V.empty)
+  let ((result, _, _, _), value) =
+        df atanReadmeMPoly (ds, V.empty, V.empty, V.empty)
   in (result, value)
 
 readmeTests :: TestTree
@@ -200,7 +202,8 @@ atanReadmeMPolyV variables =
 dfAtanReadmeMPolyV :: (RealFloat r, IsScalar r)
                    => DomainV r -> (DomainV r, r)
 dfAtanReadmeMPolyV dsV =
-  let ((_, result, _), value) = df atanReadmeMPolyV (V.empty, dsV, V.empty)
+  let ((_, result, _, _), value) =
+        df atanReadmeMPolyV (V.empty, dsV, V.empty, V.empty)
   in (result, value)
 
 readmeTestsV :: TestTree

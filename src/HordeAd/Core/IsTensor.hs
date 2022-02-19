@@ -92,7 +92,7 @@ instance IsTensor (OT.Array r) where
   varD = Var_
   type ScalarOfTensor (OT.Array r) = r
   {-# INLINE bindInState #-}
-  bindInState = undefined
+  bindInState = bindInState_
 
 -- | A shorthand for a useful set of constraints.
 type IsTensorWithScalar a r = (IsTensor a, ScalarOfTensor a ~ r)

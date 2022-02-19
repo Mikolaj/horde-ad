@@ -10,6 +10,7 @@ module HordeAd.Core.OptimizerTools
 import Prelude
 
 import           Control.Monad.ST.Strict (runST)
+import qualified Data.Array.DynamicS as OT
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import           Numeric.LinearAlgebra (Element, Matrix, Numeric, Vector)
@@ -69,8 +70,8 @@ updateWithGradient :: (Numeric r, Num (Vector r))
                    -> Domains r
                    -> Domains r
                    -> Domains r
-updateWithGradient gamma (params, paramsV, paramsL)
-                         (gradient, gradientV, gradientL) =
+updateWithGradient gamma (params, paramsV, paramsL, params_)
+                         (gradient, gradientV, gradientL, gradient_) =
   let updateVector i r = i - HM.scale gamma r
       paramsNew = updateVector params gradient
       updateV i r = if V.null r  -- eval didn't update it, would crash
@@ -81,29 +82,40 @@ updateWithGradient gamma (params, paramsV, paramsL)
                     then i
                     else liftMatrix2 updateVector i r
       paramsLNew = V.zipWith updateL paramsL gradientL
-  in (paramsNew, paramsVNew, paramsLNew)
+      update_ i r = if null (OT.shapeL r)  -- eval didn't update it, would crash
+                    then i
+                    else OT.zipWithA (\j s -> j - gamma * s) i r
+                      -- TODO: this is slow; add @liftArray2@ and use HM,
+                      -- unless we move away from HM; similarly other OT calls
+      params_New = V.zipWith update_ params_ gradient_
+  in (paramsNew, paramsVNew, paramsLNew, params_New)
 
 gradientIsNil :: (Eq r, Numeric r) => Domains r -> Bool
-gradientIsNil (gradient, gradientV, gradientL) =
+gradientIsNil (gradient, gradientV, gradientL, gradient_) =
   V.all (== 0) gradient
   && V.all V.null gradientV
   && V.all (\r -> HM.rows r <= 0) gradientL
+  && V.all (\r -> null (OT.shapeL r)) gradient_
 
 minimumGradient :: (Ord r, Numeric r) => Domains r -> r
-minimumGradient (gradient, gradientV, gradientL) =
+minimumGradient (gradient, gradientV, gradientL, gradient_) =
   min (if V.null gradient then 0 else V.minimum gradient)
       (min (if V.null gradientV then 0
             else V.minimum (V.map HM.minElement gradientV))
-           (if V.null gradientL then 0
-            else V.minimum (V.map HM.minElement gradientL)))
+           (min (if V.null gradientL then 0
+                 else V.minimum (V.map HM.minElement gradientL))
+                (if V.null gradient_ then 0
+                 else V.minimum (V.map OT.minimumA gradient_))))
 
 maximumGradient :: (Ord r, Numeric r) => Domains r -> r
-maximumGradient (gradient, gradientV, gradientL) =
+maximumGradient (gradient, gradientV, gradientL, gradient_) =
   max (if V.null gradient then 0 else V.maximum gradient)
       (max (if V.null gradientV then 0
             else V.maximum (V.map HM.maxElement gradientV))
-           (if V.null gradientL then 0
-            else V.maximum (V.map HM.maxElement gradientL)))
+           (max (if V.null gradientL then 0
+                 else V.maximum (V.map HM.maxElement gradientL))
+                (if V.null gradient_ then 0
+                 else V.maximum (V.map OT.maximumA gradient_))))
 
 data ArgsAdam r = ArgsAdam
   { alpha   :: r
@@ -128,15 +140,17 @@ data StateAdam r = StateAdam
   , vAdam :: Domains r
   }
 
+-- The arguments are just sample params, for dimensions.
 zeroParameters :: Numeric r => Domains r -> Domains r
-zeroParameters (params, paramsV, paramsL) =  -- sample params, for dimensions
+zeroParameters (params, paramsV, paramsL, params_) =
   let zeroVector v = runST $ do
         vThawed <- V.thaw v
         VM.set vThawed 0
         V.unsafeFreeze vThawed
   in ( zeroVector params
      , V.map zeroVector paramsV
-     , V.map (liftMatrix zeroVector) paramsL )
+     , V.map (liftMatrix zeroVector) paramsL
+     , V.map (\a -> OT.constant (OT.shapeL a) 0) params_ )  -- fast allright
 
 initialStateAdam :: Numeric r => Domains r -> StateAdam r
 initialStateAdam parameters0 =
@@ -172,6 +186,30 @@ liftMatrix43 f m1 m2 m3 m4 =
      else error $ "nonconformant matrices in liftMatrix43: "
                   ++ show (HM.size m1, HM.size m2, HM.size m3, HM.size m4)
 
+-- TOOD: make sure this is not worse that OT.zipWith3A when transposing
+-- between each application or that we never encounter such situations
+--
+-- | Application of a vector function on the flattened arrays elements.
+liftArray43 :: ( Numeric a, Numeric b, Numeric c, Numeric d
+               , Numeric x, Numeric y, Numeric z )
+            => (Vector a -> Vector b -> Vector c -> Vector d
+                -> (Vector x, Vector y, Vector z))
+            -> OT.Array a -> OT.Array b -> OT.Array c -> OT.Array d
+            -> (OT.Array x, OT.Array y, OT.Array z)
+liftArray43 f m1 m2 m3 m4 =
+  let sz = OT.shapeL m1
+  in if sz == OT.shapeL m2 && sz == OT.shapeL m3 && sz == OT.shapeL m4
+     then
+       let (vx, vy, vz) = f (OT.toVector m1) (OT.toVector m2)
+                            (OT.toVector m3) (OT.toVector m4)
+       in ( OT.fromVector sz vx
+          , OT.fromVector sz vy
+          , OT.fromVector sz vz
+          )
+     else error
+          $ "nonconformant arrays in liftArray43: "
+            ++ show (OT.shapeL m1, OT.shapeL m2, OT.shapeL m3, OT.shapeL m4)
+
 updateWithGradientAdam :: forall r. (Floating r, Numeric r, Floating (Vector r))
                        => ArgsAdam r
                        -> StateAdam r
@@ -180,11 +218,11 @@ updateWithGradientAdam :: forall r. (Floating r, Numeric r, Floating (Vector r))
                        -> (Domains r, StateAdam r)
 updateWithGradientAdam ArgsAdam{..}
                        StateAdam{ tAdam
-                                , mAdam = (mAdam, mAdamV, mAdamL)
-                                , vAdam = (vAdam, vAdamV, vAdamL)
+                                , mAdam = (mAdam, mAdamV, mAdamL, mAdam_)
+                                , vAdam = (vAdam, vAdamV, vAdamL, vAdam_)
                                 }
-                       (params, paramsV, paramsL)
-                       (gradient, gradientV, gradientL) =
+                       (params, paramsV, paramsL, params_)
+                       (gradient, gradientV, gradientL, gradient_) =
   let tAdamNew = tAdam + 1
       oneMinusBeta1 = 1 - beta1
       oneMinusBeta2 = 1 - beta2
@@ -211,9 +249,14 @@ updateWithGradientAdam ArgsAdam{..}
                           else liftMatrix43 updateVector mA vA p g
       (mAdamLNew, vAdamLNew, paramsLNew) =
         V.unzip3 $ V.zipWith4 updateL mAdamL vAdamL paramsL gradientL
-  in ( (paramsNew, paramsVNew, paramsLNew)
+      update_ mA vA p g = if null (OT.shapeL g)  -- eval didn't update it; crash
+                          then (mA, vA, p)
+                          else liftArray43 updateVector mA vA p g
+      (mAdam_New, vAdam_New, params_New) =
+        V.unzip3 $ V.zipWith4 update_ mAdam_ vAdam_ params_ gradient_
+  in ( (paramsNew, paramsVNew, paramsLNew, params_New)
      , StateAdam { tAdam = tAdamNew
-                 , mAdam = (mAdamNew, mAdamVNew, mAdamLNew)
-                 , vAdam = (vAdamNew, vAdamVNew, vAdamLNew)
+                 , mAdam = (mAdamNew, mAdamVNew, mAdamLNew, mAdam_New)
+                 , vAdam = (vAdamNew, vAdamVNew, vAdamLNew, vAdam_New)
                  }
      )

@@ -182,8 +182,9 @@ gdSmartShow :: (DualNumberVariables Double
             -> Int
             -> ([Data.Vector.Storable.Vector Double], (Double, Double))
 gdSmartShow f paramsV0 n =
-  let ((_, paramsV, _), gamma) = gdSmart f n (V.empty, paramsV0, V.empty)
-      (_, value) = df f (V.empty, paramsV, V.empty)
+  let ((_, paramsV, _, _), gamma) =
+        gdSmart f n (V.empty, paramsV0, V.empty, V.empty)
+      (_, value) = df f (V.empty, paramsV, V.empty, V.empty)
   in (V.toList paramsV, (value, gamma))
 
 gradSmartTestCase

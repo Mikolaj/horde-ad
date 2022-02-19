@@ -34,7 +34,7 @@ sgdShow :: (Eq r, IsScalar r)
         -> Domain r  -- ^ initial parameters
         -> r
 sgdShow gamma f trainData params0 =
-  let result = sgd gamma f trainData (params0, V.empty, V.empty)
+  let result = sgd gamma f trainData (params0, V.empty, V.empty, V.empty)
   in snd $ df (f $ head trainData) result
 
 sgdTestCase :: String
@@ -92,7 +92,8 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
            runBatch !params (k, chunk) = do
              printf "(Batch %d)\n" k
              let f = trainWithLoss widthHidden widthHidden2
-                 (!res, _, _) = sgd gamma f chunk (params, V.empty, V.empty)
+                 (!res, _, _, _) =
+                   sgd gamma f chunk (params, V.empty, V.empty, V.empty)
              printf "Trained on %d points.\n" (length chunk)
              let trainScore = testMnist2 widthHidden widthHidden2 chunk res
                  testScore  = testMnist2 widthHidden widthHidden2 testData res
@@ -153,7 +154,8 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
            runBatch (!params, !paramsV) (k, chunk) = do
              printf "(Batch %d)\n" k
              let f = trainWithLoss widthHidden widthHidden2
-                 (resS, resV, _) = sgd gamma f chunk (params, paramsV, V.empty)
+                 (resS, resV, _, _) =
+                   sgd gamma f chunk (params, paramsV, V.empty, V.empty)
                  res = (resS, resV)
              printf "Trained on %d points.\n" (length chunk)
              let trainScore = testMnist2V widthHidden widthHidden2 chunk res
@@ -227,10 +229,10 @@ mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
        let runBatch :: Domains Double
                     -> (Int, [MnistData Double])
                     -> IO (Domains Double)
-           runBatch (!params, !paramsV, !paramsL) (k, chunk) = do
+           runBatch (!params, !paramsV, !paramsL, !params_) (k, chunk) = do
              printf "(Batch %d)\n" k
              let f = trainWithLoss
-                 res = sgd gamma f chunk (params, paramsV, paramsL)
+                 res = sgd gamma f chunk (params, paramsV, paramsL, params_)
              printf "Trained on %d points.\n" (length chunk)
              let trainScore = testMnist2L chunk res
                  testScore = testMnist2L testData res
@@ -267,7 +269,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           blackLabel = V.replicate sizeMnistLabel 5
           trainData = (blackGlyph, blackLabel)
           output = prettyPrintDf (nnMnistLoss2L trainData)
-                                 (params, paramsV, paramsL)
+                                 (params, paramsV, paramsL, V.empty)
       -- printf "%s" output
       length output @?= 13344
   , testCase "2pretty-print in grey 3 2 fused" $ do
@@ -281,7 +283,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           blackLabel = V.replicate sizeMnistLabel 5
           trainData = (blackGlyph, blackLabel)
           output = prettyPrintDf (nnMnistLossFused2L trainData)
-                                 (params, paramsV, paramsL)
+                                 (params, paramsV, paramsL, V.empty)
       -- printf "%s" output
       length output @?= 12419
   , let blackGlyph = V.replicate sizeMnistGlyph 0
@@ -327,7 +329,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           paramsV = V.map (`V.replicate` 0.1) vParamsV
           paramsL = V.map (HM.konst 0.1) vParamsL
       testData <- loadMnistData testGlyphsPath testLabelsPath
-      (1 - testMnist2L testData (params, paramsV, paramsL)) @?= 0.902
+      (1 - testMnist2L testData (params, paramsV, paramsL, V.empty)) @?= 0.902
  ]
 
 bigMnistTests :: TestTree

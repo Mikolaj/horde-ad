@@ -12,6 +12,7 @@ module HordeAd.Core.Engine
 import Prelude
 
 import           Control.Monad.Trans.State.Strict
+import qualified Data.Array.DynamicS as OT
 import           Data.Functor.Identity
 import           Data.List (foldl')
 import qualified Data.Strict.Vector as Data.Vector
@@ -34,7 +35,9 @@ type DomainV r = Data.Vector.Vector (Vector r)
 
 type DomainL r = Data.Vector.Vector (Matrix r)
 
-type Domains r = (Domain r, DomainV r, DomainL r)
+type Domain_ r = Data.Vector.Vector (OT.Array r)
+
+type Domains r = (Domain r, DomainV r, DomainL r, Domain_ r)
 
 -- * First comes the dummy monad implementation that does not collect deltas.
 -- It's intended for efficiently calculating the value of the function only.
@@ -58,13 +61,14 @@ primalValueGeneric :: IsScalar r
                    -> Domains r
                    -> a
 {-# INLINE primalValueGeneric #-}
-primalValueGeneric f (params, paramsV, paramsL) =
+primalValueGeneric f (params, paramsV, paramsL, params_) =
   let replicateZeros p = V.replicate (V.length p) zeroD
       variables = makeDualNumberVariables
-                    (params, paramsV, paramsL)
+                    (params, paramsV, paramsL, params_)
                     ( replicateZeros params  -- dummy
                     , replicateZeros paramsV
-                    , replicateZeros paramsL )
+                    , replicateZeros paramsL
+                    , replicateZeros params_ )
   in runIdentity $ runDeltaMonadValue $ f variables
 
 -- Small enough that inline won't hurt.
@@ -99,19 +103,21 @@ generalDf :: (Eq r, IsScalar r)
           -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
           -> (Domains r, r)
 {-# INLINE generalDf #-}
-generalDf variables@(params, _, paramsV, _, paramsL, _) f =
+generalDf variables@(params, _, paramsV, _, paramsL, _, params_, _) f =
   let dim = V.length params
       dimV = V.length paramsV
       dimL = V.length paramsL
+      dim_ = V.length params_
       initialState = DeltaState
         { deltaCounter0 = toDeltaId dim
         , deltaCounter1 = toDeltaId dimV
         , deltaCounter2 = toDeltaId dimL
+        , deltaCounter_ = toDeltaId dim_
         , deltaBindings = []
         }
       (D value d, st) = runState (runDeltaMonadGradient (f variables))
                                  initialState
-      gradient = evalBindings dim dimV dimL st d
+      gradient = evalBindings dim dimV dimL dim_ st d
   in (gradient, value)
 
 df :: (Eq r, IsScalar r)
@@ -127,16 +133,18 @@ prettyPrintDf :: forall r. (Show r, IsScalar r)
               => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
               -> Domains r
               -> String
-prettyPrintDf f parameters@(params, paramsV, paramsL) =
+prettyPrintDf f parameters@(params, paramsV, paramsL, params_) =
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
       dim = V.length params
       dimV = V.length paramsV
       dimL = V.length paramsL
+      dim_ = V.length params_
       initialState = DeltaState
         { deltaCounter0 = toDeltaId dim
         , deltaCounter1 = toDeltaId dimV
         , deltaCounter2 = toDeltaId dimL
+        , deltaCounter_ = toDeltaId dim_
         , deltaBindings = []
         }
       (D _ d0, st) = runState (runDeltaMonadGradient (f variables))
@@ -148,11 +156,15 @@ generateDeltaVars :: IsScalar r
                   => Domains r
                   -> ( Data.Vector.Vector (DeltaExpression r)
                      , Data.Vector.Vector (DeltaExpression (Vector r))
-                     , Data.Vector.Vector (DeltaExpression (Matrix r)) )
-generateDeltaVars (params, paramsV, paramsL) =
+                     , Data.Vector.Vector (DeltaExpression (Matrix r))
+                     , Data.Vector.Vector (DeltaExpression (OT.Array r)) )
+generateDeltaVars (params, paramsV, paramsL, params_) =
   let vVar p = V.generate (V.length p) (varD . toDeltaId)
-  in (vVar params, vVar paramsV, vVar paramsL)
+  in (vVar params, vVar paramsV, vVar paramsL, vVar params_)
 
+-- TODO: extend to tensors if it turns out we use them alongside
+-- matrices and vectors, not instead of them.
+--
 -- | Initialize parameters using a uniform distribution with a fixed range
 -- taken from an argument.
 --
@@ -184,4 +196,4 @@ initializerFixed seed range (nParams, lParamsV, lParamsL) =
   in ( (nParams, V.length vParamsV, V.length vParamsL)
      , totalParams
      , range
-     , (params0, paramsV0, paramsL0) )
+     , (params0, paramsV0, paramsL0, V.empty) )

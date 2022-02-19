@@ -9,12 +9,13 @@
 -- of parameters and with `Delta` variables assigned to each.
 module HordeAd.Core.PairOfVectors
   ( DualNumberVariables
-  , makeDualNumberVariables, var, vars, varV, varL
+  , makeDualNumberVariables, var, vars, varV, varL, var_
   , ifoldMDelta', foldMDelta', ifoldlDelta', foldlDelta'
   ) where
 
 import Prelude
 
+import qualified Data.Array.DynamicS as OT
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Vector)
@@ -33,28 +34,35 @@ type DualNumberVariables r =
   , Data.Vector.Vector (DeltaExpression (Vector r))
   , Data.Vector.Vector (Matrix r)
   , Data.Vector.Vector (DeltaExpression (Matrix r))
+  , Data.Vector.Vector (OT.Array r)
+  , Data.Vector.Vector (DeltaExpression (OT.Array r))
   )
 
 makeDualNumberVariables
   :: ( Vector r
      , Data.Vector.Vector (Vector r)
-     , Data.Vector.Vector (Matrix r) )
+     , Data.Vector.Vector (Matrix r)
+     , Data.Vector.Vector (OT.Array r) )
   -> ( Data.Vector.Vector (DeltaExpression r)
      , Data.Vector.Vector (DeltaExpression (Vector r))
-     , Data.Vector.Vector (DeltaExpression (Matrix r)) )
+     , Data.Vector.Vector (DeltaExpression (Matrix r))
+     , Data.Vector.Vector (DeltaExpression (OT.Array r)) )
   -> DualNumberVariables r
 {-# INLINE makeDualNumberVariables #-}
-makeDualNumberVariables (params, paramsV, paramsL) (vs, vsV, vsL)
-  = (params, vs, paramsV, vsV, paramsL, vsL)
+makeDualNumberVariables (params, paramsV, paramsL, params_) (vs, vsV, vsL, vs_)
+  = (params, vs, paramsV, vsV, paramsL, vsL, params_, vs_)
 
 var :: IsScalar r => DualNumberVariables r -> Int -> DualNumber r
-var (vValue, vVar, _, _, _, _) i = D (vValue V.! i) (vVar V.! i)
+var (vValue, vVar, _, _, _, _, _, _) i = D (vValue V.! i) (vVar V.! i)
 
 varV :: DualNumberVariables r -> Int -> DualNumber (Vector r)
-varV (_, _, vValue, vVar, _, _) i = D (vValue V.! i) (vVar V.! i)
+varV (_, _, vValue, vVar, _, _, _, _) i = D (vValue V.! i) (vVar V.! i)
 
 varL :: DualNumberVariables r -> Int -> DualNumber (Matrix r)
-varL (_, _, _, _, vValue, vVar) i = D (vValue V.! i) (vVar V.! i)
+varL (_, _, _, _, vValue, vVar, _, _) i = D (vValue V.! i) (vVar V.! i)
+
+var_ :: DualNumberVariables r -> Int -> DualNumber (OT.Array r)
+var_ (_, _, _, _, _, _, vValue, vVar) i = D (vValue V.! i) (vVar V.! i)
 
 -- Unsafe, but handy for toy examples.
 vars :: IsScalar r => DualNumberVariables r -> [DualNumber r]
@@ -66,7 +74,7 @@ ifoldMDelta' :: forall m a r. (Monad m, IsScalar r)
              -> DualNumberVariables r
              -> m a
 {-# INLINE ifoldMDelta' #-}
-ifoldMDelta' f a (vecR, vecD, _, _, _, _) = do
+ifoldMDelta' f a (vecR, vecD, _, _, _, _, _, _) = do
   let g :: a -> Int -> r -> m a
       g !acc i valX = do
         let !b = D valX (vecD V.! i)
@@ -79,7 +87,7 @@ foldMDelta' :: forall m a r. (Monad m, IsScalar r)
             -> DualNumberVariables r
             -> m a
 {-# INLINE foldMDelta' #-}
-foldMDelta' f a (vecR, vecD, _, _, _, _) = do
+foldMDelta' f a (vecR, vecD, _, _, _, _, _, _) = do
   let g :: a -> Int -> r -> m a
       g !acc i valX = do
         let !b = D valX (vecD V.! i)
@@ -92,7 +100,7 @@ ifoldlDelta' :: forall a r. IsScalar r
              -> DualNumberVariables r
              -> a
 {-# INLINE ifoldlDelta' #-}
-ifoldlDelta' f a (vecR, vecD, _, _, _, _) = do
+ifoldlDelta' f a (vecR, vecD, _, _, _, _, _, _) = do
   let g :: a -> Int -> r -> a
       g !acc i valX =
         let !b = D valX (vecD V.! i)
@@ -105,7 +113,7 @@ foldlDelta' :: forall a r. IsScalar r
             -> DualNumberVariables r
             -> a
 {-# INLINE foldlDelta' #-}
-foldlDelta' f a (vecR, vecD, _, _, _, _) = do
+foldlDelta' f a (vecR, vecD, _, _, _, _, _, _) = do
   let g :: a -> Int -> r -> a
       g !acc i valX =
         let !b = D valX (vecD V.! i)

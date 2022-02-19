@@ -40,8 +40,8 @@ gdSimpleShow :: (Eq r, IsScalar r)
              -> Int
              -> ([r], r)
 gdSimpleShow gamma f initVec n =
-  let (res, _, _) = gdSimple gamma f n (initVec, V.empty, V.empty)
-      (_, value) = df f (res, V.empty, V.empty)
+  let (res, _, _, _) = gdSimple gamma f n (initVec, V.empty, V.empty, V.empty)
+      (_, value) = df f (res, V.empty, V.empty, V.empty)
   in (V.toList res, value)
 
 fquad :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF

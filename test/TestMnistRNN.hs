@@ -530,7 +530,7 @@ mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
        let runBatch :: (Domains Double, StateAdam Double)
                     -> (Int, [([Vector Double], Vector Double)])
                     -> IO (Domains Double, StateAdam Double)
-           runBatch (parameters@(!_, !_, !_), stateAdam) (k, chunk) = do
+           runBatch (parameters@(!_, !_, !_, !_), stateAdam) (k, chunk) = do
              printf "(Batch %d with %d points)\n" k (length chunk)
              let res@(parameters2, _) =
                    sgdAdamBatch 150 (f width) chunk parameters stateAdam
@@ -713,7 +713,7 @@ mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
            runBatch :: (Domains Double, StateAdam Double)
                     -> (Int, [([Vector Double], Vector Double)])
                     -> IO (Domains Double, StateAdam Double)
-           runBatch (parameters@(!_, !_, !_), stateAdam) (k, chunk) = do
+           runBatch (parameters@(!_, !_, !_, !_), stateAdam) (k, chunk) = do
              printf "(Batch %d with %d points)\n" k (length chunk)
              let res@(parameters2, _) =
                    sgdAdam (f width) (map packChunk $ chunksOf 150 chunk)

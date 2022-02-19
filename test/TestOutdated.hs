@@ -58,7 +58,7 @@ sumResultsDual f as = do
   returnLet sumUs
 
 lengthDualNumber :: Storable r => DualNumberVariables r -> Int
-lengthDualNumber (vValue, _, _, _, _, _) = V.length vValue
+lengthDualNumber (vValue, _, _, _, _, _, _, _) = V.length vValue
 
 -- This, and other Fit and Fit2 nn operations, have unfused Delta let-bindings
 -- (one binding per each subexpression, even when not needed), which is fine,
@@ -159,8 +159,8 @@ gdSimpleShow :: (Eq r, IsScalar r)
              -> Int
              -> ([r], r)
 gdSimpleShow gamma f initVec n =
-  let (res, _, _) = gdSimple gamma f n (initVec, V.empty, V.empty)
-      (_, value) = df f (res, V.empty, V.empty)
+  let (res, _, _, _) = gdSimple gamma f n (initVec, V.empty, V.empty, V.empty)
+      (_, value) = df f (res, V.empty, V.empty, V.empty)
   in (V.toList res, value)
 
 gdSimpleTestCase
@@ -339,8 +339,8 @@ gdSmartShow :: (DualNumberVariablesD -> DeltaMonadGradient Double DualNumberD)
             -> Int
             -> ([Double], (Double, Double))
 gdSmartShow f initVec n =
-  let ((res, _, _), gamma) = gdSmart f n (initVec, V.empty, V.empty)
-      (_, value) = df f (res, V.empty, V.empty)
+  let ((res, _, _, _), gamma) = gdSmart f n (initVec, V.empty, V.empty, V.empty)
+      (_, value) = df f (res, V.empty, V.empty, V.empty)
   in (V.toList res, (value, gamma))
 
 gradSmartTestCase :: Num a
@@ -721,8 +721,9 @@ sgdShow :: (Eq r, IsScalar r)
         -> Domain r  -- ^ initial parameters
         -> ([r], r)
 sgdShow gamma f trainData params0 =
-  let (res, _, _) = sgd gamma f trainData (params0, V.empty, V.empty)
-      (_, value) = df (f $ head trainData) (res, V.empty, V.empty)
+  let (res, _, _, _) =
+        sgd gamma f trainData (params0, V.empty, V.empty, V.empty)
+      (_, value) = df (f $ head trainData) (res, V.empty, V.empty, V.empty)
   in (V.toList res, value)
 
 sgdTestCase

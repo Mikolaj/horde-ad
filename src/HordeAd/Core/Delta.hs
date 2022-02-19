@@ -26,7 +26,7 @@ module HordeAd.Core.Delta
     DeltaBinding
   , DeltaState (..)
   , evalBindings, ppBinding
-  , bindInState0, bindInState1, bindInState2
+  , bindInState0, bindInState1, bindInState2, bindInState_
   ) where
 
 import Prelude
@@ -35,6 +35,9 @@ import           Control.Exception (assert)
 import           Control.Monad (unless, zipWithM_)
 import           Control.Monad.ST.Strict (ST, runST)
 import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.Internal
+import qualified Data.Array.Internal.DynamicG
+import qualified Data.Array.Internal.DynamicS
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Strict.Vector.Autogen.Mutable as Data.Vector.Mutable
 import qualified Data.Vector.Generic as V
@@ -149,11 +152,13 @@ data DeltaBinding r =
     DeltaBinding0 (DeltaId r) (Delta0 r)
   | DeltaBinding1 (DeltaId (Vector r)) (Delta1 r)
   | DeltaBinding2 (DeltaId (Matrix r)) (Delta2 r)
+  | DeltaBinding_ (DeltaId (OT.Array r)) (Delta_ r)
 
 data DeltaState r = DeltaState
   { deltaCounter0 :: DeltaId r
   , deltaCounter1 :: DeltaId (Vector r)
   , deltaCounter2 :: DeltaId (Matrix r)
+  , deltaCounter_ :: DeltaId (OT.Array r)
   , deltaBindings :: [DeltaBinding r]
   }
 
@@ -167,39 +172,51 @@ data DeltaState r = DeltaState
 -- that are to be evaluated, in the given order, starting with the top-level
 -- binding of a scalar type provided in the remaining argument.
 evalBindings :: (Eq r, Numeric r, Num (Vector r))
-             => Int -> Int -> Int -> DeltaState r -> Delta0 r
+             => Int -> Int -> Int -> Int -> DeltaState r -> Delta0 r
              -> ( Vector r
                 , Data.Vector.Vector (Vector r)
-                , Data.Vector.Vector (Matrix r) )
-evalBindings dim0 dim1 dim2 st deltaTopLevel =
+                , Data.Vector.Vector (Matrix r)
+                , Data.Vector.Vector (OT.Array r) )
+evalBindings dim0 dim1 dim2 dim_ st deltaTopLevel =
   -- This is morally @V.create@ and so totally safe,
   -- but we can't just call @V.create@ thrice, because it would run
   -- the @ST@ action thrice, so we inline and extend @V.create@ here.
   runST $ do
-    (finiteMap0, finiteMap1, finiteMap2) <- buildVectors st deltaTopLevel
+    (finiteMap0, finiteMap1, finiteMap2, finiteMap_)
+      <- buildVectors st deltaTopLevel
     v0 <- V.unsafeFreeze $ VM.take dim0 finiteMap0
     v1 <- V.unsafeFreeze $ VM.take dim1 finiteMap1
     v2 <- V.unsafeFreeze $ VM.take dim2 finiteMap2
+    v_ <- V.unsafeFreeze $ VM.take dim_ finiteMap_
     -- Convert to normal matrices, but only the portion of vector
     -- that is not discarded.
-    return (v0, v1, V.map MO.convertMatrixOuterOrNull v2)
+    return (v0, v1, V.map MO.convertMatrixOuterOrNull v2, v_)
 
 buildVectors :: forall s r. (Eq r, Numeric r, Num (Vector r))
              => DeltaState r -> Delta0 r
              -> ST s ( Data.Vector.Storable.Mutable.MVector s r
                      , Data.Vector.Mutable.MVector s (Vector r)
-                     , Data.Vector.Mutable.MVector s (MO.MatrixOuter r) )
+                     , Data.Vector.Mutable.MVector s (MO.MatrixOuter r)
+                     , Data.Vector.Mutable.MVector s (OT.Array r) )
 buildVectors st deltaTopLevel = do
-  let DeltaId counter0 = deltaCounter0 st
+  let emptyArray =
+        Data.Array.Internal.DynamicS.A
+        $ Data.Array.Internal.DynamicG.A []
+        $ Data.Array.Internal.T [] 0 V.empty
+      DeltaId counter0 = deltaCounter0 st
       DeltaId counter1 = deltaCounter1 st
       DeltaId counter2 = deltaCounter2 st
+      DeltaId counter_ = deltaCounter_ st
   store0 <- VM.replicate counter0 0  -- correct value
   store1 <- VM.replicate counter1 (V.empty :: Vector r)  -- dummy value
   store2 <- VM.replicate counter2 MO.emptyMatrixOuter  -- dummy value
+  store_ <- VM.replicate counter_ emptyArray  -- dummy value
   let addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
       addToMatrix :: MO.MatrixOuter r -> MO.MatrixOuter r -> MO.MatrixOuter r
       addToMatrix r = \v -> if MO.nullMatrixOuter v then r else MO.plus v r
+      addToArray :: OT.Array r -> OT.Array r -> OT.Array r
+      addToArray r = \v -> if null (OT.shapeL v) then r else OT.zipWithA (+) v r
       eval0 :: r -> Delta0 r -> ST s ()
       eval0 !r = \case
         Zero0 -> return ()
@@ -275,7 +292,7 @@ buildVectors st deltaTopLevel = do
         Zero_ -> return ()
         Scale_ k d -> eval_ (OT.zipWithA (*) k r) d
         Add_ d e -> eval_ r d >> eval_ r e
-        Var_ (DeltaId _i) -> undefined
+        Var_ (DeltaId i) -> VM.modify store_ (addToArray r) i
 
         Append_ d k e -> case OT.shapeL r of
           n : _ -> eval_ (OT.slice [(0, k)] r) d
@@ -303,17 +320,23 @@ buildVectors st deltaTopLevel = do
         r <- store2 `VM.read` i
         unless (MO.nullMatrixOuter r) $
           eval2 r d
+      evalUnlessZero (DeltaBinding_ (DeltaId i) d) = do
+        r <- store_ `VM.read` i
+        unless (null (OT.shapeL r)) $
+          eval_ r d
   mapM_ evalUnlessZero (deltaBindings st)
-  return (store0, store1, store2)
+  return (store0, store1, store2, store_)
 
 ppBinding :: (Show r, Numeric r) => DeltaBinding r -> [String]
 ppBinding = \case
   DeltaBinding0 (DeltaId i) d ->
-    ["letS DeltaId_", show i, " = ", ppShow d, "\n"]
+    ["let0 DeltaId_", show i, " = ", ppShow d, "\n"]
   DeltaBinding1 (DeltaId i) d ->
-    ["letV DeltaId_", show i, " = ", ppShow d, "\n"]
+    ["let1 DeltaId_", show i, " = ", ppShow d, "\n"]
   DeltaBinding2 (DeltaId i) d ->
-    ["letM DeltaId_", show i, " = ", ppShow d, "\n"]
+    ["let2 DeltaId_", show i, " = ", ppShow d, "\n"]
+  DeltaBinding_ (DeltaId i) d ->
+    ["let_ DeltaId_", show i, " = ", ppShow d, "\n"]
 
 bindInState0 :: Delta0 r -> DeltaState r -> (DeltaState r, DeltaId r)
 {-# INLINE bindInState0 #-}
@@ -339,5 +362,14 @@ bindInState2 u' st =
   let dId = deltaCounter2 st
   in ( st { deltaCounter2 = succDeltaId dId
           , deltaBindings = DeltaBinding2 dId u' : deltaBindings st
+          }
+     , dId )
+
+bindInState_ :: Delta_ r -> DeltaState r -> (DeltaState r, DeltaId (OT.Array r))
+{-# INLINE bindInState_ #-}
+bindInState_ u' st =
+  let dId = deltaCounter_ st
+  in ( st { deltaCounter_ = succDeltaId dId
+          , deltaBindings = DeltaBinding_ dId u' : deltaBindings st
           }
      , dId )
