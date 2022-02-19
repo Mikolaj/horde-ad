@@ -19,7 +19,7 @@
 -- and reducing dimensions.
 module HordeAd.Core.Delta
   ( -- * Abstract syntax trees of the delta expressions
-    Delta0 (..), Delta1 (..), Delta2 (..)
+    Delta0 (..), Delta1 (..), Delta2 (..), Delta_ (..)
   , -- * Delta expression identifiers
     DeltaId, toDeltaId
   , -- * Evaluation of the delta expressions
@@ -31,8 +31,10 @@ module HordeAd.Core.Delta
 
 import Prelude
 
+import           Control.Exception (assert)
 import           Control.Monad (unless, zipWithM_)
 import           Control.Monad.ST.Strict (ST, runST)
+import qualified Data.Array.DynamicS as OT
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Strict.Vector.Autogen.Mutable as Data.Vector.Mutable
 import qualified Data.Vector.Generic as V
@@ -104,6 +106,25 @@ data Delta2 r =
 
   | AsRow2 (Delta1 r)  -- AsRow2 vd == FromRows2 (V.replicate n vd)
   | AsColumn2 (Delta1 r)  -- AsColumn2 vd == FromColumns2 (V.replicate n vd)
+  deriving Show
+
+-- | This is the grammar of delta-expressions at arbitrary tensor rank.
+--
+-- Warning: not tested nor benchmarked.
+data Delta_ r =
+    Zero_
+  | Scale_ (OT.Array r) (Delta_ r)
+  | Add_ (Delta_ r) (Delta_ r)
+  | Var_ (DeltaId (OT.Array r))
+
+  | Append_ (Delta_ r) Int (Delta_ r)
+      -- Append two arrays along the outermost dimension.
+      -- All dimensions, except the outermost, must be the same.
+      -- The integer argument is the outermost size of the first array.
+  | Slice_ Int Int (Delta_ r) Int
+      -- Extract a slice of an array along the outermost dimension.
+      -- The extracted slice must fall within the dimension.
+      -- The last argument is the outermost size of the argument array.
   deriving Show
 
 
@@ -245,6 +266,25 @@ buildVectors st deltaTopLevel = do
                 `MO.columnAppend`
                 MO.konst 0 nrows (ncols - i - n))
                 d
+      eval_ :: OT.Array r -> Delta_ r -> ST s ()
+      eval_ !r = \case
+        Zero_ -> return ()
+        Scale_ k d -> eval_ (OT.zipWithA (*) k r) d
+        Add_ d e -> eval_ r d >> eval_ r e
+        Var_ (DeltaId _i) -> undefined
+
+        Append_ d k e -> case OT.shapeL r of
+          n : _ -> eval_ (OT.slice [(0, k)] r) d
+                   >> eval_ (OT.slice [(k, n - k)] r) e
+          [] -> error "eval_: appending a 0-dimensional tensor"
+        Slice_ i n d len -> case OT.shapeL r of
+          n' : rest ->
+            assert (n' == n) $
+            eval_ (OT.constant (i : rest) 0
+                   `OT.append` r
+                   `OT.append` OT.constant (len - i - n : rest) 0)
+                  d
+          [] -> error "eval_: slicing a 0-dimensional tensor"
   eval0 1 deltaTopLevel  -- dt is 1 or hardwired in f
   let evalUnlessZero :: DeltaBinding r -> ST s ()
       evalUnlessZero (DeltaBinding0 (DeltaId i) d) = do

@@ -134,6 +134,7 @@ library
       , bytestring
       , hmatrix
       , mnist-idx
+      , orthotope
       , pretty-show
       , random
       , strict-containers

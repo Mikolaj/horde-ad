@@ -25,7 +25,8 @@ module HordeAd.Core.IsTensor
 
 import Prelude
 
-import Numeric.LinearAlgebra (Matrix, Numeric, Vector)
+import qualified Data.Array.DynamicS as OT
+import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 
 import HordeAd.Core.Delta
 
@@ -82,6 +83,16 @@ instance IsTensor (Matrix r) where
   type ScalarOfTensor (Matrix r) = r
   {-# INLINE bindInState #-}
   bindInState = bindInState2
+
+instance IsTensor (OT.Array r) where
+  type DeltaExpression (OT.Array r) = Delta_ r
+  zeroD = Zero_
+  scaleD = Scale_
+  addD = Add_
+  varD = Var_
+  type ScalarOfTensor (OT.Array r) = r
+  {-# INLINE bindInState #-}
+  bindInState = undefined
 
 -- | A shorthand for a useful set of constraints.
 type IsTensorWithScalar a r = (IsTensor a, ScalarOfTensor a ~ r)
