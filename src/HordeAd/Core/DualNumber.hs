@@ -1,4 +1,5 @@
-{-# LANGUAGE FunctionalDependencies, TypeFamilies #-}
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, FunctionalDependencies,
+             TypeFamilies, TypeOperators #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists -Wno-missing-methods #-}
 -- | Dual numbers and operations on them, which are extensions of normal
 -- arithmetic and other operations to also cover derivatives.
@@ -6,15 +7,18 @@ module HordeAd.Core.DualNumber where
 
 import Prelude
 
+import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.Shape
+import qualified Data.Array.ShapedS as OS
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
+import           GHC.TypeLits (KnownNat, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, (#>), (<.>))
 import qualified Numeric.LinearAlgebra as HM
 
-import qualified Data.Array.DynamicS as OT
-import           HordeAd.Core.Delta
-  (Delta0 (..), Delta1 (..), Delta2 (..), Delta_ (..))
-import           HordeAd.Core.IsTensor
+import HordeAd.Core.Delta
+  (Delta0 (..), Delta1 (..), Delta2 (..), DeltaS (..), Delta_ (..))
+import HordeAd.Core.IsTensor
 
 -- * The main dual number types
 
@@ -254,6 +258,23 @@ slice_ :: Int -> Int -> DualNumber (OT.Array r)
        -> DualNumber (OT.Array r)
 slice_ i n (D u u') = D (OT.slice [(i, n)] u)
                         (Slice_ i n u' (head $ OT.shapeL u))
+
+
+-- * Non-monadic operations resulting in an arbitrary fully typed Shaped tensor
+
+-- Warning: not tested nor benchmarked.
+
+appendS :: (Numeric r, OS.Shape sh, KnownNat m, KnownNat n, KnownNat (m + n))
+        => DualNumber (OS.Array (m ': sh) r)
+        -> DualNumber (OS.Array (n ': sh) r)
+        -> DualNumber (OS.Array ((m + n) ': sh) r)
+appendS (D u u') (D v v') = D (u `OS.append` v) (AppendS u' v')
+
+sliceS :: forall i n sh' sh r.
+          Data.Array.Shape.Slice ('(i, n) ': '[]) sh sh'
+       => DualNumber (OS.Array sh r)
+       -> DualNumber (OS.Array sh' r)
+sliceS (D u u') = D (OS.slice @('(i, n) ': '[]) u) (SliceS @i @n u')
 
 
 -- * General monadic operations, for any scalar rank
