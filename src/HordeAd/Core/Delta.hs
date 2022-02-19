@@ -19,7 +19,7 @@
 -- and reducing dimensions.
 module HordeAd.Core.Delta
   ( -- * Abstract syntax trees of the delta expressions
-    Delta0 (..), Delta1 (..), Delta2 (..), Delta_ (..)
+    Delta0 (..), Delta1 (..), Delta2 (..), Delta_ (..), DeltaS (..)
   , -- * Delta expression identifiers
     DeltaId, toDeltaId
   , -- * Evaluation of the delta expressions
@@ -38,6 +38,7 @@ import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Internal
 import qualified Data.Array.Internal.DynamicG
 import qualified Data.Array.Internal.DynamicS
+import qualified Data.Array.ShapedS as OS
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Strict.Vector.Autogen.Mutable as Data.Vector.Mutable
 import qualified Data.Vector.Generic as V
@@ -128,6 +129,34 @@ data Delta_ r =
       -- Extract a slice of an array along the outermost dimension.
       -- The extracted slice must fall within the dimension.
       -- The last argument is the outermost size of the argument array.
+  deriving Show
+
+-- | This is the grammar of delta-expressions at arbitrary tensor rank,
+-- the fully typed Shaped version.
+--
+-- Warning: not tested nor benchmarked.
+data DeltaS sh r =
+    ZeroS
+  | ScaleS (OS.Array sh r) (DeltaS sh r)
+  | AddS (DeltaS sh r) (DeltaS sh r)
+  | VarS (DeltaId (OS.Array sh r))
+
+  | AppendS (DeltaS sh r) Int (DeltaS sh r)  -- wrong
+      -- !!!
+      -- AppendS
+      --   :: (Shape sh, KnownNat m, KnownNat n, KnownNat (m + n))
+      --   => AppendS (DeltaS (m ': sh) r) (DeltaS (n ': sh) r)
+      --   -> DeltaS ((m + n) ': sh) r
+      --
+      -- Append two arrays along the outermost dimension.
+  | SliceS (DeltaS sh r)  -- wrong
+      -- !!!
+      -- SliceS
+      --   :: Slice sl sh sh'
+      --   => DeltaS sh r
+      --   -> DeltaS sh' r
+      --
+      -- Extract a slice of an array along the outermost dimension.
   deriving Show
 
 
