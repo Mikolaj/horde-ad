@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, GADTs, TypeOperators #-}
 -- | The second component of dual numbers, @Delta@, with it's evaluation
 -- function. Neel Krishnaswami calls that "sparse vector expressions",
 -- and indeed even in the simplest case of a function defined on scalars only,
@@ -38,12 +39,14 @@ import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Internal
 import qualified Data.Array.Internal.DynamicG
 import qualified Data.Array.Internal.DynamicS
+import qualified Data.Array.Shape
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Strict.Vector.Autogen.Mutable as Data.Vector.Mutable
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Storable.Mutable
+import           GHC.TypeLits (KnownNat, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           Text.Show.Pretty (ppShow)
@@ -122,11 +125,11 @@ data Delta_ r =
   | Var_ (DeltaId (OT.Array r))
 
   | Append_ (Delta_ r) Int (Delta_ r)
-      -- Append two arrays along the outermost dimension.
+      -- ^ Append two arrays along the outermost dimension.
       -- All dimensions, except the outermost, must be the same.
       -- The integer argument is the outermost size of the first array.
   | Slice_ Int Int (Delta_ r) Int
-      -- Extract a slice of an array along the outermost dimension.
+      -- ^ Extract a slice of an array along the outermost dimension.
       -- The extracted slice must fall within the dimension.
       -- The last argument is the outermost size of the argument array.
   deriving Show
@@ -134,30 +137,27 @@ data Delta_ r =
 -- | This is the grammar of delta-expressions at arbitrary tensor rank,
 -- the fully typed Shaped version.
 --
--- Warning: not tested nor benchmarked.
-data DeltaS sh r =
-    ZeroS
-  | ScaleS (OS.Array sh r) (DeltaS sh r)
-  | AddS (DeltaS sh r) (DeltaS sh r)
-  | VarS (DeltaId (OS.Array sh r))
+-- Warning: not tested nor benchmarked. To see any typing problems and decide
+-- whether `Delta_` can be replaced or kept in addition or neither,
+-- we need to implement something that really needs tensors or at least
+-- some heavy matrix stuff using exclusively tensors.
+data DeltaS sh r where
+  ZeroS :: DeltaS sh r
+  ScaleS :: OS.Array sh r -> DeltaS sh r -> DeltaS sh r
+  AddS :: DeltaS sh r -> DeltaS sh r -> DeltaS sh r
+  VarS :: DeltaId (OS.Array sh r) -> DeltaS sh r
 
-  | AppendS (DeltaS sh r) Int (DeltaS sh r)  -- wrong
-      -- !!!
-      -- AppendS
-      --   :: (Shape sh, KnownNat m, KnownNat n, KnownNat (m + n))
-      --   => AppendS (DeltaS (m ': sh) r) (DeltaS (n ': sh) r)
-      --   -> DeltaS ((m + n) ': sh) r
-      --
-      -- Append two arrays along the outermost dimension.
-  | SliceS (DeltaS sh r)  -- wrong
-      -- !!!
-      -- SliceS
-      --   :: Slice sl sh sh'
-      --   => DeltaS sh r
-      --   -> DeltaS sh' r
-      --
-      -- Extract a slice of an array along the outermost dimension.
-  deriving Show
+  AppendS :: (OS.Shape sh, KnownNat m, KnownNat n, KnownNat (m + n))
+          => DeltaS (m ': sh) r -> DeltaS (n ': sh) r
+          -> DeltaS ((m + n) ': sh) r
+    -- ^ Append two arrays along the outermost dimension.
+  SliceS :: forall i n sh' sh r.
+            Data.Array.Shape.Slice ('(i, n) ': '[]) sh sh'
+         => DeltaS sh r -> DeltaS sh' r
+    -- ^ Extract a slice of an array along the outermost dimension.
+
+-- futile:
+-- deriving instance (OS.Shape sh, Show r, Numeric r) => Show (DeltaS sh r)
 
 
 -- * Delta expression identifiers
