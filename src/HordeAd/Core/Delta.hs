@@ -335,6 +335,30 @@ buildVectors st deltaTopLevel = do
                    `OT.append` OT.constant (len - i - n : rest) 0)
                   d
           [] -> error "eval_: slicing a 0-dimensional tensor"
+      _antiWarning :: forall sh. OS.Shape sh
+                   => OS.Array sh r -> DeltaS sh r -> ST s ()
+      _antiWarning = evalS
+      evalS :: forall sh. OS.Shape sh
+            => OS.Array sh r -> DeltaS sh r -> ST s ()
+      evalS !r = \case
+        ZeroS -> return ()
+        ScaleS k d -> evalS (OS.zipWithA (*) k r) d
+        AddS d e -> evalS r d >> evalS r e
+        VarS (DeltaId _i) -> undefined  -- VM.modify storeS (addToArrayS r) i
+
+        AppendS{} -> undefined
+        SliceS{} -> undefined
+{- this is possibly morally correct and works in GHC 9.2.1, but not without
+   somebody that knows what she's doing convincing GHC to accept it:
+        AppendS (d :: DeltaS (k ': _restD) r) (e :: DeltaS (l ': _restE) r) ->
+          evalS (OS.slice @('(0, k) : '[]) r) d
+          >> evalS (OS.slice @('(k, l) ': '[]) r) e
+        SliceS @i @n (d :: DeltaS (len ': rest) r) ->
+          evalS (OS.constant @(i ': rest) 0
+                 `OS.append` r
+                 `OS.append` OS.constant @(len - i - n ': rest) 0)
+                d
+-}
   eval0 1 deltaTopLevel  -- dt is 1 or hardwired in f
   let evalUnlessZero :: DeltaBinding r -> ST s ()
       evalUnlessZero (DeltaBinding0 (DeltaId i) d) = do
