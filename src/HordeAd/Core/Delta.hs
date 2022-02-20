@@ -75,7 +75,11 @@ data Delta0 r =
   | Index0 (Delta1 r) Int Int
 
   | Dot0 (Vector r) (Delta1 r)  -- Dot0 v sd == SumElements0 (Scale1 v sd) n
-  deriving Show
+
+  | ToScalar_ (Delta_ r)
+  | ToScalarS (DeltaS '[] r)
+
+deriving instance (Show r, Numeric r) => Show (Delta0 r)
 
 -- | This is the grammar of delta-expressions at tensor rank 1, that is,
 -- at vector level.
@@ -94,7 +98,11 @@ data Delta1 r =
 
   | M_VD1 (Matrix r) (Delta1 r)  -- M_VD1 m vd == SumRows1 (M_MD2 m (AsRow2 vd))
   | MD_V1 (Delta2 r) (Vector r)  -- MD_V1 md v == SumRows1 (MD_M2 md (asRow v))
-  deriving Show
+
+  | ToVector_ (Delta_ r)
+  | forall len. KnownNat len => ToVectorS (DeltaS '[len] r)
+
+deriving instance (Show r, Numeric r) => Show (Delta1 r)
 
 -- | This is the grammar of delta-expressions at tensor rank 1, that is,
 -- at matrix level.
@@ -116,7 +124,12 @@ data Delta2 r =
 
   | AsRow2 (Delta1 r)  -- AsRow2 vd == FromRows2 (V.replicate n vd)
   | AsColumn2 (Delta1 r)  -- AsColumn2 vd == FromColumns2 (V.replicate n vd)
-  deriving Show
+
+  | ToMatrix_ (Delta_ r)
+  | forall rows cols. (KnownNat rows, KnownNat cols)
+    => ToMatrixS (DeltaS '[rows, cols] r)
+
+deriving instance (Show r, Numeric r) => Show (Delta2 r)
 
 -- | This is the grammar of delta-expressions at arbitrary tensor rank.
 --
@@ -258,6 +271,9 @@ buildVectors st deltaTopLevel = do
         Dot0 vr vd -> eval1 (HM.scale r vr) vd
         SumElements0 vd n -> eval1 (HM.konst r n) vd
         Index0 d i k -> eval1 (HM.konst 0 k V.// [(i, r)]) d
+
+        ToScalar_ d -> eval_ (OT.scalar r) d
+        ToScalarS d -> evalS (OS.scalar r) d
       eval1 :: Vector r -> Delta1 r -> ST s ()
       eval1 !r = \case
         Zero1 -> return ()
@@ -276,6 +292,9 @@ buildVectors st deltaTopLevel = do
         MD_V1 md row -> eval2 (MO.MatrixOuter Nothing (Just r) (Just row)) md
         SumRows1 dm ncols -> eval2 (MO.asColumn r ncols) dm
         SumColumns1 dm nrows -> eval2 (MO.asRow r nrows) dm
+
+        ToVector_ d -> eval_ (OT.fromVector [V.length r] r) d
+        ToVectorS d -> evalS (OS.fromVector r) d
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
       eval2 !r = \case
         Zero2 -> return ()
@@ -318,6 +337,10 @@ buildVectors st deltaTopLevel = do
                     `MO.columnAppend` r
                     `MO.columnAppend` MO.konst 0 nrows (ncols - i - n))
                    d
+
+        ToMatrix_ d -> eval_ (OT.fromVector [MO.rows r, MO.cols r]
+                                            (V.concat $ MO.toRows r)) d
+        ToMatrixS d -> evalS (OS.fromVector $ V.concat $ MO.toRows r) d
       eval_ :: OT.Array r -> Delta_ r -> ST s ()
       eval_ !r = \case
         Zero_ -> return ()
@@ -353,8 +376,8 @@ buildVectors st deltaTopLevel = do
 {- this is possibly morally correct and works in GHC 9.2.1, but not without
    somebody that knows what she's doing convincing GHC to accept it:
         AppendS (d :: DeltaS (k ': _restD) r) (e :: DeltaS (l ': _restE) r) ->
-          evalS (OS.slice @('(0, k) : '[]) r) d
-          >> evalS (OS.slice @('(k, l) ': '[]) r) e
+          evalS (OS.slice @'['(0, k)] r) d
+          >> evalS (OS.slice @'['(k, l)] r) e
         SliceS @i @n (d :: DeltaS (len ': rest) r) ->
           evalS (OS.constant @(i ': rest) 0
                  `OS.append` r

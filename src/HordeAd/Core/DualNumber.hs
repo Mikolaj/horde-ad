@@ -8,6 +8,7 @@ module HordeAd.Core.DualNumber where
 import Prelude
 
 import qualified Data.Array.DynamicS as OT
+import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Strict.Vector as Data.Vector
@@ -128,6 +129,12 @@ infixr 8 <.>!!
         -> DualNumber r
 (<.>!!) (D u u') v = D (u <.> v) (Dot0 v u')
 
+toScalar_ :: IsScalar r => DualNumber (OT.Array r) -> DualNumber r
+toScalar_ (D u u') = D (OT.unScalar u) (ToScalar_ u')
+
+toScalarS :: IsScalar r => DualNumber (OS.Array '[] r) -> DualNumber r
+toScalarS (D u u') = D (OS.unScalar u) (ToScalarS u')
+
 
 -- * Non-monadic operations resulting in a vector
 
@@ -173,6 +180,13 @@ infixr 8 #>!!
        -> Vector r
        -> DualNumber (Vector r)
 (#>!!) (D u u') v = D (u #> v) (MD_V1 u' v)
+
+toVector_ :: Numeric r => DualNumber (OT.Array r) -> DualNumber (Vector r)
+toVector_ (D u u') = D (OT.toVector u) (ToVector_ u')
+
+toVectorS :: (Numeric r, KnownNat len)
+          => DualNumber (OS.Array '[len] r) -> DualNumber (Vector r)
+toVectorS (D u u') = D (OS.toVector u) (ToVectorS u')
 
 
 -- * Non-monadic operations resulting in a matrix
@@ -242,6 +256,16 @@ asRow2 (D u u') n = D (HM.fromRows $ replicate n u) (AsRow2 u')
 
 asColumn2 :: Numeric r => DualNumber (Vector r) -> Int -> DualNumber (Matrix r)
 asColumn2 (D u u') n = D (HM.fromColumns $ replicate n u) (AsColumn2 u')
+
+toMatrix_ :: Numeric r => DualNumber (OT.Array r) -> DualNumber (Matrix r)
+toMatrix_ (D u u') = case OT.shapeL u of
+  [_, cols] -> D (HM.reshape cols $ OT.toVector u) (ToMatrix_ u')
+  dims -> error $ "toMatrix_: the tensor has wrong dimensions" ++ show dims
+
+toMatrixS :: forall rows cols r. (Numeric r, KnownNat rows, KnownNat cols)
+          => DualNumber (OS.Array '[rows, cols] r) -> DualNumber (Matrix r)
+toMatrixS (D u u') = D (HM.reshape (valueOf @cols) $ OS.toVector u)
+                       (ToMatrixS u')
 
 
 -- * Non-monadic operations resulting in an arbitrary tensor
