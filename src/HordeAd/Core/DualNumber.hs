@@ -283,6 +283,16 @@ slice_ :: Int -> Int -> DualNumber (OT.Array r)
 slice_ i n (D u u') = D (OT.slice [(i, n)] u)
                         (Slice_ i n u' (head $ OT.shapeL u))
 
+fromScalar_ :: IsScalar r => DualNumber r -> DualNumber (OT.Array r)
+fromScalar_ (D u u') = D (OT.scalar u) (FromScalar_ u')
+
+fromVector_ :: Numeric r => DualNumber (Vector r) -> DualNumber (OT.Array r)
+fromVector_ (D u u') = D (OT.fromVector [V.length u] u) (FromVector_ u')
+
+fromMatrix_ :: Numeric r => DualNumber (Matrix r) -> DualNumber (OT.Array r)
+fromMatrix_ (D u u') = D (OT.fromVector [HM.rows u, HM.cols u] $ HM.flatten u)
+                         (FromMatrix_ u' ( HM.cols u))
+
 
 -- * Non-monadic operations resulting in an arbitrary fully typed Shaped tensor
 
@@ -299,6 +309,17 @@ sliceS :: forall i n sh' sh r.
        => DualNumber (OS.Array sh r)
        -> DualNumber (OS.Array sh' r)
 sliceS (D u u') = D (OS.slice @('(i, n) ': '[]) u) (SliceS @i @n u')
+
+fromScalarS :: IsScalar r => DualNumber r -> DualNumber (OS.Array '[] r)
+fromScalarS (D u u') = D (OS.scalar u) (FromScalarS u')
+
+fromVectorS :: (Numeric r, KnownNat n)
+            => DualNumber (Vector r) -> DualNumber (OS.Array '[n] r)
+fromVectorS (D u u') = D (OS.fromVector u) (FromVectorS u')
+
+fromMatrixS :: (Numeric r, KnownNat rows, KnownNat cols)
+            => DualNumber (Matrix r) -> DualNumber (OS.Array '[rows, cols] r)
+fromMatrixS (D u u') = D (OS.fromVector $ HM.flatten u) (FromMatrixS u')
 
 
 -- * General monadic operations, for any scalar rank

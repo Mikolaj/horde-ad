@@ -148,6 +148,10 @@ data Delta_ r =
       -- ^ Extract a slice of an array along the outermost dimension.
       -- The extracted slice must fall within the dimension.
       -- The last argument is the outermost size of the argument array.
+
+  | FromScalar_ (Delta0 r)
+  | FromVector_ (Delta1 r)
+  | FromMatrix_ (Delta2 r) Int
   deriving Show
 
 -- | This is the grammar of delta-expressions at arbitrary tensor rank,
@@ -171,6 +175,10 @@ data DeltaS sh r where
             Data.Array.Shape.Slice ('(i, n) ': '[]) sh sh'
          => DeltaS sh r -> DeltaS sh' r
     -- ^ Extract a slice of an array along the outermost dimension.
+
+  FromScalarS :: Delta0 r -> DeltaS '[] r
+  FromVectorS :: Delta1 r -> DeltaS '[n] r
+  FromMatrixS :: forall rows cols r. Delta2 r -> DeltaS '[rows, cols] r
 
 instance Show (DeltaS sh r) where
   show _ = "a DeltaS delta expression"
@@ -360,6 +368,13 @@ buildVectors st deltaTopLevel = do
                    `OT.append` OT.constant (len - i - n : rest) 0)
                   d
           [] -> error "eval_: slicing a 0-dimensional tensor"
+
+        FromScalar_ d -> eval0 (OT.unScalar r) d
+        FromVector_ d -> eval1 (OT.toVector r) d
+        FromMatrix_ d cols ->
+          eval2 (MO.MatrixOuter (Just $ HM.reshape cols $ OT.toVector r)
+                                Nothing Nothing)
+                d
       _antiWarning :: forall sh. OS.Shape sh
                    => OS.Array sh r -> DeltaS sh r -> ST s ()
       _antiWarning = evalS
@@ -373,7 +388,7 @@ buildVectors st deltaTopLevel = do
 
         AppendS{} -> undefined
         SliceS{} -> undefined
-{- this is possibly morally correct and works in GHC 9.2.1, but not without
+{- this is possibly morally correct and works in GHC 9.2, but not without
    somebody that knows what she's doing convincing GHC to accept it:
         AppendS (d :: DeltaS (k ': _restD) r) (e :: DeltaS (l ': _restE) r) ->
           evalS (OS.slice @'['(0, k)] r) d
@@ -383,6 +398,19 @@ buildVectors st deltaTopLevel = do
                  `OS.append` r
                  `OS.append` OS.constant @(len - i - n ': rest) 0)
                 d
+-}
+
+        FromScalarS d -> eval0 (OS.unScalar r) d
+        FromVectorS d -> eval1 (OS.toVector r) d
+        FromMatrixS{} -> undefined
+{- GHC 9.2 needed; can this be simplified?
+        FromMatrixS @cols d ->
+          eval2 (MO.MatrixOuter
+                   (Just $ HM.reshape (valueOf @cols) $ OS.toVector r)
+                   Nothing Nothing)
+                d
+   this doesn't seem to work (would a separate function work?):
+        (FromMatrixS d :: DeltaS '[rows, cols] r) ->
 -}
   eval0 1 deltaTopLevel  -- dt is 1 or hardwired in f
   let evalUnlessZero :: DeltaBinding r -> ST s ()
