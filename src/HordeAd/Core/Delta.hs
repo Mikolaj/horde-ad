@@ -6,7 +6,7 @@
 -- the non-empty portion of the codomain of the evaluation function is a vector,
 -- because the gradient of an @R^n@ to @R@ function is an @R^n@ vector.
 --
--- The 'sparcity' is less obvious when the domain of the function consists
+-- The 'sparsity' is less obvious when the domain of the function consists
 -- of multiple vectors and matrices and when the expressions themselves
 -- contain vectors and matrices. However, a single tiny delta
 -- expression (e.g., a sum of two variables) may denote a vector of matrices.
@@ -104,7 +104,7 @@ data Delta1 r =
 
 deriving instance (Show r, Numeric r) => Show (Delta1 r)
 
--- | This is the grammar of delta-expressions at tensor rank 1, that is,
+-- | This is the grammar of delta-expressions at tensor rank 2, that is,
 -- at matrix level.
 data Delta2 r =
     Zero2
