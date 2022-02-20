@@ -77,8 +77,8 @@ data Delta0 r =
 
   | Dot0 (Vector r) (Delta1 r)  -- Dot0 v sd == SumElements0 (Scale1 v sd) n
 
-  | ToScalar_ (Delta_ r)
-  | ToScalarS (DeltaS '[] r)
+  | From_0 (Delta_ r)
+  | FromS0 (DeltaS '[] r)
 
 deriving instance (Show r, Numeric r) => Show (Delta0 r)
 
@@ -100,8 +100,8 @@ data Delta1 r =
   | M_VD1 (Matrix r) (Delta1 r)  -- M_VD1 m vd == SumRows1 (M_MD2 m (AsRow2 vd))
   | MD_V1 (Delta2 r) (Vector r)  -- MD_V1 md v == SumRows1 (MD_M2 md (asRow v))
 
-  | ToVector_ (Delta_ r)
-  | forall len. KnownNat len => ToVectorS (DeltaS '[len] r)
+  | From_1 (Delta_ r)
+  | forall len. KnownNat len => FromS1 (DeltaS '[len] r)
 
 deriving instance (Show r, Numeric r) => Show (Delta1 r)
 
@@ -126,9 +126,9 @@ data Delta2 r =
   | AsRow2 (Delta1 r)  -- AsRow2 vd == FromRows2 (V.replicate n vd)
   | AsColumn2 (Delta1 r)  -- AsColumn2 vd == FromColumns2 (V.replicate n vd)
 
-  | ToMatrix_ (Delta_ r)
+  | From_2 (Delta_ r)
   | forall rows cols. (KnownNat rows, KnownNat cols)
-    => ToMatrixS (DeltaS '[rows, cols] r)
+    => FromS2 (DeltaS '[rows, cols] r)
 
 deriving instance (Show r, Numeric r) => Show (Delta2 r)
 
@@ -150,10 +150,10 @@ data Delta_ r =
       -- The extracted slice must fall within the dimension.
       -- The last argument is the outermost size of the argument array.
 
-  | FromScalar_ (Delta0 r)
-  | FromVector_ (Delta1 r)
-  | FromMatrix_ (Delta2 r) Int
-  | forall sh. OS.Shape sh => FromShaped_ (DeltaS sh r)
+  | From0_ (Delta0 r)
+  | From1_ (Delta1 r)
+  | From2_ (Delta2 r) Int
+  | forall sh. OS.Shape sh => FromS_ (DeltaS sh r)
 
 deriving instance (Show r, Numeric r) => Show (Delta_ r)
 
@@ -179,10 +179,10 @@ data DeltaS sh r where
          => DeltaS sh r -> DeltaS sh' r
     -- ^ Extract a slice of an array along the outermost dimension.
 
-  FromScalarS :: Delta0 r -> DeltaS '[] r
-  FromVectorS :: Delta1 r -> DeltaS '[n] r
-  FromMatrixS :: forall rows cols r. Delta2 r -> DeltaS '[rows, cols] r
-  FromArrayS :: forall sh r. Delta_ r -> DeltaS sh r
+  From0S :: Delta0 r -> DeltaS '[] r
+  From1S :: Delta1 r -> DeltaS '[n] r
+  From2S :: forall rows cols r. Delta2 r -> DeltaS '[rows, cols] r
+  From_S :: forall sh r. Delta_ r -> DeltaS sh r
 
 instance Show (DeltaS sh r) where
   show _ = "a DeltaS delta expression"
@@ -284,8 +284,8 @@ buildVectors st deltaTopLevel = do
         SumElements0 vd n -> eval1 (HM.konst r n) vd
         Index0 d i k -> eval1 (HM.konst 0 k V.// [(i, r)]) d
 
-        ToScalar_ d -> eval_ (OT.scalar r) d
-        ToScalarS d -> evalS (OS.scalar r) d
+        From_0 d -> eval_ (OT.scalar r) d
+        FromS0 d -> evalS (OS.scalar r) d
       eval1 :: Vector r -> Delta1 r -> ST s ()
       eval1 !r = \case
         Zero1 -> return ()
@@ -305,8 +305,8 @@ buildVectors st deltaTopLevel = do
         SumRows1 dm ncols -> eval2 (MO.asColumn r ncols) dm
         SumColumns1 dm nrows -> eval2 (MO.asRow r nrows) dm
 
-        ToVector_ d -> eval_ (OT.fromVector [V.length r] r) d
-        ToVectorS d -> evalS (OS.fromVector r) d
+        From_1 d -> eval_ (OT.fromVector [V.length r] r) d
+        FromS1 d -> evalS (OS.fromVector r) d
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
       eval2 !r = \case
         Zero2 -> return ()
@@ -350,9 +350,9 @@ buildVectors st deltaTopLevel = do
                     `MO.columnAppend` MO.konst 0 nrows (ncols - i - n))
                    d
 
-        ToMatrix_ d -> eval_ (OT.fromVector [MO.rows r, MO.cols r]
-                                            (V.concat $ MO.toRows r)) d
-        ToMatrixS d -> evalS (OS.fromVector $ V.concat $ MO.toRows r) d
+        From_2 d -> eval_ (OT.fromVector [MO.rows r, MO.cols r]
+                                         (V.concat $ MO.toRows r)) d
+        FromS2 d -> evalS (OS.fromVector $ V.concat $ MO.toRows r) d
       eval_ :: OT.Array r -> Delta_ r -> ST s ()
       eval_ !r = \case
         Zero_ -> return ()
@@ -373,13 +373,13 @@ buildVectors st deltaTopLevel = do
                   d
           [] -> error "eval_: slicing a 0-dimensional tensor"
 
-        FromScalar_ d -> eval0 (OT.unScalar r) d
-        FromVector_ d -> eval1 (OT.toVector r) d
-        FromMatrix_ d cols ->
+        From0_ d -> eval0 (OT.unScalar r) d
+        From1_ d -> eval1 (OT.toVector r) d
+        From2_ d cols ->
           eval2 (MO.MatrixOuter (Just $ HM.reshape cols $ OT.toVector r)
                                 Nothing Nothing)
                 d
-        FromShaped_ d -> evalS (Data.Array.Convert.convert r) d
+        FromS_ d -> evalS (Data.Array.Convert.convert r) d
       _antiWarning :: forall sh. OS.Shape sh
                    => OS.Array sh r -> DeltaS sh r -> ST s ()
       _antiWarning = evalS
@@ -405,19 +405,19 @@ buildVectors st deltaTopLevel = do
                 d
 -}
 
-        FromScalarS d -> eval0 (OS.unScalar r) d
-        FromVectorS d -> eval1 (OS.toVector r) d
-        FromMatrixS{} -> undefined
+        From0S d -> eval0 (OS.unScalar r) d
+        From1S d -> eval1 (OS.toVector r) d
+        From2S{} -> undefined
 {- GHC 9.2 needed; can this be simplified?
-        FromMatrixS @cols d ->
+        From2S @cols d ->
           eval2 (MO.MatrixOuter
                    (Just $ HM.reshape (valueOf @cols) $ OS.toVector r)
                    Nothing Nothing)
                 d
    this doesn't seem to work (would a separate function work?):
-        (FromMatrixS d :: DeltaS '[rows, cols] r) ->
+        (From2S d :: DeltaS '[rows, cols] r) ->
 -}
-        FromArrayS d -> eval_ (Data.Array.Convert.convert r) d
+        From_S d -> eval_ (Data.Array.Convert.convert r) d
   eval0 1 deltaTopLevel  -- dt is 1 or hardwired in f
   let evalUnlessZero :: DeltaBinding r -> ST s ()
       evalUnlessZero (DeltaBinding0 (DeltaId i) d) = do

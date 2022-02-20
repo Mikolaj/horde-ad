@@ -130,11 +130,11 @@ infixr 8 <.>!!
         -> DualNumber r
 (<.>!!) (D u u') v = D (u <.> v) (Dot0 v u')
 
-toScalar_ :: IsScalar r => DualNumber (OT.Array r) -> DualNumber r
-toScalar_ (D u u') = D (OT.unScalar u) (ToScalar_ u')
+from_0 :: IsScalar r => DualNumber (OT.Array r) -> DualNumber r
+from_0 (D u u') = D (OT.unScalar u) (From_0 u')
 
-toScalarS :: IsScalar r => DualNumber (OS.Array '[] r) -> DualNumber r
-toScalarS (D u u') = D (OS.unScalar u) (ToScalarS u')
+fromS0 :: IsScalar r => DualNumber (OS.Array '[] r) -> DualNumber r
+fromS0 (D u u') = D (OS.unScalar u) (FromS0 u')
 
 
 -- * Non-monadic operations resulting in a vector
@@ -182,12 +182,12 @@ infixr 8 #>!!
        -> DualNumber (Vector r)
 (#>!!) (D u u') v = D (u #> v) (MD_V1 u' v)
 
-toVector_ :: Numeric r => DualNumber (OT.Array r) -> DualNumber (Vector r)
-toVector_ (D u u') = D (OT.toVector u) (ToVector_ u')
+from_1 :: Numeric r => DualNumber (OT.Array r) -> DualNumber (Vector r)
+from_1 (D u u') = D (OT.toVector u) (From_1 u')
 
-toVectorS :: (Numeric r, KnownNat len)
-          => DualNumber (OS.Array '[len] r) -> DualNumber (Vector r)
-toVectorS (D u u') = D (OS.toVector u) (ToVectorS u')
+fromS1 :: (Numeric r, KnownNat len)
+       => DualNumber (OS.Array '[len] r) -> DualNumber (Vector r)
+fromS1 (D u u') = D (OS.toVector u) (FromS1 u')
 
 
 -- * Non-monadic operations resulting in a matrix
@@ -258,15 +258,15 @@ asRow2 (D u u') n = D (HM.fromRows $ replicate n u) (AsRow2 u')
 asColumn2 :: Numeric r => DualNumber (Vector r) -> Int -> DualNumber (Matrix r)
 asColumn2 (D u u') n = D (HM.fromColumns $ replicate n u) (AsColumn2 u')
 
-toMatrix_ :: Numeric r => DualNumber (OT.Array r) -> DualNumber (Matrix r)
-toMatrix_ (D u u') = case OT.shapeL u of
-  [_, cols] -> D (HM.reshape cols $ OT.toVector u) (ToMatrix_ u')
+from_2 :: Numeric r => DualNumber (OT.Array r) -> DualNumber (Matrix r)
+from_2 (D u u') = case OT.shapeL u of
+  [_, cols] -> D (HM.reshape cols $ OT.toVector u) (From_2 u')
   dims -> error $ "toMatrix_: the tensor has wrong dimensions" ++ show dims
 
-toMatrixS :: forall rows cols r. (Numeric r, KnownNat rows, KnownNat cols)
-          => DualNumber (OS.Array '[rows, cols] r) -> DualNumber (Matrix r)
-toMatrixS (D u u') = D (HM.reshape (valueOf @cols) $ OS.toVector u)
-                       (ToMatrixS u')
+fromS2 :: forall rows cols r. (Numeric r, KnownNat rows, KnownNat cols)
+       => DualNumber (OS.Array '[rows, cols] r) -> DualNumber (Matrix r)
+fromS2 (D u u') = D (HM.reshape (valueOf @cols) $ OS.toVector u)
+                    (FromS2 u')
 
 
 -- * Non-monadic operations resulting in an arbitrary tensor
@@ -284,19 +284,18 @@ slice_ :: Int -> Int -> DualNumber (OT.Array r)
 slice_ i n (D u u') = D (OT.slice [(i, n)] u)
                         (Slice_ i n u' (head $ OT.shapeL u))
 
-fromScalar_ :: IsScalar r => DualNumber r -> DualNumber (OT.Array r)
-fromScalar_ (D u u') = D (OT.scalar u) (FromScalar_ u')
+from0_ :: IsScalar r => DualNumber r -> DualNumber (OT.Array r)
+from0_ (D u u') = D (OT.scalar u) (From0_ u')
 
-fromVector_ :: Numeric r => DualNumber (Vector r) -> DualNumber (OT.Array r)
-fromVector_ (D u u') = D (OT.fromVector [V.length u] u) (FromVector_ u')
+from1_ :: Numeric r => DualNumber (Vector r) -> DualNumber (OT.Array r)
+from1_ (D u u') = D (OT.fromVector [V.length u] u) (From1_ u')
 
-fromMatrix_ :: Numeric r => DualNumber (Matrix r) -> DualNumber (OT.Array r)
-fromMatrix_ (D u u') = D (OT.fromVector [HM.rows u, HM.cols u] $ HM.flatten u)
-                         (FromMatrix_ u' ( HM.cols u))
+from2_ :: Numeric r => DualNumber (Matrix r) -> DualNumber (OT.Array r)
+from2_ (D u u') = D (OT.fromVector [HM.rows u, HM.cols u] $ HM.flatten u)
+                    (From2_ u' ( HM.cols u))
 
-fromShaped_ :: OS.Shape sh
-            => DualNumber (OS.Array sh r) -> DualNumber (OT.Array r)
-fromShaped_ (D u u') = D (Data.Array.Convert.convert u) (FromShaped_ u')
+fromS_ :: OS.Shape sh => DualNumber (OS.Array sh r) -> DualNumber (OT.Array r)
+fromS_ (D u u') = D (Data.Array.Convert.convert u) (FromS_ u')
 
 
 -- * Non-monadic operations resulting in an arbitrary fully typed Shaped tensor
@@ -315,20 +314,20 @@ sliceS :: forall i n sh' sh r.
        -> DualNumber (OS.Array sh' r)
 sliceS (D u u') = D (OS.slice @('(i, n) ': '[]) u) (SliceS @i @n u')
 
-fromScalarS :: IsScalar r => DualNumber r -> DualNumber (OS.Array '[] r)
-fromScalarS (D u u') = D (OS.scalar u) (FromScalarS u')
+from0S :: IsScalar r => DualNumber r -> DualNumber (OS.Array '[] r)
+from0S (D u u') = D (OS.scalar u) (From0S u')
 
-fromVectorS :: (Numeric r, KnownNat n)
-            => DualNumber (Vector r) -> DualNumber (OS.Array '[n] r)
-fromVectorS (D u u') = D (OS.fromVector u) (FromVectorS u')
+from1S :: (Numeric r, KnownNat n)
+       => DualNumber (Vector r) -> DualNumber (OS.Array '[n] r)
+from1S (D u u') = D (OS.fromVector u) (From1S u')
 
-fromMatrixS :: (Numeric r, KnownNat rows, KnownNat cols)
-            => DualNumber (Matrix r) -> DualNumber (OS.Array '[rows, cols] r)
-fromMatrixS (D u u') = D (OS.fromVector $ HM.flatten u) (FromMatrixS u')
+from2S :: (Numeric r, KnownNat rows, KnownNat cols)
+       => DualNumber (Matrix r) -> DualNumber (OS.Array '[rows, cols] r)
+from2S (D u u') = D (OS.fromVector $ HM.flatten u) (From2S u')
 
-fromArrayS :: OS.Shape sh
-           => DualNumber (OT.Array r) -> DualNumber (OS.Array sh r)
-fromArrayS (D u u') = D (Data.Array.Convert.convert u) (FromArrayS u')
+from_S :: OS.Shape sh
+       => DualNumber (OT.Array r) -> DualNumber (OS.Array sh r)
+from_S (D u u') = D (Data.Array.Convert.convert u) (From_S u')
 
 
 -- * General monadic operations, for any scalar rank
