@@ -7,6 +7,7 @@ module HordeAd.Core.DualNumber where
 
 import Prelude
 
+import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OT
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shape
@@ -293,6 +294,10 @@ fromMatrix_ :: Numeric r => DualNumber (Matrix r) -> DualNumber (OT.Array r)
 fromMatrix_ (D u u') = D (OT.fromVector [HM.rows u, HM.cols u] $ HM.flatten u)
                          (FromMatrix_ u' ( HM.cols u))
 
+fromShaped_ :: OS.Shape sh
+            => DualNumber (OS.Array sh r) -> DualNumber (OT.Array r)
+fromShaped_ (D u u') = D (Data.Array.Convert.convert u) (FromShaped_ u')
+
 
 -- * Non-monadic operations resulting in an arbitrary fully typed Shaped tensor
 
@@ -320,6 +325,10 @@ fromVectorS (D u u') = D (OS.fromVector u) (FromVectorS u')
 fromMatrixS :: (Numeric r, KnownNat rows, KnownNat cols)
             => DualNumber (Matrix r) -> DualNumber (OS.Array '[rows, cols] r)
 fromMatrixS (D u u') = D (OS.fromVector $ HM.flatten u) (FromMatrixS u')
+
+fromArrayS :: OS.Shape sh
+           => DualNumber (OT.Array r) -> DualNumber (OS.Array sh r)
+fromArrayS (D u u') = D (Data.Array.Convert.convert u) (FromArrayS u')
 
 
 -- * General monadic operations, for any scalar rank

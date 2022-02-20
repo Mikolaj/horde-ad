@@ -38,6 +38,7 @@ import Prelude
 import           Control.Exception (assert)
 import           Control.Monad (unless, zipWithM_)
 import           Control.Monad.ST.Strict (ST, runST)
+import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Internal
 import qualified Data.Array.Internal.DynamicG
@@ -152,7 +153,9 @@ data Delta_ r =
   | FromScalar_ (Delta0 r)
   | FromVector_ (Delta1 r)
   | FromMatrix_ (Delta2 r) Int
-  deriving Show
+  | forall sh. OS.Shape sh => FromShaped_ (DeltaS sh r)
+
+deriving instance (Show r, Numeric r) => Show (Delta_ r)
 
 -- | This is the grammar of delta-expressions at arbitrary tensor rank,
 -- the fully typed Shaped version.
@@ -179,6 +182,7 @@ data DeltaS sh r where
   FromScalarS :: Delta0 r -> DeltaS '[] r
   FromVectorS :: Delta1 r -> DeltaS '[n] r
   FromMatrixS :: forall rows cols r. Delta2 r -> DeltaS '[rows, cols] r
+  FromArrayS :: forall sh r. Delta_ r -> DeltaS sh r
 
 instance Show (DeltaS sh r) where
   show _ = "a DeltaS delta expression"
@@ -375,6 +379,7 @@ buildVectors st deltaTopLevel = do
           eval2 (MO.MatrixOuter (Just $ HM.reshape cols $ OT.toVector r)
                                 Nothing Nothing)
                 d
+        FromShaped_ d -> evalS (Data.Array.Convert.convert r) d
       _antiWarning :: forall sh. OS.Shape sh
                    => OS.Array sh r -> DeltaS sh r -> ST s ()
       _antiWarning = evalS
@@ -412,6 +417,7 @@ buildVectors st deltaTopLevel = do
    this doesn't seem to work (would a separate function work?):
         (FromMatrixS d :: DeltaS '[rows, cols] r) ->
 -}
+        FromArrayS d -> eval_ (Data.Array.Convert.convert r) d
   eval0 1 deltaTopLevel  -- dt is 1 or hardwired in f
   let evalUnlessZero :: DeltaBinding r -> ST s ()
       evalUnlessZero (DeltaBinding0 (DeltaId i) d) = do
