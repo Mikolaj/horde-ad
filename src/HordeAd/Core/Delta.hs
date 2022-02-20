@@ -21,14 +21,14 @@
 -- and reducing dimensions.
 module HordeAd.Core.Delta
   ( -- * Abstract syntax trees of the delta expressions
-    Delta0 (..), Delta1 (..), Delta2 (..), Delta_ (..), DeltaS (..)
+    Delta0 (..), Delta1 (..), Delta2 (..), DeltaX (..), DeltaS (..)
   , -- * Delta expression identifiers
     DeltaId, toDeltaId
   , -- * Evaluation of the delta expressions
     DeltaBinding
   , DeltaState (..)
   , evalBindings, ppBinding
-  , bindInState0, bindInState1, bindInState2, bindInState_
+  , bindInState0, bindInState1, bindInState2, bindInStateX
   , -- * experimental
     ArrayS(..), DomainS
   ) where
@@ -77,7 +77,7 @@ data Delta0 r =
 
   | Dot0 (Vector r) (Delta1 r)  -- Dot0 v sd == SumElements0 (Scale1 v sd) n
 
-  | From_0 (Delta_ r)
+  | FromX0 (DeltaX r)
   | FromS0 (DeltaS '[] r)
 
 deriving instance (Show r, Numeric r) => Show (Delta0 r)
@@ -100,7 +100,7 @@ data Delta1 r =
   | M_VD1 (Matrix r) (Delta1 r)  -- M_VD1 m vd == SumRows1 (M_MD2 m (AsRow2 vd))
   | MD_V1 (Delta2 r) (Vector r)  -- MD_V1 md v == SumRows1 (MD_M2 md (asRow v))
 
-  | From_1 (Delta_ r)
+  | FromX1 (DeltaX r)
   | forall len. KnownNat len => FromS1 (DeltaS '[len] r)
 
 deriving instance (Show r, Numeric r) => Show (Delta1 r)
@@ -126,7 +126,7 @@ data Delta2 r =
   | AsRow2 (Delta1 r)  -- AsRow2 vd == FromRows2 (V.replicate n vd)
   | AsColumn2 (Delta1 r)  -- AsColumn2 vd == FromColumns2 (V.replicate n vd)
 
-  | From_2 (Delta_ r)
+  | FromX2 (DeltaX r)
   | forall rows cols. (KnownNat rows, KnownNat cols)
     => FromS2 (DeltaS '[rows, cols] r)
 
@@ -135,33 +135,33 @@ deriving instance (Show r, Numeric r) => Show (Delta2 r)
 -- | This is the grammar of delta-expressions at arbitrary tensor rank.
 --
 -- Warning: not tested nor benchmarked.
-data Delta_ r =
-    Zero_
-  | Scale_ (OT.Array r) (Delta_ r)
-  | Add_ (Delta_ r) (Delta_ r)
-  | Var_ (DeltaId (OT.Array r))
+data DeltaX r =
+    ZeroX
+  | ScaleX (OT.Array r) (DeltaX r)
+  | AddX (DeltaX r) (DeltaX r)
+  | VarX (DeltaId (OT.Array r))
 
-  | Append_ (Delta_ r) Int (Delta_ r)
+  | AppendX (DeltaX r) Int (DeltaX r)
       -- ^ Append two arrays along the outermost dimension.
       -- All dimensions, except the outermost, must be the same.
       -- The integer argument is the outermost size of the first array.
-  | Slice_ Int Int (Delta_ r) Int
+  | SliceX Int Int (DeltaX r) Int
       -- ^ Extract a slice of an array along the outermost dimension.
       -- The extracted slice must fall within the dimension.
       -- The last argument is the outermost size of the argument array.
 
-  | From0_ (Delta0 r)
-  | From1_ (Delta1 r)
-  | From2_ (Delta2 r) Int
-  | forall sh. OS.Shape sh => FromS_ (DeltaS sh r)
+  | From0X (Delta0 r)
+  | From1X (Delta1 r)
+  | From2X (Delta2 r) Int
+  | forall sh. OS.Shape sh => FromSX (DeltaS sh r)
 
-deriving instance (Show r, Numeric r) => Show (Delta_ r)
+deriving instance (Show r, Numeric r) => Show (DeltaX r)
 
 -- | This is the grammar of delta-expressions at arbitrary tensor rank,
 -- the fully typed Shaped version.
 --
 -- Warning: not tested nor benchmarked. To see any typing problems and decide
--- whether `Delta_` can be replaced or kept in addition or neither,
+-- whether `DeltaX` can be replaced or kept in addition or neither,
 -- we need to implement something that really needs tensors or at least
 -- some heavy matrix stuff using exclusively tensors.
 data DeltaS sh r where
@@ -182,7 +182,7 @@ data DeltaS sh r where
   From0S :: Delta0 r -> DeltaS '[] r
   From1S :: Delta1 r -> DeltaS '[n] r
   From2S :: forall rows cols r. Delta2 r -> DeltaS '[rows, cols] r
-  From_S :: forall sh r. Delta_ r -> DeltaS sh r
+  FromXS :: forall sh r. DeltaX r -> DeltaS sh r
 
 instance Show (DeltaS sh r) where
   show _ = "a DeltaS delta expression"
@@ -208,13 +208,13 @@ data DeltaBinding r =
     DeltaBinding0 (DeltaId r) (Delta0 r)
   | DeltaBinding1 (DeltaId (Vector r)) (Delta1 r)
   | DeltaBinding2 (DeltaId (Matrix r)) (Delta2 r)
-  | DeltaBinding_ (DeltaId (OT.Array r)) (Delta_ r)
+  | DeltaBindingX (DeltaId (OT.Array r)) (DeltaX r)
 
 data DeltaState r = DeltaState
   { deltaCounter0 :: DeltaId r
   , deltaCounter1 :: DeltaId (Vector r)
   , deltaCounter2 :: DeltaId (Matrix r)
-  , deltaCounter_ :: DeltaId (OT.Array r)
+  , deltaCounterX :: DeltaId (OT.Array r)
   , deltaBindings :: [DeltaBinding r]
   }
 
@@ -233,20 +233,20 @@ evalBindings :: (Eq r, Numeric r, Num (Vector r))
                 , Data.Vector.Vector (Vector r)
                 , Data.Vector.Vector (Matrix r)
                 , Data.Vector.Vector (OT.Array r) )
-evalBindings dim0 dim1 dim2 dim_ st deltaTopLevel =
+evalBindings dim0 dim1 dim2 dimX st deltaTopLevel =
   -- This is morally @V.create@ and so totally safe,
   -- but we can't just call @V.create@ thrice, because it would run
   -- the @ST@ action thrice, so we inline and extend @V.create@ here.
   runST $ do
-    (finiteMap0, finiteMap1, finiteMap2, finiteMap_)
+    (finiteMap0, finiteMap1, finiteMap2, finiteMapX)
       <- buildVectors st deltaTopLevel
     v0 <- V.unsafeFreeze $ VM.take dim0 finiteMap0
     v1 <- V.unsafeFreeze $ VM.take dim1 finiteMap1
     v2 <- V.unsafeFreeze $ VM.take dim2 finiteMap2
-    v_ <- V.unsafeFreeze $ VM.take dim_ finiteMap_
+    vX <- V.unsafeFreeze $ VM.take dimX finiteMapX
     -- Convert to normal matrices, but only the portion of vector
     -- that is not discarded.
-    return (v0, v1, V.map MO.convertMatrixOuterOrNull v2, v_)
+    return (v0, v1, V.map MO.convertMatrixOuterOrNull v2, vX)
 
 buildVectors :: forall s r. (Eq r, Numeric r, Num (Vector r))
              => DeltaState r -> Delta0 r
@@ -262,11 +262,11 @@ buildVectors st deltaTopLevel = do
       DeltaId counter0 = deltaCounter0 st
       DeltaId counter1 = deltaCounter1 st
       DeltaId counter2 = deltaCounter2 st
-      DeltaId counter_ = deltaCounter_ st
+      DeltaId counterX = deltaCounterX st
   store0 <- VM.replicate counter0 0  -- correct value
   store1 <- VM.replicate counter1 (V.empty :: Vector r)  -- dummy value
   store2 <- VM.replicate counter2 MO.emptyMatrixOuter  -- dummy value
-  store_ <- VM.replicate counter_ emptyArray  -- dummy value
+  storeX <- VM.replicate counterX emptyArray  -- dummy value
   let addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
       addToMatrix :: MO.MatrixOuter r -> MO.MatrixOuter r -> MO.MatrixOuter r
@@ -284,7 +284,7 @@ buildVectors st deltaTopLevel = do
         SumElements0 vd n -> eval1 (HM.konst r n) vd
         Index0 d i k -> eval1 (HM.konst 0 k V.// [(i, r)]) d
 
-        From_0 d -> eval_ (OT.scalar r) d
+        FromX0 d -> evalX (OT.scalar r) d
         FromS0 d -> evalS (OS.scalar r) d
       eval1 :: Vector r -> Delta1 r -> ST s ()
       eval1 !r = \case
@@ -305,7 +305,7 @@ buildVectors st deltaTopLevel = do
         SumRows1 dm ncols -> eval2 (MO.asColumn r ncols) dm
         SumColumns1 dm nrows -> eval2 (MO.asRow r nrows) dm
 
-        From_1 d -> eval_ (OT.fromVector [V.length r] r) d
+        FromX1 d -> evalX (OT.fromVector [V.length r] r) d
         FromS1 d -> evalS (OS.fromVector r) d
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
       eval2 !r = \case
@@ -350,36 +350,36 @@ buildVectors st deltaTopLevel = do
                     `MO.columnAppend` MO.konst 0 nrows (ncols - i - n))
                    d
 
-        From_2 d -> eval_ (OT.fromVector [MO.rows r, MO.cols r]
+        FromX2 d -> evalX (OT.fromVector [MO.rows r, MO.cols r]
                                          (V.concat $ MO.toRows r)) d
         FromS2 d -> evalS (OS.fromVector $ V.concat $ MO.toRows r) d
-      eval_ :: OT.Array r -> Delta_ r -> ST s ()
-      eval_ !r = \case
-        Zero_ -> return ()
-        Scale_ k d -> eval_ (OT.zipWithA (*) k r) d
-        Add_ d e -> eval_ r d >> eval_ r e
-        Var_ (DeltaId i) -> VM.modify store_ (addToArray r) i
+      evalX :: OT.Array r -> DeltaX r -> ST s ()
+      evalX !r = \case
+        ZeroX -> return ()
+        ScaleX k d -> evalX (OT.zipWithA (*) k r) d
+        AddX d e -> evalX r d >> evalX r e
+        VarX (DeltaId i) -> VM.modify storeX (addToArray r) i
 
-        Append_ d k e -> case OT.shapeL r of
-          n : _ -> eval_ (OT.slice [(0, k)] r) d
-                   >> eval_ (OT.slice [(k, n - k)] r) e
-          [] -> error "eval_: appending a 0-dimensional tensor"
-        Slice_ i n d len -> case OT.shapeL r of
+        AppendX d k e -> case OT.shapeL r of
+          n : _ -> evalX (OT.slice [(0, k)] r) d
+                   >> evalX (OT.slice [(k, n - k)] r) e
+          [] -> error "evalX: appending a 0-dimensional tensor"
+        SliceX i n d len -> case OT.shapeL r of
           n' : rest ->
             assert (n' == n) $
-            eval_ (OT.constant (i : rest) 0
+            evalX (OT.constant (i : rest) 0
                    `OT.append` r
                    `OT.append` OT.constant (len - i - n : rest) 0)
                   d
-          [] -> error "eval_: slicing a 0-dimensional tensor"
+          [] -> error "evalX: slicing a 0-dimensional tensor"
 
-        From0_ d -> eval0 (OT.unScalar r) d
-        From1_ d -> eval1 (OT.toVector r) d
-        From2_ d cols ->
+        From0X d -> eval0 (OT.unScalar r) d
+        From1X d -> eval1 (OT.toVector r) d
+        From2X d cols ->
           eval2 (MO.MatrixOuter (Just $ HM.reshape cols $ OT.toVector r)
                                 Nothing Nothing)
                 d
-        FromS_ d -> evalS (Data.Array.Convert.convert r) d
+        FromSX d -> evalS (Data.Array.Convert.convert r) d
       _antiWarning :: forall sh. OS.Shape sh
                    => OS.Array sh r -> DeltaS sh r -> ST s ()
       _antiWarning = evalS
@@ -417,7 +417,7 @@ buildVectors st deltaTopLevel = do
    this doesn't seem to work (would a separate function work?):
         (From2S d :: DeltaS '[rows, cols] r) ->
 -}
-        From_S d -> eval_ (Data.Array.Convert.convert r) d
+        FromXS d -> evalX (Data.Array.Convert.convert r) d
   eval0 1 deltaTopLevel  -- dt is 1 or hardwired in f
   let evalUnlessZero :: DeltaBinding r -> ST s ()
       evalUnlessZero (DeltaBinding0 (DeltaId i) d) = do
@@ -432,12 +432,12 @@ buildVectors st deltaTopLevel = do
         r <- store2 `VM.read` i
         unless (MO.nullMatrixOuter r) $
           eval2 r d
-      evalUnlessZero (DeltaBinding_ (DeltaId i) d) = do
-        r <- store_ `VM.read` i
+      evalUnlessZero (DeltaBindingX (DeltaId i) d) = do
+        r <- storeX `VM.read` i
         unless (null (OT.shapeL r)) $
-          eval_ r d
+          evalX r d
   mapM_ evalUnlessZero (deltaBindings st)
-  return (store0, store1, store2, store_)
+  return (store0, store1, store2, storeX)
 
 ppBinding :: (Show r, Numeric r) => DeltaBinding r -> [String]
 ppBinding = \case
@@ -447,8 +447,8 @@ ppBinding = \case
     ["let1 DeltaId_", show i, " = ", ppShow d, "\n"]
   DeltaBinding2 (DeltaId i) d ->
     ["let2 DeltaId_", show i, " = ", ppShow d, "\n"]
-  DeltaBinding_ (DeltaId i) d ->
-    ["let_ DeltaId_", show i, " = ", ppShow d, "\n"]
+  DeltaBindingX (DeltaId i) d ->
+    ["letX DeltaId_", show i, " = ", ppShow d, "\n"]
 
 bindInState0 :: Delta0 r -> DeltaState r -> (DeltaState r, DeltaId r)
 {-# INLINE bindInState0 #-}
@@ -477,12 +477,12 @@ bindInState2 u' st =
           }
      , dId )
 
-bindInState_ :: Delta_ r -> DeltaState r -> (DeltaState r, DeltaId (OT.Array r))
-{-# INLINE bindInState_ #-}
-bindInState_ u' st =
-  let dId = deltaCounter_ st
-  in ( st { deltaCounter_ = succDeltaId dId
-          , deltaBindings = DeltaBinding_ dId u' : deltaBindings st
+bindInStateX :: DeltaX r -> DeltaState r -> (DeltaState r, DeltaId (OT.Array r))
+{-# INLINE bindInStateX #-}
+bindInStateX u' st =
+  let dId = deltaCounterX st
+  in ( st { deltaCounterX = succDeltaId dId
+          , deltaBindings = DeltaBindingX dId u' : deltaBindings st
           }
      , dId )
 

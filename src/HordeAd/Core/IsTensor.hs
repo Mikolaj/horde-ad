@@ -86,14 +86,14 @@ instance IsTensor (Matrix r) where
   bindInState = bindInState2
 
 instance IsTensor (OT.Array r) where
-  type DeltaExpression (OT.Array r) = Delta_ r
-  zeroD = Zero_
-  scaleD = Scale_
-  addD = Add_
-  varD = Var_
+  type DeltaExpression (OT.Array r) = DeltaX r
+  zeroD = ZeroX
+  scaleD = ScaleX
+  addD = AddX
+  varD = VarX
   type ScalarOfTensor (OT.Array r) = r
   {-# INLINE bindInState #-}
-  bindInState = bindInState_
+  bindInState = bindInStateX
 
 instance IsTensor (OS.Array sh r) where
   type DeltaExpression (OS.Array sh r) = DeltaS sh r
