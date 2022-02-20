@@ -1,4 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, GADTs, TypeOperators #-}
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, GADTs, StandaloneDeriving,
+             TypeOperators #-}
 -- | The second component of dual numbers, @Delta@, with it's evaluation
 -- function. Neel Krishnaswami calls that "sparse vector expressions",
 -- and indeed even in the simplest case of a function defined on scalars only,
@@ -158,9 +159,8 @@ data DeltaS sh r where
          => DeltaS sh r -> DeltaS sh' r
     -- ^ Extract a slice of an array along the outermost dimension.
 
--- futile:
--- deriving instance (OS.Shape sh, Show r, Numeric r) => Show (DeltaS sh r)
-
+instance Show (DeltaS sh r) where
+  show _ = "a DeltaS delta expression"
 
 -- * Delta expression identifiers
 
