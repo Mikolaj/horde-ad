@@ -439,16 +439,16 @@ buildVectors st deltaTopLevel = do
   mapM_ evalUnlessZero (deltaBindings st)
   return (store0, store1, store2, storeX)
 
-ppBinding :: (Show r, Numeric r) => DeltaBinding r -> [String]
-ppBinding = \case
+ppBinding :: (Show r, Numeric r) => String -> DeltaBinding r -> [String]
+ppBinding prefix = \case
   DeltaBinding0 (DeltaId i) d ->
-    ["let0 DeltaId_", show i, " = ", ppShow d, "\n"]
+    [prefix ++ "0 DeltaId_", show i, " = ", ppShow d, "\n"]
   DeltaBinding1 (DeltaId i) d ->
-    ["let1 DeltaId_", show i, " = ", ppShow d, "\n"]
+    [prefix ++ "1 DeltaId_", show i, " = ", ppShow d, "\n"]
   DeltaBinding2 (DeltaId i) d ->
-    ["let2 DeltaId_", show i, " = ", ppShow d, "\n"]
+    [prefix ++ "2 DeltaId_", show i, " = ", ppShow d, "\n"]
   DeltaBindingX (DeltaId i) d ->
-    ["letX DeltaId_", show i, " = ", ppShow d, "\n"]
+    [prefix ++ "X DeltaId_", show i, " = ", ppShow d, "\n"]
 
 bindInState0 :: Delta0 r -> DeltaState r -> (DeltaState r, DeltaId r)
 {-# INLINE bindInState0 #-}

@@ -130,10 +130,11 @@ df f parameters =
   in generalDf variables f
 
 prettyPrintDf :: forall r. (Show r, IsScalar r)
-              => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+              => Bool
+              -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
               -> Domains r
               -> String
-prettyPrintDf f parameters@(params, paramsV, paramsL, paramsX) =
+prettyPrintDf reversed f parameters@(params, paramsV, paramsL, paramsX) =
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
       dim = V.length params
@@ -149,8 +150,13 @@ prettyPrintDf f parameters@(params, paramsV, paramsL, paramsX) =
         }
       (D _ d0, st) = runState (runDeltaMonadGradient (f variables))
                              initialState
-  in concat $ foldl' (\ !l b -> ppBinding b ++ l) ["in " ++ ppShow d0]
-                     (deltaBindings st)
+  in if reversed
+     then concat $ foldl' (\ !l b -> l ++ ppBinding "where" b)
+                          ["COMPUTE " ++ ppShow d0 ++ "\n"]
+                          (deltaBindings st)
+     else concat $ foldl' (\ !l b -> ppBinding "let" b ++ l)
+                          ["in " ++ ppShow d0 ++ "\n"]
+                          (deltaBindings st)
 
 generateDeltaVars :: IsScalar r
                   => Domains r
