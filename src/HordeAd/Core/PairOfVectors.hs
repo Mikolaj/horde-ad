@@ -9,7 +9,7 @@
 -- of parameters and with `Delta` variables assigned to each.
 module HordeAd.Core.PairOfVectors
   ( DualNumberVariables
-  , makeDualNumberVariables, var, vars, varV, varL, var_
+  , makeDualNumberVariables, var, vars, varV, varL, varX
   , ifoldMDelta', foldMDelta', ifoldlDelta', foldlDelta'
   ) where
 
@@ -49,8 +49,8 @@ makeDualNumberVariables
      , Data.Vector.Vector (DeltaExpression (OT.Array r)) )
   -> DualNumberVariables r
 {-# INLINE makeDualNumberVariables #-}
-makeDualNumberVariables (params, paramsV, paramsL, params_) (vs, vsV, vsL, vs_)
-  = (params, vs, paramsV, vsV, paramsL, vsL, params_, vs_)
+makeDualNumberVariables (params, paramsV, paramsL, paramsX) (vs, vsV, vsL, vsX)
+  = (params, vs, paramsV, vsV, paramsL, vsL, paramsX, vsX)
 
 var :: IsScalar r => DualNumberVariables r -> Int -> DualNumber r
 var (vValue, vVar, _, _, _, _, _, _) i = D (vValue V.! i) (vVar V.! i)
@@ -61,8 +61,8 @@ varV (_, _, vValue, vVar, _, _, _, _) i = D (vValue V.! i) (vVar V.! i)
 varL :: DualNumberVariables r -> Int -> DualNumber (Matrix r)
 varL (_, _, _, _, vValue, vVar, _, _) i = D (vValue V.! i) (vVar V.! i)
 
-var_ :: DualNumberVariables r -> Int -> DualNumber (OT.Array r)
-var_ (_, _, _, _, _, _, vValue, vVar) i = D (vValue V.! i) (vVar V.! i)
+varX :: DualNumberVariables r -> Int -> DualNumber (OT.Array r)
+varX (_, _, _, _, _, _, vValue, vVar) i = D (vValue V.! i) (vVar V.! i)
 
 -- Unsafe, but handy for toy examples.
 vars :: IsScalar r => DualNumberVariables r -> [DualNumber r]

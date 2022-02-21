@@ -70,8 +70,8 @@ updateWithGradient :: (Numeric r, Num (Vector r))
                    -> Domains r
                    -> Domains r
                    -> Domains r
-updateWithGradient gamma (params, paramsV, paramsL, params_)
-                         (gradient, gradientV, gradientL, gradient_) =
+updateWithGradient gamma (params, paramsV, paramsL, paramsX)
+                         (gradient, gradientV, gradientL, gradientX) =
   let updateVector i r = i - HM.scale gamma r
       paramsNew = updateVector params gradient
       updateV i r = if V.null r  -- eval didn't update it, would crash
@@ -82,40 +82,40 @@ updateWithGradient gamma (params, paramsV, paramsL, params_)
                     then i
                     else liftMatrix2 updateVector i r
       paramsLNew = V.zipWith updateL paramsL gradientL
-      update_ i r = if null (OT.shapeL r)  -- eval didn't update it, would crash
+      updateX i r = if null (OT.shapeL r)  -- eval didn't update it, would crash
                     then i
                     else OT.zipWithA (\j s -> j - gamma * s) i r
                       -- TODO: this is slow; add @liftArray2@ and use HM,
                       -- unless we move away from HM; similarly other OT calls
-      params_New = V.zipWith update_ params_ gradient_
-  in (paramsNew, paramsVNew, paramsLNew, params_New)
+      paramsXNew = V.zipWith updateX paramsX gradientX
+  in (paramsNew, paramsVNew, paramsLNew, paramsXNew)
 
 gradientIsNil :: (Eq r, Numeric r) => Domains r -> Bool
-gradientIsNil (gradient, gradientV, gradientL, gradient_) =
+gradientIsNil (gradient, gradientV, gradientL, gradientX) =
   V.all (== 0) gradient
   && V.all V.null gradientV
   && V.all (\r -> HM.rows r <= 0) gradientL
-  && V.all (\r -> null (OT.shapeL r)) gradient_
+  && V.all (\r -> null (OT.shapeL r)) gradientX
 
 minimumGradient :: (Ord r, Numeric r) => Domains r -> r
-minimumGradient (gradient, gradientV, gradientL, gradient_) =
+minimumGradient (gradient, gradientV, gradientL, gradientX) =
   min (if V.null gradient then 0 else V.minimum gradient)
       (min (if V.null gradientV then 0
             else V.minimum (V.map HM.minElement gradientV))
            (min (if V.null gradientL then 0
                  else V.minimum (V.map HM.minElement gradientL))
-                (if V.null gradient_ then 0
-                 else V.minimum (V.map OT.minimumA gradient_))))
+                (if V.null gradientX then 0
+                 else V.minimum (V.map OT.minimumA gradientX))))
 
 maximumGradient :: (Ord r, Numeric r) => Domains r -> r
-maximumGradient (gradient, gradientV, gradientL, gradient_) =
+maximumGradient (gradient, gradientV, gradientL, gradientX) =
   max (if V.null gradient then 0 else V.maximum gradient)
       (max (if V.null gradientV then 0
             else V.maximum (V.map HM.maxElement gradientV))
            (max (if V.null gradientL then 0
                  else V.maximum (V.map HM.maxElement gradientL))
-                (if V.null gradient_ then 0
-                 else V.maximum (V.map OT.maximumA gradient_))))
+                (if V.null gradientX then 0
+                 else V.maximum (V.map OT.maximumA gradientX))))
 
 data ArgsAdam r = ArgsAdam
   { alpha   :: r
@@ -142,7 +142,7 @@ data StateAdam r = StateAdam
 
 -- The arguments are just sample params, for dimensions.
 zeroParameters :: Numeric r => Domains r -> Domains r
-zeroParameters (params, paramsV, paramsL, params_) =
+zeroParameters (params, paramsV, paramsL, paramsX) =
   let zeroVector v = runST $ do
         vThawed <- V.thaw v
         VM.set vThawed 0
@@ -150,7 +150,7 @@ zeroParameters (params, paramsV, paramsL, params_) =
   in ( zeroVector params
      , V.map zeroVector paramsV
      , V.map (liftMatrix zeroVector) paramsL
-     , V.map (\a -> OT.constant (OT.shapeL a) 0) params_ )  -- fast allright
+     , V.map (\a -> OT.constant (OT.shapeL a) 0) paramsX )  -- fast allright
 
 initialStateAdam :: Numeric r => Domains r -> StateAdam r
 initialStateAdam parameters0 =
@@ -218,11 +218,11 @@ updateWithGradientAdam :: forall r. (Floating r, Numeric r, Floating (Vector r))
                        -> (Domains r, StateAdam r)
 updateWithGradientAdam ArgsAdam{..}
                        StateAdam{ tAdam
-                                , mAdam = (mAdam, mAdamV, mAdamL, mAdam_)
-                                , vAdam = (vAdam, vAdamV, vAdamL, vAdam_)
+                                , mAdam = (mAdam, mAdamV, mAdamL, mAdamX)
+                                , vAdam = (vAdam, vAdamV, vAdamL, vAdamX)
                                 }
-                       (params, paramsV, paramsL, params_)
-                       (gradient, gradientV, gradientL, gradient_) =
+                       (params, paramsV, paramsL, paramsX)
+                       (gradient, gradientV, gradientL, gradientX) =
   let tAdamNew = tAdam + 1
       oneMinusBeta1 = 1 - beta1
       oneMinusBeta2 = 1 - beta2
@@ -249,14 +249,14 @@ updateWithGradientAdam ArgsAdam{..}
                           else liftMatrix43 updateVector mA vA p g
       (mAdamLNew, vAdamLNew, paramsLNew) =
         V.unzip3 $ V.zipWith4 updateL mAdamL vAdamL paramsL gradientL
-      update_ mA vA p g = if null (OT.shapeL g)  -- eval didn't update it; crash
+      updateX mA vA p g = if null (OT.shapeL g)  -- eval didn't update it; crash
                           then (mA, vA, p)
                           else liftArray43 updateVector mA vA p g
-      (mAdam_New, vAdam_New, params_New) =
-        V.unzip3 $ V.zipWith4 update_ mAdam_ vAdam_ params_ gradient_
-  in ( (paramsNew, paramsVNew, paramsLNew, params_New)
+      (mAdamXNew, vAdamXNew, paramsXNew) =
+        V.unzip3 $ V.zipWith4 updateX mAdamX vAdamX paramsX gradientX
+  in ( (paramsNew, paramsVNew, paramsLNew, paramsXNew)
      , StateAdam { tAdam = tAdamNew
-                 , mAdam = (mAdamNew, mAdamVNew, mAdamLNew, mAdam_New)
-                 , vAdam = (vAdamNew, vAdamVNew, vAdamLNew, vAdam_New)
+                 , mAdam = (mAdamNew, mAdamVNew, mAdamLNew, mAdamXNew)
+                 , vAdam = (vAdamNew, vAdamVNew, vAdamLNew, vAdamXNew)
                  }
      )

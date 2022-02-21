@@ -229,10 +229,10 @@ mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
        let runBatch :: Domains Double
                     -> (Int, [MnistData Double])
                     -> IO (Domains Double)
-           runBatch (!params, !paramsV, !paramsL, !params_) (k, chunk) = do
+           runBatch (!params, !paramsV, !paramsL, !paramsX) (k, chunk) = do
              printf "(Batch %d)\n" k
              let f = trainWithLoss
-                 res = sgd gamma f chunk (params, paramsV, paramsL, params_)
+                 res = sgd gamma f chunk (params, paramsV, paramsL, paramsX)
              printf "Trained on %d points.\n" (length chunk)
              let trainScore = testMnist2L chunk res
                  testScore = testMnist2L testData res
