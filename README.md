@@ -53,4 +53,5 @@ Copyright
 ---------
 
 Copyright 2022 Mikolaj Konarski and others (see git history)
+
 License: BSD-3-Clause (see file LICENSE)
