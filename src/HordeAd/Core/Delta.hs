@@ -175,7 +175,7 @@ data DeltaS sh r where
           -> DeltaS ((m + n) ': sh) r
     -- ^ Append two arrays along the outermost dimension.
   SliceS :: forall i n sh' sh r.
-            Data.Array.Shape.Slice ('(i, n) ': '[]) sh sh'
+            Data.Array.Shape.Slice '[ '(i, n) ] sh sh'
          => DeltaS sh r -> DeltaS sh' r
     -- ^ Extract a slice of an array along the outermost dimension.
 
@@ -396,8 +396,8 @@ buildVectors st deltaTopLevel = do
 {- this is possibly morally correct and works in GHC 9.2, but not without
    somebody that knows what she's doing convincing GHC to accept it:
         AppendS (d :: DeltaS (k ': _restD) r) (e :: DeltaS (l ': _restE) r) ->
-          evalS (OS.slice @'['(0, k)] r) d
-          >> evalS (OS.slice @'['(k, l)] r) e
+          evalS (OS.slice @'[ '(0, k) ] r) d
+          >> evalS (OS.slice @'[ '(k, l) ] r) e
         SliceS @i @n (d :: DeltaS (len ': rest) r) ->
           evalS (OS.constant @(i ': rest) 0
                  `OS.append` r

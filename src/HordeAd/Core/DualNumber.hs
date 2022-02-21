@@ -309,7 +309,7 @@ appendS :: (Numeric r, OS.Shape sh, KnownNat m, KnownNat n, KnownNat (m + n))
 appendS (D u u') (D v v') = D (u `OS.append` v) (AppendS u' v')
 
 sliceS :: forall i n sh' sh r.
-          Data.Array.Shape.Slice ('(i, n) ': '[]) sh sh'
+          Data.Array.Shape.Slice '[ '(i, n) ] sh sh'
        => DualNumber (OS.Array sh r)
        -> DualNumber (OS.Array sh' r)
 sliceS (D u u') = D (OS.slice @('(i, n) ': '[]) u) (SliceS @i @n u')

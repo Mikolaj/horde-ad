@@ -95,7 +95,7 @@ gradientIsNil (gradient, gradientV, gradientL, gradientX) =
   V.all (== 0) gradient
   && V.all V.null gradientV
   && V.all (\r -> HM.rows r <= 0) gradientL
-  && V.all (\r -> null (OT.shapeL r)) gradientX
+  && V.all (null . OT.shapeL) gradientX
 
 minimumGradient :: (Ord r, Numeric r) => Domains r -> r
 minimumGradient (gradient, gradientV, gradientL, gradientX) =
