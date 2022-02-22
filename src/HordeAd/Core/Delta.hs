@@ -1,5 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, GADTs, StandaloneDeriving,
-             TypeOperators #-}
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, GADTs, KindSignatures,
+             StandaloneDeriving, TypeOperators #-}
 -- | The second component of dual numbers, @Delta@, with it's evaluation
 -- function. Neel Krishnaswami calls that "sparse vector expressions",
 -- and indeed even in the simplest case of a function defined on scalars only,
@@ -45,12 +45,13 @@ import qualified Data.Array.Internal.DynamicG
 import qualified Data.Array.Internal.DynamicS
 import qualified Data.Array.Shape
 import qualified Data.Array.ShapedS as OS
+import           Data.Kind (Type)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Strict.Vector.Autogen.Mutable as Data.Vector.Mutable
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Storable.Mutable
-import           GHC.TypeLits (KnownNat, type (+))
+import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           Text.Show.Pretty (ppShow)
@@ -101,7 +102,8 @@ data Delta1 r =
   | MD_V1 (Delta2 r) (Vector r)  -- MD_V1 md v == SumRows1 (MD_M2 md (asRow v))
 
   | FromX1 (DeltaX r)
-  | forall len. KnownNat len => FromS1 (DeltaS '[len] r)
+  | forall len. KnownNat len
+    => FromS1 (DeltaS '[len] r)
 
 deriving instance (Show r, Numeric r) => Show (Delta1 r)
 
@@ -153,7 +155,8 @@ data DeltaX r =
   | From0X (Delta0 r)
   | From1X (Delta1 r)
   | From2X (Delta2 r) Int
-  | forall sh. OS.Shape sh => FromSX (DeltaS sh r)
+  | forall sh. OS.Shape sh
+    => FromSX (DeltaS sh r)
 
 deriving instance (Show r, Numeric r) => Show (DeltaX r)
 
@@ -164,7 +167,7 @@ deriving instance (Show r, Numeric r) => Show (DeltaX r)
 -- whether `DeltaX` can be replaced or kept in addition or neither,
 -- we need to implement something that really needs tensors or at least
 -- some heavy matrix stuff using exclusively tensors.
-data DeltaS sh r where
+data DeltaS :: [Nat] -> Type -> Type where
   ZeroS :: DeltaS sh r
   ScaleS :: OS.Array sh r -> DeltaS sh r -> DeltaS sh r
   AddS :: DeltaS sh r -> DeltaS sh r -> DeltaS sh r
