@@ -225,12 +225,51 @@ data DeltaState r = DeltaState
   , deltaBindings :: [DeltaBinding r]
   }
 
--- | This is the semantics of delta expressions. An expression of type @Delta a@
--- denotes a collection of finite maps from @DeltaId xi@ to @xi@, where
--- @xi@ belong to a finite set of types with the same underlying scalar type
--- as @a@. Each map is represented as a vector, small examples of which
--- are those in the result type of @evalBindings@. Requested lengths
--- of the vectors in the result type are given in the first few arguments.
+-- | Delta expressions are originally meant to denote (forward) derivatives.
+-- However, we use the delta expressions to compute gradients instead.
+-- Let's first discuss the semantics in terms of derivatives,
+-- because it's simpler.
+--
+-- Let @r@ be the type of underlying scalars. Let @f@ be a mathematical
+-- differentiable function that takes a collection of arguments
+-- of type @C@ and produces a single result of type @r@.
+-- Let a dual number counterpart of @f@, applied to a collection
+-- of parameters @P@ of type @C@, be represented as a Haskell value @b@.
+-- Let @d :: Delta0 r@ be the closed delta expression that is the second
+-- component of @b@. Then @d@ denotes a linear function from @C@ to @r@
+-- that is the derivative of @f@ at point @P@. The mathematical formula
+-- for the derivative follows straightforwardly the syntactic form
+-- of the delta expression @d@.
+--
+-- Let's now describe the semantics of @d@ as the gradient of @f@
+-- at point @P@, assuming that @dt@, the given perturbation of the result
+-- of the function, is a scalar of type @r@ equal to @1@.
+-- Here @d@ denotes a collection of four finite maps (vectors)
+-- @v0@, @v1@, @v2@, @vX@, corresponding to @C@,
+-- each map @vi@ taking indexes of type @DeltaId ai@ to values @ai@,
+-- where @a0@ is @r@, @a1@ is @Vector r@, @a2@ is @Matrix r@
+-- and @aX@ is the type of tensors of @r@.
+--
+-- The value of @vi@ at index @DeltaId k@ is the partial derivative
+-- of function @f@ with respect to its parameter of type @ai@ at position
+-- represented by @DeltaId k@ (in other words, with respect to a variable
+-- quantity tagged with @DeltaId k@), given that @dt@ is @1@.
+--
+-- The semantics of @Delta_j r@ that is not closed but contains occurrences
+-- of variables that do not correspond to parameters of @f@ is only
+-- defined in the context of four vectors that contain values associated
+-- to its free variables or, alternatively, of bindings from which the values
+-- can be computed, or of a mixture of both. This semantics does not change
+-- if a bound expression is substituted for a variable instead of being used
+-- to compute a value. (Note however that a computed value can't be
+-- substituted for the variable in an expression, because the "computing
+-- backwards" trick, needed to get gradients from derivative expressions,
+-- computes a value for each occurrence of a variable separately
+-- and sums over all occurrences instead of substituting a single value
+-- into each occurrence.)
+--
+-- Function @evalBindings@ computes the four vectors described above.
+-- Requested lengths of the vectors are given in the first few arguments.
 -- The delta state contains a list of mutually-referencing delta bindings
 -- that are to be evaluated, in the given order, starting with the top-level
 -- binding of a scalar type provided in the remaining argument.
