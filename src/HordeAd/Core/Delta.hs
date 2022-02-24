@@ -308,8 +308,8 @@ buildVectors st deltaTopLevel = do
           mapM_ (`eval1` dRow)
                 (MO.toRows (MO.MatrixOuter (Just m) (Just r) Nothing))
         MD_V1 md row -> eval2 (MO.MatrixOuter Nothing (Just r) (Just row)) md
-        SumRows1 dm ncols -> eval2 (MO.asColumn r ncols) dm
-        SumColumns1 dm nrows -> eval2 (MO.asRow r nrows) dm
+        SumRows1 dm cols -> eval2 (MO.asColumn r cols) dm
+        SumColumns1 dm rows -> eval2 (MO.asRow r rows) dm
 
         FromX1 d -> evalX (OT.fromVector [V.length r] r) d
         FromS1 d -> evalS (OS.fromVector r) d
@@ -341,19 +341,19 @@ buildVectors st deltaTopLevel = do
                             >> eval2 (MO.dropRows k r) e
         ColumnAppend2 d k e -> eval2 (MO.takeColumns k r) d
                             >> eval2 (MO.dropColumns k r) e
-        RowSlice2 i n d nrows ->
+        RowSlice2 i n d rows ->
           assert (MO.rows r == n) $
-          let ncols = MO.cols r
-          in eval2 (MO.konst 0 i ncols
+          let cols = MO.cols r
+          in eval2 (MO.konst 0 i cols
                     `MO.rowAppend` r
-                    `MO.rowAppend` MO.konst 0 (nrows - i - n) ncols)
+                    `MO.rowAppend` MO.konst 0 (rows - i - n) cols)
                    d
-        ColumnSlice2 i n d ncols ->
+        ColumnSlice2 i n d cols ->
           assert (MO.cols r == n) $
-          let nrows = MO.rows r
-          in eval2 (MO.konst 0 nrows i
+          let rows = MO.rows r
+          in eval2 (MO.konst 0 rows i
                     `MO.columnAppend` r
-                    `MO.columnAppend` MO.konst 0 nrows (ncols - i - n))
+                    `MO.columnAppend` MO.konst 0 rows (cols - i - n))
                    d
 
         FromX2 d -> evalX (OT.fromVector [MO.rows r, MO.cols r]
