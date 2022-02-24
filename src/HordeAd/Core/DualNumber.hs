@@ -1,6 +1,8 @@
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, FunctionalDependencies,
              TypeFamilies, TypeOperators #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists -Wno-missing-methods #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Dual numbers and operations on them, which are extensions of normal
 -- arithmetic and other operations to also cover derivatives.
 module HordeAd.Core.DualNumber where
@@ -10,7 +12,6 @@ import Prelude
 import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OT
 import           Data.Array.Internal (valueOf)
-import qualified Data.Array.Shape
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -302,17 +303,17 @@ fromSX (D u u') = D (Data.Array.Convert.convert u) (FromSX u')
 
 -- Warning: not tested nor benchmarked.
 
-appendS :: (Numeric r, OS.Shape sh, KnownNat m, KnownNat n, KnownNat (m + n))
+appendS :: (Numeric r, OS.Shape sh, KnownNat m, KnownNat n)
         => DualNumber (OS.Array (m ': sh) r)
         -> DualNumber (OS.Array (n ': sh) r)
         -> DualNumber (OS.Array ((m + n) ': sh) r)
 appendS (D u u') (D v v') = D (u `OS.append` v) (AppendS u' v')
 
-sliceS :: forall i n sh' sh r.
-          Data.Array.Shape.Slice '[ '(i, n) ] sh sh'
-       => DualNumber (OS.Array sh r)
-       -> DualNumber (OS.Array sh' r)
-sliceS (D u u') = D (OS.slice @('(i, n) ': '[]) u) (SliceS @i @n u')
+sliceS :: forall i n k rest r.
+          (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
+       => DualNumber (OS.Array (i + n + k ': rest) r)
+       -> DualNumber (OS.Array (n ': rest) r)
+sliceS (D u u') = D (OS.slice @'[ '(i, n) ] u) (SliceS @i u')
 
 from0S :: IsScalar r => DualNumber r -> DualNumber (OS.Array '[] r)
 from0S (D u u') = D (OS.scalar u) (From0S u')

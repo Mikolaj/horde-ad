@@ -1,5 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, GADTs, KindSignatures,
              StandaloneDeriving, TypeOperators #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | The second component of dual numbers, @Delta@, with it's evaluation
 -- function. Neel Krishnaswami calls that "sparse vector expressions",
 -- and indeed even in the simplest case of a function defined on scalars only,
@@ -43,7 +45,6 @@ import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Internal
 import qualified Data.Array.Internal.DynamicG
 import qualified Data.Array.Internal.DynamicS
-import qualified Data.Array.Shape
 import qualified Data.Array.ShapedS as OS
 import           Data.Kind (Type)
 import qualified Data.Strict.Vector as Data.Vector
@@ -55,6 +56,7 @@ import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           Text.Show.Pretty (ppShow)
+import           Data.Array.Internal (valueOf)
 
 import qualified HordeAd.Internal.MatrixOuter as MO
 
@@ -173,19 +175,20 @@ data DeltaS :: [Nat] -> Type -> Type where
   AddS :: DeltaS sh r -> DeltaS sh r -> DeltaS sh r
   VarS :: DeltaId (OS.Array sh r) -> DeltaS sh r
 
-  AppendS :: (OS.Shape sh, KnownNat m, KnownNat n, KnownNat (m + n))
+  AppendS :: (OS.Shape sh, KnownNat m, KnownNat n)
           => DeltaS (m ': sh) r -> DeltaS (n ': sh) r
           -> DeltaS ((m + n) ': sh) r
     -- ^ Append two arrays along the outermost dimension.
-  SliceS :: forall i n sh' sh r.
-            Data.Array.Shape.Slice '[ '(i, n) ] sh sh'
-         => DeltaS sh r -> DeltaS sh' r
+  SliceS :: forall i n k rest r.
+            (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
+         => DeltaS (i + n + k ': rest) r -> DeltaS (n ': rest) r
     -- ^ Extract a slice of an array along the outermost dimension.
 
   From0S :: Delta0 r -> DeltaS '[] r
   From1S :: Delta1 r -> DeltaS '[n] r
-  From2S :: forall rows cols r. Delta2 r -> DeltaS '[rows, cols] r
-  FromXS :: forall sh r. DeltaX r -> DeltaS sh r
+  From2S :: forall rows cols r. KnownNat cols
+         => Delta2 r -> DeltaS '[rows, cols] r
+  FromXS :: DeltaX r -> DeltaS sh r
 
 instance Show (DeltaS sh r) where
   show _ = "a DeltaS delta expression"
@@ -386,7 +389,7 @@ buildVectors st deltaTopLevel = do
       _antiWarning :: forall sh. OS.Shape sh
                    => OS.Array sh r -> DeltaS sh r -> ST s ()
       _antiWarning = evalS
-      evalS :: forall sh. OS.Shape sh
+      evalS :: OS.Shape sh
             => OS.Array sh r -> DeltaS sh r -> ST s ()
       evalS !r = \case
         ZeroS -> return ()
@@ -394,33 +397,34 @@ buildVectors st deltaTopLevel = do
         AddS d e -> evalS r d >> evalS r e
         VarS (DeltaId _i) -> undefined  -- VM.modify storeS (addToArrayS r) i
 
-        AppendS{} -> undefined
-        SliceS{} -> undefined
-{- this is possibly morally correct and works in GHC 9.2, but not without
-   somebody that knows what she's doing convincing GHC to accept it:
-        AppendS (d :: DeltaS (k ': _restD) r) (e :: DeltaS (l ': _restE) r) ->
-          evalS (OS.slice @'[ '(0, k) ] r) d
-          >> evalS (OS.slice @'[ '(k, l) ] r) e
-        SliceS @i @n (d :: DeltaS (len ': rest) r) ->
-          evalS (OS.constant @(i ': rest) 0
-                 `OS.append` r
-                 `OS.append` OS.constant @(len - i - n ': rest) 0)
-                d
--}
+        AppendS d e -> appendS r d e
+        SliceS @i d -> sliceS @i r d
+          -- is it possible to do that without type patterns and so GHC >= 9.2?
 
         From0S d -> eval0 (OS.unScalar r) d
         From1S d -> eval1 (OS.toVector r) d
-        From2S{} -> undefined
-{- GHC 9.2 needed; can this be simplified?
-        From2S @cols d ->
+        From2S @_ @cols d ->
           eval2 (MO.MatrixOuter
                    (Just $ HM.reshape (valueOf @cols) $ OS.toVector r)
                    Nothing Nothing)
                 d
-   this doesn't seem to work (would a separate function work?):
-        (From2S d :: DeltaS '[rows, cols] r) ->
--}
         FromXS d -> evalX (Data.Array.Convert.convert r) d
+      -- These auxiliary functions are only required to set up the type-level
+      -- machinery. This hinders readability, sadly.
+      appendS :: forall k l rest. (KnownNat k, KnownNat l, OS.Shape rest)
+              => OS.Array (k + l ': rest) r
+              -> DeltaS (k ': rest) r -> DeltaS (l ': rest) r
+              -> ST s ()
+      appendS r d e = evalS (OS.slice @'[ '(0, k) ] r) d
+                      >> evalS (OS.slice @'[ '(k, l) ] r) e
+      sliceS :: forall i n k rest.
+                (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
+             => OS.Array (n ': rest) r -> DeltaS (i + n + k ': rest) r
+             -> ST s ()
+      sliceS r d = evalS (OS.constant @(i ': rest) 0
+                          `OS.append` r
+                          `OS.append` OS.constant @(k ': rest) 0)
+                         d
   eval0 1 deltaTopLevel  -- dt is 1 or hardwired in f
   let evalUnlessZero :: DeltaBinding r -> ST s ()
       evalUnlessZero (DeltaBinding0 (DeltaId i) d) = do
