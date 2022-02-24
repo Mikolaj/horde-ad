@@ -25,14 +25,12 @@ module HordeAd.Core.Delta
   ( -- * Abstract syntax trees of the delta expressions
     Delta0 (..), Delta1 (..), Delta2 (..), DeltaX (..), DeltaS (..)
   , -- * Delta expression identifiers
-    DeltaId, toDeltaId
+    DeltaId, toDeltaId, covertDeltaId
   , -- * Evaluation of the delta expressions
     DeltaBinding
   , DeltaState (..)
   , evalBindings, ppBinding
   , bindInState0, bindInState1, bindInState2, bindInStateX
-  , -- * experimental
-    ArrayS(..), DomainS
   ) where
 
 import Prelude
@@ -201,6 +199,9 @@ newtype DeltaId a = DeltaId Int
 toDeltaId :: Int -> DeltaId a
 toDeltaId = DeltaId
 
+covertDeltaId :: DeltaId (OT.Array r) -> DeltaId (OS.Array sh r)
+covertDeltaId (DeltaId i) = DeltaId i
+
 -- The key is that it preserves the phantom type.
 succDeltaId :: DeltaId a -> DeltaId a
 succDeltaId (DeltaId i) = DeltaId (succ i)
@@ -279,6 +280,11 @@ buildVectors st deltaTopLevel = do
       addToMatrix r = \v -> if MO.nullMatrixOuter v then r else MO.plus v r
       addToArray :: OT.Array r -> OT.Array r -> OT.Array r
       addToArray r = \v -> if null (OT.shapeL v) then r else OT.zipWithA (+) v r
+      addToArrayS :: OS.Shape sh => OS.Array sh r -> OT.Array r -> OT.Array r
+      addToArrayS r = \v -> let rs = Data.Array.Convert.convert r
+                            in if null (OT.shapeL v)
+                               then rs
+                               else OT.zipWithA (+) v rs
       eval0 :: r -> Delta0 r -> ST s ()
       eval0 !r = \case
         Zero0 -> return ()
@@ -395,7 +401,7 @@ buildVectors st deltaTopLevel = do
         ZeroS -> return ()
         ScaleS k d -> evalS (OS.zipWithA (*) k r) d
         AddS d e -> evalS r d >> evalS r e
-        VarS (DeltaId _i) -> undefined  -- VM.modify storeS (addToArrayS r) i
+        VarS (DeltaId i) -> VM.modify storeX (addToArrayS r) i
 
         AppendS d e -> appendS r d e
         SliceS @i d -> sliceS @i r d
@@ -492,10 +498,3 @@ bindInStateX u' st =
           , deltaBindings = DeltaBindingX dId u' : deltaBindings st
           }
      , dId )
-
--- experimental; a pity we lose guarantees here and later have to check
--- at runtime whether the parameters (kept as the vector of tensors)
--- have the types we expect; can we do better?
-data ArrayS r = forall sh. ArrayS (OS.Array sh r)
-
-type DomainS r = Data.Vector.Vector (ArrayS r)

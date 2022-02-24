@@ -95,7 +95,7 @@ instance IsTensor (OT.Array r) where
   {-# INLINE bindInState #-}
   bindInState = bindInStateX
 
-instance IsTensor (OS.Array sh r) where
+instance OS.Shape sh => IsTensor (OS.Array sh r) where
   type DeltaExpression (OS.Array sh r) = DeltaS sh r
   zeroD = ZeroS
   scaleD = ScaleS
@@ -103,7 +103,8 @@ instance IsTensor (OS.Array sh r) where
   varD = VarS
   type ScalarOfTensor (OS.Array sh r) = r
   {-# INLINE bindInState #-}
-  bindInState = undefined
+  bindInState u' st = let (st2, did) = bindInStateX (FromSX u') st
+                      in (st2, covertDeltaId did)
 
 -- | A shorthand for a useful set of constraints.
 type IsTensorWithScalar a r = (IsTensor a, ScalarOfTensor a ~ r)
