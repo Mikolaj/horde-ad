@@ -1,11 +1,14 @@
 {-# LANGUAGE TypeFamilies #-}
-module TestMnistFC (testTrees, shortTestForCITrees) where
+module TestMnistFC (testTrees, shortTestForCITrees, mnistTestCase2T) where
 
 import Prelude
 
-import           Control.Monad (foldM)
+import           Control.DeepSeq
+import           Control.Monad (foldM, when)
+import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import qualified Data.Vector.Generic as V
 import qualified Numeric.LinearAlgebra as HM
+import           System.IO (hFlush, stdout)
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -257,6 +260,72 @@ mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
        let testErrorFinal = 1 - testMnist2L testData res
        testErrorFinal @?= expected
 
+mnistTestCase2T
+  :: Bool
+  -> String
+  -> Int
+  -> Int
+  -> (MnistData Double
+      -> DualNumberVariables Double
+      -> DeltaMonadGradient Double (DualNumber Double))
+  -> Int
+  -> Int
+  -> Double
+  -> Double
+  -> TestTree
+mnistTestCase2T reallyWriteFile
+                prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
+                gamma expected =
+  let ((nParams, nParamsV, nParamsL), totalParams, range, !parameters0) =
+        initializerFixed 44 0.5 (lenMnistFcnn2L widthHidden widthHidden2)
+      name = prefix ++ " "
+             ++ unwords [ show epochs, show maxBatches
+                        , show widthHidden, show widthHidden2
+                        , show nParams, show nParamsV, show nParamsL
+                        , show totalParams, show gamma, show range]
+  in testCase name $ do
+       trainData0 <- loadMnistData trainGlyphsPath trainLabelsPath
+       testData <- loadMnistData testGlyphsPath testLabelsPath
+       let !trainData = force $ shuffle (mkStdGen 6) trainData0
+       -- Mimic how backprop tests and display it, even though tests
+       -- should not print, in principle.
+       let runBatch :: (Domains Double, [(POSIXTime, Double)])
+                    -> (Int, [MnistData Double])
+                    -> IO (Domains Double, [(POSIXTime, Double)])
+           runBatch ((!params, !paramsV, !paramsL, !paramsX), !times)
+                    (k, chunk) = do
+             when (k `mod` 100 == 0) $ do
+               printf "%d " k
+               hFlush stdout
+             let f = trainWithLoss
+                 (!paramsNew, !value) =
+                   sgd gamma f chunk (params, paramsV, paramsL, paramsX)
+             time <- getPOSIXTime
+             return (paramsNew, (time, value) : times)
+       let runEpoch :: Int
+                    -> (Domains Double, [(POSIXTime, Double)])
+                    -> IO (Domains Double, [(POSIXTime, Double)])
+           runEpoch n params2times | n > epochs = return params2times
+           runEpoch n (!params2, !times2) = do
+             printf "\n[Epoch %d]\n" n
+             let !trainDataShuffled =
+                   if n > 1
+                   then shuffle (mkStdGen $ n + 5) trainData
+                   else trainData
+                 chunks = take maxBatches
+                          $ zip [1 ..] $ chunksOf 1 trainDataShuffled
+             res <- foldM runBatch (params2, times2) chunks
+             runEpoch (succ n) res
+       printf "\nEpochs to run/max batches per epoch: %d/%d"
+              epochs maxBatches
+       timeBefore <- getPOSIXTime
+       (res, times) <- runEpoch 1 (parameters0, [])
+       let ppTime (t, l) = init (show (t - timeBefore)) ++ " " ++ show l
+       when reallyWriteFile $
+         writeFile "walltimeLoss.txt" $ unlines $ map ppTime times
+       let testErrorFinal = 1 - testMnist2L testData res
+       testErrorFinal @?= expected
+
 dumbMnistTests :: TestTree
 dumbMnistTests = testGroup "Dumb MNIST tests"
   [ testCase "1pretty-print in grey 3 2" $ do
@@ -386,8 +455,13 @@ matrixMnistTests = testGroup "MNIST LL tests with a 2-hidden-layer nn"
                     5.6599999999999984e-2
   , mnistTestCase2L "artificial 1 2 3 4 5" 1 2 nnMnistLoss2L 3 4 5
                     0.8972
-  , mnistTestCase2L "artificial 5 4 3 2 1" 5 4 nnMnistLoss2L 3 2 1
-                    0.7427
+  , mnistTestCase2T False
+                    "artificial TL 5 4 3 2 1" 5 4 nnMnistLoss2L 3 2 1
+                    0.8845
+--  , mnistTestCase2T True
+--                    "2 epochs, all batches, TL, wider, to file"
+--                    2 60000 nnMnistLoss2L 500 150 0.02
+--                    4.290000000000005e-2
   ]
 
 fusedMnistTests :: TestTree
@@ -432,6 +506,7 @@ shortCIMnistTests = testGroup "Short CI MNIST tests"
                     0.13129999999999997
   , mnistTestCase2L "fused LL artificial 1 2 3 4 5" 1 2 nnMnistLossFused2L 3 4 5
                     0.8972
-  , mnistTestCase2L "fused LL artificial 5 4 3 2 1" 5 4 nnMnistLossFused2L 3 2 1
-                    0.8046
+  , mnistTestCase2T False
+                    "fused TL artificial 5 4 3 2 1" 5 4 nnMnistLossFused2L 3 2 1
+                    0.8845
   ]

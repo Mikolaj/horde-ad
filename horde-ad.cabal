@@ -178,6 +178,7 @@ test-suite test
     -- Test dependencies.
     build-depends:
         base
+      , deepseq
       , hmatrix
       , horde-ad
       , random
@@ -185,6 +186,7 @@ test-suite test
       , strict-containers
       , tasty >= 1.0
       , tasty-hunit
+      , time
       , vector
 
 -- The data files for this are not included in the cabal package,
@@ -216,12 +218,14 @@ test-suite shortTestForCI
     -- Test dependencies.
     build-depends:
         base
+      , deepseq
       , hmatrix
       , horde-ad
       , random
       , strict-containers
       , tasty >= 1.0
       , tasty-hunit
+      , time
       , vector
 
 benchmark prod
