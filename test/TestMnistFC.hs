@@ -457,7 +457,7 @@ matrixMnistTests = testGroup "MNIST LL tests with a 2-hidden-layer nn"
                     0.8972
   , mnistTestCase2T False
                     "artificial TL 5 4 3 2 1" 5 4 nnMnistLoss2L 3 2 1
-                    0.8845
+                    0.8867
 --  , mnistTestCase2T True
 --                    "2 epochs, all batches, TL, wider, to file"
 --                    2 60000 nnMnistLoss2L 500 150 0.02
@@ -508,5 +508,5 @@ shortCIMnistTests = testGroup "Short CI MNIST tests"
                     0.8972
   , mnistTestCase2T False
                     "fused TL artificial 5 4 3 2 1" 5 4 nnMnistLossFused2L 3 2 1
-                    0.8845
+                    0.8867
   ]
