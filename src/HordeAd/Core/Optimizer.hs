@@ -44,16 +44,16 @@ sgd :: forall r a. (Eq r, IsScalar r)
     -> (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
     -> [a]  -- ^ training data
     -> Domains r  -- ^ initial parameters
-    -> Domains r
-sgd gamma f trainingData parameters0 = go trainingData parameters0 where
+    -> (Domains r, r)
+sgd gamma f trainingData parameters0 = go trainingData parameters0 0 where
   varDeltas = generateDeltaVars parameters0
-  go :: [a] -> Domains r -> Domains r
-  go [] parameters = parameters
-  go (a : rest) parameters =
+  go :: [a] -> Domains r -> r -> (Domains r, r)
+  go [] parameters value = (parameters, value)
+  go (a : rest) parameters _ =
     let variables = makeDualNumberVariables parameters varDeltas
-        gradients = fst $ generalDf variables (f a)
+        (gradients, valueNew) = generalDf variables (f a)
         parametersNew = updateWithGradient gamma parameters gradients
-    in go rest parametersNew
+    in go rest parametersNew valueNew
 
 sgdAdam :: forall r a. (Eq r, Floating r, IsScalar r, Floating (Vector r))
         => (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))

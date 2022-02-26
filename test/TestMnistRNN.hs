@@ -120,7 +120,7 @@ sgdShow :: (Eq r, Fractional r, IsScalar r)
         -> Domains r
         -> r
 sgdShow f trainData parameters =
-  let result = sgd 0.1 f trainData parameters
+  let result = fst $ sgd 0.1 f trainData parameters
   in snd $ df (f $ head trainData) result
 
 sgdTestCase :: String
@@ -189,7 +189,7 @@ feedbackTestCase prefix fp f nParameters trainData expected =
       name = prefix ++ " "
              ++ unwords [ show nParams, show nParamsV, show nParamsL
                         , show totalParams, show range ]
-      trained = sgd 0.1 f trainData parameters0
+      trained = fst $ sgd 0.1 f trainData parameters0
       primed = prime fp trained (HM.konst 0 30) (take 19 series)
       output = feedback fp trained primed (series !! 19)
   in testCase name $

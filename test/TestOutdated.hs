@@ -722,7 +722,7 @@ sgdShow :: (Eq r, IsScalar r)
         -> ([r], r)
 sgdShow gamma f trainData params0 =
   let (res, _, _, _) =
-        sgd gamma f trainData (params0, V.empty, V.empty, V.empty)
+        fst $ sgd gamma f trainData (params0, V.empty, V.empty, V.empty)
       (_, value) = df (f $ head trainData) (res, V.empty, V.empty, V.empty)
   in (V.toList res, value)
 

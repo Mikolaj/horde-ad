@@ -34,7 +34,7 @@ sgdShow :: (Eq r, IsScalar r)
         -> Domain r  -- ^ initial parameters
         -> r
 sgdShow gamma f trainData params0 =
-  let result = sgd gamma f trainData (params0, V.empty, V.empty, V.empty)
+  let result = fst $ sgd gamma f trainData (params0, V.empty, V.empty, V.empty)
   in snd $ df (f $ head trainData) result
 
 sgdTestCase :: String
@@ -93,7 +93,7 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
              printf "(Batch %d)\n" k
              let f = trainWithLoss widthHidden widthHidden2
                  (!res, _, _, _) =
-                   sgd gamma f chunk (params, V.empty, V.empty, V.empty)
+                   fst $ sgd gamma f chunk (params, V.empty, V.empty, V.empty)
              printf "Trained on %d points.\n" (length chunk)
              let trainScore = testMnist2 widthHidden widthHidden2 chunk res
                  testScore  = testMnist2 widthHidden widthHidden2 testData res
@@ -155,7 +155,7 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
              printf "(Batch %d)\n" k
              let f = trainWithLoss widthHidden widthHidden2
                  (resS, resV, _, _) =
-                   sgd gamma f chunk (params, paramsV, V.empty, V.empty)
+                   fst $ sgd gamma f chunk (params, paramsV, V.empty, V.empty)
                  res = (resS, resV)
              printf "Trained on %d points.\n" (length chunk)
              let trainScore = testMnist2V widthHidden widthHidden2 chunk res
@@ -232,7 +232,8 @@ mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
            runBatch (!params, !paramsV, !paramsL, !paramsX) (k, chunk) = do
              printf "(Batch %d)\n" k
              let f = trainWithLoss
-                 res = sgd gamma f chunk (params, paramsV, paramsL, paramsX)
+                 res = fst $ sgd gamma f chunk
+                                 (params, paramsV, paramsL, paramsX)
              printf "Trained on %d points.\n" (length chunk)
              let trainScore = testMnist2L chunk res
                  testScore = testMnist2L testData res
