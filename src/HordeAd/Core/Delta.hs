@@ -439,9 +439,6 @@ buildVectors st deltaTopLevel = do
                                 Nothing Nothing)
                 d
         FromSX d -> evalS (Data.Array.Convert.convert r) d
-      _antiWarning :: forall sh. OS.Shape sh
-                   => OS.Array sh r -> DeltaS sh r -> ST s ()
-      _antiWarning = evalS
       evalS :: OS.Shape sh
             => OS.Array sh r -> DeltaS sh r -> ST s ()
       evalS !r = \case
