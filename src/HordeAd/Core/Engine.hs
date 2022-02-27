@@ -19,7 +19,6 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Vector)
 import qualified Numeric.LinearAlgebra as HM
-import           System.Random
 import           Text.Show.Pretty (ppShow)
 
 import HordeAd.Core.Delta
@@ -172,7 +171,7 @@ generateDeltaVars (params, paramsV, paramsL, paramsX) =
 -- | Initialize parameters using a uniform distribution with a fixed range
 -- taken from an argument.
 --
--- Must be Double, because @uniformSample@ only works on that.
+-- Must be Double, because @randomVector@ only works on that.
 --
 -- This only works fine for nets with levels that have similar size and use
 -- the same activation function. Otherwise, the range should vary per level.
@@ -184,16 +183,16 @@ initializerFixed :: Int -> Double -> (Int, [Int], [(Int, Int)])
 initializerFixed seed range (nParams, lParamsV, lParamsL) =
   let vParamsV = V.fromList lParamsV
       vParamsL = V.fromList lParamsL
-      params0 = V.unfoldrExactN nParams (uniformR (- range, range))
-                $ mkStdGen seed
+      createRandomVector n seedV =
+        HM.scale (2 * range)
+        $ HM.randomVector seedV HM.Uniform n - HM.scalar 0.5
+      params0 = createRandomVector nParams seed
       paramsV0 =
-        V.imap (\i nPV -> V.unfoldrExactN nPV (uniformR (- range, range))
-                                          (mkStdGen $ seed + nPV + i))
-               vParamsV
-      paramsL0 = V.imap (\i (rows, cols) ->
-                           HM.uniformSample (seed + rows + i) rows
-                                            (replicate cols (- range, range)))
-                        vParamsL
+        V.imap (\i nPV -> createRandomVector nPV (seed + nPV + i)) vParamsV
+      paramsL0 =
+        V.imap (\i (rows, cols) ->
+                 HM.reshape cols
+                 $ createRandomVector (rows * cols) (seed + rows + i)) vParamsL
       totalParams = nParams
                     + V.sum vParamsV
                     + V.sum (V.map (uncurry (*)) vParamsL)

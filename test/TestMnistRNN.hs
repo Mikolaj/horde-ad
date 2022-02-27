@@ -263,25 +263,25 @@ ar2SinLoss (xs, target) variables = do
 sinRNNTests :: TestTree
 sinRNNTests = testGroup "Sine RNN tests"
   [ sgdTestCase "train" nnSinRNNLoss (1, [30, 30], [(30, 1), (30, 30)])
-                (return $ take 30000 samples) 2.7767078390174838e-5
+                (return $ take 30000 samples) 5.060827754123346e-5
   , feedbackTestCase "feedback" fcfcrnn nnSinRNNLoss
                      (1, [30, 30], [(30, 1), (30, 30)])
                      (take 10000 samples)
-                     [-0.9980267284282716,-0.9635969636166014,-0.8852952626226361,-0.7642608678210426,-0.6022770608206665,-0.4033390312094312,-0.17537818420131487,6.879282387447619e-2,0.31226627184414224,0.5368846584179489,0.7271314393668484,0.8730549544002943,0.9707639759459372,1.0207324787951833,1.0253326233680582,0.986900394287602,0.9068894463306796,0.7861024783590012,0.6257839317393192,0.42928109139491266,0.20379685354628732,-3.855688343960128e-2,-0.281343520120466,-0.5064405440888685,-0.6978715569402032,-0.8448912129493893,-0.9427585471613646,-0.9912623762593421,-0.9923429067482449,-0.9481655850002165]
+                     [-0.9980267284282716,-0.9655322144631203,-0.8919588317267176,-0.7773331580548076,-0.6212249872512189,-0.4246885094957385,-0.19280278430361192,6.316924614971235e-2,0.3255160857644734,0.5731149496491759,0.7872840563791541,0.957217059407527,1.0815006200684472,1.1654656874016613,1.2170717188563214,1.2437913143303263,1.251142657837598,1.2423738174804864,1.2186583377053681,1.1794148708577938,1.1226117988569018,1.0450711676413071,0.9428743310020188,0.8120257428038534,0.6495453130357101,0.45507653540664667,0.23281831228915612,-6.935736916677385e-3,-0.24789484923780786,-0.4705527193222155]
   , sgdTestCase "trainVV" nnSinRNNLossV (1, replicate 33 30, [])
-                (return $ take 30000 samples) 3.396124727552674e-5
+                (return $ take 30000 samples) 4.6511403967229306e-5
       -- different random initial paramaters produce a worse result;
       -- matrix implementation faster, because the matrices still fit in cache
   , feedbackTestCase "feedbackVV" fcfcrnnV nnSinRNNLossV
                      (1, replicate 33 30, [])
                      (take 10000 samples)
-                     [-0.9980267284282716,-0.9634123298992812,-0.8847335504597839,-0.7622853687776576,-0.5962848755420429,-0.38884074710283445,-0.14654599247925756,0.11757603905860295,0.38437938161262064,0.6323324161445587,0.8436159306746334,1.009006310264001,1.1284972482500732,1.2081446932687734,1.2560009904674736,1.2792814156548193,1.2831268046191948,1.2703983550132165,1.2419052564483004,1.1967293095390061,1.1325415817990008,1.0459466765807786,0.9329720084923336,0.789865350066696,0.6143550789522167,0.4073941707753075,0.17505714838370537,-7.029722905472535e-2,-0.31086676131884383,-0.5269348888108187]
+                     [-0.9980267284282716,-0.9660899403337656,-0.8930568599923028,-0.7791304201898077,-0.6245654477568863,-0.4314435277698684,-0.2058673183484546,4.0423225394292085e-2,0.29029630688547203,0.5241984159992963,0.7250013011527577,0.8820730400055012,0.9922277361823716,1.057620382863504,1.08252746840241,1.070784986731554,1.0245016946328942,0.9438848015250431,0.827868146535437,0.6753691437632174,0.48708347071773117,0.26756701680655437,2.6913747557207532e-2,-0.21912614372802072,-0.45154893423928943,-0.6525638736434227,-0.8098403108946983,-0.9180866488182939,-0.9775459850131992,-0.9910399864230198]
   , sgdTestCase "trainAR" ar2SinLoss (3, [], [])
-                (return $ take 30000 samples) 6.327624899257216e-23
+                (return $ take 30000 samples) 6.327978161031336e-23
   , feedbackTestCase "feedbackAR" ar2Sin ar2SinLoss
                      (3, [], [])
                      (take 10000 samples)
-                     [-0.9980267284282716,-0.9510565162972417,-0.8443279255081759,-0.6845471059406962,-0.48175367412103653,-0.2486898871925689,-3.6737446418300124e-11,0.24868988711895013,0.48175367404699826,0.6845471058659989,0.844327925432636,0.9510565162207483,0.9980267283507966,0.9822872506502913,0.9048270523889226,0.7705132427021705,0.5877852522243453,0.3681245526237753,0.1253332335119829,-0.1253332336071473,-0.3681245527176618,-0.5877852523157625,-0.7705132427900947,-0.904827052472567,-0.9822872507291597,-0.9980267284247172,-0.9510565162898854,-0.8443279254974799,-0.6845471059273327,-0.48175367410584524]
+                     [-0.9980267284282716,-0.9510565162972417,-0.8443279255081759,-0.6845471059406962,-0.48175367412103653,-0.24868988719256901,-3.673766846290505e-11,0.24868988711894977,0.4817536740469978,0.6845471058659982,0.8443279254326351,0.9510565162207472,0.9980267283507953,0.9822872506502898,0.9048270523889208,0.7705132427021685,0.5877852522243431,0.3681245526237731,0.12533323351198067,-0.1253332336071494,-0.36812455271766376,-0.5877852523157643,-0.7705132427900961,-0.9048270524725681,-0.9822872507291605,-0.9980267284247174,-0.9510565162898851,-0.844327925497479,-0.6845471059273313,-0.48175367410584324]
   ]
 
 
@@ -744,19 +744,19 @@ mnistRNNTestsLong :: TestTree
 mnistRNNTestsLong = testGroup "MNIST RNN long tests"
   [ mnistTestCaseRNN "99LL 1 epoch, all batches" 1 99
                      nnMnistRNNLossL testMnistRNNL lenMnistRNNL 128 1
-                     6.820000000000004e-2
+                     8.209999999999995e-2
   , mnistTestCaseRNNB "99BB 1 epoch, all batches" 1 99
                       nnMnistRNNLossB testMnistRNNL lenMnistRNNL 128 1
-                      6.820000000000004e-2
+                      8.209999999999995e-2
   , mnistTestCaseRNN "99LL2 1 epoch, all batches" 1 99
                      nnMnistRNNLossL2 testMnistRNNL2 lenMnistRNNL 128 2
-                     6.769999999999998e-2
+                     6.259999999999999e-2
   , mnistTestCaseRNNB "99BB2 1 epoch, all batches" 1 99
                       nnMnistRNNLossB2 testMnistRNNL2 lenMnistRNNL 128 2
-                      6.769999999999998e-2
+                      6.259999999999999e-2
   , mnistTestCaseRNN "99VV 1 epoch, all batches" 1 99
                      nnMnistRNNLossV testMnistRNNV lenMnistRNNV 128 1
-                     6.940000000000002e-2
+                     6.740000000000002e-2
   ]
 
 mnistRNNTestsShort :: TestTree
@@ -769,7 +769,7 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
                    (nnMnistRNNLossL 128)
                    (lenMnistRNNL 128 1)
                    (return trainData)
-                   67.48023157739416
+                   46.4585140611979
   , let rws (input, target) =
           (map (\k -> V.slice (k * 28) 28 input) [0 .. 27], target)
     in sgdTestCase "firstLL 100 trainset samples only"
@@ -777,13 +777,13 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
                    (lenMnistRNNL 128 1)
                    (map rws . take 100
                     <$> loadMnistData trainGlyphsPath trainLabelsPath)
-                   2.7475935398167763
+                   2.779085689596527
   , mnistTestCaseRNN "1LL 1 epoch, 1 batch" 1 1
                      nnMnistRNNLossL testMnistRNNL lenMnistRNNL 128 1
-                     0.35009999999999997
+                     0.2845
   , mnistTestCaseRNNB "1BB 1 epoch, 1 batch" 1 1
                       nnMnistRNNLossB testMnistRNNL lenMnistRNNL 128 1
-                      0.35009999999999997
+                      0.2845
   , let glyph = V.unfoldrExactN sizeMnistGlyph (uniformR (0, 1))
         label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
         rws v = map (\k -> V.slice (k * 28) 28 v) [0 .. 27]
@@ -792,7 +792,7 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
                    (nnMnistRNNLossL2 128)
                    (lenMnistRNNL 128 2)
                    (return trainData)
-                   50.79613986201308
+                   40.030460473877724
   , let rws (input, target) =
           (map (\k -> V.slice (k * 28) 28 input) [0 .. 27], target)
     in sgdTestCase "firstLL2 100 trainset samples only"
@@ -800,13 +800,13 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
                    (lenMnistRNNL 128 2)
                    (map rws . take 100
                     <$> loadMnistData trainGlyphsPath trainLabelsPath)
-                   2.7330660939846974
+                   2.784908126637129
   , mnistTestCaseRNN "1LL2 1 epoch, 1 batch" 1 1
                      nnMnistRNNLossL2 testMnistRNNL2 lenMnistRNNL 128 2
-                     0.2643
+                     0.2945
   , mnistTestCaseRNNB "1BB2 1 epoch, 1 batch" 1 1
                       nnMnistRNNLossB2 testMnistRNNL2 lenMnistRNNL 128 2
-                      0.2643
+                      0.2945
   , let glyph = V.unfoldrExactN sizeMnistGlyph (uniformR (0, 1))
         label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
         rws v = map (\k -> V.slice (k * 28) 28 v) [0 .. 27]
@@ -815,7 +815,7 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
                    (nnMnistRNNLossV 128)
                    (lenMnistRNNV 128 1)
                    (return trainData)
-                   58.4107481776972
+                   48.93543453075899
   , let rws (input, target) =
           (map (\k -> V.slice (k * 28) 28 input) [0 .. 27], target)
     in sgdTestCase "firstVV 100 trainset samples only"
@@ -823,8 +823,8 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
                    (lenMnistRNNV 128 1)
                    (map rws . take 100
                     <$> loadMnistData trainGlyphsPath trainLabelsPath)
-                   2.7348332349644084
+                   2.7494107689380805
   , mnistTestCaseRNN "1VV 1 epoch, 1 batch" 1 1
                      nnMnistRNNLossV testMnistRNNV lenMnistRNNV 128 1
-                     0.32889999999999997
+                     0.3024
   ]

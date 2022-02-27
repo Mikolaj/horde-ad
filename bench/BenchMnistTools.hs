@@ -7,7 +7,7 @@ import Prelude
 import           Control.Arrow ((***))
 import           Criterion.Main
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Storable
+import qualified Numeric.LinearAlgebra as HM
 import           System.Random
 
 import HordeAd
@@ -66,17 +66,16 @@ mnistTrainBGroup2500 xs0 chunkLength =
         (0.02 :: Float)
     ]
 
-mnistTrainBench2V :: ( Eq r, Floating r, IsScalar r, UniformRange r
-                     , Floating (Data.Vector.Storable.Vector r) )
-                  => String -> Int -> [MnistData r] -> Int -> Int -> r
+mnistTrainBench2V :: String -> Int -> [MnistData Double]
+                  -> Int -> Int -> Double
                   -> Benchmark
 mnistTrainBench2V extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
   let nParams = lenMnist2V widthHidden widthHidden2
       nParamsV = lenVectorsMnist2V widthHidden widthHidden2
-      params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
+      params0 = HM.randomVector 33 HM.Uniform nParams - HM.scalar 0.5
       paramsV0 =
-        V.imap (\i nPV -> V.unfoldrExactN nPV (uniformR (-0.5, 0.5))
-                                          (mkStdGen $ 33 + nPV + i))
+        V.imap (\i nPV -> HM.randomVector (33 + nPV + i) HM.Uniform nPV
+                          - HM.scalar 0.5)
                nParamsV
       f = nnMnistLoss2V widthHidden widthHidden2
       chunk = take chunkLength xs
@@ -87,16 +86,15 @@ mnistTrainBench2V extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
                         , "m0" ++ "=" ++ show totalParams ]
   bench name $ whnf grad chunk
 
-mnistTestBench2V :: ( Ord r, Floating r, IsScalar r, UniformRange r
-                    , Floating (Data.Vector.Storable.Vector r) )
-                 => String -> Int -> [MnistData r] -> Int -> Int -> Benchmark
+mnistTestBench2V :: String -> Int -> [MnistData Double] -> Int -> Int
+                 -> Benchmark
 mnistTestBench2V extraPrefix chunkLength xs widthHidden widthHidden2 = do
   let nParams = lenMnist2V widthHidden widthHidden2
       nParamsV = lenVectorsMnist2V widthHidden widthHidden2
-      params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
+      params0 = HM.randomVector 33 HM.Uniform nParams - HM.scalar 0.5
       paramsV0 =
-        V.imap (\i nPV -> V.unfoldrExactN nPV (uniformR (-0.5, 0.5))
-                                          (mkStdGen $ 33 + nPV + i))
+        V.imap (\i nPV -> HM.randomVector (33 + nPV + i) HM.Uniform nPV
+                          - HM.scalar 0.5)
                nParamsV
       chunk = take chunkLength xs
       score c = testMnist2V widthHidden widthHidden2 c (params0, paramsV0)

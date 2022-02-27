@@ -206,8 +206,8 @@ gradSmartTestCase prefix lossFunction seedSamples
   let samples = integerPairSamples (-1000, 1000) seedSamples nSamples
       nParamsV = lenSynthV width nSamples
       paramsV0 =
-        V.imap (\i nPV -> V.unfoldrExactN nPV (uniformR (-0.5, 0.5))
-                                          (mkStdGen $ 33 + nPV + i))
+        V.imap (\i nPV -> HM.randomVector (33 + nPV + i) HM.Uniform nPV
+                          - HM.scalar 0.5)
                nParamsV
       name = prefix ++ " "
              ++ unwords [ show seedSamples, show nSamples, show width

@@ -9,6 +9,7 @@ import qualified Data.Vector.Generic as V
 import           Foreign.Storable (Storable)
 import           Foreign.Storable.Tuple ()
 import           Numeric.LinearAlgebra (Vector)
+import qualified Numeric.LinearAlgebra as HM
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -739,7 +740,7 @@ sgdTestCase
 sgdTestCase prefix trainDataIO trainWithLoss gamma expected =
   let widthHidden = 250
       nParams = lenMnist widthHidden
-      vec = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
+      vec = HM.randomVector 33 HM.Uniform nParams - HM.scalar 0.5
       name = prefix ++ " "
              ++ unwords [show widthHidden, show nParams, show gamma]
   in testCase name $ do
@@ -762,7 +763,7 @@ stochasticFit3Tests =
  testGroup "Stochastic gradient descent sample fitting 2 hidden layer really fully connected nn tests"
   [ let trainData = V.toList $ wsFit (-1, 1) 42 2
     in sgdTestCase "Ws 42 2"
-         (return trainData) nnFit3ForStochastic 0.1 2.2943674347313845
+         (return trainData) nnFit3ForStochastic 0.1 0.23539780131842747
   , let trainData = take 200 $ cycle $ V.toList $ wsFit (-1, 1) 42 2
     in sgdTestCase "Ws 42 2(200)"
          (return trainData) nnFit3ForStochastic 0.1 0.23539780131842747
@@ -774,5 +775,5 @@ stochasticFit3Tests =
          (return trainData) nnFit3ForStochastic 0.1 1.912556094812049e-2
   , let trainData = take 1280 $ cycle $ V.toList $ wsFitSeparated (-1, 1) 42 128
     in sgdTestCase "separated 42 128(1280)"
-         (return trainData) nnFit3ForStochastic 0.1 1.911520785708457e-2
+         (return trainData) nnFit3ForStochastic 0.1 3.465944781121193
   ]
