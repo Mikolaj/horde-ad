@@ -22,7 +22,8 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Vector)
 
-import HordeAd.Core.Delta (DeltaS (FromXS))
+import HordeAd.Core.Delta
+  (DeltaS (FromXS), Domain, DomainL, DomainV, DomainX, Domains)
 import HordeAd.Core.DualNumber (DualNumber (..))
 import HordeAd.Core.IsTensor
 
@@ -31,21 +32,18 @@ import HordeAd.Core.IsTensor
 -- where the vectors are reused in some ways).
 
 type DualNumberVariables r =
-  ( Vector r
+  ( Domain r
   , Data.Vector.Vector (DeltaExpression r)
-  , Data.Vector.Vector (Vector r)
+  , DomainV r
   , Data.Vector.Vector (DeltaExpression (Vector r))
-  , Data.Vector.Vector (Matrix r)
+  , DomainL r
   , Data.Vector.Vector (DeltaExpression (Matrix r))
-  , Data.Vector.Vector (OT.Array r)
+  , DomainX r
   , Data.Vector.Vector (DeltaExpression (OT.Array r))
   )
 
 makeDualNumberVariables
-  :: ( Vector r
-     , Data.Vector.Vector (Vector r)
-     , Data.Vector.Vector (Matrix r)
-     , Data.Vector.Vector (OT.Array r) )
+  :: Domains r
   -> ( Data.Vector.Vector (DeltaExpression r)
      , Data.Vector.Vector (DeltaExpression (Vector r))
      , Data.Vector.Vector (DeltaExpression (Matrix r))

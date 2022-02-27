@@ -3,7 +3,7 @@
 -- | Two implementations of the monad in which our dual numbers live
 -- and the implementation of deriving a gradient.
 module HordeAd.Core.Engine
-  ( Domain, DomainV, DomainL,  Domains
+  ( Domain, DomainV, DomainL, DomainX, Domains
   , DeltaMonadValue, primalValueGeneric, primalValue
   , DeltaMonadGradient, generalDf, df, prettyPrintDf
   , generateDeltaVars, initializerFixed
@@ -22,22 +22,20 @@ import qualified Numeric.LinearAlgebra as HM
 import           System.Random
 import           Text.Show.Pretty (ppShow)
 
-import HordeAd.Core.Delta (DeltaState (..), evalBindings, ppBinding, toDeltaId)
+import HordeAd.Core.Delta
+  ( DeltaState (..)
+  , Domain
+  , DomainL
+  , DomainV
+  , DomainX
+  , Domains
+  , evalBindings
+  , ppBinding
+  , toDeltaId
+  )
 import HordeAd.Core.DualNumber (DeltaMonad (..), DualNumber (..))
 import HordeAd.Core.IsTensor
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
-
--- import Debug.Trace
-
-type Domain r = Vector r
-
-type DomainV r = Data.Vector.Vector (Vector r)
-
-type DomainL r = Data.Vector.Vector (Matrix r)
-
-type DomainX r = Data.Vector.Vector (OT.Array r)
-
-type Domains r = (Domain r, DomainV r, DomainL r, DomainX r)
 
 -- * First comes the dummy monad implementation that does not collect deltas.
 -- It's intended for efficiently calculating the value of the function only.

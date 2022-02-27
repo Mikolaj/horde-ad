@@ -29,6 +29,7 @@ module HordeAd.Core.Delta
   , -- * Evaluation of the delta expressions
     DeltaBinding
   , DeltaState (..)
+  , Domain, DomainV, DomainL, DomainX, Domains
   , evalBindings, ppBinding
   , bindInState0, bindInState1, bindInState2, bindInStateX
   ) where
@@ -225,6 +226,16 @@ data DeltaState r = DeltaState
   , deltaBindings :: [DeltaBinding r]
   }
 
+type Domain r = Vector r
+
+type DomainV r = Data.Vector.Vector (Vector r)
+
+type DomainL r = Data.Vector.Vector (Matrix r)
+
+type DomainX r = Data.Vector.Vector (OT.Array r)
+
+type Domains r = (Domain r, DomainV r, DomainL r, DomainX r)
+
 -- | Delta expressions are originally meant to denote (forward) derivatives.
 -- However, we use the delta expressions to compute gradients instead.
 -- Let's first discuss the semantics in terms of derivatives,
@@ -275,10 +286,7 @@ data DeltaState r = DeltaState
 -- binding of a scalar type provided in the remaining argument.
 evalBindings :: (Eq r, Numeric r, Num (Vector r))
              => Int -> Int -> Int -> Int -> DeltaState r -> Delta0 r
-             -> ( Vector r
-                , Data.Vector.Vector (Vector r)
-                , Data.Vector.Vector (Matrix r)
-                , Data.Vector.Vector (OT.Array r) )
+             -> Domains r
 evalBindings dim0 dim1 dim2 dimX st deltaTopLevel =
   -- This is morally @V.create@ and so totally safe,
   -- but we can't just call @V.create@ thrice, because it would run
