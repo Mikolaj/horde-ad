@@ -28,14 +28,14 @@ sgdBatch :: forall r a. (Ord r, IsScalar r, Fractional r)
          -> (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
          -> [a]  -- ^ training data
          -> Domains r  -- ^ initial parameters
-         -> Domains r
+         -> (Domains r, r)
 sgdBatch batchSize gamma f trainingData parameters0 =
-  go trainingData parameters0
+  go trainingData parameters0 0
  where
   varDeltas = generateDeltaVars parameters0
-  go :: [a] -> Domains r -> Domains r
-  go [] parameters = parameters
-  go l parameters =
+  go :: [a] -> Domains r -> r -> (Domains r, r)
+  go [] parameters value = (parameters, value)
+  go l parameters _ =
     let variables = makeDualNumberVariables parameters varDeltas
         (batch, rest) = splitAt batchSize l
         fAdd :: DualNumberVariables r -> DualNumber r -> a
@@ -48,9 +48,9 @@ sgdBatch batchSize gamma f trainingData parameters0 =
         fBatch vars = do
           resBatch <- foldM (fAdd vars) 0 batch
           return $! resBatch / fromIntegral (length batch)
-        gradients = fst $ generalDf variables fBatch
+        (gradients, valueNew) = generalDf variables fBatch
         parametersNew = updateWithGradient gamma parameters gradients
-    in go rest parametersNew
+    in go rest parametersNew valueNew
 
 sgdAdamBatch
   :: forall r a. (Eq r, Floating r, IsScalar r, Floating (Vector r))
