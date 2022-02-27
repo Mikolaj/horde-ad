@@ -30,7 +30,7 @@ module HordeAd.Core.Delta
     DeltaBinding
   , DeltaState (..)
   , Domain, DomainV, DomainL, DomainX, Domains
-  , evalBindings, ppBinding
+  , evalBindings, evalBindingsForward, ppBinding
   , bindInState0, bindInState1, bindInState2, bindInStateX
   ) where
 
@@ -52,10 +52,11 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Storable.Mutable
 import           GHC.TypeLits (KnownNat, Nat, type (+))
-import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
+import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, (<.>), (#>))
 import qualified Numeric.LinearAlgebra as HM
 import           Text.Show.Pretty (ppShow)
 import           Data.Array.Internal (valueOf)
+import           Data.List (foldl')
 
 import qualified HordeAd.Internal.MatrixOuter as MO
 
@@ -239,7 +240,8 @@ type Domains r = (Domain r, DomainV r, DomainL r, DomainX r)
 -- | Delta expressions are originally meant to denote (forward) derivatives.
 -- However, we use the delta expressions to compute gradients instead.
 -- Let's first discuss the semantics in terms of derivatives,
--- because it's simpler.
+-- because it's simpler (as evidenced by the simple implementation
+-- in 'evalBindingsForward' below).
 --
 -- Let @r@ be the type of underlying scalars. Let @f@ be a mathematical
 -- differentiable function that takes a collection of arguments
@@ -495,6 +497,158 @@ buildVectors st deltaTopLevel = do
           evalX r d
   mapM_ evalUnlessZero (deltaBindings st)
   return (store0, store1, store2, storeX)
+
+-- | Forward derivative computation via forward-evaluation of delta-expressions
+-- (which most probably makes it inefficient compared to the direct
+-- forward method). [TODO: I'm not sure about the following point:]
+-- This is the directional derivative, computed at the point
+-- at which the delta expression was computed (which is the point
+-- represented by the parameters of the objective function
+-- used to compute it's delta number result) and along the direction vector(s)
+-- given in the last parameter of @evalBindingsForward@.
+--
+-- Warning: untested and with an incomplete tensor part.
+evalBindingsForward :: forall r. (Numeric r, Num (Vector r))
+                    => DeltaState r -> Delta0 r -> Domains r -> r
+evalBindingsForward st deltaTopLevel (params0, paramsV0, paramsL0, paramsX0) =
+  let eval0 :: Domains r -> Delta0 r -> r
+      eval0 parameters@(params, _, _, _) = \case
+        Zero0 -> 0
+        Scale0 k d -> k * eval0 parameters d
+        Add0 d e -> eval0 parameters d + eval0 parameters e
+        Var0 (DeltaId i) -> params V.! i
+
+        Dot0 vr vd -> vr <.> eval1 parameters vd
+        SumElements0 vd _n -> HM.sumElements $ eval1 parameters vd
+        Index0 d i _k -> eval1 parameters d V.! i
+
+        FromX0 d -> OT.unScalar $ evalX parameters d
+        FromS0 d -> OS.unScalar $ evalS parameters d
+      eval1 :: Domains r -> Delta1 r -> Vector r
+      eval1 parameters@(_, paramsV, _, _) = \case
+        Zero1 -> 0
+        Scale1 k d -> k * eval1 parameters d
+        Add1 d e -> eval1 parameters d + eval1 parameters e
+        Var1 (DeltaId i) -> paramsV V.! i
+
+        Seq1 lsd -> V.convert $ V.map (eval0 parameters) lsd
+        Konst1 d -> HM.scalar $ eval0 parameters d  -- TODO: risky
+          -- TODO: HM.konst (eval0 parameters d) undefined
+        Append1 d _k e -> eval1 parameters d V.++ eval1 parameters e
+        Slice1 i n d _len -> V.slice i n $ eval1 parameters d
+        M_VD1 m dRow -> m #> eval1 parameters dRow
+        MD_V1 md row -> eval2 parameters md #> row
+        SumRows1 dm _cols ->
+          V.fromList $ map HM.sumElements $ HM.toRows $ eval2 parameters dm
+        SumColumns1 dm _rows ->
+          V.fromList $ map HM.sumElements $ HM.toColumns $ eval2 parameters dm
+
+        FromX1 d -> OT.toVector $ evalX parameters d
+        FromS1 d -> OS.toVector $ evalS parameters d
+      eval2 :: Domains r -> Delta2 r -> Matrix r
+      eval2 parameters@( _, _,paramsL, _) = \case
+        Zero2 -> 0
+        Scale2 k d -> k * eval2 parameters d
+        Add2 d e -> eval2 parameters d + eval2 parameters e
+        Var2 (DeltaId i) -> paramsL V.! i
+
+        FromRows2 lvd ->
+          HM.fromRows $ map (eval1 parameters) $ V.toList lvd
+        FromColumns2 lvd ->
+          HM.fromColumns $ map (eval1 parameters) $ V.toList lvd
+        Transpose2 md -> HM.tr' $ eval2 parameters md
+        M_MD2 m md -> m HM.<> eval2 parameters md
+        MD_M2 md m -> eval2 parameters md HM.<> m
+        AsRow2 dRow -> HM.asRow $ eval1 parameters dRow  -- TODO: risky
+        AsColumn2 dCol -> HM.asColumn $ eval1 parameters dCol  -- TODO: risky
+        RowAppend2 d _k e -> eval2 parameters d HM.=== eval2 parameters e
+        ColumnAppend2 d _k e -> eval2 parameters d HM.||| eval2 parameters e
+        RowSlice2 i n d _rows ->
+          HM.takeRows n $ HM.dropRows i $ eval2 parameters d
+        ColumnSlice2 i n d _cols ->
+          HM.takeColumns n $ HM.dropColumns i $ eval2 parameters d
+
+        FromX2 d ->
+          let t = evalX parameters d
+          in case OT.shapeL t of
+            [_rows, cols] -> HM.reshape cols $ OT.toVector t
+            _ -> error "eval2: wrong tensor dimensions"
+        FromS2 d ->
+          let t = evalS parameters d
+          in case OS.shapeL t of
+            [_rows, cols] -> HM.reshape cols $ OS.toVector t
+            _ -> error "eval2: wrong tensor dimensions"
+      evalX :: Domains r -> DeltaX r -> OT.Array r
+      evalX parameters@( _, _, _, _paramsX) = \case
+        ZeroX -> undefined  -- 0  -- TODO
+        ScaleX _k _d -> undefined  -- k * evalX parameters d
+        AddX _d _e -> undefined  -- evalX parameters d + evalX parameters e
+        VarX (DeltaId _i) -> undefined  -- paramsX V.! i
+
+        AppendX d _ e -> evalX parameters d `OT.append` evalX parameters e
+        SliceX i n d _ -> OT.slice [(i, n)] $ evalX parameters d
+
+        From0X d -> OT.scalar $ eval0 parameters d
+        From1X d -> let v = eval1 parameters d
+                    in OT.fromVector [V.length v] v
+        From2X d cols -> let l = eval2 parameters d
+                         in OT.fromVector [HM.rows l, cols] $ HM.flatten l
+        FromSX d -> Data.Array.Convert.convert $ evalS parameters d
+      evalS :: OS.Shape sh => Domains r -> DeltaS sh r -> OS.Array sh r
+      evalS parameters@( _, _, _, _paramsX) = \case
+        ZeroS -> undefined  -- 0  -- TODO
+        ScaleS _k _d -> undefined  -- k * evalS parameters d
+        AddS _d _e -> undefined  -- evalS parameters d + evalS parameters e
+        VarS (DeltaId _i) -> undefined
+          -- paramsX V.! Data.Array.Convert.convert i
+
+        AppendS d e -> evalS parameters d `OS.append` evalS parameters e
+        SliceS @i @n d -> OS.slice @'[ '(i, n) ] $ evalS parameters d
+
+        From0S d -> OS.scalar $ eval0 parameters d
+        From1S d -> OS.fromVector $ eval1 parameters d
+        From2S d -> OS.fromVector $ HM.flatten $ eval2 parameters d
+        FromXS d -> Data.Array.Convert.convert $ evalX parameters d
+      evalUnlessZero :: Domains r -> DeltaBinding r -> Domains r
+      evalUnlessZero parameters@(!params, !paramsV, !paramsL, !paramsX) = \case
+        DeltaBinding0 (DeltaId i) d ->
+          let v = eval0 parameters d
+          in (params V.// [(i, v)], paramsV, paramsL, paramsX)
+        DeltaBinding1 (DeltaId i) d ->
+          let v = eval1 parameters d
+          in (params, paramsV V.// [(i, v)], paramsL, paramsX)
+        DeltaBinding2 (DeltaId i) d ->
+          let v = eval2 parameters d
+          in (params, paramsV, paramsL V.// [(i, v)], paramsX)
+        DeltaBindingX (DeltaId i) d ->
+          let v = evalX parameters d
+          in (params, paramsV, paramsL, paramsX V.// [(i, v)])
+      emptyArray =
+        Data.Array.Internal.DynamicS.A
+        $ Data.Array.Internal.DynamicG.A []
+        $ Data.Array.Internal.T [] 0 V.empty
+      DeltaId counter0 = deltaCounter0 st
+      DeltaId counter1 = deltaCounter1 st
+      DeltaId counter2 = deltaCounter2 st
+      DeltaId counterX = deltaCounterX st
+      parameters1 = runST $ do
+        store0 <- VM.replicate counter0 0  -- correct value
+        store1 <- VM.replicate counter1 (V.empty :: Vector r)  -- dummy value
+        store2 <- VM.replicate counter2 (HM.fromRows [])  -- dummy value
+        storeX <- VM.replicate counterX emptyArray  -- dummy value
+        -- TODO: this is dodgy, but it's a shame there's no copying
+        -- of a smaller vector into a larger one in the API:
+        V.basicUnsafeCopy store0 params0
+        V.basicUnsafeCopy store1 paramsV0
+        V.basicUnsafeCopy store2 paramsL0
+        V.basicUnsafeCopy storeX paramsX0
+        v0 <- V.unsafeFreeze store0
+        v1 <- V.unsafeFreeze store1
+        v2 <- V.unsafeFreeze store2
+        vX <- V.unsafeFreeze storeX
+        return (v0, v1, v2, vX)
+      parametersB = foldl' evalUnlessZero parameters1 (deltaBindings st)
+  in eval0 parametersB deltaTopLevel
 
 ppBinding :: (Show r, Numeric r) => String -> DeltaBinding r -> [String]
 ppBinding prefix = \case
