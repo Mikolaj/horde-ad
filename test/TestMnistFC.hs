@@ -562,6 +562,10 @@ matrixMnistTests = testGroup "MNIST LL tests with a 2-hidden-layer nn"
 --                    "2 epochs, all batches, DL, wider, to file"
 --                    2 60000 nnMnistLoss2L 500 150 2e-4
 --                    0.8714
+--  , mnistTestCase2D True 64 True
+--                    "2 epochs, all batches, DL, wider, to file"
+--                    2 60000 nnMnistLossFusedRelu2L 1024 1024 2e-4
+--                    0.902
   ]
 
 fusedMnistTests :: TestTree

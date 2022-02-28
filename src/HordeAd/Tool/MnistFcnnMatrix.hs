@@ -78,6 +78,15 @@ nnMnistLossFused2L (input, target) variables = do
   result <- inline nnMnist2L logisticAct return input variables
   lossSoftMaxCrossEntropyV target result
 
+nnMnistLossFusedRelu2L
+  :: (DeltaMonad r m, Ord r, Floating r, Floating (Vector r))
+  => MnistData r
+  -> DualNumberVariables r
+  -> m (DualNumber r)
+nnMnistLossFusedRelu2L (input, target) variables = do
+  result <- inline nnMnist2L reluActV return input variables
+  lossSoftMaxCrossEntropyV target result
+
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 testMnist2L :: forall r. (Ord r, Floating r, IsScalar r, Floating (Vector r))
