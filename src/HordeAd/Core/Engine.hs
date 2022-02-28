@@ -5,7 +5,7 @@
 module HordeAd.Core.Engine
   ( Domain, DomainV, DomainL, DomainX, Domains
   , DeltaMonadValue, primalValueGeneric, primalValue
-  , DeltaMonadGradient, generalDf, df, prettyPrintDf
+  , DeltaMonadGradient, generalDf, df, generalDforward, prettyPrintDf
   , generateDeltaVars, initializerFixed
   ) where
 
@@ -29,6 +29,7 @@ import HordeAd.Core.Delta
   , DomainX
   , Domains
   , evalBindings
+  , evalBindingsForward
   , ppBinding
   , toDeltaId
   )
@@ -125,6 +126,30 @@ df f parameters =
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
   in generalDf variables f
+
+generalDforward
+  :: IsScalar r
+  => DualNumberVariables r
+  -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+  -> Domains r
+  -> (r, r)
+{-# INLINE generalDforward #-}
+generalDforward variables@(params, _, paramsV, _, paramsL, _, paramsX, _)
+                f direction =
+  let dim = V.length params
+      dimV = V.length paramsV
+      dimL = V.length paramsL
+      dimX = V.length paramsX
+      initialState = DeltaState
+        { deltaCounter0 = toDeltaId dim
+        , deltaCounter1 = toDeltaId dimV
+        , deltaCounter2 = toDeltaId dimL
+        , deltaCounterX = toDeltaId dimX
+        , deltaBindings = []
+        }
+      (D value d, st) = runState (runDeltaMonadGradient (f variables))
+                                 initialState
+  in (evalBindingsForward st d direction, value)
 
 prettyPrintDf :: forall r. (Show r, IsScalar r)
               => Bool

@@ -17,40 +17,51 @@ import HordeAd.Core.OptimizerTools
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 
 -- | Stochastic Gradient Descent with mini-batches, taking the mean
--- of the results from each mini-batch.
+-- of the results from each mini-batch. Additionally, it uses
+-- "forward gradient" from "Gradients without Backpropagation"
+-- by Atilim Gunes Baydin, Barak A. Pearlmutter, Don Syme, Frank Wood,
+-- Philip Torr.
 --
 -- An option: vectorize and only then take the mean of the vector of results
 -- and also parallelize taking advantage of vectorization (but currently
 -- we have a global state, so that's tricky).
-sgdBatch :: forall r a. (Ord r, IsScalar r, Fractional r)
-         => Int  -- ^ batch size
-         -> r  -- ^ gamma (learning_rate?)
-         -> (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+sgdBatch :: forall a.
+            Int
+         -> Int  -- ^ batch size
+         -> Double  -- ^ gamma (learning_rate?)
+         -> (a -> DualNumberVariables Double
+             -> DeltaMonadGradient Double (DualNumber Double))
          -> [a]  -- ^ training data
-         -> Domains r  -- ^ initial parameters
-         -> (Domains r, r)
-sgdBatch batchSize gamma f trainingData parameters0 =
-  go trainingData parameters0 0
+         -> Domains Double  -- ^ initial parameters
+         -> (Int, [Int], [(Int, Int)])
+         -> (Domains Double, Double)
+sgdBatch seed0 batchSize gamma f trainingData parameters0 nParameters =
+  go seed0 trainingData parameters0 0
  where
   varDeltas = generateDeltaVars parameters0
-  go :: [a] -> Domains r -> r -> (Domains r, r)
-  go [] parameters value = (parameters, value)
-  go l parameters _ =
+  go :: Int -> [a] -> Domains Double -> Double -> (Domains Double, Double)
+  go _ [] parameters value = (parameters, value)
+  go seed l parameters _ =
     let variables = makeDualNumberVariables parameters varDeltas
         (batch, rest) = splitAt batchSize l
-        fAdd :: DualNumberVariables r -> DualNumber r -> a
-             -> DeltaMonadGradient r (DualNumber r)
+        fAdd :: DualNumberVariables Double -> DualNumber Double -> a
+             -> DeltaMonadGradient Double (DualNumber Double)
         fAdd vars !acc a = do
           res <- f a vars
           return $! acc + res
-        fBatch :: DualNumberVariables r
-               -> DeltaMonadGradient r (DualNumber r)
+        fBatch :: DualNumberVariables Double
+               -> DeltaMonadGradient Double (DualNumber Double)
         fBatch vars = do
           resBatch <- foldM (fAdd vars) 0 batch
           return $! resBatch / fromIntegral (length batch)
-        (gradients, valueNew) = generalDf variables fBatch
-        parametersNew = updateWithGradient gamma parameters gradients
-    in go rest parametersNew valueNew
+        unitVarianceRange = sqrt 12 / 2
+        (g1, g2) = (seed + 5, seed + 13)
+        (_, _, _, direction) = initializerFixed g1 unitVarianceRange nParameters
+        (directionalDerivative, valueNew) =
+          generalDforward variables fBatch direction
+        gammaDirectional = gamma * directionalDerivative
+        parametersNew = updateWithGradient gammaDirectional parameters direction
+    in go g2 rest parametersNew valueNew
 
 sgdAdamBatch
   :: forall r a. (Eq r, Floating r, IsScalar r, Floating (Vector r))
