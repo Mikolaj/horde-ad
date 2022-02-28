@@ -332,6 +332,7 @@ mnistTestCase2T reallyWriteFile
 mnistTestCase2D
   :: Bool
   -> Int
+  -> Bool
   -> String
   -> Int
   -> Int
@@ -343,9 +344,9 @@ mnistTestCase2D
   -> Double
   -> Double
   -> TestTree
-mnistTestCase2D reallyWriteFile miniBatchSize
+mnistTestCase2D reallyWriteFile miniBatchSize decay
                 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
-                gamma expected =
+                gamma0 expected =
   let np = lenMnistFcnn2L widthHidden widthHidden2
       ((nParams, nParamsV, nParamsL), totalParams, range, !parameters0) =
         initializerFixed 44 0.5 np
@@ -353,7 +354,7 @@ mnistTestCase2D reallyWriteFile miniBatchSize
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
                         , show nParams, show nParamsV, show nParamsL
-                        , show totalParams, show gamma, show range]
+                        , show totalParams, show gamma0, show range]
   in testCase name $ do
        trainData0 <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- loadMnistData testGlyphsPath testLabelsPath
@@ -369,6 +370,9 @@ mnistTestCase2D reallyWriteFile miniBatchSize
                printf "%d " k
                hFlush stdout
              let f = trainWithLoss
+                 gamma = if decay
+                         then gamma0 * exp (- fromIntegral k * 1e-4)
+                         else gamma0
                  (!paramsNew, !value) =
                    sgdBatch (33 + k * 7) miniBatchSize gamma f chunk
                             (params, paramsV, paramsL, paramsX) np
@@ -531,21 +535,33 @@ matrixMnistTests = testGroup "MNIST LL tests with a 2-hidden-layer nn"
   , mnistTestCase2T False
                     "artificial TL 5 4 3 2 1" 5 4 nnMnistLoss2L 3 2 1
                     0.8865
-  , mnistTestCase2D False 1
+  , mnistTestCase2D False 1 False
                     "artificial DL 5 4 3 2 1" 5 4 nnMnistLoss2L 3 2 1
                     0.9042
---  , mnistTestCase2T True
+--  , mnistTestCase2T True False
 --                    "2 epochs, all batches, TL, wider, to file"
 --                    2 60000 nnMnistLoss2L 500 150 0.02
 --                    4.290000000000005e-2
---  , mnistTestCase2D True 1
+--  , mnistTestCase2D True 1 False
 --                    "2 epochs, all batches, DL, wider, to file"
 --                    2 60000 nnMnistLoss2L 500 150 0.02
 --                    0.9079
---  , mnistTestCase2D True 64
+--  , mnistTestCase2D True 64 False
 --                    "2 epochs, all batches, DL, wider, to file"
 --                    2 60000 nnMnistLoss2L 500 150 0.02
 --                    0.9261
+--  , mnistTestCase2D True 64 True
+--                    "2 epochs, all batches, DL, wider, to file"
+--                    2 60000 nnMnistLoss2L 500 150 0.02
+--                    0.8993
+--  , mnistTestCase2D True 64 True
+--                    "2 epochs, all batches, DL, wider, to file"
+--                    2 60000 nnMnistLoss2L 500 150 2e-5
+--                    0.9423
+--  , mnistTestCase2D True 64 True
+--                    "2 epochs, all batches, DL, wider, to file"
+--                    2 60000 nnMnistLoss2L 500 150 2e-4
+--                    0.8714
   ]
 
 fusedMnistTests :: TestTree
@@ -593,7 +609,7 @@ shortCIMnistTests = testGroup "Short CI MNIST tests"
   , mnistTestCase2T False
                     "fused TL artificial 5 4 3 2 1" 5 4 nnMnistLossFused2L 3 2 1
                     0.8865
-  , mnistTestCase2D False 1
+  , mnistTestCase2D False 1 False
                     "fused DL artificial 5 4 3 2 1" 5 4 nnMnistLossFused2L 3 2 1
-                    0.9042
+                    0.8991
   ]
