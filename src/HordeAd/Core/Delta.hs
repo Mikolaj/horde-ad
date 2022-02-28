@@ -501,13 +501,13 @@ buildVectors st deltaTopLevel = do
 -- | Forward derivative computation via forward-evaluation of delta-expressions
 -- (which most probably makes it inefficient compared to the direct
 -- forward method). [TODO: I'm not sure about the following point:]
--- This is the directional derivative, computed at the point
+-- This is the directional derivative, calculated for the point,
 -- at which the delta expression was computed (which is the point
--- represented by the parameters of the objective function
--- used to compute it's delta number result) and along the direction vector(s)
+-- represented by the parameters of the objective function and used
+-- to compute it's dual number result) and along the direction vector(s)
 -- given in the last parameter of @evalBindingsForward@.
 --
--- Warning: untested and with an incomplete tensor part.
+-- Warning: the tensor part is not fully implemented and not tested at all.
 evalBindingsForward :: forall r. (Numeric r, Num (Vector r))
                     => DeltaState r -> Delta0 r -> Domains r -> r
 evalBindingsForward st deltaTopLevel (params0, paramsV0, paramsL0, paramsX0) =
@@ -651,7 +651,8 @@ evalBindingsForward st deltaTopLevel (params0, paramsV0, paramsL0, paramsX0) =
         v2 <- V.unsafeFreeze store2
         vX <- V.unsafeFreeze storeX
         return (v0, v1, v2, vX)
-      parametersB = foldl' evalUnlessZero parameters1 (deltaBindings st)
+      parametersB = foldl' evalUnlessZero parameters1
+                           (reverse $ deltaBindings st)
   in eval0 parametersB deltaTopLevel
 
 ppBinding :: (Show r, Numeric r) => String -> DeltaBinding r -> [String]
