@@ -94,7 +94,7 @@ data Delta1 r =
   | Var1 (DeltaId (Vector r))
 
   | Seq1 (Data.Vector.Vector (Delta0 r))
-  | Konst1 (Delta0 r)
+  | Konst1 (Delta0 r) Int  -- second argument needed only for forward derivative
   | Append1 (Delta1 r) Int (Delta1 r)
   | Slice1 Int Int (Delta1 r) Int
   | SumRows1 (Delta2 r) Int
@@ -355,7 +355,7 @@ buildVectors st deltaTopLevel = do
         Var1 (DeltaId i) -> VM.modify store1 (addToVector r) i
 
         Seq1 lsd -> V.imapM_ (\i d -> eval0 (r V.! i) d) lsd
-        Konst1 d -> V.mapM_ (`eval0` d) r
+        Konst1 d _n -> V.mapM_ (`eval0` d) r
         Append1 d k e -> eval1 (V.take k r) d >> eval1 (V.drop k r) e
         Slice1 i n d len ->
           eval1 (HM.konst 0 i V.++ r V.++ HM.konst 0 (len - i - n)) d
@@ -532,8 +532,7 @@ evalBindingsForward st deltaTopLevel (params0, paramsV0, paramsL0, paramsX0) =
         Var1 (DeltaId i) -> paramsV V.! i
 
         Seq1 lsd -> V.convert $ V.map (eval0 parameters) lsd
-        Konst1 d -> HM.scalar $ eval0 parameters d  -- TODO: risky
-          -- TODO: HM.konst (eval0 parameters d) undefined
+        Konst1 d n -> HM.konst (eval0 parameters d) n
         Append1 d _k e -> eval1 parameters d V.++ eval1 parameters e
         Slice1 i n d _len -> V.slice i n $ eval1 parameters d
         M_VD1 m dRow -> m #> eval1 parameters dRow

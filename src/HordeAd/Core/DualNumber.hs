@@ -147,7 +147,7 @@ deltaSeq1 v = D (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
                 (Seq1 $ V.map (\(D _ u') -> u') v)
 
 konst1 :: IsScalar r => DualNumber r -> Int -> DualNumber (Vector r)
-konst1 (D u u') n = D (HM.konst u n) (Konst1 u')
+konst1 (D u u') n = D (HM.konst u n) (Konst1 u' n)
 
 append1 :: Numeric r
         => DualNumber (Vector r) -> DualNumber (Vector r)
