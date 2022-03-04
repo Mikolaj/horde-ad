@@ -2,6 +2,7 @@
              StandaloneDeriving, TypeOperators #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 -- | The second component of dual numbers, @Delta@, with it's evaluation
 -- function. Neel Krishnaswami calls that "sparse vector expressions",
 -- and indeed even in the simplest case of a function defined on scalars only,
@@ -41,22 +42,22 @@ import           Control.Monad (unless, zipWithM_)
 import           Control.Monad.ST.Strict (ST, runST)
 import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OT
+import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Internal
 import qualified Data.Array.Internal.DynamicG
 import qualified Data.Array.Internal.DynamicS
 import qualified Data.Array.ShapedS as OS
 import           Data.Kind (Type)
+import           Data.List (foldl')
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Strict.Vector.Autogen.Mutable as Data.Vector.Mutable
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Storable.Mutable
 import           GHC.TypeLits (KnownNat, Nat, type (+))
-import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, (<.>), (#>))
+import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, (#>), (<.>))
 import qualified Numeric.LinearAlgebra as HM
 import           Text.Show.Pretty (ppShow)
-import           Data.Array.Internal (valueOf)
-import           Data.List (foldl')
 
 import qualified HordeAd.Internal.MatrixOuter as MO
 
@@ -473,10 +474,9 @@ buildVectors st deltaTopLevel = do
                 (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
              => OS.Array (n ': rest) r -> DeltaS (i + n + k ': rest) r
              -> ST s ()
-      sliceS r d = evalS (OS.constant @(i ': rest) 0
-                          `OS.append` r
-                          `OS.append` OS.constant @(k ': rest) 0)
-                         d
+      sliceS r = evalS (OS.constant @(i ': rest) 0
+                        `OS.append` r
+                        `OS.append` OS.constant @(k ': rest) 0)
   eval0 1 deltaTopLevel  -- dt is 1 or hardwired in f
   let evalUnlessZero :: DeltaBinding r -> ST s ()
       evalUnlessZero (DeltaBinding0 (DeltaId i) d) = do
@@ -578,14 +578,14 @@ evalBindingsForward st deltaTopLevel (params0, paramsV0, paramsL0, paramsX0) =
             [_rows, cols] -> HM.reshape cols $ OS.toVector t
             _ -> error "eval2: wrong tensor dimensions"
       evalX :: Domains r -> DeltaX r -> OT.Array r
-      evalX parameters@( _, _, _, _paramsX) = \case
-        ZeroX -> undefined  -- 0  -- TODO
-        ScaleX _k _d -> undefined  -- k * evalX parameters d
-        AddX _d _e -> undefined  -- evalX parameters d + evalX parameters e
-        VarX (DeltaId _i) -> undefined  -- paramsX V.! i
+      evalX parameters@( _, _, _, paramsX) = \case
+        ZeroX -> 0
+        ScaleX k d -> k * evalX parameters d
+        AddX d e -> evalX parameters d + evalX parameters e
+        VarX (DeltaId i) -> paramsX V.! i
 
-        AppendX d _ e -> evalX parameters d `OT.append` evalX parameters e
-        SliceX i n d _ -> OT.slice [(i, n)] $ evalX parameters d
+        AppendX d _k e -> evalX parameters d `OT.append` evalX parameters e
+        SliceX i n d _len -> OT.slice [(i, n)] $ evalX parameters d
 
         From0X d -> OT.scalar $ eval0 parameters d
         From1X d -> let v = eval1 parameters d
@@ -594,12 +594,11 @@ evalBindingsForward st deltaTopLevel (params0, paramsV0, paramsL0, paramsX0) =
                          in OT.fromVector [HM.rows l, cols] $ HM.flatten l
         FromSX d -> Data.Array.Convert.convert $ evalS parameters d
       evalS :: OS.Shape sh => Domains r -> DeltaS sh r -> OS.Array sh r
-      evalS parameters@( _, _, _, _paramsX) = \case
-        ZeroS -> undefined  -- 0  -- TODO
-        ScaleS _k _d -> undefined  -- k * evalS parameters d
-        AddS _d _e -> undefined  -- evalS parameters d + evalS parameters e
-        VarS (DeltaId _i) -> undefined
-          -- paramsX V.! Data.Array.Convert.convert i
+      evalS parameters@( _, _, _, paramsX) = \case
+        ZeroS -> 0
+        ScaleS k d -> k * evalS parameters d
+        AddS d e -> evalS parameters d + evalS parameters e
+        VarS (DeltaId i) -> Data.Array.Convert.convert $ paramsX V.! i
 
         AppendS d e -> evalS parameters d `OS.append` evalS parameters e
         SliceS @i @n d -> OS.slice @'[ '(i, n) ] $ evalS parameters d
@@ -639,7 +638,7 @@ evalBindingsForward st deltaTopLevel (params0, paramsV0, paramsL0, paramsX0) =
             dim1 = V.length paramsV0
             dim2 = V.length paramsL0
             dimX = V.length paramsX0
-        -- TODO: this is coredumps without the @VM.take@; it's a shame
+        -- TODO: this coredumps without the @VM.take@; it's a shame
         -- there's no copying of a smaller vector into a larger one in the API.
         -- Perhaps use https://hackage.haskell.org/package/base-4.16.0.0/docs/Foreign-Marshal-Array.html#v:copyArray?
         V.basicUnsafeCopy (VM.take dim0 store0) params0
@@ -654,6 +653,24 @@ evalBindingsForward st deltaTopLevel (params0, paramsV0, paramsL0, paramsX0) =
       parametersB = foldl' evalUnlessZero parameters1
                            (reverse $ deltaBindings st)
   in eval0 parametersB deltaTopLevel
+
+instance Numeric r => Num (OT.Array r) where
+  (+) = OT.zipWithA (+)
+  (-) = OT.zipWithA (-)
+  (*) = OT.zipWithA (*)
+  negate = OT.mapA negate
+  abs = OT.mapA abs
+  signum = OT.mapA signum
+  fromInteger = OT.constant [] . fromInteger
+
+instance (OS.Shape sh, Numeric r) => Num (OS.Array sh r) where
+  (+) = OS.zipWithA (+)
+  (-) = OS.zipWithA (-)
+  (*) = OS.zipWithA (*)
+  negate = OS.mapA negate
+  abs = OS.mapA abs
+  signum = OS.mapA signum
+  fromInteger = OS.constant . fromInteger
 
 ppBinding :: (Show r, Numeric r) => String -> DeltaBinding r -> [String]
 ppBinding prefix = \case

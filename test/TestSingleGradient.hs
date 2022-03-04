@@ -119,7 +119,7 @@ dfTests = testGroup "Simple df application tests" $
 -- to express the sizes in types, or we may be able to handle tuples
 -- automatically. For now, the user has to translate from tuples
 -- to vectors manually and we omit this straightforward boilerplate code here.
--- TODO: while we used weakly-typed vectors, work on user-friendly errors
+-- TODO: while we use weakly-typed vectors, work on user-friendly errors
 -- if the input record is too short.
 atanReadmePoly :: (RealFloat r, IsScalar r)
                => DualNumberVariables r -> Data.Vector.Vector (DualNumber r)
