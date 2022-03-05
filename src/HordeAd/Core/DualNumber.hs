@@ -404,7 +404,7 @@ lossSoftMaxCrossEntropyV target (D u u') = do
   let expU = exp u
   -- The following would protect from overflows and exploding gradients,
   -- but I have yet to find a test that requires this and guards
-  -- against removing or weakening this mechanism.
+  -- against removing or weakening of this mechanism.
   -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106.
   --  expU = exp (u - HM.scalar (V.maximum u))
       sumExpU = HM.sumElements expU

@@ -29,7 +29,11 @@ sizeMnistLabel = 10
 -- Our library makes this easy to express and gradients compute fine.
 -- OTOH, methods with only matrix operations and graphs can't handle that.
 -- However, the goal of the exercise it to implement the same
--- neural net that backprop uses for benchmarks and compare.
+-- neural net that backprop uses for comparative benchmarks.
+-- Also, loss computation is not the bottleneck and the more general
+-- mechanism that admits non-discrete target labels fuses nicely
+-- with softMax. This also seems to be the standard or at least
+-- a simple default in tutorial.
 type MnistData r = (Vector r, Vector r)
 
 readMnistData :: LBS.ByteString -> LBS.ByteString -> [MnistData Double]
