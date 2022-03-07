@@ -142,6 +142,25 @@ sgdTestCase prefix f nParameters trainDataIO expected =
        sgdShow f trainData parameters0
          @?= expected
 
+sgdTestCaseAlt :: String
+            -> (a
+                -> DualNumberVariables Double
+                -> DeltaMonadGradient Double (DualNumber Double))
+            -> (Int, [Int], [(Int, Int)])
+            -> IO [a]
+            -> [Double]
+            -> TestTree
+sgdTestCaseAlt prefix f nParameters trainDataIO expected =
+  let ((nParams, nParamsV, nParamsL), totalParams, range, parameters0) =
+        initializerFixed 44 0.05 nParameters
+      name = prefix ++ " "
+             ++ unwords [ show nParams, show nParamsV, show nParamsL
+                        , show totalParams, show range ]
+  in testCase name $ do
+       trainData <- trainDataIO
+       let res = sgdShow f trainData parameters0
+       assertBool "wrong result" $ res `elem` expected
+
 prime :: IsScalar r
       => (r
           -> DualNumber (Vector r)
@@ -765,11 +784,11 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
         label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
         rws v = map (\k -> V.slice (k * 28) 28 v) [0 .. 27]
         trainData = map ((\g -> (rws (glyph g), label g)) . mkStdGen) [1 .. 140]
-    in sgdTestCase "randomLL 140"
-                   (nnMnistRNNLossL 128)
-                   (lenMnistRNNL 128 1)
-                   (return trainData)
-                   39.26529628894595
+    in sgdTestCaseAlt "randomLL 140"
+                      (nnMnistRNNLossL 128)
+                      (lenMnistRNNL 128 1)
+                      (return trainData)
+                      [39.26529628894595, 39.26534445638497]
   , let rws (input, target) =
           (map (\k -> V.slice (k * 28) 28 input) [0 .. 27], target)
     in sgdTestCase "firstLL 100 trainset samples only"
@@ -788,11 +807,11 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
         label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
         rws v = map (\k -> V.slice (k * 28) 28 v) [0 .. 27]
         trainData = map ((\g -> (rws (glyph g), label g)) . mkStdGen) [1 .. 140]
-    in sgdTestCase "randomLL2 140"
-                   (nnMnistRNNLossL2 128)
-                   (lenMnistRNNL 128 2)
-                   (return trainData)
-                   30.061856005913285
+    in sgdTestCaseAlt "randomLL2 140"
+                      (nnMnistRNNLossL2 128)
+                      (lenMnistRNNL 128 2)
+                      (return trainData)
+                      [30.061856005913285, 30.06186534722257]
   , let rws (input, target) =
           (map (\k -> V.slice (k * 28) 28 input) [0 .. 27], target)
     in sgdTestCase "firstLL2 99 trainset samples only"
