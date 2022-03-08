@@ -687,8 +687,9 @@ bindInState0 :: Delta0 r -> DeltaState r -> (DeltaState r, DeltaId r)
 {-# INLINE bindInState0 #-}
 bindInState0 u' st =
   let dId = deltaCounter0 st
+      !binding = DeltaBinding0 dId u'
   in ( st { deltaCounter0 = succDeltaId dId
-          , deltaBindings = DeltaBinding0 dId u' : deltaBindings st
+          , deltaBindings = binding : deltaBindings st
           }
      , dId )
 
@@ -696,8 +697,9 @@ bindInState1 :: Delta1 r -> DeltaState r -> (DeltaState r, DeltaId (Vector r))
 {-# INLINE bindInState1 #-}
 bindInState1 u' st =
   let dId = deltaCounter1 st
+      !binding = DeltaBinding1 dId u'
   in ( st { deltaCounter1 = succDeltaId dId
-          , deltaBindings = DeltaBinding1 dId u' : deltaBindings st
+          , deltaBindings = binding : deltaBindings st
           }
      , dId )
 
@@ -705,8 +707,9 @@ bindInState2 :: Delta2 r -> DeltaState r -> (DeltaState r, DeltaId (Matrix r))
 {-# INLINE bindInState2 #-}
 bindInState2 u' st =
   let dId = deltaCounter2 st
+      !binding = DeltaBinding2 dId u'
   in ( st { deltaCounter2 = succDeltaId dId
-          , deltaBindings = DeltaBinding2 dId u' : deltaBindings st
+          , deltaBindings = binding : deltaBindings st
           }
      , dId )
 
@@ -714,7 +717,8 @@ bindInStateX :: DeltaX r -> DeltaState r -> (DeltaState r, DeltaId (OT.Array r))
 {-# INLINE bindInStateX #-}
 bindInStateX u' st =
   let dId = deltaCounterX st
+      !binding = DeltaBindingX dId u'
   in ( st { deltaCounterX = succDeltaId dId
-          , deltaBindings = DeltaBindingX dId u' : deltaBindings st
+          , deltaBindings = binding : deltaBindings st
           }
      , dId )
