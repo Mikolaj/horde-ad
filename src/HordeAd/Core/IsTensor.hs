@@ -47,8 +47,9 @@ bindScalarInState :: DeltaScalar r -> DeltaState r -> (DeltaState r, DeltaId r)
 {-# INLINE bindScalarInState #-}
 bindScalarInState u' st =
   let dId@(DeltaId i) = deltaCounter0 st
+      !binding = DScalar dId u'
   in ( st { deltaCounter0 = DeltaId $ succ i
-          , deltaBindings = DScalar dId u' : deltaBindings st
+          , deltaBindings = binding : deltaBindings st
           }
      , dId )
 
