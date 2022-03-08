@@ -1,0 +1,7 @@
+packages: ./
+
+-- needed for profiling build:
+package statistics
+  ghc-options: -fsimpl-tick-factor=10000
+
+
