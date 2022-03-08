@@ -73,21 +73,21 @@ updateWithGradient :: (Numeric r, Num (Vector r))
 updateWithGradient gamma (params, paramsV, paramsL, paramsX)
                          (gradient, gradientV, gradientL, gradientX) =
   let updateVector i r = i - HM.scale gamma r
-      paramsNew = updateVector params gradient
+      !paramsNew = updateVector params gradient
       updateV i r = if V.null r  -- eval didn't update it, would crash
                     then i
                     else updateVector i r
-      paramsVNew = V.zipWith updateV paramsV gradientV
+      !paramsVNew = V.zipWith updateV paramsV gradientV
       updateL i r = if HM.rows r <= 0  -- eval didn't update it, would crash
                     then i
                     else liftMatrix2 updateVector i r
-      paramsLNew = V.zipWith updateL paramsL gradientL
+      !paramsLNew = V.zipWith updateL paramsL gradientL
       updateX i r = if null (OT.shapeL r)  -- eval didn't update it, would crash
                     then i
                     else OT.zipWithA (\j s -> j - gamma * s) i r
                       -- TODO: this is slow; add @liftArray2@ and use HM,
                       -- unless we move away from HM; similarly other OT calls
-      paramsXNew = V.zipWith updateX paramsX gradientX
+      !paramsXNew = V.zipWith updateX paramsX gradientX
   in (paramsNew, paramsVNew, paramsLNew, paramsXNew)
 
 gradientIsNil :: (Eq r, Numeric r) => Domains r -> Bool
@@ -238,21 +238,22 @@ updateWithGradientAdam ArgsAdam{..}
            , p - HM.scale alphat mANew
                  / (sqrt vANew + HM.scalar epsilon) )  -- the @scalar@ is safe
                       -- @addConstant@ would be better, but it's not exposed
-      (mAdamNew, vAdamNew, paramsNew) = updateVector mAdam vAdam params gradient
+      (!mAdamNew, !vAdamNew, !paramsNew) =
+        updateVector mAdam vAdam params gradient
       updateV mA vA p g = if V.null g  -- eval didn't update it, would crash
                           then (mA, vA, p)
                           else updateVector mA vA p g
-      (mAdamVNew, vAdamVNew, paramsVNew) =
+      (!mAdamVNew, !vAdamVNew, !paramsVNew) =
         V.unzip3 $ V.zipWith4 updateV mAdamV vAdamV paramsV gradientV
       updateL mA vA p g = if HM.rows g <= 0  -- eval didn't update it; crash
                           then (mA, vA, p)
                           else liftMatrix43 updateVector mA vA p g
-      (mAdamLNew, vAdamLNew, paramsLNew) =
+      (!mAdamLNew, !vAdamLNew, !paramsLNew) =
         V.unzip3 $ V.zipWith4 updateL mAdamL vAdamL paramsL gradientL
       updateX mA vA p g = if null (OT.shapeL g)  -- eval didn't update it; crash
                           then (mA, vA, p)
                           else liftArray43 updateVector mA vA p g
-      (mAdamXNew, vAdamXNew, paramsXNew) =
+      (!mAdamXNew, !vAdamXNew, !paramsXNew) =
         V.unzip3 $ V.zipWith4 updateX mAdamX vAdamX paramsX gradientX
   in ( (paramsNew, paramsVNew, paramsLNew, paramsXNew)
      , StateAdam { tAdam = tAdamNew

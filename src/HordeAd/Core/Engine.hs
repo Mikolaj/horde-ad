@@ -188,7 +188,11 @@ generateDeltaVars :: IsScalar r
                      , Data.Vector.Vector (DeltaExpression (OT.Array r)) )
 generateDeltaVars (params, paramsV, paramsL, paramsX) =
   let vVar p = V.generate (V.length p) (varD . toDeltaId)
-  in (vVar params, vVar paramsV, vVar paramsL, vVar paramsX)
+      !v0 = vVar params
+      !v1 = vVar paramsV
+      !v2 = vVar paramsL
+      !vX = vVar paramsX
+  in (v0, v1, v2, vX)
 
 -- TODO: extend to tensors if it turns out we use them alongside
 -- matrices and vectors, not instead of them.
