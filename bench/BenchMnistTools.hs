@@ -5,6 +5,7 @@ module BenchMnistTools where
 import Prelude
 
 import           Control.Arrow ((***))
+import           Control.DeepSeq (NFData)
 import           Criterion.Main
 import qualified Data.Vector.Generic as V
 import qualified Numeric.LinearAlgebra as HM
@@ -13,7 +14,7 @@ import           System.Random
 import HordeAd
 import HordeAd.Tool.MnistTools
 
-mnistTrainBench2 :: (Eq r, Floating r, UniformRange r, IsScalar r)
+mnistTrainBench2 :: (NFData r, Eq r, Floating r, UniformRange r, IsScalar r)
                  => String -> Int -> [MnistData r] -> Int -> Int -> r
                  -> Benchmark
 mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
@@ -21,10 +22,10 @@ mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
       params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
       f = nnMnistLoss2 widthHidden widthHidden2
       chunk = take chunkLength xs
-      grad c = sgd gamma f c (params0, V.empty, V.empty, V.empty)
+      grad c = fst $ sgd gamma f c (params0, V.empty, V.empty, V.empty)
       name = "" ++ extraPrefix
              ++ unwords ["s" ++ show nParams, "v0", "m0" ++ "=" ++ show nParams]
-  bench name $ whnf grad chunk
+  bench name $ nf grad chunk
 
 mnistTestBench2 :: (Ord r, Floating r, UniformRange r, IsScalar r)
                 => String -> Int -> [MnistData r] -> Int -> Int -> Benchmark
@@ -79,12 +80,12 @@ mnistTrainBench2V extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
                nParamsV
       f = nnMnistLoss2V widthHidden widthHidden2
       chunk = take chunkLength xs
-      grad c = sgd gamma f c (params0, paramsV0, V.empty, V.empty)
+      grad c = fst $ sgd gamma f c (params0, paramsV0, V.empty, V.empty)
       totalParams = nParams + V.sum nParamsV
       name = "" ++ extraPrefix
              ++ unwords [ "s" ++ show nParams, "v" ++ show (V.length nParamsV)
                         , "m0" ++ "=" ++ show totalParams ]
-  bench name $ whnf grad chunk
+  bench name $ nf grad chunk
 
 mnistTestBench2V :: String -> Int -> [MnistData Double] -> Int -> Int
                  -> Benchmark
@@ -128,12 +129,12 @@ mnistTrainBench2L extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
       -- not againts the derived gradients that are definitively slower.
       f = nnMnistLossFused2L
       chunk = take chunkLength xs
-      grad c = sgd gamma f c parameters0
+      grad c = fst $ sgd gamma f c parameters0
       name = "" ++ extraPrefix
              ++ unwords [ "s" ++ show nParams, "v" ++ show nParamsV
                         , "m" ++ show nParamsL
                           ++ "=" ++ show totalParams ]
-  bench name $ whnf grad chunk
+  bench name $ nf grad chunk
 
 mnistTestBench2L :: String -> Int -> [MnistData Double] -> Int -> Int
                  -> Benchmark

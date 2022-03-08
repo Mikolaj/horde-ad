@@ -274,6 +274,7 @@ benchmark mnist
     other-modules:    BenchMnistTools
     build-depends:
         base
+      , deepseq
       , criterion
       , hmatrix
       , horde-ad
@@ -296,6 +297,7 @@ benchmark shortMnistForCI
     other-modules:    BenchMnistTools
     build-depends:
         base
+      , deepseq
       , criterion
       , hmatrix
       , horde-ad
