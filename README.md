@@ -28,6 +28,8 @@ the OS needs libraries that on Ubuntu/Debian are called
 libgsl0-dev, liblapack-dev and libatlas-base-dev.
 See https://github.com/haskell-numerics/hmatrix/blob/master/INSTALL.md
 for information about other OSes.
+Other Haskell packages need their usual C library dependencies,
+as well, e.g., package zlib needs C library zlib1g-dev.
 
 
 Coding style
