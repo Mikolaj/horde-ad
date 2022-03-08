@@ -5,6 +5,7 @@ module BenchMnistTools where
 import Prelude
 
 import           Control.Arrow ((***))
+import           Control.DeepSeq (NFData)
 import           Criterion.Main
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
@@ -13,7 +14,7 @@ import           System.Random
 import HordeAd
 import HordeAd.Tool.MnistTools
 
-mnistTrainBench2 :: (Eq r, Floating r, UniformRange r, IsScalar r)
+mnistTrainBench2 :: (NFData r, Eq r, Floating r, UniformRange r, IsScalar r)
                  => String -> Int -> [MnistData r] -> Int -> Int -> r
                  -> Benchmark
 mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
@@ -24,7 +25,7 @@ mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
       grad c = sgd gamma f c (params0, V.empty, V.empty)
       name = "" ++ extraPrefix
              ++ unwords ["s" ++ show nParams, "v0", "m0" ++ "=" ++ show nParams]
-  bench name $ whnf grad chunk
+  bench name $ nf grad chunk
 
 mnistTestBench2 :: (Ord r, Floating r, UniformRange r, IsScalar r)
                 => String -> Int -> [MnistData r] -> Int -> Int -> Benchmark
@@ -66,7 +67,7 @@ mnistTrainBGroup2500 xs0 chunkLength =
         (0.02 :: Float)
     ]
 
-mnistTrainBench2V :: ( Eq r, Floating r, IsScalar r, UniformRange r
+mnistTrainBench2V :: (NFData r,  Eq r, Floating r, IsScalar r, UniformRange r
                      , Floating (Data.Vector.Storable.Vector r) )
                   => String -> Int -> [MnistData r] -> Int -> Int -> r
                   -> Benchmark
@@ -85,7 +86,7 @@ mnistTrainBench2V extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
       name = "" ++ extraPrefix
              ++ unwords [ "s" ++ show nParams, "v" ++ show (V.length nParamsV)
                         , "m0" ++ "=" ++ show totalParams ]
-  bench name $ whnf grad chunk
+  bench name $ nf grad chunk
 
 mnistTestBench2V :: ( Ord r, Floating r, IsScalar r, UniformRange r
                     , Floating (Data.Vector.Storable.Vector r) )
@@ -135,7 +136,7 @@ mnistTrainBench2L extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
              ++ unwords [ "s" ++ show nParams, "v" ++ show nParamsV
                         , "m" ++ show nParamsL
                           ++ "=" ++ show totalParams ]
-  bench name $ whnf grad chunk
+  bench name $ nf grad chunk
 
 mnistTestBench2L :: String -> Int -> [MnistData Double] -> Int -> Int
                  -> Benchmark
