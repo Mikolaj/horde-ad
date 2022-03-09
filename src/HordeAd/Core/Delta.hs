@@ -345,8 +345,9 @@ buildVectors st deltaTopLevel = do
         Dot0 vr vd -> eval1 (HM.scale r vr) vd
         SumElements0 vd n -> eval1 (HM.konst r n) vd
         Index0 (Var1 (DeltaId i)) ix k -> do
-          let f v = (if V.null v then HM.konst 0 k else v)
-                    V.// [(ix, r)]
+          let f v = if V.null v
+                    then HM.konst 0 k V.// [(ix, r)]
+                    else v V.// [(ix, v V.! ix + r)]
           VM.modify store1 f i
             -- this would be an asymptotic optimization compared to
             -- the general case below, if not for the non-mutable update,
