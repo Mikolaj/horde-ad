@@ -13,6 +13,7 @@ import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OT
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.ShapedS as OS
+import           Data.List.Index (imap)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
@@ -117,6 +118,19 @@ index0 :: IsScalar r
        => DualNumber (Vector r) -> Int -> DualNumber r
 index0 (D u u') ix = D (u V.! ix) (Index0 u' ix (V.length u))
 
+-- If @v'@ is a @Var1@, this is much faster due to the optimization
+-- in @Index0@.
+foldl'0 :: IsScalar r
+        => (DualNumber r -> DualNumber r -> DualNumber r)
+        -> DualNumber r -> DualNumber (Vector r) -> DualNumber r
+foldl'0 f uu' (D v v') =
+  let k = V.length v
+      g !acc ix p = f (D p (Index0 v' ix k)) acc
+  in V.ifoldl' g uu' v
+
+altSumElements0 :: IsScalar r => DualNumber (Vector r) -> DualNumber r
+altSumElements0 = foldl'0 (+) 0
+
 infixr 8 <.>!
 (<.>!) :: IsScalar r
        => DualNumber (Vector r)
@@ -166,6 +180,18 @@ sumRows1 (D u u') = D (V.fromList $ map HM.sumElements $ HM.toRows u)
 sumColumns1 :: Numeric r => DualNumber (Matrix r) -> DualNumber (Vector r)
 sumColumns1 (D u u') = D (V.fromList $ map HM.sumElements $ HM.toColumns u)
                          (SumColumns1 u' (HM.rows u))
+
+-- If @v'@ is a @Var1@, this is much faster due to the optimization
+-- in @Index0@. The detour through a boxed vector (list probably fuses away)
+-- is costly, but only matters if @f@ is cheap.
+map1 :: IsScalar r
+     => (DualNumber r -> DualNumber r)
+     -> DualNumber (Vector r) -> DualNumber (Vector r)
+map1 f (D v v') =
+  let k = V.length v
+      g ix p = f $ D p (Index0 v' ix k)
+      ds = imap g $ V.toList v
+  in deltaSeq1 $ V.fromList ds
 
 -- | Dense matrix-vector product.
 infixr 8 #>!

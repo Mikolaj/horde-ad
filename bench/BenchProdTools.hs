@@ -20,6 +20,9 @@ bgroup100 allxs =
         , bench "grad_toList" $ nf grad_toList_prod list
         , bench "func_vec_omit" $ nf vec_omit_prod vec
         , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
+        , bench "grad_vec_omit_scalarSum" $ nf grad_vec_omit_scalarSum vec
+        , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
+        , bench "grad_vec_omit_altSum" $ nf grad_vec_omit_altSum vec
         ]
 
 bgroup200 allxs =
@@ -31,6 +34,9 @@ bgroup200 allxs =
         , bench "grad_toList" $ nf grad_toList_prod list
         , bench "func_vec_omit" $ nf vec_omit_prod vec
         , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
+        , bench "grad_vec_omit_scalarSum" $ nf grad_vec_omit_scalarSum vec
+        , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
+        , bench "grad_vec_omit_altSum" $ nf grad_vec_omit_altSum vec
         ]
 
 bgroup1000 allxs =
@@ -42,6 +48,9 @@ bgroup1000 allxs =
         , bench "grad_toList" $ nf grad_toList_prod list
         , bench "func_vec_omit" $ nf vec_omit_prod vec
         , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
+        , bench "grad_vec_omit_scalarSum" $ nf grad_vec_omit_scalarSum vec
+        , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
+        , bench "grad_vec_omit_altSum" $ nf grad_vec_omit_altSum vec
         ]
 
 bgroup1e4 allxs =
@@ -53,6 +62,9 @@ bgroup1e4 allxs =
         , bench "grad_toList" $ nf grad_toList_prod list
         , bench "func_vec_omit" $ nf vec_omit_prod vec
         , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
+        , bench "grad_vec_omit_scalarSum" $ nf grad_vec_omit_scalarSum vec
+        , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
+        , bench "grad_vec_omit_altSum" $ nf grad_vec_omit_altSum vec
         ]
 
 bgroup1e5 allxs =
@@ -64,6 +76,9 @@ bgroup1e5 allxs =
         , bench "grad_toList" $ nf grad_toList_prod list
         , bench "func_vec_omit" $ nf vec_omit_prod vec
         , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
+        , bench "grad_vec_omit_scalarSum" $ nf grad_vec_omit_scalarSum vec
+        , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
+        , bench "grad_vec_omit_altSum" $ nf grad_vec_omit_altSum vec
         ]
 
 bgroup1e6 allxs =
@@ -75,6 +90,10 @@ bgroup1e6 allxs =
         , bench "grad_toList" $ nf grad_toList_prod list
         , bench "func_vec_omit" $ nf vec_omit_prod vec
         , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
+        , bench "grad_vec_omit_scalarSum" $ nf grad_vec_omit_scalarSum vec
+        , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
+-- low memory usage, but repeated benchmark runs take quarters
+--        , bench "grad_vec_omit_altSum" $ nf grad_vec_omit_altSum vec
         ]
 
 bgroup1e7 allxs =
@@ -86,6 +105,8 @@ bgroup1e7 allxs =
         , bench "grad_toList" $ nf grad_toList_prod list
         , bench "func_vec_omit" $ nf vec_omit_prod vec
         , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
+        , bench "grad_vec_omit_scalarSum" $ nf grad_vec_omit_scalarSum vec
+        , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
         ]
 
 bgroup5e7 allxs =
@@ -98,6 +119,8 @@ bgroup5e7 allxs =
 --        , bench "grad_toList" $ nf grad_toList_prod list
         , bench "func_vec_omit" $ nf vec_omit_prod vec
         , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
+        , bench "grad_vec_omit_scalarSum" $ nf grad_vec_omit_scalarSum vec
+        , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
         ]
 
 (*\) :: DeltaMonad r m
@@ -151,3 +174,36 @@ grad_vec_omit_prod :: (Eq r, IsScalar r)
 grad_vec_omit_prod ds =
   (\(v, _, _, _) -> v)
   $ fst $ df vec_omit_prod_aux (ds, V.empty, V.empty, V.empty)
+
+
+vec_omit_scalarSum_aux
+  :: forall m r. DeltaMonad r m
+  => DualNumberVariables r -> m (DualNumber r)
+vec_omit_scalarSum_aux vec = returnLet $ foldlDelta' (+) 0 vec
+
+sumElementsV :: DeltaMonad Double m
+             => DualNumberVariables Double -> m (DualNumber Double)
+sumElementsV variables = do
+  let x = varV variables 0
+  returnLet $ sumElements0 x
+
+altSumElementsV :: DeltaMonad Double m
+                => DualNumberVariables Double -> m (DualNumber Double)
+altSumElementsV variables = do
+  let x = varV variables 0
+  returnLet $ altSumElements0 x
+
+grad_vec_omit_scalarSum :: (Eq r, IsScalar r) => Domain r -> Domain r
+grad_vec_omit_scalarSum ds =
+  (\(v, _, _, _) -> v)
+  $ fst $ df vec_omit_scalarSum_aux (ds, V.empty, V.empty, V.empty)
+
+grad_vec_omit_sum :: Domain Double -> Domain Double
+grad_vec_omit_sum ds =
+  (\(_, v, _, _) -> V.head v)
+  $ fst $ df sumElementsV (V.empty, V.singleton ds, V.empty, V.empty)
+
+grad_vec_omit_altSum :: Domain Double -> Domain Double
+grad_vec_omit_altSum ds =
+  (\(_, v, _, _) -> V.head v)
+  $ fst $ df altSumElementsV (V.empty, V.singleton ds, V.empty, V.empty)

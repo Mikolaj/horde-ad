@@ -19,6 +19,7 @@ type DualNumberVariablesF = DualNumberVariables Float
 
 testTrees :: [TestTree]
 testTrees = [ dfTests
+            , vectorTests
             , readmeTests
             , readmeTestsV
             ]
@@ -111,6 +112,32 @@ dfTests = testGroup "Simple df application tests" $
     , ("freluX3", freluX, [0.0001], ([1.0],1.0e-4))
     , ("freluX4", freluX, [99], ([1.0],99.0))
     , ("fquad", fquad, [2, 3], ([4.0,6.0],18.0))
+    ]
+
+sumElementsV :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
+sumElementsV variables = do
+  let x = varV variables 0
+  returnLet $ sumElements0 x
+
+altSumElementsV :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
+altSumElementsV variables = do
+  let x = varV variables 0
+  returnLet $ altSumElements0 x
+
+dfVectorShow :: (DualNumberVariablesF -> DeltaMonadGradient Float DualNumberF)
+             -> [[Float]]
+             -> ([[Float]], Float)
+dfVectorShow f deltaInput =
+  let ((_, results, _, _), value) =
+        df f (V.empty, V.fromList (map V.fromList deltaInput), V.empty, V.empty)
+  in (map V.toList $ V.toList results, value)
+
+vectorTests :: TestTree
+vectorTests = testGroup "Simple df application to vectors tests" $
+  map (\(txt, f, v, expected) ->
+        testCase txt $ dfVectorShow f v @?= expected)
+    [ ("sumElementsV", sumElementsV, [[1, 1, 3]], ([[1.0,1.0,1.0]],5.0))
+    , ("altSumElementsV", altSumElementsV, [[1, 1, 3]], ([[1.0,1.0,1.0]],5.0))
     ]
 
 -- The input vector is meant to have 3 elements, the output vector

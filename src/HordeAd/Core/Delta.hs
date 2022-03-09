@@ -76,7 +76,7 @@ data Delta0 r =
   | Add0 (Delta0 r) (Delta0 r)
   | Var0 (DeltaId r)
 
-  | SumElements0 (Delta1 r) Int
+  | SumElements0 (Delta1 r) Int  -- dramatically slower if done via Index0
   | Index0 (Delta1 r) Int Int
 
   | Dot0 (Vector r) (Delta1 r)  -- Dot0 v sd == SumElements0 (Scale1 v sd) n
@@ -344,8 +344,15 @@ buildVectors st deltaTopLevel = do
 
         Dot0 vr vd -> eval1 (HM.scale r vr) vd
         SumElements0 vd n -> eval1 (HM.konst r n) vd
+        Index0 (Var1 (DeltaId i)) ix k -> do
+          let f v = (if V.null v then HM.konst 0 k else v)
+                    V.// [(ix, r)]
+          VM.modify store1 f i
+            -- this would be an asymptotic optimization compared to
+            -- the general case below, if not for the non-mutable update,
+            -- which involves copying the whole vector, so it's just
+            -- several times faster (same allocation, but not adding vectors)
         Index0 d ix k -> eval1 (HM.konst 0 k V.// [(ix, r)]) d
-
         FromX0 d -> evalX (OT.scalar r) d
         FromS0 d -> evalS (OS.scalar r) d
       eval1 :: Vector r -> Delta1 r -> ST s ()
