@@ -115,7 +115,7 @@ sumElements0 (D u u') = D (HM.sumElements u) (SumElements0 u' (V.length u))
 
 index0 :: IsScalar r
        => DualNumber (Vector r) -> Int -> DualNumber r
-index0 (D u u') i = D (u V.! i) (Index0 u' i (V.length u))
+index0 (D u u') ix = D (u V.! ix) (Index0 u' ix (V.length u))
 
 infixr 8 <.>!
 (<.>!) :: IsScalar r

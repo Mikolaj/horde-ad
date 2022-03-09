@@ -344,7 +344,7 @@ buildVectors st deltaTopLevel = do
 
         Dot0 vr vd -> eval1 (HM.scale r vr) vd
         SumElements0 vd n -> eval1 (HM.konst r n) vd
-        Index0 d i k -> eval1 (HM.konst 0 k V.// [(i, r)]) d
+        Index0 d ix k -> eval1 (HM.konst 0 k V.// [(ix, r)]) d
 
         FromX0 d -> evalX (OT.scalar r) d
         FromS0 d -> evalS (OS.scalar r) d
@@ -520,7 +520,7 @@ evalBindingsForward st deltaTopLevel (params0, paramsV0, paramsL0, paramsX0) =
 
         Dot0 vr vd -> vr <.> eval1 parameters vd
         SumElements0 vd _n -> HM.sumElements $ eval1 parameters vd
-        Index0 d i _k -> eval1 parameters d V.! i
+        Index0 d ix _k -> eval1 parameters d V.! ix
 
         FromX0 d -> OT.unScalar $ evalX parameters d
         FromS0 d -> OS.unScalar $ evalS parameters d
