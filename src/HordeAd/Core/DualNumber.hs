@@ -14,6 +14,7 @@ import qualified Data.Array.DynamicS as OT
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.ShapedS as OS
 import           Data.List.Index (imap)
+import           Data.Proxy (Proxy(Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
@@ -339,7 +340,7 @@ sliceS :: forall i n k rest r.
           (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
        => DualNumber (OS.Array (i + n + k ': rest) r)
        -> DualNumber (OS.Array (n ': rest) r)
-sliceS (D u u') = D (OS.slice @'[ '(i, n) ] u) (SliceS @i u')
+sliceS (D u u') = D (OS.slice @'[ '(i, n) ] u) (SliceS @i Proxy Proxy u')
 
 from0S :: IsScalar r => DualNumber r -> DualNumber (OS.Array '[] r)
 from0S (D u u') = D (OS.scalar u) (From0S u')
