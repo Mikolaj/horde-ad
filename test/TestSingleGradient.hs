@@ -58,7 +58,7 @@ fX1Y :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
 fX1Y variables = do
   let x = var variables 0
       y = var variables 1
-  x1 <- x +\ scalar 1
+  x1 <- x +\ 1
   x1 *\ y
 
 fXXY :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
@@ -94,7 +94,7 @@ fquad variables = do
   x2 <- squareDual x
   y2 <- y *\ y
   tmp <- x2 +\ y2
-  tmp +\ scalar 5
+  tmp +\ 5
 
 dfTests :: TestTree
 dfTests = testGroup "Simple df application tests" $
@@ -167,7 +167,7 @@ atanReadmePoly variables =
 sumElementsVectorOfDelta :: IsScalar r
                          => Data.Vector.Vector (DualNumber r)
                          -> DualNumber r
-sumElementsVectorOfDelta = V.foldl' (+) (scalar 0)
+sumElementsVectorOfDelta = V.foldl' (+) 0
 
 -- Here we introduce the only Delta-let binding (@returnLet@) to ensure
 -- that if this code is used in a larger context and repeated,

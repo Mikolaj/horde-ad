@@ -393,7 +393,7 @@ reluAct (D u u') = returnLet $ D (max 0 u) (scaleD (if u > 0 then 1 else 0) u')
 sumElementsVectorOfDelta :: IsScalar r
                          => Data.Vector.Vector (DualNumber r)
                          -> DualNumber r
-sumElementsVectorOfDelta = V.foldl' (+) (scalar 0)
+sumElementsVectorOfDelta = V.foldl' (+) 0
 
 softMaxAct :: (DeltaMonad r m, Floating r)
            => Data.Vector.Vector (DualNumber r)
@@ -413,7 +413,7 @@ lossCrossEntropy :: forall m r. (DeltaMonad r m, Floating r)
 lossCrossEntropy targ res = do
   let f :: DualNumber r -> Int -> DualNumber r -> DualNumber r
       f !acc i d = acc + scale (targ V.! i) (log d)
-  returnLet $ negate $ V.ifoldl' f (scalar 0) res
+  returnLet $ negate $ V.ifoldl' f 0 res
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
 lossCrossEntropyV :: (DeltaMonad r m, Floating (Vector r))

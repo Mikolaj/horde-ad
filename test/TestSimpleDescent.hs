@@ -51,7 +51,7 @@ fquad variables = do
   x2 <- squareDual x
   y2 <- y *\ y
   tmp <- x2 +\ y2
-  tmp +\ scalar 5
+  tmp +\ 5
 
 fblowup :: forall m. DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
 fblowup variables = do

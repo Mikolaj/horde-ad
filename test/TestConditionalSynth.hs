@@ -85,7 +85,7 @@ sumResultsDual f as = do
       g !acc a = do
         u <- f a
         return $! acc + u
-  sumUs <- V.foldM g (scalar 0) as
+  sumUs <- V.foldM g 0 as
   returnLet sumUs
 
 synthLossAll
