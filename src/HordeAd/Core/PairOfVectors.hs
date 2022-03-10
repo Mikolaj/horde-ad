@@ -25,7 +25,7 @@ import           Numeric.LinearAlgebra (Matrix, Vector)
 import HordeAd.Core.Delta
   (DeltaS (FromXS), Domain, DomainL, DomainV, DomainX, Domains)
 import HordeAd.Core.DualNumber (DualNumber (..))
-import HordeAd.Core.IsTensor
+import HordeAd.Core.HasDual
 
 -- These are optimized as "pair of vectors" representing vectors of @DualNumber@
 -- in an efficient way (especially, or only, with gradient descent,
@@ -33,21 +33,21 @@ import HordeAd.Core.IsTensor
 
 type DualNumberVariables r =
   ( Domain r
-  , Data.Vector.Vector (DeltaExpression r)
+  , Data.Vector.Vector (DualOf r)
   , DomainV r
-  , Data.Vector.Vector (DeltaExpression (Vector r))
+  , Data.Vector.Vector (DualOf (Vector r))
   , DomainL r
-  , Data.Vector.Vector (DeltaExpression (Matrix r))
+  , Data.Vector.Vector (DualOf (Matrix r))
   , DomainX r
-  , Data.Vector.Vector (DeltaExpression (OT.Array r))
+  , Data.Vector.Vector (DualOf (OT.Array r))
   )
 
 makeDualNumberVariables
   :: Domains r
-  -> ( Data.Vector.Vector (DeltaExpression r)
-     , Data.Vector.Vector (DeltaExpression (Vector r))
-     , Data.Vector.Vector (DeltaExpression (Matrix r))
-     , Data.Vector.Vector (DeltaExpression (OT.Array r)) )
+  -> ( Data.Vector.Vector (DualOf r)
+     , Data.Vector.Vector (DualOf (Vector r))
+     , Data.Vector.Vector (DualOf (Matrix r))
+     , Data.Vector.Vector (DualOf (OT.Array r)) )
   -> DualNumberVariables r
 {-# INLINE makeDualNumberVariables #-}
 makeDualNumberVariables (params, paramsV, paramsL, paramsX) (vs, vsV, vsL, vsX)

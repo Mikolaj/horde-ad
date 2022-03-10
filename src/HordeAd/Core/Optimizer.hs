@@ -13,7 +13,7 @@ import Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.DualNumber (DualNumber (..))
 import HordeAd.Core.Engine
-import HordeAd.Core.IsTensor
+import HordeAd.Core.HasDual
 import HordeAd.Core.OptimizerTools
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 

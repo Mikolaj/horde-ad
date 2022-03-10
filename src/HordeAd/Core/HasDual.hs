@@ -18,9 +18,9 @@
 -- access to parameters with something cheaper and more uniform.
 -- A lot of the remaining additional structure is for introducing
 -- and reducing dimensions.
-module HordeAd.Core.IsTensor
-  ( IsScalar, IsTensorWithScalar
-  , IsTensor(DeltaExpression, zeroD, scaleD, addD, varD, bindInState)
+module HordeAd.Core.HasDual
+  ( IsScalar, HasDualWithScalar
+  , HasDual(DualOf, zeroD, scaleD, addD, varD, bindInState)
   ) where
 
 import Prelude
@@ -34,81 +34,81 @@ import HordeAd.Core.Delta
 -- | Each shape of a containers of parameters ('tensor') has its own
 -- collection of vector space-like constructors with which the sparse
 -- vector expression (`delta expressions`) are built.
-class IsTensor a where
-  type DeltaExpression a = result | result -> a
-  zeroD :: DeltaExpression a
-  scaleD :: a -> DeltaExpression a -> DeltaExpression a
-  addD :: DeltaExpression a -> DeltaExpression a -> DeltaExpression a
-  varD :: DeltaId a -> DeltaExpression a
-  type ScalarOfTensor a
-  bindInState :: DeltaExpression a
-              -> DeltaState (ScalarOfTensor a)
-              -> (DeltaState (ScalarOfTensor a), DeltaId a)
+class HasDual a where
+  type DualOf a = result | result -> a
+  zeroD :: DualOf a
+  scaleD :: a -> DualOf a -> DualOf a
+  addD :: DualOf a -> DualOf a -> DualOf a
+  varD :: DeltaId a -> DualOf a
+  type ScalarOf a
+  bindInState :: DualOf a
+              -> DeltaState (ScalarOf a)
+              -> (DeltaState (ScalarOf a), DeltaId a)
 
-instance IsTensor Double where
-  type DeltaExpression Double = Delta0 Double
+instance HasDual Double where
+  type DualOf Double = Delta0 Double
   zeroD = Zero0
   scaleD = Scale0
   addD = Add0
   varD = Var0
-  type ScalarOfTensor Double = Double
+  type ScalarOf Double = Double
   {-# INLINE bindInState #-}
   bindInState = bindInState0
 
-instance IsTensor Float where
-  type DeltaExpression Float = Delta0 Float
+instance HasDual Float where
+  type DualOf Float = Delta0 Float
   zeroD = Zero0
   scaleD = Scale0
   addD = Add0
   varD = Var0
-  type ScalarOfTensor Float = Float
+  type ScalarOf Float = Float
   {-# INLINE bindInState #-}
   bindInState = bindInState0
 
-instance IsTensor (Vector r) where
-  type DeltaExpression (Vector r) = Delta1 r
+instance HasDual (Vector r) where
+  type DualOf (Vector r) = Delta1 r
   zeroD = Zero1
   scaleD = Scale1
   addD = Add1
   varD = Var1
-  type ScalarOfTensor (Vector r) = r
+  type ScalarOf (Vector r) = r
   {-# INLINE bindInState #-}
   bindInState = bindInState1
 
-instance IsTensor (Matrix r) where
-  type DeltaExpression (Matrix r) = Delta2 r
+instance HasDual (Matrix r) where
+  type DualOf (Matrix r) = Delta2 r
   zeroD = Zero2
   scaleD = Scale2
   addD = Add2
   varD = Var2
-  type ScalarOfTensor (Matrix r) = r
+  type ScalarOf (Matrix r) = r
   {-# INLINE bindInState #-}
   bindInState = bindInState2
 
-instance IsTensor (OT.Array r) where
-  type DeltaExpression (OT.Array r) = DeltaX r
+instance HasDual (OT.Array r) where
+  type DualOf (OT.Array r) = DeltaX r
   zeroD = ZeroX
   scaleD = ScaleX
   addD = AddX
   varD = VarX
-  type ScalarOfTensor (OT.Array r) = r
+  type ScalarOf (OT.Array r) = r
   {-# INLINE bindInState #-}
   bindInState = bindInStateX
 
-instance OS.Shape sh => IsTensor (OS.Array sh r) where
-  type DeltaExpression (OS.Array sh r) = DeltaS sh r
+instance OS.Shape sh => HasDual (OS.Array sh r) where
+  type DualOf (OS.Array sh r) = DeltaS sh r
   zeroD = ZeroS
   scaleD = ScaleS
   addD = AddS
   varD = VarS
-  type ScalarOfTensor (OS.Array sh r) = r
+  type ScalarOf (OS.Array sh r) = r
   {-# INLINE bindInState #-}
   bindInState u' st = let (st2, did) = bindInStateX (FromSX u') st
                       in (st2, covertDeltaId did)
 
 -- | A shorthand for a useful set of constraints.
-type IsTensorWithScalar a r = (IsTensor a, ScalarOfTensor a ~ r)
+type HasDualWithScalar a r = (HasDual a, ScalarOf a ~ r)
 
 -- | A mega-shorthand for a bundle of connected type constraints.
-type IsScalar r = ( IsTensorWithScalar r r, DeltaExpression r ~ Delta0 r
+type IsScalar r = ( HasDualWithScalar r r, DualOf r ~ Delta0 r
                   , Numeric r, Num (Vector r), Num (Matrix r) )

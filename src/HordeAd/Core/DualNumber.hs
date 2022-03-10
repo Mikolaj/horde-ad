@@ -22,15 +22,15 @@ import qualified Numeric.LinearAlgebra as HM
 
 import HordeAd.Core.Delta
   (Delta0 (..), Delta1 (..), Delta2 (..), DeltaS (..), DeltaX (..))
-import HordeAd.Core.IsTensor
+import HordeAd.Core.HasDual
 
 -- * The main dual number types
 
-data DualNumber a = D a (DeltaExpression a)
+data DualNumber a = D a (DualOf a)
 
 class (Monad m, Functor m, Applicative m, IsScalar r)
       => DeltaMonad r m | m -> r where
-  returnLet :: IsTensorWithScalar a r => DualNumber a -> m (DualNumber a)
+  returnLet :: HasDualWithScalar a r => DualNumber a -> m (DualNumber a)
 
 
 -- * General non-monadic operations, for any scalar rank
@@ -47,7 +47,7 @@ instance Ord (DualNumber r) where
 -- used multiple times in a larger expression. Safer yet, monadic arithmetic
 -- operations that already include @returnLet@ should be used instead,
 -- such as @+\@, @*\@, etc.
-instance (Num r, IsTensor r) => Num (DualNumber r) where
+instance (Num r, HasDual r) => Num (DualNumber r) where
   D u u' + D v v' = D (u + v) (addD u' v')
   D u u' - D v v' = D (u - v) (addD u' (scaleD (-1) v'))
   D u u' * D v v' = D (u * v) (addD (scaleD v u') (scaleD u v'))
@@ -56,10 +56,10 @@ instance (Num r, IsTensor r) => Num (DualNumber r) where
   signum = undefined  -- TODO
   fromInteger = scalar . fromInteger
 
-instance (Real r, IsTensor r) => Real (DualNumber r) where
+instance (Real r, HasDual r) => Real (DualNumber r) where
   toRational = undefined  -- TODO?
 
-instance (Fractional r, IsTensor r) => Fractional (DualNumber r) where
+instance (Fractional r, HasDual r) => Fractional (DualNumber r) where
   D u u' / D v v' =
     let recipSq = recip (v * v)
     in D (u / v) (addD (scaleD (v * recipSq) u') (scaleD (- u * recipSq) v'))
@@ -68,7 +68,7 @@ instance (Fractional r, IsTensor r) => Fractional (DualNumber r) where
     in D (recip v) (scaleD minusRecipSq v')
   fromRational = scalar . fromRational
 
-instance (Floating r, IsTensor r) => Floating (DualNumber r) where
+instance (Floating r, HasDual r) => Floating (DualNumber r) where
   pi = scalar pi
   exp (D u u') = let expU = exp u
                  in D expU (scaleD expU u')
@@ -91,21 +91,21 @@ instance (Floating r, IsTensor r) => Floating (DualNumber r) where
   acosh = undefined  -- TODO
   atanh = undefined  -- TODO
 
-instance (RealFrac r, IsTensor r) => RealFrac (DualNumber r) where
+instance (RealFrac r, HasDual r) => RealFrac (DualNumber r) where
   properFraction = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance (RealFloat r, IsTensor r) => RealFloat (DualNumber r) where
+instance (RealFloat r, HasDual r) => RealFloat (DualNumber r) where
   atan2 (D u u') (D v v') =
     let t = 1 / (u * u + v * v)
     in D (atan2 u v) (addD (scaleD (- u * t) v') (scaleD (v * t) u'))
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a differentiable codomain
 
-scalar :: IsTensor a => a -> DualNumber a
+scalar :: HasDual a => a -> DualNumber a
 scalar a = D a zeroD
 
-scale :: (Num a, IsTensor a) => a -> DualNumber a -> DualNumber a
+scale :: (Num a, HasDual a) => a -> DualNumber a -> DualNumber a
 scale a (D u u') = D (a * u) (scaleD a u')
 
 
@@ -359,27 +359,27 @@ fromXS (D u u') = D (Data.Array.Convert.convert u) (FromXS u')
 
 -- * General monadic operations, for any scalar rank
 
-tanhAct :: (IsTensorWithScalar a r, DeltaMonad r m, Floating a)
+tanhAct :: (HasDualWithScalar a r, DeltaMonad r m, Floating a)
         => DualNumber a -> m (DualNumber a)
 tanhAct = returnLet . tanh
 
-logistic :: (Floating a, IsTensor a) => DualNumber a -> DualNumber a
+logistic :: (Floating a, HasDual a) => DualNumber a -> DualNumber a
 logistic (D u u') =
   let y = recip (1 + exp (- u))
   in D y (scaleD (y * (1 - y)) u')
 
-logisticAct :: (IsTensorWithScalar a r, DeltaMonad r m, Floating a)
+logisticAct :: (HasDualWithScalar a r, DeltaMonad r m, Floating a)
             => DualNumber a -> m (DualNumber a)
 logisticAct = returnLet . logistic
 
 -- Optimized and more clearly written @u ** 2@.
-square :: (Num a, IsTensor a) => DualNumber a -> DualNumber a
+square :: (Num a, HasDual a) => DualNumber a -> DualNumber a
 square (D u u') = D (u * u) (scaleD (2 * u) u')
 
-squaredDifference :: (Num a, IsTensor a) => a -> DualNumber a -> DualNumber a
+squaredDifference :: (Num a, HasDual a) => a -> DualNumber a -> DualNumber a
 squaredDifference targ res = square $ res - scalar targ
 
-lossSquared :: (IsTensorWithScalar a r, DeltaMonad r m, Num a)
+lossSquared :: (HasDualWithScalar a r, DeltaMonad r m, Num a)
             => a -> DualNumber a -> m (DualNumber a)
 lossSquared targ res = returnLet $ squaredDifference targ res
 

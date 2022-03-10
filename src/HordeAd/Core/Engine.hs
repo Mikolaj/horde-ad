@@ -34,7 +34,7 @@ import HordeAd.Core.Delta
   , toDeltaId
   )
 import HordeAd.Core.DualNumber (DeltaMonad (..), DualNumber (..))
-import HordeAd.Core.IsTensor
+import HordeAd.Core.HasDual
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 
 -- * First comes the dummy monad implementation that does not collect deltas.
@@ -182,10 +182,10 @@ prettyPrintDf reversed f parameters@(params, paramsV, paramsL, paramsX) =
 
 generateDeltaVars :: IsScalar r
                   => Domains r
-                  -> ( Data.Vector.Vector (DeltaExpression r)
-                     , Data.Vector.Vector (DeltaExpression (Vector r))
-                     , Data.Vector.Vector (DeltaExpression (Matrix r))
-                     , Data.Vector.Vector (DeltaExpression (OT.Array r)) )
+                  -> ( Data.Vector.Vector (DualOf r)
+                     , Data.Vector.Vector (DualOf (Vector r))
+                     , Data.Vector.Vector (DualOf (Matrix r))
+                     , Data.Vector.Vector (DualOf (OT.Array r)) )
 generateDeltaVars (params, paramsV, paramsL, paramsX) =
   let vVar p = V.generate (V.length p) (varD . toDeltaId)
       !v0 = vVar params

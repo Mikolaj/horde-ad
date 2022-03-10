@@ -111,7 +111,7 @@ library
                       HordeAd.Core.Delta
                       HordeAd.Core.DualNumber
                       HordeAd.Core.Engine
-                      HordeAd.Core.IsTensor
+                      HordeAd.Core.HasDual
                       HordeAd.Core.Optimizer
                       HordeAd.Core.OptimizerTools
                       HordeAd.Core.OutdatedOptimizer

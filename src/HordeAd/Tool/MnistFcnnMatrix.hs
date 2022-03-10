@@ -15,7 +15,7 @@ import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.IsTensor
+import HordeAd.Core.HasDual
 import HordeAd.Core.PairOfVectors (DualNumberVariables, varL, varV)
 import HordeAd.Tool.MnistData
 
