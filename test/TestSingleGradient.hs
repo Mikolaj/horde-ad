@@ -112,7 +112,12 @@ dfTests = testGroup "Simple df application tests" $
     , ("freluX3", freluX, [0.0001], ([1.0],1.0e-4))
     , ("freluX4", freluX, [99], ([1.0],99.0))
     , ("fquad", fquad, [2, 3], ([4.0,6.0],18.0))
+    , ("scalarSum", vec_omit_scalarSum_aux, [1, 1, 3], ([1.0,1.0,1.0],5.0))
     ]
+
+vec_omit_scalarSum_aux :: DeltaMonad Float m
+                       => DualNumberVariablesF -> m DualNumberF
+vec_omit_scalarSum_aux vec = returnLet $ foldlDelta' (+) 0 vec
 
 sumElementsV :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
 sumElementsV variables = do
