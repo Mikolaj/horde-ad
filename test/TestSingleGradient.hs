@@ -13,10 +13,6 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd hiding (sumElementsVectorOfDelta)
 
-type DualNumberF = DualNumber Float
-
-type DualNumberVariablesF = DualNumberVariables Float
-
 testTrees :: [TestTree]
 testTrees = [ dfTests
             , vectorTests
@@ -41,7 +37,7 @@ testTrees = [ dfTests
 squareDual :: DeltaMonad r m => DualNumber r -> m (DualNumber r)
 squareDual = returnLet . square
 
-dfShow :: (DualNumberVariablesF -> DeltaMonadGradient Float DualNumberF)
+dfShow :: (DualNumberVariables Float -> DeltaMonadGradient Float (DualNumber Float))
        -> [Float]
        -> ([Float], Float)
 dfShow f deltaInput =
@@ -49,26 +45,26 @@ dfShow f deltaInput =
         df f (V.fromList deltaInput, V.empty, V.empty, V.empty)
   in (V.toList results, value)
 
-fX :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
+fX :: DeltaMonad Float m => DualNumberVariables Float -> m (DualNumber Float)
 fX variables = do
   let x = var variables 0
   return x
 
-fX1Y :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
+fX1Y :: DeltaMonad Float m => DualNumberVariables Float -> m (DualNumber Float)
 fX1Y variables = do
   let x = var variables 0
       y = var variables 1
   x1 <- x +\ 1
   x1 *\ y
 
-fXXY :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
+fXXY :: DeltaMonad Float m => DualNumberVariables Float -> m (DualNumber Float)
 fXXY variables = do
   let x = var variables 0
       y = var variables 1
   xy <- x *\ y
   x *\ xy
 
-fXYplusZ :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
+fXYplusZ :: DeltaMonad Float m => DualNumberVariables Float -> m (DualNumber Float)
 fXYplusZ variables = do
   let x = var variables 0
       y = var variables 1
@@ -76,18 +72,18 @@ fXYplusZ variables = do
   xy <- x *\ y
   xy +\ z
 
-fXtoY :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
+fXtoY :: DeltaMonad Float m => DualNumberVariables Float -> m (DualNumber Float)
 fXtoY variables = do
   let x = var variables 0
       y = var variables 1
   x **\ y
 
-freluX :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
+freluX :: DeltaMonad Float m => DualNumberVariables Float -> m (DualNumber Float)
 freluX variables = do
   let x = var variables 0
   reluAct x
 
-fquad :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
+fquad :: DeltaMonad Float m => DualNumberVariables Float -> m (DualNumber Float)
 fquad variables = do
   let x = var variables 0
       y = var variables 1
@@ -116,20 +112,20 @@ dfTests = testGroup "Simple df application tests" $
     ]
 
 vec_omit_scalarSum_aux :: DeltaMonad Float m
-                       => DualNumberVariablesF -> m DualNumberF
+                       => DualNumberVariables Float -> m (DualNumber Float)
 vec_omit_scalarSum_aux vec = returnLet $ foldlDelta' (+) 0 vec
 
-sumElementsV :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
+sumElementsV :: DeltaMonad Float m => DualNumberVariables Float -> m (DualNumber Float)
 sumElementsV variables = do
   let x = varV variables 0
   returnLet $ sumElements0 x
 
-altSumElementsV :: DeltaMonad Float m => DualNumberVariablesF -> m DualNumberF
+altSumElementsV :: DeltaMonad Float m => DualNumberVariables Float -> m (DualNumber Float)
 altSumElementsV variables = do
   let x = varV variables 0
   returnLet $ altSumElements0 x
 
-dfVectorShow :: (DualNumberVariablesF -> DeltaMonadGradient Float DualNumberF)
+dfVectorShow :: (DualNumberVariables Float -> DeltaMonadGradient Float (DualNumber Float))
              -> [[Float]]
              -> ([[Float]], Float)
 dfVectorShow f deltaInput =
