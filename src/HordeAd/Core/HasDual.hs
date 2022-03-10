@@ -1,4 +1,5 @@
-{-# LANGUAGE ConstraintKinds, TypeFamilyDependencies #-}
+{-# LANGUAGE ConstraintKinds, FlexibleInstances, GeneralizedNewtypeDeriving,
+             TypeFamilyDependencies #-}
 -- | The second component of dual numbers, @Delta@, with it's evaluation
 -- function. Neel Krishnaswami calls that "sparse vector expressions",
 -- and indeed even in the simplest case of a function defined on scalars only,
@@ -21,6 +22,7 @@
 module HordeAd.Core.HasDual
   ( IsScalar, HasDualWithScalar
   , HasDual(DualOf, zeroD, scaleD, addD, varD, bindInState)
+  , Forward(..)
   ) where
 
 import Prelude
@@ -112,3 +114,72 @@ type HasDualWithScalar a r = (HasDual a, ScalarOf a ~ r)
 -- | A mega-shorthand for a bundle of connected type constraints.
 type IsScalar r = ( HasDualWithScalar r r, DualOf r ~ Delta0 r
                   , Numeric r, Num (Vector r), Num (Matrix r) )
+
+
+-- * Alternative instances: forward derivatives computed on the spot
+
+newtype Forward a = Forward a
+  deriving Num
+
+instance HasDual (Forward Double) where
+  type DualOf (Forward Double) = Double
+  zeroD = 0
+  scaleD (Forward k) d = k * d
+  addD d e = d + e
+  varD = undefined  -- no variables are needed, because no blowup possible
+  type ScalarOf (Forward Double) = Double
+  {-# INLINE bindInState #-}
+  bindInState = undefined  -- no variables, so no bindings
+
+{-
+instance HasDual Float where
+  type DualOf Float = Delta0 Float
+  zeroD = Zero0
+  scaleD = Scale0
+  addD = Add0
+  varD = Var0
+  type ScalarOf Float = Float
+  {-# INLINE bindInState #-}
+  bindInState = bindInState0
+
+instance HasDual (Vector r) where
+  type DualOf (Vector r) = Delta1 r
+  zeroD = Zero1
+  scaleD = Scale1
+  addD = Add1
+  varD = Var1
+  type ScalarOf (Vector r) = r
+  {-# INLINE bindInState #-}
+  bindInState = bindInState1
+
+instance HasDual (Matrix r) where
+  type DualOf (Matrix r) = Delta2 r
+  zeroD = Zero2
+  scaleD = Scale2
+  addD = Add2
+  varD = Var2
+  type ScalarOf (Matrix r) = r
+  {-# INLINE bindInState #-}
+  bindInState = bindInState2
+
+instance HasDual (OT.Array r) where
+  type DualOf (OT.Array r) = DeltaX r
+  zeroD = ZeroX
+  scaleD = ScaleX
+  addD = AddX
+  varD = VarX
+  type ScalarOf (OT.Array r) = r
+  {-# INLINE bindInState #-}
+  bindInState = bindInStateX
+
+instance OS.Shape sh => HasDual (OS.Array sh r) where
+  type DualOf (OS.Array sh r) = DeltaS sh r
+  zeroD = ZeroS
+  scaleD = ScaleS
+  addD = AddS
+  varD = VarS
+  type ScalarOf (OS.Array sh r) = r
+  {-# INLINE bindInState #-}
+  bindInState u' st = let (st2, did) = bindInStateX (FromSX u') st
+                      in (st2, covertDeltaId did)
+-}

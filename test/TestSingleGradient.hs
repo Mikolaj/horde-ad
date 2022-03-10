@@ -15,6 +15,7 @@ import HordeAd hiding (sumElementsVectorOfDelta)
 
 testTrees :: [TestTree]
 testTrees = [ dfTests
+            , dfTestsDouble
             , vectorTests
             , readmeTests
             , readmeTestsV
@@ -37,9 +38,10 @@ testTrees = [ dfTests
 squareDual :: DeltaMonad r m => DualNumber r -> m (DualNumber r)
 squareDual = returnLet . square
 
-dfShow :: (DualNumberVariables Float -> DeltaMonadGradient Float (DualNumber Float))
-       -> [Float]
-       -> ([Float], Float)
+dfShow :: (Eq r, IsScalar r)
+       => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+       -> [r]
+       -> ([r], r)
 dfShow f deltaInput =
   let ((results, _, _, _), value) =
         df f (V.fromList deltaInput, V.empty, V.empty, V.empty)
@@ -83,7 +85,7 @@ freluX variables = do
   let x = var variables 0
   reluAct x
 
-fquad :: DeltaMonad Float m => DualNumberVariables Float -> m (DualNumber Float)
+fquad :: DeltaMonad r m => DualNumberVariables r -> m (DualNumber r)
 fquad variables = do
   let x = var variables 0
       y = var variables 1
@@ -110,6 +112,16 @@ dfTests = testGroup "Simple df application tests" $
     , ("fquad", fquad, [2, 3], ([4.0,6.0],18.0))
     , ("scalarSum", vec_omit_scalarSum_aux, [1, 1, 3], ([1.0,1.0,1.0],5.0))
     ]
+
+dfTestsDouble :: TestTree
+dfTestsDouble = testGroup "Simple df (Forward Double) application tests" $
+  map (\(txt, f, v, expected) ->
+        testCase txt $ dfShow f v @?= expected)
+    [ ("fquad", fquad, [2 :: Double, 3], ([4.0,6.0],18.0))
+    ]
+    -- TODO: should be (Forward Double), for this we need to replace
+    -- DualOf r ~ Delta0 r with yet another class that captures the extra
+    -- operations from Delta0
 
 vec_omit_scalarSum_aux :: DeltaMonad Float m
                        => DualNumberVariables Float -> m (DualNumber Float)
