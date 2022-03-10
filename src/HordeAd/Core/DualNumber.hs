@@ -20,8 +20,6 @@ import           GHC.TypeLits (KnownNat, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, (#>), (<.>))
 import qualified Numeric.LinearAlgebra as HM
 
-import HordeAd.Core.Delta
-  (Delta0 (..), Delta1 (..), Delta2 (..), DeltaS (..), DeltaX (..))
 import HordeAd.Core.HasDual
 
 -- * The main dual number types
@@ -112,11 +110,11 @@ scale a (D u u') = D (a * u) (scaleD a u')
 -- * Non-monadic operations resulting in a scalar
 
 sumElements0 :: IsScalar r => DualNumber (Vector r) -> DualNumber r
-sumElements0 (D u u') = D (HM.sumElements u) (SumElements0 u' (V.length u))
+sumElements0 (D u u') = D (HM.sumElements u) (sumElementsD0 u' (V.length u))
 
 index0 :: IsScalar r
        => DualNumber (Vector r) -> Int -> DualNumber r
-index0 (D u u') ix = D (u V.! ix) (Index0 u' ix (V.length u))
+index0 (D u u') ix = D (u V.! ix) (indexD0 u' ix (V.length u))
 
 -- If @v'@ is a @Var1@, this is much faster due to the optimization
 -- in @Index0@.
@@ -125,7 +123,7 @@ foldl'0 :: IsScalar r
         -> DualNumber r -> DualNumber (Vector r) -> DualNumber r
 foldl'0 f uu' (D v v') =
   let k = V.length v
-      g !acc ix p = f (D p (Index0 v' ix k)) acc
+      g !acc ix p = f (D p (indexD0 v' ix k)) acc
   in V.ifoldl' g uu' v
 
 altSumElements0 :: IsScalar r => DualNumber (Vector r) -> DualNumber r
@@ -136,20 +134,20 @@ infixr 8 <.>!
        => DualNumber (Vector r)
        -> DualNumber (Vector r)
        -> DualNumber r
-(<.>!) (D u u') (D v v') = D (u <.> v) (addD (Dot0 v u') (Dot0 u v'))
+(<.>!) (D u u') (D v v') = D (u <.> v) (addD (dotD0 v u') (dotD0 u v'))
 
 infixr 8 <.>!!
 (<.>!!) :: IsScalar r
         => DualNumber (Vector r)
         -> Vector r
         -> DualNumber r
-(<.>!!) (D u u') v = D (u <.> v) (Dot0 v u')
+(<.>!!) (D u u') v = D (u <.> v) (dotD0 v u')
 
 fromX0 :: IsScalar r => DualNumber (OT.Array r) -> DualNumber r
-fromX0 (D u u') = D (OT.unScalar u) (FromX0 u')
+fromX0 (D u u') = D (OT.unScalar u) (fromXD0 u')
 
 fromS0 :: IsScalar r => DualNumber (OS.Array '[] r) -> DualNumber r
-fromS0 (D u u') = D (OS.unScalar u) (FromS0 u')
+fromS0 (D u u') = D (OS.unScalar u) (fromSD0 u')
 
 
 -- * Non-monadic operations resulting in a vector
@@ -158,28 +156,28 @@ fromS0 (D u u') = D (OS.unScalar u) (FromS0 u')
 deltaSeq1 :: IsScalar r
           => Data.Vector.Vector (DualNumber r) -> DualNumber (Vector r)
 deltaSeq1 v = D (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
-                (Seq1 $ V.map (\(D _ u') -> u') v)
+                (seqD1 $ V.map (\(D _ u') -> u') v)
 
 konst1 :: IsScalar r => DualNumber r -> Int -> DualNumber (Vector r)
-konst1 (D u u') n = D (HM.konst u n) (Konst1 u' n)
+konst1 (D u u') n = D (HM.konst u n) (konstD1 u' n)
 
-append1 :: Numeric r
+append1 :: IsScalar r
         => DualNumber (Vector r) -> DualNumber (Vector r)
         -> DualNumber (Vector r)
-append1 (D u u') (D v v') = D (u V.++ v) (Append1 u' (V.length u) v')
+append1 (D u u') (D v v') = D (u V.++ v) (appendD1 u' (V.length u) v')
 
-slice1 :: Numeric r
+slice1 :: IsScalar r
        => Int -> Int -> DualNumber (Vector r)
        -> DualNumber (Vector r)
-slice1 i n (D u u') = D (V.slice i n u) (Slice1 i n u' (V.length u))
+slice1 i n (D u u') = D (V.slice i n u) (sliceD1 i n u' (V.length u))
 
-sumRows1 :: Numeric r => DualNumber (Matrix r) -> DualNumber (Vector r)
+sumRows1 :: IsScalar r => DualNumber (Matrix r) -> DualNumber (Vector r)
 sumRows1 (D u u') = D (V.fromList $ map HM.sumElements $ HM.toRows u)
-                      (SumRows1 u' (HM.cols u))
+                      (sumRowsD1 u' (HM.cols u))
 
-sumColumns1 :: Numeric r => DualNumber (Matrix r) -> DualNumber (Vector r)
+sumColumns1 :: IsScalar r => DualNumber (Matrix r) -> DualNumber (Vector r)
 sumColumns1 (D u u') = D (V.fromList $ map HM.sumElements $ HM.toColumns u)
-                         (SumColumns1 u' (HM.rows u))
+                         (sumColumnsD1 u' (HM.rows u))
 
 -- If @v'@ is a @Var1@, this is much faster due to the optimization
 -- in @Index0@. The detour through a boxed vector (list probably fuses away)
@@ -189,51 +187,51 @@ map1 :: IsScalar r
      -> DualNumber (Vector r) -> DualNumber (Vector r)
 map1 f (D v v') =
   let k = V.length v
-      g ix p = f $ D p (Index0 v' ix k)
+      g ix p = f $ D p (indexD0 v' ix k)
       ds = imap g $ V.toList v
   in deltaSeq1 $ V.fromList ds
 
 -- | Dense matrix-vector product.
 infixr 8 #>!
-(#>!) :: Numeric r
+(#>!) :: IsScalar r
       => DualNumber (Matrix r)
       -> DualNumber (Vector r)
       -> DualNumber (Vector r)
-(#>!) (D u u') (D v v') = D (u #> v) (addD (MD_V1 u' v) (M_VD1 u v'))
+(#>!) (D u u') (D v v') = D (u #> v) (addD (mD_VD1 u' v) (m_VDD1 u v'))
 
 -- | Dense matrix-vector product with a constant vector.
 infixr 8 #>!!
-(#>!!) :: Numeric r
+(#>!!) :: IsScalar r
        => DualNumber (Matrix r)
        -> Vector r
        -> DualNumber (Vector r)
-(#>!!) (D u u') v = D (u #> v) (MD_V1 u' v)
+(#>!!) (D u u') v = D (u #> v) (mD_VD1 u' v)
 
-fromX1 :: Numeric r => DualNumber (OT.Array r) -> DualNumber (Vector r)
-fromX1 (D u u') = D (OT.toVector u) (FromX1 u')
+fromX1 :: IsScalar r => DualNumber (OT.Array r) -> DualNumber (Vector r)
+fromX1 (D u u') = D (OT.toVector u) (fromXD1 u')
 
-fromS1 :: (Numeric r, KnownNat len)
+fromS1 :: (IsScalar r, KnownNat len)
        => DualNumber (OS.Array '[len] r) -> DualNumber (Vector r)
-fromS1 (D u u') = D (OS.toVector u) (FromS1 u')
+fromS1 (D u u') = D (OS.toVector u) (fromSD1 u')
 
 
 -- * Non-monadic operations resulting in a matrix
 
 -- @2@ means rank two, that is, creating delta expression of a matrix.
-fromRows2 :: Numeric r
+fromRows2 :: IsScalar r
           => Data.Vector.Vector (DualNumber (Vector r))
           -> DualNumber (Matrix r)
 fromRows2 v = D (HM.fromRows $ map (\(D u _) -> u) $ V.toList v)
-                (FromRows2 $ V.map (\(D _ u') -> u') v)
+                (fromRowsD2 $ V.map (\(D _ u') -> u') v)
 
-fromColumns2 :: Numeric r
+fromColumns2 :: IsScalar r
              => Data.Vector.Vector (DualNumber (Vector r))
              -> DualNumber (Matrix r)
 fromColumns2 v = D (HM.fromRows $ map (\(D u _) -> u) $ V.toList v)
-                   (FromColumns2 $ V.map (\(D _ u') -> u') v)
+                   (fromColumnsD2 $ V.map (\(D _ u') -> u') v)
 
-transpose2 :: Numeric r => DualNumber (Matrix r) -> DualNumber (Matrix r)
-transpose2 (D u u') = D (HM.tr' u) (Transpose2 u')
+transpose2 :: IsScalar r => DualNumber (Matrix r) -> DualNumber (Matrix r)
+transpose2 (D u u') = D (HM.tr' u) (transposeD2 u')
 
 -- | Dense matrix-matrix product.
 --
@@ -241,61 +239,61 @@ transpose2 (D u u') = D (HM.tr' u) (Transpose2 u')
 -- and @v@ is a n x p matrix then the result of @u <>! v@ is a m x p matrix.
 -- matrix.
 infixr 8 <>!
-(<>!) :: Numeric r
+(<>!) :: IsScalar r
       => DualNumber (Matrix r)
       -> DualNumber (Matrix r)
       -> DualNumber (Matrix r)
-(<>!) (D u u') (D v v') = D (u HM.<> v) (addD (MD_M2 u' v) (M_MD2 u v'))
+(<>!) (D u u') (D v v') = D (u HM.<> v) (addD (mD_MD2 u' v) (m_MDD2 u v'))
 
 -- | Dense matrix-matrix product with a constant matrix.
 infixr 8 <>!!
-(<>!!) :: Numeric r
+(<>!!) :: IsScalar r
        => DualNumber (Matrix r)
        -> Matrix r
        -> DualNumber (Matrix r)
-(<>!!) (D u u') v = D (u HM.<> v) (MD_M2 u' v)
+(<>!!) (D u u') v = D (u HM.<> v) (mD_MD2 u' v)
 
-rowAppend2 :: Numeric r
+rowAppend2 :: IsScalar r
            => DualNumber (Matrix r) -> DualNumber (Matrix r)
            -> DualNumber (Matrix r)
 rowAppend2 (D u u') (D v v') =
-  D (u HM.=== v) (RowAppend2 u' (HM.rows u) v')
+  D (u HM.=== v) (rowAppendD2 u' (HM.rows u) v')
 
-columnAppend2 :: Numeric r
+columnAppend2 :: IsScalar r
               => DualNumber (Matrix r) -> DualNumber (Matrix r)
               -> DualNumber (Matrix r)
 columnAppend2 (D u u') (D v v') =
-  D (u HM.||| v) (ColumnAppend2 u' (HM.cols u) v')
+  D (u HM.||| v) (columnAppendD2 u' (HM.cols u) v')
 
-rowSlice2 :: Numeric r
+rowSlice2 :: IsScalar r
           => Int -> Int -> DualNumber (Matrix r)
           -> DualNumber (Matrix r)
 rowSlice2 i n (D u u') = D (HM.subMatrix (i, 0) (n, HM.cols u) u)
-                           (RowSlice2 i n u' (HM.rows u))
+                           (rowSliceD2 i n u' (HM.rows u))
 
-columnSlice2 :: Numeric r
+columnSlice2 :: IsScalar r
              => Int -> Int -> DualNumber (Matrix r)
              -> DualNumber (Matrix r)
 columnSlice2 i n (D u u') = D (HM.subMatrix (0, i) (HM.rows u, n) u)
-                              (ColumnSlice2 i n u' (HM.rows u))
+                              (columnSliceD2 i n u' (HM.rows u))
 
-asRow2 :: Numeric r => DualNumber (Vector r) -> Int -> DualNumber (Matrix r)
-asRow2 (D u u') n = D (HM.fromRows $ replicate n u) (AsRow2 u')
+asRow2 :: IsScalar r => DualNumber (Vector r) -> Int -> DualNumber (Matrix r)
+asRow2 (D u u') n = D (HM.fromRows $ replicate n u) (asRowD2 u')
 
-asColumn2 :: Numeric r => DualNumber (Vector r) -> Int -> DualNumber (Matrix r)
-asColumn2 (D u u') n = D (HM.fromColumns $ replicate n u) (AsColumn2 u')
+asColumn2 :: IsScalar r => DualNumber (Vector r) -> Int -> DualNumber (Matrix r)
+asColumn2 (D u u') n = D (HM.fromColumns $ replicate n u) (asColumnD2 u')
 
-fromX2 :: Numeric r => DualNumber (OT.Array r) -> DualNumber (Matrix r)
+fromX2 :: IsScalar r => DualNumber (OT.Array r) -> DualNumber (Matrix r)
 fromX2 (D u u') = case OT.shapeL u of
-  [_, cols] -> D (HM.reshape cols $ OT.toVector u) (FromX2 u')
+  [_, cols] -> D (HM.reshape cols $ OT.toVector u) (fromXD2 u')
   dims -> error $ "fromX2: the tensor has wrong dimensions" ++ show dims
 
-fromS2 :: forall rows cols r. (Numeric r, KnownNat rows, KnownNat cols)
+fromS2 :: forall rows cols r. (IsScalar r, KnownNat rows, KnownNat cols)
        => DualNumber (OS.Array '[rows, cols] r) -> DualNumber (Matrix r)
 fromS2 (D u u') = D (HM.reshape (valueOf @cols) $ OS.toVector u)
-                    (FromS2 u')
+                    (fromSD2 u')
 
-
+{-
 -- * Non-monadic operations resulting in an arbitrary tensor
 
 -- Warning: not tested nor benchmarked.
@@ -304,25 +302,25 @@ appendX :: Numeric r
         => DualNumber (OT.Array r) -> DualNumber (OT.Array r)
         -> DualNumber (OT.Array r)
 appendX (D u u') (D v v') =
-  D (u `OT.append` v) (AppendX u' (head $ OT.shapeL u) v')
+  D (u `OT.append` v) (appendDX u' (head $ OT.shapeL u) v')
 
 sliceX :: Int -> Int -> DualNumber (OT.Array r)
        -> DualNumber (OT.Array r)
 sliceX i n (D u u') = D (OT.slice [(i, n)] u)
-                        (SliceX i n u' (head $ OT.shapeL u))
+                        (sliceDX i n u' (head $ OT.shapeL u))
 
 from0X :: IsScalar r => DualNumber r -> DualNumber (OT.Array r)
-from0X (D u u') = D (OT.scalar u) (From0X u')
+from0X (D u u') = D (OT.scalar u) (from0DX u')
 
 from1X :: Numeric r => DualNumber (Vector r) -> DualNumber (OT.Array r)
-from1X (D u u') = D (OT.fromVector [V.length u] u) (From1X u')
+from1X (D u u') = D (OT.fromVector [V.length u] u) (from1DX u')
 
 from2X :: Numeric r => DualNumber (Matrix r) -> DualNumber (OT.Array r)
 from2X (D u u') = D (OT.fromVector [HM.rows u, HM.cols u] $ HM.flatten u)
-                    (From2X u' ( HM.cols u))
+                    (from2DX u' ( HM.cols u))
 
 fromSX :: OS.Shape sh => DualNumber (OS.Array sh r) -> DualNumber (OT.Array r)
-fromSX (D u u') = D (Data.Array.Convert.convert u) (FromSX u')
+fromSX (D u u') = D (Data.Array.Convert.convert u) (fromSDX u')
 
 
 -- * Non-monadic operations resulting in an arbitrary fully typed Shaped tensor
@@ -333,29 +331,29 @@ appendS :: (Numeric r, OS.Shape sh, KnownNat m, KnownNat n)
         => DualNumber (OS.Array (m ': sh) r)
         -> DualNumber (OS.Array (n ': sh) r)
         -> DualNumber (OS.Array ((m + n) ': sh) r)
-appendS (D u u') (D v v') = D (u `OS.append` v) (AppendS u' v')
+appendS (D u u') (D v v') = D (u `OS.append` v) (appendDS u' v')
 
 sliceS :: forall i n k rest r.
           (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
        => DualNumber (OS.Array (i + n + k ': rest) r)
        -> DualNumber (OS.Array (n ': rest) r)
-sliceS (D u u') = D (OS.slice @'[ '(i, n) ] u) (SliceS @i u')
+sliceS (D u u') = D (OS.slice @'[ '(i, n) ] u) (sliceDS @i u')
 
 from0S :: IsScalar r => DualNumber r -> DualNumber (OS.Array '[] r)
-from0S (D u u') = D (OS.scalar u) (From0S u')
+from0S (D u u') = D (OS.scalar u) (from0DS u')
 
 from1S :: (Numeric r, KnownNat n)
        => DualNumber (Vector r) -> DualNumber (OS.Array '[n] r)
-from1S (D u u') = D (OS.fromVector u) (From1S u')
+from1S (D u u') = D (OS.fromVector u) (from1DS u')
 
 from2S :: (Numeric r, KnownNat rows, KnownNat cols)
        => DualNumber (Matrix r) -> DualNumber (OS.Array '[rows, cols] r)
-from2S (D u u') = D (OS.fromVector $ HM.flatten u) (From2S u')
+from2S (D u u') = D (OS.fromVector $ HM.flatten u) (from2DS u')
 
 fromXS :: OS.Shape sh
        => DualNumber (OT.Array r) -> DualNumber (OS.Array sh r)
-fromXS (D u u') = D (Data.Array.Convert.convert u) (FromXS u')
-
+fromXS (D u u') = D (Data.Array.Convert.convert u) (fromXDS u')
+-}
 
 -- * General monadic operations, for any scalar rank
 
@@ -438,7 +436,7 @@ lossSoftMaxCrossEntropyV target (D u u') = do
 -- not exposed: softMaxU = HM.scaleRecip sumExpU expU
       softMaxU = HM.scale recipSum expU
   returnLet $ D (negate $ log softMaxU <.> target)
-                (Dot0 (softMaxU - target) u')
+                (dotD0 (softMaxU - target) u')
 
 
 -- * Monadic operations resulting in a vector
