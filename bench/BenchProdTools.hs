@@ -144,12 +144,11 @@ vec_prod :: IsScalar r
          => Domain r -> r
 vec_prod ds = primalValue vec_prod_aux (ds, V.empty, V.empty, V.empty)
 
-grad_vec_prod :: (Eq r, IsScalar r)
-              => Domain r -> Domain r
+grad_vec_prod :: HasDelta r => Domain r -> Domain r
 grad_vec_prod ds =
   (\(v, _, _, _) -> v) $ fst $ df vec_prod_aux (ds, V.empty, V.empty, V.empty)
 
-grad_toList_prod :: (Eq r, IsScalar r)
+grad_toList_prod :: HasDelta r
                  => [r] -> [r]
 grad_toList_prod l = V.toList $ grad_vec_prod $ V.fromList l
 
@@ -169,7 +168,7 @@ vec_omit_prod :: IsScalar r
               => Domain r -> r
 vec_omit_prod ds = primalValue vec_omit_prod_aux (ds, V.empty, V.empty, V.empty)
 
-grad_vec_omit_prod :: (Eq r, IsScalar r)
+grad_vec_omit_prod :: HasDelta r
                    => Domain r -> Domain r
 grad_vec_omit_prod ds =
   (\(v, _, _, _) -> v)
@@ -193,7 +192,7 @@ altSumElementsV variables = do
   let x = varV variables 0
   returnLet $ altSumElements0 x
 
-grad_vec_omit_scalarSum :: (Eq r, IsScalar r) => Domain r -> Domain r
+grad_vec_omit_scalarSum :: HasDelta r => Domain r -> Domain r
 grad_vec_omit_scalarSum ds =
   (\(v, _, _, _) -> v)
   $ fst $ df vec_omit_scalarSum_aux (ds, V.empty, V.empty, V.empty)

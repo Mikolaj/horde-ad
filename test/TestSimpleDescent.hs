@@ -29,7 +29,7 @@ scaleDual r u = returnLet $ scale r u
 squareDual :: DeltaMonad r m => DualNumber r -> m (DualNumber r)
 squareDual = returnLet . square
 
-gdSimpleShow :: (Eq r, IsScalar r)
+gdSimpleShow :: HasDelta r
              => r
              -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
              -> Domain r

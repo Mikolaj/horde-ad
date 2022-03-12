@@ -21,7 +21,7 @@
 -- A lot of the remaining additional structure is for introducing
 -- and reducing dimensions.
 module HordeAd.Core.HasDual
-  ( IsScalar, HasDualWithScalar
+  ( HasDualWithScalar, IsScalar, HasDelta
   , HasDual(DualOf, dZero, dScale, dAdd, dVar, bindInState)
   , HasRanks(..)
   , Forward(..)
@@ -48,6 +48,10 @@ type IsScalar r = ( HasDualWithScalar r r, HasRanks r
                   , HasDual (Vector r), HasDual (Matrix r), HasDual (OT.Array r)
                   , ScalarOf (Vector r) ~ r, ScalarOf (Matrix r) ~ r
                   , Numeric r, Num (Vector r), Num (Matrix r) )
+
+-- | A contraint stating this dual numbers with this underlying scalar
+-- are implemented via gathering delta expressions in state.
+type HasDelta r = (IsScalar r, Eq r, DualOf r ~ Delta0 r)
 
 -- | Each shape of a containers of parameters ('tensor') has its own
 -- collection of vector space-like constructors with which the sparse

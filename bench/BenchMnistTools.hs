@@ -14,7 +14,7 @@ import           System.Random
 import HordeAd
 import HordeAd.Tool.MnistTools
 
-mnistTrainBench2 :: (NFData r, Eq r, Floating r, UniformRange r, IsScalar r)
+mnistTrainBench2 :: (NFData r, HasDelta r, Floating r, UniformRange r)
                  => String -> Int -> [MnistData r] -> Int -> Int -> r
                  -> Benchmark
 mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do

@@ -153,7 +153,7 @@ wsFitSeparated range@(low, hi) seed k =
       g = mkStdGen seed
   in V.zip steps (rolls g)
 
-gdSimpleShow :: (Eq r, IsScalar r)
+gdSimpleShow :: HasDelta r
              => r
              -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
              -> Domain r
@@ -715,7 +715,7 @@ smartFit3TestsL3 =
   ]
 -}
 
-sgdShow :: (Eq r, IsScalar r)
+sgdShow :: HasDelta r
         => r
         -> (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
         -> [a]  -- ^ training data

@@ -38,7 +38,7 @@ testTrees = [ dfTests
 squareDual :: DeltaMonad r m => DualNumber r -> m (DualNumber r)
 squareDual = returnLet . square
 
-dfShow :: (Eq r, IsScalar r)
+dfShow :: HasDelta r
        => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
        -> [r]
        -> ([r], r)
@@ -119,9 +119,7 @@ dfTestsDouble = testGroup "Simple df (Forward Double) application tests" $
         testCase txt $ dfShow f v @?= expected)
     [ ("fquad", fquad, [2 :: Double, 3], ([4.0,6.0],18.0))
     ]
-    -- TODO: should be (Forward Double), for this we need to replace
-    -- DualOf r ~ Delta0 r with yet another class that captures the extra
-    -- operations from Delta0
+    -- Forward Double, via more general df or a separate function
 
 vec_omit_scalarSum_aux :: DeltaMonad Float m
                        => DualNumberVariables Float -> m (DualNumber Float)
@@ -196,7 +194,7 @@ atanReadmeMPoly variables =
 -- The underscores and empty vectors are placeholders for the vector
 -- and matrix components of the parameters triple, which we here don't use
 -- (we construct vectors, but from scalar parameters).
-dfAtanReadmeMPoly :: (RealFloat r, IsScalar r)
+dfAtanReadmeMPoly :: (RealFloat r, HasDelta r)
                   => Domain r -> (Domain r, r)
 dfAtanReadmeMPoly ds =
   let ((result, _, _, _), value) =
@@ -239,7 +237,7 @@ atanReadmeMPolyV variables =
 -- The underscores and empty vectors are placeholders for the vector
 -- and matrix components of the parameters triple, which we here don't use
 -- (we construct vectors, but from scalar parameters).
-dfAtanReadmeMPolyV :: (RealFloat r, IsScalar r)
+dfAtanReadmeMPolyV :: (RealFloat r, HasDelta r)
                    => DomainV r -> (DomainV r, r)
 dfAtanReadmeMPolyV dsV =
   let ((_, result, _, _), value) =

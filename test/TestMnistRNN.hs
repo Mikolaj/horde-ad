@@ -114,7 +114,7 @@ series = [sin (2 * pi * t / 25) | t <- [0 ..]]
 samples :: [(Vector Double, Double)]
 samples  = [(V.fromList $ init c, last c) | c <- chunksOf 19 series]
 
-sgdShow :: (Eq r, Fractional r, IsScalar r)
+sgdShow :: (HasDelta r, Fractional r)
         => (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
         -> [a]
         -> Domains r

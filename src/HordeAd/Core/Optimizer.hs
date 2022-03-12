@@ -11,7 +11,6 @@ import Prelude
 
 import Numeric.LinearAlgebra (Vector)
 
-import HordeAd.Core.Delta (Delta0)
 import HordeAd.Core.DualNumber (DualNumber (..))
 import HordeAd.Core.Engine
 import HordeAd.Core.HasDual
@@ -19,7 +18,7 @@ import HordeAd.Core.OptimizerTools
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 
 -- | Simple Gradient Descent.
-gdSimple :: forall r. (Eq r, IsScalar r, DualOf r ~ Delta0 r)
+gdSimple :: forall r. HasDelta r
          => r
          -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
          -> Int  -- ^ requested number of iterations
@@ -40,7 +39,7 @@ gdSimple gamma f n0 parameters0 = go n0 parameters0 where
     in go (pred n) parametersNew
 
 -- | Stochastic Gradient Descent.
-sgd :: forall r a. (Eq r, IsScalar r, DualOf r ~ Delta0 r)
+sgd :: forall r a. HasDelta r
     => r
     -> (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
     -> [a]  -- ^ training data
@@ -58,8 +57,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
        then (parametersNew, valueNew)
        else go rest parametersNew
 
-sgdAdam :: forall r a. ( Eq r, Floating r, IsScalar r, DualOf r ~ Delta0 r
-                       , Floating (Vector r) )
+sgdAdam :: forall r a. (HasDelta r, Floating r, Floating (Vector r))
         => (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
         -> [a]
         -> Domains r
@@ -67,8 +65,7 @@ sgdAdam :: forall r a. ( Eq r, Floating r, IsScalar r, DualOf r ~ Delta0 r
         -> (Domains r, StateAdam r)
 sgdAdam = sgdAdamArgs defaultArgsAdam
 
-sgdAdamArgs :: forall r a. ( Eq r, Floating r, IsScalar r, DualOf r ~ Delta0 r
-                           , Floating (Vector r) )
+sgdAdamArgs :: forall r a. (HasDelta r, Floating r, Floating (Vector r))
             => ArgsAdam r
             -> (a -> DualNumberVariables r
                 -> DeltaMonadGradient r (DualNumber r))

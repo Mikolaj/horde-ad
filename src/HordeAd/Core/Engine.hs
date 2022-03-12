@@ -22,8 +22,7 @@ import qualified Numeric.LinearAlgebra as HM
 import           Text.Show.Pretty (ppShow)
 
 import HordeAd.Core.Delta
-  ( Delta0
-  , DeltaState (..)
+  ( DeltaState (..)
   , Domain
   , DomainL
   , DomainV
@@ -97,7 +96,7 @@ instance IsScalar r => DeltaMonad r (DeltaMonadGradient r) where
 
 -- The functions in which @generalDf@ inlines and which are used in client code
 -- are not inlined there, so the bloat is limited.
-generalDf :: (Eq r, IsScalar r, DualOf r ~ Delta0 r)
+generalDf :: HasDelta r
           => DualNumberVariables r
           -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
           -> (Domains r, r)
@@ -119,7 +118,7 @@ generalDf variables@(params, _, paramsV, _, paramsL, _, paramsX, _) f =
       gradient = evalBindings dim dimV dimL dimX st d
   in (gradient, value)
 
-df :: (Eq r, IsScalar r, DualOf r ~ Delta0 r)
+df :: HasDelta r
    => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
    -> Domains r
    -> (Domains r, r)
@@ -129,7 +128,7 @@ df f parameters =
   in generalDf variables f
 
 generalDforward
-  :: (IsScalar r, DualOf r ~ Delta0 r)
+  :: HasDelta r
   => DualNumberVariables r
   -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
   -> Domains r
