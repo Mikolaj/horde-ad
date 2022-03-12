@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, DataKinds, FlexibleInstances,
              GeneralizedNewtypeDeriving, TypeFamilyDependencies,
              TypeOperators #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 -- | The second component of dual numbers, @Delta@, with it's evaluation
 -- function. Neel Krishnaswami calls that "sparse vector expressions",
 -- and indeed even in the simplest case of a function defined on scalars only,
@@ -29,6 +30,7 @@ module HordeAd.Core.HasDual
 
 import Prelude
 
+import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.ShapedS as OS
 import           Data.Coerce (coerce)
@@ -37,8 +39,11 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
+import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Delta
+
+-- * Abbreviations
 
 -- | A shorthand for a useful set of constraints.
 type HasDualWithScalar a r = (HasDual a, ScalarOf a ~ r)
@@ -52,6 +57,9 @@ type IsScalar r = ( HasDualWithScalar r r, HasRanks r
 -- | A contraint stating this dual numbers with this underlying scalar
 -- are implemented via gathering delta expressions in state.
 type HasDelta r = (IsScalar r, Eq r, DualOf r ~ Delta0 r)
+
+
+-- * Class definitions
 
 -- | Each shape of a containers of parameters ('tensor') has its own
 -- collection of vector space-like constructors with which the sparse
@@ -83,7 +91,8 @@ class HasRanks r where
   dM_VD1 :: Matrix r -> DualOf (Vector r) -> DualOf (Vector r)
   dMD_V1 :: DualOf (Matrix r) -> Vector r -> DualOf (Vector r)
   dFromX1 :: DualOf (OT.Array r) -> DualOf (Vector r)
-  dFromS1 :: DualOf (OS.Array '[len] r) -> DualOf (Vector r)
+  dFromS1 :: forall len. KnownNat len
+          => DualOf (OS.Array '[len] r) -> DualOf (Vector r)
 
   dFromRows2 :: Data.Vector.Vector (DualOf (Vector r)) -> DualOf (Matrix r)
   dFromColumns2 :: Data.Vector.Vector (DualOf (Vector r)) -> DualOf (Matrix r)
@@ -99,7 +108,8 @@ class HasRanks r where
   dAsRow2 :: DualOf (Vector r) -> DualOf (Matrix r)
   dAsColumn2 :: DualOf (Vector r) -> DualOf (Matrix r)
   dFromX2 :: DualOf (OT.Array r) -> DualOf (Matrix r)
-  dFromS2 :: DualOf (OS.Array '[rows, cols] r) -> DualOf (Matrix r)
+  dFromS2 :: forall rows cols. (KnownNat rows, KnownNat cols)
+          => DualOf (OS.Array '[rows, cols] r) -> DualOf (Matrix r)
 
   dAppendX :: DualOf (OT.Array r) -> Int -> DualOf (OT.Array r)
            -> DualOf (OT.Array r)
@@ -107,7 +117,8 @@ class HasRanks r where
   dFrom0X :: DualOf r -> DualOf (OT.Array r)
   dFrom1X :: DualOf (Vector r) -> DualOf (OT.Array r)
   dFrom2X :: DualOf (Matrix r) -> Int -> DualOf (OT.Array r)
-  dFromSX :: DualOf (OS.Array sh r) -> DualOf (OT.Array r)
+  dFromSX :: forall sh. OS.Shape sh
+          => DualOf (OS.Array sh r) -> DualOf (OT.Array r)
 
   dAppendS :: (OS.Shape sh, KnownNat m, KnownNat n)
            => DualOf (OS.Array (m ': sh) r) -> DualOf (OS.Array (n ': sh) r)
@@ -117,10 +128,13 @@ class HasRanks r where
           => DualOf (OS.Array (i + n + k ': rest) r)
           -> DualOf (OS.Array (n ': rest) r)
   dFrom0S :: DualOf r -> DualOf (OS.Array '[] r)
-  dFrom1S :: DualOf (Vector r) -> DualOf (OS.Array '[n] r)
-  dFrom2S :: forall rows cols. KnownNat cols
+  dFrom1S :: KnownNat n => DualOf (Vector r) -> DualOf (OS.Array '[n] r)
+  dFrom2S :: forall rows cols. (KnownNat rows, KnownNat cols)
           => DualOf (Matrix r) -> DualOf (OS.Array '[rows, cols] r)
-  dFromXS :: DualOf (OT.Array r) -> DualOf (OS.Array sh r)
+  dFromXS :: OS.Shape sh => DualOf (OT.Array r) -> DualOf (OS.Array sh r)
+
+
+-- * Backprop gradient method instances
 
 -- I hate this duplication:
 instance HasDual Double where
@@ -139,6 +153,45 @@ instance HasRanks Double where
   dDot0 = Dot0
   dFromX0 = FromX0
   dFromS0 = FromS0
+  dSeq1 = Seq1
+  dKonst1 = Konst1
+  dAppend1 = Append1
+  dSlice1 = Slice1
+  dSumRows1 = SumRows1
+  dSumColumns1 = SumColumns1
+  dM_VD1 = M_VD1
+  dMD_V1 = MD_V1
+  dFromX1 = FromX1
+  dFromS1 = FromS1
+  dFromRows2 = FromRows2
+  dFromColumns2 = FromColumns2
+  dTranspose2 = Transpose2
+  dM_MD2 = M_MD2
+  dMD_M2 = MD_M2
+  dRowAppend2 = RowAppend2
+  dColumnAppend2 = ColumnAppend2
+  dRowSlice2 = RowSlice2
+  dColumnSlice2 = ColumnSlice2
+  dAsRow2 = AsRow2
+  dAsColumn2 = AsColumn2
+  dFromX2 = FromX2
+  dFromS2 = FromS2
+  dAppendX = AppendX
+  dSliceX = SliceX
+  dFrom0X = From0X
+  dFrom1X = From1X
+  dFrom2X = From2X
+  dFromSX = FromSX
+  dAppendS = AppendS
+--  dSliceS :: forall i n k rest.
+--             (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
+--          => DualOf (OS.Array (i + n + k ': rest) Double)
+--          -> DualOf (OS.Array (n ': rest) Double)
+  dSliceS = undefined  -- TODO: SliceS @i
+  dFrom0S = From0S
+  dFrom1S = From1S
+  dFrom2S = From2S
+  dFromXS = FromXS
 
 -- I hate this duplication with this:
 instance HasDual Float where
@@ -157,6 +210,45 @@ instance HasRanks Float where
   dDot0 = Dot0
   dFromX0 = FromX0
   dFromS0 = FromS0
+  dSeq1 = Seq1
+  dKonst1 = Konst1
+  dAppend1 = Append1
+  dSlice1 = Slice1
+  dSumRows1 = SumRows1
+  dSumColumns1 = SumColumns1
+  dM_VD1 = M_VD1
+  dMD_V1 = MD_V1
+  dFromX1 = FromX1
+  dFromS1 = FromS1
+  dFromRows2 = FromRows2
+  dFromColumns2 = FromColumns2
+  dTranspose2 = Transpose2
+  dM_MD2 = M_MD2
+  dMD_M2 = MD_M2
+  dRowAppend2 = RowAppend2
+  dColumnAppend2 = ColumnAppend2
+  dRowSlice2 = RowSlice2
+  dColumnSlice2 = ColumnSlice2
+  dAsRow2 = AsRow2
+  dAsColumn2 = AsColumn2
+  dFromX2 = FromX2
+  dFromS2 = FromS2
+  dAppendX = AppendX
+  dSliceX = SliceX
+  dFrom0X = From0X
+  dFrom1X = From1X
+  dFrom2X = From2X
+  dFromSX = FromSX
+  dAppendS = AppendS
+--  dSliceS :: forall i n k rest.
+--             (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
+--          => DualOf (OS.Array (i + n + k ': rest) Float)
+--          -> DualOf (OS.Array (n ': rest) Float)
+  dSliceS = undefined  -- TODO: SliceS @i
+  dFrom0S = From0S
+  dFrom1S = From1S
+  dFrom2S = From2S
+  dFromXS = FromXS
 
 -- I hate this duplication:
 instance HasDual (Vector Double) where
@@ -264,7 +356,49 @@ instance HasRanks (Forward Double) where
   dDot0 vr vd = coerce vr HM.<.> vd
   dFromX0 = OT.unScalar
   dFromS0 = OS.unScalar
-  -- TODO: the rest
+  dSeq1 = V.convert
+  dKonst1 = HM.konst
+  dAppend1 d _k e = d V.++ e
+  dSlice1 i n d _len = V.slice i n d
+  dM_VD1 m dRow = coerce m HM.#> dRow
+  dMD_V1 md row = md HM.#> coerce row
+  dSumRows1 dm _cols = V.fromList $ map HM.sumElements $ HM.toRows dm
+  dSumColumns1 dm _rows = V.fromList $ map HM.sumElements $ HM.toColumns dm
+  dFromX1 = OT.toVector
+  dFromS1 = OS.toVector
+  dFromRows2 = HM.fromRows . V.toList
+  dFromColumns2 = HM.fromColumns . V.toList
+  dTranspose2 = HM.tr'
+  dM_MD2 m md = coerce m HM.<> md
+  dMD_M2 md m = md HM.<> coerce m
+  dAsRow2 = HM.asRow
+  dAsColumn2 = HM.asColumn
+  dRowAppend2 d _k e = d HM.=== e
+  dColumnAppend2 d _k e = d HM.||| e
+  dRowSlice2 i n d _rows = HM.takeRows n $ HM.dropRows i d
+  dColumnSlice2 i n d _cols = HM.takeColumns n $ HM.dropColumns i d
+  dFromX2 d = case OT.shapeL d of
+    [_rows, cols] -> HM.reshape cols $ OT.toVector d
+    _ -> error "dFromX2: wrong tensor dimensions"
+  dFromS2 d = case OS.shapeL d of
+    [_rows, cols] -> HM.reshape cols $ OS.toVector d
+    _ -> error "dFromS2: wrong tensor dimensions"
+  dAppendX d _k e = d `OT.append` e
+  dSliceX i n d _len = OT.slice [(i, n)] d
+  dFrom0X = OT.scalar
+  dFrom1X d = OT.fromVector [V.length d] d
+  dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
+  dFromSX = Data.Array.Convert.convert
+  dAppendS = OS.append
+--  dSliceS :: forall i n k rest.
+--             (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
+--          => DualOf (OS.Array (i + n + k ': rest) Double)
+--          -> DualOf (OS.Array (n ': rest) Double)
+  dSliceS = undefined  -- TODO: OS.slice @'[ '(i, n) ] d
+  dFrom0S = OS.scalar
+  dFrom1S = OS.fromVector
+  dFrom2S = OS.fromVector . HM.flatten
+  dFromXS = Data.Array.Convert.convert
 
 -- I hate this duplication with this:
 instance HasDual (Forward Float) where
@@ -282,7 +416,49 @@ instance HasRanks (Forward Float) where
   dDot0 vr vd = coerce vr HM.<.> vd
   dFromX0 = OT.unScalar
   dFromS0 = OS.unScalar
-  -- TODO: the rest
+  dSeq1 = V.convert
+  dKonst1 = HM.konst
+  dAppend1 d _k e = d V.++ e
+  dSlice1 i n d _len = V.slice i n d
+  dM_VD1 m dRow = coerce m HM.#> dRow
+  dMD_V1 md row = md HM.#> coerce row
+  dSumRows1 dm _cols = V.fromList $ map HM.sumElements $ HM.toRows dm
+  dSumColumns1 dm _rows = V.fromList $ map HM.sumElements $ HM.toColumns dm
+  dFromX1 = OT.toVector
+  dFromS1 = OS.toVector
+  dFromRows2 = HM.fromRows . V.toList
+  dFromColumns2 = HM.fromColumns . V.toList
+  dTranspose2 = HM.tr'
+  dM_MD2 m md = coerce m HM.<> md
+  dMD_M2 md m = md HM.<> coerce m
+  dAsRow2 = HM.asRow
+  dAsColumn2 = HM.asColumn
+  dRowAppend2 d _k e = d HM.=== e
+  dColumnAppend2 d _k e = d HM.||| e
+  dRowSlice2 i n d _rows = HM.takeRows n $ HM.dropRows i d
+  dColumnSlice2 i n d _cols = HM.takeColumns n $ HM.dropColumns i d
+  dFromX2 d = case OT.shapeL d of
+    [_rows, cols] -> HM.reshape cols $ OT.toVector d
+    _ -> error "dFromX2: wrong tensor dimensions"
+  dFromS2 d = case OS.shapeL d of
+    [_rows, cols] -> HM.reshape cols $ OS.toVector d
+    _ -> error "dFromS2: wrong tensor dimensions"
+  dAppendX d _k e = d `OT.append` e
+  dSliceX i n d _len = OT.slice [(i, n)] d
+  dFrom0X = OT.scalar
+  dFrom1X d = OT.fromVector [V.length d] d
+  dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
+  dFromSX = Data.Array.Convert.convert
+  dAppendS = OS.append
+--  dSliceS :: forall i n k rest.
+--             (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
+--          => DualOf (OS.Array (i + n + k ': rest) Double)
+--          -> DualOf (OS.Array (n ': rest) Double)
+  dSliceS = undefined  -- TODO: OS.slice @'[ '(i, n) ] d
+  dFrom0S = OS.scalar
+  dFrom1S = OS.fromVector
+  dFrom2S = OS.fromVector . HM.flatten
+  dFromXS = Data.Array.Convert.convert
 
 instance Num (Vector r) => HasDual (Vector (Forward r)) where
   type DualOf (Vector (Forward r)) = Vector r
@@ -305,7 +481,11 @@ instance Num (Matrix r) => HasDual (Matrix (Forward r)) where
 instance Num (OT.Array r) => HasDual (OT.Array (Forward r)) where
   type DualOf (OT.Array (Forward r)) = OT.Array r
   dZero = 0
-  dScale _k _d = undefined  -- TODO: coerce k * d
+--  dScale k d = coerce k * d  -- fails
+--  dScale k d = undefined $ (k :: OT.Array (Forward r))  -- OK
+--  dScale k d = undefined $ coerce @(OT.Array (Forward r)) @(OT.Array r) k
+--    -- fails, perhaps not Coercible?
+  dScale k d = unsafeCoerce k * d
   dAdd = (+)
   dVar = undefined
   type ScalarOf (OT.Array (Forward r)) = r
@@ -314,7 +494,7 @@ instance Num (OT.Array r) => HasDual (OT.Array (Forward r)) where
 instance Num (OS.Array sh r) => HasDual (OS.Array sh (Forward r)) where
   type DualOf (OS.Array sh (Forward r)) = OS.Array sh r
   dZero = 0
-  dScale _k _d = undefined  -- TODO: coerce k * d
+  dScale k d = unsafeCoerce k * d
   dAdd = (+)
   dVar = undefined
   type ScalarOf (OS.Array sh (Forward r)) = r
