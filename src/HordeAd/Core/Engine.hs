@@ -167,7 +167,7 @@ instance IsScalar r => DeltaMonad r (DeltaMonadForward r) where
 generalDfastForward
   :: DualNumberVariables r
   -> (DualNumberVariables r -> DeltaMonadForward r (DualNumber r))
-  -> (DualOf r, r)
+  -> (Dual r, r)
 {-# INLINE generalDfastForward #-}
 generalDfastForward variables f =
   let D value d = runIdentity $ runDeltaMonadForward $ f variables
@@ -177,7 +177,7 @@ dfastForward
   :: IsScalar r
   => (DualNumberVariables r -> DeltaMonadForward r (DualNumber r))
   -> Domains r
-  -> (DualOf r, r)
+  -> (Dual r, r)
 dfastForward f parameters =
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
@@ -186,7 +186,7 @@ dfastForward f parameters =
 
 -- * Additional mechanisms
 
-prettyPrintDf :: forall r. (Show r, Show (DualOf r), IsScalar r)
+prettyPrintDf :: forall r. (Show r, Show (Dual r), IsScalar r)
               => Bool
               -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
               -> Domains r
@@ -217,10 +217,10 @@ prettyPrintDf reversed f parameters@(params, paramsV, paramsL, paramsX) =
 
 generateDeltaVars :: IsScalar r
                   => Domains r
-                  -> ( Data.Vector.Vector (DualOf r)
-                     , Data.Vector.Vector (DualOf (Vector r))
-                     , Data.Vector.Vector (DualOf (Matrix r))
-                     , Data.Vector.Vector (DualOf (OT.Array r)) )
+                  -> ( Data.Vector.Vector (Dual r)
+                     , Data.Vector.Vector (Dual (Vector r))
+                     , Data.Vector.Vector (Dual (Matrix r))
+                     , Data.Vector.Vector (Dual (OT.Array r)) )
 generateDeltaVars (params, paramsV, paramsL, paramsX) =
   let vVar p = V.generate (V.length p) (dVar . toDeltaId)
       !v0 = vVar params

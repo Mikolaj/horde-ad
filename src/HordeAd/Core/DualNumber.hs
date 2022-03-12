@@ -24,7 +24,7 @@ import HordeAd.Core.HasDual
 
 -- * The main dual number types
 
-data DualNumber a = D a (DualOf a)
+data DualNumber a = D a (Dual a)
 
 class (Monad m, Functor m, Applicative m, IsScalar r)
       => DeltaMonad r m | m -> r where

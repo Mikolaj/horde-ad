@@ -23,7 +23,7 @@
 -- and reducing dimensions.
 module HordeAd.Core.HasDual
   ( HasDualWithScalar, IsScalar, HasDelta
-  , HasDual(DualOf, dZero, dScale, dAdd, dVar, bindInState)
+  , HasDual(Dual, dZero, dScale, dAdd, dVar, bindInState)
   , HasRanks(..)
   , Forward(..)
   ) where
@@ -56,7 +56,7 @@ type IsScalar r = ( HasDualWithScalar r r, HasRanks r
 
 -- | A contraint stating this dual numbers with this underlying scalar
 -- are implemented via gathering delta expressions in state.
-type HasDelta r = (IsScalar r, Eq r, DualOf r ~ Delta0 r)
+type HasDelta r = (IsScalar r, Eq r, Dual r ~ Delta0 r)
 
 
 -- * Class definitions
@@ -65,80 +65,80 @@ type HasDelta r = (IsScalar r, Eq r, DualOf r ~ Delta0 r)
 -- collection of vector space-like constructors with which the sparse
 -- vector expression (`delta expressions`) are built.
 class HasDual a where
-  type DualOf a = result | result -> a
-  dZero :: DualOf a
-  dScale :: a -> DualOf a -> DualOf a
-  dAdd :: DualOf a -> DualOf a -> DualOf a
-  dVar :: DeltaId a -> DualOf a
+  type Dual a = result | result -> a
+  dZero :: Dual a
+  dScale :: a -> Dual a -> Dual a
+  dAdd :: Dual a -> Dual a -> Dual a
+  dVar :: DeltaId a -> Dual a
   type ScalarOf a
-  bindInState :: DualOf a
+  bindInState :: Dual a
               -> DeltaState (ScalarOf a)
               -> (DeltaState (ScalarOf a), DeltaId a)
 
 class HasRanks r where
-  dSumElements0 :: DualOf (Vector r) -> Int -> DualOf r
-  dIndex0 :: DualOf (Vector r) -> Int -> Int -> DualOf r
-  dDot0 :: Vector r -> DualOf (Vector r) -> DualOf r
-  dFromX0 :: DualOf (OT.Array r) -> DualOf r
-  dFromS0 :: DualOf (OS.Array '[] r) -> DualOf r
+  dSumElements0 :: Dual (Vector r) -> Int -> Dual r
+  dIndex0 :: Dual (Vector r) -> Int -> Int -> Dual r
+  dDot0 :: Vector r -> Dual (Vector r) -> Dual r
+  dFromX0 :: Dual (OT.Array r) -> Dual r
+  dFromS0 :: Dual (OS.Array '[] r) -> Dual r
 
-  dSeq1 :: Data.Vector.Vector (DualOf r) -> DualOf (Vector r)
-  dKonst1 :: DualOf r -> Int -> DualOf (Vector r)
-  dAppend1 :: DualOf (Vector r) -> Int -> DualOf (Vector r) -> DualOf (Vector r)
-  dSlice1 :: Int -> Int -> DualOf (Vector r) -> Int -> DualOf (Vector r)
-  dSumRows1 :: DualOf (Matrix r) -> Int -> DualOf (Vector r)
-  dSumColumns1 :: DualOf (Matrix r) -> Int -> DualOf (Vector r)
-  dM_VD1 :: Matrix r -> DualOf (Vector r) -> DualOf (Vector r)
-  dMD_V1 :: DualOf (Matrix r) -> Vector r -> DualOf (Vector r)
-  dFromX1 :: DualOf (OT.Array r) -> DualOf (Vector r)
+  dSeq1 :: Data.Vector.Vector (Dual r) -> Dual (Vector r)
+  dKonst1 :: Dual r -> Int -> Dual (Vector r)
+  dAppend1 :: Dual (Vector r) -> Int -> Dual (Vector r) -> Dual (Vector r)
+  dSlice1 :: Int -> Int -> Dual (Vector r) -> Int -> Dual (Vector r)
+  dSumRows1 :: Dual (Matrix r) -> Int -> Dual (Vector r)
+  dSumColumns1 :: Dual (Matrix r) -> Int -> Dual (Vector r)
+  dM_VD1 :: Matrix r -> Dual (Vector r) -> Dual (Vector r)
+  dMD_V1 :: Dual (Matrix r) -> Vector r -> Dual (Vector r)
+  dFromX1 :: Dual (OT.Array r) -> Dual (Vector r)
   dFromS1 :: forall len. KnownNat len
-          => DualOf (OS.Array '[len] r) -> DualOf (Vector r)
+          => Dual (OS.Array '[len] r) -> Dual (Vector r)
 
-  dFromRows2 :: Data.Vector.Vector (DualOf (Vector r)) -> DualOf (Matrix r)
-  dFromColumns2 :: Data.Vector.Vector (DualOf (Vector r)) -> DualOf (Matrix r)
-  dTranspose2 :: DualOf (Matrix r) -> DualOf (Matrix r)
-  dM_MD2 :: Matrix r -> DualOf (Matrix r) -> DualOf (Matrix r)
-  dMD_M2 :: DualOf (Matrix r) -> Matrix r -> DualOf (Matrix r)
-  dRowAppend2 :: DualOf (Matrix r) -> Int -> DualOf (Matrix r)
-              -> DualOf (Matrix r)
-  dColumnAppend2 :: DualOf (Matrix r) -> Int -> DualOf (Matrix r)
-                 -> DualOf (Matrix r)
-  dRowSlice2 :: Int -> Int -> DualOf (Matrix r) -> Int -> DualOf (Matrix r)
-  dColumnSlice2 :: Int -> Int -> DualOf (Matrix r) -> Int -> DualOf (Matrix r)
-  dAsRow2 :: DualOf (Vector r) -> DualOf (Matrix r)
-  dAsColumn2 :: DualOf (Vector r) -> DualOf (Matrix r)
-  dFromX2 :: DualOf (OT.Array r) -> DualOf (Matrix r)
+  dFromRows2 :: Data.Vector.Vector (Dual (Vector r)) -> Dual (Matrix r)
+  dFromColumns2 :: Data.Vector.Vector (Dual (Vector r)) -> Dual (Matrix r)
+  dTranspose2 :: Dual (Matrix r) -> Dual (Matrix r)
+  dM_MD2 :: Matrix r -> Dual (Matrix r) -> Dual (Matrix r)
+  dMD_M2 :: Dual (Matrix r) -> Matrix r -> Dual (Matrix r)
+  dRowAppend2 :: Dual (Matrix r) -> Int -> Dual (Matrix r)
+              -> Dual (Matrix r)
+  dColumnAppend2 :: Dual (Matrix r) -> Int -> Dual (Matrix r)
+                 -> Dual (Matrix r)
+  dRowSlice2 :: Int -> Int -> Dual (Matrix r) -> Int -> Dual (Matrix r)
+  dColumnSlice2 :: Int -> Int -> Dual (Matrix r) -> Int -> Dual (Matrix r)
+  dAsRow2 :: Dual (Vector r) -> Dual (Matrix r)
+  dAsColumn2 :: Dual (Vector r) -> Dual (Matrix r)
+  dFromX2 :: Dual (OT.Array r) -> Dual (Matrix r)
   dFromS2 :: forall rows cols. (KnownNat rows, KnownNat cols)
-          => DualOf (OS.Array '[rows, cols] r) -> DualOf (Matrix r)
+          => Dual (OS.Array '[rows, cols] r) -> Dual (Matrix r)
 
-  dAppendX :: DualOf (OT.Array r) -> Int -> DualOf (OT.Array r)
-           -> DualOf (OT.Array r)
-  dSliceX :: Int -> Int -> DualOf (OT.Array r) -> Int -> DualOf (OT.Array r)
-  dFrom0X :: DualOf r -> DualOf (OT.Array r)
-  dFrom1X :: DualOf (Vector r) -> DualOf (OT.Array r)
-  dFrom2X :: DualOf (Matrix r) -> Int -> DualOf (OT.Array r)
+  dAppendX :: Dual (OT.Array r) -> Int -> Dual (OT.Array r)
+           -> Dual (OT.Array r)
+  dSliceX :: Int -> Int -> Dual (OT.Array r) -> Int -> Dual (OT.Array r)
+  dFrom0X :: Dual r -> Dual (OT.Array r)
+  dFrom1X :: Dual (Vector r) -> Dual (OT.Array r)
+  dFrom2X :: Dual (Matrix r) -> Int -> Dual (OT.Array r)
   dFromSX :: forall sh. OS.Shape sh
-          => DualOf (OS.Array sh r) -> DualOf (OT.Array r)
+          => Dual (OS.Array sh r) -> Dual (OT.Array r)
 
   dAppendS :: (OS.Shape sh, KnownNat m, KnownNat n)
-           => DualOf (OS.Array (m ': sh) r) -> DualOf (OS.Array (n ': sh) r)
-           -> DualOf (OS.Array ((m + n) ': sh) r)
+           => Dual (OS.Array (m ': sh) r) -> Dual (OS.Array (n ': sh) r)
+           -> Dual (OS.Array ((m + n) ': sh) r)
   dSliceS :: forall i n k rest.
              (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
-          => DualOf (OS.Array (i + n + k ': rest) r)
-          -> DualOf (OS.Array (n ': rest) r)
-  dFrom0S :: DualOf r -> DualOf (OS.Array '[] r)
-  dFrom1S :: KnownNat n => DualOf (Vector r) -> DualOf (OS.Array '[n] r)
+          => Dual (OS.Array (i + n + k ': rest) r)
+          -> Dual (OS.Array (n ': rest) r)
+  dFrom0S :: Dual r -> Dual (OS.Array '[] r)
+  dFrom1S :: KnownNat n => Dual (Vector r) -> Dual (OS.Array '[n] r)
   dFrom2S :: forall rows cols. (KnownNat rows, KnownNat cols)
-          => DualOf (Matrix r) -> DualOf (OS.Array '[rows, cols] r)
-  dFromXS :: OS.Shape sh => DualOf (OT.Array r) -> DualOf (OS.Array sh r)
+          => Dual (Matrix r) -> Dual (OS.Array '[rows, cols] r)
+  dFromXS :: OS.Shape sh => Dual (OT.Array r) -> Dual (OS.Array sh r)
 
 
 -- * Backprop gradient method instances
 
 -- I hate this duplication:
 instance HasDual Double where
-  type DualOf Double = Delta0 Double
+  type Dual Double = Delta0 Double
   dZero = Zero0
   dScale = Scale0
   dAdd = Add0
@@ -185,8 +185,8 @@ instance HasRanks Double where
   dAppendS = AppendS
 --  dSliceS :: forall i n k rest.
 --             (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
---          => DualOf (OS.Array (i + n + k ': rest) Double)
---          -> DualOf (OS.Array (n ': rest) Double)
+--          => Dual (OS.Array (i + n + k ': rest) Double)
+--          -> Dual (OS.Array (n ': rest) Double)
   dSliceS = undefined  -- TODO: SliceS @i
   dFrom0S = From0S
   dFrom1S = From1S
@@ -195,7 +195,7 @@ instance HasRanks Double where
 
 -- I hate this duplication with this:
 instance HasDual Float where
-  type DualOf Float = Delta0 Float
+  type Dual Float = Delta0 Float
   dZero = Zero0
   dScale = Scale0
   dAdd = Add0
@@ -242,8 +242,8 @@ instance HasRanks Float where
   dAppendS = AppendS
 --  dSliceS :: forall i n k rest.
 --             (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
---          => DualOf (OS.Array (i + n + k ': rest) Float)
---          -> DualOf (OS.Array (n ': rest) Float)
+--          => Dual (OS.Array (i + n + k ': rest) Float)
+--          -> Dual (OS.Array (n ': rest) Float)
   dSliceS = undefined  -- TODO: SliceS @i
   dFrom0S = From0S
   dFrom1S = From1S
@@ -252,7 +252,7 @@ instance HasRanks Float where
 
 -- I hate this duplication:
 instance HasDual (Vector Double) where
-  type DualOf (Vector Double) = Delta1 Double
+  type Dual (Vector Double) = Delta1 Double
   dZero = Zero1
   dScale = Scale1
   dAdd = Add1
@@ -263,7 +263,7 @@ instance HasDual (Vector Double) where
 
 -- I hate this duplication with this:
 instance HasDual (Vector Float) where
-  type DualOf (Vector Float) = Delta1 Float
+  type Dual (Vector Float) = Delta1 Float
   dZero = Zero1
   dScale = Scale1
   dAdd = Add1
@@ -273,7 +273,7 @@ instance HasDual (Vector Float) where
   bindInState = bindInState1
 
 instance HasDual (Matrix Double) where
-  type DualOf (Matrix Double) = Delta2 Double
+  type Dual (Matrix Double) = Delta2 Double
   dZero = Zero2
   dScale = Scale2
   dAdd = Add2
@@ -283,7 +283,7 @@ instance HasDual (Matrix Double) where
   bindInState = bindInState2
 
 instance HasDual (Matrix Float) where
-  type DualOf (Matrix Float) = Delta2 Float
+  type Dual (Matrix Float) = Delta2 Float
   dZero = Zero2
   dScale = Scale2
   dAdd = Add2
@@ -293,7 +293,7 @@ instance HasDual (Matrix Float) where
   bindInState = bindInState2
 
 instance HasDual (OT.Array Double) where
-  type DualOf (OT.Array Double) = DeltaX Double
+  type Dual (OT.Array Double) = DeltaX Double
   dZero = ZeroX
   dScale = ScaleX
   dAdd = AddX
@@ -303,7 +303,7 @@ instance HasDual (OT.Array Double) where
   bindInState = bindInStateX
 
 instance HasDual (OT.Array Float) where
-  type DualOf (OT.Array Float) = DeltaX Float
+  type Dual (OT.Array Float) = DeltaX Float
   dZero = ZeroX
   dScale = ScaleX
   dAdd = AddX
@@ -313,7 +313,7 @@ instance HasDual (OT.Array Float) where
   bindInState = bindInStateX
 
 instance OS.Shape sh => HasDual (OS.Array sh Double) where
-  type DualOf (OS.Array sh Double) = DeltaS sh Double
+  type Dual (OS.Array sh Double) = DeltaS sh Double
   dZero = ZeroS
   dScale = ScaleS
   dAdd = AddS
@@ -324,7 +324,7 @@ instance OS.Shape sh => HasDual (OS.Array sh Double) where
                       in (st2, covertDeltaId did)
 
 instance OS.Shape sh => HasDual (OS.Array sh Float) where
-  type DualOf (OS.Array sh Float) = DeltaS sh Float
+  type Dual (OS.Array sh Float) = DeltaS sh Float
   dZero = ZeroS
   dScale = ScaleS
   dAdd = AddS
@@ -342,7 +342,7 @@ newtype Forward a = Forward a
 
 -- I hate this duplication:
 instance HasDual (Forward Double) where
-  type DualOf (Forward Double) = Double
+  type Dual (Forward Double) = Double
   dZero = 0
   dScale (Forward k) d = k * d
   dAdd d e = d + e
@@ -392,8 +392,8 @@ instance HasRanks (Forward Double) where
   dAppendS = OS.append
 --  dSliceS :: forall i n k rest.
 --             (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
---          => DualOf (OS.Array (i + n + k ': rest) Double)
---          -> DualOf (OS.Array (n ': rest) Double)
+--          => Dual (OS.Array (i + n + k ': rest) Double)
+--          -> Dual (OS.Array (n ': rest) Double)
   dSliceS = undefined  -- TODO: OS.slice @'[ '(i, n) ] d
   dFrom0S = OS.scalar
   dFrom1S = OS.fromVector
@@ -402,7 +402,7 @@ instance HasRanks (Forward Double) where
 
 -- I hate this duplication with this:
 instance HasDual (Forward Float) where
-  type DualOf (Forward Float) = Float
+  type Dual (Forward Float) = Float
   dZero = 0
   dScale (Forward k) d = k * d
   dAdd d e = d + e
@@ -452,8 +452,8 @@ instance HasRanks (Forward Float) where
   dAppendS = OS.append
 --  dSliceS :: forall i n k rest.
 --             (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
---          => DualOf (OS.Array (i + n + k ': rest) Double)
---          -> DualOf (OS.Array (n ': rest) Double)
+--          => Dual (OS.Array (i + n + k ': rest) Double)
+--          -> Dual (OS.Array (n ': rest) Double)
   dSliceS = undefined  -- TODO: OS.slice @'[ '(i, n) ] d
   dFrom0S = OS.scalar
   dFrom1S = OS.fromVector
@@ -461,7 +461,7 @@ instance HasRanks (Forward Float) where
   dFromXS = Data.Array.Convert.convert
 
 instance Num (Vector r) => HasDual (Vector (Forward r)) where
-  type DualOf (Vector (Forward r)) = Vector r
+  type Dual (Vector (Forward r)) = Vector r
   dZero = 0
   dScale k d = coerce k * d
   dAdd = (+)
@@ -470,7 +470,7 @@ instance Num (Vector r) => HasDual (Vector (Forward r)) where
   bindInState = undefined
 
 instance Num (Matrix r) => HasDual (Matrix (Forward r)) where
-  type DualOf (Matrix (Forward r)) = Matrix r
+  type Dual (Matrix (Forward r)) = Matrix r
   dZero = 0
   dScale k d = coerce k * d
   dAdd = (+)
@@ -479,7 +479,7 @@ instance Num (Matrix r) => HasDual (Matrix (Forward r)) where
   bindInState = undefined
 
 instance Num (OT.Array r) => HasDual (OT.Array (Forward r)) where
-  type DualOf (OT.Array (Forward r)) = OT.Array r
+  type Dual (OT.Array (Forward r)) = OT.Array r
   dZero = 0
 --  dScale k d = coerce k * d  -- fails
 --  dScale k d = undefined $ (k :: OT.Array (Forward r))  -- OK
@@ -492,7 +492,7 @@ instance Num (OT.Array r) => HasDual (OT.Array (Forward r)) where
   bindInState = undefined
 
 instance Num (OS.Array sh r) => HasDual (OS.Array sh (Forward r)) where
-  type DualOf (OS.Array sh (Forward r)) = OS.Array sh r
+  type Dual (OS.Array sh (Forward r)) = OS.Array sh r
   dZero = 0
   dScale k d = unsafeCoerce k * d
   dAdd = (+)

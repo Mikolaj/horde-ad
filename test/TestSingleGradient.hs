@@ -114,7 +114,7 @@ dfTests = testGroup "Simple df application tests" $
     ]
 
 dfastForwardShow
-  :: (IsScalar (Forward r), DualOf (Forward r) ~ r)
+  :: (IsScalar (Forward r), Dual (Forward r) ~ r)
   => (DualNumberVariables (Forward r)
       -> DeltaMonadForward (Forward r) (DualNumber (Forward r)))
   -> [r]

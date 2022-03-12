@@ -32,21 +32,21 @@ import HordeAd.Core.HasDual
 
 type DualNumberVariables r =
   ( Domain r
-  , Data.Vector.Vector (DualOf r)
+  , Data.Vector.Vector (Dual r)
   , DomainV r
-  , Data.Vector.Vector (DualOf (Vector r))
+  , Data.Vector.Vector (Dual (Vector r))
   , DomainL r
-  , Data.Vector.Vector (DualOf (Matrix r))
+  , Data.Vector.Vector (Dual (Matrix r))
   , DomainX r
-  , Data.Vector.Vector (DualOf (OT.Array r))
+  , Data.Vector.Vector (Dual (OT.Array r))
   )
 
 makeDualNumberVariables
   :: Domains r
-  -> ( Data.Vector.Vector (DualOf r)
-     , Data.Vector.Vector (DualOf (Vector r))
-     , Data.Vector.Vector (DualOf (Matrix r))
-     , Data.Vector.Vector (DualOf (OT.Array r)) )
+  -> ( Data.Vector.Vector (Dual r)
+     , Data.Vector.Vector (Dual (Vector r))
+     , Data.Vector.Vector (Dual (Matrix r))
+     , Data.Vector.Vector (Dual (OT.Array r)) )
   -> DualNumberVariables r
 {-# INLINE makeDualNumberVariables #-}
 makeDualNumberVariables (params, paramsV, paramsL, paramsX) (vs, vsV, vsL, vsX)
