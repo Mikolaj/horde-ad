@@ -6,6 +6,7 @@ module HordeAd.Core.Engine
   ( Domain, DomainV, DomainL, DomainX, Domains
   , DeltaMonadValue, primalValueGeneric, primalValue
   , DeltaMonadGradient, generalDf, df, generalDforward, prettyPrintDf
+  , DeltaMonadForward, generalDfastForward, dfastForward
   , generateDeltaVars, initializerFixed
   ) where
 
@@ -37,7 +38,7 @@ import HordeAd.Core.DualNumber (DeltaMonad (..), DualNumber (..))
 import HordeAd.Core.HasDual
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 
--- * First comes the dummy monad implementation that does not collect deltas.
+-- * The dummy monad implementation that does not collect deltas.
 -- It's intended for efficiently calculating the value of the function only.
 
 -- An overcomplicated
@@ -47,7 +48,6 @@ newtype DeltaMonadValue r a = DeltaMonadValue
   { runDeltaMonadValue :: Identity a }
   deriving (Monad, Functor, Applicative)
 
--- This the only place that requires @UndecidableInstances@.
 instance IsScalar r => DeltaMonad r (DeltaMonadValue r) where
   returnLet (D u _u') = DeltaMonadValue $ Identity $ D u dZero
 
@@ -79,7 +79,7 @@ primalValue f parameters =
   let D value _ = primalValueGeneric f parameters
   in value
 
--- * Here's the fully-fledged monad implementation for gradients
+-- * The fully-fledged monad implementation for gradients
 -- and the code that uses it to compute single gradients and to do
 -- gradient descent.
 
@@ -127,6 +127,8 @@ df f parameters =
       variables = makeDualNumberVariables parameters varDeltas
   in generalDf variables f
 
+-- This function uses @DeltaMonadGradient@ for an inefficient computation
+-- of forward derivaties. See @generalDfastForward@ for an efficient variant.
 generalDforward
   :: HasDelta r
   => DualNumberVariables r
@@ -150,6 +152,39 @@ generalDforward variables@(params, _, paramsV, _, paramsL, _, paramsX, _)
       (D value d, st) = runState (runDeltaMonadGradient (f variables))
                                  initialState
   in (evalBindingsForward st d direction, value)
+
+
+-- * A monad for efficiently computing forward derivatives.
+
+newtype DeltaMonadForward r a = DeltaMonadForward
+  { runDeltaMonadForward :: Identity a }
+  deriving (Monad, Functor, Applicative)
+
+instance IsScalar r => DeltaMonad r (DeltaMonadForward r) where
+  returnLet (D u u') = DeltaMonadForward $ Identity $ D u u'
+
+-- This the efficient variant of forward derivative computation.
+generalDfastForward
+  :: DualNumberVariables r
+  -> (DualNumberVariables r -> DeltaMonadForward r (DualNumber r))
+  -> (DualOf r, r)
+{-# INLINE generalDfastForward #-}
+generalDfastForward variables f =
+  let D value d = runIdentity $ runDeltaMonadForward $ f variables
+  in (d, value)
+
+dfastForward
+  :: IsScalar r
+  => (DualNumberVariables r -> DeltaMonadForward r (DualNumber r))
+  -> Domains r
+  -> (DualOf r, r)
+dfastForward f parameters =
+  let varDeltas = generateDeltaVars parameters
+      variables = makeDualNumberVariables parameters varDeltas
+  in generalDfastForward variables f
+
+
+-- * Additional mechanisms
 
 prettyPrintDf :: forall r. (Show r, Show (DualOf r), IsScalar r)
               => Bool
