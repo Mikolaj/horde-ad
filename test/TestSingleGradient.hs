@@ -113,13 +113,24 @@ dfTests = testGroup "Simple df application tests" $
     , ("scalarSum", vec_omit_scalarSum_aux, [1, 1, 3], ([1.0,1.0,1.0],5.0))
     ]
 
+dfastForwardShow
+  :: (IsScalar (Forward r), DualOf (Forward r) ~ r)
+  => (DualNumberVariables (Forward r)
+      -> DeltaMonadForward (Forward r) (DualNumber (Forward r)))
+  -> [r]
+  -> (r, r)
+dfastForwardShow f deltaInput =
+  let (derivative, Forward value) =
+        dfastForward f ( V.fromList $ map Forward deltaInput
+                       , V.empty, V.empty, V.empty )
+  in (derivative, value)
+
 dfTestsDouble :: TestTree
 dfTestsDouble = testGroup "Simple df (Forward Double) application tests" $
   map (\(txt, f, v, expected) ->
-        testCase txt $ dfShow f v @?= expected)
-    [ ("fquad", fquad, [2 :: Double, 3], ([4.0,6.0],18.0))
+        testCase txt $ dfastForwardShow f v @?= expected)
+    [ ("fquad", fquad, [2 :: Double, 3], (7, 18.0))
     ]
-    -- Forward Double, via more general df or a separate function
 
 vec_omit_scalarSum_aux :: DeltaMonad Float m
                        => DualNumberVariables Float -> m (DualNumber Float)

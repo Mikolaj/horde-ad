@@ -347,7 +347,7 @@ instance HasDual (Forward Double) where
   dScale (Forward k) d = k * d
   dAdd d e = d + e
   dVar = undefined  -- no variables are needed, because no blowup possible
-  type ScalarOf (Forward Double) = Double
+  type ScalarOf (Forward Double) = Forward Double
   bindInState = undefined  -- no variables, so no bindings
 
 instance HasRanks (Forward Double) where
@@ -407,7 +407,7 @@ instance HasDual (Forward Float) where
   dScale (Forward k) d = k * d
   dAdd d e = d + e
   dVar = undefined
-  type ScalarOf (Forward Float) = Float
+  type ScalarOf (Forward Float) = Forward Float
   bindInState = undefined
 
 instance HasRanks (Forward Float) where
@@ -466,7 +466,7 @@ instance Num (Vector r) => HasDual (Vector (Forward r)) where
   dScale k d = coerce k * d
   dAdd = (+)
   dVar = undefined
-  type ScalarOf (Vector (Forward r)) = r
+  type ScalarOf (Vector (Forward r)) = Forward r
   bindInState = undefined
 
 instance Num (Matrix r) => HasDual (Matrix (Forward r)) where
@@ -475,7 +475,7 @@ instance Num (Matrix r) => HasDual (Matrix (Forward r)) where
   dScale k d = coerce k * d
   dAdd = (+)
   dVar = undefined
-  type ScalarOf (Matrix (Forward r)) = r
+  type ScalarOf (Matrix (Forward r)) = Forward r
   bindInState = undefined
 
 instance Num (OT.Array r) => HasDual (OT.Array (Forward r)) where
@@ -488,7 +488,7 @@ instance Num (OT.Array r) => HasDual (OT.Array (Forward r)) where
   dScale k d = unsafeCoerce k * d
   dAdd = (+)
   dVar = undefined
-  type ScalarOf (OT.Array (Forward r)) = r
+  type ScalarOf (OT.Array (Forward r)) = Forward r
   bindInState = undefined
 
 instance Num (OS.Array sh r) => HasDual (OS.Array sh (Forward r)) where
@@ -497,5 +497,5 @@ instance Num (OS.Array sh r) => HasDual (OS.Array sh (Forward r)) where
   dScale k d = unsafeCoerce k * d
   dAdd = (+)
   dVar = undefined
-  type ScalarOf (OS.Array sh (Forward r)) = r
+  type ScalarOf (OS.Array sh (Forward r)) = Forward r
   bindInState = undefined
