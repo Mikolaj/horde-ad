@@ -22,7 +22,8 @@ import qualified Numeric.LinearAlgebra as HM
 import           Text.Show.Pretty (ppShow)
 
 import HordeAd.Core.Delta
-  ( DeltaState (..)
+  ( Delta0
+  , DeltaState (..)
   , Domain
   , DomainL
   , DomainV
@@ -49,7 +50,7 @@ newtype DeltaMonadValue r a = DeltaMonadValue
 
 -- This the only place that requires @UndecidableInstances@.
 instance IsScalar r => DeltaMonad r (DeltaMonadValue r) where
-  returnLet (D u _u') = DeltaMonadValue $ Identity $ D u zeroD
+  returnLet (D u _u') = DeltaMonadValue $ Identity $ D u dZero
 
 -- The general case, needed for old, hacky tests before 'Delta' extension.
 --
@@ -60,7 +61,7 @@ primalValueGeneric :: IsScalar r
                    -> a
 {-# INLINE primalValueGeneric #-}
 primalValueGeneric f (params, paramsV, paramsL, paramsX) =
-  let replicateZeros p = V.replicate (V.length p) zeroD
+  let replicateZeros p = V.replicate (V.length p) dZero
       variables = makeDualNumberVariables
                     (params, paramsV, paramsL, paramsX)
                     ( replicateZeros params  -- dummy
@@ -92,11 +93,11 @@ instance IsScalar r => DeltaMonad r (DeltaMonadGradient r) where
     st <- get
     let (!stNew, !dId) = bindInState u' st
     put stNew
-    return $! D u (varD dId)
+    return $! D u (dVar dId)
 
 -- The functions in which @generalDf@ inlines and which are used in client code
 -- are not inlined there, so the bloat is limited.
-generalDf :: (Eq r, IsScalar r)
+generalDf :: (Eq r, IsScalar r, DualOf r ~ Delta0 r)
           => DualNumberVariables r
           -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
           -> (Domains r, r)
@@ -118,7 +119,7 @@ generalDf variables@(params, _, paramsV, _, paramsL, _, paramsX, _) f =
       gradient = evalBindings dim dimV dimL dimX st d
   in (gradient, value)
 
-df :: (Eq r, IsScalar r)
+df :: (Eq r, IsScalar r, DualOf r ~ Delta0 r)
    => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
    -> Domains r
    -> (Domains r, r)
@@ -128,7 +129,7 @@ df f parameters =
   in generalDf variables f
 
 generalDforward
-  :: IsScalar r
+  :: (IsScalar r, DualOf r ~ Delta0 r)
   => DualNumberVariables r
   -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
   -> Domains r
@@ -151,7 +152,7 @@ generalDforward variables@(params, _, paramsV, _, paramsL, _, paramsX, _)
                                  initialState
   in (evalBindingsForward st d direction, value)
 
-prettyPrintDf :: forall r. (Show r, IsScalar r)
+prettyPrintDf :: forall r. (Show r, Show (DualOf r), IsScalar r)
               => Bool
               -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
               -> Domains r
@@ -187,7 +188,7 @@ generateDeltaVars :: IsScalar r
                      , Data.Vector.Vector (DualOf (Matrix r))
                      , Data.Vector.Vector (DualOf (OT.Array r)) )
 generateDeltaVars (params, paramsV, paramsL, paramsX) =
-  let vVar p = V.generate (V.length p) (varD . toDeltaId)
+  let vVar p = V.generate (V.length p) (dVar . toDeltaId)
       !v0 = vVar params
       !v1 = vVar paramsV
       !v2 = vVar paramsL

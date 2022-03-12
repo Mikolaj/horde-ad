@@ -10,6 +10,7 @@ import Prelude
 import Control.Monad (foldM)
 import Numeric.LinearAlgebra (Vector)
 
+import HordeAd.Core.Delta (Delta0)
 import HordeAd.Core.DualNumber (DualNumber (..))
 import HordeAd.Core.Engine
 import HordeAd.Core.HasDual
@@ -64,7 +65,8 @@ sgdBatch seed0 batchSize gamma f trainingData parameters0 nParameters =
     in go g2 rest parametersNew valueNew
 
 sgdAdamBatch
-  :: forall r a. (Eq r, Floating r, IsScalar r, Floating (Vector r))
+  :: forall r a.
+     (Eq r, Floating r, IsScalar r, DualOf r ~ Delta0 r, Floating (Vector r))
   => Int  -- ^ batch size
   -> (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
   -> [a]
@@ -74,7 +76,8 @@ sgdAdamBatch
 sgdAdamBatch = sgdAdamBatchArgs defaultArgsAdam
 
 sgdAdamBatchArgs
-  :: forall r a. (Eq r, Floating r, IsScalar r, Floating (Vector r))
+  :: forall r a.
+     (Eq r, Floating r, IsScalar r, DualOf r ~ Delta0 r, Floating (Vector r))
   => ArgsAdam r
   -> Int  -- ^ batch size
   -> (a -> DualNumberVariables r
@@ -110,7 +113,7 @@ sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
 -- | Relatively Smart Gradient Descent.
 -- Based on @gradientDescent@ from package @ad@ which is in turn based
 -- on the one from the VLAD compiler.
-gdSmart :: forall r. (Ord r, Fractional r, IsScalar r)
+gdSmart :: forall r. (Ord r, Fractional r, IsScalar r, DualOf r ~ Delta0 r)
         => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
         -> Int  -- ^ requested number of iterations
         -> Domains r  -- ^ initial parameters

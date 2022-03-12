@@ -1,5 +1,6 @@
-{-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances,
-             GeneralizedNewtypeDeriving, TypeFamilyDependencies #-}
+{-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, DataKinds, FlexibleInstances,
+             GeneralizedNewtypeDeriving, TypeFamilyDependencies,
+             TypeOperators #-}
 -- | The second component of dual numbers, @Delta@, with it's evaluation
 -- function. Neel Krishnaswami calls that "sparse vector expressions",
 -- and indeed even in the simplest case of a function defined on scalars only,
@@ -33,6 +34,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Coerce (coerce)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
+import           GHC.TypeLits (KnownNat, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 
@@ -43,7 +45,7 @@ type HasDualWithScalar a r = (HasDual a, ScalarOf a ~ r)
 
 -- | A mega-shorthand for a bundle of connected type constraints.
 type IsScalar r = ( HasDualWithScalar r r, HasRanks r
-                  , HasDual  (Vector r), HasDual (Matrix r)
+                  , HasDual (Vector r), HasDual (Matrix r), HasDual (OT.Array r)
                   , ScalarOf (Vector r) ~ r, ScalarOf (Matrix r) ~ r
                   , Numeric r, Num (Vector r), Num (Matrix r) )
 
@@ -95,8 +97,28 @@ class HasRanks r where
   dFromX2 :: DualOf (OT.Array r) -> DualOf (Matrix r)
   dFromS2 :: DualOf (OS.Array '[rows, cols] r) -> DualOf (Matrix r)
 
-  -- TODO: tensors
+  dAppendX :: DualOf (OT.Array r) -> Int -> DualOf (OT.Array r)
+           -> DualOf (OT.Array r)
+  dSliceX :: Int -> Int -> DualOf (OT.Array r) -> Int -> DualOf (OT.Array r)
+  dFrom0X :: DualOf r -> DualOf (OT.Array r)
+  dFrom1X :: DualOf (Vector r) -> DualOf (OT.Array r)
+  dFrom2X :: DualOf (Matrix r) -> Int -> DualOf (OT.Array r)
+  dFromSX :: DualOf (OS.Array sh r) -> DualOf (OT.Array r)
 
+  dAppendS :: (OS.Shape sh, KnownNat m, KnownNat n)
+           => DualOf (OS.Array (m ': sh) r) -> DualOf (OS.Array (n ': sh) r)
+           -> DualOf (OS.Array ((m + n) ': sh) r)
+  dSliceS :: forall i n k rest.
+             (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
+          => DualOf (OS.Array (i + n + k ': rest) r)
+          -> DualOf (OS.Array (n ': rest) r)
+  dFrom0S :: DualOf r -> DualOf (OS.Array '[] r)
+  dFrom1S :: DualOf (Vector r) -> DualOf (OS.Array '[n] r)
+  dFrom2S :: forall rows cols. KnownNat cols
+          => DualOf (Matrix r) -> DualOf (OS.Array '[rows, cols] r)
+  dFromXS :: DualOf (OT.Array r) -> DualOf (OS.Array sh r)
+
+-- I hate this duplication:
 instance HasDual Double where
   type DualOf Double = Delta0 Double
   dZero = Zero0
@@ -114,6 +136,7 @@ instance HasRanks Double where
   dFromX0 = FromX0
   dFromS0 = FromS0
 
+-- I hate this duplication with this:
 instance HasDual Float where
   type DualOf Float = Delta0 Float
   dZero = Zero0
@@ -123,6 +146,13 @@ instance HasDual Float where
   type ScalarOf Float = Float
   {-# INLINE bindInState #-}
   bindInState = bindInState0
+
+instance HasRanks Float where
+  dSumElements0 = SumElements0
+  dIndex0 = Index0
+  dDot0 = Dot0
+  dFromX0 = FromX0
+  dFromS0 = FromS0
 
 -- I hate this duplication:
 instance HasDual (Vector Double) where

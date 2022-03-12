@@ -17,7 +17,7 @@ import           Data.List.Index (imap)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
-import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, (#>), (<.>))
+import           Numeric.LinearAlgebra (Matrix, Vector, (#>), (<.>))
 import qualified Numeric.LinearAlgebra as HM
 
 import HordeAd.Core.HasDual
@@ -293,33 +293,33 @@ fromS2 :: forall rows cols r. (IsScalar r, KnownNat rows, KnownNat cols)
 fromS2 (D u u') = D (HM.reshape (valueOf @cols) $ OS.toVector u)
                     (dFromS2 u')
 
-{-
 -- * Non-monadic operations resulting in an arbitrary tensor
 
 -- Warning: not tested nor benchmarked.
 
-appendX :: Numeric r
+appendX :: IsScalar r
         => DualNumber (OT.Array r) -> DualNumber (OT.Array r)
         -> DualNumber (OT.Array r)
 appendX (D u u') (D v v') =
   D (u `OT.append` v) (dAppendX u' (head $ OT.shapeL u) v')
 
-sliceX :: Int -> Int -> DualNumber (OT.Array r)
-       -> DualNumber (OT.Array r)
+sliceX :: IsScalar r
+       => Int -> Int -> DualNumber (OT.Array r) -> DualNumber (OT.Array r)
 sliceX i n (D u u') = D (OT.slice [(i, n)] u)
                         (dSliceX i n u' (head $ OT.shapeL u))
 
 from0X :: IsScalar r => DualNumber r -> DualNumber (OT.Array r)
 from0X (D u u') = D (OT.scalar u) (dFrom0X u')
 
-from1X :: Numeric r => DualNumber (Vector r) -> DualNumber (OT.Array r)
+from1X :: IsScalar r => DualNumber (Vector r) -> DualNumber (OT.Array r)
 from1X (D u u') = D (OT.fromVector [V.length u] u) (dFrom1X u')
 
-from2X :: Numeric r => DualNumber (Matrix r) -> DualNumber (OT.Array r)
+from2X :: IsScalar r => DualNumber (Matrix r) -> DualNumber (OT.Array r)
 from2X (D u u') = D (OT.fromVector [HM.rows u, HM.cols u] $ HM.flatten u)
                     (dFrom2X u' ( HM.cols u))
 
-fromSX :: OS.Shape sh => DualNumber (OS.Array sh r) -> DualNumber (OT.Array r)
+fromSX :: (IsScalar r, OS.Shape sh)
+       => DualNumber (OS.Array sh r) -> DualNumber (OT.Array r)
 fromSX (D u u') = D (Data.Array.Convert.convert u) (dFromSX u')
 
 
@@ -327,33 +327,32 @@ fromSX (D u u') = D (Data.Array.Convert.convert u) (dFromSX u')
 
 -- Warning: not tested nor benchmarked.
 
-appendS :: (Numeric r, OS.Shape sh, KnownNat m, KnownNat n)
+appendS :: (IsScalar r, OS.Shape sh, KnownNat m, KnownNat n)
         => DualNumber (OS.Array (m ': sh) r)
         -> DualNumber (OS.Array (n ': sh) r)
         -> DualNumber (OS.Array ((m + n) ': sh) r)
 appendS (D u u') (D v v') = D (u `OS.append` v) (dAppendS u' v')
 
 sliceS :: forall i n k rest r.
-          (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
+          (IsScalar r, KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
        => DualNumber (OS.Array (i + n + k ': rest) r)
        -> DualNumber (OS.Array (n ': rest) r)
-sliceS (D u u') = D (OS.slice @'[ '(i, n) ] u) (dSliceS @i u')
+sliceS (D u u') = D (OS.slice @'[ '(i, n) ] u) (dSliceS @r @i u')
 
 from0S :: IsScalar r => DualNumber r -> DualNumber (OS.Array '[] r)
 from0S (D u u') = D (OS.scalar u) (dFrom0S u')
 
-from1S :: (Numeric r, KnownNat n)
+from1S :: (IsScalar r, KnownNat n)
        => DualNumber (Vector r) -> DualNumber (OS.Array '[n] r)
 from1S (D u u') = D (OS.fromVector u) (dFrom1S u')
 
-from2S :: (Numeric r, KnownNat rows, KnownNat cols)
+from2S :: (IsScalar r, KnownNat rows, KnownNat cols)
        => DualNumber (Matrix r) -> DualNumber (OS.Array '[rows, cols] r)
 from2S (D u u') = D (OS.fromVector $ HM.flatten u) (dFrom2S u')
 
-fromXS :: OS.Shape sh
+fromXS :: (IsScalar r, OS.Shape sh)
        => DualNumber (OT.Array r) -> DualNumber (OS.Array sh r)
 fromXS (D u u') = D (Data.Array.Convert.convert u) (dFromXS u')
--}
 
 -- * General monadic operations, for any scalar rank
 

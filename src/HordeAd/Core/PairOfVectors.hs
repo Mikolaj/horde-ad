@@ -22,8 +22,7 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Vector)
 
-import HordeAd.Core.Delta
-  (DeltaS (FromXS), Domain, DomainL, DomainV, DomainX, Domains)
+import HordeAd.Core.Delta (Domain, DomainL, DomainV, DomainX, Domains)
 import HordeAd.Core.DualNumber (DualNumber (..))
 import HordeAd.Core.HasDual
 
@@ -69,10 +68,10 @@ varL (_, _, _, _, vValue, vVar, _, _) i = D (vValue V.! i) (vVar V.! i)
 varX :: DualNumberVariables r -> Int -> DualNumber (OT.Array r)
 varX (_, _, _, _, _, _, vValue, vVar) i = D (vValue V.! i) (vVar V.! i)
 
-varS :: OS.Shape sh
+varS :: (IsScalar r, OS.Shape sh)
      => DualNumberVariables r -> Int -> DualNumber (OS.Array sh r)
 varS (_, _, _, _, _, _, vValue, vVar) i =
-  D (Data.Array.Convert.convert $ vValue V.! i) (FromXS $ vVar V.! i)
+  D (Data.Array.Convert.convert $ vValue V.! i) (dFromXS $ vVar V.! i)
 
 ifoldMDelta' :: forall m a r. (Monad m, IsScalar r)
              => (a -> Int -> DualNumber r -> m a)
