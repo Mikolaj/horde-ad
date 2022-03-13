@@ -22,12 +22,13 @@ import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 -- by Atilim Gunes Baydin, Barak A. Pearlmutter, Don Syme, Frank Wood,
 -- Philip Torr.
 --
--- Note that we can't generalize this to use either @generalDforward@
+-- Note that we can't generalize this to use either @generalDfastForward@
 -- or @generalDforward@, because the optimized call to @updateWithGradient@
 -- below would not be possible with the common API for obtaining gradients
--- at at least twice more allocations would be done there. With small
--- mini-batch sizes this matters, especially for optimal forward gradient,
--- where there's no overhead from storing and evaluating delta-expressions.
+-- and at least twice more allocations would be done there. With small
+-- mini-batch sizes this matters, especially for optimal forward gradient
+-- implementation @generalDfastForward@, where there's no overhead
+-- from storing and evaluating delta-expressions.
 --
 -- An option: vectorize and only then take the mean of the vector of results
 -- and also parallelize taking advantage of vectorization (but currently

@@ -73,7 +73,7 @@ instance (Floating r, HasDual r) => Floating (DualNumber r) where
   log (D u u') = D (log u) (dScale (recip u) u')
   sqrt = undefined  -- TODO
   D u u' ** D v v' = D (u ** v) (dAdd (dScale (v * (u ** (v - 1))) u')
-                                     (dScale ((u ** v) * log u) v'))
+                                      (dScale ((u ** v) * log u) v'))
   logBase = undefined  -- TODO
   sin (D u u') = D (sin u) (dScale (cos u) u')
   cos (D u u') = D (cos u) (dScale (- (sin u)) u')

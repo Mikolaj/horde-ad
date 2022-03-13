@@ -54,7 +54,7 @@ type IsScalar r = ( HasDualWithScalar r r, HasRanks r
                   , ScalarOf (Vector r) ~ r, ScalarOf (Matrix r) ~ r
                   , Numeric r, Num (Vector r), Num (Matrix r) )
 
--- | A contraint stating this dual numbers with this underlying scalar
+-- | A constraint stating dual numbers with this underlying scalar
 -- are implemented via gathering delta expressions in state.
 type HasDelta r = (IsScalar r, Eq r, Dual r ~ Delta0 r)
 
