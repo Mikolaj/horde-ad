@@ -343,7 +343,6 @@ buildVectors st deltaTopLevel = do
         Add0 d e -> eval0 r d >> eval0 r e
         Var0 (DeltaId i) -> VM.modify store0 (+ r) i
 
-        Dot0 vr vd -> eval1 (HM.scale r vr) vd
         SumElements0 vd n -> eval1 (HM.konst r n) vd
         Index0 (Var1 (DeltaId i)) ix k -> do
           let f v = if V.null v
@@ -355,6 +354,9 @@ buildVectors st deltaTopLevel = do
             -- which involves copying the whole vector, so it's just
             -- several times faster (same allocation, but not adding vectors)
         Index0 d ix k -> eval1 (HM.konst 0 k V.// [(ix, r)]) d
+
+        Dot0 vr vd -> eval1 (HM.scale r vr) vd
+
         FromX0 d -> evalX (OT.scalar r) d
         FromS0 d -> evalS (OS.scalar r) d
       eval1 :: Vector r -> Delta1 r -> ST s ()
@@ -369,12 +371,13 @@ buildVectors st deltaTopLevel = do
         Append1 d k e -> eval1 (V.take k r) d >> eval1 (V.drop k r) e
         Slice1 i n d len ->
           eval1 (HM.konst 0 i V.++ r V.++ HM.konst 0 (len - i - n)) d
+        SumRows1 dm cols -> eval2 (MO.asColumn r cols) dm
+        SumColumns1 dm rows -> eval2 (MO.asRow r rows) dm
+
         M_VD1 m dRow ->
           mapM_ (`eval1` dRow)
                 (MO.toRows (MO.MatrixOuter (Just m) (Just r) Nothing))
         MD_V1 md row -> eval2 (MO.MatrixOuter Nothing (Just r) (Just row)) md
-        SumRows1 dm cols -> eval2 (MO.asColumn r cols) dm
-        SumColumns1 dm rows -> eval2 (MO.asRow r rows) dm
 
         FromX1 d -> evalX (OT.fromVector [V.length r] r) d
         FromS1 d -> evalS (OS.fromVector r) d
@@ -400,8 +403,6 @@ buildVectors st deltaTopLevel = do
 --        zipWithM_ (\rCol col ->
 --                     eval2 (MO.MatrixOuter Nothing (Just rCol) (Just col)) md)
 --                  (MO.toColumns r) (HM.toColumns m)
-        AsRow2 dRow -> mapM_ (`eval1` dRow) (MO.toRows r)
-        AsColumn2 dCol -> mapM_ (`eval1` dCol) (MO.toColumns r)
         RowAppend2 d k e -> eval2 (MO.takeRows k r) d
                             >> eval2 (MO.dropRows k r) e
         ColumnAppend2 d k e -> eval2 (MO.takeColumns k r) d
@@ -420,6 +421,9 @@ buildVectors st deltaTopLevel = do
                     `MO.columnAppend` r
                     `MO.columnAppend` MO.konst 0 rows (cols - i - n))
                    d
+
+        AsRow2 dRow -> mapM_ (`eval1` dRow) (MO.toRows r)
+        AsColumn2 dCol -> mapM_ (`eval1` dCol) (MO.toColumns r)
 
         FromX2 d -> evalX (OT.fromVector [MO.rows r, MO.cols r]
                                          (V.concat $ MO.toRows r)) d
@@ -527,9 +531,10 @@ evalBindingsForward st deltaTopLevel (params0, paramsV0, paramsL0, paramsX0) =
         Add0 d e -> eval0 parameters d + eval0 parameters e
         Var0 (DeltaId i) -> params V.! i
 
-        Dot0 vr vd -> vr <.> eval1 parameters vd
         SumElements0 vd _n -> HM.sumElements $ eval1 parameters vd
         Index0 d ix _k -> eval1 parameters d V.! ix
+
+        Dot0 vr vd -> vr <.> eval1 parameters vd
 
         FromX0 d -> OT.unScalar $ evalX parameters d
         FromS0 d -> OS.unScalar $ evalS parameters d
@@ -544,12 +549,13 @@ evalBindingsForward st deltaTopLevel (params0, paramsV0, paramsL0, paramsX0) =
         Konst1 d n -> HM.konst (eval0 parameters d) n
         Append1 d _k e -> eval1 parameters d V.++ eval1 parameters e
         Slice1 i n d _len -> V.slice i n $ eval1 parameters d
-        M_VD1 m dRow -> m #> eval1 parameters dRow
-        MD_V1 md row -> eval2 parameters md #> row
         SumRows1 dm _cols ->
           V.fromList $ map HM.sumElements $ HM.toRows $ eval2 parameters dm
         SumColumns1 dm _rows ->
           V.fromList $ map HM.sumElements $ HM.toColumns $ eval2 parameters dm
+
+        M_VD1 m dRow -> m #> eval1 parameters dRow
+        MD_V1 md row -> eval2 parameters md #> row
 
         FromX1 d -> OT.toVector $ evalX parameters d
         FromS1 d -> OS.toVector $ evalS parameters d
@@ -567,14 +573,15 @@ evalBindingsForward st deltaTopLevel (params0, paramsV0, paramsL0, paramsX0) =
         Transpose2 md -> HM.tr' $ eval2 parameters md
         M_MD2 m md -> m HM.<> eval2 parameters md
         MD_M2 md m -> eval2 parameters md HM.<> m
-        AsRow2 dRow -> HM.asRow $ eval1 parameters dRow  -- TODO: risky
-        AsColumn2 dCol -> HM.asColumn $ eval1 parameters dCol  -- TODO: risky
         RowAppend2 d _k e -> eval2 parameters d HM.=== eval2 parameters e
         ColumnAppend2 d _k e -> eval2 parameters d HM.||| eval2 parameters e
         RowSlice2 i n d _rows ->
           HM.takeRows n $ HM.dropRows i $ eval2 parameters d
         ColumnSlice2 i n d _cols ->
           HM.takeColumns n $ HM.dropColumns i $ eval2 parameters d
+
+        AsRow2 dRow -> HM.asRow $ eval1 parameters dRow  -- TODO: risky
+        AsColumn2 dCol -> HM.asColumn $ eval1 parameters dCol  -- TODO: risky
 
         FromX2 d ->
           let t = evalX parameters d
