@@ -16,8 +16,8 @@ import HordeAd hiding (sumElementsVectorOfDelta)
 
 testTrees :: [TestTree]
 testTrees = [ dfTests
-            , dfTestsDouble
             , vectorTests
+            , dfTestsForward
             , readmeTests
             , readmeTestsV
             ]
@@ -114,22 +114,6 @@ dfTests = testGroup "Simple df application tests" $
     , ("scalarSum", vec_omit_scalarSum_aux, [1, 1, 3], ([1.0,1.0,1.0],5.0))
     ]
 
-dfastForwardShow
-  :: (OT.Storable r, Dual (Forward r) ~ r)
-  => (DualNumberVariables (Forward r)
-      -> DeltaMonadForward (Forward r) (DualNumber (Forward r)))
-  -> [r]
-  -> (r, r)
-dfastForwardShow f deltaInput =
-  dfastForward f (V.fromList deltaInput, V.empty, V.empty, V.empty)
-
-dfTestsDouble :: TestTree
-dfTestsDouble = testGroup "Simple df (Forward Double) application tests" $
-  map (\(txt, f, v, expected) ->
-        testCase txt $ dfastForwardShow f v @?= expected)
-    [ ("fquad", fquad, [2 :: Double, 3], (26.0, 18.0))
-    ]
-
 vec_omit_scalarSum_aux :: DeltaMonad Float m
                        => DualNumberVariables Float -> m (DualNumber Float)
 vec_omit_scalarSum_aux vec = returnLet $ foldlDelta' (+) 0 vec
@@ -158,6 +142,22 @@ vectorTests = testGroup "Simple df application to vectors tests" $
         testCase txt $ dfVectorShow f v @?= expected)
     [ ("sumElementsV", sumElementsV, [[1, 1, 3]], ([[1.0,1.0,1.0]],5.0))
     , ("altSumElementsV", altSumElementsV, [[1, 1, 3]], ([[1.0,1.0,1.0]],5.0))
+    ]
+
+dfastForwardShow
+  :: (OT.Storable r, Dual (Forward r) ~ r)
+  => (DualNumberVariables (Forward r)
+      -> DeltaMonadForward (Forward r) (DualNumber (Forward r)))
+  -> [r]
+  -> (r, r)
+dfastForwardShow f deltaInput =
+  dfastForward f (V.fromList deltaInput, V.empty, V.empty, V.empty)
+
+dfTestsForward :: TestTree
+dfTestsForward = testGroup "Simple df (Forward Double) application tests" $
+  map (\(txt, f, v, expected) ->
+        testCase txt $ dfastForwardShow f v @?= expected)
+    [ ("fquad", fquad, [2 :: Double, 3], (26.0, 18.0))
     ]
 
 -- The input vector is meant to have 3 elements, the output vector
