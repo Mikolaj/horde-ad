@@ -137,7 +137,7 @@ class HasRanks r where
 
 -- * Backprop gradient method instances
 
--- I hate this duplication:
+-- I hate this duplication.
 instance HasDual Double where
   type Dual Double = Delta0 Double
   dZero = Zero0
@@ -338,7 +338,6 @@ instance OS.Shape sh => HasDual (OS.Array sh Float) where
 
 -- * Alternative instances: forward derivatives computed on the spot
 
--- I hate this duplication:
 instance HasDual (Forward Double) where
   type Dual (Forward Double) = Double
   dZero = 0
@@ -348,57 +347,6 @@ instance HasDual (Forward Double) where
   type ScalarOf (Forward Double) = Forward Double
   bindInState = undefined  -- no variables, so no bindings
 
-instance HasRanks (Forward Double) where
-  dSumElements0 vd _ = HM.sumElements vd
-  dIndex0 d ix _ = d V.! ix
-  dDot0 vr vd = coerce vr HM.<.> vd
-  dFromX0 = OT.unScalar
-  dFromS0 = OS.unScalar
-  dSeq1 = V.convert
-  dKonst1 = HM.konst
-  dAppend1 d _k e = d V.++ e
-  dSlice1 i n d _len = V.slice i n d
-  dM_VD1 m dRow = coerce m HM.#> dRow
-  dMD_V1 md row = md HM.#> coerce row
-  dSumRows1 dm _cols = V.fromList $ map HM.sumElements $ HM.toRows dm
-  dSumColumns1 dm _rows = V.fromList $ map HM.sumElements $ HM.toColumns dm
-  dFromX1 = OT.toVector
-  dFromS1 = OS.toVector
-  dFromRows2 = HM.fromRows . V.toList
-  dFromColumns2 = HM.fromColumns . V.toList
-  dTranspose2 = HM.tr'
-  dM_MD2 m md = coerce m HM.<> md
-  dMD_M2 md m = md HM.<> coerce m
-  dAsRow2 = HM.asRow
-  dAsColumn2 = HM.asColumn
-  dRowAppend2 d _k e = d HM.=== e
-  dColumnAppend2 d _k e = d HM.||| e
-  dRowSlice2 i n d _rows = HM.takeRows n $ HM.dropRows i d
-  dColumnSlice2 i n d _cols = HM.takeColumns n $ HM.dropColumns i d
-  dFromX2 d = case OT.shapeL d of
-    [_rows, cols] -> HM.reshape cols $ OT.toVector d
-    _ -> error "dFromX2: wrong tensor dimensions"
-  dFromS2 d = case OS.shapeL d of
-    [_rows, cols] -> HM.reshape cols $ OS.toVector d
-    _ -> error "dFromS2: wrong tensor dimensions"
-  dAppendX d _k e = d `OT.append` e
-  dSliceX i n d _len = OT.slice [(i, n)] d
-  dFrom0X = OT.scalar
-  dFrom1X d = OT.fromVector [V.length d] d
-  dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
-  dFromSX = Data.Array.Convert.convert
-  dAppendS = OS.append
---  dSliceS :: forall i n k rest.
---             (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
---          => Dual (OS.Array (i + n + k ': rest) Double)
---          -> Dual (OS.Array (n ': rest) Double)
-  dSliceS = undefined  -- TODO: OS.slice @'[ '(i, n) ] d
-  dFrom0S = OS.scalar
-  dFrom1S = OS.fromVector
-  dFrom2S = OS.fromVector . HM.flatten
-  dFromXS = Data.Array.Convert.convert
-
--- I hate this duplication with this:
 instance HasDual (Forward Float) where
   type Dual (Forward Float) = Float
   dZero = 0
@@ -407,56 +355,6 @@ instance HasDual (Forward Float) where
   dVar = undefined
   type ScalarOf (Forward Float) = Forward Float
   bindInState = undefined
-
-instance HasRanks (Forward Float) where
-  dSumElements0 vd _ = HM.sumElements vd
-  dIndex0 d ix _ = d V.! ix
-  dDot0 vr vd = coerce vr HM.<.> vd
-  dFromX0 = OT.unScalar
-  dFromS0 = OS.unScalar
-  dSeq1 = V.convert
-  dKonst1 = HM.konst
-  dAppend1 d _k e = d V.++ e
-  dSlice1 i n d _len = V.slice i n d
-  dM_VD1 m dRow = coerce m HM.#> dRow
-  dMD_V1 md row = md HM.#> coerce row
-  dSumRows1 dm _cols = V.fromList $ map HM.sumElements $ HM.toRows dm
-  dSumColumns1 dm _rows = V.fromList $ map HM.sumElements $ HM.toColumns dm
-  dFromX1 = OT.toVector
-  dFromS1 = OS.toVector
-  dFromRows2 = HM.fromRows . V.toList
-  dFromColumns2 = HM.fromColumns . V.toList
-  dTranspose2 = HM.tr'
-  dM_MD2 m md = coerce m HM.<> md
-  dMD_M2 md m = md HM.<> coerce m
-  dAsRow2 = HM.asRow
-  dAsColumn2 = HM.asColumn
-  dRowAppend2 d _k e = d HM.=== e
-  dColumnAppend2 d _k e = d HM.||| e
-  dRowSlice2 i n d _rows = HM.takeRows n $ HM.dropRows i d
-  dColumnSlice2 i n d _cols = HM.takeColumns n $ HM.dropColumns i d
-  dFromX2 d = case OT.shapeL d of
-    [_rows, cols] -> HM.reshape cols $ OT.toVector d
-    _ -> error "dFromX2: wrong tensor dimensions"
-  dFromS2 d = case OS.shapeL d of
-    [_rows, cols] -> HM.reshape cols $ OS.toVector d
-    _ -> error "dFromS2: wrong tensor dimensions"
-  dAppendX d _k e = d `OT.append` e
-  dSliceX i n d _len = OT.slice [(i, n)] d
-  dFrom0X = OT.scalar
-  dFrom1X d = OT.fromVector [V.length d] d
-  dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
-  dFromSX = Data.Array.Convert.convert
-  dAppendS = OS.append
---  dSliceS :: forall i n k rest.
---             (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
---          => Dual (OS.Array (i + n + k ': rest) Double)
---          -> Dual (OS.Array (n ': rest) Double)
-  dSliceS = undefined  -- TODO: OS.slice @'[ '(i, n) ] d
-  dFrom0S = OS.scalar
-  dFrom1S = OS.fromVector
-  dFrom2S = OS.fromVector . HM.flatten
-  dFromXS = Data.Array.Convert.convert
 
 instance Num (Vector r) => HasDual (Vector (Forward r)) where
   type Dual (Vector (Forward r)) = Vector r
@@ -497,3 +395,53 @@ instance Num (OS.Array sh r) => HasDual (OS.Array sh (Forward r)) where
   dVar = undefined
   type ScalarOf (OS.Array sh (Forward r)) = Forward r
   bindInState = undefined
+
+instance (Numeric r, Dual (Forward r) ~ r) => HasRanks (Forward r) where
+  dSumElements0 vd _ = HM.sumElements vd
+  dIndex0 d ix _ = d V.! ix
+  dDot0 vr vd = coerce vr HM.<.> vd
+  dFromX0 = OT.unScalar
+  dFromS0 = OS.unScalar
+  dSeq1 = V.convert
+  dKonst1 = HM.konst
+  dAppend1 d _k e = d V.++ e
+  dSlice1 i n d _len = V.slice i n d
+  dM_VD1 m dRow = coerce m HM.#> dRow
+  dMD_V1 md row = md HM.#> coerce row
+  dSumRows1 dm _cols = V.fromList $ map HM.sumElements $ HM.toRows dm
+  dSumColumns1 dm _rows = V.fromList $ map HM.sumElements $ HM.toColumns dm
+  dFromX1 = OT.toVector
+  dFromS1 = OS.toVector
+  dFromRows2 = HM.fromRows . V.toList
+  dFromColumns2 = HM.fromColumns . V.toList
+  dTranspose2 = HM.tr'
+  dM_MD2 m md = coerce m HM.<> md
+  dMD_M2 md m = md HM.<> coerce m
+  dAsRow2 = HM.asRow
+  dAsColumn2 = HM.asColumn
+  dRowAppend2 d _k e = d HM.=== e
+  dColumnAppend2 d _k e = d HM.||| e
+  dRowSlice2 i n d _rows = HM.takeRows n $ HM.dropRows i d
+  dColumnSlice2 i n d _cols = HM.takeColumns n $ HM.dropColumns i d
+  dFromX2 d = case OT.shapeL d of
+    [_rows, cols] -> HM.reshape cols $ OT.toVector d
+    _ -> error "dFromX2: wrong tensor dimensions"
+  dFromS2 d = case OS.shapeL d of
+    [_rows, cols] -> HM.reshape cols $ OS.toVector d
+    _ -> error "dFromS2: wrong tensor dimensions"
+  dAppendX d _k e = d `OT.append` e
+  dSliceX i n d _len = OT.slice [(i, n)] d
+  dFrom0X = OT.scalar
+  dFrom1X d = OT.fromVector [V.length d] d
+  dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
+  dFromSX = Data.Array.Convert.convert
+  dAppendS = OS.append
+--  dSliceS :: forall i n k rest.
+--             (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
+--          => Dual (OS.Array (i + n + k ': rest) Double)
+--          -> Dual (OS.Array (n ': rest) Double)
+  dSliceS = undefined  -- TODO: OS.slice @'[ '(i, n) ] d
+  dFrom0S = OS.scalar
+  dFrom1S = OS.fromVector
+  dFrom2S = OS.fromVector . HM.flatten
+  dFromXS = Data.Array.Convert.convert
