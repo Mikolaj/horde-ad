@@ -604,9 +604,9 @@ matrixMnistTests = testGroup "MNIST LL tests with a 2-hidden-layer nn"
   , mnistTestCase2L "2 epochs, but only 1 batch" 2 1 nnMnistLoss2L 300 100 0.02
                     8.879999999999999e-2
   , mnistTestCase2L "1 epoch, all batches" 1 99 nnMnistLoss2L 300 100 0.02
-                    5.6599999999999984e-2
-  , mnistTestCase2L "artificial 1 2 3 4 5" 1 2 nnMnistLoss2L 3 4 5
                     5.1100000000000034e-2
+  , mnistTestCase2L "artificial 1 2 3 4 5" 1 2 nnMnistLoss2L 3 4 5
+                    0.8972
   , mnistTestCase2T False
                     "artificial TL 5 4 3 2 1" 5 4 nnMnistLoss2L 3 2 1
                     0.8865
