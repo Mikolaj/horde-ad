@@ -4,6 +4,7 @@ module TestSingleGradient (testTrees) where
 
 import Prelude
 
+import qualified Data.Array.DynamicS as OT
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Vector)
@@ -114,22 +115,19 @@ dfTests = testGroup "Simple df application tests" $
     ]
 
 dfastForwardShow
-  :: (IsScalar (Forward r), Dual (Forward r) ~ r)
+  :: (OT.Storable r, Dual (Forward r) ~ r)
   => (DualNumberVariables (Forward r)
       -> DeltaMonadForward (Forward r) (DualNumber (Forward r)))
   -> [r]
   -> (r, r)
 dfastForwardShow f deltaInput =
-  let (derivative, Forward value) =
-        dfastForward f ( V.fromList $ map Forward deltaInput
-                       , V.empty, V.empty, V.empty )
-  in (derivative, value)
+  dfastForward f (V.fromList deltaInput, V.empty, V.empty, V.empty)
 
 dfTestsDouble :: TestTree
 dfTestsDouble = testGroup "Simple df (Forward Double) application tests" $
   map (\(txt, f, v, expected) ->
         testCase txt $ dfastForwardShow f v @?= expected)
-    [ ("fquad", fquad, [2 :: Double, 3], (7, 18.0))
+    [ ("fquad", fquad, [2 :: Double, 3], (26.0, 18.0))
     ]
 
 vec_omit_scalarSum_aux :: DeltaMonad Float m

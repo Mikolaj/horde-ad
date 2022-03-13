@@ -186,6 +186,7 @@ test-suite test
       , deepseq
       , hmatrix
       , horde-ad
+      , orthotope
       , random
       , storable-tuple
       , strict-containers
@@ -226,6 +227,7 @@ test-suite shortTestForCI
       , deepseq
       , hmatrix
       , horde-ad
+      , orthotope
       , random
       , strict-containers
       , tasty >= 1.0

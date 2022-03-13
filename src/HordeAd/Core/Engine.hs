@@ -14,6 +14,7 @@ import Prelude
 
 import           Control.Monad.Trans.State.Strict
 import qualified Data.Array.DynamicS as OT
+import           Data.Coerce (coerce)
 import           Data.Functor.Identity
 import           Data.List (foldl')
 import qualified Data.Strict.Vector as Data.Vector
@@ -21,6 +22,7 @@ import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           Text.Show.Pretty (ppShow)
+import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Delta
   ( DeltaState (..)
@@ -174,14 +176,18 @@ generalDfastForward variables f =
   in (d, value)
 
 dfastForward
-  :: IsScalar r
-  => (DualNumberVariables r -> DeltaMonadForward r (DualNumber r))
+  :: (OT.Storable r, Dual (Forward r) ~ r)
+  => (DualNumberVariables (Forward r)
+      -> DeltaMonadForward (Forward r) (DualNumber (Forward r)))
   -> Domains r
-  -> (Dual r, r)
-dfastForward f parameters =
-  let varDeltas = generateDeltaVars parameters
-      variables = makeDualNumberVariables parameters varDeltas
-  in generalDfastForward variables f
+  -> (r, r)
+dfastForward f (params, paramsV, paramsL, paramsX) =
+  let variables =
+        makeDualNumberVariables
+          (coerce params, coerce paramsV, coerce paramsL, unsafeCoerce paramsX)
+          (V.convert params, paramsV, paramsL, paramsX)
+      (derivative, Forward value) = generalDfastForward variables f
+  in (derivative, value)
 
 
 -- * Additional mechanisms
