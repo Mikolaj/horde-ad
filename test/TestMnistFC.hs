@@ -7,6 +7,7 @@ import Prelude
 
 import           Control.DeepSeq
 import           Control.Monad (foldM, when)
+import           Data.Coerce (coerce)
 import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import qualified Data.Vector.Generic as V
 import qualified Numeric.LinearAlgebra as HM
@@ -374,8 +375,82 @@ mnistTestCase2D reallyWriteFile miniBatchSize decay
                          then gamma0 * exp (- fromIntegral k * 1e-4)
                          else gamma0
                  (!paramsNew, !value) =
-                   sgdBatch (33 + k * 7) miniBatchSize gamma f chunk
-                            (params, paramsV, paramsL, paramsX) np
+                   sgdBatchForward (33 + k * 7) miniBatchSize gamma f chunk
+                                   (params, paramsV, paramsL, paramsX) np
+             time <- getPOSIXTime
+             return (paramsNew, (time, value) : times)
+       let runEpoch :: Int
+                    -> (Domains Double, [(POSIXTime, Double)])
+                    -> IO (Domains Double, [(POSIXTime, Double)])
+           runEpoch n params2times | n > epochs = return params2times
+           runEpoch n (!params2, !times2) = do
+             printf "\n[Epoch %d]\n" n
+             let !trainDataShuffled =
+                   if n > 1
+                   then shuffle (mkStdGen $ n + 5) trainData
+                   else trainData
+                 chunks = take maxBatches
+                          $ zip [1 ..]
+                          $ chunksOf miniBatchSize trainDataShuffled
+             res <- foldM runBatch (params2, times2) chunks
+             runEpoch (succ n) res
+       printf "\nEpochs to run/max batches per epoch: %d/%d"
+              epochs maxBatches
+       timeBefore <- getPOSIXTime
+       (res, times) <- runEpoch 1 (parameters0, [])
+       let ppTime (t, l) = init (show (t - timeBefore)) ++ " " ++ show l
+       when reallyWriteFile $
+         writeFile "walltimeLoss.txt" $ unlines $ map ppTime times
+       let testErrorFinal = 1 - testMnist2L testData res
+       testErrorFinal @?= expected
+
+mnistTestCase2F
+  :: Bool
+  -> Int
+  -> Bool
+  -> String
+  -> Int
+  -> Int
+  -> (MnistData (Forward Double)
+      -> DualNumberVariables (Forward Double)
+      -> DeltaMonadForward (Forward Double) (DualNumber (Forward Double)))
+  -> Int
+  -> Int
+  -> Double
+  -> Double
+  -> TestTree
+mnistTestCase2F reallyWriteFile miniBatchSize decay
+                prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
+                gamma0 expected =
+  let np = lenMnistFcnn2L widthHidden widthHidden2
+      ((nParams, nParamsV, nParamsL), totalParams, range, !parameters0) =
+        initializerFixed 44 0.5 np
+      name = prefix ++ " "
+             ++ unwords [ show epochs, show maxBatches
+                        , show widthHidden, show widthHidden2
+                        , show nParams, show nParamsV, show nParamsL
+                        , show totalParams, show gamma0, show range]
+  in testCase name $ do
+       trainData0 <- loadMnistData trainGlyphsPath trainLabelsPath
+       testData <- loadMnistData testGlyphsPath testLabelsPath
+       let !trainData = coerce $ force $ shuffle (mkStdGen 6) trainData0
+       -- Mimic how backprop tests and display it, even though tests
+       -- should not print, in principle.
+       let runBatch :: (Domains Double, [(POSIXTime, Double)])
+                    -> (Int, [MnistData (Forward Double)])
+                    -> IO (Domains Double, [(POSIXTime, Double)])
+           runBatch ((!params, !paramsV, !paramsL, !paramsX), !times)
+                    (k, chunk) = do
+             when (k `mod` 100 == 0) $ do
+               printf "%d " k
+               hFlush stdout
+             let f = trainWithLoss
+                 gamma = if decay
+                         then gamma0 * exp (- fromIntegral k * 1e-4)
+                         else gamma0
+                 (!paramsNew, !value) =
+                   sgdBatchFastForward (33 + k * 7) miniBatchSize gamma f chunk
+                                       (params, paramsV, paramsL, paramsX) np
              time <- getPOSIXTime
              return (paramsNew, (time, value) : times)
        let runEpoch :: Int
@@ -537,7 +612,10 @@ matrixMnistTests = testGroup "MNIST LL tests with a 2-hidden-layer nn"
                     0.8865
   , mnistTestCase2D False 1 False
                     "artificial DL 5 4 3 2 1" 5 4 nnMnistLoss2L 3 2 1
-                    0.9042
+                    0.8991
+  , mnistTestCase2F False 1 False
+                    "artificial FDL 5 4 3 2 1" 5 4 nnMnistLoss2L 3 2 1
+                    0.8991
 --  , mnistTestCase2T True False
 --                    "2 epochs, all batches, TL, wider, to file"
 --                    2 60000 nnMnistLoss2L 500 150 0.02
@@ -562,10 +640,22 @@ matrixMnistTests = testGroup "MNIST LL tests with a 2-hidden-layer nn"
 --                    "2 epochs, all batches, DL, wider, to file"
 --                    2 60000 nnMnistLoss2L 500 150 2e-4
 --                    0.8714
+--  , mnistTestCase2F True 64 True
+--                    "2 epochs, all batches, FDL, wider, to file"
+--                    2 60000 nnMnistLoss2L 500 150 2e-4
+--                    0.8714
 --  , mnistTestCase2D True 64 True
 --                    "2 epochs, all batches, DL, wider, to file"
 --                    2 60000 nnMnistLossFusedRelu2L 1024 1024 2e-4
 --                    0.902
+--  , mnistTestCase2D False 64 True
+--                    "2 epochs, all batches, DL"
+--                    2 60000 nnMnistLoss2L 1024 1024 2e-4
+--                    0.7465999999999999
+--  , mnistTestCase2F False 64 True
+--                    "2 epochs, all batches, FDL"
+--                    2 60000 nnMnistLoss2L 1024 1024 2e-4
+--                    0.7465999999999999
   ]
 
 fusedMnistTests :: TestTree
