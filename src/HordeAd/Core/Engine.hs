@@ -5,7 +5,7 @@
 module HordeAd.Core.Engine
   ( Domain, DomainV, DomainL, DomainX, Domains
   , DeltaMonadValue, primalValueGeneric, primalValue
-  , DeltaMonadGradient, generalDf, df, generalDforward, prettyPrintDf
+  , DeltaMonadGradient, generalDf, df, generalDforward, dforward, prettyPrintDf
   , DeltaMonadForward, generalDfastForward, dfastForward
   , generateDeltaVars, initializerFixed
   ) where
@@ -155,6 +155,17 @@ generalDforward variables@(params, _, paramsV, _, paramsL, _, paramsX, _)
                                  initialState
   in (evalBindingsForward st d direction, value)
 
+-- In a simple-minded way, just for test, we set the direction vector,
+-- the dual counterpart of paramters, the dt, to be equal to main parameters.
+dforward
+  :: HasDelta r
+  => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+  -> Domains r
+  -> (r, r)
+dforward f parameters =
+  let varDeltas = generateDeltaVars parameters
+      variables = makeDualNumberVariables parameters varDeltas
+  in generalDforward variables f parameters
 
 -- * A monad for efficiently computing forward derivatives.
 
@@ -175,6 +186,8 @@ generalDfastForward variables f =
   let D value d = runIdentity $ runDeltaMonadForward $ f variables
   in (d, value)
 
+-- In a simple-minded way, just for test, we set the direction vector,
+-- the dual counterpart of paramters, the dt, to be equal to main parameters.
 dfastForward
   :: (OT.Storable r, Dual (Forward r) ~ r)
   => (DualNumberVariables (Forward r)

@@ -18,6 +18,7 @@ testTrees :: [TestTree]
 testTrees = [ dfTests
             , vectorTests
             , dfTestsForward
+            , dfTestsFastForward
             , readmeTests
             , readmeTestsV
             ]
@@ -144,6 +145,26 @@ vectorTests = testGroup "Simple df application to vectors tests" $
     , ("altSumElementsV", altSumElementsV, [[1, 1, 3]], ([[1.0,1.0,1.0]],5.0))
     ]
 
+dforwardShow
+  :: HasDelta r
+  => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+  -> ([r], [r])
+  -> (r, r)
+dforwardShow f (deltaInput, deltaInputV) =
+  dforward f ( V.fromList deltaInput, V.singleton $ V.fromList deltaInputV
+             , V.empty, V.empty )
+
+dfTestsForward :: TestTree
+dfTestsForward = testGroup "Simple df (Forward Double) application tests" $
+  map (\(txt, f, v, expected) ->
+        testCase txt $ dforwardShow f v @?= expected)
+    [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
+    , ( "atanReadmeMPoly", atanReadmeMPoly, ([1.1, 2.2, 3.3], [])
+      , (7.662345305800865, 4.9375516951604155) )
+    , ( "atanReadmeMPolyV", atanReadmeMPolyV, ([], [1.1, 2.2, 3.3])
+      , (7.662345305800865, 4.9375516951604155) )
+    ]
+
 dfastForwardShow
   :: (OT.Storable r, Dual (Forward r) ~ r)
   => (DualNumberVariables (Forward r)
@@ -154,8 +175,9 @@ dfastForwardShow f (deltaInput, deltaInputV) =
   dfastForward f ( V.fromList deltaInput, V.singleton $ V.fromList deltaInputV
                  , V.empty, V.empty )
 
-dfTestsForward :: TestTree
-dfTestsForward = testGroup "Simple df (Forward Double) application tests" $
+dfTestsFastForward :: TestTree
+dfTestsFastForward =
+ testGroup "Simple df (FastForward Double) application tests" $
   map (\(txt, f, v, expected) ->
         testCase txt $ dfastForwardShow f v @?= expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
