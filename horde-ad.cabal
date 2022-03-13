@@ -116,7 +116,9 @@ library
                       HordeAd.Core.OptimizerTools
                       HordeAd.Core.OutdatedOptimizer
                       HordeAd.Core.PairOfVectors
+                      HordeAd.Internal.HmatrixOrphanInstances
                       HordeAd.Internal.MatrixOuter
+                      HordeAd.Internal.OrthotopeOrphanInstances
                       HordeAd.Tool.MnistTools
                       HordeAd.Tool.MnistData
                       HordeAd.Tool.MnistFcnnMatrix

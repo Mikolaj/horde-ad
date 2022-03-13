@@ -1,6 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, DataKinds, FlexibleInstances,
-             GeneralizedNewtypeDeriving, TypeFamilyDependencies,
-             TypeOperators #-}
+             GeneralizedNewtypeDeriving, MultiParamTypeClasses,
+             StandaloneDeriving, TypeFamilyDependencies, TypeOperators #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 -- | The second component of dual numbers, @Delta@, with it's evaluation
 -- function. Neel Krishnaswami calls that "sparse vector expressions",
@@ -37,6 +37,7 @@ import           Data.Coerce (coerce)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
+import           HordeAd.Internal.HmatrixOrphanInstances (Forward (..))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           Unsafe.Coerce (unsafeCoerce)
@@ -336,9 +337,6 @@ instance OS.Shape sh => HasDual (OS.Array sh Float) where
 
 
 -- * Alternative instances: forward derivatives computed on the spot
-
-newtype Forward a = Forward a
-  deriving Num
 
 -- I hate this duplication:
 instance HasDual (Forward Double) where

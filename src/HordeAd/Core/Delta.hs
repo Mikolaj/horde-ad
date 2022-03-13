@@ -59,6 +59,7 @@ import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, (#>), (<.>))
 import qualified Numeric.LinearAlgebra as HM
 import           Text.Show.Pretty (ppShow)
 
+import HordeAd.Internal.OrthotopeOrphanInstances ()
 import qualified HordeAd.Internal.MatrixOuter as MO
 
 -- * Abstract syntax trees of the delta expressions
@@ -661,24 +662,6 @@ evalBindingsForward st deltaTopLevel (params0, paramsV0, paramsL0, paramsX0) =
       parametersB = foldl' evalUnlessZero parameters1
                            (reverse $ deltaBindings st)
   in eval0 parametersB deltaTopLevel
-
-instance Numeric r => Num (OT.Array r) where
-  (+) = OT.zipWithA (+)
-  (-) = OT.zipWithA (-)
-  (*) = OT.zipWithA (*)
-  negate = OT.mapA negate
-  abs = OT.mapA abs
-  signum = OT.mapA signum
-  fromInteger = OT.constant [] . fromInteger
-
-instance (OS.Shape sh, Numeric r) => Num (OS.Array sh r) where
-  (+) = OS.zipWithA (+)
-  (-) = OS.zipWithA (-)
-  (*) = OS.zipWithA (*)
-  negate = OS.mapA negate
-  abs = OS.mapA abs
-  signum = OS.mapA signum
-  fromInteger = OS.constant . fromInteger
 
 ppBinding :: (Show r, Numeric r) => String -> DeltaBinding r -> [String]
 ppBinding prefix = \case
