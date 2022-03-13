@@ -2,7 +2,7 @@
              GeneralizedNewtypeDeriving, MultiParamTypeClasses,
              StandaloneDeriving, TypeFamilyDependencies, TypeOperators #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-orphans -Wno-redundant-constraints #-}
 -- | Orphan instances for hmatrix classes.
 module HordeAd.Internal.HmatrixOrphanInstances
   ( Forward(..)
