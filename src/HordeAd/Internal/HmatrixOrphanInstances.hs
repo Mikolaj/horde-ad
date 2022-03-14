@@ -1,6 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, DataKinds, FlexibleInstances,
              GeneralizedNewtypeDeriving, MultiParamTypeClasses,
-             StandaloneDeriving, TypeFamilyDependencies, TypeOperators #-}
+             StandaloneDeriving, TypeFamilyDependencies #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -Wno-orphans -Wno-redundant-constraints #-}
 -- | Orphan instances for hmatrix classes.

@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, DataKinds, FlexibleInstances,
-             GeneralizedNewtypeDeriving, MultiParamTypeClasses,
-             StandaloneDeriving, TypeFamilyDependencies, TypeOperators #-}
+             MultiParamTypeClasses, TypeFamilyDependencies, TypeOperators #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 -- | The second component of dual numbers, @Delta@, with it's evaluation
 -- function. Neel Krishnaswami calls that "sparse vector expressions",
