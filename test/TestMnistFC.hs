@@ -614,7 +614,7 @@ matrixMnistTests = testGroup "MNIST LL tests with a 2-hidden-layer nn"
                     "artificial DL 5 4 3 2 1" 5 4 nnMnistLoss2L 3 2 1
                     0.8991
   , mnistTestCase2F False 1 False
-                    "artificial FDL 5 4 3 2 1" 5 4 nnMnistLoss2L 3 2 1
+                    "artificial FL 5 4 3 2 1" 5 4 nnMnistLoss2L 3 2 1
                     0.8991
 --  , mnistTestCase2T True False
 --                    "2 epochs, all batches, TL, wider, to file"
@@ -641,7 +641,7 @@ matrixMnistTests = testGroup "MNIST LL tests with a 2-hidden-layer nn"
 --                    2 60000 nnMnistLoss2L 500 150 2e-4
 --                    0.8714
 --  , mnistTestCase2F True 64 True
---                    "2 epochs, all batches, FDL, wider, to file"
+--                    "2 epochs, all batches, FL, wider, to file"
 --                    2 60000 nnMnistLoss2L 500 150 2e-4
 --                    0.8714
 --  , mnistTestCase2D True 64 True
@@ -649,11 +649,11 @@ matrixMnistTests = testGroup "MNIST LL tests with a 2-hidden-layer nn"
 --                    2 60000 nnMnistLossFusedRelu2L 1024 1024 2e-4
 --                    0.902
 --  , mnistTestCase2D False 64 True
---                    "2 epochs, all batches, DL"
+--                    "2 epochs, all batches, 1024DL"
 --                    2 60000 nnMnistLoss2L 1024 1024 2e-4
 --                    0.7465999999999999
 --  , mnistTestCase2F False 64 True
---                    "2 epochs, all batches, FDL"
+--                    "2 epochs, all batches, 1024FL"
 --                    2 60000 nnMnistLoss2L 1024 1024 2e-4
 --                    0.7465999999999999
   ]
