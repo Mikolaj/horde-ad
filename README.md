@@ -1,6 +1,9 @@
 # horde-ad
 Higher Order Reverse Derivatives Efficiently - Automatic Differentiation library based on the paper "Provably correct, asymptotically efficient, higher-order reverse-mode automatic differentiation"
 
+**Warning**: at this point, a local checkout of a fork of hmatrix library is
+needed to compile horde-ad, see https://github.com/Mikolaj/horde-ad/issues/15.
+
 This is very much WIP, both engine and API. For now it can do MNIST digit recognition via fully connected neural networks, but it can also handle exotic variants of such networks that wouldn't express well in a language of matrices and their operations. It can also do all kinds of wild Haskell toy examples but the API is not toy-friendly ATM, see a sample below.
 
 Mature Haskell libraries with similar and greater capabilities, but varying efficiency, are https://hackage.haskell.org/package/ad and https://hackage.haskell.org/package/backprop. We owe them; see https://github.com/Mikolaj/horde-ad/blob/master/CREDITS.md.
@@ -22,6 +25,9 @@ Larger examples with the library are the fully connected neural networks for MNI
 
 Compilation from source
 -----------------------
+
+**Warning**: at this point, a local checkout of a fork of hmatrix library is
+needed to compile horde-ad, see https://github.com/Mikolaj/horde-ad/issues/15.
 
 Because we use https://hackage.haskell.org/package/hmatrix,
 the OS needs libraries that on Ubuntu/Debian are called

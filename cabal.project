@@ -1,4 +1,4 @@
-packages: ./
+packages: ./ ../hmatrix/packages/base/
 
 -- needed for profiling build:
 package statistics
