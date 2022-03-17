@@ -38,31 +38,31 @@ import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 -- and also parallelize taking advantage of vectorization (but currently
 -- we have a global state, so that's tricky).
 sgdBatchForward
-  :: forall a.
-     Int
+  :: forall r a. HasDelta r
+  => Int
   -> Int  -- ^ batch size
-  -> Double  -- ^ gamma (learning_rate?)
-  -> (a -> DualNumberVariables (Delta0 Double)
-      -> DeltaMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
+  -> Dual r  -- ^ gamma (learning_rate?)
+  -> (a -> DualNumberVariables r
+      -> DeltaMonadGradient r (DualNumber r))
   -> [a]  -- ^ training data
-  -> Domains Double  -- ^ initial parameters
+  -> Domains r  -- ^ initial parameters
   -> (Int, [Int], [(Int, Int)])
-  -> (Domains Double, Double)
+  -> (Domains r, Dual r)
 sgdBatchForward seed0 batchSize gamma f trainingData parameters0 nParameters =
   go seed0 trainingData parameters0 0
  where
   varDeltas = generateDeltaVars parameters0
-  go :: Int -> [a] -> Domains Double -> Double -> (Domains Double, Double)
+  go :: Int -> [a] -> Domains r -> Dual r -> (Domains r, Dual r)
   go _ [] parameters value = (parameters, value)
   go seed l parameters _ =
     let (batch, rest) = splitAt batchSize l
-        fAdd :: DualNumberVariables (Delta0 Double) -> DualNumber (Delta0 Double) -> a
-             -> DeltaMonadGradient (Delta0 Double) (DualNumber (Delta0 Double))
+        fAdd :: DualNumberVariables r -> DualNumber r -> a
+             -> DeltaMonadGradient r (DualNumber r)
         fAdd vars !acc a = do
           res <- f a vars
           return $! acc + res
-        fBatch :: DualNumberVariables (Delta0 Double)
-               -> DeltaMonadGradient (Delta0 Double) (DualNumber (Delta0 Double))
+        fBatch :: DualNumberVariables r
+               -> DeltaMonadGradient r (DualNumber r)
         fBatch vars = do
           resBatch <- foldM (fAdd vars) 0 batch
           return $! resBatch / fromIntegral (length batch)
@@ -71,9 +71,9 @@ sgdBatchForward seed0 batchSize gamma f trainingData parameters0 nParameters =
         (_, _, _, direction) = initializerFixed g1 unitVarianceRange nParameters
         variables = makeDualNumberVariables parameters varDeltas
         (directionalDerivative, valueNew) =
-          generalDforward @(Delta0 Double) variables fBatch direction
+          generalDforward variables fBatch direction
         gammaDirectional = gamma * directionalDerivative
-        parametersNew = updateWithGradient @(Delta0 Double) gammaDirectional parameters direction
+        parametersNew = updateWithGradient @r gammaDirectional parameters direction
     in go g2 rest parametersNew valueNew
 
 -- | A variant with fast forward derivative computation.

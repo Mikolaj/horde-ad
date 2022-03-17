@@ -22,8 +22,8 @@
 -- A lot of the remaining additional structure is for introducing
 -- and reducing dimensions.
 module HordeAd.Core.HasDual
-  ( HasDualWithScalar, IsScalar, IsScalarS, HasDelta
-  , HasDual(ScalarOf, Dual, dZero, dScale, dAdd, dVar, bindInState)
+  ( HasDualWithScalar, IsScalar, IsScalarS, HasDelta, HasForward
+  , HasDual(Dual, dZero, dScale, dAdd, dVar, bindInState)
   , HasRanks(..)
   ) where
 
@@ -47,9 +47,9 @@ type HasDualWithScalar a r = (HasDual a, ScalarOf a ~ Dual r, Num (Dual a))
 
 -- | A mega-shorthand for a bundle of connected type constraints.
 type IsScalar r =
-       ( Ord (Dual r), Numeric (Dual r), HasRanks r, HasDualWithScalar r r
-       , HasDualWithScalar (Tensor1 r) r, HasDualWithScalar (Tensor2 r) r
-       , HasDualWithScalar (TensorX r) r
+       ( Ord (Dual r), Numeric (Dual r), HasRanks r
+       , HasDualWithScalar r r, HasDualWithScalar (Tensor1 r) r
+       , HasDualWithScalar (Tensor2 r) r, HasDualWithScalar (TensorX r) r
        , Dual (Tensor1 r) ~ Vector (Dual r)
        , Dual (Tensor2 r) ~ Matrix (Dual r)
        , Dual (TensorX r) ~ OT.Array (Dual r) )
@@ -58,9 +58,14 @@ type IsScalarS (sh :: [Nat]) r =
        ( IsScalar r, HasDualWithScalar (TensorS sh r) r
        , Dual (TensorS sh r) ~ OS.Array sh (Dual r) )
 
--- | A constraint stating dual numbers with this underlying scalar
+-- | A constraint stating dual numbers with this dual component
 -- are implemented via gathering delta expressions in state.
-type HasDelta r = (IsScalar r, r ~ Delta0 (ScalarOf r))
+type HasDelta r = (IsScalar r, r ~ Delta0 (Dual r))
+
+-- | A constraint stating dual numbers with this dual component
+-- are implemented via computing forward derivative on the spot.
+type HasForward r = ( IsScalar r, Dual r ~ r, Tensor1 r ~ Vector r
+                    , Tensor2 r ~ Matrix r, TensorX r ~ OT.Array r )
 
 
 -- * Class definitions
@@ -85,6 +90,7 @@ class HasRanks r where  -- IsTensor0?
   type Tensor2 r = result | result -> r
   type TensorX r = result | result -> r
   type TensorS (sh :: [Nat]) r = result | result -> sh r
+
   dSumElements0 :: Tensor1 r -> Int -> r
   dIndex0 :: Tensor1 r -> Int -> Int -> r
   dDot0 :: Dual (Tensor1 r) -> Tensor1 r -> r

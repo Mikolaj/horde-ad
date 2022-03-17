@@ -16,10 +16,10 @@ bgroup100 allxs =
       env (return (take 100 allxs, V.fromList $ take 100 allxs)) $
       \ ~(list, vec) ->
       bgroup "100"
-        [ bench "func_vec" $ nf (vec_prod  @(Delta0 Double))vec
+        [ bench "func_vec" $ nf vec_prod vec
         , bench "grad_vec" $ nf grad_vec_prod vec
         , bench "grad_toList" $ nf grad_toList_prod list
-        , bench "func_vec_omit" $ nf (vec_omit_prod @(Delta0 Double)) vec
+        , bench "func_vec_omit" $ nf vec_omit_prod vec
         , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
         , bench "grad_vec_omit_scalarSum" $ nf grad_vec_omit_scalarSum vec
         , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
@@ -30,10 +30,10 @@ bgroup200 allxs =
       env (return (take 200 allxs, V.fromList $ take 200 allxs)) $
       \ ~(list, vec) ->
       bgroup "200"
-        [ bench "func_vec" $ nf (vec_prod @(Delta0 Double)) vec
+        [ bench "func_vec" $ nf vec_prod vec
         , bench "grad_vec" $ nf grad_vec_prod vec
         , bench "grad_toList" $ nf grad_toList_prod list
-        , bench "func_vec_omit" $ nf (vec_omit_prod @(Delta0 Double)) vec
+        , bench "func_vec_omit" $ nf vec_omit_prod vec
         , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
         , bench "grad_vec_omit_scalarSum" $ nf grad_vec_omit_scalarSum vec
         , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
@@ -44,10 +44,10 @@ bgroup1000 allxs =
       env (return (take 1000 allxs, V.fromList $ take 1000 allxs)) $
       \ ~(list, vec) ->
       bgroup "1000"
-        [ bench "func_vec" $ nf (vec_prod @(Delta0 Double)) vec
+        [ bench "func_vec" $ nf vec_prod vec
         , bench "grad_vec" $ nf grad_vec_prod vec
         , bench "grad_toList" $ nf grad_toList_prod list
-        , bench "func_vec_omit" $ nf (vec_omit_prod @(Delta0 Double)) vec
+        , bench "func_vec_omit" $ nf vec_omit_prod vec
         , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
         , bench "grad_vec_omit_scalarSum" $ nf grad_vec_omit_scalarSum vec
         , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
@@ -58,10 +58,10 @@ bgroup1e4 allxs =
       env (return (take 10000 allxs, V.fromList $ take 10000 allxs)) $
       \ ~(list, vec) ->
       bgroup "1e4"
-        [ bench "func_vec" $ nf (vec_prod @(Delta0 Double)) vec
+        [ bench "func_vec" $ nf vec_prod vec
         , bench "grad_vec" $ nf grad_vec_prod vec
         , bench "grad_toList" $ nf grad_toList_prod list
-        , bench "func_vec_omit" $ nf (vec_omit_prod @(Delta0 Double)) vec
+        , bench "func_vec_omit" $ nf vec_omit_prod vec
         , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
         , bench "grad_vec_omit_scalarSum" $ nf grad_vec_omit_scalarSum vec
         , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
@@ -72,10 +72,10 @@ bgroup1e5 allxs =
       env (return (take 100000 allxs, V.fromList $ take 100000 allxs)) $
       \ ~(list, vec) ->
       bgroup "1e5"
-        [ bench "func_vec" $ nf (vec_prod @(Delta0 Double)) vec
+        [ bench "func_vec" $ nf vec_prod vec
         , bench "grad_vec" $ nf grad_vec_prod vec
         , bench "grad_toList" $ nf grad_toList_prod list
-        , bench "func_vec_omit" $ nf (vec_omit_prod @(Delta0 Double)) vec
+        , bench "func_vec_omit" $ nf vec_omit_prod vec
         , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
         , bench "grad_vec_omit_scalarSum" $ nf grad_vec_omit_scalarSum vec
         , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
@@ -86,10 +86,10 @@ bgroup1e6 allxs =
       env (return (take 1000000 allxs, V.fromList $ take 1000000 allxs)) $
       \ ~(list, vec) ->
       bgroup "1e6"
-        [ bench "func_vec" $ nf (vec_prod @(Delta0 Double)) vec
+        [ bench "func_vec" $ nf vec_prod vec
         , bench "grad_vec" $ nf grad_vec_prod vec
         , bench "grad_toList" $ nf grad_toList_prod list
-        , bench "func_vec_omit" $ nf (vec_omit_prod @(Delta0 Double)) vec
+        , bench "func_vec_omit" $ nf vec_omit_prod vec
         , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
         , bench "grad_vec_omit_scalarSum" $ nf grad_vec_omit_scalarSum vec
         , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
@@ -101,10 +101,10 @@ bgroup1e7 allxs =
       env (return (take 10000000 allxs, V.fromList $ take 10000000 allxs)) $
       \ ~(list, vec) ->
       bgroup "1e7"
-        [ bench "func_vec" $ nf (vec_prod @(Delta0 Double)) vec
+        [ bench "func_vec" $ nf vec_prod vec
         , bench "grad_vec" $ nf grad_vec_prod vec
         , bench "grad_toList" $ nf grad_toList_prod list
-        , bench "func_vec_omit" $ nf (vec_omit_prod @(Delta0 Double)) vec
+        , bench "func_vec_omit" $ nf vec_omit_prod vec
         , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
         , bench "grad_vec_omit_scalarSum" $ nf grad_vec_omit_scalarSum vec
         , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
@@ -114,11 +114,11 @@ bgroup5e7 allxs =
       env (return $ V.fromList $ take 50000000 allxs) $
       \ vec ->
       bgroup "5e7"  -- 5e7 == 5 * 10^7 == 0.5 * 10^8 == 0.5e8
-        [ bench "func_vec" $ nf (vec_prod @(Delta0 Double)) vec
+        [ bench "func_vec" $ nf vec_prod vec
         , bench "grad_vec" $ nf grad_vec_prod vec
 -- this already takes 35G, so the worse variants not attempted:
 --        , bench "grad_toList" $ nf grad_toList_prod list
-        , bench "func_vec_omit" $ nf (vec_omit_prod @(Delta0 Double)) vec
+        , bench "func_vec_omit" $ nf vec_omit_prod vec
         , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
         , bench "grad_vec_omit_scalarSum" $ nf grad_vec_omit_scalarSum vec
         , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
@@ -141,7 +141,7 @@ vec_prod_aux = foldMDelta' (*\) 1
   -- no handwritten derivatives; only the derivative for @(*)@ is provided;
   -- also, not omitting bindings; all let-bindings are present, see below
 
-vec_prod :: forall r. IsScalar r
+vec_prod :: forall r. HasDelta r
          => Vector (Dual r) -> Dual r
 vec_prod ds = primalValue @r vec_prod_aux (ds, V.empty, V.empty, V.empty)
 
@@ -149,8 +149,7 @@ grad_vec_prod :: HasDelta r => Vector (Dual r) -> Vector (Dual r)
 grad_vec_prod ds =
   (\(v, _, _, _) -> v) $ fst $ df vec_prod_aux (ds, V.empty, V.empty, V.empty)
 
-grad_toList_prod :: HasDelta r
-                 => [(Dual r)] -> [(Dual r)]
+grad_toList_prod :: HasDelta r => [Dual r] -> [Dual r]
 grad_toList_prod l = V.toList $ grad_vec_prod $ V.fromList l
 
 -- A version that omits all Delta bindings except for just one let
@@ -165,7 +164,7 @@ vec_omit_prod_aux
 vec_omit_prod_aux vec = returnLet $ foldlDelta' (*) 1 vec
   -- omitting most bindings, because we know nothing repeats inside
 
-vec_omit_prod :: forall r. IsScalar r
+vec_omit_prod :: forall r. HasDelta r
               => Vector (Dual r) -> Dual r
 vec_omit_prod ds = primalValue @r vec_omit_prod_aux (ds, V.empty, V.empty, V.empty)
 

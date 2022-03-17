@@ -13,23 +13,15 @@ module HordeAd.Core.Engine
 import Prelude
 
 import           Control.Monad.Trans.State.Strict
-import qualified Data.Array.DynamicS as OT
 import           Data.Functor.Identity
 import           Data.List (foldl')
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           Numeric.LinearAlgebra (Matrix, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           Text.Show.Pretty (ppShow)
 
 import HordeAd.Core.Delta
-  ( Delta0
-  , DeltaState (..)
-  , evalBindings
-  , evalBindingsForward
-  , ppBinding
-  , toDeltaId
-  )
+  (DeltaState (..), evalBindings, evalBindingsForward, ppBinding, toDeltaId)
 import HordeAd.Core.DualNumber
   (DeltaMonad (..), Domain, DomainL, DomainV, DomainX, Domains, DualNumber (..))
 import HordeAd.Core.HasDual
@@ -185,9 +177,7 @@ generalDfastForward variables f =
 -- In a simple-minded way, just for test, we set the direction vector,
 -- the dual counterpart of paramters, the dt, to be equal to main parameters.
 dfastForward
-  :: forall r.
-     ( IsScalar r, Dual r ~ r, Tensor1 r ~ Vector r, Tensor2 r ~ Matrix r
-     , TensorX r ~ OT.Array r )
+  :: forall r. HasForward r
   => (DualNumberVariables r -> DeltaMonadForward r (DualNumber r))
   -> Domains r
   -> (Dual r, Dual r)
@@ -202,10 +192,10 @@ dfastForward f parameters@(params, paramsV, paramsL, paramsX) =
 
 -- * Additional mechanisms
 
-prettyPrintDf :: (Show a, IsScalar (Delta0 a))
+prettyPrintDf :: (Show (Dual r), HasDelta r)
               => Bool
-              -> (DualNumberVariables (Delta0 a) -> DeltaMonadGradient (Delta0 a) (DualNumber (Delta0 a)))
-              -> Domains (Delta0 a)
+              -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+              -> Domains r
               -> String
 prettyPrintDf reversed f parameters@(params, paramsV, paramsL, paramsX) =
   let varDeltas = generateDeltaVars parameters

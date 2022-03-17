@@ -4,10 +4,8 @@ module TestSingleGradient (testTrees) where
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OT
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           Numeric.LinearAlgebra (Matrix, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -166,9 +164,7 @@ dfTestsForward = testGroup "Simple df (Forward Double) application tests" $
     ]
 
 dfastForwardShow
-  :: forall r.
-     ( IsScalar r, Dual r ~ r, Tensor1 r ~ Vector r, Tensor2 r ~ Matrix r
-     , TensorX r ~ OT.Array r )
+  :: forall r. HasForward r
   => (DualNumberVariables r
       -> DeltaMonadForward r (DualNumber r))
   -> ([Dual r], [Dual r])

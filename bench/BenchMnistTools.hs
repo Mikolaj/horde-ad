@@ -28,7 +28,7 @@ mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
              ++ unwords ["s" ++ show nParams, "v0", "m0" ++ "=" ++ show nParams]
   bench name $ nf grad chunk
 
-mnistTestBench2 :: forall r. (Floating (Dual r), UniformRange (Dual r), IsScalar r)
+mnistTestBench2 :: forall r. (Floating (Dual r), UniformRange (Dual r), HasDelta r)
                 => String -> Int -> [MnistData (Dual r)] -> Int -> Int -> Benchmark
 mnistTestBench2 extraPrefix chunkLength xs widthHidden widthHidden2 = do
   let nParams = lenMnist2 widthHidden widthHidden2
@@ -45,12 +45,12 @@ mnistTrainBGroup2 xs0 chunkLength =
   env (return $ take chunkLength xs0) $
   \ xs ->
   bgroup ("2-hidden-layer MNIST nn with samples: " ++ show chunkLength)
-    [ mnistTestBench2 @(Delta0 Double) "30|10 " chunkLength xs 30 10  -- toy width
-    , mnistTrainBench2 @(Delta0 Double) "30|10 " chunkLength xs 30 10 0.02
-    , mnistTestBench2 @(Delta0 Double) "300|100 " chunkLength xs 300 100  -- ordinary width
-    , mnistTrainBench2 @(Delta0 Double) "300|100 " chunkLength xs 300 100 0.02
-    , mnistTestBench2 @(Delta0 Double) "500|150 " chunkLength xs 500 150  -- another common size
-    , mnistTrainBench2 @(Delta0 Double) "500|150 " chunkLength xs 500 150 0.02
+    [ mnistTestBench2 "30|10 " chunkLength xs 30 10  -- toy width
+    , mnistTrainBench2 "30|10 " chunkLength xs 30 10 0.02
+    , mnistTestBench2 "300|100 " chunkLength xs 300 100  -- ordinary width
+    , mnistTrainBench2 "300|100 " chunkLength xs 300 100 0.02
+    , mnistTestBench2 "500|150 " chunkLength xs 500 150  -- another common size
+    , mnistTrainBench2 "500|150 " chunkLength xs 500 150 0.02
     ]
 
 mnistTrainBGroup2500 :: [MnistData Double] -> Int -> Benchmark
@@ -59,12 +59,12 @@ mnistTrainBGroup2500 xs0 chunkLength =
                     $ take chunkLength xs0)) $
   \ ~(xs, xsFloat) ->
   bgroup ("huge 2-hidden-layer MNIST nn with samples: " ++ show chunkLength)
-    [ mnistTestBench2 @(Delta0 Double) "2500|750 " chunkLength xs 2500 750
+    [ mnistTestBench2 "2500|750 " chunkLength xs 2500 750
         -- probably mostly wasted
-    , mnistTrainBench2 @(Delta0 Double) "2500|750 " chunkLength xs 2500 750 0.02
-    , mnistTestBench2 @(Delta0 Float) "(Float) 2500|750 " chunkLength xsFloat 2500 750
+    , mnistTrainBench2 "2500|750 " chunkLength xs 2500 750 0.02
+    , mnistTestBench2 "(Float) 2500|750 " chunkLength xsFloat 2500 750
         -- Float test
-    , mnistTrainBench2 @(Delta0 Float) "(Float) 2500|750 " chunkLength xsFloat 2500 750 0.02
+    , mnistTrainBench2 "(Float) 2500|750 " chunkLength xsFloat 2500 750 (0.02 :: Float)
     ]
 
 mnistTrainBench2V :: String -> Int -> [MnistData Double]
