@@ -150,7 +150,7 @@ jobs:
           rm -f cabal.project cabal.project.local
           touch cabal.project
           touch cabal.project.local
-          echo "packages: ${PKGDIR_horde_ad} ${GITHUB_WORKSPACE}/hmatrix/packages/base/" >> cabal.project
+          echo "packages: ${PKGDIR_horde_ad} ${GITHUB_WORKSPACE}/hmatrix" >> cabal.project
           echo "package horde-ad" >> cabal.project
           echo "    ghc-options: -Werror=missing-methods" >> cabal.project
           cat >> cabal.project <<EOF
