@@ -30,7 +30,6 @@ module HordeAd.Core.Delta
   , -- * Evaluation of the delta expressions
     DeltaBinding
   , DeltaState (..)
-  , Domain, DomainV, DomainL, DomainX, Domains
   , evalBindings, evalBindingsForward, ppBinding
   , bindInState0, bindInState1, bindInState2, bindInStateX
   ) where
@@ -195,6 +194,7 @@ data DeltaS :: [Nat] -> Type -> Type where
 instance Show (DeltaS sh r) where
   show _ = "a DeltaS delta expression"
 
+
 -- * Delta expression identifiers
 
 newtype DeltaId a = DeltaId Int
@@ -209,6 +209,7 @@ covertDeltaId (DeltaId i) = DeltaId i
 -- The key is that it preserves the phantom type.
 succDeltaId :: DeltaId a -> DeltaId a
 succDeltaId (DeltaId i) = DeltaId (succ i)
+
 
 -- * Evaluation of the delta expressions
 

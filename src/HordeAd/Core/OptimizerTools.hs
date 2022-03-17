@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes, TypeFamilies #-}
 -- | Tools for implementing (and debugging the use of) gradient descent schemes.
 module HordeAd.Core.OptimizerTools
   ( updateWithGradient
@@ -20,6 +21,7 @@ import           Numeric.LinearAlgebra.Devel
   (MatrixOrder (..), liftMatrix, liftMatrix2, matrixFromVector, orderOf)
 
 import HordeAd.Core.Engine
+import HordeAd.Core.HasDual
 
 {-
 60% of heap allocation in matrix- and vector-based MNIST is performed
@@ -65,8 +67,8 @@ can't fuse with anything and so can't pay for its overhead.
 
 -}
 
-updateWithGradient :: (Numeric r, Num (Vector r))
-                   => r
+updateWithGradient :: IsScalar r
+                   => Dual r
                    -> Domains r
                    -> Domains r
                    -> Domains r
@@ -90,14 +92,14 @@ updateWithGradient gamma (params, paramsV, paramsL, paramsX)
       !paramsXNew = V.zipWith updateX paramsX gradientX
   in (paramsNew, paramsVNew, paramsLNew, paramsXNew)
 
-gradientIsNil :: (Eq r, Numeric r) => Domains r -> Bool
+gradientIsNil :: forall r. IsScalar r => Domains r -> Bool
 gradientIsNil (gradient, gradientV, gradientL, gradientX) =
   V.all (== 0) gradient
   && V.all V.null gradientV
   && V.all (\r -> HM.rows r <= 0) gradientL
   && V.all (null . OT.shapeL) gradientX
 
-minimumGradient :: (Ord r, Numeric r) => Domains r -> r
+minimumGradient :: IsScalar r => Domains r -> Dual r
 minimumGradient (gradient, gradientV, gradientL, gradientX) =
   min (if V.null gradient then 0 else V.minimum gradient)
       (min (if V.null gradientV then 0
@@ -107,7 +109,7 @@ minimumGradient (gradient, gradientV, gradientL, gradientX) =
                 (if V.null gradientX then 0
                  else V.minimum (V.map OT.minimumA gradientX))))
 
-maximumGradient :: (Ord r, Numeric r) => Domains r -> r
+maximumGradient :: IsScalar r => Domains r -> Dual r
 maximumGradient (gradient, gradientV, gradientL, gradientX) =
   max (if V.null gradient then 0 else V.maximum gradient)
       (max (if V.null gradientV then 0
@@ -118,15 +120,15 @@ maximumGradient (gradient, gradientV, gradientL, gradientX) =
                  else V.maximum (V.map OT.maximumA gradientX))))
 
 data ArgsAdam r = ArgsAdam
-  { alpha   :: r
-  , beta1   :: r
-  , beta2   :: r
-  , epsilon :: r
+  { alpha   :: Dual r
+  , beta1   :: Dual r
+  , beta2   :: Dual r
+  , epsilon :: Dual r
   }
 
 -- The defaults taken from
 -- https://www.tensorflow.org/api_docs/python/tf/keras/optimizers/Adam
-defaultArgsAdam :: Fractional r => ArgsAdam r
+defaultArgsAdam :: Fractional (Dual r) => ArgsAdam r
 defaultArgsAdam = ArgsAdam
   { alpha = 0.001
   , beta1 = 0.9
@@ -141,7 +143,7 @@ data StateAdam r = StateAdam
   }
 
 -- The arguments are just sample params, for dimensions.
-zeroParameters :: Numeric r => Domains r -> Domains r
+zeroParameters :: forall r. IsScalar r => Domains r -> Domains r
 zeroParameters (params, paramsV, paramsL, paramsX) =
   let zeroVector v = runST $ do
         vThawed <- V.thaw v
@@ -152,9 +154,9 @@ zeroParameters (params, paramsV, paramsL, paramsX) =
      , V.map (liftMatrix zeroVector) paramsL
      , V.map (\a -> OT.constant (OT.shapeL a) 0) paramsX )  -- fast allright
 
-initialStateAdam :: Numeric r => Domains r -> StateAdam r
+initialStateAdam :: forall r. IsScalar r => Domains r -> StateAdam r
 initialStateAdam parameters0 =
-  let zeroP = zeroParameters parameters0
+  let zeroP = zeroParameters @r parameters0
   in StateAdam
        { tAdam = 0
        , mAdam = zeroP
@@ -210,7 +212,7 @@ liftArray43 f m1 m2 m3 m4 =
           $ "nonconformant arrays in liftArray43: "
             ++ show (OT.shapeL m1, OT.shapeL m2, OT.shapeL m3, OT.shapeL m4)
 
-updateWithGradientAdam :: forall r. (Floating r, Numeric r, Floating (Vector r))
+updateWithGradientAdam :: forall r. (Floating (Dual r), IsScalar r, Floating (Dual (Tensor1 r)))
                        => ArgsAdam r
                        -> StateAdam r
                        -> Domains r
@@ -226,8 +228,8 @@ updateWithGradientAdam ArgsAdam{..}
   let tAdamNew = tAdam + 1
       oneMinusBeta1 = 1 - beta1
       oneMinusBeta2 = 1 - beta2
-      updateVector :: Vector r -> Vector r -> Vector r -> Vector r
-                   -> (Vector r, Vector r, Vector r)
+      updateVector :: Vector (Dual r) -> Vector (Dual r) -> Vector (Dual r) -> Vector (Dual r)
+                   -> (Vector (Dual r), Vector (Dual r), Vector (Dual r))
       updateVector mA vA p g =
         let mANew = HM.scale beta1 mA + HM.scale oneMinusBeta1 g
             vANew = HM.scale beta2 vA + HM.scale oneMinusBeta2 (g * g)

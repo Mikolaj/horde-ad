@@ -3,15 +3,17 @@
 -- applications, such as fully connect neural networks operating on MNIST
 -- data, some extra imports may be needed not covered here.
 module HordeAd
-  ( module HordeAd.Core.DualNumber
+  ( module HordeAd.Core.Delta
+  , module HordeAd.Core.DualNumber
   , module HordeAd.Core.Engine
   , module HordeAd.Core.HasDual
   , module HordeAd.Core.Optimizer
   , module HordeAd.Core.PairOfVectors
-  ) where
+ ) where
 
 import Prelude ()
 
+import HordeAd.Core.Delta (Delta0)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.HasDual

@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE AllowAmbiguousTypes, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 module BenchMnistTools where
 
@@ -14,8 +14,9 @@ import           System.Random
 import HordeAd
 import HordeAd.Tool.MnistTools
 
-mnistTrainBench2 :: (NFData r, HasDelta r, Floating r, UniformRange r)
-                 => String -> Int -> [MnistData r] -> Int -> Int -> r
+mnistTrainBench2 :: forall r. (NFData (Dual r), HasDelta r, Floating (Dual r), UniformRange (Dual r))
+                 => String -> Int -> [MnistData (Dual r)] -> Int -> Int
+                 -> Dual r
                  -> Benchmark
 mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
   let nParams = lenMnist2 widthHidden widthHidden2
@@ -27,29 +28,29 @@ mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
              ++ unwords ["s" ++ show nParams, "v0", "m0" ++ "=" ++ show nParams]
   bench name $ nf grad chunk
 
-mnistTestBench2 :: (Ord r, Floating r, UniformRange r, IsScalar r)
-                => String -> Int -> [MnistData r] -> Int -> Int -> Benchmark
+mnistTestBench2 :: forall r. (Floating (Dual r), UniformRange (Dual r), IsScalar r)
+                => String -> Int -> [MnistData (Dual r)] -> Int -> Int -> Benchmark
 mnistTestBench2 extraPrefix chunkLength xs widthHidden widthHidden2 = do
   let nParams = lenMnist2 widthHidden widthHidden2
       params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
       chunk = take chunkLength xs
-      score c = testMnist2 widthHidden widthHidden2 c params0
+      score c = testMnist2 @r widthHidden widthHidden2 c params0
       name = "test " ++ extraPrefix
              ++ unwords ["s" ++ show nParams, "v0", "m0" ++ "=" ++ show nParams]
   bench name $ whnf score chunk
-{-# SPECIALIZE mnistTestBench2 :: String -> Int -> [MnistData Double] -> Int -> Int -> Benchmark #-}
+-- how to? {-# SPECIALIZE mnistTestBench2 :: String -> Int -> [MnistData Double] -> Int -> Int -> Benchmark #-}
 
 mnistTrainBGroup2 :: [MnistData Double] -> Int -> Benchmark
 mnistTrainBGroup2 xs0 chunkLength =
   env (return $ take chunkLength xs0) $
   \ xs ->
   bgroup ("2-hidden-layer MNIST nn with samples: " ++ show chunkLength)
-    [ mnistTestBench2 "30|10 " chunkLength xs 30 10  -- toy width
-    , mnistTrainBench2 "30|10 " chunkLength xs 30 10 0.02
-    , mnistTestBench2 "300|100 " chunkLength xs 300 100  -- ordinary width
-    , mnistTrainBench2 "300|100 " chunkLength xs 300 100 0.02
-    , mnistTestBench2 "500|150 " chunkLength xs 500 150  -- another common size
-    , mnistTrainBench2 "500|150 " chunkLength xs 500 150 0.02
+    [ mnistTestBench2 @(Delta0 Double) "30|10 " chunkLength xs 30 10  -- toy width
+    , mnistTrainBench2 @(Delta0 Double) "30|10 " chunkLength xs 30 10 0.02
+    , mnistTestBench2 @(Delta0 Double) "300|100 " chunkLength xs 300 100  -- ordinary width
+    , mnistTrainBench2 @(Delta0 Double) "300|100 " chunkLength xs 300 100 0.02
+    , mnistTestBench2 @(Delta0 Double) "500|150 " chunkLength xs 500 150  -- another common size
+    , mnistTrainBench2 @(Delta0 Double) "500|150 " chunkLength xs 500 150 0.02
     ]
 
 mnistTrainBGroup2500 :: [MnistData Double] -> Int -> Benchmark
@@ -58,13 +59,12 @@ mnistTrainBGroup2500 xs0 chunkLength =
                     $ take chunkLength xs0)) $
   \ ~(xs, xsFloat) ->
   bgroup ("huge 2-hidden-layer MNIST nn with samples: " ++ show chunkLength)
-    [ mnistTestBench2 "2500|750 " chunkLength xs 2500 750
+    [ mnistTestBench2 @(Delta0 Double) "2500|750 " chunkLength xs 2500 750
         -- probably mostly wasted
-    , mnistTrainBench2 "2500|750 " chunkLength xs 2500 750 0.02
-    , mnistTestBench2 "(Float) 2500|750 " chunkLength xsFloat 2500 750
+    , mnistTrainBench2 @(Delta0 Double) "2500|750 " chunkLength xs 2500 750 0.02
+    , mnistTestBench2 @(Delta0 Float) "(Float) 2500|750 " chunkLength xsFloat 2500 750
         -- Float test
-    , mnistTrainBench2 "(Float) 2500|750 " chunkLength xsFloat 2500 750
-        (0.02 :: Float)
+    , mnistTrainBench2 @(Delta0 Float) "(Float) 2500|750 " chunkLength xsFloat 2500 750 0.02
     ]
 
 mnistTrainBench2V :: String -> Int -> [MnistData Double]
@@ -98,7 +98,7 @@ mnistTestBench2V extraPrefix chunkLength xs widthHidden widthHidden2 = do
                           - HM.scalar 0.5)
                nParamsV
       chunk = take chunkLength xs
-      score c = testMnist2V widthHidden widthHidden2 c (params0, paramsV0)
+      score c = testMnist2V @(Delta0 Double) widthHidden widthHidden2 c (params0, paramsV0)
       totalParams = nParams + V.sum nParamsV
       name = "test " ++ extraPrefix
              ++ unwords [ "s" ++ show nParams, "v" ++ show (V.length nParamsV)
@@ -142,7 +142,7 @@ mnistTestBench2L extraPrefix chunkLength xs widthHidden widthHidden2 = do
   let ((nParams, nParamsV, nParamsL), totalParams, _reach, parameters0) =
         initializerFixed 33 0.5 (lenMnistFcnn2L widthHidden widthHidden2)
       chunk = take chunkLength xs
-      score c = testMnist2L c parameters0
+      score c = testMnist2L @(Delta0 Double) c parameters0
       name = "test " ++ extraPrefix
              ++ unwords [ "s" ++ show nParams, "v" ++ show nParamsV
                         , "m" ++ show nParamsL

@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE AllowAmbiguousTypes, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 -- | Scalar-based implementation of fully connected neutral network
 -- for classification of MNIST digits. Sports 2 hidden layers.
@@ -10,7 +10,6 @@ import           Control.Exception (assert)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
-import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
@@ -40,13 +39,13 @@ sumTrainableInputs xs offset variables = do
 -- at @variables@ starting at @offset@. Useful for neurons at the bottom
 -- of the network, tasked with ingesting the data.
 sumConstantData :: forall m r. DeltaMonad r m
-                => Vector r
+                => Dual (Tensor1 r)
                 -> Int
                 -> DualNumberVariables r
                 -> m (DualNumber r)
 sumConstantData xs offset variables = do
   let bias = var variables offset
-      f :: DualNumber r -> Int -> r -> DualNumber r
+      f :: DualNumber r -> Int -> Dual r -> DualNumber r
       f !acc i r =
         let v = var variables (offset + 1 + i)
         in acc + scale r v
@@ -54,7 +53,7 @@ sumConstantData xs offset variables = do
 
 hiddenLayerMnist :: forall m r. DeltaMonad r m
                  => (DualNumber r -> m (DualNumber r))
-                 -> Vector r
+                 -> Dual (Tensor1 r)
                  -> DualNumberVariables r
                  -> Int
                  -> m (Data.Vector.Vector (DualNumber r))
@@ -112,13 +111,13 @@ lenMnist2 widthHidden widthHidden2 =
 -- The widths of the hidden layers are @widthHidden@ and @widthHidden2@
 -- and from these, the @lenMnist2@ function computes the number
 -- of scalar dual number parameters (variables) to be given to the program.
-nnMnist2 :: DeltaMonad r m
+nnMnist2 :: forall r m. DeltaMonad r m
          => (DualNumber r -> m (DualNumber r))
          -> (Data.Vector.Vector (DualNumber r)
              -> m (Data.Vector.Vector (DualNumber r)))
          -> Int
          -> Int
-         -> Vector r
+         -> Dual (Tensor1 r)
          -> DualNumberVariables r
          -> m (Data.Vector.Vector (DualNumber r))
 nnMnist2 factivationHidden factivationOutput widthHidden widthHidden2
@@ -135,10 +134,10 @@ nnMnist2 factivationHidden factivationOutput widthHidden widthHidden2
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
-nnMnistLoss2 :: (DeltaMonad r m, Floating r)
+nnMnistLoss2 :: (DeltaMonad r m, Floating (Dual r))
              => Int
              -> Int
-             -> MnistData r
+             -> MnistData (Dual r)
              -> DualNumberVariables r
              -> m (DualNumber r)
 nnMnistLoss2 widthHidden widthHidden2 (input, target) variables = do
@@ -148,16 +147,16 @@ nnMnistLoss2 widthHidden widthHidden2 (input, target) variables = do
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
-testMnist2 :: forall r. (Ord r, Floating r, IsScalar r)
-           => Int -> Int -> [MnistData r] -> Domain r -> r
+testMnist2 :: forall r. (IsScalar r, Floating (Dual r))
+           => Int -> Int -> [MnistData (Dual r)] -> Domain r -> Dual r
 testMnist2 widthHidden widthHidden2 inputs params =
-  let matchesLabels :: MnistData r -> Bool
+  let matchesLabels :: MnistData (Dual r) -> Bool
       matchesLabels (glyph, label) =
-        let nn = inline nnMnist2 logisticAct softMaxAct
-                                 widthHidden widthHidden2 glyph
+        let nn = inline (nnMnist2 @r) logisticAct softMaxAct
+                                      widthHidden widthHidden2 glyph
             value = V.map (\(D r _) -> r)
-                    $ primalValueGeneric nn (params, V.empty, V.empty, V.empty)
+                    $ primalValueGeneric @r nn (params, V.empty, V.empty, V.empty)
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
-{-# SPECIALIZE testMnist2 :: Int -> Int -> [MnistData Double] -> Domain Double -> Double #-}
+-- how to?  {-# SPECIALIZE testMnist2 :: Int -> Int -> [MnistData Double] -> Domain Double -> Double #-}

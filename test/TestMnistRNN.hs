@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE AllowAmbiguousTypes, TypeFamilies #-}
 module TestMnistRNN (testTrees, shortTestForCITrees) where
 
 import Prelude
@@ -35,11 +35,11 @@ shortTestForCITrees = [ sinRNNTests
 
 -- A version written using matrices
 
-hiddenLayerSinRNN :: (DeltaMonad r m, Floating (Vector r))
-                  => r
-                  -> DualNumber (Vector r)
+hiddenLayerSinRNN :: (DeltaMonad r m, Floating (Dual (Tensor1 r)))
+                  => Dual r
+                  -> DualNumber (Tensor1 r)
                   -> DualNumberVariables r
-                  -> m (DualNumber (Vector r), DualNumber (Vector r))
+                  -> m (DualNumber (Tensor1 r), DualNumber (Tensor1 r))
 hiddenLayerSinRNN x s variables = do
   let wX = varL variables 0
       wS = varL variables 1
@@ -49,7 +49,7 @@ hiddenLayerSinRNN x s variables = do
   return (y, yLogistic)
 
 outputLayerSinRNN :: DeltaMonad r m
-                  => DualNumber (Vector r)
+                  => DualNumber (Tensor1 r)
                   -> DualNumberVariables r
                   -> m (DualNumber r)
 outputLayerSinRNN vec variables = do
@@ -57,51 +57,51 @@ outputLayerSinRNN vec variables = do
       b = var variables 0
   returnLet $ w <.>! vec + b
 
-fcfcrnn :: (DeltaMonad r m, Floating (Vector r))
-        => r
-        -> DualNumber (Vector r)
+fcfcrnn :: (DeltaMonad r m, Floating (Dual (Tensor1 r)))
+        => Dual r
+        -> DualNumber (Tensor1 r)
         -> DualNumberVariables r
-        -> m (DualNumber r, DualNumber (Vector r))
+        -> m (DualNumber r, DualNumber (Tensor1 r))
 fcfcrnn x s variables = do
   (hiddenLayer, sHiddenLayer) <- hiddenLayerSinRNN x s variables
   outputLayer <- outputLayerSinRNN hiddenLayer variables
   return (outputLayer, sHiddenLayer)
 
 unrollLast' :: forall m r. DeltaMonad r m
-            => (r
-                -> DualNumber (Vector r)
+            => (Dual r
+                -> DualNumber (Tensor1 r)
                 -> DualNumberVariables r
-                -> m (DualNumber r, DualNumber (Vector r)))
-            -> (Vector r
-                -> DualNumber (Vector r)
+                -> m (DualNumber r, DualNumber (Tensor1 r)))
+            -> (Dual (Tensor1 r)
+                -> DualNumber (Tensor1 r)
                 -> DualNumberVariables r
-                -> m (DualNumber r, DualNumber (Vector r)))
+                -> m (DualNumber r, DualNumber (Tensor1 r)))
 unrollLast' f xs s0 variables =
-  let g :: (DualNumber r, DualNumber (Vector r)) -> r
-        -> m (DualNumber r, DualNumber (Vector r))
+  let g :: (DualNumber r, DualNumber (Tensor1 r)) -> Dual r
+        -> m (DualNumber r, DualNumber (Tensor1 r))
       g (_, s) x = f x s variables
   in V.foldM' g (undefined, s0) xs
 
 zeroState :: DeltaMonad r m
           => Int
           -> (a
-              -> DualNumber (Vector r)
+              -> DualNumber (Tensor1 r)
               -> DualNumberVariables r
-              -> m (DualNumber r2, DualNumber (Vector r)))
+              -> m (DualNumber r2, DualNumber (Tensor1 r)))
           -> (a
               -> DualNumberVariables r
               -> m (DualNumber r2))
 zeroState k f xs variables =
   fst <$> f xs (scalar $ HM.konst 0 k) variables
 
-nnSinRNN :: (DeltaMonad r m, Floating (Vector r))
-         => Vector r
+nnSinRNN :: (DeltaMonad r m, Floating (Dual (Tensor1 r)))
+         => Dual (Tensor1 r)
          -> DualNumberVariables r
          -> m (DualNumber r)
 nnSinRNN = zeroState 30 (unrollLast' fcfcrnn)
 
-nnSinRNNLoss :: (DeltaMonad r m, Floating (Vector r))
-             => (Vector r, r)
+nnSinRNNLoss :: (DeltaMonad r m, Floating (Dual (Tensor1 r)))
+             => (Dual (Tensor1 r), Dual r)
              -> DualNumberVariables r
              -> m (DualNumber r)
 nnSinRNNLoss (xs, target) variables = do
@@ -114,19 +114,19 @@ series = [sin (2 * pi * t / 25) | t <- [0 ..]]
 samples :: [(Vector Double, Double)]
 samples  = [(V.fromList $ init c, last c) | c <- chunksOf 19 series]
 
-sgdShow :: (HasDelta r, Fractional r)
+sgdShow :: (HasDelta r, Fractional (Dual r))
         => (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
         -> [a]
         -> Domains r
-        -> r
+        -> Dual r
 sgdShow f trainData parameters =
   let result = fst $ sgd 0.1 f trainData parameters
   in snd $ df (f $ head trainData) result
 
 sgdTestCase :: String
             -> (a
-                -> DualNumberVariables Double
-                -> DeltaMonadGradient Double (DualNumber Double))
+                -> DualNumberVariables (Delta0 Double)
+                -> DeltaMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
             -> (Int, [Int], [(Int, Int)])
             -> IO [a]
             -> Double
@@ -144,8 +144,8 @@ sgdTestCase prefix f nParameters trainDataIO expected =
 
 sgdTestCaseAlt :: String
             -> (a
-                -> DualNumberVariables Double
-                -> DeltaMonadGradient Double (DualNumber Double))
+                -> DualNumberVariables (Delta0 Double)
+                -> DeltaMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
             -> (Int, [Int], [(Int, Int)])
             -> IO [a]
             -> [Double]
@@ -162,26 +162,26 @@ sgdTestCaseAlt prefix f nParameters trainDataIO expected =
        assertBool "wrong result" $ res `elem` expected
 
 prime :: IsScalar r
-      => (r
-          -> DualNumber (Vector r)
+      => (Dual r
+          -> DualNumber (Tensor1 r)
           -> DualNumberVariables r
-          -> DeltaMonadValue r (DualNumber r, DualNumber (Vector r)))
+          -> DeltaMonadValue r (DualNumber r, DualNumber (Tensor1 r)))
       -> Domains r
-      -> Vector r
-      -> [r]
-      -> Vector r
+      -> Dual (Tensor1 r)
+      -> [Dual r]
+      -> Dual (Tensor1 r)
 prime f parameters =
   foldl' (\s x -> primalValue (fmap snd . f x (scalar s)) parameters)
 
 feedback :: IsScalar r
-         => (r
-             -> DualNumber (Vector r)
+         => (Dual r
+             -> DualNumber (Tensor1 r)
              -> DualNumberVariables r
-             -> DeltaMonadValue r (DualNumber r, DualNumber (Vector r)))
+             -> DeltaMonadValue r (DualNumber r, DualNumber (Tensor1 r)))
          -> Domains r
-         -> Vector r
-         -> r
-         -> [r]
+         -> Dual (Tensor1 r)
+         -> Dual r
+         -> [Dual r]
 feedback f parameters s0 x0 =
   let go (x, s) =
         let (D y _, sd') = primalValueGeneric (f x s) parameters
@@ -190,14 +190,14 @@ feedback f parameters s0 x0 =
 
 feedbackTestCase :: String
                  -> (Double
-                     -> DualNumber (Vector Double)
-                     -> DualNumberVariables Double
-                     -> DeltaMonadValue Double
-                                        ( DualNumber Double
-                                        , DualNumber (Vector Double) ))
+                     -> DualNumber (Tensor1 (Delta0 Double))
+                     -> DualNumberVariables (Delta0 Double)
+                     -> DeltaMonadValue (Delta0 Double)
+                                        ( DualNumber (Delta0 Double)
+                                        , DualNumber (Tensor1 (Delta0 Double)) ))
                  -> (a
-                     -> DualNumberVariables Double
-                     -> DeltaMonadGradient Double (DualNumber Double))
+                     -> DualNumberVariables (Delta0 Double)
+                     -> DeltaMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
                  -> (Int, [Int], [(Int, Int)])
                  -> [a]
                  -> [Double]
@@ -216,11 +216,11 @@ feedbackTestCase prefix fp f nParameters trainData expected =
 
 -- A version written using vectors
 
-hiddenLayerSinRNNV :: (DeltaMonad r m, Floating (Vector r))
-                   => r
-                   -> DualNumber (Vector r)
+hiddenLayerSinRNNV :: (DeltaMonad r m, Floating (Dual (Tensor1 r)))
+                   => Dual r
+                   -> DualNumber (Tensor1 r)
                    -> DualNumberVariables r
-                   -> m (DualNumber (Vector r), DualNumber (Vector r))
+                   -> m (DualNumber (Tensor1 r), DualNumber (Tensor1 r))
 hiddenLayerSinRNNV x s variables = do
   let wX = varV variables 0
       b = varV variables 31
@@ -230,7 +230,7 @@ hiddenLayerSinRNNV x s variables = do
   return (y, yLogistic)
 
 outputLayerSinRNNV :: DeltaMonad r m
-                   => DualNumber (Vector r)
+                   => DualNumber (Tensor1 r)
                    -> DualNumberVariables r
                    -> m (DualNumber r)
 outputLayerSinRNNV vec variables = do
@@ -238,18 +238,18 @@ outputLayerSinRNNV vec variables = do
       b = var variables 0
   returnLet $ w <.>! vec + b
 
-fcfcrnnV :: (DeltaMonad r m, Floating (Vector r))
-         => r
-         -> DualNumber (Vector r)
+fcfcrnnV :: (DeltaMonad r m, Floating (Dual (Tensor1 r)))
+         => Dual r
+         -> DualNumber (Tensor1 r)
          -> DualNumberVariables r
-         -> m (DualNumber r, DualNumber (Vector r))
+         -> m (DualNumber r, DualNumber (Tensor1 r))
 fcfcrnnV x s variables = do
   (hiddenLayer, sHiddenLayer) <- hiddenLayerSinRNNV x s variables
   outputLayer <- outputLayerSinRNNV hiddenLayer variables
   return (outputLayer, sHiddenLayer)
 
-nnSinRNNLossV :: (DeltaMonad r m, Floating (Vector r))
-              => (Vector r, r)
+nnSinRNNLossV :: (DeltaMonad r m, Floating (Dual (Tensor1 r)))
+              => (Dual (Tensor1 r), Dual r)
               -> DualNumberVariables r
               -> m (DualNumber r)
 nnSinRNNLossV (xs, target) variables = do
@@ -259,10 +259,10 @@ nnSinRNNLossV (xs, target) variables = do
 -- Autoregressive model with degree 2
 
 ar2Sin :: DeltaMonad r m
-       => r
-       -> DualNumber (Vector r)
+       => Dual r
+       -> DualNumber (Tensor1 r)
        -> DualNumberVariables r
-       -> m (DualNumber r, DualNumber (Vector r))
+       -> m (DualNumber r, DualNumber (Tensor1 r))
 ar2Sin yLast s variables = do
   let c = var variables 0
       phi1 = var variables 1
@@ -272,7 +272,7 @@ ar2Sin yLast s variables = do
   return (y, scalar $ V.singleton yLast)
 
 ar2SinLoss :: DeltaMonad r m
-           => (Vector r, r)
+           => (Dual (Tensor1 r), Dual r)
            -> DualNumberVariables r
            -> m (DualNumber r)
 ar2SinLoss (xs, target) variables = do
@@ -315,11 +315,11 @@ sinRNNTests = testGroup "Sine RNN tests"
 -- with a probability distribution that doesn't have the right variance. See
 -- https://stats.stackexchange.com/questions/301285/what-is-vanishing-gradient.
 
-hiddenLayerMnistRNNL :: (DeltaMonad r m, Floating (Vector r))
-                     => Vector r
-                     -> DualNumber (Vector r)
+hiddenLayerMnistRNNL :: (DeltaMonad r m, Floating (Dual (Tensor1 r)))
+                     => Dual (Tensor1 r)
+                     -> DualNumber (Tensor1 r)
                      -> DualNumberVariables r
-                     -> m (DualNumber (Vector r), DualNumber (Vector r))
+                     -> m (DualNumber (Tensor1 r), DualNumber (Tensor1 r))
 hiddenLayerMnistRNNL x s variables = do
   let wX = varL variables 0  -- 128x28
       wS = varL variables 1  -- 128x128
@@ -328,11 +328,11 @@ hiddenLayerMnistRNNL x s variables = do
   yTanh <- tanhAct y
   return (yTanh, yTanh)  -- tanh in both, as per https://github.com/keras-team/keras/blob/v2.8.0/keras/layers/legacy_rnn/rnn_cell_impl.py#L468
 
-middleLayerMnistRNNL :: (DeltaMonad r m, Floating (Vector r))
-                     => DualNumber (Vector r)
-                     -> DualNumber (Vector r)
+middleLayerMnistRNNL :: (DeltaMonad r m, Floating (Dual (Tensor1 r)))
+                     => DualNumber (Tensor1 r)
+                     -> DualNumber (Tensor1 r)
                      -> DualNumberVariables r
-                     -> m (DualNumber (Vector r), DualNumber (Vector r))
+                     -> m (DualNumber (Tensor1 r), DualNumber (Tensor1 r))
 middleLayerMnistRNNL vec s variables = do
   let wX = varL variables 3  -- 128x128
       wS = varL variables 4  -- 128x128
@@ -342,26 +342,26 @@ middleLayerMnistRNNL vec s variables = do
   return (yTanh, yTanh)
 
 outputLayerMnistRNNL :: DeltaMonad r m
-                     => DualNumber (Vector r)
+                     => DualNumber (Tensor1 r)
                      -> DualNumberVariables r
-                     -> m (DualNumber (Vector r))
+                     -> m (DualNumber (Tensor1 r))
 outputLayerMnistRNNL vec variables = do
   let w = varL variables 2  -- 10x128
       b = varV variables 1  -- 10
   returnLet $ w #>! vec + b  -- I assume there is no activations, as per https://www.tensorflow.org/api_docs/python/tf/compat/v1/layers/dense
 
-fcfcrnnMnistL :: (DeltaMonad r m, Floating (Vector r))
-              => Vector r
-              -> DualNumber (Vector r)
+fcfcrnnMnistL :: (DeltaMonad r m, Floating (Dual (Tensor1 r)))
+              => Dual (Tensor1 r)
+              -> DualNumber (Tensor1 r)
               -> DualNumberVariables r
-              -> m (DualNumber (Vector r), DualNumber (Vector r))
+              -> m (DualNumber (Tensor1 r), DualNumber (Tensor1 r))
 fcfcrnnMnistL = hiddenLayerMnistRNNL
 
-fcfcrnnMnistL2 :: (DeltaMonad r m, Floating (Vector r))
-               => Vector r
-               -> DualNumber (Vector r)
+fcfcrnnMnistL2 :: (DeltaMonad r m, Floating (Dual (Tensor1 r)))
+               => Dual (Tensor1 r)
+               -> DualNumber (Tensor1 r)
                -> DualNumberVariables r
-               -> m (DualNumber (Vector r), DualNumber (Vector r))
+               -> m (DualNumber (Tensor1 r), DualNumber (Tensor1 r))
 fcfcrnnMnistL2 x s@(D u _) variables = do
   let len = V.length u `div` 2
       s1 = slice1 0 len s
@@ -378,72 +378,72 @@ unrollLastG f xs s0 variables =
       g (_, s) x = f x s variables
   in foldM g (undefined, s0) xs
 
-nnMnistRNNL :: (DeltaMonad r m, Floating (Vector r))
+nnMnistRNNL :: forall r m. (DeltaMonad r m, Floating (Dual (Tensor1 r)))
             => Int
-            -> [Vector r]
+            -> [Dual (Tensor1 r)]
             -> DualNumberVariables r
-            -> m (DualNumber (Vector r))
+            -> m (DualNumber (Tensor1 r))
 nnMnistRNNL width x variables = do
   rnnLayer <- zeroState width (unrollLastG fcfcrnnMnistL) x variables
   outputLayerMnistRNNL rnnLayer variables
 
-nnMnistRNNL2 :: (DeltaMonad r m, Floating (Vector r))
+nnMnistRNNL2 :: (DeltaMonad r m, Floating (Dual (Tensor1 r)))
              => Int
-             -> [Vector r]
+             -> [Dual (Tensor1 r)]
              -> DualNumberVariables r
-             -> m (DualNumber (Vector r))
+             -> m (DualNumber (Tensor1 r))
 nnMnistRNNL2 width x variables = do
   rnnLayer <- zeroState (2 * width) (unrollLastG fcfcrnnMnistL2) x variables
   outputLayerMnistRNNL rnnLayer variables
 
-nnMnistRNNLossL :: (DeltaMonad r m, Fractional r, Floating (Vector r))
+nnMnistRNNLossL :: forall r m. (DeltaMonad r m, Fractional (Dual r), Floating (Dual (Tensor1 r)))
                 => Int
-                -> ([Vector r], Vector r)
+                -> ([Dual (Tensor1 r)], Dual (Tensor1 r))
                 -> DualNumberVariables r
                 -> m (DualNumber r)
 nnMnistRNNLossL width (xs, target) variables = do
-  result <- nnMnistRNNL width xs variables
+  result <- nnMnistRNNL @r width xs variables
   lossSoftMaxCrossEntropyV target result
 
-nnMnistRNNLossL2 :: (DeltaMonad r m, Fractional r, Floating (Vector r))
+nnMnistRNNLossL2 :: (DeltaMonad r m, Fractional (Dual r), Floating (Dual (Tensor1 r)))
                  => Int
-                 -> ([Vector r], Vector r)
+                 -> ([Dual (Tensor1 r)], Dual (Tensor1 r))
                  -> DualNumberVariables r
                  -> m (DualNumber r)
 nnMnistRNNLossL2 width (xs, target) variables = do
   result <- nnMnistRNNL2 width xs variables
   lossSoftMaxCrossEntropyV target result
 
-testMnistRNNL :: forall r. (Ord r, Floating r, IsScalar r, Floating (Vector r))
-              => Int -> [([Vector r], Vector r)] -> Domains r -> r
+testMnistRNNL :: forall r. (Floating (Dual r), IsScalar r, Floating (Dual (Tensor1 r)))
+              => Int -> [([Dual (Tensor1 r)], Dual (Tensor1 r))] -> Domains r -> Dual r
 testMnistRNNL width inputs parameters =
-  let matchesLabels :: ([Vector r], Vector r) -> Bool
+  let matchesLabels :: ([Dual (Tensor1 r)], Dual (Tensor1 r)) -> Bool
       matchesLabels (glyph, label) =
-        let nn = nnMnistRNNL width glyph
+        let nn = nnMnistRNNL @r width glyph
             value = primalValue nn parameters
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
 
-testMnistRNNL2 :: forall r. (Ord r, Floating r, IsScalar r, Floating (Vector r))
-               => Int -> [([Vector r], Vector r)] -> Domains r -> r
+testMnistRNNL2 :: forall r. (Floating (Dual r), IsScalar r, Floating (Dual (Tensor1 r)))
+               => Int -> [([Dual (Tensor1 r)], Dual (Tensor1 r))] -> Domains r -> Dual r
 testMnistRNNL2 width inputs parameters =
-  let matchesLabels :: ([Vector r], Vector r) -> Bool
+  let matchesLabels :: ([Dual (Tensor1 r)], Dual (Tensor1 r)) -> Bool
       matchesLabels (glyph, label) =
         let nn = nnMnistRNNL2 width glyph
-            value = primalValue nn parameters
+            value = primalValue @r nn parameters
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
 
 -- A version written using vectors
 
-hiddenLayerMnistRNNV :: (DeltaMonad r m, Floating (Vector r))
+hiddenLayerMnistRNNV :: (DeltaMonad r m, Floating (Dual (Tensor1 r)))
                      => Int
-                     -> Vector r
-                     -> DualNumber (Vector r)
+                     -> Dual (Tensor1 r)
+                     -> DualNumber (Tensor1 r)
                      -> DualNumberVariables r
-                     -> m (DualNumber (Vector r), DualNumber (Vector r))
+                     -> m (DualNumber (Tensor1 r), DualNumber (Tensor1 r))
 hiddenLayerMnistRNNV width x s variables = do
   let b = varV variables (width + width)  -- 128
       y = sumConstantDataL x 0 variables width
@@ -454,46 +454,46 @@ hiddenLayerMnistRNNV width x s variables = do
 
 outputLayerMnistRNNV :: DeltaMonad r m
                      => Int
-                     -> DualNumber (Vector r)
+                     -> DualNumber (Tensor1 r)
                      -> DualNumberVariables r
-                     -> m (DualNumber (Vector r))
+                     -> m (DualNumber (Tensor1 r))
 outputLayerMnistRNNV width vec variables = do
   let b = varV variables (width + width + 1 + 10)  -- 10
   returnLet $ sumTrainableInputsL vec (width + width + 1) variables 10 + b
 
-fcfcrnnMnistV :: (DeltaMonad r m, Floating (Vector r))
+fcfcrnnMnistV :: (DeltaMonad r m, Floating (Dual (Tensor1 r)))
               => Int
-              -> Vector r
-              -> DualNumber (Vector r)
+              -> Dual (Tensor1 r)
+              -> DualNumber (Tensor1 r)
               -> DualNumberVariables r
-              -> m (DualNumber (Vector r), DualNumber (Vector r))
+              -> m (DualNumber (Tensor1 r), DualNumber (Tensor1 r))
 fcfcrnnMnistV = hiddenLayerMnistRNNV
 
-nnMnistRNNV :: (DeltaMonad r m, Floating (Vector r))
+nnMnistRNNV :: (DeltaMonad r m, Floating (Dual (Tensor1 r)))
             => Int
-            -> [Vector r]
+            -> [Dual (Tensor1 r)]
             -> DualNumberVariables r
-            -> m (DualNumber (Vector r))
+            -> m (DualNumber (Tensor1 r))
 nnMnistRNNV width x variables = do
   rnnLayer <- zeroState width (unrollLastG $ fcfcrnnMnistV width) x variables
   outputLayerMnistRNNV width rnnLayer variables
 
-nnMnistRNNLossV :: (DeltaMonad r m, Fractional r, Floating (Vector r))
+nnMnistRNNLossV :: (DeltaMonad r m, Fractional (Dual r), Floating (Dual (Tensor1 r)))
                 => Int
-                -> ([Vector r], Vector r)
+                -> ([Dual (Tensor1 r)], Dual (Tensor1 r))
                 -> DualNumberVariables r
                 -> m (DualNumber r)
 nnMnistRNNLossV width (xs, target) variables = do
   result <- nnMnistRNNV width xs variables
   lossSoftMaxCrossEntropyV target result
 
-testMnistRNNV :: forall r. (Ord r, Floating r, IsScalar r, Floating (Vector r))
-              => Int -> [([Vector r], Vector r)] -> Domains r -> r
+testMnistRNNV :: forall r. (Floating (Dual r), IsScalar r, Floating (Dual (Tensor1 r)))
+              => Int -> [([Dual (Tensor1 r)], Dual (Tensor1 r))] -> Domains r -> Dual r
 testMnistRNNV width inputs parameters =
-  let matchesLabels :: ([Vector r], Vector r) -> Bool
+  let matchesLabels :: ([Dual (Tensor1 r)], Dual (Tensor1 r)) -> Bool
       matchesLabels (glyph, label) =
         let nn = nnMnistRNNV width glyph
-            value = primalValue nn parameters
+            value = primalValue @r nn parameters
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
@@ -522,9 +522,9 @@ mnistTestCaseRNN
   -> Int
   -> (Int
       -> ([Vector Double], Vector Double)
-      -> DualNumberVariables Double
-      -> DeltaMonadGradient Double (DualNumber Double))
-  -> (Int -> [([Vector Double], Vector Double)] -> Domains Double -> Double)
+      -> DualNumberVariables (Delta0 Double)
+      -> DeltaMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
+  -> (Int -> [([Vector Double], Vector Double)] -> Domains (Delta0 Double) -> Double)
   -> (Int -> Int -> (Int, [Int], [(Int, Int)]))
   -> Int
   -> Int
@@ -546,9 +546,9 @@ mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
        trainData <- map rws <$> loadMnistData trainGlyphsPath trainLabelsPath
        testData <- map rws <$> loadMnistData testGlyphsPath testLabelsPath
        -- There is some visual feedback, because some of these take long.
-       let runBatch :: (Domains Double, StateAdam Double)
+       let runBatch :: (Domains (Delta0 Double), StateAdam (Delta0 Double))
                     -> (Int, [([Vector Double], Vector Double)])
-                    -> IO (Domains Double, StateAdam Double)
+                    -> IO (Domains (Delta0 Double), StateAdam (Delta0 Double))
            runBatch (parameters@(!_, !_, !_, !_), stateAdam) (k, chunk) = do
              printf "(Batch %d with %d points)\n" k (length chunk)
              let res@(parameters2, _) =
@@ -559,8 +559,8 @@ mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
              printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
              return res
            runEpoch :: Int
-                    -> (Domains Double, StateAdam Double)
-                    -> IO (Domains Double)
+                    -> (Domains (Delta0 Double), StateAdam (Delta0 Double))
+                    -> IO (Domains (Delta0 Double))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam = do
              printf "[Epoch %d]\n" n
@@ -578,11 +578,11 @@ mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
 -- A version written using matrices to express mini-batches of data
 -- and so using matrix multiplication to run the neural net.
 
-hiddenLayerMnistRNNB :: (DeltaMonad r m, Floating (Matrix r))
-                     => Matrix r  -- the mini-batch of data 28x150
-                     -> DualNumber (Matrix r)  -- state for mini-batch 128x150
+hiddenLayerMnistRNNB :: (DeltaMonad r m, Floating (Dual (Tensor2 r)))
+                     => Dual (Tensor2 r)  -- the mini-batch of data 28x150
+                     -> DualNumber (Tensor2 r)  -- state for mini-batch 128x150
                      -> DualNumberVariables r
-                     -> m (DualNumber (Matrix r), DualNumber (Matrix r))
+                     -> m (DualNumber (Tensor2 r), DualNumber (Tensor2 r))
 hiddenLayerMnistRNNB x s variables = do
   let wX = varL variables 0  -- 128x28
       wS = varL variables 1  -- 128x128
@@ -592,11 +592,11 @@ hiddenLayerMnistRNNB x s variables = do
   yTanh <- returnLet $ tanh y
   return (yTanh, yTanh)
 
-middleLayerMnistRNNB :: (DeltaMonad r m, Floating (Matrix r))
-                     => DualNumber (Matrix r)  -- 128x150
-                     -> DualNumber (Matrix r)  -- 128x150
+middleLayerMnistRNNB :: (DeltaMonad r m, Floating (Dual (Tensor2 r)))
+                     => DualNumber (Tensor2 r)  -- 128x150
+                     -> DualNumber (Tensor2 r)  -- 128x150
                      -> DualNumberVariables r
-                     -> m (DualNumber (Matrix r), DualNumber (Matrix r))
+                     -> m (DualNumber (Tensor2 r), DualNumber (Tensor2 r))
 middleLayerMnistRNNB batchOfVec@(D u _) s variables = do
   let wX = varL variables 3  -- 128x128
       wS = varL variables 4  -- 128x128
@@ -607,27 +607,27 @@ middleLayerMnistRNNB batchOfVec@(D u _) s variables = do
   return (yTanh, yTanh)
 
 outputLayerMnistRNNB :: DeltaMonad r m
-                     => DualNumber (Matrix r)  -- 128x150
+                     => DualNumber (Tensor2 r)  -- 128x150
                      -> DualNumberVariables r
-                     -> m (DualNumber (Matrix r))
+                     -> m (DualNumber (Tensor2 r))
 outputLayerMnistRNNB batchOfVec@(D u _) variables = do
   let w = varL variables 2  -- 10x128
       b = varV variables 1  -- 10
       batchSize = HM.cols u
   returnLet $ w <>! batchOfVec + asColumn2 b batchSize
 
-fcfcrnnMnistB :: (DeltaMonad r m, Floating (Matrix r))
-              => Matrix r
-              -> DualNumber (Matrix r)
+fcfcrnnMnistB :: (DeltaMonad r m, Floating (Dual (Tensor2 r)))
+              => Dual (Tensor2 r)
+              -> DualNumber (Tensor2 r)
               -> DualNumberVariables r
-              -> m (DualNumber (Matrix r), DualNumber (Matrix r))
+              -> m (DualNumber (Tensor2 r), DualNumber (Tensor2 r))
 fcfcrnnMnistB = hiddenLayerMnistRNNB
 
-fcfcrnnMnistB2 :: (DeltaMonad r m, Floating (Matrix r))
-               => Matrix r  -- 28x150
-               -> DualNumber (Matrix r)  -- 256x150
+fcfcrnnMnistB2 :: (DeltaMonad r m, Floating (Dual (Tensor2 r)))
+               => Dual (Tensor2 r)  -- 28x150
+               -> DualNumber (Tensor2 r)  -- 256x150
                -> DualNumberVariables r
-               -> m (DualNumber (Matrix r), DualNumber (Matrix r))
+               -> m (DualNumber (Tensor2 r), DualNumber (Tensor2 r))
 fcfcrnnMnistB2 x s@(D u _) variables = do
   let len = HM.rows u `div` 2
       s1 = rowSlice2 0 len s
@@ -639,40 +639,40 @@ fcfcrnnMnistB2 x s@(D u _) variables = do
 zeroStateB :: DeltaMonad r m
            => (Int, Int)
            -> (a
-               -> DualNumber (Matrix r)
+               -> DualNumber (Tensor2 r)
                -> DualNumberVariables r
-               -> m (DualNumber r2, DualNumber (Matrix r)))
+               -> m (DualNumber r2, DualNumber (Tensor2 r)))
            -> (a
                -> DualNumberVariables r
                -> m (DualNumber r2))
 zeroStateB ij f xs variables =
   fst <$> f xs (scalar $ HM.konst 0 ij) variables
 
-nnMnistRNNB :: (DeltaMonad r m, Floating (Matrix r))
+nnMnistRNNB :: (DeltaMonad r m, Floating (Dual (Tensor2 r)))
             => Int
-            -> [Matrix r]
+            -> [Dual (Tensor2 r)]
             -> DualNumberVariables r
-            -> m (DualNumber (Matrix r))
+            -> m (DualNumber (Tensor2 r))
 nnMnistRNNB width xs variables = do
   let batchSize = HM.cols $ head xs
   rnnLayer <- zeroStateB (width, batchSize) (unrollLastG fcfcrnnMnistB)
                          xs variables
   outputLayerMnistRNNB rnnLayer variables
 
-nnMnistRNNB2 :: (DeltaMonad r m, Floating (Matrix r))
+nnMnistRNNB2 :: (DeltaMonad r m, Floating (Dual (Tensor2 r)))
              => Int
-             -> [Matrix r]
+             -> [Dual (Tensor2 r)]
              -> DualNumberVariables r
-             -> m (DualNumber (Matrix r))
+             -> m (DualNumber (Tensor2 r))
 nnMnistRNNB2 width xs variables = do
   let batchSize = HM.cols $ head xs
   rnnLayer <- zeroStateB (2 * width, batchSize) (unrollLastG fcfcrnnMnistB2)
                          xs variables
   outputLayerMnistRNNB rnnLayer variables
 
-nnMnistRNNLossB :: (DeltaMonad r m, Fractional r, Floating (Matrix r))
+nnMnistRNNLossB :: (DeltaMonad r m, Fractional (Dual r), Floating (Dual (Tensor2 r)))
                 => Int
-                -> ([Matrix r], Matrix r)
+                -> ([Dual (Tensor2 r)], Dual (Tensor2 r))
                 -> DualNumberVariables r
                 -> m (DualNumber r)
 nnMnistRNNLossB width (xs, target) variables = do
@@ -681,9 +681,9 @@ nnMnistRNNLossB width (xs, target) variables = do
     -- this @asRow@ is safe, because it gets multiplied/subtracted right away
   returnLet $ scale (recip $ fromIntegral $ V.length u) $ sumElements0 vec
 
-nnMnistRNNLossB2 :: (DeltaMonad r m, Fractional r, Floating (Matrix r))
+nnMnistRNNLossB2 :: (DeltaMonad r m, Fractional (Dual r), Floating (Dual (Tensor2 r)))
                  => Int
-                 -> ([Matrix r], Matrix r)
+                 -> ([Dual (Tensor2 r)], Dual (Tensor2 r))
                  -> DualNumberVariables r
                  -> m (DualNumber r)
 nnMnistRNNLossB2 width (xs, target) variables = do
@@ -697,9 +697,9 @@ mnistTestCaseRNNB
   -> Int
   -> (Int
       -> ([Matrix Double], Matrix Double)
-      -> DualNumberVariables Double
-      -> DeltaMonadGradient Double (DualNumber Double))
-  -> (Int -> [([Vector Double], Vector Double)] -> Domains Double -> Double)
+      -> DualNumberVariables (Delta0 Double)
+      -> DeltaMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
+  -> (Int -> [([Vector Double], Vector Double)] -> Domains (Delta0 Double) -> Double)
   -> (Int -> Int -> (Int, [Int], [(Int, Int)]))
   -> Int
   -> Int
@@ -729,9 +729,9 @@ mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
                                         (map tail l)
              in (behead [] inputs, HM.fromColumns outputs)
            -- There is some visual feedback, because some of these take long.
-           runBatch :: (Domains Double, StateAdam Double)
+           runBatch :: (Domains (Delta0 Double), StateAdam (Delta0 Double))
                     -> (Int, [([Vector Double], Vector Double)])
-                    -> IO (Domains Double, StateAdam Double)
+                    -> IO (Domains (Delta0 Double), StateAdam (Delta0 Double))
            runBatch (parameters@(!_, !_, !_, !_), stateAdam) (k, chunk) = do
              printf "(Batch %d with %d points)\n" k (length chunk)
              let res@(parameters2, _) =
@@ -743,8 +743,8 @@ mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
              printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
              return res
            runEpoch :: Int
-                    -> (Domains Double, StateAdam Double)
-                    -> IO (Domains Double)
+                    -> (Domains (Delta0 Double), StateAdam (Delta0 Double))
+                    -> IO (Domains (Delta0 Double))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam = do
              printf "[Epoch %d]\n" n
@@ -762,19 +762,19 @@ mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
 mnistRNNTestsLong :: TestTree
 mnistRNNTestsLong = testGroup "MNIST RNN long tests"
   [ mnistTestCaseRNN "99LL 1 epoch, all batches" 1 99
-                     nnMnistRNNLossL testMnistRNNL lenMnistRNNL 128 1
+                     nnMnistRNNLossL (testMnistRNNL @(Delta0 Double)) lenMnistRNNL 128 1
                      8.209999999999995e-2
   , mnistTestCaseRNNB "99BB 1 epoch, all batches" 1 99
-                      nnMnistRNNLossB testMnistRNNL lenMnistRNNL 128 1
+                      nnMnistRNNLossB (testMnistRNNL @(Delta0 Double)) lenMnistRNNL 128 1
                       8.209999999999995e-2
   , mnistTestCaseRNN "99LL2 1 epoch, all batches" 1 99
-                     nnMnistRNNLossL2 testMnistRNNL2 lenMnistRNNL 128 2
+                     nnMnistRNNLossL2 (testMnistRNNL2 @(Delta0 Double)) lenMnistRNNL 128 2
                      6.259999999999999e-2
   , mnistTestCaseRNNB "99BB2 1 epoch, all batches" 1 99
-                      nnMnistRNNLossB2 testMnistRNNL2 lenMnistRNNL 128 2
+                      nnMnistRNNLossB2 (testMnistRNNL2 @(Delta0 Double)) lenMnistRNNL 128 2
                       6.259999999999999e-2
   , mnistTestCaseRNN "99VV 1 epoch, all batches" 1 99
-                     nnMnistRNNLossV testMnistRNNV lenMnistRNNV 128 1
+                     nnMnistRNNLossV (testMnistRNNV @(Delta0 Double)) lenMnistRNNV 128 1
                      6.740000000000002e-2
   ]
 
@@ -798,10 +798,10 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
                     <$> loadMnistData trainGlyphsPath trainLabelsPath)
                    2.779085689596527
   , mnistTestCaseRNN "1LL 1 epoch, 1 batch" 1 1
-                     nnMnistRNNLossL testMnistRNNL lenMnistRNNL 128 1
+                     nnMnistRNNLossL (testMnistRNNL @(Delta0 Double)) lenMnistRNNL 128 1
                      0.2845
   , mnistTestCaseRNNB "1BB 1 epoch, 1 batch" 1 1
-                      nnMnistRNNLossB testMnistRNNL lenMnistRNNL 128 1
+                      nnMnistRNNLossB (testMnistRNNL @(Delta0 Double)) lenMnistRNNL 128 1
                       0.2845
   , let glyph = V.unfoldrExactN sizeMnistGlyph (uniformR (0, 1))
         label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
@@ -821,10 +821,10 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
                     <$> loadMnistData trainGlyphsPath trainLabelsPath)
                    2.772595855528805
   , mnistTestCaseRNN "1LL2 1 epoch, 1 batch" 1 1
-                     nnMnistRNNLossL2 testMnistRNNL2 lenMnistRNNL 128 2
+                     nnMnistRNNLossL2 (testMnistRNNL2 @(Delta0 Double)) lenMnistRNNL 128 2
                      0.2945
   , mnistTestCaseRNNB "1BB2 1 epoch, 1 batch" 1 1
-                      nnMnistRNNLossB2 testMnistRNNL2 lenMnistRNNL 128 2
+                      nnMnistRNNLossB2 (testMnistRNNL2 @(Delta0 Double)) lenMnistRNNL 128 2
                       0.2945
   , let glyph = V.unfoldrExactN sizeMnistGlyph (uniformR (0, 1))
         label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
@@ -844,6 +844,6 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
                     <$> loadMnistData trainGlyphsPath trainLabelsPath)
                    2.7494107689380805
   , mnistTestCaseRNN "1VV 1 epoch, 1 batch" 1 1
-                     nnMnistRNNLossV testMnistRNNV lenMnistRNNV 128 1
+                     nnMnistRNNLossV (testMnistRNNV @(Delta0 Double)) lenMnistRNNV 128 1
                      0.3024
   ]

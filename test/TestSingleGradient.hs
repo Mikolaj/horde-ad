@@ -7,7 +7,7 @@ import Prelude
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           Numeric.LinearAlgebra (Vector)
+import           Numeric.LinearAlgebra (Matrix, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -33,7 +33,7 @@ testTrees = [ dfTests
 (*\) :: DeltaMonad r m => DualNumber r -> DualNumber r -> m (DualNumber r)
 (*\) u v = returnLet $ u * v
 
-(**\) :: (DeltaMonad r m, Floating r)
+(**\) :: (DeltaMonad r m, Floating (Dual r))
       => DualNumber r -> DualNumber r -> m (DualNumber r)
 (**\) u v = returnLet $ u ** v
 
@@ -42,33 +42,33 @@ squareDual = returnLet . square
 
 dfShow :: HasDelta r
        => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
-       -> [r]
-       -> ([r], r)
+       -> [Dual r]
+       -> ([Dual r], Dual r)
 dfShow f deltaInput =
   let ((results, _, _, _), value) =
         df f (V.fromList deltaInput, V.empty, V.empty, V.empty)
   in (V.toList results, value)
 
-fX :: DeltaMonad Float m => DualNumberVariables Float -> m (DualNumber Float)
+fX :: DeltaMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 fX variables = do
   let x = var variables 0
   return x
 
-fX1Y :: DeltaMonad Float m => DualNumberVariables Float -> m (DualNumber Float)
+fX1Y :: DeltaMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 fX1Y variables = do
   let x = var variables 0
       y = var variables 1
   x1 <- x +\ 1
   x1 *\ y
 
-fXXY :: DeltaMonad Float m => DualNumberVariables Float -> m (DualNumber Float)
+fXXY :: DeltaMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 fXXY variables = do
   let x = var variables 0
       y = var variables 1
   xy <- x *\ y
   x *\ xy
 
-fXYplusZ :: DeltaMonad Float m => DualNumberVariables Float -> m (DualNumber Float)
+fXYplusZ :: DeltaMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 fXYplusZ variables = do
   let x = var variables 0
       y = var variables 1
@@ -76,13 +76,13 @@ fXYplusZ variables = do
   xy <- x *\ y
   xy +\ z
 
-fXtoY :: DeltaMonad Float m => DualNumberVariables Float -> m (DualNumber Float)
+fXtoY :: DeltaMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 fXtoY variables = do
   let x = var variables 0
       y = var variables 1
   x **\ y
 
-freluX :: DeltaMonad Float m => DualNumberVariables Float -> m (DualNumber Float)
+freluX :: DeltaMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 freluX variables = do
   let x = var variables 0
   reluAct x
@@ -115,21 +115,21 @@ dfTests = testGroup "Simple df application tests" $
     , ("scalarSum", vec_omit_scalarSum_aux, [1, 1, 3], ([1.0,1.0,1.0],5.0))
     ]
 
-vec_omit_scalarSum_aux :: DeltaMonad Float m
-                       => DualNumberVariables Float -> m (DualNumber Float)
+vec_omit_scalarSum_aux :: DeltaMonad (Delta0 Float) m
+                       => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 vec_omit_scalarSum_aux vec = returnLet $ foldlDelta' (+) 0 vec
 
-sumElementsV :: DeltaMonad Float m => DualNumberVariables Float -> m (DualNumber Float)
+sumElementsV :: DeltaMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 sumElementsV variables = do
   let x = varV variables 0
   returnLet $ sumElements0 x
 
-altSumElementsV :: DeltaMonad Float m => DualNumberVariables Float -> m (DualNumber Float)
+altSumElementsV :: DeltaMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 altSumElementsV variables = do
   let x = varV variables 0
   returnLet $ altSumElements0 x
 
-dfVectorShow :: (DualNumberVariables Float -> DeltaMonadGradient Float (DualNumber Float))
+dfVectorShow :: (DualNumberVariables (Delta0 Float) -> DeltaMonadGradient (Delta0 Float) (DualNumber (Delta0 Float)))
              -> [[Float]]
              -> ([[Float]], Float)
 dfVectorShow f deltaInput =
@@ -148,8 +148,8 @@ vectorTests = testGroup "Simple df application to vectors tests" $
 dforwardShow
   :: HasDelta r
   => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
-  -> ([r], [r])
-  -> (r, r)
+  -> ([Dual r], [Dual r])
+  -> (Dual r, Dual r)
 dforwardShow f (deltaInput, deltaInputV) =
   dforward f ( V.fromList deltaInput, V.singleton $ V.fromList deltaInputV
              , V.empty, V.empty )
@@ -166,14 +166,16 @@ dfTestsForward = testGroup "Simple df (Forward Double) application tests" $
     ]
 
 dfastForwardShow
-  :: (OT.Storable r, Dual (Forward r) ~ r)
-  => (DualNumberVariables (Forward r)
-      -> DeltaMonadForward (Forward r) (DualNumber (Forward r)))
-  -> ([r], [r])
-  -> (r, r)
+  :: forall r.
+     ( IsScalar r, Dual r ~ r, Tensor1 r ~ Vector r, Tensor2 r ~ Matrix r
+     , TensorX r ~ OT.Array r )
+  => (DualNumberVariables r
+      -> DeltaMonadForward r (DualNumber r))
+  -> ([Dual r], [Dual r])
+  -> (Dual r, Dual r)
 dfastForwardShow f (deltaInput, deltaInputV) =
-  dfastForward f ( V.fromList deltaInput, V.singleton $ V.fromList deltaInputV
-                 , V.empty, V.empty )
+  dfastForward @r f ( V.fromList deltaInput, V.singleton $ V.fromList deltaInputV
+                    , V.empty, V.empty )
 
 dfTestsFastForward :: TestTree
 dfTestsFastForward =
@@ -195,7 +197,7 @@ dfTestsFastForward =
 -- to vectors manually and we omit this straightforward boilerplate code here.
 -- TODO: while we use weakly-typed vectors, work on user-friendly errors
 -- if the input record is too short.
-atanReadmePoly :: (RealFloat r, IsScalar r)
+atanReadmePoly :: (RealFloat (Dual r), IsScalar r)
                => DualNumberVariables r -> Data.Vector.Vector (DualNumber r)
 atanReadmePoly variables =
   let x : y : z : _ = vars variables
@@ -222,7 +224,7 @@ sumElementsVectorOfDelta = V.foldl' (+) 0
 -- If the code above had any repeated non-variable expressions
 -- (e.g., if @w@ appeared twice) the user would need to make it monadic
 -- and apply @returnLet@ already there.
-atanReadmeMPoly :: (DeltaMonad r m, RealFloat r)
+atanReadmeMPoly :: (DeltaMonad r m, RealFloat (Dual r))
                 => DualNumberVariables r -> m (DualNumber r)
 atanReadmeMPoly variables =
   returnLet $ sumElementsVectorOfDelta $ atanReadmePoly variables
@@ -230,8 +232,8 @@ atanReadmeMPoly variables =
 -- The underscores and empty vectors are placeholders for the vector
 -- and matrix components of the parameters triple, which we here don't use
 -- (we construct vectors, but from scalar parameters).
-dfAtanReadmeMPoly :: (RealFloat r, HasDelta r)
-                  => Domain r -> (Domain r, r)
+dfAtanReadmeMPoly :: (RealFloat (Dual r), HasDelta r)
+                  => Domain r -> (Domain r, Dual r)
 dfAtanReadmeMPoly ds =
   let ((result, _, _, _), value) =
         df atanReadmeMPoly (ds, V.empty, V.empty, V.empty)
@@ -255,8 +257,8 @@ readmeTests = testGroup "Tests of code from the library's README"
 -- via a primitive differentiable type of vectors instead of inside
 -- vectors of primitive differentiable scalars.
 
-atanReadmePolyV :: (RealFloat r, IsScalar r)
-                => DualNumberVariables r -> DualNumber (Vector r)
+atanReadmePolyV :: (RealFloat (Dual r), IsScalar r)
+                => DualNumberVariables r -> DualNumber (Tensor1 r)
 atanReadmePolyV variables =
   let xyzVector = varV variables 0
       x = index0 xyzVector 0
@@ -265,7 +267,7 @@ atanReadmePolyV variables =
       w = x * sin y
   in deltaSeq1 $ V.fromList [atan2 z w, z * x]
 
-atanReadmeMPolyV :: (DeltaMonad r m, RealFloat r)
+atanReadmeMPolyV :: (DeltaMonad r m, RealFloat (Dual r))
                  => DualNumberVariables r -> m (DualNumber r)
 atanReadmeMPolyV variables =
   returnLet $ atanReadmePolyV variables <.>!! HM.konst 1 2
@@ -273,8 +275,8 @@ atanReadmeMPolyV variables =
 -- The underscores and empty vectors are placeholders for the vector
 -- and matrix components of the parameters triple, which we here don't use
 -- (we construct vectors, but from scalar parameters).
-dfAtanReadmeMPolyV :: (RealFloat r, HasDelta r)
-                   => DomainV r -> (DomainV r, r)
+dfAtanReadmeMPolyV :: (RealFloat (Dual r), HasDelta r)
+                   => DomainV r -> (DomainV r, Dual r)
 dfAtanReadmeMPolyV dsV =
   let ((_, result, _, _), value) =
         df atanReadmeMPolyV (V.empty, dsV, V.empty, V.empty)

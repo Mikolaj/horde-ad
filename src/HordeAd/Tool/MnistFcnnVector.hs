@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE AllowAmbiguousTypes, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 -- | Vector-based (meaning that dual numbers for gradient computation
 -- consider vectors, not scalars, as the primitive differentiable type)
@@ -12,7 +12,6 @@ import           Control.Exception (assert)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
-import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
@@ -21,7 +20,7 @@ import HordeAd.Core.PairOfVectors (DualNumberVariables, varV)
 import HordeAd.Tool.MnistData
 
 sumTrainableInputsV :: IsScalar r
-                    => DualNumber (Vector r)
+                    => DualNumber (Tensor1 r)
                     -> Int
                     -> DualNumberVariables r
                     -> DualNumber r
@@ -30,18 +29,18 @@ sumTrainableInputsV x offset variables =
   in v <.>! x
 
 sumTrainableInputsL :: forall r. IsScalar r
-                    => DualNumber (Vector r)
+                    => DualNumber (Tensor1 r)
                     -> Int
                     -> DualNumberVariables r
                     -> Int
-                    -> DualNumber (Vector r)
+                    -> DualNumber (Tensor1 r)
 sumTrainableInputsL x offset variables width =
   let f :: Int -> DualNumber r
       f i = sumTrainableInputsV x (offset + i) variables
   in deltaSeq1 $ V.generate width f
 
 sumConstantDataV :: IsScalar r
-                 => Vector r
+                 => Dual (Tensor1 r)
                  -> Int
                  -> DualNumberVariables r
                  -> DualNumber r
@@ -50,11 +49,11 @@ sumConstantDataV x offset variables =
   in v <.>!! x
 
 sumConstantDataL :: forall r. IsScalar r
-                 => Vector r
+                 => Dual (Tensor1 r)
                  -> Int
                  -> DualNumberVariables r
                  -> Int
-                 -> DualNumber (Vector r)
+                 -> DualNumber (Tensor1 r)
 sumConstantDataL x offset variables width =
   let f :: Int -> DualNumber r
       f i = sumConstantDataV x (offset + i) variables
@@ -76,14 +75,14 @@ lenVectorsMnist2V widthHidden widthHidden2 =
 -- and from these, the @len*@ functions compute the number and dimensions
 -- of scalars (none in this case) and vectors of dual number parameters
 -- (variables) to be given to the program.
-nnMnist2V :: DeltaMonad r m
-          => (DualNumber (Vector r) -> m (DualNumber (Vector r)))
-          -> (DualNumber (Vector r) -> m (DualNumber (Vector r)))
+nnMnist2V :: forall r m. DeltaMonad r m
+          => (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
+          -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
           -> Int
           -> Int
-          -> Vector r
+          -> Dual (Tensor1 r)
           -> DualNumberVariables r
-          -> m (DualNumber (Vector r))
+          -> m (DualNumber (Tensor1 r))
 nnMnist2V factivationHidden factivationOutput widthHidden widthHidden2
           input variables = do
   let !_A = assert (sizeMnistGlyph == V.length input) ()
@@ -103,10 +102,10 @@ nnMnist2V factivationHidden factivationOutput widthHidden widthHidden2
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
-nnMnistLoss2V :: (DeltaMonad r m, Floating r, Floating (Vector r))
+nnMnistLoss2V :: (DeltaMonad r m, Floating (Dual r), Floating (Dual (Tensor1 r)))
               => Int
               -> Int
-              -> MnistData r
+              -> MnistData (Dual r)
               -> DualNumberVariables r
               -> m (DualNumber r)
 nnMnistLoss2V widthHidden widthHidden2 (input, target) variables = do
@@ -116,13 +115,13 @@ nnMnistLoss2V widthHidden widthHidden2 (input, target) variables = do
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
-testMnist2V :: forall r. (Ord r, Floating r, IsScalar r, Floating (Vector r))
-            => Int -> Int -> [MnistData r] -> (Domain r, DomainV r) -> r
+testMnist2V :: forall r. (IsScalar r, Floating (Dual r), Floating (Dual (Tensor1 r)))
+            => Int -> Int -> [MnistData (Dual r)] -> (Domain r, DomainV r) -> Dual r
 testMnist2V widthHidden widthHidden2 inputs (params, paramsV) =
-  let matchesLabels :: MnistData r -> Bool
+  let matchesLabels :: MnistData (Dual r) -> Bool
       matchesLabels (glyph, label) =
-        let nn = inline nnMnist2V logisticAct softMaxActV
-                                  widthHidden widthHidden2 glyph
+        let nn = inline (nnMnist2V @r) logisticAct softMaxActV
+                                       widthHidden widthHidden2 glyph
             value = primalValue nn (params, paramsV, V.empty, V.empty)
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))

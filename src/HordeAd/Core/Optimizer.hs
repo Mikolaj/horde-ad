@@ -9,8 +9,6 @@ module HordeAd.Core.Optimizer
 
 import Prelude
 
-import Numeric.LinearAlgebra (Vector)
-
 import HordeAd.Core.DualNumber (DualNumber (..))
 import HordeAd.Core.Engine
 import HordeAd.Core.HasDual
@@ -19,7 +17,7 @@ import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 
 -- | Simple Gradient Descent.
 gdSimple :: forall r. HasDelta r
-         => r
+         => Dual r
          -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
          -> Int  -- ^ requested number of iterations
          -> Domains r  -- ^ initial parameters
@@ -35,29 +33,29 @@ gdSimple gamma f n0 parameters0 = go n0 parameters0 where
   go n parameters =
     let variables = makeDualNumberVariables parameters varDeltas
         gradients = fst $ generalDf variables f
-        parametersNew = updateWithGradient gamma parameters gradients
+        parametersNew = updateWithGradient @r gamma parameters gradients
     in go (pred n) parametersNew
 
 -- | Stochastic Gradient Descent.
 sgd :: forall r a. HasDelta r
-    => r
+    => Dual r
     -> (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
     -> [a]  -- ^ training data
     -> Domains r  -- ^ initial parameters
-    -> (Domains r, r)
+    -> (Domains r, Dual r)
 sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   varDeltas = generateDeltaVars parameters0
-  go :: [a] -> Domains r -> (Domains r, r)
+  go :: [a] -> Domains r -> (Domains r, Dual r)
   go [] parameters = (parameters, 0)
   go (a : rest) parameters =
     let variables = makeDualNumberVariables parameters varDeltas
         (gradients, valueNew) = generalDf variables (f a)
-        !parametersNew = updateWithGradient gamma parameters gradients
+        !parametersNew = updateWithGradient @r gamma parameters gradients
     in if null rest
        then (parametersNew, valueNew)
        else go rest parametersNew
 
-sgdAdam :: forall r a. (HasDelta r, Floating r, Floating (Vector r))
+sgdAdam :: forall r a. (HasDelta r, Floating (Dual r), Floating (Dual (Tensor1 r)))
         => (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
         -> [a]
         -> Domains r
@@ -65,7 +63,7 @@ sgdAdam :: forall r a. (HasDelta r, Floating r, Floating (Vector r))
         -> (Domains r, StateAdam r)
 sgdAdam = sgdAdamArgs defaultArgsAdam
 
-sgdAdamArgs :: forall r a. (HasDelta r, Floating r, Floating (Vector r))
+sgdAdamArgs :: forall r a. (HasDelta r, Floating (Dual r), Floating (Dual (Tensor1 r)))
             => ArgsAdam r
             -> (a -> DualNumberVariables r
                 -> DeltaMonadGradient r (DualNumber r))

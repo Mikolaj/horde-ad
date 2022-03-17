@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, DataKinds, FlexibleInstances,
-             MultiParamTypeClasses, TypeFamilyDependencies, TypeOperators #-}
+             MultiParamTypeClasses, TypeFamilyDependencies, TypeOperators,
+             UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 -- | The second component of dual numbers, @Delta@, with it's evaluation
 -- function. Neel Krishnaswami calls that "sparse vector expressions",
@@ -21,8 +22,8 @@
 -- A lot of the remaining additional structure is for introducing
 -- and reducing dimensions.
 module HordeAd.Core.HasDual
-  ( HasDualWithScalar, IsScalar, HasDelta
-  , HasDual(Dual, dZero, dScale, dAdd, dVar, bindInState)
+  ( HasDualWithScalar, IsScalar, IsScalarS, HasDelta
+  , HasDual(ScalarOf, Dual, dZero, dScale, dAdd, dVar, bindInState)
   , HasRanks(..)
   , Forward(..)
   ) where
@@ -32,31 +33,38 @@ import Prelude
 import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.ShapedS as OS
-import           Data.Coerce (coerce)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, type (+))
+import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           HordeAd.Internal.HmatrixOrphanInstances (Forward (..))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
-import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Delta
 
 -- * Abbreviations
 
 -- | A shorthand for a useful set of constraints.
-type HasDualWithScalar a r = (HasDual a, ScalarOf a ~ r)
+type HasDualWithScalar a r = (HasDual a, ScalarOf a ~ Dual r)
 
 -- | A mega-shorthand for a bundle of connected type constraints.
-type IsScalar r = ( HasDualWithScalar r r, HasRanks r
-                  , HasDual (Vector r), HasDual (Matrix r), HasDual (OT.Array r)
-                  , ScalarOf (Vector r) ~ r, ScalarOf (Matrix r) ~ r
-                  , Numeric r, Num (Vector r), Num (Matrix r) )
+type IsScalar r =
+       ( Ord (Dual r), HasDualWithScalar r r, HasRanks r
+       , ScalarOf r ~ Dual r, ScalarOf (Tensor1 r) ~ Dual r
+       , ScalarOf (Tensor2 r) ~ Dual r, ScalarOf (TensorX r) ~ Dual r
+       , HasDual (Tensor1 r), HasDual (Tensor2 r), HasDual (TensorX r)
+       , Dual (Tensor1 r) ~ Vector (Dual r)
+       , Dual (Tensor2 r) ~ Matrix (Dual r)
+       , Dual (TensorX r) ~ OT.Array (Dual r)
+       , Numeric (Dual r), Num (Dual (Tensor1 r)), Num (Dual (Tensor2 r)) )
+
+type IsScalarS (sh :: [Nat]) r =
+       ( IsScalar r, Dual (TensorS sh r) ~ OS.Array sh (Dual r)
+       , ScalarOf (TensorS sh r) ~ Dual r )
 
 -- | A constraint stating dual numbers with this underlying scalar
 -- are implemented via gathering delta expressions in state.
-type HasDelta r = (IsScalar r, Eq r, Dual r ~ Delta0 r)
+type HasDelta r = (IsScalar r, r ~ Delta0 (ScalarOf r))
 
 
 -- * Class definitions
@@ -64,90 +72,98 @@ type HasDelta r = (IsScalar r, Eq r, Dual r ~ Delta0 r)
 -- | Each shape of a containers of parameters ('tensor') has its own
 -- collection of vector space-like constructors with which the sparse
 -- vector expression (`delta expressions`) are built.
-class HasDual a where
-  type Dual a = result | result -> a
-  dZero :: Dual a
-  dScale :: a -> Dual a -> Dual a
-  dAdd :: Dual a -> Dual a -> Dual a
-  dVar :: DeltaId a -> Dual a
-  type ScalarOf a
-  bindInState :: Dual a
+class HasDual a where  -- HasPrimal? IsDual?
+  type Dual a  -- can't be injective, because same for gradient and derivative
+       -- Primal
+  dZero :: a
+  dScale :: Dual a -> a -> a
+  dAdd :: a -> a -> a
+  dVar :: DeltaId (Dual a) -> a
+  type ScalarOf a  -- Scalar
+  bindInState :: a
               -> DeltaState (ScalarOf a)
-              -> (DeltaState (ScalarOf a), DeltaId a)
+              -> (DeltaState (ScalarOf a), DeltaId (Dual a))
 
-class HasRanks r where
-  dSumElements0 :: Dual (Vector r) -> Int -> Dual r
-  dIndex0 :: Dual (Vector r) -> Int -> Int -> Dual r
-  dDot0 :: Vector r -> Dual (Vector r) -> Dual r
-  dFromX0 :: Dual (OT.Array r) -> Dual r
-  dFromS0 :: Dual (OS.Array '[] r) -> Dual r
+class HasRanks r where  -- IsTensor0?
+  type Tensor1 r = result | result -> r
+  type Tensor2 r = result | result -> r
+  type TensorX r = result | result -> r
+  type TensorS (sh :: [Nat]) r = result | result -> sh r
+  dSumElements0 :: Tensor1 r -> Int -> r
+  dIndex0 :: Tensor1 r -> Int -> Int -> r
+  dDot0 :: Dual (Tensor1 r) -> Tensor1 r -> r
+  dFromX0 :: TensorX r -> r
+  dFromS0 :: TensorS '[] r -> r
 
-  dSeq1 :: Data.Vector.Vector (Dual r) -> Dual (Vector r)
-  dKonst1 :: Dual r -> Int -> Dual (Vector r)
-  dAppend1 :: Dual (Vector r) -> Int -> Dual (Vector r) -> Dual (Vector r)
-  dSlice1 :: Int -> Int -> Dual (Vector r) -> Int -> Dual (Vector r)
-  dSumRows1 :: Dual (Matrix r) -> Int -> Dual (Vector r)
-  dSumColumns1 :: Dual (Matrix r) -> Int -> Dual (Vector r)
-  dM_VD1 :: Matrix r -> Dual (Vector r) -> Dual (Vector r)
-  dMD_V1 :: Dual (Matrix r) -> Vector r -> Dual (Vector r)
-  dFromX1 :: Dual (OT.Array r) -> Dual (Vector r)
+  dSeq1 :: Data.Vector.Vector r -> Tensor1 r
+  dKonst1 :: r -> Int -> Tensor1 r
+  dAppend1 :: Tensor1 r -> Int -> Tensor1 r -> Tensor1 r
+  dSlice1 :: Int -> Int -> Tensor1 r -> Int -> Tensor1 r
+  dSumRows1 :: Tensor2 r -> Int -> Tensor1 r
+  dSumColumns1 :: Tensor2 r -> Int -> Tensor1 r
+  dM_VD1 :: Dual (Tensor2 r) -> Tensor1 r -> Tensor1 r
+  dMD_V1 :: Tensor2 r -> Dual (Tensor1 r) -> Tensor1 r
+  dFromX1 :: TensorX r -> Tensor1 r
   dFromS1 :: forall len. KnownNat len
-          => Dual (OS.Array '[len] r) -> Dual (Vector r)
+          => TensorS '[len] r -> Tensor1 r
 
-  dFromRows2 :: Data.Vector.Vector (Dual (Vector r)) -> Dual (Matrix r)
-  dFromColumns2 :: Data.Vector.Vector (Dual (Vector r)) -> Dual (Matrix r)
-  dTranspose2 :: Dual (Matrix r) -> Dual (Matrix r)
-  dM_MD2 :: Matrix r -> Dual (Matrix r) -> Dual (Matrix r)
-  dMD_M2 :: Dual (Matrix r) -> Matrix r -> Dual (Matrix r)
-  dRowAppend2 :: Dual (Matrix r) -> Int -> Dual (Matrix r)
-              -> Dual (Matrix r)
-  dColumnAppend2 :: Dual (Matrix r) -> Int -> Dual (Matrix r)
-                 -> Dual (Matrix r)
-  dRowSlice2 :: Int -> Int -> Dual (Matrix r) -> Int -> Dual (Matrix r)
-  dColumnSlice2 :: Int -> Int -> Dual (Matrix r) -> Int -> Dual (Matrix r)
-  dAsRow2 :: Dual (Vector r) -> Dual (Matrix r)
-  dAsColumn2 :: Dual (Vector r) -> Dual (Matrix r)
-  dFromX2 :: Dual (OT.Array r) -> Dual (Matrix r)
+  dFromRows2 :: Data.Vector.Vector (Tensor1 r) -> Tensor2 r
+  dFromColumns2 :: Data.Vector.Vector (Tensor1 r) -> Tensor2 r
+  dTranspose2 :: Tensor2 r -> Tensor2 r
+  dM_MD2 :: Dual (Tensor2 r) -> Tensor2 r -> Tensor2 r
+  dMD_M2 :: Tensor2 r -> Dual (Tensor2 r) -> Tensor2 r
+  dRowAppend2 :: Tensor2 r -> Int -> Tensor2 r
+              -> Tensor2 r
+  dColumnAppend2 :: Tensor2 r -> Int -> Tensor2 r
+                 -> Tensor2 r
+  dRowSlice2 :: Int -> Int -> Tensor2 r -> Int -> Tensor2 r
+  dColumnSlice2 :: Int -> Int -> Tensor2 r -> Int -> Tensor2 r
+  dAsRow2 :: Tensor1 r -> Tensor2 r
+  dAsColumn2 :: Tensor1 r -> Tensor2 r
+  dFromX2 :: TensorX r -> Tensor2 r
   dFromS2 :: forall rows cols. (KnownNat rows, KnownNat cols)
-          => Dual (OS.Array '[rows, cols] r) -> Dual (Matrix r)
+          => TensorS '[rows, cols] r -> Tensor2 r
 
-  dAppendX :: Dual (OT.Array r) -> Int -> Dual (OT.Array r)
-           -> Dual (OT.Array r)
-  dSliceX :: Int -> Int -> Dual (OT.Array r) -> Int -> Dual (OT.Array r)
-  dFrom0X :: Dual r -> Dual (OT.Array r)
-  dFrom1X :: Dual (Vector r) -> Dual (OT.Array r)
-  dFrom2X :: Dual (Matrix r) -> Int -> Dual (OT.Array r)
+  dAppendX :: TensorX r -> Int -> TensorX r
+           -> TensorX r
+  dSliceX :: Int -> Int -> TensorX r -> Int -> TensorX r
+  dFrom0X :: r -> TensorX r
+  dFrom1X :: Tensor1 r -> TensorX r
+  dFrom2X :: Tensor2 r -> Int -> TensorX r
   dFromSX :: forall sh. OS.Shape sh
-          => Dual (OS.Array sh r) -> Dual (OT.Array r)
+          => TensorS sh r -> TensorX r
 
   dAppendS :: (OS.Shape sh, KnownNat m, KnownNat n)
-           => Dual (OS.Array (m ': sh) r) -> Dual (OS.Array (n ': sh) r)
-           -> Dual (OS.Array ((m + n) ': sh) r)
+           => TensorS (m ': sh) r -> TensorS (n ': sh) r
+           -> TensorS ((m + n) ': sh) r
   dSliceS :: forall i n k rest.
              (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
-          => Dual (OS.Array (i + n + k ': rest) r)
-          -> Dual (OS.Array (n ': rest) r)
-  dFrom0S :: Dual r -> Dual (OS.Array '[] r)
-  dFrom1S :: KnownNat n => Dual (Vector r) -> Dual (OS.Array '[n] r)
+          => TensorS (i + n + k ': rest) r
+          -> TensorS (n ': rest) r
+  dFrom0S :: r -> TensorS '[] r
+  dFrom1S :: KnownNat n => Tensor1 r -> TensorS '[n] r
   dFrom2S :: forall rows cols. (KnownNat rows, KnownNat cols)
-          => Dual (Matrix r) -> Dual (OS.Array '[rows, cols] r)
-  dFromXS :: OS.Shape sh => Dual (OT.Array r) -> Dual (OS.Array sh r)
+          => Tensor2 r -> TensorS '[rows, cols] r
+  dFromXS :: OS.Shape sh => TensorX r -> TensorS sh r
 
 
 -- * Backprop gradient method instances
 
--- I hate this duplication.
-instance HasDual Double where
-  type Dual Double = Delta0 Double
+instance HasDual (Delta0 r) where
+  type Dual (Delta0 r) = r
   dZero = Zero0
   dScale = Scale0
   dAdd = Add0
   dVar = Var0
-  type ScalarOf Double = Double
+  type ScalarOf (Delta0 r) = r
   {-# INLINE bindInState #-}
   bindInState = bindInState0
 
-instance HasRanks Double where
+instance HasRanks (Delta0 r) where
+  type Tensor1 (Delta0 r) = Delta1 r
+  type Tensor2 (Delta0 r) = Delta2 r
+  type TensorX (Delta0 r) = DeltaX r
+  type TensorS sh (Delta0 r) = DeltaS sh r
   dSumElements0 = SumElements0
   dIndex0 = Index0
   dDot0 = Dot0
@@ -193,143 +209,43 @@ instance HasRanks Double where
   dFrom2S = From2S
   dFromXS = FromXS
 
--- I hate this duplication with this:
-instance HasDual Float where
-  type Dual Float = Delta0 Float
-  dZero = Zero0
-  dScale = Scale0
-  dAdd = Add0
-  dVar = Var0
-  type ScalarOf Float = Float
-  {-# INLINE bindInState #-}
-  bindInState = bindInState0
-
-instance HasRanks Float where
-  dSumElements0 = SumElements0
-  dIndex0 = Index0
-  dDot0 = Dot0
-  dFromX0 = FromX0
-  dFromS0 = FromS0
-  dSeq1 = Seq1
-  dKonst1 = Konst1
-  dAppend1 = Append1
-  dSlice1 = Slice1
-  dSumRows1 = SumRows1
-  dSumColumns1 = SumColumns1
-  dM_VD1 = M_VD1
-  dMD_V1 = MD_V1
-  dFromX1 = FromX1
-  dFromS1 = FromS1
-  dFromRows2 = FromRows2
-  dFromColumns2 = FromColumns2
-  dTranspose2 = Transpose2
-  dM_MD2 = M_MD2
-  dMD_M2 = MD_M2
-  dRowAppend2 = RowAppend2
-  dColumnAppend2 = ColumnAppend2
-  dRowSlice2 = RowSlice2
-  dColumnSlice2 = ColumnSlice2
-  dAsRow2 = AsRow2
-  dAsColumn2 = AsColumn2
-  dFromX2 = FromX2
-  dFromS2 = FromS2
-  dAppendX = AppendX
-  dSliceX = SliceX
-  dFrom0X = From0X
-  dFrom1X = From1X
-  dFrom2X = From2X
-  dFromSX = FromSX
-  dAppendS = AppendS
---  dSliceS :: forall i n k rest.
---             (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
---          => Dual (OS.Array (i + n + k ': rest) Float)
---          -> Dual (OS.Array (n ': rest) Float)
-  dSliceS = undefined  -- TODO: SliceS @i
-  dFrom0S = From0S
-  dFrom1S = From1S
-  dFrom2S = From2S
-  dFromXS = FromXS
-
--- I hate this duplication:
-instance HasDual (Vector Double) where
-  type Dual (Vector Double) = Delta1 Double
+instance HasDual (Delta1 r) where
+  type Dual (Delta1 r) = Vector r
   dZero = Zero1
   dScale = Scale1
   dAdd = Add1
   dVar = Var1
-  type ScalarOf (Vector Double) = Double
+  type ScalarOf (Delta1 r) = r
   {-# INLINE bindInState #-}
   bindInState = bindInState1
 
--- I hate this duplication with this:
-instance HasDual (Vector Float) where
-  type Dual (Vector Float) = Delta1 Float
-  dZero = Zero1
-  dScale = Scale1
-  dAdd = Add1
-  dVar = Var1
-  type ScalarOf (Vector Float) = Float
-  {-# INLINE bindInState #-}
-  bindInState = bindInState1
-
-instance HasDual (Matrix Double) where
-  type Dual (Matrix Double) = Delta2 Double
+instance HasDual (Delta2 r) where
+  type Dual (Delta2 r) = Matrix r
   dZero = Zero2
   dScale = Scale2
   dAdd = Add2
   dVar = Var2
-  type ScalarOf (Matrix Double) = Double
+  type ScalarOf (Delta2 r) = r
   {-# INLINE bindInState #-}
   bindInState = bindInState2
 
-instance HasDual (Matrix Float) where
-  type Dual (Matrix Float) = Delta2 Float
-  dZero = Zero2
-  dScale = Scale2
-  dAdd = Add2
-  dVar = Var2
-  type ScalarOf (Matrix Float) = Float
-  {-# INLINE bindInState #-}
-  bindInState = bindInState2
-
-instance HasDual (OT.Array Double) where
-  type Dual (OT.Array Double) = DeltaX Double
+instance HasDual (DeltaX r) where
+  type Dual (DeltaX r) = OT.Array r
   dZero = ZeroX
   dScale = ScaleX
   dAdd = AddX
   dVar = VarX
-  type ScalarOf (OT.Array Double) = Double
+  type ScalarOf (DeltaX r) = r
   {-# INLINE bindInState #-}
   bindInState = bindInStateX
 
-instance HasDual (OT.Array Float) where
-  type Dual (OT.Array Float) = DeltaX Float
-  dZero = ZeroX
-  dScale = ScaleX
-  dAdd = AddX
-  dVar = VarX
-  type ScalarOf (OT.Array Float) = Float
-  {-# INLINE bindInState #-}
-  bindInState = bindInStateX
-
-instance OS.Shape sh => HasDual (OS.Array sh Double) where
-  type Dual (OS.Array sh Double) = DeltaS sh Double
+instance OS.Shape sh => HasDual (DeltaS sh r) where
+  type Dual (DeltaS sh r) = OS.Array sh r
   dZero = ZeroS
   dScale = ScaleS
   dAdd = AddS
   dVar = VarS
-  type ScalarOf (OS.Array sh Double) = Double
-  {-# INLINE bindInState #-}
-  bindInState u' st = let (st2, did) = bindInStateX (FromSX u') st
-                      in (st2, covertDeltaId did)
-
-instance OS.Shape sh => HasDual (OS.Array sh Float) where
-  type Dual (OS.Array sh Float) = DeltaS sh Float
-  dZero = ZeroS
-  dScale = ScaleS
-  dAdd = AddS
-  dVar = VarS
-  type ScalarOf (OS.Array sh Float) = Float
+  type ScalarOf (DeltaS sh r) = r
   {-# INLINE bindInState #-}
   bindInState u' st = let (st2, did) = bindInStateX (FromSX u') st
                       in (st2, covertDeltaId did)
@@ -337,76 +253,77 @@ instance OS.Shape sh => HasDual (OS.Array sh Float) where
 
 -- * Alternative instances: forward derivatives computed on the spot
 
-instance HasDual (Forward Double) where
-  type Dual (Forward Double) = Double
+instance HasDual Double where
+  type Dual Double = Double
   dZero = 0
-  dScale (Forward k) d = k * d
+  dScale k d = k * d
   dAdd d e = d + e
   dVar = undefined  -- no variables are needed, because no blowup possible
-  type ScalarOf (Forward Double) = Forward Double
+  type ScalarOf Double = Double
   bindInState = undefined  -- no variables, so no bindings
 
-instance HasDual (Forward Float) where
-  type Dual (Forward Float) = Float
+instance HasDual Float where
+  type Dual Float = Float
   dZero = 0
-  dScale (Forward k) d = k * d
+  dScale k d = k * d
   dAdd d e = d + e
   dVar = undefined
-  type ScalarOf (Forward Float) = Forward Float
+  type ScalarOf Float = Float
   bindInState = undefined
 
-instance Num (Vector r) => HasDual (Vector (Forward r)) where
-  type Dual (Vector (Forward r)) = Vector r
+-- These constraints force @UndecidableInstances@.
+instance Num (Vector r) => HasDual (Vector r) where
+  type Dual (Vector r) = Vector r
   dZero = 0
-  dScale k d = coerce k * d
+  dScale k d = k * d
   dAdd = (+)
   dVar = undefined
-  type ScalarOf (Vector (Forward r)) = Forward r
+  type ScalarOf (Vector r) = r
   bindInState = undefined
 
-instance Num (Matrix r) => HasDual (Matrix (Forward r)) where
-  type Dual (Matrix (Forward r)) = Matrix r
+instance Num (Matrix r) => HasDual (Matrix r) where
+  type Dual (Matrix r) = Matrix r
   dZero = 0
-  dScale k d = coerce k * d
+  dScale k d = k * d
   dAdd = (+)
   dVar = undefined
-  type ScalarOf (Matrix (Forward r)) = Forward r
+  type ScalarOf (Matrix r) = r
   bindInState = undefined
 
-instance Num (OT.Array r) => HasDual (OT.Array (Forward r)) where
-  type Dual (OT.Array (Forward r)) = OT.Array r
+instance Num (OT.Array r) => HasDual (OT.Array r) where
+  type Dual (OT.Array r) = OT.Array r
   dZero = 0
---  dScale k d = coerce k * d  -- fails
---  dScale k d = undefined $ (k :: OT.Array (Forward r))  -- OK
---  dScale k d = undefined $ coerce @(OT.Array (Forward r)) @(OT.Array r) k
---    -- fails, perhaps not Coercible?
-  dScale k d = unsafeCoerce k * d
+  dScale k d = k * d
   dAdd = (+)
   dVar = undefined
-  type ScalarOf (OT.Array (Forward r)) = Forward r
+  type ScalarOf (OT.Array r) = r
   bindInState = undefined
 
-instance Num (OS.Array sh r) => HasDual (OS.Array sh (Forward r)) where
-  type Dual (OS.Array sh (Forward r)) = OS.Array sh r
+instance Num (OS.Array sh r) => HasDual (OS.Array sh r) where
+  type Dual (OS.Array sh r) = OS.Array sh r
   dZero = 0
-  dScale k d = unsafeCoerce k * d
+  dScale k d = k * d
   dAdd = (+)
   dVar = undefined
-  type ScalarOf (OS.Array sh (Forward r)) = Forward r
+  type ScalarOf (OS.Array sh r) = r
   bindInState = undefined
 
-instance (Numeric r, Dual (Forward r) ~ r) => HasRanks (Forward r) where
+instance HasRanks Double where
+  type Tensor1 Double = Vector Double
+  type Tensor2 Double = Matrix Double
+  type TensorX Double = OT.Array Double
+  type TensorS sh Double = OS.Array sh Double
   dSumElements0 vd _ = HM.sumElements vd
   dIndex0 d ix _ = d V.! ix
-  dDot0 vr vd = coerce vr HM.<.> vd
+  dDot0 = (HM.<.>)
   dFromX0 = OT.unScalar
   dFromS0 = OS.unScalar
   dSeq1 = V.convert
   dKonst1 = HM.konst
   dAppend1 d _k e = d V.++ e
   dSlice1 i n d _len = V.slice i n d
-  dM_VD1 m dRow = coerce m HM.#> dRow
-  dMD_V1 md row = md HM.#> coerce row
+  dM_VD1 = (HM.#>)
+  dMD_V1 = (HM.#>)
   dSumRows1 dm _cols = V.fromList $ map HM.sumElements $ HM.toRows dm
   dSumColumns1 dm _rows = V.fromList $ map HM.sumElements $ HM.toColumns dm
   dFromX1 = OT.toVector
@@ -414,8 +331,63 @@ instance (Numeric r, Dual (Forward r) ~ r) => HasRanks (Forward r) where
   dFromRows2 = HM.fromRows . V.toList
   dFromColumns2 = HM.fromColumns . V.toList
   dTranspose2 = HM.tr'
-  dM_MD2 m md = coerce m HM.<> md
-  dMD_M2 md m = md HM.<> coerce m
+  dM_MD2 = (HM.<>)
+  dMD_M2 = (HM.<>)
+  dAsRow2 = HM.asRow
+  dAsColumn2 = HM.asColumn
+  dRowAppend2 d _k e = d HM.=== e
+  dColumnAppend2 d _k e = d HM.||| e
+  dRowSlice2 i n d _rows = HM.takeRows n $ HM.dropRows i d
+  dColumnSlice2 i n d _cols = HM.takeColumns n $ HM.dropColumns i d
+  dFromX2 d = case OT.shapeL d of
+    [_rows, cols] -> HM.reshape cols $ OT.toVector d
+    _ -> error "dFromX2: wrong tensor dimensions"
+  dFromS2 d = case OS.shapeL d of
+    [_rows, cols] -> HM.reshape cols $ OS.toVector d
+    _ -> error "dFromS2: wrong tensor dimensions"
+  dAppendX d _k e = d `OT.append` e
+  dSliceX i n d _len = OT.slice [(i, n)] d
+  dFrom0X = OT.scalar
+  dFrom1X d = OT.fromVector [V.length d] d
+  dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
+  dFromSX = Data.Array.Convert.convert
+  dAppendS = OS.append
+--  dSliceS :: forall i n k rest.
+--             (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
+--          => Dual (OS.Array (i + n + k ': rest) Double)
+--          -> Dual (OS.Array (n ': rest) Double)
+  dSliceS = undefined  -- TODO: OS.slice @'[ '(i, n) ] d
+  dFrom0S = OS.scalar
+  dFrom1S = OS.fromVector
+  dFrom2S = OS.fromVector . HM.flatten
+  dFromXS = Data.Array.Convert.convert
+
+instance HasRanks Float where
+  type Tensor1 Float = Vector Float
+  type Tensor2 Float = Matrix Float
+  type TensorX Float = OT.Array Float
+  type TensorS sh Float = OS.Array sh Float
+  -- Below it's completely repeated after the @Double@ case.
+  dSumElements0 vd _ = HM.sumElements vd
+  dIndex0 d ix _ = d V.! ix
+  dDot0 = (HM.<.>)
+  dFromX0 = OT.unScalar
+  dFromS0 = OS.unScalar
+  dSeq1 = V.convert
+  dKonst1 = HM.konst
+  dAppend1 d _k e = d V.++ e
+  dSlice1 i n d _len = V.slice i n d
+  dM_VD1 = (HM.#>)
+  dMD_V1 = (HM.#>)
+  dSumRows1 dm _cols = V.fromList $ map HM.sumElements $ HM.toRows dm
+  dSumColumns1 dm _rows = V.fromList $ map HM.sumElements $ HM.toColumns dm
+  dFromX1 = OT.toVector
+  dFromS1 = OS.toVector
+  dFromRows2 = HM.fromRows . V.toList
+  dFromColumns2 = HM.fromColumns . V.toList
+  dTranspose2 = HM.tr'
+  dM_MD2 = (HM.<>)
+  dMD_M2 = (HM.<>)
   dAsRow2 = HM.asRow
   dAsColumn2 = HM.asColumn
   dRowAppend2 d _k e = d HM.=== e
