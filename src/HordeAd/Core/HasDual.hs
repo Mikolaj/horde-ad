@@ -43,22 +43,20 @@ import HordeAd.Core.Delta
 -- * Abbreviations
 
 -- | A shorthand for a useful set of constraints.
-type HasDualWithScalar a r = (HasDual a, ScalarOf a ~ Dual r)
+type HasDualWithScalar a r = (HasDual a, ScalarOf a ~ Dual r, Num (Dual a))
 
 -- | A mega-shorthand for a bundle of connected type constraints.
 type IsScalar r =
-       ( Ord (Dual r), HasDualWithScalar r r, HasRanks r
-       , ScalarOf r ~ Dual r, ScalarOf (Tensor1 r) ~ Dual r
-       , ScalarOf (Tensor2 r) ~ Dual r, ScalarOf (TensorX r) ~ Dual r
-       , HasDual (Tensor1 r), HasDual (Tensor2 r), HasDual (TensorX r)
+       ( Ord (Dual r), Numeric (Dual r), HasRanks r, HasDualWithScalar r r
+       , HasDualWithScalar (Tensor1 r) r, HasDualWithScalar (Tensor2 r) r
+       , HasDualWithScalar (TensorX r) r
        , Dual (Tensor1 r) ~ Vector (Dual r)
        , Dual (Tensor2 r) ~ Matrix (Dual r)
-       , Dual (TensorX r) ~ OT.Array (Dual r)
-       , Numeric (Dual r), Num (Dual (Tensor1 r)), Num (Dual (Tensor2 r)) )
+       , Dual (TensorX r) ~ OT.Array (Dual r) )
 
 type IsScalarS (sh :: [Nat]) r =
-       ( IsScalar r, Dual (TensorS sh r) ~ OS.Array sh (Dual r)
-       , ScalarOf (TensorS sh r) ~ Dual r )
+       ( IsScalar r, HasDualWithScalar (TensorS sh r) r
+       , Dual (TensorS sh r) ~ OS.Array sh (Dual r) )
 
 -- | A constraint stating dual numbers with this underlying scalar
 -- are implemented via gathering delta expressions in state.

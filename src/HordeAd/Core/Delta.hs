@@ -58,8 +58,8 @@ import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, (#>), (<.>))
 import qualified Numeric.LinearAlgebra as HM
 import           Text.Show.Pretty (ppShow)
 
-import HordeAd.Internal.OrthotopeOrphanInstances ()
 import qualified HordeAd.Internal.MatrixOuter as MO
+import           HordeAd.Internal.OrthotopeOrphanInstances ()
 
 -- * Abstract syntax trees of the delta expressions
 

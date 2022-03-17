@@ -393,7 +393,7 @@ squaredDifference :: (Num (Dual a), HasDual a)
                   => Dual a -> DualNumber a -> DualNumber a
 squaredDifference targ res = square $ res - scalar targ
 
-lossSquared :: (DeltaMonad r m, HasDualWithScalar a r, Num (Dual a))
+lossSquared :: (DeltaMonad r m, HasDualWithScalar a r)
             => Dual a -> DualNumber a -> m (DualNumber a)
 lossSquared targ res = returnLet $ squaredDifference targ res
 
