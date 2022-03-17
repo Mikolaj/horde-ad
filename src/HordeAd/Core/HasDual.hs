@@ -25,7 +25,6 @@ module HordeAd.Core.HasDual
   ( HasDualWithScalar, IsScalar, IsScalarS, HasDelta
   , HasDual(ScalarOf, Dual, dZero, dScale, dAdd, dVar, bindInState)
   , HasRanks(..)
-  , Forward(..)
   ) where
 
 import Prelude
@@ -36,7 +35,6 @@ import qualified Data.Array.ShapedS as OS
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, type (+))
-import           HordeAd.Internal.HmatrixOrphanInstances (Forward (..))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 
