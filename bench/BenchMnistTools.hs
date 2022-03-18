@@ -39,7 +39,6 @@ mnistTestBench2 extraPrefix chunkLength xs widthHidden widthHidden2 = do
       name = "test " ++ extraPrefix
              ++ unwords ["s" ++ show nParams, "v0", "m0" ++ "=" ++ show nParams]
   bench name $ whnf score chunk
-{-# SPECIALIZE mnistTestBench2 :: String -> Int -> [MnistData Double] -> Int -> Int -> Benchmark #-}
 
 mnistTrainBGroup2 :: [MnistData Double] -> Int -> Benchmark
 mnistTrainBGroup2 xs0 chunkLength =
