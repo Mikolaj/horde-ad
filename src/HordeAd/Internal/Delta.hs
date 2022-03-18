@@ -63,24 +63,26 @@ import           HordeAd.Internal.OrthotopeOrphanInstances ()
 -- * Abstract syntax trees of the delta expressions
 
 -- | This is the grammar of delta-expressions at tensor rank 0, that is,
--- at scalar level. Some of these operations have different but inter-related
--- semantics at the level of vectors and matrices (WIP: and arbitrary tensors).
+-- at scalar level. The first few operations have analogues
+-- at the level of vectors, matrices and arbitrary tensors.
 --
--- In other words, for each choice of the underlying scalar type @r@,
--- we have three primitive differentiable types based on the scalar:
--- the scalar type @r@ itself, @Vector r@ and @Matrix r@.
+-- For each choice of the underlying scalar type @r@,
+-- we have several primitive differentiable types based on the scalar:
+-- the scalar type @r@ itself, @Vector r@, @Matrix r@ and tensors.
+-- Many operations span the ranks and so the datatypes, which makes
+-- the datatypes mutually recursive.
 data Delta0 r =
     Zero0
   | Scale0 r (Delta0 r)
   | Add0 (Delta0 r) (Delta0 r)
   | Var0 (DeltaId r)
 
-  | SumElements0 (Delta1 r) Int  -- see Note [SumElements0]
-  | Index0 (Delta1 r) Int Int
+  | SumElements0 (Delta1 r) Int  -- ^ see Note [SumElements0]
+  | Index0 (Delta1 r) Int Int  -- ^ second integer is length of the vector
 
-  | Dot0 (Vector r) (Delta1 r)  -- Dot0 v sd == SumElements0 (Scale1 v sd) n
+  | Dot0 (Vector r) (Delta1 r)  -- ^ Dot0 v vd == SumElements0 (Scale1 v vd) n
 
-  | FromX0 (DeltaX r)
+  | FromX0 (DeltaX r)  -- ^ one of many conversions
   | FromS0 (DeltaS '[] r)
 
 deriving instance (Show r, Numeric r) => Show (Delta0 r)
@@ -93,15 +95,17 @@ data Delta1 r =
   | Add1 (Delta1 r) (Delta1 r)
   | Var1 (DeltaId (Vector r))
 
-  | Seq1 (Data.Vector.Vector (Delta0 r))
-  | Konst1 (Delta0 r) Int  -- second argument needed only for forward derivative
-  | Append1 (Delta1 r) Int (Delta1 r)
-  | Slice1 Int Int (Delta1 r) Int
-  | SumRows1 (Delta2 r) Int
-  | SumColumns1 (Delta2 r) Int
+  | Seq1 (Data.Vector.Vector (Delta0 r))  -- ^ "unboxing" conversion
+  | Konst1 (Delta0 r) Int  -- ^ length; needed only for forward derivative
+  | Append1 (Delta1 r) Int (Delta1 r)  -- ^ integer is lenght of first argument
+  | Slice1 Int Int (Delta1 r) Int  -- ^ last integer is length of argument
+  | SumRows1 (Delta2 r) Int  -- ^ integer is the number of columns
+  | SumColumns1 (Delta2 r) Int  -- ^ integer is the number of rows
 
-  | M_VD1 (Matrix r) (Delta1 r)  -- M_VD1 m vd == SumRows1 (M_MD2 m (AsRow2 vd))
-  | MD_V1 (Delta2 r) (Vector r)  -- MD_V1 md v == SumRows1 (MD_M2 md (asRow v))
+  | M_VD1 (Matrix r)
+          (Delta1 r)  -- ^ M_VD1 m vd == SumRows1 (M_MD2 m (AsRow2 vd))
+  | MD_V1 (Delta2 r)
+          (Vector r)  -- ^ MD_V1 md v == SumRows1 (MD_M2 md (asRow v))
 
   | FromX1 (DeltaX r)
   | forall len. KnownNat len
@@ -117,18 +121,18 @@ data Delta2 r =
   | Add2 (Delta2 r) (Delta2 r)
   | Var2 (DeltaId (Matrix r))
 
-  | FromRows2 (Data.Vector.Vector (Delta1 r))
+  | FromRows2 (Data.Vector.Vector (Delta1 r))  -- ^ "unboxing" conversion again
   | FromColumns2 (Data.Vector.Vector (Delta1 r))
   | Transpose2 (Delta2 r)
-  | M_MD2 (Matrix r) (Delta2 r)
-  | MD_M2 (Delta2 r) (Matrix r)
-  | RowAppend2 (Delta2 r) Int (Delta2 r)
-  | ColumnAppend2 (Delta2 r) Int (Delta2 r)
-  | RowSlice2 Int Int (Delta2 r) Int
-  | ColumnSlice2 Int Int (Delta2 r) Int
+  | M_MD2 (Matrix r) (Delta2 r)  -- ^ matrix-(matrix-expression) multiplication
+  | MD_M2 (Delta2 r) (Matrix r)  -- ^ (matrix-expression)-matrix multiplication
+  | RowAppend2 (Delta2 r) Int (Delta2 r)  -- ^ row-lenght of first argument
+  | ColumnAppend2 (Delta2 r) Int (Delta2 r)  -- ^ col-lenght of first argument
+  | RowSlice2 Int Int (Delta2 r) Int  -- ^ last arg is row-length of the matrix
+  | ColumnSlice2 Int Int (Delta2 r) Int  -- ^ column-length of argument
 
-  | AsRow2 (Delta1 r)  -- AsRow2 vd == FromRows2 (V.replicate n vd)
-  | AsColumn2 (Delta1 r)  -- AsColumn2 vd == FromColumns2 (V.replicate n vd)
+  | AsRow2 (Delta1 r)  -- ^ AsRow2 vd == FromRows2 (V.replicate n vd)
+  | AsColumn2 (Delta1 r)  -- ^ AsColumn2 vd == FromColumns2 (V.replicate n vd)
 
   | FromX2 (DeltaX r)
   | forall rows cols. (KnownNat rows, KnownNat cols)
@@ -355,7 +359,7 @@ buildVectors st deltaTopLevel = do
             -- several times faster (same allocation, but not adding vectors)
         Index0 d ix k -> eval1 (HM.konst 0 k V.// [(ix, r)]) d
 
-        Dot0 vr vd -> eval1 (HM.scale r vr) vd
+        Dot0 v vd -> eval1 (HM.scale r v) vd
 
         FromX0 d -> evalX (OT.scalar r) d
         FromS0 d -> evalS (OS.scalar r) d
