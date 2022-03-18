@@ -724,6 +724,14 @@ bindInStateX u' st =
 {- Note [SumElements0]
 ~~~~~~~~~~~~~~~~~~~~~~
 
+The second argument of SumElements0 is the length of the vector
+to be summed. Given that we sum a delta-expression representing
+a vector, we can't call Vector.length on it, so the length needs
+to be recorded in the constructor. Alternatively, it could be
+recorded in the Delta1 argument to SumElements0. This is what
+shaped tensors do at the type level, so for DeltaS the argument
+would not be needed.
+
 Sum of vector elements can be implemented using a delta-expression
 primitive SumElements0 as well as without this primitive, referring
 only to the primitive Index0:
