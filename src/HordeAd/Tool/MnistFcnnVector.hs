@@ -37,7 +37,7 @@ sumTrainableInputsL :: forall r. IsScalar r
 sumTrainableInputsL x offset variables width =
   let f :: Int -> DualNumber r
       f i = sumTrainableInputsV x (offset + i) variables
-  in deltaSeq1 $ V.generate width f
+  in seq1 $ V.generate width f
 
 sumConstantDataV :: IsScalar r
                  => Primal (Tensor1 r)
@@ -57,7 +57,7 @@ sumConstantDataL :: forall r. IsScalar r
 sumConstantDataL x offset variables width =
   let f :: Int -> DualNumber r
       f i = sumConstantDataV x (offset + i) variables
-  in deltaSeq1 $ V.generate width f
+  in seq1 $ V.generate width f
 
 lenMnist2V :: Int -> Int -> Int
 lenMnist2V _widthHidden _widthHidden2 = 0

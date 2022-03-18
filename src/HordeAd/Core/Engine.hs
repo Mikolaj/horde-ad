@@ -22,9 +22,9 @@ import           Text.Show.Pretty (ppShow)
 
 import HordeAd.Core.Delta
   (DeltaState (..), evalBindings, evalBindingsForward, ppBinding, toDeltaId)
-import HordeAd.Core.DualNumber
-  (DualMonad (..), Domain, DomainL, DomainV, DomainX, Domains, DualNumber (..))
 import HordeAd.Core.DualClass
+import HordeAd.Core.DualNumber
+  (Domain, DomainL, DomainV, DomainX, Domains, DualMonad (..), DualNumber (..))
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 
 -- * The dummy monad implementation that does not collect deltas.
@@ -37,7 +37,7 @@ newtype DualMonadValue r a = DualMonadValue
   { runDualMonadValue :: Identity a }
   deriving (Monad, Functor, Applicative)
 
--- @UndecidableInstances@ needed due to this constraint.
+-- @UndecidableInstances@ needed anyway due to this constraint.
 instance IsScalar r => DualMonad r (DualMonadValue r) where
   returnLet (D u _u') = DualMonadValue $ Identity $ D u dZero
 
@@ -68,6 +68,7 @@ primalValue :: forall r a. IsScalar r
 primalValue f parameters =
   let D value _ = primalValueGeneric f parameters
   in value
+
 
 -- * The fully-fledged monad implementation for gradients
 -- and the code that uses it to compute single gradients and to do
@@ -154,6 +155,7 @@ dforward f parameters =
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
   in generalDforward variables f parameters
+
 
 -- * A monad for efficiently computing forward derivatives.
 

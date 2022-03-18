@@ -10,7 +10,7 @@ import qualified Numeric.LinearAlgebra as HM
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
-import HordeAd hiding (sumElementsVectorOfDelta)
+import HordeAd hiding (sumElementsVectorOfDual)
 
 testTrees :: [TestTree]
 testTrees = [ dfTests
@@ -209,10 +209,10 @@ atanReadmePoly variables =
 -- For now, let's perform the dot product in user code.
 -- Here is the code for dot product with ones, which is just the sum
 -- of elements of a vector:
-sumElementsVectorOfDelta :: IsScalar r
-                         => Data.Vector.Vector (DualNumber r)
-                         -> DualNumber r
-sumElementsVectorOfDelta = V.foldl' (+) 0
+sumElementsVectorOfDual :: IsScalar r
+                        => Data.Vector.Vector (DualNumber r)
+                        -> DualNumber r
+sumElementsVectorOfDual = V.foldl' (+) 0
 
 -- Here we introduce the only Delta-let binding (@returnLet@) to ensure
 -- that if this code is used in a larger context and repeated,
@@ -223,7 +223,7 @@ sumElementsVectorOfDelta = V.foldl' (+) 0
 atanReadmeMPoly :: (DualMonad r m, RealFloat (Primal r))
                 => DualNumberVariables r -> m (DualNumber r)
 atanReadmeMPoly variables =
-  returnLet $ sumElementsVectorOfDelta $ atanReadmePoly variables
+  returnLet $ sumElementsVectorOfDual $ atanReadmePoly variables
 
 -- The underscores and empty vectors are placeholders for the vector
 -- and matrix components of the parameters triple, which we here don't use
@@ -261,7 +261,7 @@ atanReadmePolyV variables =
       y = index0 xyzVector 1
       z = index0 xyzVector 2
       w = x * sin y
-  in deltaSeq1 $ V.fromList [atan2 z w, z * x]
+  in seq1 $ V.fromList [atan2 z w, z * x]
 
 atanReadmeMPolyV :: (DualMonad r m, RealFloat (Primal r))
                  => DualNumberVariables r -> m (DualNumber r)

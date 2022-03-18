@@ -6,7 +6,8 @@
 -- vector elements (a bit easier in @IO@, but so far we managed to avoid @IO@).
 -- For this reason, this representation is currently used only to represent
 -- the inputs of functions, that is, dual numbers with initial values
--- of parameters and with `Delta` variables assigned to each.
+-- of parameters and, in case of dual components that are delta-expressions,
+-- with `Delta` variables assigned to each.
 module HordeAd.Core.PairOfVectors
   ( DualNumberVariables
   , makeDualNumberVariables, var, vars, varV, varL, varX, varS
@@ -20,9 +21,9 @@ import qualified Data.Array.ShapedS as OS
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 
+import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
   (Domain, DomainL, DomainV, DomainX, Domains, DualNumber (..))
-import HordeAd.Core.DualClass
 
 -- These are optimized as "pair of vectors" representing vectors of @DualNumber@
 -- in an efficient way (especially, or only, with gradient descent,

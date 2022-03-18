@@ -20,8 +20,8 @@ import           Numeric.LinearAlgebra.Data (flatten)
 import           Numeric.LinearAlgebra.Devel
   (MatrixOrder (..), liftMatrix, liftMatrix2, matrixFromVector, orderOf)
 
-import HordeAd.Core.Engine
 import HordeAd.Core.DualClass
+import HordeAd.Core.Engine
 
 {-
 60% of heap allocation in matrix- and vector-based MNIST is performed
@@ -68,10 +68,7 @@ can't fuse with anything and so can't pay for its overhead.
 -}
 
 updateWithGradient :: IsScalar r
-                   => Primal r
-                   -> Domains r
-                   -> Domains r
-                   -> Domains r
+                   => Primal r -> Domains r -> Domains r -> Domains r
 updateWithGradient gamma (params, paramsV, paramsL, paramsX)
                          (gradient, gradientV, gradientL, gradientX) =
   let updateVector i r = i - HM.scale gamma r

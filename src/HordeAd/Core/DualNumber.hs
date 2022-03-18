@@ -165,11 +165,11 @@ fromS0 (D u u') = D (OS.unScalar u) (dFromS0 u')
 
 -- * Non-monadic operations resulting in a vector
 
--- @1@ means rank one, that is, creating delta expression of a vector.
-deltaSeq1 :: IsScalar r
-          => Data.Vector.Vector (DualNumber r) -> DualNumber (Tensor1 r)
-deltaSeq1 v = D (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
-                (dSeq1 $ V.map (\(D _ u') -> u') v)
+-- @1@ means rank one, so the dual component represents a vector.
+seq1 :: IsScalar r
+     => Data.Vector.Vector (DualNumber r) -> DualNumber (Tensor1 r)
+seq1 v = D (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
+           (dSeq1 $ V.map (\(D _ u') -> u') v)
 
 konst1 :: IsScalar r => DualNumber r -> Int -> DualNumber (Tensor1 r)
 konst1 (D u u') n = D (HM.konst u n) (dKonst1 u' n)
@@ -202,7 +202,7 @@ map1 f (D v v') =
   let k = V.length v
       g ix p = f $ D p (dIndex0 v' ix k)
       ds = imap g $ V.toList v
-  in deltaSeq1 $ V.fromList ds
+  in seq1 $ V.fromList ds
 
 -- | Dense matrix-vector product.
 infixr 8 #>!
@@ -230,7 +230,7 @@ fromS1 (D u u') = D (OS.toVector u) (dFromS1 @r @len u')
 
 -- * Non-monadic operations resulting in a matrix
 
--- @2@ means rank two, that is, creating delta expression of a matrix.
+-- @2@ means rank two, so the dual component represents a matrix.
 fromRows2 :: IsScalar r
           => Data.Vector.Vector (DualNumber (Tensor1 r))
           -> DualNumber (Tensor2 r)
@@ -370,6 +370,7 @@ fromXS :: (OS.Shape sh, IsScalarS sh r)
        => DualNumber (TensorX r) -> DualNumber (TensorS sh r)
 fromXS (D u u') = D (Data.Array.Convert.convert u) (dFromXS u')
 
+
 -- * General monadic operations, for any scalar rank
 
 tanhAct :: (DualMonad r m, IsDualWithScalar a r, Floating (Primal a))
@@ -405,17 +406,17 @@ reluAct :: DualMonad r m
            => DualNumber r -> m (DualNumber r)
 reluAct (D u u') = returnLet $ D (max 0 u) (dScale (if u > 0 then 1 else 0) u')
 
-sumElementsVectorOfDelta :: IsScalar r
-                         => Data.Vector.Vector (DualNumber r)
-                         -> DualNumber r
-sumElementsVectorOfDelta = V.foldl' (+) 0
+sumElementsVectorOfDual :: IsScalar r
+                        => Data.Vector.Vector (DualNumber r)
+                        -> DualNumber r
+sumElementsVectorOfDual = V.foldl' (+) 0
 
 softMaxAct :: (DualMonad r m, Floating (Primal r))
            => Data.Vector.Vector (DualNumber r)
            -> m (Data.Vector.Vector (DualNumber r))
 softMaxAct us = do
   expUs <- V.mapM (returnLet . exp) us
-  let sumExpUs = sumElementsVectorOfDelta expUs
+  let sumExpUs = sumElementsVectorOfDual expUs
   -- This has to be let-bound, because it's used many times below.
   recipSum <- returnLet $ recip sumExpUs
   V.mapM (\r -> returnLet $ r * recipSum) expUs
