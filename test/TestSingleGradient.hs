@@ -25,21 +25,21 @@ testTrees = [ dfTests
 -- polymorphic over whether they operate on scalars, vectors or other types,
 -- so we should probably abandon them.
 
-(+\) :: DeltaMonad r m => DualNumber r -> DualNumber r -> m (DualNumber r)
+(+\) :: DualMonad r m => DualNumber r -> DualNumber r -> m (DualNumber r)
 (+\) u v = returnLet $ u + v
 
-(*\) :: DeltaMonad r m => DualNumber r -> DualNumber r -> m (DualNumber r)
+(*\) :: DualMonad r m => DualNumber r -> DualNumber r -> m (DualNumber r)
 (*\) u v = returnLet $ u * v
 
-(**\) :: (DeltaMonad r m, Floating (Primal r))
+(**\) :: (DualMonad r m, Floating (Primal r))
       => DualNumber r -> DualNumber r -> m (DualNumber r)
 (**\) u v = returnLet $ u ** v
 
-squareDual :: DeltaMonad r m => DualNumber r -> m (DualNumber r)
+squareDual :: DualMonad r m => DualNumber r -> m (DualNumber r)
 squareDual = returnLet . square
 
 dfShow :: HasDelta r
-       => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+       => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
        -> [Primal r]
        -> ([Primal r], Primal r)
 dfShow f deltaInput =
@@ -47,26 +47,26 @@ dfShow f deltaInput =
         df f (V.fromList deltaInput, V.empty, V.empty, V.empty)
   in (V.toList results, value)
 
-fX :: DeltaMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+fX :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 fX variables = do
   let x = var variables 0
   return x
 
-fX1Y :: DeltaMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+fX1Y :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 fX1Y variables = do
   let x = var variables 0
       y = var variables 1
   x1 <- x +\ 1
   x1 *\ y
 
-fXXY :: DeltaMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+fXXY :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 fXXY variables = do
   let x = var variables 0
       y = var variables 1
   xy <- x *\ y
   x *\ xy
 
-fXYplusZ :: DeltaMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+fXYplusZ :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 fXYplusZ variables = do
   let x = var variables 0
       y = var variables 1
@@ -74,18 +74,18 @@ fXYplusZ variables = do
   xy <- x *\ y
   xy +\ z
 
-fXtoY :: DeltaMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+fXtoY :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 fXtoY variables = do
   let x = var variables 0
       y = var variables 1
   x **\ y
 
-freluX :: DeltaMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+freluX :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 freluX variables = do
   let x = var variables 0
   reluAct x
 
-fquad :: DeltaMonad r m => DualNumberVariables r -> m (DualNumber r)
+fquad :: DualMonad r m => DualNumberVariables r -> m (DualNumber r)
 fquad variables = do
   let x = var variables 0
       y = var variables 1
@@ -113,21 +113,21 @@ dfTests = testGroup "Simple df application tests" $
     , ("scalarSum", vec_omit_scalarSum_aux, [1, 1, 3], ([1.0,1.0,1.0],5.0))
     ]
 
-vec_omit_scalarSum_aux :: DeltaMonad (Delta0 Float) m
+vec_omit_scalarSum_aux :: DualMonad (Delta0 Float) m
                        => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 vec_omit_scalarSum_aux vec = returnLet $ foldlDelta' (+) 0 vec
 
-sumElementsV :: DeltaMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+sumElementsV :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 sumElementsV variables = do
   let x = varV variables 0
   returnLet $ sumElements0 x
 
-altSumElementsV :: DeltaMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+altSumElementsV :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 altSumElementsV variables = do
   let x = varV variables 0
   returnLet $ altSumElements0 x
 
-dfVectorShow :: (DualNumberVariables (Delta0 Float) -> DeltaMonadGradient (Delta0 Float) (DualNumber (Delta0 Float)))
+dfVectorShow :: (DualNumberVariables (Delta0 Float) -> DualMonadGradient (Delta0 Float) (DualNumber (Delta0 Float)))
              -> [[Float]]
              -> ([[Float]], Float)
 dfVectorShow f deltaInput =
@@ -145,7 +145,7 @@ vectorTests = testGroup "Simple df application to vectors tests" $
 
 dforwardShow
   :: HasDelta r
-  => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+  => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
   -> ([Primal r], [Primal r])
   -> (Primal r, Primal r)
 dforwardShow f (deltaInput, deltaInputV) =
@@ -166,7 +166,7 @@ dfTestsForward = testGroup "Simple df (Forward Double) application tests" $
 dfastForwardShow
   :: forall r. HasForward r
   => (DualNumberVariables r
-      -> DeltaMonadForward r (DualNumber r))
+      -> DualMonadForward r (DualNumber r))
   -> ([Primal r], [Primal r])
   -> (Primal r, Primal r)
 dfastForwardShow f (deltaInput, deltaInputV) =
@@ -220,7 +220,7 @@ sumElementsVectorOfDelta = V.foldl' (+) 0
 -- If the code above had any repeated non-variable expressions
 -- (e.g., if @w@ appeared twice) the user would need to make it monadic
 -- and apply @returnLet@ already there.
-atanReadmeMPoly :: (DeltaMonad r m, RealFloat (Primal r))
+atanReadmeMPoly :: (DualMonad r m, RealFloat (Primal r))
                 => DualNumberVariables r -> m (DualNumber r)
 atanReadmeMPoly variables =
   returnLet $ sumElementsVectorOfDelta $ atanReadmePoly variables
@@ -263,7 +263,7 @@ atanReadmePolyV variables =
       w = x * sin y
   in deltaSeq1 $ V.fromList [atan2 z w, z * x]
 
-atanReadmeMPolyV :: (DeltaMonad r m, RealFloat (Primal r))
+atanReadmeMPolyV :: (DualMonad r m, RealFloat (Primal r))
                  => DualNumberVariables r -> m (DualNumber r)
 atanReadmeMPolyV variables =
   returnLet $ atanReadmePolyV variables <.>!! HM.konst 1 2

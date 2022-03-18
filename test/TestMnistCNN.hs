@@ -28,7 +28,7 @@ shortTestForCITrees = [ sinRNNTests
                       , mnistRNNTestsShort
                       ]
 
-hiddenLayerMnistRNNB :: (DeltaMonad r m, Floating (Matrix r))
+hiddenLayerMnistRNNB :: (DualMonad r m, Floating (Matrix r))
                      => Matrix r  -- the mini-batch of data 28x150
                      -> DualNumber (Matrix r)  -- state for mini-batch 128x150
                      -> DualNumberVariables r
@@ -42,7 +42,7 @@ hiddenLayerMnistRNNB x s variables = do
   yTanh <- returnLet $ tanh y
   return (yTanh, yTanh)
 
-middleLayerMnistRNNB :: (DeltaMonad r m, Floating (Matrix r))
+middleLayerMnistRNNB :: (DualMonad r m, Floating (Matrix r))
                      => DualNumber (Matrix r)  -- 128x150
                      -> DualNumber (Matrix r)  -- 128x150
                      -> DualNumberVariables r
@@ -56,7 +56,7 @@ middleLayerMnistRNNB batchOfVec@(D u _) s variables = do
   yTanh <- returnLet $ tanh y
   return (yTanh, yTanh)
 
-outputLayerMnistRNNB :: DeltaMonad r m
+outputLayerMnistRNNB :: DualMonad r m
                      => DualNumber (Matrix r)  -- 128x150
                      -> DualNumberVariables r
                      -> m (DualNumber (Matrix r))
@@ -66,14 +66,14 @@ outputLayerMnistRNNB batchOfVec@(D u _) variables = do
       batchSize = HM.cols u
   returnLet $ w <>! batchOfVec + asColumn2 b batchSize
 
-fcfcrnnMnistB :: (DeltaMonad r m, Floating (Matrix r))
+fcfcrnnMnistB :: (DualMonad r m, Floating (Matrix r))
               => Matrix r
               -> DualNumber (Matrix r)
               -> DualNumberVariables r
               -> m (DualNumber (Matrix r), DualNumber (Matrix r))
 fcfcrnnMnistB = hiddenLayerMnistRNNB
 
-fcfcrnnMnistB2 :: (DeltaMonad r m, Floating (Matrix r))
+fcfcrnnMnistB2 :: (DualMonad r m, Floating (Matrix r))
                => Matrix r  -- 28x150
                -> DualNumber (Matrix r)  -- 256x150
                -> DualNumberVariables r
@@ -86,7 +86,7 @@ fcfcrnnMnistB2 x s@(D u _) variables = do
   (vec2, s2') <- middleLayerMnistRNNB vec1 s2 variables
   return (vec2, rowAppend2 s1' s2')
 
-nnMnistRNNB :: (DeltaMonad r m, Floating (Matrix r))
+nnMnistRNNB :: (DualMonad r m, Floating (Matrix r))
             => Int
             -> [Matrix r]
             -> DualNumberVariables r
@@ -97,7 +97,7 @@ nnMnistRNNB width xs variables = do
                          xs variables
   outputLayerMnistRNNB rnnLayer variables
 
-nnMnistRNNB2 :: (DeltaMonad r m, Floating (Matrix r))
+nnMnistRNNB2 :: (DualMonad r m, Floating (Matrix r))
              => Int
              -> [Matrix r]
              -> DualNumberVariables r
@@ -108,7 +108,7 @@ nnMnistRNNB2 width xs variables = do
                          xs variables
   outputLayerMnistRNNB rnnLayer variables
 
-nnMnistRNNLossB :: (DeltaMonad r m, Fractional r, Floating (Matrix r))
+nnMnistRNNLossB :: (DualMonad r m, Fractional r, Floating (Matrix r))
                 => Int
                 -> ([Matrix r], Matrix r)
                 -> DualNumberVariables r
@@ -119,7 +119,7 @@ nnMnistRNNLossB width (xs, target) variables = do
     -- this @asRow@ is safe, because it gets multiplied/subtracted right away
   returnLet $ scale (recip $ fromIntegral $ V.length u) $ sumElements0 vec
 
-nnMnistRNNLossB2 :: (DeltaMonad r m, Fractional r, Floating (Matrix r))
+nnMnistRNNLossB2 :: (DualMonad r m, Fractional r, Floating (Matrix r))
                  => Int
                  -> ([Matrix r], Matrix r)
                  -> DualNumberVariables r
@@ -136,7 +136,7 @@ mnistTestCaseRNNB
   -> (Int
       -> ([Matrix Double], Matrix Double)
       -> DualNumberVariables Double
-      -> DeltaMonadGradient Double (DualNumber Double))
+      -> DualMonadGradient Double (DualNumber Double))
   -> (Int -> [([Vector Double], Vector Double)] -> Domains Double -> Double)
   -> (Int -> Int -> (Int, [Int], [(Int, Int)]))
   -> Int

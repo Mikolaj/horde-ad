@@ -75,7 +75,7 @@ lenVectorsMnist2V widthHidden widthHidden2 =
 -- and from these, the @len*@ functions compute the number and dimensions
 -- of scalars (none in this case) and vectors of dual number parameters
 -- (variables) to be given to the program.
-nnMnist2V :: forall r m. DeltaMonad r m
+nnMnist2V :: forall r m. DualMonad r m
           => (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
           -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
           -> Int
@@ -102,7 +102,7 @@ nnMnist2V factivationHidden factivationOutput widthHidden widthHidden2
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
-nnMnistLoss2V :: (DeltaMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
+nnMnistLoss2V :: (DualMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
               => Int
               -> Int
               -> MnistData (Primal r)

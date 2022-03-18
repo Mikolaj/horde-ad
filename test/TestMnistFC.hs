@@ -36,7 +36,7 @@ shortTestForCITrees = [ dumbMnistTests
 
 sgdShow :: HasDelta r
         => Primal r
-        -> (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+        -> (a -> DualNumberVariables r -> DualMonadGradient r (DualNumber r))
         -> [a]  -- ^ training data
         -> Domain r  -- ^ initial parameters
         -> Primal r
@@ -50,7 +50,7 @@ sgdTestCase :: String
                 -> Int
                 -> a
                 -> DualNumberVariables (Delta0 Double)
-                -> DeltaMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
+                -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
             -> Double
             -> Double
             -> TestTree
@@ -75,7 +75,7 @@ mnistTestCase2
       -> Int
       -> MnistData Double
       -> DualNumberVariables (Delta0 Double)
-      -> DeltaMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
+      -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
   -> Int
   -> Int
   -> Double
@@ -130,7 +130,7 @@ mnistTestCase2V
       -> Int
       -> MnistData Double
       -> DualNumberVariables (Delta0 Double)
-      -> DeltaMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
+      -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
   -> Int
   -> Int
   -> Double
@@ -187,7 +187,7 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
              1 - testMnist2V @(Delta0 Double) widthHidden widthHidden2 testData res
        testErrorFinal @?= expected
 
-nnMnistLossTanh :: DeltaMonad (Delta0 Double) m
+nnMnistLossTanh :: DualMonad (Delta0 Double) m
                 => Int
                 -> Int
                 -> MnistData Double
@@ -197,7 +197,7 @@ nnMnistLossTanh widthHidden widthHidden2 (xs, targ) vec = do
   res <- nnMnist2 tanhAct softMaxAct widthHidden widthHidden2 xs vec
   lossCrossEntropy targ res
 
-nnMnistLossRelu :: DeltaMonad (Delta0 Double) m
+nnMnistLossRelu :: DualMonad (Delta0 Double) m
                 => Int
                 -> Int
                 -> MnistData Double
@@ -213,7 +213,7 @@ mnistTestCase2L
   -> Int
   -> (MnistData Double
       -> DualNumberVariables (Delta0 Double)
-      -> DeltaMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
+      -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
   -> Int
   -> Int
   -> Double
@@ -271,7 +271,7 @@ mnistTestCase2T
   -> Int
   -> (MnistData Double
       -> DualNumberVariables (Delta0 Double)
-      -> DeltaMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
+      -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
   -> Int
   -> Int
   -> Double
@@ -339,7 +339,7 @@ mnistTestCase2D
   -> Int
   -> (MnistData Double
       -> DualNumberVariables (Delta0 Double)
-      -> DeltaMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
+      -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
   -> Int
   -> Int
   -> Double
@@ -413,7 +413,7 @@ mnistTestCase2F
   -> Int
   -> (MnistData Double
       -> DualNumberVariables Double
-      -> DeltaMonadForward Double (DualNumber Double))
+      -> DualMonadForward Double (DualNumber Double))
   -> Int
   -> Int
   -> Double

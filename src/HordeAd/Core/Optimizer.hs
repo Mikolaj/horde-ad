@@ -18,7 +18,7 @@ import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 -- | Simple Gradient Descent.
 gdSimple :: forall r. HasDelta r
          => Primal r
-         -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+         -> (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
          -> Int  -- ^ requested number of iterations
          -> Domains r  -- ^ initial parameters
          -> Domains r
@@ -39,7 +39,7 @@ gdSimple gamma f n0 parameters0 = go n0 parameters0 where
 -- | Stochastic Gradient Descent.
 sgd :: forall r a. HasDelta r
     => Primal r
-    -> (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+    -> (a -> DualNumberVariables r -> DualMonadGradient r (DualNumber r))
     -> [a]  -- ^ training data
     -> Domains r  -- ^ initial parameters
     -> (Domains r, Primal r)
@@ -56,7 +56,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
        else go rest parametersNew
 
 sgdAdam :: forall r a. (HasDelta r, Floating (Primal r), Floating (Primal (Tensor1 r)))
-        => (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+        => (a -> DualNumberVariables r -> DualMonadGradient r (DualNumber r))
         -> [a]
         -> Domains r
         -> StateAdam r
@@ -66,7 +66,7 @@ sgdAdam = sgdAdamArgs defaultArgsAdam
 sgdAdamArgs :: forall r a. (HasDelta r, Floating (Primal r), Floating (Primal (Tensor1 r)))
             => ArgsAdam r
             -> (a -> DualNumberVariables r
-                -> DeltaMonadGradient r (DualNumber r))
+                -> DualMonadGradient r (DualNumber r))
             -> [a]
             -> Domains r
             -> StateAdam r

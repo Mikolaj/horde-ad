@@ -43,7 +43,7 @@ sgdBatchForward
   -> Int  -- ^ batch size
   -> Double  -- ^ gamma (learning_rate?)
   -> (a -> DualNumberVariables (Delta0 Double)
-      -> DeltaMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
+      -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
   -> [a]  -- ^ training data
   -> Domains Double  -- ^ initial parameters
   -> (Int, [Int], [(Int, Int)])
@@ -57,12 +57,12 @@ sgdBatchForward seed0 batchSize gamma f trainingData parameters0 nParameters =
   go seed l parameters _ =
     let (batch, rest) = splitAt batchSize l
         fAdd :: DualNumberVariables (Delta0 Double) -> DualNumber (Delta0 Double) -> a
-             -> DeltaMonadGradient (Delta0 Double) (DualNumber (Delta0 Double))
+             -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double))
         fAdd vars !acc a = do
           res <- f a vars
           return $! acc + res
         fBatch :: DualNumberVariables (Delta0 Double)
-               -> DeltaMonadGradient (Delta0 Double) (DualNumber (Delta0 Double))
+               -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double))
         fBatch vars = do
           resBatch <- foldM (fAdd vars) 0 batch
           return $! resBatch / fromIntegral (length batch)
@@ -83,7 +83,7 @@ sgdBatchFastForward
   -> Int  -- ^ batch size
   -> Double  -- ^ gamma (learning_rate?)
   -> (a -> DualNumberVariables Double
-      -> DeltaMonadForward Double (DualNumber Double))
+      -> DualMonadForward Double (DualNumber Double))
   -> [a]  -- ^ training data
   -> Domains Double  -- ^ initial parameters
   -> (Int, [Int], [(Int, Int)])
@@ -98,12 +98,12 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
     let (batch, rest) = splitAt batchSize l
         fAdd :: DualNumberVariables Double
              -> DualNumber Double -> a
-             -> DeltaMonadForward Double (DualNumber Double)
+             -> DualMonadForward Double (DualNumber Double)
         fAdd vars !acc a = do
           res <- f a vars
           return $! acc + res
         fBatch :: DualNumberVariables Double
-               -> DeltaMonadForward Double (DualNumber Double)
+               -> DualMonadForward Double (DualNumber Double)
         fBatch vars = do
           resBatch <- foldM (fAdd vars) 0 batch
           return $! resBatch / fromIntegral (length batch)
@@ -125,7 +125,7 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
 sgdAdamBatch
   :: forall r a. (HasDelta r, Floating (Primal r), Floating (Primal (Tensor1 r)))
   => Int  -- ^ batch size
-  -> (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+  -> (a -> DualNumberVariables r -> DualMonadGradient r (DualNumber r))
   -> [a]
   -> Domains r
   -> StateAdam r
@@ -137,7 +137,7 @@ sgdAdamBatchArgs
   => ArgsAdam r
   -> Int  -- ^ batch size
   -> (a -> DualNumberVariables r
-      -> DeltaMonadGradient r (DualNumber r))
+      -> DualMonadGradient r (DualNumber r))
   -> [a]
   -> Domains r
   -> StateAdam r
@@ -152,12 +152,12 @@ sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
     let variables = makeDualNumberVariables parameters varDeltas
         (batch, rest) = splitAt batchSize l
         fAdd :: DualNumberVariables r -> DualNumber r -> a
-             -> DeltaMonadGradient r (DualNumber r)
+             -> DualMonadGradient r (DualNumber r)
         fAdd vars !acc a = do
           res <- f a vars
           return $! acc + res
         fBatch :: DualNumberVariables r
-               -> DeltaMonadGradient r (DualNumber r)
+               -> DualMonadGradient r (DualNumber r)
         fBatch vars = do
           resBatch <- foldM (fAdd vars) 0 batch
           return $! resBatch / fromIntegral (length batch)
@@ -170,7 +170,7 @@ sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
 -- Based on @gradientDescent@ from package @ad@ which is in turn based
 -- on the one from the VLAD compiler.
 gdSmart :: forall r. (HasDelta r, Fractional (Primal r))
-        => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+        => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
         -> Int  -- ^ requested number of iterations
         -> Domains r  -- ^ initial parameters
         -> (Domains r, Primal r)

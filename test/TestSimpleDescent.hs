@@ -17,21 +17,21 @@ testTrees = [ gdSimpleTests
 -- polymorphic over whether they operate on scalars, vectors or other types,
 -- so we should probably abandon them.
 
-(+\) :: DeltaMonad r m => DualNumber r -> DualNumber r -> m (DualNumber r)
+(+\) :: DualMonad r m => DualNumber r -> DualNumber r -> m (DualNumber r)
 (+\) u v = returnLet $ u + v
 
-(*\) :: DeltaMonad r m => DualNumber r -> DualNumber r -> m (DualNumber r)
+(*\) :: DualMonad r m => DualNumber r -> DualNumber r -> m (DualNumber r)
 (*\) u v = returnLet $ u * v
 
-scaleDual :: DeltaMonad r m => Primal r -> DualNumber r -> m (DualNumber r)
+scaleDual :: DualMonad r m => Primal r -> DualNumber r -> m (DualNumber r)
 scaleDual r u = returnLet $ scale r u
 
-squareDual :: DeltaMonad r m => DualNumber r -> m (DualNumber r)
+squareDual :: DualMonad r m => DualNumber r -> m (DualNumber r)
 squareDual = returnLet . square
 
 gdSimpleShow :: HasDelta r
              => Primal r
-             -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+             -> (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
              -> Domain r
              -> Int
              -> ([Primal r], Primal r)
@@ -40,7 +40,7 @@ gdSimpleShow gamma f initVec n =
       (_, value) = df f (res, V.empty, V.empty, V.empty)
   in (V.toList res, value)
 
-fquad :: DeltaMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+fquad :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 fquad variables = do
   let x = var variables 0
       y = var variables 1
@@ -49,7 +49,7 @@ fquad variables = do
   tmp <- x2 +\ y2
   tmp +\ 5
 
-fblowup :: forall m. DeltaMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+fblowup :: forall m. DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 fblowup variables = do
   let blowup :: Int -> DualNumber (Delta0 Float) -> m (DualNumber (Delta0 Float))
       blowup 0 y = return y
@@ -95,7 +95,7 @@ gdSimpleTests = testGroup "Simple gradient descent tests"
 -- This, and other XOR nn operations, have unfused Delta let-bindings
 -- (one binding per each subexpression, even when not needed), which is fine,
 -- just not enough for comprehensive benchmarks.
-scaleAddWithBias :: DeltaMonad (Delta0 Float) m
+scaleAddWithBias :: DualMonad (Delta0 Float) m
                  => DualNumber (Delta0 Float) -> DualNumber (Delta0 Float) -> Int -> DualNumberVariables (Delta0 Float)
                  -> m (DualNumber (Delta0 Float))
 scaleAddWithBias x y ixWeight variables = do
@@ -107,7 +107,7 @@ scaleAddWithBias x y ixWeight variables = do
   sxy <- sx +\ sy
   sxy +\ bias
 
-neuron :: DeltaMonad (Delta0 Float) m
+neuron :: DualMonad (Delta0 Float) m
        => (DualNumber (Delta0 Float) -> m (DualNumber (Delta0 Float)))
        -> DualNumber (Delta0 Float) -> DualNumber (Delta0 Float) -> Int -> DualNumberVariables (Delta0 Float)
        -> m (DualNumber (Delta0 Float))
@@ -115,7 +115,7 @@ neuron factivation x y ixWeight variables = do
   sc <- scaleAddWithBias x y ixWeight variables
   factivation sc
 
-nnXor :: DeltaMonad (Delta0 Float) m
+nnXor :: DualMonad (Delta0 Float) m
       => (DualNumber (Delta0 Float) -> m (DualNumber (Delta0 Float)))
       -> DualNumber (Delta0 Float) -> DualNumber (Delta0 Float) -> DualNumberVariables (Delta0 Float)
       -> m (DualNumber (Delta0 Float))
@@ -124,7 +124,7 @@ nnXor factivation x y variables = do
   n2 <- neuron factivation x y 3 variables
   neuron factivation n1 n2 6 variables
 
-nnXorLoss :: DeltaMonad (Delta0 Float) m
+nnXorLoss :: DualMonad (Delta0 Float) m
           => (DualNumber (Delta0 Float) -> m (DualNumber (Delta0 Float)))
           -> Float -> Float -> Float -> DualNumberVariables (Delta0 Float)
           -> m (DualNumber (Delta0 Float))
@@ -132,7 +132,7 @@ nnXorLoss factivation x y targ variables = do
   res <- nnXor factivation (scalar x) (scalar y) variables
   lossSquared targ res
 
-nnXorLossTotal :: DeltaMonad (Delta0 Float) m
+nnXorLossTotal :: DualMonad (Delta0 Float) m
                => (DualNumber (Delta0 Float) -> m (DualNumber (Delta0 Float)))
                -> DualNumberVariables (Delta0 Float)
                -> m (DualNumber (Delta0 Float))

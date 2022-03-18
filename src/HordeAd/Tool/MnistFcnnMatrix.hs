@@ -34,7 +34,7 @@ lenMnistFcnn2L widthHidden widthHidden2 =
 -- and vectors given as dual number parameters (variables).
 -- The dimensions, in turn, can be computed by the @len*@ functions
 -- on the basis of the requested widths, see above.
-nnMnist2L :: forall r m. DeltaMonad r m
+nnMnist2L :: forall r m. DualMonad r m
           => (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
           -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
           -> Primal (Tensor1 r)
@@ -57,7 +57,7 @@ nnMnist2L factivationHidden factivationOutput input variables = do
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
-nnMnistLoss2L :: (DeltaMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
+nnMnistLoss2L :: (DualMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
               => MnistData (Primal r)
               -> DualNumberVariables r
               -> m (DualNumber r)
@@ -69,7 +69,7 @@ nnMnistLoss2L (input, target) variables = do
 -- and composed with the appropriate loss function, using fused
 -- softMax and cross entropy as the loss function.
 nnMnistLossFused2L
-  :: (DeltaMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
+  :: (DualMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
   => MnistData (Primal r)
   -> DualNumberVariables r
   -> m (DualNumber r)
@@ -78,7 +78,7 @@ nnMnistLossFused2L (input, target) variables = do
   lossSoftMaxCrossEntropyV target result
 
 nnMnistLossFusedRelu2L
-  :: (DeltaMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
+  :: (DualMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
   => MnistData (Primal r)
   -> DualNumberVariables r
   -> m (DualNumber r)

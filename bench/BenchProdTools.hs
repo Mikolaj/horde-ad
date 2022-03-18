@@ -124,7 +124,7 @@ bgroup5e7 allxs =
         , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
         ]
 
-(*\) :: DeltaMonad r m
+(*\) :: DualMonad r m
      => DualNumber r -> DualNumber r -> m (DualNumber r)
 (*\) u v = returnLet $ u * v
 
@@ -135,7 +135,7 @@ bgroup5e7 allxs =
 -- which works fine there, but costs us some cycles and the use
 -- of a custom operation here, where there's no gradient descent
 -- to manage the vectors for us.
-vec_prod_aux :: forall m r. DeltaMonad r m
+vec_prod_aux :: forall m r. DualMonad r m
              => DualNumberVariables r -> m (DualNumber r)
 vec_prod_aux = foldMDelta' (*\) 1
   -- no handwritten derivatives; only the derivative for @(*)@ is provided;
@@ -159,7 +159,7 @@ grad_toList_prod l = V.toList $ grad_vec_prod $ V.fromList l
 -- It probably wouldn't help in this case, though.
 
 vec_omit_prod_aux
-  :: forall r m. DeltaMonad r m
+  :: forall r m. DualMonad r m
   => DualNumberVariables r -> m (DualNumber r)
 vec_omit_prod_aux vec = returnLet $ foldlDelta' (*) 1 vec
   -- omitting most bindings, because we know nothing repeats inside
@@ -176,17 +176,17 @@ grad_vec_omit_prod ds =
 
 
 vec_omit_scalarSum_aux
-  :: forall m r. DeltaMonad r m
+  :: forall m r. DualMonad r m
   => DualNumberVariables r -> m (DualNumber r)
 vec_omit_scalarSum_aux vec = returnLet $ foldlDelta' (+) 0 vec
 
-sumElementsV :: DeltaMonad (Delta0 Double) m
+sumElementsV :: DualMonad (Delta0 Double) m
              => DualNumberVariables (Delta0 Double) -> m (DualNumber (Delta0 Double))
 sumElementsV variables = do
   let x = varV variables 0
   returnLet $ sumElements0 x
 
-altSumElementsV :: DeltaMonad (Delta0 Double) m
+altSumElementsV :: DualMonad (Delta0 Double) m
                 => DualNumberVariables (Delta0 Double) -> m (DualNumber (Delta0 Double))
 altSumElementsV variables = do
   let x = varV variables 0

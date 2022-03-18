@@ -27,7 +27,7 @@ import HordeAd.Core.DualClass
 data DualNumber a = D (Primal a) a
 
 class (IsScalar r, Monad m, Functor m, Applicative m)
-      => DeltaMonad r m | m -> r where
+      => DualMonad r m | m -> r where
   returnLet :: IsDualWithScalar a r
             => DualNumber a -> m (DualNumber a)
 
@@ -372,7 +372,7 @@ fromXS (D u u') = D (Data.Array.Convert.convert u) (dFromXS u')
 
 -- * General monadic operations, for any scalar rank
 
-tanhAct :: (DeltaMonad r m, IsDualWithScalar a r, Floating (Primal a))
+tanhAct :: (DualMonad r m, IsDualWithScalar a r, Floating (Primal a))
         => DualNumber a -> m (DualNumber a)
 tanhAct = returnLet . tanh
 
@@ -381,7 +381,7 @@ logistic (D u u') =
   let y = recip (1 + exp (- u))
   in D y (dScale (y * (1 - y)) u')
 
-logisticAct :: (DeltaMonad r m, IsDualWithScalar a r, Floating (Primal a))
+logisticAct :: (DualMonad r m, IsDualWithScalar a r, Floating (Primal a))
             => DualNumber a -> m (DualNumber a)
 logisticAct = returnLet . logistic
 
@@ -393,7 +393,7 @@ squaredDifference :: (Num (Primal a), IsDual a)
                   => Primal a -> DualNumber a -> DualNumber a
 squaredDifference targ res = square $ res - scalar targ
 
-lossSquared :: (DeltaMonad r m, IsDualWithScalar a r)
+lossSquared :: (DualMonad r m, IsDualWithScalar a r)
             => Primal a -> DualNumber a -> m (DualNumber a)
 lossSquared targ res = returnLet $ squaredDifference targ res
 
@@ -401,7 +401,7 @@ lossSquared targ res = returnLet $ squaredDifference targ res
 -- * Monadic operations resulting in a scalar
 
 -- The type permits other ranks, but it's nonsense.
-reluAct :: DeltaMonad r m
+reluAct :: DualMonad r m
            => DualNumber r -> m (DualNumber r)
 reluAct (D u u') = returnLet $ D (max 0 u) (dScale (if u > 0 then 1 else 0) u')
 
@@ -410,7 +410,7 @@ sumElementsVectorOfDelta :: IsScalar r
                          -> DualNumber r
 sumElementsVectorOfDelta = V.foldl' (+) 0
 
-softMaxAct :: (DeltaMonad r m, Floating (Primal r))
+softMaxAct :: (DualMonad r m, Floating (Primal r))
            => Data.Vector.Vector (DualNumber r)
            -> m (Data.Vector.Vector (DualNumber r))
 softMaxAct us = do
@@ -421,7 +421,7 @@ softMaxAct us = do
   V.mapM (\r -> returnLet $ r * recipSum) expUs
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropy :: forall m r. (DeltaMonad r m, Floating (Primal r))
+lossCrossEntropy :: forall m r. (DualMonad r m, Floating (Primal r))
                  => Primal (Tensor1 r)
                  -> Data.Vector.Vector (DualNumber r)
                  -> m (DualNumber r)
@@ -431,13 +431,13 @@ lossCrossEntropy targ res = do
   returnLet $ negate $ V.ifoldl' f 0 res
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropyV :: (DeltaMonad r m, Floating (Primal (Tensor1 r)))
+lossCrossEntropyV :: (DualMonad r m, Floating (Primal (Tensor1 r)))
                   => Primal (Tensor1 r)
                   -> DualNumber (Tensor1 r)
                   -> m (DualNumber r)
 lossCrossEntropyV targ res = returnLet $ negate $ log res <.>!! targ
 
-lossSoftMaxCrossEntropyV :: (DeltaMonad r m, Fractional (Primal r), Floating (Primal (Tensor1 r)))
+lossSoftMaxCrossEntropyV :: (DualMonad r m, Fractional (Primal r), Floating (Primal (Tensor1 r)))
                          => Primal (Tensor1 r)
                          -> DualNumber (Tensor1 r)
                          -> m (DualNumber r)
@@ -458,20 +458,20 @@ lossSoftMaxCrossEntropyV target (D u u') = do
 
 -- * Monadic operations resulting in a vector
 
-reluActV :: DeltaMonad r m
+reluActV :: DualMonad r m
          => DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r))
 reluActV dn@(D u _) = do
   let oneIfGtZero = V.map (\x -> if x > 0 then 1 else 0) u
   returnLet $ scale oneIfGtZero dn
     -- I have a bad feeling about this
 
-reluLeakyActV :: (DeltaMonad r m, Fractional (Primal r))
+reluLeakyActV :: (DualMonad r m, Fractional (Primal r))
               => DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r))
 reluLeakyActV dn@(D u _) = do
   let oneIfGtZero = V.map (\x -> if x > 0 then 1 else 0.01) u
   returnLet $ scale oneIfGtZero dn
 
-softMaxActV :: (DeltaMonad r m, Fractional (Primal r), Floating (Primal (Tensor1 r)))
+softMaxActV :: (DualMonad r m, Fractional (Primal r), Floating (Primal (Tensor1 r)))
             => DualNumber (Tensor1 r)
             -> m (DualNumber (Tensor1 r))
 softMaxActV d@(D u _) = do
@@ -482,7 +482,7 @@ softMaxActV d@(D u _) = do
   returnLet $ konst1 recipSum (V.length u) * expU
 
 lossSoftMaxCrossEntropyL
-  :: (DeltaMonad r m, Fractional (Primal r), Floating (Primal (Tensor2 r)))
+  :: (DualMonad r m, Fractional (Primal r), Floating (Primal (Tensor2 r)))
   => Primal (Tensor2 r)
   -> DualNumber (Tensor2 r)
   -> m (DualNumber (Tensor1 r))

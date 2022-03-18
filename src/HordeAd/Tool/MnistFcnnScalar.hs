@@ -21,7 +21,7 @@ import HordeAd.Tool.MnistData
 -- from trainable inputs in @xs@ and parameters (the bias and weights)
 -- at @variables@ starting at @offset@. Useful for neurons in the middle
 -- of the network, receiving inputs from other neurons.
-sumTrainableInputs :: forall m r. DeltaMonad r m
+sumTrainableInputs :: forall m r. DualMonad r m
                    => Data.Vector.Vector (DualNumber r)
                    -> Int
                    -> DualNumberVariables r
@@ -38,7 +38,7 @@ sumTrainableInputs xs offset variables = do
 -- from constant data in @xs@ and parameters (the bias and weights)
 -- at @variables@ starting at @offset@. Useful for neurons at the bottom
 -- of the network, tasked with ingesting the data.
-sumConstantData :: forall m r. DeltaMonad r m
+sumConstantData :: forall m r. DualMonad r m
                 => Primal (Tensor1 r)
                 -> Int
                 -> DualNumberVariables r
@@ -51,7 +51,7 @@ sumConstantData xs offset variables = do
         in acc + scale r v
   returnLet $ V.ifoldl' f bias xs
 
-hiddenLayerMnist :: forall m r. DeltaMonad r m
+hiddenLayerMnist :: forall m r. DualMonad r m
                  => (DualNumber r -> m (DualNumber r))
                  -> Primal (Tensor1 r)
                  -> DualNumberVariables r
@@ -65,7 +65,7 @@ hiddenLayerMnist factivation input variables width = do
         factivation outSum
   V.generateM width f
 
-middleLayerMnist :: forall m r. DeltaMonad r m
+middleLayerMnist :: forall m r. DualMonad r m
                  => (DualNumber r -> m (DualNumber r))
                  -> Data.Vector.Vector (DualNumber r)
                  -> Int
@@ -82,7 +82,7 @@ middleLayerMnist factivation hiddenVec offset variables width = do
         factivation outSum
   V.generateM width f
 
-outputLayerMnist :: forall m r. DeltaMonad r m
+outputLayerMnist :: forall m r. DualMonad r m
                  => (Data.Vector.Vector (DualNumber r)
                      -> m (Data.Vector.Vector (DualNumber r)))
                  -> Data.Vector.Vector (DualNumber r)
@@ -111,7 +111,7 @@ lenMnist2 widthHidden widthHidden2 =
 -- The widths of the hidden layers are @widthHidden@ and @widthHidden2@
 -- and from these, the @lenMnist2@ function computes the number
 -- of scalar dual number parameters (variables) to be given to the program.
-nnMnist2 :: forall r m. DeltaMonad r m
+nnMnist2 :: forall r m. DualMonad r m
          => (DualNumber r -> m (DualNumber r))
          -> (Data.Vector.Vector (DualNumber r)
              -> m (Data.Vector.Vector (DualNumber r)))
@@ -134,7 +134,7 @@ nnMnist2 factivationHidden factivationOutput widthHidden widthHidden2
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
-nnMnistLoss2 :: (DeltaMonad r m, Floating (Primal r))
+nnMnistLoss2 :: (DualMonad r m, Floating (Primal r))
              => Int
              -> Int
              -> MnistData (Primal r)

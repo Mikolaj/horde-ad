@@ -4,9 +4,9 @@
 -- and the implementation of deriving a gradient.
 module HordeAd.Core.Engine
   ( Domain, DomainV, DomainL, DomainX, Domains
-  , DeltaMonadValue, primalValueGeneric, primalValue
-  , DeltaMonadGradient, generalDf, df, generalDforward, dforward, prettyPrintDf
-  , DeltaMonadForward, generalDfastForward, dfastForward
+  , DualMonadValue, primalValueGeneric, primalValue
+  , DualMonadGradient, generalDf, df, generalDforward, dforward, prettyPrintDf
+  , DualMonadForward, generalDfastForward, dfastForward
   , generateDeltaVars, initializerFixed
   ) where
 
@@ -23,7 +23,7 @@ import           Text.Show.Pretty (ppShow)
 import HordeAd.Core.Delta
   (DeltaState (..), evalBindings, evalBindingsForward, ppBinding, toDeltaId)
 import HordeAd.Core.DualNumber
-  (DeltaMonad (..), Domain, DomainL, DomainV, DomainX, Domains, DualNumber (..))
+  (DualMonad (..), Domain, DomainL, DomainV, DomainX, Domains, DualNumber (..))
 import HordeAd.Core.DualClass
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 
@@ -31,21 +31,21 @@ import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 -- It's intended for efficiently calculating the value of the function only.
 
 -- An overcomplicated
--- @type DeltaMonadValue r = Identity@
+-- @type DualMonadValue r = Identity@
 -- to avoid @-Wno-orphans@ and @UndecidableInstances@.
-newtype DeltaMonadValue r a = DeltaMonadValue
-  { runDeltaMonadValue :: Identity a }
+newtype DualMonadValue r a = DualMonadValue
+  { runDualMonadValue :: Identity a }
   deriving (Monad, Functor, Applicative)
 
 -- @UndecidableInstances@ needed due to this constraint.
-instance IsScalar r => DeltaMonad r (DeltaMonadValue r) where
-  returnLet (D u _u') = DeltaMonadValue $ Identity $ D u dZero
+instance IsScalar r => DualMonad r (DualMonadValue r) where
+  returnLet (D u _u') = DualMonadValue $ Identity $ D u dZero
 
 -- The general case, needed for old, hacky tests before 'Delta' extension.
 --
 -- Small enough that inline won't hurt.
 primalValueGeneric :: forall r a. IsScalar r
-                   => (DualNumberVariables r -> DeltaMonadValue r a)
+                   => (DualNumberVariables r -> DualMonadValue r a)
                    -> Domains r
                    -> a
 {-# INLINE primalValueGeneric #-}
@@ -57,11 +57,11 @@ primalValueGeneric f (params, paramsV, paramsL, paramsX) =
                     , replicateZeros paramsV
                     , replicateZeros paramsL
                     , replicateZeros paramsX )
-  in runIdentity $ runDeltaMonadValue $ f variables
+  in runIdentity $ runDualMonadValue $ f variables
 
 -- Small enough that inline won't hurt.
 primalValue :: forall r a. IsScalar r
-            => (DualNumberVariables r -> DeltaMonadValue r (DualNumber a))
+            => (DualNumberVariables r -> DualMonadValue r (DualNumber a))
             -> Domains r
             -> Primal a
 {-# INLINE primalValue #-}
@@ -73,12 +73,12 @@ primalValue f parameters =
 -- and the code that uses it to compute single gradients and to do
 -- gradient descent.
 
-newtype DeltaMonadGradient r a = DeltaMonadGradient
-  { runDeltaMonadGradient :: State (DeltaState (Primal r)) a }
+newtype DualMonadGradient r a = DualMonadGradient
+  { runDualMonadGradient :: State (DeltaState (Primal r)) a }
   deriving (Monad, Functor, Applicative)
 
-instance IsScalar r => DeltaMonad r (DeltaMonadGradient r) where
-  returnLet (D u u') = DeltaMonadGradient $ do
+instance IsScalar r => DualMonad r (DualMonadGradient r) where
+  returnLet (D u u') = DualMonadGradient $ do
     st <- get
     let (!stNew, !dId) = bindInState u' st
     put stNew
@@ -88,7 +88,7 @@ instance IsScalar r => DeltaMonad r (DeltaMonadGradient r) where
 -- are not inlined there, so the bloat is limited.
 generalDf :: HasDelta r
           => DualNumberVariables r
-          -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+          -> (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
           -> (Domains r, Primal r)
 {-# INLINE generalDf #-}
 generalDf variables@(params, _, paramsV, _, paramsL, _, paramsX, _) f =
@@ -103,13 +103,13 @@ generalDf variables@(params, _, paramsV, _, paramsL, _, paramsX, _) f =
         , deltaCounterX = toDeltaId dimX
         , deltaBindings = []
         }
-      (D value d, st) = runState (runDeltaMonadGradient (f variables))
+      (D value d, st) = runState (runDualMonadGradient (f variables))
                                  initialState
       gradient = evalBindings dim dimV dimL dimX st d
   in (gradient, value)
 
 df :: HasDelta r
-   => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+   => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
    -> Domains r
    -> (Domains r, Primal r)
 df f parameters =
@@ -117,12 +117,12 @@ df f parameters =
       variables = makeDualNumberVariables parameters varDeltas
   in generalDf variables f
 
--- This function uses @DeltaMonadGradient@ for an inefficient computation
+-- This function uses @DualMonadGradient@ for an inefficient computation
 -- of forward derivaties. See @generalDfastForward@ for an efficient variant.
 generalDforward
   :: HasDelta r
   => DualNumberVariables r
-  -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+  -> (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
   -> Domains r
   -> (Primal r, Primal r)
 {-# INLINE generalDforward #-}
@@ -139,7 +139,7 @@ generalDforward variables@(params, _, paramsV, _, paramsL, _, paramsX, _)
         , deltaCounterX = toDeltaId dimX
         , deltaBindings = []
         }
-      (D value d, st) = runState (runDeltaMonadGradient (f variables))
+      (D value d, st) = runState (runDualMonadGradient (f variables))
                                  initialState
   in (evalBindingsForward st d direction, value)
 
@@ -147,7 +147,7 @@ generalDforward variables@(params, _, paramsV, _, paramsL, _, paramsX, _)
 -- the dual counterpart of paramters, the dt, to be equal to main parameters.
 dforward
   :: HasDelta r
-  => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+  => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
   -> Domains r
   -> (Primal r, Primal r)
 dforward f parameters =
@@ -157,28 +157,28 @@ dforward f parameters =
 
 -- * A monad for efficiently computing forward derivatives.
 
-newtype DeltaMonadForward r a = DeltaMonadForward
-  { runDeltaMonadForward :: Identity a }
+newtype DualMonadForward r a = DualMonadForward
+  { runDualMonadForward :: Identity a }
   deriving (Monad, Functor, Applicative)
 
-instance IsScalar r => DeltaMonad r (DeltaMonadForward r) where
-  returnLet (D u u') = DeltaMonadForward $ Identity $ D u u'
+instance IsScalar r => DualMonad r (DualMonadForward r) where
+  returnLet (D u u') = DualMonadForward $ Identity $ D u u'
 
 -- This the efficient variant of forward derivative computation.
 generalDfastForward
   :: DualNumberVariables r
-  -> (DualNumberVariables r -> DeltaMonadForward r (DualNumber r))
+  -> (DualNumberVariables r -> DualMonadForward r (DualNumber r))
   -> (r, Primal r)
 {-# INLINE generalDfastForward #-}
 generalDfastForward variables f =
-  let D value d = runIdentity $ runDeltaMonadForward $ f variables
+  let D value d = runIdentity $ runDualMonadForward $ f variables
   in (d, value)
 
 -- In a simple-minded way, just for test, we set the direction vector,
 -- the dual counterpart of paramters, the dt, to be equal to main parameters.
 dfastForward
   :: forall r. HasForward r
-  => (DualNumberVariables r -> DeltaMonadForward r (DualNumber r))
+  => (DualNumberVariables r -> DualMonadForward r (DualNumber r))
   -> Domains r
   -> (Primal r, Primal r)
 dfastForward f parameters@(params, paramsV, paramsL, paramsX) =
@@ -194,7 +194,7 @@ dfastForward f parameters@(params, paramsV, paramsL, paramsX) =
 
 prettyPrintDf :: (Show (Primal r), HasDelta r)
               => Bool
-              -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
+              -> (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
               -> Domains r
               -> String
 prettyPrintDf reversed f parameters@(params, paramsV, paramsL, paramsX) =
@@ -211,7 +211,7 @@ prettyPrintDf reversed f parameters@(params, paramsV, paramsL, paramsX) =
         , deltaCounterX = toDeltaId dimX
         , deltaBindings = []
         }
-      (D _ d0, st) = runState (runDeltaMonadGradient (f variables))
+      (D _ d0, st) = runState (runDualMonadGradient (f variables))
                              initialState
   in if reversed
      then concat $ foldl' (\ !l b -> l ++ ppBinding "where" b)
