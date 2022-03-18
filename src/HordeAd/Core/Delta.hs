@@ -75,7 +75,7 @@ data Delta0 r =
   | Add0 (Delta0 r) (Delta0 r)
   | Var0 (DeltaId r)
 
-  | SumElements0 (Delta1 r) Int  -- dramatically slower if done via Index0
+  | SumElements0 (Delta1 r) Int  -- see Note [SumElements0]
   | Index0 (Delta1 r) Int Int
 
   | Dot0 (Vector r) (Delta1 r)  -- Dot0 v sd == SumElements0 (Scale1 v sd) n
@@ -720,3 +720,24 @@ bindInStateX u' st =
           , deltaBindings = binding : deltaBindings st
           }
      , dId )
+
+{- Note [SumElements0]
+~~~~~~~~~~~~~~~~~~~~~~
+
+Sum of vector elements can be implemented using a delta-expression
+primitive SumElements0 as well as without this primitive, referring
+only to the primitive Index0:
+
+https://github.com/Mikolaj/horde-ad/blob/d069a45773ed849913b5ebd0345153072f304fd9/src/HordeAd/Core/DualNumber.hs#L125-L143
+
+which is confirmed by tests to be equivalent in three different
+implementations:
+
+https://github.com/Mikolaj/horde-ad/blob/d069a45773ed849913b5ebd0345153072f304fd9/test/TestSingleGradient.hs#L116-L128
+
+and proved to be prohibitively slow in the two implementations
+that don't use the SumElements0 primitive in benchmarks (despite
+an ingenious optimization of the common case of Index0 applied to a variable):
+
+https://github.com/Mikolaj/horde-ad/blob/d069a45773ed849913b5ebd0345153072f304fd9/bench/BenchProdTools.hs#L178-L193
+-}
