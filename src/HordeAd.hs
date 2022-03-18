@@ -6,7 +6,7 @@ module HordeAd
   ( module HordeAd.Core.Delta
   , module HordeAd.Core.DualNumber
   , module HordeAd.Core.Engine
-  , module HordeAd.Core.HasDual
+  , module HordeAd.Core.DualClass
   , module HordeAd.Core.Optimizer
   , module HordeAd.Core.PairOfVectors
  ) where
@@ -16,6 +16,6 @@ import Prelude ()
 import HordeAd.Core.Delta (Delta0)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.HasDual
+import HordeAd.Core.DualClass
 import HordeAd.Core.Optimizer
 import HordeAd.Core.PairOfVectors

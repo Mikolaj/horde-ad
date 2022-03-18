@@ -15,7 +15,7 @@ import           GHC.Exts (inline)
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.HasDual
+import HordeAd.Core.DualClass
 import HordeAd.Core.PairOfVectors (DualNumberVariables, varV)
 import HordeAd.Tool.MnistData
 

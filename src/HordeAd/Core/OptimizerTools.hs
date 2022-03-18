@@ -21,7 +21,7 @@ import           Numeric.LinearAlgebra.Devel
   (MatrixOrder (..), liftMatrix, liftMatrix2, matrixFromVector, orderOf)
 
 import HordeAd.Core.Engine
-import HordeAd.Core.HasDual
+import HordeAd.Core.DualClass
 
 {-
 60% of heap allocation in matrix- and vector-based MNIST is performed

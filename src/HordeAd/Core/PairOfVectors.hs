@@ -22,7 +22,7 @@ import qualified Data.Vector.Generic as V
 
 import HordeAd.Core.DualNumber
   (Domain, DomainL, DomainV, DomainX, Domains, DualNumber (..))
-import HordeAd.Core.HasDual
+import HordeAd.Core.DualClass
 
 -- These are optimized as "pair of vectors" representing vectors of @DualNumber@
 -- in an efficient way (especially, or only, with gradient descent,

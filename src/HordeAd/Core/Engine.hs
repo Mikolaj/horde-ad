@@ -24,7 +24,7 @@ import HordeAd.Core.Delta
   (DeltaState (..), evalBindings, evalBindingsForward, ppBinding, toDeltaId)
 import HordeAd.Core.DualNumber
   (DeltaMonad (..), Domain, DomainL, DomainV, DomainX, Domains, DualNumber (..))
-import HordeAd.Core.HasDual
+import HordeAd.Core.DualClass
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 
 -- * The dummy monad implementation that does not collect deltas.

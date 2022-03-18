@@ -15,7 +15,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 import HordeAd.Core.Delta (Delta0)
 import HordeAd.Core.DualNumber (DualNumber (..))
 import HordeAd.Core.Engine
-import HordeAd.Core.HasDual
+import HordeAd.Core.DualClass
 import HordeAd.Core.OptimizerTools
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 

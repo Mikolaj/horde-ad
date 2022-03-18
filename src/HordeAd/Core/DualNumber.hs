@@ -20,7 +20,7 @@ import           GHC.TypeLits (KnownNat, type (+))
 import           Numeric.LinearAlgebra (Vector, (#>), (<.>))
 import qualified Numeric.LinearAlgebra as HM
 
-import HordeAd.Core.HasDual
+import HordeAd.Core.DualClass
 
 -- * The main dual number types
 
@@ -28,7 +28,7 @@ data DualNumber a = D (Dual a) a
 
 class (IsScalar r, Monad m, Functor m, Applicative m)
       => DeltaMonad r m | m -> r where
-  returnLet :: HasDualWithScalar a r
+  returnLet :: IsDualWithScalar a r
             => DualNumber a -> m (DualNumber a)
 
 type Domain r = Vector (Dual r)
@@ -58,7 +58,7 @@ instance Ord (DualNumber r) where
 -- such as @+\@, @*\@, etc.
 --
 -- @Num (Dual r)@ forces @UndecidableInstances@.
-instance (Num (Dual r), HasDual r) => Num (DualNumber r) where
+instance (Num (Dual r), IsDual r) => Num (DualNumber r) where
   D u u' + D v v' = D (u + v) (dAdd u' v')
   D u u' - D v v' = D (u - v) (dAdd u' (dScale (-1) v'))
   D u u' * D v v' = D (u * v) (dAdd (dScale v u') (dScale u v'))
@@ -67,10 +67,10 @@ instance (Num (Dual r), HasDual r) => Num (DualNumber r) where
   signum = undefined  -- TODO
   fromInteger = scalar . fromInteger
 
-instance (Real (Dual r), HasDual r) => Real (DualNumber r) where
+instance (Real (Dual r), IsDual r) => Real (DualNumber r) where
   toRational = undefined  -- TODO?
 
-instance (Fractional (Dual r), HasDual r) => Fractional (DualNumber r) where
+instance (Fractional (Dual r), IsDual r) => Fractional (DualNumber r) where
   D u u' / D v v' =
     let recipSq = recip (v * v)
     in D (u / v) (dAdd (dScale (v * recipSq) u') (dScale (- u * recipSq) v'))
@@ -79,7 +79,7 @@ instance (Fractional (Dual r), HasDual r) => Fractional (DualNumber r) where
     in D (recip v) (dScale minusRecipSq v')
   fromRational = scalar . fromRational
 
-instance (Floating (Dual r), HasDual r) => Floating (DualNumber r) where
+instance (Floating (Dual r), IsDual r) => Floating (DualNumber r) where
   pi = scalar pi
   exp (D u u') = let expU = exp u
                  in D expU (dScale expU u')
@@ -102,21 +102,21 @@ instance (Floating (Dual r), HasDual r) => Floating (DualNumber r) where
   acosh = undefined  -- TODO
   atanh = undefined  -- TODO
 
-instance (RealFrac (Dual r), HasDual r) => RealFrac (DualNumber r) where
+instance (RealFrac (Dual r), IsDual r) => RealFrac (DualNumber r) where
   properFraction = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance (RealFloat (Dual r), HasDual r) => RealFloat (DualNumber r) where
+instance (RealFloat (Dual r), IsDual r) => RealFloat (DualNumber r) where
   atan2 (D u u') (D v v') =
     let t = 1 / (u * u + v * v)
     in D (atan2 u v) (dAdd (dScale (- u * t) v') (dScale (v * t) u'))
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a differentiable codomain
 
-scalar :: HasDual a => Dual a -> DualNumber a
+scalar :: IsDual a => Dual a -> DualNumber a
 scalar a = D a dZero
 
-scale :: (Num (Dual a), HasDual a) => Dual a -> DualNumber a -> DualNumber a
+scale :: (Num (Dual a), IsDual a) => Dual a -> DualNumber a -> DualNumber a
 scale a (D u u') = D (a * u) (dScale a u')
 
 
@@ -372,28 +372,28 @@ fromXS (D u u') = D (Data.Array.Convert.convert u) (dFromXS u')
 
 -- * General monadic operations, for any scalar rank
 
-tanhAct :: (DeltaMonad r m, HasDualWithScalar a r, Floating (Dual a))
+tanhAct :: (DeltaMonad r m, IsDualWithScalar a r, Floating (Dual a))
         => DualNumber a -> m (DualNumber a)
 tanhAct = returnLet . tanh
 
-logistic :: (Floating (Dual a), HasDual a) => DualNumber a -> DualNumber a
+logistic :: (Floating (Dual a), IsDual a) => DualNumber a -> DualNumber a
 logistic (D u u') =
   let y = recip (1 + exp (- u))
   in D y (dScale (y * (1 - y)) u')
 
-logisticAct :: (DeltaMonad r m, HasDualWithScalar a r, Floating (Dual a))
+logisticAct :: (DeltaMonad r m, IsDualWithScalar a r, Floating (Dual a))
             => DualNumber a -> m (DualNumber a)
 logisticAct = returnLet . logistic
 
 -- Optimized and more clearly written @u ** 2@.
-square :: (Num (Dual a), HasDual a) => DualNumber a -> DualNumber a
+square :: (Num (Dual a), IsDual a) => DualNumber a -> DualNumber a
 square (D u u') = D (u * u) (dScale (2 * u) u')
 
-squaredDifference :: (Num (Dual a), HasDual a)
+squaredDifference :: (Num (Dual a), IsDual a)
                   => Dual a -> DualNumber a -> DualNumber a
 squaredDifference targ res = square $ res - scalar targ
 
-lossSquared :: (DeltaMonad r m, HasDualWithScalar a r)
+lossSquared :: (DeltaMonad r m, IsDualWithScalar a r)
             => Dual a -> DualNumber a -> m (DualNumber a)
 lossSquared targ res = returnLet $ squaredDifference targ res
 

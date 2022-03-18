@@ -21,9 +21,9 @@
 -- access to parameters with something cheaper and more uniform.
 -- A lot of the remaining additional structure is for introducing
 -- and reducing dimensions.
-module HordeAd.Core.HasDual
-  ( HasDualWithScalar, IsScalar, IsScalarS, HasDelta, HasForward
-  , HasDual(Dual, dZero, dScale, dAdd, dVar, bindInState)
+module HordeAd.Core.DualClass
+  ( IsDualWithScalar, IsScalar, IsScalarS, HasDelta, HasForward
+  , IsDual(Dual, dZero, dScale, dAdd, dVar, bindInState)
   , HasRanks(..)
   ) where
 
@@ -43,19 +43,19 @@ import HordeAd.Core.Delta
 -- * Abbreviations
 
 -- | A shorthand for a useful set of constraints.
-type HasDualWithScalar a r = (HasDual a, ScalarOf a ~ Dual r, Num (Dual a))
+type IsDualWithScalar a r = (IsDual a, ScalarOf a ~ Dual r, Num (Dual a))
 
 -- | A mega-shorthand for a bundle of connected type constraints.
 type IsScalar r =
        ( Ord (Dual r), Numeric (Dual r), HasRanks r
-       , HasDualWithScalar r r, HasDualWithScalar (Tensor1 r) r
-       , HasDualWithScalar (Tensor2 r) r, HasDualWithScalar (TensorX r) r
+       , IsDualWithScalar r r, IsDualWithScalar (Tensor1 r) r
+       , IsDualWithScalar (Tensor2 r) r, IsDualWithScalar (TensorX r) r
        , Dual (Tensor1 r) ~ Vector (Dual r)
        , Dual (Tensor2 r) ~ Matrix (Dual r)
        , Dual (TensorX r) ~ OT.Array (Dual r) )
 
 type IsScalarS (sh :: [Nat]) r =
-       ( IsScalar r, HasDualWithScalar (TensorS sh r) r
+       ( IsScalar r, IsDualWithScalar (TensorS sh r) r
        , Dual (TensorS sh r) ~ OS.Array sh (Dual r) )
 
 -- | A constraint stating dual numbers with this dual component
@@ -73,14 +73,14 @@ type HasForward r = ( IsScalar r, Dual r ~ r, Tensor1 r ~ Vector r
 -- | Each shape of a containers of parameters ('tensor') has its own
 -- collection of vector space-like constructors with which the sparse
 -- vector expression (`delta expressions`) are built.
-class HasDual a where  -- HasPrimal? IsDual?
+class IsDual a where  -- HasPrimal? IsDual?
   type Dual a  -- can't be injective, because same for gradient and derivative
        -- Primal
   dZero :: a
   dScale :: Dual a -> a -> a
   dAdd :: a -> a -> a
   dVar :: DeltaId (Dual a) -> a
-  type ScalarOf a  -- Scalar
+  type ScalarOf a
   bindInState :: a
               -> DeltaState (ScalarOf a)
               -> (DeltaState (ScalarOf a), DeltaId (Dual a))
@@ -151,7 +151,7 @@ class HasRanks r where  -- IsTensor0?
 
 -- * Backprop gradient method instances
 
-instance HasDual (Delta0 r) where
+instance IsDual (Delta0 r) where
   type Dual (Delta0 r) = r
   dZero = Zero0
   dScale = Scale0
@@ -211,7 +211,7 @@ instance HasRanks (Delta0 r) where
   dFrom2S = From2S
   dFromXS = FromXS
 
-instance HasDual (Delta1 r) where
+instance IsDual (Delta1 r) where
   type Dual (Delta1 r) = Vector r
   dZero = Zero1
   dScale = Scale1
@@ -221,7 +221,7 @@ instance HasDual (Delta1 r) where
   {-# INLINE bindInState #-}
   bindInState = bindInState1
 
-instance HasDual (Delta2 r) where
+instance IsDual (Delta2 r) where
   type Dual (Delta2 r) = Matrix r
   dZero = Zero2
   dScale = Scale2
@@ -231,7 +231,7 @@ instance HasDual (Delta2 r) where
   {-# INLINE bindInState #-}
   bindInState = bindInState2
 
-instance HasDual (DeltaX r) where
+instance IsDual (DeltaX r) where
   type Dual (DeltaX r) = OT.Array r
   dZero = ZeroX
   dScale = ScaleX
@@ -241,7 +241,7 @@ instance HasDual (DeltaX r) where
   {-# INLINE bindInState #-}
   bindInState = bindInStateX
 
-instance OS.Shape sh => HasDual (DeltaS sh r) where
+instance OS.Shape sh => IsDual (DeltaS sh r) where
   type Dual (DeltaS sh r) = OS.Array sh r
   dZero = ZeroS
   dScale = ScaleS
@@ -255,7 +255,7 @@ instance OS.Shape sh => HasDual (DeltaS sh r) where
 
 -- * Alternative instances: forward derivatives computed on the spot
 
-instance HasDual Double where
+instance IsDual Double where
   type Dual Double = Double
   dZero = 0
   dScale k d = k * d
@@ -264,7 +264,7 @@ instance HasDual Double where
   type ScalarOf Double = Double
   bindInState = undefined  -- no variables, so no bindings
 
-instance HasDual Float where
+instance IsDual Float where
   type Dual Float = Float
   dZero = 0
   dScale k d = k * d
@@ -274,7 +274,7 @@ instance HasDual Float where
   bindInState = undefined
 
 -- These constraints force @UndecidableInstances@.
-instance Num (Vector r) => HasDual (Vector r) where
+instance Num (Vector r) => IsDual (Vector r) where
   type Dual (Vector r) = Vector r
   dZero = 0
   dScale k d = k * d
@@ -283,7 +283,7 @@ instance Num (Vector r) => HasDual (Vector r) where
   type ScalarOf (Vector r) = r
   bindInState = undefined
 
-instance Num (Matrix r) => HasDual (Matrix r) where
+instance Num (Matrix r) => IsDual (Matrix r) where
   type Dual (Matrix r) = Matrix r
   dZero = 0
   dScale k d = k * d
@@ -292,7 +292,7 @@ instance Num (Matrix r) => HasDual (Matrix r) where
   type ScalarOf (Matrix r) = r
   bindInState = undefined
 
-instance Num (OT.Array r) => HasDual (OT.Array r) where
+instance Num (OT.Array r) => IsDual (OT.Array r) where
   type Dual (OT.Array r) = OT.Array r
   dZero = 0
   dScale k d = k * d
@@ -301,7 +301,7 @@ instance Num (OT.Array r) => HasDual (OT.Array r) where
   type ScalarOf (OT.Array r) = r
   bindInState = undefined
 
-instance Num (OS.Array sh r) => HasDual (OS.Array sh r) where
+instance Num (OS.Array sh r) => IsDual (OS.Array sh r) where
   type Dual (OS.Array sh r) = OS.Array sh r
   dZero = 0
   dScale k d = k * d
