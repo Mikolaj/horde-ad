@@ -8,6 +8,7 @@ module HordeAd.Core.DualClass
   ( IsDualWithScalar, IsScalar, IsScalarS, HasDelta, HasForward
   , IsDual(Primal, dZero, dScale, dAdd, dVar, bindInState)
   , HasRanks(..)
+  , Delta0  -- re-export; should be rarely used
   ) where
 
 import Prelude
