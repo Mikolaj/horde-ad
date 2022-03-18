@@ -22,7 +22,7 @@ import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 
-import HordeAd.Core.Delta
+import HordeAd.Internal.Delta
 
 -- * Abbreviations for export (not used anywhere below)
 

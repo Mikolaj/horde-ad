@@ -20,12 +20,12 @@ import qualified Data.Vector.Generic as V
 import qualified Numeric.LinearAlgebra as HM
 import           Text.Show.Pretty (ppShow)
 
-import HordeAd.Core.Delta
-  (DeltaState (..), evalBindings, evalBindingsForward, ppBinding, toDeltaId)
 import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
   (Domain, DomainL, DomainV, DomainX, Domains, DualMonad (..), DualNumber (..))
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
+import HordeAd.Internal.Delta
+  (DeltaState (..), evalBindings, evalBindingsForward, ppBinding, toDeltaId)
 
 -- * The dummy monad implementation that does not collect deltas.
 -- It's intended for efficiently calculating the value of the function only.

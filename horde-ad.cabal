@@ -108,7 +108,6 @@ library
 
     -- Modules exported by the library.
     exposed-modules:  HordeAd
-                      HordeAd.Core.Delta
                       HordeAd.Core.DualNumber
                       HordeAd.Core.Engine
                       HordeAd.Core.DualClass
@@ -116,6 +115,7 @@ library
                       HordeAd.Core.OptimizerTools
                       HordeAd.Core.OutdatedOptimizer
                       HordeAd.Core.PairOfVectors
+                      HordeAd.Internal.Delta
                       HordeAd.Internal.MatrixOuter
                       HordeAd.Internal.OrthotopeOrphanInstances
                       HordeAd.Tool.MnistTools
