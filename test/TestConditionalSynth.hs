@@ -53,7 +53,7 @@ lenSynthV width nSamples =
 -- and multiply result appropriately, see @synthLossSquared@.
 synthValue :: forall r m. DeltaMonad r m
            => (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
-           -> Dual r
+           -> Primal r
            -> DualNumber (Tensor1 r)
            -> DualNumber (Tensor1 r)
            -> DualNumber (Tensor1 r)
@@ -62,14 +62,14 @@ synthValue factivation x ps1@(D u _) ps2 ps3 = do
   activated <- factivation $ scale (HM.konst x (V.length u)) ps1 + ps2
   returnLet $ activated <.>! ps3
 
-synthLossSquared :: (DeltaMonad r m, Fractional (Dual r))
+synthLossSquared :: (DeltaMonad r m, Fractional (Primal r))
                  => (DualNumber (Tensor1 r)
                      -> m (DualNumber (Tensor1 r)))
-                 -> Dual r
+                 -> Primal r
                  -> DualNumber (Tensor1 r)
                  -> DualNumber (Tensor1 r)
                  -> DualNumber (Tensor1 r)
-                 -> Dual r
+                 -> Primal r
                  -> m (DualNumber r)
 synthLossSquared factivation x ps1 ps2 ps3 targ = do
   y <- synthValue factivation (x / 1000) ps1 ps2 ps3
@@ -90,15 +90,15 @@ sumResultsDual f as = do
   returnLet sumUs
 
 synthLossAll
-  :: forall r m. (DeltaMonad r m, Fractional (Dual r))
+  :: forall r m. (DeltaMonad r m, Fractional (Primal r))
   => (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
-  -> Data.Vector.Storable.Vector (Dual r, Dual r)
+  -> Data.Vector.Storable.Vector (Primal r, Primal r)
   -> DualNumber (Tensor1 r)
   -> DualNumber (Tensor1 r)
   -> DualNumber (Tensor1 r)
   -> m (DualNumber r)
 synthLossAll factivation samples ps1 ps2 ps3 = do
-  let f :: (Dual r, Dual r) -> m (DualNumber r)
+  let f :: (Primal r, Primal r) -> m (DualNumber r)
       f (x, y) = synthLossSquared factivation x ps1 ps2 ps3 y
   sumResultsDual f samples
 
@@ -135,11 +135,11 @@ splitLayerV factivation hiddenVec offset variables width = do
   return (a0, a1, a2)
 
 synthLossBareTotal
-  :: (DeltaMonad r m, Fractional (Dual r))
+  :: (DeltaMonad r m, Fractional (Primal r))
   => (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
   -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
   -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
-  -> Data.Vector.Storable.Vector (Dual r, Dual r)
+  -> Data.Vector.Storable.Vector (Primal r, Primal r)
   -> Int
   -> DualNumberVariables r
   -> m (DualNumber r)
@@ -179,12 +179,12 @@ integerPairSamples range seed k =
   in V.zip (V.fromListN k $ map fromIntegral inputs)
            (V.fromListN k $ map fromIntegral $ rolls g2)
 
-gdSmartShow :: (HasDelta r, Fractional (Dual r))
+gdSmartShow :: (HasDelta r, Fractional (Primal r))
             => (DualNumberVariables r
                 -> DeltaMonadGradient r (DualNumber r))
             -> DomainV r
             -> Int
-            -> ([Data.Vector.Storable.Vector (Dual r)], (Dual r, Dual r))
+            -> ([Data.Vector.Storable.Vector (Primal r)], (Primal r, Primal r))
 gdSmartShow f paramsV0 n =
   let ((_, paramsV, _, _), gamma) =
         gdSmart f n (V.empty, paramsV0, V.empty, V.empty)
@@ -192,7 +192,7 @@ gdSmartShow f paramsV0 n =
   in (V.toList paramsV, (value, gamma))
 
 gradSmartTestCase
-  :: forall r. (HasDelta r, Dual r ~ Double)
+  :: forall r. (HasDelta r, Primal r ~ Double)
   => String
   -> ((DualNumber (Tensor1 r)
        -> DeltaMonadGradient r (DualNumber (Tensor1 r)))
@@ -200,11 +200,11 @@ gradSmartTestCase
           -> DeltaMonadGradient r (DualNumber (Tensor1 r)))
       -> (DualNumber (Tensor1 r)
           -> DeltaMonadGradient r (DualNumber (Tensor1 r)))
-      -> Data.Vector.Storable.Vector (Dual r, Dual r)
+      -> Data.Vector.Storable.Vector (Primal r, Primal r)
       -> Int
       -> DualNumberVariables r
       -> DeltaMonadGradient r (DualNumber r))
-  -> Int -> Int -> Int -> Int -> (Dual r, Dual r)
+  -> Int -> Int -> Int -> Int -> (Primal r, Primal r)
   -> TestTree
 gradSmartTestCase prefix lossFunction seedSamples
                   nSamples width nIterations expected =

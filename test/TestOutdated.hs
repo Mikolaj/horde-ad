@@ -40,7 +40,7 @@ testTrees = [ fitTests
 (*\) :: DeltaMonad r m => DualNumber r -> DualNumber r -> m (DualNumber r)
 (*\) u v = returnLet $ u * v
 
-scaleDual :: DeltaMonad r m => Dual r -> DualNumber r -> m (DualNumber r)
+scaleDual :: DeltaMonad r m => Primal r -> DualNumber r -> m (DualNumber r)
 scaleDual r u = returnLet $ scale r u
 
 -- Inlined to avoid the tiny overhead of calling an unknown function.
@@ -58,7 +58,7 @@ sumResultsDual f as = do
   sumUs <- V.foldM g 0 as
   returnLet sumUs
 
-lengthDualNumber :: Storable (Dual r) => DualNumberVariables r -> Int
+lengthDualNumber :: Storable (Primal r) => DualNumberVariables r -> Int
 lengthDualNumber (vValue, _, _, _, _, _, _, _) = V.length vValue
 
 -- This, and other Fit and Fit2 nn operations, have unfused Delta let-bindings
@@ -154,11 +154,11 @@ wsFitSeparated range@(low, hi) seed k =
   in V.zip steps (rolls g)
 
 gdSimpleShow :: HasDelta r
-             => Dual r
+             => Primal r
              -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
              -> Domain r
              -> Int
-             -> ([Dual r], Dual r)
+             -> ([Primal r], Primal r)
 gdSimpleShow gamma f initVec n =
   let (res, _, _, _) = gdSimple gamma f n (initVec, V.empty, V.empty, V.empty)
       (_, value) = df f (res, V.empty, V.empty, V.empty)
@@ -716,11 +716,11 @@ smartFit3TestsL3 =
 -}
 
 sgdShow :: HasDelta r
-        => Dual r
+        => Primal r
         -> (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
         -> [a]  -- ^ training data
         -> Domain r  -- ^ initial parameters
-        -> ([Dual r], Dual r)
+        -> ([Primal r], Primal r)
 sgdShow gamma f trainData params0 =
   let (res, _, _, _) =
         fst $ sgd gamma f trainData (params0, V.empty, V.empty, V.empty)

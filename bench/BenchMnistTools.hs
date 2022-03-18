@@ -14,9 +14,9 @@ import           System.Random
 import HordeAd
 import HordeAd.Tool.MnistTools
 
-mnistTrainBench2 :: forall r. (NFData (Dual r), HasDelta r, Floating (Dual r), UniformRange (Dual r))
-                 => String -> Int -> [MnistData (Dual r)] -> Int -> Int
-                 -> Dual r
+mnistTrainBench2 :: forall r. (NFData (Primal r), HasDelta r, Floating (Primal r), UniformRange (Primal r))
+                 => String -> Int -> [MnistData (Primal r)] -> Int -> Int
+                 -> Primal r
                  -> Benchmark
 mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
   let nParams = lenMnist2 widthHidden widthHidden2
@@ -28,8 +28,8 @@ mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
              ++ unwords ["s" ++ show nParams, "v0", "m0" ++ "=" ++ show nParams]
   bench name $ nf grad chunk
 
-mnistTestBench2 :: forall r. (Floating (Dual r), UniformRange (Dual r), HasDelta r)
-                => String -> Int -> [MnistData (Dual r)] -> Int -> Int -> Benchmark
+mnistTestBench2 :: forall r. (Floating (Primal r), UniformRange (Primal r), HasDelta r)
+                => String -> Int -> [MnistData (Primal r)] -> Int -> Int -> Benchmark
 mnistTestBench2 extraPrefix chunkLength xs widthHidden widthHidden2 = do
   let nParams = lenMnist2 widthHidden widthHidden2
       params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33

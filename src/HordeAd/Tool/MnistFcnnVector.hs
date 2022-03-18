@@ -40,7 +40,7 @@ sumTrainableInputsL x offset variables width =
   in deltaSeq1 $ V.generate width f
 
 sumConstantDataV :: IsScalar r
-                 => Dual (Tensor1 r)
+                 => Primal (Tensor1 r)
                  -> Int
                  -> DualNumberVariables r
                  -> DualNumber r
@@ -49,7 +49,7 @@ sumConstantDataV x offset variables =
   in v <.>!! x
 
 sumConstantDataL :: forall r. IsScalar r
-                 => Dual (Tensor1 r)
+                 => Primal (Tensor1 r)
                  -> Int
                  -> DualNumberVariables r
                  -> Int
@@ -80,7 +80,7 @@ nnMnist2V :: forall r m. DeltaMonad r m
           -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
           -> Int
           -> Int
-          -> Dual (Tensor1 r)
+          -> Primal (Tensor1 r)
           -> DualNumberVariables r
           -> m (DualNumber (Tensor1 r))
 nnMnist2V factivationHidden factivationOutput widthHidden widthHidden2
@@ -102,10 +102,10 @@ nnMnist2V factivationHidden factivationOutput widthHidden widthHidden2
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
-nnMnistLoss2V :: (DeltaMonad r m, Floating (Dual r), Floating (Dual (Tensor1 r)))
+nnMnistLoss2V :: (DeltaMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
               => Int
               -> Int
-              -> MnistData (Dual r)
+              -> MnistData (Primal r)
               -> DualNumberVariables r
               -> m (DualNumber r)
 nnMnistLoss2V widthHidden widthHidden2 (input, target) variables = do
@@ -115,10 +115,10 @@ nnMnistLoss2V widthHidden widthHidden2 (input, target) variables = do
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
-testMnist2V :: forall r. (IsScalar r, Floating (Dual r), Floating (Dual (Tensor1 r)))
-            => Int -> Int -> [MnistData (Dual r)] -> (Domain r, DomainV r) -> Dual r
+testMnist2V :: forall r. (IsScalar r, Floating (Primal r), Floating (Primal (Tensor1 r)))
+            => Int -> Int -> [MnistData (Primal r)] -> (Domain r, DomainV r) -> Primal r
 testMnist2V widthHidden widthHidden2 inputs (params, paramsV) =
-  let matchesLabels :: MnistData (Dual r) -> Bool
+  let matchesLabels :: MnistData (Primal r) -> Bool
       matchesLabels (glyph, label) =
         let nn = inline (nnMnist2V @r) logisticAct softMaxActV
                                        widthHidden widthHidden2 glyph

@@ -142,14 +142,14 @@ vec_prod_aux = foldMDelta' (*\) 1
   -- also, not omitting bindings; all let-bindings are present, see below
 
 vec_prod :: forall r. HasDelta r
-         => Vector (Dual r) -> Dual r
+         => Vector (Primal r) -> Primal r
 vec_prod ds = primalValue @r vec_prod_aux (ds, V.empty, V.empty, V.empty)
 
-grad_vec_prod :: HasDelta r => Vector (Dual r) -> Vector (Dual r)
+grad_vec_prod :: HasDelta r => Vector (Primal r) -> Vector (Primal r)
 grad_vec_prod ds =
   (\(v, _, _, _) -> v) $ fst $ df vec_prod_aux (ds, V.empty, V.empty, V.empty)
 
-grad_toList_prod :: HasDelta r => [Dual r] -> [Dual r]
+grad_toList_prod :: HasDelta r => [Primal r] -> [Primal r]
 grad_toList_prod l = V.toList $ grad_vec_prod $ V.fromList l
 
 -- A version that omits all Delta bindings except for just one let
@@ -165,11 +165,11 @@ vec_omit_prod_aux vec = returnLet $ foldlDelta' (*) 1 vec
   -- omitting most bindings, because we know nothing repeats inside
 
 vec_omit_prod :: forall r. HasDelta r
-              => Vector (Dual r) -> Dual r
+              => Vector (Primal r) -> Primal r
 vec_omit_prod ds = primalValue @r vec_omit_prod_aux (ds, V.empty, V.empty, V.empty)
 
 grad_vec_omit_prod :: HasDelta r
-                   => Vector (Dual r) -> Vector (Dual r)
+                   => Vector (Primal r) -> Vector (Primal r)
 grad_vec_omit_prod ds =
   (\(v, _, _, _) -> v)
   $ fst $ df vec_omit_prod_aux (ds, V.empty, V.empty, V.empty)
@@ -192,7 +192,7 @@ altSumElementsV variables = do
   let x = varV variables 0
   returnLet $ altSumElements0 x
 
-grad_vec_omit_scalarSum :: HasDelta r => Vector (Dual r) -> Vector (Dual r)
+grad_vec_omit_scalarSum :: HasDelta r => Vector (Primal r) -> Vector (Primal r)
 grad_vec_omit_scalarSum ds =
   (\(v, _, _, _) -> v)
   $ fst $ df vec_omit_scalarSum_aux (ds, V.empty, V.empty, V.empty)

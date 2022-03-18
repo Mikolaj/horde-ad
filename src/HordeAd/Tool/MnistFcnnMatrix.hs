@@ -37,7 +37,7 @@ lenMnistFcnn2L widthHidden widthHidden2 =
 nnMnist2L :: forall r m. DeltaMonad r m
           => (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
           -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
-          -> Dual (Tensor1 r)
+          -> Primal (Tensor1 r)
           -> DualNumberVariables r
           -> m (DualNumber (Tensor1 r))
 nnMnist2L factivationHidden factivationOutput input variables = do
@@ -57,8 +57,8 @@ nnMnist2L factivationHidden factivationOutput input variables = do
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
-nnMnistLoss2L :: (DeltaMonad r m, Floating (Dual r), Floating (Dual (Tensor1 r)))
-              => MnistData (Dual r)
+nnMnistLoss2L :: (DeltaMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
+              => MnistData (Primal r)
               -> DualNumberVariables r
               -> m (DualNumber r)
 nnMnistLoss2L (input, target) variables = do
@@ -69,8 +69,8 @@ nnMnistLoss2L (input, target) variables = do
 -- and composed with the appropriate loss function, using fused
 -- softMax and cross entropy as the loss function.
 nnMnistLossFused2L
-  :: (DeltaMonad r m, Floating (Dual r), Floating (Dual (Tensor1 r)))
-  => MnistData (Dual r)
+  :: (DeltaMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
+  => MnistData (Primal r)
   -> DualNumberVariables r
   -> m (DualNumber r)
 nnMnistLossFused2L (input, target) variables = do
@@ -78,8 +78,8 @@ nnMnistLossFused2L (input, target) variables = do
   lossSoftMaxCrossEntropyV target result
 
 nnMnistLossFusedRelu2L
-  :: (DeltaMonad r m, Floating (Dual r), Floating (Dual (Tensor1 r)))
-  => MnistData (Dual r)
+  :: (DeltaMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
+  => MnistData (Primal r)
   -> DualNumberVariables r
   -> m (DualNumber r)
 nnMnistLossFusedRelu2L (input, target) variables = do
@@ -88,10 +88,10 @@ nnMnistLossFusedRelu2L (input, target) variables = do
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
-testMnist2L :: forall r. (IsScalar r, Floating (Dual r), Floating (Dual (Tensor1 r)))
-            => [MnistData (Dual r)] -> Domains r -> Dual r
+testMnist2L :: forall r. (IsScalar r, Floating (Primal r), Floating (Primal (Tensor1 r)))
+            => [MnistData (Primal r)] -> Domains r -> Primal r
 testMnist2L inputs parameters =
-  let matchesLabels :: MnistData (Dual r) -> Bool
+  let matchesLabels :: MnistData (Primal r) -> Bool
       matchesLabels (glyph, label) =
         let nn = inline (nnMnist2L @r) logisticAct softMaxActV glyph
             value = primalValue @r nn parameters

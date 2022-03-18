@@ -35,11 +35,11 @@ shortTestForCITrees = [ dumbMnistTests
                       ]
 
 sgdShow :: HasDelta r
-        => Dual r
+        => Primal r
         -> (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
         -> [a]  -- ^ training data
         -> Domain r  -- ^ initial parameters
-        -> Dual r
+        -> Primal r
 sgdShow gamma f trainData params0 =
   let result = fst $ sgd gamma f trainData (params0, V.empty, V.empty, V.empty)
   in snd $ df (f $ head trainData) result

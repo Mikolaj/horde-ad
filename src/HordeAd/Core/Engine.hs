@@ -63,7 +63,7 @@ primalValueGeneric f (params, paramsV, paramsL, paramsX) =
 primalValue :: forall r a. IsScalar r
             => (DualNumberVariables r -> DeltaMonadValue r (DualNumber a))
             -> Domains r
-            -> Dual a
+            -> Primal a
 {-# INLINE primalValue #-}
 primalValue f parameters =
   let D value _ = primalValueGeneric f parameters
@@ -74,7 +74,7 @@ primalValue f parameters =
 -- gradient descent.
 
 newtype DeltaMonadGradient r a = DeltaMonadGradient
-  { runDeltaMonadGradient :: State (DeltaState (Dual r)) a }
+  { runDeltaMonadGradient :: State (DeltaState (Primal r)) a }
   deriving (Monad, Functor, Applicative)
 
 instance IsScalar r => DeltaMonad r (DeltaMonadGradient r) where
@@ -89,7 +89,7 @@ instance IsScalar r => DeltaMonad r (DeltaMonadGradient r) where
 generalDf :: HasDelta r
           => DualNumberVariables r
           -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
-          -> (Domains r, Dual r)
+          -> (Domains r, Primal r)
 {-# INLINE generalDf #-}
 generalDf variables@(params, _, paramsV, _, paramsL, _, paramsX, _) f =
   let dim = V.length params
@@ -111,7 +111,7 @@ generalDf variables@(params, _, paramsV, _, paramsL, _, paramsX, _) f =
 df :: HasDelta r
    => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
    -> Domains r
-   -> (Domains r, Dual r)
+   -> (Domains r, Primal r)
 df f parameters =
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
@@ -124,7 +124,7 @@ generalDforward
   => DualNumberVariables r
   -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
   -> Domains r
-  -> (Dual r, Dual r)
+  -> (Primal r, Primal r)
 {-# INLINE generalDforward #-}
 generalDforward variables@(params, _, paramsV, _, paramsL, _, paramsX, _)
                 f direction =
@@ -149,7 +149,7 @@ dforward
   :: HasDelta r
   => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
   -> Domains r
-  -> (Dual r, Dual r)
+  -> (Primal r, Primal r)
 dforward f parameters =
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
@@ -168,7 +168,7 @@ instance IsScalar r => DeltaMonad r (DeltaMonadForward r) where
 generalDfastForward
   :: DualNumberVariables r
   -> (DualNumberVariables r -> DeltaMonadForward r (DualNumber r))
-  -> (r, Dual r)
+  -> (r, Primal r)
 {-# INLINE generalDfastForward #-}
 generalDfastForward variables f =
   let D value d = runIdentity $ runDeltaMonadForward $ f variables
@@ -180,7 +180,7 @@ dfastForward
   :: forall r. HasForward r
   => (DualNumberVariables r -> DeltaMonadForward r (DualNumber r))
   -> Domains r
-  -> (Dual r, Dual r)
+  -> (Primal r, Primal r)
 dfastForward f parameters@(params, paramsV, paramsL, paramsX) =
   let variables =
         makeDualNumberVariables
@@ -192,7 +192,7 @@ dfastForward f parameters@(params, paramsV, paramsL, paramsX) =
 
 -- * Additional mechanisms
 
-prettyPrintDf :: (Show (Dual r), HasDelta r)
+prettyPrintDf :: (Show (Primal r), HasDelta r)
               => Bool
               -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
               -> Domains r

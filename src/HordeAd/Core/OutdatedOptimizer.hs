@@ -123,7 +123,7 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
     in go g2 rest parametersNew valueNew
 
 sgdAdamBatch
-  :: forall r a. (HasDelta r, Floating (Dual r), Floating (Dual (Tensor1 r)))
+  :: forall r a. (HasDelta r, Floating (Primal r), Floating (Primal (Tensor1 r)))
   => Int  -- ^ batch size
   -> (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
   -> [a]
@@ -133,7 +133,7 @@ sgdAdamBatch
 sgdAdamBatch = sgdAdamBatchArgs defaultArgsAdam
 
 sgdAdamBatchArgs
-  :: forall r a. (HasDelta r, Floating (Dual r), Floating (Dual (Tensor1 r)))
+  :: forall r a. (HasDelta r, Floating (Primal r), Floating (Primal (Tensor1 r)))
   => ArgsAdam r
   -> Int  -- ^ batch size
   -> (a -> DualNumberVariables r
@@ -169,16 +169,16 @@ sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
 -- | Relatively Smart Gradient Descent.
 -- Based on @gradientDescent@ from package @ad@ which is in turn based
 -- on the one from the VLAD compiler.
-gdSmart :: forall r. (HasDelta r, Fractional (Dual r))
+gdSmart :: forall r. (HasDelta r, Fractional (Primal r))
         => (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
         -> Int  -- ^ requested number of iterations
         -> Domains r  -- ^ initial parameters
-        -> (Domains r, Dual r)
+        -> (Domains r, Primal r)
 gdSmart f n0 parameters0 = go n0 parameters0 0.1 gradients0 value0 0 where
   varDeltas = generateDeltaVars parameters0
   variables0 = makeDualNumberVariables parameters0 varDeltas
   (gradients0, value0) = generalDf variables0 f
-  go :: Int -> Domains r -> Dual r -> Domains r -> Dual r -> Int -> (Domains r, Dual r)
+  go :: Int -> Domains r -> Primal r -> Domains r -> Primal r -> Int -> (Domains r, Primal r)
   go 0 parameters !gamma _gradientsPrev _valuePrev !_i = (parameters, gamma)
   go _ parameters 0 _ _ _ = (parameters, 0)
   go n parameters gamma gradientsPrev valuePrev i =

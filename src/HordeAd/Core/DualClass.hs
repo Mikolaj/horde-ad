@@ -23,7 +23,7 @@
 -- and reducing dimensions.
 module HordeAd.Core.DualClass
   ( IsDualWithScalar, IsScalar, IsScalarS, HasDelta, HasForward
-  , IsDual(Dual, dZero, dScale, dAdd, dVar, bindInState)
+  , IsDual(Primal, dZero, dScale, dAdd, dVar, bindInState)
   , HasRanks(..)
   ) where
 
@@ -43,28 +43,28 @@ import HordeAd.Core.Delta
 -- * Abbreviations
 
 -- | A shorthand for a useful set of constraints.
-type IsDualWithScalar a r = (IsDual a, ScalarOf a ~ Dual r, Num (Dual a))
+type IsDualWithScalar a r = (IsDual a, ScalarOf a ~ Primal r, Num (Primal a))
 
 -- | A mega-shorthand for a bundle of connected type constraints.
 type IsScalar r =
-       ( Ord (Dual r), Numeric (Dual r), HasRanks r
+       ( Ord (Primal r), Numeric (Primal r), HasRanks r
        , IsDualWithScalar r r, IsDualWithScalar (Tensor1 r) r
        , IsDualWithScalar (Tensor2 r) r, IsDualWithScalar (TensorX r) r
-       , Dual (Tensor1 r) ~ Vector (Dual r)
-       , Dual (Tensor2 r) ~ Matrix (Dual r)
-       , Dual (TensorX r) ~ OT.Array (Dual r) )
+       , Primal (Tensor1 r) ~ Vector (Primal r)
+       , Primal (Tensor2 r) ~ Matrix (Primal r)
+       , Primal (TensorX r) ~ OT.Array (Primal r) )
 
 type IsScalarS (sh :: [Nat]) r =
        ( IsScalar r, IsDualWithScalar (TensorS sh r) r
-       , Dual (TensorS sh r) ~ OS.Array sh (Dual r) )
+       , Primal (TensorS sh r) ~ OS.Array sh (Primal r) )
 
 -- | A constraint stating dual numbers with this dual component
 -- are implemented via gathering delta expressions in state.
-type HasDelta r = (IsScalar r, r ~ Delta0 (Dual r))
+type HasDelta r = (IsScalar r, r ~ Delta0 (Primal r))
 
 -- | A constraint stating dual numbers with this dual component
 -- are implemented via computing forward derivative on the spot.
-type HasForward r = ( IsScalar r, Dual r ~ r, Tensor1 r ~ Vector r
+type HasForward r = ( IsScalar r, Primal r ~ r, Tensor1 r ~ Vector r
                     , Tensor2 r ~ Matrix r, TensorX r ~ OT.Array r )
 
 
@@ -73,17 +73,16 @@ type HasForward r = ( IsScalar r, Dual r ~ r, Tensor1 r ~ Vector r
 -- | Each shape of a containers of parameters ('tensor') has its own
 -- collection of vector space-like constructors with which the sparse
 -- vector expression (`delta expressions`) are built.
-class IsDual a where  -- HasPrimal? IsDual?
-  type Dual a  -- can't be injective, because same for gradient and derivative
-       -- Primal
+class IsDual a where
+  type Primal a  -- can't be injective, because same for gradient and derivative
   dZero :: a
-  dScale :: Dual a -> a -> a
+  dScale :: Primal a -> a -> a
   dAdd :: a -> a -> a
-  dVar :: DeltaId (Dual a) -> a
+  dVar :: DeltaId (Primal a) -> a
   type ScalarOf a
   bindInState :: a
               -> DeltaState (ScalarOf a)
-              -> (DeltaState (ScalarOf a), DeltaId (Dual a))
+              -> (DeltaState (ScalarOf a), DeltaId (Primal a))
 
 class HasRanks r where  -- IsTensor0?
   type Tensor1 r = result | result -> r
@@ -93,7 +92,7 @@ class HasRanks r where  -- IsTensor0?
 
   dSumElements0 :: Tensor1 r -> Int -> r
   dIndex0 :: Tensor1 r -> Int -> Int -> r
-  dDot0 :: Dual (Tensor1 r) -> Tensor1 r -> r
+  dDot0 :: Primal (Tensor1 r) -> Tensor1 r -> r
   dFromX0 :: TensorX r -> r
   dFromS0 :: TensorS '[] r -> r
 
@@ -103,8 +102,8 @@ class HasRanks r where  -- IsTensor0?
   dSlice1 :: Int -> Int -> Tensor1 r -> Int -> Tensor1 r
   dSumRows1 :: Tensor2 r -> Int -> Tensor1 r
   dSumColumns1 :: Tensor2 r -> Int -> Tensor1 r
-  dM_VD1 :: Dual (Tensor2 r) -> Tensor1 r -> Tensor1 r
-  dMD_V1 :: Tensor2 r -> Dual (Tensor1 r) -> Tensor1 r
+  dM_VD1 :: Primal (Tensor2 r) -> Tensor1 r -> Tensor1 r
+  dMD_V1 :: Tensor2 r -> Primal (Tensor1 r) -> Tensor1 r
   dFromX1 :: TensorX r -> Tensor1 r
   dFromS1 :: forall len. KnownNat len
           => TensorS '[len] r -> Tensor1 r
@@ -112,8 +111,8 @@ class HasRanks r where  -- IsTensor0?
   dFromRows2 :: Data.Vector.Vector (Tensor1 r) -> Tensor2 r
   dFromColumns2 :: Data.Vector.Vector (Tensor1 r) -> Tensor2 r
   dTranspose2 :: Tensor2 r -> Tensor2 r
-  dM_MD2 :: Dual (Tensor2 r) -> Tensor2 r -> Tensor2 r
-  dMD_M2 :: Tensor2 r -> Dual (Tensor2 r) -> Tensor2 r
+  dM_MD2 :: Primal (Tensor2 r) -> Tensor2 r -> Tensor2 r
+  dMD_M2 :: Tensor2 r -> Primal (Tensor2 r) -> Tensor2 r
   dRowAppend2 :: Tensor2 r -> Int -> Tensor2 r
               -> Tensor2 r
   dColumnAppend2 :: Tensor2 r -> Int -> Tensor2 r
@@ -152,7 +151,7 @@ class HasRanks r where  -- IsTensor0?
 -- * Backprop gradient method instances
 
 instance IsDual (Delta0 r) where
-  type Dual (Delta0 r) = r
+  type Primal (Delta0 r) = r
   dZero = Zero0
   dScale = Scale0
   dAdd = Add0
@@ -203,8 +202,8 @@ instance HasRanks (Delta0 r) where
   dAppendS = AppendS
 --  dSliceS :: forall i n k rest.
 --             (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
---          => Dual (OS.Array (i + n + k ': rest) Double)
---          -> Dual (OS.Array (n ': rest) Double)
+--          => Primal (OS.Array (i + n + k ': rest) Double)
+--          -> Primal (OS.Array (n ': rest) Double)
   dSliceS = undefined  -- TODO: SliceS @i
   dFrom0S = From0S
   dFrom1S = From1S
@@ -212,7 +211,7 @@ instance HasRanks (Delta0 r) where
   dFromXS = FromXS
 
 instance IsDual (Delta1 r) where
-  type Dual (Delta1 r) = Vector r
+  type Primal (Delta1 r) = Vector r
   dZero = Zero1
   dScale = Scale1
   dAdd = Add1
@@ -222,7 +221,7 @@ instance IsDual (Delta1 r) where
   bindInState = bindInState1
 
 instance IsDual (Delta2 r) where
-  type Dual (Delta2 r) = Matrix r
+  type Primal (Delta2 r) = Matrix r
   dZero = Zero2
   dScale = Scale2
   dAdd = Add2
@@ -232,7 +231,7 @@ instance IsDual (Delta2 r) where
   bindInState = bindInState2
 
 instance IsDual (DeltaX r) where
-  type Dual (DeltaX r) = OT.Array r
+  type Primal (DeltaX r) = OT.Array r
   dZero = ZeroX
   dScale = ScaleX
   dAdd = AddX
@@ -242,7 +241,7 @@ instance IsDual (DeltaX r) where
   bindInState = bindInStateX
 
 instance OS.Shape sh => IsDual (DeltaS sh r) where
-  type Dual (DeltaS sh r) = OS.Array sh r
+  type Primal (DeltaS sh r) = OS.Array sh r
   dZero = ZeroS
   dScale = ScaleS
   dAdd = AddS
@@ -256,7 +255,7 @@ instance OS.Shape sh => IsDual (DeltaS sh r) where
 -- * Alternative instances: forward derivatives computed on the spot
 
 instance IsDual Double where
-  type Dual Double = Double
+  type Primal Double = Double
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
@@ -265,7 +264,7 @@ instance IsDual Double where
   bindInState = undefined  -- no variables, so no bindings
 
 instance IsDual Float where
-  type Dual Float = Float
+  type Primal Float = Float
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
@@ -275,7 +274,7 @@ instance IsDual Float where
 
 -- These constraints force @UndecidableInstances@.
 instance Num (Vector r) => IsDual (Vector r) where
-  type Dual (Vector r) = Vector r
+  type Primal (Vector r) = Vector r
   dZero = 0
   dScale k d = k * d
   dAdd = (+)
@@ -284,7 +283,7 @@ instance Num (Vector r) => IsDual (Vector r) where
   bindInState = undefined
 
 instance Num (Matrix r) => IsDual (Matrix r) where
-  type Dual (Matrix r) = Matrix r
+  type Primal (Matrix r) = Matrix r
   dZero = 0
   dScale k d = k * d
   dAdd = (+)
@@ -293,7 +292,7 @@ instance Num (Matrix r) => IsDual (Matrix r) where
   bindInState = undefined
 
 instance Num (OT.Array r) => IsDual (OT.Array r) where
-  type Dual (OT.Array r) = OT.Array r
+  type Primal (OT.Array r) = OT.Array r
   dZero = 0
   dScale k d = k * d
   dAdd = (+)
@@ -302,7 +301,7 @@ instance Num (OT.Array r) => IsDual (OT.Array r) where
   bindInState = undefined
 
 instance Num (OS.Array sh r) => IsDual (OS.Array sh r) where
-  type Dual (OS.Array sh r) = OS.Array sh r
+  type Primal (OS.Array sh r) = OS.Array sh r
   dZero = 0
   dScale k d = k * d
   dAdd = (+)
@@ -356,8 +355,8 @@ instance HasRanks Double where
   dAppendS = OS.append
 --  dSliceS :: forall i n k rest.
 --             (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
---          => Dual (OS.Array (i + n + k ': rest) Double)
---          -> Dual (OS.Array (n ': rest) Double)
+--          => Primal (OS.Array (i + n + k ': rest) Double)
+--          -> Primal (OS.Array (n ': rest) Double)
   dSliceS = undefined  -- TODO: OS.slice @'[ '(i, n) ] d
   dFrom0S = OS.scalar
   dFrom1S = OS.fromVector
@@ -411,8 +410,8 @@ instance HasRanks Float where
   dAppendS = OS.append
 --  dSliceS :: forall i n k rest.
 --             (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
---          => Dual (OS.Array (i + n + k ': rest) Double)
---          -> Dual (OS.Array (n ': rest) Double)
+--          => Primal (OS.Array (i + n + k ': rest) Double)
+--          -> Primal (OS.Array (n ': rest) Double)
   dSliceS = undefined  -- TODO: OS.slice @'[ '(i, n) ] d
   dFrom0S = OS.scalar
   dFrom1S = OS.fromVector

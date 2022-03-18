@@ -78,7 +78,7 @@ ifoldMDelta' :: forall m a r. (Monad m, IsScalar r)
              -> m a
 {-# INLINE ifoldMDelta' #-}
 ifoldMDelta' f a (vecR, vecD, _, _, _, _, _, _) = do
-  let g :: a -> Int -> Dual r -> m a
+  let g :: a -> Int -> Primal r -> m a
       g !acc i valX = do
         let !b = D valX (vecD V.! i)
         f acc i b
@@ -91,7 +91,7 @@ foldMDelta' :: forall m a r. (Monad m, IsScalar r)
             -> m a
 {-# INLINE foldMDelta' #-}
 foldMDelta' f a (vecR, vecD, _, _, _, _, _, _) = do
-  let g :: a -> Int -> Dual r -> m a
+  let g :: a -> Int -> Primal r -> m a
       g !acc i valX = do
         let !b = D valX (vecD V.! i)
         f acc b
@@ -104,7 +104,7 @@ ifoldlDelta' :: forall a r. IsScalar r
              -> a
 {-# INLINE ifoldlDelta' #-}
 ifoldlDelta' f a (vecR, vecD, _, _, _, _, _, _) = do
-  let g :: a -> Int -> Dual r -> a
+  let g :: a -> Int -> Primal r -> a
       g !acc i valX =
         let !b = D valX (vecD V.! i)
         in f acc i b
@@ -117,7 +117,7 @@ foldlDelta' :: forall a r. IsScalar r
             -> a
 {-# INLINE foldlDelta' #-}
 foldlDelta' f a (vecR, vecD, _, _, _, _, _, _) = do
-  let g :: a -> Int -> Dual r -> a
+  let g :: a -> Int -> Primal r -> a
       g !acc i valX =
         let !b = D valX (vecD V.! i)
         in f acc b

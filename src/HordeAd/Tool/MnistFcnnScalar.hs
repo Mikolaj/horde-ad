@@ -39,13 +39,13 @@ sumTrainableInputs xs offset variables = do
 -- at @variables@ starting at @offset@. Useful for neurons at the bottom
 -- of the network, tasked with ingesting the data.
 sumConstantData :: forall m r. DeltaMonad r m
-                => Dual (Tensor1 r)
+                => Primal (Tensor1 r)
                 -> Int
                 -> DualNumberVariables r
                 -> m (DualNumber r)
 sumConstantData xs offset variables = do
   let bias = var variables offset
-      f :: DualNumber r -> Int -> Dual r -> DualNumber r
+      f :: DualNumber r -> Int -> Primal r -> DualNumber r
       f !acc i r =
         let v = var variables (offset + 1 + i)
         in acc + scale r v
@@ -53,7 +53,7 @@ sumConstantData xs offset variables = do
 
 hiddenLayerMnist :: forall m r. DeltaMonad r m
                  => (DualNumber r -> m (DualNumber r))
-                 -> Dual (Tensor1 r)
+                 -> Primal (Tensor1 r)
                  -> DualNumberVariables r
                  -> Int
                  -> m (Data.Vector.Vector (DualNumber r))
@@ -117,7 +117,7 @@ nnMnist2 :: forall r m. DeltaMonad r m
              -> m (Data.Vector.Vector (DualNumber r)))
          -> Int
          -> Int
-         -> Dual (Tensor1 r)
+         -> Primal (Tensor1 r)
          -> DualNumberVariables r
          -> m (Data.Vector.Vector (DualNumber r))
 nnMnist2 factivationHidden factivationOutput widthHidden widthHidden2
@@ -134,10 +134,10 @@ nnMnist2 factivationHidden factivationOutput widthHidden widthHidden2
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
-nnMnistLoss2 :: (DeltaMonad r m, Floating (Dual r))
+nnMnistLoss2 :: (DeltaMonad r m, Floating (Primal r))
              => Int
              -> Int
-             -> MnistData (Dual r)
+             -> MnistData (Primal r)
              -> DualNumberVariables r
              -> m (DualNumber r)
 nnMnistLoss2 widthHidden widthHidden2 (input, target) variables = do
@@ -147,10 +147,10 @@ nnMnistLoss2 widthHidden widthHidden2 (input, target) variables = do
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
-testMnist2 :: forall r. (IsScalar r, Floating (Dual r))
-           => Int -> Int -> [MnistData (Dual r)] -> Domain r -> Dual r
+testMnist2 :: forall r. (IsScalar r, Floating (Primal r))
+           => Int -> Int -> [MnistData (Primal r)] -> Domain r -> Primal r
 testMnist2 widthHidden widthHidden2 inputs params =
-  let matchesLabels :: MnistData (Dual r) -> Bool
+  let matchesLabels :: MnistData (Primal r) -> Bool
       matchesLabels (glyph, label) =
         let nn = inline (nnMnist2 @r) logisticAct softMaxAct
                                       widthHidden widthHidden2 glyph

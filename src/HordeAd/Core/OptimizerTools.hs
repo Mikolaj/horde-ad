@@ -68,7 +68,7 @@ can't fuse with anything and so can't pay for its overhead.
 -}
 
 updateWithGradient :: IsScalar r
-                   => Dual r
+                   => Primal r
                    -> Domains r
                    -> Domains r
                    -> Domains r
@@ -99,7 +99,7 @@ gradientIsNil (gradient, gradientV, gradientL, gradientX) =
   && V.all (\r -> HM.rows r <= 0) gradientL
   && V.all (null . OT.shapeL) gradientX
 
-minimumGradient :: IsScalar r => Domains r -> Dual r
+minimumGradient :: IsScalar r => Domains r -> Primal r
 minimumGradient (gradient, gradientV, gradientL, gradientX) =
   min (if V.null gradient then 0 else V.minimum gradient)
       (min (if V.null gradientV then 0
@@ -109,7 +109,7 @@ minimumGradient (gradient, gradientV, gradientL, gradientX) =
                 (if V.null gradientX then 0
                  else V.minimum (V.map OT.minimumA gradientX))))
 
-maximumGradient :: IsScalar r => Domains r -> Dual r
+maximumGradient :: IsScalar r => Domains r -> Primal r
 maximumGradient (gradient, gradientV, gradientL, gradientX) =
   max (if V.null gradient then 0 else V.maximum gradient)
       (max (if V.null gradientV then 0
@@ -120,15 +120,15 @@ maximumGradient (gradient, gradientV, gradientL, gradientX) =
                  else V.maximum (V.map OT.maximumA gradientX))))
 
 data ArgsAdam r = ArgsAdam
-  { alpha   :: Dual r
-  , beta1   :: Dual r
-  , beta2   :: Dual r
-  , epsilon :: Dual r
+  { alpha   :: Primal r
+  , beta1   :: Primal r
+  , beta2   :: Primal r
+  , epsilon :: Primal r
   }
 
 -- The defaults taken from
 -- https://www.tensorflow.org/api_docs/python/tf/keras/optimizers/Adam
-defaultArgsAdam :: Fractional (Dual r) => ArgsAdam r
+defaultArgsAdam :: Fractional (Primal r) => ArgsAdam r
 defaultArgsAdam = ArgsAdam
   { alpha = 0.001
   , beta1 = 0.9
@@ -212,7 +212,7 @@ liftArray43 f m1 m2 m3 m4 =
           $ "nonconformant arrays in liftArray43: "
             ++ show (OT.shapeL m1, OT.shapeL m2, OT.shapeL m3, OT.shapeL m4)
 
-updateWithGradientAdam :: forall r. (Floating (Dual r), IsScalar r, Floating (Dual (Tensor1 r)))
+updateWithGradientAdam :: forall r. (Floating (Primal r), IsScalar r, Floating (Primal (Tensor1 r)))
                        => ArgsAdam r
                        -> StateAdam r
                        -> Domains r
@@ -228,8 +228,8 @@ updateWithGradientAdam ArgsAdam{..}
   let tAdamNew = tAdam + 1
       oneMinusBeta1 = 1 - beta1
       oneMinusBeta2 = 1 - beta2
-      updateVector :: Vector (Dual r) -> Vector (Dual r) -> Vector (Dual r) -> Vector (Dual r)
-                   -> (Vector (Dual r), Vector (Dual r), Vector (Dual r))
+      updateVector :: Vector (Primal r) -> Vector (Primal r) -> Vector (Primal r) -> Vector (Primal r)
+                   -> (Vector (Primal r), Vector (Primal r), Vector (Primal r))
       updateVector mA vA p g =
         let mANew = HM.scale beta1 mA + HM.scale oneMinusBeta1 g
             vANew = HM.scale beta2 vA + HM.scale oneMinusBeta2 (g * g)

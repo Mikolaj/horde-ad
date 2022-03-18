@@ -17,7 +17,7 @@ import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 
 -- | Simple Gradient Descent.
 gdSimple :: forall r. HasDelta r
-         => Dual r
+         => Primal r
          -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
          -> Int  -- ^ requested number of iterations
          -> Domains r  -- ^ initial parameters
@@ -38,14 +38,14 @@ gdSimple gamma f n0 parameters0 = go n0 parameters0 where
 
 -- | Stochastic Gradient Descent.
 sgd :: forall r a. HasDelta r
-    => Dual r
+    => Primal r
     -> (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
     -> [a]  -- ^ training data
     -> Domains r  -- ^ initial parameters
-    -> (Domains r, Dual r)
+    -> (Domains r, Primal r)
 sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   varDeltas = generateDeltaVars parameters0
-  go :: [a] -> Domains r -> (Domains r, Dual r)
+  go :: [a] -> Domains r -> (Domains r, Primal r)
   go [] parameters = (parameters, 0)
   go (a : rest) parameters =
     let variables = makeDualNumberVariables parameters varDeltas
@@ -55,7 +55,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
        then (parametersNew, valueNew)
        else go rest parametersNew
 
-sgdAdam :: forall r a. (HasDelta r, Floating (Dual r), Floating (Dual (Tensor1 r)))
+sgdAdam :: forall r a. (HasDelta r, Floating (Primal r), Floating (Primal (Tensor1 r)))
         => (a -> DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
         -> [a]
         -> Domains r
@@ -63,7 +63,7 @@ sgdAdam :: forall r a. (HasDelta r, Floating (Dual r), Floating (Dual (Tensor1 r
         -> (Domains r, StateAdam r)
 sgdAdam = sgdAdamArgs defaultArgsAdam
 
-sgdAdamArgs :: forall r a. (HasDelta r, Floating (Dual r), Floating (Dual (Tensor1 r)))
+sgdAdamArgs :: forall r a. (HasDelta r, Floating (Primal r), Floating (Primal (Tensor1 r)))
             => ArgsAdam r
             -> (a -> DualNumberVariables r
                 -> DeltaMonadGradient r (DualNumber r))

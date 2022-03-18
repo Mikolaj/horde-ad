@@ -23,18 +23,18 @@ testTrees = [ gdSimpleTests
 (*\) :: DeltaMonad r m => DualNumber r -> DualNumber r -> m (DualNumber r)
 (*\) u v = returnLet $ u * v
 
-scaleDual :: DeltaMonad r m => Dual r -> DualNumber r -> m (DualNumber r)
+scaleDual :: DeltaMonad r m => Primal r -> DualNumber r -> m (DualNumber r)
 scaleDual r u = returnLet $ scale r u
 
 squareDual :: DeltaMonad r m => DualNumber r -> m (DualNumber r)
 squareDual = returnLet . square
 
 gdSimpleShow :: HasDelta r
-             => Dual r
+             => Primal r
              -> (DualNumberVariables r -> DeltaMonadGradient r (DualNumber r))
              -> Domain r
              -> Int
-             -> ([Dual r], Dual r)
+             -> ([Primal r], Primal r)
 gdSimpleShow gamma f initVec n =
   let (res, _, _, _) = gdSimple gamma f n (initVec, V.empty, V.empty, V.empty)
       (_, value) = df f (res, V.empty, V.empty, V.empty)

@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -Wno-missing-export-lists -Wno-missing-methods #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | Dual numbers and operations on them, which are extensions of normal
+-- | Primal numbers and operations on them, which are extensions of normal
 -- arithmetic and other operations to also cover derivatives.
 module HordeAd.Core.DualNumber where
 
@@ -24,20 +24,20 @@ import HordeAd.Core.DualClass
 
 -- * The main dual number types
 
-data DualNumber a = D (Dual a) a
+data DualNumber a = D (Primal a) a
 
 class (IsScalar r, Monad m, Functor m, Applicative m)
       => DeltaMonad r m | m -> r where
   returnLet :: IsDualWithScalar a r
             => DualNumber a -> m (DualNumber a)
 
-type Domain r = Vector (Dual r)
+type Domain r = Vector (Primal r)
 
-type DomainV r = Data.Vector.Vector (Dual (Tensor1 r))
+type DomainV r = Data.Vector.Vector (Primal (Tensor1 r))
 
-type DomainL r = Data.Vector.Vector (Dual (Tensor2 r))
+type DomainL r = Data.Vector.Vector (Primal (Tensor2 r))
 
-type DomainX r = Data.Vector.Vector (Dual (TensorX r))
+type DomainX r = Data.Vector.Vector (Primal (TensorX r))
 
 type Domains r = (Domain r, DomainV r, DomainL r, DomainX r)
 
@@ -57,8 +57,8 @@ instance Ord (DualNumber r) where
 -- operations that already include @returnLet@ should be used instead,
 -- such as @+\@, @*\@, etc.
 --
--- @Num (Dual r)@ forces @UndecidableInstances@.
-instance (Num (Dual r), IsDual r) => Num (DualNumber r) where
+-- @Num (Primal r)@ forces @UndecidableInstances@.
+instance (Num (Primal r), IsDual r) => Num (DualNumber r) where
   D u u' + D v v' = D (u + v) (dAdd u' v')
   D u u' - D v v' = D (u - v) (dAdd u' (dScale (-1) v'))
   D u u' * D v v' = D (u * v) (dAdd (dScale v u') (dScale u v'))
@@ -67,10 +67,10 @@ instance (Num (Dual r), IsDual r) => Num (DualNumber r) where
   signum = undefined  -- TODO
   fromInteger = scalar . fromInteger
 
-instance (Real (Dual r), IsDual r) => Real (DualNumber r) where
+instance (Real (Primal r), IsDual r) => Real (DualNumber r) where
   toRational = undefined  -- TODO?
 
-instance (Fractional (Dual r), IsDual r) => Fractional (DualNumber r) where
+instance (Fractional (Primal r), IsDual r) => Fractional (DualNumber r) where
   D u u' / D v v' =
     let recipSq = recip (v * v)
     in D (u / v) (dAdd (dScale (v * recipSq) u') (dScale (- u * recipSq) v'))
@@ -79,7 +79,7 @@ instance (Fractional (Dual r), IsDual r) => Fractional (DualNumber r) where
     in D (recip v) (dScale minusRecipSq v')
   fromRational = scalar . fromRational
 
-instance (Floating (Dual r), IsDual r) => Floating (DualNumber r) where
+instance (Floating (Primal r), IsDual r) => Floating (DualNumber r) where
   pi = scalar pi
   exp (D u u') = let expU = exp u
                  in D expU (dScale expU u')
@@ -102,21 +102,21 @@ instance (Floating (Dual r), IsDual r) => Floating (DualNumber r) where
   acosh = undefined  -- TODO
   atanh = undefined  -- TODO
 
-instance (RealFrac (Dual r), IsDual r) => RealFrac (DualNumber r) where
+instance (RealFrac (Primal r), IsDual r) => RealFrac (DualNumber r) where
   properFraction = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance (RealFloat (Dual r), IsDual r) => RealFloat (DualNumber r) where
+instance (RealFloat (Primal r), IsDual r) => RealFloat (DualNumber r) where
   atan2 (D u u') (D v v') =
     let t = 1 / (u * u + v * v)
     in D (atan2 u v) (dAdd (dScale (- u * t) v') (dScale (v * t) u'))
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a differentiable codomain
 
-scalar :: IsDual a => Dual a -> DualNumber a
+scalar :: IsDual a => Primal a -> DualNumber a
 scalar a = D a dZero
 
-scale :: (Num (Dual a), IsDual a) => Dual a -> DualNumber a -> DualNumber a
+scale :: (Num (Primal a), IsDual a) => Primal a -> DualNumber a -> DualNumber a
 scale a (D u u') = D (a * u) (dScale a u')
 
 
@@ -152,7 +152,7 @@ infixr 8 <.>!
 infixr 8 <.>!!
 (<.>!!) :: IsScalar r
         => DualNumber (Tensor1 r)
-        -> Dual (Tensor1 r)
+        -> Primal (Tensor1 r)
         -> DualNumber r
 (<.>!!) (D u u') v = D (u <.> v) (dDot0 v u')
 
@@ -216,7 +216,7 @@ infixr 8 #>!
 infixr 8 #>!!
 (#>!!) :: IsScalar r
        => DualNumber (Tensor2 r)
-       -> Dual (Tensor1 r)
+       -> Primal (Tensor1 r)
        -> DualNumber (Tensor1 r)
 (#>!!) (D u u') v = D (u #> v) (dMD_V1 u' v)
 
@@ -262,7 +262,7 @@ infixr 8 <>!
 infixr 8 <>!!
 (<>!!) :: IsScalar r
        => DualNumber (Tensor2 r)
-       -> Dual (Tensor2 r)
+       -> Primal (Tensor2 r)
        -> DualNumber (Tensor2 r)
 (<>!!) (D u u') v = D (u HM.<> v) (dMD_M2 u' v)
 
@@ -372,29 +372,29 @@ fromXS (D u u') = D (Data.Array.Convert.convert u) (dFromXS u')
 
 -- * General monadic operations, for any scalar rank
 
-tanhAct :: (DeltaMonad r m, IsDualWithScalar a r, Floating (Dual a))
+tanhAct :: (DeltaMonad r m, IsDualWithScalar a r, Floating (Primal a))
         => DualNumber a -> m (DualNumber a)
 tanhAct = returnLet . tanh
 
-logistic :: (Floating (Dual a), IsDual a) => DualNumber a -> DualNumber a
+logistic :: (Floating (Primal a), IsDual a) => DualNumber a -> DualNumber a
 logistic (D u u') =
   let y = recip (1 + exp (- u))
   in D y (dScale (y * (1 - y)) u')
 
-logisticAct :: (DeltaMonad r m, IsDualWithScalar a r, Floating (Dual a))
+logisticAct :: (DeltaMonad r m, IsDualWithScalar a r, Floating (Primal a))
             => DualNumber a -> m (DualNumber a)
 logisticAct = returnLet . logistic
 
 -- Optimized and more clearly written @u ** 2@.
-square :: (Num (Dual a), IsDual a) => DualNumber a -> DualNumber a
+square :: (Num (Primal a), IsDual a) => DualNumber a -> DualNumber a
 square (D u u') = D (u * u) (dScale (2 * u) u')
 
-squaredDifference :: (Num (Dual a), IsDual a)
-                  => Dual a -> DualNumber a -> DualNumber a
+squaredDifference :: (Num (Primal a), IsDual a)
+                  => Primal a -> DualNumber a -> DualNumber a
 squaredDifference targ res = square $ res - scalar targ
 
 lossSquared :: (DeltaMonad r m, IsDualWithScalar a r)
-            => Dual a -> DualNumber a -> m (DualNumber a)
+            => Primal a -> DualNumber a -> m (DualNumber a)
 lossSquared targ res = returnLet $ squaredDifference targ res
 
 
@@ -410,7 +410,7 @@ sumElementsVectorOfDelta :: IsScalar r
                          -> DualNumber r
 sumElementsVectorOfDelta = V.foldl' (+) 0
 
-softMaxAct :: (DeltaMonad r m, Floating (Dual r))
+softMaxAct :: (DeltaMonad r m, Floating (Primal r))
            => Data.Vector.Vector (DualNumber r)
            -> m (Data.Vector.Vector (DualNumber r))
 softMaxAct us = do
@@ -421,8 +421,8 @@ softMaxAct us = do
   V.mapM (\r -> returnLet $ r * recipSum) expUs
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropy :: forall m r. (DeltaMonad r m, Floating (Dual r))
-                 => Dual (Tensor1 r)
+lossCrossEntropy :: forall m r. (DeltaMonad r m, Floating (Primal r))
+                 => Primal (Tensor1 r)
                  -> Data.Vector.Vector (DualNumber r)
                  -> m (DualNumber r)
 lossCrossEntropy targ res = do
@@ -431,14 +431,14 @@ lossCrossEntropy targ res = do
   returnLet $ negate $ V.ifoldl' f 0 res
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropyV :: (DeltaMonad r m, Floating (Dual (Tensor1 r)))
-                  => Dual (Tensor1 r)
+lossCrossEntropyV :: (DeltaMonad r m, Floating (Primal (Tensor1 r)))
+                  => Primal (Tensor1 r)
                   -> DualNumber (Tensor1 r)
                   -> m (DualNumber r)
 lossCrossEntropyV targ res = returnLet $ negate $ log res <.>!! targ
 
-lossSoftMaxCrossEntropyV :: (DeltaMonad r m, Fractional (Dual r), Floating (Dual (Tensor1 r)))
-                         => Dual (Tensor1 r)
+lossSoftMaxCrossEntropyV :: (DeltaMonad r m, Fractional (Primal r), Floating (Primal (Tensor1 r)))
+                         => Primal (Tensor1 r)
                          -> DualNumber (Tensor1 r)
                          -> m (DualNumber r)
 lossSoftMaxCrossEntropyV target (D u u') = do
@@ -465,13 +465,13 @@ reluActV dn@(D u _) = do
   returnLet $ scale oneIfGtZero dn
     -- I have a bad feeling about this
 
-reluLeakyActV :: (DeltaMonad r m, Fractional (Dual r))
+reluLeakyActV :: (DeltaMonad r m, Fractional (Primal r))
               => DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r))
 reluLeakyActV dn@(D u _) = do
   let oneIfGtZero = V.map (\x -> if x > 0 then 1 else 0.01) u
   returnLet $ scale oneIfGtZero dn
 
-softMaxActV :: (DeltaMonad r m, Fractional (Dual r), Floating (Dual (Tensor1 r)))
+softMaxActV :: (DeltaMonad r m, Fractional (Primal r), Floating (Primal (Tensor1 r)))
             => DualNumber (Tensor1 r)
             -> m (DualNumber (Tensor1 r))
 softMaxActV d@(D u _) = do
@@ -482,8 +482,8 @@ softMaxActV d@(D u _) = do
   returnLet $ konst1 recipSum (V.length u) * expU
 
 lossSoftMaxCrossEntropyL
-  :: (DeltaMonad r m, Fractional (Dual r), Floating (Dual (Tensor2 r)))
-  => Dual (Tensor2 r)
+  :: (DeltaMonad r m, Fractional (Primal r), Floating (Primal (Tensor2 r)))
+  => Primal (Tensor2 r)
   -> DualNumber (Tensor2 r)
   -> m (DualNumber (Tensor1 r))
 lossSoftMaxCrossEntropyL target (D u u') = do
