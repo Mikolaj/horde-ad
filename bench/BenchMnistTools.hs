@@ -7,6 +7,7 @@ import Prelude
 import           Control.Arrow ((***))
 import           Control.DeepSeq (NFData)
 import           Criterion.Main
+import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Vector.Generic as V
 import qualified Numeric.LinearAlgebra as HM
 import           System.Random
@@ -34,11 +35,11 @@ mnistTestBench2 extraPrefix chunkLength xs widthHidden widthHidden2 = do
   let nParams = lenMnist2 widthHidden widthHidden2
       params0 = V.unfoldrExactN nParams (uniformR (-0.5, 0.5)) $ mkStdGen 33
       chunk = take chunkLength xs
-      score c = testMnist2 @r widthHidden widthHidden2 c params0
+      score c = testMnist2 (Proxy @r) widthHidden widthHidden2 c params0
       name = "test " ++ extraPrefix
              ++ unwords ["s" ++ show nParams, "v0", "m0" ++ "=" ++ show nParams]
   bench name $ whnf score chunk
--- how to? {-# SPECIALIZE mnistTestBench2 :: String -> Int -> [MnistData Double] -> Int -> Int -> Benchmark #-}
+{-# SPECIALIZE mnistTestBench2 :: String -> Int -> [MnistData Double] -> Int -> Int -> Benchmark #-}
 
 mnistTrainBGroup2 :: [MnistData Double] -> Int -> Benchmark
 mnistTrainBGroup2 xs0 chunkLength =

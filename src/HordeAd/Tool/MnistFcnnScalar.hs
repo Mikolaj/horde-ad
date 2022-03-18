@@ -7,13 +7,15 @@ module HordeAd.Tool.MnistFcnnScalar where
 import Prelude
 
 import           Control.Exception (assert)
+import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 
+import HordeAd.Core.Delta (Delta0)
+import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.DualClass
 import HordeAd.Core.PairOfVectors (DualNumberVariables, var)
 import HordeAd.Tool.MnistData
 
@@ -147,9 +149,13 @@ nnMnistLoss2 widthHidden widthHidden2 (input, target) variables = do
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
+--
+-- The proxy argument is needed only for the (spurious) SPECIALIZE pragma,
+-- becuase I can't write @SPECIALIZE testMnist2 \@(Delta0 Double)@.
 testMnist2 :: forall r. (IsScalar r, Floating (Primal r))
-           => Int -> Int -> [MnistData (Primal r)] -> Domain r -> Primal r
-testMnist2 widthHidden widthHidden2 inputs params =
+           => Proxy r -> Int -> Int -> [MnistData (Primal r)] -> Domain r
+           -> Primal r
+testMnist2 _ widthHidden widthHidden2 inputs params =
   let matchesLabels :: MnistData (Primal r) -> Bool
       matchesLabels (glyph, label) =
         let nn = inline (nnMnist2 @r) logisticAct softMaxAct
@@ -159,4 +165,4 @@ testMnist2 widthHidden widthHidden2 inputs params =
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
--- how to?  {-# SPECIALIZE testMnist2 :: Int -> Int -> [MnistData Double] -> Domain Double -> Double #-}
+{-# SPECIALIZE testMnist2 :: Proxy (Delta0 Double) -> Int -> Int -> [MnistData Double] -> Domain (Delta0 Double) -> Double #-}

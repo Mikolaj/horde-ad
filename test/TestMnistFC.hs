@@ -8,6 +8,7 @@ import Prelude
 import           Control.DeepSeq
 import           Control.Monad (foldM, when)
 import           Data.Coerce (coerce)
+import           Data.Proxy (Proxy (Proxy))
 import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import qualified Data.Vector.Generic as V
 import qualified Numeric.LinearAlgebra as HM
@@ -102,8 +103,8 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                  (!res, _, _, _) =
                    fst $ sgd gamma f chunk (params, V.empty, V.empty, V.empty)
              printf "Trained on %d points.\n" (length chunk)
-             let trainScore = testMnist2 @(Delta0 Double) widthHidden widthHidden2 chunk res
-                 testScore  = testMnist2 @(Delta0 Double) widthHidden widthHidden2 testData res
+             let trainScore = testMnist2 (Proxy @(Delta0 Double)) widthHidden widthHidden2 chunk res
+                 testScore  = testMnist2 (Proxy @(Delta0 Double)) widthHidden widthHidden2 testData res
              printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
              printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
              return res
@@ -119,7 +120,7 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
        printf "\nEpochs to run/max batches per epoch: %d/%d\n"
               epochs maxBatches
        res <- runEpoch 1 params0
-       let testErrorFinal = 1 - testMnist2 @(Delta0 Double) widthHidden widthHidden2 testData res
+       let testErrorFinal = 1 - testMnist2 (Proxy @(Delta0 Double)) widthHidden widthHidden2 testData res
        testErrorFinal @?= expected
 
 mnistTestCase2V
@@ -542,7 +543,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       let nParams = lenMnist2 300 100
           params = V.replicate nParams 0.1
       testData <- loadMnistData testGlyphsPath testLabelsPath
-      (1 - testMnist2 @(Delta0 Double) 300 100 testData params) @?= 0.902
+      (1 - testMnist2 (Proxy @(Delta0 Double)) 300 100 testData params) @?= 0.902
   , testCase "testMnist2VV on 0.1 params 300 100 width 10k testset" $ do
       let nParams = lenMnist2V 300 100
           params = V.replicate nParams 0.1
