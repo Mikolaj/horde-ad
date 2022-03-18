@@ -115,7 +115,7 @@ dfTests = testGroup "Simple df application tests" $
 
 vec_omit_scalarSum_aux :: DualMonad (Delta0 Float) m
                        => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
-vec_omit_scalarSum_aux vec = returnLet $ foldlDelta' (+) 0 vec
+vec_omit_scalarSum_aux vec = returnLet $ foldlDual' (+) 0 vec
 
 sumElementsV :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 sumElementsV variables = do

@@ -10,7 +10,7 @@
 module HordeAd.Core.PairOfVectors
   ( DualNumberVariables
   , makeDualNumberVariables, var, vars, varV, varL, varX, varS
-  , ifoldMDelta', foldMDelta', ifoldlDelta', foldlDelta'
+  , ifoldMDual', foldMDual', ifoldlDual', foldlDual'
   ) where
 
 import Prelude
@@ -71,52 +71,52 @@ varS :: (OS.Shape sh, IsScalarS sh r)
 varS (_, _, _, _, _, _, vValue, vVar) i =
   D (Data.Array.Convert.convert $ vValue V.! i) (dFromXS $ vVar V.! i)
 
-ifoldMDelta' :: forall m a r. (Monad m, IsScalar r)
+ifoldMDual' :: forall m a r. (Monad m, IsScalar r)
              => (a -> Int -> DualNumber r -> m a)
              -> a
              -> DualNumberVariables r
              -> m a
-{-# INLINE ifoldMDelta' #-}
-ifoldMDelta' f a (vecR, vecD, _, _, _, _, _, _) = do
+{-# INLINE ifoldMDual' #-}
+ifoldMDual' f a (vecR, vecD, _, _, _, _, _, _) = do
   let g :: a -> Int -> Primal r -> m a
       g !acc i valX = do
         let !b = D valX (vecD V.! i)
         f acc i b
   V.ifoldM' g a vecR
 
-foldMDelta' :: forall m a r. (Monad m, IsScalar r)
+foldMDual' :: forall m a r. (Monad m, IsScalar r)
             => (a -> DualNumber r -> m a)
             -> a
             -> DualNumberVariables r
             -> m a
-{-# INLINE foldMDelta' #-}
-foldMDelta' f a (vecR, vecD, _, _, _, _, _, _) = do
+{-# INLINE foldMDual' #-}
+foldMDual' f a (vecR, vecD, _, _, _, _, _, _) = do
   let g :: a -> Int -> Primal r -> m a
       g !acc i valX = do
         let !b = D valX (vecD V.! i)
         f acc b
   V.ifoldM' g a vecR
 
-ifoldlDelta' :: forall a r. IsScalar r
+ifoldlDual' :: forall a r. IsScalar r
              => (a -> Int -> DualNumber r -> a)
              -> a
              -> DualNumberVariables r
              -> a
-{-# INLINE ifoldlDelta' #-}
-ifoldlDelta' f a (vecR, vecD, _, _, _, _, _, _) = do
+{-# INLINE ifoldlDual' #-}
+ifoldlDual' f a (vecR, vecD, _, _, _, _, _, _) = do
   let g :: a -> Int -> Primal r -> a
       g !acc i valX =
         let !b = D valX (vecD V.! i)
         in f acc i b
   V.ifoldl' g a vecR
 
-foldlDelta' :: forall a r. IsScalar r
+foldlDual' :: forall a r. IsScalar r
             => (a -> DualNumber r -> a)
             -> a
             -> DualNumberVariables r
             -> a
-{-# INLINE foldlDelta' #-}
-foldlDelta' f a (vecR, vecD, _, _, _, _, _, _) = do
+{-# INLINE foldlDual' #-}
+foldlDual' f a (vecR, vecD, _, _, _, _, _, _) = do
   let g :: a -> Int -> Primal r -> a
       g !acc i valX =
         let !b = D valX (vecD V.! i)

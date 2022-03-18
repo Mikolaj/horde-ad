@@ -128,7 +128,7 @@ bgroup5e7 allxs =
      => DualNumber r -> DualNumber r -> m (DualNumber r)
 (*\) u v = returnLet $ u * v
 
--- The @foldMDelta'@, instead of the standard @foldM'@, is an awkward clutch
+-- The @foldMDual'@, instead of the standard @foldM'@, is an awkward clutch
 -- that can't be avoided without changing the representation of the vector
 -- of dual numbers. The use of a pair of vectors to represent
 -- a vector of dual numbers is an optimization for gradient descent,
@@ -137,7 +137,7 @@ bgroup5e7 allxs =
 -- to manage the vectors for us.
 vec_prod_aux :: forall m r. DualMonad r m
              => DualNumberVariables r -> m (DualNumber r)
-vec_prod_aux = foldMDelta' (*\) 1
+vec_prod_aux = foldMDual' (*\) 1
   -- no handwritten derivatives; only the derivative for @(*)@ is provided;
   -- also, not omitting bindings; all let-bindings are present, see below
 
@@ -161,7 +161,7 @@ grad_toList_prod l = V.toList $ grad_vec_prod $ V.fromList l
 vec_omit_prod_aux
   :: forall r m. DualMonad r m
   => DualNumberVariables r -> m (DualNumber r)
-vec_omit_prod_aux vec = returnLet $ foldlDelta' (*) 1 vec
+vec_omit_prod_aux vec = returnLet $ foldlDual' (*) 1 vec
   -- omitting most bindings, because we know nothing repeats inside
 
 vec_omit_prod :: forall r. HasDelta r
@@ -178,7 +178,7 @@ grad_vec_omit_prod ds =
 vec_omit_scalarSum_aux
   :: forall m r. DualMonad r m
   => DualNumberVariables r -> m (DualNumber r)
-vec_omit_scalarSum_aux vec = returnLet $ foldlDelta' (+) 0 vec
+vec_omit_scalarSum_aux vec = returnLet $ foldlDual' (+) 0 vec
 
 sumElementsV :: DualMonad (Delta0 Double) m
              => DualNumberVariables (Delta0 Double) -> m (DualNumber (Delta0 Double))
