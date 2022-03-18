@@ -3,8 +3,8 @@
 {-# OPTIONS_GHC -Wno-missing-export-lists -Wno-missing-methods #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | Primal numbers and operations on them, which are extensions of normal
--- arithmetic and other operations to also cover derivatives.
+-- | Dual numbers and various operations on them, arithmetic and related
+-- to tensors (vectors, matrices and others).
 module HordeAd.Core.DualNumber where
 
 import Prelude

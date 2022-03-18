@@ -2,25 +2,8 @@
              MultiParamTypeClasses, TypeFamilyDependencies, TypeOperators,
              UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
--- | The second component of dual numbers, @Delta@, with it's evaluation
--- function. Neel Krishnaswami calls that "sparse vector expressions",
--- and indeed even in the simplest case of a function defined on scalars only,
--- the non-empty portion of the codomain of the evaluation function is a vector,
--- because the gradient of an @R^n@ to @R@ function is an @R^n@ vector.
---
--- The 'sparcity' is less obvious when the domain of the function consists
--- of multiple vectors and matrices and when the expressions themselves
--- contain vectors and matrices. However, a single tiny delta
--- expression (e.g., a sum of two variables) may denote a vector of matrices.
--- Even a delta expression containing a big matrix denotes something much
--- bigger: a whole vector of such matrices (and vectors and scalars).
---
--- The algebraic structure here is an extension of vector space.
--- The crucial extra constructor for variables is used both to represent
--- sharing in order to avoid exponential blowup and to replace the one-hot
--- access to parameters with something cheaper and more uniform.
--- A lot of the remaining additional structure is for introducing
--- and reducing dimensions.
+-- | The class of dual components of dual numbers and related classes,
+-- constraints and instances.
 module HordeAd.Core.DualClass
   ( IsDualWithScalar, IsScalar, IsScalarS, HasDelta, HasForward
   , IsDual(Primal, dZero, dScale, dAdd, dVar, bindInState)
@@ -40,51 +23,99 @@ import qualified Numeric.LinearAlgebra as HM
 
 import HordeAd.Core.Delta
 
--- * Abbreviations
+-- * Abbreviations for export (not used anywhere below)
 
--- | A shorthand for a useful set of constraints.
+-- | A shorthand for a useful set of constraints. The intended semantics
+-- (not fully enforced by these constraints in isolation) is that the first
+-- type is a dual component of a dual number type at an unknown rank
+-- and the second type is a dual component of a dual number type
+-- at the scalar level (rank 0) with the same underlying scalar type
+-- (but the underlying scalar type is not an argument of this type synonym).
+-- Additionally, the primal component corresponding to the first type
+-- is required to satisfy constraint @Num@.
 type IsDualWithScalar a r = (IsDual a, ScalarOf a ~ Primal r, Num (Primal a))
 
 -- | A mega-shorthand for a bundle of connected type constraints.
+-- The @Scalar@ in the name means that this type is a dual component
+-- of a dual number type at the scalar (rank 0) level.
+-- A more precise name would be @IsRank0DualWithAWellBehavedSetOfAllRanks@.
 type IsScalar r =
-       ( Ord (Primal r), Numeric (Primal r), HasRanks r
+       ( HasRanks r, Ord (Primal r), Numeric (Primal r)
        , IsDualWithScalar r r, IsDualWithScalar (Tensor1 r) r
        , IsDualWithScalar (Tensor2 r) r, IsDualWithScalar (TensorX r) r
        , Primal (Tensor1 r) ~ Vector (Primal r)
        , Primal (Tensor2 r) ~ Matrix (Primal r)
        , Primal (TensorX r) ~ OT.Array (Primal r) )
 
+-- | An extension of 'IsScalar' that also covers shaped tensors. It is
+-- separate, because it requires an additional type argument representing
+-- the shape.
 type IsScalarS (sh :: [Nat]) r =
        ( IsScalar r, IsDualWithScalar (TensorS sh r) r
        , Primal (TensorS sh r) ~ OS.Array sh (Primal r) )
 
--- | A constraint stating dual numbers with this dual component
+-- | A constraint expressing that dual numbers with this dual component
 -- are implemented via gathering delta expressions in state.
 type HasDelta r = (IsScalar r, r ~ Delta0 (Primal r))
 
--- | A constraint stating dual numbers with this dual component
+-- | A constraint expressing that dual numbers with this dual component
 -- are implemented via computing forward derivative on the spot.
-type HasForward r = ( IsScalar r, Primal r ~ r, Tensor1 r ~ Vector r
+type HasForward r = ( IsScalar r, r ~ ScalarOf r, Tensor1 r ~ Vector r
                     , Tensor2 r ~ Matrix r, TensorX r ~ OT.Array r )
 
 
 -- * Class definitions
 
--- | Each shape of a containers of parameters ('tensor') has its own
--- collection of vector space-like constructors with which the sparse
--- vector expression (`delta expressions`) are built.
+-- | Each shape of containers of parameters (a tensor of particular rank)
+-- has its own collection of vector-space-like operations that are
+-- a crucial part of the machinery for computing gradients or derivatives
+-- of objective functions defined on dual numbers.
+--
+-- The chosen representation makes the dual component of dual numbers
+-- the argument of the class and the primal component the result
+-- of the associated type synonym family @Primal@. A disadvantage
+-- of this approach is that the @Primal@ type family is not injective
+-- because it has the same value, say @Double@, in the instance
+-- @Delta0 Double@ for computing gradients via delta-expressions
+-- and in the instance @Double@ for computing forward derivatives on the spot.
+-- The lack of injectivity results in a lot of @AllowAmbiguousTypes@ pragmas
+-- and type arguments to functions.
+--
+-- Another disadvantage is @UndecidableInstances@ pragmas,
+-- e.g., due to @Illegal nested constraint ‘Ord (Primal r)’@.
+-- Yet another disadvantage is that once the gradient-based method
+-- and an underlying scalar is chosen, a fully instantiated type
+-- of a dual number function is peppered with @Delta0 Double@, etc.
+-- This forces writing such function using spurious polymorphism,
+-- with constraints that determine that the type is, in fact, monomorphic.
+-- E.g., @(HasDelta r, Primal r ~ Double)@ constraint that permits
+-- writing @r@ instead of @Delta0 Double@.
+--
+-- However, all this is better than the inverse problem, where the argument
+-- of the class is the primal component and @Dual@ is an injective
+-- associated type family. There, we'd need two different instances
+-- for @Double@ to cover both gradients and forward derivatives.
+-- This could be done via a newtype, which would incur some notational overhead
+-- and the need to define many instances for the newtype, e.g., all hmatrix
+-- instances, which requires fragile code based on hmatrix internal modules.
 class IsDual a where
   type Primal a  -- can't be injective, because same for gradient and derivative
   dZero :: a
   dScale :: Primal a -> a -> a
   dAdd :: a -> a -> a
   dVar :: DeltaId (Primal a) -> a
-  type ScalarOf a
+  type ScalarOf a  -- verbose name to remember not to export from this module
   bindInState :: a
               -> DeltaState (ScalarOf a)
               -> (DeltaState (ScalarOf a), DeltaId (Primal a))
 
-class HasRanks r where  -- IsTensor0?
+-- | An instance of the class is a type of rank 0 (scalar rank) dual components
+-- of dual numbers. The associated type synonym families are dual component
+-- counterparts at the remaining ranks, with the same underlying scalar.
+-- The operations relate the dual and primal component at various ranks.
+-- Not many of these properties are enforced by the definition of the class
+-- itself, but together with the 'IsScalar' constraint, a lot is captured.
+class HasRanks r where
   type Tensor1 r = result | result -> r
   type Tensor2 r = result | result -> r
   type TensorX r = result | result -> r

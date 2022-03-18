@@ -5,7 +5,7 @@
 -- | The second component of dual numbers, @Delta@, with it's evaluation
 -- function. Neel Krishnaswami calls that "sparse vector expressions",
 -- and indeed even in the simplest case of a function defined on scalars only,
--- the non-empty portion of the codomain of the evaluation function is a vector,
+-- the codomain of the evaluation function is a set of vectors,
 -- because the gradient of an @R^n@ to @R@ function is an @R^n@ vector.
 --
 -- The 'sparsity' is less obvious when the domain of the function consists
@@ -20,7 +20,7 @@
 -- sharing in order to avoid exponential blowup and to replace the one-hot
 -- access to parameters with something cheaper and more uniform.
 -- A lot of the remaining additional structure is for introducing
--- and reducing dimensions.
+-- and reducing dimensions (ranks).
 module HordeAd.Core.Delta
   ( -- * Abstract syntax trees of the delta expressions
     Delta0 (..), Delta1 (..), Delta2 (..), DeltaX (..), DeltaS (..)
