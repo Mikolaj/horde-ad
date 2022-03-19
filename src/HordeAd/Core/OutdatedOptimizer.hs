@@ -24,8 +24,8 @@ import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 -- by Atilim Gunes Baydin, Barak A. Pearlmutter, Don Syme, Frank Wood,
 -- Philip Torr.
 --
--- Note that we can't generalize this to use either @generalDfastForward@
--- or @generalDforward@ or @generalDf@, because the optimized call
+-- Note that we can't generalize this to use either
+-- @generalDforward@ or @generalDf@, because the optimized call
 -- to @updateWithGradient@ below would not be possible with the common API
 -- for obtaining gradients and at least twice more allocations would
 -- be done there. With small mini-batch sizes this matters,
@@ -55,7 +55,8 @@ sgdBatchForward seed0 batchSize gamma f trainingData parameters0 nParameters =
   go _ [] parameters value = (parameters, value)
   go seed l parameters _ =
     let (batch, rest) = splitAt batchSize l
-        fAdd :: DualNumberVariables (Delta0 Double) -> DualNumber (Delta0 Double) -> a
+        fAdd :: DualNumberVariables (Delta0 Double)
+             -> DualNumber (Delta0 Double) -> a
              -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double))
         fAdd vars !acc a = do
           res <- f a vars
@@ -72,7 +73,8 @@ sgdBatchForward seed0 batchSize gamma f trainingData parameters0 nParameters =
         (directionalDerivative, valueNew) =
           generalDforward variables fBatch direction
         gammaDirectional = gamma * directionalDerivative
-        parametersNew = updateWithGradient @(Delta0 Double) gammaDirectional parameters direction
+        parametersNew = updateWithGradient @(Delta0 Double) gammaDirectional
+                                           parameters direction
     in go g2 rest parametersNew valueNew
 
 -- | A variant with fast forward derivative computation.
@@ -118,11 +120,13 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
         (directionalDerivative, valueNew) =
           generalDfastForward variables fBatch
         gammaDirectional = gamma * directionalDerivative
-        parametersNew = updateWithGradient @Double gammaDirectional parameters direction
+        parametersNew = updateWithGradient @Double gammaDirectional
+                                           parameters direction
     in go g2 rest parametersNew valueNew
 
 sgdAdamBatch
-  :: forall r a. (HasDelta r, Floating (Primal r), Floating (Primal (Tensor1 r)))
+  :: forall r a.
+     (HasDelta r, Floating (Primal r), Floating (Primal (Tensor1 r)))
   => Int  -- ^ batch size
   -> (a -> DualNumberVariables r -> DualMonadGradient r (DualNumber r))
   -> [a]
@@ -132,7 +136,8 @@ sgdAdamBatch
 sgdAdamBatch = sgdAdamBatchArgs defaultArgsAdam
 
 sgdAdamBatchArgs
-  :: forall r a. (HasDelta r, Floating (Primal r), Floating (Primal (Tensor1 r)))
+  :: forall r a.
+     (HasDelta r, Floating (Primal r), Floating (Primal (Tensor1 r)))
   => ArgsAdam r
   -> Int  -- ^ batch size
   -> (a -> DualNumberVariables r
@@ -177,7 +182,8 @@ gdSmart f n0 parameters0 = go n0 parameters0 0.1 gradients0 value0 0 where
   varDeltas = generateDeltaVars parameters0
   variables0 = makeDualNumberVariables parameters0 varDeltas
   (gradients0, value0) = generalDf variables0 f
-  go :: Int -> Domains r -> Primal r -> Domains r -> Primal r -> Int -> (Domains r, Primal r)
+  go :: Int -> Domains r -> Primal r -> Domains r -> Primal r -> Int
+     -> (Domains r, Primal r)
   go 0 parameters !gamma _gradientsPrev _valuePrev !_i = (parameters, gamma)
   go _ parameters 0 _ _ _ = (parameters, 0)
   go n parameters gamma gradientsPrev valuePrev i =

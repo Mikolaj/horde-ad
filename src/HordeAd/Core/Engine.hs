@@ -1,8 +1,9 @@
 {-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, FlexibleInstances,
              GeneralizedNewtypeDeriving, MultiParamTypeClasses, TypeFamilies,
              UndecidableInstances #-}
--- | Two implementations of the monad in which our dual numbers live
--- and the implementation of deriving a gradient.
+-- | Several implementations of the monad in which our dual numbers live
+-- and the implementations of calculating a gradient, derivative or value
+-- of an objective function defined on dual numbers.
 module HordeAd.Core.Engine
   ( Domain0, Domain1, Domain2, DomainX, Domains
   , DualMonadValue, primalValueGeneric, primalValue
@@ -40,13 +41,12 @@ newtype DualMonadValue r a = DualMonadValue
 instance IsScalar r => DualMonad r (DualMonadValue r) where
   returnLet (D u _u') = DualMonadValue $ Identity $ D u dZero
 
--- The general case, needed for old, hacky tests before 'Delta' extension.
---
--- Small enough that inline won't hurt.
+-- The general case, needed for old, hacky tests using only scalars.
 primalValueGeneric :: forall r a. IsScalar r
                    => (DualNumberVariables r -> DualMonadValue r a)
                    -> Domains r
                    -> a
+-- Small enough that inline won't hurt.
 {-# INLINE primalValueGeneric #-}
 primalValueGeneric f (params0, params1, params2, paramsX) =
   let replicateZeros p = V.replicate (V.length p) dZero
@@ -58,11 +58,11 @@ primalValueGeneric f (params0, params1, params2, paramsX) =
                     , replicateZeros paramsX )
   in runIdentity $ runDualMonadValue $ f variables
 
--- Small enough that inline won't hurt.
 primalValue :: forall r a. IsScalar r
             => (DualNumberVariables r -> DualMonadValue r (DualNumber a))
             -> Domains r
             -> Primal a
+-- Small enough that inline won't hurt.
 {-# INLINE primalValue #-}
 primalValue f parameters =
   let D value _ = primalValueGeneric f parameters
@@ -70,8 +70,7 @@ primalValue f parameters =
 
 
 -- * The fully-fledged monad implementation for gradients
--- and the code that uses it to compute single gradients and to do
--- gradient descent.
+-- and the code that uses it to compute gradients.
 
 newtype DualMonadGradient r a = DualMonadGradient
   { runDualMonadGradient :: State (DeltaState (Primal r)) a }
@@ -97,12 +96,12 @@ initializeState (params0, params1, params2, paramsX) =
                 , deltaBindings = []
                 }
 
--- The functions in which @generalDf@ inlines and which are used in client code
--- are not inlined there, so the bloat is limited.
 generalDf :: forall r. HasDelta r
           => DualNumberVariables r
           -> (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
           -> (Domains r, Primal r)
+-- The functions in which @generalDf@ inlines are not inlined themselves
+-- client code, so the bloat is limited.
 {-# INLINE generalDf #-}
 generalDf variables@(params0, _, params1, _, params2, _, paramsX, _) f =
   let dim0 = V.length params0
@@ -140,8 +139,8 @@ generalDforward variables@(params0, _, params1, _, params2, _, paramsX, _)
                                  initialState
   in (evalBindingsForward st d direction, value)
 
--- In a simple-minded way, just for test, we set the direction vector,
--- the dual counterpart of paramters, the dt, to be equal to main parameters.
+-- In a simple-minded way, just for test, we set the direction vector dt,
+-- which is the dual counterpart of parameters, to be equal to the parameters.
 dforward
   :: HasDelta r
   => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
@@ -172,8 +171,8 @@ generalDfastForward variables f =
   let D value d = runIdentity $ runDualMonadForward $ f variables
   in (d, value)
 
--- In a simple-minded way, just for test, we set the direction vector,
--- the dual counterpart of paramters, the dt, to be equal to main parameters.
+-- In a simple-minded way, just for test, we set the direction vector dt,
+-- which is the dual counterpart of parameters, to be equal to the parameters.
 dfastForward
   :: forall r. HasForward r
   => (DualNumberVariables r -> DualMonadForward r (DualNumber r))

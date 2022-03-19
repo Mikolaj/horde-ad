@@ -24,7 +24,8 @@ import HordeAd.Core.DualClass
 import HordeAd.Core.Engine
 
 {-
-60% of heap allocation in matrix- and vector-based MNIST is performed
+60% of heap allocation in matrix- and vector-based MNIST
+with simple gradient descent (no mini-batches) is performed
 by @updateWithGradient.updateVector@ below
 
   let updateVector i r = i - HM.scale gamma r
@@ -70,9 +71,9 @@ can't fuse with anything and so can't pay for its overhead.
 updateWithGradient :: IsScalar r
                    => Primal r -> Domains r -> Domains r -> Domains r
 updateWithGradient gamma (params0, params1, params2, paramsX)
-                         (gradient, gradient1, gradient2, gradientX) =
+                         (gradient0, gradient1, gradient2, gradientX) =
   let updateVector i r = i - HM.scale gamma r
-      !params0New = updateVector params0 gradient
+      !params0New = updateVector params0 gradient0
       update1 i r = if V.null r  -- eval didn't update it, would crash
                     then i
                     else updateVector i r
@@ -90,15 +91,15 @@ updateWithGradient gamma (params0, params1, params2, paramsX)
   in (params0New, params1New, params2New, paramsXNew)
 
 gradientIsNil :: forall r. IsScalar r => Domains r -> Bool
-gradientIsNil (gradient, gradient1, gradient2, gradientX) =
-  V.all (== 0) gradient
+gradientIsNil (gradient0, gradient1, gradient2, gradientX) =
+  V.all (== 0) gradient0
   && V.all V.null gradient1
   && V.all (\r -> HM.rows r <= 0) gradient2
   && V.all (null . OT.shapeL) gradientX
 
 minimumGradient :: IsScalar r => Domains r -> Primal r
-minimumGradient (gradient, gradient1, gradient2, gradientX) =
-  min (if V.null gradient then 0 else V.minimum gradient)
+minimumGradient (gradient0, gradient1, gradient2, gradientX) =
+  min (if V.null gradient0 then 0 else V.minimum gradient0)
       (min (if V.null gradient1 then 0
             else V.minimum (V.map HM.minElement gradient1))
            (min (if V.null gradient2 then 0
@@ -107,8 +108,8 @@ minimumGradient (gradient, gradient1, gradient2, gradientX) =
                  else V.minimum (V.map OT.minimumA gradientX))))
 
 maximumGradient :: IsScalar r => Domains r -> Primal r
-maximumGradient (gradient, gradient1, gradient2, gradientX) =
-  max (if V.null gradient then 0 else V.maximum gradient)
+maximumGradient (gradient0, gradient1, gradient2, gradientX) =
+  max (if V.null gradient0 then 0 else V.maximum gradient0)
       (max (if V.null gradient1 then 0
             else V.maximum (V.map HM.maxElement gradient1))
            (max (if V.null gradient2 then 0
@@ -118,8 +119,8 @@ maximumGradient (gradient, gradient1, gradient2, gradientX) =
 
 data ArgsAdam r = ArgsAdam
   { alpha   :: Primal r
-  , beta1   :: Primal r
-  , beta2   :: Primal r
+  , betaOne :: Primal r
+  , betaTwo :: Primal r
   , epsilon :: Primal r
   }
 
@@ -128,8 +129,8 @@ data ArgsAdam r = ArgsAdam
 defaultArgsAdam :: Fractional (Primal r) => ArgsAdam r
 defaultArgsAdam = ArgsAdam
   { alpha = 0.001
-  , beta1 = 0.9
-  , beta2 = 0.999
+  , betaOne = 0.9
+  , betaTwo = 0.999
   , epsilon = 1e-7
   }
 
@@ -209,36 +210,35 @@ liftArray43 f m1 m2 m3 m4 =
           $ "nonconformant arrays in liftArray43: "
             ++ show (OT.shapeL m1, OT.shapeL m2, OT.shapeL m3, OT.shapeL m4)
 
-updateWithGradientAdam :: forall r. (Floating (Primal r), IsScalar r, Floating (Primal (Tensor1 r)))
-                       => ArgsAdam r
-                       -> StateAdam r
-                       -> Domains r
-                       -> Domains r
-                       -> (Domains r, StateAdam r)
+updateWithGradientAdam
+  :: forall r. (Floating (Primal r), IsScalar r, Floating (Primal (Tensor1 r)))
+  => ArgsAdam r -> StateAdam r -> Domains r -> Domains r
+  -> (Domains r, StateAdam r)
 updateWithGradientAdam ArgsAdam{..}
                        StateAdam{ tAdam
-                                , mAdam = (mAdam, mAdam1, mAdam2, mAdamX)
-                                , vAdam = (vAdam, vAdam1, vAdam2, vAdamX)
+                                , mAdam = (mAdam0, mAdam1, mAdam2, mAdamX)
+                                , vAdam = (vAdam0, vAdam1, vAdam2, vAdamX)
                                 }
                        (params0, params1, params2, paramsX)
-                       (gradient, gradient1, gradient2, gradientX) =
+                       (gradient0, gradient1, gradient2, gradientX) =
   let tAdamNew = tAdam + 1
-      oneMinusBeta1 = 1 - beta1
-      oneMinusBeta2 = 1 - beta2
-      updateVector :: Vector (Primal r) -> Vector (Primal r) -> Vector (Primal r) -> Vector (Primal r)
+      oneMinusBeta1 = 1 - betaOne
+      oneMinusBeta2 = 1 - betaTwo
+      updateVector :: Vector (Primal r) -> Vector (Primal r)
+                   -> Vector (Primal r) -> Vector (Primal r)
                    -> (Vector (Primal r), Vector (Primal r), Vector (Primal r))
       updateVector mA vA p g =
-        let mANew = HM.scale beta1 mA + HM.scale oneMinusBeta1 g
-            vANew = HM.scale beta2 vA + HM.scale oneMinusBeta2 (g * g)
-            alphat = alpha * sqrt (1 - beta2 ^ tAdamNew)
-                             / (1 - beta1 ^ tAdamNew)
+        let mANew = HM.scale betaOne mA + HM.scale oneMinusBeta1 g
+            vANew = HM.scale betaTwo vA + HM.scale oneMinusBeta2 (g * g)
+            alphat = alpha * sqrt (1 - betaTwo ^ tAdamNew)
+                             / (1 - betaOne ^ tAdamNew)
         in ( mANew
            , vANew
            , p - HM.scale alphat mANew
                  / (sqrt vANew + HM.scalar epsilon) )  -- the @scalar@ is safe
                       -- @addConstant@ would be better, but it's not exposed
       (!mAdam0New, !vAdam0New, !params0New) =
-        updateVector mAdam vAdam params0 gradient
+        updateVector mAdam0 vAdam0 params0 gradient0
       update1 mA vA p g = if V.null g  -- eval didn't update it, would crash
                           then (mA, vA, p)
                           else updateVector mA vA p g

@@ -558,7 +558,8 @@ buildFinMaps st deltaTopLevel = do
 -- Warning: the tensor part is not tested at all.
 evalBindingsForward :: forall r. (Numeric r, Num (Vector r))
                     => DeltaState r -> Delta0 r -> Domains r -> r
-evalBindingsForward st deltaTopLevel (params0Init, params1Init, params2Init, paramsXInit) =
+evalBindingsForward st deltaTopLevel
+                    (params0Init, params1Init, params2Init, paramsXInit) =
   let eval0 :: Domains r -> Delta0 r -> r
       eval0 parameters@(params0, _, _, _) = \case
         Zero0 -> 0
