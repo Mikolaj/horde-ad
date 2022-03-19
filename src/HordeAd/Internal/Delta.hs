@@ -239,6 +239,10 @@ data DeltaState r = DeltaState
 -- argument here is the underlying scalar (e.g., @Double),
 -- while elsewhere it's the dual component of dual numbers from
 -- rank 0 (scalar) level (e.g., @Delta0 Double@).
+--
+-- More generally, @r@ in this module tends to refert to the underlying
+-- scalar type, while in all other modules it's the rank 0 dual component
+-- type, in this module often denoted by @d@ both on type and value level.
 type Domain r = Vector r
 
 type DomainV r = Data.Vector.Vector (Vector r)
