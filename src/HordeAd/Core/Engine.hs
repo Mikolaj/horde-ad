@@ -1,5 +1,6 @@
-{-# LANGUAGE ConstraintKinds, FlexibleInstances, GeneralizedNewtypeDeriving,
-             MultiParamTypeClasses, TypeFamilies, UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, FlexibleInstances,
+             GeneralizedNewtypeDeriving, MultiParamTypeClasses, TypeFamilies,
+             UndecidableInstances #-}
 -- | Two implementations of the monad in which our dual numbers live
 -- and the implementation of deriving a gradient.
 module HordeAd.Core.Engine
@@ -83,9 +84,22 @@ instance IsScalar r => DualMonad r (DualMonadGradient r) where
     put stNew
     return $! D u (dVar dId)
 
+initializeState :: forall r. IsScalar r => Domains r -> DeltaState (Primal r)
+initializeState (params, paramsV, paramsL, paramsX) =
+  let dim = V.length params
+      dimV = V.length paramsV
+      dimL = V.length paramsL
+      dimX = V.length paramsX
+  in DeltaState { deltaCounter0 = toDeltaId dim
+                , deltaCounter1 = toDeltaId dimV
+                , deltaCounter2 = toDeltaId dimL
+                , deltaCounterX = toDeltaId dimX
+                , deltaBindings = []
+                }
+
 -- The functions in which @generalDf@ inlines and which are used in client code
 -- are not inlined there, so the bloat is limited.
-generalDf :: HasDelta r
+generalDf :: forall r. HasDelta r
           => DualNumberVariables r
           -> (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
           -> (Domains r, Primal r)
@@ -95,13 +109,7 @@ generalDf variables@(params, _, paramsV, _, paramsL, _, paramsX, _) f =
       dimV = V.length paramsV
       dimL = V.length paramsL
       dimX = V.length paramsX
-      initialState = DeltaState
-        { deltaCounter0 = toDeltaId dim
-        , deltaCounter1 = toDeltaId dimV
-        , deltaCounter2 = toDeltaId dimL
-        , deltaCounterX = toDeltaId dimX
-        , deltaBindings = []
-        }
+      initialState = initializeState @r (params, paramsV, paramsL, paramsX)
       (D value d, st) = runState (runDualMonadGradient (f variables))
                                  initialState
       gradient = evalBindings dim dimV dimL dimX st d
@@ -119,7 +127,7 @@ df f parameters =
 -- This function uses @DualMonadGradient@ for an inefficient computation
 -- of forward derivaties. See @generalDfastForward@ for an efficient variant.
 generalDforward
-  :: HasDelta r
+  :: forall r. HasDelta r
   => DualNumberVariables r
   -> (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
   -> Domains r
@@ -127,17 +135,7 @@ generalDforward
 {-# INLINE generalDforward #-}
 generalDforward variables@(params, _, paramsV, _, paramsL, _, paramsX, _)
                 f direction =
-  let dim = V.length params
-      dimV = V.length paramsV
-      dimL = V.length paramsL
-      dimX = V.length paramsX
-      initialState = DeltaState
-        { deltaCounter0 = toDeltaId dim
-        , deltaCounter1 = toDeltaId dimV
-        , deltaCounter2 = toDeltaId dimL
-        , deltaCounterX = toDeltaId dimX
-        , deltaBindings = []
-        }
+  let initialState = initializeState @r (params, paramsV, paramsL, paramsX)
       (D value d, st) = runState (runDualMonadGradient (f variables))
                                  initialState
   in (evalBindingsForward st d direction, value)
@@ -192,25 +190,15 @@ dfastForward f parameters@(params, paramsV, paramsL, paramsX) =
 
 -- * Additional mechanisms
 
-prettyPrintDf :: (Show (Primal r), HasDelta r)
+prettyPrintDf :: forall r. (Show (Primal r), HasDelta r)
               => Bool
               -> (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
               -> Domains r
               -> String
-prettyPrintDf reversed f parameters@(params, paramsV, paramsL, paramsX) =
+prettyPrintDf reversed f parameters =
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
-      dim = V.length params
-      dimV = V.length paramsV
-      dimL = V.length paramsL
-      dimX = V.length paramsX
-      initialState = DeltaState
-        { deltaCounter0 = toDeltaId dim
-        , deltaCounter1 = toDeltaId dimV
-        , deltaCounter2 = toDeltaId dimL
-        , deltaCounterX = toDeltaId dimX
-        , deltaBindings = []
-        }
+      initialState = initializeState @r parameters
       (D _ deltaTopLevel, st) = runState (runDualMonadGradient (f variables))
                                          initialState
   in ppBindings reversed st deltaTopLevel
