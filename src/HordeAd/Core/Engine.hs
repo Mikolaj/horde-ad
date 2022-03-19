@@ -4,7 +4,7 @@
 -- | Two implementations of the monad in which our dual numbers live
 -- and the implementation of deriving a gradient.
 module HordeAd.Core.Engine
-  ( Domain, DomainV, DomainL, DomainX, Domains
+  ( Domain0, Domain1, Domain2, DomainX, Domains
   , DualMonadValue, primalValueGeneric, primalValue
   , DualMonadGradient, generalDf, df, generalDforward, dforward, prettyPrintDf
   , DualMonadForward, generalDfastForward, dfastForward
@@ -21,7 +21,7 @@ import qualified Numeric.LinearAlgebra as HM
 
 import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
-  (Domain, DomainL, DomainV, DomainX, Domains, DualMonad (..), DualNumber (..))
+  (Domain0, Domain1, Domain2, DomainX, Domains, DualMonad (..), DualNumber (..))
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 import HordeAd.Internal.Delta
   (DeltaState (..), evalBindings, evalBindingsForward, ppBindings, toDeltaId)
@@ -48,13 +48,13 @@ primalValueGeneric :: forall r a. IsScalar r
                    -> Domains r
                    -> a
 {-# INLINE primalValueGeneric #-}
-primalValueGeneric f (params, paramsV, paramsL, paramsX) =
+primalValueGeneric f (params0, params1, params2, paramsX) =
   let replicateZeros p = V.replicate (V.length p) dZero
       variables = makeDualNumberVariables
-                    (params, paramsV, paramsL, paramsX)
-                    ( replicateZeros params  -- dummy
-                    , replicateZeros paramsV
-                    , replicateZeros paramsL
+                    (params0, params1, params2, paramsX)
+                    ( replicateZeros params0  -- dummy
+                    , replicateZeros params1
+                    , replicateZeros params2
                     , replicateZeros paramsX )
   in runIdentity $ runDualMonadValue $ f variables
 
@@ -85,14 +85,14 @@ instance IsScalar r => DualMonad r (DualMonadGradient r) where
     return $! D u (dVar dId)
 
 initializeState :: forall r. IsScalar r => Domains r -> DeltaState (Primal r)
-initializeState (params, paramsV, paramsL, paramsX) =
-  let dim = V.length params
-      dimV = V.length paramsV
-      dimL = V.length paramsL
+initializeState (params0, params1, params2, paramsX) =
+  let dim0 = V.length params0
+      dim1 = V.length params1
+      dim2 = V.length params2
       dimX = V.length paramsX
-  in DeltaState { deltaCounter0 = toDeltaId dim
-                , deltaCounter1 = toDeltaId dimV
-                , deltaCounter2 = toDeltaId dimL
+  in DeltaState { deltaCounter0 = toDeltaId dim0
+                , deltaCounter1 = toDeltaId dim1
+                , deltaCounter2 = toDeltaId dim2
                 , deltaCounterX = toDeltaId dimX
                 , deltaBindings = []
                 }
@@ -104,15 +104,15 @@ generalDf :: forall r. HasDelta r
           -> (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
           -> (Domains r, Primal r)
 {-# INLINE generalDf #-}
-generalDf variables@(params, _, paramsV, _, paramsL, _, paramsX, _) f =
-  let dim = V.length params
-      dimV = V.length paramsV
-      dimL = V.length paramsL
+generalDf variables@(params0, _, params1, _, params2, _, paramsX, _) f =
+  let dim0 = V.length params0
+      dim1 = V.length params1
+      dim2 = V.length params2
       dimX = V.length paramsX
-      initialState = initializeState @r (params, paramsV, paramsL, paramsX)
+      initialState = initializeState @r (params0, params1, params2, paramsX)
       (D value d, st) = runState (runDualMonadGradient (f variables))
                                  initialState
-      gradient = evalBindings dim dimV dimL dimX st d
+      gradient = evalBindings dim0 dim1 dim2 dimX st d
   in (gradient, value)
 
 df :: HasDelta r
@@ -133,9 +133,9 @@ generalDforward
   -> Domains r
   -> (Primal r, Primal r)
 {-# INLINE generalDforward #-}
-generalDforward variables@(params, _, paramsV, _, paramsL, _, paramsX, _)
+generalDforward variables@(params0, _, params1, _, params2, _, paramsX, _)
                 f direction =
-  let initialState = initializeState @r (params, paramsV, paramsL, paramsX)
+  let initialState = initializeState @r (params0, params1, params2, paramsX)
       (D value d, st) = runState (runDualMonadGradient (f variables))
                                  initialState
   in (evalBindingsForward st d direction, value)
@@ -179,11 +179,11 @@ dfastForward
   => (DualNumberVariables r -> DualMonadForward r (DualNumber r))
   -> Domains r
   -> (Primal r, Primal r)
-dfastForward f parameters@(params, paramsV, paramsL, paramsX) =
+dfastForward f parameters@(params0, params1, params2, paramsX) =
   let variables =
         makeDualNumberVariables
           parameters
-          (V.convert params, paramsV, paramsL, paramsX)
+          (V.convert params0, params1, params2, paramsX)
       (derivative, value) = generalDfastForward variables f
   in (derivative, value)
 
@@ -209,11 +209,11 @@ generateDeltaVars :: IsScalar r
                      , Data.Vector.Vector (Tensor1 r)
                      , Data.Vector.Vector (Tensor2 r)
                      , Data.Vector.Vector (TensorX r) )
-generateDeltaVars (params, paramsV, paramsL, paramsX) =
+generateDeltaVars (params0, params1, params2, paramsX) =
   let vVar p = V.generate (V.length p) (dVar . toDeltaId)
-      !v0 = vVar params
-      !v1 = vVar paramsV
-      !v2 = vVar paramsL
+      !v0 = vVar params0
+      !v1 = vVar params1
+      !v2 = vVar params2
       !vX = vVar paramsX
   in (v0, v1, v2, vX)
 
@@ -232,23 +232,23 @@ generateDeltaVars (params, paramsV, paramsL, paramsX) =
 -- See https://github.com/pytorch/pytorch/issues/15314 and their newer code.
 initializerFixed :: Int -> Double -> (Int, [Int], [(Int, Int)])
                  -> ((Int, Int, Int), Int, Double, Domains Double)
-initializerFixed seed range (nParams, lParamsV, lParamsL) =
-  let vParamsV = V.fromList lParamsV
-      vParamsL = V.fromList lParamsL
+initializerFixed seed range (nParams0, lParams1, lParams2) =
+  let vParams1 = V.fromList lParams1
+      vParams2 = V.fromList lParams2
       createRandomVector n seedV =
         HM.scale (2 * range)
         $ HM.randomVector seedV HM.Uniform n - HM.scalar 0.5
-      params0 = createRandomVector nParams seed
-      paramsV0 =
-        V.imap (\i nPV -> createRandomVector nPV (seed + nPV + i)) vParamsV
-      paramsL0 =
+      params0Init = createRandomVector nParams0 seed
+      params1Init =
+        V.imap (\i nPV -> createRandomVector nPV (seed + nPV + i)) vParams1
+      params2Init =
         V.imap (\i (rows, cols) ->
                  HM.reshape cols
-                 $ createRandomVector (rows * cols) (seed + rows + i)) vParamsL
-      totalParams = nParams
-                    + V.sum vParamsV
-                    + V.sum (V.map (uncurry (*)) vParamsL)
-  in ( (nParams, V.length vParamsV, V.length vParamsL)
+                 $ createRandomVector (rows * cols) (seed + rows + i)) vParams2
+      totalParams = nParams0
+                    + V.sum vParams1
+                    + V.sum (V.map (uncurry (*)) vParams2)
+  in ( (nParams0, V.length vParams1, V.length vParams2)
      , totalParams
      , range
-     , (params0, paramsV0, paramsL0, V.empty) )
+     , (params0Init, params1Init, params2Init, V.empty) )

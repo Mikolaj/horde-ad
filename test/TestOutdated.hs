@@ -73,8 +73,8 @@ hiddenLayerFit :: forall m. DualMonad (Delta0 Double) m
 hiddenLayerFit factivation x vec width = do
   let f :: Int -> m DualNumberD
       f i = do
-        let weight = var vec (2 * i)
-            bias = var vec (2 * i + 1)
+        let weight = var0 vec (2 * i)
+            bias = var0 vec (2 * i + 1)
         sx <- scaleDual x weight
         sxBias <- sx +\ bias
         factivation sxBias
@@ -156,7 +156,7 @@ wsFitSeparated range@(low, hi) seed k =
 gdSimpleShow :: HasDelta r
              => Primal r
              -> (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
-             -> Domain r
+             -> Domain0 r
              -> Int
              -> ([Primal r], Primal r)
 gdSimpleShow gamma f initVec n =
@@ -177,12 +177,12 @@ gdSimpleTestCase
   -> Int -> Int -> Int -> Double -> Int -> Double
   -> TestTree
 gdSimpleTestCase prefix sampleFunction lossFunction
-                 seedSamples nSamples nParams gamma nIterations expected =
+                 seedSamples nSamples nParams0 gamma nIterations expected =
   let samples = sampleFunction (-1, 1) seedSamples nSamples
-      vec = V.unfoldrExactN nParams (uniformR (-1, 1)) $ mkStdGen 33
+      vec = V.unfoldrExactN nParams0 (uniformR (-1, 1)) $ mkStdGen 33
       name = prefix ++ " "
              ++ unwords [ show seedSamples, show nSamples
-                        , show nParams, show gamma, show nIterations ]
+                        , show nParams0, show gamma, show nIterations ]
   in testCase name $
        snd (gdSimpleShow gamma (lossFunction tanhAct tanhAct samples)
                          vec nIterations)
@@ -244,8 +244,8 @@ middleLayerFit2 :: forall m. DualMonad (Delta0 Double) m
 middleLayerFit2 factivation hiddenVec offset vec = do
   let f :: Int -> DualNumberD -> m DualNumberD
       f i x = do
-        let weight = var vec (offset + 2 * i)
-            bias = var vec (offset + 1 + 2 * i)
+        let weight = var0 vec (offset + 2 * i)
+            bias = var0 vec (offset + 1 + 2 * i)
         sx <- x *\ weight
         sxBias <- sx +\ bias
         factivation sxBias
@@ -336,7 +336,7 @@ fit2TestsL = testGroup "logisticAct: Sample fitting 2 hidden layer not fully con
   ]
 
 gdSmartShow :: (DualNumberVariablesD -> DualMonadGradient (Delta0 Double) DualNumberD)
-            -> Domain Double
+            -> Domain0 Double
             -> Int
             -> ([Double], (Double, Double))
 gdSmartShow f initVec n =
@@ -356,12 +356,12 @@ gradSmartTestCase :: Num a
                   -> Int -> Int -> Int -> Int -> (Double, Double)
                   -> TestTree
 gradSmartTestCase prefix sampleFunction lossFunction
-                  seedSamples nSamples nParams nIterations expected =
+                  seedSamples nSamples nParams0 nIterations expected =
   let samples = sampleFunction (-1, 1) seedSamples nSamples
-      vec = V.unfoldrExactN nParams (uniformR (-1, 1)) $ mkStdGen 33
+      vec = V.unfoldrExactN nParams0 (uniformR (-1, 1)) $ mkStdGen 33
       name = prefix ++ " "
              ++ unwords [ show seedSamples, show nSamples
-                        , show nParams, show nIterations ]
+                        , show nParams0, show nIterations ]
   in testCase name $
        snd (gdSmartShow (lossFunction tanhAct tanhAct samples) vec nIterations)
        @?= expected
@@ -505,8 +505,8 @@ nnFit3 factivationHidden factivationMiddle factivationOutput x vec = do
   -- one bias of the outer layer, a list of weights of the outer layer
   -- of length w, a list of the same length of weights and biases of the first
   -- hidden layer, w * w weigths in the middle hidden layer and w biases.
-  -- In total, #params == 1 + w + 2 * w + w^2 + w == w^2 + 4 * w + 1,
-  -- so the equation to solve is w^2 + 4 * w + (1 - #params) = 0.
+  -- In total, #params0 == 1 + w + 2 * w + w^2 + w == w^2 + 4 * w + 1,
+  -- so the equation to solve is w^2 + 4 * w + (1 - #params0) = 0.
   -- Length 31 gives almost 3. Length 61 gives exactly 6.
   let len :: Double
       len = fromIntegral $ lengthDualNumber vec  -- #params
@@ -719,11 +719,11 @@ sgdShow :: HasDelta r
         => Primal r
         -> (a -> DualNumberVariables r -> DualMonadGradient r (DualNumber r))
         -> [a]  -- ^ training data
-        -> Domain r  -- ^ initial parameters
+        -> Domain0 r  -- ^ initial parameters
         -> ([Primal r], Primal r)
-sgdShow gamma f trainData params0 =
+sgdShow gamma f trainData params0Init =
   let (res, _, _, _) =
-        fst $ sgd gamma f trainData (params0, V.empty, V.empty, V.empty)
+        fst $ sgd gamma f trainData (params0Init, V.empty, V.empty, V.empty)
       (_, value) = df (f $ head trainData) (res, V.empty, V.empty, V.empty)
   in (V.toList res, value)
 
@@ -739,10 +739,10 @@ sgdTestCase
   -> TestTree
 sgdTestCase prefix trainDataIO trainWithLoss gamma expected =
   let widthHidden = 250
-      nParams = lenMnist widthHidden
-      vec = HM.randomVector 33 HM.Uniform nParams - HM.scalar 0.5
+      nParams0 = lenMnist widthHidden
+      vec = HM.randomVector 33 HM.Uniform nParams0 - HM.scalar 0.5
       name = prefix ++ " "
-             ++ unwords [show widthHidden, show nParams, show gamma]
+             ++ unwords [show widthHidden, show nParams0, show gamma]
   in testCase name $ do
        trainData <- trainDataIO
        snd (sgdShow gamma (trainWithLoss widthHidden) trainData vec)

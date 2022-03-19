@@ -15,7 +15,7 @@ import           GHC.Exts (inline)
 import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.PairOfVectors (DualNumberVariables, var)
+import HordeAd.Core.PairOfVectors (DualNumberVariables, var0)
 import HordeAd.Tool.MnistData
 
 -- | Compute the output of a neuron, without applying activation function,
@@ -28,10 +28,10 @@ sumTrainableInputs :: forall m r. DualMonad r m
                    -> DualNumberVariables r
                    -> m (DualNumber r)
 sumTrainableInputs xs offset variables = do
-  let bias = var variables offset
+  let bias = var0 variables offset
       f :: DualNumber r -> Int -> DualNumber r -> DualNumber r
       f !acc i u =
-        let v = var variables (offset + 1 + i)
+        let v = var0 variables (offset + 1 + i)
         in acc + u * v
   returnLet $ V.ifoldl' f bias xs
 
@@ -45,10 +45,10 @@ sumConstantData :: forall m r. DualMonad r m
                 -> DualNumberVariables r
                 -> m (DualNumber r)
 sumConstantData xs offset variables = do
-  let bias = var variables offset
+  let bias = var0 variables offset
       f :: DualNumber r -> Int -> Primal r -> DualNumber r
       f !acc i r =
-        let v = var variables (offset + 1 + i)
+        let v = var0 variables (offset + 1 + i)
         in acc + scale r v
   returnLet $ V.ifoldl' f bias xs
 
@@ -152,16 +152,16 @@ nnMnistLoss2 widthHidden widthHidden2 (input, target) variables = do
 -- The proxy argument is needed only for the (spurious) SPECIALIZE pragma,
 -- becuase I can't write @SPECIALIZE testMnist2 \@(Delta0 Double)@.
 testMnist2 :: forall r. (IsScalar r, Floating (Primal r))
-           => Proxy r -> Int -> Int -> [MnistData (Primal r)] -> Domain r
+           => Proxy r -> Int -> Int -> [MnistData (Primal r)] -> Domain0 r
            -> Primal r
-testMnist2 _ widthHidden widthHidden2 inputs params =
+testMnist2 _ widthHidden widthHidden2 inputs params0 =
   let matchesLabels :: MnistData (Primal r) -> Bool
       matchesLabels (glyph, label) =
         let nn = inline (nnMnist2 @r) logisticAct softMaxAct
                                       widthHidden widthHidden2 glyph
             value = V.map (\(D r _) -> r)
-                    $ primalValueGeneric @r nn (params, V.empty, V.empty, V.empty)
+                    $ primalValueGeneric @r nn (params0, V.empty, V.empty, V.empty)
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
-{-# SPECIALIZE testMnist2 :: Proxy (Delta0 Double) -> Int -> Int -> [MnistData Double] -> Domain (Delta0 Double) -> Double #-}
+{-# SPECIALIZE testMnist2 :: Proxy (Delta0 Double) -> Int -> Int -> [MnistData Double] -> Domain0 (Delta0 Double) -> Double #-}

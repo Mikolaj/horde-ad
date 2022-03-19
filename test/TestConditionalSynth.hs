@@ -128,7 +128,7 @@ splitLayerV factivation hiddenVec offset variables width = do
       activate :: Int -> m (DualNumber (Tensor1 r))
       activate n = do
         let v = V.slice (n * chunkWidth) chunkWidth multiplied
-        factivation $ seq1 v + varV variables (offset + width + n)
+        factivation $ seq1 v + var1 variables (offset + width + n)
   a0 <- activate 0
   a1 <- activate 1
   a2 <- activate 2
@@ -149,7 +149,7 @@ synthLossBareTotal factivation factivationHidden factivationMiddle
       nSamples = V.length samples
       sampleData = inputs <> outputs
       hiddenLayer1 = sumConstantDataL sampleData 0 variables width
-                     + varV variables width  -- bias
+                     + var1 variables width  -- bias
   nonlinearLayer1 <- factivationHidden hiddenLayer1
   let offsetMiddle = width + 1
   (ps1, ps2, ps3) <- splitLayerV factivationMiddle nonlinearLayer1
@@ -182,14 +182,14 @@ integerPairSamples range seed k =
 gdSmartShow :: (HasDelta r, Fractional (Primal r))
             => (DualNumberVariables r
                 -> DualMonadGradient r (DualNumber r))
-            -> DomainV r
+            -> Domain1 r
             -> Int
             -> ([Data.Vector.Storable.Vector (Primal r)], (Primal r, Primal r))
-gdSmartShow f paramsV0 n =
-  let ((_, paramsV, _, _), gamma) =
-        gdSmart f n (V.empty, paramsV0, V.empty, V.empty)
-      (_, value) = df f (V.empty, paramsV, V.empty, V.empty)
-  in (V.toList paramsV, (value, gamma))
+gdSmartShow f params1Init n =
+  let ((_, params1, _, _), gamma) =
+        gdSmart f n (V.empty, params1Init, V.empty, V.empty)
+      (_, value) = df f (V.empty, params1, V.empty, V.empty)
+  in (V.toList params1, (value, gamma))
 
 gradSmartTestCase
   :: forall r. (HasDelta r, Primal r ~ Double)
@@ -209,19 +209,19 @@ gradSmartTestCase
 gradSmartTestCase prefix lossFunction seedSamples
                   nSamples width nIterations expected =
   let samples = integerPairSamples (-1000, 1000) seedSamples nSamples
-      nParamsV = lenSynthV width nSamples
-      paramsV0 =
+      nParams1 = lenSynthV width nSamples
+      params1Init =
         V.imap (\i nPV -> HM.randomVector (33 + nPV + i) HM.Uniform nPV
                           - HM.scalar 0.5)
-               nParamsV
+               nParams1
       name = prefix ++ " "
              ++ unwords [ show seedSamples, show nSamples, show width
-                        , show (V.length nParamsV), show (V.sum nParamsV)
+                        , show (V.length nParams1), show (V.sum nParams1)
                         , show nIterations ]
   in testCase name $
        snd (gdSmartShow
               (lossFunction reluActV tanhAct tanhAct samples width)
-              paramsV0 nIterations)
+              params1Init nIterations)
        @?= expected
 
 conditionalSynthTests:: TestTree

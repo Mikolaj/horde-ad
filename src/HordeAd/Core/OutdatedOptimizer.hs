@@ -93,7 +93,7 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
  where
   go :: Int -> [a] -> Domains Double -> Double -> (Domains Double, Double)
   go _ [] parameters value = (parameters, value)
-  go seed l parameters@(params, paramsV, paramsL, paramsX) _ =
+  go seed l parameters@(params0, params1, params2, paramsX) _ =
     let (batch, rest) = splitAt batchSize l
         fAdd :: DualNumberVariables Double
              -> DualNumber Double -> a
@@ -108,13 +108,13 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
           return $! resBatch / fromIntegral (length batch)
         unitVarianceRange = sqrt 12 / 2
         (g1, g2) = (seed + 5, seed + 13)
-        (_, _, _, direction@(dparams, dparamsV, dparamsL, dparamsX)) =
+        (_, _, _, direction@(dparams0, dparams1, dparams2, dparamsX)) =
           initializerFixed g1 unitVarianceRange nParameters
         variables =
           makeDualNumberVariables
-            ( coerce params, coerce paramsV, coerce paramsL
+            ( coerce params0, coerce params1, coerce params2
             , unsafeCoerce paramsX )
-            (V.convert dparams, dparamsV, dparamsL, dparamsX)
+            (V.convert dparams0, dparams1, dparams2, dparamsX)
         (directionalDerivative, valueNew) =
           generalDfastForward variables fBatch
         gammaDirectional = gamma * directionalDerivative

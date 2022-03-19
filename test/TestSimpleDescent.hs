@@ -32,7 +32,7 @@ squareDual = returnLet . square
 gdSimpleShow :: HasDelta r
              => Primal r
              -> (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
-             -> Domain r
+             -> Domain0 r
              -> Int
              -> ([Primal r], Primal r)
 gdSimpleShow gamma f initVec n =
@@ -42,8 +42,8 @@ gdSimpleShow gamma f initVec n =
 
 fquad :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 fquad variables = do
-  let x = var variables 0
-      y = var variables 1
+  let x = var0 variables 0
+      y = var0 variables 1
   x2 <- squareDual x
   y2 <- y *\ y
   tmp <- x2 +\ y2
@@ -99,9 +99,9 @@ scaleAddWithBias :: DualMonad (Delta0 Float) m
                  => DualNumber (Delta0 Float) -> DualNumber (Delta0 Float) -> Int -> DualNumberVariables (Delta0 Float)
                  -> m (DualNumber (Delta0 Float))
 scaleAddWithBias x y ixWeight variables = do
-  let wx = var variables ixWeight
-      wy = var variables (ixWeight + 1)
-      bias = var variables (ixWeight + 2)
+  let wx = var0 variables ixWeight
+      wy = var0 variables (ixWeight + 1)
+      bias = var0 variables (ixWeight + 2)
   sx <- x *\ wx
   sy <- y *\ wy
   sxy <- sx +\ sy
@@ -145,7 +145,7 @@ nnXorLossTotal factivation variables = do
   n34 <- n3 +\ n4
   n12 +\ n34
 
-ws, ws2 :: Domain Float
+ws, ws2 :: Domain0 Float
 ws = let w = [0.37, 0.28, 0.19] in V.fromList $ w ++ w ++ w
 ws2 = let w = [-1.37, 2.28, -0.19] in V.fromList $ w ++ w ++ w
 

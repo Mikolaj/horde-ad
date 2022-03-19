@@ -10,7 +10,7 @@
 -- with `Delta` variables assigned to each.
 module HordeAd.Core.PairOfVectors
   ( DualNumberVariables
-  , makeDualNumberVariables, var, vars, varV, varL, varX, varS
+  , makeDualNumberVariables, var0, vars, var1, var2, varX, varS
   , ifoldMDual', foldMDual', ifoldlDual', foldlDual'
   ) where
 
@@ -23,18 +23,18 @@ import qualified Data.Vector.Generic as V
 
 import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
-  (Domain, DomainL, DomainV, DomainX, Domains, DualNumber (..))
+  (Domain0, Domain1, Domain2, DomainX, Domains, DualNumber (..))
 
 -- These are optimized as "pair of vectors" representing vectors of @DualNumber@
 -- in an efficient way (especially, or only, with gradient descent,
 -- where the vectors are reused in some ways).
 
 type DualNumberVariables r =
-  ( Domain r
+  ( Domain0 r
   , Data.Vector.Vector r
-  , DomainV r
+  , Domain1 r
   , Data.Vector.Vector (Tensor1 r)
-  , DomainL r
+  , Domain2 r
   , Data.Vector.Vector (Tensor2 r)
   , DomainX r
   , Data.Vector.Vector (TensorX r)
@@ -48,21 +48,22 @@ makeDualNumberVariables
      , Data.Vector.Vector (TensorX r) )
   -> DualNumberVariables r
 {-# INLINE makeDualNumberVariables #-}
-makeDualNumberVariables (params, paramsV, paramsL, paramsX) (vs, vsV, vsL, vsX)
-  = (params, vs, paramsV, vsV, paramsL, vsL, paramsX, vsX)
+makeDualNumberVariables (params0, params1, params2, paramsX)
+                        (vs0, vs1, vs2, vsX)
+  = (params0, vs0, params1, vs1, params2, vs2, paramsX, vsX)
 
-var :: IsScalar r => DualNumberVariables r -> Int -> DualNumber r
-var (vValue, vVar, _, _, _, _, _, _) i = D (vValue V.! i) (vVar V.! i)
+var0 :: IsScalar r => DualNumberVariables r -> Int -> DualNumber r
+var0 (vValue, vVar, _, _, _, _, _, _) i = D (vValue V.! i) (vVar V.! i)
 
 -- Unsafe, but handy for toy examples.
 vars :: IsScalar r => DualNumberVariables r -> [DualNumber r]
-vars vec = map (var vec) [0 ..]
+vars vec = map ( var0 vec) [0 ..]
 
-varV :: IsScalar r => DualNumberVariables r -> Int -> DualNumber (Tensor1 r)
-varV (_, _, vValue, vVar, _, _, _, _) i = D (vValue V.! i) (vVar V.! i)
+var1 :: IsScalar r => DualNumberVariables r -> Int -> DualNumber (Tensor1 r)
+var1 (_, _, vValue, vVar, _, _, _, _) i = D (vValue V.! i) (vVar V.! i)
 
-varL :: IsScalar r => DualNumberVariables r -> Int -> DualNumber (Tensor2 r)
-varL (_, _, _, _, vValue, vVar, _, _) i = D (vValue V.! i) (vVar V.! i)
+var2 :: IsScalar r => DualNumberVariables r -> Int -> DualNumber (Tensor2 r)
+var2 (_, _, _, _, vValue, vVar, _, _) i = D (vValue V.! i) (vVar V.! i)
 
 varX :: IsScalar r => DualNumberVariables r -> Int -> DualNumber (TensorX r)
 varX (_, _, _, _, _, _, vValue, vVar) i = D (vValue V.! i) (vVar V.! i)

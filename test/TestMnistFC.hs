@@ -39,10 +39,10 @@ sgdShow :: HasDelta r
         => Primal r
         -> (a -> DualNumberVariables r -> DualMonadGradient r (DualNumber r))
         -> [a]  -- ^ training data
-        -> Domain r  -- ^ initial parameters
+        -> Domain0 r  -- ^ initial parameters
         -> Primal r
-sgdShow gamma f trainData params0 =
-  let result = fst $ sgd gamma f trainData (params0, V.empty, V.empty, V.empty)
+sgdShow gamma f trainData params0Init =
+  let result = fst $ sgd gamma f trainData (params0Init, V.empty, V.empty, V.empty)
   in snd $ df (f $ head trainData) result
 
 sgdTestCase :: String
@@ -58,10 +58,10 @@ sgdTestCase :: String
 sgdTestCase prefix trainDataIO trainWithLoss gamma expected =
   let widthHidden = 250
       widthHidden2 = 50
-      nParams = lenMnist2 widthHidden widthHidden2
-      vec = HM.randomVector 33 HM.Uniform nParams - HM.scalar 0.5
+      nParams0 = lenMnist2 widthHidden widthHidden2
+      vec = HM.randomVector 33 HM.Uniform nParams0 - HM.scalar 0.5
       name = prefix ++ " "
-             ++ unwords [show widthHidden, show nParams, show gamma]
+             ++ unwords [show widthHidden, show nParams0, show gamma]
   in testCase name $ do
        trainData <- trainDataIO
        sgdShow gamma (trainWithLoss widthHidden widthHidden2)
@@ -84,42 +84,42 @@ mnistTestCase2
   -> TestTree
 mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                gamma expected =
-  let nParams = lenMnist2 widthHidden widthHidden2
-      params0 = HM.randomVector 44 HM.Uniform nParams - HM.scalar 0.5
+  let nParams0 = lenMnist2 widthHidden widthHidden2
+      params0Init = HM.randomVector 44 HM.Uniform nParams0 - HM.scalar 0.5
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show nParams, show gamma ]
+                        , show nParams0, show gamma ]
   in testCase name $ do
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- loadMnistData testGlyphsPath testLabelsPath
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: Domain Double -> (Int, [MnistData Double])
-                    -> IO (Domain Double)
-           runBatch !params (k, chunk) = do
+       let runBatch :: Domain0 Double -> (Int, [MnistData Double])
+                    -> IO (Domain0 Double)
+           runBatch !params0 (k, chunk) = do
              printf "(Batch %d)\n" k
              let f = trainWithLoss widthHidden widthHidden2
                  (!res, _, _, _) =
-                   fst $ sgd gamma f chunk (params, V.empty, V.empty, V.empty)
+                   fst $ sgd gamma f chunk (params0, V.empty, V.empty, V.empty)
              printf "Trained on %d points.\n" (length chunk)
              let trainScore = testMnist2 (Proxy @(Delta0 Double)) widthHidden widthHidden2 chunk res
                  testScore  = testMnist2 (Proxy @(Delta0 Double)) widthHidden widthHidden2 testData res
              printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
              printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> Domain Double -> IO (Domain Double)
-           runEpoch n params | n > epochs = return params
-           runEpoch n params = do
+       let runEpoch :: Int -> Domain0 Double -> IO (Domain0 Double)
+           runEpoch n params0 | n > epochs = return params0
+           runEpoch n params0 = do
              printf "[Epoch %d]\n" n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches
                           $ zip [1 ..] $ chunksOf 5000 trainDataShuffled
-             !res <- foldM runBatch params chunks
+             !res <- foldM runBatch params0 chunks
              runEpoch (succ n) res
        printf "\nEpochs to run/max batches per epoch: %d/%d\n"
               epochs maxBatches
-       res <- runEpoch 1 params0
+       res <- runEpoch 1 params0Init
        let testErrorFinal = 1 - testMnist2 (Proxy @(Delta0 Double)) widthHidden widthHidden2 testData res
        testErrorFinal @?= expected
 
@@ -139,31 +139,31 @@ mnistTestCase2V
   -> TestTree
 mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                 gamma expected =
-  let nParams = lenMnist2V widthHidden widthHidden2
-      nParamsV = lenVectorsMnist2V widthHidden widthHidden2
-      params0 = HM.randomVector 44 HM.Uniform nParams - HM.scalar 0.5
-      paramsV0 =
+  let nParams0 = lenMnist2V widthHidden widthHidden2
+      nParams1 = lenVectorsMnist2V widthHidden widthHidden2
+      params0Init = HM.randomVector 44 HM.Uniform nParams0 - HM.scalar 0.5
+      params1Init =
         V.imap (\i nPV -> HM.randomVector (44 + nPV + i) HM.Uniform nPV
                           - HM.scalar 0.5)
-               nParamsV
+               nParams1
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show nParams, show (V.length nParamsV)
-                        , show (V.sum nParamsV + nParams), show gamma ]
+                        , show nParams0, show (V.length nParams1)
+                        , show (V.sum nParams1 + nParams0), show gamma ]
   in testCase name $ do
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- loadMnistData testGlyphsPath testLabelsPath
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
-       let runBatch :: (Domain Double, DomainV Double)
+       let runBatch :: (Domain0 Double, Domain1 Double)
                     -> (Int, [MnistData Double])
-                    -> IO (Domain Double, DomainV Double)
-           runBatch (!params, !paramsV) (k, chunk) = do
+                    -> IO (Domain0 Double, Domain1 Double)
+           runBatch (!params0, !params1) (k, chunk) = do
              printf "(Batch %d)\n" k
              let f = trainWithLoss widthHidden widthHidden2
                  (resS, resV, _, _) =
-                   fst $ sgd gamma f chunk (params, paramsV, V.empty, V.empty)
+                   fst $ sgd gamma f chunk (params0, params1, V.empty, V.empty)
                  res = (resS, resV)
              printf "Trained on %d points.\n" (length chunk)
              let trainScore = testMnist2V @(Delta0 Double) widthHidden widthHidden2 chunk res
@@ -171,8 +171,8 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
              printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
              printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int -> (Domain Double, DomainV Double)
-                    -> IO (Domain Double, DomainV Double)
+       let runEpoch :: Int -> (Domain0 Double, Domain1 Double)
+                    -> IO (Domain0 Double, Domain1 Double)
            runEpoch n params2 | n > epochs = return params2
            runEpoch n params2 = do
              printf "[Epoch %d]\n" n
@@ -183,7 +183,7 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
              runEpoch (succ n) res
        printf "\nEpochs to run/max batches per epoch: %d/%d\n"
               epochs maxBatches
-       res <- runEpoch 1 (params0, paramsV0)
+       res <- runEpoch 1 (params0Init, params1Init)
        let testErrorFinal =
              1 - testMnist2V @(Delta0 Double) widthHidden widthHidden2 testData res
        testErrorFinal @?= expected
@@ -222,12 +222,12 @@ mnistTestCase2L
   -> TestTree
 mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                 gamma expected =
-  let ((nParams, nParamsV, nParamsL), totalParams, range, parameters0) =
+  let ((nParams0, nParams1, nParams2), totalParams, range, parameters0) =
         initializerFixed 44 0.5 (lenMnistFcnn2L widthHidden widthHidden2)
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show nParams, show nParamsV, show nParamsL
+                        , show nParams0, show nParams1, show nParams2
                         , show totalParams, show gamma, show range]
   in testCase name $ do
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
@@ -237,11 +237,11 @@ mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
        let runBatch :: Domains (Delta0 Double)
                     -> (Int, [MnistData Double])
                     -> IO (Domains (Delta0 Double))
-           runBatch (!params, !paramsV, !paramsL, !paramsX) (k, chunk) = do
+           runBatch (!params0, !params1, !params2, !paramsX) (k, chunk) = do
              printf "(Batch %d)\n" k
              let f = trainWithLoss
                  res = fst $ sgd gamma f chunk
-                                 (params, paramsV, paramsL, paramsX)
+                                 (params0, params1, params2, paramsX)
              printf "Trained on %d points.\n" (length chunk)
              let trainScore = testMnist2L @(Delta0 Double) chunk res
                  testScore = testMnist2L @(Delta0 Double) testData res
@@ -281,12 +281,12 @@ mnistTestCase2T
 mnistTestCase2T reallyWriteFile
                 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                 gamma expected =
-  let ((nParams, nParamsV, nParamsL), totalParams, range, !parameters0) =
+  let ((nParams0, nParams1, nParams2), totalParams, range, !parameters0) =
         initializerFixed 44 0.5 (lenMnistFcnn2L widthHidden widthHidden2)
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show nParams, show nParamsV, show nParamsL
+                        , show nParams0, show nParams1, show nParams2
                         , show totalParams, show gamma, show range]
   in testCase name $ do
        trainData0 <- loadMnistData trainGlyphsPath trainLabelsPath
@@ -297,16 +297,16 @@ mnistTestCase2T reallyWriteFile
        let runBatch :: (Domains (Delta0 Double), [(POSIXTime, Double)])
                     -> (Int, [MnistData Double])
                     -> IO (Domains (Delta0 Double), [(POSIXTime, Double)])
-           runBatch ((!params, !paramsV, !paramsL, !paramsX), !times)
+           runBatch ((!params0, !params1, !params2, !paramsX), !times)
                     (k, chunk) = do
              when (k `mod` 100 == 0) $ do
                printf "%d " k
                hFlush stdout
              let f = trainWithLoss
-                 (!paramsNew, !value) =
-                   sgd gamma f chunk (params, paramsV, paramsL, paramsX)
+                 (!params0New, !value) =
+                   sgd gamma f chunk (params0, params1, params2, paramsX)
              time <- getPOSIXTime
-             return (paramsNew, (time, value) : times)
+             return (params0New, (time, value) : times)
        let runEpoch :: Int
                     -> (Domains (Delta0 Double), [(POSIXTime, Double)])
                     -> IO (Domains (Delta0 Double), [(POSIXTime, Double)])
@@ -350,12 +350,12 @@ mnistTestCase2D reallyWriteFile miniBatchSize decay
                 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                 gamma0 expected =
   let np = lenMnistFcnn2L widthHidden widthHidden2
-      ((nParams, nParamsV, nParamsL), totalParams, range, !parameters0) =
+      ((nParams0, nParams1, nParams2), totalParams, range, !parameters0) =
         initializerFixed 44 0.5 np
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show nParams, show nParamsV, show nParamsL
+                        , show nParams0, show nParams1, show nParams2
                         , show totalParams, show gamma0, show range]
   in testCase name $ do
        trainData0 <- loadMnistData trainGlyphsPath trainLabelsPath
@@ -366,7 +366,7 @@ mnistTestCase2D reallyWriteFile miniBatchSize decay
        let runBatch :: (Domains (Delta0 Double), [(POSIXTime, Double)])
                     -> (Int, [MnistData Double])
                     -> IO (Domains (Delta0 Double), [(POSIXTime, Double)])
-           runBatch ((!params, !paramsV, !paramsL, !paramsX), !times)
+           runBatch ((!params0, !params1, !params2, !paramsX), !times)
                     (k, chunk) = do
              when (k `mod` 100 == 0) $ do
                printf "%d " k
@@ -375,11 +375,11 @@ mnistTestCase2D reallyWriteFile miniBatchSize decay
                  gamma = if decay
                          then gamma0 * exp (- fromIntegral k * 1e-4)
                          else gamma0
-                 (!paramsNew, !value) =
+                 (!params0New, !value) =
                    sgdBatchForward (33 + k * 7) miniBatchSize gamma f chunk
-                                   (params, paramsV, paramsL, paramsX) np
+                                   (params0, params1, params2, paramsX) np
              time <- getPOSIXTime
-             return (paramsNew, (time, value) : times)
+             return (params0New, (time, value) : times)
        let runEpoch :: Int
                     -> (Domains (Delta0 Double), [(POSIXTime, Double)])
                     -> IO (Domains (Delta0 Double), [(POSIXTime, Double)])
@@ -424,12 +424,12 @@ mnistTestCase2F reallyWriteFile miniBatchSize decay
                 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                 gamma0 expected =
   let np = lenMnistFcnn2L widthHidden widthHidden2
-      ((nParams, nParamsV, nParamsL), totalParams, range, !parameters0) =
+      ((nParams0, nParams1, nParams2), totalParams, range, !parameters0) =
         initializerFixed 44 0.5 np
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show nParams, show nParamsV, show nParamsL
+                        , show nParams0, show nParams1, show nParams2
                         , show totalParams, show gamma0, show range]
   in testCase name $ do
        trainData0 <- loadMnistData trainGlyphsPath trainLabelsPath
@@ -440,7 +440,7 @@ mnistTestCase2F reallyWriteFile miniBatchSize decay
        let runBatch :: (Domains Double, [(POSIXTime, Double)])
                     -> (Int, [MnistData Double])
                     -> IO (Domains Double, [(POSIXTime, Double)])
-           runBatch ((!params, !paramsV, !paramsL, !paramsX), !times)
+           runBatch ((!params0, !params1, !params2, !paramsX), !times)
                     (k, chunk) = do
              when (k `mod` 100 == 0) $ do
                printf "%d " k
@@ -449,11 +449,11 @@ mnistTestCase2F reallyWriteFile miniBatchSize decay
                  gamma = if decay
                          then gamma0 * exp (- fromIntegral k * 1e-4)
                          else gamma0
-                 (!paramsNew, !value) =
+                 (!params0New, !value) =
                    sgdBatchFastForward (33 + k * 7) miniBatchSize gamma f chunk
-                                       (params, paramsV, paramsL, paramsX) np
+                                       (params0, params1, params2, paramsX) np
              time <- getPOSIXTime
-             return (paramsNew, (time, value) : times)
+             return (params0New, (time, value) : times)
        let runEpoch :: Int
                     -> (Domains Double, [(POSIXTime, Double)])
                     -> IO (Domains Double, [(POSIXTime, Double)])
@@ -482,31 +482,31 @@ mnistTestCase2F reallyWriteFile miniBatchSize decay
 dumbMnistTests :: TestTree
 dumbMnistTests = testGroup "Dumb MNIST tests"
   [ testCase "1pretty-print in grey 3 2" $ do
-      let (nParams, lParamsV, lParamsL) = lenMnistFcnn2L 4 3
-          vParamsV = V.fromList lParamsV
-          vParamsL = V.fromList lParamsL
-          params = V.replicate nParams (1 :: Float)
-          paramsV = V.map (`V.replicate` 2) vParamsV
-          paramsL = V.map (HM.konst 3) vParamsL
+      let (nParams0, lParams1, lParams2) = lenMnistFcnn2L 4 3
+          vParams1 = V.fromList lParams1
+          vParams2 = V.fromList lParams2
+          params0 = V.replicate nParams0 (1 :: Float)
+          params1 = V.map (`V.replicate` 2) vParams1
+          params2 = V.map (HM.konst 3) vParams2
           blackGlyph = V.replicate sizeMnistGlyph 4
           blackLabel = V.replicate sizeMnistLabel 5
           trainData = (blackGlyph, blackLabel)
           output = prettyPrintDf False (nnMnistLoss2L trainData)
-                                 (params, paramsV, paramsL, V.empty)
+                                 (params0, params1, params2, V.empty)
       -- printf "%s" output
       length output @?= 13348
   , testCase "2pretty-print in grey 3 2 fused" $ do
-      let (nParams, lParamsV, lParamsL) = lenMnistFcnn2L 4 3
-          vParamsV = V.fromList lParamsV
-          vParamsL = V.fromList lParamsL
-          params = V.replicate nParams (1 :: Float)
-          paramsV = V.map (`V.replicate` 2) vParamsV
-          paramsL = V.map (HM.konst 3) vParamsL
+      let (nParams0, lParams1, lParams2) = lenMnistFcnn2L 4 3
+          vParams1 = V.fromList lParams1
+          vParams2 = V.fromList lParams2
+          params0 = V.replicate nParams0 (1 :: Float)
+          params1 = V.map (`V.replicate` 2) vParams1
+          params2 = V.map (HM.konst 3) vParams2
           blackGlyph = V.replicate sizeMnistGlyph 4
           blackLabel = V.replicate sizeMnistLabel 5
           trainData = (blackGlyph, blackLabel)
           output = prettyPrintDf True (nnMnistLossFused2L trainData)
-                                 (params, paramsV, paramsL, V.empty)
+                                 (params0, params1, params2, V.empty)
       --- printf "%s" output
       length output @?= 12431
   , testCase "3pretty-print on testset 3 2" $ do
@@ -539,27 +539,27 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
   , sgdTestCase "first 100 trainset samples only"
       (take 100 <$> loadMnistData trainGlyphsPath trainLabelsPath)
       nnMnistLoss2 0.02 3.233123290489956
-  , testCase "testMnist2 on 0.1 params 300 100 width 10k testset" $ do
-      let nParams = lenMnist2 300 100
-          params = V.replicate nParams 0.1
+  , testCase "testMnist2 on 0.1 params0 300 100 width 10k testset" $ do
+      let nParams0 = lenMnist2 300 100
+          params0 = V.replicate nParams0 0.1
       testData <- loadMnistData testGlyphsPath testLabelsPath
-      (1 - testMnist2 (Proxy @(Delta0 Double)) 300 100 testData params) @?= 0.902
-  , testCase "testMnist2VV on 0.1 params 300 100 width 10k testset" $ do
-      let nParams = lenMnist2V 300 100
-          params = V.replicate nParams 0.1
-          nParamsV = lenVectorsMnist2V 300 100
-          paramsV = V.map (`V.replicate` 0.1) nParamsV
+      (1 - testMnist2 (Proxy @(Delta0 Double)) 300 100 testData params0) @?= 0.902
+  , testCase "testMnist2VV on 0.1 params0 300 100 width 10k testset" $ do
+      let nParams0 = lenMnist2V 300 100
+          params0 = V.replicate nParams0 0.1
+          nParams1 = lenVectorsMnist2V 300 100
+          params1 = V.map (`V.replicate` 0.1) nParams1
       testData <- loadMnistData testGlyphsPath testLabelsPath
-      (1 - testMnist2V @(Delta0 Double) 300 100 testData (params, paramsV)) @?= 0.902
-  , testCase "testMnist2LL on 0.1 params 300 100 width 10k testset" $ do
-      let (nParams, lParamsV, lParamsL) = lenMnistFcnn2L 300 100
-          vParamsV = V.fromList lParamsV
-          vParamsL = V.fromList lParamsL
-          params = V.replicate nParams 0.1
-          paramsV = V.map (`V.replicate` 0.1) vParamsV
-          paramsL = V.map (HM.konst 0.1) vParamsL
+      (1 - testMnist2V @(Delta0 Double) 300 100 testData (params0, params1)) @?= 0.902
+  , testCase "testMnist2LL on 0.1 params0 300 100 width 10k testset" $ do
+      let (nParams0, lParams1, lParams2) = lenMnistFcnn2L 300 100
+          vParams1 = V.fromList lParams1
+          vParams2 = V.fromList lParams2
+          params0 = V.replicate nParams0 0.1
+          params1 = V.map (`V.replicate` 0.1) vParams1
+          params2 = V.map (HM.konst 0.1) vParams2
       testData <- loadMnistData testGlyphsPath testLabelsPath
-      (1 - testMnist2L @(Delta0 Double) testData (params, paramsV, paramsL, V.empty)) @?= 0.902
+      (1 - testMnist2L @(Delta0 Double) testData (params0, params1, params2, V.empty)) @?= 0.902
  ]
 
 bigMnistTests :: TestTree

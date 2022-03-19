@@ -34,9 +34,9 @@ hiddenLayerMnistRNNB :: (DualMonad r m, Floating (Matrix r))
                      -> DualNumberVariables r
                      -> m (DualNumber (Matrix r), DualNumber (Matrix r))
 hiddenLayerMnistRNNB x s variables = do
-  let wX = varL variables 0  -- 128x28
-      wS = varL variables 1  -- 128x128
-      b = varV variables 0  -- 128
+  let wX = var2 variables 0  -- 128x28
+      wS = var2 variables 1  -- 128x128
+      b = var1 variables 0  -- 128
       batchSize = HM.cols x
       y = wX <>!! x + wS <>! s + asColumn2 b batchSize
   yTanh <- returnLet $ tanh y
@@ -48,9 +48,9 @@ middleLayerMnistRNNB :: (DualMonad r m, Floating (Matrix r))
                      -> DualNumberVariables r
                      -> m (DualNumber (Matrix r), DualNumber (Matrix r))
 middleLayerMnistRNNB batchOfVec@(D u _) s variables = do
-  let wX = varL variables 3  -- 128x128
-      wS = varL variables 4  -- 128x128
-      b = varV variables 2  -- 128
+  let wX = var2 variables 3  -- 128x128
+      wS = var2 variables 4  -- 128x128
+      b = var1 variables 2  -- 128
       batchSize = HM.cols u
       y = wX <>! batchOfVec + wS <>! s + asColumn2 b batchSize
   yTanh <- returnLet $ tanh y
@@ -61,8 +61,8 @@ outputLayerMnistRNNB :: DualMonad r m
                      -> DualNumberVariables r
                      -> m (DualNumber (Matrix r))
 outputLayerMnistRNNB batchOfVec@(D u _) variables = do
-  let w = varL variables 2  -- 10x128
-      b = varV variables 1  -- 10
+  let w = var2 variables 2  -- 10x128
+      b = var1 variables 1  -- 10
       batchSize = HM.cols u
   returnLet $ w <>! batchOfVec + asColumn2 b batchSize
 
@@ -145,12 +145,12 @@ mnistTestCaseRNNB
   -> TestTree
 mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
                   expected =
-  let ((nParams, nParamsV, nParamsL), totalParams, range, parameters0) =
+  let ((nParams0, nParams1, nParams2), totalParams, range, parameters0) =
         initializerFixed 44 0.2 (flen width nLayers)
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
                         , show width, show nLayers
-                        , show nParams, show nParamsV, show nParamsL
+                        , show nParams0, show nParams1, show nParams2
                         , show totalParams, show range ]
   in testCase name $ do
        let rws (input, target) =

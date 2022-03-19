@@ -41,9 +41,9 @@ hiddenLayerSinRNN :: (DualMonad r m, Floating (Primal (Tensor1 r)))
                   -> DualNumberVariables r
                   -> m (DualNumber (Tensor1 r), DualNumber (Tensor1 r))
 hiddenLayerSinRNN x s variables = do
-  let wX = varL variables 0
-      wS = varL variables 1
-      b = varV variables 0
+  let wX = var2 variables 0
+      wS = var2 variables 1
+      b = var1 variables 0
   y <- returnLet $ wX #>!! V.singleton x + wS #>! s + b
   yLogistic <- logisticAct y
   return (y, yLogistic)
@@ -53,8 +53,8 @@ outputLayerSinRNN :: DualMonad r m
                   -> DualNumberVariables r
                   -> m (DualNumber r)
 outputLayerSinRNN vec variables = do
-  let w = varV variables 1
-      b = var variables 0
+  let w = var1 variables 1
+      b = var0 variables 0
   returnLet $ w <.>! vec + b
 
 fcfcrnn :: (DualMonad r m, Floating (Primal (Tensor1 r)))
@@ -132,10 +132,10 @@ sgdTestCase :: String
             -> Double
             -> TestTree
 sgdTestCase prefix f nParameters trainDataIO expected =
-  let ((nParams, nParamsV, nParamsL), totalParams, range, parameters0) =
+  let ((nParams0, nParams1, nParams2), totalParams, range, parameters0) =
         initializerFixed 44 0.05 nParameters
       name = prefix ++ " "
-             ++ unwords [ show nParams, show nParamsV, show nParamsL
+             ++ unwords [ show nParams0, show nParams1, show nParams2
                         , show totalParams, show range ]
   in testCase name $ do
        trainData <- trainDataIO
@@ -151,10 +151,10 @@ sgdTestCaseAlt :: String
             -> [Double]
             -> TestTree
 sgdTestCaseAlt prefix f nParameters trainDataIO expected =
-  let ((nParams, nParamsV, nParamsL), totalParams, range, parameters0) =
+  let ((nParams0, nParams1, nParams2), totalParams, range, parameters0) =
         initializerFixed 44 0.05 nParameters
       name = prefix ++ " "
-             ++ unwords [ show nParams, show nParamsV, show nParamsL
+             ++ unwords [ show nParams0, show nParams1, show nParams2
                         , show totalParams, show range ]
   in testCase name $ do
        trainData <- trainDataIO
@@ -203,10 +203,10 @@ feedbackTestCase :: String
                  -> [Double]
                  -> TestTree
 feedbackTestCase prefix fp f nParameters trainData expected =
-  let ((nParams, nParamsV, nParamsL), totalParams, range, parameters0) =
+  let ((nParams0, nParams1, nParams2), totalParams, range, parameters0) =
         initializerFixed 44 0.05 nParameters
       name = prefix ++ " "
-             ++ unwords [ show nParams, show nParamsV, show nParamsL
+             ++ unwords [ show nParams0, show nParams1, show nParams2
                         , show totalParams, show range ]
       trained = fst $ sgd 0.1 f trainData parameters0
       primed = prime fp trained (HM.konst 0 30) (take 19 series)
@@ -222,8 +222,8 @@ hiddenLayerSinRNNV :: (DualMonad r m, Floating (Primal (Tensor1 r)))
                    -> DualNumberVariables r
                    -> m (DualNumber (Tensor1 r), DualNumber (Tensor1 r))
 hiddenLayerSinRNNV x s variables = do
-  let wX = varV variables 0
-      b = varV variables 31
+  let wX = var1 variables 0
+      b = var1 variables 31
   y <- returnLet
        $ scale (HM.konst x 30) wX + sumTrainableInputsL s 1 variables 30 + b
   yLogistic <- logisticAct y
@@ -234,8 +234,8 @@ outputLayerSinRNNV :: DualMonad r m
                    -> DualNumberVariables r
                    -> m (DualNumber r)
 outputLayerSinRNNV vec variables = do
-  let w = varV variables 32
-      b = var variables 0
+  let w = var1 variables 32
+      b = var0 variables 0
   returnLet $ w <.>! vec + b
 
 fcfcrnnV :: (DualMonad r m, Floating (Primal (Tensor1 r)))
@@ -264,9 +264,9 @@ ar2Sin :: DualMonad r m
        -> DualNumberVariables r
        -> m (DualNumber r, DualNumber (Tensor1 r))
 ar2Sin yLast s variables = do
-  let c = var variables 0
-      phi1 = var variables 1
-      phi2 = var variables 2
+  let c = var0 variables 0
+      phi1 = var0 variables 1
+      phi2 = var0 variables 2
       yLastLast = index0 s 0  -- dummy vector for compatibility
   y <- returnLet $ c + scale yLast phi1 + phi2 * yLastLast
   return (y, scalar $ V.singleton yLast)
@@ -321,9 +321,9 @@ hiddenLayerMnistRNNL :: (DualMonad r m, Floating (Primal (Tensor1 r)))
                      -> DualNumberVariables r
                      -> m (DualNumber (Tensor1 r), DualNumber (Tensor1 r))
 hiddenLayerMnistRNNL x s variables = do
-  let wX = varL variables 0  -- 128x28
-      wS = varL variables 1  -- 128x128
-      b = varV variables 0  -- 128
+  let wX = var2 variables 0  -- 128x28
+      wS = var2 variables 1  -- 128x128
+      b = var1 variables 0  -- 128
       y = wX #>!! x + wS #>! s + b
   yTanh <- tanhAct y
   return (yTanh, yTanh)  -- tanh in both, as per https://github.com/keras-team/keras/blob/v2.8.0/keras/layers/legacy_rnn/rnn_cell_impl.py#L468
@@ -334,9 +334,9 @@ middleLayerMnistRNNL :: (DualMonad r m, Floating (Primal (Tensor1 r)))
                      -> DualNumberVariables r
                      -> m (DualNumber (Tensor1 r), DualNumber (Tensor1 r))
 middleLayerMnistRNNL vec s variables = do
-  let wX = varL variables 3  -- 128x128
-      wS = varL variables 4  -- 128x128
-      b = varV variables 2  -- 128
+  let wX = var2 variables 3  -- 128x128
+      wS = var2 variables 4  -- 128x128
+      b = var1 variables 2  -- 128
       y = wX #>! vec + wS #>! s + b
   yTanh <- tanhAct y
   return (yTanh, yTanh)
@@ -346,8 +346,8 @@ outputLayerMnistRNNL :: DualMonad r m
                      -> DualNumberVariables r
                      -> m (DualNumber (Tensor1 r))
 outputLayerMnistRNNL vec variables = do
-  let w = varL variables 2  -- 10x128
-      b = varV variables 1  -- 10
+  let w = var2 variables 2  -- 10x128
+      b = var1 variables 1  -- 10
   returnLet $ w #>! vec + b  -- I assume there is no activations, as per https://www.tensorflow.org/api_docs/python/tf/compat/v1/layers/dense
 
 fcfcrnnMnistL :: (DualMonad r m, Floating (Primal (Tensor1 r)))
@@ -445,7 +445,7 @@ hiddenLayerMnistRNNV :: (DualMonad r m, Floating (Primal (Tensor1 r)))
                      -> DualNumberVariables r
                      -> m (DualNumber (Tensor1 r), DualNumber (Tensor1 r))
 hiddenLayerMnistRNNV width x s variables = do
-  let b = varV variables (width + width)  -- 128
+  let b = var1 variables (width + width)  -- 128
       y = sumConstantDataL x 0 variables width
           + sumTrainableInputsL s width variables width
           + b
@@ -458,7 +458,7 @@ outputLayerMnistRNNV :: DualMonad r m
                      -> DualNumberVariables r
                      -> m (DualNumber (Tensor1 r))
 outputLayerMnistRNNV width vec variables = do
-  let b = varV variables (width + width + 1 + 10)  -- 10
+  let b = var1 variables (width + width + 1 + 10)  -- 10
   returnLet $ sumTrainableInputsL vec (width + width + 1) variables 10 + b
 
 fcfcrnnMnistV :: (DualMonad r m, Floating (Primal (Tensor1 r)))
@@ -532,12 +532,12 @@ mnistTestCaseRNN
   -> TestTree
 mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
                  expected =
-  let ((nParams, nParamsV, nParamsL), totalParams, range, parameters0) =
+  let ((nParams0, nParams1, nParams2), totalParams, range, parameters0) =
         initializerFixed 44 0.2 (flen width nLayers)
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
                         , show width, show nLayers
-                        , show nParams, show nParamsV, show nParamsL
+                        , show nParams0, show nParams1, show nParams2
                         , show totalParams, show range ]
   in testCase name $ do
        let rws (input, target) =
@@ -584,9 +584,9 @@ hiddenLayerMnistRNNB :: (DualMonad r m, Floating (Primal (Tensor2 r)))
                      -> DualNumberVariables r
                      -> m (DualNumber (Tensor2 r), DualNumber (Tensor2 r))
 hiddenLayerMnistRNNB x s variables = do
-  let wX = varL variables 0  -- 128x28
-      wS = varL variables 1  -- 128x128
-      b = varV variables 0  -- 128
+  let wX = var2 variables 0  -- 128x28
+      wS = var2 variables 1  -- 128x128
+      b = var1 variables 0  -- 128
       batchSize = HM.cols x
       y = wX <>!! x + wS <>! s + asColumn2 b batchSize
   yTanh <- returnLet $ tanh y
@@ -598,9 +598,9 @@ middleLayerMnistRNNB :: (DualMonad r m, Floating (Primal (Tensor2 r)))
                      -> DualNumberVariables r
                      -> m (DualNumber (Tensor2 r), DualNumber (Tensor2 r))
 middleLayerMnistRNNB batchOfVec@(D u _) s variables = do
-  let wX = varL variables 3  -- 128x128
-      wS = varL variables 4  -- 128x128
-      b = varV variables 2  -- 128
+  let wX = var2 variables 3  -- 128x128
+      wS = var2 variables 4  -- 128x128
+      b = var1 variables 2  -- 128
       batchSize = HM.cols u
       y = wX <>! batchOfVec + wS <>! s + asColumn2 b batchSize
   yTanh <- returnLet $ tanh y
@@ -611,8 +611,8 @@ outputLayerMnistRNNB :: DualMonad r m
                      -> DualNumberVariables r
                      -> m (DualNumber (Tensor2 r))
 outputLayerMnistRNNB batchOfVec@(D u _) variables = do
-  let w = varL variables 2  -- 10x128
-      b = varV variables 1  -- 10
+  let w = var2 variables 2  -- 10x128
+      b = var1 variables 1  -- 10
       batchSize = HM.cols u
   returnLet $ w <>! batchOfVec + asColumn2 b batchSize
 
@@ -707,12 +707,12 @@ mnistTestCaseRNNB
   -> TestTree
 mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
                   expected =
-  let ((nParams, nParamsV, nParamsL), totalParams, range, parameters0) =
+  let ((nParams0, nParams1, nParams2), totalParams, range, parameters0) =
         initializerFixed 44 0.2 (flen width nLayers)
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
                         , show width, show nLayers
-                        , show nParams, show nParamsV, show nParamsL
+                        , show nParams0, show nParams1, show nParams2
                         , show totalParams, show range ]
   in testCase name $ do
        let rws (input, target) =

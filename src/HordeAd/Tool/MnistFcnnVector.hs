@@ -16,7 +16,7 @@ import           GHC.Exts (inline)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.DualClass
-import HordeAd.Core.PairOfVectors (DualNumberVariables, varV)
+import HordeAd.Core.PairOfVectors (DualNumberVariables, var1)
 import HordeAd.Tool.MnistData
 
 sumTrainableInputsV :: IsScalar r
@@ -25,7 +25,7 @@ sumTrainableInputsV :: IsScalar r
                     -> DualNumberVariables r
                     -> DualNumber r
 sumTrainableInputsV x offset variables =
-  let v = varV variables offset
+  let v = var1 variables offset
   in v <.>! x
 
 sumTrainableInputsL :: forall r. IsScalar r
@@ -45,7 +45,7 @@ sumConstantDataV :: IsScalar r
                  -> DualNumberVariables r
                  -> DualNumber r
 sumConstantDataV x offset variables =
-  let v = varV variables offset
+  let v = var1 variables offset
   in v <.>!! x
 
 sumConstantDataL :: forall r. IsScalar r
@@ -87,17 +87,17 @@ nnMnist2V factivationHidden factivationOutput widthHidden widthHidden2
           input variables = do
   let !_A = assert (sizeMnistGlyph == V.length input) ()
   let hiddenLayer1 = sumConstantDataL input 0 variables widthHidden
-                     + varV variables widthHidden  -- bias
+                     + var1 variables widthHidden  -- bias
   nonlinearLayer1 <- factivationHidden hiddenLayer1
   let offsetMiddle = widthHidden + 1
       hiddenLayer2 = sumTrainableInputsL nonlinearLayer1 offsetMiddle
                                          variables widthHidden2
-                     + varV variables (offsetMiddle + widthHidden2)  -- bias
+                     + var1 variables (offsetMiddle + widthHidden2)  -- bias
   nonlinearLayer2 <- factivationHidden hiddenLayer2
   let offsetOutput = offsetMiddle + widthHidden2 + 1
       outputLayer = sumTrainableInputsL nonlinearLayer2 offsetOutput
                                         variables sizeMnistLabel
-                    + varV variables (offsetOutput + sizeMnistLabel)  -- bias
+                    + var1 variables (offsetOutput + sizeMnistLabel)  -- bias
   factivationOutput outputLayer
 
 -- | The neural network applied to concrete activation functions
@@ -116,13 +116,13 @@ nnMnistLoss2V widthHidden widthHidden2 (input, target) variables = do
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 testMnist2V :: forall r. (IsScalar r, Floating (Primal r), Floating (Primal (Tensor1 r)))
-            => Int -> Int -> [MnistData (Primal r)] -> (Domain r, DomainV r) -> Primal r
-testMnist2V widthHidden widthHidden2 inputs (params, paramsV) =
+            => Int -> Int -> [MnistData (Primal r)] -> (Domain0 r, Domain1 r) -> Primal r
+testMnist2V widthHidden widthHidden2 inputs (params0, params1) =
   let matchesLabels :: MnistData (Primal r) -> Bool
       matchesLabels (glyph, label) =
         let nn = inline (nnMnist2V @r) logisticAct softMaxActV
                                        widthHidden widthHidden2 glyph
-            value = primalValue nn (params, paramsV, V.empty, V.empty)
+            value = primalValue nn (params0, params1, V.empty, V.empty)
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)

@@ -243,15 +243,15 @@ data DeltaState r = DeltaState
 -- More generally, @r@ in this module tends to refert to the underlying
 -- scalar type, while in all other modules it's the rank 0 dual component
 -- type, in this module often denoted by @d@ both on type and value level.
-type Domain r = Vector r
+type Domain0 r = Vector r
 
-type DomainV r = Data.Vector.Vector (Vector r)
+type Domain1 r = Data.Vector.Vector (Vector r)
 
-type DomainL r = Data.Vector.Vector (Matrix r)
+type Domain2 r = Data.Vector.Vector (Matrix r)
 
 type DomainX r = Data.Vector.Vector (OT.Array r)
 
-type Domains r = (Domain r, DomainV r, DomainL r, DomainX r)
+type Domains r = (Domain0 r, Domain1 r, Domain2 r, DomainX r)
 
 -- | Delta expressions naturally denote forward derivatives.
 -- However, we use the delta expressions to compute gradients instead.
@@ -558,13 +558,13 @@ buildFinMaps st deltaTopLevel = do
 -- Warning: the tensor part is not tested at all.
 evalBindingsForward :: forall r. (Numeric r, Num (Vector r))
                     => DeltaState r -> Delta0 r -> Domains r -> r
-evalBindingsForward st deltaTopLevel (params0, paramsV0, paramsL0, paramsX0) =
+evalBindingsForward st deltaTopLevel (params0Init, params1Init, params2Init, paramsXInit) =
   let eval0 :: Domains r -> Delta0 r -> r
-      eval0 parameters@(params, _, _, _) = \case
+      eval0 parameters@(params0, _, _, _) = \case
         Zero0 -> 0
         Scale0 k d -> k * eval0 parameters d
         Add0 d e -> eval0 parameters d + eval0 parameters e
-        Var0 (DeltaId i) -> params V.! i
+        Var0 (DeltaId i) -> params0 V.! i
 
         SumElements0 vd _n -> HM.sumElements $ eval1 parameters vd
         Index0 d ix _k -> eval1 parameters d V.! ix
@@ -574,11 +574,11 @@ evalBindingsForward st deltaTopLevel (params0, paramsV0, paramsL0, paramsX0) =
         FromX0 d -> OT.unScalar $ evalX parameters d
         FromS0 d -> OS.unScalar $ evalS parameters d
       eval1 :: Domains r -> Delta1 r -> Vector r
-      eval1 parameters@(_, paramsV, _, _) = \case
+      eval1 parameters@(_, params1, _, _) = \case
         Zero1 -> 0
         Scale1 k d -> k * eval1 parameters d
         Add1 d e -> eval1 parameters d + eval1 parameters e
-        Var1 (DeltaId i) -> paramsV V.! i
+        Var1 (DeltaId i) -> params1 V.! i
 
         Seq1 lsd -> V.convert $ V.map (eval0 parameters) lsd
         Konst1 d n -> HM.konst (eval0 parameters d) n
@@ -595,11 +595,11 @@ evalBindingsForward st deltaTopLevel (params0, paramsV0, paramsL0, paramsX0) =
         FromX1 d -> OT.toVector $ evalX parameters d
         FromS1 d -> OS.toVector $ evalS parameters d
       eval2 :: Domains r -> Delta2 r -> Matrix r
-      eval2 parameters@( _, _,paramsL, _) = \case
+      eval2 parameters@( _, _, params2, _) = \case
         Zero2 -> 0
         Scale2 k d -> k * eval2 parameters d
         Add2 d e -> eval2 parameters d + eval2 parameters e
-        Var2 (DeltaId i) -> paramsL V.! i
+        Var2 (DeltaId i) -> params2 V.! i
 
         FromRows2 lvd ->
           HM.fromRows $ map (eval1 parameters) $ V.toList lvd
@@ -659,19 +659,19 @@ evalBindingsForward st deltaTopLevel (params0, paramsV0, paramsL0, paramsX0) =
         From2S d -> OS.fromVector $ HM.flatten $ eval2 parameters d
         FromXS d -> Data.Array.Convert.convert $ evalX parameters d
       evalUnlessZero :: Domains r -> DeltaBinding r -> Domains r
-      evalUnlessZero parameters@(!params, !paramsV, !paramsL, !paramsX) = \case
+      evalUnlessZero parameters@(!params0, !params1, !params2, !paramsX) = \case
         DeltaBinding0 (DeltaId i) d ->
           let v = eval0 parameters d
-          in (params V.// [(i, v)], paramsV, paramsL, paramsX)
+          in (params0 V.// [(i, v)], params1, params2, paramsX)
         DeltaBinding1 (DeltaId i) d ->
           let v = eval1 parameters d
-          in (params, paramsV V.// [(i, v)], paramsL, paramsX)
+          in (params0, params1 V.// [(i, v)], params2, paramsX)
         DeltaBinding2 (DeltaId i) d ->
           let v = eval2 parameters d
-          in (params, paramsV, paramsL V.// [(i, v)], paramsX)
+          in (params0, params1, params2 V.// [(i, v)], paramsX)
         DeltaBindingX (DeltaId i) d ->
           let v = evalX parameters d
-          in (params, paramsV, paramsL, paramsX V.// [(i, v)])
+          in (params0, params1, params2, paramsX V.// [(i, v)])
       parameters1 = runST $ do
         (finMap0, finMap1, outerFinMap2, finMapX) <- initializeFinMaps st
         -- We use normal hmatrix matrices rather than the sparse replacement.
@@ -679,10 +679,10 @@ evalBindingsForward st deltaTopLevel (params0, paramsV0, paramsL0, paramsX0) =
         -- TODO: the following coredumps without the @VM.take@; it's a shame
         -- there's no copying of a smaller vector into a larger one in the API.
         -- Perhaps use https://hackage.haskell.org/package/base-4.16.0.0/docs/Foreign-Marshal-Array.html#v:copyArray?
-        V.unsafeCopy (VM.take (V.length params0) finMap0) params0
-        V.unsafeCopy (VM.take (V.length paramsV0) finMap1) paramsV0
-        V.unsafeCopy (VM.take (V.length paramsL0) finMap2) paramsL0
-        V.unsafeCopy (VM.take (V.length paramsX0) finMapX) paramsX0
+        V.unsafeCopy (VM.take (V.length params0Init) finMap0) params0Init
+        V.unsafeCopy (VM.take (V.length params1Init) finMap1) params1Init
+        V.unsafeCopy (VM.take (V.length params2Init) finMap2) params2Init
+        V.unsafeCopy (VM.take (V.length paramsXInit) finMapX) paramsXInit
         v0 <- V.unsafeFreeze finMap0
         v1 <- V.unsafeFreeze finMap1
         v2 <- V.unsafeFreeze finMap2

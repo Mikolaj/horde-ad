@@ -49,46 +49,46 @@ dfShow f deltaInput =
 
 fX :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 fX variables = do
-  let x = var variables 0
+  let x = var0 variables 0
   return x
 
 fX1Y :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 fX1Y variables = do
-  let x = var variables 0
-      y = var variables 1
+  let x = var0 variables 0
+      y = var0 variables 1
   x1 <- x +\ 1
   x1 *\ y
 
 fXXY :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 fXXY variables = do
-  let x = var variables 0
-      y = var variables 1
+  let x = var0 variables 0
+      y = var0 variables 1
   xy <- x *\ y
   x *\ xy
 
 fXYplusZ :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 fXYplusZ variables = do
-  let x = var variables 0
-      y = var variables 1
-      z = var variables 2
+  let x = var0 variables 0
+      y = var0 variables 1
+      z = var0 variables 2
   xy <- x *\ y
   xy +\ z
 
 fXtoY :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 fXtoY variables = do
-  let x = var variables 0
-      y = var variables 1
+  let x = var0 variables 0
+      y = var0 variables 1
   x **\ y
 
 freluX :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 freluX variables = do
-  let x = var variables 0
+  let x = var0 variables 0
   reluAct x
 
 fquad :: DualMonad r m => DualNumberVariables r -> m (DualNumber r)
 fquad variables = do
-  let x = var variables 0
-      y = var variables 1
+  let x = var0 variables 0
+      y = var0 variables 1
   x2 <- squareDual x
   y2 <- y *\ y
   tmp <- x2 +\ y2
@@ -119,12 +119,12 @@ vec_omit_scalarSum_aux vec = returnLet $ foldlDual' (+) 0 vec
 
 sumElementsV :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 sumElementsV variables = do
-  let x = varV variables 0
+  let x = var1 variables 0
   returnLet $ sumElements0 x
 
 altSumElementsV :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 altSumElementsV variables = do
-  let x = varV variables 0
+  let x = var1 variables 0
   returnLet $ altSumElements0 x
 
 dfVectorShow :: (DualNumberVariables (Delta0 Float) -> DualMonadGradient (Delta0 Float) (DualNumber (Delta0 Float)))
@@ -229,7 +229,7 @@ atanReadmeMPoly variables =
 -- and matrix components of the parameters triple, which we here don't use
 -- (we construct vectors, but from scalar parameters).
 dfAtanReadmeMPoly :: (RealFloat (Primal r), HasDelta r)
-                  => Domain r -> (Domain r, Primal r)
+                  => Domain0 r -> (Domain0 r, Primal r)
 dfAtanReadmeMPoly ds =
   let ((result, _, _, _), value) =
         df atanReadmeMPoly (ds, V.empty, V.empty, V.empty)
@@ -256,7 +256,7 @@ readmeTests = testGroup "Tests of code from the library's README"
 atanReadmePolyV :: (RealFloat (Primal r), IsScalar r)
                 => DualNumberVariables r -> DualNumber (Tensor1 r)
 atanReadmePolyV variables =
-  let xyzVector = varV variables 0
+  let xyzVector = var1 variables 0
       x = index0 xyzVector 0
       y = index0 xyzVector 1
       z = index0 xyzVector 2
@@ -272,7 +272,7 @@ atanReadmeMPolyV variables =
 -- and matrix components of the parameters triple, which we here don't use
 -- (we construct vectors, but from scalar parameters).
 dfAtanReadmeMPolyV :: (RealFloat (Primal r), HasDelta r)
-                   => DomainV r -> (DomainV r, Primal r)
+                   => Domain1 r -> (Domain1 r, Primal r)
 dfAtanReadmeMPolyV dsV =
   let ((_, result, _, _), value) =
         df atanReadmeMPolyV (V.empty, dsV, V.empty, V.empty)

@@ -31,15 +31,15 @@ class (IsScalar r, Monad m, Functor m, Applicative m)
   returnLet :: IsDualWithScalar a r
             => DualNumber a -> m (DualNumber a)
 
-type Domain r = Vector (Primal r)
+type Domain0 r = Vector (Primal r)
 
-type DomainV r = Data.Vector.Vector (Primal (Tensor1 r))
+type Domain1 r = Data.Vector.Vector (Primal (Tensor1 r))
 
-type DomainL r = Data.Vector.Vector (Primal (Tensor2 r))
+type Domain2 r = Data.Vector.Vector (Primal (Tensor2 r))
 
 type DomainX r = Data.Vector.Vector (Primal (TensorX r))
 
-type Domains r = (Domain r, DomainV r, DomainL r, DomainX r)
+type Domains r = (Domain0 r, Domain1 r, Domain2 r, DomainX r)
 
 
 -- * General non-monadic operations, for any scalar rank

@@ -41,7 +41,7 @@ import           Internal.Vectorized
 
 minusTimesGamma :: Storable r => r -> Vector r -> Vector r -> Vector r
 minusTimesGamma gamma u v = unsafePerformIO $ do
-  r <- createVector (dim u)
+  r <- createVector (dim0 u)
   pval <- newArray [gamma]
   (v `applyRaw` (r `applyRaw` id))
     (c_vectorMapValR (fromei Scale) pval)
@@ -69,50 +69,50 @@ can't fuse with anything and so can't pay for its overhead.
 
 updateWithGradient :: IsScalar r
                    => Primal r -> Domains r -> Domains r -> Domains r
-updateWithGradient gamma (params, paramsV, paramsL, paramsX)
-                         (gradient, gradientV, gradientL, gradientX) =
+updateWithGradient gamma (params0, params1, params2, paramsX)
+                         (gradient, gradient1, gradient2, gradientX) =
   let updateVector i r = i - HM.scale gamma r
-      !paramsNew = updateVector params gradient
-      updateV i r = if V.null r  -- eval didn't update it, would crash
+      !params0New = updateVector params0 gradient
+      update1 i r = if V.null r  -- eval didn't update it, would crash
                     then i
                     else updateVector i r
-      !paramsVNew = V.zipWith updateV paramsV gradientV
-      updateL i r = if HM.rows r <= 0  -- eval didn't update it, would crash
+      !params1New = V.zipWith update1 params1 gradient1
+      update2 i r = if HM.rows r <= 0  -- eval didn't update it, would crash
                     then i
                     else liftMatrix2 updateVector i r
-      !paramsLNew = V.zipWith updateL paramsL gradientL
+      !params2New = V.zipWith update2 params2 gradient2
       updateX i r = if null (OT.shapeL r)  -- eval didn't update it, would crash
                     then i
                     else OT.zipWithA (\j s -> j - gamma * s) i r
                       -- TODO: this is slow; add @liftArray2@ and use HM,
                       -- unless we move away from HM; similarly other OT calls
       !paramsXNew = V.zipWith updateX paramsX gradientX
-  in (paramsNew, paramsVNew, paramsLNew, paramsXNew)
+  in (params0New, params1New, params2New, paramsXNew)
 
 gradientIsNil :: forall r. IsScalar r => Domains r -> Bool
-gradientIsNil (gradient, gradientV, gradientL, gradientX) =
+gradientIsNil (gradient, gradient1, gradient2, gradientX) =
   V.all (== 0) gradient
-  && V.all V.null gradientV
-  && V.all (\r -> HM.rows r <= 0) gradientL
+  && V.all V.null gradient1
+  && V.all (\r -> HM.rows r <= 0) gradient2
   && V.all (null . OT.shapeL) gradientX
 
 minimumGradient :: IsScalar r => Domains r -> Primal r
-minimumGradient (gradient, gradientV, gradientL, gradientX) =
+minimumGradient (gradient, gradient1, gradient2, gradientX) =
   min (if V.null gradient then 0 else V.minimum gradient)
-      (min (if V.null gradientV then 0
-            else V.minimum (V.map HM.minElement gradientV))
-           (min (if V.null gradientL then 0
-                 else V.minimum (V.map HM.minElement gradientL))
+      (min (if V.null gradient1 then 0
+            else V.minimum (V.map HM.minElement gradient1))
+           (min (if V.null gradient2 then 0
+                 else V.minimum (V.map HM.minElement gradient2))
                 (if V.null gradientX then 0
                  else V.minimum (V.map OT.minimumA gradientX))))
 
 maximumGradient :: IsScalar r => Domains r -> Primal r
-maximumGradient (gradient, gradientV, gradientL, gradientX) =
+maximumGradient (gradient, gradient1, gradient2, gradientX) =
   max (if V.null gradient then 0 else V.maximum gradient)
-      (max (if V.null gradientV then 0
-            else V.maximum (V.map HM.maxElement gradientV))
-           (max (if V.null gradientL then 0
-                 else V.maximum (V.map HM.maxElement gradientL))
+      (max (if V.null gradient1 then 0
+            else V.maximum (V.map HM.maxElement gradient1))
+           (max (if V.null gradient2 then 0
+                 else V.maximum (V.map HM.maxElement gradient2))
                 (if V.null gradientX then 0
                  else V.maximum (V.map OT.maximumA gradientX))))
 
@@ -139,16 +139,16 @@ data StateAdam r = StateAdam
   , vAdam :: Domains r
   }
 
--- The arguments are just sample params, for dimensions.
+-- The arguments are just sample params0, for dimensions.
 zeroParameters :: forall r. IsScalar r => Domains r -> Domains r
-zeroParameters (params, paramsV, paramsL, paramsX) =
+zeroParameters (params0, params1, params2, paramsX) =
   let zeroVector v = runST $ do
         vThawed <- V.thaw v
         VM.set vThawed 0
         V.unsafeFreeze vThawed
-  in ( zeroVector params
-     , V.map zeroVector paramsV
-     , V.map (liftMatrix zeroVector) paramsL
+  in ( zeroVector params0
+     , V.map zeroVector params1
+     , V.map (liftMatrix zeroVector) params2
      , V.map (\a -> OT.constant (OT.shapeL a) 0) paramsX )  -- fast allright
 
 initialStateAdam :: forall r. IsScalar r => Domains r -> StateAdam r
@@ -217,11 +217,11 @@ updateWithGradientAdam :: forall r. (Floating (Primal r), IsScalar r, Floating (
                        -> (Domains r, StateAdam r)
 updateWithGradientAdam ArgsAdam{..}
                        StateAdam{ tAdam
-                                , mAdam = (mAdam, mAdamV, mAdamL, mAdamX)
-                                , vAdam = (vAdam, vAdamV, vAdamL, vAdamX)
+                                , mAdam = (mAdam, mAdam1, mAdam2, mAdamX)
+                                , vAdam = (vAdam, vAdam1, vAdam2, vAdamX)
                                 }
-                       (params, paramsV, paramsL, paramsX)
-                       (gradient, gradientV, gradientL, gradientX) =
+                       (params0, params1, params2, paramsX)
+                       (gradient, gradient1, gradient2, gradientX) =
   let tAdamNew = tAdam + 1
       oneMinusBeta1 = 1 - beta1
       oneMinusBeta2 = 1 - beta2
@@ -237,26 +237,26 @@ updateWithGradientAdam ArgsAdam{..}
            , p - HM.scale alphat mANew
                  / (sqrt vANew + HM.scalar epsilon) )  -- the @scalar@ is safe
                       -- @addConstant@ would be better, but it's not exposed
-      (!mAdamNew, !vAdamNew, !paramsNew) =
-        updateVector mAdam vAdam params gradient
-      updateV mA vA p g = if V.null g  -- eval didn't update it, would crash
+      (!mAdam0New, !vAdam0New, !params0New) =
+        updateVector mAdam vAdam params0 gradient
+      update1 mA vA p g = if V.null g  -- eval didn't update it, would crash
                           then (mA, vA, p)
                           else updateVector mA vA p g
-      (!mAdamVNew, !vAdamVNew, !paramsVNew) =
-        V.unzip3 $ V.zipWith4 updateV mAdamV vAdamV paramsV gradientV
-      updateL mA vA p g = if HM.rows g <= 0  -- eval didn't update it; crash
+      (!mAdam1New, !vAdam1New, !params1New) =
+        V.unzip3 $ V.zipWith4 update1 mAdam1 vAdam1 params1 gradient1
+      update2 mA vA p g = if HM.rows g <= 0  -- eval didn't update it; crash
                           then (mA, vA, p)
                           else liftMatrix43 updateVector mA vA p g
-      (!mAdamLNew, !vAdamLNew, !paramsLNew) =
-        V.unzip3 $ V.zipWith4 updateL mAdamL vAdamL paramsL gradientL
+      (!mAdam2New, !vAdam2New, !params2New) =
+        V.unzip3 $ V.zipWith4 update2 mAdam2 vAdam2 params2 gradient2
       updateX mA vA p g = if null (OT.shapeL g)  -- eval didn't update it; crash
                           then (mA, vA, p)
                           else liftArray43 updateVector mA vA p g
       (!mAdamXNew, !vAdamXNew, !paramsXNew) =
         V.unzip3 $ V.zipWith4 updateX mAdamX vAdamX paramsX gradientX
-  in ( (paramsNew, paramsVNew, paramsLNew, paramsXNew)
+  in ( (params0New, params1New, params2New, paramsXNew)
      , StateAdam { tAdam = tAdamNew
-                 , mAdam = (mAdamNew, mAdamVNew, mAdamLNew, mAdamXNew)
-                 , vAdam = (vAdamNew, vAdamVNew, vAdamLNew, vAdamXNew)
+                 , mAdam = (mAdam0New, mAdam1New, mAdam2New, mAdamXNew)
+                 , vAdam = (vAdam0New, vAdam1New, vAdam2New, vAdamXNew)
                  }
      )

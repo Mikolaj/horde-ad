@@ -183,13 +183,13 @@ vec_omit_scalarSum_aux vec = returnLet $ foldlDual' (+) 0 vec
 sumElementsV :: DualMonad (Delta0 Double) m
              => DualNumberVariables (Delta0 Double) -> m (DualNumber (Delta0 Double))
 sumElementsV variables = do
-  let x = varV variables 0
+  let x = var1 variables 0
   returnLet $ sumElements0 x
 
 altSumElementsV :: DualMonad (Delta0 Double) m
                 => DualNumberVariables (Delta0 Double) -> m (DualNumber (Delta0 Double))
 altSumElementsV variables = do
-  let x = varV variables 0
+  let x = var1 variables 0
   returnLet $ altSumElements0 x
 
 grad_vec_omit_scalarSum :: HasDelta r => Vector (Primal r) -> Vector (Primal r)

@@ -15,7 +15,7 @@ import           GHC.Exts (inline)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.DualClass
-import HordeAd.Core.PairOfVectors (DualNumberVariables, varL, varV)
+import HordeAd.Core.PairOfVectors (DualNumberVariables, var2, var1)
 import HordeAd.Tool.MnistData
 
 lenMnistFcnn2L :: Int -> Int -> (Int, [Int], [(Int, Int)])
@@ -42,12 +42,12 @@ nnMnist2L :: forall r m. DualMonad r m
           -> m (DualNumber (Tensor1 r))
 nnMnist2L factivationHidden factivationOutput input variables = do
   let !_A = assert (sizeMnistGlyph == V.length input) ()
-      weightsL0 = varL variables 0
-      biasesV0 = varV variables 0
-      weightsL1 = varL variables 1
-      biasesV1 = varV variables 1
-      weightsL2 = varL variables 2
-      biasesV2 = varV variables 2
+      weightsL0 = var2 variables 0
+      biasesV0 = var1 variables 0
+      weightsL1 = var2 variables 1
+      biasesV1 = var1 variables 1
+      weightsL2 = var2 variables 2
+      biasesV2 = var1 variables 2
   let hiddenLayer1 = weightsL0 #>!! input + biasesV0
   nonlinearLayer1 <- factivationHidden hiddenLayer1
   let hiddenLayer2 = weightsL1 #>! nonlinearLayer1 + biasesV1
