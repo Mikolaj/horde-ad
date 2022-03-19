@@ -27,13 +27,12 @@ import HordeAd.Internal.Delta
 -- * Abbreviations for export (not used anywhere below)
 
 -- | A shorthand for a useful set of constraints. The intended semantics
--- (not fully enforced by these constraints in isolation) is that the first
+-- (not fully enforced by the constraints in isolation) is that the first
 -- type is a dual component of a dual number type at an unknown rank
--- and the second type is a dual component of a dual number type
--- at the scalar level (rank 0) with the same underlying scalar type
--- (but the underlying scalar type is not an argument of this type synonym).
--- Additionally, the primal component corresponding to the first type
--- is required to satisfy constraint @Num@.
+-- and the second type is a dual component of the same dual number types
+-- collection at the scalar level (rank 0), which also implies the underlying
+-- scalar type is the same. Additionally, the primal component
+-- corresponding to the first type is required to satisfy constraint @Num@.
 type IsDualWithScalar a r = (IsDual a, ScalarOf a ~ Primal r, Num (Primal a))
 
 -- | A mega-shorthand for a bundle of connected type constraints.
@@ -442,8 +441,8 @@ instance HasRanks Float where
   dAppendS = OS.append
 --  dSliceS :: forall i n k rest.
 --             (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
---          => Primal (OS.Array (i + n + k ': rest) Double)
---          -> Primal (OS.Array (n ': rest) Double)
+--          => OS.Array (i + n + k ': rest) Float
+--          -> OS.Array (n ': rest) Float
   dSliceS = undefined  -- TODO: OS.slice @'[ '(i, n) ] d
   dFrom0S = OS.scalar
   dFrom1S = OS.fromVector

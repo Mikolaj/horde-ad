@@ -125,15 +125,15 @@ scale a (D u u') = D (a * u) (dScale a u')
 sumElements0 :: IsScalar r => DualNumber (Tensor1 r) -> DualNumber r
 sumElements0 (D u u') = D (HM.sumElements u) (dSumElements0 u' (V.length u))
 
-index0 :: IsScalar r
-       => DualNumber (Tensor1 r) -> Int -> DualNumber r
+index0 :: IsScalar r => DualNumber (Tensor1 r) -> Int -> DualNumber r
 index0 (D u u') ix = D (u V.! ix) (dIndex0 u' ix (V.length u))
 
 -- If @v'@ is a @Var1@, this is much faster due to the optimization
 -- in @Index0@.
 foldl'0 :: IsScalar r
         => (DualNumber r -> DualNumber r -> DualNumber r)
-        -> DualNumber r -> DualNumber (Tensor1 r) -> DualNumber r
+        -> DualNumber r -> DualNumber (Tensor1 r)
+        -> DualNumber r
 foldl'0 f uu' (D v v') =
   let k = V.length v
       g !acc ix p = f (D p (dIndex0 v' ix k)) acc
@@ -142,18 +142,16 @@ foldl'0 f uu' (D v v') =
 altSumElements0 :: IsScalar r => DualNumber (Tensor1 r) -> DualNumber r
 altSumElements0 = foldl'0 (+) 0
 
+-- | Dot product.
 infixr 8 <.>!
 (<.>!) :: IsScalar r
-       => DualNumber (Tensor1 r)
-       -> DualNumber (Tensor1 r)
-       -> DualNumber r
+       => DualNumber (Tensor1 r) -> DualNumber (Tensor1 r) -> DualNumber r
 (<.>!) (D u u') (D v v') = D (u <.> v) (dAdd (dDot0 v u') (dDot0 u v'))
 
+-- | Dot product with a constant vector.
 infixr 8 <.>!!
 (<.>!!) :: IsScalar r
-        => DualNumber (Tensor1 r)
-        -> Primal (Tensor1 r)
-        -> DualNumber r
+        => DualNumber (Tensor1 r) -> Primal (Tensor1 r) -> DualNumber r
 (<.>!!) (D u u') v = D (u <.> v) (dDot0 v u')
 
 fromX0 :: IsScalar r => DualNumber (TensorX r) -> DualNumber r
@@ -180,8 +178,7 @@ append1 :: IsScalar r
 append1 (D u u') (D v v') = D (u V.++ v) (dAppend1 u' (V.length u) v')
 
 slice1 :: IsScalar r
-       => Int -> Int -> DualNumber (Tensor1 r)
-       -> DualNumber (Tensor1 r)
+       => Int -> Int -> DualNumber (Tensor1 r) -> DualNumber (Tensor1 r)
 slice1 i n (D u u') = D (V.slice i n u) (dSlice1 i n u' (V.length u))
 
 sumRows1 :: IsScalar r => DualNumber (Tensor2 r) -> DualNumber (Tensor1 r)
@@ -196,8 +193,8 @@ sumColumns1 (D u u') = D (V.fromList $ map HM.sumElements $ HM.toColumns u)
 -- in @Index0@. The detour through a boxed vector (list probably fuses away)
 -- is costly, but only matters if @f@ is cheap.
 map1 :: IsScalar r
-     => (DualNumber r -> DualNumber r)
-     -> DualNumber (Tensor1 r) -> DualNumber (Tensor1 r)
+     => (DualNumber r -> DualNumber r) -> DualNumber (Tensor1 r)
+     -> DualNumber (Tensor1 r)
 map1 f (D v v') =
   let k = V.length v
       g ix p = f $ D p (dIndex0 v' ix k)
@@ -207,16 +204,14 @@ map1 f (D v v') =
 -- | Dense matrix-vector product.
 infixr 8 #>!
 (#>!) :: IsScalar r
-      => DualNumber (Tensor2 r)
-      -> DualNumber (Tensor1 r)
+      => DualNumber (Tensor2 r) -> DualNumber (Tensor1 r)
       -> DualNumber (Tensor1 r)
 (#>!) (D u u') (D v v') = D (u #> v) (dAdd (dMD_V1 u' v) (dM_VD1 u v'))
 
 -- | Dense matrix-vector product with a constant vector.
 infixr 8 #>!!
 (#>!!) :: IsScalar r
-       => DualNumber (Tensor2 r)
-       -> Primal (Tensor1 r)
+       => DualNumber (Tensor2 r) -> Primal (Tensor1 r)
        -> DualNumber (Tensor1 r)
 (#>!!) (D u u') v = D (u #> v) (dMD_V1 u' v)
 
@@ -250,19 +245,16 @@ transpose2 (D u u') = D (HM.tr' u) (dTranspose2 u')
 --
 -- If @u@ is a m x n (number of rows x number of columns) matrix
 -- and @v@ is a n x p matrix then the result of @u <>! v@ is a m x p matrix.
--- matrix.
 infixr 8 <>!
 (<>!) :: IsScalar r
-      => DualNumber (Tensor2 r)
-      -> DualNumber (Tensor2 r)
+      => DualNumber (Tensor2 r) -> DualNumber (Tensor2 r)
       -> DualNumber (Tensor2 r)
 (<>!) (D u u') (D v v') = D (u HM.<> v) (dAdd (dMD_M2 u' v) (dM_MD2 u v'))
 
 -- | Dense matrix-matrix product with a constant matrix.
 infixr 8 <>!!
 (<>!!) :: IsScalar r
-       => DualNumber (Tensor2 r)
-       -> Primal (Tensor2 r)
+       => DualNumber (Tensor2 r) -> Primal (Tensor2 r)
        -> DualNumber (Tensor2 r)
 (<>!!) (D u u') v = D (u HM.<> v) (dMD_M2 u' v)
 
@@ -290,22 +282,25 @@ columnSlice2 :: IsScalar r
 columnSlice2 i n (D u u') = D (HM.subMatrix (0, i) (HM.rows u, n) u)
                               (dColumnSlice2 i n u' (HM.rows u))
 
-asRow2 :: IsScalar r => DualNumber (Tensor1 r) -> Int -> DualNumber (Tensor2 r)
+asRow2 :: IsScalar r
+       => DualNumber (Tensor1 r) -> Int -> DualNumber (Tensor2 r)
 asRow2 (D u u') n = D (HM.fromRows $ replicate n u) (dAsRow2 u')
 
-asColumn2 :: IsScalar r => DualNumber (Tensor1 r) -> Int -> DualNumber (Tensor2 r)
+asColumn2 :: IsScalar r
+          => DualNumber (Tensor1 r) -> Int -> DualNumber (Tensor2 r)
 asColumn2 (D u u') n = D (HM.fromColumns $ replicate n u) (dAsColumn2 u')
 
 fromX2 :: IsScalar r => DualNumber (TensorX r) -> DualNumber (Tensor2 r)
 fromX2 (D u u') = case OT.shapeL u of
   [_, cols] -> D (HM.reshape cols $ OT.toVector u) (dFromX2 u')
-  dims -> error $ "fromX2: the tensor has wrong dimensions" ++ show dims
+  dims -> error $ "fromX2: the tensor has wrong dimensions " ++ show dims
 
 fromS2 :: forall rows cols r.
           (KnownNat rows, KnownNat cols, IsScalarS '[rows, cols] r)
        => DualNumber (TensorS '[rows, cols] r) -> DualNumber (Tensor2 r)
 fromS2 (D u u') = D (HM.reshape (valueOf @cols) $ OS.toVector u)
                     (dFromS2 @r @rows @cols u')
+
 
 -- * Non-monadic operations resulting in an arbitrary tensor
 
@@ -330,7 +325,7 @@ from1X (D u u') = D (OT.fromVector [V.length u] u) (dFrom1X u')
 
 from2X :: IsScalar r => DualNumber (Tensor2 r) -> DualNumber (TensorX r)
 from2X (D u u') = D (OT.fromVector [HM.rows u, HM.cols u] $ HM.flatten u)
-                    (dFrom2X u' ( HM.cols u))
+                    (dFrom2X u' (HM.cols u))
 
 fromSX :: forall sh r. (OS.Shape sh, IsScalarS sh r)
        => DualNumber (TensorS sh r) -> DualNumber (TensorX r)
@@ -402,13 +397,11 @@ lossSquared targ res = returnLet $ squaredDifference targ res
 -- * Monadic operations resulting in a scalar
 
 -- The type permits other ranks, but it's nonsense.
-reluAct :: DualMonad r m
-           => DualNumber r -> m (DualNumber r)
+reluAct :: DualMonad r m => DualNumber r -> m (DualNumber r)
 reluAct (D u u') = returnLet $ D (max 0 u) (dScale (if u > 0 then 1 else 0) u')
 
-sumElementsVectorOfDual :: IsScalar r
-                        => Data.Vector.Vector (DualNumber r)
-                        -> DualNumber r
+sumElementsVectorOfDual
+  :: IsScalar r => Data.Vector.Vector (DualNumber r) -> DualNumber r
 sumElementsVectorOfDual = V.foldl' (+) 0
 
 softMaxAct :: (DualMonad r m, Floating (Primal r))
@@ -438,10 +431,9 @@ lossCrossEntropyV :: (DualMonad r m, Floating (Primal (Tensor1 r)))
                   -> m (DualNumber r)
 lossCrossEntropyV targ res = returnLet $ negate $ log res <.>!! targ
 
-lossSoftMaxCrossEntropyV :: (DualMonad r m, Fractional (Primal r), Floating (Primal (Tensor1 r)))
-                         => Primal (Tensor1 r)
-                         -> DualNumber (Tensor1 r)
-                         -> m (DualNumber r)
+lossSoftMaxCrossEntropyV
+  :: (DualMonad r m, Fractional (Primal r), Floating (Primal (Tensor1 r)))
+  => Primal (Tensor1 r) -> DualNumber (Tensor1 r) -> m (DualNumber r)
 lossSoftMaxCrossEntropyV target (D u u') = do
   let expU = exp u
   -- The following would protect from overflows and exploding gradients,
@@ -472,9 +464,9 @@ reluLeakyActV dn@(D u _) = do
   let oneIfGtZero = V.map (\x -> if x > 0 then 1 else 0.01) u
   returnLet $ scale oneIfGtZero dn
 
-softMaxActV :: (DualMonad r m, Fractional (Primal r), Floating (Primal (Tensor1 r)))
-            => DualNumber (Tensor1 r)
-            -> m (DualNumber (Tensor1 r))
+softMaxActV :: ( DualMonad r m, Fractional (Primal r)
+               , Floating (Primal (Tensor1 r)) )
+            => DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r))
 softMaxActV d@(D u _) = do
   expU <- returnLet $ exp d
   let sumExpU = sumElements0 expU
