@@ -30,7 +30,7 @@ module HordeAd.Internal.Delta
   , -- * Evaluation of the delta expressions
     DeltaBinding
   , DeltaState (..)
-  , evalBindings, evalBindingsForward, ppBinding
+  , evalBindings, evalBindingsForward, ppBindings
   , bindInState0, bindInState1, bindInState2, bindInStateX
   ) where
 
@@ -688,7 +688,17 @@ evalBindingsForward st deltaTopLevel (params0, paramsV0, paramsL0, paramsX0) =
                            (reverse $ deltaBindings st)
   in eval0 parametersB deltaTopLevel
 
--- | This is yet another semantics of delta-expressions --- as texts.
+-- | This is yet another semantics of delta-expressions and their
+-- bindings --- by pretty-printing as texts.
+ppBindings :: (Show r, Numeric r) => Bool -> DeltaState r -> Delta0 r -> String
+ppBindings reversed st deltaTopLevel =
+  let pp = if reversed
+           then foldl' (\ !l b -> l ++ ppBinding "where" b)
+                       ["COMPUTE " ++ ppShow deltaTopLevel ++ "\n"]
+           else foldl' (\ !l b -> ppBinding "let" b ++ l)
+                       ["in " ++ ppShow deltaTopLevel ++ "\n"]
+  in concat $ pp $ deltaBindings st
+
 ppBinding :: (Show r, Numeric r) => String -> DeltaBinding r -> [String]
 ppBinding prefix = \case
   DeltaBinding0 (DeltaId i) d ->

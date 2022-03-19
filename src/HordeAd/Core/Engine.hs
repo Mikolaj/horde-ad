@@ -14,18 +14,16 @@ import Prelude
 
 import           Control.Monad.Trans.State.Strict
 import           Data.Functor.Identity
-import           Data.List (foldl')
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Numeric.LinearAlgebra as HM
-import           Text.Show.Pretty (ppShow)
 
 import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
   (Domain, DomainL, DomainV, DomainX, Domains, DualMonad (..), DualNumber (..))
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 import HordeAd.Internal.Delta
-  (DeltaState (..), evalBindings, evalBindingsForward, ppBinding, toDeltaId)
+  (DeltaState (..), evalBindings, evalBindingsForward, ppBindings, toDeltaId)
 
 -- * The dummy monad implementation that does not collect deltas.
 -- It's intended for efficiently calculating the value of the function only.
@@ -213,15 +211,9 @@ prettyPrintDf reversed f parameters@(params, paramsV, paramsL, paramsX) =
         , deltaCounterX = toDeltaId dimX
         , deltaBindings = []
         }
-      (D _ d0, st) = runState (runDualMonadGradient (f variables))
-                             initialState
-  in if reversed
-     then concat $ foldl' (\ !l b -> l ++ ppBinding "where" b)
-                          ["COMPUTE " ++ ppShow d0 ++ "\n"]
-                          (deltaBindings st)
-     else concat $ foldl' (\ !l b -> ppBinding "let" b ++ l)
-                          ["in " ++ ppShow d0 ++ "\n"]
-                          (deltaBindings st)
+      (D _ deltaTopLevel, st) = runState (runDualMonadGradient (f variables))
+                                         initialState
+  in ppBindings reversed st deltaTopLevel
 
 generateDeltaVars :: IsScalar r
                   => Domains r
