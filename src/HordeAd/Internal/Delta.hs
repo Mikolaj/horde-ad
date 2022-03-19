@@ -670,10 +670,10 @@ evalBindingsForward st deltaTopLevel (params0, paramsV0, paramsL0, paramsX0) =
         -- TODO: the following coredumps without the @VM.take@; it's a shame
         -- there's no copying of a smaller vector into a larger one in the API.
         -- Perhaps use https://hackage.haskell.org/package/base-4.16.0.0/docs/Foreign-Marshal-Array.html#v:copyArray?
-        V.basicUnsafeCopy (VM.take dim0 store0) params0
-        V.basicUnsafeCopy (VM.take dim1 store1) paramsV0
-        V.basicUnsafeCopy (VM.take dim2 store2) paramsL0
-        V.basicUnsafeCopy (VM.take dimX storeX) paramsX0
+        V.unsafeCopy (VM.take dim0 store0) params0
+        V.unsafeCopy (VM.take dim1 store1) paramsV0
+        V.unsafeCopy (VM.take dim2 store2) paramsL0
+        V.unsafeCopy (VM.take dimX storeX) paramsX0
         v0 <- V.unsafeFreeze store0
         v1 <- V.unsafeFreeze store1
         v2 <- V.unsafeFreeze store2
