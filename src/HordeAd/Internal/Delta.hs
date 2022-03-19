@@ -3,8 +3,9 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | The second component of dual numbers, @Delta@, with it's evaluation
--- function. Neel Krishnaswami calls that "sparse vector expressions",
--- and indeed even in the simplest case of a function defined on scalars only,
+-- function. Neel Krishnaswami calls them "sparse vector expressions",
+-- and indeed they denote vectors, because even in the simplest
+-- case of an objective function defined on scalars only,
 -- the codomain of the evaluation function is a set of vectors,
 -- because the gradient of an @R^n@ to @R@ function is an @R^n@ vector.
 --
@@ -16,7 +17,7 @@
 -- bigger: a whole vector of such matrices (and vectors and scalars).
 --
 -- The algebraic structure here is an extension of vector space.
--- The crucial extra constructor for variables is used both to represent
+-- The crucial extra constructor of a variable is used both to represent
 -- sharing in order to avoid exponential blowup and to replace the one-hot
 -- access to parameters with something cheaper and more uniform.
 -- A lot of the remaining additional structure is for introducing
@@ -78,7 +79,7 @@ data Delta0 r =
   | Var0 (DeltaId r)
 
   | SumElements0 (Delta1 r) Int  -- ^ see Note [SumElements0]
-  | Index0 (Delta1 r) Int Int  -- ^ second integer is length of the vector
+  | Index0 (Delta1 r) Int Int  -- ^ second integer is the length of the vector
 
   | Dot0 (Vector r) (Delta1 r)  -- ^ Dot0 v vd == SumElements0 (Scale1 v vd) n
 
@@ -97,10 +98,10 @@ data Delta1 r =
 
   | Seq1 (Data.Vector.Vector (Delta0 r))  -- ^ "unboxing" conversion
   | Konst1 (Delta0 r) Int  -- ^ length; needed only for forward derivative
-  | Append1 (Delta1 r) Int (Delta1 r)  -- ^ integer is lenght of first argument
-  | Slice1 Int Int (Delta1 r) Int  -- ^ last integer is length of argument
-  | SumRows1 (Delta2 r) Int  -- ^ integer is the number of columns
-  | SumColumns1 (Delta2 r) Int  -- ^ integer is the number of rows
+  | Append1 (Delta1 r) Int (Delta1 r)  -- ^ the length of the first argument
+  | Slice1 Int Int (Delta1 r) Int  -- ^ last integer is the length of argument
+  | SumRows1 (Delta2 r) Int  -- ^ the integer is the number of columns
+  | SumColumns1 (Delta2 r) Int  -- ^ the integer is the number of rows
 
   | M_VD1 (Matrix r)
           (Delta1 r)  -- ^ M_VD1 m vd == SumRows1 (M_MD2 m (AsRow2 vd))
@@ -126,10 +127,10 @@ data Delta2 r =
   | Transpose2 (Delta2 r)
   | M_MD2 (Matrix r) (Delta2 r)  -- ^ matrix-(matrix-expression) multiplication
   | MD_M2 (Delta2 r) (Matrix r)  -- ^ (matrix-expression)-matrix multiplication
-  | RowAppend2 (Delta2 r) Int (Delta2 r)  -- ^ row-lenght of first argument
-  | ColumnAppend2 (Delta2 r) Int (Delta2 r)  -- ^ col-lenght of first argument
+  | RowAppend2 (Delta2 r) Int (Delta2 r)  -- ^ row-length of first argument
+  | ColumnAppend2 (Delta2 r) Int (Delta2 r)  -- ^ col-length of first argument
   | RowSlice2 Int Int (Delta2 r) Int  -- ^ last arg is row-length of the matrix
-  | ColumnSlice2 Int Int (Delta2 r) Int  -- ^ column-length of argument
+  | ColumnSlice2 Int Int (Delta2 r) Int  -- ^ column-length of the matrix
 
   | AsRow2 (Delta1 r)  -- ^ AsRow2 vd == FromRows2 (V.replicate n vd)
   | AsColumn2 (Delta1 r)  -- ^ AsColumn2 vd == FromColumns2 (V.replicate n vd)
@@ -169,10 +170,7 @@ deriving instance (Show r, Numeric r) => Show (DeltaX r)
 -- | This is the grammar of delta-expressions at arbitrary tensor rank,
 -- the fully typed Shaped version.
 --
--- Warning: not tested nor benchmarked. To see any typing problems and decide
--- whether `DeltaX` can be replaced or kept in addition or neither,
--- we need to implement something that really needs tensors or at least
--- some heavy matrix stuff using exclusively tensors.
+-- Warning: not tested nor benchmarked.
 data DeltaS :: [Nat] -> Type -> Type where
   ZeroS :: DeltaS sh r
   ScaleS :: OS.Array sh r -> DeltaS sh r -> DeltaS sh r
@@ -209,16 +207,19 @@ toDeltaId = DeltaId
 covertDeltaId :: DeltaId (OT.Array r) -> DeltaId (OS.Array sh r)
 covertDeltaId (DeltaId i) = DeltaId i
 
--- The key is that it preserves the phantom type.
+-- The key property is that it preserves the phantom type.
 succDeltaId :: DeltaId a -> DeltaId a
 succDeltaId (DeltaId i) = DeltaId (succ i)
 
 
 -- * Evaluation of the delta expressions
 
--- The @DeltaId@ components could be computed on the fly when evaluating,
--- but it costs more (they are boxed) than storing them here at the time
--- of binding creation.
+-- | Binding at one of the ranks, with a given underlying scalar.
+--
+-- The 'DeltaId' components could be re-computed on the fly in 'buildVectors',
+-- but it costs more (they are boxed, so re-allocation is expensive)
+-- than storing them here at the time of binding creation and accessing
+-- in `buildVectors`.
 data DeltaBinding r =
     DeltaBinding0 (DeltaId r) (Delta0 r)
   | DeltaBinding1 (DeltaId (Vector r)) (Delta1 r)
@@ -233,6 +234,11 @@ data DeltaState r = DeltaState
   , deltaBindings :: [DeltaBinding r]
   }
 
+-- | Helper definitions to shorten type signatures. Note that these
+-- differ from their counterparts in all other modules, because the type
+-- argument here is the underlying scalar (e.g., @Double),
+-- while elsewhere it's the dual component of dual numbers from
+-- rank 0 (scalar) level (e.g., @Delta0 Double@).
 type Domain r = Vector r
 
 type DomainV r = Data.Vector.Vector (Vector r)
@@ -243,9 +249,9 @@ type DomainX r = Data.Vector.Vector (OT.Array r)
 
 type Domains r = (Domain r, DomainV r, DomainL r, DomainX r)
 
--- | Delta expressions are originally meant to denote (forward) derivatives.
+-- | Delta expressions naturally denote forward derivatives.
 -- However, we use the delta expressions to compute gradients instead.
--- Let's first discuss the semantics in terms of derivatives,
+-- Let's first discuss the semantics in terms of forward derivatives,
 -- because it's simpler (as evidenced by the simple implementation
 -- in 'evalBindingsForward' below).
 --
@@ -258,7 +264,7 @@ type Domains r = (Domain r, DomainV r, DomainL r, DomainX r)
 -- component of @b@. Then @d@ denotes a linear function from @C@ to @r@
 -- that is the derivative of @f@ at point @P@. The mathematical formula
 -- for the derivative follows straightforwardly the syntactic form
--- of the delta expression @d@.
+-- of the delta expression @d@ (see 'evalBindingsForward').
 --
 -- Let's now describe the semantics of @d@ as the gradient of @f@
 -- at point @P@, assuming that @dt@, the given perturbation of the result
@@ -397,12 +403,14 @@ buildVectors st deltaTopLevel = do
         Transpose2 md -> eval2 (MO.transpose r) md  -- TODO: test!
         M_MD2 m md -> zipWithM_ (\rRow row -> eval1 rRow (MD_V1 md row))
                                 (HM.toRows m) (MO.toRows r)
+--      inlining eval1 to demonstrate the calls to eval2 with outer products:
 --      M_MD2 m md ->
 --        zipWithM_ (\rRow row ->
 --                     eval2 (MO.MatrixOuter Nothing (Just rRow) (Just row)) md)
 --                  (HM.toRows m) (MO.toRows r)
         MD_M2 md m -> zipWithM_ (\rCol col -> eval1 rCol (MD_V1 md col))
                                 (MO.toColumns r) (HM.toColumns m)
+--      inlining eval1 to demonstrate the calls to eval2 with outer products:
 --      MD_M2 md m ->
 --        zipWithM_ (\rCol col ->
 --                     eval2 (MO.MatrixOuter Nothing (Just rCol) (Just col)) md)
@@ -410,7 +418,7 @@ buildVectors st deltaTopLevel = do
         RowAppend2 d k e -> eval2 (MO.takeRows k r) d
                             >> eval2 (MO.dropRows k r) e
         ColumnAppend2 d k e -> eval2 (MO.takeColumns k r) d
-                            >> eval2 (MO.dropColumns k r) e
+                               >> eval2 (MO.dropColumns k r) e
         RowSlice2 i n d rows ->
           assert (MO.rows r == n) $
           let cols = MO.cols r
@@ -470,6 +478,7 @@ buildVectors st deltaTopLevel = do
         AppendS d e -> appendS r d e
         SliceS @i d -> sliceS @i r d
           -- is it possible to do that without type patterns and so GHC >= 9.2?
+          -- https://github.com/Mikolaj/horde-ad/pull/13
 
         From0S d -> eval0 (OS.unScalar r) d
         From1S d -> eval1 (OS.toVector r) d
@@ -494,11 +503,11 @@ buildVectors st deltaTopLevel = do
       sliceS r = evalS (OS.constant @(i ': rest) 0
                         `OS.append` r
                         `OS.append` OS.constant @(k ': rest) 0)
-  eval0 1 deltaTopLevel  -- dt is 1 or hardwired in f
+  eval0 1 deltaTopLevel  -- dt is 1; can be overriden in the objective function
   let evalUnlessZero :: DeltaBinding r -> ST s ()
       evalUnlessZero (DeltaBinding0 (DeltaId i) d) = do
         r <- store0 `VM.read` i
-        unless (r == 0) $  -- we init with exactly 0 so the comparison is OK
+        unless (r == 0) $  -- we init with exactly 0.0 so the comparison works
           eval0 r d
       evalUnlessZero (DeltaBinding1 (DeltaId i) d) = do
         r <- store1 `VM.read` i
@@ -516,15 +525,15 @@ buildVectors st deltaTopLevel = do
   return (store0, store1, store2, storeX)
 
 -- | Forward derivative computation via forward-evaluation of delta-expressions
--- (which most probably makes it inefficient compared to the direct
--- forward method). [TODO: I'm not sure about the following point:]
+-- (which is surprisingly competitive to the direct forward method,
+-- until the RAM taken by deltas gets large enough to affect cache hits).
 -- This is the directional derivative, calculated for the point,
 -- at which the delta expression was computed (which is the point
 -- represented by the parameters of the objective function and used
 -- to compute it's dual number result) and along the direction vector(s)
 -- given in the last parameter of @evalBindingsForward@.
 --
--- Warning: the tensor part is not fully implemented and not tested at all.
+-- Warning: the tensor part is not tested at all.
 evalBindingsForward :: forall r. (Numeric r, Num (Vector r))
                     => DeltaState r -> Delta0 r -> Domains r -> r
 evalBindingsForward st deltaTopLevel (params0, paramsV0, paramsL0, paramsX0) =
@@ -658,7 +667,7 @@ evalBindingsForward st deltaTopLevel (params0, paramsV0, paramsL0, paramsX0) =
             dim1 = V.length paramsV0
             dim2 = V.length paramsL0
             dimX = V.length paramsX0
-        -- TODO: this coredumps without the @VM.take@; it's a shame
+        -- TODO: the following coredumps without the @VM.take@; it's a shame
         -- there's no copying of a smaller vector into a larger one in the API.
         -- Perhaps use https://hackage.haskell.org/package/base-4.16.0.0/docs/Foreign-Marshal-Array.html#v:copyArray?
         V.basicUnsafeCopy (VM.take dim0 store0) params0
@@ -674,6 +683,7 @@ evalBindingsForward st deltaTopLevel (params0, paramsV0, paramsL0, paramsX0) =
                            (reverse $ deltaBindings st)
   in eval0 parametersB deltaTopLevel
 
+-- | This is yet another semantics of delta-expressions --- as texts.
 ppBinding :: (Show r, Numeric r) => String -> DeltaBinding r -> [String]
 ppBinding prefix = \case
   DeltaBinding0 (DeltaId i) d ->
