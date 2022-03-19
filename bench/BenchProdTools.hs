@@ -166,7 +166,8 @@ vec_omit_prod_aux vec = returnLet $ foldlDual' (*) 1 vec
 
 vec_omit_prod :: forall r. HasDelta r
               => Vector (Primal r) -> Primal r
-vec_omit_prod ds = primalValue @r vec_omit_prod_aux (ds, V.empty, V.empty, V.empty)
+vec_omit_prod ds =
+  primalValue @r vec_omit_prod_aux (ds, V.empty, V.empty, V.empty)
 
 grad_vec_omit_prod :: HasDelta r
                    => Vector (Primal r) -> Vector (Primal r)
@@ -181,13 +182,15 @@ vec_omit_scalarSum_aux
 vec_omit_scalarSum_aux vec = returnLet $ foldlDual' (+) 0 vec
 
 sumElementsV :: DualMonad (Delta0 Double) m
-             => DualNumberVariables (Delta0 Double) -> m (DualNumber (Delta0 Double))
+             => DualNumberVariables (Delta0 Double)
+             -> m (DualNumber (Delta0 Double))
 sumElementsV variables = do
   let x = var1 variables 0
   returnLet $ sumElements0 x
 
 altSumElementsV :: DualMonad (Delta0 Double) m
-                => DualNumberVariables (Delta0 Double) -> m (DualNumber (Delta0 Double))
+                => DualNumberVariables (Delta0 Double)
+                -> m (DualNumber (Delta0 Double))
 altSumElementsV variables = do
   let x = var1 variables 0
   returnLet $ altSumElements0 x

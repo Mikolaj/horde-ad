@@ -42,7 +42,8 @@ sgdShow :: HasDelta r
         -> Domain0 r  -- ^ initial parameters
         -> Primal r
 sgdShow gamma f trainData params0Init =
-  let result = fst $ sgd gamma f trainData (params0Init, V.empty, V.empty, V.empty)
+  let result =
+        fst $ sgd gamma f trainData (params0Init, V.empty, V.empty, V.empty)
   in snd $ df (f $ head trainData) result
 
 sgdTestCase :: String
@@ -51,7 +52,8 @@ sgdTestCase :: String
                 -> Int
                 -> a
                 -> DualNumberVariables (Delta0 Double)
-                -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
+                -> DualMonadGradient (Delta0 Double)
+                                     (DualNumber (Delta0 Double)))
             -> Double
             -> Double
             -> TestTree
@@ -103,8 +105,10 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                  (!res, _, _, _) =
                    fst $ sgd gamma f chunk (params0, V.empty, V.empty, V.empty)
              printf "Trained on %d points.\n" (length chunk)
-             let trainScore = testMnist0 (Proxy @(Delta0 Double)) widthHidden widthHidden2 chunk res
-                 testScore  = testMnist0 (Proxy @(Delta0 Double)) widthHidden widthHidden2 testData res
+             let trainScore = testMnist0 (Proxy @(Delta0 Double))
+                                         widthHidden widthHidden2 chunk res
+                 testScore  = testMnist0 (Proxy @(Delta0 Double))
+                                         widthHidden widthHidden2 testData res
              printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
              printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
              return res
@@ -166,8 +170,10 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                    fst $ sgd gamma f chunk (params0, params1, V.empty, V.empty)
                  res = (resS, resV)
              printf "Trained on %d points.\n" (length chunk)
-             let trainScore = testMnist1 @(Delta0 Double) widthHidden widthHidden2 chunk res
-                 testScore = testMnist1 @(Delta0 Double) widthHidden widthHidden2 testData res
+             let trainScore = testMnist1 @(Delta0 Double)
+                                         widthHidden widthHidden2 chunk res
+                 testScore = testMnist1 @(Delta0 Double)
+                                        widthHidden widthHidden2 testData res
              printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
              printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
              return res
@@ -185,7 +191,8 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
               epochs maxBatches
        res <- runEpoch 1 (params0Init, params1Init)
        let testErrorFinal =
-             1 - testMnist1 @(Delta0 Double) widthHidden widthHidden2 testData res
+             1 - testMnist1 @(Delta0 Double) widthHidden widthHidden2 testData
+                            res
        testErrorFinal @?= expected
 
 nnMnistLossTanh :: DualMonad (Delta0 Double) m
@@ -543,14 +550,16 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       let nParams0 = lenMnist0 300 100
           params0 = V.replicate nParams0 0.1
       testData <- loadMnistData testGlyphsPath testLabelsPath
-      (1 - testMnist0 (Proxy @(Delta0 Double)) 300 100 testData params0) @?= 0.902
+      (1 - testMnist0 (Proxy @(Delta0 Double)) 300 100 testData params0)
+        @?= 0.902
   , testCase "testMnist2VV on 0.1 params0 300 100 width 10k testset" $ do
       let nParams0 = lenMnist1 300 100
           params0 = V.replicate nParams0 0.1
           nParams1 = lenVectorsMnist1 300 100
           params1 = V.map (`V.replicate` 0.1) nParams1
       testData <- loadMnistData testGlyphsPath testLabelsPath
-      (1 - testMnist1 @(Delta0 Double) 300 100 testData (params0, params1)) @?= 0.902
+      (1 - testMnist1 @(Delta0 Double) 300 100 testData (params0, params1))
+        @?= 0.902
   , testCase "testMnist2LL on 0.1 params0 300 100 width 10k testset" $ do
       let (nParams0, lParams1, lParams2) = lenMnistFcnn2 300 100
           vParams1 = V.fromList lParams1
@@ -559,7 +568,9 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           params1 = V.map (`V.replicate` 0.1) vParams1
           params2 = V.map (HM.konst 0.1) vParams2
       testData <- loadMnistData testGlyphsPath testLabelsPath
-      (1 - testMnist2 @(Delta0 Double) testData (params0, params1, params2, V.empty)) @?= 0.902
+      (1 - testMnist2 @(Delta0 Double) testData
+                      (params0, params1, params2, V.empty))
+        @?= 0.902
  ]
 
 bigMnistTests :: TestTree

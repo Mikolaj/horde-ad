@@ -15,29 +15,35 @@ import           System.Random
 import HordeAd
 import HordeAd.Tool.MnistTools
 
-mnistTrainBench2 :: forall r. (NFData (Primal r), HasDelta r, Floating (Primal r), UniformRange (Primal r))
+mnistTrainBench2 :: forall r. ( NFData (Primal r), HasDelta r
+                              , Floating (Primal r), UniformRange (Primal r) )
                  => String -> Int -> [MnistData (Primal r)] -> Int -> Int
                  -> Primal r
                  -> Benchmark
 mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
   let nParams0 = lenMnist0 widthHidden widthHidden2
-      params0Init = V.unfoldrExactN nParams0 (uniformR (-0.5, 0.5)) $ mkStdGen 33
+      params0Init = V.unfoldrExactN nParams0 (uniformR (-0.5, 0.5))
+                    $ mkStdGen 33
       f = nnMnistLoss0 widthHidden widthHidden2
       chunk = take chunkLength xs
       grad c = fst $ sgd gamma f c (params0Init, V.empty, V.empty, V.empty)
       name = "" ++ extraPrefix
-             ++ unwords ["s" ++ show nParams0, "v0", "m0" ++ "=" ++ show nParams0]
+             ++ unwords [ "s" ++ show nParams0, "v0"
+                        , "m0" ++ "=" ++ show nParams0 ]
   bench name $ nf grad chunk
 
-mnistTestBench2 :: forall r. (Floating (Primal r), UniformRange (Primal r), HasDelta r)
-                => String -> Int -> [MnistData (Primal r)] -> Int -> Int -> Benchmark
+mnistTestBench2
+  :: forall r. (Floating (Primal r), UniformRange (Primal r), HasDelta r)
+  => String -> Int -> [MnistData (Primal r)] -> Int -> Int -> Benchmark
 mnistTestBench2 extraPrefix chunkLength xs widthHidden widthHidden2 = do
   let nParams0 = lenMnist0 widthHidden widthHidden2
-      params0Init = V.unfoldrExactN nParams0 (uniformR (-0.5, 0.5)) $ mkStdGen 33
+      params0Init = V.unfoldrExactN nParams0 (uniformR (-0.5, 0.5))
+                    $ mkStdGen 33
       chunk = take chunkLength xs
       score c = testMnist0 (Proxy @r) widthHidden widthHidden2 c params0Init
       name = "test " ++ extraPrefix
-             ++ unwords ["s" ++ show nParams0, "v0", "m0" ++ "=" ++ show nParams0]
+             ++ unwords [ "s" ++ show nParams0, "v0"
+                        , "m0" ++ "=" ++ show nParams0 ]
   bench name $ whnf score chunk
 
 mnistTrainBGroup2 :: [MnistData Double] -> Int -> Benchmark
@@ -64,7 +70,8 @@ mnistTrainBGroup2500 xs0 chunkLength =
     , mnistTrainBench2 "2500|750 " chunkLength xs 2500 750 0.02
     , mnistTestBench2 "(Float) 2500|750 " chunkLength xsFloat 2500 750
         -- Float test
-    , mnistTrainBench2 "(Float) 2500|750 " chunkLength xsFloat 2500 750 (0.02 :: Float)
+    , mnistTrainBench2 "(Float) 2500|750 " chunkLength xsFloat 2500 750
+                       (0.02 :: Float)
     ]
 
 mnistTrainBench2V :: String -> Int -> [MnistData Double]
@@ -98,7 +105,8 @@ mnistTestBench2V extraPrefix chunkLength xs widthHidden widthHidden2 = do
                           - HM.scalar 0.5)
                nParams1
       chunk = take chunkLength xs
-      score c = testMnist1 @(Delta0 Double) widthHidden widthHidden2 c (params0Init, params1Init)
+      score c = testMnist1 @(Delta0 Double) widthHidden widthHidden2 c
+                           (params0Init, params1Init)
       totalParams = nParams0 + V.sum nParams1
       name = "test " ++ extraPrefix
              ++ unwords [ "s" ++ show nParams0, "v" ++ show (V.length nParams1)

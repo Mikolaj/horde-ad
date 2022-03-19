@@ -47,26 +47,30 @@ dfShow f deltaInput =
         df f (V.fromList deltaInput, V.empty, V.empty, V.empty)
   in (V.toList results, value)
 
-fX :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+fX :: DualMonad (Delta0 Float) m
+   => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 fX variables = do
   let x = var0 variables 0
   return x
 
-fX1Y :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+fX1Y :: DualMonad (Delta0 Float) m
+     => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 fX1Y variables = do
   let x = var0 variables 0
       y = var0 variables 1
   x1 <- x +\ 1
   x1 *\ y
 
-fXXY :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+fXXY :: DualMonad (Delta0 Float) m
+     => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 fXXY variables = do
   let x = var0 variables 0
       y = var0 variables 1
   xy <- x *\ y
   x *\ xy
 
-fXYplusZ :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+fXYplusZ :: DualMonad (Delta0 Float) m
+         => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 fXYplusZ variables = do
   let x = var0 variables 0
       y = var0 variables 1
@@ -74,13 +78,15 @@ fXYplusZ variables = do
   xy <- x *\ y
   xy +\ z
 
-fXtoY :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+fXtoY :: DualMonad (Delta0 Float) m
+      => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 fXtoY variables = do
   let x = var0 variables 0
       y = var0 variables 1
   x **\ y
 
-freluX :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+freluX :: DualMonad (Delta0 Float) m
+       => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 freluX variables = do
   let x = var0 variables 0
   reluAct x
@@ -113,23 +119,30 @@ dfTests = testGroup "Simple df application tests" $
     , ("scalarSum", vec_omit_scalarSum_aux, [1, 1, 3], ([1.0,1.0,1.0],5.0))
     ]
 
-vec_omit_scalarSum_aux :: DualMonad (Delta0 Float) m
-                       => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+vec_omit_scalarSum_aux
+  :: DualMonad (Delta0 Float) m
+  => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 vec_omit_scalarSum_aux vec = returnLet $ foldlDual' (+) 0 vec
 
-sumElementsV :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+sumElementsV
+  :: DualMonad (Delta0 Float) m
+  => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 sumElementsV variables = do
   let x = var1 variables 0
   returnLet $ sumElements0 x
 
-altSumElementsV :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+altSumElementsV
+  :: DualMonad (Delta0 Float) m
+  => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
 altSumElementsV variables = do
   let x = var1 variables 0
   returnLet $ altSumElements0 x
 
-dfVectorShow :: (DualNumberVariables (Delta0 Float) -> DualMonadGradient (Delta0 Float) (DualNumber (Delta0 Float)))
-             -> [[Float]]
-             -> ([[Float]], Float)
+dfVectorShow
+  :: (DualNumberVariables (Delta0 Float)
+      -> DualMonadGradient (Delta0 Float) (DualNumber (Delta0 Float)))
+  -> [[Float]]
+  -> ([[Float]], Float)
 dfVectorShow f deltaInput =
   let ((_, results, _, _), value) =
         df f (V.empty, V.fromList (map V.fromList deltaInput), V.empty, V.empty)
@@ -170,7 +183,8 @@ dfastForwardShow
   -> ([Primal r], [Primal r])
   -> (Primal r, Primal r)
 dfastForwardShow f (deltaInput, deltaInputV) =
-  dfastForward @r f ( V.fromList deltaInput, V.singleton $ V.fromList deltaInputV
+  dfastForward @r f ( V.fromList deltaInput
+                    , V.singleton $ V.fromList deltaInputV
                     , V.empty, V.empty )
 
 dfTestsFastForward :: TestTree
