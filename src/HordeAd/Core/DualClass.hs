@@ -50,7 +50,7 @@ type IsScalar r =
 -- | An extension of 'IsScalar' that also covers shaped tensors. It is
 -- separate, because it requires an additional type argument representing
 -- the shape.
-type IsScalarS (sh :: [Nat]) r =
+type IsScalarS sh r =
        ( IsScalar r, IsDualWithScalar (TensorS sh r) r
        , Primal (TensorS sh r) ~ OS.Array sh (Primal r) )
 
