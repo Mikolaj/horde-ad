@@ -100,8 +100,8 @@ outputLayerMnist factivation hiddenVec offset variables width = do
   vOfSums <- V.generateM width f
   factivation vOfSums
 
-lenMnist2 :: Int -> Int -> Int
-lenMnist2 widthHidden widthHidden2 =
+lenMnist0 :: Int -> Int -> Int
+lenMnist0 widthHidden widthHidden2 =
   widthHidden * (sizeMnistGlyph + 1)
   + widthHidden2 * (widthHidden + 1)
   + sizeMnistLabel * (widthHidden2 + 1)
@@ -112,7 +112,7 @@ lenMnist2 widthHidden widthHidden2 =
 -- The widths of the hidden layers are @widthHidden@ and @widthHidden2@
 -- and from these, the @lenMnist2@ function computes the number
 -- of scalar dual number parameters (variables) to be given to the program.
-nnMnist2 :: forall r m. DualMonad r m
+nnMnist0 :: forall r m. DualMonad r m
          => (DualNumber r -> m (DualNumber r))
          -> (Data.Vector.Vector (DualNumber r)
              -> m (Data.Vector.Vector (DualNumber r)))
@@ -121,7 +121,7 @@ nnMnist2 :: forall r m. DualMonad r m
          -> Primal (Tensor1 r)
          -> DualNumberVariables r
          -> m (Data.Vector.Vector (DualNumber r))
-nnMnist2 factivationHidden factivationOutput widthHidden widthHidden2
+nnMnist0 factivationHidden factivationOutput widthHidden widthHidden2
          input variables = do
   let !_A = assert (sizeMnistGlyph == V.length input) ()
   layer1 <- inline hiddenLayerMnist factivationHidden input
@@ -135,14 +135,14 @@ nnMnist2 factivationHidden factivationOutput widthHidden widthHidden2
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
-nnMnistLoss2 :: (DualMonad r m, Floating (Primal r))
+nnMnistLoss0 :: (DualMonad r m, Floating (Primal r))
              => Int
              -> Int
              -> MnistData (Primal r)
              -> DualNumberVariables r
              -> m (DualNumber r)
-nnMnistLoss2 widthHidden widthHidden2 (input, target) variables = do
-  result <- inline nnMnist2 logisticAct softMaxAct
+nnMnistLoss0 widthHidden widthHidden2 (input, target) variables = do
+  result <- inline nnMnist0 logisticAct softMaxAct
                             widthHidden widthHidden2 input variables
   lossCrossEntropy target result
 
@@ -150,18 +150,18 @@ nnMnistLoss2 widthHidden widthHidden2 (input, target) variables = do
 -- and the trained parameters.
 --
 -- The proxy argument is needed only for the (spurious) SPECIALIZE pragma,
--- becuase I can't write @SPECIALIZE testMnist2 \@(Delta0 Double)@.
-testMnist2 :: forall r. (IsScalar r, Floating (Primal r))
+-- becuase I can't write @SPECIALIZE testMnist0 \@(Delta0 Double)@.
+testMnist0 :: forall r. (IsScalar r, Floating (Primal r))
            => Proxy r -> Int -> Int -> [MnistData (Primal r)] -> Domain0 r
            -> Primal r
-testMnist2 _ widthHidden widthHidden2 inputs params0 =
+testMnist0 _ widthHidden widthHidden2 inputs params0 =
   let matchesLabels :: MnistData (Primal r) -> Bool
       matchesLabels (glyph, label) =
-        let nn = inline (nnMnist2 @r) logisticAct softMaxAct
+        let nn = inline (nnMnist0 @r) logisticAct softMaxAct
                                       widthHidden widthHidden2 glyph
             value = V.map (\(D r _) -> r)
                     $ primalValueGeneric @r nn (params0, V.empty, V.empty, V.empty)
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
-{-# SPECIALIZE testMnist2 :: Proxy (Delta0 Double) -> Int -> Int -> [MnistData Double] -> Domain0 (Delta0 Double) -> Double #-}
+{-# SPECIALIZE testMnist0 :: Proxy (Delta0 Double) -> Int -> Int -> [MnistData Double] -> Domain0 (Delta0 Double) -> Double #-}

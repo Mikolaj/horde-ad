@@ -59,11 +59,11 @@ sumConstantDataL x offset variables width =
       f i = sumConstantDataV x (offset + i) variables
   in seq1 $ V.generate width f
 
-lenMnist2V :: Int -> Int -> Int
-lenMnist2V _widthHidden _widthHidden2 = 0
+lenMnist1 :: Int -> Int -> Int
+lenMnist1 _widthHidden _widthHidden2 = 0
 
-lenVectorsMnist2V :: Int -> Int -> Data.Vector.Vector Int
-lenVectorsMnist2V widthHidden widthHidden2 =
+lenVectorsMnist1 :: Int -> Int -> Data.Vector.Vector Int
+lenVectorsMnist1 widthHidden widthHidden2 =
   V.fromList $ replicate widthHidden sizeMnistGlyph ++ [widthHidden]
                ++ replicate widthHidden2 widthHidden ++ [widthHidden2]
                ++ replicate sizeMnistLabel widthHidden2 ++ [sizeMnistLabel]
@@ -75,7 +75,7 @@ lenVectorsMnist2V widthHidden widthHidden2 =
 -- and from these, the @len*@ functions compute the number and dimensions
 -- of scalars (none in this case) and vectors of dual number parameters
 -- (variables) to be given to the program.
-nnMnist2V :: forall r m. DualMonad r m
+nnMnist1 :: forall r m. DualMonad r m
           => (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
           -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
           -> Int
@@ -83,7 +83,7 @@ nnMnist2V :: forall r m. DualMonad r m
           -> Primal (Tensor1 r)
           -> DualNumberVariables r
           -> m (DualNumber (Tensor1 r))
-nnMnist2V factivationHidden factivationOutput widthHidden widthHidden2
+nnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
           input variables = do
   let !_A = assert (sizeMnistGlyph == V.length input) ()
   let hiddenLayer1 = sumConstantDataL input 0 variables widthHidden
@@ -102,25 +102,25 @@ nnMnist2V factivationHidden factivationOutput widthHidden widthHidden2
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
-nnMnistLoss2V :: (DualMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
+nnMnistLoss1 :: (DualMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
               => Int
               -> Int
               -> MnistData (Primal r)
               -> DualNumberVariables r
               -> m (DualNumber r)
-nnMnistLoss2V widthHidden widthHidden2 (input, target) variables = do
-  result <- inline nnMnist2V logisticAct softMaxActV
+nnMnistLoss1 widthHidden widthHidden2 (input, target) variables = do
+  result <- inline nnMnist1 logisticAct softMaxActV
                              widthHidden widthHidden2 input variables
   lossCrossEntropyV target result
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
-testMnist2V :: forall r. (IsScalar r, Floating (Primal r), Floating (Primal (Tensor1 r)))
+testMnist1 :: forall r. (IsScalar r, Floating (Primal r), Floating (Primal (Tensor1 r)))
             => Int -> Int -> [MnistData (Primal r)] -> (Domain0 r, Domain1 r) -> Primal r
-testMnist2V widthHidden widthHidden2 inputs (params0, params1) =
+testMnist1 widthHidden widthHidden2 inputs (params0, params1) =
   let matchesLabels :: MnistData (Primal r) -> Bool
       matchesLabels (glyph, label) =
-        let nn = inline (nnMnist2V @r) logisticAct softMaxActV
+        let nn = inline (nnMnist1 @r) logisticAct softMaxActV
                                        widthHidden widthHidden2 glyph
             value = primalValue nn (params0, params1, V.empty, V.empty)
         in V.maxIndex value == V.maxIndex label

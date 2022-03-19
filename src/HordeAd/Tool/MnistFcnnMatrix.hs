@@ -12,14 +12,14 @@ import           Control.Exception (assert)
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 
+import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.DualClass
-import HordeAd.Core.PairOfVectors (DualNumberVariables, var2, var1)
+import HordeAd.Core.PairOfVectors (DualNumberVariables, var1, var2)
 import HordeAd.Tool.MnistData
 
-lenMnistFcnn2L :: Int -> Int -> (Int, [Int], [(Int, Int)])
-lenMnistFcnn2L widthHidden widthHidden2 =
+lenMnistFcnn2 :: Int -> Int -> (Int, [Int], [(Int, Int)])
+lenMnistFcnn2 widthHidden widthHidden2 =
   ( 0
   , [widthHidden, widthHidden2, sizeMnistLabel]
   , [ (widthHidden, sizeMnistGlyph)
@@ -34,13 +34,13 @@ lenMnistFcnn2L widthHidden widthHidden2 =
 -- and vectors given as dual number parameters (variables).
 -- The dimensions, in turn, can be computed by the @len*@ functions
 -- on the basis of the requested widths, see above.
-nnMnist2L :: forall r m. DualMonad r m
+nnMnist2 :: forall r m. DualMonad r m
           => (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
           -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
           -> Primal (Tensor1 r)
           -> DualNumberVariables r
           -> m (DualNumber (Tensor1 r))
-nnMnist2L factivationHidden factivationOutput input variables = do
+nnMnist2 factivationHidden factivationOutput input variables = do
   let !_A = assert (sizeMnistGlyph == V.length input) ()
       weightsL0 = var2 variables 0
       biasesV0 = var1 variables 0
@@ -57,43 +57,43 @@ nnMnist2L factivationHidden factivationOutput input variables = do
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
-nnMnistLoss2L :: (DualMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
+nnMnistLoss2 :: (DualMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
               => MnistData (Primal r)
               -> DualNumberVariables r
               -> m (DualNumber r)
-nnMnistLoss2L (input, target) variables = do
-  result <- inline nnMnist2L logisticAct softMaxActV input variables
+nnMnistLoss2 (input, target) variables = do
+  result <- inline nnMnist2 logisticAct softMaxActV input variables
   lossCrossEntropyV target result
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function, using fused
 -- softMax and cross entropy as the loss function.
-nnMnistLossFused2L
+nnMnistLossFused2
   :: (DualMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
   => MnistData (Primal r)
   -> DualNumberVariables r
   -> m (DualNumber r)
-nnMnistLossFused2L (input, target) variables = do
-  result <- inline nnMnist2L logisticAct return input variables
+nnMnistLossFused2 (input, target) variables = do
+  result <- inline nnMnist2 logisticAct return input variables
   lossSoftMaxCrossEntropyV target result
 
-nnMnistLossFusedRelu2L
+nnMnistLossFusedRelu2
   :: (DualMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
   => MnistData (Primal r)
   -> DualNumberVariables r
   -> m (DualNumber r)
-nnMnistLossFusedRelu2L (input, target) variables = do
-  result <- inline nnMnist2L reluActV return input variables
+nnMnistLossFusedRelu2 (input, target) variables = do
+  result <- inline nnMnist2 reluActV return input variables
   lossSoftMaxCrossEntropyV target result
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
-testMnist2L :: forall r. (IsScalar r, Floating (Primal r), Floating (Primal (Tensor1 r)))
+testMnist2 :: forall r. (IsScalar r, Floating (Primal r), Floating (Primal (Tensor1 r)))
             => [MnistData (Primal r)] -> Domains r -> Primal r
-testMnist2L inputs parameters =
+testMnist2 inputs parameters =
   let matchesLabels :: MnistData (Primal r) -> Bool
       matchesLabels (glyph, label) =
-        let nn = inline (nnMnist2L @r) logisticAct softMaxActV glyph
+        let nn = inline (nnMnist2 @r) logisticAct softMaxActV glyph
             value = primalValue @r nn parameters
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
