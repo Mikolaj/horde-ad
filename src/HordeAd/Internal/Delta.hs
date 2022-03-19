@@ -216,10 +216,10 @@ succDeltaId (DeltaId i) = DeltaId (succ i)
 
 -- | Binding at one of the ranks, with a given underlying scalar.
 --
--- The 'DeltaId' components could be re-computed on the fly in 'buildVectors',
+-- The 'DeltaId' components could be re-computed on the fly in 'buildFinMaps',
 -- but it costs more (they are boxed, so re-allocation is expensive)
 -- than storing them here at the time of binding creation and accessing
--- in `buildVectors`.
+-- in `buildFinMaps`.
 data DeltaBinding r =
     DeltaBinding0 (DeltaId r) (Delta0 r)
   | DeltaBinding1 (DeltaId (Vector r)) (Delta1 r)
@@ -306,23 +306,31 @@ evalBindings dim0 dim1 dim2 dimX st deltaTopLevel =
   -- but we can't just call @V.create@ thrice, because it would run
   -- the @ST@ action thrice, so we inline and extend @V.create@ here.
   runST $ do
-    (finiteMap0, finiteMap1, finiteMap2, finiteMapX)
-      <- buildVectors st deltaTopLevel
-    v0 <- V.unsafeFreeze $ VM.take dim0 finiteMap0
-    v1 <- V.unsafeFreeze $ VM.take dim1 finiteMap1
-    v2 <- V.unsafeFreeze $ VM.take dim2 finiteMap2
-    vX <- V.unsafeFreeze $ VM.take dimX finiteMapX
+    (finMap0, finMap1, finMap2, finMapX) <- buildFinMaps st deltaTopLevel
+    v0 <- V.unsafeFreeze $ VM.take dim0 finMap0
+    v1 <- V.unsafeFreeze $ VM.take dim1 finMap1
+    v2 <- V.unsafeFreeze $ VM.take dim2 finMap2
+    vX <- V.unsafeFreeze $ VM.take dimX finMapX
     -- Convert to normal matrices, but only the portion of vector
     -- that is not discarded.
     return (v0, v1, V.map MO.convertMatrixOuterOrNull v2, vX)
 
-buildVectors :: forall s r. (Eq r, Numeric r, Num (Vector r))
-             => DeltaState r -> Delta0 r
-             -> ST s ( Data.Vector.Storable.Mutable.MVector s r
-                     , Data.Vector.Mutable.MVector s (Vector r)
-                     , Data.Vector.Mutable.MVector s (MO.MatrixOuter r)
-                     , Data.Vector.Mutable.MVector s (OT.Array r) )
-buildVectors st deltaTopLevel = do
+-- | Create vectors (representing finite maps) that hold delta-variable
+-- values. They are initialized with dummy values so that it's cheap to check
+-- if any update has already been performed to a cell (allocating big matrices
+-- filled with zeros is too costly, especially if never used in an iteration,
+-- and adding to such matrices and especially using them as scaling factors
+-- is wasteful). The vectors are longer than those representing objective
+-- function parameters (e.g., @deltaCounter0@ vs @dim0@), because variables
+-- represent not only parameters, but also the bindings that prevent blowup
+-- via delta-expression duplication.
+initializeFinMaps :: forall s r. Numeric r
+                  => DeltaState r
+                  -> ST s ( Data.Vector.Storable.Mutable.MVector s r
+                          , Data.Vector.Mutable.MVector s (Vector r)
+                          , Data.Vector.Mutable.MVector s (MO.MatrixOuter r)
+                          , Data.Vector.Mutable.MVector s (OT.Array r) )
+initializeFinMaps st = do
   let emptyArray =
         Data.Array.Internal.DynamicS.A
         $ Data.Array.Internal.DynamicG.A []
@@ -331,10 +339,20 @@ buildVectors st deltaTopLevel = do
       DeltaId counter1 = deltaCounter1 st
       DeltaId counter2 = deltaCounter2 st
       DeltaId counterX = deltaCounterX st
-  store0 <- VM.replicate counter0 0  -- correct value
-  store1 <- VM.replicate counter1 (V.empty :: Vector r)  -- dummy value
-  store2 <- VM.replicate counter2 MO.emptyMatrixOuter  -- dummy value
-  storeX <- VM.replicate counterX emptyArray  -- dummy value
+  finMap0 <- VM.replicate counter0 0  -- correct value
+  finMap1 <- VM.replicate counter1 (V.empty :: Vector r)  -- dummy value
+  finMap2 <- VM.replicate counter2 MO.emptyMatrixOuter  -- dummy value
+  finMapX <- VM.replicate counterX emptyArray  -- dummy value
+  return (finMap0, finMap1, finMap2, finMapX)
+
+buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
+             => DeltaState r -> Delta0 r
+             -> ST s ( Data.Vector.Storable.Mutable.MVector s r
+                     , Data.Vector.Mutable.MVector s (Vector r)
+                     , Data.Vector.Mutable.MVector s (MO.MatrixOuter r)
+                     , Data.Vector.Mutable.MVector s (OT.Array r) )
+buildFinMaps st deltaTopLevel = do
+  (finMap0, finMap1, finMap2, finMapX) <- initializeFinMaps st
   let addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
       addToMatrix :: MO.MatrixOuter r -> MO.MatrixOuter r -> MO.MatrixOuter r
@@ -351,14 +369,14 @@ buildVectors st deltaTopLevel = do
         Zero0 -> return ()
         Scale0 k d -> eval0 (k * r) d
         Add0 d e -> eval0 r d >> eval0 r e
-        Var0 (DeltaId i) -> VM.modify store0 (+ r) i
+        Var0 (DeltaId i) -> VM.modify finMap0 (+ r) i
 
         SumElements0 vd n -> eval1 (HM.konst r n) vd
         Index0 (Var1 (DeltaId i)) ix k -> do
           let f v = if V.null v
                     then HM.konst 0 k V.// [(ix, r)]
                     else v V.// [(ix, v V.! ix + r)]
-          VM.modify store1 f i
+          VM.modify finMap1 f i
             -- this would be an asymptotic optimization compared to
             -- the general case below, if not for the non-mutable update,
             -- which involves copying the whole vector, so it's just
@@ -374,7 +392,7 @@ buildVectors st deltaTopLevel = do
         Zero1 -> return ()
         Scale1 k d -> eval1 (k * r) d
         Add1 d e -> eval1 r d >> eval1 r e
-        Var1 (DeltaId i) -> VM.modify store1 (addToVector r) i
+        Var1 (DeltaId i) -> VM.modify finMap1 (addToVector r) i
 
         Seq1 lsd -> V.imapM_ (\i d -> eval0 (r V.! i) d) lsd
         Konst1 d _n -> V.mapM_ (`eval0` d) r
@@ -396,7 +414,7 @@ buildVectors st deltaTopLevel = do
         Zero2 -> return ()
         Scale2 k d -> eval2 (MO.multiplyWithOuter k r) d
         Add2 d e -> eval2 r d >> eval2 r e
-        Var2 (DeltaId i) -> VM.modify store2 (addToMatrix r) i
+        Var2 (DeltaId i) -> VM.modify finMap2 (addToMatrix r) i
 
         FromRows2 lvd -> zipWithM_ eval1 (MO.toRows r) (V.toList lvd)
         FromColumns2 lvd -> zipWithM_ eval1 (MO.toColumns r) (V.toList lvd)
@@ -445,7 +463,7 @@ buildVectors st deltaTopLevel = do
         ZeroX -> return ()
         ScaleX k d -> evalX (OT.zipWithA (*) k r) d
         AddX d e -> evalX r d >> evalX r e
-        VarX (DeltaId i) -> VM.modify storeX (addToArray r) i
+        VarX (DeltaId i) -> VM.modify finMapX (addToArray r) i
 
         AppendX d k e -> case OT.shapeL r of
           n : _ -> evalX (OT.slice [(0, k)] r) d
@@ -473,7 +491,7 @@ buildVectors st deltaTopLevel = do
         ZeroS -> return ()
         ScaleS k d -> evalS (OS.zipWithA (*) k r) d
         AddS d e -> evalS r d >> evalS r e
-        VarS (DeltaId i) -> VM.modify storeX (addToArrayS r) i
+        VarS (DeltaId i) -> VM.modify finMapX (addToArrayS r) i
 
         AppendS d e -> appendS r d e
         SliceS @i d -> sliceS @i r d
@@ -506,23 +524,23 @@ buildVectors st deltaTopLevel = do
   eval0 1 deltaTopLevel  -- dt is 1; can be overriden in the objective function
   let evalUnlessZero :: DeltaBinding r -> ST s ()
       evalUnlessZero (DeltaBinding0 (DeltaId i) d) = do
-        r <- store0 `VM.read` i
+        r <- finMap0 `VM.read` i
         unless (r == 0) $  -- we init with exactly 0.0 so the comparison works
           eval0 r d
       evalUnlessZero (DeltaBinding1 (DeltaId i) d) = do
-        r <- store1 `VM.read` i
+        r <- finMap1 `VM.read` i
         unless (V.null r) $
           eval1 r d
       evalUnlessZero (DeltaBinding2 (DeltaId i) d) = do
-        r <- store2 `VM.read` i
+        r <- finMap2 `VM.read` i
         unless (MO.nullMatrixOuter r) $
           eval2 r d
       evalUnlessZero (DeltaBindingX (DeltaId i) d) = do
-        r <- storeX `VM.read` i
+        r <- finMapX `VM.read` i
         unless (null (OT.shapeL r)) $
           evalX r d
   mapM_ evalUnlessZero (deltaBindings st)
-  return (store0, store1, store2, storeX)
+  return (finMap0, finMap1, finMap2, finMapX)
 
 -- | Forward derivative computation via forward-evaluation of delta-expressions
 -- (which is surprisingly competitive to the direct forward method,
@@ -650,34 +668,21 @@ evalBindingsForward st deltaTopLevel (params0, paramsV0, paramsL0, paramsX0) =
         DeltaBindingX (DeltaId i) d ->
           let v = evalX parameters d
           in (params, paramsV, paramsL, paramsX V.// [(i, v)])
-      emptyArray =
-        Data.Array.Internal.DynamicS.A
-        $ Data.Array.Internal.DynamicG.A []
-        $ Data.Array.Internal.T [] 0 V.empty
-      DeltaId counter0 = deltaCounter0 st
-      DeltaId counter1 = deltaCounter1 st
-      DeltaId counter2 = deltaCounter2 st
-      DeltaId counterX = deltaCounterX st
       parameters1 = runST $ do
-        store0 <- VM.replicate counter0 0  -- correct value
-        store1 <- VM.replicate counter1 (V.empty :: Vector r)  -- dummy value
-        store2 <- VM.replicate counter2 (HM.fromRows [])  -- dummy value
-        storeX <- VM.replicate counterX emptyArray  -- dummy value
-        let dim0 = V.length params0
-            dim1 = V.length paramsV0
-            dim2 = V.length paramsL0
-            dimX = V.length paramsX0
+        (finMap0, finMap1, outerFinMap2, finMapX) <- initializeFinMaps st
+        -- We use normal hmatrix matrices rather than the sparse replacement.
+        finMap2 <- VM.replicate (VM.length outerFinMap2) (HM.fromRows [])
         -- TODO: the following coredumps without the @VM.take@; it's a shame
         -- there's no copying of a smaller vector into a larger one in the API.
         -- Perhaps use https://hackage.haskell.org/package/base-4.16.0.0/docs/Foreign-Marshal-Array.html#v:copyArray?
-        V.unsafeCopy (VM.take dim0 store0) params0
-        V.unsafeCopy (VM.take dim1 store1) paramsV0
-        V.unsafeCopy (VM.take dim2 store2) paramsL0
-        V.unsafeCopy (VM.take dimX storeX) paramsX0
-        v0 <- V.unsafeFreeze store0
-        v1 <- V.unsafeFreeze store1
-        v2 <- V.unsafeFreeze store2
-        vX <- V.unsafeFreeze storeX
+        V.unsafeCopy (VM.take (V.length params0) finMap0) params0
+        V.unsafeCopy (VM.take (V.length paramsV0) finMap1) paramsV0
+        V.unsafeCopy (VM.take (V.length paramsL0) finMap2) paramsL0
+        V.unsafeCopy (VM.take (V.length paramsX0) finMapX) paramsX0
+        v0 <- V.unsafeFreeze finMap0
+        v1 <- V.unsafeFreeze finMap1
+        v2 <- V.unsafeFreeze finMap2
+        vX <- V.unsafeFreeze finMapX
         return (v0, v1, v2, vX)
       parametersB = foldl' evalUnlessZero parameters1
                            (reverse $ deltaBindings st)
