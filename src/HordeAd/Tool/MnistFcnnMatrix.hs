@@ -35,11 +35,11 @@ lenMnistFcnn2 widthHidden widthHidden2 =
 -- The dimensions, in turn, can be computed by the @len*@ functions
 -- on the basis of the requested widths, see above.
 nnMnist2 :: forall r m. DualMonad r m
-          => (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
-          -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
-          -> Primal (Tensor1 r)
-          -> DualNumberVariables r
-          -> m (DualNumber (Tensor1 r))
+         => (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
+         -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
+         -> Primal (Tensor1 r)
+         -> DualNumberVariables r
+         -> m (DualNumber (Tensor1 r))
 nnMnist2 factivationHidden factivationOutput input variables = do
   let !_A = assert (sizeMnistGlyph == V.length input) ()
       weightsL0 = var2 variables 0
@@ -57,10 +57,9 @@ nnMnist2 factivationHidden factivationOutput input variables = do
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
-nnMnistLoss2 :: (DualMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
-              => MnistData (Primal r)
-              -> DualNumberVariables r
-              -> m (DualNumber r)
+nnMnistLoss2
+  :: (DualMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
+  => MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
 nnMnistLoss2 (input, target) variables = do
   result <- inline nnMnist2 logisticAct softMaxActV input variables
   lossCrossEntropyV target result
@@ -70,26 +69,23 @@ nnMnistLoss2 (input, target) variables = do
 -- softMax and cross entropy as the loss function.
 nnMnistLossFused2
   :: (DualMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
-  => MnistData (Primal r)
-  -> DualNumberVariables r
-  -> m (DualNumber r)
+  => MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
 nnMnistLossFused2 (input, target) variables = do
   result <- inline nnMnist2 logisticAct return input variables
   lossSoftMaxCrossEntropyV target result
 
 nnMnistLossFusedRelu2
   :: (DualMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
-  => MnistData (Primal r)
-  -> DualNumberVariables r
-  -> m (DualNumber r)
+  => MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
 nnMnistLossFusedRelu2 (input, target) variables = do
   result <- inline nnMnist2 reluActV return input variables
   lossSoftMaxCrossEntropyV target result
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
-testMnist2 :: forall r. (IsScalar r, Floating (Primal r), Floating (Primal (Tensor1 r)))
-            => [MnistData (Primal r)] -> Domains r -> Primal r
+testMnist2
+  :: forall r. (IsScalar r, Floating (Primal r), Floating (Primal (Tensor1 r)))
+  => [MnistData (Primal r)] -> Domains r -> Primal r
 testMnist2 inputs parameters =
   let matchesLabels :: MnistData (Primal r) -> Bool
       matchesLabels (glyph, label) =

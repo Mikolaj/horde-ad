@@ -13,47 +13,39 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 
+import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.DualClass
 import HordeAd.Core.PairOfVectors (DualNumberVariables, var1)
 import HordeAd.Tool.MnistData
 
-sumTrainableInputsV :: IsScalar r
-                    => DualNumber (Tensor1 r)
-                    -> Int
-                    -> DualNumberVariables r
-                    -> DualNumber r
+sumTrainableInputsV
+  :: IsScalar r
+  => DualNumber (Tensor1 r) -> Int -> DualNumberVariables r -> DualNumber r
 sumTrainableInputsV x offset variables =
   let v = var1 variables offset
   in v <.>! x
 
-sumTrainableInputsL :: forall r. IsScalar r
-                    => DualNumber (Tensor1 r)
-                    -> Int
-                    -> DualNumberVariables r
-                    -> Int
-                    -> DualNumber (Tensor1 r)
+sumTrainableInputsL
+  :: forall r. IsScalar r
+  => DualNumber (Tensor1 r) -> Int -> DualNumberVariables r -> Int
+  -> DualNumber (Tensor1 r)
 sumTrainableInputsL x offset variables width =
   let f :: Int -> DualNumber r
       f i = sumTrainableInputsV x (offset + i) variables
   in seq1 $ V.generate width f
 
-sumConstantDataV :: IsScalar r
-                 => Primal (Tensor1 r)
-                 -> Int
-                 -> DualNumberVariables r
-                 -> DualNumber r
+sumConstantDataV
+  :: IsScalar r
+  => Primal (Tensor1 r) -> Int -> DualNumberVariables r -> DualNumber r
 sumConstantDataV x offset variables =
   let v = var1 variables offset
   in v <.>!! x
 
-sumConstantDataL :: forall r. IsScalar r
-                 => Primal (Tensor1 r)
-                 -> Int
-                 -> DualNumberVariables r
-                 -> Int
-                 -> DualNumber (Tensor1 r)
+sumConstantDataL
+  :: forall r. IsScalar r
+  => Primal (Tensor1 r) -> Int -> DualNumberVariables r -> Int
+  -> DualNumber (Tensor1 r)
 sumConstantDataL x offset variables width =
   let f :: Int -> DualNumber r
       f i = sumConstantDataV x (offset + i) variables
@@ -102,26 +94,25 @@ nnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
-nnMnistLoss1 :: (DualMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
-              => Int
-              -> Int
-              -> MnistData (Primal r)
-              -> DualNumberVariables r
-              -> m (DualNumber r)
+nnMnistLoss1
+  :: (DualMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
+  => Int -> Int -> MnistData (Primal r) -> DualNumberVariables r
+  -> m (DualNumber r)
 nnMnistLoss1 widthHidden widthHidden2 (input, target) variables = do
   result <- inline nnMnist1 logisticAct softMaxActV
-                             widthHidden widthHidden2 input variables
+                            widthHidden widthHidden2 input variables
   lossCrossEntropyV target result
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
-testMnist1 :: forall r. (IsScalar r, Floating (Primal r), Floating (Primal (Tensor1 r)))
-            => Int -> Int -> [MnistData (Primal r)] -> (Domain0 r, Domain1 r) -> Primal r
+testMnist1
+  :: forall r. (IsScalar r, Floating (Primal r), Floating (Primal (Tensor1 r)))
+  => Int -> Int -> [MnistData (Primal r)] -> (Domain0 r, Domain1 r) -> Primal r
 testMnist1 widthHidden widthHidden2 inputs (params0, params1) =
   let matchesLabels :: MnistData (Primal r) -> Bool
       matchesLabels (glyph, label) =
         let nn = inline (nnMnist1 @r) logisticAct softMaxActV
-                                       widthHidden widthHidden2 glyph
+                                      widthHidden widthHidden2 glyph
             value = primalValue nn (params0, params1, V.empty, V.empty)
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
