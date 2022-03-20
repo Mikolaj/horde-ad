@@ -256,6 +256,12 @@ generateDeltaVars (params0, params1, params2, paramsX) =
       !v2 = vVar params2
       !vX = vVar paramsX
   in (v0, v1, v2, vX)
+{-# SPECIALIZE generateDeltaVars
+  :: Domains Double
+  -> ( Data.Vector.Vector (Dual 'DModeGradient Double)
+     , Data.Vector.Vector (Dual 'DModeGradient (Vector Double))
+     , Data.Vector.Vector (Dual 'DModeGradient (Matrix Double))
+     , Data.Vector.Vector (Dual 'DModeGradient (OT.Array Double)) ) #-}
 
 -- | Initialize parameters using a uniform distribution with a fixed range
 -- taken from an argument.

@@ -32,6 +32,7 @@ sumTrainableInputs xs offset variables = do
         let v = var0 variables (offset + 1 + i)
         in acc + u * v
   returnLet $ V.ifoldl' f bias xs
+{-# SPECIALIZE sumTrainableInputs :: Data.Vector.Vector (DualNumber 'DModeGradient Double) -> Int -> DualNumberVariables 'DModeGradient Double -> DualMonadGradient Double (DualNumber 'DModeGradient Double) #-}
 
 -- | Compute the output of a neuron, without applying activation function,
 -- from constant data in @xs@ and parameters (the bias and weights)
@@ -47,6 +48,7 @@ sumConstantData xs offset variables = do
         let v = var0 variables (offset + 1 + i)
         in acc + scale r v
   returnLet $ V.ifoldl' f bias xs
+{-# SPECIALIZE sumConstantData :: Vector Double -> Int -> DualNumberVariables 'DModeGradient Double -> DualMonadGradient Double (DualNumber 'DModeGradient Double) #-}
 
 hiddenLayerMnist
   :: forall d r m. DualMonad d r m
@@ -136,6 +138,7 @@ fcnnMnistLoss0 widthHidden widthHidden2 (input, target) variables = do
   result <- inline fcnnMnist0 logisticAct softMaxAct
                               widthHidden widthHidden2 input variables
   lossCrossEntropy target result
+{-# SPECIALIZE fcnnMnistLoss0 :: Int -> Int -> MnistData Double -> DualNumberVariables 'DModeGradient Double -> DualMonadGradient Double (DualNumber 'DModeGradient Double) #-}
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
@@ -145,8 +148,9 @@ fcnnMnistTest0 :: forall r. IsScalar 'DModeGradient r
 fcnnMnistTest0 widthHidden widthHidden2 inputs params0 =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let nn = inline (fcnnMnist0 @'DModeGradient) logisticAct softMaxAct
-                                        widthHidden widthHidden2 glyph
+        let nn = inline (fcnnMnist0 @'DModeGradient)
+                        logisticAct softMaxAct
+                        widthHidden widthHidden2 glyph
             value = V.map (\(D r _) -> r)
                     $ primalValueGeneral nn (params0, V.empty, V.empty, V.empty)
         in V.maxIndex value == V.maxIndex label

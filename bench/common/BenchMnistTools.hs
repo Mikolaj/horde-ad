@@ -18,8 +18,7 @@ import HordeAd.Tool.MnistFcnnMatrix
 import HordeAd.Tool.MnistFcnnScalar
 import HordeAd.Tool.MnistFcnnVector
 
-mnistTrainBench2 :: forall r. ( NFData r, HasDelta r
-                              , UniformRange r )
+mnistTrainBench2 :: forall r. (NFData r, UniformRange r, HasDelta r)
                  => String -> Int -> [MnistData r] -> Int -> Int
                  -> r
                  -> Benchmark
@@ -34,6 +33,7 @@ mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
              ++ unwords [ "s" ++ show nParams0, "v0"
                         , "m0" ++ "=" ++ show nParams0 ]
   bench name $ nf grad chunk
+{-# SPECIALIZE mnistTrainBench2 :: String -> Int -> [MnistData Double] -> Int -> Int -> Double -> Benchmark #-}
 
 mnistTestBench2
   :: forall r. (UniformRange r, HasDelta r)
@@ -48,6 +48,7 @@ mnistTestBench2 extraPrefix chunkLength xs widthHidden widthHidden2 = do
              ++ unwords [ "s" ++ show nParams0, "v0"
                         , "m0" ++ "=" ++ show nParams0 ]
   bench name $ whnf score chunk
+{-# SPECIALIZE mnistTestBench2 :: String -> Int -> [MnistData Double] -> Int -> Int -> Benchmark #-}
 
 mnistTrainBGroup2 :: [MnistData Double] -> Int -> Benchmark
 mnistTrainBGroup2 xs0 chunkLength =
