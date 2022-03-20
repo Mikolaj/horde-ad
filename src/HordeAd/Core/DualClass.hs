@@ -2,6 +2,7 @@
              MultiParamTypeClasses, TypeFamilyDependencies, TypeOperators,
              UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | The class of dual components of dual numbers and related classes,
 -- constraints and instances.
 module HordeAd.Core.DualClass
@@ -171,7 +172,7 @@ class HasRanks r where
            -> TensorS ((m + n) ': sh) r
   dSliceS :: forall i n k rest.
              (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
-          => TensorS (i + n + k ': rest) r
+          => Proxy i -> Proxy n -> TensorS (i + n + k ': rest) r
           -> TensorS (n ': rest) r
   dFrom0S :: r -> TensorS '[] r
   dFrom1S :: KnownNat n => Tensor1 r -> TensorS '[n] r
@@ -232,11 +233,7 @@ instance HasRanks (Delta0 r) where
   dFrom2X = From2X
   dFromSX = FromSX
   dAppendS = AppendS
---  dSliceS :: forall i n k rest.
---             (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
---          => Primal (OS.Array (i + n + k ': rest) Double)
---          -> Primal (OS.Array (n ': rest) Double)
-  dSliceS = undefined  -- TODO: SliceS @i
+  dSliceS = SliceS
   dFrom0S = From0S
   dFrom1S = From1S
   dFrom2S = From2S
@@ -385,11 +382,7 @@ instance HasRanks Double where
   dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
   dFromSX = Data.Array.Convert.convert
   dAppendS = OS.append
---  dSliceS :: forall i n k rest.
---             (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
---          => Primal (OS.Array (i + n + k ': rest) Double)
---          -> Primal (OS.Array (n ': rest) Double)
-  dSliceS = undefined  -- TODO: OS.slice @'[ '(i, n) ] d
+  dSliceS (_ :: Proxy i) (_ :: Proxy n) d = OS.slice @'[ '(i, n) ] d
   dFrom0S = OS.scalar
   dFrom1S = OS.fromVector
   dFrom2S _ = OS.fromVector . HM.flatten
@@ -440,11 +433,7 @@ instance HasRanks Float where
   dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
   dFromSX = Data.Array.Convert.convert
   dAppendS = OS.append
---  dSliceS :: forall i n k rest.
---             (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
---          => OS.Array (i + n + k ': rest) Float
---          -> OS.Array (n ': rest) Float
-  dSliceS = undefined  -- TODO: OS.slice @'[ '(i, n) ] d
+  dSliceS (_ :: Proxy i) (_ :: Proxy n) d = OS.slice @'[ '(i, n) ] d
   dFrom0S = OS.scalar
   dFrom1S = OS.fromVector
   dFrom2S _ = OS.fromVector . HM.flatten

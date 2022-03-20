@@ -349,7 +349,7 @@ sliceS :: forall i n k rest r.
           , IsScalarS (i + n + k ': rest) r, IsScalarS (n ': rest) r )
        => DualNumber (TensorS (i + n + k ': rest) r)
        -> DualNumber (TensorS (n ': rest) r)
-sliceS (D u u') = D (OS.slice @'[ '(i, n) ] u) (dSliceS @r @i u')
+sliceS (D u u') = D (OS.slice @'[ '(i, n) ] u) (dSliceS @r @i Proxy Proxy u')
 
 from0S :: IsScalarS '[] r => DualNumber r -> DualNumber (TensorS '[] r)
 from0S (D u u') = D (OS.scalar u) (dFrom0S u')
