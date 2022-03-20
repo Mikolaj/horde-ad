@@ -14,6 +14,7 @@ import qualified Data.Array.DynamicS as OT
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.ShapedS as OS
 import           Data.List.Index (imap)
+import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
@@ -359,7 +360,7 @@ from1S (D u u') = D (OS.fromVector u) (dFrom1S u')
 
 from2S :: (KnownNat rows, KnownNat cols, IsScalarS '[rows, cols] r)
        => DualNumber (Tensor2 r) -> DualNumber (TensorS '[rows, cols] r)
-from2S (D u u') = D (OS.fromVector $ HM.flatten u) (dFrom2S u')
+from2S (D u u') = D (OS.fromVector $ HM.flatten u) (dFrom2S Proxy u')
 
 fromXS :: (OS.Shape sh, IsScalarS sh r)
        => DualNumber (TensorX r) -> DualNumber (TensorS sh r)

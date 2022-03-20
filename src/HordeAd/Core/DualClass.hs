@@ -16,6 +16,7 @@ import Prelude
 import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.ShapedS as OS
+import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, type (+))
@@ -175,7 +176,7 @@ class HasRanks r where
   dFrom0S :: r -> TensorS '[] r
   dFrom1S :: KnownNat n => Tensor1 r -> TensorS '[n] r
   dFrom2S :: forall rows cols. (KnownNat rows, KnownNat cols)
-          => Tensor2 r -> TensorS '[rows, cols] r
+          => Proxy cols -> Tensor2 r -> TensorS '[rows, cols] r
   dFromXS :: OS.Shape sh => TensorX r -> TensorS sh r
 
 
@@ -391,7 +392,7 @@ instance HasRanks Double where
   dSliceS = undefined  -- TODO: OS.slice @'[ '(i, n) ] d
   dFrom0S = OS.scalar
   dFrom1S = OS.fromVector
-  dFrom2S = OS.fromVector . HM.flatten
+  dFrom2S _ = OS.fromVector . HM.flatten
   dFromXS = Data.Array.Convert.convert
 
 instance HasRanks Float where
@@ -446,5 +447,5 @@ instance HasRanks Float where
   dSliceS = undefined  -- TODO: OS.slice @'[ '(i, n) ] d
   dFrom0S = OS.scalar
   dFrom1S = OS.fromVector
-  dFrom2S = OS.fromVector . HM.flatten
+  dFrom2S _ = OS.fromVector . HM.flatten
   dFromXS = Data.Array.Convert.convert

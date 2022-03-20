@@ -1,5 +1,8 @@
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, GADTs, KindSignatures,
+{-# LANGUAGE AllowAmbiguousTypes, CPP, DataKinds, GADTs, KindSignatures,
              StandaloneDeriving, TypeOperators #-}
+#if !MIN_VERSION_base(4,16,0)
+{-# LANGUAGE IncoherentInstances #-}
+#endif
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | The second component of dual numbers, @Delta@, with it's evaluation
@@ -48,6 +51,7 @@ import qualified Data.Array.Internal.DynamicS
 import qualified Data.Array.ShapedS as OS
 import           Data.Kind (Type)
 import           Data.List (foldl')
+import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Strict.Vector.Autogen.Mutable as Data.Vector.Mutable
 import qualified Data.Vector.Generic as V
@@ -183,13 +187,14 @@ data DeltaS :: [Nat] -> Type -> Type where
     -- ^ Append two arrays along the outermost dimension.
   SliceS :: forall i n k rest r.
             (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
-         => DeltaS (i + n + k ': rest) r -> DeltaS (n ': rest) r
+         => Proxy i -> Proxy n -> DeltaS (i + n + k ': rest) r
+         -> DeltaS (n ': rest) r
     -- ^ Extract a slice of an array along the outermost dimension.
 
   From0S :: Delta0 r -> DeltaS '[] r
   From1S :: Delta1 r -> DeltaS '[n] r
   From2S :: forall rows cols r. KnownNat cols
-         => Delta2 r -> DeltaS '[rows, cols] r
+         => Proxy cols -> Delta2 r -> DeltaS '[rows, cols] r
   FromXS :: DeltaX r -> DeltaS sh r
 
 instance Show (DeltaS sh r) where
@@ -498,13 +503,11 @@ buildFinMaps st deltaTopLevel = do
         VarS (DeltaId i) -> VM.modify finMapX (addToArrayS r) i
 
         AppendS d e -> appendS r d e
-        SliceS @i d -> sliceS @i r d
-          -- is it possible to do that without type patterns and so GHC >= 9.2?
-          -- https://github.com/Mikolaj/horde-ad/pull/13
+        SliceS (_ :: Proxy i) _ d -> sliceS @i r d
 
         From0S d -> eval0 (OS.unScalar r) d
         From1S d -> eval1 (OS.toVector r) d
-        From2S @_ @cols d ->
+        From2S (_ :: Proxy cols) d ->
           eval2 (MO.MatrixOuter
                    (Just $ HM.reshape (valueOf @cols) $ OS.toVector r)
                    Nothing Nothing)
@@ -653,11 +656,11 @@ evalBindingsForward st deltaTopLevel
         VarS (DeltaId i) -> Data.Array.Convert.convert $ paramsX V.! i
 
         AppendS d e -> evalS parameters d `OS.append` evalS parameters e
-        SliceS @i @n d -> OS.slice @'[ '(i, n) ] $ evalS parameters d
-
+        SliceS (_ :: Proxy i) (_ :: Proxy n) d ->
+          OS.slice @'[ '(i, n) ] $ evalS parameters d
         From0S d -> OS.scalar $ eval0 parameters d
         From1S d -> OS.fromVector $ eval1 parameters d
-        From2S d -> OS.fromVector $ HM.flatten $ eval2 parameters d
+        From2S _ d -> OS.fromVector $ HM.flatten $ eval2 parameters d
         FromXS d -> Data.Array.Convert.convert $ evalX parameters d
       evalUnlessZero :: Domains r -> DeltaBinding r -> Domains r
       evalUnlessZero parameters@(!params0, !params1, !params2, !paramsX) = \case
