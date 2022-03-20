@@ -34,28 +34,29 @@ mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
 
 mnistTestBench2
   :: forall r. (Floating (Primal r), UniformRange (Primal r), HasDelta r)
-  => String -> Int -> [MnistData (Primal r)] -> Int -> Int -> Benchmark
-mnistTestBench2 extraPrefix chunkLength xs widthHidden widthHidden2 = do
+  => Proxy r -> String -> Int -> [MnistData (Primal r)] -> Int -> Int -> Benchmark
+mnistTestBench2 proxy extraPrefix chunkLength xs widthHidden widthHidden2 = do
   let nParams0 = lenMnist0 widthHidden widthHidden2
       params0Init = V.unfoldrExactN nParams0 (uniformR (-0.5, 0.5))
                     $ mkStdGen 33
       chunk = take chunkLength xs
-      score c = testMnist0 (Proxy @r) widthHidden widthHidden2 c params0Init
+      score c = testMnist0 proxy widthHidden widthHidden2 c params0Init
       name = "test " ++ extraPrefix
              ++ unwords [ "s" ++ show nParams0, "v0"
                         , "m0" ++ "=" ++ show nParams0 ]
   bench name $ whnf score chunk
+{-# SPECIALIZE mnistTestBench2 :: Proxy (Delta0 Double) -> String -> Int -> [MnistData Double] -> Int -> Int -> Benchmark #-}
 
 mnistTrainBGroup2 :: [MnistData Double] -> Int -> Benchmark
 mnistTrainBGroup2 xs0 chunkLength =
   env (return $ take chunkLength xs0) $
   \ xs ->
   bgroup ("2-hidden-layer MNIST nn with samples: " ++ show chunkLength)
-    [ mnistTestBench2 "30|10 " chunkLength xs 30 10  -- toy width
+    [ mnistTestBench2 (Proxy :: Proxy (Delta0 Double)) "30|10 " chunkLength xs 30 10  -- toy width
     , mnistTrainBench2 "30|10 " chunkLength xs 30 10 0.02
-    , mnistTestBench2 "300|100 " chunkLength xs 300 100  -- ordinary width
+    , mnistTestBench2 (Proxy :: Proxy (Delta0 Double)) "300|100 " chunkLength xs 300 100  -- ordinary width
     , mnistTrainBench2 "300|100 " chunkLength xs 300 100 0.02
-    , mnistTestBench2 "500|150 " chunkLength xs 500 150  -- another common size
+    , mnistTestBench2 (Proxy :: Proxy (Delta0 Double)) "500|150 " chunkLength xs 500 150  -- another common size
     , mnistTrainBench2 "500|150 " chunkLength xs 500 150 0.02
     ]
 
@@ -65,10 +66,10 @@ mnistTrainBGroup2500 xs0 chunkLength =
                     $ take chunkLength xs0)) $
   \ ~(xs, xsFloat) ->
   bgroup ("huge 2-hidden-layer MNIST nn with samples: " ++ show chunkLength)
-    [ mnistTestBench2 "2500|750 " chunkLength xs 2500 750
+    [ mnistTestBench2 (Proxy :: Proxy (Delta0 Double)) "2500|750 " chunkLength xs 2500 750
         -- probably mostly wasted
     , mnistTrainBench2 "2500|750 " chunkLength xs 2500 750 0.02
-    , mnistTestBench2 "(Float) 2500|750 " chunkLength xsFloat 2500 750
+    , mnistTestBench2 (Proxy :: Proxy (Delta0 Float)) "(Float) 2500|750 " chunkLength xsFloat 2500 750
         -- Float test
     , mnistTrainBench2 "(Float) 2500|750 " chunkLength xsFloat 2500 750
                        (0.02 :: Float)
