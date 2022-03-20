@@ -44,7 +44,6 @@ import           Control.Monad (unless, zipWithM_)
 import           Control.Monad.ST.Strict (ST, runST)
 import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OT
-import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Internal
 import qualified Data.Array.Internal.DynamicG
 import qualified Data.Array.Internal.DynamicS
@@ -57,7 +56,7 @@ import qualified Data.Strict.Vector.Autogen.Mutable as Data.Vector.Mutable
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Storable.Mutable
-import           GHC.TypeLits (KnownNat, Nat, type (+))
+import           GHC.TypeLits (KnownNat, Nat, natVal, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, (#>), (<.>))
 import qualified Numeric.LinearAlgebra as HM
 import           Text.Show.Pretty (ppShow)
@@ -185,15 +184,14 @@ data DeltaS :: [Nat] -> Type -> Type where
           => DeltaS (m ': sh) r -> DeltaS (n ': sh) r
           -> DeltaS ((m + n) ': sh) r
     -- ^ Append two arrays along the outermost dimension.
-  SliceS :: forall i n k rest r.
-            (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
+  SliceS :: (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
          => Proxy i -> Proxy n -> DeltaS (i + n + k ': rest) r
          -> DeltaS (n ': rest) r
     -- ^ Extract a slice of an array along the outermost dimension.
 
   From0S :: Delta0 r -> DeltaS '[] r
   From1S :: Delta1 r -> DeltaS '[n] r
-  From2S :: forall rows cols r. KnownNat cols
+  From2S :: KnownNat cols
          => Proxy cols -> Delta2 r -> DeltaS '[rows, cols] r
   FromXS :: DeltaX r -> DeltaS sh r
 
@@ -507,9 +505,10 @@ buildFinMaps st deltaTopLevel = do
 
         From0S d -> eval0 (OS.unScalar r) d
         From1S d -> eval1 (OS.toVector r) d
-        From2S (_ :: Proxy cols) d ->
+        From2S proxyCols d ->
           eval2 (MO.MatrixOuter
-                   (Just $ HM.reshape (valueOf @cols) $ OS.toVector r)
+                   (Just $ HM.reshape (fromInteger $ natVal proxyCols)
+                         $ OS.toVector r)
                    Nothing Nothing)
                 d
         FromXS d -> evalX (Data.Array.Convert.convert r) d

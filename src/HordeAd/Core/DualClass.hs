@@ -138,7 +138,7 @@ class HasRanks r where
   dM_VD1 :: Primal (Tensor2 r) -> Tensor1 r -> Tensor1 r
   dMD_V1 :: Tensor2 r -> Primal (Tensor1 r) -> Tensor1 r
   dFromX1 :: TensorX r -> Tensor1 r
-  dFromS1 :: forall len. KnownNat len
+  dFromS1 :: KnownNat len
           => TensorS '[len] r -> Tensor1 r
 
   dFromRows2 :: Data.Vector.Vector (Tensor1 r) -> Tensor2 r
@@ -155,7 +155,7 @@ class HasRanks r where
   dAsRow2 :: Tensor1 r -> Tensor2 r
   dAsColumn2 :: Tensor1 r -> Tensor2 r
   dFromX2 :: TensorX r -> Tensor2 r
-  dFromS2 :: forall rows cols. (KnownNat rows, KnownNat cols)
+  dFromS2 :: (KnownNat rows, KnownNat cols)
           => TensorS '[rows, cols] r -> Tensor2 r
 
   dAppendX :: TensorX r -> Int -> TensorX r
@@ -164,19 +164,18 @@ class HasRanks r where
   dFrom0X :: r -> TensorX r
   dFrom1X :: Tensor1 r -> TensorX r
   dFrom2X :: Tensor2 r -> Int -> TensorX r
-  dFromSX :: forall sh. OS.Shape sh
+  dFromSX :: OS.Shape sh
           => TensorS sh r -> TensorX r
 
   dAppendS :: (OS.Shape sh, KnownNat m, KnownNat n)
            => TensorS (m ': sh) r -> TensorS (n ': sh) r
            -> TensorS ((m + n) ': sh) r
-  dSliceS :: forall i n k rest.
-             (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
+  dSliceS :: (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
           => Proxy i -> Proxy n -> TensorS (i + n + k ': rest) r
           -> TensorS (n ': rest) r
   dFrom0S :: r -> TensorS '[] r
   dFrom1S :: KnownNat n => Tensor1 r -> TensorS '[n] r
-  dFrom2S :: forall rows cols. (KnownNat rows, KnownNat cols)
+  dFrom2S :: (KnownNat rows, KnownNat cols)
           => Proxy cols -> Tensor2 r -> TensorS '[rows, cols] r
   dFromXS :: OS.Shape sh => TensorX r -> TensorS sh r
 

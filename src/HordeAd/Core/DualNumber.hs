@@ -221,7 +221,7 @@ fromX1 (D u u') = D (OT.toVector u) (dFromX1 u')
 
 fromS1 :: forall len r. (KnownNat len, IsScalarS '[len] r)
        => DualNumber (TensorS '[len] r) -> DualNumber (Tensor1 r)
-fromS1 (D u u') = D (OS.toVector u) (dFromS1 @r @len u')
+fromS1 (D u u') = D (OS.toVector u) (dFromS1 u')
 
 
 -- * Non-monadic operations resulting in a matrix
@@ -299,8 +299,7 @@ fromX2 (D u u') = case OT.shapeL u of
 fromS2 :: forall rows cols r.
           (KnownNat rows, KnownNat cols, IsScalarS '[rows, cols] r)
        => DualNumber (TensorS '[rows, cols] r) -> DualNumber (Tensor2 r)
-fromS2 (D u u') = D (HM.reshape (valueOf @cols) $ OS.toVector u)
-                    (dFromS2 @r @rows @cols u')
+fromS2 (D u u') = D (HM.reshape (valueOf @cols) $ OS.toVector u) (dFromS2 u')
 
 
 -- * Non-monadic operations resulting in an arbitrary tensor
@@ -330,7 +329,7 @@ from2X (D u u') = D (OT.fromVector [HM.rows u, HM.cols u] $ HM.flatten u)
 
 fromSX :: forall sh r. (OS.Shape sh, IsScalarS sh r)
        => DualNumber (TensorS sh r) -> DualNumber (TensorX r)
-fromSX (D u u') = D (Data.Array.Convert.convert u) (dFromSX @r @sh u')
+fromSX (D u u') = D (Data.Array.Convert.convert u) (dFromSX u')
 
 
 -- * Non-monadic operations resulting in an arbitrary fully typed Shaped tensor
@@ -349,7 +348,8 @@ sliceS :: forall i n k rest r.
           , IsScalarS (i + n + k ': rest) r, IsScalarS (n ': rest) r )
        => DualNumber (TensorS (i + n + k ': rest) r)
        -> DualNumber (TensorS (n ': rest) r)
-sliceS (D u u') = D (OS.slice @'[ '(i, n) ] u) (dSliceS @r @i Proxy Proxy u')
+sliceS (D u u') = D (OS.slice @'[ '(i, n) ] u)
+                    (dSliceS (Proxy :: Proxy i) Proxy u')
 
 from0S :: IsScalarS '[] r => DualNumber r -> DualNumber (TensorS '[] r)
 from0S (D u u') = D (OS.scalar u) (dFrom0S u')
