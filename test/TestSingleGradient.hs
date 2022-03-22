@@ -18,7 +18,7 @@ testTrees = [ dfTests
             , vectorTests
             , dfTestsForward
             , dfTestsFastForward
-            , quickCheckForward
+            , quickCheckForwardAndBackward
             , readmeTests
             , readmeTestsV
             ]
@@ -206,15 +206,33 @@ dfTestsFastForward =
       , (7.662345305800865, 4.9375516951604155) )
     ]
 
-quickCheckForward :: TestTree
-quickCheckForward =
-  testGroup "Verify two forward derivative methods give same results"
+dfDotShow
+  :: r ~ Delta0 Double
+  => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
+  -> ([Primal r], [Primal r])
+  -> ([Primal r], [Primal r])
+  -> (Primal r, Primal r)
+dfDotShow f (deltaInput, deltaInputV) (ds0, ds1) =
+  let ((res0, res1, _, _), value) =
+        df f ( V.fromList deltaInput, V.singleton $ V.fromList deltaInputV
+             , V.empty, V.empty )
+  in ( res0 HM.<.> V.fromList ds0
+       + V.head res1 HM.<.> V.fromList ds1  -- we assume res0 or res1 is empty
+     , value )
+
+-- The formula for comparing derivative and gradient is due to @awf
+-- at https://github.com/Mikolaj/horde-ad/issues/15#issuecomment-1063251319
+quickCheckForwardAndBackward :: TestTree
+quickCheckForwardAndBackward =
+  testGroup "Verify two forward derivative methods and one backprop gradient method give compatible results"
   $ map (\(txt, f, fArg) ->
           testProperty txt
           $ forAll (choose ((-2, -2, -2), (2, 2, 2))) $ \xyz -> \xyz2 ->
                 let args = fArg xyz
                     ds = fArg xyz2
-                in dforwardShow f args ds === dfastForwardShow f args ds)
+                    ff = dfastForwardShow f args ds
+                in dforwardShow f args ds === ff
+                   .&&. dfDotShow f args ds === ff)
     ([ ("fquad", fquad, \(x, y, _z) -> ([x, y], []))
      , ("atanReadmeMPoly", atanReadmeMPoly, \(x, y, z) -> ([x, y, z], []))
      , ("atanReadmeMPolyV", atanReadmeMPolyV, \(x, y, z) -> ([], [x, y, z]))
