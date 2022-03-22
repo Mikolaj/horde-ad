@@ -162,15 +162,18 @@ dforwardShow
   :: HasDelta r
   => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
   -> ([Primal r], [Primal r])
+  -> ([Primal r], [Primal r])
   -> (Primal r, Primal r)
-dforwardShow f (deltaInput, deltaInputV) =
+dforwardShow f (deltaInput, deltaInputV) (ds0, ds1) =
   dforward f ( V.fromList deltaInput, V.singleton $ V.fromList deltaInputV
+             , V.empty, V.empty )
+             ( V.fromList ds0, V.singleton $ V.fromList ds1
              , V.empty, V.empty )
 
 dfTestsForward :: TestTree
 dfTestsForward = testGroup "Simple df (Forward Double) application tests" $
   map (\(txt, f, v, expected) ->
-        testCase txt $ dforwardShow f v @?= expected)
+        testCase txt $ dforwardShow f v v @?= expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
     , ( "atanReadmeMPoly", atanReadmeMPoly, ([1.1, 2.2, 3.3], [])
       , (7.662345305800865, 4.9375516951604155) )
@@ -183,17 +186,19 @@ dfastForwardShow
   => (DualNumberVariables r
       -> DualMonadForward r (DualNumber r))
   -> ([Primal r], [Primal r])
+  -> ([Primal r], [Primal r])
   -> (Primal r, Primal r)
-dfastForwardShow f (deltaInput, deltaInputV) =
-  dfastForward f ( V.fromList deltaInput
-                 , V.singleton $ V.fromList deltaInputV
+dfastForwardShow f (deltaInput, deltaInputV) (ds0, ds1) =
+  dfastForward f ( V.fromList deltaInput, V.singleton $ V.fromList deltaInputV
+                 , V.empty, V.empty )
+                 ( V.fromList ds0, V.singleton $ V.fromList ds1
                  , V.empty, V.empty )
 
 dfTestsFastForward :: TestTree
 dfTestsFastForward =
  testGroup "Simple df (FastForward Double) application tests" $
   map (\(txt, f, v, expected) ->
-        testCase txt $ dfastForwardShow f v @?= expected)
+        testCase txt $ dfastForwardShow f v v @?= expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
     , ( "atanReadmeMPoly", atanReadmeMPoly, ([1.1, 2.2, 3.3], [])
       , (7.662345305800865, 4.9375516951604155) )
@@ -204,10 +209,12 @@ dfTestsFastForward =
 quickCheckForward :: TestTree
 quickCheckForward =
   testGroup "Verify two forward derivative methods give same results"
-  $ map (\(txt, f, fArg) -> testProperty txt
-                            $ forAll (choose ((-2, -2, -2), (2, 2, 2)))
-                            $ \xyz ->
-           dforwardShow f (fArg xyz) === dfastForwardShow f (fArg xyz))
+  $ map (\(txt, f, fArg) ->
+          testProperty txt
+          $ forAll (choose ((-2, -2, -2), (2, 2, 2))) $ \xyz -> \xyz2 ->
+                let args = fArg xyz
+                    ds = fArg xyz2
+                in dforwardShow f args ds === dfastForwardShow f args ds)
     ([ ("fquad", fquad, \(x, y, _z) -> ([x, y], []))
      , ("atanReadmeMPoly", atanReadmeMPoly, \(x, y, z) -> ([x, y, z], []))
      , ("atanReadmeMPolyV", atanReadmeMPolyV, \(x, y, z) -> ([], [x, y, z]))

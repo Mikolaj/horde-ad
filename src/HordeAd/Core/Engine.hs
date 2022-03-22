@@ -101,7 +101,7 @@ generalDf :: forall r. HasDelta r
           -> (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
           -> (Domains r, Primal r)
 -- The functions in which @generalDf@ inlines are not inlined themselves
--- client code, so the bloat is limited.
+-- in client code, so the bloat is limited.
 {-# INLINE generalDf #-}
 generalDf variables@(params0, _, params1, _, params2, _, paramsX, _) f =
   let dim0 = V.length params0
@@ -133,23 +133,23 @@ generalDforward
   -> (Primal r, Primal r)
 {-# INLINE generalDforward #-}
 generalDforward variables@(params0, _, params1, _, params2, _, paramsX, _)
-                f direction =
+                f ds =
   let initialState = initializeState @r (params0, params1, params2, paramsX)
       (D value d, st) = runState (runDualMonadGradient (f variables))
                                  initialState
-  in (evalBindingsForward st d direction, value)
+  in (evalBindingsForward st d ds, value)
 
--- In a simple-minded way, just for test, we set the direction vector dt,
--- which is the dual counterpart of parameters, to be equal to the parameters.
+-- The direction vector ds is taken as an extra argument.
 dforward
   :: HasDelta r
   => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
   -> Domains r
+  -> Domains r
   -> (Primal r, Primal r)
-dforward f parameters =
+dforward f parameters ds =
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
-  in generalDforward variables f parameters
+  in generalDforward variables f ds
 
 
 -- * A monad for efficiently computing forward derivatives.
@@ -171,18 +171,18 @@ generalDfastForward variables f =
   let D value d = runIdentity $ runDualMonadForward $ f variables
   in (d, value)
 
--- In a simple-minded way, just for test, we set the direction vector dt,
--- which is the dual counterpart of parameters, to be equal to the parameters.
+-- The direction vector ds is taken as an extra argument.
 dfastForward
   :: forall r. HasForward r
   => (DualNumberVariables r -> DualMonadForward r (DualNumber r))
   -> Domains r
+  -> Domains r
   -> (Primal r, Primal r)
-dfastForward f parameters@(params0, params1, params2, paramsX) =
+dfastForward f parameters (params0, params1, params2, paramsX) =
   let variables =
         makeDualNumberVariables
           parameters
-          (V.convert params0, params1, params2, paramsX)
+          (V.convert params0, params1, params2, paramsX)  -- ds
       (derivative, value) = generalDfastForward variables f
   in (derivative, value)
 
