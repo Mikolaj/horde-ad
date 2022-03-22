@@ -500,8 +500,10 @@ buildFinMaps st deltaTopLevel = do
         AddS d e -> evalS r d >> evalS r e
         VarS (DeltaId i) -> VM.modify finMapX (addToArrayS r) i
 
-        AppendS d e -> appendS r d e
-        SliceS (_ :: Proxy i) _ d -> sliceS @i r d
+        AppendS (d :: DeltaS (k ': rest) r) (e :: DeltaS (l ': rest) r) ->
+          evalS (OS.slice @'[ '(0, k) ] r) d >> evalS (OS.slice @'[ '(k, l) ] r) e
+        SliceS (_ :: Proxy i) _ (d :: DeltaS (i_plus_n_plus_k ': rest) r) ->
+          evalS (OS.constant @(i ': rest) 0 `OS.append` r `OS.append` OS.constant 0) d
 
         From0S d -> eval0 (OS.unScalar r) d
         From1S d -> eval1 (OS.toVector r) d
@@ -512,21 +514,7 @@ buildFinMaps st deltaTopLevel = do
                    Nothing Nothing)
                 d
         FromXS d -> evalX (Data.Array.Convert.convert r) d
-      -- These auxiliary functions are only required to set up the type-level
-      -- machinery. This hinders readability, sadly.
-      appendS :: forall k l rest. (KnownNat k, KnownNat l, OS.Shape rest)
-              => OS.Array (k + l ': rest) r
-              -> DeltaS (k ': rest) r -> DeltaS (l ': rest) r
-              -> ST s ()
-      appendS r d e = evalS (OS.slice @'[ '(0, k) ] r) d
-                      >> evalS (OS.slice @'[ '(k, l) ] r) e
-      sliceS :: forall i n k rest.
-                (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
-             => OS.Array (n ': rest) r -> DeltaS (i + n + k ': rest) r
-             -> ST s ()
-      sliceS r = evalS (OS.constant @(i ': rest) 0
-                        `OS.append` r
-                        `OS.append` OS.constant @(k ': rest) 0)
+
   eval0 1 deltaTopLevel  -- dt is 1; can be overriden in the objective function
   let evalUnlessZero :: DeltaBinding r -> ST s ()
       evalUnlessZero (DeltaBinding0 (DeltaId i) d) = do
