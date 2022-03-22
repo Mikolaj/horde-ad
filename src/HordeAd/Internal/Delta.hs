@@ -25,6 +25,12 @@
 -- access to parameters with something cheaper and more uniform.
 -- A lot of the remaining additional structure is for introducing
 -- and reducing dimensions (ranks).
+--
+-- This is an internal API now, superseded by "HordeAd.Core.DualClass"
+-- that permits other kinds of second component of dual numbers,
+-- e.g., the same as primal components, for fast computation
+-- of forward derivatives (@evalBindingsForward@ below, using delta-expressions,
+-- is slow once the expressions grow large enough to affect cache misses).
 module HordeAd.Internal.Delta
   ( -- * Abstract syntax trees of the delta expressions
     Delta0 (..), Delta1 (..), Delta2 (..), DeltaX (..), DeltaS (..)
@@ -242,6 +248,9 @@ data DeltaState r = DeltaState
 -- argument here is the underlying scalar (e.g., @Double),
 -- while elsewhere it's the dual component of dual numbers from
 -- rank 0 (scalar) level (e.g., @Delta0 Double@).
+-- By chance, these definitions and definitions from other modules
+-- coincide in case of "forward derivatives computed on the spot"
+-- where @r@ is @Double@ and @Double@ is the dual component.
 --
 -- More generally, @r@ in this module tends to refert to the underlying
 -- scalar type, while in all other modules it's the rank 0 dual component
