@@ -405,7 +405,7 @@ sumElementsVectorOfDual
   :: IsScalar r => Data.Vector.Vector (DualNumber r) -> DualNumber r
 sumElementsVectorOfDual = V.foldl' (+) 0
 
-softMaxAct :: (DualMonad r m, Floating (Primal r))
+softMaxAct :: DualMonad r m
            => Data.Vector.Vector (DualNumber r)
            -> m (Data.Vector.Vector (DualNumber r))
 softMaxAct us = do
@@ -416,7 +416,7 @@ softMaxAct us = do
   V.mapM (\r -> returnLet $ r * recipSum) expUs
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropy :: forall m r. (DualMonad r m, Floating (Primal r))
+lossCrossEntropy :: forall m r. DualMonad r m
                  => Primal (Tensor1 r)
                  -> Data.Vector.Vector (DualNumber r)
                  -> m (DualNumber r)
@@ -433,7 +433,7 @@ lossCrossEntropyV :: (DualMonad r m, Floating (Primal (Tensor1 r)))
 lossCrossEntropyV targ res = returnLet $ negate $ log res <.>!! targ
 
 lossSoftMaxCrossEntropyV
-  :: (DualMonad r m, Fractional (Primal r), Floating (Primal (Tensor1 r)))
+  :: (DualMonad r m, Floating (Primal (Tensor1 r)))
   => Primal (Tensor1 r) -> DualNumber (Tensor1 r) -> m (DualNumber r)
 lossSoftMaxCrossEntropyV target (D u u') = do
   let expU = exp u
@@ -459,14 +459,13 @@ reluActV dn@(D u _) = do
   returnLet $ scale oneIfGtZero dn
     -- I have a bad feeling about this
 
-reluLeakyActV :: (DualMonad r m, Fractional (Primal r))
+reluLeakyActV :: DualMonad r m
               => DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r))
 reluLeakyActV dn@(D u _) = do
   let oneIfGtZero = V.map (\x -> if x > 0 then 1 else 0.01) u
   returnLet $ scale oneIfGtZero dn
 
-softMaxActV :: ( DualMonad r m, Fractional (Primal r)
-               , Floating (Primal (Tensor1 r)) )
+softMaxActV :: (DualMonad r m, Floating (Primal (Tensor1 r)))
             => DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r))
 softMaxActV d@(D u _) = do
   expU <- returnLet $ exp d
@@ -476,7 +475,7 @@ softMaxActV d@(D u _) = do
   returnLet $ konst1 recipSum (V.length u) * expU
 
 lossSoftMaxCrossEntropyL
-  :: (DualMonad r m, Fractional (Primal r), Floating (Primal (Tensor2 r)))
+  :: (DualMonad r m, Floating (Primal (Tensor2 r)))
   => Primal (Tensor2 r)
   -> DualNumber (Tensor2 r)
   -> m (DualNumber (Tensor1 r))

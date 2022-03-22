@@ -125,8 +125,7 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
     in go g2 rest parametersNew valueNew
 
 sgdAdamBatch
-  :: forall r a.
-     (HasDelta r, Floating (Primal r), Floating (Primal (Tensor1 r)))
+  :: forall r a. (HasDelta r, Floating (Primal (Tensor1 r)))
   => Int  -- ^ batch size
   -> (a -> DualNumberVariables r -> DualMonadGradient r (DualNumber r))
   -> [a]
@@ -136,8 +135,7 @@ sgdAdamBatch
 sgdAdamBatch = sgdAdamBatchArgs defaultArgsAdam
 
 sgdAdamBatchArgs
-  :: forall r a.
-     (HasDelta r, Floating (Primal r), Floating (Primal (Tensor1 r)))
+  :: forall r a. (HasDelta r, Floating (Primal (Tensor1 r)))
   => ArgsAdam r
   -> Int  -- ^ batch size
   -> (a -> DualNumberVariables r
@@ -173,7 +171,7 @@ sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
 -- | Relatively Smart Gradient Descent.
 -- Based on @gradientDescent@ from package @ad@ which is in turn based
 -- on the one from the VLAD compiler.
-gdSmart :: forall r. (HasDelta r, Fractional (Primal r))
+gdSmart :: forall r. HasDelta r
         => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
         -> Int  -- ^ requested number of iterations
         -> Domains r  -- ^ initial parameters

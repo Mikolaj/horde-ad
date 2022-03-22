@@ -58,7 +58,7 @@ nnMnist2 factivationHidden factivationOutput input variables = do
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 nnMnistLoss2
-  :: (DualMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
+  :: (DualMonad r m, Floating (Primal (Tensor1 r)))
   => MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
 nnMnistLoss2 (input, target) variables = do
   result <- inline nnMnist2 logisticAct softMaxActV input variables
@@ -68,14 +68,14 @@ nnMnistLoss2 (input, target) variables = do
 -- and composed with the appropriate loss function, using fused
 -- softMax and cross entropy as the loss function.
 nnMnistLossFused2
-  :: (DualMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
+  :: (DualMonad r m, Floating (Primal (Tensor1 r)))
   => MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
 nnMnistLossFused2 (input, target) variables = do
   result <- inline nnMnist2 logisticAct return input variables
   lossSoftMaxCrossEntropyV target result
 
 nnMnistLossFusedRelu2
-  :: (DualMonad r m, Floating (Primal r), Floating (Primal (Tensor1 r)))
+  :: (DualMonad r m, Floating (Primal (Tensor1 r)))
   => MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
 nnMnistLossFusedRelu2 (input, target) variables = do
   result <- inline nnMnist2 reluActV return input variables
@@ -84,7 +84,7 @@ nnMnistLossFusedRelu2 (input, target) variables = do
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 testMnist2
-  :: forall r. (IsScalar r, Floating (Primal r), Floating (Primal (Tensor1 r)))
+  :: forall r. (IsScalar r, Floating (Primal (Tensor1 r)))
   => [MnistData (Primal r)] -> Domains r -> Primal r
 testMnist2 inputs parameters =
   let matchesLabels :: MnistData (Primal r) -> Bool

@@ -42,7 +42,7 @@ type IsDualWithScalar a r = (IsDual a, ScalarOf a ~ Primal r, Num (Primal a))
 -- of a dual number type at the scalar (rank 0) level.
 -- A more precise name would be @IsRank0DualWithAWellBehavedSetOfAllRanks@.
 type IsScalar r =
-       ( HasRanks r, Ord (Primal r), Numeric (Primal r)
+       ( HasRanks r, Ord (Primal r), Numeric (Primal r), RealFloat (Primal r)
        , IsDualWithScalar r r, IsDualWithScalar (Tensor1 r) r
        , IsDualWithScalar (Tensor2 r) r, IsDualWithScalar (TensorX r) r
        , Primal (Tensor1 r) ~ Vector (Primal r)

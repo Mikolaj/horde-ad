@@ -62,7 +62,7 @@ synthValue factivation x ps1@(D u _) ps2 ps3 = do
   activated <- factivation $ scale (HM.konst x (V.length u)) ps1 + ps2
   returnLet $ activated <.>! ps3
 
-synthLossSquared :: (DualMonad r m, Fractional (Primal r))
+synthLossSquared :: DualMonad r m
                  => (DualNumber (Tensor1 r)
                      -> m (DualNumber (Tensor1 r)))
                  -> Primal r
@@ -90,7 +90,7 @@ sumResultsDual f as = do
   returnLet sumUs
 
 synthLossAll
-  :: forall r m. (DualMonad r m, Fractional (Primal r))
+  :: forall r m. DualMonad r m
   => (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
   -> Data.Vector.Storable.Vector (Primal r, Primal r)
   -> DualNumber (Tensor1 r)
@@ -135,7 +135,7 @@ splitLayerV factivation hiddenVec offset variables width = do
   return (a0, a1, a2)
 
 synthLossBareTotal
-  :: (DualMonad r m, Fractional (Primal r))
+  :: DualMonad r m
   => (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
   -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
   -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
@@ -179,7 +179,7 @@ integerPairSamples range seed k =
   in V.zip (V.fromListN k $ map fromIntegral inputs)
            (V.fromListN k $ map fromIntegral $ rolls g2)
 
-gdSmartShow :: (HasDelta r, Fractional (Primal r))
+gdSmartShow :: HasDelta r
             => (DualNumberVariables r
                 -> DualMonadGradient r (DualNumber r))
             -> Domain1 r

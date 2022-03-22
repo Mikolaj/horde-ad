@@ -128,7 +128,7 @@ nnMnist0 factivationHidden factivationOutput widthHidden widthHidden2
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 nnMnistLoss0
-  :: (DualMonad r m, Floating (Primal r))
+  :: DualMonad r m
   => Int -> Int -> MnistData (Primal r) -> DualNumberVariables r
   -> m (DualNumber r)
 nnMnistLoss0 widthHidden widthHidden2 (input, target) variables = do
@@ -141,7 +141,7 @@ nnMnistLoss0 widthHidden widthHidden2 (input, target) variables = do
 --
 -- The proxy argument is needed only for the (spurious) SPECIALIZE pragma,
 -- becuase I can't write @SPECIALIZE testMnist0 \@(Delta0 Double)@.
-testMnist0 :: forall r. (IsScalar r, Floating (Primal r))
+testMnist0 :: forall r. IsScalar r
            => Proxy r -> Int -> Int -> [MnistData (Primal r)] -> Domain0 r
            -> Primal r
 testMnist0 _ widthHidden widthHidden2 inputs params0 =

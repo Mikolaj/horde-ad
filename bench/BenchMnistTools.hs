@@ -16,7 +16,7 @@ import HordeAd
 import HordeAd.Tool.MnistTools
 
 mnistTrainBench2 :: forall r. ( NFData (Primal r), HasDelta r
-                              , Floating (Primal r), UniformRange (Primal r) )
+                              , UniformRange (Primal r) )
                  => String -> Int -> [MnistData (Primal r)] -> Int -> Int
                  -> Primal r
                  -> Benchmark
@@ -33,7 +33,7 @@ mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
   bench name $ nf grad chunk
 
 mnistTestBench2
-  :: forall r. (Floating (Primal r), UniformRange (Primal r), HasDelta r)
+  :: forall r. (UniformRange (Primal r), HasDelta r)
   => String -> Int -> [MnistData (Primal r)] -> Int -> Int -> Benchmark
 mnistTestBench2 extraPrefix chunkLength xs widthHidden widthHidden2 = do
   let nParams0 = lenMnist0 widthHidden widthHidden2

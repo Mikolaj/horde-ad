@@ -33,7 +33,7 @@ testTrees = [ dfTests
 (*\) :: DualMonad r m => DualNumber r -> DualNumber r -> m (DualNumber r)
 (*\) u v = returnLet $ u * v
 
-(**\) :: (DualMonad r m, Floating (Primal r))
+(**\) :: DualMonad r m
       => DualNumber r -> DualNumber r -> m (DualNumber r)
 (**\) u v = returnLet $ u ** v
 
@@ -212,7 +212,7 @@ quickCheckForward =
      , ("atanReadmeMPoly", atanReadmeMPoly, \(x, y, z) -> ([x, y, z], []))
      , ("atanReadmeMPolyV", atanReadmeMPolyV, \(x, y, z) -> ([], [x, y, z]))
      ] :: [( TestName
-           , forall r m. (DualMonad r m, RealFloat (Primal r))
+           , forall r m. DualMonad r m
              => DualNumberVariables r -> m (DualNumber r)
            , (Double, Double, Double) -> ([Double], [Double]) )])
       -- this list requires @ImpredicativeTypes@
@@ -225,7 +225,7 @@ quickCheckForward =
 -- to vectors manually and we omit this straightforward boilerplate code here.
 -- TODO: while we use weakly-typed vectors, work on user-friendly errors
 -- if the input record is too short.
-atanReadmePoly :: (RealFloat (Primal r), IsScalar r)
+atanReadmePoly :: IsScalar r
                => DualNumberVariables r -> Data.Vector.Vector (DualNumber r)
 atanReadmePoly variables =
   let x : y : z : _ = vars variables
@@ -252,7 +252,7 @@ sumElementsVectorOfDual = V.foldl' (+) 0
 -- If the code above had any repeated non-variable expressions
 -- (e.g., if @w@ appeared twice) the user would need to make it monadic
 -- and apply @returnLet@ already there.
-atanReadmeMPoly :: (DualMonad r m, RealFloat (Primal r))
+atanReadmeMPoly :: DualMonad r m
                 => DualNumberVariables r -> m (DualNumber r)
 atanReadmeMPoly variables =
   returnLet $ sumElementsVectorOfDual $ atanReadmePoly variables
@@ -260,7 +260,7 @@ atanReadmeMPoly variables =
 -- The underscores and empty vectors are placeholders for the vector
 -- and matrix components of the parameters triple, which we here don't use
 -- (we construct vectors, but from scalar parameters).
-dfAtanReadmeMPoly :: (RealFloat (Primal r), HasDelta r)
+dfAtanReadmeMPoly :: HasDelta r
                   => Domain0 r -> (Domain0 r, Primal r)
 dfAtanReadmeMPoly ds =
   let ((result, _, _, _), value) =
@@ -285,7 +285,7 @@ readmeTests = testGroup "Tests of code from the library's README"
 -- via a primitive differentiable type of vectors instead of inside
 -- vectors of primitive differentiable scalars.
 
-atanReadmePolyV :: (RealFloat (Primal r), IsScalar r)
+atanReadmePolyV :: IsScalar r
                 => DualNumberVariables r -> DualNumber (Tensor1 r)
 atanReadmePolyV variables =
   let xyzVector = var1 variables 0
@@ -295,7 +295,7 @@ atanReadmePolyV variables =
       w = x * sin y
   in seq1 $ V.fromList [atan2 z w, z * x]
 
-atanReadmeMPolyV :: (DualMonad r m, RealFloat (Primal r))
+atanReadmeMPolyV :: DualMonad r m
                  => DualNumberVariables r -> m (DualNumber r)
 atanReadmeMPolyV variables =
   returnLet $ atanReadmePolyV variables <.>!! HM.konst 1 2
@@ -303,7 +303,7 @@ atanReadmeMPolyV variables =
 -- The underscores and empty vectors are placeholders for the vector
 -- and matrix components of the parameters triple, which we here don't use
 -- (we construct vectors, but from scalar parameters).
-dfAtanReadmeMPolyV :: (RealFloat (Primal r), HasDelta r)
+dfAtanReadmeMPolyV :: HasDelta r
                    => Domain1 r -> (Domain1 r, Primal r)
 dfAtanReadmeMPolyV dsV =
   let ((_, result, _, _), value) =

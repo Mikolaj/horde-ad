@@ -55,8 +55,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
        then (parametersNew, valueNew)
        else go rest parametersNew
 
-sgdAdam :: forall r a.
-           (HasDelta r, Floating (Primal r), Floating (Primal (Tensor1 r)))
+sgdAdam :: forall r a. (HasDelta r, Floating (Primal (Tensor1 r)))
         => (a -> DualNumberVariables r -> DualMonadGradient r (DualNumber r))
         -> [a]
         -> Domains r
@@ -64,8 +63,7 @@ sgdAdam :: forall r a.
         -> (Domains r, StateAdam r)
 sgdAdam = sgdAdamArgs defaultArgsAdam
 
-sgdAdamArgs :: forall r a.
-               (HasDelta r, Floating (Primal r), Floating (Primal (Tensor1 r)))
+sgdAdamArgs :: forall r a. (HasDelta r, Floating (Primal (Tensor1 r)))
             => ArgsAdam r
             -> (a -> DualNumberVariables r
                 -> DualMonadGradient r (DualNumber r))
