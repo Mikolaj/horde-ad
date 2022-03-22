@@ -17,6 +17,8 @@ import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 import           Text.Printf
+import           Test.Tasty.QuickCheck hiding (shuffle, label)
+import qualified Data.Array.DynamicS as OT
 
 import HordeAd
 import HordeAd.Core.OutdatedOptimizer
@@ -571,7 +573,112 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       (1 - testMnist2 @(Delta0 Double) testData
                       (params0, params1, params2, V.empty))
         @?= 0.902
- ]
+  , testProperty "Compare two forward derivatives and gradient for Mnist0" $
+      \seed -> \seedDs ->
+      forAll (choose (1, 300)) $ \widthHidden ->
+      forAll (choose (1, 100)) $ \widthHidden2 ->
+      forAll (choose (0.01, 10)) $ \range ->
+      forAll (choose (0.01, 10)) $ \rangeDs ->
+        let createRandomVector n seedV = HM.randomVector seedV HM.Uniform n
+            glyph = createRandomVector sizeMnistGlyph seed
+            label = createRandomVector sizeMnistLabel seedDs
+            mnistData :: MnistData Double
+            mnistData = (glyph, label)
+            nParams0 = lenMnist0 widthHidden widthHidden2
+            paramShape = (nParams0, [], [])
+            (_, _, _, parameters) = initializerFixed seed range paramShape
+            (_, _, _, ds@(ds0, ds1, ds2, dsX)) =
+              initializerFixed seedDs rangeDs paramShape
+            f :: forall r m. (DualMonad r m, Primal r ~ Double)
+              => DualNumberVariables r -> m (DualNumber r)
+            f = nnMnistLoss0 widthHidden widthHidden2 mnistData
+            ff = dfastForward f parameters ds
+            close a b = abs (a - b) <= 0.000001
+            close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
+            dfDot fDot psDot =
+              let ((res0, res1, res2, resX), value) = df fDot psDot
+              in ( res0 HM.<.> ds0
+                   + V.sum (V.zipWith (HM.<.>) res1 ds1)
+                   + V.sum (V.zipWith (HM.<.>) (V.map HM.flatten res2)
+                                               (V.map HM.flatten ds2))
+                   + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
+                                               (V.map OT.toVector dsX))
+                 , value )
+        -- The formula for comparing derivative and gradient is due to @awf at
+        -- https://github.com/Mikolaj/horde-ad/issues/15#issuecomment-1063251319
+        in dforward f parameters ds === ff
+           .&&. close1 (dfDot f parameters) ff
+  , testProperty "Compare two forward derivatives and gradient for Mnist1" $
+      \seed -> \seedDs ->
+      forAll (choose (1, 2000)) $ \widthHidden ->
+      forAll (choose (1, 5000)) $ \widthHidden2 ->
+      forAll (choose (0.01, 10)) $ \range ->
+      forAll (choose (0.01, 10)) $ \rangeDs ->
+        let createRandomVector n seedV = HM.randomVector seedV HM.Uniform n
+            glyph = createRandomVector sizeMnistGlyph seed
+            label = createRandomVector sizeMnistLabel seedDs
+            mnistData :: MnistData Double
+            mnistData = (glyph, label)
+            nParams0 = lenMnist1 widthHidden widthHidden2
+            nParams1 = lenVectorsMnist1 widthHidden widthHidden2
+            paramShape = (nParams0, V.toList nParams1, [])
+            (_, _, _, parameters) = initializerFixed seed range paramShape
+            (_, _, _, ds@(ds0, ds1, ds2, dsX)) =
+              initializerFixed seedDs rangeDs paramShape
+            f :: forall r m. (DualMonad r m, Primal r ~ Double)
+              => DualNumberVariables r -> m (DualNumber r)
+            f = nnMnistLoss1 widthHidden widthHidden2 mnistData
+            ff = dfastForward f parameters ds
+            close a b = abs (a - b) <= 0.000001
+            close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
+            dfDot fDot psDot =
+              let ((res0, res1, res2, resX), value) = df fDot psDot
+              in ( res0 HM.<.> ds0
+                   + V.sum (V.zipWith (HM.<.>) res1 ds1)
+                   + V.sum (V.zipWith (HM.<.>) (V.map HM.flatten res2)
+                                               (V.map HM.flatten ds2))
+                   + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
+                                               (V.map OT.toVector dsX))
+                 , value )
+        in dforward f parameters ds === ff
+           .&&. close1 (dfDot f parameters) ff
+  , testProperty "Compare two forward derivatives and gradient for Mnist2" $
+      \seed -> \seedDs ->
+      forAll (choose (1, 5000)) $ \widthHidden ->
+      forAll (choose (1, 1000)) $ \widthHidden2 ->
+      forAll (choose (0.01, 10)) $ \range ->
+      forAll (choose (0.01, 10)) $ \rangeDs ->
+        let createRandomVector n seedV = HM.randomVector seedV HM.Uniform n
+            glyph = createRandomVector sizeMnistGlyph seed
+            label = createRandomVector sizeMnistLabel seedDs
+            mnistData :: MnistData Double
+            mnistData = (glyph, label)
+            paramShape = lenMnistFcnn2 widthHidden widthHidden2
+            (_, _, _, parameters) = initializerFixed seed range paramShape
+            (_, _, _, ds@(ds0, ds1, ds2, dsX)) =
+              initializerFixed seedDs rangeDs paramShape
+            f, f2 :: forall r m. (DualMonad r m, Primal r ~ Double)
+              => DualNumberVariables r -> m (DualNumber r)
+            f = nnMnistLoss2 mnistData
+            f2 = nnMnistLossFused2 mnistData
+            ff = dfastForward f parameters ds
+            ff2 = dfastForward f2 parameters ds
+            close a b = abs (a - b) <= 0.000001
+            close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
+            dfDot fDot psDot =
+              let ((res0, res1, res2, resX), value) = df fDot psDot
+              in ( res0 HM.<.> ds0
+                   + V.sum (V.zipWith (HM.<.>) res1 ds1)
+                   + V.sum (V.zipWith (HM.<.>) (V.map HM.flatten res2)
+                                               (V.map HM.flatten ds2))
+                   + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
+                                               (V.map OT.toVector dsX))
+                 , value )
+        in dforward f parameters ds === ff
+           .&&. close1 (dfDot f parameters) ff
+-- TODO:          .&&. ff === ff2
+           .&&. dforward f2 parameters ds === ff2
+           .&&. close1 (dfDot f2 parameters) ff2 ]
 
 bigMnistTests :: TestTree
 bigMnistTests = testGroup "MNIST tests with a 2-hidden-layer nn"
