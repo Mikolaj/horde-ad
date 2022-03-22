@@ -1,4 +1,4 @@
-{-# LANGUAGE ImpredicativeTypes, TypeFamilies, RankNTypes #-}
+{-# LANGUAGE TypeFamilies, RankNTypes #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 module TestSingleGradient (testTrees) where
 
@@ -224,25 +224,28 @@ dfDotShow f (deltaInput, deltaInputV) (ds0, ds1) =
 -- at https://github.com/Mikolaj/horde-ad/issues/15#issuecomment-1063251319
 quickCheckForwardAndBackward :: TestTree
 quickCheckForwardAndBackward =
-  testGroup "Verify two forward derivative methods and one backprop gradient method give compatible results"
-  $ map (\(txt, f, fArg) ->
+  testGroup "Verify two forward derivative methods and one backprop gradient method give compatible results" $
+    let qcTest :: TestName
+               -> (forall r m. DualMonad r m
+                   => DualNumberVariables r -> m (DualNumber r))
+               -> ((Double, Double, Double) -> ([Double], [Double]))
+               -> TestTree
+        qcTest txt f fArg =
           testProperty txt
           $ forAll (choose ((-2, -2, -2), (2, 2, 2))) $ \xyz -> \xyz2 ->
-                let args = fArg xyz
-                    ds = fArg xyz2
-                    ff = dfastForwardShow f args ds
-                    close a b = abs (a - b) <= 0.000001
-                    close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
-                in dforwardShow f args ds === ff
-                   .&&. close1 (dfDotShow f args ds) ff)
-    ([ ("fquad", fquad, \(x, y, _z) -> ([x, y], []))
-     , ("atanReadmeMPoly", atanReadmeMPoly, \(x, y, z) -> ([x, y, z], []))
-     , ("atanReadmeMPolyV", atanReadmeMPolyV, \(x, y, z) -> ([], [x, y, z]))
-     ] :: [( TestName
-           , forall r m. DualMonad r m
-             => DualNumberVariables r -> m (DualNumber r)
-           , (Double, Double, Double) -> ([Double], [Double]) )])
-      -- this list requires @ImpredicativeTypes@
+              let args = fArg xyz
+                  ds = fArg xyz2
+                  ff = dfastForwardShow f args ds
+                  close a b = abs (a - b) <= 0.000001
+                  close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
+              in dforwardShow f args ds === ff
+                 .&&. close1 (dfDotShow f args ds) ff
+    in [ qcTest "fquad" fquad (\(x, y, _z) -> ([x, y], []))
+       , qcTest "atanReadmeMPoly" atanReadmeMPoly
+                (\(x, y, z) -> ([x, y, z], []))
+       , qcTest "atanReadmeMPolyV" atanReadmeMPolyV
+                (\(x, y, z) -> ([], [x, y, z]))
+       ]
 
 -- The input vector is meant to have 3 elements, the output vector
 -- two elements. In the future we may use something like
