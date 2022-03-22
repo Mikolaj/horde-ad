@@ -231,8 +231,10 @@ quickCheckForwardAndBackward =
                 let args = fArg xyz
                     ds = fArg xyz2
                     ff = dfastForwardShow f args ds
+                    close a b = abs (a - b) <= 0.000001
+                    close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
                 in dforwardShow f args ds === ff
-                   .&&. dfDotShow f args ds === ff)
+                   .&&. close1 (dfDotShow f args ds) ff)
     ([ ("fquad", fquad, \(x, y, _z) -> ([x, y], []))
      , ("atanReadmeMPoly", atanReadmeMPoly, \(x, y, z) -> ([x, y, z], []))
      , ("atanReadmeMPolyV", atanReadmeMPolyV, \(x, y, z) -> ([], [x, y, z]))
