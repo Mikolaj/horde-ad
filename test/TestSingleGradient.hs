@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ImpredicativeTypes, TypeFamilies, RankNTypes #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 module TestSingleGradient (testTrees) where
 
@@ -9,6 +9,7 @@ import qualified Data.Vector.Generic as V
 import qualified Numeric.LinearAlgebra as HM
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
+import           Test.Tasty.QuickCheck
 
 import HordeAd hiding (sumElementsVectorOfDual)
 
@@ -17,6 +18,7 @@ testTrees = [ dfTests
             , vectorTests
             , dfTestsForward
             , dfTestsFastForward
+            , quickCheckForward
             , readmeTests
             , readmeTestsV
             ]
@@ -177,15 +179,15 @@ dfTestsForward = testGroup "Simple df (Forward Double) application tests" $
     ]
 
 dfastForwardShow
-  :: forall r. HasForward r
+  :: HasForward r
   => (DualNumberVariables r
       -> DualMonadForward r (DualNumber r))
   -> ([Primal r], [Primal r])
   -> (Primal r, Primal r)
 dfastForwardShow f (deltaInput, deltaInputV) =
-  dfastForward @r f ( V.fromList deltaInput
-                    , V.singleton $ V.fromList deltaInputV
-                    , V.empty, V.empty )
+  dfastForward f ( V.fromList deltaInput
+                 , V.singleton $ V.fromList deltaInputV
+                 , V.empty, V.empty )
 
 dfTestsFastForward :: TestTree
 dfTestsFastForward =
@@ -198,6 +200,22 @@ dfTestsFastForward =
     , ( "atanReadmeMPolyV", atanReadmeMPolyV, ([], [1.1, 2.2, 3.3])
       , (7.662345305800865, 4.9375516951604155) )
     ]
+
+quickCheckForward :: TestTree
+quickCheckForward =
+  testGroup "Verify two forward derivative methods give same results"
+  $ map (\(txt, f, fArg) -> testProperty txt
+                            $ forAll (choose ((-2, -2, -2), (2, 2, 2)))
+                            $ \xyz ->
+           dforwardShow f (fArg xyz) === dfastForwardShow f (fArg xyz))
+    ([ ("fquad", fquad, \(x, y, _z) -> ([x, y], []))
+     , ("atanReadmeMPoly", atanReadmeMPoly, \(x, y, z) -> ([x, y, z], []))
+     , ("atanReadmeMPolyV", atanReadmeMPolyV, \(x, y, z) -> ([], [x, y, z]))
+     ] :: [( TestName
+           , forall r m. (DualMonad r m, RealFloat (Primal r))
+             => DualNumberVariables r -> m (DualNumber r)
+           , (Double, Double, Double) -> ([Double], [Double]) )])
+      -- this list requires @ImpredicativeTypes@
 
 -- The input vector is meant to have 3 elements, the output vector
 -- two elements. In the future we may use something like

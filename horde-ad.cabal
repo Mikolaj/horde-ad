@@ -190,6 +190,7 @@ test-suite test
       , strict-containers
       , tasty >= 1.0
       , tasty-hunit
+      , tasty-quickcheck
       , time
       , vector
 
@@ -229,6 +230,7 @@ test-suite shortTestForCI
       , strict-containers
       , tasty >= 1.0
       , tasty-hunit
+      , tasty-quickcheck
       , time
       , vector
 
