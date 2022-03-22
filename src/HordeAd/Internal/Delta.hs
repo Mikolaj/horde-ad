@@ -510,9 +510,13 @@ buildFinMaps st deltaTopLevel = do
         VarS (DeltaId i) -> VM.modify finMapX (addToArrayS r) i
 
         AppendS (d :: DeltaS (k ': rest) r) (e :: DeltaS (l ': rest) r) ->
-          evalS (OS.slice @'[ '(0, k) ] r) d >> evalS (OS.slice @'[ '(k, l) ] r) e
+          evalS (OS.slice @'[ '(0, k) ] r) d
+          >> evalS (OS.slice @'[ '(k, l) ] r) e
         SliceS (_ :: Proxy i) _ (d :: DeltaS (i_plus_n_plus_k ': rest) r) ->
-          evalS (OS.constant @(i ': rest) 0 `OS.append` r `OS.append` OS.constant 0) d
+          evalS (OS.constant @(i ': rest) 0
+                 `OS.append` r
+                 `OS.append` OS.constant 0)
+                d
 
         From0S d -> eval0 (OS.unScalar r) d
         From1S d -> eval1 (OS.toVector r) d
@@ -525,6 +529,7 @@ buildFinMaps st deltaTopLevel = do
         FromXS d -> evalX (Data.Array.Convert.convert r) d
 
   eval0 1 deltaTopLevel  -- dt is 1; can be overriden in the objective function
+
   let evalUnlessZero :: DeltaBinding r -> ST s ()
       evalUnlessZero (DeltaBinding0 (DeltaId i) d) = do
         r <- finMap0 `VM.read` i
