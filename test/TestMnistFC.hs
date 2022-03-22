@@ -612,7 +612,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       \seed -> \seedDs ->
       forAll (choose (1, 2000)) $ \widthHidden ->
       forAll (choose (1, 5000)) $ \widthHidden2 ->
-      forAll (choose (0.01, 10)) $ \range ->
+      forAll (choose (0.01, 0.5)) $ \range ->
       forAll (choose (0.01, 10)) $ \rangeDs ->
         let createRandomVector n seedV = HM.randomVector seedV HM.Uniform n
             glyph = createRandomVector sizeMnistGlyph seed
@@ -646,7 +646,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       \seed -> \seedDs ->
       forAll (choose (1, 5000)) $ \widthHidden ->
       forAll (choose (1, 1000)) $ \widthHidden2 ->
-      forAll (choose (0.01, 10)) $ \range ->
+      forAll (choose (0.01, 1)) $ \range ->
       forAll (choose (0.01, 10)) $ \rangeDs ->
         let createRandomVector n seedV = HM.randomVector seedV HM.Uniform n
             glyph = createRandomVector sizeMnistGlyph seed
