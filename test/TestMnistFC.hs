@@ -643,7 +643,8 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
         in dforward f parameters ds === ff
            .&&. close1 (dfDot f parameters) ff
   , testProperty "Compare two forward derivatives and gradient for Mnist2" $
-      \seed -> \seedDs ->
+      \seed ->
+      forAll (choose (0, sizeMnistLabel - 1)) $ \seedDs ->
       forAll (choose (1, 5000)) $ \widthHidden ->
       forAll (choose (1, 1000)) $ \widthHidden2 ->
       forAll (choose (0.01, 1)) $ \range ->
@@ -651,18 +652,23 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
         let createRandomVector n seedV = HM.randomVector seedV HM.Uniform n
             glyph = createRandomVector sizeMnistGlyph seed
             label = createRandomVector sizeMnistLabel seedDs
-            mnistData :: MnistData Double
+            labelOneHot = HM.konst 0 sizeMnistLabel V.// [(seedDs, 1)]
+            mnistData, mnistDataOneHot :: MnistData Double
             mnistData = (glyph, label)
+            mnistDataOneHot = (glyph, labelOneHot)
             paramShape = lenMnistFcnn2 widthHidden widthHidden2
             (_, _, _, parameters) = initializerFixed seed range paramShape
             (_, _, _, ds@(ds0, ds1, ds2, dsX)) =
               initializerFixed seedDs rangeDs paramShape
-            f, f2 :: forall r m. (DualMonad r m, Primal r ~ Double)
-              => DualNumberVariables r -> m (DualNumber r)
+            f, fOneHot, fFused
+              :: forall r m. (DualMonad r m, Primal r ~ Double)
+                 => DualNumberVariables r -> m (DualNumber r)
             f = nnMnistLoss2 mnistData
-            f2 = nnMnistLossFused2 mnistData
+            fOneHot = nnMnistLoss2 mnistDataOneHot
+            fFused = nnMnistLossFused2 mnistDataOneHot
             ff = dfastForward f parameters ds
-            ff2 = dfastForward f2 parameters ds
+            ffOneHot = dfastForward fOneHot parameters ds
+            ffFused = dfastForward fFused parameters ds
             close a b = abs (a - b) <= 0.000001
             close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
             dfDot fDot psDot =
@@ -676,9 +682,11 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
                  , value )
         in dforward f parameters ds === ff
            .&&. close1 (dfDot f parameters) ff
--- TODO:          .&&. ff === ff2
-           .&&. dforward f2 parameters ds === ff2
-           .&&. close1 (dfDot f2 parameters) ff2 ]
+           .&&. dforward fOneHot parameters ds === ffOneHot
+           .&&. close1 (dfDot fOneHot parameters) ffOneHot
+           .&&. close1 ffOneHot ffFused
+           .&&. dforward fFused parameters ds === ffFused
+           .&&. close1 (dfDot fFused parameters) ffFused ]
 
 bigMnistTests :: TestTree
 bigMnistTests = testGroup "MNIST tests with a 2-hidden-layer nn"

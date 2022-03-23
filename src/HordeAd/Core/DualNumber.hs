@@ -432,6 +432,9 @@ lossCrossEntropyV :: (DualMonad r m, Floating (Primal (Tensor1 r)))
                   -> m (DualNumber r)
 lossCrossEntropyV targ res = returnLet $ negate $ log res <.>!! targ
 
+-- Note that this is equivalent to a composition of softMax and cross entropy
+-- only when @target@ is one-hot. Otherwise, results vary wildly. In our
+-- rendering of the MNIST data all labels are on-hot.
 lossSoftMaxCrossEntropyV
   :: (DualMonad r m, Floating (Primal (Tensor1 r)))
   => Primal (Tensor1 r) -> DualNumber (Tensor1 r) -> m (DualNumber r)
@@ -474,6 +477,9 @@ softMaxActV d@(D u _) = do
   recipSum <- returnLet $ recip sumExpU
   returnLet $ konst1 recipSum (V.length u) * expU
 
+-- Note that this is equivalent to a composition of softMax and cross entropy
+-- only when @target@ is one-hot. Otherwise, results vary wildly. In our
+-- rendering of the MNIST data all labels are on-hot.
 lossSoftMaxCrossEntropyL
   :: (DualMonad r m, Floating (Primal (Tensor2 r)))
   => Primal (Tensor2 r)
