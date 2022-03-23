@@ -17,6 +17,7 @@ import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors (DualNumberVariables, var0)
 import HordeAd.Tool.MnistData
+import Numeric.LinearAlgebra (Vector)
 
 -- | Compute the output of a neuron, without applying activation function,
 -- from trainable inputs in @xs@ and parameters (the bias and weights)
@@ -28,11 +29,18 @@ sumTrainableInputs
   -> m (DualNumber r)
 sumTrainableInputs xs offset variables = do
   let bias = var0 variables offset
+      addS (D u u') (D v v') = D (u + v) (dAdd u' v')
+      timesS (D u u') (D v v') = D (u * v) (dAdd (dScale v u') (dScale u v'))
       f :: DualNumber r -> Int -> DualNumber r -> DualNumber r
       f !acc i u =
         let v = var0 variables (offset + 1 + i)
-        in acc + u * v
+        in addS acc (timesS u v)
+-- testing that we are changing the right code; we do
+--      !_ = V.ifoldl' f bias xs
+--      !_2 = V.ifoldl' f bias xs
+--      !_3 = V.ifoldl' f bias xs
   returnLet $ V.ifoldl' f bias xs
+{-# SPECIALIZE sumTrainableInputs :: Data.Vector.Vector (DualNumber (Delta0 Double)) -> Int -> DualNumberVariables (Delta0 Double) -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)) #-}
 
 -- | Compute the output of a neuron, without applying activation function,
 -- from constant data in @xs@ and parameters (the bias and weights)
@@ -43,11 +51,14 @@ sumConstantData
   => Primal (Tensor1 r) -> Int -> DualNumberVariables r -> m (DualNumber r)
 sumConstantData xs offset variables = do
   let bias = var0 variables offset
+      addS (D u u') (D v v') = D (u + v) (dAdd u' v')
+      scaleS a (D u u') = D (a * u) (dScale a u')
       f :: DualNumber r -> Int -> Primal r -> DualNumber r
       f !acc i r =
         let v = var0 variables (offset + 1 + i)
-        in acc + scale r v
+        in addS acc (scaleS r v)
   returnLet $ V.ifoldl' f bias xs
+{-# SPECIALIZE sumConstantData :: Vector Double -> Int -> DualNumberVariables (Delta0 Double) -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)) #-}
 
 hiddenLayerMnist
   :: forall m r. DualMonad r m
@@ -135,6 +146,7 @@ nnMnistLoss0 widthHidden widthHidden2 (input, target) variables = do
   result <- inline nnMnist0 logisticAct softMaxAct
                             widthHidden widthHidden2 input variables
   lossCrossEntropy target result
+{-# SPECIALIZE nnMnistLoss0 :: Int -> Int -> MnistData Double -> DualNumberVariables (Delta0 Double) -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)) #-}
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.

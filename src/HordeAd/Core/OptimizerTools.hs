@@ -1,7 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes, TypeFamilies #-}
 -- | Tools for implementing (and debugging the use of) gradient descent schemes.
 module HordeAd.Core.OptimizerTools
-  ( updateWithGradient
+  ( updateWithGradient, updateWithGradientProxy
   , gradientIsNil, minimumGradient, maximumGradient
   , ArgsAdam(..), defaultArgsAdam
   , StateAdam(..), zeroParameters, initialStateAdam
@@ -12,6 +12,7 @@ import Prelude
 
 import           Control.Monad.ST.Strict (runST)
 import qualified Data.Array.DynamicS as OT
+import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import           Numeric.LinearAlgebra (Element, Matrix, Numeric, Vector)
@@ -89,6 +90,29 @@ updateWithGradient gamma (params0, params1, params2, paramsX)
                       -- unless we move away from HM; similarly other OT calls
       !paramsXNew = V.zipWith updateX paramsX gradientX
   in (params0New, params1New, params2New, paramsXNew)
+
+updateWithGradientProxy :: IsScalar r
+                   => Proxy r -> Primal r -> Domains r -> Domains r -> Domains r
+updateWithGradientProxy proxy gamma (params0, params1, params2, paramsX)
+                         (gradient0, gradient1, gradient2, gradientX) =
+  let updateVector i r = i - HM.scale gamma r
+      !params0New = updateVector params0 gradient0
+      update1 i r = if V.null r  -- eval didn't update it, would crash
+                    then i
+                    else updateVector i r
+      !params1New = V.zipWith update1 params1 gradient1
+      update2 i r = if HM.rows r <= 0  -- eval didn't update it, would crash
+                    then i
+                    else liftMatrix2 updateVector i r
+      !params2New = V.zipWith update2 params2 gradient2
+      updateX i r = if null (OT.shapeL r)  -- eval didn't update it, would crash
+                    then i
+                    else OT.zipWithA (\j s -> j - gamma * s) i r
+                      -- TODO: this is slow; add @liftArray2@ and use HM,
+                      -- unless we move away from HM; similarly other OT calls
+      !paramsXNew = V.zipWith updateX paramsX gradientX
+  in (params0New, params1New, params2New, paramsXNew)
+{-# SPECIALIZE updateWithGradientProxy :: Proxy (Delta0 Double) -> Double -> Domains (Delta0 Double) -> Domains (Delta0 Double) -> Domains (Delta0 Double) #-}
 
 gradientIsNil :: forall r. IsScalar r => Domains r -> Bool
 gradientIsNil (gradient0, gradient1, gradient2, gradientX) =

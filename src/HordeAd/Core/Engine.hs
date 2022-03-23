@@ -215,6 +215,11 @@ generateDeltaVars (params0, params1, params2, paramsX) =
       !v2 = vVar params2
       !vX = vVar paramsX
   in (v0, v1, v2, vX)
+{-# SPECIALIZE generateDeltaVars :: Domains (Delta0 Double)
+                  -> ( Data.Vector.Vector (Delta0 Double)
+                     , Data.Vector.Vector (Tensor1 (Delta0 Double))
+                     , Data.Vector.Vector (Tensor2 (Delta0 Double))
+                     , Data.Vector.Vector (TensorX (Delta0 Double)) ) #-}
 
 -- TODO: extend to tensors if it turns out we use them alongside
 -- matrices and vectors, not instead of them.

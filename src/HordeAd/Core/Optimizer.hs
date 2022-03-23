@@ -9,11 +9,13 @@ module HordeAd.Core.Optimizer
 
 import Prelude
 
+import Data.Proxy (Proxy (Proxy))
 import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber (DualNumber (..))
 import HordeAd.Core.Engine
 import HordeAd.Core.OptimizerTools
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
+import Numeric.LinearAlgebra (Vector)
 
 -- | Simple Gradient Descent.
 gdSimple :: forall r. HasDelta r
@@ -50,10 +52,15 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   go (a : rest) parameters =
     let variables = makeDualNumberVariables parameters varDeltas
         (gradients, valueNew) = generalDf variables (f a)
-        !parametersNew = updateWithGradient @r gamma parameters gradients
+        !parametersNew = updateWithGradientProxy @r Proxy gamma parameters gradients
     in if null rest
        then (parametersNew, valueNew)
        else go rest parametersNew
+{-# SPECIALIZE sgd :: Double
+    -> ((Vector Double, Vector Double)  -> DualNumberVariables (Delta0 Double) -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
+    -> [(Vector Double, Vector Double)]
+    -> Domains (Delta0 Double)
+    -> (Domains (Delta0 Double), Double) #-}
 
 sgdAdam :: forall r a.
            (HasDelta r, Floating (Primal r), Floating (Primal (Tensor1 r)))
