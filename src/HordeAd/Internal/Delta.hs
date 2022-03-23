@@ -321,6 +321,7 @@ evalBindings dim0 dim1 dim2 dimX st deltaTopLevel =
     -- Convert to normal matrices, but only the portion of vector
     -- that is not discarded.
     return (v0, v1, V.map MO.convertMatrixOuterOrNull v2, vX)
+{-# SPECIALIZE evalBindings :: Int -> Int -> Int -> Int -> DeltaState Double -> Delta0 Double -> Domains Double #-}
 
 -- | Create vectors (representing finite maps) that hold delta-variable
 -- values. They are initialized with dummy values so that it's cheap to check
@@ -351,6 +352,11 @@ initializeFinMaps st = do
   finMap2 <- VM.replicate counter2 MO.emptyMatrixOuter  -- dummy value
   finMapX <- VM.replicate counterX emptyArray  -- dummy value
   return (finMap0, finMap1, finMap2, finMapX)
+{-# SPECIALIZE initializeFinMaps :: DeltaState Double
+                  -> ST s ( Data.Vector.Storable.Mutable.MVector s Double
+                          , Data.Vector.Mutable.MVector s (Vector Double)
+                          , Data.Vector.Mutable.MVector s (MO.MatrixOuter Double)
+                          , Data.Vector.Mutable.MVector s (OT.Array Double) ) #-}
 
 buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
              => DeltaState r -> Delta0 r
@@ -547,6 +553,11 @@ buildFinMaps st deltaTopLevel = do
           evalX r d
   mapM_ evalUnlessZero (deltaBindings st)
   return (finMap0, finMap1, finMap2, finMapX)
+{-# SPECIALIZE buildFinMaps :: DeltaState Double -> Delta0 Double
+             -> ST s ( Data.Vector.Storable.Mutable.MVector s Double
+                     , Data.Vector.Mutable.MVector s (Vector Double)
+                     , Data.Vector.Mutable.MVector s (MO.MatrixOuter Double)
+                     , Data.Vector.Mutable.MVector s (OT.Array Double) ) #-}
 
 -- | Forward derivative computation via forward-evaluation of delta-expressions
 -- (which is surprisingly competitive to the direct forward method,
