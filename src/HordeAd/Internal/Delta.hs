@@ -573,11 +573,11 @@ evalBindingsForward :: forall r. (Numeric r, Num (Vector r))
                     => DeltaState r -> Delta0 r -> Domains r -> r
 evalBindingsForward st deltaTopLevel
                     (params0Init, params1Init, params2Init, paramsXInit) =
-  let eval0 :: Domains r -> Delta0 r -> r
-      eval0 parameters@(params0, _, _, _) = \case
+  let eval7 :: Domains r -> Delta0 r -> r
+      eval7 parameters@(params0, _, _, _) = \case
         Zero0 -> 0
-        Scale0 k d -> k * eval0 parameters d
-        Add0 d e -> eval0 parameters d + eval0 parameters e
+        Scale0 k d -> k * eval7 parameters d
+        Add0 d e -> eval7 parameters d + eval7 parameters e
         Var0 (DeltaId i) -> params0 V.! i
 
         SumElements0 vd _n -> HM.sumElements $ eval1 parameters vd
@@ -594,8 +594,8 @@ evalBindingsForward st deltaTopLevel
         Add1 d e -> eval1 parameters d + eval1 parameters e
         Var1 (DeltaId i) -> params1 V.! i
 
-        Seq1 lsd -> V.convert $ V.map (eval0 parameters) lsd
-        Konst1 d n -> HM.konst (eval0 parameters d) n
+        Seq1 lsd -> V.convert $ V.map (eval7 parameters) lsd
+        Konst1 d n -> HM.konst (eval7 parameters d) n
         Append1 d _k e -> eval1 parameters d V.++ eval1 parameters e
         Slice1 i n d _len -> V.slice i n $ eval1 parameters d
         SumRows1 dm _cols ->
@@ -652,7 +652,7 @@ evalBindingsForward st deltaTopLevel
         AppendX d _k e -> evalX parameters d `OT.append` evalX parameters e
         SliceX i n d _len -> OT.slice [(i, n)] $ evalX parameters d
 
-        From0X d -> OT.scalar $ eval0 parameters d
+        From0X d -> OT.scalar $ eval7 parameters d
         From1X d -> let v = eval1 parameters d
                     in OT.fromVector [V.length v] v
         From2X d cols -> let l = eval2 parameters d
@@ -668,14 +668,14 @@ evalBindingsForward st deltaTopLevel
         AppendS d e -> evalS parameters d `OS.append` evalS parameters e
         SliceS (_ :: Proxy i) (_ :: Proxy n) d ->
           OS.slice @'[ '(i, n) ] $ evalS parameters d
-        From0S d -> OS.scalar $ eval0 parameters d
+        From0S d -> OS.scalar $ eval7 parameters d
         From1S d -> OS.fromVector $ eval1 parameters d
         From2S _ d -> OS.fromVector $ HM.flatten $ eval2 parameters d
         FromXS d -> Data.Array.Convert.convert $ evalX parameters d
       evalUnlessZero :: Domains r -> DeltaBinding r -> Domains r
       evalUnlessZero parameters@(!params0, !params1, !params2, !paramsX) = \case
         DeltaBinding0 (DeltaId i) d ->
-          let v = eval0 parameters d
+          let v = eval7 parameters d
           in (params0 V.// [(i, v)], params1, params2, paramsX)
         DeltaBinding1 (DeltaId i) d ->
           let v = eval1 parameters d
@@ -704,7 +704,7 @@ evalBindingsForward st deltaTopLevel
         return (v0, v1, v2, vX)
       parametersB = foldl' evalUnlessZero parameters1
                            (reverse $ deltaBindings st)
-  in eval0 parametersB deltaTopLevel
+  in eval7 parametersB deltaTopLevel
 
 -- | This is yet another semantics of delta-expressions and their
 -- bindings --- by pretty-printing as texts.
