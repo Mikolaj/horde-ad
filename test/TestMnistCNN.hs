@@ -28,11 +28,11 @@ shortTestForCITrees = [ sinRNNTests
                       , mnistRNNTestsShort
                       ]
 
-hiddenLayerMnistRNNB :: (DualMonad r m, Floating (Matrix r))
-                     => Matrix r  -- the mini-batch of data 28x150
-                     -> DualNumber (Matrix r)  -- state for mini-batch 128x150
+hiddenLayerMnistRNNB :: (DualMonad r m, Floating (Primal (Tensor2 r)))
+                     => Primal (Tensor2 r)  -- the mini-batch of data 28x150
+                     -> DualNumber (Tensor2 r)  -- state for mini-batch 128x150
                      -> DualNumberVariables r
-                     -> m (DualNumber (Matrix r), DualNumber (Matrix r))
+                     -> m (DualNumber (Tensor2 r), DualNumber (Tensor2 r))
 hiddenLayerMnistRNNB x s variables = do
   let wX = var2 variables 0  -- 128x28
       wS = var2 variables 1  -- 128x128
@@ -42,11 +42,11 @@ hiddenLayerMnistRNNB x s variables = do
   yTanh <- returnLet $ tanh y
   return (yTanh, yTanh)
 
-middleLayerMnistRNNB :: (DualMonad r m, Floating (Matrix r))
-                     => DualNumber (Matrix r)  -- 128x150
-                     -> DualNumber (Matrix r)  -- 128x150
+middleLayerMnistRNNB :: (DualMonad r m, Floating (Primal (Tensor2 r)))
+                     => DualNumber (Tensor2 r)  -- 128x150
+                     -> DualNumber (Tensor2 r)  -- 128x150
                      -> DualNumberVariables r
-                     -> m (DualNumber (Matrix r), DualNumber (Matrix r))
+                     -> m (DualNumber (Tensor2 r), DualNumber (Tensor2 r))
 middleLayerMnistRNNB batchOfVec@(D u _) s variables = do
   let wX = var2 variables 3  -- 128x128
       wS = var2 variables 4  -- 128x128
@@ -57,27 +57,27 @@ middleLayerMnistRNNB batchOfVec@(D u _) s variables = do
   return (yTanh, yTanh)
 
 outputLayerMnistRNNB :: DualMonad r m
-                     => DualNumber (Matrix r)  -- 128x150
+                     => DualNumber (Tensor2 r)  -- 128x150
                      -> DualNumberVariables r
-                     -> m (DualNumber (Matrix r))
+                     -> m (DualNumber (Tensor2 r))
 outputLayerMnistRNNB batchOfVec@(D u _) variables = do
   let w = var2 variables 2  -- 10x128
       b = var1 variables 1  -- 10
       batchSize = HM.cols u
   returnLet $ w <>! batchOfVec + asColumn2 b batchSize
 
-fcfcrnnMnistB :: (DualMonad r m, Floating (Matrix r))
-              => Matrix r
-              -> DualNumber (Matrix r)
+fcfcrnnMnistB :: (DualMonad r m, Floating (Primal (Tensor2 r)))
+              => Primal (Tensor2 r)
+              -> DualNumber (Tensor2 r)
               -> DualNumberVariables r
-              -> m (DualNumber (Matrix r), DualNumber (Matrix r))
+              -> m (DualNumber (Tensor2 r), DualNumber (Tensor2 r))
 fcfcrnnMnistB = hiddenLayerMnistRNNB
 
-fcfcrnnMnistB2 :: (DualMonad r m, Floating (Matrix r))
-               => Matrix r  -- 28x150
-               -> DualNumber (Matrix r)  -- 256x150
+fcfcrnnMnistB2 :: (DualMonad r m, Floating (Primal (Tensor2 r)))
+               => Primal (Tensor2 r)  -- 28x150
+               -> DualNumber (Tensor2 r)  -- 256x150
                -> DualNumberVariables r
-               -> m (DualNumber (Matrix r), DualNumber (Matrix r))
+               -> m (DualNumber (Tensor2 r), DualNumber (Tensor2 r))
 fcfcrnnMnistB2 x s@(D u _) variables = do
   let len = HM.rows u `div` 2
       s1 = rowSlice2 0 len s
@@ -86,31 +86,31 @@ fcfcrnnMnistB2 x s@(D u _) variables = do
   (vec2, s2') <- middleLayerMnistRNNB vec1 s2 variables
   return (vec2, rowAppend2 s1' s2')
 
-nnMnistRNNB :: (DualMonad r m, Floating (Matrix r))
+nnMnistRNNB :: (DualMonad r m, Floating (Primal (Tensor2 r)))
             => Int
-            -> [Matrix r]
+            -> [Primal (Tensor2 r)]
             -> DualNumberVariables r
-            -> m (DualNumber (Matrix r))
+            -> m (DualNumber (Tensor2 r))
 nnMnistRNNB width xs variables = do
   let batchSize = HM.cols $ head xs
   rnnLayer <- zeroStateB (width, batchSize) (unrollLastG fcfcrnnMnistB)
                          xs variables
   outputLayerMnistRNNB rnnLayer variables
 
-nnMnistRNNB2 :: (DualMonad r m, Floating (Matrix r))
+nnMnistRNNB2 :: (DualMonad r m, Floating (Primal (Tensor2 r)))
              => Int
-             -> [Matrix r]
+             -> [Primal (Tensor2 r)]
              -> DualNumberVariables r
-             -> m (DualNumber (Matrix r))
+             -> m (DualNumber (Tensor2 r))
 nnMnistRNNB2 width xs variables = do
   let batchSize = HM.cols $ head xs
   rnnLayer <- zeroStateB (2 * width, batchSize) (unrollLastG fcfcrnnMnistB2)
                          xs variables
   outputLayerMnistRNNB rnnLayer variables
 
-nnMnistRNNLossB :: (DualMonad r m, Fractional r, Floating (Matrix r))
+nnMnistRNNLossB :: (DualMonad r m, Floating (Primal (Tensor2 r)))
                 => Int
-                -> ([Matrix r], Matrix r)
+                -> ([Primal (Tensor2 r)], Primal (Tensor2 r))
                 -> DualNumberVariables r
                 -> m (DualNumber r)
 nnMnistRNNLossB width (xs, target) variables = do
@@ -119,9 +119,9 @@ nnMnistRNNLossB width (xs, target) variables = do
     -- this @asRow@ is safe, because it gets multiplied/subtracted right away
   returnLet $ scale (recip $ fromIntegral $ V.length u) $ sumElements0 vec
 
-nnMnistRNNLossB2 :: (DualMonad r m, Fractional r, Floating (Matrix r))
+nnMnistRNNLossB2 :: (DualMonad r m, Floating (Primal (Tensor2 r)))
                  => Int
-                 -> ([Matrix r], Matrix r)
+                 -> ([Primal (Tensor2 r)], Primal (Tensor2 r))
                  -> DualNumberVariables r
                  -> m (DualNumber r)
 nnMnistRNNLossB2 width (xs, target) variables = do
@@ -135,9 +135,9 @@ mnistTestCaseRNNB
   -> Int
   -> (Int
       -> ([Matrix Double], Matrix Double)
-      -> DualNumberVariables Double
-      -> DualMonadGradient Double (DualNumber Double))
-  -> (Int -> [([Vector Double], Vector Double)] -> Domains Double -> Double)
+      -> DualNumberVariables (Delta0 Double)
+      -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
+  -> (Int -> [([Vector Double], Vector Double)] -> Domains (Delta0 Double) -> Double)
   -> (Int -> Int -> (Int, [Int], [(Int, Int)]))
   -> Int
   -> Int
@@ -167,9 +167,9 @@ mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
                                         (map tail l)
              in (behead [] inputs, HM.fromColumns outputs)
            -- There is some visual feedback, because some of these take long.
-           runBatch :: (Domains Double, StateAdam Double)
+           runBatch :: (Domains (Delta0 Double), StateAdam (Delta0 Double))
                     -> (Int, [([Vector Double], Vector Double)])
-                    -> IO (Domains Double, StateAdam Double)
+                    -> IO (Domains (Delta0 Double), StateAdam (Delta0 Double))
            runBatch (parameters@(!_, !_, !_, !_), stateAdam) (k, chunk) = do
              printf "(Batch %d with %d points)\n" k (length chunk)
              let res@(parameters2, _) =
@@ -181,8 +181,8 @@ mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
              printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
              return res
            runEpoch :: Int
-                    -> (Domains Double, StateAdam Double)
-                    -> IO (Domains Double)
+                    -> (Domains (Delta0 Double), StateAdam (Delta0 Double))
+                    -> IO (Domains (Delta0 Double))
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam = do
              printf "[Epoch %d]\n" n
@@ -200,19 +200,19 @@ mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
 mnistRNNTestsLong :: TestTree
 mnistRNNTestsLong = testGroup "MNIST RNN long tests"
   [ mnistTestCaseRNN "99LL 1 epoch, all batches" 1 99
-                     nnMnistRNNLossL testMnistRNNL lenMnistRNNL 128 1
+                     nnMnistRNNLossL (testMnistRNNL @(Delta0 Double)) lenMnistRNNL 128 1
                      8.209999999999995e-2
   , mnistTestCaseRNNB "99BB 1 epoch, all batches" 1 99
-                      nnMnistRNNLossB testMnistRNNL lenMnistRNNL 128 1
+                      nnMnistRNNLossB (testMnistRNNL @(Delta0 Double)) lenMnistRNNL 128 1
                       8.209999999999995e-2
   , mnistTestCaseRNN "99LL2 1 epoch, all batches" 1 99
-                     nnMnistRNNLossL2 testMnistRNNL2 lenMnistRNNL 128 2
+                     nnMnistRNNLossL2 (testMnistRNNL2 @(Delta0 Double)) lenMnistRNNL 128 2
                      6.259999999999999e-2
   , mnistTestCaseRNNB "99BB2 1 epoch, all batches" 1 99
-                      nnMnistRNNLossB2 testMnistRNNL2 lenMnistRNNL 128 2
+                      nnMnistRNNLossB2 (testMnistRNNL2 @(Delta0 Double)) lenMnistRNNL 128 2
                       6.259999999999999e-2
   , mnistTestCaseRNN "99VV 1 epoch, all batches" 1 99
-                     nnMnistRNNLossV testMnistRNNV lenMnistRNNV 128 1
+                     nnMnistRNNLossV (testMnistRNNV @(Delta0 Double)) lenMnistRNNV 128 1
                      6.740000000000002e-2
   ]
 
@@ -222,11 +222,11 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
         label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
         rws v = map (\k -> V.slice (k * 28) 28 v) [0 .. 27]
         trainData = map ((\g -> (rws (glyph g), label g)) . mkStdGen) [1 .. 140]
-    in sgdTestCase "randomLL 140"
-                   (nnMnistRNNLossL 128)
-                   (lenMnistRNNL 128 1)
-                   (return trainData)
-                   39.26529628894595
+    in sgdTestCaseAlt "randomLL 140"
+                      (nnMnistRNNLossL 128)
+                      (lenMnistRNNL 128 1)
+                      (return trainData)
+                      [39.26529628894595, 39.26534445638497]
   , let rws (input, target) =
           (map (\k -> V.slice (k * 28) 28 input) [0 .. 27], target)
     in sgdTestCase "firstLL 100 trainset samples only"
@@ -236,20 +236,20 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
                     <$> loadMnistData trainGlyphsPath trainLabelsPath)
                    2.779085689596527
   , mnistTestCaseRNN "1LL 1 epoch, 1 batch" 1 1
-                     nnMnistRNNLossL testMnistRNNL lenMnistRNNL 128 1
+                     nnMnistRNNLossL (testMnistRNNL @(Delta0 Double)) lenMnistRNNL 128 1
                      0.2845
   , mnistTestCaseRNNB "1BB 1 epoch, 1 batch" 1 1
-                      nnMnistRNNLossB testMnistRNNL lenMnistRNNL 128 1
+                      nnMnistRNNLossB (testMnistRNNL @(Delta0 Double)) lenMnistRNNL 128 1
                       0.2845
   , let glyph = V.unfoldrExactN sizeMnistGlyph (uniformR (0, 1))
         label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
         rws v = map (\k -> V.slice (k * 28) 28 v) [0 .. 27]
         trainData = map ((\g -> (rws (glyph g), label g)) . mkStdGen) [1 .. 140]
-    in sgdTestCase "randomLL2 140"
-                   (nnMnistRNNLossL2 128)
-                   (lenMnistRNNL 128 2)
-                   (return trainData)
-                   30.061856005913285
+    in sgdTestCaseAlt "randomLL2 140"
+                      (nnMnistRNNLossL2 128)
+                      (lenMnistRNNL 128 2)
+                      (return trainData)
+                      [30.061856005913285, 30.06186534722257]
   , let rws (input, target) =
           (map (\k -> V.slice (k * 28) 28 input) [0 .. 27], target)
     in sgdTestCase "firstLL2 99 trainset samples only"
@@ -259,10 +259,10 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
                     <$> loadMnistData trainGlyphsPath trainLabelsPath)
                    2.772595855528805
   , mnistTestCaseRNN "1LL2 1 epoch, 1 batch" 1 1
-                     nnMnistRNNLossL2 testMnistRNNL2 lenMnistRNNL 128 2
+                     nnMnistRNNLossL2 (testMnistRNNL2 @(Delta0 Double)) lenMnistRNNL 128 2
                      0.2945
   , mnistTestCaseRNNB "1BB2 1 epoch, 1 batch" 1 1
-                      nnMnistRNNLossB2 testMnistRNNL2 lenMnistRNNL 128 2
+                      nnMnistRNNLossB2 (testMnistRNNL2 @(Delta0 Double)) lenMnistRNNL 128 2
                       0.2945
   , let glyph = V.unfoldrExactN sizeMnistGlyph (uniformR (0, 1))
         label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
@@ -282,6 +282,6 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
                     <$> loadMnistData trainGlyphsPath trainLabelsPath)
                    2.7494107689380805
   , mnistTestCaseRNN "1VV 1 epoch, 1 batch" 1 1
-                     nnMnistRNNLossV testMnistRNNV lenMnistRNNV 128 1
+                     nnMnistRNNLossV (testMnistRNNV @(Delta0 Double)) lenMnistRNNV 128 1
                      0.3024
   ]
