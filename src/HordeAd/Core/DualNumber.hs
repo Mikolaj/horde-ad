@@ -226,6 +226,10 @@ fromS1 (D u u') = D (OS.toVector u) (dFromS1 u')
 reverse1 :: IsScalar r => DualNumber (Tensor1 r) -> DualNumber (Tensor1 r)
 reverse1 (D u u') = D (V.reverse u) (dReverse1 u')
 
+flatten1 :: IsScalar r => DualNumber (Tensor2 r) -> DualNumber (Tensor1 r)
+flatten1 (D u u') = let (rows, cols) = HM.size u
+                    in D (HM.flatten u) (dFlatten1 rows cols u')
+
 corr1 :: IsScalar r
       => DualNumber (Tensor1 r) -> DualNumber (Tensor1 r)
       -> DualNumber (Tensor1 r)
@@ -235,6 +239,9 @@ corr1 ker@(D u _) vv@(D v _) = case (V.length u, V.length v) of
                   then vectorSlices2 lenK vv #>! ker
                   else error $ "corr1: " ++ show lenK ++ " > " ++ show lenV
 
+-- This is not optimally implemented: @append1@ is costly compared
+-- to a @mconcat@ counterpart and @z@ is used twice without
+-- assigning it to a variable.
 conv1 :: IsScalar r
       => DualNumber (Tensor1 r) -> DualNumber (Tensor1 r)
       -> DualNumber (Tensor1 r)
@@ -330,6 +337,11 @@ vectorSlices2 :: IsScalar r
               => Int -> DualNumber (Tensor1 r) -> DualNumber (Tensor2 r)
 vectorSlices2 n vv@(D v _) =
   fromRows2 $ V.fromList [slice1 i n vv | i <- [0 .. V.length v - n]]
+
+(><!) ::  IsScalar r
+      => Int -> Int -> DualNumber (Tensor1 r) -> DualNumber (Tensor2 r)
+(><!) rows cols (D u u') =
+  D (rows HM.>< cols $ V.toList u) (dFromVector2 rows cols u')
 
 
 -- * Non-monadic operations resulting in an arbitrary tensor

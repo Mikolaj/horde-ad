@@ -141,6 +141,7 @@ class HasRanks r where
   dFromS1 :: KnownNat len
           => TensorS '[len] r -> Tensor1 r
   dReverse1 :: Tensor1 r -> Tensor1 r
+  dFlatten1 :: Int -> Int -> Tensor2 r -> Tensor1 r
 
   dFromRows2 :: Data.Vector.Vector (Tensor1 r) -> Tensor2 r
   dFromColumns2 :: Data.Vector.Vector (Tensor1 r) -> Tensor2 r
@@ -158,6 +159,8 @@ class HasRanks r where
   dFromX2 :: TensorX r -> Tensor2 r
   dFromS2 :: (KnownNat rows, KnownNat cols)
           => TensorS '[rows, cols] r -> Tensor2 r
+
+  dFromVector2 :: Int -> Int -> Tensor1 r -> Tensor2 r
 
   dAppendX :: TensorX r -> Int -> TensorX r
            -> TensorX r
@@ -214,6 +217,7 @@ instance HasRanks (Delta0 r) where
   dFromX1 = FromX1
   dFromS1 = FromS1
   dReverse1 = Reverse1
+  dFlatten1 = Flatten1
   dFromRows2 = FromRows2
   dFromColumns2 = FromColumns2
   dTranspose2 = Transpose2
@@ -227,6 +231,7 @@ instance HasRanks (Delta0 r) where
   dAsColumn2 = AsColumn2
   dFromX2 = FromX2
   dFromS2 = FromS2
+  dFromVector2 = FromVector2
   dAppendX = AppendX
   dSliceX = SliceX
   dFrom0X = From0X
@@ -360,6 +365,7 @@ instance HasRanks Double where
   dFromX1 = OT.toVector
   dFromS1 = OS.toVector
   dReverse1 = V.reverse
+  dFlatten1 _rows _cols = HM.flatten
   dFromRows2 = HM.fromRows . V.toList
   dFromColumns2 = HM.fromColumns . V.toList
   dTranspose2 = HM.tr'
@@ -377,6 +383,7 @@ instance HasRanks Double where
   dFromS2 d = case OS.shapeL d of
     [_rows, cols] -> HM.reshape cols $ OS.toVector d
     _ -> error "dFromS2: wrong tensor dimensions"
+  dFromVector2 rows cols d = rows HM.>< cols $ V.toList d
   dAppendX d _k e = d `OT.append` e
   dSliceX i n d _len = OT.slice [(i, n)] d
   dFrom0X = OT.scalar
@@ -412,6 +419,7 @@ instance HasRanks Float where
   dFromX1 = OT.toVector
   dFromS1 = OS.toVector
   dReverse1 = V.reverse
+  dFlatten1 _rows _cols = HM.flatten
   dFromRows2 = HM.fromRows . V.toList
   dFromColumns2 = HM.fromColumns . V.toList
   dTranspose2 = HM.tr'
@@ -429,6 +437,7 @@ instance HasRanks Float where
   dFromS2 d = case OS.shapeL d of
     [_rows, cols] -> HM.reshape cols $ OS.toVector d
     _ -> error "dFromS2: wrong tensor dimensions"
+  dFromVector2 rows cols d = rows HM.>< cols $ V.toList d
   dAppendX d _k e = d `OT.append` e
   dSliceX i n d _len = OT.slice [(i, n)] d
   dFrom0X = OT.scalar

@@ -122,6 +122,7 @@ data Delta1 r =
     => FromS1 (DeltaS '[len] r)
 
   | Reverse1 (Delta1 r)
+  | Flatten1 Int Int (Delta2 r)
 
 deriving instance (Show r, Numeric r) => Show (Delta1 r)
 
@@ -149,6 +150,8 @@ data Delta2 r =
   | FromX2 (DeltaX r)
   | forall rows cols. (KnownNat rows, KnownNat cols)
     => FromS2 (DeltaS '[rows, cols] r)
+
+  | FromVector2 Int Int (Delta1 r)
 
 deriving instance (Show r, Numeric r) => Show (Delta2 r)
 
@@ -429,6 +432,10 @@ buildFinMaps st deltaTopLevel = do
         FromS1 d -> evalS (OS.fromVector r) d
 
         Reverse1 d -> eval1 (V.reverse r) d
+        Flatten1 rows cols d ->
+          eval2 (MO.MatrixOuter (Just $ rows HM.>< cols $ V.toList r)
+                                Nothing Nothing)
+                d
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
       eval2 !r = \case
         Zero2 -> return ()
@@ -478,6 +485,8 @@ buildFinMaps st deltaTopLevel = do
         FromX2 d -> evalX (OT.fromVector [MO.rows r, MO.cols r]
                                          (V.concat $ MO.toRows r)) d
         FromS2 d -> evalS (OS.fromVector $ V.concat $ MO.toRows r) d
+
+        FromVector2 _rows _cols d -> eval1 (V.concat $ MO.toRows r) d
       evalX :: OT.Array r -> DeltaX r -> ST s ()
       evalX !r = \case
         ZeroX -> return ()
@@ -605,6 +614,7 @@ evalBindingsForward st deltaTopLevel
         FromS1 d -> OS.toVector $ evalS parameters d
 
         Reverse1 d -> V.reverse $ eval1 parameters d
+        Flatten1 _rows _cols d -> HM.flatten $ eval2 parameters d
       eval2 :: Domains r -> Delta2 r -> Matrix r
       eval2 parameters@( _, _, params2, _) = \case
         Zero2 -> 0
@@ -639,6 +649,9 @@ evalBindingsForward st deltaTopLevel
           in case OS.shapeL t of
             [_rows, cols] -> HM.reshape cols $ OS.toVector t
             _ -> error "eval2: wrong tensor dimensions"
+
+        FromVector2 rows cols d -> rows HM.>< cols
+                                   $ V.toList $ eval1 parameters d
       evalX :: Domains r -> DeltaX r -> OT.Array r
       evalX parameters@( _, _, _, paramsX) = \case
         ZeroX -> 0
