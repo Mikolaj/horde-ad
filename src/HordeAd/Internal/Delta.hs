@@ -151,6 +151,8 @@ data Delta2 r =
   | forall rows cols. (KnownNat rows, KnownNat cols)
     => FromS2 (DeltaS '[rows, cols] r)
 
+  | Flipud2 (Delta2 r)
+  | Fliprl2 (Delta2 r)
   | FromVector2 Int Int (Delta1 r)
 
 deriving instance (Show r, Numeric r) => Show (Delta2 r)
@@ -486,6 +488,8 @@ buildFinMaps st deltaTopLevel = do
                                          (V.concat $ MO.toRows r)) d
         FromS2 d -> evalS (OS.fromVector $ V.concat $ MO.toRows r) d
 
+        Flipud2 d -> eval2 (MO.flipud r) d
+        Fliprl2 d -> eval2 (MO.fliprl r) d
         FromVector2 _rows _cols d -> eval1 (V.concat $ MO.toRows r) d
       evalX :: OT.Array r -> DeltaX r -> ST s ()
       evalX !r = \case
@@ -650,6 +654,8 @@ evalBindingsForward st deltaTopLevel
             [_rows, cols] -> HM.reshape cols $ OS.toVector t
             _ -> error "eval2: wrong tensor dimensions"
 
+        Flipud2 d -> HM.flipud $ eval2 parameters d
+        Fliprl2 d -> HM.fliprl $ eval2 parameters d
         FromVector2 rows cols d -> rows HM.>< cols
                                    $ V.toList $ eval1 parameters d
       evalX :: Domains r -> DeltaX r -> OT.Array r

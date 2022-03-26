@@ -333,12 +333,18 @@ fromS2 :: forall rows cols r.
        => DualNumber (TensorS '[rows, cols] r) -> DualNumber (Tensor2 r)
 fromS2 (D u u') = D (HM.reshape (valueOf @cols) $ OS.toVector u) (dFromS2 u')
 
+flipud2 :: IsScalar r => DualNumber (Tensor2 r) -> DualNumber (Tensor2 r)
+flipud2 (D u u') = D (HM.flipud u) (dFlipud2 u')
+
+fliprl2 :: IsScalar r => DualNumber (Tensor2 r) -> DualNumber (Tensor2 r)
+fliprl2 (D u u') = D (HM.fliprl u) (dFliprl2 u')
+
 vectorSlices2 :: IsScalar r
               => Int -> DualNumber (Tensor1 r) -> DualNumber (Tensor2 r)
 vectorSlices2 n vv@(D v _) =
   fromRows2 $ V.fromList [slice1 i n vv | i <- [0 .. V.length v - n]]
 
-(><!) ::  IsScalar r
+(><!) :: IsScalar r
       => Int -> Int -> DualNumber (Tensor1 r) -> DualNumber (Tensor2 r)
 (><!) rows cols (D u u') =
   D (rows HM.>< cols $ V.toList u) (dFromVector2 rows cols u')

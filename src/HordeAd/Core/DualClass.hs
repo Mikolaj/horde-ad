@@ -160,6 +160,8 @@ class HasRanks r where
   dFromS2 :: (KnownNat rows, KnownNat cols)
           => TensorS '[rows, cols] r -> Tensor2 r
 
+  dFlipud2 :: Tensor2 r -> Tensor2 r
+  dFliprl2 :: Tensor2 r -> Tensor2 r
   dFromVector2 :: Int -> Int -> Tensor1 r -> Tensor2 r
 
   dAppendX :: TensorX r -> Int -> TensorX r
@@ -231,6 +233,8 @@ instance HasRanks (Delta0 r) where
   dAsColumn2 = AsColumn2
   dFromX2 = FromX2
   dFromS2 = FromS2
+  dFlipud2 = Flipud2
+  dFliprl2 = Fliprl2
   dFromVector2 = FromVector2
   dAppendX = AppendX
   dSliceX = SliceX
@@ -383,6 +387,8 @@ instance HasRanks Double where
   dFromS2 d = case OS.shapeL d of
     [_rows, cols] -> HM.reshape cols $ OS.toVector d
     _ -> error "dFromS2: wrong tensor dimensions"
+  dFlipud2 = HM.flipud
+  dFliprl2 = HM.fliprl
   dFromVector2 rows cols d = rows HM.>< cols $ V.toList d
   dAppendX d _k e = d `OT.append` e
   dSliceX i n d _len = OT.slice [(i, n)] d
@@ -437,6 +443,8 @@ instance HasRanks Float where
   dFromS2 d = case OS.shapeL d of
     [_rows, cols] -> HM.reshape cols $ OS.toVector d
     _ -> error "dFromS2: wrong tensor dimensions"
+  dFlipud2 = HM.flipud
+  dFliprl2 = HM.fliprl
   dFromVector2 rows cols d = rows HM.>< cols $ V.toList d
   dAppendX d _k e = d `OT.append` e
   dSliceX i n d _len = OT.slice [(i, n)] d
