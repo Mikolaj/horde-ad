@@ -121,6 +121,8 @@ data Delta1 r =
   | forall len. KnownNat len
     => FromS1 (DeltaS '[len] r)
 
+  | Reverse1 (Delta1 r)
+
 deriving instance (Show r, Numeric r) => Show (Delta1 r)
 
 -- | This is the grammar of delta-expressions at tensor rank 2, that is,
@@ -425,6 +427,8 @@ buildFinMaps st deltaTopLevel = do
 
         FromX1 d -> evalX (OT.fromVector [V.length r] r) d
         FromS1 d -> evalS (OS.fromVector r) d
+
+        Reverse1 d -> eval1 (V.reverse r) d
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
       eval2 !r = \case
         Zero2 -> return ()
@@ -599,6 +603,8 @@ evalBindingsForward st deltaTopLevel
 
         FromX1 d -> OT.toVector $ evalX parameters d
         FromS1 d -> OS.toVector $ evalS parameters d
+
+        Reverse1 d -> V.reverse $ eval1 parameters d
       eval2 :: Domains r -> Delta2 r -> Matrix r
       eval2 parameters@( _, _, params2, _) = \case
         Zero2 -> 0

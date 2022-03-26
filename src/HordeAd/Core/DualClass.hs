@@ -140,6 +140,7 @@ class HasRanks r where
   dFromX1 :: TensorX r -> Tensor1 r
   dFromS1 :: KnownNat len
           => TensorS '[len] r -> Tensor1 r
+  dReverse1 :: Tensor1 r -> Tensor1 r
 
   dFromRows2 :: Data.Vector.Vector (Tensor1 r) -> Tensor2 r
   dFromColumns2 :: Data.Vector.Vector (Tensor1 r) -> Tensor2 r
@@ -212,6 +213,7 @@ instance HasRanks (Delta0 r) where
   dMD_V1 = MD_V1
   dFromX1 = FromX1
   dFromS1 = FromS1
+  dReverse1 = Reverse1
   dFromRows2 = FromRows2
   dFromColumns2 = FromColumns2
   dTranspose2 = Transpose2
@@ -357,6 +359,7 @@ instance HasRanks Double where
   dSumColumns1 dm _rows = V.fromList $ map HM.sumElements $ HM.toColumns dm
   dFromX1 = OT.toVector
   dFromS1 = OS.toVector
+  dReverse1 = V.reverse
   dFromRows2 = HM.fromRows . V.toList
   dFromColumns2 = HM.fromColumns . V.toList
   dTranspose2 = HM.tr'
@@ -408,6 +411,7 @@ instance HasRanks Float where
   dSumColumns1 dm _rows = V.fromList $ map HM.sumElements $ HM.toColumns dm
   dFromX1 = OT.toVector
   dFromS1 = OS.toVector
+  dReverse1 = V.reverse
   dFromRows2 = HM.fromRows . V.toList
   dFromColumns2 = HM.fromColumns . V.toList
   dTranspose2 = HM.tr'

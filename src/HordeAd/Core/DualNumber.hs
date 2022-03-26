@@ -223,6 +223,31 @@ fromS1 :: forall len r. (KnownNat len, IsScalarS '[len] r)
        => DualNumber (TensorS '[len] r) -> DualNumber (Tensor1 r)
 fromS1 (D u u') = D (OS.toVector u) (dFromS1 u')
 
+reverse1 :: IsScalar r => DualNumber (Tensor1 r) -> DualNumber (Tensor1 r)
+reverse1 (D u u') = D (V.reverse u) (dReverse1 u')
+
+corr1 :: IsScalar r
+      => DualNumber (Tensor1 r) -> DualNumber (Tensor1 r)
+      -> DualNumber (Tensor1 r)
+corr1 ker@(D u _) vv@(D v _) = case (V.length u, V.length v) of
+  (0, lenV) -> konst1 0 lenV
+  (lenK, lenV) -> if lenK <= lenV
+                  then vectorSlices2 lenK vv #>! ker
+                  else error $ "corr1: " ++ show lenK ++ " > " ++ show lenV
+
+conv1 :: IsScalar r
+      => DualNumber (Tensor1 r) -> DualNumber (Tensor1 r)
+      -> DualNumber (Tensor1 r)
+conv1 ker@(D u _) vv@(D v _) =
+  let lenK = V.length u
+      lenV = V.length v
+      kerRev = reverse1 ker
+      z = konst1 0 (lenK - 1)
+      vvPadded = append1 z $ append1 vv z
+  in if lenK == 0
+     then konst1 0 lenV
+     else corr1 kerRev vvPadded
+
 
 -- * Non-monadic operations resulting in a matrix
 
@@ -300,6 +325,11 @@ fromS2 :: forall rows cols r.
           (KnownNat rows, KnownNat cols, IsScalarS '[rows, cols] r)
        => DualNumber (TensorS '[rows, cols] r) -> DualNumber (Tensor2 r)
 fromS2 (D u u') = D (HM.reshape (valueOf @cols) $ OS.toVector u) (dFromS2 u')
+
+vectorSlices2 :: IsScalar r
+              => Int -> DualNumber (Tensor1 r) -> DualNumber (Tensor2 r)
+vectorSlices2 n vv@(D v _) =
+  fromRows2 $ V.fromList [slice1 i n vv | i <- [0 .. V.length v - n]]
 
 
 -- * Non-monadic operations resulting in an arbitrary tensor
