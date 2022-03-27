@@ -586,3 +586,18 @@ corr2 ker@(D u _) m@(D v _) = do
        rowSlices <- matrixSlices2 rowsK m
        dotSlicesOfSlices <- mapM dotColSlices rowSlices
        returnLet $ rr ><! rc $ seq1 $ V.fromList $ concat dotSlicesOfSlices
+
+conv2 :: forall r m. DualMonad r m
+      => DualNumber (Tensor2 r) -> DualNumber (Tensor2 r)
+      -> m (DualNumber (Tensor2 r))
+conv2 ker@(D u _) m@(D v _) = do
+  let (rowsK, colsK) = HM.size u
+      (rowsM, colsM) = HM.size v
+  if | rowsK <= 0 || colsK <= 0 ->
+       returnLet $ asRow2 (konst1 0 (colsM + colsK - 1)) (rowsM + rowsK - 1)
+     | otherwise -> do
+       let zRow = asRow2 (konst1 0 colsM) (rowsK - 1)
+           rowPadded = rowAppend2 zRow $ rowAppend2 m zRow
+           zCol = asColumn2 (konst1 0 (rowsM + 2 * (rowsK - 1))) (colsK - 1)
+           padded = columnAppend2 zCol $ columnAppend2 rowPadded zCol
+       corr2 (fliprl2 . flipud2 $ ker) padded
