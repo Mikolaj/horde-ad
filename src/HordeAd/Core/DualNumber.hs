@@ -237,7 +237,8 @@ corr1 ker@(D u _) vv@(D v _) = case (V.length u, V.length v) of
   (0, lenV) -> konst1 0 lenV
   (lenK, lenV) -> if lenK <= lenV
                   then vectorSlices2 lenK vv #>! ker
-                  else error $ "corr1: " ++ show lenK ++ " > " ++ show lenV
+                  else error $ "corr1: len kernel " ++ show lenK
+                               ++ " > len vector " ++ show lenV
 
 -- This is not optimally implemented: @append1@ is costly compared
 -- to a @mconcat@ counterpart and @z@ is used twice without
@@ -550,8 +551,38 @@ lossSoftMaxCrossEntropyL target (D u u') = do
 matrixSlices2 :: DualMonad r m
               => Int -> DualNumber (Tensor2 r) -> m [DualNumber (Tensor2 r)]
 matrixSlices2 dr m@(D u _) = do
-  let (cols, rows) = HM.size u
+  let (rows, cols) = HM.size u
       n = dr * cols
   v <- returnLet $ flatten1 m  -- used many times below
   let f k = returnLet $ dr ><! cols $ slice1 (k * cols) n v
   mapM f [0 .. rows - dr]
+
+-- Not optimal: matrix is constructed and destructed immediately,
+-- which is costly when evaluating delta expressions. The transposes
+-- may not be optimal, either. This goes does to individual deltas
+-- of scalars, which is horrible for performance.
+corr2 :: forall r m. DualMonad r m
+      => DualNumber (Tensor2 r) -> DualNumber (Tensor2 r)
+      -> m (DualNumber (Tensor2 r))
+corr2 ker@(D u _) m@(D v _) = do
+  let (rowsK, colsK) = HM.size u
+      (rowsM, colsM) = HM.size v
+      rr = rowsM - rowsK + 1
+      rc = colsM - colsK + 1
+  if | rowsK <= 0 || colsK <= 0 ->
+       error $ "corr2: empty kernel not handled: " ++ show (rowsK, colsK)
+     | rr <= 0 || rc <= 0 ->
+       error $ "corr2: dim kernel " ++ show (rowsK, colsK)
+               ++ " > dim matrix " ++ show (rowsM, colsM)
+     | otherwise -> do
+       kerTransV <- returnLet $ flatten1 (transpose2 ker)
+       let dotColSlices :: DualNumber (Tensor2 r) -> m [DualNumber r]
+           dotColSlices tm = do
+             ttm <- returnLet $ transpose2 tm
+             colSlices <- matrixSlices2 colsK ttm
+             let f :: DualNumber (Tensor2 r) -> DualNumber r
+                 f sm = kerTransV <.>! flatten1 sm
+             return $ map f colSlices
+       rowSlices <- matrixSlices2 rowsK m
+       dotSlicesOfSlices <- mapM dotColSlices rowSlices
+       returnLet $ rr ><! rc $ seq1 $ V.fromList $ concat dotSlicesOfSlices
