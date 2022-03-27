@@ -544,7 +544,14 @@ lossSoftMaxCrossEntropyL target (D u u') = do
   returnLet $ sumColumns1 scaled
 
 
--- * Monadic operations resulting in a matrix
+-- * Monadic operations resulting in a matrix (or matrices)
 
--- none so far, usually matrices come from parameters and are reduced
--- and only the results are then bound in the monad
+-- TODO: This has list of matrices result instead of a cube tensor.
+matrixSlices2 :: DualMonad r m
+              => Int -> DualNumber (Tensor2 r) -> m [DualNumber (Tensor2 r)]
+matrixSlices2 dr m@(D u _) = do
+  let (cols, rows) = HM.size u
+      n = dr * cols
+  v <- returnLet $ flatten1 m  -- used many times below
+  let f k = returnLet $ dr ><! cols $ slice1 (k * cols) n v
+  mapM f [0 .. rows - dr]
