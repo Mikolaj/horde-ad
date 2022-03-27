@@ -129,6 +129,14 @@ sumElements0 (D u u') = D (HM.sumElements u) (dSumElements0 u' (V.length u))
 index0 :: IsScalar r => DualNumber (Tensor1 r) -> Int -> DualNumber r
 index0 (D u u') ix = D (u V.! ix) (dIndex0 u' ix (V.length u))
 
+minimum0 :: IsScalar r => DualNumber (Tensor1 r) -> DualNumber r
+minimum0 (D u u') =
+  D (HM.minElement u) (dIndex0 u' (HM.minIndex u) (V.length u))
+
+maximum0 :: IsScalar r => DualNumber (Tensor1 r) -> DualNumber r
+maximum0 (D u u') =
+  D (HM.maxElement u) (dIndex0 u' (HM.maxIndex u) (V.length u))
+
 -- If @v'@ is a @Var1@, this is much faster due to the optimization
 -- in @Index0@.
 foldl'0 :: IsScalar r
@@ -559,8 +567,10 @@ matrixSlices2 dr m@(D u _) = do
 
 -- Not optimal: matrix is constructed and destructed immediately,
 -- which is costly when evaluating delta expressions. The transposes
--- may not be optimal, either. This goes does to individual deltas
--- of scalars, which is horrible for performance.
+-- may not be optimal, either. This goes down to individual deltas
+-- of scalars, which is horrible for performance. Unlike @corr1@
+-- this uses the slow dot product instead of the fast matrix-vector
+-- (or matrix-matrix) multiplication.
 corr2 :: forall r m. DualMonad r m
       => DualNumber (Tensor2 r) -> DualNumber (Tensor2 r)
       -> m (DualNumber (Tensor2 r))
