@@ -78,7 +78,7 @@ nnMnistLossFusedRelu2
   :: (DualMonad r m, Floating (Primal (Tensor1 r)))
   => MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
 nnMnistLossFusedRelu2 (input, target) variables = do
-  result <- inline nnMnist2 reluActV return input variables
+  result <- inline nnMnist2 reluAct1 return input variables
   lossSoftMaxCrossEntropyV target result
 
 -- | A function testing the neural network given testing set of inputs

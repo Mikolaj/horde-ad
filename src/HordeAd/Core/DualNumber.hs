@@ -522,18 +522,17 @@ lossSoftMaxCrossEntropyV target (D u u') = do
 
 -- * Monadic operations resulting in a vector
 
-reluActV :: DualMonad r m
+reluAct1 :: DualMonad r m
          => DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r))
-reluActV dn@(D u _) = do
+reluAct1 v@(D u _) = do
   let oneIfGtZero = V.map (\x -> if x > 0 then 1 else 0) u
-  returnLet $ scale oneIfGtZero dn
-    -- I have a bad feeling about this
+  returnLet $ scale oneIfGtZero v
 
-reluLeakyActV :: DualMonad r m
+reluLeakyAct1 :: DualMonad r m
               => DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r))
-reluLeakyActV dn@(D u _) = do
+reluLeakyAct1 v@(D u _) = do
   let oneIfGtZero = V.map (\x -> if x > 0 then 1 else 0.01) u
-  returnLet $ scale oneIfGtZero dn
+  returnLet $ scale oneIfGtZero v
 
 softMaxActV :: (DualMonad r m, Floating (Primal (Tensor1 r)))
             => DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r))
@@ -564,6 +563,12 @@ lossSoftMaxCrossEntropyL target (D u u') = do
 
 
 -- * Monadic operations resulting in a matrix (or matrices)
+
+reluAct2 :: DualMonad r m
+         => DualNumber (Tensor2 r) -> m (DualNumber (Tensor2 r))
+reluAct2 m@(D u _) = do
+  let oneIfGtZero = HM.cmap (\x -> if x > 0 then 1 else 0) u
+  returnLet $ scale oneIfGtZero m
 
 -- TODO: This has list of matrices result instead of a cube tensor.
 matrixSlices2 :: DualMonad r m
