@@ -264,6 +264,13 @@ conv1 ker@(D u _) vv@(D v _) =
      then konst1 0 lenV
      else corr1 kerRev vvPadded
 
+-- No padding; remaining areas ignored.
+maxPool1 :: IsScalar r
+         => Int -> Int -> DualNumber (Tensor1 r) -> DualNumber (Tensor1 r)
+maxPool1 ksize stride v@(D u _) =
+  let slices = [slice1 i ksize v | i <- [0, stride .. V.length u - ksize]]
+  in seq1 $ V.fromList $ map maximum0 slices
+
 
 -- * Non-monadic operations resulting in a matrix
 
@@ -611,3 +618,21 @@ conv2 ker@(D u _) m@(D v _) = do
            zCol = asColumn2 (konst1 0 (rowsM + 2 * (rowsK - 1))) (colsK - 1)
            padded = columnAppend2 zCol $ columnAppend2 rowPadded zCol
        corr2 (fliprl2 . flipud2 $ ker) padded
+
+-- No padding; remaining areas ignored.
+maxPool2 :: forall r m. DualMonad r m
+         => Int -> Int -> DualNumber (Tensor2 r) -> m (DualNumber (Tensor2 r))
+maxPool2 ksize stride m@(D u _) = do
+  let (rows, cols) = HM.size u
+      rowsOut = (rows - ksize) `div` stride
+      colsOut = (cols - ksize) `div` stride
+      resultRows = [0, stride .. rows - ksize]
+      resultCols = [0, stride .. cols - ksize]
+      resultCoords = [(r, c) | r <- resultRows, c <- resultCols]
+  v <- returnLet $ flatten1 m  -- used many times below
+  let getArea :: (Int, Int) -> DualNumber (Tensor1 r)
+      getArea (r0, c0) =
+        let getAreaAtRow r1 acc = append1 (slice1 (r1 * cols + c0) ksize v) acc
+        in foldr getAreaAtRow (seq1 V.empty) [r0 .. r0 + ksize]
+      mins = map (maximum0 . getArea) resultCoords
+  returnLet $ rowsOut ><! colsOut $ seq1 $ V.fromList mins
