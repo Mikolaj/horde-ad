@@ -145,6 +145,7 @@ class HasRanks r where
 
   dFromRows2 :: Data.Vector.Vector (Tensor1 r) -> Tensor2 r
   dFromColumns2 :: Data.Vector.Vector (Tensor1 r) -> Tensor2 r
+  dKonst2 :: r -> (Int, Int) -> Tensor2 r
   dTranspose2 :: Tensor2 r -> Tensor2 r
   dM_MD2 :: Primal (Tensor2 r) -> Tensor2 r -> Tensor2 r
   dMD_M2 :: Tensor2 r -> Primal (Tensor2 r) -> Tensor2 r
@@ -222,6 +223,7 @@ instance HasRanks (Delta0 r) where
   dFlatten1 = Flatten1
   dFromRows2 = FromRows2
   dFromColumns2 = FromColumns2
+  dKonst2 = Konst2
   dTranspose2 = Transpose2
   dM_MD2 = M_MD2
   dMD_M2 = MD_M2
@@ -372,6 +374,7 @@ instance HasRanks Double where
   dFlatten1 _rows _cols = HM.flatten
   dFromRows2 = HM.fromRows . V.toList
   dFromColumns2 = HM.fromColumns . V.toList
+  dKonst2 = HM.konst
   dTranspose2 = HM.tr'
   dM_MD2 = (HM.<>)
   dMD_M2 = (HM.<>)
@@ -428,6 +431,7 @@ instance HasRanks Float where
   dFlatten1 _rows _cols = HM.flatten
   dFromRows2 = HM.fromRows . V.toList
   dFromColumns2 = HM.fromColumns . V.toList
+  dKonst2 = HM.konst
   dTranspose2 = HM.tr'
   dM_MD2 = (HM.<>)
   dMD_M2 = (HM.<>)

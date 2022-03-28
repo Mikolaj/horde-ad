@@ -287,6 +287,9 @@ fromColumns2 :: IsScalar r
 fromColumns2 v = D (HM.fromRows $ map (\(D u _) -> u) $ V.toList v)
                    (dFromColumns2 $ V.map (\(D _ u') -> u') v)
 
+konst2 :: IsScalar r => DualNumber r -> (Int, Int) -> DualNumber (Tensor2 r)
+konst2 (D u u') sz = D (HM.konst u sz) (dKonst2 u' sz)
+
 transpose2 :: IsScalar r => DualNumber (Tensor2 r) -> DualNumber (Tensor2 r)
 transpose2 (D u u') = D (HM.tr' u) (dTranspose2 u')
 
@@ -611,11 +614,11 @@ conv2 ker@(D u _) m@(D v _) = do
   let (rowsK, colsK) = HM.size u
       (rowsM, colsM) = HM.size v
   if | rowsK <= 0 || colsK <= 0 ->
-       returnLet $ asRow2 (konst1 0 (colsM + colsK - 1)) (rowsM + rowsK - 1)
+       returnLet $ konst2 0 (rowsM + rowsK - 1, colsM + colsK - 1)
      | otherwise -> do
-       let zRow = asRow2 (konst1 0 colsM) (rowsK - 1)
+       let zRow = konst2 0 (rowsK - 1, colsM)
            rowPadded = rowAppend2 zRow $ rowAppend2 m zRow
-           zCol = asColumn2 (konst1 0 (rowsM + 2 * (rowsK - 1))) (colsK - 1)
+           zCol = konst2 0 (rowsM + 2 * (rowsK - 1), colsK - 1)
            padded = columnAppend2 zCol $ columnAppend2 rowPadded zCol
        corr2 (fliprl2 . flipud2 $ ker) padded
 

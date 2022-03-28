@@ -136,6 +136,7 @@ data Delta2 r =
 
   | FromRows2 (Data.Vector.Vector (Delta1 r))  -- ^ "unboxing" conversion again
   | FromColumns2 (Data.Vector.Vector (Delta1 r))
+  | Konst2 (Delta0 r) (Int, Int)  -- ^ size; needed only for forward derivative
   | Transpose2 (Delta2 r)
   | M_MD2 (Matrix r) (Delta2 r)  -- ^ matrix-(matrix-expression) multiplication
   | MD_M2 (Delta2 r) (Matrix r)  -- ^ (matrix-expression)-matrix multiplication
@@ -447,6 +448,7 @@ buildFinMaps st deltaTopLevel = do
 
         FromRows2 lvd -> zipWithM_ eval1 (MO.toRows r) (V.toList lvd)
         FromColumns2 lvd -> zipWithM_ eval1 (MO.toColumns r) (V.toList lvd)
+        Konst2 d _sz -> mapM_ (V.mapM_ (`eval0` d)) $ MO.toRows r
         Transpose2 md -> eval2 (MO.transpose r) md  -- TODO: test!
         M_MD2 m md -> zipWithM_ (\rRow row -> eval1 rRow (MD_V1 md row))
                                 (HM.toRows m) (MO.toRows r)
@@ -630,6 +632,7 @@ evalBindingsForward st deltaTopLevel
           HM.fromRows $ map (eval1 parameters) $ V.toList lvd
         FromColumns2 lvd ->
           HM.fromColumns $ map (eval1 parameters) $ V.toList lvd
+        Konst2 d sz -> HM.konst (eval0 parameters d) sz
         Transpose2 md -> HM.tr' $ eval2 parameters md
         M_MD2 m md -> m HM.<> eval2 parameters md
         MD_M2 md m -> eval2 parameters md HM.<> m
