@@ -7,6 +7,7 @@ import Prelude
 
 import           Control.DeepSeq
 import           Control.Monad (foldM, when)
+import qualified Data.Array.DynamicS as OT
 import           Data.Coerce (coerce)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
@@ -16,9 +17,8 @@ import           System.IO (hFlush, stdout)
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
+import           Test.Tasty.QuickCheck hiding (label, shuffle)
 import           Text.Printf
-import           Test.Tasty.QuickCheck hiding (shuffle, label)
-import qualified Data.Array.DynamicS as OT
 
 import HordeAd
 import HordeAd.Core.OutdatedOptimizer
@@ -686,7 +686,8 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
            .&&. close1 (dfDot fOneHot parameters) ffOneHot
            .&&. close1 ffOneHot ffFused
            .&&. dforward fFused parameters ds === ffFused
-           .&&. close1 (dfDot fFused parameters) ffFused ]
+           .&&. close1 (dfDot fFused parameters) ffFused
+  ]
 
 bigMnistTests :: TestTree
 bigMnistTests = testGroup "MNIST tests with a 2-hidden-layer nn"

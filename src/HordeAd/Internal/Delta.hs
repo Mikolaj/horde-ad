@@ -155,6 +155,7 @@ data Delta2 r =
   | Flipud2 (Delta2 r)
   | Fliprl2 (Delta2 r)
   | Reshape2 Int (Delta1 r)
+  | Conv2 (Matrix r) (Delta2 r)
 
 deriving instance (Show r, Numeric r) => Show (Delta2 r)
 
@@ -493,6 +494,11 @@ buildFinMaps st deltaTopLevel = do
         Flipud2 d -> eval2 (MO.flipud r) d
         Fliprl2 d -> eval2 (MO.fliprl r) d
         Reshape2 _cols d -> eval1 (V.concat $ MO.toRows r) d
+        Conv2 m md ->  -- TODO: sizes of moc (2 * m + md - 2) and md don't match
+          let mor = MO.convertMatrixOuter r
+              convolved = HM.conv2 m mor
+              moc = MO.MatrixOuter (Just convolved) Nothing Nothing
+          in eval2 moc md
       evalX :: OT.Array r -> DeltaX r -> ST s ()
       evalX !r = \case
         ZeroX -> return ()
@@ -660,6 +666,7 @@ evalBindingsForward st deltaTopLevel
         Flipud2 d -> HM.flipud $ eval2 parameters d
         Fliprl2 d -> HM.fliprl $ eval2 parameters d
         Reshape2 cols d -> HM.reshape cols $ eval1 parameters d
+        Conv2 m md -> HM.conv2 m $ eval2 parameters md
       evalX :: Domains r -> DeltaX r -> OT.Array r
       evalX parameters@( _, _, _, paramsX) = \case
         ZeroX -> 0

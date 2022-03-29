@@ -626,6 +626,11 @@ conv2 ker@(D u _) m@(D v _) = do
            padded = columnAppend2 zCol $ columnAppend2 rowPadded zCol
        corr2 (fliprl2 . flipud2 $ ker) padded
 
+conv2' :: IsScalar r
+       => DualNumber (Tensor2 r) -> DualNumber (Tensor2 r)
+       -> DualNumber (Tensor2 r)
+conv2' (D u u') (D v v') = D (HM.conv2 u v) (dAdd (dConv2 u v') (dConv2 v u'))
+
 -- A variant with limited padding, corresponding to SAME padding
 -- from Tensorflow. Data size does not change with this padding.
 -- It also performs convolution wrt flipped kernel (and so saves
@@ -638,7 +643,7 @@ convSame2 ker@(D u _) m@(D v _) = do
   let (rowsK, colsK) = HM.size u
       (rowsM, colsM) = HM.size v
   if | rowsK <= 0 || colsK <= 0 ->
-       returnLet $ konst2 0 (rowsM + rowsK - 1, colsM + colsK - 1)
+       returnLet $ konst2 0 (rowsM, colsM)
      | otherwise -> do
        let zRow = konst2 0 ((rowsK - 1) `div` 2, colsM)
            rowPadded = rowAppend2 zRow $ rowAppend2 m zRow

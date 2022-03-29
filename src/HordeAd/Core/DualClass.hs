@@ -164,6 +164,7 @@ class HasRanks r where
   dFlipud2 :: Tensor2 r -> Tensor2 r
   dFliprl2 :: Tensor2 r -> Tensor2 r
   dReshape2 :: Int -> Tensor1 r -> Tensor2 r
+  dConv2 :: Primal (Tensor2 r) -> Tensor2 r -> Tensor2 r
 
   dAppendX :: TensorX r -> Int -> TensorX r
            -> TensorX r
@@ -238,6 +239,7 @@ instance HasRanks (Delta0 r) where
   dFlipud2 = Flipud2
   dFliprl2 = Fliprl2
   dReshape2 = Reshape2
+  dConv2 = Conv2
   dAppendX = AppendX
   dSliceX = SliceX
   dFrom0X = From0X
@@ -393,6 +395,7 @@ instance HasRanks Double where
   dFlipud2 = HM.flipud
   dFliprl2 = HM.fliprl
   dReshape2 cols d = HM.reshape cols d
+  dConv2 = HM.conv2
   dAppendX d _k e = d `OT.append` e
   dSliceX i n d _len = OT.slice [(i, n)] d
   dFrom0X = OT.scalar
@@ -450,6 +453,7 @@ instance HasRanks Float where
   dFlipud2 = HM.flipud
   dFliprl2 = HM.fliprl
   dReshape2 cols d = HM.reshape cols d
+  dConv2 = HM.conv2
   dAppendX d _k e = d `OT.append` e
   dSliceX i n d _len = OT.slice [(i, n)] d
   dFrom0X = OT.scalar
