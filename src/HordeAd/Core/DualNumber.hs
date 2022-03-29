@@ -632,8 +632,8 @@ maxPool2 :: forall r m. DualMonad r m
          => Int -> Int -> DualNumber (Tensor2 r) -> m (DualNumber (Tensor2 r))
 maxPool2 ksize stride m@(D u _) = do
   let (rows, cols) = HM.size u
-      rowsOut = (rows - ksize) `div` stride
-      colsOut = (cols - ksize) `div` stride
+      rowsOut = rows `div` stride
+      colsOut = cols `div` stride
       resultRows = [0, stride .. rows - ksize]
       resultCols = [0, stride .. cols - ksize]
       resultCoords = [(r, c) | r <- resultRows, c <- resultCols]
@@ -641,6 +641,6 @@ maxPool2 ksize stride m@(D u _) = do
   let getArea :: (Int, Int) -> DualNumber (Tensor1 r)
       getArea (r0, c0) =
         let getAreaAtRow r1 acc = append1 (slice1 (r1 * cols + c0) ksize v) acc
-        in foldr getAreaAtRow (seq1 V.empty) [r0 .. r0 + ksize]
+        in foldr getAreaAtRow (seq1 V.empty) [r0 .. r0 + ksize - 1]
       mins = map (maximum0 . getArea) resultCoords
   returnLet $ rowsOut ><! colsOut $ seq1 $ V.fromList mins
