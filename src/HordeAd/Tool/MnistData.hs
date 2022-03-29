@@ -5,18 +5,23 @@ module HordeAd.Tool.MnistData where
 import Prelude
 
 import           Codec.Compression.GZip (decompress)
+import           Control.Arrow (first)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.IDX
 import           Data.List (sortOn)
 import           Data.Maybe (fromMaybe)
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Unboxed
-import           Numeric.LinearAlgebra (Vector)
+import           Numeric.LinearAlgebra (Matrix, Vector)
+import qualified Numeric.LinearAlgebra as HM
 import           System.IO (IOMode (ReadMode), withBinaryFile)
 import           System.Random
 
 sizeMnistGlyph :: Int
 sizeMnistGlyph = 784
+
+sizeMnistWidth :: Int
+sizeMnistWidth = 28
 
 sizeMnistLabel :: Int
 sizeMnistLabel = 10
@@ -35,6 +40,8 @@ sizeMnistLabel = 10
 -- with softMax. This also seems to be the standard or at least
 -- a simple default in tutorial.
 type MnistData r = (Vector r, Vector r)
+
+type MnistData2 r = (Matrix r, Vector r)
 
 readMnistData :: LBS.ByteString -> LBS.ByteString -> [MnistData Double]
 readMnistData glyphsBS labelsBS =
@@ -66,6 +73,11 @@ loadMnistData glyphsPath labelsPath =
       labelsContents <- LBS.hGetContents labelsHandle
       return $! readMnistData (decompress glyphsContents)
                               (decompress labelsContents)
+
+loadMnistData2 :: FilePath -> FilePath -> IO [MnistData2 Double]
+loadMnistData2 glyphsPath labelsPath = do
+  ds <- loadMnistData glyphsPath labelsPath
+  return $! map (first $ HM.reshape sizeMnistWidth) ds
 
 -- Good enough for QuickCheck, so good enough for me.
 shuffle :: RandomGen g => g -> [a] -> [a]
