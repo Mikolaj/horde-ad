@@ -678,7 +678,6 @@ nnMnistRNNLossB :: (DualMonad r m, Floating (Primal (Tensor2 r)))
 nnMnistRNNLossB width (xs, target) variables = do
   result <- nnMnistRNNB width xs variables
   vec@(D u _) <- lossSoftMaxCrossEntropyL target result
-    -- this @asRow@ is safe, because it gets multiplied/subtracted right away
   returnLet $ scale (recip $ fromIntegral $ V.length u) $ sumElements0 vec
 
 nnMnistRNNLossB2 :: (DualMonad r m, Floating (Primal (Tensor2 r)))

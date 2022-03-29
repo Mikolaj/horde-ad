@@ -164,6 +164,7 @@ test-suite test
 
     -- Modules included in this executable, other than Main.
     other-modules:    TestConditionalSynth
+                      TestMnistCNN
                       TestMnistFC
                       TestMnistRNN
                       TestOutdated
@@ -207,7 +208,8 @@ test-suite shortTestForCI
       buildable: True
 
     -- Modules included in this executable, other than Main.
-    other-modules:    TestMnistFC
+    other-modules:    TestMnistCNN
+                      TestMnistFC
                       TestMnistRNN
                       TestSimpleDescent
                       TestSingleGradient

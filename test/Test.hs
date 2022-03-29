@@ -5,6 +5,7 @@ import Prelude
 import Test.Tasty
 
 import qualified TestConditionalSynth
+import qualified TestMnistCNN
 import qualified TestMnistFC
 import qualified TestMnistRNN
 import qualified TestOutdated
@@ -22,3 +23,4 @@ tests = testGroup "Tests" $
   ++ TestConditionalSynth.testTrees
   ++ TestMnistFC.testTrees
   ++ TestMnistRNN.testTrees
+  ++ TestMnistCNN.testTrees

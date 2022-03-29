@@ -4,6 +4,7 @@ import Prelude
 
 import Test.Tasty
 
+import qualified TestMnistCNN
 import qualified TestMnistFC
 import qualified TestMnistRNN
 import qualified TestSimpleDescent
@@ -18,3 +19,4 @@ tests = testGroup "Short tests for CI" $
   ++ TestSimpleDescent.testTrees
   ++ TestMnistFC.shortTestForCITrees
   ++ TestMnistRNN.shortTestForCITrees
+  ++ TestMnistCNN.shortTestForCITrees

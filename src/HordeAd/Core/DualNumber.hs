@@ -627,6 +627,26 @@ conv2 ker@(D u _) m@(D v _) = do
            padded = columnAppend2 zCol $ columnAppend2 rowPadded zCol
        corr2 (fliprl2 . flipud2 $ ker) padded
 
+-- A variant with limited padding, corresponding to SAME padding
+-- from Tensorflow. Data size does not change with this padding.
+-- It also performs convolution wrt flipped kernel (and so saves
+-- on flipping it here), which makes no practical difference when
+-- the kernel is initialized randomly.
+convSame2 :: forall r m. DualMonad r m
+          => DualNumber (Tensor2 r) -> DualNumber (Tensor2 r)
+          -> m (DualNumber (Tensor2 r))
+convSame2 ker@(D u _) m@(D v _) = do
+  let (rowsK, colsK) = HM.size u
+      (rowsM, colsM) = HM.size v
+  if | rowsK <= 0 || colsK <= 0 ->
+       returnLet $ konst2 0 (rowsM + rowsK - 1, colsM + colsK - 1)
+     | otherwise -> do
+       let zRow = konst2 0 ((rowsK - 1) `div` 2, colsM)
+           rowPadded = rowAppend2 zRow $ rowAppend2 m zRow
+           zCol = konst2 0 (rowsM + rowsK - 1, (colsK - 1) `div` 2)
+           padded = columnAppend2 zCol $ columnAppend2 rowPadded zCol
+       corr2 ker padded
+
 -- No padding; remaining areas ignored.
 maxPool2 :: forall r m. DualMonad r m
          => Int -> Int -> DualNumber (Tensor2 r) -> m (DualNumber (Tensor2 r))
