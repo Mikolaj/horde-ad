@@ -163,7 +163,7 @@ class HasRanks r where
 
   dFlipud2 :: Tensor2 r -> Tensor2 r
   dFliprl2 :: Tensor2 r -> Tensor2 r
-  dFromVector2 :: Int -> Int -> Tensor1 r -> Tensor2 r
+  dReshape2 :: Int -> Tensor1 r -> Tensor2 r
 
   dAppendX :: TensorX r -> Int -> TensorX r
            -> TensorX r
@@ -237,7 +237,7 @@ instance HasRanks (Delta0 r) where
   dFromS2 = FromS2
   dFlipud2 = Flipud2
   dFliprl2 = Fliprl2
-  dFromVector2 = FromVector2
+  dReshape2 = Reshape2
   dAppendX = AppendX
   dSliceX = SliceX
   dFrom0X = From0X
@@ -392,7 +392,7 @@ instance HasRanks Double where
     _ -> error "dFromS2: wrong tensor dimensions"
   dFlipud2 = HM.flipud
   dFliprl2 = HM.fliprl
-  dFromVector2 rows cols d = rows HM.>< cols $ V.toList d
+  dReshape2 cols d = HM.reshape cols d
   dAppendX d _k e = d `OT.append` e
   dSliceX i n d _len = OT.slice [(i, n)] d
   dFrom0X = OT.scalar
@@ -449,7 +449,7 @@ instance HasRanks Float where
     _ -> error "dFromS2: wrong tensor dimensions"
   dFlipud2 = HM.flipud
   dFliprl2 = HM.fliprl
-  dFromVector2 rows cols d = rows HM.>< cols $ V.toList d
+  dReshape2 cols d = HM.reshape cols d
   dAppendX d _k e = d `OT.append` e
   dSliceX i n d _len = OT.slice [(i, n)] d
   dFrom0X = OT.scalar

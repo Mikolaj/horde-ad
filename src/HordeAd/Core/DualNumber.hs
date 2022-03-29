@@ -363,10 +363,9 @@ vectorSlices2 :: IsScalar r
 vectorSlices2 n vv@(D v _) =
   fromRows2 $ V.fromList [slice1 i n vv | i <- [0 .. V.length v - n]]
 
-(><!) :: IsScalar r
-      => Int -> Int -> DualNumber (Tensor1 r) -> DualNumber (Tensor2 r)
-(><!) rows cols (D u u') =
-  D (rows HM.>< cols $ V.toList u) (dFromVector2 rows cols u')
+reshape2 :: IsScalar r
+         => Int -> DualNumber (Tensor1 r) -> DualNumber (Tensor2 r)
+reshape2 cols (D u u') = D (HM.reshape cols u) (dReshape2 cols u')
 
 
 -- * Non-monadic operations resulting in an arbitrary tensor
@@ -577,7 +576,7 @@ matrixSlices2 dr m@(D u _) = do
   let (rows, cols) = HM.size u
       n = dr * cols
   v <- returnLet $ flatten1 m  -- used many times below
-  let f k = returnLet $ dr ><! cols $ slice1 (k * cols) n v
+  let f k = returnLet $ reshape2 cols $ slice1 (k * cols) n v
   mapM f [0 .. rows - dr]
 
 -- Not optimal: matrix is constructed and destructed immediately,
@@ -610,7 +609,7 @@ corr2 ker@(D u _) m@(D v _) = do
              return $ map f colSlices
        rowSlices <- matrixSlices2 rowsK m
        dotSlicesOfSlices <- mapM dotColSlices rowSlices
-       returnLet $ rr ><! rc $ seq1 $ V.fromList $ concat dotSlicesOfSlices
+       returnLet $ reshape2 rc $ seq1 $ V.fromList $ concat dotSlicesOfSlices
 
 conv2 :: forall r m. DualMonad r m
       => DualNumber (Tensor2 r) -> DualNumber (Tensor2 r)
@@ -652,7 +651,6 @@ maxPool2 :: forall r m. DualMonad r m
          => Int -> Int -> DualNumber (Tensor2 r) -> m (DualNumber (Tensor2 r))
 maxPool2 ksize stride m@(D u _) = do
   let (rows, cols) = HM.size u
-      rowsOut = rows `div` stride
       colsOut = cols `div` stride
       resultRows = [0, stride .. rows - ksize]
       resultCols = [0, stride .. cols - ksize]
@@ -663,4 +661,4 @@ maxPool2 ksize stride m@(D u _) = do
         let getAreaAtRow r1 acc = append1 (slice1 (r1 * cols + c0) ksize v) acc
         in foldr getAreaAtRow (seq1 V.empty) [r0 .. r0 + ksize - 1]
       mins = map (maximum0 . getArea) resultCoords
-  returnLet $ rowsOut ><! colsOut $ seq1 $ V.fromList mins
+  returnLet $ reshape2 colsOut $ seq1 $ V.fromList mins

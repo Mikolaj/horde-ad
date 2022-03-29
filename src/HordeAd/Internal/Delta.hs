@@ -154,7 +154,7 @@ data Delta2 r =
 
   | Flipud2 (Delta2 r)
   | Fliprl2 (Delta2 r)
-  | FromVector2 Int Int (Delta1 r)
+  | Reshape2 Int (Delta1 r)
 
 deriving instance (Show r, Numeric r) => Show (Delta2 r)
 
@@ -492,7 +492,7 @@ buildFinMaps st deltaTopLevel = do
 
         Flipud2 d -> eval2 (MO.flipud r) d
         Fliprl2 d -> eval2 (MO.fliprl r) d
-        FromVector2 _rows _cols d -> eval1 (V.concat $ MO.toRows r) d
+        Reshape2 _cols d -> eval1 (V.concat $ MO.toRows r) d
       evalX :: OT.Array r -> DeltaX r -> ST s ()
       evalX !r = \case
         ZeroX -> return ()
@@ -659,8 +659,7 @@ evalBindingsForward st deltaTopLevel
 
         Flipud2 d -> HM.flipud $ eval2 parameters d
         Fliprl2 d -> HM.fliprl $ eval2 parameters d
-        FromVector2 rows cols d -> rows HM.>< cols
-                                   $ V.toList $ eval1 parameters d
+        Reshape2 cols d -> HM.reshape cols $ eval1 parameters d
       evalX :: Domains r -> DeltaX r -> OT.Array r
       evalX parameters@( _, _, _, paramsX) = \case
         ZeroX -> 0
