@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes, TypeFamilies #-}
+{-# OPTIONS_GHC -Wno-unused-top-binds -Wno-unused-imports #-}
 module TestMnistCNN (testTrees, shortTestForCITrees) where
 
 import Prelude
@@ -347,10 +348,10 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
   , testProperty "Compare two forward derivatives and gradient for convMnistTestCNN and convMnistTestCNNP" $
       \seed ->
       forAll (choose (0, sizeMnistLabel - 1)) $ \seedDs ->
-      forAll (choose (1, 20)) $ \widthHidden ->
-      forAll (choose (1, 50)) $ \widthHidden2 ->
-      forAll (choose (0.01, 1)) $ \range ->
-      forAll (choose (0.01, 10)) $ \rangeDs ->
+      forAll (choose (1, 15)) $ \widthHidden ->
+      forAll (choose (1, 20)) $ \widthHidden2 ->
+      forAll (choose (0.01, 0.5)) $ \range ->
+      forAll (choose (0.01, 2)) $ \rangeDs ->
         let createRandomVector n seedV = HM.randomVector seedV HM.Uniform n
             glyph = HM.reshape 28 $ createRandomVector (28 * 28) seed
             label = HM.konst 0 sizeMnistLabel V.// [(seedDs, 1)]
