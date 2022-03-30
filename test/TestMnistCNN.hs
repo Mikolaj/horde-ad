@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes, TypeFamilies #-}
-{-# OPTIONS_GHC -Wno-unused-top-binds -Wno-unused-imports #-}
 module TestMnistCNN (testTrees, shortTestForCITrees) where
 
 import Prelude
@@ -137,7 +136,7 @@ convMnistTestCaseCNN
 convMnistTestCaseCNN prefix epochs maxBatches trainWithLoss testLoss
                      final_image_sz widthHidden widthHidden2 gamma expected =
   let ((nParams0, nParams1, nParams2), totalParams, range, parameters0) =
-        initializerFixed 44 0.5
+        initializerFixed 44 0.05
         (lenMnistCNN final_image_sz widthHidden widthHidden2)
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
@@ -324,11 +323,11 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
   , -}convMnistTestCaseCNN "1 epoch, 1 batch" 1 1
                          convMnistLossCNN convMnistTestCNN
                          final_image_size depth0 num_hidden0
-                         0.02 0.12339999999999995  -- dummy results everywhere
+                         0.02 5.989999999999995e-2
 {-  , convMnistTestCaseCNN "2 epochs, but only 1 batch" 2 1
                          convMnistLossCNN convMnistTestCNN
                          final_image_size depth0 num_hidden0
-                         0.02 8.879999999999999e-2
+                         0.02 8.879999999999999e-2  -- dummy results everywhere
     , convMnistTestCaseCNN "1 epoch, all batches" 1 99
                          convMnistLossCNN convMnistTestCNN
                          final_image_size depth0 num_hidden0
@@ -337,7 +336,7 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
   , convMnistTestCaseCNN "S1 epoch, 1 batch" 1 1
                          convMnistLossCNNS convMnistTestCNNS
                          final_image_sizeS depth0 num_hidden0
-                         0.02 0.12339999999999995
+                         0.02 4.800000000000004e-2
 {-  , convMnistTestCaseCNN "S2 epochs, but only 1 batch" 2 1
                          convMnistLossCNNS convMnistTestCNNS
                          final_image_sizeS depth0 num_hidden0
