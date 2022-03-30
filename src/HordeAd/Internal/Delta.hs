@@ -495,16 +495,8 @@ buildFinMaps st deltaTopLevel = do
         Fliprl2 d -> eval2 (MO.fliprl r) d
         Reshape2 _cols d -> eval1 (V.concat $ MO.toRows r) d
         Conv2 m md ->
-          -- This fails with
-{-
-~/r/horde-ad$ cabal test test --test-show-details=direct --test-options="--quickcheck-replay=85351 -p convMnistTestCNNP"
-             Compare two forward derivatives and gradient for convMnistTestCNN and convMnistTestCNNP: FAIL (49.70s)
-      *** Failed! (after 2 tests and 2 shrinks):
-      Exception:
-        fP (-3.1971899648200983,-2.2124396641282544)
--}
           let mor = MO.convertMatrixOuter r
-              convolved = HM.conv2 m mor
+              convolved = HM.conv2 (HM.fliprl $ HM.flipud m) mor
               (rs, cs) = HM.size m
               (rows, cols) = HM.size convolved
               trimmed = HM.subMatrix (rs - 1, cs - 1)
