@@ -494,10 +494,23 @@ buildFinMaps st deltaTopLevel = do
         Flipud2 d -> eval2 (MO.flipud r) d
         Fliprl2 d -> eval2 (MO.fliprl r) d
         Reshape2 _cols d -> eval1 (V.concat $ MO.toRows r) d
-        Conv2 m md ->  -- TODO: sizes of moc (2 * m + md - 2) and md don't match
+        Conv2 m md ->
+          -- This fails with
+{-
+~/r/horde-ad$ cabal test test --test-show-details=direct --test-options="--quickcheck-replay=85351 -p convMnistTestCNNP"
+             Compare two forward derivatives and gradient for convMnistTestCNN and convMnistTestCNNP: FAIL (49.70s)
+      *** Failed! (after 2 tests and 2 shrinks):
+      Exception:
+        fP (-3.1971899648200983,-2.2124396641282544)
+-}
           let mor = MO.convertMatrixOuter r
               convolved = HM.conv2 m mor
-              moc = MO.MatrixOuter (Just convolved) Nothing Nothing
+              (rs, cs) = HM.size m
+              (rows, cols) = HM.size convolved
+              trimmed = HM.subMatrix (rs - 1, cs - 1)
+                                     (rows - 2 * rs + 2, cols - 2 * cs + 2)
+                                     convolved
+              moc = MO.MatrixOuter (Just trimmed) Nothing Nothing
           in eval2 moc md
       evalX :: OT.Array r -> DeltaX r -> ST s ()
       evalX !r = \case

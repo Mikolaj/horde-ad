@@ -368,8 +368,9 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
             fP = convMnistLossCNNP widthHidden mnistData
             ff = dfastForward f parameters ds
             ffP = dfastForward fP parameters ds
-            close a b = abs (a - b) <= 0.000001
-            close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
+            close s a b = let t = abs (a - b) <= 0.000001
+                          in if t then t else error $ s ++ " " ++ show (a, b)
+            close1 s (a1, b1) (a2, b2) = close s a1 a2 .&&. b1 === b2
             dfDot fDot psDot =
               let ((res0, res1, res2, resX), value) = df fDot psDot
               in ( res0 HM.<.> ds0
@@ -379,13 +380,11 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                    + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
                                                (V.map OT.toVector dsX))
                  , value )
-        in close1 ff ffP
+        in close1 "ff ffP" ff ffP
            .&&. dforward f parameters ds === ff
-           .&&. close1 (dfDot f parameters) ff
+           .&&. close1 "f" (dfDot f parameters) ff
            .&&. dforward fP parameters ds === ffP
--- gradient of fP doesn't have a good definition yet (TODO in Delta.hs)
--- so this fails with "different dimensions 3481 and 25 in dot product":
---         .&&. close1 (dfDot fP parameters) ffP
+           .&&. close1 "fP" (dfDot fP parameters) ffP
   ]
 
 mnistCNNTestsShort :: TestTree
