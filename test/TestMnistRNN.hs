@@ -67,7 +67,7 @@ fcfcrnn x s variables = do
   outputLayer <- outputLayerSinRNN hiddenLayer variables
   return (outputLayer, sHiddenLayer)
 
-unrollLast' :: forall m r. DualMonad r m
+unrollLast' :: forall r m. DualMonad r m
             => (Primal r
                 -> DualNumber (Tensor1 r)
                 -> DualNumberVariables r

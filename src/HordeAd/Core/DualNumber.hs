@@ -482,7 +482,7 @@ softMaxAct us = do
   V.mapM (\r -> returnLet $ r * recipSum) expUs
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropy :: forall m r. DualMonad r m
+lossCrossEntropy :: forall r m. DualMonad r m
                  => Primal (Tensor1 r)
                  -> Data.Vector.Vector (DualNumber r)
                  -> m (DualNumber r)

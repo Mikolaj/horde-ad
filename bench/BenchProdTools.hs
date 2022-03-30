@@ -135,7 +135,7 @@ bgroup5e7 allxs =
 -- which works fine there, but costs us some cycles and the use
 -- of a custom operation here, where there's no gradient descent
 -- to manage the vectors for us.
-vec_prod_aux :: forall m r. DualMonad r m
+vec_prod_aux :: forall r m. DualMonad r m
              => DualNumberVariables r -> m (DualNumber r)
 vec_prod_aux = foldMDual' (*\) 1
   -- no handwritten derivatives; only the derivative for @(*)@ is provided;
@@ -177,7 +177,7 @@ grad_vec_omit_prod ds =
 
 
 vec_omit_scalarSum_aux
-  :: forall m r. DualMonad r m
+  :: forall r m. DualMonad r m
   => DualNumberVariables r -> m (DualNumber r)
 vec_omit_scalarSum_aux vec = returnLet $ foldlDual' (+) 0 vec
 

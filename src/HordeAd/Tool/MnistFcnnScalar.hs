@@ -23,7 +23,7 @@ import HordeAd.Tool.MnistData
 -- at @variables@ starting at @offset@. Useful for neurons in the middle
 -- of the network, receiving inputs from other neurons.
 sumTrainableInputs
-  :: forall m r. DualMonad r m
+  :: forall r m. DualMonad r m
   => Data.Vector.Vector (DualNumber r) -> Int -> DualNumberVariables r
   -> m (DualNumber r)
 sumTrainableInputs xs offset variables = do
@@ -39,7 +39,7 @@ sumTrainableInputs xs offset variables = do
 -- at @variables@ starting at @offset@. Useful for neurons at the bottom
 -- of the network, tasked with ingesting the data.
 sumConstantData
-  :: forall m r. DualMonad r m
+  :: forall r m. DualMonad r m
   => Primal (Tensor1 r) -> Int -> DualNumberVariables r -> m (DualNumber r)
 sumConstantData xs offset variables = do
   let bias = var0 variables offset
@@ -50,7 +50,7 @@ sumConstantData xs offset variables = do
   returnLet $ V.ifoldl' f bias xs
 
 hiddenLayerMnist
-  :: forall m r. DualMonad r m
+  :: forall r m. DualMonad r m
   => (DualNumber r -> m (DualNumber r)) -> Primal (Tensor1 r)
   -> DualNumberVariables r -> Int
   -> m (Data.Vector.Vector (DualNumber r))
@@ -63,7 +63,7 @@ hiddenLayerMnist factivation input variables width = do
   V.generateM width f
 
 middleLayerMnist
-  :: forall m r. DualMonad r m
+  :: forall r m. DualMonad r m
   => (DualNumber r -> m (DualNumber r)) -> Data.Vector.Vector (DualNumber r)
   -> Int -> DualNumberVariables r -> Int
   -> m (Data.Vector.Vector (DualNumber r))
@@ -78,7 +78,7 @@ middleLayerMnist factivation hiddenVec offset variables width = do
   V.generateM width f
 
 outputLayerMnist
-  :: forall m r. DualMonad r m
+  :: forall r m. DualMonad r m
   => (Data.Vector.Vector (DualNumber r)
       -> m (Data.Vector.Vector (DualNumber r)))
   -> Data.Vector.Vector (DualNumber r) -> Int -> DualNumberVariables r -> Int
