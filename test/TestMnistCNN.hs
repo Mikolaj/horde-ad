@@ -314,37 +314,39 @@ convMnistLossCNNP depth (x, target) variables = do
 
 mnistCNNTestsLong :: TestTree
 mnistCNNTestsLong = testGroup "MNIST CNN long tests"
-  [ {-
-    convMnistTestCaseCNN "artificial 5 4 3 2 1" 5 4
+  [ {-convMnistTestCaseCNN "artificial 5 4 3 2 1" 5 4
                          convMnistLossCNN convMnistTestCNN final_image_size
                          3 2 1 0.8991
   , convMnistTestCaseCNN "S artificial 5 4 3 2 1" 5 4
                          convMnistLossCNNS convMnistTestCNNS final_image_sizeS
                          3 2 1 0.8991
-  , convMnistTestCaseCNN "1 epoch, 1 batch" 1 1
+
+  , -}convMnistTestCaseCNN "1 epoch, 1 batch" 1 1
                          convMnistLossCNN convMnistTestCNN
                          final_image_size depth0 num_hidden0
                          0.02 0.12339999999999995  -- dummy results everywhere
-  , convMnistTestCaseCNN "2 epochs, but only 1 batch" 2 1
+{-  , convMnistTestCaseCNN "2 epochs, but only 1 batch" 2 1
                          convMnistLossCNN convMnistTestCNN
                          final_image_size depth0 num_hidden0
                          0.02 8.879999999999999e-2
-  , convMnistTestCaseCNN "1 epoch, all batches" 1 99
+    , convMnistTestCaseCNN "1 epoch, all batches" 1 99
                          convMnistLossCNN convMnistTestCNN
                          final_image_size depth0 num_hidden0
                          0.02 5.1100000000000034e-2
+-}
   , convMnistTestCaseCNN "S1 epoch, 1 batch" 1 1
                          convMnistLossCNNS convMnistTestCNNS
                          final_image_sizeS depth0 num_hidden0
                          0.02 0.12339999999999995
-  , convMnistTestCaseCNN "S2 epochs, but only 1 batch" 2 1
+{-  , convMnistTestCaseCNN "S2 epochs, but only 1 batch" 2 1
                          convMnistLossCNNS convMnistTestCNNS
                          final_image_sizeS depth0 num_hidden0
                          0.02 8.879999999999999e-2
-  , convMnistTestCaseCNN "S1 epoch, all batches" 1 99
+    , convMnistTestCaseCNN "S1 epoch, all batches" 1 99
                          convMnistLossCNNS convMnistTestCNNS
                          final_image_sizeS depth0 num_hidden0
                          0.02 5.1100000000000034e-2
+-}
   , testProperty "Compare two forward derivatives and gradient for convMnistTestCNN and convMnistTestCNNP" $
       \seed ->
       forAll (choose (0, sizeMnistLabel - 1)) $ \seedDs ->
@@ -385,7 +387,6 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
 -- gradient of fP doesn't have a good definition yet (TODO in Delta.hs)
 -- so this fails with "different dimensions 3481 and 25 in dot product":
 --         .&&. close1 (dfDot fP parameters) ffP
--}
   ]
 
 mnistCNNTestsShort :: TestTree
