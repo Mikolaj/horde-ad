@@ -494,9 +494,9 @@ buildFinMaps st deltaTopLevel = do
         Flipud2 d -> eval2 (MO.flipud r) d
         Fliprl2 d -> eval2 (MO.fliprl r) d
         Reshape2 _cols d -> eval1 (V.concat $ MO.toRows r) d
-        Conv2 m md ->  -- TODO: sizes of moc (2 * m + md - 2) and md don't match
+        Conv2 m md ->
           let mor = MO.convertMatrixOuter r
-              convolved = HM.conv2 m mor
+              convolved = HM.corr2 m mor
               moc = MO.MatrixOuter (Just convolved) Nothing Nothing
           in eval2 moc md
       evalX :: OT.Array r -> DeltaX r -> ST s ()

@@ -383,9 +383,7 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
            .&&. dforward f parameters ds === ff
            .&&. close1 (dfDot f parameters) ff
            .&&. dforward fP parameters ds === ffP
--- gradient of fP doesn't have a good definition yet (TODO in Delta.hs)
--- so this fails with "different dimensions 3481 and 25 in dot product":
---         .&&. close1 (dfDot fP parameters) ffP
+           .&&. close1 (dfDot fP parameters) ffP
   ]
 
 mnistCNNTestsShort :: TestTree
