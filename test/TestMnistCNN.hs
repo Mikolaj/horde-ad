@@ -371,19 +371,19 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
   , convMnistTestCaseCNN "P2 epochs, but only 1 batch" 2 1
                          convMnistLossCNNP convMnistTestCNNP
                          final_image_size depth0 num_hidden0
-                         0.02 8.879999999999999e-2
+                         0.02 4.94e-2
   , convMnistTestCaseCNN "P1 epoch, all batches" 1 99
                          convMnistLossCNNP convMnistTestCNNP
                          final_image_size depth0 num_hidden0
-                         0.02 5.1100000000000034e-2
+                         0.02 2.7000000000000024e-2
 -}
   , testProperty "Compare gradients and two forward derivatives for convMnistTestCNN and convMnistTestCNNP" $
       \seed ->
       forAll (choose (0, sizeMnistLabel - 1)) $ \seedDs ->
-      forAll (choose (1, 15)) $ \widthHidden ->
-      forAll (choose (1, 20)) $ \widthHidden2 ->
+      forAll (choose (1, 20)) $ \widthHidden ->
+      forAll (choose (1, 30)) $ \widthHidden2 ->
       forAll (choose (0.01, 0.5)) $ \range ->
-      forAll (choose (0.01, 2)) $ \rangeDs ->
+      forAll (choose (0.01, 10)) $ \rangeDs ->
         let createRandomVector n seedV = HM.randomVector seedV HM.Uniform n
             glyph = HM.reshape 28 $ createRandomVector (28 * 28) seed
             label = HM.konst 0 sizeMnistLabel V.// [(seedDs, 1)]

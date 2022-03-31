@@ -99,7 +99,7 @@ gradientIsNil (gradient0, gradient1, gradient2, gradientX) =
 
 minimumGradient :: IsScalar r => Domains r -> Primal r
 minimumGradient (gradient0, gradient1, gradient2, gradientX) =
-  min (if V.null gradient0 then 0 else V.minimum gradient0)
+  min (if V.null gradient0 then 0 else HM.minElement gradient0)
       (min (if V.null gradient1 then 0
             else V.minimum (V.map HM.minElement gradient1))
            (min (if V.null gradient2 then 0
@@ -109,7 +109,7 @@ minimumGradient (gradient0, gradient1, gradient2, gradientX) =
 
 maximumGradient :: IsScalar r => Domains r -> Primal r
 maximumGradient (gradient0, gradient1, gradient2, gradientX) =
-  max (if V.null gradient0 then 0 else V.maximum gradient0)
+  max (if V.null gradient0 then 0 else HM.maxElement gradient0)
       (max (if V.null gradient1 then 0
             else V.maximum (V.map HM.maxElement gradient1))
            (max (if V.null gradient2 then 0

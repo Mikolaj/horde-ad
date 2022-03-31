@@ -670,7 +670,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             ffOneHot = dfastForward fOneHot parameters ds
             ffFused = dfastForward fFused parameters ds
             close a b = abs (a - b) <= 0.000001
-            close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
+            close1 (a1, b1) (a2, b2) = close a1 a2 .&&. close b1 b2
             dfDot fDot psDot =
               let ((res0, res1, res2, resX), value) = df fDot psDot
               in ( res0 HM.<.> ds0

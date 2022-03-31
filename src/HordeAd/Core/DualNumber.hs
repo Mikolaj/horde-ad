@@ -505,17 +505,16 @@ lossSoftMaxCrossEntropyV
   :: (DualMonad r m, Floating (Primal (Tensor1 r)))
   => Primal (Tensor1 r) -> DualNumber (Tensor1 r) -> m (DualNumber r)
 lossSoftMaxCrossEntropyV target (D u u') = do
-  let expU = exp u
-  -- The following would protect from overflows and exploding gradients,
-  -- but I have yet to find a test that requires this and guards
-  -- against removing or weakening of this mechanism.
-  -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106.
-  --  expU = exp (u - HM.scalar (V.maximum u))
+  -- The following protects from underflows, overflows and exploding gradients
+  -- and is required by the QuickCheck test in TestMnistCNN.
+  -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106
+  -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
+  let expU = exp (u - HM.scalar (HM.maxElement u))
       sumExpU = HM.sumElements expU
       recipSum = recip sumExpU
 -- not exposed: softMaxU = HM.scaleRecip sumExpU expU
       softMaxU = HM.scale recipSum expU
-  returnLet $ D (negate $ log softMaxU <.> target)
+  returnLet $ D (negate $ log softMaxU <.> target)  -- TODO: avoid @log . exp@
                 (dDot0 (softMaxU - target) u')
 
 
@@ -551,7 +550,7 @@ lossSoftMaxCrossEntropyL
   -> DualNumber (Tensor2 r)
   -> m (DualNumber (Tensor1 r))
 lossSoftMaxCrossEntropyL target (D u u') = do
-  let expU = exp u
+  let expU = exp (u - HM.scalar (HM.maxElement u))  -- vs exploding gradients
       sumExpU = V.fromList $ map HM.sumElements $ HM.toColumns expU
       recipSum = recip sumExpU
       softMaxU = HM.asRow recipSum * expU
