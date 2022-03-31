@@ -311,6 +311,19 @@ convMnistLossCNNP depth (x, target) variables = do
   result <- convMnistCNNP depth x variables
   lossSoftMaxCrossEntropyV target result
 
+convMnistTestCNNP
+  :: forall r. IsScalar r
+  => Proxy r -> Int -> [MnistData2 (Primal r)] -> Domains r -> Primal r
+convMnistTestCNNP _ depth inputs parameters =
+  let matchesLabels :: MnistData2 (Primal r) -> Bool
+      matchesLabels (glyph, label) =
+        let nn = convMnistCNNP depth glyph
+            value = primalValue @r nn parameters
+        in V.maxIndex value == V.maxIndex label
+  in fromIntegral (length (filter matchesLabels inputs))
+     / fromIntegral (length inputs)
+{-# SPECIALIZE convMnistTestCNNP :: Proxy (Delta0 Double) -> Int -> [MnistData2 Double] -> Domains (Delta0 Double) -> Double #-}
+
 mnistCNNTestsLong :: TestTree
 mnistCNNTestsLong = testGroup "MNIST CNN long tests"
   [ {-convMnistTestCaseCNN "artificial 5 4 3 2 1" 5 4
@@ -319,16 +332,19 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
   , convMnistTestCaseCNN "S artificial 5 4 3 2 1" 5 4
                          convMnistLossCNNS convMnistTestCNNS final_image_sizeS
                          3 2 1 0.8991
-
-  , -}convMnistTestCaseCNN "1 epoch, 1 batch" 1 1
+  , -}convMnistTestCaseCNN "P artificial 5 4 3 2 1" 5 4
+                         convMnistLossCNNP convMnistTestCNNP final_image_size
+                         3 2 1 0.8991
+  , convMnistTestCaseCNN "1 epoch, 1 batch" 1 1
                          convMnistLossCNN convMnistTestCNN
                          final_image_size depth0 num_hidden0
                          0.02 5.989999999999995e-2
-{-  , convMnistTestCaseCNN "2 epochs, but only 1 batch" 2 1
+{-
+  , convMnistTestCaseCNN "2 epochs, but only 1 batch" 2 1
                          convMnistLossCNN convMnistTestCNN
                          final_image_size depth0 num_hidden0
                          0.02 8.879999999999999e-2  -- dummy results everywhere
-    , convMnistTestCaseCNN "1 epoch, all batches" 1 99
+  , convMnistTestCaseCNN "1 epoch, all batches" 1 99
                          convMnistLossCNN convMnistTestCNN
                          final_image_size depth0 num_hidden0
                          0.02 5.1100000000000034e-2
@@ -337,16 +353,31 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                          convMnistLossCNNS convMnistTestCNNS
                          final_image_sizeS depth0 num_hidden0
                          0.02 4.800000000000004e-2
-{-  , convMnistTestCaseCNN "S2 epochs, but only 1 batch" 2 1
+{-
+  , convMnistTestCaseCNN "S2 epochs, but only 1 batch" 2 1
                          convMnistLossCNNS convMnistTestCNNS
                          final_image_sizeS depth0 num_hidden0
                          0.02 8.879999999999999e-2
-    , convMnistTestCaseCNN "S1 epoch, all batches" 1 99
+  , convMnistTestCaseCNN "S1 epoch, all batches" 1 99
                          convMnistLossCNNS convMnistTestCNNS
                          final_image_sizeS depth0 num_hidden0
                          0.02 5.1100000000000034e-2
 -}
-  , testProperty "Compare two forward derivatives and gradient for convMnistTestCNN and convMnistTestCNNP" $
+  , convMnistTestCaseCNN "P1 epoch, 1 batch" 1 1
+                         convMnistLossCNNP convMnistTestCNNP
+                         final_image_size depth0 num_hidden0
+                         0.02 5.989999999999995e-2
+{-
+  , convMnistTestCaseCNN "P2 epochs, but only 1 batch" 2 1
+                         convMnistLossCNNP convMnistTestCNNP
+                         final_image_size depth0 num_hidden0
+                         0.02 8.879999999999999e-2
+  , convMnistTestCaseCNN "P1 epoch, all batches" 1 99
+                         convMnistLossCNNP convMnistTestCNNP
+                         final_image_size depth0 num_hidden0
+                         0.02 5.1100000000000034e-2
+-}
+  , testProperty "Compare gradients and two forward derivatives for convMnistTestCNN and convMnistTestCNNP" $
       \seed ->
       forAll (choose (0, sizeMnistLabel - 1)) $ \seedDs ->
       forAll (choose (1, 15)) $ \widthHidden ->
@@ -394,6 +425,9 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
   , convMnistTestCaseCNN "S artificial 1 1 1 1 1" 1 1
                          convMnistLossCNNS convMnistTestCNNS final_image_sizeS
                          1 1 1 0.9026
+  , convMnistTestCaseCNN "P artificial 1 1 1 1 1" 1 1
+                         convMnistLossCNNP convMnistTestCNNP final_image_size
+                         1 1 1 0.9026
 {-
   , convMnistTestCaseCNN "artificial 1 2 3 4 5" 1 2
                          convMnistLossCNN convMnistTestCNN final_image_size
@@ -401,5 +435,8 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
   , convMnistTestCaseCNN "S artificial 1 2 3 4 5" 1 2
                          convMnistLossCNNS convMnistTestCNNS final_image_sizeS
                          3 4 5 0.902
+  , convMnistTestCaseCNN "P artificial 1 2 3 4 5" 1 2
+                         convMnistLossCNNP convMnistTestCNNP final_image_size
+                         3 4 5 0.8972
 -}
   ]
