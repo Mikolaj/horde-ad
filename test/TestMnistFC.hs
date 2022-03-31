@@ -801,7 +801,7 @@ fusedMnistTests = testGroup "MNIST fused LL tests with a 2-hidden-layer nn"
   , mnistTestCase2L "artificial 1 2 3 4 5" 1 2 nnMnistLossFused2 3 4 5
                     0.8972
   , mnistTestCase2L "artificial 5 4 3 2 1" 5 4 nnMnistLossFused2 3 2 1
-                    0.8207
+                    0.7033
   ]
 
 shortCIMnistTests :: TestTree

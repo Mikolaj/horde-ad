@@ -783,11 +783,11 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
         label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
         rws v = map (\k -> V.slice (k * 28) 28 v) [0 .. 27]
         trainData = map ((\g -> (rws (glyph g), label g)) . mkStdGen) [1 .. 140]
-    in sgdTestCaseAlt "randomLL 140"
+    in sgdTestCase "randomLL 140"
                       (nnMnistRNNLossL 128)
                       (lenMnistRNNL 128 1)
                       (return trainData)
-                      [39.26529628894595, 39.26534445638497]
+                      39.26529871965807
   , let rws (input, target) =
           (map (\k -> V.slice (k * 28) 28 input) [0 .. 27], target)
     in sgdTestCase "firstLL 100 trainset samples only"
@@ -795,7 +795,7 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
                    (lenMnistRNNL 128 1)
                    (map rws . take 100
                     <$> loadMnistData trainGlyphsPath trainLabelsPath)
-                   2.779085689596527
+                   2.7790856895965272
   , mnistTestCaseRNN "1LL 1 epoch, 1 batch" 1 1
                      nnMnistRNNLossL (testMnistRNNL @(Delta0 Double)) lenMnistRNNL 128 1
                      0.2845
@@ -806,11 +806,11 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
         label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
         rws v = map (\k -> V.slice (k * 28) 28 v) [0 .. 27]
         trainData = map ((\g -> (rws (glyph g), label g)) . mkStdGen) [1 .. 140]
-    in sgdTestCaseAlt "randomLL2 140"
+    in sgdTestCase "randomLL2 140"
                       (nnMnistRNNLossL2 128)
                       (lenMnistRNNL 128 2)
                       (return trainData)
-                      [30.061856005913285, 30.06186534722257]
+                      30.061871495723956
   , let rws (input, target) =
           (map (\k -> V.slice (k * 28) 28 input) [0 .. 27], target)
     in sgdTestCase "firstLL2 99 trainset samples only"
@@ -833,7 +833,7 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
                    (nnMnistRNNLossV 128)
                    (lenMnistRNNV 128 1)
                    (return trainData)
-                   48.93543453075899
+                   48.93543453250378
   , let rws (input, target) =
           (map (\k -> V.slice (k * 28) 28 input) [0 .. 27], target)
     in sgdTestCase "firstVV 100 trainset samples only"
@@ -841,7 +841,7 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
                    (lenMnistRNNV 128 1)
                    (map rws . take 100
                     <$> loadMnistData trainGlyphsPath trainLabelsPath)
-                   2.7494107689380805
+                   2.749410768938081
   , mnistTestCaseRNN "1VV 1 epoch, 1 batch" 1 1
                      nnMnistRNNLossV (testMnistRNNV @(Delta0 Double)) lenMnistRNNV 128 1
                      0.3024
