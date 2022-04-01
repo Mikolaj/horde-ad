@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, RankNTypes #-}
+{-# LANGUAGE RankNTypes, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 module TestSingleGradient (testTrees) where
 
@@ -232,7 +232,7 @@ quickCheckForwardAndBackward =
                -> TestTree
         qcTest txt f fArg =
           testProperty txt
-          $ forAll (choose ((-2, -2, -2), (2, 2, 2))) $ \xyz -> \xyz2 ->
+          $ forAll (choose ((-2, -2, -2), (2, 2, 2))) $ \xyz xyz2 ->
               let args = fArg xyz
                   ds = fArg xyz2
                   ff = dfastForwardShow f args ds

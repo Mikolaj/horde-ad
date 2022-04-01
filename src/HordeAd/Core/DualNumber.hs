@@ -662,7 +662,7 @@ maxPool2 ksize stride m@(D u _) = do
   v <- returnLet $ flatten1 m  -- used many times below
   let getArea :: (Int, Int) -> DualNumber (Tensor1 r)
       getArea (r0, c0) =
-        let getAreaAtRow r1 acc = append1 (slice1 (r1 * cols + c0) ksize v) acc
+        let getAreaAtRow r1 = append1 (slice1 (r1 * cols + c0) ksize v)
         in foldr getAreaAtRow (seq1 V.empty) [r0 .. r0 + ksize - 1]
       mins = map (maximum0 . getArea) resultCoords
   returnLet $ reshape2 colsOut $ seq1 $ V.fromList mins

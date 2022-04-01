@@ -83,7 +83,7 @@ convMnistCNN :: DualMonad r m
 convMnistCNN depth x variables = do
   ms1 <- mapM (convDataMnistCNN variables x) [0 .. depth - 1]
   ms3 <- mapM (convMiddleMnistCNN depth variables ms1) [0 .. depth - 1]
-  let flattenAppend m acc = append1 (flatten1 m) acc
+  let flattenAppend m = append1 (flatten1 m)
   v <- returnLet $ foldr flattenAppend (seq1 V.empty) ms3
   let weigthsDense = var2 variables (depth + depth * depth)
       biasesDense = var1 variables 0
@@ -226,7 +226,7 @@ convMnistCNNS :: DualMonad r m
 convMnistCNNS depth x variables = do
   ms1 <- mapM (convDataMnistCNNS variables x) [0 .. depth - 1]
   ms3 <- mapM (convMiddleMnistCNNS depth variables ms1) [0 .. depth - 1]
-  let flattenAppend m acc = append1 (flatten1 m) acc
+  let flattenAppend m = append1 (flatten1 m)
   v <- returnLet $ foldr flattenAppend (seq1 V.empty) ms3
   let weigthsDense = var2 variables (depth + depth * depth)
       biasesDense = var1 variables 0
@@ -293,7 +293,7 @@ convMnistCNNP :: DualMonad r m
 convMnistCNNP depth x variables = do
   ms1 <- mapM (convDataMnistCNNP variables x) [0 .. depth - 1]
   ms3 <- mapM (convMiddleMnistCNNP depth variables ms1) [0 .. depth - 1]
-  let flattenAppend m acc = append1 (flatten1 m) acc
+  let flattenAppend m = append1 (flatten1 m)
   v <- returnLet $ foldr flattenAppend (seq1 V.empty) ms3
   let weigthsDense = var2 variables (depth + depth * depth)
       biasesDense = var1 variables 0

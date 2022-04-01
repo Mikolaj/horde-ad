@@ -394,7 +394,7 @@ instance HasRanks Double where
     _ -> error "dFromS2: wrong tensor dimensions"
   dFlipud2 = HM.flipud
   dFliprl2 = HM.fliprl
-  dReshape2 cols d = HM.reshape cols d
+  dReshape2 = HM.reshape
   dConv2 = HM.conv2
   dAppendX d _k e = d `OT.append` e
   dSliceX i n d _len = OT.slice [(i, n)] d
@@ -403,7 +403,7 @@ instance HasRanks Double where
   dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
   dFromSX = Data.Array.Convert.convert
   dAppendS = OS.append
-  dSliceS (_ :: Proxy i) (_ :: Proxy n) d = OS.slice @'[ '(i, n) ] d
+  dSliceS (_ :: Proxy i) (_ :: Proxy n) = OS.slice @'[ '(i, n) ]
   dFrom0S = OS.scalar
   dFrom1S = OS.fromVector
   dFrom2S _ = OS.fromVector . HM.flatten
@@ -452,7 +452,7 @@ instance HasRanks Float where
     _ -> error "dFromS2: wrong tensor dimensions"
   dFlipud2 = HM.flipud
   dFliprl2 = HM.fliprl
-  dReshape2 cols d = HM.reshape cols d
+  dReshape2 = HM.reshape
   dConv2 = HM.conv2
   dAppendX d _k e = d `OT.append` e
   dSliceX i n d _len = OT.slice [(i, n)] d
@@ -461,7 +461,7 @@ instance HasRanks Float where
   dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
   dFromSX = Data.Array.Convert.convert
   dAppendS = OS.append
-  dSliceS (_ :: Proxy i) (_ :: Proxy n) d = OS.slice @'[ '(i, n) ] d
+  dSliceS (_ :: Proxy i) (_ :: Proxy n) = OS.slice @'[ '(i, n) ]
   dFrom0S = OS.scalar
   dFrom1S = OS.fromVector
   dFrom2S _ = OS.fromVector . HM.flatten

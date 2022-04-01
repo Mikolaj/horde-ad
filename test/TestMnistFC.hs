@@ -574,7 +574,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
                       (params0, params1, params2, V.empty))
         @?= 0.902
   , testProperty "Compare two forward derivatives and gradient for Mnist0" $
-      \seed -> \seedDs ->
+      \seed seedDs ->
       forAll (choose (1, 300)) $ \widthHidden ->
       forAll (choose (1, 100)) $ \widthHidden2 ->
       forAll (choose (0.01, 10)) $ \range ->
@@ -609,7 +609,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
         in dforward f parameters ds === ff
            .&&. close1 (dfDot f parameters) ff
   , testProperty "Compare two forward derivatives and gradient for Mnist1" $
-      \seed -> \seedDs ->
+      \seed seedDs ->
       forAll (choose (1, 2000)) $ \widthHidden ->
       forAll (choose (1, 5000)) $ \widthHidden2 ->
       forAll (choose (0.01, 0.5)) $ \range ->  -- large nn, so NaNs fast
