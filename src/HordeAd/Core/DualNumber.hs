@@ -383,6 +383,11 @@ sliceX :: IsScalar r
 sliceX i n (D u u') = D (OT.slice [(i, n)] u)
                         (dSliceX i n u' (head $ OT.shapeL u))
 
+indexX :: IsScalar r
+       => DualNumber (TensorX r) -> Int -> DualNumber (TensorX r)
+indexX (D u u') ix = D (OT.index u ix)
+                       (dIndexX u' ix (head $ OT.shapeL u))
+
 from0X :: IsScalar r => DualNumber r -> DualNumber (TensorX r)
 from0X (D u u') = D (OT.scalar u) (dFrom0X u')
 
@@ -416,6 +421,14 @@ sliceS :: forall i n k rest r.
        -> DualNumber (TensorS (n ': rest) r)
 sliceS (D u u') = D (OS.slice @'[ '(i, n) ] u)
                     (dSliceS (Proxy :: Proxy i) Proxy u')
+
+indexS :: forall ix k rest r.
+          ( OS.Shape rest, KnownNat ix, KnownNat k
+          , IsScalarS (ix + 1 + k ': rest) r, IsScalarS rest r )
+       => DualNumber (TensorS (ix + 1 + k ': rest) r)
+       -> DualNumber (TensorS rest r)
+indexS (D u u') = D (OS.index u (valueOf @ix))
+                    (dIndexS u' (Proxy :: Proxy ix))
 
 from0S :: IsScalarS '[] r => DualNumber r -> DualNumber (TensorS '[] r)
 from0S (D u u') = D (OS.scalar u) (dFrom0S u')

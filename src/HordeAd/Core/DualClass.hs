@@ -20,7 +20,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat, type (+))
+import           GHC.TypeLits (KnownNat, Nat, natVal, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 
@@ -169,6 +169,7 @@ class HasRanks r where
   dAppendX :: TensorX r -> Int -> TensorX r
            -> TensorX r
   dSliceX :: Int -> Int -> TensorX r -> Int -> TensorX r
+  dIndexX :: TensorX r -> Int -> Int -> TensorX r
   dFrom0X :: r -> TensorX r
   dFrom1X :: Tensor1 r -> TensorX r
   dFrom2X :: Tensor2 r -> Int -> TensorX r
@@ -181,6 +182,8 @@ class HasRanks r where
   dSliceS :: (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
           => Proxy i -> Proxy n -> TensorS (i + n + k ': rest) r
           -> TensorS (n ': rest) r
+  dIndexS :: (KnownNat ix, KnownNat k, OS.Shape rest)
+          => TensorS (ix + 1 + k ': rest) r -> Proxy ix -> TensorS rest r
   dFrom0S :: r -> TensorS '[] r
   dFrom1S :: KnownNat n => Tensor1 r -> TensorS '[n] r
   dFrom2S :: (KnownNat rows, KnownNat cols)
@@ -242,12 +245,14 @@ instance HasRanks (Delta0 r) where
   dConv2 = Conv2
   dAppendX = AppendX
   dSliceX = SliceX
+  dIndexX = IndexX
   dFrom0X = From0X
   dFrom1X = From1X
   dFrom2X = From2X
   dFromSX = FromSX
   dAppendS = AppendS
   dSliceS = SliceS
+  dIndexS = IndexS
   dFrom0S = From0S
   dFrom1S = From1S
   dFrom2S = From2S
@@ -398,12 +403,14 @@ instance HasRanks Double where
   dConv2 = HM.conv2
   dAppendX d _k e = d `OT.append` e
   dSliceX i n d _len = OT.slice [(i, n)] d
+  dIndexX d ix _len = OT.index d ix
   dFrom0X = OT.scalar
   dFrom1X d = OT.fromVector [V.length d] d
   dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
   dFromSX = Data.Array.Convert.convert
   dAppendS = OS.append
   dSliceS (_ :: Proxy i) (_ :: Proxy n) = OS.slice @'[ '(i, n) ]
+  dIndexS d proxyIx = OS.index d (fromInteger $ natVal proxyIx)
   dFrom0S = OS.scalar
   dFrom1S = OS.fromVector
   dFrom2S _ = OS.fromVector . HM.flatten
@@ -456,12 +463,14 @@ instance HasRanks Float where
   dConv2 = HM.conv2
   dAppendX d _k e = d `OT.append` e
   dSliceX i n d _len = OT.slice [(i, n)] d
+  dIndexX d ix _len = OT.index d ix
   dFrom0X = OT.scalar
   dFrom1X d = OT.fromVector [V.length d] d
   dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
   dFromSX = Data.Array.Convert.convert
   dAppendS = OS.append
   dSliceS (_ :: Proxy i) (_ :: Proxy n) = OS.slice @'[ '(i, n) ]
+  dIndexS d proxyIx = OS.index d (fromInteger $ natVal proxyIx)
   dFrom0S = OS.scalar
   dFrom1S = OS.fromVector
   dFrom2S _ = OS.fromVector . HM.flatten

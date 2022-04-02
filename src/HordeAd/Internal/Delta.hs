@@ -176,6 +176,9 @@ data DeltaX r =
       -- ^ Extract a slice of an array along the outermost dimension.
       -- The extracted slice must fall within the dimension.
       -- The last argument is the outermost size of the argument array.
+  | IndexX (DeltaX r) Int Int
+      -- ^ The sub-tensors at the given index of the outermost dimension.
+      -- The second integer is the length of the dimension.
 
   | From0X (Delta0 r)
   | From1X (Delta1 r)
@@ -203,6 +206,9 @@ data DeltaS :: [Nat] -> Type -> Type where
          => Proxy i -> Proxy n -> DeltaS (i + n + k ': rest) r
          -> DeltaS (n ': rest) r
     -- ^ Extract a slice of an array along the outermost dimension.
+  IndexS :: (KnownNat ix, KnownNat k, OS.Shape rest)
+         => DeltaS (ix + 1 + k ': rest) r -> Proxy ix -> DeltaS rest r
+      -- ^ The sub-tensors at the given index of the outermost dimension.
 
   From0S :: Delta0 r -> DeltaS '[] r
   From1S :: Delta1 r -> DeltaS '[n] r
@@ -518,6 +524,12 @@ buildFinMaps st deltaTopLevel = do
                    `OT.append` OT.constant (len - i - n : rest) 0)
                   d
           [] -> error "evalX: slicing a 0-dimensional tensor"
+        IndexX d ix len ->
+          let rest = OT.shapeL r
+          in evalX (OT.constant (ix : rest) 0
+                   `OT.append` OT.reshape (1 : rest) r
+                   `OT.append` OT.constant (len - ix - 1 : rest) 0)
+                   d  -- TODO: optimize for Var case
 
         From0X d -> eval0 (OT.unScalar r) d
         From1X d -> eval1 (OT.toVector r) d
@@ -542,6 +554,11 @@ buildFinMaps st deltaTopLevel = do
                  `OS.append` r
                  `OS.append` OS.constant 0)
                 d
+        IndexS (d :: DeltaS (ix_plus_1_plus_k ': rest) r) (_ :: Proxy ix) ->
+          evalS (OS.constant @(ix ': rest) 0
+                 `OS.append` OS.reshape r
+                 `OS.append` OS.constant 0)
+                d  -- TODO: optimize for Var case
 
         From0S d -> eval0 (OS.unScalar r) d
         From1S d -> eval1 (OS.toVector r) d
@@ -676,6 +693,7 @@ evalBindingsForward st deltaTopLevel
 
         AppendX d _k e -> evalX parameters d `OT.append` evalX parameters e
         SliceX i n d _len -> OT.slice [(i, n)] $ evalX parameters d
+        IndexX d ix _len -> OT.index (evalX parameters d) ix
 
         From0X d -> OT.scalar $ eval0 parameters d
         From1X d -> let v = eval1 parameters d
@@ -693,6 +711,9 @@ evalBindingsForward st deltaTopLevel
         AppendS d e -> evalS parameters d `OS.append` evalS parameters e
         SliceS (_ :: Proxy i) (_ :: Proxy n) d ->
           OS.slice @'[ '(i, n) ] $ evalS parameters d
+        IndexS d proxyIx ->
+          OS.index (evalS parameters d) (fromInteger $ natVal proxyIx)
+
         From0S d -> OS.scalar $ eval0 parameters d
         From1S d -> OS.fromVector $ eval1 parameters d
         From2S _ d -> OS.fromVector $ HM.flatten $ eval2 parameters d
