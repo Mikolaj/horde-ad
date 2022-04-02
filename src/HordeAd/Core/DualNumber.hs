@@ -10,8 +10,10 @@ module HordeAd.Core.DualNumber where
 import Prelude
 
 import qualified Data.Array.Convert
+import qualified Data.Array.Dynamic as OTB
 import qualified Data.Array.DynamicS as OT
 import           Data.Array.Internal (valueOf)
+import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import           Data.List.Index (imap)
 import           Data.Proxy (Proxy (Proxy))
@@ -388,6 +390,15 @@ indexX :: IsScalar r
 indexX (D u u') ix = D (OT.index u ix)
                        (dIndexX u' ix (head $ OT.shapeL u))
 
+ravelFromListX :: IsScalar r
+               => [DualNumber (TensorX r)] -> DualNumber (TensorX r)
+ravelFromListX ld =
+  let (lu, lu') = unzip $ map (\(D u u') -> (u, u')) ld
+      sh = case lu of
+        u : _ -> length lu : OT.shapeL u
+        [] -> []
+  in D (OT.ravel $ OTB.fromList sh lu) (dRavelFromListX lu')
+
 from0X :: IsScalar r => DualNumber r -> DualNumber (TensorX r)
 from0X (D u u') = D (OT.scalar u) (dFrom0X u')
 
@@ -429,6 +440,14 @@ indexS :: forall ix k rest r.
        -> DualNumber (TensorS rest r)
 indexS (D u u') = D (OS.index u (valueOf @ix))
                     (dIndexS u' (Proxy :: Proxy ix))
+
+ravelFromListS :: ( KnownNat k, OS.Shape rest
+                  , IsScalarS rest r, IsScalarS (k : rest) r )
+               => [DualNumber (TensorS rest r)]
+               -> DualNumber (TensorS (k : rest) r)
+ravelFromListS ld =
+  let (lu, lu') = unzip $ map (\(D u u') -> (u, u')) ld
+  in D (OS.ravel $ OSB.fromList lu) (dRavelFromListS lu')
 
 from0S :: IsScalarS '[] r => DualNumber r -> DualNumber (TensorS '[] r)
 from0S (D u u') = D (OS.scalar u) (dFrom0S u')

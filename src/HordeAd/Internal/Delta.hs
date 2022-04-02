@@ -49,10 +49,12 @@ import           Control.Exception (assert)
 import           Control.Monad (unless, zipWithM_)
 import           Control.Monad.ST.Strict (ST, runST)
 import qualified Data.Array.Convert
+import qualified Data.Array.Dynamic as OTB
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Internal
 import qualified Data.Array.Internal.DynamicG
 import qualified Data.Array.Internal.DynamicS
+import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import           Data.Kind (Type)
 import           Data.List (foldl')
@@ -179,6 +181,8 @@ data DeltaX r =
   | IndexX (DeltaX r) Int Int
       -- ^ The sub-tensors at the given index of the outermost dimension.
       -- The second integer is the length of the dimension.
+  | RavelFromListX [DeltaX r]
+      -- ^ Create a tensor from a list treated as the outermost dimension.
 
   | From0X (Delta0 r)
   | From1X (Delta1 r)
@@ -209,6 +213,9 @@ data DeltaS :: [Nat] -> Type -> Type where
   IndexS :: (KnownNat ix, KnownNat k, OS.Shape rest)
          => DeltaS (ix + 1 + k ': rest) r -> Proxy ix -> DeltaS rest r
       -- ^ The sub-tensors at the given index of the outermost dimension.
+  RavelFromListS :: (KnownNat k, OS.Shape rest)
+                 => [DeltaS rest r] -> DeltaS (k : rest) r
+      -- ^ Create a tensor from a list treated as the outermost dimension.
 
   From0S :: Delta0 r -> DeltaS '[] r
   From1S :: Delta1 r -> DeltaS '[n] r
@@ -530,6 +537,9 @@ buildFinMaps st deltaTopLevel = do
                    `OT.append` OT.reshape (1 : rest) r
                    `OT.append` OT.constant (len - ix - 1 : rest) 0)
                    d  -- TODO: optimize for Var case
+        RavelFromListX ld -> do
+          let lr = OTB.toList $ OT.unravel r
+          mapM_ (uncurry evalX) (zip lr ld)
 
         From0X d -> eval0 (OT.unScalar r) d
         From1X d -> eval1 (OT.toVector r) d
@@ -559,6 +569,9 @@ buildFinMaps st deltaTopLevel = do
                  `OS.append` OS.reshape r
                  `OS.append` OS.constant 0)
                 d  -- TODO: optimize for Var case
+        RavelFromListS ld -> do
+          let lr = OSB.toList $ OS.unravel r
+          mapM_ (uncurry evalS) (zip lr ld)
 
         From0S d -> eval0 (OS.unScalar r) d
         From1S d -> eval1 (OS.toVector r) d
@@ -694,6 +707,12 @@ evalBindingsForward st deltaTopLevel
         AppendX d _k e -> evalX parameters d `OT.append` evalX parameters e
         SliceX i n d _len -> OT.slice [(i, n)] $ evalX parameters d
         IndexX d ix _len -> OT.index (evalX parameters d) ix
+        RavelFromListX ld ->
+          let la = map (evalX parameters) ld
+              sh = case la of
+                a : _ -> length la : OT.shapeL a
+                [] -> []
+          in OT.ravel $ OTB.fromList sh la
 
         From0X d -> OT.scalar $ eval0 parameters d
         From1X d -> let v = eval1 parameters d
@@ -713,6 +732,9 @@ evalBindingsForward st deltaTopLevel
           OS.slice @'[ '(i, n) ] $ evalS parameters d
         IndexS d proxyIx ->
           OS.index (evalS parameters d) (fromInteger $ natVal proxyIx)
+        RavelFromListS ld ->
+          let la = map (evalS parameters) ld
+          in OS.ravel $ OSB.fromList la
 
         From0S d -> OS.scalar $ eval0 parameters d
         From1S d -> OS.fromVector $ eval1 parameters d

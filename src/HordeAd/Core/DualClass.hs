@@ -15,7 +15,9 @@ module HordeAd.Core.DualClass
 import Prelude
 
 import qualified Data.Array.Convert
+import qualified Data.Array.Dynamic as OTB
 import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
@@ -170,6 +172,7 @@ class HasRanks r where
            -> TensorX r
   dSliceX :: Int -> Int -> TensorX r -> Int -> TensorX r
   dIndexX :: TensorX r -> Int -> Int -> TensorX r
+  dRavelFromListX :: [TensorX r] -> TensorX r
   dFrom0X :: r -> TensorX r
   dFrom1X :: Tensor1 r -> TensorX r
   dFrom2X :: Tensor2 r -> Int -> TensorX r
@@ -184,6 +187,8 @@ class HasRanks r where
           -> TensorS (n ': rest) r
   dIndexS :: (KnownNat ix, KnownNat k, OS.Shape rest)
           => TensorS (ix + 1 + k ': rest) r -> Proxy ix -> TensorS rest r
+  dRavelFromListS :: (KnownNat k, OS.Shape rest)
+                  => [TensorS rest r] -> TensorS (k : rest) r
   dFrom0S :: r -> TensorS '[] r
   dFrom1S :: KnownNat n => Tensor1 r -> TensorS '[n] r
   dFrom2S :: (KnownNat rows, KnownNat cols)
@@ -246,6 +251,7 @@ instance HasRanks (Delta0 r) where
   dAppendX = AppendX
   dSliceX = SliceX
   dIndexX = IndexX
+  dRavelFromListX = RavelFromListX
   dFrom0X = From0X
   dFrom1X = From1X
   dFrom2X = From2X
@@ -253,6 +259,7 @@ instance HasRanks (Delta0 r) where
   dAppendS = AppendS
   dSliceS = SliceS
   dIndexS = IndexS
+  dRavelFromListS = RavelFromListS
   dFrom0S = From0S
   dFrom1S = From1S
   dFrom2S = From2S
@@ -404,6 +411,11 @@ instance HasRanks Double where
   dAppendX d _k e = d `OT.append` e
   dSliceX i n d _len = OT.slice [(i, n)] d
   dIndexX d ix _len = OT.index d ix
+  dRavelFromListX ld =
+    let sh = case ld of
+          d : _ -> length ld : OT.shapeL d
+          [] -> []
+    in OT.ravel $ OTB.fromList sh ld
   dFrom0X = OT.scalar
   dFrom1X d = OT.fromVector [V.length d] d
   dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
@@ -411,6 +423,7 @@ instance HasRanks Double where
   dAppendS = OS.append
   dSliceS (_ :: Proxy i) (_ :: Proxy n) = OS.slice @'[ '(i, n) ]
   dIndexS d proxyIx = OS.index d (fromInteger $ natVal proxyIx)
+  dRavelFromListS = OS.ravel . OSB.fromList
   dFrom0S = OS.scalar
   dFrom1S = OS.fromVector
   dFrom2S _ = OS.fromVector . HM.flatten
@@ -464,6 +477,11 @@ instance HasRanks Float where
   dAppendX d _k e = d `OT.append` e
   dSliceX i n d _len = OT.slice [(i, n)] d
   dIndexX d ix _len = OT.index d ix
+  dRavelFromListX ld =
+    let sh = case ld of
+          d : _ -> length ld : OT.shapeL d
+          [] -> []
+    in OT.ravel $ OTB.fromList sh ld
   dFrom0X = OT.scalar
   dFrom1X d = OT.fromVector [V.length d] d
   dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
@@ -471,6 +489,7 @@ instance HasRanks Float where
   dAppendS = OS.append
   dSliceS (_ :: Proxy i) (_ :: Proxy n) = OS.slice @'[ '(i, n) ]
   dIndexS d proxyIx = OS.index d (fromInteger $ natVal proxyIx)
+  dRavelFromListS = OS.ravel . OSB.fromList
   dFrom0S = OS.scalar
   dFrom1S = OS.fromVector
   dFrom2S _ = OS.fromVector . HM.flatten
