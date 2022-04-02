@@ -526,16 +526,16 @@ buildFinMaps st deltaTopLevel = do
         SliceX i n d len -> case OT.shapeL r of
           n' : rest ->
             assert (n' == n) $
-            evalX (OT.constant (i : rest) 0
-                   `OT.append` r
-                   `OT.append` OT.constant (len - i - n : rest) 0)
+            evalX (OT.concatOuter [ OT.constant (i : rest) 0
+                                  , r
+                                  , OT.constant (len - i - n : rest) 0 ])
                   d
           [] -> error "evalX: slicing a 0-dimensional tensor"
         IndexX d ix len ->
           let rest = OT.shapeL r
-          in evalX (OT.constant (ix : rest) 0
-                   `OT.append` OT.reshape (1 : rest) r
-                   `OT.append` OT.constant (len - ix - 1 : rest) 0)
+          in evalX (OT.concatOuter [ OT.constant (ix : rest) 0
+                                   , OT.reshape (1 : rest) r
+                                   , OT.constant (len - ix - 1 : rest) 0 ])
                    d  -- TODO: optimize for Var case
         RavelFromListX ld -> do
           let lr = OTB.toList $ OT.unravel r
