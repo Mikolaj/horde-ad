@@ -151,10 +151,8 @@ class HasRanks r where
   dTranspose2 :: Tensor2 r -> Tensor2 r
   dM_MD2 :: Primal (Tensor2 r) -> Tensor2 r -> Tensor2 r
   dMD_M2 :: Tensor2 r -> Primal (Tensor2 r) -> Tensor2 r
-  dRowAppend2 :: Tensor2 r -> Int -> Tensor2 r
-              -> Tensor2 r
-  dColumnAppend2 :: Tensor2 r -> Int -> Tensor2 r
-                 -> Tensor2 r
+  dRowAppend2 :: Tensor2 r -> Int -> Tensor2 r -> Tensor2 r
+  dColumnAppend2 :: Tensor2 r -> Int -> Tensor2 r -> Tensor2 r
   dRowSlice2 :: Int -> Int -> Tensor2 r -> Int -> Tensor2 r
   dColumnSlice2 :: Int -> Int -> Tensor2 r -> Int -> Tensor2 r
   dAsRow2 :: Tensor1 r -> Tensor2 r
@@ -168,8 +166,8 @@ class HasRanks r where
   dReshape2 :: Int -> Tensor1 r -> Tensor2 r
   dConv2 :: Primal (Tensor2 r) -> Tensor2 r -> Tensor2 r
 
-  dAppendX :: TensorX r -> Int -> TensorX r
-           -> TensorX r
+  dKonstX :: r -> OT.ShapeL -> TensorX r
+  dAppendX :: TensorX r -> Int -> TensorX r -> TensorX r
   dSliceX :: Int -> Int -> TensorX r -> Int -> TensorX r
   dIndexX :: TensorX r -> Int -> Int -> TensorX r
   dRavelFromListX :: [TensorX r] -> TensorX r
@@ -179,6 +177,8 @@ class HasRanks r where
   dFromSX :: OS.Shape sh
           => TensorS sh r -> TensorX r
 
+  dKonstS :: OS.Shape sh
+          => r -> TensorS sh r
   dAppendS :: (OS.Shape sh, KnownNat m, KnownNat n)
            => TensorS (m ': sh) r -> TensorS (n ': sh) r
            -> TensorS ((m + n) ': sh) r
@@ -248,6 +248,7 @@ instance HasRanks (Delta0 r) where
   dFliprl2 = Fliprl2
   dReshape2 = Reshape2
   dConv2 = Conv2
+  dKonstX = KonstX
   dAppendX = AppendX
   dSliceX = SliceX
   dIndexX = IndexX
@@ -256,6 +257,7 @@ instance HasRanks (Delta0 r) where
   dFrom1X = From1X
   dFrom2X = From2X
   dFromSX = FromSX
+  dKonstS = KonstS
   dAppendS = AppendS
   dSliceS = SliceS
   dIndexS = IndexS
@@ -408,6 +410,7 @@ instance HasRanks Double where
   dFliprl2 = HM.fliprl
   dReshape2 = HM.reshape
   dConv2 = HM.conv2
+  dKonstX d sz = OT.constant sz d
   dAppendX d _k e = d `OT.append` e
   dSliceX i n d _len = OT.slice [(i, n)] d
   dIndexX d ix _len = OT.index d ix
@@ -420,6 +423,7 @@ instance HasRanks Double where
   dFrom1X d = OT.fromVector [V.length d] d
   dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
   dFromSX = Data.Array.Convert.convert
+  dKonstS = OS.constant
   dAppendS = OS.append
   dSliceS (_ :: Proxy i) (_ :: Proxy n) = OS.slice @'[ '(i, n) ]
   dIndexS d proxyIx = OS.index d (fromInteger $ natVal proxyIx)
@@ -474,6 +478,7 @@ instance HasRanks Float where
   dFliprl2 = HM.fliprl
   dReshape2 = HM.reshape
   dConv2 = HM.conv2
+  dKonstX d sz = OT.constant sz d
   dAppendX d _k e = d `OT.append` e
   dSliceX i n d _len = OT.slice [(i, n)] d
   dIndexX d ix _len = OT.index d ix
@@ -486,6 +491,7 @@ instance HasRanks Float where
   dFrom1X d = OT.fromVector [V.length d] d
   dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
   dFromSX = Data.Array.Convert.convert
+  dKonstS = OS.constant
   dAppendS = OS.append
   dSliceS (_ :: Proxy i) (_ :: Proxy n) = OS.slice @'[ '(i, n) ]
   dIndexS d proxyIx = OS.index d (fromInteger $ natVal proxyIx)

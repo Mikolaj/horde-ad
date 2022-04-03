@@ -374,6 +374,9 @@ reshape2 cols (D u u') = D (HM.reshape cols u) (dReshape2 cols u')
 
 -- Warning: not tested nor benchmarked.
 
+konstX :: IsScalar r => DualNumber r -> OT.ShapeL -> DualNumber (TensorX r)
+konstX (D u u') sh = D (OT.constant sh u) (dKonstX u' sh)
+
 appendX :: IsScalar r
         => DualNumber (TensorX r) -> DualNumber (TensorX r)
         -> DualNumber (TensorX r)
@@ -439,6 +442,10 @@ fromSX (D u u') = D (Data.Array.Convert.convert u) (dFromSX u')
 -- * Non-monadic operations resulting in an arbitrary fully typed Shaped tensor
 
 -- Warning: not tested nor benchmarked.
+
+konstS :: (OS.Shape sh, IsScalarS sh r)
+       => DualNumber r -> DualNumber (TensorS sh r)
+konstS (D u u') = D (OS.constant u) (dKonstS u')
 
 appendS :: ( OS.Shape sh, KnownNat m, KnownNat n, IsScalarS (m ': sh) r
            , IsScalarS (n ': sh) r, IsScalarS ((m + n) ': sh) r )

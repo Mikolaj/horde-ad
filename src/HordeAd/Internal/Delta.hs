@@ -170,6 +170,7 @@ data DeltaX r =
   | AddX (DeltaX r) (DeltaX r)
   | VarX (DeltaId (OT.Array r))
 
+  | KonstX (Delta0 r) OT.ShapeL  -- ^ size; needed only for forward derivative
   | AppendX (DeltaX r) Int (DeltaX r)
       -- ^ Append two arrays along the outermost dimension.
       -- All dimensions, except the outermost, must be the same.
@@ -202,6 +203,7 @@ data DeltaS :: [Nat] -> Type -> Type where
   AddS :: DeltaS sh r -> DeltaS sh r -> DeltaS sh r
   VarS :: DeltaId (OS.Array sh r) -> DeltaS sh r
 
+  KonstS :: Delta0 r -> DeltaS sh r
   AppendS :: (OS.Shape sh, KnownNat m, KnownNat n)
           => DeltaS (m ': sh) r -> DeltaS (n ': sh) r
           -> DeltaS ((m + n) ': sh) r
@@ -519,6 +521,7 @@ buildFinMaps st deltaTopLevel = do
         AddX d e -> evalX r d >> evalX r e
         VarX (DeltaId i) -> VM.modify finMapX (addToArray r) i
 
+        KonstX d _sz -> mapM_ (`eval0` d) $ OT.toList r
         AppendX d k e -> case OT.shapeL r of
           n : _ -> evalX (OT.slice [(0, k)] r) d
                    >> evalX (OT.slice [(k, n - k)] r) e
@@ -556,6 +559,7 @@ buildFinMaps st deltaTopLevel = do
         AddS d e -> evalS r d >> evalS r e
         VarS (DeltaId i) -> VM.modify finMapX (addToArrayS r) i
 
+        KonstS d -> mapM_ (`eval0` d) $ OS.toList r
         AppendS (d :: DeltaS (k ': rest) r) (e :: DeltaS (l ': rest) r) ->
           evalS (OS.slice @'[ '(0, k) ] r) d
           >> evalS (OS.slice @'[ '(k, l) ] r) e
@@ -704,6 +708,7 @@ evalBindingsForward st deltaTopLevel
         AddX d e -> evalX parameters d + evalX parameters e
         VarX (DeltaId i) -> paramsX V.! i
 
+        KonstX d sz -> OT.constant sz $ eval0 parameters d
         AppendX d _k e -> evalX parameters d `OT.append` evalX parameters e
         SliceX i n d _len -> OT.slice [(i, n)] $ evalX parameters d
         IndexX d ix _len -> OT.index (evalX parameters d) ix
@@ -727,6 +732,7 @@ evalBindingsForward st deltaTopLevel
         AddS d e -> evalS parameters d + evalS parameters e
         VarS (DeltaId i) -> Data.Array.Convert.convert $ paramsX V.! i
 
+        KonstS d -> OS.constant $ eval0 parameters d
         AppendS d e -> evalS parameters d `OS.append` evalS parameters e
         SliceS (_ :: Proxy i) (_ :: Proxy n) d ->
           OS.slice @'[ '(i, n) ] $ evalS parameters d
