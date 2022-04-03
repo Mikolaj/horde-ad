@@ -490,6 +490,17 @@ mapS :: forall k sh1 sh r. ( KnownNat k, OS.Shape sh1, OS.Shape sh
      -> DualNumber (TensorS (k : sh) r)
 mapS f = ravelFromListS . map f . unravelToListS
 
+mapMS :: forall k sh1 sh r m. ( Monad m, KnownNat k, OS.Shape sh1, OS.Shape sh
+                              , IsScalarS sh1 r, IsScalarS (k : sh1) r
+                              , IsScalarS sh r, IsScalarS (k : sh) r )
+      => (DualNumber (TensorS sh1 r) -> m (DualNumber (TensorS sh r)))
+      -> DualNumber (TensorS (k : sh1) r)
+      -> m (DualNumber (TensorS (k : sh) r))
+mapMS f d = do
+  let ld = unravelToListS d
+  ld2 <- mapM f ld
+  return $! ravelFromListS ld2
+
 zipWithS :: forall k sh1 sh2 sh r.
             ( KnownNat k, OS.Shape sh1, OS.Shape sh2, OS.Shape sh
             , IsScalarS sh1 r, IsScalarS (k : sh1) r
@@ -818,3 +829,23 @@ maxPool2 ksize stride m@(D u _) = do
         in foldr getAreaAtRow (seq1 V.empty) [r0 .. r0 + ksize - 1]
       mins = map (maximum0 . getArea) resultCoords
   returnLet $ reshape2 colsOut $ seq1 $ V.fromList mins
+
+maxPool24 :: forall r m n_batches channels
+             in_height in_width out_height out_width.
+             ( DualMonad r m, KnownNat n_batches, KnownNat channels
+             , KnownNat in_height, KnownNat in_width
+             , KnownNat out_height, KnownNat out_width
+             , IsScalarS '[ n_batches, channels, in_height, in_width ] r
+             , IsScalarS '[ n_batches, channels, out_height, out_width ] r
+             , IsScalarS '[ channels, in_height, in_width ] r
+             , IsScalarS '[ channels, out_height, out_width ] r
+             , IsScalarS '[ in_height, in_width ] r
+             , IsScalarS '[ out_height, out_width ] r )
+          => Int -> Int
+          -> DualNumber (TensorS '[ n_batches, channels
+                                  , in_height, in_width ] r)
+          -> m (DualNumber (TensorS '[ n_batches, channels
+                                     , out_height, out_width ] r))
+maxPool24 ksize stride d = do
+  res <- mapMS (mapMS (fmap from2S . maxPool2 ksize stride . fromS2)) d
+  returnLet res
