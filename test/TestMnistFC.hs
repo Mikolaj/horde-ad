@@ -231,7 +231,7 @@ mnistTestCase2L
   -> TestTree
 mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                 gamma expected =
-  let ((nParams0, nParams1, nParams2), totalParams, range, parameters0) =
+  let ((nParams0, nParams1, nParams2, _), totalParams, range, parameters0) =
         initializerFixed 44 0.5 (lenMnistFcnn2 widthHidden widthHidden2)
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
@@ -290,7 +290,7 @@ mnistTestCase2T
 mnistTestCase2T reallyWriteFile
                 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                 gamma expected =
-  let ((nParams0, nParams1, nParams2), totalParams, range, !parameters0) =
+  let ((nParams0, nParams1, nParams2, _), totalParams, range, !parameters0) =
         initializerFixed 44 0.5 (lenMnistFcnn2 widthHidden widthHidden2)
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
@@ -359,7 +359,7 @@ mnistTestCase2D reallyWriteFile miniBatchSize decay
                 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                 gamma0 expected =
   let np = lenMnistFcnn2 widthHidden widthHidden2
-      ((nParams0, nParams1, nParams2), totalParams, range, !parameters0) =
+      ((nParams0, nParams1, nParams2, _), totalParams, range, !parameters0) =
         initializerFixed 44 0.5 np
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
@@ -433,7 +433,7 @@ mnistTestCase2F reallyWriteFile miniBatchSize decay
                 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                 gamma0 expected =
   let np = lenMnistFcnn2 widthHidden widthHidden2
-      ((nParams0, nParams1, nParams2), totalParams, range, !parameters0) =
+      ((nParams0, nParams1, nParams2, _), totalParams, range, !parameters0) =
         initializerFixed 44 0.5 np
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
@@ -491,7 +491,7 @@ mnistTestCase2F reallyWriteFile miniBatchSize decay
 dumbMnistTests :: TestTree
 dumbMnistTests = testGroup "Dumb MNIST tests"
   [ testCase "1pretty-print in grey 3 2" $ do
-      let (nParams0, lParams1, lParams2) = lenMnistFcnn2 4 3
+      let (nParams0, lParams1, lParams2, _) = lenMnistFcnn2 4 3
           vParams1 = V.fromList lParams1
           vParams2 = V.fromList lParams2
           params0 = V.replicate nParams0 (1 :: Float)
@@ -505,7 +505,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       -- printf "%s" output
       length output @?= 13348
   , testCase "2pretty-print in grey 3 2 fused" $ do
-      let (nParams0, lParams1, lParams2) = lenMnistFcnn2 4 3
+      let (nParams0, lParams1, lParams2, _) = lenMnistFcnn2 4 3
           vParams1 = V.fromList lParams1
           vParams2 = V.fromList lParams2
           params0 = V.replicate nParams0 (1 :: Float)
@@ -563,7 +563,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       (1 - testMnist1 @(Delta0 Double) 300 100 testData (params0, params1))
         @?= 0.902
   , testCase "testMnist2LL on 0.1 params0 300 100 width 10k testset" $ do
-      let (nParams0, lParams1, lParams2) = lenMnistFcnn2 300 100
+      let (nParams0, lParams1, lParams2, _) = lenMnistFcnn2 300 100
           vParams1 = V.fromList lParams1
           vParams2 = V.fromList lParams2
           params0 = V.replicate nParams0 0.1
@@ -585,7 +585,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             mnistData :: MnistData Double
             mnistData = (glyph, label)
             nParams0 = lenMnist0 widthHidden widthHidden2
-            paramShape = (nParams0, [], [])
+            paramShape = (nParams0, [], [], [])
             (_, _, _, parameters) = initializerFixed seed range paramShape
             (_, _, _, ds@(ds0, ds1, ds2, dsX)) =
               initializerFixed seedDs rangeDs paramShape
@@ -621,7 +621,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             mnistData = (glyph, label)
             nParams0 = lenMnist1 widthHidden widthHidden2
             nParams1 = lenVectorsMnist1 widthHidden widthHidden2
-            paramShape = (nParams0, V.toList nParams1, [])
+            paramShape = (nParams0, V.toList nParams1, [], [])
             (_, _, _, parameters) = initializerFixed seed range paramShape
             (_, _, _, ds@(ds0, ds1, ds2, dsX)) =
               initializerFixed seedDs rangeDs paramShape

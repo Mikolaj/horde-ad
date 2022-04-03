@@ -8,6 +8,7 @@ module HordeAd.Core.OutdatedOptimizer where
 import Prelude
 
 import           Control.Monad (foldM)
+import qualified Data.Array.DynamicS as OT
 import           Data.Coerce (coerce)
 import qualified Data.Vector.Generic as V
 import           Unsafe.Coerce (unsafeCoerce)
@@ -45,7 +46,7 @@ sgdBatchForward
       -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
   -> [a]  -- ^ training data
   -> Domains Double  -- ^ initial parameters
-  -> (Int, [Int], [(Int, Int)])
+  -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
   -> (Domains Double, Double)
 sgdBatchForward seed0 batchSize gamma f trainingData parameters0 nParameters =
   go seed0 trainingData parameters0 0
@@ -87,7 +88,7 @@ sgdBatchFastForward
       -> DualMonadForward Double (DualNumber Double))
   -> [a]  -- ^ training data
   -> Domains Double  -- ^ initial parameters
-  -> (Int, [Int], [(Int, Int)])
+  -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
   -> (Domains Double, Double)
 sgdBatchFastForward seed0 batchSize gamma f trainingData
                     parameters0 nParameters =

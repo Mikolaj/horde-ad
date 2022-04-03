@@ -4,6 +4,7 @@ module TestMnistRNN (testTrees, shortTestForCITrees) where
 import Prelude
 
 import           Control.Monad (foldM)
+import qualified Data.Array.DynamicS as OT
 import           Data.List (foldl', unfoldr)
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Vector)
@@ -127,12 +128,12 @@ sgdTestCase :: String
             -> (a
                 -> DualNumberVariables (Delta0 Double)
                 -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
-            -> (Int, [Int], [(Int, Int)])
+            -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
             -> IO [a]
             -> Double
             -> TestTree
 sgdTestCase prefix f nParameters trainDataIO expected =
-  let ((nParams0, nParams1, nParams2), totalParams, range, parameters0) =
+  let ((nParams0, nParams1, nParams2, _), totalParams, range, parameters0) =
         initializerFixed 44 0.05 nParameters
       name = prefix ++ " "
              ++ unwords [ show nParams0, show nParams1, show nParams2
@@ -146,12 +147,12 @@ sgdTestCaseAlt :: String
             -> (a
                 -> DualNumberVariables (Delta0 Double)
                 -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
-            -> (Int, [Int], [(Int, Int)])
+            -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
             -> IO [a]
             -> [Double]
             -> TestTree
 sgdTestCaseAlt prefix f nParameters trainDataIO expected =
-  let ((nParams0, nParams1, nParams2), totalParams, range, parameters0) =
+  let ((nParams0, nParams1, nParams2, _), totalParams, range, parameters0) =
         initializerFixed 44 0.05 nParameters
       name = prefix ++ " "
              ++ unwords [ show nParams0, show nParams1, show nParams2
@@ -198,12 +199,12 @@ feedbackTestCase :: String
                  -> (a
                      -> DualNumberVariables (Delta0 Double)
                      -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
-                 -> (Int, [Int], [(Int, Int)])
+                 -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
                  -> [a]
                  -> [Double]
                  -> TestTree
 feedbackTestCase prefix fp f nParameters trainData expected =
-  let ((nParams0, nParams1, nParams2), totalParams, range, parameters0) =
+  let ((nParams0, nParams1, nParams2, _), totalParams, range, parameters0) =
         initializerFixed 44 0.05 nParameters
       name = prefix ++ " "
              ++ unwords [ show nParams0, show nParams1, show nParams2
@@ -281,24 +282,24 @@ ar2SinLoss (xs, target) variables = do
 
 sinRNNTests :: TestTree
 sinRNNTests = testGroup "Sine RNN tests"
-  [ sgdTestCase "train" nnSinRNNLoss (1, [30, 30], [(30, 1), (30, 30)])
+  [ sgdTestCase "train" nnSinRNNLoss (1, [30, 30], [(30, 1), (30, 30)], [])
                 (return $ take 30000 samples) 5.060827754123346e-5
   , feedbackTestCase "feedback" fcfcrnn nnSinRNNLoss
-                     (1, [30, 30], [(30, 1), (30, 30)])
+                     (1, [30, 30], [(30, 1), (30, 30)], [])
                      (take 10000 samples)
                      [-0.9980267284282716,-0.9655322144631203,-0.8919588317267176,-0.7773331580548076,-0.6212249872512189,-0.4246885094957385,-0.19280278430361192,6.316924614971235e-2,0.3255160857644734,0.5731149496491759,0.7872840563791541,0.957217059407527,1.0815006200684472,1.1654656874016613,1.2170717188563214,1.2437913143303263,1.251142657837598,1.2423738174804864,1.2186583377053681,1.1794148708577938,1.1226117988569018,1.0450711676413071,0.9428743310020188,0.8120257428038534,0.6495453130357101,0.45507653540664667,0.23281831228915612,-6.935736916677385e-3,-0.24789484923780786,-0.4705527193222155]
-  , sgdTestCase "trainVV" nnSinRNNLossV (1, replicate 33 30, [])
+  , sgdTestCase "trainVV" nnSinRNNLossV (1, replicate 33 30, [], [])
                 (return $ take 30000 samples) 4.6511403967229306e-5
       -- different random initial paramaters produce a worse result;
       -- matrix implementation faster, because the matrices still fit in cache
   , feedbackTestCase "feedbackVV" fcfcrnnV nnSinRNNLossV
-                     (1, replicate 33 30, [])
+                     (1, replicate 33 30, [], [])
                      (take 10000 samples)
                      [-0.9980267284282716,-0.9660899403337656,-0.8930568599923028,-0.7791304201898077,-0.6245654477568863,-0.4314435277698684,-0.2058673183484546,4.0423225394292085e-2,0.29029630688547203,0.5241984159992963,0.7250013011527577,0.8820730400055012,0.9922277361823716,1.057620382863504,1.08252746840241,1.070784986731554,1.0245016946328942,0.9438848015250431,0.827868146535437,0.6753691437632174,0.48708347071773117,0.26756701680655437,2.6913747557207532e-2,-0.21912614372802072,-0.45154893423928943,-0.6525638736434227,-0.8098403108946983,-0.9180866488182939,-0.9775459850131992,-0.9910399864230198]
-  , sgdTestCase "trainAR" ar2SinLoss (3, [], [])
+  , sgdTestCase "trainAR" ar2SinLoss (3, [], [], [])
                 (return $ take 30000 samples) 6.327978161031336e-23
   , feedbackTestCase "feedbackAR" ar2Sin ar2SinLoss
-                     (3, [], [])
+                     (3, [], [], [])
                      (take 10000 samples)
                      [-0.9980267284282716,-0.9510565162972417,-0.8443279255081759,-0.6845471059406962,-0.48175367412103653,-0.24868988719256901,-3.673766846290505e-11,0.24868988711894977,0.4817536740469978,0.6845471058659982,0.8443279254326351,0.9510565162207472,0.9980267283507953,0.9822872506502898,0.9048270523889208,0.7705132427021685,0.5877852522243431,0.3681245526237731,0.12533323351198067,-0.1253332336071494,-0.36812455271766376,-0.5877852523157643,-0.7705132427900961,-0.9048270524725681,-0.9822872507291605,-0.9980267284247174,-0.9510565162898851,-0.844327925497479,-0.6845471059273313,-0.48175367410584324]
   ]
@@ -498,21 +499,23 @@ testMnistRNNV width inputs parameters =
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
 
-lenMnistRNNL :: Int -> Int -> (Int, [Int], [(Int, Int)])
+lenMnistRNNL :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
 lenMnistRNNL width nLayers =
   ( 0
   , [width, 10] ++ replicate (nLayers - 1) width
   , [(width, 28), (width, width), (10, width)]
     ++ concat (replicate (nLayers - 1) [(width, width), (width, width)])
+  , []
   )
 
-lenMnistRNNV :: Int -> Int -> (Int, [Int], [(Int, Int)])
+lenMnistRNNV :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
 lenMnistRNNV width nLayers =
   ( 0
   , replicate width 28 ++ replicate width width ++ [width]
     ++ replicate 10 width ++ [10]
     ++ concat (replicate (nLayers - 1)
                 (replicate width width ++ replicate width width ++ [width]))
+  , []
   , []
   )
 
@@ -525,14 +528,14 @@ mnistTestCaseRNN
       -> DualNumberVariables (Delta0 Double)
       -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
   -> (Int -> [([Vector Double], Vector Double)] -> Domains (Delta0 Double) -> Double)
-  -> (Int -> Int -> (Int, [Int], [(Int, Int)]))
+  -> (Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
   -> Int
   -> Int
   -> Double
   -> TestTree
 mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
                  expected =
-  let ((nParams0, nParams1, nParams2), totalParams, range, parameters0) =
+  let ((nParams0, nParams1, nParams2, _), totalParams, range, parameters0) =
         initializerFixed 44 0.2 (flen width nLayers)
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
@@ -699,14 +702,14 @@ mnistTestCaseRNNB
       -> DualNumberVariables (Delta0 Double)
       -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
   -> (Int -> [([Vector Double], Vector Double)] -> Domains (Delta0 Double) -> Double)
-  -> (Int -> Int -> (Int, [Int], [(Int, Int)]))
+  -> (Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
   -> Int
   -> Int
   -> Double
   -> TestTree
 mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
                   expected =
-  let ((nParams0, nParams1, nParams2), totalParams, range, parameters0) =
+  let ((nParams0, nParams1, nParams2, _), totalParams, range, parameters0) =
         initializerFixed 44 0.2 (flen width nLayers)
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches

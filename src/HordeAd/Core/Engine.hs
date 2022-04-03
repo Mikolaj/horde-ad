@@ -15,6 +15,7 @@ module HordeAd.Core.Engine
 import Prelude
 
 import           Control.Monad.Trans.State.Strict
+import qualified Data.Array.DynamicS as OT
 import           Data.Functor.Identity
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -216,9 +217,6 @@ generateDeltaVars (params0, params1, params2, paramsX) =
       !vX = vVar paramsX
   in (v0, v1, v2, vX)
 
--- TODO: extend to tensors if it turns out we use them alongside
--- matrices and vectors, not instead of them.
---
 -- | Initialize parameters using a uniform distribution with a fixed range
 -- taken from an argument.
 --
@@ -229,11 +227,12 @@ generateDeltaVars (params0, params1, params2, paramsX) =
 -- A rule of thumb range for weights is @sqrt(6 / (F_in + F_out)@,
 -- where @F_in + F_out@ is the sum of inputs and outputs of the largest level.
 -- See https://github.com/pytorch/pytorch/issues/15314 and their newer code.
-initializerFixed :: Int -> Double -> (Int, [Int], [(Int, Int)])
-                 -> ((Int, Int, Int), Int, Double, Domains Double)
-initializerFixed seed range (nParams0, lParams1, lParams2) =
+initializerFixed :: Int -> Double -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+                 -> ((Int, Int, Int, Int), Int, Double, Domains Double)
+initializerFixed seed range (nParams0, lParams1, lParams2, lParamsX) =
   let vParams1 = V.fromList lParams1
       vParams2 = V.fromList lParams2
+      vParamsX = V.fromList lParamsX
       createRandomVector n seedV =
         HM.scale (2 * range)
         $ HM.randomVector seedV HM.Uniform n - HM.scalar 0.5
@@ -244,10 +243,16 @@ initializerFixed seed range (nParams0, lParams1, lParams2) =
         V.imap (\i (rows, cols) ->
                  HM.reshape cols
                  $ createRandomVector (rows * cols) (seed + rows + i)) vParams2
+      paramsXInit =
+        V.imap (\i sh ->
+                 let sz = product sh
+                 in OT.fromVector sh
+                    $ createRandomVector sz (seed + sz + i)) vParamsX
       totalParams = nParams0
                     + V.sum vParams1
                     + V.sum (V.map (uncurry (*)) vParams2)
-  in ( (nParams0, V.length vParams1, V.length vParams2)
+                    + V.sum (V.map product vParamsX)
+  in ( (nParams0, V.length vParams1, V.length vParams2, V.length vParamsX)
      , totalParams
      , range
-     , (params0Init, params1Init, params2Init, V.empty) )
+     , (params0Init, params1Init, params2Init, paramsXInit) )

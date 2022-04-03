@@ -130,7 +130,7 @@ mnistTrainBench2L :: String -> Int -> [MnistData Double] -> Int -> Int
                   -> Double
                   -> Benchmark
 mnistTrainBench2L extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
-  let ((nParams0, nParams1, nParams2), totalParams, _reach, parameters0) =
+  let ((nParams0, nParams1, nParams2, _), totalParams, _reach, parameters0) =
         initializerFixed 33 0.5 (lenMnistFcnn2 widthHidden widthHidden2)
       -- Using the fused version to benchmark against the manual gradient
       -- from backprop that uses it at least in its forward pass,
@@ -147,7 +147,7 @@ mnistTrainBench2L extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
 mnistTestBench2L :: String -> Int -> [MnistData Double] -> Int -> Int
                  -> Benchmark
 mnistTestBench2L extraPrefix chunkLength xs widthHidden widthHidden2 = do
-  let ((nParams0, nParams1, nParams2), totalParams, _reach, parameters0) =
+  let ((nParams0, nParams1, nParams2, _), totalParams, _reach, parameters0) =
         initializerFixed 33 0.5 (lenMnistFcnn2 widthHidden widthHidden2)
       chunk = take chunkLength xs
       score c = testMnist2 @(Delta0 Double) c parameters0

@@ -9,6 +9,7 @@ module HordeAd.Tool.MnistFcnnMatrix where
 import Prelude
 
 import           Control.Exception (assert)
+import qualified Data.Array.DynamicS as OT
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 
@@ -18,13 +19,14 @@ import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors (DualNumberVariables, var1, var2)
 import HordeAd.Tool.MnistData
 
-lenMnistFcnn2 :: Int -> Int -> (Int, [Int], [(Int, Int)])
+lenMnistFcnn2 :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
 lenMnistFcnn2 widthHidden widthHidden2 =
   ( 0
   , [widthHidden, widthHidden2, sizeMnistLabel]
   , [ (widthHidden, sizeMnistGlyph)
     , (widthHidden2, widthHidden)
     , (sizeMnistLabel, widthHidden2) ]
+  , []
   )
 
 -- | Fully connected neural network for the MNIST digit classification task.

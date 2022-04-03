@@ -41,13 +41,14 @@ depth0 = 16
 num_hidden0 = 64
 final_image_size = 10  -- if size was not increased: 7, see below
 
-lenMnistCNN :: Int -> Int -> Int -> (Int, [Int], [(Int, Int)])
+lenMnistCNN :: Int -> Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
 lenMnistCNN final_image_sz depth num_hidden =
   ( depth + depth
   , [num_hidden, sizeMnistLabel]
   , replicate (depth + depth * depth) (patch_size, patch_size)
     ++ [(num_hidden, final_image_sz * final_image_sz * depth)]
     ++ [(sizeMnistLabel, num_hidden)]
+  , []
   )
 
 -- This is simple convolution with depth 1.
@@ -135,13 +136,15 @@ convMnistTestCaseCNN
   -> TestTree
 convMnistTestCaseCNN prefix epochs maxBatches trainWithLoss testLoss
                      final_image_sz widthHidden widthHidden2 gamma expected =
-  let ((nParams0, nParams1, nParams2), totalParams, range, parameters0) =
+  let ( (nParams0, nParams1, nParams2, nParamsX)
+       , totalParams, range, parameters0 ) =
         initializerFixed 44 0.05
         (lenMnistCNN final_image_sz widthHidden widthHidden2)
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
                         , show nParams0, show nParams1, show nParams2
+                        , show nParamsX
                         , show totalParams, show gamma, show range]
   in testCase name $ do
        trainData <- loadMnistData2 trainGlyphsPath trainLabelsPath
