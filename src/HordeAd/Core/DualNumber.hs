@@ -849,3 +849,9 @@ maxPool24 :: forall r m n_batches channels
 maxPool24 ksize stride d = do
   res <- mapMS (mapMS (fmap from2S . maxPool2 ksize stride . fromS2)) d
   returnLet res
+
+reluActS :: (DualMonad r m, OS.Shape sh, IsScalarS sh r)
+         => DualNumber (TensorS sh r) -> m (DualNumber (TensorS sh r))
+reluActS d@(D u _) = do
+  let oneIfGtZero = OS.mapA (\x -> if x > 0 then 1 else 0) u
+  returnLet $ scale oneIfGtZero d
