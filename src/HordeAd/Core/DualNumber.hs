@@ -399,6 +399,14 @@ ravelFromListX ld =
         [] -> []
   in D (OT.ravel $ OTB.fromList sh lu) (dRavelFromListX lu')
 
+unravelToListX :: IsScalar r
+               => DualNumber (TensorX r) -> [DualNumber (TensorX r)]
+unravelToListX (D v v') = case OT.shapeL v of
+  k : _ ->
+    let g ix p = D p (dIndexX v' ix k)
+    in imap g $ OTB.toList $ OT.unravel v
+  [] -> error "unravelToListX: wrong tensor dimensions"  -- catch early
+
 mapX :: IsScalar r
      => (DualNumber (TensorX r) -> DualNumber (TensorX r))
      -> DualNumber (TensorX r)
@@ -471,6 +479,17 @@ ravelFromListS :: ( KnownNat k, OS.Shape rest
 ravelFromListS ld =
   let (lu, lu') = unzip $ map (\(D u u') -> (u, u')) ld
   in D (OS.ravel $ OSB.fromList lu) (dRavelFromListS lu')
+
+unravelToListS :: forall k rest r.
+                  ( KnownNat k, OS.Shape rest
+                  , IsScalarS rest r, IsScalarS (k : rest) r )
+               => DualNumber (TensorS (k : rest) r)
+               -> [DualNumber (TensorS rest r)]
+unravelToListS (D v v') =
+  -- @dIndexS@ is rigid, with type-level bound-checking, so we have to switch
+  -- to @dIndexX@ for this function.
+  let g ix p = D p (dFromXS $ dIndexX (dFromSX v') ix (valueOf @k))
+  in imap g $ OSB.toList $ OS.unravel v
 
 mapS :: forall k sh1 sh r. ( KnownNat k, OS.Shape sh1, OS.Shape sh
                            , IsScalarS sh1 r, IsScalarS (k : sh1) r
@@ -713,6 +732,72 @@ conv2' :: IsScalar r
        => DualNumber (Tensor2 r) -> DualNumber (Tensor2 r)
        -> DualNumber (Tensor2 r)
 conv2' (D u u') (D v v') = D (HM.conv2 u v) (dAdd (dConv2 u v') (dConv2 v u'))
+
+conv2S :: forall r filter_height_1 filter_width_1 out_height out_width.
+          ( KnownNat filter_height_1, KnownNat filter_width_1
+          , KnownNat out_height, KnownNat out_width
+          , IsScalarS '[ out_height + filter_height_1
+                       , out_width + filter_width_1 ] r
+          , IsScalarS '[filter_height_1 + 1, filter_width_1 + 1] r
+          , IsScalarS '[out_height, out_width] r )
+       => DualNumber (TensorS '[ out_height + filter_height_1
+                               , out_width + filter_width_1 ] r)
+       -> DualNumber (TensorS '[filter_height_1 + 1, filter_width_1 + 1] r)
+       -> DualNumber (TensorS '[out_height, out_width] r)
+conv2S x ker = from2S $ conv2' (fromS2 x) (fromS2 ker)
+
+-- Convolution of many matrices at once. The names of dimensions are from
+-- https://www.tensorflow.org/api_docs/python/tf/nn/conv2d
+conv24 :: forall r n_batches in_channels out_channels
+                 filter_height_1 filter_width_1 out_height out_width.
+          ( KnownNat n_batches, KnownNat in_channels, KnownNat out_channels
+          , KnownNat filter_height_1, KnownNat filter_width_1
+          , KnownNat out_height, KnownNat out_width
+          , IsScalarS '[ n_batches
+                       , in_channels
+                       , out_height + filter_height_1
+                       , out_width + filter_width_1 ] r
+          , IsScalarS '[ out_channels, in_channels
+                       , filter_height_1 + 1, filter_width_1 + 1 ] r
+          , IsScalarS '[ n_batches
+                       , out_channels, out_height, out_width ] r
+          , IsScalarS '[out_channels, out_height, out_width] r
+          , IsScalarS '[ in_channels
+                       , out_height + filter_height_1
+                       , out_width + filter_width_1 ] r
+          , IsScalarS '[ in_channels
+                       , filter_height_1 + 1, filter_width_1 + 1 ] r
+          , IsScalarS '[out_height, out_width] r
+          , IsScalarS '[in_channels, out_height, out_width] r
+          , IsScalarS '[filter_height_1 + 1, filter_width_1 + 1] r
+          , IsScalarS '[ out_height + filter_height_1
+                       , out_width + filter_width_1 ] r )
+       => DualNumber (TensorS '[ n_batches
+                               , in_channels
+                               , out_height + filter_height_1
+                               , out_width + filter_width_1 ] r)
+       -> DualNumber (TensorS '[ out_channels, in_channels
+                               , filter_height_1 + 1, filter_width_1 + 1 ] r)
+       -> DualNumber (TensorS '[ n_batches
+                               , out_channels, out_height, out_width ] r)
+conv24 d e = mapS conv23 d where
+  conv23 :: DualNumber (TensorS '[ in_channels
+                                 , out_height + filter_height_1
+                                 , out_width + filter_width_1 ] r)
+         -> DualNumber (TensorS '[out_channels, out_height, out_width] r)
+  conv23 d1 = mapS (convFilters d1) e
+  convFilters
+    :: DualNumber (TensorS '[ in_channels
+                            , out_height + filter_height_1
+                            , out_width + filter_width_1 ] r)
+    -> DualNumber (TensorS '[ in_channels
+                            , filter_height_1 + 1, filter_width_1 + 1 ] r)
+    -> DualNumber (TensorS '[out_height, out_width] r)
+  convFilters d1 e1 = sumOutermost $ zipWithS conv2S d1 e1
+  sumOutermost :: DualNumber (TensorS '[in_channels, out_height, out_width] r)
+               -> DualNumber (TensorS '[out_height, out_width] r)
+  sumOutermost = sum . unravelToListS
+    -- slow; should go through Tensor2, or the Num instance should when possible
 
 -- A variant with limited padding, corresponding to SAME padding
 -- from Tensorflow. Data size does not change with this padding.
