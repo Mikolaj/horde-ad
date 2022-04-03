@@ -15,7 +15,7 @@ import qualified Data.Array.DynamicS as OT
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
-import           Data.List.Index (imap, izipWith)
+import           Data.List.Index (imap)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -411,24 +411,15 @@ mapX :: IsScalar r
      => (DualNumber (TensorX r) -> DualNumber (TensorX r))
      -> DualNumber (TensorX r)
      -> DualNumber (TensorX r)
-mapX f (D v v') = case OT.shapeL v of
-  k : _ ->
-    let g ix p = f $ D p (dIndexX v' ix k)
-        ds = imap g $ OTB.toList $ OT.unravel v
-    in ravelFromListX ds
-  [] -> error "mapX: wrong tensor dimensions"  -- catch corruption early
+mapX f = ravelFromListX . map f . unravelToListX
 
 zipWithX :: IsScalar r
          => (DualNumber (TensorX r) -> DualNumber (TensorX r)
              -> DualNumber (TensorX r))
          -> DualNumber (TensorX r) -> DualNumber (TensorX r)
          -> DualNumber (TensorX r)
-zipWithX f (D u u') (D v v') = case (OT.shapeL u, OT.shapeL v) of
-  (k : _, k' : _) | k == k' ->
-    let g ix p q = f (D p (dIndexX u' ix k)) (D q (dIndexX v' ix k))
-        ds = izipWith g (OTB.toList $ OT.unravel u) (OTB.toList $ OT.unravel v)
-    in ravelFromListX ds
-  _ -> error "zipWithX: wrong tensor dimensions"  -- catch corruption early
+zipWithX f d e =
+  ravelFromListX $ zipWith f (unravelToListX d) (unravelToListX e)
 
 from0X :: IsScalar r => DualNumber r -> DualNumber (TensorX r)
 from0X (D u u') = D (OT.scalar u) (dFrom0X u')
@@ -497,12 +488,7 @@ mapS :: forall k sh1 sh r. ( KnownNat k, OS.Shape sh1, OS.Shape sh
      => (DualNumber (TensorS sh1 r) -> DualNumber (TensorS sh r))
      -> DualNumber (TensorS (k : sh1) r)
      -> DualNumber (TensorS (k : sh) r)
-mapS f (D v v') =
-  -- @dIndexS@ is rigid, with type-level bound-checking, so we have to switch
-  -- to @dIndexX@ for this function.
-  let g ix p = f $ D p (dFromXS $ dIndexX (dFromSX v') ix (valueOf @k))
-      ds = imap g $ OSB.toList $ OS.unravel v
-  in ravelFromListS ds
+mapS f = ravelFromListS . map f . unravelToListS
 
 zipWithS :: forall k sh1 sh2 sh r.
             ( KnownNat k, OS.Shape sh1, OS.Shape sh2, OS.Shape sh
@@ -514,11 +500,8 @@ zipWithS :: forall k sh1 sh2 sh r.
          -> DualNumber (TensorS (k : sh1) r)
          -> DualNumber (TensorS (k : sh2) r)
          -> DualNumber (TensorS (k : sh) r)
-zipWithS f (D u u') (D v v') =
-  let g ix p q = f (D p (dFromXS $ dIndexX (dFromSX u') ix (valueOf @k)))
-                   (D q (dFromXS $ dIndexX (dFromSX v') ix (valueOf @k)))
-      ds = izipWith g (OSB.toList $ OS.unravel u) (OSB.toList $ OS.unravel v)
-  in ravelFromListS ds
+zipWithS f d e =
+  ravelFromListS $ zipWith f (unravelToListS d) (unravelToListS e)
 
 from0S :: IsScalarS '[] r => DualNumber r -> DualNumber (TensorS '[] r)
 from0S (D u u') = D (OS.scalar u) (dFrom0S u')
