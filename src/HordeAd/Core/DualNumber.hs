@@ -741,11 +741,11 @@ conv2S :: forall r filter_height_1 filter_width_1 out_height out_width.
                        , out_width + filter_width_1 ] r
           , IsScalarS '[filter_height_1 + 1, filter_width_1 + 1] r
           , IsScalarS '[out_height, out_width] r )
-       => DualNumber (TensorS '[ out_height + filter_height_1
+       => DualNumber (TensorS '[filter_height_1 + 1, filter_width_1 + 1] r)
+       -> DualNumber (TensorS '[ out_height + filter_height_1
                                , out_width + filter_width_1 ] r)
-       -> DualNumber (TensorS '[filter_height_1 + 1, filter_width_1 + 1] r)
        -> DualNumber (TensorS '[out_height, out_width] r)
-conv2S x ker = from2S $ conv2' (fromS2 x) (fromS2 ker)
+conv2S ker x = from2S $ conv2' (fromS2 ker) (fromS2 x)
 
 -- Convolution of many matrices at once. The names of dimensions are from
 -- https://www.tensorflow.org/api_docs/python/tf/nn/conv2d
@@ -773,20 +773,20 @@ conv24 :: forall r n_batches in_channels out_channels
           , IsScalarS '[filter_height_1 + 1, filter_width_1 + 1] r
           , IsScalarS '[ out_height + filter_height_1
                        , out_width + filter_width_1 ] r )
-       => DualNumber (TensorS '[ n_batches
+       => DualNumber (TensorS '[ out_channels, in_channels
+                               , filter_height_1 + 1, filter_width_1 + 1 ] r)
+       -> DualNumber (TensorS '[ n_batches
                                , in_channels
                                , out_height + filter_height_1
                                , out_width + filter_width_1 ] r)
-       -> DualNumber (TensorS '[ out_channels, in_channels
-                               , filter_height_1 + 1, filter_width_1 + 1 ] r)
        -> DualNumber (TensorS '[ n_batches
                                , out_channels, out_height, out_width ] r)
-conv24 d e = mapS conv23 d where
+conv24 ker x = mapS conv23 x where
   conv23 :: DualNumber (TensorS '[ in_channels
                                  , out_height + filter_height_1
                                  , out_width + filter_width_1 ] r)
          -> DualNumber (TensorS '[out_channels, out_height, out_width] r)
-  conv23 d1 = mapS (convFilters d1) e
+  conv23 x1 = mapS (convFilters x1) ker
   convFilters
     :: DualNumber (TensorS '[ in_channels
                             , out_height + filter_height_1
@@ -794,7 +794,7 @@ conv24 d e = mapS conv23 d where
     -> DualNumber (TensorS '[ in_channels
                             , filter_height_1 + 1, filter_width_1 + 1 ] r)
     -> DualNumber (TensorS '[out_height, out_width] r)
-  convFilters d1 e1 = sumOutermost $ zipWithS conv2S d1 e1
+  convFilters x1 ker1 = sumOutermost $ zipWithS conv2S ker1 x1
   sumOutermost :: DualNumber (TensorS '[in_channels, out_height, out_width] r)
                -> DualNumber (TensorS '[out_height, out_width] r)
   sumOutermost = sum . unravelToListS
@@ -838,7 +838,7 @@ maxPool2 ksize stride m@(D u _) = do
   returnLet $ reshape2 colsOut $ seq1 $ V.fromList mins
 
 maxPool24 :: forall r m n_batches channels
-             in_height in_width out_height out_width.
+                    in_height in_width out_height out_width.
              ( DualMonad r m, KnownNat n_batches, KnownNat channels
              , KnownNat in_height, KnownNat in_width
              , KnownNat out_height, KnownNat out_width
