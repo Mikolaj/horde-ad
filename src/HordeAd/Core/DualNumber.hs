@@ -481,7 +481,8 @@ indexS :: forall ix k rest r.
 indexS (D u u') = D (OS.index u (valueOf @ix))
                     (dIndexS u' (Proxy :: Proxy ix))
 
-ravelFromListS :: (KnownNat k, IsScalarS rest r, IsScalarS (k : rest) r)
+ravelFromListS :: forall rest k r.
+                  (KnownNat k, IsScalarS rest r, IsScalarS (k : rest) r)
                => [DualNumber (TensorS rest r)]
                -> DualNumber (TensorS (k : rest) r)
 ravelFromListS ld =
@@ -746,69 +747,75 @@ conv2' :: IsScalar r
        -> DualNumber (Tensor2 r)
 conv2' (D u u') (D v v') = D (HM.conv2 u v) (dAdd (dConv2 u v') (dConv2 v u'))
 
-conv2S :: forall r filter_height_1 filter_width_1 out_height out_width.
+conv2S :: forall r filter_height_1 filter_width_1 in_height in_width.
           ( KnownNat filter_height_1, KnownNat filter_width_1
-          , KnownNat out_height, KnownNat out_width
-          , IsScalarS '[ out_height + filter_height_1
-                       , out_width + filter_width_1 ] r
+          , KnownNat in_height, KnownNat in_width
+          , IsScalarS '[ in_height + filter_height_1
+                       , in_width + filter_width_1 ] r
           , IsScalarS '[filter_height_1 + 1, filter_width_1 + 1] r
-          , IsScalarS '[out_height, out_width] r )
+          , IsScalarS '[in_height, in_width] r )
        => DualNumber (TensorS '[filter_height_1 + 1, filter_width_1 + 1] r)
-       -> DualNumber (TensorS '[ out_height + filter_height_1
-                               , out_width + filter_width_1 ] r)
-       -> DualNumber (TensorS '[out_height, out_width] r)
+       -> DualNumber (TensorS '[in_height, in_width] r)
+       -> DualNumber (TensorS '[ in_height + filter_height_1
+                               , in_width + filter_width_1 ] r)
 conv2S ker x = from2S $ conv2' (fromS2 ker) (fromS2 x)
 
 -- Convolution of many matrices at once. The names of dimensions are from
 -- https://www.tensorflow.org/api_docs/python/tf/nn/conv2d
-conv24 :: forall r n_batches in_channels out_channels
-                 filter_height_1 filter_width_1 out_height out_width.
+conv24 :: forall filter_height_1 filter_width_1
+                 out_channels in_height in_width n_batches in_channels r.
           ( KnownNat n_batches, KnownNat in_channels, KnownNat out_channels
           , KnownNat filter_height_1, KnownNat filter_width_1
-          , KnownNat out_height, KnownNat out_width
+          , KnownNat in_height, KnownNat in_width
           , IsScalarS '[ n_batches
                        , in_channels
-                       , out_height + filter_height_1
-                       , out_width + filter_width_1 ] r
+                       , in_height + filter_height_1
+                       , in_width + filter_width_1 ] r
           , IsScalarS '[ out_channels, in_channels
                        , filter_height_1 + 1, filter_width_1 + 1 ] r
-          , IsScalarS '[ n_batches
-                       , out_channels, out_height, out_width ] r
-          , IsScalarS '[out_channels, out_height, out_width] r
           , IsScalarS '[ in_channels
-                       , out_height + filter_height_1
-                       , out_width + filter_width_1 ] r
+                       , in_height + filter_height_1
+                       , in_width + filter_width_1 ] r
           , IsScalarS '[ in_channels
                        , filter_height_1 + 1, filter_width_1 + 1 ] r
-          , IsScalarS '[out_height, out_width] r
-          , IsScalarS '[in_channels, out_height, out_width] r
+          , IsScalarS '[in_height, in_width] r
+          , IsScalarS '[in_channels, in_height, in_width] r
           , IsScalarS '[filter_height_1 + 1, filter_width_1 + 1] r
-          , IsScalarS '[ out_height + filter_height_1
-                       , out_width + filter_width_1 ] r )
+          , IsScalarS '[ in_height + filter_height_1
+                       , in_width + filter_width_1 ] r
+          , IsScalarS '[ out_channels
+                       , in_height + filter_height_1
+                       , in_width + filter_width_1 ] r
+          , IsScalarS '[ n_batches, out_channels
+                       , in_height + filter_height_1
+                       , in_width + filter_width_1 ] r
+          , IsScalarS '[n_batches, in_channels, in_height, in_width] r
+          )
        => DualNumber (TensorS '[ out_channels, in_channels
                                , filter_height_1 + 1, filter_width_1 + 1 ] r)
-       -> DualNumber (TensorS '[ n_batches
-                               , in_channels
-                               , out_height + filter_height_1
-                               , out_width + filter_width_1 ] r)
-       -> DualNumber (TensorS '[ n_batches
-                               , out_channels, out_height, out_width ] r)
+       -> DualNumber (TensorS '[ n_batches, in_channels
+                               , in_height, in_width ] r)
+       -> DualNumber (TensorS '[ n_batches, out_channels
+                               , in_height + filter_height_1
+                               , in_width + filter_width_1 ] r)
 conv24 ker x = mapS conv23 x where
-  conv23 :: DualNumber (TensorS '[ in_channels
-                                 , out_height + filter_height_1
-                                 , out_width + filter_width_1 ] r)
-         -> DualNumber (TensorS '[out_channels, out_height, out_width] r)
+  conv23 :: DualNumber (TensorS '[in_channels, in_height, in_width] r)
+         -> DualNumber (TensorS '[ out_channels
+                                 , in_height + filter_height_1
+                                 , in_width + filter_width_1 ] r)
   conv23 x1 = mapS (convFilters x1) ker
   convFilters
-    :: DualNumber (TensorS '[ in_channels
-                            , out_height + filter_height_1
-                            , out_width + filter_width_1 ] r)
+    :: DualNumber (TensorS '[in_channels, in_height, in_width] r)
     -> DualNumber (TensorS '[ in_channels
                             , filter_height_1 + 1, filter_width_1 + 1 ] r)
-    -> DualNumber (TensorS '[out_height, out_width] r)
+    -> DualNumber (TensorS '[ in_height + filter_height_1
+                            , in_width + filter_width_1 ] r)
   convFilters x1 ker1 = sumOutermost $ zipWithS conv2S ker1 x1
-  sumOutermost :: DualNumber (TensorS '[in_channels, out_height, out_width] r)
-               -> DualNumber (TensorS '[out_height, out_width] r)
+  sumOutermost :: DualNumber (TensorS '[ in_channels
+                                       , in_height + filter_height_1
+                                       , in_width + filter_width_1 ] r)
+               -> DualNumber (TensorS '[ in_height + filter_height_1
+                            , in_width + filter_width_1 ] r)
   sumOutermost = sum . unravelToListS
     -- slow; should go through Tensor2, or the Num instance should when possible
 

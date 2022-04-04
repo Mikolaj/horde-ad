@@ -184,6 +184,7 @@ test-suite test
     build-depends:
         base
       , deepseq
+      , ghc-typelits-knownnat
       , hmatrix
       , horde-ad
       , orthotope
@@ -227,6 +228,7 @@ test-suite shortTestForCI
     build-depends:
         base
       , deepseq
+      , ghc-typelits-knownnat
       , hmatrix
       , horde-ad
       , orthotope

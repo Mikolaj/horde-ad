@@ -1,17 +1,21 @@
-{-# LANGUAGE AllowAmbiguousTypes, TypeFamilies #-}
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, TypeFamilies, TypeOperators #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 module TestMnistCNN (testTrees, shortTestForCITrees) where
 
 import Prelude
 
 import           Control.Monad (foldM)
 import qualified Data.Array.DynamicS as OT
+import           Data.Array.Internal (valueOf)
+import qualified Data.Array.ShapedS as OS
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Vector.Generic as V
+import           GHC.TypeLits (KnownNat, type (+))
 import qualified Numeric.LinearAlgebra as HM
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
-import           Test.Tasty.QuickCheck hiding (label, shuffle)
+import           Test.Tasty.QuickCheck hiding (label, scale, shuffle)
 import           Text.Printf
 
 import HordeAd
@@ -34,9 +38,9 @@ shortTestForCITrees = [ mnistCNNTestsShort
 -- only preserves size, while ours in @conv2@ increases it,
 -- not to put less weigth onto information from the outer rows and columns.
 
-patch_size, _batch_size, depth0, num_hidden0, final_image_size:: Int
+patch_size, batch_size, depth0, num_hidden0, final_image_size :: Int
 patch_size = 5
-_batch_size = 16
+batch_size = 16
 depth0 = 16
 num_hidden0 = 64
 final_image_size = 10  -- if size was not increased: 7, see below
@@ -327,6 +331,400 @@ convMnistTestCNNP _ depth inputs parameters =
      / fromIntegral (length inputs)
 {-# SPECIALIZE convMnistTestCNNP :: Proxy (Delta0 Double) -> Int -> [MnistData2 Double] -> Domains (Delta0 Double) -> Double #-}
 
+lenMnistCNNT :: Int -> Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+lenMnistCNNT final_image_sz depth num_hidden =
+  ( 0
+  , [num_hidden, sizeMnistLabel]
+  , [ (num_hidden, final_image_sz * final_image_sz * depth)
+    , (sizeMnistLabel, num_hidden) ]
+  , [ [depth, 1, patch_size, patch_size]
+    , [depth, depth, patch_size, patch_size]
+    , [depth], [depth] ]
+ )
+
+-- * A variant of @convMnistCNN@ with shaped tensors, including mini-batches..
+
+convMiddleMnistCNNT
+  :: forall filter_height_1 filter_width_1 out_channels
+            in_height in_width out_height out_width
+            n_batches in_channels r m.
+     ( DualMonad r m, KnownNat n_batches
+     , KnownNat in_channels, KnownNat out_channels
+     , KnownNat filter_height_1, KnownNat filter_width_1
+     , KnownNat in_height, KnownNat in_width
+     , KnownNat out_height, KnownNat out_width
+     , IsScalarS '[ n_batches, in_channels
+                  , in_height + filter_height_1
+                  , in_width + filter_width_1 ] r
+     , IsScalarS '[ n_batches, out_channels
+                  , in_height + filter_height_1
+                  , in_width + filter_width_1 ] r
+     , IsScalarS '[ out_channels
+                  , in_height + filter_height_1
+                  , in_width + filter_width_1 ] r
+     , IsScalarS '[ n_batches
+                  , out_channels, out_height, out_width ] r
+     , IsScalarS '[ out_channels, in_channels
+                  , filter_height_1 + 1, filter_width_1 + 1 ] r
+     , IsScalarS '[out_channels] r
+     , IsScalarS '[in_height, in_width] r
+     , IsScalarS '[ in_height + filter_height_1
+                  , in_width + filter_width_1 ] r
+     , IsScalarS '[out_height, out_width] r
+     , IsScalarS '[] r
+     , IsScalarS '[out_channels, out_height, out_width] r
+     , IsScalarS '[filter_height_1 + 1, filter_width_1 + 1] r
+     , IsScalarS '[in_channels, in_height, in_width] r
+     , IsScalarS '[in_channels, filter_height_1 + 1, filter_width_1 + 1] r
+     , IsScalarS '[ in_channels
+                  , in_height + filter_height_1, in_width + filter_width_1 ] r
+     , IsScalarS '[n_batches, in_channels, in_height, in_width] r
+     )
+  => DualNumberVariables r
+  -> DualNumber (TensorS '[ n_batches, in_channels
+                          , in_height, in_width ] r)
+  -> Int
+  -> m (DualNumber (TensorS '[ n_batches
+                             , out_channels, out_height, out_width ] r))
+convMiddleMnistCNNT variables x offset = do
+  let ker :: DualNumber (TensorS '[ out_channels, in_channels
+                                  , filter_height_1 + 1, filter_width_1 + 1 ] r)
+      ker = varS variables offset
+      yConv
+        :: DualNumber (TensorS '[ n_batches, out_channels
+                                , in_height + filter_height_1
+                                , in_width + filter_width_1 ] r)
+      yConv = conv24 @filter_height_1 @filter_width_1
+                     @out_channels @in_height @in_width
+                     ker x
+      bias :: DualNumber (TensorS '[out_channels] r)
+      bias = varS variables $ offset + 2
+      replicateBias
+        :: DualNumber (TensorS '[] r)
+           -> DualNumber (TensorS '[ in_height + filter_height_1
+                                   , in_width + filter_width_1 ] r)
+      replicateBias = konstS . fromS0
+      biasStretched
+        :: DualNumber (TensorS '[ n_batches, out_channels
+                                , in_height + filter_height_1
+                                , in_width + filter_width_1 ] r)
+      biasStretched =
+        ravelFromListS @'[ out_channels
+                         , in_height + filter_height_1
+                         , in_width + filter_width_1 ]
+        $ replicate (valueOf @n_batches)
+        $ mapS replicateBias bias
+        -- TODO: this is weakly typed; add and use replicateS instead
+  yRelu <- reluActS $ yConv + biasStretched
+  maxPool24 2 2 yRelu
+
+convMnistCNNT
+  :: forall filter_height_1 filter_width_1
+            in_height in_width out_height out_width out2_height out2_width
+            in_channels out_channels n_batches r m.
+     ( DualMonad r m, KnownNat n_batches, KnownNat out_channels
+     , KnownNat filter_height_1, KnownNat filter_width_1
+     , KnownNat in_height, KnownNat in_width
+     , KnownNat out_height, KnownNat out_width
+     , KnownNat out2_height, KnownNat out2_width
+     , in_channels ~ 1
+     , IsScalarS '[ n_batches
+                  , in_channels
+                  , in_height + filter_height_1
+                  , in_width + filter_width_1 ] r
+     , IsScalarS '[ n_batches
+                  , out_channels, out_height, out_width ] r
+     , IsScalarS '[ out_channels, in_channels
+                  , filter_height_1 + 1, filter_width_1 + 1 ] r
+     , IsScalarS '[out_channels] r
+     , IsScalarS '[in_height, in_width] r
+     , IsScalarS '[ in_height + filter_height_1
+                  , in_width + filter_width_1 ] r
+     , IsScalarS '[out_height, out_width] r
+     , IsScalarS '[] r
+     , IsScalarS '[out_channels, out_height, out_width] r
+     , IsScalarS '[filter_height_1 + 1, filter_width_1 + 1] r
+     , IsScalarS '[in_channels, in_height, in_width] r
+     , IsScalarS '[in_channels, filter_height_1 + 1, filter_width_1 + 1] r
+     , IsScalarS '[ in_channels
+                  , in_height + filter_height_1, in_width + filter_width_1 ] r
+     , IsScalarS '[n_batches, out_channels, out2_height, out2_width] r
+     , IsScalarS '[out2_height, out2_width] r
+     , IsScalarS '[out_channels, out2_height, out2_width] r
+     , IsScalarS '[ out_channels, out_channels
+                  , filter_height_1 + 1, filter_width_1 + 1 ] r
+     , IsScalarS '[ out_channels
+                  , filter_height_1 + 1
+                  , filter_width_1 + 1] r
+     , IsScalarS '[ n_batches, out_channels
+                  , in_height + filter_height_1
+                  , in_width + filter_width_1 ] r
+     , IsScalarS '[ out_channels
+                  , in_height + filter_height_1
+                  , in_width + filter_width_1 ] r
+     , IsScalarS '[n_batches, in_channels, in_height, in_width] r
+     , IsScalarS '[ out_channels
+                  , out_height + filter_height_1
+                  , out_width + filter_width_1 ] r
+     , IsScalarS '[ n_batches, out_channels
+                  , out_height + filter_height_1
+                  , out_width + filter_width_1 ] r
+     , IsScalarS '[ out_height + filter_height_1
+                  , out_width + filter_width_1 ] r
+     , IsScalarS '[ n_batches
+                  , OS.Size '[out_channels, out2_height, out2_width] ] r
+     , IsScalarS '[OS.Size '[out_channels, out2_height, out2_width]] r
+     )
+  => Primal (TensorS '[n_batches, in_channels, in_height, in_width] r)
+  -> DualNumberVariables r
+  -> m (DualNumber (Tensor2 r))
+convMnistCNNT x variables = do
+  t1 <- convMiddleMnistCNNT @filter_height_1 @filter_width_1 @out_channels
+                            @in_height @in_width @out_height @out_width
+                            @n_batches @in_channels
+                            variables (scalar x) 0
+  t2 <- convMiddleMnistCNNT @filter_height_1 @filter_width_1 @out_channels
+                            @out_height @out_width @out2_height @out2_width
+                            variables t1 1
+  let m1 = mapS reshapeS t2
+      m2 = fromS2 m1
+      -- From this point on I give up and move from shaped tensors
+      -- to untyped matrices and vectors. We need shaped matrix
+      -- multiplication, etc., to carry on with strict types there.
+      weigthsDense = var2 variables 0
+      biasesDense = var1 variables 0
+      denseLayer = weigthsDense <>! transpose2 m2
+                   + asColumn2 biasesDense batch_size
+  denseRelu <- reluAct2 denseLayer
+  let weigthsReadout = var2 variables 1
+      biasesReadout = var1 variables 1
+  returnLet $ weigthsReadout <>! denseRelu + asColumn2 biasesReadout batch_size
+
+convMnistLossCNNT
+  :: forall filter_height_1 filter_width_1
+            in_height in_width out_height out_width out2_height out2_width
+            in_channels out_channels n_batches r m.
+     ( DualMonad r m, Floating (Primal (Tensor2 r))
+{-     , KnownNat n_batches, KnownNat out_channels
+     , KnownNat filter_height_1, KnownNat filter_width_1
+     , KnownNat in_height, KnownNat in_width
+     , KnownNat out_height, KnownNat out_width
+     , KnownNat out2_height, KnownNat out2_width -}
+     , IsScalarS '[ n_batches
+                  , in_channels
+                  , in_height + filter_height_1
+                  , in_width + filter_width_1 ] r
+     , IsScalarS '[ n_batches
+                  , out_channels, out_height, out_width ] r
+     , IsScalarS '[ out_channels, in_channels
+                  , filter_height_1 + 1, filter_width_1 + 1 ] r
+     , IsScalarS '[out_channels] r
+     , IsScalarS '[in_height, in_width] r
+     , IsScalarS '[ in_height + filter_height_1
+                  , in_width + filter_width_1 ] r
+     , IsScalarS '[out_height, out_width] r
+     , IsScalarS '[] r
+     , IsScalarS '[out_channels, out_height, out_width] r
+     , IsScalarS '[filter_height_1 + 1, filter_width_1 + 1] r
+     , IsScalarS '[in_channels, in_height, in_width] r
+     , IsScalarS '[in_channels, filter_height_1 + 1, filter_width_1 + 1] r
+     , IsScalarS '[ in_channels
+                  , in_height + filter_height_1, in_width + filter_width_1 ] r
+     , IsScalarS '[n_batches, out_channels, out2_height, out2_width] r
+     , IsScalarS '[out2_height, out2_width] r
+     , IsScalarS '[out_channels, out2_height, out2_width] r
+     , IsScalarS '[ out_channels, out_channels
+                  , filter_height_1 + 1, filter_width_1 + 1 ] r
+     , IsScalarS '[ out_channels
+                  , filter_height_1 + 1
+                  , filter_width_1 + 1] r
+     , IsScalarS '[ n_batches, out_channels
+                  , in_height + filter_height_1
+                  , in_width + filter_width_1 ] r
+     , IsScalarS '[ out_channels
+                  , in_height + filter_height_1
+                  , in_width + filter_width_1 ] r
+     , IsScalarS '[n_batches, in_channels, in_height, in_width] r
+     , IsScalarS '[ out_channels
+                  , out_height + filter_height_1
+                  , out_width + filter_width_1 ] r
+     , IsScalarS '[ n_batches, out_channels
+                  , out_height + filter_height_1
+                  , out_width + filter_width_1 ] r
+     , IsScalarS '[ out_height + filter_height_1
+                  , out_width + filter_width_1 ] r
+     , IsScalarS '[ n_batches
+                  , OS.Size '[out_channels, out2_height, out2_width] ] r
+     , IsScalarS '[OS.Size '[out_channels, out2_height, out2_width]] r
+     , n_batches ~ 16
+     , out_channels ~ 16
+     , filter_height_1 ~ 4
+     , filter_width_1 ~ 4
+     , in_height ~ 28
+     , in_width ~ 28
+     , out_height ~ 16
+     , out_width ~ 16
+     , out2_height ~ 10
+     , out2_width ~ 10
+     , in_channels ~ 1
+     )
+  => [MnistData2 (Primal r)]
+  -> DualNumberVariables r
+  -> m (DualNumber r)
+convMnistLossCNNT lmnistData variables = do
+  let (lx, ltarget) = unzip lmnistData
+      tx :: Primal (TensorS '[n_batches, in_channels, in_height, in_width] r)
+      tx = OS.fromList $ concatMap (HM.toList . HM.flatten) lx
+  result <- convMnistCNNT @filter_height_1 @filter_width_1
+                          @in_height @in_width @out_height @out_width
+                          @out2_height @out2_width @in_channels @out_channels
+                          @n_batches
+                          tx variables
+  vec@(D u _) <- lossSoftMaxCrossEntropyL (HM.fromColumns ltarget) result
+  returnLet $ scale (recip $ fromIntegral $ V.length u) $ sumElements0 vec
+
+convMnistTestCNNT
+  :: forall filter_height_1 filter_width_1
+            in_height in_width out_height out_width out2_height out2_width
+            in_channels out_channels n_batches r.
+     ( IsScalarS '[ n_batches
+                  , in_channels
+                  , in_height + filter_height_1
+                  , in_width + filter_width_1 ] r
+     , IsScalarS '[ n_batches
+                  , out_channels, out_height, out_width ] r
+     , IsScalarS '[ out_channels, in_channels
+                  , filter_height_1 + 1, filter_width_1 + 1 ] r
+     , IsScalarS '[out_channels] r
+     , IsScalarS '[in_height, in_width] r
+     , IsScalarS '[ in_height + filter_height_1
+                  , in_width + filter_width_1 ] r
+     , IsScalarS '[out_height, out_width] r
+     , IsScalarS '[] r
+     , IsScalarS '[out_channels, out_height, out_width] r
+     , IsScalarS '[filter_height_1 + 1, filter_width_1 + 1] r
+     , IsScalarS '[in_channels, in_height, in_width] r
+     , IsScalarS '[in_channels, filter_height_1 + 1, filter_width_1 + 1] r
+     , IsScalarS '[ in_channels
+                  , in_height + filter_height_1, in_width + filter_width_1 ] r
+     , IsScalarS '[n_batches, out_channels, out2_height, out2_width] r
+     , IsScalarS '[out2_height, out2_width] r
+     , IsScalarS '[out_channels, out2_height, out2_width] r
+     , IsScalarS '[ out_channels, out_channels
+                  , filter_height_1 + 1, filter_width_1 + 1 ] r
+     , IsScalarS '[ out_channels
+                  , filter_height_1 + 1
+                  , filter_width_1 + 1] r
+     , IsScalarS '[ n_batches, out_channels
+                  , in_height + filter_height_1
+                  , in_width + filter_width_1 ] r
+     , IsScalarS '[ out_channels
+                  , in_height + filter_height_1
+                  , in_width + filter_width_1 ] r
+     , IsScalarS '[n_batches, in_channels, in_height, in_width] r
+     , IsScalarS '[ out_channels
+                  , out_height + filter_height_1
+                  , out_width + filter_width_1 ] r
+     , IsScalarS '[ n_batches, out_channels
+                  , out_height + filter_height_1
+                  , out_width + filter_width_1 ] r
+     , IsScalarS '[ out_height + filter_height_1
+                  , out_width + filter_width_1 ] r
+     , IsScalarS '[ n_batches
+                  , OS.Size '[out_channels, out2_height, out2_width] ] r
+     , IsScalarS '[OS.Size '[out_channels, out2_height, out2_width]] r
+     , n_batches ~ 1
+     , out_channels ~ 16
+     , filter_height_1 ~ 4
+     , filter_width_1 ~ 4
+     , in_height ~ 28
+     , in_width ~ 28
+     , out_height ~ 16
+     , out_width ~ 16
+     , out2_height ~ 10
+     , out2_width ~ 10
+     , in_channels ~ 1
+     )
+  => Proxy r -> [MnistData2 (Primal r)] -> Domains r -> Primal r
+convMnistTestCNNT _ inputs parameters =
+  let matchesLabels :: MnistData2 (Primal r) -> Bool
+      matchesLabels (glyph, label) =
+        let tx :: Primal (TensorS '[ n_batches, in_channels
+                                   , in_height, in_width ] r)
+            tx = OS.fromVector $ HM.flatten glyph
+            nn = convMnistCNNT
+                          @filter_height_1 @filter_width_1
+                          @in_height @in_width @out_height @out_width
+                          @out2_height @out2_width @in_channels @out_channels
+                          tx
+            value = HM.flatten $ primalValue @r nn parameters
+        in V.maxIndex value == V.maxIndex label
+  in fromIntegral (length (filter matchesLabels inputs))
+     / fromIntegral (length inputs)
+
+convMnistTestCaseCNNT
+  :: String
+  -> Int
+  -> Int
+  -> ([MnistData2 Double]
+      -> DualNumberVariables (Delta0 Double)
+      -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
+  -> (Proxy (Delta0 Double)
+      -> [MnistData2 Double] -> Domains (Delta0 Double) -> Double)
+  -> Int
+  -> Int
+  -> Int
+  -> Double
+  -> Double
+  -> TestTree
+convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss testLoss
+                      final_image_sz widthHidden widthHidden2 gamma expected =
+  let ( (nParams0, nParams1, nParams2, nParamsX)
+       , totalParams, range, parameters0 ) =
+        initializerFixed 44 0.05
+        (lenMnistCNNT final_image_sz widthHidden widthHidden2)
+      name = prefix ++ " "
+             ++ unwords [ show epochs, show maxBatches
+                        , show widthHidden, show widthHidden2
+                        , show nParams0, show nParams1, show nParams2
+                        , show nParamsX
+                        , show totalParams, show gamma, show range]
+  in testCase name $ do
+       trainData <- loadMnistData2 trainGlyphsPath trainLabelsPath
+       testData <- loadMnistData2 testGlyphsPath testLabelsPath
+       -- Mimic how backprop tests and display it, even though tests
+       -- should not print, in principle.
+       let runBatch :: Domains (Delta0 Double)
+                    -> (Int, [MnistData2 Double])
+                    -> IO (Domains (Delta0 Double))
+           runBatch (!params0, !params1, !params2, !paramsX) (k, chunk) = do
+             printf "(Batch %d with %d points)\n" k (length chunk)
+             let f = trainWithLoss
+                 res = fst $ sgd gamma f (chunksOf batch_size chunk)
+                                 (params0, params1, params2, paramsX)
+                 trainScore = testLoss (Proxy @(Delta0 Double)) chunk res
+                 testScore = testLoss (Proxy @(Delta0 Double)) testData res
+             printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
+             printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
+             return res
+       let runEpoch :: Int
+                    -> Domains (Delta0 Double)
+                    -> IO (Domains (Delta0 Double))
+           runEpoch n params2 | n > epochs = return params2
+           runEpoch n params2 = do
+             printf "[Epoch %d]\n" n
+             let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
+                 chunks = take maxBatches
+                          $ zip [1 ..] $ chunksOf 16 trainDataShuffled
+                          -- TODO: 5000 takes forever
+             !res <- foldM runBatch params2 chunks
+             runEpoch (succ n) res
+       printf "\nEpochs to run/max batches per epoch: %d/%d\n"
+              epochs maxBatches
+       res <- runEpoch 1 parameters0
+       let testErrorFinal = 1 - testLoss (Proxy @(Delta0 Double)) testData res
+       testErrorFinal @?= expected
+
 mnistCNNTestsLong :: TestTree
 mnistCNNTestsLong = testGroup "MNIST CNN long tests"
   [ {-convMnistTestCaseCNN "artificial 5 4 3 2 1" 5 4
@@ -380,6 +778,10 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                          final_image_size depth0 num_hidden0
                          0.02 2.7000000000000024e-2
 -}
+  , convMnistTestCaseCNNT "T1 epoch, 1 batch" 1 1
+                          convMnistLossCNNT convMnistTestCNNT
+                          final_image_size depth0 num_hidden0
+                          0.02 1.0
   , testProperty "Compare gradients and two forward derivatives for convMnistTestCNN and convMnistTestCNNP" $
       \seed ->
       forAll (choose (0, sizeMnistLabel - 1)) $ \seedDs ->
@@ -432,6 +834,10 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
                          convMnistLossCNNP convMnistTestCNNP final_image_size
                          1 1 1 0.9026
 {-
+  , convMnistTestCaseCNNT "T artificial 1 1 1 1 1" 1 1
+                         convMnistLossCNNT convMnistTestCNNT final_image_size
+                         1 1 1 0.9026
+      -- TODO: fails, because depth is set to 16 in types!
   , convMnistTestCaseCNN "artificial 1 2 3 4 5" 1 2
                          convMnistLossCNN convMnistTestCNN final_image_size
                          3 4 5 0.902
