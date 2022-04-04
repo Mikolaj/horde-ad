@@ -125,6 +125,9 @@ data Delta1 r =
 
   | Reverse1 (Delta1 r)
   | Flatten1 Int Int (Delta2 r)
+  | FlattenX1 OT.ShapeL (DeltaX r)
+  | forall sh. OS.Shape sh
+    => FlattenS1 (DeltaS sh r)
 
 deriving instance (Show r, Numeric r) => Show (Delta1 r)
 
@@ -214,10 +217,10 @@ data DeltaS :: [Nat] -> Type -> Type where
     -- ^ Extract a slice of an array along the outermost dimension.
   IndexS :: (KnownNat ix, KnownNat k, OS.Shape rest)
          => DeltaS (ix + 1 + k ': rest) r -> Proxy ix -> DeltaS rest r
-      -- ^ The sub-tensors at the given index of the outermost dimension.
+    -- ^ The sub-tensors at the given index of the outermost dimension.
   RavelFromListS :: (KnownNat k, OS.Shape rest)
                  => [DeltaS rest r] -> DeltaS (k : rest) r
-      -- ^ Create a tensor from a list treated as the outermost dimension.
+    -- ^ Create a tensor from a list treated as the outermost dimension.
 
   From0S :: Delta0 r -> DeltaS '[] r
   From1S :: Delta1 r -> DeltaS '[n] r
@@ -455,6 +458,8 @@ buildFinMaps st deltaTopLevel = do
           eval2 (MO.MatrixOuter (Just $ rows HM.>< cols $ V.toList r)
                                 Nothing Nothing)
                 d
+        FlattenX1 sh d -> evalX (OT.fromVector sh r) d
+        FlattenS1 d -> evalS (OS.fromVector r) d
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
       eval2 !r = \case
         Zero2 -> return ()
@@ -661,6 +666,8 @@ evalBindingsForward st deltaTopLevel
 
         Reverse1 d -> V.reverse $ eval1 parameters d
         Flatten1 _rows _cols d -> HM.flatten $ eval2 parameters d
+        FlattenX1 _sh d -> OT.toVector $ evalX parameters d
+        FlattenS1 d -> OS.toVector $ evalS parameters d
       eval2 :: Domains r -> Delta2 r -> Matrix r
       eval2 parameters@( _, _, params2, _) = \case
         Zero2 -> 0

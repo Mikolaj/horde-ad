@@ -144,6 +144,9 @@ class HasRanks r where
           => TensorS '[len] r -> Tensor1 r
   dReverse1 :: Tensor1 r -> Tensor1 r
   dFlatten1 :: Int -> Int -> Tensor2 r -> Tensor1 r
+  dFlattenX1 :: OT.ShapeL -> TensorX r -> Tensor1 r
+  dFlattenS1 :: OS.Shape sh
+             => TensorS sh r -> Tensor1 r
 
   dFromRows2 :: Data.Vector.Vector (Tensor1 r) -> Tensor2 r
   dFromColumns2 :: Data.Vector.Vector (Tensor1 r) -> Tensor2 r
@@ -230,6 +233,8 @@ instance HasRanks (Delta0 r) where
   dFromS1 = FromS1
   dReverse1 = Reverse1
   dFlatten1 = Flatten1
+  dFlattenX1 = FlattenX1
+  dFlattenS1 = FlattenS1
   dFromRows2 = FromRows2
   dFromColumns2 = FromColumns2
   dKonst2 = Konst2
@@ -388,6 +393,8 @@ instance HasRanks Double where
   dFromS1 = OS.toVector
   dReverse1 = V.reverse
   dFlatten1 _rows _cols = HM.flatten
+  dFlattenX1 _sh = OT.toVector
+  dFlattenS1 = OS.toVector
   dFromRows2 = HM.fromRows . V.toList
   dFromColumns2 = HM.fromColumns . V.toList
   dKonst2 = HM.konst
@@ -456,6 +463,8 @@ instance HasRanks Float where
   dFromS1 = OS.toVector
   dReverse1 = V.reverse
   dFlatten1 _rows _cols = HM.flatten
+  dFlattenX1 _sh = OT.toVector
+  dFlattenS1 = OS.toVector
   dFromRows2 = HM.fromRows . V.toList
   dFromColumns2 = HM.fromColumns . V.toList
   dKonst2 = HM.konst

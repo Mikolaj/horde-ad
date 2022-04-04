@@ -240,6 +240,14 @@ flatten1 :: IsScalar r => DualNumber (Tensor2 r) -> DualNumber (Tensor1 r)
 flatten1 (D u u') = let (rows, cols) = HM.size u
                     in D (HM.flatten u) (dFlatten1 rows cols u')
 
+flattenX1 :: IsScalar r => DualNumber (TensorX r) -> DualNumber (Tensor1 r)
+flattenX1 (D u u') = let sh = OT.shapeL u
+                     in D (OT.toVector u) (dFlattenX1 sh u')
+
+flattenS1 :: (OS.Shape sh, IsScalarS sh r)
+          => DualNumber (TensorS sh r) -> DualNumber (Tensor1 r)
+flattenS1 (D u u') = D (OS.toVector u) (dFlattenS1 u')
+
 corr1 :: IsScalar r
       => DualNumber (Tensor1 r) -> DualNumber (Tensor1 r)
       -> DualNumber (Tensor1 r)
