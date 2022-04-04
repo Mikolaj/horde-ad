@@ -55,7 +55,7 @@ type IsScalar r =
 -- separate, because it requires an additional type argument representing
 -- the shape.
 type IsScalarS sh r =
-       ( IsScalar r, IsDualWithScalar (TensorS sh r) r
+       ( OS.Shape sh, IsScalar r, IsDualWithScalar (TensorS sh r) r
        , Primal (TensorS sh r) ~ OS.Array sh (Primal r) )
 
 -- | A constraint expressing that dual numbers with this dual component
