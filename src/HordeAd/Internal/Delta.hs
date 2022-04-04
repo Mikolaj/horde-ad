@@ -187,6 +187,8 @@ data DeltaX r =
       -- The second integer is the length of the dimension.
   | RavelFromListX [DeltaX r]
       -- ^ Create a tensor from a list treated as the outermost dimension.
+  | ReshapeX OT.ShapeL OT.ShapeL (DeltaX r)
+      -- ^ Change the shape of the tensor from the first to the second.
 
   | From0X (Delta0 r)
   | From1X (Delta1 r)
@@ -221,6 +223,9 @@ data DeltaS :: [Nat] -> Type -> Type where
   RavelFromListS :: (KnownNat k, OS.Shape rest)
                  => [DeltaS rest r] -> DeltaS (k : rest) r
     -- ^ Create a tensor from a list treated as the outermost dimension.
+  ReshapeS :: (OS.Shape sh, OS.Shape sh', OS.Size sh ~ OS.Size sh')
+           => DeltaS sh r -> DeltaS sh' r
+      -- ^ Change the shape of the tensor.
 
   From0S :: Delta0 r -> DeltaS '[] r
   From1S :: Delta1 r -> DeltaS '[n] r
@@ -548,6 +553,7 @@ buildFinMaps st deltaTopLevel = do
         RavelFromListX ld -> do
           let lr = OTB.toList $ OT.unravel r
           mapM_ (uncurry evalX) (zip lr ld)
+        ReshapeX sh _sh' d -> evalX (OT.reshape sh r) d
 
         From0X d -> eval0 (OT.unScalar r) d
         From1X d -> eval1 (OT.toVector r) d
@@ -581,6 +587,7 @@ buildFinMaps st deltaTopLevel = do
         RavelFromListS ld -> do
           let lr = OSB.toList $ OS.unravel r
           mapM_ (uncurry evalS) (zip lr ld)
+        ReshapeS d -> evalS (OS.reshape r) d
 
         From0S d -> eval0 (OS.unScalar r) d
         From1S d -> eval1 (OS.toVector r) d
@@ -725,6 +732,7 @@ evalBindingsForward st deltaTopLevel
                 a : _ -> length la : OT.shapeL a
                 [] -> []
           in OT.ravel $ OTB.fromList sh la
+        ReshapeX _sh sh' d -> OT.reshape sh' $ evalX parameters d
 
         From0X d -> OT.scalar $ eval0 parameters d
         From1X d -> let v = eval1 parameters d
@@ -748,6 +756,7 @@ evalBindingsForward st deltaTopLevel
         RavelFromListS ld ->
           let la = map (evalS parameters) ld
           in OS.ravel $ OSB.fromList la
+        ReshapeS d -> OS.reshape $ evalS parameters d
 
         From0S d -> OS.scalar $ eval0 parameters d
         From1S d -> OS.fromVector $ eval1 parameters d

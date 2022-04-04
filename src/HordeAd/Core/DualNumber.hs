@@ -432,6 +432,10 @@ zipWithX :: IsScalar r
 zipWithX f d e =
   ravelFromListX $ zipWith f (unravelToListX d) (unravelToListX e)
 
+reshapeX :: IsScalar r
+         => OT.ShapeL -> DualNumber (TensorX r) -> DualNumber (TensorX r)
+reshapeX sh' (D u u') = D (OT.reshape sh' u) (dReshapeX (OT.shapeL u) sh' u')
+
 from0X :: IsScalar r => DualNumber r -> DualNumber (TensorX r)
 from0X (D u u') = D (OT.scalar u) (dFrom0X u')
 
@@ -525,6 +529,10 @@ zipWithS :: forall k sh1 sh2 sh r.
          -> DualNumber (TensorS (k : sh) r)
 zipWithS f d e =
   ravelFromListS $ zipWith f (unravelToListS d) (unravelToListS e)
+
+reshapeS :: (IsScalarS sh r, IsScalarS sh' r, OS.Size sh ~ OS.Size sh')
+         => DualNumber (TensorS sh r) -> DualNumber (TensorS sh' r)
+reshapeS (D u u') = D (OS.reshape u) (dReshapeS u')
 
 from0S :: IsScalarS '[] r => DualNumber r -> DualNumber (TensorS '[] r)
 from0S (D u u') = D (OS.scalar u) (dFrom0S u')
