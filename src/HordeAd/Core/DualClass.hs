@@ -62,19 +62,20 @@ type IsScalarS sh r =
 
 -- Five ranks ought to be enough for anyone.
 type IsScalarS5 r k5 k4 k3 k2 k1 =
-       ( IsScalarS '[k5, k4, k3, k2, k1] r, IsScalarS4 r k4 k3 k2 k1)
+       ( KnownNat k5, IsScalarS '[k5, k4, k3, k2, k1] r
+       , IsScalarS4 r k4 k3 k2 k1 )
 
 type IsScalarS4 r k4 k3 k2 k1 =
-       ( IsScalarS '[k4, k3, k2, k1] r, IsScalarS3 r k3 k2 k1)
+       (KnownNat k4,  IsScalarS '[k4, k3, k2, k1] r, IsScalarS3 r k3 k2 k1)
 
 type IsScalarS3 r k3 k2 k1 =
-       ( IsScalarS '[k3, k2, k1] r, IsScalarS2 r k2 k1)
+       (KnownNat k3,  IsScalarS '[k3, k2, k1] r, IsScalarS2 r k2 k1)
 
 type IsScalarS2 r k2 k1 =
-       ( IsScalarS '[k2, k1] r, IsScalarS1 r k1)
+       (KnownNat k2,  IsScalarS '[k2, k1] r, IsScalarS1 r k1)
 
 type IsScalarS1 r k1 =
-       ( IsScalarS '[k1] r, IsScalarS '[] r)
+       (KnownNat k1, IsScalarS '[k1] r, IsScalarS '[] r)
 
 -- | A constraint expressing that dual numbers with this dual component
 -- are implemented via gathering delta expressions in state.

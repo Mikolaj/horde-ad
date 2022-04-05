@@ -10,7 +10,7 @@ import           Data.Array.Internal (valueOf)
 import qualified Data.Array.ShapedS as OS
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, type (+))
+import           GHC.TypeLits (type (+))
 import qualified Numeric.LinearAlgebra as HM
 import           System.Random
 import           Test.Tasty
@@ -348,11 +348,7 @@ convMiddleMnistCNNT
   :: forall filter_height_1 filter_width_1 out_channels
             in_height in_width out_height out_width
             n_batches in_channels r m.
-     ( DualMonad r m, KnownNat n_batches
-     , KnownNat in_channels, KnownNat out_channels
-     , KnownNat filter_height_1, KnownNat filter_width_1
-     , KnownNat in_height, KnownNat in_width
-     , KnownNat out_height, KnownNat out_width
+     ( DualMonad r m
      , IsScalarS4 r n_batches in_channels in_height in_width
      , IsScalarS4 r n_batches in_channels
                     (in_height + filter_height_1) (in_width + filter_width_1)
@@ -405,11 +401,7 @@ convMnistCNNT
   :: forall filter_height_1 filter_width_1
             in_height in_width out_height out_width out2_height out2_width
             in_channels out_channels n_batches r m.
-     ( DualMonad r m, KnownNat n_batches, KnownNat out_channels
-     , KnownNat filter_height_1, KnownNat filter_width_1
-     , KnownNat in_height, KnownNat in_width
-     , KnownNat out_height, KnownNat out_width
-     , KnownNat out2_height, KnownNat out2_width
+     ( DualMonad r m
      , in_channels ~ 1
      , IsScalarS4 r n_batches in_channels
                     (in_height + filter_height_1) (in_width + filter_width_1)
@@ -426,8 +418,7 @@ convMnistCNNT
      , IsScalarS4 r n_batches out_channels
                     (out_height + filter_height_1)
                     (out_width + filter_width_1)
-     , IsScalarS2 r n_batches
-                    (OS.Size '[out_channels, out2_height, out2_width])
+     , IsScalarS2 r n_batches (OS.Size '[out_channels, out2_height, out2_width])
      )
   => Primal (TensorS '[n_batches, in_channels, in_height, in_width] r)
   -> DualNumberVariables r
@@ -459,11 +450,6 @@ convMnistLossCNNT
             in_height in_width out_height out_width out2_height out2_width
             in_channels out_channels n_batches r m.
      ( DualMonad r m, Floating (Primal (Tensor2 r))
-{-     , KnownNat n_batches, KnownNat out_channels
-     , KnownNat filter_height_1, KnownNat filter_width_1
-     , KnownNat in_height, KnownNat in_width
-     , KnownNat out_height, KnownNat out_width
-     , KnownNat out2_height, KnownNat out2_width -}
      , IsScalarS4 r n_batches in_channels
                     (in_height + filter_height_1) (in_width + filter_width_1)
      , IsScalarS4 r n_batches out_channels out_height out_width
@@ -478,8 +464,7 @@ convMnistLossCNNT
      , IsScalarS4 r n_batches out_channels
                     (out_height + filter_height_1)
                     (out_width + filter_width_1)
-     , IsScalarS2 r n_batches
-                    (OS.Size '[out_channels, out2_height, out2_width])
+     , IsScalarS2 r n_batches (OS.Size '[out_channels, out2_height, out2_width])
      , n_batches ~ 16
      , out_channels ~ 16
      , filter_height_1 ~ 4
@@ -525,8 +510,7 @@ convMnistTestCNNT
      , IsScalarS4 r n_batches out_channels
                     (out_height + filter_height_1)
                     (out_width + filter_width_1)
-     , IsScalarS2 r n_batches
-                    (OS.Size '[out_channels, out2_height, out2_width])
+     , IsScalarS2 r n_batches (OS.Size '[out_channels, out2_height, out2_width])
      , n_batches ~ 1
      , out_channels ~ 16
      , filter_height_1 ~ 4
