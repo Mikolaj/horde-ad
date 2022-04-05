@@ -767,34 +767,19 @@ conv24 :: forall filter_height_1 filter_width_1
           ( KnownNat n_batches, KnownNat in_channels, KnownNat out_channels
           , KnownNat filter_height_1, KnownNat filter_width_1
           , KnownNat in_height, KnownNat in_width
-          , IsScalarS '[ n_batches
-                       , in_channels
-                       , in_height + filter_height_1
-                       , in_width + filter_width_1 ] r
-          , IsScalarS '[ out_channels, in_channels
-                       , filter_height_1 + 1, filter_width_1 + 1 ] r
-          , IsScalarS '[ in_channels
-                       , in_height + filter_height_1
-                       , in_width + filter_width_1 ] r
-          , IsScalarS '[ in_channels
-                       , filter_height_1 + 1, filter_width_1 + 1 ] r
-          , IsScalarS '[in_height, in_width] r
-          , IsScalarS '[in_channels, in_height, in_width] r
-          , IsScalarS '[filter_height_1 + 1, filter_width_1 + 1] r
-          , IsScalarS '[ in_height + filter_height_1
-                       , in_width + filter_width_1 ] r
-          , IsScalarS '[ out_channels
-                       , in_height + filter_height_1
-                       , in_width + filter_width_1 ] r
-          , IsScalarS '[ n_batches, out_channels
-                       , in_height + filter_height_1
-                       , in_width + filter_width_1 ] r
-          , IsScalarS '[n_batches, in_channels, in_height, in_width] r
+          , IsScalarS4 r out_channels in_channels
+                         (filter_height_1 + 1) (filter_width_1 + 1)
+          , IsScalarS4 r n_batches in_channels in_height in_width
+          , IsScalarS4 r n_batches out_channels
+                         (in_height + filter_height_1)
+                         (in_width + filter_width_1)
+          , IsScalarS4 r n_batches in_channels
+                         (in_height + filter_height_1)
+                         (in_width + filter_width_1)
           )
        => DualNumber (TensorS '[ out_channels, in_channels
                                , filter_height_1 + 1, filter_width_1 + 1 ] r)
-       -> DualNumber (TensorS '[ n_batches, in_channels
-                               , in_height, in_width ] r)
+       -> DualNumber (TensorS '[n_batches, in_channels, in_height, in_width] r)
        -> DualNumber (TensorS '[ n_batches, out_channels
                                , in_height + filter_height_1
                                , in_width + filter_width_1 ] r)
@@ -861,12 +846,9 @@ maxPool24 :: forall r m n_batches channels
              ( DualMonad r m, KnownNat n_batches, KnownNat channels
              , KnownNat in_height, KnownNat in_width
              , KnownNat out_height, KnownNat out_width
-             , IsScalarS '[ n_batches, channels, in_height, in_width ] r
-             , IsScalarS '[ n_batches, channels, out_height, out_width ] r
-             , IsScalarS '[ channels, in_height, in_width ] r
-             , IsScalarS '[ channels, out_height, out_width ] r
-             , IsScalarS '[ in_height, in_width ] r
-             , IsScalarS '[ out_height, out_width ] r )
+             , IsScalarS4 r n_batches channels in_height in_width
+             , IsScalarS4 r n_batches channels out_height out_width
+             )
           => Int -> Int
           -> DualNumber (TensorS '[ n_batches, channels
                                   , in_height, in_width ] r)

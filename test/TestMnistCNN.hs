@@ -353,32 +353,15 @@ convMiddleMnistCNNT
      , KnownNat filter_height_1, KnownNat filter_width_1
      , KnownNat in_height, KnownNat in_width
      , KnownNat out_height, KnownNat out_width
-     , IsScalarS '[ n_batches, in_channels
-                  , in_height + filter_height_1
-                  , in_width + filter_width_1 ] r
-     , IsScalarS '[ n_batches, out_channels
-                  , in_height + filter_height_1
-                  , in_width + filter_width_1 ] r
-     , IsScalarS '[ out_channels
-                  , in_height + filter_height_1
-                  , in_width + filter_width_1 ] r
-     , IsScalarS '[ n_batches
-                  , out_channels, out_height, out_width ] r
-     , IsScalarS '[ out_channels, in_channels
-                  , filter_height_1 + 1, filter_width_1 + 1 ] r
-     , IsScalarS '[out_channels] r
-     , IsScalarS '[in_height, in_width] r
-     , IsScalarS '[ in_height + filter_height_1
-                  , in_width + filter_width_1 ] r
-     , IsScalarS '[out_height, out_width] r
-     , IsScalarS '[] r
-     , IsScalarS '[out_channels, out_height, out_width] r
-     , IsScalarS '[filter_height_1 + 1, filter_width_1 + 1] r
-     , IsScalarS '[in_channels, in_height, in_width] r
-     , IsScalarS '[in_channels, filter_height_1 + 1, filter_width_1 + 1] r
-     , IsScalarS '[ in_channels
-                  , in_height + filter_height_1, in_width + filter_width_1 ] r
-     , IsScalarS '[n_batches, in_channels, in_height, in_width] r
+     , IsScalarS4 r n_batches in_channels in_height in_width
+     , IsScalarS4 r n_batches in_channels
+                    (in_height + filter_height_1) (in_width + filter_width_1)
+     , IsScalarS4 r n_batches out_channels
+                    (in_height + filter_height_1) (in_width + filter_width_1)
+     , IsScalarS4 r n_batches out_channels out_height out_width
+     , IsScalarS4 r out_channels in_channels
+                    (filter_height_1 + 1) (filter_width_1 + 1)
+     , IsScalarS1 r out_channels
      )
   => DualNumberVariables r
   -> DualNumber (TensorS '[ n_batches, in_channels
@@ -428,52 +411,23 @@ convMnistCNNT
      , KnownNat out_height, KnownNat out_width
      , KnownNat out2_height, KnownNat out2_width
      , in_channels ~ 1
-     , IsScalarS '[ n_batches
-                  , in_channels
-                  , in_height + filter_height_1
-                  , in_width + filter_width_1 ] r
-     , IsScalarS '[ n_batches
-                  , out_channels, out_height, out_width ] r
-     , IsScalarS '[ out_channels, in_channels
-                  , filter_height_1 + 1, filter_width_1 + 1 ] r
-     , IsScalarS '[out_channels] r
-     , IsScalarS '[in_height, in_width] r
-     , IsScalarS '[ in_height + filter_height_1
-                  , in_width + filter_width_1 ] r
-     , IsScalarS '[out_height, out_width] r
-     , IsScalarS '[] r
-     , IsScalarS '[out_channels, out_height, out_width] r
-     , IsScalarS '[filter_height_1 + 1, filter_width_1 + 1] r
-     , IsScalarS '[in_channels, in_height, in_width] r
-     , IsScalarS '[in_channels, filter_height_1 + 1, filter_width_1 + 1] r
-     , IsScalarS '[ in_channels
-                  , in_height + filter_height_1, in_width + filter_width_1 ] r
-     , IsScalarS '[n_batches, out_channels, out2_height, out2_width] r
-     , IsScalarS '[out2_height, out2_width] r
-     , IsScalarS '[out_channels, out2_height, out2_width] r
-     , IsScalarS '[ out_channels, out_channels
-                  , filter_height_1 + 1, filter_width_1 + 1 ] r
-     , IsScalarS '[ out_channels
-                  , filter_height_1 + 1
-                  , filter_width_1 + 1] r
-     , IsScalarS '[ n_batches, out_channels
-                  , in_height + filter_height_1
-                  , in_width + filter_width_1 ] r
-     , IsScalarS '[ out_channels
-                  , in_height + filter_height_1
-                  , in_width + filter_width_1 ] r
-     , IsScalarS '[n_batches, in_channels, in_height, in_width] r
-     , IsScalarS '[ out_channels
-                  , out_height + filter_height_1
-                  , out_width + filter_width_1 ] r
-     , IsScalarS '[ n_batches, out_channels
-                  , out_height + filter_height_1
-                  , out_width + filter_width_1 ] r
-     , IsScalarS '[ out_height + filter_height_1
-                  , out_width + filter_width_1 ] r
-     , IsScalarS '[ n_batches
-                  , OS.Size '[out_channels, out2_height, out2_width] ] r
-     , IsScalarS '[OS.Size '[out_channels, out2_height, out2_width]] r
+     , IsScalarS4 r n_batches in_channels
+                    (in_height + filter_height_1) (in_width + filter_width_1)
+     , IsScalarS4 r n_batches out_channels out_height out_width
+     , IsScalarS4 r out_channels in_channels
+                    (filter_height_1 + 1) (filter_width_1 + 1)
+     , IsScalarS1 r out_channels
+     , IsScalarS4 r n_batches in_channels in_height in_width
+     , IsScalarS4 r n_batches out_channels out2_height out2_width
+     , IsScalarS4 r out_channels out_channels
+                    (filter_height_1 + 1) (filter_width_1 + 1)
+     , IsScalarS4 r n_batches out_channels
+                    (in_height + filter_height_1) (in_width + filter_width_1)
+     , IsScalarS4 r n_batches out_channels
+                    (out_height + filter_height_1)
+                    (out_width + filter_width_1)
+     , IsScalarS2 r n_batches
+                    (OS.Size '[out_channels, out2_height, out2_width])
      )
   => Primal (TensorS '[n_batches, in_channels, in_height, in_width] r)
   -> DualNumberVariables r
@@ -510,52 +464,22 @@ convMnistLossCNNT
      , KnownNat in_height, KnownNat in_width
      , KnownNat out_height, KnownNat out_width
      , KnownNat out2_height, KnownNat out2_width -}
-     , IsScalarS '[ n_batches
-                  , in_channels
-                  , in_height + filter_height_1
-                  , in_width + filter_width_1 ] r
-     , IsScalarS '[ n_batches
-                  , out_channels, out_height, out_width ] r
-     , IsScalarS '[ out_channels, in_channels
-                  , filter_height_1 + 1, filter_width_1 + 1 ] r
-     , IsScalarS '[out_channels] r
-     , IsScalarS '[in_height, in_width] r
-     , IsScalarS '[ in_height + filter_height_1
-                  , in_width + filter_width_1 ] r
-     , IsScalarS '[out_height, out_width] r
-     , IsScalarS '[] r
-     , IsScalarS '[out_channels, out_height, out_width] r
-     , IsScalarS '[filter_height_1 + 1, filter_width_1 + 1] r
-     , IsScalarS '[in_channels, in_height, in_width] r
-     , IsScalarS '[in_channels, filter_height_1 + 1, filter_width_1 + 1] r
-     , IsScalarS '[ in_channels
-                  , in_height + filter_height_1, in_width + filter_width_1 ] r
-     , IsScalarS '[n_batches, out_channels, out2_height, out2_width] r
-     , IsScalarS '[out2_height, out2_width] r
-     , IsScalarS '[out_channels, out2_height, out2_width] r
-     , IsScalarS '[ out_channels, out_channels
-                  , filter_height_1 + 1, filter_width_1 + 1 ] r
-     , IsScalarS '[ out_channels
-                  , filter_height_1 + 1
-                  , filter_width_1 + 1] r
-     , IsScalarS '[ n_batches, out_channels
-                  , in_height + filter_height_1
-                  , in_width + filter_width_1 ] r
-     , IsScalarS '[ out_channels
-                  , in_height + filter_height_1
-                  , in_width + filter_width_1 ] r
-     , IsScalarS '[n_batches, in_channels, in_height, in_width] r
-     , IsScalarS '[ out_channels
-                  , out_height + filter_height_1
-                  , out_width + filter_width_1 ] r
-     , IsScalarS '[ n_batches, out_channels
-                  , out_height + filter_height_1
-                  , out_width + filter_width_1 ] r
-     , IsScalarS '[ out_height + filter_height_1
-                  , out_width + filter_width_1 ] r
-     , IsScalarS '[ n_batches
-                  , OS.Size '[out_channels, out2_height, out2_width] ] r
-     , IsScalarS '[OS.Size '[out_channels, out2_height, out2_width]] r
+     , IsScalarS4 r n_batches in_channels
+                    (in_height + filter_height_1) (in_width + filter_width_1)
+     , IsScalarS4 r n_batches out_channels out_height out_width
+     , IsScalarS4 r out_channels in_channels
+                    (filter_height_1 + 1) (filter_width_1 + 1)
+     , IsScalarS4 r n_batches in_channels in_height in_width
+     , IsScalarS4 r n_batches out_channels out2_height out2_width
+     , IsScalarS4 r out_channels out_channels
+                    (filter_height_1 + 1) (filter_width_1 + 1)
+     , IsScalarS4 r n_batches out_channels
+                    (in_height + filter_height_1) (in_width + filter_width_1)
+     , IsScalarS4 r n_batches out_channels
+                    (out_height + filter_height_1)
+                    (out_width + filter_width_1)
+     , IsScalarS2 r n_batches
+                    (OS.Size '[out_channels, out2_height, out2_width])
      , n_batches ~ 16
      , out_channels ~ 16
      , filter_height_1 ~ 4
@@ -587,52 +511,22 @@ convMnistTestCNNT
   :: forall filter_height_1 filter_width_1
             in_height in_width out_height out_width out2_height out2_width
             in_channels out_channels n_batches r.
-     ( IsScalarS '[ n_batches
-                  , in_channels
-                  , in_height + filter_height_1
-                  , in_width + filter_width_1 ] r
-     , IsScalarS '[ n_batches
-                  , out_channels, out_height, out_width ] r
-     , IsScalarS '[ out_channels, in_channels
-                  , filter_height_1 + 1, filter_width_1 + 1 ] r
-     , IsScalarS '[out_channels] r
-     , IsScalarS '[in_height, in_width] r
-     , IsScalarS '[ in_height + filter_height_1
-                  , in_width + filter_width_1 ] r
-     , IsScalarS '[out_height, out_width] r
-     , IsScalarS '[] r
-     , IsScalarS '[out_channels, out_height, out_width] r
-     , IsScalarS '[filter_height_1 + 1, filter_width_1 + 1] r
-     , IsScalarS '[in_channels, in_height, in_width] r
-     , IsScalarS '[in_channels, filter_height_1 + 1, filter_width_1 + 1] r
-     , IsScalarS '[ in_channels
-                  , in_height + filter_height_1, in_width + filter_width_1 ] r
-     , IsScalarS '[n_batches, out_channels, out2_height, out2_width] r
-     , IsScalarS '[out2_height, out2_width] r
-     , IsScalarS '[out_channels, out2_height, out2_width] r
-     , IsScalarS '[ out_channels, out_channels
-                  , filter_height_1 + 1, filter_width_1 + 1 ] r
-     , IsScalarS '[ out_channels
-                  , filter_height_1 + 1
-                  , filter_width_1 + 1] r
-     , IsScalarS '[ n_batches, out_channels
-                  , in_height + filter_height_1
-                  , in_width + filter_width_1 ] r
-     , IsScalarS '[ out_channels
-                  , in_height + filter_height_1
-                  , in_width + filter_width_1 ] r
-     , IsScalarS '[n_batches, in_channels, in_height, in_width] r
-     , IsScalarS '[ out_channels
-                  , out_height + filter_height_1
-                  , out_width + filter_width_1 ] r
-     , IsScalarS '[ n_batches, out_channels
-                  , out_height + filter_height_1
-                  , out_width + filter_width_1 ] r
-     , IsScalarS '[ out_height + filter_height_1
-                  , out_width + filter_width_1 ] r
-     , IsScalarS '[ n_batches
-                  , OS.Size '[out_channels, out2_height, out2_width] ] r
-     , IsScalarS '[OS.Size '[out_channels, out2_height, out2_width]] r
+     ( IsScalarS4 r n_batches in_channels
+                    (in_height + filter_height_1) (in_width + filter_width_1)
+     , IsScalarS4 r n_batches out_channels out_height out_width
+     , IsScalarS4 r out_channels in_channels
+                    (filter_height_1 + 1) (filter_width_1 + 1)
+     , IsScalarS4 r n_batches in_channels in_height in_width
+     , IsScalarS4 r n_batches out_channels out2_height out2_width
+     , IsScalarS4 r out_channels out_channels
+                    (filter_height_1 + 1) (filter_width_1 + 1)
+     , IsScalarS4 r n_batches out_channels
+                    (in_height + filter_height_1) (in_width + filter_width_1)
+     , IsScalarS4 r n_batches out_channels
+                    (out_height + filter_height_1)
+                    (out_width + filter_width_1)
+     , IsScalarS2 r n_batches
+                    (OS.Size '[out_channels, out2_height, out2_width])
      , n_batches ~ 1
      , out_channels ~ 16
      , filter_height_1 ~ 4
