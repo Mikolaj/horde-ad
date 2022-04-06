@@ -660,6 +660,56 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                           convMnistLossCNNT convMnistTestCNNT
                           final_image_size depth0 num_hidden0
                           0.02 1.0
+  , testProperty "Compare gradients and two forward derivatives for a single 2d convolution implemented from primitive operations and as a hardwired primitive" $
+      forAll (choose (1, 30)) $ \seed ->
+      forAll (choose (1, 50)) $ \seedDs ->
+      forAll (choose (1, 100)) $ \widthHidden ->
+      forAll (choose (1, 150)) $ \widthHidden2 ->
+      forAll (choose (0, seed + widthHidden - 2)) $ \ix1 ->
+      forAll (choose (0, seedDs + widthHidden2 - 2)) $ \ix2 ->
+      forAll (choose (0.01, 10)) $ \range ->
+      forAll (choose (0.01, 10)) $ \rangeDs ->
+        let paramShape =
+              (0, [], [(seed, widthHidden2), (widthHidden, seedDs)], [])
+            (_, _, _, parameters) = initializerFixed seed range paramShape
+            (_, _, _, ds@(ds0, ds1, ds2, dsX)) =
+              initializerFixed seedDs rangeDs paramShape
+            f, fP :: forall r m. (DualMonad r m, Primal r ~ Double)
+                  => DualNumberVariables r -> m (DualNumber r)
+            f variables = do
+              let ker = var2 variables 0
+                  x = var2 variables 1
+              c <- conv2 ker x
+              cx <- returnLet $ from2X c
+              cx1 <- returnLet $ indexX cx ix1
+              cx2 <- returnLet $ indexX cx1 ix2
+              returnLet $ fromX0 cx2
+            fP variables = do
+              let ker = var2 variables 0
+                  x = var2 variables 1
+              c <- returnLet $ conv2' ker x
+              cx <- returnLet $ from2X c
+              cx1 <- returnLet $ indexX cx ix1
+              cx2 <- returnLet $ indexX cx1 ix2
+              returnLet $ fromX0 cx2
+            ff = dfastForward f parameters ds
+            ffP = dfastForward fP parameters ds
+            close a b = abs (a - b) <= 0.000001
+            close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
+            dfDot fDot psDot =
+              let ((res0, res1, res2, resX), value) = df fDot psDot
+              in ( res0 HM.<.> ds0
+                   + V.sum (V.zipWith (HM.<.>) res1 ds1)
+                   + V.sum (V.zipWith (HM.<.>) (V.map HM.flatten res2)
+                                               (V.map HM.flatten ds2))
+                   + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
+                                               (V.map OT.toVector dsX))
+                 , value )
+        in close1 ff ffP
+           .&&. dforward f parameters ds === ff
+           .&&. close1 (dfDot f parameters) ff
+           .&&. dforward fP parameters ds === ffP
+           .&&. close1 (dfDot fP parameters) ffP
   , testProperty "Compare gradients and two forward derivatives for convMnistTestCNN and convMnistTestCNNP" $
       \seed ->
       forAll (choose (0, sizeMnistLabel - 1)) $ \seedDs ->
