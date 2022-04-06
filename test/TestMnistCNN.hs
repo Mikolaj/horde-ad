@@ -107,12 +107,14 @@ convMnistLossCNN depth (x, target) variables = do
   lossSoftMaxCrossEntropyV target result
 
 convMnistTestCNN
-  :: forall r. IsScalar r
+  :: forall r. (IsScalar r, Floating (Primal (Tensor1 r)))
   => Proxy r -> Int -> [MnistData2 (Primal r)] -> Domains r -> Primal r
 convMnistTestCNN _ depth inputs parameters =
   let matchesLabels :: MnistData2 (Primal r) -> Bool
       matchesLabels (glyph, label) =
-        let nn = convMnistCNN depth glyph
+        let nn variables = do
+              m <- convMnistCNN depth glyph variables
+              softMaxActV m
             value = primalValue @r nn parameters
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
@@ -252,12 +254,14 @@ convMnistLossCNNS depth (x, target) variables = do
   lossSoftMaxCrossEntropyV target result
 
 convMnistTestCNNS
-  :: forall r. IsScalar r
+  :: forall r. (IsScalar r, Floating (Primal (Tensor1 r)))
   => Proxy r -> Int -> [MnistData2 (Primal r)] -> Domains r -> Primal r
 convMnistTestCNNS _ depth inputs parameters =
   let matchesLabels :: MnistData2 (Primal r) -> Bool
       matchesLabels (glyph, label) =
-        let nn = convMnistCNNS depth glyph
+        let nn variables = do
+              m <- convMnistCNNS depth glyph variables
+              softMaxActV m
             value = primalValue @r nn parameters
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
@@ -319,12 +323,14 @@ convMnistLossCNNP depth (x, target) variables = do
   lossSoftMaxCrossEntropyV target result
 
 convMnistTestCNNP
-  :: forall r. IsScalar r
+  :: forall r. (IsScalar r, Floating (Primal (Tensor1 r)))
   => Proxy r -> Int -> [MnistData2 (Primal r)] -> Domains r -> Primal r
 convMnistTestCNNP _ depth inputs parameters =
   let matchesLabels :: MnistData2 (Primal r) -> Bool
       matchesLabels (glyph, label) =
-        let nn = convMnistCNNP depth glyph
+        let nn variables = do
+              m <- convMnistCNNP depth glyph variables
+              softMaxActV m
             value = primalValue @r nn parameters
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
@@ -496,7 +502,8 @@ convMnistTestCNNT
   :: forall filter_height_1 filter_width_1
             in_height in_width out_height out_width out2_height out2_width
             in_channels out_channels n_batches r.
-     ( IsScalarS4 r n_batches in_channels
+     ( Floating (Primal (Tensor1 r))
+     , IsScalarS4 r n_batches in_channels
                     (in_height + filter_height_1) (in_width + filter_width_1)
      , IsScalarS4 r n_batches out_channels out_height out_width
      , IsScalarS4 r out_channels in_channels
@@ -530,12 +537,16 @@ convMnistTestCNNT _ inputs parameters =
         let tx :: Primal (TensorS '[ n_batches, in_channels
                                    , in_height, in_width ] r)
             tx = OS.fromVector $ HM.flatten glyph
-            nn = convMnistCNNT
+            nn :: DualNumberVariables r
+               -> DualMonadValue r (DualNumber (Tensor1 r))
+            nn variables = do
+              m <- convMnistCNNT
                           @filter_height_1 @filter_width_1
                           @in_height @in_width @out_height @out_width
                           @out2_height @out2_width @in_channels @out_channels
-                          tx
-            value = HM.flatten $ primalValue @r nn parameters
+                          tx variables
+              softMaxActV $ flatten1 m
+            value = primalValue @r nn parameters
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
