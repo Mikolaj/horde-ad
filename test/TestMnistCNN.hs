@@ -569,7 +569,7 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss testLoss
                         , show totalParams, show gamma, show range]
   in testCase name $ do
        trainData <- loadMnistData2 trainGlyphsPath trainLabelsPath
-       testData <- loadMnistData2 testGlyphsPath testLabelsPath
+       testData <- take 100 <$> loadMnistData2 testGlyphsPath testLabelsPath
        -- Mimic how backprop tests and display it, even though tests
        -- should not print, in principle.
        let runBatch :: Domains (Delta0 Double)
@@ -593,7 +593,7 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss testLoss
              printf "[Epoch %d]\n" n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches
-                          $ zip [1 ..] $ chunksOf 16 trainDataShuffled
+                          $ zip [1 ..] $ chunksOf 32 trainDataShuffled
                           -- TODO: 5000 takes forever
              !res <- foldM runBatch params2 chunks
              runEpoch (succ n) res
