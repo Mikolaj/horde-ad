@@ -22,6 +22,7 @@ import           Numeric.LinearAlgebra.Devel
 
 import HordeAd.Core.DualClass
 import HordeAd.Core.Engine
+import HordeAd.Internal.Delta (isTensorDummy)
 
 {-
 60% of heap allocation in matrix- and vector-based MNIST
@@ -82,7 +83,7 @@ updateWithGradient gamma (params0, params1, params2, paramsX)
                     then i
                     else liftMatrix2 updateVector i r
       !params2New = V.zipWith update2 params2 gradient2
-      updateX i r = if null (OT.shapeL r)  -- eval didn't update it, would crash
+      updateX i r = if isTensorDummy r  -- eval didn't update it, would crash
                     then i
                     else OT.zipWithA (\j s -> j - gamma * s) i r
                       -- TODO: this is slow; add @liftArray2@ and use HM,
@@ -95,7 +96,7 @@ gradientIsNil (gradient0, gradient1, gradient2, gradientX) =
   V.all (== 0) gradient0
   && V.all V.null gradient1
   && V.all (\r -> HM.rows r <= 0) gradient2
-  && V.all (null . OT.shapeL) gradientX
+  && V.all isTensorDummy gradientX
 
 minimumGradient :: IsScalar r => Domains r -> Primal r
 minimumGradient (gradient0, gradient1, gradient2, gradientX) =
@@ -249,7 +250,7 @@ updateWithGradientAdam ArgsAdam{..}
                           else liftMatrix43 updateVector mA vA p g
       (!mAdam2New, !vAdam2New, !params2New) =
         V.unzip3 $ V.zipWith4 update2 mAdam2 vAdam2 params2 gradient2
-      updateX mA vA p g = if null (OT.shapeL g)  -- eval didn't update it; crash
+      updateX mA vA p g = if isTensorDummy g  -- eval didn't update it
                           then (mA, vA, p)
                           else liftArray43 updateVector mA vA p g
       (!mAdamXNew, !vAdamXNew, !paramsXNew) =

@@ -41,6 +41,7 @@ module HordeAd.Internal.Delta
   , DeltaState (..)
   , evalBindings, evalBindingsForward, ppBindings
   , bindInState0, bindInState1, bindInState2, bindInStateX
+  , isTensorDummy
   ) where
 
 import Prelude
@@ -379,18 +380,14 @@ initializeFinMaps :: forall s r. Numeric r
                           , Data.Vector.Mutable.MVector s (MO.MatrixOuter r)
                           , Data.Vector.Mutable.MVector s (OT.Array r) )
 initializeFinMaps st = do
-  let emptyArray =
-        Data.Array.Internal.DynamicS.A
-        $ Data.Array.Internal.DynamicG.A []
-        $ Data.Array.Internal.T [] 0 V.empty
-      DeltaId counter0 = deltaCounter0 st
+  let DeltaId counter0 = deltaCounter0 st
       DeltaId counter1 = deltaCounter1 st
       DeltaId counter2 = deltaCounter2 st
       DeltaId counterX = deltaCounterX st
   finMap0 <- VM.replicate counter0 0  -- correct value
   finMap1 <- VM.replicate counter1 (V.empty :: Vector r)  -- dummy value
   finMap2 <- VM.replicate counter2 MO.emptyMatrixOuter  -- dummy value
-  finMapX <- VM.replicate counterX emptyArray  -- dummy value
+  finMapX <- VM.replicate counterX dummyTensor
   return (finMap0, finMap1, finMap2, finMapX)
 
 buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
@@ -406,10 +403,10 @@ buildFinMaps st deltaTopLevel = do
       addToMatrix :: MO.MatrixOuter r -> MO.MatrixOuter r -> MO.MatrixOuter r
       addToMatrix r = \v -> if MO.nullMatrixOuter v then r else MO.plus v r
       addToArray :: OT.Array r -> OT.Array r -> OT.Array r
-      addToArray r = \v -> if null (OT.shapeL v) then r else OT.zipWithA (+) v r
+      addToArray r = \v -> if isTensorDummy v then r else OT.zipWithA (+) v r
       addToArrayS :: OS.Shape sh => OS.Array sh r -> OT.Array r -> OT.Array r
       addToArrayS r = \v -> let rs = Data.Array.Convert.convert r
-                            in if null (OT.shapeL v)
+                            in if isTensorDummy v
                                then rs
                                else OT.zipWithA (+) v rs
       eval0 :: r -> Delta0 r -> ST s ()
@@ -616,7 +613,7 @@ buildFinMaps st deltaTopLevel = do
           eval2 r d
       evalUnlessZero (DeltaBindingX (DeltaId i) d) = do
         r <- finMapX `VM.read` i
-        unless (null (OT.shapeL r)) $
+        unless (isTensorDummy r) $
           evalX r d
   mapM_ evalUnlessZero (deltaBindings st)
   return (finMap0, finMap1, finMap2, finMapX)
@@ -886,3 +883,15 @@ an ingenious optimization of the common case of Index0 applied to a variable):
 
 https://github.com/Mikolaj/horde-ad/blob/d069a45773ed849913b5ebd0345153072f304fd9/bench/BenchProdTools.hs#L178-L193
 -}
+
+dummyTensor :: Numeric r => OT.Array r
+dummyTensor =  -- an inconsistent tensor array
+  Data.Array.Internal.DynamicS.A
+  $ Data.Array.Internal.DynamicG.A []
+  $ Data.Array.Internal.T [] (-1) V.empty
+
+isTensorDummy :: OT.Array r -> Bool
+isTensorDummy (Data.Array.Internal.DynamicS.A
+                 (Data.Array.Internal.DynamicG.A _
+                    (Data.Array.Internal.T _ (-1) _))) = True
+isTensorDummy _ = False
