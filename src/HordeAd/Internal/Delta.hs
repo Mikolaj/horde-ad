@@ -518,7 +518,7 @@ buildFinMaps st deltaTopLevel = do
         Reshape2 _cols d -> eval1 (V.concat $ MO.toRows r) d
         Conv2 m md ->
           let mor = MO.convertMatrixOuter r
-              convolved = HM.corr2 m mor
+              convolved = HM.conv2 m mor
               moc = MO.MatrixOuter (Just convolved) Nothing Nothing
           in eval2 moc md
       evalX :: OT.Array r -> DeltaX r -> ST s ()

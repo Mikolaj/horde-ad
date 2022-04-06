@@ -21,6 +21,8 @@ import           Text.Printf
 import HordeAd
 import HordeAd.Tool.MnistTools
 
+import Debug.Trace
+
 testTrees :: [TestTree]
 testTrees = [ mnistCNNTestsShort
             , mnistCNNTestsLong
@@ -709,9 +711,10 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
             close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
             dfDot fDot psDot =
               let ((res0, res1, res2, resX), value) = df fDot psDot
+                  dott x y = traceShow ("!!!!!!!!!!!!" :: String, x, y) $ x HM.<.> y
               in ( res0 HM.<.> ds0
                    + V.sum (V.zipWith (HM.<.>) res1 ds1)
-                   + V.sum (V.zipWith (HM.<.>) (V.map HM.flatten res2)
+                   + V.sum (V.zipWith dott (V.map HM.flatten res2)
                                                (V.map HM.flatten ds2))
                    + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
                                                (V.map OT.toVector dsX))
