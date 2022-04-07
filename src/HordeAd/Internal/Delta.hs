@@ -348,14 +348,14 @@ type Domains r = (Domain0 r, Domain1 r, Domain2 r, DomainX r)
 -- that are to be evaluated, in the given order, starting with the top-level
 -- binding of a scalar type provided in the remaining argument.
 evalBindings :: (Eq r, Numeric r, Num (Vector r))
-             => Int -> Int -> Int -> Int -> DeltaState r -> Delta0 r
+             => Int -> Int -> Int -> Int -> DeltaState r -> Delta0 r -> r
              -> Domains r
-evalBindings dim0 dim1 dim2 dimX st deltaTopLevel =
+evalBindings dim0 dim1 dim2 dimX st deltaTopLevel dt =
   -- This is morally @V.create@ and so totally safe,
   -- but we can't just call @V.create@ thrice, because it would run
   -- the @ST@ action thrice, so we inline and extend @V.create@ here.
   runST $ do
-    (finMap0, finMap1, finMap2, finMapX) <- buildFinMaps st deltaTopLevel
+    (finMap0, finMap1, finMap2, finMapX) <- buildFinMaps st deltaTopLevel dt
     v0 <- V.unsafeFreeze $ VM.take dim0 finMap0
     v1 <- V.unsafeFreeze $ VM.take dim1 finMap1
     v2 <- V.unsafeFreeze $ VM.take dim2 finMap2
@@ -391,12 +391,12 @@ initializeFinMaps st = do
   return (finMap0, finMap1, finMap2, finMapX)
 
 buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
-             => DeltaState r -> Delta0 r
+             => DeltaState r -> Delta0 r -> r
              -> ST s ( Data.Vector.Storable.Mutable.MVector s r
                      , Data.Vector.Mutable.MVector s (Vector r)
                      , Data.Vector.Mutable.MVector s (MO.MatrixOuter r)
                      , Data.Vector.Mutable.MVector s (OT.Array r) )
-buildFinMaps st deltaTopLevel = do
+buildFinMaps st deltaTopLevel dt = do
   (finMap0, finMap1, finMap2, finMapX) <- initializeFinMaps st
   let addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
@@ -596,7 +596,7 @@ buildFinMaps st deltaTopLevel = do
                 d
         FromXS d -> evalX (Data.Array.Convert.convert r) d
 
-  eval0 1 deltaTopLevel  -- dt is 1; can be overriden in the objective function
+  eval0 dt deltaTopLevel
 
   let evalUnlessZero :: DeltaBinding r -> ST s ()
       evalUnlessZero (DeltaBinding0 (DeltaId i) d) = do
@@ -631,7 +631,7 @@ buildFinMaps st deltaTopLevel = do
 evalBindingsForward :: forall r. (Numeric r, Num (Vector r))
                     => DeltaState r -> Delta0 r -> Domains r -> r
 evalBindingsForward st deltaTopLevel
-                    (params0Init, params1Init, params2Init, paramsXInit) =
+                    _ds@(params0Init, params1Init, params2Init, paramsXInit) =
   let eval0 :: Domains r -> Delta0 r -> r
       eval0 parameters@(params0, _, _, _) = \case
         Zero0 -> 0

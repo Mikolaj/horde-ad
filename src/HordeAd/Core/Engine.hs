@@ -86,16 +86,12 @@ instance IsScalar r => DualMonad r (DualMonadGradient r) where
 
 initializeState :: forall r. IsScalar r => Domains r -> DeltaState (Primal r)
 initializeState (params0, params1, params2, paramsX) =
-  let dim0 = V.length params0
-      dim1 = V.length params1
-      dim2 = V.length params2
-      dimX = V.length paramsX
-  in DeltaState { deltaCounter0 = toDeltaId dim0
-                , deltaCounter1 = toDeltaId dim1
-                , deltaCounter2 = toDeltaId dim2
-                , deltaCounterX = toDeltaId dimX
-                , deltaBindings = []
-                }
+  DeltaState { deltaCounter0 = toDeltaId (V.length params0)
+             , deltaCounter1 = toDeltaId (V.length params1)
+             , deltaCounter2 = toDeltaId (V.length params2)
+             , deltaCounterX = toDeltaId (V.length paramsX)
+             , deltaBindings = []
+             }
 
 generalDf :: forall r. HasDelta r
           => DualNumberVariables r
@@ -112,7 +108,9 @@ generalDf variables@(params0, _, params1, _, params2, _, paramsX, _) f =
       initialState = initializeState @r (params0, params1, params2, paramsX)
       (D value d, st) = runState (runDualMonadGradient (f variables))
                                  initialState
-      gradient = evalBindings dim0 dim1 dim2 dimX st d
+      dt = 1  -- fixed for simplicity, but can be overriden
+              -- by changing the objective function
+      gradient = evalBindings dim0 dim1 dim2 dimX st d dt
   in (gradient, value)
 
 df :: HasDelta r
