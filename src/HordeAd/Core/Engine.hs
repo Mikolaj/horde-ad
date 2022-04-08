@@ -2,7 +2,7 @@
              GeneralizedNewtypeDeriving, MultiParamTypeClasses, TypeFamilies,
              UndecidableInstances #-}
 -- | Several implementations of the monad in which our dual numbers live
--- and the implementations of calculating a gradient, derivative or value
+-- and implementations of calculating gradient, derivative and value
 -- of an objective function defined on dual numbers.
 module HordeAd.Core.Engine
   ( Domain0, Domain1, Domain2, DomainX, Domains
@@ -26,7 +26,12 @@ import HordeAd.Core.DualNumber
   (Domain0, Domain1, Domain2, DomainX, Domains, DualMonad (..), DualNumber (..))
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 import HordeAd.Internal.Delta
-  (DeltaState (..), evalBindings, evalBindingsForward, ppBindings, toDeltaId)
+  ( DeltaState (..)
+  , derivativeFromDelta
+  , gradientFromDelta
+  , ppBindings
+  , toDeltaId
+  )
 
 -- * The dummy monad implementation that does not collect deltas.
 -- It's intended for efficiently calculating the value of the function only.
@@ -71,7 +76,7 @@ primalValue f parameters =
 
 
 -- * The fully-fledged monad implementation for gradients
--- and the code that uses it to compute gradients.
+-- and the code that uses it to compute gradients and also derivatives.
 
 newtype DualMonadGradient r a = DualMonadGradient
   { runDualMonadGradient :: State (DeltaState (Primal r)) a }
@@ -110,7 +115,7 @@ generalDf variables@(params0, _, params1, _, params2, _, paramsX, _) f =
                                  initialState
       dt = 1  -- fixed for simplicity, but can be overriden
               -- by changing the objective function
-      gradient = evalBindings dim0 dim1 dim2 dimX st d dt
+      gradient = gradientFromDelta dim0 dim1 dim2 dimX st d dt
   in (gradient, value)
 
 df :: HasDelta r
@@ -136,7 +141,7 @@ generalDforward variables@(params0, _, params1, _, params2, _, paramsX, _)
   let initialState = initializeState @r (params0, params1, params2, paramsX)
       (D value d, st) = runState (runDualMonadGradient (f variables))
                                  initialState
-  in (evalBindingsForward st d ds, value)
+  in (derivativeFromDelta st d ds, value)
 
 -- The direction vector ds is taken as an extra argument.
 dforward

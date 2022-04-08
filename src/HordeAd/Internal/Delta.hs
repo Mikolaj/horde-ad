@@ -5,19 +5,19 @@
 #endif
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | The second component of dual numbers, @Delta@, with it's evaluation
--- function. Neel Krishnaswami calls them "sparse vector expressions",
--- and indeed they denote vectors, because even in the simplest
--- case of an objective function defined on scalars only,
--- the codomain of the evaluation function is a set of vectors,
--- because the gradient of an @R^n@ to @R@ function is an @R^n@ vector.
+-- | The second component of dual numbers, @Delta@, with its semantics.
+-- Neel Krishnaswami calls it \"sparse vector expressions\",
+-- and indeed even in the simplest case of an objective function
+-- defined on scalars only, the codomain of the function that computes
+-- gradients from such delta expressions is a set of vectors, because
+-- the gradient of an @R^n@ to @R@ function is an @R^n@ vector.
 --
--- The 'sparsity' is less obvious when the domain of the function consists
--- of multiple vectors and matrices and when the expressions themselves
--- contain vectors and matrices. However, a single tiny delta
+-- The \'sparsity\' is less obvious when the domain of the function consists
+-- of multiple vectors, matrices and tensors and when the expressions themselves
+-- contain vectors, matrices and tensors. However, a single tiny delta
 -- expression (e.g., a sum of two variables) may denote a vector of matrices.
 -- Even a delta expression containing a big matrix denotes something much
--- bigger: a whole vector of such matrices (and vectors and scalars).
+-- bigger: a whole vector of such matrices and more.
 --
 -- The algebraic structure here is an extension of vector space.
 -- The crucial extra constructor of a variable is used both to represent
@@ -28,9 +28,10 @@
 --
 -- This is an internal API now, superseded by "HordeAd.Core.DualClass"
 -- that permits other kinds of second component of dual numbers,
--- e.g., the same as primal components, for fast computation
--- of forward derivatives (@evalBindingsForward@ below, using delta-expressions,
--- is slow once the expressions grow large enough to affect cache misses).
+-- e.g., the same as primal component, for fast computation
+-- of forward derivatives (because @derivativeFromDelta@ below,
+-- computing derivatives from delta-expressions, is slow once the expressions
+-- grow large enough to affect cache misses).
 module HordeAd.Internal.Delta
   ( -- * Abstract syntax trees of the delta expressions
     Delta0 (..), Delta1 (..), Delta2 (..), DeltaX (..), DeltaS (..)
@@ -39,7 +40,7 @@ module HordeAd.Internal.Delta
   , -- * Evaluation of the delta expressions
     DeltaBinding
   , DeltaState (..)
-  , evalBindings, evalBindingsForward, ppBindings
+  , gradientFromDelta, derivativeFromDelta, ppBindings
   , bindInState0, bindInState1, bindInState2, bindInStateX
   , isTensorDummy
   ) where
@@ -82,7 +83,7 @@ import           HordeAd.Internal.OrthotopeOrphanInstances ()
 -- For each choice of the underlying scalar type @r@,
 -- we have several primitive differentiable types based on the scalar:
 -- the scalar type @r@ itself, @Vector r@, @Matrix r@ and tensors.
--- Many operations span the ranks and so the datatypes, which makes
+-- Many operations span the ranks and so span the datatypes, which makes
 -- the datatypes mutually recursive.
 data Delta0 r =
     Zero0
@@ -167,7 +168,7 @@ deriving instance (Show r, Numeric r) => Show (Delta2 r)
 
 -- | This is the grammar of delta-expressions at arbitrary tensor rank.
 --
--- Warning: not tested nor benchmarked.
+-- Warning: not tested enough nor benchmarked.
 data DeltaX r =
     ZeroX
   | ScaleX (OT.Array r) (DeltaX r)
@@ -202,7 +203,7 @@ deriving instance (Show r, Numeric r) => Show (DeltaX r)
 -- | This is the grammar of delta-expressions at arbitrary tensor rank,
 -- the fully typed Shaped version.
 --
--- Warning: not tested nor benchmarked.
+-- Warning: not tested enough nor benchmarked.
 data DeltaS :: [Nat] -> Type -> Type where
   ZeroS :: DeltaS sh r
   ScaleS :: OS.Array sh r -> DeltaS sh r -> DeltaS sh r
@@ -226,7 +227,7 @@ data DeltaS :: [Nat] -> Type -> Type where
     -- ^ Create a tensor from a list treated as the outermost dimension.
   ReshapeS :: (OS.Shape sh, OS.Shape sh', OS.Size sh ~ OS.Size sh')
            => DeltaS sh r -> DeltaS sh' r
-      -- ^ Change the shape of the tensor.
+    -- ^ Change the shape of the tensor.
 
   From0S :: Delta0 r -> DeltaS '[] r
   From1S :: Delta1 r -> DeltaS '[n] r
@@ -283,11 +284,11 @@ data DeltaState r = DeltaState
 -- rank 0 (scalar) level (e.g., @Delta0 Double@).
 -- By chance, these definitions and definitions from other modules
 -- coincide in case of "forward derivatives computed on the spot"
--- where @r@ is @Double@ and @Double@ is the dual component.
+-- where @r@ is @Double@ and @Double@ is also the dual component.
 --
--- More generally, @r@ in this module tends to refert to the underlying
--- scalar type, while in all other modules it's the rank 0 dual component
--- type, in this module often denoted by @d@ both on type and value level.
+-- More generally, @r@ in this module tends to refer to the underlying
+-- scalar type, while in all other modules it refers to the rank 0 dual
+-- component type.
 type Domain0 r = Vector r
 
 type Domain1 r = Data.Vector.Vector (Vector r)
@@ -298,59 +299,82 @@ type DomainX r = Data.Vector.Vector (OT.Array r)
 
 type Domains r = (Domain0 r, Domain1 r, Domain2 r, DomainX r)
 
--- | Delta expressions naturally denote forward derivatives.
--- However, we use the delta expressions to compute gradients instead.
--- Let's first discuss the semantics in terms of forward derivatives,
--- because it's simpler (as evidenced by the simple implementation
--- in 'evalBindingsForward' below).
+-- | Delta expressions naturally denote forward derivatives,
+-- as encoded in function 'derivativeFromDelta'. However, we are more
+-- interested in computing gradients, which is what `gradientFromDelta` does.
+-- The two functions are bound by the equation from Lemma 5 from the paper
+-- "Provably correct, asymptotically efficient, higher-order reverse-mode
+-- automatic differentiation":
 --
+-- > dt <.> derivativeFromDelta st d ds = gradientFromDelta st d dt <.> ds
+--
+-- where @\<.\>@ denotes generalized dot product (multiplying
+-- all tensors element-wise and summing the results),
+-- @st@ contains bindings of delta variables and @d@ is the top level
+-- delta expression from translation of the objective function @f@ to dual
+-- numbers, @ds@ belongs to the domain of @f@ and @dt@ to the codomain.
+-- We omitted for clarity the @dim0@, @dim1@, @dim2@ and @dimX@ arguments
+-- that are the lengths of vectors of the tensors in the domain of @f@.
+--
+-- Intuitively, @ds@ is a tiny perturbation of the arguments of @f@,
+-- for which we compute the derivative, that is, the induced change
+-- in the result of @f@. Similarly, @dt@ is a tiny perturbation of the
+-- result of @f@, for which we compute the gradient, that is, the change
+-- of arguments of @f@ sufficient to cause the perturbation.
+-- Note that the scaling factor @r@ in functions @eval*@ in @gradientFromDelta@
+-- locally plays the role of @dt@, just as the argument @parameters@
+-- in @eval*@ in @derivativeFromDelta@ corresponds to @ds@.
+--
+-- Let's first discuss in detail the semantics of delta-expressions
+-- in terms of forward derivatives, since it's more straightforward.
 -- Let @r@ be the type of underlying scalars. Let @f@ be a mathematical
--- differentiable function that takes a collection of arguments
--- of type @C@ and produces a single result of type @r@.
--- Let a dual number counterpart of @f@, applied to a collection
--- of parameters @P@ of type @C@, be represented as a Haskell value @b@.
+-- differentiable function that takes a collection of type @C@
+-- of arguments and produces a single result of type @r@.
+-- Let a dual number counterpart of @f@ applied to a collection
+-- of parameters @P@ of type @C@ be represented as a Haskell value @b@.
 -- Let @d :: Delta0 r@ be the closed delta expression that is the second
--- component of @b@. Then @d@ denotes a linear function from @C@ to @r@
--- that is the derivative of @f@ at point @P@. The mathematical formula
+-- component of @b@, let @ds@ belong to @C@. The semantics of @d@ is a linear
+-- function from @C@ to @r@ that is the derivative of @f@ at point @P@
+-- with respect to the perturbation @ds@. The mathematical formula
 -- for the derivative follows straightforwardly the syntactic form
--- of the delta expression @d@ (see 'evalBindingsForward').
+-- of the delta expression @d@ (see 'derivativeFromDelta').
 --
--- Let's now describe the semantics of @d@ as the gradient of @f@
--- at point @P@, assuming that @dt@, the given perturbation of the result
--- of the function, is a scalar of type @r@ equal to @1@.
--- Here @d@ denotes a collection of four finite maps (vectors)
--- @v0@, @v1@, @v2@, @vX@, corresponding to @C@,
--- each map @vi@ taking indexes of type @DeltaId ai@ to values @ai@,
+-- Let's now describe the semantics of closed delta expression @d@
+-- as the gradient of @f@ at point @P@ with respect to a @dt@ that belongs
+-- to @r@. Here the semantics of @d@ is a collection of four finite maps
+-- (vectors) @v0@, @v1@, @v2@, @vX@, corresponding to @C@,
+-- each map @vi@ taking indexes of type @DeltaId ai@ to values of type @ai@,
 -- where @a0@ is @r@, @a1@ is @Vector r@, @a2@ is @Matrix r@
 -- and @aX@ is the type of tensors of @r@.
---
 -- The value of @vi@ at index @DeltaId k@ is the partial derivative
--- of function @f@ with respect to its parameter of type @ai@ at position
--- represented by @DeltaId k@ (in other words, with respect to a variable
--- quantity tagged with @DeltaId k@), given that @dt@ is @1@.
+-- of function @f@ at @P@ with respect to its parameter of type @ai@.
+-- The position of the @ai@ parameter is represented by @DeltaId k@
+-- (in other words, the partial derivative is with respect to a variable
+-- quantity tagged with @DeltaId k@) and its value comes from @dt@.
 --
--- The semantics of @Delta_j r@ that is not closed but contains occurrences
--- of variables that do not correspond to parameters of @f@ is only
+-- The semantics of a delta expression that is not closed but contains
+-- occurrences of variables that do not correspond to parameters of @f@ is only
 -- defined in the context of four vectors that contain values associated
 -- to its free variables or, alternatively, of bindings from which the values
 -- can be computed, or of a mixture of both. This semantics does not change
 -- if a bound expression is substituted for a variable instead of being used
 -- to compute a value. (Note however that a computed value can't be
--- substituted for the variable in an expression, because the "computing
--- backwards" trick, needed to get gradients from derivative expressions,
--- computes a value for each occurrence of a variable separately
--- and sums over all occurrences instead of substituting a single value
--- into each occurrence.)
+-- substituted for all occurrences of the variable in an expression,
+-- because the "computing backwards" trick, needed to get gradients
+-- from derivative expressions, computes a value for each occurrence
+-- of a variable separately and sums over all occurrences instead
+-- of substituting a single value into each occurrence.)
 --
--- Function @evalBindings@ computes the four vectors described above.
+-- Function @gradientFromDelta@ computes the four vectors described above.
 -- Requested lengths of the vectors are given in the first few arguments.
 -- The delta state contains a list of mutually-referencing delta bindings
 -- that are to be evaluated, in the given order, starting with the top-level
--- binding of a scalar type provided in the remaining argument.
-evalBindings :: (Eq r, Numeric r, Num (Vector r))
-             => Int -> Int -> Int -> Int -> DeltaState r -> Delta0 r -> r
-             -> Domains r
-evalBindings dim0 dim1 dim2 dimX st deltaTopLevel dt =
+-- binding of a scalar type provided in the next argument and with respect
+-- to perturbation @dt@ (usually set to @1@) in the last argument.
+gradientFromDelta :: (Eq r, Numeric r, Num (Vector r))
+                  => Int -> Int -> Int -> Int -> DeltaState r -> Delta0 r -> r
+                  -> Domains r
+gradientFromDelta dim0 dim1 dim2 dimX st deltaTopLevel dt =
   -- This is morally @V.create@ and so totally safe,
   -- but we can't just call @V.create@ thrice, because it would run
   -- the @ST@ action thrice, so we inline and extend @V.create@ here.
@@ -620,17 +644,15 @@ buildFinMaps st deltaTopLevel dt = do
 
 -- | Forward derivative computation via forward-evaluation of delta-expressions
 -- (which is surprisingly competitive to the direct forward method,
--- until the RAM taken by deltas gets large enough to affect cache hits).
+-- until the allocation of deltas gets large enough to affect cache hits).
 -- This is the directional derivative, calculated for the point,
 -- at which the delta expression was computed (which is the point
 -- represented by the parameters of the objective function and used
 -- to compute it's dual number result) and along the direction vector(s)
--- given in the last parameter of @evalBindingsForward@.
---
--- Warning: the tensor part is not tested at all.
-evalBindingsForward :: forall r. (Numeric r, Num (Vector r))
+-- given in the last parameter called @ds@.
+derivativeFromDelta :: forall r. (Numeric r, Num (Vector r))
                     => DeltaState r -> Delta0 r -> Domains r -> r
-evalBindingsForward st deltaTopLevel
+derivativeFromDelta st deltaTopLevel
                     _ds@(params0Init, params1Init, params2Init, paramsXInit) =
   let eval0 :: Domains r -> Delta0 r -> r
       eval0 parameters@(params0, _, _, _) = \case

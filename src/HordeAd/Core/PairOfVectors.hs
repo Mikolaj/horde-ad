@@ -7,7 +7,7 @@
 -- For this reason, this representation is currently used only to represent
 -- the inputs of functions, that is, dual numbers with initial values
 -- of parameters and, in case of dual components that are delta-expressions,
--- with `Delta` variables assigned to each.
+-- with @Delta@ variables assigned to each.
 module HordeAd.Core.PairOfVectors
   ( DualNumberVariables
   , makeDualNumberVariables, var0, vars, var1, var2, varX, varS
