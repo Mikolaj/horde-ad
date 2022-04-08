@@ -833,7 +833,7 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
                           (convMnistTestCNNTPoly
                              @4 @4 @28 @28 @16 @16 @10 @10 @1 @1 @1)
                           final_image_size
-                          1 1 1 1 0.86
+                          1 1 1 1 0.85
 {-
   , convMnistTestCaseCNN "artificial 1 2 3 4 5" 1 2
                          convMnistLossCNN convMnistTestCNN final_image_size
