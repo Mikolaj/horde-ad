@@ -301,7 +301,7 @@ type Domains r = (Domain0 r, Domain1 r, Domain2 r, DomainX r)
 
 -- | Delta expressions naturally denote forward derivatives,
 -- as encoded in function 'derivativeFromDelta'. However, we are more
--- interested in computing gradients, which is what `gradientFromDelta` does.
+-- interested in computing gradients, which is what @gradientFromDelta@ does.
 -- The two functions are bound by the equation from Lemma 5 from the paper
 -- "Provably correct, asymptotically efficient, higher-order reverse-mode
 -- automatic differentiation":

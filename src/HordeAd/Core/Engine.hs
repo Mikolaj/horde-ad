@@ -6,9 +6,9 @@
 -- of an objective function defined on dual numbers.
 module HordeAd.Core.Engine
   ( Domain0, Domain1, Domain2, DomainX, Domains
-  , DualMonadValue, primalValueGeneric, primalValue
-  , DualMonadGradient, generalDf, df, generalDforward, dforward, prettyPrintDf
-  , DualMonadForward, generalDfastForward, dfastForward
+  , DualMonadValue, primalValueGeneral, primalValue
+  , DualMonadGradient, dReverseGeneral, dReverse, dForwardGeneral, dForward, prettyPrintDf
+  , DualMonadForward, dFastForwardGeneral, dFastForward
   , generateDeltaVars, initializerFixed
   ) where
 
@@ -48,13 +48,13 @@ instance IsScalar r => DualMonad r (DualMonadValue r) where
   returnLet (D u _u') = DualMonadValue $ Identity $ D u dZero
 
 -- The general case, needed for old, hacky tests using only scalars.
-primalValueGeneric :: forall r a. IsScalar r
+primalValueGeneral :: forall r a. IsScalar r
                    => (DualNumberVariables r -> DualMonadValue r a)
                    -> Domains r
                    -> a
 -- Small enough that inline won't hurt.
-{-# INLINE primalValueGeneric #-}
-primalValueGeneric f (params0, params1, params2, paramsX) =
+{-# INLINE primalValueGeneral #-}
+primalValueGeneral f (params0, params1, params2, paramsX) =
   let replicateZeros p = V.replicate (V.length p) dZero
       variables = makeDualNumberVariables
                     (params0, params1, params2, paramsX)
@@ -71,7 +71,7 @@ primalValue :: forall r a. IsScalar r
 -- Small enough that inline won't hurt.
 {-# INLINE primalValue #-}
 primalValue f parameters =
-  let D value _ = primalValueGeneric f parameters
+  let D value _ = primalValueGeneral f parameters
   in value
 
 
@@ -98,14 +98,14 @@ initializeState (params0, params1, params2, paramsX) =
              , deltaBindings = []
              }
 
-generalDf :: forall r. HasDelta r
+dReverseGeneral :: forall r. HasDelta r
           => DualNumberVariables r
           -> (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
           -> (Domains r, Primal r)
--- The functions in which @generalDf@ inlines are not inlined themselves
+-- The functions in which @dReverseGeneral@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
-{-# INLINE generalDf #-}
-generalDf variables@(params0, _, params1, _, params2, _, paramsX, _) f =
+{-# INLINE dReverseGeneral #-}
+dReverseGeneral variables@(params0, _, params1, _, params2, _, paramsX, _) f =
   let dim0 = V.length params0
       dim1 = V.length params1
       dim2 = V.length params2
@@ -118,25 +118,25 @@ generalDf variables@(params0, _, params1, _, params2, _, paramsX, _) f =
       gradient = gradientFromDelta dim0 dim1 dim2 dimX st d dt
   in (gradient, value)
 
-df :: HasDelta r
+dReverse :: HasDelta r
    => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
    -> Domains r
    -> (Domains r, Primal r)
-df f parameters =
+dReverse f parameters =
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
-  in generalDf variables f
+  in dReverseGeneral variables f
 
 -- This function uses @DualMonadGradient@ for an inefficient computation
--- of forward derivaties. See @generalDfastForward@ for an efficient variant.
-generalDforward
+-- of forward derivaties. See @dFastForwardGeneral@ for an efficient variant.
+dForwardGeneral
   :: forall r. HasDelta r
   => DualNumberVariables r
   -> (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
   -> Domains r
   -> (Primal r, Primal r)
-{-# INLINE generalDforward #-}
-generalDforward variables@(params0, _, params1, _, params2, _, paramsX, _)
+{-# INLINE dForwardGeneral #-}
+dForwardGeneral variables@(params0, _, params1, _, params2, _, paramsX, _)
                 f ds =
   let initialState = initializeState @r (params0, params1, params2, paramsX)
       (D value d, st) = runState (runDualMonadGradient (f variables))
@@ -144,16 +144,16 @@ generalDforward variables@(params0, _, params1, _, params2, _, paramsX, _)
   in (derivativeFromDelta st d ds, value)
 
 -- The direction vector ds is taken as an extra argument.
-dforward
+dForward
   :: HasDelta r
   => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
   -> Domains r
   -> Domains r
   -> (Primal r, Primal r)
-dforward f parameters ds =
+dForward f parameters ds =
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
-  in generalDforward variables f ds
+  in dForwardGeneral variables f ds
 
 
 -- * A monad for efficiently computing forward derivatives.
@@ -166,28 +166,28 @@ instance IsScalar r => DualMonad r (DualMonadForward r) where
   returnLet (D u u') = DualMonadForward $ Identity $ D u u'
 
 -- This the efficient variant of forward derivative computation.
-generalDfastForward
+dFastForwardGeneral
   :: DualNumberVariables r
   -> (DualNumberVariables r -> DualMonadForward r (DualNumber r))
   -> (r, Primal r)
-{-# INLINE generalDfastForward #-}
-generalDfastForward variables f =
+{-# INLINE dFastForwardGeneral #-}
+dFastForwardGeneral variables f =
   let D value d = runIdentity $ runDualMonadForward $ f variables
   in (d, value)
 
 -- The direction vector ds is taken as an extra argument.
-dfastForward
+dFastForward
   :: forall r. HasForward r
   => (DualNumberVariables r -> DualMonadForward r (DualNumber r))
   -> Domains r
   -> Domains r
   -> (Primal r, Primal r)
-dfastForward f parameters (params0, params1, params2, paramsX) =
+dFastForward f parameters (params0, params1, params2, paramsX) =
   let variables =
         makeDualNumberVariables
           parameters
           (V.convert params0, params1, params2, paramsX)  -- ds
-      (derivative, value) = generalDfastForward variables f
+      (derivative, value) = dFastForwardGeneral variables f
   in (derivative, value)
 
 

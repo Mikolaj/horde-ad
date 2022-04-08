@@ -32,7 +32,7 @@ gdSimple gamma f n0 parameters0 = go n0 parameters0 where
   go 0 parameters = parameters
   go n parameters =
     let variables = makeDualNumberVariables parameters varDeltas
-        gradients = fst $ generalDf variables f
+        gradients = fst $ dReverseGeneral variables f
         parametersNew = updateWithGradient @r gamma parameters gradients
     in go (pred n) parametersNew
 
@@ -49,7 +49,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   go [] parameters = (parameters, 0)
   go (a : rest) parameters =
     let variables = makeDualNumberVariables parameters varDeltas
-        (gradients, valueNew) = generalDf variables (f a)
+        (gradients, valueNew) = dReverseGeneral variables (f a)
         !parametersNew = updateWithGradient @r gamma parameters gradients
     in if null rest
        then (parametersNew, valueNew)
@@ -79,7 +79,7 @@ sgdAdamArgs argsAdam f trainingData parameters0 stateAdam0 =
   go [] parameters stateAdam = (parameters, stateAdam)
   go (a : rest) parameters stateAdam =
     let variables = makeDualNumberVariables parameters varDeltas
-        gradients = fst $ generalDf variables (f a)
+        gradients = fst $ dReverseGeneral variables (f a)
         (parametersNew, stateAdamNew) =
           updateWithGradientAdam argsAdam stateAdam parameters gradients
     in go rest parametersNew stateAdamNew

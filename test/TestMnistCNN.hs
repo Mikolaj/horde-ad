@@ -703,12 +703,12 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
               cx1 <- returnLet $ indexX cx ix1
               cx2 <- returnLet $ indexX cx1 ix2
               returnLet $ fromX0 cx2
-            ff = dfastForward f parameters ds
-            ffP = dfastForward fP parameters ds
+            ff = dFastForward f parameters ds
+            ffP = dFastForward fP parameters ds
             close a b = abs (a - b) <= 0.000001
             close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
             dfDot fDot psDot =
-              let ((res0, res1, res2, resX), value) = df fDot psDot
+              let ((res0, res1, res2, resX), value) = dReverse fDot psDot
               in ( res0 HM.<.> ds0
                    + V.sum (V.zipWith (HM.<.>) res1 ds1)
                    + V.sum (V.zipWith (HM.<.>) (V.map HM.flatten res2)
@@ -717,9 +717,9 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                                                (V.map OT.toVector dsX))
                  , value )
         in close1 ff ffP
-           .&&. dforward f parameters ds === ff
+           .&&. dForward f parameters ds === ff
            .&&. close1 (dfDot f parameters) ff
-           .&&. dforward fP parameters ds === ffP
+           .&&. dForward fP parameters ds === ffP
            .&&. close1 (dfDot fP parameters) ffP
   , testProperty "Compare gradients and two forward derivatives for convMnistTestCNN and convMnistTestCNNP" $
       \seed ->
@@ -741,12 +741,12 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                   => DualNumberVariables r -> m (DualNumber r)
             f = convMnistLossCNN widthHidden mnistData
             fP = convMnistLossCNNP widthHidden mnistData
-            ff = dfastForward f parameters ds
-            ffP = dfastForward fP parameters ds
+            ff = dFastForward f parameters ds
+            ffP = dFastForward fP parameters ds
             close a b = abs (a - b) <= 0.000001
             close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
             dfDot fDot psDot =
-              let ((res0, res1, res2, resX), value) = df fDot psDot
+              let ((res0, res1, res2, resX), value) = dReverse fDot psDot
               in ( res0 HM.<.> ds0
                    + V.sum (V.zipWith (HM.<.>) res1 ds1)
                    + V.sum (V.zipWith (HM.<.>) (V.map HM.flatten res2)
@@ -755,9 +755,9 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                                                (V.map OT.toVector dsX))
                  , value )
         in close1 ff ffP
-           .&&. dforward f parameters ds === ff
+           .&&. dForward f parameters ds === ff
            .&&. close1 (dfDot f parameters) ff
-           .&&. dforward fP parameters ds === ffP
+           .&&. dForward fP parameters ds === ffP
            .&&. close1 (dfDot fP parameters) ffP
   ]
 

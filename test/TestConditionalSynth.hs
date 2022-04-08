@@ -188,7 +188,7 @@ gdSmartShow :: HasDelta r
 gdSmartShow f params1Init n =
   let ((_, params1, _, _), gamma) =
         gdSmart f n (V.empty, params1Init, V.empty, V.empty)
-      (_, value) = df f (V.empty, params1, V.empty, V.empty)
+      (_, value) = dReverse f (V.empty, params1, V.empty, V.empty)
   in (V.toList params1, (value, gamma))
 
 gradSmartTestCase

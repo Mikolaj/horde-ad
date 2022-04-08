@@ -26,12 +26,12 @@ import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 -- Philip Torr.
 --
 -- Note that we can't generalize this to use either
--- @generalDforward@ or @generalDf@, because the optimized call
+-- @dForwardGeneral@ or @dReverseGeneral@, because the optimized call
 -- to @updateWithGradient@ below would not be possible with the common API
 -- for obtaining gradients and at least twice more allocations would
 -- be done there. With small mini-batch sizes this matters,
 -- especially for optimal forward gradient implementation
--- @generalDfastForward@, where there's no overhead from storing
+-- @dFastForwardGeneral@, where there's no overhead from storing
 -- and evaluating delta-expressions.
 --
 -- An option: vectorize and only then take the mean of the vector of results
@@ -72,7 +72,7 @@ sgdBatchForward seed0 batchSize gamma f trainingData parameters0 nParameters =
         (_, _, _, direction) = initializerFixed g1 unitVarianceRange nParameters
         variables = makeDualNumberVariables parameters varDeltas
         (directionalDerivative, valueNew) =
-          generalDforward variables fBatch direction
+          dForwardGeneral variables fBatch direction
         gammaDirectional = gamma * directionalDerivative
         parametersNew = updateWithGradient @(Delta0 Double) gammaDirectional
                                            parameters direction
@@ -119,7 +119,7 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
             , unsafeCoerce paramsX )
             (V.convert dparams0, dparams1, dparams2, dparamsX)
         (directionalDerivative, valueNew) =
-          generalDfastForward variables fBatch
+          dFastForwardGeneral variables fBatch
         gammaDirectional = gamma * directionalDerivative
         parametersNew = updateWithGradient @Double gammaDirectional
                                            parameters direction
@@ -164,7 +164,7 @@ sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
         fBatch vars = do
           resBatch <- foldM (fAdd vars) 0 batch
           return $! resBatch / fromIntegral (length batch)
-        gradients = fst $ generalDf variables fBatch
+        gradients = fst $ dReverseGeneral variables fBatch
         (parametersNew, stateAdamNew) =
           updateWithGradientAdam argsAdam stateAdam parameters gradients
     in go rest parametersNew stateAdamNew
@@ -180,7 +180,7 @@ gdSmart :: forall r. HasDelta r
 gdSmart f n0 parameters0 = go n0 parameters0 0.1 gradients0 value0 0 where
   varDeltas = generateDeltaVars parameters0
   variables0 = makeDualNumberVariables parameters0 varDeltas
-  (gradients0, value0) = generalDf variables0 f
+  (gradients0, value0) = dReverseGeneral variables0 f
   go :: Int -> Domains r -> Primal r -> Domains r -> Primal r -> Int
      -> (Domains r, Primal r)
   go 0 parameters !gamma _gradientsPrev _valuePrev !_i = (parameters, gamma)
@@ -191,7 +191,7 @@ gdSmart f n0 parameters0 = go n0 parameters0 0.1 gradients0 value0 0 where
     -- with the new value that is needed now to revert if we overshoot.
     let parametersNew = updateWithGradient @r gamma parameters gradientsPrev
         variables = makeDualNumberVariables parametersNew varDeltas
-        (gradients, value) = generalDf variables f
+        (gradients, value) = dReverseGeneral variables f
     in if | gradientIsNil @r gradientsPrev -> (parameters, gamma)
           | value > valuePrev ->
               go n parameters (gamma / 2) gradientsPrev valuePrev 0  -- overshot

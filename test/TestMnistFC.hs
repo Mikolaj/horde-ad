@@ -46,7 +46,7 @@ sgdShow :: HasDelta r
 sgdShow gamma f trainData params0Init =
   let result =
         fst $ sgd gamma f trainData (params0Init, V.empty, V.empty, V.empty)
-  in snd $ df (f $ head trainData) result
+  in snd $ dReverse (f $ head trainData) result
 
 sgdTestCase :: String
             -> IO [a]
@@ -592,11 +592,11 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             f :: forall r m. (DualMonad r m, Primal r ~ Double)
               => DualNumberVariables r -> m (DualNumber r)
             f = nnMnistLoss0 widthHidden widthHidden2 mnistData
-            ff = dfastForward f parameters ds
+            ff = dFastForward f parameters ds
             close a b = abs (a - b) <= 0.000001
             close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
             dfDot fDot psDot =
-              let ((res0, res1, res2, resX), value) = df fDot psDot
+              let ((res0, res1, res2, resX), value) = dReverse fDot psDot
               in ( res0 HM.<.> ds0
                    + V.sum (V.zipWith (HM.<.>) res1 ds1)
                    + V.sum (V.zipWith (HM.<.>) (V.map HM.flatten res2)
@@ -606,7 +606,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
                  , value )
         -- The formula for comparing derivative and gradient is due to @awf at
         -- https://github.com/Mikolaj/horde-ad/issues/15#issuecomment-1063251319
-        in dforward f parameters ds === ff
+        in dForward f parameters ds === ff
            .&&. close1 (dfDot f parameters) ff
   , testProperty "Compare two forward derivatives and gradient for Mnist1" $
       \seed seedDs ->
@@ -628,11 +628,11 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             f :: forall r m. (DualMonad r m, Primal r ~ Double)
               => DualNumberVariables r -> m (DualNumber r)
             f = nnMnistLoss1 widthHidden widthHidden2 mnistData
-            ff = dfastForward f parameters ds
+            ff = dFastForward f parameters ds
             close a b = abs (a - b) <= 0.000001
             close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
             dfDot fDot psDot =
-              let ((res0, res1, res2, resX), value) = df fDot psDot
+              let ((res0, res1, res2, resX), value) = dReverse fDot psDot
               in ( res0 HM.<.> ds0
                    + V.sum (V.zipWith (HM.<.>) res1 ds1)
                    + V.sum (V.zipWith (HM.<.>) (V.map HM.flatten res2)
@@ -640,7 +640,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
                    + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
                                                (V.map OT.toVector dsX))
                  , value )
-        in dforward f parameters ds === ff
+        in dForward f parameters ds === ff
            .&&. close1 (dfDot f parameters) ff
   , testProperty "Compare two forward derivatives and gradient for Mnist2" $
       \seed ->
@@ -666,13 +666,13 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             f = nnMnistLoss2 mnistData
             fOneHot = nnMnistLoss2 mnistDataOneHot
             fFused = nnMnistLossFused2 mnistDataOneHot
-            ff = dfastForward f parameters ds
-            ffOneHot = dfastForward fOneHot parameters ds
-            ffFused = dfastForward fFused parameters ds
+            ff = dFastForward f parameters ds
+            ffOneHot = dFastForward fOneHot parameters ds
+            ffFused = dFastForward fFused parameters ds
             close a b = abs (a - b) <= 0.000001
             close1 (a1, b1) (a2, b2) = close a1 a2 .&&. close b1 b2
             dfDot fDot psDot =
-              let ((res0, res1, res2, resX), value) = df fDot psDot
+              let ((res0, res1, res2, resX), value) = dReverse fDot psDot
               in ( res0 HM.<.> ds0
                    + V.sum (V.zipWith (HM.<.>) res1 ds1)
                    + V.sum (V.zipWith (HM.<.>) (V.map HM.flatten res2)
@@ -680,12 +680,12 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
                    + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
                                                (V.map OT.toVector dsX))
                  , value )
-        in dforward f parameters ds === ff
+        in dForward f parameters ds === ff
            .&&. close1 (dfDot f parameters) ff
-           .&&. dforward fOneHot parameters ds === ffOneHot
+           .&&. dForward fOneHot parameters ds === ffOneHot
            .&&. close1 (dfDot fOneHot parameters) ffOneHot
            .&&. close1 ffOneHot ffFused
-           .&&. dforward fFused parameters ds === ffFused
+           .&&. dForward fFused parameters ds === ffFused
            .&&. close1 (dfDot fFused parameters) ffFused
   ]
 

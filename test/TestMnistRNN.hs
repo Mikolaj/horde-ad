@@ -122,7 +122,7 @@ sgdShow :: HasDelta r
         -> Primal r
 sgdShow f trainData parameters =
   let result = fst $ sgd 0.1 f trainData parameters
-  in snd $ df (f $ head trainData) result
+  in snd $ dReverse (f $ head trainData) result
 
 sgdTestCase :: String
             -> (a
@@ -185,7 +185,7 @@ feedback :: IsScalar r
          -> [Primal r]
 feedback f parameters s0 x0 =
   let go (x, s) =
-        let (D y _, sd') = primalValueGeneric (f x s) parameters
+        let (D y _, sd') = primalValueGeneral (f x s) parameters
         in Just (x, (y, sd'))
   in unfoldr go (x0, scalar s0)
 

@@ -150,7 +150,7 @@ testMnist0 _ widthHidden widthHidden2 inputs params0 =
         let nn = inline (nnMnist0 @r) logisticAct softMaxAct
                                       widthHidden widthHidden2 glyph
             value = V.map (\(D r _) -> r)
-                    $ primalValueGeneric @r nn
+                    $ primalValueGeneral @r nn
                                          (params0, V.empty, V.empty, V.empty)
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))

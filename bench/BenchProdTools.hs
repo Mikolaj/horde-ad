@@ -147,7 +147,7 @@ vec_prod ds = primalValue @r vec_prod_aux (ds, V.empty, V.empty, V.empty)
 
 grad_vec_prod :: HasDelta r => Vector (Primal r) -> Vector (Primal r)
 grad_vec_prod ds =
-  (\(v, _, _, _) -> v) $ fst $ df vec_prod_aux (ds, V.empty, V.empty, V.empty)
+  (\(v, _, _, _) -> v) $ fst $ dReverse vec_prod_aux (ds, V.empty, V.empty, V.empty)
 
 grad_toList_prod :: HasDelta r => [Primal r] -> [Primal r]
 grad_toList_prod l = V.toList $ grad_vec_prod $ V.fromList l
@@ -173,7 +173,7 @@ grad_vec_omit_prod :: HasDelta r
                    => Vector (Primal r) -> Vector (Primal r)
 grad_vec_omit_prod ds =
   (\(v, _, _, _) -> v)
-  $ fst $ df vec_omit_prod_aux (ds, V.empty, V.empty, V.empty)
+  $ fst $ dReverse vec_omit_prod_aux (ds, V.empty, V.empty, V.empty)
 
 
 vec_omit_scalarSum_aux
@@ -198,14 +198,14 @@ altSumElementsV variables = do
 grad_vec_omit_scalarSum :: HasDelta r => Vector (Primal r) -> Vector (Primal r)
 grad_vec_omit_scalarSum ds =
   (\(v, _, _, _) -> v)
-  $ fst $ df vec_omit_scalarSum_aux (ds, V.empty, V.empty, V.empty)
+  $ fst $ dReverse vec_omit_scalarSum_aux (ds, V.empty, V.empty, V.empty)
 
 grad_vec_omit_sum :: Vector Double -> Vector Double
 grad_vec_omit_sum ds =
   (\(_, v, _, _) -> V.head v)
-  $ fst $ df sumElementsV (V.empty, V.singleton ds, V.empty, V.empty)
+  $ fst $ dReverse sumElementsV (V.empty, V.singleton ds, V.empty, V.empty)
 
 grad_vec_omit_altSum :: Vector Double -> Vector Double
 grad_vec_omit_altSum ds =
   (\(_, v, _, _) -> V.head v)
-  $ fst $ df altSumElementsV (V.empty, V.singleton ds, V.empty, V.empty)
+  $ fst $ dReverse altSumElementsV (V.empty, V.singleton ds, V.empty, V.empty)
