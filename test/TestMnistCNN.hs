@@ -190,6 +190,7 @@ convMnistTestCaseCNN prefix epochs maxBatches trainWithLoss testLoss
                                          widthHidden testData res
        testErrorFinal @?= expected
 
+
 -- * Another flavour of the simplest possible convolutional net, based on
 -- https://www.ritchieng.com/machine-learning/deep-learning/tensorflow/convnets/#Problem-1
 -- but with different initialization and no batches.
@@ -268,6 +269,7 @@ convMnistTestCNNS _ depth inputs parameters =
      / fromIntegral (length inputs)
 {-# SPECIALIZE convMnistTestCNNS :: Proxy (Delta0 Double) -> Int -> [MnistData2 Double] -> Domains (Delta0 Double) -> Double #-}
 
+
 -- * A variant of @convMnistCNN@ with @conv2'@.
 
 -- This is simple convolution with depth 1.
@@ -337,6 +339,9 @@ convMnistTestCNNP _ depth inputs parameters =
      / fromIntegral (length inputs)
 {-# SPECIALIZE convMnistTestCNNP :: Proxy (Delta0 Double) -> Int -> [MnistData2 Double] -> Domains (Delta0 Double) -> Double #-}
 
+
+-- * A variant of @convMnistCNN@ with shaped tensors, including mini-batches.
+
 lenMnistCNNT :: Int -> Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
 lenMnistCNNT final_image_sz depth num_hidden =
   ( 0
@@ -347,8 +352,6 @@ lenMnistCNNT final_image_sz depth num_hidden =
     , [depth, depth, patch_size, patch_size]
     , [depth], [depth] ]
  )
-
--- * A variant of @convMnistCNN@ with shaped tensors, including mini-batches..
 
 convMiddleMnistCNNT
   :: forall filter_height_1 filter_width_1 out_channels
@@ -372,33 +375,17 @@ convMiddleMnistCNNT
   -> m (DualNumber (TensorS '[ n_batches
                              , out_channels, out_height, out_width ] r))
 convMiddleMnistCNNT variables x offset = do
-  let ker :: DualNumber (TensorS '[ out_channels, in_channels
-                                  , filter_height_1 + 1, filter_width_1 + 1 ] r)
-      ker = varS variables offset
-      yConv
-        :: DualNumber (TensorS '[ n_batches, out_channels
-                                , in_height + filter_height_1
-                                , in_width + filter_width_1 ] r)
-      yConv = conv24 @filter_height_1 @filter_width_1
-                     @out_channels @in_height @in_width
-                     ker x
-      bias :: DualNumber (TensorS '[out_channels] r)
+  let ker = varS variables offset
+      yConv = conv24 ker x
       bias = varS variables $ offset + 2
       replicateBias
         :: DualNumber (TensorS '[] r)
            -> DualNumber (TensorS '[ in_height + filter_height_1
                                    , in_width + filter_width_1 ] r)
       replicateBias = konstS . fromS0
-      biasStretched
-        :: DualNumber (TensorS '[ n_batches, out_channels
-                                , in_height + filter_height_1
-                                , in_width + filter_width_1 ] r)
-      biasStretched =
-        ravelFromListS @'[ out_channels
-                         , in_height + filter_height_1
-                         , in_width + filter_width_1 ]
-        $ replicate (valueOf @n_batches)
-        $ mapS replicateBias bias
+      biasStretched = ravelFromListS
+                      $ replicate (valueOf @n_batches)
+                      $ mapS replicateBias bias
         -- TODO: this is weakly typed; add and use replicateS instead
   yRelu <- reluActS $ yConv + biasStretched
   maxPool24 2 2 yRelu
@@ -408,7 +395,6 @@ convMnistCNNT
             in_height in_width out_height out_width out2_height out2_width
             in_channels out_channels n_batches r m.
      ( DualMonad r m
-     , in_channels ~ 1
      , IsScalarS4 r n_batches in_channels
                     (in_height + filter_height_1) (in_width + filter_width_1)
      , IsScalarS4 r n_batches out_channels out_height out_width
@@ -431,8 +417,6 @@ convMnistCNNT
   -> m (DualNumber (Tensor2 r))
 convMnistCNNT x variables = do
   t1 <- convMiddleMnistCNNT @filter_height_1 @filter_width_1 @out_channels
-                            @in_height @in_width @out_height @out_width
-                            @n_batches @in_channels
                             variables (scalar x) 0
   t2 <- convMiddleMnistCNNT @filter_height_1 @filter_width_1 @out_channels
                             @out_height @out_width @out2_height @out2_width
