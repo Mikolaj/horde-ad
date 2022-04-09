@@ -16,7 +16,6 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
-import HordeAd.Core.OutdatedOptimizer
 import HordeAd.Tool.MnistTools
 
 testTrees :: [TestTree]
@@ -139,12 +138,12 @@ synthLossBareTotal
   => (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
   -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
   -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
-  -> Data.Vector.Storable.Vector (Primal r, Primal r)
   -> Int
+  -> Data.Vector.Storable.Vector (Primal r, Primal r)
   -> DualNumberVariables r
   -> m (DualNumber r)
 synthLossBareTotal factivation factivationHidden factivationMiddle
-                   samples width variables = do
+                   width samples variables = do
   let (inputs, outputs) = V.unzip samples
       nSamples = V.length samples
       sampleData = inputs <> outputs
@@ -179,18 +178,6 @@ integerPairSamples range seed k =
   in V.zip (V.fromListN k $ map fromIntegral inputs)
            (V.fromListN k $ map fromIntegral $ rolls g2)
 
-gdSmartShow :: HasDelta r
-            => (DualNumberVariables r
-                -> DualMonadGradient r (DualNumber r))
-            -> Domain1 r
-            -> Int
-            -> ([Data.Vector.Storable.Vector (Primal r)], (Primal r, Primal r))
-gdSmartShow f params1Init n =
-  let ((_, params1, _, _), gamma) =
-        gdSmart f n (V.empty, params1Init, V.empty, V.empty)
-      (_, value) = dReverse f (V.empty, params1, V.empty, V.empty)
-  in (V.toList params1, (value, gamma))
-
 gradSmartTestCase
   :: forall r. (HasDelta r, Primal r ~ Double)
   => String
@@ -200,54 +187,45 @@ gradSmartTestCase
           -> DualMonadGradient r (DualNumber (Tensor1 r)))
       -> (DualNumber (Tensor1 r)
           -> DualMonadGradient r (DualNumber (Tensor1 r)))
-      -> Data.Vector.Storable.Vector (Primal r, Primal r)
       -> Int
+      -> Data.Vector.Storable.Vector (Primal r, Primal r)
       -> DualNumberVariables r
       -> DualMonadGradient r (DualNumber r))
-  -> Int -> Int -> Int -> Int -> (Primal r, Primal r)
+  -> Int -> Int -> Int -> Int -> Primal r
   -> TestTree
 gradSmartTestCase prefix lossFunction seedSamples
                   nSamples width nIterations expected =
-  let samples = integerPairSamples (-1000, 1000) seedSamples nSamples
+  let makeSamples s =
+        integerPairSamples (-1000, 1000) (seedSamples + s) nSamples
+      samples = map makeSamples [42, 49 .. 7 * nIterations]
+      testSample = makeSamples 7
       nParams1 = lenSynthV width nSamples
       params1Init =
         V.imap (\i nPV -> HM.randomVector (33 + nPV + i) HM.Uniform nPV
-                          - HM.scalar 0.5)
+                          - HM.scalar 0.05)
                nParams1
+      parametersInit = (V.empty, params1Init, V.empty, V.empty)
       name = prefix ++ " "
              ++ unwords [ show seedSamples, show nSamples, show width
-                        , show (V.length nParams1), show (V.sum nParams1)
-                        , show nIterations ]
-  in testCase name $
-       snd (gdSmartShow
-              (lossFunction reluAct1 tanhAct tanhAct samples width)
-              params1Init nIterations)
-       @?= expected
+                        , show (V.length nParams1), show (V.sum nParams1) ]
+      f = lossFunction reluAct1 tanhAct tanhAct width
+  in testCase name $ do
+       let (parametersResult, _) =
+             sgdAdam f samples parametersInit
+                     (initialStateAdam parametersInit)
+           (_, value) = dReverse (f testSample) parametersResult
+       value @?= expected
 
 conditionalSynthTests:: TestTree
 conditionalSynthTests =
  testGroup "reluAct: synthesizing a sum of linear conditionals matching samples"
   [ gradSmartTestCase "reluAct"
-      synthLossBareTotal 42 1 10 1
-      (5.58009e-3,0.1 :: Double)
-{-
+      synthLossBareTotal 42 10 10 100
+      (1.5491271020176072 :: Double)
   , gradSmartTestCase "reluAct"
-      synthLossBareTotal 42 2 10 100000
-      (6.291648505851797e-3,6.25e-3)
+      synthLossBareTotal 42 10 10 10000
+      (2.0966129999999996e-2 :: Double)
   , gradSmartTestCase "reluAct"
-      synthLossBareTotal 42 3 10 100000
-      (6.291648505851797e-3,6.25e-3)
-  , gradSmartTestCase "reluAct"
-      synthLossBareTotal 42 4 20 100000
-      (6.291648505851797e-3,6.25e-3)
-  , gradSmartTestCase "reluAct"
-      synthLossBareTotal 42 8 40 100000
-      (4.34890234424764e-7,6.25e-3)
-  , gradSmartTestCase "reluAct"
-      synthLossBareTotal 42 16 80 100000
-      (0.3434691592146121,1.5625e-3)
-  , gradSmartTestCase "reluAct"
-      synthLossBareTotal 42 24 120 100000
-      (1.665065359469462,9.765625e-5)
--}
+      synthLossBareTotal 42 10 10 100000
+      (2.0966129999999996e-2 :: Double)
   ]
