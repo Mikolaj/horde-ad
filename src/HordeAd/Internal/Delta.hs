@@ -40,6 +40,7 @@ module HordeAd.Internal.Delta
   , -- * Evaluation of the delta expressions
     DeltaBinding
   , DeltaState (..)
+  , Domain0, Domain1, Domain2, DomainX, Domains
   , gradientFromDelta, derivativeFromDelta, ppBindings
   , bindInState0, bindInState1, bindInState2, bindInStateX
   , isTensorDummy

@@ -20,10 +20,11 @@ import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
-import           Numeric.LinearAlgebra (Vector, (#>), (<.>))
 import qualified Numeric.LinearAlgebra as HM
 
-import HordeAd.Core.DualClass
+import           HordeAd.Core.DualClass
+import qualified HordeAd.Internal.Delta as Delta
+  (Domain0, Domain1, Domain2, DomainX, Domains)
 
 -- * The main dual number types
 
@@ -34,15 +35,15 @@ class (IsScalar r, Monad m, Functor m, Applicative m)
   returnLet :: IsDualWithScalar a r
             => DualNumber a -> m (DualNumber a)
 
-type Domain0 r = Vector (Primal r)
+type Domain0 r = Delta.Domain0 (Primal r)
 
-type Domain1 r = Data.Vector.Vector (Primal (Tensor1 r))
+type Domain1 r = Delta.Domain1 (Primal r)
 
-type Domain2 r = Data.Vector.Vector (Primal (Tensor2 r))
+type Domain2 r = Delta.Domain2 (Primal r)
 
-type DomainX r = Data.Vector.Vector (Primal (TensorX r))
+type DomainX r = Delta.DomainX (Primal r)
 
-type Domains r = (Domain0 r, Domain1 r, Domain2 r, DomainX r)
+type Domains r = Delta.Domains (Primal r)
 
 
 -- * General non-monadic operations, for any scalar rank
@@ -157,13 +158,13 @@ altSumElements0 = foldl'0 (+) 0
 infixr 8 <.>!
 (<.>!) :: IsScalar r
        => DualNumber (Tensor1 r) -> DualNumber (Tensor1 r) -> DualNumber r
-(<.>!) (D u u') (D v v') = D (u <.> v) (dAdd (dDot0 v u') (dDot0 u v'))
+(<.>!) (D u u') (D v v') = D (u HM.<.> v) (dAdd (dDot0 v u') (dDot0 u v'))
 
 -- | Dot product with a constant vector.
 infixr 8 <.>!!
 (<.>!!) :: IsScalar r
         => DualNumber (Tensor1 r) -> Primal (Tensor1 r) -> DualNumber r
-(<.>!!) (D u u') v = D (u <.> v) (dDot0 v u')
+(<.>!!) (D u u') v = D (u HM.<.> v) (dDot0 v u')
 
 fromX0 :: IsScalar r => DualNumber (TensorX r) -> DualNumber r
 fromX0 (D u u') = D (OT.unScalar u) (dFromX0 u')
@@ -217,14 +218,14 @@ infixr 8 #>!
 (#>!) :: IsScalar r
       => DualNumber (Tensor2 r) -> DualNumber (Tensor1 r)
       -> DualNumber (Tensor1 r)
-(#>!) (D u u') (D v v') = D (u #> v) (dAdd (dMD_V1 u' v) (dM_VD1 u v'))
+(#>!) (D u u') (D v v') = D (u HM.#> v) (dAdd (dMD_V1 u' v) (dM_VD1 u v'))
 
 -- | Dense matrix-vector product with a constant vector.
 infixr 8 #>!!
 (#>!!) :: IsScalar r
        => DualNumber (Tensor2 r) -> Primal (Tensor1 r)
        -> DualNumber (Tensor1 r)
-(#>!!) (D u u') v = D (u #> v) (dMD_V1 u' v)
+(#>!!) (D u u') v = D (u HM.#> v) (dMD_V1 u' v)
 
 fromX1 :: IsScalar r => DualNumber (TensorX r) -> DualNumber (Tensor1 r)
 fromX1 (D u u') = D (OT.toVector u) (dFromX1 u')
@@ -631,7 +632,7 @@ lossSoftMaxCrossEntropyV target (D u u') = do
       recipSum = recip sumExpU
 -- not exposed: softMaxU = HM.scaleRecip sumExpU expU
       softMaxU = HM.scale recipSum expU
-  returnLet $ D (negate $ log softMaxU <.> target)  -- TODO: avoid @log . exp@
+  returnLet $ D (negate $ log softMaxU HM.<.> target)  -- TODO: avoid: log . exp
                 (dDot0 (softMaxU - target) u')
 
 
