@@ -196,9 +196,10 @@ gradSmartTestCase prefix lossFunction seedSamples
       samples = map makeSamples [42, 49 .. 7 * nIterations]
       testSamples = map makeSamples [-1, -2 .. - 100]
       nParams1 = lenSynthV width nSamples
+      -- Values from -0.5 to 0.5. TODO: start biases at 1
       params1Init =
         V.imap (\i nPV -> HM.randomVector (33 + nPV + i) HM.Uniform nPV
-                          - HM.scalar 0.05)
+                          - HM.scalar 0.5)
                nParams1
       parametersInit = (V.empty, params1Init, V.empty, V.empty)
       name = prefix ++ " "
@@ -219,14 +220,14 @@ conditionalSynthTests = do
  testGroup "synthesizing a sum of linear conditionals matching samples"
   [ gradSmartTestCase "reluAct"
       f 42 10 10  100
-      654.1790524303244
+      4.740275311294229
   , gradSmartTestCase "reluAct"
       f 42 10 10  10000
-      9.348044392035876e-2
+      3.83451707827233e-2
   , gradSmartTestCase "reluAct"
       f 42 10 10  100000
-      3.204142546202267e-2
+      3.135485708489271e-2
   , gradSmartTestCase "reluAct"
       f 42 10 100 100000
-      0.1635173874597097
+      3.2872191198993095e-2
   ]
