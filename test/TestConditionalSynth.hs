@@ -9,6 +9,7 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable
 import           Foreign.Storable (Storable)
 import           Foreign.Storable.Tuple ()
+import           GHC.Exts (inline)
 import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           System.Random
@@ -71,7 +72,7 @@ synthLossSquared :: DualMonad r m
                  -> Primal r
                  -> m (DualNumber r)
 synthLossSquared factivation x ps1 ps2 ps3 targ = do
-  y <- synthValue factivation (x / 1000) ps1 ps2 ps3
+  y <- inline synthValue factivation (x / 1000) ps1 ps2 ps3
   lossSquared (targ / 10000) y  -- smaller target to overcome @tanh@ clamping
 
 -- Inlined to avoid the tiny overhead of calling an unknown function.
@@ -98,7 +99,7 @@ synthLossAll
   -> m (DualNumber r)
 synthLossAll factivation samples ps1 ps2 ps3 = do
   let f :: (Primal r, Primal r) -> m (DualNumber r)
-      f (x, y) = synthLossSquared factivation x ps1 ps2 ps3 y
+      f (x, y) = inline synthLossSquared factivation x ps1 ps2 ps3 y
   sumResultsDual f samples
 
 sumTrainableInputsS :: forall r. IsScalar r
@@ -134,7 +135,7 @@ splitLayerV factivation hiddenVec offset variables width = do
   return (a0, a1, a2)
 
 synthLossBareTotal
-  :: DualMonad r m
+  :: forall r m. DualMonad r m
   => (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
   -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
   -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
@@ -151,9 +152,10 @@ synthLossBareTotal factivation factivationHidden factivationMiddle
                      + var1 variables width  -- bias
   nonlinearLayer1 <- factivationHidden hiddenLayer1
   let offsetMiddle = width + 1
-  (ps1, ps2, ps3) <- splitLayerV factivationMiddle nonlinearLayer1
-                                 offsetMiddle variables (bloat * nSamples * 3)
-  synthLossAll factivation samples ps1 ps2 ps3
+  (ps1, ps2, ps3) <-
+    inline splitLayerV factivationMiddle nonlinearLayer1
+                       offsetMiddle variables (bloat * nSamples * 3)
+  inline synthLossAll factivation samples ps1 ps2 ps3
 
 
 -- * Tests and generation of random data
@@ -181,13 +183,7 @@ integerPairSamples range seed k =
 gradSmartTestCase
   :: forall r. (HasDelta r, Primal r ~ Double)
   => String
-  -> ((DualNumber (Tensor1 r)
-       -> DualMonadGradient r (DualNumber (Tensor1 r)))
-      -> (DualNumber (Tensor1 r)
-          -> DualMonadGradient r (DualNumber (Tensor1 r)))
-      -> (DualNumber (Tensor1 r)
-          -> DualMonadGradient r (DualNumber (Tensor1 r)))
-      -> Int
+  -> (Int
       -> Data.Vector.Storable.Vector (Primal r, Primal r)
       -> DualNumberVariables r
       -> DualMonadGradient r (DualNumber r))
@@ -198,7 +194,7 @@ gradSmartTestCase prefix lossFunction seedSamples
   let makeSamples s =
         integerPairSamples (-1000, 1000) (seedSamples + s) nSamples
       samples = map makeSamples [42, 49 .. 7 * nIterations]
-      testSample = makeSamples 7
+      testSamples = map makeSamples [-1, -2 .. - 100]
       nParams1 = lenSynthV width nSamples
       params1Init =
         V.imap (\i nPV -> HM.randomVector (33 + nPV + i) HM.Uniform nPV
@@ -208,24 +204,29 @@ gradSmartTestCase prefix lossFunction seedSamples
       name = prefix ++ " "
              ++ unwords [ show seedSamples, show nSamples, show width
                         , show (V.length nParams1), show (V.sum nParams1) ]
-      f = lossFunction reluAct1 tanhAct tanhAct width
+      f = lossFunction width
   in testCase name $ do
        let (parametersResult, _) =
              sgdAdam f samples parametersInit
                      (initialStateAdam parametersInit)
-           (_, value) = dReverse (f testSample) parametersResult
-       value @?= expected
+           (_, values) =
+             unzip $ map (\t -> dReverse (f t) parametersResult) testSamples
+       (sum values / 100) @?= expected
 
 conditionalSynthTests:: TestTree
-conditionalSynthTests =
- testGroup "reluAct: synthesizing a sum of linear conditionals matching samples"
+conditionalSynthTests = do
+ let f = inline (synthLossBareTotal @(Delta0 Double)) reluAct1 tanhAct tanhAct
+ testGroup "synthesizing a sum of linear conditionals matching samples"
   [ gradSmartTestCase "reluAct"
-      synthLossBareTotal 42 10 10 100
-      (1.5491271020176072 :: Double)
+      f 42 10 10  100
+      654.1790524303244
   , gradSmartTestCase "reluAct"
-      synthLossBareTotal 42 10 10 10000
-      (2.0966129999999996e-2 :: Double)
+      f 42 10 10  10000
+      9.348044392035876e-2
   , gradSmartTestCase "reluAct"
-      synthLossBareTotal 42 10 10 100000
-      (2.0966129999999996e-2 :: Double)
+      f 42 10 10  100000
+      3.204142546202267e-2
+  , gradSmartTestCase "reluAct"
+      f 42 10 100 100000
+      0.1635173874597097
   ]
