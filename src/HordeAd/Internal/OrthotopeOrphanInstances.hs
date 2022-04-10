@@ -8,6 +8,9 @@ import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.ShapedS as OS
 import           Numeric.LinearAlgebra (Numeric)
 
+-- TODO: once we can benchmark, write faster instances using
+-- Num instance of hmatrix vectors
+
 instance Numeric r => Num (OT.Array r) where
   (+) = OT.zipWithA (+)
   (-) = OT.zipWithA (-)
