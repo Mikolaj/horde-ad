@@ -1,8 +1,9 @@
-{-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, DataKinds, FlexibleInstances,
-             MultiParamTypeClasses, TypeFamilyDependencies, TypeOperators,
-             UndecidableInstances #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+{-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, DataKinds, DefaultSignatures,
+             FlexibleContexts, FlexibleInstances, InstanceSigs, LambdaCase,
+             MonoLocalBinds, MultiParamTypeClasses, MultiWayIf, NamedFieldPuns,
+             OverloadedStrings, PatternSynonyms, RecordWildCards,
+             ScopedTypeVariables, StrictData, TypeApplications,
+             TypeFamilyDependencies, TypeOperators, UndecidableInstances #-}
 -- | The class of dual components of dual numbers and related classes,
 -- constraints and instances.
 module HordeAd.Core.DualClass
@@ -19,16 +20,66 @@ import Prelude
 import qualified Data.Array.Convert
 import qualified Data.Array.Dynamic as OTB
 import qualified Data.Array.DynamicS as OT
-import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat, natVal, type (+))
+import           GHC.TypeLits (type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 
 import HordeAd.Internal.Delta
+
+
+
+
+-- To compile this standalone, only some of the extensions at the top
+-- are required and only the following import:
+
+import GHC.TypeLits (KnownNat, Nat)
+
+
+data Arra (sh :: [Nat]) r
+
+class IsDua r
+
+-- We know all instances are completely independent of sh. GHC can't know that,
+-- e.g., due to orphan instances.
+instance IsDua (Arra sh Double)
+instance IsDua (Arra sh Float)
+instance Num (Arra sh r) => IsDua (Arra sh (Maybe r))
+
+f1 :: forall n1 r. (KnownNat n1, IsDua (Arra '[n1] r)) => ()
+f1 = ()
+
+f2 :: forall n2 r. (KnownNat n2, IsDua (Arra '[n2, n2] r)) => ()
+f2 = ()
+
+-- Compiles. Note the explosion of constraints.
+g1 :: forall n1 n2 r.
+      ( KnownNat n1, KnownNat n2
+      , IsDua (Arra '[n1] r)
+      , IsDua (Arra '[n2] r)
+      , IsDua (Arra '[n1, n1] r)
+      , IsDua (Arra '[n2, n2] r) )
+   => ()
+g1 = undefined (f1 @n1 @r) (f1 @n2 @r) (f2 @n1 @r) (f2 @n2 @r)
+
+-- Doesn't compile. All constraints from above would be needed.
+h1 :: forall n1 n2 r. (KnownNat n1, KnownNat n2) => ()
+h1 = undefined (g1 @n1 @n2 @r)
+
+-- A similar example works with the real OS.Array in place of Arra
+-- and the real IsDual in place of IsDua. Then compile normally via cabal.
+
+
+
+
+
+
+
+
+
 
 -- * Abbreviations for export (not used anywhere below)
 
@@ -455,16 +506,6 @@ instance HasRanks Double where
   dFrom1X d = OT.fromVector [V.length d] d
   dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
   dFromSX = Data.Array.Convert.convert
-  dKonstS = OS.constant
-  dAppendS = OS.append
-  dSliceS (_ :: Proxy i) (_ :: Proxy n) = OS.slice @'[ '(i, n) ]
-  dIndexS d proxyIx = OS.index d (fromInteger $ natVal proxyIx)
-  dRavelFromListS = OS.ravel . OSB.fromList
-  dReshapeS d = OS.reshape d
-  dFrom0S = OS.scalar
-  dFrom1S = OS.fromVector
-  dFrom2S _ = OS.fromVector . HM.flatten
-  dFromXS = Data.Array.Convert.convert
 
 instance HasRanks Float where
   type Tensor1 Float = Vector Float
@@ -527,13 +568,3 @@ instance HasRanks Float where
   dFrom1X d = OT.fromVector [V.length d] d
   dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
   dFromSX = Data.Array.Convert.convert
-  dKonstS = OS.constant
-  dAppendS = OS.append
-  dSliceS (_ :: Proxy i) (_ :: Proxy n) = OS.slice @'[ '(i, n) ]
-  dIndexS d proxyIx = OS.index d (fromInteger $ natVal proxyIx)
-  dRavelFromListS = OS.ravel . OSB.fromList
-  dReshapeS d = OS.reshape d
-  dFrom0S = OS.scalar
-  dFrom1S = OS.fromVector
-  dFrom2S _ = OS.fromVector . HM.flatten
-  dFromXS = Data.Array.Convert.convert
