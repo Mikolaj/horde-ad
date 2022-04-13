@@ -51,6 +51,7 @@ class IsDua r
 -- instance IsDua (Arra sh Double)
 -- instance IsDua (Arra sh Float)
 -- instance Num (Arra sh r) => IsDua (Arra sh (Maybe r))
+instance IsDua Double
 
 f1 :: forall n1 r. (KnownNat n1, HasRan r, IsDua (TensoS '[n1] r)) => ()
 f1 = ()
@@ -76,15 +77,19 @@ h1 = undefined (g1 @n1 @n2 @r)
 -- and the real IsDual in place of IsDua. Then compile normally via cabal.
 
 -- This proposal by SPJ solves the contrived problem:
-instance IsDua Double
-instance IsDua r => IsDua (TensoS sh r)
+{-
+instance IsDua r => IsDua (Arra sh r)
+-}
 -- To counter the solution, here are additions that make the code
 -- closer to the real situation:
 class HasRan r where
   type TensoS (sh :: [Nat]) r = result | result -> sh r
--- and @TensoS@ is used everywhere instead of @Arra@ resulting in
+-- and @TensoS@ is used everywhere instead of @Arra@, in particular
+-- in the Simon's solution:
+instance IsDua r => IsDua (TensoS sh r)
+-- making it fail with:
 {-
-src/HordeAd/Core/DualClass.hs:80:21: error:
+src/HordeAd/Core/DualClass.hs:89:21: error:
     • Illegal type synonym family application ‘TensoS
                                                  sh r’ in instance:
         IsDua (TensoS sh r)
