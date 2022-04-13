@@ -1,9 +1,10 @@
 {-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, DataKinds, DefaultSignatures,
              FlexibleContexts, FlexibleInstances, InstanceSigs, LambdaCase,
              MonoLocalBinds, MultiParamTypeClasses, MultiWayIf, NamedFieldPuns,
-             OverloadedStrings, PatternSynonyms, RecordWildCards,
-             ScopedTypeVariables, StrictData, TypeApplications,
-             TypeFamilyDependencies, TypeOperators, UndecidableInstances #-}
+             OverloadedStrings, PatternSynonyms, QuantifiedConstraints,
+             RecordWildCards, ScopedTypeVariables, StrictData,
+             TypeApplications, TypeFamilyDependencies, TypeOperators,
+             UndecidableInstances #-}
 -- | The class of dual components of dual numbers and related classes,
 -- constraints and instances.
 module HordeAd.Core.DualClass
@@ -70,7 +71,8 @@ g1 :: forall n1 n2 r.
 g1 = undefined (f1 @n1 @r) (f1 @n2 @r) (f2 @n1 @r) (f2 @n2 @r)
 
 -- Doesn't compile. All constraints from above would be needed.
-h1 :: forall n1 n2 r. (KnownNat n1, KnownNat n2, HasRan r, IsDua r) => ()
+h1 :: forall n1 n2 r. ( KnownNat n1, KnownNat n2, HasRan r
+                      , forall sh. IsDua (TensoS sh r) ) => ()
 h1 = undefined (g1 @n1 @n2 @r)
 
 -- A similar example works with the real OS.Array in place of Arra
@@ -86,7 +88,9 @@ class HasRan r where
   type TensoS (sh :: [Nat]) r = result | result -> sh r
 -- and @TensoS@ is used everywhere instead of @Arra@, in particular
 -- in the Simon's solution:
+{-
 instance IsDua r => IsDua (TensoS sh r)
+-}
 -- making it fail with:
 {-
 src/HordeAd/Core/DualClass.hs:89:21: error:
