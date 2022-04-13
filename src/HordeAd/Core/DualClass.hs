@@ -48,38 +48,48 @@ class IsDua r
 
 -- We know all instances are completely independent of sh. GHC can't know that,
 -- e.g., due to orphan instances.
-instance IsDua (Arra sh Double)
-instance IsDua (Arra sh Float)
-instance Num (Arra sh r) => IsDua (Arra sh (Maybe r))
+-- instance IsDua (Arra sh Double)
+-- instance IsDua (Arra sh Float)
+-- instance Num (Arra sh r) => IsDua (Arra sh (Maybe r))
 
-f1 :: forall n1 r. (KnownNat n1, IsDua (Arra '[n1] r)) => ()
+f1 :: forall n1 r. (KnownNat n1, HasRan r, IsDua (TensoS '[n1] r)) => ()
 f1 = ()
 
-f2 :: forall n2 r. (KnownNat n2, IsDua (Arra '[n2, n2] r)) => ()
+f2 :: forall n2 r. (KnownNat n2, HasRan r, IsDua (TensoS '[n2, n2] r)) => ()
 f2 = ()
 
 -- Compiles. Note the explosion of constraints.
 g1 :: forall n1 n2 r.
-      ( KnownNat n1, KnownNat n2
-      , IsDua (Arra '[n1] r)
-      , IsDua (Arra '[n2] r)
-      , IsDua (Arra '[n1, n1] r)
-      , IsDua (Arra '[n2, n2] r) )
+      ( KnownNat n1, KnownNat n2, HasRan r
+      , IsDua (TensoS '[n1] r)
+      , IsDua (TensoS '[n2] r)
+      , IsDua (TensoS '[n1, n1] r)
+      , IsDua (TensoS '[n2, n2] r) )
    => ()
 g1 = undefined (f1 @n1 @r) (f1 @n2 @r) (f2 @n1 @r) (f2 @n2 @r)
 
 -- Doesn't compile. All constraints from above would be needed.
-h1 :: forall n1 n2 r. (KnownNat n1, KnownNat n2, IsDua (Arra '[n1] r)) => ()
+h1 :: forall n1 n2 r. (KnownNat n1, KnownNat n2, HasRan r, IsDua r) => ()
 h1 = undefined (g1 @n1 @n2 @r)
 
 -- A similar example works with the real OS.Array in place of Arra
 -- and the real IsDual in place of IsDua. Then compile normally via cabal.
 
-
-
-
-
-
+-- This proposal by SPJ solves the contrived problem:
+instance IsDua Double
+instance IsDua r => IsDua (TensoS sh r)
+-- To counter the solution, here are additions that make the code
+-- closer to the real situation:
+class HasRan r where
+  type TensoS (sh :: [Nat]) r = result | result -> sh r
+-- and @TensoS@ is used everywhere instead of @Arra@ resulting in
+{-
+src/HordeAd/Core/DualClass.hs:80:21: error:
+    • Illegal type synonym family application ‘TensoS
+                                                 sh r’ in instance:
+        IsDua (TensoS sh r)
+    • In the instance declaration for ‘IsDua (TensoS sh r)’
+-}
 
 
 
