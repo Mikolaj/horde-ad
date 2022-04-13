@@ -39,8 +39,11 @@ import HordeAd.Internal.Delta
 import GHC.TypeLits (KnownNat, Nat)
 
 
+-- To rule out too trivial solutions, assume class IsDua and type Arra
+-- are complex, so we really need to pass a dictionary, not just
+-- a confirmation a type is an instance or an integer or a list of integers
+-- that encode something..
 data Arra (sh :: [Nat]) r
-
 class IsDua r
 
 -- We know all instances are completely independent of sh. GHC can't know that,
@@ -66,7 +69,7 @@ g1 :: forall n1 n2 r.
 g1 = undefined (f1 @n1 @r) (f1 @n2 @r) (f2 @n1 @r) (f2 @n2 @r)
 
 -- Doesn't compile. All constraints from above would be needed.
-h1 :: forall n1 n2 r. (KnownNat n1, KnownNat n2) => ()
+h1 :: forall n1 n2 r. (KnownNat n1, KnownNat n2, IsDua (Arra '[n1] r)) => ()
 h1 = undefined (g1 @n1 @n2 @r)
 
 -- A similar example works with the real OS.Array in place of Arra
