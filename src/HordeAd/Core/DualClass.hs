@@ -57,8 +57,8 @@ type IsScalar r =
 -- separate, because it requires an additional type argument representing
 -- the shape.
 type IsScalarS sh r =
-       ( OS.Shape sh, IsScalar r, IsDualWithScalar (TensorS sh r) r
-       , Primal (TensorS sh r) ~ OS.Array sh (Primal r) )
+       ( OS.Shape sh, IsScalar r, IsDualWithScalar (TensorS r sh) r
+       , Primal (TensorS r sh) ~ OS.Array sh (Primal r) )
 
 -- Five ranks ought to be enough for anyone.
 type IsScalarS5 r k5 k4 k3 k2 k1 =
@@ -142,13 +142,13 @@ class HasRanks r where
   type Tensor1 r = result | result -> r
   type Tensor2 r = result | result -> r
   type TensorX r = result | result -> r
-  type TensorS (sh :: [Nat]) r = result | result -> sh r
+  type TensorS r (sh :: [Nat]) = result | result -> r sh
 
   dSumElements0 :: Tensor1 r -> Int -> r
   dIndex0 :: Tensor1 r -> Int -> Int -> r
   dDot0 :: Primal (Tensor1 r) -> Tensor1 r -> r
   dFromX0 :: TensorX r -> r
-  dFromS0 :: TensorS '[] r -> r
+  dFromS0 :: TensorS r '[] -> r
 
   dSeq1 :: Data.Vector.Vector r -> Tensor1 r
   dKonst1 :: r -> Int -> Tensor1 r
@@ -160,12 +160,12 @@ class HasRanks r where
   dMD_V1 :: Tensor2 r -> Primal (Tensor1 r) -> Tensor1 r
   dFromX1 :: TensorX r -> Tensor1 r
   dFromS1 :: KnownNat len
-          => TensorS '[len] r -> Tensor1 r
+          => TensorS r '[len] -> Tensor1 r
   dReverse1 :: Tensor1 r -> Tensor1 r
   dFlatten1 :: Int -> Int -> Tensor2 r -> Tensor1 r
   dFlattenX1 :: OT.ShapeL -> TensorX r -> Tensor1 r
   dFlattenS1 :: OS.Shape sh
-             => TensorS sh r -> Tensor1 r
+             => TensorS r sh -> Tensor1 r
 
   dFromRows2 :: Data.Vector.Vector (Tensor1 r) -> Tensor2 r
   dFromColumns2 :: Data.Vector.Vector (Tensor1 r) -> Tensor2 r
@@ -181,7 +181,7 @@ class HasRanks r where
   dAsColumn2 :: Tensor1 r -> Tensor2 r
   dFromX2 :: TensorX r -> Tensor2 r
   dFromS2 :: (KnownNat rows, KnownNat cols)
-          => TensorS '[rows, cols] r -> Tensor2 r
+          => TensorS r '[rows, cols] -> Tensor2 r
 
   dFlipud2 :: Tensor2 r -> Tensor2 r
   dFliprl2 :: Tensor2 r -> Tensor2 r
@@ -198,27 +198,27 @@ class HasRanks r where
   dFrom1X :: Tensor1 r -> TensorX r
   dFrom2X :: Tensor2 r -> Int -> TensorX r
   dFromSX :: OS.Shape sh
-          => TensorS sh r -> TensorX r
+          => TensorS r sh -> TensorX r
 
   dKonstS :: OS.Shape sh
-          => r -> TensorS sh r
+          => r -> TensorS r sh
   dAppendS :: (OS.Shape sh, KnownNat m, KnownNat n)
-           => TensorS (m ': sh) r -> TensorS (n ': sh) r
-           -> TensorS ((m + n) ': sh) r
+           => TensorS r (m ': sh) -> TensorS r (n ': sh)
+           -> TensorS r ((m + n) ': sh)
   dSliceS :: (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
-          => Proxy i -> Proxy n -> TensorS (i + n + k ': rest) r
-          -> TensorS (n ': rest) r
+          => Proxy i -> Proxy n -> TensorS r (i + n + k ': rest)
+          -> TensorS r (n ': rest)
   dIndexS :: (KnownNat ix, KnownNat k, OS.Shape rest)
-          => TensorS (ix + 1 + k ': rest) r -> Proxy ix -> TensorS rest r
+          => TensorS r (ix + 1 + k ': rest) -> Proxy ix -> TensorS r rest
   dRavelFromListS :: (KnownNat k, OS.Shape rest)
-                  => [TensorS rest r] -> TensorS (k : rest) r
+                  => [TensorS r rest] -> TensorS r (k : rest)
   dReshapeS :: (OS.Shape sh, OS.Shape sh', OS.Size sh ~ OS.Size sh')
-            => TensorS sh r -> TensorS sh' r
-  dFrom0S :: r -> TensorS '[] r
-  dFrom1S :: KnownNat n => Tensor1 r -> TensorS '[n] r
+            => TensorS r sh -> TensorS r sh'
+  dFrom0S :: r -> TensorS r '[]
+  dFrom1S :: KnownNat n => Tensor1 r -> TensorS r '[n]
   dFrom2S :: (KnownNat rows, KnownNat cols)
-          => Proxy cols -> Tensor2 r -> TensorS '[rows, cols] r
-  dFromXS :: OS.Shape sh => TensorX r -> TensorS sh r
+          => Proxy cols -> Tensor2 r -> TensorS r '[rows, cols]
+  dFromXS :: OS.Shape sh => TensorX r -> TensorS r sh
 
 
 -- * Backprop gradient method instances
@@ -237,7 +237,7 @@ instance HasRanks (Delta0 r) where
   type Tensor1 (Delta0 r) = Delta1 r
   type Tensor2 (Delta0 r) = Delta2 r
   type TensorX (Delta0 r) = DeltaX r
-  type TensorS sh (Delta0 r) = DeltaS sh r
+  type TensorS (Delta0 r) sh = DeltaS r sh
   dSumElements0 = SumElements0
   dIndex0 = Index0
   dDot0 = Dot0
@@ -326,13 +326,13 @@ instance IsDual (DeltaX r) where
   {-# INLINE bindInState #-}
   bindInState = bindInStateX
 
-instance OS.Shape sh => IsDual (DeltaS sh r) where
-  type Primal (DeltaS sh r) = OS.Array sh r
+instance OS.Shape sh => IsDual (DeltaS r sh) where
+  type Primal (DeltaS r sh) = OS.Array sh r
   dZero = ZeroS
   dScale = ScaleS
   dAdd = AddS
   dVar = VarS
-  type ScalarOf (DeltaS sh r) = r
+  type ScalarOf (DeltaS r sh) = r
   {-# INLINE bindInState #-}
   bindInState u' st = let (st2, did) = bindInStateX (FromSX u') st
                       in (st2, covertDeltaId did)
@@ -399,7 +399,7 @@ instance HasRanks Double where
   type Tensor1 Double = Vector Double
   type Tensor2 Double = Matrix Double
   type TensorX Double = OT.Array Double
-  type TensorS sh Double = OS.Array sh Double
+  type TensorS Double sh = OS.Array sh Double
   dSumElements0 vd _ = HM.sumElements vd
   dIndex0 d ix _ = d V.! ix
   dDot0 = (HM.<.>)
@@ -470,7 +470,7 @@ instance HasRanks Float where
   type Tensor1 Float = Vector Float
   type Tensor2 Float = Matrix Float
   type TensorX Float = OT.Array Float
-  type TensorS sh Float = OS.Array sh Float
+  type TensorS Float sh = OS.Array sh Float
   -- Below it's completely repeated after the @Double@ case.
   dSumElements0 vd _ = HM.sumElements vd
   dIndex0 d ix _ = d V.! ix
