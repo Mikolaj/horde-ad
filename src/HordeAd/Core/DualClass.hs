@@ -21,6 +21,7 @@ import qualified Data.Array.Dynamic as OTB
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
+import           Data.Kind (Type)
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -132,6 +133,20 @@ class IsDual a where
               -> DeltaState (ScalarOf a)
               -> (DeltaState (ScalarOf a), DeltaId (Primal a))
 
+class IsDualS (t :: [Nat] -> Type) where
+  type PrimalS t :: [Nat] -> Type
+    -- can't be injective, because same for gradient and derivative
+  dZeroS :: forall sh. OS.Shape sh => t sh
+  dScaleS :: forall sh. OS.Shape sh => PrimalS t sh -> t sh -> t sh
+  dAddS :: forall sh. OS.Shape sh => t sh -> t sh -> t sh
+  dVarS :: forall sh. OS.Shape sh => DeltaId (PrimalS t sh) -> t sh
+  type ScalarOfS t :: Type
+    -- verbose name to remember not to export from this module
+  bindInStateS :: forall sh. OS.Shape sh
+               => t sh
+               -> DeltaState (ScalarOfS t)
+               -> (DeltaState (ScalarOfS t), DeltaId (PrimalS t sh))
+
 -- | An instance of the class is a type of rank 0 (scalar rank) dual components
 -- of dual numbers. The associated type synonym families are dual component
 -- counterparts at the remaining ranks, with the same underlying scalar.
@@ -142,7 +157,7 @@ class HasRanks r where
   type Tensor1 r = result | result -> r
   type Tensor2 r = result | result -> r
   type TensorX r = result | result -> r
-  type TensorS r (sh :: [Nat]) = result | result -> r sh
+  type TensorS r = (result :: [Nat] -> Type) | result -> r
 
   dSumElements0 :: Tensor1 r -> Int -> r
   dIndex0 :: Tensor1 r -> Int -> Int -> r
@@ -237,7 +252,7 @@ instance HasRanks (Delta0 r) where
   type Tensor1 (Delta0 r) = Delta1 r
   type Tensor2 (Delta0 r) = Delta2 r
   type TensorX (Delta0 r) = DeltaX r
-  type TensorS (Delta0 r) sh = DeltaS r sh
+  type TensorS (Delta0 r) = DeltaS r
   dSumElements0 = SumElements0
   dIndex0 = Index0
   dDot0 = Dot0
@@ -326,6 +341,12 @@ instance IsDual (DeltaX r) where
   {-# INLINE bindInState #-}
   bindInState = bindInStateX
 
+newtype RevArray r sh = RevArray (OS.Array sh r)
+  -- TODO: coerce everywhere and/or put RevArray as Primal below
+  -- In the long term, perhaps copy-paste the whole outer layer
+  -- of Data.Array.ShapedS with reversed arguments (but Data.Array.Shaped
+  -- will be needed, as well, and perhaps the dynamic ones, too, to match.
+
 instance OS.Shape sh => IsDual (DeltaS r sh) where
   type Primal (DeltaS r sh) = OS.Array sh r
   dZero = ZeroS
@@ -399,7 +420,8 @@ instance HasRanks Double where
   type Tensor1 Double = Vector Double
   type Tensor2 Double = Matrix Double
   type TensorX Double = OT.Array Double
-  type TensorS Double sh = OS.Array sh Double
+  type TensorS Double = RevArray Double
+  {- TODO: coerce everything until it's all fine
   dSumElements0 vd _ = HM.sumElements vd
   dIndex0 d ix _ = d V.! ix
   dDot0 = (HM.<.>)
@@ -465,13 +487,14 @@ instance HasRanks Double where
   dFrom1S = OS.fromVector
   dFrom2S _ = OS.fromVector . HM.flatten
   dFromXS = Data.Array.Convert.convert
-
+-}
 instance HasRanks Float where
   type Tensor1 Float = Vector Float
   type Tensor2 Float = Matrix Float
   type TensorX Float = OT.Array Float
-  type TensorS Float sh = OS.Array sh Float
+  type TensorS Float = RevArray Float
   -- Below it's completely repeated after the @Double@ case.
+  {-
   dSumElements0 vd _ = HM.sumElements vd
   dIndex0 d ix _ = d V.! ix
   dDot0 = (HM.<.>)
@@ -537,3 +560,4 @@ instance HasRanks Float where
   dFrom1S = OS.fromVector
   dFrom2S _ = OS.fromVector . HM.flatten
   dFromXS = Data.Array.Convert.convert
+-}
