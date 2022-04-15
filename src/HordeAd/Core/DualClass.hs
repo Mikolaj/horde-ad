@@ -1,17 +1,19 @@
 {-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, DataKinds, FlexibleInstances,
-             MultiParamTypeClasses, TypeFamilyDependencies, TypeOperators,
-             UndecidableInstances #-}
+             MultiParamTypeClasses, QuantifiedConstraints,
+             TypeFamilyDependencies, TypeOperators, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | The class of dual components of dual numbers and related classes,
 -- constraints and instances.
 module HordeAd.Core.DualClass
   ( IsDualWithScalar, IsScalar
-  , IsScalarS, IsScalarS5, IsScalarS4, IsScalarS3, IsScalarS2, IsScalarS1
+  , IsScalarS, IsScalarSh
+  , IsScalarS5, IsScalarS4, IsScalarS3, IsScalarS2, IsScalarS1
   , HasDelta, HasForward
   , IsDual(Primal, dZero, dScale, dAdd, dVar, bindInState)
   , HasRanks(..)
   , Delta0  -- re-export; should be rarely used
+  , RevArray(..)
   ) where
 
 import Prelude
@@ -21,6 +23,7 @@ import qualified Data.Array.Dynamic as OTB
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
+import           Data.Coerce (coerce)
 import           Data.Kind (Type)
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
@@ -60,6 +63,11 @@ type IsScalar r =
 type IsScalarS sh r =
        ( OS.Shape sh, IsScalar r, IsDualWithScalar (TensorS r sh) r
        , Primal (TensorS r sh) ~ OS.Array sh (Primal r) )
+
+type IsScalarSh r =
+       ( IsScalar r
+       , IsDualS (TensorS r), ScalarOfS (TensorS r) ~ Primal r )  -- Num
+--       , Primal (TensorS r sh) ~ OS.Array sh (Primal r) )
 
 -- Five ranks ought to be enough for anyone.
 type IsScalarS5 r k5 k4 k3 k2 k1 =
@@ -347,16 +355,16 @@ newtype RevArray r sh = RevArray (OS.Array sh r)
   -- of Data.Array.ShapedS with reversed arguments (but Data.Array.Shaped
   -- will be needed, as well, and perhaps the dynamic ones, too, to match.
 
-instance OS.Shape sh => IsDual (DeltaS r sh) where
-  type Primal (DeltaS r sh) = OS.Array sh r
-  dZero = ZeroS
-  dScale = ScaleS
-  dAdd = AddS
-  dVar = VarS
-  type ScalarOf (DeltaS r sh) = r
-  {-# INLINE bindInState #-}
-  bindInState u' st = let (st2, did) = bindInStateX (FromSX u') st
-                      in (st2, covertDeltaId did)
+instance IsDualS (DeltaS r) where
+  type PrimalS (DeltaS r) = RevArray r
+  dZeroS = ZeroS
+  dScaleS k = ScaleS (coerce k)
+  dAddS = AddS
+  dVarS did = VarS (coerce did)
+  type ScalarOfS (DeltaS r) = r
+  {-# INLINE bindInStateS #-}
+  bindInStateS u' st = let (st2, did) = bindInStateX (FromSX u') st
+                       in (st2, coerce $ covertDeltaId did)
 
 
 -- * Alternative instances: forward derivatives computed on the spot
@@ -407,14 +415,14 @@ instance Num (OT.Array r) => IsDual (OT.Array r) where
   type ScalarOf (OT.Array r) = r
   bindInState = undefined
 
-instance Num (OS.Array sh r) => IsDual (OS.Array sh r) where
-  type Primal (OS.Array sh r) = OS.Array sh r
-  dZero = 0
-  dScale k d = k * d
-  dAdd = (+)
-  dVar = undefined
-  type ScalarOf (OS.Array sh r) = r
-  bindInState = undefined
+instance (forall sh. Num (RevArray r sh)) => IsDualS (RevArray r) where
+  type PrimalS (RevArray r) = RevArray r
+  dZeroS = 0
+  dScaleS k d = k * d
+  dAddS = (+)
+  dVarS = undefined
+  type ScalarOfS (RevArray r) = r
+  bindInStateS = undefined
 
 instance HasRanks Double where
   type Tensor1 Double = Vector Double
