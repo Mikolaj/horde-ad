@@ -69,6 +69,32 @@ type IsScalarSh r =
        , IsDualS (TensorS r), ScalarOfS (TensorS r) ~ Primal r )  -- Num
 --       , Primal (TensorS r sh) ~ OS.Array sh (Primal r) )
 
+
+
+
+f1 :: forall n1 r. (KnownNat n1, HasRanks r, IsScalarSh r) => ()
+f1 = ()
+
+f2 :: forall n2 r. (KnownNat n2, HasRanks r, IsScalarSh r) => ()
+f2 = ()
+
+-- Compiles. Note the explosion of constraints.
+g1 :: forall n1 n2 r.
+      ( KnownNat n1, KnownNat n2, HasRanks r, IsScalarSh r )
+   => ()
+g1 = undefined (f1 @n1 @r) (f1 @n2 @r) (f2 @n1 @r) (f2 @n2 @r)
+
+-- Doesn't compile. All constraints from above would be needed.
+h1 :: forall n1 n2 r.
+      ( KnownNat n1, KnownNat n2, HasRanks r, IsScalarSh r )
+   => ()
+h1 = undefined (g1 @n1 @n2 @r)
+
+
+
+
+
+
 -- Five ranks ought to be enough for anyone.
 type IsScalarS5 r k5 k4 k3 k2 k1 =
        ( KnownNat k5, IsScalarS '[k5, k4, k3, k2, k1] r
