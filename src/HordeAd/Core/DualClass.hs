@@ -1,5 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, DataKinds, FlexibleInstances,
-             MultiParamTypeClasses, QuantifiedConstraints,
+             MultiParamTypeClasses, PolyKinds, QuantifiedConstraints,
              TypeFamilyDependencies, TypeOperators, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
@@ -66,9 +66,21 @@ type IsScalarS sh r =
 
 type IsScalarSh r =
        ( IsScalar r
-       , IsDualS (TensorS r), ScalarOfS (TensorS r) ~ Primal r )  -- Num
+       , IsDualS (TensorS r)
+       , ScalarOfS (TensorS r) ~ Primal r
+       , NumS (PrimalS (TensorS r))
 --       , Primal (TensorS r sh) ~ OS.Array sh (Primal r) )
+       )
 
+class NumS (t :: k -> Type) where
+  plusS :: t sh -> t sh -> t sh
+
+instance NumS t => Num (t sh) where
+  x + y = x `plusS` y
+
+
+instance IsDualS t => IsDual (t sh) where
+  type Primal (t sh) = PrimalS t sh
 
 
 
