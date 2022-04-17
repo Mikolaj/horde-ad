@@ -356,25 +356,25 @@ lenMnistCNNT final_image_sz depth num_hidden =
  )
 
 convMiddleMnistCNNT
-  :: forall in_height in_width filter_height_1 filter_width_1 out_channels
+  :: forall in_height in_width kheight_minus_1 kwidth_minus_1 out_channels
             n_batches in_channels r m.
-     ( KnownNat filter_height_1, KnownNat filter_width_1, KnownNat out_channels
+     ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1, KnownNat out_channels
      , KnownNat in_height, KnownNat in_width
      , KnownNat n_batches, KnownNat in_channels
      , DualMonad r m, IsScalarS r )
   => DualNumber (TensorS r '[ out_channels, in_channels
-                            , filter_height_1 + 1, filter_width_1 + 1 ])
+                            , kheight_minus_1 + 1, kwidth_minus_1 + 1 ])
   -> DualNumber (TensorS r '[n_batches, in_channels, in_height, in_width])
   -> DualNumber (TensorS r '[out_channels])
   -> m (DualNumber (TensorS r '[ n_batches, out_channels
-                               , (in_height + filter_height_1) `Div` 2
-                               , (in_width + filter_width_1) `Div` 2 ]))
+                               , (in_height + kheight_minus_1) `Div` 2
+                               , (in_width + kwidth_minus_1) `Div` 2 ]))
 convMiddleMnistCNNT ker x bias = do
   let yConv = conv24 ker x
       replicateBias
         :: DualNumber (TensorS r '[])
-           -> DualNumber (TensorS r '[ in_height + filter_height_1
-                                     , in_width + filter_width_1 ])
+           -> DualNumber (TensorS r '[ in_height + kheight_minus_1
+                                     , in_width + kwidth_minus_1 ])
       replicateBias = konstS . fromS0
       biasStretched = ravelFromListS
                       $ replicate (valueOf @n_batches)
@@ -384,9 +384,9 @@ convMiddleMnistCNNT ker x bias = do
   maxPool24 @2 @2 yRelu
 
 convMnistCNNT
-  :: forall filter_height_1 filter_width_1
+  :: forall kheight_minus_1 kwidth_minus_1
             in_height in_width out_channels in_channels n_batches r m.
-     ( KnownNat filter_height_1, KnownNat filter_width_1, KnownNat out_channels
+     ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1, KnownNat out_channels
      , KnownNat in_height, KnownNat in_width
      , KnownNat n_batches, KnownNat in_channels
      , DualMonad r m, IsScalarS r )
@@ -395,14 +395,14 @@ convMnistCNNT
   -> m (DualNumber (Tensor2 r))
 convMnistCNNT x variables = do
   let ker1 :: DualNumber (TensorS r '[ out_channels, in_channels
-                                     , filter_height_1 + 1
-                                     , filter_width_1 + 1 ])
+                                     , kheight_minus_1 + 1
+                                     , kwidth_minus_1 + 1 ])
       ker1 = varS variables 0
       bias1 = varS variables 2
   t1 <- convMiddleMnistCNNT ker1 (scalar x) bias1
   let ker2 :: DualNumber (TensorS r '[ out_channels, out_channels
-                                     , filter_height_1 + 1
-                                     , filter_width_1 + 1 ])
+                                     , kheight_minus_1 + 1
+                                     , kwidth_minus_1 + 1 ])
       ker2 = varS variables 1
       bias2 = varS variables 3
   t2 <- convMiddleMnistCNNT ker2 t1 bias2
@@ -422,9 +422,9 @@ convMnistCNNT x variables = do
                                  + asColumn2 biasesReadout (valueOf @n_batches)
 
 convMnistLossCNNTPoly
-  :: forall filter_height_1 filter_width_1
+  :: forall kheight_minus_1 kwidth_minus_1
             in_height in_width in_channels out_channels n_batches r m.
-     ( KnownNat filter_height_1, KnownNat filter_width_1, KnownNat out_channels
+     ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1, KnownNat out_channels
      , KnownNat in_height, KnownNat in_width
      , KnownNat n_batches, KnownNat in_channels
      , DualMonad r m, IsScalarS r, Floating (Primal (Tensor2 r)) )
@@ -435,20 +435,20 @@ convMnistLossCNNTPoly lmnistData variables = do
   let (lx, ltarget) = unzip lmnistData
       tx :: Primal (TensorS r '[n_batches, in_channels, in_height, in_width])
       tx = OS.fromList $ concatMap (HM.toList . HM.flatten) lx
-  result <- convMnistCNNT @filter_height_1 @filter_width_1
+  result <- convMnistCNNT @kheight_minus_1 @kwidth_minus_1
                           @in_height @in_width @out_channels
                           tx variables
   vec@(D u _) <- lossSoftMaxCrossEntropyL (HM.fromColumns ltarget) result
   returnLet $ scale (recip $ fromIntegral $ V.length u) $ sumElements0 vec
 
 convMnistLossCNNT
-  :: forall filter_height_1 filter_width_1
+  :: forall kheight_minus_1 kwidth_minus_1
             in_height in_width in_channels out_channels n_batches r m.
      ( DualMonad r m, IsScalarS r, Floating (Primal (Tensor2 r))
      , n_batches ~ 16
      , out_channels ~ 16
-     , filter_height_1 ~ 4
-     , filter_width_1 ~ 4
+     , kheight_minus_1 ~ 4
+     , kwidth_minus_1 ~ 4
      , in_height ~ 28
      , in_width ~ 28
      , in_channels ~ 1
@@ -458,13 +458,13 @@ convMnistLossCNNT
   -> m (DualNumber r)
 convMnistLossCNNT =
   convMnistLossCNNTPoly
-    @filter_height_1 @filter_width_1 @in_height @in_width
+    @kheight_minus_1 @kwidth_minus_1 @in_height @in_width
     @in_channels @out_channels @n_batches
 
 convMnistTestCNNTPoly
-  :: forall filter_height_1 filter_width_1
+  :: forall kheight_minus_1 kwidth_minus_1
             in_height in_width in_channels out_channels n_batches r.
-     ( KnownNat filter_height_1, KnownNat filter_width_1, KnownNat out_channels
+     ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1, KnownNat out_channels
      , KnownNat in_height, KnownNat in_width
      , KnownNat n_batches, KnownNat in_channels
      , IsScalarS r, Floating (Primal (Tensor1 r)) )
@@ -479,7 +479,7 @@ convMnistTestCNNTPoly _ inputs parameters =
                -> DualMonadValue r (DualNumber (Tensor1 r))
             nn variables = do
               m <- convMnistCNNT
-                          @filter_height_1 @filter_width_1
+                          @kheight_minus_1 @kwidth_minus_1
                           @in_height @in_width @out_channels
                           tx variables
               softMaxActV $ flatten1 m
@@ -489,13 +489,13 @@ convMnistTestCNNTPoly _ inputs parameters =
      / fromIntegral (length inputs)
 
 convMnistTestCNNT
-  :: forall filter_height_1 filter_width_1
+  :: forall kheight_minus_1 kwidth_minus_1
             in_height in_width in_channels out_channels n_batches r.
      ( IsScalarS r, Floating (Primal (Tensor1 r))
      , n_batches ~ 1
      , out_channels ~ 16
-     , filter_height_1 ~ 4
-     , filter_width_1 ~ 4
+     , kheight_minus_1 ~ 4
+     , kwidth_minus_1 ~ 4
      , in_height ~ 28
      , in_width ~ 28
      , in_channels ~ 1
@@ -503,7 +503,7 @@ convMnistTestCNNT
   => Proxy r -> [MnistData2 (Primal r)] -> Domains r -> Primal r
 convMnistTestCNNT =
   convMnistTestCNNTPoly
-    @filter_height_1 @filter_width_1 @in_height @in_width
+    @kheight_minus_1 @kwidth_minus_1 @in_height @in_width
     @in_channels @out_channels @n_batches
 
 convMnistTestCaseCNNT

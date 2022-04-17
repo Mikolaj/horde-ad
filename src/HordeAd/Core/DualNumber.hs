@@ -741,48 +741,48 @@ conv2' :: IsScalar r
        -> DualNumber (Tensor2 r)
 conv2' (D u u') (D v v') = D (HM.conv2 u v) (dAdd (dConv2 u v') (dConv2 v u'))
 
-conv2S :: forall r filter_height_1 filter_width_1 in_height in_width.
-          ( KnownNat filter_height_1, KnownNat filter_width_1
+conv2S :: forall r kheight_minus_1 kwidth_minus_1 in_height in_width.
+          ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
           , KnownNat in_height, KnownNat in_width
           , IsScalarS r )
-       => DualNumber (TensorS r '[filter_height_1 + 1, filter_width_1 + 1])
+       => DualNumber (TensorS r '[kheight_minus_1 + 1, kwidth_minus_1 + 1])
        -> DualNumber (TensorS r '[in_height, in_width])
-       -> DualNumber (TensorS r '[ in_height + filter_height_1
-                                 , in_width + filter_width_1 ])
+       -> DualNumber (TensorS r '[ in_height + kheight_minus_1
+                                 , in_width + kwidth_minus_1 ])
 conv2S ker x = from2S $ conv2' (fromS2 ker) (fromS2 x)
 
 -- Convolution of many matrices at once. The names of dimensions are from
 -- https://www.tensorflow.org/api_docs/python/tf/nn/conv2d
-conv24 :: forall filter_height_1 filter_width_1
+conv24 :: forall kheight_minus_1 kwidth_minus_1
                  out_channels in_height in_width n_batches in_channels r.
-          ( KnownNat filter_height_1, KnownNat filter_width_1
+          ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
           , KnownNat out_channels, KnownNat in_height, KnownNat in_width
           , KnownNat n_batches, KnownNat in_channels
           , IsScalarS r )
        => DualNumber (TensorS r '[ out_channels, in_channels
-                                 , filter_height_1 + 1, filter_width_1 + 1 ])
+                                 , kheight_minus_1 + 1, kwidth_minus_1 + 1 ])
        -> DualNumber (TensorS r '[n_batches, in_channels, in_height, in_width])
        -> DualNumber (TensorS r '[ n_batches, out_channels
-                                 , in_height + filter_height_1
-                                 , in_width + filter_width_1 ])
+                                 , in_height + kheight_minus_1
+                                 , in_width + kwidth_minus_1 ])
 conv24 ker x = mapS conv23 x where
   conv23 :: DualNumber (TensorS r '[in_channels, in_height, in_width])
          -> DualNumber (TensorS r '[ out_channels
-                                   , in_height + filter_height_1
-                                   , in_width + filter_width_1 ])
+                                   , in_height + kheight_minus_1
+                                   , in_width + kwidth_minus_1 ])
   conv23 x1 = mapS (convFilters x1) ker
   convFilters
     :: DualNumber (TensorS r '[in_channels, in_height, in_width])
     -> DualNumber (TensorS r '[ in_channels
-                              , filter_height_1 + 1, filter_width_1 + 1 ])
-    -> DualNumber (TensorS r '[ in_height + filter_height_1
-                              , in_width + filter_width_1 ])
+                              , kheight_minus_1 + 1, kwidth_minus_1 + 1 ])
+    -> DualNumber (TensorS r '[ in_height + kheight_minus_1
+                              , in_width + kwidth_minus_1 ])
   convFilters x1 ker1 = sumOutermost $ zipWithS conv2S ker1 x1
   sumOutermost :: DualNumber (TensorS r '[ in_channels
-                                         , in_height + filter_height_1
-                                         , in_width + filter_width_1 ])
-               -> DualNumber (TensorS r '[ in_height + filter_height_1
-                                         , in_width + filter_width_1 ])
+                                         , in_height + kheight_minus_1
+                                         , in_width + kwidth_minus_1 ])
+               -> DualNumber (TensorS r '[ in_height + kheight_minus_1
+                                         , in_width + kwidth_minus_1 ])
   sumOutermost = sum . unravelToListS
     -- slow; should go through Tensor2, or the Num instance should when possible
 
