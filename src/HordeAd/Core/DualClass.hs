@@ -237,7 +237,7 @@ instance HasRanks (Delta0 r) where
   type Tensor1 (Delta0 r) = Delta1 r
   type Tensor2 (Delta0 r) = Delta2 r
   type TensorX (Delta0 r) = DeltaX r
-  type TensorS sh (Delta0 r) = DeltaS sh r
+  type TensorS sh (Delta0 r) = DeltaS r sh
   dSumElements0 = SumElements0
   dIndex0 = Index0
   dDot0 = Dot0
@@ -326,13 +326,13 @@ instance IsDual (DeltaX r) where
   {-# INLINE bindInState #-}
   bindInState = bindInStateX
 
-instance OS.Shape sh => IsDual (DeltaS sh r) where
-  type Primal (DeltaS sh r) = OS.Array sh r
+instance OS.Shape sh => IsDual (DeltaS r sh) where
+  type Primal (DeltaS r sh) = OS.Array sh r
   dZero = ZeroS
   dScale = ScaleS
   dAdd = AddS
   dVar = VarS
-  type ScalarOf (DeltaS sh r) = r
+  type ScalarOf (DeltaS r sh) = r
   {-# INLINE bindInState #-}
   bindInState u' st = let (st2, did) = bindInStateX (FromSX u') st
                       in (st2, covertDeltaId did)
