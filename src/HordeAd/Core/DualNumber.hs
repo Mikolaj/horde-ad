@@ -19,7 +19,7 @@ import           Data.List.Index (imap)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, type (+))
+import           GHC.TypeLits (KnownNat, type (+), type (<=), type Div)
 import qualified Numeric.LinearAlgebra as HM
 
 import           HordeAd.Core.DualClass
@@ -823,19 +823,21 @@ maxPool2 ksize stride m@(D u _) = do
       mins = map (maximum0 . getArea) resultCoords
   returnLet $ reshape2 colsOut $ seq1 $ V.fromList mins
 
-maxPool24 :: forall r m n_batches channels
-                    in_height in_width out_height out_width.
-             ( KnownNat n_batches, KnownNat channels
-             , KnownNat in_height, KnownNat in_width
-             , KnownNat out_height, KnownNat out_width
-             , DualMonad r m, IsScalarS r )
-          => Int -> Int
-          -> DualNumber (TensorS r '[ n_batches, channels
-                                    , in_height, in_width ])
-          -> m (DualNumber (TensorS r '[ n_batches, channels
-                                       , out_height, out_width ]))
-maxPool24 ksize stride d = do
-  res <- mapMS (mapMS (fmap from2S . maxPool2 ksize stride . fromS2)) d
+maxPool24
+  :: forall ksize stride in_height in_width n_batches channels r m.
+     ( KnownNat ksize, KnownNat stride, KnownNat in_height, KnownNat in_width
+     , KnownNat n_batches, KnownNat channels
+     , 1 <= stride
+     , DualMonad r m, IsScalarS r )
+     => DualNumber (TensorS r '[n_batches, channels, in_height, in_width])
+     -> m (DualNumber (TensorS r '[ n_batches, channels
+                                  , in_height `Div` stride
+                                  , in_width `Div` stride ]))
+maxPool24 d = do
+  res <- mapMS (mapMS (fmap from2S
+                       . maxPool2 (valueOf @ksize)
+                                  (valueOf @stride)
+                       . fromS2)) d
   returnLet res
 
 reluActS :: (DualMonad r m, IsScalarS r, OS.Shape sh)
