@@ -755,13 +755,10 @@ conv2S ker x = from2S $ conv2' (fromS2 ker) (fromS2 x)
 -- https://www.tensorflow.org/api_docs/python/tf/nn/conv2d
 conv24 :: forall filter_height_1 filter_width_1
                  out_channels in_height in_width n_batches in_channels r.
-          ( IsScalarS4 r out_channels in_channels
-                         (filter_height_1 + 1) (filter_width_1 + 1)
-          , IsScalarS4 r n_batches in_channels in_height in_width
-          , IsScalarS4 r n_batches out_channels
-                         (in_height + filter_height_1)
-                         (in_width + filter_width_1)
-          )
+          ( KnownNat filter_height_1, KnownNat filter_width_1
+          , KnownNat out_channels, KnownNat in_height, KnownNat in_width
+          , KnownNat n_batches, KnownNat in_channels
+          , IsScalarS r )
        => DualNumber (TensorS r '[ out_channels, in_channels
                                  , filter_height_1 + 1, filter_width_1 + 1 ])
        -> DualNumber (TensorS r '[n_batches, in_channels, in_height, in_width])
@@ -828,10 +825,10 @@ maxPool2 ksize stride m@(D u _) = do
 
 maxPool24 :: forall r m n_batches channels
                     in_height in_width out_height out_width.
-             ( DualMonad r m
-             , IsScalarS4 r n_batches channels in_height in_width
-             , IsScalarS4 r n_batches channels out_height out_width
-             )
+             ( KnownNat n_batches, KnownNat channels
+             , KnownNat in_height, KnownNat in_width
+             , KnownNat out_height, KnownNat out_width
+             , DualMonad r m, IsScalarS r )
           => Int -> Int
           -> DualNumber (TensorS r '[ n_batches, channels
                                     , in_height, in_width ])

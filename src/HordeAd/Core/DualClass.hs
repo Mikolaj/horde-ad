@@ -12,7 +12,6 @@
 module HordeAd.Core.DualClass
   ( IsDualWithScalar, IsScalar
   , IsScalarS  -- TODO: remove with GHC 9.4
-  , IsScalarS5, IsScalarS4, IsScalarS3, IsScalarS2, IsScalarS1
   , HasDelta, HasForward
   , IsDual(Primal, dZero, dScale, dAdd, dVar, bindInState)
   , HasRanks(..), TensorS
@@ -67,36 +66,6 @@ type IsScalar r =
 
 type IsScalarS r =
        (IsScalar r, IsDualS (TensorS r), ScalarOfS (TensorS r) ~ Primal r)
-
--- Five ranks ought to be enough for anyone.
-type IsScalarS5 r k5 k4 k3 k2 k1 =
-       ( KnownNat k5
-       , OS.Shape '[k5, k4, k3, k2, k1]
-       , IsScalarS r
-       , IsScalarS4 r k4 k3 k2 k1 )
-
-type IsScalarS4 r k4 k3 k2 k1 =
-       ( KnownNat k4
-       , OS.Shape '[k4, k3, k2, k1]
-       , IsScalarS r
-       , IsScalarS3 r k3 k2 k1 )
-
-type IsScalarS3 r k3 k2 k1 =
-       ( KnownNat k3
-       , OS.Shape '[k3, k2, k1]
-       , IsScalarS r
-       , IsScalarS2 r k2 k1 )
-
-type IsScalarS2 r k2 k1 =
-       ( KnownNat k2
-       , OS.Shape '[k2, k1]
-       , IsScalarS r
-       , IsScalarS1 r k1 )
-
-type IsScalarS1 r k1 =
-       ( KnownNat k1
-       , OS.Shape '[k1]
-       , IsScalarS r )
 
 -- | A constraint expressing that dual numbers with this dual component
 -- are implemented via gathering delta expressions in state.

@@ -10,7 +10,7 @@ import           Data.Array.Internal (valueOf)
 import qualified Data.Array.ShapedS as OS
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (type (+))
+import           GHC.TypeLits (KnownNat, type (+))
 import qualified Numeric.LinearAlgebra as HM
 import           System.Random
 import           Test.Tasty
@@ -357,17 +357,11 @@ convMiddleMnistCNNT
   :: forall filter_height_1 filter_width_1 out_channels
             in_height in_width out_height out_width
             n_batches in_channels r m.
-     ( DualMonad r m
-     , IsScalarS4 r n_batches in_channels in_height in_width
-     , IsScalarS4 r n_batches in_channels
-                    (in_height + filter_height_1) (in_width + filter_width_1)
-     , IsScalarS4 r n_batches out_channels
-                    (in_height + filter_height_1) (in_width + filter_width_1)
-     , IsScalarS4 r n_batches out_channels out_height out_width
-     , IsScalarS4 r out_channels in_channels
-                    (filter_height_1 + 1) (filter_width_1 + 1)
-     , IsScalarS1 r out_channels
-     )
+     ( KnownNat filter_height_1, KnownNat filter_width_1, KnownNat out_channels
+     , KnownNat in_height, KnownNat in_width
+     , KnownNat out_height, KnownNat out_width
+     , KnownNat n_batches, KnownNat in_channels
+     , DualMonad r m, IsScalarS r )
   => DualNumberVariables r
   -> DualNumber (TensorS r '[ n_batches, in_channels
                             , in_height, in_width ])
@@ -394,24 +388,12 @@ convMnistCNNT
   :: forall filter_height_1 filter_width_1
             in_height in_width out_height out_width out2_height out2_width
             in_channels out_channels n_batches r m.
-     ( DualMonad r m
-     , IsScalarS4 r n_batches in_channels
-                    (in_height + filter_height_1) (in_width + filter_width_1)
-     , IsScalarS4 r n_batches out_channels out_height out_width
-     , IsScalarS4 r out_channels in_channels
-                    (filter_height_1 + 1) (filter_width_1 + 1)
-     , IsScalarS1 r out_channels
-     , IsScalarS4 r n_batches in_channels in_height in_width
-     , IsScalarS4 r n_batches out_channels out2_height out2_width
-     , IsScalarS4 r out_channels out_channels
-                    (filter_height_1 + 1) (filter_width_1 + 1)
-     , IsScalarS4 r n_batches out_channels
-                    (in_height + filter_height_1) (in_width + filter_width_1)
-     , IsScalarS4 r n_batches out_channels
-                    (out_height + filter_height_1)
-                    (out_width + filter_width_1)
-     , IsScalarS2 r n_batches (OS.Size '[out_channels, out2_height, out2_width])
-     )
+     ( KnownNat filter_height_1, KnownNat filter_width_1, KnownNat out_channels
+     , KnownNat in_height, KnownNat in_width
+     , KnownNat out_height, KnownNat out_width
+     , KnownNat out2_height, KnownNat out2_width
+     , KnownNat n_batches, KnownNat in_channels
+     , DualMonad r m, IsScalarS r )
   => Primal (TensorS r '[n_batches, in_channels, in_height, in_width])
   -> DualNumberVariables r
   -> m (DualNumber (Tensor2 r))
@@ -440,24 +422,12 @@ convMnistLossCNNTPoly
   :: forall filter_height_1 filter_width_1
             in_height in_width out_height out_width out2_height out2_width
             in_channels out_channels n_batches r m.
-     ( DualMonad r m, Floating (Primal (Tensor2 r))
-     , IsScalarS4 r n_batches in_channels
-                    (in_height + filter_height_1) (in_width + filter_width_1)
-     , IsScalarS4 r n_batches out_channels out_height out_width
-     , IsScalarS4 r out_channels in_channels
-                    (filter_height_1 + 1) (filter_width_1 + 1)
-     , IsScalarS4 r n_batches in_channels in_height in_width
-     , IsScalarS4 r n_batches out_channels out2_height out2_width
-     , IsScalarS4 r out_channels out_channels
-                    (filter_height_1 + 1) (filter_width_1 + 1)
-     , IsScalarS4 r n_batches out_channels
-                    (in_height + filter_height_1) (in_width + filter_width_1)
-     , IsScalarS4 r n_batches out_channels
-                    (out_height + filter_height_1)
-                    (out_width + filter_width_1)
-     , IsScalarS2 r n_batches (OS.Size '[out_channels, out2_height, out2_width])
-     , IsScalarS1 r out_channels
-     )
+     ( KnownNat filter_height_1, KnownNat filter_width_1, KnownNat out_channels
+     , KnownNat in_height, KnownNat in_width
+     , KnownNat out_height, KnownNat out_width
+     , KnownNat out2_height, KnownNat out2_width
+     , KnownNat n_batches, KnownNat in_channels
+     , DualMonad r m, IsScalarS r, Floating (Primal (Tensor2 r)) )
   => [MnistData2 (Primal r)]
   -> DualNumberVariables r
   -> m (DualNumber r)
@@ -477,22 +447,7 @@ convMnistLossCNNT
   :: forall filter_height_1 filter_width_1
             in_height in_width out_height out_width out2_height out2_width
             in_channels out_channels n_batches r m.
-     ( DualMonad r m, Floating (Primal (Tensor2 r))
-     , IsScalarS4 r n_batches in_channels
-                    (in_height + filter_height_1) (in_width + filter_width_1)
-     , IsScalarS4 r n_batches out_channels out_height out_width
-     , IsScalarS4 r out_channels in_channels
-                    (filter_height_1 + 1) (filter_width_1 + 1)
-     , IsScalarS4 r n_batches in_channels in_height in_width
-     , IsScalarS4 r n_batches out_channels out2_height out2_width
-     , IsScalarS4 r out_channels out_channels
-                    (filter_height_1 + 1) (filter_width_1 + 1)
-     , IsScalarS4 r n_batches out_channels
-                    (in_height + filter_height_1) (in_width + filter_width_1)
-     , IsScalarS4 r n_batches out_channels
-                    (out_height + filter_height_1)
-                    (out_width + filter_width_1)
-     , IsScalarS2 r n_batches (OS.Size '[out_channels, out2_height, out2_width])
+     ( DualMonad r m, IsScalarS r, Floating (Primal (Tensor2 r))
      , n_batches ~ 16
      , out_channels ~ 16
      , filter_height_1 ~ 4
@@ -518,24 +473,12 @@ convMnistTestCNNTPoly
   :: forall filter_height_1 filter_width_1
             in_height in_width out_height out_width out2_height out2_width
             in_channels out_channels n_batches r.
-     ( Floating (Primal (Tensor1 r))
-     , IsScalarS4 r n_batches in_channels
-                    (in_height + filter_height_1) (in_width + filter_width_1)
-     , IsScalarS4 r n_batches out_channels out_height out_width
-     , IsScalarS4 r out_channels in_channels
-                    (filter_height_1 + 1) (filter_width_1 + 1)
-     , IsScalarS4 r n_batches in_channels in_height in_width
-     , IsScalarS4 r n_batches out_channels out2_height out2_width
-     , IsScalarS4 r out_channels out_channels
-                    (filter_height_1 + 1) (filter_width_1 + 1)
-     , IsScalarS4 r n_batches out_channels
-                    (in_height + filter_height_1) (in_width + filter_width_1)
-     , IsScalarS4 r n_batches out_channels
-                    (out_height + filter_height_1)
-                    (out_width + filter_width_1)
-     , IsScalarS2 r n_batches (OS.Size '[out_channels, out2_height, out2_width])
-     , IsScalarS1 r out_channels
-     )
+     ( KnownNat filter_height_1, KnownNat filter_width_1, KnownNat out_channels
+     , KnownNat in_height, KnownNat in_width
+     , KnownNat out_height, KnownNat out_width
+     , KnownNat out2_height, KnownNat out2_width
+     , KnownNat n_batches, KnownNat in_channels
+     , IsScalarS r, Floating (Primal (Tensor1 r)) )
   => Proxy r -> [MnistData2 (Primal r)] -> Domains r -> Primal r
 convMnistTestCNNTPoly _ inputs parameters =
   let matchesLabels :: MnistData2 (Primal r) -> Bool
@@ -561,22 +504,7 @@ convMnistTestCNNT
   :: forall filter_height_1 filter_width_1
             in_height in_width out_height out_width out2_height out2_width
             in_channels out_channels n_batches r.
-     ( Floating (Primal (Tensor1 r))
-     , IsScalarS4 r n_batches in_channels
-                    (in_height + filter_height_1) (in_width + filter_width_1)
-     , IsScalarS4 r n_batches out_channels out_height out_width
-     , IsScalarS4 r out_channels in_channels
-                    (filter_height_1 + 1) (filter_width_1 + 1)
-     , IsScalarS4 r n_batches in_channels in_height in_width
-     , IsScalarS4 r n_batches out_channels out2_height out2_width
-     , IsScalarS4 r out_channels out_channels
-                    (filter_height_1 + 1) (filter_width_1 + 1)
-     , IsScalarS4 r n_batches out_channels
-                    (in_height + filter_height_1) (in_width + filter_width_1)
-     , IsScalarS4 r n_batches out_channels
-                    (out_height + filter_height_1)
-                    (out_width + filter_width_1)
-     , IsScalarS2 r n_batches (OS.Size '[out_channels, out2_height, out2_width])
+     ( IsScalarS r, Floating (Primal (Tensor1 r))
      , n_batches ~ 1
      , out_channels ~ 16
      , filter_height_1 ~ 4
