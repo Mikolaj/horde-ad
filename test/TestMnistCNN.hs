@@ -354,24 +354,23 @@ lenMnistCNNT final_image_sz depth num_hidden =
  )
 
 convMiddleMnistCNNT
-  :: forall filter_height_1 filter_width_1 out_channels
-            in_height in_width out_height out_width
+  :: forall in_height in_width out_height out_width
+            filter_height_1 filter_width_1 out_channels
             n_batches in_channels r m.
      ( KnownNat filter_height_1, KnownNat filter_width_1, KnownNat out_channels
      , KnownNat in_height, KnownNat in_width
      , KnownNat out_height, KnownNat out_width
      , KnownNat n_batches, KnownNat in_channels
      , DualMonad r m, IsScalarS r )
-  => DualNumberVariables r
-  -> DualNumber (TensorS r '[ n_batches, in_channels
-                            , in_height, in_width ])
-  -> Int
+  => DualNumber (TensorS r '[ out_channels, in_channels
+                            , filter_height_1 + 1, filter_width_1 + 1 ])
+  -> DualNumber (TensorS r '[ n_batches
+                            , in_channels, in_height, in_width ])
+  -> DualNumber (TensorS r '[out_channels])
   -> m (DualNumber (TensorS r '[ n_batches
                                , out_channels, out_height, out_width ]))
-convMiddleMnistCNNT variables x offset = do
-  let ker = varS variables offset
-      yConv = conv24 ker x
-      bias = varS variables $ offset + 2
+convMiddleMnistCNNT ker x bias = do
+  let yConv = conv24 ker x
       replicateBias
         :: DualNumber (TensorS r '[])
            -> DualNumber (TensorS r '[ in_height + filter_height_1
@@ -387,7 +386,7 @@ convMiddleMnistCNNT variables x offset = do
 convMnistCNNT
   :: forall filter_height_1 filter_width_1
             in_height in_width out_height out_width out2_height out2_width
-            in_channels out_channels n_batches r m.
+            out_channels in_channels n_batches r m.
      ( KnownNat filter_height_1, KnownNat filter_width_1, KnownNat out_channels
      , KnownNat in_height, KnownNat in_width
      , KnownNat out_height, KnownNat out_width
@@ -398,11 +397,19 @@ convMnistCNNT
   -> DualNumberVariables r
   -> m (DualNumber (Tensor2 r))
 convMnistCNNT x variables = do
-  t1 <- convMiddleMnistCNNT @filter_height_1 @filter_width_1 @out_channels
-                            variables (scalar x) 0
-  t2 <- convMiddleMnistCNNT @filter_height_1 @filter_width_1 @out_channels
-                            @out_height @out_width @out2_height @out2_width
-                            variables t1 1
+  let ker1 :: DualNumber (TensorS r '[ out_channels, in_channels
+                                     , filter_height_1 + 1
+                                     , filter_width_1 + 1 ])
+      ker1 = varS variables 0
+      bias1 = varS variables 2
+  t1 <- convMiddleMnistCNNT ker1 (scalar x) bias1
+  let ker2 :: DualNumber (TensorS r '[ out_channels, out_channels
+                                     , filter_height_1 + 1
+                                     , filter_width_1 + 1 ])
+      ker2 = varS variables 1
+      bias2 = varS variables 3
+  t2 <- convMiddleMnistCNNT @out_height @out_width @out2_height @out2_width
+                            ker2 t1 bias2
   let m1 = mapS reshapeS t2
       m2 = fromS2 m1
       -- From this point on I give up and move from shaped tensors
@@ -437,8 +444,7 @@ convMnistLossCNNTPoly lmnistData variables = do
       tx = OS.fromList $ concatMap (HM.toList . HM.flatten) lx
   result <- convMnistCNNT @filter_height_1 @filter_width_1
                           @in_height @in_width @out_height @out_width
-                          @out2_height @out2_width @in_channels @out_channels
-                          @n_batches
+                          @out2_height @out2_width @out_channels
                           tx variables
   vec@(D u _) <- lossSoftMaxCrossEntropyL (HM.fromColumns ltarget) result
   returnLet $ scale (recip $ fromIntegral $ V.length u) $ sumElements0 vec
@@ -492,7 +498,7 @@ convMnistTestCNNTPoly _ inputs parameters =
               m <- convMnistCNNT
                           @filter_height_1 @filter_width_1
                           @in_height @in_width @out_height @out_width
-                          @out2_height @out2_width @in_channels @out_channels
+                          @out2_height @out2_width @out_channels
                           tx variables
               softMaxActV $ flatten1 m
             value = primalValue @r nn parameters
