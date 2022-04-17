@@ -369,19 +369,19 @@ convMiddleMnistCNNT
      , IsScalarS1 r out_channels
      )
   => DualNumberVariables r
-  -> DualNumber (TensorS '[ n_batches, in_channels
-                          , in_height, in_width ] r)
+  -> DualNumber (TensorS r '[ n_batches, in_channels
+                            , in_height, in_width ])
   -> Int
-  -> m (DualNumber (TensorS '[ n_batches
-                             , out_channels, out_height, out_width ] r))
+  -> m (DualNumber (TensorS r '[ n_batches
+                               , out_channels, out_height, out_width ]))
 convMiddleMnistCNNT variables x offset = do
   let ker = varS variables offset
       yConv = conv24 ker x
       bias = varS variables $ offset + 2
       replicateBias
-        :: DualNumber (TensorS '[] r)
-           -> DualNumber (TensorS '[ in_height + filter_height_1
-                                   , in_width + filter_width_1 ] r)
+        :: DualNumber (TensorS r '[])
+           -> DualNumber (TensorS r '[ in_height + filter_height_1
+                                     , in_width + filter_width_1 ])
       replicateBias = konstS . fromS0
       biasStretched = ravelFromListS
                       $ replicate (valueOf @n_batches)
@@ -412,7 +412,7 @@ convMnistCNNT
                     (out_width + filter_width_1)
      , IsScalarS2 r n_batches (OS.Size '[out_channels, out2_height, out2_width])
      )
-  => Primal (TensorS '[n_batches, in_channels, in_height, in_width] r)
+  => Primal (TensorS r '[n_batches, in_channels, in_height, in_width])
   -> DualNumberVariables r
   -> m (DualNumber (Tensor2 r))
 convMnistCNNT x variables = do
@@ -463,7 +463,7 @@ convMnistLossCNNTPoly
   -> m (DualNumber r)
 convMnistLossCNNTPoly lmnistData variables = do
   let (lx, ltarget) = unzip lmnistData
-      tx :: Primal (TensorS '[n_batches, in_channels, in_height, in_width] r)
+      tx :: Primal (TensorS r '[n_batches, in_channels, in_height, in_width])
       tx = OS.fromList $ concatMap (HM.toList . HM.flatten) lx
   result <- convMnistCNNT @filter_height_1 @filter_width_1
                           @in_height @in_width @out_height @out_width
@@ -540,8 +540,8 @@ convMnistTestCNNTPoly
 convMnistTestCNNTPoly _ inputs parameters =
   let matchesLabels :: MnistData2 (Primal r) -> Bool
       matchesLabels (glyph, label) =
-        let tx :: Primal (TensorS '[ n_batches, in_channels
-                                   , in_height, in_width ] r)
+        let tx :: Primal (TensorS r '[ n_batches, in_channels
+                                     , in_height, in_width ])
             tx = OS.fromVector $ HM.flatten glyph
             nn :: DualNumberVariables r
                -> DualMonadValue r (DualNumber (Tensor1 r))
