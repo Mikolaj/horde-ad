@@ -648,6 +648,8 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
             (_, _, _, parameters) = initializerFixed seed range paramShape
             (_, _, _, ds@(ds0, ds1, ds2, dsX)) =
               initializerFixed seedDs rangeDs paramShape
+            (_, _, _, parametersPerturbation) =
+              initializerFixed (seed + seedDs) 1e-7 paramShape
             f, fP :: forall r m. (DualMonad r m, Primal r ~ Double)
                   => DualNumberVariables r -> m (DualNumber r)
             f variables = do
@@ -667,8 +669,10 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
               cx2 <- returnLet $ indexX cx1 ix2
               returnLet $ fromX0 cx2
             ff = dFastForward f parameters ds
-            ffP = dFastForward fP parameters ds
-            close a b = abs (a - b) <= 0.000001
+            ffP@(_, ffPValue) = dFastForward fP parameters ds
+            perturbedffP@(_, perturbedffPValue) =
+              dFastForward fP parameters parametersPerturbation
+            close a b = abs (a - b) <= 1e-4
             close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
             dfDot fDot psDot =
               let ((res0, res1, res2, resX), value) = dReverse fDot psDot
@@ -679,11 +683,19 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                    + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
                                                (V.map OT.toVector dsX))
                  , value )
-        in close1 ff ffP
+            addParams (a0, a1, a2, aX) (b0, b1, b2, bX) =
+              ( a0 + b0, V.zipWith (+) a1 b1, V.zipWith (+) a2 b2
+              , V.zipWith (+) aX bX )
+        in ffPValue == perturbedffPValue
+           .&&. close1 ff ffP
            .&&. dForward f parameters ds === ff
            .&&. close1 (dfDot f parameters) ff
            .&&. dForward fP parameters ds === ffP
            .&&. close1 (dfDot fP parameters) ffP
+           .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
+                                   fP (addParams parameters
+                                                 parametersPerturbation))
+                      (ffPValue + fst perturbedffP)
   , testProperty "Compare gradients and two forward derivatives for convMnistTestCNN and convMnistTestCNNP" $
       \seed ->
       forAll (choose (0, sizeMnistLabel - 1)) $ \seedDs ->
@@ -700,13 +712,17 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
             (_, _, _, parameters) = initializerFixed seed range paramShape
             (_, _, _, ds@(ds0, ds1, ds2, dsX)) =
               initializerFixed seedDs rangeDs paramShape
+            (_, _, _, parametersPerturbation) =
+              initializerFixed (seed + seedDs) 1e-7 paramShape
             f, fP :: forall r m. (DualMonad r m, Primal r ~ Double)
                   => DualNumberVariables r -> m (DualNumber r)
             f = convMnistLossCNN widthHidden mnistData
             fP = convMnistLossCNNP widthHidden mnistData
             ff = dFastForward f parameters ds
-            ffP = dFastForward fP parameters ds
-            close a b = abs (a - b) <= 0.000001
+            ffP@(_, ffPValue) = dFastForward fP parameters ds
+            perturbedffP@(_, perturbedffPValue) =
+              dFastForward fP parameters parametersPerturbation
+            close a b = abs (a - b) <= 1e-4
             close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
             dfDot fDot psDot =
               let ((res0, res1, res2, resX), value) = dReverse fDot psDot
@@ -717,11 +733,19 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                    + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
                                                (V.map OT.toVector dsX))
                  , value )
-        in close1 ff ffP
+            addParams (a0, a1, a2, aX) (b0, b1, b2, bX) =
+              ( a0 + b0, V.zipWith (+) a1 b1, V.zipWith (+) a2 b2
+              , V.zipWith (+) aX bX )
+        in ffPValue == perturbedffPValue
+           .&&. close1 ff ffP
            .&&. dForward f parameters ds === ff
            .&&. close1 (dfDot f parameters) ff
            .&&. dForward fP parameters ds === ffP
            .&&. close1 (dfDot fP parameters) ffP
+           .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
+                                   fP (addParams parameters
+                                                 parametersPerturbation))
+                      (ffPValue + fst perturbedffP)
   ]
 
 mnistCNNTestsShort :: TestTree
