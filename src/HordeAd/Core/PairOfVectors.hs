@@ -68,7 +68,7 @@ var2 (_, _, _, _, vValue, vVar, _, _) i = D (vValue V.! i) (vVar V.! i)
 varX :: IsScalar r => DualNumberVariables r -> Int -> DualNumber (TensorX r)
 varX (_, _, _, _, _, _, vValue, vVar) i = D (vValue V.! i) (vVar V.! i)
 
-varS :: (IsScalarS r, OS.Shape sh)
+varS :: (IsScalar r, OS.Shape sh)
      => DualNumberVariables r -> Int -> DualNumber (TensorS r sh)
 varS (_, _, _, _, _, _, vValue, vVar) i =
   D (Data.Array.Convert.convert $ vValue V.! i) (dFromXS $ vVar V.! i)

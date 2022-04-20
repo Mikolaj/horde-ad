@@ -169,7 +169,7 @@ infixr 8 <.>!!
 fromX0 :: IsScalar r => DualNumber (TensorX r) -> DualNumber r
 fromX0 (D u u') = D (OT.unScalar u) (dFromX0 u')
 
-fromS0 :: IsScalarS r => DualNumber (TensorS r '[]) -> DualNumber r
+fromS0 :: IsScalar r => DualNumber (TensorS r '[]) -> DualNumber r
 fromS0 (D u u') = D (OS.unScalar u) (dFromS0 u')
 
 
@@ -230,7 +230,7 @@ infixr 8 #>!!
 fromX1 :: IsScalar r => DualNumber (TensorX r) -> DualNumber (Tensor1 r)
 fromX1 (D u u') = D (OT.toVector u) (dFromX1 u')
 
-fromS1 :: forall len r. (KnownNat len, IsScalarS r)
+fromS1 :: forall len r. (KnownNat len, IsScalar r)
        => DualNumber (TensorS r '[len]) -> DualNumber (Tensor1 r)
 fromS1 (D u u') = D (OS.toVector u) (dFromS1 u')
 
@@ -245,7 +245,7 @@ flattenX1 :: IsScalar r => DualNumber (TensorX r) -> DualNumber (Tensor1 r)
 flattenX1 (D u u') = let sh = OT.shapeL u
                      in D (OT.toVector u) (dFlattenX1 sh u')
 
-flattenS1 :: (IsScalarS r, OS.Shape sh)
+flattenS1 :: (IsScalar r, OS.Shape sh)
           => DualNumber (TensorS r sh) -> DualNumber (Tensor1 r)
 flattenS1 (D u u') = D (OS.toVector u) (dFlattenS1 u')
 
@@ -359,7 +359,7 @@ fromX2 (D u u') = case OT.shapeL u of
   dims -> error $ "fromX2: the tensor has wrong dimensions " ++ show dims
 
 fromS2 :: forall rows cols r.
-          (KnownNat rows, KnownNat cols, IsScalarS r)
+          (KnownNat rows, KnownNat cols, IsScalar r)
        => DualNumber (TensorS r '[rows, cols]) -> DualNumber (Tensor2 r)
 fromS2 (D u u') = D (HM.reshape (valueOf @cols) $ OS.toVector u) (dFromS2 u')
 
@@ -447,7 +447,7 @@ from2X :: IsScalar r => DualNumber (Tensor2 r) -> DualNumber (TensorX r)
 from2X (D u u') = D (OT.fromVector [HM.rows u, HM.cols u] $ HM.flatten u)
                     (dFrom2X u' (HM.cols u))
 
-fromSX :: forall sh r. (IsScalarS r, OS.Shape sh)
+fromSX :: forall sh r. (IsScalar r, OS.Shape sh)
        => DualNumber (TensorS r sh) -> DualNumber (TensorX r)
 fromSX (D u u') = D (Data.Array.Convert.convert u) (dFromSX u')
 
@@ -456,32 +456,32 @@ fromSX (D u u') = D (Data.Array.Convert.convert u) (dFromSX u')
 
 -- Warning: not tested nor benchmarked.
 
-konstS :: (IsScalarS r, OS.Shape sh)
+konstS :: (IsScalar r, OS.Shape sh)
        => DualNumber r -> DualNumber (TensorS r sh)
 konstS (D u u') = D (OS.constant u) (dKonstS u')
 
-appendS :: (KnownNat m, KnownNat n, IsScalarS r, OS.Shape sh)
+appendS :: (KnownNat m, KnownNat n, IsScalar r, OS.Shape sh)
         => DualNumber (TensorS r (m ': sh))
         -> DualNumber (TensorS r (n ': sh))
         -> DualNumber (TensorS r ((m + n) ': sh))
 appendS (D u u') (D v v') = D (u `OS.append` v) (dAppendS u' v')
 
 sliceS :: forall i n k rest r.
-          (KnownNat i, KnownNat n, KnownNat k, IsScalarS r, OS.Shape rest)
+          (KnownNat i, KnownNat n, KnownNat k, IsScalar r, OS.Shape rest)
        => DualNumber (TensorS r (i + n + k ': rest))
        -> DualNumber (TensorS r (n ': rest))
 sliceS (D u u') = D (OS.slice @'[ '(i, n) ] u)
                     (dSliceS (Proxy :: Proxy i) Proxy u')
 
 indexS :: forall ix k rest r.
-          (KnownNat ix, KnownNat k, IsScalarS r, OS.Shape rest)
+          (KnownNat ix, KnownNat k, IsScalar r, OS.Shape rest)
        => DualNumber (TensorS r (ix + 1 + k ': rest))
        -> DualNumber (TensorS r rest)
 indexS (D u u') = D (OS.index u (valueOf @ix))
                     (dIndexS u' (Proxy :: Proxy ix))
 
 ravelFromListS :: forall rest k r.
-                  (KnownNat k, IsScalarS r, OS.Shape rest)
+                  (KnownNat k, IsScalar r, OS.Shape rest)
                => [DualNumber (TensorS r rest)]
                -> DualNumber (TensorS r (k : rest))
 ravelFromListS ld =
@@ -489,7 +489,7 @@ ravelFromListS ld =
   in D (OS.ravel $ OSB.fromList lu) (dRavelFromListS lu')
 
 unravelToListS :: forall k rest r.
-                  (KnownNat k, IsScalarS r, OS.Shape rest)
+                  (KnownNat k, IsScalar r, OS.Shape rest)
                => DualNumber (TensorS r (k : rest))
                -> [DualNumber (TensorS r rest)]
 unravelToListS (D v v') =
@@ -498,14 +498,14 @@ unravelToListS (D v v') =
   let g ix p = D p (dFromXS $ dIndexX (dFromSX v') ix (valueOf @k))
   in imap g $ OSB.toList $ OS.unravel v
 
-mapS :: forall k sh1 sh r. (KnownNat k, IsScalarS r, OS.Shape sh, OS.Shape sh1)
+mapS :: forall k sh1 sh r. (KnownNat k, IsScalar r, OS.Shape sh, OS.Shape sh1)
      => (DualNumber (TensorS r sh1) -> DualNumber (TensorS r sh))
      -> DualNumber (TensorS r (k : sh1))
      -> DualNumber (TensorS r (k : sh))
 mapS f = ravelFromListS . map f . unravelToListS
 
 mapMS :: forall k sh1 sh r m.
-         (Monad m, KnownNat k, IsScalarS r, OS.Shape sh, OS.Shape sh1)
+         (Monad m, KnownNat k, IsScalar r, OS.Shape sh, OS.Shape sh1)
       => (DualNumber (TensorS r sh1) -> m (DualNumber (TensorS r sh)))
       -> DualNumber (TensorS r (k : sh1))
       -> m (DualNumber (TensorS r (k : sh)))
@@ -515,7 +515,7 @@ mapMS f d = do
   return $! ravelFromListS ld2
 
 zipWithS :: forall k sh1 sh2 sh r.
-            ( KnownNat k, IsScalarS r, OS.Shape sh, OS.Shape sh1, OS.Shape sh2)
+            ( KnownNat k, IsScalar r, OS.Shape sh, OS.Shape sh1, OS.Shape sh2)
          => (DualNumber (TensorS r sh1) -> DualNumber (TensorS r sh2)
              -> DualNumber (TensorS r sh))
          -> DualNumber (TensorS r (k : sh1))
@@ -524,22 +524,22 @@ zipWithS :: forall k sh1 sh2 sh r.
 zipWithS f d e =
   ravelFromListS $ zipWith f (unravelToListS d) (unravelToListS e)
 
-reshapeS :: (IsScalarS r, OS.Shape sh, OS.Shape sh', OS.Size sh ~ OS.Size sh')
+reshapeS :: (IsScalar r, OS.Shape sh, OS.Shape sh', OS.Size sh ~ OS.Size sh')
          => DualNumber (TensorS r sh) -> DualNumber (TensorS r sh')
 reshapeS (D u u') = D (OS.reshape u) (dReshapeS u')
 
-from0S :: IsScalarS r => DualNumber r -> DualNumber (TensorS r '[])
+from0S :: IsScalar r => DualNumber r -> DualNumber (TensorS r '[])
 from0S (D u u') = D (OS.scalar u) (dFrom0S u')
 
-from1S :: (KnownNat n, IsScalarS r)
+from1S :: (KnownNat n, IsScalar r)
        => DualNumber (Tensor1 r) -> DualNumber (TensorS r '[n])
 from1S (D u u') = D (OS.fromVector u) (dFrom1S u')
 
-from2S :: (KnownNat rows, KnownNat cols, IsScalarS r)
+from2S :: (KnownNat rows, KnownNat cols, IsScalar r)
        => DualNumber (Tensor2 r) -> DualNumber (TensorS r '[rows, cols])
 from2S (D u u') = D (OS.fromVector $ HM.flatten u) (dFrom2S Proxy u')
 
-fromXS :: (IsScalarS r, OS.Shape sh)
+fromXS :: (IsScalar r, OS.Shape sh)
        => DualNumber (TensorX r) -> DualNumber (TensorS r sh)
 fromXS (D u u') = D (Data.Array.Convert.convert u) (dFromXS u')
 
@@ -744,7 +744,7 @@ conv2' (D u u') (D v v') = D (HM.conv2 u v) (dAdd (dConv2 u v') (dConv2 v u'))
 conv2S :: forall r kheight_minus_1 kwidth_minus_1 in_height in_width.
           ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
           , KnownNat in_height, KnownNat in_width
-          , IsScalarS r )
+          , IsScalar r )
        => DualNumber (TensorS r '[kheight_minus_1 + 1, kwidth_minus_1 + 1])
        -> DualNumber (TensorS r '[in_height, in_width])
        -> DualNumber (TensorS r '[ in_height + kheight_minus_1
@@ -758,7 +758,7 @@ conv24 :: forall kheight_minus_1 kwidth_minus_1
           ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
           , KnownNat out_channels, KnownNat in_height, KnownNat in_width
           , KnownNat n_batches, KnownNat in_channels
-          , IsScalarS r )
+          , IsScalar r )
        => DualNumber (TensorS r '[ out_channels, in_channels
                                  , kheight_minus_1 + 1, kwidth_minus_1 + 1 ])
        -> DualNumber (TensorS r '[n_batches, in_channels, in_height, in_width])
@@ -828,7 +828,7 @@ maxPool24
      ( KnownNat ksize, KnownNat stride, KnownNat in_height, KnownNat in_width
      , KnownNat n_batches, KnownNat channels
      , 1 <= stride
-     , DualMonad r m, IsScalarS r )
+     , DualMonad r m )
      => DualNumber (TensorS r '[n_batches, channels, in_height, in_width])
      -> m (DualNumber (TensorS r '[ n_batches, channels
                                   , in_height `Div` stride
@@ -840,7 +840,7 @@ maxPool24 d = do
                        . fromS2)) d
   returnLet res
 
-reluActS :: (DualMonad r m, IsScalarS r, OS.Shape sh)
+reluActS :: (DualMonad r m, OS.Shape sh)
          => DualNumber (TensorS r sh) -> m (DualNumber (TensorS r sh))
 reluActS d@(D u _) = do
   let oneIfGtZero = OS.mapA (\x -> if x > 0 then 1 else 0) u

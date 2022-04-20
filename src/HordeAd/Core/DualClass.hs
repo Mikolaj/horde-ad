@@ -11,7 +11,6 @@
 -- constraints and instances.
 module HordeAd.Core.DualClass
   ( IsDualWithScalar, IsScalar
-  , IsScalarS  -- TODO: remove with GHC 9.4
   , HasDelta, HasForward
   , IsDual(Primal, dZero, dScale, dAdd, dVar, bindInState)
   , HasRanks(..), TensorS
@@ -59,13 +58,8 @@ type IsScalar r =
        , Primal (TensorX r) ~ OT.Array (Primal r)
        -- This fragment is for @TensorS@ and it's irregular, because we can't
        -- mention @sh@ and so fully apply @TensorS@.
--- Warning: with GHC < 9.4 we can't use this, because wrong @IsDualS@
--- instance are derived and instead we need to keep @IsScalarS@.
---       , IsDualS (TensorS r), ScalarOfS (TensorS r) ~ Primal r
+       , IsDualS (TensorS r), ScalarOfS (TensorS r) ~ Primal r
        )
-
-type IsScalarS r =
-       (IsScalar r, IsDualS (TensorS r), ScalarOfS (TensorS r) ~ Primal r)
 
 -- | A constraint expressing that dual numbers with this dual component
 -- are implemented via gathering delta expressions in state.
@@ -411,7 +405,8 @@ instance Num (OT.Array r) => IsDual (OT.Array r) where
 -- (but not anywhere else, I hope?).
 newtype RevArray r sh = RevArray {unRevArray :: OS.Array sh r}
 
-instance (forall sh. Num (OS.Array sh r)) => IsDualS (RevArray r) where
+instance (forall sh. OS.Shape sh => Num (OS.Array sh r))
+         => IsDualS (RevArray r) where
   dZeroS = RevArray 0
   dScaleS k d = RevArray $ k * unRevArray d
   dAddS d e = RevArray $ unRevArray d + unRevArray e

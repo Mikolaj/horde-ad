@@ -361,7 +361,7 @@ convMiddleMnistCNNT
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1, KnownNat out_channels
      , KnownNat in_height, KnownNat in_width
      , KnownNat n_batches, KnownNat in_channels
-     , DualMonad r m, IsScalarS r )
+     , DualMonad r m )
   => DualNumber (TensorS r '[ out_channels, in_channels
                             , kheight_minus_1 + 1, kwidth_minus_1 + 1 ])
   -> DualNumber (TensorS r '[n_batches, in_channels, in_height, in_width])
@@ -389,7 +389,7 @@ convMnistCNNT
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1, KnownNat out_channels
      , KnownNat in_height, KnownNat in_width
      , KnownNat n_batches, KnownNat in_channels
-     , DualMonad r m, IsScalarS r )
+     , DualMonad r m )
   => Primal (TensorS r '[n_batches, in_channels, in_height, in_width])
   -> DualNumberVariables r
   -> m (DualNumber (Tensor2 r))
@@ -427,7 +427,7 @@ convMnistLossCNNTPoly
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1, KnownNat out_channels
      , KnownNat in_height, KnownNat in_width
      , KnownNat n_batches, KnownNat in_channels
-     , DualMonad r m, IsScalarS r, Floating (Primal (Tensor2 r)) )
+     , DualMonad r m, Floating (Primal (Tensor2 r)) )
   => [MnistData2 (Primal r)]
   -> DualNumberVariables r
   -> m (DualNumber r)
@@ -444,7 +444,7 @@ convMnistLossCNNTPoly lmnistData variables = do
 convMnistLossCNNT
   :: forall kheight_minus_1 kwidth_minus_1
             in_height in_width in_channels out_channels n_batches r m.
-     ( DualMonad r m, IsScalarS r, Floating (Primal (Tensor2 r))
+     ( DualMonad r m, Floating (Primal (Tensor2 r))
      , n_batches ~ 16
      , out_channels ~ 16
      , kheight_minus_1 ~ 4
@@ -467,7 +467,7 @@ convMnistTestCNNTPoly
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1, KnownNat out_channels
      , KnownNat in_height, KnownNat in_width
      , KnownNat n_batches, KnownNat in_channels
-     , IsScalarS r, Floating (Primal (Tensor1 r)) )
+     , IsScalar r, Floating (Primal (Tensor1 r)) )
   => Proxy r -> [MnistData2 (Primal r)] -> Domains r -> Primal r
 convMnistTestCNNTPoly _ inputs parameters =
   let matchesLabels :: MnistData2 (Primal r) -> Bool
@@ -491,7 +491,7 @@ convMnistTestCNNTPoly _ inputs parameters =
 convMnistTestCNNT
   :: forall kheight_minus_1 kwidth_minus_1
             in_height in_width in_channels out_channels n_batches r.
-     ( IsScalarS r, Floating (Primal (Tensor1 r))
+     ( IsScalar r, Floating (Primal (Tensor1 r))
      , n_batches ~ 1
      , out_channels ~ 16
      , kheight_minus_1 ~ 4
