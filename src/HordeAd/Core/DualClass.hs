@@ -59,6 +59,9 @@ type IsScalar r =
        -- This fragment is for @TensorS@ and it's irregular, because we can't
        -- mention @sh@ and so fully apply @TensorS@.
        , IsDualS (TensorS r), ScalarOfS (TensorS r) ~ Primal r
+-- If we haven't inlined away @PrimalS@, we'd need this type equality,
+-- which appears to work fine (but involves the @RevArray@ newtype wrapper).
+--       , PrimalS (TensorS r) ~ RevArray (Primal r)
        )
 
 -- | A constraint expressing that dual numbers with this dual component
@@ -119,6 +122,11 @@ class IsDual a where
 -- We had to inline @PrimalS@ in the signatures of the methods and everywhere
 -- else in the code, because @~@ doesn't work on higher-rank types.
 class IsDualS (t :: [Nat] -> Type) where
+-- This is inlined away in order to avoid using the @RevArray@ newtype wrapper
+-- that would be needed to partially apply @OS.Array@. Thanks to inlining
+-- we can use @OS.Array@ below without the wrapper and not even
+-- export @RevArray@, simplifying the API of this module.
+--   type PrimalS t :: [Nat] -> Type
   dZeroS :: forall sh. OS.Shape sh => t sh
   dScaleS :: forall sh. OS.Shape sh => OS.Array sh (ScalarOfS t) -> t sh -> t sh
   dAddS :: forall sh. OS.Shape sh => t sh -> t sh -> t sh
