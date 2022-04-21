@@ -12,7 +12,8 @@ import           Data.Array.Internal (valueOf)
 import qualified Data.Array.ShapedS as OS
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, type (+), type Div)
+import           GHC.TypeLits
+  (KnownNat, SomeNat (..), someNatVal, type (+), type Div)
 import qualified Numeric.LinearAlgebra as HM
 import           System.Random
 import           Test.Tasty
@@ -699,8 +700,8 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
   , testProperty "Compare gradients and two forward derivatives for convMnistTestCNN and convMnistTestCNNP" $
       \seed ->
       forAll (choose (0, sizeMnistLabel - 1)) $ \seedDs ->
-      forAll (choose (1, 20)) $ \widthHidden ->
-      forAll (choose (1, 30)) $ \widthHidden2 ->
+      forAll (choose (1, 20)) $ \depth ->
+      forAll (choose (1, 30)) $ \num_hidden ->
       forAll (choose (0.01, 0.5)) $ \range ->
       forAll (choose (0.01, 10)) $ \rangeDs ->
         let createRandomVector n seedV = HM.randomVector seedV HM.Uniform n
@@ -708,23 +709,43 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
             label = HM.konst 0 sizeMnistLabel V.// [(seedDs, 1)]
             mnistData :: MnistData2 Double
             mnistData = (glyph, label)
-            paramShape = lenMnistCNN final_image_size widthHidden widthHidden2
+            paramShape = lenMnistCNN final_image_size depth num_hidden
             (_, _, _, parameters) = initializerFixed seed range paramShape
-            (_, _, _, ds@(ds0, ds1, ds2, dsX)) =
-              initializerFixed seedDs rangeDs paramShape
+            (_, _, _, ds) = initializerFixed seedDs rangeDs paramShape
             (_, _, _, parametersPerturbation) =
               initializerFixed (seed + seedDs) 1e-7 paramShape
-            f, fP :: forall r m. (DualMonad r m, Primal r ~ Double)
+            f, fP, fT :: forall r m. (DualMonad r m, Primal r ~ Double)
                   => DualNumberVariables r -> m (DualNumber r)
-            f = convMnistLossCNN widthHidden mnistData
-            fP = convMnistLossCNNP widthHidden mnistData
+            f = convMnistLossCNN depth mnistData
+            fP = convMnistLossCNNP depth mnistData
+            fT = case someNatVal $ toInteger depth of
+              Just (SomeNat (_ :: Proxy out_channel)) ->
+                convMnistLossCNNTPoly @4 @4 @28 @28 @1 @out_channel @1
+                                      [mnistData]
+              Nothing -> error "fT panic"
+            paramsToT (p0, p1, p2, _) =
+              let q2 = V.drop (depth + depth * depth) p2
+                  qX = V.fromList
+                    [ OT.fromVector [depth, 1, 5, 5]
+                      $ V.concat $ map HM.flatten
+                      $ take depth $ V.toList p2
+                    , OT.fromVector [depth, depth, 5, 5]
+                      $ V.concat $ map HM.flatten
+                      $ take (depth * depth) (drop depth $ V.toList p2)
+                    , OT.fromVector [depth] $ V.take depth p0
+                    , OT.fromVector [depth] $ V.drop depth p0
+                    ]
+              in (V.empty, p1, q2, qX)
+            parametersT = paramsToT parameters
+            dsT = paramsToT ds
             ff = dFastForward f parameters ds
             ffP@(_, ffPValue) = dFastForward fP parameters ds
             perturbedffP@(_, perturbedffPValue) =
               dFastForward fP parameters parametersPerturbation
+            ffT = dFastForward fT parametersT dsT
             close a b = abs (a - b) <= 1e-4
             close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
-            dfDot fDot psDot =
+            dfDot fDot psDot (ds0, ds1, ds2, dsX) =
               let ((res0, res1, res2, resX), value) = dReverse fDot psDot
               in ( res0 HM.<.> ds0
                    + V.sum (V.zipWith (HM.<.>) res1 ds1)
@@ -736,12 +757,15 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
             addParams (a0, a1, a2, aX) (b0, b1, b2, bX) =
               ( a0 + b0, V.zipWith (+) a1 b1, V.zipWith (+) a2 b2
               , V.zipWith (+) aX bX )
-        in ffPValue == perturbedffPValue
-           .&&. close1 ff ffP
+        in close1 ff ffP
+           .&&. close1 ff ffT
            .&&. dForward f parameters ds === ff
-           .&&. close1 (dfDot f parameters) ff
+           .&&. close1 (dfDot f parameters ds) ff
            .&&. dForward fP parameters ds === ffP
-           .&&. close1 (dfDot fP parameters) ffP
+           .&&. close1 (dfDot fP parameters ds) ffP
+           .&&. dForward fT parametersT dsT === ffT
+           .&&. close1 (dfDot fT parametersT dsT) ffT
+           .&&. ffPValue == perturbedffPValue
            .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
                                    fP (addParams parameters
                                                  parametersPerturbation))
