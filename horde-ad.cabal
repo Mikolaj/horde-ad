@@ -185,6 +185,7 @@ test-suite test
         base
       , deepseq
       , ghc-typelits-knownnat
+      , ghc-typelits-natnormalise
       , hmatrix
       , horde-ad
       , orthotope
@@ -229,6 +230,7 @@ test-suite shortTestForCI
         base
       , deepseq
       , ghc-typelits-knownnat
+      , ghc-typelits-natnormalise
       , hmatrix
       , horde-ad
       , orthotope

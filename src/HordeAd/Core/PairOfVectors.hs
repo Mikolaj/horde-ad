@@ -17,6 +17,7 @@ module HordeAd.Core.PairOfVectors
 import Prelude
 
 import qualified Data.Array.Convert
+import qualified Data.Array.ShapedS as OS
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 
@@ -67,8 +68,8 @@ var2 (_, _, _, _, vValue, vVar, _, _) i = D (vValue V.! i) (vVar V.! i)
 varX :: IsScalar r => DualNumberVariables r -> Int -> DualNumber (TensorX r)
 varX (_, _, _, _, _, _, vValue, vVar) i = D (vValue V.! i) (vVar V.! i)
 
-varS :: IsScalarS sh r
-     => DualNumberVariables r -> Int -> DualNumber (TensorS sh r)
+varS :: (IsScalar r, OS.Shape sh)
+     => DualNumberVariables r -> Int -> DualNumber (TensorS r sh)
 varS (_, _, _, _, _, _, vValue, vVar) i =
   D (Data.Array.Convert.convert $ vValue V.! i) (dFromXS $ vVar V.! i)
 

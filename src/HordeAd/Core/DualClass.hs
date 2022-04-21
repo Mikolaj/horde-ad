@@ -1,16 +1,19 @@
-{-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, DataKinds, FlexibleInstances,
-             MultiParamTypeClasses, TypeFamilyDependencies, TypeOperators,
+{-# LANGUAGE AllowAmbiguousTypes, CPP, ConstraintKinds, DataKinds,
+             FlexibleInstances, MultiParamTypeClasses, PolyKinds,
+             QuantifiedConstraints, TypeFamilyDependencies, TypeOperators,
              UndecidableInstances #-}
+#if !MIN_VERSION_base(4,17,0)
+{-# LANGUAGE IncoherentInstances #-}
+#endif
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | The class of dual components of dual numbers and related classes,
 -- constraints and instances.
 module HordeAd.Core.DualClass
   ( IsDualWithScalar, IsScalar
-  , IsScalarS, IsScalarS5, IsScalarS4, IsScalarS3, IsScalarS2, IsScalarS1
   , HasDelta, HasForward
   , IsDual(Primal, dZero, dScale, dAdd, dVar, bindInState)
-  , HasRanks(..)
+  , HasRanks(..), TensorS
   , Delta0  -- re-export; should be rarely used
   ) where
 
@@ -21,6 +24,7 @@ import qualified Data.Array.Dynamic as OTB
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
+import           Data.Kind (Type)
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -51,31 +55,14 @@ type IsScalar r =
        , IsDualWithScalar (Tensor2 r) r, IsDualWithScalar (TensorX r) r
        , Primal (Tensor1 r) ~ Vector (Primal r)
        , Primal (Tensor2 r) ~ Matrix (Primal r)
-       , Primal (TensorX r) ~ OT.Array (Primal r) )
-
--- | An extension of 'IsScalar' that also covers shaped tensors. It is
--- separate, because it requires an additional type argument representing
--- the shape.
-type IsScalarS sh r =
-       ( OS.Shape sh, IsScalar r, IsDualWithScalar (TensorS sh r) r
-       , Primal (TensorS sh r) ~ OS.Array sh (Primal r) )
-
--- Five ranks ought to be enough for anyone.
-type IsScalarS5 r k5 k4 k3 k2 k1 =
-       ( KnownNat k5, IsScalarS '[k5, k4, k3, k2, k1] r
-       , IsScalarS4 r k4 k3 k2 k1 )
-
-type IsScalarS4 r k4 k3 k2 k1 =
-       (KnownNat k4,  IsScalarS '[k4, k3, k2, k1] r, IsScalarS3 r k3 k2 k1)
-
-type IsScalarS3 r k3 k2 k1 =
-       (KnownNat k3,  IsScalarS '[k3, k2, k1] r, IsScalarS2 r k2 k1)
-
-type IsScalarS2 r k2 k1 =
-       (KnownNat k2,  IsScalarS '[k2, k1] r, IsScalarS1 r k1)
-
-type IsScalarS1 r k1 =
-       (KnownNat k1, IsScalarS '[k1] r, IsScalarS '[] r)
+       , Primal (TensorX r) ~ OT.Array (Primal r)
+       -- This fragment is for @TensorS@ and it's irregular, because we can't
+       -- mention @sh@ and so fully apply @TensorS@.
+       , IsDualS (TensorS r), ScalarOfS (TensorS r) ~ Primal r
+-- If we haven't inlined away @PrimalS@, we'd need this type equality,
+-- which appears to work fine (but involves the @RevArray@ newtype wrapper).
+--       , PrimalS (TensorS r) ~ RevArray (Primal r)
+       )
 
 -- | A constraint expressing that dual numbers with this dual component
 -- are implemented via gathering delta expressions in state.
@@ -132,6 +119,44 @@ class IsDual a where
               -> DeltaState (ScalarOf a)
               -> (DeltaState (ScalarOf a), DeltaId (Primal a))
 
+-- We had to inline @PrimalS@ in the signatures of the methods and everywhere
+-- else in the code, because @~@ doesn't work on higher-rank types.
+class IsDualS (t :: [Nat] -> Type) where
+-- This is inlined away in order to avoid using the @RevArray@ newtype wrapper
+-- that would be needed to partially apply @OS.Array@. Thanks to inlining
+-- we can use @OS.Array@ below without the wrapper and not even
+-- export @RevArray@, simplifying the API of this module.
+--   type PrimalS t :: [Nat] -> Type
+  dZeroS :: forall sh. OS.Shape sh => t sh
+  dScaleS :: forall sh. OS.Shape sh => OS.Array sh (ScalarOfS t) -> t sh -> t sh
+  dAddS :: forall sh. OS.Shape sh => t sh -> t sh -> t sh
+  dVarS :: forall sh. OS.Shape sh => DeltaId (OS.Array sh (ScalarOfS t)) -> t sh
+  type ScalarOfS t :: Type
+  bindInStateS :: forall sh. OS.Shape sh
+               => t sh
+               -> DeltaState (ScalarOfS t)
+               -> ( DeltaState (ScalarOfS t)
+                  , DeltaId (OS.Array sh (ScalarOfS t)) )
+
+-- This type family needs to be closed and injective or else GHC complains
+-- when using the instance below (how bad things go depends on GHC version).
+type family TensorS r = (result :: [Nat] -> Type) | result -> r where
+  TensorS (Delta0 r) = DeltaS r
+  TensorS Double = RevArray Double
+  TensorS Float = RevArray Float
+
+-- This instance saves us from splitting @DualNumber@ and @DualNumberS@,
+-- @scale@ and @scaleS@, etc., despite inlining @PrimalS@ (but not @Primal@).
+instance (IsDualS t, OS.Shape sh) => IsDual (t sh) where
+  type Primal (t sh) = OS.Array sh (ScalarOfS t)
+  dZero = dZeroS
+  dScale = dScaleS
+  dAdd = dAddS
+  dVar = dVarS
+  type ScalarOf (t sh) = ScalarOfS t
+  {-# INLINE bindInState #-}
+  bindInState = bindInStateS
+
 -- | An instance of the class is a type of rank 0 (scalar rank) dual components
 -- of dual numbers. The associated type synonym families are dual component
 -- counterparts at the remaining ranks, with the same underlying scalar.
@@ -142,13 +167,12 @@ class HasRanks r where
   type Tensor1 r = result | result -> r
   type Tensor2 r = result | result -> r
   type TensorX r = result | result -> r
-  type TensorS (sh :: [Nat]) r = result | result -> sh r
 
   dSumElements0 :: Tensor1 r -> Int -> r
   dIndex0 :: Tensor1 r -> Int -> Int -> r
   dDot0 :: Primal (Tensor1 r) -> Tensor1 r -> r
   dFromX0 :: TensorX r -> r
-  dFromS0 :: TensorS '[] r -> r
+  dFromS0 :: TensorS r '[] -> r
 
   dSeq1 :: Data.Vector.Vector r -> Tensor1 r
   dKonst1 :: r -> Int -> Tensor1 r
@@ -160,12 +184,12 @@ class HasRanks r where
   dMD_V1 :: Tensor2 r -> Primal (Tensor1 r) -> Tensor1 r
   dFromX1 :: TensorX r -> Tensor1 r
   dFromS1 :: KnownNat len
-          => TensorS '[len] r -> Tensor1 r
+          => TensorS r '[len] -> Tensor1 r
   dReverse1 :: Tensor1 r -> Tensor1 r
   dFlatten1 :: Int -> Int -> Tensor2 r -> Tensor1 r
   dFlattenX1 :: OT.ShapeL -> TensorX r -> Tensor1 r
   dFlattenS1 :: OS.Shape sh
-             => TensorS sh r -> Tensor1 r
+             => TensorS r sh -> Tensor1 r
 
   dFromRows2 :: Data.Vector.Vector (Tensor1 r) -> Tensor2 r
   dFromColumns2 :: Data.Vector.Vector (Tensor1 r) -> Tensor2 r
@@ -181,7 +205,7 @@ class HasRanks r where
   dAsColumn2 :: Tensor1 r -> Tensor2 r
   dFromX2 :: TensorX r -> Tensor2 r
   dFromS2 :: (KnownNat rows, KnownNat cols)
-          => TensorS '[rows, cols] r -> Tensor2 r
+          => TensorS r '[rows, cols] -> Tensor2 r
 
   dFlipud2 :: Tensor2 r -> Tensor2 r
   dFliprl2 :: Tensor2 r -> Tensor2 r
@@ -198,27 +222,27 @@ class HasRanks r where
   dFrom1X :: Tensor1 r -> TensorX r
   dFrom2X :: Tensor2 r -> Int -> TensorX r
   dFromSX :: OS.Shape sh
-          => TensorS sh r -> TensorX r
+          => TensorS r sh -> TensorX r
 
   dKonstS :: OS.Shape sh
-          => r -> TensorS sh r
+          => r -> TensorS r sh
   dAppendS :: (OS.Shape sh, KnownNat m, KnownNat n)
-           => TensorS (m ': sh) r -> TensorS (n ': sh) r
-           -> TensorS ((m + n) ': sh) r
+           => TensorS r (m ': sh) -> TensorS r (n ': sh)
+           -> TensorS r ((m + n) ': sh)
   dSliceS :: (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
-          => Proxy i -> Proxy n -> TensorS (i + n + k ': rest) r
-          -> TensorS (n ': rest) r
+          => Proxy i -> Proxy n -> TensorS r (i + n + k ': rest)
+          -> TensorS r (n ': rest)
   dIndexS :: (KnownNat ix, KnownNat k, OS.Shape rest)
-          => TensorS (ix + 1 + k ': rest) r -> Proxy ix -> TensorS rest r
+          => TensorS r (ix + 1 + k ': rest) -> Proxy ix -> TensorS r rest
   dRavelFromListS :: (KnownNat k, OS.Shape rest)
-                  => [TensorS rest r] -> TensorS (k : rest) r
+                  => [TensorS r rest] -> TensorS r (k : rest)
   dReshapeS :: (OS.Shape sh, OS.Shape sh', OS.Size sh ~ OS.Size sh')
-            => TensorS sh r -> TensorS sh' r
-  dFrom0S :: r -> TensorS '[] r
-  dFrom1S :: KnownNat n => Tensor1 r -> TensorS '[n] r
+            => TensorS r sh -> TensorS r sh'
+  dFrom0S :: r -> TensorS r '[]
+  dFrom1S :: KnownNat n => Tensor1 r -> TensorS r '[n]
   dFrom2S :: (KnownNat rows, KnownNat cols)
-          => Proxy cols -> Tensor2 r -> TensorS '[rows, cols] r
-  dFromXS :: OS.Shape sh => TensorX r -> TensorS sh r
+          => Proxy cols -> Tensor2 r -> TensorS r '[rows, cols]
+  dFromXS :: OS.Shape sh => TensorX r -> TensorS r sh
 
 
 -- * Backprop gradient method instances
@@ -237,7 +261,6 @@ instance HasRanks (Delta0 r) where
   type Tensor1 (Delta0 r) = Delta1 r
   type Tensor2 (Delta0 r) = Delta2 r
   type TensorX (Delta0 r) = DeltaX r
-  type TensorS sh (Delta0 r) = DeltaS sh r
   dSumElements0 = SumElements0
   dIndex0 = Index0
   dDot0 = Dot0
@@ -326,16 +349,15 @@ instance IsDual (DeltaX r) where
   {-# INLINE bindInState #-}
   bindInState = bindInStateX
 
-instance OS.Shape sh => IsDual (DeltaS sh r) where
-  type Primal (DeltaS sh r) = OS.Array sh r
-  dZero = ZeroS
-  dScale = ScaleS
-  dAdd = AddS
-  dVar = VarS
-  type ScalarOf (DeltaS sh r) = r
-  {-# INLINE bindInState #-}
-  bindInState u' st = let (st2, did) = bindInStateX (FromSX u') st
-                      in (st2, covertDeltaId did)
+instance IsDualS (DeltaS r) where
+  dZeroS = ZeroS
+  dScaleS = ScaleS
+  dAddS = AddS
+  dVarS = VarS
+  type ScalarOfS (DeltaS r) = r
+  {-# INLINE bindInStateS #-}
+  bindInStateS u' st = let (st2, did) = bindInStateX (FromSX u') st
+                       in (st2, covertDeltaId did)
 
 
 -- * Alternative instances: forward derivatives computed on the spot
@@ -386,25 +408,29 @@ instance Num (OT.Array r) => IsDual (OT.Array r) where
   type ScalarOf (OT.Array r) = r
   bindInState = undefined
 
-instance Num (OS.Array sh r) => IsDual (OS.Array sh r) where
-  type Primal (OS.Array sh r) = OS.Array sh r
-  dZero = 0
-  dScale k d = k * d
-  dAdd = (+)
-  dVar = undefined
-  type ScalarOf (OS.Array sh r) = r
-  bindInState = undefined
+-- Due to this definition, which is necessary to partially apply @OS.Array@
+-- to the @r@ argument, we need a lot of coercions in the code below
+-- (but not anywhere else, I hope?).
+newtype RevArray r sh = RevArray {unRevArray :: OS.Array sh r}
+
+instance (forall sh. OS.Shape sh => Num (OS.Array sh r))
+         => IsDualS (RevArray r) where
+  dZeroS = RevArray 0
+  dScaleS k d = RevArray $ k * unRevArray d
+  dAddS d e = RevArray $ unRevArray d + unRevArray e
+  dVarS = undefined
+  type ScalarOfS (RevArray r) = r
+  bindInStateS = undefined
 
 instance HasRanks Double where
   type Tensor1 Double = Vector Double
   type Tensor2 Double = Matrix Double
   type TensorX Double = OT.Array Double
-  type TensorS sh Double = OS.Array sh Double
   dSumElements0 vd _ = HM.sumElements vd
   dIndex0 d ix _ = d V.! ix
   dDot0 = (HM.<.>)
   dFromX0 = OT.unScalar
-  dFromS0 = OS.unScalar
+  dFromS0 = OS.unScalar . unRevArray
   dSeq1 = V.convert
   dKonst1 = HM.konst
   dAppend1 d _k e = d V.++ e
@@ -414,11 +440,11 @@ instance HasRanks Double where
   dSumRows1 dm _cols = V.fromList $ map HM.sumElements $ HM.toRows dm
   dSumColumns1 dm _rows = V.fromList $ map HM.sumElements $ HM.toColumns dm
   dFromX1 = OT.toVector
-  dFromS1 = OS.toVector
+  dFromS1 = OS.toVector . unRevArray
   dReverse1 = V.reverse
   dFlatten1 _rows _cols = HM.flatten
   dFlattenX1 _sh = OT.toVector
-  dFlattenS1 = OS.toVector
+  dFlattenS1 = OS.toVector . unRevArray
   dFromRows2 = HM.fromRows . V.toList
   dFromColumns2 = HM.fromColumns . V.toList
   dKonst2 = HM.konst
@@ -434,8 +460,8 @@ instance HasRanks Double where
   dFromX2 d = case OT.shapeL d of
     [_rows, cols] -> HM.reshape cols $ OT.toVector d
     _ -> error "dFromX2: wrong tensor dimensions"
-  dFromS2 d = case OS.shapeL d of
-    [_rows, cols] -> HM.reshape cols $ OS.toVector d
+  dFromS2 d = case OS.shapeL $ unRevArray d of
+    [_rows, cols] -> HM.reshape cols $ OS.toVector $ unRevArray d
     _ -> error "dFromS2: wrong tensor dimensions"
   dFlipud2 = HM.flipud
   dFliprl2 = HM.fliprl
@@ -454,29 +480,30 @@ instance HasRanks Double where
   dFrom0X = OT.scalar
   dFrom1X d = OT.fromVector [V.length d] d
   dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
-  dFromSX = Data.Array.Convert.convert
-  dKonstS = OS.constant
-  dAppendS = OS.append
-  dSliceS (_ :: Proxy i) (_ :: Proxy n) = OS.slice @'[ '(i, n) ]
-  dIndexS d proxyIx = OS.index d (fromInteger $ natVal proxyIx)
-  dRavelFromListS = OS.ravel . OSB.fromList
-  dReshapeS d = OS.reshape d
-  dFrom0S = OS.scalar
-  dFrom1S = OS.fromVector
-  dFrom2S _ = OS.fromVector . HM.flatten
-  dFromXS = Data.Array.Convert.convert
+  dFromSX = Data.Array.Convert.convert . unRevArray
+  dKonstS = RevArray . OS.constant
+  dAppendS d e = RevArray $ OS.append (unRevArray d) (unRevArray e)
+  dSliceS (_ :: Proxy i) (_ :: Proxy n) =
+    RevArray . OS.slice @'[ '(i, n) ] . unRevArray
+  dIndexS d proxyIx = RevArray
+                      $ OS.index (unRevArray d) (fromInteger $ natVal proxyIx)
+  dRavelFromListS = RevArray . OS.ravel . OSB.fromList . map unRevArray
+  dReshapeS = RevArray . OS.reshape . unRevArray
+  dFrom0S = RevArray . OS.scalar
+  dFrom1S = RevArray . OS.fromVector
+  dFrom2S _ = RevArray . OS.fromVector . HM.flatten
+  dFromXS = RevArray . Data.Array.Convert.convert
 
 instance HasRanks Float where
   type Tensor1 Float = Vector Float
   type Tensor2 Float = Matrix Float
   type TensorX Float = OT.Array Float
-  type TensorS sh Float = OS.Array sh Float
   -- Below it's completely repeated after the @Double@ case.
   dSumElements0 vd _ = HM.sumElements vd
   dIndex0 d ix _ = d V.! ix
   dDot0 = (HM.<.>)
   dFromX0 = OT.unScalar
-  dFromS0 = OS.unScalar
+  dFromS0 = OS.unScalar . unRevArray
   dSeq1 = V.convert
   dKonst1 = HM.konst
   dAppend1 d _k e = d V.++ e
@@ -486,11 +513,11 @@ instance HasRanks Float where
   dSumRows1 dm _cols = V.fromList $ map HM.sumElements $ HM.toRows dm
   dSumColumns1 dm _rows = V.fromList $ map HM.sumElements $ HM.toColumns dm
   dFromX1 = OT.toVector
-  dFromS1 = OS.toVector
+  dFromS1 = OS.toVector . unRevArray
   dReverse1 = V.reverse
   dFlatten1 _rows _cols = HM.flatten
   dFlattenX1 _sh = OT.toVector
-  dFlattenS1 = OS.toVector
+  dFlattenS1 = OS.toVector . unRevArray
   dFromRows2 = HM.fromRows . V.toList
   dFromColumns2 = HM.fromColumns . V.toList
   dKonst2 = HM.konst
@@ -506,8 +533,8 @@ instance HasRanks Float where
   dFromX2 d = case OT.shapeL d of
     [_rows, cols] -> HM.reshape cols $ OT.toVector d
     _ -> error "dFromX2: wrong tensor dimensions"
-  dFromS2 d = case OS.shapeL d of
-    [_rows, cols] -> HM.reshape cols $ OS.toVector d
+  dFromS2 d = case OS.shapeL $ unRevArray d of
+    [_rows, cols] -> HM.reshape cols $ OS.toVector $ unRevArray d
     _ -> error "dFromS2: wrong tensor dimensions"
   dFlipud2 = HM.flipud
   dFliprl2 = HM.fliprl
@@ -526,14 +553,16 @@ instance HasRanks Float where
   dFrom0X = OT.scalar
   dFrom1X d = OT.fromVector [V.length d] d
   dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
-  dFromSX = Data.Array.Convert.convert
-  dKonstS = OS.constant
-  dAppendS = OS.append
-  dSliceS (_ :: Proxy i) (_ :: Proxy n) = OS.slice @'[ '(i, n) ]
-  dIndexS d proxyIx = OS.index d (fromInteger $ natVal proxyIx)
-  dRavelFromListS = OS.ravel . OSB.fromList
-  dReshapeS d = OS.reshape d
-  dFrom0S = OS.scalar
-  dFrom1S = OS.fromVector
-  dFrom2S _ = OS.fromVector . HM.flatten
-  dFromXS = Data.Array.Convert.convert
+  dFromSX = Data.Array.Convert.convert . unRevArray
+  dKonstS = RevArray . OS.constant
+  dAppendS d e = RevArray $ OS.append (unRevArray d) (unRevArray e)
+  dSliceS (_ :: Proxy i) (_ :: Proxy n) =
+    RevArray . OS.slice @'[ '(i, n) ] . unRevArray
+  dIndexS d proxyIx = RevArray
+                      $ OS.index (unRevArray d) (fromInteger $ natVal proxyIx)
+  dRavelFromListS = RevArray . OS.ravel . OSB.fromList . map unRevArray
+  dReshapeS = RevArray . OS.reshape . unRevArray
+  dFrom0S = RevArray . OS.scalar
+  dFrom1S = RevArray . OS.fromVector
+  dFrom2S _ = RevArray . OS.fromVector . HM.flatten
+  dFromXS = RevArray . Data.Array.Convert.convert

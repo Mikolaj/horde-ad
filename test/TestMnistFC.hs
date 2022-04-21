@@ -589,11 +589,15 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             (_, _, _, parameters) = initializerFixed seed range paramShape
             (_, _, _, ds@(ds0, ds1, ds2, dsX)) =
               initializerFixed seedDs rangeDs paramShape
+            (_, _, _, parametersPerturbation) =
+              initializerFixed (seed + seedDs) 1e-7 paramShape
             f :: forall r m. (DualMonad r m, Primal r ~ Double)
               => DualNumberVariables r -> m (DualNumber r)
             f = nnMnistLoss0 widthHidden widthHidden2 mnistData
-            ff = dFastForward f parameters ds
-            close a b = abs (a - b) <= 0.000001
+            ff@(_, ffPValue) = dFastForward f parameters ds
+            perturbedffP@(_, perturbedffPValue) =
+              dFastForward f parameters parametersPerturbation
+            close a b = abs (a - b) <= 1e-4
             close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
             dfDot fDot psDot =
               let ((res0, res1, res2, resX), value) = dReverse fDot psDot
@@ -604,10 +608,16 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
                    + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
                                                (V.map OT.toVector dsX))
                  , value )
-        -- The formula for comparing derivative and gradient is due to @awf at
-        -- https://github.com/Mikolaj/horde-ad/issues/15#issuecomment-1063251319
-        in dForward f parameters ds === ff
+            addParams (a0, a1, a2, aX) (b0, b1, b2, bX) =
+              ( a0 + b0, V.zipWith (+) a1 b1, V.zipWith (+) a2 b2
+              , V.zipWith (+) aX bX )
+        in ffPValue == perturbedffPValue
+           .&&. dForward f parameters ds === ff
            .&&. close1 (dfDot f parameters) ff
+           .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
+                                   f (addParams parameters
+                                                parametersPerturbation))
+                      (ffPValue + fst perturbedffP)
   , testProperty "Compare two forward derivatives and gradient for Mnist1" $
       \seed seedDs ->
       forAll (choose (1, 2000)) $ \widthHidden ->
@@ -625,11 +635,15 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             (_, _, _, parameters) = initializerFixed seed range paramShape
             (_, _, _, ds@(ds0, ds1, ds2, dsX)) =
               initializerFixed seedDs rangeDs paramShape
+            (_, _, _, parametersPerturbation) =
+              initializerFixed (seed + seedDs) 1e-7 paramShape
             f :: forall r m. (DualMonad r m, Primal r ~ Double)
               => DualNumberVariables r -> m (DualNumber r)
             f = nnMnistLoss1 widthHidden widthHidden2 mnistData
-            ff = dFastForward f parameters ds
-            close a b = abs (a - b) <= 0.000001
+            ff@(_, ffPValue) = dFastForward f parameters ds
+            perturbedffP@(_, perturbedffPValue) =
+              dFastForward f parameters parametersPerturbation
+            close a b = abs (a - b) <= 1e-4
             close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
             dfDot fDot psDot =
               let ((res0, res1, res2, resX), value) = dReverse fDot psDot
@@ -640,8 +654,16 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
                    + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
                                                (V.map OT.toVector dsX))
                  , value )
-        in dForward f parameters ds === ff
+            addParams (a0, a1, a2, aX) (b0, b1, b2, bX) =
+              ( a0 + b0, V.zipWith (+) a1 b1, V.zipWith (+) a2 b2
+              , V.zipWith (+) aX bX )
+        in ffPValue == perturbedffPValue
+           .&&. dForward f parameters ds === ff
            .&&. close1 (dfDot f parameters) ff
+           .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
+                                   f (addParams parameters
+                                                parametersPerturbation))
+                      (ffPValue + fst perturbedffP)
   , testProperty "Compare two forward derivatives and gradient for Mnist2" $
       \seed ->
       forAll (choose (0, sizeMnistLabel - 1)) $ \seedDs ->
@@ -660,16 +682,20 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             (_, _, _, parameters) = initializerFixed seed range paramShape
             (_, _, _, ds@(ds0, ds1, ds2, dsX)) =
               initializerFixed seedDs rangeDs paramShape
+            (_, _, _, parametersPerturbation) =
+              initializerFixed (seed + seedDs) 1e-7 paramShape
             f, fOneHot, fFused
               :: forall r m. (DualMonad r m, Primal r ~ Double)
                  => DualNumberVariables r -> m (DualNumber r)
             f = nnMnistLoss2 mnistData
             fOneHot = nnMnistLoss2 mnistDataOneHot
             fFused = nnMnistLossFused2 mnistDataOneHot
-            ff = dFastForward f parameters ds
+            ff@(_, ffPValue) = dFastForward f parameters ds
+            perturbedffP@(_, perturbedffPValue) =
+              dFastForward f parameters parametersPerturbation
+            close a b = abs (a - b) <= 1e-4
             ffOneHot = dFastForward fOneHot parameters ds
             ffFused = dFastForward fFused parameters ds
-            close a b = abs (a - b) <= 0.000001
             close1 (a1, b1) (a2, b2) = close a1 a2 .&&. close b1 b2
             dfDot fDot psDot =
               let ((res0, res1, res2, resX), value) = dReverse fDot psDot
@@ -680,13 +706,21 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
                    + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
                                                (V.map OT.toVector dsX))
                  , value )
-        in dForward f parameters ds === ff
+            addParams (a0, a1, a2, aX) (b0, b1, b2, bX) =
+              ( a0 + b0, V.zipWith (+) a1 b1, V.zipWith (+) a2 b2
+              , V.zipWith (+) aX bX )
+        in ffPValue == perturbedffPValue
+           .&&. dForward f parameters ds === ff
            .&&. close1 (dfDot f parameters) ff
            .&&. dForward fOneHot parameters ds === ffOneHot
            .&&. close1 (dfDot fOneHot parameters) ffOneHot
            .&&. close1 ffOneHot ffFused
            .&&. dForward fFused parameters ds === ffFused
            .&&. close1 (dfDot fFused parameters) ffFused
+           .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
+                                   f (addParams parameters
+                                                parametersPerturbation))
+                      (ffPValue + fst perturbedffP)
   ]
 
 bigMnistTests :: TestTree
