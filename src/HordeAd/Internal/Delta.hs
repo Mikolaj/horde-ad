@@ -96,11 +96,11 @@ data Delta0 r =
 
 deriving instance (Show r, Numeric r) => Show (Delta0 r)
 
-data Delta0Others t1 tX tS r =
+data Delta0Others v t1 tX tS r =
     SumElements0 t1 Int  -- ^ see Note [SumElements0]
   | Index0 t1 Int Int  -- ^ second integer is the length of the vector
 
-  | Dot0 (Vector r) t1  -- ^ Dot0 v vd == SumElements0 (Scale1 v vd) n
+  | Dot0 v t1  -- ^ Dot0 v vd == SumElements0 (Scale1 v vd) n
 
   | FromX0 tX  -- ^ one of many conversions
   | FromS0 tS
