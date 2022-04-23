@@ -50,21 +50,20 @@ type Domains r = Delta.Domains (Primal r)
 
 -- * General non-monadic operations, for any tensor rank
 
--- This instances are required by the @Real@ instance, which is required
+-- These instances are required by the @Real@ instance, which is required
 -- by @RealFloat@, which gives @atan2@. No idea what properties
 -- @Real@ requires here, so let it crash if it's really needed.
-instance Eq (DualNumber r) where
+instance Eq (DualNumber a) where
 
-instance Ord (DualNumber r) where
+instance Ord (DualNumber a) where
 
--- These instances are dangerous. Expressions should be wrapped in
+-- These instances are dangerous due to possible subexpression copies
+-- leading to allocation explosion. Expressions should be wrapped in
 -- the monadic @returnLet@ whenever there is a possibility they can be
--- used multiple times in a larger expression. Safer yet, monadic arithmetic
--- operations that already include @returnLet@ should be used instead,
--- such as @+\@, @*\@, etc.
+-- used multiple times in a larger expression.
 --
--- @Num (Primal r)@ forces @UndecidableInstances@.
-instance (Num (Primal r), IsDual r) => Num (DualNumber r) where
+-- @Num (Primal a)@ forces @UndecidableInstances@.
+instance (Num (Primal a), IsDual a) => Num (DualNumber a) where
   D u u' + D v v' = D (u + v) (dAdd u' v')
   D u u' - D v v' = D (u - v) (dAdd u' (dScale (-1) v'))
   D u u' * D v v' = D (u * v) (dAdd (dScale v u') (dScale u v'))
@@ -73,10 +72,10 @@ instance (Num (Primal r), IsDual r) => Num (DualNumber r) where
   signum = undefined  -- TODO
   fromInteger = scalar . fromInteger
 
-instance (Real (Primal r), IsDual r) => Real (DualNumber r) where
+instance (Real (Primal a), IsDual a) => Real (DualNumber a) where
   toRational = undefined  -- TODO?
 
-instance (Fractional (Primal r), IsDual r) => Fractional (DualNumber r) where
+instance (Fractional (Primal a), IsDual a) => Fractional (DualNumber a) where
   D u u' / D v v' =
     let recipSq = recip (v * v)
     in D (u / v) (dAdd (dScale (v * recipSq) u') (dScale (- u * recipSq) v'))
@@ -85,7 +84,7 @@ instance (Fractional (Primal r), IsDual r) => Fractional (DualNumber r) where
     in D (recip v) (dScale minusRecipSq v')
   fromRational = scalar . fromRational
 
-instance (Floating (Primal r), IsDual r) => Floating (DualNumber r) where
+instance (Floating (Primal a), IsDual a) => Floating (DualNumber a) where
   pi = scalar pi
   exp (D u u') = let expU = exp u
                  in D expU (dScale expU u')
@@ -108,11 +107,11 @@ instance (Floating (Primal r), IsDual r) => Floating (DualNumber r) where
   acosh = undefined  -- TODO
   atanh = undefined  -- TODO
 
-instance (RealFrac (Primal r), IsDual r) => RealFrac (DualNumber r) where
+instance (RealFrac (Primal a), IsDual a) => RealFrac (DualNumber a) where
   properFraction = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance (RealFloat (Primal r), IsDual r) => RealFloat (DualNumber r) where
+instance (RealFloat (Primal a), IsDual a) => RealFloat (DualNumber a) where
   atan2 (D u u') (D v v') =
     let t = 1 / (u * u + v * v)
     in D (atan2 u v) (dAdd (dScale (- u * t) v') (dScale (v * t) u'))
@@ -551,6 +550,7 @@ infixr 8 #>$
       -> DualNumber (TensorS r '[cols])
       -> DualNumber (TensorS r '[rows])
 (#>$) d e = from1S $ fromS2 d #>! fromS1 e
+
 
 -- * General monadic operations, for any tensor rank
 
