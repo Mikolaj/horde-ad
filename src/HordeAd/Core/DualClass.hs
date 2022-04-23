@@ -285,11 +285,11 @@ instance HasRanks (Delta0 r) where
   type Tensor1 (Delta0 r) = Delta1 r
   type Tensor2 (Delta0 r) = Delta2 r
   type TensorX (Delta0 r) = DeltaX r
-  dSumElements0 = SumElements0
-  dIndex0 = Index0
-  dDot0 = Dot0
-  dFromX0 = FromX0
-  dFromS0 = FromS0
+  dSumElements0 = \x y -> Delta0Others (SumElements0 x y)
+  dIndex0 = \x y z -> Delta0Others (Index0 x y z)
+  dDot0 = \x y -> Delta0Others (Dot0 x y)
+  dFromX0 = Delta0Others . FromX0
+  dFromS0 = Delta0Others . FromS0
   dSeq1 = Seq1
   dKonst1 = Konst1
   dAppend1 = Append1

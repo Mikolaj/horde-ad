@@ -35,6 +35,7 @@
 module HordeAd.Internal.Delta
   ( -- * Abstract syntax trees of the delta expressions
     Delta0 (..), Delta1 (..), Delta2 (..), DeltaX (..), DeltaS (..)
+  , Delta0Others (..)
   , -- * Delta expression identifiers
     DeltaId, toDeltaId, covertDeltaId
   , -- * Evaluation of the delta expressions
@@ -91,8 +92,12 @@ data Delta0 r =
   | Scale0 r (Delta0 r)
   | Add0 (Delta0 r) (Delta0 r)
   | Var0 (DeltaId r)
+  | Delta0Others (Delta0Others r)
 
-  | SumElements0 (Delta1 r) Int  -- ^ see Note [SumElements0]
+deriving instance (Show r, Numeric r) => Show (Delta0 r)
+
+data Delta0Others r =
+    SumElements0 (Delta1 r) Int  -- ^ see Note [SumElements0]
   | Index0 (Delta1 r) Int Int  -- ^ second integer is the length of the vector
 
   | Dot0 (Vector r) (Delta1 r)  -- ^ Dot0 v vd == SumElements0 (Scale1 v vd) n
@@ -100,7 +105,7 @@ data Delta0 r =
   | FromX0 (DeltaX r)  -- ^ one of many conversions
   | FromS0 (DeltaS r '[])
 
-deriving instance (Show r, Numeric r) => Show (Delta0 r)
+deriving instance (Show r, Numeric r) => Show (Delta0Others r)
 
 -- | This is the grammar of delta-expressions at tensor rank 1, that is,
 -- at vector level.
@@ -441,22 +446,24 @@ buildFinMaps st deltaTopLevel dt = do
         Add0 d e -> eval0 r d >> eval0 r e
         Var0 (DeltaId i) -> VM.modify finMap0 (+ r) i
 
-        SumElements0 vd n -> eval1 (HM.konst r n) vd
-        Index0 (Var1 (DeltaId i)) ix k -> do
-          let f v = if V.null v
-                    then HM.konst 0 k V.// [(ix, r)]
-                    else v V.// [(ix, v V.! ix + r)]
-          VM.modify finMap1 f i
-            -- this would be an asymptotic optimization compared to
-            -- the general case below, if not for the non-mutable update,
-            -- which involves copying the whole vector, so it's just
-            -- several times faster (same allocation, but not adding vectors)
-        Index0 d ix k -> eval1 (HM.konst 0 k V.// [(ix, r)]) d
+        Delta0Others d0 -> case d0 of
+            SumElements0 vd n -> eval1 (HM.konst r n) vd
+            Index0 (Var1 (DeltaId i)) ix k -> do
+              let f v = if V.null v
+                        then HM.konst 0 k V.// [(ix, r)]
+                        else v V.// [(ix, v V.! ix + r)]
+              VM.modify finMap1 f i
+                -- this would be an asymptotic optimization compared to
+                -- the general case below, if not for the non-mutable update,
+                -- which involves copying the whole vector, so it's just
+                -- several times faster (same allocation, but not adding vectors)
+            Index0 d ix k -> eval1 (HM.konst 0 k V.// [(ix, r)]) d
 
-        Dot0 v vd -> eval1 (HM.scale r v) vd
+            Dot0 v vd -> eval1 (HM.scale r v) vd
 
-        FromX0 d -> evalX (OT.scalar r) d
-        FromS0 d -> evalS (OS.scalar r) d
+            FromX0 d -> evalX (OT.scalar r) d
+            FromS0 d -> evalS (OS.scalar r) d
+
       eval1 :: Vector r -> Delta1 r -> ST s ()
       eval1 !r = \case
         Zero1 -> return ()
@@ -662,13 +669,14 @@ derivativeFromDelta st deltaTopLevel
         Add0 d e -> eval0 parameters d + eval0 parameters e
         Var0 (DeltaId i) -> params0 V.! i
 
-        SumElements0 vd _n -> HM.sumElements $ eval1 parameters vd
-        Index0 d ix _k -> eval1 parameters d V.! ix
+        Delta0Others d0 -> case d0 of
+            SumElements0 vd _n -> HM.sumElements $ eval1 parameters vd
+            Index0 d ix _k -> eval1 parameters d V.! ix
 
-        Dot0 vr vd -> vr <.> eval1 parameters vd
+            Dot0 vr vd -> vr <.> eval1 parameters vd
 
-        FromX0 d -> OT.unScalar $ evalX parameters d
-        FromS0 d -> OS.unScalar $ evalS parameters d
+            FromX0 d -> OT.unScalar $ evalX parameters d
+            FromS0 d -> OS.unScalar $ evalS parameters d
       eval1 :: Domains r -> Delta1 r -> Vector r
       eval1 parameters@(_, params1, _, _) = \case
         Zero1 -> 0
