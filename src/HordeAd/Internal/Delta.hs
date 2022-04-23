@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes, CPP, DataKinds, GADTs, KindSignatures,
              StandaloneDeriving, TypeOperators #-}
+{-# LANGUAGE FlexibleInstances #-}
 #if !MIN_VERSION_base(4,16,0)
 {-# LANGUAGE IncoherentInstances #-}
 #endif
@@ -34,7 +35,7 @@
 -- grow large enough to affect cache misses).
 module HordeAd.Internal.Delta
   ( -- * Abstract syntax trees of the delta expressions
-    Delta0 (..), Delta1 (..), Delta2 (..), DeltaX (..), DeltaS (..)
+    Delta (..), Delta0, Delta1 (..), Delta2 (..), DeltaX (..), DeltaS (..)
   , Delta0Others (..), Delta1Others (..), Delta2Others (..), DeltaXOthers (..)
   , -- * Delta expression identifiers
     DeltaId, toDeltaId, covertDeltaId
@@ -87,15 +88,6 @@ import           HordeAd.Internal.OrthotopeOrphanInstances ()
 -- the scalar type @r@ itself, @Vector r@, @Matrix r@ and tensors.
 -- Many operations span the ranks and so span the datatypes, which makes
 -- the datatypes mutually recursive.
-data Delta0 r =
-    Zero0
-  | Scale0 r (Delta0 r)
-  | Add0 (Delta0 r) (Delta0 r)
-  | Var0 (DeltaId r)
-  | Delta0Others (Delta0Others (Vector r) (Delta1 r) (DeltaX r) (DeltaS r '[]))
-
-deriving instance (Show r, Numeric r) => Show (Delta0 r)
-
 data Delta0Others v t1 tX tS =
     SumElements0 t1 Int  -- ^ see Note [SumElements0]
   | Index0 t1 Int Int  -- ^ second integer is the length of the vector
@@ -288,8 +280,19 @@ data SDeltaLevel a where
   SD2 :: SDeltaLevel 'D2
   SDX :: SDeltaLevel 'DX
 
+type Delta0 = Delta 'D0
+
+-- FlexibleInstances
+deriving instance (Show r, Numeric r) => Show (Delta 'D0 r)
+
 data Delta d r where
-  DeltaD0 :: Delta0 r -> Delta 'D0 r
+  Zero0 :: Delta 'D0 r
+  Scale0 :: r -> Delta0 r -> Delta 'D0 r
+  Add0 :: Delta0 r -> Delta0 r -> Delta 'D0 r
+  Var0 :: DeltaId r -> Delta 'D0 r
+  Delta0Others :: Delta0Others (Vector r) (Delta1 r) (DeltaX r) (DeltaS r '[])
+               -> Delta 'D0 r
+
   DeltaD1 :: Delta1 r -> Delta 'D1 r
   DeltaD2 :: Delta2 r -> Delta 'D2 r
   DeltaDX :: DeltaX r -> Delta 'DX r
@@ -669,7 +672,7 @@ buildFinMaps st deltaTopLevel dt = do
   eval0 dt deltaTopLevel
 
   let evalUnlessZero :: DeltaBinding r -> ST s ()
-      evalUnlessZero (DeltaBinding SD0 (DeltaIdG0 (DeltaId i)) (DeltaD0 d)) = do
+      evalUnlessZero (DeltaBinding SD0 (DeltaIdG0 (DeltaId i)) d) = do
         r <- finMap0 `VM.read` i
         unless (r == 0) $  -- we init with exactly 0.0 so the comparison works
           eval0 r d
@@ -835,7 +838,7 @@ derivativeFromDelta st deltaTopLevel
         FromXS d -> Data.Array.Convert.convert $ evalX parameters d
       evalUnlessZero :: Domains r -> DeltaBinding r -> Domains r
       evalUnlessZero parameters@(!params0, !params1, !params2, !paramsX) = \case
-        DeltaBinding SD0 (DeltaIdG0 (DeltaId i)) (DeltaD0 d) ->
+        DeltaBinding SD0 (DeltaIdG0 (DeltaId i)) d ->
           let v = eval0 parameters d
           in (params0 V.// [(i, v)], params1, params2, paramsX)
         DeltaBinding SD1 (DeltaIdG1 (DeltaId i)) (DeltaD1 d) ->
@@ -880,7 +883,7 @@ ppBindings reversed st deltaTopLevel =
 
 ppBinding :: (Show r, Numeric r) => String -> DeltaBinding r -> [String]
 ppBinding prefix = \case
-  DeltaBinding SD0 (DeltaIdG0 (DeltaId i)) (DeltaD0 d) ->
+  DeltaBinding SD0 (DeltaIdG0 (DeltaId i)) d ->
     [prefix ++ "0 DeltaId_", show i, " = ", ppShow d, "\n"]
   DeltaBinding SD1 (DeltaIdG1 (DeltaId i)) (DeltaD1 d) ->
     [prefix ++ "1 DeltaId_", show i, " = ", ppShow d, "\n"]
@@ -904,7 +907,7 @@ bindInState deltaBinding deltaCounter setDeltaCounter u' st =
 
 bindInState0 :: Delta0 r -> DeltaState r -> (DeltaState r, DeltaId r)
 {-# INLINE bindInState0 #-}
-bindInState0 = bindInState (\x y -> DeltaBinding SD0 (DeltaIdG0 x) (DeltaD0 y)) deltaCounter0 (\d st -> st { deltaCounter0 = d })
+bindInState0 = bindInState (\x y -> DeltaBinding SD0 (DeltaIdG0 x) y) deltaCounter0 (\d st -> st { deltaCounter0 = d })
 
 bindInState1 :: Delta1 r -> DeltaState r -> (DeltaState r, DeltaId (Vector r))
 {-# INLINE bindInState1 #-}
