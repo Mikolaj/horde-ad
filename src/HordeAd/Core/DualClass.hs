@@ -191,6 +191,9 @@ class HasRanks r where
   type TensorX r = result | result -> r
 
   delta0Others :: Delta0Others (Primal (Tensor1 r)) (Tensor1 r) (TensorX r) (TensorS r '[]) -> r
+  delta1Others ::
+    Delta1Others (Primal (Tensor2 r)) (Primal (Tensor1 r)) r (Tensor1 r) (Tensor2 r) (TensorX r)
+    -> Tensor1 r
 
   dSumElements0 :: Tensor1 r -> Int -> r
   dSumElements0 = \x y -> delta0Others (SumElements0 x y)
@@ -208,19 +211,43 @@ class HasRanks r where
   dFromS0 = \x -> delta0Others (FromS0 x)
 
   dSeq1 :: Data.Vector.Vector r -> Tensor1 r
+  dSeq1 = \x -> delta1Others (Seq1 x)
+
   dKonst1 :: r -> Int -> Tensor1 r
+  dKonst1 = \x y -> delta1Others (Konst1 x y)
+
   dAppend1 :: Tensor1 r -> Int -> Tensor1 r -> Tensor1 r
+  dAppend1 x y z = delta1Others (Append1 x y z)
+
   dSlice1 :: Int -> Int -> Tensor1 r -> Int -> Tensor1 r
+  dSlice1 w x y z = delta1Others (Slice1 w x y z)
+
   dSumRows1 :: Tensor2 r -> Int -> Tensor1 r
+  dSumRows1 x y = delta1Others (SumRows1 x y)
+
   dSumColumns1 :: Tensor2 r -> Int -> Tensor1 r
+  dSumColumns1 x y = delta1Others (SumColumns1 x y)
+
   dM_VD1 :: Primal (Tensor2 r) -> Tensor1 r -> Tensor1 r
+  dM_VD1 x y = delta1Others (M_VD1 x y)
+
   dMD_V1 :: Tensor2 r -> Primal (Tensor1 r) -> Tensor1 r
+  dMD_V1 x y = delta1Others (MD_V1 x y)
+
   dFromX1 :: TensorX r -> Tensor1 r
+  dFromX1 t = delta1Others (FromX1 t)
+
+  dReverse1 :: Tensor1 r -> Tensor1 r
+  dReverse1 t = delta1Others (Reverse1 t)
+
+  dFlatten1 :: Int -> Int -> Tensor2 r -> Tensor1 r
+  dFlatten1 x y z = delta1Others (Flatten1 x y z)
+
+  dFlattenX1 :: OT.ShapeL -> TensorX r -> Tensor1 r
+  dFlattenX1 x y = delta1Others (FlattenX1 x y)
+
   dFromS1 :: KnownNat len
           => TensorS r '[len] -> Tensor1 r
-  dReverse1 :: Tensor1 r -> Tensor1 r
-  dFlatten1 :: Int -> Int -> Tensor2 r -> Tensor1 r
-  dFlattenX1 :: OT.ShapeL -> TensorX r -> Tensor1 r
   dFlattenS1 :: OS.Shape sh
              => TensorS r sh -> Tensor1 r
 
@@ -298,25 +325,9 @@ instance HasRanks (Delta0 r) where
   type TensorX (Delta0 r) = DeltaX r
 
   delta0Others = Delta0Others
+  delta1Others = Delta1Others
 
-  dSumElements0 = \x y -> Delta0Others (SumElements0 x y)
-  dIndex0 = \x y z -> Delta0Others (Index0 x y z)
-  dDot0 = \x y -> Delta0Others (Dot0 x y)
-  dFromX0 = Delta0Others . FromX0
-  dFromS0 = Delta0Others . FromS0
-  dSeq1 = Seq1
-  dKonst1 = Konst1
-  dAppend1 = Append1
-  dSlice1 = Slice1
-  dSumRows1 = SumRows1
-  dSumColumns1 = SumColumns1
-  dM_VD1 = M_VD1
-  dMD_V1 = MD_V1
-  dFromX1 = FromX1
   dFromS1 = FromS1
-  dReverse1 = Reverse1
-  dFlatten1 = Flatten1
-  dFlattenX1 = FlattenX1
   dFlattenS1 = FlattenS1
   dFromRows2 = FromRows2
   dFromColumns2 = FromColumns2
@@ -462,20 +473,9 @@ instance HasRanks Double where
   type TensorX Double = OT.Array Double
 
   delta0Others = delta0OthersNumeric
+  delta1Others = delta1OthersNumeric
 
-  dSeq1 = V.convert
-  dKonst1 = HM.konst
-  dAppend1 d _k e = d V.++ e
-  dSlice1 i n d _len = V.slice i n d
-  dM_VD1 = (HM.#>)
-  dMD_V1 = (HM.#>)
-  dSumRows1 dm _cols = V.fromList $ map HM.sumElements $ HM.toRows dm
-  dSumColumns1 dm _rows = V.fromList $ map HM.sumElements $ HM.toColumns dm
-  dFromX1 = OT.toVector
   dFromS1 = OS.toVector . unRevArray
-  dReverse1 = V.reverse
-  dFlatten1 _rows _cols = HM.flatten
-  dFlattenX1 _sh = OT.toVector
   dFlattenS1 = OS.toVector . unRevArray
   dFromRows2 = HM.fromRows . V.toList
   dFromColumns2 = HM.fromColumns . V.toList
@@ -537,27 +537,33 @@ delta0OthersNumeric = \case
     FromX0 x -> OT.unScalar x
     FromS0 x -> OS.unScalar (unRevArray x)
 
+delta1OthersNumeric :: Numeric a
+                    => Delta1Others (Matrix a) (Vector a) a (Vector a) (Matrix a) (OT.Array a)
+                    -> Vector a
+delta1OthersNumeric = \case
+  Seq1 v -> V.convert v
+  Konst1 v i -> HM.konst v i
+  Append1 d _k e -> d V.++ e
+  Slice1 i n d _len -> V.slice i n d
+  M_VD1 x y -> (HM.#>) x y
+  MD_V1 x y -> (HM.#>) x y
+  SumRows1 dm _cols -> V.fromList $ map HM.sumElements $ HM.toRows dm
+  SumColumns1 dm _rows -> V.fromList $ map HM.sumElements $ HM.toColumns dm
+  FromX1 x -> OT.toVector x
+  Reverse1 x -> V.reverse x
+  Flatten1 _rows _cols i -> HM.flatten i
+  FlattenX1 _sh a -> OT.toVector a
+
 instance HasRanks Float where
   type Tensor1 Float = Vector Float
   type Tensor2 Float = Matrix Float
   type TensorX Float = OT.Array Float
 
   delta0Others = delta0OthersNumeric
+  delta1Others = delta1OthersNumeric
 
   -- Below it's completely repeated after the @Double@ case.
-  dSeq1 = V.convert
-  dKonst1 = HM.konst
-  dAppend1 d _k e = d V.++ e
-  dSlice1 i n d _len = V.slice i n d
-  dM_VD1 = (HM.#>)
-  dMD_V1 = (HM.#>)
-  dSumRows1 dm _cols = V.fromList $ map HM.sumElements $ HM.toRows dm
-  dSumColumns1 dm _rows = V.fromList $ map HM.sumElements $ HM.toColumns dm
-  dFromX1 = OT.toVector
   dFromS1 = OS.toVector . unRevArray
-  dReverse1 = V.reverse
-  dFlatten1 _rows _cols = HM.flatten
-  dFlattenX1 _sh = OT.toVector
   dFlattenS1 = OS.toVector . unRevArray
   dFromRows2 = HM.fromRows . V.toList
   dFromColumns2 = HM.fromColumns . V.toList

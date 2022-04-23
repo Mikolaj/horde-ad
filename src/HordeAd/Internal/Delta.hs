@@ -35,7 +35,7 @@
 module HordeAd.Internal.Delta
   ( -- * Abstract syntax trees of the delta expressions
     Delta0 (..), Delta1 (..), Delta2 (..), DeltaX (..), DeltaS (..)
-  , Delta0Others (..)
+  , Delta0Others (..), Delta1Others (..)
   , -- * Delta expression identifiers
     DeltaId, toDeltaId, covertDeltaId
   , -- * Evaluation of the delta expressions
@@ -115,30 +115,35 @@ data Delta1 r =
   | Scale1 (Vector r) (Delta1 r)
   | Add1 (Delta1 r) (Delta1 r)
   | Var1 (DeltaId (Vector r))
-
-  | Seq1 (Data.Vector.Vector (Delta0 r))  -- ^ "unboxing" conversion
-  | Konst1 (Delta0 r) Int  -- ^ length; needed only for forward derivative
-  | Append1 (Delta1 r) Int (Delta1 r)  -- ^ the length of the first argument
-  | Slice1 Int Int (Delta1 r) Int  -- ^ last integer is the length of argument
-  | SumRows1 (Delta2 r) Int  -- ^ the integer is the number of columns
-  | SumColumns1 (Delta2 r) Int  -- ^ the integer is the number of rows
-
-  | M_VD1 (Matrix r)
-          (Delta1 r)  -- ^ M_VD1 m vd == SumRows1 (M_MD2 m (AsRow2 vd))
-  | MD_V1 (Delta2 r)
-          (Vector r)  -- ^ MD_V1 md v == SumRows1 (MD_M2 md (asRow v))
-
-  | FromX1 (DeltaX r)
-  | forall len. KnownNat len
-    => FromS1 (DeltaS r '[len])
-
-  | Reverse1 (Delta1 r)
-  | Flatten1 Int Int (Delta2 r)
-  | FlattenX1 OT.ShapeL (DeltaX r)
   | forall sh. OS.Shape sh
     => FlattenS1 (DeltaS r sh)
+  | forall len. KnownNat len
+    => FromS1 (DeltaS r '[len])
+  | Delta1Others (Delta1Others (Matrix r) (Vector r) (Delta0 r) (Delta1 r) (Delta2 r) (DeltaX r))
 
 deriving instance (Show r, Numeric r) => Show (Delta1 r)
+
+data Delta1Others m v d0 d1 d2 dX =
+    Seq1 (Data.Vector.Vector d0)  -- ^ "unboxing" conversion
+  | Konst1 d0 Int  -- ^ length; needed only for forward derivative
+  | Append1 d1 Int d1  -- ^ the length of the first argument
+  | Slice1 Int Int d1 Int  -- ^ last integer is the length of argument
+  | SumRows1 d2 Int  -- ^ the integer is the number of columns
+  | SumColumns1 d2 Int  -- ^ the integer is the number of rows
+
+  | M_VD1 m
+          d1  -- ^ M_VD1 m vd == SumRows1 (M_MD2 m (AsRow2 vd))
+  | MD_V1 d2
+          v  -- ^ MD_V1 md v == SumRows1 (MD_M2 md (asRow v))
+
+  | FromX1 dX
+
+  | Reverse1 d1
+  | Flatten1 Int Int d2
+  | FlattenX1 OT.ShapeL dX
+
+deriving instance (Show v, Show m, Show d0, Show d1, Show d2, Show dX)
+    => Show (Delta1Others m v d0 d1 d2 dX)
 
 -- | This is the grammar of delta-expressions at tensor rank 2, that is,
 -- at matrix level.
@@ -471,30 +476,31 @@ buildFinMaps st deltaTopLevel dt = do
         Scale1 k d -> eval1 (k * r) d
         Add1 d e -> eval1 r d >> eval1 r e
         Var1 (DeltaId i) -> VM.modify finMap1 (addToVector r) i
-
-        Seq1 lsd -> V.imapM_ (\i d -> eval0 (r V.! i) d) lsd
-        Konst1 d _n -> V.mapM_ (`eval0` d) r
-        Append1 d k e -> eval1 (V.take k r) d >> eval1 (V.drop k r) e
-        Slice1 i n d len ->
-          eval1 (HM.konst 0 i V.++ r V.++ HM.konst 0 (len - i - n)) d
-        SumRows1 dm cols -> eval2 (MO.asColumn r cols) dm
-        SumColumns1 dm rows -> eval2 (MO.asRow r rows) dm
-
-        M_VD1 m dRow ->
-          mapM_ (`eval1` dRow)
-                (MO.toRows (MO.MatrixOuter (Just m) (Just r) Nothing))
-        MD_V1 md row -> eval2 (MO.MatrixOuter Nothing (Just r) (Just row)) md
-
-        FromX1 d -> evalX (OT.fromVector [V.length r] r) d
         FromS1 d -> evalS (OS.fromVector r) d
-
-        Reverse1 d -> eval1 (V.reverse r) d
-        Flatten1 rows cols d ->
-          eval2 (MO.MatrixOuter (Just $ rows HM.>< cols $ V.toList r)
-                                Nothing Nothing)
-                d
-        FlattenX1 sh d -> evalX (OT.fromVector sh r) d
         FlattenS1 d -> evalS (OS.fromVector r) d
+
+        Delta1Others d1 -> case d1 of
+            Seq1 lsd -> V.imapM_ (\i d -> eval0 (r V.! i) d) lsd
+            Konst1 d _n -> V.mapM_ (`eval0` d) r
+            Append1 d k e -> eval1 (V.take k r) d >> eval1 (V.drop k r) e
+            Slice1 i n d len ->
+              eval1 (HM.konst 0 i V.++ r V.++ HM.konst 0 (len - i - n)) d
+            SumRows1 dm cols -> eval2 (MO.asColumn r cols) dm
+            SumColumns1 dm rows -> eval2 (MO.asRow r rows) dm
+
+            M_VD1 m dRow ->
+              mapM_ (`eval1` dRow)
+                    (MO.toRows (MO.MatrixOuter (Just m) (Just r) Nothing))
+            MD_V1 md row -> eval2 (MO.MatrixOuter Nothing (Just r) (Just row)) md
+
+            FromX1 d -> evalX (OT.fromVector [V.length r] r) d
+            FlattenX1 sh d -> evalX (OT.fromVector sh r) d
+
+            Reverse1 d -> eval1 (V.reverse r) d
+            Flatten1 rows cols d ->
+              eval2 (MO.MatrixOuter (Just $ rows HM.>< cols $ V.toList r)
+                                    Nothing Nothing)
+                    d
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
       eval2 !r = \case
         Zero2 -> return ()
@@ -506,14 +512,14 @@ buildFinMaps st deltaTopLevel dt = do
         FromColumns2 lvd -> zipWithM_ eval1 (MO.toColumns r) (V.toList lvd)
         Konst2 d _sz -> mapM_ (V.mapM_ (`eval0` d)) $ MO.toRows r
         Transpose2 md -> eval2 (MO.transpose r) md  -- TODO: test!
-        M_MD2 m md -> zipWithM_ (\rRow row -> eval1 rRow (MD_V1 md row))
+        M_MD2 m md -> zipWithM_ (\rRow row -> eval1 rRow (Delta1Others (MD_V1 md row)))
                                 (HM.toRows m) (MO.toRows r)
 --      inlining eval1 to demonstrate the calls to eval2 with outer products:
 --      M_MD2 m md ->
 --        zipWithM_ (\rRow row ->
 --                     eval2 (MO.MatrixOuter Nothing (Just rRow) (Just row)) md)
 --                  (HM.toRows m) (MO.toRows r)
-        MD_M2 md m -> zipWithM_ (\rCol col -> eval1 rCol (MD_V1 md col))
+        MD_M2 md m -> zipWithM_ (\rCol col -> eval1 rCol (Delta1Others (MD_V1 md col)))
                                 (MO.toColumns r) (HM.toColumns m)
 --      inlining eval1 to demonstrate the calls to eval2 with outer products:
 --      MD_M2 md m ->
@@ -685,25 +691,27 @@ derivativeFromDelta st deltaTopLevel
         Add1 d e -> eval1 parameters d + eval1 parameters e
         Var1 (DeltaId i) -> params1 V.! i
 
-        Seq1 lsd -> V.convert $ V.map (eval0 parameters) lsd
-        Konst1 d n -> HM.konst (eval0 parameters d) n
-        Append1 d _k e -> eval1 parameters d V.++ eval1 parameters e
-        Slice1 i n d _len -> V.slice i n $ eval1 parameters d
-        SumRows1 dm _cols ->
-          V.fromList $ map HM.sumElements $ HM.toRows $ eval2 parameters dm
-        SumColumns1 dm _rows ->
-          V.fromList $ map HM.sumElements $ HM.toColumns $ eval2 parameters dm
-
-        M_VD1 m dRow -> m #> eval1 parameters dRow
-        MD_V1 md row -> eval2 parameters md #> row
-
-        FromX1 d -> OT.toVector $ evalX parameters d
         FromS1 d -> OS.toVector $ evalS parameters d
-
-        Reverse1 d -> V.reverse $ eval1 parameters d
-        Flatten1 _rows _cols d -> HM.flatten $ eval2 parameters d
-        FlattenX1 _sh d -> OT.toVector $ evalX parameters d
         FlattenS1 d -> OS.toVector $ evalS parameters d
+
+        Delta1Others d1 -> case d1 of
+            Seq1 lsd -> V.convert $ V.map (eval0 parameters) lsd
+            Konst1 d n -> HM.konst (eval0 parameters d) n
+            Append1 d _k e -> eval1 parameters d V.++ eval1 parameters e
+            Slice1 i n d _len -> V.slice i n $ eval1 parameters d
+            SumRows1 dm _cols ->
+              V.fromList $ map HM.sumElements $ HM.toRows $ eval2 parameters dm
+            SumColumns1 dm _rows ->
+              V.fromList $ map HM.sumElements $ HM.toColumns $ eval2 parameters dm
+
+            M_VD1 m dRow -> m #> eval1 parameters dRow
+            MD_V1 md row -> eval2 parameters md #> row
+
+            FromX1 d -> OT.toVector $ evalX parameters d
+
+            Reverse1 d -> V.reverse $ eval1 parameters d
+            Flatten1 _rows _cols d -> HM.flatten $ eval2 parameters d
+            FlattenX1 _sh d -> OT.toVector $ evalX parameters d
       eval2 :: Domains r -> Delta2 r -> Matrix r
       eval2 parameters@( _, _, params2, _) = \case
         Zero2 -> 0
