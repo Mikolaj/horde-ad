@@ -30,7 +30,7 @@ import qualified HordeAd.Internal.Delta as Delta
 
 data DualNumber a = D (Primal a) a
 
-class (IsScalarVar r, Monad m, Functor m, Applicative m)
+class (IsScalarVar r, Monad m)
       => DualMonad r m | m -> r where
   returnLet :: IsDualWithScalarVar a r
             => DualNumber a -> m (DualNumber a)
