@@ -35,7 +35,7 @@
 module HordeAd.Internal.Delta
   ( -- * Abstract syntax trees of the delta expressions
     Delta0 (..), Delta1 (..), Delta2 (..), DeltaX (..), DeltaS (..)
-  , Delta0Others (..), Delta1Others (..)
+  , Delta0Others (..), Delta1Others (..), Delta2Others (..)
   , -- * Delta expression identifiers
     DeltaId, toDeltaId, covertDeltaId
   , -- * Evaluation of the delta expressions
@@ -152,31 +152,37 @@ data Delta2 r =
   | Scale2 (Matrix r) (Delta2 r)
   | Add2 (Delta2 r) (Delta2 r)
   | Var2 (DeltaId (Matrix r))
-
-  | FromRows2 (Data.Vector.Vector (Delta1 r))  -- ^ "unboxing" conversion again
-  | FromColumns2 (Data.Vector.Vector (Delta1 r))
-  | Konst2 (Delta0 r) (Int, Int)  -- ^ size; needed only for forward derivative
-  | Transpose2 (Delta2 r)
-  | M_MD2 (Matrix r) (Delta2 r)  -- ^ matrix-(matrix-expression) multiplication
-  | MD_M2 (Delta2 r) (Matrix r)  -- ^ (matrix-expression)-matrix multiplication
-  | RowAppend2 (Delta2 r) Int (Delta2 r)  -- ^ row-length of first argument
-  | ColumnAppend2 (Delta2 r) Int (Delta2 r)  -- ^ col-length of first argument
-  | RowSlice2 Int Int (Delta2 r) Int  -- ^ last arg is row-length of the matrix
-  | ColumnSlice2 Int Int (Delta2 r) Int  -- ^ column-length of the matrix
-
-  | AsRow2 (Delta1 r)  -- ^ AsRow2 vd == FromRows2 (V.replicate n vd)
-  | AsColumn2 (Delta1 r)  -- ^ AsColumn2 vd == FromColumns2 (V.replicate n vd)
-
-  | FromX2 (DeltaX r)
   | forall rows cols. (KnownNat rows, KnownNat cols)
     => FromS2 (DeltaS r '[rows, cols])
 
-  | Flipud2 (Delta2 r)
-  | Fliprl2 (Delta2 r)
-  | Reshape2 Int (Delta1 r)
-  | Conv2 (Matrix r) (Delta2 r)
+  | Delta2Others (Delta2Others (Matrix r) (Delta0 r) (Delta1 r) (Delta2 r) (DeltaX r))
 
 deriving instance (Show r, Numeric r) => Show (Delta2 r)
+
+data Delta2Others m d0 d1 d2 dX =
+    FromRows2 (Data.Vector.Vector d1)  -- ^ "unboxing" conversion again
+  | FromColumns2 (Data.Vector.Vector d1)
+  | Konst2 d0 (Int, Int)  -- ^ size; needed only for forward derivative
+  | Transpose2 d2
+  | M_MD2 m d2  -- ^ matrix-(matrix-expression) multiplication
+  | MD_M2 d2 m  -- ^ (matrix-expression)-matrix multiplication
+  | RowAppend2 d2 Int d2  -- ^ row-length of first argument
+  | ColumnAppend2 d2 Int d2  -- ^ col-length of first argument
+  | RowSlice2 Int Int d2 Int  -- ^ last arg is row-length of the matrix
+  | ColumnSlice2 Int Int d2 Int  -- ^ column-length of the matrix
+
+  | AsRow2 d1  -- ^ AsRow2 vd == FromRows2 (V.replicate n vd)
+  | AsColumn2 d1  -- ^ AsColumn2 vd == FromColumns2 (V.replicate n vd)
+
+  | FromX2 dX
+
+  | Flipud2 d2
+  | Fliprl2 d2
+  | Reshape2 Int d1
+  | Conv2 m d2
+
+deriving instance (Show m, Show d0, Show d1, Show d2, Show dX)
+    => Show (Delta2Others m d0 d1 d2 dX)
 
 -- | This is the grammar of delta-expressions at arbitrary tensor rank.
 --
@@ -507,59 +513,59 @@ buildFinMaps st deltaTopLevel dt = do
         Scale2 k d -> eval2 (MO.multiplyWithOuter k r) d
         Add2 d e -> eval2 r d >> eval2 r e
         Var2 (DeltaId i) -> VM.modify finMap2 (addToMatrix r) i
-
-        FromRows2 lvd -> zipWithM_ eval1 (MO.toRows r) (V.toList lvd)
-        FromColumns2 lvd -> zipWithM_ eval1 (MO.toColumns r) (V.toList lvd)
-        Konst2 d _sz -> mapM_ (V.mapM_ (`eval0` d)) $ MO.toRows r
-        Transpose2 md -> eval2 (MO.transpose r) md  -- TODO: test!
-        M_MD2 m md -> zipWithM_ (\rRow row -> eval1 rRow (Delta1Others (MD_V1 md row)))
-                                (HM.toRows m) (MO.toRows r)
---      inlining eval1 to demonstrate the calls to eval2 with outer products:
---      M_MD2 m md ->
---        zipWithM_ (\rRow row ->
---                     eval2 (MO.MatrixOuter Nothing (Just rRow) (Just row)) md)
---                  (HM.toRows m) (MO.toRows r)
-        MD_M2 md m -> zipWithM_ (\rCol col -> eval1 rCol (Delta1Others (MD_V1 md col)))
-                                (MO.toColumns r) (HM.toColumns m)
---      inlining eval1 to demonstrate the calls to eval2 with outer products:
---      MD_M2 md m ->
---        zipWithM_ (\rCol col ->
---                     eval2 (MO.MatrixOuter Nothing (Just rCol) (Just col)) md)
---                  (MO.toColumns r) (HM.toColumns m)
-        RowAppend2 d k e -> eval2 (MO.takeRows k r) d
-                            >> eval2 (MO.dropRows k r) e
-        ColumnAppend2 d k e -> eval2 (MO.takeColumns k r) d
-                               >> eval2 (MO.dropColumns k r) e
-        RowSlice2 i n d rows ->
-          assert (MO.rows r == n) $
-          let cols = MO.cols r
-          in eval2 (MO.konst 0 i cols
-                    `MO.rowAppend` r
-                    `MO.rowAppend` MO.konst 0 (rows - i - n) cols)
-                   d
-        ColumnSlice2 i n d cols ->
-          assert (MO.cols r == n) $
-          let rows = MO.rows r
-          in eval2 (MO.konst 0 rows i
-                    `MO.columnAppend` r
-                    `MO.columnAppend` MO.konst 0 rows (cols - i - n))
-                   d
-
-        AsRow2 dRow -> mapM_ (`eval1` dRow) (MO.toRows r)
-        AsColumn2 dCol -> mapM_ (`eval1` dCol) (MO.toColumns r)
-
-        FromX2 d -> evalX (OT.fromVector [MO.rows r, MO.cols r]
-                                         (V.concat $ MO.toRows r)) d
         FromS2 d -> evalS (OS.fromVector $ V.concat $ MO.toRows r) d
 
-        Flipud2 d -> eval2 (MO.flipud r) d
-        Fliprl2 d -> eval2 (MO.fliprl r) d
-        Reshape2 _cols d -> eval1 (V.concat $ MO.toRows r) d
-        Conv2 m md ->
-          let mor = MO.convertMatrixOuter r
-              convolved = HM.corr2 m mor
-              moc = MO.MatrixOuter (Just convolved) Nothing Nothing
-          in eval2 moc md
+        Delta2Others d2 -> case d2 of
+            FromRows2 lvd -> zipWithM_ eval1 (MO.toRows r) (V.toList lvd)
+            FromColumns2 lvd -> zipWithM_ eval1 (MO.toColumns r) (V.toList lvd)
+            Konst2 d _sz -> mapM_ (V.mapM_ (`eval0` d)) $ MO.toRows r
+            Transpose2 md -> eval2 (MO.transpose r) md  -- TODO: test!
+            M_MD2 m md -> zipWithM_ (\rRow row -> eval1 rRow (Delta1Others (MD_V1 md row)))
+                                    (HM.toRows m) (MO.toRows r)
+    --      inlining eval1 to demonstrate the calls to eval2 with outer products:
+    --      M_MD2 m md ->
+    --        zipWithM_ (\rRow row ->
+    --                     eval2 (MO.MatrixOuter Nothing (Just rRow) (Just row)) md)
+    --                  (HM.toRows m) (MO.toRows r)
+            MD_M2 md m -> zipWithM_ (\rCol col -> eval1 rCol (Delta1Others (MD_V1 md col)))
+                                    (MO.toColumns r) (HM.toColumns m)
+    --      inlining eval1 to demonstrate the calls to eval2 with outer products:
+    --      MD_M2 md m ->
+    --        zipWithM_ (\rCol col ->
+    --                     eval2 (MO.MatrixOuter Nothing (Just rCol) (Just col)) md)
+    --                  (MO.toColumns r) (HM.toColumns m)
+            RowAppend2 d k e -> eval2 (MO.takeRows k r) d
+                                >> eval2 (MO.dropRows k r) e
+            ColumnAppend2 d k e -> eval2 (MO.takeColumns k r) d
+                                   >> eval2 (MO.dropColumns k r) e
+            RowSlice2 i n d rows ->
+              assert (MO.rows r == n) $
+              let cols = MO.cols r
+              in eval2 (MO.konst 0 i cols
+                        `MO.rowAppend` r
+                        `MO.rowAppend` MO.konst 0 (rows - i - n) cols)
+                       d
+            ColumnSlice2 i n d cols ->
+              assert (MO.cols r == n) $
+              let rows = MO.rows r
+              in eval2 (MO.konst 0 rows i
+                        `MO.columnAppend` r
+                        `MO.columnAppend` MO.konst 0 rows (cols - i - n))
+                       d
+
+            AsRow2 dRow -> mapM_ (`eval1` dRow) (MO.toRows r)
+            AsColumn2 dCol -> mapM_ (`eval1` dCol) (MO.toColumns r)
+
+            FromX2 d -> evalX (OT.fromVector [MO.rows r, MO.cols r]
+                                             (V.concat $ MO.toRows r)) d
+            Flipud2 d -> eval2 (MO.flipud r) d
+            Fliprl2 d -> eval2 (MO.fliprl r) d
+            Reshape2 _cols d -> eval1 (V.concat $ MO.toRows r) d
+            Conv2 m md ->
+              let mor = MO.convertMatrixOuter r
+                  convolved = HM.corr2 m mor
+                  moc = MO.MatrixOuter (Just convolved) Nothing Nothing
+              in eval2 moc md
       evalX :: OT.Array r -> DeltaX r -> ST s ()
       evalX !r = \case
         ZeroX -> return ()
@@ -719,39 +725,41 @@ derivativeFromDelta st deltaTopLevel
         Add2 d e -> eval2 parameters d + eval2 parameters e
         Var2 (DeltaId i) -> params2 V.! i
 
-        FromRows2 lvd ->
-          HM.fromRows $ map (eval1 parameters) $ V.toList lvd
-        FromColumns2 lvd ->
-          HM.fromColumns $ map (eval1 parameters) $ V.toList lvd
-        Konst2 d sz -> HM.konst (eval0 parameters d) sz
-        Transpose2 md -> HM.tr' $ eval2 parameters md
-        M_MD2 m md -> m HM.<> eval2 parameters md
-        MD_M2 md m -> eval2 parameters md HM.<> m
-        RowAppend2 d _k e -> eval2 parameters d HM.=== eval2 parameters e
-        ColumnAppend2 d _k e -> eval2 parameters d HM.||| eval2 parameters e
-        RowSlice2 i n d _rows ->
-          HM.takeRows n $ HM.dropRows i $ eval2 parameters d
-        ColumnSlice2 i n d _cols ->
-          HM.takeColumns n $ HM.dropColumns i $ eval2 parameters d
-
-        AsRow2 dRow -> HM.asRow $ eval1 parameters dRow  -- TODO: risky
-        AsColumn2 dCol -> HM.asColumn $ eval1 parameters dCol  -- TODO: risky
-
-        FromX2 d ->
-          let t = evalX parameters d
-          in case OT.shapeL t of
-            [_rows, cols] -> HM.reshape cols $ OT.toVector t
-            _ -> error "eval2: wrong tensor dimensions"
         FromS2 d ->
           let t = evalS parameters d
           in case OS.shapeL t of
             [_rows, cols] -> HM.reshape cols $ OS.toVector t
             _ -> error "eval2: wrong tensor dimensions"
 
-        Flipud2 d -> HM.flipud $ eval2 parameters d
-        Fliprl2 d -> HM.fliprl $ eval2 parameters d
-        Reshape2 cols d -> HM.reshape cols $ eval1 parameters d
-        Conv2 m md -> HM.conv2 m $ eval2 parameters md
+        Delta2Others d2 -> case d2 of
+            FromRows2 lvd ->
+              HM.fromRows $ map (eval1 parameters) $ V.toList lvd
+            FromColumns2 lvd ->
+              HM.fromColumns $ map (eval1 parameters) $ V.toList lvd
+            Konst2 d sz -> HM.konst (eval0 parameters d) sz
+            Transpose2 md -> HM.tr' $ eval2 parameters md
+            M_MD2 m md -> m HM.<> eval2 parameters md
+            MD_M2 md m -> eval2 parameters md HM.<> m
+            RowAppend2 d _k e -> eval2 parameters d HM.=== eval2 parameters e
+            ColumnAppend2 d _k e -> eval2 parameters d HM.||| eval2 parameters e
+            RowSlice2 i n d _rows ->
+              HM.takeRows n $ HM.dropRows i $ eval2 parameters d
+            ColumnSlice2 i n d _cols ->
+              HM.takeColumns n $ HM.dropColumns i $ eval2 parameters d
+
+            AsRow2 dRow -> HM.asRow $ eval1 parameters dRow  -- TODO: risky
+            AsColumn2 dCol -> HM.asColumn $ eval1 parameters dCol  -- TODO: risky
+
+            FromX2 d ->
+              let t = evalX parameters d
+              in case OT.shapeL t of
+                [_rows, cols] -> HM.reshape cols $ OT.toVector t
+                _ -> error "eval2: wrong tensor dimensions"
+            Flipud2 d -> HM.flipud $ eval2 parameters d
+            Fliprl2 d -> HM.fliprl $ eval2 parameters d
+            Reshape2 cols d -> HM.reshape cols $ eval1 parameters d
+            Conv2 m md -> HM.conv2 m $ eval2 parameters md
+
       evalX :: Domains r -> DeltaX r -> OT.Array r
       evalX parameters@( _, _, _, paramsX) = \case
         ZeroX -> 0

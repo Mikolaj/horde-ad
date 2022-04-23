@@ -194,6 +194,7 @@ class HasRanks r where
   delta1Others ::
     Delta1Others (Primal (Tensor2 r)) (Primal (Tensor1 r)) r (Tensor1 r) (Tensor2 r) (TensorX r)
     -> Tensor1 r
+  delta2Others :: Delta2Others (Primal (Tensor2 r)) r (Tensor1 r) (Tensor2 r) (TensorX r) -> Tensor2 r
 
   dSumElements0 :: Tensor1 r -> Int -> r
   dSumElements0 = \x y -> delta0Others (SumElements0 x y)
@@ -246,31 +247,65 @@ class HasRanks r where
   dFlattenX1 :: OT.ShapeL -> TensorX r -> Tensor1 r
   dFlattenX1 x y = delta1Others (FlattenX1 x y)
 
+  dFromRows2 :: Data.Vector.Vector (Tensor1 r) -> Tensor2 r
+  dFromRows2 t = delta2Others (FromRows2 t)
+
+  dFromColumns2 :: Data.Vector.Vector (Tensor1 r) -> Tensor2 r
+  dFromColumns2 t = delta2Others (FromColumns2 t)
+
+  dKonst2 :: r -> (Int, Int) -> Tensor2 r
+  dKonst2 x y = delta2Others (Konst2 x y)
+
+  dTranspose2 :: Tensor2 r -> Tensor2 r
+  dTranspose2 t = delta2Others (Transpose2 t)
+
+  dM_MD2 :: Primal (Tensor2 r) -> Tensor2 r -> Tensor2 r
+  dM_MD2 x y = delta2Others (M_MD2 x y)
+
+  dMD_M2 :: Tensor2 r -> Primal (Tensor2 r) -> Tensor2 r
+  dMD_M2 x y = delta2Others (MD_M2 x y)
+
+  dRowAppend2 :: Tensor2 r -> Int -> Tensor2 r -> Tensor2 r
+  dRowAppend2 x y z = delta2Others (RowAppend2 x y z)
+
+  dColumnAppend2 :: Tensor2 r -> Int -> Tensor2 r -> Tensor2 r
+  dColumnAppend2 x y z = delta2Others (ColumnAppend2 x y z)
+
+  dRowSlice2 :: Int -> Int -> Tensor2 r -> Int -> Tensor2 r
+  dRowSlice2 w x y z = delta2Others (RowSlice2 w x y z)
+
+  dColumnSlice2 :: Int -> Int -> Tensor2 r -> Int -> Tensor2 r
+  dColumnSlice2 w x y z = delta2Others (ColumnSlice2 w x y z)
+
+  dAsRow2 :: Tensor1 r -> Tensor2 r
+  dAsRow2 t = delta2Others (AsRow2 t)
+
+  dAsColumn2 :: Tensor1 r -> Tensor2 r
+  dAsColumn2 t = delta2Others (AsColumn2 t)
+
+  dFromX2 :: TensorX r -> Tensor2 r
+  dFromX2 t = delta2Others (FromX2 t)
+
+  dFlipud2 :: Tensor2 r -> Tensor2 r
+  dFlipud2 t = delta2Others (Flipud2 t)
+
+  dFliprl2 :: Tensor2 r -> Tensor2 r
+  dFliprl2 t = delta2Others (Fliprl2 t)
+
+  dReshape2 :: Int -> Tensor1 r -> Tensor2 r
+  dReshape2 x y = delta2Others (Reshape2 x y)
+
+  dConv2 :: Primal (Tensor2 r) -> Tensor2 r -> Tensor2 r
+  dConv2 x y = delta2Others (Conv2 x y)
+
   dFromS1 :: KnownNat len
           => TensorS r '[len] -> Tensor1 r
+
   dFlattenS1 :: OS.Shape sh
              => TensorS r sh -> Tensor1 r
 
-  dFromRows2 :: Data.Vector.Vector (Tensor1 r) -> Tensor2 r
-  dFromColumns2 :: Data.Vector.Vector (Tensor1 r) -> Tensor2 r
-  dKonst2 :: r -> (Int, Int) -> Tensor2 r
-  dTranspose2 :: Tensor2 r -> Tensor2 r
-  dM_MD2 :: Primal (Tensor2 r) -> Tensor2 r -> Tensor2 r
-  dMD_M2 :: Tensor2 r -> Primal (Tensor2 r) -> Tensor2 r
-  dRowAppend2 :: Tensor2 r -> Int -> Tensor2 r -> Tensor2 r
-  dColumnAppend2 :: Tensor2 r -> Int -> Tensor2 r -> Tensor2 r
-  dRowSlice2 :: Int -> Int -> Tensor2 r -> Int -> Tensor2 r
-  dColumnSlice2 :: Int -> Int -> Tensor2 r -> Int -> Tensor2 r
-  dAsRow2 :: Tensor1 r -> Tensor2 r
-  dAsColumn2 :: Tensor1 r -> Tensor2 r
-  dFromX2 :: TensorX r -> Tensor2 r
   dFromS2 :: (KnownNat rows, KnownNat cols)
           => TensorS r '[rows, cols] -> Tensor2 r
-
-  dFlipud2 :: Tensor2 r -> Tensor2 r
-  dFliprl2 :: Tensor2 r -> Tensor2 r
-  dReshape2 :: Int -> Tensor1 r -> Tensor2 r
-  dConv2 :: Primal (Tensor2 r) -> Tensor2 r -> Tensor2 r
 
   dKonstX :: r -> OT.ShapeL -> TensorX r
   dAppendX :: TensorX r -> Int -> TensorX r -> TensorX r
@@ -326,27 +361,12 @@ instance HasRanks (Delta0 r) where
 
   delta0Others = Delta0Others
   delta1Others = Delta1Others
+  delta2Others = Delta2Others
 
   dFromS1 = FromS1
   dFlattenS1 = FlattenS1
-  dFromRows2 = FromRows2
-  dFromColumns2 = FromColumns2
-  dKonst2 = Konst2
-  dTranspose2 = Transpose2
-  dM_MD2 = M_MD2
-  dMD_M2 = MD_M2
-  dRowAppend2 = RowAppend2
-  dColumnAppend2 = ColumnAppend2
-  dRowSlice2 = RowSlice2
-  dColumnSlice2 = ColumnSlice2
-  dAsRow2 = AsRow2
-  dAsColumn2 = AsColumn2
-  dFromX2 = FromX2
   dFromS2 = FromS2
-  dFlipud2 = Flipud2
-  dFliprl2 = Fliprl2
-  dReshape2 = Reshape2
-  dConv2 = Conv2
+
   dKonstX = KonstX
   dAppendX = AppendX
   dSliceX = SliceX
@@ -474,31 +494,13 @@ instance HasRanks Double where
 
   delta0Others = delta0OthersNumeric
   delta1Others = delta1OthersNumeric
+  delta2Others = delta2OthersNumeric
 
   dFromS1 = OS.toVector . unRevArray
   dFlattenS1 = OS.toVector . unRevArray
-  dFromRows2 = HM.fromRows . V.toList
-  dFromColumns2 = HM.fromColumns . V.toList
-  dKonst2 = HM.konst
-  dTranspose2 = HM.tr'
-  dM_MD2 = (HM.<>)
-  dMD_M2 = (HM.<>)
-  dAsRow2 = HM.asRow
-  dAsColumn2 = HM.asColumn
-  dRowAppend2 d _k e = d HM.=== e
-  dColumnAppend2 d _k e = d HM.||| e
-  dRowSlice2 i n d _rows = HM.takeRows n $ HM.dropRows i d
-  dColumnSlice2 i n d _cols = HM.takeColumns n $ HM.dropColumns i d
-  dFromX2 d = case OT.shapeL d of
-    [_rows, cols] -> HM.reshape cols $ OT.toVector d
-    _ -> error "dFromX2: wrong tensor dimensions"
   dFromS2 d = case OS.shapeL $ unRevArray d of
     [_rows, cols] -> HM.reshape cols $ OS.toVector $ unRevArray d
     _ -> error "dFromS2: wrong tensor dimensions"
-  dFlipud2 = HM.flipud
-  dFliprl2 = HM.fliprl
-  dReshape2 = HM.reshape
-  dConv2 = HM.conv2
   dKonstX d sz = OT.constant sz d
   dAppendX d _k e = d `OT.append` e
   dSliceX i n d _len = OT.slice [(i, n)] d
@@ -527,8 +529,7 @@ instance HasRanks Double where
   dFromXS = RevArray . Data.Array.Convert.convert
 
 delta0OthersNumeric :: Numeric a
-                     => Delta0Others
-                        (Vector a) (Vector a) (OT.Array a) (RevArray a '[])
+                     => Delta0Others (Vector a) (Vector a) (OT.Array a) (RevArray a '[])
                      -> a
 delta0OthersNumeric = \case
     SumElements0 vd _ -> HM.sumElements vd
@@ -554,6 +555,30 @@ delta1OthersNumeric = \case
   Flatten1 _rows _cols i -> HM.flatten i
   FlattenX1 _sh a -> OT.toVector a
 
+delta2OthersNumeric :: (Numeric a, Num (Vector a))
+                    => Delta2Others (Matrix a) a (Vector a) (Matrix a) (OT.Array a)
+                    -> Matrix a
+delta2OthersNumeric = \case
+  FromRows2 x -> HM.fromRows . V.toList $ x
+  FromColumns2 x -> HM.fromColumns . V.toList $ x
+  Konst2 x y -> HM.konst x y
+  Transpose2 x -> HM.tr' x
+  M_MD2 x y -> (HM.<>) x y
+  MD_M2 x y -> (HM.<>) x y
+  AsRow2 x -> HM.asRow x
+  AsColumn2 x -> HM.asColumn x
+  RowAppend2 d _k e -> d HM.=== e
+  ColumnAppend2 d _k e -> d HM.||| e
+  RowSlice2 i n d _rows -> HM.takeRows n $ HM.dropRows i d
+  ColumnSlice2 i n d _cols -> HM.takeColumns n $ HM.dropColumns i d
+  FromX2 d -> case OT.shapeL d of
+   [_rows, cols] -> HM.reshape cols $ OT.toVector d
+   _ -> error "dFromX2: wrong tensor dimensions"
+  Flipud2 x -> HM.flipud x
+  Fliprl2 x -> HM.fliprl x
+  Reshape2 x y -> HM.reshape x y
+  Conv2 x y -> HM.conv2 x y
+
 instance HasRanks Float where
   type Tensor1 Float = Vector Float
   type Tensor2 Float = Matrix Float
@@ -561,32 +586,14 @@ instance HasRanks Float where
 
   delta0Others = delta0OthersNumeric
   delta1Others = delta1OthersNumeric
+  delta2Others = delta2OthersNumeric
 
   -- Below it's completely repeated after the @Double@ case.
   dFromS1 = OS.toVector . unRevArray
   dFlattenS1 = OS.toVector . unRevArray
-  dFromRows2 = HM.fromRows . V.toList
-  dFromColumns2 = HM.fromColumns . V.toList
-  dKonst2 = HM.konst
-  dTranspose2 = HM.tr'
-  dM_MD2 = (HM.<>)
-  dMD_M2 = (HM.<>)
-  dAsRow2 = HM.asRow
-  dAsColumn2 = HM.asColumn
-  dRowAppend2 d _k e = d HM.=== e
-  dColumnAppend2 d _k e = d HM.||| e
-  dRowSlice2 i n d _rows = HM.takeRows n $ HM.dropRows i d
-  dColumnSlice2 i n d _cols = HM.takeColumns n $ HM.dropColumns i d
-  dFromX2 d = case OT.shapeL d of
-    [_rows, cols] -> HM.reshape cols $ OT.toVector d
-    _ -> error "dFromX2: wrong tensor dimensions"
   dFromS2 d = case OS.shapeL $ unRevArray d of
     [_rows, cols] -> HM.reshape cols $ OS.toVector $ unRevArray d
     _ -> error "dFromS2: wrong tensor dimensions"
-  dFlipud2 = HM.flipud
-  dFliprl2 = HM.fliprl
-  dReshape2 = HM.reshape
-  dConv2 = HM.conv2
   dKonstX d sz = OT.constant sz d
   dAppendX d _k e = d `OT.append` e
   dSliceX i n d _len = OT.slice [(i, n)] d
