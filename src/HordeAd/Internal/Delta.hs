@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes, CPP, DataKinds, GADTs, KindSignatures,
              StandaloneDeriving, TypeOperators #-}
-{-# LANGUAGE FlexibleInstances #-}
 #if !MIN_VERSION_base(4,16,0)
 {-# LANGUAGE IncoherentInstances #-}
 #endif
@@ -244,11 +243,7 @@ type Delta1 = Delta 'D1
 type Delta2 = Delta 'D2
 type DeltaX = Delta 'DX
 
--- FlexibleInstances
-deriving instance (Show r, Numeric r) => Show (Delta 'D0 r)
-deriving instance (Show r, Numeric r) => Show (Delta 'D1 r)
-deriving instance (Show r, Numeric r) => Show (Delta 'D2 r)
-deriving instance (Show r, Numeric r) => Show (Delta 'DX r)
+deriving instance (Show r, Numeric r) => Show (Delta d r)
 
 data Delta d r where
   Zero0 :: Delta 'D0 r
