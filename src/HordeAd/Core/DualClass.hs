@@ -452,8 +452,7 @@ instance IsDualS (DeltaS r) where
 instance IsDualSVar (DeltaS r) where
   dVarS = VarS
   {-# INLINE bindInStateS #-}
-  bindInStateS u' st = let (st2, did) = bindInStateX (FromSX u') st
-                       in (st2, did)
+  bindInStateS u' st = bindInStateX (FromSX u') st
 
 
 -- * Alternative instances: forward derivatives computed on the spot
