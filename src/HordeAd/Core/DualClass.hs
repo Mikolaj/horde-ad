@@ -155,11 +155,6 @@ class IsDualS (t :: [Nat] -> Type) where
 
 class IsDualS (t :: [Nat] -> Type) => IsDualSVar t where
   dVarS :: forall sh. OS.Shape sh => DeltaId 'DX -> t sh
-  bindInStateS :: forall sh. OS.Shape sh
-               => t sh
-               -> DeltaState (ScalarOfS t)
-               -> ( DeltaState (ScalarOfS t)
-                  , DeltaId 'DX )
 
 -- This type family needs to be closed and injective or else GHC complains
 -- when using the instance below (how bad things go depends on GHC version).
@@ -181,7 +176,7 @@ instance OS.Shape sh => IsDualVar (DeltaS r sh) where
   type DD (DeltaS r sh) = 'DX
   dVar = dVarS
   {-# INLINE bindInState #-}
-  bindInState = bindInStateS
+  bindInState u' = bindInStateX (FromSX u')
 
 -- | An instance of the class is a type of rank 0 (scalar rank) dual components
 -- of dual numbers. The associated type synonym families are dual component
@@ -451,8 +446,6 @@ instance IsDualS (DeltaS r) where
 
 instance IsDualSVar (DeltaS r) where
   dVarS = VarS
-  {-# INLINE bindInStateS #-}
-  bindInStateS u' = bindInStateX (FromSX u')
 
 
 -- * Alternative instances: forward derivatives computed on the spot
