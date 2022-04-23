@@ -11,6 +11,7 @@ import Prelude
 
 import           Control.Exception (assert)
 import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.Shape
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat)
@@ -27,18 +28,27 @@ import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors (DualNumberVariables, varS)
 import HordeAd.Tool.MnistData
 
-lenMnistFcnnS :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
-lenMnistFcnnS widthHidden widthHidden2 =
+type SizeMnistGlyph = 28 GHC.TypeLits.* 28
+type SizeMnistLabel = 10 :: Nat
+
+-- It seems that without plugins of TH we really have to copy-paste
+-- the six-element type list from signature of @nnMnistLayersS@.
+lenMnistFcnnS
+  :: forall widthHidden widthHidden2.
+     (KnownNat widthHidden, KnownNat widthHidden2)
+  => (Int, [Int], [(Int, Int)], [OT.ShapeL])
+lenMnistFcnnS =
   ( 0
   , []
   , []
-  , [ [widthHidden, sizeMnistGlyph], [widthHidden]
-    , [widthHidden2, widthHidden], [widthHidden2]
-    , [sizeMnistLabel, widthHidden2], [sizeMnistLabel] ]
+  , [ Data.Array.Shape.shapeT @'[widthHidden, SizeMnistGlyph]
+    , Data.Array.Shape.shapeT @'[widthHidden]
+    , Data.Array.Shape.shapeT @'[widthHidden2, widthHidden]
+    , Data.Array.Shape.shapeT @'[widthHidden2]
+    , Data.Array.Shape.shapeT @'[SizeMnistLabel, widthHidden2]
+    , Data.Array.Shape.shapeT @'[SizeMnistLabel]
+    ]
   )
-
-type SizeMnistGlyph = 28 GHC.TypeLits.* 28
-type SizeMnistLabel = 10 :: Nat
 
 -- | Fully connected neural network for the MNIST digit classification task.
 -- There are two hidden layers and both use the same activation function.
@@ -46,6 +56,29 @@ type SizeMnistLabel = 10 :: Nat
 -- and vectors given as dual number parameters (variables).
 -- The dimensions, in turn, can be computed by the @len*@ functions
 -- on the basis of the requested widths, see above.
+nnMnistLayersS
+  :: forall widthHidden widthHidden2 r m.
+     (DualMonad r m, KnownNat widthHidden, KnownNat widthHidden2)
+  => (forall sh. OS.Shape sh
+      => DualNumber (TensorS r sh) -> m (DualNumber (TensorS r sh)))
+  -> Primal (TensorS r '[SizeMnistGlyph])
+  -> DualNumber (TensorS r '[widthHidden, SizeMnistGlyph])
+  -> DualNumber (TensorS r '[widthHidden])
+  -> DualNumber (TensorS r '[widthHidden2, widthHidden])
+  -> DualNumber (TensorS r '[widthHidden2])
+  -> DualNumber (TensorS r '[SizeMnistLabel, widthHidden2])
+  -> DualNumber (TensorS r '[SizeMnistLabel])
+  -> m (DualNumber (TensorS r '[SizeMnistLabel]))
+nnMnistLayersS factivationHidden input
+               weightsL0 biasesV0 weightsL1 biasesV1 weightsL2 biasesV2 = do
+  let !_A = assert (sizeMnistGlyph == OS.size input) ()
+  let hiddenLayer1 = weightsL0 #>$ (scalar input) + biasesV0
+  nonlinearLayer1 <- factivationHidden hiddenLayer1
+  let hiddenLayer2 = weightsL1 #>$ nonlinearLayer1 + biasesV1
+  nonlinearLayer2 <- factivationHidden hiddenLayer2
+  let outputLayer = weightsL2 #>$ nonlinearLayer2 + biasesV2
+  returnLet outputLayer
+
 nnMnistS :: forall widthHidden widthHidden2 r m.
             (DualMonad r m, KnownNat widthHidden, KnownNat widthHidden2)
          => (forall sh. OS.Shape sh
@@ -54,25 +87,15 @@ nnMnistS :: forall widthHidden widthHidden2 r m.
          -> DualNumberVariables r
          -> m (DualNumber (TensorS r '[SizeMnistLabel]))
 nnMnistS factivationHidden input variables = do
-  let !_A = assert (sizeMnistGlyph == OS.size input) ()
-      weightsL0 :: DualNumber (TensorS r '[widthHidden, SizeMnistGlyph])
-      weightsL0 = varS variables 0
-      biasesV0 :: DualNumber (TensorS r '[widthHidden])
+  let weightsL0 = varS variables 0
       biasesV0 = varS variables 1
-      weightsL1 :: DualNumber (TensorS r '[widthHidden2, widthHidden])
       weightsL1 = varS variables 2
-      biasesV1 :: DualNumber (TensorS r '[widthHidden2])
       biasesV1 = varS variables 3
-      weightsL2 :: DualNumber (TensorS r '[SizeMnistLabel, widthHidden2])
       weightsL2 = varS variables 4
-      biasesV2 :: DualNumber (TensorS r '[SizeMnistLabel])
       biasesV2 = varS variables 5
-  let hiddenLayer1 = weightsL0 #>$ (scalar input) + biasesV0
-  nonlinearLayer1 <- factivationHidden hiddenLayer1
-  let hiddenLayer2 = weightsL1 #>$ nonlinearLayer1 + biasesV1
-  nonlinearLayer2 <- factivationHidden hiddenLayer2
-  let outputLayer = weightsL2 #>$ nonlinearLayer2 + biasesV2
-  returnLet outputLayer
+  nnMnistLayersS @widthHidden @widthHidden2
+                 factivationHidden input
+                 weightsL0 biasesV0 weightsL1 biasesV1 weightsL2 biasesV2
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function, using fused
