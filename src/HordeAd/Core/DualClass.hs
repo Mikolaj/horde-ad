@@ -461,12 +461,7 @@ instance HasRanks Double where
   type Tensor2 Double = Matrix Double
   type TensorX Double = OT.Array Double
 
-  delta0Others = \case
-    SumElements0 vd _ -> HM.sumElements vd
-    Index0 d ix _ -> d V.! ix
-    Dot0 x y -> x HM.<.> y
-    FromX0 x -> OT.unScalar x
-    FromS0 x -> OS.unScalar (unRevArray x)
+  delta0Others = delta0OthersNumeric
 
   dSeq1 = V.convert
   dKonst1 = HM.konst
@@ -531,17 +526,23 @@ instance HasRanks Double where
   dFrom2S _ = RevArray . OS.fromVector . HM.flatten
   dFromXS = RevArray . Data.Array.Convert.convert
 
-instance HasRanks Float where
-  type Tensor1 Float = Vector Float
-  type Tensor2 Float = Matrix Float
-  type TensorX Float = OT.Array Float
-
-  delta0Others = \case
+delta0OthersNumeric :: Numeric a
+                     => Delta0Others
+                        (Vector a) (Vector a) (OT.Array a) (RevArray a '[])
+                     -> a
+delta0OthersNumeric = \case
     SumElements0 vd _ -> HM.sumElements vd
     Index0 d ix _ -> d V.! ix
     Dot0 x y -> x HM.<.> y
     FromX0 x -> OT.unScalar x
     FromS0 x -> OS.unScalar (unRevArray x)
+
+instance HasRanks Float where
+  type Tensor1 Float = Vector Float
+  type Tensor2 Float = Matrix Float
+  type TensorX Float = OT.Array Float
+
+  delta0Others = delta0OthersNumeric
 
   -- Below it's completely repeated after the @Double@ case.
   dSeq1 = V.convert
