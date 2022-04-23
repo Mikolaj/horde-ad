@@ -35,7 +35,7 @@
 module HordeAd.Internal.Delta
   ( -- * Abstract syntax trees of the delta expressions
     Delta0 (..), Delta1 (..), Delta2 (..), DeltaX (..), DeltaS (..)
-  , Delta0Others (..), Delta1Others (..), Delta2Others (..)
+  , Delta0Others (..), Delta1Others (..), Delta2Others (..), DeltaXOthers (..)
   , -- * Delta expression identifiers
     DeltaId, toDeltaId, covertDeltaId
   , -- * Evaluation of the delta expressions
@@ -192,31 +192,36 @@ data DeltaX r =
   | ScaleX (OT.Array r) (DeltaX r)
   | AddX (DeltaX r) (DeltaX r)
   | VarX (DeltaId (OT.Array r))
+  | forall sh. OS.Shape sh
+    => FromSX (DeltaS r sh)
+  | DeltaXOthers (DeltaXOthers (Delta0 r) (Delta1 r) (Delta2 r) (DeltaX r))
 
-  | KonstX (Delta0 r) OT.ShapeL  -- ^ size; needed only for forward derivative
-  | AppendX (DeltaX r) Int (DeltaX r)
+deriving instance (Show r, Numeric r) => Show (DeltaX r)
+
+data DeltaXOthers d0 d1 d2 dX =
+    KonstX d0 OT.ShapeL  -- ^ size; needed only for forward derivative
+  | AppendX dX Int dX
       -- ^ Append two arrays along the outermost dimension.
       -- All dimensions, except the outermost, must be the same.
       -- The integer argument is the outermost size of the first array.
-  | SliceX Int Int (DeltaX r) Int
+  | SliceX Int Int dX Int
       -- ^ Extract a slice of an array along the outermost dimension.
       -- The extracted slice must fall within the dimension.
       -- The last argument is the outermost size of the argument array.
-  | IndexX (DeltaX r) Int Int
+  | IndexX dX Int Int
       -- ^ The sub-tensors at the given index of the outermost dimension.
       -- The second integer is the length of the dimension.
-  | RavelFromListX [DeltaX r]
+  | RavelFromListX [dX]
       -- ^ Create a tensor from a list treated as the outermost dimension.
-  | ReshapeX OT.ShapeL OT.ShapeL (DeltaX r)
+  | ReshapeX OT.ShapeL OT.ShapeL dX
       -- ^ Change the shape of the tensor from the first to the second.
 
-  | From0X (Delta0 r)
-  | From1X (Delta1 r)
-  | From2X (Delta2 r) Int
-  | forall sh. OS.Shape sh
-    => FromSX (DeltaS r sh)
+  | From0X d0
+  | From1X d1
+  | From2X d2 Int
 
-deriving instance (Show r, Numeric r) => Show (DeltaX r)
+deriving instance (Show d0, Show d1, Show d2, Show dX)
+    => Show (DeltaXOthers d0 d1 d2 dX)
 
 -- | This is the grammar of delta-expressions at arbitrary tensor rank,
 -- the fully typed Shaped version.
@@ -572,38 +577,39 @@ buildFinMaps st deltaTopLevel dt = do
         ScaleX k d -> evalX (OT.zipWithA (*) k r) d
         AddX d e -> evalX r d >> evalX r e
         VarX (DeltaId i) -> VM.modify finMapX (addToArray r) i
-
-        KonstX d _sz -> mapM_ (`eval0` d) $ OT.toList r
-        AppendX d k e -> case OT.shapeL r of
-          n : _ -> evalX (OT.slice [(0, k)] r) d
-                   >> evalX (OT.slice [(k, n - k)] r) e
-          [] -> error "evalX: appending a 0-dimensional tensor"
-        SliceX i n d len -> case OT.shapeL r of
-          n' : rest ->
-            assert (n' == n) $
-            evalX (OT.concatOuter [ OT.constant (i : rest) 0
-                                  , r
-                                  , OT.constant (len - i - n : rest) 0 ])
-                  d
-          [] -> error "evalX: slicing a 0-dimensional tensor"
-        IndexX d ix len ->
-          let rest = OT.shapeL r
-          in evalX (OT.concatOuter [ OT.constant (ix : rest) 0
-                                   , OT.reshape (1 : rest) r
-                                   , OT.constant (len - ix - 1 : rest) 0 ])
-                   d  -- TODO: optimize for Var case
-        RavelFromListX ld -> do
-          let lr = OTB.toList $ OT.unravel r
-          mapM_ (uncurry evalX) (zip lr ld)
-        ReshapeX sh _sh' d -> evalX (OT.reshape sh r) d
-
-        From0X d -> eval0 (OT.unScalar r) d
-        From1X d -> eval1 (OT.toVector r) d
-        From2X d cols ->
-          eval2 (MO.MatrixOuter (Just $ HM.reshape cols $ OT.toVector r)
-                                Nothing Nothing)
-                d
         FromSX d -> evalS (Data.Array.Convert.convert r) d
+
+        DeltaXOthers dX -> case dX of
+            KonstX d _sz -> mapM_ (`eval0` d) $ OT.toList r
+            AppendX d k e -> case OT.shapeL r of
+              n : _ -> evalX (OT.slice [(0, k)] r) d
+                       >> evalX (OT.slice [(k, n - k)] r) e
+              [] -> error "evalX: appending a 0-dimensional tensor"
+            SliceX i n d len -> case OT.shapeL r of
+              n' : rest ->
+                assert (n' == n) $
+                evalX (OT.concatOuter [ OT.constant (i : rest) 0
+                                      , r
+                                      , OT.constant (len - i - n : rest) 0 ])
+                      d
+              [] -> error "evalX: slicing a 0-dimensional tensor"
+            IndexX d ix len ->
+              let rest = OT.shapeL r
+              in evalX (OT.concatOuter [ OT.constant (ix : rest) 0
+                                       , OT.reshape (1 : rest) r
+                                       , OT.constant (len - ix - 1 : rest) 0 ])
+                       d  -- TODO: optimize for Var case
+            RavelFromListX ld -> do
+              let lr = OTB.toList $ OT.unravel r
+              mapM_ (uncurry evalX) (zip lr ld)
+            ReshapeX sh _sh' d -> evalX (OT.reshape sh r) d
+
+            From0X d -> eval0 (OT.unScalar r) d
+            From1X d -> eval1 (OT.toVector r) d
+            From2X d cols ->
+              eval2 (MO.MatrixOuter (Just $ HM.reshape cols $ OT.toVector r)
+                                    Nothing Nothing)
+                    d
       evalS :: OS.Shape sh
             => OS.Array sh r -> DeltaS r sh -> ST s ()
       evalS !r = \case
@@ -766,25 +772,26 @@ derivativeFromDelta st deltaTopLevel
         ScaleX k d -> k * evalX parameters d
         AddX d e -> evalX parameters d + evalX parameters e
         VarX (DeltaId i) -> paramsX V.! i
-
-        KonstX d sz -> OT.constant sz $ eval0 parameters d
-        AppendX d _k e -> evalX parameters d `OT.append` evalX parameters e
-        SliceX i n d _len -> OT.slice [(i, n)] $ evalX parameters d
-        IndexX d ix _len -> OT.index (evalX parameters d) ix
-        RavelFromListX ld ->
-          let la = map (evalX parameters) ld
-              sh = case la of
-                a : _ -> length la : OT.shapeL a
-                [] -> []
-          in OT.ravel $ OTB.fromList sh la
-        ReshapeX _sh sh' d -> OT.reshape sh' $ evalX parameters d
-
-        From0X d -> OT.scalar $ eval0 parameters d
-        From1X d -> let v = eval1 parameters d
-                    in OT.fromVector [V.length v] v
-        From2X d cols -> let l = eval2 parameters d
-                         in OT.fromVector [HM.rows l, cols] $ HM.flatten l
         FromSX d -> Data.Array.Convert.convert $ evalS parameters d
+
+        DeltaXOthers dX -> case dX of
+            KonstX d sz -> OT.constant sz $ eval0 parameters d
+            AppendX d _k e -> evalX parameters d `OT.append` evalX parameters e
+            SliceX i n d _len -> OT.slice [(i, n)] $ evalX parameters d
+            IndexX d ix _len -> OT.index (evalX parameters d) ix
+            RavelFromListX ld ->
+              let la = map (evalX parameters) ld
+                  sh = case la of
+                    a : _ -> length la : OT.shapeL a
+                    [] -> []
+              in OT.ravel $ OTB.fromList sh la
+            ReshapeX _sh sh' d -> OT.reshape sh' $ evalX parameters d
+
+            From0X d -> OT.scalar $ eval0 parameters d
+            From1X d -> let v = eval1 parameters d
+                        in OT.fromVector [V.length v] v
+            From2X d cols -> let l = eval2 parameters d
+                             in OT.fromVector [HM.rows l, cols] $ HM.flatten l
       evalS :: OS.Shape sh => Domains r -> DeltaS r sh -> OS.Array sh r
       evalS parameters@( _, _, _, paramsX) = \case
         ZeroS -> 0

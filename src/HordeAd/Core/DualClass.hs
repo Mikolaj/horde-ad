@@ -195,6 +195,7 @@ class HasRanks r where
     Delta1Others (Primal (Tensor2 r)) (Primal (Tensor1 r)) r (Tensor1 r) (Tensor2 r) (TensorX r)
     -> Tensor1 r
   delta2Others :: Delta2Others (Primal (Tensor2 r)) r (Tensor1 r) (Tensor2 r) (TensorX r) -> Tensor2 r
+  deltaXOthers :: DeltaXOthers r (Tensor1 r) (Tensor2 r) (TensorX r) -> TensorX r
 
   dSumElements0 :: Tensor1 r -> Int -> r
   dSumElements0 = \x y -> delta0Others (SumElements0 x y)
@@ -298,6 +299,33 @@ class HasRanks r where
   dConv2 :: Primal (Tensor2 r) -> Tensor2 r -> Tensor2 r
   dConv2 x y = delta2Others (Conv2 x y)
 
+  dKonstX :: r -> OT.ShapeL -> TensorX r
+  dKonstX x y = deltaXOthers (KonstX x y)
+
+  dAppendX :: TensorX r -> Int -> TensorX r -> TensorX r
+  dAppendX x y z = deltaXOthers (AppendX x y z)
+
+  dSliceX :: Int -> Int -> TensorX r -> Int -> TensorX r
+  dSliceX w x y z = deltaXOthers (SliceX w x y z)
+
+  dIndexX :: TensorX r -> Int -> Int -> TensorX r
+  dIndexX x y z = deltaXOthers (IndexX x y z)
+
+  dRavelFromListX :: [TensorX r] -> TensorX r
+  dRavelFromListX t = deltaXOthers (RavelFromListX t)
+
+  dReshapeX :: OT.ShapeL -> OT.ShapeL -> TensorX r -> TensorX r
+  dReshapeX x y z = deltaXOthers (ReshapeX x y z)
+
+  dFrom0X :: r -> TensorX r
+  dFrom0X t = deltaXOthers (From0X t)
+
+  dFrom1X :: Tensor1 r -> TensorX r
+  dFrom1X t = deltaXOthers (From1X t)
+
+  dFrom2X :: Tensor2 r -> Int -> TensorX r
+  dFrom2X t u = deltaXOthers (From2X t u)
+
   dFromS1 :: KnownNat len
           => TensorS r '[len] -> Tensor1 r
 
@@ -307,15 +335,6 @@ class HasRanks r where
   dFromS2 :: (KnownNat rows, KnownNat cols)
           => TensorS r '[rows, cols] -> Tensor2 r
 
-  dKonstX :: r -> OT.ShapeL -> TensorX r
-  dAppendX :: TensorX r -> Int -> TensorX r -> TensorX r
-  dSliceX :: Int -> Int -> TensorX r -> Int -> TensorX r
-  dIndexX :: TensorX r -> Int -> Int -> TensorX r
-  dRavelFromListX :: [TensorX r] -> TensorX r
-  dReshapeX :: OT.ShapeL -> OT.ShapeL -> TensorX r -> TensorX r
-  dFrom0X :: r -> TensorX r
-  dFrom1X :: Tensor1 r -> TensorX r
-  dFrom2X :: Tensor2 r -> Int -> TensorX r
   dFromSX :: OS.Shape sh
           => TensorS r sh -> TensorX r
 
@@ -362,20 +381,12 @@ instance HasRanks (Delta0 r) where
   delta0Others = Delta0Others
   delta1Others = Delta1Others
   delta2Others = Delta2Others
+  deltaXOthers = DeltaXOthers
 
   dFromS1 = FromS1
   dFlattenS1 = FlattenS1
   dFromS2 = FromS2
 
-  dKonstX = KonstX
-  dAppendX = AppendX
-  dSliceX = SliceX
-  dIndexX = IndexX
-  dRavelFromListX = RavelFromListX
-  dReshapeX = ReshapeX
-  dFrom0X = From0X
-  dFrom1X = From1X
-  dFrom2X = From2X
   dFromSX = FromSX
   dKonstS = KonstS
   dAppendS = AppendS
@@ -495,25 +506,14 @@ instance HasRanks Double where
   delta0Others = delta0OthersNumeric
   delta1Others = delta1OthersNumeric
   delta2Others = delta2OthersNumeric
+  deltaXOthers = deltaXOthersNumeric
 
   dFromS1 = OS.toVector . unRevArray
   dFlattenS1 = OS.toVector . unRevArray
   dFromS2 d = case OS.shapeL $ unRevArray d of
     [_rows, cols] -> HM.reshape cols $ OS.toVector $ unRevArray d
     _ -> error "dFromS2: wrong tensor dimensions"
-  dKonstX d sz = OT.constant sz d
-  dAppendX d _k e = d `OT.append` e
-  dSliceX i n d _len = OT.slice [(i, n)] d
-  dIndexX d ix _len = OT.index d ix
-  dRavelFromListX ld =
-    let sh = case ld of
-          d : _ -> length ld : OT.shapeL d
-          [] -> []
-    in OT.ravel $ OTB.fromList sh ld
-  dReshapeX _sh sh' d = OT.reshape sh' d
-  dFrom0X = OT.scalar
-  dFrom1X d = OT.fromVector [V.length d] d
-  dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
+
   dFromSX = Data.Array.Convert.convert . unRevArray
   dKonstS = RevArray . OS.constant
   dAppendS d e = RevArray $ OS.append (unRevArray d) (unRevArray e)
@@ -579,6 +579,23 @@ delta2OthersNumeric = \case
   Reshape2 x y -> HM.reshape x y
   Conv2 x y -> HM.conv2 x y
 
+deltaXOthersNumeric :: HM.Element a
+                    => DeltaXOthers a (Vector a) (Matrix a) (OT.Array a) -> OT.Array a
+deltaXOthersNumeric = \case
+  KonstX d sz -> OT.constant sz d
+  AppendX d _k e -> d `OT.append` e
+  SliceX i n d _len -> OT.slice [(i, n)] d
+  IndexX d ix _len -> OT.index d ix
+  RavelFromListX ld ->
+   let sh = case ld of
+         d : _ -> length ld : OT.shapeL d
+         [] -> []
+   in OT.ravel $ OTB.fromList sh ld
+  ReshapeX _sh sh' d -> OT.reshape sh' d
+  From0X x -> OT.scalar x
+  From1X d -> OT.fromVector [V.length d] d
+  From2X d cols -> OT.fromVector [HM.rows d, cols] $ HM.flatten d
+
 instance HasRanks Float where
   type Tensor1 Float = Vector Float
   type Tensor2 Float = Matrix Float
@@ -587,6 +604,7 @@ instance HasRanks Float where
   delta0Others = delta0OthersNumeric
   delta1Others = delta1OthersNumeric
   delta2Others = delta2OthersNumeric
+  deltaXOthers = deltaXOthersNumeric
 
   -- Below it's completely repeated after the @Double@ case.
   dFromS1 = OS.toVector . unRevArray
@@ -594,19 +612,6 @@ instance HasRanks Float where
   dFromS2 d = case OS.shapeL $ unRevArray d of
     [_rows, cols] -> HM.reshape cols $ OS.toVector $ unRevArray d
     _ -> error "dFromS2: wrong tensor dimensions"
-  dKonstX d sz = OT.constant sz d
-  dAppendX d _k e = d `OT.append` e
-  dSliceX i n d _len = OT.slice [(i, n)] d
-  dIndexX d ix _len = OT.index d ix
-  dRavelFromListX ld =
-    let sh = case ld of
-          d : _ -> length ld : OT.shapeL d
-          [] -> []
-    in OT.ravel $ OTB.fromList sh ld
-  dReshapeX _sh sh' d = OT.reshape sh' d
-  dFrom0X = OT.scalar
-  dFrom1X d = OT.fromVector [V.length d] d
-  dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
   dFromSX = Data.Array.Convert.convert . unRevArray
   dKonstS = RevArray . OS.constant
   dAppendS d e = RevArray $ OS.append (unRevArray d) (unRevArray e)
