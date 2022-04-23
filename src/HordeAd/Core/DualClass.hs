@@ -190,11 +190,22 @@ class HasRanks r where
   type Tensor2 r = result | result -> r
   type TensorX r = result | result -> r
 
+  delta0Others :: Delta0Others (Primal (Tensor1 r)) (Tensor1 r) (TensorX r) (TensorS r '[]) -> r
+
   dSumElements0 :: Tensor1 r -> Int -> r
+  dSumElements0 = \x y -> delta0Others (SumElements0 x y)
+
   dIndex0 :: Tensor1 r -> Int -> Int -> r
+  dIndex0 = \x y z -> delta0Others (Index0 x y z)
+
   dDot0 :: Primal (Tensor1 r) -> Tensor1 r -> r
+  dDot0 = \x y -> delta0Others (Dot0 x y)
+
   dFromX0 :: TensorX r -> r
+  dFromX0 = \x -> delta0Others (FromX0 x)
+
   dFromS0 :: TensorS r '[] -> r
+  dFromS0 = \x -> delta0Others (FromS0 x)
 
   dSeq1 :: Data.Vector.Vector r -> Tensor1 r
   dKonst1 :: r -> Int -> Tensor1 r
@@ -285,6 +296,9 @@ instance HasRanks (Delta0 r) where
   type Tensor1 (Delta0 r) = Delta1 r
   type Tensor2 (Delta0 r) = Delta2 r
   type TensorX (Delta0 r) = DeltaX r
+
+  delta0Others = Delta0Others
+
   dSumElements0 = \x y -> Delta0Others (SumElements0 x y)
   dIndex0 = \x y z -> Delta0Others (Index0 x y z)
   dDot0 = \x y -> Delta0Others (Dot0 x y)
@@ -446,11 +460,14 @@ instance HasRanks Double where
   type Tensor1 Double = Vector Double
   type Tensor2 Double = Matrix Double
   type TensorX Double = OT.Array Double
-  dSumElements0 vd _ = HM.sumElements vd
-  dIndex0 d ix _ = d V.! ix
-  dDot0 = (HM.<.>)
-  dFromX0 = OT.unScalar
-  dFromS0 = OS.unScalar . unRevArray
+
+  delta0Others = \case
+    SumElements0 vd _ -> HM.sumElements vd
+    Index0 d ix _ -> d V.! ix
+    Dot0 x y -> x HM.<.> y
+    FromX0 x -> OT.unScalar x
+    FromS0 x -> OS.unScalar (unRevArray x)
+
   dSeq1 = V.convert
   dKonst1 = HM.konst
   dAppend1 d _k e = d V.++ e
@@ -518,12 +535,15 @@ instance HasRanks Float where
   type Tensor1 Float = Vector Float
   type Tensor2 Float = Matrix Float
   type TensorX Float = OT.Array Float
+
+  delta0Others = \case
+    SumElements0 vd _ -> HM.sumElements vd
+    Index0 d ix _ -> d V.! ix
+    Dot0 x y -> x HM.<.> y
+    FromX0 x -> OT.unScalar x
+    FromS0 x -> OS.unScalar (unRevArray x)
+
   -- Below it's completely repeated after the @Double@ case.
-  dSumElements0 vd _ = HM.sumElements vd
-  dIndex0 d ix _ = d V.! ix
-  dDot0 = (HM.<.>)
-  dFromX0 = OT.unScalar
-  dFromS0 = OS.unScalar . unRevArray
   dSeq1 = V.convert
   dKonst1 = HM.konst
   dAppend1 d _k e = d V.++ e

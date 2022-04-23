@@ -92,11 +92,11 @@ data Delta0 r =
   | Scale0 r (Delta0 r)
   | Add0 (Delta0 r) (Delta0 r)
   | Var0 (DeltaId r)
-  | Delta0Others (Delta0Others (Vector r) (Delta1 r) (DeltaX r) (DeltaS r '[]) r)
+  | Delta0Others (Delta0Others (Vector r) (Delta1 r) (DeltaX r) (DeltaS r '[]))
 
 deriving instance (Show r, Numeric r) => Show (Delta0 r)
 
-data Delta0Others v t1 tX tS r =
+data Delta0Others v t1 tX tS =
     SumElements0 t1 Int  -- ^ see Note [SumElements0]
   | Index0 t1 Int Int  -- ^ second integer is the length of the vector
 
@@ -105,8 +105,8 @@ data Delta0Others v t1 tX tS r =
   | FromX0 tX  -- ^ one of many conversions
   | FromS0 tS
 
-deriving instance (Show r, Numeric r, Show v, Show t1, Show tX, Show tS)
-  => Show (Delta0Others v t1 tX tS r)
+deriving instance (Show v, Show t1, Show tX, Show tS)
+  => Show (Delta0Others v t1 tX tS)
 
 -- | This is the grammar of delta-expressions at tensor rank 1, that is,
 -- at vector level.
