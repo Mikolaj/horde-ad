@@ -154,7 +154,6 @@ class IsDualS (t :: [Nat] -> Type) where
   type ScalarOfS t :: Type
 
 class IsDualS (t :: [Nat] -> Type) => IsDualSVar t where
-  dVarS :: forall sh. OS.Shape sh => DeltaId 'DX -> t sh
 
 -- This type family needs to be closed and injective or else GHC complains
 -- when using the instance below (how bad things go depends on GHC version).
@@ -174,7 +173,7 @@ instance (IsDualS t, OS.Shape sh) => IsDual (t sh) where
 
 instance OS.Shape sh => IsDualVar (DeltaS r sh) where
   type DD (DeltaS r sh) = 'DX
-  dVar = dVarS
+  dVar = VarS
   {-# INLINE bindInState #-}
   bindInState u' = bindInStateX (FromSX u')
 
@@ -445,7 +444,6 @@ instance IsDualS (DeltaS r) where
   type ScalarOfS (DeltaS r) = r
 
 instance IsDualSVar (DeltaS r) where
-  dVarS = VarS
 
 
 -- * Alternative instances: forward derivatives computed on the spot
