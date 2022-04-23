@@ -76,7 +76,7 @@ common options
                       BangPatterns, RecordWildCards, NamedFieldPuns, MultiWayIf,
                       LambdaCase, DefaultSignatures, InstanceSigs,
                       PatternSynonyms, StrictData, TypeApplications,
-                      FlexibleContexts
+                      FlexibleContexts, NoStarIsType
   other-extensions:   TemplateHaskell, MultiParamTypeClasses, RankNTypes,
                       TypeFamilies, FlexibleInstances,
                       DeriveFunctor, FunctionalDependencies,
@@ -122,6 +122,7 @@ library
                       HordeAd.Tool.MnistData
                       HordeAd.Tool.MnistFcnnMatrix
                       HordeAd.Tool.MnistFcnnScalar
+                      HordeAd.Tool.MnistFcnnShaped
                       HordeAd.Tool.MnistFcnnVector
 
     -- Modules included in this library but not exported.

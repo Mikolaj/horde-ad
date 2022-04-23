@@ -46,7 +46,7 @@ type DomainX r = Delta.DomainX (Primal r)
 type Domains r = Delta.Domains (Primal r)
 
 
--- * General non-monadic operations, for any scalar rank
+-- * General non-monadic operations, for any tensor rank
 
 -- This instances are required by the @Real@ instance, which is required
 -- by @RealFloat@, which gives @atan2@. No idea what properties
@@ -379,7 +379,7 @@ reshape2 :: IsScalar r
 reshape2 cols (D u u') = D (HM.reshape cols u) (dReshape2 cols u')
 
 
--- * Non-monadic operations resulting in an arbitrary tensor
+-- * Non-monadic operations resulting in an arbitrary untyped tensor
 
 -- Warning: not tested nor benchmarked.
 
@@ -543,8 +543,14 @@ fromXS :: (IsScalar r, OS.Shape sh)
        => DualNumber (TensorX r) -> DualNumber (TensorS r sh)
 fromXS (D u u') = D (Data.Array.Convert.convert u) (dFromXS u')
 
+infixr 8 #>$
+(#>$) :: (IsScalar r, KnownNat rows, KnownNat cols)
+      => DualNumber (TensorS r '[rows, cols])
+      -> DualNumber (TensorS r '[cols])
+      -> DualNumber (TensorS r '[rows])
+(#>$) d e = from1S $ fromS2 d #>! fromS1 e
 
--- * General monadic operations, for any scalar rank
+-- * General monadic operations, for any tensor rank
 
 tanhAct :: (DualMonad r m, IsDualWithScalar a r, Floating (Primal a))
         => DualNumber a -> m (DualNumber a)
