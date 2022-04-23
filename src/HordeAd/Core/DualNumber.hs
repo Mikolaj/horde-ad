@@ -48,7 +48,7 @@ type DomainX r = Delta.DomainX (Primal r)
 type Domains r = Delta.Domains (Primal r)
 
 
--- * General non-monadic operations, for any tensor rank
+-- * General operations, for any tensor rank
 
 -- These instances are required by the @Real@ instance, which is required
 -- by @RealFloat@, which gives @atan2@. No idea what properties
@@ -124,8 +124,33 @@ scalar a = D a dZero
 scale :: (Num (Primal a), IsDual a) => Primal a -> DualNumber a -> DualNumber a
 scale a (D u u') = D (a * u) (dScale a u')
 
+tanhAct :: (DualMonad r m, IsDualWithScalar a r, Floating (Primal a))
+        => DualNumber a -> m (DualNumber a)
+tanhAct = returnLet . tanh
 
--- * Non-monadic operations resulting in a scalar
+logistic :: (Floating (Primal a), IsDual a) => DualNumber a -> DualNumber a
+logistic (D u u') =
+  let y = recip (1 + exp (- u))
+  in D y (dScale (y * (1 - y)) u')
+
+logisticAct :: (DualMonad r m, IsDualWithScalar a r, Floating (Primal a))
+            => DualNumber a -> m (DualNumber a)
+logisticAct = returnLet . logistic
+
+-- Optimized and more clearly written @u ** 2@.
+square :: (Num (Primal a), IsDual a) => DualNumber a -> DualNumber a
+square (D u u') = D (u * u) (dScale (2 * u) u')
+
+squaredDifference :: (Num (Primal a), IsDual a)
+                  => Primal a -> DualNumber a -> DualNumber a
+squaredDifference targ res = square $ res - scalar targ
+
+lossSquared :: (DualMonad r m, IsDualWithScalar a r)
+            => Primal a -> DualNumber a -> m (DualNumber a)
+lossSquared targ res = returnLet $ squaredDifference targ res
+
+
+-- * Operations resulting in a scalar
 
 sumElements0 :: IsScalar r => DualNumber (Tensor1 r) -> DualNumber r
 sumElements0 (D u u') = D (HM.sumElements u) (dSumElements0 u' (V.length u))
@@ -173,8 +198,62 @@ fromX0 (D u u') = D (OT.unScalar u) (dFromX0 u')
 fromS0 :: IsScalar r => DualNumber (TensorS r '[]) -> DualNumber r
 fromS0 (D u u') = D (OS.unScalar u) (dFromS0 u')
 
+-- The type permits other ranks, but it's nonsense.
+reluAct :: DualMonad r m => DualNumber r -> m (DualNumber r)
+reluAct (D u u') = returnLet $ D (max 0 u) (dScale (if u > 0 then 1 else 0) u')
 
--- * Non-monadic operations resulting in a vector
+sumElementsVectorOfDual
+  :: IsScalar r => Data.Vector.Vector (DualNumber r) -> DualNumber r
+sumElementsVectorOfDual = V.foldl' (+) 0
+
+softMaxAct :: DualMonad r m
+           => Data.Vector.Vector (DualNumber r)
+           -> m (Data.Vector.Vector (DualNumber r))
+softMaxAct us = do
+  expUs <- V.mapM (returnLet . exp) us
+  let sumExpUs = sumElementsVectorOfDual expUs
+  -- This has to be let-bound, because it's used many times below.
+  recipSum <- returnLet $ recip sumExpUs
+  V.mapM (\r -> returnLet $ r * recipSum) expUs
+
+-- In terms of hmatrix: @-(log res <.> targ)@.
+lossCrossEntropy :: forall r m. DualMonad r m
+                 => Primal (Tensor1 r)
+                 -> Data.Vector.Vector (DualNumber r)
+                 -> m (DualNumber r)
+lossCrossEntropy targ res = do
+  let f :: DualNumber r -> Int -> DualNumber r -> DualNumber r
+      f !acc i d = acc + scale (targ V.! i) (log d)
+  returnLet $ negate $ V.ifoldl' f 0 res
+
+-- In terms of hmatrix: @-(log res <.> targ)@.
+lossCrossEntropyV :: (DualMonad r m, Floating (Primal (Tensor1 r)))
+                  => Primal (Tensor1 r)
+                  -> DualNumber (Tensor1 r)
+                  -> m (DualNumber r)
+lossCrossEntropyV targ res = returnLet $ negate $ log res <.>!! targ
+
+-- Note that this is equivalent to a composition of softMax and cross entropy
+-- only when @target@ is one-hot. Otherwise, results vary wildly. In our
+-- rendering of the MNIST data all labels are on-hot.
+lossSoftMaxCrossEntropyV
+  :: (DualMonad r m, Floating (Primal (Tensor1 r)))
+  => Primal (Tensor1 r) -> DualNumber (Tensor1 r) -> m (DualNumber r)
+lossSoftMaxCrossEntropyV target (D u u') = do
+  -- The following protects from underflows, overflows and exploding gradients
+  -- and is required by the QuickCheck test in TestMnistCNN.
+  -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106
+  -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
+  let expU = exp (u - HM.scalar (HM.maxElement u))
+      sumExpU = HM.sumElements expU
+      recipSum = recip sumExpU
+-- not exposed: softMaxU = HM.scaleRecip sumExpU expU
+      softMaxU = HM.scale recipSum expU
+  returnLet $ D (negate $ log softMaxU HM.<.> target)  -- TODO: avoid: log . exp
+                (dDot0 (softMaxU - target) u')
+
+
+-- * Operations resulting in a vector
 
 -- @1@ means rank one, so the dual component represents a vector.
 seq1 :: IsScalar r
@@ -283,8 +362,47 @@ maxPool1 ksize stride v@(D u _) =
   let slices = [slice1 i ksize v | i <- [0, stride .. V.length u - ksize]]
   in seq1 $ V.fromList $ map maximum0 slices
 
+reluAct1 :: DualMonad r m
+         => DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r))
+reluAct1 v@(D u _) = do
+  let oneIfGtZero = V.map (\x -> if x > 0 then 1 else 0) u
+  returnLet $ scale oneIfGtZero v
 
--- * Non-monadic operations resulting in a matrix
+reluLeakyAct1 :: DualMonad r m
+              => DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r))
+reluLeakyAct1 v@(D u _) = do
+  let oneIfGtZero = V.map (\x -> if x > 0 then 1 else 0.01) u
+  returnLet $ scale oneIfGtZero v
+
+softMaxActV :: (DualMonad r m, Floating (Primal (Tensor1 r)))
+            => DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r))
+softMaxActV d@(D u _) = do
+  expU <- returnLet $ exp d
+  let sumExpU = sumElements0 expU
+  -- This has to be let-bound, because it's used many times below.
+  recipSum <- returnLet $ recip sumExpU
+  returnLet $ konst1 recipSum (V.length u) * expU
+
+-- Note that this is equivalent to a composition of softMax and cross entropy
+-- only when @target@ is one-hot. Otherwise, results vary wildly. In our
+-- rendering of the MNIST data all labels are on-hot.
+lossSoftMaxCrossEntropyL
+  :: (DualMonad r m, Floating (Primal (Tensor2 r)))
+  => Primal (Tensor2 r)
+  -> DualNumber (Tensor2 r)
+  -> m (DualNumber (Tensor1 r))
+lossSoftMaxCrossEntropyL target (D u u') = do
+  let expU = exp (u - HM.scalar (HM.maxElement u))  -- vs exploding gradients
+      sumExpU = V.fromList $ map HM.sumElements $ HM.toColumns expU
+      recipSum = recip sumExpU
+      softMaxU = HM.asRow recipSum * expU
+                   -- this @asRow@ is safe; multiplied at once
+      scaled = D (negate $ log softMaxU * target)
+                 (dScale (softMaxU - target) u')
+  returnLet $ sumColumns1 scaled
+
+
+-- * Operations resulting in a matrix
 
 -- @2@ means rank two, so the dual component represents a matrix.
 fromRows2 :: IsScalar r
@@ -379,10 +497,113 @@ reshape2 :: IsScalar r
          => Int -> DualNumber (Tensor1 r) -> DualNumber (Tensor2 r)
 reshape2 cols (D u u') = D (HM.reshape cols u) (dReshape2 cols u')
 
+reluAct2 :: DualMonad r m
+         => DualNumber (Tensor2 r) -> m (DualNumber (Tensor2 r))
+reluAct2 m@(D u _) = do
+  let oneIfGtZero = HM.cmap (\x -> if x > 0 then 1 else 0) u
+  returnLet $ scale oneIfGtZero m
 
--- * Non-monadic operations resulting in an arbitrary untyped tensor
+-- TODO: This has list of matrices result instead of a cube tensor.
+matrixSlices2 :: DualMonad r m
+              => Int -> DualNumber (Tensor2 r) -> m [DualNumber (Tensor2 r)]
+matrixSlices2 dr m@(D u _) = do
+  let (rows, cols) = HM.size u
+      n = dr * cols
+  v <- returnLet $ flatten1 m  -- used many times below
+  let f k = returnLet $ reshape2 cols $ slice1 (k * cols) n v
+  mapM f [0 .. rows - dr]
 
--- Warning: not tested nor benchmarked.
+-- Not optimal: matrix is constructed and destructed immediately,
+-- which is costly when evaluating delta expressions. The transposes
+-- may not be optimal, either. This goes down to individual deltas
+-- of scalars, which is horrible for performance. Unlike @corr1@
+-- this uses the slow dot product instead of the fast matrix-vector
+-- (or matrix-matrix) multiplication.
+corr2 :: forall r m. DualMonad r m
+      => DualNumber (Tensor2 r) -> DualNumber (Tensor2 r)
+      -> m (DualNumber (Tensor2 r))
+corr2 ker@(D u _) m@(D v _) = do
+  let (rowsK, colsK) = HM.size u
+      (rowsM, colsM) = HM.size v
+      rr = rowsM - rowsK + 1
+      rc = colsM - colsK + 1
+  if | rowsK <= 0 || colsK <= 0 ->
+       error $ "corr2: empty kernel not handled: " ++ show (rowsK, colsK)
+     | rr <= 0 || rc <= 0 ->
+       error $ "corr2: dim kernel " ++ show (rowsK, colsK)
+               ++ " > dim matrix " ++ show (rowsM, colsM)
+     | otherwise -> do
+       kerTransV <- returnLet $ flatten1 (transpose2 ker)
+       let dotColSlices :: DualNumber (Tensor2 r) -> m [DualNumber r]
+           dotColSlices tm = do
+             ttm <- returnLet $ transpose2 tm
+             colSlices <- matrixSlices2 colsK ttm
+             let f :: DualNumber (Tensor2 r) -> DualNumber r
+                 f sm = kerTransV <.>! flatten1 sm
+             return $ map f colSlices
+       rowSlices <- matrixSlices2 rowsK m
+       dotSlicesOfSlices <- mapM dotColSlices rowSlices
+       returnLet $ reshape2 rc $ seq1 $ V.fromList $ concat dotSlicesOfSlices
+
+conv2 :: forall r m. DualMonad r m
+      => DualNumber (Tensor2 r) -> DualNumber (Tensor2 r)
+      -> m (DualNumber (Tensor2 r))
+conv2 ker@(D u _) m@(D v _) = do
+  let (rowsK, colsK) = HM.size u
+      (rowsM, colsM) = HM.size v
+  if | rowsK <= 0 || colsK <= 0 ->
+       returnLet $ konst2 0 (rowsM + rowsK - 1, colsM + colsK - 1)
+     | otherwise -> do
+       let zRow = konst2 0 (rowsK - 1, colsM)
+           rowPadded = rowAppend2 zRow $ rowAppend2 m zRow
+           zCol = konst2 0 (rowsM + 2 * (rowsK - 1), colsK - 1)
+           padded = columnAppend2 zCol $ columnAppend2 rowPadded zCol
+       corr2 (fliprl2 . flipud2 $ ker) padded
+
+conv2' :: IsScalar r
+       => DualNumber (Tensor2 r) -> DualNumber (Tensor2 r)
+       -> DualNumber (Tensor2 r)
+conv2' (D u u') (D v v') = D (HM.conv2 u v) (dAdd (dConv2 u v') (dConv2 v u'))
+
+-- A variant with limited padding, corresponding to SAME padding
+-- from Tensorflow. Data size does not change with this padding.
+-- It also performs convolution wrt flipped kernel (and so saves
+-- on flipping it here), which makes no practical difference when
+-- the kernel is initialized randomly.
+convSame2 :: forall r m. DualMonad r m
+          => DualNumber (Tensor2 r) -> DualNumber (Tensor2 r)
+          -> m (DualNumber (Tensor2 r))
+convSame2 ker@(D u _) m@(D v _) = do
+  let (rowsK, colsK) = HM.size u
+      (rowsM, colsM) = HM.size v
+  if | rowsK <= 0 || colsK <= 0 ->
+       returnLet $ konst2 0 (rowsM, colsM)
+     | otherwise -> do
+       let zRow = konst2 0 ((rowsK - 1) `div` 2, colsM)
+           rowPadded = rowAppend2 zRow $ rowAppend2 m zRow
+           zCol = konst2 0 (rowsM + rowsK - 1, (colsK - 1) `div` 2)
+           padded = columnAppend2 zCol $ columnAppend2 rowPadded zCol
+       corr2 ker padded
+
+-- No padding; remaining areas ignored.
+maxPool2 :: forall r m. DualMonad r m
+         => Int -> Int -> DualNumber (Tensor2 r) -> m (DualNumber (Tensor2 r))
+maxPool2 ksize stride m@(D u _) = do
+  let (rows, cols) = HM.size u
+      colsOut = cols `div` stride
+      resultRows = [0, stride .. rows - ksize]
+      resultCols = [0, stride .. cols - ksize]
+      resultCoords = [(r, c) | r <- resultRows, c <- resultCols]
+  v <- returnLet $ flatten1 m  -- used many times below
+  let getArea :: (Int, Int) -> DualNumber (Tensor1 r)
+      getArea (r0, c0) =
+        let getAreaAtRow r1 = append1 (slice1 (r1 * cols + c0) ksize v)
+        in foldr getAreaAtRow (seq1 V.empty) [r0 .. r0 + ksize - 1]
+      mins = map (maximum0 . getArea) resultCoords
+  returnLet $ reshape2 colsOut $ seq1 $ V.fromList mins
+
+
+-- * Operations resulting in an arbitrary untyped tensor
 
 konstX :: IsScalar r => DualNumber r -> OT.ShapeL -> DualNumber (TensorX r)
 konstX (D u u') sh = D (OT.constant sh u) (dKonstX u' sh)
@@ -453,9 +674,7 @@ fromSX :: forall sh r. (IsScalar r, OS.Shape sh)
 fromSX (D u u') = D (Data.Array.Convert.convert u) (dFromSX u')
 
 
--- * Non-monadic operations resulting in an arbitrary fully typed Shaped tensor
-
--- Warning: not tested nor benchmarked.
+-- * Operations resulting in an arbitrary fully typed Shaped tensor
 
 konstS :: (IsScalar r, OS.Shape sh)
        => DualNumber r -> DualNumber (TensorS r sh)
@@ -551,204 +770,6 @@ infixr 8 #>$
       -> DualNumber (TensorS r '[rows])
 (#>$) d e = from1S $ fromS2 d #>! fromS1 e
 
-
--- * General monadic operations, for any tensor rank
-
-tanhAct :: (DualMonad r m, IsDualWithScalar a r, Floating (Primal a))
-        => DualNumber a -> m (DualNumber a)
-tanhAct = returnLet . tanh
-
-logistic :: (Floating (Primal a), IsDual a) => DualNumber a -> DualNumber a
-logistic (D u u') =
-  let y = recip (1 + exp (- u))
-  in D y (dScale (y * (1 - y)) u')
-
-logisticAct :: (DualMonad r m, IsDualWithScalar a r, Floating (Primal a))
-            => DualNumber a -> m (DualNumber a)
-logisticAct = returnLet . logistic
-
--- Optimized and more clearly written @u ** 2@.
-square :: (Num (Primal a), IsDual a) => DualNumber a -> DualNumber a
-square (D u u') = D (u * u) (dScale (2 * u) u')
-
-squaredDifference :: (Num (Primal a), IsDual a)
-                  => Primal a -> DualNumber a -> DualNumber a
-squaredDifference targ res = square $ res - scalar targ
-
-lossSquared :: (DualMonad r m, IsDualWithScalar a r)
-            => Primal a -> DualNumber a -> m (DualNumber a)
-lossSquared targ res = returnLet $ squaredDifference targ res
-
-
--- * Monadic operations resulting in a scalar
-
--- The type permits other ranks, but it's nonsense.
-reluAct :: DualMonad r m => DualNumber r -> m (DualNumber r)
-reluAct (D u u') = returnLet $ D (max 0 u) (dScale (if u > 0 then 1 else 0) u')
-
-sumElementsVectorOfDual
-  :: IsScalar r => Data.Vector.Vector (DualNumber r) -> DualNumber r
-sumElementsVectorOfDual = V.foldl' (+) 0
-
-softMaxAct :: DualMonad r m
-           => Data.Vector.Vector (DualNumber r)
-           -> m (Data.Vector.Vector (DualNumber r))
-softMaxAct us = do
-  expUs <- V.mapM (returnLet . exp) us
-  let sumExpUs = sumElementsVectorOfDual expUs
-  -- This has to be let-bound, because it's used many times below.
-  recipSum <- returnLet $ recip sumExpUs
-  V.mapM (\r -> returnLet $ r * recipSum) expUs
-
--- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropy :: forall r m. DualMonad r m
-                 => Primal (Tensor1 r)
-                 -> Data.Vector.Vector (DualNumber r)
-                 -> m (DualNumber r)
-lossCrossEntropy targ res = do
-  let f :: DualNumber r -> Int -> DualNumber r -> DualNumber r
-      f !acc i d = acc + scale (targ V.! i) (log d)
-  returnLet $ negate $ V.ifoldl' f 0 res
-
--- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropyV :: (DualMonad r m, Floating (Primal (Tensor1 r)))
-                  => Primal (Tensor1 r)
-                  -> DualNumber (Tensor1 r)
-                  -> m (DualNumber r)
-lossCrossEntropyV targ res = returnLet $ negate $ log res <.>!! targ
-
--- Note that this is equivalent to a composition of softMax and cross entropy
--- only when @target@ is one-hot. Otherwise, results vary wildly. In our
--- rendering of the MNIST data all labels are on-hot.
-lossSoftMaxCrossEntropyV
-  :: (DualMonad r m, Floating (Primal (Tensor1 r)))
-  => Primal (Tensor1 r) -> DualNumber (Tensor1 r) -> m (DualNumber r)
-lossSoftMaxCrossEntropyV target (D u u') = do
-  -- The following protects from underflows, overflows and exploding gradients
-  -- and is required by the QuickCheck test in TestMnistCNN.
-  -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106
-  -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
-  let expU = exp (u - HM.scalar (HM.maxElement u))
-      sumExpU = HM.sumElements expU
-      recipSum = recip sumExpU
--- not exposed: softMaxU = HM.scaleRecip sumExpU expU
-      softMaxU = HM.scale recipSum expU
-  returnLet $ D (negate $ log softMaxU HM.<.> target)  -- TODO: avoid: log . exp
-                (dDot0 (softMaxU - target) u')
-
-
--- * Monadic operations resulting in a vector
-
-reluAct1 :: DualMonad r m
-         => DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r))
-reluAct1 v@(D u _) = do
-  let oneIfGtZero = V.map (\x -> if x > 0 then 1 else 0) u
-  returnLet $ scale oneIfGtZero v
-
-reluLeakyAct1 :: DualMonad r m
-              => DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r))
-reluLeakyAct1 v@(D u _) = do
-  let oneIfGtZero = V.map (\x -> if x > 0 then 1 else 0.01) u
-  returnLet $ scale oneIfGtZero v
-
-softMaxActV :: (DualMonad r m, Floating (Primal (Tensor1 r)))
-            => DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r))
-softMaxActV d@(D u _) = do
-  expU <- returnLet $ exp d
-  let sumExpU = sumElements0 expU
-  -- This has to be let-bound, because it's used many times below.
-  recipSum <- returnLet $ recip sumExpU
-  returnLet $ konst1 recipSum (V.length u) * expU
-
--- Note that this is equivalent to a composition of softMax and cross entropy
--- only when @target@ is one-hot. Otherwise, results vary wildly. In our
--- rendering of the MNIST data all labels are on-hot.
-lossSoftMaxCrossEntropyL
-  :: (DualMonad r m, Floating (Primal (Tensor2 r)))
-  => Primal (Tensor2 r)
-  -> DualNumber (Tensor2 r)
-  -> m (DualNumber (Tensor1 r))
-lossSoftMaxCrossEntropyL target (D u u') = do
-  let expU = exp (u - HM.scalar (HM.maxElement u))  -- vs exploding gradients
-      sumExpU = V.fromList $ map HM.sumElements $ HM.toColumns expU
-      recipSum = recip sumExpU
-      softMaxU = HM.asRow recipSum * expU
-                   -- this @asRow@ is safe; multiplied at once
-      scaled = D (negate $ log softMaxU * target)
-                 (dScale (softMaxU - target) u')
-  returnLet $ sumColumns1 scaled
-
-
--- * Monadic operations resulting in a matrix (or matrices)
-
-reluAct2 :: DualMonad r m
-         => DualNumber (Tensor2 r) -> m (DualNumber (Tensor2 r))
-reluAct2 m@(D u _) = do
-  let oneIfGtZero = HM.cmap (\x -> if x > 0 then 1 else 0) u
-  returnLet $ scale oneIfGtZero m
-
--- TODO: This has list of matrices result instead of a cube tensor.
-matrixSlices2 :: DualMonad r m
-              => Int -> DualNumber (Tensor2 r) -> m [DualNumber (Tensor2 r)]
-matrixSlices2 dr m@(D u _) = do
-  let (rows, cols) = HM.size u
-      n = dr * cols
-  v <- returnLet $ flatten1 m  -- used many times below
-  let f k = returnLet $ reshape2 cols $ slice1 (k * cols) n v
-  mapM f [0 .. rows - dr]
-
--- Not optimal: matrix is constructed and destructed immediately,
--- which is costly when evaluating delta expressions. The transposes
--- may not be optimal, either. This goes down to individual deltas
--- of scalars, which is horrible for performance. Unlike @corr1@
--- this uses the slow dot product instead of the fast matrix-vector
--- (or matrix-matrix) multiplication.
-corr2 :: forall r m. DualMonad r m
-      => DualNumber (Tensor2 r) -> DualNumber (Tensor2 r)
-      -> m (DualNumber (Tensor2 r))
-corr2 ker@(D u _) m@(D v _) = do
-  let (rowsK, colsK) = HM.size u
-      (rowsM, colsM) = HM.size v
-      rr = rowsM - rowsK + 1
-      rc = colsM - colsK + 1
-  if | rowsK <= 0 || colsK <= 0 ->
-       error $ "corr2: empty kernel not handled: " ++ show (rowsK, colsK)
-     | rr <= 0 || rc <= 0 ->
-       error $ "corr2: dim kernel " ++ show (rowsK, colsK)
-               ++ " > dim matrix " ++ show (rowsM, colsM)
-     | otherwise -> do
-       kerTransV <- returnLet $ flatten1 (transpose2 ker)
-       let dotColSlices :: DualNumber (Tensor2 r) -> m [DualNumber r]
-           dotColSlices tm = do
-             ttm <- returnLet $ transpose2 tm
-             colSlices <- matrixSlices2 colsK ttm
-             let f :: DualNumber (Tensor2 r) -> DualNumber r
-                 f sm = kerTransV <.>! flatten1 sm
-             return $ map f colSlices
-       rowSlices <- matrixSlices2 rowsK m
-       dotSlicesOfSlices <- mapM dotColSlices rowSlices
-       returnLet $ reshape2 rc $ seq1 $ V.fromList $ concat dotSlicesOfSlices
-
-conv2 :: forall r m. DualMonad r m
-      => DualNumber (Tensor2 r) -> DualNumber (Tensor2 r)
-      -> m (DualNumber (Tensor2 r))
-conv2 ker@(D u _) m@(D v _) = do
-  let (rowsK, colsK) = HM.size u
-      (rowsM, colsM) = HM.size v
-  if | rowsK <= 0 || colsK <= 0 ->
-       returnLet $ konst2 0 (rowsM + rowsK - 1, colsM + colsK - 1)
-     | otherwise -> do
-       let zRow = konst2 0 (rowsK - 1, colsM)
-           rowPadded = rowAppend2 zRow $ rowAppend2 m zRow
-           zCol = konst2 0 (rowsM + 2 * (rowsK - 1), colsK - 1)
-           padded = columnAppend2 zCol $ columnAppend2 rowPadded zCol
-       corr2 (fliprl2 . flipud2 $ ker) padded
-
-conv2' :: IsScalar r
-       => DualNumber (Tensor2 r) -> DualNumber (Tensor2 r)
-       -> DualNumber (Tensor2 r)
-conv2' (D u u') (D v v') = D (HM.conv2 u v) (dAdd (dConv2 u v') (dConv2 v u'))
-
 conv2S :: forall r kheight_minus_1 kwidth_minus_1 in_height in_width.
           ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
           , KnownNat in_height, KnownNat in_width
@@ -793,43 +814,6 @@ conv24 ker x = mapS conv23 x where
                                          , in_width + kwidth_minus_1 ])
   sumOutermost = sum . unravelToListS
     -- slow; should go through Tensor2, or the Num instance should when possible
-
--- A variant with limited padding, corresponding to SAME padding
--- from Tensorflow. Data size does not change with this padding.
--- It also performs convolution wrt flipped kernel (and so saves
--- on flipping it here), which makes no practical difference when
--- the kernel is initialized randomly.
-convSame2 :: forall r m. DualMonad r m
-          => DualNumber (Tensor2 r) -> DualNumber (Tensor2 r)
-          -> m (DualNumber (Tensor2 r))
-convSame2 ker@(D u _) m@(D v _) = do
-  let (rowsK, colsK) = HM.size u
-      (rowsM, colsM) = HM.size v
-  if | rowsK <= 0 || colsK <= 0 ->
-       returnLet $ konst2 0 (rowsM, colsM)
-     | otherwise -> do
-       let zRow = konst2 0 ((rowsK - 1) `div` 2, colsM)
-           rowPadded = rowAppend2 zRow $ rowAppend2 m zRow
-           zCol = konst2 0 (rowsM + rowsK - 1, (colsK - 1) `div` 2)
-           padded = columnAppend2 zCol $ columnAppend2 rowPadded zCol
-       corr2 ker padded
-
--- No padding; remaining areas ignored.
-maxPool2 :: forall r m. DualMonad r m
-         => Int -> Int -> DualNumber (Tensor2 r) -> m (DualNumber (Tensor2 r))
-maxPool2 ksize stride m@(D u _) = do
-  let (rows, cols) = HM.size u
-      colsOut = cols `div` stride
-      resultRows = [0, stride .. rows - ksize]
-      resultCols = [0, stride .. cols - ksize]
-      resultCoords = [(r, c) | r <- resultRows, c <- resultCols]
-  v <- returnLet $ flatten1 m  -- used many times below
-  let getArea :: (Int, Int) -> DualNumber (Tensor1 r)
-      getArea (r0, c0) =
-        let getAreaAtRow r1 = append1 (slice1 (r1 * cols + c0) ksize v)
-        in foldr getAreaAtRow (seq1 V.empty) [r0 .. r0 + ksize - 1]
-      mins = map (maximum0 . getArea) resultCoords
-  returnLet $ reshape2 colsOut $ seq1 $ V.fromList mins
 
 maxPool24
   :: forall ksize_minus_1 stride in_height in_width n_batches channels r m.

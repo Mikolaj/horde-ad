@@ -126,6 +126,7 @@ data Delta1 r =
   | forall len. KnownNat len
     => FromS1 (DeltaS r '[len])
 
+    -- unsorted and undocumented yet
   | Reverse1 (Delta1 r)
   | Flatten1 Int Int (Delta2 r)
   | FlattenX1 OT.ShapeL (DeltaX r)
@@ -160,6 +161,7 @@ data Delta2 r =
   | forall rows cols. (KnownNat rows, KnownNat cols)
     => FromS2 (DeltaS r '[rows, cols])
 
+    -- unsorted and undocumented yet
   | Flipud2 (Delta2 r)
   | Fliprl2 (Delta2 r)
   | Reshape2 Int (Delta1 r)
