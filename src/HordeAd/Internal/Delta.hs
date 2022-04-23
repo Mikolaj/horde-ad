@@ -870,45 +870,34 @@ ppBinding prefix = \case
   DeltaBindingX (DeltaId i) d ->
     [prefix ++ "X DeltaId_", show i, " = ", ppShow d, "\n"]
 
+bindInState :: (DeltaId a -> t -> DeltaBinding r)
+            -> (DeltaState r -> DeltaId a)
+            -> (DeltaId a -> DeltaState r -> a1)
+            -> t
+            -> DeltaState r
+            -> (a1, DeltaId a)
+bindInState deltaBinding deltaCounter setDeltaCounter u' st =
+  let dId = deltaCounter st
+      !binding = deltaBinding dId u'
+  in ( setDeltaCounter (succDeltaId dId)
+         (st { deltaBindings = binding : deltaBindings st })
+     , dId )
+
 bindInState0 :: Delta0 r -> DeltaState r -> (DeltaState r, DeltaId r)
 {-# INLINE bindInState0 #-}
-bindInState0 u' st =
-  let dId = deltaCounter0 st
-      !binding = DeltaBinding0 dId u'
-  in ( st { deltaCounter0 = succDeltaId dId
-          , deltaBindings = binding : deltaBindings st
-          }
-     , dId )
+bindInState0 = bindInState DeltaBinding0 deltaCounter0 (\d st -> st { deltaCounter0 = d })
 
 bindInState1 :: Delta1 r -> DeltaState r -> (DeltaState r, DeltaId (Vector r))
 {-# INLINE bindInState1 #-}
-bindInState1 u' st =
-  let dId = deltaCounter1 st
-      !binding = DeltaBinding1 dId u'
-  in ( st { deltaCounter1 = succDeltaId dId
-          , deltaBindings = binding : deltaBindings st
-          }
-     , dId )
+bindInState1 = bindInState DeltaBinding1 deltaCounter1 (\d st -> st { deltaCounter1 = d })
 
 bindInState2 :: Delta2 r -> DeltaState r -> (DeltaState r, DeltaId (Matrix r))
 {-# INLINE bindInState2 #-}
-bindInState2 u' st =
-  let dId = deltaCounter2 st
-      !binding = DeltaBinding2 dId u'
-  in ( st { deltaCounter2 = succDeltaId dId
-          , deltaBindings = binding : deltaBindings st
-          }
-     , dId )
+bindInState2 = bindInState DeltaBinding2 deltaCounter2 (\d st -> st { deltaCounter2 = d })
 
 bindInStateX :: DeltaX r -> DeltaState r -> (DeltaState r, DeltaId (OT.Array r))
 {-# INLINE bindInStateX #-}
-bindInStateX u' st =
-  let dId = deltaCounterX st
-      !binding = DeltaBindingX dId u'
-  in ( st { deltaCounterX = succDeltaId dId
-          , deltaBindings = binding : deltaBindings st
-          }
-     , dId )
+bindInStateX = bindInState DeltaBindingX deltaCounterX (\d st -> st { deltaCounterX = d })
 
 {- Note [SumElements0]
 ~~~~~~~~~~~~~~~~~~~~~~
