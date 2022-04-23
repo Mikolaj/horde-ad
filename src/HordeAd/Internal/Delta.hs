@@ -35,7 +35,7 @@
 -- grow large enough to affect cache misses).
 module HordeAd.Internal.Delta
   ( -- * Abstract syntax trees of the delta expressions
-    Delta (..), Delta0, Delta1 (..), Delta2 (..), DeltaX (..), DeltaS (..)
+    Delta (..), Delta0, Delta1, Delta2 (..), DeltaX (..), DeltaS (..)
   , Delta0Others (..), Delta1Others (..), Delta2Others (..), DeltaXOthers (..)
   , -- * Delta expression identifiers
     DeltaId, toDeltaId, covertDeltaId
@@ -102,19 +102,6 @@ deriving instance (Show v, Show t1, Show tX, Show tS)
 
 -- | This is the grammar of delta-expressions at tensor rank 1, that is,
 -- at vector level.
-data Delta1 r =
-    Zero1
-  | Scale1 (Vector r) (Delta1 r)
-  | Add1 (Delta1 r) (Delta1 r)
-  | Var1 (DeltaId (Vector r))
-  | forall sh. OS.Shape sh
-    => FlattenS1 (DeltaS r sh)
-  | forall len. KnownNat len
-    => FromS1 (DeltaS r '[len])
-  | Delta1Others (Delta1Others (Matrix r) (Vector r) (Delta0 r) (Delta1 r) (Delta2 r) (DeltaX r))
-
-deriving instance (Show r, Numeric r) => Show (Delta1 r)
-
 data Delta1Others m v d0 d1 d2 dX =
     Seq1 (Data.Vector.Vector d0)  -- ^ "unboxing" conversion
   | Konst1 d0 Int  -- ^ length; needed only for forward derivative
@@ -281,9 +268,11 @@ data SDeltaLevel a where
   SDX :: SDeltaLevel 'DX
 
 type Delta0 = Delta 'D0
+type Delta1 = Delta 'D1
 
 -- FlexibleInstances
 deriving instance (Show r, Numeric r) => Show (Delta 'D0 r)
+deriving instance (Show r, Numeric r) => Show (Delta 'D1 r)
 
 data Delta d r where
   Zero0 :: Delta 'D0 r
@@ -293,7 +282,15 @@ data Delta d r where
   Delta0Others :: Delta0Others (Vector r) (Delta1 r) (DeltaX r) (DeltaS r '[])
                -> Delta 'D0 r
 
-  DeltaD1 :: Delta1 r -> Delta 'D1 r
+  Zero1 :: Delta 'D1 r
+  Scale1 :: Vector r -> Delta1 r -> Delta 'D1 r
+  Add1 :: Delta1 r -> Delta1 r -> Delta 'D1 r
+  Var1 :: DeltaId (Vector r) -> Delta 'D1 r
+  FlattenS1 :: OS.Shape sh => DeltaS r sh -> Delta 'D1 r
+  FromS1 :: KnownNat len => DeltaS r '[len] -> Delta 'D1 r
+  Delta1Others :: Delta1Others (Matrix r) (Vector r) (Delta0 r) (Delta1 r) (Delta2 r) (DeltaX r)
+               -> Delta 'D1 r
+
   DeltaD2 :: Delta2 r -> Delta 'D2 r
   DeltaDX :: DeltaX r -> Delta 'DX r
 
@@ -676,7 +673,7 @@ buildFinMaps st deltaTopLevel dt = do
         r <- finMap0 `VM.read` i
         unless (r == 0) $  -- we init with exactly 0.0 so the comparison works
           eval0 r d
-      evalUnlessZero (DeltaBinding SD1 (DeltaIdG1 (DeltaId i)) (DeltaD1 d)) = do
+      evalUnlessZero (DeltaBinding SD1 (DeltaIdG1 (DeltaId i)) d) = do
         r <- finMap1 `VM.read` i
         unless (V.null r) $
           eval1 r d
@@ -841,7 +838,7 @@ derivativeFromDelta st deltaTopLevel
         DeltaBinding SD0 (DeltaIdG0 (DeltaId i)) d ->
           let v = eval0 parameters d
           in (params0 V.// [(i, v)], params1, params2, paramsX)
-        DeltaBinding SD1 (DeltaIdG1 (DeltaId i)) (DeltaD1 d) ->
+        DeltaBinding SD1 (DeltaIdG1 (DeltaId i)) d ->
           let v = eval1 parameters d
           in (params0, params1 V.// [(i, v)], params2, paramsX)
         DeltaBinding SD2 (DeltaIdG2 (DeltaId i)) (DeltaD2 d) ->
@@ -885,7 +882,7 @@ ppBinding :: (Show r, Numeric r) => String -> DeltaBinding r -> [String]
 ppBinding prefix = \case
   DeltaBinding SD0 (DeltaIdG0 (DeltaId i)) d ->
     [prefix ++ "0 DeltaId_", show i, " = ", ppShow d, "\n"]
-  DeltaBinding SD1 (DeltaIdG1 (DeltaId i)) (DeltaD1 d) ->
+  DeltaBinding SD1 (DeltaIdG1 (DeltaId i)) d ->
     [prefix ++ "1 DeltaId_", show i, " = ", ppShow d, "\n"]
   DeltaBinding SD2 (DeltaIdG2 (DeltaId i)) (DeltaD2 d) ->
     [prefix ++ "2 DeltaId_", show i, " = ", ppShow d, "\n"]
@@ -911,7 +908,7 @@ bindInState0 = bindInState (\x y -> DeltaBinding SD0 (DeltaIdG0 x) y) deltaCount
 
 bindInState1 :: Delta1 r -> DeltaState r -> (DeltaState r, DeltaId (Vector r))
 {-# INLINE bindInState1 #-}
-bindInState1 = bindInState (\x y -> DeltaBinding SD1 (DeltaIdG1 x) (DeltaD1 y)) deltaCounter1 (\d st -> st { deltaCounter1 = d })
+bindInState1 = bindInState (\x y -> DeltaBinding SD1 (DeltaIdG1 x) y) deltaCounter1 (\d st -> st { deltaCounter1 = d })
 
 bindInState2 :: Delta2 r -> DeltaState r -> (DeltaState r, DeltaId (Matrix r))
 {-# INLINE bindInState2 #-}
