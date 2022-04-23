@@ -828,7 +828,7 @@ maxPool24
      ( KnownNat ksize, KnownNat stride, KnownNat in_height, KnownNat in_width
      , KnownNat n_batches, KnownNat channels
      , 1 <= stride
-     , DualMonad r m )
+     , DualMonad r m, IsDualVar (TensorS r '[n_batches, channels, Div in_height stride, Div in_width stride]))
      => DualNumber (TensorS r '[n_batches, channels, in_height, in_width])
      -> m (DualNumber (TensorS r '[ n_batches, channels
                                   , in_height `Div` stride
@@ -840,7 +840,7 @@ maxPool24 d = do
                        . fromS2)) d
   returnLet res
 
-reluActS :: (DualMonad r m, OS.Shape sh)
+reluActS :: (DualMonad r m, OS.Shape sh, IsDualVar (TensorS r sh))
          => DualNumber (TensorS r sh) -> m (DualNumber (TensorS r sh))
 reluActS d@(D u _) = do
   let oneIfGtZero = OS.mapA (\x -> if x > 0 then 1 else 0) u

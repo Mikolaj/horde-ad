@@ -177,8 +177,8 @@ instance (IsDualS t, OS.Shape sh) => IsDual (t sh) where
   dAdd = dAddS
   type ScalarOf (t sh) = ScalarOfS t
 
-instance (IsDualSVar t, OS.Shape sh) => IsDualVar (t sh) where
-  type DD (t sh) = 'DX
+instance OS.Shape sh => IsDualVar (DeltaS r sh) where
+  type DD (DeltaS r sh) = 'DX
   dVar = dVarS
   {-# INLINE bindInState #-}
   bindInState = bindInStateS
