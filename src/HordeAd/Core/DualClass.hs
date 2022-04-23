@@ -134,10 +134,11 @@ class IsDual a where
   type ScalarOf a  -- verbose name to remember not to export from this module
 
 class IsDual a => IsDualVar a where
-  dVar :: DeltaId (Primal a) -> a
+  type DD a :: DeltaLevel
+  dVar :: DeltaId (DD a) -> a
   bindInState :: a
               -> DeltaState (ScalarOf a)
-              -> (DeltaState (ScalarOf a), DeltaId (Primal a))
+              -> (DeltaState (ScalarOf a), DeltaId (DD a))
 
 -- We had to inline @PrimalS@ in the signatures of the methods and everywhere
 -- else in the code, because @~@ doesn't work on higher-rank types.
@@ -153,12 +154,12 @@ class IsDualS (t :: [Nat] -> Type) where
   type ScalarOfS t :: Type
 
 class IsDualS (t :: [Nat] -> Type) => IsDualSVar t where
-  dVarS :: forall sh. OS.Shape sh => DeltaId (OS.Array sh (ScalarOfS t)) -> t sh
+  dVarS :: forall sh. OS.Shape sh => DeltaId 'DX -> t sh
   bindInStateS :: forall sh. OS.Shape sh
                => t sh
                -> DeltaState (ScalarOfS t)
                -> ( DeltaState (ScalarOfS t)
-                  , DeltaId (OS.Array sh (ScalarOfS t)) )
+                  , DeltaId 'DX )
 
 -- This type family needs to be closed and injective or else GHC complains
 -- when using the instance below (how bad things go depends on GHC version).
@@ -177,6 +178,7 @@ instance (IsDualS t, OS.Shape sh) => IsDual (t sh) where
   type ScalarOf (t sh) = ScalarOfS t
 
 instance (IsDualSVar t, OS.Shape sh) => IsDualVar (t sh) where
+  type DD (t sh) = 'DX
   dVar = dVarS
   {-# INLINE bindInState #-}
   bindInState = bindInStateS
@@ -371,6 +373,7 @@ instance IsDual (Delta0 r) where
   type ScalarOf (Delta0 r) = r
 
 instance IsDualVar (Delta0 r) where
+  type DD (Delta0 r) = 'D0
   dVar = Var0
   {-# INLINE bindInState #-}
   bindInState = bindInState0
@@ -409,6 +412,7 @@ instance IsDual (Delta1 r) where
   type ScalarOf (Delta1 r) = r
 
 instance IsDualVar (Delta1 r) where
+  type DD (Delta1 r) = 'D1
   dVar = Var1
   {-# INLINE bindInState #-}
   bindInState = bindInState1
@@ -421,6 +425,7 @@ instance IsDual (Delta2 r) where
   type ScalarOf (Delta2 r) = r
 
 instance IsDualVar (Delta2 r) where
+  type DD (Delta2 r) = 'D2
   dVar = Var2
   {-# INLINE bindInState #-}
   bindInState = bindInState2
@@ -433,6 +438,7 @@ instance IsDual (DeltaX r) where
   type ScalarOf (DeltaX r) = r
 
 instance IsDualVar (DeltaX r) where
+  type DD (DeltaX r) = 'DX
   dVar = VarX
   {-# INLINE bindInState #-}
   bindInState = bindInStateX
@@ -447,7 +453,7 @@ instance IsDualSVar (DeltaS r) where
   dVarS = VarS
   {-# INLINE bindInStateS #-}
   bindInStateS u' st = let (st2, did) = bindInStateX (FromSX u') st
-                       in (st2, covertDeltaId did)
+                       in (st2, did)
 
 
 -- * Alternative instances: forward derivatives computed on the spot

@@ -38,10 +38,11 @@ module HordeAd.Internal.Delta
     Delta (..), Delta0, Delta1, Delta2, DeltaX, DeltaS (..)
   , Delta0Others (..), Delta1Others (..), Delta2Others (..), DeltaXOthers (..)
   , -- * Delta expression identifiers
-    DeltaId, toDeltaId, covertDeltaId
+    DeltaId, toDeltaId
   , -- * Evaluation of the delta expressions
     DeltaBinding
   , DeltaState (..)
+  , DeltaLevel (..)
   , Domain0, Domain1, Domain2, DomainX, Domains
   , gradientFromDelta, derivativeFromDelta, ppBindings
   , bindInState0, bindInState1, bindInState2, bindInStateX
@@ -187,7 +188,7 @@ data DeltaS :: Type -> [Nat] -> Type where
   ZeroS :: DeltaS r sh
   ScaleS :: OS.Array sh r -> DeltaS r sh -> DeltaS r sh
   AddS :: DeltaS r sh -> DeltaS r sh -> DeltaS r sh
-  VarS :: DeltaId (OS.Array sh r) -> DeltaS r sh
+  VarS :: DeltaId 'DX -> DeltaS r sh
 
   KonstS :: Delta0 r -> DeltaS r sh
   AppendS :: (OS.Shape sh, KnownNat m, KnownNat n)
@@ -220,14 +221,8 @@ instance Show (DeltaS r sh) where
 
 -- * Delta expression identifiers
 
-newtype DeltaId a = DeltaId Int
-  deriving Show
-
 toDeltaId :: Int -> DeltaId a
 toDeltaId = DeltaId
-
-covertDeltaId :: DeltaId (OT.Array r) -> DeltaId (OS.Array sh r)
-covertDeltaId (DeltaId i) = DeltaId i
 
 -- The key property is that it preserves the phantom type.
 succDeltaId :: DeltaId a -> DeltaId a
@@ -259,14 +254,14 @@ data Delta d r where
   Zero0 :: Delta 'D0 r
   Scale0 :: r -> Delta0 r -> Delta 'D0 r
   Add0 :: Delta0 r -> Delta0 r -> Delta 'D0 r
-  Var0 :: DeltaId r -> Delta 'D0 r
+  Var0 :: DeltaId 'D0 -> Delta 'D0 r
   Delta0Others :: Delta0Others (Vector r) (Delta1 r) (DeltaX r) (DeltaS r '[])
                -> Delta 'D0 r
 
   Zero1 :: Delta 'D1 r
   Scale1 :: Vector r -> Delta1 r -> Delta 'D1 r
   Add1 :: Delta1 r -> Delta1 r -> Delta 'D1 r
-  Var1 :: DeltaId (Vector r) -> Delta 'D1 r
+  Var1 :: DeltaId 'D1 -> Delta 'D1 r
   FlattenS1 :: OS.Shape sh => DeltaS r sh -> Delta 'D1 r
   FromS1 :: KnownNat len => DeltaS r '[len] -> Delta 'D1 r
   Delta1Others :: Delta1Others (Matrix r) (Vector r) (Delta0 r) (Delta1 r) (Delta2 r) (DeltaX r)
@@ -275,7 +270,7 @@ data Delta d r where
   Zero2 :: Delta 'D2 r
   Scale2 :: Matrix r -> Delta2 r -> Delta 'D2 r
   Add2 :: Delta2 r -> Delta2 r -> Delta 'D2 r
-  Var2 :: DeltaId (Matrix r) -> Delta 'D2 r
+  Var2 :: DeltaId 'D2 -> Delta 'D2 r
   FromS2 :: (KnownNat rows, KnownNat cols)
          =>DeltaS r '[rows, cols]-> Delta 'D2 r
 
@@ -285,19 +280,15 @@ data Delta d r where
   ZeroX :: Delta 'DX r
   ScaleX :: OT.Array r -> DeltaX r ->  Delta 'DX r
   AddX :: DeltaX r -> DeltaX r -> Delta 'DX r
-  VarX :: DeltaId (OT.Array r) -> Delta 'DX r
+  VarX :: DeltaId 'DX -> Delta 'DX r
   FromSX :: OS.Shape sh
          => DeltaS r sh -> Delta 'DX r
   DeltaXOthers :: DeltaXOthers (Delta0 r) (Delta1 r) (Delta2 r) (DeltaX r)
                -> Delta 'DX r
 
-data DeltaIdG d r where
-  DeltaIdG0 :: DeltaId r -> DeltaIdG 'D0 r
-  DeltaIdG1 :: DeltaId (Vector r) -> DeltaIdG 'D1 r
-  DeltaIdG2 :: DeltaId (Matrix r) -> DeltaIdG 'D2 r
-  DeltaIdGX :: DeltaId (OT.Array r) -> DeltaIdG 'DX r
-
-
+newtype DeltaId (d :: DeltaLevel) where
+  DeltaId :: Int -> DeltaId d
+  deriving Show
 
 -- | Binding at one of the ranks, with a given underlying scalar.
 --
@@ -306,13 +297,13 @@ data DeltaIdG d r where
 -- than storing them here at the time of binding creation and accessing
 -- in `buildFinMaps`.
 data DeltaBinding r where
-  DeltaBinding :: SDeltaLevel d -> DeltaIdG d r -> Delta d r -> DeltaBinding r
+  DeltaBinding :: SDeltaLevel d -> DeltaId d -> Delta d r -> DeltaBinding r
 
 data DeltaState r = DeltaState
-  { deltaCounter0 :: DeltaId r
-  , deltaCounter1 :: DeltaId (Vector r)
-  , deltaCounter2 :: DeltaId (Matrix r)
-  , deltaCounterX :: DeltaId (OT.Array r)
+  { deltaCounter0 :: DeltaId 'D0
+  , deltaCounter1 :: DeltaId 'D1
+  , deltaCounter2 :: DeltaId 'D2
+  , deltaCounterX :: DeltaId 'DX
   , deltaBindings :: [DeltaBinding r]
   }
 
@@ -666,19 +657,19 @@ buildFinMaps st deltaTopLevel dt = do
   eval0 dt deltaTopLevel
 
   let evalUnlessZero :: DeltaBinding r -> ST s ()
-      evalUnlessZero (DeltaBinding SD0 (DeltaIdG0 (DeltaId i)) d) = do
+      evalUnlessZero (DeltaBinding SD0 (DeltaId i) d) = do
         r <- finMap0 `VM.read` i
         unless (r == 0) $  -- we init with exactly 0.0 so the comparison works
           eval0 r d
-      evalUnlessZero (DeltaBinding SD1 (DeltaIdG1 (DeltaId i)) d) = do
+      evalUnlessZero (DeltaBinding SD1 (DeltaId i) d) = do
         r <- finMap1 `VM.read` i
         unless (V.null r) $
           eval1 r d
-      evalUnlessZero (DeltaBinding SD2 (DeltaIdG2  (DeltaId i)) d) = do
+      evalUnlessZero (DeltaBinding SD2 (DeltaId i) d) = do
         r <- finMap2 `VM.read` i
         unless (MO.nullMatrixOuter r) $
           eval2 r d
-      evalUnlessZero (DeltaBinding SDX (DeltaIdGX (DeltaId i)) d) =do
+      evalUnlessZero (DeltaBinding SDX (DeltaId i) d) =do
         r <- finMapX `VM.read` i
         unless (isTensorDummy r) $
           evalX r d
@@ -832,16 +823,16 @@ derivativeFromDelta st deltaTopLevel
         FromXS d -> Data.Array.Convert.convert $ evalX parameters d
       evalUnlessZero :: Domains r -> DeltaBinding r -> Domains r
       evalUnlessZero parameters@(!params0, !params1, !params2, !paramsX) = \case
-        DeltaBinding SD0 (DeltaIdG0 (DeltaId i)) d ->
+        DeltaBinding SD0 (DeltaId i) d ->
           let v = eval0 parameters d
           in (params0 V.// [(i, v)], params1, params2, paramsX)
-        DeltaBinding SD1 (DeltaIdG1 (DeltaId i)) d ->
+        DeltaBinding SD1 (DeltaId i) d ->
           let v = eval1 parameters d
           in (params0, params1 V.// [(i, v)], params2, paramsX)
-        DeltaBinding SD2 (DeltaIdG2 (DeltaId i)) d ->
+        DeltaBinding SD2 (DeltaId i) d ->
           let v = eval2 parameters d
           in (params0, params1, params2 V.// [(i, v)], paramsX)
-        DeltaBinding SDX (DeltaIdGX (DeltaId i)) d ->
+        DeltaBinding SDX (DeltaId i) d ->
           let v = evalX parameters d
           in (params0, params1, params2, paramsX V.// [(i, v)])
       parameters1 = runST $ do
@@ -877,13 +868,13 @@ ppBindings reversed st deltaTopLevel =
 
 ppBinding :: (Show r, Numeric r) => String -> DeltaBinding r -> [String]
 ppBinding prefix = \case
-  DeltaBinding SD0 (DeltaIdG0 (DeltaId i)) d ->
+  DeltaBinding SD0 (DeltaId i) d ->
     [prefix ++ "0 DeltaId_", show i, " = ", ppShow d, "\n"]
-  DeltaBinding SD1 (DeltaIdG1 (DeltaId i)) d ->
+  DeltaBinding SD1 (DeltaId i) d ->
     [prefix ++ "1 DeltaId_", show i, " = ", ppShow d, "\n"]
-  DeltaBinding SD2 (DeltaIdG2 (DeltaId i)) d ->
+  DeltaBinding SD2 (DeltaId i) d ->
     [prefix ++ "2 DeltaId_", show i, " = ", ppShow d, "\n"]
-  DeltaBinding SDX (DeltaIdGX (DeltaId i)) d ->
+  DeltaBinding SDX (DeltaId i) d ->
     [prefix ++ "X DeltaId_", show i, " = ", ppShow d, "\n"]
 
 bindInState :: (DeltaId a -> t -> DeltaBinding r)
@@ -899,21 +890,21 @@ bindInState deltaBinding deltaCounter setDeltaCounter u' st =
          (st { deltaBindings = binding : deltaBindings st })
      , dId )
 
-bindInState0 :: Delta0 r -> DeltaState r -> (DeltaState r, DeltaId r)
+bindInState0 :: Delta0 r -> DeltaState r -> (DeltaState r, DeltaId 'D0)
 {-# INLINE bindInState0 #-}
-bindInState0 = bindInState (\x y -> DeltaBinding SD0 (DeltaIdG0 x) y) deltaCounter0 (\d st -> st { deltaCounter0 = d })
+bindInState0 = bindInState (\x y -> DeltaBinding SD0 x y) deltaCounter0 (\d st -> st { deltaCounter0 = d })
 
-bindInState1 :: Delta1 r -> DeltaState r -> (DeltaState r, DeltaId (Vector r))
+bindInState1 :: Delta1 r -> DeltaState r -> (DeltaState r, DeltaId 'D1)
 {-# INLINE bindInState1 #-}
-bindInState1 = bindInState (\x y -> DeltaBinding SD1 (DeltaIdG1 x) y) deltaCounter1 (\d st -> st { deltaCounter1 = d })
+bindInState1 = bindInState (\x y -> DeltaBinding SD1 x y) deltaCounter1 (\d st -> st { deltaCounter1 = d })
 
-bindInState2 :: Delta2 r -> DeltaState r -> (DeltaState r, DeltaId (Matrix r))
+bindInState2 :: Delta2 r -> DeltaState r -> (DeltaState r, DeltaId 'D2)
 {-# INLINE bindInState2 #-}
-bindInState2 = bindInState (\x y -> DeltaBinding SD2 (DeltaIdG2 x) y) deltaCounter2 (\d st -> st { deltaCounter2 = d })
+bindInState2 = bindInState (\x y -> DeltaBinding SD2 x y) deltaCounter2 (\d st -> st { deltaCounter2 = d })
 
-bindInStateX :: DeltaX r -> DeltaState r -> (DeltaState r, DeltaId (OT.Array r))
+bindInStateX :: DeltaX r -> DeltaState r -> (DeltaState r, DeltaId 'DX)
 {-# INLINE bindInStateX #-}
-bindInStateX = bindInState (\x y -> DeltaBinding SDX (DeltaIdGX x) y) deltaCounterX (\d st -> st { deltaCounterX = d })
+bindInStateX = bindInState (\x y -> DeltaBinding SDX x y) deltaCounterX (\d st -> st { deltaCounterX = d })
 
 {- Note [SumElements0]
 ~~~~~~~~~~~~~~~~~~~~~~
