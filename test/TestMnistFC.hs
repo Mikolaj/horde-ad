@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, RankNTypes, TypeFamilies #-}
 module TestMnistFC
   ( testTrees, shortTestForCITrees, mnistTestCase2T, mnistTestCase2D
   ) where
@@ -8,10 +8,12 @@ import Prelude
 import           Control.DeepSeq
 import           Control.Monad (foldM, when)
 import qualified Data.Array.DynamicS as OT
+import           Data.Array.Internal (valueOf)
 import           Data.Coerce (coerce)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import qualified Data.Vector.Generic as V
+import           GHC.TypeLits (KnownNat)
 import qualified Numeric.LinearAlgebra as HM
 import           System.IO (hFlush, stdout)
 import           System.Random
@@ -488,6 +490,65 @@ mnistTestCase2F reallyWriteFile miniBatchSize decay
        let testErrorFinal = 1 - testMnist2 @(Delta0 Double) testData res
        testErrorFinal @?= expected
 
+mnistTestCase2S
+  :: forall widthHidden widthHidden2.
+     (KnownNat widthHidden, KnownNat widthHidden2)
+  => Proxy widthHidden -> Proxy widthHidden2
+  -> String
+  -> Int
+  -> Int
+  -> (forall r m. (DualMonad r m, Floating (Primal (Tensor1 r)))
+      => Proxy widthHidden -> Proxy widthHidden2
+      -> MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r))
+  -> Double
+  -> Double
+  -> TestTree
+mnistTestCase2S proxy proxy2
+                prefix epochs maxBatches trainWithLoss gamma expected =
+  let ((_, _, _, nParamsX), totalParams, range, parameters0) =
+        initializerFixed 44 0.5 (lenMnistFcnnS @widthHidden @widthHidden2)
+      name = prefix ++ " "
+             ++ unwords [ show epochs, show maxBatches
+                        , show (valueOf @widthHidden :: Int)
+                        , show (valueOf @widthHidden2 :: Int)
+                        , show nParamsX, show totalParams
+                        , show gamma, show range ]
+  in testCase name $ do
+       trainData <- loadMnistData trainGlyphsPath trainLabelsPath
+       testData <- loadMnistData testGlyphsPath testLabelsPath
+       let runBatch :: Domains (Delta0 Double)
+                    -> (Int, [MnistData Double])
+                    -> IO (Domains (Delta0 Double))
+           runBatch (!params0, !params1, !params2, !paramsX) (k, chunk) = do
+             printf "(Batch %d with %d points)\n" k (length chunk)
+             let f = trainWithLoss proxy proxy2
+                 res = fst $ sgd gamma f chunk
+                                 (params0, params1, params2, paramsX)
+                 trainScore = testMnistS @widthHidden @widthHidden2
+                                         @(Delta0 Double) chunk res
+                 testScore = testMnistS @widthHidden @widthHidden2
+                                        @(Delta0 Double) testData res
+             printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
+             printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
+             return res
+       let runEpoch :: Int
+                    -> Domains (Delta0 Double)
+                    -> IO (Domains (Delta0 Double))
+           runEpoch n params2 | n > epochs = return params2
+           runEpoch n params2 = do
+             printf "[Epoch %d]\n" n
+             let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
+                 chunks = take maxBatches
+                          $ zip [1 ..] $ chunksOf 5000 trainDataShuffled
+             !res <- foldM runBatch params2 chunks
+             runEpoch (succ n) res
+       printf "\nEpochs to run/max batches per epoch: %d/%d\n"
+              epochs maxBatches
+       res <- runEpoch 1 parameters0
+       let testErrorFinal = 1 - testMnistS @widthHidden @widthHidden2
+                                           @(Delta0 Double) testData res
+       testErrorFinal @?= expected
+
 dumbMnistTests :: TestTree
 dumbMnistTests = testGroup "Dumb MNIST tests"
   [ testCase "1pretty-print in grey 3 2" $ do
@@ -836,6 +897,42 @@ fusedMnistTests = testGroup "MNIST fused LL tests with a 2-hidden-layer nn"
                     0.8972
   , mnistTestCase2L "artificial 5 4 3 2 1" 5 4 nnMnistLossFused2 3 2 1
                     0.7033
+  , mnistTestCase2S (Proxy @300) (Proxy @100)
+                    "S 1 epoch, 1 batch" 1 1 nnMnistLossFusedS 0.02
+                    0.1311
+  , mnistTestCase2S (Proxy @500) (Proxy @150)
+                    "S 1 epoch, 1 batch, wider" 1 1 nnMnistLossFusedS 0.02
+                    0.12470000000000003
+  , mnistTestCase2S (Proxy @300) (Proxy @100)
+                    "S 2 epochs, but only 1 batch" 2 1 nnMnistLossFusedS 0.02
+                    9.630000000000005e-2
+  , mnistTestCase2S (Proxy @300) (Proxy @100)
+                    "S 1 epoch, all batches" 1 99 nnMnistLossFusedS 0.02
+                    5.620000000000003e-2
+  , mnistTestCase2S (Proxy @3) (Proxy @4)
+                    "S artificial 1 2 3 4 5" 1 2 nnMnistLossFusedS 5
+                    0.8972
+  , mnistTestCase2S (Proxy @3) (Proxy @2)
+                    "S artificial 5 4 3 2 1" 5 4 nnMnistLossFusedS 1
+                    0.8246
+  , mnistTestCase2S (Proxy @300) (Proxy @100)
+                    "SR 1 epoch, 1 batch" 1 1 nnMnistLossFusedReluS 0.02
+                    0.7068
+  , mnistTestCase2S (Proxy @500) (Proxy @150)
+                    "SR 1 epoch, 1 batch, wider" 1 1 nnMnistLossFusedReluS 0.02
+                    0.8874
+  , mnistTestCase2S (Proxy @300) (Proxy @100)
+                    "SR 2 epochs, but 1 batch" 2 1 nnMnistLossFusedReluS 0.02
+                    0.8352999999999999
+  , mnistTestCase2S (Proxy @300) (Proxy @100)
+                    "SR 1 epoch, all batches" 1 99 nnMnistLossFusedReluS 0.02
+                    0.6415
+  , mnistTestCase2S (Proxy @3) (Proxy @4)
+                    "SR artificial 1 2 3 4 5" 1 2 nnMnistLossFusedReluS 5
+                    0.8972
+  , mnistTestCase2S (Proxy @3) (Proxy @2)
+                    "SR artificial 5 4 3 2 1" 5 4 nnMnistLossFusedReluS 1
+                    0.8991
   ]
 
 shortCIMnistTests :: TestTree
@@ -867,5 +964,20 @@ shortCIMnistTests = testGroup "Short CI MNIST tests"
                     0.8865
   , mnistTestCase2D False 1 False
                     "fused DL artificial 5 4 3 2 1" 5 4 nnMnistLossFused2 3 2 1
+                    0.8991
+  , mnistTestCase2S (Proxy @300) (Proxy @100)
+                    "S 1 epoch, 1 batch" 1 1 nnMnistLossFusedS 0.02
+                    0.1311
+  , mnistTestCase2S (Proxy @3) (Proxy @4)
+                    "S artificial 1 2 3 4 5" 1 2 nnMnistLossFusedS 5
+                    0.8972
+  , mnistTestCase2S (Proxy @3) (Proxy @2)
+                    "S artificial 5 4 3 2 1" 5 4 nnMnistLossFusedS 1
+                    0.8246
+  , mnistTestCase2S (Proxy @3) (Proxy @4)
+                    "SR artificial 1 2 3 4 5" 1 2 nnMnistLossFusedReluS 5
+                    0.8972
+  , mnistTestCase2S (Proxy @3) (Proxy @2)
+                    "SR artificial 5 4 3 2 1" 5 4 nnMnistLossFusedReluS 1
                     0.8991
   ]

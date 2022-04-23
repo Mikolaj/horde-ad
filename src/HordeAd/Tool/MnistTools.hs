@@ -5,6 +5,7 @@ module HordeAd.Tool.MnistTools
   , module HordeAd.Tool.MnistFcnnMatrix
   , module HordeAd.Tool.MnistFcnnScalar
   , module HordeAd.Tool.MnistFcnnVector
+  , module HordeAd.Tool.MnistFcnnShaped
   ) where
 
 import Prelude ()
@@ -12,4 +13,5 @@ import Prelude ()
 import HordeAd.Tool.MnistData
 import HordeAd.Tool.MnistFcnnMatrix
 import HordeAd.Tool.MnistFcnnScalar
+import HordeAd.Tool.MnistFcnnShaped
 import HordeAd.Tool.MnistFcnnVector

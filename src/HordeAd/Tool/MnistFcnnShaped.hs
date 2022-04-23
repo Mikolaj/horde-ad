@@ -13,6 +13,7 @@ import           Control.Exception (assert)
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Shape
 import qualified Data.Array.ShapedS as OS
+import           Data.Proxy (Proxy)
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat)
 
@@ -100,12 +101,17 @@ nnMnistS factivationHidden input variables = do
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function, using fused
 -- softMax and cross entropy as the loss function.
+--
+-- The silly proxies are needed due to the compilation hiccup
+-- from the last example at
+-- https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/exts/ambiguous_types.html#extension-AllowAmbiguousTypes
 nnMnistLossFusedS
   :: forall widthHidden widthHidden2 r m.
      ( DualMonad r m, Floating (Primal (Tensor1 r))
      , KnownNat widthHidden, KnownNat widthHidden2 )
-  => MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
-nnMnistLossFusedS (input, target) variables = do
+  => Proxy widthHidden -> Proxy widthHidden2
+  -> MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
+nnMnistLossFusedS _ _ (input, target) variables = do
   result <- {-inline!!!-} (nnMnistS @widthHidden @widthHidden2)
               logisticAct (OS.fromVector input) variables
   lossSoftMaxCrossEntropyV target $ fromS1 result
@@ -114,8 +120,9 @@ nnMnistLossFusedReluS
   :: forall widthHidden widthHidden2 r m.
      ( DualMonad r m, Floating (Primal (Tensor1 r))
      , KnownNat widthHidden, KnownNat widthHidden2 )
-  => MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
-nnMnistLossFusedReluS (input, target) variables = do
+  => Proxy widthHidden -> Proxy widthHidden2
+  -> MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
+nnMnistLossFusedReluS _ _ (input, target) variables = do
   result <- {-inline!!!-} (nnMnistS @widthHidden @widthHidden2)
               reluActS (OS.fromVector input) variables
   lossSoftMaxCrossEntropyV target $ fromS1 result
