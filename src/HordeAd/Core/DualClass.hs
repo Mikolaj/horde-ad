@@ -60,7 +60,8 @@ type IsScalar r =
        -- mention @sh@ and so fully apply @TensorS@.
        , IsDualS (TensorS r), ScalarOfS (TensorS r) ~ Primal r
 -- If we haven't inlined away @PrimalS@, we'd need this type equality,
--- which appears to work fine (but involves the @RevArray@ newtype wrapper).
+-- which appears to work fine (but involves the @RevArray@ newtype wrapper,
+-- so would incur the need to coerce all the time).
 --       , PrimalS (TensorS r) ~ RevArray (Primal r)
        )
 
@@ -121,6 +122,8 @@ class IsDual a where
 
 -- We had to inline @PrimalS@ in the signatures of the methods and everywhere
 -- else in the code, because @~@ doesn't work on higher-rank types.
+-- However, note that @Primal (TensorS sh r)@ is not inline and it's
+-- used a lot in real code, because it's present in the API.
 class IsDualS (t :: [Nat] -> Type) where
 -- This is inlined away in order to avoid using the @RevArray@ newtype wrapper
 -- that would be needed to partially apply @OS.Array@. Thanks to inlining
