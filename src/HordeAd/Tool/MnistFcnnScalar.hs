@@ -141,7 +141,7 @@ nnMnistLoss0 widthHidden widthHidden2 (input, target) variables = do
 --
 -- The proxy argument is needed only for the (spurious) SPECIALIZE pragma,
 -- becuase I can't write @SPECIALIZE testMnist0 \@(Delta0 Double)@.
-testMnist0 :: forall r. IsScalar r
+testMnist0 :: forall r. IsScalarVar r
            => Proxy r -> Int -> Int -> [MnistData (Primal r)] -> Domain0 r
            -> Primal r
 testMnist0 _ widthHidden widthHidden2 inputs params0 =

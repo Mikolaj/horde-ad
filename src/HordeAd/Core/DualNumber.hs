@@ -30,9 +30,9 @@ import qualified HordeAd.Internal.Delta as Delta
 
 data DualNumber a = D (Primal a) a
 
-class (IsScalar r, Monad m, Functor m, Applicative m)
+class (IsScalarVar r, Monad m, Functor m, Applicative m)
       => DualMonad r m | m -> r where
-  returnLet :: IsDualWithScalar a r
+  returnLet :: IsDualWithScalarVar a r
             => DualNumber a -> m (DualNumber a)
 
 type Domain0 r = Delta.Domain0 (Primal r)
@@ -546,7 +546,7 @@ fromXS (D u u') = D (Data.Array.Convert.convert u) (dFromXS u')
 
 -- * General monadic operations, for any scalar rank
 
-tanhAct :: (DualMonad r m, IsDualWithScalar a r, Floating (Primal a))
+tanhAct :: (DualMonad r m, IsDualWithScalarVar a r, Floating (Primal a))
         => DualNumber a -> m (DualNumber a)
 tanhAct = returnLet . tanh
 
@@ -555,7 +555,7 @@ logistic (D u u') =
   let y = recip (1 + exp (- u))
   in D y (dScale (y * (1 - y)) u')
 
-logisticAct :: (DualMonad r m, IsDualWithScalar a r, Floating (Primal a))
+logisticAct :: (DualMonad r m, IsDualWithScalarVar a r, Floating (Primal a))
             => DualNumber a -> m (DualNumber a)
 logisticAct = returnLet . logistic
 
@@ -567,7 +567,7 @@ squaredDifference :: (Num (Primal a), IsDual a)
                   => Primal a -> DualNumber a -> DualNumber a
 squaredDifference targ res = square $ res - scalar targ
 
-lossSquared :: (DualMonad r m, IsDualWithScalar a r)
+lossSquared :: (DualMonad r m, IsDualWithScalarVar a r)
             => Primal a -> DualNumber a -> m (DualNumber a)
 lossSquared targ res = returnLet $ squaredDifference targ res
 

@@ -10,9 +10,10 @@
 -- | The class of dual components of dual numbers and related classes,
 -- constraints and instances.
 module HordeAd.Core.DualClass
-  ( IsDualWithScalar, IsScalar
+  ( IsDualWithScalar, IsDualWithScalarVar, IsScalar, IsScalarVar
   , HasDelta, HasForward
-  , IsDual(Primal, dZero, dScale, dAdd, dVar, bindInState)
+  , IsDual(Primal, dZero, dScale, dAdd)
+  , IsDualVar(dVar, bindInState)
   , HasRanks(..), TensorS
   , Delta0  -- re-export; should be rarely used
   ) where
@@ -45,6 +46,8 @@ import HordeAd.Internal.Delta
 -- corresponding to the first type is required to satisfy constraint @Num@.
 type IsDualWithScalar a r = (IsDual a, ScalarOf a ~ Primal r, Num (Primal a))
 
+type IsDualWithScalarVar a r = (IsDualVar a, ScalarOf a ~ Primal r, Num (Primal a))
+
 -- | A mega-shorthand for a bundle of connected type constraints.
 -- The @Scalar@ in the name means that this type is a dual component
 -- of a dual number type at the scalar (rank 0) level.
@@ -53,6 +56,21 @@ type IsScalar r =
        ( HasRanks r, Ord (Primal r), Numeric (Primal r), RealFloat (Primal r)
        , IsDualWithScalar r r, IsDualWithScalar (Tensor1 r) r
        , IsDualWithScalar (Tensor2 r) r, IsDualWithScalar (TensorX r) r
+       , Primal (Tensor1 r) ~ Vector (Primal r)
+       , Primal (Tensor2 r) ~ Matrix (Primal r)
+       , Primal (TensorX r) ~ OT.Array (Primal r)
+       -- This fragment is for @TensorS@ and it's irregular, because we can't
+       -- mention @sh@ and so fully apply @TensorS@.
+       , IsDualS (TensorS r), ScalarOfS (TensorS r) ~ Primal r
+-- If we haven't inlined away @PrimalS@, we'd need this type equality,
+-- which appears to work fine (but involves the @RevArray@ newtype wrapper).
+--       , PrimalS (TensorS r) ~ RevArray (Primal r)
+       )
+
+type IsScalarVar r =
+       ( HasRanks r, Ord (Primal r), Numeric (Primal r), RealFloat (Primal r)
+       , IsDualWithScalarVar r r, IsDualWithScalarVar (Tensor1 r) r
+       , IsDualWithScalarVar (Tensor2 r) r, IsDualWithScalarVar (TensorX r) r
        , Primal (Tensor1 r) ~ Vector (Primal r)
        , Primal (Tensor2 r) ~ Matrix (Primal r)
        , Primal (TensorX r) ~ OT.Array (Primal r)
@@ -113,8 +131,10 @@ class IsDual a where
   dZero :: a
   dScale :: Primal a -> a -> a
   dAdd :: a -> a -> a
-  dVar :: DeltaId (Primal a) -> a
   type ScalarOf a  -- verbose name to remember not to export from this module
+
+class IsDual a => IsDualVar a where
+  dVar :: DeltaId (Primal a) -> a
   bindInState :: a
               -> DeltaState (ScalarOf a)
               -> (DeltaState (ScalarOf a), DeltaId (Primal a))
@@ -152,8 +172,10 @@ instance (IsDualS t, OS.Shape sh) => IsDual (t sh) where
   dZero = dZeroS
   dScale = dScaleS
   dAdd = dAddS
-  dVar = dVarS
   type ScalarOf (t sh) = ScalarOfS t
+
+instance (IsDualS t, OS.Shape sh) => IsDualVar (t sh) where
+  dVar = dVarS
   {-# INLINE bindInState #-}
   bindInState = bindInStateS
 
@@ -252,8 +274,10 @@ instance IsDual (Delta0 r) where
   dZero = Zero0
   dScale = Scale0
   dAdd = Add0
-  dVar = Var0
   type ScalarOf (Delta0 r) = r
+
+instance IsDualVar (Delta0 r) where
+  dVar = Var0
   {-# INLINE bindInState #-}
   bindInState = bindInState0
 
@@ -324,8 +348,10 @@ instance IsDual (Delta1 r) where
   dZero = Zero1
   dScale = Scale1
   dAdd = Add1
-  dVar = Var1
   type ScalarOf (Delta1 r) = r
+
+instance IsDualVar (Delta1 r) where
+  dVar = Var1
   {-# INLINE bindInState #-}
   bindInState = bindInState1
 
@@ -334,8 +360,10 @@ instance IsDual (Delta2 r) where
   dZero = Zero2
   dScale = Scale2
   dAdd = Add2
-  dVar = Var2
   type ScalarOf (Delta2 r) = r
+
+instance IsDualVar (Delta2 r) where
+  dVar = Var2
   {-# INLINE bindInState #-}
   bindInState = bindInState2
 
@@ -344,8 +372,10 @@ instance IsDual (DeltaX r) where
   dZero = ZeroX
   dScale = ScaleX
   dAdd = AddX
-  dVar = VarX
   type ScalarOf (DeltaX r) = r
+
+instance IsDualVar (DeltaX r) where
+  dVar = VarX
   {-# INLINE bindInState #-}
   bindInState = bindInStateX
 
@@ -367,18 +397,14 @@ instance IsDual Double where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
-  dVar = undefined  -- no variables are needed, because no blowup possible
   type ScalarOf Double = Double
-  bindInState = undefined  -- no variables, so no bindings
 
 instance IsDual Float where
   type Primal Float = Float
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
-  dVar = undefined
   type ScalarOf Float = Float
-  bindInState = undefined
 
 -- These constraints force @UndecidableInstances@.
 instance Num (Vector r) => IsDual (Vector r) where
@@ -386,27 +412,21 @@ instance Num (Vector r) => IsDual (Vector r) where
   dZero = 0
   dScale k d = k * d
   dAdd = (+)
-  dVar = undefined
   type ScalarOf (Vector r) = r
-  bindInState = undefined
 
 instance Num (Matrix r) => IsDual (Matrix r) where
   type Primal (Matrix r) = Matrix r
   dZero = 0
   dScale k d = k * d
   dAdd = (+)
-  dVar = undefined
   type ScalarOf (Matrix r) = r
-  bindInState = undefined
 
 instance Num (OT.Array r) => IsDual (OT.Array r) where
   type Primal (OT.Array r) = OT.Array r
   dZero = 0
   dScale k d = k * d
   dAdd = (+)
-  dVar = undefined
   type ScalarOf (OT.Array r) = r
-  bindInState = undefined
 
 -- Due to this definition, which is necessary to partially apply @OS.Array@
 -- to the @r@ argument, we need a lot of coercions in the code below

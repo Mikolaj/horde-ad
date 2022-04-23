@@ -106,7 +106,7 @@ nnMnistLoss1 widthHidden widthHidden2 (input, target) variables = do
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 testMnist1
-  :: forall r. (IsScalar r, Floating (Primal (Tensor1 r)))
+  :: forall r. (IsScalarVar r, Floating (Primal (Tensor1 r)))
   => Int -> Int -> [MnistData (Primal r)] -> (Domain0 r, Domain1 r) -> Primal r
 testMnist1 widthHidden widthHidden2 inputs (params0, params1) =
   let matchesLabels :: MnistData (Primal r) -> Bool

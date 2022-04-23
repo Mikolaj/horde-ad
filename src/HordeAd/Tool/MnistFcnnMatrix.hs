@@ -86,7 +86,7 @@ nnMnistLossFusedRelu2 (input, target) variables = do
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 testMnist2
-  :: forall r. (IsScalar r, Floating (Primal (Tensor1 r)))
+  :: forall r. (IsScalarVar r, Floating (Primal (Tensor1 r)))
   => [MnistData (Primal r)] -> Domains r -> Primal r
 testMnist2 inputs parameters =
   let matchesLabels :: MnistData (Primal r) -> Bool

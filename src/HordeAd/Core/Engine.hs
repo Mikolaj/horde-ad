@@ -44,7 +44,7 @@ newtype DualMonadValue r a = DualMonadValue
   deriving (Monad, Functor, Applicative)
 
 -- @UndecidableInstances@ needed anyway due to this constraint.
-instance IsScalar r => DualMonad r (DualMonadValue r) where
+instance IsScalarVar r => DualMonad r (DualMonadValue r) where
   returnLet (D u _u') = DualMonadValue $ Identity $ D u dZero
 
 -- The general case, needed for old, hacky tests using only scalars.
@@ -82,7 +82,7 @@ newtype DualMonadGradient r a = DualMonadGradient
   { runDualMonadGradient :: State (DeltaState (Primal r)) a }
   deriving (Monad, Functor, Applicative)
 
-instance IsScalar r => DualMonad r (DualMonadGradient r) where
+instance IsScalarVar r => DualMonad r (DualMonadGradient r) where
   returnLet (D u u') = DualMonadGradient $ do
     st <- get
     let (!stNew, !dId) = bindInState u' st
@@ -162,7 +162,7 @@ newtype DualMonadForward r a = DualMonadForward
   { runDualMonadForward :: Identity a }
   deriving (Monad, Functor, Applicative)
 
-instance IsScalar r => DualMonad r (DualMonadForward r) where
+instance IsScalarVar r => DualMonad r (DualMonadForward r) where
   returnLet (D u u') = DualMonadForward $ Identity $ D u u'
 
 -- This the efficient variant of forward derivative computation.
@@ -206,7 +206,7 @@ prettyPrintDf reversed f parameters =
                                          initialState
   in ppBindings reversed st deltaTopLevel
 
-generateDeltaVars :: IsScalar r
+generateDeltaVars :: IsScalarVar r
                   => Domains r
                   -> ( Data.Vector.Vector r
                      , Data.Vector.Vector (Tensor1 r)
