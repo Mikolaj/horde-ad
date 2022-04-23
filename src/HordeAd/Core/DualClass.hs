@@ -76,7 +76,7 @@ type IsScalarVar r =
        , Primal (TensorX r) ~ OT.Array (Primal r)
        -- This fragment is for @TensorS@ and it's irregular, because we can't
        -- mention @sh@ and so fully apply @TensorS@.
-       , IsDualS (TensorS r), ScalarOfS (TensorS r) ~ Primal r
+       , IsDualSVar (TensorS r), ScalarOfS (TensorS r) ~ Primal r
 -- If we haven't inlined away @PrimalS@, we'd need this type equality,
 -- which appears to work fine (but involves the @RevArray@ newtype wrapper).
 --       , PrimalS (TensorS r) ~ RevArray (Primal r)
@@ -150,8 +150,10 @@ class IsDualS (t :: [Nat] -> Type) where
   dZeroS :: forall sh. OS.Shape sh => t sh
   dScaleS :: forall sh. OS.Shape sh => OS.Array sh (ScalarOfS t) -> t sh -> t sh
   dAddS :: forall sh. OS.Shape sh => t sh -> t sh -> t sh
-  dVarS :: forall sh. OS.Shape sh => DeltaId (OS.Array sh (ScalarOfS t)) -> t sh
   type ScalarOfS t :: Type
+
+class IsDualS (t :: [Nat] -> Type) => IsDualSVar t where
+  dVarS :: forall sh. OS.Shape sh => DeltaId (OS.Array sh (ScalarOfS t)) -> t sh
   bindInStateS :: forall sh. OS.Shape sh
                => t sh
                -> DeltaState (ScalarOfS t)
@@ -174,7 +176,7 @@ instance (IsDualS t, OS.Shape sh) => IsDual (t sh) where
   dAdd = dAddS
   type ScalarOf (t sh) = ScalarOfS t
 
-instance (IsDualS t, OS.Shape sh) => IsDualVar (t sh) where
+instance (IsDualSVar t, OS.Shape sh) => IsDualVar (t sh) where
   dVar = dVarS
   {-# INLINE bindInState #-}
   bindInState = bindInStateS
@@ -439,8 +441,10 @@ instance IsDualS (DeltaS r) where
   dZeroS = ZeroS
   dScaleS = ScaleS
   dAddS = AddS
-  dVarS = VarS
   type ScalarOfS (DeltaS r) = r
+
+instance IsDualSVar (DeltaS r) where
+  dVarS = VarS
   {-# INLINE bindInStateS #-}
   bindInStateS u' st = let (st2, did) = bindInStateX (FromSX u') st
                        in (st2, covertDeltaId did)
@@ -494,9 +498,7 @@ instance (forall sh. OS.Shape sh => Num (OS.Array sh r))
   dZeroS = RevArray 0
   dScaleS k d = RevArray $ k * unRevArray d
   dAddS d e = RevArray $ unRevArray d + unRevArray e
-  dVarS = undefined
   type ScalarOfS (RevArray r) = r
-  bindInStateS = undefined
 
 instance HasRanks Double where
   type Tensor1 Double = Vector Double
