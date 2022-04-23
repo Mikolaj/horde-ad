@@ -35,7 +35,7 @@
 -- grow large enough to affect cache misses).
 module HordeAd.Internal.Delta
   ( -- * Abstract syntax trees of the delta expressions
-    Delta (..), Delta0, Delta1, Delta2, DeltaX (..), DeltaS (..)
+    Delta (..), Delta0, Delta1, Delta2, DeltaX, DeltaS (..)
   , Delta0Others (..), Delta1Others (..), Delta2Others (..), DeltaXOthers (..)
   , -- * Delta expression identifiers
     DeltaId, toDeltaId, covertDeltaId
@@ -154,17 +154,6 @@ deriving instance (Show m, Show d0, Show d1, Show d2, Show dX)
 -- | This is the grammar of delta-expressions at arbitrary tensor rank.
 --
 -- Warning: not tested enough nor benchmarked.
-data DeltaX r =
-    ZeroX
-  | ScaleX (OT.Array r) (DeltaX r)
-  | AddX (DeltaX r) (DeltaX r)
-  | VarX (DeltaId (OT.Array r))
-  | forall sh. OS.Shape sh
-    => FromSX (DeltaS r sh)
-  | DeltaXOthers (DeltaXOthers (Delta0 r) (Delta1 r) (Delta2 r) (DeltaX r))
-
-deriving instance (Show r, Numeric r) => Show (DeltaX r)
-
 data DeltaXOthers d0 d1 d2 dX =
     KonstX d0 OT.ShapeL  -- ^ size; needed only for forward derivative
   | AppendX dX Int dX
@@ -258,11 +247,13 @@ data SDeltaLevel a where
 type Delta0 = Delta 'D0
 type Delta1 = Delta 'D1
 type Delta2 = Delta 'D2
+type DeltaX = Delta 'DX
 
 -- FlexibleInstances
 deriving instance (Show r, Numeric r) => Show (Delta 'D0 r)
 deriving instance (Show r, Numeric r) => Show (Delta 'D1 r)
 deriving instance (Show r, Numeric r) => Show (Delta 'D2 r)
+deriving instance (Show r, Numeric r) => Show (Delta 'DX r)
 
 data Delta d r where
   Zero0 :: Delta 'D0 r
@@ -291,7 +282,14 @@ data Delta d r where
   Delta2Others :: Delta2Others (Matrix r) (Delta0 r) (Delta1 r) (Delta2 r) (DeltaX r)
                -> Delta 'D2 r
 
-  DeltaDX :: DeltaX r -> Delta 'DX r
+  ZeroX :: Delta 'DX r
+  ScaleX :: OT.Array r -> DeltaX r ->  Delta 'DX r
+  AddX :: DeltaX r -> DeltaX r -> Delta 'DX r
+  VarX :: DeltaId (OT.Array r) -> Delta 'DX r
+  FromSX :: OS.Shape sh
+         => DeltaS r sh -> Delta 'DX r
+  DeltaXOthers :: DeltaXOthers (Delta0 r) (Delta1 r) (Delta2 r) (DeltaX r)
+               -> Delta 'DX r
 
 data DeltaIdG d r where
   DeltaIdG0 :: DeltaId r -> DeltaIdG 'D0 r
@@ -680,7 +678,7 @@ buildFinMaps st deltaTopLevel dt = do
         r <- finMap2 `VM.read` i
         unless (MO.nullMatrixOuter r) $
           eval2 r d
-      evalUnlessZero (DeltaBinding SDX (DeltaIdGX (DeltaId i)) (DeltaDX d)) =do
+      evalUnlessZero (DeltaBinding SDX (DeltaIdGX (DeltaId i)) d) =do
         r <- finMapX `VM.read` i
         unless (isTensorDummy r) $
           evalX r d
@@ -843,7 +841,7 @@ derivativeFromDelta st deltaTopLevel
         DeltaBinding SD2 (DeltaIdG2 (DeltaId i)) d ->
           let v = eval2 parameters d
           in (params0, params1, params2 V.// [(i, v)], paramsX)
-        DeltaBinding SDX (DeltaIdGX (DeltaId i)) (DeltaDX d) ->
+        DeltaBinding SDX (DeltaIdGX (DeltaId i)) d ->
           let v = evalX parameters d
           in (params0, params1, params2, paramsX V.// [(i, v)])
       parameters1 = runST $ do
@@ -885,7 +883,7 @@ ppBinding prefix = \case
     [prefix ++ "1 DeltaId_", show i, " = ", ppShow d, "\n"]
   DeltaBinding SD2 (DeltaIdG2 (DeltaId i)) d ->
     [prefix ++ "2 DeltaId_", show i, " = ", ppShow d, "\n"]
-  DeltaBinding SDX (DeltaIdGX (DeltaId i)) (DeltaDX d) ->
+  DeltaBinding SDX (DeltaIdGX (DeltaId i)) d ->
     [prefix ++ "X DeltaId_", show i, " = ", ppShow d, "\n"]
 
 bindInState :: (DeltaId a -> t -> DeltaBinding r)
@@ -915,7 +913,7 @@ bindInState2 = bindInState (\x y -> DeltaBinding SD2 (DeltaIdG2 x) y) deltaCount
 
 bindInStateX :: DeltaX r -> DeltaState r -> (DeltaState r, DeltaId (OT.Array r))
 {-# INLINE bindInStateX #-}
-bindInStateX = bindInState (\x y -> DeltaBinding SDX (DeltaIdGX x) (DeltaDX y)) deltaCounterX (\d st -> st { deltaCounterX = d })
+bindInStateX = bindInState (\x y -> DeltaBinding SDX (DeltaIdGX x) y) deltaCounterX (\d st -> st { deltaCounterX = d })
 
 {- Note [SumElements0]
 ~~~~~~~~~~~~~~~~~~~~~~
