@@ -13,7 +13,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
-  (KnownNat, SomeNat (..), someNatVal, type (+), type Div)
+  (KnownNat, SomeNat (..), someNatVal, type (+), type (<=), type Div)
 import qualified Numeric.LinearAlgebra as HM
 import           System.Random
 import           Test.Tasty
@@ -362,6 +362,8 @@ convMiddleMnistCNNT
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1, KnownNat out_channels
      , KnownNat in_height, KnownNat in_width
      , KnownNat n_batches, KnownNat in_channels
+     , 1 <= kheight_minus_1
+     , 1 <= kwidth_minus_1  -- wrongly reported as redundant
      , DualMonad r m )
   => DualNumber (TensorS r '[ out_channels, in_channels
                             , kheight_minus_1 + 1, kwidth_minus_1 + 1 ])
@@ -382,7 +384,7 @@ convMiddleMnistCNNT ker x bias = do
                       $ mapS replicateBias bias
         -- TODO: this is weakly typed; add and use replicateS instead
   yRelu <- reluActS $ yConv + biasStretched
-  maxPool24 @2 @2 yRelu
+  maxPool24 @1 @2 yRelu
 
 convMnistCNNT
   :: forall kheight_minus_1 kwidth_minus_1
@@ -390,6 +392,8 @@ convMnistCNNT
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1, KnownNat out_channels
      , KnownNat in_height, KnownNat in_width
      , KnownNat n_batches, KnownNat in_channels
+     , 1 <= kheight_minus_1
+     , 1 <= kwidth_minus_1
      , DualMonad r m )
   => Primal (TensorS r '[n_batches, in_channels, in_height, in_width])
   -> DualNumberVariables r
@@ -428,7 +432,9 @@ convMnistLossCNNTPoly
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1, KnownNat out_channels
      , KnownNat in_height, KnownNat in_width
      , KnownNat n_batches, KnownNat in_channels
-     , DualMonad r m, Floating (Primal (Tensor2 r)) )
+     , 1 <= kheight_minus_1
+     , 1 <= kwidth_minus_1
+    , DualMonad r m, Floating (Primal (Tensor2 r)) )
   => [MnistData2 (Primal r)]
   -> DualNumberVariables r
   -> m (DualNumber r)
@@ -468,7 +474,9 @@ convMnistTestCNNTPoly
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1, KnownNat out_channels
      , KnownNat in_height, KnownNat in_width
      , KnownNat n_batches, KnownNat in_channels
-     , IsScalar r, Floating (Primal (Tensor1 r)) )
+     , 1 <= kheight_minus_1
+     , 1 <= kwidth_minus_1
+    , IsScalar r, Floating (Primal (Tensor1 r)) )
   => Proxy r -> [MnistData2 (Primal r)] -> Domains r -> Primal r
 convMnistTestCNNTPoly _ inputs parameters =
   let matchesLabels :: MnistData2 (Primal r) -> Bool

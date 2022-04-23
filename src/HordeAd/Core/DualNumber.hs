@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, FunctionalDependencies,
              TypeFamilies, TypeOperators, UndecidableInstances #-}
+{-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists -Wno-missing-methods #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
@@ -13,13 +14,14 @@ import qualified Data.Array.Convert
 import qualified Data.Array.Dynamic as OTB
 import qualified Data.Array.DynamicS as OT
 import           Data.Array.Internal (valueOf)
+import           Data.Array.Shape (DivRoundUp)
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import           Data.List.Index (imap)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, type (+), type (<=), type Div)
+import           GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
 import qualified Numeric.LinearAlgebra as HM
 
 import           HordeAd.Core.DualClass
@@ -830,18 +832,24 @@ maxPool2 ksize stride m@(D u _) = do
   returnLet $ reshape2 colsOut $ seq1 $ V.fromList mins
 
 maxPool24
-  :: forall ksize stride in_height in_width n_batches channels r m.
-     ( KnownNat ksize, KnownNat stride, KnownNat in_height, KnownNat in_width
+  :: forall ksize_minus_1 stride in_height in_width n_batches channels r m.
+     ( KnownNat ksize_minus_1, KnownNat stride
+     , KnownNat in_height, KnownNat in_width
      , KnownNat n_batches, KnownNat channels
      , 1 <= stride
+     , ksize_minus_1 <= in_height
+     , ksize_minus_1 <= in_width
+     , 1 <= in_height - ksize_minus_1 + stride
+     , 1 <= in_width - ksize_minus_1 + stride
      , DualMonad r m )
      => DualNumber (TensorS r '[n_batches, channels, in_height, in_width])
-     -> m (DualNumber (TensorS r '[ n_batches, channels
-                                  , in_height `Div` stride
-                                  , in_width `Div` stride ]))
+     -> m (DualNumber
+             (TensorS r '[ n_batches, channels
+                         , (in_height - ksize_minus_1) `DivRoundUp` stride
+                         , (in_width - ksize_minus_1) `DivRoundUp` stride ]))
 maxPool24 d = do
   res <- mapMS (mapMS (fmap from2S
-                       . maxPool2 (valueOf @ksize)
+                       . maxPool2 (valueOf @ksize_minus_1 + 1)
                                   (valueOf @stride)
                        . fromS2)) d
   returnLet res
