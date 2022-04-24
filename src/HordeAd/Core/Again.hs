@@ -5,6 +5,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeOperators #-}
 
 module HordeAd.Core.Again (module HordeAd.Core.Again) where
@@ -14,10 +15,12 @@ import Control.Monad.Trans.State
     StateT (StateT),
     get,
     put,
+    runState,
   )
 import Data.Functor.Identity (Identity (Identity))
 import Data.Kind (Type)
 import qualified Data.Strict.Map as Map
+import Data.Vector.Storable (Storable)
 import Numeric.LinearAlgebra
   ( Vector,
   )
@@ -40,6 +43,8 @@ data IsScalarOf (s :: Type) (t :: Type) where
   SScalar :: IsScalarOf s s
   SVector :: IsScalarOf s (Vector s)
 
+deriving instance Show (IsScalarOf s t)
+
 data DeltaF (s :: Type) (dual :: Type -> Type) (t :: Type) where
   Zero0 :: DeltaF s dual s
   Add0 :: dual s -> dual s -> DeltaF s dual s
@@ -50,9 +55,13 @@ data DeltaF (s :: Type) (dual :: Type -> Type) (t :: Type) where
   Konst1 :: dual s -> Int -> DeltaF s dual (Vector s)
   Dot1 :: Vector s -> dual (Vector s) -> DeltaF s dual s
 
+deriving instance
+  (Show s, Show (dual s), Show (dual (Vector s)), Storable s) =>
+  Show (DeltaF s dual t)
+
 newtype DeltaId (r :: Type) where
   DeltaId :: Int -> DeltaId r
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Show)
 
 succDeltaId :: DeltaId d -> DeltaId d
 succDeltaId (DeltaId i) = DeltaId (i + 1)
@@ -60,9 +69,12 @@ succDeltaId (DeltaId i) = DeltaId (i + 1)
 data DeltaBinding s where
   DeltaBinding :: s `IsScalarOf` t -> DeltaId t -> Delta s t -> DeltaBinding s
 
+deriving instance (Storable s, Show s) => Show (DeltaBinding s)
+
 data Delta (s :: Type) (t :: Type) where
   Delta :: DeltaF s (Delta s) t -> Delta s t
   Var :: DeltaId t -> Delta s t
+  deriving (Show)
 
 type DeltaMap s = (Map.Map (DeltaId s) s, Map.Map (DeltaId (Vector s)) (Vector s))
 
@@ -128,19 +140,54 @@ evalLet binding (ms, mv) = case binding of
 
 runDelta ::
   HM.Numeric s =>
-  DeltaId s ->
   [DeltaBinding s] ->
   DeltaMap s ->
   DeltaMap s
-runDelta dId binds m = case binds of
+runDelta binds m = case binds of
   [] -> m
-  b : rest -> runDelta dId rest (evalLet b m)
+  b : rest -> runDelta rest (evalLet b m)
+
+runDeltaMonadM :: DualMonadGradient s a -> (a, DeltaState s)
+runDeltaMonadM m = runState (runDualMonadGradient m) initialState
+  where
+    initialState =
+      DeltaState
+        { deltaCounter0 = DeltaId 0,
+          deltaCounter1 = DeltaId 0,
+          deltaBindings = []
+        }
+
+runDeltaMonadS ::
+  HM.Numeric s =>
+  s `IsScalarOf` t ->
+  DualMonadGradient s (Dual s (Delta s t)) ->
+  (s, DeltaMap s)
+runDeltaMonadS st m =
+  let (Dual t delta, bs) = runDeltaMonadM m
+   in case st of
+        SScalar ->
+          let dId = succDeltaId (deltaCounter0 bs)
+              bs' = DeltaBinding st dId delta : deltaBindings bs
+           in (t, runDelta bs' initialMap)
+        SVector ->
+          let dId = succDeltaId (deltaCounter1 bs)
+              bs' = DeltaBinding st dId delta : deltaBindings bs
+           in (t, runDelta bs' initialMap)
+  where
+    initialMap = (Map.empty, Map.empty)
+
+runDeltaMonad ::
+  (HM.Numeric s, Known (s `IsScalarOf` t)) =>
+  DualMonadGradient s (Dual s (Delta s t)) ->
+  (s, DeltaMap s)
+runDeltaMonad = runDeltaMonadS known
 
 data DeltaState s = DeltaState
   { deltaCounter0 :: DeltaId s,
     deltaCounter1 :: DeltaId (Vector s),
     deltaBindings :: [DeltaBinding s]
   }
+  deriving (Show)
 
 newtype DualMonadGradient s t = DualMonadGradient
   {runDualMonadGradient :: State (DeltaState s) t}
@@ -157,8 +204,9 @@ instance DeltaMonad s (Delta s) (DualMonadGradient s) where
         put
           ( st
               { deltaCounter0 = succDeltaId (deltaCounter0 st),
-                deltaBindings = DeltaBinding sd (deltaCounter0 st) delta
-                                : deltaBindings st
+                deltaBindings =
+                  DeltaBinding sd (deltaCounter0 st) delta :
+                  deltaBindings st
               }
           )
         pure (Var (deltaCounter0 st))
@@ -166,8 +214,9 @@ instance DeltaMonad s (Delta s) (DualMonadGradient s) where
         put
           ( st
               { deltaCounter1 = succDeltaId (deltaCounter1 st),
-                deltaBindings = DeltaBinding SVector (deltaCounter1 st) delta
-                : deltaBindings st
+                deltaBindings =
+                  DeltaBinding SVector (deltaCounter1 st) delta :
+                  deltaBindings st
               }
           )
         pure (Var (deltaCounter1 st))
@@ -199,6 +248,7 @@ dLet ::
 dLet = dLetS known
 
 data Dual a b = Dual a b
+  deriving (Show)
 
 class Ops f s dual | dual -> s where
   ops :: f s dual t -> dual t
@@ -264,4 +314,10 @@ index (Dual v v') i =
 myFoo ::
   (Num a, DeltaMonad a (Delta a) m) =>
   m (Dual a (Delta a a))
-myFoo = foo (Dual 10 (Var (DeltaId 0))) (Dual 20 (Var (DeltaId 1)))
+myFoo = foo (Dual 10 (Var (DeltaId (-1)))) (Dual 20 (Var (DeltaId (-2))))
+
+example :: HM.Numeric Double => (Double, DeltaMap Double)
+example = runDeltaMonad myFoo
+
+example2 :: (Dual Double (Delta Double Double), DeltaState Double)
+example2 = runDeltaMonadM myFoo
