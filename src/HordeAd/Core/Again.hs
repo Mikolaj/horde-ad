@@ -26,6 +26,12 @@ import Prelude
 class Known t where
   known :: t
 
+instance Known (a `IsScalarOf` a) where
+  known = SScalar
+
+instance Known (a `IsScalarOf` Vector a) where
+  known = SVector
+
 knownP :: Known t => proxy t -> t
 knownP _ = known
 
@@ -74,21 +80,21 @@ instance DeltaMonad s (Delta s) (DualMonadGradient s) where
     st <- get
     case sd of
       SScalar -> do
-          put
-            ( st
-                { deltaCounter0 = succDeltaId (deltaCounter0 st),
-                  deltaBindings = DeltaBinding sd (deltaCounter0 st) delta : deltaBindings st
-                }
-            )
-          pure (Var (deltaCounter0 st))
+        put
+          ( st
+              { deltaCounter0 = succDeltaId (deltaCounter0 st),
+                deltaBindings = DeltaBinding sd (deltaCounter0 st) delta : deltaBindings st
+              }
+          )
+        pure (Var (deltaCounter0 st))
       SVector -> do
-          put
-            ( st
-                { deltaCounter1 = succDeltaId (deltaCounter1 st),
-                  deltaBindings = DeltaBinding SVector (deltaCounter1 st) delta : deltaBindings st
-                }
-            )
-          pure (Var (deltaCounter1 st))
+        put
+          ( st
+              { deltaCounter1 = succDeltaId (deltaCounter1 st),
+                deltaBindings = DeltaBinding SVector (deltaCounter1 st) delta : deltaBindings st
+              }
+          )
+        pure (Var (deltaCounter1 st))
 
 newtype DualMonadValue r a = DualMonadValue
   {runDualMonadValue :: Identity a}
@@ -169,3 +175,17 @@ Dual x x' .+ Dual y y' =
 Dual x x' .* Dual y y' =
   dLet $
     Dual (x * y) (ops (Add0 (ops (Scale0 y x')) (ops (Scale0 x y'))))
+
+index ::
+  (Numeric t, Ops DeltaF t dual, DeltaMonad s dual m, Known (s `IsScalarOf` t)) =>
+  Dual (Vector t) (dual (Vector t)) ->
+  Int ->
+  m (Dual t (dual t))
+index (Dual v v') i =
+  dLet $
+    Dual (atIndex v i) (ops (Index0 v' i))
+
+myFoo ::
+  (Num a, DeltaMonad a (Delta a) m) =>
+  m (Dual a (Delta a a))
+myFoo = foo (Dual 10 (Var (DeltaId 0))) (Dual 20 (Var (DeltaId 1)))
