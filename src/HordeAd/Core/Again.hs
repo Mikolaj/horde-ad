@@ -101,7 +101,7 @@ class Ops r t | t -> r where
 zero :: (Num r, Ops r t) => Dual r (t 'D0)
 zero = Dual 0 (ops Zero0)
 
-(.+) :: (KnownDim d, Num a, Ops r t, DeltaMonad m t) =>
+(.+) :: (Ops r t, Num a, KnownDim d, DeltaMonad m t) =>
         Dual a (t d)
      -> Dual a (t d)
      -> m (Dual a (t d))
@@ -132,3 +132,12 @@ instance (Num r, Numeric r) => Ops r (Concrete r) where
     Konst1 (C0 k) i -> C1 (konst k i)
     Dot1 (C1 v1) (C1 v2) -> C0 (v1 `dot` v2)
     Dot1 (C0 v1) (C0 v2) -> C0 (v1 * v2)
+
+
+foo :: (Ops r t, DeltaMonad m t, KnownDim d, Num r)
+    => Dual r (t d) -> Dual r (t d) -> m (Dual r (t d))
+foo x y = do
+  x2 <- x .* x
+  x2y <- x2 .* y
+  x2y_p_y <- x2y .+ y
+  pure x2y_p_y
