@@ -10,17 +10,18 @@
 module HordeAd.Core.Again (module HordeAd.Core.Again) where
 
 import Control.Monad.Trans.State
-import Data.Functor.Identity
-import Data.Kind (Type)
-import Numeric.LinearAlgebra
-  ( Numeric,
-    Vector,
-    add,
-    atIndex,
-    dot,
-    konst,
-    scale,
+  ( State,
+    StateT (StateT),
+    get,
+    put,
   )
+import Data.Functor.Identity (Identity (Identity))
+import Data.Kind (Type)
+import qualified Data.Strict.Map as Map
+import Numeric.LinearAlgebra
+  ( Vector,
+  )
+import qualified Numeric.LinearAlgebra as HM
 import Prelude
 
 class Known t where
@@ -43,14 +44,15 @@ data DeltaF (s :: Type) (dual :: Type -> Type) (t :: Type) where
   Zero0 :: DeltaF s dual s
   Add0 :: dual s -> dual s -> DeltaF s dual s
   Scale0 :: s -> dual s -> DeltaF s dual s
-  Index0 :: dual (Vector s) -> Int -> DeltaF s dual s
+  Index0 :: dual (Vector s) -> Int -> Int -> DeltaF s dual s
   Add1 :: dual (Vector s) -> dual (Vector s) -> DeltaF s dual (Vector s)
   Scale1 :: s -> dual (Vector s) -> DeltaF s dual (Vector s)
   Konst1 :: dual s -> Int -> DeltaF s dual (Vector s)
-  Dot1 :: dual (Vector s) -> dual (Vector s) -> DeltaF s dual s
+  Dot1 :: Vector s -> dual (Vector s) -> DeltaF s dual s
 
 newtype DeltaId (r :: Type) where
   DeltaId :: Int -> DeltaId r
+  deriving (Eq, Ord)
 
 succDeltaId :: DeltaId d -> DeltaId d
 succDeltaId (DeltaId i) = DeltaId (i + 1)
@@ -58,9 +60,59 @@ succDeltaId (DeltaId i) = DeltaId (i + 1)
 data DeltaBinding r where
   DeltaBinding :: s `IsScalarOf` t -> DeltaId t -> Delta r t -> DeltaBinding r
 
-data Delta (s :: Type) (dual :: Type) where
-  Delta :: DeltaF s (Delta s) dual -> Delta s dual
-  Var :: DeltaId dual -> Delta s dual
+data Delta (s :: Type) (t :: Type) where
+  Delta :: DeltaF s (Delta s) t -> Delta s t
+  Var :: DeltaId t -> Delta s t
+
+eval ::
+  HM.Numeric s =>
+  s `IsScalarOf` t ->
+  t ->
+  Delta s t ->
+  (Map.Map (DeltaId s) s, Map.Map (DeltaId (Vector s)) (Vector s)) ->
+  (Map.Map (DeltaId s) s, Map.Map (DeltaId (Vector s)) (Vector s))
+eval st t delta m = case delta of
+  Delta df -> case st of
+    SScalar -> case df of
+      Zero0 -> m
+      Add0 de de' ->
+        eval st t de $
+          eval st t de' m
+      Scale0 t' de -> eval SScalar (t' * t) de m
+      Index0 de i n ->
+        eval
+          SVector
+          (HM.fromList (map (\n' -> if n' == i then 1 else 0) [0 .. n -1]))
+          de
+          m
+      Dot1 de de' -> eval SVector (t `HM.scale` de) de' m
+    SVector -> case df of
+      Add1 de de' -> eval SVector t de (eval st t de' m)
+      Scale1 s de -> eval SVector (s `HM.scale` t) de m
+      Konst1 de _ -> eval SScalar (HM.sumElements t) de m
+  Var di -> case st of
+    SScalar ->
+      let (ms, mv) = m
+       in ( Map.alter
+              ( \case
+                  Nothing -> Just t
+                  Just t' -> Just (t + t')
+              )
+              di
+              ms,
+            mv
+          )
+    SVector ->
+      let (ms, mv) = m
+       in ( ms,
+            Map.alter
+              ( \case
+                  Nothing -> Just t
+                  Just t' -> Just (t `HM.add` t')
+              )
+              di
+              mv
+          )
 
 data DeltaState s = DeltaState
   { deltaCounter0 :: DeltaId s,
@@ -131,16 +183,16 @@ data Concrete r (t :: Type) where
   C0 :: r -> Concrete r r
   C1 :: Vector r -> Concrete r (Vector r)
 
-instance (Num r, Numeric r) => Ops DeltaF r (Concrete r) where
+instance (Num r, HM.Numeric r) => Ops DeltaF r (Concrete r) where
   ops = \case
     Zero0 -> C0 0
     Add0 (C0 x1) (C0 x2) -> C0 (x1 + x2)
     Scale0 r (C0 x) -> C0 (r * x)
-    Index0 (C1 v) i -> C0 (atIndex v i)
-    Add1 (C1 x1) (C1 x2) -> C1 (x1 `add` x2)
-    Scale1 r (C1 x) -> C1 (scale r x)
-    Konst1 (C0 k) i -> C1 (konst k i)
-    Dot1 (C1 v1) (C1 v2) -> C0 (v1 `dot` v2)
+    Index0 (C1 v) i _n -> C0 (HM.atIndex v i)
+    Add1 (C1 x1) (C1 x2) -> C1 (x1 `HM.add` x2)
+    Scale1 r (C1 x) -> C1 (HM.scale r x)
+    Konst1 (C0 k) i -> C1 (HM.konst k i)
+    Dot1 v1 (C1 v2) -> C0 (v1 `HM.dot` v2)
 
 zero :: (Num r, Ops DeltaF r d) => Dual r (d r)
 zero = Dual 0 (ops Zero0)
@@ -177,13 +229,13 @@ Dual x x' .* Dual y y' =
     Dual (x * y) (ops (Add0 (ops (Scale0 y x')) (ops (Scale0 x y'))))
 
 index ::
-  (Numeric t, Ops DeltaF t dual, DeltaMonad s dual m, Known (s `IsScalarOf` t)) =>
+  (HM.Numeric t, Ops DeltaF t dual, DeltaMonad s dual m, Known (s `IsScalarOf` t)) =>
   Dual (Vector t) (dual (Vector t)) ->
   Int ->
   m (Dual t (dual t))
 index (Dual v v') i =
   dLet $
-    Dual (atIndex v i) (ops (Index0 v' i))
+    Dual (HM.atIndex v i) (ops (Index0 v' i (HM.size v)))
 
 myFoo ::
   (Num a, DeltaMonad a (Delta a) m) =>
