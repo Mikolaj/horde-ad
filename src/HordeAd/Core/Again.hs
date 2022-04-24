@@ -36,9 +36,6 @@ instance Known (a `IsScalarOf` a) where
 instance Known (a `IsScalarOf` Vector a) where
   known = SVector
 
-knownP :: Known t => proxy t -> t
-knownP _ = known
-
 data IsScalarOf (s :: Type) (t :: Type) where
   SScalar :: IsScalarOf s s
   SVector :: IsScalarOf s (Vector s)
@@ -96,7 +93,7 @@ eval st t delta m = case delta of
       Index0 de i n ->
         eval
           SVector
-          (HM.fromList (map (\n' -> if n' == i then 1 else 0) [0 .. n -1]))
+          (HM.fromList (map (\n' -> if n' == i then t else 0) [0 .. n -1]))
           de
           m
       Dot1 de de' -> eval SVector (t `HM.scale` de) de' m
@@ -274,6 +271,15 @@ zero = Dual 0 (ops Zero0)
 instance Ops DeltaF r (Delta r) where
   ops = Delta
 
+bar ::
+  (HM.Numeric t, DeltaMonad s dual m, Ops DeltaF t dual, Known (s `IsScalarOf` t)) =>
+  Dual (Vector t) (dual (Vector t)) ->
+  m (Dual t (dual t))
+bar v = do
+  x <- index v 0
+  y <- index v 1
+  foo x y
+
 foo ::
   (DeltaMonad s dual m, Num t, Ops DeltaF t dual, Known (s `IsScalarOf` t)) =>
   Dual t (dual t) ->
@@ -321,3 +327,6 @@ example = runDeltaMonad 1 myFoo
 
 example2 :: (Dual Double (Delta Double Double), DeltaState Double)
 example2 = runDeltaMonadM myFoo
+
+example3 :: (Double, DeltaMap Double)
+example3 = runDeltaMonad 1 (bar (Dual (HM.fromList [10, 20]) (Var (DeltaId (-1)))))
