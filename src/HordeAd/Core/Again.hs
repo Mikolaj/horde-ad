@@ -162,15 +162,18 @@ runDeltaMonadS ::
   (s, DeltaMap s)
 runDeltaMonadS st g m =
   let (Dual t delta, bs) = runDeltaMonadM m
-   in case st of
+      (bs', m') = case st of
         SScalar ->
           let dId = succDeltaId (deltaCounter0 bs)
-              bs' = DeltaBinding st dId delta : deltaBindings bs
-           in (t, runDelta bs' (Map.singleton dId g, Map.empty))
+           in ( DeltaBinding st dId delta,
+                (Map.singleton dId g, Map.empty)
+              )
         SVector ->
           let dId = succDeltaId (deltaCounter1 bs)
-              bs' = DeltaBinding st dId delta : deltaBindings bs
-           in (t, runDelta bs' (Map.empty, Map.singleton dId g))
+           in ( DeltaBinding st dId delta,
+                (Map.empty, Map.singleton dId g)
+              )
+   in (t, runDelta (bs' : deltaBindings bs) m')
 
 runDeltaMonad ::
   (HM.Numeric s, Known (s `IsScalarOf` t)) =>
