@@ -160,24 +160,24 @@ runDeltaMonadM m = runState (runDualMonadGradient m) initialState
 runDeltaMonadS ::
   HM.Numeric s =>
   s `IsScalarOf` t ->
+  t ->
   DualMonadGradient s (Dual s (Delta s t)) ->
   (s, DeltaMap s)
-runDeltaMonadS st m =
+runDeltaMonadS st g m =
   let (Dual t delta, bs) = runDeltaMonadM m
    in case st of
         SScalar ->
           let dId = succDeltaId (deltaCounter0 bs)
               bs' = DeltaBinding st dId delta : deltaBindings bs
-           in (t, runDelta bs' initialMap)
+           in (t, runDelta bs' (Map.singleton dId g, Map.empty))
         SVector ->
           let dId = succDeltaId (deltaCounter1 bs)
               bs' = DeltaBinding st dId delta : deltaBindings bs
-           in (t, runDelta bs' initialMap)
-  where
-    initialMap = (Map.empty, Map.empty)
+           in (t, runDelta bs' (Map.empty, Map.singleton dId g))
 
 runDeltaMonad ::
   (HM.Numeric s, Known (s `IsScalarOf` t)) =>
+  t ->
   DualMonadGradient s (Dual s (Delta s t)) ->
   (s, DeltaMap s)
 runDeltaMonad = runDeltaMonadS known
@@ -317,7 +317,7 @@ myFoo ::
 myFoo = foo (Dual 10 (Var (DeltaId (-1)))) (Dual 20 (Var (DeltaId (-2))))
 
 example :: HM.Numeric Double => (Double, DeltaMap Double)
-example = runDeltaMonad myFoo
+example = runDeltaMonad 1 myFoo
 
 example2 :: (Dual Double (Delta Double Double), DeltaState Double)
 example2 = runDeltaMonadM myFoo
