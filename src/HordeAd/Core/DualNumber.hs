@@ -192,6 +192,12 @@ infixr 8 <.>!!
         => DualNumber (Tensor1 r) -> Primal (Tensor1 r) -> DualNumber r
 (<.>!!) (D u u') v = D (u HM.<.> v) (dDot0 v u')
 
+infixr 8 <.>$
+(<.>$) :: (IsScalar r, KnownNat n)
+       => DualNumber (TensorS r '[n]) -> DualNumber (TensorS r '[n])
+       -> DualNumber r
+(<.>$) d e = fromS1 d <.>! fromS1 e
+
 fromX0 :: IsScalar r => DualNumber (TensorX r) -> DualNumber r
 fromX0 (D u u') = D (OT.unScalar u) (dFromX0 u')
 
@@ -385,7 +391,7 @@ softMaxActV d@(D u _) = do
 
 -- Note that this is equivalent to a composition of softMax and cross entropy
 -- only when @target@ is one-hot. Otherwise, results vary wildly. In our
--- rendering of the MNIST data all labels are on-hot.
+-- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyL
   :: (DualMonad r m, Floating (Primal (Tensor2 r)))
   => Primal (Tensor2 r)
@@ -748,6 +754,15 @@ reshapeS :: (IsScalar r, OS.Shape sh, OS.Shape sh', OS.Size sh ~ OS.Size sh')
          => DualNumber (TensorS r sh) -> DualNumber (TensorS r sh')
 reshapeS (D u u') = D (OS.reshape u) (dReshapeS u')
 
+-- TODO: generalize as broadcast or stretch
+asRowS :: forall k n r. (IsScalar r, KnownNat k, KnownNat n)
+       => DualNumber (TensorS r '[k]) -> DualNumber (TensorS r '[n, k])
+asRowS d = from2S $ asRow2 (fromS1 d) (valueOf @n)
+
+asColumnS :: forall k n r. (IsScalar r, KnownNat k, KnownNat n)
+          => DualNumber (TensorS r '[k]) -> DualNumber (TensorS r '[k, n])
+asColumnS d = from2S $ asColumn2 (fromS1 d) (valueOf @n)
+
 from0S :: IsScalar r => DualNumber r -> DualNumber (TensorS r '[])
 from0S (D u u') = D (OS.scalar u) (dFrom0S u')
 
@@ -769,6 +784,13 @@ infixr 8 #>$
       -> DualNumber (TensorS r '[cols])
       -> DualNumber (TensorS r '[rows])
 (#>$) d e = from1S $ fromS2 d #>! fromS1 e
+
+infixr 8 <>$
+(<>$) :: (IsScalar r, KnownNat m, KnownNat n, KnownNat p)
+      => DualNumber (TensorS r '[m, n])
+      -> DualNumber (TensorS r '[n, p])
+      -> DualNumber (TensorS r '[m, p])
+(<>$) d e = from2S $ fromS2 d <>! fromS2 e
 
 conv2S :: forall r kheight_minus_1 kwidth_minus_1 in_height in_width.
           ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1

@@ -1,18 +1,27 @@
-{-# LANGUAGE AllowAmbiguousTypes, TypeFamilies #-}
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, TypeFamilies, TypeOperators #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module TestMnistRNN (testTrees, shortTestForCITrees) where
 
 import Prelude
 
 import           Control.Monad (foldM)
 import qualified Data.Array.DynamicS as OT
+import           Data.Array.Internal (valueOf)
+import qualified Data.Array.Shaped as OSB
+import qualified Data.Array.ShapedS as OS
 import           Data.List (foldl', unfoldr)
 import qualified Data.Vector.Generic as V
+import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Matrix, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 import           Text.Printf
+
+-- until stylish-haskell accepts NoStarIsType
+import qualified GHC.TypeLits
 
 import HordeAd
 import HordeAd.Core.OutdatedOptimizer
@@ -369,7 +378,8 @@ fcfcrnnMnistL2 x s@(D u _) variables = do
       s2 = slice1 len len s
   (vec1, s1') <- hiddenLayerMnistRNNL x s1 variables
   (vec2, s2') <- middleLayerMnistRNNL vec1 s2 variables
-  return (vec2, append1 s1' s2')
+  s3 <- returnLet $ append1 s1' s2'
+  return (vec2, s3)
 
 unrollLastG :: forall a b c m r. DualMonad r m
             => (a -> b -> DualNumberVariables r -> m (c, b))
@@ -578,8 +588,9 @@ mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
        let testErrorFinal = 1 - ftest width testData res
        testErrorFinal @?= expected
 
--- A version written using matrices to express mini-batches of data
--- and so using matrix multiplication to run the neural net.
+
+-- * A version written using matrices to express mini-batches of data
+-- and so using matrix multiplication to run the neural net
 
 hiddenLayerMnistRNNB :: (DualMonad r m, Floating (Primal (Tensor2 r)))
                      => Primal (Tensor2 r)  -- the mini-batch of data 28x150
@@ -760,6 +771,108 @@ mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
        res <- runEpoch 1 (parameters0, initialStateAdam parameters0)
        let testErrorFinal = 1 - ftest width testData res
        testErrorFinal @?= expected
+
+
+-- * A version written using shaped tensors
+
+zeroStateS
+  :: (IsScalar r, OS.Shape sh)
+  => (DualNumber (TensorS r sh)  -- state
+      -> a)
+  -> a
+zeroStateS f = f (konstS 0)
+
+unrollLastS :: forall state c w m r k rest.
+               (DualMonad r m, KnownNat k, OS.Shape rest)
+            => (state -> OS.Array rest (Primal r) -> w -> m (c, state))
+            -> (state -> OS.Array (k : rest) (Primal r) -> w -> m (c, state))
+unrollLastS f s0 xs w = do
+  let g :: (c, state) -> OS.Array rest (Primal r) -> m (c, state)
+      g (_, s) x = f s x w
+  foldM g (undefined, s0) $ OSB.toList $ OS.unravel xs
+
+type LayerWeigthsRNN in_width out_width r =
+  ( DualNumber (TensorS r '[out_width, in_width])
+  , DualNumber (TensorS r '[out_width, out_width])
+  , DualNumber (TensorS r '[out_width]) )
+
+rnnMnistLayerS
+  :: forall in_width out_width n_batches r m.
+     (DualMonad r m, KnownNat in_width, KnownNat out_width, KnownNat n_batches)
+  => DualNumber (TensorS r '[out_width, n_batches])  -- in state
+  -> DualNumber (TensorS r '[in_width, n_batches])  -- in
+  -> LayerWeigthsRNN in_width out_width r
+  -> m ( DualNumber (TensorS r '[out_width, n_batches])  -- out
+       , DualNumber (TensorS r '[out_width, n_batches]) )  -- out state
+rnnMnistLayerS s x (wX, wS, b) = do
+  let y = wX <>$ x + wS <>$ s + asColumnS b
+  yTanh <- returnLet $ tanh y
+  return (yTanh, yTanh)
+
+rnnMnistTwoS
+  :: forall out_width n_batches r m.
+     (DualMonad r m, KnownNat out_width, KnownNat n_batches)
+  => DualNumber (TensorS r '[2 GHC.TypeLits.* out_width, n_batches])
+       -- initial state
+  -> Primal (TensorS r '[SizeMnistWidth, n_batches])
+  -> ( LayerWeigthsRNN SizeMnistWidth out_width r
+     , LayerWeigthsRNN out_width out_width r )
+  -> m ( DualNumber (TensorS r '[out_width, n_batches])
+       , DualNumber (TensorS r '[2 GHC.TypeLits.* out_width, n_batches]) )
+           -- final state
+rnnMnistTwoS s x ((wX, wS, b), (wX2, wS2, b2)) = do
+  let s1 = sliceS @0 @out_width s
+      s2 = sliceS @out_width @out_width s
+  (vec1, s1') <- rnnMnistLayerS s1 (scalar x) (wX, wS, b)
+  (vec2, s2') <- rnnMnistLayerS s2 vec1 (wX2, wS2, b2)
+  s3 <- returnLet $ appendS s1' s2'
+  return (vec2, s3)
+
+rnnMnistZeroS
+  :: forall out_width n_batches r m.
+     (DualMonad r m, KnownNat out_width, KnownNat n_batches)
+  => Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, n_batches])
+  -> ( LayerWeigthsRNN SizeMnistWidth out_width r
+     , LayerWeigthsRNN out_width out_width r )
+  -> DualNumber (TensorS r '[SizeMnistLabel, out_width])
+  -> DualNumber (TensorS r '[SizeMnistLabel])
+  -> m (DualNumber (TensorS r '[SizeMnistLabel, n_batches]))
+rnnMnistZeroS xs ((wX, wS, b), (wX2, wS2, b2)) w3 b3 = do
+  (out, _s) <- zeroStateS (unrollLastS rnnMnistTwoS) xs
+                          ((wX, wS, b), (wX2, wS2, b2))
+  returnLet $ w3 <>$ out + asColumnS b3
+
+rnnMnistS
+  :: forall out_width n_batches r m.
+     (DualMonad r m, KnownNat out_width, KnownNat n_batches)
+  => Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, n_batches])
+  -> DualNumberVariables r
+  -> m (DualNumber (TensorS r '[SizeMnistLabel, n_batches]))
+rnnMnistS xs variables = do
+  let wX = varS variables 0
+      wS = varS variables 1
+      b = varS variables 2
+      wX2 = varS variables 3
+      wS2 = varS variables 4
+      b2 = varS variables 5
+      w3 = varS variables 6
+      b3 = varS variables 7
+  rnnMnistZeroS @out_width xs ((wX, wS, b), (wX2, wS2, b2)) w3 b3
+
+rnnMnistLossFusedS
+  :: forall out_width n_batches r m.
+     ( DualMonad r m, KnownNat out_width, KnownNat n_batches
+     , Floating (Primal (Tensor2 r)) )
+  => ( Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, n_batches])
+     , Primal (TensorS r '[SizeMnistLabel, n_batches]) )
+  -> DualNumberVariables r
+  -> m (DualNumber r)
+rnnMnistLossFusedS (xs, targets) variables = do
+  out3 <- rnnMnistS @out_width xs variables
+  let targets2 = HM.reshape (valueOf @n_batches) $ OS.toVector targets
+  vec <- lossSoftMaxCrossEntropyL targets2 (fromS2 out3)
+  returnLet $ scale (recip $ fromIntegral $ (valueOf @n_batches :: Int))
+            $ sumElements0 vec
 
 mnistRNNTestsLong :: TestTree
 mnistRNNTestsLong = testGroup "MNIST RNN long tests"

@@ -15,10 +15,7 @@ import qualified Data.Array.Shape
 import qualified Data.Array.ShapedS as OS
 import           Data.Proxy (Proxy)
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, Nat)
-
--- until stylish-haskell accepts NoStarIsType
-import qualified GHC.TypeLits
+import           GHC.TypeLits (KnownNat)
 
 -- commented out until inline doesn't break compilation below
 -- import           GHC.Exts (inline)
@@ -29,10 +26,7 @@ import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors (DualNumberVariables, varS)
 import HordeAd.Tool.MnistData
 
-type SizeMnistGlyph = 28 GHC.TypeLits.* 28
-type SizeMnistLabel = 10 :: Nat
-
--- It seems that without plugins of TH we really have to copy-paste
+-- It seems that without plugins or TH we really have to copy-paste
 -- the six-element type list from signature of @nnMnistLayersS@.
 lenMnistFcnnS
   :: forall widthHidden widthHidden2.

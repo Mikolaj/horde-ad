@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds, KindSignatures, TypeOperators #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 -- | Parsing and pre-processing MNIST data.
 module HordeAd.Tool.MnistData where
@@ -6,25 +7,37 @@ import Prelude
 
 import           Codec.Compression.GZip (decompress)
 import           Control.Arrow (first)
+import           Data.Array.Internal (valueOf)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.IDX
 import           Data.List (sortOn)
 import           Data.Maybe (fromMaybe)
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Unboxed
+import           GHC.TypeLits (Nat)
 import           Numeric.LinearAlgebra (Matrix, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           System.IO (IOMode (ReadMode), withBinaryFile)
 import           System.Random
 
-sizeMnistGlyph :: Int
-sizeMnistGlyph = 784
+-- until stylish-haskell accepts NoStarIsType
+import qualified GHC.TypeLits
+
+type SizeMnistWidth = 28 :: Nat
+type SizeMnistHeight = SizeMnistWidth
 
 sizeMnistWidth :: Int
-sizeMnistWidth = 28
+sizeMnistWidth = valueOf @SizeMnistWidth
+
+type SizeMnistGlyph = SizeMnistWidth GHC.TypeLits.* SizeMnistHeight
+
+sizeMnistGlyph :: Int
+sizeMnistGlyph = valueOf @SizeMnistGlyph
+
+type SizeMnistLabel = 10 :: Nat
 
 sizeMnistLabel :: Int
-sizeMnistLabel = 10
+sizeMnistLabel = valueOf @SizeMnistLabel
 
 -- Actually, a better representation, supported by @Data.IDX@,
 -- is an integer label and a picture (the same vector as below).
