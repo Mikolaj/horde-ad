@@ -45,7 +45,7 @@ newtype DualMonadValue r a = DualMonadValue
 
 -- @UndecidableInstances@ needed anyway due to this constraint.
 instance IsScalarVar r => DualMonad r (DualMonadValue r) where
-  returnLet (D u _u') = DualMonadValue $ Identity $ D u dZero
+  returnLet1 _u' = DualMonadValue $ Identity dZero
 
 -- The general case, needed for old, hacky tests using only scalars.
 primalValueGeneral :: forall r a. IsScalar r
@@ -83,11 +83,11 @@ newtype DualMonadGradient r a = DualMonadGradient
   deriving (Monad, Functor, Applicative)
 
 instance IsScalarVar r => DualMonad r (DualMonadGradient r) where
-  returnLet (D u u') = DualMonadGradient $ do
+  returnLet1 u' = DualMonadGradient $ do
     st <- get
     let (!stNew, !dId) = bindInState u' st
     put stNew
-    return $! D u (dVar dId)
+    return $! dVar dId
 
 initializeState :: forall r. IsScalar r => Domains r -> DeltaState (Primal r)
 initializeState (params0, params1, params2, paramsX) =
@@ -163,7 +163,7 @@ newtype DualMonadForward r a = DualMonadForward
   deriving (Monad, Functor, Applicative)
 
 instance IsScalarVar r => DualMonad r (DualMonadForward r) where
-  returnLet (D u u') = DualMonadForward $ Identity $ D u u'
+  returnLet1 u' = DualMonadForward $ Identity u'
 
 -- This the efficient variant of forward derivative computation.
 dFastForwardGeneral

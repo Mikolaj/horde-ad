@@ -32,8 +32,14 @@ data DualNumber a = D (Primal a) a
 
 class (IsScalarVar r, Monad m)
       => DualMonad r m | m -> r where
-  returnLet :: IsDualWithScalarVar a r
-            => DualNumber a -> m (DualNumber a)
+  returnLet1 :: IsDualWithScalarVar a r
+             => a -> m a
+
+returnLet :: (DualMonad r m, IsDualWithScalarVar a r)
+          => DualNumber a -> m (DualNumber a)
+returnLet (D p a) = do
+  a' <- returnLet1 a
+  pure (D p a')
 
 type Domain0 r = Delta.Domain0 (Primal r)
 
