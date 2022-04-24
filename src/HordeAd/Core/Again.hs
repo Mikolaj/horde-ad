@@ -57,20 +57,22 @@ newtype DeltaId (r :: Type) where
 succDeltaId :: DeltaId d -> DeltaId d
 succDeltaId (DeltaId i) = DeltaId (i + 1)
 
-data DeltaBinding r where
-  DeltaBinding :: s `IsScalarOf` t -> DeltaId t -> Delta r t -> DeltaBinding r
+data DeltaBinding s where
+  DeltaBinding :: s `IsScalarOf` t -> DeltaId t -> Delta s t -> DeltaBinding s
 
 data Delta (s :: Type) (t :: Type) where
   Delta :: DeltaF s (Delta s) t -> Delta s t
   Var :: DeltaId t -> Delta s t
+
+type DeltaMap s = (Map.Map (DeltaId s) s, Map.Map (DeltaId (Vector s)) (Vector s))
 
 eval ::
   HM.Numeric s =>
   s `IsScalarOf` t ->
   t ->
   Delta s t ->
-  (Map.Map (DeltaId s) s, Map.Map (DeltaId (Vector s)) (Vector s)) ->
-  (Map.Map (DeltaId s) s, Map.Map (DeltaId (Vector s)) (Vector s))
+  DeltaMap s ->
+  DeltaMap s
 eval st t delta m = case delta of
   Delta df -> case st of
     SScalar -> case df of
@@ -113,6 +115,16 @@ eval st t delta m = case delta of
               di
               mv
           )
+
+evalLet :: HM.Numeric s => DeltaBinding s -> DeltaMap s -> DeltaMap s
+evalLet binding (ms, mv) = case binding of
+  (DeltaBinding st di de) -> case st of
+    SScalar -> case Map.lookup di ms of
+      Nothing -> (ms, mv)
+      Just x -> eval st x de (Map.delete di ms, mv)
+    SVector -> case Map.lookup di mv of
+      Nothing -> (ms, mv)
+      Just x -> eval st x de (ms, Map.delete di mv)
 
 data DeltaState s = DeltaState
   { deltaCounter0 :: DeltaId s,
