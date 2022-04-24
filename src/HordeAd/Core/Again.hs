@@ -126,6 +126,16 @@ evalLet binding (ms, mv) = case binding of
       Nothing -> (ms, mv)
       Just x -> eval st x de (ms, Map.delete di mv)
 
+runDelta ::
+  HM.Numeric s =>
+  DeltaId s ->
+  [DeltaBinding s] ->
+  DeltaMap s ->
+  DeltaMap s
+runDelta dId binds m = case binds of
+  [] -> m
+  b : rest -> runDelta dId rest (evalLet b m)
+
 data DeltaState s = DeltaState
   { deltaCounter0 :: DeltaId s,
     deltaCounter1 :: DeltaId (Vector s),
@@ -147,7 +157,8 @@ instance DeltaMonad s (Delta s) (DualMonadGradient s) where
         put
           ( st
               { deltaCounter0 = succDeltaId (deltaCounter0 st),
-                deltaBindings = DeltaBinding sd (deltaCounter0 st) delta : deltaBindings st
+                deltaBindings = DeltaBinding sd (deltaCounter0 st) delta
+                                : deltaBindings st
               }
           )
         pure (Var (deltaCounter0 st))
@@ -155,7 +166,8 @@ instance DeltaMonad s (Delta s) (DualMonadGradient s) where
         put
           ( st
               { deltaCounter1 = succDeltaId (deltaCounter1 st),
-                deltaBindings = DeltaBinding SVector (deltaCounter1 st) delta : deltaBindings st
+                deltaBindings = DeltaBinding SVector (deltaCounter1 st) delta
+                : deltaBindings st
               }
           )
         pure (Var (deltaCounter1 st))
