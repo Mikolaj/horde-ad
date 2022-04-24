@@ -29,9 +29,9 @@ class Known t where
 knownP :: Known t => proxy t -> t
 knownP _ = known
 
-data IsScalarOf (scalar :: Type) (t :: Type) where
-  SScalar :: IsScalarOf scalar scalar
-  SVector :: IsScalarOf scalar (Vector scalar)
+data IsScalarOf (s :: Type) (t :: Type) where
+  SScalar :: IsScalarOf s s
+  SVector :: IsScalarOf s (Vector s)
 
 data DeltaF (s :: Type) (dual :: Type -> Type) (t :: Type) where
   Zero0 :: DeltaF s dual s
@@ -50,7 +50,7 @@ succDeltaId :: DeltaId d -> DeltaId d
 succDeltaId (DeltaId i) = DeltaId (i + 1)
 
 data DeltaBinding r where
-  DeltaBinding :: s `IsScalarOf` d -> DeltaId d -> Delta r d -> DeltaBinding r
+  DeltaBinding :: s `IsScalarOf` t -> DeltaId t -> Delta r t -> DeltaBinding r
 
 data Delta (s :: Type) (dual :: Type) where
   Delta :: DeltaF s (Delta s) dual -> Delta s dual
@@ -100,32 +100,32 @@ instance DeltaMonad r Unit (DualMonadValue r) where
   deltaLet _ = pure
 
 dLetS ::
-  forall (d :: Type -> Type) t m s.
-  DeltaMonad s d m =>
+  forall (dual :: Type -> Type) t m s.
+  DeltaMonad s dual m =>
   s `IsScalarOf` t ->
-  Dual t (d t) ->
-  m (Dual t (d t))
+  Dual t (dual t) ->
+  m (Dual t (dual t))
 dLetS si (Dual x y) = do
   y' <- deltaLet si y
   pure (Dual x y')
 
 dLet ::
-  forall s d t m.
-  (DeltaMonad s d m, Known (s `IsScalarOf` t)) =>
-  Dual t (d t) ->
-  m (Dual t (d t))
+  forall s dual t m.
+  (DeltaMonad s dual m, Known (s `IsScalarOf` t)) =>
+  Dual t (dual t) ->
+  m (Dual t (dual t))
 dLet = dLetS known
 
 data Dual a b = Dual a b
 
-class Ops r d | d -> r where
-  ops :: DeltaF r d t -> d t
+class Ops f s dual | dual -> s where
+  ops :: f s dual t -> dual t
 
 data Concrete r (t :: Type) where
   C0 :: r -> Concrete r r
   C1 :: Vector r -> Concrete r (Vector r)
 
-instance (Num r, Numeric r) => Ops r (Concrete r) where
+instance (Num r, Numeric r) => Ops DeltaF r (Concrete r) where
   ops = \case
     Zero0 -> C0 0
     Add0 (C0 x1) (C0 x2) -> C0 (x1 + x2)
@@ -136,33 +136,33 @@ instance (Num r, Numeric r) => Ops r (Concrete r) where
     Konst1 (C0 k) i -> C1 (konst k i)
     Dot1 (C1 v1) (C1 v2) -> C0 (v1 `dot` v2)
 
-zero :: (Num r, Ops r d) => Dual r (d r)
+zero :: (Num r, Ops DeltaF r d) => Dual r (d r)
 zero = Dual 0 (ops Zero0)
 
-instance Ops r (Delta r) where
+instance Ops DeltaF r (Delta r) where
   ops = Delta
 
 foo ::
-  (DeltaMonad s d m, Num t, Ops t d, Known (s `IsScalarOf` t)) =>
-  Dual t (d t) ->
-  Dual t (d t) ->
-  m (Dual t (d t))
+  (DeltaMonad s dual m, Num t, Ops DeltaF t dual, Known (s `IsScalarOf` t)) =>
+  Dual t (dual t) ->
+  Dual t (dual t) ->
+  m (Dual t (dual t))
 foo x y = do
   x2 <- x .* x
   x2y <- x2 .* y
   x2y .+ y
 
 (.+) ::
-  (DeltaMonad s d m, Known (s `IsScalarOf` t), Num t, Ops t d) =>
-  Dual t (d t) ->
-  Dual t (d t) ->
-  m (Dual t (d t))
+  (DeltaMonad s dual m, Known (s `IsScalarOf` t), Num t, Ops DeltaF t dual) =>
+  Dual t (dual t) ->
+  Dual t (dual t) ->
+  m (Dual t (dual t))
 Dual x x' .+ Dual y y' =
   dLet $
     Dual (x + y) (ops (Add0 x' y'))
 
 (.*) ::
-  (DeltaMonad s dual m, Known (s `IsScalarOf` t), Num t, Ops t dual) =>
+  (DeltaMonad s dual m, Known (s `IsScalarOf` t), Num t, Ops DeltaF t dual) =>
   Dual t (dual t) ->
   Dual t (dual t) ->
   m (Dual t (dual t))
