@@ -239,48 +239,48 @@ data SDeltaLevel a where
   SD2 :: SDeltaLevel 'D2
   SDX :: SDeltaLevel 'DX
 
-type Delta0 = Delta 'D0
-type Delta1 = Delta 'D1
-type Delta2 = Delta 'D2
-type DeltaX = Delta 'DX
+type Delta0 r = Delta r 'D0
+type Delta1 r = Delta r 'D1
+type Delta2 r = Delta r 'D2
+type DeltaX r = Delta r 'DX
 
-deriving instance (Show r, Numeric r) => Show (Delta d r)
+deriving instance (Show r, Numeric r) => Show (Delta r d)
 
-data Delta d r where
-  Zero0 :: Delta 'D0 r
-  Scale0 :: r -> Delta0 r -> Delta 'D0 r
-  Add0 :: Delta0 r -> Delta0 r -> Delta 'D0 r
-  Var0 :: DeltaId 'D0 -> Delta 'D0 r
+data Delta (r :: Type) (d :: DeltaLevel) where
+  Zero0 :: Delta r 'D0
+  Scale0 :: r -> Delta0 r -> Delta r 'D0
+  Add0 :: Delta0 r -> Delta0 r -> Delta r 'D0
+  Var0 :: DeltaId 'D0 -> Delta r 'D0
   Delta0Others :: Delta0Others (Vector r) (Delta1 r) (DeltaX r) (DeltaS r '[])
-               -> Delta 'D0 r
+               -> Delta r 'D0
 
-  Zero1 :: Delta 'D1 r
-  Scale1 :: Vector r -> Delta1 r -> Delta 'D1 r
-  Add1 :: Delta1 r -> Delta1 r -> Delta 'D1 r
-  Var1 :: DeltaId 'D1 -> Delta 'D1 r
-  FlattenS1 :: OS.Shape sh => DeltaS r sh -> Delta 'D1 r
-  FromS1 :: KnownNat len => DeltaS r '[len] -> Delta 'D1 r
+  Zero1 :: Delta r 'D1
+  Scale1 :: Vector r -> Delta1 r -> Delta r 'D1
+  Add1 :: Delta1 r -> Delta1 r -> Delta r 'D1
+  Var1 :: DeltaId 'D1 -> Delta r 'D1
+  FlattenS1 :: OS.Shape sh => DeltaS r sh -> Delta r 'D1
+  FromS1 :: KnownNat len => DeltaS r '[len] -> Delta r 'D1
   Delta1Others :: Delta1Others (Matrix r) (Vector r) (Delta0 r) (Delta1 r) (Delta2 r) (DeltaX r)
-               -> Delta 'D1 r
+               -> Delta r 'D1
 
-  Zero2 :: Delta 'D2 r
-  Scale2 :: Matrix r -> Delta2 r -> Delta 'D2 r
-  Add2 :: Delta2 r -> Delta2 r -> Delta 'D2 r
-  Var2 :: DeltaId 'D2 -> Delta 'D2 r
+  Zero2 :: Delta r 'D2
+  Scale2 :: Matrix r -> Delta2 r -> Delta r 'D2
+  Add2 :: Delta2 r -> Delta2 r -> Delta r 'D2
+  Var2 :: DeltaId 'D2 -> Delta r 'D2
   FromS2 :: (KnownNat rows, KnownNat cols)
-         =>DeltaS r '[rows, cols]-> Delta 'D2 r
+         =>DeltaS r '[rows, cols]-> Delta r 'D2
 
   Delta2Others :: Delta2Others (Matrix r) (Delta0 r) (Delta1 r) (Delta2 r) (DeltaX r)
-               -> Delta 'D2 r
+               -> Delta r 'D2
 
-  ZeroX :: Delta 'DX r
-  ScaleX :: OT.Array r -> DeltaX r ->  Delta 'DX r
-  AddX :: DeltaX r -> DeltaX r -> Delta 'DX r
-  VarX :: DeltaId 'DX -> Delta 'DX r
+  ZeroX :: Delta r 'DX
+  ScaleX :: OT.Array r -> DeltaX r ->  Delta r 'DX
+  AddX :: DeltaX r -> DeltaX r -> Delta r 'DX
+  VarX :: DeltaId 'DX -> Delta r 'DX
   FromSX :: OS.Shape sh
-         => DeltaS r sh -> Delta 'DX r
+         => DeltaS r sh -> Delta r 'DX
   DeltaXOthers :: DeltaXOthers (Delta0 r) (Delta1 r) (Delta2 r) (DeltaX r)
-               -> Delta 'DX r
+               -> Delta r 'DX
 
 newtype DeltaId (d :: DeltaLevel) where
   DeltaId :: Int -> DeltaId d
@@ -293,7 +293,7 @@ newtype DeltaId (d :: DeltaLevel) where
 -- than storing them here at the time of binding creation and accessing
 -- in `buildFinMaps`.
 data DeltaBinding r where
-  DeltaBinding :: SDeltaLevel d -> DeltaId d -> Delta d r -> DeltaBinding r
+  DeltaBinding :: SDeltaLevel d -> DeltaId d -> Delta r d -> DeltaBinding r
 
 data DeltaState r = DeltaState
   { deltaCounter0 :: DeltaId 'D0
