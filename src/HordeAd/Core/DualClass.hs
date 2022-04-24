@@ -12,7 +12,7 @@
 module HordeAd.Core.DualClass
   ( IsDualWithScalar, IsDualWithScalarVar, IsScalar, IsScalarVar
   , HasDelta, HasForward
-  , IsDual(Primal, dZero, dScale, dAdd)
+  , IsDual(Primal, dZero, dScale, dAdd, DD, dd)
   , IsDualVar(dVar, bindInState)
   , HasRanks(..), TensorS
   , Delta0  -- re-export; should be rarely used
@@ -133,6 +133,7 @@ class IsDual a where
   dAdd :: a -> a -> a
   type ScalarOf a  -- verbose name to remember not to export from this module
   type DD a :: DeltaLevel
+  dd :: SDeltaLevel (DD a)
 
 class IsDual a => IsDualVar a where
   dVar :: DeltaId (DD a) -> a
@@ -171,6 +172,7 @@ instance (IsDualS t, OS.Shape sh) => IsDual (t sh) where
   dAdd = dAddS
   type ScalarOf (t sh) = ScalarOfS t
   type DD (t sh) = 'DX
+  dd = SDX
 
 instance OS.Shape sh => IsDualVar (DeltaS r sh) where
   dVar = VarS
@@ -366,6 +368,7 @@ instance IsDual (Delta0 r) where
   dAdd = Add0
   type ScalarOf (Delta0 r) = r
   type DD (Delta0 r) = 'D0
+  dd = SD0
 
 instance IsDualVar (Delta0 r) where
   dVar = Var0
@@ -405,6 +408,7 @@ instance IsDual (Delta1 r) where
   dAdd = Add1
   type ScalarOf (Delta1 r) = r
   type DD (Delta1 r) = 'D1
+  dd = SD1
 
 instance IsDualVar (Delta1 r) where
   dVar = Var1
@@ -418,6 +422,7 @@ instance IsDual (Delta2 r) where
   dAdd = Add2
   type ScalarOf (Delta2 r) = r
   type DD (Delta2 r) = 'D2
+  dd = SD2
 
 instance IsDualVar (Delta2 r) where
   dVar = Var2
@@ -431,6 +436,7 @@ instance IsDual (DeltaX r) where
   dAdd = AddX
   type ScalarOf (DeltaX r) = r
   type DD (DeltaX r) = 'DX
+  dd = SDX
 
 instance IsDualVar (DeltaX r) where
   dVar = VarX
@@ -455,6 +461,7 @@ instance IsDual Double where
   dAdd d e = d + e
   type ScalarOf Double = Double
   type DD Double = 'D0
+  dd = SD0
 
 instance IsDual Float where
   type Primal Float = Float
@@ -463,6 +470,7 @@ instance IsDual Float where
   dAdd d e = d + e
   type ScalarOf Float = Float
   type DD Float = 'D0
+  dd = SD0
 
 -- These constraints force @UndecidableInstances@.
 instance Num (Vector r) => IsDual (Vector r) where
@@ -472,6 +480,7 @@ instance Num (Vector r) => IsDual (Vector r) where
   dAdd = (+)
   type ScalarOf (Vector r) = r
   type DD (Vector r) = 'D1
+  dd = SD1
 
 instance Num (Matrix r) => IsDual (Matrix r) where
   type Primal (Matrix r) = Matrix r
@@ -480,6 +489,7 @@ instance Num (Matrix r) => IsDual (Matrix r) where
   dAdd = (+)
   type ScalarOf (Matrix r) = r
   type DD (Matrix r) = 'D2
+  dd = SD2
 
 instance Num (OT.Array r) => IsDual (OT.Array r) where
   type Primal (OT.Array r) = OT.Array r
@@ -488,6 +498,7 @@ instance Num (OT.Array r) => IsDual (OT.Array r) where
   dAdd = (+)
   type ScalarOf (OT.Array r) = r
   type DD (OT.Array r) = 'DX
+  dd = SDX
 
 -- Due to this definition, which is necessary to partially apply @OS.Array@
 -- to the @r@ argument, we need a lot of coercions in the code below

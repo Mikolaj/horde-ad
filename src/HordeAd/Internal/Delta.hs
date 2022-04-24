@@ -42,6 +42,7 @@ module HordeAd.Internal.Delta
     DeltaBinding
   , DeltaState (..)
   , DeltaLevel (..)
+  , SDeltaLevel (..)
   , Domain0, Domain1, Domain2, DomainX, Domains
   , gradientFromDelta, derivativeFromDelta, ppBindings
   , bindInState0, bindInState1, bindInState2, bindInStateX
