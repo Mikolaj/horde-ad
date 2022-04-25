@@ -1,4 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, TypeFamilies, TypeOperators #-}
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, RankNTypes, TypeFamilies,
+             TypeOperators #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module TestMnistRNN (testTrees, shortTestForCITrees) where
@@ -8,9 +9,11 @@ import Prelude
 import           Control.Monad (foldM)
 import qualified Data.Array.DynamicS as OT
 import           Data.Array.Internal (valueOf)
+import qualified Data.Array.Shape
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import           Data.List (foldl', unfoldr)
+import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Matrix, Vector)
@@ -736,11 +739,11 @@ mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
        let packChunk :: [([Vector Double], Vector Double)]
                      -> ([Matrix Double], Matrix Double)
            packChunk chunk =
-             let (inputs, outputs) = unzip chunk
+             let (inputs, targets) = unzip chunk
                  behead !acc ([] : _) = reverse acc
                  behead !acc l = behead (HM.fromColumns (map head l) : acc)
                                         (map tail l)
-             in (behead [] inputs, HM.fromColumns outputs)
+             in (behead [] inputs, HM.fromColumns targets)
            -- There is some visual feedback, because some of these take long.
            runBatch :: (Domains (Delta0 Double), StateAdam (Delta0 Double))
                     -> (Int, [([Vector Double], Vector Double)])
@@ -859,20 +862,152 @@ rnnMnistS xs variables = do
       b3 = varS variables 7
   rnnMnistZeroS @out_width xs ((wX, wS, b), (wX2, wS2, b2)) w3 b3
 
+lenMnistRnnS
+  :: forall out_width. KnownNat out_width
+  => Proxy out_width -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+lenMnistRnnS _ =
+  ( 0
+  , []
+  , []
+  , [ Data.Array.Shape.shapeT @'[out_width, SizeMnistWidth]
+    , Data.Array.Shape.shapeT @'[out_width, out_width]
+    , Data.Array.Shape.shapeT @'[out_width]
+    , Data.Array.Shape.shapeT @'[out_width, out_width]
+    , Data.Array.Shape.shapeT @'[out_width, out_width]
+    , Data.Array.Shape.shapeT @'[out_width]
+    , Data.Array.Shape.shapeT @'[SizeMnistLabel, out_width]
+    , Data.Array.Shape.shapeT @'[SizeMnistLabel]
+    ]
+  )
+
 rnnMnistLossFusedS
   :: forall out_width n_batches r m.
      ( DualMonad r m, KnownNat out_width, KnownNat n_batches
      , Floating (Primal (Tensor2 r)) )
-  => ( Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, n_batches])
+  => Proxy out_width
+  -> ( Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, n_batches])
      , Primal (TensorS r '[SizeMnistLabel, n_batches]) )
   -> DualNumberVariables r
   -> m (DualNumber r)
-rnnMnistLossFusedS (xs, targets) variables = do
+rnnMnistLossFusedS _ (xs, targets) variables = do
   out3 <- rnnMnistS @out_width xs variables
   let targets2 = HM.reshape (valueOf @n_batches) $ OS.toVector targets
   vec <- lossSoftMaxCrossEntropyL targets2 (fromS2 out3)
   returnLet $ scale (recip $ fromIntegral $ (valueOf @n_batches :: Int))
             $ sumElements0 vec
+
+testMnistRNNS
+  :: forall out_width n_batches r.
+     (IsScalar r, KnownNat out_width, KnownNat n_batches)
+  => Proxy r -> Proxy out_width
+  -> ( Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, n_batches])
+     , Primal (TensorS r '[SizeMnistLabel, n_batches]) )
+  -> Domains r
+  -> Primal r
+testMnistRNNS _ _ (glyphS, labelS) parameters =
+  let outputS = primalValue @r (rnnMnistS @out_width glyphS) parameters
+      fromStoVs :: Primal (TensorS r '[SizeMnistLabel, n_batches])
+                -> [Vector (Primal r)]
+      fromStoVs =
+        map OS.toVector . OSB.toList . OS.unravel . OS.transpose @'[1, 0]
+      outputs = fromStoVs outputS
+      labels = fromStoVs labelS
+      matchesLabels :: Vector (Primal r) -> Vector (Primal r) -> Int
+      matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
+                                 | otherwise = 0
+  in fromIntegral (sum (zipWith matchesLabels outputs labels))
+     / fromIntegral (valueOf @n_batches :: Int)
+
+mnistTestCaseRNNS
+  :: forall out_width n_batches r m.
+     ( KnownNat out_width, KnownNat n_batches
+     , r ~ Delta0 Double, m ~ DualMonadGradient (Delta0 Double) )
+  => String
+  -> Int
+  -> Int
+  -> (forall out_width' n_batches'.
+      ( DualMonad r m, KnownNat out_width', KnownNat n_batches'
+      , Floating (Primal (Tensor2 r)) )
+      => Proxy out_width'
+      -> ( Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, n_batches'])
+         , Primal (TensorS r '[SizeMnistLabel, n_batches']) )
+      -> DualNumberVariables r
+      -> m (DualNumber r))
+  -> (forall out_width' n_batches'.
+      (IsScalar r, KnownNat out_width', KnownNat n_batches')
+      => Proxy r -> Proxy out_width'
+      -> ( Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, n_batches'])
+         , Primal (TensorS r '[SizeMnistLabel, n_batches']) )
+      -> Domains r
+      -> Primal r)
+  -> (forall out_width'. KnownNat out_width'
+      => Proxy out_width' -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
+  -> Double
+  -> TestTree
+mnistTestCaseRNNS prefix epochs maxBatches trainWithLoss ftest flen expected =
+  let proxy_out_width = Proxy @out_width
+      n_batches = valueOf @n_batches
+      ((_, _, _, nParamsX), totalParams, range, parametersInit) =
+        initializerFixed 44 0.2 (flen proxy_out_width)
+      name = prefix ++ " "
+             ++ unwords [ show epochs, show maxBatches
+                        , show (valueOf @out_width :: Int), show n_batches
+                        , show nParamsX, show totalParams, show range ]
+  in testCase name $ do
+    let rws (input, target) = (OS.fromVector input, OS.fromVector target)
+    trainData <- map rws <$> loadMnistData trainGlyphsPath trainLabelsPath
+    testData <- map rws <$> loadMnistData testGlyphsPath testLabelsPath
+    let testDataS = packChunk @LengthTestData testData
+        packChunk
+          :: forall n_batches'. KnownNat n_batches'
+          => [( OS.Array '[SizeMnistHeight, SizeMnistWidth] Double
+              , OS.Array '[SizeMnistLabel] Double )]
+          -> ( OS.Array '[SizeMnistHeight, SizeMnistWidth, n_batches'] Double
+             , OS.Array '[SizeMnistLabel, n_batches'] Double )
+        packChunk chunk =
+          let (inputs, targets) = unzip chunk
+          in ( OS.transpose @'[2, 1, 0] $ OS.ravel $ OSB.fromList inputs
+             , OS.transpose @'[1, 0] $ OS.ravel $ OSB.fromList targets )
+        -- There is some visual feedback, because some of these take long.
+        runBatch :: (Domains r, StateAdam r)
+                 -> ( Int
+                    , [( OS.Array '[SizeMnistHeight, SizeMnistWidth] Double
+                       , OS.Array '[SizeMnistLabel] Double )] )
+                 -> IO (Domains r, StateAdam r)
+        runBatch (parameters@(!_, !_, !_, !_), stateAdam) (k, chunk) = do
+          printf "(Batch %d with %d points)\n" k (length chunk)
+          let chunkS = map (packChunk @n_batches)
+                       $ filter (\ch -> length ch >= n_batches)
+                       $ chunksOf n_batches chunk
+              res@(parameters2, _) =
+                sgdAdam (trainWithLoss proxy_out_width)
+                        chunkS parameters stateAdam
+              trainScore =
+                ftest (Proxy @r) proxy_out_width
+                      (packChunk @(10 GHC.TypeLits.* n_batches) chunk)
+                      parameters2
+              testScore = ftest (Proxy @r) proxy_out_width
+                                testDataS parameters2
+          printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
+          printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
+          return res
+        runEpoch :: Int
+                 -> (Domains r, StateAdam r)
+                 -> IO (Domains r)
+        runEpoch n (params2, _) | n > epochs = return params2
+        runEpoch n paramsStateAdam = do
+          printf "[Epoch %d]\n" n
+          let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
+              chunks = take maxBatches
+                       $ zip [1 ..]
+                       $ chunksOf (10 * n_batches) trainDataShuffled
+          !res <- foldM runBatch paramsStateAdam chunks
+          runEpoch (succ n) res
+    printf "\nEpochs to run/max batches per epoch: %d/%d\n"
+           epochs maxBatches
+    res <- runEpoch 1 (parametersInit, initialStateAdam parametersInit)
+    let testErrorFinal = 1 - ftest (Proxy @r) proxy_out_width testDataS res
+    testErrorFinal @?= expected
 
 mnistRNNTestsLong :: TestTree
 mnistRNNTestsLong = testGroup "MNIST RNN long tests"
@@ -891,6 +1026,9 @@ mnistRNNTestsLong = testGroup "MNIST RNN long tests"
   , mnistTestCaseRNN "99VV 1 epoch, all batches" 1 99
                      nnMnistRNNLossV (testMnistRNNV @(Delta0 Double)) lenMnistRNNV 128 1
                      6.740000000000002e-2
+  , mnistTestCaseRNNS @128 @150 "1S 1 epoch, 1 batch" 1 1
+                      rnnMnistLossFusedS testMnistRNNS lenMnistRnnS
+                      0.4375
   ]
 
 mnistRNNTestsShort :: TestTree
@@ -961,4 +1099,7 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
   , mnistTestCaseRNN "1VV 1 epoch, 1 batch" 1 1
                      nnMnistRNNLossV (testMnistRNNV @(Delta0 Double)) lenMnistRNNV 128 1
                      0.3024
+  , mnistTestCaseRNNS @120 @15 "1S 1 epoch, 1 batch" 1 1
+                      rnnMnistLossFusedS testMnistRNNS lenMnistRnnS
+                      0.8418
   ]

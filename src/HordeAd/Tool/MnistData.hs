@@ -39,6 +39,8 @@ type SizeMnistLabel = 10 :: Nat
 sizeMnistLabel :: Int
 sizeMnistLabel = valueOf @SizeMnistLabel
 
+type LengthTestData = 10000 :: Nat
+
 -- Actually, a better representation, supported by @Data.IDX@,
 -- is an integer label and a picture (the same vector as below).
 -- Then we'd use @lossCrossEntropy@ that picks a component according

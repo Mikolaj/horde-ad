@@ -505,7 +505,7 @@ mnistTestCase2S
   -> TestTree
 mnistTestCase2S proxy proxy2
                 prefix epochs maxBatches trainWithLoss gamma expected =
-  let ((_, _, _, nParamsX), totalParams, range, parameters0) =
+  let ((_, _, _, nParamsX), totalParams, range, parametersInit) =
         initializerFixed 44 0.5 (lenMnistFcnnS @widthHidden @widthHidden2)
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
@@ -544,7 +544,7 @@ mnistTestCase2S proxy proxy2
              runEpoch (succ n) res
        printf "\nEpochs to run/max batches per epoch: %d/%d\n"
               epochs maxBatches
-       res <- runEpoch 1 parameters0
+       res <- runEpoch 1 parametersInit
        let testErrorFinal = 1 - testMnistS @widthHidden @widthHidden2
                                            @(Delta0 Double) testData res
        testErrorFinal @?= expected
