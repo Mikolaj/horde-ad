@@ -802,18 +802,18 @@ conv2S :: forall r kheight_minus_1 kwidth_minus_1 in_height in_width.
                                  , in_width + kwidth_minus_1 ])
 conv2S ker x = from2S $ conv2' (fromS2 ker) (fromS2 x)
 
--- Convolution of many matrices at once. The names of dimensions are from
--- https://www.tensorflow.org/api_docs/python/tf/nn/conv2d
+-- Convolution of many matrices at once. Some of the names of dimensions
+-- are from https://www.tensorflow.org/api_docs/python/tf/nn/conv2d
 conv24 :: forall kheight_minus_1 kwidth_minus_1
-                 out_channels in_height in_width n_batches in_channels r.
+                 out_channels in_height in_width batch_size in_channels r.
           ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
           , KnownNat out_channels, KnownNat in_height, KnownNat in_width
-          , KnownNat n_batches, KnownNat in_channels
+          , KnownNat batch_size, KnownNat in_channels
           , IsScalar r )
        => DualNumber (TensorS r '[ out_channels, in_channels
                                  , kheight_minus_1 + 1, kwidth_minus_1 + 1 ])
-       -> DualNumber (TensorS r '[n_batches, in_channels, in_height, in_width])
-       -> DualNumber (TensorS r '[ n_batches, out_channels
+       -> DualNumber (TensorS r '[batch_size, in_channels, in_height, in_width])
+       -> DualNumber (TensorS r '[ batch_size, out_channels
                                  , in_height + kheight_minus_1
                                  , in_width + kwidth_minus_1 ])
 conv24 ker = mapS conv23 where
@@ -838,19 +838,19 @@ conv24 ker = mapS conv23 where
     -- slow; should go through Tensor2, or the Num instance should when possible
 
 maxPool24
-  :: forall ksize_minus_1 stride in_height in_width n_batches channels r m.
+  :: forall ksize_minus_1 stride in_height in_width batch_size channels r m.
      ( KnownNat ksize_minus_1, KnownNat stride
      , KnownNat in_height, KnownNat in_width
-     , KnownNat n_batches, KnownNat channels
+     , KnownNat batch_size, KnownNat channels
      , 1 <= stride
      , ksize_minus_1 <= in_height
      , ksize_minus_1 <= in_width
      , 1 <= in_height - ksize_minus_1 + stride
      , 1 <= in_width - ksize_minus_1 + stride
      , DualMonad r m )
-     => DualNumber (TensorS r '[n_batches, channels, in_height, in_width])
+     => DualNumber (TensorS r '[batch_size, channels, in_height, in_width])
      -> m (DualNumber
-             (TensorS r '[ n_batches, channels
+             (TensorS r '[ batch_size, channels
                          , (in_height - ksize_minus_1) `DivRoundUp` stride
                          , (in_width - ksize_minus_1) `DivRoundUp` stride ]))
 maxPool24 d = do

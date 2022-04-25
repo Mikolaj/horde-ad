@@ -800,28 +800,28 @@ type LayerWeigthsRNN in_width out_width r =
   , DualNumber (TensorS r '[out_width]) )
 
 rnnMnistLayerS
-  :: forall in_width out_width n_batches r m.
-     (DualMonad r m, KnownNat in_width, KnownNat out_width, KnownNat n_batches)
-  => DualNumber (TensorS r '[out_width, n_batches])  -- in state
-  -> DualNumber (TensorS r '[in_width, n_batches])  -- in
+  :: forall in_width out_width batch_size r m.
+     (DualMonad r m, KnownNat in_width, KnownNat out_width, KnownNat batch_size)
+  => DualNumber (TensorS r '[out_width, batch_size])  -- in state
+  -> DualNumber (TensorS r '[in_width, batch_size])  -- in
   -> LayerWeigthsRNN in_width out_width r
-  -> m ( DualNumber (TensorS r '[out_width, n_batches])  -- out
-       , DualNumber (TensorS r '[out_width, n_batches]) )  -- out state
+  -> m ( DualNumber (TensorS r '[out_width, batch_size])  -- out
+       , DualNumber (TensorS r '[out_width, batch_size]) )  -- out state
 rnnMnistLayerS s x (wX, wS, b) = do
   let y = wX <>$ x + wS <>$ s + asColumnS b
   yTanh <- returnLet $ tanh y
   return (yTanh, yTanh)
 
 rnnMnistTwoS
-  :: forall out_width n_batches r m.
-     (DualMonad r m, KnownNat out_width, KnownNat n_batches)
-  => DualNumber (TensorS r '[2 GHC.TypeLits.* out_width, n_batches])
+  :: forall out_width batch_size r m.
+     (DualMonad r m, KnownNat out_width, KnownNat batch_size)
+  => DualNumber (TensorS r '[2 GHC.TypeLits.* out_width, batch_size])
        -- initial state
-  -> Primal (TensorS r '[SizeMnistWidth, n_batches])
+  -> Primal (TensorS r '[SizeMnistWidth, batch_size])
   -> ( LayerWeigthsRNN SizeMnistWidth out_width r
      , LayerWeigthsRNN out_width out_width r )
-  -> m ( DualNumber (TensorS r '[out_width, n_batches])
-       , DualNumber (TensorS r '[2 GHC.TypeLits.* out_width, n_batches]) )
+  -> m ( DualNumber (TensorS r '[out_width, batch_size])
+       , DualNumber (TensorS r '[2 GHC.TypeLits.* out_width, batch_size]) )
            -- final state
 rnnMnistTwoS s x ((wX, wS, b), (wX2, wS2, b2)) = do
   let s1 = sliceS @0 @out_width s
@@ -832,25 +832,25 @@ rnnMnistTwoS s x ((wX, wS, b), (wX2, wS2, b2)) = do
   return (vec2, s3)
 
 rnnMnistZeroS
-  :: forall out_width n_batches r m.
-     (DualMonad r m, KnownNat out_width, KnownNat n_batches)
-  => Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, n_batches])
+  :: forall out_width batch_size r m.
+     (DualMonad r m, KnownNat out_width, KnownNat batch_size)
+  => Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, batch_size])
   -> ( LayerWeigthsRNN SizeMnistWidth out_width r
      , LayerWeigthsRNN out_width out_width r )
   -> DualNumber (TensorS r '[SizeMnistLabel, out_width])
   -> DualNumber (TensorS r '[SizeMnistLabel])
-  -> m (DualNumber (TensorS r '[SizeMnistLabel, n_batches]))
+  -> m (DualNumber (TensorS r '[SizeMnistLabel, batch_size]))
 rnnMnistZeroS xs ((wX, wS, b), (wX2, wS2, b2)) w3 b3 = do
   (out, _s) <- zeroStateS (unrollLastS rnnMnistTwoS) xs
                           ((wX, wS, b), (wX2, wS2, b2))
   returnLet $ w3 <>$ out + asColumnS b3
 
 rnnMnistS
-  :: forall out_width n_batches r m.
-     (DualMonad r m, KnownNat out_width, KnownNat n_batches)
-  => Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, n_batches])
+  :: forall out_width batch_size r m.
+     (DualMonad r m, KnownNat out_width, KnownNat batch_size)
+  => Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, batch_size])
   -> DualNumberVariables r
-  -> m (DualNumber (TensorS r '[SizeMnistLabel, n_batches]))
+  -> m (DualNumber (TensorS r '[SizeMnistLabel, batch_size]))
 rnnMnistS xs variables = do
   let wX = varS variables 0
       wS = varS variables 1
@@ -881,32 +881,32 @@ lenMnistRnnS _ =
   )
 
 rnnMnistLossFusedS
-  :: forall out_width n_batches r m.
-     ( DualMonad r m, KnownNat out_width, KnownNat n_batches
+  :: forall out_width batch_size r m.
+     ( DualMonad r m, KnownNat out_width, KnownNat batch_size
      , Floating (Primal (Tensor2 r)) )
   => Proxy out_width
-  -> ( Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, n_batches])
-     , Primal (TensorS r '[SizeMnistLabel, n_batches]) )
+  -> ( Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, batch_size])
+     , Primal (TensorS r '[SizeMnistLabel, batch_size]) )
   -> DualNumberVariables r
   -> m (DualNumber r)
 rnnMnistLossFusedS _ (xs, targets) variables = do
   out3 <- rnnMnistS @out_width xs variables
-  let targets2 = HM.reshape (valueOf @n_batches) $ OS.toVector targets
+  let targets2 = HM.reshape (valueOf @batch_size) $ OS.toVector targets
   vec <- lossSoftMaxCrossEntropyL targets2 (fromS2 out3)
-  returnLet $ scale (recip $ fromIntegral (valueOf @n_batches :: Int))
+  returnLet $ scale (recip $ fromIntegral (valueOf @batch_size :: Int))
             $ sumElements0 vec
 
 testMnistRNNS
-  :: forall out_width n_batches r.
-     (IsScalar r, KnownNat out_width, KnownNat n_batches)
+  :: forall out_width batch_size r.
+     (IsScalar r, KnownNat out_width, KnownNat batch_size)
   => Proxy r -> Proxy out_width
-  -> ( Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, n_batches])
-     , Primal (TensorS r '[SizeMnistLabel, n_batches]) )
+  -> ( Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, batch_size])
+     , Primal (TensorS r '[SizeMnistLabel, batch_size]) )
   -> Domains r
   -> Primal r
 testMnistRNNS _ _ (glyphS, labelS) parameters =
   let outputS = primalValue @r (rnnMnistS @out_width glyphS) parameters
-      fromStoVs :: Primal (TensorS r '[SizeMnistLabel, n_batches])
+      fromStoVs :: Primal (TensorS r '[SizeMnistLabel, batch_size])
                 -> [Vector (Primal r)]
       fromStoVs =
         map OS.toVector . OSB.toList . OS.unravel . OS.transpose @'[1, 0]
@@ -916,28 +916,28 @@ testMnistRNNS _ _ (glyphS, labelS) parameters =
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0
   in fromIntegral (sum (zipWith matchesLabels outputs labels))
-     / fromIntegral (valueOf @n_batches :: Int)
+     / fromIntegral (valueOf @batch_size :: Int)
 
 mnistTestCaseRNNS
-  :: forall out_width n_batches r m.
-     ( KnownNat out_width, KnownNat n_batches
+  :: forall out_width batch_size r m.
+     ( KnownNat out_width, KnownNat batch_size
      , r ~ Delta0 Double, m ~ DualMonadGradient (Delta0 Double) )
   => String
   -> Int
   -> Int
-  -> (forall out_width' n_batches'.
-      ( DualMonad r m, KnownNat out_width', KnownNat n_batches'
+  -> (forall out_width' batch_size'.
+      ( DualMonad r m, KnownNat out_width', KnownNat batch_size'
       , Floating (Primal (Tensor2 r)) )
       => Proxy out_width'
-      -> ( Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, n_batches'])
-         , Primal (TensorS r '[SizeMnistLabel, n_batches']) )
+      -> ( Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, batch_size'])
+         , Primal (TensorS r '[SizeMnistLabel, batch_size']) )
       -> DualNumberVariables r
       -> m (DualNumber r))
-  -> (forall out_width' n_batches'.
-      (IsScalar r, KnownNat out_width', KnownNat n_batches')
+  -> (forall out_width' batch_size'.
+      (IsScalar r, KnownNat out_width', KnownNat batch_size')
       => Proxy r -> Proxy out_width'
-      -> ( Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, n_batches'])
-         , Primal (TensorS r '[SizeMnistLabel, n_batches']) )
+      -> ( Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, batch_size'])
+         , Primal (TensorS r '[SizeMnistLabel, batch_size']) )
       -> Domains r
       -> Primal r)
   -> (forall out_width'. KnownNat out_width'
@@ -946,12 +946,12 @@ mnistTestCaseRNNS
   -> TestTree
 mnistTestCaseRNNS prefix epochs maxBatches trainWithLoss ftest flen expected =
   let proxy_out_width = Proxy @out_width
-      n_batches = valueOf @n_batches
+      batch_size = valueOf @batch_size
       ((_, _, _, nParamsX), totalParams, range, parametersInit) =
         initializerFixed 44 0.2 (flen proxy_out_width)
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
-                        , show (valueOf @out_width :: Int), show n_batches
+                        , show (valueOf @out_width :: Int), show batch_size
                         , show nParamsX, show totalParams, show range ]
   in testCase name $ do
     let rws (input, target) = (OS.fromVector input, OS.fromVector target)
@@ -959,11 +959,11 @@ mnistTestCaseRNNS prefix epochs maxBatches trainWithLoss ftest flen expected =
     testData <- map rws <$> loadMnistData testGlyphsPath testLabelsPath
     let testDataS = packChunk @LengthTestData testData
         packChunk
-          :: forall n_batches'. KnownNat n_batches'
+          :: forall batch_size'. KnownNat batch_size'
           => [( OS.Array '[SizeMnistHeight, SizeMnistWidth] Double
               , OS.Array '[SizeMnistLabel] Double )]
-          -> ( OS.Array '[SizeMnistHeight, SizeMnistWidth, n_batches'] Double
-             , OS.Array '[SizeMnistLabel, n_batches'] Double )
+          -> ( OS.Array '[SizeMnistHeight, SizeMnistWidth, batch_size'] Double
+             , OS.Array '[SizeMnistLabel, batch_size'] Double )
         packChunk chunk =
           let (inputs, targets) = unzip chunk
           in ( OS.transpose @'[2, 1, 0] $ OS.ravel $ OSB.fromList inputs
@@ -976,15 +976,15 @@ mnistTestCaseRNNS prefix epochs maxBatches trainWithLoss ftest flen expected =
                  -> IO (Domains r, StateAdam r)
         runBatch (parameters@(!_, !_, !_, !_), stateAdam) (k, chunk) = do
           printf "(Batch %d with %d points)\n" k (length chunk)
-          let chunkS = map (packChunk @n_batches)
-                       $ filter (\ch -> length ch >= n_batches)
-                       $ chunksOf n_batches chunk
+          let chunkS = map (packChunk @batch_size)
+                       $ filter (\ch -> length ch >= batch_size)
+                       $ chunksOf batch_size chunk
               res@(parameters2, _) =
                 sgdAdam (trainWithLoss proxy_out_width)
                         chunkS parameters stateAdam
               trainScore =
                 ftest (Proxy @r) proxy_out_width
-                      (packChunk @(10 GHC.TypeLits.* n_batches) chunk)
+                      (packChunk @(10 GHC.TypeLits.* batch_size) chunk)
                       parameters2
               testScore = ftest (Proxy @r) proxy_out_width
                                 testDataS parameters2
@@ -1000,7 +1000,7 @@ mnistTestCaseRNNS prefix epochs maxBatches trainWithLoss ftest flen expected =
           let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
               chunks = take maxBatches
                        $ zip [1 ..]
-                       $ chunksOf (10 * n_batches) trainDataShuffled
+                       $ chunksOf (10 * batch_size) trainDataShuffled
           !res <- foldM runBatch paramsStateAdam chunks
           runEpoch (succ n) res
     printf "\nEpochs to run/max batches per epoch: %d/%d\n"
