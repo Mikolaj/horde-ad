@@ -275,47 +275,47 @@ instance Ops DeltaF r (Delta r) where
   ops = Delta
 
 bar ::
-  (HM.Numeric t, DeltaMonad s dual m, Ops DeltaF t dual, Known (s `IsScalarOf` t)) =>
-  Dual (Vector t) (dual (Vector t)) ->
-  m (Dual t (dual t))
+  (HM.Numeric s, DeltaMonad s dual m, Ops DeltaF s dual) =>
+  Dual (Vector s) (dual (Vector s)) ->
+  m (Dual s (dual s))
 bar v = do
   x <- index v 0
   y <- index v 1
   foo x y
 
 foo ::
-  (DeltaMonad s dual m, Num t, Ops DeltaF t dual, Known (s `IsScalarOf` t)) =>
-  Dual t (dual t) ->
-  Dual t (dual t) ->
-  m (Dual t (dual t))
+  (DeltaMonad s dual m, Num s, Ops DeltaF s dual) =>
+  Dual s (dual s) ->
+  Dual s (dual s) ->
+  m (Dual s (dual s))
 foo x y = do
   x2 <- x .* x
   x2y <- x2 .* y
   x2y .+ y
 
 (.+) ::
-  (DeltaMonad s dual m, Known (s `IsScalarOf` t), Num t, Ops DeltaF t dual) =>
-  Dual t (dual t) ->
-  Dual t (dual t) ->
-  m (Dual t (dual t))
+  (DeltaMonad s dual m, Num s, Ops DeltaF s dual) =>
+  Dual s (dual s) ->
+  Dual s (dual s) ->
+  m (Dual s (dual s))
 Dual x x' .+ Dual y y' =
   dLet $
     Dual (x + y) (ops (Add0 x' y'))
 
 (.*) ::
-  (DeltaMonad s dual m, Known (s `IsScalarOf` t), Num t, Ops DeltaF t dual) =>
-  Dual t (dual t) ->
-  Dual t (dual t) ->
-  m (Dual t (dual t))
+  (DeltaMonad s dual m, Num s, Ops DeltaF s dual) =>
+  Dual s (dual s) ->
+  Dual s (dual s) ->
+  m (Dual s (dual s))
 Dual x x' .* Dual y y' =
   dLet $
     Dual (x * y) (ops (Add0 (ops (Scale0 y x')) (ops (Scale0 x y'))))
 
 index ::
-  (HM.Numeric t, Ops DeltaF t dual, DeltaMonad s dual m, Known (s `IsScalarOf` t)) =>
-  Dual (Vector t) (dual (Vector t)) ->
+  (HM.Numeric s, Ops DeltaF s dual, DeltaMonad s dual m) =>
+  Dual (Vector s) (dual (Vector s)) ->
   Int ->
-  m (Dual t (dual t))
+  m (Dual s (dual s))
 index (Dual v v') i =
   dLet $
     Dual (HM.atIndex v i) (ops (Index0 v' i (HM.size v)))
