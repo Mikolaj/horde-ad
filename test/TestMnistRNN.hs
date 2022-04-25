@@ -893,7 +893,7 @@ rnnMnistLossFusedS _ (xs, targets) variables = do
   out3 <- rnnMnistS @out_width xs variables
   let targets2 = HM.reshape (valueOf @n_batches) $ OS.toVector targets
   vec <- lossSoftMaxCrossEntropyL targets2 (fromS2 out3)
-  returnLet $ scale (recip $ fromIntegral $ (valueOf @n_batches :: Int))
+  returnLet $ scale (recip $ fromIntegral (valueOf @n_batches :: Int))
             $ sumElements0 vec
 
 testMnistRNNS

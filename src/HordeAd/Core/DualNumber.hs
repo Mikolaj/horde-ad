@@ -816,19 +816,19 @@ conv24 :: forall kheight_minus_1 kwidth_minus_1
        -> DualNumber (TensorS r '[ n_batches, out_channels
                                  , in_height + kheight_minus_1
                                  , in_width + kwidth_minus_1 ])
-conv24 ker x = mapS conv23 x where
+conv24 ker = mapS conv23 where
   conv23 :: DualNumber (TensorS r '[in_channels, in_height, in_width])
          -> DualNumber (TensorS r '[ out_channels
                                    , in_height + kheight_minus_1
                                    , in_width + kwidth_minus_1 ])
-  conv23 x1 = mapS (convFilters x1) ker
+  conv23 x = mapS (convFilters x) ker
   convFilters
     :: DualNumber (TensorS r '[in_channels, in_height, in_width])
     -> DualNumber (TensorS r '[ in_channels
                               , kheight_minus_1 + 1, kwidth_minus_1 + 1 ])
     -> DualNumber (TensorS r '[ in_height + kheight_minus_1
                               , in_width + kwidth_minus_1 ])
-  convFilters x1 ker1 = sumOutermost $ zipWithS conv2S ker1 x1
+  convFilters x ker1 = sumOutermost $ zipWithS conv2S ker1 x
   sumOutermost :: DualNumber (TensorS r '[ in_channels
                                          , in_height + kheight_minus_1
                                          , in_width + kwidth_minus_1 ])

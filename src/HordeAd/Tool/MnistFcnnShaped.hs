@@ -1,5 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, ImpredicativeTypes, RankNTypes,
-             TypeFamilies, TypeOperators #-}
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, ImpredicativeTypes,
+             TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
@@ -67,7 +67,7 @@ nnMnistLayersS
 nnMnistLayersS factivationHidden input
                weightsL0 biasesV0 weightsL1 biasesV1 weightsL2 biasesV2 = do
   let !_A = assert (sizeMnistGlyph == OS.size input) ()
-  let hiddenLayer1 = weightsL0 #>$ (scalar input) + biasesV0
+  let hiddenLayer1 = weightsL0 #>$ scalar input + biasesV0
   nonlinearLayer1 <- factivationHidden hiddenLayer1
   let hiddenLayer2 = weightsL1 #>$ nonlinearLayer1 + biasesV1
   nonlinearLayer2 <- factivationHidden hiddenLayer2

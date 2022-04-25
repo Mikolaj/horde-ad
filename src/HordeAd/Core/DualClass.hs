@@ -475,7 +475,7 @@ instance HasRanks Double where
           d : _ -> length ld : OT.shapeL d
           [] -> []
     in OT.ravel $ OTB.fromList sh ld
-  dReshapeX _sh sh' d = OT.reshape sh' d
+  dReshapeX _sh = OT.reshape
   dFrom0X = OT.scalar
   dFrom1X d = OT.fromVector [V.length d] d
   dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
@@ -549,7 +549,7 @@ instance HasRanks Float where
           d : _ -> length ld : OT.shapeL d
           [] -> []
     in OT.ravel $ OTB.fromList sh ld
-  dReshapeX _sh sh' d = OT.reshape sh' d
+  dReshapeX _sh = OT.reshape
   dFrom0X = OT.scalar
   dFrom1X d = OT.fromVector [V.length d] d
   dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
