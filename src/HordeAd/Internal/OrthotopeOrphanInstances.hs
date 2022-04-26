@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Orphan instances for orthotope classes.
 module HordeAd.Internal.OrthotopeOrphanInstances () where
@@ -6,41 +7,45 @@ import Prelude
 
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.ShapedS as OS
-import           Numeric.LinearAlgebra (Numeric)
+import           Numeric.LinearAlgebra (Numeric, Vector)
 
--- TODO: once we can benchmark, write faster instances using
--- Num and other instances of hmatrix vectors
+-- TODO: once we can benchmark, convert more instances to
+-- use the corresponding instances of hmatrix vectors
+-- and refactor the existing instances
 
-instance Numeric r => Num (OT.Array r) where
-  (+) = OT.zipWithA (+)
-  (-) = OT.zipWithA (-)
-  (*) = OT.zipWithA (*)
-  negate = OT.mapA negate
-  abs = OT.mapA abs
-  signum = OT.mapA signum
+-- These constraints force @UndecidableInstances@.
+instance (Num (Vector r), Numeric r) => Num (OT.Array r) where
+  t + u = OT.fromVector (OT.shapeL t) $ OT.toVector t + OT.toVector u
+  t - u = OT.fromVector (OT.shapeL t) $ OT.toVector t - OT.toVector u
+  t * u = OT.fromVector (OT.shapeL t) $ OT.toVector t * OT.toVector u
+  negate t = OT.fromVector (OT.shapeL t) $ negate $ OT.toVector t
+  abs t = OT.fromVector (OT.shapeL t) $ abs $ OT.toVector t
+  signum t = OT.fromVector (OT.shapeL t) $ signum $ OT.toVector t
   fromInteger = OT.constant [] . fromInteger
 
-instance (OS.Shape sh, Numeric r) => Num (OS.Array sh r) where
-  (+) = OS.zipWithA (+)
-  (-) = OS.zipWithA (-)
-  (*) = OS.zipWithA (*)
-  negate = OS.mapA negate
-  abs = OS.mapA abs
-  signum = OS.mapA signum
+instance (Num (Vector r), OS.Shape sh, Numeric r) => Num (OS.Array sh r) where
+  t + u = OS.fromVector $ OS.toVector t + OS.toVector u
+  t - u = OS.fromVector $ OS.toVector t - OS.toVector u
+  t * u = OS.fromVector $ OS.toVector t * OS.toVector u
+  negate t = OS.fromVector $ negate $ OS.toVector t
+  abs t = OS.fromVector $ abs $ OS.toVector t
+  signum t = OS.fromVector $ signum $ OS.toVector t
   fromInteger = OS.constant . fromInteger
 
-instance (Numeric r, Fractional r) => Fractional (OT.Array r) where
-  (/) = OT.zipWithA(/)
-  recip = OT.mapA recip
+instance (Num (Vector r), Numeric r, Fractional r)
+         => Fractional (OT.Array r) where
+  t / u = OT.fromVector (OT.shapeL t) $ OT.toVector t / OT.toVector u
+  recip t = OT.fromVector (OT.shapeL t) $ recip $ OT.toVector t
   fromRational = OT.constant [] . fromRational
 
-instance (OS.Shape sh, Numeric r, Fractional r)
+instance (Num (Vector r), OS.Shape sh, Numeric r, Fractional r)
          => Fractional (OS.Array sh r) where
-  (/) = OS.zipWithA(/)
-  recip = OS.mapA recip
+  t / u = OS.fromVector $ OS.toVector t / OS.toVector u
+  recip t = OS.fromVector $ recip $ OS.toVector t
   fromRational = OS.constant . fromRational
 
-instance (Numeric r, Floating r) => Floating (OT.Array r) where
+instance (Num (Vector r), Numeric r, Floating r)
+         => Floating (OT.Array r) where
   pi = OT.constant [] pi
   exp = OT.mapA exp
   log = OT.mapA log
@@ -60,10 +65,12 @@ instance (Numeric r, Floating r) => Floating (OT.Array r) where
   acosh = OT.mapA acosh
   atanh = OT.mapA atanh
 
-instance (OS.Shape sh, Numeric r, Floating r) => Floating (OS.Array sh r) where
+instance ( Floating (Vector r), Num (Vector r)
+         , OS.Shape sh, Numeric r, Floating r )
+         => Floating (OS.Array sh r) where
   pi = OS.constant pi
-  exp = OS.mapA exp
-  log = OS.mapA log
+  exp t = OS.fromVector $ exp $ OS.toVector t
+  log t = OS.fromVector $ log $ OS.toVector t
   sqrt = OS.mapA sqrt
   (**) = OS.zipWithA (**)
   logBase = OS.zipWithA logBase
@@ -75,7 +82,7 @@ instance (OS.Shape sh, Numeric r, Floating r) => Floating (OS.Array sh r) where
   atan = OS.mapA atan
   sinh = OS.mapA sinh
   cosh = OS.mapA cosh
-  tanh = OS.mapA tanh
+  tanh t = OS.fromVector $ tanh $ OS.toVector t
   asinh = OS.mapA asinh
   acosh = OS.mapA acosh
   atanh = OS.mapA atanh
