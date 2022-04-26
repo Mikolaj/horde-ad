@@ -154,17 +154,17 @@ library
 
 -- The data files for this are not included in the cabal package,
 -- hence 'buildable: False'.
-test-suite testExtremelyLong
+library testLibrary
     -- Import common warning flags.
-    import:           options, exe-options
+    import:           options
 
     if flag(release)
       buildable: False
     else
       buildable: True
 
-    -- Modules included in this executable, other than Main.
-    other-modules:    TestConditionalSynth
+    -- Modules exported by the library.
+    exposed-modules:  TestConditionalSynth
                       TestMnistCNN
                       TestMnistFC
                       TestMnistRNN
@@ -172,16 +172,7 @@ test-suite testExtremelyLong
                       TestSimpleDescent
                       TestSingleGradient
 
-    -- The interface type and version of the test suite.
-    type:             exitcode-stdio-1.0
-
-    -- Directories containing source files.
-    hs-source-dirs:   test
-
-    -- The entrypoint to the test suite.
-    main-is:          TestExtremelyLong.hs
-
-    -- Test dependencies.
+    -- Other library packages from which modules are imported.
     build-depends:
         base
       , deepseq
@@ -199,6 +190,34 @@ test-suite testExtremelyLong
       , time
       , vector
 
+    -- Directories containing source files.
+    hs-source-dirs:   test/common
+
+-- The data files for this are not included in the cabal package,
+-- hence 'buildable: False'.
+test-suite testExtremelyLong
+    -- Import common warning flags.
+    import:           options, exe-options
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
+
+    -- The interface type and version of the test suite.
+    type:             exitcode-stdio-1.0
+
+    -- Directories containing source files.
+    hs-source-dirs:   test
+
+    -- The entrypoint to the test suite.
+    main-is:          TestExtremelyLong.hs
+
+    -- Test dependencies.
+    build-depends: testLibrary
+      , base
+      , tasty >= 1.0
+
 -- The data files for this are not included in the cabal package,
 -- hence 'buildable: False'.
 test-suite shortTestForCI
@@ -210,13 +229,6 @@ test-suite shortTestForCI
     else
       buildable: True
 
-    -- Modules included in this executable, other than Main.
-    other-modules:    TestMnistCNN
-                      TestMnistFC
-                      TestMnistRNN
-                      TestSimpleDescent
-                      TestSingleGradient
-
     -- The interface type and version of the test suite.
     type:             exitcode-stdio-1.0
 
@@ -227,21 +239,9 @@ test-suite shortTestForCI
     main-is:          ShortTestForCI.hs
 
     -- Test dependencies.
-    build-depends:
-        base
-      , deepseq
-      , ghc-typelits-knownnat
-      , ghc-typelits-natnormalise
-      , hmatrix
-      , horde-ad
-      , orthotope
-      , random
-      , strict-containers
+    build-depends: testLibrary
+      , base
       , tasty >= 1.0
-      , tasty-hunit
-      , tasty-quickcheck
-      , time
-      , vector
 
 benchmark prod
     import:           options, exe-options
