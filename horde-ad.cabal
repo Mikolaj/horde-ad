@@ -120,6 +120,7 @@ library
                       HordeAd.Internal.OrthotopeOrphanInstances
                       HordeAd.Tool.MnistTools
                       HordeAd.Tool.MnistData
+                      HordeAd.Tool.MnistCnnShaped
                       HordeAd.Tool.MnistFcnnMatrix
                       HordeAd.Tool.MnistFcnnScalar
                       HordeAd.Tool.MnistFcnnShaped
