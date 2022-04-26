@@ -144,8 +144,8 @@ runDelta binds m = case binds of
   [] -> m
   b : rest -> runDelta rest (evalLet b m)
 
-runDeltaMonadM :: DualMonadGradient s a -> (a, DeltaState s)
-runDeltaMonadM m = runState (runDualMonadGradient m) initialState
+runDualMonadM :: DualMonadGradient s a -> (a, DeltaState s)
+runDualMonadM m = runState (runDualMonadGradient m) initialState
   where
     initialState =
       DeltaState
@@ -154,14 +154,14 @@ runDeltaMonadM m = runState (runDualMonadGradient m) initialState
           deltaBindings = []
         }
 
-runDeltaMonadS ::
+runDualMonadS ::
   HM.Numeric s =>
   s `IsScalarOf` t ->
   t ->
   DualMonadGradient s (Dual s (Delta s t)) ->
   (s, DeltaMap s)
-runDeltaMonadS st g m =
-  let (Dual t delta, bs) = runDeltaMonadM m
+runDualMonadS st g m =
+  let (Dual t delta, bs) = runDualMonadM m
       (bs', m') = case st of
         SScalar ->
           let dId = succDeltaId (deltaCounter0 bs)
@@ -175,12 +175,12 @@ runDeltaMonadS st g m =
               )
    in (t, runDelta (bs' : deltaBindings bs) m')
 
-runDeltaMonad ::
+runDualMonad ::
   (HM.Numeric s, Known (s `IsScalarOf` t)) =>
   t ->
   DualMonadGradient s (Dual s (Delta s t)) ->
   (s, DeltaMap s)
-runDeltaMonad = runDeltaMonadS known
+runDualMonad = runDualMonadS known
 
 data DeltaState s = DeltaState
   { deltaCounter0 :: DeltaId s,
@@ -193,10 +193,10 @@ newtype DualMonadGradient s t = DualMonadGradient
   {runDualMonadGradient :: State (DeltaState s) t}
   deriving newtype (Monad, Functor, Applicative)
 
-class Monad m => DeltaMonad s (dual :: Type -> Type) m | m -> s where
+class Monad m => DualMonad s (dual :: Type -> Type) m | m -> s where
   deltaLet :: s `IsScalarOf` t -> dual t -> m (dual t)
 
-instance DeltaMonad s (Delta s) (DualMonadGradient s) where
+instance DualMonad s (Delta s) (DualMonadGradient s) where
   deltaLet sd delta = DualMonadGradient $ do
     st <- get
     case sd of
@@ -227,12 +227,12 @@ newtype DualMonadValue r a = DualMonadValue
 
 data Unit (t :: Type) = Unit
 
-instance DeltaMonad r Unit (DualMonadValue r) where
+instance DualMonad r Unit (DualMonadValue r) where
   deltaLet _ = pure
 
 dLetS ::
   forall (dual :: Type -> Type) t m s.
-  DeltaMonad s dual m =>
+  DualMonad s dual m =>
   s `IsScalarOf` t ->
   Dual t (dual t) ->
   m (Dual t (dual t))
@@ -242,7 +242,7 @@ dLetS si (Dual x y) = do
 
 dLet ::
   forall s dual t m.
-  (DeltaMonad s dual m, Known (s `IsScalarOf` t)) =>
+  (DualMonad s dual m, Known (s `IsScalarOf` t)) =>
   Dual t (dual t) ->
   m (Dual t (dual t))
 dLet = dLetS known
@@ -275,7 +275,7 @@ instance Ops DeltaF r (Delta r) where
   ops = Delta
 
 bar ::
-  (HM.Numeric s, DeltaMonad s dual m, Ops DeltaF s dual) =>
+  (HM.Numeric s, DualMonad s dual m, Ops DeltaF s dual) =>
   Dual (Vector s) (dual (Vector s)) ->
   m (Dual s (dual s))
 bar v = do
@@ -284,7 +284,7 @@ bar v = do
   foo x y
 
 foo ::
-  (DeltaMonad s dual m, Num s, Ops DeltaF s dual) =>
+  (DualMonad s dual m, Num s, Ops DeltaF s dual) =>
   Dual s (dual s) ->
   Dual s (dual s) ->
   m (Dual s (dual s))
@@ -294,7 +294,7 @@ foo x y = do
   x2y .+ y
 
 (.+) ::
-  (DeltaMonad s dual m, Num s, Ops DeltaF s dual) =>
+  (DualMonad s dual m, Num s, Ops DeltaF s dual) =>
   Dual s (dual s) ->
   Dual s (dual s) ->
   m (Dual s (dual s))
@@ -303,7 +303,7 @@ Dual x x' .+ Dual y y' =
     Dual (x + y) (ops (Add0 x' y'))
 
 (.*) ::
-  (DeltaMonad s dual m, Num s, Ops DeltaF s dual) =>
+  (DualMonad s dual m, Num s, Ops DeltaF s dual) =>
   Dual s (dual s) ->
   Dual s (dual s) ->
   m (Dual s (dual s))
@@ -312,7 +312,7 @@ Dual x x' .* Dual y y' =
     Dual (x * y) (ops (Add0 (ops (Scale0 y x')) (ops (Scale0 x y'))))
 
 index ::
-  (HM.Numeric s, Ops DeltaF s dual, DeltaMonad s dual m) =>
+  (HM.Numeric s, Ops DeltaF s dual, DualMonad s dual m) =>
   Dual (Vector s) (dual (Vector s)) ->
   Int ->
   m (Dual s (dual s))
@@ -321,15 +321,15 @@ index (Dual v v') i =
     Dual (HM.atIndex v i) (ops (Index0 v' i (HM.size v)))
 
 myFoo ::
-  (Num a, DeltaMonad a (Delta a) m) =>
+  (Num a, DualMonad a (Delta a) m) =>
   m (Dual a (Delta a a))
 myFoo = foo (Dual 10 (Var (DeltaId (-1)))) (Dual 20 (Var (DeltaId (-2))))
 
 example :: HM.Numeric Double => (Double, DeltaMap Double)
-example = runDeltaMonad 1 myFoo
+example = runDualMonad 1 myFoo
 
 example2 :: (Dual Double (Delta Double Double), DeltaState Double)
-example2 = runDeltaMonadM myFoo
+example2 = runDualMonadM myFoo
 
 example3 :: (Double, DeltaMap Double)
-example3 = runDeltaMonad 1 (bar (Dual (HM.fromList [10, 20]) (Var (DeltaId (-1)))))
+example3 = runDualMonad 1 (bar (Dual (HM.fromList [10, 20]) (Var (DeltaId (-1)))))
