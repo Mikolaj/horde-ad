@@ -221,7 +221,7 @@ convMnistTestS _ _ _ _ _ _ _ inputs parameters =
               m <- convMnistS @kheight_minus_1 @kwidth_minus_1
                               @num_hidden @out_channels
                               tx variables
-              softMaxActV $ flatten1 (fromS2 m)
+              returnLet $ flattenS1 m
             value = primalValue @r nn parameters
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
