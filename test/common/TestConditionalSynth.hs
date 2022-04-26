@@ -216,7 +216,7 @@ gradSmartTestCase prefix lossFunction seedSamples
 
 conditionalSynthTests:: TestTree
 conditionalSynthTests = do
- let f = inline (synthLossBareTotal @(Delta0 Double)) reluAct1 tanhAct tanhAct
+ let f = inline (synthLossBareTotal @(Delta0 Double)) reluAct tanhAct tanhAct
  testGroup "synthesizing a sum of linear conditionals matching samples"
   [ gradSmartTestCase "reluAct"
       f 42 10 10  100

@@ -66,7 +66,7 @@ convDataMnistCNN variables x offset = do
   let ker = var2 variables offset
       bias = var0 variables offset
   yConv@(D u _) <- conv2 ker (D x (dKonst2 dZero (HM.size x)))  -- == (scalar x)
-  yRelu <- reluAct2 $ yConv + konst2 bias (HM.size u)
+  yRelu <- reluAct $ yConv + konst2 bias (HM.size u)
   maxPool2 2 2 yRelu
 
 -- This simulates convolution of nontrivial depth, without using tensors.
@@ -81,7 +81,7 @@ convMiddleMnistCNN depth variables ms1 k = do
   ms2 <- mapM conv $ zip ms1 [0 ..]
   yConv@(D u _) <- returnLet $ sum ms2
   let bias = var0 variables (depth + k)
-  yRelu <- reluAct2 $ yConv + konst2 bias (HM.size u)
+  yRelu <- reluAct $ yConv + konst2 bias (HM.size u)
   maxPool2 2 2 yRelu
 
 convMnistCNN :: DualMonad r m
@@ -96,7 +96,7 @@ convMnistCNN depth x variables = do
   let weigthsDense = var2 variables (depth + depth * depth)
       biasesDense = var1 variables 0
       denseLayer = weigthsDense #>! v + biasesDense
-  denseRelu <- reluAct1 denseLayer
+  denseRelu <- reluAct denseLayer
   let weigthsReadout = var2 variables (depth + depth * depth + 1)
       biasesReadout = var1 variables 1
   returnLet $ weigthsReadout #>! denseRelu + biasesReadout
@@ -214,7 +214,7 @@ convDataMnistCNNS variables x offset = do
   let ker = var2 variables offset
       bias = var0 variables offset
   yConv@(D u _) <- convSame2 ker (scalar x)
-  yRelu <- reluAct2 $ yConv + konst2 bias (HM.size u)
+  yRelu <- reluAct $ yConv + konst2 bias (HM.size u)
   maxPool2 2 2 yRelu
 
 -- This simulates convolution of nontrivial depth, without using tensors.
@@ -229,7 +229,7 @@ convMiddleMnistCNNS depth variables ms1 k = do
   ms2 <- mapM conv $ zip ms1 [0 ..]
   yConv@(D u _) <- returnLet $ sum ms2
   let bias = var0 variables (depth + k)
-  yRelu <- reluAct2 $ yConv + konst2 bias (HM.size u)
+  yRelu <- reluAct $ yConv + konst2 bias (HM.size u)
   maxPool2 2 2 yRelu
 
 convMnistCNNS :: DualMonad r m
@@ -244,7 +244,7 @@ convMnistCNNS depth x variables = do
   let weigthsDense = var2 variables (depth + depth * depth)
       biasesDense = var1 variables 0
       denseLayer = weigthsDense #>! v + biasesDense
-  denseRelu <- reluAct1 denseLayer
+  denseRelu <- reluAct denseLayer
   let weigthsReadout = var2 variables (depth + depth * depth + 1)
       biasesReadout = var1 variables 1
   returnLet $ weigthsReadout #>! denseRelu + biasesReadout
@@ -284,7 +284,7 @@ convDataMnistCNNP variables x offset = do
       bias = var0 variables offset
   yConv@(D u _) <-
     returnLet $ conv2' ker (D x (dKonst2 dZero (HM.size x)))  -- == (scalar x)
-  yRelu <- reluAct2 $ yConv + konst2 bias (HM.size u)
+  yRelu <- reluAct $ yConv + konst2 bias (HM.size u)
   maxPool2 2 2 yRelu
 
 -- This simulates convolution of nontrivial depth, without using tensors.
@@ -299,7 +299,7 @@ convMiddleMnistCNNP depth variables ms1 k = do
   ms2 <- mapM conv $ zip ms1 [0 ..]
   yConv@(D u _) <- returnLet $ sum ms2
   let bias = var0 variables (depth + k)
-  yRelu <- reluAct2 $ yConv + konst2 bias (HM.size u)
+  yRelu <- reluAct $ yConv + konst2 bias (HM.size u)
   maxPool2 2 2 yRelu
 
 convMnistCNNP :: DualMonad r m
@@ -314,7 +314,7 @@ convMnistCNNP depth x variables = do
   let weigthsDense = var2 variables (depth + depth * depth)
       biasesDense = var1 variables 0
       denseLayer = weigthsDense #>! v + biasesDense
-  denseRelu <- reluAct1 denseLayer
+  denseRelu <- reluAct denseLayer
   let weigthsReadout = var2 variables (depth + depth * depth + 1)
       biasesReadout = var1 variables 1
   returnLet $ weigthsReadout #>! denseRelu + biasesReadout
@@ -383,7 +383,7 @@ convMiddleMnistCNNT ker x bias = do
                       $ replicate (valueOf @batch_size)
                       $ mapS replicateBias bias
         -- TODO: this is weakly typed; add and use replicateS instead
-  yRelu <- reluActS $ yConv + biasStretched
+  yRelu <- reluAct $ yConv + biasStretched
   maxPool24 @1 @2 yRelu
 
 convMnistCNNT
@@ -420,7 +420,7 @@ convMnistCNNT x variables = do
       biasesDense = var1 variables 0
       denseLayer = weigthsDense <>! transpose2 m2
                    + asColumn2 biasesDense (valueOf @batch_size)
-  denseRelu <- reluAct2 denseLayer
+  denseRelu <- reluAct denseLayer
   let weigthsReadout = var2 variables 1
       biasesReadout = var1 variables 1
   returnLet $ weigthsReadout <>! denseRelu

@@ -18,6 +18,7 @@ import           Data.Array.Shape (DivRoundUp)
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import           Data.List.Index (imap)
+import           Data.MonoTraversable (MonoFunctor (omap))
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -149,6 +150,18 @@ lossSquared :: (DualMonad r m, IsDualWithScalar a r)
             => Primal a -> DualNumber a -> m (DualNumber a)
 lossSquared targ res = returnLet $ squaredDifference targ res
 
+reluAct :: (DualMonad r m, IsDualWithScalar a r)
+        => DualNumber a -> m (DualNumber a)
+reluAct v@(D u _) = do
+  let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0) u
+  returnLet $ scale oneIfGtZero v
+
+reluLeakyAct :: (DualMonad r m, IsDualWithScalar a r)
+             => DualNumber a -> m (DualNumber a)
+reluLeakyAct v@(D u _) = do
+  let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) u
+  returnLet $ scale oneIfGtZero v
+
 
 -- * Operations resulting in a scalar
 
@@ -203,10 +216,6 @@ fromX0 (D u u') = D (OT.unScalar u) (dFromX0 u')
 
 fromS0 :: IsScalar r => DualNumber (TensorS r '[]) -> DualNumber r
 fromS0 (D u u') = D (OS.unScalar u) (dFromS0 u')
-
--- The type permits other ranks, but it's nonsense.
-reluAct :: DualMonad r m => DualNumber r -> m (DualNumber r)
-reluAct (D u u') = returnLet $ D (max 0 u) (dScale (if u > 0 then 1 else 0) u')
 
 sumElementsVectorOfDual
   :: IsScalar r => Data.Vector.Vector (DualNumber r) -> DualNumber r
@@ -368,18 +377,6 @@ maxPool1 ksize stride v@(D u _) =
   let slices = [slice1 i ksize v | i <- [0, stride .. V.length u - ksize]]
   in seq1 $ V.fromList $ map maximum0 slices
 
-reluAct1 :: DualMonad r m
-         => DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r))
-reluAct1 v@(D u _) = do
-  let oneIfGtZero = V.map (\x -> if x > 0 then 1 else 0) u
-  returnLet $ scale oneIfGtZero v
-
-reluLeakyAct1 :: DualMonad r m
-              => DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r))
-reluLeakyAct1 v@(D u _) = do
-  let oneIfGtZero = V.map (\x -> if x > 0 then 1 else 0.01) u
-  returnLet $ scale oneIfGtZero v
-
 softMaxActV :: DualMonad r m
             => DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r))
 softMaxActV d@(D u _) = do
@@ -502,12 +499,6 @@ vectorSlices2 n vv@(D v _) =
 reshape2 :: IsScalar r
          => Int -> DualNumber (Tensor1 r) -> DualNumber (Tensor2 r)
 reshape2 cols (D u u') = D (HM.reshape cols u) (dReshape2 cols u')
-
-reluAct2 :: DualMonad r m
-         => DualNumber (Tensor2 r) -> m (DualNumber (Tensor2 r))
-reluAct2 m@(D u _) = do
-  let oneIfGtZero = HM.cmap (\x -> if x > 0 then 1 else 0) u
-  returnLet $ scale oneIfGtZero m
 
 -- TODO: This has list of matrices result instead of a cube tensor.
 matrixSlices2 :: DualMonad r m
@@ -859,9 +850,3 @@ maxPool24 d = do
                                   (valueOf @stride)
                        . fromS2)) d
   returnLet res
-
-reluActS :: (DualMonad r m, OS.Shape sh)
-         => DualNumber (TensorS r sh) -> m (DualNumber (TensorS r sh))
-reluActS d@(D u _) = do
-  let oneIfGtZero = OS.mapA (\x -> if x > 0 then 1 else 0) u
-  returnLet $ scale oneIfGtZero d

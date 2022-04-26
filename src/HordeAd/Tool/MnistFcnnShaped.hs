@@ -114,7 +114,7 @@ nnMnistLossFusedReluS
   -> MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
 nnMnistLossFusedReluS _ _ (input, target) variables = do
   result <- nnMnistS @widthHidden @widthHidden2
-                     reluActS (OS.fromVector input) variables
+                     reluAct (OS.fromVector input) variables
   lossSoftMaxCrossEntropyV target $ fromS1 result
 
 -- | A function testing the neural network given testing set of inputs

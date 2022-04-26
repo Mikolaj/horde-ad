@@ -7,7 +7,7 @@ import Prelude
 
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.ShapedS as OS
-import           Data.MonoTraversable (Element, MonoFunctor (..))
+import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 
