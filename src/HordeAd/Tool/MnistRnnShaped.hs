@@ -97,23 +97,6 @@ rnnMnistZeroS xs ((wX, wS, b), (wX2, wS2, b2)) w3 b3 = do
                           ((wX, wS, b), (wX2, wS2, b2))
   returnLet $ w3 <>$ out + asColumnS b3
 
-rnnMnistS
-  :: forall out_width batch_size r m.
-     (DualMonad r m, KnownNat out_width, KnownNat batch_size)
-  => Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, batch_size])
-  -> DualNumberVariables r
-  -> m (DualNumber (TensorS r '[SizeMnistLabel, batch_size]))
-rnnMnistS xs variables = do
-  let wX = varS variables 0
-      wS = varS variables 1
-      b = varS variables 2
-      wX2 = varS variables 3
-      wS2 = varS variables 4
-      b2 = varS variables 5
-      w3 = varS variables 6
-      b3 = varS variables 7
-  rnnMnistZeroS @out_width xs ((wX, wS, b), (wX2, wS2, b2)) w3 b3
-
 rnnMnistLenS
   :: forall out_width. KnownNat out_width
   => Proxy out_width -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
@@ -131,6 +114,23 @@ rnnMnistLenS _ =
     , Data.Array.Shape.shapeT @'[SizeMnistLabel]
     ]
   )
+
+rnnMnistS
+  :: forall out_width batch_size r m.
+     (DualMonad r m, KnownNat out_width, KnownNat batch_size)
+  => Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, batch_size])
+  -> DualNumberVariables r
+  -> m (DualNumber (TensorS r '[SizeMnistLabel, batch_size]))
+rnnMnistS xs variables = do
+  let wX = varS variables 0
+      wS = varS variables 1
+      b = varS variables 2
+      wX2 = varS variables 3
+      wS2 = varS variables 4
+      b2 = varS variables 5
+      w3 = varS variables 6
+      b3 = varS variables 7
+  rnnMnistZeroS @out_width xs ((wX, wS, b), (wX2, wS2, b2)) w3 b3
 
 rnnMnistLossFusedS
   :: forall out_width batch_size r m.

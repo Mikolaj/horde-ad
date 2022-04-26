@@ -28,45 +28,7 @@ import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors (DualNumberVariables, varS)
 import HordeAd.Tool.MnistData
 
-convMnistLenS
-  :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
-            in_height in_width.
-     ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
-     , KnownNat num_hidden, KnownNat out_channels
-     , KnownNat in_height, KnownNat in_width )
-  => Proxy kheight_minus_1
-  -> Proxy kwidth_minus_1
-  -> Proxy num_hidden
-  -> Proxy out_channels
-  -> Proxy in_height
-  -> Proxy in_width
-  -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
-convMnistLenS _ _ _ _ _ _ =
-  ( 0
-  , []
-  , []
-  , [ Data.Array.Shape.shapeT @'[ out_channels, 1
-                                , kheight_minus_1 + 1, kwidth_minus_1 + 1 ]
-    , Data.Array.Shape.shapeT @'[out_channels]
-    , Data.Array.Shape.shapeT @'[ out_channels, out_channels
-                                , kheight_minus_1 + 1, kwidth_minus_1 + 1 ]
-    , Data.Array.Shape.shapeT @'[out_channels]
-    , Data.Array.Shape.shapeT @'[ num_hidden
-                                , out_channels
-                                    GHC.TypeLits.*
-                                      ((in_height + kheight_minus_1) `Div` 2
-                                       + kheight_minus_1) `Div` 2
-                                    GHC.TypeLits.*
-                                      ((in_width + kwidth_minus_1) `Div` 2
-                                       + kheight_minus_1) `Div` 2
-                                ]
-    , Data.Array.Shape.shapeT @'[num_hidden]
-    , Data.Array.Shape.shapeT @'[SizeMnistLabel, num_hidden]
-    , Data.Array.Shape.shapeT @'[SizeMnistLabel]
-    ]
-  )
-
-convMnistMiddleS
+convMnistLayerS
   :: forall kheight_minus_1 kwidth_minus_1 out_channels
             in_height in_width in_channels batch_size r m.
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1, KnownNat out_channels
@@ -82,7 +44,7 @@ convMnistMiddleS
   -> m (DualNumber (TensorS r '[ batch_size, out_channels
                                , (in_height + kheight_minus_1) `Div` 2
                                , (in_width + kwidth_minus_1) `Div` 2 ]))
-convMnistMiddleS ker x bias = do
+convMnistLayerS ker x bias = do
   let yConv = conv24 ker x
       replicateBias
         :: DualNumber (TensorS r '[])
@@ -128,13 +90,51 @@ convMnistTwoS
   -> m (DualNumber (TensorS r '[SizeMnistLabel, batch_size]))
 convMnistTwoS x ker1 bias1 ker2 bias2
               weigthsDense biasesDense weigthsReadout biasesReadout = do
-  t1 <- convMnistMiddleS ker1 (scalar x) bias1
-  t2 <- convMnistMiddleS ker2 t1 bias2
+  t1 <- convMnistLayerS ker1 (scalar x) bias1
+  t2 <- convMnistLayerS ker2 t1 bias2
   let m1 = mapS reshapeS t2
       m2 = from2S (transpose2 (fromS2 m1))  -- TODO: add permuation transposeS
       denseLayer = weigthsDense <>$ m2 + asColumnS biasesDense
   denseRelu <- reluAct denseLayer
   returnLet $ weigthsReadout <>$ denseRelu + asColumnS biasesReadout
+
+convMnistLenS
+  :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
+            in_height in_width.
+     ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
+     , KnownNat num_hidden, KnownNat out_channels
+     , KnownNat in_height, KnownNat in_width )
+  => Proxy kheight_minus_1
+  -> Proxy kwidth_minus_1
+  -> Proxy num_hidden
+  -> Proxy out_channels
+  -> Proxy in_height
+  -> Proxy in_width
+  -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+convMnistLenS _ _ _ _ _ _ =
+  ( 0
+  , []
+  , []
+  , [ Data.Array.Shape.shapeT @'[ out_channels, 1
+                                , kheight_minus_1 + 1, kwidth_minus_1 + 1 ]
+    , Data.Array.Shape.shapeT @'[out_channels]
+    , Data.Array.Shape.shapeT @'[ out_channels, out_channels
+                                , kheight_minus_1 + 1, kwidth_minus_1 + 1 ]
+    , Data.Array.Shape.shapeT @'[out_channels]
+    , Data.Array.Shape.shapeT @'[ num_hidden
+                                , out_channels
+                                    GHC.TypeLits.*
+                                      ((in_height + kheight_minus_1) `Div` 2
+                                       + kheight_minus_1) `Div` 2
+                                    GHC.TypeLits.*
+                                      ((in_width + kwidth_minus_1) `Div` 2
+                                       + kheight_minus_1) `Div` 2
+                                ]
+    , Data.Array.Shape.shapeT @'[num_hidden]
+    , Data.Array.Shape.shapeT @'[SizeMnistLabel, num_hidden]
+    , Data.Array.Shape.shapeT @'[SizeMnistLabel]
+    ]
+  )
 
 convMnistS
   :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
