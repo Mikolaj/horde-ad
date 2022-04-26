@@ -345,11 +345,10 @@ convMnistTestCNNP _ depth inputs parameters =
 
 convMnistTestCaseCNNT
   :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
-            in_height in_width in_channels batch_size r m.
+            in_height in_width batch_size r m.
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
      , KnownNat num_hidden, KnownNat out_channels
-     , KnownNat in_height, KnownNat in_width
-     , KnownNat in_channels, KnownNat batch_size
+     , KnownNat in_height, KnownNat in_width, KnownNat batch_size
      , 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
      , r ~ Delta0 Double, m ~ DualMonadGradient (Delta0 Double) )
@@ -357,11 +356,10 @@ convMnistTestCaseCNNT
   -> Int
   -> Int
   -> (forall kheight_minus_1' kwidth_minus_1' num_hidden' out_channels'
-             in_height' in_width' in_channels' batch_size'.
+             in_height' in_width' batch_size'.
       ( KnownNat kheight_minus_1', KnownNat kwidth_minus_1'
       , KnownNat num_hidden', KnownNat out_channels'
-      , KnownNat in_height', KnownNat in_width'
-      , KnownNat in_channels', KnownNat batch_size'
+      , KnownNat in_height', KnownNat in_width', KnownNat batch_size'
       , 1 <= kheight_minus_1'
       , 1 <= kwidth_minus_1'
       , DualMonad r m )
@@ -371,17 +369,15 @@ convMnistTestCaseCNNT
       -> Proxy out_channels'
       -> Proxy in_height'
       -> Proxy in_width'
-      -> Proxy in_channels'
       -> Proxy batch_size'
       -> [MnistData2 (Primal r)]
       -> DualNumberVariables r
       -> m (DualNumber r))
   -> (forall kheight_minus_1' kwidth_minus_1' num_hidden' out_channels'
-             in_height' in_width' in_channels'.
+             in_height' in_width'.
       ( KnownNat kheight_minus_1', KnownNat kwidth_minus_1'
       , KnownNat num_hidden', KnownNat out_channels'
       , KnownNat in_height', KnownNat in_width'
-      , KnownNat in_channels'
       , 1 <= kheight_minus_1'
       , 1 <= kwidth_minus_1'
       , IsScalar r )
@@ -392,21 +388,18 @@ convMnistTestCaseCNNT
       -> Proxy out_channels'
       -> Proxy in_height'
       -> Proxy in_width'
-      -> Proxy in_channels'
       -> [MnistData2 (Primal r)] -> Domains r -> Primal r)
   -> (forall kheight_minus_1' kwidth_minus_1' num_hidden' out_channels'
-             in_height' in_width' in_channels'.
+             in_height' in_width'.
       ( KnownNat kheight_minus_1', KnownNat kwidth_minus_1'
       , KnownNat num_hidden', KnownNat out_channels'
-      , KnownNat in_height', KnownNat in_width'
-      , KnownNat in_channels' )
+      , KnownNat in_height', KnownNat in_width' )
       => Proxy kheight_minus_1'
       -> Proxy kwidth_minus_1'
       -> Proxy num_hidden'
       -> Proxy out_channels'
       -> Proxy in_height'
       -> Proxy in_width'
-      -> Proxy in_channels'
       -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
   -> Double
   -> Double
@@ -419,15 +412,13 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
       proxy_out_channels  = Proxy @out_channels
       proxy_in_height = Proxy @in_height
       proxy_in_width = Proxy @in_width
-      proxy_in_channels = Proxy @in_channels
       proxy_batch_size = Proxy @batch_size
       batch_size = valueOf @batch_size
       ((_, _, _, nParamsX), totalParams, range, parametersInit) =
         initializerFixed 44 0.05
           (flen proxy_kheight_minus_1 proxy_kwidth_minus_1
                 proxy_num_hidden proxy_out_channels
-                proxy_in_height proxy_in_width
-                proxy_in_channels)
+                proxy_in_height proxy_in_width)
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
                         , show (valueOf @num_hidden :: Int), show batch_size
@@ -446,20 +437,18 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
              let f = trainWithLoss proxy_kheight_minus_1 proxy_kwidth_minus_1
                                    proxy_num_hidden proxy_out_channels
                                    proxy_in_height proxy_in_width
-                                   proxy_in_channels proxy_batch_size
+                                   proxy_batch_size
                  res = fst $ sgd gamma f
                                  (chunksOf batch_size chunk) parameters
                  trainScore = ftest (Proxy @r)
                                     proxy_kheight_minus_1 proxy_kwidth_minus_1
                                     proxy_num_hidden proxy_out_channels
                                     proxy_in_height proxy_in_width
-                                    proxy_in_channels
                                     chunk res
                  testScore = ftest (Proxy @r)
                                    proxy_kheight_minus_1 proxy_kwidth_minus_1
                                    proxy_num_hidden proxy_out_channels
                                    proxy_in_height proxy_in_width
-                                   proxy_in_channels
                                    testData res
              printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
              printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
@@ -481,7 +470,6 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
        let testErrorFinal = 1 - ftest (Proxy @r)                                                                      proxy_kheight_minus_1 proxy_kwidth_minus_1
                                       proxy_num_hidden proxy_out_channels
                                       proxy_in_height proxy_in_width
-                                      proxy_in_channels
                                       testData res
        testErrorFinal @?= expected
 
@@ -496,7 +484,7 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
   , -}convMnistTestCaseCNN "P artificial 5 4 3 2 1" 5 4
                          convMnistLossCNNP convMnistTestCNNP final_image_size
                          3 2 1 0.8991
-  , convMnistTestCaseCNNT @4 @4 @2 @3 @28 @28 @1 @1
+  , convMnistTestCaseCNNT @4 @4 @2 @3 @28 @28 @1
                           "T artificial 5 4 3 2 1" 5 4
                           convMnistLossFusedS convMnistTestS convMnistLenS
                           0.02 0.98
@@ -542,7 +530,7 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                          final_image_size depth0 num_hidden0
                          0.02 2.7000000000000024e-2
 -}
-  , convMnistTestCaseCNNT @4 @4 @64 @16 @28 @28 @1 @16
+  , convMnistTestCaseCNNT @4 @4 @64 @16 @28 @28 @16
                           "T1 epoch 1 batch" 1 1
                           convMnistLossFusedS convMnistTestS convMnistLenS
                           0.02 0.8200000000000001
@@ -635,8 +623,7 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                ,Just (SomeNat proxy_out_channel) ) ->
                 convMnistLossFusedS (Proxy @4) (Proxy @4)
                                     proxy_num_hidden proxy_out_channel
-                                    (Proxy @28) (Proxy @28)
-                                    (Proxy @1) (Proxy @1)
+                                     (Proxy @28) (Proxy @28) (Proxy @1)
                                     [mnistData]
               _ -> error "fT panic"
             paramsToT (p0, p1, p2, _) =
@@ -706,7 +693,7 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
   , convMnistTestCaseCNN "P artificial 1 1 1 1 1" 1 1
                          convMnistLossCNNP convMnistTestCNNP final_image_size
                          1 1 1 0.9026
-  , convMnistTestCaseCNNT @4 @4 @1 @1 @28 @28 @1 @1
+  , convMnistTestCaseCNNT @4 @4 @1 @1 @28 @28 @1
                           "T artificial 1 1 1 1 1" 1 1
                           convMnistLossFusedS convMnistTestS convMnistLenS
                           1 0.85
@@ -721,7 +708,7 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
                          convMnistLossCNNP convMnistTestCNNP final_image_size
                          3 4 5 0.8972
 -}
-  , convMnistTestCaseCNNT @4 @4 @4 @3 @28 @28 @1 @5
+  , convMnistTestCaseCNNT @4 @4 @4 @3 @28 @28 @5
                           "T artificial 1 2 3 4 5" 1 2
                           convMnistLossFusedS convMnistTestS convMnistLenS
                           6 0.92
