@@ -351,6 +351,7 @@ convMnistTestCaseCNNT
       -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
   -> (Proxy (Delta0 Double)
       -> [MnistData2 Double] -> Domains (Delta0 Double) -> Double)
+  -> (Int -> Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
   -> Int
   -> Int
   -> Int
@@ -358,34 +359,30 @@ convMnistTestCaseCNNT
   -> Double
   -> Double
   -> TestTree
-convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss testLoss
+convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
                       final_image_sz widthHidden widthHidden2 batch_size
                       gamma expected =
-  let ( (nParams0, nParams1, nParams2, nParamsX)
-       , totalParams, range, parameters0 ) =
+  let ((_, _, _, nParamsX), totalParams, range, parametersInit) =
         initializerFixed 44 0.05
-        (convMnistLenS final_image_sz widthHidden widthHidden2)
+        (flen final_image_sz widthHidden widthHidden2)
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show nParams0, show nParams1, show nParams2
                         , show nParamsX
                         , show totalParams, show gamma, show range]
   in testCase name $ do
        trainData <- loadMnistData2 trainGlyphsPath trainLabelsPath
        testData <- take 100 <$> loadMnistData2 testGlyphsPath testLabelsPath
-       -- Mimic how backprop tests and display it, even though tests
-       -- should not print, in principle.
+        -- There is some visual feedback, because some of these take long.
        let runBatch :: Domains (Delta0 Double)
                     -> (Int, [MnistData2 Double])
                     -> IO (Domains (Delta0 Double))
-           runBatch (!params0, !params1, !params2, !paramsX) (k, chunk) = do
+           runBatch parameters@(!_, !_, !_, !_) (k, chunk) = do
              printf "(Batch %d with %d points)\n" k (length chunk)
-             let f = trainWithLoss
-                 res = fst $ sgd gamma f (chunksOf batch_size chunk)
-                                 (params0, params1, params2, paramsX)
-                 trainScore = testLoss (Proxy @(Delta0 Double)) chunk res
-                 testScore = testLoss (Proxy @(Delta0 Double)) testData res
+             let res = fst $ sgd gamma trainWithLoss
+                                 (chunksOf batch_size chunk) parameters
+                 trainScore = ftest (Proxy @(Delta0 Double)) chunk res
+                 testScore = ftest (Proxy @(Delta0 Double)) testData res
              printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
              printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
              return res
@@ -399,13 +396,13 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss testLoss
                  chunks = take maxBatches
                           $ zip [1 ..] $ chunksOf (2 * batch_size)
                                                   trainDataShuffled
-                          -- TODO: 5000 takes forever
+                              -- TODO: 5000 takes forever
              !res <- foldM runBatch params2 chunks
              runEpoch (succ n) res
        printf "\nEpochs to run/max batches per epoch: %d/%d\n"
               epochs maxBatches
-       res <- runEpoch 1 parameters0
-       let testErrorFinal = 1 - testLoss (Proxy @(Delta0 Double)) testData res
+       res <- runEpoch 1 parametersInit
+       let testErrorFinal = 1 - ftest (Proxy @(Delta0 Double)) testData res
        testErrorFinal @?= expected
 
 mnistCNNTestsLong :: TestTree
@@ -422,6 +419,7 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
   , convMnistTestCaseCNNT "T artificial 5 4 3 2 1" 5 4
                           (convMnistLossFusedSPoly @4 @4 @2 @3 @28 @28 @1 @1)
                           (convMnistTestSPoly @4 @4 @2 @3 @28 @28 @1 @1)
+                          convMnistLenS
                           final_image_size
                           3 2 1 0.02 0.98
   , convMnistTestCaseCNN "1 epoch 1 batch" 1 1
@@ -467,7 +465,7 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                          0.02 2.7000000000000024e-2
 -}
   , convMnistTestCaseCNNT "T1 epoch 1 batch" 1 1
-                          convMnistLossFusedS convMnistTestS
+                          convMnistLossFusedS convMnistTestS convMnistLenS
                           final_image_size depth0 num_hidden0
                           batch_size0 0.02 0.98
   , testProperty "Compare gradients and two forward derivatives for a single 2d convolution implemented from primitive operations and as a hardwired primitive" $
@@ -631,6 +629,7 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
   , convMnistTestCaseCNNT "T artificial 1 1 1 1 1" 1 1
                           (convMnistLossFusedSPoly @4 @4 @1 @1 @28 @28 @1 @1)
                           (convMnistTestSPoly @4 @4 @1 @1 @28 @28 @1 @1)
+                          convMnistLenS
                           final_image_size
                           1 1 1 1 0.85
 {-
@@ -647,6 +646,7 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
   , convMnistTestCaseCNNT "T artificial 1 2 3 4 5" 1 2
                           (convMnistLossFusedSPoly @4 @4 @4 @3 @28 @28 @1 @5)
                           (convMnistTestSPoly @4 @4 @4 @3 @28 @28 @1 @1)
+                          convMnistLenS
                           final_image_size
                           3 4 5 6 0.92
   ]
