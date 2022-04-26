@@ -34,8 +34,8 @@ depth0 = 16
 num_hidden0 = 64
 final_image_size = 10  -- if size was not increased: 7, see below
 
-lenMnistCNNT :: Int -> Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
-lenMnistCNNT final_image_sz depth num_hidden =
+convMnistLenS :: Int -> Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+convMnistLenS final_image_sz depth num_hidden =
   ( 0
   , []
   , []
@@ -49,7 +49,7 @@ lenMnistCNNT final_image_sz depth num_hidden =
     , [sizeMnistLabel] ]
  )
 
-convMiddleMnistCNNT
+convMnistMiddleS
   :: forall kheight_minus_1 kwidth_minus_1 out_channels
             in_height in_width in_channels batch_size r m.
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1, KnownNat out_channels
@@ -65,7 +65,7 @@ convMiddleMnistCNNT
   -> m (DualNumber (TensorS r '[ batch_size, out_channels
                                , (in_height + kheight_minus_1) `Div` 2
                                , (in_width + kwidth_minus_1) `Div` 2 ]))
-convMiddleMnistCNNT ker x bias = do
+convMnistMiddleS ker x bias = do
   let yConv = conv24 ker x
       replicateBias
         :: DualNumber (TensorS r '[])
@@ -79,7 +79,7 @@ convMiddleMnistCNNT ker x bias = do
   yRelu <- reluAct $ yConv + biasStretched
   maxPool24 @1 @2 yRelu
 
-convMnistTwo
+convMnistTwoS
   :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
             in_height in_width in_channels batch_size r m.
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
@@ -109,17 +109,17 @@ convMnistTwo
   -> DualNumber (TensorS r '[SizeMnistLabel, num_hidden])
   -> DualNumber (TensorS r '[SizeMnistLabel])
   -> m (DualNumber (TensorS r '[SizeMnistLabel, batch_size]))
-convMnistTwo x ker1 bias1 ker2 bias2
-             weigthsDense biasesDense weigthsReadout biasesReadout = do
-  t1 <- convMiddleMnistCNNT ker1 (scalar x) bias1
-  t2 <- convMiddleMnistCNNT ker2 t1 bias2
+convMnistTwoS x ker1 bias1 ker2 bias2
+              weigthsDense biasesDense weigthsReadout biasesReadout = do
+  t1 <- convMnistMiddleS ker1 (scalar x) bias1
+  t2 <- convMnistMiddleS ker2 t1 bias2
   let m1 = mapS reshapeS t2
       m2 = from2S (transpose2 (fromS2 m1))  -- TODO: add permuation transposeS
       denseLayer = weigthsDense <>$ m2 + asColumnS biasesDense
   denseRelu <- reluAct denseLayer
   returnLet $ weigthsReadout <>$ denseRelu + asColumnS biasesReadout
 
-convMnistCNNT
+convMnistS
   :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
             in_height in_width in_channels batch_size r m.
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
@@ -132,7 +132,7 @@ convMnistCNNT
   => Primal (TensorS r '[batch_size, in_channels, in_height, in_width])
   -> DualNumberVariables r
   -> m (DualNumber (TensorS r '[SizeMnistLabel, batch_size]))
-convMnistCNNT x variables = do
+convMnistS x variables = do
   let ker1 = varS variables 0
       bias1 = varS variables 1
       ker2 = varS variables 2
@@ -141,11 +141,11 @@ convMnistCNNT x variables = do
       biasesDense = varS variables 5
       weigthsReadout = varS variables 6
       biasesReadout = varS variables 7
-  convMnistTwo @kheight_minus_1 @kwidth_minus_1 @num_hidden @out_channels
-               x ker1 bias1 ker2 bias2
-               weigthsDense biasesDense weigthsReadout biasesReadout
+  convMnistTwoS @kheight_minus_1 @kwidth_minus_1 @num_hidden @out_channels
+                x ker1 bias1 ker2 bias2
+                weigthsDense biasesDense weigthsReadout biasesReadout
 
-convMnistLossCNNTPoly
+convMnistLossFusedSPoly
   :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
             in_height in_width in_channels batch_size r m.
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
@@ -158,18 +158,18 @@ convMnistLossCNNTPoly
   => [MnistData2 (Primal r)]
   -> DualNumberVariables r
   -> m (DualNumber r)
-convMnistLossCNNTPoly lmnistData variables = do
+convMnistLossFusedSPoly lmnistData variables = do
   let (lx, ltarget) = unzip lmnistData
       tx :: Primal (TensorS r '[batch_size, in_channels, in_height, in_width])
       tx = OS.fromList $ concatMap (HM.toList . HM.flatten) lx
-  result <- convMnistCNNT @kheight_minus_1 @kwidth_minus_1
-                          @num_hidden @out_channels
-                          tx variables
+  result <- convMnistS @kheight_minus_1 @kwidth_minus_1
+                       @num_hidden @out_channels
+                       tx variables
   vec@(D u _) <-
     lossSoftMaxCrossEntropyL (HM.fromColumns ltarget) (fromS2 result)
   returnLet $ scale (recip $ fromIntegral $ V.length u) $ sumElements0 vec
 
-convMnistLossCNNT
+convMnistLossFusedS
   :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
             in_height in_width in_channels batch_size r m.
      ( DualMonad r m
@@ -185,12 +185,12 @@ convMnistLossCNNT
   => [MnistData2 (Primal r)]
   -> DualNumberVariables r
   -> m (DualNumber r)
-convMnistLossCNNT =
-  convMnistLossCNNTPoly @kheight_minus_1 @kwidth_minus_1
-                        @num_hidden @out_channels
-                        @in_height @in_width @in_channels @batch_size
+convMnistLossFusedS =
+  convMnistLossFusedSPoly @kheight_minus_1 @kwidth_minus_1
+                          @num_hidden @out_channels
+                          @in_height @in_width @in_channels @batch_size
 
-convMnistTestCNNTPoly
+convMnistTestSPoly
   :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
             in_height in_width in_channels batch_size r.
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
@@ -201,7 +201,7 @@ convMnistTestCNNTPoly
      , 1 <= kwidth_minus_1
      , IsScalar r )
   => Proxy r -> [MnistData2 (Primal r)] -> Domains r -> Primal r
-convMnistTestCNNTPoly _ inputs parameters =
+convMnistTestSPoly _ inputs parameters =
   let matchesLabels :: MnistData2 (Primal r) -> Bool
       matchesLabels (glyph, label) =
         let tx :: Primal (TensorS r '[ batch_size, in_channels
@@ -210,16 +210,16 @@ convMnistTestCNNTPoly _ inputs parameters =
             nn :: DualNumberVariables r
                -> DualMonadValue r (DualNumber (Tensor1 r))
             nn variables = do
-              m <- convMnistCNNT @kheight_minus_1 @kwidth_minus_1
-                                 @num_hidden @out_channels
-                                 tx variables
+              m <- convMnistS @kheight_minus_1 @kwidth_minus_1
+                              @num_hidden @out_channels
+                              tx variables
               softMaxActV $ flatten1 (fromS2 m)
             value = primalValue @r nn parameters
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
 
-convMnistTestCNNT
+convMnistTestS
   :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
             in_height in_width in_channels batch_size r.
      ( IsScalar r
@@ -233,7 +233,7 @@ convMnistTestCNNT
      , batch_size ~ 1
      )
   => Proxy r -> [MnistData2 (Primal r)] -> Domains r -> Primal r
-convMnistTestCNNT =
-  convMnistTestCNNTPoly @kheight_minus_1 @kwidth_minus_1
-                        @num_hidden @out_channels
-                        @in_height @in_width @in_channels @batch_size
+convMnistTestS =
+  convMnistTestSPoly @kheight_minus_1 @kwidth_minus_1
+                     @num_hidden @out_channels
+                     @in_height @in_width @in_channels @batch_size

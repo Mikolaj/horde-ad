@@ -364,7 +364,7 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss testLoss
   let ( (nParams0, nParams1, nParams2, nParamsX)
        , totalParams, range, parameters0 ) =
         initializerFixed 44 0.05
-        (lenMnistCNNT final_image_sz widthHidden widthHidden2)
+        (convMnistLenS final_image_sz widthHidden widthHidden2)
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
@@ -420,8 +420,8 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                          convMnistLossCNNP convMnistTestCNNP final_image_size
                          3 2 1 0.8991
   , convMnistTestCaseCNNT "T artificial 5 4 3 2 1" 5 4
-                          (convMnistLossCNNTPoly @4 @4 @2 @3 @28 @28 @1 @1)
-                          (convMnistTestCNNTPoly @4 @4 @2 @3 @28 @28 @1 @1)
+                          (convMnistLossFusedSPoly @4 @4 @2 @3 @28 @28 @1 @1)
+                          (convMnistTestSPoly @4 @4 @2 @3 @28 @28 @1 @1)
                           final_image_size
                           3 2 1 0.02 0.98
   , convMnistTestCaseCNN "1 epoch 1 batch" 1 1
@@ -467,7 +467,7 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                          0.02 2.7000000000000024e-2
 -}
   , convMnistTestCaseCNNT "T1 epoch 1 batch" 1 1
-                          convMnistLossCNNT convMnistTestCNNT
+                          convMnistLossFusedS convMnistTestS
                           final_image_size depth0 num_hidden0
                           batch_size0 0.02 0.98
   , testProperty "Compare gradients and two forward derivatives for a single 2d convolution implemented from primitive operations and as a hardwired primitive" $
@@ -557,9 +557,9 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                       , someNatVal $ toInteger num_hidden ) of
               ( Just (SomeNat (_ :: Proxy out_channel))
                ,Just (SomeNat (_ :: Proxy num_hidden)) ) ->
-                convMnistLossCNNTPoly @4 @4 @num_hidden @out_channel
-                                      @28 @28 @1 @1
-                                      [mnistData]
+                convMnistLossFusedSPoly @4 @4 @num_hidden @out_channel
+                                        @28 @28 @1 @1
+                                        [mnistData]
               _ -> error "fT panic"
             paramsToT (p0, p1, p2, _) =
               let qX = V.fromList
@@ -629,8 +629,8 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
                          convMnistLossCNNP convMnistTestCNNP final_image_size
                          1 1 1 0.9026
   , convMnistTestCaseCNNT "T artificial 1 1 1 1 1" 1 1
-                          (convMnistLossCNNTPoly @4 @4 @1 @1 @28 @28 @1 @1)
-                          (convMnistTestCNNTPoly @4 @4 @1 @1 @28 @28 @1 @1)
+                          (convMnistLossFusedSPoly @4 @4 @1 @1 @28 @28 @1 @1)
+                          (convMnistTestSPoly @4 @4 @1 @1 @28 @28 @1 @1)
                           final_image_size
                           1 1 1 1 0.85
 {-
@@ -645,8 +645,8 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
                          3 4 5 0.8972
 -}
   , convMnistTestCaseCNNT "T artificial 1 2 3 4 5" 1 2
-                          (convMnistLossCNNTPoly @4 @4 @4 @3 @28 @28 @1 @5)
-                          (convMnistTestCNNTPoly @4 @4 @4 @3 @28 @28 @1 @1)
+                          (convMnistLossFusedSPoly @4 @4 @4 @3 @28 @28 @1 @5)
+                          (convMnistTestSPoly @4 @4 @4 @3 @28 @28 @1 @1)
                           final_image_size
                           3 4 5 6 0.92
   ]

@@ -871,7 +871,7 @@ mnistRNNTestsLong = testGroup "MNIST RNN long tests"
                      nnMnistRNNLossV (testMnistRNNV @(Delta0 Double)) lenMnistRNNV 128 1
                      6.740000000000002e-2
   , mnistTestCaseRNNS @128 @150 "1S 1 epoch, 1 batch" 1 1
-                      rnnMnistLossFusedS testMnistRNNS lenMnistRnnS
+                      rnnMnistLossFusedS rnnMnistTestS rnnMnistLenS
                       0.4375
   ]
 
@@ -944,6 +944,6 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
                      nnMnistRNNLossV (testMnistRNNV @(Delta0 Double)) lenMnistRNNV 128 1
                      0.3024
   , mnistTestCaseRNNS @120 @15 "1S 1 epoch, 1 batch" 1 1
-                      rnnMnistLossFusedS testMnistRNNS lenMnistRnnS
+                      rnnMnistLossFusedS rnnMnistTestS rnnMnistLenS
                       0.8418
   ]

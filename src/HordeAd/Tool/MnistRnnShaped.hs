@@ -114,10 +114,10 @@ rnnMnistS xs variables = do
       b3 = varS variables 7
   rnnMnistZeroS @out_width xs ((wX, wS, b), (wX2, wS2, b2)) w3 b3
 
-lenMnistRnnS
+rnnMnistLenS
   :: forall out_width. KnownNat out_width
   => Proxy out_width -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
-lenMnistRnnS _ =
+rnnMnistLenS _ =
   ( 0
   , []
   , []
@@ -146,14 +146,14 @@ rnnMnistLossFusedS _ (xs, targets) variables = do
   returnLet $ scale (recip $ fromIntegral (valueOf @batch_size :: Int))
             $ sumElements0 vec
 
-testMnistRNNS
+rnnMnistTestS
   :: forall out_width batch_size r.
      (IsScalar r, KnownNat out_width, KnownNat batch_size)
   => Proxy r -> Proxy out_width
   -> MnistDataBatchS batch_size (Primal r)
   -> Domains r
   -> Primal r
-testMnistRNNS _ _ (glyphS, labelS) parameters =
+rnnMnistTestS _ _ (glyphS, labelS) parameters =
   let outputS = primalValue @r (rnnMnistS @out_width glyphS) parameters
       fromStoVs :: Primal (TensorS r '[SizeMnistLabel, batch_size])
                 -> [Vector (Primal r)]
