@@ -12,6 +12,7 @@ import Prelude
 
 import qualified Data.Array.DynamicS as OT
 import           Data.Array.Internal (valueOf)
+import qualified Data.Array.Shape
 import qualified Data.Array.ShapedS as OS
 import           Data.Proxy (Proxy)
 import qualified Data.Vector.Generic as V
@@ -27,27 +28,45 @@ import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors (DualNumberVariables, varS)
 import HordeAd.Tool.MnistData
 
-patch_size, batch_size0, depth0, num_hidden0, final_image_size :: Int
-patch_size = 5
-batch_size0 = 16
-depth0 = 16
-num_hidden0 = 64
-final_image_size = 10  -- if size was not increased: 7, see below
-
-convMnistLenS :: Int -> Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
-convMnistLenS final_image_sz depth num_hidden =
+convMnistLenS
+  :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
+            in_height in_width in_channels.
+     ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
+     , KnownNat num_hidden, KnownNat out_channels
+     , KnownNat in_height, KnownNat in_width
+     , KnownNat in_channels )
+  => Proxy kheight_minus_1
+  -> Proxy kwidth_minus_1
+  -> Proxy num_hidden
+  -> Proxy out_channels
+  -> Proxy in_height
+  -> Proxy in_width
+  -> Proxy in_channels
+  -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+convMnistLenS _ _ _ _ _ _ _ =
   ( 0
   , []
   , []
-  , [ [depth, 1, patch_size, patch_size]
-    , [depth]
-    , [depth, depth, patch_size, patch_size]
-    , [depth]
-    , [num_hidden, final_image_sz * final_image_sz * depth]
-    , [num_hidden]
-    , [sizeMnistLabel, num_hidden]
-    , [sizeMnistLabel] ]
- )
+  , [ Data.Array.Shape.shapeT @'[ out_channels, in_channels
+                                , kheight_minus_1 + 1, kwidth_minus_1 + 1 ]
+    , Data.Array.Shape.shapeT @'[out_channels]
+    , Data.Array.Shape.shapeT @'[ out_channels, out_channels
+                                , kheight_minus_1 + 1, kwidth_minus_1 + 1 ]
+    , Data.Array.Shape.shapeT @'[out_channels]
+    , Data.Array.Shape.shapeT @'[ num_hidden
+                                , out_channels
+                                    GHC.TypeLits.*
+                                      ((in_height + kheight_minus_1) `Div` 2
+                                       + kheight_minus_1) `Div` 2
+                                    GHC.TypeLits.*
+                                      ((in_width + kwidth_minus_1) `Div` 2
+                                       + kheight_minus_1) `Div` 2
+                                ]
+    , Data.Array.Shape.shapeT @'[num_hidden]
+    , Data.Array.Shape.shapeT @'[SizeMnistLabel, num_hidden]
+    , Data.Array.Shape.shapeT @'[SizeMnistLabel]
+    ]
+  )
 
 convMnistMiddleS
   :: forall kheight_minus_1 kwidth_minus_1 out_channels
@@ -145,7 +164,7 @@ convMnistS x variables = do
                 x ker1 bias1 ker2 bias2
                 weigthsDense biasesDense weigthsReadout biasesReadout
 
-convMnistLossFusedSPoly
+convMnistLossFusedS
   :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
             in_height in_width in_channels batch_size r m.
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
@@ -155,10 +174,18 @@ convMnistLossFusedSPoly
      , 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
      , DualMonad r m )
-  => [MnistData2 (Primal r)]
+  => Proxy kheight_minus_1
+  -> Proxy kwidth_minus_1
+  -> Proxy num_hidden
+  -> Proxy out_channels
+  -> Proxy in_height
+  -> Proxy in_width
+  -> Proxy in_channels
+  -> Proxy batch_size
+  -> [MnistData2 (Primal r)]
   -> DualNumberVariables r
   -> m (DualNumber r)
-convMnistLossFusedSPoly lmnistData variables = do
+convMnistLossFusedS _ _ _ _ _ _ _ _ lmnistData variables = do
   let (lx, ltarget) = unzip lmnistData
       tx :: Primal (TensorS r '[batch_size, in_channels, in_height, in_width])
       tx = OS.fromList $ concatMap (HM.toList . HM.flatten) lx
@@ -169,28 +196,7 @@ convMnistLossFusedSPoly lmnistData variables = do
     lossSoftMaxCrossEntropyL (HM.fromColumns ltarget) (fromS2 result)
   returnLet $ scale (recip $ fromIntegral $ V.length u) $ sumElements0 vec
 
-convMnistLossFusedS
-  :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
-            in_height in_width in_channels batch_size r m.
-     ( DualMonad r m
-     , kheight_minus_1 ~ 4
-     , kwidth_minus_1 ~ 4
-     , num_hidden ~ 64
-     , out_channels ~ 16
-     , in_height ~ 28
-     , in_width ~ 28
-     , in_channels ~ 1
-     , batch_size ~ 16
-     )
-  => [MnistData2 (Primal r)]
-  -> DualNumberVariables r
-  -> m (DualNumber r)
-convMnistLossFusedS =
-  convMnistLossFusedSPoly @kheight_minus_1 @kwidth_minus_1
-                          @num_hidden @out_channels
-                          @in_height @in_width @in_channels @batch_size
-
-convMnistTestSPoly
+convMnistTestS
   :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
             in_height in_width in_channels batch_size r.
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
@@ -200,8 +206,17 @@ convMnistTestSPoly
      , 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
      , IsScalar r )
-  => Proxy r -> [MnistData2 (Primal r)] -> Domains r -> Primal r
-convMnistTestSPoly _ inputs parameters =
+  => Proxy r
+  -> Proxy kheight_minus_1
+  -> Proxy kwidth_minus_1
+  -> Proxy num_hidden
+  -> Proxy out_channels
+  -> Proxy in_height
+  -> Proxy in_width
+  -> Proxy in_channels
+  -> Proxy batch_size
+  -> [MnistData2 (Primal r)] -> Domains r -> Primal r
+convMnistTestS _ _ _ _ _ _ _ _ _ inputs parameters =
   let matchesLabels :: MnistData2 (Primal r) -> Bool
       matchesLabels (glyph, label) =
         let tx :: Primal (TensorS r '[ batch_size, in_channels
@@ -218,22 +233,3 @@ convMnistTestSPoly _ inputs parameters =
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
-
-convMnistTestS
-  :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
-            in_height in_width in_channels batch_size r.
-     ( IsScalar r
-     , kheight_minus_1 ~ 4
-     , kwidth_minus_1 ~ 4
-     , num_hidden ~ 64
-     , out_channels ~ 16
-     , in_height ~ 28
-     , in_width ~ 28
-     , in_channels ~ 1
-     , batch_size ~ 1
-     )
-  => Proxy r -> [MnistData2 (Primal r)] -> Domains r -> Primal r
-convMnistTestS =
-  convMnistTestSPoly @kheight_minus_1 @kwidth_minus_1
-                     @num_hidden @out_channels
-                     @in_height @in_width @in_channels @batch_size

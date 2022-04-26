@@ -1,4 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, TypeFamilies, TypeOperators #-}
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, RankNTypes, TypeFamilies,
+             TypeOperators #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module TestMnistCNN (testTrees, shortTestForCITrees) where
@@ -7,9 +8,10 @@ import Prelude
 
 import           Control.Monad (foldM)
 import qualified Data.Array.DynamicS as OT
+import           Data.Array.Internal (valueOf)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (SomeNat (..), someNatVal)
+import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal, type (<=))
 import qualified Numeric.LinearAlgebra as HM
 import           System.Random
 import           Test.Tasty
@@ -37,14 +39,13 @@ shortTestForCITrees = [ mnistCNNTestsShort
 -- real convolution but, most likely, correlation, and their padding
 -- only preserves size, while ours in @conv2@ increases it,
 -- not to put less weigth onto information from the outer rows and columns.
-{-
-patch_size, batch_size0, depth0, num_hidden0, final_image_size :: Int
+
+patch_size, depth0, num_hidden0, final_image_size :: Int
 patch_size = 5
-batch_size0 = 16
 depth0 = 16
 num_hidden0 = 64
 final_image_size = 10  -- if size was not increased: 7, see below
--}
+
 lenMnistCNN :: Int -> Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
 lenMnistCNN final_image_sz depth num_hidden =
   ( depth + depth
@@ -343,52 +344,128 @@ convMnistTestCNNP _ depth inputs parameters =
 -- * A variant of @convMnistCNN@ with shaped tensors, including mini-batches
 
 convMnistTestCaseCNNT
-  :: String
+  :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
+            in_height in_width in_channels batch_size r m.
+     ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
+     , KnownNat num_hidden, KnownNat out_channels
+     , KnownNat in_height, KnownNat in_width
+     , KnownNat in_channels, KnownNat batch_size
+     , 1 <= kheight_minus_1
+     , 1 <= kwidth_minus_1
+     , r ~ Delta0 Double, m ~ DualMonadGradient (Delta0 Double) )
+  => String
   -> Int
   -> Int
-  -> ([MnistData2 Double]
-      -> DualNumberVariables (Delta0 Double)
-      -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
-  -> (Proxy (Delta0 Double)
-      -> [MnistData2 Double] -> Domains (Delta0 Double) -> Double)
-  -> (Int -> Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
-  -> Int
-  -> Int
-  -> Int
-  -> Int
+  -> (forall kheight_minus_1' kwidth_minus_1' num_hidden' out_channels'
+             in_height' in_width' in_channels' batch_size'.
+      ( KnownNat kheight_minus_1', KnownNat kwidth_minus_1'
+      , KnownNat num_hidden', KnownNat out_channels'
+      , KnownNat in_height', KnownNat in_width'
+      , KnownNat in_channels', KnownNat batch_size'
+      , 1 <= kheight_minus_1'
+      , 1 <= kwidth_minus_1'
+      , DualMonad r m )
+      => Proxy kheight_minus_1'
+      -> Proxy kwidth_minus_1'
+      -> Proxy num_hidden'
+      -> Proxy out_channels'
+      -> Proxy in_height'
+      -> Proxy in_width'
+      -> Proxy in_channels'
+      -> Proxy batch_size'
+      -> [MnistData2 (Primal r)]
+      -> DualNumberVariables r
+      -> m (DualNumber r))
+  -> (forall kheight_minus_1' kwidth_minus_1' num_hidden' out_channels'
+             in_height' in_width' in_channels' batch_size'.
+      ( KnownNat kheight_minus_1', KnownNat kwidth_minus_1'
+      , KnownNat num_hidden', KnownNat out_channels'
+      , KnownNat in_height', KnownNat in_width'
+      , KnownNat in_channels', KnownNat batch_size'
+      , 1 <= kheight_minus_1'
+      , 1 <= kwidth_minus_1'
+      , IsScalar r )
+      => Proxy r
+      -> Proxy kheight_minus_1'
+      -> Proxy kwidth_minus_1'
+      -> Proxy num_hidden'
+      -> Proxy out_channels'
+      -> Proxy in_height'
+      -> Proxy in_width'
+      -> Proxy in_channels'
+      -> Proxy batch_size'
+      -> [MnistData2 (Primal r)] -> Domains r -> Primal r)
+  -> (forall kheight_minus_1' kwidth_minus_1' num_hidden' out_channels'
+             in_height' in_width' in_channels'.
+      ( KnownNat kheight_minus_1', KnownNat kwidth_minus_1'
+      , KnownNat num_hidden', KnownNat out_channels'
+      , KnownNat in_height', KnownNat in_width'
+      , KnownNat in_channels' )
+      => Proxy kheight_minus_1'
+      -> Proxy kwidth_minus_1'
+      -> Proxy num_hidden'
+      -> Proxy out_channels'
+      -> Proxy in_height'
+      -> Proxy in_width'
+      -> Proxy in_channels'
+      -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
   -> Double
   -> Double
   -> TestTree
 convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
-                      final_image_sz widthHidden widthHidden2 batch_size
                       gamma expected =
-  let ((_, _, _, nParamsX), totalParams, range, parametersInit) =
+  let proxy_kheight_minus_1 = Proxy @kheight_minus_1
+      proxy_kwidth_minus_1 = Proxy @kwidth_minus_1
+      proxy_num_hidden = Proxy @num_hidden
+      proxy_out_channels  = Proxy @out_channels
+      proxy_in_height = Proxy @in_height
+      proxy_in_width = Proxy @in_width
+      proxy_in_channels = Proxy @in_channels
+      proxy_batch_size = Proxy @batch_size
+      batch_size = valueOf @batch_size
+      ((_, _, _, nParamsX), totalParams, range, parametersInit) =
         initializerFixed 44 0.05
-        (flen final_image_sz widthHidden widthHidden2)
+          (flen proxy_kheight_minus_1 proxy_kwidth_minus_1
+                proxy_num_hidden proxy_out_channels
+                proxy_in_height proxy_in_width
+                proxy_in_channels)
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
-                        , show widthHidden, show widthHidden2
-                        , show nParamsX
-                        , show totalParams, show gamma, show range]
+                        , show (valueOf @num_hidden :: Int), show batch_size
+                        , show nParamsX, show totalParams
+                        , show gamma, show range ]
   in testCase name $ do
        trainData <- loadMnistData2 trainGlyphsPath trainLabelsPath
        testData <- take 100 <$> loadMnistData2 testGlyphsPath testLabelsPath
+         -- TODO: for now, too slow
         -- There is some visual feedback, because some of these take long.
-       let runBatch :: Domains (Delta0 Double)
-                    -> (Int, [MnistData2 Double])
-                    -> IO (Domains (Delta0 Double))
+       let runBatch :: Domains r
+                    -> (Int, [MnistData2 (Primal r)])
+                    -> IO (Domains r)
            runBatch parameters@(!_, !_, !_, !_) (k, chunk) = do
              printf "(Batch %d with %d points)\n" k (length chunk)
-             let res = fst $ sgd gamma trainWithLoss
+             let f = trainWithLoss proxy_kheight_minus_1 proxy_kwidth_minus_1
+                                   proxy_num_hidden proxy_out_channels
+                                   proxy_in_height proxy_in_width
+                                   proxy_in_channels proxy_batch_size
+                 res = fst $ sgd gamma f
                                  (chunksOf batch_size chunk) parameters
-                 trainScore = ftest (Proxy @(Delta0 Double)) chunk res
-                 testScore = ftest (Proxy @(Delta0 Double)) testData res
+                 trainScore = ftest (Proxy @r)
+                                    proxy_kheight_minus_1 proxy_kwidth_minus_1
+                                    proxy_num_hidden proxy_out_channels
+                                    proxy_in_height proxy_in_width
+                                    proxy_in_channels (Proxy @1)
+                                    chunk res
+                 testScore = ftest (Proxy @r)
+                                   proxy_kheight_minus_1 proxy_kwidth_minus_1
+                                   proxy_num_hidden proxy_out_channels
+                                   proxy_in_height proxy_in_width
+                                   proxy_in_channels (Proxy @1)
+                                   testData res
              printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
              printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
              return res
-       let runEpoch :: Int
-                    -> Domains (Delta0 Double)
-                    -> IO (Domains (Delta0 Double))
+       let runEpoch :: Int -> Domains r -> IO (Domains r)
            runEpoch n params2 | n > epochs = return params2
            runEpoch n params2 = do
              printf "[Epoch %d]\n" n
@@ -402,7 +479,11 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
        printf "\nEpochs to run/max batches per epoch: %d/%d\n"
               epochs maxBatches
        res <- runEpoch 1 parametersInit
-       let testErrorFinal = 1 - ftest (Proxy @(Delta0 Double)) testData res
+       let testErrorFinal = 1 - ftest (Proxy @r)                                                                      proxy_kheight_minus_1 proxy_kwidth_minus_1
+                                      proxy_num_hidden proxy_out_channels
+                                      proxy_in_height proxy_in_width
+                                      proxy_in_channels (Proxy @1)
+                                      testData res
        testErrorFinal @?= expected
 
 mnistCNNTestsLong :: TestTree
@@ -416,12 +497,10 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
   , -}convMnistTestCaseCNN "P artificial 5 4 3 2 1" 5 4
                          convMnistLossCNNP convMnistTestCNNP final_image_size
                          3 2 1 0.8991
-  , convMnistTestCaseCNNT "T artificial 5 4 3 2 1" 5 4
-                          (convMnistLossFusedSPoly @4 @4 @2 @3 @28 @28 @1 @1)
-                          (convMnistTestSPoly @4 @4 @2 @3 @28 @28 @1 @1)
-                          convMnistLenS
-                          final_image_size
-                          3 2 1 0.02 0.98
+  , convMnistTestCaseCNNT @4 @4 @2 @3 @28 @28 @1 @1
+                          "T artificial 5 4 3 2 1" 5 4
+                          convMnistLossFusedS convMnistTestS convMnistLenS
+                          0.02 0.98
   , convMnistTestCaseCNN "1 epoch 1 batch" 1 1
                          convMnistLossCNN convMnistTestCNN
                          final_image_size depth0 num_hidden0
@@ -464,10 +543,10 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                          final_image_size depth0 num_hidden0
                          0.02 2.7000000000000024e-2
 -}
-  , convMnistTestCaseCNNT "T1 epoch 1 batch" 1 1
+  , convMnistTestCaseCNNT @4 @4 @64 @16 @28 @28 @1 @16
+                          "T1 epoch 1 batch" 1 1
                           convMnistLossFusedS convMnistTestS convMnistLenS
-                          final_image_size depth0 num_hidden0
-                          batch_size0 0.02 0.98
+                          0.02 0.8200000000000001
   , testProperty "Compare gradients and two forward derivatives for a single 2d convolution implemented from primitive operations and as a hardwired primitive" $
       forAll (choose (1, 30)) $ \seed ->
       forAll (choose (1, 50)) $ \seedDs ->
@@ -551,13 +630,15 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                   => DualNumberVariables r -> m (DualNumber r)
             f = convMnistLossCNN depth mnistData
             fP = convMnistLossCNNP depth mnistData
-            fT = case ( someNatVal $ toInteger depth
-                      , someNatVal $ toInteger num_hidden ) of
-              ( Just (SomeNat (_ :: Proxy out_channel))
-               ,Just (SomeNat (_ :: Proxy num_hidden)) ) ->
-                convMnistLossFusedSPoly @4 @4 @num_hidden @out_channel
-                                        @28 @28 @1 @1
-                                        [mnistData]
+            fT = case ( someNatVal $ toInteger num_hidden
+                      , someNatVal $ toInteger depth ) of
+              ( Just (SomeNat proxy_num_hidden)
+               ,Just (SomeNat proxy_out_channel) ) ->
+                convMnistLossFusedS (Proxy @4) (Proxy @4)
+                                    proxy_num_hidden proxy_out_channel
+                                    (Proxy @28) (Proxy @28)
+                                    (Proxy @1) (Proxy @1)
+                                    [mnistData]
               _ -> error "fT panic"
             paramsToT (p0, p1, p2, _) =
               let qX = V.fromList
@@ -626,12 +707,10 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
   , convMnistTestCaseCNN "P artificial 1 1 1 1 1" 1 1
                          convMnistLossCNNP convMnistTestCNNP final_image_size
                          1 1 1 0.9026
-  , convMnistTestCaseCNNT "T artificial 1 1 1 1 1" 1 1
-                          (convMnistLossFusedSPoly @4 @4 @1 @1 @28 @28 @1 @1)
-                          (convMnistTestSPoly @4 @4 @1 @1 @28 @28 @1 @1)
-                          convMnistLenS
-                          final_image_size
-                          1 1 1 1 0.85
+  , convMnistTestCaseCNNT @4 @4 @1 @1 @28 @28 @1 @1
+                          "T artificial 1 1 1 1 1" 1 1
+                          convMnistLossFusedS convMnistTestS convMnistLenS
+                          1 0.85
 {-
   , convMnistTestCaseCNN "artificial 1 2 3 4 5" 1 2
                          convMnistLossCNN convMnistTestCNN final_image_size
@@ -643,10 +722,8 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
                          convMnistLossCNNP convMnistTestCNNP final_image_size
                          3 4 5 0.8972
 -}
-  , convMnistTestCaseCNNT "T artificial 1 2 3 4 5" 1 2
-                          (convMnistLossFusedSPoly @4 @4 @4 @3 @28 @28 @1 @5)
-                          (convMnistTestSPoly @4 @4 @4 @3 @28 @28 @1 @1)
-                          convMnistLenS
-                          final_image_size
-                          3 4 5 6 0.92
+  , convMnistTestCaseCNNT @4 @4 @4 @3 @28 @28 @1 @5
+                          "T artificial 1 2 3 4 5" 1 2
+                          convMnistLossFusedS convMnistTestS convMnistLenS
+                          6 0.92
   ]

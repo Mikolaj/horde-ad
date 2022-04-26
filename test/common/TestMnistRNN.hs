@@ -835,9 +835,7 @@ mnistTestCaseRNNS prefix epochs maxBatches trainWithLoss ftest flen expected =
           printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
           printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
           return res
-        runEpoch :: Int
-                 -> (Domains r, StateAdam r)
-                 -> IO (Domains r)
+        runEpoch :: Int -> (Domains r, StateAdam r) -> IO (Domains r)
         runEpoch n (params2, _) | n > epochs = return params2
         runEpoch n paramsStateAdam = do
           printf "[Epoch %d]\n" n
