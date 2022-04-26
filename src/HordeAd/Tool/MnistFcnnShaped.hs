@@ -81,6 +81,7 @@ nnMnistS :: forall widthHidden widthHidden2 r m.
          -> Primal (TensorS r '[SizeMnistGlyph])
          -> DualNumberVariables r
          -> m (DualNumber (TensorS r '[SizeMnistLabel]))
+{-# INLINE nnMnistS #-}
 nnMnistS factivationHidden input variables = do
   let weightsL0 = varS variables 0
       biasesV0 = varS variables 1
@@ -106,8 +107,8 @@ nnMnistLossFusedS
   => Proxy widthHidden -> Proxy widthHidden2
   -> MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
 nnMnistLossFusedS _ _ (input, target) variables = do
-  result <- {-inline!!!-} (nnMnistS @widthHidden @widthHidden2)
-              logisticAct (OS.fromVector input) variables
+  result <- nnMnistS @widthHidden @widthHidden2
+                     logisticAct (OS.fromVector input) variables
   lossSoftMaxCrossEntropyV target $ fromS1 result
 
 nnMnistLossFusedReluS
@@ -117,8 +118,8 @@ nnMnistLossFusedReluS
   => Proxy widthHidden -> Proxy widthHidden2
   -> MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
 nnMnistLossFusedReluS _ _ (input, target) variables = do
-  result <- {-inline!!!-} (nnMnistS @widthHidden @widthHidden2)
-              reluActS (OS.fromVector input) variables
+  result <- nnMnistS @widthHidden @widthHidden2
+                     reluActS (OS.fromVector input) variables
   lossSoftMaxCrossEntropyV target $ fromS1 result
 
 -- | A function testing the neural network given testing set of inputs
@@ -130,8 +131,8 @@ testMnistS
 testMnistS inputs parameters =
   let matchesLabels :: MnistData (Primal r) -> Bool
       matchesLabels (glyph, label) =
-        let nn = {-inline!!!-} (nnMnistS @widthHidden @widthHidden2)
-                   logisticAct (OS.fromVector glyph)
+        let nn = nnMnistS @widthHidden @widthHidden2
+                          logisticAct (OS.fromVector glyph)
             value = OS.toVector $ primalValue @r nn parameters
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
