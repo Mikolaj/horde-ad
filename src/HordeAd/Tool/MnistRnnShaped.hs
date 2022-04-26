@@ -134,8 +134,7 @@ lenMnistRnnS _ =
 
 rnnMnistLossFusedS
   :: forall out_width batch_size r m.
-     ( DualMonad r m, KnownNat out_width, KnownNat batch_size
-     , Floating (Primal (Tensor2 r)) )
+     (DualMonad r m, KnownNat out_width, KnownNat batch_size)
   => Proxy out_width
   -> MnistDataBatchS batch_size (Primal r)
   -> DualNumberVariables r

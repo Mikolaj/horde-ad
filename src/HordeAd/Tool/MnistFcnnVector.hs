@@ -95,7 +95,7 @@ nnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 nnMnistLoss1
-  :: (DualMonad r m, Floating (Primal (Tensor1 r)))
+  :: DualMonad r m
   => Int -> Int -> MnistData (Primal r) -> DualNumberVariables r
   -> m (DualNumber r)
 nnMnistLoss1 widthHidden widthHidden2 (input, target) variables = do
@@ -106,7 +106,7 @@ nnMnistLoss1 widthHidden widthHidden2 (input, target) variables = do
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 testMnist1
-  :: forall r. (IsScalar r, Floating (Primal (Tensor1 r)))
+  :: forall r. IsScalar r
   => Int -> Int -> [MnistData (Primal r)] -> (Domain0 r, Domain1 r) -> Primal r
 testMnist1 widthHidden widthHidden2 inputs (params0, params1) =
   let matchesLabels :: MnistData (Primal r) -> Bool

@@ -124,7 +124,7 @@ scalar a = D a dZero
 scale :: (Num (Primal a), IsDual a) => Primal a -> DualNumber a -> DualNumber a
 scale a (D u u') = D (a * u) (dScale a u')
 
-tanhAct :: (DualMonad r m, IsDualWithScalar a r, Floating (Primal a))
+tanhAct :: (DualMonad r m, IsDualWithScalar a r)
         => DualNumber a -> m (DualNumber a)
 tanhAct = returnLet . tanh
 
@@ -133,7 +133,7 @@ logistic (D u u') =
   let y = recip (1 + exp (- u))
   in D y (dScale (y * (1 - y)) u')
 
-logisticAct :: (DualMonad r m, IsDualWithScalar a r, Floating (Primal a))
+logisticAct :: (DualMonad r m, IsDualWithScalar a r)
             => DualNumber a -> m (DualNumber a)
 logisticAct = returnLet . logistic
 
@@ -233,7 +233,7 @@ lossCrossEntropy targ res = do
   returnLet $ negate $ V.ifoldl' f 0 res
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropyV :: (DualMonad r m, Floating (Primal (Tensor1 r)))
+lossCrossEntropyV :: DualMonad r m
                   => Primal (Tensor1 r)
                   -> DualNumber (Tensor1 r)
                   -> m (DualNumber r)
@@ -243,7 +243,7 @@ lossCrossEntropyV targ res = returnLet $ negate $ log res <.>!! targ
 -- only when @target@ is one-hot. Otherwise, results vary wildly. In our
 -- rendering of the MNIST data all labels are on-hot.
 lossSoftMaxCrossEntropyV
-  :: (DualMonad r m, Floating (Primal (Tensor1 r)))
+  :: DualMonad r m
   => Primal (Tensor1 r) -> DualNumber (Tensor1 r) -> m (DualNumber r)
 lossSoftMaxCrossEntropyV target (D u u') = do
   -- The following protects from underflows, overflows and exploding gradients
@@ -380,7 +380,7 @@ reluLeakyAct1 v@(D u _) = do
   let oneIfGtZero = V.map (\x -> if x > 0 then 1 else 0.01) u
   returnLet $ scale oneIfGtZero v
 
-softMaxActV :: (DualMonad r m, Floating (Primal (Tensor1 r)))
+softMaxActV :: DualMonad r m
             => DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r))
 softMaxActV d@(D u _) = do
   expU <- returnLet $ exp d
@@ -393,7 +393,7 @@ softMaxActV d@(D u _) = do
 -- only when @target@ is one-hot. Otherwise, results vary wildly. In our
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyL
-  :: (DualMonad r m, Floating (Primal (Tensor2 r)))
+  :: DualMonad r m
   => Primal (Tensor2 r)
   -> DualNumber (Tensor2 r)
   -> m (DualNumber (Tensor1 r))

@@ -497,7 +497,7 @@ mnistTestCase2S
   -> String
   -> Int
   -> Int
-  -> (forall r m. (DualMonad r m, Floating (Primal (Tensor1 r)))
+  -> (forall r m. DualMonad r m
       => Proxy widthHidden -> Proxy widthHidden2
       -> MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r))
   -> Double

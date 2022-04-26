@@ -99,8 +99,7 @@ nnMnistS factivationHidden input variables = do
 -- https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/exts/ambiguous_types.html#extension-AllowAmbiguousTypes
 nnMnistLossFusedS
   :: forall widthHidden widthHidden2 r m.
-     ( DualMonad r m, Floating (Primal (Tensor1 r))
-     , KnownNat widthHidden, KnownNat widthHidden2 )
+     (DualMonad r m, KnownNat widthHidden, KnownNat widthHidden2)
   => Proxy widthHidden -> Proxy widthHidden2
   -> MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
 nnMnistLossFusedS _ _ (input, target) variables = do
@@ -110,8 +109,7 @@ nnMnistLossFusedS _ _ (input, target) variables = do
 
 nnMnistLossFusedReluS
   :: forall widthHidden widthHidden2 r m.
-     ( DualMonad r m, Floating (Primal (Tensor1 r))
-     , KnownNat widthHidden, KnownNat widthHidden2 )
+     (DualMonad r m, KnownNat widthHidden, KnownNat widthHidden2)
   => Proxy widthHidden -> Proxy widthHidden2
   -> MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
 nnMnistLossFusedReluS _ _ (input, target) variables = do

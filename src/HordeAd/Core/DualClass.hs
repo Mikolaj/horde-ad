@@ -43,7 +43,8 @@ import HordeAd.Internal.Delta
 -- collection at the scalar level (rank 0), which also implies the underlying
 -- scalar type is the same. Additionally, the primal component
 -- corresponding to the first type is required to satisfy constraint @Num@.
-type IsDualWithScalar a r = (IsDual a, ScalarOf a ~ Primal r, Num (Primal a))
+type IsDualWithScalar a r =
+  (IsDual a, ScalarOf a ~ Primal r, Floating (Primal a))
 
 -- | A mega-shorthand for a bundle of connected type constraints.
 -- The @Scalar@ in the name means that this type is a dual component

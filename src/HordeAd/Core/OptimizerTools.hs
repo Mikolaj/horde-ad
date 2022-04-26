@@ -212,7 +212,7 @@ liftArray43 f m1 m2 m3 m4 =
             ++ show (OT.shapeL m1, OT.shapeL m2, OT.shapeL m3, OT.shapeL m4)
 
 updateWithGradientAdam
-  :: forall r. (Floating (Primal r), IsScalar r, Floating (Primal (Tensor1 r)))
+  :: forall r. IsScalar r
   => ArgsAdam r -> StateAdam r -> Domains r -> Domains r
   -> (Domains r, StateAdam r)
 updateWithGradientAdam ArgsAdam{..}

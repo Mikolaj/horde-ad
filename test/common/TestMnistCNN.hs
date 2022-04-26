@@ -101,7 +101,7 @@ convMnistCNN depth x variables = do
       biasesReadout = var1 variables 1
   returnLet $ weigthsReadout #>! denseRelu + biasesReadout
 
-convMnistLossCNN :: (DualMonad r m, Floating (Primal (Tensor1 r)))
+convMnistLossCNN :: DualMonad r m
                  => Int -> MnistData2 (Primal r)
                  -> DualNumberVariables r
                  -> m (DualNumber r)
@@ -110,7 +110,7 @@ convMnistLossCNN depth (x, target) variables = do
   lossSoftMaxCrossEntropyV target result
 
 convMnistTestCNN
-  :: forall r. (IsScalar r, Floating (Primal (Tensor1 r)))
+  :: forall r. IsScalar r
   => Proxy r -> Int -> [MnistData2 (Primal r)] -> Domains r -> Primal r
 convMnistTestCNN _ depth inputs parameters =
   let matchesLabels :: MnistData2 (Primal r) -> Bool
@@ -249,7 +249,7 @@ convMnistCNNS depth x variables = do
       biasesReadout = var1 variables 1
   returnLet $ weigthsReadout #>! denseRelu + biasesReadout
 
-convMnistLossCNNS :: (DualMonad r m, Floating (Primal (Tensor1 r)))
+convMnistLossCNNS :: DualMonad r m
                   => Int -> MnistData2 (Primal r)
                   -> DualNumberVariables r
                   -> m (DualNumber r)
@@ -258,7 +258,7 @@ convMnistLossCNNS depth (x, target) variables = do
   lossSoftMaxCrossEntropyV target result
 
 convMnistTestCNNS
-  :: forall r. (IsScalar r, Floating (Primal (Tensor1 r)))
+  :: forall r. IsScalar r
   => Proxy r -> Int -> [MnistData2 (Primal r)] -> Domains r -> Primal r
 convMnistTestCNNS _ depth inputs parameters =
   let matchesLabels :: MnistData2 (Primal r) -> Bool
@@ -319,7 +319,7 @@ convMnistCNNP depth x variables = do
       biasesReadout = var1 variables 1
   returnLet $ weigthsReadout #>! denseRelu + biasesReadout
 
-convMnistLossCNNP :: (DualMonad r m, Floating (Primal (Tensor1 r)))
+convMnistLossCNNP :: DualMonad r m
                   => Int -> MnistData2 (Primal r)
                   -> DualNumberVariables r
                   -> m (DualNumber r)
@@ -328,7 +328,7 @@ convMnistLossCNNP depth (x, target) variables = do
   lossSoftMaxCrossEntropyV target result
 
 convMnistTestCNNP
-  :: forall r. (IsScalar r, Floating (Primal (Tensor1 r)))
+  :: forall r. IsScalar r
   => Proxy r -> Int -> [MnistData2 (Primal r)] -> Domains r -> Primal r
 convMnistTestCNNP _ depth inputs parameters =
   let matchesLabels :: MnistData2 (Primal r) -> Bool
@@ -434,7 +434,7 @@ convMnistLossCNNTPoly
      , KnownNat batch_size, KnownNat in_channels
      , 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
-    , DualMonad r m, Floating (Primal (Tensor2 r)) )
+     , DualMonad r m )
   => [MnistData2 (Primal r)]
   -> DualNumberVariables r
   -> m (DualNumber r)
@@ -451,7 +451,7 @@ convMnistLossCNNTPoly lmnistData variables = do
 convMnistLossCNNT
   :: forall kheight_minus_1 kwidth_minus_1
             in_height in_width in_channels out_channels batch_size r m.
-     ( DualMonad r m, Floating (Primal (Tensor2 r))
+     ( DualMonad r m
      , batch_size ~ 16
      , out_channels ~ 16
      , kheight_minus_1 ~ 4
@@ -476,7 +476,7 @@ convMnistTestCNNTPoly
      , KnownNat batch_size, KnownNat in_channels
      , 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
-    , IsScalar r, Floating (Primal (Tensor1 r)) )
+     , IsScalar r )
   => Proxy r -> [MnistData2 (Primal r)] -> Domains r -> Primal r
 convMnistTestCNNTPoly _ inputs parameters =
   let matchesLabels :: MnistData2 (Primal r) -> Bool
@@ -500,7 +500,7 @@ convMnistTestCNNTPoly _ inputs parameters =
 convMnistTestCNNT
   :: forall kheight_minus_1 kwidth_minus_1
             in_height in_width in_channels out_channels batch_size r.
-     ( IsScalar r, Floating (Primal (Tensor1 r))
+     ( IsScalar r
      , batch_size ~ 1
      , out_channels ~ 16
      , kheight_minus_1 ~ 4
