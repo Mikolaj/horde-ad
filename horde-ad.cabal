@@ -142,6 +142,7 @@ library
       , hmatrix
       , ilist
       , mnist-idx
+      , mono-traversable
       , orthotope
       , pretty-show
       , random

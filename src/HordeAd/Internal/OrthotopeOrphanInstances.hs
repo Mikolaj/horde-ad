@@ -1,4 +1,4 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeFamilies, UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Orphan instances for orthotope classes.
 module HordeAd.Internal.OrthotopeOrphanInstances () where
@@ -7,7 +7,9 @@ import Prelude
 
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.ShapedS as OS
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Data.MonoTraversable (Element, MonoFunctor (..))
+import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
+import qualified Numeric.LinearAlgebra as HM
 
 -- TODO: once we can benchmark, convert more instances to
 -- use the corresponding instances of hmatrix vectors
@@ -86,3 +88,31 @@ instance ( Floating (Vector r), Num (Vector r)
   asinh = OS.mapA asinh
   acosh = OS.mapA acosh
   atanh = OS.mapA atanh
+
+type instance Element (OT.Array r) = r
+
+type instance Element (OS.Array sh r) = r
+
+instance Numeric r => MonoFunctor (OT.Array r) where
+  omap = OT.mapA
+
+instance (OS.Shape sh, Numeric r) => MonoFunctor (OS.Array sh r) where
+  omap = OS.mapA
+
+
+-- TODO: move to separate orphan module(s) at some point
+
+type instance Element (Matrix r) = r
+
+type instance Element Double = Double
+
+type instance Element Float = Float
+
+instance Numeric r => MonoFunctor (Matrix r) where
+  omap = HM.cmap
+
+instance MonoFunctor Double where
+  omap f r = f r
+
+instance MonoFunctor Float where
+  omap f r = f r

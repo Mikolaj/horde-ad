@@ -25,6 +25,7 @@ import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import           Data.Kind (Type)
+import           Data.MonoTraversable (MonoFunctor)
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -44,7 +45,7 @@ import HordeAd.Internal.Delta
 -- scalar type is the same. Additionally, the primal component
 -- corresponding to the first type is required to satisfy constraint @Num@.
 type IsDualWithScalar a r =
-  (IsDual a, ScalarOf a ~ Primal r, Floating (Primal a))
+  (IsDual a, ScalarOf a ~ Primal r, Floating (Primal a), MonoFunctor (Primal a))
 
 -- | A mega-shorthand for a bundle of connected type constraints.
 -- The @Scalar@ in the name means that this type is a dual component
