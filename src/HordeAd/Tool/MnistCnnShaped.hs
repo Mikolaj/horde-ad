@@ -196,13 +196,15 @@ convMnistLossFusedS _ _ _ _ _ _ _ _ lmnistData variables = do
     lossSoftMaxCrossEntropyL (HM.fromColumns ltarget) (fromS2 result)
   returnLet $ scale (recip $ fromIntegral $ V.length u) $ sumElements0 vec
 
+-- For simplicity, testing is performed in batches of 1.
+-- See RNN for testing done in batches.
 convMnistTestS
   :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
-            in_height in_width in_channels batch_size r.
+            in_height in_width in_channels r.
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
      , KnownNat num_hidden, KnownNat out_channels
      , KnownNat in_height, KnownNat in_width
-     , KnownNat in_channels, KnownNat batch_size
+     , KnownNat in_channels
      , 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
      , IsScalar r )
@@ -214,12 +216,11 @@ convMnistTestS
   -> Proxy in_height
   -> Proxy in_width
   -> Proxy in_channels
-  -> Proxy batch_size
   -> [MnistData2 (Primal r)] -> Domains r -> Primal r
-convMnistTestS _ _ _ _ _ _ _ _ _ inputs parameters =
+convMnistTestS _ _ _ _ _ _ _ _ inputs parameters =
   let matchesLabels :: MnistData2 (Primal r) -> Bool
       matchesLabels (glyph, label) =
-        let tx :: Primal (TensorS r '[ batch_size, in_channels
+        let tx :: Primal (TensorS r '[ 1, in_channels
                                      , in_height, in_width ])
             tx = OS.fromVector $ HM.flatten glyph
             nn :: DualNumberVariables r

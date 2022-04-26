@@ -377,11 +377,11 @@ convMnistTestCaseCNNT
       -> DualNumberVariables r
       -> m (DualNumber r))
   -> (forall kheight_minus_1' kwidth_minus_1' num_hidden' out_channels'
-             in_height' in_width' in_channels' batch_size'.
+             in_height' in_width' in_channels'.
       ( KnownNat kheight_minus_1', KnownNat kwidth_minus_1'
       , KnownNat num_hidden', KnownNat out_channels'
       , KnownNat in_height', KnownNat in_width'
-      , KnownNat in_channels', KnownNat batch_size'
+      , KnownNat in_channels'
       , 1 <= kheight_minus_1'
       , 1 <= kwidth_minus_1'
       , IsScalar r )
@@ -393,7 +393,6 @@ convMnistTestCaseCNNT
       -> Proxy in_height'
       -> Proxy in_width'
       -> Proxy in_channels'
-      -> Proxy batch_size'
       -> [MnistData2 (Primal r)] -> Domains r -> Primal r)
   -> (forall kheight_minus_1' kwidth_minus_1' num_hidden' out_channels'
              in_height' in_width' in_channels'.
@@ -454,13 +453,13 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
                                     proxy_kheight_minus_1 proxy_kwidth_minus_1
                                     proxy_num_hidden proxy_out_channels
                                     proxy_in_height proxy_in_width
-                                    proxy_in_channels (Proxy @1)
+                                    proxy_in_channels
                                     chunk res
                  testScore = ftest (Proxy @r)
                                    proxy_kheight_minus_1 proxy_kwidth_minus_1
                                    proxy_num_hidden proxy_out_channels
                                    proxy_in_height proxy_in_width
-                                   proxy_in_channels (Proxy @1)
+                                   proxy_in_channels
                                    testData res
              printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
              printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
@@ -482,7 +481,7 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
        let testErrorFinal = 1 - ftest (Proxy @r)                                                                      proxy_kheight_minus_1 proxy_kwidth_minus_1
                                       proxy_num_hidden proxy_out_channels
                                       proxy_in_height proxy_in_width
-                                      proxy_in_channels (Proxy @1)
+                                      proxy_in_channels
                                       testData res
        testErrorFinal @?= expected
 
