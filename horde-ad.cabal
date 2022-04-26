@@ -124,6 +124,7 @@ library
                       HordeAd.Tool.MnistFcnnScalar
                       HordeAd.Tool.MnistFcnnShaped
                       HordeAd.Tool.MnistFcnnVector
+                      HordeAd.Tool.MnistRnnShaped
 
     -- Modules included in this library but not exported.
     -- other-modules:
