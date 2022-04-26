@@ -8,14 +8,16 @@ import Prelude
 import           Codec.Compression.GZip (decompress)
 import           Control.Arrow (first)
 import           Data.Array.Internal (valueOf)
+import qualified Data.Array.Shaped as OSB
+import qualified Data.Array.ShapedS as OS
 import qualified Data.ByteString.Lazy as LBS
 import           Data.IDX
 import           Data.List (sortOn)
 import           Data.Maybe (fromMaybe)
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Unboxed
-import           GHC.TypeLits (Nat)
-import           Numeric.LinearAlgebra (Matrix, Vector)
+import           GHC.TypeLits (KnownNat, Nat)
+import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           System.IO (IOMode (ReadMode), withBinaryFile)
 import           System.Random
@@ -57,6 +59,21 @@ type LengthTestData = 10000 :: Nat
 type MnistData r = (Vector r, Vector r)
 
 type MnistData2 r = (Matrix r, Vector r)
+
+type MnistDataS r =
+  ( OS.Array '[SizeMnistHeight, SizeMnistWidth] r
+  , OS.Array '[SizeMnistLabel] r )
+
+type MnistDataBatchS batch_size r =
+  ( OS.Array '[SizeMnistHeight, SizeMnistWidth, batch_size] r
+  , OS.Array '[SizeMnistLabel, batch_size] r )
+
+packBatch :: forall batch_size r. (Numeric r, KnownNat batch_size)
+          => [MnistDataS r] -> MnistDataBatchS batch_size r
+packBatch l =
+  let (inputs, targets) = unzip l
+  in ( OS.transpose @'[2, 1, 0] $ OS.ravel $ OSB.fromList inputs
+     , OS.transpose @'[1, 0] $ OS.ravel $ OSB.fromList targets )
 
 readMnistData :: LBS.ByteString -> LBS.ByteString -> [MnistData Double]
 readMnistData glyphsBS labelsBS =

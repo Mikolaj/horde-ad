@@ -17,9 +17,6 @@ import           Data.Proxy (Proxy)
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 
--- commented out until inline doesn't break compilation below
--- import           GHC.Exts (inline)
-
 import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
