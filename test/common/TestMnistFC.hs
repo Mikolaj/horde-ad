@@ -514,40 +514,40 @@ mnistTestCase2S proxy proxy2
                         , show nParamsX, show totalParams
                         , show gamma, show range ]
   in testCase name $ do
-       trainData <- loadMnistData trainGlyphsPath trainLabelsPath
-       testData <- loadMnistData testGlyphsPath testLabelsPath
-       let runBatch :: Domains (Delta0 Double)
-                    -> (Int, [MnistData Double])
-                    -> IO (Domains (Delta0 Double))
-           runBatch (!params0, !params1, !params2, !paramsX) (k, chunk) = do
-             printf "(Batch %d with %d points)\n" k (length chunk)
-             let f = trainWithLoss proxy proxy2
-                 res = fst $ sgd gamma f chunk
-                                 (params0, params1, params2, paramsX)
-                 trainScore = testMnistS @widthHidden @widthHidden2
-                                         @(Delta0 Double) chunk res
-                 testScore = testMnistS @widthHidden @widthHidden2
+    trainData <- loadMnistData trainGlyphsPath trainLabelsPath
+    testData <- loadMnistData testGlyphsPath testLabelsPath
+    let runBatch :: Domains (Delta0 Double)
+                 -> (Int, [MnistData Double])
+                 -> IO (Domains (Delta0 Double))
+        runBatch (!params0, !params1, !params2, !paramsX) (k, chunk) = do
+          printf "(Batch %d with %d points)\n" k (length chunk)
+          let f = trainWithLoss proxy proxy2
+              res = fst $ sgd gamma f chunk
+                              (params0, params1, params2, paramsX)
+              trainScore = testMnistS @widthHidden @widthHidden2
+                                      @(Delta0 Double) chunk res
+              testScore = testMnistS @widthHidden @widthHidden2
+                                     @(Delta0 Double) testData res
+          printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
+          printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
+          return res
+    let runEpoch :: Int
+                 -> Domains (Delta0 Double)
+                 -> IO (Domains (Delta0 Double))
+        runEpoch n params2 | n > epochs = return params2
+        runEpoch n params2 = do
+          printf "[Epoch %d]\n" n
+          let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
+              chunks = take maxBatches
+                       $ zip [1 ..] $ chunksOf 5000 trainDataShuffled
+          !res <- foldM runBatch params2 chunks
+          runEpoch (succ n) res
+    printf "\nEpochs to run/max batches per epoch: %d/%d\n"
+           epochs maxBatches
+    res <- runEpoch 1 parametersInit
+    let testErrorFinal = 1 - testMnistS @widthHidden @widthHidden2
                                         @(Delta0 Double) testData res
-             printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
-             printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
-             return res
-       let runEpoch :: Int
-                    -> Domains (Delta0 Double)
-                    -> IO (Domains (Delta0 Double))
-           runEpoch n params2 | n > epochs = return params2
-           runEpoch n params2 = do
-             printf "[Epoch %d]\n" n
-             let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
-                 chunks = take maxBatches
-                          $ zip [1 ..] $ chunksOf 5000 trainDataShuffled
-             !res <- foldM runBatch params2 chunks
-             runEpoch (succ n) res
-       printf "\nEpochs to run/max batches per epoch: %d/%d\n"
-              epochs maxBatches
-       res <- runEpoch 1 parametersInit
-       let testErrorFinal = 1 - testMnistS @widthHidden @widthHidden2
-                                           @(Delta0 Double) testData res
-       testErrorFinal @?= expected
+    testErrorFinal @?= expected
 
 dumbMnistTests :: TestTree
 dumbMnistTests = testGroup "Dumb MNIST tests"

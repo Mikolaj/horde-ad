@@ -443,58 +443,58 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
                      , OS.Array '[SizeMnistLabel] (Primal r) )
       shapeBatchS (input, target) = (OS.fromVector input, OS.fromVector target)
   in testCase name $ do
-       trainData <- map shapeBatchS
-                    <$> loadMnistData trainGlyphsPath trainLabelsPath
-       testData <- take 100  -- TODO: reduced for now, because too slow
-                   <$> map shapeBatchS
-                   <$> loadMnistData testGlyphsPath testLabelsPath
-        -- There is some visual feedback, because some of these take long.
-       let runBatch :: Domains r
-                    -> (Int, [( OS.Array '[in_height, in_width] (Primal r)
-                              , OS.Array '[SizeMnistLabel] (Primal r) )])
-                    -> IO (Domains r)
-           runBatch parameters@(!_, !_, !_, !_) (k, chunk) = do
-             printf "(Batch %d with %d points)\n" k (length chunk)
-             let f = trainWithLoss proxy_kheight_minus_1 proxy_kwidth_minus_1
-                                   proxy_num_hidden proxy_out_channels
-                                   proxy_in_height proxy_in_width
-                                   proxy_batch_size
-                 chunkS = map packBatchS
-                          $ filter (\ch -> length ch >= batch_size)
-                          $ chunksOf batch_size chunk
-                 res = fst $ sgd gamma f chunkS parameters
-                 trainScore = ftest (Proxy @r)
-                                    proxy_kheight_minus_1 proxy_kwidth_minus_1
-                                    proxy_num_hidden proxy_out_channels
-                                    proxy_in_height proxy_in_width
-                                    chunk res
-                 testScore = ftest (Proxy @r)
-                                   proxy_kheight_minus_1 proxy_kwidth_minus_1
+    trainData <- map shapeBatchS
+                 <$> loadMnistData trainGlyphsPath trainLabelsPath
+    testData <- take 100  -- TODO: reduced for now, because too slow
+                <$> map shapeBatchS
+                <$> loadMnistData testGlyphsPath testLabelsPath
+     -- There is some visual feedback, because some of these take long.
+    let runBatch :: Domains r
+                 -> (Int, [( OS.Array '[in_height, in_width] (Primal r)
+                           , OS.Array '[SizeMnistLabel] (Primal r) )])
+                 -> IO (Domains r)
+        runBatch parameters@(!_, !_, !_, !_) (k, chunk) = do
+          printf "(Batch %d with %d points)\n" k (length chunk)
+          let f = trainWithLoss proxy_kheight_minus_1 proxy_kwidth_minus_1
+                                proxy_num_hidden proxy_out_channels
+                                proxy_in_height proxy_in_width
+                                proxy_batch_size
+              chunkS = map packBatchS
+                       $ filter (\ch -> length ch >= batch_size)
+                       $ chunksOf batch_size chunk
+              res = fst $ sgd gamma f chunkS parameters
+              trainScore = ftest (Proxy @r)
+                                 proxy_kheight_minus_1 proxy_kwidth_minus_1
+                                 proxy_num_hidden proxy_out_channels
+                                 proxy_in_height proxy_in_width
+                                 chunk res
+              testScore = ftest (Proxy @r)
+                                proxy_kheight_minus_1 proxy_kwidth_minus_1
+                                proxy_num_hidden proxy_out_channels
+                                proxy_in_height proxy_in_width
+                                testData res
+          printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
+          printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
+          return res
+    let runEpoch :: Int -> Domains r -> IO (Domains r)
+        runEpoch n params2 | n > epochs = return params2
+        runEpoch n params2 = do
+          printf "[Epoch %d]\n" n
+          let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
+              chunks = take maxBatches
+                       $ zip [1 ..]
+                       $ chunksOf (2 * batch_size) trainDataShuffled
+                           -- TODO: (10 * batch_size) takes forever
+          !res <- foldM runBatch params2 chunks
+          runEpoch (succ n) res
+    printf "\nEpochs to run/max batches per epoch: %d/%d\n"
+           epochs maxBatches
+    res <- runEpoch 1 parametersInit
+    let testErrorFinal = 1 - ftest (Proxy @r)                                                                      proxy_kheight_minus_1 proxy_kwidth_minus_1
                                    proxy_num_hidden proxy_out_channels
                                    proxy_in_height proxy_in_width
                                    testData res
-             printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
-             printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
-             return res
-       let runEpoch :: Int -> Domains r -> IO (Domains r)
-           runEpoch n params2 | n > epochs = return params2
-           runEpoch n params2 = do
-             printf "[Epoch %d]\n" n
-             let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
-                 chunks = take maxBatches
-                          $ zip [1 ..]
-                          $ chunksOf (2 * batch_size) trainDataShuffled
-                              -- TODO: (10 * batch_size) takes forever
-             !res <- foldM runBatch params2 chunks
-             runEpoch (succ n) res
-       printf "\nEpochs to run/max batches per epoch: %d/%d\n"
-              epochs maxBatches
-       res <- runEpoch 1 parametersInit
-       let testErrorFinal = 1 - ftest (Proxy @r)                                                                      proxy_kheight_minus_1 proxy_kwidth_minus_1
-                                      proxy_num_hidden proxy_out_channels
-                                      proxy_in_height proxy_in_width
-                                      testData res
-       testErrorFinal @?= expected
+    testErrorFinal @?= expected
 
 mnistCNNTestsLong :: TestTree
 mnistCNNTestsLong = testGroup "MNIST CNN long tests"
