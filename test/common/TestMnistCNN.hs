@@ -370,9 +370,6 @@ convMnistTestCaseCNNT
       -> Proxy kwidth_minus_1'
       -> Proxy num_hidden'
       -> Proxy out_channels'
-      -> Proxy in_height'
-      -> Proxy in_width'
-      -> Proxy batch_size'
       -> ( OS.Array '[batch_size', in_height', in_width'] (Primal r)
          , OS.Array '[batch_size', SizeMnistLabel] (Primal r) )
       -> DualNumberVariables r
@@ -390,8 +387,6 @@ convMnistTestCaseCNNT
       -> Proxy kwidth_minus_1'
       -> Proxy num_hidden'
       -> Proxy out_channels'
-      -> Proxy in_height'
-      -> Proxy in_width'
       -> [( OS.Array '[in_height', in_width'] (Primal r)
           , OS.Array '[SizeMnistLabel] (Primal r) )]
       -> Domains r
@@ -419,7 +414,6 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
       proxy_out_channels  = Proxy @out_channels
       proxy_in_height = Proxy @in_height
       proxy_in_width = Proxy @in_width
-      proxy_batch_size = Proxy @batch_size
       batch_size = valueOf @batch_size
       ((_, _, _, nParamsX), totalParams, range, parametersInit) =
         initializerFixed 44 0.05
@@ -457,8 +451,6 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
           printf "(Batch %d with %d points)\n" k (length chunk)
           let f = trainWithLoss proxy_kheight_minus_1 proxy_kwidth_minus_1
                                 proxy_num_hidden proxy_out_channels
-                                proxy_in_height proxy_in_width
-                                proxy_batch_size
               chunkS = map packBatchS
                        $ filter (\ch -> length ch >= batch_size)
                        $ chunksOf batch_size chunk
@@ -466,12 +458,10 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
               trainScore = ftest (Proxy @r)
                                  proxy_kheight_minus_1 proxy_kwidth_minus_1
                                  proxy_num_hidden proxy_out_channels
-                                 proxy_in_height proxy_in_width
                                  chunk res
               testScore = ftest (Proxy @r)
                                 proxy_kheight_minus_1 proxy_kwidth_minus_1
                                 proxy_num_hidden proxy_out_channels
-                                proxy_in_height proxy_in_width
                                 testData res
           printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
           printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
@@ -490,9 +480,9 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
     printf "\nEpochs to run/max batches per epoch: %d/%d\n"
            epochs maxBatches
     res <- runEpoch 1 parametersInit
-    let testErrorFinal = 1 - ftest (Proxy @r)                                                                      proxy_kheight_minus_1 proxy_kwidth_minus_1
+    let testErrorFinal = 1 - ftest (Proxy @r)
+                                   proxy_kheight_minus_1 proxy_kwidth_minus_1
                                    proxy_num_hidden proxy_out_channels
-                                   proxy_in_height proxy_in_width
                                    testData res
     testErrorFinal @?= expected
 
@@ -646,11 +636,8 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                ,Just (SomeNat proxy_out_channel) ) ->
                 convMnistLossFusedS (Proxy @4) (Proxy @4)
                                     proxy_num_hidden proxy_out_channel
-                                    (Proxy @SizeMnistHeight)
-                                    (Proxy @SizeMnistWidth)
-                                    (Proxy @1)
-                                    (packBatch [shapeBatch
-                                                $ first HM.flatten mnistData])
+                                    (packBatch @1 [shapeBatch
+                                                  $ first HM.flatten mnistData])
               _ -> error "fT panic"
             paramsToT (p0, p1, p2, _) =
               let qX = V.fromList

@@ -175,14 +175,11 @@ convMnistLossFusedS
   -> Proxy kwidth_minus_1
   -> Proxy num_hidden
   -> Proxy out_channels
-  -> Proxy in_height
-  -> Proxy in_width
-  -> Proxy batch_size
   -> ( OS.Array '[batch_size, in_height, in_width] (Primal r)
      , OS.Array '[batch_size, SizeMnistLabel] (Primal r) )
   -> DualNumberVariables r
   -> m (DualNumber r)
-convMnistLossFusedS _ _ _ _ _ _ _ (glyphS, labelS) variables = do
+convMnistLossFusedS _ _ _ _ (glyphS, labelS) variables = do
   let xs :: Primal (TensorS r '[batch_size, 1, in_height, in_width])
       xs = OS.reshape glyphS
   result <- convMnistS @kheight_minus_1 @kwidth_minus_1
@@ -210,13 +207,11 @@ convMnistTestS
   -> Proxy kwidth_minus_1
   -> Proxy num_hidden
   -> Proxy out_channels
-  -> Proxy in_height
-  -> Proxy in_width
   -> [( OS.Array '[in_height, in_width] (Primal r)
       , OS.Array '[SizeMnistLabel] (Primal r) )]
   -> Domains r
   -> Primal r
-convMnistTestS _ _ _ _ _ _ _ inputs parameters =
+convMnistTestS _ _ _ _ _ inputs parameters =
   let matchesLabels :: ( OS.Array '[in_height, in_width] (Primal r)
                        , OS.Array '[SizeMnistLabel] (Primal r) )
                     -> Bool
