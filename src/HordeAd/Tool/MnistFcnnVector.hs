@@ -50,8 +50,8 @@ sumConstantDataL x offset variables width =
       f i = sumConstantDataV x (offset + i) variables
   in seq1 $ V.generate width f
 
-lenMnist1 :: Int -> Int -> Int
-lenMnist1 _widthHidden _widthHidden2 = 0
+fcnnMnistLen1 :: Int -> Int -> Int
+fcnnMnistLen1 _widthHidden _widthHidden2 = 0
 
 lenVectorsMnist1 :: Int -> Int -> Data.Vector.Vector Int
 lenVectorsMnist1 widthHidden widthHidden2 =
@@ -66,7 +66,7 @@ lenVectorsMnist1 widthHidden widthHidden2 =
 -- and from these, the @len*@ functions compute the number and dimensions
 -- of scalars (none in this case) and vectors of dual number parameters
 -- (variables) to be given to the program.
-nnMnist1 :: forall r m. DualMonad r m
+fcnnMnist1 :: forall r m. DualMonad r m
           => (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
           -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
           -> Int
@@ -74,7 +74,7 @@ nnMnist1 :: forall r m. DualMonad r m
           -> Primal (Tensor1 r)
           -> DualNumberVariables r
           -> m (DualNumber (Tensor1 r))
-nnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
+fcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
           input variables = do
   let !_A = assert (sizeMnistGlyph == V.length input) ()
   let hiddenLayer1 = sumConstantDataL input 0 variables widthHidden
@@ -93,24 +93,24 @@ nnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
-nnMnistLoss1
+fcnnMnistLoss1
   :: DualMonad r m
   => Int -> Int -> MnistData (Primal r) -> DualNumberVariables r
   -> m (DualNumber r)
-nnMnistLoss1 widthHidden widthHidden2 (input, target) variables = do
-  result <- inline nnMnist1 logisticAct softMaxActV
+fcnnMnistLoss1 widthHidden widthHidden2 (input, target) variables = do
+  result <- inline fcnnMnist1 logisticAct softMaxActV
                             widthHidden widthHidden2 input variables
   lossCrossEntropyV target result
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
-testMnist1
+fcnnMnistTest1
   :: forall r. IsScalar r
   => Int -> Int -> [MnistData (Primal r)] -> (Domain0 r, Domain1 r) -> Primal r
-testMnist1 widthHidden widthHidden2 inputs (params0, params1) =
+fcnnMnistTest1 widthHidden widthHidden2 inputs (params0, params1) =
   let matchesLabels :: MnistData (Primal r) -> Bool
       matchesLabels (glyph, label) =
-        let nn = inline (nnMnist1 @r) logisticAct softMaxActV
+        let nn = inline (fcnnMnist1 @r) logisticAct softMaxActV
                                       widthHidden widthHidden2 glyph
             value = primalValue nn (params0, params1, V.empty, V.empty)
         in V.maxIndex value == V.maxIndex label

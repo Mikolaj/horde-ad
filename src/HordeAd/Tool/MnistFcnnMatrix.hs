@@ -18,8 +18,8 @@ import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors (DualNumberVariables, var1, var2)
 import HordeAd.Tool.MnistData
 
-lenMnistFcnn2 :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
-lenMnistFcnn2 widthHidden widthHidden2 =
+fcnnMnistLen2 :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+fcnnMnistLen2 widthHidden widthHidden2 =
   ( 0
   , [widthHidden, widthHidden2, sizeMnistLabel]
   , [ (widthHidden, sizeMnistGlyph)
@@ -35,13 +35,13 @@ lenMnistFcnn2 widthHidden widthHidden2 =
 -- and vectors given as dual number parameters (variables).
 -- The dimensions, in turn, can be computed by the @len*@ functions
 -- on the basis of the requested widths, see above.
-nnMnist2 :: forall r m. DualMonad r m
+fcnnMnist2 :: forall r m. DualMonad r m
          => (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
          -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
          -> Primal (Tensor1 r)
          -> DualNumberVariables r
          -> m (DualNumber (Tensor1 r))
-nnMnist2 factivationHidden factivationOutput input variables = do
+fcnnMnist2 factivationHidden factivationOutput input variables = do
   let !_A = assert (sizeMnistGlyph == V.length input) ()
       weightsL0 = var2 variables 0
       biasesV0 = var1 variables 0
@@ -58,39 +58,39 @@ nnMnist2 factivationHidden factivationOutput input variables = do
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
-nnMnistLoss2
+fcnnMnistLoss2
   :: DualMonad r m
   => MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
-nnMnistLoss2 (input, target) variables = do
-  result <- inline nnMnist2 logisticAct softMaxActV input variables
+fcnnMnistLoss2 (input, target) variables = do
+  result <- inline fcnnMnist2 logisticAct softMaxActV input variables
   lossCrossEntropyV target result
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function, using fused
 -- softMax and cross entropy as the loss function.
-nnMnistLossFused2
+fcnnMnistLossFused2
   :: DualMonad r m
   => MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
-nnMnistLossFused2 (input, target) variables = do
-  result <- inline nnMnist2 logisticAct return input variables
+fcnnMnistLossFused2 (input, target) variables = do
+  result <- inline fcnnMnist2 logisticAct return input variables
   lossSoftMaxCrossEntropyV target result
 
-nnMnistLossFusedRelu2
+fcnnMnistLossFusedRelu2
   :: DualMonad r m
   => MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
-nnMnistLossFusedRelu2 (input, target) variables = do
-  result <- inline nnMnist2 reluAct return input variables
+fcnnMnistLossFusedRelu2 (input, target) variables = do
+  result <- inline fcnnMnist2 reluAct return input variables
   lossSoftMaxCrossEntropyV target result
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
-testMnist2
+fcnnMnistTest2
   :: forall r. IsScalar r
   => [MnistData (Primal r)] -> Domains r -> Primal r
-testMnist2 inputs parameters =
+fcnnMnistTest2 inputs parameters =
   let matchesLabels :: MnistData (Primal r) -> Bool
       matchesLabels (glyph, label) =
-        let nn = inline (nnMnist2 @r) logisticAct softMaxActV glyph
+        let nn = inline (fcnnMnist2 @r) logisticAct softMaxActV glyph
             value = primalValue @r nn parameters
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
