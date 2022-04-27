@@ -9,7 +9,6 @@ import Prelude
 import           Control.Monad (foldM)
 import qualified Data.Array.DynamicS as OT
 import           Data.Array.Internal (valueOf)
-import qualified Data.Array.ShapedS as OS
 import           Data.List (foldl', unfoldr)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Vector.Generic as V
@@ -810,9 +809,10 @@ mnistTestCaseRNNS prefix epochs maxBatches trainWithLoss ftest flen expected =
                         , show (valueOf @out_width :: Int), show batch_size
                         , show nParamsX, show totalParams, show range ]
   in testCase name $ do
-    let rws (input, target) = (OS.fromVector input, OS.fromVector target)
-    trainData <- map rws <$> loadMnistData trainGlyphsPath trainLabelsPath
-    testData <- map rws <$> loadMnistData testGlyphsPath testLabelsPath
+    trainData <- map shapeBatch
+                 <$> loadMnistData trainGlyphsPath trainLabelsPath
+    testData <- map shapeBatch
+                <$> loadMnistData testGlyphsPath testLabelsPath
     let testDataS = packBatch @LengthTestData testData
         -- There is some visual feedback, because some of these take long.
         runBatch :: (Domains r, StateAdam r)
@@ -820,12 +820,11 @@ mnistTestCaseRNNS prefix epochs maxBatches trainWithLoss ftest flen expected =
                  -> IO (Domains r, StateAdam r)
         runBatch (parameters@(!_, !_, !_, !_), stateAdam) (k, chunk) = do
           printf "(Batch %d with %d points)\n" k (length chunk)
-          let chunkS = map (packBatch @batch_size)
+          let f = trainWithLoss proxy_out_width
+              chunkS = map (packBatch @batch_size)
                        $ filter (\ch -> length ch >= batch_size)
                        $ chunksOf batch_size chunk
-              res@(parameters2, _) =
-                sgdAdam (trainWithLoss proxy_out_width)
-                        chunkS parameters stateAdam
+              res@(parameters2, _) = sgdAdam f chunkS parameters stateAdam
               trainScore =
                 ftest (Proxy @r) proxy_out_width
                       (packBatch @(10 GHC.TypeLits.* batch_size) chunk)

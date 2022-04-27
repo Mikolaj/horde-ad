@@ -68,6 +68,9 @@ type MnistDataBatchS batch_size r =
   ( OS.Array '[batch_size, SizeMnistHeight, SizeMnistWidth] r
   , OS.Array '[batch_size, SizeMnistLabel] r )
 
+shapeBatch :: Numeric r => MnistData r -> MnistDataS r
+shapeBatch (input, target) = (OS.fromVector input, OS.fromVector target)
+
 packBatch :: forall batch_size r. (Numeric r, KnownNat batch_size)
           => [MnistDataS r] -> MnistDataBatchS batch_size r
 packBatch l =

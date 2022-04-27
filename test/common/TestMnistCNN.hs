@@ -6,9 +6,12 @@ module TestMnistCNN (testTrees, shortTestForCITrees) where
 
 import Prelude
 
+import           Control.Arrow (first)
 import           Control.Monad (foldM)
 import qualified Data.Array.DynamicS as OT
 import           Data.Array.Internal (valueOf)
+import qualified Data.Array.Shaped as OSB
+import qualified Data.Array.ShapedS as OS
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal, type (<=))
@@ -370,7 +373,8 @@ convMnistTestCaseCNNT
       -> Proxy in_height'
       -> Proxy in_width'
       -> Proxy batch_size'
-      -> [MnistData2 (Primal r)]
+      -> ( OS.Array '[batch_size', in_height', in_width'] (Primal r)
+         , OS.Array '[batch_size', SizeMnistLabel] (Primal r) )
       -> DualNumberVariables r
       -> m (DualNumber r))
   -> (forall kheight_minus_1' kwidth_minus_1' num_hidden' out_channels'
@@ -388,7 +392,10 @@ convMnistTestCaseCNNT
       -> Proxy out_channels'
       -> Proxy in_height'
       -> Proxy in_width'
-      -> [MnistData2 (Primal r)] -> Domains r -> Primal r)
+      -> [( OS.Array '[in_height', in_width'] (Primal r)
+          , OS.Array '[SizeMnistLabel] (Primal r) )]
+      -> Domains r
+      -> Primal r)
   -> (forall kheight_minus_1' kwidth_minus_1' num_hidden' out_channels'
              in_height' in_width'.
       ( KnownNat kheight_minus_1', KnownNat kwidth_minus_1'
@@ -424,13 +431,27 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
                         , show (valueOf @num_hidden :: Int), show batch_size
                         , show nParamsX, show totalParams
                         , show gamma, show range ]
+      packBatchS :: [( OS.Array '[in_height, in_width] (Primal r)
+                    , OS.Array '[SizeMnistLabel] (Primal r) )]
+                -> ( OS.Array '[batch_size, in_height, in_width] (Primal r)
+                   , OS.Array '[batch_size, SizeMnistLabel] (Primal r) )
+      packBatchS l =
+        let (inputs, targets) = unzip l
+        in (OS.ravel $ OSB.fromList inputs, OS.ravel $ OSB.fromList targets)
+      shapeBatchS :: MnistData (Primal r)
+                  -> ( OS.Array '[in_height, in_width] (Primal r)
+                     , OS.Array '[SizeMnistLabel] (Primal r) )
+      shapeBatchS (input, target) = (OS.fromVector input, OS.fromVector target)
   in testCase name $ do
-       trainData <- loadMnistData2 trainGlyphsPath trainLabelsPath
-       testData <- take 100 <$> loadMnistData2 testGlyphsPath testLabelsPath
-         -- TODO: for now, too slow
+       trainData <- map shapeBatchS
+                    <$> loadMnistData trainGlyphsPath trainLabelsPath
+       testData <- take 100  -- TODO: reduced for now, because too slow
+                   <$> map shapeBatchS
+                   <$> loadMnistData testGlyphsPath testLabelsPath
         -- There is some visual feedback, because some of these take long.
        let runBatch :: Domains r
-                    -> (Int, [MnistData2 (Primal r)])
+                    -> (Int, [( OS.Array '[in_height, in_width] (Primal r)
+                              , OS.Array '[SizeMnistLabel] (Primal r) )])
                     -> IO (Domains r)
            runBatch parameters@(!_, !_, !_, !_) (k, chunk) = do
              printf "(Batch %d with %d points)\n" k (length chunk)
@@ -438,8 +459,10 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
                                    proxy_num_hidden proxy_out_channels
                                    proxy_in_height proxy_in_width
                                    proxy_batch_size
-                 res = fst $ sgd gamma f
-                                 (chunksOf batch_size chunk) parameters
+                 chunkS = map packBatchS
+                          $ filter (\ch -> length ch >= batch_size)
+                          $ chunksOf batch_size chunk
+                 res = fst $ sgd gamma f chunkS parameters
                  trainScore = ftest (Proxy @r)
                                     proxy_kheight_minus_1 proxy_kwidth_minus_1
                                     proxy_num_hidden proxy_out_channels
@@ -459,9 +482,9 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
              printf "[Epoch %d]\n" n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches
-                          $ zip [1 ..] $ chunksOf (2 * batch_size)
-                                                  trainDataShuffled
-                              -- TODO: 5000 takes forever
+                          $ zip [1 ..]
+                          $ chunksOf (2 * batch_size) trainDataShuffled
+                              -- TODO: (10 * batch_size) takes forever
              !res <- foldM runBatch params2 chunks
              runEpoch (succ n) res
        printf "\nEpochs to run/max batches per epoch: %d/%d\n"
@@ -624,7 +647,8 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                 convMnistLossFusedS (Proxy @4) (Proxy @4)
                                     proxy_num_hidden proxy_out_channel
                                      (Proxy @28) (Proxy @28) (Proxy @1)
-                                    [mnistData]
+                                    (packBatch [shapeBatch
+                                                $ first HM.flatten mnistData])
               _ -> error "fT panic"
             paramsToT (p0, p1, p2, _) =
               let qX = V.fromList

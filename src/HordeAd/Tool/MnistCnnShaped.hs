@@ -55,6 +55,7 @@ convMnistLayerS ker x bias = do
                       $ replicate (valueOf @batch_size)
                       $ mapS replicateBias bias
         -- TODO: this is weakly typed; add and use replicateS instead
+        -- or broadcastS or stretchS, possibly with transposeS?
   yRelu <- reluAct $ yConv + biasStretched
   maxPool24 @1 @2 yRelu
 
@@ -177,18 +178,20 @@ convMnistLossFusedS
   -> Proxy in_height
   -> Proxy in_width
   -> Proxy batch_size
-  -> [MnistData2 (Primal r)]
+  -> ( OS.Array '[batch_size, in_height, in_width] (Primal r)
+     , OS.Array '[batch_size, SizeMnistLabel] (Primal r) )
   -> DualNumberVariables r
   -> m (DualNumber r)
-convMnistLossFusedS _ _ _ _ _ _ _ lmnistData variables = do
-  let (lx, ltarget) = unzip lmnistData
-      tx :: Primal (TensorS r '[batch_size, 1, in_height, in_width])
-      tx = OS.fromList $ concatMap (HM.toList . HM.flatten) lx
+convMnistLossFusedS _ _ _ _ _ _ _ (glyphS, labelS) variables = do
+  let xs :: Primal (TensorS r '[batch_size, 1, in_height, in_width])
+      xs = OS.reshape glyphS
   result <- convMnistS @kheight_minus_1 @kwidth_minus_1
                        @num_hidden @out_channels
-                       tx variables
+                       xs variables
+  let targets2 = HM.tr $ HM.reshape (valueOf @SizeMnistLabel)
+                       $ OS.toVector labelS
   vec@(D u _) <-
-    lossSoftMaxCrossEntropyL (HM.fromColumns ltarget) (fromS2 result)
+    lossSoftMaxCrossEntropyL targets2 (fromS2 result)
   returnLet $ scale (recip $ fromIntegral $ V.length u) $ sumElements0 vec
 
 -- For simplicity, testing is performed in mini-batches of 1.
@@ -209,20 +212,24 @@ convMnistTestS
   -> Proxy out_channels
   -> Proxy in_height
   -> Proxy in_width
-  -> [MnistData2 (Primal r)] -> Domains r -> Primal r
+  -> [( OS.Array '[in_height, in_width] (Primal r)
+      , OS.Array '[SizeMnistLabel] (Primal r) )]
+  -> Domains r
+  -> Primal r
 convMnistTestS _ _ _ _ _ _ _ inputs parameters =
-  let matchesLabels :: MnistData2 (Primal r) -> Bool
+  let matchesLabels :: ( OS.Array '[in_height, in_width] (Primal r)
+                       , OS.Array '[SizeMnistLabel] (Primal r) )
+                    -> Bool
       matchesLabels (glyph, label) =
         let tx :: Primal (TensorS r '[1, 1, in_height, in_width])
-            tx = OS.fromVector $ HM.flatten glyph
+            tx = OS.reshape glyph
             nn :: DualNumberVariables r
-               -> DualMonadValue r (DualNumber (Tensor1 r))
-            nn variables = do
-              m <- convMnistS @kheight_minus_1 @kwidth_minus_1
-                              @num_hidden @out_channels
-                              tx variables
-              returnLet $ flattenS1 m
+               -> DualMonadValue r (DualNumber (TensorS r '[SizeMnistLabel, 1]))
+            nn variables =
+              convMnistS @kheight_minus_1 @kwidth_minus_1
+                         @num_hidden @out_channels
+                         tx variables
             value = primalValue @r nn parameters
-        in V.maxIndex value == V.maxIndex label
+        in V.maxIndex (OS.toVector value) == V.maxIndex (OS.toVector label)
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
