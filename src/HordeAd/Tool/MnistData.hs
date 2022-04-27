@@ -65,15 +65,14 @@ type MnistDataS r =
   , OS.Array '[SizeMnistLabel] r )
 
 type MnistDataBatchS batch_size r =
-  ( OS.Array '[SizeMnistHeight, SizeMnistWidth, batch_size] r
-  , OS.Array '[SizeMnistLabel, batch_size] r )
+  ( OS.Array '[batch_size, SizeMnistHeight, SizeMnistWidth] r
+  , OS.Array '[batch_size, SizeMnistLabel] r )
 
 packBatch :: forall batch_size r. (Numeric r, KnownNat batch_size)
           => [MnistDataS r] -> MnistDataBatchS batch_size r
 packBatch l =
   let (inputs, targets) = unzip l
-  in ( OS.transpose @'[2, 1, 0] $ OS.ravel $ OSB.fromList inputs
-     , OS.transpose @'[1, 0] $ OS.ravel $ OSB.fromList targets )
+  in (OS.ravel $ OSB.fromList inputs, OS.ravel $ OSB.fromList targets)
 
 readMnistData :: LBS.ByteString -> LBS.ByteString -> [MnistData Double]
 readMnistData glyphsBS labelsBS =

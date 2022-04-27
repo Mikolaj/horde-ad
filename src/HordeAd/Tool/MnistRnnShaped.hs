@@ -139,9 +139,11 @@ rnnMnistLossFusedS
   -> MnistDataBatchS batch_size (Primal r)
   -> DualNumberVariables r
   -> m (DualNumber r)
-rnnMnistLossFusedS _ (xs, targets) variables = do
+rnnMnistLossFusedS _ (glyphS, labelS) variables = do
+  let xs = OS.transpose @'[2, 1, 0] glyphS
   out3 <- rnnMnistS @out_width xs variables
-  let targets2 = HM.reshape (valueOf @batch_size) $ OS.toVector targets
+  let targets2 = HM.tr $ HM.reshape (valueOf @SizeMnistLabel)
+                       $ OS.toVector labelS
   vec <- lossSoftMaxCrossEntropyL targets2 (fromS2 out3)
   returnLet $ scale (recip $ fromIntegral (valueOf @batch_size :: Int))
             $ sumElements0 vec
@@ -154,13 +156,11 @@ rnnMnistTestS
   -> Domains r
   -> Primal r
 rnnMnistTestS _ _ (glyphS, labelS) parameters =
-  let outputS = primalValue @r (rnnMnistS @out_width glyphS) parameters
-      fromStoVs :: Primal (TensorS r '[SizeMnistLabel, batch_size])
-                -> [Vector (Primal r)]
-      fromStoVs =
-        map OS.toVector . OSB.toList . OS.unravel . OS.transpose @'[1, 0]
-      outputs = fromStoVs outputS
-      labels = fromStoVs labelS
+  let xs = OS.transpose @'[2, 1, 0] glyphS
+      outputS = primalValue @r (rnnMnistS @out_width xs) parameters
+      outputs = map OS.toVector $ OSB.toList $ OS.unravel
+                $ OS.transpose @'[1, 0] $ outputS
+      labels = map OS.toVector $ OSB.toList $ OS.unravel $ labelS
       matchesLabels :: Vector (Primal r) -> Vector (Primal r) -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0
