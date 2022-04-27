@@ -246,6 +246,28 @@ test-suite shortTestForCI
       , base
       , tasty >= 1.0
 
+library benchLibrary
+    import:           options
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
+
+    exposed-modules:  BenchProdTools
+                      BenchMnistTools
+
+    build-depends:
+        base
+      , criterion
+      , deepseq
+      , hmatrix
+      , horde-ad
+      , random
+      , vector
+
+    hs-source-dirs:   bench/common
+
 benchmark longProdBench
     import:           options, exe-options
 
@@ -257,15 +279,12 @@ benchmark longProdBench
     type:             exitcode-stdio-1.0
     hs-source-dirs:   bench
     main-is:          LongProdBench.hs
-    other-modules:    BenchProdTools
-    build-depends:
-        base
+    other-modules:
+    build-depends: benchLibrary
+      , base
       , criterion
       , deepseq
-      , hmatrix
-      , horde-ad
       , random
-      , vector
 
 benchmark shortProdForCI
     import:           options, exe-options
@@ -278,15 +297,11 @@ benchmark shortProdForCI
     type:             exitcode-stdio-1.0
     hs-source-dirs:   bench
     main-is:          ShortProdForCI.hs
-    other-modules:    BenchProdTools
-    build-depends:
-        base
+    build-depends: benchLibrary
+      , base
       , criterion
       , deepseq
-      , hmatrix
-      , horde-ad
       , random
-      , vector
 
 -- The data files for this are not included in the cabal package,
 -- hence 'buildable: False'.
@@ -301,15 +316,11 @@ benchmark longMnistBench
     type:             exitcode-stdio-1.0
     hs-source-dirs:   bench
     main-is:          LongMnistBench.hs
-    other-modules:    BenchMnistTools
-    build-depends:
-        base
-      , deepseq
+    build-depends: benchLibrary
+      , base
       , criterion
-      , hmatrix
       , horde-ad
       , random
-      , vector
 
 -- The data files for this are not included in the cabal package,
 -- hence 'buildable: False'.
@@ -324,12 +335,8 @@ benchmark shortMnistForCI
     type:             exitcode-stdio-1.0
     hs-source-dirs:   bench
     main-is:          ShortMnistForCI.hs
-    other-modules:    BenchMnistTools
-    build-depends:
-        base
-      , deepseq
+    build-depends: benchLibrary
+      , base
       , criterion
-      , hmatrix
       , horde-ad
       , random
-      , vector
