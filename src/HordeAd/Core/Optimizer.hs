@@ -9,8 +9,7 @@ module HordeAd.Core.Optimizer
 
 import Prelude
 
-import HordeAd.Core.DualClass
-import HordeAd.Core.DualNumber (DualNumber (..))
+import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.OptimizerTools
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)

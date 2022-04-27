@@ -8,10 +8,11 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | The class of dual components of dual numbers and related classes,
--- constraints and instances.
+-- type families, constraints and instances. This is a low-level API
+-- used to define types and operations in "HordeAd.Core.DualNumber"
+-- that is the high-level API.
 module HordeAd.Core.DualClass
-  ( IsDualWithScalar, IsScalar
-  , HasDelta, HasForward
+  ( IsDualWithScalar, IsScalar, HasDelta, HasForward
   , IsDual(Primal, dZero, dScale, dAdd, dVar, bindInState)
   , HasRanks(..)
   , Delta0  -- re-export; should be rarely used

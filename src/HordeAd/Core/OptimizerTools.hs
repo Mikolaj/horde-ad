@@ -20,7 +20,7 @@ import           Numeric.LinearAlgebra.Data (flatten)
 import           Numeric.LinearAlgebra.Devel
   (MatrixOrder (..), liftMatrix, liftMatrix2, matrixFromVector, orderOf)
 
-import HordeAd.Core.DualClass
+import HordeAd.Core.DualClass (IsScalar, Primal)
 import HordeAd.Core.Engine
 import HordeAd.Internal.Delta (isTensorDummy)
 

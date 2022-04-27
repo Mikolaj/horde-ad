@@ -21,9 +21,8 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Numeric.LinearAlgebra as HM
 
-import HordeAd.Core.DualClass
+import HordeAd.Core.DualClass (IsDual (..))
 import HordeAd.Core.DualNumber
-  (Domain0, Domain1, Domain2, DomainX, Domains, DualMonad (..), DualNumber (..))
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 import HordeAd.Internal.Delta
   ( DeltaState (..)

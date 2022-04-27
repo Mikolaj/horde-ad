@@ -1,12 +1,18 @@
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, FunctionalDependencies,
              TypeFamilies, TypeOperators, UndecidableInstances #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
-{-# OPTIONS_GHC -Wno-missing-export-lists -Wno-missing-methods #-}
+{-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Dual numbers and various operations on them, arithmetic and related
--- to tensors (vectors, matrices and others).
-module HordeAd.Core.DualNumber where
+-- to tensors (vectors, matrices and others). This is the high-level API,
+-- defined using the low-level API in "HordeAd.Core.DualClass".
+module HordeAd.Core.DualNumber
+  ( module HordeAd.Core.DualNumber
+  , IsDualWithScalar, IsScalar, HasDelta, HasForward
+  , IsDual(Primal)
+  , HasRanks(Tensor1, Tensor2, TensorX, TensorS)
+  ) where
 
 import Prelude
 

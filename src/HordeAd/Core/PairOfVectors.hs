@@ -16,14 +16,12 @@ module HordeAd.Core.PairOfVectors
 
 import Prelude
 
-import qualified Data.Array.Convert
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
+import           GHC.Exts (inline)
 
-import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
-  (Domain0, Domain1, Domain2, DomainX, Domains, DualNumber (..))
 
 -- These are optimized as "pair of vectors" representing vectors of @DualNumber@
 -- in an efficient way (especially, or only, with gradient descent,
@@ -71,7 +69,7 @@ varX (_, _, _, _, _, _, vValue, vVar) i = D (vValue V.! i) (vVar V.! i)
 varS :: (IsScalar r, OS.Shape sh)
      => DualNumberVariables r -> Int -> DualNumber (TensorS r sh)
 varS (_, _, _, _, _, _, vValue, vVar) i =
-  D (Data.Array.Convert.convert $ vValue V.! i) (dFromXS $ vVar V.! i)
+  inline fromXS $ D (vValue V.! i) (vVar V.! i)
 
 ifoldMDual' :: forall m a r. (Monad m, IsScalar r)
              => (a -> Int -> DualNumber r -> m a)

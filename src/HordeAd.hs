@@ -12,7 +12,7 @@ module HordeAd
 
 import Prelude ()
 
-import HordeAd.Core.DualClass
+import HordeAd.Core.DualClass (Delta0)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.Optimizer

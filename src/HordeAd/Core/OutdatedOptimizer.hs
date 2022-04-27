@@ -13,8 +13,8 @@ import           Data.Coerce (coerce)
 import qualified Data.Vector.Generic as V
 import           Unsafe.Coerce (unsafeCoerce)
 
-import HordeAd.Core.DualClass
-import HordeAd.Core.DualNumber (DualNumber (..))
+import HordeAd.Core.DualClass (Delta0)
+import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.OptimizerTools
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)

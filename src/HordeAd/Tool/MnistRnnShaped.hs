@@ -24,7 +24,6 @@ import qualified Numeric.LinearAlgebra as HM
 -- until stylish-haskell accepts NoStarIsType
 import qualified GHC.TypeLits
 
-import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors (DualNumberVariables, varS)
