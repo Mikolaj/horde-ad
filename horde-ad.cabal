@@ -198,7 +198,7 @@ library testLibrary
 
 -- The data files for this are not included in the cabal package,
 -- hence 'buildable: False'.
-test-suite testExtremelyLong
+test-suite extremelyLongTest
     -- Import common warning flags.
     import:           options, exe-options
 
@@ -214,7 +214,7 @@ test-suite testExtremelyLong
     hs-source-dirs:   test
 
     -- The entrypoint to the test suite.
-    main-is:          TestExtremelyLong.hs
+    main-is:          ExtremelyLongTest.hs
 
     -- Test dependencies.
     build-depends: testLibrary
@@ -246,7 +246,7 @@ test-suite shortTestForCI
       , base
       , tasty >= 1.0
 
-benchmark prod
+benchmark longProdBench
     import:           options, exe-options
 
     if flag(release)
@@ -256,7 +256,7 @@ benchmark prod
 
     type:             exitcode-stdio-1.0
     hs-source-dirs:   bench
-    main-is:          BenchProd.hs
+    main-is:          LongProdBench.hs
     other-modules:    BenchProdTools
     build-depends:
         base
@@ -290,7 +290,7 @@ benchmark shortProdForCI
 
 -- The data files for this are not included in the cabal package,
 -- hence 'buildable: False'.
-benchmark mnist
+benchmark longMnistBench
     import:           options, exe-options
 
     if flag(release)
@@ -300,7 +300,7 @@ benchmark mnist
 
     type:             exitcode-stdio-1.0
     hs-source-dirs:   bench
-    main-is:          BenchMnist.hs
+    main-is:          LongMnistBench.hs
     other-modules:    BenchMnistTools
     build-depends:
         base
