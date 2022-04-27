@@ -937,9 +937,7 @@ fusedMnistTests = testGroup "MNIST fused LL tests with a 2-hidden-layer nn"
 
 shortCIMnistTests :: TestTree
 shortCIMnistTests = testGroup "Short CI MNIST tests"
-  [ mnistTestCase2 "2 - 1 epoch, 1 batch" 1 1 nnMnistLoss0 300 100 0.02
-                   0.1269
-  , mnistTestCase2 "2 artificial 1 2 3 4 5" 1 2 nnMnistLoss0 3 4 5
+  [ mnistTestCase2 "2 artificial 1 2 3 4 5" 1 2 nnMnistLoss0 3 4 5
                    0.8972
   , mnistTestCase2 "2 artificial 5 4 3 2 1" 5 4 nnMnistLoss0 3 2 1
                    0.8991
