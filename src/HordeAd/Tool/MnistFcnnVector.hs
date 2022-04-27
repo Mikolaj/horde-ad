@@ -9,7 +9,7 @@ module HordeAd.Tool.MnistFcnnVector where
 import Prelude
 
 import           Control.Exception (assert)
-import qualified Data.Strict.Vector as Data.Vector
+import qualified Data.Array.DynamicS as OT
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
 
@@ -50,14 +50,15 @@ sumConstantDataL x offset variables width =
       f i = sumConstantDataV x (offset + i) variables
   in seq1 $ V.generate width f
 
-fcnnMnistLen1 :: Int -> Int -> Int
-fcnnMnistLen1 _widthHidden _widthHidden2 = 0
-
-lenVectorsMnist1 :: Int -> Int -> Data.Vector.Vector Int
-lenVectorsMnist1 widthHidden widthHidden2 =
-  V.fromList $ replicate widthHidden sizeMnistGlyph ++ [widthHidden]
-               ++ replicate widthHidden2 widthHidden ++ [widthHidden2]
-               ++ replicate sizeMnistLabel widthHidden2 ++ [sizeMnistLabel]
+fcnnMnistLen1 :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+fcnnMnistLen1 widthHidden widthHidden2 =
+  ( 0
+  , replicate widthHidden sizeMnistGlyph ++ [widthHidden]
+    ++ replicate widthHidden2 widthHidden ++ [widthHidden2]
+    ++ replicate sizeMnistLabel widthHidden2 ++ [sizeMnistLabel]
+  , []
+  , []
+  )
 
 -- | Fully connected neural network for the MNIST digit classification task.
 -- There are two hidden layers and both use the same activation function.
@@ -67,13 +68,13 @@ lenVectorsMnist1 widthHidden widthHidden2 =
 -- of scalars (none in this case) and vectors of dual number parameters
 -- (variables) to be given to the program.
 fcnnMnist1 :: forall r m. DualMonad r m
-          => (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
-          -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
-          -> Int
-          -> Int
-          -> Primal (Tensor1 r)
-          -> DualNumberVariables r
-          -> m (DualNumber (Tensor1 r))
+           => (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
+           -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
+           -> Int
+           -> Int
+           -> Primal (Tensor1 r)
+           -> DualNumberVariables r
+           -> m (DualNumber (Tensor1 r))
 fcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
           input variables = do
   let !_A = assert (sizeMnistGlyph == V.length input) ()
@@ -99,7 +100,7 @@ fcnnMnistLoss1
   -> m (DualNumber r)
 fcnnMnistLoss1 widthHidden widthHidden2 (input, target) variables = do
   result <- inline fcnnMnist1 logisticAct softMaxActV
-                            widthHidden widthHidden2 input variables
+                              widthHidden widthHidden2 input variables
   lossCrossEntropyV target result
 
 -- | A function testing the neural network given testing set of inputs
@@ -111,7 +112,7 @@ fcnnMnistTest1 widthHidden widthHidden2 inputs (params0, params1) =
   let matchesLabels :: MnistData (Primal r) -> Bool
       matchesLabels (glyph, label) =
         let nn = inline (fcnnMnist1 @r) logisticAct softMaxActV
-                                      widthHidden widthHidden2 glyph
+                                        widthHidden widthHidden2 glyph
             value = primalValue nn (params0, params1, V.empty, V.empty)
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))

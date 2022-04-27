@@ -10,6 +10,7 @@ import           Control.Monad (foldM, when)
 import qualified Data.Array.DynamicS as OT
 import           Data.Array.Internal (valueOf)
 import           Data.Coerce (coerce)
+import           Data.List.Index (imap)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import qualified Data.Vector.Generic as V
@@ -147,18 +148,17 @@ mnistTestCase2V
   -> TestTree
 mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                 gamma expected =
-  let nParams0 = fcnnMnistLen1 widthHidden widthHidden2
-      nParams1 = lenVectorsMnist1 widthHidden widthHidden2
+  let (nParams0, nParams1, _, _) = fcnnMnistLen1 widthHidden widthHidden2
       params0Init = HM.randomVector 44 HM.Uniform nParams0 - HM.scalar 0.5
-      params1Init =
-        V.imap (\i nPV -> HM.randomVector (44 + nPV + i) HM.Uniform nPV
-                          - HM.scalar 0.5)
-               nParams1
+      params1Init = V.fromList $
+        imap (\i nPV -> HM.randomVector (44 + nPV + i) HM.Uniform nPV
+                        - HM.scalar 0.5)
+             nParams1
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
-                        , show nParams0, show (V.length nParams1)
-                        , show (V.sum nParams1 + nParams0), show gamma ]
+                        , show nParams0, show (length nParams1)
+                        , show (sum nParams1 + nParams0), show gamma ]
   in testCase name $ do
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- loadMnistData testGlyphsPath testLabelsPath
@@ -616,10 +616,9 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       (1 - fcnnMnistTest0 (Proxy @(Delta0 Double)) 300 100 testData params0)
         @?= 0.902
   , testCase "fcnnMnistTest2VV on 0.1 params0 300 100 width 10k testset" $ do
-      let nParams0 = fcnnMnistLen1 300 100
+      let (nParams0, nParams1, _, _) = fcnnMnistLen1 300 100
           params0 = V.replicate nParams0 0.1
-          nParams1 = lenVectorsMnist1 300 100
-          params1 = V.map (`V.replicate` 0.1) nParams1
+          params1 = V.fromList $ map (`V.replicate` 0.1) nParams1
       testData <- loadMnistData testGlyphsPath testLabelsPath
       (1 - fcnnMnistTest1 @(Delta0 Double) 300 100 testData (params0, params1))
         @?= 0.902
@@ -690,9 +689,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             label = createRandomVector sizeMnistLabel seedDs
             mnistData :: MnistData Double
             mnistData = (glyph, label)
-            nParams0 = fcnnMnistLen1 widthHidden widthHidden2
-            nParams1 = lenVectorsMnist1 widthHidden widthHidden2
-            paramShape = (nParams0, V.toList nParams1, [], [])
+            paramShape = fcnnMnistLen1 widthHidden widthHidden2
             (_, _, _, parameters) = initializerFixed seed range paramShape
             (_, _, _, ds@(ds0, ds1, ds2, dsX)) =
               initializerFixed seedDs rangeDs paramShape
@@ -919,7 +916,8 @@ fusedMnistTests = testGroup "MNIST fused LL tests with a 2-hidden-layer nn"
                     "SR 1 epoch, 1 batch" 1 1 fcnnMnistLossFusedReluS 0.02
                     0.7068
   , mnistTestCase2S (Proxy @500) (Proxy @150)
-                    "SR 1 epoch, 1 batch, wider" 1 1 fcnnMnistLossFusedReluS 0.02
+                    "SR 1 epoch, 1 batch, wider" 1 1
+                    fcnnMnistLossFusedReluS 0.02
                     0.8874
   , mnistTestCase2S (Proxy @300) (Proxy @100)
                     "SR 2 epochs, but 1 batch" 2 1 fcnnMnistLossFusedReluS 0.02
@@ -955,13 +953,16 @@ shortCIMnistTests = testGroup "Short CI MNIST tests"
                     0.8085
   , mnistTestCase2L "fused LL 1/1 batch" 1 1 fcnnMnistLossFused2 300 100 0.02
                     0.12339999999999995
-  , mnistTestCase2L "fused LL artificial 1 2 3 4 5" 1 2 fcnnMnistLossFused2 3 4 5
+  , mnistTestCase2L "fused LL artificial 1 2 3 4 5" 1 2
+                    fcnnMnistLossFused2 3 4 5
                     0.8972
   , mnistTestCase2T False
-                    "fused TL artificial 5 4 3 2 1" 5 4 fcnnMnistLossFused2 3 2 1
+                    "fused TL artificial 5 4 3 2 1" 5 4
+                    fcnnMnistLossFused2 3 2 1
                     0.8865
   , mnistTestCase2D False 1 False
-                    "fused DL artificial 5 4 3 2 1" 5 4 fcnnMnistLossFused2 3 2 1
+                    "fused DL artificial 5 4 3 2 1" 5 4
+                    fcnnMnistLossFused2 3 2 1
                     0.8991
   , mnistTestCase2S (Proxy @300) (Proxy @100)
                     "S 1 epoch, 1 batch" 1 1 fcnnMnistLossFusedS 0.02

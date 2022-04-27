@@ -105,16 +105,16 @@ fcnnMnistLen0 widthHidden widthHidden2 =
 -- and from these, the @fcnnMnistLen2@ function computes the number
 -- of scalar dual number parameters (variables) to be given to the program.
 fcnnMnist0 :: forall r m. DualMonad r m
-         => (DualNumber r -> m (DualNumber r))
-         -> (Data.Vector.Vector (DualNumber r)
-             -> m (Data.Vector.Vector (DualNumber r)))
-         -> Int
-         -> Int
-         -> Primal (Tensor1 r)
-         -> DualNumberVariables r
-         -> m (Data.Vector.Vector (DualNumber r))
+           => (DualNumber r -> m (DualNumber r))
+           -> (Data.Vector.Vector (DualNumber r)
+               -> m (Data.Vector.Vector (DualNumber r)))
+           -> Int
+           -> Int
+           -> Primal (Tensor1 r)
+           -> DualNumberVariables r
+           -> m (Data.Vector.Vector (DualNumber r))
 fcnnMnist0 factivationHidden factivationOutput widthHidden widthHidden2
-         input variables = do
+           input variables = do
   let !_A = assert (sizeMnistGlyph == V.length input) ()
   layer1 <- inline hiddenLayerMnist factivationHidden input
                                     variables widthHidden
@@ -133,7 +133,7 @@ fcnnMnistLoss0
   -> m (DualNumber r)
 fcnnMnistLoss0 widthHidden widthHidden2 (input, target) variables = do
   result <- inline fcnnMnist0 logisticAct softMaxAct
-                            widthHidden widthHidden2 input variables
+                              widthHidden widthHidden2 input variables
   lossCrossEntropy target result
 
 -- | A function testing the neural network given testing set of inputs
@@ -148,7 +148,7 @@ fcnnMnistTest0 _ widthHidden widthHidden2 inputs params0 =
   let matchesLabels :: MnistData (Primal r) -> Bool
       matchesLabels (glyph, label) =
         let nn = inline (fcnnMnist0 @r) logisticAct softMaxAct
-                                      widthHidden widthHidden2 glyph
+                                        widthHidden widthHidden2 glyph
             value = V.map (\(D r _) -> r)
                     $ primalValueGeneral @r nn
                                          (params0, V.empty, V.empty, V.empty)

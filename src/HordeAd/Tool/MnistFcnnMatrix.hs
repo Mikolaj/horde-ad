@@ -36,11 +36,11 @@ fcnnMnistLen2 widthHidden widthHidden2 =
 -- The dimensions, in turn, can be computed by the @len*@ functions
 -- on the basis of the requested widths, see above.
 fcnnMnist2 :: forall r m. DualMonad r m
-         => (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
-         -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
-         -> Primal (Tensor1 r)
-         -> DualNumberVariables r
-         -> m (DualNumber (Tensor1 r))
+           => (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
+           -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
+           -> Primal (Tensor1 r)
+           -> DualNumberVariables r
+           -> m (DualNumber (Tensor1 r))
 fcnnMnist2 factivationHidden factivationOutput input variables = do
   let !_A = assert (sizeMnistGlyph == V.length input) ()
       weightsL0 = var2 variables 0

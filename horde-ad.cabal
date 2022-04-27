@@ -183,6 +183,7 @@ library testLibrary
       , ghc-typelits-natnormalise
       , hmatrix
       , horde-ad
+      , ilist
       , orthotope
       , random
       , storable-tuple
@@ -263,6 +264,7 @@ library benchLibrary
       , deepseq
       , hmatrix
       , horde-ad
+      , ilist
       , random
       , vector
 
