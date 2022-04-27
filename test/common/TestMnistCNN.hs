@@ -507,7 +507,7 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
   , -}convMnistTestCaseCNN "P artificial 5 4 3 2 1" 5 4
                          convMnistLossCNNP convMnistTestCNNP final_image_size
                          3 2 1 0.8991
-  , convMnistTestCaseCNNT @4 @4 @2 @3 @28 @28 @1
+  , convMnistTestCaseCNNT @4 @4 @2 @3 @SizeMnistHeight @SizeMnistWidth @1
                           "T artificial 5 4 3 2 1" 5 4
                           convMnistLossFusedS convMnistTestS convMnistLenS
                           0.02 0.98
@@ -553,7 +553,7 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                          final_image_size depth0 num_hidden0
                          0.02 2.7000000000000024e-2
 -}
-  , convMnistTestCaseCNNT @4 @4 @64 @16 @28 @28 @16
+  , convMnistTestCaseCNNT @4 @4 @64 @16 @SizeMnistHeight @SizeMnistWidth @16
                           "T1 epoch 1 batch" 1 1
                           convMnistLossFusedS convMnistTestS convMnistLenS
                           0.02 0.8200000000000001
@@ -646,7 +646,9 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                ,Just (SomeNat proxy_out_channel) ) ->
                 convMnistLossFusedS (Proxy @4) (Proxy @4)
                                     proxy_num_hidden proxy_out_channel
-                                     (Proxy @28) (Proxy @28) (Proxy @1)
+                                    (Proxy @SizeMnistHeight)
+                                    (Proxy @SizeMnistWidth)
+                                    (Proxy @1)
                                     (packBatch [shapeBatch
                                                 $ first HM.flatten mnistData])
               _ -> error "fT panic"
@@ -717,7 +719,7 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
   , convMnistTestCaseCNN "P artificial 1 1 1 1 1" 1 1
                          convMnistLossCNNP convMnistTestCNNP final_image_size
                          1 1 1 0.9026
-  , convMnistTestCaseCNNT @4 @4 @1 @1 @28 @28 @1
+  , convMnistTestCaseCNNT @4 @4 @1 @1 @SizeMnistHeight @SizeMnistWidth @1
                           "T artificial 1 1 1 1 1" 1 1
                           convMnistLossFusedS convMnistTestS convMnistLenS
                           1 0.85
@@ -732,7 +734,7 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
                          convMnistLossCNNP convMnistTestCNNP final_image_size
                          3 4 5 0.8972
 -}
-  , convMnistTestCaseCNNT @4 @4 @4 @3 @28 @28 @5
+  , convMnistTestCaseCNNT @4 @4 @4 @3 @SizeMnistHeight @SizeMnistWidth @5
                           "T artificial 1 2 3 4 5" 1 2
                           convMnistLossFusedS convMnistTestS convMnistLenS
                           6 0.92
