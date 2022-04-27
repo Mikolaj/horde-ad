@@ -58,6 +58,7 @@ convMnistLayerS ker x bias = do
   yRelu <- reluAct $ yConv + biasStretched
   maxPool24 @1 @2 yRelu
 
+
 convMnistTwoS
   :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
             in_height in_width in_channels batch_size r m.
@@ -69,6 +70,8 @@ convMnistTwoS
      , 1 <= kwidth_minus_1
      , DualMonad r m )
   => Primal (TensorS r '[batch_size, in_channels, in_height, in_width])
+  -- All below is the type of all paramters of this nn. The same is reflected
+  -- in the length function below and read from variables further down.
   -> DualNumber (TensorS r '[ out_channels, in_channels
                             , kheight_minus_1 + 1, kwidth_minus_1 + 1 ])
   -> DualNumber (TensorS r '[out_channels])
@@ -186,9 +189,9 @@ convMnistLossFusedS _ _ _ _ (glyphS, labelS) variables = do
                        xs variables
   let targets2 = HM.tr $ HM.reshape (valueOf @SizeMnistLabel)
                        $ OS.toVector labelS
-  vec@(D u _) <-
-    lossSoftMaxCrossEntropyL targets2 (fromS2 result)
-  returnLet $ scale (recip $ fromIntegral $ V.length u) $ sumElements0 vec
+  vec <- lossSoftMaxCrossEntropyL targets2 (fromS2 result)
+  returnLet $ scale (recip $ fromIntegral (valueOf @batch_size :: Int))
+            $ sumElements0 vec
 
 -- For simplicity, testing is performed in mini-batches of 1.
 -- See RNN for testing done in batches.

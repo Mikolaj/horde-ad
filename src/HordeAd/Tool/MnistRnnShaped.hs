@@ -46,9 +46,9 @@ unrollLastS f s0 xs w = do
   foldM g (undefined, s0) $ OSB.toList $ OS.unravel xs
 
 type LayerWeigthsRNN in_width out_width r =
-  ( DualNumber (TensorS r '[out_width, in_width])
-  , DualNumber (TensorS r '[out_width, out_width])
-  , DualNumber (TensorS r '[out_width]) )
+  ( DualNumber (TensorS r '[out_width, in_width])   -- input weight
+  , DualNumber (TensorS r '[out_width, out_width])  -- state weight
+  , DualNumber (TensorS r '[out_width]) )           -- bias
 
 rnnMnistLayerS
   :: forall in_width out_width batch_size r m.
@@ -86,6 +86,8 @@ rnnMnistZeroS
   :: forall out_width batch_size r m.
      (DualMonad r m, KnownNat out_width, KnownNat batch_size)
   => Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, batch_size])
+  -- All below is the type of all paramters of this nn. The same is reflected
+  -- in the length function below and read from variables further down.
   -> ( LayerWeigthsRNN SizeMnistWidth out_width r
      , LayerWeigthsRNN out_width out_width r )
   -> DualNumber (TensorS r '[SizeMnistLabel, out_width])
@@ -140,10 +142,10 @@ rnnMnistLossFusedS
   -> m (DualNumber r)
 rnnMnistLossFusedS _ (glyphS, labelS) variables = do
   let xs = OS.transpose @'[2, 1, 0] glyphS
-  out3 <- rnnMnistS @out_width xs variables
+  result <- rnnMnistS @out_width xs variables
   let targets2 = HM.tr $ HM.reshape (valueOf @SizeMnistLabel)
                        $ OS.toVector labelS
-  vec <- lossSoftMaxCrossEntropyL targets2 (fromS2 out3)
+  vec <- lossSoftMaxCrossEntropyL targets2 (fromS2 result)
   returnLet $ scale (recip $ fromIntegral (valueOf @batch_size :: Int))
             $ sumElements0 vec
 

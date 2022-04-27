@@ -1,5 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, RankNTypes, TypeFamilies #-}
-module TestMnistFC
+module TestMnistFCNN
   ( testTrees, shortTestForCITrees, mnistTestCase2T, mnistTestCase2D
   ) where
 
@@ -506,7 +506,7 @@ mnistTestCase2S
 mnistTestCase2S proxy proxy2
                 prefix epochs maxBatches trainWithLoss gamma expected =
   let ((_, _, _, nParamsX), totalParams, range, parametersInit) =
-        initializerFixed 44 0.5 (lenMnistFcnnS @widthHidden @widthHidden2)
+        initializerFixed 44 0.5 (fcnnMnistLenS @widthHidden @widthHidden2)
       name = prefix ++ " "
              ++ unwords [ show epochs, show maxBatches
                         , show (valueOf @widthHidden :: Int)
@@ -524,10 +524,10 @@ mnistTestCase2S proxy proxy2
           let f = trainWithLoss proxy proxy2
               res = fst $ sgd gamma f chunk
                               (params0, params1, params2, paramsX)
-              trainScore = testMnistS @widthHidden @widthHidden2
-                                      @(Delta0 Double) chunk res
-              testScore = testMnistS @widthHidden @widthHidden2
-                                     @(Delta0 Double) testData res
+              trainScore = fcnnMnistTestS @widthHidden @widthHidden2
+                                          @(Delta0 Double) chunk res
+              testScore = fcnnMnistTestS @widthHidden @widthHidden2
+                                         @(Delta0 Double) testData res
           printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
           printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
           return res
@@ -545,8 +545,8 @@ mnistTestCase2S proxy proxy2
     printf "\nEpochs to run/max batches per epoch: %d/%d\n"
            epochs maxBatches
     res <- runEpoch 1 parametersInit
-    let testErrorFinal = 1 - testMnistS @widthHidden @widthHidden2
-                                        @(Delta0 Double) testData res
+    let testErrorFinal = 1 - fcnnMnistTestS @widthHidden @widthHidden2
+                                            @(Delta0 Double) testData res
     testErrorFinal @?= expected
 
 dumbMnistTests :: TestTree
@@ -898,40 +898,40 @@ fusedMnistTests = testGroup "MNIST fused LL tests with a 2-hidden-layer nn"
   , mnistTestCase2L "artificial 5 4 3 2 1" 5 4 nnMnistLossFused2 3 2 1
                     0.7033
   , mnistTestCase2S (Proxy @300) (Proxy @100)
-                    "S 1 epoch, 1 batch" 1 1 nnMnistLossFusedS 0.02
+                    "S 1 epoch, 1 batch" 1 1 fcnnMnistLossFusedS 0.02
                     0.1311
   , mnistTestCase2S (Proxy @500) (Proxy @150)
-                    "S 1 epoch, 1 batch, wider" 1 1 nnMnistLossFusedS 0.02
+                    "S 1 epoch, 1 batch, wider" 1 1 fcnnMnistLossFusedS 0.02
                     0.12470000000000003
   , mnistTestCase2S (Proxy @300) (Proxy @100)
-                    "S 2 epochs, but only 1 batch" 2 1 nnMnistLossFusedS 0.02
+                    "S 2 epochs, but only 1 batch" 2 1 fcnnMnistLossFusedS 0.02
                     9.630000000000005e-2
   , mnistTestCase2S (Proxy @300) (Proxy @100)
-                    "S 1 epoch, all batches" 1 99 nnMnistLossFusedS 0.02
+                    "S 1 epoch, all batches" 1 99 fcnnMnistLossFusedS 0.02
                     5.620000000000003e-2
   , mnistTestCase2S (Proxy @3) (Proxy @4)
-                    "S artificial 1 2 3 4 5" 1 2 nnMnistLossFusedS 5
+                    "S artificial 1 2 3 4 5" 1 2 fcnnMnistLossFusedS 5
                     0.8972
   , mnistTestCase2S (Proxy @3) (Proxy @2)
-                    "S artificial 5 4 3 2 1" 5 4 nnMnistLossFusedS 1
+                    "S artificial 5 4 3 2 1" 5 4 fcnnMnistLossFusedS 1
                     0.8246
   , mnistTestCase2S (Proxy @300) (Proxy @100)
-                    "SR 1 epoch, 1 batch" 1 1 nnMnistLossFusedReluS 0.02
+                    "SR 1 epoch, 1 batch" 1 1 fcnnMnistLossFusedReluS 0.02
                     0.7068
   , mnistTestCase2S (Proxy @500) (Proxy @150)
-                    "SR 1 epoch, 1 batch, wider" 1 1 nnMnistLossFusedReluS 0.02
+                    "SR 1 epoch, 1 batch, wider" 1 1 fcnnMnistLossFusedReluS 0.02
                     0.8874
   , mnistTestCase2S (Proxy @300) (Proxy @100)
-                    "SR 2 epochs, but 1 batch" 2 1 nnMnistLossFusedReluS 0.02
+                    "SR 2 epochs, but 1 batch" 2 1 fcnnMnistLossFusedReluS 0.02
                     0.8352999999999999
   , mnistTestCase2S (Proxy @300) (Proxy @100)
-                    "SR 1 epoch, all batches" 1 99 nnMnistLossFusedReluS 0.02
+                    "SR 1 epoch, all batches" 1 99 fcnnMnistLossFusedReluS 0.02
                     0.6415
   , mnistTestCase2S (Proxy @3) (Proxy @4)
-                    "SR artificial 1 2 3 4 5" 1 2 nnMnistLossFusedReluS 5
+                    "SR artificial 1 2 3 4 5" 1 2 fcnnMnistLossFusedReluS 5
                     0.8972
   , mnistTestCase2S (Proxy @3) (Proxy @2)
-                    "SR artificial 5 4 3 2 1" 5 4 nnMnistLossFusedReluS 1
+                    "SR artificial 5 4 3 2 1" 5 4 fcnnMnistLossFusedReluS 1
                     0.8991
   ]
 
@@ -964,18 +964,18 @@ shortCIMnistTests = testGroup "Short CI MNIST tests"
                     "fused DL artificial 5 4 3 2 1" 5 4 nnMnistLossFused2 3 2 1
                     0.8991
   , mnistTestCase2S (Proxy @300) (Proxy @100)
-                    "S 1 epoch, 1 batch" 1 1 nnMnistLossFusedS 0.02
+                    "S 1 epoch, 1 batch" 1 1 fcnnMnistLossFusedS 0.02
                     0.1311
   , mnistTestCase2S (Proxy @3) (Proxy @4)
-                    "S artificial 1 2 3 4 5" 1 2 nnMnistLossFusedS 5
+                    "S artificial 1 2 3 4 5" 1 2 fcnnMnistLossFusedS 5
                     0.8972
   , mnistTestCase2S (Proxy @3) (Proxy @2)
-                    "S artificial 5 4 3 2 1" 5 4 nnMnistLossFusedS 1
+                    "S artificial 5 4 3 2 1" 5 4 fcnnMnistLossFusedS 1
                     0.8246
   , mnistTestCase2S (Proxy @3) (Proxy @4)
-                    "SR artificial 1 2 3 4 5" 1 2 nnMnistLossFusedReluS 5
+                    "SR artificial 1 2 3 4 5" 1 2 fcnnMnistLossFusedReluS 5
                     0.8972
   , mnistTestCase2S (Proxy @3) (Proxy @2)
-                    "SR artificial 5 4 3 2 1" 5 4 nnMnistLossFusedReluS 1
+                    "SR artificial 5 4 3 2 1" 5 4 fcnnMnistLossFusedReluS 1
                     0.8991
   ]

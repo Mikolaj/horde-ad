@@ -22,13 +22,44 @@ import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors (DualNumberVariables, varS)
 import HordeAd.Tool.MnistData
 
+-- | Fully connected neural network for the MNIST digit classification task.
+-- There are two hidden layers and both use the same activation function.
+-- The width of the layers is determined by the dimensions of the matrices
+-- and vectors given as dual number parameters (variables).
+-- The dimensions, in turn, can be computed by the @len*@ functions
+-- on the basis of the requested widths, see above.
+fcnnMnistLayersS
+  :: forall widthHidden widthHidden2 r m.
+     (DualMonad r m, KnownNat widthHidden, KnownNat widthHidden2)
+  => (forall sh. OS.Shape sh
+      => DualNumber (TensorS r sh) -> m (DualNumber (TensorS r sh)))
+  -> Primal (TensorS r '[SizeMnistGlyph])
+  -- All below is the type of all paramters of this nn. The same is reflected
+  -- in the length function below and read from variables further down.
+  -> DualNumber (TensorS r '[widthHidden, SizeMnistGlyph])
+  -> DualNumber (TensorS r '[widthHidden])
+  -> DualNumber (TensorS r '[widthHidden2, widthHidden])
+  -> DualNumber (TensorS r '[widthHidden2])
+  -> DualNumber (TensorS r '[SizeMnistLabel, widthHidden2])
+  -> DualNumber (TensorS r '[SizeMnistLabel])
+  -> m (DualNumber (TensorS r '[SizeMnistLabel]))
+fcnnMnistLayersS factivationHidden input
+                 weightsL0 biasesV0 weightsL1 biasesV1 weightsL2 biasesV2 = do
+  let !_A = assert (sizeMnistGlyph == OS.size input) ()
+  let hiddenLayer1 = weightsL0 #>$ scalar input + biasesV0
+  nonlinearLayer1 <- factivationHidden hiddenLayer1
+  let hiddenLayer2 = weightsL1 #>$ nonlinearLayer1 + biasesV1
+  nonlinearLayer2 <- factivationHidden hiddenLayer2
+  let outputLayer = weightsL2 #>$ nonlinearLayer2 + biasesV2
+  returnLet outputLayer
+
 -- It seems that without plugins or TH we really have to copy-paste
 -- the six-element type list from signature of @nnMnistLayersS@.
-lenMnistFcnnS
+fcnnMnistLenS
   :: forall widthHidden widthHidden2.
      (KnownNat widthHidden, KnownNat widthHidden2)
   => (Int, [Int], [(Int, Int)], [OT.ShapeL])
-lenMnistFcnnS =
+fcnnMnistLenS =
   ( 0
   , []
   , []
@@ -41,53 +72,25 @@ lenMnistFcnnS =
     ]
   )
 
--- | Fully connected neural network for the MNIST digit classification task.
--- There are two hidden layers and both use the same activation function.
--- The width of the layers is determined by the dimensions of the matrices
--- and vectors given as dual number parameters (variables).
--- The dimensions, in turn, can be computed by the @len*@ functions
--- on the basis of the requested widths, see above.
-nnMnistLayersS
+fcnnMnistS
   :: forall widthHidden widthHidden2 r m.
      (DualMonad r m, KnownNat widthHidden, KnownNat widthHidden2)
   => (forall sh. OS.Shape sh
       => DualNumber (TensorS r sh) -> m (DualNumber (TensorS r sh)))
   -> Primal (TensorS r '[SizeMnistGlyph])
-  -> DualNumber (TensorS r '[widthHidden, SizeMnistGlyph])
-  -> DualNumber (TensorS r '[widthHidden])
-  -> DualNumber (TensorS r '[widthHidden2, widthHidden])
-  -> DualNumber (TensorS r '[widthHidden2])
-  -> DualNumber (TensorS r '[SizeMnistLabel, widthHidden2])
-  -> DualNumber (TensorS r '[SizeMnistLabel])
+  -> DualNumberVariables r
   -> m (DualNumber (TensorS r '[SizeMnistLabel]))
-nnMnistLayersS factivationHidden input
-               weightsL0 biasesV0 weightsL1 biasesV1 weightsL2 biasesV2 = do
-  let !_A = assert (sizeMnistGlyph == OS.size input) ()
-  let hiddenLayer1 = weightsL0 #>$ scalar input + biasesV0
-  nonlinearLayer1 <- factivationHidden hiddenLayer1
-  let hiddenLayer2 = weightsL1 #>$ nonlinearLayer1 + biasesV1
-  nonlinearLayer2 <- factivationHidden hiddenLayer2
-  let outputLayer = weightsL2 #>$ nonlinearLayer2 + biasesV2
-  returnLet outputLayer
-
-nnMnistS :: forall widthHidden widthHidden2 r m.
-            (DualMonad r m, KnownNat widthHidden, KnownNat widthHidden2)
-         => (forall sh. OS.Shape sh
-             => DualNumber (TensorS r sh) -> m (DualNumber (TensorS r sh)))
-         -> Primal (TensorS r '[SizeMnistGlyph])
-         -> DualNumberVariables r
-         -> m (DualNumber (TensorS r '[SizeMnistLabel]))
-{-# INLINE nnMnistS #-}
-nnMnistS factivationHidden input variables = do
+{-# INLINE fcnnMnistS #-}
+fcnnMnistS factivationHidden input variables = do
   let weightsL0 = varS variables 0
       biasesV0 = varS variables 1
       weightsL1 = varS variables 2
       biasesV1 = varS variables 3
       weightsL2 = varS variables 4
       biasesV2 = varS variables 5
-  nnMnistLayersS @widthHidden @widthHidden2
-                 factivationHidden input
-                 weightsL0 biasesV0 weightsL1 biasesV1 weightsL2 biasesV2
+  fcnnMnistLayersS @widthHidden @widthHidden2
+                   factivationHidden input
+                   weightsL0 biasesV0 weightsL1 biasesV1 weightsL2 biasesV2
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function, using fused
@@ -96,37 +99,37 @@ nnMnistS factivationHidden input variables = do
 -- The silly proxies are needed due to the compilation hiccup
 -- from the last example at
 -- https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/exts/ambiguous_types.html#extension-AllowAmbiguousTypes
-nnMnistLossFusedS
+fcnnMnistLossFusedS
   :: forall widthHidden widthHidden2 r m.
      (DualMonad r m, KnownNat widthHidden, KnownNat widthHidden2)
   => Proxy widthHidden -> Proxy widthHidden2
   -> MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
-nnMnistLossFusedS _ _ (input, target) variables = do
-  result <- nnMnistS @widthHidden @widthHidden2
-                     logisticAct (OS.fromVector input) variables
+fcnnMnistLossFusedS _ _ (input, target) variables = do
+  result <- fcnnMnistS @widthHidden @widthHidden2
+                       logisticAct (OS.fromVector input) variables
   lossSoftMaxCrossEntropyV target $ fromS1 result
 
-nnMnistLossFusedReluS
+fcnnMnistLossFusedReluS
   :: forall widthHidden widthHidden2 r m.
      (DualMonad r m, KnownNat widthHidden, KnownNat widthHidden2)
   => Proxy widthHidden -> Proxy widthHidden2
   -> MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
-nnMnistLossFusedReluS _ _ (input, target) variables = do
-  result <- nnMnistS @widthHidden @widthHidden2
-                     reluAct (OS.fromVector input) variables
+fcnnMnistLossFusedReluS _ _ (input, target) variables = do
+  result <- fcnnMnistS @widthHidden @widthHidden2
+                       reluAct (OS.fromVector input) variables
   lossSoftMaxCrossEntropyV target $ fromS1 result
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
-testMnistS
+fcnnMnistTestS
   :: forall widthHidden widthHidden2 r.
      (IsScalar r, KnownNat widthHidden, KnownNat widthHidden2)
   => [MnistData (Primal r)] -> Domains r -> Primal r
-testMnistS inputs parameters =
+fcnnMnistTestS inputs parameters =
   let matchesLabels :: MnistData (Primal r) -> Bool
       matchesLabels (glyph, label) =
-        let nn = nnMnistS @widthHidden @widthHidden2
-                          logisticAct (OS.fromVector glyph)
+        let nn = fcnnMnistS @widthHidden @widthHidden2
+                            logisticAct (OS.fromVector glyph)
             value = OS.toVector $ primalValue @r nn parameters
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
