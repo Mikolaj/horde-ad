@@ -89,7 +89,7 @@ data DeltaMap s = DeltaMap
   { dmScalar :: Map.Map (DeltaId s s) s,
     dmVector :: Map.Map (DeltaId s (Vector s)) (Vector s)
   }
-  deriving Show
+  deriving (Show)
 
 singleton :: DeltaId s t -> t -> DeltaMap s
 singleton dId t = case knownDeltaId dId of
@@ -111,8 +111,11 @@ singleton dId t = case knownDeltaId dId of
 --
 -- In our examples 'd s' is one of
 --
+
 -- * DeltaF s dual t
+
 -- * DeltaId s t
+
 -- * Delta s t
 
 -- 'evalDeltaF f' has the special property when f does
