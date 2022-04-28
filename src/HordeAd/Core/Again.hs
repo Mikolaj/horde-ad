@@ -97,6 +97,37 @@ evalDeltaF f t = \case
   Scale1 s de -> f (s `HM.scale` t) de
   Konst1 de _ -> f (HM.sumElements t) de
 
+evalVar ::
+  HM.Numeric s =>
+  IsScalarOf s t ->
+  DeltaId t ->
+  t ->
+  DeltaMap s ->
+  DeltaMap s
+evalVar st di t m = case st of
+  SScalar ->
+    let (ms, mv) = m
+     in ( Map.alter
+            ( \case
+                Nothing -> Just t
+                Just t' -> Just (t + t')
+            )
+            di
+            ms,
+          mv
+        )
+  SVector ->
+    let (ms, mv) = m
+     in ( ms,
+          Map.alter
+            ( \case
+                Nothing -> Just t
+                Just t' -> Just (t `HM.add` t')
+            )
+            di
+            mv
+        )
+
 eval ::
   HM.Numeric s =>
   t ->
@@ -105,29 +136,7 @@ eval ::
   DeltaMap s
 eval t delta m = case delta of
   Delta df -> evalDeltaF eval t df m
-  Var st di -> case st of
-    SScalar ->
-      let (ms, mv) = m
-       in ( Map.alter
-              ( \case
-                  Nothing -> Just t
-                  Just t' -> Just (t + t')
-              )
-              di
-              ms,
-            mv
-          )
-    SVector ->
-      let (ms, mv) = m
-       in ( ms,
-            Map.alter
-              ( \case
-                  Nothing -> Just t
-                  Just t' -> Just (t `HM.add` t')
-              )
-              di
-              mv
-          )
+  Var st di -> evalVar st di t m
 
 evalLet :: HM.Numeric s => DeltaBinding s -> DeltaMap s -> DeltaMap s
 evalLet binding (ms, mv) = case binding of
