@@ -332,9 +332,6 @@ instance (Num r, HM.Numeric r) => Ops DeltaF r (Concrete r) where
     Konst1 (C0 k) i -> C1 (HM.konst k i)
     Dot1 v1 (C1 v2) -> C0 (v1 `HM.dot` v2)
 
-zero :: (Num r, Ops DeltaF r d) => Dual r (d r)
-zero = Dual 0 (ops Zero0)
-
 instance Ops DeltaF r (Delta r) where
   ops = Delta
 
@@ -356,6 +353,30 @@ foo x y = do
   x2 <- x .* x
   x2y <- x2 .* y
   x2y .+ y
+
+dAdd0 :: Ops DeltaF s dual => dual s -> dual s -> dual s
+dAdd0 x y = ops (Add0 x y)
+
+dScale0 :: Ops DeltaF s dual => s -> dual s -> dual s
+dScale0 x y = ops (Scale0 x y)
+
+dZero0 :: Ops DeltaF s dual => dual s
+dZero0 = ops Zero0
+
+constant :: Ops DeltaF s dual => a -> Dual a (dual s)
+constant k = Dual k dZero0
+
+instance (Num s, Ops DeltaF s dual) => Num (Dual s (dual s)) where
+  Dual x x' + Dual y y' = Dual (x + y) (dAdd0 x' y')
+  Dual x x' - Dual y y' = Dual (x - y) (dAdd0 x' (dScale0 (-1) y'))
+  Dual x x' * Dual y y' = Dual (x * y) (dAdd0 (dScale0 x y') (dScale0 y x'))
+  negate (Dual x x') = Dual (- x) (dScale0 (-1) x')
+  abs = undefined
+  signum = undefined
+  fromInteger = constant . fromInteger
+
+square :: (Num s, Ops DeltaF s dual) => Dual s (dual s) -> Dual s (dual s)
+square (Dual u u') = Dual (u * u) (dScale0 (2 * u) u')
 
 (.+) ::
   (DualMonad s dual m, Num s, Ops DeltaF s dual) =>
