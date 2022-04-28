@@ -96,6 +96,26 @@ singleton dId t = case knownDeltaId dId of
   SScalar -> DeltaMap (Map.singleton dId t) Map.empty
   SVector -> DeltaMap Map.empty (Map.singleton dId t)
 
+-- Definiton:
+--
+-- We say that "f has the special property" when
+--
+-- f :: d s -> t -> DeltaMap s -> DeltaMap s
+--
+-- and
+--
+-- 1. f d t . f d' t' = f d' t' . f d t
+-- 2. f d (t + t') = f d t . f d t'
+-- 3. f d (t + t') (m + m') = (f d t m) + (f d t' m')
+-- 4. f d (k * t) (k * m) = k * (f d t m)
+--
+-- In our examples 'd s' is one of
+--
+-- * DeltaF s dual t
+-- * DeltaId s t
+-- * Delta s t
+
+-- 'evalDeltaF f' has the special property when f does
 evalDeltaF ::
   HM.Numeric s =>
   (forall tt. dual tt -> tt -> deltaMap_s -> deltaMap_s) ->
@@ -117,6 +137,7 @@ evalDeltaF f deltaF t = case deltaF of
   Scale1 s de -> f de (s `HM.scale` t)
   Konst1 de _ -> f de (HM.sumElements t)
 
+-- accumulate has the special property
 accumulate ::
   HM.Numeric s =>
   DeltaId s t ->
@@ -147,6 +168,7 @@ accumulate di t m = case knownDeltaId di of
             (dmVector m)
       }
 
+-- eval has the special property
 eval ::
   HM.Numeric s =>
   Delta s t ->
@@ -157,6 +179,10 @@ eval delta = case delta of
   Delta df -> evalDeltaF eval df
   Var di -> accumulate di
 
+-- evalLet satsifies
+--
+-- evalLet b (m + m') = evalLet b m + evalLet b m'
+-- evalLet b (k * m) = k * evalLet b m
 evalLet :: HM.Numeric s => DeltaBinding s -> DeltaMap s -> DeltaMap s
 evalLet binding (DeltaMap ms mv) = case binding of
   (DeltaBinding di de) -> case knownDeltaId di of
@@ -167,6 +193,10 @@ evalLet binding (DeltaMap ms mv) = case binding of
       Nothing -> DeltaMap ms mv
       Just x -> eval de x (DeltaMap ms (Map.delete di mv))
 
+-- runDelta satsifies
+--
+-- runDelta b (m + m') = runDelta b m + runDelta b m'
+-- runDelta b (k * m) = k * runDelta b m
 runDelta ::
   HM.Numeric s =>
   [DeltaBinding s] ->
