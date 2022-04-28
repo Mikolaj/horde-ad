@@ -92,9 +92,9 @@ data DeltaMap s = DeltaMap
   }
 
 singleton :: DeltaId s t -> t -> DeltaMap s
-singleton dId g = case knownDeltaId dId of
-  SScalar -> DeltaMap (Map.singleton dId g) Map.empty
-  SVector -> DeltaMap Map.empty (Map.singleton dId g)
+singleton dId t = case knownDeltaId dId of
+  SScalar -> DeltaMap (Map.singleton dId t) Map.empty
+  SVector -> DeltaMap Map.empty (Map.singleton dId t)
 
 evalDeltaF ::
   (Monoid m, HM.Numeric s) =>
