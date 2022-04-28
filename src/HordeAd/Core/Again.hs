@@ -73,8 +73,9 @@ deriving instance (Storable s, Show s) => Show (DeltaBinding s)
 
 data Delta (s :: Type) (t :: Type) where
   Delta :: DeltaF s (Delta s) t -> Delta s t
-  Var :: s `IsScalarOf` t -> DeltaId s t -> Delta s t
-  deriving (Show)
+  Var :: Known (s `IsScalarOf` t) => DeltaId s t -> Delta s t
+
+deriving instance (Show s, Storable s) => Show (Delta s t)
 
 type DeltaMap s = (Map.Map (DeltaId s s) s, Map.Map (DeltaId s (Vector s)) (Vector s))
 
@@ -137,7 +138,7 @@ eval ::
   DeltaMap s
 eval delta = case delta of
   Delta df -> appEndo . evalDeltaF (\t -> Endo . eval t) df
-  Var st di -> evalVar st di
+  Var di -> evalVar known di
 
 evalLet :: HM.Numeric s => DeltaBinding s -> DeltaMap s -> DeltaMap s
 evalLet binding (ms, mv) = case binding of
@@ -221,7 +222,7 @@ instance DualMonad s (Delta s) (DualMonadGradient s) where
                   deltaBindings st
               }
           )
-        pure (Var sd (deltaCounter0 st))
+        pure (Var (deltaCounter0 st))
       SVector -> do
         put
           ( st
@@ -231,7 +232,7 @@ instance DualMonad s (Delta s) (DualMonadGradient s) where
                   deltaBindings st
               }
           )
-        pure (Var sd (deltaCounter1 st))
+        pure (Var (deltaCounter1 st))
 
 newtype DualMonadValue r a = DualMonadValue
   {runDualMonadValue :: Identity a}
@@ -335,7 +336,7 @@ index (Dual v v') i =
 myFoo ::
   (Num a, DualMonad a (Delta a) m) =>
   m (Dual a (Delta a a))
-myFoo = foo (Dual 10 (Var SScalar (DeltaId (-1)))) (Dual 20 (Var SScalar (DeltaId (-2))))
+myFoo = foo (Dual 10 (Var (DeltaId (-1)))) (Dual 20 (Var (DeltaId (-2))))
 
 example :: HM.Numeric Double => (Double, DeltaMap Double)
 example = runDualMonad 1 myFoo
@@ -344,4 +345,4 @@ example2 :: (Dual Double (Delta Double Double), DeltaState Double)
 example2 = runDualMonadM myFoo
 
 example3 :: (Double, DeltaMap Double)
-example3 = runDualMonad 1 (bar (Dual (HM.fromList [10, 20]) (Var SVector (DeltaId (-1)))))
+example3 = runDualMonad 1 (bar (Dual (HM.fromList [10, 20]) (Var (DeltaId (-1)))))
