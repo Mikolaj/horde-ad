@@ -15,6 +15,7 @@ import Control.Monad.Trans.State
   ( State,
     StateT (StateT),
     get,
+    modify,
     put,
     runState,
   )
@@ -224,30 +225,31 @@ newtype DualMonadGradient s t = DualMonadGradient
 class Monad m => DualMonad s (dual :: Type -> Type) m | m -> s where
   deltaLet :: s `IsScalarOf` t -> dual t -> m (dual t)
 
+fresh :: s `IsScalarOf` t -> DualMonadGradient s (DeltaId s t)
+fresh sd = DualMonadGradient $ do
+  st <- get
+  case sd of
+    SScalar -> do
+      let this = deltaCounter0 st
+          next = succDeltaId this
+      put (st {deltaCounter0 = next})
+      pure this
+    SVector -> do
+      let this = deltaCounter1 st
+          next = succDeltaId this
+      put (st {deltaCounter1 = next})
+      pure this
+
+bind :: DeltaBinding s -> DualMonadGradient s ()
+bind s =
+  DualMonadGradient $
+    modify (\st -> st {deltaBindings = s : deltaBindings st})
+
 instance DualMonad s (Delta s) (DualMonadGradient s) where
-  deltaLet sd delta = DualMonadGradient $ do
-    st <- get
-    case sd of
-      SScalar -> do
-        put
-          ( st
-              { deltaCounter0 = succDeltaId (deltaCounter0 st),
-                deltaBindings =
-                  DeltaBinding (deltaCounter0 st) delta :
-                  deltaBindings st
-              }
-          )
-        pure (Var (deltaCounter0 st))
-      SVector -> do
-        put
-          ( st
-              { deltaCounter1 = succDeltaId (deltaCounter1 st),
-                deltaBindings =
-                  DeltaBinding (deltaCounter1 st) delta :
-                  deltaBindings st
-              }
-          )
-        pure (Var (deltaCounter1 st))
+  deltaLet sd delta = do
+    dId <- fresh sd
+    bind (DeltaBinding dId delta)
+    pure (Var dId)
 
 newtype DualMonadValue r a = DualMonadValue
   {runDualMonadValue :: Identity a}
