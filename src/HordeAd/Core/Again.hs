@@ -188,6 +188,8 @@ eval delta = case delta of
 --
 -- evalLet b (m + m') = evalLet b m + evalLet b m'
 -- evalLet b (k * m) = k * evalLet b m
+--
+-- i.e. 'evalLet b' is mathematically linear
 evalLet :: HM.Numeric s => DeltaBinding s -> DeltaMap s -> DeltaMap s
 evalLet binding (DeltaMap ms mv) = case binding of
   (DeltaBinding di de) -> case knownDeltaId di of
