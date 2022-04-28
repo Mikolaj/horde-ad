@@ -90,6 +90,11 @@ data DeltaMap s = DeltaMap
     dmVector :: Map.Map (DeltaId s (Vector s)) (Vector s)
   }
 
+singleton :: DeltaId s t -> t -> DeltaMap s
+singleton dId g = case knownDeltaId dId of
+  SScalar -> DeltaMap (Map.singleton dId g) Map.empty
+  SVector -> DeltaMap Map.empty (Map.singleton dId g)
+
 evalDeltaF ::
   (Monoid m, HM.Numeric s) =>
   (forall tt. dual tt -> tt -> m) ->
@@ -189,12 +194,12 @@ runDualMonadS st g m =
         SScalar ->
           let dId = succDeltaId (deltaCounter0 bs)
            in ( DeltaBinding dId delta,
-                DeltaMap (Map.singleton dId g) Map.empty
+                singleton dId g
               )
         SVector ->
           let dId = succDeltaId (deltaCounter1 bs)
            in ( DeltaBinding dId delta,
-                DeltaMap Map.empty (Map.singleton dId g)
+                singleton dId g
               )
    in (t, runDelta (bs' : deltaBindings bs) m')
 
