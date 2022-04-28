@@ -1,34 +1,19 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DataKinds, DerivingStrategies, FlexibleInstances,
+             FunctionalDependencies, GADTs, GeneralizedNewtypeDeriving,
+             KindSignatures, RankNTypes, StandaloneDeriving, TypeOperators #-}
 
 module HordeAd.Core.Again (module HordeAd.Core.Again) where
 
-import Control.Monad.Trans.State
-  ( State,
-    StateT (StateT),
-    get,
-    modify,
-    put,
-    runState,
-  )
-import Data.Functor.Identity (Identity (Identity))
-import Data.Kind (Type)
-import Data.List (foldl')
+import           Control.Monad.Trans.State
+  (State, StateT (StateT), get, modify, put, runState)
+import           Data.Functor.Identity (Identity (Identity))
+import           Data.Kind (Type)
+import           Data.List (foldl')
 import qualified Data.Strict.Map as Map
-import Data.Vector.Storable (Storable)
-import Numeric.LinearAlgebra
-  ( Vector,
-  )
+import           Data.Vector.Storable (Storable)
+import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as HM
-import Prelude
+import           Prelude
 
 class Known t where
   known :: t
