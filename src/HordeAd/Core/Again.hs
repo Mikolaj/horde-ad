@@ -28,6 +28,7 @@ import Numeric.LinearAlgebra
   )
 import qualified Numeric.LinearAlgebra as HM
 import Prelude
+import Data.Semigroup (appEndo, Endo(Endo))
 
 class Known t where
   known :: t
@@ -135,7 +136,7 @@ eval ::
   DeltaMap s ->
   DeltaMap s
 eval delta = case delta of
-  Delta df -> evalDeltaF eval df
+  Delta df -> appEndo . evalDeltaF (\t -> Endo . eval t) df
   Var st di -> evalVar st di
 
 evalLet :: HM.Numeric s => DeltaBinding s -> DeltaMap s -> DeltaMap s
