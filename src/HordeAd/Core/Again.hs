@@ -357,6 +357,11 @@ foo x y = do
   x2y <- x2 .* y
   x2y .+ y
 
+-- d Functions
+
+-- I'm not sure it's actually useful to have these, rather than just
+-- using ops and the constructors directly.
+
 dAdd0 :: Ops DeltaF s dual => dual s -> dual s -> dual s
 dAdd0 x y = ops (Add0 x y)
 
@@ -371,6 +376,8 @@ dSumElements v n = ops (SumElements1 v n)
 
 constant :: Ops DeltaF s dual => a -> Dual a (dual s)
 constant k = Dual k dZero0
+
+--
 
 instance (Num s, Ops DeltaF s dual) => Num (Dual s (dual s)) where
   Dual x x' + Dual y y' = Dual (x + y) (dAdd0 x' y')
