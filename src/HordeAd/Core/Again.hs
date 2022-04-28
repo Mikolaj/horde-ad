@@ -84,24 +84,22 @@ eval ::
   DeltaMap s ->
   DeltaMap s
 eval st t delta m = case delta of
-  Delta df -> case st of
-    SScalar -> case df of
-      Zero0 -> m
-      Add0 de de' ->
-        eval st t de $
-          eval st t de' m
-      Scale0 t' de -> eval SScalar (t' * t) de m
-      Index0 de i n ->
-        eval
-          SVector
-          (HM.fromList (map (\n' -> if n' == i then t else 0) [0 .. n -1]))
-          de
-          m
-      Dot1 de de' -> eval SVector (t `HM.scale` de) de' m
-    SVector -> case df of
-      Add1 de de' -> eval SVector t de (eval st t de' m)
-      Scale1 s de -> eval SVector (s `HM.scale` t) de m
-      Konst1 de _ -> eval SScalar (HM.sumElements t) de m
+  Delta df -> case df of
+    Zero0 -> m
+    Add0 de de' ->
+      eval SScalar t de $
+        eval SScalar t de' m
+    Scale0 t' de -> eval SScalar (t' * t) de m
+    Index0 de i n ->
+      eval
+        SVector
+        (HM.fromList (map (\n' -> if n' == i then t else 0) [0 .. n -1]))
+        de
+        m
+    Dot1 de de' -> eval SVector (t `HM.scale` de) de' m
+    Add1 de de' -> eval SVector t de (eval SVector t de' m)
+    Scale1 s de -> eval SVector (s `HM.scale` t) de m
+    Konst1 de _ -> eval SScalar (HM.sumElements t) de m
   Var di -> case st of
     SScalar ->
       let (ms, mv) = m
