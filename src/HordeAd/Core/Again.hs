@@ -54,11 +54,6 @@ deriving instance
 data DeltaId (s :: Type) (t :: Type) where
   DeltaId :: Known (s `IsScalarOf` t) => Int -> DeltaId s t
 
-deltaId :: s `IsScalarOf` t -> Int -> DeltaId s t
-deltaId = \case
-  SScalar -> DeltaId
-  SVector -> DeltaId
-
 deriving instance Eq (DeltaId s t)
 
 deriving instance Ord (DeltaId s t)
@@ -209,7 +204,8 @@ runDualMonadM m = runState (runDualMonadGradient m) initialState
   where
     initialState =
       DeltaState
-        { deltaCounter = 0,
+        { deltaCounter0 = DeltaId 0,
+          deltaCounter1 = DeltaId 0,
           deltaBindings = []
         }
 
@@ -221,10 +217,18 @@ runDualMonadS ::
   (t', DeltaMap s)
 runDualMonadS st g m =
   let (Dual t delta, bs) = runDualMonadM m
-      dId = deltaId st (deltaCounter bs + 1)
-      b = DeltaBinding dId delta
-      m' = singleton dId g
-   in (t, runDelta (b : deltaBindings bs) m')
+      (bs', m') = case st of
+        SScalar ->
+          let dId = succDeltaId (deltaCounter0 bs)
+           in ( DeltaBinding dId delta,
+                singleton dId g
+              )
+        SVector ->
+          let dId = succDeltaId (deltaCounter1 bs)
+           in ( DeltaBinding dId delta,
+                singleton dId g
+              )
+   in (t, runDelta (bs' : deltaBindings bs) m')
 
 runDualMonad ::
   (HM.Numeric s, Known (s `IsScalarOf` t)) =>
@@ -234,7 +238,8 @@ runDualMonad ::
 runDualMonad = runDualMonadS known
 
 data DeltaState s = DeltaState
-  { deltaCounter :: Int,
+  { deltaCounter0 :: DeltaId s s,
+    deltaCounter1 :: DeltaId s (Vector s),
     deltaBindings :: [DeltaBinding s]
   }
   deriving (Show)
@@ -249,10 +254,17 @@ class Monad m => DualMonad s (dual :: Type -> Type) m | m -> s where
 fresh :: s `IsScalarOf` t -> DualMonadGradient s (DeltaId s t)
 fresh sd = DualMonadGradient $ do
   st <- get
-  let this = deltaCounter st
-      next = this + 1
-  put (st {deltaCounter = next})
-  pure (deltaId sd this)
+  case sd of
+    SScalar -> do
+      let this = deltaCounter0 st
+          next = succDeltaId this
+      put (st {deltaCounter0 = next})
+      pure this
+    SVector -> do
+      let this = deltaCounter1 st
+          next = succDeltaId this
+      put (st {deltaCounter1 = next})
+      pure this
 
 bind :: DeltaId s t -> Delta s t -> DualMonadGradient s ()
 bind dId delta =
