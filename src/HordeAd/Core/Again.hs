@@ -72,7 +72,7 @@ deriving instance Ord (DeltaId s t)
 
 deriving instance Show (DeltaId s t)
 
-succDeltaId :: DeltaId s d -> DeltaId s d
+succDeltaId :: DeltaId s t -> DeltaId s t
 succDeltaId (DeltaId i) = DeltaId (i + 1)
 
 data DeltaBinding s where
