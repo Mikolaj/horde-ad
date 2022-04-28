@@ -215,7 +215,7 @@ convDataMnistCNNS :: DualMonad r m
 convDataMnistCNNS variables x offset = do
   let ker = var2 variables offset
       bias = var0 variables offset
-  yConv@(D u _) <- convSame2 ker (scalar x)
+  yConv@(D u _) <- convSame2 ker (constant x)
   yRelu <- reluAct $ yConv + konst2 bias (HM.size u)
   maxPool2 2 2 yRelu
 

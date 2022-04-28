@@ -77,7 +77,7 @@ rnnMnistTwoS
 rnnMnistTwoS s x ((wX, wS, b), (wX2, wS2, b2)) = do
   let s1 = sliceS @0 @out_width s
       s2 = sliceS @out_width @out_width s
-  (vec1, s1') <- rnnMnistLayerS s1 (scalar x) (wX, wS, b)
+  (vec1, s1') <- rnnMnistLayerS s1 (constant x) (wX, wS, b)
   (vec2, s2') <- rnnMnistLayerS s2 vec1 (wX2, wS2, b2)
   s3 <- returnLet $ appendS s1' s2'
   return (vec2, s3)
