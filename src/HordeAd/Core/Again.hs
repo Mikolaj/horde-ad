@@ -33,6 +33,9 @@ import Data.Semigroup (appEndo, Endo(Endo))
 class Known t where
   known :: t
 
+knownDeltaId :: Known (s `IsScalarOf` t) => DeltaId s t -> s `IsScalarOf` t
+knownDeltaId _ = known
+
 instance Known (a `IsScalarOf` a) where
   known = SScalar
 
@@ -67,7 +70,7 @@ succDeltaId :: DeltaId s d -> DeltaId s d
 succDeltaId (DeltaId i) = DeltaId (i + 1)
 
 data DeltaBinding s where
-  DeltaBinding :: s `IsScalarOf` t -> DeltaId s t -> Delta s t -> DeltaBinding s
+  DeltaBinding :: Known (s `IsScalarOf` t) => DeltaId s t -> Delta s t -> DeltaBinding s
 
 deriving instance (Storable s, Show s) => Show (DeltaBinding s)
 
@@ -142,7 +145,7 @@ eval delta = case delta of
 
 evalLet :: HM.Numeric s => DeltaBinding s -> DeltaMap s -> DeltaMap s
 evalLet binding (ms, mv) = case binding of
-  (DeltaBinding st di de) -> case st of
+  (DeltaBinding di de) -> case knownDeltaId di of
     SScalar -> case Map.lookup di ms of
       Nothing -> (ms, mv)
       Just x -> eval de x (Map.delete di ms, mv)
@@ -178,12 +181,12 @@ runDualMonadS st g m =
       (bs', m') = case st of
         SScalar ->
           let dId = succDeltaId (deltaCounter0 bs)
-           in ( DeltaBinding st dId delta,
+           in ( DeltaBinding dId delta,
                 (Map.singleton dId g, Map.empty)
               )
         SVector ->
           let dId = succDeltaId (deltaCounter1 bs)
-           in ( DeltaBinding st dId delta,
+           in ( DeltaBinding dId delta,
                 (Map.empty, Map.singleton dId g)
               )
    in (t, runDelta (bs' : deltaBindings bs) m')
@@ -218,7 +221,7 @@ instance DualMonad s (Delta s) (DualMonadGradient s) where
           ( st
               { deltaCounter0 = succDeltaId (deltaCounter0 st),
                 deltaBindings =
-                  DeltaBinding sd (deltaCounter0 st) delta :
+                  DeltaBinding (deltaCounter0 st) delta :
                   deltaBindings st
               }
           )
@@ -228,7 +231,7 @@ instance DualMonad s (Delta s) (DualMonadGradient s) where
           ( st
               { deltaCounter1 = succDeltaId (deltaCounter1 st),
                 deltaBindings =
-                  DeltaBinding SVector (deltaCounter1 st) delta :
+                  DeltaBinding (deltaCounter1 st) delta :
                   deltaBindings st
               }
           )
