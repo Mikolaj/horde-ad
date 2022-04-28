@@ -5,6 +5,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -75,6 +76,26 @@ data Delta (s :: Type) (t :: Type) where
   deriving (Show)
 
 type DeltaMap s = (Map.Map (DeltaId s) s, Map.Map (DeltaId (Vector s)) (Vector s))
+
+evalDeltaF ::
+  (Monoid m, HM.Numeric s) =>
+  (forall tt. tt -> dual tt -> m) ->
+  t ->
+  DeltaF s dual t ->
+  m
+evalDeltaF f t = \case
+  Zero0 -> mempty
+  Add0 de de' ->
+    f t de <> f t de'
+  Scale0 t' de -> f (t' * t) de
+  Index0 de i n ->
+    f
+      (HM.fromList (map (\n' -> if n' == i then t else 0) [0 .. n -1]))
+      de
+  Dot1 de de' -> f (t `HM.scale` de) de'
+  Add1 de de' -> f t de <> f t de'
+  Scale1 s de -> f (s `HM.scale` t) de
+  Konst1 de _ -> f (HM.sumElements t) de
 
 eval ::
   HM.Numeric s =>
