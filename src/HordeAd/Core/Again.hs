@@ -59,8 +59,8 @@ deriving instance
   (Show s, Show (dual s), Show (dual (Vector s)), Storable s) =>
   Show (DeltaF s dual t)
 
-newtype DeltaId (r :: Type) where
-  DeltaId :: Int -> DeltaId r
+newtype DeltaId (t :: Type) where
+  DeltaId :: Int -> DeltaId t
   deriving (Eq, Ord, Show)
 
 succDeltaId :: DeltaId d -> DeltaId d
