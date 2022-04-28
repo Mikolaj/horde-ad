@@ -22,7 +22,6 @@ import Control.Monad.Trans.State
 import Data.Functor.Identity (Identity (Identity))
 import Data.Kind (Type)
 import Data.List (foldl')
-import Data.Semigroup (Endo (Endo), appEndo)
 import qualified Data.Strict.Map as Map
 import Data.Vector.Storable (Storable)
 import Numeric.LinearAlgebra
@@ -97,22 +96,23 @@ singleton dId t = case knownDeltaId dId of
   SVector -> DeltaMap Map.empty (Map.singleton dId t)
 
 evalDeltaF ::
-  (Monoid m, HM.Numeric s) =>
-  (forall tt. dual tt -> tt -> m) ->
+  HM.Numeric s =>
+  (forall tt. dual tt -> tt -> deltaMap_s -> deltaMap_s) ->
   DeltaF s dual t ->
   t ->
-  m
+  deltaMap_s ->
+  deltaMap_s
 evalDeltaF f deltaF t = case deltaF of
-  Zero0 -> mempty
+  Zero0 -> id
   Add0 de de' ->
-    f de t <> f de' t
+    f de t . f de' t
   Scale0 t' de -> f de (t' * t)
   Index0 de i n ->
     f
       de
       (HM.fromList (map (\n' -> if n' == i then t else 0) [0 .. n -1]))
   Dot1 de de' -> f de' (t `HM.scale` de)
-  Add1 de de' -> f de t <> f de' t
+  Add1 de de' -> f de t . f de' t
   Scale1 s de -> f de (s `HM.scale` t)
   Konst1 de _ -> f de (HM.sumElements t)
 
@@ -153,7 +153,7 @@ eval ::
   DeltaMap s ->
   DeltaMap s
 eval delta = case delta of
-  Delta df -> appEndo . evalDeltaF (\t -> Endo . eval t) df
+  Delta df -> evalDeltaF eval df
   Var di -> accumulate di
 
 evalLet :: HM.Numeric s => DeltaBinding s -> DeltaMap s -> DeltaMap s
