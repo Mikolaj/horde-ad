@@ -104,21 +104,7 @@ eval ::
   DeltaMap s ->
   DeltaMap s
 eval t delta m = case delta of
-  Delta df -> case df of
-    Zero0 -> m
-    Add0 de de' ->
-      eval t de $
-        eval t de' m
-    Scale0 t' de -> eval (t' * t) de m
-    Index0 de i n ->
-      eval
-        (HM.fromList (map (\n' -> if n' == i then t else 0) [0 .. n -1]))
-        de
-        m
-    Dot1 de de' -> eval (t `HM.scale` de) de' m
-    Add1 de de' -> eval t de (eval t de' m)
-    Scale1 s de -> eval (s `HM.scale` t) de m
-    Konst1 de _ -> eval (HM.sumElements t) de m
+  Delta df -> evalDeltaF eval t df m
   Var st di -> case st of
     SScalar ->
       let (ms, mv) = m
