@@ -89,6 +89,7 @@ data DeltaMap s = DeltaMap
   { dmScalar :: Map.Map (DeltaId s s) s,
     dmVector :: Map.Map (DeltaId s (Vector s)) (Vector s)
   }
+  deriving Show
 
 singleton :: DeltaId s t -> t -> DeltaMap s
 singleton dId t = case knownDeltaId dId of
