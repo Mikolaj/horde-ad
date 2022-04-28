@@ -240,15 +240,15 @@ fresh sd = DualMonadGradient $ do
       put (st {deltaCounter1 = next})
       pure this
 
-bind :: DeltaBinding s -> DualMonadGradient s ()
-bind s =
+bind :: DeltaId s t -> Delta s t -> DualMonadGradient s ()
+bind dId delta =
   DualMonadGradient $
-    modify (\st -> st {deltaBindings = s : deltaBindings st})
+    modify (\st -> st {deltaBindings = DeltaBinding dId delta : deltaBindings st})
 
 instance DualMonad s (Delta s) (DualMonadGradient s) where
   deltaLet sd delta = do
     dId <- fresh sd
-    bind (DeltaBinding dId delta)
+    bind dId delta
     pure (Var dId)
 
 newtype DualMonadValue r a = DualMonadValue
