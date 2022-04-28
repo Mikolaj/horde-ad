@@ -33,8 +33,8 @@ import Data.Semigroup (appEndo, Endo(Endo))
 class Known t where
   known :: t
 
-knownDeltaId :: Known (s `IsScalarOf` t) => DeltaId s t -> s `IsScalarOf` t
-knownDeltaId _ = known
+knownDeltaId :: DeltaId s t -> s `IsScalarOf` t
+knownDeltaId DeltaId{} = known
 
 instance Known (a `IsScalarOf` a) where
   known = SScalar
@@ -62,21 +62,24 @@ deriving instance
   (Show s, Show (dual s), Show (dual (Vector s)), Storable s) =>
   Show (DeltaF s dual t)
 
-newtype DeltaId (s :: Type) (t :: Type) where
-  DeltaId :: Int -> DeltaId s t
-  deriving (Eq, Ord, Show)
+data DeltaId (s :: Type) (t :: Type) where
+  DeltaId :: Known (s `IsScalarOf` t) => Int -> DeltaId s t
+
+deriving instance Eq (DeltaId s t)
+deriving instance Ord (DeltaId s t)
+deriving instance Show (DeltaId s t)
 
 succDeltaId :: DeltaId s d -> DeltaId s d
 succDeltaId (DeltaId i) = DeltaId (i + 1)
 
 data DeltaBinding s where
-  DeltaBinding :: Known (s `IsScalarOf` t) => DeltaId s t -> Delta s t -> DeltaBinding s
+  DeltaBinding :: DeltaId s t -> Delta s t -> DeltaBinding s
 
 deriving instance (Storable s, Show s) => Show (DeltaBinding s)
 
 data Delta (s :: Type) (t :: Type) where
   Delta :: DeltaF s (Delta s) t -> Delta s t
-  Var :: Known (s `IsScalarOf` t) => DeltaId s t -> Delta s t
+  Var :: DeltaId s t -> Delta s t
 
 deriving instance (Show s, Storable s) => Show (Delta s t)
 
@@ -104,12 +107,11 @@ evalDeltaF f deltaF t = case deltaF of
 
 evalVar ::
   HM.Numeric s =>
-  IsScalarOf s t ->
   DeltaId s t ->
   t ->
   DeltaMap s ->
   DeltaMap s
-evalVar st di t m = case st of
+evalVar di t m = case knownDeltaId  di of
   SScalar ->
     let (ms, mv) = m
      in ( Map.alter
@@ -141,7 +143,7 @@ eval ::
   DeltaMap s
 eval delta = case delta of
   Delta df -> appEndo . evalDeltaF (\t -> Endo . eval t) df
-  Var di -> evalVar known di
+  Var di -> evalVar di
 
 evalLet :: HM.Numeric s => DeltaBinding s -> DeltaMap s -> DeltaMap s
 evalLet binding (ms, mv) = case binding of
