@@ -19,6 +19,7 @@ import Control.Monad.Trans.State
   )
 import Data.Functor.Identity (Identity (Identity))
 import Data.Kind (Type)
+import Data.List (foldl')
 import qualified Data.Strict.Map as Map
 import Data.Vector.Storable (Storable)
 import Numeric.LinearAlgebra
@@ -140,9 +141,7 @@ runDelta ::
   [DeltaBinding s] ->
   DeltaMap s ->
   DeltaMap s
-runDelta binds m = case binds of
-  [] -> m
-  b : rest -> runDelta rest (evalLet b m)
+runDelta = flip (foldl' (flip evalLet))
 
 runDualMonadM :: DualMonadGradient s a -> (a, DeltaState s)
 runDualMonadM m = runState (runDualMonadGradient m) initialState
