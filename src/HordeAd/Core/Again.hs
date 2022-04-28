@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds, DerivingStrategies, FlexibleInstances,
              FunctionalDependencies, GADTs, GeneralizedNewtypeDeriving,
              KindSignatures, RankNTypes, StandaloneDeriving, TypeOperators #-}
+{-# OPTIONS_GHC -Wno-missing-methods #-}
 
 module HordeAd.Core.Again (module HordeAd.Core.Again) where
 
@@ -10,6 +11,8 @@ import           Data.Functor.Identity (Identity (Identity))
 import           Data.Kind (Type)
 import           Data.List (foldl')
 import qualified Data.Strict.Map as Map
+import qualified Data.Strict.Vector as Data.Vector
+import qualified Data.Vector.Generic as V
 import           Data.Vector.Storable (Storable)
 import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as HM
@@ -385,6 +388,31 @@ instance (Num s, Ops DeltaF s dual) => Num (Dual s (dual s)) where
   signum = undefined
   fromInteger = constant . fromInteger
 
+-- These instances are required by the @Real@ instance, which is required
+-- by @RealFloat@, which gives @atan2@. No idea what properties
+-- @Real@ requires here, so let it crash if it's really needed.
+instance Eq (Dual s (dual s)) where
+
+instance Ord (Dual s (dual s)) where
+
+instance (Real s, Ops DeltaF s dual) => Real (Dual s (dual s)) where
+
+instance (Fractional s, Ops DeltaF s dual) => Fractional (Dual s (dual s)) where
+  Dual u u' / Dual v v' =
+    let recipSq = recip (v * v)
+    in Dual (u / v)
+            (dAdd0 (dScale0 (v * recipSq) u') (dScale0 (- u * recipSq) v'))
+
+instance (Floating s, Ops DeltaF s dual) => Floating (Dual s (dual s)) where
+  sin (Dual u u') = Dual (sin u) (dScale0 (cos u) u')
+
+instance (RealFrac s, Ops DeltaF s dual) => RealFrac (Dual s (dual s)) where
+
+instance (RealFloat s, Ops DeltaF s dual) => RealFloat (Dual s (dual s)) where
+  atan2 (Dual u u') (Dual v v') =
+    let t = 1 / (u * u + v * v)
+    in Dual (atan2 u v) (dAdd0 (dScale0 (- u * t) v') (dScale0 (v * t) u'))
+
 -- TODO (not really needed on its own, but something like that
 -- would be required for scale1 and Num on Vectors):
 dScale1 :: (HM.Numeric s, Ops DeltaF s dual)
@@ -474,3 +502,93 @@ example2 = runDualMonadM myFoo
 
 example3 :: (Double, DeltaMap Double)
 example3 = runDualMonad 1 (bar (Dual (HM.fromList [10, 20]) (Var (DeltaId (-1)))))
+
+-- We have test results recorded for the tests below in TestSingleGradient
+-- and for quad also in TestSimpleDescent (but for that one we need
+-- the simplest gradient descent optimizer).
+
+quad ::
+  (DualMonad s dual m, Num s, Ops DeltaF s dual) =>
+  Dual s (dual s) ->
+  Dual s (dual s) ->
+  m (Dual s (dual s))
+quad x y = do
+  x2 <- dLet $ square x
+  y2 <- y .* y
+  tmp <- x2 .+ y2
+  tmp .+ 5
+
+foldl'0 :: (HM.Numeric s, Ops DeltaF s dual)
+        => (Dual s (dual s) -> Dual s (dual s) -> Dual s (dual s))
+        -> Dual s (dual s)
+        -> Dual (Vector s) (dual (Vector s))
+        -> Dual s (dual s)
+foldl'0 f uu' (Dual v v') =
+  let k = V.length v
+      g !acc ix p = f (Dual p (ops (Index0 v' ix k))) acc
+  in V.ifoldl' g uu' v
+
+altSumElements0 :: (HM.Numeric s, Ops DeltaF s dual)
+                => Dual (Vector s) (dual (Vector s)) -> Dual s (dual s)
+altSumElements0 = foldl'0 (+) 0
+
+atanReadmePoly ::
+  (RealFloat s, Ops DeltaF s dual) =>
+  Dual s (dual s) ->
+  Dual s (dual s) ->
+  Dual s (dual s) ->
+  Data.Vector.Vector (Dual s (dual s))
+atanReadmePoly x y z =
+  let w = x * sin y
+  in V.fromList [atan2 z w, z * x]
+
+sumElementsVectorOfDual :: (Num s, Ops DeltaF s dual)
+                        => Data.Vector.Vector (Dual s (dual s))
+                        -> Dual s (dual s)
+sumElementsVectorOfDual = V.foldl' (+) 0
+
+atanReadmeMPoly ::
+  (DualMonad s dual m, RealFloat s, Ops DeltaF s dual) =>
+  Dual s (dual s) ->
+  Dual s (dual s) ->
+  Dual s (dual s) ->
+  m (Dual s (dual s))
+atanReadmeMPoly x y z =
+  dLet $ sumElementsVectorOfDual $ atanReadmePoly x y z
+
+indexNoM ::
+  (HM.Numeric s, Ops DeltaF s dual) =>
+  Dual (Vector s) (dual (Vector s)) ->
+  Int ->
+  Dual s (dual s)
+indexNoM (Dual v v') i =
+  Dual (HM.atIndex v i) (ops (Index0 v' i (HM.size v)))
+
+-- TODO
+seq1 ::  -- (HM.Numeric s, Ops DeltaF s dual)
+        Data.Vector.Vector (Dual s (dual s))
+     -> Dual (Vector s) (dual (Vector s))
+seq1 = undefined
+
+atanReadmePolyV :: (HM.Numeric s, RealFloat s, Ops DeltaF s dual)
+                => Dual (Vector s) (dual (Vector s))
+                -> Dual (Vector s) (dual (Vector s))
+atanReadmePolyV xyzVector =
+  let x = indexNoM xyzVector 0
+      y = indexNoM xyzVector 1
+      z = indexNoM xyzVector 2
+      w = x * sin y
+  in seq1 $ V.fromList [atan2 z w, z * x]
+
+-- | Dot product with a constant vector.
+infixr 8 <.>!!
+(<.>!!) :: (HM.Numeric s, Ops DeltaF s dual)
+        => Dual (Vector s) (dual (Vector s)) -> Vector s -> Dual s (dual s)
+(<.>!!) (Dual u u') v = Dual (u HM.<.> v) (ops (Dot1 v u'))
+
+atanReadmeMPolyV ::
+  (DualMonad s dual m, HM.Numeric s, RealFloat s, Ops DeltaF s dual) =>
+  Dual (Vector s) (dual (Vector s)) ->
+  m (Dual s (dual s))
+atanReadmeMPolyV xyzVector =
+  dLet $ atanReadmePolyV xyzVector <.>!! HM.konst 1 2
