@@ -57,6 +57,7 @@ data DeltaF (s :: Type) (dual :: Type -> Type) (t :: Type) where
   Scale1 :: s -> dual (Vector s) -> DeltaF s dual (Vector s)
   Konst1 :: dual s -> Int -> DeltaF s dual (Vector s)
   Dot1 :: Vector s -> dual (Vector s) -> DeltaF s dual s
+  SumElements1 :: dual (Vector s) -> Int -> DeltaF s dual s
 
 deriving instance
   (Show s, Show (dual s), Show (dual (Vector s)), Storable s) =>
@@ -139,6 +140,7 @@ evalDeltaF f deltaF t = case deltaF of
   Add1 de de' -> f de t . f de' t
   Scale1 s de -> f de (s `HM.scale` t)
   Konst1 de _ -> f de (HM.sumElements t)
+  SumElements1 de n -> f de (HM.konst t n)
 
 -- accumulate has the special property
 accumulate ::
@@ -331,6 +333,7 @@ instance (Num r, HM.Numeric r) => Ops DeltaF r (Concrete r) where
     Scale1 r (C1 x) -> C1 (HM.scale r x)
     Konst1 (C0 k) i -> C1 (HM.konst k i)
     Dot1 v1 (C1 v2) -> C0 (v1 `HM.dot` v2)
+    SumElements1 (C1 v) _ -> C0 (HM.sumElements v)
 
 instance Ops DeltaF r (Delta r) where
   ops = Delta
@@ -363,6 +366,9 @@ dScale0 x y = ops (Scale0 x y)
 dZero0 :: Ops DeltaF s dual => dual s
 dZero0 = ops Zero0
 
+dSumElements :: Ops DeltaF s dual => dual (Vector s) -> Int -> dual s
+dSumElements v n = ops (SumElements1 v n)
+
 constant :: Ops DeltaF s dual => a -> Dual a (dual s)
 constant k = Dual k dZero0
 
@@ -377,6 +383,13 @@ instance (Num s, Ops DeltaF s dual) => Num (Dual s (dual s)) where
 
 square :: (Num s, Ops DeltaF s dual) => Dual s (dual s) -> Dual s (dual s)
 square (Dual u u') = Dual (u * u) (dScale0 (2 * u) u')
+
+squaredDifference ::
+  (Num s, Ops DeltaF s dual) =>
+  s ->
+  Dual s (dual s) ->
+  Dual s (dual s)
+squaredDifference targ res = square $ res - constant targ
 
 (.+) ::
   (DualMonad s dual m, Num s, Ops DeltaF s dual) =>
@@ -404,6 +417,12 @@ index ::
 index (Dual v v') i =
   dLet $
     Dual (HM.atIndex v i) (ops (Index0 v' i (HM.size v)))
+
+sumElements ::
+  (HM.Numeric a, Ops DeltaF s dual) =>
+  Dual (Vector a) (dual (Vector s)) ->
+  Dual a (dual s)
+sumElements (Dual u u') = Dual (HM.sumElements u) (dSumElements u' (HM.size u))
 
 myFoo ::
   (Num a, DualMonad a (Delta a) m) =>
