@@ -21,6 +21,7 @@ import Control.Monad.Trans.State
 import Data.Functor.Identity (Identity (Identity))
 import Data.Kind (Type)
 import Data.List (foldl')
+import Data.Semigroup (Endo (Endo), appEndo)
 import qualified Data.Strict.Map as Map
 import Data.Vector.Storable (Storable)
 import Numeric.LinearAlgebra
@@ -28,13 +29,12 @@ import Numeric.LinearAlgebra
   )
 import qualified Numeric.LinearAlgebra as HM
 import Prelude
-import Data.Semigroup (appEndo, Endo(Endo))
 
 class Known t where
   known :: t
 
 knownDeltaId :: DeltaId s t -> s `IsScalarOf` t
-knownDeltaId DeltaId{} = known
+knownDeltaId DeltaId {} = known
 
 instance Known (a `IsScalarOf` a) where
   known = SScalar
@@ -66,7 +66,9 @@ data DeltaId (s :: Type) (t :: Type) where
   DeltaId :: Known (s `IsScalarOf` t) => Int -> DeltaId s t
 
 deriving instance Eq (DeltaId s t)
+
 deriving instance Ord (DeltaId s t)
+
 deriving instance Show (DeltaId s t)
 
 succDeltaId :: DeltaId s d -> DeltaId s d
@@ -83,7 +85,10 @@ data Delta (s :: Type) (t :: Type) where
 
 deriving instance (Show s, Storable s) => Show (Delta s t)
 
-type DeltaMap s = (Map.Map (DeltaId s s) s, Map.Map (DeltaId s (Vector s)) (Vector s))
+data DeltaMap s = DeltaMap
+  { dmScalar :: Map.Map (DeltaId s s) s,
+    dmVector :: Map.Map (DeltaId s (Vector s)) (Vector s)
+  }
 
 evalDeltaF ::
   (Monoid m, HM.Numeric s) =>
@@ -111,29 +116,29 @@ evalVar ::
   t ->
   DeltaMap s ->
   DeltaMap s
-evalVar di t m = case knownDeltaId  di of
+evalVar di t m = case knownDeltaId di of
   SScalar ->
-    let (ms, mv) = m
-     in ( Map.alter
+    m
+      { dmScalar =
+          Map.alter
             ( \case
                 Nothing -> Just t
                 Just t' -> Just (t + t')
             )
             di
-            ms,
-          mv
-        )
+            (dmScalar m)
+      }
   SVector ->
-    let (ms, mv) = m
-     in ( ms,
+    m
+      { dmVector =
           Map.alter
             ( \case
                 Nothing -> Just t
                 Just t' -> Just (t `HM.add` t')
             )
             di
-            mv
-        )
+            (dmVector m)
+      }
 
 eval ::
   HM.Numeric s =>
@@ -146,14 +151,14 @@ eval delta = case delta of
   Var di -> evalVar di
 
 evalLet :: HM.Numeric s => DeltaBinding s -> DeltaMap s -> DeltaMap s
-evalLet binding (ms, mv) = case binding of
+evalLet binding (DeltaMap ms mv) = case binding of
   (DeltaBinding di de) -> case knownDeltaId di of
     SScalar -> case Map.lookup di ms of
-      Nothing -> (ms, mv)
-      Just x -> eval de x (Map.delete di ms, mv)
+      Nothing -> DeltaMap ms mv
+      Just x -> eval de x (DeltaMap (Map.delete di ms) mv)
     SVector -> case Map.lookup di mv of
-      Nothing -> (ms, mv)
-      Just x -> eval de x (ms, Map.delete di mv)
+      Nothing -> DeltaMap ms mv
+      Just x -> eval de x (DeltaMap ms (Map.delete di mv))
 
 runDelta ::
   HM.Numeric s =>
@@ -184,12 +189,12 @@ runDualMonadS st g m =
         SScalar ->
           let dId = succDeltaId (deltaCounter0 bs)
            in ( DeltaBinding dId delta,
-                (Map.singleton dId g, Map.empty)
+                DeltaMap (Map.singleton dId g) Map.empty
               )
         SVector ->
           let dId = succDeltaId (deltaCounter1 bs)
            in ( DeltaBinding dId delta,
-                (Map.empty, Map.singleton dId g)
+                DeltaMap Map.empty (Map.singleton dId g)
               )
    in (t, runDelta (bs' : deltaBindings bs) m')
 
