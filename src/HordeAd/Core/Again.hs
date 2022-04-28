@@ -134,9 +134,9 @@ eval ::
   t ->
   DeltaMap s ->
   DeltaMap s
-eval delta t m = case delta of
-  Delta df -> evalDeltaF eval df t m
-  Var st di -> evalVar st di t m
+eval delta = case delta of
+  Delta df -> evalDeltaF eval df
+  Var st di -> evalVar st di
 
 evalLet :: HM.Numeric s => DeltaBinding s -> DeltaMap s -> DeltaMap s
 evalLet binding (ms, mv) = case binding of
