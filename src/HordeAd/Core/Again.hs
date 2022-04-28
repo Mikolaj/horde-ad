@@ -115,13 +115,13 @@ evalDeltaF f deltaF t = case deltaF of
   Scale1 s de -> f de (s `HM.scale` t)
   Konst1 de _ -> f de (HM.sumElements t)
 
-evalVar ::
+accumulate ::
   HM.Numeric s =>
   DeltaId s t ->
   t ->
   DeltaMap s ->
   DeltaMap s
-evalVar di t m = case knownDeltaId di of
+accumulate di t m = case knownDeltaId di of
   SScalar ->
     m
       { dmScalar =
@@ -153,7 +153,7 @@ eval ::
   DeltaMap s
 eval delta = case delta of
   Delta df -> appEndo . evalDeltaF (\t -> Endo . eval t) df
-  Var di -> evalVar di
+  Var di -> accumulate di
 
 evalLet :: HM.Numeric s => DeltaBinding s -> DeltaMap s -> DeltaMap s
 evalLet binding (DeltaMap ms mv) = case binding of
