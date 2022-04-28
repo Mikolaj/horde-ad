@@ -342,10 +342,25 @@ foo x y = do
   x2y <- x2 .* y
   x2y .+ y
 
--- d Functions
+-- d Functions (meaning, dual s -> dual s, low-level API)
 
 -- I'm not sure it's actually useful to have these, rather than just
 -- using ops and the constructors directly.
+--
+-- MK: If things like @ops (SumElements1 v n)@ work fine, without requiring
+-- any change, for gradients, forward derivatives, values, etc.,
+-- (and in case of @ops (Scale0 x y)@ also for scalars, vectors, tensors, etc.)
+-- then indeed they are fine and `dSumElements` is spurious,
+-- especially that it's the low-level API, so some extra verbosity
+-- is not problematic. However, e.g., @sumElements@, belonging
+-- to the high-level API, would ideally be succinct in both type
+-- and usage (and it is, except for the rather long type ATM).
+-- Similarly, @scale@.
+--
+-- So, I guess, if we forgo the rank-polymorhic scale, etc.,
+-- there is indeed no point to @dScale0@-like functions and the user-facing
+-- API (@ops@ and the constructors; anything else?) should be delimited
+-- by different means, while exposing the rest for the engine, optimizers, etc.
 
 dAdd0 :: Ops DeltaF s dual => dual s -> dual s -> dual s
 dAdd0 x y = ops (Add0 x y)
@@ -359,10 +374,7 @@ dZero0 = ops Zero0
 dSumElements :: Ops DeltaF s dual => dual (Vector s) -> Int -> dual s
 dSumElements v n = ops (SumElements1 v n)
 
-constant :: Ops DeltaF s dual => a -> Dual a (dual s)
-constant k = Dual k dZero0
-
---
+-- Dual number functions (meaning, Dual -> Dual, high level API)
 
 instance (Num s, Ops DeltaF s dual) => Num (Dual s (dual s)) where
   Dual x x' + Dual y y' = Dual (x + y) (dAdd0 x' y')
@@ -373,6 +385,37 @@ instance (Num s, Ops DeltaF s dual) => Num (Dual s (dual s)) where
   signum = undefined
   fromInteger = constant . fromInteger
 
+-- TODO (not really needed on its own, but something like that
+-- would be required for scale1 and Num on Vectors):
+dScale1 :: (HM.Numeric s, Ops DeltaF s dual)
+        => (Vector s) -> dual (Vector s) -> dual (Vector s)
+dScale1 x y = ops (Scale1 (HM.sumElements x) y) -- TODO
+
+-- This causes "Overlapping instances". Perhaps the above Num should be
+-- only defined for Double and Float, not for @s@?
+{-
+instance (Num (Vector s), Ops DeltaF s dual)
+         => Num (Dual (Vector s) (dual (Vector s))) where
+  Dual x x' * Dual y y' =
+    Dual (x * y) (ops (Add1 (dScale1 x y') (dScale1 y x')))
+-}
+
+constant :: Ops DeltaF s dual => a -> Dual a (dual s)
+constant k = Dual k dZero0
+
+-- TODO: this is probably not the right type for both scalars and vectors?
+scale0 :: (Num s, Ops DeltaF s dual)
+       => s -> Dual s (dual s) -> Dual s (dual s)
+scale0 a (Dual u u') = Dual (a * u) (dScale0 a u')
+
+scale1 :: (HM.Numeric s, Num (Vector s), Ops DeltaF s dual)
+       => Vector s
+       -> Dual (Vector s) (dual (Vector s))
+       -> Dual (Vector s) (dual (Vector s))
+scale1 a (Dual u u') = Dual (a * u) (dScale1 a u')
+
+-- MK: if this cannot work on vectors, perhaps @square0@ would be a better name
+-- and then we can add @square1@.
 square :: (Num s, Ops DeltaF s dual) => Dual s (dual s) -> Dual s (dual s)
 square (Dual u u') = Dual (u * u) (dScale0 (2 * u) u')
 
@@ -415,6 +458,8 @@ sumElements ::
   Dual (Vector a) (dual (Vector s)) ->
   Dual a (dual s)
 sumElements (Dual u u') = Dual (HM.sumElements u) (dSumElements u' (HM.size u))
+
+--
 
 myFoo ::
   (Num a, DualMonad a (Delta a) m) =>
