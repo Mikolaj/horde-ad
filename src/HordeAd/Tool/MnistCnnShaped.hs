@@ -93,7 +93,7 @@ convMnistTwoS
   -> m (DualNumber (TensorS r '[SizeMnistLabel, batch_size]))
 convMnistTwoS x ker1 bias1 ker2 bias2
               weigthsDense biasesDense weigthsReadout biasesReadout = do
-  t1 <- convMnistLayerS ker1 (scalar x) bias1
+  t1 <- convMnistLayerS ker1 (constant x) bias1
   t2 <- convMnistLayerS ker2 t1 bias2
   let m1 = mapS reshapeS t2
       m2 = from2S (transpose2 (fromS2 m1))  -- TODO: add permuation transposeS

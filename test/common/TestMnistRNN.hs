@@ -103,7 +103,7 @@ zeroState :: DualMonad r m
               -> DualNumberVariables r
               -> m (DualNumber r2))
 zeroState k f xs variables =
-  fst <$> f xs (scalar $ HM.konst 0 k) variables
+  fst <$> f xs (constant $ HM.konst 0 k) variables
 
 nnSinRNN :: DualMonad r m
          => Primal (Tensor1 r)
@@ -182,7 +182,7 @@ prime :: IsScalar r
       -> [Primal r]
       -> Primal (Tensor1 r)
 prime f parameters =
-  foldl' (\s x -> primalValue (fmap snd . f x (scalar s)) parameters)
+  foldl' (\s x -> primalValue (fmap snd . f x (constant s)) parameters)
 
 feedback :: IsScalar r
          => (Primal r
@@ -197,7 +197,7 @@ feedback f parameters s0 x0 =
   let go (x, s) =
         let (D y _, sd') = primalValueGeneral (f x s) parameters
         in Just (x, (y, sd'))
-  in unfoldr go (x0, scalar s0)
+  in unfoldr go (x0, constant s0)
 
 feedbackTestCase :: String
                  -> (Double
@@ -280,7 +280,7 @@ ar2Sin yLast s variables = do
       phi2 = var0 variables 2
       yLastLast = index0 s 0  -- dummy vector for compatibility
   y <- returnLet $ c + scale yLast phi1 + phi2 * yLastLast
-  return (y, scalar $ V.singleton yLast)
+  return (y, constant $ V.singleton yLast)
 
 ar2SinLoss :: DualMonad r m
            => (Primal (Tensor1 r), Primal r)
@@ -661,7 +661,7 @@ zeroStateB :: DualMonad r m
                -> DualNumberVariables r
                -> m (DualNumber r2))
 zeroStateB ij f xs variables =
-  fst <$> f xs (scalar $ HM.konst 0 ij) variables
+  fst <$> f xs (constant $ HM.konst 0 ij) variables
 
 nnMnistRNNB :: DualMonad r m
             => Int

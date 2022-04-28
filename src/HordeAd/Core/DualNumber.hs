@@ -77,7 +77,7 @@ instance (Num (Primal a), IsDual a) => Num (DualNumber a) where
   negate (D v v') = D (- v) (dScale (-1) v')
   abs = undefined  -- TODO
   signum = undefined  -- TODO
-  fromInteger = scalar . fromInteger
+  fromInteger = constant . fromInteger
 
 instance (Real (Primal a), IsDual a) => Real (DualNumber a) where
   toRational = undefined  -- TODO?
@@ -89,10 +89,10 @@ instance (Fractional (Primal a), IsDual a) => Fractional (DualNumber a) where
   recip (D v v') =
     let minusRecipSq = - recip (v * v)
     in D (recip v) (dScale minusRecipSq v')
-  fromRational = scalar . fromRational
+  fromRational = constant . fromRational
 
 instance (Floating (Primal a), IsDual a) => Floating (DualNumber a) where
-  pi = scalar pi
+  pi = constant pi
   exp (D u u') = let expU = exp u
                  in D expU (dScale expU u')
   log (D u u') = D (log u) (dScale (recip u) u')
@@ -125,8 +125,8 @@ instance (RealFloat (Primal a), IsDual a) => RealFloat (DualNumber a) where
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a differentiable codomain
 
-scalar :: IsDual a => Primal a -> DualNumber a
-scalar a = D a dZero
+constant :: IsDual a => Primal a -> DualNumber a
+constant a = D a dZero
 
 scale :: (Num (Primal a), IsDual a) => Primal a -> DualNumber a -> DualNumber a
 scale a (D u u') = D (a * u) (dScale a u')
@@ -150,7 +150,7 @@ square (D u u') = D (u * u) (dScale (2 * u) u')
 
 squaredDifference :: (Num (Primal a), IsDual a)
                   => Primal a -> DualNumber a -> DualNumber a
-squaredDifference targ res = square $ res - scalar targ
+squaredDifference targ res = square $ res - constant targ
 
 lossSquared :: (DualMonad r m, IsDualWithScalar a r)
             => Primal a -> DualNumber a -> m (DualNumber a)

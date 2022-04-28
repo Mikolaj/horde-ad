@@ -46,7 +46,7 @@ fcnnMnistLayersS
 fcnnMnistLayersS factivationHidden input
                  weightsL0 biasesV0 weightsL1 biasesV1 weightsL2 biasesV2 = do
   let !_A = assert (sizeMnistGlyph == OS.size input) ()
-  let hiddenLayer1 = weightsL0 #>$ scalar input + biasesV0
+  let hiddenLayer1 = weightsL0 #>$ constant input + biasesV0
   nonlinearLayer1 <- factivationHidden hiddenLayer1
   let hiddenLayer2 = weightsL1 #>$ nonlinearLayer1 + biasesV1
   nonlinearLayer2 <- factivationHidden hiddenLayer2

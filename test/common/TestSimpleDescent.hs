@@ -129,7 +129,7 @@ nnXorLoss :: DualMonad (Delta0 Float) m
           -> Float -> Float -> Float -> DualNumberVariables (Delta0 Float)
           -> m (DualNumber (Delta0 Float))
 nnXorLoss factivation x y targ variables = do
-  res <- nnXor factivation (scalar x) (scalar y) variables
+  res <- nnXor factivation (constant x) (constant y) variables
   lossSquared targ res
 
 nnXorLossTotal :: DualMonad (Delta0 Float) m
