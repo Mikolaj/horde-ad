@@ -108,6 +108,7 @@ library
 
     -- Modules exported by the library.
     exposed-modules:  HordeAd
+                      HordeAd.Core.Again
                       HordeAd.Core.DualNumber
                       HordeAd.Core.Engine
                       HordeAd.Core.DualClass
