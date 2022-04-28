@@ -79,23 +79,23 @@ type DeltaMap s = (Map.Map (DeltaId s) s, Map.Map (DeltaId (Vector s)) (Vector s
 
 evalDeltaF ::
   (Monoid m, HM.Numeric s) =>
-  (forall tt. tt -> dual tt -> m) ->
-  t ->
+  (forall tt. dual tt -> tt -> m) ->
   DeltaF s dual t ->
+  t ->
   m
-evalDeltaF f t = \case
+evalDeltaF f deltaF t = case deltaF of
   Zero0 -> mempty
   Add0 de de' ->
-    f t de <> f t de'
-  Scale0 t' de -> f (t' * t) de
+    f de t <> f de' t
+  Scale0 t' de -> f de (t' * t)
   Index0 de i n ->
     f
-      (HM.fromList (map (\n' -> if n' == i then t else 0) [0 .. n -1]))
       de
-  Dot1 de de' -> f (t `HM.scale` de) de'
-  Add1 de de' -> f t de <> f t de'
-  Scale1 s de -> f (s `HM.scale` t) de
-  Konst1 de _ -> f (HM.sumElements t) de
+      (HM.fromList (map (\n' -> if n' == i then t else 0) [0 .. n -1]))
+  Dot1 de de' -> f de' (t `HM.scale` de)
+  Add1 de de' -> f de t <> f de' t
+  Scale1 s de -> f de (s `HM.scale` t)
+  Konst1 de _ -> f de (HM.sumElements t)
 
 evalVar ::
   HM.Numeric s =>
@@ -130,12 +130,12 @@ evalVar st di t m = case st of
 
 eval ::
   HM.Numeric s =>
-  t ->
   Delta s t ->
+  t ->
   DeltaMap s ->
   DeltaMap s
-eval t delta m = case delta of
-  Delta df -> evalDeltaF eval t df m
+eval delta t m = case delta of
+  Delta df -> evalDeltaF eval df t m
   Var st di -> evalVar st di t m
 
 evalLet :: HM.Numeric s => DeltaBinding s -> DeltaMap s -> DeltaMap s
@@ -143,10 +143,10 @@ evalLet binding (ms, mv) = case binding of
   (DeltaBinding st di de) -> case st of
     SScalar -> case Map.lookup di ms of
       Nothing -> (ms, mv)
-      Just x -> eval x de (Map.delete di ms, mv)
+      Just x -> eval de x (Map.delete di ms, mv)
     SVector -> case Map.lookup di mv of
       Nothing -> (ms, mv)
-      Just x -> eval x de (ms, Map.delete di mv)
+      Just x -> eval de x (ms, Map.delete di mv)
 
 runDelta ::
   HM.Numeric s =>
