@@ -187,8 +187,8 @@ runDualMonadS ::
   HM.Numeric s =>
   s `IsScalarOf` t ->
   t ->
-  DualMonadGradient s (Dual s (Delta s t)) ->
-  (s, DeltaMap s)
+  DualMonadGradient s (Dual t' (Delta s t)) ->
+  (t', DeltaMap s)
 runDualMonadS st g m =
   let (Dual t delta, bs) = runDualMonadM m
       (bs', m') = case st of
