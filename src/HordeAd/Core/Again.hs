@@ -72,7 +72,7 @@ deriving instance (Storable s, Show s) => Show (DeltaBinding s)
 
 data Delta (s :: Type) (t :: Type) where
   Delta :: DeltaF s (Delta s) t -> Delta s t
-  Var :: DeltaId t -> Delta s t
+  Var :: s `IsScalarOf` t -> DeltaId t -> Delta s t
   deriving (Show)
 
 type DeltaMap s = (Map.Map (DeltaId s) s, Map.Map (DeltaId (Vector s)) (Vector s))
@@ -99,29 +99,27 @@ evalDeltaF f t = \case
 
 eval ::
   HM.Numeric s =>
-  s `IsScalarOf` t ->
   t ->
   Delta s t ->
   DeltaMap s ->
   DeltaMap s
-eval st t delta m = case delta of
+eval t delta m = case delta of
   Delta df -> case df of
     Zero0 -> m
     Add0 de de' ->
-      eval SScalar t de $
-        eval SScalar t de' m
-    Scale0 t' de -> eval SScalar (t' * t) de m
+      eval t de $
+        eval t de' m
+    Scale0 t' de -> eval (t' * t) de m
     Index0 de i n ->
       eval
-        SVector
         (HM.fromList (map (\n' -> if n' == i then t else 0) [0 .. n -1]))
         de
         m
-    Dot1 de de' -> eval SVector (t `HM.scale` de) de' m
-    Add1 de de' -> eval SVector t de (eval SVector t de' m)
-    Scale1 s de -> eval SVector (s `HM.scale` t) de m
-    Konst1 de _ -> eval SScalar (HM.sumElements t) de m
-  Var di -> case st of
+    Dot1 de de' -> eval (t `HM.scale` de) de' m
+    Add1 de de' -> eval t de (eval t de' m)
+    Scale1 s de -> eval (s `HM.scale` t) de m
+    Konst1 de _ -> eval (HM.sumElements t) de m
+  Var st di -> case st of
     SScalar ->
       let (ms, mv) = m
        in ( Map.alter
@@ -150,10 +148,10 @@ evalLet binding (ms, mv) = case binding of
   (DeltaBinding st di de) -> case st of
     SScalar -> case Map.lookup di ms of
       Nothing -> (ms, mv)
-      Just x -> eval st x de (Map.delete di ms, mv)
+      Just x -> eval x de (Map.delete di ms, mv)
     SVector -> case Map.lookup di mv of
       Nothing -> (ms, mv)
-      Just x -> eval st x de (ms, Map.delete di mv)
+      Just x -> eval x de (ms, Map.delete di mv)
 
 runDelta ::
   HM.Numeric s =>
@@ -227,7 +225,7 @@ instance DualMonad s (Delta s) (DualMonadGradient s) where
                   deltaBindings st
               }
           )
-        pure (Var (deltaCounter0 st))
+        pure (Var sd (deltaCounter0 st))
       SVector -> do
         put
           ( st
@@ -237,7 +235,7 @@ instance DualMonad s (Delta s) (DualMonadGradient s) where
                   deltaBindings st
               }
           )
-        pure (Var (deltaCounter1 st))
+        pure (Var sd (deltaCounter1 st))
 
 newtype DualMonadValue r a = DualMonadValue
   {runDualMonadValue :: Identity a}
@@ -341,7 +339,7 @@ index (Dual v v') i =
 myFoo ::
   (Num a, DualMonad a (Delta a) m) =>
   m (Dual a (Delta a a))
-myFoo = foo (Dual 10 (Var (DeltaId (-1)))) (Dual 20 (Var (DeltaId (-2))))
+myFoo = foo (Dual 10 (Var SScalar (DeltaId (-1)))) (Dual 20 (Var SScalar (DeltaId (-2))))
 
 example :: HM.Numeric Double => (Double, DeltaMap Double)
 example = runDualMonad 1 myFoo
@@ -350,4 +348,4 @@ example2 :: (Dual Double (Delta Double Double), DeltaState Double)
 example2 = runDualMonadM myFoo
 
 example3 :: (Double, DeltaMap Double)
-example3 = runDualMonad 1 (bar (Dual (HM.fromList [10, 20]) (Var (DeltaId (-1)))))
+example3 = runDualMonad 1 (bar (Dual (HM.fromList [10, 20]) (Var SVector (DeltaId (-1)))))
