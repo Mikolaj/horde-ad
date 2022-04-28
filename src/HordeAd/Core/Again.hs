@@ -59,24 +59,24 @@ deriving instance
   (Show s, Show (dual s), Show (dual (Vector s)), Storable s) =>
   Show (DeltaF s dual t)
 
-newtype DeltaId (t :: Type) where
-  DeltaId :: Int -> DeltaId t
+newtype DeltaId (s :: Type) (t :: Type) where
+  DeltaId :: Int -> DeltaId s t
   deriving (Eq, Ord, Show)
 
-succDeltaId :: DeltaId d -> DeltaId d
+succDeltaId :: DeltaId s d -> DeltaId s d
 succDeltaId (DeltaId i) = DeltaId (i + 1)
 
 data DeltaBinding s where
-  DeltaBinding :: s `IsScalarOf` t -> DeltaId t -> Delta s t -> DeltaBinding s
+  DeltaBinding :: s `IsScalarOf` t -> DeltaId s t -> Delta s t -> DeltaBinding s
 
 deriving instance (Storable s, Show s) => Show (DeltaBinding s)
 
 data Delta (s :: Type) (t :: Type) where
   Delta :: DeltaF s (Delta s) t -> Delta s t
-  Var :: s `IsScalarOf` t -> DeltaId t -> Delta s t
+  Var :: s `IsScalarOf` t -> DeltaId s t -> Delta s t
   deriving (Show)
 
-type DeltaMap s = (Map.Map (DeltaId s) s, Map.Map (DeltaId (Vector s)) (Vector s))
+type DeltaMap s = (Map.Map (DeltaId s s) s, Map.Map (DeltaId s (Vector s)) (Vector s))
 
 evalDeltaF ::
   (Monoid m, HM.Numeric s) =>
@@ -101,7 +101,7 @@ evalDeltaF f deltaF t = case deltaF of
 evalVar ::
   HM.Numeric s =>
   IsScalarOf s t ->
-  DeltaId t ->
+  DeltaId s t ->
   t ->
   DeltaMap s ->
   DeltaMap s
@@ -195,8 +195,8 @@ runDualMonad ::
 runDualMonad = runDualMonadS known
 
 data DeltaState s = DeltaState
-  { deltaCounter0 :: DeltaId s,
-    deltaCounter1 :: DeltaId (Vector s),
+  { deltaCounter0 :: DeltaId s s,
+    deltaCounter1 :: DeltaId s (Vector s),
     deltaBindings :: [DeltaBinding s]
   }
   deriving (Show)
