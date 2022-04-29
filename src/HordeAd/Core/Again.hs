@@ -564,6 +564,9 @@ dSingleArg = runDualMonadAdapt . adaptArg
 -- and for quad also in TestSimpleDescent (but for that one we need
 -- the simplest gradient descent optimizer).
 
+testAgain :: Bool
+testAgain = testThreeVariantsOfSumElement
+
 quad ::
   (DualMonad s dual m, Num s, Ops DeltaF s dual) =>
   Dual s (dual s) ->
@@ -588,6 +591,16 @@ foldl'0 f uu' (Dual v v') =
 altSumElements0 :: (HM.Numeric s, Ops DeltaF s dual)
                 => Dual (Vector s) (dual (Vector s)) -> Dual s (dual s)
 altSumElements0 = foldl'0 (+) 0
+
+-- TODO: can't test the first variant, because it takes many arguments
+testThreeVariantsOfSumElement :: Bool
+testThreeVariantsOfSumElement =
+  let sumElementsV = dLet . sumElements
+      altSumElementsV = dLet . altSumElements0
+      t = V.fromList [1, 1, 3 :: Double]
+      result = (5, V.fromList [1, 1, 1])
+  in dSingleArg t 1 sumElementsV == result
+     && dSingleArg t 1 altSumElementsV == result
 
 atanReadmePoly ::
   (RealFloat s, Ops DeltaF s dual) =>
