@@ -337,6 +337,35 @@ dLet ::
   m (Dual t (dual t))
 dLet = dLetS known
 
+
+newtype ArgAdaptor s t pd = ArgAdaptor (State Int (DeltaMap s -> t, pd))
+
+runArgAdaptor ::
+  ArgAdaptor s t pd ->
+  (DeltaMap s -> t, pd)
+runArgAdaptor (ArgAdaptor s) = evalState s (-1)
+
+adaptArg ::
+  Known (IsScalarOf s t) =>
+  t ->
+  ArgAdaptor s t (Dual t (Delta s t))
+adaptArg t = ArgAdaptor $ do
+  i <- get
+  put (i - 1)
+  let lookup' m = case deltaMapLookup (DeltaId i) m of
+        Nothing -> error ("No such DeltaId: " ++ show i)
+        Just j -> j
+
+  pure (lookup', Dual t (Var (DeltaId i)))
+
+liftB2 :: ArgAdaptor s t1 pd1
+       -> ArgAdaptor s t2 pd2
+       -> ArgAdaptor s (t1, t2) (pd1, pd2)
+liftB2 (ArgAdaptor a1) (ArgAdaptor a2) = ArgAdaptor $ do
+  (lookup1, arg1) <- a1
+  (lookup2, arg2) <- a2
+  pure (\m -> (lookup1 m, lookup2 m), (arg1, arg2))
+
 data Dual a b = Dual a b
   deriving (Show)
 
@@ -460,31 +489,3 @@ example = runDualMonadAdapt (liftB2 (adaptArg 10) (adaptArg 20)) 1 (uncurry foo)
 
 example3 :: (Double, Vector Double)
 example3 = runDualMonadAdapt (adaptArg (HM.fromList [10, 20])) 1 bar
-
-newtype ArgAdaptor s t pd = ArgAdaptor (State Int (DeltaMap s -> t, pd))
-
-runArgAdaptor ::
-  ArgAdaptor s t pd ->
-  (DeltaMap s -> t, pd)
-runArgAdaptor (ArgAdaptor s) = evalState s (-1)
-
-adaptArg ::
-  Known (IsScalarOf s t) =>
-  t ->
-  ArgAdaptor s t (Dual t (Delta s t))
-adaptArg t = ArgAdaptor $ do
-  i <- get
-  put (i - 1)
-  let lookup' m = case deltaMapLookup (DeltaId i) m of
-        Nothing -> error ("No such DeltaId: " ++ show i)
-        Just j -> j
-
-  pure (lookup', Dual t (Var (DeltaId i)))
-
-liftB2 :: ArgAdaptor s t1 pd1
-       -> ArgAdaptor s t2 pd2
-       -> ArgAdaptor s (t1, t2) (pd1, pd2)
-liftB2 (ArgAdaptor a1) (ArgAdaptor a2) = ArgAdaptor $ do
-  (lookup1, arg1) <- a1
-  (lookup2, arg2) <- a2
-  pure (\m -> (lookup1 m, lookup2 m), (arg1, arg2))
