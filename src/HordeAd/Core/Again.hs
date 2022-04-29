@@ -218,8 +218,9 @@ runDualMonadM m = runState (runDualMonadGradient m) initialState
         }
 
 runDualMonadAdapt ::
-  (HM.Numeric s,
-  Known (s `IsScalarOf` t)) =>
+  ( HM.Numeric s,
+    Known (s `IsScalarOf` t)
+  ) =>
   ArgAdaptor s arg dual ->
   t ->
   (dual -> DualMonadGradient s (Dual t' (Delta s t))) ->
@@ -324,7 +325,6 @@ dLet ::
   m (Dual t (dual t))
 dLet = dLetS known
 
-
 newtype ArgAdaptor s t pd = ArgAdaptor (State Int (DeltaMap s -> t, pd))
 
 runArgAdaptor ::
@@ -345,9 +345,10 @@ adaptArg t = ArgAdaptor $ do
 
   pure (lookup', Dual t (Var (DeltaId i)))
 
-liftB2 :: ArgAdaptor s t1 pd1
-       -> ArgAdaptor s t2 pd2
-       -> ArgAdaptor s (t1, t2) (pd1, pd2)
+liftB2 ::
+  ArgAdaptor s t1 pd1 ->
+  ArgAdaptor s t2 pd2 ->
+  ArgAdaptor s (t1, t2) (pd1, pd2)
 liftB2 (ArgAdaptor a1) (ArgAdaptor a2) = ArgAdaptor $ do
   (lookup1, arg1) <- a1
   (lookup2, arg2) <- a2
@@ -545,7 +546,19 @@ example :: (Double, (Double, Double))
 example = runDualMonadAdapt (liftB2 (adaptArg 10) (adaptArg 20)) 1 (uncurry foo)
 
 example3 :: (Double, Vector Double)
-example3 = runDualMonadAdapt (adaptArg (HM.fromList [10, 20])) 1 bar
+example3 = dSingleArg (HM.fromList [10, 20]) 1 bar
+
+dSingleArg ::
+  (HM.Numeric s, Known (IsScalarOf s r), Known (IsScalarOf s t)) =>
+  -- | Primal argument
+  t ->
+  -- | Incoming gradient (usually r ~ Double and r = 1)
+  r ->
+  -- | Function to be differentiated
+  (Dual t (Delta s t) -> DualMonadGradient s (Dual r (Delta s r))) ->
+  -- | Result of original function, and its gradient
+  (r, t)
+dSingleArg = runDualMonadAdapt . adaptArg
 
 -- We have test results recorded for the tests below in TestSingleGradient
 -- and for quad also in TestSimpleDescent (but for that one we need
