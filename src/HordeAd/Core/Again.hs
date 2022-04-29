@@ -520,9 +520,6 @@ myFoo = foo (Dual 10 (Var (DeltaId (-1)))) (Dual 20 (Var (DeltaId (-2))))
 example :: (Double, (Double, Double))
 example = runDualMonadAdapt (liftB2 (adaptArg 10) (adaptArg 20)) 1 (uncurry foo)
 
-example2 :: (Dual Double (Delta Double Double), DeltaState Double)
-example2 = runDualMonadM myFoo
-
 example3 :: (Double, DeltaMap Double)
 example3 = runDualMonad 1 (bar (Dual (HM.fromList [10, 20]) (Var (DeltaId (-1)))))
 
