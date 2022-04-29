@@ -6,7 +6,7 @@
 module HordeAd.Core.Again (module HordeAd.Core.Again) where
 
 import           Control.Monad.Trans.State
-  (State, StateT (StateT), get, modify, put, runState)
+  (State, StateT (StateT), evalState, get, modify, put, runState)
 import           Data.Functor.Identity (Identity (Identity))
 import           Data.Kind (Type)
 import           Data.List (foldl')
@@ -514,6 +514,11 @@ example3 :: (Double, DeltaMap Double)
 example3 = runDualMonad 1 (bar (Dual (HM.fromList [10, 20]) (Var (DeltaId (-1)))))
 
 newtype ArgAdaptor s t pd = ArgAdaptor (State Int (DeltaMap s -> t, pd))
+
+runArgAdaptor ::
+  ArgAdaptor s t pd ->
+  (DeltaMap s -> t, pd)
+runArgAdaptor (ArgAdaptor s) = evalState s (-1)
 
 adaptArg ::
   Known (IsScalarOf s t) =>
