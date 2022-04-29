@@ -230,6 +230,19 @@ runDualMonadM m = runState (runDualMonadGradient m) initialState
           deltaBindings = []
         }
 
+runDualMonadAdapt ::
+  (HM.Numeric s,
+  Known (s `IsScalarOf` t)) =>
+  ArgAdaptor s arg dual ->
+  t ->
+  (dual -> DualMonadGradient s (Dual t' (Delta s t))) ->
+  (t', arg)
+runDualMonadAdapt aa g f =
+  let (lookup', arg) = runArgAdaptor aa
+      m = f arg
+      (t', dm) = runDualMonadS known g m
+   in (t', lookup' dm)
+
 runDualMonadS ::
   HM.Numeric s =>
   s `IsScalarOf` t ->
