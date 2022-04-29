@@ -463,8 +463,8 @@ myFoo = foo (Dual 10 (Var (DeltaId (-1)))) (Dual 20 (Var (DeltaId (-2))))
 example :: (Double, (Double, Double))
 example = runDualMonadAdapt (liftB2 (adaptArg 10) (adaptArg 20)) 1 (uncurry foo)
 
-example3 :: (Double, DeltaMap Double)
-example3 = runDualMonad 1 (bar (Dual (HM.fromList [10, 20]) (Var (DeltaId (-1)))))
+example3 :: (Double, Vector Double)
+example3 = runDualMonadAdapt (adaptArg (HM.fromList [10, 20])) 1 bar
 
 newtype ArgAdaptor s t pd = ArgAdaptor (State Int (DeltaMap s -> t, pd))
 
