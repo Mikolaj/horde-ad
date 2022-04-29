@@ -12,6 +12,8 @@ import           Test.Tasty.QuickCheck
 
 import HordeAd hiding (sumElementsVectorOfDual)
 
+import HordeAd.Core.Again (testAgain)
+
 testTrees :: [TestTree]
 testTrees = [ testDReverse0
             , testDReverse1
@@ -20,6 +22,7 @@ testTrees = [ testDReverse0
             , quickCheckForwardAndBackward
             , readmeTests
             , readmeTestsV
+            , testCase "Again" $ assertBool "test" testAgain
             ]
 
 -- Unfortunately, monadic versions of the operations below are not
