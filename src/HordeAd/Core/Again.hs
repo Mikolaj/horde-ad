@@ -566,6 +566,7 @@ dSingleArg = runDualMonadAdapt . adaptArg
 
 testAgain :: Bool
 testAgain = testThreeVariantsOfSumElement
+--            && testTwoVariantsOfatanReadme
 
 quad ::
   (DualMonad s dual m, Num s, Ops DeltaF s dual) =>
@@ -662,3 +663,11 @@ atanReadmeMPolyV ::
   m (Dual s (dual s))
 atanReadmeMPolyV xyzVector =
   dLet $ atanReadmePolyV xyzVector <.>!! HM.konst 1 2
+
+-- TODO: can't test the first variant, because it takes many arguments
+-- TODO: requires @seq1@
+testTwoVariantsOfatanReadme :: Bool
+testTwoVariantsOfatanReadme =
+  let t = V.fromList [1.1 :: Float, 2.2, 3.3]
+      result = (4.937552, V.fromList [3.0715904, 0.18288425, 1.1761366])
+  in dSingleArg t 1 atanReadmeMPolyV == result
