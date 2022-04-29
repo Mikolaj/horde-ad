@@ -484,9 +484,9 @@ index (Dual v v') i =
     Dual (HM.atIndex v i) (ops (Index0 v' i (HM.size v)))
 
 sumElements ::
-  (HM.Numeric a, Ops DeltaF s dual) =>
-  Dual (Vector a) (dual (Vector s)) ->
-  Dual a (dual s)
+  (HM.Numeric s, Ops DeltaF s dual) =>
+  Dual (Vector s) (dual (Vector s)) ->
+  Dual s (dual s)
 sumElements (Dual u u') = Dual (HM.sumElements u) (dSumElements u' (HM.size u))
 
 --
