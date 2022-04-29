@@ -488,3 +488,11 @@ adaptArg t = ArgAdaptor $ do
         Just j -> j
 
   pure (lookup', Dual t (Var (DeltaId i)))
+
+liftB2 :: ArgAdaptor s t1 pd1
+       -> ArgAdaptor s t2 pd2
+       -> ArgAdaptor s (t1, t2) (pd1, pd2)
+liftB2 (ArgAdaptor a1) (ArgAdaptor a2) = ArgAdaptor $ do
+  (lookup1, arg1) <- a1
+  (lookup2, arg2) <- a2
+  pure (\m -> (lookup1 m, lookup2 m), (arg1, arg2))
