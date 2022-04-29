@@ -85,6 +85,14 @@ singleton dId t = case knownDeltaId dId of
   SScalar -> DeltaMap (Map.singleton dId t) Map.empty
   SVector -> DeltaMap Map.empty (Map.singleton dId t)
 
+deltaMapLookup ::
+  DeltaId s t ->
+  DeltaMap s ->
+  Maybe t
+deltaMapLookup dId m = case knownDeltaId dId of
+  SScalar -> Map.lookup dId (dmScalar m)
+  SVector -> Map.lookup dId (dmVector m)
+
 -- Definiton:
 --
 -- We say that "f has the special property" when
