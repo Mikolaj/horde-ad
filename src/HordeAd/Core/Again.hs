@@ -512,11 +512,6 @@ sumElements (Dual u u') = Dual (HM.sumElements u) (dSumElements u' (HM.size u))
 
 --
 
-myFoo ::
-  (Num a, DualMonad a (Delta a) m) =>
-  m (Dual a (Delta a a))
-myFoo = foo (Dual 10 (Var (DeltaId (-1)))) (Dual 20 (Var (DeltaId (-2))))
-
 example :: (Double, (Double, Double))
 example = runDualMonadAdapt (liftB2 (adaptArg 10) (adaptArg 20)) 1 (uncurry foo)
 
