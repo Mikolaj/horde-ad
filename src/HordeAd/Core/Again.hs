@@ -513,6 +513,21 @@ example2 = runDualMonadM myFoo
 example3 :: (Double, DeltaMap Double)
 example3 = runDualMonad 1 (bar (Dual (HM.fromList [10, 20]) (Var (DeltaId (-1)))))
 
+newtype ArgAdaptor s t pd = ArgAdaptor (State Int (DeltaMap s -> t, pd))
+
+adaptArg ::
+  Known (IsScalarOf s t) =>
+  t ->
+  ArgAdaptor s t (Dual t (Delta s t))
+adaptArg t = ArgAdaptor $ do
+  i <- get
+  put (i - 1)
+  let lookup' m = case deltaMapLookup (DeltaId i) m of
+        Nothing -> error ("No such DeltaId: " ++ show i)
+        Just j -> j
+
+  pure (lookup', Dual t (Var (DeltaId i)))
+
 -- We have test results recorded for the tests below in TestSingleGradient
 -- and for quad also in TestSimpleDescent (but for that one we need
 -- the simplest gradient descent optimizer).
