@@ -13,6 +13,8 @@ import           Test.Tasty.QuickCheck
 
 import HordeAd hiding (sumElementsVectorOfDual)
 
+import HordeAd.Core.Again (testAgain)
+
 testTrees :: [TestTree]
 testTrees = [ dfTests
             , vectorTests
@@ -21,6 +23,7 @@ testTrees = [ dfTests
             , quickCheckForwardAndBackward
             , readmeTests
             , readmeTestsV
+            , testCase "Again" $ assertBool "test" testAgain
             ]
 
 -- Unfortunately, monadic versions of the operations below are not
