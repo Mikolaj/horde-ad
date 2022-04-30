@@ -1,9 +1,9 @@
 # horde-ad
-Higher Order Reverse Derivatives Efficiently - Automatic Differentiation library based on the paper "Provably correct, asymptotically efficient, higher-order reverse-mode automatic differentiation"
+Higher Order Reverse Derivatives Efficiently - Automatic Differentiation library based on the paper "Provably correct, asymptotically efficient, higher-order reverse-mode automatic differentiation" by Faustyna Krawiec, Neel Krishnaswami, Simon Peyton Jones, Tom Ellis, Andrew Fitzgibbon and Richard Eisenberg.
 
-This is very much WIP, both engine and API. For now it can do MNIST digit recognition via fully connected neural networks, but it can also handle exotic variants of such networks that wouldn't express well in a language of matrices and their operations. It can also do all kinds of wild Haskell toy examples but the API is not toy-friendly ATM, see a sample below.
+This is an early prototype, both in terms of performance of the engine and the API and toolbox for the library user. The user should be ready to add missing primitives, as well as obvious tools that should be predefined but aren't. One can already define all basic neural network architectures, such as fully connected, recurrent, convolutional and residual. The library can also handle exotic variants of such networks that wouldn't express well in a language of matrices or tensors. Applications outside machine learning are plausible, given that the notion of a neural network is not hardwired into the formalism, but ad hoc built from basic blocks of general automatic differentiation, whenever it's needed in a test or benchmark of the library.
 
-Mature Haskell libraries with similar and greater capabilities, but varying efficiency, are https://hackage.haskell.org/package/ad and https://hackage.haskell.org/package/backprop. We owe them; see https://github.com/Mikolaj/horde-ad/blob/master/CREDITS.md.
+Mature Haskell libraries with similar capabilities, but varying efficiency, are https://hackage.haskell.org/package/ad and https://hackage.haskell.org/package/backprop. We owe them; see https://github.com/Mikolaj/horde-ad/blob/master/CREDITS.md.
 
 Here is an example of computing the gradient of a function that goes from `R^3` to `R^2`
 
@@ -13,11 +13,13 @@ f (x, y, z) =
     in (atan2 (z, w), z * x)
 ```
 
-https://github.com/Mikolaj/horde-ad/blob/e7912a7b44b8174701bd59016e1d52b99cc26a3b/test/TestSingleGradient.hs#L116-L176
+https://github.com/Mikolaj/horde-ad/blob/5391d3c7dd8893d6038886f4b77b2adbdc5579a7/test/common/TestSingleGradient.hs#L258-L311
 
-The WIP noise is visible in notation and in comments. The ratio of signal to noise raises once you settle on a scalar type, define a toolbox of functions for the task at hand and start composing the functions.
+Elsewhere in the file is a computation of the forward derivative of the same function and a QuickCheck test relating it to the gradient. It uses the same definition of the objective function and the same glue code for grouping parameters. The ratio of signal to noise (maths to glue code) is much higher in more complex functions, e.g., neural networks. Several sample neural networks for MNIST digit classification are gathered in
 
-Larger examples with the library are the fully connected neural networks for MNIST digit classification constructed using, in turn: [matrices](https://github.com/Mikolaj/horde-ad/blob/master/src/HordeAd/MnistToolsMatrix.hs), [vectors](https://github.com/Mikolaj/horde-ad/blob/master/src/HordeAd/MnistToolsVector.hs) and [scalars](https://github.com/Mikolaj/horde-ad/blob/master/src/HordeAd/MnistToolsScalar.hs).
+https://github.com/Mikolaj/horde-ad/tree/5391d3c7dd8893d6038886f4b77b2adbdc5579a7/src/HordeAd/Tool
+
+Among them are recurrent, convolutional and fully connected networks based on fully typed tensors (sizes of all dimensions are tracked in the types) as well as weakly typed fully connected networks built with, respectively, matrices, vectors and raw scalars (most flexible but slowest).
 
 
 Compilation from source
