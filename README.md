@@ -5,13 +5,7 @@ This is an early prototype, both in terms of the engine performance and the API 
 
 Here is an example of computing the gradient of a function that goes from `R^3` to `R^2`
 
-```Haskell
-f (x, y, z) =
-    let w = x * sin y
-    in (atan2 (z, w), z * x)
-```
-
-https://github.com/Mikolaj/horde-ad/blob/5391d3c7dd8893d6038886f4b77b2adbdc5579a7/test/common/TestSingleGradient.hs#L258-L311
+https://github.com/Mikolaj/horde-ad/blob/84ef858baf9f4495dbeec235a29a0497f17b2a1d/test/common/TestSingleGradient.hs#L252-L326
 
 Elsewhere in the same file is a computation of the forward derivative of the function and a QuickCheck test relating it to the gradient. It uses the same definition of the objective function and the same glue code for grouping parameters, etc. The ratio of signal to noise (maths to glue code) is much higher in more complex functions, e.g., neural networks. Several sample neural networks for MNIST digit classification are gathered in
 
