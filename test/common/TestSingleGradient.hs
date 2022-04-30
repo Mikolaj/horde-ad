@@ -122,32 +122,33 @@ dfTests = testGroup "Simple dReverse application tests" $
     ]
 
 vec_omit_scalarSum_aux
-  :: DualMonad (Delta0 Float) m
-  => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+  :: DualMonad r m
+  => DualNumberVariables r -> m (DualNumber r)
 vec_omit_scalarSum_aux vec = returnLet $ foldlDual' (+) 0 vec
 
 sumElementsV
-  :: DualMonad (Delta0 Float) m
-  => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+  :: DualMonad r m
+  => DualNumberVariables r -> m (DualNumber r)
 sumElementsV variables = do
   let x = var1 variables 0
   returnLet $ sumElements0 x
 
 altSumElementsV
-  :: DualMonad (Delta0 Float) m
-  => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+  :: DualMonad r m
+  => DualNumberVariables r -> m (DualNumber r)
 altSumElementsV variables = do
   let x = var1 variables 0
   returnLet $ altSumElements0 x
 
 dfVectorShow
-  :: (DualNumberVariables (Delta0 Float)
-      -> DualMonadGradient (Delta0 Float) (DualNumber (Delta0 Float)))
+  :: (HasDelta r, Primal r ~ Float)
+  => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
   -> [[Float]]
   -> ([[Float]], Float)
 dfVectorShow f deltaInput =
   let ((_, results, _, _), value) =
-        dReverse f (V.empty, V.fromList (map V.fromList deltaInput), V.empty, V.empty)
+        dReverse f
+          (V.empty, V.fromList (map V.fromList deltaInput), V.empty, V.empty)
   in (map V.toList $ V.toList results, value)
 
 vectorTests :: TestTree
@@ -207,7 +208,7 @@ dfTestsFastForward =
     ]
 
 dfDotShow
-  :: r ~ Delta0 Double
+  :: HasDelta r
   => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
   -> ([Primal r], [Primal r])
   -> ([Primal r], [Primal r])
