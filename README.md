@@ -3,7 +3,7 @@ Higher Order Reverse Derivatives Efficiently - Automatic Differentiation library
 
 This is an early prototype, both in terms of the engine performance and the API and toolbox for the library user. The user should be ready to add missing primitives, as well as obvious tools that should be predefined but aren't. One can already build with the library all basic neural network architectures, such as fully connected, recurrent, convolutional and residual networks. The library, due to its loose coupling of differentiation and data containers, can naturally handle exotic variants of such networks that wouldn't express well in a language of matrices or tensors. Applications outside machine learning are plausible, given that the notion of a neural network is not hardwired into the formalism, but ad hoc redefined from basic blocks of general automatic differentiation whenever it's needed, e.g., in the tests and benchmarks of the library.
 
-Here is an example of computing the gradient of a function that goes from `R^3` to `R^2`
+Here is an example of computing the gradient of a function that goes from `R^3` to `R^2`:
 
 https://github.com/Mikolaj/horde-ad/blob/84ef858baf9f4495dbeec235a29a0497f17b2a1d/test/common/TestSingleGradient.hs#L252-L326
 
