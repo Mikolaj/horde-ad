@@ -603,29 +603,39 @@ testThreeVariantsOfSumElement =
   in dSingleArg t 1 sumElementsV == result
      && dSingleArg t 1 altSumElementsV == result
 
-atanReadmePoly ::
+atanReadmeOriginal :: RealFloat a => a -> a -> a -> Data.Vector.Vector a
+atanReadmeOriginal x y z =
+  let w = x * sin y
+  in V.fromList [atan2 z w, z * x]
+
+atanReadmeDual ::
   (RealFloat s, Ops DeltaF s dual) =>
   Dual s (dual s) ->
   Dual s (dual s) ->
   Dual s (dual s) ->
   Data.Vector.Vector (Dual s (dual s))
-atanReadmePoly x y z =
-  let w = x * sin y
-  in V.fromList [atan2 z w, z * x]
+atanReadmeDual x y z = atanReadmeOriginal x y z
 
-sumElementsVectorOfDual :: (Num s, Ops DeltaF s dual)
-                        => Data.Vector.Vector (Dual s (dual s))
-                        -> Dual s (dual s)
-sumElementsVectorOfDual = V.foldl' (+) 0
+sumElementsOfDualNumbers
+  :: (Num s, Ops DeltaF s dual)
+  => Data.Vector.Vector (Dual s (dual s)) -> Dual s (dual s)
+sumElementsOfDualNumbers = V.foldl' (+) 0
 
-atanReadmeMPoly ::
+atanReadmeScalar ::
+  (RealFloat s, Ops DeltaF s dual) =>
+  Dual s (dual s) ->
+  Dual s (dual s) ->
+  Dual s (dual s) ->
+  Dual s (dual s)
+atanReadmeScalar x y z = sumElementsOfDualNumbers $ atanReadmeDual x y z
+
+atanReadmeM ::
   (DualMonad s dual m, RealFloat s, Ops DeltaF s dual) =>
   Dual s (dual s) ->
   Dual s (dual s) ->
   Dual s (dual s) ->
   m (Dual s (dual s))
-atanReadmeMPoly x y z =
-  dLet $ sumElementsVectorOfDual $ atanReadmePoly x y z
+atanReadmeM x y z = dLet $ atanReadmeScalar x y z
 
 indexNoM ::
   (HM.Numeric s, Ops DeltaF s dual) =>
@@ -641,33 +651,28 @@ seq1 ::  -- (HM.Numeric s, Ops DeltaF s dual)
      -> Dual (Vector s) (dual (Vector s))
 seq1 = undefined
 
-atanReadmePolyV :: (HM.Numeric s, RealFloat s, Ops DeltaF s dual)
-                => Dual (Vector s) (dual (Vector s))
-                -> Dual (Vector s) (dual (Vector s))
-atanReadmePolyV xyzVector =
+vatanReadmeM
+  :: (DualMonad s dual m, HM.Numeric s, RealFloat s, Ops DeltaF s dual)
+  => Dual (Vector s) (dual (Vector s))
+  -> m (Dual s (dual s))
+vatanReadmeM xyzVector = do
   let x = indexNoM xyzVector 0
       y = indexNoM xyzVector 1
       z = indexNoM xyzVector 2
-      w = x * sin y
-  in seq1 $ V.fromList [atan2 z w, z * x]
+      v = seq1 $ atanReadmeOriginal x y z
+  dLet $ sumElements v
 
--- | Dot product with a constant vector.
+-- Dot product with a constant vector. Was used in a previous version
+-- of the test.
 infixr 8 <.>!!
 (<.>!!) :: (HM.Numeric s, Ops DeltaF s dual)
         => Dual (Vector s) (dual (Vector s)) -> Vector s -> Dual s (dual s)
 (<.>!!) (Dual u u') v = Dual (u HM.<.> v) (ops (Dot1 v u'))
 
-atanReadmeMPolyV ::
-  (DualMonad s dual m, HM.Numeric s, RealFloat s, Ops DeltaF s dual) =>
-  Dual (Vector s) (dual (Vector s)) ->
-  m (Dual s (dual s))
-atanReadmeMPolyV xyzVector =
-  dLet $ atanReadmePolyV xyzVector <.>!! HM.konst 1 2
-
 -- TODO: can't test the first variant, because it takes many arguments
--- TODO: requires @seq1@
+-- TODO: the second variant requires @seq1@
 testTwoVariantsOfatanReadme :: Bool
 testTwoVariantsOfatanReadme =
   let t = V.fromList [1.1 :: Float, 2.2, 3.3]
       result = (4.937552, V.fromList [3.0715904, 0.18288425, 1.1761366])
-  in dSingleArg t 1 atanReadmeMPolyV == result
+  in dSingleArg t 1 vatanReadmeM == result
