@@ -172,13 +172,14 @@ dForwardShow f (deltaInput, deltaInputV) (ds0, ds1) =
              , V.empty, V.empty )
 
 dfTestsForward :: TestTree
-dfTestsForward = testGroup "Simple dReverse (Forward Double) application tests" $
+dfTestsForward =
+ testGroup "Simple dReverse (Forward Double) application tests" $
   map (\(txt, f, v, expected) ->
         testCase txt $ dForwardShow f v v @?= expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
     , ( "atanReadmeM", atanReadmeM, ([1.1, 2.2, 3.3], [])
       , (7.662345305800865, 4.9375516951604155) )
-    , ( "atanReadmeMV", atanReadmeMV, ([], [1.1, 2.2, 3.3])
+    , ( "vatanReadmeM", vatanReadmeM, ([], [1.1, 2.2, 3.3])
       , (7.662345305800865, 4.9375516951604155) )
     ]
 
@@ -203,7 +204,7 @@ dfTestsFastForward =
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
     , ( "atanReadmeM", atanReadmeM, ([1.1, 2.2, 3.3], [])
       , (7.662345305800865, 4.9375516951604155) )
-    , ( "atanReadmeMV", atanReadmeMV, ([], [1.1, 2.2, 3.3])
+    , ( "vatanReadmeM", vatanReadmeM, ([], [1.1, 2.2, 3.3])
       , (7.662345305800865, 4.9375516951604155) )
     ]
 
@@ -225,7 +226,7 @@ dfDotShow f (deltaInput, deltaInputV) (ds0, ds1) =
 -- at https://github.com/Mikolaj/horde-ad/issues/15#issuecomment-1063251319
 quickCheckForwardAndBackward :: TestTree
 quickCheckForwardAndBackward =
-  testGroup "Verify two forward derivative methods and one backprop gradient method give compatible results" $
+  testGroup "Simple case of verifying two forward derivative methods and one backprop gradient method give compatible results" $
     let qcTest :: TestName
                -> (forall r m. DualMonad r m
                    => DualNumberVariables r -> m (DualNumber r))
@@ -244,24 +245,28 @@ quickCheckForwardAndBackward =
     in [ qcTest "fquad" fquad (\(x, y, _z) -> ([x, y], []))
        , qcTest "atanReadmeM" atanReadmeM
                 (\(x, y, z) -> ([x, y, z], []))
-       , qcTest "atanReadmeMV" atanReadmeMV
+       , qcTest "vatanReadmeM" vatanReadmeM
                 (\(x, y, z) -> ([], [x, y, z]))
        ]
 
--- The input vector is meant to have 3 elements, the output vector
--- two elements. In the future we may use something like
--- https://hackage.haskell.org/package/vector-sized-1.5.0
--- to express the sizes in types, or we may be able to handle tuples
--- automatically. For now, the user has to translate from tuples
--- to vectors manually and we omit this straightforward boilerplate code here.
--- TODO: while we use weakly-typed vectors, work on user-friendly errors
--- if the input record is too short.
-atanReadme :: IsScalar r
-           => DualNumberVariables r -> Data.Vector.Vector (DualNumber r)
-atanReadme variables =
-  let x : y : z : _ = vars variables
-      w = x * sin y
+-- A function that goes from `R^3` to `R^2`, with a representation
+-- of the input and the output tuple that is convenient for interfacing
+-- with the library.
+atanReadmeOriginal :: RealFloat a => a -> a -> a -> Data.Vector.Vector a
+atanReadmeOriginal x y z =
+  let w = x * sin y
   in V.fromList [atan2 z w, z * x]
+
+-- Here we instantiate the function to dual numbers
+-- and add a glue code that selects the function inputs from
+-- a uniform representation of objective function parameters
+-- represented as delta-variables (`DualNumberVariables`).
+atanReadmeVariables
+  :: IsScalar r
+  => DualNumberVariables r -> Data.Vector.Vector (DualNumber r)
+atanReadmeVariables variables =
+  let x : y : z : _ = vars variables
+  in atanReadmeOriginal x y z
 
 -- According to the paper, to handle functions with non-scalar results,
 -- we dot-product them with dt which, for simplicity, we here set
@@ -270,41 +275,50 @@ atanReadme variables =
 -- emit a warning too, in case the user just forgot to apply
 -- a loss function and that's the only reason the result is not a scalar?).
 -- For now, let's perform the dot product in user code.
--- Here is the code for dot product with ones, which is just the sum
--- of elements of a vector:
-sumElementsVectorOfDual :: IsScalar r
-                        => Data.Vector.Vector (DualNumber r)
-                        -> DualNumber r
-sumElementsVectorOfDual = V.foldl' (+) 0
 
--- Here we introduce the only Delta-let binding (@returnLet@) to ensure
+-- Here is the function for dot product with ones, which is just the sum
+-- of elements of a vector.
+sumElementsOfDualNumbers
+  :: IsScalar r
+  => Data.Vector.Vector (DualNumber r) -> DualNumber r
+sumElementsOfDualNumbers = V.foldl' (+) 0
+
+-- Here we apply the function.
+atanReadmeScalar
+  :: IsScalar r
+  => DualNumberVariables r -> DualNumber r
+atanReadmeScalar = sumElementsOfDualNumbers . atanReadmeVariables
+
+-- Here we introduce a single delta-let binding (`returnLet`) to ensure
 -- that if this code is used in a larger context and repeated,
--- no explosion of delta-expression can happen.
+-- no explosion of delta-expressions can happen.
 -- If the code above had any repeated non-variable expressions
 -- (e.g., if @w@ appeared twice) the user would need to make it monadic
 -- and apply @returnLet@ already there.
-atanReadmeM :: DualMonad r m
-            => DualNumberVariables r -> m (DualNumber r)
-atanReadmeM variables =
-  returnLet $ sumElementsVectorOfDual $ atanReadme variables
+atanReadmeM
+  :: DualMonad r m
+  => DualNumberVariables r -> m (DualNumber r)
+atanReadmeM = returnLet . atanReadmeScalar
 
--- The underscores and empty vectors are placeholders for the vector
--- and matrix components of the parameters triple, which we here don't use
--- (we construct vectors, but from scalar parameters).
-dfAtanReadmeM :: HasDelta r
-              => Domain0 r -> (Domain0 r, Primal r)
-dfAtanReadmeM ds =
+-- The underscores and empty vectors are placeholders for the vector,
+-- matrix and arbitrary tensor components of the parameters tuple,
+-- which we here don't use (above we construct a vector output,
+-- but it's a vector of scalar parameters, not a single parameter
+-- of rank 1).
+atanReadmeDReverse :: HasDelta r
+                   => Domain0 r -> (Domain0 r, Primal r)
+atanReadmeDReverse ds =
   let ((result, _, _, _), value) =
         dReverse atanReadmeM (ds, V.empty, V.empty, V.empty)
   in (result, value)
 
 readmeTests :: TestTree
-readmeTests = testGroup "Tests of code from the library's README"
+readmeTests = testGroup "Simple tests for README"
   [ testCase " Float (1.1, 2.2, 3.3)"
-    $ dfAtanReadmeM (V.fromList [1.1 :: Float, 2.2, 3.3])
+    $ atanReadmeDReverse (V.fromList [1.1 :: Float, 2.2, 3.3])
       @?= (V.fromList [3.0715904, 0.18288425, 1.1761366], 4.937552)
   , testCase " Double (1.1, 2.2, 3.3)"
-    $ dfAtanReadmeM (V.fromList [1.1 :: Double, 2.2, 3.3])
+    $ atanReadmeDReverse (V.fromList [1.1 :: Double, 2.2, 3.3])
       @?= ( V.fromList [ 3.071590389300859
                        , 0.18288422990948425
                        , 1.1761365368997136 ]
@@ -316,39 +330,30 @@ readmeTests = testGroup "Tests of code from the library's README"
 -- via a primitive differentiable type of vectors instead of inside
 -- vectors of primitive differentiable scalars.
 
-atanReadmeV :: IsScalar r
-            => DualNumberVariables r -> DualNumber (Tensor1 r)
-atanReadmeV variables =
+vatanReadmeM
+  :: DualMonad r m
+  => DualNumberVariables r -> m (DualNumber r)
+vatanReadmeM variables = do
   let xyzVector = var1 variables 0
-      x = index0 xyzVector 0
-      y = index0 xyzVector 1
-      z = index0 xyzVector 2
-      w = x * sin y
-  in seq1 $ V.fromList [atan2 z w, z * x]
+      [x, y, z] = map (index0 xyzVector) [0, 1, 2]
+      v = seq1 $ atanReadmeOriginal x y z
+  returnLet $ sumElements0 v
 
-atanReadmeMV :: DualMonad r m
-             => DualNumberVariables r -> m (DualNumber r)
-atanReadmeMV variables =
-  returnLet $ atanReadmeV variables <.>!! HM.konst 1 2
-
--- The underscores and empty vectors are placeholders for the vector
--- and matrix components of the parameters triple, which we here don't use
--- (we construct vectors, but from scalar parameters).
-dfAtanReadmeMV :: HasDelta r
-               => Domain1 r -> (Domain1 r, Primal r)
-dfAtanReadmeMV dsV =
+vatanReadmeDReverse :: HasDelta r
+                    => Domain1 r -> (Domain1 r, Primal r)
+vatanReadmeDReverse dsV =
   let ((_, result, _, _), value) =
-        dReverse atanReadmeMV (V.empty, dsV, V.empty, V.empty)
+        dReverse vatanReadmeM (V.empty, dsV, V.empty, V.empty)
   in (result, value)
 
 readmeTestsV :: TestTree
-readmeTestsV = testGroup "Tests of vector-based code from the library's README"
+readmeTestsV = testGroup "Simple tests of vector-based code for README"
   [ testCase "V Float (1.1, 2.2, 3.3)"
-    $ dfAtanReadmeMV (V.singleton $ V.fromList [1.1 :: Float, 2.2, 3.3])
+    $ vatanReadmeDReverse (V.singleton $ V.fromList [1.1 :: Float, 2.2, 3.3])
       @?= ( V.singleton $ V.fromList [3.0715904, 0.18288425, 1.1761366]
           , 4.937552 )
   , testCase "V Double (1.1, 2.2, 3.3)"
-    $ dfAtanReadmeMV (V.singleton $ V.fromList [1.1 :: Double, 2.2, 3.3])
+    $ vatanReadmeDReverse (V.singleton $ V.fromList [1.1 :: Double, 2.2, 3.3])
       @?= ( V.singleton $ V.fromList [ 3.071590389300859
                                      , 0.18288422990948425
                                      , 1.1761365368997136 ]
