@@ -175,9 +175,9 @@ dfTestsForward = testGroup "Simple dReverse (Forward Double) application tests" 
   map (\(txt, f, v, expected) ->
         testCase txt $ dForwardShow f v v @?= expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
-    , ( "atanReadmeMPoly", atanReadmeMPoly, ([1.1, 2.2, 3.3], [])
+    , ( "atanReadmeM", atanReadmeM, ([1.1, 2.2, 3.3], [])
       , (7.662345305800865, 4.9375516951604155) )
-    , ( "atanReadmeMPolyV", atanReadmeMPolyV, ([], [1.1, 2.2, 3.3])
+    , ( "atanReadmeMV", atanReadmeMV, ([], [1.1, 2.2, 3.3])
       , (7.662345305800865, 4.9375516951604155) )
     ]
 
@@ -200,9 +200,9 @@ dfTestsFastForward =
   map (\(txt, f, v, expected) ->
         testCase txt $ dFastForwardShow f v v @?= expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
-    , ( "atanReadmeMPoly", atanReadmeMPoly, ([1.1, 2.2, 3.3], [])
+    , ( "atanReadmeM", atanReadmeM, ([1.1, 2.2, 3.3], [])
       , (7.662345305800865, 4.9375516951604155) )
-    , ( "atanReadmeMPolyV", atanReadmeMPolyV, ([], [1.1, 2.2, 3.3])
+    , ( "atanReadmeMV", atanReadmeMV, ([], [1.1, 2.2, 3.3])
       , (7.662345305800865, 4.9375516951604155) )
     ]
 
@@ -241,9 +241,9 @@ quickCheckForwardAndBackward =
               in dForwardShow f args ds === ff
                  .&&. close1 (dfDotShow f args ds) ff
     in [ qcTest "fquad" fquad (\(x, y, _z) -> ([x, y], []))
-       , qcTest "atanReadmeMPoly" atanReadmeMPoly
+       , qcTest "atanReadmeM" atanReadmeM
                 (\(x, y, z) -> ([x, y, z], []))
-       , qcTest "atanReadmeMPolyV" atanReadmeMPolyV
+       , qcTest "atanReadmeMV" atanReadmeMV
                 (\(x, y, z) -> ([], [x, y, z]))
        ]
 
@@ -255,9 +255,9 @@ quickCheckForwardAndBackward =
 -- to vectors manually and we omit this straightforward boilerplate code here.
 -- TODO: while we use weakly-typed vectors, work on user-friendly errors
 -- if the input record is too short.
-atanReadmePoly :: IsScalar r
-               => DualNumberVariables r -> Data.Vector.Vector (DualNumber r)
-atanReadmePoly variables =
+atanReadme :: IsScalar r
+           => DualNumberVariables r -> Data.Vector.Vector (DualNumber r)
+atanReadme variables =
   let x : y : z : _ = vars variables
       w = x * sin y
   in V.fromList [atan2 z w, z * x]
@@ -282,28 +282,28 @@ sumElementsVectorOfDual = V.foldl' (+) 0
 -- If the code above had any repeated non-variable expressions
 -- (e.g., if @w@ appeared twice) the user would need to make it monadic
 -- and apply @returnLet@ already there.
-atanReadmeMPoly :: DualMonad r m
-                => DualNumberVariables r -> m (DualNumber r)
-atanReadmeMPoly variables =
-  returnLet $ sumElementsVectorOfDual $ atanReadmePoly variables
+atanReadmeM :: DualMonad r m
+            => DualNumberVariables r -> m (DualNumber r)
+atanReadmeM variables =
+  returnLet $ sumElementsVectorOfDual $ atanReadme variables
 
 -- The underscores and empty vectors are placeholders for the vector
 -- and matrix components of the parameters triple, which we here don't use
 -- (we construct vectors, but from scalar parameters).
-dfAtanReadmeMPoly :: HasDelta r
-                  => Domain0 r -> (Domain0 r, Primal r)
-dfAtanReadmeMPoly ds =
+dfAtanReadmeM :: HasDelta r
+              => Domain0 r -> (Domain0 r, Primal r)
+dfAtanReadmeM ds =
   let ((result, _, _, _), value) =
-        dReverse atanReadmeMPoly (ds, V.empty, V.empty, V.empty)
+        dReverse atanReadmeM (ds, V.empty, V.empty, V.empty)
   in (result, value)
 
 readmeTests :: TestTree
 readmeTests = testGroup "Tests of code from the library's README"
-  [ testCase "Poly Float (1.1, 2.2, 3.3)"
-    $ dfAtanReadmeMPoly (V.fromList [1.1 :: Float, 2.2, 3.3])
+  [ testCase " Float (1.1, 2.2, 3.3)"
+    $ dfAtanReadmeM (V.fromList [1.1 :: Float, 2.2, 3.3])
       @?= (V.fromList [3.0715904, 0.18288425, 1.1761366], 4.937552)
-  , testCase "Poly Double (1.1, 2.2, 3.3)"
-    $ dfAtanReadmeMPoly (V.fromList [1.1 :: Double, 2.2, 3.3])
+  , testCase " Double (1.1, 2.2, 3.3)"
+    $ dfAtanReadmeM (V.fromList [1.1 :: Double, 2.2, 3.3])
       @?= ( V.fromList [ 3.071590389300859
                        , 0.18288422990948425
                        , 1.1761365368997136 ]
@@ -315,9 +315,9 @@ readmeTests = testGroup "Tests of code from the library's README"
 -- via a primitive differentiable type of vectors instead of inside
 -- vectors of primitive differentiable scalars.
 
-atanReadmePolyV :: IsScalar r
-                => DualNumberVariables r -> DualNumber (Tensor1 r)
-atanReadmePolyV variables =
+atanReadmeV :: IsScalar r
+            => DualNumberVariables r -> DualNumber (Tensor1 r)
+atanReadmeV variables =
   let xyzVector = var1 variables 0
       x = index0 xyzVector 0
       y = index0 xyzVector 1
@@ -325,29 +325,29 @@ atanReadmePolyV variables =
       w = x * sin y
   in seq1 $ V.fromList [atan2 z w, z * x]
 
-atanReadmeMPolyV :: DualMonad r m
-                 => DualNumberVariables r -> m (DualNumber r)
-atanReadmeMPolyV variables =
-  returnLet $ atanReadmePolyV variables <.>!! HM.konst 1 2
+atanReadmeMV :: DualMonad r m
+             => DualNumberVariables r -> m (DualNumber r)
+atanReadmeMV variables =
+  returnLet $ atanReadmeV variables <.>!! HM.konst 1 2
 
 -- The underscores and empty vectors are placeholders for the vector
 -- and matrix components of the parameters triple, which we here don't use
 -- (we construct vectors, but from scalar parameters).
-dfAtanReadmeMPolyV :: HasDelta r
-                   => Domain1 r -> (Domain1 r, Primal r)
-dfAtanReadmeMPolyV dsV =
+dfAtanReadmeMV :: HasDelta r
+               => Domain1 r -> (Domain1 r, Primal r)
+dfAtanReadmeMV dsV =
   let ((_, result, _, _), value) =
-        dReverse atanReadmeMPolyV (V.empty, dsV, V.empty, V.empty)
+        dReverse atanReadmeMV (V.empty, dsV, V.empty, V.empty)
   in (result, value)
 
 readmeTestsV :: TestTree
 readmeTestsV = testGroup "Tests of vector-based code from the library's README"
-  [ testCase "PolyV Float (1.1, 2.2, 3.3)"
-    $ dfAtanReadmeMPolyV (V.singleton $ V.fromList [1.1 :: Float, 2.2, 3.3])
+  [ testCase "V Float (1.1, 2.2, 3.3)"
+    $ dfAtanReadmeMV (V.singleton $ V.fromList [1.1 :: Float, 2.2, 3.3])
       @?= ( V.singleton $ V.fromList [3.0715904, 0.18288425, 1.1761366]
           , 4.937552 )
-  , testCase "PolyV Double (1.1, 2.2, 3.3)"
-    $ dfAtanReadmeMPolyV (V.singleton $ V.fromList [1.1 :: Double, 2.2, 3.3])
+  , testCase "V Double (1.1, 2.2, 3.3)"
+    $ dfAtanReadmeMV (V.singleton $ V.fromList [1.1 :: Double, 2.2, 3.3])
       @?= ( V.singleton $ V.fromList [ 3.071590389300859
                                      , 0.18288422990948425
                                      , 1.1761365368997136 ]
