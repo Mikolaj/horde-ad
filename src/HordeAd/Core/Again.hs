@@ -46,6 +46,7 @@ data DeltaF (s :: Type) (dual :: Type -> Type) (t :: Type) where
   Konst1 :: dual s -> Int -> DeltaF s dual (Vector s)
   Dot1 :: Vector s -> dual (Vector s) -> DeltaF s dual s
   SumElements1 :: dual (Vector s) -> Int -> DeltaF s dual s
+  Seq1 :: Data.Vector.Vector (dual s) -> DeltaF s dual (Vector s)
 
 deriving instance
   (Show s, Show (dual s), Show (dual (Vector s)), Storable s) =>
@@ -137,6 +138,9 @@ evalDeltaF f deltaF t = case deltaF of
   Scale1 s de -> f de (s `HM.scale` t)
   Konst1 de _ -> f de (HM.sumElements t)
   SumElements1 de n -> f de (HM.konst t n)
+  Seq1 des -> \dm -> foldl' (flip (uncurry f)) dm (zip desl tl)
+    where desl = Data.Vector.toList des
+          tl = HM.toList t
 
 -- accumulate has the special property
 accumulate ::
@@ -375,6 +379,7 @@ instance (Num r, HM.Numeric r) => Ops DeltaF r (Concrete r) where
     Konst1 (C0 k) i -> C1 (HM.konst k i)
     Dot1 v1 (C1 v2) -> C0 (v1 `HM.dot` v2)
     SumElements1 (C1 v) _ -> C0 (HM.sumElements v)
+    Seq1 v -> C1 (HM.fromList $ map (\case C0 x -> x) $ Data.Vector.toList v)
 
 instance Ops DeltaF r (Delta r) where
   ops = Delta
@@ -645,11 +650,12 @@ indexNoM ::
 indexNoM (Dual v v') i =
   Dual (HM.atIndex v i) (ops (Index0 v' i (HM.size v)))
 
--- TODO
-seq1 ::  -- (HM.Numeric s, Ops DeltaF s dual)
-        Data.Vector.Vector (Dual s (dual s))
+seq1 :: (HM.Numeric s, Ops DeltaF s dual)
+     => Data.Vector.Vector (Dual s (dual s))
      -> Dual (Vector s) (dual (Vector s))
-seq1 = undefined
+seq1 v =
+  Dual (HM.fromList $ map (\(Dual x _) -> x) $ Data.Vector.toList v)
+       (ops $ Seq1 $ fmap (\(Dual _ x) -> x) v)
 
 vatanReadmeM
   :: (DualMonad s dual m, HM.Numeric s, RealFloat s, Ops DeltaF s dual)
