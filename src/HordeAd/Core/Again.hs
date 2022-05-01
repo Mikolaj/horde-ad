@@ -20,7 +20,7 @@ import Control.Monad.Trans.State
     put,
     runState,
   )
-import Data.Functor.Identity (Identity (Identity))
+import Data.Functor.Identity (Identity (Identity), runIdentity)
 import Data.Kind (Type)
 import Data.List (foldl')
 import qualified Data.Strict.Map as Map
@@ -321,6 +321,27 @@ data Unit (t :: Type) = Unit
 instance DualMonad r Unit (DualMonadValue r) where
   deltaLet _ = pure
 
+newtype DualMonadForward r a = DualMonadForward (Identity a)
+  deriving newtype (Monad, Functor, Applicative)
+
+runDualMonadForward :: DualMonadForward r a -> a
+runDualMonadForward (DualMonadForward m) = runIdentity m
+
+instance DualMonad r (Concrete r) (DualMonadForward r) where
+  deltaLet _ = pure
+
+dSingleArgForward ::
+  Known (IsScalarOf s t) =>
+  t ->
+  t ->
+  ( Dual t (Concrete s t) ->
+    DualMonadForward s (Dual r (Concrete s r))
+  ) ->
+  (r, r)
+dSingleArgForward t t' f =
+  let Dual r d = runDualMonadForward (f (Dual t (concrete t')))
+   in (r, unConcrete d)
+
 dLetS ::
   forall (dual :: Type -> Type) t m s.
   DualMonad s dual m =>
@@ -376,6 +397,16 @@ class Ops f s dual | dual -> s where
 data Concrete r (t :: Type) where
   C0 :: r -> Concrete r r
   C1 :: Vector r -> Concrete r (Vector r)
+
+concrete :: forall s t. Known (s `IsScalarOf` t) => t -> Concrete s t
+concrete t = case known :: s `IsScalarOf` t of
+  SScalar -> C0 t
+  SVector -> C1 t
+
+unConcrete :: Concrete r t -> t
+unConcrete = \case
+  C0 t -> t
+  C1 t -> t
 
 instance (Num r, HM.Numeric r) => Ops DeltaF r (Concrete r) where
   ops = \case
@@ -490,6 +521,12 @@ example = runDualMonadAdapt (liftB2 (adaptArg 10) (adaptArg 20)) 1 (uncurry foo)
 
 example3 :: (Double, Vector Double)
 example3 = dSingleArg (HM.fromList [10, 20]) 1 bar
+
+example3Forward1 :: (Double, Double)
+example3Forward1 = dSingleArgForward (HM.fromList [10, 20]) (HM.fromList [1, 0]) bar
+
+example3Forward2 :: (Double, Double)
+example3Forward2 = dSingleArgForward (HM.fromList [10, 20]) (HM.fromList [0, 1]) bar
 
 dSingleArg ::
   (HM.Numeric s, Known (IsScalarOf s r), Known (IsScalarOf s t)) =>
