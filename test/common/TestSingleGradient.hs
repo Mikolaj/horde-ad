@@ -12,7 +12,7 @@ import           Test.Tasty.QuickCheck
 
 import HordeAd hiding (sumElementsVectorOfDual)
 
-import HordeAd.Core.Again (testAgain)
+import HordeAd.Core.Again (testAgain, testAgainForward)
 
 testTrees :: [TestTree]
 testTrees = [ testDReverse0
@@ -22,9 +22,12 @@ testTrees = [ testDReverse0
             , quickCheckForwardAndBackward
             , readmeTests
             , readmeTestsV
-            , testGroup "Again"
-              $ map (\(s, b) -> testCase s $ assertBool "wrong result" b)
+            , testGroup "Again gradient"
+              $ map (\(s, result, expected) -> testCase s $ result @?= expected)
                     testAgain
+            , testGroup "Again derivative"
+              $ map (\(s, result, expected) -> testCase s $ result @?= expected)
+                    testAgainForward
             ]
 
 -- Unfortunately, monadic versions of the operations below are not

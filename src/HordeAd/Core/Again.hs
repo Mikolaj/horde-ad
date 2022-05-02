@@ -606,11 +606,15 @@ dSingleArg = runDualMonadAdapt . adaptArg
 -- and for quad also in TestSimpleDescent (but for that one we need
 -- the simplest gradient descent optimizer).
 
-testAgain :: [(String, Bool)]
+testAgain :: [(String, (Double, Vector Double), (Double, Vector Double))]
 testAgain =
-  [ ("sumElement", testThreeVariantsOfSumElement)
-  , ("atanReadme", testTwoVariantsOfatanReadme)
-  ]
+  testThreeVariantsOfSumElement
+  ++ testTwoVariantsOfatanReadme
+
+testAgainForward :: [(String, (Double, Double), (Double, Double))]
+testAgainForward =
+  testTwoVariantsOfatanReadmeForward
+  ++ testTwoVariantsOfatanReadmeForward
 
 quad ::
   (DualMonad s dual m, Num s, Ops DeltaF s dual) =>
@@ -638,14 +642,27 @@ altSumElements0 :: (HM.Numeric s, Ops DeltaF s dual)
 altSumElements0 = foldl'0 (+) 0
 
 -- TODO: can't test the first variant, because it takes many arguments
-testThreeVariantsOfSumElement :: Bool
+testThreeVariantsOfSumElement
+  :: [(String, (Double, Vector Double), (Double, Vector Double))]
 testThreeVariantsOfSumElement =
   let sumElementsV = dLet . sumElements
       altSumElementsV = dLet . altSumElements0
-      t = V.fromList [1, 1, 3 :: Double]
+      t = V.fromList [1, 1, 3]
       result = (5, V.fromList [1, 1, 1])
-  in dSingleArg t 1 sumElementsV == result
-     && dSingleArg t 1 altSumElementsV == result
+  in [ ("sumElement", dSingleArg t 1 sumElementsV, result)
+     , ("altSumElement", dSingleArg t 1 altSumElementsV, result)
+     ]
+
+testThreeVariantsOfSumElementForward
+  :: [(String, (Double, Double), (Double, Double))]
+testThreeVariantsOfSumElementForward =
+  let sumElementsV = dLet . sumElements
+      altSumElementsV = dLet . altSumElements0
+      t = V.fromList [1.1, 2.2, 3.3 :: Double]
+      result = (4.9375516951604155, 7.662345305800865)
+  in [ ("sumElementForward", dSingleArgForward t t sumElementsV, result)
+     , ("altSumElementForward", dSingleArgForward t t altSumElementsV, result)
+     ]
 
 atanReadmeOriginal :: RealFloat a => a -> a -> a -> Data.Vector.Vector a
 atanReadmeOriginal x y z =
@@ -715,8 +732,18 @@ infixr 8 <.>!!
 (<.>!!) (Dual u u') v = Dual (u HM.<.> v) (ops (Dot1 v u'))
 
 -- TODO: can't test the first variant, because it takes many arguments
-testTwoVariantsOfatanReadme :: Bool
+testTwoVariantsOfatanReadme
+  :: [(String, (Double, Vector Double), (Double, Vector Double))]
 testTwoVariantsOfatanReadme =
-  let t = V.fromList [1.1 :: Float, 2.2, 3.3]
-      result = (4.937552, V.fromList [3.0715904, 0.18288425, 1.1761366])
-  in dSingleArg t 1 vatanReadmeM == result
+  let t = V.fromList [1.1, 2.2, 3.3]
+      result = ( 4.9375516951604155
+               , V.fromList
+                   [3.071590389300859,0.18288422990948425,1.1761365368997136] )
+  in [("atanReadme", dSingleArg t 1 vatanReadmeM, result)]
+
+testTwoVariantsOfatanReadmeForward
+  :: [(String, (Double, Double), (Double, Double))]
+testTwoVariantsOfatanReadmeForward =
+  let t = V.fromList [1.1, 2.2, 3.3]
+      result = (4.9375516951604155, 7.662345305800865)
+  in [("atanReadmeForward", dSingleArgForward t t vatanReadmeM, result)]
