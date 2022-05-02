@@ -569,9 +569,11 @@ dSingleArg = runDualMonadAdapt . adaptArg
 -- and for quad also in TestSimpleDescent (but for that one we need
 -- the simplest gradient descent optimizer).
 
-testAgain :: Bool
-testAgain = testThreeVariantsOfSumElement
---            && testTwoVariantsOfatanReadme
+testAgain :: [(String, Bool)]
+testAgain =
+  [ ("sumElement", testThreeVariantsOfSumElement)
+  , ("atanReadme", testTwoVariantsOfatanReadme)
+  ]
 
 quad ::
   (DualMonad s dual m, Num s, Ops DeltaF s dual) =>
@@ -676,7 +678,6 @@ infixr 8 <.>!!
 (<.>!!) (Dual u u') v = Dual (u HM.<.> v) (ops (Dot1 v u'))
 
 -- TODO: can't test the first variant, because it takes many arguments
--- TODO: the second variant requires @seq1@
 testTwoVariantsOfatanReadme :: Bool
 testTwoVariantsOfatanReadme =
   let t = V.fromList [1.1 :: Float, 2.2, 3.3]
