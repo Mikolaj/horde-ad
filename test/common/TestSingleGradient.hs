@@ -173,7 +173,7 @@ dForwardShow f (deltaInput, deltaInputV) (ds0, ds1) =
 
 dfTestsForward :: TestTree
 dfTestsForward =
- testGroup "Simple dReverse (Forward Double) application tests" $
+ testGroup "Simple dForward application tests" $
   map (\(txt, f, v, expected) ->
         testCase txt $ dForwardShow f v v @?= expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
@@ -198,7 +198,7 @@ dFastForwardShow f (deltaInput, deltaInputV) (ds0, ds1) =
 
 dfTestsFastForward :: TestTree
 dfTestsFastForward =
- testGroup "Simple dReverse (FastForward Double) application tests" $
+ testGroup "Simple dFastForward application tests" $
   map (\(txt, f, v, expected) ->
         testCase txt $ dFastForwardShow f v v @?= expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
