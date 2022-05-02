@@ -23,7 +23,9 @@ testTrees = [ testDReverse0
             , quickCheckForwardAndBackward
             , readmeTests
             , readmeTestsV
-            , testCase "Again" $ assertBool "test" testAgain
+            , testGroup "Again"
+              $ map (\(s, b) -> testCase s $ assertBool "wrong result" b)
+                    testAgain
             ]
 
 -- Unfortunately, monadic versions of the operations below are not
