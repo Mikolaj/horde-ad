@@ -102,6 +102,15 @@ deltaMapDelete dId (DeltaMap ms mv) = case knownDeltaId dId of
   SScalar -> DeltaMap (Map.delete dId ms) mv
   SVector -> DeltaMap ms (Map.delete dId mv)
 
+deltaMapAlter ::
+  (Maybe t -> Maybe t) ->
+  DeltaId s t ->
+  DeltaMap s ->
+  DeltaMap s
+deltaMapAlter f di m = case knownDeltaId di of
+  SScalar -> m { dmScalar = Map.alter f di (dmScalar m) }
+  SVector -> m { dmVector = Map.alter f di (dmVector m) }
+
 -- Definiton:
 --
 -- We say that "f has the special property" when
@@ -157,29 +166,13 @@ accumulate ::
   t ->
   DeltaMap s ->
   DeltaMap s
-accumulate di t m = case knownDeltaId di of
-  SScalar ->
-    m
-      { dmScalar =
-          Map.alter
-            ( \case
-                Nothing -> Just t
-                Just t' -> Just (t + t')
-            )
-            di
-            (dmScalar m)
-      }
-  SVector ->
-    m
-      { dmVector =
-          Map.alter
-            ( \case
-                Nothing -> Just t
-                Just t' -> Just (t `HM.add` t')
-            )
-            di
-            (dmVector m)
-      }
+accumulate di t =
+  deltaMapAlter (\case
+                    Nothing -> Just t
+                    Just t' -> case knownDeltaId di of
+                      SScalar -> Just (t + t')
+                      SVector -> Just (t `HM.add` t'))
+  di
 
 -- eval has the special property
 eval ::
