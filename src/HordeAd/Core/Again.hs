@@ -245,18 +245,12 @@ runDualMonadS ::
   DualMonadGradient s (Dual t' (Delta s t)) ->
   (t', DeltaMap s)
 runDualMonadS st g m =
-  let (Dual t delta, bs) = runDualMonadM m
-      (bs', m') = case st of
-        SScalar ->
-          let dId = succDeltaId (deltaCounter0 bs)
-           in ( DeltaBinding dId delta,
-                singleton dId g
-              )
-        SVector ->
-          let dId = succDeltaId (deltaCounter1 bs)
-           in ( DeltaBinding dId delta,
-                singleton dId g
-              )
+  let ((Dual t delta, dId), bs) = runDualMonadM $ do
+        r <- m
+        dId' <- fresh st
+        pure (r, dId')
+      bs' = DeltaBinding dId delta
+      m' = singleton dId g
    in (t, runDelta (bs' : deltaBindings bs) m')
 
 runDualMonad ::
