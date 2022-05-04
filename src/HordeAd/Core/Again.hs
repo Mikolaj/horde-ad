@@ -322,7 +322,6 @@ instance DualMonad r (Concrete r) (DualMonadForward r) where
   deltaLet _ = pure
 
 dSingleArgForward ::
-  Known (IsScalarOf s t) =>
   t ->
   t ->
   ( Dual t (Concrete s t) ->
@@ -386,31 +385,23 @@ class Ops f s dual | dual -> s where
   ops :: f s dual t -> dual t
 
 data Concrete r (t :: Type) where
-  C0 :: r -> Concrete r r
-  C1 :: Vector r -> Concrete r (Vector r)
+  C :: {unConcrete :: t} -> Concrete r t
 
-concrete :: forall s t. Known (s `IsScalarOf` t) => t -> Concrete s t
-concrete t = case known :: s `IsScalarOf` t of
-  SScalar -> C0 t
-  SVector -> C1 t
-
-unConcrete :: Concrete r t -> t
-unConcrete = \case
-  C0 t -> t
-  C1 t -> t
+concrete :: t -> Concrete s t
+concrete = C
 
 instance (Num r, HM.Numeric r) => Ops DeltaF r (Concrete r) where
   ops = \case
-    Zero0 -> C0 0
-    Add0 (C0 x1) (C0 x2) -> C0 (x1 + x2)
-    Scale0 r (C0 x) -> C0 (r * x)
-    Index0 (C1 v) i _n -> C0 (HM.atIndex v i)
-    Add1 (C1 x1) (C1 x2) -> C1 (x1 `HM.add` x2)
-    Scale1 r (C1 x) -> C1 (HM.scale r x)
-    Konst1 (C0 k) i -> C1 (HM.konst k i)
-    Dot1 v1 (C1 v2) -> C0 (v1 `HM.dot` v2)
-    SumElements1 (C1 v) _ -> C0 (HM.sumElements v)
-    Seq1 v -> C1 (HM.fromList $ map (\case C0 x -> x) $ Data.Vector.toList v)
+    Zero0 -> C 0
+    Add0 (C x1) (C x2) -> C (x1 + x2)
+    Scale0 r (C x) -> C (r * x)
+    Index0 (C v) i _n -> C (HM.atIndex v i)
+    Add1 (C x1) (C x2) -> C (x1 `HM.add` x2)
+    Scale1 r (C x) -> C (HM.scale r x)
+    Konst1 (C k) i -> C (HM.konst k i)
+    Dot1 v1 (C v2) -> C (v1 `HM.dot` v2)
+    SumElements1 (C v) _ -> C (HM.sumElements v)
+    Seq1 v -> C (HM.fromList $ map (\case C x -> x) $ Data.Vector.toList v)
 
 instance Ops DeltaF r (Delta r) where
   ops = Delta
