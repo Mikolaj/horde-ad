@@ -568,7 +568,7 @@ sumElements (Dual u u') = Dual (HM.sumElements u) (dSumElements u' (HM.size u))
 --
 
 example :: (Double, (Double, Double))
-example = runDualMonadAdapt (liftB2 (adaptArg 10) (adaptArg 20)) 1 (uncurry foo)
+example = dDoubleArg (10, 20) 1 (uncurry foo)
 
 example3 :: (Double, Vector Double)
 example3 = dSingleArg (HM.fromList [10, 20]) 1 bar
@@ -590,6 +590,20 @@ dSingleArg ::
   -- | Result of original function, and its gradient
   (r, t)
 dSingleArg = runDualMonadAdapt . adaptArg
+
+dDoubleArg ::
+  ( HM.Numeric s,
+    Known (IsScalarOf s t1),
+    Known (IsScalarOf s t2),
+    Known (IsScalarOf s r)
+  ) =>
+  (t1, t2) ->
+  r ->
+  ( (Dual t1 (Delta s t1), Dual t2 (Delta s t2)) ->
+    DualMonadGradient s (Dual r (Delta s r))
+  ) ->
+  (r, (t1, t2))
+dDoubleArg (t1, t2) = runDualMonadAdapt (liftB2 (adaptArg t1) (adaptArg t2))
 
 -- We have test results recorded for the tests below in TestSingleGradient
 -- and for quad also in TestSimpleDescent (but for that one we need
