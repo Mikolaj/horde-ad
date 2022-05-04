@@ -244,9 +244,9 @@ runDualMonadS ::
   t ->
   DualMonadGradient s (Dual t' (Delta s t)) ->
   (t', DeltaMap s)
-runDualMonadS st g m =
+runDualMonadS st g e =
   let ((t, dId), bs) = runDualMonadM $ do
-        Dual t' delta <- m
+        Dual t' delta <- e
         dId' <- deltaLetId st delta
         pure (t', dId')
    in (t, runDelta (deltaBindings bs) (singleton dId g))
