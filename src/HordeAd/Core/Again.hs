@@ -201,7 +201,7 @@ eval delta = case delta of
 -- i.e. 'evalLet b' is mathematically linear
 evalLet :: HM.Numeric s => DeltaBinding s -> DeltaMap s -> DeltaMap s
 evalLet binding (DeltaMap ms mv) = case binding of
-  (DeltaBinding di de) -> case knownDeltaId di of
+  DeltaBinding di de -> case knownDeltaId di of
     SScalar -> case Map.lookup di ms of
       Nothing -> DeltaMap ms mv
       Just x -> eval de x (DeltaMap (Map.delete di ms) mv)
