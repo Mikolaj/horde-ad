@@ -254,13 +254,11 @@ runDualMonadS ::
   DualMonadGradient s (Dual t' (Delta s t)) ->
   (t', DeltaMap s)
 runDualMonadS st g m =
-  let ((Dual t delta, dId), bs) = runDualMonadM $ do
-        r <- m
-        dId' <- fresh st
-        pure (r, dId')
-      bs' = DeltaBinding dId delta
-      m' = singleton dId g
-   in (t, runDelta (bs' : deltaBindings bs) m')
+  let ((t, dId), bs) = runDualMonadM $ do
+        Dual t' delta <- m
+        dId' <- deltaLetId st delta
+        pure (t', dId')
+   in (t, runDelta (deltaBindings bs) (singleton dId g))
 
 runDualMonad ::
   (HM.Numeric s, Known (s `IsScalarOf` t)) =>
@@ -303,11 +301,14 @@ bind dId delta =
   DualMonadGradient $
     modify (\st -> st {deltaBindings = DeltaBinding dId delta : deltaBindings st})
 
+deltaLetId :: IsScalarOf s t -> Delta s t -> DualMonadGradient s (DeltaId s t)
+deltaLetId sd delta = do
+  dId <- fresh sd
+  bind dId delta
+  pure dId
+
 instance DualMonad s (Delta s) (DualMonadGradient s) where
-  deltaLet sd delta = do
-    dId <- fresh sd
-    bind dId delta
-    pure (Var dId)
+  deltaLet sd delta = fmap Var (deltaLetId sd delta)
 
 newtype DualMonadValue r a = DualMonadValue
   {runDualMonadValue :: Identity a}
