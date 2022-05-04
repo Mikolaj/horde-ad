@@ -106,6 +106,14 @@ deltaMapLookup dId m = case knownDeltaId dId of
   SScalar -> Map.lookup dId (dmScalar m)
   SVector -> Map.lookup dId (dmVector m)
 
+deltaMapDelete ::
+  DeltaId s t ->
+  DeltaMap s ->
+  DeltaMap s
+deltaMapDelete dId (DeltaMap ms mv) = case knownDeltaId dId of
+  SScalar -> DeltaMap (Map.delete dId ms) mv
+  SVector -> DeltaMap ms (Map.delete dId mv)
+
 -- Definiton:
 --
 -- We say that "f has the special property" when
@@ -200,14 +208,9 @@ eval delta = case delta of
 --
 -- i.e. 'evalLet b' is mathematically linear
 evalLet :: HM.Numeric s => DeltaBinding s -> DeltaMap s -> DeltaMap s
-evalLet binding (DeltaMap ms mv) = case binding of
-  DeltaBinding di de -> case knownDeltaId di of
-    SScalar -> case Map.lookup di ms of
-      Nothing -> DeltaMap ms mv
-      Just x -> eval de x (DeltaMap (Map.delete di ms) mv)
-    SVector -> case Map.lookup di mv of
-      Nothing -> DeltaMap ms mv
-      Just x -> eval de x (DeltaMap ms (Map.delete di mv))
+evalLet (DeltaBinding di de) m = case deltaMapLookup di m of
+  Nothing -> m
+  Just x -> eval de x (deltaMapDelete di m)
 
 -- runDelta satsifies
 --
