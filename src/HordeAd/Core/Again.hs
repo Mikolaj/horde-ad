@@ -360,6 +360,12 @@ adaptArg t = ArgAdaptor $ do
 
   pure (lookup', Dual t (Var (DeltaId i)))
 
+pureArgAdaptor ::
+  t ->
+  pd ->
+  ArgAdaptor s t pd
+pureArgAdaptor t pd = ArgAdaptor (pure (pure t, pd))
+
 liftB2 ::
   ArgAdaptor s t1 pd1 ->
   ArgAdaptor s t2 pd2 ->
@@ -368,6 +374,17 @@ liftB2 (ArgAdaptor a1) (ArgAdaptor a2) = ArgAdaptor $ do
   (lookup1, arg1) <- a1
   (lookup2, arg2) <- a2
   pure (\m -> (lookup1 m, lookup2 m), (arg1, arg2))
+
+sequenceArgAdaptor ::
+  [ArgAdaptor s t pd] ->
+  ArgAdaptor s [t] [pd]
+sequenceArgAdaptor = \case
+  [] -> pureArgAdaptor [] []
+  ArgAdaptor a : as -> ArgAdaptor $ do
+    (t, pd) <- a
+    let ArgAdaptor ts_pds = sequenceArgAdaptor as
+    (ts, pds) <- ts_pds
+    pure ((:) <$> t <*> ts, pd : pds)
 
 data Dual a b = Dual a b
   deriving (Show)
