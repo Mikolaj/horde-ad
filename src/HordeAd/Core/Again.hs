@@ -194,6 +194,7 @@ evalDeltaF f deltaF t = case deltaF of
 -- functional dependencies.
 newtype MonoidMap r m t = MonoidMap {unMonoidMap :: t -> m}
 
+-- A more abstract way of writing evalDeltaF
 evalDeltaFM ::
   forall dual s m t.
   (HM.Numeric s, Monoid m) =>
