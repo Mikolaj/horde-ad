@@ -340,6 +340,8 @@ dLet ::
   m (Dual t (dual t))
 dLet = dLetS known
 
+-- This is a Biapplicative, but we're not using that type class yet.
+-- Perhaps we should.
 newtype ArgAdaptor s t pd = ArgAdaptor (State Int (DeltaMap s -> t, pd))
 
 runArgAdaptor ::
@@ -366,6 +368,15 @@ pureArgAdaptor ::
   ArgAdaptor s t pd
 pureArgAdaptor t pd = ArgAdaptor (pure (pure t, pd))
 
+bimapArgAdaptor ::
+  (t -> t') ->
+  (pd -> pd') ->
+  ArgAdaptor s t pd ->
+  ArgAdaptor s t' pd'
+bimapArgAdaptor ft fpd (ArgAdaptor a) = ArgAdaptor $ do
+  (t, pd) <- a
+  pure (fmap ft t, fpd pd)
+
 liftB2 ::
   ArgAdaptor s t1 pd1 ->
   ArgAdaptor s t2 pd2 ->
@@ -385,6 +396,14 @@ sequenceArgAdaptor = \case
     let ArgAdaptor ts_pds = sequenceArgAdaptor as
     (ts, pds) <- ts_pds
     pure ((:) <$> t <*> ts, pd : pds)
+
+sequenceArgAdaptorVector ::
+  Data.Vector.Vector (ArgAdaptor s a1 a2) ->
+  ArgAdaptor s (Data.Vector.Vector a1) (Data.Vector.Vector a2)
+sequenceArgAdaptorVector =
+  bimapArgAdaptor Data.Vector.fromList Data.Vector.fromList
+    . sequenceArgAdaptor
+    . Data.Vector.toList
 
 data Dual a b = Dual a b
   deriving (Show)
@@ -614,6 +633,26 @@ dDoubleArg ::
   ) ->
   (r, (t1, t2))
 dDoubleArg (t1, t2) = runDualMonadAdapt (liftB2 (adaptArg t1) (adaptArg t2))
+
+dMultiArg ::
+  ( HM.Numeric s,
+    Known (IsScalarOf s r),
+    Known (IsScalarOf s t1),
+    Known (IsScalarOf s t2)
+  ) =>
+  Data.Vector.Vector t1 ->
+  Data.Vector.Vector t2 ->
+  r ->
+  ( (Data.Vector.Vector (Dual t1 (Delta s t1)), Data.Vector.Vector (Dual t2 (Delta s t2))) ->
+    DualMonadGradient s (Dual r (Delta s r))
+  ) ->
+  (r, (Data.Vector.Vector t1, Data.Vector.Vector t2))
+dMultiArg t1s t2s =
+  runDualMonadAdapt
+    ( liftB2
+        (sequenceArgAdaptorVector (fmap adaptArg t1s))
+        (sequenceArgAdaptorVector (fmap adaptArg t2s))
+    )
 
 -- We have test results recorded for the tests below in TestSingleGradient
 -- and for quad also in TestSimpleDescent (but for that one we need
