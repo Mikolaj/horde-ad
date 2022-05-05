@@ -300,7 +300,10 @@ fresh sd = DualMonadGradient $ do
 bind :: DeltaId s t -> Delta s t -> DualMonadGradient s ()
 bind dId delta =
   DualMonadGradient $
-    modify (\st -> st {deltaBindings = DeltaBinding dId delta : deltaBindings st})
+    modify
+      ( \st ->
+          st {deltaBindings = DeltaBinding dId delta : deltaBindings st}
+      )
 
 deltaLetId :: IsScalarOf s t -> Delta s t -> DualMonadGradient s (DeltaId s t)
 deltaLetId sd delta = do
@@ -628,10 +631,12 @@ example3 :: (Double, Vector Double)
 example3 = dSingleArg (HM.fromList [10, 20]) 1 bar
 
 example3Forward1 :: (Double, Double)
-example3Forward1 = dSingleArgForward (HM.fromList [10, 20]) (HM.fromList [1, 0]) bar
+example3Forward1 =
+  dSingleArgForward (HM.fromList [10, 20]) (HM.fromList [1, 0]) bar
 
 example3Forward2 :: (Double, Double)
-example3Forward2 = dSingleArgForward (HM.fromList [10, 20]) (HM.fromList [0, 1]) bar
+example3Forward2 =
+  dSingleArgForward (HM.fromList [10, 20]) (HM.fromList [0, 1]) bar
 
 dSingleArg ::
   (HM.Numeric s, Known (IsScalarOf s r), Known (IsScalarOf s t)) =>
