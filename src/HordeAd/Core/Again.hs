@@ -62,6 +62,21 @@ data DeltaF (s :: Type) (dual :: Type -> Type) (t :: Type) where
   SumElements1 :: dual (Vector s) -> Int -> DeltaF s dual s
   Seq1 :: Data.Vector.Vector (dual s) -> DeltaF s dual (Vector s)
 
+mapDeltaF :: (forall tt. dual tt -> dual' tt)
+          -> DeltaF s dual t
+          -> DeltaF s dual' t
+mapDeltaF f = \case
+  Zero0 -> Zero0
+  Add0 duals duals' -> Add0 (f duals') (f duals)
+  Scale0 s duals -> Scale0 s (f duals)
+  Index0 dual n i -> Index0 (f dual) n i
+  Add1 dual dual' -> Add1 (f dual') (f dual)
+  Scale1 s dual -> Scale1 s (f dual)
+  Konst1 duals n -> Konst1 (f duals) n
+  Dot1 vec dual -> Dot1 vec (f dual)
+  SumElements1 dual n -> SumElements1 (f dual) n
+  Seq1 vec -> Seq1 (fmap f vec)
+
 deriving instance
   (Show s, Show (dual s), Show (dual (Vector s)), Storable s) =>
   Show (DeltaF s dual t)
