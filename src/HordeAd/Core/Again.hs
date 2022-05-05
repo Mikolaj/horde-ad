@@ -174,13 +174,16 @@ evalDeltaF f deltaF t = case deltaF of
       desl = Data.Vector.toList des
       tl = HM.toList t
 
+newtype MonoidMap m t = MonoidMap { unMonoidMap :: t -> m }
+
 evalDeltaFM ::
+  forall dual s m t.
   (HM.Numeric s, Monoid m) =>
-  (forall tt. dual tt -> tt -> m) ->
+  (forall tt. dual tt -> MonoidMap m tt) ->
   DeltaF s dual t ->
   t ->
   m
-evalDeltaFM f deltaF t = case deltaF of
+evalDeltaFM f' deltaF t = case deltaF of
   Zero0 -> mempty
   Add0 de de' ->
     f de t <> f de' t
@@ -198,6 +201,8 @@ evalDeltaFM f deltaF t = case deltaF of
     where
       desl = Data.Vector.toList des
       tl = HM.toList t
+  where f :: dual tt -> tt -> m
+        f d = unMonoidMap (f' d)
 
 -- accumulate has the special property
 accumulate ::
