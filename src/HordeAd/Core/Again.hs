@@ -1,22 +1,36 @@
-{-# LANGUAGE DataKinds, DerivingStrategies, FlexibleInstances,
-             FunctionalDependencies, GADTs, GeneralizedNewtypeDeriving,
-             KindSignatures, RankNTypes, StandaloneDeriving, TypeOperators #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 
 module HordeAd.Core.Again (module HordeAd.Core.Again) where
 
-import           Control.Monad.Trans.State
-  (State, StateT (StateT), evalState, get, modify, put, runState)
-import           Data.Functor.Identity (Identity (Identity), runIdentity)
-import           Data.Kind (Type)
-import           Data.List (foldl')
+import Control.Monad.Trans.State
+  ( State,
+    StateT (StateT),
+    evalState,
+    get,
+    modify,
+    put,
+    runState,
+  )
+import Data.Functor.Identity (Identity (Identity), runIdentity)
+import Data.Kind (Type)
+import Data.List (foldl')
 import qualified Data.Strict.Map as Map
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           Data.Vector.Storable (Storable)
-import           Numeric.LinearAlgebra (Vector)
+import Data.Vector.Storable (Storable)
+import Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as HM
-import           Prelude
+import Prelude
 
 class Known t where
   known :: t
@@ -108,8 +122,8 @@ deltaMapAlter ::
   DeltaMap s ->
   DeltaMap s
 deltaMapAlter f di m = case knownDeltaId di of
-  SScalar -> m { dmScalar = Map.alter f di (dmScalar m) }
-  SVector -> m { dmVector = Map.alter f di (dmVector m) }
+  SScalar -> m {dmScalar = Map.alter f di (dmScalar m)}
+  SVector -> m {dmVector = Map.alter f di (dmVector m)}
 
 -- Definiton:
 --
@@ -149,15 +163,16 @@ evalDeltaF f deltaF t = case deltaF of
   Index0 de i n ->
     f
       de
-      (HM.fromList (map (\n' -> if n' == i then t else 0) [0 .. n -1]))
+      (HM.fromList (map (\n' -> if n' == i then t else 0) [0 .. n - 1]))
   Dot1 de de' -> f de' (t `HM.scale` de)
   Add1 de de' -> f de t . f de' t
   Scale1 s de -> f de (s `HM.scale` t)
   Konst1 de _ -> f de (HM.sumElements t)
   SumElements1 de n -> f de (HM.konst t n)
   Seq1 des -> \dm -> foldl' (flip (uncurry f)) dm (zip desl tl)
-    where desl = Data.Vector.toList des
-          tl = HM.toList t
+    where
+      desl = Data.Vector.toList des
+      tl = HM.toList t
 
 -- accumulate has the special property
 accumulate ::
@@ -167,12 +182,14 @@ accumulate ::
   DeltaMap s ->
   DeltaMap s
 accumulate di t =
-  deltaMapAlter (\case
-                    Nothing -> Just t
-                    Just t' -> case knownDeltaId di of
-                      SScalar -> Just (t + t')
-                      SVector -> Just (t `HM.add` t'))
-  di
+  deltaMapAlter
+    ( \case
+        Nothing -> Just t
+        Just t' -> case knownDeltaId di of
+          SScalar -> Just (t + t')
+          SVector -> Just (t `HM.add` t')
+    )
+    di
 
 -- eval has the special property
 eval ::
@@ -490,7 +507,7 @@ instance (Num s, Ops DeltaF s dual) => Num (Dual s (dual s)) where
   Dual x x' + Dual y y' = Dual (x + y) (dAdd0 x' y')
   Dual x x' - Dual y y' = Dual (x - y) (dAdd0 x' (dScale0 (-1) y'))
   Dual x x' * Dual y y' = Dual (x * y) (dAdd0 (dScale0 x y') (dScale0 y x'))
-  negate (Dual x x') = Dual (- x) (dScale0 (-1) x')
+  negate (Dual x x') = Dual (-x) (dScale0 (-1) x')
   abs = undefined
   signum = undefined
   fromInteger = constant . fromInteger
@@ -498,32 +515,36 @@ instance (Num s, Ops DeltaF s dual) => Num (Dual s (dual s)) where
 -- These instances are required by the @Real@ instance, which is required
 -- by @RealFloat@, which gives @atan2@. No idea what properties
 -- @Real@ requires here, so let it crash if it's really needed.
-instance Eq (Dual s (dual s)) where
+instance Eq (Dual s (dual s))
 
-instance Ord (Dual s (dual s)) where
+instance Ord (Dual s (dual s))
 
-instance (Real s, Ops DeltaF s dual) => Real (Dual s (dual s)) where
+instance (Real s, Ops DeltaF s dual) => Real (Dual s (dual s))
 
 instance (Fractional s, Ops DeltaF s dual) => Fractional (Dual s (dual s)) where
   Dual u u' / Dual v v' =
     let recipSq = recip (v * v)
-    in Dual (u / v)
-            (dAdd0 (dScale0 (v * recipSq) u') (dScale0 (- u * recipSq) v'))
+     in Dual
+          (u / v)
+          (dAdd0 (dScale0 (v * recipSq) u') (dScale0 (-u * recipSq) v'))
 
 instance (Floating s, Ops DeltaF s dual) => Floating (Dual s (dual s)) where
   sin (Dual u u') = Dual (sin u) (dScale0 (cos u) u')
 
-instance (RealFrac s, Ops DeltaF s dual) => RealFrac (Dual s (dual s)) where
+instance (RealFrac s, Ops DeltaF s dual) => RealFrac (Dual s (dual s))
 
 instance (RealFloat s, Ops DeltaF s dual) => RealFloat (Dual s (dual s)) where
   atan2 (Dual u u') (Dual v v') =
     let t = 1 / (u * u + v * v)
-    in Dual (atan2 u v) (dAdd0 (dScale0 (- u * t) v') (dScale0 (v * t) u'))
+     in Dual (atan2 u v) (dAdd0 (dScale0 (-u * t) v') (dScale0 (v * t) u'))
 
 -- TODO (not really needed on its own, but something like that
 -- would be required for scale1 and Num on Vectors):
-dScale1 :: (HM.Numeric s, Ops DeltaF s dual)
-        => (Vector s) -> dual (Vector s) -> dual (Vector s)
+dScale1 ::
+  (HM.Numeric s, Ops DeltaF s dual) =>
+  (Vector s) ->
+  dual (Vector s) ->
+  dual (Vector s)
 dScale1 x y = ops (Scale1 (HM.sumElements x) y) -- TODO
 
 -- This causes "Overlapping instances". Perhaps the above Num should be
@@ -539,14 +560,18 @@ constant :: Ops DeltaF s dual => a -> Dual a (dual s)
 constant k = Dual k dZero0
 
 -- TODO: this is probably not the right type for both scalars and vectors?
-scale0 :: (Num s, Ops DeltaF s dual)
-       => s -> Dual s (dual s) -> Dual s (dual s)
+scale0 ::
+  (Num s, Ops DeltaF s dual) =>
+  s ->
+  Dual s (dual s) ->
+  Dual s (dual s)
 scale0 a (Dual u u') = Dual (a * u) (dScale0 a u')
 
-scale1 :: (HM.Numeric s, Num (Vector s), Ops DeltaF s dual)
-       => Vector s
-       -> Dual (Vector s) (dual (Vector s))
-       -> Dual (Vector s) (dual (Vector s))
+scale1 ::
+  (HM.Numeric s, Num (Vector s), Ops DeltaF s dual) =>
+  Vector s ->
+  Dual (Vector s) (dual (Vector s)) ->
+  Dual (Vector s) (dual (Vector s))
 scale1 a (Dual u u') = Dual (a * u) (dScale1 a u')
 
 -- MK: if this cannot work on vectors, perhaps @square0@ would be a better name
@@ -643,8 +668,9 @@ dMultiArg ::
   Data.Vector.Vector t1 ->
   Data.Vector.Vector t2 ->
   r ->
-  ( ( Data.Vector.Vector (Dual t1 (Delta s t1))
-    , Data.Vector.Vector (Dual t2 (Delta s t2)) ) ->
+  ( ( Data.Vector.Vector (Dual t1 (Delta s t1)),
+      Data.Vector.Vector (Dual t2 (Delta s t2))
+    ) ->
     DualMonadGradient s (Dual r (Delta s r))
   ) ->
   (r, (Data.Vector.Vector t1, Data.Vector.Vector t2))
@@ -662,12 +688,12 @@ dMultiArg t1s t2s =
 testAgain :: [(String, (Double, Vector Double), (Double, Vector Double))]
 testAgain =
   testThreeVariantsOfSumElement
-  ++ testTwoVariantsOfatanReadme
+    ++ testTwoVariantsOfatanReadme
 
 testAgainForward :: [(String, (Double, Double), (Double, Double))]
 testAgainForward =
   testTwoVariantsOfatanReadmeForward
-  ++ testTwoVariantsOfatanReadmeForward
+    ++ testTwoVariantsOfatanReadmeForward
 
 quad ::
   (DualMonad s dual m, Num s, Ops DeltaF s dual) =>
@@ -680,47 +706,50 @@ quad x y = do
   tmp <- x2 .+ y2
   tmp .+ 5
 
-foldl'0 :: (HM.Numeric s, Ops DeltaF s dual)
-        => (Dual s (dual s) -> Dual s (dual s) -> Dual s (dual s))
-        -> Dual s (dual s)
-        -> Dual (Vector s) (dual (Vector s))
-        -> Dual s (dual s)
+foldl'0 ::
+  (HM.Numeric s, Ops DeltaF s dual) =>
+  (Dual s (dual s) -> Dual s (dual s) -> Dual s (dual s)) ->
+  Dual s (dual s) ->
+  Dual (Vector s) (dual (Vector s)) ->
+  Dual s (dual s)
 foldl'0 f uu' (Dual v v') =
   let k = V.length v
       g !acc ix p = f (Dual p (ops (Index0 v' ix k))) acc
-  in V.ifoldl' g uu' v
+   in V.ifoldl' g uu' v
 
-altSumElements0 :: (HM.Numeric s, Ops DeltaF s dual)
-                => Dual (Vector s) (dual (Vector s)) -> Dual s (dual s)
+altSumElements0 ::
+  (HM.Numeric s, Ops DeltaF s dual) =>
+  Dual (Vector s) (dual (Vector s)) ->
+  Dual s (dual s)
 altSumElements0 = foldl'0 (+) 0
 
 -- TODO: can't test the first variant, because it takes many arguments
-testThreeVariantsOfSumElement
-  :: [(String, (Double, Vector Double), (Double, Vector Double))]
+testThreeVariantsOfSumElement ::
+  [(String, (Double, Vector Double), (Double, Vector Double))]
 testThreeVariantsOfSumElement =
   let sumElementsV = dLet . sumElements
       altSumElementsV = dLet . altSumElements0
       t = V.fromList [1, 1, 3]
       result = (5, V.fromList [1, 1, 1])
-  in [ ("sumElement", dSingleArg t 1 sumElementsV, result)
-     , ("altSumElement", dSingleArg t 1 altSumElementsV, result)
-     ]
+   in [ ("sumElement", dSingleArg t 1 sumElementsV, result),
+        ("altSumElement", dSingleArg t 1 altSumElementsV, result)
+      ]
 
-testThreeVariantsOfSumElementForward
-  :: [(String, (Double, Double), (Double, Double))]
+testThreeVariantsOfSumElementForward ::
+  [(String, (Double, Double), (Double, Double))]
 testThreeVariantsOfSumElementForward =
   let sumElementsV = dLet . sumElements
       altSumElementsV = dLet . altSumElements0
       t = V.fromList [1.1, 2.2, 3.3 :: Double]
       result = (4.9375516951604155, 7.662345305800865)
-  in [ ("sumElementForward", dSingleArgForward t t sumElementsV, result)
-     , ("altSumElementForward", dSingleArgForward t t altSumElementsV, result)
-     ]
+   in [ ("sumElementForward", dSingleArgForward t t sumElementsV, result),
+        ("altSumElementForward", dSingleArgForward t t altSumElementsV, result)
+      ]
 
 atanReadmeOriginal :: RealFloat a => a -> a -> a -> Data.Vector.Vector a
 atanReadmeOriginal x y z =
   let w = x * sin y
-  in V.fromList [atan2 z w, z * x]
+   in V.fromList [atan2 z w, z * x]
 
 atanReadmeDual ::
   (RealFloat s, Ops DeltaF s dual) =>
@@ -730,9 +759,10 @@ atanReadmeDual ::
   Data.Vector.Vector (Dual s (dual s))
 atanReadmeDual x y z = atanReadmeOriginal x y z
 
-sumElementsOfDualNumbers
-  :: (Num s, Ops DeltaF s dual)
-  => Data.Vector.Vector (Dual s (dual s)) -> Dual s (dual s)
+sumElementsOfDualNumbers ::
+  (Num s, Ops DeltaF s dual) =>
+  Data.Vector.Vector (Dual s (dual s)) ->
+  Dual s (dual s)
 sumElementsOfDualNumbers = V.foldl' (+) 0
 
 atanReadmeScalar ::
@@ -759,17 +789,19 @@ indexNoM ::
 indexNoM (Dual v v') i =
   Dual (HM.atIndex v i) (ops (Index0 v' i (HM.size v)))
 
-seq1 :: (HM.Numeric s, Ops DeltaF s dual)
-     => Data.Vector.Vector (Dual s (dual s))
-     -> Dual (Vector s) (dual (Vector s))
+seq1 ::
+  (HM.Numeric s, Ops DeltaF s dual) =>
+  Data.Vector.Vector (Dual s (dual s)) ->
+  Dual (Vector s) (dual (Vector s))
 seq1 v =
-  Dual (HM.fromList $ map (\(Dual x _) -> x) $ Data.Vector.toList v)
-       (ops $ Seq1 $ fmap (\(Dual _ x) -> x) v)
+  Dual
+    (HM.fromList $ map (\(Dual x _) -> x) $ Data.Vector.toList v)
+    (ops $ Seq1 $ fmap (\(Dual _ x) -> x) v)
 
-vatanReadmeM
-  :: (DualMonad s dual m, HM.Numeric s, RealFloat s, Ops DeltaF s dual)
-  => Dual (Vector s) (dual (Vector s))
-  -> m (Dual s (dual s))
+vatanReadmeM ::
+  (DualMonad s dual m, HM.Numeric s, RealFloat s, Ops DeltaF s dual) =>
+  Dual (Vector s) (dual (Vector s)) ->
+  m (Dual s (dual s))
 vatanReadmeM xyzVector = do
   let x = indexNoM xyzVector 0
       y = indexNoM xyzVector 1
@@ -780,23 +812,29 @@ vatanReadmeM xyzVector = do
 -- Dot product with a constant vector. Was used in a previous version
 -- of the test.
 infixr 8 <.>!!
-(<.>!!) :: (HM.Numeric s, Ops DeltaF s dual)
-        => Dual (Vector s) (dual (Vector s)) -> Vector s -> Dual s (dual s)
+
+(<.>!!) ::
+  (HM.Numeric s, Ops DeltaF s dual) =>
+  Dual (Vector s) (dual (Vector s)) ->
+  Vector s ->
+  Dual s (dual s)
 (<.>!!) (Dual u u') v = Dual (u HM.<.> v) (ops (Dot1 v u'))
 
 -- TODO: can't test the first variant, because it takes many arguments
-testTwoVariantsOfatanReadme
-  :: [(String, (Double, Vector Double), (Double, Vector Double))]
+testTwoVariantsOfatanReadme ::
+  [(String, (Double, Vector Double), (Double, Vector Double))]
 testTwoVariantsOfatanReadme =
   let t = V.fromList [1.1, 2.2, 3.3]
-      result = ( 4.9375516951604155
-               , V.fromList
-                   [3.071590389300859,0.18288422990948425,1.1761365368997136] )
-  in [("atanReadme", dSingleArg t 1 vatanReadmeM, result)]
+      result =
+        ( 4.9375516951604155,
+          V.fromList
+            [3.071590389300859, 0.18288422990948425, 1.1761365368997136]
+        )
+   in [("atanReadme", dSingleArg t 1 vatanReadmeM, result)]
 
-testTwoVariantsOfatanReadmeForward
-  :: [(String, (Double, Double), (Double, Double))]
+testTwoVariantsOfatanReadmeForward ::
+  [(String, (Double, Double), (Double, Double))]
 testTwoVariantsOfatanReadmeForward =
   let t = V.fromList [1.1, 2.2, 3.3]
       result = (4.9375516951604155, 7.662345305800865)
-  in [("atanReadmeForward", dSingleArgForward t t vatanReadmeM, result)]
+   in [("atanReadmeForward", dSingleArgForward t t vatanReadmeM, result)]
