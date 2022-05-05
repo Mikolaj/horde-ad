@@ -713,11 +713,13 @@ testAgain :: [(String, (Double, Vector Double), (Double, Vector Double))]
 testAgain =
   testThreeVariantsOfSumElement
     ++ testTwoVariantsOfatanReadme
+    ++ testQuadSimple
 
 testAgainForward :: [(String, (Double, Double), (Double, Double))]
 testAgainForward =
   testTwoVariantsOfatanReadmeForward
     ++ testTwoVariantsOfatanReadmeForward
+    ++ testQuadSimpleForward
 
 quad ::
   (DualMonad s dual m, Num s, Ops DeltaF s dual) =>
@@ -729,6 +731,38 @@ quad x y = do
   y2 <- y .* y
   tmp <- x2 .+ y2
   tmp .+ 5
+
+quadVariables ::
+  (DualMonad s dual m, Num s, Ops DeltaF s dual) =>
+  ( Data.Vector.Vector (Dual s (dual s)),
+    Data.Vector.Vector (Dual t2 (dual t2))
+  ) ->
+  m (Dual s (dual s))
+quadVariables (xyzVector, _) = do
+  let x = xyzVector V.! 0
+      y = xyzVector V.! 1
+  quad x y
+
+testQuadSimple ::
+  [(String, (Double, Vector Double), (Double, Vector Double))]
+testQuadSimple =
+  let t = V.fromList [2, 3]
+      result = (18, V.fromList [4, 6])
+      (r, (res1, _ :: Data.Vector.Vector Double)) =
+        dMultiArg t V.empty 1 quadVariables
+   in [ ("quadSimple", (r, V.convert res1), result)
+      ]
+
+testQuadSimpleForward ::
+  [(String, (Double, Double), (Double, Double))]
+testQuadSimpleForward =
+  let t = V.fromList [2, 3]
+      result = (18, 26)
+   in [ ( "quadSimple",
+          dMultiArgForward (t, t) (V.empty, V.empty) quadVariables,
+          result
+        )
+      ]
 
 foldl'0 ::
   (HM.Numeric s, Ops DeltaF s dual) =>
