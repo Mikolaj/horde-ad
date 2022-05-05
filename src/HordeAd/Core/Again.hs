@@ -643,7 +643,8 @@ dMultiArg ::
   Data.Vector.Vector t1 ->
   Data.Vector.Vector t2 ->
   r ->
-  ( (Data.Vector.Vector (Dual t1 (Delta s t1)), Data.Vector.Vector (Dual t2 (Delta s t2))) ->
+  ( ( Data.Vector.Vector (Dual t1 (Delta s t1))
+    , Data.Vector.Vector (Dual t2 (Delta s t2)) ) ->
     DualMonadGradient s (Dual r (Delta s r))
   ) ->
   (r, (Data.Vector.Vector t1, Data.Vector.Vector t2))
