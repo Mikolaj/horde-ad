@@ -174,6 +174,31 @@ evalDeltaF f deltaF t = case deltaF of
       desl = Data.Vector.toList des
       tl = HM.toList t
 
+evalDeltaFM ::
+  (HM.Numeric s, Monoid m) =>
+  (forall tt. dual tt -> tt -> m) ->
+  DeltaF s dual t ->
+  t ->
+  m
+evalDeltaFM f deltaF t = case deltaF of
+  Zero0 -> mempty
+  Add0 de de' ->
+    f de t <> f de' t
+  Scale0 t' de -> f de (t' * t)
+  Index0 de i n ->
+    f
+      de
+      (HM.fromList (map (\n' -> if n' == i then t else 0) [0 .. n - 1]))
+  Dot1 de de' -> f de' (t `HM.scale` de)
+  Add1 de de' -> f de t <> f de' t
+  Scale1 s de -> f de (s `HM.scale` t)
+  Konst1 de _ -> f de (HM.sumElements t)
+  SumElements1 de n -> f de (HM.konst t n)
+  Seq1 des -> foldMap (uncurry f) (zip desl tl)
+    where
+      desl = Data.Vector.toList des
+      tl = HM.toList t
+
 -- accumulate has the special property
 accumulate ::
   HM.Numeric s =>
