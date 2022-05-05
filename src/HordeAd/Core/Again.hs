@@ -764,6 +764,18 @@ atanReadmeDual ::
   Data.Vector.Vector (Dual s (dual s))
 atanReadmeDual x y z = atanReadmeOriginal x y z
 
+atanReadmeVariables ::
+  RealFloat s =>
+  ( Data.Vector.Vector (Dual s (Delta s s)),
+    Data.Vector.Vector (Dual t2 (Delta s t2))
+  ) ->
+  Data.Vector.Vector (Dual s (Delta s s))
+atanReadmeVariables (xyzVector, _) =
+  let x = xyzVector V.! 0
+      y = xyzVector V.! 1
+      z = xyzVector V.! 2
+   in atanReadmeOriginal x y z
+
 sumElementsOfDualNumbers ::
   (Num s, Ops DeltaF s dual) =>
   Data.Vector.Vector (Dual s (dual s)) ->
@@ -771,20 +783,20 @@ sumElementsOfDualNumbers ::
 sumElementsOfDualNumbers = V.foldl' (+) 0
 
 atanReadmeScalar ::
-  (RealFloat s, Ops DeltaF s dual) =>
-  Dual s (dual s) ->
-  Dual s (dual s) ->
-  Dual s (dual s) ->
-  Dual s (dual s)
-atanReadmeScalar x y z = sumElementsOfDualNumbers $ atanReadmeDual x y z
+  RealFloat s =>
+  ( Data.Vector.Vector (Dual s (Delta s s)),
+    Data.Vector.Vector (Dual t2 (Delta s t2))
+  ) ->
+  Dual s (Delta s s)
+atanReadmeScalar = sumElementsOfDualNumbers . atanReadmeVariables
 
 atanReadmeM ::
-  (DualMonad s dual m, RealFloat s, Ops DeltaF s dual) =>
-  Dual s (dual s) ->
-  Dual s (dual s) ->
-  Dual s (dual s) ->
-  m (Dual s (dual s))
-atanReadmeM x y z = dLet $ atanReadmeScalar x y z
+  (DualMonad s (Delta s) m, RealFloat s) =>
+  ( Data.Vector.Vector (Dual s (Delta s s)),
+    Data.Vector.Vector (Dual t2 (Delta s t2))
+  ) ->
+  m (Dual s (Delta s s))
+atanReadmeM = dLet . atanReadmeScalar
 
 indexNoM ::
   (HM.Numeric s, Ops DeltaF s dual) =>
@@ -825,21 +837,26 @@ infixr 8 <.>!!
   Dual s (dual s)
 (<.>!!) (Dual u u') v = Dual (u HM.<.> v) (ops (Dot1 v u'))
 
--- TODO: can't test the first variant, because it takes many arguments
 testTwoVariantsOfatanReadme ::
   [(String, (Double, Vector Double), (Double, Vector Double))]
 testTwoVariantsOfatanReadme =
   let t = V.fromList [1.1, 2.2, 3.3]
+      tMulti = V.fromList [1.1, 2.2, 3.3]
       result =
         ( 4.9375516951604155,
           V.fromList
             [3.071590389300859, 0.18288422990948425, 1.1761365368997136]
         )
-   in [("atanReadme", dSingleArg t 1 vatanReadmeM, result)]
+      (r, (res1, _ :: Data.Vector.Vector Double)) =
+        dMultiArg tMulti V.empty 1 atanReadmeM
+   in [ ("atanReadme", (r, V.convert res1), result),
+        ("vatanReadme", dSingleArg t 1 vatanReadmeM, result)
+      ]
 
+-- TODO: the first variant doesn't work with forward derivatives
 testTwoVariantsOfatanReadmeForward ::
   [(String, (Double, Double), (Double, Double))]
 testTwoVariantsOfatanReadmeForward =
   let t = V.fromList [1.1, 2.2, 3.3]
       result = (4.9375516951604155, 7.662345305800865)
-   in [("atanReadmeForward", dSingleArgForward t t vatanReadmeM, result)]
+   in [("vatanReadmeForward", dSingleArgForward t t vatanReadmeM, result)]
