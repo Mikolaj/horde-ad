@@ -62,9 +62,10 @@ data DeltaF (s :: Type) (dual :: Type -> Type) (t :: Type) where
   SumElements1 :: dual (Vector s) -> Int -> DeltaF s dual s
   Seq1 :: Data.Vector.Vector (dual s) -> DeltaF s dual (Vector s)
 
-mapDeltaF :: (forall tt. dual tt -> dual' tt)
-          -> DeltaF s dual t
-          -> DeltaF s dual' t
+mapDeltaF ::
+  (forall tt. dual tt -> dual' tt) ->
+  DeltaF s dual t ->
+  DeltaF s dual' t
 mapDeltaF f = \case
   Zero0 -> Zero0
   Add0 duals duals' -> Add0 (f duals') (f duals)
