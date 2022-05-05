@@ -190,7 +190,7 @@ evalDeltaF f deltaF t = case deltaF of
       desl = Data.Vector.toList des
       tl = HM.toList t
 
-newtype MonoidMap m t = MonoidMap { unMonoidMap :: t -> m }
+newtype MonoidMap m t = MonoidMap {unMonoidMap :: t -> m}
 
 evalDeltaFM ::
   forall dual s m t.
@@ -216,8 +216,9 @@ evalDeltaFM f' deltaF = MonoidMap $ \t -> case deltaF of
     where
       desl = Data.Vector.toList des
       tl = HM.toList t
-  where f :: dual tt -> tt -> m
-        f d = unMonoidMap (f' d)
+  where
+    f :: dual tt -> tt -> m
+    f d = unMonoidMap (f' d)
 
 -- accumulate has the special property
 accumulate ::
