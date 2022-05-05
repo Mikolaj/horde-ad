@@ -181,9 +181,8 @@ evalDeltaFM ::
   (HM.Numeric s, Monoid m) =>
   (forall tt. dual tt -> MonoidMap m tt) ->
   DeltaF s dual t ->
-  t ->
-  m
-evalDeltaFM f' deltaF t = case deltaF of
+  MonoidMap m t
+evalDeltaFM f' deltaF = MonoidMap $ \t -> case deltaF of
   Zero0 -> mempty
   Add0 de de' ->
     f de t <> f de' t
