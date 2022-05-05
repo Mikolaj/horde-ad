@@ -747,16 +747,28 @@ altSumElements0 ::
   Dual s (dual s)
 altSumElements0 = foldl'0 (+) 0
 
--- TODO: can't test the first variant, because it takes many arguments
+vec_omit_scalarSum ::
+  (RealFloat s, Ops DeltaF s dual) =>
+  ( Data.Vector.Vector (Dual s (dual s)),
+    Data.Vector.Vector (Dual t2 (dual t2))
+  ) ->
+  Dual s (dual s)
+vec_omit_scalarSum (v, _) = V.foldl' (+) 0 v
+
 testThreeVariantsOfSumElement ::
   [(String, (Double, Vector Double), (Double, Vector Double))]
 testThreeVariantsOfSumElement =
   let sumElementsV = dLet . sumElements
       altSumElementsV = dLet . altSumElements0
+      vec_omit_scalarSumM = dLet . vec_omit_scalarSum
       t = V.fromList [1, 1, 3]
+      tMulti = V.fromList [1, 1, 3]
       result = (5, V.fromList [1, 1, 1])
+      (r, (res1, _ :: Data.Vector.Vector Double)) =
+        dMultiArg tMulti V.empty 1 vec_omit_scalarSumM
    in [ ("sumElement", dSingleArg t 1 sumElementsV, result),
-        ("altSumElement", dSingleArg t 1 altSumElementsV, result)
+        ("altSumElement", dSingleArg t 1 altSumElementsV, result),
+        ("vec_omit_scalarSum", (r, V.convert res1), result)
       ]
 
 testThreeVariantsOfSumElementForward ::
@@ -764,10 +776,16 @@ testThreeVariantsOfSumElementForward ::
 testThreeVariantsOfSumElementForward =
   let sumElementsV = dLet . sumElements
       altSumElementsV = dLet . altSumElements0
+      vec_omit_scalarSumM = dLet . vec_omit_scalarSum
       t = V.fromList [1.1, 2.2, 3.3 :: Double]
+      tMulti = V.fromList [1, 1, 3]
       result = (4.9375516951604155, 7.662345305800865)
    in [ ("sumElementForward", dSingleArgForward t t sumElementsV, result),
-        ("altSumElementForward", dSingleArgForward t t altSumElementsV, result)
+        ("altSumElementForward", dSingleArgForward t t altSumElementsV, result),
+        ( "vec_omit_scalarSumForward",
+          dMultiArgForward (tMulti, tMulti) (V.empty, V.empty) vec_omit_scalarSumM,
+          result
+        )
       ]
 
 atanReadmeOriginal :: RealFloat a => a -> a -> a -> Data.Vector.Vector a
