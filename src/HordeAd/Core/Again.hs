@@ -475,7 +475,7 @@ data Dual a b = Dual a b
 class Ops f s dual | dual -> s where
   ops :: f s dual t -> dual t
 
-data Concrete r (t :: Type) where
+newtype Concrete r (t :: Type) where
   C :: {unConcrete :: t} -> Concrete r t
 
 concrete :: t -> Concrete s t
