@@ -190,21 +190,23 @@ evalDeltaF f deltaF t = case deltaF of
       desl = Data.Vector.toList des
       tl = HM.toList t
 
-newtype MonoidMap m t = MonoidMap {unMonoidMap :: t -> m}
+-- Somewhat annoying that we need this r parameter to satisfy
+-- functional dependencies.
+newtype MonoidMap r m t = MonoidMap {unMonoidMap :: t -> m}
 
 evalDeltaFM ::
   forall dual s m t.
   (HM.Numeric s, Monoid m) =>
-  (forall tt. dual tt -> MonoidMap m tt) ->
+  (forall tt. dual tt -> MonoidMap s m tt) ->
   DeltaF s dual t ->
-  MonoidMap m t
+  MonoidMap s m t
 evalDeltaFM f' = evalDeltaFM1 . mapDeltaF f'
 
 evalDeltaFM1 ::
   forall s m t.
   (HM.Numeric s, Monoid m) =>
-  DeltaF s (MonoidMap m) t ->
-  MonoidMap m t
+  DeltaF s (MonoidMap s m) t ->
+  MonoidMap s m t
 evalDeltaFM1 deltaF = MonoidMap $ \t -> case deltaF of
   Zero0 -> mempty
   Add0 de de' ->
@@ -224,6 +226,9 @@ evalDeltaFM1 deltaF = MonoidMap $ \t -> case deltaF of
       desl = Data.Vector.toList des
       tl = HM.toList t
   where f = unMonoidMap
+
+instance (HM.Numeric r, Monoid m) => Ops DeltaF r (MonoidMap r m) where
+  ops = evalDeltaFM1
 
 -- accumulate has the special property
 accumulate ::
