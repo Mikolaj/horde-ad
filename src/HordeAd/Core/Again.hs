@@ -344,15 +344,22 @@ dSingleArgForward t t' f =
    in (r, unConcrete d)
 
 dMultiArgForward ::
-  (t, t) ->
-  (t', t') ->
-  ( (Dual t (Concrete s t), Dual t' (Concrete s t')) ->
+  (Data.Vector.Vector t, Data.Vector.Vector t) ->
+  (Data.Vector.Vector t', Data.Vector.Vector t') ->
+  ( ( Data.Vector.Vector (Dual t (Concrete s t)),
+      Data.Vector.Vector (Dual t' (Concrete s t'))
+    ) ->
     DualMonadForward s (Dual r (Concrete s r))
   ) ->
   (r, r)
 dMultiArgForward (t, dt) (t', dt') f =
   let Dual r d =
-        runDualMonadForward (f (Dual t (concrete dt), Dual t' (concrete dt')))
+        runDualMonadForward
+          ( f
+              ( Data.Vector.zipWith (\a da -> Dual a (concrete da)) t dt,
+                Data.Vector.zipWith (\a da -> Dual a (concrete da)) t' dt'
+              )
+          )
    in (r, unConcrete d)
 
 dLetS ::
