@@ -784,11 +784,11 @@ atanReadmeDual ::
 atanReadmeDual x y z = atanReadmeOriginal x y z
 
 atanReadmeVariables ::
-  RealFloat s =>
-  ( Data.Vector.Vector (Dual s (Delta s s)),
-    Data.Vector.Vector (Dual t2 (Delta s t2))
+  (RealFloat s, Ops DeltaF s dual) =>
+  ( Data.Vector.Vector (Dual s (dual s)),
+    Data.Vector.Vector (Dual t2 (dual t2))
   ) ->
-  Data.Vector.Vector (Dual s (Delta s s))
+  Data.Vector.Vector (Dual s (dual s))
 atanReadmeVariables (xyzVector, _) =
   let x = xyzVector V.! 0
       y = xyzVector V.! 1
@@ -802,19 +802,19 @@ sumElementsOfDualNumbers ::
 sumElementsOfDualNumbers = V.foldl' (+) 0
 
 atanReadmeScalar ::
-  RealFloat s =>
-  ( Data.Vector.Vector (Dual s (Delta s s)),
-    Data.Vector.Vector (Dual t2 (Delta s t2))
+  (RealFloat s, Ops DeltaF s dual) =>
+  ( Data.Vector.Vector (Dual s (dual s)),
+    Data.Vector.Vector (Dual t2 (dual t2))
   ) ->
-  Dual s (Delta s s)
+  Dual s (dual s)
 atanReadmeScalar = sumElementsOfDualNumbers . atanReadmeVariables
 
 atanReadmeM ::
-  (DualMonad s (Delta s) m, RealFloat s) =>
-  ( Data.Vector.Vector (Dual s (Delta s s)),
-    Data.Vector.Vector (Dual t2 (Delta s t2))
+  (DualMonad s dual m, Ops DeltaF s dual, RealFloat s) =>
+  ( Data.Vector.Vector (Dual s (dual s)),
+    Data.Vector.Vector (Dual t2 (dual t2))
   ) ->
-  m (Dual s (Delta s s))
+  m (Dual s (dual s))
 atanReadmeM = dLet . atanReadmeScalar
 
 indexNoM ::
@@ -872,10 +872,15 @@ testTwoVariantsOfatanReadme =
         ("vatanReadme", dSingleArg t 1 vatanReadmeM, result)
       ]
 
--- TODO: the first variant doesn't work with forward derivatives
 testTwoVariantsOfatanReadmeForward ::
   [(String, (Double, Double), (Double, Double))]
 testTwoVariantsOfatanReadmeForward =
   let t = V.fromList [1.1, 2.2, 3.3]
+      tMulti = V.fromList [1.1, 2.2, 3.3]
       result = (4.9375516951604155, 7.662345305800865)
-   in [("vatanReadmeForward", dSingleArgForward t t vatanReadmeM, result)]
+   in [ ( "atanReadmeForward",
+          dMultiArgForward (tMulti, tMulti) (V.empty, V.empty) atanReadmeM,
+          result
+        ),
+        ("vatanReadmeForward", dSingleArgForward t t vatanReadmeM, result)
+      ]
