@@ -161,7 +161,7 @@ gdSimpleShow :: HasDelta r
              -> ([Primal r], Primal r)
 gdSimpleShow gamma f initVec n =
   let (res, _, _, _) = gdSimple gamma f n (initVec, V.empty, V.empty, V.empty)
-      (_, value) = dReverse f (res, V.empty, V.empty, V.empty)
+      (_, value) = dReverse 1 f (res, V.empty, V.empty, V.empty)
   in (V.toList res, value)
 
 gdSimpleTestCase
@@ -341,7 +341,7 @@ gdSmartShow :: (DualNumberVariablesD -> DualMonadGradient (Delta0 Double) DualNu
             -> ([Double], (Double, Double))
 gdSmartShow f initVec n =
   let ((res, _, _, _), gamma) = gdSmart f n (initVec, V.empty, V.empty, V.empty)
-      (_, value) = dReverse f (res, V.empty, V.empty, V.empty)
+      (_, value) = dReverse 1 f (res, V.empty, V.empty, V.empty)
   in (V.toList res, (value, gamma))
 
 gradSmartTestCase :: Num a
@@ -724,7 +724,7 @@ sgdShow :: HasDelta r
 sgdShow gamma f trainData params0Init =
   let (res, _, _, _) =
         fst $ sgd gamma f trainData (params0Init, V.empty, V.empty, V.empty)
-      (_, value) = dReverse (f $ head trainData) (res, V.empty, V.empty, V.empty)
+      (_, value) = dReverse 1 (f $ head trainData) (res, V.empty, V.empty, V.empty)
   in (V.toList res, value)
 
 sgdTestCase

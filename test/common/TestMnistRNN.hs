@@ -132,7 +132,7 @@ sgdShow :: HasDelta r
         -> Primal r
 sgdShow f trainData parameters =
   let result = fst $ sgd 0.1 f trainData parameters
-  in snd $ dReverse (f $ head trainData) result
+  in snd $ dReverse 1 (f $ head trainData) result
 
 sgdTestCase :: String
             -> (a

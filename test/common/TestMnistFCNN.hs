@@ -48,7 +48,7 @@ sgdShow :: HasDelta r
 sgdShow gamma f trainData params0Init =
   let result =
         fst $ sgd gamma f trainData (params0Init, V.empty, V.empty, V.empty)
-  in snd $ dReverse (f $ head trainData) result
+  in snd $ dReverse 1 (f $ head trainData) result
 
 sgdTestCase :: String
             -> IO [a]
@@ -658,7 +658,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             close a b = abs (a - b) <= 1e-4
             closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
             dfDot fDot argsDot dsDot =
-              let (res, value) = dReverse fDot argsDot
+              let (res, value) = dReverse 1 fDot argsDot
               in (dotParameters @(Delta0 Double) res dsDot, value)
         in ffPValue == perturbedffPValue
            .&&. dForward f parameters ds === ff
@@ -693,7 +693,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             close a b = abs (a - b) <= 1e-4
             closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
             dfDot fDot argsDot dsDot =
-              let (res, value) = dReverse fDot argsDot
+              let (res, value) = dReverse 1 fDot argsDot
               in (dotParameters @(Delta0 Double) res dsDot, value)
         in ffPValue == perturbedffPValue
            .&&. dForward f parameters ds === ff
@@ -736,7 +736,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             ffFused = dFastForward fFused parameters ds
             closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. close b1 b2
             dfDot fDot argsDot dsDot =
-              let (res, value) = dReverse fDot argsDot
+              let (res, value) = dReverse 1 fDot argsDot
               in (dotParameters @(Delta0 Double) res dsDot, value)
         in ffPValue == perturbedffPValue
            .&&. dForward f parameters ds === ff

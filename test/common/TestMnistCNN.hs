@@ -588,7 +588,7 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
             close a b = abs (a - b) <= 1e-4
             closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
             dfDot fDot argsDot dsDot =
-              let (res, value) = dReverse fDot argsDot
+              let (res, value) = dReverse 1 fDot argsDot
               in (dotParameters @(Delta0 Double) res dsDot, value)
         in ffPValue == perturbedffPValue
            .&&. closeEq ff ffP
@@ -661,7 +661,7 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
             close a b = abs (a - b) <= 1e-4
             closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
             dfDot fDot argsDot dsDot =
-              let (res, value) = dReverse fDot argsDot
+              let (res, value) = dReverse 1 fDot argsDot
               in (dotParameters @(Delta0 Double) res dsDot, value)
         in closeEq ff ffP
            .&&. closeEq ff ffT

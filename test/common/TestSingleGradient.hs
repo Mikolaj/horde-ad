@@ -46,7 +46,7 @@ dReverse0
   -> ([Primal r], Primal r)
 dReverse0 f deltaInput =
   let ((results, _, _, _), value) =
-        dReverse f (V.fromList deltaInput, V.empty, V.empty, V.empty)
+        dReverse 1 f (V.fromList deltaInput, V.empty, V.empty, V.empty)
   in (V.toList results, value)
 
 fX :: DualMonad (Delta0 Float) m
@@ -147,7 +147,7 @@ dReverse1
   -> ([[Float]], Float)
 dReverse1 f deltaInput =
   let ((_, results, _, _), value) =
-        dReverse f
+        dReverse 1 f
           (V.empty, V.fromList (map V.fromList deltaInput), V.empty, V.empty)
   in (map V.toList $ V.toList results, value)
 
@@ -213,7 +213,7 @@ quickCheckForwardAndBackward =
                   close a b = abs (a - b) <= 1e-4
                   closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
                   dfDot fDot argsDot dsDot =
-                    let (res, value) = dReverse fDot argsDot
+                    let (res, value) = dReverse 1 fDot argsDot
                     in (dotParameters @(Delta0 Double) res dsDot, value)
               in -- Two forward derivative implementations agree:
                  dForward f args ds === ff
@@ -293,7 +293,7 @@ atanReadmeDReverse :: HasDelta r
                    => Domain0 r -> (Domain0 r, Primal r)
 atanReadmeDReverse ds =
   let ((result, _, _, _), value) =
-        dReverse atanReadmeM (ds, V.empty, V.empty, V.empty)
+        dReverse 1 atanReadmeM (ds, V.empty, V.empty, V.empty)
   in (result, value)
 
 readmeTests :: TestTree
@@ -327,7 +327,7 @@ vatanReadmeDReverse :: HasDelta r
                     => Domain1 r -> (Domain1 r, Primal r)
 vatanReadmeDReverse dsV =
   let ((_, result, _, _), value) =
-        dReverse vatanReadmeM (V.empty, dsV, V.empty, V.empty)
+        dReverse 1 vatanReadmeM (V.empty, dsV, V.empty, V.empty)
   in (result, value)
 
 readmeTestsV :: TestTree

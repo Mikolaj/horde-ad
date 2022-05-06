@@ -164,7 +164,7 @@ sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
         fBatch vars = do
           resBatch <- foldM (fAdd vars) 0 batch
           return $! resBatch / fromIntegral (length batch)
-        gradients = fst $ dReverseGeneral variables fBatch
+        gradients = fst $ dReverseGeneral 1 variables fBatch
         (parametersNew, stateAdamNew) =
           updateWithGradientAdam argsAdam stateAdam parameters gradients
     in go rest parametersNew stateAdamNew
@@ -180,7 +180,7 @@ gdSmart :: forall r. HasDelta r
 gdSmart f n0 parameters0 = go n0 parameters0 0.1 gradients0 value0 0 where
   varDeltas = generateDeltaVars parameters0
   variables0 = makeDualNumberVariables parameters0 varDeltas
-  (gradients0, value0) = dReverseGeneral variables0 f
+  (gradients0, value0) = dReverseGeneral 1 variables0 f
   go :: Int -> Domains r -> Primal r -> Domains r -> Primal r -> Int
      -> (Domains r, Primal r)
   go 0 parameters !gamma _gradientsPrev _valuePrev !_i = (parameters, gamma)
@@ -191,7 +191,7 @@ gdSmart f n0 parameters0 = go n0 parameters0 0.1 gradients0 value0 0 where
     -- with the new value that is needed now to revert if we overshoot.
     let parametersNew = updateWithGradient @r gamma parameters gradientsPrev
         variables = makeDualNumberVariables parametersNew varDeltas
-        (gradients, value) = dReverseGeneral variables f
+        (gradients, value) = dReverseGeneral 1 variables f
     in if | gradientIsNil @r gradientsPrev -> (parameters, gamma)
           | value > valuePrev ->
               go n parameters (gamma / 2) gradientsPrev valuePrev 0  -- overshot

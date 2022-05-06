@@ -98,13 +98,16 @@ initializeState (params0, params1, params2, paramsX) =
              }
 
 dReverseGeneral :: forall r. HasDelta r
-          => DualNumberVariables r
+          => Primal r
+          -> DualNumberVariables r
           -> (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
           -> (Domains r, Primal r)
 -- The functions in which @dReverseGeneral@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE dReverseGeneral #-}
-dReverseGeneral variables@(params0, _, params1, _, params2, _, paramsX, _) f =
+dReverseGeneral dt
+                variables@(params0, _, params1, _, params2, _, paramsX, _)
+                f =
   let dim0 = V.length params0
       dim1 = V.length params1
       dim2 = V.length params2
@@ -112,19 +115,18 @@ dReverseGeneral variables@(params0, _, params1, _, params2, _, paramsX, _) f =
       initialState = initializeState @r (params0, params1, params2, paramsX)
       (D value d, st) = runState (runDualMonadGradient (f variables))
                                  initialState
-      dt = 1  -- fixed for simplicity, but can be overriden
-              -- by changing the objective function
       gradient = gradientFromDelta dim0 dim1 dim2 dimX st d dt
   in (gradient, value)
 
 dReverse :: HasDelta r
-   => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
+   => Primal r
+   -> (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
    -> Domains r
    -> (Domains r, Primal r)
-dReverse f parameters =
+dReverse dt f parameters =
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
-  in dReverseGeneral variables f
+  in dReverseGeneral dt variables f
 
 -- This function uses @DualMonadGradient@ for an inefficient computation
 -- of forward derivaties. See @dFastForwardGeneral@ for an efficient variant.

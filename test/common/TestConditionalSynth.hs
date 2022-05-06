@@ -211,7 +211,7 @@ gradSmartTestCase prefix lossFunction seedSamples
              sgdAdam f samples parametersInit
                      (initialStateAdam parametersInit)
            (_, values) =
-             unzip $ map (\t -> dReverse (f t) parametersResult) testSamples
+             unzip $ map (\t -> dReverse 1 (f t) parametersResult) testSamples
        (sum values / 100) @?= expected
 
 conditionalSynthTests:: TestTree
