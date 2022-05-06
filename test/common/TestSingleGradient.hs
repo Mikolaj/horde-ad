@@ -160,23 +160,12 @@ testDReverse1 = testGroup "Simple dReverse application to vectors tests" $
     , ("altSumElementsV", altSumElementsV, [[1, 1, 3]], ([[1.0,1.0,1.0]],5.0))
     ]
 
-dForward01
-  :: HasDelta r
-  => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
-  -> ([Primal r], [Primal r])
-  -> ([Primal r], [Primal r])
-  -> (Primal r, Primal r)
-dForward01 f (deltaInput, deltaInputV) (ds0, ds1) =
-  dForward f ( V.fromList deltaInput, V.singleton $ V.fromList deltaInputV
-             , V.empty, V.empty )
-             ( V.fromList ds0, V.singleton $ V.fromList ds1
-             , V.empty, V.empty )
-
 testDForward :: TestTree
 testDForward =
  testGroup "Simple dForward application tests" $
   map (\(txt, f, v, expected) ->
-        testCase txt $ dForward01 f v v @?= expected)
+        let vp = listsToParameters v
+        in testCase txt $ dForward f vp vp @?= expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
     , ( "atanReadmeM", atanReadmeM, ([1.1, 2.2, 3.3], [])
       , (7.662345305800865, 4.9375516951604155) )
@@ -184,24 +173,16 @@ testDForward =
       , (7.662345305800865, 4.9375516951604155) )
     ]
 
-dFastForward01
-  :: HasForward r
-  => (DualNumberVariables r
-      -> DualMonadForward r (DualNumber r))
-  -> ([Primal r], [Primal r])
-  -> ([Primal r], [Primal r])
-  -> (Primal r, Primal r)
-dFastForward01 f (deltaInput, deltaInputV) (ds0, ds1) =
-  dFastForward f ( V.fromList deltaInput, V.singleton $ V.fromList deltaInputV
-                 , V.empty, V.empty )
-                 ( V.fromList ds0, V.singleton $ V.fromList ds1
-                 , V.empty, V.empty )
+listsToParameters :: ([Double], [Double]) -> Domains Double
+listsToParameters (a0, a1) =
+  (V.fromList a0, V.singleton $ V.fromList a1, V.empty, V.empty)
 
 testDFastForward :: TestTree
 testDFastForward =
  testGroup "Simple dFastForward application tests" $
   map (\(txt, f, v, expected) ->
-        testCase txt $ dFastForward01 f v v @?= expected)
+        let vp = listsToParameters v
+        in testCase txt $ dFastForward f vp vp @?= expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
     , ( "atanReadmeM", atanReadmeM, ([1.1, 2.2, 3.3], [])
       , (7.662345305800865, 4.9375516951604155) )
@@ -210,15 +191,13 @@ testDFastForward =
     ]
 
 dfDotShow
-  :: HasDelta r
+  :: (HasDelta r, Primal r ~ Double)
   => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
   -> ([Primal r], [Primal r])
   -> ([Primal r], [Primal r])
   -> (Primal r, Primal r)
-dfDotShow f (deltaInput, deltaInputV) (ds0, ds1) =
-  let ((res0, res1, _, _), value) =
-        dReverse f ( V.fromList deltaInput, V.singleton $ V.fromList deltaInputV
-             , V.empty, V.empty )
+dfDotShow f deltaInput (ds0, ds1) =
+  let ((res0, res1, _, _), value) = dReverse f (listsToParameters deltaInput)
   in ( res0 HM.<.> V.fromList ds0
        + V.head res1 HM.<.> V.fromList ds1  -- we assume res0 or res1 is empty
      , value )
@@ -242,19 +221,17 @@ quickCheckForwardAndBackward =
                   ds = fArg dsRaw
                   perturbation = fArg perturbationRaw
                   perturbedArgs =
-                    (\(a0, a1) ->
-                       ( V.fromList a0, V.singleton $ V.fromList a1
-                       , V.empty, V.empty ))
+                    listsToParameters
                     $ fArg
                     $ (\(x, y, z) (dx, dy, dz) ->
                          (x + dx, y + dy, z + dz)) xyz perturbationRaw
-                  ff@(_, ffValue) = dFastForward01 f args ds
+                  ff@(_, ffValue) = dFastForward f (listsToParameters args) (listsToParameters ds)
                   perturbedff@(_, perturbedffValue) =
-                    dFastForward01 f args perturbation
+                    dFastForward f (listsToParameters args) (listsToParameters perturbation)
                   close a b = abs (a - b) <= 1e-4
                   closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
               in -- Two forward derivative implementations agree:
-                 dForward01 f args ds === ff
+                 dForward f (listsToParameters args) (listsToParameters ds) === ff
                  -- Gradients and derivatives agree.
                  .&&. closeEq (dfDotShow f args ds) ff
                  -- Objective function value is unaffected ds.
