@@ -4,6 +4,7 @@ module TestSingleGradient (testTrees) where
 
 import Prelude
 
+import qualified Data.Array.DynamicS as OT
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Numeric.LinearAlgebra as HM
@@ -190,18 +191,6 @@ testDFastForward =
       , (7.662345305800865, 4.9375516951604155) )
     ]
 
-dfDotShow
-  :: (HasDelta r, Primal r ~ Double)
-  => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
-  -> ([Primal r], [Primal r])
-  -> ([Primal r], [Primal r])
-  -> (Primal r, Primal r)
-dfDotShow f deltaInput (ds0, ds1) =
-  let ((res0, res1, _, _), value) = dReverse f (listsToParameters deltaInput)
-  in ( res0 HM.<.> V.fromList ds0
-       + V.head res1 HM.<.> V.fromList ds1  -- we assume res0 or res1 is empty
-     , value )
-
 -- The formula for comparing derivative and gradient is due to @awf
 -- at https://github.com/Mikolaj/horde-ad/issues/15#issuecomment-1063251319
 quickCheckForwardAndBackward :: TestTree
@@ -217,28 +206,33 @@ quickCheckForwardAndBackward =
           $ forAll (choose ((-2, -2, -2), (2, 2, 2))) $ \xyz dsRaw ->
             forAll (choose ( (-1e-7, -1e-7, -1e-7)
                            , (1e-7, 1e-7, 1e-7) )) $ \perturbationRaw ->
-              let args = fArg xyz
-                  ds = fArg dsRaw
-                  perturbation = fArg perturbationRaw
-                  perturbedArgs =
-                    listsToParameters
-                    $ fArg
-                    $ (\(x, y, z) (dx, dy, dz) ->
-                         (x + dx, y + dy, z + dz)) xyz perturbationRaw
-                  ff@(_, ffValue) = dFastForward f (listsToParameters args) (listsToParameters ds)
+              let args = listsToParameters $ fArg xyz
+                  ds = listsToParameters $ fArg dsRaw
+                  perturbation = listsToParameters $ fArg perturbationRaw
+                  ff@(_, ffValue) = dFastForward f args ds
                   perturbedff@(_, perturbedffValue) =
-                    dFastForward f (listsToParameters args) (listsToParameters perturbation)
+                    dFastForward f args perturbation
                   close a b = abs (a - b) <= 1e-4
                   closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
+                  dfDot fDot psDot (ds0, ds1, ds2, dsX) =
+                    let ((res0, res1, res2, resX), value) = dReverse fDot psDot
+                    in ( res0 HM.<.> ds0
+                         + V.sum (V.zipWith (HM.<.>) res1 ds1)
+                         + V.sum (V.zipWith (HM.<.>) (V.map HM.flatten res2)
+                                                     (V.map HM.flatten ds2))
+                         + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
+                                                     (V.map OT.toVector dsX))
+                       , value )
               in -- Two forward derivative implementations agree:
-                 dForward f (listsToParameters args) (listsToParameters ds) === ff
+                 dForward f args ds === ff
                  -- Gradients and derivatives agree.
-                 .&&. closeEq (dfDotShow f args ds) ff
+                 .&&. closeEq (dfDot f args ds) ff
                  -- Objective function value is unaffected ds.
                  .&&. ffValue == perturbedffValue
                  -- Derivative approximates the perturbation of value.
                  .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
-                                         f perturbedArgs)
+                                         f (addParameters @(Delta0 Double)
+                                                          args perturbation))
                             (ffValue + fst perturbedff)
     in [ qcTest "fquad" fquad (\(x, y, _z) -> ([x, y], []))
        , qcTest "atanReadmeM" atanReadmeM
