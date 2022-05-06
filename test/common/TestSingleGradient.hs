@@ -189,50 +189,51 @@ testDFastForward =
       , (7.662345305800865, 4.9375516951604155) )
     ]
 
+qcTest :: TestName
+       -> (forall r m. DualMonad r m
+           => DualNumberVariables r -> m (DualNumber r))
+       -> ((Double, Double, Double) -> ([Double], [Double]))
+       -> TestTree
+qcTest txt f fArg =
+  testProperty txt
+  $ forAll (choose ((-2, -2, -2), (2, 2, 2))) $ \xyz dsRaw ->
+    forAll (choose ( (-1e-7, -1e-7, -1e-7)
+                   , (1e-7, 1e-7, 1e-7) )) $ \perturbationRaw ->
+    forAll (choose (-10, 10)) $ \dt ->
+      let args = listsToParameters $ fArg xyz
+          ds = listsToParameters $ fArg dsRaw
+          perturbation = listsToParameters $ fArg perturbationRaw
+          ff@(derivative, ffValue) = dFastForward f args ds
+          (derivativeAtPerturbation, valueAtPerturbation) =
+            dFastForward f args perturbation
+          close a b = abs (a - b) <= 1e-4
+          (gradient, revValue) = dReverse dt f args
+      in -- Two forward derivative implementations agree fully:
+         dForward f args ds === ff
+         -- Objective function value from gradients is the same.
+         .&&. ffValue == revValue
+         -- Gradients and derivatives agree.
+         .&&. close (dt * derivative)
+                    (dotParameters @(Delta0 Double) gradient ds)
+         -- Objective function value is unaffected by perturbation.
+         .&&. ffValue == valueAtPerturbation
+         -- Derivative approximates the perturbation of value.
+         .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
+                                 f (addParameters @(Delta0 Double)
+                                                  args perturbation))
+                    (ffValue + derivativeAtPerturbation)
+
 -- The formula for comparing derivative and gradient is due to @awf
 -- at https://github.com/Mikolaj/horde-ad/issues/15#issuecomment-1063251319
 quickCheckForwardAndBackward :: TestTree
 quickCheckForwardAndBackward =
   testGroup "Simple QuickCheck of gradient vs derivative vs perturbation" $
-    let qcTest :: TestName
-               -> (forall r m. DualMonad r m
-                   => DualNumberVariables r -> m (DualNumber r))
-               -> ((Double, Double, Double) -> ([Double], [Double]))
-               -> TestTree
-        qcTest txt f fArg =
-          testProperty txt
-          $ forAll (choose ((-2, -2, -2), (2, 2, 2))) $ \xyz dsRaw ->
-            forAll (choose ( (-1e-7, -1e-7, -1e-7)
-                           , (1e-7, 1e-7, 1e-7) )) $ \perturbationRaw ->
-            forAll (choose (-10, 10)) $ \dt ->
-              let args = listsToParameters $ fArg xyz
-                  ds = listsToParameters $ fArg dsRaw
-                  perturbation = listsToParameters $ fArg perturbationRaw
-                  ff@(derivative, ffValue) = dFastForward f args ds
-                  (derivativeAtPerturbation, valueAtPerturbation) =
-                    dFastForward f args perturbation
-                  close a b = abs (a - b) <= 1e-4
-                  (gradient, revValue) = dReverse dt f args
-              in -- Two forward derivative implementations agree fully:
-                 dForward f args ds === ff
-                 -- Objective function value from gradients is the same.
-                 .&&. ffValue == revValue
-                 -- Gradients and derivatives agree.
-                 .&&. close (dt * derivative)
-                            (dotParameters @(Delta0 Double) gradient ds)
-                 -- Objective function value is unaffected by perturbation.
-                 .&&. ffValue == valueAtPerturbation
-                 -- Derivative approximates the perturbation of value.
-                 .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
-                                         f (addParameters @(Delta0 Double)
-                                                          args perturbation))
-                            (ffValue + derivativeAtPerturbation)
-    in [ qcTest "fquad" fquad (\(x, y, _z) -> ([x, y], []))
-       , qcTest "atanReadmeM" atanReadmeM
-                (\(x, y, z) -> ([x, y, z], []))
-       , qcTest "vatanReadmeM" vatanReadmeM
-                (\(x, y, z) -> ([], [x, y, z]))
-       ]
+    [ qcTest "fquad" fquad (\(x, y, _z) -> ([x, y], []))
+    , qcTest "atanReadmeM" atanReadmeM
+             (\(x, y, z) -> ([x, y, z], []))
+    , qcTest "vatanReadmeM" vatanReadmeM
+             (\(x, y, z) -> ([], [x, y, z]))
+    ]
 
 -- A function that goes from `R^3` to `R^2`, with a representation
 -- of the input and the output tuple that is convenient for interfacing
