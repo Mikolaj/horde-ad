@@ -227,7 +227,7 @@ dfDotShow f (deltaInput, deltaInputV) (ds0, ds1) =
 -- at https://github.com/Mikolaj/horde-ad/issues/15#issuecomment-1063251319
 quickCheckForwardAndBackward :: TestTree
 quickCheckForwardAndBackward =
-  testGroup "Simple case of verifying two forward derivative methods and one backprop gradient method give compatible results" $
+  testGroup "Simple QuickCheck of gradient vs derivative vs perturbation" $
     let qcTest :: TestName
                -> (forall r m. DualMonad r m
                    => DualNumberVariables r -> m (DualNumber r))
@@ -235,14 +235,34 @@ quickCheckForwardAndBackward =
                -> TestTree
         qcTest txt f fArg =
           testProperty txt
-          $ forAll (choose ((-2, -2, -2), (2, 2, 2))) $ \xyz xyz2 ->
+          $ forAll (choose ((-2, -2, -2), (2, 2, 2))) $ \xyz dsRaw ->
+            forAll (choose ( (-1e-7, -1e-7, -1e-7)
+                           , (1e-7, 1e-7, 1e-7) )) $ \perturbationRaw ->
               let args = fArg xyz
-                  ds = fArg xyz2
-                  ff = dFastForward01 f args ds
-                  close a b = abs (a - b) <= 0.000001
+                  ds = fArg dsRaw
+                  perturbation = fArg perturbationRaw
+                  perturbedArgs =
+                    (\(a0, a1) ->
+                       ( V.fromList a0, V.singleton $ V.fromList a1
+                       , V.empty, V.empty ))
+                    $ fArg
+                    $ (\(x, y, z) (dx, dy, dz) ->
+                         (x + dx, y + dy, z + dz)) xyz perturbationRaw
+                  ff@(_, ffValue) = dFastForward01 f args ds
+                  perturbedff@(_, perturbedffValue) =
+                    dFastForward01 f args perturbation
+                  close a b = abs (a - b) <= 1e-4
                   close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
-              in dForward01 f args ds === ff
+              in -- Two forward derivative implementations agree:
+                 dForward01 f args ds === ff
+                 -- Gradients and derivatives agree.
                  .&&. close1 (dfDotShow f args ds) ff
+                 -- Objective function value is unaffected ds.
+                 .&&. ffValue == perturbedffValue
+                 -- Derivative approximates the perturbation of value.
+                 .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
+                                         f perturbedArgs)
+                            (ffValue + fst perturbedff)
     in [ qcTest "fquad" fquad (\(x, y, _z) -> ([x, y], []))
        , qcTest "atanReadmeM" atanReadmeM
                 (\(x, y, z) -> ([x, y, z], []))
