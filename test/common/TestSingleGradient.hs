@@ -14,10 +14,10 @@ import           Test.Tasty.QuickCheck
 import HordeAd hiding (sumElementsVectorOfDual)
 
 testTrees :: [TestTree]
-testTrees = [ dfTests
-            , vectorTests
-            , dfTestsForward
-            , dfTestsFastForward
+testTrees = [ testDReverse0
+            , testDReverse1
+            , testDForward
+            , testDFastForward
             , quickCheckForwardAndBackward
             , readmeTests
             , readmeTestsV
@@ -40,11 +40,12 @@ testTrees = [ dfTests
 squareDual :: DualMonad r m => DualNumber r -> m (DualNumber r)
 squareDual = returnLet . square
 
-dfShow :: HasDelta r
-       => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
-       -> [Primal r]
-       -> ([Primal r], Primal r)
-dfShow f deltaInput =
+dReverse0
+  :: HasDelta r
+  => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
+  -> [Primal r]
+  -> ([Primal r], Primal r)
+dReverse0 f deltaInput =
   let ((results, _, _, _), value) =
         dReverse f (V.fromList deltaInput, V.empty, V.empty, V.empty)
   in (V.toList results, value)
@@ -102,10 +103,10 @@ fquad variables = do
   tmp <- x2 +\ y2
   tmp +\ 5
 
-dfTests :: TestTree
-dfTests = testGroup "Simple dReverse application tests" $
+testDReverse0 :: TestTree
+testDReverse0 = testGroup "Simple dReverse application tests" $
   map (\(txt, f, v, expected) ->
-        testCase txt $ dfShow f v @?= expected)
+        testCase txt $ dReverse0 f v @?= expected)
     [ ("fX", fX, [99], ([1.0],99.0))
     , ("fX1Y", fX1Y, [3, 2], ([2.0,4.0],8.0))
     , ("fXXY", fXXY, [3, 2], ([12.0,9.0],18.0))
@@ -140,42 +141,42 @@ altSumElementsV variables = do
   let x = var1 variables 0
   returnLet $ altSumElements0 x
 
-dfVectorShow
+dReverse1
   :: (HasDelta r, Primal r ~ Float)
   => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
   -> [[Float]]
   -> ([[Float]], Float)
-dfVectorShow f deltaInput =
+dReverse1 f deltaInput =
   let ((_, results, _, _), value) =
         dReverse f
           (V.empty, V.fromList (map V.fromList deltaInput), V.empty, V.empty)
   in (map V.toList $ V.toList results, value)
 
-vectorTests :: TestTree
-vectorTests = testGroup "Simple dReverse application to vectors tests" $
+testDReverse1 :: TestTree
+testDReverse1 = testGroup "Simple dReverse application to vectors tests" $
   map (\(txt, f, v, expected) ->
-        testCase txt $ dfVectorShow f v @?= expected)
+        testCase txt $ dReverse1 f v @?= expected)
     [ ("sumElementsV", sumElementsV, [[1, 1, 3]], ([[1.0,1.0,1.0]],5.0))
     , ("altSumElementsV", altSumElementsV, [[1, 1, 3]], ([[1.0,1.0,1.0]],5.0))
     ]
 
-dForwardShow
+dForward01
   :: HasDelta r
   => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
   -> ([Primal r], [Primal r])
   -> ([Primal r], [Primal r])
   -> (Primal r, Primal r)
-dForwardShow f (deltaInput, deltaInputV) (ds0, ds1) =
+dForward01 f (deltaInput, deltaInputV) (ds0, ds1) =
   dForward f ( V.fromList deltaInput, V.singleton $ V.fromList deltaInputV
              , V.empty, V.empty )
              ( V.fromList ds0, V.singleton $ V.fromList ds1
              , V.empty, V.empty )
 
-dfTestsForward :: TestTree
-dfTestsForward =
+testDForward :: TestTree
+testDForward =
  testGroup "Simple dForward application tests" $
   map (\(txt, f, v, expected) ->
-        testCase txt $ dForwardShow f v v @?= expected)
+        testCase txt $ dForward01 f v v @?= expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
     , ( "atanReadmeM", atanReadmeM, ([1.1, 2.2, 3.3], [])
       , (7.662345305800865, 4.9375516951604155) )
@@ -183,24 +184,24 @@ dfTestsForward =
       , (7.662345305800865, 4.9375516951604155) )
     ]
 
-dFastForwardShow
+dFastForward01
   :: HasForward r
   => (DualNumberVariables r
       -> DualMonadForward r (DualNumber r))
   -> ([Primal r], [Primal r])
   -> ([Primal r], [Primal r])
   -> (Primal r, Primal r)
-dFastForwardShow f (deltaInput, deltaInputV) (ds0, ds1) =
+dFastForward01 f (deltaInput, deltaInputV) (ds0, ds1) =
   dFastForward f ( V.fromList deltaInput, V.singleton $ V.fromList deltaInputV
                  , V.empty, V.empty )
                  ( V.fromList ds0, V.singleton $ V.fromList ds1
                  , V.empty, V.empty )
 
-dfTestsFastForward :: TestTree
-dfTestsFastForward =
+testDFastForward :: TestTree
+testDFastForward =
  testGroup "Simple dFastForward application tests" $
   map (\(txt, f, v, expected) ->
-        testCase txt $ dFastForwardShow f v v @?= expected)
+        testCase txt $ dFastForward01 f v v @?= expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
     , ( "atanReadmeM", atanReadmeM, ([1.1, 2.2, 3.3], [])
       , (7.662345305800865, 4.9375516951604155) )
@@ -237,10 +238,10 @@ quickCheckForwardAndBackward =
           $ forAll (choose ((-2, -2, -2), (2, 2, 2))) $ \xyz xyz2 ->
               let args = fArg xyz
                   ds = fArg xyz2
-                  ff = dFastForwardShow f args ds
+                  ff = dFastForward01 f args ds
                   close a b = abs (a - b) <= 0.000001
                   close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
-              in dForwardShow f args ds === ff
+              in dForward01 f args ds === ff
                  .&&. close1 (dfDotShow f args ds) ff
     in [ qcTest "fquad" fquad (\(x, y, _z) -> ([x, y], []))
        , qcTest "atanReadmeM" atanReadmeM
