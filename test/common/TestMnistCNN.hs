@@ -560,8 +560,7 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
         let paramShape =
               (0, [], [(seed, widthHidden2), (widthHidden, seedDs)], [])
             (_, _, _, parameters) = initializerFixed seed range paramShape
-            (_, _, _, ds@(ds0, ds1, ds2, dsX)) =
-              initializerFixed seedDs rangeDs paramShape
+            (_, _, _, ds) = initializerFixed seedDs rangeDs paramShape
             (_, _, _, parametersPerturbation) =
               initializerFixed (seed + seedDs) 1e-7 paramShape
             f, fP :: forall r m. (DualMonad r m, Primal r ~ Double)
@@ -588,21 +587,15 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
               dFastForward fP parameters parametersPerturbation
             close a b = abs (a - b) <= 1e-4
             closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
-            dfDot fDot psDot =
-              let ((res0, res1, res2, resX), value) = dReverse fDot psDot
-              in ( res0 HM.<.> ds0
-                   + V.sum (V.zipWith (HM.<.>) res1 ds1)
-                   + V.sum (V.zipWith (HM.<.>) (V.map HM.flatten res2)
-                                               (V.map HM.flatten ds2))
-                   + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
-                                               (V.map OT.toVector dsX))
-                 , value )
+            dfDot fDot argsDot dsDot =
+              let (res, value) = dReverse fDot argsDot
+              in (dotParameters @(Delta0 Double) res dsDot, value)
         in ffPValue == perturbedffPValue
            .&&. closeEq ff ffP
            .&&. dForward f parameters ds === ff
-           .&&. closeEq (dfDot f parameters) ff
+           .&&. closeEq (dfDot f parameters ds) ff
            .&&. dForward fP parameters ds === ffP
-           .&&. closeEq (dfDot fP parameters) ffP
+           .&&. closeEq (dfDot fP parameters ds) ffP
            .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
                                    fP (addParameters @(Delta0 Double)
                                                      parameters
@@ -667,15 +660,9 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
             ffT = dFastForward fT parametersT dsT
             close a b = abs (a - b) <= 1e-4
             closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
-            dfDot fDot psDot (ds0, ds1, ds2, dsX) =
-              let ((res0, res1, res2, resX), value) = dReverse fDot psDot
-              in ( res0 HM.<.> ds0
-                   + V.sum (V.zipWith (HM.<.>) res1 ds1)
-                   + V.sum (V.zipWith (HM.<.>) (V.map HM.flatten res2)
-                                               (V.map HM.flatten ds2))
-                   + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
-                                               (V.map OT.toVector dsX))
-                 , value )
+            dfDot fDot argsDot dsDot =
+              let (res, value) = dReverse fDot argsDot
+              in (dotParameters @(Delta0 Double) res dsDot, value)
         in closeEq ff ffP
            .&&. closeEq ff ffT
            .&&. dForward f parameters ds === ff

@@ -4,10 +4,8 @@ module TestSingleGradient (testTrees) where
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OT
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import qualified Numeric.LinearAlgebra as HM
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 import           Test.Tasty.QuickCheck
@@ -214,15 +212,9 @@ quickCheckForwardAndBackward =
                     dFastForward f args perturbation
                   close a b = abs (a - b) <= 1e-4
                   closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
-                  dfDot fDot psDot (ds0, ds1, ds2, dsX) =
-                    let ((res0, res1, res2, resX), value) = dReverse fDot psDot
-                    in ( res0 HM.<.> ds0
-                         + V.sum (V.zipWith (HM.<.>) res1 ds1)
-                         + V.sum (V.zipWith (HM.<.>) (V.map HM.flatten res2)
-                                                     (V.map HM.flatten ds2))
-                         + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
-                                                     (V.map OT.toVector dsX))
-                       , value )
+                  dfDot fDot argsDot dsDot =
+                    let (res, value) = dReverse fDot argsDot
+                    in (dotParameters @(Delta0 Double) res dsDot, value)
               in -- Two forward derivative implementations agree:
                  dForward f args ds === ff
                  -- Gradients and derivatives agree.

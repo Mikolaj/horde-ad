@@ -58,6 +58,14 @@ addParameters :: forall r. IsScalar r => Domains r -> Domains r -> Domains r
 addParameters (a0, a1, a2, aX) (b0, b1, b2, bX) =
   (a0 + b0, V.zipWith (+) a1 b1, V.zipWith (+) a2 b2, V.zipWith (+) aX bX)
 
+-- Dot product and sum respective ranks and sum it all.
+dotParameters :: forall r. IsScalar r => Domains r -> Domains r -> Primal r
+dotParameters (a0, a1, a2, aX) (b0, b1, b2, bX) =
+  a0 HM.<.> b0
+  + V.sum (V.zipWith (HM.<.>) a1 b1)
+  + V.sum (V.zipWith (HM.<.>) (V.map HM.flatten a2) (V.map HM.flatten b2))
+  + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector aX) (V.map OT.toVector bX))
+
 
 -- * General operations, for any tensor rank
 

@@ -7,7 +7,6 @@ import Prelude
 
 import           Control.DeepSeq
 import           Control.Monad (foldM, when)
-import qualified Data.Array.DynamicS as OT
 import           Data.Array.Internal (valueOf)
 import           Data.Coerce (coerce)
 import           Data.List.Index (imap)
@@ -647,8 +646,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             nParams0 = fcnnMnistLen0 widthHidden widthHidden2
             paramShape = (nParams0, [], [], [])
             (_, _, _, parameters) = initializerFixed seed range paramShape
-            (_, _, _, ds@(ds0, ds1, ds2, dsX)) =
-              initializerFixed seedDs rangeDs paramShape
+            (_, _, _, ds) = initializerFixed seedDs rangeDs paramShape
             (_, _, _, parametersPerturbation) =
               initializerFixed (seed + seedDs) 1e-7 paramShape
             f :: forall r m. (DualMonad r m, Primal r ~ Double)
@@ -659,18 +657,12 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
               dFastForward f parameters parametersPerturbation
             close a b = abs (a - b) <= 1e-4
             closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
-            dfDot fDot psDot =
-              let ((res0, res1, res2, resX), value) = dReverse fDot psDot
-              in ( res0 HM.<.> ds0
-                   + V.sum (V.zipWith (HM.<.>) res1 ds1)
-                   + V.sum (V.zipWith (HM.<.>) (V.map HM.flatten res2)
-                                               (V.map HM.flatten ds2))
-                   + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
-                                               (V.map OT.toVector dsX))
-                 , value )
+            dfDot fDot argsDot dsDot =
+              let (res, value) = dReverse fDot argsDot
+              in (dotParameters @(Delta0 Double) res dsDot, value)
         in ffPValue == perturbedffPValue
            .&&. dForward f parameters ds === ff
-           .&&. closeEq (dfDot f parameters) ff
+           .&&. closeEq (dfDot f parameters ds) ff
            .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
                                    f (addParameters @(Delta0 Double)
                                                     parameters
@@ -689,8 +681,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             mnistData = (glyph, label)
             paramShape = fcnnMnistLen1 widthHidden widthHidden2
             (_, _, _, parameters) = initializerFixed seed range paramShape
-            (_, _, _, ds@(ds0, ds1, ds2, dsX)) =
-              initializerFixed seedDs rangeDs paramShape
+            (_, _, _, ds) = initializerFixed seedDs rangeDs paramShape
             (_, _, _, parametersPerturbation) =
               initializerFixed (seed + seedDs) 1e-7 paramShape
             f :: forall r m. (DualMonad r m, Primal r ~ Double)
@@ -701,18 +692,12 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
               dFastForward f parameters parametersPerturbation
             close a b = abs (a - b) <= 1e-4
             closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
-            dfDot fDot psDot =
-              let ((res0, res1, res2, resX), value) = dReverse fDot psDot
-              in ( res0 HM.<.> ds0
-                   + V.sum (V.zipWith (HM.<.>) res1 ds1)
-                   + V.sum (V.zipWith (HM.<.>) (V.map HM.flatten res2)
-                                               (V.map HM.flatten ds2))
-                   + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
-                                               (V.map OT.toVector dsX))
-                 , value )
+            dfDot fDot argsDot dsDot =
+              let (res, value) = dReverse fDot argsDot
+              in (dotParameters @(Delta0 Double) res dsDot, value)
         in ffPValue == perturbedffPValue
            .&&. dForward f parameters ds === ff
-           .&&. closeEq (dfDot f parameters) ff
+           .&&. closeEq (dfDot f parameters ds) ff
            .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
                                    f (addParameters @(Delta0 Double)
                                                     parameters
@@ -734,8 +719,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             mnistDataOneHot = (glyph, labelOneHot)
             paramShape = fcnnMnistLen2 widthHidden widthHidden2
             (_, _, _, parameters) = initializerFixed seed range paramShape
-            (_, _, _, ds@(ds0, ds1, ds2, dsX)) =
-              initializerFixed seedDs rangeDs paramShape
+            (_, _, _, ds) = initializerFixed seedDs rangeDs paramShape
             (_, _, _, parametersPerturbation) =
               initializerFixed (seed + seedDs) 1e-7 paramShape
             f, fOneHot, fFused
@@ -751,23 +735,17 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             ffOneHot = dFastForward fOneHot parameters ds
             ffFused = dFastForward fFused parameters ds
             closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. close b1 b2
-            dfDot fDot psDot =
-              let ((res0, res1, res2, resX), value) = dReverse fDot psDot
-              in ( res0 HM.<.> ds0
-                   + V.sum (V.zipWith (HM.<.>) res1 ds1)
-                   + V.sum (V.zipWith (HM.<.>) (V.map HM.flatten res2)
-                                               (V.map HM.flatten ds2))
-                   + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
-                                               (V.map OT.toVector dsX))
-                 , value )
+            dfDot fDot argsDot dsDot =
+              let (res, value) = dReverse fDot argsDot
+              in (dotParameters @(Delta0 Double) res dsDot, value)
         in ffPValue == perturbedffPValue
            .&&. dForward f parameters ds === ff
-           .&&. closeEq (dfDot f parameters) ff
+           .&&. closeEq (dfDot f parameters ds) ff
            .&&. dForward fOneHot parameters ds === ffOneHot
-           .&&. closeEq (dfDot fOneHot parameters) ffOneHot
+           .&&. closeEq (dfDot fOneHot parameters ds) ffOneHot
            .&&. closeEq ffOneHot ffFused
            .&&. dForward fFused parameters ds === ffFused
-           .&&. closeEq (dfDot fFused parameters) ffFused
+           .&&. closeEq (dfDot fFused parameters ds) ffFused
            .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
                                    f (addParameters @(Delta0 Double)
                                                     parameters
