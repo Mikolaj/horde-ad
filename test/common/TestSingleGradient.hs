@@ -204,28 +204,29 @@ quickCheckForwardAndBackward =
           $ forAll (choose ((-2, -2, -2), (2, 2, 2))) $ \xyz dsRaw ->
             forAll (choose ( (-1e-7, -1e-7, -1e-7)
                            , (1e-7, 1e-7, 1e-7) )) $ \perturbationRaw ->
+            forAll (choose (-10, 10)) $ \dt ->
               let args = listsToParameters $ fArg xyz
                   ds = listsToParameters $ fArg dsRaw
                   perturbation = listsToParameters $ fArg perturbationRaw
-                  ff@(_, ffValue) = dFastForward f args ds
-                  perturbedff@(_, perturbedffValue) =
+                  ff@(derivative, ffValue) = dFastForward f args ds
+                  (derivativeAtPerturbation, valueAtPerturbation) =
                     dFastForward f args perturbation
                   close a b = abs (a - b) <= 1e-4
-                  closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
-                  dfDot fDot argsDot dsDot =
-                    let (res, value) = dReverse 1 fDot argsDot
-                    in (dotParameters @(Delta0 Double) res dsDot, value)
-              in -- Two forward derivative implementations agree:
+                  (gradient, revValue) = dReverse dt f args
+              in -- Two forward derivative implementations agree fully:
                  dForward f args ds === ff
+                 -- Objective function value from gradients is the same.
+                 .&&. ffValue == revValue
                  -- Gradients and derivatives agree.
-                 .&&. closeEq (dfDot f args ds) ff
-                 -- Objective function value is unaffected ds.
-                 .&&. ffValue == perturbedffValue
+                 .&&. close (dt * derivative)
+                            (dotParameters @(Delta0 Double) gradient ds)
+                 -- Objective function value is unaffected by perturbation.
+                 .&&. ffValue == valueAtPerturbation
                  -- Derivative approximates the perturbation of value.
                  .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
                                          f (addParameters @(Delta0 Double)
                                                           args perturbation))
-                            (ffValue + fst perturbedff)
+                            (ffValue + derivativeAtPerturbation)
     in [ qcTest "fquad" fquad (\(x, y, _z) -> ([x, y], []))
        , qcTest "atanReadmeM" atanReadmeM
                 (\(x, y, z) -> ([x, y, z], []))
