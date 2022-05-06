@@ -587,7 +587,7 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
             perturbedffP@(_, perturbedffPValue) =
               dFastForward fP parameters parametersPerturbation
             close a b = abs (a - b) <= 1e-4
-            close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
+            closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
             dfDot fDot psDot =
               let ((res0, res1, res2, resX), value) = dReverse fDot psDot
               in ( res0 HM.<.> ds0
@@ -601,11 +601,11 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
               ( a0 + b0, V.zipWith (+) a1 b1, V.zipWith (+) a2 b2
               , V.zipWith (+) aX bX )
         in ffPValue == perturbedffPValue
-           .&&. close1 ff ffP
+           .&&. closeEq ff ffP
            .&&. dForward f parameters ds === ff
-           .&&. close1 (dfDot f parameters) ff
+           .&&. closeEq (dfDot f parameters) ff
            .&&. dForward fP parameters ds === ffP
-           .&&. close1 (dfDot fP parameters) ffP
+           .&&. closeEq (dfDot fP parameters) ffP
            .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
                                    fP (addParams parameters
                                                  parametersPerturbation))
@@ -668,7 +668,7 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
               dFastForward fP parameters parametersPerturbation
             ffT = dFastForward fT parametersT dsT
             close a b = abs (a - b) <= 1e-4
-            close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
+            closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
             dfDot fDot psDot (ds0, ds1, ds2, dsX) =
               let ((res0, res1, res2, resX), value) = dReverse fDot psDot
               in ( res0 HM.<.> ds0
@@ -681,14 +681,14 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
             addParams (a0, a1, a2, aX) (b0, b1, b2, bX) =
               ( a0 + b0, V.zipWith (+) a1 b1, V.zipWith (+) a2 b2
               , V.zipWith (+) aX bX )
-        in close1 ff ffP
-           .&&. close1 ff ffT
+        in closeEq ff ffP
+           .&&. closeEq ff ffT
            .&&. dForward f parameters ds === ff
-           .&&. close1 (dfDot f parameters ds) ff
+           .&&. closeEq (dfDot f parameters ds) ff
            .&&. dForward fP parameters ds === ffP
-           .&&. close1 (dfDot fP parameters ds) ffP
+           .&&. closeEq (dfDot fP parameters ds) ffP
            .&&. dForward fT parametersT dsT === ffT
-           .&&. close1 (dfDot fT parametersT dsT) ffT
+           .&&. closeEq (dfDot fT parametersT dsT) ffT
            .&&. ffPValue == perturbedffPValue
            .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
                                    fP (addParams parameters

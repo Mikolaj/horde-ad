@@ -658,7 +658,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             perturbedffP@(_, perturbedffPValue) =
               dFastForward f parameters parametersPerturbation
             close a b = abs (a - b) <= 1e-4
-            close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
+            closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
             dfDot fDot psDot =
               let ((res0, res1, res2, resX), value) = dReverse fDot psDot
               in ( res0 HM.<.> ds0
@@ -673,7 +673,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
               , V.zipWith (+) aX bX )
         in ffPValue == perturbedffPValue
            .&&. dForward f parameters ds === ff
-           .&&. close1 (dfDot f parameters) ff
+           .&&. closeEq (dfDot f parameters) ff
            .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
                                    f (addParams parameters
                                                 parametersPerturbation))
@@ -702,7 +702,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             perturbedffP@(_, perturbedffPValue) =
               dFastForward f parameters parametersPerturbation
             close a b = abs (a - b) <= 1e-4
-            close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
+            closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
             dfDot fDot psDot =
               let ((res0, res1, res2, resX), value) = dReverse fDot psDot
               in ( res0 HM.<.> ds0
@@ -717,7 +717,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
               , V.zipWith (+) aX bX )
         in ffPValue == perturbedffPValue
            .&&. dForward f parameters ds === ff
-           .&&. close1 (dfDot f parameters) ff
+           .&&. closeEq (dfDot f parameters) ff
            .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
                                    f (addParams parameters
                                                 parametersPerturbation))
@@ -754,7 +754,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             close a b = abs (a - b) <= 1e-4
             ffOneHot = dFastForward fOneHot parameters ds
             ffFused = dFastForward fFused parameters ds
-            close1 (a1, b1) (a2, b2) = close a1 a2 .&&. close b1 b2
+            closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. close b1 b2
             dfDot fDot psDot =
               let ((res0, res1, res2, resX), value) = dReverse fDot psDot
               in ( res0 HM.<.> ds0
@@ -769,12 +769,12 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
               , V.zipWith (+) aX bX )
         in ffPValue == perturbedffPValue
            .&&. dForward f parameters ds === ff
-           .&&. close1 (dfDot f parameters) ff
+           .&&. closeEq (dfDot f parameters) ff
            .&&. dForward fOneHot parameters ds === ffOneHot
-           .&&. close1 (dfDot fOneHot parameters) ffOneHot
-           .&&. close1 ffOneHot ffFused
+           .&&. closeEq (dfDot fOneHot parameters) ffOneHot
+           .&&. closeEq ffOneHot ffFused
            .&&. dForward fFused parameters ds === ffFused
-           .&&. close1 (dfDot fFused parameters) ffFused
+           .&&. closeEq (dfDot fFused parameters) ffFused
            .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
                                    f (addParams parameters
                                                 parametersPerturbation))

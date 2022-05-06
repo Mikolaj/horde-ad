@@ -252,11 +252,11 @@ quickCheckForwardAndBackward =
                   perturbedff@(_, perturbedffValue) =
                     dFastForward01 f args perturbation
                   close a b = abs (a - b) <= 1e-4
-                  close1 (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
+                  closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
               in -- Two forward derivative implementations agree:
                  dForward01 f args ds === ff
                  -- Gradients and derivatives agree.
-                 .&&. close1 (dfDotShow f args ds) ff
+                 .&&. closeEq (dfDotShow f args ds) ff
                  -- Objective function value is unaffected ds.
                  .&&. ffValue == perturbedffValue
                  -- Derivative approximates the perturbation of value.
