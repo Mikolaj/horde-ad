@@ -54,6 +54,10 @@ type DomainX r = Delta.DomainX (Primal r)
 
 type Domains r = Delta.Domains (Primal r)
 
+addParameters :: forall r. IsScalar r => Domains r -> Domains r -> Domains r
+addParameters (a0, a1, a2, aX) (b0, b1, b2, bX) =
+  (a0 + b0, V.zipWith (+) a1 b1, V.zipWith (+) a2 b2, V.zipWith (+) aX bX)
+
 
 -- * General operations, for any tensor rank
 

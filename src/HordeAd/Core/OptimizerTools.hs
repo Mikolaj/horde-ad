@@ -4,7 +4,7 @@ module HordeAd.Core.OptimizerTools
   ( updateWithGradient
   , gradientIsNil, minimumGradient, maximumGradient
   , ArgsAdam(..), defaultArgsAdam
-  , StateAdam(..), zeroParameters, initialStateAdam
+  , StateAdam(..), initialStateAdam
   , liftMatrix43, updateWithGradientAdam
   ) where
 

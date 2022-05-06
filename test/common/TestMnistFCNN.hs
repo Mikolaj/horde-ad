@@ -668,15 +668,13 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
                    + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
                                                (V.map OT.toVector dsX))
                  , value )
-            addParams (a0, a1, a2, aX) (b0, b1, b2, bX) =
-              ( a0 + b0, V.zipWith (+) a1 b1, V.zipWith (+) a2 b2
-              , V.zipWith (+) aX bX )
         in ffPValue == perturbedffPValue
            .&&. dForward f parameters ds === ff
            .&&. closeEq (dfDot f parameters) ff
            .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
-                                   f (addParams parameters
-                                                parametersPerturbation))
+                                   f (addParameters @(Delta0 Double)
+                                                    parameters
+                                                    parametersPerturbation))
                       (ffPValue + fst perturbedffP)
   , testProperty "Compare two forward derivatives and gradient for Mnist1" $
       \seed seedDs ->
@@ -712,15 +710,13 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
                    + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
                                                (V.map OT.toVector dsX))
                  , value )
-            addParams (a0, a1, a2, aX) (b0, b1, b2, bX) =
-              ( a0 + b0, V.zipWith (+) a1 b1, V.zipWith (+) a2 b2
-              , V.zipWith (+) aX bX )
         in ffPValue == perturbedffPValue
            .&&. dForward f parameters ds === ff
            .&&. closeEq (dfDot f parameters) ff
            .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
-                                   f (addParams parameters
-                                                parametersPerturbation))
+                                   f (addParameters @(Delta0 Double)
+                                                    parameters
+                                                    parametersPerturbation))
                       (ffPValue + fst perturbedffP)
   , testProperty "Compare two forward derivatives and gradient for Mnist2" $
       \seed ->
@@ -764,9 +760,6 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
                    + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
                                                (V.map OT.toVector dsX))
                  , value )
-            addParams (a0, a1, a2, aX) (b0, b1, b2, bX) =
-              ( a0 + b0, V.zipWith (+) a1 b1, V.zipWith (+) a2 b2
-              , V.zipWith (+) aX bX )
         in ffPValue == perturbedffPValue
            .&&. dForward f parameters ds === ff
            .&&. closeEq (dfDot f parameters) ff
@@ -776,8 +769,9 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
            .&&. dForward fFused parameters ds === ffFused
            .&&. closeEq (dfDot fFused parameters) ffFused
            .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
-                                   f (addParams parameters
-                                                parametersPerturbation))
+                                   f (addParameters @(Delta0 Double)
+                                                    parameters
+                                                    parametersPerturbation))
                       (ffPValue + fst perturbedffP)
   ]
 

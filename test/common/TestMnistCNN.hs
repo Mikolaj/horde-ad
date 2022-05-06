@@ -597,9 +597,6 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                    + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
                                                (V.map OT.toVector dsX))
                  , value )
-            addParams (a0, a1, a2, aX) (b0, b1, b2, bX) =
-              ( a0 + b0, V.zipWith (+) a1 b1, V.zipWith (+) a2 b2
-              , V.zipWith (+) aX bX )
         in ffPValue == perturbedffPValue
            .&&. closeEq ff ffP
            .&&. dForward f parameters ds === ff
@@ -607,8 +604,9 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
            .&&. dForward fP parameters ds === ffP
            .&&. closeEq (dfDot fP parameters) ffP
            .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
-                                   fP (addParams parameters
-                                                 parametersPerturbation))
+                                   fP (addParameters @(Delta0 Double)
+                                                     parameters
+                                                     parametersPerturbation))
                       (ffPValue + fst perturbedffP)
   , testProperty "Compare gradients and two forward derivatives for convMnistTestCNN and convMnistTestCNNP" $
       \seed ->
@@ -678,9 +676,6 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                    + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector resX)
                                                (V.map OT.toVector dsX))
                  , value )
-            addParams (a0, a1, a2, aX) (b0, b1, b2, bX) =
-              ( a0 + b0, V.zipWith (+) a1 b1, V.zipWith (+) a2 b2
-              , V.zipWith (+) aX bX )
         in closeEq ff ffP
            .&&. closeEq ff ffT
            .&&. dForward f parameters ds === ff
@@ -691,8 +686,9 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
            .&&. closeEq (dfDot fT parametersT dsT) ffT
            .&&. ffPValue == perturbedffPValue
            .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
-                                   fP (addParams parameters
-                                                 parametersPerturbation))
+                                   fP (addParameters @(Delta0 Double)
+                                                     parameters
+                                                     parametersPerturbation))
                       (ffPValue + fst perturbedffP)
   ]
 
