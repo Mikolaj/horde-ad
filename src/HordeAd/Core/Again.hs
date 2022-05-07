@@ -81,6 +81,14 @@ data DeltaF (s :: Type) (dual :: Type -> Type) (t :: Type) where
     dual (OS.Array (m : sh) s) ->
     dual (OS.Array (n : sh) s) ->
     DeltaF s dual (OS.Array ((m + n) : sh) s)
+  MulS1 ::
+    dual (OS.Array [m, n] s) ->
+    OS.Array [n, p] s ->
+    DeltaF s dual (OS.Array [m, p] s)
+  MulS2 ::
+    OS.Array [m, n] s ->
+    dual (OS.Array [n, p] s) ->
+    DeltaF s dual (OS.Array [m, p] s)
 
 mapDeltaF ::
   (forall tt. dual tt -> dual' tt) ->
@@ -99,6 +107,8 @@ mapDeltaF f = \case
   Seq1 vec -> Seq1 (fmap f vec)
   KonstS s -> KonstS (f s)
   AppendS a1 a2 -> AppendS (f a1) (f a2)
+  MulS1 d a -> MulS1 (f d) a
+  MulS2 a d -> MulS2 a (f d)
 
 data DeltaId (s :: Type) (t :: Type) where
   DeltaId :: Known (s `IsScalarOf` t) => Int -> DeltaId s t
@@ -229,6 +239,8 @@ evalDeltaF f deltaF t = case deltaF of
     (de :: dual (OS.Array (k : rest) s))
     (de' :: dual (OS.Array (l : rest) s)) ->
       f de (OS.slice @'[ '(0, k)] t) . f de' (OS.slice @'[ '(k, l)] t)
+  MulS1 de a -> f de (mulS t (transposeS a))
+  MulS2 a de -> f de (mulS (transposeS a) t)
 
 -- Somewhat annoying that we need this r parameter to satisfy
 -- functional dependencies.
@@ -271,6 +283,8 @@ evalDeltaFM1 deltaF = MonoidMap $ \t -> case deltaF of
     (de :: dual (OS.Array (k : rest) s))
     (de' :: dual (OS.Array (l : rest) s)) ->
       f de (OS.slice @'[ '(0, k)] t) <> f de' (OS.slice @'[ '(k, l)] t)
+  MulS1 de a -> f de (mulS t (transposeS a))
+  MulS2 a de -> f de (mulS (transposeS a) t)
   where
     f = unMonoidMap
 
@@ -580,6 +594,8 @@ instance (Num r, HM.Numeric r) => Ops DeltaF r (Concrete r) where
     Seq1 v -> C (HM.fromList $ map (\case C x -> x) $ Data.Vector.toList v)
     KonstS (C s) -> C (OS.constant s)
     AppendS (C a1) (C a2) -> C (OS.append a1 a2)
+    MulS1 (C de) a -> C (mulS de a)
+    MulS2 a (C de) -> C (mulS a de)
 
 instance Ops DeltaF r (Delta r) where
   ops = Delta
@@ -1063,3 +1079,11 @@ testTwoVariantsOfatanReadmeForward =
         ),
         ("vatanReadmeForward", dSingleArgForward t t vatanReadmeM, result)
       ]
+
+-- These belong in some Shaped module
+
+mulS :: OS.Array [m, n] s -> OS.Array [n, p] s -> OS.Array [m, p] s
+mulS x y = error "mulS unimplemented"
+
+transposeS :: OS.Array [m, n] s -> OS.Array [n, m] s
+transposeS x = error "transposeS unimplemented"
