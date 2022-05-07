@@ -61,6 +61,11 @@ instance (OS.Shape sh, Storable a) => Known (a `IsScalarOf` OS.Array sh a) where
 data IsScalarOf (s :: Type) (t :: Type) where
   SScalar :: IsScalarOf s s
   SVector :: IsScalarOf s (Vector s)
+  -- I'm doubtful this Storable constraint is really needed.
+  -- OS.toVector and OS.fromVector shouldn't require it.  See, for
+  -- example,
+  --
+  -- https://github.com/tomjaguarpaw/orthotope/commit/10a65b60daa6b072093490275818afe0f8d38c09
   SShapedS :: (OS.Shape sh, Storable s) => IsScalarOf s (OS.Array sh s)
 
 deriving instance Show (IsScalarOf s t)
