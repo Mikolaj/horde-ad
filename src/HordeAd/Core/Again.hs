@@ -43,12 +43,6 @@ class Known t where
 knownDeltaId :: DeltaId s t -> s `IsScalarOf` t
 knownDeltaId DeltaId {} = known
 
-knownIsScalarOf :: s `IsScalarOf` t -> (Known (s `IsScalarOf` t) => r) -> r
-knownIsScalarOf = \case
-  SScalar -> \x -> x
-  SVector -> \x -> x
-  SShapedS -> \x -> x
-
 instance Known (a `IsScalarOf` a) where
   known = SScalar
 
@@ -114,6 +108,9 @@ deriving instance Eq (DeltaId s t)
 deriving instance Ord (DeltaId s t)
 
 deriving instance Show (DeltaId s t)
+
+succDeltaId :: DeltaId s t -> DeltaId s t
+succDeltaId (DeltaId i) = DeltaId (i + 1)
 
 data DeltaBinding s where
   DeltaBinding :: DeltaId s t -> Delta s t -> DeltaBinding s
@@ -338,7 +335,9 @@ runDualMonadM m = runState (runDualMonadGradient m) initialState
   where
     initialState =
       DeltaState
-        { deltaCounter = 0,
+        { deltaCounter0 = DeltaId 0,
+          deltaCounter1 = DeltaId 0,
+          deltaCounter2 = 0,
           deltaBindings = []
         }
 
@@ -377,7 +376,9 @@ runDualMonad ::
 runDualMonad = runDualMonadS known
 
 data DeltaState s = DeltaState
-  { deltaCounter :: Int,
+  { deltaCounter0 :: DeltaId s s,
+    deltaCounter1 :: DeltaId s (Vector s),
+    deltaCounter2 :: Int,
     deltaBindings :: [DeltaBinding s]
   }
 
@@ -391,10 +392,22 @@ class Monad m => DualMonad s (dual :: Type -> Type) m | m -> s where
 fresh :: s `IsScalarOf` t -> DualMonadGradient s (DeltaId s t)
 fresh sd = DualMonadGradient $ do
   st <- get
-  let this = deltaCounter st
-      !next = this + 1
-  put (st {deltaCounter = next})
-  pure (knownIsScalarOf sd (DeltaId this))
+  case sd of
+    SScalar -> do
+      let this = deltaCounter0 st
+          next = succDeltaId this
+      put (st {deltaCounter0 = next})
+      pure this
+    SVector -> do
+      let this = deltaCounter1 st
+          next = succDeltaId this
+      put (st {deltaCounter1 = next})
+      pure this
+    SShapedS -> do
+      let this = deltaCounter2 st
+          !next = this + 1
+      put (st {deltaCounter2 = next})
+      pure (DeltaId this)
 
 bind :: DeltaId s t -> Delta s t -> DualMonadGradient s ()
 bind dId delta =
