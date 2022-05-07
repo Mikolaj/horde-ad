@@ -21,6 +21,7 @@ import Control.Monad.Trans.State
     put,
     runState,
   )
+import qualified Data.Array.ShapedS as OS
 import Data.Functor.Identity (Identity (Identity), runIdentity)
 import Data.Kind (Type)
 import Data.List (foldl')
@@ -61,6 +62,7 @@ data DeltaF (s :: Type) (dual :: Type -> Type) (t :: Type) where
   Dot1 :: Vector s -> dual (Vector s) -> DeltaF s dual s
   SumElements1 :: dual (Vector s) -> Int -> DeltaF s dual s
   Seq1 :: Data.Vector.Vector (dual s) -> DeltaF s dual (Vector s)
+  KonstS :: OS.Shape sh => dual s -> DeltaF s dual (OS.Array sh s)
 
 mapDeltaF ::
   (forall tt. dual tt -> dual' tt) ->
@@ -77,6 +79,7 @@ mapDeltaF f = \case
   Dot1 vec dual -> Dot1 vec (f dual)
   SumElements1 dual n -> SumElements1 (f dual) n
   Seq1 vec -> Seq1 (fmap f vec)
+  KonstS s -> KonstS (f s)
 
 deriving instance
   (Show s, Show (dual s), Show (dual (Vector s)), Storable s) =>
@@ -189,6 +192,7 @@ evalDeltaF f deltaF t = case deltaF of
     where
       desl = Data.Vector.toList des
       tl = HM.toList t
+  KonstS de -> f de (OS.sumA t)
 
 -- Somewhat annoying that we need this r parameter to satisfy
 -- functional dependencies.
@@ -226,7 +230,9 @@ evalDeltaFM1 deltaF = MonoidMap $ \t -> case deltaF of
     where
       desl = Data.Vector.toList des
       tl = HM.toList t
-  where f = unMonoidMap
+  KonstS de -> f de (OS.sumA t)
+  where
+    f = unMonoidMap
 
 instance (HM.Numeric r, Monoid m) => Ops DeltaF r (MonoidMap r m) where
   ops = evalDeltaFM1
@@ -525,6 +531,7 @@ instance (Num r, HM.Numeric r) => Ops DeltaF r (Concrete r) where
     Dot1 v1 (C v2) -> C (v1 `HM.dot` v2)
     SumElements1 (C v) _ -> C (HM.sumElements v)
     Seq1 v -> C (HM.fromList $ map (\case C x -> x) $ Data.Vector.toList v)
+    KonstS (C s) -> C (OS.constant s)
 
 instance Ops DeltaF r (Delta r) where
   ops = Delta
