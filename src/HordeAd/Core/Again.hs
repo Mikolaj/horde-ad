@@ -9,6 +9,8 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 
 module HordeAd.Core.Again (module HordeAd.Core.Again) where
 
@@ -29,6 +31,8 @@ import qualified Data.Strict.Map as Map
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import Data.Vector.Storable (Storable)
+import GHC.TypeLits (KnownNat)
+import GHC.TypeNats (type (+))
 import Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as HM
 import Prelude
@@ -73,6 +77,11 @@ data DeltaF (s :: Type) (dual :: Type -> Type) (t :: Type) where
   SumElements1 :: dual (Vector s) -> Int -> DeltaF s dual s
   Seq1 :: Data.Vector.Vector (dual s) -> DeltaF s dual (Vector s)
   KonstS :: OS.Shape sh => dual s -> DeltaF s dual (OS.Array sh s)
+  AppendS ::
+    (OS.Shape sh, KnownNat m, KnownNat n) =>
+    dual (OS.Array (m : sh) s) ->
+    dual (OS.Array (n : sh) s) ->
+    DeltaF s dual (OS.Array ((m + n) : sh) s)
 
 mapDeltaF ::
   (forall tt. dual tt -> dual' tt) ->
@@ -90,10 +99,7 @@ mapDeltaF f = \case
   SumElements1 dual n -> SumElements1 (f dual) n
   Seq1 vec -> Seq1 (fmap f vec)
   KonstS s -> KonstS (f s)
-
-deriving instance
-  (Show s, Show (dual s), Show (dual (Vector s)), Storable s) =>
-  Show (DeltaF s dual t)
+  AppendS a1 a2 -> AppendS (f a1) (f a2)
 
 data DeltaId (s :: Type) (t :: Type) where
   DeltaId :: Known (s `IsScalarOf` t) => Int -> DeltaId s t
@@ -107,13 +113,9 @@ deriving instance Show (DeltaId s t)
 data DeltaBinding s where
   DeltaBinding :: DeltaId s t -> Delta s t -> DeltaBinding s
 
-deriving instance (Storable s, Show s) => Show (DeltaBinding s)
-
 data Delta (s :: Type) (t :: Type) where
   Delta :: DeltaF s (Delta s) t -> Delta s t
   Var :: DeltaId s t -> Delta s t
-
-deriving instance (Show s, Storable s) => Show (Delta s t)
 
 data DeltaMap s = DeltaMap
   { dmScalar :: Map.Map (DeltaId s s) s,
@@ -195,6 +197,7 @@ deltaMapAlter f di m = case knownDeltaId di of
 
 -- 'evalDeltaF f' has the special property when f does
 evalDeltaF ::
+  forall s dual t deltaMap_s.
   HM.Numeric s =>
   (forall tt. dual tt -> tt -> deltaMap_s -> deltaMap_s) ->
   DeltaF s dual t ->
@@ -220,6 +223,10 @@ evalDeltaF f deltaF t = case deltaF of
       desl = Data.Vector.toList des
       tl = HM.toList t
   KonstS de -> f de (OS.sumA t)
+  AppendS
+    (de :: dual (OS.Array (k : rest) s))
+    (de' :: dual (OS.Array (l : rest) s)) ->
+      f de (OS.slice @'[ '(0, k)] t) . f de' (OS.slice @'[ '(k, l)] t)
 
 -- Somewhat annoying that we need this r parameter to satisfy
 -- functional dependencies.
@@ -258,6 +265,10 @@ evalDeltaFM1 deltaF = MonoidMap $ \t -> case deltaF of
       desl = Data.Vector.toList des
       tl = HM.toList t
   KonstS de -> f de (OS.sumA t)
+  AppendS
+    (de :: dual (OS.Array (k : rest) s))
+    (de' :: dual (OS.Array (l : rest) s)) ->
+      f de (OS.slice @'[ '(0, k)] t) <> f de' (OS.slice @'[ '(k, l)] t)
   where
     f = unMonoidMap
 
@@ -364,7 +375,6 @@ data DeltaState s = DeltaState
   { deltaCounter :: Int,
     deltaBindings :: [DeltaBinding s]
   }
-  deriving (Show)
 
 newtype DualMonadGradient s t = DualMonadGradient
   {runDualMonadGradient :: State (DeltaState s) t}
@@ -553,6 +563,7 @@ instance (Num r, HM.Numeric r) => Ops DeltaF r (Concrete r) where
     SumElements1 (C v) _ -> C (HM.sumElements v)
     Seq1 v -> C (HM.fromList $ map (\case C x -> x) $ Data.Vector.toList v)
     KonstS (C s) -> C (OS.constant s)
+    AppendS (C a1) (C a2) -> C (OS.append a1 a2)
 
 instance Ops DeltaF r (Delta r) where
   ops = Delta
