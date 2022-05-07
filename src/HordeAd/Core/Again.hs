@@ -291,8 +291,6 @@ accumulate di t =
         Just t' -> case knownDeltaId di of
           SScalar -> Just (t + t')
           SVector -> Just (t `HM.add` t')
-          -- I don't understand how 'Vector r' gets a Num instance in
-          -- Mikolaj's version
           SShapedS -> Just (OS.fromVector (V.zipWith (+) (OS.toVector t) (OS.toVector t')))
     )
     di
