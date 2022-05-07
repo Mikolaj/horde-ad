@@ -43,6 +43,7 @@ knownIsScalarOf :: s `IsScalarOf` t -> (Known (s `IsScalarOf` t) => r) -> r
 knownIsScalarOf = \case
   SScalar -> id
   SVector -> id
+  SShapedS -> id
 
 instance Known (a `IsScalarOf` a) where
   known = SScalar
@@ -50,9 +51,13 @@ instance Known (a `IsScalarOf` a) where
 instance Known (a `IsScalarOf` Vector a) where
   known = SVector
 
+instance (OS.Shape sh, Storable a) => Known (a `IsScalarOf` OS.Array sh a) where
+  known = SShapedS
+
 data IsScalarOf (s :: Type) (t :: Type) where
   SScalar :: IsScalarOf s s
   SVector :: IsScalarOf s (Vector s)
+  SShapedS :: (OS.Shape sh, Storable s) => IsScalarOf s (OS.Array sh s)
 
 deriving instance Show (IsScalarOf s t)
 
@@ -112,14 +117,18 @@ deriving instance (Show s, Storable s) => Show (Delta s t)
 
 data DeltaMap s = DeltaMap
   { dmScalar :: Map.Map (DeltaId s s) s,
-    dmVector :: Map.Map (DeltaId s (Vector s)) (Vector s)
+    dmVector :: Map.Map (DeltaId s (Vector s)) (Vector s),
+    dmShapedS :: Map.Map Int (Vector s)
   }
   deriving (Show)
 
 singleton :: DeltaId s t -> t -> DeltaMap s
 singleton dId t = case knownDeltaId dId of
-  SScalar -> DeltaMap (Map.singleton dId t) Map.empty
-  SVector -> DeltaMap Map.empty (Map.singleton dId t)
+  SScalar -> DeltaMap (Map.singleton dId t) Map.empty Map.empty
+  SVector -> DeltaMap Map.empty (Map.singleton dId t) Map.empty
+  SShapedS -> DeltaMap Map.empty Map.empty (Map.singleton i (OS.toVector t))
+    where
+      DeltaId i = dId
 
 deltaMapLookup ::
   DeltaId s t ->
@@ -128,14 +137,20 @@ deltaMapLookup ::
 deltaMapLookup dId m = case knownDeltaId dId of
   SScalar -> Map.lookup dId (dmScalar m)
   SVector -> Map.lookup dId (dmVector m)
+  SShapedS -> fmap OS.fromVector (Map.lookup i (dmShapedS m))
+    where
+      DeltaId i = dId
 
 deltaMapDelete ::
   DeltaId s t ->
   DeltaMap s ->
   DeltaMap s
-deltaMapDelete dId (DeltaMap ms mv) = case knownDeltaId dId of
-  SScalar -> DeltaMap (Map.delete dId ms) mv
-  SVector -> DeltaMap ms (Map.delete dId mv)
+deltaMapDelete dId (DeltaMap ms mv msh) = case knownDeltaId dId of
+  SScalar -> DeltaMap (Map.delete dId ms) mv msh
+  SVector -> DeltaMap ms (Map.delete dId mv) msh
+  SShapedS -> DeltaMap ms mv (Map.delete i msh)
+    where
+      DeltaId i = dId
 
 deltaMapAlter ::
   (Maybe t -> Maybe t) ->
@@ -145,6 +160,16 @@ deltaMapAlter ::
 deltaMapAlter f di m = case knownDeltaId di of
   SScalar -> m {dmScalar = Map.alter f di (dmScalar m)}
   SVector -> m {dmVector = Map.alter f di (dmVector m)}
+  SShapedS ->
+    m
+      { dmShapedS =
+          Map.alter
+            (fmap OS.toVector . f . fmap OS.fromVector)
+            i
+            (dmShapedS m)
+      }
+    where
+      DeltaId i = di
 
 -- Definiton:
 --
@@ -253,6 +278,9 @@ accumulate di t =
         Just t' -> case knownDeltaId di of
           SScalar -> Just (t + t')
           SVector -> Just (t `HM.add` t')
+          -- I don't understand how 'Vector r' gets a Num instance in
+          -- Mikolaj's version
+          SShapedS -> Just (OS.fromVector (V.zipWith (+) (OS.toVector t) (OS.toVector t')))
     )
     di
 
@@ -529,6 +557,12 @@ instance (Num r, HM.Numeric r) => Ops DeltaF r (Concrete r) where
 instance Ops DeltaF r (Delta r) where
   ops = Delta
 
+baz ::
+  (DualMonad s dual m, Storable a, OS.Shape sh, Ops DeltaF s dual) =>
+  Dual a (dual s) ->
+  m (Dual (OS.Array sh a) (dual (OS.Array sh s)))
+baz s = pure (konstS s)
+
 bar ::
   (HM.Numeric s, DualMonad s dual m, Ops DeltaF s dual) =>
   Dual (Vector s) (dual (Vector s)) ->
@@ -698,10 +732,19 @@ sumElements ::
   Dual s (dual s)
 sumElements (Dual u u') = Dual (HM.sumElements u) (dSumElements u' (HM.size u))
 
+konstS ::
+  (Storable a, OS.Shape sh, Ops DeltaF s dual) =>
+  Dual a (dual s) ->
+  Dual (OS.Array sh a) (dual (OS.Array sh s))
+konstS (Dual u u') = Dual (OS.constant u) (ops (KonstS u'))
+
 --
 
 example :: (Double, (Double, Double))
 example = dDoubleArg (10, 20) 1 (uncurry foo)
+
+example2 :: (OS.Array '[2, 2] Double, Double)
+example2 = dSingleArg 2.0 (OS.fromList [1, 2, 3, 4] :: OS.Array [2, 2] Double) baz
 
 example3 :: (Double, Vector Double)
 example3 = dSingleArg (HM.fromList [10, 20]) 1 bar
