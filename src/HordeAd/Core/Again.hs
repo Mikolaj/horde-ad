@@ -45,9 +45,9 @@ knownDeltaId DeltaId {} = known
 
 knownIsScalarOf :: s `IsScalarOf` t -> (Known (s `IsScalarOf` t) => r) -> r
 knownIsScalarOf = \case
-  SScalar -> id
-  SVector -> id
-  SShapedS -> id
+  SScalar -> \x -> x
+  SVector -> \x -> x
+  SShapedS -> \x -> x
 
 instance Known (a `IsScalarOf` a) where
   known = SScalar
