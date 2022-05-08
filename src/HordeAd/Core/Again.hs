@@ -614,10 +614,19 @@ instance Ops DeltaF r (Delta r) where
   ops = Delta
 
 baz ::
-  (DualMonad s dual m, Storable a, OS.Shape sh, Ops DeltaF s dual) =>
-  Dual a (dual s) ->
-  m (Dual (OS.Array sh a) (dual (OS.Array sh s)))
-baz s = pure (konstS s)
+  ( Ops DeltaF s dual,
+    HM.Numeric s,
+    KnownNat l,
+    KnownNat n,
+    KnownNat m,
+    KnownNat p,
+    Applicative dualMonadGradient
+  ) =>
+  ( Dual (OS.Array '[m, n] s) (dual (OS.Array '[m, n] s)),
+    Dual (OS.Array '[n, p] s) (dual (OS.Array '[n, p] s))
+  ) ->
+  dualMonadGradient (Dual (OS.Array '[l, p] s) (dual (OS.Array '[l, p] s)))
+baz (x, y) = pure (konstS 2 `mulSDual` x `mulSDual` y)
 
 bar ::
   (HM.Numeric s, DualMonad s dual m, Ops DeltaF s dual) =>
@@ -794,13 +803,30 @@ konstS ::
   Dual (OS.Array sh a) (dual (OS.Array sh s))
 konstS (Dual u u') = Dual (OS.constant u) (ops (KonstS u'))
 
+mulSDual ::
+  (Ops DeltaF s dual, KnownNat p, KnownNat m) =>
+  Dual (OS.Array [m, n] s) (dual (OS.Array [m, n] s)) ->
+  Dual (OS.Array [n, p] s) (dual (OS.Array [n, p] s)) ->
+  Dual (OS.Array [m, p] s) (dual (OS.Array [m, p] s))
+mulSDual (Dual x dx) (Dual y dy) =
+  Dual (mulS x y) (ops (AddS (ops (MulS1 dx y)) (ops (MulS2 x dy))))
+
 --
 
 example :: (Double, (Double, Double))
 example = dDoubleArg (10, 20) 1 (uncurry foo)
 
-example2 :: (OS.Array '[2, 2] Double, Double)
-example2 = dSingleArg 2.0 (OS.fromList [1, 2, 3, 4] :: OS.Array [2, 2] Double) baz
+example2 ::
+  ( OS.Array [2, 2] Double,
+    (OS.Array [3, 1] Double, OS.Array [1, 2] Double)
+  )
+example2 =
+  dDoubleArg
+    ( OS.fromList [5, 6, 7] :: OS.Array [3, 1] Double,
+      OS.fromList [10, 20] :: OS.Array [1, 2] Double
+    )
+    (OS.fromList [1, 2, 3, 4] :: OS.Array [2, 2] Double)
+    baz
 
 example3 :: (Double, Vector Double)
 example3 = dSingleArg (HM.fromList [10, 20]) 1 bar
