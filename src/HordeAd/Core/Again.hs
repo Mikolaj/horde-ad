@@ -309,7 +309,7 @@ accumulate di t =
         Just t' -> case knownDeltaId di of
           SScalar -> Just (t + t')
           SVector -> Just (t `HM.add` t')
-          SShapedS -> Just (OS.fromVector (V.zipWith (+) (OS.toVector t) (OS.toVector t')))
+          SShapedS -> Just (t `addS` t')
     )
     di
 
@@ -1085,6 +1085,13 @@ testTwoVariantsOfatanReadmeForward =
       ]
 
 -- These belong in some Shaped module
+
+addS ::
+  (OS.Shape sh, HM.Numeric s) =>
+  OS.Array sh s ->
+  OS.Array sh s ->
+  OS.Array sh s
+addS t t' = OS.fromVector (V.zipWith (+) (OS.toVector t) (OS.toVector t'))
 
 mulS :: OS.Array [m, n] s -> OS.Array [n, p] s -> OS.Array [m, p] s
 mulS x y = error "mulS unimplemented"
