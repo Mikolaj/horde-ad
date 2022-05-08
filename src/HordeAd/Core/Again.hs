@@ -75,6 +75,11 @@ data DeltaF (s :: Type) (dual :: Type -> Type) (t :: Type) where
   Dot1 :: Vector s -> dual (Vector s) -> DeltaF s dual s
   SumElements1 :: dual (Vector s) -> Int -> DeltaF s dual s
   Seq1 :: Data.Vector.Vector (dual s) -> DeltaF s dual (Vector s)
+  AddS ::
+    OS.Shape sh =>
+    dual (OS.Array sh s) ->
+    dual (OS.Array sh s) ->
+    DeltaF s dual (OS.Array sh s)
   KonstS :: OS.Shape sh => dual s -> DeltaF s dual (OS.Array sh s)
   AppendS ::
     (OS.Shape sh, KnownNat m, KnownNat n) =>
@@ -105,6 +110,7 @@ mapDeltaF f = \case
   Dot1 vec dual -> Dot1 vec (f dual)
   SumElements1 dual n -> SumElements1 (f dual) n
   Seq1 vec -> Seq1 (fmap f vec)
+  AddS d1 d2 -> AddS (f d1) (f d2)
   KonstS s -> KonstS (f s)
   AppendS a1 a2 -> AppendS (f a1) (f a2)
   MulS1 d a -> MulS1 (f d) a
@@ -238,6 +244,7 @@ evalDeltaF f deltaF t = case deltaF of
     where
       desl = Data.Vector.toList des
       tl = HM.toList t
+  AddS de de' -> f de t . f de' t
   KonstS de -> f de (OS.sumA t)
   AppendS
     (de :: dual (OS.Array (k : rest) s))
@@ -282,6 +289,7 @@ evalDeltaFM1 deltaF = MonoidMap $ \t -> case deltaF of
     where
       desl = Data.Vector.toList des
       tl = HM.toList t
+  AddS de de' -> f de t <> f de' t
   KonstS de -> f de (OS.sumA t)
   AppendS
     (de :: dual (OS.Array (k : rest) s))
@@ -596,6 +604,7 @@ instance (Num r, HM.Numeric r) => Ops DeltaF r (Concrete r) where
     Dot1 v1 (C v2) -> C (v1 `HM.dot` v2)
     SumElements1 (C v) _ -> C (HM.sumElements v)
     Seq1 v -> C (HM.fromList $ map (\case C x -> x) $ Data.Vector.toList v)
+    AddS (C de) (C de') -> C (addS de de')
     KonstS (C s) -> C (OS.constant s)
     AppendS (C a1) (C a2) -> C (OS.append a1 a2)
     MulS1 (C de) a -> C (mulS de a)
