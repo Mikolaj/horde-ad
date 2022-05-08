@@ -766,7 +766,7 @@ instance (Fractional s, Ops (DeltaF s) dual) => Fractional (D s (dual s)) where
     let recipSq = recip (v * v)
      in D
           (u / v)
-          (dAdd0 (dScale0 (v * recipSq) u') (dScale0 (-u * recipSq) v'))
+          (dAdd0 (dScale0 (v * recipSq) u') (dScale0 (- u * recipSq) v'))
 
 instance (Floating s, Ops (DeltaF s) dual) => Floating (D s (dual s)) where
   sin (D u u') = D (sin u) (dScale0 (cos u) u')
