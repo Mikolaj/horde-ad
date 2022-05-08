@@ -471,7 +471,7 @@ instance DualMonad r (Concrete r) (DualMonadForward r) where
 dSingleArgForward ::
   t ->
   t ->
-  ( D t (Concrete s t) ->
+  ( Dual (Concrete s) t ->
     DualMonadForward s (D r (Concrete s r))
   ) ->
   (r, r)
@@ -502,8 +502,8 @@ dLetS ::
   forall (dual :: Type -> Type) t m s.
   DualMonad s dual m =>
   s `IsScalarOf` t ->
-  D t (dual t) ->
-  m (D t (dual t))
+  Dual dual t ->
+  m (Dual dual t)
 dLetS si (D x y) = do
   y' <- deltaLet si y
   pure (D x y')
@@ -511,8 +511,8 @@ dLetS si (D x y) = do
 dLet ::
   forall s dual t m.
   (DualMonad s dual m, Known (s `IsScalarOf` t)) =>
-  D t (dual t) ->
-  m (D t (dual t))
+  Dual dual t ->
+  m (Dual dual t)
 dLet = dLetS known
 
 -- This is a Biapplicative, but we're not using that type class yet.
@@ -583,6 +583,8 @@ sequenceArgAdaptorVector =
 data D a b = D a b
   deriving (Show)
 
+type Dual dual t = D t (dual t)
+
 class Ops f s dual | dual -> s where
   ops :: f s dual t -> dual t
 
@@ -622,16 +624,16 @@ baz ::
     KnownNat p,
     Applicative dualMonadGradient
   ) =>
-  ( D (OS.Array '[m, n] s) (dual (OS.Array '[m, n] s)),
-    D (OS.Array '[n, p] s) (dual (OS.Array '[n, p] s))
+  ( Dual dual (OS.Array '[m, n] s),
+    Dual dual (OS.Array '[n, p] s)
   ) ->
-  dualMonadGradient (D (OS.Array '[l, p] s) (dual (OS.Array '[l, p] s)))
+  dualMonadGradient (Dual dual (OS.Array '[l, p] s))
 baz (x, y) = pure (konstS 2 `mulSDual` x `mulSDual` y)
 
 bar ::
   (HM.Numeric s, DualMonad s dual m, Ops DeltaF s dual) =>
-  D (Vector s) (dual (Vector s)) ->
-  m (D s (dual s))
+  Dual dual (Vector s) ->
+  m (Dual dual s)
 bar v = do
   x <- index v 0
   y <- index v 1
@@ -639,9 +641,9 @@ bar v = do
 
 foo ::
   (DualMonad s dual m, Num s, Ops DeltaF s dual) =>
-  D s (dual s) ->
-  D s (dual s) ->
-  m (D s (dual s))
+  Dual dual s ->
+  Dual dual s ->
+  m (Dual dual s)
 foo x y = do
   x2 <- x .* x
   x2y <- x2 .* y
@@ -741,73 +743,73 @@ constant k = D k dZero0
 scale0 ::
   (Num s, Ops DeltaF s dual) =>
   s ->
-  D s (dual s) ->
-  D s (dual s)
+  Dual dual s ->
+  Dual dual s
 scale0 a (D u u') = D (a * u) (dScale0 a u')
 
 scale1 ::
   (HM.Numeric s, Num (Vector s), Ops DeltaF s dual) =>
   Vector s ->
-  D (Vector s) (dual (Vector s)) ->
-  D (Vector s) (dual (Vector s))
+  Dual dual (Vector s) ->
+  Dual dual (Vector s)
 scale1 a (D u u') = D (a * u) (dScale1 a u')
 
 -- MK: if this cannot work on vectors, perhaps @square0@ would be a better name
 -- and then we can add @square1@.
-square :: (Num s, Ops DeltaF s dual) => D s (dual s) -> D s (dual s)
+square :: (Num s, Ops DeltaF s dual) => Dual dual s -> Dual dual s
 square (D u u') = D (u * u) (dScale0 (2 * u) u')
 
 squaredDifference ::
   (Num s, Ops DeltaF s dual) =>
   s ->
-  D s (dual s) ->
-  D s (dual s)
+  Dual dual s ->
+  Dual dual s
 squaredDifference targ res = square $ res - constant targ
 
 (.+) ::
   (DualMonad s dual m, Num s, Ops DeltaF s dual) =>
-  D s (dual s) ->
-  D s (dual s) ->
-  m (D s (dual s))
+  Dual dual s ->
+  Dual dual s ->
+  m (Dual dual s)
 D x x' .+ D y y' =
   dLet $
     D (x + y) (ops (Add0 x' y'))
 
 (.*) ::
   (DualMonad s dual m, Num s, Ops DeltaF s dual) =>
-  D s (dual s) ->
-  D s (dual s) ->
-  m (D s (dual s))
+  Dual dual s ->
+  Dual dual s ->
+  m (Dual dual s)
 D x x' .* D y y' =
   dLet $
     D (x * y) (ops (Add0 (ops (Scale0 y x')) (ops (Scale0 x y'))))
 
 index ::
   (HM.Numeric s, Ops DeltaF s dual, DualMonad s dual m) =>
-  D (Vector s) (dual (Vector s)) ->
+  Dual dual (Vector s) ->
   Int ->
-  m (D s (dual s))
+  m (Dual dual s)
 index (D v v') i =
   dLet $
     D (HM.atIndex v i) (ops (Index0 v' i (HM.size v)))
 
 sumElements ::
   (HM.Numeric s, Ops DeltaF s dual) =>
-  D (Vector s) (dual (Vector s)) ->
-  D s (dual s)
+  Dual dual (Vector s) ->
+  Dual dual s
 sumElements (D u u') = D (HM.sumElements u) (dSumElements u' (HM.size u))
 
 konstS ::
-  (Storable a, OS.Shape sh, Ops DeltaF s dual) =>
-  D a (dual s) ->
-  D (OS.Array sh a) (dual (OS.Array sh s))
+  (Storable s, OS.Shape sh, Ops DeltaF s dual) =>
+  Dual dual s ->
+  Dual dual (OS.Array sh s)
 konstS (D u u') = D (OS.constant u) (ops (KonstS u'))
 
 mulSDual ::
   (Ops DeltaF s dual, KnownNat p, KnownNat m) =>
-  D (OS.Array [m, n] s) (dual (OS.Array [m, n] s)) ->
-  D (OS.Array [n, p] s) (dual (OS.Array [n, p] s)) ->
-  D (OS.Array [m, p] s) (dual (OS.Array [m, p] s))
+  Dual dual (OS.Array [m, n] s) ->
+  Dual dual (OS.Array [n, p] s) ->
+  Dual dual (OS.Array [m, p] s)
 mulSDual (D x dx) (D y dy) =
   D (mulS x y) (ops (AddS (ops (MulS1 dx y)) (ops (MulS2 x dy))))
 
@@ -846,7 +848,7 @@ dSingleArg ::
   -- | Incoming gradient (usually r ~ Double and r = 1)
   r ->
   -- | Function to be differentiated
-  (D t (Delta s t) -> DualMonadGradient s (D r (Delta s r))) ->
+  (Dual (Delta s) t -> DualMonadGradient s (Dual (Delta s) r)) ->
   -- | Result of original function, and its gradient
   (r, t)
 dSingleArg = runDualMonadAdapt . adaptArg
@@ -859,8 +861,8 @@ dDoubleArg ::
   ) =>
   (t1, t2) ->
   r ->
-  ( (D t1 (Delta s t1), D t2 (Delta s t2)) ->
-    DualMonadGradient s (D r (Delta s r))
+  ( (D t1 (Delta s t1), Dual (Delta s) t2) ->
+    DualMonadGradient s (Dual (Delta s) r)
   ) ->
   (r, (t1, t2))
 dDoubleArg (t1, t2) = runDualMonadAdapt (liftB2 (adaptArg t1) (adaptArg t2))
@@ -874,10 +876,10 @@ dMultiArg ::
   Data.Vector.Vector t1 ->
   Data.Vector.Vector t2 ->
   r ->
-  ( ( Data.Vector.Vector (D t1 (Delta s t1)),
-      Data.Vector.Vector (D t2 (Delta s t2))
+  ( ( Data.Vector.Vector (Dual (Delta s) t1),
+      Data.Vector.Vector (Dual (Delta s) t2)
     ) ->
-    DualMonadGradient s (D r (Delta s r))
+    DualMonadGradient s (Dual (Delta s) r)
   ) ->
   (r, (Data.Vector.Vector t1, Data.Vector.Vector t2))
 dMultiArg t1s t2s =
@@ -905,9 +907,9 @@ testAgainForward =
 
 quad ::
   (DualMonad s dual m, Num s, Ops DeltaF s dual) =>
-  D s (dual s) ->
-  D s (dual s) ->
-  m (D s (dual s))
+  Dual dual s ->
+  Dual dual s ->
+  m (Dual dual s)
 quad x y = do
   x2 <- dLet $ square x
   y2 <- y .* y
@@ -916,10 +918,10 @@ quad x y = do
 
 quadVariables ::
   (DualMonad s dual m, Num s, Ops DeltaF s dual) =>
-  ( Data.Vector.Vector (D s (dual s)),
-    Data.Vector.Vector (D t2 (dual t2))
+  ( Data.Vector.Vector (Dual dual s),
+    Data.Vector.Vector (Dual dual t2)
   ) ->
-  m (D s (dual s))
+  m (Dual dual s)
 quadVariables (xyzVector, _) = do
   let x = xyzVector V.! 0
       y = xyzVector V.! 1
@@ -948,10 +950,10 @@ testQuadSimpleForward =
 
 foldl'0 ::
   (HM.Numeric s, Ops DeltaF s dual) =>
-  (D s (dual s) -> D s (dual s) -> D s (dual s)) ->
-  D s (dual s) ->
-  D (Vector s) (dual (Vector s)) ->
-  D s (dual s)
+  (Dual dual s -> Dual dual s -> Dual dual s) ->
+  Dual dual s ->
+  Dual dual (Vector s) ->
+  Dual dual s
 foldl'0 f uu' (D v v') =
   let k = V.length v
       g !acc ix p = f (D p (ops (Index0 v' ix k))) acc
@@ -959,16 +961,16 @@ foldl'0 f uu' (D v v') =
 
 altSumElements0 ::
   (HM.Numeric s, Ops DeltaF s dual) =>
-  D (Vector s) (dual (Vector s)) ->
-  D s (dual s)
+  Dual dual (Vector s) ->
+  Dual dual s
 altSumElements0 = foldl'0 (+) 0
 
 vec_omit_scalarSum ::
   (RealFloat s, Ops DeltaF s dual) =>
-  ( Data.Vector.Vector (D s (dual s)),
-    Data.Vector.Vector (D t2 (dual t2))
+  ( Data.Vector.Vector (Dual dual s),
+    Data.Vector.Vector (Dual dual t2)
   ) ->
-  D s (dual s)
+  Dual dual s
 vec_omit_scalarSum (v, _) = V.foldl' (+) 0 v
 
 testThreeVariantsOfSumElement ::
@@ -1011,18 +1013,18 @@ atanReadmeOriginal x y z =
 
 atanReadmeD ::
   (RealFloat s, Ops DeltaF s dual) =>
-  D s (dual s) ->
-  D s (dual s) ->
-  D s (dual s) ->
-  Data.Vector.Vector (D s (dual s))
+  Dual dual s ->
+  Dual dual s ->
+  Dual dual s ->
+  Data.Vector.Vector (Dual dual s)
 atanReadmeD x y z = atanReadmeOriginal x y z
 
 atanReadmeVariables ::
   (RealFloat s, Ops DeltaF s dual) =>
-  ( Data.Vector.Vector (D s (dual s)),
+  ( Data.Vector.Vector (Dual dual s),
     Data.Vector.Vector (D t2 (dual t2))
   ) ->
-  Data.Vector.Vector (D s (dual s))
+  Data.Vector.Vector (Dual dual s)
 atanReadmeVariables (xyzVector, _) =
   let x = xyzVector V.! 0
       y = xyzVector V.! 1
@@ -1031,38 +1033,38 @@ atanReadmeVariables (xyzVector, _) =
 
 sumElementsOfDualNumbers ::
   (Num s, Ops DeltaF s dual) =>
-  Data.Vector.Vector (D s (dual s)) ->
-  D s (dual s)
+  Data.Vector.Vector (Dual dual s) ->
+  Dual dual s
 sumElementsOfDualNumbers = V.foldl' (+) 0
 
 atanReadmeScalar ::
   (RealFloat s, Ops DeltaF s dual) =>
-  ( Data.Vector.Vector (D s (dual s)),
-    Data.Vector.Vector (D t2 (dual t2))
+  ( Data.Vector.Vector (Dual dual s),
+    Data.Vector.Vector (Dual dual t2)
   ) ->
-  D s (dual s)
+  Dual dual s
 atanReadmeScalar = sumElementsOfDualNumbers . atanReadmeVariables
 
 atanReadmeM ::
   (DualMonad s dual m, Ops DeltaF s dual, RealFloat s) =>
-  ( Data.Vector.Vector (D s (dual s)),
-    Data.Vector.Vector (D t2 (dual t2))
+  ( Data.Vector.Vector (Dual dual s),
+    Data.Vector.Vector (Dual dual t2)
   ) ->
-  m (D s (dual s))
+  m (Dual dual s)
 atanReadmeM = dLet . atanReadmeScalar
 
 indexNoM ::
   (HM.Numeric s, Ops DeltaF s dual) =>
-  D (Vector s) (dual (Vector s)) ->
+  Dual dual (Vector s) ->
   Int ->
-  D s (dual s)
+  Dual dual s
 indexNoM (D v v') i =
   D (HM.atIndex v i) (ops (Index0 v' i (HM.size v)))
 
 seq1 ::
   (HM.Numeric s, Ops DeltaF s dual) =>
-  Data.Vector.Vector (D s (dual s)) ->
-  D (Vector s) (dual (Vector s))
+  Data.Vector.Vector (Dual dual s) ->
+  Dual dual (Vector s)
 seq1 v =
   D
     (HM.fromList $ map (\(D x _) -> x) $ Data.Vector.toList v)
@@ -1070,8 +1072,8 @@ seq1 v =
 
 vatanReadmeM ::
   (DualMonad s dual m, HM.Numeric s, RealFloat s, Ops DeltaF s dual) =>
-  D (Vector s) (dual (Vector s)) ->
-  m (D s (dual s))
+  Dual dual (Vector s) ->
+  m (Dual dual s)
 vatanReadmeM xyzVector = do
   let x = indexNoM xyzVector 0
       y = indexNoM xyzVector 1
@@ -1085,9 +1087,9 @@ infixr 8 <.>!!
 
 (<.>!!) ::
   (HM.Numeric s, Ops DeltaF s dual) =>
-  D (Vector s) (dual (Vector s)) ->
+  Dual dual (Vector s) ->
   Vector s ->
-  D s (dual s)
+  Dual dual s
 (<.>!!) (D u u') v = D (u HM.<.> v) (ops (Dot1 v u'))
 
 testTwoVariantsOfatanReadme ::
