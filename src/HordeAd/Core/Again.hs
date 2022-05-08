@@ -208,6 +208,10 @@ deltaMapAlter f di m = case knownDeltaId di of
 -- * Delta s t
 
 -- 'evalDeltaF f' has the special property when f does
+
+-- FIXME: (.) should probably instead be strict composition,
+--
+--     (f .! g) x = let !y = g x in f y
 evalDeltaF ::
   forall s dual t deltaMap_s.
   HM.Numeric s =>
