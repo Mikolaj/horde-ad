@@ -24,6 +24,7 @@ import Control.Monad.Trans.State
     runState,
   )
 import qualified Data.Array.ShapedS as OS
+import Data.Biapplicative ((<<*>>))
 import qualified Data.Biapplicative as B
 import Data.Functor.Identity (Identity (Identity), runIdentity)
 import Data.Kind (Type)
@@ -636,6 +637,25 @@ baz ::
   dualMonadGradient (Dual dual (OS.Array '[l, p] s))
 baz (x, y) = pure (konstS 2 `mulSDual` x `mulSDual` y)
 
+data ARecord a b c = ARecord a b c
+
+bazRecord ::
+  ( Applicative f,
+    Ops DeltaF s dual,
+    HM.Numeric s,
+    KnownNat l,
+    KnownNat m,
+    KnownNat n,
+    KnownNat p,
+    KnownNat q
+  ) =>
+  ARecord
+    (Dual dual (OS.Array '[m, n] s))
+    (Dual dual (OS.Array '[n, p] s))
+    (Dual dual (OS.Array '[p, q] s)) ->
+  f (Dual dual (OS.Array '[l, q] s))
+bazRecord (ARecord x y z) = pure (konstS 2 `mulSDual` x `mulSDual` y `mulSDual` z)
+
 bar ::
   (HM.Numeric s, DualMonad s dual m, Ops DeltaF s dual) =>
   Dual dual (Vector s) ->
@@ -835,6 +855,28 @@ example2 =
     )
     (OS.fromList [1, 2, 3, 4] :: OS.Array [2, 2] Double)
     baz
+
+example2Record ::
+  ( HM.Numeric s,
+    KnownNat q,
+    KnownNat l,
+    KnownNat n,
+    KnownNat m,
+    KnownNat p
+  ) =>
+  ARecord
+    (OS.Array '[m, n] s)
+    (OS.Array '[n, p] s)
+    (OS.Array '[p, q] s) ->
+  OS.Array '[l, q] s ->
+  ( OS.Array '[l, q] s,
+    ARecord
+      (OS.Array '[m, n] s)
+      (OS.Array '[n, p] s)
+      (OS.Array '[p, q] s)
+  )
+example2Record (ARecord x y z) t =
+  runDualMonadAdapt (B.bipure ARecord ARecord <<*>> adaptArg x <<*>> adaptArg y <<*>> adaptArg z) t bazRecord
 
 example3 :: (Double, Vector Double)
 example3 = dSingleArg (HM.fromList [10, 20]) 1 bar
