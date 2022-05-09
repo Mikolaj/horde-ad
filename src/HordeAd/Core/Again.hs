@@ -7,6 +7,7 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
@@ -27,7 +28,7 @@ import qualified Data.Array.ShapedS as OS
 import Data.Biapplicative ((<<*>>))
 import qualified Data.Biapplicative as B
 import Data.Functor.Identity (Identity (Identity), runIdentity)
-import Data.Kind (Type)
+import Data.Kind (Constraint, Type)
 import Data.List (foldl')
 import qualified Data.Strict.Map as Map
 import qualified Data.Strict.Vector as Data.Vector
@@ -807,6 +808,53 @@ D x x' .+ D y y' =
   Dual dual s ->
   m (Dual dual s)
 D x x' .* D y y' =
+  dLet $
+    D (x * y) (ops (Add0 (ops (Scale0 y x')) (ops (Scale0 x y'))))
+
+type family
+  DualMonad' (s_dual :: (Type, Type -> Type)) ::
+    (Type -> Type) -> Constraint
+  where
+  DualMonad' '(s, dual) = DualMonad s dual
+
+type family
+  Ops' f (s_dual :: (Type, Type -> Type)) ::
+    Constraint
+  where
+  Ops' f '(s, dual) = Ops f s dual
+
+type family
+  Dual' s_dual ::
+    Type
+  where
+  Dual' '(s, dual) = Dual dual s
+
+type family
+  S_of (s_dual :: (Type, Type -> Type)) ::
+    Type
+  where
+  S_of '(s, dual) = s
+
+(..*) ::
+  (DualMonad' '(s, dual) m, Num s, Ops' DeltaF '(s, dual)) =>
+  Dual' '(s, dual) ->
+  Dual' '(s, dual) ->
+  m (Dual' '(s, dual))
+D x x' ..* D y y' =
+  dLet $
+    D (x * y) (ops (Add0 (ops (Scale0 y x')) (ops (Scale0 x y'))))
+
+(...*) ::
+  ( s_dual ~ '(a, b),
+    s ~ S_of s_dual,
+    DualMonad' s_dual m,
+    Num s,
+    Ops' DeltaF s_dual
+  ) =>
+  Dual' s_dual ->
+  Dual' s_dual ->
+  m (Dual' s_dual)
+D x x' ...* D y y' =
   dLet $
     D (x * y) (ops (Add0 (ops (Scale0 y x')) (ops (Scale0 x y'))))
 
