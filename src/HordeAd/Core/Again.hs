@@ -838,6 +838,17 @@ konstS ::
   Dual dual (OS.Array sh s)
 konstS (D u u') = D (OS.constant u) (ops (KonstS u'))
 
+mkonstS ::
+  ( Storable s,
+    OS.Shape sh,
+    Ops (DeltaF s) dual,
+    DualMonad dual m,
+    Known (Param dual m (OS.Array sh s))
+  ) =>
+  Dual dual s ->
+  m (Dual dual (OS.Array sh s))
+mkonstS (D u u') = dLet $ D (OS.constant u) (ops (KonstS u'))
+
 mulSDual ::
   (Ops (DeltaF s) dual, KnownNat p, KnownNat m) =>
   Dual dual (OS.Array [m, n] s) ->
