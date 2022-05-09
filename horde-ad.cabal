@@ -138,6 +138,7 @@ library
     build-depends:
         assert-failure
       , base >= 4.14 && < 99
+      , bifunctors
       , bytestring
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise

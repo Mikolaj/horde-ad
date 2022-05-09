@@ -24,6 +24,7 @@ import Control.Monad.Trans.State
     runState,
   )
 import qualified Data.Array.ShapedS as OS
+import qualified Data.Biapplicative as B
 import Data.Functor.Identity (Identity (Identity), runIdentity)
 import Data.Kind (Type)
 import Data.List (foldl')
@@ -515,9 +516,14 @@ dLet ::
   m (Dual dual t)
 dLet = dLetS known
 
--- This is a Biapplicative, but we're not using that type class yet.
--- Perhaps we should.
 newtype ArgAdaptor s t pd = ArgAdaptor (State Int (DeltaMap s -> t, pd))
+
+instance B.Bifunctor (ArgAdaptor s) where
+  bimap = bimapArgAdaptor
+
+instance B.Biapplicative (ArgAdaptor s) where
+  bipure = pureArgAdaptor
+  f <<*>> x = B.bimap (uncurry ($)) (uncurry ($)) (liftB2 f x)
 
 runArgAdaptor ::
   ArgAdaptor s t pd ->
