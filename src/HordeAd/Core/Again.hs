@@ -82,21 +82,23 @@ data DeltaF (s :: Type) (dual :: Type -> Type) (t :: Type) where
   SumElements1 :: dual (Vector s) -> Int -> DeltaF s dual s
   Seq1 :: Data.Vector.Vector (dual s) -> DeltaF s dual (Vector s)
   AddS ::
-    OS.Shape sh =>
+    (OS.Shape sh, Storable s) =>
     dual (OS.Array sh s) ->
     dual (OS.Array sh s) ->
     DeltaF s dual (OS.Array sh s)
-  KonstS :: OS.Shape sh => dual s -> DeltaF s dual (OS.Array sh s)
+  KonstS :: (OS.Shape sh, Storable s) => dual s -> DeltaF s dual (OS.Array sh s)
   AppendS ::
-    (OS.Shape sh, KnownNat m, KnownNat n) =>
+    (OS.Shape sh, Storable s, KnownNat m, KnownNat n) =>
     dual (OS.Array (m : sh) s) ->
     dual (OS.Array (n : sh) s) ->
     DeltaF s dual (OS.Array ((m + n) : sh) s)
   MulS1 ::
+    (Storable s, KnownNat m, KnownNat n, KnownNat p) =>
     dual (OS.Array [m, n] s) ->
     OS.Array [n, p] s ->
     DeltaF s dual (OS.Array [m, p] s)
   MulS2 ::
+    (Storable s, KnownNat m, KnownNat n, KnownNat p) =>
     OS.Array [m, n] s ->
     dual (OS.Array [n, p] s) ->
     DeltaF s dual (OS.Array [m, p] s)
@@ -140,6 +142,26 @@ data DeltaBinding s where
 data Delta (s :: Type) (t :: Type) where
   Delta :: DeltaF s (Delta s) t -> Delta s t
   Var :: DeltaId s t -> Delta s t
+
+knownDelta :: Delta s t -> s `IsScalarOf` t
+knownDelta = \case
+  Delta df -> case df of
+    Zero0 -> SScalar
+    Add0 {} -> SScalar
+    Scale0 {} -> SScalar
+    Index0 {} -> SScalar
+    Add1 {} -> SVector
+    Scale1 {} -> SVector
+    Konst1 {} -> SVector
+    Dot1 {} -> SScalar
+    SumElements1 {} -> SScalar
+    Seq1 {} -> SVector
+    AddS {} -> SShapedS
+    KonstS {} -> SShapedS
+    AppendS {} -> SShapedS
+    MulS1 {} -> SShapedS
+    MulS2 {} -> SShapedS
+  Var di -> case di of (DeltaId _) -> known
 
 data DeltaMap s = DeltaMap
   { dmScalar :: Map.Map (DeltaId s s) s,
@@ -372,9 +394,7 @@ runDualMonadM m = runState (runDualMonadGradient m) initialState
         }
 
 runDualMonadAdapt ::
-  ( HM.Numeric s,
-    Known (s `IsScalarOf` t)
-  ) =>
+  HM.Numeric s =>
   ArgAdaptor s arg dual ->
   t ->
   (dual -> DualMonadGradient s (D t' (Delta s t))) ->
@@ -382,28 +402,27 @@ runDualMonadAdapt ::
 runDualMonadAdapt aa g f =
   let (lookup', arg) = runArgAdaptor aa
       m = f arg
-      (t', dm) = runDualMonadS known g m
+      (t', dm) = runDualMonadS g m
    in (t', lookup' dm)
 
 runDualMonadS ::
   HM.Numeric s =>
-  s `IsScalarOf` t ->
   t ->
   DualMonadGradient s (D t' (Delta s t)) ->
   (t', DeltaMap s)
-runDualMonadS st g e =
+runDualMonadS g e =
   let ((t, dId), bs) = runDualMonadM $ do
         D t' delta <- e
-        dId' <- deltaLetId st delta
+        dId' <- deltaLetId delta
         pure (t', dId')
    in (t, runDelta (deltaBindings bs) (singleton dId g))
 
 runDualMonad ::
-  (HM.Numeric s, Known (s `IsScalarOf` t)) =>
+  HM.Numeric s =>
   t ->
   DualMonadGradient s (D s (Delta s t)) ->
   (s, DeltaMap s)
-runDualMonad = runDualMonadS known
+runDualMonad = runDualMonadS
 
 data DeltaState s = DeltaState
   { deltaCounter0 :: DeltaId s s,
@@ -417,8 +436,7 @@ newtype DualMonadGradient s t = DualMonadGradient
   deriving newtype (Monad, Functor, Applicative)
 
 class Monad m => DualMonad (dual :: Type -> Type) m where
-  type Param dual m :: Type -> Type
-  deltaLet :: Param dual m t -> dual t -> m (dual t)
+  deltaLet :: dual t -> m (dual t)
 
 fresh :: s `IsScalarOf` t -> DualMonadGradient s (DeltaId s t)
 fresh sd = DualMonadGradient $ do
@@ -448,15 +466,14 @@ bind dId delta =
           st {deltaBindings = DeltaBinding dId delta : deltaBindings st}
       )
 
-deltaLetId :: IsScalarOf s t -> Delta s t -> DualMonadGradient s (DeltaId s t)
-deltaLetId sd delta = do
-  dId <- fresh sd
+deltaLetId :: Delta s t -> DualMonadGradient s (DeltaId s t)
+deltaLetId delta = do
+  dId <- fresh (knownDelta delta)
   bind dId delta
   pure dId
 
 instance DualMonad (Delta s) (DualMonadGradient s) where
-  type Param (Delta s) (DualMonadGradient s) = IsScalarOf s
-  deltaLet sd delta = fmap Var (deltaLetId sd delta)
+  deltaLet delta = fmap Var (deltaLetId delta)
 
 newtype DualMonadValue r a = DualMonadValue
   {runDualMonadValue :: Identity a}
@@ -465,7 +482,7 @@ newtype DualMonadValue r a = DualMonadValue
 data Unit (t :: Type) = Unit
 
 instance DualMonad Unit (DualMonadValue r) where
-  deltaLet _ = pure
+  deltaLet = pure
 
 newtype DualMonadForward a = DualMonadForward (Identity a)
   deriving newtype (Monad, Functor, Applicative)
@@ -474,8 +491,7 @@ runDualMonadForward :: DualMonadForward a -> a
 runDualMonadForward (DualMonadForward m) = runIdentity m
 
 instance DualMonad Concrete DualMonadForward where
-  type Param Concrete DualMonadForward = Unit
-  deltaLet _ = pure
+  deltaLet = pure
 
 dSingleArgForward ::
   t ->
@@ -510,19 +526,18 @@ dMultiArgForward (t, dt) (t', dt') f =
 dLetS ::
   forall (dual :: Type -> Type) t m.
   DualMonad dual m =>
-  Param dual m t ->
   Dual dual t ->
   m (Dual dual t)
-dLetS si (D x y) = do
-  y' <- deltaLet si y
+dLetS (D x y) = do
+  y' <- deltaLet y
   pure (D x y')
 
 dLet ::
   forall dual t m.
-  (DualMonad dual m, Known (Param dual m t)) =>
+  DualMonad dual m =>
   Dual dual t ->
   m (Dual dual t)
-dLet = dLetS known
+dLet = dLetS
 
 newtype ArgAdaptor s t pd = ArgAdaptor (State Int (DeltaMap s -> t, pd))
 
@@ -664,7 +679,7 @@ bazRecord ::
 bazRecord (ARecord x y z) = pure (konstS 2 `mulSDual` x `mulSDual` y `mulSDual` z)
 
 bar ::
-  (HM.Numeric s, DualMonad dual m, Ops (DeltaF s) dual, Known (Param dual m s)) =>
+  (HM.Numeric s, DualMonad dual m, Ops (DeltaF s) dual) =>
   Dual dual (Vector s) ->
   m (Dual dual s)
 bar v = do
@@ -673,7 +688,7 @@ bar v = do
   foo x y
 
 foo ::
-  (DualMonad dual m, Num s, Ops (DeltaF s) dual, Known (Param dual m s)) =>
+  (DualMonad dual m, Num s, Ops (DeltaF s) dual) =>
   Dual dual s ->
   Dual dual s ->
   m (Dual dual s)
@@ -800,7 +815,7 @@ squaredDifference ::
 squaredDifference targ res = square $ res - constant targ
 
 (.+) ::
-  (DualMonad dual m, Num s, Ops (DeltaF s) dual, Known (Param dual m s)) =>
+  (DualMonad dual m, Num s, Ops (DeltaF s) dual) =>
   Dual dual s ->
   Dual dual s ->
   m (Dual dual s)
@@ -809,7 +824,7 @@ D x x' .+ D y y' =
     D (x + y) (ops (Add0 x' y'))
 
 (.*) ::
-  (DualMonad dual m, Num s, Ops (DeltaF s) dual, Known (Param dual m s)) =>
+  (DualMonad dual m, Num s, Ops (DeltaF s) dual) =>
   Dual dual s ->
   Dual dual s ->
   m (Dual dual s)
@@ -818,7 +833,7 @@ D x x' .* D y y' =
     D (x * y) (ops (Add0 (ops (Scale0 y x')) (ops (Scale0 x y'))))
 
 index ::
-  (HM.Numeric s, Ops (DeltaF s) dual, DualMonad dual m, Known (Param dual m s)) =>
+  (HM.Numeric s, Ops (DeltaF s) dual, DualMonad dual m) =>
   Dual dual (Vector s) ->
   Int ->
   m (Dual dual s)
@@ -842,15 +857,14 @@ mkonstS ::
   ( Storable s,
     OS.Shape sh,
     Ops (DeltaF s) dual,
-    DualMonad dual m,
-    Known (Param dual m (OS.Array sh s))
+    DualMonad dual m
   ) =>
   Dual dual s ->
   m (Dual dual (OS.Array sh s))
 mkonstS (D u u') = dLet $ D (OS.constant u) (ops (KonstS u'))
 
 mulSDual ::
-  (Ops (DeltaF s) dual, KnownNat p, KnownNat m) =>
+  (Ops (DeltaF s) dual, Storable s, KnownNat p, KnownNat m, KnownNat n) =>
   Dual dual (OS.Array [m, n] s) ->
   Dual dual (OS.Array [n, p] s) ->
   Dual dual (OS.Array [m, p] s)
@@ -908,7 +922,7 @@ example3Forward2 =
   dSingleArgForward (HM.fromList [10, 20]) (HM.fromList [0, 1]) bar
 
 dSingleArg ::
-  (HM.Numeric s, Known (IsScalarOf s r), Known (IsScalarOf s t)) =>
+  (HM.Numeric s, Known (IsScalarOf s t)) =>
   -- | Primal argument
   t ->
   -- | Incoming gradient (usually r ~ Double and r = 1)
@@ -922,8 +936,7 @@ dSingleArg = runDualMonadAdapt . adaptArg
 dDoubleArg ::
   ( HM.Numeric s,
     Known (IsScalarOf s t1),
-    Known (IsScalarOf s t2),
-    Known (IsScalarOf s r)
+    Known (IsScalarOf s t2)
   ) =>
   (t1, t2) ->
   r ->
@@ -935,7 +948,6 @@ dDoubleArg (t1, t2) = runDualMonadAdapt (liftB2 (adaptArg t1) (adaptArg t2))
 
 dMultiArg ::
   ( HM.Numeric s,
-    Known (IsScalarOf s r),
     Known (IsScalarOf s t1),
     Known (IsScalarOf s t2)
   ) =>
@@ -972,7 +984,7 @@ testAgainForward =
     ++ testQuadSimpleForward
 
 quad ::
-  (DualMonad dual m, Num s, Ops (DeltaF s) dual, Known (Param dual m s)) =>
+  (DualMonad dual m, Num s, Ops (DeltaF s) dual) =>
   Dual dual s ->
   Dual dual s ->
   m (Dual dual s)
@@ -983,7 +995,7 @@ quad x y = do
   tmp .+ 5
 
 quadVariables ::
-  (DualMonad dual m, Num s, Ops (DeltaF s) dual, Known (Param dual m s)) =>
+  (DualMonad dual m, Num s, Ops (DeltaF s) dual) =>
   ( Data.Vector.Vector (Dual dual s),
     Data.Vector.Vector (Dual dual t2)
   ) ->
@@ -1112,7 +1124,7 @@ atanReadmeScalar ::
 atanReadmeScalar = sumElementsOfDualNumbers . atanReadmeVariables
 
 atanReadmeM ::
-  (DualMonad dual m, Ops (DeltaF s) dual, RealFloat s, Known (Param dual m s)) =>
+  (DualMonad dual m, Ops (DeltaF s) dual, RealFloat s) =>
   ( Data.Vector.Vector (Dual dual s),
     Data.Vector.Vector (Dual dual t2)
   ) ->
@@ -1137,7 +1149,7 @@ seq1 v =
     (ops $ Seq1 $ fmap (\(D _ x) -> x) v)
 
 vatanReadmeM ::
-  (DualMonad dual m, HM.Numeric s, RealFloat s, Ops (DeltaF s) dual, Known (Param dual m s)) =>
+  (DualMonad dual m, HM.Numeric s, RealFloat s, Ops (DeltaF s) dual) =>
   Dual dual (Vector s) ->
   m (Dual dual s)
 vatanReadmeM xyzVector = do
