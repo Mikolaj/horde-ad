@@ -500,20 +500,12 @@ buildFinMaps st deltaTopLevel dt = do
         FromColumns2 lvd -> zipWithM_ eval1 (MO.toColumns r) (V.toList lvd)
         Konst2 d _sz -> mapM_ (V.mapM_ (`eval0` d)) $ MO.toRows r
         Transpose2 md -> eval2 (MO.transpose r) md  -- TODO: test!
-        M_MD2 m md -> zipWithM_ (\rRow row -> eval1 rRow (MD_V1 md row))
-                                (HM.toRows m) (MO.toRows r)
---      inlining eval1 to demonstrate the calls to eval2 with outer products:
---      M_MD2 m md ->
---        zipWithM_ (\rRow row ->
---                     eval2 (MO.MatrixOuter Nothing (Just rRow) (Just row)) md)
---                  (HM.toRows m) (MO.toRows r)
-        MD_M2 md m -> zipWithM_ (\rCol col -> eval1 rCol (MD_V1 md col))
-                                (MO.toColumns r) (HM.toColumns m)
---      inlining eval1 to demonstrate the calls to eval2 with outer products:
---      MD_M2 md m ->
---        zipWithM_ (\rCol col ->
---                     eval2 (MO.MatrixOuter Nothing (Just rCol) (Just col)) md)
---                  (MO.toColumns r) (HM.toColumns m)
+        M_MD2 m md ->
+          let mo = MO.MatrixOuter (Just $ HM.tr' m) Nothing Nothing
+          in eval2 (MO.matMul mo r) md
+        MD_M2 md m ->
+          let mo = MO.MatrixOuter (Just $ HM.tr' m) Nothing Nothing
+          in eval2 (MO.matMul r mo) md
         RowAppend2 d k e -> eval2 (MO.takeRows k r) d
                             >> eval2 (MO.dropRows k r) e
         ColumnAppend2 d k e -> eval2 (MO.takeColumns k r) d

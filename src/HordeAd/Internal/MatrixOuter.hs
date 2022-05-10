@@ -28,7 +28,7 @@ module HordeAd.Internal.MatrixOuter
   , toRows, toColumns, plus, multiplyWithOuter
   , konst, asRow, asColumn, rowAppend, columnAppend
   , takeRows, takeColumns, dropRows, dropColumns
-  , transpose, flipud, fliprl
+  , transpose, matMul, flipud, fliprl
   ) where
 
 import Prelude
@@ -182,6 +182,12 @@ dropColumns k (MatrixOuter mm mc mr) =
 
 transpose :: Numeric r => MatrixOuter r -> MatrixOuter r
 transpose (MatrixOuter mm mc mr) = MatrixOuter (HM.tr' <$> mm) mr mc
+
+matMul :: (Numeric r, Num (Vector r))
+       => MatrixOuter r -> MatrixOuter r -> MatrixOuter r
+matMul m1 m2 =
+  MatrixOuter (Just $ convertMatrixOuter m1 HM.<> convertMatrixOuter m2)
+              Nothing Nothing
 
 flipud :: Numeric r => MatrixOuter r -> MatrixOuter r
 flipud (MatrixOuter mm mc mr) =
