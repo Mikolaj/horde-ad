@@ -98,7 +98,7 @@ data Delta0 r =
   | Dot0 (Vector r) (Delta1 r)  -- ^ Dot0 v vd == SumElements0 (Scale1 v vd) n
 
   | FromX0 (DeltaX r)  -- ^ one of many conversions
-  | FromS0 (DeltaS r '[])
+  | FromS0 (DeltaS '[] r)
 
 deriving instance (Show r, Numeric r) => Show (Delta0 r)
 
@@ -124,14 +124,14 @@ data Delta1 r =
 
   | FromX1 (DeltaX r)
   | forall len. KnownNat len
-    => FromS1 (DeltaS r '[len])
+    => FromS1 (DeltaS '[len] r)
 
     -- unsorted and undocumented yet
   | Reverse1 (Delta1 r)
   | Flatten1 Int Int (Delta2 r)
   | FlattenX1 OT.ShapeL (DeltaX r)
   | forall sh. OS.Shape sh
-    => FlattenS1 (DeltaS r sh)
+    => FlattenS1 (DeltaS sh r)
 
 deriving instance (Show r, Numeric r) => Show (Delta1 r)
 
@@ -159,7 +159,7 @@ data Delta2 r =
 
   | FromX2 (DeltaX r)
   | forall rows cols. (KnownNat rows, KnownNat cols)
-    => FromS2 (DeltaS r '[rows, cols])
+    => FromS2 (DeltaS '[rows, cols] r)
 
     -- unsorted and undocumented yet
   | Flipud2 (Delta2 r)
@@ -199,7 +199,7 @@ data DeltaX r =
   | From1X (Delta1 r)
   | From2X (Delta2 r) Int
   | forall sh. OS.Shape sh
-    => FromSX (DeltaS r sh)
+    => FromSX (DeltaS sh r)
 
 deriving instance (Show r, Numeric r) => Show (DeltaX r)
 
@@ -207,38 +207,38 @@ deriving instance (Show r, Numeric r) => Show (DeltaX r)
 -- the fully typed Shaped version.
 --
 -- Warning: not tested enough nor benchmarked.
-data DeltaS :: Type -> [Nat] -> Type where
-  ZeroS :: DeltaS r sh
-  ScaleS :: OS.Array sh r -> DeltaS r sh -> DeltaS r sh
-  AddS :: DeltaS r sh -> DeltaS r sh -> DeltaS r sh
-  VarS :: DeltaId (OS.Array sh r) -> DeltaS r sh
+data DeltaS :: [Nat] -> Type -> Type where
+  ZeroS :: DeltaS sh r
+  ScaleS :: OS.Array sh r -> DeltaS sh r -> DeltaS sh r
+  AddS :: DeltaS sh r -> DeltaS sh r -> DeltaS sh r
+  VarS :: DeltaId (OS.Array sh r) -> DeltaS sh r
 
-  KonstS :: Delta0 r -> DeltaS r sh
+  KonstS :: Delta0 r -> DeltaS sh r
   AppendS :: (OS.Shape sh, KnownNat m, KnownNat n)
-          => DeltaS r (m ': sh) -> DeltaS r (n ': sh)
-          -> DeltaS r ((m + n) ': sh)
+          => DeltaS (m ': sh) r -> DeltaS (n ': sh) r
+          -> DeltaS ((m + n) ': sh) r
     -- ^ Append two arrays along the outermost dimension.
   SliceS :: (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
-         => Proxy i -> Proxy n -> DeltaS r (i + n + k ': rest)
-         -> DeltaS r (n ': rest)
+         => Proxy i -> Proxy n -> DeltaS (i + n + k ': rest) r
+         -> DeltaS (n ': rest) r
     -- ^ Extract a slice of an array along the outermost dimension.
   IndexS :: (KnownNat ix, KnownNat k, OS.Shape rest)
-         => DeltaS r (ix + 1 + k ': rest) -> Proxy ix -> DeltaS r rest
+         => DeltaS (ix + 1 + k ': rest) r -> Proxy ix -> DeltaS rest r
     -- ^ The sub-tensors at the given index of the outermost dimension.
   RavelFromListS :: (KnownNat k, OS.Shape rest)
-                 => [DeltaS r rest] -> DeltaS r (k : rest)
+                 => [DeltaS rest r] -> DeltaS (k : rest) r
     -- ^ Create a tensor from a list treated as the outermost dimension.
   ReshapeS :: (OS.Shape sh, OS.Shape sh', OS.Size sh ~ OS.Size sh')
-           => DeltaS r sh -> DeltaS r sh'
+           => DeltaS sh r -> DeltaS sh' r
     -- ^ Change the shape of the tensor.
 
-  From0S :: Delta0 r -> DeltaS r '[]
-  From1S :: Delta1 r -> DeltaS r '[n]
+  From0S :: Delta0 r -> DeltaS '[] r
+  From1S :: Delta1 r -> DeltaS '[n] r
   From2S :: KnownNat cols
-         => Proxy cols -> Delta2 r -> DeltaS r '[rows, cols]
-  FromXS :: DeltaX r -> DeltaS r sh
+         => Proxy cols -> Delta2 r -> DeltaS '[rows, cols] r
+  FromXS :: DeltaX r -> DeltaS sh r
 
-instance Show (DeltaS r sh) where
+instance Show (DeltaS sh r) where
   show _ = "a DeltaS delta expression"
 
 
@@ -579,7 +579,7 @@ buildFinMaps st deltaTopLevel dt = do
                 d
         FromSX d -> evalS (Data.Array.Convert.convert r) d
       evalS :: OS.Shape sh
-            => OS.Array sh r -> DeltaS r sh -> ST s ()
+            => OS.Array sh r -> DeltaS sh r -> ST s ()
       evalS !r = \case
         ZeroS -> return ()
         ScaleS k d -> evalS (OS.zipWithA (*) k r) d
@@ -587,15 +587,15 @@ buildFinMaps st deltaTopLevel dt = do
         VarS (DeltaId i) -> VM.modify finMapX (addToArrayS r) i
 
         KonstS d -> mapM_ (`eval0` d) $ OS.toList r
-        AppendS (d :: DeltaS r (k ': rest)) (e :: DeltaS r (l ': rest)) ->
+        AppendS (d :: DeltaS (k ': rest) r) (e :: DeltaS (l ': rest) r) ->
           evalS (OS.slice @'[ '(0, k) ] r) d
           >> evalS (OS.slice @'[ '(k, l) ] r) e
-        SliceS (_ :: Proxy i) _ (d :: DeltaS r (i_plus_n_plus_k ': rest)) ->
+        SliceS (_ :: Proxy i) _ (d :: DeltaS (i_plus_n_plus_k ': rest) r) ->
           evalS (OS.constant @(i ': rest) 0
                  `OS.append` r
                  `OS.append` OS.constant 0)
                 d
-        IndexS (d :: DeltaS r (ix_plus_1_plus_k ': rest)) (_ :: Proxy ix) ->
+        IndexS (d :: DeltaS (ix_plus_1_plus_k ': rest) r) (_ :: Proxy ix) ->
           evalS (OS.constant @(ix ': rest) 0
                  `OS.append` OS.reshape r
                  `OS.append` OS.constant 0)
@@ -754,7 +754,7 @@ derivativeFromDelta st deltaTopLevel
         From2X d cols -> let l = eval2 parameters d
                          in OT.fromVector [HM.rows l, cols] $ HM.flatten l
         FromSX d -> Data.Array.Convert.convert $ evalS parameters d
-      evalS :: OS.Shape sh => Domains r -> DeltaS r sh -> OS.Array sh r
+      evalS :: OS.Shape sh => Domains r -> DeltaS sh r -> OS.Array sh r
       evalS parameters@( _, _, _, paramsX) = \case
         ZeroS -> 0
         ScaleS k d -> k * evalS parameters d
