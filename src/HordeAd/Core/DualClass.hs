@@ -128,88 +128,97 @@ class IsDual a dual where
               -> DeltaState (ScalarOf a dual)
               -> (DeltaState (ScalarOf a dual), DeltaId a)
 
+data DifferentiationScheme =
+    DifferentiationSchemeGradient
+  | DifferentiationSchemeDerivative
+
 -- | An instance of the class is a type of rank 0 (scalar rank) dual components
 -- of dual numbers. The associated type synonym families are dual component
 -- counterparts at the remaining ranks, with the same underlying scalar.
 -- The operations relate the dual and primal component at various ranks.
 -- Not many of these properties are enforced by the definition of the class
--- itself, but together with the 'IsScalar' constraint, a lot is captured.
-class HasRanks r dual0 tensor1 tensor2 tensorX tensorS where
-  dSumElements0 :: tensor1 r -> Int -> dual0
-  dIndex0 :: tensor1 r -> Int -> Int -> dual0
-  dDot0 :: Vector r -> tensor1 r -> dual0
-  dFromX0 :: tensorX r -> dual0
-  dFromS0 :: tensorS '[] r -> dual0
+-- itself, together but with the 'IsScalar' constraint, a lot is captured.
+class HasRanks (d :: DifferentiationScheme) r where
+  type Tensor0 d r  -- can't be injective, because identity for derivatives
+  type Tensor1 d r
+  type Tensor2 d r
+  type TensorX d r
+  type TensorS d (sh :: [Nat]) r
+  dSumElements0 :: Tensor1 d r -> Int -> Tensor0 d r
+  dIndex0 :: Tensor1 d r -> Int -> Int -> Tensor0 d r
+  dDot0 :: Vector r -> Tensor1 d r -> Tensor0 d r
+  dFromX0 :: TensorX d r -> Tensor0 d r
+  dFromS0 :: TensorS d '[] r -> Tensor0 d r
 
-  dSeq1 :: Data.Vector.Vector dual0 -> tensor1 r
-  dKonst1 :: dual0 -> Int -> tensor1 r
-  dAppend1 :: tensor1 r -> Int -> tensor1 r -> tensor1 r
-  dSlice1 :: Int -> Int -> tensor1 r -> Int -> tensor1 r
-  dSumRows1 :: tensor2 r -> Int -> tensor1 r
-  dSumColumns1 :: tensor2 r -> Int -> tensor1 r
-  dM_VD1 :: Matrix r -> tensor1 r -> tensor1 r
-  dMD_V1 :: tensor2 r -> Vector r -> tensor1 r
-  dFromX1 :: tensorX r -> tensor1 r
+  dSeq1 :: Data.Vector.Vector (Tensor0 d r) -> Tensor1 d r
+  dKonst1 :: Tensor0 d r -> Int -> Tensor1 d r
+  dAppend1 :: Tensor1 d r -> Int -> Tensor1 d r -> Tensor1 d r
+  dSlice1 :: Int -> Int -> Tensor1 d r -> Int -> Tensor1 d r
+  dSumRows1 :: Tensor2 d r -> Int -> Tensor1 d r
+  dSumColumns1 :: Tensor2 d r -> Int -> Tensor1 d r
+  dM_VD1 :: Matrix r -> Tensor1 d r -> Tensor1 d r
+  dMD_V1 :: Tensor2 d r -> Vector r -> Tensor1 d r
+  dFromX1 :: TensorX d r -> Tensor1 d r
   dFromS1 :: KnownNat len
-          => tensorS '[len] r -> tensor1 r
-  dReverse1 :: tensor1 r -> tensor1 r
-  dFlatten1 :: Int -> Int -> tensor2 r -> tensor1 r
-  dFlattenX1 :: OT.ShapeL -> tensorX r -> tensor1 r
+          => TensorS d '[len] r -> Tensor1 d r
+  dReverse1 :: Tensor1 d r -> Tensor1 d r
+  dFlatten1 :: Int -> Int -> Tensor2 d r -> Tensor1 d r
+  dFlattenX1 :: OT.ShapeL -> TensorX d r -> Tensor1 d r
   dFlattenS1 :: OS.Shape sh
-             => tensorS sh r -> tensor1 r
+             => TensorS d sh r -> Tensor1 d r
 
-  dFromRows2 :: Data.Vector.Vector (tensor1 r) -> tensor2 r
-  dFromColumns2 :: Data.Vector.Vector (tensor1 r) -> tensor2 r
-  dKonst2 :: dual0 -> (Int, Int) -> tensor2 r
-  dTranspose2 :: tensor2 r -> tensor2 r
-  dM_MD2 :: Matrix r -> tensor2 r -> tensor2 r
-  dMD_M2 :: tensor2 r -> Matrix r -> tensor2 r
-  dRowAppend2 :: tensor2 r -> Int -> tensor2 r -> tensor2 r
-  dColumnAppend2 :: tensor2 r -> Int -> tensor2 r -> tensor2 r
-  dRowSlice2 :: Int -> Int -> tensor2 r -> Int -> tensor2 r
-  dColumnSlice2 :: Int -> Int -> tensor2 r -> Int -> tensor2 r
-  dAsRow2 :: tensor1 r -> tensor2 r
-  dAsColumn2 :: tensor1 r -> tensor2 r
-  dFromX2 :: tensorX r -> tensor2 r
+  dFromRows2 :: Data.Vector.Vector (Tensor1 d r) -> Tensor2 d r
+  dFromColumns2 :: Data.Vector.Vector (Tensor1 d r) -> Tensor2 d r
+  dKonst2 :: Tensor0 d r -> (Int, Int) -> Tensor2 d r
+  dTranspose2 :: Tensor2 d r -> Tensor2 d r
+  dM_MD2 :: Matrix r -> Tensor2 d r -> Tensor2 d r
+  dMD_M2 :: Tensor2 d r -> Matrix r -> Tensor2 d r
+  dRowAppend2 :: Tensor2 d r -> Int -> Tensor2 d r -> Tensor2 d r
+  dColumnAppend2 :: Tensor2 d r -> Int -> Tensor2 d r -> Tensor2 d r
+  dRowSlice2 :: Int -> Int -> Tensor2 d r -> Int -> Tensor2 d r
+  dColumnSlice2 :: Int -> Int -> Tensor2 d r -> Int -> Tensor2 d r
+  dAsRow2 :: Tensor1 d r -> Tensor2 d r
+  dAsColumn2 :: Tensor1 d r -> Tensor2 d r
+  dFromX2 :: TensorX d r -> Tensor2 d r
   dFromS2 :: (KnownNat rows, KnownNat cols)
-          => tensorS '[rows, cols] r -> tensor2 r
+          => TensorS d '[rows, cols] r -> Tensor2 d r
 
-  dFlipud2 :: tensor2 r -> tensor2 r
-  dFliprl2 :: tensor2 r -> tensor2 r
-  dReshape2 :: Int -> tensor1 r -> tensor2 r
-  dConv2 :: Matrix r -> tensor2 r -> tensor2 r
+  dFlipud2 :: Tensor2 d r -> Tensor2 d r
+  dFliprl2 :: Tensor2 d r -> Tensor2 d r
+  dReshape2 :: Int -> Tensor1 d r -> Tensor2 d r
+  dConv2 :: Matrix r -> Tensor2 d r -> Tensor2 d r
 
-  dKonstX :: dual0 -> OT.ShapeL -> tensorX r
-  dAppendX :: tensorX r -> Int -> tensorX r -> tensorX r
-  dSliceX :: Int -> Int -> tensorX r -> Int -> tensorX r
-  dIndexX :: tensorX r -> Int -> Int -> tensorX r
-  dRavelFromListX :: [tensorX r] -> tensorX r
-  dReshapeX :: OT.ShapeL -> OT.ShapeL -> tensorX r -> tensorX r
-  dFrom0X :: dual0 -> tensorX r
-  dFrom1X :: tensor1 r -> tensorX r
-  dFrom2X :: tensor2 r -> Int -> tensorX r
+  dKonstX :: Tensor0 d r -> OT.ShapeL -> TensorX d r
+  dAppendX :: TensorX d r -> Int -> TensorX d r -> TensorX d r
+  dSliceX :: Int -> Int -> TensorX d r -> Int -> TensorX d r
+  dIndexX :: TensorX d r -> Int -> Int -> TensorX d r
+  dRavelFromListX :: [TensorX d r] -> TensorX d r
+  dReshapeX :: OT.ShapeL -> OT.ShapeL -> TensorX d r -> TensorX d r
+  dFrom0X :: Tensor0 d r -> TensorX d r
+  dFrom1X :: Tensor1 d r -> TensorX d r
+  dFrom2X :: Tensor2 d r -> Int -> TensorX d r
   dFromSX :: OS.Shape sh
-          => tensorS sh r -> tensorX r
+          => TensorS d sh r -> TensorX d r
 
   dKonstS :: OS.Shape sh
-          => dual0 -> tensorS sh r
+          => Tensor0 d r -> TensorS d sh r
   dAppendS :: (OS.Shape sh, KnownNat m, KnownNat n)
-           => tensorS (m ': sh) r -> tensorS (n ': sh) r
-           -> tensorS ((m + n) ': sh) r
+           => TensorS d (m ': sh) r -> TensorS d (n ': sh) r
+           -> TensorS d ((m + n) ': sh) r
   dSliceS :: (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
-          => Proxy i -> Proxy n -> tensorS (i + n + k ': rest) r
-          -> tensorS (n ': rest) r
+          => Proxy i -> Proxy n -> TensorS d (i + n + k ': rest) r
+          -> TensorS d (n ': rest) r
   dIndexS :: (KnownNat ix, KnownNat k, OS.Shape rest)
-          => tensorS (ix + 1 + k ': rest) r -> Proxy ix -> tensorS rest r
+          => TensorS d (ix + 1 + k ': rest) r -> Proxy ix -> TensorS d rest r
   dRavelFromListS :: (KnownNat k, OS.Shape rest)
-                  => [tensorS rest r] -> tensorS (k : rest) r
+                  => [TensorS d rest r] -> TensorS d (k : rest) r
   dReshapeS :: (OS.Shape sh, OS.Shape sh', OS.Size sh ~ OS.Size sh')
-            => tensorS sh r -> tensorS sh' r
-  dFrom0S :: dual0 -> tensorS '[] r
-  dFrom1S :: KnownNat n => tensor1 r -> tensorS '[n] r
+            => TensorS d sh r -> TensorS d sh' r
+  dFrom0S :: Tensor0 d r -> TensorS d '[] r
+  dFrom1S :: KnownNat n => Tensor1 d r -> TensorS d '[n] r
   dFrom2S :: (KnownNat rows, KnownNat cols)
-          => Proxy cols -> tensor2 r -> tensorS '[rows, cols] r
-  dFromXS :: OS.Shape sh => tensorX r -> tensorS sh r
+          => Proxy cols -> Tensor2 d r -> TensorS d '[rows, cols] r
+  dFromXS :: OS.Shape sh => TensorX d r -> TensorS d sh r
 
 
 -- * Backprop gradient method instances
@@ -223,7 +232,12 @@ instance IsDual r (Delta0 r) where
   {-# INLINE bindInState #-}
   bindInState = bindInState0
 
-instance HasRanks r (Delta0 r) Delta1 Delta2 DeltaX DeltaS where
+instance HasRanks DifferentiationSchemeGradient r where
+  type Tensor0 DifferentiationSchemeGradient r = Delta0 r
+  type Tensor1 DifferentiationSchemeGradient r = Delta1 r
+  type Tensor2 DifferentiationSchemeGradient r = Delta2 r
+  type TensorX DifferentiationSchemeGradient r = DeltaX r
+  type TensorS DifferentiationSchemeGradient sh r = DeltaS sh r
   dSumElements0 = SumElements0
   dIndex0 = Index0
   dDot0 = Dot0
@@ -373,7 +387,12 @@ instance (OS.Shape sh, Num (OS.Array sh r))
   bindInState = undefined
 
 instance (Numeric r, Num (Vector r))
-         => HasRanks r r Vector Matrix OT.Array OS.Array where
+         => HasRanks DifferentiationSchemeDerivative r where
+  type Tensor0 DifferentiationSchemeDerivative r = r
+  type Tensor1 DifferentiationSchemeDerivative r = Vector r
+  type Tensor2 DifferentiationSchemeDerivative r = Matrix r
+  type TensorX DifferentiationSchemeDerivative r = OT.Array r
+  type TensorS DifferentiationSchemeDerivative sh r = OS.Array sh r
   dSumElements0 vd _ = HM.sumElements vd
   dIndex0 d ix _ = d V.! ix
   dDot0 = (HM.<.>)
