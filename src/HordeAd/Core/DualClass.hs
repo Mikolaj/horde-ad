@@ -35,26 +35,25 @@ import HordeAd.Internal.Delta
 
 -- * Abbreviations for export (not used anywhere below)
 
--- | A shorthand for a useful set of constraints. The intended semantics
--- (not fully enforced by the constraints in isolation) is that the first
--- type is a dual component of a dual number type at an unknown rank
--- and the second type is a dual component of the same dual number types
--- collection at the scalar level (rank 0), which also implies the underlying
--- scalar type is the same. Additionally, the primal component
--- corresponding to the first type is required to satisfy constraint @Num@.
+-- | A shorthand for a useful set of constraints. The main intended semantics
+-- (not fully enforced by the constraints in isolation) is that the second
+-- type is the primal component of a dual number type at an unknown rank
+-- and the third type is the primal component of the same dual number types
+-- collection at the scalar level (rank 0), which is also equal
+-- to the underlying scalar type.
 type IsDualWithScalar (d :: DifferentiationScheme) a r =
   ( IsDual d a, HasVariables a r
   , Floating a, MonoFunctor a, Element a ~ r )
 
 -- | A mega-shorthand for a bundle of connected type constraints.
 type IsScalar (d :: DifferentiationScheme) r =
-       ( HasRanks d r, Ord r, Numeric r, RealFloat r
-       , IsDualWithScalar d r r, IsDualWithScalar d (Vector r) r
-       , IsDualWithScalar d (Matrix r) r, IsDualWithScalar d (OT.Array r) r
-       -- This fragment is for @OS.Array@ and it's irregular, because we can't
-       -- mention @sh@ and so fully apply the type constructor.
-       , IsDualS d r  -- TODO: Floating (OS.Array sh r), MonoFunctor
-       )
+  ( HasRanks d r, Ord r, Numeric r, RealFloat r
+  , IsDualWithScalar d r r, IsDualWithScalar d (Vector r) r
+  , IsDualWithScalar d (Matrix r) r, IsDualWithScalar d (OT.Array r) r
+  -- This fragment is for @OS.Array@ and it's irregular, because we can't
+  -- mention @sh@ and so fully apply the type constructor.
+  , IsDualS d r  -- TODO: Floating (OS.Array sh r), MonoFunctor
+  )
 
 -- | Is a scalar and will be used to compute gradients.
 type HasDelta r = ( IsScalar 'DifferentiationSchemeGradient r
@@ -62,9 +61,9 @@ type HasDelta r = ( IsScalar 'DifferentiationSchemeGradient r
 
 -- | Is a scalar and will be used to compute forward derivative on the spot.
 type HasForward r =
-       ( IsScalar 'DifferentiationSchemeDerivative r
-       , Dual 'DifferentiationSchemeDerivative r ~ r
-       , Dual 'DifferentiationSchemeDerivative (Vector r) ~ Vector r )
+  ( IsScalar 'DifferentiationSchemeDerivative r
+  , Dual 'DifferentiationSchemeDerivative r ~ r
+  , Dual 'DifferentiationSchemeDerivative (Vector r) ~ Vector r )
 
 
 -- * Class definitions
@@ -118,12 +117,9 @@ class HasVariables a r where
               -> (DeltaState r, DeltaId a )
 
 
--- | An instance of the class is a type of rank 0 (scalar rank) dual components
--- of dual numbers. The associated type synonym families are dual component
--- counterparts at the remaining ranks, with the same underlying scalar.
--- The operations relate the dual and primal component at various ranks.
--- Not many of these properties are enforced by the definition of the class
--- itself, together but with the 'IsScalar' constraint, a lot is captured.
+-- | The second type parameter is the underlying scalar of the collection
+-- of dual numbers of various ranks, which is also equal to the primal
+-- component of rank 0 dual numbers.
 class HasRanks (d :: DifferentiationScheme) r where
   dSumElements0 :: Dual d (Vector r) -> Int -> Dual d r
   dIndex0 :: Dual d (Vector r) -> Int -> Int -> Dual d r
