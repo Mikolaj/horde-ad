@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes, TypeFamilies #-}
+{-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 module TestSingleGradient (testTrees) where
 
@@ -11,6 +11,7 @@ import           Test.Tasty.HUnit hiding (assert)
 import           Test.Tasty.QuickCheck
 
 import HordeAd hiding (sumElementsVectorOfDual)
+import HordeAd.Core.DualClass (DifferentiationScheme (..))
 
 testTrees :: [TestTree]
 testTrees = [ testDReverse0
@@ -26,53 +27,53 @@ testTrees = [ testDReverse0
 -- polymorphic over whether they operate on scalars, vectors or other types,
 -- so we should probably abandon them.
 
-(+\) :: DualMonad r m => DualNumber r -> DualNumber r -> m (DualNumber r)
+(+\) :: DualMonad d r m => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
 (+\) u v = returnLet $ u + v
 
-(*\) :: DualMonad r m => DualNumber r -> DualNumber r -> m (DualNumber r)
+(*\) :: DualMonad d r m => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
 (*\) u v = returnLet $ u * v
 
-(**\) :: DualMonad r m
-      => DualNumber r -> DualNumber r -> m (DualNumber r)
+(**\) :: DualMonad d r m
+      => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
 (**\) u v = returnLet $ u ** v
 
-squareDual :: DualMonad r m => DualNumber r -> m (DualNumber r)
+squareDual :: DualMonad d r m => DualNumber d r -> m (DualNumber d r)
 squareDual = returnLet . square
 
 dReverse0
   :: HasDelta r
-  => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
-  -> [Primal r]
-  -> ([Primal r], Primal r)
+  => (DualNumberVariables 'DifferentiationSchemeGradient r -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
+  -> [r]
+  -> ([r], r)
 dReverse0 f deltaInput =
   let ((results, _, _, _), value) =
         dReverse 1 f (V.fromList deltaInput, V.empty, V.empty, V.empty)
   in (V.toList results, value)
 
-fX :: DualMonad (Delta0 Float) m
-   => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+fX :: DualMonad 'DifferentiationSchemeGradient Float m
+   => DualNumberVariables 'DifferentiationSchemeGradient Float -> m (DualNumber 'DifferentiationSchemeGradient Float)
 fX variables = do
   let x = var0 variables 0
   return x
 
-fX1Y :: DualMonad (Delta0 Float) m
-     => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+fX1Y :: DualMonad 'DifferentiationSchemeGradient Float m
+     => DualNumberVariables 'DifferentiationSchemeGradient Float -> m (DualNumber 'DifferentiationSchemeGradient Float)
 fX1Y variables = do
   let x = var0 variables 0
       y = var0 variables 1
   x1 <- x +\ 1
   x1 *\ y
 
-fXXY :: DualMonad (Delta0 Float) m
-     => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+fXXY :: DualMonad 'DifferentiationSchemeGradient Float m
+     => DualNumberVariables 'DifferentiationSchemeGradient Float -> m (DualNumber 'DifferentiationSchemeGradient Float)
 fXXY variables = do
   let x = var0 variables 0
       y = var0 variables 1
   xy <- x *\ y
   x *\ xy
 
-fXYplusZ :: DualMonad (Delta0 Float) m
-         => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+fXYplusZ :: DualMonad 'DifferentiationSchemeGradient Float m
+         => DualNumberVariables 'DifferentiationSchemeGradient Float -> m (DualNumber 'DifferentiationSchemeGradient Float)
 fXYplusZ variables = do
   let x = var0 variables 0
       y = var0 variables 1
@@ -80,20 +81,20 @@ fXYplusZ variables = do
   xy <- x *\ y
   xy +\ z
 
-fXtoY :: DualMonad (Delta0 Float) m
-      => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+fXtoY :: DualMonad 'DifferentiationSchemeGradient Float m
+      => DualNumberVariables 'DifferentiationSchemeGradient Float -> m (DualNumber 'DifferentiationSchemeGradient Float)
 fXtoY variables = do
   let x = var0 variables 0
       y = var0 variables 1
   x **\ y
 
-freluX :: DualMonad (Delta0 Float) m
-       => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+freluX :: DualMonad 'DifferentiationSchemeGradient Float m
+       => DualNumberVariables 'DifferentiationSchemeGradient Float -> m (DualNumber 'DifferentiationSchemeGradient Float)
 freluX variables = do
   let x = var0 variables 0
   reluAct x
 
-fquad :: DualMonad r m => DualNumberVariables r -> m (DualNumber r)
+fquad :: DualMonad d r m => DualNumberVariables d r -> m (DualNumber d r)
 fquad variables = do
   let x = var0 variables 0
       y = var0 variables 1
@@ -122,27 +123,27 @@ testDReverse0 = testGroup "Simple dReverse application tests" $
     ]
 
 vec_omit_scalarSum_aux
-  :: DualMonad r m
-  => DualNumberVariables r -> m (DualNumber r)
+  :: DualMonad d r m
+  => DualNumberVariables d r -> m (DualNumber d r)
 vec_omit_scalarSum_aux vec = returnLet $ foldlDual' (+) 0 vec
 
 sumElementsV
-  :: DualMonad r m
-  => DualNumberVariables r -> m (DualNumber r)
+  :: DualMonad d r m
+  => DualNumberVariables d r -> m (DualNumber d r)
 sumElementsV variables = do
   let x = var1 variables 0
   returnLet $ sumElements0 x
 
 altSumElementsV
-  :: DualMonad r m
-  => DualNumberVariables r -> m (DualNumber r)
+  :: DualMonad d r m
+  => DualNumberVariables d r -> m (DualNumber d r)
 altSumElementsV variables = do
   let x = var1 variables 0
   returnLet $ altSumElements0 x
 
 dReverse1
-  :: (HasDelta r, Primal r ~ Float)
-  => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
+  :: (r ~ Float, d ~ 'DifferentiationSchemeGradient)
+  => (DualNumberVariables d r -> DualMonadGradient r (DualNumber d r))
   -> [[Float]]
   -> ([[Float]], Float)
 dReverse1 f deltaInput =
@@ -190,8 +191,8 @@ testDFastForward =
     ]
 
 qcTest :: TestName
-       -> (forall r m. DualMonad r m
-           => DualNumberVariables r -> m (DualNumber r))
+       -> (forall d r m. DualMonad d r m
+           => DualNumberVariables d r -> m (DualNumber d r))
        -> ((Double, Double, Double) -> ([Double], [Double]))
        -> TestTree
 qcTest txt f fArg =
@@ -214,12 +215,12 @@ qcTest txt f fArg =
          .&&. ffValue == revValue
          -- Gradients and derivatives agree.
          .&&. close (dt * derivative)
-                    (dotParameters @(Delta0 Double) gradient ds)
+                    (dotParameters gradient ds)
          -- Objective function value is unaffected by perturbation.
          .&&. ffValue == valueAtPerturbation
          -- Derivative approximates the perturbation of value.
-         .&&. close (primalValue @(Delta0 Double) @(Delta0 Double)
-                                 f (addParameters @(Delta0 Double)
+         .&&. close (primalValue
+                                 f (addParameters
                                                   args perturbation))
                     (ffValue + derivativeAtPerturbation)
 
@@ -248,8 +249,8 @@ atanReadmeOriginal x y z =
 -- a uniform representation of objective function parameters
 -- represented as delta-variables (`DualNumberVariables`).
 atanReadmeVariables
-  :: IsScalar r
-  => DualNumberVariables r -> Data.Vector.Vector (DualNumber r)
+  :: IsScalar d r
+  => DualNumberVariables d r -> Data.Vector.Vector (DualNumber d r)
 atanReadmeVariables variables =
   let x : y : z : _ = vars variables
   in atanReadmeOriginal x y z
@@ -265,14 +266,14 @@ atanReadmeVariables variables =
 -- Here is the function for dot product with ones, which is just the sum
 -- of elements of a vector.
 sumElementsOfDualNumbers
-  :: IsScalar r
-  => Data.Vector.Vector (DualNumber r) -> DualNumber r
+  :: IsScalar d r
+  => Data.Vector.Vector (DualNumber d r) -> DualNumber d r
 sumElementsOfDualNumbers = V.foldl' (+) 0
 
 -- Here we apply the function.
 atanReadmeScalar
-  :: IsScalar r
-  => DualNumberVariables r -> DualNumber r
+  :: IsScalar d r
+  => DualNumberVariables d r -> DualNumber d r
 atanReadmeScalar = sumElementsOfDualNumbers . atanReadmeVariables
 
 -- Here we introduce a single delta-let binding (`returnLet`) to ensure
@@ -282,8 +283,8 @@ atanReadmeScalar = sumElementsOfDualNumbers . atanReadmeVariables
 -- (e.g., if @w@ appeared twice) the user would need to make it monadic
 -- and apply @returnLet@ already there.
 atanReadmeM
-  :: DualMonad r m
-  => DualNumberVariables r -> m (DualNumber r)
+  :: DualMonad d r m
+  => DualNumberVariables d r -> m (DualNumber d r)
 atanReadmeM = returnLet . atanReadmeScalar
 
 -- The underscores and empty vectors are placeholders for the vector,
@@ -292,7 +293,7 @@ atanReadmeM = returnLet . atanReadmeScalar
 -- but it's a vector of scalar parameters, not a single parameter
 -- of rank 1).
 atanReadmeDReverse :: HasDelta r
-                   => Domain0 r -> (Domain0 r, Primal r)
+                   => Domain0 r -> (Domain0 r, r)
 atanReadmeDReverse ds =
   let ((result, _, _, _), value) =
         dReverse 1 atanReadmeM (ds, V.empty, V.empty, V.empty)
@@ -317,8 +318,8 @@ readmeTests = testGroup "Simple tests for README"
 -- vectors of primitive differentiable scalars.
 
 vatanReadmeM
-  :: DualMonad r m
-  => DualNumberVariables r -> m (DualNumber r)
+  :: DualMonad d r m
+  => DualNumberVariables d r -> m (DualNumber d r)
 vatanReadmeM variables = do
   let xyzVector = var1 variables 0
       [x, y, z] = map (index0 xyzVector) [0, 1, 2]
@@ -326,7 +327,7 @@ vatanReadmeM variables = do
   returnLet $ sumElements0 v
 
 vatanReadmeDReverse :: HasDelta r
-                    => Domain1 r -> (Domain1 r, Primal r)
+                    => Domain1 r -> (Domain1 r, r)
 vatanReadmeDReverse dsV =
   let ((_, result, _, _), value) =
         dReverse 1 vatanReadmeM (V.empty, dsV, V.empty, V.empty)

@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, TypeFamilies #-}
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 -- | Scalar-based implementation of fully connected neutral network
 -- for classification of MNIST digits. Sports 2 hidden layers.
@@ -11,8 +11,9 @@ import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
+import           Numeric.LinearAlgebra (Vector)
 
-import HordeAd.Core.DualClass (Delta0)
+import HordeAd.Core.DualClass (DifferentiationScheme (..))
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors (DualNumberVariables, var0)
@@ -23,12 +24,12 @@ import HordeAd.Tool.MnistData
 -- at @variables@ starting at @offset@. Useful for neurons in the middle
 -- of the network, receiving inputs from other neurons.
 sumTrainableInputs
-  :: forall r m. DualMonad r m
-  => Data.Vector.Vector (DualNumber r) -> Int -> DualNumberVariables r
-  -> m (DualNumber r)
+  :: forall d r m. DualMonad d r m
+  => Data.Vector.Vector (DualNumber d r) -> Int -> DualNumberVariables d r
+  -> m (DualNumber d r)
 sumTrainableInputs xs offset variables = do
   let bias = var0 variables offset
-      f :: DualNumber r -> Int -> DualNumber r -> DualNumber r
+      f :: DualNumber d r -> Int -> DualNumber d r -> DualNumber d r
       f !acc i u =
         let v = var0 variables (offset + 1 + i)
         in acc + u * v
@@ -39,37 +40,37 @@ sumTrainableInputs xs offset variables = do
 -- at @variables@ starting at @offset@. Useful for neurons at the bottom
 -- of the network, tasked with ingesting the data.
 sumConstantData
-  :: forall r m. DualMonad r m
-  => Primal (Tensor1 r) -> Int -> DualNumberVariables r -> m (DualNumber r)
+  :: forall d r m. DualMonad d r m
+  => Vector r -> Int -> DualNumberVariables d r -> m (DualNumber d r)
 sumConstantData xs offset variables = do
   let bias = var0 variables offset
-      f :: DualNumber r -> Int -> Primal r -> DualNumber r
+      f :: DualNumber d r -> Int -> r -> DualNumber d r
       f !acc i r =
         let v = var0 variables (offset + 1 + i)
         in acc + scale r v
   returnLet $ V.ifoldl' f bias xs
 
 hiddenLayerMnist
-  :: forall r m. DualMonad r m
-  => (DualNumber r -> m (DualNumber r)) -> Primal (Tensor1 r)
-  -> DualNumberVariables r -> Int
-  -> m (Data.Vector.Vector (DualNumber r))
+  :: forall d r m. DualMonad d r m
+  => (DualNumber d r -> m (DualNumber d r)) -> Vector r
+  -> DualNumberVariables d r -> Int
+  -> m (Data.Vector.Vector (DualNumber d r))
 hiddenLayerMnist factivation input variables width = do
   let nWeightsAndBias = V.length input + 1
-      f :: Int -> m (DualNumber r)
+      f :: Int -> m (DualNumber d r)
       f i = do
         outSum <- sumConstantData input (i * nWeightsAndBias) variables
         factivation outSum
   V.generateM width f
 
 middleLayerMnist
-  :: forall r m. DualMonad r m
-  => (DualNumber r -> m (DualNumber r)) -> Data.Vector.Vector (DualNumber r)
-  -> Int -> DualNumberVariables r -> Int
-  -> m (Data.Vector.Vector (DualNumber r))
+  :: forall d r m. DualMonad d r m
+  => (DualNumber d r -> m (DualNumber d r)) -> Data.Vector.Vector (DualNumber d r)
+  -> Int -> DualNumberVariables d r -> Int
+  -> m (Data.Vector.Vector (DualNumber d r))
 middleLayerMnist factivation hiddenVec offset variables width = do
   let nWeightsAndBias = V.length hiddenVec + 1
-      f :: Int -> m (DualNumber r)
+      f :: Int -> m (DualNumber d r)
       f i = do
         outSum <- sumTrainableInputs hiddenVec
                                      (offset + i * nWeightsAndBias)
@@ -78,14 +79,14 @@ middleLayerMnist factivation hiddenVec offset variables width = do
   V.generateM width f
 
 outputLayerMnist
-  :: forall r m. DualMonad r m
-  => (Data.Vector.Vector (DualNumber r)
-      -> m (Data.Vector.Vector (DualNumber r)))
-  -> Data.Vector.Vector (DualNumber r) -> Int -> DualNumberVariables r -> Int
-  -> m (Data.Vector.Vector (DualNumber r))
+  :: forall d r m. DualMonad d r m
+  => (Data.Vector.Vector (DualNumber d r)
+      -> m (Data.Vector.Vector (DualNumber d r)))
+  -> Data.Vector.Vector (DualNumber d r) -> Int -> DualNumberVariables d r -> Int
+  -> m (Data.Vector.Vector (DualNumber d r))
 outputLayerMnist factivation hiddenVec offset variables width = do
   let nWeightsAndBias = V.length hiddenVec + 1
-      f :: Int -> m (DualNumber r)
+      f :: Int -> m (DualNumber d r)
       f i = sumTrainableInputs hiddenVec
                                (offset + i * nWeightsAndBias)
                                variables
@@ -104,15 +105,15 @@ fcnnMnistLen0 widthHidden widthHidden2 =
 -- The widths of the hidden layers are @widthHidden@ and @widthHidden2@
 -- and from these, the @fcnnMnistLen2@ function computes the number
 -- of scalar dual number parameters (variables) to be given to the program.
-fcnnMnist0 :: forall r m. DualMonad r m
-           => (DualNumber r -> m (DualNumber r))
-           -> (Data.Vector.Vector (DualNumber r)
-               -> m (Data.Vector.Vector (DualNumber r)))
+fcnnMnist0 :: forall d r m. DualMonad d r m
+           => (DualNumber d r -> m (DualNumber d r))
+           -> (Data.Vector.Vector (DualNumber d r)
+               -> m (Data.Vector.Vector (DualNumber d r)))
            -> Int
            -> Int
-           -> Primal (Tensor1 r)
-           -> DualNumberVariables r
-           -> m (Data.Vector.Vector (DualNumber r))
+           -> Vector r
+           -> DualNumberVariables d r
+           -> m (Data.Vector.Vector (DualNumber d r))
 fcnnMnist0 factivationHidden factivationOutput widthHidden widthHidden2
            input variables = do
   let !_A = assert (sizeMnistGlyph == V.length input) ()
@@ -128,9 +129,9 @@ fcnnMnist0 factivationHidden factivationOutput widthHidden widthHidden2
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 fcnnMnistLoss0
-  :: DualMonad r m
-  => Int -> Int -> MnistData (Primal r) -> DualNumberVariables r
-  -> m (DualNumber r)
+  :: DualMonad d r m
+  => Int -> Int -> MnistData r -> DualNumberVariables d r
+  -> m (DualNumber d r)
 fcnnMnistLoss0 widthHidden widthHidden2 (input, target) variables = do
   result <- inline fcnnMnist0 logisticAct softMaxAct
                               widthHidden widthHidden2 input variables
@@ -140,19 +141,18 @@ fcnnMnistLoss0 widthHidden widthHidden2 (input, target) variables = do
 -- and the trained parameters.
 --
 -- The proxy argument is needed only for the (spurious) SPECIALIZE pragma,
--- becuase I can't write @SPECIALIZE fcnnMnistTest0 \@(Delta0 Double)@.
-fcnnMnistTest0 :: forall r. IsScalar r
-           => Proxy r -> Int -> Int -> [MnistData (Primal r)] -> Domain0 r
-           -> Primal r
+-- becuase I can't write @SPECIALIZE fcnnMnistTest0 \@Double@.
+fcnnMnistTest0 :: forall r. IsScalar 'DifferentiationSchemeGradient r
+           => Proxy r -> Int -> Int -> [MnistData r] -> Domain0 r
+           -> r
 fcnnMnistTest0 _ widthHidden widthHidden2 inputs params0 =
-  let matchesLabels :: MnistData (Primal r) -> Bool
+  let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let nn = inline (fcnnMnist0 @r) logisticAct softMaxAct
+        let nn = inline (fcnnMnist0 @'DifferentiationSchemeGradient) logisticAct softMaxAct
                                         widthHidden widthHidden2 glyph
             value = V.map (\(D r _) -> r)
-                    $ primalValueGeneral @r nn
-                                         (params0, V.empty, V.empty, V.empty)
+                    $ primalValueGeneral nn (params0, V.empty, V.empty, V.empty)
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
-{-# SPECIALIZE fcnnMnistTest0 :: Proxy (Delta0 Double) -> Int -> Int -> [MnistData Double] -> Domain0 (Delta0 Double) -> Double #-}
+{-# SPECIALIZE fcnnMnistTest0 :: Proxy Double -> Int -> Int -> [MnistData Double] -> Domain0 Double -> Double #-}

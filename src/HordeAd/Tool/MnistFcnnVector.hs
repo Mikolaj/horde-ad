@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, TypeFamilies #-}
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 -- | Vector-based (meaning that dual numbers for gradient computation
 -- consider vectors, not scalars, as the primitive differentiable type)
@@ -12,41 +12,43 @@ import           Control.Exception (assert)
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
+import           Numeric.LinearAlgebra (Vector)
 
+import HordeAd.Core.DualClass (DifferentiationScheme (..))
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors (DualNumberVariables, var1)
 import HordeAd.Tool.MnistData
 
 sumTrainableInputsV
-  :: IsScalar r
-  => DualNumber (Tensor1 r) -> Int -> DualNumberVariables r -> DualNumber r
+  :: IsScalar d r
+  => DualNumber d (Vector r) -> Int -> DualNumberVariables d r -> DualNumber d r
 sumTrainableInputsV x offset variables =
   let v = var1 variables offset
   in v <.>! x
 
 sumTrainableInputsL
-  :: forall r. IsScalar r
-  => DualNumber (Tensor1 r) -> Int -> DualNumberVariables r -> Int
-  -> DualNumber (Tensor1 r)
+  :: forall d r. IsScalar d r
+  => DualNumber d (Vector r) -> Int -> DualNumberVariables d r -> Int
+  -> DualNumber d (Vector r)
 sumTrainableInputsL x offset variables width =
-  let f :: Int -> DualNumber r
+  let f :: Int -> DualNumber d r
       f i = sumTrainableInputsV x (offset + i) variables
   in seq1 $ V.generate width f
 
 sumConstantDataV
-  :: IsScalar r
-  => Primal (Tensor1 r) -> Int -> DualNumberVariables r -> DualNumber r
+  :: IsScalar d r
+  => Vector r -> Int -> DualNumberVariables d r -> DualNumber d r
 sumConstantDataV x offset variables =
   let v = var1 variables offset
   in v <.>!! x
 
 sumConstantDataL
-  :: forall r. IsScalar r
-  => Primal (Tensor1 r) -> Int -> DualNumberVariables r -> Int
-  -> DualNumber (Tensor1 r)
+  :: forall d r. IsScalar d r
+  => Vector r -> Int -> DualNumberVariables d r -> Int
+  -> DualNumber d (Vector r)
 sumConstantDataL x offset variables width =
-  let f :: Int -> DualNumber r
+  let f :: Int -> DualNumber d r
       f i = sumConstantDataV x (offset + i) variables
   in seq1 $ V.generate width f
 
@@ -67,14 +69,14 @@ fcnnMnistLen1 widthHidden widthHidden2 =
 -- and from these, the @len*@ functions compute the number and dimensions
 -- of scalars (none in this case) and vectors of dual number parameters
 -- (variables) to be given to the program.
-fcnnMnist1 :: forall r m. DualMonad r m
-           => (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
-           -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
+fcnnMnist1 :: forall d r m. DualMonad d r m
+           => (DualNumber d (Vector r) -> m (DualNumber d (Vector r)))
+           -> (DualNumber d (Vector r) -> m (DualNumber d (Vector r)))
            -> Int
            -> Int
-           -> Primal (Tensor1 r)
-           -> DualNumberVariables r
-           -> m (DualNumber (Tensor1 r))
+           -> Vector r
+           -> DualNumberVariables d r
+           -> m (DualNumber d (Vector r))
 fcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
           input variables = do
   let !_A = assert (sizeMnistGlyph == V.length input) ()
@@ -95,9 +97,9 @@ fcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 fcnnMnistLoss1
-  :: DualMonad r m
-  => Int -> Int -> MnistData (Primal r) -> DualNumberVariables r
-  -> m (DualNumber r)
+  :: DualMonad d r m
+  => Int -> Int -> MnistData r -> DualNumberVariables d r
+  -> m (DualNumber d r)
 fcnnMnistLoss1 widthHidden widthHidden2 (input, target) variables = do
   result <- inline fcnnMnist1 logisticAct softMaxActV
                               widthHidden widthHidden2 input variables
@@ -106,12 +108,12 @@ fcnnMnistLoss1 widthHidden widthHidden2 (input, target) variables = do
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 fcnnMnistTest1
-  :: forall r. IsScalar r
-  => Int -> Int -> [MnistData (Primal r)] -> (Domain0 r, Domain1 r) -> Primal r
+  :: forall r. IsScalar 'DifferentiationSchemeGradient r
+  => Int -> Int -> [MnistData r] -> (Domain0 r, Domain1 r) -> r
 fcnnMnistTest1 widthHidden widthHidden2 inputs (params0, params1) =
-  let matchesLabels :: MnistData (Primal r) -> Bool
+  let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let nn = inline (fcnnMnist1 @r) logisticAct softMaxActV
+        let nn = inline fcnnMnist1 logisticAct softMaxActV
                                         widthHidden widthHidden2 glyph
             value = primalValue nn (params0, params1, V.empty, V.empty)
         in V.maxIndex value == V.maxIndex label

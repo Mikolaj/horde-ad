@@ -28,7 +28,7 @@ import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
-import           Numeric.LinearAlgebra (Matrix, Vector)
+import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 
 import HordeAd.Core.DualClass
@@ -45,12 +45,13 @@ class (IsScalar d r, Monad m, Functor m, Applicative m)
   returnLet :: IsDualWithScalar d a r
             => DualNumber d a -> m (DualNumber d a)
 
-addParameters :: forall d r. IsScalar d r => Domains r -> Domains r -> Domains r
+addParameters :: (Numeric r, Num (Vector r))
+              => Domains r -> Domains r -> Domains r
 addParameters (a0, a1, a2, aX) (b0, b1, b2, bX) =
   (a0 + b0, V.zipWith (+) a1 b1, V.zipWith (+) a2 b2, V.zipWith (+) aX bX)
 
 -- Dot product and sum respective ranks and sum it all.
-dotParameters :: forall d r. IsScalar d r => Domains r -> Domains r -> r
+dotParameters :: Numeric r => Domains r -> Domains r -> r
 dotParameters (a0, a1, a2, aX) (b0, b1, b2, bX) =
   a0 HM.<.> b0
   + V.sum (V.zipWith (HM.<.>) a1 b1)

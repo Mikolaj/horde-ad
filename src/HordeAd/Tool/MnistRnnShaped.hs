@@ -24,55 +24,56 @@ import qualified Numeric.LinearAlgebra as HM
 -- until stylish-haskell accepts NoStarIsType
 import qualified GHC.TypeLits
 
+import HordeAd.Core.DualClass (DifferentiationScheme (..))
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors (DualNumberVariables, varS)
 import HordeAd.Tool.MnistData
 
 zeroStateS
-  :: (IsScalar r, OS.Shape sh)
-  => (DualNumber (TensorS r sh)  -- state
+  :: (IsScalar d r, OS.Shape sh)
+  => (DualNumber d (OS.Array sh r)  -- state
       -> a)
   -> a
 zeroStateS f = f (konstS 0)
 
-unrollLastS :: forall state c w m r k rest.
-               (DualMonad r m, KnownNat k, OS.Shape rest)
-            => (state -> OS.Array rest (Primal r) -> w -> m (c, state))
-            -> (state -> OS.Array (k : rest) (Primal r) -> w -> m (c, state))
+unrollLastS :: forall state c w m d r k rest.
+               (DualMonad d r m, KnownNat k, OS.Shape rest)
+            => (state -> OS.Array rest r -> w -> m (c, state))
+            -> (state -> OS.Array (k : rest) r -> w -> m (c, state))
 unrollLastS f s0 xs w = do
-  let g :: (c, state) -> OS.Array rest (Primal r) -> m (c, state)
+  let g :: (c, state) -> OS.Array rest r -> m (c, state)
       g (_, s) x = f s x w
   foldM g (undefined, s0) $ OSB.toList $ OS.unravel xs
 
-type LayerWeigthsRNN in_width out_width r =
-  ( DualNumber (TensorS r '[out_width, in_width])   -- input weight
-  , DualNumber (TensorS r '[out_width, out_width])  -- state weight
-  , DualNumber (TensorS r '[out_width]) )           -- bias
+type LayerWeigthsRNN in_width out_width d r =
+  ( DualNumber d (OS.Array '[out_width, in_width] r)   -- input weight
+  , DualNumber d (OS.Array '[out_width, out_width] r)  -- state weight
+  , DualNumber d (OS.Array '[out_width] r) )           -- bias
 
 rnnMnistLayerS
-  :: forall in_width out_width batch_size r m.
-     (DualMonad r m, KnownNat in_width, KnownNat out_width, KnownNat batch_size)
-  => DualNumber (TensorS r '[out_width, batch_size])  -- in state
-  -> DualNumber (TensorS r '[in_width, batch_size])  -- in
-  -> LayerWeigthsRNN in_width out_width r
-  -> m ( DualNumber (TensorS r '[out_width, batch_size])  -- out
-       , DualNumber (TensorS r '[out_width, batch_size]) )  -- out state
+  :: forall in_width out_width batch_size d r m.
+     (DualMonad d r m, KnownNat in_width, KnownNat out_width, KnownNat batch_size)
+  => DualNumber d (OS.Array '[out_width, batch_size] r)  -- in state
+  -> DualNumber d (OS.Array '[in_width, batch_size] r)  -- in
+  -> LayerWeigthsRNN in_width out_width d r
+  -> m ( DualNumber d (OS.Array '[out_width, batch_size] r)  -- out
+       , DualNumber d (OS.Array '[out_width, batch_size] r) )  -- out state
 rnnMnistLayerS s x (wX, wS, b) = do
   let y = wX <>$ x + wS <>$ s + asColumnS b
   yTanh <- returnLet $ tanh y
   return (yTanh, yTanh)
 
 rnnMnistTwoS
-  :: forall out_width batch_size r m.
-     (DualMonad r m, KnownNat out_width, KnownNat batch_size)
-  => DualNumber (TensorS r '[2 GHC.TypeLits.* out_width, batch_size])
+  :: forall out_width batch_size d r m.
+     (DualMonad d r m, KnownNat out_width, KnownNat batch_size)
+  => DualNumber d (OS.Array '[2 GHC.TypeLits.* out_width, batch_size] r)
        -- initial state
-  -> Primal (TensorS r '[SizeMnistWidth, batch_size])
-  -> ( LayerWeigthsRNN SizeMnistWidth out_width r
-     , LayerWeigthsRNN out_width out_width r )
-  -> m ( DualNumber (TensorS r '[out_width, batch_size])
-       , DualNumber (TensorS r '[2 GHC.TypeLits.* out_width, batch_size]) )
+  -> OS.Array '[SizeMnistWidth, batch_size] r
+  -> ( LayerWeigthsRNN SizeMnistWidth out_width d r
+     , LayerWeigthsRNN out_width out_width d r )
+  -> m ( DualNumber d (OS.Array '[out_width, batch_size] r)
+       , DualNumber d (OS.Array '[2 GHC.TypeLits.* out_width, batch_size] r) )
            -- final state
 rnnMnistTwoS s x ((wX, wS, b), (wX2, wS2, b2)) = do
   let s1 = sliceS @0 @out_width s
@@ -83,16 +84,16 @@ rnnMnistTwoS s x ((wX, wS, b), (wX2, wS2, b2)) = do
   return (vec2, s3)
 
 rnnMnistZeroS
-  :: forall out_width batch_size r m.
-     (DualMonad r m, KnownNat out_width, KnownNat batch_size)
-  => Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, batch_size])
+  :: forall out_width batch_size d r m.
+     (DualMonad d r m, KnownNat out_width, KnownNat batch_size)
+  => OS.Array '[SizeMnistHeight, SizeMnistWidth, batch_size] r
   -- All below is the type of all paramters of this nn. The same is reflected
   -- in the length function below and read from variables further down.
-  -> ( LayerWeigthsRNN SizeMnistWidth out_width r
-     , LayerWeigthsRNN out_width out_width r )
-  -> DualNumber (TensorS r '[SizeMnistLabel, out_width])
-  -> DualNumber (TensorS r '[SizeMnistLabel])
-  -> m (DualNumber (TensorS r '[SizeMnistLabel, batch_size]))
+  -> ( LayerWeigthsRNN SizeMnistWidth out_width d r
+     , LayerWeigthsRNN out_width out_width d r )
+  -> DualNumber d (OS.Array '[SizeMnistLabel, out_width] r)
+  -> DualNumber d (OS.Array '[SizeMnistLabel] r)
+  -> m (DualNumber d (OS.Array '[SizeMnistLabel, batch_size] r))
 rnnMnistZeroS xs ((wX, wS, b), (wX2, wS2, b2)) w3 b3 = do
   (out, _s) <- zeroStateS (unrollLastS rnnMnistTwoS) xs
                           ((wX, wS, b), (wX2, wS2, b2))
@@ -117,11 +118,11 @@ rnnMnistLenS _ =
   )
 
 rnnMnistS
-  :: forall out_width batch_size r m.
-     (DualMonad r m, KnownNat out_width, KnownNat batch_size)
-  => Primal (TensorS r '[SizeMnistHeight, SizeMnistWidth, batch_size])
-  -> DualNumberVariables r
-  -> m (DualNumber (TensorS r '[SizeMnistLabel, batch_size]))
+  :: forall out_width batch_size d r m.
+     (DualMonad d r m, KnownNat out_width, KnownNat batch_size)
+  => OS.Array '[SizeMnistHeight, SizeMnistWidth, batch_size] r
+  -> DualNumberVariables d r
+  -> m (DualNumber d (OS.Array '[SizeMnistLabel, batch_size] r))
 rnnMnistS xs variables = do
   let wX = varS variables 0
       wS = varS variables 1
@@ -134,12 +135,12 @@ rnnMnistS xs variables = do
   rnnMnistZeroS @out_width xs ((wX, wS, b), (wX2, wS2, b2)) w3 b3
 
 rnnMnistLossFusedS
-  :: forall out_width batch_size r m.
-     (DualMonad r m, KnownNat out_width, KnownNat batch_size)
+  :: forall out_width batch_size d r m.
+     (DualMonad d r m, KnownNat out_width, KnownNat batch_size)
   => Proxy out_width
-  -> MnistDataBatchS batch_size (Primal r)
-  -> DualNumberVariables r
-  -> m (DualNumber r)
+  -> MnistDataBatchS batch_size r
+  -> DualNumberVariables d r
+  -> m (DualNumber d r)
 rnnMnistLossFusedS _ (glyphS, labelS) variables = do
   let xs = OS.transpose @'[2, 1, 0] glyphS
   result <- rnnMnistS @out_width xs variables
@@ -151,18 +152,18 @@ rnnMnistLossFusedS _ (glyphS, labelS) variables = do
 
 rnnMnistTestS
   :: forall out_width batch_size r.
-     (IsScalar r, KnownNat out_width, KnownNat batch_size)
+     (IsScalar 'DifferentiationSchemeGradient r, KnownNat out_width, KnownNat batch_size)
   => Proxy r -> Proxy out_width
-  -> MnistDataBatchS batch_size (Primal r)
+  -> MnistDataBatchS batch_size r
   -> Domains r
-  -> Primal r
+  -> r
 rnnMnistTestS _ _ (glyphS, labelS) parameters =
   let xs = OS.transpose @'[2, 1, 0] glyphS
       outputS = primalValue @r (rnnMnistS @out_width xs) parameters
       outputs = map OS.toVector $ OSB.toList $ OS.unravel
                 $ OS.transpose @'[1, 0] $ outputS
       labels = map OS.toVector $ OSB.toList $ OS.unravel $ labelS
-      matchesLabels :: Vector (Primal r) -> Vector (Primal r) -> Int
+      matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0
   in fromIntegral (sum (zipWith matchesLabels outputs labels))

@@ -16,10 +16,10 @@ import           System.Random
 import HordeAd
 import HordeAd.Tool.MnistTools
 
-mnistTrainBench2 :: forall r. ( NFData (Primal r), HasDelta r
-                              , UniformRange (Primal r) )
-                 => String -> Int -> [MnistData (Primal r)] -> Int -> Int
-                 -> Primal r
+mnistTrainBench2 :: forall r. ( NFData r, HasDelta r
+                              , UniformRange r )
+                 => String -> Int -> [MnistData r] -> Int -> Int
+                 -> r
                  -> Benchmark
 mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
   let nParams0 = fcnnMnistLen0 widthHidden widthHidden2
@@ -34,8 +34,8 @@ mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
   bench name $ nf grad chunk
 
 mnistTestBench2
-  :: forall r. (UniformRange (Primal r), HasDelta r)
-  => String -> Int -> [MnistData (Primal r)] -> Int -> Int -> Benchmark
+  :: forall r. (UniformRange r, HasDelta r)
+  => String -> Int -> [MnistData r] -> Int -> Int -> Benchmark
 mnistTestBench2 extraPrefix chunkLength xs widthHidden widthHidden2 = do
   let nParams0 = fcnnMnistLen0 widthHidden widthHidden2
       params0Init = V.unfoldrExactN nParams0 (uniformR (-0.5, 0.5))
@@ -104,7 +104,7 @@ mnistTestBench2V extraPrefix chunkLength xs widthHidden widthHidden2 = do
                         - HM.scalar 0.5)
              nParams1
       chunk = take chunkLength xs
-      score c = fcnnMnistTest1 @(Delta0 Double) widthHidden widthHidden2 c
+      score c = fcnnMnistTest1 widthHidden widthHidden2 c
                            (params0Init, params1Init)
       totalParams = nParams0 + sum nParams1
       name = "test " ++ extraPrefix
@@ -149,7 +149,7 @@ mnistTestBench2L extraPrefix chunkLength xs widthHidden widthHidden2 = do
   let ((nParams0, nParams1, nParams2, _), totalParams, _reach, parameters0) =
         initializerFixed 33 0.5 (fcnnMnistLen2 widthHidden widthHidden2)
       chunk = take chunkLength xs
-      score c = fcnnMnistTest2 @(Delta0 Double) c parameters0
+      score c = fcnnMnistTest2 c parameters0
       name = "test " ++ extraPrefix
              ++ unwords [ "s" ++ show nParams0, "v" ++ show nParams1
                         , "m" ++ show nParams2

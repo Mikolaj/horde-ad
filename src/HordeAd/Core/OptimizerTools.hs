@@ -20,7 +20,6 @@ import           Numeric.LinearAlgebra.Data (flatten)
 import           Numeric.LinearAlgebra.Devel
   (MatrixOrder (..), liftMatrix, liftMatrix2, matrixFromVector, orderOf)
 
-import HordeAd.Core.DualClass (IsScalar)
 import HordeAd.Core.Engine
 import HordeAd.Internal.Delta (isTensorDummy)
 
@@ -69,7 +68,7 @@ can't fuse with anything and so can't pay for its overhead.
 
 -}
 
-updateWithGradient :: IsScalar d r
+updateWithGradient :: (Numeric r, Floating (Vector r))
                    => r -> Domains r -> Domains r -> Domains r
 updateWithGradient gamma (params0, params1, params2, paramsX)
                          (gradient0, gradient1, gradient2, gradientX) =
@@ -91,14 +90,16 @@ updateWithGradient gamma (params0, params1, params2, paramsX)
       !paramsXNew = V.zipWith updateX paramsX gradientX
   in (params0New, params1New, params2New, paramsXNew)
 
-gradientIsNil :: forall r d. IsScalar d r => Domains r -> Bool
+gradientIsNil :: (Eq r, Numeric r)
+              => Domains r -> Bool
 gradientIsNil (gradient0, gradient1, gradient2, gradientX) =
   V.all (== 0) gradient0
   && V.all V.null gradient1
   && V.all (\r -> HM.rows r <= 0) gradient2
   && V.all isTensorDummy gradientX
 
-minimumGradient :: IsScalar d r => Domains r -> r
+minimumGradient :: (Ord r, Numeric r)
+                => Domains r -> r
 minimumGradient (gradient0, gradient1, gradient2, gradientX) =
   min (if V.null gradient0 then 0 else HM.minElement gradient0)
       (min (if V.null gradient1 then 0
@@ -108,7 +109,8 @@ minimumGradient (gradient0, gradient1, gradient2, gradientX) =
                 (if V.null gradientX then 0
                  else V.minimum (V.map OT.minimumA gradientX))))
 
-maximumGradient :: IsScalar d r => Domains r -> r
+maximumGradient :: (Ord r, Numeric r)
+                => Domains r -> r
 maximumGradient (gradient0, gradient1, gradient2, gradientX) =
   max (if V.null gradient0 then 0 else HM.maxElement gradient0)
       (max (if V.null gradient1 then 0
@@ -142,7 +144,8 @@ data StateAdam r = StateAdam
   }
 
 -- The arguments are just sample params0, for dimensions.
-zeroParameters :: forall r d. IsScalar d r => Domains r -> Domains r
+zeroParameters :: Numeric r
+               => Domains r -> Domains r
 zeroParameters (params0, params1, params2, paramsX) =
   let zeroVector v = runST $ do
         vThawed <- V.thaw v
@@ -153,9 +156,10 @@ zeroParameters (params0, params1, params2, paramsX) =
      , V.map (liftMatrix zeroVector) params2
      , V.map (\a -> OT.constant (OT.shapeL a) 0) paramsX )  -- fast allright
 
-initialStateAdam :: forall r d. IsScalar d r => Domains r -> StateAdam r
+initialStateAdam :: Numeric r
+                 => Domains r -> StateAdam r
 initialStateAdam parameters0 =
-  let zeroP = zeroParameters @r @d parameters0
+  let zeroP = zeroParameters parameters0
   in StateAdam
        { tAdam = 0
        , mAdam = zeroP
@@ -212,7 +216,7 @@ liftArray43 f m1 m2 m3 m4 =
             ++ show (OT.shapeL m1, OT.shapeL m2, OT.shapeL m3, OT.shapeL m4)
 
 updateWithGradientAdam
-  :: forall r d. IsScalar d r
+  :: forall r. (Numeric r, Floating r, Floating (Vector r))
   => ArgsAdam r -> StateAdam r -> Domains r -> Domains r
   -> (Domains r, StateAdam r)
 updateWithGradientAdam ArgsAdam{..}

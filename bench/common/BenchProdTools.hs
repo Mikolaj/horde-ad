@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, TypeFamilies #-}
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 module BenchProdTools where
 
@@ -9,6 +9,7 @@ import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd
+import HordeAd.Core.DualClass (DifferentiationScheme (..))
 
 bgroup100, bgroup200, bgroup1000, bgroup1e4, bgroup1e5, bgroup1e6, bgroup1e7, bgroup5e7 :: [Double] -> Benchmark
 
@@ -124,8 +125,8 @@ bgroup5e7 allxs =
         , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
         ]
 
-(*\) :: DualMonad r m
-     => DualNumber r -> DualNumber r -> m (DualNumber r)
+(*\) :: DualMonad d r m
+     => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
 (*\) u v = returnLet $ u * v
 
 -- The @foldMDual'@, instead of the standard @foldM'@, is an awkward clutch
@@ -135,21 +136,21 @@ bgroup5e7 allxs =
 -- which works fine there, but costs us some cycles and the use
 -- of a custom operation here, where there's no gradient descent
 -- to manage the vectors for us.
-vec_prod_aux :: forall r m. DualMonad r m
-             => DualNumberVariables r -> m (DualNumber r)
+vec_prod_aux :: forall d r m. DualMonad d r m
+             => DualNumberVariables d r -> m (DualNumber d r)
 vec_prod_aux = foldMDual' (*\) 1
   -- no handwritten derivatives; only the derivative for @(*)@ is provided;
   -- also, not omitting bindings; all let-bindings are present, see below
 
 vec_prod :: forall r. HasDelta r
-         => Vector (Primal r) -> Primal r
+         => Vector r -> r
 vec_prod ds = primalValue @r vec_prod_aux (ds, V.empty, V.empty, V.empty)
 
-grad_vec_prod :: HasDelta r => Vector (Primal r) -> Vector (Primal r)
+grad_vec_prod :: HasDelta r => Vector r -> Vector r
 grad_vec_prod ds =
   (\(v, _, _, _) -> v) $ fst $ dReverse 1 vec_prod_aux (ds, V.empty, V.empty, V.empty)
 
-grad_toList_prod :: HasDelta r => [Primal r] -> [Primal r]
+grad_toList_prod :: HasDelta r => [r] -> [r]
 grad_toList_prod l = V.toList $ grad_vec_prod $ V.fromList l
 
 -- A version that omits all Delta bindings except for just one let
@@ -159,43 +160,43 @@ grad_toList_prod l = V.toList $ grad_vec_prod $ V.fromList l
 -- It probably wouldn't help in this case, though.
 
 vec_omit_prod_aux
-  :: forall r m. DualMonad r m
-  => DualNumberVariables r -> m (DualNumber r)
+  :: forall d r m. DualMonad d r m
+  => DualNumberVariables d r -> m (DualNumber d r)
 vec_omit_prod_aux vec = returnLet $ foldlDual' (*) 1 vec
   -- omitting most bindings, because we know nothing repeats inside
 
 vec_omit_prod :: forall r. HasDelta r
-              => Vector (Primal r) -> Primal r
+              => Vector r -> r
 vec_omit_prod ds =
   primalValue @r vec_omit_prod_aux (ds, V.empty, V.empty, V.empty)
 
 grad_vec_omit_prod :: HasDelta r
-                   => Vector (Primal r) -> Vector (Primal r)
+                   => Vector r -> Vector r
 grad_vec_omit_prod ds =
   (\(v, _, _, _) -> v)
   $ fst $ dReverse 1 vec_omit_prod_aux (ds, V.empty, V.empty, V.empty)
 
 
 vec_omit_scalarSum_aux
-  :: forall r m. DualMonad r m
-  => DualNumberVariables r -> m (DualNumber r)
+  :: forall d r m. DualMonad d r m
+  => DualNumberVariables d r -> m (DualNumber d r)
 vec_omit_scalarSum_aux vec = returnLet $ foldlDual' (+) 0 vec
 
-sumElementsV :: DualMonad (Delta0 Double) m
-             => DualNumberVariables (Delta0 Double)
-             -> m (DualNumber (Delta0 Double))
+sumElementsV :: DualMonad 'DifferentiationSchemeGradient Double m
+             => DualNumberVariables 'DifferentiationSchemeGradient Double
+             -> m (DualNumber 'DifferentiationSchemeGradient Double)
 sumElementsV variables = do
   let x = var1 variables 0
   returnLet $ sumElements0 x
 
-altSumElementsV :: DualMonad (Delta0 Double) m
-                => DualNumberVariables (Delta0 Double)
-                -> m (DualNumber (Delta0 Double))
+altSumElementsV :: DualMonad 'DifferentiationSchemeGradient Double m
+                => DualNumberVariables 'DifferentiationSchemeGradient Double
+                -> m (DualNumber 'DifferentiationSchemeGradient Double)
 altSumElementsV variables = do
   let x = var1 variables 0
   returnLet $ altSumElements0 x
 
-grad_vec_omit_scalarSum :: HasDelta r => Vector (Primal r) -> Vector (Primal r)
+grad_vec_omit_scalarSum :: HasDelta r => Vector r -> Vector r
 grad_vec_omit_scalarSum ds =
   (\(v, _, _, _) -> v)
   $ fst $ dReverse 1 vec_omit_scalarSum_aux (ds, V.empty, V.empty, V.empty)

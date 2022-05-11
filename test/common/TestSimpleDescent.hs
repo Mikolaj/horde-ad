@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DataKinds, TypeFamilies #-}
 module TestSimpleDescent (testTrees) where
 
 import Prelude
@@ -8,6 +8,7 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
+import HordeAd.Core.DualClass (DifferentiationScheme (..))
 
 testTrees :: [TestTree]
 testTrees = [ gdSimpleTests
@@ -17,30 +18,30 @@ testTrees = [ gdSimpleTests
 -- polymorphic over whether they operate on scalars, vectors or other types,
 -- so we should probably abandon them.
 
-(+\) :: DualMonad r m => DualNumber r -> DualNumber r -> m (DualNumber r)
+(+\) :: DualMonad d r m => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
 (+\) u v = returnLet $ u + v
 
-(*\) :: DualMonad r m => DualNumber r -> DualNumber r -> m (DualNumber r)
+(*\) :: DualMonad d r m => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
 (*\) u v = returnLet $ u * v
 
-scaleDual :: DualMonad r m => Primal r -> DualNumber r -> m (DualNumber r)
+scaleDual :: DualMonad d r m => r -> DualNumber d r -> m (DualNumber d r)
 scaleDual r u = returnLet $ scale r u
 
-squareDual :: DualMonad r m => DualNumber r -> m (DualNumber r)
+squareDual :: DualMonad d r m => DualNumber d r -> m (DualNumber d r)
 squareDual = returnLet . square
 
 gdSimpleShow :: HasDelta r
-             => Primal r
-             -> (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
+             => r
+             -> (DualNumberVariables 'DifferentiationSchemeGradient r -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
              -> Domain0 r
              -> Int
-             -> ([Primal r], Primal r)
+             -> ([r], r)
 gdSimpleShow gamma f initVec n =
   let (res, _, _, _) = gdSimple gamma f n (initVec, V.empty, V.empty, V.empty)
       (_, value) = dReverse 1 f (res, V.empty, V.empty, V.empty)
   in (V.toList res, value)
 
-fquad :: DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+fquad :: DualMonad 'DifferentiationSchemeGradient Float m => DualNumberVariables 'DifferentiationSchemeGradient Float -> m (DualNumber 'DifferentiationSchemeGradient Float)
 fquad variables = do
   let x = var0 variables 0
       y = var0 variables 1
@@ -49,9 +50,9 @@ fquad variables = do
   tmp <- x2 +\ y2
   tmp +\ 5
 
-fblowup :: forall m. DualMonad (Delta0 Float) m => DualNumberVariables (Delta0 Float) -> m (DualNumber (Delta0 Float))
+fblowup :: forall m. DualMonad 'DifferentiationSchemeGradient Float m => DualNumberVariables 'DifferentiationSchemeGradient Float -> m (DualNumber 'DifferentiationSchemeGradient Float)
 fblowup variables = do
-  let blowup :: Int -> DualNumber (Delta0 Float) -> m (DualNumber (Delta0 Float))
+  let blowup :: Int -> DualNumber 'DifferentiationSchemeGradient Float -> m (DualNumber 'DifferentiationSchemeGradient Float)
       blowup 0 y = return y
       blowup n y = do
         ysum <- y +\ y
@@ -95,9 +96,9 @@ gdSimpleTests = testGroup "Simple gradient descent tests"
 -- This, and other XOR nn operations, have unfused Delta let-bindings
 -- (one binding per each subexpression, even when not needed), which is fine,
 -- just not enough for comprehensive benchmarks.
-scaleAddWithBias :: DualMonad (Delta0 Float) m
-                 => DualNumber (Delta0 Float) -> DualNumber (Delta0 Float) -> Int -> DualNumberVariables (Delta0 Float)
-                 -> m (DualNumber (Delta0 Float))
+scaleAddWithBias :: DualMonad d Float m
+                 => DualNumber d Float -> DualNumber d Float -> Int -> DualNumberVariables d Float
+                 -> m (DualNumber d Float)
 scaleAddWithBias x y ixWeight variables = do
   let wx = var0 variables ixWeight
       wy = var0 variables (ixWeight + 1)
@@ -107,35 +108,35 @@ scaleAddWithBias x y ixWeight variables = do
   sxy <- sx +\ sy
   sxy +\ bias
 
-neuron :: DualMonad (Delta0 Float) m
-       => (DualNumber (Delta0 Float) -> m (DualNumber (Delta0 Float)))
-       -> DualNumber (Delta0 Float) -> DualNumber (Delta0 Float) -> Int -> DualNumberVariables (Delta0 Float)
-       -> m (DualNumber (Delta0 Float))
+neuron :: DualMonad d Float m
+       => (DualNumber d Float -> m (DualNumber d Float))
+       -> DualNumber d Float -> DualNumber d Float -> Int -> DualNumberVariables d Float
+       -> m (DualNumber d Float)
 neuron factivation x y ixWeight variables = do
   sc <- scaleAddWithBias x y ixWeight variables
   factivation sc
 
-nnXor :: DualMonad (Delta0 Float) m
-      => (DualNumber (Delta0 Float) -> m (DualNumber (Delta0 Float)))
-      -> DualNumber (Delta0 Float) -> DualNumber (Delta0 Float) -> DualNumberVariables (Delta0 Float)
-      -> m (DualNumber (Delta0 Float))
+nnXor :: DualMonad d Float m
+      => (DualNumber d Float -> m (DualNumber d Float))
+      -> DualNumber d Float -> DualNumber d Float -> DualNumberVariables d Float
+      -> m (DualNumber d Float)
 nnXor factivation x y variables = do
   n1 <- neuron factivation x y 0 variables
   n2 <- neuron factivation x y 3 variables
   neuron factivation n1 n2 6 variables
 
-nnXorLoss :: DualMonad (Delta0 Float) m
-          => (DualNumber (Delta0 Float) -> m (DualNumber (Delta0 Float)))
-          -> Float -> Float -> Float -> DualNumberVariables (Delta0 Float)
-          -> m (DualNumber (Delta0 Float))
+nnXorLoss :: DualMonad d Float m
+          => (DualNumber d Float -> m (DualNumber d Float))
+          -> Float -> Float -> Float -> DualNumberVariables d Float
+          -> m (DualNumber d Float)
 nnXorLoss factivation x y targ variables = do
   res <- nnXor factivation (constant x) (constant y) variables
   lossSquared targ res
 
-nnXorLossTotal :: DualMonad (Delta0 Float) m
-               => (DualNumber (Delta0 Float) -> m (DualNumber (Delta0 Float)))
-               -> DualNumberVariables (Delta0 Float)
-               -> m (DualNumber (Delta0 Float))
+nnXorLossTotal :: DualMonad d Float m
+               => (DualNumber d Float -> m (DualNumber d Float))
+               -> DualNumberVariables d Float
+               -> m (DualNumber d Float)
 nnXorLossTotal factivation variables = do
   n1 <- nnXorLoss factivation 0 0 0 variables
   n2 <- nnXorLoss factivation 0 1 1 variables

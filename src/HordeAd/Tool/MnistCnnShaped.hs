@@ -22,6 +22,7 @@ import qualified Numeric.LinearAlgebra as HM
 -- until stylish-haskell accepts NoStarIsType
 import qualified GHC.TypeLits
 
+import HordeAd.Core.DualClass (DifferentiationScheme (..))
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors (DualNumberVariables, varS)
@@ -29,26 +30,26 @@ import HordeAd.Tool.MnistData
 
 convMnistLayerS
   :: forall kheight_minus_1 kwidth_minus_1 out_channels
-            in_height in_width in_channels batch_size r m.
+            in_height in_width in_channels batch_size d r m.
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1, KnownNat out_channels
      , KnownNat in_height, KnownNat in_width
      , KnownNat in_channels, KnownNat batch_size
      , 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1  -- wrongly reported as redundant
-     , DualMonad r m )
-  => DualNumber (TensorS r '[ out_channels, in_channels
-                            , kheight_minus_1 + 1, kwidth_minus_1 + 1 ])
-  -> DualNumber (TensorS r '[batch_size, in_channels, in_height, in_width])
-  -> DualNumber (TensorS r '[out_channels])
-  -> m (DualNumber (TensorS r '[ batch_size, out_channels
+     , DualMonad d r m )
+  => DualNumber d (OS.Array '[ out_channels, in_channels
+                            , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
+  -> DualNumber d (OS.Array '[batch_size, in_channels, in_height, in_width] r)
+  -> DualNumber d (OS.Array '[out_channels] r)
+  -> m (DualNumber d (OS.Array '[ batch_size, out_channels
                                , (in_height + kheight_minus_1) `Div` 2
-                               , (in_width + kwidth_minus_1) `Div` 2 ]))
+                               , (in_width + kwidth_minus_1) `Div` 2 ] r))
 convMnistLayerS ker x bias = do
   let yConv = conv24 ker x
       replicateBias
-        :: DualNumber (TensorS r '[])
-           -> DualNumber (TensorS r '[ in_height + kheight_minus_1
-                                     , in_width + kwidth_minus_1 ])
+        :: DualNumber d (OS.Array '[] r)
+           -> DualNumber d (OS.Array '[ in_height + kheight_minus_1
+                                     , in_width + kwidth_minus_1 ] r)
       replicateBias = konstS . fromS0
       biasStretched = ravelFromListS
                       $ replicate (valueOf @batch_size)
@@ -61,24 +62,24 @@ convMnistLayerS ker x bias = do
 
 convMnistTwoS
   :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
-            in_height in_width in_channels batch_size r m.
+            in_height in_width in_channels batch_size d r m.
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
      , KnownNat num_hidden, KnownNat out_channels
      , KnownNat in_height, KnownNat in_width, KnownNat batch_size
      , in_channels ~ 1
      , 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
-     , DualMonad r m )
-  => Primal (TensorS r '[batch_size, in_channels, in_height, in_width])
+     , DualMonad d r m )
+  => OS.Array '[batch_size, in_channels, in_height, in_width] r
   -- All below is the type of all paramters of this nn. The same is reflected
   -- in the length function below and read from variables further down.
-  -> DualNumber (TensorS r '[ out_channels, in_channels
-                            , kheight_minus_1 + 1, kwidth_minus_1 + 1 ])
-  -> DualNumber (TensorS r '[out_channels])
-  -> DualNumber (TensorS r '[ out_channels, out_channels
-                            , kheight_minus_1 + 1, kwidth_minus_1 + 1 ])
-  -> DualNumber (TensorS r '[out_channels])
-  -> DualNumber (TensorS r '[ num_hidden
+  -> DualNumber d (OS.Array '[ out_channels, in_channels
+                            , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
+  -> DualNumber d (OS.Array '[out_channels] r)
+  -> DualNumber d (OS.Array '[ out_channels, out_channels
+                            , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
+  -> DualNumber d (OS.Array '[out_channels] r)
+  -> DualNumber d (OS.Array '[ num_hidden
                             , out_channels
                                 GHC.TypeLits.*
                                   ((in_height + kheight_minus_1) `Div` 2
@@ -86,11 +87,11 @@ convMnistTwoS
                                 GHC.TypeLits.*
                                   ((in_width + kwidth_minus_1) `Div` 2
                                    + kheight_minus_1) `Div` 2
-                            ])
-  -> DualNumber (TensorS r '[num_hidden])
-  -> DualNumber (TensorS r '[SizeMnistLabel, num_hidden])
-  -> DualNumber (TensorS r '[SizeMnistLabel])
-  -> m (DualNumber (TensorS r '[SizeMnistLabel, batch_size]))
+                            ] r)
+  -> DualNumber d (OS.Array '[num_hidden] r)
+  -> DualNumber d (OS.Array '[SizeMnistLabel, num_hidden] r)
+  -> DualNumber d (OS.Array '[SizeMnistLabel] r)
+  -> m (DualNumber d (OS.Array '[SizeMnistLabel, batch_size] r))
 convMnistTwoS x ker1 bias1 ker2 bias2
               weigthsDense biasesDense weigthsReadout biasesReadout = do
   t1 <- convMnistLayerS ker1 (constant x) bias1
@@ -141,16 +142,16 @@ convMnistLenS _ _ _ _ _ _ =
 
 convMnistS
   :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
-            in_height in_width batch_size r m.
+            in_height in_width batch_size d r m.
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
      , KnownNat num_hidden, KnownNat out_channels
      , KnownNat in_height, KnownNat in_width, KnownNat batch_size
      , 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
-     , DualMonad r m )
-  => Primal (TensorS r '[batch_size, 1, in_height, in_width])
-  -> DualNumberVariables r
-  -> m (DualNumber (TensorS r '[SizeMnistLabel, batch_size]))
+     , DualMonad d r m )
+  => OS.Array '[batch_size, 1, in_height, in_width] r
+  -> DualNumberVariables d r
+  -> m (DualNumber d (OS.Array '[SizeMnistLabel, batch_size] r))
 convMnistS x variables = do
   let ker1 = varS variables 0
       bias1 = varS variables 1
@@ -166,23 +167,23 @@ convMnistS x variables = do
 
 convMnistLossFusedS
   :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
-            in_height in_width batch_size r m.
+            in_height in_width batch_size d r m.
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
      , KnownNat num_hidden, KnownNat out_channels
      , KnownNat in_height, KnownNat in_width, KnownNat batch_size
      , 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
-     , DualMonad r m )
+     , DualMonad d r m )
   => Proxy kheight_minus_1
   -> Proxy kwidth_minus_1
   -> Proxy num_hidden
   -> Proxy out_channels
-  -> ( OS.Array '[batch_size, in_height, in_width] (Primal r)
-     , OS.Array '[batch_size, SizeMnistLabel] (Primal r) )
-  -> DualNumberVariables r
-  -> m (DualNumber r)
+  -> ( OS.Array '[batch_size, in_height, in_width] r
+     , OS.Array '[batch_size, SizeMnistLabel] r )
+  -> DualNumberVariables d r
+  -> m (DualNumber d r)
 convMnistLossFusedS _ _ _ _ (glyphS, labelS) variables = do
-  let xs :: Primal (TensorS r '[batch_size, 1, in_height, in_width])
+  let xs :: OS.Array '[batch_size, 1, in_height, in_width] r
       xs = OS.reshape glyphS
   result <- convMnistS @kheight_minus_1 @kwidth_minus_1
                        @num_hidden @out_channels
@@ -203,25 +204,25 @@ convMnistTestS
      , KnownNat in_height, KnownNat in_width
      , 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
-     , IsScalar r )
+     , IsScalar 'DifferentiationSchemeGradient r )
   => Proxy r
   -> Proxy kheight_minus_1
   -> Proxy kwidth_minus_1
   -> Proxy num_hidden
   -> Proxy out_channels
-  -> [( OS.Array '[in_height, in_width] (Primal r)
-      , OS.Array '[SizeMnistLabel] (Primal r) )]
+  -> [( OS.Array '[in_height, in_width] r
+      , OS.Array '[SizeMnistLabel] r )]
   -> Domains r
-  -> Primal r
+  -> r
 convMnistTestS _ _ _ _ _ inputs parameters =
-  let matchesLabels :: ( OS.Array '[in_height, in_width] (Primal r)
-                       , OS.Array '[SizeMnistLabel] (Primal r) )
+  let matchesLabels :: ( OS.Array '[in_height, in_width] r
+                       , OS.Array '[SizeMnistLabel] r )
                     -> Bool
       matchesLabels (glyph, label) =
-        let tx :: Primal (TensorS r '[1, 1, in_height, in_width])
+        let tx :: OS.Array '[1, 1, in_height, in_width] r
             tx = OS.reshape glyph
-            nn :: DualNumberVariables r
-               -> DualMonadValue r (DualNumber (TensorS r '[SizeMnistLabel, 1]))
+            nn :: DualNumberVariables 'DifferentiationSchemeGradient r
+               -> DualMonadValue r (DualNumber 'DifferentiationSchemeGradient (OS.Array '[SizeMnistLabel, 1] r))
             nn variables =
               convMnistS @kheight_minus_1 @kwidth_minus_1
                          @num_hidden @out_channels

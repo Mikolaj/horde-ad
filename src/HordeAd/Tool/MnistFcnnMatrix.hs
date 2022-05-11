@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, TypeFamilies #-}
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 -- | Matrix-based (meaning that dual numbers for gradient computation
 -- consider matrices, not scalars, as the primitive differentiable type)
@@ -12,7 +12,9 @@ import           Control.Exception (assert)
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
+import           Numeric.LinearAlgebra (Vector)
 
+import HordeAd.Core.DualClass (DifferentiationScheme (..))
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors (DualNumberVariables, var1, var2)
@@ -35,12 +37,12 @@ fcnnMnistLen2 widthHidden widthHidden2 =
 -- and vectors given as dual number parameters (variables).
 -- The dimensions, in turn, can be computed by the @len*@ functions
 -- on the basis of the requested widths, see above.
-fcnnMnist2 :: forall r m. DualMonad r m
-           => (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
-           -> (DualNumber (Tensor1 r) -> m (DualNumber (Tensor1 r)))
-           -> Primal (Tensor1 r)
-           -> DualNumberVariables r
-           -> m (DualNumber (Tensor1 r))
+fcnnMnist2 :: forall d r m. DualMonad d r m
+           => (DualNumber d (Vector r) -> m (DualNumber d (Vector r)))
+           -> (DualNumber d (Vector r) -> m (DualNumber d (Vector r)))
+           -> Vector r
+           -> DualNumberVariables d r
+           -> m (DualNumber d (Vector r))
 fcnnMnist2 factivationHidden factivationOutput input variables = do
   let !_A = assert (sizeMnistGlyph == V.length input) ()
       weightsL0 = var2 variables 0
@@ -59,8 +61,8 @@ fcnnMnist2 factivationHidden factivationOutput input variables = do
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 fcnnMnistLoss2
-  :: DualMonad r m
-  => MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
+  :: DualMonad d r m
+  => MnistData r -> DualNumberVariables d r -> m (DualNumber d r)
 fcnnMnistLoss2 (input, target) variables = do
   result <- inline fcnnMnist2 logisticAct softMaxActV input variables
   lossCrossEntropyV target result
@@ -69,15 +71,15 @@ fcnnMnistLoss2 (input, target) variables = do
 -- and composed with the appropriate loss function, using fused
 -- softMax and cross entropy as the loss function.
 fcnnMnistLossFused2
-  :: DualMonad r m
-  => MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
+  :: DualMonad d r m
+  => MnistData r -> DualNumberVariables d r -> m (DualNumber d r)
 fcnnMnistLossFused2 (input, target) variables = do
   result <- inline fcnnMnist2 logisticAct return input variables
   lossSoftMaxCrossEntropyV target result
 
 fcnnMnistLossFusedRelu2
-  :: DualMonad r m
-  => MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
+  :: DualMonad d r m
+  => MnistData r -> DualNumberVariables d r -> m (DualNumber d r)
 fcnnMnistLossFusedRelu2 (input, target) variables = do
   result <- inline fcnnMnist2 reluAct return input variables
   lossSoftMaxCrossEntropyV target result
@@ -85,12 +87,12 @@ fcnnMnistLossFusedRelu2 (input, target) variables = do
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 fcnnMnistTest2
-  :: forall r. IsScalar r
-  => [MnistData (Primal r)] -> Domains r -> Primal r
+  :: forall r. IsScalar 'DifferentiationSchemeGradient r
+  => [MnistData r] -> Domains r -> r
 fcnnMnistTest2 inputs parameters =
-  let matchesLabels :: MnistData (Primal r) -> Bool
+  let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let nn = inline (fcnnMnist2 @r) logisticAct softMaxActV glyph
+        let nn = inline (fcnnMnist2 @'DifferentiationSchemeGradient) logisticAct softMaxActV glyph
             value = primalValue @r nn parameters
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))

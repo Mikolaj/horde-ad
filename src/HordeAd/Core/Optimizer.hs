@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DataKinds, TypeFamilies #-}
 -- | A couple of gradient descent scheme implementations.
 module HordeAd.Core.Optimizer
   ( gdSimple
@@ -9,6 +9,7 @@ module HordeAd.Core.Optimizer
 
 import Prelude
 
+import HordeAd.Core.DualClass (DifferentiationScheme (..))
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.OptimizerTools
@@ -16,8 +17,8 @@ import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 
 -- | Simple Gradient Descent.
 gdSimple :: forall r. HasDelta r
-         => Primal r
-         -> (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
+         => r
+         -> (DualNumberVariables 'DifferentiationSchemeGradient r -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
          -> Int  -- ^ requested number of iterations
          -> Domains r  -- ^ initial parameters
          -> Domains r
@@ -32,30 +33,30 @@ gdSimple gamma f n0 parameters0 = go n0 parameters0 where
   go n parameters =
     let variables = makeDualNumberVariables parameters varDeltas
         gradients = fst $ dReverseGeneral 1 variables f
-        parametersNew = updateWithGradient @r gamma parameters gradients
+        parametersNew = updateWithGradient gamma parameters gradients
     in go (pred n) parametersNew
 
 -- | Stochastic Gradient Descent.
 sgd :: forall r a. HasDelta r
-    => Primal r
-    -> (a -> DualNumberVariables r -> DualMonadGradient r (DualNumber r))
+    => r
+    -> (a -> DualNumberVariables 'DifferentiationSchemeGradient r -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
     -> [a]  -- ^ training data
     -> Domains r  -- ^ initial parameters
-    -> (Domains r, Primal r)
+    -> (Domains r, r)
 sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   varDeltas = generateDeltaVars parameters0
-  go :: [a] -> Domains r -> (Domains r, Primal r)
+  go :: [a] -> Domains r -> (Domains r, r)
   go [] parameters = (parameters, 0)
   go (a : rest) parameters =
     let variables = makeDualNumberVariables parameters varDeltas
         (gradients, valueNew) = dReverseGeneral 1 variables (f a)
-        !parametersNew = updateWithGradient @r gamma parameters gradients
+        !parametersNew = updateWithGradient gamma parameters gradients
     in if null rest
        then (parametersNew, valueNew)
        else go rest parametersNew
 
 sgdAdam :: forall r a. HasDelta r
-        => (a -> DualNumberVariables r -> DualMonadGradient r (DualNumber r))
+        => (a -> DualNumberVariables 'DifferentiationSchemeGradient r -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
         -> [a]
         -> Domains r
         -> StateAdam r
@@ -64,8 +65,8 @@ sgdAdam = sgdAdamArgs defaultArgsAdam
 
 sgdAdamArgs :: forall r a. HasDelta r
             => ArgsAdam r
-            -> (a -> DualNumberVariables r
-                -> DualMonadGradient r (DualNumber r))
+            -> (a -> DualNumberVariables 'DifferentiationSchemeGradient r
+                -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
             -> [a]
             -> Domains r
             -> StateAdam r

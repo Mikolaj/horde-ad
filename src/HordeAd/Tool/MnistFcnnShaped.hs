@@ -17,6 +17,7 @@ import           Data.Proxy (Proxy)
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 
+import HordeAd.Core.DualClass (DifferentiationScheme (..))
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors (DualNumberVariables, varS)
@@ -29,20 +30,20 @@ import HordeAd.Tool.MnistData
 -- The dimensions, in turn, can be computed by the @len*@ functions
 -- on the basis of the requested widths, see above.
 fcnnMnistLayersS
-  :: forall widthHidden widthHidden2 r m.
-     (DualMonad r m, KnownNat widthHidden, KnownNat widthHidden2)
+  :: forall widthHidden widthHidden2 d r m.
+     (DualMonad d r m, KnownNat widthHidden, KnownNat widthHidden2)
   => (forall sh. OS.Shape sh
-      => DualNumber (TensorS r sh) -> m (DualNumber (TensorS r sh)))
-  -> Primal (TensorS r '[SizeMnistGlyph])
+      => DualNumber d (OS.Array sh r) -> m (DualNumber d (OS.Array sh r)))
+  -> (OS.Array '[SizeMnistGlyph] r)
   -- All below is the type of all paramters of this nn. The same is reflected
   -- in the length function below and read from variables further down.
-  -> DualNumber (TensorS r '[widthHidden, SizeMnistGlyph])
-  -> DualNumber (TensorS r '[widthHidden])
-  -> DualNumber (TensorS r '[widthHidden2, widthHidden])
-  -> DualNumber (TensorS r '[widthHidden2])
-  -> DualNumber (TensorS r '[SizeMnistLabel, widthHidden2])
-  -> DualNumber (TensorS r '[SizeMnistLabel])
-  -> m (DualNumber (TensorS r '[SizeMnistLabel]))
+  -> DualNumber d (OS.Array '[widthHidden, SizeMnistGlyph] r)
+  -> DualNumber d (OS.Array '[widthHidden] r)
+  -> DualNumber d (OS.Array '[widthHidden2, widthHidden] r)
+  -> DualNumber d (OS.Array '[widthHidden2] r)
+  -> DualNumber d (OS.Array '[SizeMnistLabel, widthHidden2] r)
+  -> DualNumber d (OS.Array '[SizeMnistLabel] r)
+  -> m (DualNumber d (OS.Array '[SizeMnistLabel] r) )
 fcnnMnistLayersS factivationHidden input
                  weightsL0 biasesV0 weightsL1 biasesV1 weightsL2 biasesV2 = do
   let !_A = assert (sizeMnistGlyph == OS.size input) ()
@@ -73,13 +74,13 @@ fcnnMnistLenS =
   )
 
 fcnnMnistS
-  :: forall widthHidden widthHidden2 r m.
-     (DualMonad r m, KnownNat widthHidden, KnownNat widthHidden2)
+  :: forall widthHidden widthHidden2 d r m.
+     (DualMonad d r m, KnownNat widthHidden, KnownNat widthHidden2)
   => (forall sh. OS.Shape sh
-      => DualNumber (TensorS r sh) -> m (DualNumber (TensorS r sh)))
-  -> Primal (TensorS r '[SizeMnistGlyph])
-  -> DualNumberVariables r
-  -> m (DualNumber (TensorS r '[SizeMnistLabel]))
+      => DualNumber d (OS.Array sh r) -> m (DualNumber d (OS.Array sh r)))
+  -> (OS.Array '[SizeMnistGlyph] r)
+  -> DualNumberVariables d r
+  -> m (DualNumber d (OS.Array '[SizeMnistLabel] r))
 {-# INLINE fcnnMnistS #-}
 fcnnMnistS factivationHidden input variables = do
   let weightsL0 = varS variables 0
@@ -100,20 +101,20 @@ fcnnMnistS factivationHidden input variables = do
 -- from the last example at
 -- https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/exts/ambiguous_types.html#extension-AllowAmbiguousTypes
 fcnnMnistLossFusedS
-  :: forall widthHidden widthHidden2 r m.
-     (DualMonad r m, KnownNat widthHidden, KnownNat widthHidden2)
+  :: forall widthHidden widthHidden2 d r m.
+     (DualMonad d r m, KnownNat widthHidden, KnownNat widthHidden2)
   => Proxy widthHidden -> Proxy widthHidden2
-  -> MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
+  -> MnistData r -> DualNumberVariables d r -> m (DualNumber d r)
 fcnnMnistLossFusedS _ _ (input, target) variables = do
   result <- fcnnMnistS @widthHidden @widthHidden2
                        logisticAct (OS.fromVector input) variables
   lossSoftMaxCrossEntropyV target $ fromS1 result
 
 fcnnMnistLossFusedReluS
-  :: forall widthHidden widthHidden2 r m.
-     (DualMonad r m, KnownNat widthHidden, KnownNat widthHidden2)
+  :: forall widthHidden widthHidden2 d r m.
+     (DualMonad d r m, KnownNat widthHidden, KnownNat widthHidden2)
   => Proxy widthHidden -> Proxy widthHidden2
-  -> MnistData (Primal r) -> DualNumberVariables r -> m (DualNumber r)
+  -> MnistData r -> DualNumberVariables d r -> m (DualNumber d r)
 fcnnMnistLossFusedReluS _ _ (input, target) variables = do
   result <- fcnnMnistS @widthHidden @widthHidden2
                        reluAct (OS.fromVector input) variables
@@ -123,14 +124,14 @@ fcnnMnistLossFusedReluS _ _ (input, target) variables = do
 -- and the trained parameters.
 fcnnMnistTestS
   :: forall widthHidden widthHidden2 r.
-     (IsScalar r, KnownNat widthHidden, KnownNat widthHidden2)
-  => [MnistData (Primal r)] -> Domains r -> Primal r
+     (IsScalar 'DifferentiationSchemeGradient r, KnownNat widthHidden, KnownNat widthHidden2)
+  => [MnistData r] -> Domains r -> r
 fcnnMnistTestS inputs parameters =
-  let matchesLabels :: MnistData (Primal r) -> Bool
+  let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
         let nn = fcnnMnistS @widthHidden @widthHidden2
                             logisticAct (OS.fromVector glyph)
-            value = OS.toVector $ primalValue @r nn parameters
+            value = OS.toVector $ primalValue nn parameters
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
