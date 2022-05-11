@@ -37,12 +37,13 @@ import qualified HordeAd.Internal.Delta as Delta
 
 -- * The main dual number types
 
-data DualNumber (d :: DifferentiationScheme) primal = D primal (Dual d primal)
+-- | Dual numbers with the second type argument being the primal component.
+data DualNumber (d :: DifferentiationScheme) a = D a (Dual d a)
 
 class (IsScalar r, Monad m, Functor m, Applicative m)
       => DualMonad f r m | m -> f r where
   returnLet :: IsDualWithScalar a r
-            => DualNumber f a -> m (DualNumber f a)
+            => DualNumber d a -> m (DualNumber f a)
 
 type Domain0 r = Delta.Domain0 (Primal r)
 
