@@ -22,7 +22,12 @@ import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Vector)
 import qualified Numeric.LinearAlgebra as HM
 
-import HordeAd.Core.DualClass (DifferentiationScheme (..), Dual, IsDual (..))
+import HordeAd.Core.DualClass
+  ( DifferentiationScheme (..)
+  , Dual
+  , HasVariables (bindInState, dVar)
+  , IsDual (..)
+  )
 import HordeAd.Core.DualNumber
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 import HordeAd.Internal.Delta
@@ -90,11 +95,14 @@ newtype DualMonadGradient r a = DualMonadGradient
 instance IsScalar 'DifferentiationSchemeGradient r
          => DualMonad 'DifferentiationSchemeGradient
                       r (DualMonadGradient r) where
+  returnLet :: forall a. IsDualWithScalar 'DifferentiationSchemeGradient a r
+            => DualNumber 'DifferentiationSchemeGradient a
+            -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient a)
   returnLet (D u u') = DualMonadGradient $ do
     st <- get
     let (!stNew, !dId) = bindInState u' st
     put stNew
-    return $! D u (dVar dId)
+    return $! D u (dVar @a @r dId)
 
 initializeState :: forall r. IsScalar 'DifferentiationSchemeGradient r
                 => Domains r -> DeltaState r
@@ -229,14 +237,16 @@ prettyPrintDf reversed f parameters =
   in ppBindings reversed st deltaTopLevel
 
 generateDeltaVars
-  :: IsScalar 'DifferentiationSchemeGradient r
+  :: forall r. IsScalar 'DifferentiationSchemeGradient r
   => Domains r
   -> ( Data.Vector.Vector (Dual 'DifferentiationSchemeGradient r)
      , Data.Vector.Vector (Dual 'DifferentiationSchemeGradient (Vector r))
      , Data.Vector.Vector (Dual 'DifferentiationSchemeGradient (Matrix r))
      , Data.Vector.Vector (Dual 'DifferentiationSchemeGradient (OT.Array r)) )
 generateDeltaVars (params0, params1, params2, paramsX) =
-  let vVar p = V.generate (V.length p) (dVar . toDeltaId)
+  let vVar :: forall a v. (HasVariables a r, V.Vector v a)
+           => v a -> Data.Vector.Vector (Dual 'DifferentiationSchemeGradient a)
+      vVar p = V.generate (V.length p) (dVar @a @r . toDeltaId)
       !v0 = vVar params0
       !v1 = vVar params1
       !v2 = vVar params2

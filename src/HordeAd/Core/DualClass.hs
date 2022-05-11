@@ -10,7 +10,8 @@
 -- that is the high-level API.
 module HordeAd.Core.DualClass
   ( IsDualWithScalar, IsScalar, HasDelta, HasForward
-  , IsDual(dZero, dScale, dAdd, dVar, bindInState)
+  , IsDual(dZero, dScale, dAdd)
+  , HasVariables(dVar, bindInState)
   , DifferentiationScheme(..), Dual, HasRanks(..)
   , Delta0  -- re-export; should be rarely used
   ) where
@@ -42,8 +43,8 @@ import HordeAd.Internal.Delta
 -- scalar type is the same. Additionally, the primal component
 -- corresponding to the first type is required to satisfy constraint @Num@.
 type IsDualWithScalar (d :: DifferentiationScheme) a r =
-  ( IsDual d a, ScalarOf d a ~ r, Floating a
-  , MonoFunctor a, Element a ~ r )
+  ( IsDual d a, HasVariables a r
+  , Floating a, MonoFunctor a, Element a ~ r )
 
 -- | A mega-shorthand for a bundle of connected type constraints.
 type IsScalar (d :: DifferentiationScheme) r =
@@ -94,13 +95,6 @@ class IsDual d a where
   dZero :: Dual d a
   dScale :: a -> Dual d a -> Dual d a
   dAdd :: Dual d a -> Dual d a -> Dual d a
-  dVar :: DeltaId a -> Dual d a
-  type ScalarOf d a
-         -- verbose name to remember not to export from this module;
-         -- can't be injective
-  bindInState :: Dual d a
-              -> DeltaState (ScalarOf d a)
-              -> (DeltaState (ScalarOf d a), DeltaId a)
 
 class IsDualS d r where
   dZeroS :: forall sh. OS.Shape sh => Dual d (OS.Array sh r)
@@ -109,12 +103,6 @@ class IsDualS d r where
   dAddS :: forall sh. OS.Shape sh
         => Dual d (OS.Array sh r) -> Dual d (OS.Array sh r)
         -> Dual d (OS.Array sh r)
-  dVarS :: forall sh. OS.Shape sh
-        => DeltaId (OS.Array sh r) -> Dual d (OS.Array sh r)
-  bindInStateS :: forall sh. OS.Shape sh
-               => Dual d (OS.Array sh r)
-               -> DeltaState r
-               -> (DeltaState r, DeltaId (OS.Array sh r))
 
 -- This instance saves us from splitting @DualNumber@ and @DualNumberS@,
 -- @scale@ and @scaleS@, etc.
@@ -122,10 +110,13 @@ instance (IsDualS d r, OS.Shape sh) => IsDual d (OS.Array sh r) where
   dZero = dZeroS
   dScale = dScaleS
   dAdd = dAddS
-  dVar = dVarS
-  type ScalarOf d (OS.Array sh r) = r
-  {-# INLINE bindInState #-}
-  bindInState = bindInStateS
+
+class HasVariables a r where
+  dVar :: DeltaId a -> Dual 'DifferentiationSchemeGradient a
+  bindInState :: Dual 'DifferentiationSchemeGradient a
+              -> DeltaState r
+              -> (DeltaState r, DeltaId a )
+
 
 -- | An instance of the class is a type of rank 0 (scalar rank) dual components
 -- of dual numbers. The associated type synonym families are dual component
@@ -220,56 +211,63 @@ instance IsDual 'DifferentiationSchemeGradient Double where
   dZero = Zero0
   dScale = Scale0
   dAdd = Add0
-  dVar = Var0
-  type ScalarOf 'DifferentiationSchemeGradient Double = Double
-  {-# INLINE bindInState #-}
-  bindInState = bindInState0
 
 instance IsDual 'DifferentiationSchemeGradient Float where
   -- Identical as above:
   dZero = Zero0
   dScale = Scale0
   dAdd = Add0
-  dVar = Var0
-  type ScalarOf 'DifferentiationSchemeGradient Float = Float
-  {-# INLINE bindInState #-}
-  bindInState = bindInState0
 
 instance IsDual 'DifferentiationSchemeGradient (Vector r) where
   dZero = Zero1
   dScale = Scale1
   dAdd = Add1
-  dVar = Var1
-  type ScalarOf 'DifferentiationSchemeGradient (Vector r) = r
-  {-# INLINE bindInState #-}
-  bindInState = bindInState1
 
 instance IsDual 'DifferentiationSchemeGradient (Matrix r) where
   dZero = Zero2
   dScale = Scale2
   dAdd = Add2
-  dVar = Var2
-  type ScalarOf 'DifferentiationSchemeGradient (Matrix r) = r
-  {-# INLINE bindInState #-}
-  bindInState = bindInState2
 
 instance IsDual 'DifferentiationSchemeGradient (OT.Array r) where
   dZero = ZeroX
   dScale = ScaleX
   dAdd = AddX
-  dVar = VarX
-  type ScalarOf 'DifferentiationSchemeGradient (OT.Array r) = r
-  {-# INLINE bindInState #-}
-  bindInState = bindInStateX
 
 instance IsDualS 'DifferentiationSchemeGradient r where
   dZeroS = ZeroS
   dScaleS = ScaleS
   dAddS = AddS
-  dVarS = VarS
-  {-# INLINE bindInStateS #-}
-  bindInStateS u' st = let (st2, did) = bindInStateX (FromSX u') st
-                       in (st2, covertDeltaId did)
+
+instance HasVariables Double Double where
+  dVar = Var0
+  {-# INLINE bindInState #-}
+  bindInState = bindInState0
+
+instance HasVariables Float Float where
+  dVar = Var0
+  {-# INLINE bindInState #-}
+  bindInState = bindInState0
+
+instance HasVariables (Vector r) r where
+  dVar = Var1
+  {-# INLINE bindInState #-}
+  bindInState = bindInState1
+
+instance HasVariables (Matrix r) r where
+  dVar = Var2
+  {-# INLINE bindInState #-}
+  bindInState = bindInState2
+
+instance HasVariables (OT.Array r) r where
+  dVar = VarX
+  {-# INLINE bindInState #-}
+  bindInState = bindInStateX
+
+instance OS.Shape sh => HasVariables (OS.Array sh r) r where
+  dVar = VarS
+  {-# INLINE bindInState #-}
+  bindInState u' st = let (st2, did) = bindInStateX (FromSX u') st
+                      in (st2, covertDeltaId did)
 
 instance HasRanks 'DifferentiationSchemeGradient Double where
   dSumElements0 = SumElements0
@@ -397,17 +395,11 @@ instance IsDual 'DifferentiationSchemeDerivative Double where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
-  dVar = undefined  -- no variables are needed, because no blowup possible
-  type ScalarOf 'DifferentiationSchemeDerivative Double = Double
-  bindInState = undefined  -- no variables, so no bindings
 
 instance IsDual 'DifferentiationSchemeDerivative Float where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
-  dVar = undefined
-  type ScalarOf 'DifferentiationSchemeDerivative Float = Float
-  bindInState = undefined
 
 -- These constraints force @UndecidableInstances@.
 instance Num (Vector r)
@@ -415,35 +407,24 @@ instance Num (Vector r)
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
-  dVar = undefined
-  type ScalarOf 'DifferentiationSchemeDerivative (Vector r) = r
-  bindInState = undefined
 
 instance Num (Matrix r)
          => IsDual 'DifferentiationSchemeDerivative (Matrix r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
-  dVar = undefined
-  type ScalarOf 'DifferentiationSchemeDerivative (Matrix r) = r
-  bindInState = undefined
 
 instance Num (OT.Array r)
          => IsDual 'DifferentiationSchemeDerivative (OT.Array r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
-  dVar = undefined
-  type ScalarOf 'DifferentiationSchemeDerivative (OT.Array r) = r
-  bindInState = undefined
 
 instance (Numeric r, Num (Vector r))
          => IsDualS 'DifferentiationSchemeDerivative r where
   dZeroS = 0
   dScaleS k d = k * d
   dAddS d e = d + e
-  dVarS = undefined
-  bindInStateS = undefined
 
 instance ( Numeric r, Num (Vector r)
          , Dual 'DifferentiationSchemeDerivative r ~ r )
