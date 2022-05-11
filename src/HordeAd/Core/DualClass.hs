@@ -116,17 +116,17 @@ type HasForward r = ( IsScalar r, r ~ ScalarOf r, Tensor1 r ~ Vector r
 -- This could be done via a newtype, which would incur some notational overhead
 -- and the need to define many instances for the newtype, e.g., all hmatrix
 -- instances, which requires fragile code based on hmatrix internal modules.
-class IsDual f a where
-  dZero :: f (ScalarOf f a)
-  dScale :: a -> f (ScalarOf f a) -> f (ScalarOf f a)
-  dAdd :: f (ScalarOf f a) -> f (ScalarOf f a)
-       -> f (ScalarOf f a)
-  dVar :: DeltaId a -> f (ScalarOf f a)
-  type ScalarOf f a  -- verbose name to remember not to export from this module;
-                     -- can't be injective
-  bindInState :: f (ScalarOf f a)
-              -> DeltaState (ScalarOf f a)
-              -> (DeltaState (ScalarOf f a), DeltaId a)
+class IsDual a dual where
+  dZero :: dual
+  dScale :: a -> dual -> dual
+  dAdd :: dual -> dual -> dual
+  dVar :: DeltaId a -> dual
+  type ScalarOf a dual
+         -- verbose name to remember not to export from this module;
+         -- can't be injective
+  bindInState :: dual
+              -> DeltaState (ScalarOf a dual)
+              -> (DeltaState (ScalarOf a dual), DeltaId a)
 
 -- | An instance of the class is a type of rank 0 (scalar rank) dual components
 -- of dual numbers. The associated type synonym families are dual component
@@ -134,15 +134,15 @@ class IsDual f a where
 -- The operations relate the dual and primal component at various ranks.
 -- Not many of these properties are enforced by the definition of the class
 -- itself, but together with the 'IsScalar' constraint, a lot is captured.
-class HasRanks r tensor0 tensor1 tensor2 tensorX tensorS where
-  dSumElements0 :: tensor1 r -> Int -> tensor0 r
-  dIndex0 :: tensor1 r -> Int -> Int -> tensor0 r
-  dDot0 :: Vector r -> tensor1 r -> tensor0 r
-  dFromX0 :: tensorX r -> tensor0 r
-  dFromS0 :: tensorS '[] r -> tensor0 r
+class HasRanks r dual0 tensor1 tensor2 tensorX tensorS where
+  dSumElements0 :: tensor1 r -> Int -> dual0
+  dIndex0 :: tensor1 r -> Int -> Int -> dual0
+  dDot0 :: Vector r -> tensor1 r -> dual0
+  dFromX0 :: tensorX r -> dual0
+  dFromS0 :: tensorS '[] r -> dual0
 
-  dSeq1 :: Data.Vector.Vector (tensor0 r) -> tensor1 r
-  dKonst1 :: tensor0 r -> Int -> tensor1 r
+  dSeq1 :: Data.Vector.Vector dual0 -> tensor1 r
+  dKonst1 :: dual0 -> Int -> tensor1 r
   dAppend1 :: tensor1 r -> Int -> tensor1 r -> tensor1 r
   dSlice1 :: Int -> Int -> tensor1 r -> Int -> tensor1 r
   dSumRows1 :: tensor2 r -> Int -> tensor1 r
@@ -160,7 +160,7 @@ class HasRanks r tensor0 tensor1 tensor2 tensorX tensorS where
 
   dFromRows2 :: Data.Vector.Vector (tensor1 r) -> tensor2 r
   dFromColumns2 :: Data.Vector.Vector (tensor1 r) -> tensor2 r
-  dKonst2 :: tensor0 r -> (Int, Int) -> tensor2 r
+  dKonst2 :: dual0 -> (Int, Int) -> tensor2 r
   dTranspose2 :: tensor2 r -> tensor2 r
   dM_MD2 :: Matrix r -> tensor2 r -> tensor2 r
   dMD_M2 :: tensor2 r -> Matrix r -> tensor2 r
@@ -179,20 +179,20 @@ class HasRanks r tensor0 tensor1 tensor2 tensorX tensorS where
   dReshape2 :: Int -> tensor1 r -> tensor2 r
   dConv2 :: Matrix r -> tensor2 r -> tensor2 r
 
-  dKonstX :: tensor0 r -> OT.ShapeL -> tensorX r
+  dKonstX :: dual0 -> OT.ShapeL -> tensorX r
   dAppendX :: tensorX r -> Int -> tensorX r -> tensorX r
   dSliceX :: Int -> Int -> tensorX r -> Int -> tensorX r
   dIndexX :: tensorX r -> Int -> Int -> tensorX r
   dRavelFromListX :: [tensorX r] -> tensorX r
   dReshapeX :: OT.ShapeL -> OT.ShapeL -> tensorX r -> tensorX r
-  dFrom0X :: tensor0 r -> tensorX r
+  dFrom0X :: dual0 -> tensorX r
   dFrom1X :: tensor1 r -> tensorX r
   dFrom2X :: tensor2 r -> Int -> tensorX r
   dFromSX :: OS.Shape sh
           => tensorS sh r -> tensorX r
 
   dKonstS :: OS.Shape sh
-          => tensor0 r -> tensorS sh r
+          => dual0 -> tensorS sh r
   dAppendS :: (OS.Shape sh, KnownNat m, KnownNat n)
            => tensorS (m ': sh) r -> tensorS (n ': sh) r
            -> tensorS ((m + n) ': sh) r
@@ -205,7 +205,7 @@ class HasRanks r tensor0 tensor1 tensor2 tensorX tensorS where
                   => [tensorS rest r] -> tensorS (k : rest) r
   dReshapeS :: (OS.Shape sh, OS.Shape sh', OS.Size sh ~ OS.Size sh')
             => tensorS sh r -> tensorS sh' r
-  dFrom0S :: tensor0 r -> tensorS '[] r
+  dFrom0S :: dual0 -> tensorS '[] r
   dFrom1S :: KnownNat n => tensor1 r -> tensorS '[n] r
   dFrom2S :: (KnownNat rows, KnownNat cols)
           => Proxy cols -> tensor2 r -> tensorS '[rows, cols] r
@@ -214,16 +214,16 @@ class HasRanks r tensor0 tensor1 tensor2 tensorX tensorS where
 
 -- * Backprop gradient method instances
 
-instance IsDual Delta0 r where
+instance IsDual r (Delta0 r) where
   dZero = Zero0
   dScale = Scale0
   dAdd = Add0
   dVar = Var0
-  type ScalarOf Delta0 r = r
+  type ScalarOf r (Delta0 r) = r
   {-# INLINE bindInState #-}
   bindInState = bindInState0
 
-instance HasRanks r Delta0 Delta1 Delta2 DeltaX DeltaS where
+instance HasRanks r (Delta0 r) Delta1 Delta2 DeltaX DeltaS where
   dSumElements0 = SumElements0
   dIndex0 = Index0
   dDot0 = Dot0
@@ -282,39 +282,39 @@ instance HasRanks r Delta0 Delta1 Delta2 DeltaX DeltaS where
   dFrom2S = From2S
   dFromXS = FromXS
 
-instance IsDual Delta1 (Vector r) where
+instance IsDual (Vector r) (Delta1 r) where
   dZero = Zero1
   dScale = Scale1
   dAdd = Add1
   dVar = Var1
-  type ScalarOf Delta1 (Vector r) = r
+  type ScalarOf (Vector r) (Delta1 r) = r
   {-# INLINE bindInState #-}
   bindInState = bindInState1
 
-instance IsDual Delta2 (Matrix r) where
+instance IsDual (Matrix r) (Delta2 r) where
   dZero = Zero2
   dScale = Scale2
   dAdd = Add2
   dVar = Var2
-  type ScalarOf Delta2 (Matrix r) = r
+  type ScalarOf (Matrix r) (Delta2 r) = r
   {-# INLINE bindInState #-}
   bindInState = bindInState2
 
-instance IsDual DeltaX (OT.Array r) where
+instance IsDual (OT.Array r) (DeltaX r) where
   dZero = ZeroX
   dScale = ScaleX
   dAdd = AddX
   dVar = VarX
-  type ScalarOf DeltaX (OT.Array r) = r
+  type ScalarOf (OT.Array r) (DeltaX r) = r
   {-# INLINE bindInState #-}
   bindInState = bindInStateX
 
-instance OS.Shape sh => IsDual (DeltaS sh) (OS.Array sh r) where
+instance OS.Shape sh => IsDual (OS.Array sh r) (DeltaS sh r) where
   dZero = ZeroS
   dScale = ScaleS
   dAdd = AddS
   dVar = VarS
-  type ScalarOf (DeltaS sh) (OS.Array sh r) = r
+  type ScalarOf (OS.Array sh r) (DeltaS sh r) = r
   {-# INLINE bindInState #-}
   bindInState u' st = let (st2, did) = bindInStateX (FromSX u') st
                       in (st2, covertDeltaId did)
@@ -322,55 +322,58 @@ instance OS.Shape sh => IsDual (DeltaS sh) (OS.Array sh r) where
 
 -- * Alternative instances: forward derivatives computed on the spot
 
-newtype Forward0 r = Forward0 {unForward0 :: r}
-newtype Forward1 r = Forward1 {unForward1 :: Vector r}
-newtype Forward2 r = Forward2 {unForward2 :: Matrix r}
-newtype ForwardX r = ForwardX {unForwardX :: OT.Array r}
-newtype ForwardS sh r = ForwardS {unForwardS :: OS.Array sh r}
-
-instance Num r => IsDual Forward0 r where
-  dZero = Forward0 0
-  dScale k d = Forward0 $ k * unForward0 d
-  dAdd d e = Forward0 $ unForward0 d + unForward0 e
+instance Num r => IsDual Double Double where
+  dZero = 0
+  dScale k d = k * d
+  dAdd d e = d + e
   dVar = undefined  -- no variables are needed, because no blowup possible
-  type ScalarOf Forward0 r = r
+  type ScalarOf Double Double = Double
   bindInState = undefined  -- no variables, so no bindings
 
+instance Num r => IsDual Float Float where
+  dZero = 0
+  dScale k d = k * d
+  dAdd d e = d + e
+  dVar = undefined
+  type ScalarOf Float Float = Float
+  bindInState = undefined
+
 -- These constraints force @UndecidableInstances@.
-instance Num (Vector r) => IsDual Forward1 (Vector r) where
-  dZero = Forward1 0
-  dScale k d = Forward1 $ k * unForward1 d
-  dAdd d e = Forward1 $ unForward1 d + unForward1 e
+instance Num (Vector r) => IsDual (Vector r) (Vector r) where
+  dZero = 0
+  dScale k d = k * d
+  dAdd d e = d + e
   dVar = undefined
-  type ScalarOf Forward1 (Vector r) = r
+  type ScalarOf (Vector r) (Vector r) = r
   bindInState = undefined
 
-instance Num (Matrix r) => IsDual Forward2 (Matrix r) where
-  dZero = Forward2 0
-  dScale k d = Forward2 $ k * unForward2 d
-  dAdd d e = Forward2 $ unForward2 d + unForward2 e
+instance Num (Matrix r) => IsDual (Matrix r) (Matrix r) where
+  dZero = 0
+  dScale k d = k * d
+  dAdd d e = d + e
   dVar = undefined
-  type ScalarOf Forward2 (Matrix r) = r
+  type ScalarOf (Matrix r) (Matrix r) = r
   bindInState = undefined
 
-instance Num (OT.Array r) => IsDual ForwardX (OT.Array r) where
-  dZero = ForwardX 0
-  dScale k d = ForwardX $ k * unForwardX d
-  dAdd d e = ForwardX $ unForwardX d + unForwardX e
+instance Num (OT.Array r) => IsDual (OT.Array r) (OT.Array r) where
+  dZero = 0
+  dScale k d = k * d
+  dAdd d e = d + e
   dVar = undefined
-  type ScalarOf ForwardX (OT.Array r) = r
+  type ScalarOf (OT.Array r) (OT.Array r) = r
   bindInState = undefined
 
 instance (OS.Shape sh, Num (OS.Array sh r))
-         => IsDual (ForwardS sh) (OS.Array sh r) where
-  dZero = ForwardS 0
-  dScale k d = ForwardS $ k * unForwardS d
-  dAdd d e = ForwardS $ unForwardS d + unForwardS e
+         => IsDual (OS.Array sh r) (OS.Array sh r) where
+  dZero = 0
+  dScale k d = k * d
+  dAdd d e = d + e
   dVar = undefined
-  type ScalarOf (ForwardS sh) (OS.Array sh r) = r
+  type ScalarOf (OS.Array sh r) (OS.Array sh r) = r
   bindInState = undefined
 
-instance HasRanks r Forward0 Forward1 Forward2 ForwardX ForwardS where
+instance (Numeric r, Num (Vector r))
+         => HasRanks r r Vector Matrix OT.Array OS.Array where
   dSumElements0 vd _ = HM.sumElements vd
   dIndex0 d ix _ = d V.! ix
   dDot0 = (HM.<.>)
