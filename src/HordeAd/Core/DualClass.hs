@@ -67,6 +67,28 @@ type HasForward r = IsScalar 'DifferentiationSchemeDerivative r
 
 -- * Class definitions
 
+data DifferentiationScheme =
+    DifferentiationSchemeGradient
+  | DifferentiationSchemeDerivative
+
+-- The second type argument is meant to be the primal components
+-- of dual numbers. The result is the dual component.
+type family Dual (d :: DifferentiationScheme) a = result
+                                                | result -> d a where
+  Dual 'DifferentiationSchemeGradient Double = Delta0 Double
+  Dual 'DifferentiationSchemeGradient Float = Delta0 Float
+  Dual 'DifferentiationSchemeGradient (Vector r) = Delta1 r
+  Dual 'DifferentiationSchemeGradient (Matrix r) = Delta2 r
+  Dual 'DifferentiationSchemeGradient (OT.Array r) = DeltaX r
+  Dual 'DifferentiationSchemeGradient (OS.Array sh r) = DeltaS sh r
+-- not injective:  Dual 'DifferentiationSchemeDerivative r = r
+  Dual 'DifferentiationSchemeDerivative Double = Double
+  Dual 'DifferentiationSchemeDerivative Float = Float
+  Dual 'DifferentiationSchemeDerivative (Vector r) = Vector r
+  Dual 'DifferentiationSchemeDerivative (Matrix r) = Matrix r
+  Dual 'DifferentiationSchemeDerivative (OT.Array r) = OT.Array r
+  Dual 'DifferentiationSchemeDerivative (OS.Array sh r) = OS.Array sh r
+
 class IsDual d a where
   dZero :: Dual d a
   dScale :: a -> Dual d a -> Dual d a
@@ -103,28 +125,6 @@ instance (IsDualS d r, OS.Shape sh) => IsDual d (OS.Array sh r) where
   type ScalarOf d (OS.Array sh r) = r
   {-# INLINE bindInState #-}
   bindInState = bindInStateS
-
-data DifferentiationScheme =
-    DifferentiationSchemeGradient
-  | DifferentiationSchemeDerivative
-
--- The second type argument is meant to be the primal components
--- of dual numbers. The result is the dual component.
-type family Dual (d :: DifferentiationScheme) a = result
-                                                | result -> d a where
-  Dual 'DifferentiationSchemeGradient Double = Delta0 Double
-  Dual 'DifferentiationSchemeGradient Float = Delta0 Float
-  Dual 'DifferentiationSchemeGradient (Vector r) = Delta1 r
-  Dual 'DifferentiationSchemeGradient (Matrix r) = Delta2 r
-  Dual 'DifferentiationSchemeGradient (OT.Array r) = DeltaX r
-  Dual 'DifferentiationSchemeGradient (OS.Array sh r) = DeltaS sh r
--- not injective:  Dual 'DifferentiationSchemeDerivative r = r
-  Dual 'DifferentiationSchemeDerivative Double = Double
-  Dual 'DifferentiationSchemeDerivative Float = Float
-  Dual 'DifferentiationSchemeDerivative (Vector r) = Vector r
-  Dual 'DifferentiationSchemeDerivative (Matrix r) = Matrix r
-  Dual 'DifferentiationSchemeDerivative (OT.Array r) = OT.Array r
-  Dual 'DifferentiationSchemeDerivative (OS.Array sh r) = OS.Array sh r
 
 -- | An instance of the class is a type of rank 0 (scalar rank) dual components
 -- of dual numbers. The associated type synonym families are dual component
@@ -233,6 +233,42 @@ instance IsDual 'DifferentiationSchemeGradient Float where
   type ScalarOf 'DifferentiationSchemeGradient Float = Float
   {-# INLINE bindInState #-}
   bindInState = bindInState0
+
+instance IsDual 'DifferentiationSchemeGradient (Vector r) where
+  dZero = Zero1
+  dScale = Scale1
+  dAdd = Add1
+  dVar = Var1
+  type ScalarOf 'DifferentiationSchemeGradient (Vector r) = r
+  {-# INLINE bindInState #-}
+  bindInState = bindInState1
+
+instance IsDual 'DifferentiationSchemeGradient (Matrix r) where
+  dZero = Zero2
+  dScale = Scale2
+  dAdd = Add2
+  dVar = Var2
+  type ScalarOf 'DifferentiationSchemeGradient (Matrix r) = r
+  {-# INLINE bindInState #-}
+  bindInState = bindInState2
+
+instance IsDual 'DifferentiationSchemeGradient (OT.Array r) where
+  dZero = ZeroX
+  dScale = ScaleX
+  dAdd = AddX
+  dVar = VarX
+  type ScalarOf 'DifferentiationSchemeGradient (OT.Array r) = r
+  {-# INLINE bindInState #-}
+  bindInState = bindInStateX
+
+instance IsDualS 'DifferentiationSchemeGradient r where
+  dZeroS = ZeroS
+  dScaleS = ScaleS
+  dAddS = AddS
+  dVarS = VarS
+  {-# INLINE bindInStateS #-}
+  bindInStateS u' st = let (st2, did) = bindInStateX (FromSX u') st
+                       in (st2, covertDeltaId did)
 
 instance HasRanks 'DifferentiationSchemeGradient Double where
   dSumElements0 = SumElements0
@@ -352,42 +388,6 @@ instance HasRanks 'DifferentiationSchemeGradient Float where
   dFrom1S = From1S
   dFrom2S = From2S
   dFromXS = FromXS
-
-instance IsDual 'DifferentiationSchemeGradient (Vector r) where
-  dZero = Zero1
-  dScale = Scale1
-  dAdd = Add1
-  dVar = Var1
-  type ScalarOf 'DifferentiationSchemeGradient (Vector r) = r
-  {-# INLINE bindInState #-}
-  bindInState = bindInState1
-
-instance IsDual 'DifferentiationSchemeGradient (Matrix r) where
-  dZero = Zero2
-  dScale = Scale2
-  dAdd = Add2
-  dVar = Var2
-  type ScalarOf 'DifferentiationSchemeGradient (Matrix r) = r
-  {-# INLINE bindInState #-}
-  bindInState = bindInState2
-
-instance IsDual 'DifferentiationSchemeGradient (OT.Array r) where
-  dZero = ZeroX
-  dScale = ScaleX
-  dAdd = AddX
-  dVar = VarX
-  type ScalarOf 'DifferentiationSchemeGradient (OT.Array r) = r
-  {-# INLINE bindInState #-}
-  bindInState = bindInStateX
-
-instance IsDualS 'DifferentiationSchemeGradient r where
-  dZeroS = ZeroS
-  dScaleS = ScaleS
-  dAddS = AddS
-  dVarS = VarS
-  {-# INLINE bindInStateS #-}
-  bindInStateS u' st = let (st2, did) = bindInStateX (FromSX u') st
-                       in (st2, covertDeltaId did)
 
 
 -- * Alternative instances: forward derivatives computed on the spot
