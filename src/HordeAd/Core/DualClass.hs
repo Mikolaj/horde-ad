@@ -167,13 +167,13 @@ class HasRanks r where
   type Tensor1 r = result | result -> r
   type Tensor2 r = result | result -> r
   type TensorX r = result | result -> r
-  type TensorS r = (result :: [Nat] -> Type) | result -> r
+  type TensorS (sh :: [Nat]) r = result | result -> sh r
 
   dSumElements0 :: Tensor1 r -> Int -> r
   dIndex0 :: Tensor1 r -> Int -> Int -> r
   dDot0 :: Primal (Tensor1 r) -> Tensor1 r -> r
   dFromX0 :: TensorX r -> r
-  dFromS0 :: TensorS r '[] -> r
+  dFromS0 :: TensorS '[] r -> r
 
   dSeq1 :: Data.Vector.Vector r -> Tensor1 r
   dKonst1 :: r -> Int -> Tensor1 r
@@ -185,12 +185,12 @@ class HasRanks r where
   dMD_V1 :: Tensor2 r -> Primal (Tensor1 r) -> Tensor1 r
   dFromX1 :: TensorX r -> Tensor1 r
   dFromS1 :: KnownNat len
-          => TensorS r '[len] -> Tensor1 r
+          => TensorS '[len] r -> Tensor1 r
   dReverse1 :: Tensor1 r -> Tensor1 r
   dFlatten1 :: Int -> Int -> Tensor2 r -> Tensor1 r
   dFlattenX1 :: OT.ShapeL -> TensorX r -> Tensor1 r
   dFlattenS1 :: OS.Shape sh
-             => TensorS r sh -> Tensor1 r
+             => TensorS sh r -> Tensor1 r
 
   dFromRows2 :: Data.Vector.Vector (Tensor1 r) -> Tensor2 r
   dFromColumns2 :: Data.Vector.Vector (Tensor1 r) -> Tensor2 r
@@ -206,7 +206,7 @@ class HasRanks r where
   dAsColumn2 :: Tensor1 r -> Tensor2 r
   dFromX2 :: TensorX r -> Tensor2 r
   dFromS2 :: (KnownNat rows, KnownNat cols)
-          => TensorS r '[rows, cols] -> Tensor2 r
+          => TensorS '[rows, cols] r -> Tensor2 r
 
   dFlipud2 :: Tensor2 r -> Tensor2 r
   dFliprl2 :: Tensor2 r -> Tensor2 r
@@ -223,27 +223,27 @@ class HasRanks r where
   dFrom1X :: Tensor1 r -> TensorX r
   dFrom2X :: Tensor2 r -> Int -> TensorX r
   dFromSX :: OS.Shape sh
-          => TensorS r sh -> TensorX r
+          => TensorS sh r -> TensorX r
 
   dKonstS :: OS.Shape sh
-          => r -> TensorS r sh
+          => r -> TensorS sh r
   dAppendS :: (OS.Shape sh, KnownNat m, KnownNat n)
-           => TensorS r (m ': sh) -> TensorS r (n ': sh)
-           -> TensorS r ((m + n) ': sh)
+           => TensorS (m ': sh) r -> TensorS (n ': sh) r
+           -> TensorS ((m + n) ': sh) r
   dSliceS :: (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
-          => Proxy i -> Proxy n -> TensorS r (i + n + k ': rest)
-          -> TensorS r (n ': rest)
+          => Proxy i -> Proxy n -> TensorS (i + n + k ': rest) r
+          -> TensorS (n ': rest) r
   dIndexS :: (KnownNat ix, KnownNat k, OS.Shape rest)
-          => TensorS r (ix + 1 + k ': rest) -> Proxy ix -> TensorS r rest
+          => TensorS (ix + 1 + k ': rest) r -> Proxy ix -> TensorS rest r
   dRavelFromListS :: (KnownNat k, OS.Shape rest)
-                  => [TensorS r rest] -> TensorS r (k : rest)
+                  => [TensorS rest r] -> TensorS (k : rest) r
   dReshapeS :: (OS.Shape sh, OS.Shape sh', OS.Size sh ~ OS.Size sh')
-            => TensorS r sh -> TensorS r sh'
-  dFrom0S :: r -> TensorS r '[]
-  dFrom1S :: KnownNat n => Tensor1 r -> TensorS r '[n]
+            => TensorS sh r -> TensorS sh' r
+  dFrom0S :: r -> TensorS '[] r
+  dFrom1S :: KnownNat n => Tensor1 r -> TensorS '[n] r
   dFrom2S :: (KnownNat rows, KnownNat cols)
-          => Proxy cols -> Tensor2 r -> TensorS r '[rows, cols]
-  dFromXS :: OS.Shape sh => TensorX r -> TensorS r sh
+          => Proxy cols -> Tensor2 r -> TensorS '[rows, cols] r
+  dFromXS :: OS.Shape sh => TensorX r -> TensorS sh r
 
 
 -- * Backprop gradient method instances
