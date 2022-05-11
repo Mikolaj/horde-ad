@@ -269,67 +269,8 @@ instance OS.Shape sh => HasVariables (OS.Array sh r) r where
   bindInState u' st = let (st2, did) = bindInStateX (FromSX u') st
                       in (st2, covertDeltaId did)
 
-instance HasRanks 'DifferentiationSchemeGradient Double where
-  dSumElements0 = SumElements0
-  dIndex0 = Index0
-  dDot0 = Dot0
-  dFromX0 = FromX0
-  dFromS0 = FromS0
-  dSeq1 = Seq1
-  dKonst1 = Konst1
-  dAppend1 = Append1
-  dSlice1 = Slice1
-  dSumRows1 = SumRows1
-  dSumColumns1 = SumColumns1
-  dM_VD1 = M_VD1
-  dMD_V1 = MD_V1
-  dFromX1 = FromX1
-  dFromS1 = FromS1
-  dReverse1 = Reverse1
-  dFlatten1 = Flatten1
-  dFlattenX1 = FlattenX1
-  dFlattenS1 = FlattenS1
-  dFromRows2 = FromRows2
-  dFromColumns2 = FromColumns2
-  dKonst2 = Konst2
-  dTranspose2 = Transpose2
-  dM_MD2 = M_MD2
-  dMD_M2 = MD_M2
-  dRowAppend2 = RowAppend2
-  dColumnAppend2 = ColumnAppend2
-  dRowSlice2 = RowSlice2
-  dColumnSlice2 = ColumnSlice2
-  dAsRow2 = AsRow2
-  dAsColumn2 = AsColumn2
-  dFromX2 = FromX2
-  dFromS2 = FromS2
-  dFlipud2 = Flipud2
-  dFliprl2 = Fliprl2
-  dReshape2 = Reshape2
-  dConv2 = Conv2
-  dKonstX = KonstX
-  dAppendX = AppendX
-  dSliceX = SliceX
-  dIndexX = IndexX
-  dRavelFromListX = RavelFromListX
-  dReshapeX = ReshapeX
-  dFrom0X = From0X
-  dFrom1X = From1X
-  dFrom2X = From2X
-  dFromSX = FromSX
-  dKonstS = KonstS
-  dAppendS = AppendS
-  dSliceS = SliceS
-  dIndexS = IndexS
-  dRavelFromListS = RavelFromListS
-  dReshapeS = ReshapeS
-  dFrom0S = From0S
-  dFrom1S = From1S
-  dFrom2S = From2S
-  dFromXS = FromXS
-
-instance HasRanks 'DifferentiationSchemeGradient Float where
-  -- Identical as above:
+instance Dual 'DifferentiationSchemeGradient r ~ Delta0 r
+         => HasRanks 'DifferentiationSchemeGradient r where
   dSumElements0 = SumElements0
   dIndex0 = Index0
   dDot0 = Dot0
