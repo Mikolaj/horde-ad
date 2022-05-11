@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, FlexibleInstances,
+{-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, DataKinds, FlexibleInstances,
              GeneralizedNewtypeDeriving, MultiParamTypeClasses, TypeFamilies,
              UndecidableInstances #-}
 -- | Several implementations of the monad in which our dual numbers live
@@ -19,9 +19,10 @@ import qualified Data.Array.DynamicS as OT
 import           Data.Functor.Identity
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
+import           Numeric.LinearAlgebra (Matrix, Vector)
 import qualified Numeric.LinearAlgebra as HM
 
-import HordeAd.Core.DualClass (IsDual (..))
+import HordeAd.Core.DualClass (DifferentiationScheme (..), Dual, IsDual (..))
 import HordeAd.Core.DualNumber
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 import HordeAd.Internal.Delta
@@ -43,14 +44,17 @@ newtype DualMonadValue r a = DualMonadValue
   deriving (Monad, Functor, Applicative)
 
 -- @UndecidableInstances@ needed anyway due to this constraint.
-instance IsScalar r => DualMonad r (DualMonadValue r) where
+instance IsScalar 'DifferentiationSchemeGradient r
+         => DualMonad 'DifferentiationSchemeGradient r (DualMonadValue r) where
   returnLet (D u _u') = DualMonadValue $ Identity $ D u dZero
 
 -- The general case, needed for old, hacky tests using only scalars.
-primalValueGeneral :: forall r a. IsScalar r
-                   => (DualNumberVariables r -> DualMonadValue r a)
-                   -> Domains r
-                   -> a
+primalValueGeneral
+  :: forall r a. IsScalar 'DifferentiationSchemeGradient r
+  => (DualNumberVariables 'DifferentiationSchemeGradient r
+      -> DualMonadValue r a)
+  -> Domains r
+  -> a
 -- Small enough that inline won't hurt.
 {-# INLINE primalValueGeneral #-}
 primalValueGeneral f (params0, params1, params2, paramsX) =
@@ -63,10 +67,12 @@ primalValueGeneral f (params0, params1, params2, paramsX) =
                     , replicateZeros paramsX )
   in runIdentity $ runDualMonadValue $ f variables
 
-primalValue :: forall r a. IsScalar r
-            => (DualNumberVariables r -> DualMonadValue r (DualNumber a))
-            -> Domains r
-            -> Primal a
+primalValue
+  :: forall r a. IsScalar 'DifferentiationSchemeGradient r
+  => (DualNumberVariables 'DifferentiationSchemeGradient r
+      -> DualMonadValue r (DualNumber 'DifferentiationSchemeGradient a))
+  -> Domains r
+  -> a
 -- Small enough that inline won't hurt.
 {-# INLINE primalValue #-}
 primalValue f parameters =
@@ -78,17 +84,20 @@ primalValue f parameters =
 -- and the code that uses it to compute gradients and also derivatives.
 
 newtype DualMonadGradient r a = DualMonadGradient
-  { runDualMonadGradient :: State (DeltaState (Primal r)) a }
+  { runDualMonadGradient :: State (DeltaState r) a }
   deriving (Monad, Functor, Applicative)
 
-instance IsScalar r => DualMonad r (DualMonadGradient r) where
+instance IsScalar 'DifferentiationSchemeGradient r
+         => DualMonad 'DifferentiationSchemeGradient
+                      r (DualMonadGradient r) where
   returnLet (D u u') = DualMonadGradient $ do
     st <- get
     let (!stNew, !dId) = bindInState u' st
     put stNew
     return $! D u (dVar dId)
 
-initializeState :: forall r. IsScalar r => Domains r -> DeltaState (Primal r)
+initializeState :: forall r. IsScalar 'DifferentiationSchemeGradient r
+                => Domains r -> DeltaState r
 initializeState (params0, params1, params2, paramsX) =
   DeltaState { deltaCounter0 = toDeltaId (V.length params0)
              , deltaCounter1 = toDeltaId (V.length params1)
@@ -97,11 +106,13 @@ initializeState (params0, params1, params2, paramsX) =
              , deltaBindings = []
              }
 
-dReverseGeneral :: forall r. HasDelta r
-          => Primal r
-          -> DualNumberVariables r
-          -> (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
-          -> (Domains r, Primal r)
+dReverseGeneral
+  :: forall r. HasDelta r
+  => r
+  -> DualNumberVariables 'DifferentiationSchemeGradient r
+  -> (DualNumberVariables 'DifferentiationSchemeGradient r
+      -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
+  -> (Domains r, r)
 -- The functions in which @dReverseGeneral@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE dReverseGeneral #-}
@@ -119,10 +130,11 @@ dReverseGeneral dt
   in (gradient, value)
 
 dReverse :: HasDelta r
-   => Primal r
-   -> (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
+   => r
+   -> (DualNumberVariables 'DifferentiationSchemeGradient r
+       -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
    -> Domains r
-   -> (Domains r, Primal r)
+   -> (Domains r, r)
 dReverse dt f parameters =
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
@@ -132,10 +144,11 @@ dReverse dt f parameters =
 -- of forward derivaties. See @dFastForwardGeneral@ for an efficient variant.
 dForwardGeneral
   :: forall r. HasDelta r
-  => DualNumberVariables r
-  -> (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
+  => DualNumberVariables 'DifferentiationSchemeGradient r
+  -> (DualNumberVariables 'DifferentiationSchemeGradient r
+      -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
   -> Domains r
-  -> (Primal r, Primal r)
+  -> (r, r)
 {-# INLINE dForwardGeneral #-}
 dForwardGeneral variables@(params0, _, params1, _, params2, _, paramsX, _)
                 f ds =
@@ -147,10 +160,11 @@ dForwardGeneral variables@(params0, _, params1, _, params2, _, paramsX, _)
 -- The direction vector ds is taken as an extra argument.
 dForward
   :: HasDelta r
-  => (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
+  => (DualNumberVariables 'DifferentiationSchemeGradient r
+      -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
   -> Domains r
   -> Domains r
-  -> (Primal r, Primal r)
+  -> (r, r)
 dForward f parameters ds =
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
@@ -163,14 +177,18 @@ newtype DualMonadForward r a = DualMonadForward
   { runDualMonadForward :: Identity a }
   deriving (Monad, Functor, Applicative)
 
-instance IsScalar r => DualMonad r (DualMonadForward r) where
+instance IsScalar 'DifferentiationSchemeDerivative r
+         => DualMonad 'DifferentiationSchemeDerivative
+                      r (DualMonadForward r) where
   returnLet (D u u') = DualMonadForward $ Identity $ D u u'
 
 -- This the efficient variant of forward derivative computation.
 dFastForwardGeneral
-  :: DualNumberVariables r
-  -> (DualNumberVariables r -> DualMonadForward r (DualNumber r))
-  -> (r, Primal r)
+  :: HasForward r
+  => DualNumberVariables 'DifferentiationSchemeDerivative r
+  -> (DualNumberVariables 'DifferentiationSchemeDerivative r
+      -> DualMonadForward r (DualNumber 'DifferentiationSchemeDerivative r))
+  -> (r, r)
 {-# INLINE dFastForwardGeneral #-}
 dFastForwardGeneral variables f =
   let D value d = runIdentity $ runDualMonadForward $ f variables
@@ -179,10 +197,11 @@ dFastForwardGeneral variables f =
 -- The direction vector ds is taken as an extra argument.
 dFastForward
   :: forall r. HasForward r
-  => (DualNumberVariables r -> DualMonadForward r (DualNumber r))
+  => (DualNumberVariables 'DifferentiationSchemeDerivative r
+      -> DualMonadForward r (DualNumber 'DifferentiationSchemeDerivative r))
   -> Domains r
   -> Domains r
-  -> (Primal r, Primal r)
+  -> (r, r)
 dFastForward f parameters (params0, params1, params2, paramsX) =
   let variables =
         makeDualNumberVariables
@@ -194,11 +213,13 @@ dFastForward f parameters (params0, params1, params2, paramsX) =
 
 -- * Additional mechanisms
 
-prettyPrintDf :: forall r. (Show (Primal r), HasDelta r)
-              => Bool
-              -> (DualNumberVariables r -> DualMonadGradient r (DualNumber r))
-              -> Domains r
-              -> String
+prettyPrintDf
+  :: forall r. (Show r, HasDelta r)
+  => Bool
+  -> (DualNumberVariables 'DifferentiationSchemeGradient r
+      -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
+  -> Domains r
+  -> String
 prettyPrintDf reversed f parameters =
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
@@ -207,12 +228,13 @@ prettyPrintDf reversed f parameters =
                                          initialState
   in ppBindings reversed st deltaTopLevel
 
-generateDeltaVars :: IsScalar r
-                  => Domains r
-                  -> ( Data.Vector.Vector r
-                     , Data.Vector.Vector (Tensor1 r)
-                     , Data.Vector.Vector (Tensor2 r)
-                     , Data.Vector.Vector (TensorX r) )
+generateDeltaVars
+  :: IsScalar 'DifferentiationSchemeGradient r
+  => Domains r
+  -> ( Data.Vector.Vector (Dual 'DifferentiationSchemeGradient r)
+     , Data.Vector.Vector (Dual 'DifferentiationSchemeGradient (Vector r))
+     , Data.Vector.Vector (Dual 'DifferentiationSchemeGradient (Matrix r))
+     , Data.Vector.Vector (Dual 'DifferentiationSchemeGradient (OT.Array r)) )
 generateDeltaVars (params0, params1, params2, paramsX) =
   let vVar p = V.generate (V.length p) (dVar . toDeltaId)
       !v0 = vVar params0

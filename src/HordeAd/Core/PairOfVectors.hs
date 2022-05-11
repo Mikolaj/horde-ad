@@ -16,108 +16,111 @@ module HordeAd.Core.PairOfVectors
 
 import Prelude
 
+import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
+import           Numeric.LinearAlgebra (Matrix, Vector)
 
+import HordeAd.Core.DualClass (Dual)
 import HordeAd.Core.DualNumber
 
 -- These are optimized as "pair of vectors" representing vectors of @DualNumber@
 -- in an efficient way (especially, or only, with gradient descent,
 -- where the vectors are reused in some ways).
 
-type DualNumberVariables r =
+type DualNumberVariables d r =
   ( Domain0 r
-  , Data.Vector.Vector r
+  , Data.Vector.Vector (Dual d r)
   , Domain1 r
-  , Data.Vector.Vector (Tensor1 r)
+  , Data.Vector.Vector (Dual d (Vector r))
   , Domain2 r
-  , Data.Vector.Vector (Tensor2 r)
+  , Data.Vector.Vector (Dual d (Matrix r))
   , DomainX r
-  , Data.Vector.Vector (TensorX r)
+  , Data.Vector.Vector (Dual d (OT.Array r))
   )
 
 makeDualNumberVariables
   :: Domains r
-  -> ( Data.Vector.Vector r
-     , Data.Vector.Vector (Tensor1 r)
-     , Data.Vector.Vector (Tensor2 r)
-     , Data.Vector.Vector (TensorX r) )
-  -> DualNumberVariables r
+  -> ( Data.Vector.Vector (Dual d r)
+     , Data.Vector.Vector (Dual d (Vector r))
+     , Data.Vector.Vector (Dual d (Matrix r))
+     , Data.Vector.Vector (Dual d (OT.Array r)) )
+  -> DualNumberVariables d r
 {-# INLINE makeDualNumberVariables #-}
 makeDualNumberVariables (params0, params1, params2, paramsX)
                         (vs0, vs1, vs2, vsX)
   = (params0, vs0, params1, vs1, params2, vs2, paramsX, vsX)
 
-var0 :: IsScalar r => DualNumberVariables r -> Int -> DualNumber r
+var0 :: IsScalar d r => DualNumberVariables d r -> Int -> DualNumber d r
 var0 (vValue, vVar, _, _, _, _, _, _) i = D (vValue V.! i) (vVar V.! i)
 
 -- Unsafe, but handy for toy examples.
-vars :: IsScalar r => DualNumberVariables r -> [DualNumber r]
+vars :: IsScalar d r => DualNumberVariables d r -> [DualNumber d r]
 vars vec = map ( var0 vec) [0 ..]
 
-var1 :: IsScalar r => DualNumberVariables r -> Int -> DualNumber (Tensor1 r)
+var1 :: DualNumberVariables d r -> Int -> DualNumber d (Vector r)
 var1 (_, _, vValue, vVar, _, _, _, _) i = D (vValue V.! i) (vVar V.! i)
 
-var2 :: IsScalar r => DualNumberVariables r -> Int -> DualNumber (Tensor2 r)
+var2 :: DualNumberVariables d r -> Int -> DualNumber d (Matrix r)
 var2 (_, _, _, _, vValue, vVar, _, _) i = D (vValue V.! i) (vVar V.! i)
 
-varX :: IsScalar r => DualNumberVariables r -> Int -> DualNumber (TensorX r)
+varX :: DualNumberVariables d r -> Int -> DualNumber d (OT.Array r)
 varX (_, _, _, _, _, _, vValue, vVar) i = D (vValue V.! i) (vVar V.! i)
 
-varS :: (IsScalar r, OS.Shape sh)
-     => DualNumberVariables r -> Int -> DualNumber (TensorS r sh)
+varS :: (IsScalar d r, OS.Shape sh)
+     => DualNumberVariables d r -> Int -> DualNumber d (OS.Array sh r)
 varS (_, _, _, _, _, _, vValue, vVar) i =
   inline fromXS $ D (vValue V.! i) (vVar V.! i)
 
-ifoldMDual' :: forall m a r. (Monad m, IsScalar r)
-             => (a -> Int -> DualNumber r -> m a)
+ifoldMDual' :: forall a d r m. (Monad m, IsScalar d r)
+             => (a -> Int -> DualNumber d r -> m a)
              -> a
-             -> DualNumberVariables r
+             -> DualNumberVariables d r
              -> m a
 {-# INLINE ifoldMDual' #-}
 ifoldMDual' f a (vecR, vecD, _, _, _, _, _, _) = do
-  let g :: a -> Int -> Primal r -> m a
+  let g :: a -> Int -> r -> m a
       g !acc i valX = do
         let !b = D valX (vecD V.! i)
         f acc i b
   V.ifoldM' g a vecR
 
-foldMDual' :: forall m a r. (Monad m, IsScalar r)
-            => (a -> DualNumber r -> m a)
+foldMDual' :: forall a d r m. (Monad m, IsScalar d r)
+            => (a -> DualNumber d r -> m a)
             -> a
-            -> DualNumberVariables r
+            -> DualNumberVariables d r
             -> m a
 {-# INLINE foldMDual' #-}
 foldMDual' f a (vecR, vecD, _, _, _, _, _, _) = do
-  let g :: a -> Int -> Primal r -> m a
+  let g :: a -> Int -> r -> m a
       g !acc i valX = do
         let !b = D valX (vecD V.! i)
         f acc b
   V.ifoldM' g a vecR
 
-ifoldlDual' :: forall a r. IsScalar r
-             => (a -> Int -> DualNumber r -> a)
+ifoldlDual' :: forall a d r. IsScalar d r
+             => (a -> Int -> DualNumber d r -> a)
              -> a
-             -> DualNumberVariables r
+             -> DualNumberVariables d r
              -> a
 {-# INLINE ifoldlDual' #-}
 ifoldlDual' f a (vecR, vecD, _, _, _, _, _, _) = do
-  let g :: a -> Int -> Primal r -> a
+  let g :: a -> Int -> r -> a
       g !acc i valX =
         let !b = D valX (vecD V.! i)
         in f acc i b
   V.ifoldl' g a vecR
 
-foldlDual' :: forall a r. IsScalar r
-            => (a -> DualNumber r -> a)
+foldlDual' :: forall a d r. IsScalar d r
+            => (a -> DualNumber d r -> a)
             -> a
-            -> DualNumberVariables r
+            -> DualNumberVariables d r
             -> a
 {-# INLINE foldlDual' #-}
 foldlDual' f a (vecR, vecD, _, _, _, _, _, _) = do
-  let g :: a -> Int -> Primal r -> a
+  let g :: a -> Int -> r -> a
       g !acc i valX =
         let !b = D valX (vecD V.! i)
         in f acc b

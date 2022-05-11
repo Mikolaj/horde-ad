@@ -56,13 +56,14 @@ type IsScalar (d :: DifferentiationScheme) r =
        )
 
 -- | Is a scalar and will be used to compute gradients.
-type HasDelta r = IsScalar 'DifferentiationSchemeGradient r
+type HasDelta r = ( IsScalar 'DifferentiationSchemeGradient r
+                  , Dual 'DifferentiationSchemeGradient r ~ Delta0 r )
 
 -- | Is a scalar and will be used to compute forward derivative on the spot.
-type HasForward r = IsScalar 'DifferentiationSchemeDerivative r
--- still needed? the S version, too?
---                    ( r ~ ScalarOf r, Tensor1 r ~ Vector r
---                    , Tensor2 r ~ Matrix r, TensorX r ~ OT.Array r )
+type HasForward r =
+       ( IsScalar 'DifferentiationSchemeDerivative r
+       , Dual 'DifferentiationSchemeDerivative r ~ r
+       , Dual 'DifferentiationSchemeDerivative (Vector r) ~ Vector r )
 
 
 -- * Class definitions
