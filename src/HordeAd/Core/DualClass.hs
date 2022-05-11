@@ -46,7 +46,7 @@ import HordeAd.Internal.Delta
 -- scalar type is the same. Additionally, the primal component
 -- corresponding to the first type is required to satisfy constraint @Num@.
 type IsDualWithScalar (d :: DifferentiationScheme) a r =
-  ( IsDual a (Dual d a), ScalarOf a (Dual d a) ~ r, Floating a
+  ( IsDual d a, ScalarOf d a ~ r, Floating a
   , MonoFunctor a, Element a ~ r )
 
 -- | A mega-shorthand for a bundle of connected type constraints.
@@ -64,7 +64,7 @@ type IsScalar (d :: DifferentiationScheme) r =
        )
 
 -- | Is a scalar and will be used to compute gradients.
-type HasDelta r = IsScalar DifferentiationSchemeGradient r
+type HasDelta r = IsScalar 'DifferentiationSchemeGradient r
 
 -- | Is a scalar and will be used to compute forward derivative on the spot.
 type HasForward r = IsScalar DifferentiationSchemeDerivative r
@@ -75,62 +75,30 @@ type HasForward r = IsScalar DifferentiationSchemeDerivative r
 
 -- * Class definitions
 
--- | Each shape of containers of parameters (a tensor of particular rank)
--- has its own collection of vector-space-like operations that are
--- a crucial part of the machinery for computing gradients or derivatives
--- of objective functions defined on dual numbers.
---
--- The chosen representation makes the dual component of dual numbers
--- the argument of the class and the primal component the result
--- of the associated type synonym family @Primal@. A disadvantage
--- of this approach is that the @Primal@ type family is not injective
--- because it has the same value, say @Double@, in the instance
--- @Delta0 Double@ for computing gradients via delta-expressions
--- and in the instance @Double@ for computing forward derivatives on the spot.
--- The lack of injectivity results in a lot of @AllowAmbiguousTypes@ pragmas
--- and type arguments to functions.
---
--- Another disadvantage is @UndecidableInstances@ pragmas,
--- e.g., due to @Illegal nested constraint ‘Ord (Primal r)’@.
--- Yet another disadvantage is that once the gradient-based method
--- and an underlying scalar is chosen, a fully instantiated type
--- of a dual number function is peppered with @Delta0 Double@, etc.
--- This forces writing such function using spurious polymorphism,
--- with constraints that determine that the type is, in fact, monomorphic.
--- E.g., @(HasDelta r, Primal r ~ Double)@ constraint that permits
--- writing @r@ instead of @Delta0 Double@.
---
--- However, all this is better than the inverse problem, where the argument
--- of the class is the primal component and @Dual@ is an injective
--- associated type family. There, we'd need two different instances
--- for @Double@ to cover both gradients and forward derivatives.
--- This could be done via a newtype, which would incur some notational overhead
--- and the need to define many instances for the newtype, e.g., all hmatrix
--- instances, which requires fragile code based on hmatrix internal modules.
-class IsDual a dual where
-  dZero :: dual
-  dScale :: a -> dual -> dual
-  dAdd :: dual -> dual -> dual
-  dVar :: DeltaId a -> dual
-  type ScalarOf a dual
+class IsDual d a where
+  dZero :: Dual d a
+  dScale :: a -> Dual d a -> Dual d a
+  dAdd :: Dual d a -> Dual d a -> Dual d a
+  dVar :: DeltaId a -> Dual d a
+  type ScalarOf d a
          -- verbose name to remember not to export from this module;
          -- can't be injective
-  bindInState :: dual
-              -> DeltaState (ScalarOf a dual)
-              -> (DeltaState (ScalarOf a dual), DeltaId a)
+  bindInState :: Dual d a
+              -> DeltaState (ScalarOf d a)
+              -> (DeltaState (ScalarOf d a), DeltaId a)
 
 data DifferentiationScheme =
     DifferentiationSchemeGradient
   | DifferentiationSchemeDerivative
 
 type family Dual (d :: DifferentiationScheme) primal where
-  Dual DifferentiationSchemeGradient Double = Delta0 Double
-  Dual DifferentiationSchemeGradient Float = Delta0 Float
-  Dual DifferentiationSchemeGradient (Vector r) = Delta1 r
-  Dual DifferentiationSchemeGradient (Matrix r) = Delta2 r
-  Dual DifferentiationSchemeGradient (OT.Array r) = DeltaX r
-  Dual DifferentiationSchemeGradient (OS.Array sh r) = DeltaS sh r
-  Dual DifferentiationSchemeDerivative r = r
+  Dual 'DifferentiationSchemeGradient Double = Delta0 Double
+  Dual 'DifferentiationSchemeGradient Float = Delta0 Float
+  Dual 'DifferentiationSchemeGradient (Vector r) = Delta1 r
+  Dual 'DifferentiationSchemeGradient (Matrix r) = Delta2 r
+  Dual 'DifferentiationSchemeGradient (OT.Array r) = DeltaX r
+  Dual 'DifferentiationSchemeGradient (OS.Array sh r) = DeltaS sh r
+  Dual 'DifferentiationSchemeDerivative r = r
 
 -- | An instance of the class is a type of rank 0 (scalar rank) dual components
 -- of dual numbers. The associated type synonym families are dual component
@@ -221,16 +189,26 @@ class HasRanks (d :: DifferentiationScheme) r where
 
 -- * Backprop gradient method instances
 
-instance IsDual r (Delta0 r) where
+instance IsDual 'DifferentiationSchemeGradient Double where
   dZero = Zero0
   dScale = Scale0
   dAdd = Add0
   dVar = Var0
-  type ScalarOf r (Delta0 r) = r
+  type ScalarOf 'DifferentiationSchemeGradient Double = Double
   {-# INLINE bindInState #-}
   bindInState = bindInState0
 
-instance HasRanks DifferentiationSchemeGradient Double where
+instance IsDual 'DifferentiationSchemeGradient Float where
+  -- Identical as above:
+  dZero = Zero0
+  dScale = Scale0
+  dAdd = Add0
+  dVar = Var0
+  type ScalarOf 'DifferentiationSchemeGradient Float = Float
+  {-# INLINE bindInState #-}
+  bindInState = bindInState0
+
+instance HasRanks 'DifferentiationSchemeGradient Double where
   dSumElements0 = SumElements0
   dIndex0 = Index0
   dDot0 = Dot0
@@ -289,7 +267,7 @@ instance HasRanks DifferentiationSchemeGradient Double where
   dFrom2S = From2S
   dFromXS = FromXS
 
-instance HasRanks DifferentiationSchemeGradient Float where
+instance HasRanks 'DifferentiationSchemeGradient Float where
   -- Identical as above:
   dSumElements0 = SumElements0
   dIndex0 = Index0
@@ -349,39 +327,40 @@ instance HasRanks DifferentiationSchemeGradient Float where
   dFrom2S = From2S
   dFromXS = FromXS
 
-instance IsDual (Vector r) (Delta1 r) where
+instance IsDual 'DifferentiationSchemeGradient (Vector r) where
   dZero = Zero1
   dScale = Scale1
   dAdd = Add1
   dVar = Var1
-  type ScalarOf (Vector r) (Delta1 r) = r
+  type ScalarOf 'DifferentiationSchemeGradient (Vector r) = r
   {-# INLINE bindInState #-}
   bindInState = bindInState1
 
-instance IsDual (Matrix r) (Delta2 r) where
+instance IsDual 'DifferentiationSchemeGradient (Matrix r) where
   dZero = Zero2
   dScale = Scale2
   dAdd = Add2
   dVar = Var2
-  type ScalarOf (Matrix r) (Delta2 r) = r
+  type ScalarOf 'DifferentiationSchemeGradient (Matrix r) = r
   {-# INLINE bindInState #-}
   bindInState = bindInState2
 
-instance IsDual (OT.Array r) (DeltaX r) where
+instance IsDual 'DifferentiationSchemeGradient (OT.Array r) where
   dZero = ZeroX
   dScale = ScaleX
   dAdd = AddX
   dVar = VarX
-  type ScalarOf (OT.Array r) (DeltaX r) = r
+  type ScalarOf 'DifferentiationSchemeGradient (OT.Array r) = r
   {-# INLINE bindInState #-}
   bindInState = bindInStateX
 
-instance OS.Shape sh => IsDual (OS.Array sh r) (DeltaS sh r) where
+instance OS.Shape sh
+         => IsDual 'DifferentiationSchemeGradient (OS.Array sh r) where
   dZero = ZeroS
   dScale = ScaleS
   dAdd = AddS
   dVar = VarS
-  type ScalarOf (OS.Array sh r) (DeltaS sh r) = r
+  type ScalarOf 'DifferentiationSchemeGradient (OS.Array sh r) = r
   {-# INLINE bindInState #-}
   bindInState u' st = let (st2, did) = bindInStateX (FromSX u') st
                       in (st2, covertDeltaId did)
@@ -389,58 +368,61 @@ instance OS.Shape sh => IsDual (OS.Array sh r) (DeltaS sh r) where
 
 -- * Alternative instances: forward derivatives computed on the spot
 
-instance Num r => IsDual Double Double where
+instance Num r => IsDual 'DifferentiationSchemeDerivative Double where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
   dVar = undefined  -- no variables are needed, because no blowup possible
-  type ScalarOf Double Double = Double
+  type ScalarOf 'DifferentiationSchemeDerivative Double = Double
   bindInState = undefined  -- no variables, so no bindings
 
-instance Num r => IsDual Float Float where
+instance Num r => IsDual 'DifferentiationSchemeDerivative Float where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
   dVar = undefined
-  type ScalarOf Float Float = Float
+  type ScalarOf 'DifferentiationSchemeDerivative Float = Float
   bindInState = undefined
 
 -- These constraints force @UndecidableInstances@.
-instance Num (Vector r) => IsDual (Vector r) (Vector r) where
+instance Num (Vector r)
+         => IsDual 'DifferentiationSchemeDerivative (Vector r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
   dVar = undefined
-  type ScalarOf (Vector r) (Vector r) = r
+  type ScalarOf 'DifferentiationSchemeDerivative (Vector r) = r
   bindInState = undefined
 
-instance Num (Matrix r) => IsDual (Matrix r) (Matrix r) where
+instance Num (Matrix r)
+         => IsDual 'DifferentiationSchemeDerivative (Matrix r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
   dVar = undefined
-  type ScalarOf (Matrix r) (Matrix r) = r
+  type ScalarOf 'DifferentiationSchemeDerivative (Matrix r) = r
   bindInState = undefined
 
-instance Num (OT.Array r) => IsDual (OT.Array r) (OT.Array r) where
+instance Num (OT.Array r)
+         => IsDual 'DifferentiationSchemeDerivative (OT.Array r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
   dVar = undefined
-  type ScalarOf (OT.Array r) (OT.Array r) = r
+  type ScalarOf 'DifferentiationSchemeDerivative (OT.Array r) = r
   bindInState = undefined
 
 instance (OS.Shape sh, Num (OS.Array sh r))
-         => IsDual (OS.Array sh r) (OS.Array sh r) where
+         => IsDual 'DifferentiationSchemeDerivative (OS.Array sh r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
   dVar = undefined
-  type ScalarOf (OS.Array sh r) (OS.Array sh r) = r
+  type ScalarOf 'DifferentiationSchemeDerivative (OS.Array sh r) = r
   bindInState = undefined
 
 instance (Numeric r, Num (Vector r))
-         => HasRanks DifferentiationSchemeDerivative r where
+         => HasRanks 'DifferentiationSchemeDerivative r where
   dSumElements0 vd _ = HM.sumElements vd
   dIndex0 d ix _ = d V.! ix
   dDot0 = (HM.<.>)
