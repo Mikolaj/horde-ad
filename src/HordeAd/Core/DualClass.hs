@@ -2,9 +2,6 @@
              FlexibleInstances, GADTs, MultiParamTypeClasses, PolyKinds,
              QuantifiedConstraints, TypeFamilyDependencies, TypeOperators,
              UndecidableInstances #-}
-#if !MIN_VERSION_base(4,17,0)
-{-# LANGUAGE IncoherentInstances #-}
-#endif
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | The class of dual components of dual numbers and related classes,
