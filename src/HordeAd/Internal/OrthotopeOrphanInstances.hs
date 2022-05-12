@@ -11,83 +11,100 @@ import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 
--- TODO: once we can benchmark, convert more instances to
--- use the corresponding instances of hmatrix vectors
--- and refactor the existing instances
+liftVT :: Numeric r
+       => (Vector r -> Vector r)
+       -> OT.Array r -> OT.Array r
+liftVT op t = OT.fromVector (OT.shapeL t) $ op $ OT.toVector t
+
+liftVT2 :: Numeric r
+        => (Vector r -> Vector r -> Vector r)
+        -> OT.Array r -> OT.Array r -> OT.Array r
+liftVT2 op t u = OT.fromVector (OT.shapeL t) $ OT.toVector t `op` OT.toVector u
+
+liftVS :: (Numeric r, OS.Shape sh)
+       => (Vector r -> Vector r)
+       -> OS.Array sh r -> OS.Array sh r
+liftVS op t = OS.fromVector $ op $ OS.toVector t
+
+liftVS2 :: (Numeric r, OS.Shape sh)
+        => (Vector r -> Vector r -> Vector r)
+        -> OS.Array sh r -> OS.Array sh r -> OS.Array sh r
+liftVS2 op t u = OS.fromVector $ OS.toVector t `op` OS.toVector u
 
 -- These constraints force @UndecidableInstances@.
 instance (Num (Vector r), Numeric r) => Num (OT.Array r) where
-  t + u = OT.fromVector (OT.shapeL t) $ OT.toVector t + OT.toVector u
-  t - u = OT.fromVector (OT.shapeL t) $ OT.toVector t - OT.toVector u
-  t * u = OT.fromVector (OT.shapeL t) $ OT.toVector t * OT.toVector u
-  negate t = OT.fromVector (OT.shapeL t) $ negate $ OT.toVector t
-  abs t = OT.fromVector (OT.shapeL t) $ abs $ OT.toVector t
-  signum t = OT.fromVector (OT.shapeL t) $ signum $ OT.toVector t
+  (+) = liftVT2 (+)
+  (-) = liftVT2 (-)
+  (*) = liftVT2 (*)
+  negate = liftVT negate
+  abs = liftVT abs
+  signum = liftVT signum
   fromInteger = OT.constant [] . fromInteger
 
 instance (Num (Vector r), OS.Shape sh, Numeric r) => Num (OS.Array sh r) where
-  t + u = OS.fromVector $ OS.toVector t + OS.toVector u
-  t - u = OS.fromVector $ OS.toVector t - OS.toVector u
-  t * u = OS.fromVector $ OS.toVector t * OS.toVector u
-  negate t = OS.fromVector $ negate $ OS.toVector t
-  abs t = OS.fromVector $ abs $ OS.toVector t
-  signum t = OS.fromVector $ signum $ OS.toVector t
+  (+) = liftVS2 (+)
+  (-) = liftVS2 (-)
+  (*) = liftVS2 (*)
+  negate = liftVS negate
+  abs = liftVS abs
+  signum = liftVS signum
   fromInteger = OS.constant . fromInteger
 
 instance (Num (Vector r), Numeric r, Fractional r)
          => Fractional (OT.Array r) where
-  t / u = OT.fromVector (OT.shapeL t) $ OT.toVector t / OT.toVector u
-  recip t = OT.fromVector (OT.shapeL t) $ recip $ OT.toVector t
+  (/) = liftVT2 (/)
+  recip = liftVT recip
   fromRational = OT.constant [] . fromRational
 
 instance (Num (Vector r), OS.Shape sh, Numeric r, Fractional r)
          => Fractional (OS.Array sh r) where
-  t / u = OS.fromVector $ OS.toVector t / OS.toVector u
-  recip t = OS.fromVector $ recip $ OS.toVector t
+  (/) = liftVS2 (/)
+  recip = liftVS recip
   fromRational = OS.constant . fromRational
 
-instance (Num (Vector r), Numeric r, Floating r)
+instance ( Floating (Vector r), Num (Vector r)
+         , Numeric r, Floating r )
          => Floating (OT.Array r) where
   pi = OT.constant [] pi
-  exp = OT.mapA exp
-  log = OT.mapA log
-  sqrt = OT.mapA sqrt
-  (**) = OT.zipWithA (**)
-  logBase = OT.zipWithA logBase
-  sin = OT.mapA sin
-  cos = OT.mapA cos
-  tan = OT.mapA tan
-  asin = OT.mapA asin
-  acos = OT.mapA acos
-  atan = OT.mapA atan
-  sinh = OT.mapA sinh
-  cosh = OT.mapA cosh
-  tanh = OT.mapA tanh
-  asinh = OT.mapA asinh
-  acosh = OT.mapA acosh
-  atanh = OT.mapA atanh
+  exp = liftVT exp
+  log = liftVT log
+  sqrt = liftVT sqrt
+  (**) = liftVT2 (**)
+  logBase = OT.zipWithA logBase  -- TODO
+  sin = liftVT sin
+  cos = liftVT cos
+  tan = liftVT tan
+  asin = liftVT asin
+  acos = liftVT acos
+  atan = liftVT atan
+  sinh = liftVT sinh
+  cosh = liftVT cosh
+  tanh = liftVT tanh
+  asinh = liftVT asinh
+  acosh = liftVT acosh
+  atanh = liftVT atanh
 
 instance ( Floating (Vector r), Num (Vector r)
          , OS.Shape sh, Numeric r, Floating r )
          => Floating (OS.Array sh r) where
   pi = OS.constant pi
-  exp t = OS.fromVector $ exp $ OS.toVector t
-  log t = OS.fromVector $ log $ OS.toVector t
-  sqrt = OS.mapA sqrt
-  (**) = OS.zipWithA (**)
-  logBase = OS.zipWithA logBase
-  sin = OS.mapA sin
-  cos = OS.mapA cos
-  tan = OS.mapA tan
-  asin = OS.mapA asin
-  acos = OS.mapA acos
-  atan = OS.mapA atan
-  sinh = OS.mapA sinh
-  cosh = OS.mapA cosh
-  tanh t = OS.fromVector $ tanh $ OS.toVector t
-  asinh = OS.mapA asinh
-  acosh = OS.mapA acosh
-  atanh = OS.mapA atanh
+  exp = liftVS exp
+  log = liftVS log
+  sqrt = liftVS sqrt
+  (**) = liftVS2 (**)
+  logBase = OS.zipWithA logBase  -- TODO
+  sin = liftVS sin
+  cos = liftVS cos
+  tan = liftVS tan
+  asin = liftVS asin
+  acos = liftVS acos
+  atan = liftVS atan
+  sinh = liftVS sinh
+  cosh = liftVS cosh
+  tanh = liftVS tanh
+  asinh = liftVS asinh
+  acosh = liftVS acosh
+  atanh = liftVS atanh
 
 type instance Element (OT.Array r) = r
 
