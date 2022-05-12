@@ -1,5 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, FunctionalDependencies,
-             TypeFamilies, TypeOperators, UndecidableInstances #-}
+             TypeFamilies, TypeOperators #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
@@ -72,8 +72,6 @@ instance Ord (DualNumber d a) where
 -- leading to allocation explosion. Expressions should be wrapped in
 -- the monadic @returnLet@ whenever there is a possibility they can be
 -- used multiple times in a larger expression.
---
--- @Num a@ forces @UndecidableInstances@.
 instance (Num a, IsDual d a) => Num (DualNumber d a) where
   D u u' + D v v' = D (u + v) (dAdd u' v')
   D u u' - D v v' = D (u - v) (dAdd u' (dScale (-1) v'))

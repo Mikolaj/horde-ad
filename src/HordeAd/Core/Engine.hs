@@ -1,6 +1,6 @@
 {-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances,
-             GeneralizedNewtypeDeriving, MultiParamTypeClasses, TypeFamilies,
-             UndecidableInstances #-}
+             GeneralizedNewtypeDeriving, MultiParamTypeClasses,
+             TypeFamilies #-}
 -- | Several implementations of the monad in which our dual numbers live
 -- and implementations of calculating gradient, derivative and value
 -- of an objective function defined on dual numbers.
@@ -48,7 +48,6 @@ newtype DualMonadValue r a = DualMonadValue
   { runDualMonadValue :: Identity a }
   deriving (Monad, Functor, Applicative)
 
--- @UndecidableInstances@ needed anyway due to this constraint.
 instance IsScalar 'DifferentiationSchemeGradient r
          => DualMonad 'DifferentiationSchemeGradient r (DualMonadValue r) where
   returnLet (D u _u') = DualMonadValue $ Identity $ D u dZero
