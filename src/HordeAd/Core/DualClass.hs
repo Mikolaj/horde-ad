@@ -13,7 +13,6 @@ module HordeAd.Core.DualClass
   , IsDual(dZero, dScale, dAdd)
   , HasVariables(..)
   , DifferentiationScheme(..), Dual, HasRanks(..)
-  , Delta0  -- re-export; should be rarely used
   ) where
 
 import Prelude

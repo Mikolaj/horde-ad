@@ -650,7 +650,7 @@ smartFit3TestsL =
   ]
 
 {-
-nnFit3LossTotalOutput :: forall m. DualMonad (Delta0 Double) m
+nnFit3LossTotalOutput :: forall m. DualMonad Double m
                       => (DualNumberD -> m DualNumberD)
                       -> (DualNumberD -> m DualNumberD)
                       -> (DualNumberD -> m DualNumberD)

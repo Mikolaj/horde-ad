@@ -5,14 +5,12 @@
 module HordeAd
   ( module HordeAd.Core.DualNumber
   , module HordeAd.Core.Engine
-  , module HordeAd.Core.DualClass
   , module HordeAd.Core.Optimizer
   , module HordeAd.Core.PairOfVectors
  ) where
 
 import Prelude ()
 
-import HordeAd.Core.DualClass (Delta0)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.Optimizer
