@@ -27,7 +27,6 @@ import HordeAd.Core.DualClass
   , Dual
   , HasVariables (bindInState, dVar)
   , IsDual (..)
-  , IsDualWithScalarWeaker
   )
 import HordeAd.Core.DualNumber
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
@@ -96,9 +95,10 @@ newtype DualMonadGradient r a = DualMonadGradient
 instance IsScalar 'DifferentiationSchemeGradient r
          => DualMonad 'DifferentiationSchemeGradient
                       r (DualMonadGradient r) where
-  returnLet :: forall a. IsDualWithScalarWeaker 'DifferentiationSchemeGradient a r
-            => DualNumber 'DifferentiationSchemeGradient a
-            -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient a)
+  returnLet
+    :: forall a. HasVariables a r
+    => DualNumber 'DifferentiationSchemeGradient a
+    -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient a)
   returnLet (D u u') = DualMonadGradient $ do
     st <- get
     let (!stNew, !dId) = bindInState u' st

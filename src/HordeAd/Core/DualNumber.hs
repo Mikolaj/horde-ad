@@ -42,7 +42,7 @@ data DualNumber (d :: DifferentiationScheme) a = D a (Dual d a)
 
 class (IsScalar d r, Monad m, Functor m, Applicative m)
       => DualMonad d r m | m -> d r where
-  returnLet :: IsDualWithScalarWeaker d a r
+  returnLet :: (IsDual d a, HasVariables a r)
             => DualNumber d a -> m (DualNumber d a)
 
 addParameters :: (Numeric r, Num (Vector r))
