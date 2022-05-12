@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, RankNTypes, TypeFamilies #-}
+{-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
 module TestMnistFCNN
   ( testTrees, shortTestForCITrees, mnistTestCase2T, mnistTestCase2D
   ) where

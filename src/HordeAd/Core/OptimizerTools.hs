@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, TypeFamilies #-}
+{-# LANGUAGE TypeFamilies #-}
 -- | Tools for implementing (and debugging the use of) gradient descent schemes.
 module HordeAd.Core.OptimizerTools
   ( updateWithGradient

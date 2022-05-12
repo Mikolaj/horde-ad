@@ -1,5 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes, CPP, ConstraintKinds, DataKinds,
-             FlexibleInstances, GADTs, MultiParamTypeClasses, PolyKinds,
+{-# LANGUAGE CPP, ConstraintKinds, DataKinds, FlexibleInstances,
+             FunctionalDependencies, GADTs, MultiParamTypeClasses, PolyKinds,
              QuantifiedConstraints, TypeFamilyDependencies, TypeOperators,
              UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
@@ -103,7 +103,7 @@ instance (IsDualS d r, OS.Shape sh) => IsDual d (OS.Array sh r) where
   dScale = dScaleS
   dAdd = dAddS
 
-class HasVariables a r where
+class HasVariables a r | a -> r where
   dVar :: DeltaId a -> Dual 'DifferentiationSchemeGradient a
   bindInState :: Dual 'DifferentiationSchemeGradient a
               -> DeltaState r

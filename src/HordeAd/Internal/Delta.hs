@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, CPP, DataKinds, GADTs, KindSignatures,
+{-# LANGUAGE CPP, DataKinds, GADTs, KindSignatures,
              StandaloneDeriving, TypeOperators #-}
 #if !MIN_VERSION_base(4,16,0)
 {-# LANGUAGE IncoherentInstances #-}

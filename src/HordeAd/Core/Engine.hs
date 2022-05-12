@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, DataKinds, FlexibleInstances,
+{-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances,
              GeneralizedNewtypeDeriving, MultiParamTypeClasses, TypeFamilies,
              UndecidableInstances #-}
 -- | Several implementations of the monad in which our dual numbers live
