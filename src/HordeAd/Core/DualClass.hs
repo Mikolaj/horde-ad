@@ -9,7 +9,7 @@
 -- used to define types and operations in "HordeAd.Core.DualNumber"
 -- that is the high-level API.
 module HordeAd.Core.DualClass
-  ( IsDualWithScalar, IsScalar, HasDelta, HasForward
+  ( IsDualWithScalar, IsDualWithScalarWeaker, IsScalar, HasDelta, HasForward
   , IsDual(dZero, dScale, dAdd)
   , HasVariables(dVar, bindInState)
   , DifferentiationScheme(..), Dual, HasRanks(..)
@@ -44,6 +44,9 @@ import HordeAd.Internal.Delta
 type IsDualWithScalar (d :: DifferentiationScheme) a r =
   ( IsDual d a, HasVariables a r
   , Floating a, MonoFunctor a, Element a ~ r )
+
+type IsDualWithScalarWeaker (d :: DifferentiationScheme) a r =
+  ( IsDual d a, HasVariables a r )
 
 -- | A mega-shorthand for a bundle of connected type constraints.
 type IsScalar (d :: DifferentiationScheme) r =
