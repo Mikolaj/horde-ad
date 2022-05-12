@@ -9,7 +9,7 @@
 -- used to define types and operations in "HordeAd.Core.DualNumber"
 -- that is the high-level API.
 module HordeAd.Core.DualClass
-  ( IsDualWithScalar, IsScalar, HasDelta, HasForward
+  ( IsDualWithScalar, IsScalar, HasDelta
   , IsDual(dZero, dScale, dAdd)
   , HasVariables(..)
   , DifferentiationScheme(..), Dual, HasRanks(..)
@@ -57,12 +57,6 @@ type IsScalar (d :: DifferentiationScheme) r =
 -- | Is a scalar and will be used to compute gradients.
 type HasDelta r = ( IsScalar 'DifferentiationSchemeGradient r
                   , Dual 'DifferentiationSchemeGradient r ~ Delta0 r )
-
--- | Is a scalar and will be used to compute forward derivative on the spot.
-type HasForward r =
-  ( IsScalar 'DifferentiationSchemeDerivative r
-  , Dual 'DifferentiationSchemeDerivative r ~ r
-  , Dual 'DifferentiationSchemeDerivative (Vector r) ~ Vector r )
 
 
 -- * Class definitions

@@ -19,7 +19,7 @@ import qualified Data.Array.DynamicS as OT
 import           Data.Functor.Identity
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           Numeric.LinearAlgebra (Matrix, Vector)
+import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 
 import HordeAd.Core.DualClass
@@ -193,7 +193,7 @@ instance IsScalar 'DifferentiationSchemeDerivative r
 
 -- This the efficient variant of forward derivative computation.
 dFastForwardGeneral
-  :: HasForward r
+  :: Dual 'DifferentiationSchemeDerivative r ~ r
   => DualNumberVariables 'DifferentiationSchemeDerivative r
   -> (DualNumberVariables 'DifferentiationSchemeDerivative r
       -> DualMonadForward r (DualNumber 'DifferentiationSchemeDerivative r))
@@ -205,7 +205,7 @@ dFastForwardGeneral variables f =
 
 -- The direction vector ds is taken as an extra argument.
 dFastForward
-  :: forall r. HasForward r
+  :: forall r. (Numeric r, Dual 'DifferentiationSchemeDerivative r ~ r)
   => (DualNumberVariables 'DifferentiationSchemeDerivative r
       -> DualMonadForward r (DualNumber 'DifferentiationSchemeDerivative r))
   -> Domains r
