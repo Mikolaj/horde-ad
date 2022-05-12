@@ -192,7 +192,7 @@ instance IsScalar 'DifferentiationSchemeDerivative r
 
 -- This the efficient variant of forward derivative computation.
 dFastForwardGeneral
-  :: HasForward r
+  :: Dual 'DifferentiationSchemeDerivative r ~ r
   => DualNumberVariables 'DifferentiationSchemeDerivative r
   -> (DualNumberVariables 'DifferentiationSchemeDerivative r
       -> DualMonadForward r (DualNumber 'DifferentiationSchemeDerivative r))

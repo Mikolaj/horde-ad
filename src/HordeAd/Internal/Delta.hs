@@ -44,6 +44,8 @@ module HordeAd.Internal.Delta
   , gradientFromDelta, derivativeFromDelta, ppBindings
   , bindInState0, bindInState1, bindInState2, bindInStateX
   , isTensorDummy
+  , liftVT
+  , liftVS
   ) where
 
 import Prelude
@@ -74,6 +76,10 @@ import           Text.Show.Pretty (ppShow)
 
 import qualified HordeAd.Internal.MatrixOuter as MO
 import           HordeAd.Internal.OrthotopeOrphanInstances ()
+
+liftVS op t u = OS.fromVector $ OS.toVector t `op` OS.toVector u
+
+liftVT op t u = OT.fromVector (OT.shapeL t) $ OT.toVector t `op` OT.toVector u
 
 -- * Abstract syntax trees of the delta expressions
 
@@ -731,9 +737,9 @@ derivativeFromDelta st deltaTopLevel
         Conv2 m md -> HM.conv2 m $ eval2 parameters md
       evalX :: Domains r -> DeltaX r -> OT.Array r
       evalX parameters@( _, _, _, paramsX) = \case
-        ZeroX -> 0
-        ScaleX k d -> k * evalX parameters d
-        AddX d e -> evalX parameters d + evalX parameters e
+        ZeroX -> OT.constant [] 0
+        ScaleX k d -> liftVT (*) k (evalX parameters d)
+        AddX d e -> liftVT (+) (evalX parameters d) (evalX parameters e)
         VarX (DeltaId i) -> paramsX V.! i
 
         KonstX d sz -> OT.constant sz $ eval0 parameters d
@@ -756,9 +762,9 @@ derivativeFromDelta st deltaTopLevel
         FromSX d -> Data.Array.Convert.convert $ evalS parameters d
       evalS :: OS.Shape sh => Domains r -> DeltaS sh r -> OS.Array sh r
       evalS parameters@( _, _, _, paramsX) = \case
-        ZeroS -> 0
-        ScaleS k d -> k * evalS parameters d
-        AddS d e -> evalS parameters d + evalS parameters e
+        ZeroS -> OS.constant 0
+        ScaleS k d -> liftVS (*) k (evalS parameters d)
+        AddS d e -> liftVS (+) (evalS parameters d) (evalS parameters e)
         VarS (DeltaId i) -> Data.Array.Convert.convert $ paramsX V.! i
 
         KonstS d -> OS.constant $ eval0 parameters d

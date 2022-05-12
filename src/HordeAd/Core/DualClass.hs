@@ -11,6 +11,7 @@
 module HordeAd.Core.DualClass
   ( IsDualWithScalar, IsScalar, HasDelta, HasForward
   , IsDual(dZero, dScale, dAdd)
+  , IsDualS(..)
   , HasVariables(dVar, bindInState)
   , DifferentiationScheme(..), Dual, HasRanks(..)
   , Delta0  -- re-export; should be rarely used
@@ -359,9 +360,9 @@ instance Num (OT.Array r)
 
 instance (Numeric r, Num (Vector r))
          => IsDualS 'DifferentiationSchemeDerivative r where
-  dZeroS = 0
-  dScaleS k d = k * d
-  dAddS d e = d + e
+  dZeroS = OS.constant 0
+  dScaleS k d = liftVS (*) k d
+  dAddS d e = liftVS (+) d e
 
 instance ( Numeric r, Num (Vector r)
          , Dual 'DifferentiationSchemeDerivative r ~ r )

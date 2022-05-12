@@ -22,6 +22,7 @@ import           Data.Array.Internal (valueOf)
 import           Data.Array.Shape (DivRoundUp)
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
+import           Data.List (foldl')
 import           Data.List.Index (imap)
 import           Data.MonoTraversable (MonoFunctor (omap))
 import           Data.Proxy (Proxy (Proxy))
@@ -34,6 +35,30 @@ import qualified Numeric.LinearAlgebra as HM
 import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta as Delta
   (Domain0, Domain1, Domain2, DomainX, Domains)
+import qualified HordeAd.Internal.Delta as Delta
+
+
+addS :: (IsDualS d r, OS.Shape sh, Numeric r, Num (Vector r))
+     => DualNumber d (OS.Array sh r)
+     -> DualNumber d (OS.Array sh r)
+     -> DualNumber d (OS.Array sh r)
+addS (D u u') (D v v') = D (Delta.liftVS (+) u v) (dAdd u' v')
+
+mulS :: (IsDualS d r, OS.Shape sh, Numeric r, Num (Vector r))
+     => DualNumber d (OS.Array sh r)
+     -> DualNumber d (OS.Array sh r)
+     -> DualNumber d (OS.Array sh r)
+mulS (D u u') (D v v') = D (Delta.liftVS (*) u v) (dAdd (dScale v u') (dScale u v'))
+
+negS :: (OT.Storable a, OS.Shape sh, IsDualS d a, Num a, Num (Vector a))
+     => DualNumber d (OS.Array sh a) -> DualNumber d (OS.Array sh a)
+negS (D u u') = D (OS.fromVector $ negate $ OS.toVector u) (dScale (OS.constant (-1)) u')
+
+scaleS :: (IsDualS d r, OS.Shape sh, Numeric r, Num (Vector r))
+       => OS.Array sh r
+       -> DualNumber d (OS.Array sh r)
+       -> DualNumber d (OS.Array sh r)
+scaleS u (D v v') = D (Delta.liftVS (*) u v) (dScale u v')
 
 -- * The main dual number types
 
@@ -48,7 +73,7 @@ class (IsScalar d r, Monad m, Functor m, Applicative m)
 addParameters :: (Numeric r, Num (Vector r))
               => Domains r -> Domains r -> Domains r
 addParameters (a0, a1, a2, aX) (b0, b1, b2, bX) =
-  (a0 + b0, V.zipWith (+) a1 b1, V.zipWith (+) a2 b2, V.zipWith (+) aX bX)
+  (a0 + b0, V.zipWith (+) a1 b1, V.zipWith (+) a2 b2, V.zipWith (Delta.liftVT (+)) aX bX)
 
 -- Dot product and sum respective ranks and sum it all.
 dotParameters :: Numeric r => Domains r -> Domains r -> r
@@ -165,6 +190,13 @@ reluAct :: (DualMonad d r m, IsDualWithScalar d a r, Num a)
 reluAct v@(D u _) = do
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0) u
   returnLet $ scale oneIfGtZero v
+
+reluActS ::((Numeric r, OS.Shape sh, DualMonad d r m, Num (Vector r))
+         => DualNumber d (OS.Array sh r)
+         -> m (DualNumber d (OS.Array sh r)))
+reluActS v@(D u _) = do
+  let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0) u
+  returnLet $ scaleS oneIfGtZero v
 
 reluLeakyAct :: (DualMonad d r m, IsDualWithScalar d a r, Num a)
              => DualNumber d a -> m (DualNumber d a)
@@ -835,7 +867,7 @@ conv24 ker = mapS conv23 where
                                          , in_width + kwidth_minus_1 ] r)
                -> DualNumber d (OS.Array '[ in_height + kheight_minus_1
                                          , in_width + kwidth_minus_1 ] r)
-  sumOutermost = sum . unravelToListS
+  sumOutermost = foldl' addS (constant (OS.constant 0)) . unravelToListS
     -- slow; should go through Tensor2, or the Num instance should when possible
 
 maxPool24

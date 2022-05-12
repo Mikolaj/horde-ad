@@ -56,7 +56,7 @@ convMnistLayerS ker x bias = do
                       $ mapS replicateBias bias
         -- TODO: this is weakly typed; add and use replicateS instead
         -- or broadcastS or stretchS, possibly with transposeS?
-  yRelu <- reluAct $ yConv + biasStretched
+  yRelu <- reluActS $ yConv `addS` biasStretched
   maxPool24 @1 @2 yRelu
 
 
@@ -98,9 +98,9 @@ convMnistTwoS x ker1 bias1 ker2 bias2
   t2 <- convMnistLayerS ker2 t1 bias2
   let m1 = mapS reshapeS t2
       m2 = from2S (transpose2 (fromS2 m1))  -- TODO: add permuation transposeS
-      denseLayer = weigthsDense <>$ m2 + asColumnS biasesDense
-  denseRelu <- reluAct denseLayer
-  returnLet $ weigthsReadout <>$ denseRelu + asColumnS biasesReadout
+      denseLayer = (weigthsDense <>$ m2) `addS` asColumnS biasesDense
+  denseRelu <- reluActS denseLayer
+  returnLet $ (weigthsReadout <>$ denseRelu) `addS` asColumnS biasesReadout
 
 convMnistLenS
   :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels

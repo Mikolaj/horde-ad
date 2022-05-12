@@ -16,6 +16,7 @@ import qualified Numeric.LinearAlgebra as HM
 -- and refactor the existing instances
 
 -- These constraints force @UndecidableInstances@.
+{-
 instance (Num (Vector r), Numeric r) => Num (OT.Array r) where
   t + u = OT.fromVector (OT.shapeL t) $ OT.toVector t + OT.toVector u
   t - u = OT.fromVector (OT.shapeL t) $ OT.toVector t - OT.toVector u
@@ -88,6 +89,7 @@ instance ( Floating (Vector r), Num (Vector r)
   asinh = OS.mapA asinh
   acosh = OS.mapA acosh
   atanh = OS.mapA atanh
+-}
 
 type instance Element (OT.Array r) = r
 
