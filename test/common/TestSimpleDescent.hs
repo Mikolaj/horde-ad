@@ -9,6 +9,7 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 import HordeAd.Core.DualClass (DifferentiationScheme (..))
+import TestSingleGradient (fquad)
 
 testTrees :: [TestTree]
 testTrees = [ gdSimpleTests
@@ -27,9 +28,6 @@ testTrees = [ gdSimpleTests
 scaleDual :: DualMonad d r m => r -> DualNumber d r -> m (DualNumber d r)
 scaleDual r u = returnLet $ scale r u
 
-squareDual :: DualMonad d r m => DualNumber d r -> m (DualNumber d r)
-squareDual = returnLet . square
-
 gdSimpleShow :: HasDelta r
              => r
              -> (DualNumberVariables 'DifferentiationSchemeGradient r -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
@@ -40,15 +38,6 @@ gdSimpleShow gamma f initVec n =
   let (res, _, _, _) = gdSimple gamma f n (initVec, V.empty, V.empty, V.empty)
       (_, value) = dReverse 1 f (res, V.empty, V.empty, V.empty)
   in (V.toList res, value)
-
-fquad :: DualMonad 'DifferentiationSchemeGradient Float m => DualNumberVariables 'DifferentiationSchemeGradient Float -> m (DualNumber 'DifferentiationSchemeGradient Float)
-fquad variables = do
-  let x = var0 variables 0
-      y = var0 variables 1
-  x2 <- squareDual x
-  y2 <- y *\ y
-  tmp <- x2 +\ y2
-  tmp +\ 5
 
 fblowup :: forall m. DualMonad 'DifferentiationSchemeGradient Float m => DualNumberVariables 'DifferentiationSchemeGradient Float -> m (DualNumber 'DifferentiationSchemeGradient Float)
 fblowup variables = do
@@ -65,16 +54,16 @@ gdSimpleTests :: TestTree
 gdSimpleTests = testGroup "Simple gradient descent tests"
   [ testCase "0.1 30"
     $ gdSimpleShow 0.1 fquad (V.fromList [2, 3]) 30
-      @?= ([2.47588e-3,3.7138206e-3],5.00002)
+      @?= ([2.47588e-3,3.7138206e-3],5.00002 :: Float)
   , testCase "0.01 30"
     $ gdSimpleShow 0.01 fquad (V.fromList [2, 3]) 30
-      @?= ([1.0909687,1.6364527],8.86819)
+      @?= ([1.0909687,1.6364527],8.86819 :: Float)
   , testCase "0.01 300"
     $ gdSimpleShow 0.01 fquad (V.fromList [2, 3]) 300
-      @?= ([4.665013e-3,6.9975173e-3],5.0000706)
+      @?= ([4.665013e-3,6.9975173e-3],5.0000706 :: Float)
   , testCase "0.01 300000"
     $ gdSimpleShow 0.01 fquad (V.fromList [2, 3]) 300000
-      @?= ([3.5e-44,3.5e-44],5.0)
+      @?= ([3.5e-44,3.5e-44],5.0 :: Float)
   -- The (no) blowup tests.
   , testCase "blowup 0.1 30"
     $ gdSimpleShow 0.1 fblowup (V.fromList [2, 3]) 30

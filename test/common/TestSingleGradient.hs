@@ -1,6 +1,6 @@
 {-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-module TestSingleGradient (testTrees) where
+module TestSingleGradient (testTrees, fquad, quad) where
 
 import Prelude
 
@@ -36,9 +36,6 @@ testTrees = [ testDReverse0
 (**\) :: DualMonad d r m
       => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
 (**\) u v = returnLet $ u ** v
-
-squareDual :: DualMonad d r m => DualNumber d r -> m (DualNumber d r)
-squareDual = returnLet . square
 
 dReverse0
   :: HasDelta r
@@ -94,14 +91,20 @@ freluX variables = do
   let x = var0 variables 0
   reluAct x
 
-fquad :: DualMonad d r m => DualNumberVariables d r -> m (DualNumber d r)
-fquad variables = do
-  let x = var0 variables 0
-      y = var0 variables 1
-  x2 <- squareDual x
+quad :: DualMonad d r m
+     => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
+quad x y = do
+  x2 <- returnLet $ square x
   y2 <- y *\ y
   tmp <- x2 +\ y2
   tmp +\ 5
+
+fquad :: forall r d m. DualMonad d r m
+      => DualNumberVariables d r -> m (DualNumber d r)
+fquad variables = do
+  let x = var0 variables 0
+      y = var0 variables 1
+  quad x y
 
 testDReverse0 :: TestTree
 testDReverse0 = testGroup "Simple dReverse application tests" $
