@@ -1,7 +1,9 @@
 {-# LANGUAGE TypeFamilies, UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Orphan instances for orthotope classes.
-module HordeAd.Internal.OrthotopeOrphanInstances () where
+module HordeAd.Internal.OrthotopeOrphanInstances
+  ( liftVT, liftVT2, liftVS, liftVS2
+  ) where
 
 import Prelude
 
@@ -70,7 +72,7 @@ instance ( Floating (Vector r), Num (Vector r)
   log = liftVT log
   sqrt = liftVT sqrt
   (**) = liftVT2 (**)
-  logBase = OT.zipWithA logBase  -- TODO
+  logBase = liftVT2 logBase
   sin = liftVT sin
   cos = liftVT cos
   tan = liftVT tan
@@ -92,7 +94,7 @@ instance ( Floating (Vector r), Num (Vector r)
   log = liftVS log
   sqrt = liftVS sqrt
   (**) = liftVS2 (**)
-  logBase = OS.zipWithA logBase  -- TODO
+  logBase = liftVS2 logBase
   sin = liftVS sin
   cos = liftVS cos
   tan = liftVS tan

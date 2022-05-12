@@ -1,5 +1,5 @@
-{-# LANGUAGE CPP, DataKinds, GADTs, KindSignatures,
-             StandaloneDeriving, TypeOperators #-}
+{-# LANGUAGE CPP, DataKinds, GADTs, KindSignatures, StandaloneDeriving,
+             TypeOperators #-}
 #if !MIN_VERSION_base(4,16,0)
 {-# LANGUAGE IncoherentInstances #-}
 #endif
@@ -73,7 +73,7 @@ import qualified Numeric.LinearAlgebra as HM
 import           Text.Show.Pretty (ppShow)
 
 import qualified HordeAd.Internal.MatrixOuter as MO
-import           HordeAd.Internal.OrthotopeOrphanInstances ()
+import           HordeAd.Internal.OrthotopeOrphanInstances (liftVS2, liftVT2)
 
 -- * Abstract syntax trees of the delta expressions
 
@@ -430,12 +430,12 @@ buildFinMaps st deltaTopLevel dt = do
       addToMatrix :: MO.MatrixOuter r -> MO.MatrixOuter r -> MO.MatrixOuter r
       addToMatrix r = \v -> if MO.nullMatrixOuter v then r else MO.plus v r
       addToArray :: OT.Array r -> OT.Array r -> OT.Array r
-      addToArray r = \v -> if isTensorDummy v then r else OT.zipWithA (+) v r
+      addToArray r = \v -> if isTensorDummy v then r else liftVT2 (+) v r
       addToArrayS :: OS.Shape sh => OS.Array sh r -> OT.Array r -> OT.Array r
       addToArrayS r = \v -> let rs = Data.Array.Convert.convert r
                             in if isTensorDummy v
                                then rs
-                               else OT.zipWithA (+) v rs
+                               else liftVT2 (+) v rs
       eval0 :: r -> Delta0 r -> ST s ()
       eval0 !r = \case
         Zero0 -> return ()
@@ -543,7 +543,7 @@ buildFinMaps st deltaTopLevel dt = do
       evalX :: OT.Array r -> DeltaX r -> ST s ()
       evalX !r = \case
         ZeroX -> return ()
-        ScaleX k d -> evalX (OT.zipWithA (*) k r) d
+        ScaleX k d -> evalX (liftVT2 (*) k r) d
         AddX d e -> evalX r d >> evalX r e
         VarX (DeltaId i) -> VM.modify finMapX (addToArray r) i
 
@@ -582,7 +582,7 @@ buildFinMaps st deltaTopLevel dt = do
             => OS.Array sh r -> DeltaS sh r -> ST s ()
       evalS !r = \case
         ZeroS -> return ()
-        ScaleS k d -> evalS (OS.zipWithA (*) k r) d
+        ScaleS k d -> evalS (liftVS2 (*) k r) d
         AddS d e -> evalS r d >> evalS r e
         VarS (DeltaId i) -> VM.modify finMapX (addToArrayS r) i
 

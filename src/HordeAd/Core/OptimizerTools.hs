@@ -14,6 +14,7 @@ import           Control.Monad.ST.Strict (runST)
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
+import           HordeAd.Internal.OrthotopeOrphanInstances (liftVT2)
 import           Numeric.LinearAlgebra (Element, Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           Numeric.LinearAlgebra.Data (flatten)
@@ -84,7 +85,7 @@ updateWithGradient gamma (params0, params1, params2, paramsX)
       !params2New = V.zipWith update2 params2 gradient2
       updateX i r = if isTensorDummy r  -- eval didn't update it, would crash
                     then i
-                    else OT.zipWithA (\j s -> j - gamma * s) i r
+                    else liftVT2 updateVector i r
                       -- TODO: this is slow; add @liftArray2@ and use HM,
                       -- unless we move away from HM; similarly other OT calls
       !paramsXNew = V.zipWith updateX paramsX gradientX
