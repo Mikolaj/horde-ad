@@ -1,18 +1,21 @@
-{-# LANGUAGE DataKinds, TypeFamilies #-}
+{-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
 module TestSimpleDescent (testTrees) where
 
 import Prelude
 
+import qualified Data.Array.Convert
+import qualified Data.Array.ShapedS as OS
 import qualified Data.Vector.Generic as V
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 import HordeAd.Core.DualClass (DifferentiationScheme (..))
-import TestSingleGradient (fquad)
+import TestSingleGradient (fquad, quad)
 
 testTrees :: [TestTree]
 testTrees = [ gdSimpleTests
+            , gdTestsRecord
             , xorTests ]
 
 -- Unfortunately, monadic versions of the operations below are not
@@ -80,6 +83,99 @@ gdSimpleTests = testGroup "Simple gradient descent tests"
   , testCase "blowup 0.01 3000000"
     $ gdSimpleShow 0.01 fblowup (V.fromList [2, 3]) 3000000
       @?= ([3.5e-44,3.5e-44],4.9999523)
+  ]
+
+data ARecord a b = ARecord a b
+
+type ARecordAA sh r = ARecord (OS.Array sh r)
+                              (OS.Array sh r)
+
+type ARecordDD sh d r = ARecord (DualNumber d (OS.Array sh r))
+                                (DualNumber d (OS.Array sh r))
+
+adaptFunctionRecord
+  :: forall sh r d m. (DualMonad d r m, OS.Shape sh)
+  => (ARecordDD sh d r -> m (DualNumber d r))
+  -> (DualNumberVariables d r -> m (DualNumber d r))
+adaptFunctionRecord f variables = do
+  let a = varS variables 0
+      b = varS variables 1
+  f $ ARecord a b
+
+adaptDReverseRecord
+  :: forall sh r. (HasDelta r, OS.Shape sh)
+  => r
+  -> (forall d m. DualMonad d r m
+      => ARecordDD sh d r -> m (DualNumber d r))
+  -> ARecordAA sh r
+  -> (ARecordAA sh r, r)
+adaptDReverseRecord dt f (ARecord a b) =
+  let initVec = V.fromList $ map Data.Array.Convert.convert [a, b]
+      g = adaptFunctionRecord f
+      ((_, _, _, gradient), value) =
+        dReverse dt g (V.empty, V.empty, V.empty, initVec)
+      gradientRecord = case V.toList gradient of
+        [a2, b2] -> ARecord (Data.Array.Convert.convert a2)
+                            (Data.Array.Convert.convert b2)
+        _ -> error "adaptDReverseRecord"
+  in (gradientRecord, value)
+
+adaptGdSimpleRecord
+  :: forall sh r. (HasDelta r, OS.Shape sh)
+  => r
+  -> (forall d m. DualMonad d r m
+      => ARecordDD sh d r -> m (DualNumber d r))
+  -> Int
+  -> ARecordAA sh r
+  -> ARecordAA sh r
+adaptGdSimpleRecord gamma f n0 (ARecord a b) =
+  let initVec = V.fromList $ map Data.Array.Convert.convert [a, b]
+      g = adaptFunctionRecord f
+      (_, _, _, gradient) =
+        gdSimple gamma g n0 (V.empty, V.empty, V.empty, initVec)
+      gradientRecord = case V.toList gradient of
+        [a2, b2] -> ARecord (Data.Array.Convert.convert a2)
+                            (Data.Array.Convert.convert b2)
+        _ -> error "adaptGdSimpleRecord"
+  in gradientRecord
+
+gdShowRecord
+  :: forall sh r. (HasDelta r, OS.Shape sh)
+  => r
+  -> (forall d m. DualMonad d r m
+      => ARecordDD sh d r -> m (DualNumber d r))
+  -> [[r]]
+  -> Int
+  -> ([r], r)
+gdShowRecord gamma f initList n =
+  let initRecord = case initList of
+        [a, b] -> ARecord (OS.fromList a)
+                          (OS.fromList b)
+        _ -> error "gdShowRecord"
+      gradient = adaptGdSimpleRecord gamma f n initRecord
+      (_, value) = adaptDReverseRecord 1 f gradient
+      ppARecord :: ARecordAA sh r -> [r]
+      ppARecord (ARecord a b) = OS.toList a ++ OS.toList b
+  in (ppARecord gradient, value)
+
+fquadRecord :: DualMonad d r m
+            => ARecordDD '[] d r -> m (DualNumber d r)
+fquadRecord (ARecord x y) = quad (fromS0 x) (fromS0 y)
+
+gdTestsRecord :: TestTree
+gdTestsRecord = testGroup "Record of shaped tensors tests"
+  [ testCase "0.1 30"
+    $ gdShowRecord 0.1 fquadRecord [[2], [3]] 30
+      @?= ([2.47588e-3,3.7138206e-3],5.00002 :: Float)
+  , testCase "0.01 30"
+    $ gdShowRecord 0.01 fquadRecord [[2], [3]] 30
+      @?= ([1.0909687,1.6364527],8.86819 :: Float)
+  , testCase "0.01 300"
+    $ gdShowRecord 0.01 fquadRecord [[2], [3]] 300
+      @?= ([4.665013e-3,6.9975173e-3],5.0000706 :: Float)
+  , testCase "0.01 300000"
+    $ gdShowRecord 0.01 fquadRecord [[2], [3]] 300000
+      @?= ([3.5e-44,3.5e-44],5.0 :: Float)
   ]
 
 -- This, and other XOR nn operations, have unfused Delta let-bindings
