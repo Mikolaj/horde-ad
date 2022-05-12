@@ -6,6 +6,7 @@ import Prelude
 import qualified Data.Array.Convert
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Vector.Generic as V
+import           GHC.TypeLits (KnownNat)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
@@ -158,24 +159,37 @@ gdShowRecord gamma f initList n =
       ppARecord (ARecord a b) = OS.toList a ++ OS.toList b
   in (ppARecord gradient, value)
 
-fquadRecord :: DualMonad d r m
-            => ARecordDD '[] d r -> m (DualNumber d r)
-fquadRecord (ARecord x y) = quad (fromS0 x) (fromS0 y)
+fquadRecord :: forall k d r m. (DualMonad d r m, KnownNat k)
+            => ARecordDD '[k] d r -> m (DualNumber d r)
+fquadRecord (ARecord x y) = quad (fromS0 (head (unravelToListS x)))
+                                 (fromS0 (head (unravelToListS y)))
 
 gdTestsRecord :: TestTree
 gdTestsRecord = testGroup "Record of shaped tensors tests"
   [ testCase "0.1 30"
-    $ gdShowRecord 0.1 fquadRecord [[2], [3]] 30
+    $ gdShowRecord 0.1 (fquadRecord @1) [[2], [3]] 30
       @?= ([2.47588e-3,3.7138206e-3],5.00002 :: Float)
   , testCase "0.01 30"
-    $ gdShowRecord 0.01 fquadRecord [[2], [3]] 30
+    $ gdShowRecord 0.01 (fquadRecord @1) [[2], [3]] 30
       @?= ([1.0909687,1.6364527],8.86819 :: Float)
   , testCase "0.01 300"
-    $ gdShowRecord 0.01 fquadRecord [[2], [3]] 300
+    $ gdShowRecord 0.01 (fquadRecord @1) [[2], [3]] 300
       @?= ([4.665013e-3,6.9975173e-3],5.0000706 :: Float)
   , testCase "0.01 300000"
-    $ gdShowRecord 0.01 fquadRecord [[2], [3]] 300000
+    $ gdShowRecord 0.01 (fquadRecord @1) [[2], [3]] 300000
       @?= ([3.5e-44,3.5e-44],5.0 :: Float)
+  , testCase "0.1 30"
+    $ gdShowRecord 0.1 (fquadRecord @2) [[2, 42], [3, 42]] 30
+      @?= ([2.47588e-3,42,3.7138206e-3,42],5.00002 :: Float)
+  , testCase "0.01 30"
+    $ gdShowRecord 0.01 (fquadRecord @2) [[2, 42], [3, 42]] 30
+      @?= ([1.0909687,42,1.6364527,42],8.86819 :: Float)
+  , testCase "0.01 300"
+    $ gdShowRecord 0.01 (fquadRecord @2) [[2, 42], [3, 42]] 300
+      @?= ([4.665013e-3,42,6.9975173e-3,42],5.0000706 :: Float)
+  , testCase "0.01 300000"
+    $ gdShowRecord 0.01 (fquadRecord @2) [[2, 42], [3, 42]] 300000
+      @?= ([3.5e-44,42,3.5e-44,42],5.0 :: Float)
   ]
 
 -- This, and other XOR nn operations, have unfused Delta let-bindings
