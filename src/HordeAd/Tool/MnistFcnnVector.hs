@@ -69,7 +69,7 @@ fcnnMnistLen1 widthHidden widthHidden2 =
 -- and from these, the @len*@ functions compute the number and dimensions
 -- of scalars (none in this case) and vectors of dual number parameters
 -- (variables) to be given to the program.
-fcnnMnist1 :: forall d r m. DualMonad d r m
+fcnnMnist1 :: forall d r m. (DualMonad d r m, Num (Vector r))
            => (DualNumber d (Vector r) -> m (DualNumber d (Vector r)))
            -> (DualNumber d (Vector r) -> m (DualNumber d (Vector r)))
            -> Int
@@ -97,7 +97,7 @@ fcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 fcnnMnistLoss1
-  :: DualMonad d r m
+  :: (DualMonad d r m, Floating (Vector r))
   => Int -> Int -> MnistData r -> DualNumberVariables d r
   -> m (DualNumber d r)
 fcnnMnistLoss1 widthHidden widthHidden2 (input, target) variables = do
@@ -108,7 +108,7 @@ fcnnMnistLoss1 widthHidden widthHidden2 (input, target) variables = do
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 fcnnMnistTest1
-  :: forall r. IsScalar 'DifferentiationSchemeGradient r
+  :: forall r. (IsScalar 'DifferentiationSchemeGradient r, Floating (Vector r))
   => Int -> Int -> [MnistData r] -> (Domain0 r, Domain1 r) -> r
 fcnnMnistTest1 widthHidden widthHidden2 inputs (params0, params1) =
   let matchesLabels :: MnistData r -> Bool

@@ -21,6 +21,7 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 import           Test.Tasty.QuickCheck hiding (label, shuffle)
 import           Text.Printf
+import qualified Data.Vector.Storable
 
 import HordeAd
 import HordeAd.Core.DualClass (DifferentiationScheme (..))
@@ -40,7 +41,7 @@ shortTestForCITrees = [ dumbMnistTests
                       , shortCIMnistTests
                       ]
 
-sgdShow :: HasDelta r
+sgdShow :: (HasDelta r, Floating (HM.Vector r))
         => r
         -> (a -> DualNumberVariables 'DifferentiationSchemeGradient r -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
         -> [a]  -- ^ training data
@@ -496,7 +497,7 @@ mnistTestCase2S
   -> String
   -> Int
   -> Int
-  -> (forall d r m. DualMonad d r m
+  -> (forall d r m. (DualMonad d r m, Floating (Data.Vector.Storable.Vector r))
       => Proxy widthHidden -> Proxy widthHidden2
       -> MnistData (r) -> DualNumberVariables d r -> m (DualNumber d r))
   -> Double

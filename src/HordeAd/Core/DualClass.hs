@@ -43,7 +43,7 @@ import HordeAd.Internal.Delta
 -- to the underlying scalar type.
 type IsDualWithScalar (d :: DifferentiationScheme) a r =
   ( IsDual d a, HasVariables a r
-  , Floating a, MonoFunctor a, Element a ~ r )
+  , MonoFunctor a, Element a ~ r )
 
 -- | A mega-shorthand for a bundle of connected type constraints.
 type IsScalar (d :: DifferentiationScheme) r =

@@ -11,6 +11,7 @@ import           Control.Monad (foldM)
 import qualified Data.Array.DynamicS as OT
 import           Data.Coerce (coerce)
 import qualified Data.Vector.Generic as V
+import qualified Data.Vector.Storable
 import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.DualClass (DifferentiationScheme (..))
@@ -124,7 +125,7 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
     in go g2 rest parametersNew valueNew
 
 sgdAdamBatch
-  :: forall r a. HasDelta r
+  :: forall r a. (HasDelta r, Floating (Data.Vector.Storable.Vector r))
   => Int  -- ^ batch size
   -> (a -> DualNumberVariables 'DifferentiationSchemeGradient r -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
   -> [a]
@@ -134,7 +135,7 @@ sgdAdamBatch
 sgdAdamBatch = sgdAdamBatchArgs defaultArgsAdam
 
 sgdAdamBatchArgs
-  :: forall r a. HasDelta r
+  :: forall r a. (HasDelta r, Floating (Data.Vector.Storable.Vector r))
   => ArgsAdam r
   -> Int  -- ^ batch size
   -> (a -> DualNumberVariables 'DifferentiationSchemeGradient r
@@ -170,7 +171,7 @@ sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
 -- | Relatively Smart Gradient Descent.
 -- Based on @gradientDescent@ from package @ad@ which is in turn based
 -- on the one from the VLAD compiler.
-gdSmart :: forall r. HasDelta r
+gdSmart :: forall r. (HasDelta r, Floating (Data.Vector.Storable.Vector r))
         => (DualNumberVariables 'DifferentiationSchemeGradient r -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
         -> Int  -- ^ requested number of iterations
         -> Domains r  -- ^ initial parameters

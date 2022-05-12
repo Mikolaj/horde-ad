@@ -53,7 +53,7 @@ type LayerWeigthsRNN in_width out_width d r =
 
 rnnMnistLayerS
   :: forall in_width out_width batch_size d r m.
-     (DualMonad d r m, KnownNat in_width, KnownNat out_width, KnownNat batch_size)
+     (DualMonad d r m, KnownNat in_width, KnownNat out_width, KnownNat batch_size, Floating (Vector r))
   => DualNumber d (OS.Array '[out_width, batch_size] r)  -- in state
   -> DualNumber d (OS.Array '[in_width, batch_size] r)  -- in
   -> LayerWeigthsRNN in_width out_width d r
@@ -66,7 +66,7 @@ rnnMnistLayerS s x (wX, wS, b) = do
 
 rnnMnistTwoS
   :: forall out_width batch_size d r m.
-     (DualMonad d r m, KnownNat out_width, KnownNat batch_size)
+     (DualMonad d r m, KnownNat out_width, KnownNat batch_size, Floating (Vector r))
   => DualNumber d (OS.Array '[2 GHC.TypeLits.* out_width, batch_size] r)
        -- initial state
   -> OS.Array '[SizeMnistWidth, batch_size] r
@@ -85,7 +85,7 @@ rnnMnistTwoS s x ((wX, wS, b), (wX2, wS2, b2)) = do
 
 rnnMnistZeroS
   :: forall out_width batch_size d r m.
-     (DualMonad d r m, KnownNat out_width, KnownNat batch_size)
+     (DualMonad d r m, KnownNat out_width, KnownNat batch_size, Floating (Vector r))
   => OS.Array '[SizeMnistHeight, SizeMnistWidth, batch_size] r
   -- All below is the type of all paramters of this nn. The same is reflected
   -- in the length function below and read from variables further down.
@@ -119,7 +119,7 @@ rnnMnistLenS _ =
 
 rnnMnistS
   :: forall out_width batch_size d r m.
-     (DualMonad d r m, KnownNat out_width, KnownNat batch_size)
+     (DualMonad d r m, KnownNat out_width, KnownNat batch_size, Floating (Vector r))
   => OS.Array '[SizeMnistHeight, SizeMnistWidth, batch_size] r
   -> DualNumberVariables d r
   -> m (DualNumber d (OS.Array '[SizeMnistLabel, batch_size] r))
@@ -136,7 +136,7 @@ rnnMnistS xs variables = do
 
 rnnMnistLossFusedS
   :: forall out_width batch_size d r m.
-     (DualMonad d r m, KnownNat out_width, KnownNat batch_size)
+     (DualMonad d r m, KnownNat out_width, KnownNat batch_size, Floating (Vector r))
   => Proxy out_width
   -> MnistDataBatchS batch_size r
   -> DualNumberVariables d r
@@ -152,7 +152,7 @@ rnnMnistLossFusedS _ (glyphS, labelS) variables = do
 
 rnnMnistTestS
   :: forall out_width batch_size r.
-     (IsScalar 'DifferentiationSchemeGradient r, KnownNat out_width, KnownNat batch_size)
+     (IsScalar 'DifferentiationSchemeGradient r, KnownNat out_width, KnownNat batch_size, Floating (Vector r))
   => Proxy r -> Proxy out_width
   -> MnistDataBatchS batch_size r
   -> Domains r

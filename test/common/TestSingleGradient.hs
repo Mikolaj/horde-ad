@@ -6,6 +6,7 @@ import Prelude
 
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
+import qualified Data.Vector.Storable
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 import           Test.Tasty.QuickCheck
@@ -49,7 +50,7 @@ squareDual :: DualMonad d r m => DualNumber d r -> m (DualNumber d r)
 squareDual = returnLet . square
 
 dReverse0
-  :: HasDelta r
+  :: (HasDelta r, Num (Data.Vector.Storable.Vector r))
   => (DualNumberVariables 'DifferentiationSchemeGradient r -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
   -> [r]
   -> ([r], r)
@@ -300,7 +301,7 @@ atanReadmeM = returnLet . atanReadmeScalar
 -- which we here don't use (above we construct a vector output,
 -- but it's a vector of scalar parameters, not a single parameter
 -- of rank 1).
-atanReadmeDReverse :: HasDelta r
+atanReadmeDReverse :: (HasDelta r, Num (Data.Vector.Storable.Vector r))
                    => Domain0 r -> (Domain0 r, r)
 atanReadmeDReverse ds =
   let ((result, _, _, _), value) =
@@ -334,7 +335,7 @@ vatanReadmeM variables = do
       v = seq1 $ atanReadmeOriginal x y z
   returnLet $ sumElements0 v
 
-vatanReadmeDReverse :: HasDelta r
+vatanReadmeDReverse :: (HasDelta r, Num (Data.Vector.Storable.Vector r))
                     => Domain1 r -> (Domain1 r, r)
 vatanReadmeDReverse dsV =
   let ((_, result, _, _), value) =

@@ -37,7 +37,7 @@ fcnnMnistLen2 widthHidden widthHidden2 =
 -- and vectors given as dual number parameters (variables).
 -- The dimensions, in turn, can be computed by the @len*@ functions
 -- on the basis of the requested widths, see above.
-fcnnMnist2 :: forall d r m. DualMonad d r m
+fcnnMnist2 :: forall d r m. (DualMonad d r m, Num (Vector r))
            => (DualNumber d (Vector r) -> m (DualNumber d (Vector r)))
            -> (DualNumber d (Vector r) -> m (DualNumber d (Vector r)))
            -> Vector r
@@ -61,7 +61,7 @@ fcnnMnist2 factivationHidden factivationOutput input variables = do
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 fcnnMnistLoss2
-  :: DualMonad d r m
+  :: (DualMonad d r m, Floating (Vector r))
   => MnistData r -> DualNumberVariables d r -> m (DualNumber d r)
 fcnnMnistLoss2 (input, target) variables = do
   result <- inline fcnnMnist2 logisticAct softMaxActV input variables
@@ -71,14 +71,14 @@ fcnnMnistLoss2 (input, target) variables = do
 -- and composed with the appropriate loss function, using fused
 -- softMax and cross entropy as the loss function.
 fcnnMnistLossFused2
-  :: DualMonad d r m
+  :: (DualMonad d r m, Floating (Vector r))
   => MnistData r -> DualNumberVariables d r -> m (DualNumber d r)
 fcnnMnistLossFused2 (input, target) variables = do
   result <- inline fcnnMnist2 logisticAct return input variables
   lossSoftMaxCrossEntropyV target result
 
 fcnnMnistLossFusedRelu2
-  :: DualMonad d r m
+  :: (DualMonad d r m, Floating (Vector r))
   => MnistData r -> DualNumberVariables d r -> m (DualNumber d r)
 fcnnMnistLossFusedRelu2 (input, target) variables = do
   result <- inline fcnnMnist2 reluAct return input variables
@@ -87,7 +87,7 @@ fcnnMnistLossFusedRelu2 (input, target) variables = do
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 fcnnMnistTest2
-  :: forall r. IsScalar 'DifferentiationSchemeGradient r
+  :: forall r. (IsScalar 'DifferentiationSchemeGradient r, Floating (Vector r))
   => [MnistData r] -> Domains r -> r
 fcnnMnistTest2 inputs parameters =
   let matchesLabels :: MnistData r -> Bool

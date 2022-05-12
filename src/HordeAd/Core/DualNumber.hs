@@ -135,7 +135,7 @@ constant a = D a dZero
 scale :: (Num a, IsDual d a) => a -> DualNumber d a -> DualNumber d a
 scale a (D u u') = D (a * u) (dScale a u')
 
-tanhAct :: (DualMonad d r m, IsDualWithScalar d a r)
+tanhAct :: (DualMonad d r m, IsDualWithScalar d a r, Floating a)
         => DualNumber d a -> m (DualNumber d a)
 tanhAct = returnLet . tanh
 
@@ -144,7 +144,7 @@ logistic (D u u') =
   let y = recip (1 + exp (- u))
   in D y (dScale (y * (1 - y)) u')
 
-logisticAct :: (DualMonad d r m, IsDualWithScalar d a r)
+logisticAct :: (DualMonad d r m, IsDualWithScalar d a r, Floating a)
             => DualNumber d a -> m (DualNumber d a)
 logisticAct = returnLet . logistic
 
@@ -156,17 +156,17 @@ squaredDifference :: (Num a, IsDual d a)
                   => a -> DualNumber d a -> DualNumber d a
 squaredDifference targ res = square $ res - constant targ
 
-lossSquared :: (DualMonad d r m, IsDualWithScalar d a r)
+lossSquared :: (DualMonad d r m, IsDualWithScalar d a r, Num a)
             => a -> DualNumber d a -> m (DualNumber d a)
 lossSquared targ res = returnLet $ squaredDifference targ res
 
-reluAct :: (DualMonad d r m, IsDualWithScalar d a r)
+reluAct :: (DualMonad d r m, IsDualWithScalar d a r, Num a)
         => DualNumber d a -> m (DualNumber d a)
 reluAct v@(D u _) = do
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0) u
   returnLet $ scale oneIfGtZero v
 
-reluLeakyAct :: (DualMonad d r m, IsDualWithScalar d a r)
+reluLeakyAct :: (DualMonad d r m, IsDualWithScalar d a r, Num a)
              => DualNumber d a -> m (DualNumber d a)
 reluLeakyAct v@(D u _) = do
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) u
@@ -252,7 +252,7 @@ lossCrossEntropy targ res = do
   returnLet $ negate $ V.ifoldl' f 0 res
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropyV :: DualMonad d r m
+lossCrossEntropyV :: (DualMonad d r m, Floating (Vector r))
                   => Vector r
                   -> DualNumber d (Vector r)
                   -> m (DualNumber d r)
@@ -262,7 +262,7 @@ lossCrossEntropyV targ res = returnLet $ negate $ log res <.>!! targ
 -- only when @target@ is one-hot. Otherwise, results vary wildly. In our
 -- rendering of the MNIST data all labels are on-hot.
 lossSoftMaxCrossEntropyV
-  :: DualMonad d r m
+  :: (DualMonad d r m, Floating (Vector r))
   => Vector r -> DualNumber d (Vector r) -> m (DualNumber d r)
 lossSoftMaxCrossEntropyV target (D u u') = do
   -- The following protects from underflows, overflows and exploding gradients
@@ -387,7 +387,7 @@ maxPool1 ksize stride v@(D u _) =
   let slices = [slice1 i ksize v | i <- [0, stride .. V.length u - ksize]]
   in seq1 $ V.fromList $ map maximum0 slices
 
-softMaxActV :: DualMonad d r m
+softMaxActV :: (DualMonad d r m, Floating (Vector r))
             => DualNumber d (Vector r) -> m (DualNumber d (Vector r))
 softMaxActV d@(D u _) = do
   expU <- returnLet $ exp d
@@ -400,7 +400,7 @@ softMaxActV d@(D u _) = do
 -- only when @target@ is one-hot. Otherwise, results vary wildly. In our
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyL
-  :: DualMonad d r m
+  :: (DualMonad d r m, Floating (Vector r))
   => Matrix r
   -> DualNumber d (Matrix r)
   -> m (DualNumber d (Vector r))
@@ -567,7 +567,7 @@ conv2 ker@(D u _) m@(D v _) = do
            padded = columnAppend2 zCol $ columnAppend2 rowPadded zCol
        corr2 (fliprl2 . flipud2 $ ker) padded
 
-conv2' :: IsScalar d r
+conv2' :: (IsScalar d r, Num (Vector r))
        => DualNumber d (Matrix r) -> DualNumber d (Matrix r)
        -> DualNumber d (Matrix r)
 conv2' (D u u') (D v v') = D (HM.conv2 u v) (dAdd (dConv2 u v') (dConv2 v u'))
@@ -796,7 +796,7 @@ infixr 8 <>$
 conv2S :: forall d r kheight_minus_1 kwidth_minus_1 in_height in_width.
           ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
           , KnownNat in_height, KnownNat in_width
-          , IsScalar d r )
+          , IsScalar d r, Num (Vector r))
        => DualNumber d (OS.Array '[kheight_minus_1 + 1, kwidth_minus_1 + 1] r)
        -> DualNumber d (OS.Array '[in_height, in_width] r)
        -> DualNumber d (OS.Array '[ in_height + kheight_minus_1
@@ -810,7 +810,7 @@ conv24 :: forall kheight_minus_1 kwidth_minus_1
           ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
           , KnownNat out_channels, KnownNat in_height, KnownNat in_width
           , KnownNat batch_size, KnownNat in_channels
-          , IsScalar d r )
+          , IsScalar d r, Num (Vector r))
        => DualNumber d (OS.Array '[ out_channels, in_channels
                                  , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
        -> DualNumber d (OS.Array '[batch_size, in_channels, in_height, in_width] r)

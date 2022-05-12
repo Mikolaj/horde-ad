@@ -17,7 +17,7 @@ import HordeAd
 import HordeAd.Tool.MnistTools
 
 mnistTrainBench2 :: forall r. ( NFData r, HasDelta r
-                              , UniformRange r )
+                              , UniformRange r, Floating (HM.Vector r))
                  => String -> Int -> [MnistData r] -> Int -> Int
                  -> r
                  -> Benchmark

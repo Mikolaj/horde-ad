@@ -4,6 +4,7 @@ module TestSimpleDescent (testTrees) where
 import Prelude
 
 import qualified Data.Vector.Generic as V
+import qualified Data.Vector.Storable
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
@@ -30,7 +31,7 @@ scaleDual r u = returnLet $ scale r u
 squareDual :: DualMonad d r m => DualNumber d r -> m (DualNumber d r)
 squareDual = returnLet . square
 
-gdSimpleShow :: HasDelta r
+gdSimpleShow :: (HasDelta r, Floating (Data.Vector.Storable.Vector r))
              => r
              -> (DualNumberVariables 'DifferentiationSchemeGradient r -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
              -> Domain0 r

@@ -63,7 +63,7 @@ lenMnistCNN final_image_sz depth num_hidden =
   )
 
 -- This is simple convolution with depth 1.
-convDataMnistCNN :: DualMonad d r m
+convDataMnistCNN :: (DualMonad d r m, Num (Vector r))
                  => DualNumberVariables d r -> Matrix r -> Int
                  -> m (DualNumber d (Matrix r))
 convDataMnistCNN variables x offset = do
@@ -74,7 +74,7 @@ convDataMnistCNN variables x offset = do
   maxPool2 2 2 yRelu
 
 -- This simulates convolution of nontrivial depth, without using tensors.
-convMiddleMnistCNN :: DualMonad d r m
+convMiddleMnistCNN :: (DualMonad d r m, Num (Vector r))
                    => Int -> DualNumberVariables d r
                    -> [DualNumber d (Matrix r)] -> Int
                    -> m (DualNumber d (Matrix r))
@@ -88,7 +88,7 @@ convMiddleMnistCNN depth variables ms1 k = do
   yRelu <- reluAct $ yConv + konst2 bias (HM.size u)
   maxPool2 2 2 yRelu
 
-convMnistCNN :: DualMonad d r m
+convMnistCNN :: (DualMonad d r m, Num (Vector r))
              => Int -> Matrix r  -- 28x28
              -> DualNumberVariables d r
              -> m (DualNumber d (Vector r))
@@ -105,7 +105,7 @@ convMnistCNN depth x variables = do
       biasesReadout = var1 variables 1
   returnLet $ weigthsReadout #>! denseRelu + biasesReadout
 
-convMnistLossCNN :: DualMonad d r m
+convMnistLossCNN :: (DualMonad d r m, Floating (Vector r))
                  => Int -> MnistData2 r
                  -> DualNumberVariables d r
                  -> m (DualNumber d r)
@@ -114,7 +114,7 @@ convMnistLossCNN depth (x, target) variables = do
   lossSoftMaxCrossEntropyV target result
 
 convMnistTestCNN
-  :: forall r. IsScalar 'DifferentiationSchemeGradient r
+  :: forall r. (IsScalar 'DifferentiationSchemeGradient r, Floating (Vector r))
   => Proxy r -> Int -> [MnistData2 r] -> Domains r -> r
 convMnistTestCNN _ depth inputs parameters =
   let matchesLabels :: MnistData2 r -> Bool
@@ -211,7 +211,7 @@ final_image_sizeS :: Int
 final_image_sizeS = 7
 
 -- This is simple convolution with depth 1.
-convDataMnistCNNS :: DualMonad d r m
+convDataMnistCNNS :: (DualMonad d r m, Num (Vector r))
                   => DualNumberVariables d r -> Matrix r -> Int
                   -> m (DualNumber d (Matrix r))
 convDataMnistCNNS variables x offset = do
@@ -222,7 +222,7 @@ convDataMnistCNNS variables x offset = do
   maxPool2 2 2 yRelu
 
 -- This simulates convolution of nontrivial depth, without using tensors.
-convMiddleMnistCNNS :: DualMonad d r m
+convMiddleMnistCNNS :: (DualMonad d r m, Num (Vector r))
                     => Int -> DualNumberVariables d r
                     -> [DualNumber d (Matrix r)] -> Int
                     -> m (DualNumber d (Matrix r))
@@ -236,7 +236,7 @@ convMiddleMnistCNNS depth variables ms1 k = do
   yRelu <- reluAct $ yConv + konst2 bias (HM.size u)
   maxPool2 2 2 yRelu
 
-convMnistCNNS :: DualMonad d r m
+convMnistCNNS :: (DualMonad d r m, Num (Vector r))
               => Int -> Matrix r  -- 28x28
               -> DualNumberVariables d r
               -> m (DualNumber d (Vector r))
@@ -253,7 +253,7 @@ convMnistCNNS depth x variables = do
       biasesReadout = var1 variables 1
   returnLet $ weigthsReadout #>! denseRelu + biasesReadout
 
-convMnistLossCNNS :: DualMonad d r m
+convMnistLossCNNS :: (DualMonad d r m, Floating (Vector r))
                   => Int -> MnistData2 r
                   -> DualNumberVariables d r
                   -> m (DualNumber d r)
@@ -262,7 +262,7 @@ convMnistLossCNNS depth (x, target) variables = do
   lossSoftMaxCrossEntropyV target result
 
 convMnistTestCNNS
-  :: forall r. IsScalar 'DifferentiationSchemeGradient r
+  :: forall r. (IsScalar 'DifferentiationSchemeGradient r, Floating (Vector r))
   => Proxy r -> Int -> [MnistData2 r] -> Domains r -> r
 convMnistTestCNNS _ depth inputs parameters =
   let matchesLabels :: MnistData2 r -> Bool
@@ -280,7 +280,7 @@ convMnistTestCNNS _ depth inputs parameters =
 -- * A variant of @convMnistCNN@ with @conv2'@.
 
 -- This is simple convolution with depth 1.
-convDataMnistCNNP :: DualMonad d r m
+convDataMnistCNNP :: (DualMonad d r m, Num (Vector r))
                   => DualNumberVariables d r -> Matrix r -> Int
                   -> m (DualNumber d (Matrix r))
 convDataMnistCNNP variables x offset = do
@@ -292,7 +292,7 @@ convDataMnistCNNP variables x offset = do
   maxPool2 2 2 yRelu
 
 -- This simulates convolution of nontrivial depth, without using tensors.
-convMiddleMnistCNNP :: DualMonad d r m
+convMiddleMnistCNNP :: (DualMonad d r m, Num (Vector r))
                     => Int -> DualNumberVariables d r
                     -> [DualNumber d (Matrix r)] -> Int
                     -> m (DualNumber d (Matrix r))
@@ -306,7 +306,7 @@ convMiddleMnistCNNP depth variables ms1 k = do
   yRelu <- reluAct $ yConv + konst2 bias (HM.size u)
   maxPool2 2 2 yRelu
 
-convMnistCNNP :: DualMonad d r m
+convMnistCNNP :: (DualMonad d r m, Num (Vector r))
               => Int -> Matrix r  -- 28x28
               -> DualNumberVariables d r
               -> m (DualNumber d (Vector r))
@@ -323,7 +323,7 @@ convMnistCNNP depth x variables = do
       biasesReadout = var1 variables 1
   returnLet $ weigthsReadout #>! denseRelu + biasesReadout
 
-convMnistLossCNNP :: DualMonad d r m
+convMnistLossCNNP :: (DualMonad d r m, Floating (Vector r))
                   => Int -> MnistData2 r
                   -> DualNumberVariables d r
                   -> m (DualNumber d r)
@@ -332,7 +332,7 @@ convMnistLossCNNP depth (x, target) variables = do
   lossSoftMaxCrossEntropyV target result
 
 convMnistTestCNNP
-  :: forall r. IsScalar 'DifferentiationSchemeGradient r
+  :: forall r. (IsScalar 'DifferentiationSchemeGradient r, Floating (Vector r))
   => Proxy r -> Int -> [MnistData2 r] -> Domains r -> r
 convMnistTestCNNP _ depth inputs parameters =
   let matchesLabels :: MnistData2 r -> Bool
@@ -565,7 +565,9 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
             (_, _, _, ds) = initializerFixed seedDs rangeDs paramShape
             (_, _, _, parametersPerturbation) =
               initializerFixed (seed + seedDs) 1e-7 paramShape
-            f, fP :: forall d r m. (DualMonad d r m)
+            f :: forall d r m. DualMonad d r m
+                  => DualNumberVariables d r -> m (DualNumber d r)
+            fP :: forall d r m. (DualMonad d r m, Num (Vector r))
                   => DualNumberVariables d r -> m (DualNumber d r)
             f variables = do
               let ker = var2 variables 0

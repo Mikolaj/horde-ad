@@ -36,7 +36,7 @@ convMnistLayerS
      , KnownNat in_channels, KnownNat batch_size
      , 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1  -- wrongly reported as redundant
-     , DualMonad d r m )
+     , DualMonad d r m, Num (HM.Vector r))
   => DualNumber d (OS.Array '[ out_channels, in_channels
                             , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
   -> DualNumber d (OS.Array '[batch_size, in_channels, in_height, in_width] r)
@@ -69,7 +69,7 @@ convMnistTwoS
      , in_channels ~ 1
      , 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
-     , DualMonad d r m )
+     , DualMonad d r m, Num (HM.Vector r))
   => OS.Array '[batch_size, in_channels, in_height, in_width] r
   -- All below is the type of all paramters of this nn. The same is reflected
   -- in the length function below and read from variables further down.
@@ -148,7 +148,7 @@ convMnistS
      , KnownNat in_height, KnownNat in_width, KnownNat batch_size
      , 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
-     , DualMonad d r m )
+     , DualMonad d r m, Num (HM.Vector r))
   => OS.Array '[batch_size, 1, in_height, in_width] r
   -> DualNumberVariables d r
   -> m (DualNumber d (OS.Array '[SizeMnistLabel, batch_size] r))
@@ -173,7 +173,7 @@ convMnistLossFusedS
      , KnownNat in_height, KnownNat in_width, KnownNat batch_size
      , 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
-     , DualMonad d r m )
+     , DualMonad d r m, Floating (HM.Vector r))
   => Proxy kheight_minus_1
   -> Proxy kwidth_minus_1
   -> Proxy num_hidden
@@ -204,7 +204,7 @@ convMnistTestS
      , KnownNat in_height, KnownNat in_width
      , 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
-     , IsScalar 'DifferentiationSchemeGradient r )
+     , IsScalar 'DifferentiationSchemeGradient r, Num (HM.Vector r))
   => Proxy r
   -> Proxy kheight_minus_1
   -> Proxy kwidth_minus_1

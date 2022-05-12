@@ -115,7 +115,7 @@ initializeState (params0, params1, params2, paramsX) =
              }
 
 dReverseGeneral
-  :: forall r. HasDelta r
+  :: forall r. (HasDelta r, Num (Vector r))
   => r
   -> DualNumberVariables 'DifferentiationSchemeGradient r
   -> (DualNumberVariables 'DifferentiationSchemeGradient r
@@ -137,7 +137,7 @@ dReverseGeneral dt
       gradient = gradientFromDelta dim0 dim1 dim2 dimX st d dt
   in (gradient, value)
 
-dReverse :: HasDelta r
+dReverse :: (HasDelta r, Num (Vector r))
    => r
    -> (DualNumberVariables 'DifferentiationSchemeGradient r
        -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
@@ -151,7 +151,7 @@ dReverse dt f parameters =
 -- This function uses @DualMonadGradient@ for an inefficient computation
 -- of forward derivaties. See @dFastForwardGeneral@ for an efficient variant.
 dForwardGeneral
-  :: forall r. HasDelta r
+  :: forall r. (HasDelta r, Num (Vector r))
   => DualNumberVariables 'DifferentiationSchemeGradient r
   -> (DualNumberVariables 'DifferentiationSchemeGradient r
       -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
@@ -167,7 +167,7 @@ dForwardGeneral variables@(params0, _, params1, _, params2, _, paramsX, _)
 
 -- The direction vector ds is taken as an extra argument.
 dForward
-  :: HasDelta r
+  :: (HasDelta r, Num (Vector r))
   => (DualNumberVariables 'DifferentiationSchemeGradient r
       -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
   -> Domains r

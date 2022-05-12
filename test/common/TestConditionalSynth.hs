@@ -52,7 +52,7 @@ lenSynthV width nSamples =
 -- To approximate the samples (a list of input and result pairs on which
 -- parameters are trained or tested) using this code, divide the input
 -- and multiply result appropriately, see @synthLossSquared@.
-synthValue :: forall d r m. DualMonad d r m
+synthValue :: forall d r m. (DualMonad d r m, Num (Vector r))
            => (DualNumber d (Vector r) -> m (DualNumber d (Vector r)))
            -> r
            -> DualNumber d (Vector r)
@@ -63,7 +63,7 @@ synthValue factivation x ps1@(D u _) ps2 ps3 = do
   activated <- factivation $ scale (HM.konst x (V.length u)) ps1 + ps2
   returnLet $ activated <.>! ps3
 
-synthLossSquared :: DualMonad d r m
+synthLossSquared :: (DualMonad d r m, Num (Vector r))
                  => (DualNumber d (Vector r)
                      -> m (DualNumber d (Vector r)))
                  -> r
@@ -91,7 +91,7 @@ sumResultsDual f as = do
   returnLet sumUs
 
 synthLossAll
-  :: forall d r m. DualMonad d r m
+  :: forall d r m. (DualMonad d r m, Num (Vector r))
   => (DualNumber d (Vector r) -> m (DualNumber d (Vector r)))
   -> Data.Vector.Storable.Vector (r, r)
   -> DualNumber d (Vector r)
@@ -114,7 +114,7 @@ sumTrainableInputsS x offset variables width =
       f i = sumTrainableInputsV x (offset + i) variables
   in V.generate width f
 
-splitLayerV :: forall d r m. DualMonad d r m
+splitLayerV :: forall d r m. (DualMonad d r m, Num (Vector r))
             => (DualNumber d (Vector r) -> m (DualNumber d (Vector r)))
             -> DualNumber d (Vector r)
             -> Int
@@ -136,7 +136,7 @@ splitLayerV factivation hiddenVec offset variables width = do
   return (a0, a1, a2)
 
 synthLossBareTotal
-  :: forall d r m. DualMonad d r m
+  :: forall d r m. (DualMonad d r m, Num (Vector r))
   => (DualNumber d (Vector r) -> m (DualNumber d (Vector r)))
   -> (DualNumber d (Vector r) -> m (DualNumber d (Vector r)))
   -> (DualNumber d (Vector r) -> m (DualNumber d (Vector r)))

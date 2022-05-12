@@ -154,7 +154,7 @@ wsFitSeparated range@(low, hi) seed k =
       g = mkStdGen seed
   in V.zip steps (rolls g)
 
-gdSimpleShow :: HasDelta r
+gdSimpleShow :: (HasDelta r, Floating (Vector r))
              => r
              -> (DualNumberVariables 'DifferentiationSchemeGradient r -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
              -> Domain0 r
@@ -716,7 +716,7 @@ smartFit3TestsL3 =
   ]
 -}
 
-sgdShow :: HasDelta r
+sgdShow :: (HasDelta r, Floating (Vector r))
         => r
         -> (a -> DualNumberVariables 'DifferentiationSchemeGradient r -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
         -> [a]  -- ^ training data

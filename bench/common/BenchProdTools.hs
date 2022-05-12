@@ -146,11 +146,11 @@ vec_prod :: forall r. HasDelta r
          => Vector r -> r
 vec_prod ds = primalValue @r vec_prod_aux (ds, V.empty, V.empty, V.empty)
 
-grad_vec_prod :: HasDelta r => Vector r -> Vector r
+grad_vec_prod :: (HasDelta r, Num (Vector r)) => Vector r -> Vector r
 grad_vec_prod ds =
   (\(v, _, _, _) -> v) $ fst $ dReverse 1 vec_prod_aux (ds, V.empty, V.empty, V.empty)
 
-grad_toList_prod :: HasDelta r => [r] -> [r]
+grad_toList_prod :: (HasDelta r, Num (Vector r)) => [r] -> [r]
 grad_toList_prod l = V.toList $ grad_vec_prod $ V.fromList l
 
 -- A version that omits all Delta bindings except for just one let
@@ -170,7 +170,7 @@ vec_omit_prod :: forall r. HasDelta r
 vec_omit_prod ds =
   primalValue @r vec_omit_prod_aux (ds, V.empty, V.empty, V.empty)
 
-grad_vec_omit_prod :: HasDelta r
+grad_vec_omit_prod :: (HasDelta r, Num (Vector r))
                    => Vector r -> Vector r
 grad_vec_omit_prod ds =
   (\(v, _, _, _) -> v)
@@ -196,7 +196,7 @@ altSumElementsV variables = do
   let x = var1 variables 0
   returnLet $ altSumElements0 x
 
-grad_vec_omit_scalarSum :: HasDelta r => Vector r -> Vector r
+grad_vec_omit_scalarSum :: (HasDelta r, Num (Vector r)) => Vector r -> Vector r
 grad_vec_omit_scalarSum ds =
   (\(v, _, _, _) -> v)
   $ fst $ dReverse 1 vec_omit_scalarSum_aux (ds, V.empty, V.empty, V.empty)

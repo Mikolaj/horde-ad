@@ -15,6 +15,7 @@ import qualified Data.Array.Shape
 import qualified Data.Array.ShapedS as OS
 import           Data.Proxy (Proxy)
 import qualified Data.Vector.Generic as V
+import qualified Data.Vector.Storable
 import           GHC.TypeLits (KnownNat)
 
 import HordeAd.Core.DualClass (DifferentiationScheme (..))
@@ -31,7 +32,7 @@ import HordeAd.Tool.MnistData
 -- on the basis of the requested widths, see above.
 fcnnMnistLayersS
   :: forall widthHidden widthHidden2 d r m.
-     (DualMonad d r m, KnownNat widthHidden, KnownNat widthHidden2)
+     (DualMonad d r m, KnownNat widthHidden, KnownNat widthHidden2, Num (Data.Vector.Storable.Vector r))
   => (forall sh. OS.Shape sh
       => DualNumber d (OS.Array sh r) -> m (DualNumber d (OS.Array sh r)))
   -> (OS.Array '[SizeMnistGlyph] r)
@@ -75,7 +76,7 @@ fcnnMnistLenS =
 
 fcnnMnistS
   :: forall widthHidden widthHidden2 d r m.
-     (DualMonad d r m, KnownNat widthHidden, KnownNat widthHidden2)
+     (DualMonad d r m, KnownNat widthHidden, KnownNat widthHidden2, Num (Data.Vector.Storable.Vector r))
   => (forall sh. OS.Shape sh
       => DualNumber d (OS.Array sh r) -> m (DualNumber d (OS.Array sh r)))
   -> (OS.Array '[SizeMnistGlyph] r)
@@ -102,7 +103,7 @@ fcnnMnistS factivationHidden input variables = do
 -- https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/exts/ambiguous_types.html#extension-AllowAmbiguousTypes
 fcnnMnistLossFusedS
   :: forall widthHidden widthHidden2 d r m.
-     (DualMonad d r m, KnownNat widthHidden, KnownNat widthHidden2)
+     (DualMonad d r m, KnownNat widthHidden, KnownNat widthHidden2, Floating (Data.Vector.Storable.Vector r))
   => Proxy widthHidden -> Proxy widthHidden2
   -> MnistData r -> DualNumberVariables d r -> m (DualNumber d r)
 fcnnMnistLossFusedS _ _ (input, target) variables = do
@@ -112,7 +113,7 @@ fcnnMnistLossFusedS _ _ (input, target) variables = do
 
 fcnnMnistLossFusedReluS
   :: forall widthHidden widthHidden2 d r m.
-     (DualMonad d r m, KnownNat widthHidden, KnownNat widthHidden2)
+     (DualMonad d r m, KnownNat widthHidden, KnownNat widthHidden2, Floating (Data.Vector.Storable.Vector r))
   => Proxy widthHidden -> Proxy widthHidden2
   -> MnistData r -> DualNumberVariables d r -> m (DualNumber d r)
 fcnnMnistLossFusedReluS _ _ (input, target) variables = do
@@ -124,7 +125,7 @@ fcnnMnistLossFusedReluS _ _ (input, target) variables = do
 -- and the trained parameters.
 fcnnMnistTestS
   :: forall widthHidden widthHidden2 r.
-     (IsScalar 'DifferentiationSchemeGradient r, KnownNat widthHidden, KnownNat widthHidden2)
+     (IsScalar 'DifferentiationSchemeGradient r, KnownNat widthHidden, KnownNat widthHidden2, Floating (Data.Vector.Storable.Vector r))
   => [MnistData r] -> Domains r -> r
 fcnnMnistTestS inputs parameters =
   let matchesLabels :: MnistData r -> Bool
