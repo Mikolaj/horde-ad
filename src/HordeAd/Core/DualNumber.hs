@@ -1,5 +1,6 @@
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, FunctionalDependencies,
-             TypeFamilies, TypeOperators #-}
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, FlexibleInstances,
+             FunctionalDependencies, RankNTypes, TypeFamilies,
+             TypeOperators #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
@@ -32,7 +33,8 @@ import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 
 import HordeAd.Core.DualClass
-import HordeAd.Internal.Delta (Domain0, Domain1, Domain2, DomainX, Domains)
+import HordeAd.Internal.Delta
+  (CodeOut (..), Domain0, Domain1, Domain2, DomainX, Domains)
 
 -- * The main dual number types
 
@@ -857,3 +859,67 @@ maxPool24 d = do
                                   (valueOf @stride)
                        . fromS2)) d
   returnLet res
+
+
+-- * Operations creating delayed/outlined derivatives
+
+-- | A wrapper type to delay/outline computation of the derivatives of the given
+-- primitive function inside the dual component of the created dual number.
+--
+-- To be used as in @unOut $ sin (Out x) + Out (konst1 1 2)@,
+-- which delays computing the dual component of @sin@ and of addition
+-- (both in rank 1).
+newtype Out a = Out {unOut :: a}
+  deriving (Eq, Ord)
+
+instance (Num a, IsPrimal d a) => Num (Out (DualNumber d a)) where
+  Out (D u u') + Out (D v v') =
+    Out $ D (u + v) (dOutline PlusOut [u, v] [u', v'])
+  Out (D u u') - Out (D v v') =
+    Out $ D (u - v) (dOutline MinusOut [u, v] [u', v'])
+  Out (D u u') * Out (D v v') =
+    Out $ D (u * v) (dOutline TimesOut [u, v] [u', v'])
+  negate (Out (D v v')) = Out $ D (- v) (dOutline NegateOut [v] [v'])
+  abs = undefined  -- TODO
+  signum = undefined  -- TODO
+  fromInteger = Out . constant . fromInteger
+
+instance (Real a, IsPrimal d a) => Real (Out (DualNumber d a)) where
+  toRational = undefined  -- TODO?
+
+instance (Fractional a, IsPrimal d a) => Fractional (Out (DualNumber d a)) where
+  Out (D u u') / Out (D v v') =
+    Out $ D (u / v) (dOutline DivideOut [u, v] [u', v'])
+  recip (Out (D v v')) = Out $ D (recip v) (dOutline RecipOut [v] [v'])
+  fromRational = Out . constant . fromRational
+
+instance (Floating a, IsPrimal d a) => Floating (Out (DualNumber d a)) where
+  pi = Out $ constant pi
+  exp (Out (D u u')) = Out $ D (exp u) (dOutline ExpOut [u] [u'])
+  log (Out (D u u')) = Out $ D (log u) (dOutline LogOut [u] [u'])
+  sqrt = undefined  -- TODO
+  Out (D u u') ** Out (D v v') =
+    Out $ D (u ** v) (dOutline PowerOut [u, v] [u', v'])
+  logBase = undefined  -- TODO
+  sin (Out (D u u')) = Out $ D (sin u) (dOutline SinOut [u] [u'])
+  cos (Out (D u u')) = Out $ D (cos u) (dOutline CosOut [u] [u'])
+  tan = undefined  -- TODO
+  asin = undefined  -- TODO
+  acos = undefined  -- TODO
+  atan = undefined  -- TODO
+  sinh = undefined  -- TODO
+  cosh = undefined  -- TODO
+  tanh (Out (D u u')) = Out $ D (tanh u) (dOutline TanhOut [u] [u'])
+  asinh = undefined  -- TODO
+  acosh = undefined  -- TODO
+  atanh = undefined  -- TODO
+
+instance (RealFrac a, IsPrimal d a) => RealFrac (Out (DualNumber d a)) where
+  properFraction = undefined
+    -- very low priority, since these are all extremely not continuous
+
+instance (RealFloat a, IsPrimal d a) => RealFloat (Out (DualNumber d a)) where
+  atan2 (Out (D u u')) (Out (D v v')) =
+    Out $ D (atan2 u v) (dOutline Atan2Out [u, v] [u', v'])
+      -- we can be selective here and omit the other methods,
+      -- most of which don't even have a differentiable codomain
