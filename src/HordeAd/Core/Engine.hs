@@ -26,7 +26,8 @@ import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 import HordeAd.Internal.Delta
-  ( DeltaState (..)
+  ( CodeOut (..)
+  , DeltaState (..)
   , derivativeFromDelta
   , gradientFromDelta
   , ppBindings
@@ -125,7 +126,13 @@ dReverseGeneral dt
       initialState = initializeState (params0, params1, params2, paramsX)
       (D value d, st) = runState (runDualMonadGradient (f variables))
                                  initialState
-      gradient = gradientFromDelta dim0 dim1 dim2 dimX st d dt
+      inlineDerivative primCode primalArgs dualArgs =
+        let D _ u' = outDualNumber primCode primalArgs dualArgs
+        in u'
+      gradient =
+        gradientFromDelta inlineDerivative inlineDerivative inlineDerivative
+                          inlineDerivative inlineDerivative
+                          dim0 dim1 dim2 dimX st d dt
   in (gradient, value)
 
 dReverse :: HasDelta r
@@ -138,6 +145,39 @@ dReverse dt f parameters =
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
   in dReverseGeneral dt variables f
+
+outDualNumber :: (IsPrimal d a, RealFloat a, Show a, Show (Dual d a))
+              => CodeOut -> [a] -> [Dual d a]
+              -> DualNumber d a
+outDualNumber PlusOut [u, v] [u', v'] = D u u' + D v v'
+outDualNumber MinusOut [u, v] [u', v'] = D u u' - D v v'
+outDualNumber TimesOut [u, v] [u', v'] = D u u' * D v v'
+outDualNumber NegateOut [u] [u'] = negate $ D u u'
+outDualNumber AbsOut [u] [u'] = abs $ D u u'
+outDualNumber SignumOut [u] [u'] = signum $ D u u'
+outDualNumber DivideOut [u, v] [u', v'] = D u u' / D v v'
+outDualNumber RecipOut [u] [u'] = recip $ D u u'
+outDualNumber ExpOut [u] [u'] = exp $ D u u'
+outDualNumber LogOut [u] [u'] = log $ D u u'
+outDualNumber SqrtOut [u] [u'] = sqrt $ D u u'
+outDualNumber PowerOut [u, v] [u', v'] = D u u' ** D v v'
+outDualNumber LogBaseOut [u, v] [u', v'] = logBase (D u u') (D v v')
+outDualNumber SinOut [u] [u'] = sin $ D u u'
+outDualNumber CosOut [u] [u'] = cos $ D u u'
+outDualNumber TanOut [u] [u'] = tan $ D u u'
+outDualNumber AsinOut [u] [u'] = asin $ D u u'
+outDualNumber AcosOut [u] [u'] = acos $ D u u'
+outDualNumber AtanOut [u] [u'] = atan $ D u u'
+outDualNumber SinhOut [u] [u'] = sinh $ D u u'
+outDualNumber CoshOut [u] [u'] = cosh $ D u u'
+outDualNumber TanhOut [u] [u'] = tanh $ D u u'
+outDualNumber AsinhOut [u] [u'] = asinh $ D u u'
+outDualNumber AcoshOut [u] [u'] = acosh $ D u u'
+outDualNumber AtanhOut [u] [u'] = atanh $ D u u'
+outDualNumber Atan2Out [u, v] [u', v'] = atan2 (D u u') (D v v')
+outDualNumber primCode primalArgs dualArgs =
+  error $ "outDualNumber: wrong number of arguments"
+          ++ show (primCode, primalArgs, dualArgs)
 
 -- This function uses @DualMonadGradient@ for an inefficient computation
 -- of forward derivaties. See @dFastForwardGeneral@ for an efficient variant.
@@ -213,7 +253,7 @@ dFastForward f parameters (params0, params1, params2, paramsX) =
 -- * Additional mechanisms
 
 prettyPrintDf
-  :: forall r. (Show r, HasDelta r)
+  :: forall r. HasDelta r
   => Bool
   -> (DualNumberVariables 'DModeGradient r
       -> DualMonadGradient r (DualNumber 'DModeGradient r))

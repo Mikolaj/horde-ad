@@ -49,7 +49,7 @@ type IsPrimalAndHasFeatures (d :: DMode) a r =
 -- scalar type of a well behaved (wrt the differentiation mode in the first
 -- argument) collection of primal and dual components of dual numbers.
 type IsScalar (d :: DMode) r =
-  ( HasRanks d r, Ord r, Numeric r
+  ( HasRanks d r, Ord r, Numeric r, Show r
   , IsPrimalAndHasFeatures d r r
   , IsPrimalAndHasFeatures d (Vector r) r
   , IsPrimalAndHasFeatures d (Matrix r) r
@@ -116,6 +116,7 @@ class IsPrimal d a where
   dZero :: Dual d a
   dScale :: a -> Dual d a -> Dual d a
   dAdd :: Dual d a -> Dual d a -> Dual d a
+  dOutline :: CodeOut -> [a] -> [Dual d a] -> Dual d a
 
 -- | Part 1/2 of a hack to squeeze the shaped tensors rank,
 -- with its extra @sh@ parameter, into the 'IsPrimal' class.
@@ -126,6 +127,8 @@ class IsPrimalS d r where
   dAddS :: forall sh. OS.Shape sh
         => Dual d (OS.Array sh r) -> Dual d (OS.Array sh r)
         -> Dual d (OS.Array sh r)
+  dOutlineS :: CodeOut -> [OS.Array sh r] -> [Dual d (OS.Array sh r)]
+            -> Dual d (OS.Array sh r)
 
 -- | Part 2/2 of a hack to squeeze the shaped tensors rank,
 -- with its extra @sh@ parameter, into the 'IsPrimal' class.
@@ -133,6 +136,7 @@ instance (IsPrimalS d r, OS.Shape sh) => IsPrimal d (OS.Array sh r) where
   dZero = dZeroS
   dScale = dScaleS
   dAdd = dAddS
+  dOutline = dOutlineS
 
 -- | Assuming that the first argument is the primal component of dual numbers
 -- with the underyling scalar in the second argument and with differentiation
@@ -234,32 +238,38 @@ instance IsPrimal 'DModeGradient Double where
   dZero = Zero0
   dScale = Scale0
   dAdd = Add0
+  dOutline = Outline0
 
 instance IsPrimal 'DModeGradient Float where
   -- Identical as above:
   dZero = Zero0
   dScale = Scale0
   dAdd = Add0
+  dOutline = Outline0
 
 instance IsPrimal 'DModeGradient (Vector r) where
   dZero = Zero1
   dScale = Scale1
   dAdd = Add1
+  dOutline = Outline1
 
 instance IsPrimal 'DModeGradient (Matrix r) where
   dZero = Zero2
   dScale = Scale2
   dAdd = Add2
+  dOutline = Outline2
 
 instance IsPrimal 'DModeGradient (OT.Array r) where
   dZero = ZeroX
   dScale = ScaleX
   dAdd = AddX
+  dOutline = OutlineX
 
 instance IsPrimalS 'DModeGradient r where
   dZeroS = ZeroS
   dScaleS = ScaleS
   dAddS = AddS
+  dOutlineS = OutlineS
 
 instance HasVariables Double where
   dVar = Var0
@@ -359,11 +369,13 @@ instance IsPrimal 'DModeDerivative Double where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
+  dOutline = undefined  -- TODO: should be no-op, best if caught earlier
 
 instance IsPrimal 'DModeDerivative Float where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
+  dOutline = undefined  -- TODO
 
 -- These constraints force @UndecidableInstances@.
 instance Num (Vector r)
@@ -371,24 +383,28 @@ instance Num (Vector r)
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
+  dOutline = undefined  -- TODO
 
 instance Num (Matrix r)
          => IsPrimal 'DModeDerivative (Matrix r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
+  dOutline = undefined  -- TODO
 
 instance Num (OT.Array r)
          => IsPrimal 'DModeDerivative (OT.Array r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
+  dOutline = undefined  -- TODO
 
 instance (Numeric r, Num (Vector r))
          => IsPrimalS 'DModeDerivative r where
   dZeroS = 0
   dScaleS k d = k * d
   dAddS d e = d + e
+  dOutlineS = undefined  -- TODO
 
 instance ( Numeric r, Num (Vector r)
          , Dual 'DModeDerivative r ~ r )
