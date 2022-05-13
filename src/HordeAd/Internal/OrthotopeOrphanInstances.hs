@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeFamilies, UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Orphan instances for orthotope classes.
 module HordeAd.Internal.OrthotopeOrphanInstances
@@ -12,6 +13,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
+import qualified Numeric.LinearAlgebra.Devel
 
 liftVT :: Numeric r
        => (Vector r -> Vector r)
@@ -108,6 +110,38 @@ instance ( Floating (Vector r), Num (Vector r)
   acosh = liftVS acosh
   atanh = liftVS atanh
 
+instance (Real (Vector r), Numeric r, Ord r)
+         => Real (OT.Array r) where
+  toRational = undefined
+    -- very low priority, since these are all extremely not continuous
+
+instance (Real (Vector r), OS.Shape sh, Numeric r, Ord r)
+         => Real (OS.Array sh r) where
+  toRational = undefined
+    -- very low priority, since these are all extremely not continuous
+
+instance (RealFrac (Vector r), Numeric r, Fractional r, Ord r)
+         => RealFrac (OT.Array r) where
+  properFraction = undefined
+    -- very low priority, since these are all extremely not continuous
+
+instance (RealFrac (Vector r), OS.Shape sh, Numeric r, Fractional r, Ord r)
+         => RealFrac (OS.Array sh r) where
+  properFraction = undefined
+    -- very low priority, since these are all extremely not continuous
+
+instance (RealFloat (Vector r), Numeric r, Floating r, Ord r)
+         => RealFloat (OT.Array r) where
+  atan2 = liftVT2 atan2
+    -- we can be selective here and omit the other methods,
+    -- most of which don't even have a differentiable codomain
+
+instance (RealFloat (Vector r), OS.Shape sh, Numeric r, Floating r, Ord r)
+         => RealFloat (OS.Array sh r) where
+  atan2 = liftVS2 atan2
+    -- we can be selective here and omit the other methods,
+    -- most of which don't even have a differentiable codomain
+
 type instance Element (OT.Array r) = r
 
 type instance Element (OS.Array sh r) = r
@@ -120,6 +154,46 @@ instance (OS.Shape sh, Numeric r) => MonoFunctor (OS.Array sh r) where
 
 
 -- TODO: move to separate orphan module(s) at some point
+
+instance (Num (Vector r), Numeric r, Ord r)
+         => Real (Vector r) where
+  toRational = undefined
+    -- very low priority, since these are all extremely not continuous
+
+instance (Num (Vector r), Numeric r, Fractional r, Ord r)
+         => RealFrac (Vector r) where
+  properFraction = undefined
+    -- very low priority, since these are all extremely not continuous
+
+-- TODO: is there atan2 in hmatrix or can it be computed faster than this?
+instance ( Num (Vector r), Floating (Vector r)
+         , Numeric r, Floating r, RealFloat r, Ord r )
+         => RealFloat (Vector r) where
+  atan2 = Numeric.LinearAlgebra.Devel.zipVectorWith atan2
+    -- we can be selective here and omit the other methods,
+    -- most of which don't even have a differentiable codomain
+
+-- This instance are required by the @Real@ instance, which is required
+-- by @RealFloat@, which gives @atan2@. No idea what properties
+-- @Real@ requires here, so let it crash if it's really needed.
+instance Numeric r => Ord (Matrix r) where
+
+instance (Num (Vector r), Numeric r, Ord (Matrix r))
+         => Real (Matrix r) where
+  toRational = undefined
+    -- very low priority, since these are all extremely not continuous
+
+instance (Num (Vector r), Numeric r, Fractional r, Ord r, Ord (Matrix r))
+         => RealFrac (Matrix r) where
+  properFraction = undefined
+    -- very low priority, since these are all extremely not continuous
+
+instance ( Num (Vector r), Floating (Vector r)
+         , Numeric r, Floating r, RealFloat r, Ord r, Ord (Matrix r) )
+         => RealFloat (Matrix r) where
+  atan2 = Numeric.LinearAlgebra.Devel.liftMatrix2 atan2
+    -- we can be selective here and omit the other methods,
+    -- most of which don't even have a differentiable codomain
 
 type instance Element (Matrix r) = r
 

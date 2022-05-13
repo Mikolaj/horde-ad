@@ -39,14 +39,14 @@ import HordeAd.Internal.Delta
 -- and the third type is its underlying scalar.
 type IsPrimalWithScalar (d :: DMode) a r =
   ( IsPrimal d a, HasVariables a r
-  , Floating a, MonoFunctor a, Element a ~ r )
+  , RealFloat a, MonoFunctor a, Element a ~ r )
 
 -- | A mega-shorthand for a bundle of connected type constraints.
 -- The @Scalar@ in the name means that the second argument is the underlying
 -- scalar type of a well behaved (wrt the differentiation mode in the first
 -- argument) collection of primal and dual components of dual numbers.
 type IsScalar (d :: DMode) r =
-  ( HasRanks d r, Ord r, Numeric r, RealFloat r
+  ( HasRanks d r, Ord r, Numeric r
   , IsPrimalWithScalar d r r, IsPrimalWithScalar d (Vector r) r
   , IsPrimalWithScalar d (Matrix r) r, IsPrimalWithScalar d (OT.Array r) r
   -- This fragment is for @OS.Array@ and it's irregular, because we can't
