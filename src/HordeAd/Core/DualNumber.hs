@@ -864,14 +864,19 @@ maxPool24 d = do
 -- * Operations creating delayed/outlined derivatives
 
 -- | A wrapper type to delay/outline computation of the derivatives of the given
--- primitive function inside the dual component of the created dual number.
+-- primitive numeric function inside the dual component of the created dual
+-- number. The rule is that if all arguments of a function are wrapped
+-- in @Out@ then the function gets delayed. Inconsistent wrapping,
+-- e.g., only one of the arguments, leads to early type errors.
 --
 -- To be used as in
 --
 -- > x ** unOut (sin (Out x) + Out (id $ id $ id konst1 (sumElements0 x) 2))
 --
 -- which delays computing the dual component of sine and of addition
--- (both in rank 1), but not of power, konst and sumElements.
+-- (both in rank 1), but not of power, konst and sumElements. The last two
+-- can't be currently delayed, because only primitive numeric functions
+-- are supported (an attempt would not type-check).
 newtype Out a = Out {unOut :: a}
   deriving (Eq, Ord)
 
