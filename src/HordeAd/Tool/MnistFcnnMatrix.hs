@@ -86,12 +86,12 @@ fcnnMnistLossFusedRelu2 (input, target) variables = do
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 fcnnMnistTest2
-  :: forall r. IsScalar 'DifferentiationSchemeGradient r
+  :: forall r. IsScalar 'DModeGradient r
   => [MnistData r] -> Domains r -> r
 fcnnMnistTest2 inputs parameters =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let nn = inline (fcnnMnist2 @'DifferentiationSchemeGradient) logisticAct softMaxActV glyph
+        let nn = inline (fcnnMnist2 @'DModeGradient) logisticAct softMaxActV glyph
             value = primalValue @r nn parameters
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))

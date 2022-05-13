@@ -107,7 +107,7 @@ fcnnMnistLoss1 widthHidden widthHidden2 (input, target) variables = do
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 fcnnMnistTest1
-  :: forall r. IsScalar 'DifferentiationSchemeGradient r
+  :: forall r. IsScalar 'DModeGradient r
   => Int -> Int -> [MnistData r] -> (Domain0 r, Domain1 r) -> r
 fcnnMnistTest1 widthHidden widthHidden2 inputs (params0, params1) =
   let matchesLabels :: MnistData r -> Bool

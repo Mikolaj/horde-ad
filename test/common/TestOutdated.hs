@@ -18,9 +18,9 @@ import HordeAd
 import HordeAd.Core.OutdatedOptimizer
 import HordeAd.Tool.MnistTools
 
-type DualNumberD = DualNumber 'DifferentiationSchemeGradient Double
+type DualNumberD = DualNumber 'DModeGradient Double
 
-type DualNumberVariablesD = DualNumberVariables 'DifferentiationSchemeGradient Double
+type DualNumberVariablesD = DualNumberVariables 'DModeGradient Double
 
 testTrees :: [TestTree]
 testTrees = [ fitTests
@@ -64,7 +64,7 @@ lengthDualNumber (vValue, _, _, _, _, _, _, _) = V.length vValue
 -- This, and other Fit and Fit2 nn operations, have unfused Delta let-bindings
 -- (one binding per each subexpression, even when not needed), which is fine,
 -- just not enough for comprehensive benchmarks.
-hiddenLayerFit :: forall m. DualMonad 'DifferentiationSchemeGradient Double m
+hiddenLayerFit :: forall m. DualMonad 'DModeGradient Double m
                => (DualNumberD -> m DualNumberD)
                -> Double
                -> DualNumberVariablesD
@@ -80,7 +80,7 @@ hiddenLayerFit factivation x vec width = do
         factivation sxBias
   V.generateM width f
 
-outputLayerFit :: DualMonad 'DifferentiationSchemeGradient Double m
+outputLayerFit :: DualMonad 'DModeGradient Double m
                => (DualNumberD -> m DualNumberD)
                -> Data.Vector.Vector DualNumberD
                -> Int
@@ -90,7 +90,7 @@ outputLayerFit factivation hiddenVec offset vec = do
   outSum <- sumTrainableInputs hiddenVec offset vec
   factivation outSum
 
-nnFit :: DualMonad 'DifferentiationSchemeGradient Double m
+nnFit :: DualMonad 'DModeGradient Double m
       => (DualNumberD -> m DualNumberD)
       -> (DualNumberD -> m DualNumberD)
       -> Double -> DualNumberVariablesD -> m DualNumberD
@@ -101,7 +101,7 @@ nnFit factivationHidden factivationOutput x vec = do
   hiddenVec <- hiddenLayerFit factivationHidden x vec width
   outputLayerFit factivationOutput hiddenVec (2 * width) vec
 
-nnFitLoss :: DualMonad 'DifferentiationSchemeGradient Double m
+nnFitLoss :: DualMonad 'DModeGradient Double m
           => (DualNumberD -> m DualNumberD)
           -> (DualNumberD -> m DualNumberD)
           -> Double -> Double -> DualNumberVariablesD -> m DualNumberD
@@ -109,7 +109,7 @@ nnFitLoss factivationHidden factivationOutput x targ vec = do
   res <- nnFit factivationHidden factivationOutput x vec
   lossSquared targ res
 
-nnFitLossTotal :: forall m. DualMonad 'DifferentiationSchemeGradient Double m
+nnFitLossTotal :: forall m. DualMonad 'DModeGradient Double m
                => (DualNumberD -> m DualNumberD)
                -> (DualNumberD -> m DualNumberD)
                -> Vector (Double, Double)
@@ -155,7 +155,7 @@ wsFitSeparated range@(low, hi) seed k =
 
 gdSimpleShow :: HasDelta r
              => r
-             -> (DualNumberVariables 'DifferentiationSchemeGradient r -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
+             -> (DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
              -> Domain0 r
              -> Int
              -> ([r], r)
@@ -235,7 +235,7 @@ fitTests = testGroup "Sample fitting fully connected neural net tests"
 -- This connects with only one neuron from the first hidden layer.
 -- No wonder the extra hidden layer was not particulary effective
 -- compared to wider single hidden layer.
-middleLayerFit2 :: forall m. DualMonad 'DifferentiationSchemeGradient Double m
+middleLayerFit2 :: forall m. DualMonad 'DModeGradient Double m
                 => (DualNumberD -> m DualNumberD)
                 -> Data.Vector.Vector DualNumberD
                 -> Int
@@ -251,7 +251,7 @@ middleLayerFit2 factivation hiddenVec offset vec = do
         factivation sxBias
   V.imapM f hiddenVec
 
-nnFit2 :: DualMonad 'DifferentiationSchemeGradient Double m
+nnFit2 :: DualMonad 'DModeGradient Double m
        => (DualNumberD -> m DualNumberD)
        -> (DualNumberD -> m DualNumberD)
        -> (DualNumberD -> m DualNumberD)
@@ -266,7 +266,7 @@ nnFit2 factivationHidden factivationMiddle factivationOutput x vec = do
   middleVec <- middleLayerFit2 factivationMiddle hiddenVec (2 * width) vec
   outputLayerFit factivationOutput middleVec (4 * width) vec
 
-nnFit2Loss :: DualMonad 'DifferentiationSchemeGradient Double m
+nnFit2Loss :: DualMonad 'DModeGradient Double m
            => (DualNumberD -> m DualNumberD)
            -> (DualNumberD -> m DualNumberD)
            -> (DualNumberD -> m DualNumberD)
@@ -275,7 +275,7 @@ nnFit2Loss factivationHidden factivationMiddle factivationOutput x targ vec = do
   res <- nnFit2 factivationHidden factivationMiddle factivationOutput x vec
   lossSquared targ res
 
-nnFit2LossTotal :: forall m. DualMonad 'DifferentiationSchemeGradient Double m
+nnFit2LossTotal :: forall m. DualMonad 'DModeGradient Double m
                 => (DualNumberD -> m DualNumberD)
                 -> (DualNumberD -> m DualNumberD)
                 -> (DualNumberD -> m DualNumberD)
@@ -486,7 +486,7 @@ smartFit2TestsL =
   ]
 
 -- This is really fully connected.
-middleLayerFit3 :: forall m. DualMonad 'DifferentiationSchemeGradient Double m
+middleLayerFit3 :: forall m. DualMonad 'DModeGradient Double m
                 => (DualNumberD -> m DualNumberD)
                 -> Data.Vector.Vector DualNumberD
                 -> Int
@@ -495,7 +495,7 @@ middleLayerFit3 :: forall m. DualMonad 'DifferentiationSchemeGradient Double m
 middleLayerFit3 factivation hiddenVec offset vec =
   middleLayerMnist factivation hiddenVec offset vec $ V.length hiddenVec
 
-nnFit3 :: DualMonad 'DifferentiationSchemeGradient Double m
+nnFit3 :: DualMonad 'DModeGradient Double m
        => (DualNumberD -> m DualNumberD)
        -> (DualNumberD -> m DualNumberD)
        -> (DualNumberD -> m DualNumberD)
@@ -515,7 +515,7 @@ nnFit3 factivationHidden factivationMiddle factivationOutput x vec = do
   middleVec <- middleLayerFit3 factivationMiddle hiddenVec (2 * width) vec
   outputLayerFit factivationOutput middleVec ((3 + width) * width) vec
 
-nnFit3Loss :: DualMonad 'DifferentiationSchemeGradient Double m
+nnFit3Loss :: DualMonad 'DModeGradient Double m
            => (DualNumberD -> m DualNumberD)
            -> (DualNumberD -> m DualNumberD)
            -> (DualNumberD -> m DualNumberD)
@@ -524,7 +524,7 @@ nnFit3Loss factivationHidden factivationMiddle factivationOutput x targ vec = do
   res <- nnFit3 factivationHidden factivationMiddle factivationOutput x vec
   lossSquared targ res
 
-nnFit3LossTotal :: forall m. DualMonad 'DifferentiationSchemeGradient Double m
+nnFit3LossTotal :: forall m. DualMonad 'DModeGradient Double m
                 => (DualNumberD -> m DualNumberD)
                 -> (DualNumberD -> m DualNumberD)
                 -> (DualNumberD -> m DualNumberD)
@@ -717,7 +717,7 @@ smartFit3TestsL3 =
 
 sgdShow :: HasDelta r
         => r
-        -> (a -> DualNumberVariables 'DifferentiationSchemeGradient r -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
+        -> (a -> DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
         -> [a]  -- ^ training data
         -> Domain0 r  -- ^ initial parameters
         -> ([r], r)

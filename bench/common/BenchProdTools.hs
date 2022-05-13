@@ -181,16 +181,16 @@ vec_omit_scalarSum_aux
   => DualNumberVariables d r -> m (DualNumber d r)
 vec_omit_scalarSum_aux vec = returnLet $ foldlDual' (+) 0 vec
 
-sumElementsV :: DualMonad 'DifferentiationSchemeGradient Double m
-             => DualNumberVariables 'DifferentiationSchemeGradient Double
-             -> m (DualNumber 'DifferentiationSchemeGradient Double)
+sumElementsV :: DualMonad 'DModeGradient Double m
+             => DualNumberVariables 'DModeGradient Double
+             -> m (DualNumber 'DModeGradient Double)
 sumElementsV variables = do
   let x = var1 variables 0
   returnLet $ sumElements0 x
 
-altSumElementsV :: DualMonad 'DifferentiationSchemeGradient Double m
-                => DualNumberVariables 'DifferentiationSchemeGradient Double
-                -> m (DualNumber 'DifferentiationSchemeGradient Double)
+altSumElementsV :: DualMonad 'DModeGradient Double m
+                => DualNumberVariables 'DModeGradient Double
+                -> m (DualNumber 'DModeGradient Double)
 altSumElementsV variables = do
   let x = var1 variables 0
   returnLet $ altSumElements0 x

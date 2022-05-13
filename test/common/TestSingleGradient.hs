@@ -38,7 +38,7 @@ testTrees = [ testDReverse0
 
 dReverse0
   :: HasDelta r
-  => (DualNumberVariables 'DifferentiationSchemeGradient r -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
+  => (DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
   -> [r]
   -> ([r], r)
 dReverse0 f deltaInput =
@@ -46,30 +46,30 @@ dReverse0 f deltaInput =
         dReverse 1 f (V.fromList deltaInput, V.empty, V.empty, V.empty)
   in (V.toList results, value)
 
-fX :: DualMonad 'DifferentiationSchemeGradient Float m
-   => DualNumberVariables 'DifferentiationSchemeGradient Float -> m (DualNumber 'DifferentiationSchemeGradient Float)
+fX :: DualMonad 'DModeGradient Float m
+   => DualNumberVariables 'DModeGradient Float -> m (DualNumber 'DModeGradient Float)
 fX variables = do
   let x = var0 variables 0
   return x
 
-fX1Y :: DualMonad 'DifferentiationSchemeGradient Float m
-     => DualNumberVariables 'DifferentiationSchemeGradient Float -> m (DualNumber 'DifferentiationSchemeGradient Float)
+fX1Y :: DualMonad 'DModeGradient Float m
+     => DualNumberVariables 'DModeGradient Float -> m (DualNumber 'DModeGradient Float)
 fX1Y variables = do
   let x = var0 variables 0
       y = var0 variables 1
   x1 <- x +\ 1
   x1 *\ y
 
-fXXY :: DualMonad 'DifferentiationSchemeGradient Float m
-     => DualNumberVariables 'DifferentiationSchemeGradient Float -> m (DualNumber 'DifferentiationSchemeGradient Float)
+fXXY :: DualMonad 'DModeGradient Float m
+     => DualNumberVariables 'DModeGradient Float -> m (DualNumber 'DModeGradient Float)
 fXXY variables = do
   let x = var0 variables 0
       y = var0 variables 1
   xy <- x *\ y
   x *\ xy
 
-fXYplusZ :: DualMonad 'DifferentiationSchemeGradient Float m
-         => DualNumberVariables 'DifferentiationSchemeGradient Float -> m (DualNumber 'DifferentiationSchemeGradient Float)
+fXYplusZ :: DualMonad 'DModeGradient Float m
+         => DualNumberVariables 'DModeGradient Float -> m (DualNumber 'DModeGradient Float)
 fXYplusZ variables = do
   let x = var0 variables 0
       y = var0 variables 1
@@ -77,15 +77,15 @@ fXYplusZ variables = do
   xy <- x *\ y
   xy +\ z
 
-fXtoY :: DualMonad 'DifferentiationSchemeGradient Float m
-      => DualNumberVariables 'DifferentiationSchemeGradient Float -> m (DualNumber 'DifferentiationSchemeGradient Float)
+fXtoY :: DualMonad 'DModeGradient Float m
+      => DualNumberVariables 'DModeGradient Float -> m (DualNumber 'DModeGradient Float)
 fXtoY variables = do
   let x = var0 variables 0
       y = var0 variables 1
   x **\ y
 
-freluX :: DualMonad 'DifferentiationSchemeGradient Float m
-       => DualNumberVariables 'DifferentiationSchemeGradient Float -> m (DualNumber 'DifferentiationSchemeGradient Float)
+freluX :: DualMonad 'DModeGradient Float m
+       => DualNumberVariables 'DModeGradient Float -> m (DualNumber 'DModeGradient Float)
 freluX variables = do
   let x = var0 variables 0
   reluAct x
@@ -144,7 +144,7 @@ altSumElementsV variables = do
   returnLet $ altSumElements0 x
 
 dReverse1
-  :: (r ~ Float, d ~ 'DifferentiationSchemeGradient)
+  :: (r ~ Float, d ~ 'DModeGradient)
   => (DualNumberVariables d r -> DualMonadGradient r (DualNumber d r))
   -> [[Float]]
   -> ([[Float]], Float)

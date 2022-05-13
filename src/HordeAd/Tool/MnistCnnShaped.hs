@@ -203,7 +203,7 @@ convMnistTestS
      , KnownNat in_height, KnownNat in_width
      , 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
-     , IsScalar 'DifferentiationSchemeGradient r )
+     , IsScalar 'DModeGradient r )
   => Proxy r
   -> Proxy kheight_minus_1
   -> Proxy kwidth_minus_1
@@ -220,8 +220,8 @@ convMnistTestS _ _ _ _ _ inputs parameters =
       matchesLabels (glyph, label) =
         let tx :: OS.Array '[1, 1, in_height, in_width] r
             tx = OS.reshape glyph
-            nn :: DualNumberVariables 'DifferentiationSchemeGradient r
-               -> DualMonadValue r (DualNumber 'DifferentiationSchemeGradient (OS.Array '[SizeMnistLabel, 1] r))
+            nn :: DualNumberVariables 'DModeGradient r
+               -> DualMonadValue r (DualNumber 'DModeGradient (OS.Array '[SizeMnistLabel, 1] r))
             nn variables =
               convMnistS @kheight_minus_1 @kwidth_minus_1
                          @num_hidden @out_channels

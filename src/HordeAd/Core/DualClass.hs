@@ -9,8 +9,8 @@
 -- used to define types and operations in "HordeAd.Core.DualNumber"
 -- that is the high-level API.
 module HordeAd.Core.DualClass
-  ( IsDualWithScalar, IsScalar, HasDelta
-  , DifferentiationScheme(..), Dual
+  ( IsPrimalWithScalar, IsScalar, HasDelta
+  , DMode(..), Dual
   , IsDual(..), HasVariables(..), HasRanks(..)
   ) where
 
@@ -37,7 +37,7 @@ import HordeAd.Internal.Delta
 -- (not fully enforced by the constraint in isolation) is that the second
 -- type is the primal component of a dual number type at an unknown rank
 -- and the third type is its underlying scalar.
-type IsDualWithScalar (d :: DifferentiationScheme) a r =
+type IsPrimalWithScalar (d :: DMode) a r =
   ( IsDual d a, HasVariables a r
   , Floating a, MonoFunctor a, Element a ~ r )
 
@@ -45,27 +45,27 @@ type IsDualWithScalar (d :: DifferentiationScheme) a r =
 -- The @Scalar@ in the name means that the second argument is the underlying
 -- scalar type of a well behaved (wrt the differentiation mode in the first
 -- argument) collection of primal and dual components of dual numbers.
-type IsScalar (d :: DifferentiationScheme) r =
+type IsScalar (d :: DMode) r =
   ( HasRanks d r, Ord r, Numeric r, RealFloat r
-  , IsDualWithScalar d r r, IsDualWithScalar d (Vector r) r
-  , IsDualWithScalar d (Matrix r) r, IsDualWithScalar d (OT.Array r) r
+  , IsPrimalWithScalar d r r, IsPrimalWithScalar d (Vector r) r
+  , IsPrimalWithScalar d (Matrix r) r, IsPrimalWithScalar d (OT.Array r) r
   -- This fragment is for @OS.Array@ and it's irregular, because we can't
   -- mention @sh@ and so fully apply the type constructor.
   , IsDualS d r  -- TODO: Floating (OS.Array sh r), MonoFunctor
   )
 
 -- | Is a scalar and will be used to compute gradients via delta-expressions.
-type HasDelta r = ( IsScalar 'DifferentiationSchemeGradient r
-                  , Dual 'DifferentiationSchemeGradient r ~ Delta0 r )
+type HasDelta r = ( IsScalar 'DModeGradient r
+                  , Dual 'DModeGradient r ~ Delta0 r )
 
 
 -- * Class definitions
 
 -- | The enumeration of all possible differentiation (and more generally,
--- computation with dual numbers) modes.
-data DifferentiationScheme =
-    DifferentiationSchemeGradient
-  | DifferentiationSchemeDerivative
+-- computation with dual numbers) schemes.
+data DMode =
+    DModeGradient
+  | DModeDerivative
 
 -- | The type family that enumerates all possible "ranks"
 -- for each differentiation mode.
@@ -80,21 +80,20 @@ data DifferentiationScheme =
 -- Rank S is special, because of the extra type parameter @sh@ representing
 -- a shape. This is another obstacle to a dual number representation via
 -- a single-argument type constructor.
-type family Dual (d :: DifferentiationScheme) a = result
-                                                | result -> d a where
-  Dual 'DifferentiationSchemeGradient Double = Delta0 Double
-  Dual 'DifferentiationSchemeGradient Float = Delta0 Float
-  Dual 'DifferentiationSchemeGradient (Vector r) = Delta1 r
-  Dual 'DifferentiationSchemeGradient (Matrix r) = Delta2 r
-  Dual 'DifferentiationSchemeGradient (OT.Array r) = DeltaX r
-  Dual 'DifferentiationSchemeGradient (OS.Array sh r) = DeltaS sh r
--- not injective:  Dual 'DifferentiationSchemeDerivative r = r
-  Dual 'DifferentiationSchemeDerivative Double = Double
-  Dual 'DifferentiationSchemeDerivative Float = Float
-  Dual 'DifferentiationSchemeDerivative (Vector r) = Vector r
-  Dual 'DifferentiationSchemeDerivative (Matrix r) = Matrix r
-  Dual 'DifferentiationSchemeDerivative (OT.Array r) = OT.Array r
-  Dual 'DifferentiationSchemeDerivative (OS.Array sh r) = OS.Array sh r
+type family Dual (d :: DMode) a = result | result -> d a where
+  Dual 'DModeGradient Double = Delta0 Double
+  Dual 'DModeGradient Float = Delta0 Float
+  Dual 'DModeGradient (Vector r) = Delta1 r
+  Dual 'DModeGradient (Matrix r) = Delta2 r
+  Dual 'DModeGradient (OT.Array r) = DeltaX r
+  Dual 'DModeGradient (OS.Array sh r) = DeltaS sh r
+-- not injective:  Dual 'DModeDerivative r = r
+  Dual 'DModeDerivative Double = Double
+  Dual 'DModeDerivative Float = Float
+  Dual 'DModeDerivative (Vector r) = Vector r
+  Dual 'DModeDerivative (Matrix r) = Matrix r
+  Dual 'DModeDerivative (OT.Array r) = OT.Array r
+  Dual 'DModeDerivative (OS.Array sh r) = OS.Array sh r
 
 -- | Second argument is a primal component of dual numbers at some rank
 -- wrt the differentiation mode given in the first argument.
@@ -122,18 +121,18 @@ instance (IsDualS d r, OS.Shape sh) => IsDual d (OS.Array sh r) where
 
 -- | Assuming that the first argument is the primal component of dual numbers
 -- with the underyling scalar in the second argument and with differentiation
--- mode `DifferentiationSchemeGradient`, it additionally admits delta-variable
+-- mode `DModeGradient`, it additionally admits delta-variable
 -- introduction and binding as defined by the methods of the class.
 class HasVariables a r | a -> r where
-  dVar :: DeltaId a -> Dual 'DifferentiationSchemeGradient a
-  bindInState :: Dual 'DifferentiationSchemeGradient a
+  dVar :: DeltaId a -> Dual 'DModeGradient a
+  bindInState :: Dual 'DModeGradient a
               -> DeltaState r
               -> (DeltaState r, DeltaId a )
 
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
 -- of various ranks wrt the differentation mode given in the first argument.
-class HasRanks (d :: DifferentiationScheme) r where
+class HasRanks (d :: DMode) r where
   dSumElements0 :: Dual d (Vector r) -> Int -> Dual d r
   dIndex0 :: Dual d (Vector r) -> Int -> Int -> Dual d r
   dDot0 :: Vector r -> Dual d (Vector r) -> Dual d r
@@ -216,33 +215,33 @@ class HasRanks (d :: DifferentiationScheme) r where
 
 -- * Backprop gradient method instances
 
-instance IsDual 'DifferentiationSchemeGradient Double where
+instance IsDual 'DModeGradient Double where
   dZero = Zero0
   dScale = Scale0
   dAdd = Add0
 
-instance IsDual 'DifferentiationSchemeGradient Float where
+instance IsDual 'DModeGradient Float where
   -- Identical as above:
   dZero = Zero0
   dScale = Scale0
   dAdd = Add0
 
-instance IsDual 'DifferentiationSchemeGradient (Vector r) where
+instance IsDual 'DModeGradient (Vector r) where
   dZero = Zero1
   dScale = Scale1
   dAdd = Add1
 
-instance IsDual 'DifferentiationSchemeGradient (Matrix r) where
+instance IsDual 'DModeGradient (Matrix r) where
   dZero = Zero2
   dScale = Scale2
   dAdd = Add2
 
-instance IsDual 'DifferentiationSchemeGradient (OT.Array r) where
+instance IsDual 'DModeGradient (OT.Array r) where
   dZero = ZeroX
   dScale = ScaleX
   dAdd = AddX
 
-instance IsDualS 'DifferentiationSchemeGradient r where
+instance IsDualS 'DModeGradient r where
   dZeroS = ZeroS
   dScaleS = ScaleS
   dAddS = AddS
@@ -278,8 +277,8 @@ instance OS.Shape sh => HasVariables (OS.Array sh r) r where
   bindInState u' st = let (st2, did) = bindInStateX (FromSX u') st
                       in (st2, covertDeltaId did)
 
-instance Dual 'DifferentiationSchemeGradient r ~ Delta0 r
-         => HasRanks 'DifferentiationSchemeGradient r where
+instance Dual 'DModeGradient r ~ Delta0 r
+         => HasRanks 'DModeGradient r where
   dSumElements0 = SumElements0
   dIndex0 = Index0
   dDot0 = Dot0
@@ -341,44 +340,44 @@ instance Dual 'DifferentiationSchemeGradient r ~ Delta0 r
 
 -- * Alternative instances: forward derivatives computed on the spot
 
-instance IsDual 'DifferentiationSchemeDerivative Double where
+instance IsDual 'DModeDerivative Double where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
 
-instance IsDual 'DifferentiationSchemeDerivative Float where
+instance IsDual 'DModeDerivative Float where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
 
 -- These constraints force @UndecidableInstances@.
 instance Num (Vector r)
-         => IsDual 'DifferentiationSchemeDerivative (Vector r) where
+         => IsDual 'DModeDerivative (Vector r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
 
 instance Num (Matrix r)
-         => IsDual 'DifferentiationSchemeDerivative (Matrix r) where
+         => IsDual 'DModeDerivative (Matrix r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
 
 instance Num (OT.Array r)
-         => IsDual 'DifferentiationSchemeDerivative (OT.Array r) where
+         => IsDual 'DModeDerivative (OT.Array r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
 
 instance (Numeric r, Num (Vector r))
-         => IsDualS 'DifferentiationSchemeDerivative r where
+         => IsDualS 'DModeDerivative r where
   dZeroS = 0
   dScaleS k d = k * d
   dAddS d e = d + e
 
 instance ( Numeric r, Num (Vector r)
-         , Dual 'DifferentiationSchemeDerivative r ~ r )
-         => HasRanks 'DifferentiationSchemeDerivative r where
+         , Dual 'DModeDerivative r ~ r )
+         => HasRanks 'DModeDerivative r where
   dSumElements0 vd _ = HM.sumElements vd
   dIndex0 d ix _ = d V.! ix
   dDot0 = (HM.<.>)

@@ -9,7 +9,7 @@
 -- defined using the low-level API in "HordeAd.Core.DualClass".
 module HordeAd.Core.DualNumber
   ( module HordeAd.Core.DualNumber
-  , IsScalar, HasDelta, DifferentiationScheme(..)
+  , IsScalar, HasDelta, DMode(..)
   , Domain0, Domain1, Domain2, DomainX, Domains  -- an important re-export
   ) where
 
@@ -38,7 +38,7 @@ import HordeAd.Internal.Delta as Delta
 -- * The main dual number types
 
 -- | Dual numbers with the second type argument being the primal component.
-data DualNumber (d :: DifferentiationScheme) a = D a (Dual d a)
+data DualNumber (d :: DMode) a = D a (Dual d a)
 
 class (IsScalar d r, Monad m, Functor m, Applicative m)
       => DualMonad d r m | m -> d r where
@@ -133,7 +133,7 @@ constant a = D a dZero
 scale :: (Num a, IsDual d a) => a -> DualNumber d a -> DualNumber d a
 scale a (D u u') = D (a * u) (dScale a u')
 
-tanhAct :: (DualMonad d r m, IsDualWithScalar d a r)
+tanhAct :: (DualMonad d r m, IsPrimalWithScalar d a r)
         => DualNumber d a -> m (DualNumber d a)
 tanhAct = returnLet . tanh
 
@@ -142,7 +142,7 @@ logistic (D u u') =
   let y = recip (1 + exp (- u))
   in D y (dScale (y * (1 - y)) u')
 
-logisticAct :: (DualMonad d r m, IsDualWithScalar d a r)
+logisticAct :: (DualMonad d r m, IsPrimalWithScalar d a r)
             => DualNumber d a -> m (DualNumber d a)
 logisticAct = returnLet . logistic
 
@@ -154,17 +154,17 @@ squaredDifference :: (Num a, IsDual d a)
                   => a -> DualNumber d a -> DualNumber d a
 squaredDifference targ res = square $ res - constant targ
 
-lossSquared :: (DualMonad d r m, IsDualWithScalar d a r)
+lossSquared :: (DualMonad d r m, IsPrimalWithScalar d a r)
             => a -> DualNumber d a -> m (DualNumber d a)
 lossSquared targ res = returnLet $ squaredDifference targ res
 
-reluAct :: (DualMonad d r m, IsDualWithScalar d a r)
+reluAct :: (DualMonad d r m, IsPrimalWithScalar d a r)
         => DualNumber d a -> m (DualNumber d a)
 reluAct v@(D u _) = do
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0) u
   returnLet $ scale oneIfGtZero v
 
-reluLeakyAct :: (DualMonad d r m, IsDualWithScalar d a r)
+reluLeakyAct :: (DualMonad d r m, IsPrimalWithScalar d a r)
              => DualNumber d a -> m (DualNumber d a)
 reluLeakyAct v@(D u _) = do
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) u

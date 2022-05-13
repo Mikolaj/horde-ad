@@ -41,8 +41,8 @@ sgdBatchForward
      Int
   -> Int  -- ^ batch size
   -> Double  -- ^ gamma (learning_rate?)
-  -> (a -> DualNumberVariables 'DifferentiationSchemeGradient Double
-      -> DualMonadGradient Double (DualNumber 'DifferentiationSchemeGradient Double))
+  -> (a -> DualNumberVariables 'DModeGradient Double
+      -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
   -> [a]  -- ^ training data
   -> Domains Double  -- ^ initial parameters
   -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
@@ -55,14 +55,14 @@ sgdBatchForward seed0 batchSize gamma f trainingData parameters0 nParameters =
   go _ [] parameters value = (parameters, value)
   go seed l parameters _ =
     let (batch, rest) = splitAt batchSize l
-        fAdd :: DualNumberVariables 'DifferentiationSchemeGradient Double
-             -> DualNumber 'DifferentiationSchemeGradient Double -> a
-             -> DualMonadGradient Double (DualNumber 'DifferentiationSchemeGradient Double)
+        fAdd :: DualNumberVariables 'DModeGradient Double
+             -> DualNumber 'DModeGradient Double -> a
+             -> DualMonadGradient Double (DualNumber 'DModeGradient Double)
         fAdd vars !acc a = do
           res <- f a vars
           return $! acc + res
-        fBatch :: DualNumberVariables 'DifferentiationSchemeGradient Double
-               -> DualMonadGradient Double (DualNumber 'DifferentiationSchemeGradient Double)
+        fBatch :: DualNumberVariables 'DModeGradient Double
+               -> DualMonadGradient Double (DualNumber 'DModeGradient Double)
         fBatch vars = do
           resBatch <- foldM (fAdd vars) 0 batch
           return $! resBatch / fromIntegral (length batch)
@@ -82,8 +82,8 @@ sgdBatchFastForward
      Int
   -> Int  -- ^ batch size
   -> Double  -- ^ gamma (learning_rate?)
-  -> (a -> DualNumberVariables 'DifferentiationSchemeDerivative Double
-      -> DualMonadForward Double (DualNumber 'DifferentiationSchemeDerivative Double))
+  -> (a -> DualNumberVariables 'DModeDerivative Double
+      -> DualMonadForward Double (DualNumber 'DModeDerivative Double))
   -> [a]  -- ^ training data
   -> Domains Double  -- ^ initial parameters
   -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
@@ -96,14 +96,14 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
   go _ [] parameters value = (parameters, value)
   go seed l parameters@(params0, params1, params2, paramsX) _ =
     let (batch, rest) = splitAt batchSize l
-        fAdd :: DualNumberVariables 'DifferentiationSchemeDerivative Double
-             -> DualNumber 'DifferentiationSchemeDerivative Double -> a
-             -> DualMonadForward Double (DualNumber 'DifferentiationSchemeDerivative Double)
+        fAdd :: DualNumberVariables 'DModeDerivative Double
+             -> DualNumber 'DModeDerivative Double -> a
+             -> DualMonadForward Double (DualNumber 'DModeDerivative Double)
         fAdd vars !acc a = do
           res <- f a vars
           return $! acc + res
-        fBatch :: DualNumberVariables 'DifferentiationSchemeDerivative Double
-               -> DualMonadForward Double (DualNumber 'DifferentiationSchemeDerivative Double)
+        fBatch :: DualNumberVariables 'DModeDerivative Double
+               -> DualMonadForward Double (DualNumber 'DModeDerivative Double)
         fBatch vars = do
           resBatch <- foldM (fAdd vars) 0 batch
           return $! resBatch / fromIntegral (length batch)
@@ -125,7 +125,7 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
 sgdAdamBatch
   :: forall r a. HasDelta r
   => Int  -- ^ batch size
-  -> (a -> DualNumberVariables 'DifferentiationSchemeGradient r -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
+  -> (a -> DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
   -> [a]
   -> Domains r
   -> StateAdam r
@@ -136,8 +136,8 @@ sgdAdamBatchArgs
   :: forall r a. HasDelta r
   => ArgsAdam r
   -> Int  -- ^ batch size
-  -> (a -> DualNumberVariables 'DifferentiationSchemeGradient r
-      -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
+  -> (a -> DualNumberVariables 'DModeGradient r
+      -> DualMonadGradient r (DualNumber 'DModeGradient r))
   -> [a]
   -> Domains r
   -> StateAdam r
@@ -151,13 +151,13 @@ sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
   go l parameters stateAdam =
     let variables = makeDualNumberVariables parameters varDeltas
         (batch, rest) = splitAt batchSize l
-        fAdd :: DualNumberVariables 'DifferentiationSchemeGradient r -> DualNumber 'DifferentiationSchemeGradient r -> a
-             -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r)
+        fAdd :: DualNumberVariables 'DModeGradient r -> DualNumber 'DModeGradient r -> a
+             -> DualMonadGradient r (DualNumber 'DModeGradient r)
         fAdd vars !acc a = do
           res <- f a vars
           return $! acc + res
-        fBatch :: DualNumberVariables 'DifferentiationSchemeGradient r
-               -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r)
+        fBatch :: DualNumberVariables 'DModeGradient r
+               -> DualMonadGradient r (DualNumber 'DModeGradient r)
         fBatch vars = do
           resBatch <- foldM (fAdd vars) 0 batch
           return $! resBatch / fromIntegral (length batch)
@@ -170,7 +170,7 @@ sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
 -- Based on @gradientDescent@ from package @ad@ which is in turn based
 -- on the one from the VLAD compiler.
 gdSmart :: forall r. HasDelta r
-        => (DualNumberVariables 'DifferentiationSchemeGradient r -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
+        => (DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
         -> Int  -- ^ requested number of iterations
         -> Domains r  -- ^ initial parameters
         -> (Domains r, r)

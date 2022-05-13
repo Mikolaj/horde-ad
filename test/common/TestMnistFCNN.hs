@@ -41,7 +41,7 @@ shortTestForCITrees = [ dumbMnistTests
 
 sgdShow :: HasDelta r
         => r
-        -> (a -> DualNumberVariables 'DifferentiationSchemeGradient r -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
+        -> (a -> DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
         -> [a]  -- ^ training data
         -> Domain0 r  -- ^ initial parameters
         -> r
@@ -55,9 +55,9 @@ sgdTestCase :: String
             -> (Int
                 -> Int
                 -> a
-                -> DualNumberVariables 'DifferentiationSchemeGradient Double
+                -> DualNumberVariables 'DModeGradient Double
                 -> DualMonadGradient Double
-                                     (DualNumber 'DifferentiationSchemeGradient Double))
+                                     (DualNumber 'DModeGradient Double))
             -> Double
             -> Double
             -> TestTree
@@ -81,8 +81,8 @@ mnistTestCase2
   -> (Int
       -> Int
       -> MnistData Double
-      -> DualNumberVariables 'DifferentiationSchemeGradient Double
-      -> DualMonadGradient Double (DualNumber 'DifferentiationSchemeGradient Double))
+      -> DualNumberVariables 'DModeGradient Double
+      -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
   -> Int
   -> Int
   -> Double
@@ -138,8 +138,8 @@ mnistTestCase2V
   -> (Int
       -> Int
       -> MnistData Double
-      -> DualNumberVariables 'DifferentiationSchemeGradient Double
-      -> DualMonadGradient Double (DualNumber 'DifferentiationSchemeGradient Double))
+      -> DualNumberVariables 'DModeGradient Double
+      -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
   -> Int
   -> Int
   -> Double
@@ -197,22 +197,22 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
              1 - fcnnMnistTest1 widthHidden widthHidden2 testData res
        testErrorFinal @?= expected
 
-fcnnMnistLossTanh :: DualMonad 'DifferentiationSchemeGradient Double m
+fcnnMnistLossTanh :: DualMonad 'DModeGradient Double m
                 => Int
                 -> Int
                 -> MnistData Double
-                -> DualNumberVariables 'DifferentiationSchemeGradient Double
-                -> m (DualNumber 'DifferentiationSchemeGradient Double)
+                -> DualNumberVariables 'DModeGradient Double
+                -> m (DualNumber 'DModeGradient Double)
 fcnnMnistLossTanh widthHidden widthHidden2 (xs, targ) vec = do
   res <- fcnnMnist0 tanhAct softMaxAct widthHidden widthHidden2 xs vec
   lossCrossEntropy targ res
 
-fcnnMnistLossRelu :: DualMonad 'DifferentiationSchemeGradient Double m
+fcnnMnistLossRelu :: DualMonad 'DModeGradient Double m
                 => Int
                 -> Int
                 -> MnistData Double
-                -> DualNumberVariables 'DifferentiationSchemeGradient Double
-                -> m (DualNumber 'DifferentiationSchemeGradient Double)
+                -> DualNumberVariables 'DModeGradient Double
+                -> m (DualNumber 'DModeGradient Double)
 fcnnMnistLossRelu widthHidden widthHidden2 (xs, targ) vec = do
   res <- fcnnMnist0 reluAct softMaxAct widthHidden widthHidden2 xs vec
   lossCrossEntropy targ res
@@ -222,8 +222,8 @@ mnistTestCase2L
   -> Int
   -> Int
   -> (MnistData Double
-      -> DualNumberVariables 'DifferentiationSchemeGradient Double
-      -> DualMonadGradient Double (DualNumber 'DifferentiationSchemeGradient Double))
+      -> DualNumberVariables 'DModeGradient Double
+      -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
   -> Int
   -> Int
   -> Double
@@ -280,8 +280,8 @@ mnistTestCase2T
   -> Int
   -> Int
   -> (MnistData Double
-      -> DualNumberVariables 'DifferentiationSchemeGradient Double
-      -> DualMonadGradient Double (DualNumber 'DifferentiationSchemeGradient Double))
+      -> DualNumberVariables 'DModeGradient Double
+      -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
   -> Int
   -> Int
   -> Double
@@ -348,8 +348,8 @@ mnistTestCase2D
   -> Int
   -> Int
   -> (MnistData Double
-      -> DualNumberVariables 'DifferentiationSchemeGradient Double
-      -> DualMonadGradient Double (DualNumber 'DifferentiationSchemeGradient Double))
+      -> DualNumberVariables 'DModeGradient Double
+      -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
   -> Int
   -> Int
   -> Double
@@ -422,8 +422,8 @@ mnistTestCase2F
   -> Int
   -> Int
   -> (MnistData Double
-      -> DualNumberVariables 'DifferentiationSchemeDerivative Double
-      -> DualMonadForward Double (DualNumber 'DifferentiationSchemeDerivative Double))
+      -> DualNumberVariables 'DModeDerivative Double
+      -> DualMonadForward Double (DualNumber 'DModeDerivative Double))
   -> Int
   -> Int
   -> Double

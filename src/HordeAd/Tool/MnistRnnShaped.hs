@@ -151,7 +151,7 @@ rnnMnistLossFusedS _ (glyphS, labelS) variables = do
 
 rnnMnistTestS
   :: forall out_width batch_size r.
-     (IsScalar 'DifferentiationSchemeGradient r, KnownNat out_width, KnownNat batch_size)
+     (IsScalar 'DModeGradient r, KnownNat out_width, KnownNat batch_size)
   => Proxy r -> Proxy out_width
   -> MnistDataBatchS batch_size r
   -> Domains r

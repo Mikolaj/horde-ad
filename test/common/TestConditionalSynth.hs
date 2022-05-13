@@ -185,8 +185,8 @@ gradSmartTestCase
   => String
   -> (Int
       -> Data.Vector.Storable.Vector (r, r)
-      -> DualNumberVariables 'DifferentiationSchemeGradient r
-      -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
+      -> DualNumberVariables 'DModeGradient r
+      -> DualMonadGradient r (DualNumber 'DModeGradient r))
   -> Int -> Int -> Int -> Int -> r
   -> TestTree
 gradSmartTestCase prefix lossFunction seedSamples

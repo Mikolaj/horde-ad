@@ -123,7 +123,7 @@ fcnnMnistLossFusedReluS _ _ (input, target) variables = do
 -- and the trained parameters.
 fcnnMnistTestS
   :: forall widthHidden widthHidden2 r.
-     (IsScalar 'DifferentiationSchemeGradient r, KnownNat widthHidden, KnownNat widthHidden2)
+     (IsScalar 'DModeGradient r, KnownNat widthHidden, KnownNat widthHidden2)
   => [MnistData r] -> Domains r -> r
 fcnnMnistTestS inputs parameters =
   let matchesLabels :: MnistData r -> Bool

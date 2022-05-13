@@ -113,7 +113,7 @@ convMnistLossCNN depth (x, target) variables = do
   lossSoftMaxCrossEntropyV target result
 
 convMnistTestCNN
-  :: forall r. IsScalar 'DifferentiationSchemeGradient r
+  :: forall r. IsScalar 'DModeGradient r
   => Proxy r -> Int -> [MnistData2 r] -> Domains r -> r
 convMnistTestCNN _ depth inputs parameters =
   let matchesLabels :: MnistData2 r -> Bool
@@ -136,8 +136,8 @@ convMnistTestCaseCNN
   -> Int
   -> (Int
       -> MnistData2 Double
-      -> DualNumberVariables 'DifferentiationSchemeGradient Double
-      -> DualMonadGradient Double (DualNumber 'DifferentiationSchemeGradient Double))
+      -> DualNumberVariables 'DModeGradient Double
+      -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
   -> (Proxy Double -> Int -> [MnistData2 Double]
       -> Domains Double -> Double)
   -> Int
@@ -261,7 +261,7 @@ convMnistLossCNNS depth (x, target) variables = do
   lossSoftMaxCrossEntropyV target result
 
 convMnistTestCNNS
-  :: forall r. IsScalar 'DifferentiationSchemeGradient r
+  :: forall r. IsScalar 'DModeGradient r
   => Proxy r -> Int -> [MnistData2 r] -> Domains r -> r
 convMnistTestCNNS _ depth inputs parameters =
   let matchesLabels :: MnistData2 r -> Bool
@@ -331,7 +331,7 @@ convMnistLossCNNP depth (x, target) variables = do
   lossSoftMaxCrossEntropyV target result
 
 convMnistTestCNNP
-  :: forall r. IsScalar 'DifferentiationSchemeGradient r
+  :: forall r. IsScalar 'DModeGradient r
   => Proxy r -> Int -> [MnistData2 r] -> Domains r -> r
 convMnistTestCNNP _ depth inputs parameters =
   let matchesLabels :: MnistData2 r -> Bool
@@ -356,7 +356,7 @@ convMnistTestCaseCNNT
      , KnownNat in_height, KnownNat in_width, KnownNat batch_size
      , 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
-     , r ~ Double, d ~ 'DifferentiationSchemeGradient, m ~ DualMonadGradient Double )
+     , r ~ Double, d ~ 'DModeGradient, m ~ DualMonadGradient Double )
   => String
   -> Int
   -> Int

@@ -33,7 +33,7 @@ scaleDual r u = returnLet $ scale r u
 
 gdSimpleShow :: HasDelta r
              => r
-             -> (DualNumberVariables 'DifferentiationSchemeGradient r -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
+             -> (DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
              -> Domain0 r
              -> Int
              -> ([r], r)
@@ -42,9 +42,9 @@ gdSimpleShow gamma f initVec n =
       (_, value) = dReverse 1 f (res, V.empty, V.empty, V.empty)
   in (V.toList res, value)
 
-fblowup :: forall m. DualMonad 'DifferentiationSchemeGradient Float m => DualNumberVariables 'DifferentiationSchemeGradient Float -> m (DualNumber 'DifferentiationSchemeGradient Float)
+fblowup :: forall m. DualMonad 'DModeGradient Float m => DualNumberVariables 'DModeGradient Float -> m (DualNumber 'DModeGradient Float)
 fblowup variables = do
-  let blowup :: Int -> DualNumber 'DifferentiationSchemeGradient Float -> m (DualNumber 'DifferentiationSchemeGradient Float)
+  let blowup :: Int -> DualNumber 'DModeGradient Float -> m (DualNumber 'DModeGradient Float)
       blowup 0 y = return y
       blowup n y = do
         ysum <- y +\ y

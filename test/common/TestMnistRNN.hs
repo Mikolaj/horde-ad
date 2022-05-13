@@ -126,7 +126,7 @@ samples :: [(Vector Double, Double)]
 samples  = [(V.fromList $ init c, last c) | c <- chunksOf 19 series]
 
 sgdShow :: HasDelta r
-        => (a -> DualNumberVariables 'DifferentiationSchemeGradient r -> DualMonadGradient r (DualNumber 'DifferentiationSchemeGradient r))
+        => (a -> DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
         -> [a]
         -> Domains r
         -> r
@@ -136,8 +136,8 @@ sgdShow f trainData parameters =
 
 sgdTestCase :: String
             -> (a
-                -> DualNumberVariables 'DifferentiationSchemeGradient Double
-                -> DualMonadGradient Double (DualNumber 'DifferentiationSchemeGradient Double))
+                -> DualNumberVariables 'DModeGradient Double
+                -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
             -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
             -> IO [a]
             -> Double
@@ -155,8 +155,8 @@ sgdTestCase prefix f nParameters trainDataIO expected =
 
 sgdTestCaseAlt :: String
             -> (a
-                -> DualNumberVariables 'DifferentiationSchemeGradient Double
-                -> DualMonadGradient Double (DualNumber 'DifferentiationSchemeGradient Double))
+                -> DualNumberVariables 'DModeGradient Double
+                -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
             -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
             -> IO [a]
             -> [Double]
@@ -172,11 +172,11 @@ sgdTestCaseAlt prefix f nParameters trainDataIO expected =
        let res = sgdShow f trainData parameters0
        assertBool "wrong result" $ res `elem` expected
 
-prime :: IsScalar 'DifferentiationSchemeGradient r
+prime :: IsScalar 'DModeGradient r
       => (r
-          -> DualNumber 'DifferentiationSchemeGradient (Vector r)
-          -> DualNumberVariables 'DifferentiationSchemeGradient r
-          -> DualMonadValue r (DualNumber 'DifferentiationSchemeGradient r, DualNumber 'DifferentiationSchemeGradient (Vector r)))
+          -> DualNumber 'DModeGradient (Vector r)
+          -> DualNumberVariables 'DModeGradient r
+          -> DualMonadValue r (DualNumber 'DModeGradient r, DualNumber 'DModeGradient (Vector r)))
       -> Domains r
       -> (Vector r)
       -> [r]
@@ -184,11 +184,11 @@ prime :: IsScalar 'DifferentiationSchemeGradient r
 prime f parameters =
   foldl' (\s x -> primalValue (fmap snd . f x (constant s)) parameters)
 
-feedback :: IsScalar 'DifferentiationSchemeGradient r
+feedback :: IsScalar 'DModeGradient r
          => (r
-             -> DualNumber 'DifferentiationSchemeGradient (Vector r)
-             -> DualNumberVariables 'DifferentiationSchemeGradient r
-             -> DualMonadValue r (DualNumber 'DifferentiationSchemeGradient r, DualNumber 'DifferentiationSchemeGradient (Vector r)))
+             -> DualNumber 'DModeGradient (Vector r)
+             -> DualNumberVariables 'DModeGradient r
+             -> DualMonadValue r (DualNumber 'DModeGradient r, DualNumber 'DModeGradient (Vector r)))
          -> Domains r
          -> (Vector r)
          -> r
@@ -201,14 +201,14 @@ feedback f parameters s0 x0 =
 
 feedbackTestCase :: String
                  -> (Double
-                     -> DualNumber 'DifferentiationSchemeGradient (Vector Double)
-                     -> DualNumberVariables 'DifferentiationSchemeGradient Double
+                     -> DualNumber 'DModeGradient (Vector Double)
+                     -> DualNumberVariables 'DModeGradient Double
                      -> DualMonadValue Double
-                                        ( DualNumber 'DifferentiationSchemeGradient Double
-                                        , DualNumber 'DifferentiationSchemeGradient (Vector Double) ))
+                                        ( DualNumber 'DModeGradient Double
+                                        , DualNumber 'DModeGradient (Vector Double) ))
                  -> (a
-                     -> DualNumberVariables 'DifferentiationSchemeGradient Double
-                     -> DualMonadGradient Double (DualNumber 'DifferentiationSchemeGradient Double))
+                     -> DualNumberVariables 'DModeGradient Double
+                     -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
                  -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
                  -> [a]
                  -> [Double]
@@ -426,7 +426,7 @@ nnMnistRNNLossL2 width (xs, target) variables = do
   result <- nnMnistRNNL2 width xs variables
   lossSoftMaxCrossEntropyV target result
 
-testMnistRNNL :: forall r. IsScalar 'DifferentiationSchemeGradient r
+testMnistRNNL :: forall r. IsScalar 'DModeGradient r
               => Int -> [([(Vector r)], (Vector r))] -> Domains r -> r
 testMnistRNNL width inputs parameters =
   let matchesLabels :: ([(Vector r)], (Vector r)) -> Bool
@@ -437,7 +437,7 @@ testMnistRNNL width inputs parameters =
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
 
-testMnistRNNL2 :: forall r. IsScalar 'DifferentiationSchemeGradient r
+testMnistRNNL2 :: forall r. IsScalar 'DModeGradient r
                => Int -> [([(Vector r)], (Vector r))] -> Domains r -> r
 testMnistRNNL2 width inputs parameters =
   let matchesLabels :: ([(Vector r)], (Vector r)) -> Bool
@@ -499,7 +499,7 @@ nnMnistRNNLossV width (xs, target) variables = do
   result <- nnMnistRNNV width xs variables
   lossSoftMaxCrossEntropyV target result
 
-testMnistRNNV :: forall r. IsScalar 'DifferentiationSchemeGradient r
+testMnistRNNV :: forall r. IsScalar 'DModeGradient r
               => Int -> [([(Vector r)], (Vector r))] -> Domains r -> r
 testMnistRNNV width inputs parameters =
   let matchesLabels :: ([(Vector r)], (Vector r)) -> Bool
@@ -536,8 +536,8 @@ mnistTestCaseRNN
   -> Int
   -> (Int
       -> ([Vector Double], Vector Double)
-      -> DualNumberVariables 'DifferentiationSchemeGradient Double
-      -> DualMonadGradient Double (DualNumber 'DifferentiationSchemeGradient Double))
+      -> DualNumberVariables 'DModeGradient Double
+      -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
   -> (Int -> [([Vector Double], Vector Double)] -> Domains Double -> Double)
   -> (Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
   -> Int
@@ -711,8 +711,8 @@ mnistTestCaseRNNB
   -> Int
   -> (Int
       -> ([Matrix Double], Matrix Double)
-      -> DualNumberVariables 'DifferentiationSchemeGradient Double
-      -> DualMonadGradient Double (DualNumber 'DifferentiationSchemeGradient Double))
+      -> DualNumberVariables 'DModeGradient Double
+      -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
   -> (Int -> [([Vector Double], Vector Double)] -> Domains Double -> Double)
   -> (Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
   -> Int
@@ -779,7 +779,7 @@ mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
 mnistTestCaseRNNS
   :: forall out_width batch_size d r m.
      ( KnownNat out_width, KnownNat batch_size
-     , r ~ Double, d ~ 'DifferentiationSchemeGradient, m ~ DualMonadGradient Double )
+     , r ~ Double, d ~ 'DModeGradient, m ~ DualMonadGradient Double )
   => String
   -> Int
   -> Int

@@ -141,13 +141,13 @@ fcnnMnistLoss0 widthHidden widthHidden2 (input, target) variables = do
 --
 -- The proxy argument is needed only for the (spurious) SPECIALIZE pragma,
 -- becuase I can't write @SPECIALIZE fcnnMnistTest0 \@Double@.
-fcnnMnistTest0 :: forall r. IsScalar 'DifferentiationSchemeGradient r
+fcnnMnistTest0 :: forall r. IsScalar 'DModeGradient r
            => Proxy r -> Int -> Int -> [MnistData r] -> Domain0 r
            -> r
 fcnnMnistTest0 _ widthHidden widthHidden2 inputs params0 =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let nn = inline (fcnnMnist0 @'DifferentiationSchemeGradient) logisticAct softMaxAct
+        let nn = inline (fcnnMnist0 @'DModeGradient) logisticAct softMaxAct
                                         widthHidden widthHidden2 glyph
             value = V.map (\(D r _) -> r)
                     $ primalValueGeneral nn (params0, V.empty, V.empty, V.empty)
