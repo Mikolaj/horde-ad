@@ -275,7 +275,7 @@ instance OS.Shape sh => HasVariables (OS.Array sh r) r where
   dVar = VarS
   {-# INLINE bindInState #-}
   bindInState u' st = let (st2, did) = bindInStateX (FromSX u') st
-                      in (st2, covertDeltaId did)
+                      in (st2, convertDeltaId did)
 
 instance Dual 'DModeGradient r ~ Delta0 r
          => HasRanks 'DModeGradient r where

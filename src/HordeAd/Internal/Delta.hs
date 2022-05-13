@@ -36,7 +36,7 @@ module HordeAd.Internal.Delta
   ( -- * Abstract syntax trees of the delta expressions
     Delta0 (..), Delta1 (..), Delta2 (..), DeltaX (..), DeltaS (..)
   , -- * Delta expression identifiers
-    DeltaId, toDeltaId, covertDeltaId
+    DeltaId, toDeltaId, convertDeltaId
   , -- * Evaluation of the delta expressions
     DeltaBinding
   , DeltaState (..)
@@ -250,8 +250,8 @@ newtype DeltaId a = DeltaId Int
 toDeltaId :: Int -> DeltaId a
 toDeltaId = DeltaId
 
-covertDeltaId :: DeltaId (OT.Array r) -> DeltaId (OS.Array sh r)
-covertDeltaId (DeltaId i) = DeltaId i
+convertDeltaId :: DeltaId (OT.Array r) -> DeltaId (OS.Array sh r)
+convertDeltaId (DeltaId i) = DeltaId i
 
 -- The key property is that it preserves the phantom type.
 succDeltaId :: DeltaId a -> DeltaId a
