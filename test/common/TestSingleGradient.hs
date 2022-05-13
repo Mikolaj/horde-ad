@@ -149,14 +149,32 @@ sinKonst
   => DualNumberVariables d r -> m (DualNumber d r)
 sinKonst variables = do
   let x = var1 variables 0
-  return $ sumElements0 $ sin x + konst1 1 2
+  return $
+    sumElements0 $ sin x + konst1 1 2
 
 sinKonstOut
   :: DualMonad d r m
   => DualNumberVariables d r -> m (DualNumber d r)
 sinKonstOut variables = do
   let x = var1 variables 0
-  return $ sumElements0 $ unOut $ sin (Out x) + Out (konst1 1 2)
+  return $
+    sumElements0 $ unOut $ sin (Out x) + Out (konst1 1 2)
+
+powKonst
+  :: DualMonad d r m
+  => DualNumberVariables d r -> m (DualNumber d r)
+powKonst variables = do
+  let x = var1 variables 0
+  return $
+    sumElements0 $ x ** (sin x + konst1 (sumElements0 x) 2)
+
+powKonstOut
+  :: DualMonad d r m
+  => DualNumberVariables d r -> m (DualNumber d r)
+powKonstOut variables = do
+  let x = var1 variables 0
+  return $
+    sumElements0 $ x ** unOut (sin (Out x) + Out (konst1 (sumElements0 x) 2))
 
 dReverse1
   :: (r ~ Float, d ~ 'DModeGradient)
@@ -179,6 +197,10 @@ testDReverse1 = testGroup "Simple dReverse application to vectors tests" $
       , ([[0.5403023,-0.9899925]],2.982591) )
     , ( "sinKonstOut", sinKonstOut, [[1, 3]]
       , ([[0.5403023,-0.9899925]],2.982591) )
+    , ( "powKonst", powKonst, [[1, 3]]
+      , ([[108.7523,131.60072]],95.58371) )
+    , ( "powKonstOut", powKonstOut, [[1, 3]]
+      , ([[108.7523,131.60072]],95.58371) )
     ]
 
 testPrintDf :: TestTree
@@ -216,7 +238,33 @@ testPrintDf = testGroup "Pretty printing test" $
         , "     , Konst1 Zero0 2"
         , "     ])"
         , "  2" ] )
+    , ( "powKonst", powKonst, [[1, 3]]
+      , unlines
+        [ "in SumElements0"
+        , "  (Add1"
+        , "     (Scale1 [ 4.8414707 , 130.56084 ] (Var1 (DeltaId 0)))"
+        , "     (Scale1"
+        , "        [ 0.0 , 103.91083 ]"
+        , "        (Add1"
+        , "           (Scale1 [ 0.5403023 , -0.9899925 ] (Var1 (DeltaId 0)))"
+        , "           (Konst1 (SumElements0 (Var1 (DeltaId 0)) 2) 2))))"
+        , "  2" ] )
+    , ( "powKonstOut", powKonstOut, [[1, 3]]
+      , unlines
+        [ "in SumElements0"
+        , "  (Add1"
+        , "     (Scale1 [ 4.8414707 , 130.56084 ] (Var1 (DeltaId 0)))"
+        , "     (Scale1"
+        , "        [ 0.0 , 103.91083 ]"
+        , "        (Outline1"
+        , "           PlusOut"
+        , "           [ [ 0.84147096 , 0.14112 ] , [ 4.0 , 4.0 ] ]"
+        , "           [ Outline1 SinOut [ [ 1.0 , 3.0 ] ] [ Var1 (DeltaId 0) ]"
+        , "           , Konst1 (SumElements0 (Var1 (DeltaId 0)) 2) 2"
+        , "           ])))"
+        , "  2" ] )
     ]
+
 testDForward :: TestTree
 testDForward =
  testGroup "Simple dForward application tests" $

@@ -866,9 +866,12 @@ maxPool24 d = do
 -- | A wrapper type to delay/outline computation of the derivatives of the given
 -- primitive function inside the dual component of the created dual number.
 --
--- To be used as in @unOut $ sin (Out x) + Out (konst1 1 2)@,
--- which delays computing the dual component of @sin@ and of addition
--- (both in rank 1).
+-- To be used as in
+--
+-- > x ** unOut (sin (Out x) + Out (konst1 (sumElements0 x) 2))
+--
+-- which delays computing the dual component of sine and of addition
+-- (both in rank 1), but not of power, konst and sumElements.
 newtype Out a = Out {unOut :: a}
   deriving (Eq, Ord)
 
