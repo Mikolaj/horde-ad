@@ -15,6 +15,7 @@ import HordeAd hiding (sumElementsVectorOfDual)
 testTrees :: [TestTree]
 testTrees = [ testDReverse0
             , testDReverse1
+            , testPrintDf
             , testDForward
             , testDFastForward
             , quickCheckForwardAndBackward
@@ -180,6 +181,42 @@ testDReverse1 = testGroup "Simple dReverse application to vectors tests" $
       , ([[0.5403023,-0.9899925]],2.982591) )
     ]
 
+testPrintDf :: TestTree
+testPrintDf = testGroup "Pretty printing test" $
+  map (\(txt, f, v, expected) ->
+        testCase txt $ prettyPrintDf False f
+          (V.empty, V.fromList (map V.fromList v), V.empty, V.empty)
+        @?= expected)
+    [ ( "sumElementsV", sumElementsV, [[1 :: Float, 1, 3]]
+      , unlines
+        [ "let0 DeltaId_0 = SumElements0 (Var1 (DeltaId 0)) 3"
+        , "in Var0 (DeltaId 0)" ] )
+    , ( "altSumElementsV", altSumElementsV, [[1, 1, 3]]
+      , unlines
+        [ "let0 DeltaId_0 = Add0"
+        , "  (Index0 (Var1 (DeltaId 0)) 2 3)"
+        , "  (Add0"
+        , "     (Index0 (Var1 (DeltaId 0)) 1 3)"
+        , "     (Add0 (Index0 (Var1 (DeltaId 0)) 0 3) Zero0))"
+        , "in Var0 (DeltaId 0)" ] )
+    , ( "sinKonst", sinKonst, [[1, 3]]
+      , unlines
+        [ "in SumElements0"
+        , "  (Add1"
+        , "     (Scale1 [ 0.5403023 , -0.9899925 ] (Var1 (DeltaId 0)))"
+        , "     (Konst1 Zero0 2))"
+        , "  2" ] )
+    , ( "sinKonstOut", sinKonstOut, [[1, 3]]
+      , unlines
+        [ "in SumElements0"
+        , "  (Outline1"
+        , "     PlusOut"
+        , "     [ [ 0.84147096 , 0.14112 ] , [ 1.0 , 1.0 ] ]"
+        , "     [ Outline1 SinOut [ [ 1.0 , 3.0 ] ] [ Var1 (DeltaId 0) ]"
+        , "     , Konst1 Zero0 2"
+        , "     ])"
+        , "  2" ] )
+    ]
 testDForward :: TestTree
 testDForward =
  testGroup "Simple dForward application tests" $
