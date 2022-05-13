@@ -143,6 +143,20 @@ altSumElementsV variables = do
   let x = var1 variables 0
   returnLet $ altSumElements0 x
 
+sinKonst
+  :: DualMonad d r m
+  => DualNumberVariables d r -> m (DualNumber d r)
+sinKonst variables = do
+  let x = var1 variables 0
+  return $ sumElements0 $ sin x + konst1 1 2
+
+sinKonstOut
+  :: DualMonad d r m
+  => DualNumberVariables d r -> m (DualNumber d r)
+sinKonstOut variables = do
+  let x = var1 variables 0
+  return $ sumElements0 $ unOut $ sin (Out x) + Out (konst1 1 2)
+
 dReverse1
   :: (r ~ Float, d ~ 'DModeGradient)
   => (DualNumberVariables d r -> DualMonadGradient r (DualNumber d r))
@@ -160,6 +174,10 @@ testDReverse1 = testGroup "Simple dReverse application to vectors tests" $
         testCase txt $ dReverse1 f v @?= expected)
     [ ("sumElementsV", sumElementsV, [[1, 1, 3]], ([[1.0,1.0,1.0]],5.0))
     , ("altSumElementsV", altSumElementsV, [[1, 1, 3]], ([[1.0,1.0,1.0]],5.0))
+    , ( "sinKonst", sinKonst, [[1, 3]]
+      , ([[0.5403023,-0.9899925]],2.982591) )
+    , ( "sinKonstOut", sinKonstOut, [[1, 3]]
+      , ([[0.5403023,-0.9899925]],2.982591) )
     ]
 
 testDForward :: TestTree
