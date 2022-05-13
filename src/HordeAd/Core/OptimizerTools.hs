@@ -21,8 +21,7 @@ import           Numeric.LinearAlgebra.Data (flatten)
 import           Numeric.LinearAlgebra.Devel
   (MatrixOrder (..), liftMatrix, liftMatrix2, matrixFromVector, orderOf)
 
-import HordeAd.Core.Engine
-import HordeAd.Internal.Delta (isTensorDummy)
+import HordeAd.Internal.Delta (Domains, isTensorDummy)
 
 {-
 60% of heap allocation in matrix- and vector-based MNIST

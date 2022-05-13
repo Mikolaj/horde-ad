@@ -32,8 +32,7 @@ import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 
 import HordeAd.Core.DualClass
-import HordeAd.Internal.Delta as Delta
-  (Domain0, Domain1, Domain2, DomainX, Domains)
+import HordeAd.Internal.Delta (Domain0, Domain1, Domain2, DomainX, Domains)
 
 -- * The main dual number types
 

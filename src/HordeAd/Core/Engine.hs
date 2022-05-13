@@ -5,8 +5,7 @@
 -- and implementations of calculating gradient, derivative and value
 -- of an objective function defined on dual numbers.
 module HordeAd.Core.Engine
-  ( Domain0, Domain1, Domain2, DomainX, Domains
-  , DualMonadValue, primalValueGeneral, primalValue
+  ( DualMonadValue, primalValueGeneral, primalValue
   , DualMonadGradient, dReverseGeneral, dReverse, dForwardGeneral, dForward, prettyPrintDf
   , DualMonadForward, dFastForwardGeneral, dFastForward
   , generateDeltaVars, initializerFixed
