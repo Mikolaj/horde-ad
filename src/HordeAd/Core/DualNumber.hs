@@ -41,7 +41,7 @@ data DualNumber (d :: DMode) a = D a (Dual d a)
 
 class (IsScalar d r, Monad m, Functor m, Applicative m)
       => DualMonad d r m | m -> d r where
-  returnLet :: (IsDual d a, HasVariables a r)
+  returnLet :: (IsPrimal d a, HasVariables a r)
             => DualNumber d a -> m (DualNumber d a)
 
 addParameters :: (Numeric r, Num (Vector r))
@@ -71,7 +71,7 @@ instance Ord (DualNumber d a) where
 -- leading to allocation explosion. Expressions should be wrapped in
 -- the monadic @returnLet@ whenever there is a possibility they can be
 -- used multiple times in a larger expression.
-instance (Num a, IsDual d a) => Num (DualNumber d a) where
+instance (Num a, IsPrimal d a) => Num (DualNumber d a) where
   D u u' + D v v' = D (u + v) (dAdd u' v')
   D u u' - D v v' = D (u - v) (dAdd u' (dScale (-1) v'))
   D u u' * D v v' = D (u * v) (dAdd (dScale v u') (dScale u v'))
@@ -80,10 +80,10 @@ instance (Num a, IsDual d a) => Num (DualNumber d a) where
   signum = undefined  -- TODO
   fromInteger = constant . fromInteger
 
-instance (Real a, IsDual d a) => Real (DualNumber d a) where
+instance (Real a, IsPrimal d a) => Real (DualNumber d a) where
   toRational = undefined  -- TODO?
 
-instance (Fractional a, IsDual d a) => Fractional (DualNumber d a) where
+instance (Fractional a, IsPrimal d a) => Fractional (DualNumber d a) where
   D u u' / D v v' =
     let recipSq = recip (v * v)
     in D (u / v) (dAdd (dScale (v * recipSq) u') (dScale (- u * recipSq) v'))
@@ -92,7 +92,7 @@ instance (Fractional a, IsDual d a) => Fractional (DualNumber d a) where
     in D (recip v) (dScale minusRecipSq v')
   fromRational = constant . fromRational
 
-instance (Floating a, IsDual d a) => Floating (DualNumber d a) where
+instance (Floating a, IsPrimal d a) => Floating (DualNumber d a) where
   pi = constant pi
   exp (D u u') = let expU = exp u
                  in D expU (dScale expU u')
@@ -115,28 +115,28 @@ instance (Floating a, IsDual d a) => Floating (DualNumber d a) where
   acosh = undefined  -- TODO
   atanh = undefined  -- TODO
 
-instance (RealFrac a, IsDual d a) => RealFrac (DualNumber d a) where
+instance (RealFrac a, IsPrimal d a) => RealFrac (DualNumber d a) where
   properFraction = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance (RealFloat a, IsDual d a) => RealFloat (DualNumber d a) where
+instance (RealFloat a, IsPrimal d a) => RealFloat (DualNumber d a) where
   atan2 (D u u') (D v v') =
     let t = 1 / (u * u + v * v)
     in D (atan2 u v) (dAdd (dScale (- u * t) v') (dScale (v * t) u'))
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a differentiable codomain
 
-constant :: IsDual d a => a -> DualNumber d a
+constant :: IsPrimal d a => a -> DualNumber d a
 constant a = D a dZero
 
-scale :: (Num a, IsDual d a) => a -> DualNumber d a -> DualNumber d a
+scale :: (Num a, IsPrimal d a) => a -> DualNumber d a -> DualNumber d a
 scale a (D u u') = D (a * u) (dScale a u')
 
 tanhAct :: (DualMonad d r m, IsPrimalWithScalar d a r)
         => DualNumber d a -> m (DualNumber d a)
 tanhAct = returnLet . tanh
 
-logistic :: (Floating a, IsDual d a) => DualNumber d a -> DualNumber d a
+logistic :: (Floating a, IsPrimal d a) => DualNumber d a -> DualNumber d a
 logistic (D u u') =
   let y = recip (1 + exp (- u))
   in D y (dScale (y * (1 - y)) u')
@@ -146,10 +146,10 @@ logisticAct :: (DualMonad d r m, IsPrimalWithScalar d a r)
 logisticAct = returnLet . logistic
 
 -- Optimized and more clearly written @u ** 2@.
-square :: (Num a, IsDual d a) => DualNumber d a -> DualNumber d a
+square :: (Num a, IsPrimal d a) => DualNumber d a -> DualNumber d a
 square (D u u') = D (u * u) (dScale (2 * u) u')
 
-squaredDifference :: (Num a, IsDual d a)
+squaredDifference :: (Num a, IsPrimal d a)
                   => a -> DualNumber d a -> DualNumber d a
 squaredDifference targ res = square $ res - constant targ
 

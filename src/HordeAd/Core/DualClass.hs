@@ -11,7 +11,7 @@
 module HordeAd.Core.DualClass
   ( IsPrimalWithScalar, IsScalar, HasDelta
   , DMode(..), Dual
-  , IsDual(..), HasVariables(..), HasRanks(..)
+  , IsPrimal(..), HasVariables(..), HasRanks(..)
   ) where
 
 import Prelude
@@ -38,7 +38,7 @@ import HordeAd.Internal.Delta
 -- type is the primal component of a dual number type at an unknown rank
 -- and the third type is its underlying scalar.
 type IsPrimalWithScalar (d :: DMode) a r =
-  ( IsDual d a, HasVariables a r
+  ( IsPrimal d a, HasVariables a r
   , Floating a, MonoFunctor a, Element a ~ r )
 
 -- | A mega-shorthand for a bundle of connected type constraints.
@@ -51,7 +51,7 @@ type IsScalar (d :: DMode) r =
   , IsPrimalWithScalar d (Matrix r) r, IsPrimalWithScalar d (OT.Array r) r
   -- This fragment is for @OS.Array@ and it's irregular, because we can't
   -- mention @sh@ and so fully apply the type constructor.
-  , IsDualS d r  -- TODO: Floating (OS.Array sh r), MonoFunctor
+  , IsPrimalS d r  -- TODO: Floating (OS.Array sh r), MonoFunctor
   )
 
 -- | Is a scalar and will be used to compute gradients via delta-expressions.
@@ -97,14 +97,14 @@ type family Dual (d :: DMode) a = result | result -> d a where
 
 -- | Second argument is a primal component of dual numbers at some rank
 -- wrt the differentiation mode given in the first argument.
-class IsDual d a where
+class IsPrimal d a where
   dZero :: Dual d a
   dScale :: a -> Dual d a -> Dual d a
   dAdd :: Dual d a -> Dual d a -> Dual d a
 
 -- | Part 1/2 of a hack to squeeze the shaped tensors rank,
--- with its extra @sh@ parameter, into the 'IsDual' class.
-class IsDualS d r where
+-- with its extra @sh@ parameter, into the 'IsPrimal' class.
+class IsPrimalS d r where
   dZeroS :: forall sh. OS.Shape sh => Dual d (OS.Array sh r)
   dScaleS :: forall sh. OS.Shape sh
           => OS.Array sh r -> Dual d (OS.Array sh r) -> Dual d (OS.Array sh r)
@@ -113,8 +113,8 @@ class IsDualS d r where
         -> Dual d (OS.Array sh r)
 
 -- | Part 2/2 of a hack to squeeze the shaped tensors rank,
--- with its extra @sh@ parameter, into the 'IsDual' class.
-instance (IsDualS d r, OS.Shape sh) => IsDual d (OS.Array sh r) where
+-- with its extra @sh@ parameter, into the 'IsPrimal' class.
+instance (IsPrimalS d r, OS.Shape sh) => IsPrimal d (OS.Array sh r) where
   dZero = dZeroS
   dScale = dScaleS
   dAdd = dAddS
@@ -215,33 +215,33 @@ class HasRanks (d :: DMode) r where
 
 -- * Backprop gradient method instances
 
-instance IsDual 'DModeGradient Double where
+instance IsPrimal 'DModeGradient Double where
   dZero = Zero0
   dScale = Scale0
   dAdd = Add0
 
-instance IsDual 'DModeGradient Float where
+instance IsPrimal 'DModeGradient Float where
   -- Identical as above:
   dZero = Zero0
   dScale = Scale0
   dAdd = Add0
 
-instance IsDual 'DModeGradient (Vector r) where
+instance IsPrimal 'DModeGradient (Vector r) where
   dZero = Zero1
   dScale = Scale1
   dAdd = Add1
 
-instance IsDual 'DModeGradient (Matrix r) where
+instance IsPrimal 'DModeGradient (Matrix r) where
   dZero = Zero2
   dScale = Scale2
   dAdd = Add2
 
-instance IsDual 'DModeGradient (OT.Array r) where
+instance IsPrimal 'DModeGradient (OT.Array r) where
   dZero = ZeroX
   dScale = ScaleX
   dAdd = AddX
 
-instance IsDualS 'DModeGradient r where
+instance IsPrimalS 'DModeGradient r where
   dZeroS = ZeroS
   dScaleS = ScaleS
   dAddS = AddS
@@ -340,37 +340,37 @@ instance Dual 'DModeGradient r ~ Delta0 r
 
 -- * Alternative instances: forward derivatives computed on the spot
 
-instance IsDual 'DModeDerivative Double where
+instance IsPrimal 'DModeDerivative Double where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
 
-instance IsDual 'DModeDerivative Float where
+instance IsPrimal 'DModeDerivative Float where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
 
 -- These constraints force @UndecidableInstances@.
 instance Num (Vector r)
-         => IsDual 'DModeDerivative (Vector r) where
+         => IsPrimal 'DModeDerivative (Vector r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
 
 instance Num (Matrix r)
-         => IsDual 'DModeDerivative (Matrix r) where
+         => IsPrimal 'DModeDerivative (Matrix r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
 
 instance Num (OT.Array r)
-         => IsDual 'DModeDerivative (OT.Array r) where
+         => IsPrimal 'DModeDerivative (OT.Array r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
 
 instance (Numeric r, Num (Vector r))
-         => IsDualS 'DModeDerivative r where
+         => IsPrimalS 'DModeDerivative r where
   dZeroS = 0
   dScaleS k d = k * d
   dAddS d e = d + e
