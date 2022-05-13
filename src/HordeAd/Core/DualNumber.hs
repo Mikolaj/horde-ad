@@ -868,7 +868,7 @@ maxPool24 d = do
 --
 -- To be used as in
 --
--- > x ** unOut (sin (Out x) + Out (konst1 (sumElements0 x) 2))
+-- > x ** unOut (sin (Out x) + Out (id $ id $ id konst1 (sumElements0 x) 2))
 --
 -- which delays computing the dual component of sine and of addition
 -- (both in rank 1), but not of power, konst and sumElements.

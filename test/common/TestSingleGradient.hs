@@ -150,7 +150,7 @@ sinKonst
 sinKonst variables = do
   let x = var1 variables 0
   return $
-    sumElements0 $ sin x + konst1 1 2
+    sumElements0 $ sin x + (id $ id $ id $ konst1 1 2)
 
 sinKonstOut
   :: DualMonad d r m
@@ -158,7 +158,7 @@ sinKonstOut
 sinKonstOut variables = do
   let x = var1 variables 0
   return $
-    sumElements0 $ unOut $ sin (Out x) + Out (konst1 1 2)
+    sumElements0 $ unOut $ sin (Out x) + Out (id $ id $ id $ konst1 1 2)
 
 powKonst
   :: DualMonad d r m
@@ -166,7 +166,7 @@ powKonst
 powKonst variables = do
   let x = var1 variables 0
   return $
-    sumElements0 $ x ** (sin x + konst1 (sumElements0 x) 2)
+    sumElements0 $ x ** (sin x + (id $ id $ id $ konst1 (sumElements0 x) 2))
 
 powKonstOut
   :: DualMonad d r m
@@ -174,7 +174,7 @@ powKonstOut
 powKonstOut variables = do
   let x = var1 variables 0
   return $
-    sumElements0 $ x ** unOut (sin (Out x) + Out (konst1 (sumElements0 x) 2))
+    sumElements0 $ x ** unOut (sin (Out x) + Out (id $ id $ id $ konst1 (sumElements0 x) 2))
 
 dReverse1
   :: (r ~ Float, d ~ 'DModeGradient)
