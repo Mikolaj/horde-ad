@@ -24,7 +24,6 @@ import           Text.Printf
 import qualified GHC.TypeLits
 
 import HordeAd
-import HordeAd.Core.DualClass (DifferentiationScheme (..))
 import HordeAd.Core.OutdatedOptimizer
 import HordeAd.Tool.MnistRnnShaped
 import HordeAd.Tool.MnistTools

@@ -23,7 +23,6 @@ import           Test.Tasty.QuickCheck hiding (label, shuffle)
 import           Text.Printf
 
 import HordeAd
-import HordeAd.Core.DualClass (DifferentiationScheme (..))
 import HordeAd.Core.OutdatedOptimizer
 import HordeAd.Tool.MnistTools
 

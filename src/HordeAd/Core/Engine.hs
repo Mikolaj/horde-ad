@@ -22,12 +22,7 @@ import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 
-import HordeAd.Core.DualClass
-  ( DifferentiationScheme (..)
-  , Dual
-  , HasVariables (bindInState, dVar)
-  , IsDual (..)
-  )
+import HordeAd.Core.DualClass (Dual, HasVariables (..), IsDual (..))
 import HordeAd.Core.DualNumber
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 import HordeAd.Internal.Delta

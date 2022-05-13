@@ -15,7 +15,6 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
-import HordeAd.Core.DualClass (DifferentiationScheme (..))
 import HordeAd.Core.OutdatedOptimizer
 import HordeAd.Tool.MnistTools
 

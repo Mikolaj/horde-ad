@@ -11,7 +11,6 @@ import           Test.Tasty.HUnit hiding (assert)
 import           Test.Tasty.QuickCheck
 
 import HordeAd hiding (sumElementsVectorOfDual)
-import HordeAd.Core.DualClass (DifferentiationScheme (..))
 
 testTrees :: [TestTree]
 testTrees = [ testDReverse0

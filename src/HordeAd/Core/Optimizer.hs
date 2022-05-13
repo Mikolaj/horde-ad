@@ -9,7 +9,6 @@ module HordeAd.Core.Optimizer
 
 import Prelude
 
-import HordeAd.Core.DualClass (DifferentiationScheme (..))
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.OptimizerTools

@@ -4,15 +4,14 @@
              UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | The class of dual components of dual numbers and related classes,
+-- | The class defining dual components of dual numbers and related classes,
 -- type families, constraints and instances. This is a low-level API
 -- used to define types and operations in "HordeAd.Core.DualNumber"
 -- that is the high-level API.
 module HordeAd.Core.DualClass
   ( IsDualWithScalar, IsScalar, HasDelta
-  , IsDual(dZero, dScale, dAdd)
-  , HasVariables(..)
-  , DifferentiationScheme(..), Dual, HasRanks(..)
+  , DifferentiationScheme(..), Dual
+  , IsDual(..), HasVariables(..), HasRanks(..)
   ) where
 
 import Prelude
@@ -32,19 +31,20 @@ import qualified Numeric.LinearAlgebra as HM
 
 import HordeAd.Internal.Delta
 
--- * Abbreviations for export (not used anywhere below)
+-- * Abbreviations to export (not used anywhere below)
 
 -- | A shorthand for a useful set of constraints. The main intended semantics
--- (not fully enforced by the constraints in isolation) is that the second
+-- (not fully enforced by the constraint in isolation) is that the second
 -- type is the primal component of a dual number type at an unknown rank
--- and the third type is the primal component of the same dual number types
--- collection at the scalar level (rank 0), which is also equal
--- to the underlying scalar type.
+-- and the third type is its underlying scalar.
 type IsDualWithScalar (d :: DifferentiationScheme) a r =
   ( IsDual d a, HasVariables a r
   , Floating a, MonoFunctor a, Element a ~ r )
 
 -- | A mega-shorthand for a bundle of connected type constraints.
+-- The @Scalar@ in the name means that the second argument is the underlying
+-- scalar type of a well behaved (wrt the differentiation mode in the first
+-- argument) collection of primal and dual components of dual numbers.
 type IsScalar (d :: DifferentiationScheme) r =
   ( HasRanks d r, Ord r, Numeric r, RealFloat r
   , IsDualWithScalar d r r, IsDualWithScalar d (Vector r) r
@@ -54,19 +54,32 @@ type IsScalar (d :: DifferentiationScheme) r =
   , IsDualS d r  -- TODO: Floating (OS.Array sh r), MonoFunctor
   )
 
--- | Is a scalar and will be used to compute gradients.
+-- | Is a scalar and will be used to compute gradients via delta-expressions.
 type HasDelta r = ( IsScalar 'DifferentiationSchemeGradient r
                   , Dual 'DifferentiationSchemeGradient r ~ Delta0 r )
 
 
 -- * Class definitions
 
+-- | The enumeration of all possible differentiation (and more generally,
+-- computation with dual numbers) modes.
 data DifferentiationScheme =
     DifferentiationSchemeGradient
   | DifferentiationSchemeDerivative
 
--- The second type argument is meant to be the primal components
+-- | The type family that enumerates all possible "ranks"
+-- for each differentiation mode.
+-- The second type argument is meant to be the primal component
 -- of dual numbers. The result is the dual component.
+--
+-- Rank 0 is special because, in derivatives mode, the dual component
+-- is not the primal component wrapped in a datatype or newtype constructor.
+-- This makes impossible a representation of primal and dual components as
+-- the primal plus the type constructor for creating the dual.
+--
+-- Rank S is special, because of the extra type parameter @sh@ representing
+-- a shape. This is another obstacle to a dual number representation via
+-- a single-argument type constructor.
 type family Dual (d :: DifferentiationScheme) a = result
                                                 | result -> d a where
   Dual 'DifferentiationSchemeGradient Double = Delta0 Double
@@ -83,11 +96,15 @@ type family Dual (d :: DifferentiationScheme) a = result
   Dual 'DifferentiationSchemeDerivative (OT.Array r) = OT.Array r
   Dual 'DifferentiationSchemeDerivative (OS.Array sh r) = OS.Array sh r
 
+-- | Second argument is a primal component of dual numbers at some rank
+-- wrt the differentiation mode given in the first argument.
 class IsDual d a where
   dZero :: Dual d a
   dScale :: a -> Dual d a -> Dual d a
   dAdd :: Dual d a -> Dual d a -> Dual d a
 
+-- | Part 1/2 of a hack to squeeze the shaped tensors rank,
+-- with its extra @sh@ parameter, into the 'IsDual' class.
 class IsDualS d r where
   dZeroS :: forall sh. OS.Shape sh => Dual d (OS.Array sh r)
   dScaleS :: forall sh. OS.Shape sh
@@ -96,23 +113,26 @@ class IsDualS d r where
         => Dual d (OS.Array sh r) -> Dual d (OS.Array sh r)
         -> Dual d (OS.Array sh r)
 
--- This instance saves us from splitting @DualNumber@ and @DualNumberS@,
--- @scale@ and @scaleS@, etc.
+-- | Part 2/2 of a hack to squeeze the shaped tensors rank,
+-- with its extra @sh@ parameter, into the 'IsDual' class.
 instance (IsDualS d r, OS.Shape sh) => IsDual d (OS.Array sh r) where
   dZero = dZeroS
   dScale = dScaleS
   dAdd = dAddS
 
+-- | Assuming that the first argument is the primal component of dual numbers
+-- with the underyling scalar in the second argument and with differentiation
+-- mode `DifferentiationSchemeGradient`, it additionally admits delta-variable
+-- introduction and binding as defined by the methods of the class.
 class HasVariables a r | a -> r where
   dVar :: DeltaId a -> Dual 'DifferentiationSchemeGradient a
   bindInState :: Dual 'DifferentiationSchemeGradient a
               -> DeltaState r
               -> (DeltaState r, DeltaId a )
 
-
--- | The second type parameter is the underlying scalar of the collection
--- of dual numbers of various ranks, which is also equal to the primal
--- component of rank 0 dual numbers.
+-- | The class provides methods required for the second type parameter
+-- to be the underlying scalar of a well behaved collection of dual numbers
+-- of various ranks wrt the differentation mode given in the first argument.
 class HasRanks (d :: DifferentiationScheme) r where
   dSumElements0 :: Dual d (Vector r) -> Int -> Dual d r
   dIndex0 :: Dual d (Vector r) -> Int -> Int -> Dual d r

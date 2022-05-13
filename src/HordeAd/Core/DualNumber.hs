@@ -9,7 +9,7 @@
 -- defined using the low-level API in "HordeAd.Core.DualClass".
 module HordeAd.Core.DualNumber
   ( module HordeAd.Core.DualNumber
-  , IsDualWithScalar, IsScalar, HasDelta
+  , IsScalar, HasDelta, DifferentiationScheme(..)
   , Domain0, Domain1, Domain2, DomainX, Domains  -- an important re-export
   ) where
 

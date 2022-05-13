@@ -9,7 +9,6 @@ import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd
-import HordeAd.Core.DualClass (DifferentiationScheme (..))
 
 bgroup100, bgroup200, bgroup1000, bgroup1e4, bgroup1e5, bgroup1e6, bgroup1e7, bgroup5e7 :: [Double] -> Benchmark
 

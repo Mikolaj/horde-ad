@@ -24,8 +24,7 @@ import           Test.Tasty.QuickCheck hiding (label, scale, shuffle)
 import           Text.Printf
 
 import HordeAd
-import HordeAd.Core.DualClass
-  (DifferentiationScheme (..), HasRanks (dKonst2), IsDual (dZero))
+import HordeAd.Core.DualClass (HasRanks (dKonst2), IsDual (dZero))
 import HordeAd.Tool.MnistCnnShaped
 import HordeAd.Tool.MnistTools
 

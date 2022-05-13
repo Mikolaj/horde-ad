@@ -11,7 +11,6 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
-import HordeAd.Core.DualClass (DifferentiationScheme (..))
 import TestSingleGradient (fquad, quad)
 
 testTrees :: [TestTree]

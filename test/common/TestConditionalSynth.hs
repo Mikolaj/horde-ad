@@ -17,7 +17,6 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
-import HordeAd.Core.DualClass (DifferentiationScheme (..))
 import HordeAd.Tool.MnistTools
 
 testTrees :: [TestTree]
