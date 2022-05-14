@@ -4,9 +4,12 @@ module TestSingleGradient (testTrees, fquad, quad) where
 
 import Prelude
 
+import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.ShapedS as OS
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Vector)
+import qualified Numeric.LinearAlgebra as HM
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 import           Test.Tasty.QuickCheck
@@ -179,6 +182,25 @@ powKonstOut variables = do
   return $ sumElements0 $
     x ** unOut (sin (Out x) + Out (id $ id $ id $ konst1 (sumElements0 x) 2))
 
+sinKonstS
+  :: forall d r m. DualMonad d r m
+  => DualNumberVariables d r -> m (DualNumber d r)
+sinKonstS variables = do
+  let x = varS variables 0
+  return $ sumElements0 $ fromS1 $
+    ((sin x + (id $ id $ id $ konstS 1))
+       :: DualNumber d (OS.Array '[2] r))
+
+sinKonstOutS
+  :: forall r d m. ( DualMonad d r m
+                   , Floating (Out (DualNumber d (OS.Array '[2] r))) )
+  => DualNumberVariables d r -> m (DualNumber d r)
+sinKonstOutS variables = do
+  let x = varS variables 0
+  return $ sumElements0 $ fromS1 $
+    (unOut (sin (Out x) + Out (id $ id $ id $ konstS 1))
+       :: DualNumber d (OS.Array '[2] r))
+
 dReverse1
   :: (r ~ Float, d ~ 'DModeGradient)
   => (DualNumberVariables d r -> DualMonadGradient r (DualNumber d r))
@@ -285,6 +307,13 @@ listsToParameters :: ([Double], [Double]) -> Domains Double
 listsToParameters (a0, a1) =
   (V.fromList a0, V.singleton $ V.fromList a1, V.empty, V.empty)
 
+listsToParameters4 :: ([Double], [Double], [Double], [Double]) -> Domains Double
+listsToParameters4 (a0, a1, a2, aX) =
+  ( V.fromList a0
+  , V.singleton $ V.fromList a1
+  , if null a2 then V.empty else V.singleton $ HM.matrix 1 a2
+  , if null aX then V.empty else V.singleton $ OT.fromList [length aX] aX )
+
 testDFastForward :: TestTree
 testDFastForward =
  testGroup "Simple dFastForward application tests" $
@@ -300,9 +329,10 @@ testDFastForward =
 
 qcTest :: TestName
        -> (forall d r m. ( DualMonad d r m
-                         , Floating (Out (DualNumber d (Vector r))) )
+                         , Floating (Out (DualNumber d (Vector r)))
+                         , Floating (Out (DualNumber d (OS.Array '[2] r))) )
            => DualNumberVariables d r -> m (DualNumber d r))
-       -> ((Double, Double, Double) -> ([Double], [Double]))
+       -> ((Double, Double, Double) -> ([Double], [Double], [Double], [Double]))
        -> TestTree
 qcTest txt f fArg =
   testProperty txt
@@ -310,9 +340,9 @@ qcTest txt f fArg =
     forAll (choose ( (-1e-7, -1e-7, -1e-7)
                    , (1e-7, 1e-7, 1e-7) )) $ \perturbationRaw ->
     forAll (choose (-10, 10)) $ \dt ->
-      let args = listsToParameters $ fArg xyz
-          ds = listsToParameters $ fArg dsRaw
-          perturbation = listsToParameters $ fArg perturbationRaw
+      let args = listsToParameters4 $ fArg xyz
+          ds = listsToParameters4 $ fArg dsRaw
+          perturbation = listsToParameters4 $ fArg perturbationRaw
           ff@(derivative, ffValue) = dFastForward f args ds
           (derivativeAtPerturbation, valueAtPerturbation) =
             dFastForward f args perturbation
@@ -338,15 +368,19 @@ qcTest txt f fArg =
 quickCheckForwardAndBackward :: TestTree
 quickCheckForwardAndBackward =
   testGroup "Simple QuickCheck of gradient vs derivative vs perturbation" $
-    [ qcTest "fquad" fquad (\(x, y, _z) -> ([x, y], []))
+    [ qcTest "fquad" fquad (\(x, y, _z) -> ([x, y], [], [], []))
     , qcTest "atanReadmeM" atanReadmeM
-             (\(x, y, z) -> ([x, y, z], []))
+             (\(x, y, z) -> ([x, y, z], [], [], []))
     , qcTest "vatanReadmeM" vatanReadmeM
-             (\(x, y, z) -> ([], [x, y, z]))
+             (\(x, y, z) -> ([], [x, y, z], [], []))
     , qcTest "sinKonst" sinKonst  -- powKonst NaNs immediately
-             (\(x, _, z) -> ([], [x, z]))
+             (\(x, _, z) -> ([], [x, z], [], []))
     , qcTest "sinKonstOut" sinKonstOut
-             (\(x, _, z) -> ([], [x, z]))
+             (\(x, _, z) -> ([], [x, z], [], []))
+    , qcTest "sinKonstS" sinKonstS
+             (\(x, _, z) -> ([], [], [], [x, z]))
+    , qcTest "sinKonstOutS" sinKonstOutS
+             (\(x, _, z) -> ([], [], [], [x, z]))
    ]
 
 -- A function that goes from `R^3` to `R^2`, with a representation
