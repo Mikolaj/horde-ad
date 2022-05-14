@@ -1020,7 +1020,9 @@ softMaxCrossEntropy ::
     HM.Numeric s,
     DualMonad dual m
   ) =>
+  -- | Log predicted probability
   Dual dual (OS.Array [samples, labels] s) ->
+  -- | One hot
   Dual dual (OS.Array [samples, labels] s) ->
   m (Dual dual s)
 softMaxCrossEntropy logProbs' groundTruth = do
