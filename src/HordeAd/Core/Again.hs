@@ -908,6 +908,15 @@ expSDual (D x dx) =
   where
     exp_x = OS.mapA exp x
 
+logSDual ::
+  (Storable s, OS.Shape sh, Floating s, Ops (DeltaF s) dual) =>
+  Dual dual (OS.Array sh s) ->
+  Dual dual (OS.Array sh s)
+logSDual (D x dx) =
+  D
+    (OS.mapA log x)
+    (ops (ScalePointwiseS dx (OS.mapA recip x)))
+
 --
 
 example :: (Double, (Double, Double))
