@@ -89,6 +89,7 @@ data DeltaF (s :: Type) (dual :: Type -> Type) (t :: Type) where
     dual (OS.Array sh s) ->
     DeltaF s dual (OS.Array sh s)
   KonstS :: (OS.Shape sh, Storable s) => dual s -> DeltaF s dual (OS.Array sh s)
+  ZeroS :: (OS.Shape sh, Storable s) => DeltaF s dual (OS.Array sh s)
   AppendS ::
     (OS.Shape sh, Storable s, KnownNat m, KnownNat n) =>
     dual (OS.Array (m : sh) s) ->
@@ -127,6 +128,7 @@ mapDeltaF f = \case
   Seq1 vec -> Seq1 (fmap f vec)
   AddS d1 d2 -> AddS (f d1) (f d2)
   KonstS s -> KonstS (f s)
+  ZeroS -> ZeroS
   AppendS a1 a2 -> AppendS (f a1) (f a2)
   MulS1 d a -> MulS1 (f d) a
   MulS2 a d -> MulS2 a (f d)
@@ -166,6 +168,7 @@ knownDelta = \case
     Seq1 {} -> SVector
     AddS {} -> SShapedS
     KonstS {} -> SShapedS
+    ZeroS {} -> SShapedS
     AppendS {} -> SShapedS
     MulS1 {} -> SShapedS
     MulS2 {} -> SShapedS
@@ -283,6 +286,7 @@ evalDeltaF f deltaF t = case deltaF of
       tl = HM.toList t
   AddS de de' -> f de t . f de' t
   KonstS de -> f de (OS.sumA t)
+  ZeroS -> id
   AppendS
     (de :: dual (OS.Array (k : rest) s))
     (de' :: dual (OS.Array (l : rest) s)) ->
@@ -917,6 +921,11 @@ logSDual (D x dx) =
     (OS.mapA log x)
     (ops (ScalePointwiseS dx (OS.mapA recip x)))
 
+constS ::
+  (Ops (DeltaF s) dual, OS.Shape sh, Storable s) =>
+  OS.Array sh s ->
+  Dual dual (OS.Array sh s)
+constS x = D x (ops ZeroS)
 --
 
 example :: (Double, (Double, Double))
