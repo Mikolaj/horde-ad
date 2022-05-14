@@ -880,6 +880,12 @@ maxPool24 d = do
 newtype Out a = Out {unOut :: a}
   deriving (Eq, Ord)
 
+returnOut :: (DualMonad d r m, IsPrimalWithScalar d a r)
+          => Out (DualNumber d a) -> m (Out (DualNumber d a))
+returnOut dOut = do
+  dvar <- returnLet $ unOut dOut
+  return $ Out dvar
+
 instance (Num a, IsPrimal d a) => Num (Out (DualNumber d a)) where
   Out (D u u') + Out (D v v') =
     Out $ D (u + v) (dOutline PlusOut [u, v] [u', v'])

@@ -28,9 +28,6 @@ testTrees = [ gdSimpleTests
 (*\) :: DualMonad d r m => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
 (*\) u v = returnLet $ u * v
 
-scaleDual :: DualMonad d r m => r -> DualNumber d r -> m (DualNumber d r)
-scaleDual r u = returnLet $ scale r u
-
 gdSimpleShow :: HasDelta r
              => r
              -> (DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
@@ -42,16 +39,51 @@ gdSimpleShow gamma f initVec n =
       (_, value) = dReverse 1 f (res, V.empty, V.empty, V.empty)
   in (V.toList res, value)
 
-fblowup :: forall m. DualMonad 'DModeGradient Float m => DualNumberVariables 'DModeGradient Float -> m (DualNumber 'DModeGradient Float)
+-- Catastrophic loss of sharing prevented via the monad.
+fblowup :: forall d m. DualMonad d Float m
+        => DualNumberVariables d Float -> m (DualNumber d Float)
 fblowup variables = do
-  let blowup :: Int -> DualNumber 'DModeGradient Float -> m (DualNumber 'DModeGradient Float)
+  let blowup :: Int -> DualNumber d Float -> m (DualNumber d Float)
       blowup 0 y = return y
       blowup n y = do
         ysum <- y +\ y
-        yscaled <- scaleDual 0.499999985 ysum  -- otherwise we'd get NaN at once
+        yscaled <- returnLet $ 0.499999985 * ysum
+          -- without the scaling we'd get NaN at once
         blowup (pred n) yscaled
   y0 <- fquad variables
   blowup 100 y0
+
+-- Delaying doesn't derail sharing preservation via monads.
+-- Around 4 times slowdown, from wrapping each delta expression
+-- node in @Outline@. A version of @Outline@ that accepts
+-- arbitrary uncomputed expressions, or even only those composed entirely from
+-- primitive arithmetic function applications, would be much more complex.
+fblowupOut :: forall d r m. DualMonad d r m
+           => DualNumberVariables d r -> m (DualNumber d r)
+fblowupOut variables = do
+  let blowup :: Int -> Out (DualNumber d r) -> m (DualNumber d r)
+      blowup 0 y = return $ unOut y
+      blowup n y = do
+        ysum <- returnOut $ y + y
+        yscaled <- returnOut $ 0.499999985 * ysum
+        blowup (pred n) yscaled
+  y0 <- fquad variables
+  blowup 100 (Out y0)
+
+-- Delaying is not a substitute for sharing preservation via monads.
+-- We'd need another kind of variables to store the Outline contents
+-- and share it and its computation.
+fblowupOutNoM :: forall d r m. DualMonad d r m
+              => DualNumberVariables d r -> m (DualNumber d r)
+fblowupOutNoM variables = do
+  let blowup :: Int -> Out (DualNumber d r) -> DualNumber d r
+      blowup 0 y = unOut y
+      blowup n y =
+        let ysum = y + y
+            yscaled = 0.499999985 * ysum
+        in blowup (pred n) yscaled
+  y0 <- fquad variables
+  return $ blowup 20 (Out y0)  -- 2 ^ 30 is enough; 2 ^ 100 was too much
 
 gdSimpleTests :: TestTree
 gdSimpleTests = testGroup "Simple gradient descent tests"
@@ -68,21 +100,24 @@ gdSimpleTests = testGroup "Simple gradient descent tests"
     $ gdSimpleShow 0.01 fquad (V.fromList [2, 3]) 300000
       @?= ([3.5e-44,3.5e-44],5.0 :: Float)
   -- The (no) blowup tests.
-  , testCase "blowup 0.1 30"
-    $ gdSimpleShow 0.1 fblowup (V.fromList [2, 3]) 30
-      @?= ([2.475991e-3,3.7139843e-3],4.9999723)
-  , testCase "blowup 0.01 30"
-    $ gdSimpleShow 0.01 fblowup (V.fromList [2, 3]) 30
-      @?= ([1.0909724,1.6364591],8.868124)
-  , testCase "blowup 0.01 300"
-    $ gdSimpleShow 0.01 fblowup (V.fromList [2, 3]) 300
-      @?= ([4.665179e-3,6.9977706e-3],5.000023)
-  , testCase "blowup 0.01 300000"
-    $ gdSimpleShow 0.01 fblowup (V.fromList [2, 3]) 300000
+  , testCase "blowup 0.1 100"
+    $ gdSimpleShow 0.1 fblowup (V.fromList [2, 3]) 100
+      @?= ([4.0746778e-10,6.1120126e-10],4.9999523)
+  , testCase "blowup 0.01 100"
+    $ gdSimpleShow 0.01 fblowup (V.fromList [2, 3]) 100
+      @?= ([0.2652423,0.39786342],5.228601)
+  , testCase "blowup 0.01 10000"
+    $ gdSimpleShow 0.01 fblowup (V.fromList [2, 3]) 10000
       @?= ([3.5e-44,3.5e-44],4.9999523)
-  , testCase "blowup 0.01 3000000"
-    $ gdSimpleShow 0.01 fblowup (V.fromList [2, 3]) 3000000
+  , testCase "blowup 0.01 1000000"
+    $ gdSimpleShow 0.01 fblowup (V.fromList [2, 3]) 1000000
       @?= ([3.5e-44,3.5e-44],4.9999523)
+  , testCase "blowupOut 0.01 1000000"
+    $ gdSimpleShow 0.01 fblowupOut (V.fromList [2, 3]) 1000000
+      @?= ([3.5e-44,3.5e-44],4.9999523 :: Float)
+  , testCase "fblowupOutNoM 0.01 30 100 catastrophic"
+    $ gdSimpleShow 0.01 fblowupOutNoM (V.fromList [2, 3]) 100
+      @?= ([0.26523918,0.39785874],5.228634 :: Float)
   ]
 
 data ARecord a b = ARecord a b
