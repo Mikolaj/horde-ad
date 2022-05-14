@@ -897,6 +897,17 @@ reluSDual (D x dx) =
     (reluS x)
     (ops (ScalePointwiseS dx (OS.mapA (\s -> if s > 0 then 1 else 0) x)))
 
+expSDual ::
+  (Storable s, OS.Shape sh, Floating s, Ops (DeltaF s) dual) =>
+  Dual dual (OS.Array sh s) ->
+  Dual dual (OS.Array sh s)
+expSDual (D x dx) =
+  D
+    exp_x
+    (ops (ScalePointwiseS dx exp_x))
+  where
+    exp_x = OS.mapA exp x
+
 --
 
 example :: (Double, (Double, Double))
