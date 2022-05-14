@@ -104,6 +104,11 @@ data DeltaF (s :: Type) (dual :: Type -> Type) (t :: Type) where
     OS.Array [m, n] s ->
     dual (OS.Array [n, p] s) ->
     DeltaF s dual (OS.Array [m, p] s)
+  ScalePointwiseS ::
+    (OS.Shape sh, Storable s) =>
+    dual (OS.Array sh s) ->
+    OS.Array sh s ->
+    DeltaF s dual (OS.Array sh s)
 
 mapDeltaF ::
   (forall tt. dual tt -> dual' tt) ->
@@ -125,6 +130,7 @@ mapDeltaF f = \case
   AppendS a1 a2 -> AppendS (f a1) (f a2)
   MulS1 d a -> MulS1 (f d) a
   MulS2 a d -> MulS2 a (f d)
+  ScalePointwiseS d a -> ScalePointwiseS (f d) a
 
 data DeltaId (s :: Type) (t :: Type) where
   DeltaId :: Known (s `IsScalarOf` t) => Int -> DeltaId s t
@@ -163,6 +169,7 @@ knownDelta = \case
     AppendS {} -> SShapedS
     MulS1 {} -> SShapedS
     MulS2 {} -> SShapedS
+    ScalePointwiseS {} -> SShapedS
   Var di -> case di of (DeltaId _) -> known
 
 data DeltaMap s = DeltaMap
@@ -282,6 +289,7 @@ evalDeltaF f deltaF t = case deltaF of
       f de (OS.slice @'[ '(0, k)] t) . f de' (OS.slice @'[ '(k, l)] t)
   MulS1 de a -> f de (mulS t (transposeS a))
   MulS2 a de -> f de (mulS (transposeS a) t)
+  ScalePointwiseS de a -> f de (OS.zipWithA (*) a t)
 
 -- Somewhat annoying that we need this r parameter to satisfy
 -- functional dependencies.
@@ -327,6 +335,7 @@ evalDeltaFM1 deltaF = MonoidMap $ \t -> case deltaF of
       f de (OS.slice @'[ '(0, k)] t) <> f de' (OS.slice @'[ '(k, l)] t)
   MulS1 de a -> f de (mulS t (transposeS a))
   MulS2 a de -> f de (mulS (transposeS a) t)
+  ScalePointwiseS de a -> f de (OS.zipWithA (*) a t)
   where
     f = unMonoidMap
 
@@ -642,6 +651,7 @@ instance (Num r, HM.Numeric r) => Ops (DeltaF r) Concrete where
     AppendS (C a1) (C a2) -> C (OS.append a1 a2)
     MulS1 (C de) a -> C (mulS de a)
     MulS2 a (C de) -> C (mulS a de)
+    ScalePointwiseS (C de) a -> C (OS.zipWithA (*) de a)
 
 instance r' ~ r => Ops (DeltaF r') (Delta r) where
   ops = Delta
