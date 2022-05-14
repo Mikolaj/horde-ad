@@ -1,6 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, FlexibleInstances,
-             FunctionalDependencies, RankNTypes, TypeFamilies,
-             TypeOperators #-}
+             FunctionalDependencies, QuantifiedConstraints, RankNTypes,
+             TypeFamilies, TypeOperators #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
@@ -886,7 +886,7 @@ returnOut dOut = do
   dvar <- returnLet $ unOut dOut
   return $ Out dvar
 
-instance (Num a, IsPrimal 'DModeGradient a)
+instance (Num a, IsPrimal 'DModeGradient a, HasVariables a)
          => Num (Out (DualNumber 'DModeGradient a)) where
   Out (D u u') + Out (D v v') =
     Out $ D (u + v) (dOutline PlusOut [u, v] [u', v'])
@@ -899,18 +899,18 @@ instance (Num a, IsPrimal 'DModeGradient a)
   signum = undefined  -- TODO
   fromInteger = Out . constant . fromInteger
 
-instance (Real a, IsPrimal 'DModeGradient a)
+instance (Real a, IsPrimal 'DModeGradient a, HasVariables a)
          => Real (Out (DualNumber 'DModeGradient a)) where
   toRational = undefined  -- TODO?
 
-instance (Fractional a, IsPrimal 'DModeGradient a)
+instance (Fractional a, IsPrimal 'DModeGradient a, HasVariables a)
          => Fractional (Out (DualNumber 'DModeGradient a)) where
   Out (D u u') / Out (D v v') =
     Out $ D (u / v) (dOutline DivideOut [u, v] [u', v'])
   recip (Out (D v v')) = Out $ D (recip v) (dOutline RecipOut [v] [v'])
   fromRational = Out . constant . fromRational
 
-instance (Floating a, IsPrimal 'DModeGradient a)
+instance (Floating a, IsPrimal 'DModeGradient a, HasVariables a)
          => Floating (Out (DualNumber 'DModeGradient a)) where
   pi = Out $ constant pi
   exp (Out (D u u')) = Out $ D (exp u) (dOutline ExpOut [u] [u'])
@@ -932,12 +932,12 @@ instance (Floating a, IsPrimal 'DModeGradient a)
   acosh = undefined  -- TODO
   atanh = undefined  -- TODO
 
-instance (RealFrac a, IsPrimal 'DModeGradient a)
+instance (RealFrac a, IsPrimal 'DModeGradient a, HasVariables a)
          => RealFrac (Out (DualNumber 'DModeGradient a)) where
   properFraction = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance (RealFloat a, IsPrimal 'DModeGradient a)
+instance (RealFloat a, IsPrimal 'DModeGradient a, HasVariables a)
          => RealFloat (Out (DualNumber 'DModeGradient a)) where
   atan2 (Out (D u u')) (Out (D v v')) =
     Out $ D (atan2 u v) (dOutline Atan2Out [u, v] [u', v'])
