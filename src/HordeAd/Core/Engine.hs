@@ -96,7 +96,7 @@ instance IsScalar 'DModeGradient r
     st <- get
     let (!stNew, !dId) = bindInState u' st
     put stNew
-    return $! D u (dVar @a @r dId)
+    return $! D u (dVar dId)
 
 initializeState :: forall r. IsScalar 'DModeGradient r
                 => Domains r -> DeltaState r
@@ -125,7 +125,7 @@ dReverseGeneral dt
       dim1 = V.length params1
       dim2 = V.length params2
       dimX = V.length paramsX
-      initialState = initializeState @r (params0, params1, params2, paramsX)
+      initialState = initializeState (params0, params1, params2, paramsX)
       (D value d, st) = runState (runDualMonadGradient (f variables))
                                  initialState
       gradient = gradientFromDelta dim0 dim1 dim2 dimX st d dt
@@ -154,7 +154,7 @@ dForwardGeneral
 {-# INLINE dForwardGeneral #-}
 dForwardGeneral variables@(params0, _, params1, _, params2, _, paramsX, _)
                 f ds =
-  let initialState = initializeState @r (params0, params1, params2, paramsX)
+  let initialState = initializeState (params0, params1, params2, paramsX)
       (D value d, st) = runState (runDualMonadGradient (f variables))
                                  initialState
   in (derivativeFromDelta st d ds, value)
@@ -225,7 +225,7 @@ prettyPrintDf
 prettyPrintDf reversed f parameters =
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
-      initialState = initializeState @r parameters
+      initialState = initializeState parameters
       (D _ deltaTopLevel, st) = runState (runDualMonadGradient (f variables))
                                          initialState
   in ppBindings reversed st deltaTopLevel
@@ -240,7 +240,7 @@ generateDeltaVars
 generateDeltaVars (params0, params1, params2, paramsX) =
   let vVar :: forall a v. (HasVariables a r, V.Vector v a)
            => v a -> Data.Vector.Vector (Dual 'DModeGradient a)
-      vVar p = V.generate (V.length p) (dVar @a @r . toDeltaId)
+      vVar p = V.generate (V.length p) (dVar . toDeltaId)
       !v0 = vVar params0
       !v1 = vVar params1
       !v2 = vVar params2

@@ -143,7 +143,7 @@ vec_prod_aux = foldMDual' (*\) 1
 
 vec_prod :: forall r. HasDelta r
          => Vector r -> r
-vec_prod ds = primalValue @r vec_prod_aux (ds, V.empty, V.empty, V.empty)
+vec_prod ds = primalValue vec_prod_aux (ds, V.empty, V.empty, V.empty)
 
 grad_vec_prod :: HasDelta r => Vector r -> Vector r
 grad_vec_prod ds =
@@ -167,7 +167,7 @@ vec_omit_prod_aux vec = returnLet $ foldlDual' (*) 1 vec
 vec_omit_prod :: forall r. HasDelta r
               => Vector r -> r
 vec_omit_prod ds =
-  primalValue @r vec_omit_prod_aux (ds, V.empty, V.empty, V.empty)
+  primalValue vec_omit_prod_aux (ds, V.empty, V.empty, V.empty)
 
 grad_vec_omit_prod :: HasDelta r
                    => Vector r -> Vector r

@@ -226,7 +226,7 @@ convMnistTestS _ _ _ _ _ inputs parameters =
               convMnistS @kheight_minus_1 @kwidth_minus_1
                          @num_hidden @out_channels
                          tx variables
-            value = primalValue @r nn parameters
+            value = primalValue nn parameters
         in V.maxIndex (OS.toVector value) == V.maxIndex (OS.toVector label)
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)

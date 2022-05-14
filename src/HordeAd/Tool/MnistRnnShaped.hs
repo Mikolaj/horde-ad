@@ -158,7 +158,7 @@ rnnMnistTestS
   -> r
 rnnMnistTestS _ _ (glyphS, labelS) parameters =
   let xs = OS.transpose @'[2, 1, 0] glyphS
-      outputS = primalValue @r (rnnMnistS @out_width xs) parameters
+      outputS = primalValue (rnnMnistS @out_width xs) parameters
       outputs = map OS.toVector $ OSB.toList $ OS.unravel
                 $ OS.transpose @'[1, 0] $ outputS
       labels = map OS.toVector $ OSB.toList $ OS.unravel $ labelS
