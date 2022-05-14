@@ -1261,7 +1261,7 @@ addS ::
   OS.Array sh s ->
   OS.Array sh s ->
   OS.Array sh s
-addS t t' = OS.fromVector (V.zipWith (+) (OS.toVector t) (OS.toVector t'))
+addS = OS.zipWithA (+)
 
 mulS ::
   (HM.Numeric s, KnownNat m, KnownNat n, KnownNat p) =>
