@@ -1,5 +1,5 @@
-{-# LANGUAGE CPP, ConstraintKinds, DataKinds, FlexibleInstances,
-             FunctionalDependencies, GADTs, MultiParamTypeClasses, PolyKinds,
+{-# LANGUAGE AllowAmbiguousTypes, CPP, ConstraintKinds, DataKinds,
+             FlexibleInstances, GADTs, MultiParamTypeClasses, PolyKinds,
              QuantifiedConstraints, TypeFamilyDependencies, TypeOperators,
              UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
@@ -123,7 +123,7 @@ instance (IsPrimalS d r, OS.Shape sh) => IsPrimal d (OS.Array sh r) where
 -- with the underyling scalar in the second argument and with differentiation
 -- mode `DModeGradient`, it additionally admits delta-variable
 -- introduction and binding as defined by the methods of the class.
-class HasVariables a r | a -> r where
+class HasVariables a r where
   dVar :: DeltaId a -> Dual 'DModeGradient a
   bindInState :: Dual 'DModeGradient a
               -> DeltaState r
