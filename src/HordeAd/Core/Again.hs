@@ -498,7 +498,7 @@ instance DualMonad Concrete DualMonadForward where
 dSingleArgForward ::
   t ->
   t ->
-  ( Dual (Concrete) t ->
+  ( Dual Concrete t ->
     DualMonadForward (D r (Concrete r))
   ) ->
   (r, r)
