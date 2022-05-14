@@ -856,8 +856,7 @@ squaredDifference targ res = square $ res - constant targ
   Dual dual s ->
   m (Dual dual s)
 D x x' .+ D y y' =
-  dLet $
-    D (x + y) (ops (Add0 x' y'))
+  dLet $ D (x + y) (ops (Add0 x' y'))
 
 (.*) ::
   (DualMonad dual m, Num s, Ops (DeltaF s) dual) =>
@@ -865,17 +864,14 @@ D x x' .+ D y y' =
   Dual dual s ->
   m (Dual dual s)
 D x x' .* D y y' =
-  dLet $
-    D (x * y) (ops (Add0 (ops (Scale0 y x')) (ops (Scale0 x y'))))
+  dLet $ D (x * y) (ops (Add0 (ops (Scale0 y x')) (ops (Scale0 x y'))))
 
 index ::
   (HM.Numeric s, Ops (DeltaF s) dual, DualMonad dual m) =>
   Dual dual (Vector s) ->
   Int ->
   m (Dual dual s)
-index (D v v') i =
-  dLet $
-    D (HM.atIndex v i) (ops (Index0 v' i (HM.size v)))
+index (D v v') i = dLet $ D (HM.atIndex v i) (ops (Index0 v' i (HM.size v)))
 
 sumElements ::
   (HM.Numeric s, Ops (DeltaF s) dual) =>
@@ -959,9 +955,7 @@ expSDual ::
   Dual dual (OS.Array sh s) ->
   Dual dual (OS.Array sh s)
 expSDual (D x dx) =
-  D
-    exp_x
-    (ops (ScalePointwiseS dx exp_x))
+  D exp_x (ops (ScalePointwiseS dx exp_x))
   where
     exp_x = OS.mapA exp x
 
@@ -970,9 +964,7 @@ logSDual ::
   Dual dual (OS.Array sh s) ->
   Dual dual (OS.Array sh s)
 logSDual (D x dx) =
-  D
-    (OS.mapA log x)
-    (ops (ScalePointwiseS dx (OS.mapA recip x)))
+  D (OS.mapA log x) (ops (ScalePointwiseS dx (OS.mapA recip x)))
 
 constS ::
   (Ops (DeltaF s) dual, OS.Shape sh, Storable s) =>
