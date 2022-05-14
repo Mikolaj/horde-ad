@@ -88,6 +88,10 @@ data DeltaF (s :: Type) (dual :: Type -> Type) (t :: Type) where
     dual (OS.Array sh s) ->
     dual (OS.Array sh s) ->
     DeltaF s dual (OS.Array sh s)
+  NegateS ::
+    (OS.Shape sh, Storable s) =>
+    dual (OS.Array sh s) ->
+    DeltaF s dual (OS.Array sh s)
   KonstS :: (OS.Shape sh, Storable s) => dual s -> DeltaF s dual (OS.Array sh s)
   ZeroS :: (OS.Shape sh, Storable s) => DeltaF s dual (OS.Array sh s)
   AppendS ::
@@ -110,6 +114,10 @@ data DeltaF (s :: Type) (dual :: Type -> Type) (t :: Type) where
     dual (OS.Array sh s) ->
     OS.Array sh s ->
     DeltaF s dual (OS.Array sh s)
+  SumElementsS ::
+    (OS.Shape sh, Storable s) =>
+    dual (OS.Array sh s) ->
+    DeltaF s dual s
 
 mapDeltaF ::
   (forall tt. dual tt -> dual' tt) ->
@@ -127,12 +135,14 @@ mapDeltaF f = \case
   SumElements1 dual n -> SumElements1 (f dual) n
   Seq1 vec -> Seq1 (fmap f vec)
   AddS d1 d2 -> AddS (f d1) (f d2)
+  NegateS d -> NegateS (f d)
   KonstS s -> KonstS (f s)
   ZeroS -> ZeroS
   AppendS a1 a2 -> AppendS (f a1) (f a2)
   MulS1 d a -> MulS1 (f d) a
   MulS2 a d -> MulS2 a (f d)
   ScalePointwiseS d a -> ScalePointwiseS (f d) a
+  SumElementsS d -> SumElementsS (f d)
 
 data DeltaId (s :: Type) (t :: Type) where
   DeltaId :: Known (s `IsScalarOf` t) => Int -> DeltaId s t
@@ -167,12 +177,14 @@ knownDelta = \case
     SumElements1 {} -> SScalar
     Seq1 {} -> SVector
     AddS {} -> SShapedS
+    NegateS {} -> SShapedS
     KonstS {} -> SShapedS
     ZeroS {} -> SShapedS
     AppendS {} -> SShapedS
     MulS1 {} -> SShapedS
     MulS2 {} -> SShapedS
     ScalePointwiseS {} -> SShapedS
+    SumElementsS {} -> SScalar
   Var di -> case di of (DeltaId _) -> known
 
 data DeltaMap s = DeltaMap
@@ -285,6 +297,7 @@ evalDeltaF f deltaF t = case deltaF of
       desl = Data.Vector.toList des
       tl = HM.toList t
   AddS de de' -> f de t . f de' t
+  NegateS d -> f d (OS.mapA negate t)
   KonstS de -> f de (OS.sumA t)
   ZeroS -> id
   AppendS
@@ -294,6 +307,7 @@ evalDeltaF f deltaF t = case deltaF of
   MulS1 de a -> f de (mulS t (transposeS a))
   MulS2 a de -> f de (mulS (transposeS a) t)
   ScalePointwiseS de a -> f de (OS.zipWithA (*) a t)
+  SumElementsS de -> f de (OS.constant t)
 
 -- Somewhat annoying that we need this r parameter to satisfy
 -- functional dependencies.
@@ -326,12 +340,14 @@ evalDeltaFM1 deltaF = MonoidMap $ \t -> case deltaF of
   Add1 de de' -> f de t <> f de' t
   Scale1 s de -> f de (s `HM.scale` t)
   Konst1 de _ -> f de (HM.sumElements t)
+  ZeroS -> mempty
   SumElements1 de n -> f de (HM.konst t n)
   Seq1 des -> foldMap (uncurry f) (zip desl tl)
     where
       desl = Data.Vector.toList des
       tl = HM.toList t
   AddS de de' -> f de t <> f de' t
+  NegateS d -> f d (OS.mapA negate t)
   KonstS de -> f de (OS.sumA t)
   AppendS
     (de :: dual (OS.Array (k : rest) s))
@@ -340,6 +356,7 @@ evalDeltaFM1 deltaF = MonoidMap $ \t -> case deltaF of
   MulS1 de a -> f de (mulS t (transposeS a))
   MulS2 a de -> f de (mulS (transposeS a) t)
   ScalePointwiseS de a -> f de (OS.zipWithA (*) a t)
+  SumElementsS de -> f de (OS.constant t)
   where
     f = unMonoidMap
 
@@ -647,15 +664,18 @@ instance (Num r, HM.Numeric r) => Ops (DeltaF r) Concrete where
     Add1 (C x1) (C x2) -> C (x1 `HM.add` x2)
     Scale1 r (C x) -> C (HM.scale r x)
     Konst1 (C k) i -> C (HM.konst k i)
+    ZeroS -> C (OS.constant 0)
     Dot1 v1 (C v2) -> C (v1 `HM.dot` v2)
     SumElements1 (C v) _ -> C (HM.sumElements v)
     Seq1 v -> C (HM.fromList $ map (\case C x -> x) $ Data.Vector.toList v)
     AddS (C de) (C de') -> C (addS de de')
+    NegateS (C d) -> C (OS.mapA negate d)
     KonstS (C s) -> C (OS.constant s)
     AppendS (C a1) (C a2) -> C (OS.append a1 a2)
     MulS1 (C de) a -> C (mulS de a)
     MulS2 a (C de) -> C (mulS a de)
     ScalePointwiseS (C de) a -> C (OS.zipWithA (*) de a)
+    SumElementsS (C de) -> C (OS.sumA de)
 
 instance r' ~ r => Ops (DeltaF r') (Delta r) where
   ops = Delta
@@ -863,6 +883,12 @@ sumElements ::
   Dual dual s
 sumElements (D u u') = D (HM.sumElements u) (dSumElements u' (HM.size u))
 
+sumElementsS ::
+  (HM.Numeric s, Ops (DeltaF s) dual, OS.Shape sh) =>
+  Dual dual (OS.Array sh s) ->
+  Dual dual s
+sumElementsS (D u u') = D (OS.sumA u) (ops (SumElementsS u'))
+
 konstS ::
   (Storable s, OS.Shape sh, Ops (DeltaF s) dual) =>
   Dual dual s ->
@@ -886,6 +912,33 @@ mulSDual ::
   Dual dual (OS.Array [m, p] s)
 mulSDual (D x dx) (D y dy) =
   D (mulS x y) (ops (AddS (ops (MulS1 dx y)) (ops (MulS2 x dy))))
+
+addSDual ::
+  ( HM.Numeric s,
+    OS.Shape sh,
+    Ops (DeltaF s) dual
+  ) =>
+  Dual dual (OS.Array sh s) ->
+  Dual dual (OS.Array sh s) ->
+  Dual dual (OS.Array sh s)
+addSDual (D x dx) (D y dy) = D (addS x y) (ops (AddS dx dy))
+
+negateSDual ::
+  ( Num s,
+    Ops (DeltaF s) dual,
+    OS.Shape sh,
+    Storable s
+  ) =>
+  Dual dual (OS.Array sh s) ->
+  Dual dual (OS.Array sh s)
+negateSDual (D x dx) = D (OS.mapA negate x) (ops (NegateS dx))
+
+minusSDual ::
+  (HM.Numeric s, OS.Shape sh, Ops (DeltaF s) dual) =>
+  Dual dual (OS.Array sh s) ->
+  Dual dual (OS.Array sh s) ->
+  Dual dual (OS.Array sh s)
+minusSDual x y = addSDual x (negateSDual y)
 
 reluSDual ::
   ( Num s,
@@ -926,6 +979,60 @@ constS ::
   OS.Array sh s ->
   Dual dual (OS.Array sh s)
 constS x = D x (ops ZeroS)
+
+sumAcross ::
+  ( Ops (DeltaF s) dual,
+    HM.Numeric s,
+    KnownNat m,
+    KnownNat n
+  ) =>
+  Dual dual (OS.Array '[m, n] s) ->
+  Dual dual (OS.Array '[m, 1] s)
+sumAcross = (`mulSDual` constS (OS.constant 1))
+
+dotAcross ::
+  (Ops (DeltaF s) dual, HM.Numeric s, KnownNat m, KnownNat n) =>
+  Dual dual (OS.Array '[m, n] s) ->
+  Dual dual (OS.Array '[m, n] s) ->
+  Dual dual (OS.Array '[m, 1] s)
+dotAcross x y = sumAcross (pointwiseMulSDual x y)
+
+pointwiseMulSDual ::
+  (Storable s, OS.Shape sh, Num s, Ops (DeltaF s) dual) =>
+  Dual dual (OS.Array sh s) ->
+  Dual dual (OS.Array sh s) ->
+  Dual dual (OS.Array sh s)
+pointwiseMulSDual (D x dx) (D y dy) =
+  D
+    (OS.zipWithA (*) x y)
+    (ops (AddS (ops (ScalePointwiseS dy x)) (ops (ScalePointwiseS dx y))))
+
+softMaxCrossEntropy ::
+  forall s dual labels samples m.
+  ( Floating s,
+    Ops (DeltaF s) dual,
+    KnownNat labels,
+    KnownNat samples,
+    HM.Numeric s,
+    DualMonad dual m
+  ) =>
+  Dual dual (OS.Array [samples, labels] s) ->
+  Dual dual (OS.Array [samples, labels] s) ->
+  m (Dual dual s)
+softMaxCrossEntropy predictions' groundTruth = do
+  predictions <- dLet predictions'
+
+  let totalProb :: Dual dual (OS.Array [samples, 1] s)
+      totalProb = sumAcross (expSDual predictions)
+
+      logs :: Dual dual (OS.Array '[samples, labels] s)
+      logs = logSDual predictions
+
+      crossEntropyComponents :: Dual dual (OS.Array '[samples, 1] s)
+      crossEntropyComponents = dotAcross groundTruth logs
+
+  pure (sumElementsS (crossEntropyComponents `minusSDual` totalProb))
+
 --
 
 example :: (Double, (Double, Double))
