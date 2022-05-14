@@ -966,6 +966,18 @@ logSDual ::
 logSDual (D x dx) =
   D (OS.mapA log x) (ops (ScalePointwiseS dx (OS.mapA recip x)))
 
+logSumExpDual ::
+  ( Floating s,
+    Ops (DeltaF s) dual,
+    HM.Numeric s,
+    KnownNat m,
+    KnownNat n
+  ) =>
+  Dual dual (OS.Array '[m, n] s) ->
+  Dual dual (OS.Array '[m, 1] s)
+logSumExpDual =
+  logSDual . sumAcross . expSDual
+
 constS ::
   (Ops (DeltaF s) dual, OS.Shape sh, Storable s) =>
   OS.Array sh s ->
@@ -1015,7 +1027,7 @@ softMaxCrossEntropy predictions' groundTruth = do
   predictions <- dLet predictions'
 
   let totalProb :: Dual dual (OS.Array [samples, 1] s)
-      totalProb = sumAcross (expSDual predictions)
+      totalProb = logSumExpDual predictions
 
       logs :: Dual dual (OS.Array '[samples, labels] s)
       logs = logSDual predictions
