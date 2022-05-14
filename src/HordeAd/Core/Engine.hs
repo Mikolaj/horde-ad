@@ -146,39 +146,6 @@ dReverse dt f parameters =
       variables = makeDualNumberVariables parameters varDeltas
   in dReverseGeneral dt variables f
 
-outDualNumber :: (IsPrimal d a, RealFloat a, Show a, Show (Dual d a))
-              => CodeOut -> [a] -> [Dual d a]
-              -> DualNumber d a
-outDualNumber PlusOut [u, v] [u', v'] = D u u' + D v v'
-outDualNumber MinusOut [u, v] [u', v'] = D u u' - D v v'
-outDualNumber TimesOut [u, v] [u', v'] = D u u' * D v v'
-outDualNumber NegateOut [u] [u'] = negate $ D u u'
-outDualNumber AbsOut [u] [u'] = abs $ D u u'
-outDualNumber SignumOut [u] [u'] = signum $ D u u'
-outDualNumber DivideOut [u, v] [u', v'] = D u u' / D v v'
-outDualNumber RecipOut [u] [u'] = recip $ D u u'
-outDualNumber ExpOut [u] [u'] = exp $ D u u'
-outDualNumber LogOut [u] [u'] = log $ D u u'
-outDualNumber SqrtOut [u] [u'] = sqrt $ D u u'
-outDualNumber PowerOut [u, v] [u', v'] = D u u' ** D v v'
-outDualNumber LogBaseOut [u, v] [u', v'] = logBase (D u u') (D v v')
-outDualNumber SinOut [u] [u'] = sin $ D u u'
-outDualNumber CosOut [u] [u'] = cos $ D u u'
-outDualNumber TanOut [u] [u'] = tan $ D u u'
-outDualNumber AsinOut [u] [u'] = asin $ D u u'
-outDualNumber AcosOut [u] [u'] = acos $ D u u'
-outDualNumber AtanOut [u] [u'] = atan $ D u u'
-outDualNumber SinhOut [u] [u'] = sinh $ D u u'
-outDualNumber CoshOut [u] [u'] = cosh $ D u u'
-outDualNumber TanhOut [u] [u'] = tanh $ D u u'
-outDualNumber AsinhOut [u] [u'] = asinh $ D u u'
-outDualNumber AcoshOut [u] [u'] = acosh $ D u u'
-outDualNumber AtanhOut [u] [u'] = atanh $ D u u'
-outDualNumber Atan2Out [u, v] [u', v'] = atan2 (D u u') (D v v')
-outDualNumber primCode primalArgs dualArgs =
-  error $ "outDualNumber: wrong number of arguments"
-          ++ show (primCode, primalArgs, dualArgs)
-
 -- This function uses @DualMonadGradient@ for an inefficient computation
 -- of forward derivaties. See @dFastForwardGeneral@ for an efficient variant.
 dForwardGeneral
@@ -194,7 +161,13 @@ dForwardGeneral variables@(params0, _, params1, _, params2, _, paramsX, _)
   let initialState = initializeState (params0, params1, params2, paramsX)
       (D value d, st) = runState (runDualMonadGradient (f variables))
                                  initialState
-  in (derivativeFromDelta st d ds, value)
+      inlineDerivative primCode primalArgs dualArgs =
+        let D _ u' = outDualNumber primCode primalArgs dualArgs
+        in u'
+  in ( derivativeFromDelta inlineDerivative inlineDerivative inlineDerivative
+                           inlineDerivative inlineDerivative
+                           st d ds
+     , value )
 
 -- The direction vector ds is taken as an extra argument.
 dForward
@@ -323,3 +296,36 @@ initializerFixed seed range (nParams0, lParams1, lParams2, lParamsX) =
      , totalParams
      , range
      , (params0Init, params1Init, params2Init, paramsXInit) )
+
+outDualNumber :: (IsPrimal d a, RealFloat a, Show a, Show (Dual d a))
+              => CodeOut -> [a] -> [Dual d a]
+              -> DualNumber d a
+outDualNumber PlusOut [u, v] [u', v'] = D u u' + D v v'
+outDualNumber MinusOut [u, v] [u', v'] = D u u' - D v v'
+outDualNumber TimesOut [u, v] [u', v'] = D u u' * D v v'
+outDualNumber NegateOut [u] [u'] = negate $ D u u'
+outDualNumber AbsOut [u] [u'] = abs $ D u u'
+outDualNumber SignumOut [u] [u'] = signum $ D u u'
+outDualNumber DivideOut [u, v] [u', v'] = D u u' / D v v'
+outDualNumber RecipOut [u] [u'] = recip $ D u u'
+outDualNumber ExpOut [u] [u'] = exp $ D u u'
+outDualNumber LogOut [u] [u'] = log $ D u u'
+outDualNumber SqrtOut [u] [u'] = sqrt $ D u u'
+outDualNumber PowerOut [u, v] [u', v'] = D u u' ** D v v'
+outDualNumber LogBaseOut [u, v] [u', v'] = logBase (D u u') (D v v')
+outDualNumber SinOut [u] [u'] = sin $ D u u'
+outDualNumber CosOut [u] [u'] = cos $ D u u'
+outDualNumber TanOut [u] [u'] = tan $ D u u'
+outDualNumber AsinOut [u] [u'] = asin $ D u u'
+outDualNumber AcosOut [u] [u'] = acos $ D u u'
+outDualNumber AtanOut [u] [u'] = atan $ D u u'
+outDualNumber SinhOut [u] [u'] = sinh $ D u u'
+outDualNumber CoshOut [u] [u'] = cosh $ D u u'
+outDualNumber TanhOut [u] [u'] = tanh $ D u u'
+outDualNumber AsinhOut [u] [u'] = asinh $ D u u'
+outDualNumber AcoshOut [u] [u'] = acosh $ D u u'
+outDualNumber AtanhOut [u] [u'] = atanh $ D u u'
+outDualNumber Atan2Out [u, v] [u', v'] = atan2 (D u u') (D v v')
+outDualNumber primCode primalArgs dualArgs =
+  error $ "outDualNumber: wrong number of arguments"
+          ++ show (primCode, primalArgs, dualArgs)

@@ -695,9 +695,19 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
 -- represented by the parameters of the objective function and used
 -- to compute it's dual number result) and along the direction vector(s)
 -- given in the last parameter called @ds@.
-derivativeFromDelta :: forall r. (Numeric r, Num (Vector r))
-                    => DeltaState r -> Delta0 r -> Domains r -> r
-derivativeFromDelta st deltaTopLevel
+derivativeFromDelta
+  :: forall r. (Numeric r, Num (Vector r))
+  => (CodeOut -> [r] -> [Delta0 r] -> Delta0 r)
+  -> (CodeOut -> [Vector r] -> [Delta1 r] -> Delta1 r)
+  -> (CodeOut -> [Matrix r] -> [Delta2 r] -> Delta2 r)
+  -> (CodeOut -> [OT.Array r] -> [DeltaX r] -> DeltaX r)
+  -> (forall sh. OS.Shape sh
+      => CodeOut -> [OS.Array sh r] -> [DeltaS sh r]
+      -> DeltaS sh r)
+  -> DeltaState r -> Delta0 r -> Domains r -> r
+derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
+                    inlineDerivativeX inlineDerivativeS
+                    st deltaTopLevel
                     _ds@(params0Init, params1Init, params2Init, paramsXInit) =
   let eval0 :: Domains r -> Delta0 r -> r
       eval0 parameters@(params0, _, _, _) = \case
@@ -714,7 +724,8 @@ derivativeFromDelta st deltaTopLevel
         FromX0 d -> OT.unScalar $ evalX parameters d
         FromS0 d -> OS.unScalar $ evalS parameters d
 
-        Outline0{} -> undefined  -- TODO
+        Outline0 codeOut primalArgs dualArgs ->
+          eval0 parameters $ inlineDerivative0 codeOut primalArgs dualArgs
       eval1 :: Domains r -> Delta1 r -> Vector r
       eval1 parameters@(_, params1, _, _) = \case
         Zero1 -> 0
@@ -742,7 +753,8 @@ derivativeFromDelta st deltaTopLevel
         FlattenX1 _sh d -> OT.toVector $ evalX parameters d
         FlattenS1 d -> OS.toVector $ evalS parameters d
 
-        Outline1{} -> undefined  -- TODO
+        Outline1 codeOut primalArgs dualArgs ->
+          eval1 parameters $ inlineDerivative1 codeOut primalArgs dualArgs
       eval2 :: Domains r -> Delta2 r -> Matrix r
       eval2 parameters@( _, _, params2, _) = \case
         Zero2 -> 0
@@ -784,7 +796,8 @@ derivativeFromDelta st deltaTopLevel
         Reshape2 cols d -> HM.reshape cols $ eval1 parameters d
         Conv2 m md -> HM.conv2 m $ eval2 parameters md
 
-        Outline2{} -> undefined  -- TODO
+        Outline2 codeOut primalArgs dualArgs ->
+          eval2 parameters $ inlineDerivative2 codeOut primalArgs dualArgs
       evalX :: Domains r -> DeltaX r -> OT.Array r
       evalX parameters@( _, _, _, paramsX) = \case
         ZeroX -> 0
@@ -811,7 +824,8 @@ derivativeFromDelta st deltaTopLevel
                          in OT.fromVector [HM.rows l, cols] $ HM.flatten l
         FromSX d -> Data.Array.Convert.convert $ evalS parameters d
 
-        OutlineX{} -> undefined  -- TODO
+        OutlineX codeOut primalArgs dualArgs ->
+          evalX parameters $ inlineDerivativeX codeOut primalArgs dualArgs
       evalS :: OS.Shape sh => Domains r -> DeltaS sh r -> OS.Array sh r
       evalS parameters@( _, _, _, paramsX) = \case
         ZeroS -> 0
@@ -835,7 +849,8 @@ derivativeFromDelta st deltaTopLevel
         From2S _ d -> OS.fromVector $ HM.flatten $ eval2 parameters d
         FromXS d -> Data.Array.Convert.convert $ evalX parameters d
 
-        OutlineS{} -> undefined  -- TODO
+        OutlineS codeOut primalArgs dualArgs ->
+          evalS parameters $ inlineDerivativeS codeOut primalArgs dualArgs
       evalUnlessZero :: Domains r -> DeltaBinding r -> Domains r
       evalUnlessZero parameters@(!params0, !params1, !params2, !paramsX) = \case
         DeltaBinding0 (DeltaId i) d ->

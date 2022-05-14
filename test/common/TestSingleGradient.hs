@@ -182,8 +182,8 @@ powKonstOut variables = do
 dReverse1
   :: (r ~ Float, d ~ 'DModeGradient)
   => (DualNumberVariables d r -> DualMonadGradient r (DualNumber d r))
-  -> [[Float]]
-  -> ([[Float]], Float)
+  -> [[r]]
+  -> ([[r]], r)
 dReverse1 f deltaInput =
   let ((_, results, _, _), value) =
         dReverse 1 f
@@ -299,7 +299,8 @@ testDFastForward =
     ]
 
 qcTest :: TestName
-       -> (forall d r m. DualMonad d r m
+       -> (forall d r m. ( DualMonad d r m
+                         , Floating (Out (DualNumber d (Vector r))) )
            => DualNumberVariables d r -> m (DualNumber d r))
        -> ((Double, Double, Double) -> ([Double], [Double]))
        -> TestTree
@@ -342,7 +343,11 @@ quickCheckForwardAndBackward =
              (\(x, y, z) -> ([x, y, z], []))
     , qcTest "vatanReadmeM" vatanReadmeM
              (\(x, y, z) -> ([], [x, y, z]))
-    ]
+    , qcTest "sinKonst" sinKonst  -- powKonst NaNs immediately
+             (\(x, _, z) -> ([], [x, z]))
+    , qcTest "sinKonstOut" sinKonstOut
+             (\(x, _, z) -> ([], [x, z]))
+   ]
 
 -- A function that goes from `R^3` to `R^2`, with a representation
 -- of the input and the output tuple that is convenient for interfacing
