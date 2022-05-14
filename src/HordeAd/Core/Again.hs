@@ -25,6 +25,7 @@ import Control.Monad.Trans.State
     runState,
   )
 import qualified Data.Array.ShapedS as OS
+import qualified Data.Array.ShapedS.MatMul
 import Data.Biapplicative ((<<*>>))
 import qualified Data.Biapplicative as B
 import Data.Functor.Identity (Identity (Identity), runIdentity)
@@ -864,7 +865,7 @@ mkonstS ::
 mkonstS (D u u') = dLet $ D (OS.constant u) (ops (KonstS u'))
 
 mulSDual ::
-  (Ops (DeltaF s) dual, Storable s, KnownNat p, KnownNat m, KnownNat n) =>
+  (Ops (DeltaF s) dual, HM.Numeric s, KnownNat p, KnownNat m, KnownNat n) =>
   Dual dual (OS.Array [m, n] s) ->
   Dual dual (OS.Array [n, p] s) ->
   Dual dual (OS.Array [m, p] s)
@@ -1208,8 +1209,12 @@ addS ::
   OS.Array sh s
 addS t t' = OS.fromVector (V.zipWith (+) (OS.toVector t) (OS.toVector t'))
 
-mulS :: OS.Array [m, n] s -> OS.Array [n, p] s -> OS.Array [m, p] s
-mulS x y = error "mulS unimplemented"
+mulS ::
+  (HM.Numeric s, KnownNat m, KnownNat n, KnownNat p) =>
+  OS.Array [m, n] s ->
+  OS.Array [n, p] s ->
+  OS.Array [m, p] s
+mulS = Data.Array.ShapedS.MatMul.matMul
 
 transposeS :: OS.Array [m, n] s -> OS.Array [n, m] s
 transposeS x = error "transposeS unimplemented"

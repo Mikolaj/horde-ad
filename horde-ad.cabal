@@ -147,6 +147,7 @@ library
       , mnist-idx
       , mono-traversable
       , orthotope
+      , orthotope-hmatrix
       , pretty-show
       , random
       , strict-containers
