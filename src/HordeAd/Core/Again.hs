@@ -883,6 +883,20 @@ mulSDual ::
 mulSDual (D x dx) (D y dy) =
   D (mulS x y) (ops (AddS (ops (MulS1 dx y)) (ops (MulS2 x dy))))
 
+reluSDual ::
+  ( Num s,
+    Ord s,
+    Ops (DeltaF s) dual,
+    OS.Shape sh,
+    Storable s
+  ) =>
+  Dual dual (OS.Array sh s) ->
+  Dual dual (OS.Array sh s)
+reluSDual (D x dx) =
+  D
+    (reluS x)
+    (ops (ScalePointwiseS dx (OS.mapA (\s -> if s > 0 then 1 else 0) x)))
+
 --
 
 example :: (Double, (Double, Double))
