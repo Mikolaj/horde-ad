@@ -6,6 +6,7 @@ import Prelude
 
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
+import           Numeric.LinearAlgebra (Vector)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 import           Test.Tasty.QuickCheck
@@ -153,7 +154,8 @@ sinKonst variables = do
     sin x + (id $ id $ id $ konst1 1 2)
 
 sinKonstOut
-  :: DualMonad d r m
+  :: ( DualMonad d r m
+     , Floating (Out (DualNumber d (Vector r))) )
   => DualNumberVariables d r -> m (DualNumber d r)
 sinKonstOut variables = do
   let x = var1 variables 0
@@ -169,7 +171,8 @@ powKonst variables = do
     x ** (sin x + (id $ id $ id $ konst1 (sumElements0 x) 2))
 
 powKonstOut
-  :: DualMonad d r m
+  :: ( DualMonad d r m
+     , Floating (Out (DualNumber d (Vector r))) )
   => DualNumberVariables d r -> m (DualNumber d r)
 powKonstOut variables = do
   let x = var1 variables 0

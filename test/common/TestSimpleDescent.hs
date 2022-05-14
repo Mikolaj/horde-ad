@@ -58,7 +58,8 @@ fblowup variables = do
 -- node in @Outline@. A version of @Outline@ that accepts
 -- arbitrary uncomputed expressions, or even only those composed entirely from
 -- primitive arithmetic function applications, would be much more complex.
-fblowupOut :: forall d r m. DualMonad d r m
+fblowupOut :: forall d r m. ( DualMonad d r m
+                            , Fractional (Out (DualNumber d r)) )
            => DualNumberVariables d r -> m (DualNumber d r)
 fblowupOut variables = do
   let blowup :: Int -> Out (DualNumber d r) -> m (DualNumber d r)
@@ -73,7 +74,8 @@ fblowupOut variables = do
 -- Delaying is not a substitute for sharing preservation via monads.
 -- We'd need another kind of variables to store the Outline contents
 -- and share it and its computation.
-fblowupOutNoM :: forall d r m. DualMonad d r m
+fblowupOutNoM :: forall d r m. ( DualMonad d r m
+                               , Fractional (Out (DualNumber d r)) )
               => DualNumberVariables d r -> m (DualNumber d r)
 fblowupOutNoM variables = do
   let blowup :: Int -> Out (DualNumber d r) -> DualNumber d r
