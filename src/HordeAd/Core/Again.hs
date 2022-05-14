@@ -31,11 +31,12 @@ import qualified Data.Biapplicative as B
 import Data.Functor.Identity (Identity (Identity), runIdentity)
 import Data.Kind (Type)
 import Data.List (foldl')
+import Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Map as Map
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import Data.Vector.Storable (Storable)
-import GHC.TypeLits (KnownNat)
+import GHC.TypeLits (KnownNat, natVal)
 import GHC.TypeNats (type (+))
 import Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as HM
@@ -1216,5 +1217,7 @@ mulS ::
   OS.Array [m, p] s
 mulS = Data.Array.ShapedS.MatMul.matMul
 
-transposeS :: OS.Array [m, n] s -> OS.Array [n, m] s
-transposeS x = error "transposeS unimplemented"
+transposeS :: forall s m n. (HM.Numeric s, KnownNat n, KnownNat m) => OS.Array [m, n] s -> OS.Array [n, m] s
+transposeS a =
+  let n = fromIntegral $ natVal (Proxy :: Proxy n)
+   in (OS.fromVector . HM.flatten . HM.tr' . HM.reshape n . OS.toVector) a
