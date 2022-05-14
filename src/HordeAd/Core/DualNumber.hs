@@ -41,7 +41,7 @@ data DualNumber (d :: DMode) a = D a (Dual d a)
 
 class (IsScalar d r, Monad m, Functor m, Applicative m)
       => DualMonad d r m | m -> d r where
-  returnLet :: (IsPrimal d a, HasVariables a r)
+  returnLet :: IsPrimalWithScalar d a r
             => DualNumber d a -> m (DualNumber d a)
 
 addParameters :: (Numeric r, Num (Vector r))
@@ -132,7 +132,7 @@ constant a = D a dZero
 scale :: (Num a, IsPrimal d a) => a -> DualNumber d a -> DualNumber d a
 scale a (D u u') = D (a * u) (dScale a u')
 
-tanhAct :: (DualMonad d r m, IsPrimalWithScalar d a r)
+tanhAct :: (DualMonad d r m, IsPrimalAndHasFeatures d a r)
         => DualNumber d a -> m (DualNumber d a)
 tanhAct = returnLet . tanh
 
@@ -141,7 +141,7 @@ logistic (D u u') =
   let y = recip (1 + exp (- u))
   in D y (dScale (y * (1 - y)) u')
 
-logisticAct :: (DualMonad d r m, IsPrimalWithScalar d a r)
+logisticAct :: (DualMonad d r m, IsPrimalAndHasFeatures d a r)
             => DualNumber d a -> m (DualNumber d a)
 logisticAct = returnLet . logistic
 
@@ -153,17 +153,17 @@ squaredDifference :: (Num a, IsPrimal d a)
                   => a -> DualNumber d a -> DualNumber d a
 squaredDifference targ res = square $ res - constant targ
 
-lossSquared :: (DualMonad d r m, IsPrimalWithScalar d a r)
+lossSquared :: (DualMonad d r m, IsPrimalAndHasFeatures d a r)
             => a -> DualNumber d a -> m (DualNumber d a)
 lossSquared targ res = returnLet $ squaredDifference targ res
 
-reluAct :: (DualMonad d r m, IsPrimalWithScalar d a r)
+reluAct :: (DualMonad d r m, IsPrimalAndHasFeatures d a r)
         => DualNumber d a -> m (DualNumber d a)
 reluAct v@(D u _) = do
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0) u
   returnLet $ scale oneIfGtZero v
 
-reluLeakyAct :: (DualMonad d r m, IsPrimalWithScalar d a r)
+reluLeakyAct :: (DualMonad d r m, IsPrimalAndHasFeatures d a r)
              => DualNumber d a -> m (DualNumber d a)
 reluLeakyAct v@(D u _) = do
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) u

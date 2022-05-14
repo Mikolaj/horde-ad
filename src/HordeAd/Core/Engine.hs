@@ -21,7 +21,8 @@ import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 
-import HordeAd.Core.DualClass (Dual, HasVariables (..), IsPrimal (..))
+import HordeAd.Core.DualClass
+  (Dual, IsPrimal (..), IsPrimalWithScalar, bindInState, dVar)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 import HordeAd.Internal.Delta
@@ -88,10 +89,6 @@ newtype DualMonadGradient r a = DualMonadGradient
 instance IsScalar 'DModeGradient r
          => DualMonad 'DModeGradient
                       r (DualMonadGradient r) where
-  returnLet
-    :: forall a. HasVariables a r
-    => DualNumber 'DModeGradient a
-    -> DualMonadGradient r (DualNumber 'DModeGradient a)
   returnLet (D u u') = DualMonadGradient $ do
     st <- get
     let (!stNew, !dId) = bindInState u' st
@@ -238,7 +235,7 @@ generateDeltaVars
      , Data.Vector.Vector (Dual 'DModeGradient (Matrix r))
      , Data.Vector.Vector (Dual 'DModeGradient (OT.Array r)) )
 generateDeltaVars (params0, params1, params2, paramsX) =
-  let vVar :: forall a v. (HasVariables a r, V.Vector v a)
+  let vVar :: forall a v. (IsPrimalWithScalar 'DModeGradient a r, V.Vector v a)
            => v a -> Data.Vector.Vector (Dual 'DModeGradient a)
       vVar p = V.generate (V.length p) (dVar . toDeltaId)
       !v0 = vVar params0

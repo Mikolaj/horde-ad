@@ -9,9 +9,9 @@
 -- used to define types and operations in "HordeAd.Core.DualNumber"
 -- that is the high-level API.
 module HordeAd.Core.DualClass
-  ( IsPrimalWithScalar, IsScalar, HasDelta
-  , DMode(..), Dual
-  , IsPrimal(..), HasVariables(..), HasRanks(..)
+  ( IsPrimalWithScalar, IsPrimalAndHasFeatures, IsScalar, HasDelta
+  , DMode(..), Dual, IsPrimal(..), HasRanks(..)
+  , dVar, bindInState
   ) where
 
 import Prelude
@@ -33,13 +33,16 @@ import HordeAd.Internal.Delta
 
 -- * Abbreviations to export (not used anywhere below)
 
--- | A shorthand for a useful set of constraints. The main intended semantics
--- (not fully enforced by the constraint in isolation) is that the second
--- type is the primal component of a dual number type at an unknown rank
--- and the third type is its underlying scalar.
+-- | The intended semantics (not fully enforced by the constraint in isolation)
+-- is that the second type is the primal component of a dual number type
+-- at an unknown rank, with the given differentiation mode
+-- and underlying scalar.
 type IsPrimalWithScalar (d :: DMode) a r =
-  ( IsPrimal d a, HasVariables a r
-  , RealFloat a, MonoFunctor a, Element a ~ r )
+  (ScalarOf a ~ r, IsPrimal d a, HasVariables a)
+
+-- | A shorthand for a useful set of constraints.
+type IsPrimalAndHasFeatures (d :: DMode) a r =
+  (IsPrimalWithScalar d a r, RealFloat a, MonoFunctor a, Element a ~ r)
 
 -- | A mega-shorthand for a bundle of connected type constraints.
 -- The @Scalar@ in the name means that the second argument is the underlying
@@ -47,8 +50,10 @@ type IsPrimalWithScalar (d :: DMode) a r =
 -- argument) collection of primal and dual components of dual numbers.
 type IsScalar (d :: DMode) r =
   ( HasRanks d r, Ord r, Numeric r
-  , IsPrimalWithScalar d r r, IsPrimalWithScalar d (Vector r) r
-  , IsPrimalWithScalar d (Matrix r) r, IsPrimalWithScalar d (OT.Array r) r
+  , IsPrimalAndHasFeatures d r r
+  , IsPrimalAndHasFeatures d (Vector r) r
+  , IsPrimalAndHasFeatures d (Matrix r) r
+  , IsPrimalAndHasFeatures d (OT.Array r) r
   -- This fragment is for @OS.Array@ and it's irregular, because we can't
   -- mention @sh@ and so fully apply the type constructor.
   , IsPrimalS d r  -- TODO: Floating (OS.Array sh r), MonoFunctor
@@ -95,6 +100,16 @@ type family Dual (d :: DMode) a = result | result -> d a where
   Dual 'DModeDerivative (OT.Array r) = OT.Array r
   Dual 'DModeDerivative (OS.Array sh r) = OS.Array sh r
 
+-- | The underlying scalar of a given primal component of a dual number.
+-- A long name to remember not to use, unless necessary, and not to export.
+type family ScalarOf a where
+  ScalarOf Double = Double
+  ScalarOf Float = Float
+  ScalarOf (Vector r) = r
+  ScalarOf (Matrix r) = r
+  ScalarOf (OT.Array r) = r
+  ScalarOf (OS.Array sh r) = r
+
 -- | Second argument is a primal component of dual numbers at some rank
 -- wrt the differentiation mode given in the first argument.
 class IsPrimal d a where
@@ -123,11 +138,11 @@ instance (IsPrimalS d r, OS.Shape sh) => IsPrimal d (OS.Array sh r) where
 -- with the underyling scalar in the second argument and with differentiation
 -- mode `DModeGradient`, it additionally admits delta-variable
 -- introduction and binding as defined by the methods of the class.
-class HasVariables a r where
+class HasVariables a where
   dVar :: DeltaId a -> Dual 'DModeGradient a
   bindInState :: Dual 'DModeGradient a
-              -> DeltaState r
-              -> (DeltaState r, DeltaId a )
+              -> DeltaState (ScalarOf a)
+              -> (DeltaState (ScalarOf a), DeltaId a )
 
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
@@ -246,32 +261,32 @@ instance IsPrimalS 'DModeGradient r where
   dScaleS = ScaleS
   dAddS = AddS
 
-instance HasVariables Double Double where
+instance HasVariables Double where
   dVar = Var0
   {-# INLINE bindInState #-}
   bindInState = bindInState0
 
-instance HasVariables Float Float where
+instance HasVariables Float where
   dVar = Var0
   {-# INLINE bindInState #-}
   bindInState = bindInState0
 
-instance HasVariables (Vector r) r where
+instance HasVariables (Vector r) where
   dVar = Var1
   {-# INLINE bindInState #-}
   bindInState = bindInState1
 
-instance HasVariables (Matrix r) r where
+instance HasVariables (Matrix r) where
   dVar = Var2
   {-# INLINE bindInState #-}
   bindInState = bindInState2
 
-instance HasVariables (OT.Array r) r where
+instance HasVariables (OT.Array r) where
   dVar = VarX
   {-# INLINE bindInState #-}
   bindInState = bindInStateX
 
-instance OS.Shape sh => HasVariables (OS.Array sh r) r where
+instance OS.Shape sh => HasVariables (OS.Array sh r) where
   dVar = VarS
   {-# INLINE bindInState #-}
   bindInState u' st = let (st2, did) = bindInStateX (FromSX u') st
