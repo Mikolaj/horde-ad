@@ -1031,7 +1031,7 @@ softMaxCrossEntropy logProbs' groundTruth = do
   let totalLogProb :: Dual dual (OS.Array [samples, 1] s)
       totalLogProb = logSumExpDual logProbs
 
-      crossEntropyComponents :: Dual dual (OS.Array '[samples, 1] s)
+      crossEntropyComponents :: Dual dual (OS.Array [samples, 1] s)
       crossEntropyComponents = logProbs `dotAcross` groundTruth
 
   pure (sumElementsS (crossEntropyComponents `minusSDual` totalLogProb))
