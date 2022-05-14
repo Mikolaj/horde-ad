@@ -1023,19 +1023,16 @@ softMaxCrossEntropy ::
   Dual dual (OS.Array [samples, labels] s) ->
   Dual dual (OS.Array [samples, labels] s) ->
   m (Dual dual s)
-softMaxCrossEntropy predictions' groundTruth = do
-  predictions <- dLet predictions'
+softMaxCrossEntropy logProbs' groundTruth = do
+  logProbs <- dLet logProbs'
 
-  let totalProb :: Dual dual (OS.Array [samples, 1] s)
-      totalProb = logSumExpDual predictions
-
-      logs :: Dual dual (OS.Array '[samples, labels] s)
-      logs = logSDual predictions
+  let totalLogProb :: Dual dual (OS.Array [samples, 1] s)
+      totalLogProb = logSumExpDual logProbs
 
       crossEntropyComponents :: Dual dual (OS.Array '[samples, 1] s)
-      crossEntropyComponents = dotAcross groundTruth logs
+      crossEntropyComponents = logProbs `dotAcross` groundTruth
 
-  pure (sumElementsS (crossEntropyComponents `minusSDual` totalProb))
+  pure (sumElementsS (crossEntropyComponents `minusSDual` totalLogProb))
 
 --
 
