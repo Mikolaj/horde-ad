@@ -507,13 +507,13 @@ deltaLetId delta = do
 instance DualMonad (Delta s) (DualMonadGradient s) where
   deltaLet delta = fmap Var (deltaLetId delta)
 
-newtype DualMonadValue r a = DualMonadValue
+newtype DualMonadValue a = DualMonadValue
   {runDualMonadValue :: Identity a}
   deriving newtype (Monad, Functor, Applicative)
 
 data Unit (t :: Type) = Unit
 
-instance DualMonad Unit (DualMonadValue r) where
+instance DualMonad Unit DualMonadValue where
   deltaLet = pure
 
 newtype DualMonadForward a = DualMonadForward (Identity a)
@@ -565,6 +565,9 @@ dMultiArgForward (t, dt) (t', dt') f =
               )
           )
    in (r, unConcrete d)
+
+dValue :: DualMonadValue (D t (Unit t)) -> t
+dValue = (\case D r _ -> r) . runIdentity . runDualMonadValue
 
 dLetS ::
   forall (dual :: Type -> Type) t m.
@@ -687,6 +690,28 @@ instance (Num r, HM.Numeric r) => Ops (DeltaF r) Concrete where
     MulS2 a (C de) -> C (mulS a de)
     ScalePointwiseS (C de) a -> C (OS.zipWithA (*) de a)
     SumElementsS (C de) -> C (OS.sumA de)
+
+instance Ops (DeltaF r) Unit where
+  ops = \case
+    Zero0 {} -> Unit
+    Add0 {} -> Unit
+    Scale0 {}  -> Unit
+    Index0 {} -> Unit
+    Add1 {} -> Unit
+    Scale1 {} -> Unit
+    Konst1 {} -> Unit
+    Dot1 {} -> Unit
+    SumElements1 {} -> Unit
+    Seq1 {} -> Unit
+    AddS {} -> Unit
+    NegateS {} -> Unit
+    KonstS {} -> Unit
+    ZeroS {} -> Unit
+    AppendS {} -> Unit
+    MulS1 {} -> Unit
+    MulS2 {} -> Unit
+    ScalePointwiseS {} -> Unit
+    SumElementsS {} -> Unit
 
 instance r' ~ r => Ops (DeltaF r') (Delta r) where
   ops = Delta

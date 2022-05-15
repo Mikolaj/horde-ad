@@ -24,7 +24,7 @@ import HordeAd.Core.Again
     addS,
     constS,
     dSingleArg,
-    dSingleArgForward,
+    dValue,
     mulS,
     mulSDual,
     reluSDual,
@@ -167,11 +167,11 @@ mlpPredict ::
   s
 mlpPredict data_ (layer1, layer2, layer3) =
   let logPrediction :: OS.Array [1, labels] s
-      (logPrediction, _) =
-        dSingleArgForward
-          data_
-          (OS.constant 0)
-          (pure . mlp (constS layer1, constS layer2, constS layer3))
+      logPrediction =
+        dValue
+          ( pure $
+              mlp (constS layer1, constS layer2, constS layer3) (constS data_)
+          )
 
       prediction = OS.mapA exp logPrediction
       normalization = prediction `mulS` OS.constant 1
