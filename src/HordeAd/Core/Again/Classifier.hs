@@ -274,18 +274,6 @@ mlpLoop ::
 mlpLoop weights 300 = do
   let f = flip mlpPredict weights
 
-      output =
-        unlines $
-          do
-            x <- [-3, -2.9 .. 3]
-
-            ( do
-                y <- [-3, -2.9 .. 3]
-                pure (printf "%.3f %.3f %.3f" x y (f (OS.fromList [1, x, y])))
-              )
-
-  appendFile "/tmp/foo.dat" output
-
   _ <- flip traverse [2.5, 2.4 .. -2.5] $ \j -> do
     _ <- flip traverse [-3, -2.9 .. 3] $ \i -> do
       putStr $
@@ -297,9 +285,16 @@ mlpLoop weights 300 = do
             | otherwise -> "_"
     putStrLn ""
 
+  let output = unlines $ do
+        ([1, x, y], _) <- mlpInputDataList
+        pure (printf "%.2f %.2f" x y)
+
+  print output
+  writeFile "/tmp/foo/points.dat" output
+
   pure ()
 mlpLoop (l1, l2, l3) n = do
-  let learningRate = 0.005
+  let learningRate = 0.05
   putStr "Starting iteration "
   print n
   let (loss, (ul1, ul2, ul3)) =
@@ -314,9 +309,24 @@ mlpLoop (l1, l2, l3) n = do
 
   print loss
 
-  mlpLoop
-    ( l1 `addS` ul1,
-      l2 `addS` ul2,
-      l3 `addS` ul3
-    )
-    (n + 1)
+  let nextWeights =
+        ( l1 `addS` ul1,
+          l2 `addS` ul2,
+          l3 `addS` ul3
+        )
+
+  let f = flip mlpPredict nextWeights
+
+      output =
+        unlines $
+          do
+            x <- [-3, -2.9 .. 3]
+
+            ( do
+                y <- [-3, -2.9 .. 3]
+                pure (printf "%.3f %.3f %.3f %.3d" x y (f (OS.fromList [1, x, y])) n)
+              )
+
+  writeFile ("/tmp/foo/foo" ++ printf "%.3d" n ++ ".dat") output
+
+  mlpLoop nextWeights (n + 1)
