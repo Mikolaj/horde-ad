@@ -170,13 +170,7 @@ mlpPredict data_ (layer1, layer2, layer3) =
         dSingleArgForward
           data_
           (OS.constant 0)
-          ( pure
-              . (`mulSDual` constS layer3)
-              . reluSDual
-              . (`mulSDual` constS layer2)
-              . reluSDual
-              . (`mulSDual` constS layer1)
-          )
+          (pure . mlp (constS layer1, constS layer2, constS layer3))
 
       prediction = OS.mapA exp logPrediction
       normalization = prediction `mulS` OS.constant 1
@@ -193,19 +187,18 @@ mlp ::
     KnownNat hidden2,
     KnownNat dim
   ) =>
-  OS.Array '[samples, dim] s ->
   ( Dual dual (OS.Array '[dim, hidden1] s),
     Dual dual (OS.Array '[hidden1, hidden2] s),
     Dual dual (OS.Array '[hidden2, labels] s)
   ) ->
+  Dual dual (OS.Array '[samples, dim] s) ->
   Dual dual (OS.Array '[samples, labels] s)
-mlp data_ (layer1, layer2, layer3) =
+mlp (layer1, layer2, layer3) =
   (`mulSDual` layer3)
     . reluSDual
     . (`mulSDual` layer2)
     . reluSDual
     . (`mulSDual` layer1)
-    $ constS data_
 
 mlpTrain ::
   ( Ops (DeltaF s) dual,
@@ -227,7 +220,7 @@ mlpTrain ::
   ) ->
   m (Dual dual s)
 mlpTrain data_ groundTruth layers = do
-  let predictions = mlp data_ layers
+  let predictions = mlp layers (constS data_)
   softMaxCrossEntropy predictions groundTruth
 
 type Hidden1 = 8
