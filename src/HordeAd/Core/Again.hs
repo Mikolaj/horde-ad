@@ -1047,6 +1047,28 @@ softMaxCrossEntropy logProbs' groundTruth = do
 
   pure (sumElementsS (crossEntropyComponents `minusSDual` totalLogProb))
 
+test =
+  let x = OS.fromList [1, 2, 3, 4, 5, 6] :: OS.Array [3, 2] Double
+      dx = OS.mapA (/ 1000000) $ OS.fromList [-7, 8, -9, 10, -11, 12]
+      y = OS.fromList [7, 8, 9, 10, 11, 12]
+      dy = OS.mapA (/ 1000000) $ OS.fromList [-7, 8, -9, 10, -11, 1200]
+
+      d_dr = 1.0
+
+      (_, (d_dx, d_dy)) = dDoubleArg (x, y) d_dr (uncurry softMaxCrossEntropy)
+      (r, dr) = dDoubleArgForward (x, y) (dx, dy) (uncurry softMaxCrossEntropy)
+      (r_plus_dr, _) =
+        dDoubleArgForward
+          (x `addS` dx, y `addS` dy)
+          (dx, dy)
+          (uncurry softMaxCrossEntropy)
+   in ( dr * d_dr,
+        OS.sumA (OS.zipWithA (*) dx d_dx)
+          + OS.sumA (OS.zipWithA (*) dy d_dy),
+        dr,
+        r_plus_dr -r
+              )
+
 --
 
 example :: (Double, (Double, Double))
