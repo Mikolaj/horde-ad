@@ -135,14 +135,15 @@ mlpInputDataList =
    in map (\(x, y) -> ([1, x, y], [1, 0])) first
         ++ map (\(x, y) -> ([1, - x, - y], [0, 1])) first
 
-mlpInputData :: OS.Array [200, 3] Double
+type Samples = 200
+
+mlpInputData :: OS.Array [Samples, Features] Double
 mlpInputData =
-  ( OS.ravel . OShaped.fromList
-      . map (OS.fromList . fst)
+  ( OS.ravel . OShaped.fromList . map (OS.fromList . fst)
   )
     mlpInputDataList
 
-mlpLabels :: OS.Array [200, 2] Double
+mlpLabels :: OS.Array [Samples, Classes] Double
 mlpLabels =
   ( OS.ravel . OShaped.fromList . map (OS.fromList . snd)
   )
