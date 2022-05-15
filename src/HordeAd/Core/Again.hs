@@ -588,7 +588,7 @@ runArgAdaptor (ArgAdaptor s) = evalState s (-1)
 adaptArg ::
   Known (IsScalarOf s t) =>
   t ->
-  ArgAdaptor s t (D t (Delta s t))
+  ArgAdaptor s t (Dual (Delta s) t)
 adaptArg t = ArgAdaptor $ do
   i <- get
   put (i - 1)
