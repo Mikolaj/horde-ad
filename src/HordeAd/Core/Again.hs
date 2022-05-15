@@ -1034,7 +1034,7 @@ softMaxCrossEntropy ::
   -- | Log predicted probability
   Dual dual (OS.Array [samples, labels] s) ->
   -- | One hot
-  Dual dual (OS.Array [samples, labels] s) ->
+  OS.Array [samples, labels] s ->
   m (Dual dual s)
 softMaxCrossEntropy logProbs groundTruth = do
   r <- partialsoftMaxCrossEntropy logProbs groundTruth
@@ -1052,7 +1052,7 @@ partialsoftMaxCrossEntropy ::
   -- | Log predicted probability
   Dual dual (OS.Array [samples, labels] s) ->
   -- | One hot
-  Dual dual (OS.Array [samples, labels] s) ->
+  OS.Array [samples, labels] s ->
   m (Dual dual (OS.Array [samples, 1] s))
 partialsoftMaxCrossEntropy logProbs' groundTruth = do
   logProbs <- dLet logProbs'
@@ -1061,25 +1061,24 @@ partialsoftMaxCrossEntropy logProbs' groundTruth = do
       totalLogProb = logSumExpDual logProbs
 
       crossEntropyComponents :: Dual dual (OS.Array [samples, 1] s)
-      crossEntropyComponents = logProbs `dotAcross` groundTruth
+      crossEntropyComponents = logProbs `dotAcross` constS groundTruth
 
   pure (crossEntropyComponents `minusSDual` totalLogProb)
 
 test =
   let x = OS.fromList [1, 2, 3, 4, 5, 6] :: OS.Array [3, 2] Double
-      dx = OS.mapA (/ 1000000) $ OS.fromList [-7, 8, -9, 10, -11, 12]
       y = OS.fromList [7, 8, 9, 10, 11, 12]
       dy = OS.mapA (/ 1000000) $ OS.fromList [-7, 8, -9, 10, -11, 1200]
 
       d_dr = 1.0
 
-      (_, (d_dx, d_dy)) = dDoubleArg (x, y) d_dr (uncurry softMaxCrossEntropy)
-      (r, dr) = dDoubleArgForward (x, y) (dx, dy) (uncurry softMaxCrossEntropy)
+      (_, d_dy) = dSingleArg y d_dr (flip softMaxCrossEntropy x)
+      (r, dr) = dSingleArgForward y dy (flip softMaxCrossEntropy x)
       (r_plus_dr, _) =
-        dDoubleArgForward
-          (x `addS` dx, y `addS` dy)
-          (dx, dy)
-          (uncurry softMaxCrossEntropy)
+        dSingleArgForward
+          (y `addS` dy)
+          dy
+          (flip softMaxCrossEntropy x)
 
       p1 = OS.fromList [10, 0] :: OS.Array [1, 2] Double
       pb = OS.fromList [0, 0] :: OS.Array [1, 2] Double
@@ -1087,9 +1086,7 @@ test =
 
       c1 = OS.fromList [1, 0] :: OS.Array [1, 2] Double
       c2 = OS.fromList [0, 1] :: OS.Array [1, 2] Double
-   in ( dr * d_dr,
-        OS.sumA (OS.zipWithA (*) dx d_dx)
-          + OS.sumA (OS.zipWithA (*) dy d_dy),
+   in ( dr * d_dr, OS.sumA (OS.zipWithA (*) dy d_dy),
         dr,
         r_plus_dr - r,
         do
@@ -1097,10 +1094,10 @@ test =
           c <- [c1, c2]
 
           let (rr, _) =
-                dDoubleArgForward
-                  (p, c)
-                  (OS.mapA (const 0) p, OS.mapA (const 0) p)
-                  (uncurry softMaxCrossEntropy)
+                dSingleArgForward
+                  p
+                  (OS.mapA (const 0) p)
+                  (flip softMaxCrossEntropy c)
 
           pure rr
       )

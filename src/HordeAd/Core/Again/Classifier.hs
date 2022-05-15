@@ -53,7 +53,7 @@ model data_ groundTruth layer = do
   let predictions :: Dual dual (OS.Array [samples, labels] s)
       predictions = constS data_ `mulSDual` layer
 
-  softMaxCrossEntropy predictions (constS groundTruth)
+  softMaxCrossEntropy predictions groundTruth
 
 type NumSamples = 5 GHC.TypeNats.* 5 GHC.TypeNats.* 5 GHC.TypeNats.* 5
 
@@ -224,7 +224,7 @@ mlpTrain ::
   m (Dual dual s)
 mlpTrain data_ groundTruth layers = do
   let predictions = mlp data_ layers
-  softMaxCrossEntropy predictions (constS groundTruth)
+  softMaxCrossEntropy predictions groundTruth
 
 mlpInitialWeights ::
   ( OS.Array [2, 10] Double,
