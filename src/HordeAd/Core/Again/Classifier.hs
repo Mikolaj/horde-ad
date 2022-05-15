@@ -281,7 +281,7 @@ mlpLoop weights 300 = do
                 y <- [-3, -2.9 .. 3]
                 pure (printf "%.3f %.3f %.3f" x y (f (OS.fromList [1, x, y])))
               )
-              ++ ["\n"]
+              ++ []
 
   writeFile "/tmp/foo.dat" output
 
