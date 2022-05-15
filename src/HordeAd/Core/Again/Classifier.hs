@@ -223,23 +223,27 @@ mlpTrain data_ groundTruth layers = do
   let predictions = mlp layers (constS data_)
   softMaxCrossEntropy predictions groundTruth
 
+type Features = 3
+
 type Hidden1 = 8
 
 type Hidden2 = 8
+
+type Classes = 2
 
 valueOf :: forall n. KnownNat n => Int
 valueOf = fromIntegral (natVal (Proxy :: Proxy n))
 
 mlpInitialWeights ::
   IO
-    ( OS.Array [3, Hidden1] Double,
+    ( OS.Array [Features, Hidden1] Double,
       OS.Array [Hidden1, Hidden2] Double,
-      OS.Array [Hidden2, 2] Double
+      OS.Array [Hidden2, Classes] Double
     )
 mlpInitialWeights = do
-  w1 <- normals (3 * valueOf @Hidden1)
+  w1 <- normals (valueOf @Features * valueOf @Hidden1)
   w2 <- normals (valueOf @Hidden1 * valueOf @Hidden2)
-  w3 <- normals (valueOf @Hidden2 * 2)
+  w3 <- normals (valueOf @Hidden2 * valueOf @Classes)
 
   pure
     ( OS.fromList w1,
@@ -258,9 +262,9 @@ mlpLoop ::
   ( KnownNat hidden1,
     KnownNat hidden2
   ) =>
-  ( OS.Array [3, hidden1] Double,
+  ( OS.Array [Features, hidden1] Double,
     OS.Array [hidden1, hidden2] Double,
-    OS.Array [hidden2, 2] Double
+    OS.Array [hidden2, Classes] Double
   ) ->
   Int ->
   IO ()
