@@ -125,17 +125,19 @@ loop weights n = do
 mlpInputDataList :: [([Double], [Double])]
 mlpInputDataList =
   let first = do
-        let count = 100
+        let count = valueOf @HalfSamples
             totalAngle = 5 * pi / 4
-            tick = totalAngle / (count - 1)
+            tick = totalAngle / fromIntegral (count - 1)
 
-        p <- [0 .. count - 1]
+        p' <- [0 .. count - 1]
+        let p = fromIntegral p'
 
         pure (1 + 2 * cos (tick * p), 2 * sin (tick * p))
    in map (\(x, y) -> ([1, x, y], [1, 0])) first
         ++ map (\(x, y) -> ([1, - x, - y], [0, 1])) first
 
-type Samples = 200
+type HalfSamples = 10
+type Samples = HalfSamples GHC.TypeNats.* 2
 
 mlpInputData :: OS.Array [Samples, Features] Double
 mlpInputData =
