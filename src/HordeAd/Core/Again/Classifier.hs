@@ -281,18 +281,8 @@ mlpLoop weights 300 = do
                 y <- [-3, -2.9 .. 3]
                 pure (printf "%.3f %.3f %.3f" x y (f (OS.fromList [1, x, y])))
               )
-              ++ []
 
-  writeFile "/tmp/foo.dat" output
-
-  --  print weights
-
-  _ <- flip traverse mlpInputDataList $ \(data_, class_) -> do
-    _ <- flip traverse data_ $ \a -> do
-      putStr (printf "%.2f " a)
-    _ <- flip traverse class_ $ \a -> do
-      putStr (printf "%.2f " a)
-    print (f (OS.fromList data_))
+  appendFile "/tmp/foo.dat" output
 
   _ <- flip traverse [2.5, 2.4 .. -2.5] $ \j -> do
     _ <- flip traverse [-3, -2.9 .. 3] $ \i -> do
