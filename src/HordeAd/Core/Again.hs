@@ -1047,6 +1047,31 @@ softMaxCrossEntropy logProbs' groundTruth = do
 
   pure (sumElementsS (crossEntropyComponents `minusSDual` totalLogProb))
 
+partialsoftMaxCrossEntropy ::
+  forall s dual labels samples m.
+  ( Floating s,
+    Ops (DeltaF s) dual,
+    KnownNat labels,
+    KnownNat samples,
+    HM.Numeric s,
+    DualMonad dual m
+  ) =>
+  -- | Log predicted probability
+  Dual dual (OS.Array [samples, labels] s) ->
+  -- | One hot
+  Dual dual (OS.Array [samples, labels] s) ->
+  m (Dual dual (OS.Array [samples, 1] s))
+partialsoftMaxCrossEntropy logProbs' groundTruth = do
+  logProbs <- dLet logProbs'
+
+  let totalLogProb :: Dual dual (OS.Array [samples, 1] s)
+      totalLogProb = logSumExpDual logProbs
+
+      crossEntropyComponents :: Dual dual (OS.Array [samples, 1] s)
+      crossEntropyComponents = logProbs `dotAcross` groundTruth
+
+  pure (crossEntropyComponents `minusSDual` totalLogProb)
+
 test =
   let x = OS.fromList [1, 2, 3, 4, 5, 6] :: OS.Array [3, 2] Double
       dx = OS.mapA (/ 1000000) $ OS.fromList [-7, 8, -9, 10, -11, 12]
