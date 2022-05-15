@@ -235,10 +235,14 @@ mlpLoop weights 100 = do
 
       output =
         unlines $
-          ["x      y"] ++ do
+          do
             x <- [-3, -2.9 .. 3]
-            y <- [-3, -2.9 .. 3]
-            pure (printf "%.3f %.3f %.3f" x y (f (OS.fromList [x, y])))
+
+            ( do
+                y <- [-3, -2.9 .. 3]
+                pure (printf "%.3f %.3f %.3f" x y (f (OS.fromList [x, y])))
+              )
+              ++ ["\n"]
 
   writeFile "/tmp/foo.dat" output
 
