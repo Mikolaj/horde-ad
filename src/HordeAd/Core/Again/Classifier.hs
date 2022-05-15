@@ -9,6 +9,7 @@ import qualified Data.Array.Shaped as OShaped
 import qualified Data.Array.ShapedS as OS
 import Data.Biapplicative ((<<*>>))
 import qualified Data.Biapplicative as B
+import Data.Random.Normal (normalIO)
 import GHC.TypeLits (KnownNat)
 import qualified GHC.TypeNats
 import HordeAd.Core.Again
@@ -122,16 +123,16 @@ mlpInputDataList :: [([Double], [Double])]
 mlpInputDataList =
   let first = do
         let count = 100
-            totalAngle = 3 * pi / 4
+            totalAngle = 5 * pi / 4
             tick = totalAngle / (count - 1)
 
         p <- [0 .. count - 1]
 
         pure (1 + 2 * cos (tick * p), 2 * sin (tick * p))
-   in map (\(x, y) -> ([x, y], [1, 0])) first
-        ++ map (\(x, y) -> ([- x, - y], [0, 1])) first
+   in map (\(x, y) -> ([1, x, y], [1, 0])) first
+        ++ map (\(x, y) -> ([1, - x, - y], [0, 1])) first
 
-mlpInputData :: OS.Array [200, 2] Double
+mlpInputData :: OS.Array [200, 3] Double
 mlpInputData =
   ( OS.ravel . OShaped.fromList
       . map (OS.fromList . fst)
@@ -145,28 +146,32 @@ mlpLabels =
     mlpInputDataList
 
 mlpPredict ::
-  forall s labels hidden1 hidden2 dim.
+  forall s labels hidden1 hidden2 hidden3 dim.
   ( Numeric s,
     Ord s,
     KnownNat labels,
     KnownNat hidden1,
     KnownNat hidden2,
+    KnownNat hidden3,
     KnownNat dim,
     Floating s
   ) =>
   OS.Array '[1, dim] s ->
   ( OS.Array '[dim, hidden1] s,
     OS.Array '[hidden1, hidden2] s,
-    OS.Array '[hidden2, labels] s
+    OS.Array '[hidden2, hidden3] s,
+    OS.Array '[hidden3, labels] s
   ) ->
   s
-mlpPredict data_ (layer1, layer2, layer3) =
+mlpPredict data_ (layer1, layer2, layer3, layer4) =
   let logPrediction :: OS.Array [1, labels] s
       (logPrediction, _) =
         dSingleArgForward
           data_
           (OS.constant 0)
           ( pure
+              . (`mulSDual` constS layer4)
+              . reluSDual
               . (`mulSDual` constS layer3)
               . reluSDual
               . (`mulSDual` constS layer2)
@@ -187,16 +192,20 @@ mlp ::
     KnownNat samples,
     KnownNat hidden1,
     KnownNat hidden2,
+    KnownNat hidden3,
     KnownNat dim
   ) =>
   OS.Array '[samples, dim] s ->
   ( Dual dual (OS.Array '[dim, hidden1] s),
     Dual dual (OS.Array '[hidden1, hidden2] s),
-    Dual dual (OS.Array '[hidden2, labels] s)
+    Dual dual (OS.Array '[hidden2, hidden3] s),
+    Dual dual (OS.Array '[hidden3, labels] s)
   ) ->
   Dual dual (OS.Array '[samples, labels] s)
-mlp data_ (layer1, layer2, layer3) =
-  (`mulSDual` layer3)
+mlp data_ (layer1, layer2, layer3, layer4) =
+  (`mulSDual` layer4)
+    . reluSDual
+    . (`mulSDual` layer3)
     . reluSDual
     . (`mulSDual` layer2)
     . reluSDual
@@ -213,13 +222,15 @@ mlpTrain ::
     KnownNat hidden2,
     KnownNat dim,
     Floating s,
-    DualMonad dual m
+    DualMonad dual m,
+    KnownNat hidden3
   ) =>
   OS.Array '[samples, dim] s ->
   OS.Array '[samples, labels] s ->
   ( Dual dual (OS.Array '[dim, hidden1] s),
     Dual dual (OS.Array '[hidden1, hidden2] s),
-    Dual dual (OS.Array '[hidden2, labels] s)
+    Dual dual (OS.Array '[hidden2, hidden3] s),
+    Dual dual (OS.Array '[hidden3, labels] s)
   ) ->
   m (Dual dual s)
 mlpTrain data_ groundTruth layers = do
@@ -227,27 +238,45 @@ mlpTrain data_ groundTruth layers = do
   softMaxCrossEntropy predictions groundTruth
 
 mlpInitialWeights ::
-  ( OS.Array [2, 10] Double,
-    OS.Array [10, 10] Double,
-    OS.Array [10, 2] Double
-  )
-mlpInitialWeights =
-  ( OS.fromList $ map ((/ 40) . fromIntegral) [-9 .. 10 :: Int],
-    OS.fromList $ map ((/ 100) . fromIntegral) [-50 .. 49 :: Int],
-    OS.fromList $ map ((/ 40) . fromIntegral) [-9 .. 10 :: Int]
-  )
+  IO
+    ( OS.Array [3, 100] Double,
+      OS.Array [100, 100] Double,
+      OS.Array [100, 100] Double,
+      OS.Array [100, 2] Double
+    )
+mlpInitialWeights = do
+  w1 <- normals (3 * 100)
+  w2 <- normals (100 * 100)
+  w3 <- normals (100 * 100)
+  w4 <- normals (100 * 2)
+
+  pure
+    ( OS.fromList w1,
+      OS.fromList w2,
+      OS.fromList w3,
+      OS.fromList w4
+    )
+
+normals :: Int -> IO [Double]
+normals 0 = pure []
+normals n = do
+  r <- (/10) <$> normalIO
+  rest <- normals (n - 1)
+  pure (r : rest)
 
 mlpLoop ::
   ( KnownNat hidden1,
-    KnownNat hidden2
+    KnownNat hidden2,
+    KnownNat hidden3
   ) =>
-  ( OS.Array [2, hidden1] Double,
+  ( OS.Array [3, hidden1] Double,
     OS.Array [hidden1, hidden2] Double,
-    OS.Array [hidden2, 2] Double
+    OS.Array [hidden2, hidden3] Double,
+    OS.Array [hidden3, 2] Double
   ) ->
   Int ->
   IO ()
-mlpLoop weights 100 = do
+mlpLoop weights 300 = do
   let f = flip mlpPredict weights
 
       output =
@@ -257,13 +286,13 @@ mlpLoop weights 100 = do
 
             ( do
                 y <- [-3, -2.9 .. 3]
-                pure (printf "%.3f %.3f %.3f" x y (f (OS.fromList [x, y])))
+                pure (printf "%.3f %.3f %.3f" x y (f (OS.fromList [1, x, y])))
               )
               ++ ["\n"]
 
   writeFile "/tmp/foo.dat" output
 
-  print weights
+  --  print weights
 
   _ <- flip traverse mlpInputDataList $ \(data_, class_) -> do
     _ <- flip traverse data_ $ \a -> do
@@ -276,24 +305,25 @@ mlpLoop weights 100 = do
     _ <- flip traverse [-3, -2.9 .. 3] $ \i -> do
       putStr $
         if
-            | flip any mlpInputDataList $ \([x, y], _) ->
+            | flip any mlpInputDataList $ \([1, x, y], _) ->
                 (x >= i) && (x < i + 0.1) && (y >= j) && (y < j + 0.1) ->
               "+"
-            | f (OS.fromList [i, j]) > 0.75 -> "X"
+            | f (OS.fromList [1, i, j]) > 0.75 -> "X"
             | otherwise -> "_"
     putStrLn ""
 
   pure ()
-mlpLoop (l1, l2, l3) n = do
+mlpLoop (l1, l2, l3, l4) n = do
   let learningRate = 0.01
   putStr "Starting iteration "
   print n
-  let (loss, (ul1, ul2, ul3)) =
+  let (loss, (ul1, ul2, ul3, ul4)) =
         runDualMonadAdapt
-          ( B.bipure (,,) (,,)
+          ( B.bipure (,,,) (,,,)
               <<*>> adaptArg l1
               <<*>> adaptArg l2
               <<*>> adaptArg l3
+              <<*>> adaptArg l4
           )
           learningRate
           (mlpTrain mlpInputData mlpLabels)
@@ -303,6 +333,7 @@ mlpLoop (l1, l2, l3) n = do
   mlpLoop
     ( l1 `addS` ul1,
       l2 `addS` ul2,
-      l3 `addS` ul3
+      l3 `addS` ul3,
+      l4 `addS` ul4
     )
     (n + 1)

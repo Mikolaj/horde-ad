@@ -147,6 +147,7 @@ library
       , ilist
       , mnist-idx
       , mono-traversable
+      , normaldistribution
       , orthotope
       , orthotope-hmatrix
       , pretty-show
