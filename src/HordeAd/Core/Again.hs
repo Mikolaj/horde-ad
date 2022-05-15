@@ -1432,12 +1432,19 @@ mulS ::
 mulS = Data.Array.ShapedS.MatMul.matMul
 
 transposeS :: forall s m n. (HM.Numeric s, KnownNat n, KnownNat m) => OS.Array [m, n] s -> OS.Array [n, m] s
-transposeS a =
-  let n = fromIntegral $ natVal (Proxy :: Proxy n)
-   in (OS.fromVector . HM.flatten . HM.tr' . HM.reshape n . OS.toVector) a
+transposeS = OS.fromVector . HM.flatten . HM.tr' . matrixS
 
 reluS ::
   (Storable s, OS.Shape sh, Num s, Ord s) =>
   OS.Array sh s ->
   OS.Array sh s
 reluS = OS.mapA (\x -> if x > 0 then x else 0)
+
+matrixS ::
+  forall s m n.
+  (HM.Numeric s, KnownNat n, KnownNat m) =>
+  OS.Array [m, n] s ->
+  HM.Matrix s
+matrixS =
+  let n = fromIntegral $ natVal (Proxy :: Proxy n)
+   in (HM.reshape n . OS.toVector)
