@@ -249,7 +249,7 @@ mlpLoop weights 10000 = do
       putStr (printf "%.2f " a)
     print (f (OS.fromList data_))
 
-  _ <- flip traverse [-3, -2.9 .. 3] $ \j -> do
+  _ <- flip traverse [2.5, 2.4 .. -2.5] $ \j -> do
     _ <- flip traverse [-3, -2.9 .. 3] $ \i -> do
       putStr $
         if
