@@ -122,7 +122,7 @@ mlpInputDataList :: [([Double], [Double])]
 mlpInputDataList =
   let first = do
         let count = 100
-            totalAngle = 5 * pi / 4
+            totalAngle = 3 * pi / 4
             tick = totalAngle / (count - 1)
 
         p <- [0 .. count - 1]
@@ -149,8 +149,8 @@ mlpPredict ::
   ( Numeric s,
     Ord s,
     KnownNat labels,
-    KnownNat hidden2,
     KnownNat hidden1,
+    KnownNat hidden2,
     KnownNat dim,
     Floating s
   ) =>
@@ -187,8 +187,8 @@ mlp ::
     KnownNat samples,
     Floating s,
     DualMonad dual m,
-    KnownNat hidden2,
     KnownNat hidden1,
+    KnownNat hidden2,
     KnownNat dim
   ) =>
   OS.Array '[samples, dim] s ->
@@ -215,9 +215,9 @@ mlpInitialWeights ::
     OS.Array [10, 2] Double
   )
 mlpInitialWeights =
-  ( OS.fromList $ map ((/ 20) . fromIntegral) [-9 .. 10 :: Int],
-    OS.fromList $ map ((/ 100) . fromIntegral) [-49 .. 50 :: Int],
-    OS.fromList $ map ((/ 20) . fromIntegral) [-9 .. 10 :: Int]
+  ( OS.fromList $ map ((/ 40) . fromIntegral) [-9 .. 10 :: Int],
+    OS.fromList $ map ((/ 100) . fromIntegral) [-50 .. 49 :: Int],
+    OS.fromList $ map ((/ 40) . fromIntegral) [-9 .. 10 :: Int]
   )
 
 mlpLoop ::
@@ -230,7 +230,7 @@ mlpLoop ::
   ) ->
   Int ->
   IO ()
-mlpLoop weights 10000 = do
+mlpLoop weights 100 = do
   let f = flip mlpPredict weights
 
       output =
@@ -241,6 +241,8 @@ mlpLoop weights 10000 = do
             pure (printf "%.3f %.3f %.3f" x y (f (OS.fromList [x, y])))
 
   writeFile "/tmp/foo.dat" output
+
+  print weights
 
   _ <- flip traverse mlpInputDataList $ \(data_, class_) -> do
     _ <- flip traverse data_ $ \a -> do
@@ -277,4 +279,9 @@ mlpLoop (l1, l2, l3) n = do
 
   print loss
 
-  mlpLoop (l1 `addS` ul1, l2 `addS` ul2, l3 `addS` ul3) (n + 1)
+  mlpLoop
+    ( l1 `addS` ul1,
+      l2 `addS` ul2,
+      l3 `addS` ul3
+    )
+    (n + 1)

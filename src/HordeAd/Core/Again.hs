@@ -1062,12 +1062,30 @@ test =
           (x `addS` dx, y `addS` dy)
           (dx, dy)
           (uncurry softMaxCrossEntropy)
+
+      p1 = OS.fromList [10, 0] :: OS.Array [1, 2] Double
+      pb = OS.fromList [0, 0] :: OS.Array [1, 2] Double
+      p2 = OS.fromList [0, 10] :: OS.Array [1, 2] Double
+
+      c1 = OS.fromList [1, 0] :: OS.Array [1, 2] Double
+      c2 = OS.fromList [0, 1] :: OS.Array [1, 2] Double
    in ( dr * d_dr,
         OS.sumA (OS.zipWithA (*) dx d_dx)
           + OS.sumA (OS.zipWithA (*) dy d_dy),
         dr,
-        r_plus_dr -r
-              )
+        r_plus_dr - r,
+        do
+          p <- [p1, pb, p2]
+          c <- [c1, c2]
+
+          let (rr, _) =
+                dDoubleArgForward
+                  (p, c)
+                  (OS.mapA (const 0) p, OS.mapA (const 0) p)
+                  (uncurry softMaxCrossEntropy)
+
+          pure rr
+      )
 
 --
 
