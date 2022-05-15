@@ -1036,16 +1036,9 @@ softMaxCrossEntropy ::
   -- | One hot
   Dual dual (OS.Array [samples, labels] s) ->
   m (Dual dual s)
-softMaxCrossEntropy logProbs' groundTruth = do
-  logProbs <- dLet logProbs'
-
-  let totalLogProb :: Dual dual (OS.Array [samples, 1] s)
-      totalLogProb = logSumExpDual logProbs
-
-      crossEntropyComponents :: Dual dual (OS.Array [samples, 1] s)
-      crossEntropyComponents = logProbs `dotAcross` groundTruth
-
-  pure (sumElementsS (crossEntropyComponents `minusSDual` totalLogProb))
+softMaxCrossEntropy logProbs groundTruth = do
+  r <- partialsoftMaxCrossEntropy logProbs groundTruth
+  pure (sumElementsS r)
 
 partialsoftMaxCrossEntropy ::
   forall s dual labels samples m.
