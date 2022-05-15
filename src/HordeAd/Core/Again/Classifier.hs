@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
@@ -6,6 +7,8 @@ module HordeAd.Core.Again.Classifier (module HordeAd.Core.Again.Classifier) wher
 
 import qualified Data.Array.Shaped as OShaped
 import qualified Data.Array.ShapedS as OS
+import Data.Biapplicative ((<<*>>))
+import qualified Data.Biapplicative as B
 import GHC.TypeLits (KnownNat)
 import qualified GHC.TypeNats
 import HordeAd.Core.Again
@@ -13,11 +16,15 @@ import HordeAd.Core.Again
     Dual,
     DualMonad,
     Ops,
+    adaptArg,
     addS,
     constS,
     dSingleArg,
+    dSingleArgForward,
     mulS,
     mulSDual,
+    reluSDual,
+    runDualMonadAdapt,
     softMaxCrossEntropy,
   )
 import Numeric.LinearAlgebra (Numeric)
@@ -108,3 +115,166 @@ loop weights n = do
 
   print loss
   loop (weights `addS` update) (n + 1)
+
+--
+
+mlpInputDataList :: [([Double], [Double])]
+mlpInputDataList =
+  let first = do
+        let count = 100
+            totalAngle = 5 * pi / 4
+            tick = totalAngle / (count - 1)
+
+        p <- [0 .. count - 1]
+
+        pure (1 + 2 * cos (tick * p), 2 * sin (tick * p))
+   in map (\(x, y) -> ([x, y], [1, 0])) first
+        ++ map (\(x, y) -> ([- x, - y], [0, 1])) first
+
+mlpInputData :: OS.Array [200, 2] Double
+mlpInputData =
+  ( OS.ravel . OShaped.fromList
+      . map (OS.fromList . fst)
+  )
+    mlpInputDataList
+
+mlpLabels :: OS.Array [200, 2] Double
+mlpLabels =
+  ( OS.ravel . OShaped.fromList . map (OS.fromList . snd)
+  )
+    mlpInputDataList
+
+mlpPredict ::
+  forall s labels hidden1 hidden2 dim.
+  ( Numeric s,
+    Ord s,
+    KnownNat labels,
+    KnownNat hidden2,
+    KnownNat hidden1,
+    KnownNat dim,
+    Floating s
+  ) =>
+  OS.Array '[1, dim] s ->
+  ( OS.Array '[dim, hidden1] s,
+    OS.Array '[hidden1, hidden2] s,
+    OS.Array '[hidden2, labels] s
+  ) ->
+  s
+mlpPredict data_ (layer1, layer2, layer3) =
+  let logPrediction :: OS.Array [1, labels] s
+      (logPrediction, _) =
+        dSingleArgForward
+          data_
+          (OS.constant 0)
+          ( pure
+              . (`mulSDual` constS layer3)
+              . reluSDual
+              . (`mulSDual` constS layer2)
+              . reluSDual
+              . (`mulSDual` constS layer1)
+          )
+
+      prediction = OS.mapA exp logPrediction
+      normalization = prediction `mulS` OS.constant 1
+      normalizedPrediction = OS.zipWithA (/) prediction normalization
+   in head (OS.toList normalizedPrediction)
+
+mlp ::
+  ( Ops (DeltaF s) dual,
+    Numeric s,
+    Ord s,
+    KnownNat labels,
+    KnownNat samples,
+    Floating s,
+    DualMonad dual m,
+    KnownNat hidden2,
+    KnownNat hidden1,
+    KnownNat dim
+  ) =>
+  OS.Array '[samples, dim] s ->
+  OS.Array '[samples, labels] s ->
+  ( Dual dual (OS.Array '[dim, hidden1] s),
+    Dual dual (OS.Array '[hidden1, hidden2] s),
+    Dual dual (OS.Array '[hidden2, labels] s)
+  ) ->
+  m (Dual dual s)
+mlp data_ groundTruth (layer1, layer2, layer3) = do
+  let predictions =
+        (`mulSDual` layer3)
+          . reluSDual
+          . (`mulSDual` layer2)
+          . reluSDual
+          . (`mulSDual` layer1)
+          $ constS data_
+
+  softMaxCrossEntropy predictions (constS groundTruth)
+
+mlpInitialWeights ::
+  ( OS.Array [2, 10] Double,
+    OS.Array [10, 10] Double,
+    OS.Array [10, 2] Double
+  )
+mlpInitialWeights =
+  ( OS.fromList $ map ((/ 20) . fromIntegral) [-9 .. 10 :: Int],
+    OS.fromList $ map ((/ 100) . fromIntegral) [-49 .. 50 :: Int],
+    OS.fromList $ map ((/ 20) . fromIntegral) [-9 .. 10 :: Int]
+  )
+
+mlpLoop ::
+  ( KnownNat hidden1,
+    KnownNat hidden2
+  ) =>
+  ( OS.Array [2, hidden1] Double,
+    OS.Array [hidden1, hidden2] Double,
+    OS.Array [hidden2, 2] Double
+  ) ->
+  Int ->
+  IO ()
+mlpLoop weights 10000 = do
+  let f = flip mlpPredict weights
+
+      output =
+        unlines $
+          ["x      y"] ++ do
+            x <- [-3, -2.9 .. 3]
+            y <- [-3, -2.9 .. 3]
+            pure (printf "%.3f %.3f %.3f" x y (f (OS.fromList [x, y])))
+
+  writeFile "/tmp/foo.dat" output
+
+  _ <- flip traverse mlpInputDataList $ \(data_, class_) -> do
+    _ <- flip traverse data_ $ \a -> do
+      putStr (printf "%.2f " a)
+    _ <- flip traverse class_ $ \a -> do
+      putStr (printf "%.2f " a)
+    print (f (OS.fromList data_))
+
+  _ <- flip traverse [-3, -2.9 .. 3] $ \j -> do
+    _ <- flip traverse [-3, -2.9 .. 3] $ \i -> do
+      putStr $
+        if
+            | flip any mlpInputDataList $ \([x, y], _) ->
+                (x >= i) && (x < i + 0.1) && (y >= j) && (y < j + 0.1) ->
+              "+"
+            | f (OS.fromList [i, j]) > 0.75 -> "X"
+            | otherwise -> "_"
+    putStrLn ""
+
+  pure ()
+mlpLoop (l1, l2, l3) n = do
+  let learningRate = 0.01
+  putStr "Starting iteration "
+  print n
+  let (loss, (ul1, ul2, ul3)) =
+        runDualMonadAdapt
+          ( B.bipure (,,) (,,)
+              <<*>> adaptArg l1
+              <<*>> adaptArg l2
+              <<*>> adaptArg l3
+          )
+          learningRate
+          (mlp mlpInputData mlpLabels)
+
+  print loss
+
+  mlpLoop (l1 `addS` ul1, l2 `addS` ul2, l3 `addS` ul3) (n + 1)
