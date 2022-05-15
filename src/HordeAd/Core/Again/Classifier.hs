@@ -185,11 +185,35 @@ mlp ::
     Ord s,
     KnownNat labels,
     KnownNat samples,
-    Floating s,
-    DualMonad dual m,
     KnownNat hidden1,
     KnownNat hidden2,
     KnownNat dim
+  ) =>
+  OS.Array '[samples, dim] s ->
+  ( Dual dual (OS.Array '[dim, hidden1] s),
+    Dual dual (OS.Array '[hidden1, hidden2] s),
+    Dual dual (OS.Array '[hidden2, labels] s)
+  ) ->
+  Dual dual (OS.Array '[samples, labels] s)
+mlp data_ (layer1, layer2, layer3) =
+  (`mulSDual` layer3)
+    . reluSDual
+    . (`mulSDual` layer2)
+    . reluSDual
+    . (`mulSDual` layer1)
+    $ constS data_
+
+mlpTrain ::
+  ( Ops (DeltaF s) dual,
+    Numeric s,
+    Ord s,
+    KnownNat labels,
+    KnownNat samples,
+    KnownNat hidden1,
+    KnownNat hidden2,
+    KnownNat dim,
+    Floating s,
+    DualMonad dual m
   ) =>
   OS.Array '[samples, dim] s ->
   OS.Array '[samples, labels] s ->
@@ -198,15 +222,8 @@ mlp ::
     Dual dual (OS.Array '[hidden2, labels] s)
   ) ->
   m (Dual dual s)
-mlp data_ groundTruth (layer1, layer2, layer3) = do
-  let predictions =
-        (`mulSDual` layer3)
-          . reluSDual
-          . (`mulSDual` layer2)
-          . reluSDual
-          . (`mulSDual` layer1)
-          $ constS data_
-
+mlpTrain data_ groundTruth layers = do
+  let predictions = mlp data_ layers
   softMaxCrossEntropy predictions (constS groundTruth)
 
 mlpInitialWeights ::
@@ -279,7 +296,7 @@ mlpLoop (l1, l2, l3) n = do
               <<*>> adaptArg l3
           )
           learningRate
-          (mlp mlpInputData mlpLabels)
+          (mlpTrain mlpInputData mlpLabels)
 
   print loss
 
