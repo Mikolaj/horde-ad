@@ -114,7 +114,7 @@ instance (Floating a, IsPrimal d a) => Floating (DualNumber d a) where
   cosh = undefined  -- TODO
   tanh (D u u') = let y = tanh u
                   in D y (dScale (1 - y * y) u')
-  asinh = undefined  -- TODO
+  asinh z = recip (sinh z)
   acosh = undefined  -- TODO
   atanh = undefined  -- TODO
 
