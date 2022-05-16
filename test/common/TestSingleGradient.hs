@@ -148,13 +148,17 @@ altSumElementsV variables = do
   let x = var1 variables 0
   returnLet $ altSumElements0 x
 
+-- hlint would complain about spurious @id@, so we need to define our own.
+id2 :: a -> a
+id2 x = x
+
 sinKonst
   :: DualMonad d r m
   => DualNumberVariables d r -> m (DualNumber d r)
 sinKonst variables = do
   let x = var1 variables 0
   return $ sumElements0 $
-    sin x + (id $ id $ id $ konst1 1 2)
+    sin x + (id2 $ id2 $ id2 $ konst1 1 2)
 
 sinKonstOut
   :: ( DualMonad d r m
@@ -163,7 +167,7 @@ sinKonstOut
 sinKonstOut variables = do
   let x = var1 variables 0
   return $ sumElements0 $
-    unOut $ sin (Out x) + Out (id $ id $ id $ konst1 1 2)
+    unOut $ sin (Out x) + Out (id2 $ id2 $ id2 $ konst1 1 2)
 
 powKonst
   :: DualMonad d r m
@@ -171,7 +175,7 @@ powKonst
 powKonst variables = do
   let x = var1 variables 0
   return $ sumElements0 $
-    x ** (sin x + (id $ id $ id $ konst1 (sumElements0 x) 2))
+    x ** (sin x + (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
 
 powKonstOut
   :: ( DualMonad d r m
@@ -180,7 +184,7 @@ powKonstOut
 powKonstOut variables = do
   let x = var1 variables 0
   return $ sumElements0 $
-    x ** unOut (sin (Out x) + Out (id $ id $ id $ konst1 (sumElements0 x) 2))
+    x ** unOut (sin (Out x) + Out (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
 
 sinKonstS
   :: forall d r m. DualMonad d r m
@@ -188,7 +192,7 @@ sinKonstS
 sinKonstS variables = do
   let x = varS variables 0
   return $ sumElements0 $ fromS1 $
-    ((sin x + (id $ id $ id $ konstS 1))
+    ((sin x + (id2 $ id2 $ id2 $ konstS 1))
        :: DualNumber d (OS.Array '[2] r))
 
 sinKonstOutS
@@ -198,7 +202,7 @@ sinKonstOutS
 sinKonstOutS variables = do
   let x = varS variables 0
   return $ sumElements0 $ fromS1 $
-    (unOut (sin (Out x) + Out (id $ id $ id $ konstS 1))
+    (unOut (sin (Out x) + Out (id2 $ id2 $ id2 $ konstS 1))
        :: DualNumber d (OS.Array '[2] r))
 
 dReverse1
