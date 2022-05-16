@@ -99,7 +99,8 @@ instance (Floating a, IsPrimal d a) => Floating (DualNumber d a) where
   exp (D u u') = let expU = exp u
                  in D expU (dScale expU u')
   log (D u u') = D (log u) (dScale (recip u) u')
-  sqrt = undefined  -- TODO
+  sqrt (D u u') = let sqrtU = sqrt u
+                  in D sqrtU (dScale (recip (sqrtU + sqrtU)) u')
   D u u' ** D v v' = D (u ** v) (dAdd (dScale (v * (u ** (v - 1))) u')
                                       (dScale ((u ** v) * log u) v'))
   logBase x y = (log y) / (log x)
