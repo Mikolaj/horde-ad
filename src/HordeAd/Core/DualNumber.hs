@@ -113,9 +113,9 @@ instance (Floating a, IsPrimal d a) => Floating (DualNumber d a) where
   sinh z = (recip 2) * ((exp z) - (exp (-z)))
   cosh z = (recip 2) * ((exp z) + (exp (-z)))
   tanh z = (sinh z) / (cosh z)
-  asinh z = recip (sinh z)
-  acosh z = recip (cosh z)
-  atanh z = recip (tanh z)
+  asinh = recip . sinh
+  acosh = recip . cosh
+  atanh = recip . tanh
 
 instance (RealFrac a, IsPrimal d a) => RealFrac (DualNumber d a) where
   properFraction = undefined
