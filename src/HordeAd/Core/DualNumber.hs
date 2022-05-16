@@ -115,7 +115,7 @@ instance (Floating a, IsPrimal d a) => Floating (DualNumber d a) where
   tanh z = (sinh z) / (cosh z)
   asinh z = recip (sinh z)
   acosh z = recip (cosh z)
-  atanh = undefined  -- TODO
+  atanh z = recip (tanh z)
 
 instance (RealFrac a, IsPrimal d a) => RealFrac (DualNumber d a) where
   properFraction = undefined
