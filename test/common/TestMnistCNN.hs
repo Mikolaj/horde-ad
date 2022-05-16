@@ -442,7 +442,7 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
     trainData <- map shapeBatchS
                  <$> loadMnistData trainGlyphsPath trainLabelsPath
     testData <- take 100  -- TODO: reduced for now, because too slow
-                <$> map shapeBatchS
+                . map shapeBatchS
                 <$> loadMnistData testGlyphsPath testLabelsPath
      -- There is some visual feedback, because some of these take long.
     let runBatch :: Domains r

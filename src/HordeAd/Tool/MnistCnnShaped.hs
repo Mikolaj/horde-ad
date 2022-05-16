@@ -222,10 +222,9 @@ convMnistTestS _ _ _ _ _ inputs parameters =
             tx = OS.reshape glyph
             nn :: DualNumberVariables 'DModeGradient r
                -> DualMonadValue r (DualNumber 'DModeGradient (OS.Array '[SizeMnistLabel, 1] r))
-            nn variables =
-              convMnistS @kheight_minus_1 @kwidth_minus_1
-                         @num_hidden @out_channels
-                         tx variables
+            nn = convMnistS @kheight_minus_1 @kwidth_minus_1
+                            @num_hidden @out_channels
+                            tx
             value = primalValue nn parameters
         in V.maxIndex (OS.toVector value) == V.maxIndex (OS.toVector label)
   in fromIntegral (length (filter matchesLabels inputs))

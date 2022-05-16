@@ -205,7 +205,7 @@ instance Numeric r => MonoFunctor (Matrix r) where
   omap = HM.cmap
 
 instance MonoFunctor Double where
-  omap f r = f r
+  omap f = f
 
 instance MonoFunctor Float where
-  omap f r = f r
+  omap f = f

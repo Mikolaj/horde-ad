@@ -58,7 +58,7 @@ sumResultsDual f as = do
   sumUs <- V.foldM g 0 as
   returnLet sumUs
 
-lengthDualNumber :: Storable (r) => DualNumberVariables d r -> Int
+lengthDualNumber :: Storable r => DualNumberVariables d r -> Int
 lengthDualNumber (vValue, _, _, _, _, _, _, _) = V.length vValue
 
 -- This, and other Fit and Fit2 nn operations, have unfused Delta let-bindings

@@ -497,7 +497,7 @@ mnistTestCase2S
   -> Int
   -> (forall d r m. DualMonad d r m
       => Proxy widthHidden -> Proxy widthHidden2
-      -> MnistData (r) -> DualNumberVariables d r -> m (DualNumber d r))
+      -> MnistData r -> DualNumberVariables d r -> m (DualNumber d r))
   -> Double
   -> Double
   -> TestTree

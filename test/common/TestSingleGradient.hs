@@ -191,7 +191,7 @@ sinKonstS
   => DualNumberVariables d r -> m (DualNumber d r)
 sinKonstS variables = do
   let x = varS variables 0
-  return $ sumElements0 $ fromS1 $
+  return $ sumElements0 $ fromS1
     ((sin x + (id2 $ id2 $ id2 $ konstS 1))
        :: DualNumber d (OS.Array '[2] r))
 
@@ -201,7 +201,7 @@ sinKonstOutS
   => DualNumberVariables d r -> m (DualNumber d r)
 sinKonstOutS variables = do
   let x = varS variables 0
-  return $ sumElements0 $ fromS1 $
+  return $ sumElements0 $ fromS1
     (unOut (sin (Out x) + Out (id2 $ id2 $ id2 $ konstS 1))
        :: DualNumber d (OS.Array '[2] r))
 
@@ -371,7 +371,7 @@ qcTest txt f fArg =
 -- at https://github.com/Mikolaj/horde-ad/issues/15#issuecomment-1063251319
 quickCheckForwardAndBackward :: TestTree
 quickCheckForwardAndBackward =
-  testGroup "Simple QuickCheck of gradient vs derivative vs perturbation" $
+  testGroup "Simple QuickCheck of gradient vs derivative vs perturbation"
     [ qcTest "fquad" fquad (\(x, y, _z) -> ([x, y], [], [], []))
     , qcTest "atanReadmeM" atanReadmeM
              (\(x, y, z) -> ([x, y, z], [], [], []))
