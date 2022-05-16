@@ -115,7 +115,7 @@ instance (Floating a, IsPrimal d a) => Floating (DualNumber d a) where
   tanh z = (sinh z) / (cosh z)
   asinh z = log (sqrt(z*z + 1) + z)
   acosh z = log (z + (sqrt(z-1)) * (sqrt(z+1)))
-  atanh = recip . tanh
+  atanh z = (recip 2) * (log (1 + z) - log (1 - z))
 
 instance (RealFrac a, IsPrimal d a) => RealFrac (DualNumber d a) where
   properFraction = undefined
