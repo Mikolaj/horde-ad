@@ -113,7 +113,7 @@ instance (Floating a, IsPrimal d a) => Floating (DualNumber d a) where
   sinh z = (recip 2) * ((exp z) - (exp (-z)))
   cosh z = (recip 2) * ((exp z) + (exp (-z)))
   tanh z = (sinh z) / (cosh z)
-  asinh = recip . sinh
+  asinh z = log (sqrt(z*z + 1) + z)
   acosh = recip . cosh
   atanh = recip . tanh
 
