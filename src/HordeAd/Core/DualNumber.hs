@@ -79,7 +79,7 @@ instance (Num a, IsPrimal d a) => Num (DualNumber d a) where
   D u u' * D v v' = D (u * v) (dAdd (dScale v u') (dScale u v'))
   negate (D v v') = D (negate v) (dScale (-1) v')
   abs (D v v') = D (abs v) (dScale (signum v) v')
-  signum = undefined  -- TODO
+  signum (D v _) = D (signum v) dZero
   fromInteger = constant . fromInteger
 
 instance (Real a, IsPrimal d a) => Real (DualNumber d a) where
