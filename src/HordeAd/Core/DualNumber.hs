@@ -110,7 +110,7 @@ instance (Floating a, IsPrimal d a) => Floating (DualNumber d a) where
   asin (D u u') = D (asin u) (dScale (recip (sqrt (1 - u*u))) u')
   acos (D u u') = D (acos u) (dScale (- recip (sqrt (1 - u*u))) u')
   atan (D u u') = D (atan u) (dScale (recip (1 + u*u)) u')
-  sinh z = (recip 2) * ((exp z) - (exp (-z)))
+  sinh (D u u') = D (sinh u) (dScale (cosh u) u')
   cosh z = (recip 2) * ((exp z) + (exp (-z)))
   tanh (D u u') = let y = tanh u
                   in D y (dScale (1 - y * y) u')
