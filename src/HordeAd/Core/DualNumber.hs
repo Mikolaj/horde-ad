@@ -116,7 +116,7 @@ instance (Floating a, IsPrimal d a) => Floating (DualNumber d a) where
                   in D y (dScale (1 - y * y) u')
   asinh z = log (sqrt(z*z + 1) + z)
   acosh z = log (z + (sqrt(z-1)) * (sqrt(z+1)))
-  atanh z = (recip 2) * (log (1 + z) - log (1 - z))
+  atanh (D u u') = D (atanh u) (dScale (recip (1 - u*u)) u')
 
 instance (RealFrac a, IsPrimal d a) => RealFrac (DualNumber d a) where
   properFraction = undefined
