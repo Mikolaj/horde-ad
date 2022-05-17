@@ -33,7 +33,7 @@ fcnnMnistLayersS
      (DualMonad d r m, KnownNat widthHidden, KnownNat widthHidden2)
   => (forall sh. OS.Shape sh
       => DualNumber d (OS.Array sh r) -> m (DualNumber d (OS.Array sh r)))
-  -> (OS.Array '[SizeMnistGlyph] r)
+  -> OS.Array '[SizeMnistGlyph] r
   -- All below is the type of all paramters of this nn. The same is reflected
   -- in the length function below and read from variables further down.
   -> DualNumber d (OS.Array '[widthHidden, SizeMnistGlyph] r)
@@ -77,7 +77,7 @@ fcnnMnistS
      (DualMonad d r m, KnownNat widthHidden, KnownNat widthHidden2)
   => (forall sh. OS.Shape sh
       => DualNumber d (OS.Array sh r) -> m (DualNumber d (OS.Array sh r)))
-  -> (OS.Array '[SizeMnistGlyph] r)
+  -> OS.Array '[SizeMnistGlyph] r
   -> DualNumberVariables d r
   -> m (DualNumber d (OS.Array '[SizeMnistLabel] r))
 {-# INLINE fcnnMnistS #-}

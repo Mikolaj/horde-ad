@@ -1,4 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, FunctionalDependencies,
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, FlexibleInstances,
+             FunctionalDependencies, QuantifiedConstraints, RankNTypes,
              TypeFamilies, TypeOperators #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
@@ -32,7 +33,8 @@ import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 
 import HordeAd.Core.DualClass
-import HordeAd.Internal.Delta (Domain0, Domain1, Domain2, DomainX, Domains)
+import HordeAd.Internal.Delta
+  (CodeOut (..), Domain0, Domain1, Domain2, DomainX, Domains)
 
 -- * The main dual number types
 
@@ -75,7 +77,7 @@ instance (Num a, IsPrimal d a) => Num (DualNumber d a) where
   D u u' + D v v' = D (u + v) (dAdd u' v')
   D u u' - D v v' = D (u - v) (dAdd u' (dScale (-1) v'))
   D u u' * D v v' = D (u * v) (dAdd (dScale v u') (dScale u v'))
-  negate (D v v') = D (- v) (dScale (-1) v')
+  negate (D v v') = D (negate v) (dScale (-1) v')
   abs = undefined  -- TODO
   signum = undefined  -- TODO
   fromInteger = constant . fromInteger
@@ -857,3 +859,170 @@ maxPool24 d = do
                                   (valueOf @stride)
                        . fromS2)) d
   returnLet res
+
+
+-- * Operations creating delayed/outlined derivatives
+
+-- | The version of the @D@ constructor lazy in the second argument.
+-- To be used as in
+--
+-- > sinDelayed :: (Floating a, IsPrimal d a) => DualNumber d a -> DualNumber d a
+-- > sinDelayed (D u u') = delayD (sin u) (dScale (cos u) u')
+-- >
+-- > plusDelayed :: (Floating a, IsPrimal d a)
+-- >             => DualNumber d a -> DualNumber d a -> DualNumber d a
+-- > plusDelayed (D u u') (D v v') = delayD (u + v) (dAdd u' v')
+-- >
+-- > x ** (sinDelayed x `plusDelayed` (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
+--
+-- The outlining is lost when serializing or logging, unlike with @Out@,
+-- @Outline0@, etc.
+--
+-- Yet another incomparable variant that can't be serialized would be
+-- (illustrating with an example of a constructor at rank 0)
+--
+-- > FromParams0 (Domains -> Delta0 r)
+--
+-- that expects the initial parameters. But it's more troublesome
+-- than @Delay0@ both in implementation and usage.
+delayD :: IsPrimal d a => a -> Dual d a -> DualNumber d a
+delayD u ~u' = D u (dDelay u')
+
+-- | A wrapper type to delay/outline computation of the derivatives of the given
+-- primitive numeric function inside the dual component of the created dual
+-- number. The rule is that if all arguments of a function are wrapped
+-- in @Out@ then the function gets delayed. Inconsistent wrapping,
+-- e.g., only one of the arguments, leads to early type errors.
+--
+-- To be used as in
+--
+-- > x ** unOut (sin (Out x) + Out (id $ id $ id $ konst1 (sumElements0 x) 2))
+--
+-- which delays computing the dual component of sine and of addition
+-- (both in rank 1), but not of power, konst and sumElements. The last two
+-- can't be currently delayed, because only primitive numeric functions
+-- are supported (an attempt would not type-check).
+newtype Out a = Out {unOut :: a}
+  deriving (Eq, Ord)
+
+returnOut :: (DualMonad d r m, IsPrimalWithScalar d a r)
+          => Out (DualNumber d a) -> m (Out (DualNumber d a))
+returnOut dOut = do
+  dvar <- returnLet $ unOut dOut
+  return $ Out dvar
+
+instance (Num a, IsPrimal 'DModeGradient a, HasVariables a)
+         => Num (Out (DualNumber 'DModeGradient a)) where
+  Out (D u u') + Out (D v v') =
+    Out $ D (u + v) (dOutline PlusOut [u, v] [u', v'])
+  Out (D u u') - Out (D v v') =
+    Out $ D (u - v) (dOutline MinusOut [u, v] [u', v'])
+  Out (D u u') * Out (D v v') =
+    Out $ D (u * v) (dOutline TimesOut [u, v] [u', v'])
+  negate (Out (D v v')) = Out $ D (negate v) (dOutline NegateOut [v] [v'])
+  abs = undefined  -- TODO
+  signum = undefined  -- TODO
+  fromInteger = Out . constant . fromInteger
+
+instance (Real a, IsPrimal 'DModeGradient a, HasVariables a)
+         => Real (Out (DualNumber 'DModeGradient a)) where
+  toRational = undefined  -- TODO?
+
+instance (Fractional a, IsPrimal 'DModeGradient a, HasVariables a)
+         => Fractional (Out (DualNumber 'DModeGradient a)) where
+  Out (D u u') / Out (D v v') =
+    Out $ D (u / v) (dOutline DivideOut [u, v] [u', v'])
+  recip (Out (D v v')) = Out $ D (recip v) (dOutline RecipOut [v] [v'])
+  fromRational = Out . constant . fromRational
+
+instance (Floating a, IsPrimal 'DModeGradient a, HasVariables a)
+         => Floating (Out (DualNumber 'DModeGradient a)) where
+  pi = Out $ constant pi
+  exp (Out (D u u')) = Out $ D (exp u) (dOutline ExpOut [u] [u'])
+  log (Out (D u u')) = Out $ D (log u) (dOutline LogOut [u] [u'])
+  sqrt = undefined  -- TODO
+  Out (D u u') ** Out (D v v') =
+    Out $ D (u ** v) (dOutline PowerOut [u, v] [u', v'])
+  logBase = undefined  -- TODO
+  sin (Out (D u u')) = Out $ D (sin u) (dOutline SinOut [u] [u'])
+  cos (Out (D u u')) = Out $ D (cos u) (dOutline CosOut [u] [u'])
+  tan = undefined  -- TODO
+  asin = undefined  -- TODO
+  acos = undefined  -- TODO
+  atan = undefined  -- TODO
+  sinh = undefined  -- TODO
+  cosh = undefined  -- TODO
+  tanh (Out (D u u')) = Out $ D (tanh u) (dOutline TanhOut [u] [u'])
+  asinh = undefined  -- TODO
+  acosh = undefined  -- TODO
+  atanh = undefined  -- TODO
+
+instance (RealFrac a, IsPrimal 'DModeGradient a, HasVariables a)
+         => RealFrac (Out (DualNumber 'DModeGradient a)) where
+  properFraction = undefined
+    -- very low priority, since these are all extremely not continuous
+
+instance (RealFloat a, IsPrimal 'DModeGradient a, HasVariables a)
+         => RealFloat (Out (DualNumber 'DModeGradient a)) where
+  atan2 (Out (D u u')) (Out (D v v')) =
+    Out $ D (atan2 u v) (dOutline Atan2Out [u, v] [u', v'])
+      -- we can be selective here and omit the other methods,
+      -- most of which don't even have a differentiable codomain
+
+
+-- * Busywork to let the derivatives mode ignore all outlining
+
+-- | Note that this should apply only when @d@ is @'DModeDerivative@.
+-- However, GHC can't tell that @d@ has only two cases. Therefore, we need
+-- to overgeneralize these definitions and mark them with @OVERLAPPABLE@
+-- or else GHC complains that not enough instances are given
+-- whenever type-checking code polymorphic on @d@.
+instance {-# OVERLAPPABLE #-} (Num a, IsPrimal d a)
+                              => Num (Out (DualNumber d a)) where
+  Out d + Out e = Out (d + e)
+  Out d - Out e = Out (d - e)
+  Out d * Out e = Out (d * e)
+  negate (Out e) = Out (negate e)
+  abs = undefined  -- TODO
+  signum = undefined  -- TODO
+  fromInteger = Out . constant . fromInteger
+
+instance {-# OVERLAPPABLE #-} (Real a, IsPrimal d a)
+                              => Real (Out (DualNumber d a)) where
+  toRational = undefined  -- TODO?
+
+instance {-# OVERLAPPABLE #-} (Fractional a, IsPrimal d a)
+                              => Fractional (Out (DualNumber d a)) where
+  Out d / Out e = Out (d / e)
+  recip (Out e) = Out (recip e)
+  fromRational = Out . constant . fromRational
+
+instance {-# OVERLAPPABLE #-} (Floating a, IsPrimal d a)
+                              => Floating (Out (DualNumber d a)) where
+  pi = Out $ constant pi
+  exp (Out d) = Out (exp d)
+  log (Out d) = Out (log d)
+  sqrt = undefined  -- TODO
+  Out d ** Out e = Out (d ** e)
+  logBase = undefined  -- TODO
+  sin (Out d) = Out (sin d)
+  cos (Out d) = Out (cos d)
+  tan = undefined  -- TODO
+  asin = undefined  -- TODO
+  acos = undefined  -- TODO
+  atan = undefined  -- TODO
+  sinh = undefined  -- TODO
+  cosh = undefined  -- TODO
+  tanh (Out d) = Out (tanh d)
+  asinh = undefined  -- TODO
+  acosh = undefined  -- TODO
+  atanh = undefined  -- TODO
+
+instance {-# OVERLAPPABLE #-} (RealFrac a, IsPrimal d a)
+                              => RealFrac (Out (DualNumber d a)) where
+  properFraction = undefined
+    -- very low priority, since these are all extremely not continuous
+
+instance {-# OVERLAPPABLE #-} (RealFloat a, IsPrimal d a)
+                              => RealFloat (Out (DualNumber d a)) where
+  atan2 (Out d) (Out e) = Out (atan2 d e)

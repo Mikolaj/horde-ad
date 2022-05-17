@@ -161,7 +161,7 @@ rnnMnistTestS _ _ (glyphS, labelS) parameters =
       outputS = primalValue (rnnMnistS @out_width xs) parameters
       outputs = map OS.toVector $ OSB.toList $ OS.unravel
                 $ OS.transpose @'[1, 0] $ outputS
-      labels = map OS.toVector $ OSB.toList $ OS.unravel $ labelS
+      labels = map OS.toVector $ OSB.toList $ OS.unravel labelS
       matchesLabels :: Vector r -> Vector r -> Int
       matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
                                  | otherwise = 0

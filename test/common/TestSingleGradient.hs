@@ -4,17 +4,23 @@ module TestSingleGradient (testTrees, fquad, quad) where
 
 import Prelude
 
+import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.ShapedS as OS
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
+import           Numeric.LinearAlgebra (Vector)
+import qualified Numeric.LinearAlgebra as HM
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 import           Test.Tasty.QuickCheck
 
 import HordeAd hiding (sumElementsVectorOfDual)
+import HordeAd.Core.DualClass (IsPrimal, dAdd, dScale)
 
 testTrees :: [TestTree]
 testTrees = [ testDReverse0
             , testDReverse1
+            , testPrintDf
             , testDForward
             , testDFastForward
             , quickCheckForwardAndBackward
@@ -143,11 +149,100 @@ altSumElementsV variables = do
   let x = var1 variables 0
   returnLet $ altSumElements0 x
 
+-- hlint would complain about spurious @id@, so we need to define our own.
+id2 :: a -> a
+id2 x = x
+
+sinKonst
+  :: DualMonad d r m
+  => DualNumberVariables d r -> m (DualNumber d r)
+sinKonst variables = do
+  let x = var1 variables 0
+  return $ sumElements0 $
+    sin x + (id2 $ id2 $ id2 $ konst1 1 2)
+
+sinKonstOut
+  :: ( DualMonad d r m
+     , Floating (Out (DualNumber d (Vector r))) )
+  => DualNumberVariables d r -> m (DualNumber d r)
+sinKonstOut variables = do
+  let x = var1 variables 0
+  return $ sumElements0 $
+    unOut $ sin (Out x) + Out (id2 $ id2 $ id2 $ konst1 1 2)
+
+sinDelayed :: (Floating a, IsPrimal d a) => DualNumber d a -> DualNumber d a
+sinDelayed (D u u') = delayD (sin u) (dScale (cos u) u')
+
+plusDelayed :: (Floating a, IsPrimal d a)
+            => DualNumber d a -> DualNumber d a -> DualNumber d a
+plusDelayed (D u u') (D v v') = delayD (u + v) (dAdd u' v')
+
+sinKonstDelay
+  :: DualMonad d r m
+  => DualNumberVariables d r -> m (DualNumber d r)
+sinKonstDelay variables = do
+  let x = var1 variables 0
+  return $ sumElements0 $
+    sinDelayed x `plusDelayed` (id2 $ id2 $ id2 $ konst1 1 2)
+
+powKonst
+  :: DualMonad d r m
+  => DualNumberVariables d r -> m (DualNumber d r)
+powKonst variables = do
+  let x = var1 variables 0
+  return $ sumElements0 $
+    x ** (sin x + (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
+
+powKonstOut
+  :: ( DualMonad d r m
+     , Floating (Out (DualNumber d (Vector r))) )
+  => DualNumberVariables d r -> m (DualNumber d r)
+powKonstOut variables = do
+  let x = var1 variables 0
+  return $ sumElements0 $
+    x ** unOut (sin (Out x) + Out (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
+
+powKonstDelay
+  :: DualMonad d r m
+  => DualNumberVariables d r -> m (DualNumber d r)
+powKonstDelay variables = do
+  let x = var1 variables 0
+  return $ sumElements0 $
+    x ** (sinDelayed x `plusDelayed` (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
+
+sinKonstS
+  :: forall d r m. DualMonad d r m
+  => DualNumberVariables d r -> m (DualNumber d r)
+sinKonstS variables = do
+  let x = varS variables 0
+  return $ sumElements0 $ fromS1
+    ((sin x + (id2 $ id2 $ id2 $ konstS 1))
+       :: DualNumber d (OS.Array '[2] r))
+
+sinKonstOutS
+  :: forall r d m. ( DualMonad d r m
+                   , Floating (Out (DualNumber d (OS.Array '[2] r))) )
+  => DualNumberVariables d r -> m (DualNumber d r)
+sinKonstOutS variables = do
+  let x = varS variables 0
+  return $ sumElements0 $ fromS1
+    (unOut (sin (Out x) + Out (id2 $ id2 $ id2 $ konstS 1))
+       :: DualNumber d (OS.Array '[2] r))
+
+sinKonstDelayS
+  :: forall d r m. DualMonad d r m
+  => DualNumberVariables d r -> m (DualNumber d r)
+sinKonstDelayS variables = do
+  let x = varS variables 0
+  return $ sumElements0 $ fromS1
+    ((sinDelayed x `plusDelayed` (id2 $ id2 $ id2 $ konstS 1))
+       :: DualNumber d (OS.Array '[2] r))
+
 dReverse1
   :: (r ~ Float, d ~ 'DModeGradient)
   => (DualNumberVariables d r -> DualMonadGradient r (DualNumber d r))
-  -> [[Float]]
-  -> ([[Float]], Float)
+  -> [[r]]
+  -> ([[r]], r)
 dReverse1 f deltaInput =
   let ((_, results, _, _), value) =
         dReverse 1 f
@@ -160,6 +255,80 @@ testDReverse1 = testGroup "Simple dReverse application to vectors tests" $
         testCase txt $ dReverse1 f v @?= expected)
     [ ("sumElementsV", sumElementsV, [[1, 1, 3]], ([[1.0,1.0,1.0]],5.0))
     , ("altSumElementsV", altSumElementsV, [[1, 1, 3]], ([[1.0,1.0,1.0]],5.0))
+    , ( "sinKonst", sinKonst, [[1, 3]]
+      , ([[0.5403023,-0.9899925]],2.982591) )
+    , ( "sinKonstOut", sinKonstOut, [[1, 3]]
+      , ([[0.5403023,-0.9899925]],2.982591) )
+    , ( "sinKonstDelay", sinKonstDelay, [[1, 3]]
+      , ([[0.5403023,-0.9899925]],2.982591) )
+    , ( "powKonst", powKonst, [[1, 3]]
+      , ([[108.7523,131.60072]],95.58371) )
+    , ( "powKonstOut", powKonstOut, [[1, 3]]
+      , ([[108.7523,131.60072]],95.58371) )
+    , ( "powKonstDelay", powKonstDelay, [[1, 3]]
+      , ([[108.7523,131.60072]],95.58371) )
+    ]
+
+testPrintDf :: TestTree
+testPrintDf = testGroup "Pretty printing test" $
+  map (\(txt, f, v, expected) ->
+        testCase txt $ prettyPrintDf False f
+          (V.empty, V.fromList (map V.fromList v), V.empty, V.empty)
+        @?= expected)
+    [ ( "sumElementsV", sumElementsV, [[1 :: Float, 1, 3]]
+      , unlines
+        [ "let0 DeltaId_0 = SumElements0 (Var1 (DeltaId 0)) 3"
+        , "in Var0 (DeltaId 0)" ] )
+    , ( "altSumElementsV", altSumElementsV, [[1, 1, 3]]
+      , unlines
+        [ "let0 DeltaId_0 = Add0"
+        , "  (Index0 (Var1 (DeltaId 0)) 2 3)"
+        , "  (Add0"
+        , "     (Index0 (Var1 (DeltaId 0)) 1 3)"
+        , "     (Add0 (Index0 (Var1 (DeltaId 0)) 0 3) Zero0))"
+        , "in Var0 (DeltaId 0)" ] )
+    , ( "sinKonst", sinKonst, [[1, 3]]
+      , unlines
+        [ "in SumElements0"
+        , "  (Add1"
+        , "     (Scale1 [ 0.5403023 , -0.9899925 ] (Var1 (DeltaId 0)))"
+        , "     (Konst1 Zero0 2))"
+        , "  2" ] )
+    , ( "sinKonstOut", sinKonstOut, [[1, 3]]
+      , unlines
+        [ "in SumElements0"
+        , "  (Outline1"
+        , "     PlusOut"
+        , "     [ [ 0.84147096 , 0.14112 ] , [ 1.0 , 1.0 ] ]"
+        , "     [ Outline1 SinOut [ [ 1.0 , 3.0 ] ] [ Var1 (DeltaId 0) ]"
+        , "     , Konst1 Zero0 2"
+        , "     ])"
+        , "  2" ] )
+    , ( "powKonst", powKonst, [[1, 3]]
+      , unlines
+        [ "in SumElements0"
+        , "  (Add1"
+        , "     (Scale1 [ 4.8414707 , 130.56084 ] (Var1 (DeltaId 0)))"
+        , "     (Scale1"
+        , "        [ 0.0 , 103.91083 ]"
+        , "        (Add1"
+        , "           (Scale1 [ 0.5403023 , -0.9899925 ] (Var1 (DeltaId 0)))"
+        , "           (Konst1 (SumElements0 (Var1 (DeltaId 0)) 2) 2))))"
+        , "  2" ] )
+    , ( "powKonstOut", powKonstOut, [[1, 3]]
+      , unlines
+        [ "in SumElements0"
+        , "  (Add1"
+        , "     (Scale1 [ 4.8414707 , 130.56084 ] (Var1 (DeltaId 0)))"
+        , "     (Scale1"
+        , "        [ 0.0 , 103.91083 ]"
+        , "        (Outline1"
+        , "           PlusOut"
+        , "           [ [ 0.84147096 , 0.14112 ] , [ 4.0 , 4.0 ] ]"
+        , "           [ Outline1 SinOut [ [ 1.0 , 3.0 ] ] [ Var1 (DeltaId 0) ]"
+        , "           , Konst1 (SumElements0 (Var1 (DeltaId 0)) 2) 2"
+        , "           ])))"
+        , "  2" ] )
     ]
 
 testDForward :: TestTree
@@ -179,6 +348,13 @@ listsToParameters :: ([Double], [Double]) -> Domains Double
 listsToParameters (a0, a1) =
   (V.fromList a0, V.singleton $ V.fromList a1, V.empty, V.empty)
 
+listsToParameters4 :: ([Double], [Double], [Double], [Double]) -> Domains Double
+listsToParameters4 (a0, a1, a2, aX) =
+  ( V.fromList a0
+  , V.singleton $ V.fromList a1
+  , if null a2 then V.empty else V.singleton $ HM.matrix 1 a2
+  , if null aX then V.empty else V.singleton $ OT.fromList [length aX] aX )
+
 testDFastForward :: TestTree
 testDFastForward =
  testGroup "Simple dFastForward application tests" $
@@ -193,9 +369,11 @@ testDFastForward =
     ]
 
 qcTest :: TestName
-       -> (forall d r m. DualMonad d r m
+       -> (forall d r m. ( DualMonad d r m
+                         , Floating (Out (DualNumber d (Vector r)))
+                         , Floating (Out (DualNumber d (OS.Array '[2] r))) )
            => DualNumberVariables d r -> m (DualNumber d r))
-       -> ((Double, Double, Double) -> ([Double], [Double]))
+       -> ((Double, Double, Double) -> ([Double], [Double], [Double], [Double]))
        -> TestTree
 qcTest txt f fArg =
   testProperty txt
@@ -203,9 +381,9 @@ qcTest txt f fArg =
     forAll (choose ( (-1e-7, -1e-7, -1e-7)
                    , (1e-7, 1e-7, 1e-7) )) $ \perturbationRaw ->
     forAll (choose (-10, 10)) $ \dt ->
-      let args = listsToParameters $ fArg xyz
-          ds = listsToParameters $ fArg dsRaw
-          perturbation = listsToParameters $ fArg perturbationRaw
+      let args = listsToParameters4 $ fArg xyz
+          ds = listsToParameters4 $ fArg dsRaw
+          perturbation = listsToParameters4 $ fArg perturbationRaw
           ff@(derivative, ffValue) = dFastForward f args ds
           (derivativeAtPerturbation, valueAtPerturbation) =
             dFastForward f args perturbation
@@ -230,13 +408,25 @@ qcTest txt f fArg =
 -- at https://github.com/Mikolaj/horde-ad/issues/15#issuecomment-1063251319
 quickCheckForwardAndBackward :: TestTree
 quickCheckForwardAndBackward =
-  testGroup "Simple QuickCheck of gradient vs derivative vs perturbation" $
-    [ qcTest "fquad" fquad (\(x, y, _z) -> ([x, y], []))
+  testGroup "Simple QuickCheck of gradient vs derivative vs perturbation"
+    [ qcTest "fquad" fquad (\(x, y, _z) -> ([x, y], [], [], []))
     , qcTest "atanReadmeM" atanReadmeM
-             (\(x, y, z) -> ([x, y, z], []))
+             (\(x, y, z) -> ([x, y, z], [], [], []))
     , qcTest "vatanReadmeM" vatanReadmeM
-             (\(x, y, z) -> ([], [x, y, z]))
-    ]
+             (\(x, y, z) -> ([], [x, y, z], [], []))
+    , qcTest "sinKonst" sinKonst  -- powKonst NaNs immediately
+             (\(x, _, z) -> ([], [x, z], [], []))
+    , qcTest "sinKonstOut" sinKonstOut
+             (\(x, _, z) -> ([], [x, z], [], []))
+    , qcTest "sinKonstDelay" sinKonstDelay
+             (\(x, _, z) -> ([], [x, z], [], []))
+    , qcTest "sinKonstS" sinKonstS
+             (\(x, _, z) -> ([], [], [], [x, z]))
+    , qcTest "sinKonstOutS" sinKonstOutS
+             (\(x, _, z) -> ([], [], [], [x, z]))
+    , qcTest "sinKonstDelayS" sinKonstDelayS
+             (\(x, _, z) -> ([], [], [], [x, z]))
+   ]
 
 -- A function that goes from `R^3` to `R^2`, with a representation
 -- of the input and the output tuple that is convenient for interfacing

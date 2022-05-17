@@ -11,7 +11,7 @@
 module HordeAd.Core.DualClass
   ( IsPrimalWithScalar, IsPrimalAndHasFeatures, IsScalar, HasDelta
   , DMode(..), Dual, IsPrimal(..), HasRanks(..)
-  , dVar, bindInState
+  , HasVariables(..)  -- use sparringly
   ) where
 
 import Prelude
@@ -49,7 +49,7 @@ type IsPrimalAndHasFeatures (d :: DMode) a r =
 -- scalar type of a well behaved (wrt the differentiation mode in the first
 -- argument) collection of primal and dual components of dual numbers.
 type IsScalar (d :: DMode) r =
-  ( HasRanks d r, Ord r, Numeric r
+  ( HasRanks d r, Ord r, Numeric r, Show r
   , IsPrimalAndHasFeatures d r r
   , IsPrimalAndHasFeatures d (Vector r) r
   , IsPrimalAndHasFeatures d (Matrix r) r
@@ -116,6 +116,7 @@ class IsPrimal d a where
   dZero :: Dual d a
   dScale :: a -> Dual d a -> Dual d a
   dAdd :: Dual d a -> Dual d a -> Dual d a
+  dDelay :: Dual d a -> Dual d a
 
 -- | Part 1/2 of a hack to squeeze the shaped tensors rank,
 -- with its extra @sh@ parameter, into the 'IsPrimal' class.
@@ -126,6 +127,8 @@ class IsPrimalS d r where
   dAddS :: forall sh. OS.Shape sh
         => Dual d (OS.Array sh r) -> Dual d (OS.Array sh r)
         -> Dual d (OS.Array sh r)
+  dDelayS :: forall sh. OS.Shape sh
+             => Dual d (OS.Array sh r) -> Dual d (OS.Array sh r)
 
 -- | Part 2/2 of a hack to squeeze the shaped tensors rank,
 -- with its extra @sh@ parameter, into the 'IsPrimal' class.
@@ -133,6 +136,7 @@ instance (IsPrimalS d r, OS.Shape sh) => IsPrimal d (OS.Array sh r) where
   dZero = dZeroS
   dScale = dScaleS
   dAdd = dAddS
+  dDelay = dDelayS
 
 -- | Assuming that the first argument is the primal component of dual numbers
 -- with the underyling scalar in the second argument and with differentiation
@@ -143,6 +147,8 @@ class HasVariables a where
   bindInState :: Dual 'DModeGradient a
               -> DeltaState (ScalarOf a)
               -> (DeltaState (ScalarOf a), DeltaId a )
+  dOutline :: CodeOut -> [a] -> [Dual 'DModeGradient a]
+           -> Dual 'DModeGradient a
 
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
@@ -234,63 +240,75 @@ instance IsPrimal 'DModeGradient Double where
   dZero = Zero0
   dScale = Scale0
   dAdd = Add0
+  dDelay = Delay0
 
 instance IsPrimal 'DModeGradient Float where
   -- Identical as above:
   dZero = Zero0
   dScale = Scale0
   dAdd = Add0
+  dDelay = Delay0
 
 instance IsPrimal 'DModeGradient (Vector r) where
   dZero = Zero1
   dScale = Scale1
   dAdd = Add1
+  dDelay = Delay1
 
 instance IsPrimal 'DModeGradient (Matrix r) where
   dZero = Zero2
   dScale = Scale2
   dAdd = Add2
+  dDelay = Delay2
 
 instance IsPrimal 'DModeGradient (OT.Array r) where
   dZero = ZeroX
   dScale = ScaleX
   dAdd = AddX
+  dDelay = DelayX
 
 instance IsPrimalS 'DModeGradient r where
   dZeroS = ZeroS
   dScaleS = ScaleS
   dAddS = AddS
+  dDelayS = DelayS
 
 instance HasVariables Double where
   dVar = Var0
   {-# INLINE bindInState #-}
   bindInState = bindInState0
+  dOutline = Outline0
 
 instance HasVariables Float where
   dVar = Var0
   {-# INLINE bindInState #-}
   bindInState = bindInState0
+  dOutline = Outline0
 
 instance HasVariables (Vector r) where
   dVar = Var1
   {-# INLINE bindInState #-}
   bindInState = bindInState1
+  dOutline = Outline1
 
 instance HasVariables (Matrix r) where
   dVar = Var2
   {-# INLINE bindInState #-}
   bindInState = bindInState2
+  dOutline = Outline2
 
 instance HasVariables (OT.Array r) where
   dVar = VarX
   {-# INLINE bindInState #-}
   bindInState = bindInStateX
+  dOutline = OutlineX
 
 instance OS.Shape sh => HasVariables (OS.Array sh r) where
   dVar = VarS
   {-# INLINE bindInState #-}
   bindInState u' st = let (st2, did) = bindInStateX (FromSX u') st
                       in (st2, convertDeltaId did)
+  dOutline = OutlineS
 
 instance Dual 'DModeGradient r ~ Delta0 r
          => HasRanks 'DModeGradient r where
@@ -359,11 +377,13 @@ instance IsPrimal 'DModeDerivative Double where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
+  dDelay = id  -- no delaying
 
 instance IsPrimal 'DModeDerivative Float where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
+  dDelay = id
 
 -- These constraints force @UndecidableInstances@.
 instance Num (Vector r)
@@ -371,24 +391,28 @@ instance Num (Vector r)
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
+  dDelay = id
 
 instance Num (Matrix r)
          => IsPrimal 'DModeDerivative (Matrix r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
+  dDelay = id
 
 instance Num (OT.Array r)
          => IsPrimal 'DModeDerivative (OT.Array r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
+  dDelay = id
 
 instance (Numeric r, Num (Vector r))
          => IsPrimalS 'DModeDerivative r where
   dZeroS = 0
   dScaleS k d = k * d
   dAddS d e = d + e
+  dDelayS = id
 
 instance ( Numeric r, Num (Vector r)
          , Dual 'DModeDerivative r ~ r )
