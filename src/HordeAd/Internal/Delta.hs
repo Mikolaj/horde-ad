@@ -105,6 +105,7 @@ data Delta0 r =
   | FromS0 (DeltaS '[] r)
 
   | Outline0 CodeOut [r] [Delta0 r]
+  | Delay0 ~(Delta0 r)
 
 deriving instance (Show r, Numeric r) => Show (Delta0 r)
 
@@ -140,6 +141,7 @@ data Delta1 r =
     => FlattenS1 (DeltaS sh r)
 
   | Outline1 CodeOut [Vector r] [Delta1 r]
+  | Delay1 ~(Delta1 r)
 
 deriving instance (Show r, Numeric r) => Show (Delta1 r)
 
@@ -176,6 +178,7 @@ data Delta2 r =
   | Conv2 (Matrix r) (Delta2 r)
 
   | Outline2 CodeOut [Matrix r] [Delta2 r]
+  | Delay2 ~(Delta2 r)
 
 deriving instance (Show r, Numeric r) => Show (Delta2 r)
 
@@ -212,6 +215,7 @@ data DeltaX r =
     => FromSX (DeltaS sh r)
 
   | OutlineX CodeOut [OT.Array r] [DeltaX r]
+  | DelayX ~(DeltaX r)
 
 deriving instance (Show r, Numeric r) => Show (DeltaX r)
 
@@ -251,6 +255,7 @@ data DeltaS :: [Nat] -> Type -> Type where
   FromXS :: DeltaX r -> DeltaS sh r
 
   OutlineS :: CodeOut -> [OS.Array sh r] -> [DeltaS sh r] -> DeltaS sh r
+  DelayS :: ~(DeltaS sh r) -> DeltaS sh r
 
 instance Show (DeltaS sh r) where
   show _ = "a DeltaS delta expression"
@@ -497,6 +502,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
 
         Outline0 codeOut primalArgs dualArgs ->
           eval0 r $ inlineDerivative0 codeOut primalArgs dualArgs
+        Delay0 d -> eval0 r d
       eval1 :: Vector r -> Delta1 r -> ST s ()
       eval1 !r = \case
         Zero1 -> return ()
@@ -530,6 +536,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
 
         Outline1 codeOut primalArgs dualArgs ->
           eval1 r $ inlineDerivative1 codeOut primalArgs dualArgs
+        Delay1 d -> eval1 r d
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
       eval2 !r = \case
         Zero2 -> return ()
@@ -584,6 +591,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
 
         Outline2 codeOut primalArgs dualArgs ->
           eval2 r $ inlineDerivative2 codeOut primalArgs dualArgs
+        Delay2 d -> eval2 r d
       evalX :: OT.Array r -> DeltaX r -> ST s ()
       evalX !r = \case
         ZeroX -> return ()
@@ -625,6 +633,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
 
         OutlineX codeOut primalArgs dualArgs ->
           evalX r $ inlineDerivativeX codeOut primalArgs dualArgs
+        DelayX d -> evalX r d
       evalS :: OS.Shape sh
             => OS.Array sh r -> DeltaS sh r -> ST s ()
       evalS !r = \case
@@ -664,6 +673,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
 
         OutlineS codeOut primalArgs dualArgs ->
           evalS r $ inlineDerivativeS codeOut primalArgs dualArgs
+        DelayS d -> evalS r d
 
   eval0 dt deltaTopLevel
 
@@ -726,6 +736,7 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
 
         Outline0 codeOut primalArgs dualArgs ->
           eval0 parameters $ inlineDerivative0 codeOut primalArgs dualArgs
+        Delay0 d -> eval0 parameters d
       eval1 :: Domains r -> Delta1 r -> Vector r
       eval1 parameters@(_, params1, _, _) = \case
         Zero1 -> 0
@@ -755,6 +766,7 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
 
         Outline1 codeOut primalArgs dualArgs ->
           eval1 parameters $ inlineDerivative1 codeOut primalArgs dualArgs
+        Delay1 d -> eval1 parameters d
       eval2 :: Domains r -> Delta2 r -> Matrix r
       eval2 parameters@( _, _, params2, _) = \case
         Zero2 -> 0
@@ -798,6 +810,7 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
 
         Outline2 codeOut primalArgs dualArgs ->
           eval2 parameters $ inlineDerivative2 codeOut primalArgs dualArgs
+        Delay2 d -> eval2 parameters d
       evalX :: Domains r -> DeltaX r -> OT.Array r
       evalX parameters@( _, _, _, paramsX) = \case
         ZeroX -> 0
@@ -826,6 +839,7 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
 
         OutlineX codeOut primalArgs dualArgs ->
           evalX parameters $ inlineDerivativeX codeOut primalArgs dualArgs
+        DelayX d -> evalX parameters d
       evalS :: OS.Shape sh => Domains r -> DeltaS sh r -> OS.Array sh r
       evalS parameters@( _, _, _, paramsX) = \case
         ZeroS -> 0
@@ -851,6 +865,7 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
 
         OutlineS codeOut primalArgs dualArgs ->
           evalS parameters $ inlineDerivativeS codeOut primalArgs dualArgs
+        DelayS d -> evalS parameters d
       evalUnlessZero :: Domains r -> DeltaBinding r -> Domains r
       evalUnlessZero parameters@(!params0, !params1, !params2, !paramsX) = \case
         DeltaBinding0 (DeltaId i) d ->

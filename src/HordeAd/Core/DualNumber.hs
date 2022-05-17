@@ -863,6 +863,31 @@ maxPool24 d = do
 
 -- * Operations creating delayed/outlined derivatives
 
+-- | The version of the @D@ constructor lazy in the second argument.
+-- To be used as in
+--
+-- > sinDelayed :: (Floating a, IsPrimal d a) => DualNumber d a -> DualNumber d a
+-- > sinDelayed (D u u') = delayD (sin u) (dScale (cos u) u')
+-- >
+-- > plusDelayed :: (Floating a, IsPrimal d a)
+-- >             => DualNumber d a -> DualNumber d a -> DualNumber d a
+-- > plusDelayed (D u u') (D v v') = delayD (u + v) (dAdd u' v')
+-- >
+-- > x ** (sinDelayed x `plusDelayed` (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
+--
+-- The outlining is lost when serializing or logging, unlike with @Out@,
+-- @Outline0@, etc.
+--
+-- Yet another incomparable variant that can't be serialized would be
+-- (illustrating with an example of a constructor at rank 0)
+--
+-- > FromParams0 (Domains -> Delta0 r)
+--
+-- that expects the initial parameters. But it's more troublesome
+-- than @Delay0@ both in implementation and usage.
+delayD :: IsPrimal d a => a -> Dual d a -> DualNumber d a
+delayD u ~u' = D u (dDelay u')
+
 -- | A wrapper type to delay/outline computation of the derivatives of the given
 -- primitive numeric function inside the dual component of the created dual
 -- number. The rule is that if all arguments of a function are wrapped

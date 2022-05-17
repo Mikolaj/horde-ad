@@ -15,6 +15,7 @@ import           Test.Tasty.HUnit hiding (assert)
 import           Test.Tasty.QuickCheck
 
 import HordeAd hiding (sumElementsVectorOfDual)
+import HordeAd.Core.DualClass (IsPrimal, dAdd, dScale)
 
 testTrees :: [TestTree]
 testTrees = [ testDReverse0
@@ -169,6 +170,21 @@ sinKonstOut variables = do
   return $ sumElements0 $
     unOut $ sin (Out x) + Out (id2 $ id2 $ id2 $ konst1 1 2)
 
+sinDelayed :: (Floating a, IsPrimal d a) => DualNumber d a -> DualNumber d a
+sinDelayed (D u u') = delayD (sin u) (dScale (cos u) u')
+
+plusDelayed :: (Floating a, IsPrimal d a)
+            => DualNumber d a -> DualNumber d a -> DualNumber d a
+plusDelayed (D u u') (D v v') = delayD (u + v) (dAdd u' v')
+
+sinKonstDelay
+  :: DualMonad d r m
+  => DualNumberVariables d r -> m (DualNumber d r)
+sinKonstDelay variables = do
+  let x = var1 variables 0
+  return $ sumElements0 $
+    sinDelayed x `plusDelayed` (id2 $ id2 $ id2 $ konst1 1 2)
+
 powKonst
   :: DualMonad d r m
   => DualNumberVariables d r -> m (DualNumber d r)
@@ -185,6 +201,14 @@ powKonstOut variables = do
   let x = var1 variables 0
   return $ sumElements0 $
     x ** unOut (sin (Out x) + Out (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
+
+powKonstDelay
+  :: DualMonad d r m
+  => DualNumberVariables d r -> m (DualNumber d r)
+powKonstDelay variables = do
+  let x = var1 variables 0
+  return $ sumElements0 $
+    x ** (sinDelayed x `plusDelayed` (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
 
 sinKonstS
   :: forall d r m. DualMonad d r m
@@ -203,6 +227,15 @@ sinKonstOutS variables = do
   let x = varS variables 0
   return $ sumElements0 $ fromS1
     (unOut (sin (Out x) + Out (id2 $ id2 $ id2 $ konstS 1))
+       :: DualNumber d (OS.Array '[2] r))
+
+sinKonstDelayS
+  :: forall d r m. DualMonad d r m
+  => DualNumberVariables d r -> m (DualNumber d r)
+sinKonstDelayS variables = do
+  let x = varS variables 0
+  return $ sumElements0 $ fromS1
+    ((sinDelayed x `plusDelayed` (id2 $ id2 $ id2 $ konstS 1))
        :: DualNumber d (OS.Array '[2] r))
 
 dReverse1
@@ -226,9 +259,13 @@ testDReverse1 = testGroup "Simple dReverse application to vectors tests" $
       , ([[0.5403023,-0.9899925]],2.982591) )
     , ( "sinKonstOut", sinKonstOut, [[1, 3]]
       , ([[0.5403023,-0.9899925]],2.982591) )
+    , ( "sinKonstDelay", sinKonstDelay, [[1, 3]]
+      , ([[0.5403023,-0.9899925]],2.982591) )
     , ( "powKonst", powKonst, [[1, 3]]
       , ([[108.7523,131.60072]],95.58371) )
     , ( "powKonstOut", powKonstOut, [[1, 3]]
+      , ([[108.7523,131.60072]],95.58371) )
+    , ( "powKonstDelay", powKonstDelay, [[1, 3]]
       , ([[108.7523,131.60072]],95.58371) )
     ]
 
@@ -381,9 +418,13 @@ quickCheckForwardAndBackward =
              (\(x, _, z) -> ([], [x, z], [], []))
     , qcTest "sinKonstOut" sinKonstOut
              (\(x, _, z) -> ([], [x, z], [], []))
+    , qcTest "sinKonstDelay" sinKonstDelay
+             (\(x, _, z) -> ([], [x, z], [], []))
     , qcTest "sinKonstS" sinKonstS
              (\(x, _, z) -> ([], [], [], [x, z]))
     , qcTest "sinKonstOutS" sinKonstOutS
+             (\(x, _, z) -> ([], [], [], [x, z]))
+    , qcTest "sinKonstDelayS" sinKonstDelayS
              (\(x, _, z) -> ([], [], [], [x, z]))
    ]
 
