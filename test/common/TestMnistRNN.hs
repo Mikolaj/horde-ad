@@ -170,7 +170,7 @@ sgdTestCaseAlt prefix f nParameters trainDataIO expected =
   in testCase name $ do
        trainData <- trainDataIO
        let res = sgdShow f trainData parameters0
-       assertBool "wrong result" $ res `elem` expected
+       assertBool ("wrong result: " ++ (show res) ++ " is expected to be a member of " ++ (show expected)) $ res `elem` expected
 
 prime :: IsScalar 'DModeGradient r
       => (r
