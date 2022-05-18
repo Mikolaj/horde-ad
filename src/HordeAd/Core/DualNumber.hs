@@ -984,7 +984,7 @@ instance {-# OVERLAPPABLE #-} (Num a, IsPrimal d a)
   Out d - Out e = Out (d - e)
   Out d * Out e = Out (d * e)
   negate (Out e) = Out (negate e)
-  abs = undefined  -- TODO
+  abs (Out e) = Out (abs e)
   signum = undefined  -- TODO
   fromInteger = Out . constant . fromInteger
 
