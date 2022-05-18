@@ -78,8 +78,8 @@ instance (Num a, IsPrimal d a) => Num (DualNumber d a) where
   D u u' - D v v' = D (u - v) (dAdd u' (dScale (-1) v'))
   D u u' * D v v' = D (u * v) (dAdd (dScale v u') (dScale u v'))
   negate (D v v') = D (negate v) (dScale (-1) v')
-  abs = undefined  -- TODO
-  signum = undefined  -- TODO
+  abs (D v v') = D (abs v) (dScale (signum v) v')
+  signum (D v _) = D (signum v) dZero
   fromInteger = constant . fromInteger
 
 instance (Real a, IsPrimal d a) => Real (DualNumber d a) where
@@ -99,23 +99,25 @@ instance (Floating a, IsPrimal d a) => Floating (DualNumber d a) where
   exp (D u u') = let expU = exp u
                  in D expU (dScale expU u')
   log (D u u') = D (log u) (dScale (recip u) u')
-  sqrt = undefined  -- TODO
+  sqrt (D u u') = let sqrtU = sqrt u
+                  in D sqrtU (dScale (recip (sqrtU + sqrtU)) u')
   D u u' ** D v v' = D (u ** v) (dAdd (dScale (v * (u ** (v - 1))) u')
                                       (dScale ((u ** v) * log u) v'))
-  logBase = undefined  -- TODO
+  logBase x y = log y / log x
   sin (D u u') = D (sin u) (dScale (cos u) u')
   cos (D u u') = D (cos u) (dScale (- (sin u)) u')
-  tan = undefined  -- TODO
-  asin = undefined  -- TODO
-  acos = undefined  -- TODO
-  atan = undefined  -- TODO
-  sinh = undefined  -- TODO
-  cosh = undefined  -- TODO
+  tan (D u u') = let cosU = cos u
+                 in D (tan u) (dScale (recip (cosU * cosU)) u')
+  asin (D u u') = D (asin u) (dScale (recip (sqrt (1 - u*u))) u')
+  acos (D u u') = D (acos u) (dScale (- recip (sqrt (1 - u*u))) u')
+  atan (D u u') = D (atan u) (dScale (recip (1 + u*u)) u')
+  sinh (D u u') = D (sinh u) (dScale (cosh u) u')
+  cosh (D u u') = D (cosh u) (dScale (sinh u) u')
   tanh (D u u') = let y = tanh u
                   in D y (dScale (1 - y * y) u')
-  asinh = undefined  -- TODO
-  acosh = undefined  -- TODO
-  atanh = undefined  -- TODO
+  asinh (D u u') = D (asinh u) (dScale (recip (sqrt (1 + u*u))) u')
+  acosh (D u u') = D (acosh u) (dScale (recip (sqrt (u*u - 1))) u')
+  atanh (D u u') = D (atanh u) (dScale (recip (1 - u*u)) u')
 
 instance (RealFrac a, IsPrimal d a) => RealFrac (DualNumber d a) where
   properFraction = undefined
@@ -920,8 +922,8 @@ instance (Num a, IsPrimal 'DModeGradient a, HasVariables a)
   Out (D u u') * Out (D v v') =
     Out $ D (u * v) (dOutline TimesOut [u, v] [u', v'])
   negate (Out (D v v')) = Out $ D (negate v) (dOutline NegateOut [v] [v'])
-  abs = undefined  -- TODO
-  signum = undefined  -- TODO
+  abs (Out (D v v')) = Out $ D (abs v) (dOutline AbsOut [v] [v'])
+  signum (Out (D v v')) = Out $ D (signum v) (dOutline SignumOut [v] [v'])
   fromInteger = Out . constant . fromInteger
 
 instance (Real a, IsPrimal 'DModeGradient a, HasVariables a)
@@ -940,22 +942,22 @@ instance (Floating a, IsPrimal 'DModeGradient a, HasVariables a)
   pi = Out $ constant pi
   exp (Out (D u u')) = Out $ D (exp u) (dOutline ExpOut [u] [u'])
   log (Out (D u u')) = Out $ D (log u) (dOutline LogOut [u] [u'])
-  sqrt = undefined  -- TODO
+  sqrt (Out (D u u')) = Out $ D (sqrt u) (dOutline SqrtOut [u] [u'])
   Out (D u u') ** Out (D v v') =
     Out $ D (u ** v) (dOutline PowerOut [u, v] [u', v'])
-  logBase = undefined  -- TODO
+  logBase (Out (D u u')) (Out (D v v')) = Out $ D (logBase u v) (dOutline LogBaseOut [u, v] [u', v'])
   sin (Out (D u u')) = Out $ D (sin u) (dOutline SinOut [u] [u'])
   cos (Out (D u u')) = Out $ D (cos u) (dOutline CosOut [u] [u'])
-  tan = undefined  -- TODO
-  asin = undefined  -- TODO
-  acos = undefined  -- TODO
-  atan = undefined  -- TODO
-  sinh = undefined  -- TODO
-  cosh = undefined  -- TODO
+  tan (Out (D u u')) = Out $ D (tan u) (dOutline TanOut [u] [u'])
+  asin (Out (D u u')) = Out $ D (asin u) (dOutline AsinOut [u] [u'])
+  acos (Out (D u u')) = Out $ D (acos u) (dOutline AcosOut [u] [u'])
+  atan (Out (D u u')) = Out $ D (atan u) (dOutline AtanOut [u] [u'])
+  sinh (Out (D u u')) = Out $ D (sinh u) (dOutline SinhOut [u] [u'])
+  cosh (Out (D u u')) = Out $ D (cosh u) (dOutline CoshOut [u] [u'])
   tanh (Out (D u u')) = Out $ D (tanh u) (dOutline TanhOut [u] [u'])
-  asinh = undefined  -- TODO
-  acosh = undefined  -- TODO
-  atanh = undefined  -- TODO
+  asinh (Out (D u u')) = Out $ D (asinh u) (dOutline AsinhOut [u] [u'])
+  acosh (Out (D u u')) = Out $ D (acosh u) (dOutline AcoshOut [u] [u'])
+  atanh (Out (D u u')) = Out $ D (atanh u) (dOutline AtanhOut [u] [u'])
 
 instance (RealFrac a, IsPrimal 'DModeGradient a, HasVariables a)
          => RealFrac (Out (DualNumber 'DModeGradient a)) where
@@ -983,8 +985,8 @@ instance {-# OVERLAPPABLE #-} (Num a, IsPrimal d a)
   Out d - Out e = Out (d - e)
   Out d * Out e = Out (d * e)
   negate (Out e) = Out (negate e)
-  abs = undefined  -- TODO
-  signum = undefined  -- TODO
+  abs (Out e) = Out (abs e)
+  signum (Out e) = Out (signum e)
   fromInteger = Out . constant . fromInteger
 
 instance {-# OVERLAPPABLE #-} (Real a, IsPrimal d a)
@@ -1002,21 +1004,21 @@ instance {-# OVERLAPPABLE #-} (Floating a, IsPrimal d a)
   pi = Out $ constant pi
   exp (Out d) = Out (exp d)
   log (Out d) = Out (log d)
-  sqrt = undefined  -- TODO
+  sqrt (Out d) = Out (sqrt d)
   Out d ** Out e = Out (d ** e)
-  logBase = undefined  -- TODO
+  logBase (Out x) (Out y) = Out (logBase x y)
   sin (Out d) = Out (sin d)
   cos (Out d) = Out (cos d)
-  tan = undefined  -- TODO
-  asin = undefined  -- TODO
-  acos = undefined  -- TODO
-  atan = undefined  -- TODO
-  sinh = undefined  -- TODO
-  cosh = undefined  -- TODO
+  tan (Out d) = Out (tan d)
+  asin (Out d) = Out (asin d)
+  acos (Out d) = Out (acos d)
+  atan (Out d) = Out (atan d)
+  sinh (Out d) = Out (sinh d)
+  cosh (Out d) = Out (cosh d)
   tanh (Out d) = Out (tanh d)
-  asinh = undefined  -- TODO
-  acosh = undefined  -- TODO
-  atanh = undefined  -- TODO
+  asinh (Out d) = Out (asinh d)
+  acosh (Out d) = Out (acosh d)
+  atanh (Out d) = Out (atanh d)
 
 instance {-# OVERLAPPABLE #-} (RealFrac a, IsPrimal d a)
                               => RealFrac (Out (DualNumber d a)) where
