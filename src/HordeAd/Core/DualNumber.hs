@@ -952,7 +952,7 @@ instance (Floating a, IsPrimal 'DModeGradient a, HasVariables a)
   acos (Out (D u u')) = Out $ D (acos u) (dOutline AcosOut [u] [u'])
   atan (Out (D u u')) = Out $ D (atan u) (dOutline AtanOut [u] [u'])
   sinh (Out (D u u')) = Out $ D (sinh u) (dOutline SinhOut [u] [u'])
-  cosh = undefined  -- TODO
+  cosh (Out (D u u')) = Out $ D (cosh u) (dOutline CoshOut [u] [u'])
   tanh (Out (D u u')) = Out $ D (tanh u) (dOutline TanhOut [u] [u'])
   asinh = undefined  -- TODO
   acosh = undefined  -- TODO
