@@ -32,10 +32,12 @@ testTrees = [ testDReverse0
 -- polymorphic over whether they operate on scalars, vectors or other types,
 -- so we should probably abandon them.
 
-(+\) :: DualMonad d r m => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
+(+\) :: DualMonad d r m
+     => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
 (+\) u v = returnLet $ u + v
 
-(*\) :: DualMonad d r m => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
+(*\) :: DualMonad d r m
+     => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
 (*\) u v = returnLet $ u * v
 
 (**\) :: DualMonad d r m
@@ -44,7 +46,8 @@ testTrees = [ testDReverse0
 
 dReverse0
   :: HasDelta r
-  => (DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
+  => (DualNumberVariables 'DModeGradient r
+      -> DualMonadGradient r (DualNumber 'DModeGradient r))
   -> [r]
   -> ([r], r)
 dReverse0 f deltaInput =
@@ -53,13 +56,15 @@ dReverse0 f deltaInput =
   in (V.toList results, value)
 
 fX :: DualMonad 'DModeGradient Float m
-   => DualNumberVariables 'DModeGradient Float -> m (DualNumber 'DModeGradient Float)
+   => DualNumberVariables 'DModeGradient Float
+   -> m (DualNumber 'DModeGradient Float)
 fX variables = do
   let x = var0 variables 0
   return x
 
 fX1Y :: DualMonad 'DModeGradient Float m
-     => DualNumberVariables 'DModeGradient Float -> m (DualNumber 'DModeGradient Float)
+     => DualNumberVariables 'DModeGradient Float
+     -> m (DualNumber 'DModeGradient Float)
 fX1Y variables = do
   let x = var0 variables 0
       y = var0 variables 1
@@ -67,7 +72,8 @@ fX1Y variables = do
   x1 *\ y
 
 fXXY :: DualMonad 'DModeGradient Float m
-     => DualNumberVariables 'DModeGradient Float -> m (DualNumber 'DModeGradient Float)
+     => DualNumberVariables 'DModeGradient Float
+     -> m (DualNumber 'DModeGradient Float)
 fXXY variables = do
   let x = var0 variables 0
       y = var0 variables 1
@@ -75,7 +81,8 @@ fXXY variables = do
   x *\ xy
 
 fXYplusZ :: DualMonad 'DModeGradient Float m
-         => DualNumberVariables 'DModeGradient Float -> m (DualNumber 'DModeGradient Float)
+         => DualNumberVariables 'DModeGradient Float
+         -> m (DualNumber 'DModeGradient Float)
 fXYplusZ variables = do
   let x = var0 variables 0
       y = var0 variables 1
@@ -84,14 +91,16 @@ fXYplusZ variables = do
   xy +\ z
 
 fXtoY :: DualMonad 'DModeGradient Float m
-      => DualNumberVariables 'DModeGradient Float -> m (DualNumber 'DModeGradient Float)
+      => DualNumberVariables 'DModeGradient Float
+      -> m (DualNumber 'DModeGradient Float)
 fXtoY variables = do
   let x = var0 variables 0
       y = var0 variables 1
   x **\ y
 
 freluX :: DualMonad 'DModeGradient Float m
-       => DualNumberVariables 'DModeGradient Float -> m (DualNumber 'DModeGradient Float)
+       => DualNumberVariables 'DModeGradient Float
+       -> m (DualNumber 'DModeGradient Float)
 freluX variables = do
   let x = var0 variables 0
   reluAct x
@@ -200,7 +209,8 @@ powKonstOut
 powKonstOut variables = do
   let x = var1 variables 0
   return $ sumElements0 $
-    x ** unOut (sin (Out x) + Out (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
+    x ** unOut (sin (Out x)
+                + Out (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
 
 powKonstDelay
   :: DualMonad d r m
@@ -208,7 +218,8 @@ powKonstDelay
 powKonstDelay variables = do
   let x = var1 variables 0
   return $ sumElements0 $
-    x ** (sinDelayed x `plusDelayed` (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
+    x ** (sinDelayed x
+          `plusDelayed` (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
 
 sinKonstS
   :: forall d r m. DualMonad d r m

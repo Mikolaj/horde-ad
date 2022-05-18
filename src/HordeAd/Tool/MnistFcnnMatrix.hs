@@ -91,7 +91,8 @@ fcnnMnistTest2
 fcnnMnistTest2 inputs parameters =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let nn = inline (fcnnMnist2 @'DModeGradient) logisticAct softMaxActV glyph
+        let nn = inline (fcnnMnist2 @'DModeGradient)
+                        logisticAct softMaxActV glyph
             value = primalValue nn parameters
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))

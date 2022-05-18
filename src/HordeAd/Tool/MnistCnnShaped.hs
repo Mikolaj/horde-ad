@@ -37,18 +37,18 @@ convMnistLayerS
      , 1 <= kwidth_minus_1  -- wrongly reported as redundant
      , DualMonad d r m )
   => DualNumber d (OS.Array '[ out_channels, in_channels
-                            , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
+                             , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
   -> DualNumber d (OS.Array '[batch_size, in_channels, in_height, in_width] r)
   -> DualNumber d (OS.Array '[out_channels] r)
   -> m (DualNumber d (OS.Array '[ batch_size, out_channels
-                               , (in_height + kheight_minus_1) `Div` 2
-                               , (in_width + kwidth_minus_1) `Div` 2 ] r))
+                                , (in_height + kheight_minus_1) `Div` 2
+                                , (in_width + kwidth_minus_1) `Div` 2 ] r))
 convMnistLayerS ker x bias = do
   let yConv = conv24 ker x
       replicateBias
         :: DualNumber d (OS.Array '[] r)
-           -> DualNumber d (OS.Array '[ in_height + kheight_minus_1
-                                     , in_width + kwidth_minus_1 ] r)
+        -> DualNumber d (OS.Array '[ in_height + kheight_minus_1
+                                   , in_width + kwidth_minus_1 ] r)
       replicateBias = konstS . fromS0
       biasStretched = ravelFromListS
                       $ replicate (valueOf @batch_size)
@@ -73,20 +73,20 @@ convMnistTwoS
   -- All below is the type of all paramters of this nn. The same is reflected
   -- in the length function below and read from variables further down.
   -> DualNumber d (OS.Array '[ out_channels, in_channels
-                            , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
+                             , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
   -> DualNumber d (OS.Array '[out_channels] r)
   -> DualNumber d (OS.Array '[ out_channels, out_channels
-                            , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
+                             , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
   -> DualNumber d (OS.Array '[out_channels] r)
   -> DualNumber d (OS.Array '[ num_hidden
-                            , out_channels
-                                GHC.TypeLits.*
-                                  ((in_height + kheight_minus_1) `Div` 2
-                                   + kheight_minus_1) `Div` 2
-                                GHC.TypeLits.*
-                                  ((in_width + kwidth_minus_1) `Div` 2
-                                   + kheight_minus_1) `Div` 2
-                            ] r)
+                             , out_channels
+                                 GHC.TypeLits.*
+                                   ((in_height + kheight_minus_1) `Div` 2
+                                    + kheight_minus_1) `Div` 2
+                                 GHC.TypeLits.*
+                                   ((in_width + kwidth_minus_1) `Div` 2
+                                    + kheight_minus_1) `Div` 2
+                             ] r)
   -> DualNumber d (OS.Array '[num_hidden] r)
   -> DualNumber d (OS.Array '[SizeMnistLabel, num_hidden] r)
   -> DualNumber d (OS.Array '[SizeMnistLabel] r)

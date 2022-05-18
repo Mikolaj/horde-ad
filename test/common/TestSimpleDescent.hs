@@ -22,15 +22,18 @@ testTrees = [ gdSimpleTests
 -- polymorphic over whether they operate on scalars, vectors or other types,
 -- so we should probably abandon them.
 
-(+\) :: DualMonad d r m => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
+(+\) :: DualMonad d r m
+     => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
 (+\) u v = returnLet $ u + v
 
-(*\) :: DualMonad d r m => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
+(*\) :: DualMonad d r m
+     => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
 (*\) u v = returnLet $ u * v
 
 gdSimpleShow :: HasDelta r
              => r
-             -> (DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
+             -> (DualNumberVariables 'DModeGradient r
+                 -> DualMonadGradient r (DualNumber 'DModeGradient r))
              -> Domain0 r
              -> Int
              -> ([r], r)
@@ -245,7 +248,8 @@ scaleAddWithBias x y ixWeight variables = do
 
 neuron :: DualMonad d Float m
        => (DualNumber d Float -> m (DualNumber d Float))
-       -> DualNumber d Float -> DualNumber d Float -> Int -> DualNumberVariables d Float
+       -> DualNumber d Float -> DualNumber d Float -> Int
+       -> DualNumberVariables d Float
        -> m (DualNumber d Float)
 neuron factivation x y ixWeight variables = do
   sc <- scaleAddWithBias x y ixWeight variables

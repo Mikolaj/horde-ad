@@ -52,7 +52,8 @@ type LayerWeigthsRNN in_width out_width d r =
 
 rnnMnistLayerS
   :: forall in_width out_width batch_size d r m.
-     (DualMonad d r m, KnownNat in_width, KnownNat out_width, KnownNat batch_size)
+     ( DualMonad d r m
+     , KnownNat in_width, KnownNat out_width, KnownNat batch_size )
   => DualNumber d (OS.Array '[out_width, batch_size] r)  -- in state
   -> DualNumber d (OS.Array '[in_width, batch_size] r)  -- in
   -> LayerWeigthsRNN in_width out_width d r

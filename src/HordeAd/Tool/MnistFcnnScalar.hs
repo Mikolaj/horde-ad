@@ -64,7 +64,8 @@ hiddenLayerMnist factivation input variables width = do
 
 middleLayerMnist
   :: forall d r m. DualMonad d r m
-  => (DualNumber d r -> m (DualNumber d r)) -> Data.Vector.Vector (DualNumber d r)
+  => (DualNumber d r -> m (DualNumber d r))
+  -> Data.Vector.Vector (DualNumber d r)
   -> Int -> DualNumberVariables d r -> Int
   -> m (Data.Vector.Vector (DualNumber d r))
 middleLayerMnist factivation hiddenVec offset variables width = do
@@ -81,7 +82,8 @@ outputLayerMnist
   :: forall d r m. DualMonad d r m
   => (Data.Vector.Vector (DualNumber d r)
       -> m (Data.Vector.Vector (DualNumber d r)))
-  -> Data.Vector.Vector (DualNumber d r) -> Int -> DualNumberVariables d r -> Int
+  -> Data.Vector.Vector (DualNumber d r) -> Int
+  -> DualNumberVariables d r -> Int
   -> m (Data.Vector.Vector (DualNumber d r))
 outputLayerMnist factivation hiddenVec offset variables width = do
   let nWeightsAndBias = V.length hiddenVec + 1
