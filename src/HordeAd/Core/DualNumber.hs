@@ -947,7 +947,7 @@ instance (Floating a, IsPrimal 'DModeGradient a, HasVariables a)
   logBase = undefined  -- TODO
   sin (Out (D u u')) = Out $ D (sin u) (dOutline SinOut [u] [u'])
   cos (Out (D u u')) = Out $ D (cos u) (dOutline CosOut [u] [u'])
-  tan = undefined  -- TODO
+  tan (Out (D u u')) = Out $ D (tan u) (dOutline TanOut [u] [u'])
   asin = undefined  -- TODO
   acos = undefined  -- TODO
   atan = undefined  -- TODO
