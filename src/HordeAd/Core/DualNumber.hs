@@ -948,7 +948,7 @@ instance (Floating a, IsPrimal 'DModeGradient a, HasVariables a)
   sin (Out (D u u')) = Out $ D (sin u) (dOutline SinOut [u] [u'])
   cos (Out (D u u')) = Out $ D (cos u) (dOutline CosOut [u] [u'])
   tan (Out (D u u')) = Out $ D (tan u) (dOutline TanOut [u] [u'])
-  asin = undefined  -- TODO
+  asin (Out (D u u')) = Out $ D (asin u) (dOutline AsinOut [u] [u'])
   acos = undefined  -- TODO
   atan = undefined  -- TODO
   sinh = undefined  -- TODO
