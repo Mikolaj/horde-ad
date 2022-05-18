@@ -106,7 +106,8 @@ instance (Floating a, IsPrimal d a) => Floating (DualNumber d a) where
   logBase x y = log y / log x
   sin (D u u') = D (sin u) (dScale (cos u) u')
   cos (D u u') = D (cos u) (dScale (- (sin u)) u')
-  tan z = sin z / cos z
+  tan (D u u') = let cosU = cos u
+                 in D (tan u) (dScale (recip (cosU * cosU)) u')
   asin (D u u') = D (asin u) (dScale (recip (sqrt (1 - u*u))) u')
   acos (D u u') = D (acos u) (dScale (- recip (sqrt (1 - u*u))) u')
   atan (D u u') = D (atan u) (dScale (recip (1 + u*u)) u')
