@@ -25,6 +25,15 @@ for information about other OSes.
 Other Haskell packages need their usual C library dependencies,
 as well, e.g., package zlib needs C library zlib1g-dev.
 
+For development, copying the included `cabal.project.local.development`
+to `cabal.project.local` provides a sensible default to run `cabal build` with.
+Then a command like
+
+    cabal test shortTestForCI --enable-optimization --test-options='-p "Simple QuickCheck of gradient vs derivative vs perturbation"'
+
+ensures that the code is compiled with opimization and so executes the rather
+computation-intensive testsuite in reasonable time.
+
 
 Coding style
 ------------
