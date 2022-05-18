@@ -941,7 +941,7 @@ instance (Floating a, IsPrimal 'DModeGradient a, HasVariables a)
   pi = Out $ constant pi
   exp (Out (D u u')) = Out $ D (exp u) (dOutline ExpOut [u] [u'])
   log (Out (D u u')) = Out $ D (log u) (dOutline LogOut [u] [u'])
-  sqrt = undefined  -- TODO
+  sqrt (Out (D u u')) = Out $ D (sqrt u) (dOutline SqrtOut [u] [u'])
   Out (D u u') ** Out (D v v') =
     Out $ D (u ** v) (dOutline PowerOut [u, v] [u', v'])
   logBase = undefined  -- TODO
