@@ -1005,7 +1005,7 @@ instance {-# OVERLAPPABLE #-} (Floating a, IsPrimal d a)
   log (Out d) = Out (log d)
   sqrt (Out d) = Out (sqrt d)
   Out d ** Out e = Out (d ** e)
-  logBase = undefined  -- TODO
+  logBase (Out x) (Out y) = Out (logBase x y)
   sin (Out d) = Out (sin d)
   cos (Out d) = Out (cos d)
   tan (Out d) = Out (tan d)
