@@ -5,11 +5,11 @@ This is an early prototype, both in terms of the engine performance and the API 
 
 Here is an example of computing the gradient of a function that goes from `R^3` to `R^2`:
 
-https://github.com/Mikolaj/horde-ad/blob/84ef858baf9f4495dbeec235a29a0497f17b2a1d/test/common/TestSingleGradient.hs#L252-L326
+https://github.com/Mikolaj/horde-ad/blob/40951dab17ae90c5ce528a59216a39a3727eccb5/test/common/TestSingleGradient.hs#L442-L516
 
 Elsewhere in the same file is a computation of the forward derivative of the function and a QuickCheck test relating it to the gradient. It uses the same definition of the objective function and the same glue code for grouping parameters, etc. The ratio of signal to noise (maths to glue code) is much higher in more complex functions, e.g., neural networks. Several sample neural networks for MNIST digit classification are gathered in
 
-https://github.com/Mikolaj/horde-ad/tree/5391d3c7dd8893d6038886f4b77b2adbdc5579a7/src/HordeAd/Tool
+https://github.com/Mikolaj/horde-ad/tree/master/src/HordeAd/Tool
 
 Among them are recurrent, convolutional and fully connected networks based on fully typed tensors (sizes of all dimensions are tracked in the types) as well as weakly typed fully connected networks built with, respectively, matrices, vectors and raw scalars (most flexible but slowest).
 
