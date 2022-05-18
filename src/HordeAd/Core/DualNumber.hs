@@ -1003,21 +1003,21 @@ instance {-# OVERLAPPABLE #-} (Floating a, IsPrimal d a)
   pi = Out $ constant pi
   exp (Out d) = Out (exp d)
   log (Out d) = Out (log d)
-  sqrt = undefined  -- TODO
+  sqrt (Out d) = Out (sqrt d)
   Out d ** Out e = Out (d ** e)
   logBase = undefined  -- TODO
   sin (Out d) = Out (sin d)
   cos (Out d) = Out (cos d)
-  tan = undefined  -- TODO
-  asin = undefined  -- TODO
-  acos = undefined  -- TODO
-  atan = undefined  -- TODO
-  sinh = undefined  -- TODO
-  cosh = undefined  -- TODO
+  tan (Out d) = Out (tan d)
+  asin (Out d) = Out (asin d)
+  acos (Out d) = Out (acos d)
+  atan (Out d) = Out (atan d)
+  sinh (Out d) = Out (sinh d)
+  cosh (Out d) = Out (cosh d)
   tanh (Out d) = Out (tanh d)
-  asinh = undefined  -- TODO
-  acosh = undefined  -- TODO
-  atanh = undefined  -- TODO
+  asinh (Out d) = Out (asinh d)
+  acosh (Out d) = Out (acosh d)
+  atanh (Out d) = Out (atanh d)
 
 instance {-# OVERLAPPABLE #-} (RealFrac a, IsPrimal d a)
                               => RealFrac (Out (DualNumber d a)) where
