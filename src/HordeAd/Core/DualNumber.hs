@@ -103,10 +103,10 @@ instance (Floating a, IsPrimal d a) => Floating (DualNumber d a) where
                   in D sqrtU (dScale (recip (sqrtU + sqrtU)) u')
   D u u' ** D v v' = D (u ** v) (dAdd (dScale (v * (u ** (v - 1))) u')
                                       (dScale ((u ** v) * log u) v'))
-  logBase x y = (log y) / (log x)
+  logBase x y = log y / log x
   sin (D u u') = D (sin u) (dScale (cos u) u')
   cos (D u u') = D (cos u) (dScale (- (sin u)) u')
-  tan z = (sin z) / (cos z)
+  tan z = sin z / cos z
   asin (D u u') = D (asin u) (dScale (recip (sqrt (1 - u*u))) u')
   acos (D u u') = D (acos u) (dScale (- recip (sqrt (1 - u*u))) u')
   atan (D u u') = D (atan u) (dScale (recip (1 + u*u)) u')
@@ -115,7 +115,7 @@ instance (Floating a, IsPrimal d a) => Floating (DualNumber d a) where
   tanh (D u u') = let y = tanh u
                   in D y (dScale (1 - y * y) u')
   asinh z = log (sqrt(z*z + 1) + z)
-  acosh z = log (z + (sqrt(z-1)) * (sqrt(z+1)))
+  acosh z = log (z + sqrt(z-1) * sqrt(z+1))
   atanh (D u u') = D (atanh u) (dScale (recip (1 - u*u)) u')
 
 instance (RealFrac a, IsPrimal d a) => RealFrac (DualNumber d a) where
