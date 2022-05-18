@@ -922,7 +922,7 @@ instance (Num a, IsPrimal 'DModeGradient a, HasVariables a)
     Out $ D (u * v) (dOutline TimesOut [u, v] [u', v'])
   negate (Out (D v v')) = Out $ D (negate v) (dOutline NegateOut [v] [v'])
   abs (Out (D v v')) = Out $ D (abs v) (dOutline AbsOut [v] [v'])
-  signum = undefined  -- TODO
+  signum (Out (D v v')) = Out $ D (signum v) (dOutline SignumOut [v] [v'])
   fromInteger = Out . constant . fromInteger
 
 instance (Real a, IsPrimal 'DModeGradient a, HasVariables a)
