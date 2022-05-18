@@ -944,7 +944,7 @@ instance (Floating a, IsPrimal 'DModeGradient a, HasVariables a)
   sqrt (Out (D u u')) = Out $ D (sqrt u) (dOutline SqrtOut [u] [u'])
   Out (D u u') ** Out (D v v') =
     Out $ D (u ** v) (dOutline PowerOut [u, v] [u', v'])
-  logBase = undefined  -- TODO
+  logBase (Out (D u u')) (Out (D v v')) = Out $ D (logBase u v) (dOutline LogBaseOut [u, v] [u', v'])
   sin (Out (D u u')) = Out $ D (sin u) (dOutline SinOut [u] [u'])
   cos (Out (D u u')) = Out $ D (cos u) (dOutline CosOut [u] [u'])
   tan (Out (D u u')) = Out $ D (tan u) (dOutline TanOut [u] [u'])
