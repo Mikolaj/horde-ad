@@ -956,7 +956,7 @@ instance (Floating a, IsPrimal 'DModeGradient a, HasVariables a)
   tanh (Out (D u u')) = Out $ D (tanh u) (dOutline TanhOut [u] [u'])
   asinh (Out (D u u')) = Out $ D (asinh u) (dOutline AsinhOut [u] [u'])
   acosh (Out (D u u')) = Out $ D (acosh u) (dOutline AcoshOut [u] [u'])
-  atanh = undefined  -- TODO
+  atanh (Out (D u u')) = Out $ D (atanh u) (dOutline AtanhOut [u] [u'])
 
 instance (RealFrac a, IsPrimal 'DModeGradient a, HasVariables a)
          => RealFrac (Out (DualNumber 'DModeGradient a)) where
