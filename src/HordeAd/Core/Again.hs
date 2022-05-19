@@ -311,22 +311,22 @@ evalDeltaF f deltaF t = case deltaF of
 
 -- Somewhat annoying that we need this r parameter to satisfy
 -- functional dependencies.
-newtype MonoidMap r m t = MonoidMap {unMonoidMap :: t -> m}
+newtype MonoidMap m t = MonoidMap {unMonoidMap :: t -> m}
 
 -- A more abstract way of writing evalDeltaF
 evalDeltaFM ::
   forall dual s m t.
   (HM.Numeric s, Monoid m) =>
-  (forall tt. dual tt -> MonoidMap s m tt) ->
+  (forall tt. dual tt -> MonoidMap m tt) ->
   DeltaF s dual t ->
-  MonoidMap s m t
+  MonoidMap m t
 evalDeltaFM f' = evalDeltaFM1 . mapDeltaF f'
 
 evalDeltaFM1 ::
   forall s m t.
   (HM.Numeric s, Monoid m) =>
-  DeltaF s (MonoidMap s m) t ->
-  MonoidMap s m t
+  DeltaF s (MonoidMap m) t ->
+  MonoidMap m t
 evalDeltaFM1 deltaF = MonoidMap $ \t -> case deltaF of
   Zero0 -> mempty
   Add0 de de' ->
@@ -360,7 +360,7 @@ evalDeltaFM1 deltaF = MonoidMap $ \t -> case deltaF of
   where
     f = unMonoidMap
 
-instance (HM.Numeric r, Monoid m) => Ops (DeltaF r) (MonoidMap r m) where
+instance (HM.Numeric r, Monoid m) => Ops (DeltaF r) (MonoidMap m) where
   ops = evalDeltaFM1
 
 -- accumulate has the special property
