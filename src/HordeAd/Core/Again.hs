@@ -695,7 +695,7 @@ instance Ops (DeltaF r) Unit where
   ops = \case
     Zero0 {} -> Unit
     Add0 {} -> Unit
-    Scale0 {}  -> Unit
+    Scale0 {} -> Unit
     Index0 {} -> Unit
     Add1 {} -> Unit
     Scale1 {} -> Unit
@@ -1111,7 +1111,8 @@ test =
 
       c1 = OS.fromList [1, 0] :: OS.Array [1, 2] Double
       c2 = OS.fromList [0, 1] :: OS.Array [1, 2] Double
-   in ( dr * d_dr, OS.sumA (OS.zipWithA (*) dy d_dy),
+   in ( dr * d_dr,
+        OS.sumA (OS.zipWithA (*) dy d_dy),
         dr,
         r_plus_dr - r,
         do
