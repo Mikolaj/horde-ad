@@ -363,6 +363,24 @@ evalDeltaFM1 deltaF = MonoidMap $ \t -> case deltaF of
 instance (HM.Numeric r, Monoid m) => Ops (DeltaF r) (MonoidMap m) where
   ops = evalDeltaFM1
 
+-- The correctness condition on Ops is that the two tuple components
+-- should be equal.
+--
+-- dual1 ~ C
+-- dual2 ~ DeltaF
+compatibleOps ::
+  forall f dual1 dual2 t'.
+  -- | Ops @C
+  (forall t. f dual1 t -> dual1 t) ->
+  -- | Ops @MonoidMap (ie. evalDeltaFM1)
+  (forall t. f dual2 t -> dual2 t) ->
+  -- | Functor instance, (i.e. mapDeltaF)
+  ((forall t. dual1 t -> dual2 t) -> (forall t. f dual1 t -> f dual2 t)) ->
+  -- | Homomorphism (i.e. "do with argument then sum")
+  (forall t. dual1 t -> dual2 t) ->
+  (f dual1 t' -> dual2 t', f dual1 t' -> dual2 t')
+compatibleOps f1 f2 mapp f = (f . f1, f2 . mapp f)
+
 -- accumulate has the special property
 accumulate ::
   HM.Numeric s =>
