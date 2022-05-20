@@ -99,7 +99,7 @@ common options
     cpp-options:      -DEXPOSE_INTERNAL
 
 common exe-options
-  ghc-options:        -rtsopts
+  ghc-options:        -threaded -rtsopts
 --  ghc-options:        "-with-rtsopts=-A99m -I0"
 
 library
