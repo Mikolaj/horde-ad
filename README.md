@@ -39,7 +39,8 @@ Running tests in parallel
 -------------------------
 
 ```
-cabal run shortTestForCI --enable-optimization -- +RTS -N -RTS
+$ cabal run shortTestForCI    --enable-optimization -- +RTS -N -RTS
+$ cabal run extremelyLongTest --enable-optimization -- +RTS -N -RTS
 ```
 
 
