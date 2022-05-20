@@ -35,14 +35,6 @@ ensures that the code is compiled with opimization and so executes the rather
 computation-intensive testsuite in reasonable time.
 
 
-Running tests in parallel
--------------------------
-
-```
-cabal run shortTestForCI --enable-optimization -- +RTS -N -RTS
-```
-
-
 Coding style
 ------------
 
