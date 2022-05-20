@@ -99,8 +99,11 @@ common options
     cpp-options:      -DEXPOSE_INTERNAL
 
 common exe-options
-  ghc-options:        -threaded -rtsopts
+  ghc-options:        -rtsopts
 --  ghc-options:        "-with-rtsopts=-A99m -I0"
+
+common exe-options-test
+  ghc-options:        -threaded "-with-rtsopts=-N"
 
 library
     -- Import common warning flags.
@@ -201,7 +204,7 @@ library testLibrary
 -- hence 'buildable: False'.
 test-suite extremelyLongTest
     -- Import common warning flags.
-    import:           options, exe-options
+    import:           options, exe-options, exe-options-test
 
     if flag(release)
       buildable: False
@@ -226,7 +229,7 @@ test-suite extremelyLongTest
 -- hence 'buildable: False'.
 test-suite shortTestForCI
     -- Import common warning flags.
-    import:           options, exe-options
+    import:           options, exe-options, exe-options-test
 
     if flag(release)
       buildable: False
