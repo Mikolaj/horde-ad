@@ -12,7 +12,7 @@ import qualified Data.Array.ShapedS as OS
 import Data.Biapplicative ((<<*>>))
 import qualified Data.Biapplicative as B
 import Data.Proxy (Proxy (Proxy))
-import Data.Random.Normal (normalIO)
+import Data.Random.Normal (normalIO, mkNormals)
 import Foreign (Storable)
 import GHC.TypeLits (KnownNat)
 import GHC.TypeNats (natVal)
@@ -128,17 +128,23 @@ loop weights n = do
 
 mlpInputDataList :: [([Double], [Double])]
 mlpInputDataList =
-  let first = do
-        let count = valueOf @HalfSamples
-            totalAngle = 5 * pi / 4
+  let count = valueOf @HalfSamples
+      first = do
+        let totalAngle = 5 * pi / 4
             tick = totalAngle / fromIntegral (count - 1)
 
         p' <- [0 .. count - 1]
         let p = fromIntegral p'
 
         pure (1 + 2 * cos (tick * p), 2 * sin (tick * p))
-   in map (\(x, y) -> ([1, x, y], [1, 0])) first
-        ++ map (\(x, y) -> ([1, - x, - y], [0, 1])) first
+
+      (normals1, rest1) = splitAt count (mkNormals 1)
+      (normals2, rest2) = splitAt count rest1
+      (normals3, rest3) = splitAt count rest2
+      (normals4, _) = splitAt count rest3
+
+   in map (\((x, y), dx, dy) -> ([1, x + dx / 3, y + dy / 3], [1, 0])) (zip3 first normals1 normals2)
+        ++ map (\((x, y), dx, dy) -> ([1, - x + dx / 3, - y + dy / 3], [0, 1])) (zip3 first normals3 normals4)
 
 type HalfSamples = 10
 
@@ -309,11 +315,16 @@ mlpLoop dir weights n@300 = do
 
   appendFile (dir ++ "/all.dat") output'
 
-  let output = unlines $ do
-        ([1, x, y], _) <- mlpInputDataList
+  let output1 = unlines $ do
+        ([1, x, y], [1, 0]) <- mlpInputDataList
         pure (printf "%.2f %.2f" x y)
 
-  writeFile (dir ++ "/points.dat") output
+  let output2 = unlines $ do
+        ([1, x, y], [0, 1]) <- mlpInputDataList
+        pure (printf "%.2f %.2f" x y)
+
+  writeFile (dir ++ "/points1.dat") output1
+  writeFile (dir ++ "/points2.dat") output2
 
   pure ()
 mlpLoop dir weights@(l1, l2, l3) n = do
@@ -351,10 +362,10 @@ runLoop = do
                                      , "stats '" ++ dir ++ "/all.dat' nooutput"
                                      , "set term gif animate delay 10 loop -1"
                                      , "set output '" ++ dir ++ "/mlp.gif'"
-                                     , "do for [i=1:int(STATS_blocks)] { plot '" ++ dir ++ "/all.dat' index (i-1) with image, '" ++ dir ++ "/points.dat' }"
+                                     , "do for [i=1:int(STATS_blocks)] { plot '" ++ dir ++ "/all.dat' index (i-1) with image notitle, '" ++ dir ++ "/points1.dat' with points pt 7 ps 2 notitle, '" ++ dir ++ "/points2.dat' with points pt 7 ps 2 notitle }"
                                      ])
   putStrLn ("gnuplot " ++ dir ++ "/mlp.gnuplot")
-  putStrLn ("firefox -P default " ++ dir ++ "/mlp.gif")
+  putStrLn ("firefox -P default --new-window " ++ dir ++ "/mlp.gif")
 
 gnuplotImage ::
   (OS.Shape sh, OS.Size sh ~ 3) =>
