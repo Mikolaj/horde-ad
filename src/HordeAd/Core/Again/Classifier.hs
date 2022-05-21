@@ -231,20 +231,21 @@ mlpTrain data_ groundTruth layers = do
 
 type Features = 3
 
-type Hidden1 = 8
-
-type Hidden2 = 8
-
 type Classes = 2
 
 valueOf :: forall n. KnownNat n => Int
 valueOf = fromIntegral (natVal (Proxy :: Proxy n))
 
 mlpInitialWeights ::
+  ( KnownNat features,
+    KnownNat classes,
+    KnownNat hidden2,
+    KnownNat hidden1
+  ) =>
   IO
-    ( OS.Array [Features, Hidden1] Double,
-      OS.Array [Hidden1, Hidden2] Double,
-      OS.Array [Hidden2, Classes] Double
+    ( OS.Array [features, hidden1] Double,
+      OS.Array [hidden1, hidden2] Double,
+      OS.Array [hidden2, classes] Double
     )
 mlpInitialWeights = (,,) <$> normalArray <*> normalArray <*> normalArray
 
@@ -262,6 +263,7 @@ normals n = do
   pure (r : rest)
 
 mlpLoop ::
+  forall hidden1 hidden2.
   ( KnownNat hidden1,
     KnownNat hidden2
   ) =>
