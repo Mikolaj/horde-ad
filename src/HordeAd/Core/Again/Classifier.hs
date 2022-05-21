@@ -137,6 +137,7 @@ mlpInputDataList =
         ++ map (\(x, y) -> ([1, - x, - y], [0, 1])) first
 
 type HalfSamples = 10
+
 type Samples = HalfSamples GHC.TypeNats.* 2
 
 mlpInputData :: OS.Array [Samples, Features] Double
@@ -271,7 +272,7 @@ mlpLoop ::
   ) ->
   Int ->
   IO ()
-mlpLoop weights 300 = do
+mlpLoop weights n@300 = do
   let f = flip mlpPredict weights
 
   _ <- flip traverse [2.5, 2.4 .. -2.5] $ \j -> do
@@ -284,6 +285,16 @@ mlpLoop weights 300 = do
             | f (OS.fromList [1, i, j]) > 0.5 -> "X"
             | otherwise -> "_"
     putStrLn ""
+
+  let output' = unlines $ do
+        x <- [-3, -2.9 .. 3]
+
+        ( do
+            y <- [-3, -2.9 .. 3]
+            pure (printf "%.3f %.3f %.3f %.3d" x y (f (OS.fromList [1, x, y])) n)
+          )
+
+  appendFile "/tmp/foo/all.dat" output'
 
   let output = unlines $ do
         ([1, x, y], _) <- mlpInputDataList
@@ -315,7 +326,7 @@ mlpLoop (l1, l2, l3) n = do
           l3 `addS` ul3
         )
 
-  let f = flip mlpPredict nextWeights
+  let f = flip mlpPredict (l1, l2, l3)
 
       output =
         unlines $
@@ -327,6 +338,6 @@ mlpLoop (l1, l2, l3) n = do
                 pure (printf "%.3f %.3f %.3f %.3d" x y (f (OS.fromList [1, x, y])) n)
               )
 
-  writeFile ("/tmp/foo/foo" ++ printf "%.3d" n ++ ".dat") output
+  appendFile "/tmp/foo/all.dat" (output ++ "\n\n")
 
   mlpLoop nextWeights (n + 1)
