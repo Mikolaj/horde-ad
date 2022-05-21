@@ -263,15 +263,30 @@ normals n = do
   rest <- normals (n - 1)
   pure (r : rest)
 
+type Params features hidden1 hidden2 classes a =
+  ( OS.Array [features, hidden1] a,
+    OS.Array [hidden1, hidden2] a,
+    OS.Array [hidden2, classes] a
+  )
+
+addParams ::
+  ( KnownNat hidden1,
+    KnownNat features,
+    Numeric a,
+    KnownNat hidden2,
+    KnownNat classes
+  ) =>
+  Params features hidden1 hidden2 classes a ->
+  Params features hidden1 hidden2 classes a ->
+  Params features hidden1 hidden2 classes a
+addParams (p1, p2, p3) (q1, q2, q3) = (p1 `addS` q1, p2 `addS` q2, p3 `addS` q3)
+
 mlpLoop ::
   forall hidden1 hidden2.
   ( KnownNat hidden1,
     KnownNat hidden2
   ) =>
-  ( OS.Array [Features, hidden1] Double,
-    OS.Array [hidden1, hidden2] Double,
-    OS.Array [hidden2, Classes] Double
-  ) ->
+  Params Features hidden1 hidden2 Classes Double ->
   Int ->
   IO ()
 mlpLoop weights n@300 = do
@@ -299,11 +314,11 @@ mlpLoop weights n@300 = do
   writeFile "/tmp/foo/points.dat" output
 
   pure ()
-mlpLoop (l1, l2, l3) n = do
+mlpLoop weights@(l1, l2, l3) n = do
   let learningRate = 0.05
   putStr "Starting iteration "
   print n
-  let (loss, (ul1, ul2, ul3)) =
+  let (loss, adjustment) =
         runDualMonadAdapt
           ( B.bipure (,,) (,,)
               <<*>> adaptArg l1
@@ -315,13 +330,9 @@ mlpLoop (l1, l2, l3) n = do
 
   print loss
 
-  let nextWeights =
-        ( l1 `addS` ul1,
-          l2 `addS` ul2,
-          l3 `addS` ul3
-        )
+  let nextWeights = weights `addParams` adjustment
 
-  let f = flip mlpPredict (l1, l2, l3)
+  let f = flip mlpPredict weights
       output = gnuplotImage f n
 
   appendFile "/tmp/foo/all.dat" (output ++ "\n\n")
