@@ -34,6 +34,7 @@ import HordeAd.Core.Again
     softMaxCrossEntropy,
   )
 import Numeric.LinearAlgebra (Numeric)
+import System.IO.Temp (createTempDirectory)
 import System.Random (Random)
 import Text.Printf (printf)
 import Prelude
@@ -286,10 +287,11 @@ mlpLoop ::
   ( KnownNat hidden1,
     KnownNat hidden2
   ) =>
+  String ->
   Params Features hidden1 hidden2 Classes Double ->
   Int ->
   IO ()
-mlpLoop weights n@300 = do
+mlpLoop dir weights n@300 = do
   let f = flip mlpPredict weights
 
   _ <- flip traverse [2.5, 2.4 .. -2.5] $ \j -> do
@@ -305,16 +307,16 @@ mlpLoop weights n@300 = do
 
   let output' = gnuplotImage f n
 
-  appendFile "/tmp/foo/all.dat" output'
+  appendFile (dir ++ "/all.dat") output'
 
   let output = unlines $ do
         ([1, x, y], _) <- mlpInputDataList
         pure (printf "%.2f %.2f" x y)
 
-  writeFile "/tmp/foo/points.dat" output
+  writeFile (dir ++ "/points.dat") output
 
   pure ()
-mlpLoop weights@(l1, l2, l3) n = do
+mlpLoop dir weights@(l1, l2, l3) n = do
   let learningRate = 0.05
   putStr "Starting iteration "
   print n
@@ -335,9 +337,24 @@ mlpLoop weights@(l1, l2, l3) n = do
   let f = flip mlpPredict weights
       output = gnuplotImage f n
 
-  appendFile "/tmp/foo/all.dat" (output ++ "\n\n")
+  appendFile (dir ++ "/all.dat") (output ++ "\n\n")
 
-  mlpLoop nextWeights (n + 1)
+  mlpLoop dir nextWeights (n + 1)
+
+runLoop :: forall hidden1 hidden2. (KnownNat hidden1, KnownNat hidden2) => IO ()
+runLoop = do
+  dir <- createTempDirectory "." "mlp"
+  flip (mlpLoop @hidden1 @hidden2 dir) 0 =<< mlpInitialWeights
+
+  writeFile (dir ++ "/mlp.gnuplot") (unlines $
+                                     [ "set cbrange [0:1]"
+                                     , "stats '" ++ dir ++ "/all.dat' nooutput"
+                                     , "set term gif animate delay 10 loop -1"
+                                     , "set output '" ++ dir ++ "/mlp.gif'"
+                                     , "do for [i=1:int(STATS_blocks)] { plot '" ++ dir ++ "/all.dat' index (i-1) with image, '" ++ dir ++ "/points.dat' }"
+                                     ])
+  putStrLn ("gnuplot " ++ dir ++ "/mlp.gnuplot")
+  putStrLn ("firefox -P default " ++ dir ++ "/mlp.gif")
 
 gnuplotImage ::
   (OS.Shape sh, OS.Size sh ~ 3) =>
