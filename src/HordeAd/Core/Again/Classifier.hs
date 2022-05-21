@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
@@ -328,7 +329,7 @@ mlpLoop (l1, l2, l3) n = do
   mlpLoop nextWeights (n + 1)
 
 gnuplotImage ::
-  OS.Shape sh =>
+  (OS.Shape sh, OS.Size sh ~ 3) =>
   (OS.Array sh Double -> Double) ->
   Int ->
   String
