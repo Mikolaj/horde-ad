@@ -12,6 +12,7 @@ import Data.Biapplicative ((<<*>>))
 import qualified Data.Biapplicative as B
 import Data.Proxy (Proxy (Proxy))
 import Data.Random.Normal (normalIO)
+import Foreign (Storable)
 import GHC.TypeLits (KnownNat)
 import GHC.TypeNats (natVal)
 import qualified GHC.TypeNats
@@ -32,6 +33,7 @@ import HordeAd.Core.Again
     softMaxCrossEntropy,
   )
 import Numeric.LinearAlgebra (Numeric)
+import System.Random (Random)
 import Text.Printf (printf)
 import Prelude
 
@@ -244,18 +246,15 @@ mlpInitialWeights ::
       OS.Array [Hidden1, Hidden2] Double,
       OS.Array [Hidden2, Classes] Double
     )
-mlpInitialWeights = do
-  w1 <- normals (valueOf @Features * valueOf @Hidden1)
-  w2 <- normals (valueOf @Hidden1 * valueOf @Hidden2)
-  w3 <- normals (valueOf @Hidden2 * valueOf @Classes)
+mlpInitialWeights = (,,) <$> normalArray <*> normalArray <*> normalArray
 
-  pure
-    ( OS.fromList w1,
-      OS.fromList w2,
-      OS.fromList w3
-    )
+normalArray ::
+  forall sh a.
+  (OS.Shape sh, Random a, Storable a, Floating a) =>
+  IO (OS.Array sh a)
+normalArray = OS.fromList <$> normals (OS.sizeP (Proxy @sh))
 
-normals :: Int -> IO [Double]
+normals :: (Random a, Floating a) => Int -> IO [a]
 normals 0 = pure []
 normals n = do
   r <- (/ 10) <$> normalIO
@@ -286,13 +285,7 @@ mlpLoop weights n@300 = do
             | otherwise -> "_"
     putStrLn ""
 
-  let output' = unlines $ do
-        x <- [-3, -2.9 .. 3]
-
-        ( do
-            y <- [-3, -2.9 .. 3]
-            pure (printf "%.3f %.3f %.3f %.3d" x y (f (OS.fromList [1, x, y])) n)
-          )
+  let output' = gnuplotImage f n
 
   appendFile "/tmp/foo/all.dat" output'
 
@@ -300,7 +293,6 @@ mlpLoop weights n@300 = do
         ([1, x, y], _) <- mlpInputDataList
         pure (printf "%.2f %.2f" x y)
 
-  print output
   writeFile "/tmp/foo/points.dat" output
 
   pure ()
@@ -327,17 +319,22 @@ mlpLoop (l1, l2, l3) n = do
         )
 
   let f = flip mlpPredict (l1, l2, l3)
-
-      output =
-        unlines $
-          do
-            x <- [-3, -2.9 .. 3]
-
-            ( do
-                y <- [-3, -2.9 .. 3]
-                pure (printf "%.3f %.3f %.3f %.3d" x y (f (OS.fromList [1, x, y])) n)
-              )
+      output = gnuplotImage f n
 
   appendFile "/tmp/foo/all.dat" (output ++ "\n\n")
 
   mlpLoop nextWeights (n + 1)
+
+gnuplotImage ::
+  OS.Shape sh =>
+  (OS.Array sh Double -> Double) ->
+  Int ->
+  String
+gnuplotImage f n = unlines $
+  do
+    x <- [-3, -2.9 .. 3]
+
+    ( do
+        y <- [-3, -2.9 .. 3]
+        pure (printf "%.3f %.3f %.3f %.3d" x y (f (OS.fromList [1, x, y])) n)
+      )
