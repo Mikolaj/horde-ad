@@ -70,6 +70,11 @@ flag release
   default:            False
   manual:             False
 
+flag test_seq
+  description:        run the test suite in sequential mode
+  default:            False
+  manual:             False
+
 common options
   default-language:   Haskell2010
   default-extensions: MonoLocalBinds, ScopedTypeVariables, OverloadedStrings,
@@ -101,6 +106,10 @@ common options
 common exe-options
   ghc-options:        -rtsopts
 --  ghc-options:        "-with-rtsopts=-A99m -I0"
+
+common exe-options-test
+  if ! flag(test_seq)
+    ghc-options:      -threaded "-with-rtsopts=-N"
 
 library
     -- Import common warning flags.
@@ -201,7 +210,7 @@ library testLibrary
 -- hence 'buildable: False'.
 test-suite extremelyLongTest
     -- Import common warning flags.
-    import:           options, exe-options
+    import:           options, exe-options, exe-options-test
 
     if flag(release)
       buildable: False
@@ -226,7 +235,7 @@ test-suite extremelyLongTest
 -- hence 'buildable: False'.
 test-suite shortTestForCI
     -- Import common warning flags.
-    import:           options, exe-options
+    import:           options, exe-options, exe-options-test
 
     if flag(release)
       buildable: False
