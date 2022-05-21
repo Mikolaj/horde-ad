@@ -12,7 +12,7 @@ import qualified Data.Array.ShapedS as OS
 import Data.Biapplicative ((<<*>>))
 import qualified Data.Biapplicative as B
 import Data.Proxy (Proxy (Proxy))
-import Data.Random.Normal (normalIO, mkNormals)
+import Data.Random.Normal (mkNormals, normalIO)
 import Foreign (Storable)
 import GHC.TypeLits (KnownNat)
 import GHC.TypeNats (natVal)
@@ -142,7 +142,6 @@ mlpInputDataList =
       (normals2, rest2) = splitAt count rest1
       (normals3, rest3) = splitAt count rest2
       (normals4, _) = splitAt count rest3
-
    in map (\((x, y), dx, dy) -> ([1, x + dx / 3, y + dy / 3], [1, 0])) (zip3 first normals1 normals2)
         ++ map (\((x, y), dx, dy) -> ([1, - x + dx / 3, - y + dy / 3], [0, 1])) (zip3 first normals3 normals4)
 
@@ -357,13 +356,16 @@ runLoop = do
   dir <- createTempDirectory "." "mlp"
   flip (mlpLoop @hidden1 @hidden2 dir) 0 =<< mlpInitialWeights
 
-  writeFile (dir ++ "/mlp.gnuplot") (unlines $
-                                     [ "set cbrange [0:1]"
-                                     , "stats '" ++ dir ++ "/all.dat' nooutput"
-                                     , "set term gif animate delay 10 loop -1"
-                                     , "set output '" ++ dir ++ "/mlp.gif'"
-                                     , "do for [i=1:int(STATS_blocks)] { plot '" ++ dir ++ "/all.dat' index (i-1) with image notitle, '" ++ dir ++ "/points1.dat' with points pt 7 ps 2 notitle, '" ++ dir ++ "/points2.dat' with points pt 7 ps 2 notitle }"
-                                     ])
+  writeFile
+    (dir ++ "/mlp.gnuplot")
+    ( unlines $
+        [ "set cbrange [0:1]",
+          "stats '" ++ dir ++ "/all.dat' nooutput",
+          "set term gif animate delay 10 loop -1",
+          "set output '" ++ dir ++ "/mlp.gif'",
+          "do for [i=1:int(STATS_blocks)] { plot '" ++ dir ++ "/all.dat' index (i-1) with image notitle, '" ++ dir ++ "/points1.dat' with points pt 7 ps 2 notitle, '" ++ dir ++ "/points2.dat' with points pt 7 ps 2 notitle }"
+        ]
+    )
   putStrLn ("gnuplot " ++ dir ++ "/mlp.gnuplot")
   putStrLn ("firefox -P default --new-window " ++ dir ++ "/mlp.gif")
 
