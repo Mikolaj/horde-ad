@@ -70,6 +70,11 @@ flag release
   default:            False
   manual:             False
 
+flag test_seq
+  description:        run the test suite in sequential mode
+  default:            False
+  manual:             False
+
 common options
   default-language:   Haskell2010
   default-extensions: MonoLocalBinds, ScopedTypeVariables, OverloadedStrings,
@@ -103,7 +108,8 @@ common exe-options
 --  ghc-options:        "-with-rtsopts=-A99m -I0"
 
 common exe-options-test
-  ghc-options:        -threaded "-with-rtsopts=-N"
+  if ! flag(test_seq)
+    ghc-options:      -threaded "-with-rtsopts=-N"
 
 library
     -- Import common warning flags.
