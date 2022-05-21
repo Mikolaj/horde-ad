@@ -17,6 +17,7 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal, type (<=))
 import           Numeric.LinearAlgebra (Matrix, Vector)
 import qualified Numeric.LinearAlgebra as HM
+import           System.IO (hPutStrLn, stderr)
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -167,7 +168,7 @@ convMnistTestCaseCNN prefix epochs maxBatches trainWithLoss testLoss
                     -> (Int, [MnistData2 Double])
                     -> IO (Domains Double)
            runBatch (!params0, !params1, !params2, !paramsX) (k, chunk) = do
-             printf "(Batch %d with %d points)\n" k (length chunk)
+             hPutStrLn stderr $ printf "(Batch %d with %d points)" k (length chunk)
              let f = trainWithLoss widthHidden
                  res = fst $ sgd gamma f chunk
                                  (params0, params1, params2, paramsX)
@@ -175,21 +176,21 @@ convMnistTestCaseCNN prefix epochs maxBatches trainWithLoss testLoss
                                        widthHidden chunk res
                  testScore = testLoss (Proxy @Double)
                                       widthHidden testData res
-             printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
-             printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
+             hPutStrLn stderr $ printf "Training error:   %.2f%%" ((1 - trainScore) * 100)
+             hPutStrLn stderr $ printf "Validation error: %.2f%%" ((1 - testScore ) * 100)
              return res
        let runEpoch :: Int
                     -> Domains Double
                     -> IO (Domains Double)
            runEpoch n params2 | n > epochs = return params2
            runEpoch n params2 = do
-             printf "[Epoch %d]\n" n
+             hPutStrLn stderr $ printf "[Epoch %d]" n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches
                           $ zip [1 ..] $ chunksOf 5000 trainDataShuffled
              !res <- foldM runBatch params2 chunks
              runEpoch (succ n) res
-       printf "\nEpochs to run/max batches per epoch: %d/%d\n"
+       hPutStrLn stderr $ printf "\nEpochs to run/max batches per epoch: %d/%d"
               epochs maxBatches
        res <- runEpoch 1 parameters0
        let testErrorFinal = 1 - testLoss (Proxy @Double)
@@ -450,7 +451,7 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
                            , OS.Array '[SizeMnistLabel] r )])
                  -> IO (Domains r)
         runBatch parameters@(!_, !_, !_, !_) (k, chunk) = do
-          printf "(Batch %d with %d points)\n" k (length chunk)
+          hPutStrLn stderr $ printf "(Batch %d with %d points)" k (length chunk)
           let f = trainWithLoss proxy_kheight_minus_1 proxy_kwidth_minus_1
                                 proxy_num_hidden proxy_out_channels
               chunkS = map packBatchS
@@ -465,13 +466,13 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
                                 proxy_kheight_minus_1 proxy_kwidth_minus_1
                                 proxy_num_hidden proxy_out_channels
                                 testData res
-          printf "Training error:   %.2f%%\n" ((1 - trainScore) * 100)
-          printf "Validation error: %.2f%%\n" ((1 - testScore ) * 100)
+          hPutStrLn stderr $ printf "Training error:   %.2f%%" ((1 - trainScore) * 100)
+          hPutStrLn stderr $ printf "Validation error: %.2f%%" ((1 - testScore ) * 100)
           return res
     let runEpoch :: Int -> Domains r -> IO (Domains r)
         runEpoch n params2 | n > epochs = return params2
         runEpoch n params2 = do
-          printf "[Epoch %d]\n" n
+          hPutStrLn stderr $ printf "[Epoch %d]" n
           let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
               chunks = take maxBatches
                        $ zip [1 ..]
@@ -479,7 +480,7 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
                            -- TODO: (10 * batch_size) takes forever
           !res <- foldM runBatch params2 chunks
           runEpoch (succ n) res
-    printf "\nEpochs to run/max batches per epoch: %d/%d\n"
+    hPutStrLn stderr $ printf "\nEpochs to run/max batches per epoch: %d/%d"
            epochs maxBatches
     res <- runEpoch 1 parametersInit
     let testErrorFinal = 1 - ftest (Proxy @r)
