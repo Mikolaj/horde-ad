@@ -568,8 +568,8 @@ mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
              hPutStrLn stderr $ printf "(Batch %d with %d points)" k (length chunk)
              let res@(parameters2, _) =
                    sgdAdamBatch 150 (f width) chunk parameters stateAdam
-                 trainScore = ftest width chunk parameters2
-                 testScore = ftest width testData parameters2
+                 !trainScore = ftest width chunk parameters2
+                 !testScore = ftest width testData parameters2
              hPutStrLn stderr $ printf "Training error:   %.2f%%" ((1 - trainScore) * 100)
              hPutStrLn stderr $ printf "Validation error: %.2f%%" ((1 - testScore ) * 100)
              return res
@@ -752,8 +752,8 @@ mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
              let res@(parameters2, _) =
                    sgdAdam (f width) (map packChunk $ chunksOf 150 chunk)
                            parameters stateAdam
-                 trainScore = ftest width chunk parameters2
-                 testScore = ftest width testData parameters2
+                 !trainScore = ftest width chunk parameters2
+                 !testScore = ftest width testData parameters2
              hPutStrLn stderr $ printf "Training error:   %.2f%%" ((1 - trainScore) * 100)
              hPutStrLn stderr $ printf "Validation error: %.2f%%" ((1 - testScore ) * 100)
              return res
@@ -826,11 +826,11 @@ mnistTestCaseRNNS prefix epochs maxBatches trainWithLoss ftest flen expected =
                        $ filter (\ch -> length ch >= batch_size)
                        $ chunksOf batch_size chunk
               res@(parameters2, _) = sgdAdam f chunkS parameters stateAdam
-              trainScore =
+              !trainScore =
                 ftest (Proxy @r) proxy_out_width
                       (packBatch @(10 GHC.TypeLits.* batch_size) chunk)
                       parameters2
-              testScore = ftest (Proxy @r) proxy_out_width
+              !testScore = ftest (Proxy @r) proxy_out_width
                                 testDataS parameters2
           hPutStrLn stderr $ printf "Training error:   %.2f%%" ((1 - trainScore) * 100)
           hPutStrLn stderr $ printf "Validation error: %.2f%%" ((1 - testScore ) * 100)

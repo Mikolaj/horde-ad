@@ -109,9 +109,9 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                  (!res, _, _, _) =
                    fst $ sgd gamma f chunk (params0, V.empty, V.empty, V.empty)
              hPutStrLn stderr $ printf "Trained on %d points." (length chunk)
-             let trainScore = fcnnMnistTest0 (Proxy @Double)
+             let !trainScore = fcnnMnistTest0 (Proxy @Double)
                                          widthHidden widthHidden2 chunk res
-                 testScore  = fcnnMnistTest0 (Proxy @Double)
+                 !testScore  = fcnnMnistTest0 (Proxy @Double)
                                          widthHidden widthHidden2 testData res
              hPutStrLn stderr $ printf "Training error:   %.2f%%" ((1 - trainScore) * 100)
              hPutStrLn stderr $ printf "Validation error: %.2f%%" ((1 - testScore ) * 100)
@@ -173,9 +173,9 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                    fst $ sgd gamma f chunk (params0, params1, V.empty, V.empty)
                  res = (resS, resV)
              hPutStrLn stderr $ printf "Trained on %d points." (length chunk)
-             let trainScore = fcnnMnistTest1
+             let !trainScore = fcnnMnistTest1
                                          widthHidden widthHidden2 chunk res
-                 testScore = fcnnMnistTest1
+                 !testScore = fcnnMnistTest1
                                         widthHidden widthHidden2 testData res
              hPutStrLn stderr $ printf "Training error:   %.2f%%" ((1 - trainScore) * 100)
              hPutStrLn stderr $ printf "Validation error: %.2f%%" ((1 - testScore ) * 100)
@@ -252,8 +252,8 @@ mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                  res = fst $ sgd gamma f chunk
                                  (params0, params1, params2, paramsX)
              hPutStrLn stderr $ printf "Trained on %d points." (length chunk)
-             let trainScore = fcnnMnistTest2 @Double chunk res
-                 testScore = fcnnMnistTest2 @Double testData res
+             let !trainScore = fcnnMnistTest2 @Double chunk res
+                 !testScore = fcnnMnistTest2 @Double testData res
              hPutStrLn stderr $ printf "Training error:   %.2f%%" ((1 - trainScore) * 100)
              hPutStrLn stderr $ printf "Validation error: %.2f%%" ((1 - testScore ) * 100)
              return res
@@ -522,9 +522,9 @@ mnistTestCase2S proxy proxy2
           let f = trainWithLoss proxy proxy2
               res = fst $ sgd gamma f chunk
                               (params0, params1, params2, paramsX)
-              trainScore = fcnnMnistTestS @widthHidden @widthHidden2
+              !trainScore = fcnnMnistTestS @widthHidden @widthHidden2
                                           chunk res
-              testScore = fcnnMnistTestS @widthHidden @widthHidden2
+              !testScore = fcnnMnistTestS @widthHidden @widthHidden2
                                          testData res
           hPutStrLn stderr $ printf "Training error:   %.2f%%" ((1 - trainScore) * 100)
           hPutStrLn stderr $ printf "Validation error: %.2f%%" ((1 - testScore ) * 100)

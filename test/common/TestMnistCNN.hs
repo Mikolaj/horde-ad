@@ -172,9 +172,9 @@ convMnistTestCaseCNN prefix epochs maxBatches trainWithLoss testLoss
              let f = trainWithLoss widthHidden
                  res = fst $ sgd gamma f chunk
                                  (params0, params1, params2, paramsX)
-                 trainScore = testLoss (Proxy @Double)
+                 !trainScore = testLoss (Proxy @Double)
                                        widthHidden chunk res
-                 testScore = testLoss (Proxy @Double)
+                 !testScore = testLoss (Proxy @Double)
                                       widthHidden testData res
              hPutStrLn stderr $ printf "Training error:   %.2f%%" ((1 - trainScore) * 100)
              hPutStrLn stderr $ printf "Validation error: %.2f%%" ((1 - testScore ) * 100)
@@ -458,11 +458,11 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
                        $ filter (\ch -> length ch >= batch_size)
                        $ chunksOf batch_size chunk
               res = fst $ sgd gamma f chunkS parameters
-              trainScore = ftest (Proxy @r)
+              !trainScore = ftest (Proxy @r)
                                  proxy_kheight_minus_1 proxy_kwidth_minus_1
                                  proxy_num_hidden proxy_out_channels
                                  chunk res
-              testScore = ftest (Proxy @r)
+              !testScore = ftest (Proxy @r)
                                 proxy_kheight_minus_1 proxy_kwidth_minus_1
                                 proxy_num_hidden proxy_out_channels
                                 testData res
