@@ -97,7 +97,7 @@ initialWeights = OS.fromList $ do
   x <- [0 .. 7 :: Int]
   pure (fromIntegral x / 10)
 
-loop :: OS.Array '[Dim, Labels] Double -> Int -> IO ()
+loop :: OS.Array [Dim, Labels] Double -> Int -> IO ()
 loop weights 1 = do
   let logPrediction = inputData `mulS` weights
       prediction = OS.mapA exp logPrediction
@@ -213,12 +213,12 @@ mlp ::
     KnownNat hidden2,
     KnownNat dim
   ) =>
-  ( Dual dual (OS.Array '[dim, hidden1] s),
-    Dual dual (OS.Array '[hidden1, hidden2] s),
-    Dual dual (OS.Array '[hidden2, labels] s)
+  ( Dual dual (OS.Array [dim, hidden1] s),
+    Dual dual (OS.Array [hidden1, hidden2] s),
+    Dual dual (OS.Array [hidden2, labels] s)
   ) ->
-  Dual dual (OS.Array '[samples, dim] s) ->
-  Dual dual (OS.Array '[samples, labels] s)
+  Dual dual (OS.Array [samples, dim] s) ->
+  Dual dual (OS.Array [samples, labels] s)
 mlp (layer1, layer2, layer3) =
   (`mulSDual` layer3)
     . reluSDual
@@ -238,11 +238,11 @@ mlpTrain ::
     Floating s,
     DualMonad dual m
   ) =>
-  OS.Array '[samples, dim] s ->
-  OS.Array '[samples, labels] s ->
-  ( Dual dual (OS.Array '[dim, hidden1] s),
-    Dual dual (OS.Array '[hidden1, hidden2] s),
-    Dual dual (OS.Array '[hidden2, labels] s)
+  OS.Array [samples, dim] s ->
+  OS.Array [samples, labels] s ->
+  ( Dual dual (OS.Array [dim, hidden1] s),
+    Dual dual (OS.Array [hidden1, hidden2] s),
+    Dual dual (OS.Array [hidden2, labels] s)
   ) ->
   m (Dual dual s)
 mlpTrain data_ groundTruth layers = do
