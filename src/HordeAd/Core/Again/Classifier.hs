@@ -192,15 +192,16 @@ mlpPredict data_ (layer1, layer2, layer3) =
       prediction :: OS.Array [n, labels] s
       prediction = OS.mapA exp logPrediction
 
-      normalization :: OS.Array [n, labels] s
+      normalization :: OS.Array [n, 1] s
       normalization = prediction `mulS` OS.constant 1
 
-      normalizedPrediction :: OS.Array [n, labels] s
-      normalizedPrediction = OS.zipWithA (/) prediction normalization
+      firstPrediction :: OS.Array [n, 1] s
+      firstPrediction = prediction `mulS` OS.fromList (1 : replicate (valueOf @labels - 1) 0)
 
-      firstClass :: OS.Array [labels, 1] s
-      firstClass = OS.fromList (1 : replicate (valueOf @labels - 1) 0)
-   in OS.reshape (normalizedPrediction `mulS` firstClass)
+      normalizedPrediction :: OS.Array [n, 1] s
+      normalizedPrediction = OS.zipWithA (/) firstPrediction normalization
+
+   in OS.reshape normalizedPrediction
 
 mlp ::
   ( Ops (DeltaF s) dual,
@@ -299,6 +300,9 @@ addParams ::
   Params features hidden1 hidden2 classes a
 addParams (p1, p2, p3) (q1, q2, q3) = (p1 `addS` q1, p2 `addS` q2, p3 `addS` q3)
 
+unScalar :: (OS.Size sh ~ 1, OS.Shape sh, Storable a) => OS.Array sh a -> a
+unScalar = OS.unScalar . OS.reshape
+
 mlpLoop ::
   forall hidden1 hidden2.
   ( KnownNat hidden1,
@@ -311,7 +315,7 @@ mlpLoop ::
 mlpLoop dir weights n@300 = do
   let f = flip mlpPredict weights
 
-  {-
+  do
     _ <- flip traverse [2.5, 2.4 .. -2.5] $ \j -> do
       _ <- flip traverse [-3, -2.9 .. 3] $ \i -> do
         putStr $
@@ -319,10 +323,10 @@ mlpLoop dir weights n@300 = do
               | flip any mlpInputDataList $ \([1, x, y], _) ->
                   (x >= i) && (x < i + 0.1) && (y >= j) && (y < j + 0.1) ->
                 "+"
-              | f (OS.fromList [1, i, j]) > 0.5 -> "X"
+              | unScalar (mlpPredict (OS.fromList [1, i, j]) weights) > 0.5 -> "X"
               | otherwise -> "_"
       putStrLn ""
-  -}
+    pure ()
 
   let output' = gnuplotImage f n
 
