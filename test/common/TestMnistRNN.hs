@@ -549,12 +549,14 @@ mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
                  expected =
   let ((nParams0, nParams1, nParams2, _), totalParams, range, parameters0) =
         initializerFixed 44 0.2 (flen width nLayers)
-      name = prefix ++ " "
+      name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show width, show nLayers
                         , show nParams0, show nParams1, show nParams2
                         , show totalParams, show range ]
   in testCase name $ do
+       hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
+              prefix epochs maxBatches
        let rws (input, target) =
              ( map (\k -> V.slice (k * 28) 28 input) [0 .. 27]
              , target )
@@ -565,27 +567,26 @@ mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
                     -> (Int, [([Vector Double], Vector Double)])
                     -> IO (Domains Double, StateAdam Double)
            runBatch (parameters@(!_, !_, !_, !_), stateAdam) (k, chunk) = do
-             hPutStrLn stderr $ printf "(Batch %d with %d points)" k (length chunk)
              let res@(parameters2, _) =
                    sgdAdamBatch 150 (f width) chunk parameters stateAdam
                  !trainScore = ftest width chunk parameters2
                  !testScore = ftest width testData parameters2
-             hPutStrLn stderr $ printf "Training error:   %.2f%%" ((1 - trainScore) * 100)
-             hPutStrLn stderr $ printf "Validation error: %.2f%%" ((1 - testScore ) * 100)
+                 !lenChunk = length chunk
+             hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
+             hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
+             hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
            runEpoch :: Int
                     -> (Domains Double, StateAdam Double)
                     -> IO (Domains Double)
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam = do
-             hPutStrLn stderr $ printf "[Epoch %d]" n
+             hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches
                           $ zip [1 ..] $ chunksOf 5000 trainDataShuffled
              !res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
-       hPutStrLn stderr $ printf "\nEpochs to run/max batches per epoch: %d/%d"
-              epochs maxBatches
        res <- runEpoch 1 (parameters0, initialStateAdam parameters0)
        let testErrorFinal = 1 - ftest width testData res
        testErrorFinal @?= expected
@@ -724,12 +725,14 @@ mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
                   expected =
   let ((nParams0, nParams1, nParams2, _), totalParams, range, parameters0) =
         initializerFixed 44 0.2 (flen width nLayers)
-      name = prefix ++ " "
+      name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show width, show nLayers
                         , show nParams0, show nParams1, show nParams2
                         , show totalParams, show range ]
   in testCase name $ do
+       hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
+              prefix epochs maxBatches
        let rws (input, target) =
              ( map (\k -> V.slice (k * 28) 28 input) [0 .. 27]
              , target )
@@ -748,28 +751,27 @@ mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
                     -> (Int, [([Vector Double], Vector Double)])
                     -> IO (Domains Double, StateAdam Double)
            runBatch (parameters@(!_, !_, !_, !_), stateAdam) (k, chunk) = do
-             hPutStrLn stderr $ printf "(Batch %d with %d points)" k (length chunk)
              let res@(parameters2, _) =
                    sgdAdam (f width) (map packChunk $ chunksOf 150 chunk)
                            parameters stateAdam
                  !trainScore = ftest width chunk parameters2
                  !testScore = ftest width testData parameters2
-             hPutStrLn stderr $ printf "Training error:   %.2f%%" ((1 - trainScore) * 100)
-             hPutStrLn stderr $ printf "Validation error: %.2f%%" ((1 - testScore ) * 100)
+                 !lenChunk = length chunk
+             hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
+             hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
+             hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
            runEpoch :: Int
                     -> (Domains Double, StateAdam Double)
                     -> IO (Domains Double)
            runEpoch n (params2, _) | n > epochs = return params2
            runEpoch n paramsStateAdam = do
-             hPutStrLn stderr $ printf "[Epoch %d]" n
+             hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches
                           $ zip [1 ..] $ chunksOf 5000 trainDataShuffled
              !res <- foldM runBatch paramsStateAdam chunks
              runEpoch (succ n) res
-       hPutStrLn stderr $ printf "\nEpochs to run/max batches per epoch: %d/%d"
-              epochs maxBatches
        res <- runEpoch 1 (parameters0, initialStateAdam parameters0)
        let testErrorFinal = 1 - ftest width testData res
        testErrorFinal @?= expected
@@ -805,11 +807,13 @@ mnistTestCaseRNNS prefix epochs maxBatches trainWithLoss ftest flen expected =
       batch_size = valueOf @batch_size
       ((_, _, _, nParamsX), totalParams, range, parametersInit) =
         initializerFixed 44 0.2 (flen proxy_out_width)
-      name = prefix ++ " "
+      name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show (valueOf @out_width :: Int), show batch_size
                         , show nParamsX, show totalParams, show range ]
   in testCase name $ do
+    hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
+           prefix epochs maxBatches
     trainData <- map shapeBatch
                  <$> loadMnistData trainGlyphsPath trainLabelsPath
     testData <- map shapeBatch
@@ -820,7 +824,6 @@ mnistTestCaseRNNS prefix epochs maxBatches trainWithLoss ftest flen expected =
                  -> (Int, [MnistDataS r])
                  -> IO (Domains r, StateAdam r)
         runBatch (parameters@(!_, !_, !_, !_), stateAdam) (k, chunk) = do
-          hPutStrLn stderr $ printf "(Batch %d with %d points)" k (length chunk)
           let f = trainWithLoss proxy_out_width
               chunkS = map (packBatch @batch_size)
                        $ filter (\ch -> length ch >= batch_size)
@@ -832,21 +835,21 @@ mnistTestCaseRNNS prefix epochs maxBatches trainWithLoss ftest flen expected =
                       parameters2
               !testScore = ftest (Proxy @r) proxy_out_width
                                 testDataS parameters2
-          hPutStrLn stderr $ printf "Training error:   %.2f%%" ((1 - trainScore) * 100)
-          hPutStrLn stderr $ printf "Validation error: %.2f%%" ((1 - testScore ) * 100)
+              !lenChunk = length chunk
+          hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
+          hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
+          hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
           return res
         runEpoch :: Int -> (Domains r, StateAdam r) -> IO (Domains r)
         runEpoch n (params2, _) | n > epochs = return params2
         runEpoch n paramsStateAdam = do
-          hPutStrLn stderr $ printf "[Epoch %d]" n
+          hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
           let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
               chunks = take maxBatches
                        $ zip [1 ..]
                        $ chunksOf (10 * batch_size) trainDataShuffled
           !res <- foldM runBatch paramsStateAdam chunks
           runEpoch (succ n) res
-    hPutStrLn stderr $ printf "\nEpochs to run/max batches per epoch: %d/%d"
-           epochs maxBatches
     res <- runEpoch 1 (parametersInit, initialStateAdam parametersInit)
     let testErrorFinal = 1 - ftest (Proxy @r) proxy_out_width testDataS res
     testErrorFinal @?= expected

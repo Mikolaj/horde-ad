@@ -2,7 +2,8 @@ module Main (main) where
 
 import Prelude
 
-import Test.Tasty
+import qualified System.IO as SIO
+import           Test.Tasty
 
 import qualified TestMnistCNN
 import qualified TestMnistFCNN
@@ -11,7 +12,11 @@ import qualified TestSimpleDescent
 import qualified TestSingleGradient
 
 main :: IO ()
-main = defaultMain tests
+main = do
+  -- Limit interleaving of characters in parallel tests.
+  SIO.hSetBuffering SIO.stdout SIO.LineBuffering
+  SIO.hSetBuffering SIO.stderr SIO.LineBuffering
+  defaultMain tests
 
 tests :: TestTree
 tests = testGroup "Short tests for CI" $

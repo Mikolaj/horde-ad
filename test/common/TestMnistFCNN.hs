@@ -15,7 +15,7 @@ import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 import qualified Numeric.LinearAlgebra as HM
-import           System.IO (hFlush, hPutStr, hPutStrLn, stderr)
+import           System.IO (hFlush, hPutStrLn, stderr)
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -92,11 +92,13 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                gamma expected =
   let nParams0 = fcnnMnistLen0 widthHidden widthHidden2
       params0Init = HM.randomVector 44 HM.Uniform nParams0 - HM.scalar 0.5
-      name = prefix ++ " "
+      name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
                         , show nParams0, show gamma ]
   in testCase name $ do
+       hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
+              prefix epochs maxBatches
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- loadMnistData testGlyphsPath testLabelsPath
        -- Mimic how backprop tests and display it, even though tests
@@ -104,29 +106,27 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
        let runBatch :: Domain0 Double -> (Int, [MnistData Double])
                     -> IO (Domain0 Double)
            runBatch !params0 (k, chunk) = do
-             hPutStrLn stderr $ printf "(Batch %d)" k
              let f = trainWithLoss widthHidden widthHidden2
                  (!res, _, _, _) =
                    fst $ sgd gamma f chunk (params0, V.empty, V.empty, V.empty)
-             hPutStrLn stderr $ printf "Trained on %d points." (length chunk)
-             let !trainScore = fcnnMnistTest0 (Proxy @Double)
+                 !trainScore = fcnnMnistTest0 (Proxy @Double)
                                          widthHidden widthHidden2 chunk res
                  !testScore  = fcnnMnistTest0 (Proxy @Double)
                                          widthHidden widthHidden2 testData res
-             hPutStrLn stderr $ printf "Training error:   %.2f%%" ((1 - trainScore) * 100)
-             hPutStrLn stderr $ printf "Validation error: %.2f%%" ((1 - testScore ) * 100)
+                 !lenChunk = length chunk
+             hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
+             hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
+             hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
        let runEpoch :: Int -> Domain0 Double -> IO (Domain0 Double)
            runEpoch n params0 | n > epochs = return params0
            runEpoch n params0 = do
-             hPutStrLn stderr $ printf "[Epoch %d]" n
+             hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches
                           $ zip [1 ..] $ chunksOf 5000 trainDataShuffled
              !res <- foldM runBatch params0 chunks
              runEpoch (succ n) res
-       hPutStrLn stderr $ printf "\nEpochs to run/max batches per epoch: %d/%d"
-              epochs maxBatches
        res <- runEpoch 1 params0Init
        let testErrorFinal = 1 - fcnnMnistTest0 (Proxy @Double) widthHidden widthHidden2 testData res
        testErrorFinal @?= expected
@@ -153,12 +153,14 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
         imap (\i nPV -> HM.randomVector (44 + nPV + i) HM.Uniform nPV
                         - HM.scalar 0.5)
              nParams1
-      name = prefix ++ " "
+      name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
                         , show nParams0, show (length nParams1)
                         , show (sum nParams1 + nParams0), show gamma ]
   in testCase name $ do
+       hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
+              prefix epochs maxBatches
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- loadMnistData testGlyphsPath testLabelsPath
        -- Mimic how backprop tests and display it, even though tests
@@ -167,31 +169,29 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                     -> (Int, [MnistData Double])
                     -> IO (Domain0 Double, Domain1 Double)
            runBatch (!params0, !params1) (k, chunk) = do
-             hPutStrLn stderr $ printf "(Batch %d)" k
              let f = trainWithLoss widthHidden widthHidden2
                  (resS, resV, _, _) =
                    fst $ sgd gamma f chunk (params0, params1, V.empty, V.empty)
                  res = (resS, resV)
-             hPutStrLn stderr $ printf "Trained on %d points." (length chunk)
-             let !trainScore = fcnnMnistTest1
+                 !trainScore = fcnnMnistTest1
                                          widthHidden widthHidden2 chunk res
                  !testScore = fcnnMnistTest1
                                         widthHidden widthHidden2 testData res
-             hPutStrLn stderr $ printf "Training error:   %.2f%%" ((1 - trainScore) * 100)
-             hPutStrLn stderr $ printf "Validation error: %.2f%%" ((1 - testScore ) * 100)
+                 !lenChunk = length chunk
+             hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
+             hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
+             hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
        let runEpoch :: Int -> (Domain0 Double, Domain1 Double)
                     -> IO (Domain0 Double, Domain1 Double)
            runEpoch n params2 | n > epochs = return params2
            runEpoch n params2 = do
-             hPutStrLn stderr $ printf "[Epoch %d]" n
+             hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches
                           $ zip [1 ..] $ chunksOf 5000 trainDataShuffled
              !res <- foldM runBatch params2 chunks
              runEpoch (succ n) res
-       hPutStrLn stderr $ printf "\nEpochs to run/max batches per epoch: %d/%d"
-              epochs maxBatches
        res <- runEpoch 1 (params0Init, params1Init)
        let testErrorFinal =
              1 - fcnnMnistTest1 widthHidden widthHidden2 testData res
@@ -233,12 +233,14 @@ mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                 gamma expected =
   let ((nParams0, nParams1, nParams2, _), totalParams, range, parameters0) =
         initializerFixed 44 0.5 (fcnnMnistLen2 widthHidden widthHidden2)
-      name = prefix ++ " "
+      name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
                         , show nParams0, show nParams1, show nParams2
                         , show totalParams, show gamma, show range]
   in testCase name $ do
+       hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
+              prefix epochs maxBatches
        trainData <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- loadMnistData testGlyphsPath testLabelsPath
        -- Mimic how backprop tests and display it, even though tests
@@ -247,29 +249,27 @@ mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                     -> (Int, [MnistData Double])
                     -> IO (Domains Double)
            runBatch (!params0, !params1, !params2, !paramsX) (k, chunk) = do
-             hPutStrLn stderr $ printf "(Batch %d)" k
              let f = trainWithLoss
                  res = fst $ sgd gamma f chunk
                                  (params0, params1, params2, paramsX)
-             hPutStrLn stderr $ printf "Trained on %d points." (length chunk)
-             let !trainScore = fcnnMnistTest2 @Double chunk res
+                 !trainScore = fcnnMnistTest2 @Double chunk res
                  !testScore = fcnnMnistTest2 @Double testData res
-             hPutStrLn stderr $ printf "Training error:   %.2f%%" ((1 - trainScore) * 100)
-             hPutStrLn stderr $ printf "Validation error: %.2f%%" ((1 - testScore ) * 100)
+                 !lenChunk = length chunk
+             hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
+             hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
+             hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
              return res
        let runEpoch :: Int
                     -> Domains Double
                     -> IO (Domains Double)
            runEpoch n params2 | n > epochs = return params2
            runEpoch n params2 = do
-             hPutStrLn stderr $ printf "[Epoch %d]" n
+             hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
                  chunks = take maxBatches
                           $ zip [1 ..] $ chunksOf 5000 trainDataShuffled
              !res <- foldM runBatch params2 chunks
              runEpoch (succ n) res
-       hPutStrLn stderr $ printf "\nEpochs to run/max batches per epoch: %d/%d"
-              epochs maxBatches
        res <- runEpoch 1 parameters0
        let testErrorFinal = 1 - fcnnMnistTest2 testData res
        testErrorFinal @?= expected
@@ -298,6 +298,8 @@ mnistTestCase2T reallyWriteFile
                         , show nParams0, show nParams1, show nParams2
                         , show totalParams, show gamma, show range]
   in testCase name $ do
+       hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
+              prefix epochs maxBatches
        trainData0 <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- loadMnistData testGlyphsPath testLabelsPath
        let !trainData = force $ shuffle (mkStdGen 6) trainData0
@@ -309,7 +311,7 @@ mnistTestCase2T reallyWriteFile
            runBatch ((!params0, !params1, !params2, !paramsX), !times)
                     (k, chunk) = do
              when (k `mod` 100 == 0) $ do
-               hPutStr stderr $ printf "%d " k
+               hPutStrLn stderr $ printf "%s: %d " prefix k
                hFlush stderr
              let f = trainWithLoss
                  (!params0New, !value) =
@@ -321,7 +323,7 @@ mnistTestCase2T reallyWriteFile
                     -> IO (Domains Double, [(POSIXTime, Double)])
            runEpoch n params2times | n > epochs = return params2times
            runEpoch n (!params2, !times2) = do
-             hPutStrLn stderr $ printf "\n[Epoch %d]" n
+             hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let !trainDataShuffled =
                    if n > 1
                    then shuffle (mkStdGen $ n + 5) trainData
@@ -330,8 +332,6 @@ mnistTestCase2T reallyWriteFile
                           $ zip [1 ..] $ chunksOf 1 trainDataShuffled
              res <- foldM runBatch (params2, times2) chunks
              runEpoch (succ n) res
-       hPutStr stderr $ printf "\nEpochs to run/max batches per epoch: %d/%d"
-              epochs maxBatches
        timeBefore <- getPOSIXTime
        (res, times) <- runEpoch 1 (parameters0, [])
        let ppTime (t, l) = init (show (t - timeBefore)) ++ " " ++ show l
@@ -367,6 +367,8 @@ mnistTestCase2D reallyWriteFile miniBatchSize decay
                         , show nParams0, show nParams1, show nParams2
                         , show totalParams, show gamma0, show range]
   in testCase name $ do
+       hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
+              prefix epochs maxBatches
        trainData0 <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- loadMnistData testGlyphsPath testLabelsPath
        let !trainData = force $ shuffle (mkStdGen 6) trainData0
@@ -378,7 +380,7 @@ mnistTestCase2D reallyWriteFile miniBatchSize decay
            runBatch ((!params0, !params1, !params2, !paramsX), !times)
                     (k, chunk) = do
              when (k `mod` 100 == 0) $ do
-               hPutStr stderr $ printf "%d " k
+               hPutStrLn stderr $ printf "%s: %d " prefix k
                hFlush stderr
              let f = trainWithLoss
                  gamma = if decay
@@ -394,7 +396,7 @@ mnistTestCase2D reallyWriteFile miniBatchSize decay
                     -> IO (Domains Double, [(POSIXTime, Double)])
            runEpoch n params2times | n > epochs = return params2times
            runEpoch n (!params2, !times2) = do
-             hPutStrLn stderr $ printf "\n[Epoch %d]" n
+             hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let !trainDataShuffled =
                    if n > 1
                    then shuffle (mkStdGen $ n + 5) trainData
@@ -404,8 +406,6 @@ mnistTestCase2D reallyWriteFile miniBatchSize decay
                           $ chunksOf miniBatchSize trainDataShuffled
              res <- foldM runBatch (params2, times2) chunks
              runEpoch (succ n) res
-       hPutStr stderr $ printf "\nEpochs to run/max batches per epoch: %d/%d"
-              epochs maxBatches
        timeBefore <- getPOSIXTime
        (res, times) <- runEpoch 1 (parameters0, [])
        let ppTime (t, l) = init (show (t - timeBefore)) ++ " " ++ show l
@@ -441,6 +441,8 @@ mnistTestCase2F reallyWriteFile miniBatchSize decay
                         , show nParams0, show nParams1, show nParams2
                         , show totalParams, show gamma0, show range]
   in testCase name $ do
+       hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
+              prefix epochs maxBatches
        trainData0 <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- loadMnistData testGlyphsPath testLabelsPath
        let !trainData = coerce $ force $ shuffle (mkStdGen 6) trainData0
@@ -452,7 +454,7 @@ mnistTestCase2F reallyWriteFile miniBatchSize decay
            runBatch ((!params0, !params1, !params2, !paramsX), !times)
                     (k, chunk) = do
              when (k `mod` 100 == 0) $ do
-               hPutStr stderr $ printf "%d " k
+               hPutStrLn stderr $ printf "%s: %d " prefix k
                hFlush stderr
              let f = trainWithLoss
                  gamma = if decay
@@ -468,7 +470,7 @@ mnistTestCase2F reallyWriteFile miniBatchSize decay
                     -> IO (Domains Double, [(POSIXTime, Double)])
            runEpoch n params2times | n > epochs = return params2times
            runEpoch n (!params2, !times2) = do
-             hPutStrLn stderr $ printf "\n[Epoch %d]" n
+             hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
              let !trainDataShuffled =
                    if n > 1
                    then shuffle (mkStdGen $ n + 5) trainData
@@ -478,8 +480,6 @@ mnistTestCase2F reallyWriteFile miniBatchSize decay
                           $ chunksOf miniBatchSize trainDataShuffled
              res <- foldM runBatch (params2, times2) chunks
              runEpoch (succ n) res
-       hPutStr stderr $ printf "\nEpochs to run/max batches per epoch: %d/%d"
-              epochs maxBatches
        timeBefore <- getPOSIXTime
        (res, times) <- runEpoch 1 (parameters0, [])
        let ppTime (t, l) = init (show (t - timeBefore)) ++ " " ++ show l
@@ -505,20 +505,21 @@ mnistTestCase2S proxy proxy2
                 prefix epochs maxBatches trainWithLoss gamma expected =
   let ((_, _, _, nParamsX), totalParams, range, parametersInit) =
         initializerFixed 44 0.5 (fcnnMnistLenS @widthHidden @widthHidden2)
-      name = prefix ++ " "
+      name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show (valueOf @widthHidden :: Int)
                         , show (valueOf @widthHidden2 :: Int)
                         , show nParamsX, show totalParams
                         , show gamma, show range ]
   in testCase name $ do
+    hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
+           prefix epochs maxBatches
     trainData <- loadMnistData trainGlyphsPath trainLabelsPath
     testData <- loadMnistData testGlyphsPath testLabelsPath
     let runBatch :: Domains Double
                  -> (Int, [MnistData Double])
                  -> IO (Domains Double)
         runBatch (!params0, !params1, !params2, !paramsX) (k, chunk) = do
-          hPutStrLn stderr $ printf "(Batch %d with %d points)" k (length chunk)
           let f = trainWithLoss proxy proxy2
               res = fst $ sgd gamma f chunk
                               (params0, params1, params2, paramsX)
@@ -526,22 +527,22 @@ mnistTestCase2S proxy proxy2
                                           chunk res
               !testScore = fcnnMnistTestS @widthHidden @widthHidden2
                                          testData res
-          hPutStrLn stderr $ printf "Training error:   %.2f%%" ((1 - trainScore) * 100)
-          hPutStrLn stderr $ printf "Validation error: %.2f%%" ((1 - testScore ) * 100)
+              !lenChunk = length chunk
+          hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
+          hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
+          hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
           return res
     let runEpoch :: Int
                  -> Domains Double
                  -> IO (Domains Double)
         runEpoch n params2 | n > epochs = return params2
         runEpoch n params2 = do
-          hPutStrLn stderr $ printf "[Epoch %d]" n
+          hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
           let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
               chunks = take maxBatches
                        $ zip [1 ..] $ chunksOf 5000 trainDataShuffled
           !res <- foldM runBatch params2 chunks
           runEpoch (succ n) res
-    hPutStrLn stderr $ printf "\nEpochs to run/max batches per epoch: %d/%d"
-           epochs maxBatches
     res <- runEpoch 1 parametersInit
     let testErrorFinal = 1 - fcnnMnistTestS @widthHidden @widthHidden2
                                             testData res
