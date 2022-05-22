@@ -15,7 +15,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Random.Normal (mkNormals, normalIO)
 import Foreign (Storable)
 import GHC.TypeLits (KnownNat)
-import GHC.TypeNats (natVal)
+import GHC.TypeNats (natVal, type (+), type (<=))
 import qualified GHC.TypeNats
 import HordeAd.Core.Again
   ( DeltaF,
@@ -27,6 +27,7 @@ import HordeAd.Core.Again
     constS,
     dSingleArg,
     dValue,
+    dotAcross,
     mulS,
     mulSDual,
     reluSDual,
@@ -161,34 +162,45 @@ mlpLabels =
   )
     mlpInputDataList
 
+-- | Prediction for the first class
 mlpPredict ::
-  forall s labels hidden1 hidden2 dim.
-  ( Numeric s,
+  forall n s labels hidden1 hidden2 dim.
+  ( 1 <= labels,
+    Numeric s,
     Ord s,
     KnownNat labels,
     KnownNat hidden1,
     KnownNat hidden2,
+    KnownNat n,
     KnownNat dim,
     Floating s
   ) =>
-  OS.Array '[1, dim] s ->
-  ( OS.Array '[dim, hidden1] s,
-    OS.Array '[hidden1, hidden2] s,
-    OS.Array '[hidden2, labels] s
+  OS.Array [n, dim] s ->
+  ( OS.Array [dim, hidden1] s,
+    OS.Array [hidden1, hidden2] s,
+    OS.Array [hidden2, labels] s
   ) ->
-  s
+  OS.Array '[n] s
 mlpPredict data_ (layer1, layer2, layer3) =
-  let logPrediction :: OS.Array [1, labels] s
+  let logPrediction :: OS.Array [n, labels] s
       logPrediction =
         dValue
           ( pure $
               mlp (constS layer1, constS layer2, constS layer3) (constS data_)
           )
 
+      prediction :: OS.Array [n, labels] s
       prediction = OS.mapA exp logPrediction
+
+      normalization :: OS.Array [n, labels] s
       normalization = prediction `mulS` OS.constant 1
+
+      normalizedPrediction :: OS.Array [n, labels] s
       normalizedPrediction = OS.zipWithA (/) prediction normalization
-   in head (OS.toList normalizedPrediction)
+
+      firstClass :: OS.Array [labels, 1] s
+      firstClass = OS.fromList (1 : replicate (valueOf @labels - 1) 0)
+   in OS.reshape (normalizedPrediction `mulS` firstClass)
 
 mlp ::
   ( Ops (DeltaF s) dual,
@@ -299,16 +311,18 @@ mlpLoop ::
 mlpLoop dir weights n@300 = do
   let f = flip mlpPredict weights
 
-  _ <- flip traverse [2.5, 2.4 .. -2.5] $ \j -> do
-    _ <- flip traverse [-3, -2.9 .. 3] $ \i -> do
-      putStr $
-        if
-            | flip any mlpInputDataList $ \([1, x, y], _) ->
-                (x >= i) && (x < i + 0.1) && (y >= j) && (y < j + 0.1) ->
-              "+"
-            | f (OS.fromList [1, i, j]) > 0.5 -> "X"
-            | otherwise -> "_"
-    putStrLn ""
+  {-
+    _ <- flip traverse [2.5, 2.4 .. -2.5] $ \j -> do
+      _ <- flip traverse [-3, -2.9 .. 3] $ \i -> do
+        putStr $
+          if
+              | flip any mlpInputDataList $ \([1, x, y], _) ->
+                  (x >= i) && (x < i + 0.1) && (y >= j) && (y < j + 0.1) ->
+                "+"
+              | f (OS.fromList [1, i, j]) > 0.5 -> "X"
+              | otherwise -> "_"
+      putStrLn ""
+  -}
 
   let output' = gnuplotImage f n
 
@@ -369,16 +383,32 @@ runLoop = do
   putStrLn ("gnuplot " ++ dir ++ "/mlp.gnuplot")
   putStrLn ("firefox -P default --new-window " ++ dir ++ "/mlp.gif")
 
+type HalfImageDim = 30
+
+type ImageDim = 2 GHC.TypeNats.* HalfImageDim + 1
+
+type ImageSize = ImageDim GHC.TypeNats.* ImageDim
+
+gnuplotImageCoords ::
+  (Storable a, Fractional a) =>
+  OS.Array [ImageSize, 3] a
+gnuplotImageCoords =
+  OS.ravel $
+    OShaped.fromList $ do
+      x <- fmap ((/ 10) . fromIntegral) range
+      y <- fmap ((/ 10) . fromIntegral) range
+      pure (OS.fromList [1, x, y])
+  where
+    range = [- valueOf @HalfImageDim .. valueOf @HalfImageDim]
+
 gnuplotImage ::
-  (OS.Shape sh, OS.Size sh ~ 3) =>
-  (OS.Array sh Double -> Double) ->
+  (OS.Array [ImageSize, Features] Double -> OS.Array '[ImageSize] Double) ->
   Int ->
   String
 gnuplotImage f n = unlines $
   do
-    x <- [-3, -2.9 .. 3]
+    let r = f gnuplotImageCoords
 
-    ( do
-        y <- [-3, -2.9 .. 3]
-        pure (printf "%.3f %.3f %.3f %.3d" x y (f (OS.fromList [1, x, y])) n)
-      )
+    flip map (zip (OShaped.toList $ OS.unravel gnuplotImageCoords) (OS.toList r)) $ \(coord, p) ->
+      let [1, x, y] = OS.toList coord
+       in printf "%.3f %.3f %.3f %.3d" (x :: Double) y p n
