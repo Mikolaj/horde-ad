@@ -206,16 +206,10 @@ library testLibrary
     -- Directories containing source files.
     hs-source-dirs:   test/common
 
--- The data files for this are not included in the cabal package,
--- hence 'buildable: False'.
-test-suite extremelyLongTest
-    -- Import common warning flags.
+-- These tests don't require any dataset, so can be enabled in Hackage package.
+-- This is fully contained in shortTestForCI, so CI doesn't need to run it.
+test-suite minimalTest
     import:           options, exe-options, exe-options-test
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
 
     -- The interface type and version of the test suite.
     type:             exitcode-stdio-1.0
@@ -224,7 +218,7 @@ test-suite extremelyLongTest
     hs-source-dirs:   test
 
     -- The entrypoint to the test suite.
-    main-is:          ExtremelyLongTest.hs
+    main-is:          MinimalTest.hs
 
     -- Test dependencies.
     build-depends: testLibrary
@@ -234,7 +228,6 @@ test-suite extremelyLongTest
 -- The data files for this are not included in the cabal package,
 -- hence 'buildable: False'.
 test-suite shortTestForCI
-    -- Import common warning flags.
     import:           options, exe-options, exe-options-test
 
     if flag(release)
@@ -250,6 +243,30 @@ test-suite shortTestForCI
 
     -- The entrypoint to the test suite.
     main-is:          ShortTestForCI.hs
+
+    -- Test dependencies.
+    build-depends: testLibrary
+      , base
+      , tasty >= 1.0
+
+-- The data files for this are not included in the cabal package,
+-- hence 'buildable: False'.
+test-suite extremelyLongTest
+    import:           options, exe-options, exe-options-test
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
+
+    -- The interface type and version of the test suite.
+    type:             exitcode-stdio-1.0
+
+    -- Directories containing source files.
+    hs-source-dirs:   test
+
+    -- The entrypoint to the test suite.
+    main-is:          ExtremelyLongTest.hs
 
     -- Test dependencies.
     build-depends: testLibrary

@@ -29,7 +29,7 @@ For development, copying the included `cabal.project.local.development`
 to `cabal.project.local` provides a sensible default to run `cabal build` with.
 Then a command like
 
-    cabal test shortTestForCI --enable-optimization --test-options='-p "Simple QuickCheck of gradient vs derivative vs perturbation"'
+    cabal test minimalTest --enable-optimization --test-options='-p "Simple QuickCheck of gradient vs derivative vs perturbation"'
 
 ensures that the code is compiled with opimization and so executes the rather
 computation-intensive testsuite in reasonable time.
@@ -40,24 +40,15 @@ Running tests
 
 The test suite is run in parallel mode by default:
 
-```
-cabal test shortTestForCI    --enable-optimization
-cabal test extremelyLongTest --enable-optimization
-```
+    cabal test shortTestForCI    --enable-optimization
 
 However, this may cause extra printf messages from within the tests to be out of order. To keep your screen tidy, simply redirect `stderr`, e.g.: `2>/dev/null`:
 
-```
-cabal test shortTestForCI    --enable-optimization 2>/dev/null
-cabal test extremelyLongTest --enable-optimization 2>/dev/null
-```
+    cabal test shortTestForCI    --enable-optimization 2>/dev/null
 
 You can also run the test suite sequentially:
 
-```
-cabal test shortTestForCI    --enable-optimization -f test_seq
-cabal test extremelyLongTest --enable-optimization -f test_seq
-```
+    cabal test shortTestForCI    --enable-optimization -f test_seq
 
 
 Coding style
