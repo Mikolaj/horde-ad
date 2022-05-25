@@ -11,7 +11,7 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
-import TestSingleGradient (fquad, quad)
+import TestCommon (fquad, quad)
 
 testTrees :: [TestTree]
 testTrees = [ gdSimpleTests

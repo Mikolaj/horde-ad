@@ -176,7 +176,8 @@ library testLibrary
       buildable: True
 
     -- Modules exported by the library.
-    exposed-modules:  TestConditionalSynth
+    exposed-modules:  TestCommon
+                      TestConditionalSynth
                       TestMnistCNN
                       TestMnistFCNN
                       TestMnistRNN
