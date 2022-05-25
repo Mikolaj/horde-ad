@@ -6,7 +6,7 @@ module TestCommon ((+\), (*\), (**\),
                    sinKonst, sinKonstOut, sinKonstDelay, sinKonstS, sinKonstOutS, sinKonstDelayS,
                    powKonst, powKonstOut, powKonstDelay,
                    listsToParameters,
-                   qcTest, fquad, quad,
+                   quickCheckTest0, fquad, quad,
                    atanReadmeM, atanReadmeDReverse,
                    vatanReadmeM, vatanReadmeDReverse,
                   ) where
@@ -249,14 +249,14 @@ listsToParameters4 (a0, a1, a2, aX) =
   , if null a2 then V.empty else V.singleton $ HM.matrix 1 a2
   , if null aX then V.empty else V.singleton $ OT.fromList [length aX] aX )
 
-qcTest :: TestName
+quickCheckTest0 :: TestName
        -> (forall d r m. ( DualMonad d r m
                          , Floating (Out (DualNumber d (Vector r)))
                          , Floating (Out (DualNumber d (OS.Array '[2] r))) )
            => DualNumberVariables d r -> m (DualNumber d r))
        -> ((Double, Double, Double) -> ([Double], [Double], [Double], [Double]))
        -> TestTree
-qcTest txt f fArg =
+quickCheckTest0 txt f fArg =
   qcTestRanges txt f (listsToParameters4 . fArg) ((-2, -2, -2), (2, 2, 2)) ((-1e-7, -1e-7, -1e-7), (1e-7, 1e-7, 1e-7)) (-10, 10)
 
 -- A quick consistency check of all the kinds of derivatives and gradients

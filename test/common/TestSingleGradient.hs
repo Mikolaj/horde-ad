@@ -155,22 +155,22 @@ testDFastForward =
 quickCheckForwardAndBackward :: TestTree
 quickCheckForwardAndBackward =
   testGroup "Simple QuickCheck of gradient vs derivative vs perturbation"
-    [ qcTest "fquad" fquad (\(x, y, _z) -> ([x, y], [], [], []))
-    , qcTest "atanReadmeM" atanReadmeM
+    [ quickCheckTest0 "fquad" fquad (\(x, y, _z) -> ([x, y], [], [], []))
+    , quickCheckTest0 "atanReadmeM" atanReadmeM
              (\(x, y, z) -> ([x, y, z], [], [], []))
-    , qcTest "vatanReadmeM" vatanReadmeM
+    , quickCheckTest0 "vatanReadmeM" vatanReadmeM
              (\(x, y, z) -> ([], [x, y, z], [], []))
-    , qcTest "sinKonst" sinKonst  -- powKonst NaNs immediately
+    , quickCheckTest0 "sinKonst" sinKonst  -- powKonst NaNs immediately
              (\(x, _, z) -> ([], [x, z], [], []))
-    , qcTest "sinKonstOut" sinKonstOut
+    , quickCheckTest0 "sinKonstOut" sinKonstOut
              (\(x, _, z) -> ([], [x, z], [], []))
-    , qcTest "sinKonstDelay" sinKonstDelay
+    , quickCheckTest0 "sinKonstDelay" sinKonstDelay
              (\(x, _, z) -> ([], [x, z], [], []))
-    , qcTest "sinKonstS" sinKonstS
+    , quickCheckTest0 "sinKonstS" sinKonstS
              (\(x, _, z) -> ([], [], [], [x, z]))
-    , qcTest "sinKonstOutS" sinKonstOutS
+    , quickCheckTest0 "sinKonstOutS" sinKonstOutS
              (\(x, _, z) -> ([], [], [], [x, z]))
-    , qcTest "sinKonstDelayS" sinKonstDelayS
+    , quickCheckTest0 "sinKonstDelayS" sinKonstDelayS
              (\(x, _, z) -> ([], [], [], [x, z]))
    ]
 
