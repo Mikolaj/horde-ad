@@ -644,28 +644,12 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
               in (V.empty, V.empty, V.empty, qX)
             parametersT = paramsToT parameters
             dsT = paramsToT ds
-            ff = dFastForward f parameters ds
-            ffP@(_, ffPValue) = dFastForward fP parameters ds
-            perturbedffP@(_, perturbedffPValue) =
-              dFastForward fP parameters parametersPerturbation
-            ffT = dFastForward fT parametersT dsT
-            close a b = abs (a - b) <= 1e-4
-            closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
-            dfDot fDot argsDot dsDot =
-              let (res, value) = dReverse 1 fDot argsDot
-              in (dotParameters res dsDot, value)
-        in closeEq ff ffP
-           .&&. closeEq ff ffT
-           .&&. dForward f parameters ds === ff
-           .&&. closeEq (dfDot f parameters ds) ff
-           .&&. dForward fP parameters ds === ffP
-           .&&. closeEq (dfDot fP parameters ds) ffP
-           .&&. dForward fT parametersT dsT === ffT
-           .&&. closeEq (dfDot fT parametersT dsT) ffT
-           .&&. ffPValue == perturbedffPValue
-           .&&. close (primalValue fP (addParameters parameters
-                                                     parametersPerturbation))
-                      (ffPValue + fst perturbedffP)
+        in
+            -- TODO: this check is lost: closeEq ff ffP
+            -- TODO: this check is lost: closeEq ff ffT
+            (qcPropDom f  parameters  ds  parametersPerturbation 1) .&&.
+            (qcPropDom fP parameters  ds  parametersPerturbation 1) .&&.
+            (qcPropDom fT parametersT dsT parametersPerturbation 1)
   ]
 
 mnistCNNTestsShort :: TestTree

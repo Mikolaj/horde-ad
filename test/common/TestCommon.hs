@@ -262,6 +262,7 @@ quickCheckTest0 txt f fArg =
 -- A quick consistency check of all the kinds of derivatives and gradients
 -- and all kinds of computing the value of the objective function.
 qcPropDom :: (forall d r m. ( DualMonad d r m
+                         , r ~ Double
                          , Floating (Out (DualNumber d (Vector r)))
                          , Floating (Out (DualNumber d (OS.Array '[2] r))) )
            => DualNumberVariables d r -> m (DualNumber d r))
