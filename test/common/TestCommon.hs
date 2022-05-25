@@ -261,21 +261,17 @@ quickCheckTest0 txt f fArg =
 
 -- A quick consistency check of all the kinds of derivatives and gradients
 -- and all kinds of computing the value of the objective function.
-qcProp :: (forall d r m. ( DualMonad d r m
+qcPropDom :: (forall d r m. ( DualMonad d r m
                          , Floating (Out (DualNumber d (Vector r)))
                          , Floating (Out (DualNumber d (OS.Array '[2] r))) )
            => DualNumberVariables d r -> m (DualNumber d r))
-       -> ((Double, Double, Double) -> Domains Double)
-       -> (Double, Double, Double)
-       -> (Double, Double, Double)
-       -> (Double, Double, Double)
+       -> Domains Double
+       -> Domains Double
+       -> Domains Double
        -> Double
        -> Property
-qcProp f fArgDom xyz dsRaw perturbationRaw dt =
-      let args = fArgDom xyz
-          ds = fArgDom dsRaw
-          perturbation = fArgDom perturbationRaw
-          ff@(derivative, ffValue) = dFastForward f args ds
+qcPropDom f args ds perturbation dt =
+      let ff@(derivative, ffValue) = dFastForward f args ds
           (derivativeAtPerturbation, valueAtPerturbation) =
             dFastForward f args perturbation
           close a b = abs (a - b) <= 1e-4
@@ -297,6 +293,24 @@ qcProp f fArgDom xyz dsRaw perturbationRaw dt =
 
 -- A quick consistency check of all the kinds of derivatives and gradients
 -- and all kinds of computing the value of the objective function.
+qcPropFArg :: (forall d r m. ( DualMonad d r m
+                         , Floating (Out (DualNumber d (Vector r)))
+                         , Floating (Out (DualNumber d (OS.Array '[2] r))) )
+           => DualNumberVariables d r -> m (DualNumber d r))
+       -> ((Double, Double, Double) -> Domains Double)
+       -> (Double, Double, Double)
+       -> (Double, Double, Double)
+       -> (Double, Double, Double)
+       -> Double
+       -> Property
+qcPropFArg f fArgDom xyz dsRaw perturbationRaw dt =
+      let args = fArgDom xyz
+          ds = fArgDom dsRaw
+          perturbation = fArgDom perturbationRaw
+      in qcPropDom f args ds perturbation dt
+
+-- A quick consistency check of all the kinds of derivatives and gradients
+-- and all kinds of computing the value of the objective function.
 qcTestRanges :: TestName
        -> (forall d r m. ( DualMonad d r m
                          , Floating (Out (DualNumber d (Vector r)))
@@ -312,7 +326,7 @@ qcTestRanges txt f fArgDom dsRange perturbationRange dtRange =
   forAll (choose dsRange) $ \xyz dsRaw ->
   forAll (choose perturbationRange) $ \perturbationRaw ->
   forAll (choose dtRange) $ \dt ->
-  qcProp f fArgDom xyz dsRaw perturbationRaw dt
+  qcPropFArg f fArgDom xyz dsRaw perturbationRaw dt
 
 -- A function that goes from `R^3` to `R^2`, with a representation
 -- of the input and the output tuple that is convenient for interfacing
