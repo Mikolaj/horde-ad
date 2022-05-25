@@ -257,6 +257,18 @@ qcTest :: TestName
        -> ((Double, Double, Double) -> ([Double], [Double], [Double], [Double]))
        -> TestTree
 qcTest txt f fArg =
+  quickCheckTest txt f fArg
+
+-- A quick consistency check of all the kinds of derivatives and gradients
+-- and all kinds of computing the value of the objective function.
+quickCheckTest :: TestName
+       -> (forall d r m. ( DualMonad d r m
+                         , Floating (Out (DualNumber d (Vector r)))
+                         , Floating (Out (DualNumber d (OS.Array '[2] r))) )
+           => DualNumberVariables d r -> m (DualNumber d r))
+       -> ((Double, Double, Double) -> ([Double], [Double], [Double], [Double]))
+       -> TestTree
+quickCheckTest txt f fArg =
   testProperty txt
   $ forAll (choose ((-2, -2, -2), (2, 2, 2))) $ \xyz dsRaw ->
     forAll (choose ( (-1e-7, -1e-7, -1e-7)
