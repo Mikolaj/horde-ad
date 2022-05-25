@@ -257,11 +257,11 @@ qcTest :: TestName
        -> ((Double, Double, Double) -> ([Double], [Double], [Double], [Double]))
        -> TestTree
 qcTest txt f fArg =
-  quickCheckTest txt f (listsToParameters4 . fArg) ((-2, -2, -2), (2, 2, 2)) ((-1e-7, -1e-7, -1e-7), (1e-7, 1e-7, 1e-7)) (-10, 10)
+  qcTestRanges txt f (listsToParameters4 . fArg) ((-2, -2, -2), (2, 2, 2)) ((-1e-7, -1e-7, -1e-7), (1e-7, 1e-7, 1e-7)) (-10, 10)
 
 -- A quick consistency check of all the kinds of derivatives and gradients
 -- and all kinds of computing the value of the objective function.
-quickCheckTest :: TestName
+qcTestRanges :: TestName
        -> (forall d r m. ( DualMonad d r m
                          , Floating (Out (DualNumber d (Vector r)))
                          , Floating (Out (DualNumber d (OS.Array '[2] r))) )
@@ -271,7 +271,7 @@ quickCheckTest :: TestName
        -> ((Double, Double, Double), (Double, Double, Double))
        -> (Double, Double)
        -> TestTree
-quickCheckTest txt f fArgDom dsRange perturbationRange dtRange =
+qcTestRanges txt f fArgDom dsRange perturbationRange dtRange =
   testProperty txt
   $ forAll (choose dsRange) $ \xyz dsRaw ->
     forAll (choose perturbationRange) $ \perturbationRaw ->
