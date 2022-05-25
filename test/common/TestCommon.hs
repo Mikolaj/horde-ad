@@ -6,7 +6,7 @@ module TestCommon ((+\), (*\), (**\),
                    sinKonst, sinKonstOut, sinKonstDelay, sinKonstS, sinKonstOutS, sinKonstDelayS,
                    powKonst, powKonstOut, powKonstDelay,
                    listsToParameters,
-                   quickCheckTest0, fquad, quad,
+                   qcPropDom, quickCheckTest0, fquad, quad,
                    atanReadmeM, atanReadmeDReverse,
                    vatanReadmeM, vatanReadmeDReverse,
                   ) where
@@ -272,8 +272,7 @@ qcPropDom :: (forall d r m. ( DualMonad d r m
        -> Property
 qcPropDom f args ds perturbation dt =
       let ff@(derivative, ffValue) = dFastForward f args ds
-          (derivativeAtPerturbation, valueAtPerturbation) =
-            dFastForward f args perturbation
+          (derivativeAtPerturbation, valueAtPerturbation) = dFastForward f args perturbation
           close a b = abs (a - b) <= 1e-4
           (gradient, revValue) = dReverse dt f args
       in -- Two forward derivative implementations agree fully:
