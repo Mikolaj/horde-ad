@@ -261,21 +261,17 @@ quickCheckTest0 txt f fArg =
 
 -- A quick consistency check of all the kinds of derivatives and gradients
 -- and all kinds of computing the value of the objective function.
-qcTestRanges :: TestName
-       -> (forall d r m. ( DualMonad d r m
+qcProp :: (forall d r m. ( DualMonad d r m
                          , Floating (Out (DualNumber d (Vector r)))
                          , Floating (Out (DualNumber d (OS.Array '[2] r))) )
            => DualNumberVariables d r -> m (DualNumber d r))
        -> ((Double, Double, Double) -> Domains Double)
-       -> ((Double, Double, Double), (Double, Double, Double))
-       -> ((Double, Double, Double), (Double, Double, Double))
-       -> (Double, Double)
-       -> TestTree
-qcTestRanges txt f fArgDom dsRange perturbationRange dtRange =
-  testProperty txt
-  $ forAll (choose dsRange) $ \xyz dsRaw ->
-    forAll (choose perturbationRange) $ \perturbationRaw ->
-    forAll (choose dtRange) $ \dt ->
+       -> (Double, Double, Double)
+       -> (Double, Double, Double)
+       -> (Double, Double, Double)
+       -> Double
+       -> Property
+qcProp f fArgDom xyz dsRaw perturbationRaw dt =
       let args = fArgDom xyz
           ds = fArgDom dsRaw
           perturbation = fArgDom perturbationRaw
@@ -298,6 +294,25 @@ qcTestRanges txt f fArgDom dsRange perturbationRange dtRange =
                                  f (addParameters
                                                   args perturbation))
                     (ffValue + derivativeAtPerturbation)
+
+-- A quick consistency check of all the kinds of derivatives and gradients
+-- and all kinds of computing the value of the objective function.
+qcTestRanges :: TestName
+       -> (forall d r m. ( DualMonad d r m
+                         , Floating (Out (DualNumber d (Vector r)))
+                         , Floating (Out (DualNumber d (OS.Array '[2] r))) )
+           => DualNumberVariables d r -> m (DualNumber d r))
+       -> ((Double, Double, Double) -> Domains Double)
+       -> ((Double, Double, Double), (Double, Double, Double))
+       -> ((Double, Double, Double), (Double, Double, Double))
+       -> (Double, Double)
+       -> TestTree
+qcTestRanges txt f fArgDom dsRange perturbationRange dtRange =
+  testProperty txt $
+  forAll (choose dsRange) $ \xyz dsRaw ->
+  forAll (choose perturbationRange) $ \perturbationRaw ->
+  forAll (choose dtRange) $ \dt ->
+  qcProp f fArgDom xyz dsRaw perturbationRaw dt
 
 -- A function that goes from `R^3` to `R^2`, with a representation
 -- of the input and the output tuple that is convenient for interfacing
