@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-module TestCommon (dReverse0, dReverse1, fX, fX1Y, fXXY, fXYplusZ, fXtoY, freluX,
+module TestCommon ((+\), (*\), (**\),
+                   dReverse0, dReverse1, fX, fX1Y, fXXY, fXYplusZ, fXtoY, freluX,
                    vec_omit_scalarSum_aux, sumElementsV, altSumElementsV,
                    sinKonst, sinKonstOut, sinKonstDelay, sinKonstS, sinKonstOutS, sinKonstDelayS,
                    powKonst, powKonstOut, powKonstDelay,

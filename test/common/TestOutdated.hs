@@ -17,6 +17,7 @@ import           Test.Tasty.HUnit hiding (assert)
 import HordeAd
 import HordeAd.Core.OutdatedOptimizer
 import HordeAd.Tool.MnistTools
+import TestCommon ((+\), (*\))
 
 type DualNumberD = DualNumber 'DModeGradient Double
 
@@ -33,12 +34,6 @@ testTrees = [ fitTests
             , smartFit3TestsL
             , stochasticFit3Tests
             ]
-
-(+\) :: DualMonad d r m => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
-(+\) u v = returnLet $ u + v
-
-(*\) :: DualMonad d r m => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
-(*\) u v = returnLet $ u * v
 
 scaleDual :: DualMonad d r m => r -> DualNumber d r -> m (DualNumber d r)
 scaleDual r u = returnLet $ scale r u
