@@ -6,7 +6,7 @@ module TestCommon ((+\), (*\), (**\),
                    sinKonst, sinKonstOut, sinKonstDelay, sinKonstS, sinKonstOutS, sinKonstDelayS,
                    powKonst, powKonstOut, powKonstDelay,
                    listsToParameters,
-                   cmpTwoProp, cmpTwoPropSimple,
+                   cmpTwo, cmpTwoSimple,
                    qcPropDom, quickCheckTest0, fquad, quad,
                    atanReadmeM, atanReadmeDReverse,
                    vatanReadmeM, vatanReadmeDReverse,
@@ -257,7 +257,7 @@ quickCheckTest0 txt f fArg =
   qcTestRanges txt f (listsToParameters4 . fArg) ((-2, -2, -2), (2, 2, 2)) ((-1e-7, -1e-7, -1e-7), (1e-7, 1e-7, 1e-7)) (-10, 10)
 
 -- A quick check to compare the derivatives and values of 2 given functions.
-cmpTwoProp :: (forall d r m. ( DualMonad d r m
+cmpTwo :: (forall d r m. ( DualMonad d r m
                          , r ~ Double
                          , Floating (Out (DualNumber d (Vector r)))
                          , Floating (Out (DualNumber d (OS.Array '[2] r))) )
@@ -272,7 +272,7 @@ cmpTwoProp :: (forall d r m. ( DualMonad d r m
        -> Domains Double
        -> Domains Double
        -> Property
-cmpTwoProp f1 f2 params1 params2 ds1 ds2 =
+cmpTwo f1 f2 params1 params2 ds1 ds2 =
   let
     close a b = abs (a - b) <= 1e-4
     closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
@@ -280,7 +280,7 @@ cmpTwoProp f1 f2 params1 params2 ds1 ds2 =
     closeEq (dFastForward f1 params1 ds1) (dFastForward f2 params2 ds2)
 
 -- A quick check to compare the derivatives and values of 2 given functions.
-cmpTwoPropSimple :: (forall d r m. ( DualMonad d r m
+cmpTwoSimple :: (forall d r m. ( DualMonad d r m
                          , r ~ Double
                          , Floating (Out (DualNumber d (Vector r)))
                          , Floating (Out (DualNumber d (OS.Array '[2] r))) )
@@ -293,8 +293,8 @@ cmpTwoPropSimple :: (forall d r m. ( DualMonad d r m
        -> Domains Double
        -> Domains Double
        -> Property
-cmpTwoPropSimple f1 f2 parameters ds =
-  cmpTwoProp f1 f2 parameters parameters ds ds
+cmpTwoSimple f1 f2 parameters ds =
+  cmpTwo f1 f2 parameters parameters ds ds
 
 -- A quick consistency check of all the kinds of derivatives and gradients
 -- and all kinds of computing the value of the objective function.
