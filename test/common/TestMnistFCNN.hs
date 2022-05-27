@@ -703,10 +703,12 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             fOneHot = fcnnMnistLoss2 mnistDataOneHot
             fFused = fcnnMnistLossFused2 mnistDataOneHot
         in
-            -- TODO: this check is lost: closeEq ffOneHot ffFused
             (qcPropDom f       parameters ds parametersPerturbation 1) .&&.
             (qcPropDom fOneHot parameters ds parametersPerturbation 1) .&&.
-            (qcPropDom fFused  parameters ds parametersPerturbation 1)
+            (qcPropDom fFused  parameters ds parametersPerturbation 1) .&&.
+            (cmpTwoProp f       fOneHot parameters ds) .&&.
+            (cmpTwoProp f       fFused  parameters ds) .&&.
+            (cmpTwoProp fOneHot fFused  parameters ds)
   ]
 
 bigMnistTests :: TestTree

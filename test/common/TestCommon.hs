@@ -6,6 +6,7 @@ module TestCommon ((+\), (*\), (**\),
                    sinKonst, sinKonstOut, sinKonstDelay, sinKonstS, sinKonstOutS, sinKonstDelayS,
                    powKonst, powKonstOut, powKonstDelay,
                    listsToParameters,
+                   cmpTwoProp,
                    qcPropDom, quickCheckTest0, fquad, quad,
                    atanReadmeM, atanReadmeDReverse,
                    vatanReadmeM, vatanReadmeDReverse,
@@ -254,6 +255,27 @@ quickCheckTest0 :: TestName
        -> TestTree
 quickCheckTest0 txt f fArg =
   qcTestRanges txt f (listsToParameters4 . fArg) ((-2, -2, -2), (2, 2, 2)) ((-1e-7, -1e-7, -1e-7), (1e-7, 1e-7, 1e-7)) (-10, 10)
+
+-- A quick check to compare the derivatives and values of 2 given functions.
+cmpTwoProp :: (forall d r m. ( DualMonad d r m
+                         , r ~ Double
+                         , Floating (Out (DualNumber d (Vector r)))
+                         , Floating (Out (DualNumber d (OS.Array '[2] r))) )
+           => DualNumberVariables d r -> m (DualNumber d r))
+       ->     (forall d r m. ( DualMonad d r m
+                         , r ~ Double
+                         , Floating (Out (DualNumber d (Vector r)))
+                         , Floating (Out (DualNumber d (OS.Array '[2] r))) )
+           => DualNumberVariables d r -> m (DualNumber d r))
+       -> Domains Double
+       -> Domains Double
+       -> Property
+cmpTwoProp f1 f2 parameters ds =
+  let
+    close a b = abs (a - b) <= 1e-4
+    closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
+  in
+    closeEq (dFastForward f1 parameters ds) (dFastForward f2 parameters ds)
 
 -- A quick consistency check of all the kinds of derivatives and gradients
 -- and all kinds of computing the value of the objective function.
