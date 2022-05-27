@@ -84,10 +84,10 @@ cmpTwo :: (forall d r m. ( DualMonad d r m
        -> Property
 cmpTwo f1 f2 params1 params2 ds1 ds2 =
   let
-    close a b = abs (a - b) <= 1e-4
-    closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
+    close1 a b = abs (a - b) <= 1e-4
+    close2 (a1, b1) (a2, b2) = close1 a1 a2 .&&. close1 b1 b2
   in
-    closeEq (dFastForward f1 params1 ds1) (dFastForward f2 params2 ds2)
+    close2 (dFastForward f1 params1 ds1) (dFastForward f2 params2 ds2)
 
 -- A quick check to compare the derivatives and values of 2 given functions.
 cmpTwoSimple :: (forall d r m. ( DualMonad d r m
