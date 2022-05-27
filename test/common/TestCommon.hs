@@ -30,6 +30,14 @@ import HordeAd hiding (sumElementsVectorOfDual)
       => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
 (**\) u v = returnLet $ u ** v
 
+-- Checks if 2 numbers are close enough.
+close1 :: Double -> Double -> Bool
+close1 a b = abs (a - b) <= 1e-4
+
+-- Checks if 2 number pairs are close enough.
+close2 :: (Double, Double) -> (Double, Double) -> Property
+close2 (a1, b1) (a2, b2) = (close1 a1 a2) .&&. (close1 b1 b2)
+
 quad :: DualMonad d r m
      => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
 quad x y = do
@@ -83,11 +91,7 @@ cmpTwo :: (forall d r m. ( DualMonad d r m
        -> Domains Double
        -> Property
 cmpTwo f1 f2 params1 params2 ds1 ds2 =
-  let
-    close1 a b = abs (a - b) <= 1e-4
-    close2 (a1, b1) (a2, b2) = close1 a1 a2 .&&. close1 b1 b2
-  in
-    close2 (dFastForward f1 params1 ds1) (dFastForward f2 params2 ds2)
+  close2 (dFastForward f1 params1 ds1) (dFastForward f2 params2 ds2)
 
 -- A quick check to compare the derivatives and values of 2 given functions.
 cmpTwoSimple :: (forall d r m. ( DualMonad d r m
@@ -121,22 +125,21 @@ qcPropDom :: (forall d r m. ( DualMonad d r m
 qcPropDom f args ds perturbation dt =
       let ff@(derivative, ffValue) = dFastForward f args ds
           (derivativeAtPerturbation, valueAtPerturbation) = dFastForward f args perturbation
-          close a b = abs (a - b) <= 1e-4
           (gradient, revValue) = dReverse dt f args
       in -- Two forward derivative implementations agree fully:
          dForward f args ds === ff
          -- Objective function value from gradients is the same.
          .&&. ffValue == revValue
          -- Gradients and derivatives agree.
-         .&&. close (dt * derivative)
-                    (dotParameters gradient ds)
+         .&&. close1 (dt * derivative)
+                     (dotParameters gradient ds)
          -- Objective function value is unaffected by perturbation.
          .&&. ffValue == valueAtPerturbation
          -- Derivative approximates the perturbation of value.
-         .&&. close (primalValue
-                                 f (addParameters
-                                                  args perturbation))
-                    (ffValue + derivativeAtPerturbation)
+         .&&. close1 (primalValue
+                                  f (addParameters
+                                                   args perturbation))
+                     (ffValue + derivativeAtPerturbation)
 
 -- A quick consistency check of all the kinds of derivatives and gradients
 -- and all kinds of computing the value of the objective function.
