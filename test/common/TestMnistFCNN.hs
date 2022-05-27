@@ -706,9 +706,9 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             (qcPropDom f       parameters ds parametersPerturbation 1) .&&.
             (qcPropDom fOneHot parameters ds parametersPerturbation 1) .&&.
             (qcPropDom fFused  parameters ds parametersPerturbation 1) .&&.
-            (cmpTwoProp f       fOneHot parameters ds) .&&.
-            (cmpTwoProp f       fFused  parameters ds) .&&.
-            (cmpTwoProp fOneHot fFused  parameters ds)
+            (cmpTwoPropSimple  f       fOneHot parameters ds) .&&.
+            (cmpTwoPropSimple  f       fFused  parameters ds) .&&.
+            (cmpTwoPropSimple  fOneHot fFused  parameters ds)
   ]
 
 bigMnistTests :: TestTree

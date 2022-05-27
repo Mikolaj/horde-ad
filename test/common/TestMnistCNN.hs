@@ -590,7 +590,7 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
         in
             (qcPropDom f  parameters ds parametersPerturbation 1) .&&.
             (qcPropDom fP parameters ds parametersPerturbation 1) .&&.
-            (cmpTwoProp f fP parameters ds)
+            (cmpTwoPropSimple f fP parameters ds)
 
   , testProperty "Compare gradients and two forward derivatives for convMnistTestCNN and convMnistTestCNNP" $
       \seed ->
@@ -645,11 +645,11 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
             parametersT = paramsToT parameters
             dsT = paramsToT ds
         in
-            -- TODO: this check is lost: closeEq ff ffT
             (qcPropDom f  parameters  ds  parametersPerturbation 1) .&&.
             (qcPropDom fP parameters  ds  parametersPerturbation 1) .&&.
             (qcPropDom fT parametersT dsT parametersPerturbation 1) .&&.
-            (cmpTwoProp f fP parameters ds)
+            (cmpTwoPropSimple f fP parameters ds) .&&.
+            (cmpTwoProp f fT parameters parametersT ds dsT)
   ]
 
 mnistCNNTestsShort :: TestTree
