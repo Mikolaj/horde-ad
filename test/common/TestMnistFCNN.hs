@@ -703,10 +703,10 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             fOneHot = fcnnMnistLoss2 mnistDataOneHot
             fFused = fcnnMnistLossFused2 mnistDataOneHot
         in
-            (qcPropDom f       parameters ds parametersPerturbation 1) .&&.
-            (qcPropDom fOneHot parameters ds parametersPerturbation 1) .&&.
-            (qcPropDom fFused  parameters ds parametersPerturbation 1) .&&.
-            (cmpTwoSimple fOneHot fFused  parameters ds)
+            qcPropDom f       parameters ds parametersPerturbation 1 .&&.
+            qcPropDom fOneHot parameters ds parametersPerturbation 1 .&&.
+            qcPropDom fFused  parameters ds parametersPerturbation 1 .&&.
+            cmpTwoSimple fOneHot fFused  parameters ds
   ]
 
 bigMnistTests :: TestTree
