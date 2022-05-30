@@ -30,11 +30,11 @@ import HordeAd hiding (sumElementsVectorOfDual)
 (**\) u v = returnLet $ u ** v
 
 -- Checks if 2 numbers are close enough.
-close1 :: Double -> Double -> Bool
+close1 :: forall r. (Ord r, Fractional r) => r -> r -> Bool
 close1 a b = abs (a - b) <= 1e-4
 
 -- Checks if 2 number pairs are close enough.
-close2 :: (Double, Double) -> (Double, Double) -> Property
+close2 :: forall r. (Ord r, Fractional r) => (r,r) -> (r,r) -> Property
 close2 (a1, b1) (a2, b2) = (close1 a1 a2) .&&. (close1 b1 b2)
 
 quad :: DualMonad d r m
