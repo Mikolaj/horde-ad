@@ -52,7 +52,7 @@ fquad variables = do
       y = var0 variables 1
   quad x y
 
-listsToParameters :: ([Double], [Double]) -> Domains Double
+listsToParameters :: forall r. (OT.Storable r) => ([r], [r]) -> Domains r
 listsToParameters (a0, a1) =
   (V.fromList a0, V.singleton $ V.fromList a1, V.empty, V.empty)
 
