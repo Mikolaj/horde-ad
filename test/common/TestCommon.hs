@@ -1,5 +1,4 @@
 {-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
-{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 module TestCommon ((+\), (*\), (**\),
                    listsToParameters,
                    cmpTwo, cmpTwoSimple,
