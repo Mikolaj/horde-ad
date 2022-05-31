@@ -31,11 +31,13 @@ import HordeAd.Core.DualClass (Dual)
 (**\) u v = returnLet $ u ** v
 
 -- Checks if 2 numbers are close enough.
-close1 :: forall r. (Ord r, Fractional r) => r -> r -> Bool
+close1 :: forall r. (Ord r, Fractional r)
+          => r -> r -> Bool
 close1 a b = abs (a - b) <= 1e-4
 
 -- Checks if 2 number pairs are close enough.
-close2 :: forall r. (Ord r, Fractional r) => (r,r) -> (r,r) -> Property
+close2 :: forall r. (Ord r, Fractional r)
+          => (r,r) -> (r,r) -> Property
 close2 (a1, b1) (a2, b2) = close1 a1 a2 .&&. close1 b1 b2
 
 quad :: DualMonad d r m
@@ -53,7 +55,8 @@ fquad variables = do
       y = var0 variables 1
   quad x y
 
-listsToParameters :: forall r. (OT.Storable r) => ([r], [r]) -> Domains r
+listsToParameters :: forall r. (OT.Storable r)
+                  => ([r], [r]) -> Domains r
 listsToParameters (a0, a1) =
   (V.fromList a0, V.singleton $ V.fromList a1, V.empty, V.empty)
 
@@ -103,10 +106,10 @@ cmpTwoSimple f1 f2 parameters ds =
 -- A quick consistency check of all the kinds of derivatives and gradients
 -- and all kinds of computing the value of the objective function.
 qcPropDom :: (forall d r m. ( DualMonad d r m
-                         , r ~ Double
-                         , Floating (Out (DualNumber d (Vector r)))
-                         , Floating (Out (DualNumber d (OS.Array '[2] r))) )
-           => DualNumberVariables d r -> m (DualNumber d r))
+                            , r ~ Double
+                            , Floating (Out (DualNumber d (Vector r)))
+                            , Floating (Out (DualNumber d (OS.Array '[2] r))) )
+              => DualNumberVariables d r -> m (DualNumber d r))
        -> Domains Double
        -> Domains Double
        -> Domains Double
@@ -136,7 +139,7 @@ qcPropDom f args ds perturbation dt =
 qcPropFArg :: (forall d r m. ( DualMonad d r m
                          , Floating (Out (DualNumber d (Vector r)))
                          , Floating (Out (DualNumber d (OS.Array '[2] r))) )
-           => DualNumberVariables d r -> m (DualNumber d r))
+               => DualNumberVariables d r -> m (DualNumber d r))
        -> ((Double, Double, Double) -> Domains Double)
        -> (Double, Double, Double)
        -> (Double, Double, Double)
