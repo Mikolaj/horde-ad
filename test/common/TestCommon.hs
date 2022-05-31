@@ -16,6 +16,7 @@ import           Test.Tasty
 import           Test.Tasty.QuickCheck
 
 import HordeAd hiding (sumElementsVectorOfDual)
+import HordeAd.Core.DualClass (Dual)
 
 (+\) :: DualMonad d r m
      => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
@@ -74,38 +75,28 @@ quickCheckTest0 txt f fArg =
   qcTestRanges txt f (listsToParameters4 . fArg) ((-2, -2, -2), (2, 2, 2)) ((-1e-7, -1e-7, -1e-7), (1e-7, 1e-7, 1e-7)) (-10, 10)
 
 -- A quick check to compare the derivatives and values of 2 given functions.
-cmpTwo :: (forall d r m. ( DualMonad d r m
-                         , r ~ Double
-                         , Floating (Out (DualNumber d (Vector r)))
-                         , Floating (Out (DualNumber d (OS.Array '[2] r))) )
-           => DualNumberVariables d r -> m (DualNumber d r))
-       ->     (forall d r m. ( DualMonad d r m
-                         , r ~ Double
-                         , Floating (Out (DualNumber d (Vector r)))
-                         , Floating (Out (DualNumber d (OS.Array '[2] r))) )
-           => DualNumberVariables d r -> m (DualNumber d r))
-       -> Domains Double
-       -> Domains Double
-       -> Domains Double
-       -> Domains Double
-       -> Property
+cmpTwo
+  :: ( m ~ DualMonadForward r, d ~ 'DModeDerivative, Dual d r ~ r
+     , DualMonad d r m )
+  => (DualNumberVariables d r -> m (DualNumber d r))
+  -> (DualNumberVariables d r -> m (DualNumber d r))
+  -> Domains r
+  -> Domains r
+  -> Domains r
+  -> Domains r
+  -> Property
 cmpTwo f1 f2 params1 params2 ds1 ds2 =
   close2 (dFastForward f1 params1 ds1) (dFastForward f2 params2 ds2)
 
 -- A quick check to compare the derivatives and values of 2 given functions.
-cmpTwoSimple :: (forall d r m. ( DualMonad d r m
-                         , r ~ Double
-                         , Floating (Out (DualNumber d (Vector r)))
-                         , Floating (Out (DualNumber d (OS.Array '[2] r))) )
-                 => DualNumberVariables d r -> m (DualNumber d r))
-       ->     (forall d r m. ( DualMonad d r m
-                         , r ~ Double
-                         , Floating (Out (DualNumber d (Vector r)))
-                         , Floating (Out (DualNumber d (OS.Array '[2] r))) )
-           => DualNumberVariables d r -> m (DualNumber d r))
-       -> Domains Double
-       -> Domains Double
-       -> Property
+cmpTwoSimple
+  :: ( m ~ DualMonadForward r, d ~ 'DModeDerivative, Dual d r ~ r
+     , DualMonad d r m )
+  => (DualNumberVariables d r -> m (DualNumber d r))
+  -> (DualNumberVariables d r -> m (DualNumber d r))
+  -> Domains r
+  -> Domains r
+  -> Property
 cmpTwoSimple f1 f2 parameters ds =
   cmpTwo f1 f2 parameters parameters ds ds
 
