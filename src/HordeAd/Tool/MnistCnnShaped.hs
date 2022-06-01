@@ -81,11 +81,11 @@ convMnistTwoS
   -> DualNumber d (OS.Array '[ num_hidden
                              , out_channels
                                  GHC.TypeLits.*
-                                   ((in_height + kheight_minus_1) `Div` 2
-                                    + kheight_minus_1) `Div` 2
+                                   (((in_height + kheight_minus_1) `Div` 2
+                                     + kheight_minus_1) `Div` 2)
                                  GHC.TypeLits.*
-                                   ((in_width + kwidth_minus_1) `Div` 2
-                                    + kheight_minus_1) `Div` 2
+                                   (((in_width + kwidth_minus_1) `Div` 2
+                                     + kwidth_minus_1) `Div` 2)
                              ] r)
   -> DualNumber d (OS.Array '[num_hidden] r)
   -> DualNumber d (OS.Array '[SizeMnistLabel, num_hidden] r)
@@ -96,7 +96,7 @@ convMnistTwoS x ker1 bias1 ker2 bias2
   t1 <- convMnistLayerS ker1 (constant x) bias1
   t2 <- convMnistLayerS ker2 t1 bias2
   let m1 = mapS reshapeS t2
-      m2 = from2S (transpose2 (fromS2 m1))  -- TODO: add permuation transposeS
+      m2 = transpose2S m1
       denseLayer = weigthsDense <>$ m2 + asColumnS biasesDense
   denseRelu <- reluAct denseLayer
   returnLet $ weigthsReadout <>$ denseRelu + asColumnS biasesReadout

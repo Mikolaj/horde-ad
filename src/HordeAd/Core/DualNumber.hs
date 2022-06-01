@@ -780,6 +780,12 @@ fromXS :: (IsScalar d r, OS.Shape sh)
        => DualNumber d (OT.Array r) -> DualNumber d (OS.Array sh r)
 fromXS (D u u') = D (Data.Array.Convert.convert u) (dFromXS u')
 
+-- TODO: generalize to arbitrary permutations of arbitrarily many ranks using https://hackage.haskell.org/package/orthotope/docs/Data-Array-ShapedS.html#v:transpose
+transpose2S :: (IsScalar d r, KnownNat rows, KnownNat cols)
+            => DualNumber d (OS.Array '[rows, cols] r)
+            -> DualNumber d (OS.Array '[cols, rows] r)
+transpose2S = from2S . transpose2 . fromS2
+
 infixr 8 #>$
 (#>$) :: (IsScalar d r, KnownNat rows, KnownNat cols)
       => DualNumber d (OS.Array '[rows, cols] r)
