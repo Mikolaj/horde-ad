@@ -752,6 +752,8 @@ zipWithS :: forall k sh1 sh2 sh d r.
 zipWithS f d e =
   ravelFromListS $ zipWith f (unravelToListS d) (unravelToListS e)
 
+-- TODO: specify at least that the products of ranks (the number of scalar
+-- elements) is the same in both types
 reshapeS :: (IsScalar d r, OS.Shape sh, OS.Shape sh', OS.Size sh ~ OS.Size sh')
          => DualNumber d (OS.Array sh r) -> DualNumber d (OS.Array sh' r)
 reshapeS (D u u') = D (OS.reshape u) (dReshapeS u')
