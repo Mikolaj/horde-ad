@@ -26,6 +26,8 @@ import HordeAd
 import HordeAd.Core.OutdatedOptimizer
 import HordeAd.Tool.MnistTools
 
+import TestCommon
+
 testTrees :: [TestTree]
 testTrees = [ dumbMnistTests
             , bigMnistTests
@@ -652,22 +654,8 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             f :: forall d r m. (DualMonad d r m, r ~ Double)
               => DualNumberVariables d r -> m (DualNumber d r)
             f = fcnnMnistLoss0 widthHidden widthHidden2 mnistData
-            ff@(_, ffPValue) = dFastForward f parameters ds
-            perturbedffP@(_, perturbedffPValue) =
-              dFastForward f parameters parametersPerturbation
-            close a b = abs (a - b) <= 1e-4
-            closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
-            dfDot fDot argsDot dsDot =
-              let (res, value) = dReverse 1 fDot argsDot
-              in (dotParameters res dsDot, value)
-        in ffPValue == perturbedffPValue
-           .&&. dForward f parameters ds === ff
-           .&&. closeEq (dfDot f parameters ds) ff
-           .&&. close (primalValue @Double
-                                   f (addParameters @Double
-                                                    parameters
-                                                    parametersPerturbation))
-                      (ffPValue + fst perturbedffP)
+        in
+            qcPropDom f parameters ds parametersPerturbation 1
   , testProperty "Compare two forward derivatives and gradient for Mnist1" $
       \seed seedDs ->
       forAll (choose (1, 2000)) $ \widthHidden ->
@@ -687,22 +675,8 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             f :: forall d r m. (DualMonad d r m, r ~ Double)
               => DualNumberVariables d r -> m (DualNumber d r)
             f = fcnnMnistLoss1 widthHidden widthHidden2 mnistData
-            ff@(_, ffPValue) = dFastForward f parameters ds
-            perturbedffP@(_, perturbedffPValue) =
-              dFastForward f parameters parametersPerturbation
-            close a b = abs (a - b) <= 1e-4
-            closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. b1 === b2
-            dfDot fDot argsDot dsDot =
-              let (res, value) = dReverse 1 fDot argsDot
-              in (dotParameters res dsDot, value)
-        in ffPValue == perturbedffPValue
-           .&&. dForward f parameters ds === ff
-           .&&. closeEq (dfDot f parameters ds) ff
-           .&&. close (primalValue @Double
-                                   f (addParameters @Double
-                                                    parameters
-                                                    parametersPerturbation))
-                      (ffPValue + fst perturbedffP)
+        in
+            qcPropDom f parameters ds parametersPerturbation 1
   , testProperty "Compare two forward derivatives and gradient for Mnist2" $
       \seed ->
       forAll (choose (0, sizeMnistLabel - 1)) $ \seedDs ->
@@ -728,29 +702,11 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             f = fcnnMnistLoss2 mnistData
             fOneHot = fcnnMnistLoss2 mnistDataOneHot
             fFused = fcnnMnistLossFused2 mnistDataOneHot
-            ff@(_, ffPValue) = dFastForward f parameters ds
-            perturbedffP@(_, perturbedffPValue) =
-              dFastForward f parameters parametersPerturbation
-            close a b = abs (a - b) <= 1e-4
-            ffOneHot = dFastForward fOneHot parameters ds
-            ffFused = dFastForward fFused parameters ds
-            closeEq (a1, b1) (a2, b2) = close a1 a2 .&&. close b1 b2
-            dfDot fDot argsDot dsDot =
-              let (res, value) = dReverse 1 fDot argsDot
-              in (dotParameters res dsDot, value)
-        in ffPValue == perturbedffPValue
-           .&&. dForward f parameters ds === ff
-           .&&. closeEq (dfDot f parameters ds) ff
-           .&&. dForward fOneHot parameters ds === ffOneHot
-           .&&. closeEq (dfDot fOneHot parameters ds) ffOneHot
-           .&&. closeEq ffOneHot ffFused
-           .&&. dForward fFused parameters ds === ffFused
-           .&&. closeEq (dfDot fFused parameters ds) ffFused
-           .&&. close (primalValue @Double
-                                   f (addParameters @Double
-                                                    parameters
-                                                    parametersPerturbation))
-                      (ffPValue + fst perturbedffP)
+        in
+            qcPropDom f       parameters ds parametersPerturbation 1 .&&.
+            qcPropDom fOneHot parameters ds parametersPerturbation 1 .&&.
+            qcPropDom fFused  parameters ds parametersPerturbation 1 .&&.
+            cmpTwoSimple fOneHot fFused  parameters ds
   ]
 
 bigMnistTests :: TestTree

@@ -1,21 +1,20 @@
 {-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-module TestSingleGradient (testTrees, fquad, quad) where
+module TestSingleGradient (testTrees) where
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Vector)
-import qualified Numeric.LinearAlgebra as HM
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
-import           Test.Tasty.QuickCheck
 
 import HordeAd hiding (sumElementsVectorOfDual)
 import HordeAd.Core.DualClass (IsPrimal, dAdd, dScale)
+
+import TestCommon
 
 testTrees :: [TestTree]
 testTrees = [ testDReverse0
@@ -27,22 +26,6 @@ testTrees = [ testDReverse0
             , readmeTests
             , readmeTestsV
             ]
-
--- Unfortunately, monadic versions of the operations below are not
--- polymorphic over whether they operate on scalars, vectors or other types,
--- so we should probably abandon them.
-
-(+\) :: DualMonad d r m
-     => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
-(+\) u v = returnLet $ u + v
-
-(*\) :: DualMonad d r m
-     => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
-(*\) u v = returnLet $ u * v
-
-(**\) :: DualMonad d r m
-      => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
-(**\) u v = returnLet $ u ** v
 
 dReverse0
   :: HasDelta r
@@ -104,21 +87,6 @@ freluX :: DualMonad 'DModeGradient Float m
 freluX variables = do
   let x = var0 variables 0
   reluAct x
-
-quad :: DualMonad d r m
-     => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
-quad x y = do
-  x2 <- returnLet $ square x
-  y2 <- y *\ y
-  tmp <- x2 +\ y2
-  tmp +\ 5
-
-fquad :: forall r d m. DualMonad d r m
-      => DualNumberVariables d r -> m (DualNumber d r)
-fquad variables = do
-  let x = var0 variables 0
-      y = var0 variables 1
-  quad x y
 
 testDReverse0 :: TestTree
 testDReverse0 = testGroup "Simple dReverse application tests" $
@@ -355,17 +323,6 @@ testDForward =
       , (7.662345305800865, 4.9375516951604155) )
     ]
 
-listsToParameters :: ([Double], [Double]) -> Domains Double
-listsToParameters (a0, a1) =
-  (V.fromList a0, V.singleton $ V.fromList a1, V.empty, V.empty)
-
-listsToParameters4 :: ([Double], [Double], [Double], [Double]) -> Domains Double
-listsToParameters4 (a0, a1, a2, aX) =
-  ( V.fromList a0
-  , V.singleton $ V.fromList a1
-  , if null a2 then V.empty else V.singleton $ HM.matrix 1 a2
-  , if null aX then V.empty else V.singleton $ OT.fromList [length aX] aX )
-
 testDFastForward :: TestTree
 testDFastForward =
  testGroup "Simple dFastForward application tests" $
@@ -379,63 +336,27 @@ testDFastForward =
       , (7.662345305800865, 4.9375516951604155) )
     ]
 
-qcTest :: TestName
-       -> (forall d r m. ( DualMonad d r m
-                         , Floating (Out (DualNumber d (Vector r)))
-                         , Floating (Out (DualNumber d (OS.Array '[2] r))) )
-           => DualNumberVariables d r -> m (DualNumber d r))
-       -> ((Double, Double, Double) -> ([Double], [Double], [Double], [Double]))
-       -> TestTree
-qcTest txt f fArg =
-  testProperty txt
-  $ forAll (choose ((-2, -2, -2), (2, 2, 2))) $ \xyz dsRaw ->
-    forAll (choose ( (-1e-7, -1e-7, -1e-7)
-                   , (1e-7, 1e-7, 1e-7) )) $ \perturbationRaw ->
-    forAll (choose (-10, 10)) $ \dt ->
-      let args = listsToParameters4 $ fArg xyz
-          ds = listsToParameters4 $ fArg dsRaw
-          perturbation = listsToParameters4 $ fArg perturbationRaw
-          ff@(derivative, ffValue) = dFastForward f args ds
-          (derivativeAtPerturbation, valueAtPerturbation) =
-            dFastForward f args perturbation
-          close a b = abs (a - b) <= 1e-4
-          (gradient, revValue) = dReverse dt f args
-      in -- Two forward derivative implementations agree fully:
-         dForward f args ds === ff
-         -- Objective function value from gradients is the same.
-         .&&. ffValue == revValue
-         -- Gradients and derivatives agree.
-         .&&. close (dt * derivative)
-                    (dotParameters gradient ds)
-         -- Objective function value is unaffected by perturbation.
-         .&&. ffValue == valueAtPerturbation
-         -- Derivative approximates the perturbation of value.
-         .&&. close (primalValue
-                                 f (addParameters
-                                                  args perturbation))
-                    (ffValue + derivativeAtPerturbation)
-
 -- The formula for comparing derivative and gradient is due to @awf
 -- at https://github.com/Mikolaj/horde-ad/issues/15#issuecomment-1063251319
 quickCheckForwardAndBackward :: TestTree
 quickCheckForwardAndBackward =
   testGroup "Simple QuickCheck of gradient vs derivative vs perturbation"
-    [ qcTest "fquad" fquad (\(x, y, _z) -> ([x, y], [], [], []))
-    , qcTest "atanReadmeM" atanReadmeM
+    [ quickCheckTest0 "fquad" fquad (\(x, y, _z) -> ([x, y], [], [], []))
+    , quickCheckTest0 "atanReadmeM" atanReadmeM
              (\(x, y, z) -> ([x, y, z], [], [], []))
-    , qcTest "vatanReadmeM" vatanReadmeM
+    , quickCheckTest0 "vatanReadmeM" vatanReadmeM
              (\(x, y, z) -> ([], [x, y, z], [], []))
-    , qcTest "sinKonst" sinKonst  -- powKonst NaNs immediately
+    , quickCheckTest0 "sinKonst" sinKonst  -- powKonst NaNs immediately
              (\(x, _, z) -> ([], [x, z], [], []))
-    , qcTest "sinKonstOut" sinKonstOut
+    , quickCheckTest0 "sinKonstOut" sinKonstOut
              (\(x, _, z) -> ([], [x, z], [], []))
-    , qcTest "sinKonstDelay" sinKonstDelay
+    , quickCheckTest0 "sinKonstDelay" sinKonstDelay
              (\(x, _, z) -> ([], [x, z], [], []))
-    , qcTest "sinKonstS" sinKonstS
+    , quickCheckTest0 "sinKonstS" sinKonstS
              (\(x, _, z) -> ([], [], [], [x, z]))
-    , qcTest "sinKonstOutS" sinKonstOutS
+    , quickCheckTest0 "sinKonstOutS" sinKonstOutS
              (\(x, _, z) -> ([], [], [], [x, z]))
-    , qcTest "sinKonstDelayS" sinKonstDelayS
+    , quickCheckTest0 "sinKonstDelayS" sinKonstDelayS
              (\(x, _, z) -> ([], [], [], [x, z]))
    ]
 

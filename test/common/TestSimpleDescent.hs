@@ -11,24 +11,12 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
-import TestSingleGradient (fquad, quad)
+import TestCommon ((+\), (*\), fquad, quad)
 
 testTrees :: [TestTree]
 testTrees = [ gdSimpleTests
             , gdTestsRecord
             , xorTests ]
-
--- Unfortunately, monadic versions of the operations below are not
--- polymorphic over whether they operate on scalars, vectors or other types,
--- so we should probably abandon them.
-
-(+\) :: DualMonad d r m
-     => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
-(+\) u v = returnLet $ u + v
-
-(*\) :: DualMonad d r m
-     => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
-(*\) u v = returnLet $ u * v
 
 gdSimpleShow :: HasDelta r
              => r
