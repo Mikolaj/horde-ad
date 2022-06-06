@@ -482,14 +482,14 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
                             in if isTensorDummy v
                                then rs
                                else liftVT2 (+) v rs
-      eval0 :: r -> Delta0 r -> ST s ()
-      eval0 !r = \case
+      eval :: t -> Delta r t -> ST s ()
+      eval !r = \case
         Zero0 -> return ()
-        Scale0 k d -> eval0 (k * r) d
-        Add0 d e -> eval0 r d >> eval0 r e
+        Scale0 k d -> eval (k * r) d
+        Add0 d e -> eval r d >> eval r e
         Var0 (DeltaId i) -> VM.modify finMap0 (+ r) i
 
-        SumElements0 vd n -> eval1 (HM.konst r n) vd
+        SumElements0 vd n -> eval (HM.konst r n) vd
         Index0 (Var1 (DeltaId i)) ix k -> do
           let f v = if V.null v
                     then HM.konst 0 k V.// [(ix, r)]
@@ -499,40 +499,38 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
             -- the general case below, if not for the non-mutable update,
             -- which involves copying the whole vector, so it's just
             -- several times faster (same allocation, but not adding vectors)
-        Index0 d ix k -> eval1 (HM.konst 0 k V.// [(ix, r)]) d
+        Index0 d ix k -> eval (HM.konst 0 k V.// [(ix, r)]) d
 
-        Dot0 v vd -> eval1 (HM.scale r v) vd
+        Dot0 v vd -> eval (HM.scale r v) vd
 
         FromX0 d -> evalX (OT.scalar r) d
         FromS0 d -> evalS (OS.scalar r) d
 
         Outline0 codeOut primalArgs dualArgs ->
-          eval0 r $ inlineDerivative0 codeOut primalArgs dualArgs
-        Delay0 d -> eval0 r d
-      eval1 :: Vector r -> Delta1 r -> ST s ()
-      eval1 !r = \case
+          eval r $ inlineDerivative0 codeOut primalArgs dualArgs
+        Delay0 d -> eval r d
         Zero1 -> return ()
-        Scale1 k d -> eval1 (k * r) d
-        Add1 d e -> eval1 r d >> eval1 r e
+        Scale1 k d -> eval (k * r) d
+        Add1 d e -> eval r d >> eval r e
         Var1 (DeltaId i) -> VM.modify finMap1 (addToVector r) i
 
-        Seq1 lsd -> V.imapM_ (\i d -> eval0 (r V.! i) d) lsd
-        Konst1 d _n -> V.mapM_ (`eval0` d) r
-        Append1 d k e -> eval1 (V.take k r) d >> eval1 (V.drop k r) e
+        Seq1 lsd -> V.imapM_ (\i d -> eval (r V.! i) d) lsd
+        Konst1 d _n -> V.mapM_ (`eval` d) r
+        Append1 d k e -> eval (V.take k r) d >> eval (V.drop k r) e
         Slice1 i n d len ->
-          eval1 (HM.konst 0 i V.++ r V.++ HM.konst 0 (len - i - n)) d
+          eval (HM.konst 0 i V.++ r V.++ HM.konst 0 (len - i - n)) d
         SumRows1 dm cols -> eval2 (MO.asColumn r cols) dm
         SumColumns1 dm rows -> eval2 (MO.asRow r rows) dm
 
         M_VD1 m dRow ->
-          mapM_ (`eval1` dRow)
+          mapM_ (`eval` dRow)
                 (MO.toRows (MO.MatrixOuter (Just m) (Just r) Nothing))
         MD_V1 md row -> eval2 (MO.MatrixOuter Nothing (Just r) (Just row)) md
 
         FromX1 d -> evalX (OT.fromVector [V.length r] r) d
         FromS1 d -> evalS (OS.fromVector r) d
 
-        Reverse1 d -> eval1 (V.reverse r) d
+        Reverse1 d -> eval (V.reverse r) d
         Flatten1 rows cols d ->
           eval2 (MO.MatrixOuter (Just $ rows HM.>< cols $ V.toList r)
                                 Nothing Nothing)
@@ -541,8 +539,8 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         FlattenS1 d -> evalS (OS.fromVector r) d
 
         Outline1 codeOut primalArgs dualArgs ->
-          eval1 r $ inlineDerivative1 codeOut primalArgs dualArgs
-        Delay1 d -> eval1 r d
+          eval r $ inlineDerivative1 codeOut primalArgs dualArgs
+        Delay1 d -> eval r d
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
       eval2 !r = \case
         Zero2 -> return ()
@@ -550,9 +548,9 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         Add2 d e -> eval2 r d >> eval2 r e
         Var2 (DeltaId i) -> VM.modify finMap2 (addToMatrix r) i
 
-        FromRows2 lvd -> zipWithM_ eval1 (MO.toRows r) (V.toList lvd)
-        FromColumns2 lvd -> zipWithM_ eval1 (MO.toColumns r) (V.toList lvd)
-        Konst2 d _sz -> mapM_ (V.mapM_ (`eval0` d)) $ MO.toRows r
+        FromRows2 lvd -> zipWithM_ eval (MO.toRows r) (V.toList lvd)
+        FromColumns2 lvd -> zipWithM_ eval (MO.toColumns r) (V.toList lvd)
+        Konst2 d _sz -> mapM_ (V.mapM_ (`eval` d)) $ MO.toRows r
         Transpose2 md -> eval2 (MO.transpose r) md  -- TODO: test!
         M_MD2 m md ->
           let mo = MO.MatrixOuter (Just $ HM.tr' m) Nothing Nothing
@@ -579,8 +577,8 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
                     `MO.columnAppend` MO.konst 0 rows (cols - i - n))
                    d
 
-        AsRow2 dRow -> mapM_ (`eval1` dRow) (MO.toRows r)
-        AsColumn2 dCol -> mapM_ (`eval1` dCol) (MO.toColumns r)
+        AsRow2 dRow -> mapM_ (`eval` dRow) (MO.toRows r)
+        AsColumn2 dCol -> mapM_ (`eval` dCol) (MO.toColumns r)
 
         FromX2 d -> evalX (OT.fromVector [MO.rows r, MO.cols r]
                                          (V.concat $ MO.toRows r)) d
@@ -588,7 +586,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
 
         Flipud2 d -> eval2 (MO.flipud r) d
         Fliprl2 d -> eval2 (MO.fliprl r) d
-        Reshape2 _cols d -> eval1 (V.concat $ MO.toRows r) d
+        Reshape2 _cols d -> eval (V.concat $ MO.toRows r) d
         Conv2 m md ->
           let mor = MO.convertMatrixOuter r
               convolved = HM.corr2 m mor
@@ -605,7 +603,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         AddX d e -> evalX r d >> evalX r e
         VarX (DeltaId i) -> VM.modify finMapX (addToArray r) i
 
-        KonstX d _sz -> mapM_ (`eval0` d) $ OT.toList r
+        KonstX d _sz -> mapM_ (`eval` d) $ OT.toList r
         AppendX d k e -> case OT.shapeL r of
           n : _ -> evalX (OT.slice [(0, k)] r) d
                    >> evalX (OT.slice [(k, n - k)] r) e
@@ -629,8 +627,8 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           mapM_ (uncurry evalX) (zip lr ld)
         ReshapeX sh _sh' d -> evalX (OT.reshape sh r) d
 
-        From0X d -> eval0 (OT.unScalar r) d
-        From1X d -> eval1 (OT.toVector r) d
+        From0X d -> eval (OT.unScalar r) d
+        From1X d -> eval (OT.toVector r) d
         From2X d cols ->
           eval2 (MO.MatrixOuter (Just $ HM.reshape cols $ OT.toVector r)
                                 Nothing Nothing)
@@ -648,7 +646,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         AddS d e -> evalS r d >> evalS r e
         VarS (DeltaId i) -> VM.modify finMapX (addToArrayS r) i
 
-        KonstS d -> mapM_ (`eval0` d) $ OS.toList r
+        KonstS d -> mapM_ (`eval` d) $ OS.toList r
         AppendS (d :: DeltaS (k ': rest) r) (e :: DeltaS (l ': rest) r) ->
           evalS (OS.slice @'[ '(0, k) ] r) d
           >> evalS (OS.slice @'[ '(k, l) ] r) e
@@ -667,8 +665,8 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           mapM_ (uncurry evalS) (zip lr ld)
         ReshapeS d -> evalS (OS.reshape r) d
 
-        From0S d -> eval0 (OS.unScalar r) d
-        From1S d -> eval1 (OS.toVector r) d
+        From0S d -> eval (OS.unScalar r) d
+        From1S d -> eval (OS.toVector r) d
         From2S proxyCols d ->
           eval2 (MO.MatrixOuter
                    (Just $ HM.reshape (fromInteger $ natVal proxyCols)
@@ -681,17 +679,17 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           evalS r $ inlineDerivativeS codeOut primalArgs dualArgs
         DelayS d -> evalS r d
 
-  eval0 dt deltaTopLevel
+  eval dt deltaTopLevel
 
   let evalUnlessZero :: DeltaBinding r -> ST s ()
       evalUnlessZero (DeltaBinding0 (DeltaId i) d) = do
         r <- finMap0 `VM.read` i
         unless (r == 0) $  -- we init with exactly 0.0 so the comparison works
-          eval0 r d
+          eval r d
       evalUnlessZero (DeltaBinding1 (DeltaId i) d) = do
         r <- finMap1 `VM.read` i
         unless (V.null r) $
-          eval1 r d
+          eval r d
       evalUnlessZero (DeltaBinding2 (DeltaId i) d) = do
         r <- finMap2 `VM.read` i
         unless (MO.nullMatrixOuter r) $
