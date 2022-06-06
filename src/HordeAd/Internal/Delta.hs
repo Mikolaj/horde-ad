@@ -725,54 +725,52 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
                     inlineDerivativeX inlineDerivativeS
                     st deltaTopLevel
                     _ds@(params0Init, params1Init, params2Init, paramsXInit) =
-  let eval0 :: Domains r -> Delta0 r -> r
-      eval0 parameters@(params0, _, _, _) = \case
+  let eval :: Domains r -> Delta r t -> t
+      eval parameters@(params0, params1, _, _) = \case
         Zero0 -> 0
-        Scale0 k d -> k * eval0 parameters d
-        Add0 d e -> eval0 parameters d + eval0 parameters e
+        Scale0 k d -> k * eval parameters d
+        Add0 d e -> eval parameters d + eval parameters e
         Var0 (DeltaId i) -> params0 V.! i
 
-        SumElements0 vd _n -> HM.sumElements $ eval1 parameters vd
-        Index0 d ix _k -> eval1 parameters d V.! ix
+        SumElements0 vd _n -> HM.sumElements $ eval parameters vd
+        Index0 d ix _k -> eval parameters d V.! ix
 
-        Dot0 vr vd -> vr <.> eval1 parameters vd
+        Dot0 vr vd -> vr <.> eval parameters vd
 
         FromX0 d -> OT.unScalar $ evalX parameters d
         FromS0 d -> OS.unScalar $ evalS parameters d
 
         Outline0 codeOut primalArgs dualArgs ->
-          eval0 parameters $ inlineDerivative0 codeOut primalArgs dualArgs
-        Delay0 d -> eval0 parameters d
-      eval1 :: Domains r -> Delta1 r -> Vector r
-      eval1 parameters@(_, params1, _, _) = \case
+          eval parameters $ inlineDerivative0 codeOut primalArgs dualArgs
+        Delay0 d -> eval parameters d
         Zero1 -> 0
-        Scale1 k d -> k * eval1 parameters d
-        Add1 d e -> eval1 parameters d + eval1 parameters e
+        Scale1 k d -> k * eval parameters d
+        Add1 d e -> eval parameters d + eval parameters e
         Var1 (DeltaId i) -> params1 V.! i
 
-        Seq1 lsd -> V.convert $ V.map (eval0 parameters) lsd
-        Konst1 d n -> HM.konst (eval0 parameters d) n
-        Append1 d _k e -> eval1 parameters d V.++ eval1 parameters e
-        Slice1 i n d _len -> V.slice i n $ eval1 parameters d
+        Seq1 lsd -> V.convert $ V.map (eval parameters) lsd
+        Konst1 d n -> HM.konst (eval parameters d) n
+        Append1 d _k e -> eval parameters d V.++ eval parameters e
+        Slice1 i n d _len -> V.slice i n $ eval parameters d
         SumRows1 dm _cols ->
           V.fromList $ map HM.sumElements $ HM.toRows $ eval2 parameters dm
         SumColumns1 dm _rows ->
           V.fromList $ map HM.sumElements $ HM.toColumns $ eval2 parameters dm
 
-        M_VD1 m dRow -> m #> eval1 parameters dRow
+        M_VD1 m dRow -> m #> eval parameters dRow
         MD_V1 md row -> eval2 parameters md #> row
 
         FromX1 d -> OT.toVector $ evalX parameters d
         FromS1 d -> OS.toVector $ evalS parameters d
 
-        Reverse1 d -> V.reverse $ eval1 parameters d
+        Reverse1 d -> V.reverse $ eval parameters d
         Flatten1 _rows _cols d -> HM.flatten $ eval2 parameters d
         FlattenX1 _sh d -> OT.toVector $ evalX parameters d
         FlattenS1 d -> OS.toVector $ evalS parameters d
 
         Outline1 codeOut primalArgs dualArgs ->
-          eval1 parameters $ inlineDerivative1 codeOut primalArgs dualArgs
-        Delay1 d -> eval1 parameters d
+          eval parameters $ inlineDerivative1 codeOut primalArgs dualArgs
+        Delay1 d -> eval parameters d
       eval2 :: Domains r -> Delta2 r -> Matrix r
       eval2 parameters@( _, _, params2, _) = \case
         Zero2 -> 0
@@ -781,10 +779,10 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
         Var2 (DeltaId i) -> params2 V.! i
 
         FromRows2 lvd ->
-          HM.fromRows $ map (eval1 parameters) $ V.toList lvd
+          HM.fromRows $ map (eval parameters) $ V.toList lvd
         FromColumns2 lvd ->
-          HM.fromColumns $ map (eval1 parameters) $ V.toList lvd
-        Konst2 d sz -> HM.konst (eval0 parameters d) sz
+          HM.fromColumns $ map (eval parameters) $ V.toList lvd
+        Konst2 d sz -> HM.konst (eval parameters d) sz
         Transpose2 md -> HM.tr' $ eval2 parameters md
         M_MD2 m md -> m HM.<> eval2 parameters md
         MD_M2 md m -> eval2 parameters md HM.<> m
@@ -795,8 +793,8 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
         ColumnSlice2 i n d _cols ->
           HM.takeColumns n $ HM.dropColumns i $ eval2 parameters d
 
-        AsRow2 dRow -> HM.asRow $ eval1 parameters dRow  -- TODO: risky
-        AsColumn2 dCol -> HM.asColumn $ eval1 parameters dCol  -- TODO: risky
+        AsRow2 dRow -> HM.asRow $ eval parameters dRow  -- TODO: risky
+        AsColumn2 dCol -> HM.asColumn $ eval parameters dCol  -- TODO: risky
 
         FromX2 d ->
           let t = evalX parameters d
@@ -811,7 +809,7 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
 
         Flipud2 d -> HM.flipud $ eval2 parameters d
         Fliprl2 d -> HM.fliprl $ eval2 parameters d
-        Reshape2 cols d -> HM.reshape cols $ eval1 parameters d
+        Reshape2 cols d -> HM.reshape cols $ eval parameters d
         Conv2 m md -> HM.conv2 m $ eval2 parameters md
 
         Outline2 codeOut primalArgs dualArgs ->
@@ -824,7 +822,7 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
         AddX d e -> evalX parameters d + evalX parameters e
         VarX (DeltaId i) -> paramsX V.! i
 
-        KonstX d sz -> OT.constant sz $ eval0 parameters d
+        KonstX d sz -> OT.constant sz $ eval parameters d
         AppendX d _k e -> evalX parameters d `OT.append` evalX parameters e
         SliceX i n d _len -> OT.slice [(i, n)] $ evalX parameters d
         IndexX d ix _len -> OT.index (evalX parameters d) ix
@@ -836,8 +834,8 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
           in OT.ravel $ OTB.fromList sh la
         ReshapeX _sh sh' d -> OT.reshape sh' $ evalX parameters d
 
-        From0X d -> OT.scalar $ eval0 parameters d
-        From1X d -> let v = eval1 parameters d
+        From0X d -> OT.scalar $ eval parameters d
+        From1X d -> let v = eval parameters d
                     in OT.fromVector [V.length v] v
         From2X d cols -> let l = eval2 parameters d
                          in OT.fromVector [HM.rows l, cols] $ HM.flatten l
@@ -853,7 +851,7 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
         AddS d e -> evalS parameters d + evalS parameters e
         VarS (DeltaId i) -> Data.Array.Convert.convert $ paramsX V.! i
 
-        KonstS d -> OS.constant $ eval0 parameters d
+        KonstS d -> OS.constant $ eval parameters d
         AppendS d e -> evalS parameters d `OS.append` evalS parameters e
         SliceS (_ :: Proxy i) (_ :: Proxy n) d ->
           OS.slice @'[ '(i, n) ] $ evalS parameters d
@@ -864,8 +862,8 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
           in OS.ravel $ OSB.fromList la
         ReshapeS d -> OS.reshape $ evalS parameters d
 
-        From0S d -> OS.scalar $ eval0 parameters d
-        From1S d -> OS.fromVector $ eval1 parameters d
+        From0S d -> OS.scalar $ eval parameters d
+        From1S d -> OS.fromVector $ eval parameters d
         From2S _ d -> OS.fromVector $ HM.flatten $ eval2 parameters d
         FromXS d -> Data.Array.Convert.convert $ evalX parameters d
 
@@ -875,10 +873,10 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
       evalUnlessZero :: Domains r -> DeltaBinding r -> Domains r
       evalUnlessZero parameters@(!params0, !params1, !params2, !paramsX) = \case
         DeltaBinding0 (DeltaId i) d ->
-          let v = eval0 parameters d
+          let v = eval parameters d
           in (params0 V.// [(i, v)], params1, params2, paramsX)
         DeltaBinding1 (DeltaId i) d ->
-          let v = eval1 parameters d
+          let v = eval parameters d
           in (params0, params1 V.// [(i, v)], params2, paramsX)
         DeltaBinding2 (DeltaId i) d ->
           let v = eval2 parameters d
@@ -904,7 +902,7 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
         return (v0, v1, v2, vX)
       parametersB = foldl' evalUnlessZero parameters1
                            (reverse $ deltaBindings st)
-  in eval0 parametersB deltaTopLevel
+  in eval parametersB deltaTopLevel
 
 -- | This is yet another semantics of delta-expressions and their
 -- bindings --- by pretty-printing as texts.
