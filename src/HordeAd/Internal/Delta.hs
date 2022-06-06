@@ -34,7 +34,7 @@
 -- grow large enough to affect cache misses).
 module HordeAd.Internal.Delta
   ( -- * Abstract syntax trees of the delta expressions
-    Delta0 (..), Delta1 (..), Delta2 (..), DeltaX (..), DeltaS (..)
+    Delta0, Delta (..), Delta1 (..), Delta2 (..), DeltaX (..), DeltaS (..)
   , -- * Delta expression identifiers
     DeltaId, toDeltaId, convertDeltaId
   , -- * Evaluation of the delta expressions
@@ -90,24 +90,26 @@ import           HordeAd.Internal.OrthotopeOrphanInstances (liftVS2, liftVT2)
 --
 -- The @Outline@ constructors represent primitive numeric function applications
 -- for which we delay computing and forgo inlining of the derivative.
-data Delta0 r =
-    Zero0
-  | Scale0 r (Delta0 r)
-  | Add0 (Delta0 r) (Delta0 r)
-  | Var0 (DeltaId r)
+data Delta r where
+  Zero0 :: Delta r
+  Scale0 :: r -> Delta0 r -> Delta r
+  Add0 :: Delta0 r -> Delta0 r -> Delta r
+  Var0 :: DeltaId r -> Delta r
 
-  | SumElements0 (Delta1 r) Int  -- ^ see Note [SumElements0]
-  | Index0 (Delta1 r) Int Int  -- ^ second integer is the length of the vector
+  SumElements0 :: Delta1 r -> Int -> Delta r  -- ^ see Note [SumElements0]
+  Index0 :: Delta1 r -> Int -> Int -> Delta r  -- ^ second integer is the length of the vector
 
-  | Dot0 (Vector r) (Delta1 r)  -- ^ Dot0 v vd == SumElements0 (Scale1 v vd) n
+  Dot0 :: Vector r -> Delta1 r -> Delta r  -- ^ Dot0 v vd == SumElements0 (Scale1 v vd) n
 
-  | FromX0 (DeltaX r)  -- ^ one of many conversions
-  | FromS0 (DeltaS '[] r)
+  FromX0 :: DeltaX r -> Delta r  -- ^ one of many conversions
+  FromS0 :: DeltaS '[] r -> Delta r
 
-  | Outline0 CodeOut [r] [Delta0 r]
-  | Delay0 ~(Delta0 r)
+  Outline0 :: CodeOut -> [r] -> [Delta0 r] -> Delta0 r
+  Delay0 :: ~(Delta0 r) -> Delta0 r
 
-deriving instance (Show r, Numeric r) => Show (Delta0 r)
+type Delta0 r = Delta r
+
+deriving instance (Show r, Numeric r) => Show (Delta r)
 
 -- | This is the grammar of delta-expressions at tensor rank 1, that is,
 -- at vector level.
