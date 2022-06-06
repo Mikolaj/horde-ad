@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, DataKinds, GADTs, KindSignatures, RankNTypes,
+{-# LANGUAGE CPP, DataKinds, FlexibleInstances, GADTs, KindSignatures, RankNTypes,
              StandaloneDeriving, TypeOperators #-}
 #if !MIN_VERSION_base(4,16,0)
 {-# LANGUAGE IncoherentInstances #-}
@@ -34,7 +34,7 @@
 -- grow large enough to affect cache misses).
 module HordeAd.Internal.Delta
   ( -- * Abstract syntax trees of the delta expressions
-    Delta0, Delta (..), Delta1 (..), Delta2 (..), DeltaX (..), DeltaS (..)
+    Delta0, Delta1, Delta (..), Delta2 (..), DeltaX (..), DeltaS (..)
   , -- * Delta expression identifiers
     DeltaId, toDeltaId, convertDeltaId
   , -- * Evaluation of the delta expressions
@@ -78,10 +78,6 @@ import           HordeAd.Internal.OrthotopeOrphanInstances (liftVS2, liftVT2)
 
 -- * Abstract syntax trees of the delta expressions
 
--- | This is the grammar of delta-expressions at tensor rank 0, that is,
--- at scalar level. The first few operations have analogues
--- at the level of vectors, matrices and arbitrary tensors.
---
 -- For each choice of the underlying scalar type @r@,
 -- we have several primitive differentiable types based on the scalar:
 -- the scalar type @r@ itself, @Vector r@, @Matrix r@ and tensors.
@@ -90,62 +86,70 @@ import           HordeAd.Internal.OrthotopeOrphanInstances (liftVS2, liftVT2)
 --
 -- The @Outline@ constructors represent primitive numeric function applications
 -- for which we delay computing and forgo inlining of the derivative.
-data Delta r where
-  Zero0 :: Delta r
-  Scale0 :: r -> Delta0 r -> Delta r
-  Add0 :: Delta0 r -> Delta0 r -> Delta r
-  Var0 :: DeltaId r -> Delta r
+data Delta s r where
+  -- | This is the grammar of delta-expressions at tensor rank 0, that is,
+  -- at scalar level. The first few operations have analogues
+  -- at the level of vectors, matrices and arbitrary tensors.
 
-  SumElements0 :: Delta1 r -> Int -> Delta r  -- ^ see Note [SumElements0]
-  Index0 :: Delta1 r -> Int -> Int -> Delta r  -- ^ second integer is the length of the vector
+  Zero0 :: Delta r r
+  Scale0 :: r -> Delta0 r -> Delta r r
+  Add0 :: Delta0 r -> Delta0 r -> Delta r r
+  Var0 :: DeltaId r -> Delta r r
 
-  Dot0 :: Vector r -> Delta1 r -> Delta r  -- ^ Dot0 v vd == SumElements0 (Scale1 v vd) n
+  SumElements0 :: Delta1 r -> Int -> Delta r r  -- ^ see Note [SumElements0]
+  Index0 :: Delta1 r -> Int -> Int -> Delta r r  -- ^ second integer is the length of the vector
 
-  FromX0 :: DeltaX r -> Delta r  -- ^ one of many conversions
-  FromS0 :: DeltaS '[] r -> Delta r
+  Dot0 :: Vector r -> Delta1 r -> Delta r r  -- ^ Dot0 v vd == SumElements0 (Scale1 v vd) n
+
+  FromX0 :: DeltaX r -> Delta r r  -- ^ one of many conversions
+  FromS0 :: DeltaS '[] r -> Delta r r
 
   Outline0 :: CodeOut -> [r] -> [Delta0 r] -> Delta0 r
   Delay0 :: ~(Delta0 r) -> Delta0 r
 
-type Delta0 r = Delta r
+  -- | This is the grammar of delta-expressions at tensor rank 1, that is,
+  -- at vector level.
 
-deriving instance (Show r, Numeric r) => Show (Delta r)
+  Zero1 :: Delta r (Vector r)
+  Scale1 :: Vector r -> Delta1 r -> Delta r (Vector r)
+  Add1 :: Delta1 r -> Delta1 r -> Delta r (Vector r)
+  Var1 :: DeltaId (Vector r) -> Delta r (Vector r)
 
--- | This is the grammar of delta-expressions at tensor rank 1, that is,
--- at vector level.
-data Delta1 r =
-    Zero1
-  | Scale1 (Vector r) (Delta1 r)
-  | Add1 (Delta1 r) (Delta1 r)
-  | Var1 (DeltaId (Vector r))
+  Seq1 :: Data.Vector.Vector (Delta0 r) -> Delta r (Vector r)  -- ^ "unboxing" conversion
+  Konst1 :: Delta0 r -> Int -> Delta r (Vector r)  -- ^ length; needed only for forward derivative
+  Append1 :: Delta1 r -> Int -> Delta1 r -> Delta r (Vector r)  -- ^ the length of the first argument
+  Slice1 :: Int -> Int -> Delta1 r -> Int -> Delta r (Vector r)  -- ^ last integer is the length of argument
+  SumRows1 :: Delta2 r -> Int -> Delta r (Vector r)  -- ^ the integer is the number of columns
+  SumColumns1 :: Delta2 r -> Int -> Delta r (Vector r)  -- ^ the integer is the number of rows
 
-  | Seq1 (Data.Vector.Vector (Delta0 r))  -- ^ "unboxing" conversion
-  | Konst1 (Delta0 r) Int  -- ^ length; needed only for forward derivative
-  | Append1 (Delta1 r) Int (Delta1 r)  -- ^ the length of the first argument
-  | Slice1 Int Int (Delta1 r) Int  -- ^ last integer is the length of argument
-  | SumRows1 (Delta2 r) Int  -- ^ the integer is the number of columns
-  | SumColumns1 (Delta2 r) Int  -- ^ the integer is the number of rows
+  M_VD1 :: Matrix r
+        -> Delta1 r  -- ^ M_VD1 m vd == SumRows1 (M_MD2 m (AsRow2 vd))
+        -> Delta r (Vector r)
+  MD_V1 :: Delta2 r
+        -> Vector r  -- ^ MD_V1 md v == SumRows1 (MD_M2 md (asRow v))
+        -> Delta r (Vector r)
 
-  | M_VD1 (Matrix r)
-          (Delta1 r)  -- ^ M_VD1 m vd == SumRows1 (M_MD2 m (AsRow2 vd))
-  | MD_V1 (Delta2 r)
-          (Vector r)  -- ^ MD_V1 md v == SumRows1 (MD_M2 md (asRow v))
+  FromX1 :: DeltaX r -> Delta r (Vector r)
+  FromS1 :: forall r len. KnownNat len
+         => DeltaS '[len] r
+         -> Delta r (Vector r)
 
-  | FromX1 (DeltaX r)
-  | forall len. KnownNat len
-    => FromS1 (DeltaS '[len] r)
+  -- unsorted and undocumented yet
+  Reverse1 :: Delta1 r -> Delta r (Vector r)
+  Flatten1 :: Int -> Int -> Delta2 r -> Delta r (Vector r)
+  FlattenX1 :: OT.ShapeL -> DeltaX r -> Delta r (Vector r)
+  FlattenS1 :: forall r sh. OS.Shape sh
+            => DeltaS sh r
+            -> Delta r (Vector r)
 
-    -- unsorted and undocumented yet
-  | Reverse1 (Delta1 r)
-  | Flatten1 Int Int (Delta2 r)
-  | FlattenX1 OT.ShapeL (DeltaX r)
-  | forall sh. OS.Shape sh
-    => FlattenS1 (DeltaS sh r)
+  Outline1 :: CodeOut -> [Vector r] -> [Delta1 r] -> Delta r (Vector r)
+  Delay1 :: ~(Delta1 r) -> Delta r (Vector r)
 
-  | Outline1 CodeOut [Vector r] [Delta1 r]
-  | Delay1 ~(Delta1 r)
+type Delta0 r = Delta r r
+type Delta1 r = Delta r (Vector r)
 
-deriving instance (Show r, Numeric r) => Show (Delta1 r)
+deriving instance (Show r, Numeric r) => Show (Delta r r)
+deriving instance (Show r, Numeric r) => Show (Delta r (Vector r))
 
 -- | This is the grammar of delta-expressions at tensor rank 2, that is,
 -- at matrix level.
