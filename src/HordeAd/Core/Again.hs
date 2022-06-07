@@ -163,28 +163,31 @@ data Delta (s :: Type) (t :: Type) where
   Delta :: DeltaF s (Delta s) t -> Delta s t
   Var :: DeltaId s t -> Delta s t
 
+knownDeltaF :: DeltaF s dual t -> s `IsScalarOf` t
+knownDeltaF = \case
+  Zero0 -> SScalar
+  Add0 {} -> SScalar
+  Scale0 {} -> SScalar
+  Index0 {} -> SScalar
+  Add1 {} -> SVector
+  Scale1 {} -> SVector
+  Konst1 {} -> SVector
+  Dot1 {} -> SScalar
+  SumElements1 {} -> SScalar
+  Seq1 {} -> SVector
+  AddS {} -> SShapedS
+  NegateS {} -> SShapedS
+  KonstS {} -> SShapedS
+  ZeroS {} -> SShapedS
+  AppendS {} -> SShapedS
+  MulS1 {} -> SShapedS
+  MulS2 {} -> SShapedS
+  ScalePointwiseS {} -> SShapedS
+  SumElementsS {} -> SScalar
+
 knownDelta :: Delta s t -> s `IsScalarOf` t
 knownDelta = \case
-  Delta df -> case df of
-    Zero0 -> SScalar
-    Add0 {} -> SScalar
-    Scale0 {} -> SScalar
-    Index0 {} -> SScalar
-    Add1 {} -> SVector
-    Scale1 {} -> SVector
-    Konst1 {} -> SVector
-    Dot1 {} -> SScalar
-    SumElements1 {} -> SScalar
-    Seq1 {} -> SVector
-    AddS {} -> SShapedS
-    NegateS {} -> SShapedS
-    KonstS {} -> SShapedS
-    ZeroS {} -> SShapedS
-    AppendS {} -> SShapedS
-    MulS1 {} -> SShapedS
-    MulS2 {} -> SShapedS
-    ScalePointwiseS {} -> SShapedS
-    SumElementsS {} -> SScalar
+  Delta df -> knownDeltaF df
   Var di -> case di of (DeltaId _) -> known
 
 data DeltaMap s = DeltaMap
