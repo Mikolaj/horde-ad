@@ -72,6 +72,13 @@ data IsScalarOf (s :: Type) (t :: Type) where
 
 deriving instance Show (IsScalarOf s t)
 
+-- Dot products for the types of DeltaF
+deltaFDot :: forall s t. (Known (s `IsScalarOf` t), HM.Numeric s) => t -> t -> s
+deltaFDot = case known :: s `IsScalarOf` t of
+  SScalar -> (*)
+  SVector -> (HM.<.>)
+  SShapedS -> \t t' -> OS.sumA $ OS.zipWithA (*) t t'
+
 data DeltaF (s :: Type) (dual :: Type -> Type) (t :: Type) where
   Zero0 :: DeltaF s dual s
   Add0 :: dual s -> dual s -> DeltaF s dual s
