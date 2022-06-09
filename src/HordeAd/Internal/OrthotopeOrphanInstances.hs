@@ -66,8 +66,7 @@ instance (Num (Vector r), OS.Shape sh, Numeric r, Fractional r)
   recip = liftVS recip
   fromRational = OS.constant . fromRational
 
-instance ( Floating (Vector r), Num (Vector r)
-         , Numeric r, Floating r )
+instance (Floating (Vector r), Numeric r, Floating r)
          => Floating (OT.Array r) where
   pi = OT.constant [] pi
   exp = liftVT exp
@@ -88,8 +87,7 @@ instance ( Floating (Vector r), Num (Vector r)
   acosh = liftVT acosh
   atanh = liftVT atanh
 
-instance ( Floating (Vector r), Num (Vector r)
-         , OS.Shape sh, Numeric r, Floating r )
+instance (Floating (Vector r), OS.Shape sh, Numeric r, Floating r)
          => Floating (OS.Array sh r) where
   pi = OS.constant pi
   exp = liftVS exp
@@ -166,8 +164,7 @@ instance (Num (Vector r), Numeric r, Fractional r, Ord r)
     -- very low priority, since these are all extremely not continuous
 
 -- TODO: is there atan2 in hmatrix or can it be computed faster than this?
-instance ( Num (Vector r), Floating (Vector r)
-         , Numeric r, Floating r, RealFloat r, Ord r )
+instance ( Floating (Vector r), Numeric r, RealFloat r )
          => RealFloat (Vector r) where
   atan2 = Numeric.LinearAlgebra.Devel.zipVectorWith atan2
     -- we can be selective here and omit the other methods,
@@ -188,8 +185,7 @@ instance (Num (Vector r), Numeric r, Fractional r, Ord r, Ord (Matrix r))
   properFraction = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance ( Num (Vector r), Floating (Vector r)
-         , Numeric r, Floating r, RealFloat r, Ord r, Ord (Matrix r) )
+instance ( Floating (Vector r), Numeric r, RealFloat r, Ord (Matrix r) )
          => RealFloat (Matrix r) where
   atan2 = Numeric.LinearAlgebra.Devel.liftMatrix2 atan2
     -- we can be selective here and omit the other methods,
