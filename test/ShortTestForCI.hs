@@ -1,4 +1,9 @@
 {-# LANGUAGE CPP #-}
+#if defined(VERSION_ghc_typelits_natnormalise)
+-- Not really used here, but this squashes a warning caused by a hack
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+#endif
 module Main (main) where
 
 import Prelude
@@ -8,7 +13,7 @@ import           Test.Tasty
 
 import qualified TestOutdated
 
-#if VERSION_ghc_typelits_natnormalise
+#if defined(VERSION_ghc_typelits_natnormalise)
 import qualified TestMnistCNN
 import qualified TestMnistFCNN
 import qualified TestMnistRNN
@@ -26,7 +31,7 @@ main = do
 tests :: TestTree
 tests = testGroup "Short tests for CI" $
   TestOutdated.testTrees
-#if VERSION_ghc_typelits_natnormalise
+#if defined(VERSION_ghc_typelits_natnormalise)
   ++ TestSingleGradient.testTrees
   ++ TestSimpleDescent.testTrees
   ++ TestMnistFCNN.shortTestForCITrees

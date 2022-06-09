@@ -244,6 +244,12 @@ test-suite minimalTest
       , base
       , tasty >= 1.0
 
+  if flag(use_typelits_plugins) {
+    build-depends:
+        ghc-typelits-knownnat
+      , ghc-typelits-natnormalise
+  }
+
 -- The data files for this are not included in the cabal package,
 -- hence 'buildable: False'.
 test-suite shortTestForCI
@@ -268,6 +274,12 @@ test-suite shortTestForCI
       , base
       , tasty >= 1.0
 
+  if flag(use_typelits_plugins) {
+    build-depends:
+        ghc-typelits-knownnat
+      , ghc-typelits-natnormalise
+  }
+
 -- The data files for this are not included in the cabal package,
 -- hence 'buildable: False'.
 test-suite extremelyLongTest
@@ -291,6 +303,12 @@ test-suite extremelyLongTest
     build-depends: testLibrary
       , base
       , tasty >= 1.0
+
+  if flag(use_typelits_plugins) {
+    build-depends:
+        ghc-typelits-knownnat
+      , ghc-typelits-natnormalise
+  }
 
 library benchLibrary
     import:           options

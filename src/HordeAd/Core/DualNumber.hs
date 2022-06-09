@@ -3,7 +3,7 @@
              TypeFamilies, TypeOperators #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
-#if VERSION_ghc_typelits_natnormalise
+#if defined(VERSION_ghc_typelits_natnormalise)
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 #endif
@@ -684,7 +684,7 @@ fromSX :: forall sh d r. (IsScalar d r, OS.Shape sh)
 fromSX (D u u') = D (Data.Array.Convert.convert u) (dFromSX u')
 
 
-#if VERSION_ghc_typelits_natnormalise
+#if defined(VERSION_ghc_typelits_natnormalise)
 -- * Operations resulting in an arbitrary fully typed Shaped tensor
 
 konstS :: (IsScalar d r, OS.Shape sh)

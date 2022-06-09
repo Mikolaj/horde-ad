@@ -3,7 +3,7 @@
 #if !MIN_VERSION_base(4,16,0)
 {-# LANGUAGE IncoherentInstances #-}
 #endif
-#if VERSION_ghc_typelits_natnormalise
+#if defined(VERSION_ghc_typelits_natnormalise)
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 #endif
@@ -644,7 +644,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         AddS d e -> evalS r d >> evalS r e
         VarS (DeltaId i) -> VM.modify finMapX (addToArrayS r) i
 
-#if VERSION_ghc_typelits_natnormalise
+#if defined(VERSION_ghc_typelits_natnormalise)
         KonstS d -> mapM_ (`eval0` d) $ OS.toList r
         AppendS (d :: DeltaS (k ': rest) r) (e :: DeltaS (l ': rest) r) ->
           evalS (OS.slice @'[ '(0, k) ] r) d
@@ -851,7 +851,7 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
         AddS d e -> evalS parameters d + evalS parameters e
         VarS (DeltaId i) -> Data.Array.Convert.convert $ paramsX V.! i
 
-#if VERSION_ghc_typelits_natnormalise
+#if defined(VERSION_ghc_typelits_natnormalise)
         KonstS d -> OS.constant $ eval0 parameters d
         AppendS d e -> evalS parameters d `OS.append` evalS parameters e
         SliceS (_ :: Proxy i) (_ :: Proxy n) d ->

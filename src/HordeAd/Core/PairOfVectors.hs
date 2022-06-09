@@ -72,7 +72,7 @@ varX (_, _, _, _, _, _, vValue, vVar) i = D (vValue V.! i) (vVar V.! i)
 varS :: (IsScalar d r, OS.Shape sh)
      => DualNumberVariables d r -> Int -> DualNumber d (OS.Array sh r)
 varS (_, _, _, _, _, _, vValue, vVar) i =
-#if VERSION_ghc_typelits_natnormalise
+#if defined(VERSION_ghc_typelits_natnormalise)
   inline fromXS $ D (vValue V.! i) (vVar V.! i)
 #else
   undefined

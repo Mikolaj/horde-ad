@@ -2,7 +2,7 @@
              FlexibleInstances, GADTs, MultiParamTypeClasses, PolyKinds,
              QuantifiedConstraints, TypeFamilyDependencies, TypeOperators,
              UndecidableInstances #-}
-#if VERSION_ghc_typelits_natnormalise
+#if defined(VERSION_ghc_typelits_natnormalise)
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 #endif
@@ -474,7 +474,7 @@ instance ( Numeric r, Num (Vector r)
   dFrom1X d = OT.fromVector [V.length d] d
   dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
   dFromSX = Data.Array.Convert.convert
-#if VERSION_ghc_typelits_natnormalise
+#if defined(VERSION_ghc_typelits_natnormalise)
   dKonstS = OS.constant
   dAppendS = OS.append
   dSliceS (_ :: Proxy i) (_ :: Proxy n) = OS.slice @'[ '(i, n) ]
