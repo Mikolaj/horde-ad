@@ -77,7 +77,7 @@ flag test_seq
 
 flag use_typelits_plugins
   description:        use typelits plugins, without which a lot of functionality needs to be disabled
-  default:            False
+  default:            True
   manual:             False
 
 common options
