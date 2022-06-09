@@ -27,7 +27,7 @@ import           Text.Printf
 import HordeAd
 import HordeAd.Core.DualClass (HasRanks (dKonst2), IsPrimal (dZero))
 import HordeAd.Tool.MnistCnnShaped
-import HordeAd.Tool.MnistTools
+import HordeAd.Tool.MnistData
 
 import TestCommon
 

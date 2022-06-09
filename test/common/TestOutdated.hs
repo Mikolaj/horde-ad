@@ -16,8 +16,9 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 import HordeAd.Core.OutdatedOptimizer
-import HordeAd.Tool.MnistTools
-import TestCommon ((+\), (*\))
+import HordeAd.Tool.MnistData
+import HordeAd.Tool.MnistFcnnScalar
+import TestCommon ((*\), (+\))
 
 type DualNumberD = DualNumber 'DModeGradient Double
 

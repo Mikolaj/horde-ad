@@ -26,8 +26,9 @@ import qualified GHC.TypeLits
 
 import HordeAd
 import HordeAd.Core.OutdatedOptimizer
+import HordeAd.Tool.MnistData
+import HordeAd.Tool.MnistFcnnVector
 import HordeAd.Tool.MnistRnnShaped
-import HordeAd.Tool.MnistTools
 
 testTrees :: [TestTree]
 testTrees = [ sinRNNTests

@@ -14,7 +14,10 @@ import qualified Numeric.LinearAlgebra as HM
 import           System.Random
 
 import HordeAd
-import HordeAd.Tool.MnistTools
+import HordeAd.Tool.MnistData
+import HordeAd.Tool.MnistFcnnMatrix
+import HordeAd.Tool.MnistFcnnScalar
+import HordeAd.Tool.MnistFcnnVector
 
 mnistTrainBench2 :: forall r. ( NFData r, HasDelta r
                               , UniformRange r )

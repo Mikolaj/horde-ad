@@ -127,7 +127,6 @@ library
                       HordeAd.Internal.Delta
                       HordeAd.Internal.MatrixOuter
                       HordeAd.Internal.OrthotopeOrphanInstances
-                      HordeAd.Tool.MnistTools
                       HordeAd.Tool.MnistData
                       HordeAd.Tool.MnistCnnShaped
                       HordeAd.Tool.MnistFcnnMatrix

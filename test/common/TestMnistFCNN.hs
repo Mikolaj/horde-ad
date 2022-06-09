@@ -24,7 +24,11 @@ import           Text.Printf
 
 import HordeAd
 import HordeAd.Core.OutdatedOptimizer
-import HordeAd.Tool.MnistTools
+import HordeAd.Tool.MnistData
+import HordeAd.Tool.MnistFcnnMatrix
+import HordeAd.Tool.MnistFcnnScalar
+import HordeAd.Tool.MnistFcnnShaped
+import HordeAd.Tool.MnistFcnnVector
 
 import TestCommon
 
