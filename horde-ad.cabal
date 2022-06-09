@@ -75,6 +75,11 @@ flag test_seq
   default:            False
   manual:             False
 
+flag use_typelits_plugins
+  description:        use typelits plugins, without which a lot of functionality needs to be disabled
+  default:            False
+  manual:             False
+
 common options
   default-language:   Haskell2010
   default-extensions: MonoLocalBinds, ScopedTypeVariables, OverloadedStrings,
@@ -128,12 +133,15 @@ library
                       HordeAd.Internal.MatrixOuter
                       HordeAd.Internal.OrthotopeOrphanInstances
                       HordeAd.Tool.MnistData
-                      HordeAd.Tool.MnistCnnShaped
                       HordeAd.Tool.MnistFcnnMatrix
                       HordeAd.Tool.MnistFcnnScalar
-                      HordeAd.Tool.MnistFcnnShaped
                       HordeAd.Tool.MnistFcnnVector
+
+  if flag(use_typelits_plugins) {
+    exposed-modules:  HordeAd.Tool.MnistCnnShaped
+                      HordeAd.Tool.MnistFcnnShaped
                       HordeAd.Tool.MnistRnnShaped
+  }
 
     -- Modules included in this library but not exported.
     -- other-modules:
@@ -146,8 +154,6 @@ library
         assert-failure
       , base >= 4.14 && < 99
       , bytestring
-      , ghc-typelits-knownnat
-      , ghc-typelits-natnormalise
       , hmatrix
       , ilist
       , mnist-idx
@@ -159,6 +165,12 @@ library
       , transformers
       , vector
       , zlib
+
+  if flag(use_typelits_plugins) {
+    build-depends:
+        ghc-typelits-knownnat
+      , ghc-typelits-natnormalise
+  }
 
     -- Directories containing source files.
     hs-source-dirs:   src
@@ -177,19 +189,20 @@ library testLibrary
     -- Modules exported by the library.
     exposed-modules:  TestCommon
                       TestConditionalSynth
-                      TestMnistCNN
+                      TestOutdated
+
+  if flag(use_typelits_plugins) {
+    exposed-modules:  TestMnistCNN
                       TestMnistFCNN
                       TestMnistRNN
-                      TestOutdated
                       TestSimpleDescent
                       TestSingleGradient
+  }
 
     -- Other library packages from which modules are imported.
     build-depends:
         base
       , deepseq
-      , ghc-typelits-knownnat
-      , ghc-typelits-natnormalise
       , hmatrix
       , horde-ad
       , ilist
@@ -202,6 +215,12 @@ library testLibrary
       , tasty-quickcheck
       , time
       , vector
+
+  if flag(use_typelits_plugins) {
+    build-depends:
+        ghc-typelits-knownnat
+      , ghc-typelits-natnormalise
+  }
 
     -- Directories containing source files.
     hs-source-dirs:   test/common

@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE CPP, TypeFamilies #-}
 -- | The "pair of vectors" implementation of vectors of dual numbers.
 -- This is much faster than "vector of pairs" implementation, but terribly
 -- hard to use in case of scalar dual numbers, in particular to efficiently
@@ -72,7 +72,11 @@ varX (_, _, _, _, _, _, vValue, vVar) i = D (vValue V.! i) (vVar V.! i)
 varS :: (IsScalar d r, OS.Shape sh)
      => DualNumberVariables d r -> Int -> DualNumber d (OS.Array sh r)
 varS (_, _, _, _, _, _, vValue, vVar) i =
+#if VERSION_ghc_typelits_natnormalise
   inline fromXS $ D (vValue V.! i) (vVar V.! i)
+#else
+  undefined
+#endif
 
 ifoldMDual' :: forall a d r m. (Monad m, IsScalar d r)
              => (a -> Int -> DualNumber d r -> m a)

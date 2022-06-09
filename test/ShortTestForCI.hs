@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 module Main (main) where
 
 import Prelude
@@ -5,11 +6,15 @@ import Prelude
 import qualified System.IO as SIO
 import           Test.Tasty
 
+import qualified TestOutdated
+
+#if VERSION_ghc_typelits_natnormalise
 import qualified TestMnistCNN
 import qualified TestMnistFCNN
 import qualified TestMnistRNN
 import qualified TestSimpleDescent
 import qualified TestSingleGradient
+#endif
 
 main :: IO ()
 main = do
@@ -20,8 +25,11 @@ main = do
 
 tests :: TestTree
 tests = testGroup "Short tests for CI" $
-  TestSingleGradient.testTrees
+  TestOutdated.testTrees
+#if VERSION_ghc_typelits_natnormalise
+  ++ TestSingleGradient.testTrees
   ++ TestSimpleDescent.testTrees
   ++ TestMnistFCNN.shortTestForCITrees
   ++ TestMnistRNN.shortTestForCITrees
   ++ TestMnistCNN.shortTestForCITrees
+#endif

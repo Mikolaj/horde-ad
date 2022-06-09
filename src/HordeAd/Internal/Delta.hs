@@ -3,8 +3,10 @@
 #if !MIN_VERSION_base(4,16,0)
 {-# LANGUAGE IncoherentInstances #-}
 #endif
+#if VERSION_ghc_typelits_natnormalise
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+#endif
 -- | The second component of dual numbers, @Delta@, with its semantics.
 -- Neel Krishnaswami calls it \"sparse vector expressions\",
 -- and indeed even in the simplest case of an objective function
@@ -642,6 +644,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         AddS d e -> evalS r d >> evalS r e
         VarS (DeltaId i) -> VM.modify finMapX (addToArrayS r) i
 
+#if VERSION_ghc_typelits_natnormalise
         KonstS d -> mapM_ (`eval0` d) $ OS.toList r
         AppendS (d :: DeltaS (k ': rest) r) (e :: DeltaS (l ': rest) r) ->
           evalS (OS.slice @'[ '(0, k) ] r) d
@@ -674,6 +677,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         OutlineS codeOut primalArgs dualArgs ->
           evalS r $ inlineDerivativeS codeOut primalArgs dualArgs
         DelayS d -> evalS r d
+#endif
 
   eval0 dt deltaTopLevel
 
@@ -847,6 +851,7 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
         AddS d e -> evalS parameters d + evalS parameters e
         VarS (DeltaId i) -> Data.Array.Convert.convert $ paramsX V.! i
 
+#if VERSION_ghc_typelits_natnormalise
         KonstS d -> OS.constant $ eval0 parameters d
         AppendS d e -> evalS parameters d `OS.append` evalS parameters e
         SliceS (_ :: Proxy i) (_ :: Proxy n) d ->
@@ -866,6 +871,8 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
         OutlineS codeOut primalArgs dualArgs ->
           evalS parameters $ inlineDerivativeS codeOut primalArgs dualArgs
         DelayS d -> evalS parameters d
+#endif
+
       evalUnlessZero :: Domains r -> DeltaBinding r -> Domains r
       evalUnlessZero parameters@(!params0, !params1, !params2, !paramsX) = \case
         DeltaBinding0 (DeltaId i) d ->

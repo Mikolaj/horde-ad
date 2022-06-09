@@ -1,10 +1,12 @@
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, FlexibleInstances,
+{-# LANGUAGE AllowAmbiguousTypes, CPP, DataKinds, FlexibleInstances,
              FunctionalDependencies, QuantifiedConstraints, RankNTypes,
              TypeFamilies, TypeOperators #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
+#if VERSION_ghc_typelits_natnormalise
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+#endif
 -- | Dual numbers and various operations on them, arithmetic and related
 -- to tensors (vectors, matrices and others). This is the high-level API,
 -- defined using the low-level API in "HordeAd.Core.DualClass".
@@ -682,6 +684,7 @@ fromSX :: forall sh d r. (IsScalar d r, OS.Shape sh)
 fromSX (D u u') = D (Data.Array.Convert.convert u) (dFromSX u')
 
 
+#if VERSION_ghc_typelits_natnormalise
 -- * Operations resulting in an arbitrary fully typed Shaped tensor
 
 konstS :: (IsScalar d r, OS.Shape sh)
@@ -867,6 +870,7 @@ maxPool24 d = do
                                   (valueOf @stride)
                        . fromS2)) d
   returnLet res
+#endif
 
 
 -- * Operations creating delayed/outlined derivatives
