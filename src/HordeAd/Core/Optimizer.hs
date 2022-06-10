@@ -55,12 +55,6 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
     in if null rest
        then (parametersNew, valueNew)
        else go rest parametersNew
-{-# SPECIALIZE sgd
-  :: Double
-  -> ((Vector Double, Vector Double) -> DualNumberVariables 'DModeGradient Double -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
-  -> [(Vector Double, Vector Double)]
-  -> Domains Double
-  -> (Domains Double, Double) #-}
 
 sgdAdam :: forall r a. HasDelta r
         => (a -> DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
