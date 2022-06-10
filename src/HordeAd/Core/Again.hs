@@ -133,31 +133,11 @@ data DeltaF (s :: Type) (dual :: Type -> Type) (t :: Type) where
     dual (OS.Array sh s) ->
     DeltaF s dual s
 
--- I don't know if I can get mapDeltaF from mapDeltaFG or vice versa
 mapDeltaF ::
   (forall tt. dual tt -> dual' tt) ->
   DeltaF s dual t ->
   DeltaF s dual' t
-mapDeltaF f = \case
-  Zero0 -> Zero0
-  Add0 duals duals' -> Add0 (f duals') (f duals)
-  Scale0 s duals -> Scale0 s (f duals)
-  Index0 dual n i -> Index0 (f dual) n i
-  Add1 dual dual' -> Add1 (f dual') (f dual)
-  Scale1 s dual -> Scale1 s (f dual)
-  Konst1 duals n -> Konst1 (f duals) n
-  Dot1 vec dual -> Dot1 vec (f dual)
-  SumElements1 dual n -> SumElements1 (f dual) n
-  Seq1 vec -> Seq1 (fmap f vec)
-  AddS d1 d2 -> AddS (f d1) (f d2)
-  NegateS d -> NegateS (f d)
-  KonstS s -> KonstS (f s)
-  ZeroS -> ZeroS
-  AppendS a1 a2 -> AppendS (f a1) (f a2)
-  MulS1 d a -> MulS1 (f d) a
-  MulS2 a d -> MulS2 a (f d)
-  ScalePointwiseS d a -> ScalePointwiseS (f d) a
-  SumElementsS d -> SumElementsS (f d)
+mapDeltaF f = mapDeltaFG (\_ -> f) ()
 
 mapDeltaFG ::
   (forall tt. s `IsScalarOf` tt -> dual tt -> dual' tt) ->
