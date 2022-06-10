@@ -161,10 +161,10 @@ mapDeltaF f = \case
 
 mapDeltaFG ::
   (forall tt. s `IsScalarOf` tt -> dual tt -> dual' tt) ->
-  s `IsScalarOf` t ->
+  a ->
   DeltaF s dual t ->
   DeltaF s dual' t
-mapDeltaFG f k = knowIsScalarOf k $ \case
+mapDeltaFG f _ = \case
   Zero0 -> Zero0
   Add0 duals duals' -> Add0 (f known duals') (f known duals)
   Scale0 s duals -> Scale0 s (f known duals)
