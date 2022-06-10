@@ -11,8 +11,6 @@ import Prelude
 import qualified System.IO as SIO
 import           Test.Tasty
 
-import qualified TestOutdated
-
 #if defined(VERSION_ghc_typelits_natnormalise)
 import qualified TestMnistCNN
 import qualified TestMnistFCNN
@@ -30,11 +28,12 @@ main = do
 
 tests :: TestTree
 tests = testGroup "Short tests for CI" $
-  TestOutdated.testTrees
 #if defined(VERSION_ghc_typelits_natnormalise)
-  ++ TestSingleGradient.testTrees
+  TestSingleGradient.testTrees
   ++ TestSimpleDescent.testTrees
   ++ TestMnistFCNN.shortTestForCITrees
   ++ TestMnistRNN.shortTestForCITrees
   ++ TestMnistCNN.shortTestForCITrees
+#else
+  []
 #endif
