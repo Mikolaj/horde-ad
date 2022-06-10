@@ -31,6 +31,7 @@ import qualified Data.Biapplicative as B
 import Data.Functor.Identity (Identity (Identity), runIdentity)
 import Data.Kind (Type)
 import Data.List (foldl')
+import qualified Data.Monoid as Monoid
 import Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Map as Map
 import qualified Data.Strict.Vector as Data.Vector
@@ -409,20 +410,40 @@ instance (HM.Numeric r, Monoid m) => Ops (DeltaF r) (MonoidMap m) where
 -- The correctness condition on Ops is that the two tuple components
 -- should be equal.
 --
+-- f ~ DeltaF s
 -- dual1 ~ C
--- dual2 ~ DeltaF
+-- dual2 ~ MonoidMap m
+--
+-- The need for the "constraint" c is rather unfortunate.  We need it
+-- in order to get hold of a dot product for t.
 compatibleOps ::
-  forall f dual1 dual2 t'.
-  -- | Ops @C
-  (forall t. f dual1 t -> dual1 t) ->
-  -- | Ops @MonoidMap (ie. evalDeltaFM1)
-  (forall t. f dual2 t -> dual2 t) ->
+  forall f dual1 dual2 t' c.
+  -- | ops @C
+  (forall t. c t -> f dual1 t -> dual1 t) ->
+  -- | ops @MonoidMap (i.e. evalDeltaFM1)
+  (forall t. c t -> f dual2 t -> dual2 t) ->
   -- | Functor instance, (i.e. mapDeltaF)
-  ((forall t. dual1 t -> dual2 t) -> (forall t. f dual1 t -> f dual2 t)) ->
-  -- | Homomorphism (i.e. "do with argument then sum")
-  (forall t. dual1 t -> dual2 t) ->
-  (f dual1 t' -> dual2 t', f dual1 t' -> dual2 t')
-compatibleOps f1 f2 mapp f = (f . f1, f2 . mapp f)
+  ((forall t. c t -> dual1 t -> dual2 t) -> (forall t. c t -> f dual1 t -> f dual2 t)) ->
+  -- | Homomorphism (i.e. "dot with argument then sum")
+  (forall t. c t -> dual1 t -> dual2 t) ->
+  (c t' -> f dual1 t' -> dual2 t', c t' -> f dual1 t' -> dual2 t')
+compatibleOps f1 f2 mapp f = (\c -> f c . f1 c, \c -> f2 c . mapp f c)
+
+useCompatibleOps ::
+  forall s t.
+  HM.Numeric s =>
+  ( s `IsScalarOf` t -> DeltaF s Concrete t -> MonoidMap (Monoid.Sum s) t,
+    s `IsScalarOf` t -> DeltaF s Concrete t -> MonoidMap (Monoid.Sum s) t
+  )
+useCompatibleOps =
+  compatibleOps
+    @(DeltaF s)
+    @Concrete
+    @(MonoidMap (Monoid.Sum s))
+    (\_ -> ops)
+    (\_ -> ops)
+    mapDeltaFG
+    (\s (C t) -> knowIsScalarOf s (MonoidMap (\t' -> Monoid.Sum (t `deltaFDot` t'))))
 
 -- accumulate has the special property
 accumulate ::
