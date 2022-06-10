@@ -132,6 +132,7 @@ data DeltaF (s :: Type) (dual :: Type -> Type) (t :: Type) where
     dual (OS.Array sh s) ->
     DeltaF s dual s
 
+-- I don't know if I can get mapDeltaF from mapDeltaFG or vice versa
 mapDeltaF ::
   (forall tt. dual tt -> dual' tt) ->
   DeltaF s dual t ->
@@ -156,6 +157,32 @@ mapDeltaF f = \case
   MulS2 a d -> MulS2 a (f d)
   ScalePointwiseS d a -> ScalePointwiseS (f d) a
   SumElementsS d -> SumElementsS (f d)
+
+mapDeltaFG ::
+  (forall tt. s `IsScalarOf` tt -> dual tt -> dual' tt) ->
+  s `IsScalarOf` t ->
+  DeltaF s dual t ->
+  DeltaF s dual' t
+mapDeltaFG f k = knowIsScalarOf k $ \case
+  Zero0 -> Zero0
+  Add0 duals duals' -> Add0 (f known duals') (f known duals)
+  Scale0 s duals -> Scale0 s (f known duals)
+  Index0 dual n i -> Index0 (f known dual) n i
+  Add1 dual dual' -> Add1 (f known dual') (f known dual)
+  Scale1 s dual -> Scale1 s (f known dual)
+  Konst1 duals n -> Konst1 (f known duals) n
+  Dot1 vec dual -> Dot1 vec (f known dual)
+  SumElements1 dual n -> SumElements1 (f known dual) n
+  Seq1 vec -> Seq1 (fmap (f known) vec)
+  AddS d1 d2 -> AddS (f known d1) (f known d2)
+  NegateS d -> NegateS (f known d)
+  KonstS s -> KonstS (f known s)
+  ZeroS -> ZeroS
+  AppendS a1 a2 -> AppendS (f known a1) (f known a2)
+  MulS1 d a -> MulS1 (f known d) a
+  MulS2 a d -> MulS2 a (f known d)
+  ScalePointwiseS d a -> ScalePointwiseS (f known d) a
+  SumElementsS d -> SumElementsS (f known d)
 
 data DeltaId (s :: Type) (t :: Type) where
   DeltaId :: Known (s `IsScalarOf` t) => Int -> DeltaId s t
