@@ -115,10 +115,9 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
              let f = trainWithLoss widthHidden widthHidden2
                  (!res, _, _, _) =
                    fst $ sgd gamma f chunk (params0, V.empty, V.empty, V.empty)
-                 !trainScore = fcnnMnistTest0 (Proxy @Double)
-                                         widthHidden widthHidden2 chunk res
-                 !testScore  = fcnnMnistTest0 (Proxy @Double)
-                                         widthHidden widthHidden2 testData res
+                 !trainScore = fcnnMnistTest0 widthHidden widthHidden2 chunk res
+                 !testScore =
+                   fcnnMnistTest0 widthHidden widthHidden2 testData res
                  !lenChunk = length chunk
              hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
              hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
@@ -134,7 +133,8 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
              !res <- foldM runBatch params0 chunks
              runEpoch (succ n) res
        res <- runEpoch 1 params0Init
-       let testErrorFinal = 1 - fcnnMnistTest0 (Proxy @Double) widthHidden widthHidden2 testData res
+       let testErrorFinal =
+             1 - fcnnMnistTest0 widthHidden widthHidden2 testData res
        testErrorFinal @?= expected
 
 mnistTestCase2V
@@ -618,7 +618,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       let nParams0 = fcnnMnistLen0 300 100
           params0 = V.replicate nParams0 0.1
       testData <- loadMnistData testGlyphsPath testLabelsPath
-      (1 - fcnnMnistTest0 (Proxy @Double) 300 100 testData params0)
+      (1 - fcnnMnistTest0 300 100 testData params0)
         @?= 0.902
   , testCase "fcnnMnistTest2VV on 0.1 params0 300 100 width 10k testset" $ do
       let (nParams0, nParams1, _, _) = fcnnMnistLen1 300 100

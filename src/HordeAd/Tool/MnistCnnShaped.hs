@@ -204,8 +204,7 @@ convMnistTestS
      , 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
      , IsScalar 'DModeGradient r )
-  => Proxy r
-  -> Proxy kheight_minus_1
+  => Proxy kheight_minus_1
   -> Proxy kwidth_minus_1
   -> Proxy num_hidden
   -> Proxy out_channels
@@ -213,7 +212,7 @@ convMnistTestS
       , OS.Array '[SizeMnistLabel] r )]
   -> Domains r
   -> r
-convMnistTestS _ _ _ _ _ inputs parameters =
+convMnistTestS _ _ _ _ inputs parameters =
   let matchesLabels :: ( OS.Array '[in_height, in_width] r
                        , OS.Array '[SizeMnistLabel] r )
                     -> Bool

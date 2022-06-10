@@ -7,7 +7,6 @@ module HordeAd.Tool.MnistFcnnScalar where
 import Prelude
 
 import           Control.Exception (assert)
-import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
@@ -140,13 +139,10 @@ fcnnMnistLoss0 widthHidden widthHidden2 (input, target) variables = do
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
---
--- The proxy argument is needed only for the (spurious) SPECIALIZE pragma,
--- becuase I can't write @SPECIALIZE fcnnMnistTest0 \@Double@.
 fcnnMnistTest0 :: forall r. IsScalar 'DModeGradient r
-           => Proxy r -> Int -> Int -> [MnistData r] -> Domain0 r
-           -> r
-fcnnMnistTest0 _ widthHidden widthHidden2 inputs params0 =
+               => Int -> Int -> [MnistData r] -> Domain0 r
+               -> r
+fcnnMnistTest0 widthHidden widthHidden2 inputs params0 =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
         let nn = inline (fcnnMnist0 @'DModeGradient) logisticAct softMaxAct
@@ -156,4 +152,4 @@ fcnnMnistTest0 _ widthHidden widthHidden2 inputs params0 =
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
-{-# SPECIALIZE fcnnMnistTest0 :: Proxy Double -> Int -> Int -> [MnistData Double] -> Domain0 Double -> Double #-}
+{-# SPECIALIZE fcnnMnistTest0 :: Int -> Int -> [MnistData Double] -> Domain0 Double -> Double #-}

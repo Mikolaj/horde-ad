@@ -795,7 +795,7 @@ mnistTestCaseRNNS
       -> m (DualNumber d r))
   -> (forall out_width' batch_size'.
       (IsScalar d r, KnownNat out_width', KnownNat batch_size')
-      => Proxy r -> Proxy out_width'
+      => Proxy out_width'
       -> MnistDataBatchS batch_size' r
       -> Domains r
       -> r)
@@ -831,11 +831,10 @@ mnistTestCaseRNNS prefix epochs maxBatches trainWithLoss ftest flen expected =
                        $ chunksOf batch_size chunk
               res@(parameters2, _) = sgdAdam f chunkS parameters stateAdam
               !trainScore =
-                ftest (Proxy @r) proxy_out_width
+                ftest proxy_out_width
                       (packBatch @(10 GHC.TypeLits.* batch_size) chunk)
                       parameters2
-              !testScore = ftest (Proxy @r) proxy_out_width
-                                testDataS parameters2
+              !testScore = ftest proxy_out_width testDataS parameters2
               !lenChunk = length chunk
           hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
           hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
@@ -852,7 +851,7 @@ mnistTestCaseRNNS prefix epochs maxBatches trainWithLoss ftest flen expected =
           !res <- foldM runBatch paramsStateAdam chunks
           runEpoch (succ n) res
     res <- runEpoch 1 (parametersInit, initialStateAdam parametersInit)
-    let testErrorFinal = 1 - ftest (Proxy @r) proxy_out_width testDataS res
+    let testErrorFinal = 1 - ftest proxy_out_width testDataS res
     testErrorFinal @?= expected
 
 mnistRNNTestsLong :: TestTree

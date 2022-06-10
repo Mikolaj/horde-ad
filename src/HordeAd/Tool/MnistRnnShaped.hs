@@ -153,11 +153,11 @@ rnnMnistLossFusedS _ (glyphS, labelS) variables = do
 rnnMnistTestS
   :: forall out_width batch_size r.
      (IsScalar 'DModeGradient r, KnownNat out_width, KnownNat batch_size)
-  => Proxy r -> Proxy out_width
+  => Proxy out_width
   -> MnistDataBatchS batch_size r
   -> Domains r
   -> r
-rnnMnistTestS _ _ (glyphS, labelS) parameters =
+rnnMnistTestS _ (glyphS, labelS) parameters =
   let xs = OS.transpose @'[2, 1, 0] glyphS
       outputS = primalValue (rnnMnistS @out_width xs) parameters
       outputs = map OS.toVector $ OSB.toList $ OS.unravel

@@ -117,8 +117,8 @@ convMnistLossCNN depth (x, target) variables = do
 
 convMnistTestCNN
   :: forall r. IsScalar 'DModeGradient r
-  => Proxy r -> Int -> [MnistData2 r] -> Domains r -> r
-convMnistTestCNN _ depth inputs parameters =
+  => Int -> [MnistData2 r] -> Domains r -> r
+convMnistTestCNN depth inputs parameters =
   let matchesLabels :: MnistData2 r -> Bool
       matchesLabels (glyph, label) =
         let nn variables = do
@@ -128,7 +128,7 @@ convMnistTestCNN _ depth inputs parameters =
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
-{-# SPECIALIZE convMnistTestCNN :: Proxy Double -> Int -> [MnistData2 Double] -> Domains Double -> Double #-}
+{-# SPECIALIZE convMnistTestCNN :: Int -> [MnistData2 Double] -> Domains Double -> Double #-}
 
 -- Here, unlike in
 -- https://www.ritchieng.com/machine-learning/deep-learning/tensorflow/convnets/#Problem-1
@@ -141,8 +141,7 @@ convMnistTestCaseCNN
       -> MnistData2 Double
       -> DualNumberVariables 'DModeGradient Double
       -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
-  -> (Proxy Double -> Int -> [MnistData2 Double]
-      -> Domains Double -> Double)
+  -> (Int -> [MnistData2 Double]-> Domains Double -> Double)
   -> Int
   -> Int
   -> Int
@@ -175,10 +174,8 @@ convMnistTestCaseCNN prefix epochs maxBatches trainWithLoss testLoss
              let f = trainWithLoss widthHidden
                  res = fst $ sgd gamma f chunk
                                  (params0, params1, params2, paramsX)
-                 !trainScore = testLoss (Proxy @Double)
-                                       widthHidden chunk res
-                 !testScore = testLoss (Proxy @Double)
-                                      widthHidden testData res
+                 !trainScore = testLoss widthHidden chunk res
+                 !testScore = testLoss widthHidden testData res
                  !lenChunk = length chunk
              hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
              hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
@@ -196,8 +193,7 @@ convMnistTestCaseCNN prefix epochs maxBatches trainWithLoss testLoss
              !res <- foldM runBatch params2 chunks
              runEpoch (succ n) res
        res <- runEpoch 1 parameters0
-       let testErrorFinal = 1 - testLoss (Proxy @Double)
-                                         widthHidden testData res
+       let testErrorFinal = 1 - testLoss widthHidden testData res
        testErrorFinal @?= expected
 
 
@@ -266,8 +262,8 @@ convMnistLossCNNS depth (x, target) variables = do
 
 convMnistTestCNNS
   :: forall r. IsScalar 'DModeGradient r
-  => Proxy r -> Int -> [MnistData2 r] -> Domains r -> r
-convMnistTestCNNS _ depth inputs parameters =
+  => Int -> [MnistData2 r] -> Domains r -> r
+convMnistTestCNNS depth inputs parameters =
   let matchesLabels :: MnistData2 r -> Bool
       matchesLabels (glyph, label) =
         let nn variables = do
@@ -277,7 +273,7 @@ convMnistTestCNNS _ depth inputs parameters =
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
-{-# SPECIALIZE convMnistTestCNNS :: Proxy Double -> Int -> [MnistData2 Double] -> Domains Double -> Double #-}
+{-# SPECIALIZE convMnistTestCNNS :: Int -> [MnistData2 Double] -> Domains Double -> Double #-}
 
 
 -- * A variant of @convMnistCNN@ with @conv2'@.
@@ -336,8 +332,8 @@ convMnistLossCNNP depth (x, target) variables = do
 
 convMnistTestCNNP
   :: forall r. IsScalar 'DModeGradient r
-  => Proxy r -> Int -> [MnistData2 r] -> Domains r -> r
-convMnistTestCNNP _ depth inputs parameters =
+  => Int -> [MnistData2 r] -> Domains r -> r
+convMnistTestCNNP depth inputs parameters =
   let matchesLabels :: MnistData2 r -> Bool
       matchesLabels (glyph, label) =
         let nn variables = do
@@ -347,7 +343,7 @@ convMnistTestCNNP _ depth inputs parameters =
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
-{-# SPECIALIZE convMnistTestCNNP :: Proxy Double -> Int -> [MnistData2 Double] -> Domains Double -> Double #-}
+{-# SPECIALIZE convMnistTestCNNP :: Int -> [MnistData2 Double] -> Domains Double -> Double #-}
 
 
 -- * A variant of @convMnistCNN@ with shaped tensors, including mini-batches
@@ -388,8 +384,7 @@ convMnistTestCaseCNNT
       , 1 <= kheight_minus_1'
       , 1 <= kwidth_minus_1'
       , IsScalar d r )
-      => Proxy r
-      -> Proxy kheight_minus_1'
+      => Proxy kheight_minus_1'
       -> Proxy kwidth_minus_1'
       -> Proxy num_hidden'
       -> Proxy out_channels'
@@ -462,14 +457,12 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
                        $ filter (\ch -> length ch >= batch_size)
                        $ chunksOf batch_size chunk
               res = fst $ sgd gamma f chunkS parameters
-              !trainScore = ftest (Proxy @r)
-                                 proxy_kheight_minus_1 proxy_kwidth_minus_1
+              !trainScore = ftest proxy_kheight_minus_1 proxy_kwidth_minus_1
+                                  proxy_num_hidden proxy_out_channels
+                                  chunk res
+              !testScore = ftest proxy_kheight_minus_1 proxy_kwidth_minus_1
                                  proxy_num_hidden proxy_out_channels
-                                 chunk res
-              !testScore = ftest (Proxy @r)
-                                proxy_kheight_minus_1 proxy_kwidth_minus_1
-                                proxy_num_hidden proxy_out_channels
-                                testData res
+                                 testData res
               !lenChunk = length chunk
           hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
           hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
@@ -487,8 +480,7 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
           !res <- foldM runBatch params2 chunks
           runEpoch (succ n) res
     res <- runEpoch 1 parametersInit
-    let testErrorFinal = 1 - ftest (Proxy @r)
-                                   proxy_kheight_minus_1 proxy_kwidth_minus_1
+    let testErrorFinal = 1 - ftest proxy_kheight_minus_1 proxy_kwidth_minus_1
                                    proxy_num_hidden proxy_out_channels
                                    testData res
     testErrorFinal @?= expected

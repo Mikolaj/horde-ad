@@ -8,7 +8,6 @@ import           Control.Arrow ((***))
 import           Control.DeepSeq (NFData)
 import           Criterion.Main
 import           Data.List.Index (imap)
-import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Vector.Generic as V
 import qualified Numeric.LinearAlgebra as HM
 import           System.Random
@@ -44,7 +43,7 @@ mnistTestBench2 extraPrefix chunkLength xs widthHidden widthHidden2 = do
       params0Init = V.unfoldrExactN nParams0 (uniformR (-0.5, 0.5))
                     $ mkStdGen 33
       chunk = take chunkLength xs
-      score c = fcnnMnistTest0 (Proxy @r) widthHidden widthHidden2 c params0Init
+      score c = fcnnMnistTest0 widthHidden widthHidden2 c params0Init
       name = "test " ++ extraPrefix
              ++ unwords [ "s" ++ show nParams0, "v0"
                         , "m0" ++ "=" ++ show nParams0 ]
