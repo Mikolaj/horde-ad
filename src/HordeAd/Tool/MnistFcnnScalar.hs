@@ -160,4 +160,4 @@ testMnist2 widthHidden widthHidden2 inputs params =
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
-{-# SPECIALIZE testMnist2 :: Int -> Int -> [MnistData Double] -> Domain Double -> Double #-}
+-- {-# SPECIALIZE testMnist2 :: Int -> Int -> [MnistData Double] -> Domain Double -> Double #-}
