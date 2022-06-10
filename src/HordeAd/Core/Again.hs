@@ -137,14 +137,13 @@ mapDeltaF ::
   (forall tt. dual tt -> dual' tt) ->
   DeltaF s dual t ->
   DeltaF s dual' t
-mapDeltaF f = mapDeltaFG (\_ -> f) ()
+mapDeltaF f = mapDeltaFG (\_ -> f)
 
 mapDeltaFG ::
   (forall tt. s `IsScalarOf` tt -> dual tt -> dual' tt) ->
-  a ->
   DeltaF s dual t ->
   DeltaF s dual' t
-mapDeltaFG f _ = \case
+mapDeltaFG f = \case
   Zero0 -> Zero0
   Add0 duals duals' -> Add0 (f known duals') (f known duals)
   Scale0 s duals -> Scale0 s (f known duals)
@@ -422,7 +421,7 @@ useCompatibleOps =
     @(MonoidMap (Monoid.Sum s))
     (\_ -> ops)
     (\_ -> ops)
-    mapDeltaFG
+    (\f _ -> mapDeltaFG f)
     (\s (C t) -> knowIsScalarOf s (MonoidMap (\t' -> Monoid.Sum (t `deltaFDot` t'))))
 
 -- accumulate has the special property
