@@ -135,8 +135,8 @@ library
         assert-failure
       , base >= 4.14 && < 99
       , bytestring
-      , ghc-typelits-knownnat
-      , ghc-typelits-natnormalise
+--      , ghc-typelits-knownnat
+--      , ghc-typelits-natnormalise
       , hmatrix
       , ilist
       , mnist-idx
@@ -163,12 +163,13 @@ test-suite test
       buildable: True
 
     -- Modules included in this executable, other than Main.
-    other-modules:    TestConditionalSynth
+    other-modules:
+--    TestConditionalSynth
                       TestMnistFC
-                      TestMnistRNN
-                      TestOutdated
-                      TestSimpleDescent
-                      TestSingleGradient
+--                      TestMnistRNN
+--                      TestOutdated
+--                      TestSimpleDescent
+--                      TestSingleGradient
 
     -- The interface type and version of the test suite.
     type:             exitcode-stdio-1.0
@@ -206,9 +207,9 @@ test-suite shortTestForCI
 
     -- Modules included in this executable, other than Main.
     other-modules:    TestMnistFC
-                      TestMnistRNN
-                      TestSimpleDescent
-                      TestSingleGradient
+--                      TestMnistRNN
+--                      TestSimpleDescent
+--                      TestSingleGradient
 
     -- The interface type and version of the test suite.
     type:             exitcode-stdio-1.0
