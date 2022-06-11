@@ -35,7 +35,7 @@ shortTestForCITrees = [ dumbMnistTests
                       , shortCIMnistTests
                       ]
 
-sgdShow :: HasDelta r
+sgdShow :: forall r a . HasDelta r
         => Primal r
         -> (a -> DualNumberVariables r -> DualMonadGradient r (DualNumber r))
         -> [a]  -- ^ training data
@@ -43,12 +43,12 @@ sgdShow :: HasDelta r
         -> Primal r
 sgdShow gamma f trainData params0Init =
   let result =
-        fst $ sgd gamma f trainData (params0Init, V.empty, V.empty, V.empty)
+        fst $ sgd (Proxy @r) gamma f trainData (params0Init, V.empty, V.empty, V.empty)
   in snd $ df (f $ head trainData) result
 
 sgdTestCase :: String
             -> IO [a]
-            -> (Int
+            -> (Proxy (Delta0 Double) -> Int
                 -> Int
                 -> a
                 -> DualNumberVariables (Delta0 Double)
@@ -66,7 +66,7 @@ sgdTestCase prefix trainDataIO trainWithLoss gamma expected =
              ++ unwords [show widthHidden, show nParams0, show gamma]
   in testCase name $ do
        trainData <- trainDataIO
-       sgdShow gamma (trainWithLoss widthHidden widthHidden2)
+       sgdShow gamma (trainWithLoss (Proxy @(Delta0 Double)) widthHidden widthHidden2)
                      trainData vec
          @?= expected
 
@@ -74,7 +74,7 @@ mnistTestCase2
   :: String
   -> Int
   -> Int
-  -> (Int
+  -> (Proxy (Delta0 Double) -> Int
       -> Int
       -> MnistData Double
       -> DualNumberVariables (Delta0 Double)
@@ -101,9 +101,9 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                     -> IO (Domain0 Double)
            runBatch !params0 (k, chunk) = do
              printf "(Batch %d)\n" k
-             let f = trainWithLoss widthHidden widthHidden2
+             let f = trainWithLoss (Proxy @(Delta0 Double)) widthHidden widthHidden2
                  (!res, _, _, _) =
-                   fst $ sgd gamma f chunk (params0, V.empty, V.empty, V.empty)
+                   fst $ sgd (Proxy @(Delta0 Double)) gamma f chunk (params0, V.empty, V.empty, V.empty)
              printf "Trained on %d points.\n" (length chunk)
              let trainScore = testMnist0 (Proxy @(Delta0 Double))
                                          widthHidden widthHidden2 chunk res
@@ -167,7 +167,7 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
              printf "(Batch %d)\n" k
              let f = trainWithLoss widthHidden widthHidden2
                  (resS, resV, _, _) =
-                   fst $ sgd gamma f chunk (params0, params1, V.empty, V.empty)
+                   fst $ sgd (Proxy @(Delta0 Double)) gamma f chunk (params0, params1, V.empty, V.empty)
                  res = (resS, resV)
              printf "Trained on %d points.\n" (length chunk)
              let trainScore = testMnist1 @(Delta0 Double)
@@ -196,22 +196,22 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
        testErrorFinal @?= expected
 
 nnMnistLossTanh :: DualMonad (Delta0 Double) m
-                => Int
+                => Proxy (Delta0 Double) -> Int
                 -> Int
                 -> MnistData Double
                 -> DualNumberVariables (Delta0 Double)
                 -> m (DualNumber (Delta0 Double))
-nnMnistLossTanh widthHidden widthHidden2 (xs, targ) vec = do
+nnMnistLossTanh _ widthHidden widthHidden2 (xs, targ) vec = do
   res <- nnMnist0 tanhAct softMaxAct widthHidden widthHidden2 xs vec
   lossCrossEntropy targ res
 
 nnMnistLossRelu :: DualMonad (Delta0 Double) m
-                => Int
+                => Proxy (Delta0 Double) -> Int
                 -> Int
                 -> MnistData Double
                 -> DualNumberVariables (Delta0 Double)
                 -> m (DualNumber (Delta0 Double))
-nnMnistLossRelu widthHidden widthHidden2 (xs, targ) vec = do
+nnMnistLossRelu _ widthHidden widthHidden2 (xs, targ) vec = do
   res <- nnMnist0 reluAct softMaxAct widthHidden widthHidden2 xs vec
   lossCrossEntropy targ res
 
@@ -247,7 +247,7 @@ mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
            runBatch (!params0, !params1, !params2, !paramsX) (k, chunk) = do
              printf "(Batch %d)\n" k
              let f = trainWithLoss
-                 res = fst $ sgd gamma f chunk
+                 res = fst $ sgd (Proxy @(Delta0 Double)) gamma f chunk
                                  (params0, params1, params2, paramsX)
              printf "Trained on %d points.\n" (length chunk)
              let trainScore = testMnist2 @(Delta0 Double) chunk res
@@ -311,7 +311,7 @@ mnistTestCase2T reallyWriteFile
                hFlush stdout
              let f = trainWithLoss
                  (!params0New, !value) =
-                   sgd gamma f chunk (params0, params1, params2, paramsX)
+                   sgd (Proxy @(Delta0 Double)) gamma f chunk (params0, params1, params2, paramsX)
              time <- getPOSIXTime
              return (params0New, (time, value) : times)
        let runEpoch :: Int

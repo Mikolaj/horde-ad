@@ -140,13 +140,13 @@ nnMnist0 factivationHidden factivationOutput widthHidden widthHidden2
 -- and composed with the appropriate loss function.
 nnMnistLoss0
   :: (DualMonad r m, Floating (Primal r))
-  => Int -> Int -> MnistData (Primal r) -> DualNumberVariables r
+  => Proxy r -> Int -> Int -> MnistData (Primal r) -> DualNumberVariables r
   -> m (DualNumber r)
-nnMnistLoss0 widthHidden widthHidden2 (input, target) variables = do
+nnMnistLoss0 _ widthHidden widthHidden2 (input, target) variables = do
   result <- inline nnMnist0 logisticAct softMaxAct
                             widthHidden widthHidden2 input variables
   lossCrossEntropy target result
-{-# SPECIALIZE nnMnistLoss0 :: Int -> Int -> MnistData Double -> DualNumberVariables (Delta0 Double) -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)) #-}
+{-# SPECIALIZE nnMnistLoss0 :: Proxy (Delta0 Double) -> Int -> Int -> MnistData Double -> DualNumberVariables (Delta0 Double) -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)) #-}
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.

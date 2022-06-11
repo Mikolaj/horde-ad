@@ -9,7 +9,7 @@ module HordeAd.Core.Optimizer
 
 import Prelude
 
-import Data.Proxy (Proxy (Proxy))
+import Data.Proxy (Proxy)
 import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber (DualNumber (..))
 import HordeAd.Core.Engine
@@ -40,23 +40,23 @@ gdSimple gamma f n0 parameters0 = go n0 parameters0 where
 
 -- | Stochastic Gradient Descent.
 sgd :: forall r a. HasDelta r
-    => Primal r
+    => Proxy r -> Primal r
     -> (a -> DualNumberVariables r -> DualMonadGradient r (DualNumber r))
     -> [a]  -- ^ training data
     -> Domains r  -- ^ initial parameters
     -> (Domains r, Primal r)
-sgd gamma f trainingData parameters0 = go trainingData parameters0 where
+sgd proxy gamma f trainingData parameters0 = go trainingData parameters0 where
   varDeltas = generateDeltaVars parameters0
   go :: [a] -> Domains r -> (Domains r, Primal r)
   go [] parameters = (parameters, 0)
   go (a : rest) parameters =
     let variables = makeDualNumberVariables parameters varDeltas
         (gradients, valueNew) = generalDf variables (f a)
-        !parametersNew = updateWithGradientProxy @r Proxy gamma parameters gradients
+        !parametersNew = updateWithGradientProxy @r proxy gamma parameters gradients
     in if null rest
        then (parametersNew, valueNew)
        else go rest parametersNew
-{-# SPECIALIZE sgd :: Double
+{-# SPECIALIZE sgd :: Proxy (Delta0 Double) -> Double
     -> ((Vector Double, Vector Double)  -> DualNumberVariables (Delta0 Double) -> DualMonadGradient (Delta0 Double) (DualNumber (Delta0 Double)))
     -> [(Vector Double, Vector Double)]
     -> Domains (Delta0 Double)

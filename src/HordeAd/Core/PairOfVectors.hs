@@ -51,12 +51,6 @@ makeDualNumberVariables
 makeDualNumberVariables (params0, params1, params2, paramsX)
                         (vs0, vs1, vs2, vsX)
   = (params0, vs0, params1, vs1, params2, vs2, paramsX, vsX)
-{-# SPECIALIZE makeDualNumberVariables :: Domains (Delta0 Double)
-  -> ( Data.Vector.Vector (Delta0 Double)
-     , Data.Vector.Vector (Tensor1 (Delta0 Double))
-     , Data.Vector.Vector (Tensor2 (Delta0 Double))
-     , Data.Vector.Vector (TensorX (Delta0 Double)) )
-  -> DualNumberVariables (Delta0 Double) #-}
 
 var0 :: IsScalar r => DualNumberVariables r -> Int -> DualNumber r
 var0 (vValue, vVar, _, _, _, _, _, _) i = D (vValue V.! i) (vVar V.! i)

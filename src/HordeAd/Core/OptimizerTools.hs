@@ -12,7 +12,7 @@ import Prelude
 
 import           Control.Monad.ST.Strict (runST)
 import qualified Data.Array.DynamicS as OT
-import           Data.Proxy (Proxy (Proxy))
+import           Data.Proxy (Proxy)
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import           Numeric.LinearAlgebra (Element, Matrix, Numeric, Vector)
@@ -93,7 +93,7 @@ updateWithGradient gamma (params0, params1, params2, paramsX)
 
 updateWithGradientProxy :: IsScalar r
                    => Proxy r -> Primal r -> Domains r -> Domains r -> Domains r
-updateWithGradientProxy proxy gamma (params0, params1, params2, paramsX)
+updateWithGradientProxy _ gamma (params0, params1, params2, paramsX)
                          (gradient0, gradient1, gradient2, gradientX) =
   let updateVector i r = i - HM.scale gamma r
       !params0New = updateVector params0 gradient0

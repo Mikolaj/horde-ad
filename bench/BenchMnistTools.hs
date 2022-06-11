@@ -24,9 +24,9 @@ mnistTrainBench2 proxy extraPrefix chunkLength xs widthHidden widthHidden2 gamma
   let nParams0 = lenMnist0 widthHidden widthHidden2
       params0Init = V.unfoldrExactN nParams0 (uniformR (-0.5, 0.5))
                     $ mkStdGen 33
-      f = nnMnistLoss0 widthHidden widthHidden2
+      f = nnMnistLoss0 proxy widthHidden widthHidden2
       chunk = take chunkLength xs
-      grad c = fst $ sgd gamma f c (params0Init, V.empty, V.empty, V.empty)
+      grad c = fst $ sgd proxy gamma f c (params0Init, V.empty, V.empty, V.empty)
       name = "" ++ extraPrefix
              ++ unwords [ "s" ++ show nParams0, "v0"
                         , "m0" ++ "=" ++ show nParams0 ]
@@ -89,7 +89,7 @@ mnistTrainBench2V extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
                nParams1
       f = nnMnistLoss1 widthHidden widthHidden2
       chunk = take chunkLength xs
-      grad c = fst $ sgd gamma f c (params0Init, params1Init, V.empty, V.empty)
+      grad c = fst $ sgd (Proxy @(Delta0 Double)) gamma f c (params0Init, params1Init, V.empty, V.empty)
       totalParams = nParams0 + V.sum nParams1
       name = "" ++ extraPrefix
              ++ unwords [ "s" ++ show nParams0, "v" ++ show (V.length nParams1)
@@ -139,7 +139,7 @@ mnistTrainBench2L extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
       -- not againts the derived gradients that are definitively slower.
       f = nnMnistLossFused2
       chunk = take chunkLength xs
-      grad c = fst $ sgd gamma f c parameters0
+      grad c = fst $ sgd (Proxy @(Delta0 Double)) gamma f c parameters0
       name = "" ++ extraPrefix
              ++ unwords [ "s" ++ show nParams0, "v" ++ show nParams1
                         , "m" ++ show nParams2
