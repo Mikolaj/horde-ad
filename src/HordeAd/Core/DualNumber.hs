@@ -1,8 +1,10 @@
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, FunctionalDependencies,
              TypeFamilies, TypeOperators, UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists -Wno-missing-methods #-}
+{-
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+-}
 -- | Dual numbers and various operations on them, arithmetic and related
 -- to tensors (vectors, matrices and others).
 module HordeAd.Core.DualNumber where
@@ -336,6 +338,7 @@ fromSX (D u u') = D (Data.Array.Convert.convert u) (dFromSX u')
 
 -- Warning: not tested nor benchmarked.
 
+{-
 appendS :: ( OS.Shape sh, KnownNat m, KnownNat n, IsScalarS (m ': sh) r
            , IsScalarS (n ': sh) r, IsScalarS ((m + n) ': sh) r )
         => DualNumber (TensorS (m ': sh) r)
@@ -365,7 +368,7 @@ from2S (D u u') = D (OS.fromVector $ HM.flatten u) (dFrom2S Proxy u')
 fromXS :: (OS.Shape sh, IsScalarS sh r)
        => DualNumber (TensorX r) -> DualNumber (TensorS sh r)
 fromXS (D u u') = D (Data.Array.Convert.convert u) (dFromXS u')
-
+-}
 
 -- * General monadic operations, for any scalar rank
 

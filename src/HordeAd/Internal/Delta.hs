@@ -3,8 +3,10 @@
 #if !MIN_VERSION_base(4,16,0)
 {-# LANGUAGE IncoherentInstances #-}
 #endif
+{-
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+-}
 -- | The second component of dual numbers, @Delta@, with it's evaluation
 -- function. Neel Krishnaswami calls them "sparse vector expressions",
 -- and indeed they denote vectors, because even in the simplest
@@ -502,6 +504,7 @@ buildFinMaps st deltaTopLevel = do
             => OS.Array sh r -> DeltaS sh r -> ST s ()
       evalS !r = \case
         ZeroS -> return ()
+{-
         ScaleS k d -> evalS (OS.zipWithA (*) k r) d
         AddS d e -> evalS r d >> evalS r e
         VarS (DeltaId i) -> VM.modify finMapX (addToArrayS r) i
@@ -533,6 +536,7 @@ buildFinMaps st deltaTopLevel = do
       sliceS r = evalS (OS.constant @(i ': rest) 0
                         `OS.append` r
                         `OS.append` OS.constant @(k ': rest) 0)
+-}
   eval0 1 deltaTopLevel  -- dt is 1; can be overriden in the objective function
   let evalUnlessZero :: DeltaBinding r -> ST s ()
       evalUnlessZero (DeltaBinding0 (DeltaId i) d) = do
@@ -661,6 +665,7 @@ evalBindingsForward st deltaTopLevel
       evalS :: OS.Shape sh => Domains r -> DeltaS sh r -> OS.Array sh r
       evalS parameters@( _, _, _, paramsX) = \case
         ZeroS -> 0
+{-
         ScaleS k d -> k * evalS parameters d
         AddS d e -> evalS parameters d + evalS parameters e
         VarS (DeltaId i) -> Data.Array.Convert.convert $ paramsX V.! i
@@ -672,6 +677,7 @@ evalBindingsForward st deltaTopLevel
         From1S d -> OS.fromVector $ eval1 parameters d
         From2S _ d -> OS.fromVector $ HM.flatten $ eval2 parameters d
         FromXS d -> Data.Array.Convert.convert $ evalX parameters d
+-}
       evalUnlessZero :: Domains r -> DeltaBinding r -> Domains r
       evalUnlessZero parameters@(!params0, !params1, !params2, !paramsX) = \case
         DeltaBinding0 (DeltaId i) d ->

@@ -1,8 +1,10 @@
 {-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, DataKinds, FlexibleInstances,
              MultiParamTypeClasses, TypeFamilyDependencies, TypeOperators,
              UndecidableInstances #-}
+{-
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+-}
 -- | The class of dual components of dual numbers and related classes,
 -- constraints and instances.
 module HordeAd.Core.DualClass
@@ -380,12 +382,14 @@ instance HasRanks Double where
   dFrom1X d = OT.fromVector [V.length d] d
   dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
   dFromSX = Data.Array.Convert.convert
+{-
   dAppendS = OS.append
   dSliceS (_ :: Proxy i) (_ :: Proxy n) d = OS.slice @'[ '(i, n) ] d
   dFrom0S = OS.scalar
   dFrom1S = OS.fromVector
   dFrom2S _ = OS.fromVector . HM.flatten
   dFromXS = Data.Array.Convert.convert
+-}
 
 instance HasRanks Float where
   type Tensor1 Float = Vector Float
@@ -431,9 +435,11 @@ instance HasRanks Float where
   dFrom1X d = OT.fromVector [V.length d] d
   dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
   dFromSX = Data.Array.Convert.convert
+{-
   dAppendS = OS.append
   dSliceS (_ :: Proxy i) (_ :: Proxy n) d = OS.slice @'[ '(i, n) ] d
   dFrom0S = OS.scalar
   dFrom1S = OS.fromVector
   dFrom2S _ = OS.fromVector . HM.flatten
   dFromXS = Data.Array.Convert.convert
+-}
