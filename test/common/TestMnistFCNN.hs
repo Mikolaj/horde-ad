@@ -40,8 +40,8 @@ testTrees = [ dumbMnistTests 0.001
             , fusedMnistTests
             ]
 
-shortTestForCITrees :: [TestTree]
-shortTestForCITrees = [ dumbMnistTests 0.001
+shortTestForCITrees :: Double -> [TestTree]
+shortTestForCITrees eqEpsilon = [ dumbMnistTests eqEpsilon
                       , shortCIMnistTests
                       ]
 

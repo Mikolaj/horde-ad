@@ -35,16 +35,16 @@ main = do
   -- Limit interleaving of characters in parallel tests.
   SIO.hSetBuffering SIO.stdout SIO.LineBuffering
   SIO.hSetBuffering SIO.stderr SIO.LineBuffering
-  defaultMainWithIngredients (ingredients : defaultIngredients) tests
+  defaultMainWithIngredients (ingredients : defaultIngredients) $ askOption $ \(EqEpsilon eqEps) -> tests eqEps
   where
     ingredients = includingOptions [Option (Proxy :: Proxy EqEpsilon)]
 
-tests :: TestTree
-tests = testGroup "Short tests for CI" $
+tests :: Double -> TestTree
+tests eqEpsilon = testGroup "Short tests for CI" $
 #if defined(VERSION_ghc_typelits_natnormalise)
   TestSingleGradient.testTrees
   ++ TestSimpleDescent.testTrees
-  ++ TestMnistFCNN.shortTestForCITrees
+  ++ TestMnistFCNN.shortTestForCITrees eqEpsilon
   ++ TestMnistRNN.shortTestForCITrees
   ++ TestMnistCNN.shortTestForCITrees
 #else
