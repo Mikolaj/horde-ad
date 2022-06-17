@@ -141,7 +141,7 @@ vec_prod_aux = foldMDual' (*\) 1
   -- no handwritten derivatives; only the derivative for @(*)@ is provided;
   -- also, not omitting bindings; all let-bindings are present, see below
 
-vec_prod :: forall r. HasDelta r
+vec_prod :: forall r. IsScalar 'DModeValue r
          => Vector r -> r
 vec_prod ds = primalValue vec_prod_aux (ds, V.empty, V.empty, V.empty)
 
@@ -164,7 +164,7 @@ vec_omit_prod_aux
 vec_omit_prod_aux vec = returnLet $ foldlDual' (*) 1 vec
   -- omitting most bindings, because we know nothing repeats inside
 
-vec_omit_prod :: forall r. HasDelta r
+vec_omit_prod :: forall r. IsScalar 'DModeValue r
               => Vector r -> r
 vec_omit_prod ds =
   primalValue vec_omit_prod_aux (ds, V.empty, V.empty, V.empty)

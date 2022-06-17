@@ -116,7 +116,7 @@ convMnistLossCNN depth (x, target) variables = do
   lossSoftMaxCrossEntropyV target result
 
 convMnistTestCNN
-  :: forall r. IsScalar 'DModeGradient r
+  :: forall r. IsScalar 'DModeValue r
   => Int -> [MnistData2 r] -> Domains r -> r
 convMnistTestCNN depth inputs parameters =
   let matchesLabels :: MnistData2 r -> Bool
@@ -261,7 +261,7 @@ convMnistLossCNNS depth (x, target) variables = do
   lossSoftMaxCrossEntropyV target result
 
 convMnistTestCNNS
-  :: forall r. IsScalar 'DModeGradient r
+  :: forall r. IsScalar 'DModeValue r
   => Int -> [MnistData2 r] -> Domains r -> r
 convMnistTestCNNS depth inputs parameters =
   let matchesLabels :: MnistData2 r -> Bool
@@ -331,7 +331,7 @@ convMnistLossCNNP depth (x, target) variables = do
   lossSoftMaxCrossEntropyV target result
 
 convMnistTestCNNP
-  :: forall r. IsScalar 'DModeGradient r
+  :: forall r. IsScalar 'DModeValue r
   => Int -> [MnistData2 r] -> Domains r -> r
 convMnistTestCNNP depth inputs parameters =
   let matchesLabels :: MnistData2 r -> Bool

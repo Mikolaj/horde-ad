@@ -73,6 +73,7 @@ type HasDelta r = ( IsScalar 'DModeGradient r
 data DMode =
     DModeGradient
   | DModeDerivative
+  | DModeValue
 
 -- | The type family that enumerates all possible "ranks"
 -- for each differentiation mode.
@@ -101,6 +102,10 @@ type family Dual (d :: DMode) a = result | result -> d a where
   Dual 'DModeDerivative (Matrix r) = Matrix r
   Dual 'DModeDerivative (OT.Array r) = OT.Array r
   Dual 'DModeDerivative (OS.Array sh r) = OS.Array sh r
+  Dual 'DModeValue a = DummyDual a
+
+-- A bit more verbose, but a bit faster than @data@, perhaps by chance.
+newtype DummyDual a = DummyDual ()
 
 -- | The underlying scalar of a given primal component of a dual number.
 -- A long name to remember not to use, unless necessary, and not to export.
@@ -485,4 +490,103 @@ instance ( Numeric r, Num (Vector r)
   dFrom1S = OS.fromVector
   dFrom2S _ = OS.fromVector . HM.flatten
   dFromXS = Data.Array.Convert.convert
+#endif
+
+-- * Other alternative instances: only the objective function's value computed
+
+instance IsPrimal 'DModeValue Double where
+  dZero = DummyDual ()
+  dScale _ _ = DummyDual ()
+  dAdd _ _ = DummyDual ()
+  dDelay _ = DummyDual ()
+
+instance IsPrimal 'DModeValue Float where
+  dZero = DummyDual ()
+  dScale _ _ = DummyDual ()
+  dAdd _ _ = DummyDual ()
+  dDelay _ = DummyDual ()
+
+instance IsPrimal 'DModeValue (Vector r) where
+  dZero = DummyDual ()
+  dScale _ _ = DummyDual ()
+  dAdd _ _ = DummyDual ()
+  dDelay _ = DummyDual ()
+
+instance IsPrimal 'DModeValue (Matrix r) where
+  dZero = DummyDual ()
+  dScale _ _ = DummyDual ()
+  dAdd _ _ = DummyDual ()
+  dDelay _ = DummyDual ()
+
+instance IsPrimal 'DModeValue (OT.Array r) where
+  dZero = DummyDual ()
+  dScale _ _ = DummyDual ()
+  dAdd _ _ = DummyDual ()
+  dDelay _ = DummyDual ()
+
+instance IsPrimalS 'DModeValue r where
+  dZeroS = DummyDual ()
+  dScaleS _ _ = DummyDual ()
+  dAddS _ _ = DummyDual ()
+  dDelayS _ = DummyDual ()
+
+instance HasRanks 'DModeValue r where
+  dSumElements0 _ _ = DummyDual ()
+  dIndex0 _ _ _ = DummyDual ()
+  dDot0 _ _ = DummyDual ()
+  dFromX0 _ = DummyDual ()
+  dFromS0 _ = DummyDual ()
+  dSeq1 _ = DummyDual ()
+  dKonst1 _ _ = DummyDual ()
+  dAppend1 _ _ _ = DummyDual ()
+  dSlice1 _ _ _ _ = DummyDual ()
+  dM_VD1 _ _ = DummyDual ()
+  dMD_V1 _ _ = DummyDual ()
+  dSumRows1 _ _ = DummyDual ()
+  dSumColumns1 _ _ = DummyDual ()
+  dFromX1 _ = DummyDual ()
+  dFromS1 _ = DummyDual ()
+  dReverse1 _ = DummyDual ()
+  dFlatten1 _ _ _ = DummyDual ()
+  dFlattenX1 _ _ = DummyDual ()
+  dFlattenS1 _ = DummyDual ()
+  dFromRows2 _ = DummyDual ()
+  dFromColumns2 _ = DummyDual ()
+  dKonst2 _ _ = DummyDual ()
+  dTranspose2 _ = DummyDual ()
+  dM_MD2 _ _ = DummyDual ()
+  dMD_M2 _ _ = DummyDual ()
+  dAsRow2 _ = DummyDual ()
+  dAsColumn2 _ = DummyDual ()
+  dRowAppend2 _ _ _ = DummyDual ()
+  dColumnAppend2 _ _ _ = DummyDual ()
+  dRowSlice2 _ _ _ _ = DummyDual ()
+  dColumnSlice2 _ _ _ _ = DummyDual ()
+  dFromX2 _ = DummyDual ()
+  dFromS2 _ = DummyDual ()
+  dFlipud2 _ = DummyDual ()
+  dFliprl2 _ = DummyDual ()
+  dReshape2 _ _ = DummyDual ()
+  dConv2 _ _ = DummyDual ()
+  dKonstX _ _ = DummyDual ()
+  dAppendX _ _ _ = DummyDual ()
+  dSliceX _ _ _ _ = DummyDual ()
+  dIndexX _ _ _ = DummyDual ()
+  dRavelFromListX _ = DummyDual ()
+  dReshapeX _ _ _ = DummyDual ()
+  dFrom0X _ = DummyDual ()
+  dFrom1X _ = DummyDual ()
+  dFrom2X _ _ = DummyDual ()
+  dFromSX _ = DummyDual ()
+#if defined(VERSION_ghc_typelits_natnormalise)
+  dKonstS _ = DummyDual ()
+  dAppendS _ _ = DummyDual ()
+  dSliceS _ _ _ = DummyDual ()
+  dIndexS _ _ = DummyDual ()
+  dRavelFromListS _ = DummyDual ()
+  dReshapeS _ = DummyDual ()
+  dFrom0S _ = DummyDual ()
+  dFrom1S _ = DummyDual ()
+  dFrom2S _ _ = DummyDual ()
+  dFromXS _ = DummyDual ()
 #endif

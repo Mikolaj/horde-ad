@@ -44,14 +44,14 @@ newtype DualMonadValue r a = DualMonadValue
   { runDualMonadValue :: Identity a }
   deriving (Monad, Functor, Applicative)
 
-instance IsScalar 'DModeGradient r
-         => DualMonad 'DModeGradient r (DualMonadValue r) where
+instance IsScalar 'DModeValue r
+         => DualMonad 'DModeValue r (DualMonadValue r) where
   returnLet (D u _u') = DualMonadValue $ Identity $ D u dZero
 
 -- The general case, needed for old, hacky tests using only scalars.
 primalValueGeneral
-  :: forall r a. IsScalar 'DModeGradient r
-  => (DualNumberVariables 'DModeGradient r
+  :: forall r a. IsScalar 'DModeValue r
+  => (DualNumberVariables 'DModeValue r
       -> DualMonadValue r a)
   -> Domains r
   -> a
@@ -68,9 +68,9 @@ primalValueGeneral f (params0, params1, params2, paramsX) =
   in runIdentity $ runDualMonadValue $ f variables
 
 primalValue
-  :: forall r a. IsScalar 'DModeGradient r
-  => (DualNumberVariables 'DModeGradient r
-      -> DualMonadValue r (DualNumber 'DModeGradient a))
+  :: forall r a. IsScalar 'DModeValue r
+  => (DualNumberVariables 'DModeValue r
+      -> DualMonadValue r (DualNumber 'DModeValue a))
   -> Domains r
   -> a
 -- Small enough that inline won't hurt.

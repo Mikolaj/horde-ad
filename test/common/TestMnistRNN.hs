@@ -174,11 +174,11 @@ sgdTestCaseAlt prefix f nParameters trainDataIO expected =
        let res = sgdShow f trainData parameters0
        assertBool ("wrong result: " ++ show res ++ " is expected to be a member of " ++ show expected) $ res `elem` expected
 
-prime :: IsScalar 'DModeGradient r
+prime :: IsScalar 'DModeValue r
       => (r
-          -> DualNumber 'DModeGradient (Vector r)
-          -> DualNumberVariables 'DModeGradient r
-          -> DualMonadValue r (DualNumber 'DModeGradient r, DualNumber 'DModeGradient (Vector r)))
+          -> DualNumber 'DModeValue (Vector r)
+          -> DualNumberVariables 'DModeValue r
+          -> DualMonadValue r (DualNumber 'DModeValue r, DualNumber 'DModeValue (Vector r)))
       -> Domains r
       -> Vector r
       -> [r]
@@ -186,11 +186,11 @@ prime :: IsScalar 'DModeGradient r
 prime f parameters =
   foldl' (\s x -> primalValue (fmap snd . f x (constant s)) parameters)
 
-feedback :: IsScalar 'DModeGradient r
+feedback :: IsScalar 'DModeValue r
          => (r
-             -> DualNumber 'DModeGradient (Vector r)
-             -> DualNumberVariables 'DModeGradient r
-             -> DualMonadValue r (DualNumber 'DModeGradient r, DualNumber 'DModeGradient (Vector r)))
+             -> DualNumber 'DModeValue (Vector r)
+             -> DualNumberVariables 'DModeValue r
+             -> DualMonadValue r (DualNumber 'DModeValue r, DualNumber 'DModeValue (Vector r)))
          -> Domains r
          -> Vector r
          -> r
@@ -203,11 +203,11 @@ feedback f parameters s0 x0 =
 
 feedbackTestCase :: String
                  -> (Double
-                     -> DualNumber 'DModeGradient (Vector Double)
-                     -> DualNumberVariables 'DModeGradient Double
+                     -> DualNumber 'DModeValue (Vector Double)
+                     -> DualNumberVariables 'DModeValue Double
                      -> DualMonadValue Double
-                                        ( DualNumber 'DModeGradient Double
-                                        , DualNumber 'DModeGradient (Vector Double) ))
+                                        ( DualNumber 'DModeValue Double
+                                        , DualNumber 'DModeValue (Vector Double) ))
                  -> (a
                      -> DualNumberVariables 'DModeGradient Double
                      -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
@@ -428,7 +428,7 @@ nnMnistRNNLossL2 width (xs, target) variables = do
   result <- nnMnistRNNL2 width xs variables
   lossSoftMaxCrossEntropyV target result
 
-testMnistRNNL :: forall r. IsScalar 'DModeGradient r
+testMnistRNNL :: forall r. IsScalar 'DModeValue r
               => Int -> [([Vector r], Vector r)] -> Domains r -> r
 testMnistRNNL width inputs parameters =
   let matchesLabels :: ([Vector r], Vector r) -> Bool
@@ -439,7 +439,7 @@ testMnistRNNL width inputs parameters =
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
 
-testMnistRNNL2 :: forall r. IsScalar 'DModeGradient r
+testMnistRNNL2 :: forall r. IsScalar 'DModeValue r
                => Int -> [([Vector r], Vector r)] -> Domains r -> r
 testMnistRNNL2 width inputs parameters =
   let matchesLabels :: ([Vector r], Vector r) -> Bool
@@ -501,7 +501,7 @@ nnMnistRNNLossV width (xs, target) variables = do
   result <- nnMnistRNNV width xs variables
   lossSoftMaxCrossEntropyV target result
 
-testMnistRNNV :: forall r. IsScalar 'DModeGradient r
+testMnistRNNV :: forall r. IsScalar 'DModeValue r
               => Int -> [([Vector r], Vector r)] -> Domains r -> r
 testMnistRNNV width inputs parameters =
   let matchesLabels :: ([Vector r], Vector r) -> Bool

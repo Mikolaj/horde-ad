@@ -142,13 +142,13 @@ fcnnMnistLoss0 widthHidden widthHidden2 (input, target) variables = do
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
-fcnnMnistTest0 :: forall r. IsScalar 'DModeGradient r
+fcnnMnistTest0 :: forall r. IsScalar 'DModeValue r
                => Int -> Int -> [MnistData r] -> Domain0 r
                -> r
 fcnnMnistTest0 widthHidden widthHidden2 inputs params0 =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let nn = inline (fcnnMnist0 @'DModeGradient)
+        let nn = inline (fcnnMnist0 @'DModeValue)
                         logisticAct softMaxAct
                         widthHidden widthHidden2 glyph
             value = V.map (\(D r _) -> r)

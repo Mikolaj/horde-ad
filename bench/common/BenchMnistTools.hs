@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DataKinds, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 module BenchMnistTools where
 
@@ -36,7 +36,7 @@ mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
 {-# SPECIALIZE mnistTrainBench2 :: String -> Int -> [MnistData Double] -> Int -> Int -> Double -> Benchmark #-}
 
 mnistTestBench2
-  :: forall r. (UniformRange r, HasDelta r)
+  :: forall r. (UniformRange r, IsScalar 'DModeValue r)
   => String -> Int -> [MnistData r] -> Int -> Int -> Benchmark
 mnistTestBench2 extraPrefix chunkLength xs widthHidden widthHidden2 = do
   let nParams0 = fcnnMnistLen0 widthHidden widthHidden2
