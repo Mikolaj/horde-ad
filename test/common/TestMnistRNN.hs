@@ -136,6 +136,12 @@ sgdShow f trainData parameters =
   let result = fst $ sgd 0.1 f trainData parameters
   in snd $ dReverse 1 (f $ head trainData) result
 
+newtype Precision5 = Precision5 Double
+  deriving (Show)
+
+instance Eq Precision5 where
+  Precision5 x == Precision5 y = abs (x-y) < 0.00001
+
 sgdTestCase :: String
             -> (a
                 -> DualNumberVariables 'DModeGradient Double
@@ -152,8 +158,8 @@ sgdTestCase prefix f nParameters trainDataIO expected =
                         , show totalParams, show range ]
   in testCase name $ do
        trainData <- trainDataIO
-       sgdShow f trainData parameters0
-         @?= expected
+       Precision5 (sgdShow f trainData parameters0)
+         @?= Precision5 (expected)
 
 sgdTestCaseAlt :: String
             -> (a
