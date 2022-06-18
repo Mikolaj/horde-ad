@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
-module TestCommon ((+\), (*\), (**\),
+module TestCommon (assertClose,
+                   (+\), (*\), (**\),
                    listsToParameters,
                    cmpTwo, cmpTwoSimple,
                    qcPropDom, quickCheckTest0, fquad, quad
@@ -13,10 +14,27 @@ import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           Test.Tasty
+import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck
 
 import HordeAd hiding (sumElementsVectorOfDual)
 import HordeAd.Core.DualClass (Dual)
+
+-- | Asserts that the specified actual floating point value is close (1e-6) to the expected value.
+-- The output message will contain the prefix, the expected value, and the
+-- actual value.
+--
+-- If the prefix is the empty string (i.e., @\"\"@), then the prefix is omitted
+-- and only the expected and actual values are output.
+assertClose :: (Fractional a, Ord a, Show a, HasCallStack)
+            => String -- ^ The message prefix
+            -> a      -- ^ The expected value
+            -> a      -- ^ The actual value
+            -> Assertion
+assertClose preface expected actual =
+  assertBool msg (abs(expected-actual) < 1e-6)
+  where msg = (if null preface then "" else preface ++ "\n") ++
+               "expected: " ++ show expected ++ "\n but got: " ++ show actual
 
 (+\) :: DualMonad d r m
      => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
