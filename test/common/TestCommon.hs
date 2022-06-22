@@ -1,5 +1,5 @@
 {-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
-module TestCommon (setEpsilonEq, assertClose,
+module TestCommon (setEpsilonEq, assertClose, assertCloseMulti,
                    (+\), (*\), (**\),
                    listsToParameters,
                    cmpTwo, cmpTwoSimple,
@@ -46,6 +46,25 @@ assertClose preface expected actual = do
   assertBool msg (abs(expected-actual) < eqEpsilon)
   where msg = (if null preface then "" else preface ++ "\n") ++
                "expected: " ++ show expected ++ "\n but got: " ++ show actual
+
+assertCloseMulti :: String   -- ^ The message prefix
+                 -> [Double] -- ^ The expected value
+                 -> [Double] -- ^ The actual value
+                 -> Assertion
+assertCloseMulti preface expected actual =
+  go_assert expected actual
+  where
+    len1 :: Int = length expected
+    len2 :: Int = length actual
+    msgneq :: String = "expected " ++ show len1 ++ " elements, but got " ++ show len2
+    go_assert :: [Double] -> [Double] -> Assertion
+    go_assert [] [] = assertBool preface True
+    go_assert [] (_:_) = assertFailure msgneq
+    go_assert (_:_) [] = assertFailure msgneq
+    go_assert (h1:t1) (h2:t2) =
+      let a = assertClose preface h1 h2
+      in
+        a >> (go_assert t1 t2)
 
 (+\) :: DualMonad d r m
      => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
