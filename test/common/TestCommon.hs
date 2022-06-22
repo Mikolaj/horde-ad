@@ -28,12 +28,12 @@ eqEpsilonDefault = 1e-6
 
 -- Ugly global epsilon used to compare floating point values.
 eqEpsilonRef :: IORef Double
+{-# NOINLINE eqEpsilonRef #-}
 eqEpsilonRef = unsafePerformIO $ newIORef eqEpsilonDefault
 
 -- Ugly global epsilon setter (to be called once).
 setEpsilonEq :: Double -> IO ()
-setEpsilonEq newEpsilonEq =
-  atomicWriteIORef eqEpsilonRef newEpsilonEq
+setEpsilonEq = atomicWriteIORef eqEpsilonRef
 
 -- | Asserts that the specified actual floating point value is close to the expected value.
 -- The output message will contain the prefix, the expected value, and the
@@ -46,7 +46,7 @@ assertClose :: String -- ^ The message prefix
             -> Double -- ^ The actual value
             -> Assertion
 assertClose preface expected actual = do
-  eqEpsilon <- (readIORef eqEpsilonRef)
+  eqEpsilon <- readIORef eqEpsilonRef
   assertBool msg (abs(expected-actual) < eqEpsilon)
   where msg = (if null preface then "" else preface ++ "\n") ++
                "expected: " ++ show expected ++ "\n but got: " ++ show actual
@@ -57,7 +57,7 @@ assertCloseElem :: String   -- ^ The message prefix
                 -> Double   -- ^ The actual value
                 -> Assertion
 assertCloseElem preface expected actual = do
-  eqEpsilon <- (readIORef eqEpsilonRef)
+  eqEpsilon <- readIORef eqEpsilonRef
   go_assert eqEpsilon expected
   where
     msg = (if null preface then "" else preface ++ "\n") ++
@@ -65,7 +65,7 @@ assertCloseElem preface expected actual = do
     go_assert :: Double -> [Double] -> Assertion
     go_assert _ [] = assertFailure msg
     go_assert eqEps (h1:t1) =
-      if (abs(h1-actual) < eqEps) then (assertClose msg h1 actual) else (go_assert eqEps t1)
+      if abs(h1-actual) < eqEps then assertClose msg h1 actual else go_assert eqEps t1
 
 -- | Asserts that the specified actual floating point value list is close to the expected value.
 assertCloseList :: String   -- ^ The message prefix
@@ -84,7 +84,7 @@ assertCloseList preface expected actual =
     go_assert [] (_:_) = assertFailure msgneq
     go_assert (_:_) [] = assertFailure msgneq
     go_assert (h1:t1) (h2:t2) =
-      (assertClose preface h1 h2) >> (go_assert t1 t2)
+      assertClose preface h1 h2 >> go_assert t1 t2
 
 (+\) :: DualMonad d r m
      => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
