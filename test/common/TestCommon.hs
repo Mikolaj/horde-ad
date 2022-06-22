@@ -69,9 +69,9 @@ assertCloseElem preface expected actual = do
 
 -- | Asserts that the specified actual floating point value list is close to the expected value.
 assertCloseList :: String   -- ^ The message prefix
-                 -> [Double] -- ^ The expected value
-                 -> [Double] -- ^ The actual value
-                 -> Assertion
+                -> [Double] -- ^ The expected value
+                -> [Double] -- ^ The actual value
+                -> Assertion
 assertCloseList preface expected actual =
   go_assert expected actual
   where
