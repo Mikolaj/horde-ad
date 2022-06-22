@@ -62,9 +62,7 @@ assertCloseMulti preface expected actual =
     go_assert [] (_:_) = assertFailure msgneq
     go_assert (_:_) [] = assertFailure msgneq
     go_assert (h1:t1) (h2:t2) =
-      let a = assertClose preface h1 h2
-      in
-        a >> (go_assert t1 t2)
+      (assertClose preface h1 h2) >> (go_assert t1 t2)
 
 (+\) :: DualMonad d r m
      => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
