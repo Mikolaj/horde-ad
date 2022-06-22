@@ -22,9 +22,11 @@ import           Test.Tasty.QuickCheck
 import HordeAd hiding (sumElementsVectorOfDual)
 import HordeAd.Core.DualClass (Dual)
 
+-- Ugly global epsilon used to compare floating point values.
 eqEpsilonRef :: IORef Double
 eqEpsilonRef = unsafePerformIO $ newIORef 1e-6
 
+-- Ugly global epsilon setter (to be called once).
 setEpsilonEq :: Double -> IO ()
 setEpsilonEq newEpsilonEq =
   atomicWriteIORef eqEpsilonRef newEpsilonEq
