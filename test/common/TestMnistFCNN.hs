@@ -33,15 +33,15 @@ import HordeAd.Tool.MnistFcnnVector
 import TestCommon
 
 testTrees :: [TestTree]
-testTrees = [ dumbMnistTests 0.001
+testTrees = [ dumbMnistTests
             , bigMnistTests
             , vectorMnistTests
             , matrixMnistTests
             , fusedMnistTests
             ]
 
-shortTestForCITrees :: Double -> [TestTree]
-shortTestForCITrees eqEpsilon = [ dumbMnistTests eqEpsilon
+shortTestForCITrees :: [TestTree]
+shortTestForCITrees = [ dumbMnistTests
                       , shortCIMnistTests
                       ]
 
@@ -66,9 +66,8 @@ sgdTestCase :: String
                                      (DualNumber 'DModeGradient Double))
             -> Double
             -> Double
-            -> Double
             -> TestTree
-sgdTestCase prefix trainDataIO trainWithLoss gamma expected eqEpsilon =
+sgdTestCase prefix trainDataIO trainWithLoss gamma expected =
   let widthHidden = 250
       widthHidden2 = 50
       nParams0 = fcnnMnistLen0 widthHidden widthHidden2
@@ -77,7 +76,7 @@ sgdTestCase prefix trainDataIO trainWithLoss gamma expected eqEpsilon =
              ++ unwords [show widthHidden, show nParams0, show gamma]
   in testCase name $ do
        trainData <- trainDataIO
-       assertBool "" (abs (expected - (sgdShow gamma (trainWithLoss widthHidden widthHidden2) trainData vec)) <= eqEpsilon)
+       assertClose "" (sgdShow gamma (trainWithLoss widthHidden widthHidden2) trainData vec) expected
 
 mnistTestCase2
   :: String
@@ -553,8 +552,8 @@ mnistTestCase2S proxy proxy2
                                             testData res
     testErrorFinal @?= expected
 
-dumbMnistTests :: Double -> TestTree
-dumbMnistTests eqEpsilon = testGroup "Dumb MNIST tests"
+dumbMnistTests :: TestTree
+dumbMnistTests = testGroup "Dumb MNIST tests"
   [ testCase "1pretty-print in grey 3 2" $ do
       let (nParams0, lParams1, lParams2, _) = fcnnMnistLen2 4 3
           vParams1 = V.fromList lParams1
@@ -594,25 +593,25 @@ dumbMnistTests eqEpsilon = testGroup "Dumb MNIST tests"
         blackLabel = V.replicate sizeMnistLabel 0
         trainData = replicate 10 (blackGlyph, blackLabel)
     in sgdTestCase "black"
-         (return trainData) fcnnMnistLoss0 0.02 (-0.0) eqEpsilon
+         (return trainData) fcnnMnistLoss0 0.02 (-0.0)
   , let whiteGlyph = V.replicate sizeMnistGlyph 1
         whiteLabel = V.replicate sizeMnistLabel 1
         trainData = replicate 20 (whiteGlyph, whiteLabel)
     in sgdTestCase "white"
-         (return trainData) fcnnMnistLoss0 0.02 23.02585095418536 eqEpsilon
+         (return trainData) fcnnMnistLoss0 0.02 23.02585095418536
   , let blackGlyph = V.replicate sizeMnistGlyph 0
         whiteLabel = V.replicate sizeMnistLabel 1
         trainData = replicate 50 (blackGlyph, whiteLabel)
     in sgdTestCase "black/white"
-         (return trainData) fcnnMnistLoss0 0.02 23.025850929940457 eqEpsilon
+         (return trainData) fcnnMnistLoss0 0.02 23.025850929940457
   , let glyph = V.unfoldrExactN sizeMnistGlyph (uniformR (0, 1))
         label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
         trainData = map ((\g -> (glyph g, label g)) . mkStdGen) [1 .. 100]
     in sgdTestCase "random 100"
-         (return trainData) fcnnMnistLoss0 0.02 11.089140063760212 eqEpsilon
+         (return trainData) fcnnMnistLoss0 0.02 11.089140063760212
   , sgdTestCase "first 100 trainset samples only"
       (take 100 <$> loadMnistData trainGlyphsPath trainLabelsPath)
-      fcnnMnistLoss0 0.02 3.233123290489956 eqEpsilon
+      fcnnMnistLoss0 0.02 3.233123290489956
   , testCase "fcnnMnistTest0 on 0.1 params0 300 100 width 10k testset" $ do
       let nParams0 = fcnnMnistLen0 300 100
           params0 = V.replicate nParams0 0.1

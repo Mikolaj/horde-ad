@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP, GeneralizedNewtypeDeriving #-}
 #if defined(VERSION_ghc_typelits_natnormalise)
 -- Not really used here, but this squashes a warning caused by a hack
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
@@ -12,7 +12,9 @@ import Data.Typeable
 import qualified System.IO as SIO
 import           Test.Tasty
 import           Test.Tasty.Options
+import           Test.Tasty.Runners
 
+import           TestCommon
 #if defined(VERSION_ghc_typelits_natnormalise)
 import qualified TestMnistCNN
 import qualified TestMnistFCNN
@@ -22,29 +24,34 @@ import qualified TestSingleGradient
 #endif
 
 newtype EqEpsilon = EqEpsilon Double
-  deriving Typeable
+  deriving (Typeable, Num, Fractional)
 
 instance IsOption EqEpsilon where
-  defaultValue = EqEpsilon 1e-4
+  defaultValue = EqEpsilon 1e-6
   parseValue = fmap EqEpsilon . safeRead
   optionName = return "eq-epsilon"
   optionHelp = return "Epsilon to use for floating point comparisons: abs(a-b) < epsilon"
+
+asDouble :: EqEpsilon -> Double
+asDouble (EqEpsilon x) = x
 
 main :: IO ()
 main = do
   -- Limit interleaving of characters in parallel tests.
   SIO.hSetBuffering SIO.stdout SIO.LineBuffering
   SIO.hSetBuffering SIO.stderr SIO.LineBuffering
-  defaultMainWithIngredients (ingredients : defaultIngredients) $ askOption $ \(EqEpsilon eqEps) -> tests eqEps
+  opts <- parseOptions (ingredients : defaultIngredients) tests
+  setEpsilonEq $ asDouble ((lookupOption opts) :: EqEpsilon)
+  defaultMainWithIngredients (ingredients : defaultIngredients) tests
   where
     ingredients = includingOptions [Option (Proxy :: Proxy EqEpsilon)]
 
-tests :: Double -> TestTree
-tests eqEpsilon = testGroup "Short tests for CI" $
+tests :: TestTree
+tests = testGroup "Short tests for CI" $
 #if defined(VERSION_ghc_typelits_natnormalise)
   TestSingleGradient.testTrees
   ++ TestSimpleDescent.testTrees
-  ++ TestMnistFCNN.shortTestForCITrees eqEpsilon
+  ++ TestMnistFCNN.shortTestForCITrees
   ++ TestMnistRNN.shortTestForCITrees
   ++ TestMnistCNN.shortTestForCITrees
 #else
