@@ -30,7 +30,7 @@ instance IsOption EqEpsilon where
   defaultValue = EqEpsilon eqEpsilonDefault
   parseValue = fmap EqEpsilon . safeRead
   optionName = return "eq-epsilon"
-  optionHelp = return "Epsilon to use for floating point comparisons: abs(a-b) < epsilon . Default: " ++ show eqEpsilonDefault
+  optionHelp = return $ "Epsilon to use for floating point comparisons: abs(a-b) < epsilon . Default: " ++ show eqEpsilonDefault
 
 asDouble :: EqEpsilon -> Double
 asDouble (EqEpsilon x) = x
@@ -41,7 +41,7 @@ main = do
   SIO.hSetBuffering SIO.stdout SIO.LineBuffering
   SIO.hSetBuffering SIO.stderr SIO.LineBuffering
   opts <- parseOptions (ingredients : defaultIngredients) tests
-  setEpsilonEq $ asDouble ((lookupOption opts) :: EqEpsilon)
+  setEpsilonEq $ asDouble (lookupOption opts :: EqEpsilon)
   defaultMainWithIngredients (ingredients : defaultIngredients) tests
   where
     ingredients = includingOptions [Option (Proxy :: Proxy EqEpsilon)]
