@@ -71,7 +71,8 @@ assertCloseMulti preface expected actual =
   where
     len1 :: Int = length expected
     len2 :: Int = length actual
-    msgneq :: String = "expected " ++ show len1 ++ " elements, but got " ++ show len2
+    msgneq :: String = (if null preface then "" else preface ++ "\n") ++
+                        "expected " ++ show len1 ++ " elements, but got " ++ show len2
     go_assert :: [Double] -> [Double] -> Assertion
     go_assert [] [] = assertBool preface True
     go_assert [] (_:_) = assertFailure msgneq
