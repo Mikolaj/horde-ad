@@ -226,7 +226,7 @@ feedbackTestCase prefix fp f nParameters trainData expected =
       primed = prime fp trained (HM.konst 0 30) (take 19 series)
       output = feedback fp trained primed (series !! 19)
   in testCase name $
-       assertCloseMulti "" expected (take 30 output)
+       assertCloseList "" expected (take 30 output)
 
 -- A version written using vectors
 

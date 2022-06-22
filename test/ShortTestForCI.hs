@@ -27,10 +27,10 @@ newtype EqEpsilon = EqEpsilon Double
   deriving (Typeable, Num, Fractional)
 
 instance IsOption EqEpsilon where
-  defaultValue = EqEpsilon 1e-6
+  defaultValue = EqEpsilon eqEpsilonDefault
   parseValue = fmap EqEpsilon . safeRead
   optionName = return "eq-epsilon"
-  optionHelp = return "Epsilon to use for floating point comparisons: abs(a-b) < epsilon"
+  optionHelp = return "Epsilon to use for floating point comparisons: abs(a-b) < epsilon . Default: " ++ show eqEpsilonDefault
 
 asDouble :: EqEpsilon -> Double
 asDouble (EqEpsilon x) = x

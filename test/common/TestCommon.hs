@@ -1,5 +1,5 @@
 {-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
-module TestCommon (setEpsilonEq, assertClose, assertCloseElem, assertCloseMulti,
+module TestCommon (eqEpsilonDefault, setEpsilonEq, assertClose, assertCloseElem, assertCloseList,
                    (+\), (*\), (**\),
                    listsToParameters,
                    cmpTwo, cmpTwoSimple,
@@ -22,9 +22,13 @@ import           Test.Tasty.QuickCheck
 import HordeAd hiding (sumElementsVectorOfDual)
 import HordeAd.Core.DualClass (Dual)
 
+-- Default value for eqEpsilonRef
+eqEpsilonDefault :: Double
+eqEpsilonDefault = 1e-6
+
 -- Ugly global epsilon used to compare floating point values.
 eqEpsilonRef :: IORef Double
-eqEpsilonRef = unsafePerformIO $ newIORef 1e-6
+eqEpsilonRef = unsafePerformIO $ newIORef eqEpsilonDefault
 
 -- Ugly global epsilon setter (to be called once).
 setEpsilonEq :: Double -> IO ()
@@ -64,11 +68,11 @@ assertCloseElem preface expected actual = do
       if (abs(h1-actual) < eqEps) then (assertClose msg h1 actual) else (go_assert eqEps t1)
 
 -- | Asserts that the specified actual floating point value list is close to the expected value.
-assertCloseMulti :: String   -- ^ The message prefix
+assertCloseList :: String   -- ^ The message prefix
                  -> [Double] -- ^ The expected value
                  -> [Double] -- ^ The actual value
                  -> Assertion
-assertCloseMulti preface expected actual =
+assertCloseList preface expected actual =
   go_assert expected actual
   where
     len1 :: Int = length expected
