@@ -1,5 +1,5 @@
 {-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
-module TestCommon (setEpsilonEq, assertClose, assertCloseMulti,
+module TestCommon (setEpsilonEq, assertClose, assertCloseElem, assertCloseMulti,
                    (+\), (*\), (**\),
                    listsToParameters,
                    cmpTwo, cmpTwoSimple,
@@ -46,6 +46,21 @@ assertClose preface expected actual = do
   assertBool msg (abs(expected-actual) < eqEpsilon)
   where msg = (if null preface then "" else preface ++ "\n") ++
                "expected: " ++ show expected ++ "\n but got: " ++ show actual
+
+assertCloseElem :: String   -- ^ The message prefix
+                -> [Double] -- ^ The expected value
+                -> Double   -- ^ The actual value
+                -> Assertion
+assertCloseElem preface expected actual = do
+  eqEpsilon <- (readIORef eqEpsilonRef)
+  go_assert eqEpsilon expected
+  where
+    msg = (if null preface then "" else preface ++ "\n") ++
+           "wrong result: " ++ show actual ++ " is expected to be a member of " ++ show expected
+    go_assert :: Double -> [Double] -> Assertion
+    go_assert _ [] = assertBool msg False
+    go_assert eqEps (h1:t1) =
+      if (abs(h1-actual) < eqEps) then (assertBool preface True) else (go_assert eqEps t1)
 
 assertCloseMulti :: String   -- ^ The message prefix
                  -> [Double] -- ^ The expected value
