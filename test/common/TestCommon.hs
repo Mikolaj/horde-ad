@@ -59,9 +59,9 @@ assertCloseElem preface expected actual = do
     msg = (if null preface then "" else preface ++ "\n") ++
            "wrong result: " ++ show actual ++ " is expected to be a member of " ++ show expected
     go_assert :: Double -> [Double] -> Assertion
-    go_assert _ [] = assertBool msg False
+    go_assert _ [] = assertFailure msg
     go_assert eqEps (h1:t1) =
-      if (abs(h1-actual) < eqEps) then (assertBool preface True) else (go_assert eqEps t1)
+      if (abs(h1-actual) < eqEps) then (assertClose msg h1 actual) else (go_assert eqEps t1)
 
 -- | Asserts that the specified actual floating point value list is close to the expected value.
 assertCloseMulti :: String   -- ^ The message prefix
