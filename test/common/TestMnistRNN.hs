@@ -30,7 +30,7 @@ import HordeAd.Tool.MnistData
 import HordeAd.Tool.MnistFcnnVector
 import HordeAd.Tool.MnistRnnShaped
 
-import TestCommon
+import TestCommonEqEpsilon
 
 testTrees :: [TestTree]
 testTrees = [ sinRNNTests

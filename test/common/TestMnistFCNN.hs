@@ -31,6 +31,7 @@ import HordeAd.Tool.MnistFcnnShaped
 import HordeAd.Tool.MnistFcnnVector
 
 import TestCommon
+import TestCommonEqEpsilon
 
 testTrees :: [TestTree]
 testTrees = [ dumbMnistTests

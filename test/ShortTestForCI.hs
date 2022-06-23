@@ -14,7 +14,7 @@ import           Test.Tasty
 import           Test.Tasty.Options
 import           Test.Tasty.Runners
 
-import           TestCommon
+import           TestCommonEqEpsilon
 #if defined(VERSION_ghc_typelits_natnormalise)
 import qualified TestMnistCNN
 import qualified TestMnistFCNN

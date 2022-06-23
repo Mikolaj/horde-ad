@@ -188,6 +188,7 @@ library testLibrary
 
     -- Modules exported by the library.
     exposed-modules:  TestCommon
+                      TestCommonEqEpsilon
                       TestConditionalSynth
                       TestOutdated
 
