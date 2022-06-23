@@ -1,17 +1,23 @@
-module TestCommonEqEpsilon (eqEpsilonDefault, setEpsilonEq, assertClose, assertCloseElem, assertCloseList) where
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
+module TestCommonEqEpsilon (EqEpsilon, setEpsilonEq, assertClose, assertCloseElem, assertCloseList) where
 
 import Prelude
+import Data.Typeable
 
-import qualified Data.Array.DynamicS as OT
-import qualified Data.Array.ShapedS as OS
-import           Data.IORef
-import qualified Data.Vector.Generic as V
-import           Numeric.LinearAlgebra (Vector)
-import qualified Numeric.LinearAlgebra as HM
-import           System.IO.Unsafe
-import           Test.Tasty
-import           Test.Tasty.HUnit
-import           Test.Tasty.QuickCheck
+import Data.IORef
+import System.IO.Unsafe
+import Test.Tasty.HUnit
+import Test.Tasty.Options
+
+newtype EqEpsilon = EqEpsilon Double
+  deriving (Typeable, Num, Fractional)
+
+instance IsOption EqEpsilon where
+  defaultValue = EqEpsilon eqEpsilonDefault
+  parseValue = fmap EqEpsilon . safeRead
+  optionName = return "eq-epsilon"
+  optionHelp = return $ "Epsilon to use for floating point comparisons: abs(a-b) < epsilon . Default: " ++ show eqEpsilonDefault
 
 -- Default value for eqEpsilonRef
 eqEpsilonDefault :: Double
@@ -23,8 +29,8 @@ eqEpsilonRef :: IORef Double
 eqEpsilonRef = unsafePerformIO $ newIORef eqEpsilonDefault
 
 -- Ugly global epsilon setter (to be called once).
-setEpsilonEq :: Double -> IO ()
-setEpsilonEq = atomicWriteIORef eqEpsilonRef
+setEpsilonEq :: EqEpsilon -> IO ()
+setEpsilonEq (EqEpsilon x) = atomicWriteIORef eqEpsilonRef x
 
 -- | Asserts that the specified actual floating point value is close to the expected value.
 -- The output message will contain the prefix, the expected value, and the
