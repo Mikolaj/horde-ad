@@ -7,8 +7,8 @@
 module Main (main) where
 
 import Prelude
-import Data.Proxy
 
+import           Data.Proxy
 import qualified System.IO as SIO
 import           Test.Tasty
 import           Test.Tasty.Options
