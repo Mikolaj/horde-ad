@@ -20,7 +20,7 @@ instance IsOption EqEpsilon where
   optionHelp = return $ "Epsilon to use for floating point comparisons: abs(a-b) < epsilon . Default: " ++ show eqEpsilonDefault
 
 -- Default value for eqEpsilonRef
-eqEpsilonDefault :: Fractional a => a
+eqEpsilonDefault :: Rational
 eqEpsilonDefault = 1e-6
 
 -- Ugly global epsilon used to compare floating point values.
