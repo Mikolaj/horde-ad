@@ -15,7 +15,7 @@ newtype EqEpsilon = EqEpsilon Rational
 
 instance IsOption EqEpsilon where
   defaultValue = EqEpsilon eqEpsilonDefault
-  parseValue = fmap EqEpsilon . safeRead
+  parseValue s = fmap (EqEpsilon . toRational) ((safeRead :: String -> Maybe Double) s)
   optionName = return "eq-epsilon"
   optionHelp = return $ "Epsilon to use for floating point comparisons: abs(a-b) < epsilon . Default: " ++ show eqEpsilonDefault
 
