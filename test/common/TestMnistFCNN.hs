@@ -77,7 +77,9 @@ sgdTestCase prefix trainDataIO trainWithLoss gamma expected =
              ++ unwords [show widthHidden, show nParams0, show gamma]
   in testCase name $ do
        trainData <- trainDataIO
-       assertClose "" (sgdShow gamma (trainWithLoss widthHidden widthHidden2) trainData vec) expected
+       sgdShow gamma (trainWithLoss widthHidden widthHidden2)
+                     trainData vec
+         @?~ expected
 
 mnistTestCase2
   :: String

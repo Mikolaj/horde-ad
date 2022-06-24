@@ -154,7 +154,8 @@ sgdTestCase prefix f nParameters trainDataIO expected =
                         , show totalParams, show range ]
   in testCase name $ do
        trainData <- trainDataIO
-       assertClose "" expected (sgdShow f trainData parameters0)
+       sgdShow f trainData parameters0
+         @?~ expected
 
 sgdTestCaseAlt :: String
             -> (a

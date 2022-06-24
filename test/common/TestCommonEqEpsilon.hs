@@ -1,6 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module TestCommonEqEpsilon (EqEpsilon, setEpsilonEq, assertClose, assertCloseElem, assertCloseList, (@?~)) where
+module TestCommonEqEpsilon (EqEpsilon, setEpsilonEq, assertCloseElem, assertCloseList, (@?~)) where
 
 import Prelude
 import Data.Typeable
