@@ -20,7 +20,7 @@ instance IsOption EqEpsilon where
   optionHelp = return $ "Epsilon to use for floating point comparisons: abs(a-b) < epsilon . Default: " ++ show eqEpsilonDefault
 
 -- Default value for eqEpsilonRef
-eqEpsilonDefault :: Rational
+eqEpsilonDefault :: Fractional a => a
 eqEpsilonDefault = 1e-6
 
 -- Ugly global epsilon used to compare floating point values.
@@ -45,7 +45,7 @@ assertClose :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
             -> Assertion
 assertClose preface expected actual = do
   eqEpsilon <- readIORef eqEpsilonRef
-  assertBool msg (abs expected-actual < fromRational eqEpsilon)
+  assertBool msg (abs (expected-actual) < fromRational eqEpsilon)
   where msg = (if null preface then "" else preface ++ "\n") ++
                "expected: " ++ show expected ++ "\n but got: " ++ show actual
 
@@ -64,7 +64,7 @@ assertCloseElem preface expected actual = do
     go_assert :: Rational -> [a] -> Assertion
     go_assert _ [] = assertFailure msg
     go_assert eqEps (h:t) =
-      if abs h-actual < fromRational eqEps then assertClose msg h actual else go_assert eqEps t
+      if abs (h-actual) < fromRational eqEps then assertClose msg h actual else go_assert eqEps t
 
 -- | Asserts that the specified actual floating point value list is close to the expected value.
 assertCloseList :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
