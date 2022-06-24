@@ -134,7 +134,7 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
        res <- runEpoch 1 params0Init
        let testErrorFinal =
              1 - fcnnMnistTest0 widthHidden widthHidden2 testData res
-       testErrorFinal @?= expected
+       testErrorFinal @?~ expected
 
 mnistTestCase2V
   :: String
@@ -200,7 +200,7 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
        res <- runEpoch 1 (params0Init, params1Init)
        let testErrorFinal =
              1 - fcnnMnistTest1 widthHidden widthHidden2 testData res
-       testErrorFinal @?= expected
+       testErrorFinal @?~ expected
 
 fcnnMnistLossTanh :: DualMonad 'DModeGradient Double m
                 => Int
@@ -277,7 +277,7 @@ mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
              runEpoch (succ n) res
        res <- runEpoch 1 parameters0
        let testErrorFinal = 1 - fcnnMnistTest2 testData res
-       testErrorFinal @?= expected
+       testErrorFinal @?~ expected
 
 mnistTestCase2T
   :: Bool
@@ -343,7 +343,7 @@ mnistTestCase2T reallyWriteFile
        when reallyWriteFile $
          writeFile "walltimeLoss.txt" $ unlines $ map ppTime times
        let testErrorFinal = 1 - fcnnMnistTest2 testData res
-       testErrorFinal @?= expected
+       testErrorFinal @?~ expected
 
 mnistTestCase2D
   :: Bool
@@ -417,7 +417,7 @@ mnistTestCase2D reallyWriteFile miniBatchSize decay
        when reallyWriteFile $
          writeFile "walltimeLoss.txt" $ unlines $ map ppTime times
        let testErrorFinal = 1 - fcnnMnistTest2 testData res
-       testErrorFinal @?= expected
+       testErrorFinal @?~ expected
 
 mnistTestCase2F
   :: Bool
@@ -491,7 +491,7 @@ mnistTestCase2F reallyWriteFile miniBatchSize decay
        when reallyWriteFile $
          writeFile "walltimeLoss.txt" $ unlines $ map ppTime times
        let testErrorFinal = 1 - fcnnMnistTest2 testData res
-       testErrorFinal @?= expected
+       testErrorFinal @?~ expected
 
 mnistTestCase2S
   :: forall widthHidden widthHidden2.
@@ -551,7 +551,7 @@ mnistTestCase2S proxy proxy2
     res <- runEpoch 1 parametersInit
     let testErrorFinal = 1 - fcnnMnistTestS @widthHidden @widthHidden2
                                             testData res
-    testErrorFinal @?= expected
+    testErrorFinal @?~ expected
 
 dumbMnistTests :: TestTree
 dumbMnistTests = testGroup "Dumb MNIST tests"
@@ -618,14 +618,14 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           params0 = V.replicate nParams0 0.1
       testData <- loadMnistData testGlyphsPath testLabelsPath
       (1 - fcnnMnistTest0 300 100 testData params0)
-        @?= 0.902
+        @?~ 0.902
   , testCase "fcnnMnistTest2VV on 0.1 params0 300 100 width 10k testset" $ do
       let (nParams0, nParams1, _, _) = fcnnMnistLen1 300 100
           params0 = V.replicate nParams0 0.1
           params1 = V.fromList $ map (`V.replicate` 0.1) nParams1
       testData <- loadMnistData testGlyphsPath testLabelsPath
       (1 - fcnnMnistTest1 300 100 testData (params0, params1))
-        @?= 0.902
+        @?~ 0.902
   , testCase "fcnnMnistTest2LL on 0.1 params0 300 100 width 10k testset" $ do
       let (nParams0, lParams1, lParams2, _) = fcnnMnistLen2 300 100
           vParams1 = V.fromList lParams1
@@ -636,7 +636,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       testData <- loadMnistData testGlyphsPath testLabelsPath
       (1 - fcnnMnistTest2 testData
                       (params0, params1, params2, V.empty))
-        @?= 0.902
+        @?~ 0.902
   , testProperty "Compare two forward derivatives and gradient for Mnist0" $
       \seed seedDs ->
       forAll (choose (1, 300)) $ \widthHidden ->

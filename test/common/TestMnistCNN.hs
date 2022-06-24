@@ -30,6 +30,7 @@ import HordeAd.Tool.MnistCnnShaped
 import HordeAd.Tool.MnistData
 
 import TestCommon
+import TestCommonEqEpsilon
 
 testTrees :: [TestTree]
 testTrees = [ mnistCNNTestsShort
@@ -194,7 +195,7 @@ convMnistTestCaseCNN prefix epochs maxBatches trainWithLoss testLoss
              runEpoch (succ n) res
        res <- runEpoch 1 parameters0
        let testErrorFinal = 1 - testLoss widthHidden testData res
-       testErrorFinal @?= expected
+       testErrorFinal @?~ expected
 
 
 -- * Another flavour of the simplest possible convolutional net, based on
@@ -483,7 +484,7 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
     let testErrorFinal = 1 - ftest proxy_kheight_minus_1 proxy_kwidth_minus_1
                                    proxy_num_hidden proxy_out_channels
                                    testData res
-    testErrorFinal @?= expected
+    testErrorFinal @?~ expected
 
 mnistCNNTestsLong :: TestTree
 mnistCNNTestsLong = testGroup "MNIST CNN long tests"

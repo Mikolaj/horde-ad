@@ -18,6 +18,7 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 import HordeAd.Tool.MnistFcnnVector
+import TestCommonEqEpsilon
 
 testTrees :: [TestTree]
 testTrees = [ conditionalSynthTests
@@ -212,7 +213,7 @@ gradSmartTestCase prefix lossFunction seedSamples
                      (initialStateAdam parametersInit)
            (_, values) =
              unzip $ map (\t -> dReverse 1 (f t) parametersResult) testSamples
-       (sum values / 100) @?= expected
+       (sum values / 100) @?~ expected
 
 conditionalSynthTests:: TestTree
 conditionalSynthTests = do

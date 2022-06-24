@@ -19,6 +19,7 @@ import HordeAd.Core.OutdatedOptimizer
 import HordeAd.Tool.MnistData
 import HordeAd.Tool.MnistFcnnScalar
 import TestCommon ((*\), (+\))
+import TestCommonEqEpsilon
 
 type DualNumberD = DualNumber 'DModeGradient Double
 
@@ -182,7 +183,7 @@ gdSimpleTestCase prefix sampleFunction lossFunction
   in testCase name $
        snd (gdSimpleShow gamma (lossFunction tanhAct tanhAct samples)
                          vec nIterations)
-       @?= expected
+       @?~ expected
 
 gdSimpleWsTestCase
   :: ((DualNumberD -> DualMonadGradient Double DualNumberD)
@@ -742,7 +743,7 @@ sgdTestCase prefix trainDataIO trainWithLoss gamma expected =
   in testCase name $ do
        trainData <- trainDataIO
        snd (sgdShow gamma (trainWithLoss widthHidden) trainData vec)
-          @?= expected
+          @?~ expected
 
 lenMnist :: Int -> Int
 lenMnist widthHidden =
