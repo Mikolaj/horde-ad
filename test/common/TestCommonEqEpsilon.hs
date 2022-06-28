@@ -5,10 +5,11 @@ module TestCommonEqEpsilon (EqEpsilon, setEpsilonEq, assertCloseElem, assertClos
 import Prelude
 import Data.Typeable
 
-import Data.IORef
-import System.IO.Unsafe
-import Test.Tasty.HUnit
-import Test.Tasty.Options
+import           Data.IORef
+import           System.IO.Unsafe
+import qualified Test.HUnit.Approx
+import           Test.Tasty.HUnit
+import           Test.Tasty.Options
 
 newtype EqEpsilon = EqEpsilon Rational
   deriving (Typeable, Num, Fractional)
@@ -45,9 +46,7 @@ assertClose :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
             -> Assertion
 assertClose preface expected actual = do
   eqEpsilon <- readIORef eqEpsilonRef
-  assertBool msg (abs (expected-actual) < fromRational eqEpsilon)
-  where msg = (if null preface then "" else preface ++ "\n") ++
-               "expected: " ++ show expected ++ "\n but got: " ++ show actual
+  Test.HUnit.Approx.assertApproxEqual preface (fromRational eqEpsilon) expected actual
 
 -- | Asserts that the specified actual floating point value is close to at least one of the expected values.
 assertCloseElem :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
