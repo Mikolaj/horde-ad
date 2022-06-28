@@ -1,4 +1,4 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, FlexibleInstances, UndecidableInstances #-}
 
 module TestCommonEqEpsilon (EqEpsilon, setEpsilonEq, assertCloseElem, assertCloseList, (@?~)) where
 
@@ -85,13 +85,14 @@ assertCloseList preface expected actual =
     go_assert (h1:t1) (h2:t2) =
       assertClose preface h1 h2 >> go_assert t1 t2
 
-infix  1 @?~
+-- | Things that can be asserted to be "approximately equal" to each other. The
+--   contract for this relation is that it must be reflexive and symmetrical,
+--   but not necessarily transitive.
+class (Ord a, Show a) => AssertClose a where
+  -- | Makes an assertion that the actual value is close to the expected value.
+  (@?~) :: a -- ^ The actual value
+        -> a -- ^ The expected value
+        -> Assertion
 
--- | Asserts that the specified actual value is close to the expected value
---   (with the actual value on the left-hand side).
-(@?~)
-  :: (Fractional a, Ord a, Show a, HasCallStack)
-  => a -- ^ The actual value
-  -> a -- ^ The expected value
-  -> Assertion
-actual @?~ expected = assertClose "" expected actual
+instance (Fractional a, Show a, Ord a) => AssertClose a where
+  (@?~) actual expected = assertClose "" expected actual
