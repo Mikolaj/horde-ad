@@ -1,6 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving, FlexibleInstances, UndecidableInstances #-}
 
-module TestCommonEqEpsilon (EqEpsilon, setEpsilonEq, assertCloseElem, assertCloseList, (@?~)) where
+module TestCommonEqEpsilon (EqEpsilon, setEpsilonEq, assertCloseElem, (@?~)) where
 
 import Prelude
 import Data.Typeable
@@ -85,14 +85,23 @@ assertCloseList preface expected actual =
     go_assert (h1:t1) (h2:t2) =
       assertClose preface h1 h2 >> go_assert t1 t2
 
+-- | Foldable to list.
+asList :: Foldable t => t a -> [a]
+asList xs = foldr (\x -> \ys -> x:ys) [] xs
+
 -- | Things that can be asserted to be "approximately equal" to each other. The
 --   contract for this relation is that it must be reflexive and symmetrical,
 --   but not necessarily transitive.
-class (Ord a, Show a) => AssertClose a where
+class AssertClose a where
   -- | Makes an assertion that the actual value is close to the expected value.
   (@?~) :: a -- ^ The actual value
         -> a -- ^ The expected value
         -> Assertion
 
-instance (Fractional a, Show a, Ord a) => AssertClose a where
+instance {-# OVERLAPPABLE #-} (Fractional a, Ord a, Show a) => AssertClose a where
+  (@?~) :: a -> a -> Assertion
   (@?~) actual expected = assertClose "" expected actual
+
+instance (Traversable t, Fractional a, Ord a, Show a) => AssertClose (t a) where
+  (@?~) :: t a -> t a -> Assertion
+  (@?~) actual expected = assertCloseList "" (asList expected) (asList actual)
