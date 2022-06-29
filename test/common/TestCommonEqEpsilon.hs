@@ -66,7 +66,7 @@ assertCloseElem preface expected actual = do
       if abs (h-actual) < fromRational eqEps then assertClose msg h actual else go_assert eqEps t
 
 -- | Asserts that the specified actual floating point value list is close to the expected value.
-assertCloseList :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
+assertCloseList :: forall a. (AssertClose a, HasCallStack)
                 => String   -- ^ The message prefix
                 -> [a]      -- ^ The expected value
                 -> [a]      -- ^ The actual value
@@ -82,8 +82,8 @@ assertCloseList preface expected actual =
     go_assert [] [] = assertBool preface True
     go_assert [] (_:_) = assertFailure msgneq
     go_assert (_:_) [] = assertFailure msgneq
-    go_assert (h1:t1) (h2:t2) =
-      assertClose preface h1 h2 >> go_assert t1 t2
+    go_assert (head_exp:tail_exp) (head_act:tail_act) =
+      ((@?~) head_act head_exp) >> go_assert tail_exp tail_act
 
 -- | Foldable to list.
 asList :: Foldable t => t a -> [a]
@@ -102,11 +102,11 @@ instance {-# OVERLAPPABLE #-} (Fractional a, Ord a, Show a) => AssertClose a whe
   (@?~) :: a -> a -> Assertion
   (@?~) actual expected = assertClose "" expected actual
 
-instance {-# OVERLAPPABLE #-} (Traversable t, Fractional a, Ord a, Show a) => AssertClose (t a) where
+instance {-# OVERLAPPABLE #-} (Traversable t, AssertClose a) => AssertClose (t a) where
   (@?~) :: t a -> t a -> Assertion
   (@?~) actual expected = assertCloseList "" (asList expected) (asList actual)
 
-instance (Traversable t, Fractional a, Ord a, Show a) => AssertClose ((t a), a) where
+instance (Traversable t, AssertClose a) => AssertClose ((t a), a) where
   (@?~) :: ((t a), a) -> ((t a), a) -> Assertion
   (@?~) (actual_xs, actual_x) (expected_xs, expected_x) =
-    (assertClose "" expected_x actual_x) >> (assertCloseList "" (asList expected_xs) (asList actual_xs))
+    ((@?~) actual_x expected_x) >> (assertCloseList "" (asList expected_xs) (asList actual_xs))
