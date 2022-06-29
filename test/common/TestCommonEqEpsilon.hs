@@ -83,11 +83,11 @@ assertCloseList preface expected actual =
     go_assert [] (_:_) = assertFailure msgneq
     go_assert (_:_) [] = assertFailure msgneq
     go_assert (head_exp:tail_exp) (head_act:tail_act) =
-      ((@?~) head_act head_exp) >> go_assert tail_exp tail_act
+      (@?~) head_act head_exp >> go_assert tail_exp tail_act
 
 -- | Foldable to list.
 asList :: Foldable t => t a -> [a]
-asList xs = foldr (\x -> \ys -> x:ys) [] xs
+asList = foldr (:) []
 
 -- | Things that can be asserted to be "approximately equal" to each other. The
 --   contract for this relation is that it must be reflexive and symmetrical,
@@ -106,14 +106,14 @@ instance {-# OVERLAPPABLE #-} (Fractional a, Ord a, Show a) => AssertClose a whe
 instance (AssertClose a) => AssertClose (a,a) where
   (@?~) :: (a,a) -> (a,a) -> Assertion
   (@?~) actual expected =
-    ((@?~) (fst actual) (fst expected)) >> ((@?~) (snd actual) (snd expected))
+    (@?~) (fst actual) (fst expected) >> (@?~) (snd actual) (snd expected)
 
 instance {-# OVERLAPPABLE #-} (Traversable t, AssertClose a) => AssertClose (t a) where
   (@?~) :: t a -> t a -> Assertion
   (@?~) actual expected =
     assertCloseList "" (asList expected) (asList actual)
 
-instance (Traversable t, AssertClose a) => AssertClose ((t a), a) where
-  (@?~) :: ((t a), a) -> ((t a), a) -> Assertion
+instance (Traversable t, AssertClose a) => AssertClose (t a, a) where
+  (@?~) :: (t a, a) -> (t a, a) -> Assertion
   (@?~) (actual_xs, actual_x) (expected_xs, expected_x) =
-    ((@?~) actual_x expected_x) >> (assertCloseList "" (asList expected_xs) (asList actual_xs))
+    (@?~) actual_x expected_x >> assertCloseList "" (asList expected_xs) (asList actual_xs)
