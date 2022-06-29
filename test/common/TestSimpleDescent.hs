@@ -12,6 +12,7 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 import TestCommon ((+\), (*\), fquad, quad)
+import TestCommonEqEpsilon
 
 testTrees :: [TestTree]
 testTrees = [ gdSimpleTests
@@ -82,35 +83,35 @@ gdSimpleTests :: TestTree
 gdSimpleTests = testGroup "Simple gradient descent tests"
   [ testCase "0.1 30"
     $ gdSimpleShow 0.1 fquad (V.fromList [2, 3]) 30
-      @?= ([2.47588e-3,3.7138206e-3],5.00002 :: Float)
+      @?~ ([2.47588e-3,3.7138206e-3],5.00002 :: Float)
   , testCase "0.01 30"
     $ gdSimpleShow 0.01 fquad (V.fromList [2, 3]) 30
-      @?= ([1.0909687,1.6364527],8.86819 :: Float)
+      @?~ ([1.0909687,1.6364527],8.86819 :: Float)
   , testCase "0.01 300"
     $ gdSimpleShow 0.01 fquad (V.fromList [2, 3]) 300
-      @?= ([4.665013e-3,6.9975173e-3],5.0000706 :: Float)
+      @?~ ([4.665013e-3,6.9975173e-3],5.0000706 :: Float)
   , testCase "0.01 300000"
     $ gdSimpleShow 0.01 fquad (V.fromList [2, 3]) 300000
-      @?= ([3.5e-44,3.5e-44],5.0 :: Float)
+      @?~ ([3.5e-44,3.5e-44],5.0 :: Float)
   -- The (no) blowup tests.
   , testCase "blowup 0.1 100"
     $ gdSimpleShow 0.1 fblowup (V.fromList [2, 3]) 100
-      @?= ([4.0746778e-10,6.1120126e-10],4.9999523)
+      @?~ ([4.0746778e-10,6.1120126e-10],4.9999523)
   , testCase "blowup 0.01 100"
     $ gdSimpleShow 0.01 fblowup (V.fromList [2, 3]) 100
-      @?= ([0.2652423,0.39786342],5.228601)
+      @?~ ([0.2652423,0.39786342],5.228601)
   , testCase "blowup 0.01 10000"
     $ gdSimpleShow 0.01 fblowup (V.fromList [2, 3]) 10000
-      @?= ([3.5e-44,3.5e-44],4.9999523)
+      @?~ ([3.5e-44,3.5e-44],4.9999523)
   , testCase "blowup 0.01 1000000"
     $ gdSimpleShow 0.01 fblowup (V.fromList [2, 3]) 1000000
-      @?= ([3.5e-44,3.5e-44],4.9999523)
+      @?~ ([3.5e-44,3.5e-44],4.9999523)
   , testCase "blowupOut 0.01 1000000"
     $ gdSimpleShow 0.01 fblowupOut (V.fromList [2, 3]) 1000000
-      @?= ([3.5e-44,3.5e-44],4.9999523 :: Float)
+      @?~ ([3.5e-44,3.5e-44],4.9999523 :: Float)
   , testCase "fblowupOutNoM 0.01 30 100 catastrophic"
     $ gdSimpleShow 0.01 fblowupOutNoM (V.fromList [2, 3]) 100
-      @?= ([0.26523918,0.39785874],5.228634 :: Float)
+      @?~ ([0.26523918,0.39785874],5.228634 :: Float)
   ]
 
 data ARecord a b = ARecord a b
@@ -195,28 +196,28 @@ gdTestsRecord :: TestTree
 gdTestsRecord = testGroup "Record of shaped tensors tests"
   [ testCase "0.1 30"
     $ gdShowRecord 0.1 (fquadRecord @1) [[2], [3]] 30
-      @?= ([2.47588e-3,3.7138206e-3],5.00002 :: Float)
+      @?~ ([2.47588e-3,3.7138206e-3],5.00002 :: Float)
   , testCase "0.01 30"
     $ gdShowRecord 0.01 (fquadRecord @1) [[2], [3]] 30
-      @?= ([1.0909687,1.6364527],8.86819 :: Float)
+      @?~ ([1.0909687,1.6364527],8.86819 :: Float)
   , testCase "0.01 300"
     $ gdShowRecord 0.01 (fquadRecord @1) [[2], [3]] 300
-      @?= ([4.665013e-3,6.9975173e-3],5.0000706 :: Float)
+      @?~ ([4.665013e-3,6.9975173e-3],5.0000706 :: Float)
   , testCase "0.01 300000"
     $ gdShowRecord 0.01 (fquadRecord @1) [[2], [3]] 300000
-      @?= ([3.5e-44,3.5e-44],5.0 :: Float)
+      @?~ ([3.5e-44,3.5e-44],5.0 :: Float)
   , testCase "0.1 30"
     $ gdShowRecord 0.1 (fquadRecord @2) [[2, 42], [3, 42]] 30
-      @?= ([2.47588e-3,42,3.7138206e-3,42],5.00002 :: Float)
+      @?~ ([2.47588e-3,42,3.7138206e-3,42],5.00002 :: Float)
   , testCase "0.01 30"
     $ gdShowRecord 0.01 (fquadRecord @2) [[2, 42], [3, 42]] 30
-      @?= ([1.0909687,42,1.6364527,42],8.86819 :: Float)
+      @?~ ([1.0909687,42,1.6364527,42],8.86819 :: Float)
   , testCase "0.01 300"
     $ gdShowRecord 0.01 (fquadRecord @2) [[2, 42], [3, 42]] 300
-      @?= ([4.665013e-3,42,6.9975173e-3,42],5.0000706 :: Float)
+      @?~ ([4.665013e-3,42,6.9975173e-3,42],5.0000706 :: Float)
   , testCase "0.01 300000"
     $ gdShowRecord 0.01 (fquadRecord @2) [[2, 42], [3, 42]] 300000
-      @?= ([3.5e-44,42,3.5e-44,42],5.0 :: Float)
+      @?~ ([3.5e-44,42,3.5e-44,42],5.0 :: Float)
   ]
 
 -- This, and other XOR nn operations, have unfused Delta let-bindings
@@ -281,13 +282,13 @@ xorTests :: TestTree
 xorTests = testGroup "XOR neural net tests"
   [ testCase "0.1 tanhAct ws 500"
     $ gdSimpleShow 0.1 (nnXorLossTotal tanhAct) ws 500
-      @?= ([2.256964,2.255974,-0.6184606,0.943269,0.9431414,-1.2784432,1.805072,-1.9925138,-0.704399],1.20509565e-2)
+      @?~ ([2.256964,2.255974,-0.6184606,0.943269,0.9431414,-1.2784432,1.805072,-1.9925138,-0.704399],1.20509565e-2)
   , testCase "0.1 tanhAct ws 5000"
     $ gdSimpleShow 0.1 (nnXorLossTotal tanhAct) ws 5000
-      @?= ([2.4474504,2.4467778,-0.8350617,1.3046894,1.3045748,-1.8912042,2.3819275,-2.5550227,-0.8139653],1.8524402e-4)
+      @?~ ([2.4474504,2.4467778,-0.8350617,1.3046894,1.3045748,-1.8912042,2.3819275,-2.5550227,-0.8139653],1.8524402e-4)
   , testCase "0.01 tanhAct ws2 50000"
     $ gdSimpleShow 0.01 (nnXorLossTotal tanhAct) ws2 50000
-      @?= ([-1.9872262,2.576039,0.66793317,-1.7813873,2.2283037,-0.9866766,-2.1694322,2.1973324,2.9272876],2.1781659e-4)
+      @?~ ([-1.9872262,2.576039,0.66793317,-1.7813873,2.2283037,-0.9866766,-2.1694322,2.1973324,2.9272876],2.1781659e-4)
   -- the same, but logisticAct for the first hidden layer instead of tanhAct
   , testCase "0.1 logisticAct ws 5000"
     $ assertBool "test case 0.1 logisticAct ws 5000 did not produce any of the known good results (one only seen on CI)"
@@ -296,12 +297,12 @@ xorTests = testGroup "XOR neural net tests"
                , ([5.560923,5.553408,-2.2246423,3.4135454,3.412141,-5.2069907,6.881085,-7.411549,-3.0867786],2.4756145e-2) ]
   , testCase "0.01 logisticAct ws2 50000"
     $ gdSimpleShow 0.01 (nnXorLossTotal logisticAct) ws2 50000
-      @?= ([-5.276363,5.5221853,2.641188,-5.2796497,5.2037635,-2.8858855,-7.5792775,7.997162,3.5127592],6.759104e-3)
+      @?~ ([-5.276363,5.5221853,2.641188,-5.2796497,5.2037635,-2.8858855,-7.5792775,7.997162,3.5127592],6.759104e-3)
   -- the same, but reluAct for the first hidden layer instead of tanhAct
   , testCase "0.1 reluAct ws 5000"
     $ gdSimpleShow 0.1 (nnXorLossTotal reluAct) ws 5000  -- no cookie
-      @?= ([0.18908867,0.14627013,0.25409937,0.2798127,0.21643773,0.22213355,8.865212e-2,-5.99097e-2,0.4907815],0.9999999)
+      @?~ ([0.18908867,0.14627013,0.25409937,0.2798127,0.21643773,0.22213355,8.865212e-2,-5.99097e-2,0.4907815],0.9999999)
   , testCase "0.01 reluAct ws2 50000"
     $ gdSimpleShow 0.01 (nnXorLossTotal reluAct) ws2 50000  -- no cookie
-      @?= ([-1.3572536,2.3245132,-0.14548694,-1.3912132,2.2069085,-0.2630923,-1.4252249,2.2264564,-0.22221938],1.0)
+      @?~ ([-1.3572536,2.3245132,-0.14548694,-1.3912132,2.2069085,-0.2630923,-1.4252249,2.2264564,-0.22221938],1.0)
   ]
