@@ -102,6 +102,11 @@ instance {-# OVERLAPPABLE #-} (Fractional a, Ord a, Show a) => AssertClose a whe
   (@?~) :: a -> a -> Assertion
   (@?~) actual expected = assertClose "" expected actual
 
+instance (AssertClose a) => AssertClose (a,a) where
+  (@?~) :: (a,a) -> (a,a) -> Assertion
+  (@?~) actual expected =
+    ((@?~) (fst actual) (fst expected)) >> ((@?~) (snd actual) (snd expected))
+
 instance {-# OVERLAPPABLE #-} (Traversable t, AssertClose a) => AssertClose (t a) where
   (@?~) :: t a -> t a -> Assertion
   (@?~) actual expected = assertCloseList "" (asList expected) (asList actual)
