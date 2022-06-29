@@ -100,7 +100,8 @@ class AssertClose a where
 
 instance {-# OVERLAPPABLE #-} (Fractional a, Ord a, Show a) => AssertClose a where
   (@?~) :: a -> a -> Assertion
-  (@?~) actual expected = assertClose "" expected actual
+  (@?~) actual expected =
+    assertClose "" expected actual
 
 instance (AssertClose a) => AssertClose (a,a) where
   (@?~) :: (a,a) -> (a,a) -> Assertion
@@ -109,7 +110,8 @@ instance (AssertClose a) => AssertClose (a,a) where
 
 instance {-# OVERLAPPABLE #-} (Traversable t, AssertClose a) => AssertClose (t a) where
   (@?~) :: t a -> t a -> Assertion
-  (@?~) actual expected = assertCloseList "" (asList expected) (asList actual)
+  (@?~) actual expected =
+    assertCloseList "" (asList expected) (asList actual)
 
 instance (Traversable t, AssertClose a) => AssertClose ((t a), a) where
   (@?~) :: ((t a), a) -> ((t a), a) -> Assertion
