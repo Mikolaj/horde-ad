@@ -196,6 +196,7 @@ library testLibrary
     exposed-modules:  TestMnistCNN
                       TestMnistFCNN
                       TestMnistRNN
+                      TestSpeechRNN
                       TestSimpleDescent
                       TestSingleGradient
   }

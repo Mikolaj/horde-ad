@@ -21,6 +21,7 @@ import qualified TestMnistFCNN
 import qualified TestMnistRNN
 import qualified TestSimpleDescent
 import qualified TestSingleGradient
+import qualified TestSpeechRNN
 #endif
 
 main :: IO ()
@@ -41,6 +42,7 @@ tests = testGroup "Short tests for CI" $
   ++ TestSimpleDescent.testTrees
   ++ TestMnistFCNN.shortTestForCITrees
   ++ TestMnistRNN.shortTestForCITrees
+  ++ TestSpeechRNN.shortTestForCITrees
   ++ TestMnistCNN.shortTestForCITrees
 #else
   []
