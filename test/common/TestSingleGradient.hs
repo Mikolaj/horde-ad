@@ -6,6 +6,8 @@ import Prelude
 
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Strict.Vector as Data.Vector
+import           Data.Traversable()
+import           Data.Vector()
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Vector)
 import           Test.Tasty
@@ -428,12 +430,10 @@ readmeTests :: TestTree
 readmeTests = testGroup "Simple tests for README"
   [ testCase " Float (1.1, 2.2, 3.3)"
     $ atanReadmeDReverse (V.fromList [1.1 :: Float, 2.2, 3.3])
-      -- TODO: change this to @?~
-      @?= (V.fromList [3.0715904, 0.18288425, 1.1761366], 4.937552)
+      @?~ (V.fromList [3.0715904, 0.18288425, 1.1761366], 4.937552)
   , testCase " Double (1.1, 2.2, 3.3)"
     $ atanReadmeDReverse (V.fromList [1.1 :: Double, 2.2, 3.3])
-      -- TODO: change this to @?~
-      @?= ( V.fromList [ 3.071590389300859
+      @?~ ( V.fromList [ 3.071590389300859
                        , 0.18288422990948425
                        , 1.1761365368997136 ]
           , 4.9375516951604155 )
