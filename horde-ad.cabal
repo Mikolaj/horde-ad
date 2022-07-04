@@ -204,6 +204,8 @@ library testLibrary
     -- Other library packages from which modules are imported.
     build-depends:
         base
+      , cereal
+      , bytestring
       , deepseq
       , HUnit-approx
       , hmatrix
