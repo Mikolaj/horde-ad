@@ -6,6 +6,8 @@ import Prelude
 import Data.Typeable
 
 import           Data.IORef
+import qualified Data.Vector.Generic as VG
+import qualified Data.Vector.Storable as VS
 import           System.IO.Unsafe
 import qualified Test.HUnit.Approx
 import           Test.Tasty.HUnit
@@ -113,7 +115,12 @@ instance {-# OVERLAPPABLE #-} (Traversable t, AssertClose a) => AssertClose (t a
   (@?~) actual expected =
     assertCloseList "" (asList expected) (asList actual)
 
-instance (Traversable t, AssertClose a) => AssertClose (t a, a) where
+instance {-# OVERLAPPABLE #-} (Traversable t, AssertClose a) => AssertClose (t a, a) where
   (@?~) :: (t a, a) -> (t a, a) -> Assertion
   (@?~) (actual_xs, actual_x) (expected_xs, expected_x) =
     (@?~) actual_x expected_x >> assertCloseList "" (asList expected_xs) (asList actual_xs)
+
+instance (VS.Storable a, AssertClose a) => AssertClose (VS.Vector a, a) where
+  (@?~) :: (VS.Vector a, a) -> (VS.Vector a, a) -> Assertion
+  (@?~) (actual_xs, actual_x) (expected_xs, expected_x) =
+    (@?~) actual_x expected_x >> assertCloseList "" (VG.toList expected_xs) (VG.toList actual_xs)
