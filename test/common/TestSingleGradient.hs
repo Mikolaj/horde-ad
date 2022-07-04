@@ -6,8 +6,6 @@ import Prelude
 
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Strict.Vector as Data.Vector
-import           Data.Traversable()
-import           Data.Vector()
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Vector)
 import           Test.Tasty
