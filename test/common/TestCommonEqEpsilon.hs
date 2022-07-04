@@ -69,19 +69,17 @@ assertCloseElem preface expected actual = do
 
 -- | Asserts that the specified actual floating point value list is close to the expected value.
 assertCloseList :: forall a. (AssertClose a, HasCallStack)
-                => String   -- ^ The message prefix
-                -> [a]      -- ^ The expected value
+                => [a]      -- ^ The expected value
                 -> [a]      -- ^ The actual value
                 -> Assertion
-assertCloseList preface expected actual =
+assertCloseList expected actual =
   go_assert expected actual
   where
     len1 :: Int = length expected
     len2 :: Int = length actual
-    msgneq :: String = (if null preface then "" else preface ++ "\n") ++
-                        "expected " ++ show len1 ++ " elements, but got " ++ show len2
+    msgneq :: String = "expected " ++ show len1 ++ " elements, but got " ++ show len2
     go_assert :: [a] -> [a] -> Assertion
-    go_assert [] [] = assertBool preface True
+    go_assert [] [] = assertBool "" True
     go_assert [] (_:_) = assertFailure msgneq
     go_assert (_:_) [] = assertFailure msgneq
     go_assert (head_exp:tail_exp) (head_act:tail_act) =
@@ -113,14 +111,14 @@ instance (AssertClose a) => AssertClose (a,a) where
 instance {-# OVERLAPPABLE #-} (Traversable t, AssertClose a) => AssertClose (t a) where
   (@?~) :: t a -> t a -> Assertion
   (@?~) actual expected =
-    assertCloseList "" (asList expected) (asList actual)
+    assertCloseList (asList expected) (asList actual)
 
 instance {-# OVERLAPPABLE #-} (Traversable t, AssertClose a) => AssertClose (t a, a) where
   (@?~) :: (t a, a) -> (t a, a) -> Assertion
   (@?~) (actual_xs, actual_x) (expected_xs, expected_x) =
-    (@?~) actual_x expected_x >> assertCloseList "" (asList expected_xs) (asList actual_xs)
+    (@?~) actual_x expected_x >> assertCloseList (asList expected_xs) (asList actual_xs)
 
 instance (VS.Storable a, AssertClose a) => AssertClose (VS.Vector a, a) where
   (@?~) :: (VS.Vector a, a) -> (VS.Vector a, a) -> Assertion
   (@?~) (actual_xs, actual_x) (expected_xs, expected_x) =
-    (@?~) actual_x expected_x >> assertCloseList "" (VG.toList expected_xs) (VG.toList actual_xs)
+    (@?~) actual_x expected_x >> assertCloseList (VG.toList expected_xs) (VG.toList actual_xs)
