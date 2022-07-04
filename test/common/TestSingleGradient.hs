@@ -15,6 +15,7 @@ import HordeAd hiding (sumElementsVectorOfDual)
 import HordeAd.Core.DualClass (IsPrimal, dAdd, dScale)
 
 import TestCommon
+import TestCommonEqEpsilon
 
 testTrees :: [TestTree]
 testTrees = [ testDReverse0
@@ -91,7 +92,7 @@ freluX variables = do
 testDReverse0 :: TestTree
 testDReverse0 = testGroup "Simple dReverse application tests" $
   map (\(txt, f, v, expected) ->
-        testCase txt $ dReverse0 f v @?= expected)
+        testCase txt $ dReverse0 f v @?~ expected)
     [ ("fX", fX, [99], ([1.0],99.0))
     , ("fX1Y", fX1Y, [3, 2], ([2.0,4.0],8.0))
     , ("fXXY", fXXY, [3, 2], ([12.0,9.0],18.0))
@@ -231,7 +232,7 @@ dReverse1 f deltaInput =
 testDReverse1 :: TestTree
 testDReverse1 = testGroup "Simple dReverse application to vectors tests" $
   map (\(txt, f, v, expected) ->
-        testCase txt $ dReverse1 f v @?= expected)
+        testCase txt $ dReverse1 f v @?~ expected)
     [ ("sumElementsV", sumElementsV, [[1, 1, 3]], ([[1.0,1.0,1.0]],5.0))
     , ("altSumElementsV", altSumElementsV, [[1, 1, 3]], ([[1.0,1.0,1.0]],5.0))
     , ( "sinKonst", sinKonst, [[1, 3]]
@@ -315,7 +316,7 @@ testDForward =
  testGroup "Simple dForward application tests" $
   map (\(txt, f, v, expected) ->
         let vp = listsToParameters v
-        in testCase txt $ dForward f vp vp @?= expected)
+        in testCase txt $ dForward f vp vp @?~ expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
     , ( "atanReadmeM", atanReadmeM, ([1.1, 2.2, 3.3], [])
       , (7.662345305800865, 4.9375516951604155) )
@@ -328,7 +329,7 @@ testDFastForward =
  testGroup "Simple dFastForward application tests" $
   map (\(txt, f, v, expected) ->
         let vp = listsToParameters v
-        in testCase txt $ dFastForward f vp vp @?= expected)
+        in testCase txt $ dFastForward f vp vp @?~ expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
     , ( "atanReadmeM", atanReadmeM, ([1.1, 2.2, 3.3], [])
       , (7.662345305800865, 4.9375516951604155) )
@@ -427,10 +428,10 @@ readmeTests :: TestTree
 readmeTests = testGroup "Simple tests for README"
   [ testCase " Float (1.1, 2.2, 3.3)"
     $ atanReadmeDReverse (V.fromList [1.1 :: Float, 2.2, 3.3])
-      @?= (V.fromList [3.0715904, 0.18288425, 1.1761366], 4.937552)
+      @?~ (V.fromList [3.0715904, 0.18288425, 1.1761366], 4.937552)
   , testCase " Double (1.1, 2.2, 3.3)"
     $ atanReadmeDReverse (V.fromList [1.1 :: Double, 2.2, 3.3])
-      @?= ( V.fromList [ 3.071590389300859
+      @?~ ( V.fromList [ 3.071590389300859
                        , 0.18288422990948425
                        , 1.1761365368997136 ]
           , 4.9375516951604155 )
@@ -461,11 +462,11 @@ readmeTestsV :: TestTree
 readmeTestsV = testGroup "Simple tests of vector-based code for README"
   [ testCase "V Float (1.1, 2.2, 3.3)"
     $ vatanReadmeDReverse (V.singleton $ V.fromList [1.1 :: Float, 2.2, 3.3])
-      @?= ( V.singleton $ V.fromList [3.0715904, 0.18288425, 1.1761366]
+      @?~ ( V.singleton $ V.fromList [3.0715904, 0.18288425, 1.1761366]
           , 4.937552 )
   , testCase "V Double (1.1, 2.2, 3.3)"
     $ vatanReadmeDReverse (V.singleton $ V.fromList [1.1 :: Double, 2.2, 3.3])
-      @?= ( V.singleton $ V.fromList [ 3.071590389300859
+      @?~ ( V.singleton $ V.fromList [ 3.071590389300859
                                      , 0.18288422990948425
                                      , 1.1761365368997136 ]
           , 4.9375516951604155 )

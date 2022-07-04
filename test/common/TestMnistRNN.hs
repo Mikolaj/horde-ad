@@ -30,6 +30,8 @@ import HordeAd.Tool.MnistData
 import HordeAd.Tool.MnistFcnnVector
 import HordeAd.Tool.MnistRnnShaped
 
+import TestCommonEqEpsilon
+
 testTrees :: [TestTree]
 testTrees = [ sinRNNTests
             , mnistRNNTestsShort
@@ -153,7 +155,7 @@ sgdTestCase prefix f nParameters trainDataIO expected =
   in testCase name $ do
        trainData <- trainDataIO
        sgdShow f trainData parameters0
-         @?= expected
+         @?~ expected
 
 sgdTestCaseAlt :: String
             -> (a
@@ -172,7 +174,7 @@ sgdTestCaseAlt prefix f nParameters trainDataIO expected =
   in testCase name $ do
        trainData <- trainDataIO
        let res = sgdShow f trainData parameters0
-       assertBool ("wrong result: " ++ show res ++ " is expected to be a member of " ++ show expected) $ res `elem` expected
+       assertCloseElem "" expected res
 
 prime :: IsScalar 'DModeValue r
       => (r
@@ -225,7 +227,7 @@ feedbackTestCase prefix fp f nParameters trainData expected =
       primed = prime fp trained (HM.konst 0 30) (take 19 series)
       output = feedback fp trained primed (series !! 19)
   in testCase name $
-       take 30 output @?= expected
+       take 30 output @?~ expected
 
 -- A version written using vectors
 
@@ -590,7 +592,7 @@ mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
              runEpoch (succ n) res
        res <- runEpoch 1 (parameters0, initialStateAdam parameters0)
        let testErrorFinal = 1 - ftest width testData res
-       testErrorFinal @?= expected
+       testErrorFinal @?~ expected
 
 
 -- * A version written using matrices to express mini-batches of data
@@ -775,7 +777,7 @@ mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
              runEpoch (succ n) res
        res <- runEpoch 1 (parameters0, initialStateAdam parameters0)
        let testErrorFinal = 1 - ftest width testData res
-       testErrorFinal @?= expected
+       testErrorFinal @?~ expected
 
 
 -- * A version written using shaped tensors
@@ -852,7 +854,7 @@ mnistTestCaseRNNS prefix epochs maxBatches trainWithLoss ftest flen expected =
           runEpoch (succ n) res
     res <- runEpoch 1 (parametersInit, initialStateAdam parametersInit)
     let testErrorFinal = 1 - ftest proxy_out_width testDataS res
-    testErrorFinal @?= expected
+    testErrorFinal @?~ expected
 
 mnistRNNTestsLong :: TestTree
 mnistRNNTestsLong = testGroup "MNIST RNN long tests"

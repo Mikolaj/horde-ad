@@ -188,6 +188,7 @@ library testLibrary
 
     -- Modules exported by the library.
     exposed-modules:  TestCommon
+                      TestCommonEqEpsilon
                       TestConditionalSynth
                       TestOutdated
 
@@ -203,6 +204,7 @@ library testLibrary
     build-depends:
         base
       , deepseq
+      , HUnit-approx
       , hmatrix
       , horde-ad
       , ilist
