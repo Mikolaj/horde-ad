@@ -801,15 +801,17 @@ mnistTestCaseRNNS
       -> MnistDataBatchS batch_size' r
       -> Domains r
       -> r)
-  -> (forall out_width'. KnownNat out_width'
-      => Proxy out_width' -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
+  -> (forall out_width' sizeMnistWidth'.
+      (KnownNat out_width', KnownNat sizeMnistWidth')
+      => Proxy out_width' -> Proxy sizeMnistWidth'
+      -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
   -> Double
   -> TestTree
 mnistTestCaseRNNS prefix epochs maxBatches trainWithLoss ftest flen expected =
   let proxy_out_width = Proxy @out_width
       batch_size = valueOf @batch_size
       ((_, _, _, nParamsX), totalParams, range, parametersInit) =
-        initializerFixed 44 0.2 (flen proxy_out_width)
+        initializerFixed 44 0.2 (flen proxy_out_width (Proxy @SizeMnistWidth))
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show (valueOf @out_width :: Int), show batch_size

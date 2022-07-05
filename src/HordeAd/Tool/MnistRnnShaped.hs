@@ -65,12 +65,13 @@ rnnMnistLayerS s x (wX, wS, b) = do
   return (yTanh, yTanh)
 
 rnnMnistTwoS
-  :: forall out_width batch_size d r m.
-     (DualMonad d r m, KnownNat out_width, KnownNat batch_size)
+  :: forall out_width batch_size sizeMnistHeight d r m.
+     ( DualMonad d r m, KnownNat out_width, KnownNat batch_size
+     , KnownNat sizeMnistHeight )
   => DualNumber d (OS.Array '[2 GHC.TypeLits.* out_width, batch_size] r)
        -- initial state
-  -> OS.Array '[SizeMnistWidth, batch_size] r
-  -> ( LayerWeigthsRNN SizeMnistWidth out_width d r
+  -> OS.Array '[sizeMnistHeight, batch_size] r
+  -> ( LayerWeigthsRNN sizeMnistHeight out_width d r
      , LayerWeigthsRNN out_width out_width d r )
   -> m ( DualNumber d (OS.Array '[out_width, batch_size] r)
        , DualNumber d (OS.Array '[2 GHC.TypeLits.* out_width, batch_size] r) )
@@ -84,12 +85,13 @@ rnnMnistTwoS s x ((wX, wS, b), (wX2, wS2, b2)) = do
   return (vec2, s3)
 
 rnnMnistZeroS
-  :: forall out_width batch_size d r m.
-     (DualMonad d r m, KnownNat out_width, KnownNat batch_size)
-  => OS.Array '[SizeMnistHeight, SizeMnistWidth, batch_size] r
-  -- All below is the type of all paramters of this nn. The same is reflected
+  :: forall out_width batch_size sizeMnistWidth sizeMnistHeight d r m.
+     ( DualMonad d r m, KnownNat out_width, KnownNat batch_size
+     , KnownNat sizeMnistWidth, KnownNat sizeMnistHeight )
+  => OS.Array '[sizeMnistWidth, sizeMnistHeight, batch_size] r
+  -- All below is the type of all parameters of this nn. The same is reflected
   -- in the length function below and read from variables further down.
-  -> ( LayerWeigthsRNN SizeMnistWidth out_width d r
+  -> ( LayerWeigthsRNN sizeMnistHeight out_width d r
      , LayerWeigthsRNN out_width out_width d r )
   -> DualNumber d (OS.Array '[SizeMnistLabel, out_width] r)
   -> DualNumber d (OS.Array '[SizeMnistLabel] r)
@@ -100,13 +102,15 @@ rnnMnistZeroS xs ((wX, wS, b), (wX2, wS2, b2)) w3 b3 = do
   returnLet $ w3 <>$ out + asColumnS b3
 
 rnnMnistLenS
-  :: forall out_width. KnownNat out_width
-  => Proxy out_width -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
-rnnMnistLenS _ =
+  :: forall out_width sizeMnistWidth.
+     (KnownNat out_width, KnownNat sizeMnistWidth)
+  => Proxy out_width -> Proxy sizeMnistWidth
+  -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+rnnMnistLenS _ _ =
   ( 0
   , []
   , []
-  , [ Data.Array.Shape.shapeT @'[out_width, SizeMnistWidth]
+  , [ Data.Array.Shape.shapeT @'[out_width, sizeMnistWidth]
     , Data.Array.Shape.shapeT @'[out_width, out_width]
     , Data.Array.Shape.shapeT @'[out_width]
     , Data.Array.Shape.shapeT @'[out_width, out_width]
@@ -118,9 +122,10 @@ rnnMnistLenS _ =
   )
 
 rnnMnistS
-  :: forall out_width batch_size d r m.
-     (DualMonad d r m, KnownNat out_width, KnownNat batch_size)
-  => OS.Array '[SizeMnistHeight, SizeMnistWidth, batch_size] r
+  :: forall out_width batch_size sizeMnistWidth sizeMnistHeight d r m.
+     ( DualMonad d r m, KnownNat out_width, KnownNat batch_size
+     , KnownNat sizeMnistWidth, KnownNat sizeMnistHeight )
+  => OS.Array '[sizeMnistWidth, sizeMnistHeight, batch_size] r
   -> DualNumberVariables d r
   -> m (DualNumber d (OS.Array '[SizeMnistLabel, batch_size] r))
 rnnMnistS xs variables = do
