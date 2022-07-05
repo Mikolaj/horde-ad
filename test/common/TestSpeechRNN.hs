@@ -41,8 +41,8 @@ shortTestForCITrees = [ speechRNNTestsShort
                       ]
 
 
-type SpeechDataBatch batch_size window_size n_labels r =
-  ( OS.Array '[batch_size, window_size] r
+type SpeechDataBatch batch_size block_size window_size n_labels r =
+  ( OS.Array '[batch_size, block_size, window_size] r
   , OS.Array '[batch_size, n_labels] r )
 
 chunksOf :: Int -> [e] -> [[e]]
@@ -60,14 +60,17 @@ chunksOf n = go where
 -- be required.
 -- TODO: performance, see https://github.com/schrammc/mnist-idx/blob/master/src/Data/IDX/Internal.hs
 decodeSpeechData
-  :: forall batch_size window_size n_labels r.
-     ( Serialize r, Numeric r
-     , KnownNat batch_size, KnownNat window_size, KnownNat n_labels )
+  :: forall batch_size block_size window_size n_labels r.
+     ( Serialize r, Numeric r, Fractional r
+     , KnownNat batch_size, KnownNat block_size, KnownNat window_size
+     , KnownNat n_labels )
   => LBS.ByteString -> LBS.ByteString
-  -> [SpeechDataBatch batch_size window_size n_labels r]
+  -> [SpeechDataBatch batch_size block_size window_size n_labels r]
 decodeSpeechData soundsBs labelsBs =
-  let soundsChunkSize = valueOf @batch_size * valueOf @window_size
-      labelsChunkSize = valueOf @batch_size * valueOf @n_labels
+  let soundsChunkSize =
+        valueOf @batch_size * valueOf @block_size * valueOf @window_size
+      labelsChunkSize =
+        valueOf @batch_size * valueOf @block_size * valueOf @n_labels
       !_A1 = assert
                (fromIntegral (LBS.length soundsBs - 8) * labelsChunkSize
                 == fromIntegral (LBS.length labelsBs - 8) * soundsChunkSize) ()
@@ -83,17 +86,24 @@ decodeSpeechData soundsBs labelsBs =
       !_A2 = assert (length soundsChunks > 0) ()
       !_A3 = assert (length soundsChunks == length labelsChunks) ()
       makeSpeechDataBatch
-        :: [r] -> [r] -> SpeechDataBatch batch_size window_size n_labels r
+        :: [r] -> [r]
+        -> SpeechDataBatch batch_size block_size  window_size n_labels r
       makeSpeechDataBatch soundsCh labelsCh =
-        (OS.fromList soundsCh, OS.fromList labelsCh)
+        let labelsBlockSize = valueOf @block_size * valueOf @n_labels
+            labelsBlocks = chunksOf labelsBlockSize labelsCh
+            -- Tmp hack that only makes sense for n_labels == 1.
+            avgLabels ch = sum ch / fromIntegral (length ch)
+            labelsAvg = map avgLabels labelsBlocks
+        in (OS.fromList soundsCh, OS.fromList labelsAvg)
   in zipWith makeSpeechDataBatch soundsChunks labelsChunks
 
 loadSpeechData
-  :: forall batch_size window_size n_labels r.
-     ( Serialize r, Numeric r
-     , KnownNat batch_size, KnownNat window_size, KnownNat n_labels )
+  :: forall batch_size block_size window_size n_labels r.
+     ( Serialize r, Numeric r, Fractional r
+     , KnownNat batch_size, KnownNat block_size, KnownNat window_size
+     , KnownNat n_labels )
   => FilePath -> FilePath
-  -> IO [SpeechDataBatch batch_size window_size n_labels r]
+  -> IO [SpeechDataBatch batch_size block_size window_size n_labels r]
 loadSpeechData soundsPath labelsPath =
   withBinaryFile soundsPath ReadMode $ \soundsHandle ->
     withBinaryFile labelsPath ReadMode $ \labelsHandle -> do
@@ -103,30 +113,30 @@ loadSpeechData soundsPath labelsPath =
       return $! decodeSpeechData soundsContents labelsContents
 
 speechTestCaseRNN
-  :: forall out_width batch_size window_size n_labels d r m.
-     ( KnownNat out_width, KnownNat batch_size, KnownNat window_size
-     , KnownNat n_labels
-     , r ~ Double, d ~ 'DModeGradient, m ~ DualMonadGradient Double )
+  :: forall out_width batch_size block_size window_size n_labels d r m.
+     ( KnownNat out_width, KnownNat batch_size, KnownNat block_size
+     , KnownNat window_size, KnownNat n_labels
+     , r ~ Float, d ~ 'DModeGradient, m ~ DualMonadGradient Float )
   => String
   -> Int
   -> Int
-  -> (forall out_width' batch_size' window_size' n_labels'.
+  -> (forall out_width' batch_size' block_size' window_size' n_labels'.
       ( DualMonad d r m, KnownNat out_width', KnownNat batch_size'
-      , KnownNat n_labels' )
+      , KnownNat block_size', KnownNat n_labels' )
       => Proxy out_width'
-      -> SpeechDataBatch batch_size' window_size' n_labels' r
+      -> SpeechDataBatch batch_size' block_size' window_size' n_labels' r
       -> DualNumberVariables d r
       -> m (DualNumber d r))
-  -> (forall out_width' batch_size' window_size' n_labels'.
+  -> (forall out_width' batch_size' block_size' window_size' n_labels'.
       ( IsScalar d r, KnownNat out_width', KnownNat batch_size'
-      , KnownNat n_labels' )
+      , KnownNat block_size', KnownNat n_labels' )
       => Proxy out_width'
-      -> SpeechDataBatch batch_size' window_size' n_labels' r
+      -> SpeechDataBatch batch_size' block_size' window_size' n_labels' r
       -> Domains r
       -> r)
   -> (forall out_width'. KnownNat out_width'
       => Proxy out_width' -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
-  -> Double
+  -> Float
   -> TestTree
 speechTestCaseRNN prefix epochs maxBatches trainWithLoss ftest flen expected =
   testCase prefix $
@@ -141,10 +151,10 @@ speechRNNTestsShort = testGroup "Speech RNN short tests"
   [ testCase "Load and sanity check speech" $ do
       speechDataBatchList <-
         loadSpeechData
-          @64 @257 @1 @Float
+          @32 @20 @257 @1 @Float
           "/home/mikolaj/Downloads/volleyball.float32.257.spectrogram.bin"
           "/home/mikolaj/Downloads/volleyball.float32.1.rms.bin"
-      length speechDataBatchList @?= 859 `div` 64
+      length speechDataBatchList @?= 859 `div` (32 * 20)
       minimum (map (OS.minimumA . fst) speechDataBatchList) @?= 0.0
       maximum (map (OS.maximumA . fst) speechDataBatchList) @?= 26.52266
       minimum (map (OS.minimumA . snd) speechDataBatchList) @?= 0.0
