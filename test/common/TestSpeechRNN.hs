@@ -14,12 +14,11 @@ import qualified Data.Array.Shape
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import qualified Data.ByteString.Lazy as LBS
-import           Data.List (foldl', unfoldr)
 import           Data.Proxy (Proxy (Proxy))
-import           Data.Serialize
+import           Data.Serialize (Serialize, decodeLazy)
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
-import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
+import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           System.IO
   (IOMode (ReadMode), hPutStrLn, stderr, withBinaryFile)
@@ -209,7 +208,7 @@ rnnSpeechLossFused _ (sounds, labels) variables = do
             $ sumElements0 vec
 
 rnnSpeechTest
-  :: forall out_width batch_size block_size window_size n_labels d r m.
+  :: forall out_width batch_size block_size window_size n_labels r.
      ( IsScalar 'DModeValue r, KnownNat out_width, KnownNat batch_size
      , KnownNat block_size, KnownNat window_size, KnownNat n_labels )
   => Proxy out_width
