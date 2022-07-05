@@ -265,7 +265,7 @@ speechTestCaseRNN prefix epochs maxBatches trainWithLoss ftest flen expected =
       ((_, _, _, nParamsX), totalParams, range, parametersInitDouble) =
         initializerFixed 44 0.2
           (flen proxy_out_width (Proxy @window_size) (Proxy @n_labels))
-      parametersInit = undefined  -- TODO
+      parametersInit = mapDomains (HM.cmap realToFrac) parametersInitDouble
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show (valueOf @out_width :: Int), show batch_size
