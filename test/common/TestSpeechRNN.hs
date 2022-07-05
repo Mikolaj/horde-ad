@@ -289,7 +289,9 @@ speechTestCaseRNN prefix epochs maxBatches trainWithLoss ftest flen expected =
         "/home/mikolaj/Downloads/spj_how_ai_really.float32.1.rms.bin"
     testData <-
       loadSpeechData
-        @85 @10 @257 @2  -- the single batch covers the whole dataset
+        @8 @block_size @window_size @n_labels
+          -- With blocks size 100, this single batch covers most of the dataset.
+          -- TODO: with block size 1, this results in tiny test data.
         "/home/mikolaj/Downloads/volleyball.float32.257.spectrogram.bin"
         "/home/mikolaj/Downloads/volleyball.float32.1.rms.bin"
     let testDataBatch = head testData
@@ -307,7 +309,7 @@ speechTestCaseRNN prefix epochs maxBatches trainWithLoss ftest flen expected =
               !testScore = ftest proxy_out_width testDataBatch parameters2
               !lenBatch = length batch
           hPutStrLn stderr $ printf "\n%s: (Batch %d with %d mini-batches)" prefix k lenBatch
-          hPutStrLn stderr $ printf "%s: First batch training error: %.2f%%" prefix ((1 - trainScore) * 100)
+          hPutStrLn stderr $ printf "%s: First mini-batch training error: %.2f%%" prefix ((1 - trainScore) * 100)
           hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
           return res
         runEpoch :: Int -> (Domains r, StateAdam r) -> IO (Domains r)
@@ -341,19 +343,19 @@ mnistRNNTestsLong = testGroup "Speech RNN long tests"
   , speechTestCaseRNN @128 @64 @100 @257 @2
                       "1 epoch, all batches" 1 9999
                       rnnSpeechLossFused rnnSpeechTest rnnSpeechLen
-                      0.49411762
+                      0.25
   , speechTestCaseRNN @128 @64 @1 @257 @2
                       "1 epoch, all batches, 1-wide blocks" 1 9999
                       rnnSpeechLossFused rnnSpeechTest rnnSpeechLen
-                      0.19999999
+                      0.0
   , speechTestCaseRNN @128 @64 @100 @257 @2
                       "10 epochs, all batches" 10 9999
                       rnnSpeechLossFused rnnSpeechTest rnnSpeechLen
-                      0
+                      0  -- TODO
   , speechTestCaseRNN @128 @64 @1 @257 @2
                       "10 epochs, all batches, 1-wide blocks" 10 9999
                       rnnSpeechLossFused rnnSpeechTest rnnSpeechLen
-                      0
+                      0  -- TODO
   ]
 
 speechRNNTestsShort :: TestTree
@@ -369,7 +371,7 @@ speechRNNTestsShort = testGroup "Speech RNN short tests"
   , testCase "Load and sanity check testing speech files" $ do
       speechDataBatchList <-
         loadSpeechData
-          @85 @10 @257 @2 @Float
+          @8 @100 @257 @2 @Float
           "/home/mikolaj/Downloads/volleyball.float32.257.spectrogram.bin"
           "/home/mikolaj/Downloads/volleyball.float32.1.rms.bin"
       length speechDataBatchList @?= 1
@@ -379,5 +381,5 @@ speechRNNTestsShort = testGroup "Speech RNN short tests"
       maximum (map (OS.maximumA . snd) speechDataBatchList) @?= 1.0
   , speechTestCaseRNN @128 @64 @100 @257 @2 "1 epoch, 1 batch" 1 1
                       rnnSpeechLossFused rnnSpeechTest rnnSpeechLen
-                      0.49411762
+                      0.25
   ]
