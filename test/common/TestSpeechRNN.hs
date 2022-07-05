@@ -61,7 +61,7 @@ type SpeechDataBatch batch_size block_size window_size n_labels r =
 -- TODO: performance, see https://github.com/schrammc/mnist-idx/blob/master/src/Data/IDX/Internal.hs
 decodeSpeechData
   :: forall batch_size block_size window_size n_labels r.
-     ( Serialize r, Numeric r, Fractional r
+     ( Ord r, Serialize r, Numeric r
      , KnownNat batch_size, KnownNat block_size, KnownNat window_size
      , KnownNat n_labels )
   => LBS.ByteString -> LBS.ByteString
@@ -92,14 +92,13 @@ decodeSpeechData soundsBs labelsBs =
         let labelsBlockSize = valueOf @block_size * valueOf @n_labels
             labelsBlocks = chunksOf labelsBlockSize labelsCh
             -- Tmp hack that only makes sense for n_labels == 1.
-            avgLabels ch = sum ch / fromIntegral (length ch)
-            labelsAvg = map avgLabels labelsBlocks
+            labelsAvg = map maximum labelsBlocks
         in (OS.fromList soundsCh, OS.fromList labelsAvg)
   in zipWith makeSpeechDataBatch soundsChunks labelsChunks
 
 loadSpeechData
   :: forall batch_size block_size window_size n_labels r.
-     ( Serialize r, Numeric r, Fractional r
+     ( Ord r, Serialize r, Numeric r
      , KnownNat batch_size, KnownNat block_size, KnownNat window_size
      , KnownNat n_labels )
   => FilePath -> FilePath
