@@ -63,22 +63,19 @@ decodeSpeechData
   :: forall batch_size window_size n_labels r.
      ( Serialize r, Numeric r
      , KnownNat batch_size, KnownNat window_size, KnownNat n_labels )
-  => Int -> LBS.ByteString -> LBS.ByteString
+  => LBS.ByteString -> LBS.ByteString
   -> [SpeechDataBatch batch_size window_size n_labels r]
-decodeSpeechData len soundsBs labelsBs =
+decodeSpeechData soundsBs labelsBs =
   let soundsChunkSize = valueOf @batch_size * valueOf @window_size
       labelsChunkSize = valueOf @batch_size * valueOf @n_labels
-      !_A1 = assert (fromIntegral (LBS.length soundsBs) * labelsChunkSize
-                     == fromIntegral (LBS.length labelsBs) * soundsChunkSize) ()
+      !_A1 = assert
+               (fromIntegral (LBS.length soundsBs - 8) * labelsChunkSize
+                == fromIntegral (LBS.length labelsBs - 8) * soundsChunkSize) ()
       cutBs :: Int -> LBS.ByteString -> [[r]]
       cutBs chunkSize bs =
-        let list :: [r] =
-              case decodeLazy
-                   $ LBS.append (encodeLazy
-                                 $ len * chunkSize `div` valueOf @batch_size)
-                                 bs of
-                Left err -> error err
-                Right l -> l
+        let list :: [r] = case decodeLazy bs of
+              Left err -> error err
+              Right l -> l
         in filter (\ch -> length ch >= chunkSize)
            $ chunksOf chunkSize list
       soundsChunks :: [[r]] = cutBs soundsChunkSize soundsBs
@@ -95,15 +92,15 @@ loadSpeechData
   :: forall batch_size window_size n_labels r.
      ( Serialize r, Numeric r
      , KnownNat batch_size, KnownNat window_size, KnownNat n_labels )
-  => Int -> FilePath -> FilePath
+  => FilePath -> FilePath
   -> IO [SpeechDataBatch batch_size window_size n_labels r]
-loadSpeechData len soundsPath labelsPath =
+loadSpeechData soundsPath labelsPath =
   withBinaryFile soundsPath ReadMode $ \soundsHandle ->
     withBinaryFile labelsPath ReadMode $ \labelsHandle -> do
       soundsContents <- LBS.hGetContents soundsHandle
       labelsContents <- LBS.hGetContents labelsHandle
       let !_A1 = assert (LBS.length soundsContents > 0) ()
-      return $! decodeSpeechData len soundsContents labelsContents
+      return $! decodeSpeechData soundsContents labelsContents
 
 speechTestCaseRNN
   :: forall out_width batch_size window_size n_labels d r m.
@@ -145,7 +142,6 @@ speechRNNTestsShort = testGroup "Speech RNN short tests"
       speechDataBatchList <-
         loadSpeechData
           @64 @257 @1 @Float
-          859
           "/home/mikolaj/Downloads/volleyball.float32.257.spectrogram.bin"
           "/home/mikolaj/Downloads/volleyball.float32.1.rms.bin"
       length speechDataBatchList @?= 859 `div` 64
