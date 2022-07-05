@@ -145,4 +145,8 @@ speechRNNTestsShort = testGroup "Speech RNN short tests"
           "/home/mikolaj/Downloads/volleyball.float32.257.spectrogram.bin"
           "/home/mikolaj/Downloads/volleyball.float32.1.rms.bin"
       length speechDataBatchList @?= 859 `div` 64
+      minimum (map (OS.minimumA . fst) speechDataBatchList) @?= 0.0
+      maximum (map (OS.maximumA . fst) speechDataBatchList) @?= 26.52266
+      minimum (map (OS.minimumA . snd) speechDataBatchList) @?= 0.0
+      maximum (map (OS.maximumA . snd) speechDataBatchList) @?= 1.0
   ]
