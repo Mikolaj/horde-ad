@@ -187,7 +187,8 @@ rnnSpeech xs variables = do
       b2 = varS variables 5
       w3 = varS variables 6
       b3 = varS variables 7
-  rnnSpeechZero @out_width xs ((wX, wS, b), (wX2, wS2, b2)) w3 b3
+  rnnSpeechZero @out_width @batch_size @block_size
+                xs ((wX, wS, b), (wX2, wS2, b2)) w3 b3
 
 rnnSpeechLossFused
   :: forall out_width batch_size block_size window_size n_labels d r m.
