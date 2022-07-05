@@ -71,7 +71,7 @@ decodeSpeechData soundsBs labelsBs =
   let soundsChunkSize =
         valueOf @batch_size * valueOf @block_size * valueOf @window_size
       labelsChunkSize =
-        valueOf @batch_size * valueOf @block_size * valueOf @n_labels
+        valueOf @batch_size * valueOf @block_size  -- * valueOf @n_labels
       !_A1 = assert
                (fromIntegral (LBS.length soundsBs - 8) * labelsChunkSize
                 == fromIntegral (LBS.length labelsBs - 8) * soundsChunkSize) ()
@@ -90,11 +90,13 @@ decodeSpeechData soundsBs labelsBs =
         :: [r] -> [r]
         -> SpeechDataBatch batch_size block_size window_size n_labels r
       makeSpeechDataBatch soundsCh labelsCh =
-        let labelsBlockSize = valueOf @block_size * valueOf @n_labels
+        let labelsBlockSize = valueOf @block_size  -- * valueOf @n_labels
             labelsBlocks = chunksOf labelsBlockSize labelsCh
-            -- Tmp hack that only makes sense for n_labels == 1.
-            labelsAvg = map maximum labelsBlocks
-        in (OS.fromList soundsCh, OS.fromList labelsAvg)
+            -- Tmp hack for files that only have one label.
+            f block = let prefix = if maximum block > 0 then [0, 1] else [1, 0]
+                      in prefix ++ replicate (valueOf @n_labels - 2) 0
+            labelsMax = map f labelsBlocks
+        in (OS.fromList soundsCh, OS.fromList (concat labelsMax))
   in zipWith makeSpeechDataBatch soundsChunks labelsChunks
 
 loadSpeechData
@@ -287,7 +289,7 @@ speechTestCaseRNN prefix epochs maxBatches trainWithLoss ftest flen expected =
         "/home/mikolaj/Downloads/spj_how_ai_really.float32.1.rms.bin"
     testData <-
       loadSpeechData
-        @85 @10 @257 @1  -- the single batch covers the whole dataset
+        @85 @10 @257 @2  -- the single batch covers the whole dataset
         "/home/mikolaj/Downloads/volleyball.float32.257.spectrogram.bin"
         "/home/mikolaj/Downloads/volleyball.float32.1.rms.bin"
     let testDataBatch = head testData
@@ -305,7 +307,7 @@ speechTestCaseRNN prefix epochs maxBatches trainWithLoss ftest flen expected =
               !testScore = ftest proxy_out_width testDataBatch parameters2
               !lenBatch = length batch
           hPutStrLn stderr $ printf "\n%s: (Batch %d with %d mini-batches)" prefix k lenBatch
-          hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
+          hPutStrLn stderr $ printf "%s: First batch training error: %.2f%%" prefix ((1 - trainScore) * 100)
           hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
           return res
         runEpoch :: Int -> (Domains r, StateAdam r) -> IO (Domains r)
@@ -328,7 +330,7 @@ mnistRNNTestsLong = testGroup "Speech RNN long tests"
   [ testCase "Load and sanity check training speech files" $ do
       speechDataBatchList <-
         loadSpeechData
-         @32 @20 @257 @1 @Float
+         @32 @20 @257 @2 @Float
          "/home/mikolaj/Downloads/spj_how_ai_really.float32.257.spectrogram.bin"
          "/home/mikolaj/Downloads/spj_how_ai_really.float32.1.rms.bin"
       length speechDataBatchList @?= 155047331 `div` (32 * 20 * 257)
@@ -336,11 +338,20 @@ mnistRNNTestsLong = testGroup "Speech RNN long tests"
       maximum (map (OS.maximumA . fst) speechDataBatchList) @?= 39.848167
       minimum (map (OS.minimumA . snd) speechDataBatchList) @?= 0.0
       maximum (map (OS.maximumA . snd) speechDataBatchList) @?= 1.0
-  , speechTestCaseRNN @128 @64 @100 @257 @1 "1 epoch, all batches" 1 9999
+  , speechTestCaseRNN @128 @64 @100 @257 @2
+                      "1 epoch, all batches" 1 9999
+                      rnnSpeechLossFused rnnSpeechTest rnnSpeechLen
+                      0.49411762
+  , speechTestCaseRNN @128 @64 @1 @257 @2
+                      "1 epoch, all batches, 1-wide blocks" 1 9999
+                      rnnSpeechLossFused rnnSpeechTest rnnSpeechLen
+                      0.19999999
+  , speechTestCaseRNN @128 @64 @100 @257 @2
+                      "10 epochs, all batches" 10 9999
                       rnnSpeechLossFused rnnSpeechTest rnnSpeechLen
                       0
-  , speechTestCaseRNN @128 @64 @1 @257 @1
-                      "1 epoch, all batches, 1-wide blocks" 1 9999
+  , speechTestCaseRNN @128 @64 @1 @257 @2
+                      "10 epochs, all batches, 1-wide blocks" 10 9999
                       rnnSpeechLossFused rnnSpeechTest rnnSpeechLen
                       0
   ]
@@ -352,13 +363,13 @@ speechRNNTestsShort = testGroup "Speech RNN short tests"
         "\nThe message about faking non-existent files below is expected:"
       speechDataBatchList <-
         loadSpeechData
-          @1 @1 @1 @1 @Double
+          @1 @1 @1 @2 @Double
           "" ""
       speechDataBatchList @?= []
   , testCase "Load and sanity check testing speech files" $ do
       speechDataBatchList <-
         loadSpeechData
-          @85 @10 @257 @1 @Float
+          @85 @10 @257 @2 @Float
           "/home/mikolaj/Downloads/volleyball.float32.257.spectrogram.bin"
           "/home/mikolaj/Downloads/volleyball.float32.1.rms.bin"
       length speechDataBatchList @?= 1
@@ -366,7 +377,7 @@ speechRNNTestsShort = testGroup "Speech RNN short tests"
       maximum (map (OS.maximumA . fst) speechDataBatchList) @?= 26.52266
       minimum (map (OS.minimumA . snd) speechDataBatchList) @?= 0.0
       maximum (map (OS.maximumA . snd) speechDataBatchList) @?= 1.0
-  , speechTestCaseRNN @128 @64 @100 @257 @1 "1 epoch, 1 batch" 1 1
+  , speechTestCaseRNN @128 @64 @100 @257 @2 "1 epoch, 1 batch" 1 1
                       rnnSpeechLossFused rnnSpeechTest rnnSpeechLen
-                      0
+                      0.49411762
   ]
