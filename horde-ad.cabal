@@ -204,9 +204,10 @@ library testLibrary
     -- Other library packages from which modules are imported.
     build-depends:
         base
-      , cereal
       , bytestring
+      , cereal
       , deepseq
+      , directory
       , HUnit-approx
       , hmatrix
       , horde-ad
