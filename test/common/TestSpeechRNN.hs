@@ -175,7 +175,7 @@ rnnSpeech
   :: forall out_width batch_size block_size window_size n_labels d r m.
      ( DualMonad d r m, KnownNat out_width, KnownNat batch_size
      , KnownNat block_size, KnownNat window_size, KnownNat n_labels )
-  => OS.Array '[window_size, block_size, batch_size] r
+  => OS.Array '[block_size, window_size, batch_size] r
   -> DualNumberVariables d r
   -> m (DualNumber d (OS.Array '[n_labels, batch_size] r))
 rnnSpeech xs variables = do
@@ -199,7 +199,7 @@ rnnSpeechLossFused
   -> DualNumberVariables d r
   -> m (DualNumber d r)
 rnnSpeechLossFused _ (sounds, labels) variables = do
-  let xs = OS.transpose @'[2, 1, 0] sounds
+  let xs = OS.transpose @'[1, 2, 0] sounds
   result <- rnnSpeech @out_width @batch_size @block_size @window_size @n_labels
                       xs variables
   let targets2 = HM.tr $ HM.reshape (valueOf @n_labels)
@@ -217,7 +217,7 @@ rnnSpeechTest
   -> Domains r
   -> r
 rnnSpeechTest _ (sounds, labels) parameters =
-  let xs = OS.transpose @'[2, 1, 0] sounds
+  let xs = OS.transpose @'[1, 2, 0] sounds
       outputS =
         primalValue
            (rnnSpeech @out_width @batch_size @block_size @window_size @n_labels
@@ -332,5 +332,5 @@ speechRNNTestsShort = testGroup "Speech RNN short tests"
       maximum (map (OS.maximumA . snd) speechDataBatchList) @?= 1.0
   , speechTestCaseRNN @128 @32 @20 @257 @1 "1 epoch, 1 batch" 1 1
                       rnnSpeechLossFused rnnSpeechTest rnnSpeechLen
-                      0.4375
+                      0
   ]
