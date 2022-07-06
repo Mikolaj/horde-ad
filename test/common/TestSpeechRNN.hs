@@ -71,7 +71,7 @@ decodeSpeechData soundsBs labelsBs =
   let soundsChunkSize =
         valueOf @batch_size * valueOf @block_size * valueOf @window_size
       labelsChunkSize =
-        valueOf @batch_size * valueOf @block_size  -- * valueOf @n_labels
+        valueOf @batch_size * valueOf @block_size  --  * valueOf @n_labels
       !_A1 = assert
                (fromIntegral (LBS.length soundsBs - 8) * labelsChunkSize
                 == fromIntegral (LBS.length labelsBs - 8) * soundsChunkSize) ()
@@ -90,7 +90,7 @@ decodeSpeechData soundsBs labelsBs =
         :: [r] -> [r]
         -> SpeechDataBatch batch_size block_size window_size n_labels r
       makeSpeechDataBatch soundsCh labelsCh =
-        let labelsBlockSize = valueOf @block_size  -- * valueOf @n_labels
+        let labelsBlockSize = valueOf @block_size  --  * valueOf @n_labels
             labelsBlocks = chunksOf labelsBlockSize labelsCh
             -- Tmp hack for files that only have one label.
             f block = let prefix = if maximum block > 0 then [0, 1] else [1, 0]
