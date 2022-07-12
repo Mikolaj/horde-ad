@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 -- | Tools for implementing (and debugging the use of) gradient descent schemes.
 module HordeAd.Core.OptimizerTools
-  ( updateWithGradient
+  ( mapDomains, updateWithGradient
   , gradientIsNil, minimumGradient, maximumGradient
   , ArgsAdam(..), defaultArgsAdam
   , StateAdam(..), initialStateAdam
@@ -22,6 +22,7 @@ import           Numeric.LinearAlgebra.Devel
   (MatrixOrder (..), liftMatrix, liftMatrix2, matrixFromVector, orderOf)
 
 import HordeAd.Internal.Delta (Domains, isTensorDummy)
+import HordeAd.Internal.OrthotopeOrphanInstances (liftVT)
 
 {-
 60% of heap allocation in matrix- and vector-based MNIST
@@ -144,18 +145,23 @@ data StateAdam r = StateAdam
   , vAdam :: Domains r
   }
 
--- The arguments are just sample params0, for dimensions.
+mapDomains :: (Numeric r1, Numeric r2)
+           => (Vector r1 -> Vector r2) -> Domains r1 -> Domains r2
+mapDomains f (params0, params1, params2, paramsX) =
+  ( f params0
+  , V.map f params1
+  , V.map (liftMatrix f) params2
+  , V.map (liftVT f) paramsX )
+
+-- The arguments are just sample params, for dimensions.
 zeroParameters :: Numeric r
                => Domains r -> Domains r
-zeroParameters (params0, params1, params2, paramsX) =
+zeroParameters domains =
   let zeroVector v = runST $ do
         vThawed <- V.thaw v
         VM.set vThawed 0
         V.unsafeFreeze vThawed
-  in ( zeroVector params0
-     , V.map zeroVector params1
-     , V.map (liftMatrix zeroVector) params2
-     , V.map (\a -> OT.constant (OT.shapeL a) 0) paramsX )  -- fast allright
+  in mapDomains zeroVector domains
 
 initialStateAdam :: Numeric r
                  => Domains r -> StateAdam r

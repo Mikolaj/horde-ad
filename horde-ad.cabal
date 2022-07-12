@@ -196,6 +196,7 @@ library testLibrary
     exposed-modules:  TestMnistCNN
                       TestMnistFCNN
                       TestMnistRNN
+                      TestSpeechRNN
                       TestSimpleDescent
                       TestSingleGradient
   }
@@ -203,7 +204,10 @@ library testLibrary
     -- Other library packages from which modules are imported.
     build-depends:
         base
+      , bytestring
+      , cereal
       , deepseq
+      , directory
       , HUnit-approx
       , hmatrix
       , horde-ad

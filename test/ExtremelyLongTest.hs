@@ -24,6 +24,7 @@ import qualified TestMnistFCNN
 import qualified TestMnistRNN
 import qualified TestSimpleDescent
 import qualified TestSingleGradient
+import qualified TestSpeechRNN
 #endif
 
 main :: IO ()
@@ -46,5 +47,6 @@ tests = testGroup "Tests" $
   ++ TestSimpleDescent.testTrees
   ++ TestMnistFCNN.testTrees
   ++ TestMnistRNN.testTrees
+  ++ TestSpeechRNN.testTrees
   ++ TestMnistCNN.testTrees
 #endif

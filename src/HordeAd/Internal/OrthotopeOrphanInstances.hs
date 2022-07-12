@@ -15,9 +15,9 @@ import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import qualified Numeric.LinearAlgebra.Devel
 
-liftVT :: Numeric r
-       => (Vector r -> Vector r)
-       -> OT.Array r -> OT.Array r
+liftVT :: (Numeric r1, Numeric r2)
+       => (Vector r1 -> Vector r2)
+       -> OT.Array r1 -> OT.Array r2
 liftVT op t = OT.fromVector (OT.shapeL t) $ op $ OT.toVector t
 
 liftVT2 :: Numeric r
