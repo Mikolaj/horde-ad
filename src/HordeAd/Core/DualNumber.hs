@@ -305,7 +305,8 @@ sumRows1 :: IsScalar d r => DualNumber d (Matrix r) -> DualNumber d (Vector r)
 sumRows1 (D u u') = D (V.fromList $ map HM.sumElements $ HM.toRows u)
                       (dSumRows1 u' (HM.cols u))
 
-sumColumns1 :: IsScalar d r => DualNumber d (Matrix r) -> DualNumber d (Vector r)
+sumColumns1 :: IsScalar d r
+            => DualNumber d (Matrix r) -> DualNumber d (Vector r)
 sumColumns1 (D u u') = D (V.fromList $ map HM.sumElements $ HM.toColumns u)
                          (dSumColumns1 u' (HM.rows u))
 
@@ -349,7 +350,8 @@ flatten1 :: IsScalar d r => DualNumber d (Matrix r) -> DualNumber d (Vector r)
 flatten1 (D u u') = let (rows, cols) = HM.size u
                     in D (HM.flatten u) (dFlatten1 rows cols u')
 
-flattenX1 :: IsScalar d r => DualNumber d (OT.Array r) -> DualNumber d (Vector r)
+flattenX1 :: IsScalar d r
+          => DualNumber d (OT.Array r) -> DualNumber d (Vector r)
 flattenX1 (D u u') = let sh = OT.shapeL u
                      in D (OT.toVector u) (dFlattenX1 sh u')
 
@@ -433,7 +435,8 @@ fromColumns2 :: IsScalar d r
 fromColumns2 v = D (HM.fromRows $ map (\(D u _) -> u) $ V.toList v)
                    (dFromColumns2 $ V.map (\(D _ u') -> u') v)
 
-konst2 :: IsScalar d r => DualNumber d r -> (Int, Int) -> DualNumber d (Matrix r)
+konst2 :: IsScalar d r
+       => DualNumber d r -> (Int, Int) -> DualNumber d (Matrix r)
 konst2 (D u u') sz = D (HM.konst u sz) (dKonst2 u' sz)
 
 transpose2 :: IsScalar d r => DualNumber d (Matrix r) -> DualNumber d (Matrix r)
@@ -615,7 +618,8 @@ maxPool2 ksize stride m@(D u _) = do
 
 -- * Operations resulting in an arbitrary untyped tensor
 
-konstX :: IsScalar d r => DualNumber d r -> OT.ShapeL -> DualNumber d (OT.Array r)
+konstX :: IsScalar d r
+       => DualNumber d r -> OT.ShapeL -> DualNumber d (OT.Array r)
 konstX (D u u') sh = D (OT.constant sh u) (dKonstX u' sh)
 
 appendX :: IsScalar d r
@@ -729,7 +733,8 @@ unravelToListS (D v v') =
   let g ix p = D p (dFromXS $ dIndexX (dFromSX v') ix (valueOf @k))
   in imap g $ OSB.toList $ OS.unravel v
 
-mapS :: forall k sh1 sh d r. (KnownNat k, IsScalar d r, OS.Shape sh, OS.Shape sh1)
+mapS :: forall k sh1 sh d r.
+        (KnownNat k, IsScalar d r, OS.Shape sh, OS.Shape sh1)
      => (DualNumber d (OS.Array sh1 r) -> DualNumber d (OS.Array sh r))
      -> DualNumber d (OS.Array (k : sh1) r)
      -> DualNumber d (OS.Array (k : sh) r)
@@ -823,7 +828,8 @@ conv24 :: forall kheight_minus_1 kwidth_minus_1
           , IsScalar d r )
        => DualNumber d (OS.Array '[ out_channels, in_channels
                                  , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
-       -> DualNumber d (OS.Array '[batch_size, in_channels, in_height, in_width] r)
+       -> DualNumber d (OS.Array '[ batch_size, in_channels
+                                  , in_height, in_width ] r)
        -> DualNumber d (OS.Array '[ batch_size, out_channels
                                  , in_height + kheight_minus_1
                                  , in_width + kwidth_minus_1 ] r)
@@ -878,14 +884,16 @@ maxPool24 d = do
 -- | The version of the @D@ constructor lazy in the second argument.
 -- To be used as in
 --
--- > sinDelayed :: (Floating a, IsPrimal d a) => DualNumber d a -> DualNumber d a
+-- > sinDelayed :: (Floating a, IsPrimal d a)
+-- >            => DualNumber d a -> DualNumber d a
 -- > sinDelayed (D u u') = delayD (sin u) (dScale (cos u) u')
 -- >
 -- > plusDelayed :: (Floating a, IsPrimal d a)
 -- >             => DualNumber d a -> DualNumber d a -> DualNumber d a
 -- > plusDelayed (D u u') (D v v') = delayD (u + v) (dAdd u' v')
 -- >
--- > x ** (sinDelayed x `plusDelayed` (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
+-- > x ** (sinDelayed x
+-- >       `plusDelayed` (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
 --
 -- The outlining is lost when serializing or logging, unlike with @Out@,
 -- @Outline0@, etc.
@@ -955,7 +963,8 @@ instance (Floating a, IsPrimal 'DModeGradient a, HasVariables a)
   sqrt (Out (D u u')) = Out $ D (sqrt u) (dOutline SqrtOut [u] [u'])
   Out (D u u') ** Out (D v v') =
     Out $ D (u ** v) (dOutline PowerOut [u, v] [u', v'])
-  logBase (Out (D u u')) (Out (D v v')) = Out $ D (logBase u v) (dOutline LogBaseOut [u, v] [u', v'])
+  logBase (Out (D u u')) (Out (D v v')) =
+    Out $ D (logBase u v) (dOutline LogBaseOut [u, v] [u', v'])
   sin (Out (D u u')) = Out $ D (sin u) (dOutline SinOut [u] [u'])
   cos (Out (D u u')) = Out $ D (cos u) (dOutline CosOut [u] [u'])
   tan (Out (D u u')) = Out $ D (tan u) (dOutline TanOut [u] [u'])
