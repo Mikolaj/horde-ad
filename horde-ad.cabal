@@ -52,7 +52,7 @@ extra-doc-files:    CHANGELOG.md
 -- Extra source files to be distributed with the package, such as examples, or a tutorial module.
 -- extra-source-files:
 
-tested-with:        GHC ==8.10.7 || ==9.0.2 || ==9.2.2
+tested-with:        GHC ==8.10.7 || ==9.0.2 || ==9.2.4
 
 bug-reports:        https://github.com/Mikolaj/horde-ad/issues
 
