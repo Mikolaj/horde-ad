@@ -25,7 +25,7 @@ import           Data.Array.Internal (valueOf)
 import           Data.Array.Shape (DivRoundUp)
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
-import           Data.List.Index (imap)
+import           Data.List.Index (imap, imapM)
 import           Data.MonoTraversable (MonoFunctor (omap))
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
@@ -321,6 +321,16 @@ map1 f (D v v') =
       g ix p = f $ D p (dIndex0 v' ix k)
       ds = imap g $ V.toList v
   in seq1 $ V.fromList ds
+
+map1M :: forall d r m. DualMonad d r m
+      => (DualNumber d r -> m (DualNumber d r)) -> DualNumber d (Vector r)
+      -> m (DualNumber d (Vector r))
+map1M f (D v v') = do
+  let k = V.length v
+      g :: Int -> r -> m (DualNumber d r)
+      g ix p = f $ D p (dIndex0 v' ix k)
+  ds <- imapM g $ V.toList v
+  return $! seq1 $ V.fromList ds
 
 -- | Dense matrix-vector product.
 infixr 8 #>!
