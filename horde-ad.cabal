@@ -82,7 +82,8 @@ flag use_typelits_plugins
 
 common options
   default-language:   Haskell2010
-  default-extensions: MonoLocalBinds, ScopedTypeVariables, OverloadedStrings,
+  default-extensions: NoDeepSubsumption,
+                      MonoLocalBinds, ScopedTypeVariables, OverloadedStrings,
                       BangPatterns, RecordWildCards, NamedFieldPuns, MultiWayIf,
                       LambdaCase, DefaultSignatures, InstanceSigs,
                       PatternSynonyms, StrictData, TypeApplications,
