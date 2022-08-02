@@ -878,11 +878,6 @@ mnistRNNTestsLong = testGroup "MNIST RNN long tests"
   , mnistTestCaseRNNS @128 @150 "1S 1 epoch, 1 batch" 1 1
                       rnnMnistLossFusedS rnnMnistTestS rnnMnistLenS
                       0.4375
-  , mnistTestCaseRNN "1VV 1 epoch, 1 batch" 1 1
-                     nnMnistRNNLossV testMnistRNNV lenMnistRNNV 128 1
-                     0.3024
-      -- this one takes 5 times longer on GHC 9.2 than 9.0 and 8.10;
-      -- TODO: test on HEAD with the specialization fixes
   ]
 
 mnistRNNTestsShort :: TestTree
@@ -950,6 +945,9 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
                    (map rws . take 100
                     <$> loadMnistData trainGlyphsPath trainLabelsPath)
                    2.749410768938081
+  , mnistTestCaseRNN "1VV 1 epoch, 1 batch" 1 1
+                     nnMnistRNNLossV testMnistRNNV lenMnistRNNV 128 1
+                     0.3024
   , mnistTestCaseRNNS @120 @15 "1S 1 epoch, 1 batch" 1 1
                       rnnMnistLossFusedS rnnMnistTestS rnnMnistLenS
                       0.8418
