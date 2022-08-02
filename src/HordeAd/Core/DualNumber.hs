@@ -330,7 +330,7 @@ map1M f (D v v') = do
       g :: Int -> r -> m (DualNumber d r)
       g ix p = f $ D p (dIndex0 v' ix k)
   ds <- imapM g $ V.toList v
-  return $! seq1 $ V.fromList ds
+  returnLet $ seq1 $ V.fromList ds
 
 -- | Dense matrix-vector product.
 infixr 8 #>!
