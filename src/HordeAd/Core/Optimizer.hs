@@ -5,6 +5,7 @@ module HordeAd.Core.Optimizer
   , sgd
   , sgdAdam, sgdAdamArgs
   , StateAdam, initialStateAdam
+  , mapDomains
   ) where
 
 import Prelude
