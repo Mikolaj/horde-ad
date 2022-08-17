@@ -42,7 +42,7 @@ module HordeAd.Internal.Delta
   , DeltaX (..), DeltaX' (..)
   , DeltaS (..), DeltaS' (..)
   , -- * Delta expression identifiers
-    DeltaId, toDeltaId, convertDeltaId
+    DeltaId, toDeltaId, convertDeltaId, succDeltaId
   , -- * Evaluation of the delta expressions
     DeltaBinding
   , DeltaState (..)
