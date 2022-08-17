@@ -20,9 +20,17 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
+import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.DualClass
-  (Dual, IsPrimal (..), IsPrimalWithScalar, bindInState, dVar)
+  ( Dual
+  , IsPrimal (..)
+  , IsPrimalWithScalar
+  , bindInState
+  , dVar
+  , finalizeCounters
+  , initializeCounters
+  )
 import HordeAd.Core.DualNumber
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 import HordeAd.Internal.Delta
@@ -135,16 +143,24 @@ dReverseGeneral dt
                           dim0 dim1 dim2 dimX st d dt
   in (gradient, value)
 
+-- TODO: change the type to IO, but this requires a rewrite of all
+-- test glue code; also remove NOINLINE
 dReverse :: HasDelta r
    => r
    -> (DualNumberVariables 'DModeGradient r
        -> DualMonadGradient r (DualNumber 'DModeGradient r))
    -> Domains r
    -> (Domains r, r)
-dReverse dt f parameters =
+{-# NOINLINE dReverse #-}
+dReverse dt f parameters = unsafePerformIO $ do
+  initializeCounters parameters
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
-  in dReverseGeneral dt variables f
+      -- It needs to be fully evaluated before finalizing the counters,
+      -- because it modifies the counters (via impure side-effect):
+      !(gradient@(!_, !_, !_, !_), !value) = dReverseGeneral dt variables f
+  finalizeCounters
+  return (gradient, value)
 
 -- This function uses @DualMonadGradient@ for an inefficient computation
 -- of forward derivaties. See @dFastForwardGeneral@ for an efficient variant.
@@ -170,6 +186,8 @@ dForwardGeneral variables@(params0, _, params1, _, params2, _, paramsX, _)
      , value )
 
 -- The direction vector ds is taken as an extra argument.
+-- TODO: change the type to IO, but this requires a rewrite of all
+-- test glue code; also remove NOINLINE
 dForward
   :: HasDelta r
   => (DualNumberVariables 'DModeGradient r
@@ -177,11 +195,16 @@ dForward
   -> Domains r
   -> Domains r
   -> (r, r)
-dForward f parameters ds =
+{-# NOINLINE dForward #-}
+dForward f parameters ds = unsafePerformIO $ do
+  initializeCounters parameters
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
-  in dForwardGeneral variables f ds
-
+      -- It needs to be fully evaluated before finalizing the counters,
+      -- because it modifies the counters (via impure side-effect):
+      !(!derivative, !value) = dForwardGeneral variables f ds
+  finalizeCounters
+  return (derivative, value)
 
 -- * A monad for efficiently computing forward derivatives.
 
@@ -225,6 +248,8 @@ dFastForward f parameters (params0, params1, params2, paramsX) =
 
 -- * Additional mechanisms
 
+-- TODO: change the type to IO, but this requires a rewrite of all
+-- test glue code; also remove NOINLINE
 prettyPrintDf
   :: forall r. HasDelta r
   => Bool
@@ -232,13 +257,20 @@ prettyPrintDf
       -> DualMonadGradient r (DualNumber 'DModeGradient r))
   -> Domains r
   -> String
-prettyPrintDf reversed f parameters =
+{-# NOINLINE prettyPrintDf #-}
+prettyPrintDf reversed f parameters = unsafePerformIO $ do
+  initializeCounters parameters
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
       initialState = initializeState parameters
       (D _ deltaTopLevel, st) = runState (runDualMonadGradient (f variables))
                                          initialState
-  in ppBindings reversed st deltaTopLevel
+      s = ppBindings reversed st deltaTopLevel
+      -- It needs to be fully evaluated before finalizing the counters,
+      -- because it modifies the counters (via impure side-effect):
+      !_ = length s
+  finalizeCounters
+  return s
 
 generateDeltaVars
   :: forall r. IsScalar 'DModeGradient r
