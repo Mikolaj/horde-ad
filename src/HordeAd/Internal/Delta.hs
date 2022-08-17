@@ -36,7 +36,11 @@
 -- grow large enough to affect cache misses).
 module HordeAd.Internal.Delta
   ( -- * Abstract syntax trees of the delta expressions
-    Delta0 (..), Delta1 (..), Delta2 (..), DeltaX (..), DeltaS (..)
+    Delta0 (..), Delta0' (..)
+  , Delta1 (..), Delta1' (..)
+  , Delta2 (..), Delta2' (..)
+  , DeltaX (..), DeltaX' (..)
+  , DeltaS (..), DeltaS' (..)
   , -- * Delta expression identifiers
     DeltaId, toDeltaId, convertDeltaId
   , -- * Evaluation of the delta expressions
@@ -92,7 +96,8 @@ import           HordeAd.Internal.OrthotopeOrphanInstances (liftVS2, liftVT2)
 --
 -- The @Outline@ constructors represent primitive numeric function applications
 -- for which we delay computing and forgo inlining of the derivative.
-data Delta0 r =
+data Delta0 r = Delta0 (DeltaId r) (Delta0' r)
+data Delta0' r =
     Zero0
   | Scale0 r (Delta0 r)
   | Add0 (Delta0 r) (Delta0 r)
@@ -110,10 +115,12 @@ data Delta0 r =
   | Delay0 ~(Delta0 r)
 
 deriving instance (Show r, Numeric r) => Show (Delta0 r)
+deriving instance (Show r, Numeric r) => Show (Delta0' r)
 
 -- | This is the grammar of delta-expressions at tensor rank 1, that is,
 -- at vector level.
-data Delta1 r =
+data Delta1 r = Delta1 (DeltaId (Vector r)) (Delta1' r)
+data Delta1' r =
     Zero1
   | Scale1 (Vector r) (Delta1 r)
   | Add1 (Delta1 r) (Delta1 r)
@@ -146,10 +153,12 @@ data Delta1 r =
   | Delay1 ~(Delta1 r)
 
 deriving instance (Show r, Numeric r) => Show (Delta1 r)
+deriving instance (Show r, Numeric r) => Show (Delta1' r)
 
 -- | This is the grammar of delta-expressions at tensor rank 2, that is,
 -- at matrix level.
-data Delta2 r =
+data Delta2 r = Delta2 (DeltaId (Matrix r)) (Delta2' r)
+data Delta2' r =
     Zero2
   | Scale2 (Matrix r) (Delta2 r)
   | Add2 (Delta2 r) (Delta2 r)
@@ -183,11 +192,13 @@ data Delta2 r =
   | Delay2 ~(Delta2 r)
 
 deriving instance (Show r, Numeric r) => Show (Delta2 r)
+deriving instance (Show r, Numeric r) => Show (Delta2' r)
 
 -- | This is the grammar of delta-expressions at arbitrary tensor rank.
 --
 -- Warning: not tested enough nor benchmarked.
-data DeltaX r =
+data DeltaX r = DeltaX (DeltaId (OT.Array r)) (DeltaX' r)
+data DeltaX' r =
     ZeroX
   | ScaleX (OT.Array r) (DeltaX r)
   | AddX (DeltaX r) (DeltaX r)
@@ -220,47 +231,51 @@ data DeltaX r =
   | DelayX ~(DeltaX r)
 
 deriving instance (Show r, Numeric r) => Show (DeltaX r)
+deriving instance (Show r, Numeric r) => Show (DeltaX' r)
 
 -- | This is the grammar of delta-expressions at arbitrary tensor rank,
 -- the fully typed Shaped version.
 --
 -- Warning: not tested enough nor benchmarked.
-data DeltaS :: [Nat] -> Type -> Type where
-  ZeroS :: DeltaS sh r
-  ScaleS :: OS.Array sh r -> DeltaS sh r -> DeltaS sh r
-  AddS :: DeltaS sh r -> DeltaS sh r -> DeltaS sh r
-  VarS :: DeltaId (OS.Array sh r) -> DeltaS sh r
+data DeltaS sh r = DeltaS (DeltaId (OS.Array sh r)) (DeltaS' sh r)
+data DeltaS' :: [Nat] -> Type -> Type where
+  ZeroS :: DeltaS' sh r
+  ScaleS :: OS.Array sh r -> DeltaS sh r -> DeltaS' sh r
+  AddS :: DeltaS sh r -> DeltaS sh r -> DeltaS' sh r
+  VarS :: DeltaId (OS.Array sh r) -> DeltaS' sh r
 
-  KonstS :: Delta0 r -> DeltaS sh r
+  KonstS :: Delta0 r -> DeltaS' sh r
   AppendS :: (OS.Shape sh, KnownNat m, KnownNat n)
           => DeltaS (m ': sh) r -> DeltaS (n ': sh) r
-          -> DeltaS ((m + n) ': sh) r
+          -> DeltaS' ((m + n) ': sh) r
     -- ^ Append two arrays along the outermost dimension.
   SliceS :: (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
          => Proxy i -> Proxy n -> DeltaS (i + n + k ': rest) r
-         -> DeltaS (n ': rest) r
+         -> DeltaS' (n ': rest) r
     -- ^ Extract a slice of an array along the outermost dimension.
   IndexS :: (KnownNat ix, KnownNat k, OS.Shape rest)
-         => DeltaS (ix + 1 + k ': rest) r -> Proxy ix -> DeltaS rest r
+         => DeltaS (ix + 1 + k ': rest) r -> Proxy ix -> DeltaS' rest r
     -- ^ The sub-tensors at the given index of the outermost dimension.
   RavelFromListS :: (KnownNat k, OS.Shape rest)
-                 => [DeltaS rest r] -> DeltaS (k : rest) r
+                 => [DeltaS rest r] -> DeltaS' (k : rest) r
     -- ^ Create a tensor from a list treated as the outermost dimension.
   ReshapeS :: (OS.Shape sh, OS.Shape sh', OS.Size sh ~ OS.Size sh')
-           => DeltaS sh r -> DeltaS sh' r
+           => DeltaS sh r -> DeltaS' sh' r
     -- ^ Change the shape of the tensor.
 
-  From0S :: Delta0 r -> DeltaS '[] r
-  From1S :: Delta1 r -> DeltaS '[n] r
+  From0S :: Delta0 r -> DeltaS' '[] r
+  From1S :: Delta1 r -> DeltaS' '[n] r
   From2S :: KnownNat cols
-         => Proxy cols -> Delta2 r -> DeltaS '[rows, cols] r
-  FromXS :: DeltaX r -> DeltaS sh r
+         => Proxy cols -> Delta2 r -> DeltaS' '[rows, cols] r
+  FromXS :: DeltaX r -> DeltaS' sh r
 
-  OutlineS :: CodeOut -> [OS.Array sh r] -> [DeltaS sh r] -> DeltaS sh r
-  DelayS :: ~(DeltaS sh r) -> DeltaS sh r
+  OutlineS :: CodeOut -> [OS.Array sh r] -> [DeltaS sh r] -> DeltaS' sh r
+  DelayS :: ~(DeltaS sh r) -> DeltaS' sh r
 
 instance Show (DeltaS sh r) where
   show _ = "a DeltaS delta expression"
+instance Show (DeltaS' sh r) where
+  show _ = "a DeltaS' delta expression"
 
 
 -- * Delta expression identifiers
@@ -495,14 +510,16 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
                                then rs
                                else liftVT2 (+) v rs
       eval0 :: r -> Delta0 r -> ST s ()
-      eval0 !r = \case
+      eval0 !r (Delta0 _ d) = eval0' r d
+      eval0' :: r -> Delta0' r -> ST s ()
+      eval0' !r = \case
         Zero0 -> return ()
         Scale0 k d -> eval0 (k * r) d
         Add0 d e -> eval0 r d >> eval0 r e
         Var0 (DeltaId i) -> VM.modify finMap0 (+ r) i
 
         SumElements0 vd n -> eval1 (HM.konst r n) vd
-        Index0 (Var1 (DeltaId i)) ix k -> do
+        Index0 (Delta1 _ (Var1 (DeltaId i))) ix k -> do
           let f v = if V.null v
                     then HM.konst 0 k V.// [(ix, r)]
                     else v V.// [(ix, v V.! ix + r)]
@@ -522,7 +539,9 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval0 r $ inlineDerivative0 codeOut primalArgs dualArgs
         Delay0 d -> eval0 r d
       eval1 :: Vector r -> Delta1 r -> ST s ()
-      eval1 !r = \case
+      eval1 !r (Delta1 _ d) = eval1' r d
+      eval1' :: Vector r -> Delta1' r -> ST s ()
+      eval1' !r = \case
         Zero1 -> return ()
         Scale1 k d -> eval1 (k * r) d
         Add1 d e -> eval1 r d >> eval1 r e
@@ -556,7 +575,9 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval1 r $ inlineDerivative1 codeOut primalArgs dualArgs
         Delay1 d -> eval1 r d
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
-      eval2 !r = \case
+      eval2 !r (Delta2 _ d) = eval2' r d
+      eval2' :: MO.MatrixOuter r -> Delta2' r -> ST s ()
+      eval2' !r = \case
         Zero2 -> return ()
         Scale2 k d -> eval2 (MO.multiplyWithOuter k r) d
         Add2 d e -> eval2 r d >> eval2 r e
@@ -611,7 +632,9 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval2 r $ inlineDerivative2 codeOut primalArgs dualArgs
         Delay2 d -> eval2 r d
       evalX :: OT.Array r -> DeltaX r -> ST s ()
-      evalX !r = \case
+      evalX !r (DeltaX _ d) = evalX' r d
+      evalX' :: OT.Array r -> DeltaX' r -> ST s ()
+      evalX' !r = \case
         ZeroX -> return ()
         ScaleX k d -> evalX (liftVT2 (*) k r) d
         AddX d e -> evalX r d >> evalX r e
@@ -654,7 +677,10 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         DelayX d -> evalX r d
       evalS :: OS.Shape sh
             => OS.Array sh r -> DeltaS sh r -> ST s ()
-      evalS !r = \case
+      evalS !r (DeltaS _ d) = evalS' r d
+      evalS' :: OS.Shape sh
+             => OS.Array sh r -> DeltaS' sh r -> ST s ()
+      evalS' !r = \case
         ZeroS -> return ()
         ScaleS k d -> evalS (liftVS2 (*) k r) d
         AddS d e -> evalS r d >> evalS r e
@@ -753,7 +779,9 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
                     st deltaTopLevel
                     _ds@(params0Init, params1Init, params2Init, paramsXInit) =
   let eval0 :: Domains r -> Delta0 r -> r
-      eval0 parameters@(params0, _, _, _) = \case
+      eval0 parameters (Delta0 _ d) = eval0' parameters d
+      eval0' :: Domains r -> Delta0' r -> r
+      eval0' parameters@(params0, _, _, _) = \case
         Zero0 -> 0
         Scale0 k d -> k * eval0 parameters d
         Add0 d e -> eval0 parameters d + eval0 parameters e
@@ -771,7 +799,9 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval0 parameters $ inlineDerivative0 codeOut primalArgs dualArgs
         Delay0 d -> eval0 parameters d
       eval1 :: Domains r -> Delta1 r -> Vector r
-      eval1 parameters@(_, params1, _, _) = \case
+      eval1 parameters (Delta1 _ d) = eval1' parameters d
+      eval1' :: Domains r -> Delta1' r -> Vector r
+      eval1' parameters@(_, params1, _, _) = \case
         Zero1 -> 0
         Scale1 k d -> k * eval1 parameters d
         Add1 d e -> eval1 parameters d + eval1 parameters e
@@ -801,7 +831,9 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval1 parameters $ inlineDerivative1 codeOut primalArgs dualArgs
         Delay1 d -> eval1 parameters d
       eval2 :: Domains r -> Delta2 r -> Matrix r
-      eval2 parameters@( _, _, params2, _) = \case
+      eval2 parameters (Delta2 _ d) = eval2' parameters d
+      eval2' :: Domains r -> Delta2' r -> Matrix r
+      eval2' parameters@( _, _, params2, _) = \case
         Zero2 -> 0
         Scale2 k d -> k * eval2 parameters d
         Add2 d e -> eval2 parameters d + eval2 parameters e
@@ -845,7 +877,9 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval2 parameters $ inlineDerivative2 codeOut primalArgs dualArgs
         Delay2 d -> eval2 parameters d
       evalX :: Domains r -> DeltaX r -> OT.Array r
-      evalX parameters@( _, _, _, paramsX) = \case
+      evalX parameters (DeltaX _ d) = evalX' parameters d
+      evalX' :: Domains r -> DeltaX' r -> OT.Array r
+      evalX' parameters@( _, _, _, paramsX) = \case
         ZeroX -> 0
         ScaleX k d -> k * evalX parameters d
         AddX d e -> evalX parameters d + evalX parameters e
@@ -874,7 +908,9 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
           evalX parameters $ inlineDerivativeX codeOut primalArgs dualArgs
         DelayX d -> evalX parameters d
       evalS :: OS.Shape sh => Domains r -> DeltaS sh r -> OS.Array sh r
-      evalS parameters@( _, _, _, paramsX) = \case
+      evalS parameters (DeltaS _ d) = evalS' parameters d
+      evalS' :: OS.Shape sh => Domains r -> DeltaS' sh r -> OS.Array sh r
+      evalS' parameters@( _, _, _, paramsX) = \case
         ZeroS -> 0
         ScaleS k d -> k * evalS parameters d
         AddS d e -> evalS parameters d + evalS parameters e
