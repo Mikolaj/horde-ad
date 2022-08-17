@@ -13,17 +13,18 @@
 module HordeAd.Core.DualClass
   ( IsPrimalWithScalar, IsPrimalAndHasFeatures, IsScalar, HasDelta
   , DMode(..), Dual, IsPrimal(..), HasRanks(..)
-  , HasVariables(..)  -- use sparringly
+  , HasVariables(..), initializeCounters, finalizeCounters  -- use sparringly
   ) where
 
 import Prelude
 
-import           Control.Concurrent.MVar (MVar, newMVar, putMVar, takeMVar)
+import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
 import qualified Data.Array.Convert
 import qualified Data.Array.Dynamic as OTB
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
+import           Data.Functor (void)
 import           Data.MonoTraversable (Element, MonoFunctor)
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
@@ -601,52 +602,69 @@ instance HasRanks 'DModeValue r where
 #endif
 
 
--- * Impure (but thread-safe) generation of fresh ids
+-- * Impure generation of fresh ids (thread-safe, but only one instance
+-- running at a time, initialized and eventually finalized; tests need
+-- to be run with -ftest_seq, but at least it's re-entrant)
 
 unsafeDeltaCounter0 :: MVar (DeltaId r)
 {-# NOINLINE unsafeDeltaCounter0 #-}
-unsafeDeltaCounter0 = unsafePerformIO $ newMVar $ toDeltaId 0
+unsafeDeltaCounter0 = unsafePerformIO newEmptyMVar
 
 unsafeDeltaCounter1 :: MVar (DeltaId (Vector r))
 {-# NOINLINE unsafeDeltaCounter1 #-}
-unsafeDeltaCounter1 = unsafePerformIO $ newMVar $ toDeltaId 0
+unsafeDeltaCounter1 = unsafePerformIO newEmptyMVar
 
 unsafeDeltaCounter2 :: MVar (DeltaId (Matrix r))
 {-# NOINLINE unsafeDeltaCounter2 #-}
-unsafeDeltaCounter2 = unsafePerformIO $ newMVar $ toDeltaId 0
+unsafeDeltaCounter2 = unsafePerformIO newEmptyMVar
 
 unsafeDeltaCounterX :: MVar (DeltaId (OT.Array r))
 {-# NOINLINE unsafeDeltaCounterX #-}
-unsafeDeltaCounterX = unsafePerformIO $ newMVar $ toDeltaId 0
+unsafeDeltaCounterX = unsafePerformIO newEmptyMVar
 
--- This is the only operation directly touching the counters.
-unsafeGetCurrentId :: MVar (DeltaId a) -> DeltaId a
-unsafeGetCurrentId mvar = unsafePerformIO $ do
+-- The following three are the only operations directly touching the counters.
+unsafeGetFreshId :: MVar (DeltaId a) -> DeltaId a
+{-# NOINLINE unsafeGetFreshId #-}
+unsafeGetFreshId mvar = unsafePerformIO $ do
   i <- takeMVar mvar
   putMVar mvar $ succDeltaId i
   return i
 
+initializeCounters :: Numeric r => Domains r -> IO ()
+initializeCounters (params0, params1, params2, paramsX) = do
+  putMVar unsafeDeltaCounter0 $ toDeltaId (V.length params0)
+  putMVar unsafeDeltaCounter1 $ toDeltaId (V.length params1)
+  putMVar unsafeDeltaCounter2 $ toDeltaId (V.length params2)
+  putMVar unsafeDeltaCounterX $ toDeltaId (V.length paramsX)
+
+finalizeCounters :: IO ()
+finalizeCounters = do
+  void $ takeMVar unsafeDeltaCounter0
+  void $ takeMVar unsafeDeltaCounter1
+  void $ takeMVar unsafeDeltaCounter2
+  void $ takeMVar unsafeDeltaCounterX
+
 wrapDelta0 :: Delta0' r -> Delta0 r
 wrapDelta0 d =
-  let !i = unsafeGetCurrentId unsafeDeltaCounter0
+  let i = unsafeGetFreshId unsafeDeltaCounter0
   in Delta0 i d
 
 wrapDelta1 :: Delta1' r -> Delta1 r
 wrapDelta1 d =
-  let !i = unsafeGetCurrentId unsafeDeltaCounter1
+  let i = unsafeGetFreshId unsafeDeltaCounter1
   in Delta1 i d
 
 wrapDelta2 :: Delta2' r -> Delta2 r
 wrapDelta2 d =
-  let !i = unsafeGetCurrentId unsafeDeltaCounter2
+  let i = unsafeGetFreshId unsafeDeltaCounter2
   in Delta2 i d
 
 wrapDeltaX :: DeltaX' r -> DeltaX r
 wrapDeltaX d =
-  let !i = unsafeGetCurrentId unsafeDeltaCounterX
+  let i = unsafeGetFreshId unsafeDeltaCounterX
   in DeltaX i d
 
 wrapDeltaS :: DeltaS' sh r -> DeltaS sh r
 wrapDeltaS d =
-  let !i = unsafeGetCurrentId unsafeDeltaCounterX  -- not S!
+  let i = unsafeGetFreshId unsafeDeltaCounterX  -- not S!
   in DeltaS (convertDeltaId i) d
