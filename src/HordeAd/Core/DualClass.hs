@@ -18,6 +18,7 @@ module HordeAd.Core.DualClass
 
 import Prelude
 
+import           Control.Concurrent.MVar (MVar, newMVar, putMVar, takeMVar)
 import qualified Data.Array.Convert
 import qualified Data.Array.Dynamic as OTB
 import qualified Data.Array.DynamicS as OT
@@ -30,6 +31,7 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, natVal, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
+import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Internal.Delta
 
@@ -244,138 +246,144 @@ class HasRanks (d :: DMode) r where
 -- * Backprop gradient method instances
 
 instance IsPrimal 'DModeGradient Double where
-  dZero = Zero0
-  dScale = Scale0
-  dAdd = Add0
-  dDelay = Delay0
+  dZero = wrapDelta0 Zero0
+  dScale k d = wrapDelta0 $ Scale0 k d
+  dAdd d e = wrapDelta0 $ Add0 d e
+  dDelay d = wrapDelta0 $ Delay0 d
 
 instance IsPrimal 'DModeGradient Float where
   -- Identical as above:
-  dZero = Zero0
-  dScale = Scale0
-  dAdd = Add0
-  dDelay = Delay0
+  dZero = wrapDelta0 Zero0
+  dScale k d = wrapDelta0 $ Scale0 k d
+  dAdd d e = wrapDelta0 $ Add0 d e
+  dDelay d = wrapDelta0 $ Delay0 d
 
 instance IsPrimal 'DModeGradient (Vector r) where
-  dZero = Zero1
-  dScale = Scale1
-  dAdd = Add1
-  dDelay = Delay1
+  dZero = wrapDelta1 Zero1
+  dScale k d = wrapDelta1 $ Scale1 k d
+  dAdd d e = wrapDelta1 $ Add1 d e
+  dDelay d = wrapDelta1 $ Delay1 d
 
 instance IsPrimal 'DModeGradient (Matrix r) where
-  dZero = Zero2
-  dScale = Scale2
-  dAdd = Add2
-  dDelay = Delay2
+  dZero = wrapDelta2 Zero2
+  dScale k d = wrapDelta2 $ Scale2 k d
+  dAdd d e = wrapDelta2 $ Add2 d e
+  dDelay d = wrapDelta2 $ Delay2 d
 
 instance IsPrimal 'DModeGradient (OT.Array r) where
-  dZero = ZeroX
-  dScale = ScaleX
-  dAdd = AddX
-  dDelay = DelayX
+  dZero = wrapDeltaX ZeroX
+  dScale k d = wrapDeltaX $ ScaleX k d
+  dAdd d e = wrapDeltaX $ AddX d e
+  dDelay d = wrapDeltaX $ DelayX d
 
 instance IsPrimalS 'DModeGradient r where
-  dZeroS = ZeroS
-  dScaleS = ScaleS
-  dAddS = AddS
-  dDelayS = DelayS
+  dZeroS = wrapDeltaS ZeroS
+  dScaleS k d = wrapDeltaS $ ScaleS k d
+  dAddS d e = wrapDeltaS $ AddS d e
+  dDelayS d = wrapDeltaS $ DelayS d
 
 instance HasVariables Double where
-  dVar = Var0
+  dVar i = wrapDelta0 $ Var0 i
   {-# INLINE bindInState #-}
   bindInState = bindInState0
-  dOutline = Outline0
+  dOutline codeOut primalArgs dualArgs =
+    wrapDelta0 $ Outline0 codeOut primalArgs dualArgs
 
 instance HasVariables Float where
-  dVar = Var0
+  dVar i = wrapDelta0 $ Var0 i
   {-# INLINE bindInState #-}
   bindInState = bindInState0
-  dOutline = Outline0
+  dOutline codeOut primalArgs dualArgs =
+    wrapDelta0 $ Outline0 codeOut primalArgs dualArgs
 
 instance HasVariables (Vector r) where
-  dVar = Var1
+  dVar i = wrapDelta1 $ Var1 i
   {-# INLINE bindInState #-}
   bindInState = bindInState1
-  dOutline = Outline1
+  dOutline codeOut primalArgs dualArgs =
+    wrapDelta1 $ Outline1 codeOut primalArgs dualArgs
 
 instance HasVariables (Matrix r) where
-  dVar = Var2
+  dVar i = wrapDelta2 $ Var2 i
   {-# INLINE bindInState #-}
   bindInState = bindInState2
-  dOutline = Outline2
+  dOutline codeOut primalArgs dualArgs =
+    wrapDelta2 $ Outline2 codeOut primalArgs dualArgs
 
 instance HasVariables (OT.Array r) where
-  dVar = VarX
+  dVar i = wrapDeltaX $ VarX i
   {-# INLINE bindInState #-}
   bindInState = bindInStateX
-  dOutline = OutlineX
+  dOutline codeOut primalArgs dualArgs =
+    wrapDeltaX $ OutlineX codeOut primalArgs dualArgs
 
 instance OS.Shape sh => HasVariables (OS.Array sh r) where
-  dVar = VarS
+  dVar i = wrapDeltaS $ VarS i
   {-# INLINE bindInState #-}
-  bindInState u' st = let (st2, did) = bindInStateX (FromSX u') st
+  bindInState u' st = let (st2, did) = bindInStateX (wrapDeltaX $ FromSX u') st
                       in (st2, convertDeltaId did)
-  dOutline = OutlineS
+  dOutline codeOut primalArgs dualArgs =
+    wrapDeltaS $ OutlineS codeOut primalArgs dualArgs
 
 instance Dual 'DModeGradient r ~ Delta0 r
          => HasRanks 'DModeGradient r where
-  dSumElements0 = SumElements0
-  dIndex0 = Index0
-  dDot0 = Dot0
-  dFromX0 = FromX0
-  dFromS0 = FromS0
-  dSeq1 = Seq1
-  dKonst1 = Konst1
-  dAppend1 = Append1
-  dSlice1 = Slice1
-  dSumRows1 = SumRows1
-  dSumColumns1 = SumColumns1
-  dM_VD1 = M_VD1
-  dMD_V1 = MD_V1
-  dFromX1 = FromX1
-  dFromS1 = FromS1
-  dReverse1 = Reverse1
-  dFlatten1 = Flatten1
-  dFlattenX1 = FlattenX1
-  dFlattenS1 = FlattenS1
-  dFromRows2 = FromRows2
-  dFromColumns2 = FromColumns2
-  dKonst2 = Konst2
-  dTranspose2 = Transpose2
-  dM_MD2 = M_MD2
-  dMD_M2 = MD_M2
-  dRowAppend2 = RowAppend2
-  dColumnAppend2 = ColumnAppend2
-  dRowSlice2 = RowSlice2
-  dColumnSlice2 = ColumnSlice2
-  dAsRow2 = AsRow2
-  dAsColumn2 = AsColumn2
-  dFromX2 = FromX2
-  dFromS2 = FromS2
-  dFlipud2 = Flipud2
-  dFliprl2 = Fliprl2
-  dReshape2 = Reshape2
-  dConv2 = Conv2
-  dKonstX = KonstX
-  dAppendX = AppendX
-  dSliceX = SliceX
-  dIndexX = IndexX
-  dRavelFromListX = RavelFromListX
-  dReshapeX = ReshapeX
-  dFrom0X = From0X
-  dFrom1X = From1X
-  dFrom2X = From2X
-  dFromSX = FromSX
-  dKonstS = KonstS
-  dAppendS = AppendS
-  dSliceS = SliceS
-  dIndexS = IndexS
-  dRavelFromListS = RavelFromListS
-  dReshapeS = ReshapeS
-  dFrom0S = From0S
-  dFrom1S = From1S
-  dFrom2S = From2S
-  dFromXS = FromXS
+  dSumElements0 vd n = wrapDelta0 $ SumElements0 vd n
+  dIndex0 d ix k = wrapDelta0 $ Index0 d ix k
+  dDot0 v vd = wrapDelta0 $ Dot0 v vd
+  dFromX0 d = wrapDelta0 $ FromX0 d
+  dFromS0 d = wrapDelta0 $ FromS0 d
+  dSeq1 lsd = wrapDelta1 $ Seq1 lsd
+  dKonst1 d n = wrapDelta1 $ Konst1 d n
+  dAppend1 d k e = wrapDelta1 $ Append1 d k e
+  dSlice1 i n d len = wrapDelta1 $ Slice1 i n d len
+  dSumRows1 dm cols = wrapDelta1 $ SumRows1 dm cols
+  dSumColumns1 dm rows = wrapDelta1 $ SumColumns1 dm rows
+  dM_VD1 m dRow = wrapDelta1 $ M_VD1 m dRow
+  dMD_V1 md row = wrapDelta1 $ MD_V1 md row
+  dFromX1 d = wrapDelta1 $ FromX1 d
+  dFromS1 d = wrapDelta1 $ FromS1 d
+  dReverse1 d = wrapDelta1 $ Reverse1 d
+  dFlatten1 rows cols d = wrapDelta1 $ Flatten1 rows cols d
+  dFlattenX1 sh d = wrapDelta1 $ FlattenX1 sh d
+  dFlattenS1 d = wrapDelta1 $ FlattenS1 d
+  dFromRows2 lvd = wrapDelta2 $ FromRows2 lvd
+  dFromColumns2 lvd = wrapDelta2 $ FromColumns2 lvd
+  dKonst2 d sz = wrapDelta2 $ Konst2 d sz
+  dTranspose2 md = wrapDelta2 $ Transpose2 md
+  dM_MD2 m md = wrapDelta2 $ M_MD2 m md
+  dMD_M2 md m = wrapDelta2 $ MD_M2 md m
+  dRowAppend2 d k e = wrapDelta2 $ RowAppend2 d k e
+  dColumnAppend2 d k e = wrapDelta2 $ ColumnAppend2 d k e
+  dRowSlice2 i n d rows = wrapDelta2 $ RowSlice2 i n d rows
+  dColumnSlice2 i n d cols = wrapDelta2 $ ColumnSlice2 i n d cols
+  dAsRow2 dRow = wrapDelta2 $ AsRow2 dRow
+  dAsColumn2 dCol = wrapDelta2 $ AsColumn2 dCol
+  dFromX2 d = wrapDelta2 $ FromX2 d
+  dFromS2 d = wrapDelta2 $ FromS2 d
+  dFlipud2 d = wrapDelta2 $ Flipud2 d
+  dFliprl2 d = wrapDelta2 $ Fliprl2 d
+  dReshape2 cols d = wrapDelta2 $ Reshape2 cols d
+  dConv2 m md = wrapDelta2 $ Conv2 m md
+  dKonstX d sz = wrapDeltaX $ KonstX d sz
+  dAppendX d k e = wrapDeltaX $ AppendX d k e
+  dSliceX i n d len = wrapDeltaX $ SliceX i n d len
+  dIndexX d ix len = wrapDeltaX $ IndexX d ix len
+  dRavelFromListX ld = wrapDeltaX $ RavelFromListX ld
+  dReshapeX sh sh' d = wrapDeltaX $ ReshapeX sh sh' d
+  dFrom0X d = wrapDeltaX $ From0X d
+  dFrom1X d = wrapDeltaX $ From1X d
+  dFrom2X d cols = wrapDeltaX $ From2X d cols
+  dFromSX d = wrapDeltaX $ FromSX d
+  dKonstS d = wrapDeltaS $ KonstS d
+  dAppendS d e = wrapDeltaS $ AppendS d e
+  dSliceS iProxy nProxy d = wrapDeltaS $ SliceS iProxy nProxy d
+  dIndexS d ixProxy = wrapDeltaS $ IndexS d ixProxy
+  dRavelFromListS ld = wrapDeltaS $ RavelFromListS ld
+  dReshapeS d = wrapDeltaS $ ReshapeS d
+  dFrom0S d = wrapDeltaS $ From0S d
+  dFrom1S d = wrapDeltaS $ From1S d
+  dFrom2S proxyCols d = wrapDeltaS $ From2S proxyCols d
+  dFromXS d = wrapDeltaS $ FromXS d
 
 
 -- * Alternative instances: forward derivatives computed on the spot
@@ -492,6 +500,7 @@ instance ( Numeric r, Num (Vector r)
   dFromXS = Data.Array.Convert.convert
 #endif
 
+
 -- * Other alternative instances: only the objective function's value computed
 
 instance IsPrimal 'DModeValue Double where
@@ -590,3 +599,54 @@ instance HasRanks 'DModeValue r where
   dFrom2S _ _ = DummyDual ()
   dFromXS _ = DummyDual ()
 #endif
+
+
+-- * Impure (but thread-safe) generation of fresh ids
+
+unsafeDeltaCounter0 :: MVar (DeltaId r)
+{-# NOINLINE unsafeDeltaCounter0 #-}
+unsafeDeltaCounter0 = unsafePerformIO $ newMVar $ toDeltaId 0
+
+unsafeDeltaCounter1 :: MVar (DeltaId (Vector r))
+{-# NOINLINE unsafeDeltaCounter1 #-}
+unsafeDeltaCounter1 = unsafePerformIO $ newMVar $ toDeltaId 0
+
+unsafeDeltaCounter2 :: MVar (DeltaId (Matrix r))
+{-# NOINLINE unsafeDeltaCounter2 #-}
+unsafeDeltaCounter2 = unsafePerformIO $ newMVar $ toDeltaId 0
+
+unsafeDeltaCounterX :: MVar (DeltaId (OT.Array r))
+{-# NOINLINE unsafeDeltaCounterX #-}
+unsafeDeltaCounterX = unsafePerformIO $ newMVar $ toDeltaId 0
+
+-- This is the only operation directly touching the counters.
+unsafeGetCurrentId :: MVar (DeltaId a) -> DeltaId a
+unsafeGetCurrentId mvar = unsafePerformIO $ do
+  i <- takeMVar mvar
+  putMVar mvar $ succDeltaId i
+  return i
+
+wrapDelta0 :: Delta0' r -> Delta0 r
+wrapDelta0 d =
+  let !i = unsafeGetCurrentId unsafeDeltaCounter0
+  in Delta0 i d
+
+wrapDelta1 :: Delta1' r -> Delta1 r
+wrapDelta1 d =
+  let !i = unsafeGetCurrentId unsafeDeltaCounter1
+  in Delta1 i d
+
+wrapDelta2 :: Delta2' r -> Delta2 r
+wrapDelta2 d =
+  let !i = unsafeGetCurrentId unsafeDeltaCounter2
+  in Delta2 i d
+
+wrapDeltaX :: DeltaX' r -> DeltaX r
+wrapDeltaX d =
+  let !i = unsafeGetCurrentId unsafeDeltaCounterX
+  in DeltaX i d
+
+wrapDeltaS :: DeltaS' sh r -> DeltaS sh r
+wrapDeltaS d =
+  let !i = unsafeGetCurrentId unsafeDeltaCounterX  -- not S!
+  in DeltaS (convertDeltaId i) d
