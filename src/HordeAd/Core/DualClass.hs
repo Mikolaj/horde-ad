@@ -24,7 +24,6 @@ import qualified Data.Array.Dynamic as OTB
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
-import           Data.Functor (void)
 import           Data.MonoTraversable (Element, MonoFunctor)
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
@@ -621,12 +620,13 @@ initializeCounters (params0, params1, params2, paramsX) = do
   putMVar unsafeDeltaCounter2 $ toDeltaId (V.length params2)
   putMVar unsafeDeltaCounterX $ toDeltaId (V.length paramsX)
 
-finalizeCounters :: IO ()
+finalizeCounters :: IO (DeltaId r, DeltaId (Vector r), DeltaId (Matrix r), DeltaId (OT.Array r))
 finalizeCounters = do
-  void $ takeMVar unsafeDeltaCounter0
-  void $ takeMVar unsafeDeltaCounter1
-  void $ takeMVar unsafeDeltaCounter2
-  void $ takeMVar unsafeDeltaCounterX
+  c0 <- takeMVar unsafeDeltaCounter0
+  c1 <- takeMVar unsafeDeltaCounter1
+  c2 <- takeMVar unsafeDeltaCounter2
+  cX <- takeMVar unsafeDeltaCounterX
+  return (c0, c1, c2, cX)
 
 wrapDelta0 :: Delta0' r -> Delta0 r
 wrapDelta0 d =
