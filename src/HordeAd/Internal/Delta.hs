@@ -457,28 +457,36 @@ gradientFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
 -- function parameters (e.g., @deltaCounter0@ vs @dim0@), because variables
 -- represent not only parameters, but also the bindings that prevent blowup
 -- via delta-expression duplication.
-initializeFinMaps :: forall s r. Numeric r
-                  => DeltaState r
-                  -> ST s ( Data.Vector.Storable.Mutable.MVector s r
-                          , Data.Vector.Mutable.MVector s (Vector r)
-                          , Data.Vector.Mutable.MVector s (MO.MatrixOuter r)
-                          , Data.Vector.Mutable.MVector s (OT.Array r) )
+initializeFinMaps
+  :: forall s r. Numeric r
+  => DeltaState r
+  -> ST s ( Data.Vector.Storable.Mutable.MVector s r
+          , Data.Vector.Mutable.MVector s (Vector r)
+          , Data.Vector.Mutable.MVector s (MO.MatrixOuter r)
+          , Data.Vector.Mutable.MVector s (OT.Array r)
+          , Data.Vector.Mutable.MVector s (Delta0' r)
+          , Data.Vector.Mutable.MVector s (Delta1' r)
+          , Data.Vector.Mutable.MVector s (Delta2' r)
+          , Data.Vector.Mutable.MVector s (DeltaX' r)
+          , Data.Vector.Mutable.MVector s (DeltaSAll r) )
 initializeFinMaps st = do
   let DeltaId counter0 = deltaCounter0 st
       DeltaId counter1 = deltaCounter1 st
       DeltaId counter2 = deltaCounter2 st
       DeltaId counterX = deltaCounterX st
   rMap0 <- VM.replicate counter0 0  -- correct value
-  rMap1 <- VM.replicate counter1 (V.empty :: Vector r)  -- dummy value
-  rMap2 <- VM.replicate counter2 MO.emptyMatrixOuter  -- dummy value
+  rMap1 <- VM.replicate counter1 (V.empty :: Vector r)  -- below dummy values
+  rMap2 <- VM.replicate counter2 MO.emptyMatrixOuter
   rMapX <- VM.replicate counterX dummyTensor
-  return (rMap0, rMap1, rMap2, rMapX)
-{-# SPECIALIZE initializeFinMaps
-  :: DeltaState Double
-  -> ST s ( Data.Vector.Storable.Mutable.MVector s Double
-          , Data.Vector.Mutable.MVector s (Vector Double)
-          , Data.Vector.Mutable.MVector s (MO.MatrixOuter Double)
-          , Data.Vector.Mutable.MVector s (OT.Array Double) ) #-}
+  dMap0 <- VM.replicate counter0 Input0  -- dummy value; the same below
+  dMap1 <- VM.replicate counter1 Input1
+  dMap2 <- VM.replicate counter2 Input2
+  dMapX <- VM.replicate counterX InputX
+  dMapS <- VM.replicate counterX (DeltaSAll (InputS :: DeltaS' '[] r))
+  return ( rMap0, rMap1, rMap2, rMapX
+         , dMap0, dMap1, dMap2, dMapX, dMapS )
+
+data DeltaSAll r = forall sh. OS.Shape sh => DeltaSAll (DeltaS' sh r)
 
 buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
              => (CodeOut -> [r] -> [Delta0 r] -> Delta0 r)
@@ -496,7 +504,8 @@ buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
 buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
              inlineDerivativeX inlineDerivativeS
              st deltaTopLevel dt = do
-  (rMap0, rMap1, rMap2, rMapX) <- initializeFinMaps st
+  ( rMap0, rMap1, rMap2, rMapX
+   ,dMap0, dMap1, dMap2, dMapX, dMapS ) <- initializeFinMaps st
   let addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
       addToMatrix :: MO.MatrixOuter r -> MO.MatrixOuter r -> MO.MatrixOuter r
@@ -509,14 +518,15 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
                                then rs
                                else liftVT2 (+) v rs
       eval0 :: r -> Delta0 r -> ST s ()
-      eval0 !r (Delta0 (DeltaId i) Input0) = VM.modify rMap0 (+ r) i
-      eval0 !r (Delta0 _ d) = eval0' r d
+      eval0 !r (Delta0 (DeltaId i) d) = do
+        VM.modify rMap0 (+ r) i
+        VM.write dMap0 i d
       eval0' :: r -> Delta0' r -> ST s ()
       eval0' !r = \case
         Zero0 -> return ()
         Scale0 k d -> eval0 (k * r) d
         Add0 d e -> eval0 r d >> eval0 r e
-        Input0 -> error "eval0': Input0 without DeltaId"
+        Input0 -> return ()
 
         SumElements0 vd n -> eval1 (HM.konst r n) vd
         Index0 (Delta1 (DeltaId i) Input1) ix k -> do
@@ -539,14 +549,15 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval0 r $ inlineDerivative0 codeOut primalArgs dualArgs
         Delay0 d -> eval0 r d
       eval1 :: Vector r -> Delta1 r -> ST s ()
-      eval1 !r (Delta1 (DeltaId i) Input1) = VM.modify rMap1 (addToVector r) i
-      eval1 !r (Delta1 _ d) = eval1' r d
+      eval1 !r (Delta1 (DeltaId i) d) = do
+        VM.modify rMap1 (addToVector r) i
+        VM.write dMap1 i d
       eval1' :: Vector r -> Delta1' r -> ST s ()
       eval1' !r = \case
         Zero1 -> return ()
         Scale1 k d -> eval1 (k * r) d
         Add1 d e -> eval1 r d >> eval1 r e
-        Input1 -> error "eval1': Input1 without DeltaId"
+        Input1 -> return ()
 
         Seq1 lsd -> V.imapM_ (\i d -> eval0 (r V.! i) d) lsd
         Konst1 d _n -> V.mapM_ (`eval0` d) r
@@ -576,14 +587,15 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval1 r $ inlineDerivative1 codeOut primalArgs dualArgs
         Delay1 d -> eval1 r d
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
-      eval2 !r (Delta2 (DeltaId i) Input2) = VM.modify rMap2 (addToMatrix r) i
-      eval2 !r (Delta2 _ d) = eval2' r d
+      eval2 !r (Delta2 (DeltaId i) d) = do
+        VM.modify rMap2 (addToMatrix r) i
+        VM.write dMap2 i d
       eval2' :: MO.MatrixOuter r -> Delta2' r -> ST s ()
       eval2' !r = \case
         Zero2 -> return ()
         Scale2 k d -> eval2 (MO.multiplyWithOuter k r) d
         Add2 d e -> eval2 r d >> eval2 r e
-        Input2 -> error "eval2': Input2 without DeltaId"
+        Input2 -> return ()
 
         FromRows2 lvd -> zipWithM_ eval1 (MO.toRows r) (V.toList lvd)
         FromColumns2 lvd -> zipWithM_ eval1 (MO.toColumns r) (V.toList lvd)
@@ -634,14 +646,15 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval2 r $ inlineDerivative2 codeOut primalArgs dualArgs
         Delay2 d -> eval2 r d
       evalX :: OT.Array r -> DeltaX r -> ST s ()
-      evalX !r (DeltaX (DeltaId i) InputX) = VM.modify rMapX (addToArray r) i
-      evalX !r (DeltaX _ d) = evalX' r d
+      evalX !r (DeltaX (DeltaId i) d) = do
+        VM.modify rMapX (addToArray r) i
+        VM.write dMapX i d
       evalX' :: OT.Array r -> DeltaX' r -> ST s ()
       evalX' !r = \case
         ZeroX -> return ()
         ScaleX k d -> evalX (liftVT2 (*) k r) d
         AddX d e -> evalX r d >> evalX r e
-        InputX -> error "evalX': InputX without DeltaId"
+        InputX -> return ()
 
         KonstX d _sz -> mapM_ (`eval0` d) $ OT.toList r
         AppendX d k e -> case OT.shapeL r of
@@ -680,15 +693,16 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         DelayX d -> evalX r d
       evalS :: OS.Shape sh
             => OS.Array sh r -> DeltaS sh r -> ST s ()
-      evalS !r (DeltaS (DeltaId i) InputS) = VM.modify rMapX (addToArrayS r) i
-      evalS !r (DeltaS _ d) = evalS' r d
+      evalS !r (DeltaS (DeltaId i) d) = do
+        VM.modify rMapX (addToArrayS r) i
+        VM.write dMapS i (DeltaSAll d)
       evalS' :: OS.Shape sh
              => OS.Array sh r -> DeltaS' sh r -> ST s ()
       evalS' !r = \case
         ZeroS -> return ()
         ScaleS k d -> evalS (liftVS2 (*) k r) d
         AddS d e -> evalS r d >> evalS r e
-        InputS -> error "evalS': InputS without DeltaId"
+        InputS -> return ()
 
 #if defined(VERSION_ghc_typelits_natnormalise)
         KonstS d -> mapM_ (`eval0` d) $ OS.toList r
@@ -744,7 +758,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         r <- rMapX `VM.read` i
         unless (isTensorDummy r) $
           evalX r d
-  mapM_ evalUnlessZero (deltaBindings st)
+  mapM_ evalUnlessZero (deltaBindings st)  -- TODO: walk down over dMap*
   return (rMap0, rMap1, rMap2, rMapX)
 {-# SPECIALIZE buildFinMaps
   :: (CodeOut -> [Double] -> [Delta0 Double] -> Delta0 Double)
@@ -963,7 +977,8 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
           let v = evalX parameters d
           in (params0, params1, params2, paramsX V.// [(i, v)])
       parameters1 = runST $ do
-        (rMap0, rMap1, outerFinMap2, rMapX) <- initializeFinMaps st
+        (rMap0, rMap1, outerFinMap2, rMapX, _, _, _, _, _)
+          <- initializeFinMaps st
         -- We use normal hmatrix matrices rather than the sparse replacement.
         rMap2 <- VM.replicate (VM.length outerFinMap2) (HM.fromRows [])
         -- TODO: the following coredumps without the @VM.take@; it's a shame
