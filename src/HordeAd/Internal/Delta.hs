@@ -102,6 +102,7 @@ data Delta0' r =
   | Scale0 r (Delta0 r)
   | Add0 (Delta0 r) (Delta0 r)
   | Var0 (DeltaId r)
+  | Input0
 
   | SumElements0 (Delta1 r) Int  -- ^ see Note [SumElements0]
   | Index0 (Delta1 r) Int Int  -- ^ second integer is the length of the vector
@@ -125,6 +126,7 @@ data Delta1' r =
   | Scale1 (Vector r) (Delta1 r)
   | Add1 (Delta1 r) (Delta1 r)
   | Var1 (DeltaId (Vector r))
+  | Input1
 
   | Seq1 (Data.Vector.Vector (Delta0 r))  -- ^ "unboxing" conversion
   | Konst1 (Delta0 r) Int  -- ^ length; needed only for forward derivative
@@ -163,6 +165,7 @@ data Delta2' r =
   | Scale2 (Matrix r) (Delta2 r)
   | Add2 (Delta2 r) (Delta2 r)
   | Var2 (DeltaId (Matrix r))
+  | Input2
 
   | FromRows2 (Data.Vector.Vector (Delta1 r))  -- ^ "unboxing" conversion again
   | FromColumns2 (Data.Vector.Vector (Delta1 r))
@@ -203,6 +206,7 @@ data DeltaX' r =
   | ScaleX (OT.Array r) (DeltaX r)
   | AddX (DeltaX r) (DeltaX r)
   | VarX (DeltaId (OT.Array r))
+  | InputX
 
   | KonstX (Delta0 r) OT.ShapeL  -- ^ size; needed only for forward derivative
   | AppendX (DeltaX r) Int (DeltaX r)
@@ -243,6 +247,7 @@ data DeltaS' :: [Nat] -> Type -> Type where
   ScaleS :: OS.Array sh r -> DeltaS sh r -> DeltaS' sh r
   AddS :: DeltaS sh r -> DeltaS sh r -> DeltaS' sh r
   VarS :: DeltaId (OS.Array sh r) -> DeltaS' sh r
+  InputS :: DeltaS' sh r
 
   KonstS :: Delta0 r -> DeltaS' sh r
   AppendS :: (OS.Shape sh, KnownNat m, KnownNat n)
@@ -510,6 +515,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
                                then rs
                                else liftVT2 (+) v rs
       eval0 :: r -> Delta0 r -> ST s ()
+      eval0 !r (Delta0 (DeltaId i) Input0) = VM.modify finMap0 (+ r) i
       eval0 !r (Delta0 _ d) = eval0' r d
       eval0' :: r -> Delta0' r -> ST s ()
       eval0' !r = \case
@@ -517,6 +523,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         Scale0 k d -> eval0 (k * r) d
         Add0 d e -> eval0 r d >> eval0 r e
         Var0 (DeltaId i) -> VM.modify finMap0 (+ r) i
+        Input0 -> error "eval0': Input0 without DeltaId"
 
         SumElements0 vd n -> eval1 (HM.konst r n) vd
         Index0 (Delta1 _ (Var1 (DeltaId i))) ix k -> do
@@ -539,6 +546,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval0 r $ inlineDerivative0 codeOut primalArgs dualArgs
         Delay0 d -> eval0 r d
       eval1 :: Vector r -> Delta1 r -> ST s ()
+      eval1 !r (Delta1 (DeltaId i) Input1) = VM.modify finMap1 (addToVector r) i
       eval1 !r (Delta1 _ d) = eval1' r d
       eval1' :: Vector r -> Delta1' r -> ST s ()
       eval1' !r = \case
@@ -546,6 +554,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         Scale1 k d -> eval1 (k * r) d
         Add1 d e -> eval1 r d >> eval1 r e
         Var1 (DeltaId i) -> VM.modify finMap1 (addToVector r) i
+        Input1 -> error "eval1': Input1 without DeltaId"
 
         Seq1 lsd -> V.imapM_ (\i d -> eval0 (r V.! i) d) lsd
         Konst1 d _n -> V.mapM_ (`eval0` d) r
@@ -575,6 +584,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval1 r $ inlineDerivative1 codeOut primalArgs dualArgs
         Delay1 d -> eval1 r d
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
+      eval2 !r (Delta2 (DeltaId i) Input2) = VM.modify finMap2 (addToMatrix r) i
       eval2 !r (Delta2 _ d) = eval2' r d
       eval2' :: MO.MatrixOuter r -> Delta2' r -> ST s ()
       eval2' !r = \case
@@ -582,6 +592,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         Scale2 k d -> eval2 (MO.multiplyWithOuter k r) d
         Add2 d e -> eval2 r d >> eval2 r e
         Var2 (DeltaId i) -> VM.modify finMap2 (addToMatrix r) i
+        Input2 -> error "eval2': Input2 without DeltaId"
 
         FromRows2 lvd -> zipWithM_ eval1 (MO.toRows r) (V.toList lvd)
         FromColumns2 lvd -> zipWithM_ eval1 (MO.toColumns r) (V.toList lvd)
@@ -632,6 +643,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval2 r $ inlineDerivative2 codeOut primalArgs dualArgs
         Delay2 d -> eval2 r d
       evalX :: OT.Array r -> DeltaX r -> ST s ()
+      evalX !r (DeltaX (DeltaId i) InputX) = VM.modify finMapX (addToArray r) i
       evalX !r (DeltaX _ d) = evalX' r d
       evalX' :: OT.Array r -> DeltaX' r -> ST s ()
       evalX' !r = \case
@@ -639,6 +651,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         ScaleX k d -> evalX (liftVT2 (*) k r) d
         AddX d e -> evalX r d >> evalX r e
         VarX (DeltaId i) -> VM.modify finMapX (addToArray r) i
+        InputX -> error "evalX': InputX without DeltaId"
 
         KonstX d _sz -> mapM_ (`eval0` d) $ OT.toList r
         AppendX d k e -> case OT.shapeL r of
@@ -677,6 +690,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         DelayX d -> evalX r d
       evalS :: OS.Shape sh
             => OS.Array sh r -> DeltaS sh r -> ST s ()
+      evalS !r (DeltaS (DeltaId i) InputS) = VM.modify finMapX (addToArrayS r) i
       evalS !r (DeltaS _ d) = evalS' r d
       evalS' :: OS.Shape sh
              => OS.Array sh r -> DeltaS' sh r -> ST s ()
@@ -685,6 +699,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         ScaleS k d -> evalS (liftVS2 (*) k r) d
         AddS d e -> evalS r d >> evalS r e
         VarS (DeltaId i) -> VM.modify finMapX (addToArrayS r) i
+        InputS -> error "evalS': InputS without DeltaId"
 
 #if defined(VERSION_ghc_typelits_natnormalise)
         KonstS d -> mapM_ (`eval0` d) $ OS.toList r
@@ -779,6 +794,7 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
                     st deltaTopLevel
                     _ds@(params0Init, params1Init, params2Init, paramsXInit) =
   let eval0 :: Domains r -> Delta0 r -> r
+      eval0 (params0, _, _, _) (Delta0 (DeltaId i) Input0) = params0 V.! i
       eval0 parameters (Delta0 _ d) = eval0' parameters d
       eval0' :: Domains r -> Delta0' r -> r
       eval0' parameters@(params0, _, _, _) = \case
@@ -786,6 +802,7 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
         Scale0 k d -> k * eval0 parameters d
         Add0 d e -> eval0 parameters d + eval0 parameters e
         Var0 (DeltaId i) -> params0 V.! i
+        Input0 -> error "derivativeFromDelta.eval0': Input0 without DeltaId"
 
         SumElements0 vd _n -> HM.sumElements $ eval1 parameters vd
         Index0 d ix _k -> eval1 parameters d V.! ix
@@ -799,6 +816,7 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval0 parameters $ inlineDerivative0 codeOut primalArgs dualArgs
         Delay0 d -> eval0 parameters d
       eval1 :: Domains r -> Delta1 r -> Vector r
+      eval1 (_, params1, _, _) (Delta1 (DeltaId i) Input1) = params1 V.! i
       eval1 parameters (Delta1 _ d) = eval1' parameters d
       eval1' :: Domains r -> Delta1' r -> Vector r
       eval1' parameters@(_, params1, _, _) = \case
@@ -806,6 +824,7 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
         Scale1 k d -> k * eval1 parameters d
         Add1 d e -> eval1 parameters d + eval1 parameters e
         Var1 (DeltaId i) -> params1 V.! i
+        Input1 -> error "derivativeFromDelta.eval1': Input1 without DeltaId"
 
         Seq1 lsd -> V.convert $ V.map (eval0 parameters) lsd
         Konst1 d n -> HM.konst (eval0 parameters d) n
@@ -831,6 +850,7 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval1 parameters $ inlineDerivative1 codeOut primalArgs dualArgs
         Delay1 d -> eval1 parameters d
       eval2 :: Domains r -> Delta2 r -> Matrix r
+      eval2 ( _, _, params2, _) (Delta2 (DeltaId i) Input2) = params2 V.! i
       eval2 parameters (Delta2 _ d) = eval2' parameters d
       eval2' :: Domains r -> Delta2' r -> Matrix r
       eval2' parameters@( _, _, params2, _) = \case
@@ -838,6 +858,7 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
         Scale2 k d -> k * eval2 parameters d
         Add2 d e -> eval2 parameters d + eval2 parameters e
         Var2 (DeltaId i) -> params2 V.! i
+        Input2 -> error "derivativeFromDelta.eval2': Input2 without DeltaId"
 
         FromRows2 lvd ->
           HM.fromRows $ map (eval1 parameters) $ V.toList lvd
@@ -877,6 +898,7 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval2 parameters $ inlineDerivative2 codeOut primalArgs dualArgs
         Delay2 d -> eval2 parameters d
       evalX :: Domains r -> DeltaX r -> OT.Array r
+      evalX ( _, _, _, paramsX) (DeltaX (DeltaId i) InputX) = paramsX V.! i
       evalX parameters (DeltaX _ d) = evalX' parameters d
       evalX' :: Domains r -> DeltaX' r -> OT.Array r
       evalX' parameters@( _, _, _, paramsX) = \case
@@ -884,6 +906,7 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
         ScaleX k d -> k * evalX parameters d
         AddX d e -> evalX parameters d + evalX parameters e
         VarX (DeltaId i) -> paramsX V.! i
+        InputX -> error "derivativeFromDelta.evalX': InputX without DeltaId"
 
         KonstX d sz -> OT.constant sz $ eval0 parameters d
         AppendX d _k e -> evalX parameters d `OT.append` evalX parameters e
@@ -908,6 +931,8 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
           evalX parameters $ inlineDerivativeX codeOut primalArgs dualArgs
         DelayX d -> evalX parameters d
       evalS :: OS.Shape sh => Domains r -> DeltaS sh r -> OS.Array sh r
+      evalS ( _, _, _, paramsX) (DeltaS (DeltaId i) InputS) =
+        Data.Array.Convert.convert $ paramsX V.! i
       evalS parameters (DeltaS _ d) = evalS' parameters d
       evalS' :: OS.Shape sh => Domains r -> DeltaS' sh r -> OS.Array sh r
       evalS' parameters@( _, _, _, paramsX) = \case
@@ -915,6 +940,7 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
         ScaleS k d -> k * evalS parameters d
         AddS d e -> evalS parameters d + evalS parameters e
         VarS (DeltaId i) -> Data.Array.Convert.convert $ paramsX V.! i
+        InputS -> error "derivativeFromDelta.evalS': InputS without DeltaId"
 
 #if defined(VERSION_ghc_typelits_natnormalise)
         KonstS d -> OS.constant $ eval0 parameters d
