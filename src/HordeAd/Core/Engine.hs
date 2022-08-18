@@ -26,7 +26,6 @@ import HordeAd.Core.DualClass
   ( Dual
   , IsPrimal (..)
   , IsPrimalWithScalar
-  , bindInState
   , dVar
   , finalizeCounters
   , initializeCounters
@@ -100,7 +99,7 @@ instance IsScalar 'DModeGradient r
                       r (DualMonadGradient r) where
   returnLet (D u u') = DualMonadGradient $ do
     st <- get
-    let (!stNew, !dId) = bindInState u' st
+    let (!stNew, !dId) = undefined {-bindInState-} u' st
     put stNew
     return $! D u (dVar dId)
 
