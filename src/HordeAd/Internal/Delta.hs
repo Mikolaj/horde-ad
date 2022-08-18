@@ -426,14 +426,14 @@ gradientFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
   -- but we can't just call @V.create@ thrice, because it would run
   -- the @ST@ action thrice, so we inline and extend @V.create@ here.
   runST $ do
-    (finMap0, finMap1, finMap2, finMapX) <-
+    (rMap0, rMap1, rMap2, rMapX) <-
       buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
                    inlineDerivativeX inlineDerivativeS
                    st deltaTopLevel dt
-    v0 <- V.unsafeFreeze $ VM.take dim0 finMap0
-    v1 <- V.unsafeFreeze $ VM.take dim1 finMap1
-    v2 <- V.unsafeFreeze $ VM.take dim2 finMap2
-    vX <- V.unsafeFreeze $ VM.take dimX finMapX
+    v0 <- V.unsafeFreeze $ VM.take dim0 rMap0
+    v1 <- V.unsafeFreeze $ VM.take dim1 rMap1
+    v2 <- V.unsafeFreeze $ VM.take dim2 rMap2
+    vX <- V.unsafeFreeze $ VM.take dimX rMapX
     -- Convert to normal matrices, but only the portion of vector
     -- that is not discarded.
     return (v0, v1, V.map MO.convertMatrixOuterOrNull v2, vX)
@@ -468,11 +468,11 @@ initializeFinMaps st = do
       DeltaId counter1 = deltaCounter1 st
       DeltaId counter2 = deltaCounter2 st
       DeltaId counterX = deltaCounterX st
-  finMap0 <- VM.replicate counter0 0  -- correct value
-  finMap1 <- VM.replicate counter1 (V.empty :: Vector r)  -- dummy value
-  finMap2 <- VM.replicate counter2 MO.emptyMatrixOuter  -- dummy value
-  finMapX <- VM.replicate counterX dummyTensor
-  return (finMap0, finMap1, finMap2, finMapX)
+  rMap0 <- VM.replicate counter0 0  -- correct value
+  rMap1 <- VM.replicate counter1 (V.empty :: Vector r)  -- dummy value
+  rMap2 <- VM.replicate counter2 MO.emptyMatrixOuter  -- dummy value
+  rMapX <- VM.replicate counterX dummyTensor
+  return (rMap0, rMap1, rMap2, rMapX)
 {-# SPECIALIZE initializeFinMaps
   :: DeltaState Double
   -> ST s ( Data.Vector.Storable.Mutable.MVector s Double
@@ -496,7 +496,7 @@ buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
 buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
              inlineDerivativeX inlineDerivativeS
              st deltaTopLevel dt = do
-  (finMap0, finMap1, finMap2, finMapX) <- initializeFinMaps st
+  (rMap0, rMap1, rMap2, rMapX) <- initializeFinMaps st
   let addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
       addToMatrix :: MO.MatrixOuter r -> MO.MatrixOuter r -> MO.MatrixOuter r
@@ -509,7 +509,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
                                then rs
                                else liftVT2 (+) v rs
       eval0 :: r -> Delta0 r -> ST s ()
-      eval0 !r (Delta0 (DeltaId i) Input0) = VM.modify finMap0 (+ r) i
+      eval0 !r (Delta0 (DeltaId i) Input0) = VM.modify rMap0 (+ r) i
       eval0 !r (Delta0 _ d) = eval0' r d
       eval0' :: r -> Delta0' r -> ST s ()
       eval0' !r = \case
@@ -523,7 +523,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           let f v = if V.null v
                     then HM.konst 0 k V.// [(ix, r)]
                     else v V.// [(ix, v V.! ix + r)]
-          VM.modify finMap1 f i
+          VM.modify rMap1 f i
             -- this would be an asymptotic optimization compared to
             -- the general case below, if not for the non-mutable update,
             -- which involves copying the whole vector, so it's just
@@ -539,7 +539,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval0 r $ inlineDerivative0 codeOut primalArgs dualArgs
         Delay0 d -> eval0 r d
       eval1 :: Vector r -> Delta1 r -> ST s ()
-      eval1 !r (Delta1 (DeltaId i) Input1) = VM.modify finMap1 (addToVector r) i
+      eval1 !r (Delta1 (DeltaId i) Input1) = VM.modify rMap1 (addToVector r) i
       eval1 !r (Delta1 _ d) = eval1' r d
       eval1' :: Vector r -> Delta1' r -> ST s ()
       eval1' !r = \case
@@ -576,7 +576,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval1 r $ inlineDerivative1 codeOut primalArgs dualArgs
         Delay1 d -> eval1 r d
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
-      eval2 !r (Delta2 (DeltaId i) Input2) = VM.modify finMap2 (addToMatrix r) i
+      eval2 !r (Delta2 (DeltaId i) Input2) = VM.modify rMap2 (addToMatrix r) i
       eval2 !r (Delta2 _ d) = eval2' r d
       eval2' :: MO.MatrixOuter r -> Delta2' r -> ST s ()
       eval2' !r = \case
@@ -634,7 +634,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval2 r $ inlineDerivative2 codeOut primalArgs dualArgs
         Delay2 d -> eval2 r d
       evalX :: OT.Array r -> DeltaX r -> ST s ()
-      evalX !r (DeltaX (DeltaId i) InputX) = VM.modify finMapX (addToArray r) i
+      evalX !r (DeltaX (DeltaId i) InputX) = VM.modify rMapX (addToArray r) i
       evalX !r (DeltaX _ d) = evalX' r d
       evalX' :: OT.Array r -> DeltaX' r -> ST s ()
       evalX' !r = \case
@@ -680,7 +680,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         DelayX d -> evalX r d
       evalS :: OS.Shape sh
             => OS.Array sh r -> DeltaS sh r -> ST s ()
-      evalS !r (DeltaS (DeltaId i) InputS) = VM.modify finMapX (addToArrayS r) i
+      evalS !r (DeltaS (DeltaId i) InputS) = VM.modify rMapX (addToArrayS r) i
       evalS !r (DeltaS _ d) = evalS' r d
       evalS' :: OS.Shape sh
              => OS.Array sh r -> DeltaS' sh r -> ST s ()
@@ -729,23 +729,23 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
 
   let evalUnlessZero :: DeltaBinding r -> ST s ()
       evalUnlessZero (DeltaBinding0 (DeltaId i) d) = do
-        r <- finMap0 `VM.read` i
+        r <- rMap0 `VM.read` i
         unless (r == 0) $  -- we init with exactly 0.0 so the comparison works
           eval0 r d
       evalUnlessZero (DeltaBinding1 (DeltaId i) d) = do
-        r <- finMap1 `VM.read` i
+        r <- rMap1 `VM.read` i
         unless (V.null r) $
           eval1 r d
       evalUnlessZero (DeltaBinding2 (DeltaId i) d) = do
-        r <- finMap2 `VM.read` i
+        r <- rMap2 `VM.read` i
         unless (MO.nullMatrixOuter r) $
           eval2 r d
       evalUnlessZero (DeltaBindingX (DeltaId i) d) = do
-        r <- finMapX `VM.read` i
+        r <- rMapX `VM.read` i
         unless (isTensorDummy r) $
           evalX r d
   mapM_ evalUnlessZero (deltaBindings st)
-  return (finMap0, finMap1, finMap2, finMapX)
+  return (rMap0, rMap1, rMap2, rMapX)
 {-# SPECIALIZE buildFinMaps
   :: (CodeOut -> [Double] -> [Delta0 Double] -> Delta0 Double)
   -> (CodeOut -> [Vector Double] -> [Delta1 Double] -> Delta1 Double)
@@ -963,20 +963,20 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
           let v = evalX parameters d
           in (params0, params1, params2, paramsX V.// [(i, v)])
       parameters1 = runST $ do
-        (finMap0, finMap1, outerFinMap2, finMapX) <- initializeFinMaps st
+        (rMap0, rMap1, outerFinMap2, rMapX) <- initializeFinMaps st
         -- We use normal hmatrix matrices rather than the sparse replacement.
-        finMap2 <- VM.replicate (VM.length outerFinMap2) (HM.fromRows [])
+        rMap2 <- VM.replicate (VM.length outerFinMap2) (HM.fromRows [])
         -- TODO: the following coredumps without the @VM.take@; it's a shame
         -- there's no copying of a smaller vector into a larger one in the API.
         -- Perhaps use https://hackage.haskell.org/package/base-4.16.0.0/docs/Foreign-Marshal-Array.html#v:copyArray?
-        V.unsafeCopy (VM.take (V.length params0Init) finMap0) params0Init
-        V.unsafeCopy (VM.take (V.length params1Init) finMap1) params1Init
-        V.unsafeCopy (VM.take (V.length params2Init) finMap2) params2Init
-        V.unsafeCopy (VM.take (V.length paramsXInit) finMapX) paramsXInit
-        v0 <- V.unsafeFreeze finMap0
-        v1 <- V.unsafeFreeze finMap1
-        v2 <- V.unsafeFreeze finMap2
-        vX <- V.unsafeFreeze finMapX
+        V.unsafeCopy (VM.take (V.length params0Init) rMap0) params0Init
+        V.unsafeCopy (VM.take (V.length params1Init) rMap1) params1Init
+        V.unsafeCopy (VM.take (V.length params2Init) rMap2) params2Init
+        V.unsafeCopy (VM.take (V.length paramsXInit) rMapX) paramsXInit
+        v0 <- V.unsafeFreeze rMap0
+        v1 <- V.unsafeFreeze rMap1
+        v2 <- V.unsafeFreeze rMap2
+        vX <- V.unsafeFreeze rMapX
         return (v0, v1, v2, vX)
       parametersB = foldl' evalUnlessZero parameters1
                            (reverse $ deltaBindings st)
