@@ -154,9 +154,6 @@ instance (IsPrimalS d r, OS.Shape sh) => IsPrimal d (OS.Array sh r) where
 -- introduction and binding as defined by the methods of the class.
 class HasVariables a where
   dVar :: DeltaId a -> Dual 'DModeGradient a
-  bindInState :: Dual 'DModeGradient a
-              -> DeltaState (ScalarOf a)
-              -> (DeltaState (ScalarOf a), DeltaId a )
   dOutline :: CodeOut -> [a] -> [Dual 'DModeGradient a]
            -> Dual 'DModeGradient a
 
@@ -285,44 +282,31 @@ instance IsPrimalS 'DModeGradient r where
 
 instance HasVariables Double where
   dVar i = wrapDelta0 $ Var0 i
-  {-# INLINE bindInState #-}
-  bindInState = bindInState0
   dOutline codeOut primalArgs dualArgs =
     wrapDelta0 $ Outline0 codeOut primalArgs dualArgs
 
 instance HasVariables Float where
   dVar i = wrapDelta0 $ Var0 i
-  {-# INLINE bindInState #-}
-  bindInState = bindInState0
   dOutline codeOut primalArgs dualArgs =
     wrapDelta0 $ Outline0 codeOut primalArgs dualArgs
 
 instance HasVariables (Vector r) where
   dVar i = wrapDelta1 $ Var1 i
-  {-# INLINE bindInState #-}
-  bindInState = bindInState1
   dOutline codeOut primalArgs dualArgs =
     wrapDelta1 $ Outline1 codeOut primalArgs dualArgs
 
 instance HasVariables (Matrix r) where
   dVar i = wrapDelta2 $ Var2 i
-  {-# INLINE bindInState #-}
-  bindInState = bindInState2
   dOutline codeOut primalArgs dualArgs =
     wrapDelta2 $ Outline2 codeOut primalArgs dualArgs
 
 instance HasVariables (OT.Array r) where
   dVar i = wrapDeltaX $ VarX i
-  {-# INLINE bindInState #-}
-  bindInState = bindInStateX
   dOutline codeOut primalArgs dualArgs =
     wrapDeltaX $ OutlineX codeOut primalArgs dualArgs
 
-instance OS.Shape sh => HasVariables (OS.Array sh r) where
+instance HasVariables (OS.Array sh r) where
   dVar i = wrapDeltaS $ VarS i
-  {-# INLINE bindInState #-}
-  bindInState u' st = let (st2, did) = bindInStateX (wrapDeltaX $ FromSX u') st
-                      in (st2, convertDeltaId did)
   dOutline codeOut primalArgs dualArgs =
     wrapDeltaS $ OutlineS codeOut primalArgs dualArgs
 
