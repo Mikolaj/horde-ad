@@ -46,6 +46,13 @@ fX variables = do
   let x = var0 variables 0
   return x
 
+fXp1 :: DualMonad 'DModeGradient Float m
+     => DualNumberVariables 'DModeGradient Float
+     -> m (DualNumber 'DModeGradient Float)
+fXp1 variables = do
+  let x = var0 variables 0
+  x +\ 1
+
 fX1Y :: DualMonad 'DModeGradient Float m
      => DualNumberVariables 'DModeGradient Float
      -> m (DualNumber 'DModeGradient Float)
@@ -94,6 +101,8 @@ testDReverse0 = testGroup "Simple dReverse application tests" $
   map (\(txt, f, v, expected) ->
         testCase txt $ dReverse0 f v @?~ expected)
     [ ("fX", fX, [99], ([1.0],99.0))
+    , ("fXagain", fX, [99], ([1.0],99.0))
+    , ("fXp1", fXp1, [99], ([1.0],100))
     , ("fX1Y", fX1Y, [3, 2], ([2.0,4.0],8.0))
     , ("fXXY", fXXY, [3, 2], ([12.0,9.0],18.0))
     , ("fXYplusZ", fXYplusZ, [1, 2, 3], ([2.0,1.0,1.0],5.0))
