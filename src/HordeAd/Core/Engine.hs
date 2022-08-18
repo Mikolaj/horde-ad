@@ -15,6 +15,7 @@ import Prelude
 
 import           Control.Monad.Trans.State.Strict
 import qualified Data.Array.DynamicS as OT
+import           Data.Functor (void)
 import           Data.Functor.Identity
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -116,47 +117,52 @@ dReverseGeneral
   -> DualNumberVariables 'DModeGradient r
   -> (DualNumberVariables 'DModeGradient r
       -> DualMonadGradient r (DualNumber 'DModeGradient r))
-  -> (Domains r, r)
+  -> IO (Domains r, r)
 -- The functions in which @dReverseGeneral@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE dReverseGeneral #-}
 dReverseGeneral dt
                 variables@(params0, _, params1, _, params2, _, paramsX, _)
-                f =
+                f = do
+  initializeCounters (params0, params1, params2, paramsX)
   let dim0 = V.length params0
       dim1 = V.length params1
       dim2 = V.length params2
       dimX = V.length paramsX
       initialState = initializeState (params0, params1, params2, paramsX)
-      (D value d, st) = runState (runDualMonadGradient (f variables))
-                                 initialState
+      -- It needs to be fully evaluated before finalizing the counters,
+      -- because it modifies the counters (via impure side-effect):
+      !(D !value !d, !st) = runState (runDualMonadGradient (f variables))
+                                     initialState
+  (c0, c1, c2, cX) <- finalizeCounters
+  let st2 = st { deltaCounter0 = c0
+               , deltaCounter1 = c1
+               , deltaCounter2 = c2
+               , deltaCounterX = cX
+               }
       inlineDerivative primCode primalArgs dualArgs =
         let D _ u' = outDualNumber primCode primalArgs dualArgs
         in u'
       gradient =
         gradientFromDelta inlineDerivative inlineDerivative inlineDerivative
                           inlineDerivative inlineDerivative
-                          dim0 dim1 dim2 dimX st d dt
-  in (gradient, value)
+                          dim0 dim1 dim2 dimX st2 d dt
+  return (gradient, value)
 
 -- TODO: change the type to IO, but this requires a rewrite of all
 -- test glue code; also remove NOINLINE
-dReverse :: HasDelta r
-   => r
-   -> (DualNumberVariables 'DModeGradient r
-       -> DualMonadGradient r (DualNumber 'DModeGradient r))
-   -> Domains r
-   -> (Domains r, r)
+dReverse
+  :: HasDelta r
+  => r
+  -> (DualNumberVariables 'DModeGradient r
+      -> DualMonadGradient r (DualNumber 'DModeGradient r))
+  -> Domains r
+  -> (Domains r, r)
 {-# NOINLINE dReverse #-}
-dReverse dt f parameters = unsafePerformIO $ do
-  initializeCounters parameters
+dReverse dt f parameters =
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
-      -- It needs to be fully evaluated before finalizing the counters,
-      -- because it modifies the counters (via impure side-effect):
-      !(gradient@(!_, !_, !_, !_), !value) = dReverseGeneral dt variables f
-  finalizeCounters
-  return (gradient, value)
+  in unsafePerformIO $ dReverseGeneral dt variables f
 
 -- This function uses @DualMonadGradient@ for an inefficient computation
 -- of forward derivaties. See @dFastForwardGeneral@ for an efficient variant.
@@ -166,20 +172,30 @@ dForwardGeneral
   -> (DualNumberVariables 'DModeGradient r
       -> DualMonadGradient r (DualNumber 'DModeGradient r))
   -> Domains r
-  -> (r, r)
+  -> IO (r, r)
 {-# INLINE dForwardGeneral #-}
 dForwardGeneral variables@(params0, _, params1, _, params2, _, paramsX, _)
-                f ds =
+                f ds = do
+  initializeCounters (params0, params1, params2, paramsX)
   let initialState = initializeState (params0, params1, params2, paramsX)
-      (D value d, st) = runState (runDualMonadGradient (f variables))
-                                 initialState
+      -- It needs to be fully evaluated before finalizing the counters,
+      -- because it modifies the counters (via impure side-effect):
+      !(D !value !d, !st) = runState (runDualMonadGradient (f variables))
+                                     initialState
+  (c0, c1, c2, cX) <- finalizeCounters
+  let st2 = st { deltaCounter0 = c0
+               , deltaCounter1 = c1
+               , deltaCounter2 = c2
+               , deltaCounterX = cX
+               }
       inlineDerivative primCode primalArgs dualArgs =
         let D _ u' = outDualNumber primCode primalArgs dualArgs
         in u'
-  in ( derivativeFromDelta inlineDerivative inlineDerivative inlineDerivative
-                           inlineDerivative inlineDerivative
-                           st d ds
-     , value )
+      derivative =
+        derivativeFromDelta inlineDerivative inlineDerivative inlineDerivative
+                            inlineDerivative inlineDerivative
+                            st2 d ds
+  return (derivative , value)
 
 -- The direction vector ds is taken as an extra argument.
 -- TODO: change the type to IO, but this requires a rewrite of all
@@ -192,15 +208,10 @@ dForward
   -> Domains r
   -> (r, r)
 {-# NOINLINE dForward #-}
-dForward f parameters ds = unsafePerformIO $ do
-  initializeCounters parameters
+dForward f parameters ds =
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
-      -- It needs to be fully evaluated before finalizing the counters,
-      -- because it modifies the counters (via impure side-effect):
-      !(!derivative, !value) = dForwardGeneral variables f ds
-  finalizeCounters
-  return (derivative, value)
+  in unsafePerformIO $ dForwardGeneral variables f ds
 
 -- * A monad for efficiently computing forward derivatives.
 
@@ -265,7 +276,7 @@ prettyPrintDf reversed f parameters = unsafePerformIO $ do
       -- It needs to be fully evaluated before finalizing the counters,
       -- because it modifies the counters (via impure side-effect):
       !_ = length s
-  finalizeCounters
+  void finalizeCounters
   return s
 
 generateDeltaVars

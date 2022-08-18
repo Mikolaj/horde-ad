@@ -11,6 +11,7 @@ import           Control.Monad (foldM)
 import qualified Data.Array.DynamicS as OT
 import           Data.Coerce (coerce)
 import qualified Data.Vector.Generic as V
+import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.DualNumber
@@ -18,6 +19,8 @@ import HordeAd.Core.Engine
 import HordeAd.Core.OptimizerTools
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 
+-- TODO: change the type to IO, but this requires a rewrite of all
+-- test glue code; also remove NOINLINE
 -- | Stochastic Gradient Descent with mini-batches, taking the mean
 -- of the results from each mini-batch. Additionally, it uses
 -- "forward gradient" from "Gradients without Backpropagation"
@@ -47,6 +50,7 @@ sgdBatchForward
   -> Domains Double  -- ^ initial parameters
   -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
   -> (Domains Double, Double)
+{-# NOINLINE sgdBatchForward #-}
 sgdBatchForward seed0 batchSize gamma f trainingData parameters0 nParameters =
   go seed0 trainingData parameters0 0
  where
@@ -71,7 +75,7 @@ sgdBatchForward seed0 batchSize gamma f trainingData parameters0 nParameters =
         (_, _, _, direction) = initializerFixed g1 unitVarianceRange nParameters
         variables = makeDualNumberVariables parameters varDeltas
         (directionalDerivative, valueNew) =
-          dForwardGeneral variables fBatch direction
+          unsafePerformIO $ dForwardGeneral variables fBatch direction
         gammaDirectional = gamma * directionalDerivative
         parametersNew = updateWithGradient gammaDirectional parameters direction
     in go g2 rest parametersNew valueNew
@@ -132,6 +136,8 @@ sgdAdamBatch
   -> (Domains r, StateAdam r)
 sgdAdamBatch = sgdAdamBatchArgs defaultArgsAdam
 
+-- TODO: change the type to IO, but this requires a rewrite of all
+-- test glue code; also remove NOINLINE
 sgdAdamBatchArgs
   :: forall r a. HasDelta r
   => ArgsAdam r
@@ -142,6 +148,7 @@ sgdAdamBatchArgs
   -> Domains r
   -> StateAdam r
   -> (Domains r, StateAdam r)
+{-# NOINLINE sgdAdamBatchArgs #-}
 sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
@@ -151,7 +158,8 @@ sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
   go l parameters stateAdam =
     let variables = makeDualNumberVariables parameters varDeltas
         (batch, rest) = splitAt batchSize l
-        fAdd :: DualNumberVariables 'DModeGradient r -> DualNumber 'DModeGradient r -> a
+        fAdd :: DualNumberVariables 'DModeGradient r
+             -> DualNumber 'DModeGradient r -> a
              -> DualMonadGradient r (DualNumber 'DModeGradient r)
         fAdd vars !acc a = do
           res <- f a vars
@@ -161,11 +169,13 @@ sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
         fBatch vars = do
           resBatch <- foldM (fAdd vars) 0 batch
           return $! resBatch / fromIntegral (length batch)
-        gradients = fst $ dReverseGeneral 1 variables fBatch
+        gradients = unsafePerformIO $ fst <$> dReverseGeneral 1 variables fBatch
         (parametersNew, stateAdamNew) =
           updateWithGradientAdam argsAdam stateAdam parameters gradients
     in go rest parametersNew stateAdamNew
 
+-- TODO: change the type to IO, but this requires a rewrite of all
+-- test glue code; also remove NOINLINE
 -- | Relatively Smart Gradient Descent.
 -- Based on @gradientDescent@ from package @ad@ which is in turn based
 -- on the one from the VLAD compiler.
@@ -174,10 +184,11 @@ gdSmart :: forall r. HasDelta r
         -> Int  -- ^ requested number of iterations
         -> Domains r  -- ^ initial parameters
         -> (Domains r, r)
+{-# NOINLINE gdSmart #-}
 gdSmart f n0 parameters0 = go n0 parameters0 0.1 gradients0 value0 0 where
   varDeltas = generateDeltaVars parameters0
   variables0 = makeDualNumberVariables parameters0 varDeltas
-  (gradients0, value0) = dReverseGeneral 1 variables0 f
+  (gradients0, value0) = unsafePerformIO $ dReverseGeneral 1 variables0 f
   go :: Int -> Domains r -> r -> Domains r -> r -> Int
      -> (Domains r, r)
   go 0 parameters !gamma _gradientsPrev _valuePrev !_i = (parameters, gamma)
@@ -188,7 +199,7 @@ gdSmart f n0 parameters0 = go n0 parameters0 0.1 gradients0 value0 0 where
     -- with the new value that is needed now to revert if we overshoot.
     let parametersNew = updateWithGradient gamma parameters gradientsPrev
         variables = makeDualNumberVariables parametersNew varDeltas
-        (gradients, value) = dReverseGeneral 1 variables f
+        (gradients, value) = unsafePerformIO $ dReverseGeneral 1 variables f
     in if | gradientIsNil gradientsPrev ->
               (parameters, gamma)
           | value > valuePrev ->
