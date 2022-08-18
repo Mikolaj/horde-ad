@@ -97,11 +97,8 @@ newtype DualMonadGradient r a = DualMonadGradient
 instance IsScalar 'DModeGradient r
          => DualMonad 'DModeGradient
                       r (DualMonadGradient r) where
-  returnLet (D u u') = DualMonadGradient $ do
-    st <- get
-    let (!stNew, !dId) = undefined {-bindInState-} u' st
-    put stNew
-    return $! D u (dVar dId)
+  returnLet d = DualMonadGradient $ return d
+    -- TODO: the monad is unused, remove it
 
 initializeState :: forall r. IsScalar 'DModeGradient r
                 => Domains r -> DeltaState r
