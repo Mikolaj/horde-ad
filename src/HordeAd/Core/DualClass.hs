@@ -280,32 +280,32 @@ instance IsPrimalS 'DModeGradient r where
   dDelayS d = wrapDeltaS $ DelayS d
 
 instance HasVariables Double where
-  dVar i = Delta0 i Input0
+  dVar i = Delta0 0 i Input0
   dOutline codeOut primalArgs dualArgs =
     wrapDelta0 $ Outline0 codeOut primalArgs dualArgs
 
 instance HasVariables Float where
-  dVar i = Delta0 i Input0
+  dVar i = Delta0 0 i Input0
   dOutline codeOut primalArgs dualArgs =
     wrapDelta0 $ Outline0 codeOut primalArgs dualArgs
 
 instance HasVariables (Vector r) where
-  dVar i = Delta1 i Input1
+  dVar i = Delta1 0 i Input1
   dOutline codeOut primalArgs dualArgs =
     wrapDelta1 $ Outline1 codeOut primalArgs dualArgs
 
 instance HasVariables (Matrix r) where
-  dVar i = Delta2 i Input2
+  dVar i = Delta2 0 i Input2
   dOutline codeOut primalArgs dualArgs =
     wrapDelta2 $ Outline2 codeOut primalArgs dualArgs
 
 instance HasVariables (OT.Array r) where
-  dVar i = DeltaX i InputX
+  dVar i = DeltaX 0 i InputX
   dOutline codeOut primalArgs dualArgs =
     wrapDeltaX $ OutlineX codeOut primalArgs dualArgs
 
 instance HasVariables (OS.Array sh r) where
-  dVar i = DeltaS i InputS
+  dVar i = DeltaS 0 i InputS
   dOutline codeOut primalArgs dualArgs =
     wrapDeltaS $ OutlineS codeOut primalArgs dualArgs
 
@@ -589,6 +589,10 @@ instance HasRanks 'DModeValue r where
 -- running at a time, initialized and eventually finalized; tests need
 -- to be run with -ftest_seq, but at least it's re-entrant)
 
+unsafeGlobalCounter :: MVar Int
+{-# NOINLINE unsafeGlobalCounter #-}
+unsafeGlobalCounter = unsafePerformIO newEmptyMVar
+
 unsafeDeltaCounter0 :: MVar (DeltaId r)
 {-# NOINLINE unsafeDeltaCounter0 #-}
 unsafeDeltaCounter0 = unsafePerformIO newEmptyMVar
@@ -606,49 +610,53 @@ unsafeDeltaCounterX :: MVar (DeltaId (OT.Array r))
 unsafeDeltaCounterX = unsafePerformIO newEmptyMVar
 
 -- The following three are the only operations directly touching the counters.
-unsafeGetFreshId :: MVar (DeltaId a) -> DeltaId a
+unsafeGetFreshId :: MVar (DeltaId a) -> (Int, DeltaId a)
 {-# NOINLINE unsafeGetFreshId #-}
 unsafeGetFreshId mvar = unsafePerformIO $ do
   i <- takeMVar mvar
+  n <- takeMVar unsafeGlobalCounter
+  putMVar unsafeGlobalCounter $ succ n
   putMVar mvar $ succDeltaId i
-  return i
+  return (n, i)
 
 initializeCounters :: Numeric r => Domains r -> IO ()
 initializeCounters (params0, params1, params2, paramsX) = do
+  putMVar unsafeGlobalCounter 1
   putMVar unsafeDeltaCounter0 $ toDeltaId (V.length params0)
   putMVar unsafeDeltaCounter1 $ toDeltaId (V.length params1)
   putMVar unsafeDeltaCounter2 $ toDeltaId (V.length params2)
   putMVar unsafeDeltaCounterX $ toDeltaId (V.length paramsX)
 
-finalizeCounters :: IO (DeltaId r, DeltaId (Vector r), DeltaId (Matrix r), DeltaId (OT.Array r))
+finalizeCounters :: IO (Int, DeltaId r, DeltaId (Vector r), DeltaId (Matrix r), DeltaId (OT.Array r))
 finalizeCounters = do
+  n <- takeMVar unsafeGlobalCounter
   c0 <- takeMVar unsafeDeltaCounter0
   c1 <- takeMVar unsafeDeltaCounter1
   c2 <- takeMVar unsafeDeltaCounter2
   cX <- takeMVar unsafeDeltaCounterX
-  return (c0, c1, c2, cX)
+  return (n, c0, c1, c2, cX)
 
 wrapDelta0 :: Delta0' r -> Delta0 r
 wrapDelta0 d =
-  let i = unsafeGetFreshId unsafeDeltaCounter0
-  in Delta0 i d
+  let (!n, !i) = unsafeGetFreshId unsafeDeltaCounter0
+  in Delta0 n i d
 
 wrapDelta1 :: Delta1' r -> Delta1 r
 wrapDelta1 d =
-  let i = unsafeGetFreshId unsafeDeltaCounter1
-  in Delta1 i d
+  let (!n, !i) = unsafeGetFreshId unsafeDeltaCounter1
+  in Delta1 n i d
 
 wrapDelta2 :: Delta2' r -> Delta2 r
 wrapDelta2 d =
-  let i = unsafeGetFreshId unsafeDeltaCounter2
-  in Delta2 i d
+  let (!n, !i) = unsafeGetFreshId unsafeDeltaCounter2
+  in Delta2 n i d
 
 wrapDeltaX :: DeltaX' r -> DeltaX r
 wrapDeltaX d =
-  let i = unsafeGetFreshId unsafeDeltaCounterX
-  in DeltaX i d
+  let (!n, !i) = unsafeGetFreshId unsafeDeltaCounterX
+  in DeltaX n i d
 
 wrapDeltaS :: DeltaS' sh r -> DeltaS sh r
 wrapDeltaS d =
-  let i = unsafeGetFreshId unsafeDeltaCounterX  -- not S!
-  in DeltaS (convertDeltaId i) d
+  let (!n, !i) = unsafeGetFreshId unsafeDeltaCounterX  -- not S!
+  in DeltaS n (convertDeltaId i) d
