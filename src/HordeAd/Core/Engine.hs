@@ -152,20 +152,17 @@ dReverseGeneral dt
                           dim0 dim1 dim2 dimX st2 d dt
   return (gradient, value)
 
--- TODO: change the type to IO, but this requires a rewrite of all
--- test glue code; also remove NOINLINE
 dReverse
   :: HasDelta r
   => r
   -> (DualNumberVariables 'DModeGradient r
       -> DualMonadGradient r (DualNumber 'DModeGradient r))
   -> Domains r
-  -> (Domains r, r)
-{-# NOINLINE dReverse #-}
-dReverse dt f parameters =
+  -> IO (Domains r, r)
+dReverse dt f parameters = do
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
-  in unsafePerformIO $ dReverseGeneral dt variables f
+  dReverseGeneral dt variables f
 
 -- This function uses @DualMonadGradient@ for an inefficient computation
 -- of forward derivaties. See @dFastForwardGeneral@ for an efficient variant.

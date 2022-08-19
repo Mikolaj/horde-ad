@@ -12,6 +12,7 @@ import qualified Data.Array.ShapedS as OS
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as HM
+import           System.IO.Unsafe (unsafePerformIO)
 import           Test.Tasty
 import           Test.Tasty.QuickCheck
 
@@ -118,7 +119,7 @@ qcPropDom :: (forall d r m. ( DualMonad d r m
 qcPropDom f args ds perturbation dt =
       let ff@(derivative, ffValue) = dFastForward f args ds
           (derivativeAtPerturbation, valueAtPerturbation) = dFastForward f args perturbation
-          (gradient, revValue) = dReverse dt f args
+          (gradient, revValue) = unsafePerformIO $ dReverse dt f args
       in -- Two forward derivative implementations agree fully:
          dForward f args ds === ff
          -- Objective function value from gradients is the same.

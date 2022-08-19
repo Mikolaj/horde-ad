@@ -35,11 +35,11 @@ dReverse0
   => (DualNumberVariables 'DModeGradient r
       -> DualMonadGradient r (DualNumber 'DModeGradient r))
   -> [r]
-  -> ([r], r)
-dReverse0 f deltaInput =
-  let ((results, _, _, _), value) =
-        dReverse 1 f (V.fromList deltaInput, V.empty, V.empty, V.empty)
-  in (V.toList results, value)
+  -> IO ([r], r)
+dReverse0 f deltaInput = do
+  ((!results, _, _, _), !value) <-
+    dReverse 1 f (V.fromList deltaInput, V.empty, V.empty, V.empty)
+  return (V.toList results, value)
 
 fX :: DualMonad 'DModeGradient Float m
    => DualNumberVariables 'DModeGradient Float
@@ -101,7 +101,9 @@ freluX variables = do
 testDReverse0 :: TestTree
 testDReverse0 = testGroup "Simple dReverse application tests" $
   map (\(txt, f, v, expected) ->
-        testCase txt $ dReverse0 f v @?~ expected)
+        testCase txt $ do
+          res <- dReverse0 f v
+          res @?~ expected)
     [ ("fX", fX, [99], ([1.0],99.0))
     , ("fXagain", fX, [99], ([1.0],99.0))
     , ("fXp1", fXp1, [99], ([1.0],100))
@@ -233,17 +235,19 @@ dReverse1
   :: (r ~ Float, d ~ 'DModeGradient)
   => (DualNumberVariables d r -> DualMonadGradient r (DualNumber d r))
   -> [[r]]
-  -> ([[r]], r)
-dReverse1 f deltaInput =
-  let ((_, results, _, _), value) =
-        dReverse 1 f
-          (V.empty, V.fromList (map V.fromList deltaInput), V.empty, V.empty)
-  in (map V.toList $ V.toList results, value)
+  -> IO ([[r]], r)
+dReverse1 f deltaInput = do
+  ((_, !results, _, _), !value) <-
+    dReverse 1 f
+             (V.empty, V.fromList (map V.fromList deltaInput), V.empty, V.empty)
+  return (map V.toList $ V.toList results, value)
 
 testDReverse1 :: TestTree
 testDReverse1 = testGroup "Simple dReverse application to vectors tests" $
   map (\(txt, f, v, expected) ->
-        testCase txt $ dReverse1 f v @?~ expected)
+        testCase txt $ do
+          res <- dReverse1 f v
+          res @?~ expected)
     [ ("sumElementsV", sumElementsV, [[1, 1, 3]], ([[1.0,1.0,1.0]],5.0))
     , ("altSumElementsV", altSumElementsV, [[1, 1, 3]], ([[1.0,1.0,1.0]],5.0))
     , ( "sinKonst", sinKonst, [[1, 3]]
@@ -429,23 +433,23 @@ atanReadmeM = returnLet . atanReadmeScalar
 -- but it's a vector of scalar parameters, not a single parameter
 -- of rank 1).
 atanReadmeDReverse :: HasDelta r
-                   => Domain0 r -> (Domain0 r, r)
-atanReadmeDReverse ds =
-  let ((result, _, _, _), value) =
-        dReverse 1 atanReadmeM (ds, V.empty, V.empty, V.empty)
-  in (result, value)
+                   => Domain0 r -> IO (Domain0 r, r)
+atanReadmeDReverse ds = do
+  ((!result, _, _, _), !value) <-
+    dReverse 1 atanReadmeM (ds, V.empty, V.empty, V.empty)
+  return (result, value)
 
 readmeTests :: TestTree
 readmeTests = testGroup "Simple tests for README"
-  [ testCase " Float (1.1, 2.2, 3.3)"
-    $ atanReadmeDReverse (V.fromList [1.1 :: Float, 2.2, 3.3])
-      @?~ (V.fromList [3.0715904, 0.18288425, 1.1761366], 4.937552)
-  , testCase " Double (1.1, 2.2, 3.3)"
-    $ atanReadmeDReverse (V.fromList [1.1 :: Double, 2.2, 3.3])
-      @?~ ( V.fromList [ 3.071590389300859
-                       , 0.18288422990948425
-                       , 1.1761365368997136 ]
-          , 4.9375516951604155 )
+  [ testCase " Float (1.1, 2.2, 3.3)" $ do
+      res <- atanReadmeDReverse (V.fromList [1.1 :: Float, 2.2, 3.3])
+      res @?~ (V.fromList [3.0715904, 0.18288425, 1.1761366], 4.937552)
+  , testCase " Double (1.1, 2.2, 3.3)" $ do
+      res <- atanReadmeDReverse (V.fromList [1.1 :: Double, 2.2, 3.3])
+      res @?~ ( V.fromList [ 3.071590389300859
+                           , 0.18288422990948425
+                           , 1.1761365368997136 ]
+              , 4.9375516951604155 )
   ]
 
 -- And here's a version of the example that uses vector parameters
@@ -463,22 +467,22 @@ vatanReadmeM variables = do
   returnLet $ sumElements0 v
 
 vatanReadmeDReverse :: HasDelta r
-                    => Domain1 r -> (Domain1 r, r)
-vatanReadmeDReverse dsV =
-  let ((_, result, _, _), value) =
-        dReverse 1 vatanReadmeM (V.empty, dsV, V.empty, V.empty)
-  in (result, value)
+                    => Domain1 r -> IO(Domain1 r, r)
+vatanReadmeDReverse dsV = do
+  ((_, !result, _, _), !value) <-
+    dReverse 1 vatanReadmeM (V.empty, dsV, V.empty, V.empty)
+  return (result, value)
 
 readmeTestsV :: TestTree
 readmeTestsV = testGroup "Simple tests of vector-based code for README"
-  [ testCase "V Float (1.1, 2.2, 3.3)"
-    $ vatanReadmeDReverse (V.singleton $ V.fromList [1.1 :: Float, 2.2, 3.3])
-      @?~ ( V.singleton $ V.fromList [3.0715904, 0.18288425, 1.1761366]
-          , 4.937552 )
-  , testCase "V Double (1.1, 2.2, 3.3)"
-    $ vatanReadmeDReverse (V.singleton $ V.fromList [1.1 :: Double, 2.2, 3.3])
-      @?~ ( V.singleton $ V.fromList [ 3.071590389300859
-                                     , 0.18288422990948425
-                                     , 1.1761365368997136 ]
-          , 4.9375516951604155 )
+  [ testCase "V Float (1.1, 2.2, 3.3)" $ do
+      res <- vatanReadmeDReverse (V.singleton $ V.fromList [1.1 :: Float, 2.2, 3.3])
+      res @?~ ( V.singleton $ V.fromList [3.0715904, 0.18288425, 1.1761366]
+              , 4.937552 )
+  , testCase "V Double (1.1, 2.2, 3.3)" $ do
+      res <- vatanReadmeDReverse (V.singleton $ V.fromList [1.1 :: Double, 2.2, 3.3])
+      res @?~ ( V.singleton $ V.fromList [ 3.071590389300859
+                                         , 0.18288422990948425
+                                         , 1.1761365368997136 ]
+              , 4.9375516951604155 )
   ]

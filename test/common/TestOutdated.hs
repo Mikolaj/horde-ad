@@ -10,6 +10,7 @@ import           Foreign.Storable (Storable)
 import           Foreign.Storable.Tuple ()
 import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as HM
+import           System.IO.Unsafe (unsafePerformIO)
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -158,7 +159,7 @@ gdSimpleShow :: HasDelta r
              -> ([r], r)
 gdSimpleShow gamma f initVec n =
   let (res, _, _, _) = gdSimple gamma f n (initVec, V.empty, V.empty, V.empty)
-      (_, value) = dReverse 1 f (res, V.empty, V.empty, V.empty)
+      (_, value) = unsafePerformIO $ dReverse 1 f (res, V.empty, V.empty, V.empty)
   in (V.toList res, value)
 
 gdSimpleTestCase
@@ -338,7 +339,7 @@ gdSmartShow :: (DualNumberVariablesD -> DualMonadGradient Double DualNumberD)
             -> ([Double], (Double, Double))
 gdSmartShow f initVec n =
   let ((res, _, _, _), gamma) = gdSmart f n (initVec, V.empty, V.empty, V.empty)
-      (_, value) = dReverse 1 f (res, V.empty, V.empty, V.empty)
+      (_, value) = unsafePerformIO $ dReverse 1 f (res, V.empty, V.empty, V.empty)
   in (V.toList res, (value, gamma))
 
 gradSmartTestCase :: Num a
@@ -721,7 +722,7 @@ sgdShow :: HasDelta r
 sgdShow gamma f trainData params0Init =
   let (res, _, _, _) =
         fst $ sgd gamma f trainData (params0Init, V.empty, V.empty, V.empty)
-      (_, value) = dReverse 1 (f $ head trainData) (res, V.empty, V.empty, V.empty)
+      (_, value) = unsafePerformIO $ dReverse 1 (f $ head trainData) (res, V.empty, V.empty, V.empty)
   in (V.toList res, value)
 
 sgdTestCase
