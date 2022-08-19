@@ -132,15 +132,15 @@ dReverseGeneral dt
       initialState = initializeState (params0, params1, params2, paramsX)
       -- It needs to be fully evaluated before finalizing the counters,
       -- because it modifies the counters (via impure side-effect):
-      !(D !value !d, !st) = runState (runDualMonadGradient (f variables))
-                                     initialState
+      !(D !value !d, _) = runState (runDualMonadGradient (f variables))
+                                   initialState
   (n, c0, c1, c2, cX) <- finalizeCounters
-  let st2 = st { deltaCounter = n
-               , deltaCounter0 = c0
-               , deltaCounter1 = c1
-               , deltaCounter2 = c2
-               , deltaCounterX = cX
-               }
+  let st2 = DeltaState { deltaCounter = n
+                       , deltaCounter0 = c0
+                       , deltaCounter1 = c1
+                       , deltaCounter2 = c2
+                       , deltaCounterX = cX
+                       }
       inlineDerivative primCode primalArgs dualArgs =
         let D _ u' = outDualNumber primCode primalArgs dualArgs
         in u'
@@ -181,15 +181,15 @@ dForwardGeneral variables@(params0, _, params1, _, params2, _, paramsX, _)
   let initialState = initializeState (params0, params1, params2, paramsX)
       -- It needs to be fully evaluated before finalizing the counters,
       -- because it modifies the counters (via impure side-effect):
-      !(D !value !d, !st) = runState (runDualMonadGradient (f variables))
-                                     initialState
+      !(D !value !d, _) = runState (runDualMonadGradient (f variables))
+                                   initialState
   (n, c0, c1, c2, cX) <- finalizeCounters
-  let st2 = st { deltaCounter = n
-               , deltaCounter0 = c0
-               , deltaCounter1 = c1
-               , deltaCounter2 = c2
-               , deltaCounterX = cX
-               }
+  let st2 = DeltaState { deltaCounter = n
+                       , deltaCounter0 = c0
+                       , deltaCounter1 = c1
+                       , deltaCounter2 = c2
+                       , deltaCounterX = cX
+                       }
       inlineDerivative primCode primalArgs dualArgs =
         let D _ u' = outDualNumber primCode primalArgs dualArgs
         in u'
