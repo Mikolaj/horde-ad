@@ -22,6 +22,7 @@ import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           System.IO.Unsafe (unsafePerformIO)
+import           Text.Show.Pretty (ppShow)
 
 import HordeAd.Core.DualClass
   ( Dual
@@ -38,7 +39,6 @@ import HordeAd.Internal.Delta
   , DeltaState (..)
   , derivativeFromDelta
   , gradientFromDelta
-  , ppBindings
   , toDeltaId
   )
 
@@ -104,11 +104,11 @@ instance IsScalar 'DModeGradient r
 initializeState :: forall r. IsScalar 'DModeGradient r
                 => Domains r -> DeltaState r
 initializeState (params0, params1, params2, paramsX) =
-  DeltaState { deltaCounter0 = toDeltaId (V.length params0)
+  DeltaState { deltaCounter = 1
+             , deltaCounter0 = toDeltaId (V.length params0)
              , deltaCounter1 = toDeltaId (V.length params1)
              , deltaCounter2 = toDeltaId (V.length params2)
              , deltaCounterX = toDeltaId (V.length paramsX)
-             , deltaBindings = []
              }
 
 dReverseGeneral
@@ -134,8 +134,9 @@ dReverseGeneral dt
       -- because it modifies the counters (via impure side-effect):
       !(D !value !d, !st) = runState (runDualMonadGradient (f variables))
                                      initialState
-  (c0, c1, c2, cX) <- finalizeCounters
-  let st2 = st { deltaCounter0 = c0
+  (n, c0, c1, c2, cX) <- finalizeCounters
+  let st2 = st { deltaCounter = n
+               , deltaCounter0 = c0
                , deltaCounter1 = c1
                , deltaCounter2 = c2
                , deltaCounterX = cX
@@ -182,8 +183,9 @@ dForwardGeneral variables@(params0, _, params1, _, params2, _, paramsX, _)
       -- because it modifies the counters (via impure side-effect):
       !(D !value !d, !st) = runState (runDualMonadGradient (f variables))
                                      initialState
-  (c0, c1, c2, cX) <- finalizeCounters
-  let st2 = st { deltaCounter0 = c0
+  (n, c0, c1, c2, cX) <- finalizeCounters
+  let st2 = st { deltaCounter = n
+               , deltaCounter0 = c0
                , deltaCounter1 = c1
                , deltaCounter2 = c2
                , deltaCounterX = cX
@@ -259,20 +261,19 @@ dFastForward f parameters (params0, params1, params2, paramsX) =
 -- test glue code; also remove NOINLINE
 prettyPrintDf
   :: forall r. HasDelta r
-  => Bool
-  -> (DualNumberVariables 'DModeGradient r
+  => (DualNumberVariables 'DModeGradient r
       -> DualMonadGradient r (DualNumber 'DModeGradient r))
   -> Domains r
   -> String
 {-# NOINLINE prettyPrintDf #-}
-prettyPrintDf reversed f parameters = unsafePerformIO $ do
+prettyPrintDf f parameters = unsafePerformIO $ do
   initializeCounters parameters
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
       initialState = initializeState parameters
-      (D _ deltaTopLevel, st) = runState (runDualMonadGradient (f variables))
+      (D _ deltaTopLevel, _) = runState (runDualMonadGradient (f variables))
                                          initialState
-      s = ppBindings reversed st deltaTopLevel
+      s = ppShow deltaTopLevel
       -- It needs to be fully evaluated before finalizing the counters,
       -- because it modifies the counters (via impure side-effect):
       !_ = length s

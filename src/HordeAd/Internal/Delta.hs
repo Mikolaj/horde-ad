@@ -47,7 +47,7 @@ module HordeAd.Internal.Delta
     DeltaBinding
   , DeltaState (..)
   , Domain0, Domain1, Domain2, DomainX, Domains
-  , gradientFromDelta, derivativeFromDelta, ppBindings
+  , gradientFromDelta, derivativeFromDelta
   , isTensorDummy
   , CodeOut(..)
   ) where
@@ -95,7 +95,7 @@ import           HordeAd.Internal.OrthotopeOrphanInstances (liftVS2, liftVT2)
 --
 -- The @Outline@ constructors represent primitive numeric function applications
 -- for which we delay computing and forgo inlining of the derivative.
-data Delta0 r = Delta0 (DeltaId r) (Delta0' r)
+data Delta0 r = Delta0 Int (DeltaId r) (Delta0' r)
 data Delta0' r =
     Zero0
   | Scale0 r (Delta0 r)
@@ -118,7 +118,7 @@ deriving instance (Show r, Numeric r) => Show (Delta0' r)
 
 -- | This is the grammar of delta-expressions at tensor rank 1, that is,
 -- at vector level.
-data Delta1 r = Delta1 (DeltaId (Vector r)) (Delta1' r)
+data Delta1 r = Delta1 Int (DeltaId (Vector r)) (Delta1' r)
 data Delta1' r =
     Zero1
   | Scale1 (Vector r) (Delta1 r)
@@ -156,7 +156,7 @@ deriving instance (Show r, Numeric r) => Show (Delta1' r)
 
 -- | This is the grammar of delta-expressions at tensor rank 2, that is,
 -- at matrix level.
-data Delta2 r = Delta2 (DeltaId (Matrix r)) (Delta2' r)
+data Delta2 r = Delta2 Int (DeltaId (Matrix r)) (Delta2' r)
 data Delta2' r =
     Zero2
   | Scale2 (Matrix r) (Delta2 r)
@@ -196,7 +196,7 @@ deriving instance (Show r, Numeric r) => Show (Delta2' r)
 -- | This is the grammar of delta-expressions at arbitrary tensor rank.
 --
 -- Warning: not tested enough nor benchmarked.
-data DeltaX r = DeltaX (DeltaId (OT.Array r)) (DeltaX' r)
+data DeltaX r = DeltaX Int (DeltaId (OT.Array r)) (DeltaX' r)
 data DeltaX' r =
     ZeroX
   | ScaleX (OT.Array r) (DeltaX r)
@@ -236,7 +236,7 @@ deriving instance (Show r, Numeric r) => Show (DeltaX' r)
 -- the fully typed Shaped version.
 --
 -- Warning: not tested enough nor benchmarked.
-data DeltaS sh r = DeltaS (DeltaId (OS.Array sh r)) (DeltaS' sh r)
+data DeltaS sh r = DeltaS Int (DeltaId (OS.Array sh r)) (DeltaS' sh r)
 data DeltaS' :: [Nat] -> Type -> Type where
   ZeroS :: DeltaS' sh r
   ScaleS :: OS.Array sh r -> DeltaS sh r -> DeltaS' sh r
@@ -295,24 +295,20 @@ succDeltaId (DeltaId i) = DeltaId (succ i)
 
 -- * Evaluation of the delta expressions
 
--- | Binding at one of the ranks, with a given underlying scalar.
---
--- The 'DeltaId' components could be re-computed on the fly in 'buildFinMaps',
--- but it costs more (they are boxed, so re-allocation is expensive)
--- than storing them here at the time of binding creation and accessing
--- in `buildFinMaps`.
 data DeltaBinding r =
-    DeltaBinding0 (DeltaId r) (Delta0 r)
-  | DeltaBinding1 (DeltaId (Vector r)) (Delta1 r)
-  | DeltaBinding2 (DeltaId (Matrix r)) (Delta2 r)
-  | DeltaBindingX (DeltaId (OT.Array r)) (DeltaX r)
+    DeltaBinding0 (DeltaId r) (Delta0' r)
+  | DeltaBinding1 (DeltaId (Vector r)) (Delta1' r)
+  | DeltaBinding2 (DeltaId (Matrix r)) (Delta2' r)
+  | DeltaBindingX (DeltaId (OT.Array r)) (DeltaX' r)
+  | forall sh. OS.Shape sh
+    => DeltaBindingS (DeltaId (OS.Array sh r)) (DeltaS' sh r)
 
 data DeltaState r = DeltaState
-  { deltaCounter0 :: DeltaId r
+  { deltaCounter  :: Int
+  , deltaCounter0 :: DeltaId r
   , deltaCounter1 :: DeltaId (Vector r)
   , deltaCounter2 :: DeltaId (Matrix r)
   , deltaCounterX :: DeltaId (OT.Array r)
-  , deltaBindings :: [DeltaBinding r]
   }
 
 -- | Helper definitions to shorten type signatures. Note that these
@@ -464,13 +460,10 @@ initializeFinMaps
           , Data.Vector.Mutable.MVector s (Vector r)
           , Data.Vector.Mutable.MVector s (MO.MatrixOuter r)
           , Data.Vector.Mutable.MVector s (OT.Array r)
-          , Data.Vector.Mutable.MVector s (Delta0' r)
-          , Data.Vector.Mutable.MVector s (Delta1' r)
-          , Data.Vector.Mutable.MVector s (Delta2' r)
-          , Data.Vector.Mutable.MVector s (DeltaX' r)
-          , Data.Vector.Mutable.MVector s (DeltaSAll r) )
+          , Data.Vector.Mutable.MVector s (DeltaBinding r) )
 initializeFinMaps st = do
-  let DeltaId counter0 = deltaCounter0 st
+  let n = deltaCounter st
+      DeltaId counter0 = deltaCounter0 st
       DeltaId counter1 = deltaCounter1 st
       DeltaId counter2 = deltaCounter2 st
       DeltaId counterX = deltaCounterX st
@@ -478,15 +471,8 @@ initializeFinMaps st = do
   rMap1 <- VM.replicate counter1 (V.empty :: Vector r)  -- below dummy values
   rMap2 <- VM.replicate counter2 MO.emptyMatrixOuter
   rMapX <- VM.replicate counterX dummyTensor
-  dMap0 <- VM.replicate counter0 Input0  -- dummy value; the same below
-  dMap1 <- VM.replicate counter1 Input1
-  dMap2 <- VM.replicate counter2 Input2
-  dMapX <- VM.replicate counterX InputX
-  dMapS <- VM.replicate counterX (DeltaSAll (InputS :: DeltaS' '[] r))
-  return ( rMap0, rMap1, rMap2, rMapX
-         , dMap0, dMap1, dMap2, dMapX, dMapS )
-
-data DeltaSAll r = forall sh. OS.Shape sh => DeltaSAll (DeltaS' sh r)
+  dMap <- VM.replicate n (DeltaBinding0 (toDeltaId 0) Input0)  -- dummy
+  return (rMap0, rMap1, rMap2, rMapX, dMap)
 
 buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
              => (CodeOut -> [r] -> [Delta0 r] -> Delta0 r)
@@ -504,8 +490,7 @@ buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
 buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
              inlineDerivativeX inlineDerivativeS
              st deltaTopLevel dt = do
-  ( rMap0, rMap1, rMap2, rMapX
-   ,dMap0, dMap1, dMap2, dMapX, dMapS ) <- initializeFinMaps st
+  (rMap0, rMap1, rMap2, rMapX, dMap) <- initializeFinMaps st
   let addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
       addToMatrix :: MO.MatrixOuter r -> MO.MatrixOuter r -> MO.MatrixOuter r
@@ -518,9 +503,9 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
                                then rs
                                else liftVT2 (+) v rs
       eval0 :: r -> Delta0 r -> ST s ()
-      eval0 !r (Delta0 (DeltaId i) d) = do
+      eval0 !r (Delta0 n did@(DeltaId i) d) = do
         VM.modify rMap0 (+ r) i
-        VM.write dMap0 i d
+        VM.write dMap n (DeltaBinding0 did d)
       eval0' :: r -> Delta0' r -> ST s ()
       eval0' !r = \case
         Zero0 -> return ()
@@ -529,7 +514,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         Input0 -> return ()
 
         SumElements0 vd n -> eval1 (HM.konst r n) vd
-        Index0 (Delta1 (DeltaId i) Input1) ix k -> do
+        Index0 (Delta1 _ (DeltaId i) Input1) ix k -> do
           let f v = if V.null v
                     then HM.konst 0 k V.// [(ix, r)]
                     else v V.// [(ix, v V.! ix + r)]
@@ -549,9 +534,9 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval0 r $ inlineDerivative0 codeOut primalArgs dualArgs
         Delay0 d -> eval0 r d
       eval1 :: Vector r -> Delta1 r -> ST s ()
-      eval1 !r (Delta1 (DeltaId i) d) = do
+      eval1 !r (Delta1 n did@(DeltaId i) d) = do
         VM.modify rMap1 (addToVector r) i
-        VM.write dMap1 i d
+        VM.write dMap n (DeltaBinding1 did d)
       eval1' :: Vector r -> Delta1' r -> ST s ()
       eval1' !r = \case
         Zero1 -> return ()
@@ -587,9 +572,9 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval1 r $ inlineDerivative1 codeOut primalArgs dualArgs
         Delay1 d -> eval1 r d
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
-      eval2 !r (Delta2 (DeltaId i) d) = do
+      eval2 !r (Delta2 n did@(DeltaId i) d) = do
         VM.modify rMap2 (addToMatrix r) i
-        VM.write dMap2 i d
+        VM.write dMap n (DeltaBinding2 did d)
       eval2' :: MO.MatrixOuter r -> Delta2' r -> ST s ()
       eval2' !r = \case
         Zero2 -> return ()
@@ -646,9 +631,9 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval2 r $ inlineDerivative2 codeOut primalArgs dualArgs
         Delay2 d -> eval2 r d
       evalX :: OT.Array r -> DeltaX r -> ST s ()
-      evalX !r (DeltaX (DeltaId i) d) = do
+      evalX !r (DeltaX n did@(DeltaId i) d) = do
         VM.modify rMapX (addToArray r) i
-        VM.write dMapX i d
+        VM.write dMap n (DeltaBindingX did d)
       evalX' :: OT.Array r -> DeltaX' r -> ST s ()
       evalX' !r = \case
         ZeroX -> return ()
@@ -693,9 +678,9 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         DelayX d -> evalX r d
       evalS :: OS.Shape sh
             => OS.Array sh r -> DeltaS sh r -> ST s ()
-      evalS !r (DeltaS (DeltaId i) d) = do
+      evalS !r (DeltaS n did@(DeltaId i) d) = do
         VM.modify rMapX (addToArrayS r) i
-        VM.write dMapS i (DeltaSAll d)
+        VM.write dMap n (DeltaBindingS did d)
       evalS' :: OS.Shape sh
              => OS.Array sh r -> DeltaS' sh r -> ST s ()
       evalS' !r = \case
@@ -742,7 +727,9 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
   eval0 dt deltaTopLevel
 
   let evalUnlessZero :: DeltaBinding r -> ST s ()
-      evalUnlessZero (DeltaBinding0 (DeltaId i) d) = do
+      evalUnlessZero = undefined
+      {-
+                       (DeltaBinding0 (DeltaId i) d) = do
         r <- rMap0 `VM.read` i
         unless (r == 0) $  -- we init with exactly 0.0 so the comparison works
           eval0 r d
@@ -758,7 +745,8 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         r <- rMapX `VM.read` i
         unless (isTensorDummy r) $
           evalX r d
-  mapM_ evalUnlessZero (deltaBindings st)  -- TODO: walk down over dMap*
+-}
+  mapM_ evalUnlessZero []  -- TODO: walk down over dMap
   return (rMap0, rMap1, rMap2, rMapX)
 {-# SPECIALIZE buildFinMaps
   :: (CodeOut -> [Double] -> [Delta0 Double] -> Delta0 Double)
@@ -797,8 +785,8 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
                     st deltaTopLevel
                     _ds@(params0Init, params1Init, params2Init, paramsXInit) =
   let eval0 :: Domains r -> Delta0 r -> r
-      eval0 (params0, _, _, _) (Delta0 (DeltaId i) Input0) = params0 V.! i
-      eval0 parameters (Delta0 _ d) = eval0' parameters d
+      eval0 (params0, _, _, _) (Delta0 _ (DeltaId i) Input0) = params0 V.! i
+      eval0 parameters (Delta0 _ _ d) = eval0' parameters d
       eval0' :: Domains r -> Delta0' r -> r
       eval0' parameters = \case
         Zero0 -> 0
@@ -818,8 +806,8 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval0 parameters $ inlineDerivative0 codeOut primalArgs dualArgs
         Delay0 d -> eval0 parameters d
       eval1 :: Domains r -> Delta1 r -> Vector r
-      eval1 (_, params1, _, _) (Delta1 (DeltaId i) Input1) = params1 V.! i
-      eval1 parameters (Delta1 _ d) = eval1' parameters d
+      eval1 (_, params1, _, _) (Delta1 _ (DeltaId i) Input1) = params1 V.! i
+      eval1 parameters (Delta1 _ _ d) = eval1' parameters d
       eval1' :: Domains r -> Delta1' r -> Vector r
       eval1' parameters = \case
         Zero1 -> 0
@@ -851,8 +839,8 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval1 parameters $ inlineDerivative1 codeOut primalArgs dualArgs
         Delay1 d -> eval1 parameters d
       eval2 :: Domains r -> Delta2 r -> Matrix r
-      eval2 ( _, _, params2, _) (Delta2 (DeltaId i) Input2) = params2 V.! i
-      eval2 parameters (Delta2 _ d) = eval2' parameters d
+      eval2 ( _, _, params2, _) (Delta2 _ (DeltaId i) Input2) = params2 V.! i
+      eval2 parameters (Delta2 _ _ d) = eval2' parameters d
       eval2' :: Domains r -> Delta2' r -> Matrix r
       eval2' parameters = \case
         Zero2 -> 0
@@ -898,8 +886,8 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval2 parameters $ inlineDerivative2 codeOut primalArgs dualArgs
         Delay2 d -> eval2 parameters d
       evalX :: Domains r -> DeltaX r -> OT.Array r
-      evalX ( _, _, _, paramsX) (DeltaX (DeltaId i) InputX) = paramsX V.! i
-      evalX parameters (DeltaX _ d) = evalX' parameters d
+      evalX ( _, _, _, paramsX) (DeltaX _ (DeltaId i) InputX) = paramsX V.! i
+      evalX parameters (DeltaX _ _ d) = evalX' parameters d
       evalX' :: Domains r -> DeltaX' r -> OT.Array r
       evalX' parameters = \case
         ZeroX -> 0
@@ -930,9 +918,9 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
           evalX parameters $ inlineDerivativeX codeOut primalArgs dualArgs
         DelayX d -> evalX parameters d
       evalS :: OS.Shape sh => Domains r -> DeltaS sh r -> OS.Array sh r
-      evalS ( _, _, _, paramsX) (DeltaS (DeltaId i) InputS) =
+      evalS ( _, _, _, paramsX) (DeltaS _ (DeltaId i) InputS) =
         Data.Array.Convert.convert $ paramsX V.! i
-      evalS parameters (DeltaS _ d) = evalS' parameters d
+      evalS parameters (DeltaS _ _ d) = evalS' parameters d
       evalS' :: OS.Shape sh => Domains r -> DeltaS' sh r -> OS.Array sh r
       evalS' parameters = \case
         ZeroS -> 0
@@ -963,7 +951,9 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
 #endif
 
       evalUnlessZero :: Domains r -> DeltaBinding r -> Domains r
-      evalUnlessZero parameters@(!params0, !params1, !params2, !paramsX) = \case
+      evalUnlessZero parameters@(!params0, !params1, !params2, !paramsX) = undefined
+{-
+ \case
         DeltaBinding0 (DeltaId i) d ->
           let v = eval0 parameters d
           in (params0 V.// [(i, v)], params1, params2, paramsX)
@@ -976,9 +966,9 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
         DeltaBindingX (DeltaId i) d ->
           let v = evalX parameters d
           in (params0, params1, params2, paramsX V.// [(i, v)])
+-}
       parameters1 = runST $ do
-        (rMap0, rMap1, outerFinMap2, rMapX, _, _, _, _, _)
-          <- initializeFinMaps st
+        (rMap0, rMap1, outerFinMap2, rMapX, _) <- initializeFinMaps st
         -- We use normal hmatrix matrices rather than the sparse replacement.
         rMap2 <- VM.replicate (VM.length outerFinMap2) (HM.fromRows [])
         -- TODO: the following coredumps without the @VM.take@; it's a shame
@@ -993,31 +983,8 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
         v2 <- V.unsafeFreeze rMap2
         vX <- V.unsafeFreeze rMapX
         return (v0, v1, v2, vX)
-      parametersB = foldl' evalUnlessZero parameters1
-                           (reverse $ deltaBindings st)
+      parametersB = foldl' evalUnlessZero parameters1 []  -- TODO
   in eval0 parametersB deltaTopLevel
-
--- | This is yet another semantics of delta-expressions and their
--- bindings --- by pretty-printing as texts.
-ppBindings :: (Show r, Numeric r) => Bool -> DeltaState r -> Delta0 r -> String
-ppBindings reversed st deltaTopLevel =
-  let pp = if reversed
-           then foldl' (\ !l b -> l ++ ppBinding "where" b)
-                       ["COMPUTE " ++ ppShow deltaTopLevel ++ "\n"]
-           else foldl' (\ !l b -> ppBinding "let" b ++ l)
-                       ["in " ++ ppShow deltaTopLevel ++ "\n"]
-  in concat $ pp $ deltaBindings st
-
-ppBinding :: (Show r, Numeric r) => String -> DeltaBinding r -> [String]
-ppBinding prefix = \case
-  DeltaBinding0 (DeltaId i) d ->
-    [prefix ++ "0 DeltaId_", show i, " = ", ppShow d, "\n"]
-  DeltaBinding1 (DeltaId i) d ->
-    [prefix ++ "1 DeltaId_", show i, " = ", ppShow d, "\n"]
-  DeltaBinding2 (DeltaId i) d ->
-    [prefix ++ "2 DeltaId_", show i, " = ", ppShow d, "\n"]
-  DeltaBindingX (DeltaId i) d ->
-    [prefix ++ "X DeltaId_", show i, " = ", ppShow d, "\n"]
 
 {- Note [SumElements0]
 ~~~~~~~~~~~~~~~~~~~~~~
