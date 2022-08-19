@@ -6,6 +6,8 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 #endif
+-- Needed due to unsafePerformIO:
+{-# OPTIONS_GHC -fno-full-laziness -fno-cse #-}
 -- | The class defining dual components of dual numbers and related classes,
 -- type families, constraints and instances. This is a low-level API
 -- used to define types and operations in "HordeAd.Core.DualNumber"
