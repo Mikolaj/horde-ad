@@ -7,11 +7,12 @@ import qualified Data.Array.Convert
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
+import           System.IO.Unsafe (unsafePerformIO)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
-import TestCommon ((+\), (*\), fquad, quad)
+import TestCommon (fquad, quad, (*\), (+\))
 import TestCommonEqEpsilon
 
 testTrees :: [TestTree]
@@ -28,7 +29,7 @@ gdSimpleShow :: HasDelta r
              -> ([r], r)
 gdSimpleShow gamma f initVec n =
   let (res, _, _, _) = gdSimple gamma f n (initVec, V.empty, V.empty, V.empty)
-      (_, value) = dReverse 1 f (res, V.empty, V.empty, V.empty)
+      (_, value) = unsafePerformIO $ dReverse 1 f (res, V.empty, V.empty, V.empty)
   in (V.toList res, value)
 
 -- Catastrophic loss of sharing prevented via the monad.
@@ -142,7 +143,7 @@ adaptDReverseRecord dt f (ARecord a b) =
   let initVec = V.fromList $ map Data.Array.Convert.convert [a, b]
       g = adaptFunctionRecord f
       ((_, _, _, gradient), value) =
-        dReverse dt g (V.empty, V.empty, V.empty, initVec)
+        unsafePerformIO $ dReverse dt g (V.empty, V.empty, V.empty, initVec)
       gradientRecord = case V.toList gradient of
         [a2, b2] -> ARecord (Data.Array.Convert.convert a2)
                             (Data.Array.Convert.convert b2)

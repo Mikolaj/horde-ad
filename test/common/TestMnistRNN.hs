@@ -16,6 +16,7 @@ import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Matrix, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           System.IO (hPutStrLn, stderr)
+import           System.IO.Unsafe (unsafePerformIO)
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -136,7 +137,7 @@ sgdShow :: HasDelta r
         -> r
 sgdShow f trainData parameters =
   let result = fst $ sgd 0.1 f trainData parameters
-  in snd $ dReverse 1 (f $ head trainData) result
+  in snd $ unsafePerformIO $ dReverse 1 (f $ head trainData) result
 
 sgdTestCase :: String
             -> (a
