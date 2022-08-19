@@ -66,7 +66,6 @@ import qualified Data.Array.Internal.DynamicS
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import           Data.Kind (Type)
-import           Data.List (foldl')
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Strict.Vector.Autogen.Mutable as Data.Vector.Mutable
@@ -76,7 +75,6 @@ import qualified Data.Vector.Storable.Mutable
 import           GHC.TypeLits (KnownNat, Nat, natVal, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, (#>), (<.>))
 import qualified Numeric.LinearAlgebra as HM
-import           Text.Show.Pretty (ppShow)
 
 import qualified HordeAd.Internal.MatrixOuter as MO
 import           HordeAd.Internal.OrthotopeOrphanInstances (liftVS2, liftVT2)
@@ -471,7 +469,7 @@ initializeFinMaps st = do
   rMap1 <- VM.replicate counter1 (V.empty :: Vector r)  -- below dummy values
   rMap2 <- VM.replicate counter2 MO.emptyMatrixOuter
   rMapX <- VM.replicate counterX dummyTensor
-  dMap <- VM.replicate n (DeltaBinding0 (toDeltaId 0) Input0)  -- dummy
+  dMap <- VM.replicate n (DeltaBinding0 (toDeltaId 0) Input0)  -- safe dummy
   return (rMap0, rMap1, rMap2, rMapX, dMap)
 
 buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
@@ -727,26 +725,32 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
   eval0 dt deltaTopLevel
 
   let evalUnlessZero :: DeltaBinding r -> ST s ()
-      evalUnlessZero = undefined
-      {-
-                       (DeltaBinding0 (DeltaId i) d) = do
+      evalUnlessZero (DeltaBinding0 (DeltaId i) d) = do
         r <- rMap0 `VM.read` i
         unless (r == 0) $  -- we init with exactly 0.0 so the comparison works
-          eval0 r d
+          eval0' r d
       evalUnlessZero (DeltaBinding1 (DeltaId i) d) = do
         r <- rMap1 `VM.read` i
         unless (V.null r) $
-          eval1 r d
+          eval1' r d
       evalUnlessZero (DeltaBinding2 (DeltaId i) d) = do
         r <- rMap2 `VM.read` i
         unless (MO.nullMatrixOuter r) $
-          eval2 r d
+          eval2' r d
       evalUnlessZero (DeltaBindingX (DeltaId i) d) = do
         r <- rMapX `VM.read` i
         unless (isTensorDummy r) $
-          evalX r d
--}
-  mapM_ evalUnlessZero []  -- TODO: walk down over dMap
+          evalX' r d
+      evalUnlessZero (DeltaBindingS (DeltaId i) d) = do
+        r <- rMapX `VM.read` i
+        unless (isTensorDummy r) $
+          evalS' (Data.Array.Convert.convert r) d
+      evalFromdMap :: Int -> ST s ()
+      evalFromdMap k = do
+        d <- dMap `VM.read` k
+        evalUnlessZero d
+      n = deltaCounter st
+  mapM_ evalFromdMap [n-1, n-2 .. 1]
   return (rMap0, rMap1, rMap2, rMapX)
 {-# SPECIALIZE buildFinMaps
   :: (CodeOut -> [Double] -> [Delta0 Double] -> Delta0 Double)
@@ -950,23 +954,6 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
         DelayS d -> evalS parameters d
 #endif
 
-      evalUnlessZero :: Domains r -> DeltaBinding r -> Domains r
-      evalUnlessZero parameters@(!params0, !params1, !params2, !paramsX) = undefined
-{-
- \case
-        DeltaBinding0 (DeltaId i) d ->
-          let v = eval0 parameters d
-          in (params0 V.// [(i, v)], params1, params2, paramsX)
-        DeltaBinding1 (DeltaId i) d ->
-          let v = eval1 parameters d
-          in (params0, params1 V.// [(i, v)], params2, paramsX)
-        DeltaBinding2 (DeltaId i) d ->
-          let v = eval2 parameters d
-          in (params0, params1, params2 V.// [(i, v)], paramsX)
-        DeltaBindingX (DeltaId i) d ->
-          let v = evalX parameters d
-          in (params0, params1, params2, paramsX V.// [(i, v)])
--}
       parameters1 = runST $ do
         (rMap0, rMap1, outerFinMap2, rMapX, _) <- initializeFinMaps st
         -- We use normal hmatrix matrices rather than the sparse replacement.
@@ -983,8 +970,7 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
         v2 <- V.unsafeFreeze rMap2
         vX <- V.unsafeFreeze rMapX
         return (v0, v1, v2, vX)
-      parametersB = foldl' evalUnlessZero parameters1 []  -- TODO
-  in eval0 parametersB deltaTopLevel
+  in eval0 parameters1 deltaTopLevel
 
 {- Note [SumElements0]
 ~~~~~~~~~~~~~~~~~~~~~~
