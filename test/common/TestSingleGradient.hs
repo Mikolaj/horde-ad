@@ -261,7 +261,7 @@ testDReverse1 = testGroup "Simple dReverse application to vectors tests" $
 testPrintDf :: TestTree
 testPrintDf = testGroup "Pretty printing test" $
   map (\(txt, f, v, expected) ->
-        testCase txt $ prettyPrintDf False f
+        testCase txt $ prettyPrintDf f
           (V.empty, V.fromList (map V.fromList v), V.empty, V.empty)
         @?= expected)
     [ ( "sumElementsV", sumElementsV, [[1 :: Float, 1, 3]]
