@@ -7,6 +7,7 @@ import Prelude
 import           Criterion.Main
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Vector)
+import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd
 
@@ -147,7 +148,7 @@ vec_prod ds = primalValue vec_prod_aux (ds, V.empty, V.empty, V.empty)
 
 grad_vec_prod :: HasDelta r => Vector r -> Vector r
 grad_vec_prod ds =
-  (\(v, _, _, _) -> v) $ fst $ dReverse 1 vec_prod_aux (ds, V.empty, V.empty, V.empty)
+  (\(v, _, _, _) -> v) $ fst $ unsafePerformIO $ dReverse 1 vec_prod_aux (ds, V.empty, V.empty, V.empty)
 
 grad_toList_prod :: HasDelta r => [r] -> [r]
 grad_toList_prod l = V.toList $ grad_vec_prod $ V.fromList l
@@ -173,7 +174,7 @@ grad_vec_omit_prod :: HasDelta r
                    => Vector r -> Vector r
 grad_vec_omit_prod ds =
   (\(v, _, _, _) -> v)
-  $ fst $ dReverse 1 vec_omit_prod_aux (ds, V.empty, V.empty, V.empty)
+  $ fst $ unsafePerformIO $ dReverse 1 vec_omit_prod_aux (ds, V.empty, V.empty, V.empty)
 
 
 vec_omit_scalarSum_aux
@@ -198,14 +199,14 @@ altSumElementsV variables = do
 grad_vec_omit_scalarSum :: HasDelta r => Vector r -> Vector r
 grad_vec_omit_scalarSum ds =
   (\(v, _, _, _) -> v)
-  $ fst $ dReverse 1 vec_omit_scalarSum_aux (ds, V.empty, V.empty, V.empty)
+  $ fst $ unsafePerformIO $ dReverse 1 vec_omit_scalarSum_aux (ds, V.empty, V.empty, V.empty)
 
 grad_vec_omit_sum :: Vector Double -> Vector Double
 grad_vec_omit_sum ds =
   (\(_, v, _, _) -> V.head v)
-  $ fst $ dReverse 1 sumElementsV (V.empty, V.singleton ds, V.empty, V.empty)
+  $ fst $ unsafePerformIO $ dReverse 1 sumElementsV (V.empty, V.singleton ds, V.empty, V.empty)
 
 grad_vec_omit_altSum :: Vector Double -> Vector Double
 grad_vec_omit_altSum ds =
   (\(_, v, _, _) -> V.head v)
-  $ fst $ dReverse 1 altSumElementsV (V.empty, V.singleton ds, V.empty, V.empty)
+  $ fst $ unsafePerformIO $ dReverse 1 altSumElementsV (V.empty, V.singleton ds, V.empty, V.empty)
