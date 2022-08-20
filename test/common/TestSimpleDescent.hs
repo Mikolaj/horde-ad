@@ -51,10 +51,10 @@ fblowup variables = do
 -- node in @Outline@. A version of @Outline@ that accepts
 -- arbitrary uncomputed expressions, or even only those composed entirely from
 -- primitive arithmetic function applications, would be much more complex.
-fblowupOut :: forall d r m. ( DualMonad d r m
+_fblowupOut :: forall d r m. ( DualMonad d r m
                             , Fractional (Out (DualNumber d r)) )
            => DualNumberVariables d r -> m (DualNumber d r)
-fblowupOut variables = do
+_fblowupOut variables = do
   let blowup :: Int -> Out (DualNumber d r) -> m (DualNumber d r)
       blowup 0 y = return $ unOut y
       blowup n y = do
@@ -67,10 +67,10 @@ fblowupOut variables = do
 -- Delaying is not a substitute for sharing preservation via monads.
 -- We'd need another kind of variables to store the Outline contents
 -- and share it and its computation.
-fblowupOutNoM :: forall d r m. ( DualMonad d r m
+_fblowupOutNoM :: forall d r m. ( DualMonad d r m
                                , Fractional (Out (DualNumber d r)) )
               => DualNumberVariables d r -> m (DualNumber d r)
-fblowupOutNoM variables = do
+_fblowupOutNoM variables = do
   let blowup :: Int -> Out (DualNumber d r) -> DualNumber d r
       blowup 0 y = unOut y
       blowup n y =
@@ -107,12 +107,12 @@ gdSimpleTests = testGroup "Simple gradient descent tests"
   , testCase "blowup 0.01 1000000"
     $ gdSimpleShow 0.01 fblowup (V.fromList [2, 3]) 1000000
       @?~ ([3.5e-44,3.5e-44],4.9999523)
-  , testCase "blowupOut 0.01 1000000"
-    $ gdSimpleShow 0.01 fblowupOut (V.fromList [2, 3]) 1000000
-      @?~ ([3.5e-44,3.5e-44],4.9999523 :: Float)
-  , testCase "fblowupOutNoM 0.01 30 100 catastrophic"
-    $ gdSimpleShow 0.01 fblowupOutNoM (V.fromList [2, 3]) 100
-      @?~ ([0.26523918,0.39785874],5.228634 :: Float)
+--  , testCase "blowupOut 0.01 1000000"
+--    $ gdSimpleShow 0.01 fblowupOut (V.fromList [2, 3]) 1000000
+--      @?~ ([3.5e-44,3.5e-44],4.9999523 :: Float)
+--  , testCase "fblowupOutNoM 0.01 30 100 catastrophic"
+--    $ gdSimpleShow 0.01 fblowupOutNoM (V.fromList [2, 3]) 100
+--      @?~ ([0.26523918,0.39785874],5.228634 :: Float)
   ]
 
 data ARecord a b = ARecord a b

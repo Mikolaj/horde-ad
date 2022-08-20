@@ -187,11 +187,11 @@ sinKonst variables = do
   return $ sumElements0 $
     sin x + (id2 $ id2 $ id2 $ konst1 1 2)
 
-sinKonstOut
+_sinKonstOut
   :: ( DualMonad d r m
      , Floating (Out (DualNumber d (Vector r))) )
   => DualNumberVariables d r -> m (DualNumber d r)
-sinKonstOut variables = do
+_sinKonstOut variables = do
   let x = var1 variables 0
   return $ sumElements0 $
     unOut $ sin (Out x) + Out (id2 $ id2 $ id2 $ konst1 1 2)
@@ -219,11 +219,11 @@ powKonst variables = do
   return $ sumElements0 $
     x ** (sin x + (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
 
-powKonstOut
+_powKonstOut
   :: ( DualMonad d r m
      , Floating (Out (DualNumber d (Vector r))) )
   => DualNumberVariables d r -> m (DualNumber d r)
-powKonstOut variables = do
+_powKonstOut variables = do
   let x = var1 variables 0
   return $ sumElements0 $
     x ** unOut (sin (Out x)
@@ -247,11 +247,11 @@ sinKonstS variables = do
     ((sin x + (id2 $ id2 $ id2 $ konstS 1))
        :: DualNumber d (OS.Array '[2] r))
 
-sinKonstOutS
+_sinKonstOutS
   :: forall r d m. ( DualMonad d r m
                    , Floating (Out (DualNumber d (OS.Array '[2] r))) )
   => DualNumberVariables d r -> m (DualNumber d r)
-sinKonstOutS variables = do
+_sinKonstOutS variables = do
   let x = varS variables 0
   return $ sumElements0 $ fromS1
     (unOut (sin (Out x) + Out (id2 $ id2 $ id2 $ konstS 1))
@@ -287,14 +287,14 @@ testDReverse1 = testGroup "Simple dReverse application to vectors tests" $
     , ("altSumElementsV", altSumElementsV, [[1, 1, 3]], ([[1.0,1.0,1.0]],5.0))
     , ( "sinKonst", sinKonst, [[1, 3]]
       , ([[0.5403023,-0.9899925]],2.982591) )
-    , ( "sinKonstOut", sinKonstOut, [[1, 3]]
-      , ([[0.5403023,-0.9899925]],2.982591) )
+--    , ( "sinKonstOut", sinKonstOut, [[1, 3]]
+--      , ([[0.5403023,-0.9899925]],2.982591) )
     , ( "sinKonstDelay", sinKonstDelay, [[1, 3]]
       , ([[0.5403023,-0.9899925]],2.982591) )
     , ( "powKonst", powKonst, [[1, 3]]
       , ([[108.7523,131.60072]],95.58371) )
-    , ( "powKonstOut", powKonstOut, [[1, 3]]
-      , ([[108.7523,131.60072]],95.58371) )
+--    , ( "powKonstOut", powKonstOut, [[1, 3]]
+--      , ([[108.7523,131.60072]],95.58371) )
     , ( "powKonstDelay", powKonstDelay, [[1, 3]]
       , ([[108.7523,131.60072]],95.58371) )
     ]
@@ -324,16 +324,16 @@ testPrintDf = testGroup "Pretty printing test" $
         , "     (Scale1 [ 0.5403023 , -0.9899925 ] (Var1 (DeltaId 0)))"
         , "     (Konst1 Zero0 2))"
         , "  2" ] )
-    , ( "sinKonstOut", sinKonstOut, [[1, 3]]
-      , unlines
-        [ "in SumElements0"
-        , "  (Outline1"
-        , "     PlusOut"
-        , "     [ [ 0.84147096 , 0.14112 ] , [ 1.0 , 1.0 ] ]"
-        , "     [ Outline1 SinOut [ [ 1.0 , 3.0 ] ] [ Var1 (DeltaId 0) ]"
-        , "     , Konst1 Zero0 2"
-        , "     ])"
-        , "  2" ] )
+    -- , ( "sinKonstOut", sinKonstOut, [[1, 3]]
+    --   , unlines
+    --     [ "in SumElements0"
+    --     , "  (Outline1"
+    --     , "     PlusOut"
+    --     , "     [ [ 0.84147096 , 0.14112 ] , [ 1.0 , 1.0 ] ]"
+    --     , "     [ Outline1 SinOut [ [ 1.0 , 3.0 ] ] [ Var1 (DeltaId 0) ]"
+    --     , "     , Konst1 Zero0 2"
+    --     , "     ])"
+    --     , "  2" ] )
     , ( "powKonst", powKonst, [[1, 3]]
       , unlines
         [ "in SumElements0"
@@ -345,20 +345,20 @@ testPrintDf = testGroup "Pretty printing test" $
         , "           (Scale1 [ 0.5403023 , -0.9899925 ] (Var1 (DeltaId 0)))"
         , "           (Konst1 (SumElements0 (Var1 (DeltaId 0)) 2) 2))))"
         , "  2" ] )
-    , ( "powKonstOut", powKonstOut, [[1, 3]]
-      , unlines
-        [ "in SumElements0"
-        , "  (Add1"
-        , "     (Scale1 [ 4.8414707 , 130.56084 ] (Var1 (DeltaId 0)))"
-        , "     (Scale1"
-        , "        [ 0.0 , 103.91083 ]"
-        , "        (Outline1"
-        , "           PlusOut"
-        , "           [ [ 0.84147096 , 0.14112 ] , [ 4.0 , 4.0 ] ]"
-        , "           [ Outline1 SinOut [ [ 1.0 , 3.0 ] ] [ Var1 (DeltaId 0) ]"
-        , "           , Konst1 (SumElements0 (Var1 (DeltaId 0)) 2) 2"
-        , "           ])))"
-        , "  2" ] )
+    -- , ( "powKonstOut", powKonstOut, [[1, 3]]
+    --   , unlines
+    --     [ "in SumElements0"
+    --     , "  (Add1"
+    --     , "     (Scale1 [ 4.8414707 , 130.56084 ] (Var1 (DeltaId 0)))"
+    --     , "     (Scale1"
+    --     , "        [ 0.0 , 103.91083 ]"
+    --     , "        (Outline1"
+    --     , "           PlusOut"
+    --     , "           [ [ 0.84147096 , 0.14112 ] , [ 4.0 , 4.0 ] ]"
+    --     , "           [ Outline1 SinOut [ [ 1.0 , 3.0 ] ] [ Var1 (DeltaId 0) ]"
+    --     , "           , Konst1 (SumElements0 (Var1 (DeltaId 0)) 2) 2"
+    --     , "           ])))"
+    --     , "  2" ] )
     ]
 
 testDForward :: TestTree
@@ -399,14 +399,14 @@ quickCheckForwardAndBackward =
              (\(x, y, z) -> ([], [x, y, z], [], []))
     , quickCheckTest0 "sinKonst" sinKonst  -- powKonst NaNs immediately
              (\(x, _, z) -> ([], [x, z], [], []))
-    , quickCheckTest0 "sinKonstOut" sinKonstOut
-             (\(x, _, z) -> ([], [x, z], [], []))
+--    , quickCheckTest0 "sinKonstOut" sinKonstOut
+--             (\(x, _, z) -> ([], [x, z], [], []))
     , quickCheckTest0 "sinKonstDelay" sinKonstDelay
              (\(x, _, z) -> ([], [x, z], [], []))
     , quickCheckTest0 "sinKonstS" sinKonstS
              (\(x, _, z) -> ([], [], [], [x, z]))
-    , quickCheckTest0 "sinKonstOutS" sinKonstOutS
-             (\(x, _, z) -> ([], [], [], [x, z]))
+--    , quickCheckTest0 "sinKonstOutS" sinKonstOutS
+--             (\(x, _, z) -> ([], [], [], [x, z]))
     , quickCheckTest0 "sinKonstDelayS" sinKonstDelayS
              (\(x, _, z) -> ([], [], [], [x, z]))
    ]
