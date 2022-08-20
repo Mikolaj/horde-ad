@@ -32,14 +32,17 @@ import HordeAd.Tool.MnistData
 import TestCommon
 import TestCommonEqEpsilon
 
+-- Compiling with -fno-full-laziness -fno-cse panics GHC, so we turn
+-- the tests off instead until plugin ports let us move to HEAD.
+
 testTrees :: [TestTree]
-testTrees = [ mnistCNNTestsShort
-            , mnistCNNTestsLong
-            ]
+testTrees = [] -- mnistCNNTestsShort
+--            , mnistCNNTestsLong
+--            ]
 
 shortTestForCITrees :: [TestTree]
-shortTestForCITrees = [ mnistCNNTestsShort
-                      ]
+shortTestForCITrees = []  -- mnistCNNTestsShort
+--                      ]
 
 -- * The simplest possible convolutional net, based on
 -- https://www.ritchieng.com/machine-learning/deep-learning/tensorflow/convnets/#Problem-1
