@@ -1,4 +1,6 @@
 {-# LANGUAGE DataKinds, TypeFamilies #-}
+-- Needed due to unsafePerformIO:
+{-# OPTIONS_GHC -fno-full-laziness -fno-cse #-}
 module TestOutdated (testTrees) where
 
 import Prelude

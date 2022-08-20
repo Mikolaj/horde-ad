@@ -1,9 +1,9 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, FlexibleInstances, UndecidableInstances #-}
-
+{-# LANGUAGE FlexibleInstances, GeneralizedNewtypeDeriving,
+             UndecidableInstances #-}
 module TestCommonEqEpsilon (EqEpsilon, setEpsilonEq, assertCloseElem, (@?~)) where
 
-import Prelude
 import Data.Typeable
+import Prelude
 
 import           Data.IORef
 import qualified Data.Vector.Generic as VG
