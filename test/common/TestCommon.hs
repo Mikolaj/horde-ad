@@ -1,4 +1,6 @@
 {-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
+-- Needed due to unsafePerformIO:
+{-# OPTIONS_GHC -fno-full-laziness -fno-cse #-}
 module TestCommon ((+\), (*\), (**\),
                    listsToParameters,
                    cmpTwo, cmpTwoSimple,
