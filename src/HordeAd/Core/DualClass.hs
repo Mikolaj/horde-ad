@@ -250,130 +250,130 @@ instance IsPrimal 'DModeGradient Double where
     -- from the optimization (even with -O0) that replaces all calls
     -- to dZero with a call to a shared top level one, performing counter
     -- increment only once per program.
-  dScale k d = wrapDelta0 $ Scale0 k d
-  dAdd d e = wrapDelta0 $ Add0 d e
-  dDelay d = wrapDelta0 $ Delay0 d
+  dScale !k !d = wrapDelta0 $ Scale0 k d
+  dAdd !d !e = wrapDelta0 $ Add0 d e
+  dDelay !d = wrapDelta0 $ Delay0 d
 
 instance IsPrimal 'DModeGradient Float where
   -- Identical as above:
   dZero = Delta0 0 (toDeltaId (-1)) Zero0
-  dScale k d = wrapDelta0 $ Scale0 k d
-  dAdd d e = wrapDelta0 $ Add0 d e
-  dDelay d = wrapDelta0 $ Delay0 d
+  dScale !k !d = wrapDelta0 $ Scale0 k d
+  dAdd !d !e = wrapDelta0 $ Add0 d e
+  dDelay !d = wrapDelta0 $ Delay0 d
 
 instance IsPrimal 'DModeGradient (Vector r) where
   dZero = Delta1 0 (toDeltaId (-1)) Zero1
-  dScale k d = wrapDelta1 $ Scale1 k d
-  dAdd d e = wrapDelta1 $ Add1 d e
-  dDelay d = wrapDelta1 $ Delay1 d
+  dScale !k !d = wrapDelta1 $ Scale1 k d
+  dAdd !d !e = wrapDelta1 $ Add1 d e
+  dDelay !d = wrapDelta1 $ Delay1 d
 
 instance IsPrimal 'DModeGradient (Matrix r) where
   dZero = Delta2 0 (toDeltaId (-1)) Zero2
-  dScale k d = wrapDelta2 $ Scale2 k d
-  dAdd d e = wrapDelta2 $ Add2 d e
-  dDelay d = wrapDelta2 $ Delay2 d
+  dScale !k !d = wrapDelta2 $ Scale2 k d
+  dAdd !d !e = wrapDelta2 $ Add2 d e
+  dDelay !d = wrapDelta2 $ Delay2 d
 
 instance IsPrimal 'DModeGradient (OT.Array r) where
   dZero = DeltaX 0 (toDeltaId (-1)) ZeroX
-  dScale k d = wrapDeltaX $ ScaleX k d
-  dAdd d e = wrapDeltaX $ AddX d e
-  dDelay d = wrapDeltaX $ DelayX d
+  dScale !k !d = wrapDeltaX $ ScaleX k d
+  dAdd !d !e = wrapDeltaX $ AddX d e
+  dDelay !d = wrapDeltaX $ DelayX d
 
 instance IsPrimalS 'DModeGradient r where
   dZeroS = DeltaS 0 (toDeltaId (-1)) ZeroS
-  dScaleS k d = wrapDeltaS $ ScaleS k d
-  dAddS d e = wrapDeltaS $ AddS d e
-  dDelayS d = wrapDeltaS $ DelayS d
+  dScaleS !k !d = wrapDeltaS $ ScaleS k d
+  dAddS !d !e = wrapDeltaS $ AddS d e
+  dDelayS !d = wrapDeltaS $ DelayS d
 
 instance HasVariables Double where
-  dVar i = Delta0 0 i Input0
-  dOutline codeOut primalArgs dualArgs =
+  dVar !i = Delta0 0 i Input0
+  dOutline codeOut primalArgs !dualArgs =
     wrapDelta0 $ Outline0 codeOut primalArgs dualArgs
 
 instance HasVariables Float where
-  dVar i = Delta0 0 i Input0
-  dOutline codeOut primalArgs dualArgs =
+  dVar !i = Delta0 0 i Input0
+  dOutline codeOut primalArgs !dualArgs =
     wrapDelta0 $ Outline0 codeOut primalArgs dualArgs
 
 instance HasVariables (Vector r) where
-  dVar i = Delta1 0 i Input1
-  dOutline codeOut primalArgs dualArgs =
+  dVar !i = Delta1 0 i Input1
+  dOutline codeOut primalArgs !dualArgs =
     wrapDelta1 $ Outline1 codeOut primalArgs dualArgs
 
 instance HasVariables (Matrix r) where
-  dVar i = Delta2 0 i Input2
-  dOutline codeOut primalArgs dualArgs =
+  dVar !i = Delta2 0 i Input2
+  dOutline codeOut primalArgs !dualArgs =
     wrapDelta2 $ Outline2 codeOut primalArgs dualArgs
 
 instance HasVariables (OT.Array r) where
-  dVar i = DeltaX 0 i InputX
-  dOutline codeOut primalArgs dualArgs =
+  dVar !i = DeltaX 0 i InputX
+  dOutline codeOut primalArgs !dualArgs =
     wrapDeltaX $ OutlineX codeOut primalArgs dualArgs
 
 instance HasVariables (OS.Array sh r) where
-  dVar i = DeltaS 0 i InputS
-  dOutline codeOut primalArgs dualArgs =
+  dVar !i = DeltaS 0 i InputS
+  dOutline codeOut primalArgs !dualArgs =
     wrapDeltaS $ OutlineS codeOut primalArgs dualArgs
 
 instance Dual 'DModeGradient r ~ Delta0 r
          => HasRanks 'DModeGradient r where
-  dSumElements0 vd n = wrapDelta0 $ SumElements0 vd n
-  dIndex0 d ix k = wrapDelta0 $ Index0 d ix k
-  dDot0 v vd = wrapDelta0 $ Dot0 v vd
-  dFromX0 d = wrapDelta0 $ FromX0 d
-  dFromS0 d = wrapDelta0 $ FromS0 d
-  dSeq1 lsd = wrapDelta1 $ Seq1 lsd
-  dKonst1 d n = wrapDelta1 $ Konst1 d n
-  dAppend1 d k e = wrapDelta1 $ Append1 d k e
-  dSlice1 i n d len = wrapDelta1 $ Slice1 i n d len
-  dSumRows1 dm cols = wrapDelta1 $ SumRows1 dm cols
-  dSumColumns1 dm rows = wrapDelta1 $ SumColumns1 dm rows
-  dM_VD1 m dRow = wrapDelta1 $ M_VD1 m dRow
-  dMD_V1 md row = wrapDelta1 $ MD_V1 md row
-  dFromX1 d = wrapDelta1 $ FromX1 d
-  dFromS1 d = wrapDelta1 $ FromS1 d
-  dReverse1 d = wrapDelta1 $ Reverse1 d
-  dFlatten1 rows cols d = wrapDelta1 $ Flatten1 rows cols d
-  dFlattenX1 sh d = wrapDelta1 $ FlattenX1 sh d
-  dFlattenS1 d = wrapDelta1 $ FlattenS1 d
-  dFromRows2 lvd = wrapDelta2 $ FromRows2 lvd
-  dFromColumns2 lvd = wrapDelta2 $ FromColumns2 lvd
-  dKonst2 d sz = wrapDelta2 $ Konst2 d sz
-  dTranspose2 md = wrapDelta2 $ Transpose2 md
-  dM_MD2 m md = wrapDelta2 $ M_MD2 m md
-  dMD_M2 md m = wrapDelta2 $ MD_M2 md m
-  dRowAppend2 d k e = wrapDelta2 $ RowAppend2 d k e
-  dColumnAppend2 d k e = wrapDelta2 $ ColumnAppend2 d k e
-  dRowSlice2 i n d rows = wrapDelta2 $ RowSlice2 i n d rows
-  dColumnSlice2 i n d cols = wrapDelta2 $ ColumnSlice2 i n d cols
-  dAsRow2 dRow = wrapDelta2 $ AsRow2 dRow
-  dAsColumn2 dCol = wrapDelta2 $ AsColumn2 dCol
-  dFromX2 d = wrapDelta2 $ FromX2 d
-  dFromS2 d = wrapDelta2 $ FromS2 d
-  dFlipud2 d = wrapDelta2 $ Flipud2 d
-  dFliprl2 d = wrapDelta2 $ Fliprl2 d
-  dReshape2 cols d = wrapDelta2 $ Reshape2 cols d
-  dConv2 m md = wrapDelta2 $ Conv2 m md
-  dKonstX d sz = wrapDeltaX $ KonstX d sz
-  dAppendX d k e = wrapDeltaX $ AppendX d k e
-  dSliceX i n d len = wrapDeltaX $ SliceX i n d len
-  dIndexX d ix len = wrapDeltaX $ IndexX d ix len
-  dRavelFromListX ld = wrapDeltaX $ RavelFromListX ld
-  dReshapeX sh sh' d = wrapDeltaX $ ReshapeX sh sh' d
-  dFrom0X d = wrapDeltaX $ From0X d
-  dFrom1X d = wrapDeltaX $ From1X d
-  dFrom2X d cols = wrapDeltaX $ From2X d cols
-  dFromSX d = wrapDeltaX $ FromSX d
-  dKonstS d = wrapDeltaS $ KonstS d
-  dAppendS d e = wrapDeltaS $ AppendS d e
-  dSliceS iProxy nProxy d = wrapDeltaS $ SliceS iProxy nProxy d
-  dIndexS d ixProxy = wrapDeltaS $ IndexS d ixProxy
-  dRavelFromListS ld = wrapDeltaS $ RavelFromListS ld
-  dReshapeS d = wrapDeltaS $ ReshapeS d
-  dFrom0S d = wrapDeltaS $ From0S d
-  dFrom1S d = wrapDeltaS $ From1S d
-  dFrom2S proxyCols d = wrapDeltaS $ From2S proxyCols d
-  dFromXS d = wrapDeltaS $ FromXS d
+  dSumElements0 !vd !n = wrapDelta0 $ SumElements0 vd n
+  dIndex0 !d !ix !k = wrapDelta0 $ Index0 d ix k
+  dDot0 !v !vd = wrapDelta0 $ Dot0 v vd
+  dFromX0 !d = wrapDelta0 $ FromX0 d
+  dFromS0 !d = wrapDelta0 $ FromS0 d
+  dSeq1 !lsd = wrapDelta1 $ Seq1 lsd
+  dKonst1 !d !n = wrapDelta1 $ Konst1 d n
+  dAppend1 !d !k !e = wrapDelta1 $ Append1 d k e
+  dSlice1 !i !n !d !len = wrapDelta1 $ Slice1 i n d len
+  dSumRows1 !dm !cols = wrapDelta1 $ SumRows1 dm cols
+  dSumColumns1 !dm !rows = wrapDelta1 $ SumColumns1 dm rows
+  dM_VD1 !m !dRow = wrapDelta1 $ M_VD1 m dRow
+  dMD_V1 !md !row = wrapDelta1 $ MD_V1 md row
+  dFromX1 !d = wrapDelta1 $ FromX1 d
+  dFromS1 !d = wrapDelta1 $ FromS1 d
+  dReverse1 !d = wrapDelta1 $ Reverse1 d
+  dFlatten1 !rows !cols !d = wrapDelta1 $ Flatten1 rows cols d
+  dFlattenX1 !sh !d = wrapDelta1 $ FlattenX1 sh d
+  dFlattenS1 !d = wrapDelta1 $ FlattenS1 d
+  dFromRows2 !lvd = wrapDelta2 $ FromRows2 lvd
+  dFromColumns2 !lvd = wrapDelta2 $ FromColumns2 lvd
+  dKonst2 !d !sz = wrapDelta2 $ Konst2 d sz
+  dTranspose2 !md = wrapDelta2 $ Transpose2 md
+  dM_MD2 !m !md = wrapDelta2 $ M_MD2 m md
+  dMD_M2 !md !m = wrapDelta2 $ MD_M2 md m
+  dRowAppend2 !d !k !e = wrapDelta2 $ RowAppend2 d k e
+  dColumnAppend2 !d !k !e = wrapDelta2 $ ColumnAppend2 d k e
+  dRowSlice2 !i !n !d !rows = wrapDelta2 $ RowSlice2 i n d rows
+  dColumnSlice2 !i !n !d !cols = wrapDelta2 $ ColumnSlice2 i n d cols
+  dAsRow2 !dRow = wrapDelta2 $ AsRow2 dRow
+  dAsColumn2 !dCol = wrapDelta2 $ AsColumn2 dCol
+  dFromX2 !d = wrapDelta2 $ FromX2 d
+  dFromS2 !d = wrapDelta2 $ FromS2 d
+  dFlipud2 !d = wrapDelta2 $ Flipud2 d
+  dFliprl2 !d = wrapDelta2 $ Fliprl2 d
+  dReshape2 !cols !d = wrapDelta2 $ Reshape2 cols d
+  dConv2 !m !md = wrapDelta2 $ Conv2 m md
+  dKonstX !d !sz = wrapDeltaX $ KonstX d sz
+  dAppendX !d !k !e = wrapDeltaX $ AppendX d k e
+  dSliceX !i !n !d !len = wrapDeltaX $ SliceX i n d len
+  dIndexX !d !ix !len = wrapDeltaX $ IndexX d ix len
+  dRavelFromListX !ld = wrapDeltaX $ RavelFromListX ld
+  dReshapeX !sh !sh' !d = wrapDeltaX $ ReshapeX sh sh' d
+  dFrom0X !d = wrapDeltaX $ From0X d
+  dFrom1X !d = wrapDeltaX $ From1X d
+  dFrom2X !d !cols = wrapDeltaX $ From2X d cols
+  dFromSX !d = wrapDeltaX $ FromSX d
+  dKonstS !d = wrapDeltaS $ KonstS d
+  dAppendS !d !e = wrapDeltaS $ AppendS d e
+  dSliceS !iProxy !nProxy !d = wrapDeltaS $ SliceS iProxy nProxy d
+  dIndexS !d !ixProxy = wrapDeltaS $ IndexS d ixProxy
+  dRavelFromListS !ld = wrapDeltaS $ RavelFromListS ld
+  dReshapeS !d = wrapDeltaS $ ReshapeS d
+  dFrom0S !d = wrapDeltaS $ From0S d
+  dFrom1S !d = wrapDeltaS $ From1S d
+  dFrom2S !proxyCols !d = wrapDeltaS $ From2S proxyCols d
+  dFromXS !d = wrapDeltaS $ FromXS d
 
 
 -- * Alternative instances: forward derivatives computed on the spot
