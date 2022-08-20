@@ -308,6 +308,7 @@ data DeltaState r = DeltaState
   , deltaCounter2 :: DeltaId (Matrix r)
   , deltaCounterX :: DeltaId (OT.Array r)
   }
+  deriving Show
 
 -- | Helper definitions to shorten type signatures. Note that these
 -- differ from their counterparts in all other modules, because the type
@@ -470,6 +471,7 @@ initializeFinMaps st = do
   rMap2 <- VM.replicate counter2 MO.emptyMatrixOuter
   rMapX <- VM.replicate counterX dummyTensor
   dMap <- VM.replicate n (DeltaBinding0 (toDeltaId 0) Input0)  -- safe dummy
+--  traceShow st $
   return (rMap0, rMap1, rMap2, rMapX, dMap)
 
 buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
@@ -501,7 +503,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
                                then rs
                                else liftVT2 (+) v rs
       eval0 :: r -> Delta0 r -> ST s ()
-      eval0 !r (Delta0 n did@(DeltaId i) d) = do
+      eval0 !r (Delta0 n did@(DeltaId i) d) = unless (i < 0) $ do
         VM.modify rMap0 (+ r) i
         VM.write dMap n (DeltaBinding0 did d)
       eval0' :: r -> Delta0' r -> ST s ()
@@ -532,7 +534,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval0 r $ inlineDerivative0 codeOut primalArgs dualArgs
         Delay0 d -> eval0 r d
       eval1 :: Vector r -> Delta1 r -> ST s ()
-      eval1 !r (Delta1 n did@(DeltaId i) d) = do
+      eval1 !r (Delta1 n did@(DeltaId i) d) = unless (i < 0) $ do
         VM.modify rMap1 (addToVector r) i
         VM.write dMap n (DeltaBinding1 did d)
       eval1' :: Vector r -> Delta1' r -> ST s ()
@@ -570,7 +572,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval1 r $ inlineDerivative1 codeOut primalArgs dualArgs
         Delay1 d -> eval1 r d
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
-      eval2 !r (Delta2 n did@(DeltaId i) d) = do
+      eval2 !r (Delta2 n did@(DeltaId i) d) = unless (i < 0) $ do
         VM.modify rMap2 (addToMatrix r) i
         VM.write dMap n (DeltaBinding2 did d)
       eval2' :: MO.MatrixOuter r -> Delta2' r -> ST s ()
@@ -629,7 +631,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval2 r $ inlineDerivative2 codeOut primalArgs dualArgs
         Delay2 d -> eval2 r d
       evalX :: OT.Array r -> DeltaX r -> ST s ()
-      evalX !r (DeltaX n did@(DeltaId i) d) = do
+      evalX !r (DeltaX n did@(DeltaId i) d) = unless (i < 0) $ do
         VM.modify rMapX (addToArray r) i
         VM.write dMap n (DeltaBindingX did d)
       evalX' :: OT.Array r -> DeltaX' r -> ST s ()
@@ -676,7 +678,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         DelayX d -> evalX r d
       evalS :: OS.Shape sh
             => OS.Array sh r -> DeltaS sh r -> ST s ()
-      evalS !r (DeltaS n did@(DeltaId i) d) = do
+      evalS !r (DeltaS n did@(DeltaId i) d) = unless (i < 0) $ do
         VM.modify rMapX (addToArrayS r) i
         VM.write dMap n (DeltaBindingS did d)
       evalS' :: OS.Shape sh

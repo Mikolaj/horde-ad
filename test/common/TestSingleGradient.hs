@@ -55,6 +55,28 @@ fXp1 variables = do
   let x = var0 variables 0
   x +\ 1
 
+fXpX :: DualMonad 'DModeGradient Float m
+     => DualNumberVariables 'DModeGradient Float
+     -> m (DualNumber 'DModeGradient Float)
+fXpX variables = do
+  let x = var0 variables 0
+  x +\ x
+
+fXX :: DualMonad 'DModeGradient Float m
+     => DualNumberVariables 'DModeGradient Float
+     -> m (DualNumber 'DModeGradient Float)
+fXX variables = do
+  let x = var0 variables 0
+  x *\ x
+
+fX1X :: DualMonad 'DModeGradient Float m
+     => DualNumberVariables 'DModeGradient Float
+     -> m (DualNumber 'DModeGradient Float)
+fX1X variables = do
+  let x = var0 variables 0
+  x1 <- x +\ 1
+  x1 *\ x
+
 fX1Y :: DualMonad 'DModeGradient Float m
      => DualNumberVariables 'DModeGradient Float
      -> m (DualNumber 'DModeGradient Float)
@@ -63,6 +85,15 @@ fX1Y variables = do
       y = var0 variables 1
   x1 <- x +\ 1
   x1 *\ y
+
+fY1X :: DualMonad 'DModeGradient Float m
+     => DualNumberVariables 'DModeGradient Float
+     -> m (DualNumber 'DModeGradient Float)
+fY1X variables = do
+  let x = var0 variables 0
+      y = var0 variables 1
+  x1 <- y +\ 1
+  x1 *\ x
 
 fXXY :: DualMonad 'DModeGradient Float m
      => DualNumberVariables 'DModeGradient Float
@@ -107,7 +138,11 @@ testDReverse0 = testGroup "Simple dReverse application tests" $
     [ ("fX", fX, [99], ([1.0],99.0))
     , ("fXagain", fX, [99], ([1.0],99.0))
     , ("fXp1", fXp1, [99], ([1.0],100))
+    , ("fXpX", fXpX, [99], ([2.0],198))
+    , ("fXX", fXX, [2], ([4],4))
+    , ("fX1X", fX1X, [2], ([5],6))
     , ("fX1Y", fX1Y, [3, 2], ([2.0,4.0],8.0))
+    , ("fY1X", fY1X, [2, 3], ([4.0,2.0],8.0))
     , ("fXXY", fXXY, [3, 2], ([12.0,9.0],18.0))
     , ("fXYplusZ", fXYplusZ, [1, 2, 3], ([2.0,1.0,1.0],5.0))
     , ( "fXtoY", fXtoY, [0.00000000000001, 2]

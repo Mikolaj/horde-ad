@@ -245,38 +245,42 @@ class HasRanks (d :: DMode) r where
 -- * Backprop gradient method instances
 
 instance IsPrimal 'DModeGradient Double where
-  dZero = wrapDelta0 Zero0
+  dZero = Delta0 0 (toDeltaId (-1)) Zero0
+    -- The @-1@ hack is not just an optimization, but also prevents a mixup
+    -- from the optimization (even with -O0) that replaces all calls
+    -- to dZero with a call to a shared top level one, performing counter
+    -- increment only once per program.
   dScale k d = wrapDelta0 $ Scale0 k d
   dAdd d e = wrapDelta0 $ Add0 d e
   dDelay d = wrapDelta0 $ Delay0 d
 
 instance IsPrimal 'DModeGradient Float where
   -- Identical as above:
-  dZero = wrapDelta0 Zero0
+  dZero = Delta0 0 (toDeltaId (-1)) Zero0
   dScale k d = wrapDelta0 $ Scale0 k d
   dAdd d e = wrapDelta0 $ Add0 d e
   dDelay d = wrapDelta0 $ Delay0 d
 
 instance IsPrimal 'DModeGradient (Vector r) where
-  dZero = wrapDelta1 Zero1
+  dZero = Delta1 0 (toDeltaId (-1)) Zero1
   dScale k d = wrapDelta1 $ Scale1 k d
   dAdd d e = wrapDelta1 $ Add1 d e
   dDelay d = wrapDelta1 $ Delay1 d
 
 instance IsPrimal 'DModeGradient (Matrix r) where
-  dZero = wrapDelta2 Zero2
+  dZero = Delta2 0 (toDeltaId (-1)) Zero2
   dScale k d = wrapDelta2 $ Scale2 k d
   dAdd d e = wrapDelta2 $ Add2 d e
   dDelay d = wrapDelta2 $ Delay2 d
 
 instance IsPrimal 'DModeGradient (OT.Array r) where
-  dZero = wrapDeltaX ZeroX
+  dZero = DeltaX 0 (toDeltaId (-1)) ZeroX
   dScale k d = wrapDeltaX $ ScaleX k d
   dAdd d e = wrapDeltaX $ AddX d e
   dDelay d = wrapDeltaX $ DelayX d
 
 instance IsPrimalS 'DModeGradient r where
-  dZeroS = wrapDeltaS ZeroS
+  dZeroS = DeltaS 0 (toDeltaId (-1)) ZeroS
   dScaleS k d = wrapDeltaS $ ScaleS k d
   dAddS d e = wrapDeltaS $ AddS d e
   dDelayS d = wrapDeltaS $ DelayS d
