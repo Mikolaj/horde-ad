@@ -417,6 +417,7 @@ gradientFromDelta :: (Eq r, Numeric r, Num (Vector r))
 gradientFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
                   inlineDerivativeX inlineDerivativeS
                   dim0 dim1 dim2 dimX st deltaTopLevel dt =
+-- traceShow (dim0, dim1, dim2, dimX, st) $
   -- This is morally @V.create@ and so totally safe,
   -- but we can't just call @V.create@ thrice, because it would run
   -- the @ST@ action thrice, so we inline and extend @V.create@ here.
@@ -471,7 +472,6 @@ initializeFinMaps st = do
   rMap2 <- VM.replicate counter2 MO.emptyMatrixOuter
   rMapX <- VM.replicate counterX dummyTensor
   dMap <- VM.replicate n (DeltaBinding0 (toDeltaId 0) Input0)  -- safe dummy
---  traceShow st $
   return (rMap0, rMap1, rMap2, rMapX, dMap)
 
 buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
