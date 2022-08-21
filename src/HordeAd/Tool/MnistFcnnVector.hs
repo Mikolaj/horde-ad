@@ -1,5 +1,7 @@
 {-# LANGUAGE DataKinds, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
+-- Needed due to unsafePerformIO:
+{-# OPTIONS_GHC -fno-full-laziness -fno-cse #-}
 -- | Vector-based (meaning that dual numbers for gradient computation
 -- consider vectors, not scalars, as the primitive differentiable type)
 -- implementation of fully connected neutral network for classification

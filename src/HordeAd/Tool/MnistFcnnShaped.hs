@@ -3,6 +3,8 @@
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+-- Needed due to unsafePerformIO:
+{-# OPTIONS_GHC -fno-full-laziness -fno-cse #-}
 -- | Shaped tensor-based implementation of fully connected neutral network
 -- for classification of MNIST digits. Sports 2 hidden layers.
 module HordeAd.Tool.MnistFcnnShaped where
