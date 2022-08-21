@@ -15,7 +15,6 @@ module HordeAd.Core.Engine
 
 import Prelude
 
-import           Control.Monad.Trans.State.Strict
 import qualified Data.Array.DynamicS as OT
 import           Data.Functor (void)
 import           Data.Functor.Identity
@@ -36,12 +35,7 @@ import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 import HordeAd.Internal.Delta
-  ( CodeOut (..)
-  , DeltaState (..)
-  , derivativeFromDelta
-  , gradientFromDelta
-  , toDeltaId
-  )
+  (CodeOut (..), derivativeFromDelta, gradientFromDelta, toDeltaId)
 
 -- * The dummy monad implementation that does not collect deltas.
 -- It's intended for efficiently calculating the value of the function only.
@@ -93,24 +87,14 @@ primalValue f parameters =
 -- and the code that uses it to compute gradients and also derivatives.
 
 newtype DualMonadGradient r a = DualMonadGradient
-  { runDualMonadGradient :: State (DeltaState r) a }
+  { runDualMonadGradient :: Identity a }
   deriving (Monad, Functor, Applicative)
 
 instance IsScalar 'DModeGradient r
          => DualMonad 'DModeGradient
                       r (DualMonadGradient r) where
-  returnLet d = DualMonadGradient $ return d
+  returnLet d = DualMonadGradient $ Identity d
     -- TODO: the monad is unused, remove it
-
-initializeState :: forall r. IsScalar 'DModeGradient r
-                => Domains r -> DeltaState r
-initializeState (params0, params1, params2, paramsX) =
-  DeltaState { deltaCounter = 1
-             , deltaCounter0 = toDeltaId (V.length params0)
-             , deltaCounter1 = toDeltaId (V.length params1)
-             , deltaCounter2 = toDeltaId (V.length params2)
-             , deltaCounterX = toDeltaId (V.length paramsX)
-             }
 
 dReverseGeneral
   :: forall r. HasDelta r
@@ -130,25 +114,17 @@ dReverseGeneral dt
       dim1 = V.length params1
       dim2 = V.length params2
       dimX = V.length paramsX
-      initialState = initializeState (params0, params1, params2, paramsX)
       -- It needs to be fully evaluated before finalizing the counters,
       -- because it modifies the counters (via impure side-effect):
-      !(D !value !d, _) = runState (runDualMonadGradient (f variables))
-                                   initialState
-  (n, c0, c1, c2, cX) <- finalizeCounters
-  let st2 = DeltaState { deltaCounter = n
-                       , deltaCounter0 = c0
-                       , deltaCounter1 = c1
-                       , deltaCounter2 = c2
-                       , deltaCounterX = cX
-                       }
-      inlineDerivative primCode primalArgs dualArgs =
+      !(D !value !d) = runIdentity $ runDualMonadGradient (f variables)
+  counters <- finalizeCounters
+  let inlineDerivative primCode primalArgs dualArgs =
         let D _ u' = outDualNumber primCode primalArgs dualArgs
         in u'
       gradient =
         gradientFromDelta inlineDerivative inlineDerivative inlineDerivative
                           inlineDerivative inlineDerivative
-                          dim0 dim1 dim2 dimX st2 d dt
+                          dim0 dim1 dim2 dimX counters d dt
   return (gradient, value)
 
 dReverse
@@ -176,25 +152,17 @@ dForwardGeneral
 dForwardGeneral variables@(params0, _, params1, _, params2, _, paramsX, _)
                 f ds = do
   initializeCounters (params0, params1, params2, paramsX)
-  let initialState = initializeState (params0, params1, params2, paramsX)
-      -- It needs to be fully evaluated before finalizing the counters,
+  let -- It needs to be fully evaluated before finalizing the counters,
       -- because it modifies the counters (via impure side-effect):
-      !(D !value !d, _) = runState (runDualMonadGradient (f variables))
-                                   initialState
-  (n, c0, c1, c2, cX) <- finalizeCounters
-  let st2 = DeltaState { deltaCounter = n
-                       , deltaCounter0 = c0
-                       , deltaCounter1 = c1
-                       , deltaCounter2 = c2
-                       , deltaCounterX = cX
-                       }
-      inlineDerivative primCode primalArgs dualArgs =
+      !(D !value !d) = runIdentity $ runDualMonadGradient (f variables)
+  counters <- finalizeCounters
+  let inlineDerivative primCode primalArgs dualArgs =
         let D _ u' = outDualNumber primCode primalArgs dualArgs
         in u'
       derivative =
         derivativeFromDelta inlineDerivative inlineDerivative inlineDerivative
                             inlineDerivative inlineDerivative
-                            st2 d ds
+                            counters d ds
   return (derivative, value)
 
 -- The direction vector ds is taken as an extra argument.
@@ -219,7 +187,7 @@ newtype DualMonadForward r a = DualMonadForward
 instance IsScalar 'DModeDerivative r
          => DualMonad 'DModeDerivative
                       r (DualMonadForward r) where
-  returnLet (D u u') = DualMonadForward $ Identity $ D u u'
+  returnLet d = DualMonadForward $ Identity d
 
 -- This the efficient variant of forward derivative computation.
 dFastForwardGeneral
@@ -261,9 +229,7 @@ prettyPrintDf f parameters = do
   initializeCounters parameters
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
-      initialState = initializeState parameters
-      (D _ deltaTopLevel, _) = runState (runDualMonadGradient (f variables))
-                                         initialState
+      D _ deltaTopLevel = runIdentity $ runDualMonadGradient (f variables)
       s = ppShow deltaTopLevel
       -- It needs to be fully evaluated before finalizing the counters,
       -- because it modifies the counters (via impure side-effect):
