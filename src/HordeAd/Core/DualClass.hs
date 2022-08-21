@@ -616,9 +616,8 @@ unsafeDeltaCounterX :: MVar (DeltaId (OT.Array r))
 unsafeDeltaCounterX = unsafePerformIO newEmptyMVar
 
 -- The following three are the only operations directly touching the counters.
-unsafeGetFreshId :: MVar (DeltaId a) -> (Int, DeltaId a)
-{-# NOINLINE unsafeGetFreshId #-}
-unsafeGetFreshId mvar = unsafePerformIO $ do
+unsafeGetFreshId :: MVar (DeltaId a) -> IO (Int, DeltaId a)
+unsafeGetFreshId mvar = do
   i <- takeMVar mvar
   n <- takeMVar unsafeGlobalCounter
   putMVar unsafeGlobalCounter $ succ n
@@ -643,26 +642,31 @@ finalizeCounters = do
   return DeltaCounters{..}
 
 wrapDelta0 :: Delta0' r -> Delta0 r
-wrapDelta0 d =
-  let (!n, !i) = unsafeGetFreshId unsafeDeltaCounter0
-  in Delta0 n i d
+{-# NOINLINE wrapDelta0 #-}
+wrapDelta0 !d = unsafePerformIO $ do
+  (!n, !i) <- unsafeGetFreshId unsafeDeltaCounter0
+  return $! Delta0 n i d
 
 wrapDelta1 :: Delta1' r -> Delta1 r
-wrapDelta1 d =
-  let (!n, !i) = unsafeGetFreshId unsafeDeltaCounter1
-  in Delta1 n i d
+{-# NOINLINE wrapDelta1 #-}
+wrapDelta1 !d = unsafePerformIO $ do
+  (!n, !i) <- unsafeGetFreshId unsafeDeltaCounter1
+  return $! Delta1 n i d
 
 wrapDelta2 :: Delta2' r -> Delta2 r
-wrapDelta2 d =
-  let (!n, !i) = unsafeGetFreshId unsafeDeltaCounter2
-  in Delta2 n i d
+{-# NOINLINE wrapDelta2 #-}
+wrapDelta2 !d = unsafePerformIO $ do
+  (!n, !i) <- unsafeGetFreshId unsafeDeltaCounter2
+  return $! Delta2 n i d
 
 wrapDeltaX :: DeltaX' r -> DeltaX r
-wrapDeltaX d =
-  let (!n, !i) = unsafeGetFreshId unsafeDeltaCounterX
-  in DeltaX n i d
+{-# NOINLINE wrapDeltaX #-}
+wrapDeltaX !d = unsafePerformIO $ do
+  (!n, !i) <- unsafeGetFreshId unsafeDeltaCounterX
+  return $! DeltaX n i d
 
 wrapDeltaS :: DeltaS' sh r -> DeltaS sh r
-wrapDeltaS d =
-  let (!n, !i) = unsafeGetFreshId unsafeDeltaCounterX  -- not S!
-  in DeltaS n (convertDeltaId i) d
+{-# NOINLINE wrapDeltaS #-}
+wrapDeltaS !d = unsafePerformIO $ do
+  (!n, !i) <- unsafeGetFreshId unsafeDeltaCounterX  -- not S!
+  return $! DeltaS n (convertDeltaId i) d
