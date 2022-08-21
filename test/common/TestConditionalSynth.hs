@@ -14,7 +14,6 @@ import           Foreign.Storable.Tuple ()
 import           GHC.Exts (inline)
 import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as HM
-import           System.IO.Unsafe (unsafePerformIO)
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -211,11 +210,10 @@ gradSmartTestCase prefix lossFunction seedSamples
                         , show (V.length nParams1), show (V.sum nParams1) ]
       f = lossFunction width
   in testCase name $ do
-       let (parametersResult, _) =
-             sgdAdam f samples parametersInit
-                     (initialStateAdam parametersInit)
-           (_, values) =
-             unzip $ map (\t -> unsafePerformIO $ dReverse 1 (f t) parametersResult) testSamples
+       (parametersResult, _) <-
+         sgdAdam f samples parametersInit (initialStateAdam parametersInit)
+       (_, values) <-
+         unzip <$> mapM (\t -> dReverse 1 (f t) parametersResult) testSamples
        (sum values / 100) @?~ expected
 
 conditionalSynthTests:: TestTree

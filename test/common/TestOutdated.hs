@@ -12,7 +12,6 @@ import           Foreign.Storable (Storable)
 import           Foreign.Storable.Tuple ()
 import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as HM
-import           System.IO.Unsafe (unsafePerformIO)
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -158,11 +157,11 @@ gdSimpleShow :: HasDelta r
              -> (DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
              -> Domain0 r
              -> Int
-             -> ([r], r)
-gdSimpleShow gamma f initVec n =
-  let (res, _, _, _) = gdSimple gamma f n (initVec, V.empty, V.empty, V.empty)
-      (_, value) = unsafePerformIO $ dReverse 1 f (res, V.empty, V.empty, V.empty)
-  in (V.toList res, value)
+             -> IO ([r], r)
+gdSimpleShow gamma f initVec n = do
+  (res, _, _, _) <- gdSimple gamma f n (initVec, V.empty, V.empty, V.empty)
+  (_, value) <- dReverse 1 f (res, V.empty, V.empty, V.empty)
+  return (V.toList res, value)
 
 gdSimpleTestCase
   :: Num a
@@ -183,10 +182,10 @@ gdSimpleTestCase prefix sampleFunction lossFunction
       name = prefix ++ " "
              ++ unwords [ show seedSamples, show nSamples
                         , show nParams0, show gamma, show nIterations ]
-  in testCase name $
-       snd (gdSimpleShow gamma (lossFunction tanhAct tanhAct samples)
-                         vec nIterations)
-       @?~ expected
+  in testCase name $ do
+       res <- snd <$> gdSimpleShow gamma (lossFunction tanhAct tanhAct samples)
+                                   vec nIterations
+       res @?~ expected
 
 gdSimpleWsTestCase
   :: ((DualNumberD -> DualMonadGradient Double DualNumberD)
@@ -338,11 +337,11 @@ fit2TestsL = testGroup "logisticAct: Sample fitting 2 hidden layer not fully con
 gdSmartShow :: (DualNumberVariablesD -> DualMonadGradient Double DualNumberD)
             -> Domain0 Double
             -> Int
-            -> ([Double], (Double, Double))
-gdSmartShow f initVec n =
-  let ((res, _, _, _), gamma) = gdSmart f n (initVec, V.empty, V.empty, V.empty)
-      (_, value) = unsafePerformIO $ dReverse 1 f (res, V.empty, V.empty, V.empty)
-  in (V.toList res, (value, gamma))
+            -> IO ([Double], (Double, Double))
+gdSmartShow f initVec n = do
+  ((res, _, _, _), gamma) <- gdSmart f n (initVec, V.empty, V.empty, V.empty)
+  (_, value) <- dReverse 1 f (res, V.empty, V.empty, V.empty)
+  return (V.toList res, (value, gamma))
 
 gradSmartTestCase :: Num a
                   => String
@@ -362,9 +361,9 @@ gradSmartTestCase prefix sampleFunction lossFunction
       name = prefix ++ " "
              ++ unwords [ show seedSamples, show nSamples
                         , show nParams0, show nIterations ]
-  in testCase name $
-       snd (gdSmartShow (lossFunction tanhAct tanhAct samples) vec nIterations)
-       @?~ expected
+  in testCase name $ do
+       res <- snd <$> gdSmartShow (lossFunction tanhAct tanhAct samples) vec nIterations
+       res @?~ expected
 
 gradSmartWsTestCase
   :: ((DualNumberD -> DualMonadGradient Double DualNumberD)
@@ -720,12 +719,12 @@ sgdShow :: HasDelta r
         -> (a -> DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
         -> [a]  -- ^ training data
         -> Domain0 r  -- ^ initial parameters
-        -> ([r], r)
-sgdShow gamma f trainData params0Init =
-  let (res, _, _, _) =
-        fst $ sgd gamma f trainData (params0Init, V.empty, V.empty, V.empty)
-      (_, value) = unsafePerformIO $ dReverse 1 (f $ head trainData) (res, V.empty, V.empty, V.empty)
-  in (V.toList res, value)
+        -> IO ([r], r)
+sgdShow gamma f trainData params0Init = do
+  (res, _, _, _) <-
+    fst <$> sgd gamma f trainData (params0Init, V.empty, V.empty, V.empty)
+  (_, value) <- dReverse 1 (f $ head trainData) (res, V.empty, V.empty, V.empty)
+  return (V.toList res, value)
 
 sgdTestCase
   :: String
@@ -745,8 +744,8 @@ sgdTestCase prefix trainDataIO trainWithLoss gamma expected =
              ++ unwords [show widthHidden, show nParams0, show gamma]
   in testCase name $ do
        trainData <- trainDataIO
-       snd (sgdShow gamma (trainWithLoss widthHidden) trainData vec)
-          @?~ expected
+       res <- snd <$> sgdShow gamma (trainWithLoss widthHidden) trainData vec
+       res @?~ expected
 
 lenMnist :: Int -> Int
 lenMnist widthHidden =

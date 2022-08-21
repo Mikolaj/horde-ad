@@ -18,7 +18,6 @@ import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Matrix, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           System.IO (hPutStrLn, stderr)
-import           System.IO.Unsafe (unsafePerformIO)
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -136,10 +135,10 @@ sgdShow :: HasDelta r
         => (a -> DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
         -> [a]
         -> Domains r
-        -> r
-sgdShow f trainData parameters =
-  let result = fst $ sgd 0.1 f trainData parameters
-  in snd $ unsafePerformIO $ dReverse 1 (f $ head trainData) result
+        -> IO r
+sgdShow f trainData parameters = do
+  result <- fst <$> sgd 0.1 f trainData parameters
+  snd <$> dReverse 1 (f $ head trainData) result
 
 sgdTestCase :: String
             -> (a
@@ -157,8 +156,8 @@ sgdTestCase prefix f nParameters trainDataIO expected =
                         , show totalParams, show range ]
   in testCase name $ do
        trainData <- trainDataIO
-       sgdShow f trainData parameters0
-         @?~ expected
+       res <- sgdShow f trainData parameters0
+       res @?~ expected
 
 sgdTestCaseAlt :: String
             -> (a
@@ -176,7 +175,7 @@ sgdTestCaseAlt prefix f nParameters trainDataIO expected =
                         , show totalParams, show range ]
   in testCase name $ do
        trainData <- trainDataIO
-       let res = sgdShow f trainData parameters0
+       res <- sgdShow f trainData parameters0
        assertCloseElem "" expected res
 
 prime :: IsScalar 'DModeValue r
@@ -226,10 +225,10 @@ feedbackTestCase prefix fp f nParameters trainData expected =
       name = prefix ++ " "
              ++ unwords [ show nParams0, show nParams1, show nParams2
                         , show totalParams, show range ]
-      trained = fst $ sgd 0.1 f trainData parameters0
-      primed = prime fp trained (HM.konst 0 30) (take 19 series)
-      output = feedback fp trained primed (series !! 19)
-  in testCase name $
+  in testCase name $ do
+       trained <- fst <$> sgd 0.1 f trainData parameters0
+       let primed = prime fp trained (HM.konst 0 30) (take 19 series)
+           output = feedback fp trained primed (series !! 19)
        take 30 output @?~ expected
 
 -- A version written using vectors
@@ -573,9 +572,9 @@ mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
                     -> (Int, [([Vector Double], Vector Double)])
                     -> IO (Domains Double, StateAdam Double)
            runBatch (parameters@(!_, !_, !_, !_), stateAdam) (k, chunk) = do
-             let res@(parameters2, _) =
-                   sgdAdamBatch 150 (f width) chunk parameters stateAdam
-                 !trainScore = ftest width chunk parameters2
+             res@(parameters2, _) <-
+               sgdAdamBatch 150 (f width) chunk parameters stateAdam
+             let !trainScore = ftest width chunk parameters2
                  !testScore = ftest width testData parameters2
                  !lenChunk = length chunk
              hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
@@ -757,10 +756,10 @@ mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
                     -> (Int, [([Vector Double], Vector Double)])
                     -> IO (Domains Double, StateAdam Double)
            runBatch (parameters@(!_, !_, !_, !_), stateAdam) (k, chunk) = do
-             let res@(parameters2, _) =
-                   sgdAdam (f width) (map packChunk $ chunksOf 150 chunk)
-                           parameters stateAdam
-                 !trainScore = ftest width chunk parameters2
+             res@(parameters2, _) <-
+               sgdAdam (f width) (map packChunk $ chunksOf 150 chunk)
+                       parameters stateAdam
+             let !trainScore = ftest width chunk parameters2
                  !testScore = ftest width testData parameters2
                  !lenChunk = length chunk
              hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
@@ -836,8 +835,8 @@ mnistTestCaseRNNS prefix epochs maxBatches trainWithLoss ftest flen expected =
               chunkS = map (packBatch @batch_size)
                        $ filter (\ch -> length ch >= batch_size)
                        $ chunksOf batch_size chunk
-              res@(parameters2, _) = sgdAdam f chunkS parameters stateAdam
-              !trainScore =
+          res@(parameters2, _) <- sgdAdam f chunkS parameters stateAdam
+          let !trainScore =
                 ftest proxy_out_width
                       (packBatch @(10 GHC.TypeLits.* batch_size) chunk)
                       parameters2
