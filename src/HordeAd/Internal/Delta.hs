@@ -55,7 +55,7 @@ module HordeAd.Internal.Delta
 import Prelude
 
 import           Control.Exception (assert)
-import           Control.Monad (unless, zipWithM_)
+import           Control.Monad (liftM2, unless, zipWithM_)
 import           Control.Monad.ST.Strict (ST, runST)
 import qualified Data.Array.Convert
 import qualified Data.Array.Dynamic as OTB
@@ -789,204 +789,272 @@ derivativeFromDelta
 derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
                     inlineDerivativeX inlineDerivativeS
                     st deltaTopLevel
-                    _ds@(params0Init, params1Init, params2Init, paramsXInit) =
-  let eval0 :: Domains r -> Delta0 r -> r
-      eval0 (params0, _, _, _) (Delta0 _ (DeltaId i) Input0) =
+                    ds =
+  runST $ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
+                                            inlineDerivativeX inlineDerivativeS
+                                            st deltaTopLevel
+                                            ds
+
+-- | This mimics 'initializeFinMaps', but in reverse. Perhaps this can be
+-- simplified, but at least the simplest formulation does not honour sharing,
+-- evaluating shared subexpressions repeatedly.
+buildDerivative
+  :: forall s r. (Numeric r, Num (Vector r))
+  => (CodeOut -> [r] -> [Delta0 r] -> Delta0 r)
+  -> (CodeOut -> [Vector r] -> [Delta1 r] -> Delta1 r)
+  -> (CodeOut -> [Matrix r] -> [Delta2 r] -> Delta2 r)
+  -> (CodeOut -> [OT.Array r] -> [DeltaX r] -> DeltaX r)
+  -> (forall sh. OS.Shape sh
+      => CodeOut -> [OS.Array sh r] -> [DeltaS sh r]
+      -> DeltaS sh r)
+  -> DeltaState r -> Delta0 r -> Domains r -> ST s r
+buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
+                inlineDerivativeX inlineDerivativeS
+                st deltaTopLevel
+                (params0Init, params1Init, params2Init, paramsXInit) = do
+  (rMap0, rMap1, outerFinMap2, rMapX, dMap) <- initializeFinMaps st
+  -- We use normal hmatrix matrices rather than the sparse replacement.
+  rMap2 <- VM.replicate (VM.length outerFinMap2) (HM.fromRows [])
+  -- TODO: the following coredumps without the @VM.take@; it's a shame
+  -- there's no copying of a smaller vector into a larger one in the API.
+  -- Perhaps use https://hackage.haskell.org/package/base-4.16.0.0/docs/Foreign-Marshal-Array.html#v:copyArray?
+  V.unsafeCopy (VM.take (V.length params0Init) rMap0) params0Init
+  V.unsafeCopy (VM.take (V.length params1Init) rMap1) params1Init
+  V.unsafeCopy (VM.take (V.length params2Init) rMap2) params2Init
+  V.unsafeCopy (VM.take (V.length paramsXInit) rMapX) paramsXInit
+  let eval0 :: Delta0 r -> ST s r
+      eval0 (Delta0 _ (DeltaId (-1)) _) = return 0
+      eval0 (Delta0 _ (DeltaId i) Input0) =
         if i < V.length params0Init
-        then params0 V.! i
+        then VM.read rMap0 i
         else error "derivativeFromDelta.eval': wrong index for an input"
-      eval0 parameters (Delta0 _ _ d) = eval0' parameters d
-      eval0' :: Domains r -> Delta0' r -> r
-      eval0' parameters = \case
-        Zero0 -> 0
-        Scale0 k d -> k * eval0 parameters d
-        Add0 d e -> eval0 parameters d + eval0 parameters e
+      eval0 (Delta0 n did@(DeltaId i) d) = do
+        -- This is too complex, but uses the component already defined
+        -- for initializeFinMaps and a similar code.
+        d0 <- VM.read dMap n
+        case d0 of
+          DeltaBinding0 (DeltaId 0) Input0 -> do
+            VM.write dMap n (DeltaBinding0 did d)  -- only marks that visited
+            r <- eval0' d
+            VM.write rMap0 i r
+            return r
+          _ -> VM.read rMap0 i
+      eval0' :: Delta0' r -> ST s r
+      eval0' = \case
+        Zero0 -> return 0
+        Scale0 k d -> (k *) <$> eval0 d
+        Add0 d e -> liftM2 (+) (eval0 d) (eval0 e)
         Input0 -> error "derivativeFromDelta.eval0': Input0 without DeltaId"
 
-        SumElements0 vd _n -> HM.sumElements $ eval1 parameters vd
-        Index0 d ix _k -> eval1 parameters d V.! ix
+        SumElements0 vd _n -> HM.sumElements <$> eval1 vd
+        Index0 d ix _k -> flip (V.!) ix <$> eval1 d
 
-        Dot0 vr vd -> vr <.> eval1 parameters vd
+        Dot0 vr vd -> (<.>) vr <$> eval1 vd
 
-        FromX0 d -> OT.unScalar $ evalX parameters d
-        FromS0 d -> OS.unScalar $ evalS parameters d
+        FromX0 d -> OT.unScalar <$> evalX d
+        FromS0 d -> OS.unScalar <$> evalS d
 
         Outline0 codeOut primalArgs dualArgs ->
-          eval0 parameters $ inlineDerivative0 codeOut primalArgs dualArgs
-        Delay0 d -> eval0 parameters d
-      eval1 :: Domains r -> Delta1 r -> Vector r
-      eval1 (_, params1, _, _) (Delta1 _ (DeltaId i) Input1) =
+          eval0 $ inlineDerivative0 codeOut primalArgs dualArgs
+        Delay0 d -> eval0 d
+      eval1 :: Delta1 r -> ST s (Vector r)
+      eval1 (Delta1 _ (DeltaId (-1)) _) = return 0
+      eval1 (Delta1 _ (DeltaId i) Input1) =
         if i < V.length params1Init
-        then params1 V.! i
+        then VM.read rMap1 i
         else error "derivativeFromDelta.eval': wrong index for an input"
-      eval1 parameters (Delta1 _ _ d) = eval1' parameters d
-      eval1' :: Domains r -> Delta1' r -> Vector r
-      eval1' parameters = \case
-        Zero1 -> 0
-        Scale1 k d -> k * eval1 parameters d
-        Add1 d e -> eval1 parameters d + eval1 parameters e
+      eval1 (Delta1 n did@(DeltaId i) d) = do
+        d0 <- VM.read dMap n
+        case d0 of
+          DeltaBinding0 (DeltaId 0) Input0 -> do
+            VM.write dMap n (DeltaBinding1 did d)  -- only marks that visited
+            r <- eval1' d
+            VM.write rMap1 i r
+            return r
+          _ -> VM.read rMap1 i
+      eval1' :: Delta1' r -> ST s (Vector r)
+      eval1' = \case
+        Zero1 -> return 0
+        Scale1 k d -> (k *) <$> eval1 d
+        Add1 d e -> liftM2 (+) (eval1 d) (eval1 e)
         Input1 -> error "derivativeFromDelta.eval1': Input1 without DeltaId"
 
-        Seq1 lsd -> V.convert $ V.map (eval0 parameters) lsd
-        Konst1 d n -> HM.konst (eval0 parameters d) n
-        Append1 d _k e -> eval1 parameters d V.++ eval1 parameters e
-        Slice1 i n d _len -> V.slice i n $ eval1 parameters d
+        Seq1 lsd -> do
+          v <- V.mapM eval0 lsd
+          return $! V.convert v
+        Konst1 d n -> flip HM.konst n <$> eval0 d
+        Append1 d _k e -> liftM2 (V.++) (eval1 d) (eval1 e)
+        Slice1 i n d _len -> V.slice i n <$> eval1 d
         SumRows1 dm _cols ->
-          V.fromList $ map HM.sumElements $ HM.toRows $ eval2 parameters dm
+          V.fromList <$> map HM.sumElements <$> HM.toRows <$> eval2 dm
         SumColumns1 dm _rows ->
-          V.fromList $ map HM.sumElements $ HM.toColumns $ eval2 parameters dm
+          V.fromList <$> map HM.sumElements <$> HM.toColumns <$> eval2 dm
 
-        M_VD1 m dRow -> m #> eval1 parameters dRow
-        MD_V1 md row -> eval2 parameters md #> row
+        M_VD1 m dRow -> (#>) m <$> eval1 dRow
+        MD_V1 md row -> flip (#>) row <$> eval2 md
 
-        FromX1 d -> OT.toVector $ evalX parameters d
-        FromS1 d -> OS.toVector $ evalS parameters d
+        FromX1 d -> OT.toVector <$> evalX d
+        FromS1 d -> OS.toVector <$> evalS d
 
-        Reverse1 d -> V.reverse $ eval1 parameters d
-        Flatten1 _rows _cols d -> HM.flatten $ eval2 parameters d
-        FlattenX1 _sh d -> OT.toVector $ evalX parameters d
-        FlattenS1 d -> OS.toVector $ evalS parameters d
+        Reverse1 d -> V.reverse <$> eval1 d
+        Flatten1 _rows _cols d -> HM.flatten <$> eval2 d
+        FlattenX1 _sh d -> OT.toVector <$> evalX d
+        FlattenS1 d -> OS.toVector <$> evalS d
 
         Outline1 codeOut primalArgs dualArgs ->
-          eval1 parameters $ inlineDerivative1 codeOut primalArgs dualArgs
-        Delay1 d -> eval1 parameters d
-      eval2 :: Domains r -> Delta2 r -> Matrix r
-      eval2 ( _, _, params2, _) (Delta2 _ (DeltaId i) Input2) =
+          eval1 $ inlineDerivative1 codeOut primalArgs dualArgs
+        Delay1 d -> eval1 d
+      eval2 :: Delta2 r -> ST s (Matrix r)
+      eval2 (Delta2 _ (DeltaId (-1)) _) = return 0
+      eval2 (Delta2 _ (DeltaId i) Input2) =
         if i < V.length params2Init
-        then params2 V.! i
+        then VM.read rMap2 i
         else error "derivativeFromDelta.eval': wrong index for an input"
-      eval2 parameters (Delta2 _ _ d) = eval2' parameters d
-      eval2' :: Domains r -> Delta2' r -> Matrix r
-      eval2' parameters = \case
-        Zero2 -> 0
-        Scale2 k d -> k * eval2 parameters d
-        Add2 d e -> eval2 parameters d + eval2 parameters e
+      eval2 (Delta2 n did@(DeltaId i) d) = do
+        d0 <- VM.read dMap n
+        case d0 of
+          DeltaBinding0 (DeltaId 0) Input0 -> do
+            VM.write dMap n (DeltaBinding2 did d)  -- only marks that visited
+            r <- eval2' d
+            VM.write rMap2 i r
+            return r
+          _ -> VM.read rMap2 i
+      eval2' :: Delta2' r -> ST s (Matrix r)
+      eval2' = \case
+        Zero2 -> return 0
+        Scale2 k d -> (k *) <$> eval2 d
+        Add2 d e -> liftM2 (+) (eval2 d) (eval2 e)
         Input2 -> error "derivativeFromDelta.eval2': Input2 without DeltaId"
 
-        FromRows2 lvd ->
-          HM.fromRows $ map (eval1 parameters) $ V.toList lvd
-        FromColumns2 lvd ->
-          HM.fromColumns $ map (eval1 parameters) $ V.toList lvd
-        Konst2 d sz -> HM.konst (eval0 parameters d) sz
-        Transpose2 md -> HM.tr' $ eval2 parameters md
-        M_MD2 m md -> m HM.<> eval2 parameters md
-        MD_M2 md m -> eval2 parameters md HM.<> m
-        RowAppend2 d _k e -> eval2 parameters d HM.=== eval2 parameters e
-        ColumnAppend2 d _k e -> eval2 parameters d HM.||| eval2 parameters e
+        FromRows2 lvd -> do
+          l <- mapM eval1 $ V.toList lvd
+          return $! HM.fromRows l
+        FromColumns2 lvd -> do
+          l <- mapM eval1 $ V.toList lvd
+          return $! HM.fromColumns l
+        Konst2 d sz -> flip HM.konst sz <$> eval0 d
+        Transpose2 md -> HM.tr' <$> eval2 md
+        M_MD2 m md -> (HM.<>) m <$> eval2 md
+        MD_M2 md m -> flip (HM.<>) m <$> eval2 md
+        RowAppend2 d _k e -> liftM2 (HM.===) (eval2 d) (eval2 e)
+        ColumnAppend2 d _k e -> liftM2 (HM.|||) (eval2 d) (eval2 e)
         RowSlice2 i n d _rows ->
-          HM.takeRows n $ HM.dropRows i $ eval2 parameters d
+          HM.takeRows n <$> HM.dropRows i <$> eval2 d
         ColumnSlice2 i n d _cols ->
-          HM.takeColumns n $ HM.dropColumns i $ eval2 parameters d
+          HM.takeColumns n <$> HM.dropColumns i <$> eval2 d
 
-        AsRow2 dRow -> HM.asRow $ eval1 parameters dRow  -- TODO: risky
-        AsColumn2 dCol -> HM.asColumn $ eval1 parameters dCol  -- TODO: risky
+        AsRow2 dRow -> HM.asRow <$> eval1 dRow  -- TODO: risky
+        AsColumn2 dCol -> HM.asColumn <$> eval1 dCol  -- TODO: risky
 
-        FromX2 d ->
-          let t = evalX parameters d
-          in case OT.shapeL t of
-            [_rows, cols] -> HM.reshape cols $ OT.toVector t
+        FromX2 d -> do
+          t <- evalX d
+          case OT.shapeL t of
+            [_rows, cols] -> return $! HM.reshape cols $ OT.toVector t
             _ -> error "eval2: wrong tensor dimensions"
-        FromS2 d ->
-          let t = evalS parameters d
-          in case OS.shapeL t of
-            [_rows, cols] -> HM.reshape cols $ OS.toVector t
+        FromS2 d -> do
+          t <- evalS d
+          case OS.shapeL t of
+            [_rows, cols] -> return $! HM.reshape cols $ OS.toVector t
             _ -> error "eval2: wrong tensor dimensions"
 
-        Flipud2 d -> HM.flipud $ eval2 parameters d
-        Fliprl2 d -> HM.fliprl $ eval2 parameters d
-        Reshape2 cols d -> HM.reshape cols $ eval1 parameters d
-        Conv2 m md -> HM.conv2 m $ eval2 parameters md
+        Flipud2 d -> HM.flipud <$> eval2 d
+        Fliprl2 d -> HM.fliprl <$> eval2 d
+        Reshape2 cols d -> HM.reshape cols <$> eval1 d
+        Conv2 m md -> HM.conv2 m <$> eval2 md
 
         Outline2 codeOut primalArgs dualArgs ->
-          eval2 parameters $ inlineDerivative2 codeOut primalArgs dualArgs
-        Delay2 d -> eval2 parameters d
-      evalX :: Domains r -> DeltaX r -> OT.Array r
-      evalX ( _, _, _, paramsX) (DeltaX _ (DeltaId i) InputX) =
+          eval2 $ inlineDerivative2 codeOut primalArgs dualArgs
+        Delay2 d -> eval2 d
+      evalX :: DeltaX r -> ST s (OT.Array r)
+      evalX (DeltaX _ (DeltaId (-1)) _) = return 0
+      evalX (DeltaX _ (DeltaId i) InputX) =
         if i < V.length paramsXInit
-        then paramsX V.! i
+        then VM.read rMapX i
         else error "derivativeFromDelta.eval': wrong index for an input"
-      evalX parameters (DeltaX _ _ d) = evalX' parameters d
-      evalX' :: Domains r -> DeltaX' r -> OT.Array r
-      evalX' parameters = \case
-        ZeroX -> 0
-        ScaleX k d -> k * evalX parameters d
-        AddX d e -> evalX parameters d + evalX parameters e
+      evalX (DeltaX n did@(DeltaId i) d) = do
+        d0 <- VM.read dMap n
+        case d0 of
+          DeltaBinding0 (DeltaId 0) Input0 -> do
+            VM.write dMap n (DeltaBindingX did d)  -- only marks that visited
+            r <- evalX' d
+            VM.write rMapX i r
+            return r
+          _ -> VM.read rMapX i
+      evalX' :: DeltaX' r -> ST s (OT.Array r)
+      evalX' = \case
+        ZeroX -> return 0
+        ScaleX k d -> (k *) <$> evalX d
+        AddX d e -> liftM2 (+) (evalX d) (evalX e)
         InputX -> error "derivativeFromDelta.evalX': InputX without DeltaId"
 
-        KonstX d sz -> OT.constant sz $ eval0 parameters d
-        AppendX d _k e -> evalX parameters d `OT.append` evalX parameters e
-        SliceX i n d _len -> OT.slice [(i, n)] $ evalX parameters d
-        IndexX d ix _len -> OT.index (evalX parameters d) ix
-        RavelFromListX ld ->
-          let la = map (evalX parameters) ld
-              sh = case la of
+        KonstX d sz -> OT.constant sz <$> eval0 d
+        AppendX d _k e -> liftM2 OT.append (evalX d) (evalX e)
+        SliceX i n d _len -> OT.slice [(i, n)] <$> evalX d
+        IndexX d ix _len -> flip OT.index ix <$> evalX d
+        RavelFromListX ld -> do
+          la <- mapM evalX ld
+          let sh = case la of
                 a : _ -> length la : OT.shapeL a
                 [] -> []
-          in OT.ravel $ OTB.fromList sh la
-        ReshapeX _sh sh' d -> OT.reshape sh' $ evalX parameters d
+          return $! OT.ravel $ OTB.fromList sh la
+        ReshapeX _sh sh' d -> OT.reshape sh' <$> evalX d
 
-        From0X d -> OT.scalar $ eval0 parameters d
-        From1X d -> let v = eval1 parameters d
-                    in OT.fromVector [V.length v] v
-        From2X d cols -> let l = eval2 parameters d
-                         in OT.fromVector [HM.rows l, cols] $ HM.flatten l
-        FromSX d -> Data.Array.Convert.convert $ evalS parameters d
+        From0X d -> OT.scalar <$> eval0 d
+        From1X d -> do
+          v <- eval1 d
+          return $! OT.fromVector [V.length v] v
+        From2X d cols -> do
+          l <- eval2 d
+          return $! OT.fromVector [HM.rows l, cols] $ HM.flatten l
+        FromSX d -> Data.Array.Convert.convert <$> evalS d
 
         OutlineX codeOut primalArgs dualArgs ->
-          evalX parameters $ inlineDerivativeX codeOut primalArgs dualArgs
-        DelayX d -> evalX parameters d
-      evalS :: OS.Shape sh => Domains r -> DeltaS sh r -> OS.Array sh r
-      evalS ( _, _, _, paramsX) (DeltaS _ (DeltaId i) InputS) =
+          evalX $ inlineDerivativeX codeOut primalArgs dualArgs
+        DelayX d -> evalX d
+      evalS :: OS.Shape sh => DeltaS sh r -> ST s (OS.Array sh r)
+      evalS (DeltaS _ (DeltaId (-1)) _) = return 0
+      evalS (DeltaS _ (DeltaId i) InputS) =
         if i < V.length paramsXInit
-        then Data.Array.Convert.convert $ paramsX V.! i
+        then Data.Array.Convert.convert <$> VM.read rMapX i
         else error "derivativeFromDelta.eval': wrong index for an input"
-      evalS parameters (DeltaS _ _ d) = evalS' parameters d
-      evalS' :: OS.Shape sh => Domains r -> DeltaS' sh r -> OS.Array sh r
-      evalS' parameters = \case
-        ZeroS -> 0
-        ScaleS k d -> k * evalS parameters d
-        AddS d e -> evalS parameters d + evalS parameters e
+      evalS (DeltaS n did@(DeltaId i) d) = do
+        d0 <- VM.read dMap n
+        case d0 of
+          DeltaBinding0 (DeltaId 0) Input0 -> do
+            VM.write dMap n (DeltaBindingS did d)  -- only marks that visited
+            r <- evalS' d
+            VM.write rMapX i (Data.Array.Convert.convert r)
+            return r
+          _ -> Data.Array.Convert.convert <$> VM.read rMapX i
+      evalS' :: OS.Shape sh => DeltaS' sh r -> ST s (OS.Array sh r)
+      evalS' = \case
+        ZeroS -> return 0
+        ScaleS k d -> (k *) <$> evalS d
+        AddS d e -> liftM2 (+) (evalS d) (evalS e)
         InputS -> error "derivativeFromDelta.evalS': InputS without DeltaId"
 
 #if defined(VERSION_ghc_typelits_natnormalise)
-        KonstS d -> OS.constant $ eval0 parameters d
-        AppendS d e -> evalS parameters d `OS.append` evalS parameters e
+        KonstS d -> OS.constant <$> eval0 d
+        AppendS d e -> liftM2 OS.append (evalS d) (evalS e)
         SliceS (_ :: Proxy i) (_ :: Proxy n) d ->
-          OS.slice @'[ '(i, n) ] $ evalS parameters d
+          OS.slice @'[ '(i, n) ] <$> evalS d
         IndexS d proxyIx ->
-          OS.index (evalS parameters d) (fromInteger $ natVal proxyIx)
-        RavelFromListS ld ->
-          let la = map (evalS parameters) ld
-          in OS.ravel $ OSB.fromList la
-        ReshapeS d -> OS.reshape $ evalS parameters d
+          flip OS.index (fromInteger $ natVal proxyIx) <$> evalS d
+        RavelFromListS ld -> do
+          la <- mapM evalS ld
+          return $! OS.ravel $ OSB.fromList la
+        ReshapeS d -> OS.reshape <$> evalS d
 
-        From0S d -> OS.scalar $ eval0 parameters d
-        From1S d -> OS.fromVector $ eval1 parameters d
-        From2S _ d -> OS.fromVector $ HM.flatten $ eval2 parameters d
-        FromXS d -> Data.Array.Convert.convert $ evalX parameters d
+        From0S d -> OS.scalar <$> eval0 d
+        From1S d -> OS.fromVector <$> eval1 d
+        From2S _ d -> OS.fromVector <$> HM.flatten <$> eval2 d
+        FromXS d -> Data.Array.Convert.convert <$> evalX d
 
         OutlineS codeOut primalArgs dualArgs ->
-          evalS parameters $ inlineDerivativeS codeOut primalArgs dualArgs
-        DelayS d -> evalS parameters d
+          evalS $ inlineDerivativeS codeOut primalArgs dualArgs
+        DelayS d -> evalS d
 #endif
-
-      parameters1 = runST $ do
-        (rMap0, rMap1, outerFinMap2, rMapX, _) <- initializeFinMaps st
-        -- We use normal hmatrix matrices rather than the sparse replacement.
-        rMap2 <- VM.replicate (VM.length outerFinMap2) (HM.fromRows [])
-        -- TODO: the following coredumps without the @VM.take@; it's a shame
-        -- there's no copying of a smaller vector into a larger one in the API.
-        -- Perhaps use https://hackage.haskell.org/package/base-4.16.0.0/docs/Foreign-Marshal-Array.html#v:copyArray?
-        V.unsafeCopy (VM.take (V.length params0Init) rMap0) params0Init
-        V.unsafeCopy (VM.take (V.length params1Init) rMap1) params1Init
-        V.unsafeCopy (VM.take (V.length params2Init) rMap2) params2Init
-        V.unsafeCopy (VM.take (V.length paramsXInit) rMapX) paramsXInit
-        v0 <- V.unsafeFreeze rMap0
-        v1 <- V.unsafeFreeze rMap1
-        v2 <- V.unsafeFreeze rMap2
-        vX <- V.unsafeFreeze rMapX
-        return (v0, v1, v2, vX)
-  in eval0 parameters1 deltaTopLevel
+  eval0 deltaTopLevel
 
 {- Note [SumElements0]
 ~~~~~~~~~~~~~~~~~~~~~~
