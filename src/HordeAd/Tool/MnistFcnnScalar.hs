@@ -1,5 +1,7 @@
 {-# LANGUAGE DataKinds, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
+-- Needed due to unsafePerformIO:
+{-# OPTIONS_GHC -fno-full-laziness -fno-cse #-}
 -- | Scalar-based implementation of fully connected neutral network
 -- for classification of MNIST digits. Sports 2 hidden layers.
 module HordeAd.Tool.MnistFcnnScalar where
