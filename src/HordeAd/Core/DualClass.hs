@@ -246,8 +246,8 @@ class HasRanks (d :: DMode) r where
 
 instance IsPrimal 'DModeGradient Double where
   dZero = Delta0 0 (toDeltaId (-1)) Zero0
-    -- The @-1@ hack is not just an optimization, but also prevents a mixup
-    -- from the optimization (even with -O0) that replaces all calls
+    -- The @-1@ hack is not just a speedup, but also prevents a mixup
+    -- from GHC optimization (even with -O0) that replaces all calls
     -- to dZero with a call to a shared top level one, performing counter
     -- increment only once per program.
   dScale !k !d = wrapDelta0 $ Scale0 k d

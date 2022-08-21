@@ -20,8 +20,6 @@ import HordeAd.Core.Engine
 import HordeAd.Core.OptimizerTools
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 
--- TODO: change the type to IO, but this requires a rewrite of all
--- test glue code; also remove NOINLINE
 -- | Stochastic Gradient Descent with mini-batches, taking the mean
 -- of the results from each mini-batch. Additionally, it uses
 -- "forward gradient" from "Gradients without Backpropagation"
@@ -51,7 +49,6 @@ sgdBatchForward
   -> Domains Double  -- ^ initial parameters
   -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
   -> IO (Domains Double, Double)
-{-# NOINLINE sgdBatchForward #-}
 sgdBatchForward seed0 batchSize gamma f trainingData parameters0 nParameters =
   go seed0 trainingData parameters0 0
  where
@@ -137,8 +134,6 @@ sgdAdamBatch
   -> IO (Domains r, StateAdam r)
 sgdAdamBatch = sgdAdamBatchArgs defaultArgsAdam
 
--- TODO: change the type to IO, but this requires a rewrite of all
--- test glue code; also remove NOINLINE
 sgdAdamBatchArgs
   :: forall r a. HasDelta r
   => ArgsAdam r
@@ -149,7 +144,6 @@ sgdAdamBatchArgs
   -> Domains r
   -> StateAdam r
   -> IO (Domains r, StateAdam r)
-{-# NOINLINE sgdAdamBatchArgs #-}
 sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
@@ -175,8 +169,6 @@ sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
           updateWithGradientAdam argsAdam stateAdam parameters gradients
     go rest parametersNew stateAdamNew
 
--- TODO: change the type to IO, but this requires a rewrite of all
--- test glue code; also remove NOINLINE
 -- | Relatively Smart Gradient Descent.
 -- Based on @gradientDescent@ from package @ad@ which is in turn based
 -- on the one from the VLAD compiler.
@@ -185,7 +177,6 @@ gdSmart :: forall r. HasDelta r
         -> Int  -- ^ requested number of iterations
         -> Domains r  -- ^ initial parameters
         -> IO (Domains r, r)
-{-# NOINLINE gdSmart #-}
 gdSmart f n0 parameters0 = do
   let varDeltas = generateDeltaVars parameters0
       variables0 = makeDualNumberVariables parameters0 varDeltas
