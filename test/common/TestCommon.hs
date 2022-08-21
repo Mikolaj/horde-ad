@@ -123,7 +123,7 @@ qcPropDom f args ds perturbation dt =
           (derivativeAtPerturbation, valueAtPerturbation) = dFastForward f args perturbation
           (gradient, revValue) = unsafePerformIO $ dReverse dt f args
       in -- Two forward derivative implementations agree fully:
-         dForward f args ds === ff
+         unsafePerformIO (dForward f args ds) === ff
          -- Objective function value from gradients is the same.
          .&&. ffValue == revValue
          -- Gradients and derivatives agree.
