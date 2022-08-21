@@ -132,9 +132,7 @@ qcPropDom f args ds perturbation dt =
          -- Objective function value is unaffected by perturbation.
          .&&. ffValue == valueAtPerturbation
          -- Derivative approximates the perturbation of value.
-         .&&. close1 (primalValue
-                                  f (addParameters
-                                                   args perturbation))
+         .&&. close1 (primalValue f (addParameters args perturbation))
                      (ffValue + derivativeAtPerturbation)
 
 -- A quick consistency check of all the kinds of derivatives and gradients
