@@ -199,20 +199,17 @@ dForwardGeneral variables@(params0, _, params1, _, params2, _, paramsX, _)
   return (derivative, value)
 
 -- The direction vector ds is taken as an extra argument.
--- TODO: change the type to IO, but this requires a rewrite of all
--- test glue code; also remove NOINLINE
 dForward
   :: HasDelta r
   => (DualNumberVariables 'DModeGradient r
       -> DualMonadGradient r (DualNumber 'DModeGradient r))
   -> Domains r
   -> Domains r
-  -> (r, r)
-{-# NOINLINE dForward #-}
-dForward f parameters ds =
+  -> IO (r, r)
+dForward f parameters ds = do
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
-  in unsafePerformIO $ dForwardGeneral variables f ds
+  dForwardGeneral variables f ds
 
 -- * A monad for efficiently computing forward derivatives.
 

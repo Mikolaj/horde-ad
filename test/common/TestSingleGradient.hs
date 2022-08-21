@@ -366,7 +366,9 @@ testDForward =
  testGroup "Simple dForward application tests" $
   map (\(txt, f, v, expected) ->
         let vp = listsToParameters v
-        in testCase txt $ dForward f vp vp @?~ expected)
+        in testCase txt $ do
+          res <- dForward f vp vp
+          res @?~ expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
     , ( "atanReadmeM", atanReadmeM, ([1.1, 2.2, 3.3], [])
       , (7.662345305800865, 4.9375516951604155) )
