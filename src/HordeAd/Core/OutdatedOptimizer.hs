@@ -1,5 +1,7 @@
 {-# LANGUAGE DataKinds, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
+-- Needed due to unsafePerformIO:
+{-# OPTIONS_GHC -fno-full-laziness -fno-cse #-}
 -- | Outdated and/or superseded implementations of gradient descent.
 -- They are used only for special tests and for comparison with the recommended
 -- optimizers to make sure the latter are superior in all contexts.
