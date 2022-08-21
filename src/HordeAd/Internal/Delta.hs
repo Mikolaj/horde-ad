@@ -791,7 +791,10 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
                     st deltaTopLevel
                     _ds@(params0Init, params1Init, params2Init, paramsXInit) =
   let eval0 :: Domains r -> Delta0 r -> r
-      eval0 (params0, _, _, _) (Delta0 _ (DeltaId i) Input0) = params0 V.! i
+      eval0 (params0, _, _, _) (Delta0 _ (DeltaId i) Input0) =
+        if i < V.length params0Init
+        then params0 V.! i
+        else error "derivativeFromDelta.eval': wrong index for an input"
       eval0 parameters (Delta0 _ _ d) = eval0' parameters d
       eval0' :: Domains r -> Delta0' r -> r
       eval0' parameters = \case
@@ -812,7 +815,10 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval0 parameters $ inlineDerivative0 codeOut primalArgs dualArgs
         Delay0 d -> eval0 parameters d
       eval1 :: Domains r -> Delta1 r -> Vector r
-      eval1 (_, params1, _, _) (Delta1 _ (DeltaId i) Input1) = params1 V.! i
+      eval1 (_, params1, _, _) (Delta1 _ (DeltaId i) Input1) =
+        if i < V.length params1Init
+        then params1 V.! i
+        else error "derivativeFromDelta.eval': wrong index for an input"
       eval1 parameters (Delta1 _ _ d) = eval1' parameters d
       eval1' :: Domains r -> Delta1' r -> Vector r
       eval1' parameters = \case
@@ -845,7 +851,10 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval1 parameters $ inlineDerivative1 codeOut primalArgs dualArgs
         Delay1 d -> eval1 parameters d
       eval2 :: Domains r -> Delta2 r -> Matrix r
-      eval2 ( _, _, params2, _) (Delta2 _ (DeltaId i) Input2) = params2 V.! i
+      eval2 ( _, _, params2, _) (Delta2 _ (DeltaId i) Input2) =
+        if i < V.length params2Init
+        then params2 V.! i
+        else error "derivativeFromDelta.eval': wrong index for an input"
       eval2 parameters (Delta2 _ _ d) = eval2' parameters d
       eval2' :: Domains r -> Delta2' r -> Matrix r
       eval2' parameters = \case
@@ -892,7 +901,10 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
           eval2 parameters $ inlineDerivative2 codeOut primalArgs dualArgs
         Delay2 d -> eval2 parameters d
       evalX :: Domains r -> DeltaX r -> OT.Array r
-      evalX ( _, _, _, paramsX) (DeltaX _ (DeltaId i) InputX) = paramsX V.! i
+      evalX ( _, _, _, paramsX) (DeltaX _ (DeltaId i) InputX) =
+        if i < V.length paramsXInit
+        then paramsX V.! i
+        else error "derivativeFromDelta.eval': wrong index for an input"
       evalX parameters (DeltaX _ _ d) = evalX' parameters d
       evalX' :: Domains r -> DeltaX' r -> OT.Array r
       evalX' parameters = \case
@@ -925,7 +937,9 @@ derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
         DelayX d -> evalX parameters d
       evalS :: OS.Shape sh => Domains r -> DeltaS sh r -> OS.Array sh r
       evalS ( _, _, _, paramsX) (DeltaS _ (DeltaId i) InputS) =
-        Data.Array.Convert.convert $ paramsX V.! i
+        if i < V.length paramsXInit
+        then Data.Array.Convert.convert $ paramsX V.! i
+        else error "derivativeFromDelta.eval': wrong index for an input"
       evalS parameters (DeltaS _ _ d) = evalS' parameters d
       evalS' :: OS.Shape sh => Domains r -> DeltaS' sh r -> OS.Array sh r
       evalS' parameters = \case
