@@ -18,7 +18,6 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 import qualified Numeric.LinearAlgebra as HM
 import           System.IO (hFlush, hPutStrLn, stderr)
-import           System.IO.Unsafe (unsafePerformIO)
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -54,11 +53,11 @@ sgdShow :: HasDelta r
         -> (a -> DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
         -> [a]  -- ^ training data
         -> Domain0 r  -- ^ initial parameters
-        -> r
-sgdShow gamma f trainData params0Init =
-  let result =
-        fst $ sgd gamma f trainData (params0Init, V.empty, V.empty, V.empty)
-  in snd $ unsafePerformIO $ dReverse 1 (f $ head trainData) result
+        -> IO r
+sgdShow gamma f trainData params0Init = do
+  result <-
+    fst <$> sgd gamma f trainData (params0Init, V.empty, V.empty, V.empty)
+  snd <$> dReverse 1 (f $ head trainData) result
 
 sgdTestCase :: String
             -> IO [a]
@@ -80,9 +79,9 @@ sgdTestCase prefix trainDataIO trainWithLoss gamma expected =
              ++ unwords [show widthHidden, show nParams0, show gamma]
   in testCase name $ do
        trainData <- trainDataIO
-       sgdShow gamma (trainWithLoss widthHidden widthHidden2)
-                     trainData vec
-         @?~ expected
+       res <- sgdShow gamma (trainWithLoss widthHidden widthHidden2)
+                      trainData vec
+       res @?~ expected
 
 mnistTestCase2
   :: String
@@ -117,9 +116,9 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                     -> IO (Domain0 Double)
            runBatch !params0 (k, chunk) = do
              let f = trainWithLoss widthHidden widthHidden2
-                 (!res, _, _, _) =
-                   fst $ sgd gamma f chunk (params0, V.empty, V.empty, V.empty)
-                 !trainScore = fcnnMnistTest0 widthHidden widthHidden2 chunk res
+             (!res, _, _, _) <-
+               fst <$> sgd gamma f chunk (params0, V.empty, V.empty, V.empty)
+             let !trainScore = fcnnMnistTest0 widthHidden widthHidden2 chunk res
                  !testScore =
                    fcnnMnistTest0 widthHidden widthHidden2 testData res
                  !lenChunk = length chunk
@@ -180,9 +179,9 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                     -> IO (Domain0 Double, Domain1 Double)
            runBatch (!params0, !params1) (k, chunk) = do
              let f = trainWithLoss widthHidden widthHidden2
-                 (resS, resV, _, _) =
-                   fst $ sgd gamma f chunk (params0, params1, V.empty, V.empty)
-                 res = (resS, resV)
+             (resS, resV, _, _) <-
+               fst <$> sgd gamma f chunk (params0, params1, V.empty, V.empty)
+             let res = (resS, resV)
                  !trainScore = fcnnMnistTest1
                                          widthHidden widthHidden2 chunk res
                  !testScore = fcnnMnistTest1
@@ -260,9 +259,9 @@ mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                     -> IO (Domains Double)
            runBatch (!params0, !params1, !params2, !paramsX) (k, chunk) = do
              let f = trainWithLoss
-                 res = fst $ sgd gamma f chunk
-                                 (params0, params1, params2, paramsX)
-                 !trainScore = fcnnMnistTest2 @Double chunk res
+             res <- fst <$> sgd gamma f chunk
+                                (params0, params1, params2, paramsX)
+             let !trainScore = fcnnMnistTest2 @Double chunk res
                  !testScore = fcnnMnistTest2 @Double testData res
                  !lenChunk = length chunk
              hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
@@ -324,8 +323,8 @@ mnistTestCase2T reallyWriteFile
                hPutStrLn stderr $ printf "%s: %d " prefix k
                hFlush stderr
              let f = trainWithLoss
-                 (!params0New, !value) =
-                   sgd gamma f chunk (params0, params1, params2, paramsX)
+             (!params0New, !value) <-
+               sgd gamma f chunk (params0, params1, params2, paramsX)
              time <- getPOSIXTime
              return (params0New, (time, value) : times)
        let runEpoch :: Int
@@ -396,9 +395,9 @@ mnistTestCase2D reallyWriteFile miniBatchSize decay
                  gamma = if decay
                          then gamma0 * exp (- fromIntegral k * 1e-4)
                          else gamma0
-                 (!params0New, !value) =
-                   sgdBatchForward (33 + k * 7) miniBatchSize gamma f chunk
-                                   (params0, params1, params2, paramsX) np
+             (!params0New, !value) <-
+                sgdBatchForward (33 + k * 7) miniBatchSize gamma f chunk
+                                (params0, params1, params2, paramsX) np
              time <- getPOSIXTime
              return (params0New, (time, value) : times)
        let runEpoch :: Int
@@ -531,9 +530,9 @@ mnistTestCase2S proxy proxy2
                  -> IO (Domains Double)
         runBatch (!params0, !params1, !params2, !paramsX) (k, chunk) = do
           let f = trainWithLoss proxy proxy2
-              res = fst $ sgd gamma f chunk
-                              (params0, params1, params2, paramsX)
-              !trainScore = fcnnMnistTestS @widthHidden @widthHidden2
+          res <- fst <$> sgd gamma f chunk
+                             (params0, params1, params2, paramsX)
+          let !trainScore = fcnnMnistTestS @widthHidden @widthHidden2
                                           chunk res
               !testScore = fcnnMnistTestS @widthHidden @widthHidden2
                                          testData res

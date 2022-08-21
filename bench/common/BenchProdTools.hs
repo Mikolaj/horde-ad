@@ -7,7 +7,6 @@ import Prelude
 import           Criterion.Main
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Vector)
-import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd
 
@@ -18,13 +17,13 @@ bgroup100 allxs =
       \ ~(list, vec) ->
       bgroup "100"
         [ bench "func_vec" $ nf vec_prod vec
-        , bench "grad_vec" $ nf grad_vec_prod vec
-        , bench "grad_toList" $ nf grad_toList_prod list
+        , bench "grad_vec" $ nfIO $ grad_vec_prod vec
+        , bench "grad_toList" $ nfIO $ grad_toList_prod list
         , bench "func_vec_omit" $ nf vec_omit_prod vec
-        , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
-        , bench "grad_vec_omit_scalarSum" $ nf grad_vec_omit_scalarSum vec
-        , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
-        , bench "grad_vec_omit_altSum" $ nf grad_vec_omit_altSum vec
+        , bench "grad_vec_omit" $ nfIO $ grad_vec_omit_prod vec
+        , bench "grad_vec_omit_scalarSum" $ nfIO $ grad_vec_omit_scalarSum vec
+        , bench "grad_vec_omit_sum" $ nfIO $ grad_vec_omit_sum vec
+        , bench "grad_vec_omit_altSum" $ nfIO $ grad_vec_omit_altSum vec
         ]
 
 bgroup200 allxs =
@@ -32,13 +31,13 @@ bgroup200 allxs =
       \ ~(list, vec) ->
       bgroup "200"
         [ bench "func_vec" $ nf vec_prod vec
-        , bench "grad_vec" $ nf grad_vec_prod vec
-        , bench "grad_toList" $ nf grad_toList_prod list
+        , bench "grad_vec" $ nfIO $ grad_vec_prod vec
+        , bench "grad_toList" $ nfIO $ grad_toList_prod list
         , bench "func_vec_omit" $ nf vec_omit_prod vec
-        , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
-        , bench "grad_vec_omit_scalarSum" $ nf grad_vec_omit_scalarSum vec
-        , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
-        , bench "grad_vec_omit_altSum" $ nf grad_vec_omit_altSum vec
+        , bench "grad_vec_omit" $ nfIO $ grad_vec_omit_prod vec
+        , bench "grad_vec_omit_scalarSum" $ nfIO $ grad_vec_omit_scalarSum vec
+        , bench "grad_vec_omit_sum" $ nfIO $ grad_vec_omit_sum vec
+        , bench "grad_vec_omit_altSum" $ nfIO $ grad_vec_omit_altSum vec
         ]
 
 bgroup1000 allxs =
@@ -46,13 +45,13 @@ bgroup1000 allxs =
       \ ~(list, vec) ->
       bgroup "1000"
         [ bench "func_vec" $ nf vec_prod vec
-        , bench "grad_vec" $ nf grad_vec_prod vec
-        , bench "grad_toList" $ nf grad_toList_prod list
+        , bench "grad_vec" $ nfIO $ grad_vec_prod vec
+        , bench "grad_toList" $ nfIO $ grad_toList_prod list
         , bench "func_vec_omit" $ nf vec_omit_prod vec
-        , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
-        , bench "grad_vec_omit_scalarSum" $ nf grad_vec_omit_scalarSum vec
-        , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
-        , bench "grad_vec_omit_altSum" $ nf grad_vec_omit_altSum vec
+        , bench "grad_vec_omit" $ nfIO $ grad_vec_omit_prod vec
+        , bench "grad_vec_omit_scalarSum" $ nfIO $ grad_vec_omit_scalarSum vec
+        , bench "grad_vec_omit_sum" $ nfIO $ grad_vec_omit_sum vec
+        , bench "grad_vec_omit_altSum" $ nfIO $ grad_vec_omit_altSum vec
         ]
 
 bgroup1e4 allxs =
@@ -60,13 +59,13 @@ bgroup1e4 allxs =
       \ ~(list, vec) ->
       bgroup "1e4"
         [ bench "func_vec" $ nf vec_prod vec
-        , bench "grad_vec" $ nf grad_vec_prod vec
-        , bench "grad_toList" $ nf grad_toList_prod list
+        , bench "grad_vec" $ nfIO $ grad_vec_prod vec
+        , bench "grad_toList" $ nfIO $ grad_toList_prod list
         , bench "func_vec_omit" $ nf vec_omit_prod vec
-        , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
-        , bench "grad_vec_omit_scalarSum" $ nf grad_vec_omit_scalarSum vec
-        , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
-        , bench "grad_vec_omit_altSum" $ nf grad_vec_omit_altSum vec
+        , bench "grad_vec_omit" $ nfIO $ grad_vec_omit_prod vec
+        , bench "grad_vec_omit_scalarSum" $ nfIO $ grad_vec_omit_scalarSum vec
+        , bench "grad_vec_omit_sum" $ nfIO $ grad_vec_omit_sum vec
+        , bench "grad_vec_omit_altSum" $ nfIO $ grad_vec_omit_altSum vec
         ]
 
 bgroup1e5 allxs =
@@ -74,13 +73,13 @@ bgroup1e5 allxs =
       \ ~(list, vec) ->
       bgroup "1e5"
         [ bench "func_vec" $ nf vec_prod vec
-        , bench "grad_vec" $ nf grad_vec_prod vec
-        , bench "grad_toList" $ nf grad_toList_prod list
+        , bench "grad_vec" $ nfIO $ grad_vec_prod vec
+        , bench "grad_toList" $ nfIO $ grad_toList_prod list
         , bench "func_vec_omit" $ nf vec_omit_prod vec
-        , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
-        , bench "grad_vec_omit_scalarSum" $ nf grad_vec_omit_scalarSum vec
-        , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
-        , bench "grad_vec_omit_altSum" $ nf grad_vec_omit_altSum vec
+        , bench "grad_vec_omit" $ nfIO $ grad_vec_omit_prod vec
+        , bench "grad_vec_omit_scalarSum" $ nfIO $ grad_vec_omit_scalarSum vec
+        , bench "grad_vec_omit_sum" $ nfIO $ grad_vec_omit_sum vec
+        , bench "grad_vec_omit_altSum" $ nfIO $ grad_vec_omit_altSum vec
         ]
 
 bgroup1e6 allxs =
@@ -88,12 +87,12 @@ bgroup1e6 allxs =
       \ ~(list, vec) ->
       bgroup "1e6"
         [ bench "func_vec" $ nf vec_prod vec
-        , bench "grad_vec" $ nf grad_vec_prod vec
-        , bench "grad_toList" $ nf grad_toList_prod list
+        , bench "grad_vec" $ nfIO $ grad_vec_prod vec
+        , bench "grad_toList" $ nfIO $ grad_toList_prod list
         , bench "func_vec_omit" $ nf vec_omit_prod vec
-        , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
-        , bench "grad_vec_omit_scalarSum" $ nf grad_vec_omit_scalarSum vec
-        , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
+        , bench "grad_vec_omit" $ nfIO $ grad_vec_omit_prod vec
+        , bench "grad_vec_omit_scalarSum" $ nfIO $ grad_vec_omit_scalarSum vec
+        , bench "grad_vec_omit_sum" $ nfIO $ grad_vec_omit_sum vec
 -- low memory usage, but repeated benchmark runs take quarters
 --        , bench "grad_vec_omit_altSum" $ nf grad_vec_omit_altSum vec
         ]
@@ -103,12 +102,12 @@ bgroup1e7 allxs =
       \ ~(list, vec) ->
       bgroup "1e7"
         [ bench "func_vec" $ nf vec_prod vec
-        , bench "grad_vec" $ nf grad_vec_prod vec
-        , bench "grad_toList" $ nf grad_toList_prod list
+        , bench "grad_vec" $ nfIO $ grad_vec_prod vec
+        , bench "grad_toList" $ nfIO $ grad_toList_prod list
         , bench "func_vec_omit" $ nf vec_omit_prod vec
-        , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
-        , bench "grad_vec_omit_scalarSum" $ nf grad_vec_omit_scalarSum vec
-        , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
+        , bench "grad_vec_omit" $ nfIO $ grad_vec_omit_prod vec
+        , bench "grad_vec_omit_scalarSum" $ nfIO $ grad_vec_omit_scalarSum vec
+        , bench "grad_vec_omit_sum" $ nfIO $ grad_vec_omit_sum vec
         ]
 
 bgroup5e7 allxs =
@@ -116,13 +115,13 @@ bgroup5e7 allxs =
       \ vec ->
       bgroup "5e7"  -- 5e7 == 5 * 10^7 == 0.5 * 10^8 == 0.5e8
         [ bench "func_vec" $ nf vec_prod vec
-        , bench "grad_vec" $ nf grad_vec_prod vec
+        , bench "grad_vec" $ nfIO $ grad_vec_prod vec
 -- this already takes 35G, so the worse variants not attempted:
---        , bench "grad_toList" $ nf grad_toList_prod list
+--        , bench "grad_toList" $ nfIO $ grad_toList_prod list
         , bench "func_vec_omit" $ nf vec_omit_prod vec
-        , bench "grad_vec_omit" $ nf grad_vec_omit_prod vec
-        , bench "grad_vec_omit_scalarSum" $ nf grad_vec_omit_scalarSum vec
-        , bench "grad_vec_omit_sum" $ nf grad_vec_omit_sum vec
+        , bench "grad_vec_omit" $ nfIO $ grad_vec_omit_prod vec
+        , bench "grad_vec_omit_scalarSum" $ nfIO $ grad_vec_omit_scalarSum vec
+        , bench "grad_vec_omit_sum" $ nfIO $ grad_vec_omit_sum vec
         ]
 
 (*\) :: DualMonad d r m
@@ -146,12 +145,12 @@ vec_prod :: forall r. IsScalar 'DModeValue r
          => Vector r -> r
 vec_prod ds = primalValue vec_prod_aux (ds, V.empty, V.empty, V.empty)
 
-grad_vec_prod :: HasDelta r => Vector r -> Vector r
+grad_vec_prod :: HasDelta r => Vector r -> IO (Vector r)
 grad_vec_prod ds =
-  (\(v, _, _, _) -> v) $ fst $ unsafePerformIO $ dReverse 1 vec_prod_aux (ds, V.empty, V.empty, V.empty)
+  (\(v, _, _, _) -> v) <$> fst <$> dReverse 1 vec_prod_aux (ds, V.empty, V.empty, V.empty)
 
-grad_toList_prod :: HasDelta r => [r] -> [r]
-grad_toList_prod l = V.toList $ grad_vec_prod $ V.fromList l
+grad_toList_prod :: HasDelta r => [r] -> IO [r]
+grad_toList_prod l = V.toList <$> grad_vec_prod (V.fromList l)
 
 -- A version that omits all Delta bindings except for just one let
 -- placed at the end in case the outcome of this function is used
@@ -171,10 +170,10 @@ vec_omit_prod ds =
   primalValue vec_omit_prod_aux (ds, V.empty, V.empty, V.empty)
 
 grad_vec_omit_prod :: HasDelta r
-                   => Vector r -> Vector r
+                   => Vector r -> IO (Vector r)
 grad_vec_omit_prod ds =
   (\(v, _, _, _) -> v)
-  $ fst $ unsafePerformIO $ dReverse 1 vec_omit_prod_aux (ds, V.empty, V.empty, V.empty)
+  <$> fst <$> dReverse 1 vec_omit_prod_aux (ds, V.empty, V.empty, V.empty)
 
 
 vec_omit_scalarSum_aux
@@ -196,17 +195,17 @@ altSumElementsV variables = do
   let x = var1 variables 0
   returnLet $ altSumElements0 x
 
-grad_vec_omit_scalarSum :: HasDelta r => Vector r -> Vector r
+grad_vec_omit_scalarSum :: HasDelta r => Vector r -> IO (Vector r)
 grad_vec_omit_scalarSum ds =
   (\(v, _, _, _) -> v)
-  $ fst $ unsafePerformIO $ dReverse 1 vec_omit_scalarSum_aux (ds, V.empty, V.empty, V.empty)
+  <$> fst <$> dReverse 1 vec_omit_scalarSum_aux (ds, V.empty, V.empty, V.empty)
 
-grad_vec_omit_sum :: Vector Double -> Vector Double
+grad_vec_omit_sum :: Vector Double -> IO (Vector Double)
 grad_vec_omit_sum ds =
   (\(_, v, _, _) -> V.head v)
-  $ fst $ unsafePerformIO $ dReverse 1 sumElementsV (V.empty, V.singleton ds, V.empty, V.empty)
+  <$> fst <$> dReverse 1 sumElementsV (V.empty, V.singleton ds, V.empty, V.empty)
 
-grad_vec_omit_altSum :: Vector Double -> Vector Double
+grad_vec_omit_altSum :: Vector Double -> IO (Vector Double)
 grad_vec_omit_altSum ds =
   (\(_, v, _, _) -> V.head v)
-  $ fst $ unsafePerformIO $ dReverse 1 altSumElementsV (V.empty, V.singleton ds, V.empty, V.empty)
+  <$> fst <$> dReverse 1 altSumElementsV (V.empty, V.singleton ds, V.empty, V.empty)
