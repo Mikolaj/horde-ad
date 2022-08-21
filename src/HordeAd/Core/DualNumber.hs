@@ -7,6 +7,8 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 #endif
+-- Needed due to unsafePerformIO:
+{-# OPTIONS_GHC -fno-full-laziness -fno-cse #-}
 -- | Dual numbers and various operations on them, arithmetic and related
 -- to tensors (vectors, matrices and others). This is the high-level API,
 -- defined using the low-level API in "HordeAd.Core.DualClass".
