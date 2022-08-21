@@ -1,5 +1,7 @@
 {-# LANGUAGE DataKinds, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
+-- Needed due to unsafePerformIO:
+{-# OPTIONS_GHC -fno-full-laziness -fno-cse #-}
 module BenchProdTools where
 
 import Prelude

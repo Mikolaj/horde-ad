@@ -3,6 +3,8 @@
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+-- Needed due to unsafePerformIO:
+{-# OPTIONS_GHC -fno-full-laziness -fno-cse #-}
 -- | Shaped tensor-based implementation of Recurrent Neural Network
 -- for classification of MNIST digits. Sports 2 hidden layers.
 module HordeAd.Tool.MnistRnnShaped where
