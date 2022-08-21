@@ -633,14 +633,14 @@ initializeCounters (params0, params1, params2, paramsX) = do
   putMVar unsafeDeltaCounter2 $ toDeltaId (V.length params2)
   putMVar unsafeDeltaCounterX $ toDeltaId (V.length paramsX)
 
-finalizeCounters :: IO (Int, DeltaId r, DeltaId (Vector r), DeltaId (Matrix r), DeltaId (OT.Array r))
+finalizeCounters :: IO (DeltaCounters r)
 finalizeCounters = do
-  n <- takeMVar unsafeGlobalCounter
-  c0 <- takeMVar unsafeDeltaCounter0
-  c1 <- takeMVar unsafeDeltaCounter1
-  c2 <- takeMVar unsafeDeltaCounter2
-  cX <- takeMVar unsafeDeltaCounterX
-  return (n, c0, c1, c2, cX)
+  deltaCounter <- takeMVar unsafeGlobalCounter
+  deltaCounter0 <- takeMVar unsafeDeltaCounter0
+  deltaCounter1 <- takeMVar unsafeDeltaCounter1
+  deltaCounter2 <- takeMVar unsafeDeltaCounter2
+  deltaCounterX <- takeMVar unsafeDeltaCounterX
+  return DeltaCounters{..}
 
 wrapDelta0 :: Delta0' r -> Delta0 r
 wrapDelta0 d =

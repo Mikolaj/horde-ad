@@ -162,7 +162,6 @@ library
       , pretty-show
       , random
       , strict-containers
-      , transformers
       , vector
       , zlib
 
