@@ -662,8 +662,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             f :: forall d r m. (DualMonad d r m, r ~ Double)
               => DualNumberVariables d r -> m (DualNumber d r)
             f = fcnnMnistLoss0 widthHidden widthHidden2 mnistData
-        in
-            qcPropDom f parameters ds parametersPerturbation 1
+        in ioProperty $ qcPropDom f parameters ds parametersPerturbation 1
   , testProperty "Compare two forward derivatives and gradient for Mnist1" $
       \seed seedDs ->
       forAll (choose (1, 2000)) $ \widthHidden ->
@@ -683,8 +682,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             f :: forall d r m. (DualMonad d r m, r ~ Double)
               => DualNumberVariables d r -> m (DualNumber d r)
             f = fcnnMnistLoss1 widthHidden widthHidden2 mnistData
-        in
-            qcPropDom f parameters ds parametersPerturbation 1
+        in ioProperty $ qcPropDom f parameters ds parametersPerturbation 1
   , testProperty "Compare two forward derivatives and gradient for Mnist2" $
       \seed ->
       forAll (choose (0, sizeMnistLabel - 1)) $ \seedDs ->
@@ -710,11 +708,12 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             f = fcnnMnistLoss2 mnistData
             fOneHot = fcnnMnistLoss2 mnistDataOneHot
             fFused = fcnnMnistLossFused2 mnistDataOneHot
-        in
-            qcPropDom f       parameters ds parametersPerturbation 1 .&&.
-            qcPropDom fOneHot parameters ds parametersPerturbation 1 .&&.
-            qcPropDom fFused  parameters ds parametersPerturbation 1 .&&.
-            cmpTwoSimple fOneHot fFused  parameters ds
+        in ioProperty (qcPropDom f parameters ds parametersPerturbation 1)
+           .&&. ioProperty
+                  (qcPropDom fOneHot parameters ds parametersPerturbation 1)
+           .&&. ioProperty
+                  (qcPropDom fFused parameters ds parametersPerturbation 1)
+           .&&. cmpTwoSimple fOneHot fFused parameters ds
   ]
 
 bigMnistTests :: TestTree

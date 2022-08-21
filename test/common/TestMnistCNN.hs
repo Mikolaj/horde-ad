@@ -583,10 +583,9 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
               cx1 <- returnLet $ indexX cx ix1
               cx2 <- returnLet $ indexX cx1 ix2
               returnLet $ fromX0 cx2
-        in
-            qcPropDom f  parameters ds parametersPerturbation 1 .&&.
-            qcPropDom fP parameters ds parametersPerturbation 1 .&&.
-            cmpTwoSimple f fP parameters ds
+        in ioProperty (qcPropDom f parameters ds parametersPerturbation 1)
+           .&&. ioProperty (qcPropDom fP parameters ds parametersPerturbation 1)
+           .&&. cmpTwoSimple f fP parameters ds
 
   , testProperty "Compare gradients and two forward derivatives for convMnistTestCNN and convMnistTestCNNP" $
       \seed ->
@@ -640,12 +639,13 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
               in (V.empty, V.empty, V.empty, qX)
             parametersT = paramsToT parameters
             dsT = paramsToT ds
-        in
-            qcPropDom f  parameters  ds  parametersPerturbation 1 .&&.
-            qcPropDom fP parameters  ds  parametersPerturbation 1 .&&.
-            qcPropDom fT parametersT dsT parametersPerturbation 1 .&&.
-            cmpTwoSimple f fP parameters ds .&&.
-            cmpTwo f fT parameters parametersT ds dsT
+        in ioProperty (qcPropDom f parameters ds parametersPerturbation 1)
+           .&&. ioProperty
+                  (qcPropDom fP parameters ds parametersPerturbation 1)
+           .&&. ioProperty
+                  (qcPropDom fT parametersT dsT parametersPerturbation 1)
+           .&&. cmpTwoSimple f fP parameters ds
+           .&&. cmpTwo f fT parameters parametersT ds dsT
   ]
 
 mnistCNNTestsShort :: TestTree
