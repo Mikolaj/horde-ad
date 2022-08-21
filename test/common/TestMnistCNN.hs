@@ -4,7 +4,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- GHC 9.2.4 panics with the reverse flags in this module, so we have
 -- to keep these:
-{-# OPTIONS_GHC -ffull-laziness -fcse #-}
+{-# OPTIONS_GHC -ffull-laziness #-}
 module TestMnistCNN (testTrees, shortTestForCITrees) where
 
 import Prelude
