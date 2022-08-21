@@ -14,7 +14,6 @@ import qualified Data.Array.ShapedS as OS
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as HM
-import           System.IO.Unsafe (unsafePerformIO)
 import           Test.Tasty
 import           Test.Tasty.QuickCheck
 
@@ -113,27 +112,30 @@ qcPropDom :: (forall d r m. ( DualMonad d r m
                             , Floating (Out (DualNumber d (Vector r)))
                             , Floating (Out (DualNumber d (OS.Array '[2] r))) )
               => DualNumberVariables d r -> m (DualNumber d r))
-       -> Domains Double
-       -> Domains Double
-       -> Domains Double
-       -> Double
-       -> Property
-qcPropDom f args ds perturbation dt =
-      let ff@(derivative, ffValue) = dFastForward f args ds
-          (derivativeAtPerturbation, valueAtPerturbation) = dFastForward f args perturbation
-          (gradient, revValue) = unsafePerformIO $ dReverse dt f args
-      in -- Two forward derivative implementations agree fully:
-         unsafePerformIO (dForward f args ds) === ff
-         -- Objective function value from gradients is the same.
-         .&&. ffValue == revValue
-         -- Gradients and derivatives agree.
-         .&&. close1 (dt * derivative)
-                     (dotParameters gradient ds)
-         -- Objective function value is unaffected by perturbation.
-         .&&. ffValue == valueAtPerturbation
-         -- Derivative approximates the perturbation of value.
-         .&&. close1 (primalValue f (addParameters args perturbation))
-                     (ffValue + derivativeAtPerturbation)
+          -> Domains Double
+          -> Domains Double
+          -> Domains Double
+          -> Double
+          -> IO Property
+qcPropDom f args ds perturbation dt = do
+  let ff@(derivative, ffValue) = dFastForward f args ds
+      (derivativeAtPerturbation, valueAtPerturbation) =
+        dFastForward f args perturbation
+  (gradient, revValue) <- dReverse dt f args
+  res <- dForward f args ds
+  return $!
+    -- Two forward derivative implementations agree fully:
+    res === ff
+    -- Objective function value from gradients is the same.
+    .&&. ffValue == revValue
+    -- Gradients and derivatives agree.
+    .&&. close1 (dt * derivative)
+                (dotParameters gradient ds)
+    -- Objective function value is unaffected by perturbation.
+    .&&. ffValue == valueAtPerturbation
+    -- Derivative approximates the perturbation of value.
+    .&&. close1 (primalValue f (addParameters args perturbation))
+                (ffValue + derivativeAtPerturbation)
 
 -- A quick consistency check of all the kinds of derivatives and gradients
 -- and all kinds of computing the value of the objective function.
@@ -141,33 +143,34 @@ qcPropFArg :: (forall d r m. ( DualMonad d r m
                          , Floating (Out (DualNumber d (Vector r)))
                          , Floating (Out (DualNumber d (OS.Array '[2] r))) )
                => DualNumberVariables d r -> m (DualNumber d r))
-       -> ((Double, Double, Double) -> Domains Double)
-       -> (Double, Double, Double)
-       -> (Double, Double, Double)
-       -> (Double, Double, Double)
-       -> Double
-       -> Property
-qcPropFArg f fArgDom xyz dsRaw perturbationRaw dt =
-      let args = fArgDom xyz
-          ds = fArgDom dsRaw
-          perturbation = fArgDom perturbationRaw
-      in qcPropDom f args ds perturbation dt
+           -> ((Double, Double, Double) -> Domains Double)
+           -> (Double, Double, Double)
+           -> (Double, Double, Double)
+           -> (Double, Double, Double)
+           -> Double
+           -> IO Property
+qcPropFArg f fArgDom xyz dsRaw perturbationRaw dt = do
+  let args = fArgDom xyz
+      ds = fArgDom dsRaw
+      perturbation = fArgDom perturbationRaw
+  qcPropDom f args ds perturbation dt
 
 -- A quick consistency check of all the kinds of derivatives and gradients
 -- and all kinds of computing the value of the objective function.
-qcTestRanges :: TestName
-       -> (forall d r m. ( DualMonad d r m
-                         , Floating (Out (DualNumber d (Vector r)))
-                         , Floating (Out (DualNumber d (OS.Array '[2] r))) )
-           => DualNumberVariables d r -> m (DualNumber d r))
-       -> ((Double, Double, Double) -> Domains Double)
-       -> ((Double, Double, Double), (Double, Double, Double))
-       -> ((Double, Double, Double), (Double, Double, Double))
-       -> (Double, Double)
-       -> TestTree
+qcTestRanges
+  :: TestName
+  -> (forall d r m. ( DualMonad d r m
+                    , Floating (Out (DualNumber d (Vector r)))
+                    , Floating (Out (DualNumber d (OS.Array '[2] r))) )
+      => DualNumberVariables d r -> m (DualNumber d r))
+  -> ((Double, Double, Double) -> Domains Double)
+  -> ((Double, Double, Double), (Double, Double, Double))
+  -> ((Double, Double, Double), (Double, Double, Double))
+  -> (Double, Double)
+  -> TestTree
 qcTestRanges txt f fArgDom dsRange perturbationRange dtRange =
   testProperty txt $
   forAll (choose dsRange) $ \xyz dsRaw ->
   forAll (choose perturbationRange) $ \perturbationRaw ->
   forAll (choose dtRange) $ \dt ->
-  qcPropFArg f fArgDom xyz dsRaw perturbationRaw dt
+  ioProperty $ qcPropFArg f fArgDom xyz dsRaw perturbationRaw dt
