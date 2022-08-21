@@ -176,9 +176,9 @@ convMnistTestCaseCNN prefix epochs maxBatches trainWithLoss testLoss
                     -> IO (Domains Double)
            runBatch (!params0, !params1, !params2, !paramsX) (k, chunk) = do
              let f = trainWithLoss widthHidden
-                 res = fst $ sgd gamma f chunk
-                                 (params0, params1, params2, paramsX)
-                 !trainScore = testLoss widthHidden chunk res
+             res <- fst <$> sgd gamma f chunk
+                                (params0, params1, params2, paramsX)
+             let !trainScore = testLoss widthHidden chunk res
                  !testScore = testLoss widthHidden testData res
                  !lenChunk = length chunk
              hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
@@ -460,8 +460,8 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
               chunkS = map packBatchS
                        $ filter (\ch -> length ch >= batch_size)
                        $ chunksOf batch_size chunk
-              res = fst $ sgd gamma f chunkS parameters
-              !trainScore = ftest proxy_kheight_minus_1 proxy_kwidth_minus_1
+          res <- fst <$> sgd gamma f chunkS parameters
+          let !trainScore = ftest proxy_kheight_minus_1 proxy_kwidth_minus_1
                                   proxy_num_hidden proxy_out_channels
                                   chunk res
               !testScore = ftest proxy_kheight_minus_1 proxy_kwidth_minus_1
