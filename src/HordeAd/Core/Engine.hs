@@ -23,7 +23,6 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
-import           System.IO.Unsafe (unsafePerformIO)
 import           Text.Show.Pretty (ppShow)
 
 import HordeAd.Core.DualClass
@@ -247,22 +246,18 @@ dFastForward f parameters (params0, params1, params2, paramsX) =
         makeDualNumberVariables
           parameters
           (V.convert params0, params1, params2, paramsX)  -- ds
-      (derivative, value) = dFastForwardGeneral variables f
-  in (derivative, value)
+  in dFastForwardGeneral variables f
 
 
 -- * Additional mechanisms
 
--- TODO: change the type to IO, but this requires a rewrite of all
--- test glue code; also remove NOINLINE
 prettyPrintDf
   :: forall r. HasDelta r
   => (DualNumberVariables 'DModeGradient r
       -> DualMonadGradient r (DualNumber 'DModeGradient r))
   -> Domains r
-  -> String
-{-# NOINLINE prettyPrintDf #-}
-prettyPrintDf f parameters = unsafePerformIO $ do
+  -> IO String
+prettyPrintDf f parameters = do
   initializeCounters parameters
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas

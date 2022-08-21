@@ -570,8 +570,8 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           blackGlyph = V.replicate sizeMnistGlyph 4
           blackLabel = V.replicate sizeMnistLabel 5
           trainData = (blackGlyph, blackLabel)
-          output = prettyPrintDf (fcnnMnistLoss2 trainData)
-                                 (params0, params1, params2, V.empty)
+      output <- prettyPrintDf (fcnnMnistLoss2 trainData)
+                              (params0, params1, params2, V.empty)
       -- printf "%s" output
       length output @?= 13348
   , testCase "2pretty-print in grey 3 2 fused" $ do
@@ -584,15 +584,15 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           blackGlyph = V.replicate sizeMnistGlyph 4
           blackLabel = V.replicate sizeMnistLabel 5
           trainData = (blackGlyph, blackLabel)
-          output = prettyPrintDf (fcnnMnistLossFused2 trainData)
-                                 (params0, params1, params2, V.empty)
+      output <- prettyPrintDf (fcnnMnistLossFused2 trainData)
+                              (params0, params1, params2, V.empty)
       --- printf "%s" output
       length output @?= 12431
   , testCase "3pretty-print on testset 3 2" $ do
       let (_, _, _, parameters0) = initializerFixed 44 0.5 (fcnnMnistLen2 4 3)
       testData <- loadMnistData testGlyphsPath testLabelsPath
       let trainDataItem = head testData
-          output = prettyPrintDf (fcnnMnistLoss2 trainDataItem) parameters0
+      output <- prettyPrintDf (fcnnMnistLoss2 trainDataItem) parameters0
       -- printf "%s" output
       length output @?= 16449
   , let blackGlyph = V.replicate sizeMnistGlyph 0
