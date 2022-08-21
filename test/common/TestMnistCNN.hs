@@ -2,6 +2,9 @@
              TypeOperators #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
+-- GHC 9.2.4 panics with the reverse flags in this module, so we have
+-- to keep these:
+{-# OPTIONS_GHC -ffull-laziness -fcse #-}
 module TestMnistCNN (testTrees, shortTestForCITrees) where
 
 import Prelude
