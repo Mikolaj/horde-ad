@@ -44,8 +44,7 @@ module HordeAd.Internal.Delta
   , -- * Delta expression identifiers
     DeltaId, toDeltaId, convertDeltaId, succDeltaId
   , -- * Evaluation of the delta expressions
-    DeltaBinding
-  , DeltaState (..)
+    DeltaCounters (..)
   , Domain0, Domain1, Domain2, DomainX, Domains
   , gradientFromDelta, derivativeFromDelta
   , isTensorDummy
@@ -301,7 +300,7 @@ data DeltaBinding r =
   | forall sh. OS.Shape sh
     => DeltaBindingS (DeltaId (OS.Array sh r)) (DeltaS' sh r)
 
-data DeltaState r = DeltaState
+data DeltaCounters r = DeltaCounters
   { deltaCounter  :: Int
   , deltaCounter0 :: DeltaId r
   , deltaCounter1 :: DeltaId (Vector r)
@@ -412,7 +411,7 @@ gradientFromDelta :: (Eq r, Numeric r, Num (Vector r))
                   -> (forall sh. OS.Shape sh
                       => CodeOut -> [OS.Array sh r] -> [DeltaS sh r]
                       -> DeltaS sh r)
-                  -> Int -> Int -> Int -> Int -> DeltaState r -> Delta0 r -> r
+                  -> Int -> Int -> Int -> Int -> DeltaCounters r -> Delta0 r -> r
                   -> Domains r
 gradientFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
                   inlineDerivativeX inlineDerivativeS
@@ -441,7 +440,7 @@ gradientFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
   -> (forall sh. OS.Shape sh
       => CodeOut -> [OS.Array sh Double] -> [DeltaS sh Double]
   -> DeltaS sh Double)
-  -> Int -> Int -> Int -> Int -> DeltaState Double -> Delta0 Double -> Double
+  -> Int -> Int -> Int -> Int -> DeltaCounters Double -> Delta0 Double -> Double
   -> Domains Double #-}
 
 -- | Create vectors (representing finite maps) that hold delta-variable
@@ -455,7 +454,7 @@ gradientFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
 -- via delta-expression duplication.
 initializeFinMaps
   :: forall s r. Numeric r
-  => DeltaState r
+  => DeltaCounters r
   -> ST s ( Data.Vector.Storable.Mutable.MVector s r
           , Data.Vector.Mutable.MVector s (Vector r)
           , Data.Vector.Mutable.MVector s (MO.MatrixOuter r)
@@ -482,7 +481,7 @@ buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
              -> (forall sh. OS.Shape sh
                  => CodeOut -> [OS.Array sh r] -> [DeltaS sh r]
                  -> DeltaS sh r)
-             -> DeltaState r -> Delta0 r -> r
+             -> DeltaCounters r -> Delta0 r -> r
              -> ST s ( Data.Vector.Storable.Mutable.MVector s r
                      , Data.Vector.Mutable.MVector s (Vector r)
                      , Data.Vector.Mutable.MVector s (MO.MatrixOuter r)
@@ -762,7 +761,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
   -> (forall sh. OS.Shape sh
       => CodeOut -> [OS.Array sh Double] -> [DeltaS sh Double]
       -> DeltaS sh Double)
-  -> DeltaState Double -> Delta0 Double -> Double
+  -> DeltaCounters Double -> Delta0 Double -> Double
   -> ST s ( Data.Vector.Storable.Mutable.MVector s Double
           , Data.Vector.Mutable.MVector s (Vector Double)
           , Data.Vector.Mutable.MVector s (MO.MatrixOuter Double)
@@ -785,7 +784,7 @@ derivativeFromDelta
   -> (forall sh. OS.Shape sh
       => CodeOut -> [OS.Array sh r] -> [DeltaS sh r]
       -> DeltaS sh r)
-  -> DeltaState r -> Delta0 r -> Domains r -> r
+  -> DeltaCounters r -> Delta0 r -> Domains r -> r
 derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
                     inlineDerivativeX inlineDerivativeS
                     st deltaTopLevel
@@ -807,7 +806,7 @@ buildDerivative
   -> (forall sh. OS.Shape sh
       => CodeOut -> [OS.Array sh r] -> [DeltaS sh r]
       -> DeltaS sh r)
-  -> DeltaState r -> Delta0 r -> Domains r -> ST s r
+  -> DeltaCounters r -> Delta0 r -> Domains r -> ST s r
 buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
                 inlineDerivativeX inlineDerivativeS
                 st deltaTopLevel
