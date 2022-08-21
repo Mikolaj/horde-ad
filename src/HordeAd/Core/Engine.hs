@@ -196,7 +196,7 @@ dForwardGeneral variables@(params0, _, params1, _, params2, _, paramsX, _)
         derivativeFromDelta inlineDerivative inlineDerivative inlineDerivative
                             inlineDerivative inlineDerivative
                             st2 d ds
-  return (derivative , value)
+  return (derivative, value)
 
 -- The direction vector ds is taken as an extra argument.
 -- TODO: change the type to IO, but this requires a rewrite of all
@@ -342,6 +342,11 @@ initializerFixed seed range (nParams0, lParams1, lParams2, lParamsX) =
      , range
      , (params0Init, params1Init, params2Init, paramsXInit) )
 
+-- TODO: take the counters from the Out constructor and move them over
+-- to the outermost constructor from here, assigning -1 counters
+-- to any created inner nodes. This is messy, because we can't use
+-- Num and other instances either from DualNumber or from DualClass,
+-- because they impurely assign counters.
 outDualNumber :: (IsPrimal d a, RealFloat a, Show a, Show (Dual d a))
               => CodeOut -> [a] -> [Dual d a]
               -> DualNumber d a
