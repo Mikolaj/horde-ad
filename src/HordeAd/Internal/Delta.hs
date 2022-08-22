@@ -472,11 +472,11 @@ initializeFinMaps st = do
       DeltaId counter1 = deltaCounter1 st
       DeltaId counter2 = deltaCounter2 st
       DeltaId counterX = deltaCounterX st
-  rMap0 <- VM.replicate counter0 0  -- correct value
-  rMap1 <- VM.replicate counter1 (V.empty :: Vector r)  -- below dummy values
+  rMap0 <- VM.replicate counter0 0  -- correct value; below are dummy values
+  rMap1 <- VM.replicate counter1 (V.empty :: Vector r)
   rMap2 <- VM.replicate counter2 MO.emptyMatrixOuter
   rMapX <- VM.replicate counterX dummyTensor
-  dMap <- VM.replicate n (DeltaBinding0 (toDeltaId 0) Input0)  -- safe dummy
+  dMap <- VM.replicate n (DeltaBinding0 dummyDeltaId Zero0)  -- dummy
   return (rMap0, rMap1, rMap2, rMapX, dMap)
 
 buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
@@ -732,32 +732,29 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
   eval0 dt deltaTopLevel
 
   let evalUnlessZero :: DeltaBinding r -> ST s ()
-      evalUnlessZero (DeltaBinding0 (DeltaId i) d) = do
+      evalUnlessZero (DeltaBinding0 (DeltaId i) d) = unless (i < 0) $ do
         r <- rMap0 `VM.read` i
-        unless (r == 0) $  -- we init with exactly 0.0 so the comparison works
+        unless (r == 0) $  -- a cheap optimization in case of scalars
           eval0' r d
-      evalUnlessZero (DeltaBinding1 (DeltaId i) d) = do
+      evalUnlessZero (DeltaBinding1 (DeltaId i) d) = unless (i < 0) $ do
         r <- rMap1 `VM.read` i
-        unless (V.null r) $
-          eval1' r d
-      evalUnlessZero (DeltaBinding2 (DeltaId i) d) = do
+        eval1' r d
+      evalUnlessZero (DeltaBinding2 (DeltaId i) d) = unless (i < 0) $ do
         r <- rMap2 `VM.read` i
-        unless (MO.nullMatrixOuter r) $
-          eval2' r d
-      evalUnlessZero (DeltaBindingX (DeltaId i) d) = do
+        eval2' r d
+      evalUnlessZero (DeltaBindingX (DeltaId i) d) = unless (i < 0) $ do
         r <- rMapX `VM.read` i
-        unless (isTensorDummy r) $
-          evalX' r d
-      evalUnlessZero (DeltaBindingS (DeltaId i) d) = do
+        evalX' r d
+      evalUnlessZero (DeltaBindingS (DeltaId i) d) = unless (i < 0) $ do
         r <- rMapX `VM.read` i
-        unless (isTensorDummy r) $
-          evalS' (Data.Array.Convert.convert r) d
+        evalS' (Data.Array.Convert.convert r) d
       evalFromdMap :: Int -> ST s ()
       evalFromdMap k = do
         d <- dMap `VM.read` k
         evalUnlessZero d
       n = deltaCounter st
   mapM_ evalFromdMap [n-1, n-2 .. 1]
+
   return (rMap0, rMap1, rMap2, rMapX)
 {-# SPECIALIZE buildFinMaps
   :: (CodeOut -> [Double] -> [Delta0 Double] -> Delta0 Double)
@@ -838,7 +835,7 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         -- for initializeFinMaps and some of a similar code.
         d0 <- VM.read dMap n
         case d0 of
-          DeltaBinding0 (DeltaId 0) Input0 -> do
+          DeltaBinding0 (DeltaId (-1)) Zero0 -> do
             VM.write dMap n (DeltaBinding0 did d)  -- only marks that visited
             r <- eval0' d
             VM.write rMap0 i r
@@ -871,7 +868,7 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
       eval1 (Delta1 n did@(DeltaId i) d) = do
         d0 <- VM.read dMap n
         case d0 of
-          DeltaBinding0 (DeltaId 0) Input0 -> do
+          DeltaBinding0 (DeltaId (-1)) Zero0 -> do
             VM.write dMap n (DeltaBinding1 did d)  -- only marks that visited
             r <- eval1' d
             VM.write rMap1 i r
@@ -918,7 +915,7 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
       eval2 (Delta2 n did@(DeltaId i) d) = do
         d0 <- VM.read dMap n
         case d0 of
-          DeltaBinding0 (DeltaId 0) Input0 -> do
+          DeltaBinding0 (DeltaId (-1)) Zero0 -> do
             VM.write dMap n (DeltaBinding2 did d)  -- only marks that visited
             r <- eval2' d
             VM.write rMap2 i r
@@ -979,7 +976,7 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
       evalX (DeltaX n did@(DeltaId i) d) = do
         d0 <- VM.read dMap n
         case d0 of
-          DeltaBinding0 (DeltaId 0) Input0 -> do
+          DeltaBinding0 (DeltaId (-1)) Zero0 -> do
             VM.write dMap n (DeltaBindingX did d)  -- only marks that visited
             r <- evalX' d
             VM.write rMapX i r
@@ -1025,7 +1022,7 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
       evalS (DeltaS n did@(DeltaId i) d) = do
         d0 <- VM.read dMap n
         case d0 of
-          DeltaBinding0 (DeltaId 0) Input0 -> do
+          DeltaBinding0 (DeltaId (-1)) Zero0 -> do
             VM.write dMap n (DeltaBindingS did d)  -- only marks that visited
             r <- evalS' d
             VM.write rMapX i (Data.Array.Convert.convert r)
