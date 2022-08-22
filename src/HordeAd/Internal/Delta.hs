@@ -42,7 +42,7 @@ module HordeAd.Internal.Delta
   , DeltaX (..), DeltaX' (..)
   , DeltaS (..), DeltaS' (..)
   , -- * Delta expression identifiers
-    DeltaId, toDeltaId, convertDeltaId, succDeltaId
+    DeltaId, toDeltaId, convertDeltaId, succDeltaId, dummyDeltaId
   , -- * Evaluation of the delta expressions
     DeltaCounters (..)
   , Domain0, Domain1, Domain2, DomainX, Domains
@@ -278,9 +278,11 @@ instance Show (DeltaS' sh r) where
 
 newtype DeltaId a = DeltaId Int
   deriving Show
+    -- no Eq instance to limit hacks outside this module
 
+-- | Wrap non-negative (only!) integers in the `DeltaId` newtype.
 toDeltaId :: Int -> DeltaId a
-toDeltaId = DeltaId
+toDeltaId i = assert (i >= 0) $ DeltaId i
 
 convertDeltaId :: DeltaId (OT.Array r) -> DeltaId (OS.Array sh r)
 convertDeltaId (DeltaId i) = DeltaId i
@@ -288,6 +290,10 @@ convertDeltaId (DeltaId i) = DeltaId i
 -- The key property is that it preserves the phantom type.
 succDeltaId :: DeltaId a -> DeltaId a
 succDeltaId (DeltaId i) = DeltaId (succ i)
+
+-- | An id that can't be obtained via `toDeltaId` and `succDeltaId`.
+dummyDeltaId :: DeltaId a
+dummyDeltaId = DeltaId (-1)
 
 
 -- * Evaluation of the delta expressions
@@ -828,8 +834,8 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         then VM.read rMap0 i
         else error "derivativeFromDelta.eval': wrong index for an input"
       eval0 (Delta0 n did@(DeltaId i) d) = do
-        -- This is too complex, but uses the component already defined
-        -- for initializeFinMaps and a similar code.
+        -- This is too complex, but uses components already defined
+        -- for initializeFinMaps and some of a similar code.
         d0 <- VM.read dMap n
         case d0 of
           DeltaBinding0 (DeltaId 0) Input0 -> do
