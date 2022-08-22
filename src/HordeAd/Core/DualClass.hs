@@ -286,32 +286,32 @@ instance IsPrimalS 'DModeGradient r where
   dDelayS !d = wrapDeltaS $ DelayS d
 
 instance HasVariables Double where
-  dVar !did = Delta0 (-1) did Input0
+  dVar !did = Delta0 (-1) did Zero0
   dOutline codeOut primalArgs !dualArgs =
     wrapDelta0 $ Outline0 codeOut primalArgs dualArgs
 
 instance HasVariables Float where
-  dVar !did = Delta0 (-1) did Input0
+  dVar !did = Delta0 (-1) did Zero0
   dOutline codeOut primalArgs !dualArgs =
     wrapDelta0 $ Outline0 codeOut primalArgs dualArgs
 
 instance HasVariables (Vector r) where
-  dVar !did = Delta1 (-1) did Input1
+  dVar !did = Delta1 (-1) did Zero1
   dOutline codeOut primalArgs !dualArgs =
     wrapDelta1 $ Outline1 codeOut primalArgs dualArgs
 
 instance HasVariables (Matrix r) where
-  dVar !did = Delta2 (-1) did Input2
+  dVar !did = Delta2 (-1) did Zero2
   dOutline codeOut primalArgs !dualArgs =
     wrapDelta2 $ Outline2 codeOut primalArgs dualArgs
 
 instance HasVariables (OT.Array r) where
-  dVar !did = DeltaX (-1) did InputX
+  dVar !did = DeltaX (-1) did ZeroX
   dOutline codeOut primalArgs !dualArgs =
     wrapDeltaX $ OutlineX codeOut primalArgs dualArgs
 
 instance HasVariables (OS.Array sh r) where
-  dVar !did = DeltaS (-1) did InputS
+  dVar !did = DeltaS (-1) did ZeroS
   dOutline codeOut primalArgs !dualArgs =
     wrapDeltaS $ OutlineS codeOut primalArgs dualArgs
 
