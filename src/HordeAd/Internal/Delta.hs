@@ -529,15 +529,16 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         Add0 d e -> eval0 r d >> eval0 r e
 
         SumElements0 vd n -> eval1 (HM.konst r n) vd
-        Index0 (Delta1 (-1) (DeltaId i) Zero1) ix k -> do
+        Index0 (Delta1 (-1) (DeltaId i) Zero1) ix k | i >= 0 -> do
           let f v = if V.null v
                     then HM.konst 0 k V.// [(ix, r)]
                     else v V.// [(ix, v V.! ix + r)]
           VM.modify rMap1 f i
-            -- this would be an asymptotic optimization compared to
+            -- This would be an asymptotic optimization compared to
             -- the general case below, if not for the non-mutable update,
             -- which involves copying the whole vector, so it's just
-            -- several times faster (same allocation, but not adding vectors)
+            -- several times faster (same allocation, but not adding vectors).
+            -- TODO: does it make sense to extend this beyond @Zero@?
         Index0 d ix k -> eval1 (HM.konst 0 k V.// [(ix, r)]) d
 
         Dot0 v vd -> eval1 (HM.scale r v) vd
