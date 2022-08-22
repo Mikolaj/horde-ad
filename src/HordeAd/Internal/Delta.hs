@@ -112,7 +112,6 @@ data Delta0' r =
     Zero0
   | Scale0 r (Delta0 r)
   | Add0 (Delta0 r) (Delta0 r)
-  | Input0
 
   | SumElements0 (Delta1 r) Int  -- ^ see Note [SumElements0]
   | Index0 (Delta1 r) Int Int  -- ^ second integer is the length of the vector
@@ -135,7 +134,6 @@ data Delta1' r =
     Zero1
   | Scale1 (Vector r) (Delta1 r)
   | Add1 (Delta1 r) (Delta1 r)
-  | Input1
 
   | Seq1 (Data.Vector.Vector (Delta0 r))  -- ^ "unboxing" conversion
   | Konst1 (Delta0 r) Int  -- ^ length; needed only for forward derivative
@@ -173,7 +171,6 @@ data Delta2' r =
     Zero2
   | Scale2 (Matrix r) (Delta2 r)
   | Add2 (Delta2 r) (Delta2 r)
-  | Input2
 
   | FromRows2 (Data.Vector.Vector (Delta1 r))  -- ^ "unboxing" conversion again
   | FromColumns2 (Data.Vector.Vector (Delta1 r))
@@ -213,7 +210,6 @@ data DeltaX' r =
     ZeroX
   | ScaleX (OT.Array r) (DeltaX r)
   | AddX (DeltaX r) (DeltaX r)
-  | InputX
 
   | KonstX (Delta0 r) OT.ShapeL  -- ^ size; needed only for forward derivative
   | AppendX (DeltaX r) Int (DeltaX r)
@@ -253,7 +249,6 @@ data DeltaS' :: [Nat] -> Type -> Type where
   ZeroS :: DeltaS' sh r
   ScaleS :: OS.Array sh r -> DeltaS sh r -> DeltaS' sh r
   AddS :: DeltaS sh r -> DeltaS sh r -> DeltaS' sh r
-  InputS :: DeltaS' sh r
 
   KonstS :: Delta0 r -> DeltaS' sh r
   AppendS :: (OS.Shape sh, KnownNat m, KnownNat n)
@@ -532,10 +527,9 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         Zero0 -> return ()
         Scale0 k d -> eval0 (k * r) d
         Add0 d e -> eval0 r d >> eval0 r e
-        Input0 -> return ()
 
         SumElements0 vd n -> eval1 (HM.konst r n) vd
-        Index0 (Delta1 _ (DeltaId i) Input1) ix k -> do
+        Index0 (Delta1 (-1) (DeltaId i) Zero1) ix k -> do
           let f v = if V.null v
                     then HM.konst 0 k V.// [(ix, r)]
                     else v V.// [(ix, v V.! ix + r)]
@@ -564,7 +558,6 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         Zero1 -> return ()
         Scale1 k d -> eval1 (k * r) d
         Add1 d e -> eval1 r d >> eval1 r e
-        Input1 -> return ()
 
         Seq1 lsd -> V.imapM_ (\i d -> eval0 (r V.! i) d) lsd
         Konst1 d _n -> V.mapM_ (`eval0` d) r
@@ -603,7 +596,6 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         Zero2 -> return ()
         Scale2 k d -> eval2 (MO.multiplyWithOuter k r) d
         Add2 d e -> eval2 r d >> eval2 r e
-        Input2 -> return ()
 
         FromRows2 lvd -> zipWithM_ eval1 (MO.toRows r) (V.toList lvd)
         FromColumns2 lvd -> zipWithM_ eval1 (MO.toColumns r) (V.toList lvd)
@@ -663,7 +655,6 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         ZeroX -> return ()
         ScaleX k d -> evalX (liftVT2 (*) k r) d
         AddX d e -> evalX r d >> evalX r e
-        InputX -> return ()
 
         KonstX d _sz -> mapM_ (`eval0` d) $ OT.toList r
         AppendX d k e -> case OT.shapeL r of
@@ -683,7 +674,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           in evalX (OT.concatOuter [ OT.constant (ix : rest) 0
                                    , OT.reshape (1 : rest) r
                                    , OT.constant (len - ix - 1 : rest) 0 ])
-                   d  -- TODO: optimize for Input case
+                   d  -- TODO: optimize for input case
         RavelFromListX ld -> do
           let lr = OTB.toList $ OT.unravel r
           mapM_ (uncurry evalX) (zip lr ld)
@@ -712,7 +703,6 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         ZeroS -> return ()
         ScaleS k d -> evalS (liftVS2 (*) k r) d
         AddS d e -> evalS r d >> evalS r e
-        InputS -> return ()
 
 #if defined(VERSION_ghc_typelits_natnormalise)
         KonstS d -> mapM_ (`eval0` d) $ OS.toList r
@@ -728,7 +718,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           evalS (OS.constant @(ix ': rest) 0
                  `OS.append` OS.reshape r
                  `OS.append` OS.constant 0)
-                d  -- TODO: optimize for Input case
+                d  -- TODO: optimize for input case
         RavelFromListS ld -> do
           let lr = OSB.toList $ OS.unravel r
           mapM_ (uncurry evalS) (zip lr ld)
@@ -846,7 +836,7 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
   V.unsafeCopy (VM.take (V.length paramsXInit) rMapX) paramsXInit
   let eval0 :: Delta0 r -> ST s r
       eval0 (Delta0 _ (DeltaId (-1)) _) = return 0
-      eval0 (Delta0 _ (DeltaId i) Input0) =
+      eval0 (Delta0 (-1) (DeltaId i) Zero0) =
         if i < V.length params0Init
         then VM.read rMap0 i
         else error "derivativeFromDelta.eval': wrong index for an input"
@@ -866,7 +856,6 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         Zero0 -> return 0
         Scale0 k d -> (k *) <$> eval0 d
         Add0 d e -> liftM2 (+) (eval0 d) (eval0 e)
-        Input0 -> error "derivativeFromDelta.eval0': Input0 without DeltaId"
 
         SumElements0 vd _n -> HM.sumElements <$> eval1 vd
         Index0 d ix _k -> flip (V.!) ix <$> eval1 d
@@ -881,7 +870,7 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         Delay0 d -> eval0 d
       eval1 :: Delta1 r -> ST s (Vector r)
       eval1 (Delta1 _ (DeltaId (-1)) _) = return 0
-      eval1 (Delta1 _ (DeltaId i) Input1) =
+      eval1 (Delta1 (-1) (DeltaId i) Zero1) =
         if i < V.length params1Init
         then VM.read rMap1 i
         else error "derivativeFromDelta.eval': wrong index for an input"
@@ -899,7 +888,6 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         Zero1 -> return 0
         Scale1 k d -> (k *) <$> eval1 d
         Add1 d e -> liftM2 (+) (eval1 d) (eval1 e)
-        Input1 -> error "derivativeFromDelta.eval1': Input1 without DeltaId"
 
         Seq1 lsd -> do
           v <- V.mapM eval0 lsd
@@ -928,7 +916,7 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         Delay1 d -> eval1 d
       eval2 :: Delta2 r -> ST s (Matrix r)
       eval2 (Delta2 _ (DeltaId (-1)) _) = return 0
-      eval2 (Delta2 _ (DeltaId i) Input2) =
+      eval2 (Delta2 (-1) (DeltaId i) Zero2) =
         if i < V.length params2Init
         then VM.read rMap2 i
         else error "derivativeFromDelta.eval': wrong index for an input"
@@ -946,7 +934,6 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         Zero2 -> return 0
         Scale2 k d -> (k *) <$> eval2 d
         Add2 d e -> liftM2 (+) (eval2 d) (eval2 e)
-        Input2 -> error "derivativeFromDelta.eval2': Input2 without DeltaId"
 
         FromRows2 lvd -> do
           l <- mapM eval1 $ V.toList lvd
@@ -989,7 +976,7 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         Delay2 d -> eval2 d
       evalX :: DeltaX r -> ST s (OT.Array r)
       evalX (DeltaX _ (DeltaId (-1)) _) = return 0
-      evalX (DeltaX _ (DeltaId i) InputX) =
+      evalX (DeltaX (-1) (DeltaId i) ZeroX) =
         if i < V.length paramsXInit
         then VM.read rMapX i
         else error "derivativeFromDelta.eval': wrong index for an input"
@@ -1007,7 +994,6 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         ZeroX -> return 0
         ScaleX k d -> (k *) <$> evalX d
         AddX d e -> liftM2 (+) (evalX d) (evalX e)
-        InputX -> error "derivativeFromDelta.evalX': InputX without DeltaId"
 
         KonstX d sz -> OT.constant sz <$> eval0 d
         AppendX d _k e -> liftM2 OT.append (evalX d) (evalX e)
@@ -1035,7 +1021,7 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         DelayX d -> evalX d
       evalS :: OS.Shape sh => DeltaS sh r -> ST s (OS.Array sh r)
       evalS (DeltaS _ (DeltaId (-1)) _) = return 0
-      evalS (DeltaS _ (DeltaId i) InputS) =
+      evalS (DeltaS (-1) (DeltaId i) ZeroS) =
         if i < V.length paramsXInit
         then Data.Array.Convert.convert <$> VM.read rMapX i
         else error "derivativeFromDelta.eval': wrong index for an input"
@@ -1053,7 +1039,6 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         ZeroS -> return 0
         ScaleS k d -> (k *) <$> evalS d
         AddS d e -> liftM2 (+) (evalS d) (evalS e)
-        InputS -> error "derivativeFromDelta.evalS': InputS without DeltaId"
 
 #if defined(VERSION_ghc_typelits_natnormalise)
         KonstS d -> OS.constant <$> eval0 d
