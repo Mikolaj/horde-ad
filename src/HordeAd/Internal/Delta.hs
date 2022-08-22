@@ -54,7 +54,7 @@ module HordeAd.Internal.Delta
 import Prelude
 
 import           Control.Exception (assert)
-import           Control.Monad (liftM2, unless, zipWithM_)
+import           Control.Monad (liftM2, unless, when, zipWithM_)
 import           Control.Monad.ST.Strict (ST, runST)
 import qualified Data.Array.Convert
 import qualified Data.Array.Dynamic as OTB
@@ -92,6 +92,21 @@ import           HordeAd.Internal.OrthotopeOrphanInstances (liftVS2, liftVT2)
 --
 -- The @Outline@ constructors represent primitive numeric function applications
 -- for which we delay computing and forgo inlining of the derivative.
+--
+-- The identifier that is the first argument of @Delta0@ marks
+-- the identity of a subterm as part of the whole global term tree.
+-- If it's negative, the term's identify is unimportant,
+-- because it does not contribute to the derivative and so doesn't have
+-- any effect on the gradient computation. In particular, the term
+-- never appears inside @dMap@. Examples are @Zero0@ derivatives and inputs.
+--
+-- The per-rank identifier that is the second argument of @Delta0@
+-- is an index into a contigous vector of gradient or derivative components
+-- (partial gradients/derivatives wrt that term's position?) corresponding
+-- to subterms of that rank. If it's negative, the term not only
+-- does not contribute to the derivative, but we are not even interested
+-- in what the (partial) gradient for that subterm position would be.
+-- Examples are @Zero0@ derivatives that do not correspond to any input.
 data Delta0 r = Delta0 Int (DeltaId r) (Delta0' r)
 data Delta0' r =
     Zero0
@@ -510,7 +525,8 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
       eval0 :: r -> Delta0 r -> ST s ()
       eval0 !r (Delta0 n did@(DeltaId i) d) = unless (i < 0) $ do
         VM.modify rMap0 (+ r) i
-        VM.write dMap n (DeltaBinding0 did d)
+        when (n >= 0) $
+          VM.write dMap n (DeltaBinding0 did d)
       eval0' :: r -> Delta0' r -> ST s ()
       eval0' !r = \case
         Zero0 -> return ()
@@ -541,7 +557,8 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
       eval1 :: Vector r -> Delta1 r -> ST s ()
       eval1 !r (Delta1 n did@(DeltaId i) d) = unless (i < 0) $ do
         VM.modify rMap1 (addToVector r) i
-        VM.write dMap n (DeltaBinding1 did d)
+        when (n >= 0) $
+          VM.write dMap n (DeltaBinding1 did d)
       eval1' :: Vector r -> Delta1' r -> ST s ()
       eval1' !r = \case
         Zero1 -> return ()
@@ -579,7 +596,8 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
       eval2 !r (Delta2 n did@(DeltaId i) d) = unless (i < 0) $ do
         VM.modify rMap2 (addToMatrix r) i
-        VM.write dMap n (DeltaBinding2 did d)
+        when (n >= 0) $
+          VM.write dMap n (DeltaBinding2 did d)
       eval2' :: MO.MatrixOuter r -> Delta2' r -> ST s ()
       eval2' !r = \case
         Zero2 -> return ()
@@ -638,7 +656,8 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
       evalX :: OT.Array r -> DeltaX r -> ST s ()
       evalX !r (DeltaX n did@(DeltaId i) d) = unless (i < 0) $ do
         VM.modify rMapX (addToArray r) i
-        VM.write dMap n (DeltaBindingX did d)
+        when (n >= 0) $
+          VM.write dMap n (DeltaBindingX did d)
       evalX' :: OT.Array r -> DeltaX' r -> ST s ()
       evalX' !r = \case
         ZeroX -> return ()
@@ -685,7 +704,8 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
             => OS.Array sh r -> DeltaS sh r -> ST s ()
       evalS !r (DeltaS n did@(DeltaId i) d) = unless (i < 0) $ do
         VM.modify rMapX (addToArrayS r) i
-        VM.write dMap n (DeltaBindingS did d)
+        when (n >= 0) $
+          VM.write dMap n (DeltaBindingS did d)
       evalS' :: OS.Shape sh
              => OS.Array sh r -> DeltaS' sh r -> ST s ()
       evalS' !r = \case
@@ -753,7 +773,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         d <- dMap `VM.read` k
         evalUnlessZero d
       n = deltaCounter st
-  mapM_ evalFromdMap [n-1, n-2 .. 1]
+  mapM_ evalFromdMap [n-1, n-2 .. 0]
 
   return (rMap0, rMap1, rMap2, rMapX)
 {-# SPECIALIZE buildFinMaps
@@ -830,7 +850,7 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         if i < V.length params0Init
         then VM.read rMap0 i
         else error "derivativeFromDelta.eval': wrong index for an input"
-      eval0 (Delta0 n did@(DeltaId i) d) = do
+      eval0 (Delta0 n did@(DeltaId i) d) = assert (n >= 0) $ do
         -- This is too complex, but uses components already defined
         -- for initializeFinMaps and some of a similar code.
         d0 <- VM.read dMap n
@@ -865,7 +885,7 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         if i < V.length params1Init
         then VM.read rMap1 i
         else error "derivativeFromDelta.eval': wrong index for an input"
-      eval1 (Delta1 n did@(DeltaId i) d) = do
+      eval1 (Delta1 n did@(DeltaId i) d) = assert (n >= 0) $ do
         d0 <- VM.read dMap n
         case d0 of
           DeltaBinding0 (DeltaId (-1)) Zero0 -> do
@@ -912,7 +932,7 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         if i < V.length params2Init
         then VM.read rMap2 i
         else error "derivativeFromDelta.eval': wrong index for an input"
-      eval2 (Delta2 n did@(DeltaId i) d) = do
+      eval2 (Delta2 n did@(DeltaId i) d) = assert (n >= 0) $ do
         d0 <- VM.read dMap n
         case d0 of
           DeltaBinding0 (DeltaId (-1)) Zero0 -> do
@@ -973,7 +993,7 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         if i < V.length paramsXInit
         then VM.read rMapX i
         else error "derivativeFromDelta.eval': wrong index for an input"
-      evalX (DeltaX n did@(DeltaId i) d) = do
+      evalX (DeltaX n did@(DeltaId i) d) = assert (n >= 0) $ do
         d0 <- VM.read dMap n
         case d0 of
           DeltaBinding0 (DeltaId (-1)) Zero0 -> do
@@ -1019,7 +1039,7 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         if i < V.length paramsXInit
         then Data.Array.Convert.convert <$> VM.read rMapX i
         else error "derivativeFromDelta.eval': wrong index for an input"
-      evalS (DeltaS n did@(DeltaId i) d) = do
+      evalS (DeltaS n did@(DeltaId i) d) = assert (n >= 0) $ do
         d0 <- VM.read dMap n
         case d0 of
           DeltaBinding0 (DeltaId (-1)) Zero0 -> do
