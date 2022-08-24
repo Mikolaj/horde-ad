@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds, TypeFamilies #-}
+-- Needed due to unsafePerformIO:
 {-# OPTIONS_GHC -fno-full-laziness #-}
 -- | A couple of gradient descent scheme implementations.
 module HordeAd.Core.Optimizer
@@ -9,6 +10,8 @@ module HordeAd.Core.Optimizer
   ) where
 
 import Prelude
+
+import Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
@@ -54,14 +57,12 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
     if null rest
     then return (parametersNew, valueNew)
     else go rest parametersNew
-{-
 {-# SPECIALIZE sgd
   :: Double
   -> ((Vector Double, Vector Double) -> DualNumberVariables 'DModeGradient Double -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
   -> [(Vector Double, Vector Double)]
   -> Domains Double
-  -> (Domains Double, Double) #-}
--}
+  -> IO (Domains Double, Double) #-}
 
 sgdAdam :: forall r a. HasDelta r
         => (a -> DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
