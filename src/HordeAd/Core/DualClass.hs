@@ -25,7 +25,7 @@
 module HordeAd.Core.DualClass
   ( IsPrimalWithScalar, IsPrimalAndHasFeatures, IsScalar, HasDelta
   , DMode(..), Dual, IsPrimal(..), HasRanks(..)
-  , HasVariables(..), initializeCounters, finalizeCounters  -- use sparringly
+  , HasVariables(..), initializeCounters, finalizeCounters  -- use sparingly
   ) where
 
 import Prelude
@@ -255,6 +255,8 @@ class HasRanks (d :: DMode) r where
 
 -- * Backprop gradient method instances
 
+-- The bangs are necessary to ensure call by value, which is needed
+-- for id ordering to reflect data dependencies.
 instance IsPrimal 'DModeGradient Double where
   dZero = Delta0 (-1) dummyDeltaId Zero0
     -- The @-1@ hack is not just a speedup, but also prevents a mixup
@@ -602,9 +604,9 @@ instance HasRanks 'DModeValue r where
 #endif
 
 
--- * Impure generation of fresh ids (thread-safe, but only one instance
--- running at a time, initialized and eventually finalized; tests need
--- to be run with -ftest_seq, but at least it's re-entrant)
+-- * Impure generation of fresh ids (thread-safe, but only one critical
+-- section that modifies the counters can run at a time, initialized
+-- and eventually finalized, guarded by a lock; it's also fully re-entrant)
 
 counterUsageLock :: MVar ()
 {-# NOINLINE counterUsageLock #-}
