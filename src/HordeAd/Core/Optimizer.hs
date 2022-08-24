@@ -1,5 +1,5 @@
 {-# LANGUAGE DataKinds, TypeFamilies #-}
-{-# OPTIONS_GHC -fno-full-laziness -fno-cse #-}
+{-# OPTIONS_GHC -fno-full-laziness #-}
 -- | A couple of gradient descent scheme implementations.
 module HordeAd.Core.Optimizer
   ( gdSimple
