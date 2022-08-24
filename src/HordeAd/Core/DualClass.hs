@@ -8,15 +8,16 @@
 #endif
 -- Needed due to unsafePerformIO:
 {-# OPTIONS_GHC -fno-full-laziness #-}
--- Apparently -fno-cse is not needed, probably because we are fine
+-- TODO: Apparently -fno-cse is not needed, probably because we are fine
 -- with assigning the same id to subterms that have the same structure,
 -- as long as we are in the same gradient computation run.
--- And between runs, assigning same ids to the whole terms is fine, too.
+-- And between runs, assigning same ids to the whole term is fine, too.
 -- The scenario of a shared subterm in different terms/runs is apparently
--- not realized, but we'd need to write a test that triggers it, confirm
--- the breakage and warn users against that. Probably full-laziness
--- realizes such scenarios, floating subterms to top level so that they
--- appear (with fixed counters) in different terms/runs afterwards.
+-- not realized as long as we keep @-fno-full-laziness@, but we'd need
+-- to write a simple test that triggers it without @-fno-full-laziness@
+-- to confirm the scenario that leads to breakage and warn users against that.
+-- The situations where this appears in existing tests are too complex
+-- and mysterious to distill easily.
 -- | The class defining dual components of dual numbers and related classes,
 -- type families, constraints and instances. This is a low-level API
 -- used to define types and operations in "HordeAd.Core.DualNumber"
@@ -29,7 +30,8 @@ module HordeAd.Core.DualClass
 
 import Prelude
 
-import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
+import           Control.Concurrent.MVar
+  (MVar, newEmptyMVar, newMVar, putMVar, takeMVar)
 import qualified Data.Array.Convert
 import qualified Data.Array.Dynamic as OTB
 import qualified Data.Array.DynamicS as OT
@@ -604,6 +606,10 @@ instance HasRanks 'DModeValue r where
 -- running at a time, initialized and eventually finalized; tests need
 -- to be run with -ftest_seq, but at least it's re-entrant)
 
+counterUsageLock :: MVar ()
+{-# NOINLINE counterUsageLock #-}
+counterUsageLock = unsafePerformIO (newMVar ())
+
 unsafeGlobalCounter :: MVar Int
 {-# NOINLINE unsafeGlobalCounter #-}
 unsafeGlobalCounter = unsafePerformIO newEmptyMVar
@@ -633,8 +639,20 @@ unsafeGetFreshId mvar = do
   putMVar mvar $ succDeltaId i
   return (n, i)
 
+-- Any modification or reading of counters should happen between
+-- these two functions and so they acquire and release the lock
+-- to permit parallel execution of gradient computation (because
+-- only the delta term creation is a critical section). Make sure
+-- delta terms are fully evaluated before a call to 'finalizeCounters'.
+-- Note that 'counterUsageLock' is never accessed impurely in this codebase,
+-- but always properly from @IO@, so it guards the resource (the counters)
+-- effectively, as long as the impure accesses to counters don't escape
+-- from the critical section (via thunks or via Haskell optimizing code
+-- and moving some bits out of the critical section, hence @-fno-full-laziness@
+-- to make it less likely).
 initializeCounters :: Numeric r => Domains r -> IO ()
 initializeCounters (params0, params1, params2, paramsX) = do
+  takeMVar counterUsageLock
   putMVar unsafeGlobalCounter 0
   putMVar unsafeDeltaCounter0 $ toDeltaId (V.length params0)
   putMVar unsafeDeltaCounter1 $ toDeltaId (V.length params1)
@@ -648,6 +666,7 @@ finalizeCounters = do
   deltaCounter1 <- takeMVar unsafeDeltaCounter1
   deltaCounter2 <- takeMVar unsafeDeltaCounter2
   deltaCounterX <- takeMVar unsafeDeltaCounterX
+  putMVar counterUsageLock ()
   return DeltaCounters{..}
 
 wrapDelta0 :: Delta0' r -> Delta0 r
