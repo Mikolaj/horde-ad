@@ -72,7 +72,7 @@ flag release
 
 flag test_seq
   description:        run the test suite in sequential mode
-  default:            True
+  default:            False
   manual:             False
 
 flag use_typelits_plugins
