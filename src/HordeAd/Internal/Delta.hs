@@ -122,7 +122,6 @@ data Delta0' r =
   | FromS0 (DeltaS '[] r)
 
   | Outline0 CodeOut [r] [Delta0 r]
-  | Delay0 ~(Delta0 r)
 
 deriving instance (Show r, Numeric r) => Show (Delta0 r)
 deriving instance (Show r, Numeric r) => Show (Delta0' r)
@@ -159,7 +158,6 @@ data Delta1' r =
     => FlattenS1 (DeltaS sh r)
 
   | Outline1 CodeOut [Vector r] [Delta1 r]
-  | Delay1 ~(Delta1 r)
 
 deriving instance (Show r, Numeric r) => Show (Delta1 r)
 deriving instance (Show r, Numeric r) => Show (Delta1' r)
@@ -197,7 +195,6 @@ data Delta2' r =
   | Conv2 (Matrix r) (Delta2 r)
 
   | Outline2 CodeOut [Matrix r] [Delta2 r]
-  | Delay2 ~(Delta2 r)
 
 deriving instance (Show r, Numeric r) => Show (Delta2 r)
 deriving instance (Show r, Numeric r) => Show (Delta2' r)
@@ -235,7 +232,6 @@ data DeltaX' r =
     => FromSX (DeltaS sh r)
 
   | OutlineX CodeOut [OT.Array r] [DeltaX r]
-  | DelayX ~(DeltaX r)
 
 deriving instance (Show r, Numeric r) => Show (DeltaX r)
 deriving instance (Show r, Numeric r) => Show (DeltaX' r)
@@ -276,7 +272,6 @@ data DeltaS' :: [Nat] -> Type -> Type where
   FromXS :: DeltaX r -> DeltaS' sh r
 
   OutlineS :: CodeOut -> [OS.Array sh r] -> [DeltaS sh r] -> DeltaS' sh r
-  DelayS :: ~(DeltaS sh r) -> DeltaS' sh r
 
 instance Show (DeltaS sh r) where
   show _ = "a DeltaS delta expression"
@@ -548,7 +543,6 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
 
         Outline0 codeOut primalArgs dualArgs ->
           eval0 r $ inlineDerivative0 codeOut primalArgs dualArgs
-        Delay0 d -> eval0 r d
       eval1 :: Vector r -> Delta1 r -> ST s ()
       eval1 !r (Delta1 n did@(DeltaId i) d) = unless (i < 0) $ do
         VM.modify rMap1 (addToVector r) i
@@ -586,7 +580,6 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
 
         Outline1 codeOut primalArgs dualArgs ->
           eval1 r $ inlineDerivative1 codeOut primalArgs dualArgs
-        Delay1 d -> eval1 r d
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
       eval2 !r (Delta2 n did@(DeltaId i) d) = unless (i < 0) $ do
         VM.modify rMap2 (addToMatrix r) i
@@ -645,7 +638,6 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
 
         Outline2 codeOut primalArgs dualArgs ->
           eval2 r $ inlineDerivative2 codeOut primalArgs dualArgs
-        Delay2 d -> eval2 r d
       evalX :: OT.Array r -> DeltaX r -> ST s ()
       evalX !r (DeltaX n did@(DeltaId i) d) = unless (i < 0) $ do
         VM.modify rMapX (addToArray r) i
@@ -691,7 +683,6 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
 
         OutlineX codeOut primalArgs dualArgs ->
           evalX r $ inlineDerivativeX codeOut primalArgs dualArgs
-        DelayX d -> evalX r d
       evalS :: OS.Shape sh
             => OS.Array sh r -> DeltaS sh r -> ST s ()
       evalS !r (DeltaS n did@(DeltaId i) d) = unless (i < 0) $ do
@@ -737,7 +728,6 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
 
         OutlineS codeOut primalArgs dualArgs ->
           evalS r $ inlineDerivativeS codeOut primalArgs dualArgs
-        DelayS d -> evalS r d
 #endif
 
   eval0 dt deltaTopLevel
@@ -868,7 +858,6 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
 
         Outline0 codeOut primalArgs dualArgs ->
           eval0 $ inlineDerivative0 codeOut primalArgs dualArgs
-        Delay0 d -> eval0 d
       eval1 :: Delta1 r -> ST s (Vector r)
       eval1 (Delta1 _ (DeltaId (-1)) _) = return 0
       eval1 (Delta1 (-1) (DeltaId i) Zero1) =
@@ -914,7 +903,6 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
 
         Outline1 codeOut primalArgs dualArgs ->
           eval1 $ inlineDerivative1 codeOut primalArgs dualArgs
-        Delay1 d -> eval1 d
       eval2 :: Delta2 r -> ST s (Matrix r)
       eval2 (Delta2 _ (DeltaId (-1)) _) = return 0
       eval2 (Delta2 (-1) (DeltaId i) Zero2) =
@@ -974,7 +962,6 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
 
         Outline2 codeOut primalArgs dualArgs ->
           eval2 $ inlineDerivative2 codeOut primalArgs dualArgs
-        Delay2 d -> eval2 d
       evalX :: DeltaX r -> ST s (OT.Array r)
       evalX (DeltaX _ (DeltaId (-1)) _) = return 0
       evalX (DeltaX (-1) (DeltaId i) ZeroX) =
@@ -1019,7 +1006,6 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
 
         OutlineX codeOut primalArgs dualArgs ->
           evalX $ inlineDerivativeX codeOut primalArgs dualArgs
-        DelayX d -> evalX d
       evalS :: OS.Shape sh => DeltaS sh r -> ST s (OS.Array sh r)
       evalS (DeltaS _ (DeltaId (-1)) _) = return 0
       evalS (DeltaS (-1) (DeltaId i) ZeroS) =
@@ -1060,7 +1046,6 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
 
         OutlineS codeOut primalArgs dualArgs ->
           evalS $ inlineDerivativeS codeOut primalArgs dualArgs
-        DelayS d -> evalS d
 #endif
   eval0 deltaTopLevel
 

@@ -138,7 +138,6 @@ class IsPrimal d a where
   dZero :: Dual d a
   dScale :: a -> Dual d a -> Dual d a
   dAdd :: Dual d a -> Dual d a -> Dual d a
-  dDelay :: Dual d a -> Dual d a
 
 -- | Part 1/2 of a hack to squeeze the shaped tensors rank,
 -- with its extra @sh@ parameter, into the 'IsPrimal' class.
@@ -149,8 +148,6 @@ class IsPrimalS d r where
   dAddS :: forall sh. OS.Shape sh
         => Dual d (OS.Array sh r) -> Dual d (OS.Array sh r)
         -> Dual d (OS.Array sh r)
-  dDelayS :: forall sh. OS.Shape sh
-             => Dual d (OS.Array sh r) -> Dual d (OS.Array sh r)
 
 -- | Part 2/2 of a hack to squeeze the shaped tensors rank,
 -- with its extra @sh@ parameter, into the 'IsPrimal' class.
@@ -158,7 +155,6 @@ instance (IsPrimalS d r, OS.Shape sh) => IsPrimal d (OS.Array sh r) where
   dZero = dZeroS
   dScale = dScaleS
   dAdd = dAddS
-  dDelay = dDelayS
 
 -- | Assuming that the first argument is the primal component of dual numbers
 -- with the underyling scalar in the second argument and with differentiation
@@ -265,38 +261,32 @@ instance IsPrimal 'DModeGradient Double where
     -- increment only once per program.
   dScale !k !d = wrapDelta0 $ Scale0 k d
   dAdd !d !e = wrapDelta0 $ Add0 d e
-  dDelay !d = wrapDelta0 $ Delay0 d
 
 instance IsPrimal 'DModeGradient Float where
   -- Identical as above:
   dZero = Delta0 (-1) dummyDeltaId Zero0
   dScale !k !d = wrapDelta0 $ Scale0 k d
   dAdd !d !e = wrapDelta0 $ Add0 d e
-  dDelay !d = wrapDelta0 $ Delay0 d
 
 instance IsPrimal 'DModeGradient (Vector r) where
   dZero = Delta1 (-1) dummyDeltaId Zero1
   dScale !k !d = wrapDelta1 $ Scale1 k d
   dAdd !d !e = wrapDelta1 $ Add1 d e
-  dDelay !d = wrapDelta1 $ Delay1 d
 
 instance IsPrimal 'DModeGradient (Matrix r) where
   dZero = Delta2 (-1) dummyDeltaId Zero2
   dScale !k !d = wrapDelta2 $ Scale2 k d
   dAdd !d !e = wrapDelta2 $ Add2 d e
-  dDelay !d = wrapDelta2 $ Delay2 d
 
 instance IsPrimal 'DModeGradient (OT.Array r) where
   dZero = DeltaX (-1) dummyDeltaId ZeroX
   dScale !k !d = wrapDeltaX $ ScaleX k d
   dAdd !d !e = wrapDeltaX $ AddX d e
-  dDelay !d = wrapDeltaX $ DelayX d
 
 instance IsPrimalS 'DModeGradient r where
   dZeroS = DeltaS (-1) dummyDeltaId ZeroS
   dScaleS !k !d = wrapDeltaS $ ScaleS k d
   dAddS !d !e = wrapDeltaS $ AddS d e
-  dDelayS !d = wrapDeltaS $ DelayS d
 
 instance HasVariables Double where
   dVar !did = Delta0 (-1) did Zero0
@@ -395,13 +385,11 @@ instance IsPrimal 'DModeDerivative Double where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
-  dDelay = id  -- no delaying
 
 instance IsPrimal 'DModeDerivative Float where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
-  dDelay = id
 
 -- These constraints force @UndecidableInstances@.
 instance Num (Vector r)
@@ -409,28 +397,24 @@ instance Num (Vector r)
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
-  dDelay = id
 
 instance Num (Matrix r)
          => IsPrimal 'DModeDerivative (Matrix r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
-  dDelay = id
 
 instance Num (OT.Array r)
          => IsPrimal 'DModeDerivative (OT.Array r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
-  dDelay = id
 
 instance (Numeric r, Num (Vector r))
          => IsPrimalS 'DModeDerivative r where
   dZeroS = 0
   dScaleS k d = k * d
   dAddS d e = d + e
-  dDelayS = id
 
 instance ( Numeric r, Num (Vector r)
          , Dual 'DModeDerivative r ~ r )
@@ -510,37 +494,31 @@ instance IsPrimal 'DModeValue Double where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
-  dDelay _ = DummyDual ()
 
 instance IsPrimal 'DModeValue Float where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
-  dDelay _ = DummyDual ()
 
 instance IsPrimal 'DModeValue (Vector r) where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
-  dDelay _ = DummyDual ()
 
 instance IsPrimal 'DModeValue (Matrix r) where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
-  dDelay _ = DummyDual ()
 
 instance IsPrimal 'DModeValue (OT.Array r) where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
-  dDelay _ = DummyDual ()
 
 instance IsPrimalS 'DModeValue r where
   dZeroS = DummyDual ()
   dScaleS _ _ = DummyDual ()
   dAddS _ _ = DummyDual ()
-  dDelayS _ = DummyDual ()
 
 instance HasRanks 'DModeValue r where
   dSumElements0 _ _ = DummyDual ()
