@@ -35,7 +35,7 @@ import HordeAd.Tool.MnistData
 import TestCommon
 import TestCommonEqEpsilon
 
--- Compiling with -fno-full-laziness -fno-cse panics GHC, so we turn
+-- Compiling with -fno-full-laziness panics GHC, so we turn
 -- the tests off instead until plugin ports let us move to HEAD.
 
 testTrees :: [TestTree]

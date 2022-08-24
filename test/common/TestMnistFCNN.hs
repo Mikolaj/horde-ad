@@ -1,6 +1,6 @@
 {-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
 -- Needed due to unsafePerformIO:
-{-# OPTIONS_GHC -fno-full-laziness -fno-cse #-}
+{-# OPTIONS_GHC -fno-full-laziness #-}
 module TestMnistFCNN
   ( testTrees, shortTestForCITrees, mnistTestCase2T, mnistTestCase2D
   ) where

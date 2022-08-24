@@ -2,7 +2,7 @@
              GeneralizedNewtypeDeriving, MultiParamTypeClasses,
              TypeFamilies #-}
 -- Needed due to unsafePerformIO:
-{-# OPTIONS_GHC -fno-full-laziness -fno-cse #-}
+{-# OPTIONS_GHC -fno-full-laziness #-}
 -- | Several implementations of the monad in which our dual numbers live
 -- and implementations of calculating gradient, derivative and value
 -- of an objective function defined on dual numbers.

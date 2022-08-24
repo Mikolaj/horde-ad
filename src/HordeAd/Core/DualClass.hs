@@ -7,7 +7,16 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 #endif
 -- Needed due to unsafePerformIO:
-{-# OPTIONS_GHC -fno-full-laziness -fno-cse #-}
+{-# OPTIONS_GHC -fno-full-laziness #-}
+-- Apparently -fno-cse is not needed, probably because we are fine
+-- with assigning the same id to subterms that have the same structure,
+-- as long as we are in the same gradient computation run.
+-- And between runs, assigning same ids to the whole terms is fine, too.
+-- The scenario of a shared subterm in different terms/runs is apparently
+-- not realized, but we'd need to write a test that triggers it, confirm
+-- the breakage and warn users against that. Probably full-laziness
+-- realizes such scenarios, floating subterms to top level so that they
+-- appear (with fixed counters) in different terms/runs afterwards.
 -- | The class defining dual components of dual numbers and related classes,
 -- type families, constraints and instances. This is a low-level API
 -- used to define types and operations in "HordeAd.Core.DualNumber"
