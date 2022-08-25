@@ -269,24 +269,11 @@ testPrintDf = testGroup "Pretty printing test" $
                       (V.empty, V.fromList (map V.fromList v), V.empty, V.empty)
           output @?= expected)
     [ ( "sumElementsV", sumElementsV, [[1 :: Float, 1, 3]]
-      , unlines
-        [ "let0 DeltaId_0 = SumElements0 (Var1 (DeltaId 0)) 3"
-        , "in Var0 (DeltaId 0)" ] )
+      , "Delta0 0 (DeltaId 0) (SumElements0 (Input1 (DeltaId 0)) 3)" )
     , ( "altSumElementsV", altSumElementsV, [[1, 1, 3]]
-      , unlines
-        [ "let0 DeltaId_0 = Add0"
-        , "  (Index0 (Var1 (DeltaId 0)) 2 3)"
-        , "  (Add0"
-        , "     (Index0 (Var1 (DeltaId 0)) 1 3)"
-        , "     (Add0 (Index0 (Var1 (DeltaId 0)) 0 3) Zero0))"
-        , "in Var0 (DeltaId 0)" ] )
+      , "Delta0\n  5\n  (DeltaId 5)\n  (Add0\n     (Delta0 4 (DeltaId 4) (Index0 (Input1 (DeltaId 0)) 2 3))\n     (Delta0\n        3\n        (DeltaId 3)\n        (Add0\n           (Delta0 2 (DeltaId 2) (Index0 (Input1 (DeltaId 0)) 1 3))\n           (Delta0\n              1\n              (DeltaId 1)\n              (Add0\n                 (Delta0 0 (DeltaId 0) (Index0 (Input1 (DeltaId 0)) 0 3)) Zero0)))))" )
     , ( "sinKonst", sinKonst, [[1, 3]]
-      , unlines
-        [ "in SumElements0"
-        , "  (Add1"
-        , "     (Scale1 [ 0.5403023 , -0.9899925 ] (Var1 (DeltaId 0)))"
-        , "     (Konst1 Zero0 2))"
-        , "  2" ] )
+      , "Delta0\n  3\n  (DeltaId 0)\n  (SumElements0\n     (Delta1\n        2\n        (DeltaId 3)\n        (Add1\n           (Delta1\n              0\n              (DeltaId 1)\n              (Scale1 [ 0.5403023 , -0.9899925 ] (Input1 (DeltaId 0))))\n           (Delta1 1 (DeltaId 2) (Konst1 Zero0 2))))\n     2)" )
     -- , ( "sinKonstOut", sinKonstOut, [[1, 3]]
     --   , unlines
     --     [ "in SumElements0"
@@ -298,16 +285,7 @@ testPrintDf = testGroup "Pretty printing test" $
     --     , "     ])"
     --     , "  2" ] )
     , ( "powKonst", powKonst, [[1, 3]]
-      , unlines
-        [ "in SumElements0"
-        , "  (Add1"
-        , "     (Scale1 [ 4.8414707 , 130.56084 ] (Var1 (DeltaId 0)))"
-        , "     (Scale1"
-        , "        [ 0.0 , 103.91083 ]"
-        , "        (Add1"
-        , "           (Scale1 [ 0.5403023 , -0.9899925 ] (Var1 (DeltaId 0)))"
-        , "           (Konst1 (SumElements0 (Var1 (DeltaId 0)) 2) 2))))"
-        , "  2" ] )
+      , "Delta0\n  7\n  (DeltaId 1)\n  (SumElements0\n     (Delta1\n        6\n        (DeltaId 6)\n        (Add1\n           (Delta1\n              4\n              (DeltaId 4)\n              (Scale1 [ 4.8414707 , 130.56084 ] (Input1 (DeltaId 0))))\n           (Delta1\n              5\n              (DeltaId 5)\n              (Scale1\n                 [ 0.0 , 103.91083 ]\n                 (Delta1\n                    3\n                    (DeltaId 3)\n                    (Add1\n                       (Delta1\n                          0\n                          (DeltaId 1)\n                          (Scale1 [ 0.5403023 , -0.9899925 ] (Input1 (DeltaId 0))))\n                       (Delta1\n                          2\n                          (DeltaId 2)\n                          (Konst1\n                             (Delta0 1 (DeltaId 0) (SumElements0 (Input1 (DeltaId 0)) 2))\n                             2))))))))\n     2)" )
     -- , ( "powKonstOut", powKonstOut, [[1, 3]]
     --   , unlines
     --     [ "in SumElements0"
