@@ -20,7 +20,6 @@ import HordeAd
 import HordeAd.Core.OutdatedOptimizer
 import HordeAd.Tool.MnistData
 import HordeAd.Tool.MnistFcnnScalar
-import TestCommon ((*\), (+\))
 import TestCommonEqEpsilon
 
 type DualNumberD = DualNumber 'DModeGradient Double
@@ -39,23 +38,18 @@ testTrees = [ fitTests
             , stochasticFit3Tests
             ]
 
-scaleDual :: DualMonad d r m => r -> DualNumber d r -> m (DualNumber d r)
-scaleDual r u = returnLet $ scale r u
-
 -- Inlined to avoid the tiny overhead of calling an unknown function.
 -- This operation is needed, because @sumListDual@ doesn't (always) fuse.
-sumResultsDual :: forall d m a r. (DualMonad d r m, Storable a)
-               => (a -> m (DualNumber d r))
+sumResultsDual :: forall d a r. (IsScalar d r, Storable a)
+               => (a -> DualNumber d r)
                -> Vector a
-               -> m (DualNumber d r)
+               -> DualNumber d r
 {-# INLINE sumResultsDual #-}
-sumResultsDual f as = do
-  let g :: DualNumber d r -> a -> m (DualNumber d r)
-      g !acc a = do
-        u <- f a
-        return $! acc + u
-  sumUs <- V.foldM g 0 as
-  returnLet sumUs
+sumResultsDual f as =
+  let g :: DualNumber d r -> a -> DualNumber d r
+      g !acc a = acc + f a
+      sumUs = V.foldl' g 0 as
+  in sumUs
 
 lengthDualNumber :: Storable r => DualNumberVariables d r -> Int
 lengthDualNumber (vValue, _, _, _, _, _, _, _) = V.length vValue
@@ -63,61 +57,56 @@ lengthDualNumber (vValue, _, _, _, _, _, _, _) = V.length vValue
 -- This, and other Fit and Fit2 nn operations, have unfused Delta let-bindings
 -- (one binding per each subexpression, even when not needed), which is fine,
 -- just not enough for comprehensive benchmarks.
-hiddenLayerFit :: forall m. DualMonad 'DModeGradient Double m
-               => (DualNumberD -> m DualNumberD)
+hiddenLayerFit :: (DualNumberD -> DualNumberD)
                -> Double
                -> DualNumberVariablesD
                -> Int
-               -> m (Data.Vector.Vector DualNumberD)
-hiddenLayerFit factivation x vec width = do
-  let f :: Int -> m DualNumberD
-      f i = do
+               -> Data.Vector.Vector DualNumberD
+hiddenLayerFit factivation x vec width =
+  let f :: Int -> DualNumberD
+      f i =
         let weight = var0 vec (2 * i)
             bias = var0 vec (2 * i + 1)
-        sx <- scaleDual x weight
-        sxBias <- sx +\ bias
-        factivation sxBias
-  V.generateM width f
+            sx = scale x weight
+            sxBias = sx + bias
+        in factivation sxBias
+  in V.generate width f
 
-outputLayerFit :: DualMonad 'DModeGradient Double m
-               => (DualNumberD -> m DualNumberD)
+outputLayerFit :: (DualNumberD -> DualNumberD)
                -> Data.Vector.Vector DualNumberD
                -> Int
                -> DualNumberVariablesD
-               -> m DualNumberD
-outputLayerFit factivation hiddenVec offset vec = do
-  outSum <- sumTrainableInputs hiddenVec offset vec
-  factivation outSum
+               -> DualNumberD
+outputLayerFit factivation hiddenVec offset vec =
+  let outSum = sumTrainableInputs hiddenVec offset vec
+  in factivation outSum
 
-nnFit :: DualMonad 'DModeGradient Double m
-      => (DualNumberD -> m DualNumberD)
-      -> (DualNumberD -> m DualNumberD)
-      -> Double -> DualNumberVariablesD -> m DualNumberD
-nnFit factivationHidden factivationOutput x vec = do
+nnFit :: (DualNumberD -> DualNumberD)
+      -> (DualNumberD -> DualNumberD)
+      -> Double -> DualNumberVariablesD -> DualNumberD
+nnFit factivationHidden factivationOutput x vec =
   -- One bias of the outer layer, a list of weights of the outer layer,
   -- a list of the same length of weights and biases of the hidden layer.
   let width = (lengthDualNumber vec - 1) `div` 3
-  hiddenVec <- hiddenLayerFit factivationHidden x vec width
-  outputLayerFit factivationOutput hiddenVec (2 * width) vec
+      hiddenVec = hiddenLayerFit factivationHidden x vec width
+  in outputLayerFit factivationOutput hiddenVec (2 * width) vec
 
-nnFitLoss :: DualMonad 'DModeGradient Double m
-          => (DualNumberD -> m DualNumberD)
-          -> (DualNumberD -> m DualNumberD)
-          -> Double -> Double -> DualNumberVariablesD -> m DualNumberD
-nnFitLoss factivationHidden factivationOutput x targ vec = do
-  res <- nnFit factivationHidden factivationOutput x vec
-  lossSquared targ res
+nnFitLoss :: (DualNumberD -> DualNumberD)
+          -> (DualNumberD -> DualNumberD)
+          -> Double -> Double -> DualNumberVariablesD -> DualNumberD
+nnFitLoss factivationHidden factivationOutput x targ vec =
+  let res = nnFit factivationHidden factivationOutput x vec
+  in squaredDifference targ res
 
-nnFitLossTotal :: forall m. DualMonad 'DModeGradient Double m
-               => (DualNumberD -> m DualNumberD)
-               -> (DualNumberD -> m DualNumberD)
+nnFitLossTotal :: (DualNumberD -> DualNumberD)
+               -> (DualNumberD -> DualNumberD)
                -> Vector (Double, Double)
                -> DualNumberVariablesD
-               -> m DualNumberD
-nnFitLossTotal factivationHidden factivationOutput samples vec = do
-  let f :: (Double, Double) -> m DualNumberD
+               -> DualNumberD
+nnFitLossTotal factivationHidden factivationOutput samples vec =
+  let f :: (Double, Double) -> DualNumberD
       f (x, res) = nnFitLoss factivationHidden factivationOutput x res vec
-  sumResultsDual f samples
+  in sumResultsDual f samples
     -- an implementation that doesn't delve into implementation details
     -- of dual numbers, but uses @sumListDual@ instead is up to twice slower,
     -- due to no list fusion happening across monadic operations
@@ -154,7 +143,7 @@ wsFitSeparated range@(low, hi) seed k =
 
 gdSimpleShow :: HasDelta r
              => r
-             -> (DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
+             -> (DualNumberVariables 'DModeGradient r -> DualNumber 'DModeGradient r)
              -> Domain0 r
              -> Int
              -> IO ([r], r)
@@ -168,11 +157,11 @@ gdSimpleTestCase
   => String
   -> ((a, a) -> Int -> Int
       -> Vector (Double, Double))
-  -> ((DualNumberD -> DualMonadGradient Double DualNumberD)
-      -> (DualNumberD -> DualMonadGradient Double DualNumberD)
+  -> ((DualNumberD -> DualNumberD)
+      -> (DualNumberD -> DualNumberD)
       -> Vector (Double, Double)
       -> DualNumberVariablesD
-      -> DualMonadGradient Double DualNumberD)
+      -> DualNumberD)
   -> Int -> Int -> Int -> Double -> Int -> Double
   -> TestTree
 gdSimpleTestCase prefix sampleFunction lossFunction
@@ -183,26 +172,26 @@ gdSimpleTestCase prefix sampleFunction lossFunction
              ++ unwords [ show seedSamples, show nSamples
                         , show nParams0, show gamma, show nIterations ]
   in testCase name $ do
-       res <- snd <$> gdSimpleShow gamma (lossFunction tanhAct tanhAct samples)
+       res <- snd <$> gdSimpleShow gamma (lossFunction tanh tanh samples)
                                    vec nIterations
        res @?~ expected
 
 gdSimpleWsTestCase
-  :: ((DualNumberD -> DualMonadGradient Double DualNumberD)
-      -> (DualNumberD -> DualMonadGradient Double DualNumberD)
+  :: ((DualNumberD -> DualNumberD)
+      -> (DualNumberD -> DualNumberD)
       -> Vector (Double, Double)
       -> DualNumberVariablesD
-      -> DualMonadGradient Double DualNumberD)
+      -> DualNumberD)
   -> Int -> Int -> Int -> Double -> Int -> Double
   -> TestTree
 gdSimpleWsTestCase = gdSimpleTestCase "gdSimple Ws" wsFit
 
 gdSimpleSeparatedTestCase
-  :: ((DualNumberD -> DualMonadGradient Double DualNumberD)
-      -> (DualNumberD -> DualMonadGradient Double DualNumberD)
+  :: ((DualNumberD -> DualNumberD)
+      -> (DualNumberD -> DualNumberD)
       -> Vector (Double, Double)
       -> DualNumberVariablesD
-      -> DualMonadGradient Double DualNumberD)
+      -> DualNumberD)
   -> Int -> Int -> Int -> Double -> Int -> Double
   -> TestTree
 gdSimpleSeparatedTestCase = gdSimpleTestCase "gdSimple Separated" wsFitSeparated
@@ -234,60 +223,56 @@ fitTests = testGroup "Sample fitting fully connected neural net tests"
 -- This connects with only one neuron from the first hidden layer.
 -- No wonder the extra hidden layer was not particulary effective
 -- compared to wider single hidden layer.
-middleLayerFit2 :: forall m. DualMonad 'DModeGradient Double m
-                => (DualNumberD -> m DualNumberD)
+middleLayerFit2 :: (DualNumberD -> DualNumberD)
                 -> Data.Vector.Vector DualNumberD
                 -> Int
                 -> DualNumberVariablesD
-                -> m (Data.Vector.Vector DualNumberD)
-middleLayerFit2 factivation hiddenVec offset vec = do
-  let f :: Int -> DualNumberD -> m DualNumberD
-      f i x = do
+                -> Data.Vector.Vector DualNumberD
+middleLayerFit2 factivation hiddenVec offset vec =
+  let f :: Int -> DualNumberD -> DualNumberD
+      f i x =
         let weight = var0 vec (offset + 2 * i)
             bias = var0 vec (offset + 1 + 2 * i)
-        sx <- x *\ weight
-        sxBias <- sx +\ bias
-        factivation sxBias
-  V.imapM f hiddenVec
+            sx = x * weight
+            sxBias = sx + bias
+        in factivation sxBias
+  in V.imap f hiddenVec
 
-nnFit2 :: DualMonad 'DModeGradient Double m
-       => (DualNumberD -> m DualNumberD)
-       -> (DualNumberD -> m DualNumberD)
-       -> (DualNumberD -> m DualNumberD)
-       -> Double -> DualNumberVariablesD -> m DualNumberD
-nnFit2 factivationHidden factivationMiddle factivationOutput x vec = do
+nnFit2 :: (DualNumberD -> DualNumberD)
+       -> (DualNumberD -> DualNumberD)
+       -> (DualNumberD -> DualNumberD)
+       -> Double -> DualNumberVariablesD -> DualNumberD
+nnFit2 factivationHidden factivationMiddle factivationOutput x vec =
   -- Due to not being fully connected, the parameters are only:
   -- one bias of the outer layer, a list of weights of the outer layer,
   -- a list of the same length of weights and biases of the first hidden layer
   -- and of the middle hidden layer.
   let width = (lengthDualNumber vec - 1) `div` 5
-  hiddenVec <- hiddenLayerFit factivationHidden x vec width
-  middleVec <- middleLayerFit2 factivationMiddle hiddenVec (2 * width) vec
-  outputLayerFit factivationOutput middleVec (4 * width) vec
+      hiddenVec = hiddenLayerFit factivationHidden x vec width
+      middleVec = middleLayerFit2 factivationMiddle hiddenVec (2 * width) vec
+  in outputLayerFit factivationOutput middleVec (4 * width) vec
 
-nnFit2Loss :: DualMonad 'DModeGradient Double m
-           => (DualNumberD -> m DualNumberD)
-           -> (DualNumberD -> m DualNumberD)
-           -> (DualNumberD -> m DualNumberD)
-           -> Double -> Double -> DualNumberVariablesD -> m DualNumberD
-nnFit2Loss factivationHidden factivationMiddle factivationOutput x targ vec = do
-  res <- nnFit2 factivationHidden factivationMiddle factivationOutput x vec
-  lossSquared targ res
+nnFit2Loss :: (DualNumberD -> DualNumberD)
+           -> (DualNumberD -> DualNumberD)
+           -> (DualNumberD -> DualNumberD)
+           -> Double -> Double -> DualNumberVariablesD -> DualNumberD
+nnFit2Loss factivationHidden factivationMiddle factivationOutput x targ vec =
+  let res = nnFit2 factivationHidden factivationMiddle factivationOutput x vec
+  in squaredDifference targ res
 
-nnFit2LossTotal :: forall m. DualMonad 'DModeGradient Double m
-                => (DualNumberD -> m DualNumberD)
-                -> (DualNumberD -> m DualNumberD)
-                -> (DualNumberD -> m DualNumberD)
+nnFit2LossTotal :: (DualNumberD -> DualNumberD)
+                -> (DualNumberD -> DualNumberD)
+                -> (DualNumberD -> DualNumberD)
                 -> Vector (Double, Double)
                 -> DualNumberVariablesD
-                -> m DualNumberD
+                -> DualNumberD
 nnFit2LossTotal factivationHidden factivationMiddle factivationOutput
-                samples vec = do
-  let f :: (Double, Double) -> m DualNumberD
+                samples vec =
+  let f :: (Double, Double) -> DualNumberD
       f (x, res) =
         nnFit2Loss factivationHidden factivationMiddle factivationOutput
                    x res vec
-  sumResultsDual f samples
+  in sumResultsDual f samples
 
 lenP2 :: Int -> Int
 lenP2 width = 5 * width + 1
@@ -297,44 +282,44 @@ lenP2 width = 5 * width + 1
 fit2Tests :: TestTree
 fit2Tests = testGroup "Sample fitting 2 hidden layer not fully connected nn tests"
   [ gdSimpleWsTestCase
-      (nnFit2LossTotal tanhAct) 42 8 (lenP2 6) 0.1 10000
+      (nnFit2LossTotal tanh) 42 8 (lenP2 6) 0.1 10000
       1.2856619684390336e-2
   , gdSimpleWsTestCase
-      (nnFit2LossTotal tanhAct) 42 10 (lenP2 6) 0.01 400000
+      (nnFit2LossTotal tanh) 42 10 (lenP2 6) 0.01 400000
       3.835053990072211e-2
   , gdSimpleSeparatedTestCase
-      (nnFit2LossTotal tanhAct) 42 8 (lenP2 6) 0.1 10000
+      (nnFit2LossTotal tanh) 42 8 (lenP2 6) 0.1 10000
       0.31692351465375723
   , gdSimpleSeparatedTestCase
-      (nnFit2LossTotal tanhAct) 42 10 (lenP2 6) 0.01 100000
+      (nnFit2LossTotal tanh) 42 10 (lenP2 6) 0.01 100000
       1.2308485318049472e-3
   , gdSimpleSeparatedTestCase
-      (nnFit2LossTotal tanhAct) 42 16 (lenP2 12) 0.01 100000
+      (nnFit2LossTotal tanh) 42 16 (lenP2 12) 0.01 100000
       1.9398514673723763e-2
   ]
 
--- The same tests, but with logisticAct for the first hidden layer instead
--- of tanhAct. Usually worse results.
+-- The same tests, but with logistic for the first hidden layer instead
+-- of tanh. Usually worse results.
 fit2TestsL :: TestTree
-fit2TestsL = testGroup "logisticAct: Sample fitting 2 hidden layer not fully connected nn tests"
+fit2TestsL = testGroup "logistic: Sample fitting 2 hidden layer not fully connected nn tests"
   [ gdSimpleWsTestCase
-      (nnFit2LossTotal logisticAct) 42 8 (lenP2 6) 0.1 10000
+      (nnFit2LossTotal logistic) 42 8 (lenP2 6) 0.1 10000
       9.323867115794165e-3
   , gdSimpleWsTestCase
-      (nnFit2LossTotal logisticAct) 42 10 (lenP2 6) 0.01 400000
+      (nnFit2LossTotal logistic) 42 10 (lenP2 6) 0.01 400000
       0.12307345215742066
   , gdSimpleSeparatedTestCase
-      (nnFit2LossTotal logisticAct) 42 8 (lenP2 6) 0.1 10000
+      (nnFit2LossTotal logistic) 42 8 (lenP2 6) 0.1 10000
       0.2978076625110597
   , gdSimpleSeparatedTestCase
-      (nnFit2LossTotal logisticAct) 42 10 (lenP2 6) 0.01 100000
+      (nnFit2LossTotal logistic) 42 10 (lenP2 6) 0.01 100000
       8.707658552473477e-2
   , gdSimpleSeparatedTestCase
-      (nnFit2LossTotal logisticAct) 42 16 (lenP2 12) 0.01 100000
+      (nnFit2LossTotal logistic) 42 16 (lenP2 12) 0.01 100000
       1.2453082870396885
   ]
 
-gdSmartShow :: (DualNumberVariablesD -> DualMonadGradient Double DualNumberD)
+gdSmartShow :: (DualNumberVariablesD -> DualNumberD)
             -> Domain0 Double
             -> Int
             -> IO ([Double], (Double, Double))
@@ -347,11 +332,11 @@ gradSmartTestCase :: Num a
                   => String
                   -> ((a, a) -> Int -> Int
                       -> Vector (Double, Double))
-                  -> ((DualNumberD -> DualMonadGradient Double DualNumberD)
-                      -> (DualNumberD -> DualMonadGradient Double DualNumberD)
+                  -> ((DualNumberD -> DualNumberD)
+                      -> (DualNumberD -> DualNumberD)
                       -> Vector (Double, Double)
                       -> DualNumberVariablesD
-                      -> DualMonadGradient Double DualNumberD)
+                      -> DualNumberD)
                   -> Int -> Int -> Int -> Int -> (Double, Double)
                   -> TestTree
 gradSmartTestCase prefix sampleFunction lossFunction
@@ -362,25 +347,25 @@ gradSmartTestCase prefix sampleFunction lossFunction
              ++ unwords [ show seedSamples, show nSamples
                         , show nParams0, show nIterations ]
   in testCase name $ do
-       res <- snd <$> gdSmartShow (lossFunction tanhAct tanhAct samples) vec nIterations
+       res <- snd <$> gdSmartShow (lossFunction tanh tanh samples) vec nIterations
        res @?~ expected
 
 gradSmartWsTestCase
-  :: ((DualNumberD -> DualMonadGradient Double DualNumberD)
-      -> (DualNumberD -> DualMonadGradient Double DualNumberD)
+  :: ((DualNumberD -> DualNumberD)
+      -> (DualNumberD -> DualNumberD)
       -> Vector (Double, Double)
       -> DualNumberVariablesD
-      -> DualMonadGradient Double DualNumberD)
+      -> DualNumberD)
   -> Int -> Int -> Int -> Int -> (Double, Double)
   -> TestTree
 gradSmartWsTestCase = gradSmartTestCase "gradSmart Ws" wsFit
 
 gradSmartSeparatedTestCase
-  :: ((DualNumberD -> DualMonadGradient Double DualNumberD)
-      -> (DualNumberD -> DualMonadGradient Double DualNumberD)
+  :: ((DualNumberD -> DualNumberD)
+      -> (DualNumberD -> DualNumberD)
       -> Vector (Double, Double)
       -> DualNumberVariablesD
-      -> DualMonadGradient Double DualNumberD)
+      -> DualNumberD)
   -> Int -> Int -> Int -> Int -> (Double, Double)
   -> TestTree
 gradSmartSeparatedTestCase =
@@ -431,75 +416,73 @@ smartFit2Tests :: TestTree
 smartFit2Tests =
  testGroup "Smart descent sample fitting 2 hidden layer not fully connected nn tests"
   [ gradSmartWsTestCase
-      (nnFit2LossTotal tanhAct) 42 8 (lenP2 6) 10000
+      (nnFit2LossTotal tanh) 42 8 (lenP2 6) 10000
       (4.896924209457198e-3,2.5e-2)
   , gradSmartWsTestCase
-      (nnFit2LossTotal tanhAct) 42 10 (lenP2 6) 400000
+      (nnFit2LossTotal tanh) 42 10 (lenP2 6) 400000
       (8.470989419560765e-2,2.5e-2)
   , gradSmartWsTestCase
-      (nnFit2LossTotal tanhAct) 42 16 (lenP2 12) 700000
+      (nnFit2LossTotal tanh) 42 16 (lenP2 12) 700000
       (5.149610997592684e-2,3.90625e-4)
         -- 61 1000000 not enough for 20, 101 700000 enough
   , gradSmartSeparatedTestCase
-      (nnFit2LossTotal tanhAct) 42 8 (lenP2 6) 10000
+      (nnFit2LossTotal tanh) 42 8 (lenP2 6) 10000
       (1.832621758590325e-2,1.25e-2)
   , gradSmartSeparatedTestCase
-      (nnFit2LossTotal tanhAct) 42 10 (lenP2 6) 100000
+      (nnFit2LossTotal tanh) 42 10 (lenP2 6) 100000
       (2.6495249749522148e-2,3.125e-3)
   , gradSmartSeparatedTestCase
-      (nnFit2LossTotal tanhAct) 42 16 (lenP2 12) 100000
+      (nnFit2LossTotal tanh) 42 16 (lenP2 12) 100000
       (1.8617700399788891e-3,3.125e-3)
   , gradSmartSeparatedTestCase
-      (nnFit2LossTotal tanhAct) 42 24 (lenP2 12) 1300000
+      (nnFit2LossTotal tanh) 42 24 (lenP2 12) 1300000
       (1.0411445668840221e-2,3.125e-3)
         -- this is faster but less accurate than 101 1000000
         -- 151 700000 is not enough
   ]
 
--- The same tests, but with logisticAct for the first hidden layer instead
--- of tanhAct. Usually worse results.
+-- The same tests, but with logistic for the first hidden layer instead
+-- of tanh. Usually worse results.
 smartFit2TestsL :: TestTree
 smartFit2TestsL =
- testGroup "logisticAct: Smart descent sample fitting 2 hidden layer not fully connected nn tests"
+ testGroup "logistic: Smart descent sample fitting 2 hidden layer not fully connected nn tests"
   [ gradSmartWsTestCase
-      (nnFit2LossTotal logisticAct) 42 8 (lenP2 6) 10000
+      (nnFit2LossTotal logistic) 42 8 (lenP2 6) 10000
       (5.277048486983709e-3,5.0e-2)
   , gradSmartWsTestCase
-      (nnFit2LossTotal logisticAct) 42 10 (lenP2 6) 400000
+      (nnFit2LossTotal logistic) 42 10 (lenP2 6) 400000
       (0.12231013820426907,2.5e-2)
   , gradSmartWsTestCase
-      (nnFit2LossTotal logisticAct) 42 16 (lenP2 12) 700000
+      (nnFit2LossTotal logistic) 42 16 (lenP2 12) 700000
       (0.625388101609215,3.125e-3)
   , gradSmartSeparatedTestCase
-      (nnFit2LossTotal logisticAct) 42 8 (lenP2 6) 10000
+      (nnFit2LossTotal logistic) 42 8 (lenP2 6) 10000
       (0.486980368199192,2.5e-2)
   , gradSmartSeparatedTestCase
-      (nnFit2LossTotal logisticAct) 42 10 (lenP2 6) 100000
+      (nnFit2LossTotal logistic) 42 10 (lenP2 6) 100000
       (2.9673291826644015e-2,3.125e-3)
   , gradSmartSeparatedTestCase
-      (nnFit2LossTotal logisticAct) 42 16 (lenP2 12) 100000
+      (nnFit2LossTotal logistic) 42 16 (lenP2 12) 100000
       (2.1703256232095827,1.25e-2)
   , gradSmartSeparatedTestCase
-      (nnFit2LossTotal logisticAct) 42 24 (lenP2 12) 1300000
+      (nnFit2LossTotal logistic) 42 24 (lenP2 12) 1300000
       (2.225663713307959,3.90625e-4)
   ]
 
 -- This is really fully connected.
-middleLayerFit3 :: forall m. DualMonad 'DModeGradient Double m
-                => (DualNumberD -> m DualNumberD)
+middleLayerFit3 :: (DualNumberD -> DualNumberD)
                 -> Data.Vector.Vector DualNumberD
                 -> Int
                 -> DualNumberVariablesD
-                -> m (Data.Vector.Vector DualNumberD)
+                -> Data.Vector.Vector DualNumberD
 middleLayerFit3 factivation hiddenVec offset vec =
   middleLayerMnist factivation hiddenVec offset vec $ V.length hiddenVec
 
-nnFit3 :: DualMonad 'DModeGradient Double m
-       => (DualNumberD -> m DualNumberD)
-       -> (DualNumberD -> m DualNumberD)
-       -> (DualNumberD -> m DualNumberD)
-       -> Double -> DualNumberVariablesD -> m DualNumberD
-nnFit3 factivationHidden factivationMiddle factivationOutput x vec = do
+nnFit3 :: (DualNumberD -> DualNumberD)
+       -> (DualNumberD -> DualNumberD)
+       -> (DualNumberD -> DualNumberD)
+       -> Double -> DualNumberVariablesD -> DualNumberD
+nnFit3 factivationHidden factivationMiddle factivationOutput x vec =
   -- This is fully connected, so given width w, the number of parameters is:
   -- one bias of the outer layer, a list of weights of the outer layer
   -- of length w, a list of the same length of weights and biases of the first
@@ -510,33 +493,31 @@ nnFit3 factivationHidden factivationMiddle factivationOutput x vec = do
   let len :: Double
       len = fromIntegral $ lengthDualNumber vec  -- #params
       width = floor $ (-4 + sqrt (12 + 4 * len)) / 2
-  hiddenVec <- hiddenLayerFit factivationHidden x vec width
-  middleVec <- middleLayerFit3 factivationMiddle hiddenVec (2 * width) vec
-  outputLayerFit factivationOutput middleVec ((3 + width) * width) vec
+      hiddenVec = hiddenLayerFit factivationHidden x vec width
+      middleVec = middleLayerFit3 factivationMiddle hiddenVec (2 * width) vec
+  in outputLayerFit factivationOutput middleVec ((3 + width) * width) vec
 
-nnFit3Loss :: DualMonad 'DModeGradient Double m
-           => (DualNumberD -> m DualNumberD)
-           -> (DualNumberD -> m DualNumberD)
-           -> (DualNumberD -> m DualNumberD)
-           -> Double -> Double -> DualNumberVariablesD -> m DualNumberD
-nnFit3Loss factivationHidden factivationMiddle factivationOutput x targ vec = do
-  res <- nnFit3 factivationHidden factivationMiddle factivationOutput x vec
-  lossSquared targ res
+nnFit3Loss :: (DualNumberD -> DualNumberD)
+           -> (DualNumberD -> DualNumberD)
+           -> (DualNumberD -> DualNumberD)
+           -> Double -> Double -> DualNumberVariablesD -> DualNumberD
+nnFit3Loss factivationHidden factivationMiddle factivationOutput x targ vec =
+  let res = nnFit3 factivationHidden factivationMiddle factivationOutput x vec
+  in squaredDifference targ res
 
-nnFit3LossTotal :: forall m. DualMonad 'DModeGradient Double m
-                => (DualNumberD -> m DualNumberD)
-                -> (DualNumberD -> m DualNumberD)
-                -> (DualNumberD -> m DualNumberD)
+nnFit3LossTotal :: (DualNumberD -> DualNumberD)
+                -> (DualNumberD -> DualNumberD)
+                -> (DualNumberD -> DualNumberD)
                 -> Vector (Double, Double)
                 -> DualNumberVariablesD
-                -> m DualNumberD
+                -> DualNumberD
 nnFit3LossTotal factivationHidden factivationMiddle factivationOutput
-                samples vec = do
-  let f :: (Double, Double) -> m DualNumberD
+                samples vec =
+  let f :: (Double, Double) -> DualNumberD
       f (x, res) =
         nnFit3Loss factivationHidden factivationMiddle factivationOutput
                    x res vec
-  sumResultsDual f samples
+  in sumResultsDual f samples
 
 lenP3 :: Int -> Int
 lenP3 width = (4 + width) * width + 1
@@ -548,175 +529,174 @@ smartFit3Tests =
   -- gives much worse results, except if there are few samples.
   -- It is also less costly for some reason.
   [ gradSmartWsTestCase
-      (nnFit3LossTotal tanhAct) 42 8 (lenP3 4) 10000
+      (nnFit3LossTotal tanh) 42 8 (lenP3 4) 10000
       (3.5604072240265575e-3,2.5e-2)
   , gradSmartWsTestCase
-      (nnFit3LossTotal tanhAct) 42 10 (lenP3 4) 400000
+      (nnFit3LossTotal tanh) 42 10 (lenP3 4) 400000
       (0.10126792765437645,3.125e-3)
         -- failed, because too narrow (4 neurons in each hidden layer)
   , gradSmartWsTestCase
-      (nnFit3LossTotal tanhAct) 42 16 (lenP3 6) 700000
+      (nnFit3LossTotal tanh) 42 16 (lenP3 6) 700000
       (0.19318876323310907,1.5625e-3)
         -- failed, because too narrow (6 neurons in each hidden layer)
   , gradSmartSeparatedTestCase
-      (nnFit3LossTotal tanhAct) 42 8 (lenP3 4) 10000
+      (nnFit3LossTotal tanh) 42 8 (lenP3 4) 10000
       (6.291648505851797e-3,6.25e-3)
   , gradSmartSeparatedTestCase
-      (nnFit3LossTotal tanhAct) 42 10 (lenP3 4) 100000
+      (nnFit3LossTotal tanh) 42 10 (lenP3 4) 100000
       (4.34890234424764e-7,6.25e-3)
   , gradSmartSeparatedTestCase
-      (nnFit3LossTotal tanhAct) 42 16 (lenP3 6) 100000
+      (nnFit3LossTotal tanh) 42 16 (lenP3 6) 100000
       (0.3434691592146121,1.5625e-3)
         -- failed, because too narrow (6 neurons in each hidden layer)
   , gradSmartSeparatedTestCase
-      (nnFit3LossTotal tanhAct) 42 24 (lenP3 6) 1300000
+      (nnFit3LossTotal tanh) 42 24 (lenP3 6) 1300000
       (1.665065359469462,9.765625e-5)
         -- failed, because too narrow (6 neurons in each hidden layer)
   -- The same width of fully connected nn, but with 2 instead of 1 hidden
   -- layer has many more parameters and is usually more costly,
   -- but also much more powerful given enough training:
   , gradSmartWsTestCase
-      (nnFit3LossTotal tanhAct) 42 8 (lenP3 6) 10000
+      (nnFit3LossTotal tanh) 42 8 (lenP3 6) 10000
       (2.1767148242940303e-3,1.25e-2)
   , gradSmartWsTestCase
-      (nnFit3LossTotal tanhAct) 42 10 (lenP3 6) 400000
+      (nnFit3LossTotal tanh) 42 10 (lenP3 6) 400000
       (1.3871923964300112e-4,6.25e-3)
   , gradSmartWsTestCase
-      (nnFit3LossTotal tanhAct) 42 16 (lenP3 12) 700000
+      (nnFit3LossTotal tanh) 42 16 (lenP3 12) 700000
       (2.131955325962636e-5,7.8125e-4)
   , gradSmartSeparatedTestCase
-      (nnFit3LossTotal tanhAct) 42 8 (lenP3 6) 10000
+      (nnFit3LossTotal tanh) 42 8 (lenP3 6) 10000
       (2.0369556559640215e-4,5.0e-2)
   , gradSmartSeparatedTestCase
-      (nnFit3LossTotal tanhAct) 42 10 (lenP3 6) 100000
+      (nnFit3LossTotal tanh) 42 10 (lenP3 6) 100000
       (4.0282344474667426e-16,6.25e-3)
   , gradSmartSeparatedTestCase
-      (nnFit3LossTotal tanhAct) 42 16 (lenP3 12) 100000
+      (nnFit3LossTotal tanh) 42 16 (lenP3 12) 100000
       (1.5819824634756573e-5,3.125e-3)
   , gradSmartSeparatedTestCase
-      (nnFit3LossTotal tanhAct) 42 24 (lenP3 12) 1300000
+      (nnFit3LossTotal tanh) 42 24 (lenP3 12) 1300000
       (1.1354796858869852e-6,1.5625e-3)
   ]
 
--- The same tests, but with logisticAct for the first hidden layer instead
--- of tanhAct. Usually worse results.
+-- The same tests, but with logistic for the first hidden layer instead
+-- of tanh. Usually worse results.
 smartFit3TestsL :: TestTree
 smartFit3TestsL =
- testGroup "logisticAct: Smart descent sample fitting 2 hidden layer really fully connected nn tests"
+ testGroup "logistic: Smart descent sample fitting 2 hidden layer really fully connected nn tests"
   [ gradSmartWsTestCase
-      (nnFit3LossTotal logisticAct) 42 8 (lenP3 4) 10000
+      (nnFit3LossTotal logistic) 42 8 (lenP3 4) 10000
       (4.262690053475572e-3,2.5e-2)
   , gradSmartWsTestCase
-      (nnFit3LossTotal logisticAct) 42 10 (lenP3 4) 400000
+      (nnFit3LossTotal logistic) 42 10 (lenP3 4) 400000
       (8.133312854575311e-2,0.1)
   , gradSmartWsTestCase
-      (nnFit3LossTotal logisticAct) 42 16 (lenP3 6) 700000
+      (nnFit3LossTotal logistic) 42 16 (lenP3 6) 700000
       (0.35607225062502207,1.5625e-3)
   , gradSmartSeparatedTestCase
-      (nnFit3LossTotal logisticAct) 42 8 (lenP3 4) 10000
+      (nnFit3LossTotal logistic) 42 8 (lenP3 4) 10000
       (8.041780516044969e-2,1.25e-2)
   , gradSmartSeparatedTestCase
-      (nnFit3LossTotal logisticAct) 42 10 (lenP3 4) 100000
+      (nnFit3LossTotal logistic) 42 10 (lenP3 4) 100000
       (1.0877770623826884e-2,6.25e-3)
   , gradSmartSeparatedTestCase
-      (nnFit3LossTotal logisticAct) 42 16 (lenP3 6) 100000
+      (nnFit3LossTotal logistic) 42 16 (lenP3 6) 100000
       (1.444649714852858,1.25e-2)
   , gradSmartSeparatedTestCase
-      (nnFit3LossTotal logisticAct) 42 24 (lenP3 6) 1300000
+      (nnFit3LossTotal logistic) 42 24 (lenP3 6) 1300000
       (1.7847189651694308,1.953125e-4)
   , gradSmartWsTestCase
-      (nnFit3LossTotal logisticAct) 42 8 (lenP3 6) 10000
+      (nnFit3LossTotal logistic) 42 8 (lenP3 6) 10000
       (5.436829414964154e-3,2.5e-2)
   , gradSmartWsTestCase
-      (nnFit3LossTotal logisticAct) 42 10 (lenP3 6) 400000
+      (nnFit3LossTotal logistic) 42 10 (lenP3 6) 400000
       (0.11938665766915235,1.25e-2)
   , gradSmartWsTestCase
-      (nnFit3LossTotal logisticAct) 42 16 (lenP3 12) 700000
+      (nnFit3LossTotal logistic) 42 16 (lenP3 12) 700000
       (0.24271694671964975,6.25e-3)
   , gradSmartSeparatedTestCase
-      (nnFit3LossTotal logisticAct) 42 8 (lenP3 6) 10000
+      (nnFit3LossTotal logistic) 42 8 (lenP3 6) 10000
       (8.700033031145113e-2,1.25e-2)
   , gradSmartSeparatedTestCase
-      (nnFit3LossTotal logisticAct) 42 10 (lenP3 6) 100000
+      (nnFit3LossTotal logistic) 42 10 (lenP3 6) 100000
       (7.225917500882556e-6,1.25e-2)
   , gradSmartSeparatedTestCase
-      (nnFit3LossTotal logisticAct) 42 16 (lenP3 12) 100000
+      (nnFit3LossTotal logistic) 42 16 (lenP3 12) 100000
       (2.3379235156826658e-2,3.125e-3)
   , gradSmartSeparatedTestCase
-      (nnFit3LossTotal logisticAct) 42 24 (lenP3 12) 1300000
+      (nnFit3LossTotal logistic) 42 24 (lenP3 12) 1300000
       (0.6440964543158452,3.125e-3)
   ]
 
 {-
-nnFit3LossTotalOutput :: forall m. DualMonad Double m
-                      => (DualNumberD -> m DualNumberD)
-                      -> (DualNumberD -> m DualNumberD)
-                      -> (DualNumberD -> m DualNumberD)
+nnFit3LossTotalOutput :: (DualNumberD -> DualNumberD)
+                      -> (DualNumberD -> DualNumberD)
+                      -> (DualNumberD -> DualNumberD)
                       -> Vector (Double, Double)
                       -> DualNumberVariablesD
-                      -> m DualNumberD
+                      -> DualNumberD
 nnFit3LossTotalOutput f1 f2 f3 samples vec =
   nnFit3LossTotal f2 f3 f1 samples vec
 
--- The same tests, but with logisticAct for the output layer instead of tanhAct.
--- Somewhat better results than with tanhAct, but not worth recording.
+-- The same tests, but with logistic for the output layer instead of tanh.
+-- Somewhat better results than with tanh, but not worth recording.
 -- OTOH, with reluAct (understandable, it rules out any negative values)
 -- and with reluLeakyAct (gradient explosion for positive values?)
 -- the results are disastrous. Also they are disastrous with either relu
 -- in any other position (no idea why, there is one more layer to recover
 -- anything that's lost; perhaps the sums overflow due to no normalization?)
--- and mediocre with logisticAct in other positions.
+-- and mediocre with logistic in other positions.
 smartFit3TestsL3 :: TestTree
 smartFit3TestsL3 =
- testGroup "logisticAct3: Smart descent sample fitting 2 hidden layer really fully connected nn tests"
+ testGroup "logistic3: Smart descent sample fitting 2 hidden layer really fully connected nn tests"
   [ gradSmartWsTestCase
-      (nnFit3LossTotalOutput logisticAct) 42 8 (lenP3 4) 10000
+      (nnFit3LossTotalOutput logistic) 42 8 (lenP3 4) 10000
       (3.5604072240265575e-3,2.5e-2)
   , gradSmartWsTestCase
-      (nnFit3LossTotalOutput logisticAct) 42 10 (lenP3 4) 400000
+      (nnFit3LossTotalOutput logistic) 42 10 (lenP3 4) 400000
       (0.10126792765437645,3.125e-3)
   , gradSmartWsTestCase
-      (nnFit3LossTotalOutput logisticAct) 42 16 (lenP3 6) 700000
+      (nnFit3LossTotalOutput logistic) 42 16 (lenP3 6) 700000
       (0.19318876323310907,1.5625e-3)
   , gradSmartSeparatedTestCase
-      (nnFit3LossTotalOutput logisticAct) 42 8 (lenP3 4) 10000
+      (nnFit3LossTotalOutput logistic) 42 8 (lenP3 4) 10000
       (6.291648505851797e-3,6.25e-3)
   , gradSmartSeparatedTestCase
-      (nnFit3LossTotalOutput logisticAct) 42 10 (lenP3 4) 100000
+      (nnFit3LossTotalOutput logistic) 42 10 (lenP3 4) 100000
       (4.34890234424764e-7,6.25e-3)
   , gradSmartSeparatedTestCase
-      (nnFit3LossTotalOutput logisticAct) 42 16 (lenP3 6) 100000
+      (nnFit3LossTotalOutput logistic) 42 16 (lenP3 6) 100000
       (0.3434691592146121,1.5625e-3)
   , gradSmartSeparatedTestCase
-      (nnFit3LossTotalOutput logisticAct) 42 24 (lenP3 6) 1300000
+      (nnFit3LossTotalOutput logistic) 42 24 (lenP3 6) 1300000
       (1.665065359469462,9.765625e-5)
   , gradSmartWsTestCase
-      (nnFit3LossTotalOutput logisticAct) 42 8 (lenP3 6) 10000
+      (nnFit3LossTotalOutput logistic) 42 8 (lenP3 6) 10000
       (2.1767148242940303e-3,1.25e-2)
   , gradSmartWsTestCase
-      (nnFit3LossTotalOutput logisticAct) 42 10 (lenP3 6) 400000
+      (nnFit3LossTotalOutput logistic) 42 10 (lenP3 6) 400000
       (1.3871923964300112e-4,6.25e-3)
   , gradSmartWsTestCase
-      (nnFit3LossTotalOutput logisticAct) 42 16 (lenP3 12) 700000
+      (nnFit3LossTotalOutput logistic) 42 16 (lenP3 12) 700000
       (2.131955325962636e-5,7.8125e-4)
   , gradSmartSeparatedTestCase
-      (nnFit3LossTotalOutput logisticAct) 42 8 (lenP3 6) 10000
+      (nnFit3LossTotalOutput logistic) 42 8 (lenP3 6) 10000
       (2.0369556559640215e-4,5.0e-2)
   , gradSmartSeparatedTestCase
-      (nnFit3LossTotalOutput logisticAct) 42 10 (lenP3 6) 100000
+      (nnFit3LossTotalOutput logistic) 42 10 (lenP3 6) 100000
       (4.0282344474667426e-16,6.25e-3)
   , gradSmartSeparatedTestCase
-      (nnFit3LossTotalOutput logisticAct) 42 16 (lenP3 12) 100000
+      (nnFit3LossTotalOutput logistic) 42 16 (lenP3 12) 100000
       (1.5819824634756573e-5,3.125e-3)
   , gradSmartSeparatedTestCase
-      (nnFit3LossTotalOutput logisticAct) 42 24 (lenP3 12) 1300000
+      (nnFit3LossTotalOutput logistic) 42 24 (lenP3 12) 1300000
       (1.1354796858869852e-6,1.5625e-3)
   ]
 -}
 
 sgdShow :: HasDelta r
         => r
-        -> (a -> DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
+        -> (a -> DualNumberVariables 'DModeGradient r -> DualNumber 'DModeGradient r)
         -> [a]  -- ^ training data
         -> Domain0 r  -- ^ initial parameters
         -> IO ([r], r)
@@ -732,7 +712,7 @@ sgdTestCase
   -> (Int
       -> a
       -> DualNumberVariablesD
-      -> DualMonadGradient Double DualNumberD)
+      -> DualNumberD)
   -> Double
   -> Double
   -> TestTree
@@ -754,8 +734,8 @@ lenMnist widthHidden =
 nnFit3ForStochastic :: Int
                     -> (Double, Double)
                     -> DualNumberVariablesD
-                    -> DualMonadGradient Double DualNumberD
-nnFit3ForStochastic _ (x, res) = nnFit3Loss tanhAct tanhAct tanhAct x res
+                    -> DualNumberD
+nnFit3ForStochastic _ (x, res) = nnFit3Loss tanh tanh tanh x res
 
 stochasticFit3Tests :: TestTree
 stochasticFit3Tests =
