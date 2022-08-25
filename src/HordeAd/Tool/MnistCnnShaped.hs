@@ -57,8 +57,8 @@ convMnistLayerS ker x bias = do
                       $ mapS replicateBias bias
         -- TODO: this is weakly typed; add and use replicateS instead
         -- or broadcastS or stretchS, possibly with transposeS?
-  yRelu <- reluAct $ yConv + biasStretched
-  maxPool24 @1 @2 yRelu
+      yRelu = relu $ yConv + biasStretched
+  return $! maxPool24 @1 @2 yRelu
 
 
 convMnistTwoS
@@ -100,7 +100,7 @@ convMnistTwoS x ker1 bias1 ker2 bias2
   let m1 = mapS reshapeS t2
       m2 = transpose2S m1
       denseLayer = weigthsDense <>$ m2 + asColumnS biasesDense
-  denseRelu <- reluAct denseLayer
+      denseRelu = relu denseLayer
   returnLet $ weigthsReadout <>$ denseRelu + asColumnS biasesReadout
 
 convMnistLenS
@@ -191,7 +191,7 @@ convMnistLossFusedS _ _ _ _ (glyphS, labelS) variables = do
                        xs variables
   let targets2 = HM.tr $ HM.reshape (valueOf @SizeMnistLabel)
                        $ OS.toVector labelS
-  vec <- lossSoftMaxCrossEntropyL targets2 (fromS2 result)
+      vec = lossSoftMaxCrossEntropyL targets2 (fromS2 result)
   returnLet $ scale (recip $ fromIntegral (valueOf @batch_size :: Int))
             $ sumElements0 vec
 
