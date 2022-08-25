@@ -878,7 +878,7 @@ shortCIMnistTests = testGroup "Short CI MNIST tests"
   , mnistTestCase2V "VV artificial 1 2 3 4 5" 1 2 fcnnMnistLoss1 3 4 5
                     0.8972
   , mnistTestCase2V "VV artificial 5 4 3 2 1" 5 4 fcnnMnistLoss1 3 2 1
-                    0.7756000000000001
+                    0.6585
   , mnistTestCase2L "LL 1 epoch, 1 batch" 1 1 fcnnMnistLoss2 300 100 0.02
                     0.12339999999999995
   , mnistTestCase2L "LL artificial 1 2 3 4 5" 1 2 fcnnMnistLoss2 3 4 5
