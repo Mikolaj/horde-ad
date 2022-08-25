@@ -35,7 +35,7 @@ import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 import HordeAd.Internal.Delta
-  (CodeOut (..), derivativeFromDelta, gradientFromDelta, toDeltaId)
+  (derivativeFromDelta, gradientFromDelta, toDeltaId)
 
 -- * The dummy monad implementation that does not collect deltas.
 -- It's intended for efficiently calculating the value of the function only.
@@ -118,13 +118,7 @@ dReverseGeneral dt
       -- because it modifies the counters (via impure side-effect):
       !(D !value !d) = runIdentity $ runDualMonadGradient (f variables)
   counters <- finalizeCounters
-  let inlineDerivative primCode primalArgs dualArgs =
-        let D _ u' = outDualNumber primCode primalArgs dualArgs
-        in u'
-      gradient =
-        gradientFromDelta inlineDerivative inlineDerivative inlineDerivative
-                          inlineDerivative inlineDerivative
-                          dim0 dim1 dim2 dimX counters d dt
+  let gradient = gradientFromDelta dim0 dim1 dim2 dimX counters d dt
   return (gradient, value)
 
 dReverse
@@ -156,13 +150,7 @@ dForwardGeneral variables@(params0, _, params1, _, params2, _, paramsX, _)
       -- because it modifies the counters (via impure side-effect):
       !(D !value !d) = runIdentity $ runDualMonadGradient (f variables)
   counters <- finalizeCounters
-  let inlineDerivative primCode primalArgs dualArgs =
-        let D _ u' = outDualNumber primCode primalArgs dualArgs
-        in u'
-      derivative =
-        derivativeFromDelta inlineDerivative inlineDerivative inlineDerivative
-                            inlineDerivative inlineDerivative
-                            counters d ds
+  let derivative = derivativeFromDelta counters d ds
   return (derivative, value)
 
 -- The direction vector ds is taken as an extra argument.
@@ -299,42 +287,3 @@ initializerFixed seed range (nParams0, lParams1, lParams2, lParamsX) =
      , totalParams
      , range
      , (params0Init, params1Init, params2Init, paramsXInit) )
-
--- TODO: take the counters from the Out constructor and move them over
--- to the outermost constructor from here, assigning -1 counters
--- to any created inner nodes. This is messy, because we can't use
--- Num and other instances either from DualNumber or from DualClass,
--- because they impurely assign counters.
--- Or do https://github.com/Mikolaj/horde-ad/issues/61#issuecomment-1221319592.
-outDualNumber :: (IsPrimal d a, RealFloat a, Show a, Show (Dual d a))
-              => CodeOut -> [a] -> [Dual d a]
-              -> DualNumber d a
-outDualNumber PlusOut [u, v] [u', v'] = D u u' + D v v'
-outDualNumber MinusOut [u, v] [u', v'] = D u u' - D v v'
-outDualNumber TimesOut [u, v] [u', v'] = D u u' * D v v'
-outDualNumber NegateOut [u] [u'] = negate $ D u u'
-outDualNumber AbsOut [u] [u'] = abs $ D u u'
-outDualNumber SignumOut [u] [u'] = signum $ D u u'
-outDualNumber DivideOut [u, v] [u', v'] = D u u' / D v v'
-outDualNumber RecipOut [u] [u'] = recip $ D u u'
-outDualNumber ExpOut [u] [u'] = exp $ D u u'
-outDualNumber LogOut [u] [u'] = log $ D u u'
-outDualNumber SqrtOut [u] [u'] = sqrt $ D u u'
-outDualNumber PowerOut [u, v] [u', v'] = D u u' ** D v v'
-outDualNumber LogBaseOut [u, v] [u', v'] = logBase (D u u') (D v v')
-outDualNumber SinOut [u] [u'] = sin $ D u u'
-outDualNumber CosOut [u] [u'] = cos $ D u u'
-outDualNumber TanOut [u] [u'] = tan $ D u u'
-outDualNumber AsinOut [u] [u'] = asin $ D u u'
-outDualNumber AcosOut [u] [u'] = acos $ D u u'
-outDualNumber AtanOut [u] [u'] = atan $ D u u'
-outDualNumber SinhOut [u] [u'] = sinh $ D u u'
-outDualNumber CoshOut [u] [u'] = cosh $ D u u'
-outDualNumber TanhOut [u] [u'] = tanh $ D u u'
-outDualNumber AsinhOut [u] [u'] = asinh $ D u u'
-outDualNumber AcoshOut [u] [u'] = acosh $ D u u'
-outDualNumber AtanhOut [u] [u'] = atanh $ D u u'
-outDualNumber Atan2Out [u, v] [u', v'] = atan2 (D u u') (D v v')
-outDualNumber primCode primalArgs dualArgs =
-  error $ "outDualNumber: wrong number of arguments"
-          ++ show (primCode, primalArgs, dualArgs)
