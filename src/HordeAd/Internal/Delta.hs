@@ -53,7 +53,7 @@ module HordeAd.Internal.Delta
 import Prelude
 
 import           Control.Exception (assert)
-import           Control.Monad (liftM2, unless, when, zipWithM_)
+import           Control.Monad (liftM2, unless, zipWithM_)
 import           Control.Monad.ST.Strict (ST, runST)
 import qualified Data.Array.Convert
 import qualified Data.Array.Dynamic as OTB
@@ -510,8 +510,7 @@ buildFinMaps st deltaTopLevel dt = do
         VM.modify rMap1 (addToVector r) i
       eval1 !r (Delta1 n did@(DeltaId i) d) = do
         VM.modify rMap1 (addToVector r) i
-        when (n >= 0) $
-          VM.write dMap n (DeltaBinding1 did d)
+        VM.write dMap n (DeltaBinding1 did d)
       eval1' :: Vector r -> Delta1' r -> ST s ()
       eval1' !r = \case
         Scale1 k d -> eval1 (k * r) d
@@ -547,8 +546,7 @@ buildFinMaps st deltaTopLevel dt = do
         VM.modify rMap2 (addToMatrix r) i
       eval2 !r (Delta2 n did@(DeltaId i) d) = do
         VM.modify rMap2 (addToMatrix r) i
-        when (n >= 0) $
-          VM.write dMap n (DeltaBinding2 did d)
+        VM.write dMap n (DeltaBinding2 did d)
       eval2' :: MO.MatrixOuter r -> Delta2' r -> ST s ()
       eval2' !r = \case
         Scale2 k d -> eval2 (MO.multiplyWithOuter k r) d
@@ -605,8 +603,7 @@ buildFinMaps st deltaTopLevel dt = do
         VM.modify rMapX (addToArray r) i
       evalX !r (DeltaX n did@(DeltaId i) d) = do
         VM.modify rMapX (addToArray r) i
-        when (n >= 0) $
-          VM.write dMap n (DeltaBindingX did d)
+        VM.write dMap n (DeltaBindingX did d)
       evalX' :: OT.Array r -> DeltaX' r -> ST s ()
       evalX' !r = \case
         ScaleX k d -> evalX (liftVT2 (*) k r) d
@@ -651,8 +648,7 @@ buildFinMaps st deltaTopLevel dt = do
         VM.modify rMapX (addToArrayS r) i
       evalS !r (DeltaS n did@(DeltaId i) d) = do
         VM.modify rMapX (addToArrayS r) i
-        when (n >= 0) $
-          VM.write dMap n (DeltaBindingS did d)
+        VM.write dMap n (DeltaBindingS did d)
       evalS' :: OS.Shape sh
              => OS.Array sh r -> DeltaS' sh r -> ST s ()
       evalS' !r = \case
