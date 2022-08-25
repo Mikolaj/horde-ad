@@ -47,40 +47,6 @@ fblowup variables = do
   y0 <- fquad variables
   blowup 100 y0
 
--- Delaying doesn't derail sharing preservation via monads.
--- Around 4 times slowdown, from wrapping each delta expression
--- node in @Outline@. A version of @Outline@ that accepts
--- arbitrary uncomputed expressions, or even only those composed entirely from
--- primitive arithmetic function applications, would be much more complex.
-_fblowupOut :: forall d r m. ( DualMonad d r m
-                            , Fractional (Out (DualNumber d r)) )
-           => DualNumberVariables d r -> m (DualNumber d r)
-_fblowupOut variables = do
-  let blowup :: Int -> Out (DualNumber d r) -> m (DualNumber d r)
-      blowup 0 y = return $ unOut y
-      blowup n y = do
-        ysum <- returnOut $ y + y
-        yscaled <- returnOut $ 0.499999985 * ysum
-        blowup (pred n) yscaled
-  y0 <- fquad variables
-  blowup 100 (Out y0)
-
--- Delaying is not a substitute for sharing preservation via monads.
--- We'd need another kind of variables to store the Outline contents
--- and share it and its computation.
-_fblowupOutNoM :: forall d r m. ( DualMonad d r m
-                               , Fractional (Out (DualNumber d r)) )
-              => DualNumberVariables d r -> m (DualNumber d r)
-_fblowupOutNoM variables = do
-  let blowup :: Int -> Out (DualNumber d r) -> DualNumber d r
-      blowup 0 y = unOut y
-      blowup n y =
-        let ysum = y + y
-            yscaled = 0.499999985 * ysum
-        in blowup (pred n) yscaled
-  y0 <- fquad variables
-  return $ blowup 20 (Out y0)  -- 2 ^ 30 is enough; 2 ^ 100 was too much
-
 gdSimpleTests :: TestTree
 gdSimpleTests = testGroup "Simple gradient descent tests"
   [ testCase "0.1 30" $ do
@@ -108,12 +74,6 @@ gdSimpleTests = testGroup "Simple gradient descent tests"
   , testCase "blowup 0.01 1000000" $ do
       res <- gdSimpleShow 0.01 fblowup (V.fromList [2, 3]) 1000000
       res @?~ ([3.5e-44,3.5e-44],4.9999523)
---  , testCase "blowupOut 0.01 1000000" $ do
---      res <- gdSimpleShow 0.01 fblowupOut (V.fromList [2, 3]) 1000000
---      res @?~ ([3.5e-44,3.5e-44],4.9999523 :: Float)
---  , testCase "fblowupOutNoM 0.01 30 100 catastrophic" $ do
---      res <- gdSimpleShow 0.01 fblowupOutNoM (V.fromList [2, 3]) 100
---      res @?~ ([0.26523918,0.39785874],5.228634 :: Float)
   ]
 
 data ARecord a b = ARecord a b

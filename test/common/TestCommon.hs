@@ -10,9 +10,7 @@ module TestCommon ((+\), (*\), (**\),
 import Prelude
 
 import qualified Data.Array.DynamicS as OT
-import qualified Data.Array.ShapedS as OS
 import qualified Data.Vector.Generic as V
-import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           Test.Tasty
 import           Test.Tasty.QuickCheck
@@ -70,9 +68,7 @@ listsToParameters4 (a0, a1, a2, aX) =
   , if null aX then V.empty else V.singleton $ OT.fromList [length aX] aX )
 
 quickCheckTest0 :: TestName
-       -> (forall d r m. ( DualMonad d r m
-                         , Floating (Out (DualNumber d (Vector r)))
-                         , Floating (Out (DualNumber d (OS.Array '[2] r))) )
+       -> (forall d r m. DualMonad d r m
            => DualNumberVariables d r -> m (DualNumber d r))
        -> ((Double, Double, Double) -> ([Double], [Double], [Double], [Double]))
        -> TestTree
@@ -108,9 +104,7 @@ cmpTwoSimple f1 f2 parameters ds =
 -- A quick consistency check of all the kinds of derivatives and gradients
 -- and all kinds of computing the value of the objective function.
 qcPropDom :: (forall d r m. ( DualMonad d r m
-                            , r ~ Double
-                            , Floating (Out (DualNumber d (Vector r)))
-                            , Floating (Out (DualNumber d (OS.Array '[2] r))) )
+                            , r ~ Double )
               => DualNumberVariables d r -> m (DualNumber d r))
           -> Domains Double
           -> Domains Double
@@ -139,9 +133,7 @@ qcPropDom f args ds perturbation dt = do
 
 -- A quick consistency check of all the kinds of derivatives and gradients
 -- and all kinds of computing the value of the objective function.
-qcPropFArg :: (forall d r m. ( DualMonad d r m
-                         , Floating (Out (DualNumber d (Vector r)))
-                         , Floating (Out (DualNumber d (OS.Array '[2] r))) )
+qcPropFArg :: (forall d r m. DualMonad d r m
                => DualNumberVariables d r -> m (DualNumber d r))
            -> ((Double, Double, Double) -> Domains Double)
            -> (Double, Double, Double)
@@ -159,9 +151,7 @@ qcPropFArg f fArgDom xyz dsRaw perturbationRaw dt = do
 -- and all kinds of computing the value of the objective function.
 qcTestRanges
   :: TestName
-  -> (forall d r m. ( DualMonad d r m
-                    , Floating (Out (DualNumber d (Vector r)))
-                    , Floating (Out (DualNumber d (OS.Array '[2] r))) )
+  -> (forall d r m. DualMonad d r m
       => DualNumberVariables d r -> m (DualNumber d r))
   -> ((Double, Double, Double) -> Domains Double)
   -> ((Double, Double, Double), (Double, Double, Double))

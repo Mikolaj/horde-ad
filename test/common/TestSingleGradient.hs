@@ -9,7 +9,6 @@ import Prelude
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           Numeric.LinearAlgebra (Vector)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
@@ -186,15 +185,6 @@ sinKonst variables = do
   return $ sumElements0 $
     sin x + (id2 $ id2 $ id2 $ konst1 1 2)
 
-_sinKonstOut
-  :: ( DualMonad d r m
-     , Floating (Out (DualNumber d (Vector r))) )
-  => DualNumberVariables d r -> m (DualNumber d r)
-_sinKonstOut variables = do
-  let x = var1 variables 0
-  return $ sumElements0 $
-    unOut $ sin (Out x) + Out (id2 $ id2 $ id2 $ konst1 1 2)
-
 powKonst
   :: DualMonad d r m
   => DualNumberVariables d r -> m (DualNumber d r)
@@ -203,16 +193,6 @@ powKonst variables = do
   return $ sumElements0 $
     x ** (sin x + (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
 
-_powKonstOut
-  :: ( DualMonad d r m
-     , Floating (Out (DualNumber d (Vector r))) )
-  => DualNumberVariables d r -> m (DualNumber d r)
-_powKonstOut variables = do
-  let x = var1 variables 0
-  return $ sumElements0 $
-    x ** unOut (sin (Out x)
-                + Out (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
-
 sinKonstS
   :: forall d r m. DualMonad d r m
   => DualNumberVariables d r -> m (DualNumber d r)
@@ -220,16 +200,6 @@ sinKonstS variables = do
   let x = varS variables 0
   return $ sumElements0 $ fromS1
     ((sin x + (id2 $ id2 $ id2 $ konstS 1))
-       :: DualNumber d (OS.Array '[2] r))
-
-_sinKonstOutS
-  :: forall r d m. ( DualMonad d r m
-                   , Floating (Out (DualNumber d (OS.Array '[2] r))) )
-  => DualNumberVariables d r -> m (DualNumber d r)
-_sinKonstOutS variables = do
-  let x = varS variables 0
-  return $ sumElements0 $ fromS1
-    (unOut (sin (Out x) + Out (id2 $ id2 $ id2 $ konstS 1))
        :: DualNumber d (OS.Array '[2] r))
 
 dReverse1
@@ -253,12 +223,8 @@ testDReverse1 = testGroup "Simple dReverse application to vectors tests" $
     , ("altSumElementsV", altSumElementsV, [[1, 1, 3]], ([[1.0,1.0,1.0]],5.0))
     , ( "sinKonst", sinKonst, [[1, 3]]
       , ([[0.5403023,-0.9899925]],2.982591) )
---    , ( "sinKonstOut", sinKonstOut, [[1, 3]]
---      , ([[0.5403023,-0.9899925]],2.982591) )
     , ( "powKonst", powKonst, [[1, 3]]
       , ([[108.7523,131.60072]],95.58371) )
---    , ( "powKonstOut", powKonstOut, [[1, 3]]
---      , ([[108.7523,131.60072]],95.58371) )
     ]
 
 testPrintDf :: TestTree
@@ -274,32 +240,8 @@ testPrintDf = testGroup "Pretty printing test" $
       , "Delta0\n  5\n  (DeltaId 5)\n  (Add0\n     (Delta0 4 (DeltaId 4) (Index0 (Input1 (DeltaId 0)) 2 3))\n     (Delta0\n        3\n        (DeltaId 3)\n        (Add0\n           (Delta0 2 (DeltaId 2) (Index0 (Input1 (DeltaId 0)) 1 3))\n           (Delta0\n              1\n              (DeltaId 1)\n              (Add0\n                 (Delta0 0 (DeltaId 0) (Index0 (Input1 (DeltaId 0)) 0 3)) Zero0)))))" )
     , ( "sinKonst", sinKonst, [[1, 3]]
       , "Delta0\n  3\n  (DeltaId 0)\n  (SumElements0\n     (Delta1\n        2\n        (DeltaId 3)\n        (Add1\n           (Delta1\n              0\n              (DeltaId 1)\n              (Scale1 [ 0.5403023 , -0.9899925 ] (Input1 (DeltaId 0))))\n           (Delta1 1 (DeltaId 2) (Konst1 Zero0 2))))\n     2)" )
-    -- , ( "sinKonstOut", sinKonstOut, [[1, 3]]
-    --   , unlines
-    --     [ "in SumElements0"
-    --     , "  (Outline1"
-    --     , "     PlusOut"
-    --     , "     [ [ 0.84147096 , 0.14112 ] , [ 1.0 , 1.0 ] ]"
-    --     , "     [ Outline1 SinOut [ [ 1.0 , 3.0 ] ] [ Var1 (DeltaId 0) ]"
-    --     , "     , Konst1 Zero0 2"
-    --     , "     ])"
-    --     , "  2" ] )
     , ( "powKonst", powKonst, [[1, 3]]
       , "Delta0\n  7\n  (DeltaId 1)\n  (SumElements0\n     (Delta1\n        6\n        (DeltaId 6)\n        (Add1\n           (Delta1\n              4\n              (DeltaId 4)\n              (Scale1 [ 4.8414707 , 130.56084 ] (Input1 (DeltaId 0))))\n           (Delta1\n              5\n              (DeltaId 5)\n              (Scale1\n                 [ 0.0 , 103.91083 ]\n                 (Delta1\n                    3\n                    (DeltaId 3)\n                    (Add1\n                       (Delta1\n                          0\n                          (DeltaId 1)\n                          (Scale1 [ 0.5403023 , -0.9899925 ] (Input1 (DeltaId 0))))\n                       (Delta1\n                          2\n                          (DeltaId 2)\n                          (Konst1\n                             (Delta0 1 (DeltaId 0) (SumElements0 (Input1 (DeltaId 0)) 2))\n                             2))))))))\n     2)" )
-    -- , ( "powKonstOut", powKonstOut, [[1, 3]]
-    --   , unlines
-    --     [ "in SumElements0"
-    --     , "  (Add1"
-    --     , "     (Scale1 [ 4.8414707 , 130.56084 ] (Var1 (DeltaId 0)))"
-    --     , "     (Scale1"
-    --     , "        [ 0.0 , 103.91083 ]"
-    --     , "        (Outline1"
-    --     , "           PlusOut"
-    --     , "           [ [ 0.84147096 , 0.14112 ] , [ 4.0 , 4.0 ] ]"
-    --     , "           [ Outline1 SinOut [ [ 1.0 , 3.0 ] ] [ Var1 (DeltaId 0) ]"
-    --     , "           , Konst1 (SumElements0 (Var1 (DeltaId 0)) 2) 2"
-    --     , "           ])))"
-    --     , "  2" ] )
     ]
 
 testDForward :: TestTree
@@ -342,12 +284,8 @@ quickCheckForwardAndBackward =
              (\(x, y, z) -> ([], [x, y, z], [], []))
     , quickCheckTest0 "sinKonst" sinKonst  -- powKonst NaNs immediately
              (\(x, _, z) -> ([], [x, z], [], []))
---    , quickCheckTest0 "sinKonstOut" sinKonstOut
---             (\(x, _, z) -> ([], [x, z], [], []))
     , quickCheckTest0 "sinKonstS" sinKonstS
              (\(x, _, z) -> ([], [], [], [x, z]))
---    , quickCheckTest0 "sinKonstOutS" sinKonstOutS
---             (\(x, _, z) -> ([], [], [], [x, z]))
    ]
 
 -- A function that goes from `R^3` to `R^2`, with a representation
