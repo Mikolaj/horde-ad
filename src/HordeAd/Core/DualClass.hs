@@ -162,8 +162,6 @@ instance (IsPrimalS d r, OS.Shape sh) => IsPrimal d (OS.Array sh r) where
 -- introduction and binding as defined by the methods of the class.
 class HasVariables a where
   dVar :: DeltaId a -> Dual 'DModeGradient a
-  dOutline :: CodeOut -> [a] -> [Dual 'DModeGradient a]
-           -> Dual 'DModeGradient a
 
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
@@ -290,33 +288,21 @@ instance IsPrimalS 'DModeGradient r where
 
 instance HasVariables Double where
   dVar = Input0
-  dOutline codeOut primalArgs !dualArgs =
-    wrapDelta0 $ Outline0 codeOut primalArgs dualArgs
 
 instance HasVariables Float where
   dVar = Input0
-  dOutline codeOut primalArgs !dualArgs =
-    wrapDelta0 $ Outline0 codeOut primalArgs dualArgs
 
 instance HasVariables (Vector r) where
   dVar = Input1
-  dOutline codeOut primalArgs !dualArgs =
-    wrapDelta1 $ Outline1 codeOut primalArgs dualArgs
 
 instance HasVariables (Matrix r) where
   dVar = Input2
-  dOutline codeOut primalArgs !dualArgs =
-    wrapDelta2 $ Outline2 codeOut primalArgs dualArgs
 
 instance HasVariables (OT.Array r) where
   dVar = InputX
-  dOutline codeOut primalArgs !dualArgs =
-    wrapDeltaX $ OutlineX codeOut primalArgs dualArgs
 
 instance HasVariables (OS.Array sh r) where
   dVar = InputS
-  dOutline codeOut primalArgs !dualArgs =
-    wrapDeltaS $ OutlineS codeOut primalArgs dualArgs
 
 instance Dual 'DModeGradient r ~ Delta0 r
          => HasRanks 'DModeGradient r where
