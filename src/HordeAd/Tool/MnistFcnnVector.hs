@@ -71,8 +71,8 @@ fcnnMnistLen1 widthHidden widthHidden2 =
 -- of scalars (none in this case) and vectors of dual number parameters
 -- (variables) to be given to the program.
 fcnnMnist1 :: forall d r m. DualMonad d r m
-           => (DualNumber d (Vector r) -> m (DualNumber d (Vector r)))
-           -> (DualNumber d (Vector r) -> m (DualNumber d (Vector r)))
+           => (DualNumber d (Vector r) -> DualNumber d (Vector r))
+           -> (DualNumber d (Vector r) -> DualNumber d (Vector r))
            -> Int
            -> Int
            -> Vector r
@@ -83,17 +83,17 @@ fcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
   let !_A = assert (sizeMnistGlyph == V.length input) ()
   let hiddenLayer1 = sumConstantDataL input 0 variables widthHidden
                      + var1 variables widthHidden  -- bias
-  nonlinearLayer1 <- factivationHidden hiddenLayer1
-  let offsetMiddle = widthHidden + 1
+      nonlinearLayer1 = factivationHidden hiddenLayer1
+      offsetMiddle = widthHidden + 1
       hiddenLayer2 = sumTrainableInputsL nonlinearLayer1 offsetMiddle
                                          variables widthHidden2
                      + var1 variables (offsetMiddle + widthHidden2)  -- bias
-  nonlinearLayer2 <- factivationHidden hiddenLayer2
-  let offsetOutput = offsetMiddle + widthHidden2 + 1
+      nonlinearLayer2 = factivationHidden hiddenLayer2
+      offsetOutput = offsetMiddle + widthHidden2 + 1
       outputLayer = sumTrainableInputsL nonlinearLayer2 offsetOutput
                                         variables sizeMnistLabel
                     + var1 variables (offsetOutput + sizeMnistLabel)  -- bias
-  factivationOutput outputLayer
+  return $! factivationOutput outputLayer
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
@@ -102,9 +102,9 @@ fcnnMnistLoss1
   => Int -> Int -> MnistData r -> DualNumberVariables d r
   -> m (DualNumber d r)
 fcnnMnistLoss1 widthHidden widthHidden2 (input, target) variables = do
-  result <- inline fcnnMnist1 logisticAct softMaxActV
+  result <- inline fcnnMnist1 logistic softMaxV
                               widthHidden widthHidden2 input variables
-  lossCrossEntropyV target result
+  return $! lossCrossEntropyV target result
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
@@ -114,8 +114,8 @@ fcnnMnistTest1
 fcnnMnistTest1 widthHidden widthHidden2 inputs (params0, params1) =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let nn = inline fcnnMnist1 logisticAct softMaxActV
-                                        widthHidden widthHidden2 glyph
+        let nn = inline fcnnMnist1 logistic softMaxV
+                                   widthHidden widthHidden2 glyph
             value = primalValue nn (params0, params1, V.empty, V.empty)
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
