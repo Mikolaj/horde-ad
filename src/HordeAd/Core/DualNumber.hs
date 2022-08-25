@@ -44,11 +44,6 @@ import HordeAd.Internal.Delta (Domain0, Domain1, Domain2, DomainX, Domains)
 -- | Dual numbers with the second type argument being the primal component.
 data DualNumber (d :: DMode) a = D a (Dual d a)
 
-class (IsScalar d r, Monad m, Functor m, Applicative m)
-      => DualMonad d r m | m -> d r where
-  returnLet :: IsPrimalWithScalar d a r
-            => DualNumber d a -> m (DualNumber d a)
-
 addParameters :: (Numeric r, Num (Vector r))
               => Domains r -> Domains r -> Domains r
 addParameters (a0, a1, a2, aX) (b0, b1, b2, bX) =

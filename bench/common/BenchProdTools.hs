@@ -126,10 +126,6 @@ bgroup5e7 allxs =
         , bench "grad_vec_omit_sum" $ nfIO $ grad_vec_omit_sum vec
         ]
 
-(*\) :: DualMonad d r m
-     => DualNumber d r -> DualNumber d r -> m (DualNumber d r)
-(*\) u v = returnLet $ u * v
-
 -- The @foldMDual'@, instead of the standard @foldM'@, is an awkward clutch
 -- that can't be avoided without changing the representation of the vector
 -- of dual numbers. The use of a pair of vectors to represent
@@ -137,9 +133,9 @@ bgroup5e7 allxs =
 -- which works fine there, but costs us some cycles and the use
 -- of a custom operation here, where there's no gradient descent
 -- to manage the vectors for us.
-vec_prod_aux :: forall d r m. DualMonad d r m
-             => DualNumberVariables d r -> m (DualNumber d r)
-vec_prod_aux = foldMDual' (*\) 1
+vec_prod_aux :: forall d r. IsScalar d r
+             => DualNumberVariables d r -> DualNumber d r
+vec_prod_aux = foldlDual' (*) 1
   -- no handwritten derivatives; only the derivative for @(*)@ is provided;
   -- also, not omitting bindings; all let-bindings are present, see below
 
@@ -161,9 +157,9 @@ grad_toList_prod l = V.toList <$> grad_vec_prod (V.fromList l)
 -- It probably wouldn't help in this case, though.
 
 vec_omit_prod_aux
-  :: forall d r m. DualMonad d r m
-  => DualNumberVariables d r -> m (DualNumber d r)
-vec_omit_prod_aux vec = returnLet $ foldlDual' (*) 1 vec
+  :: forall d r. IsScalar d r
+  => DualNumberVariables d r -> DualNumber d r
+vec_omit_prod_aux vec = foldlDual' (*) 1 vec
   -- omitting most bindings, because we know nothing repeats inside
 
 vec_omit_prod :: forall r. IsScalar 'DModeValue r
@@ -179,23 +175,21 @@ grad_vec_omit_prod ds =
 
 
 vec_omit_scalarSum_aux
-  :: forall d r m. DualMonad d r m
-  => DualNumberVariables d r -> m (DualNumber d r)
-vec_omit_scalarSum_aux vec = returnLet $ foldlDual' (+) 0 vec
+  :: forall d r. IsScalar d r
+  => DualNumberVariables d r -> DualNumber d r
+vec_omit_scalarSum_aux vec = foldlDual' (+) 0 vec
 
-sumElementsV :: DualMonad 'DModeGradient Double m
-             => DualNumberVariables 'DModeGradient Double
-             -> m (DualNumber 'DModeGradient Double)
-sumElementsV variables = do
+sumElementsV :: DualNumberVariables 'DModeGradient Double
+             -> DualNumber 'DModeGradient Double
+sumElementsV variables =
   let x = var1 variables 0
-  returnLet $ sumElements0 x
+  in sumElements0 x
 
-altSumElementsV :: DualMonad 'DModeGradient Double m
-                => DualNumberVariables 'DModeGradient Double
-                -> m (DualNumber 'DModeGradient Double)
-altSumElementsV variables = do
+altSumElementsV :: DualNumberVariables 'DModeGradient Double
+                -> DualNumber 'DModeGradient Double
+altSumElementsV variables =
   let x = var1 variables 0
-  returnLet $ altSumElements0 x
+  in altSumElements0 x
 
 grad_vec_omit_scalarSum :: HasDelta r => Vector r -> IO (Vector r)
 grad_vec_omit_scalarSum ds =

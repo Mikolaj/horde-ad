@@ -38,13 +38,13 @@ fcnnMnistLen2 widthHidden widthHidden2 =
 -- and vectors given as dual number parameters (variables).
 -- The dimensions, in turn, can be computed by the @len*@ functions
 -- on the basis of the requested widths, see above.
-fcnnMnist2 :: forall d r m. DualMonad d r m
+fcnnMnist2 :: forall d r. IsScalar d r
            => (DualNumber d (Vector r) -> DualNumber d (Vector r))
            -> (DualNumber d (Vector r) -> DualNumber d (Vector r))
            -> Vector r
            -> DualNumberVariables d r
-           -> m (DualNumber d (Vector r))
-fcnnMnist2 factivationHidden factivationOutput input variables = do
+           -> DualNumber d (Vector r)
+fcnnMnist2 factivationHidden factivationOutput input variables =
   let !_A = assert (sizeMnistGlyph == V.length input) ()
       weightsL0 = var2 variables 0
       biasesV0 = var1 variables 0
@@ -52,38 +52,38 @@ fcnnMnist2 factivationHidden factivationOutput input variables = do
       biasesV1 = var1 variables 1
       weightsL2 = var2 variables 2
       biasesV2 = var1 variables 2
-  let hiddenLayer1 = weightsL0 #>!! input + biasesV0
+      hiddenLayer1 = weightsL0 #>!! input + biasesV0
       nonlinearLayer1 = factivationHidden hiddenLayer1
       hiddenLayer2 = weightsL1 #>! nonlinearLayer1 + biasesV1
       nonlinearLayer2 =factivationHidden hiddenLayer2
       outputLayer = weightsL2 #>! nonlinearLayer2 + biasesV2
-  return $! factivationOutput outputLayer
+  in factivationOutput outputLayer
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 fcnnMnistLoss2
-  :: DualMonad d r m
-  => MnistData r -> DualNumberVariables d r -> m (DualNumber d r)
-fcnnMnistLoss2 (input, target) variables = do
-  result <- inline fcnnMnist2 logistic softMaxV input variables
-  return $! lossCrossEntropyV target result
+  :: IsScalar d r
+  => MnistData r -> DualNumberVariables d r -> DualNumber d r
+fcnnMnistLoss2 (input, target) variables =
+  let result = inline fcnnMnist2 logistic softMaxV input variables
+  in lossCrossEntropyV target result
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function, using fused
 -- softMax and cross entropy as the loss function.
 fcnnMnistLossFused2
-  :: DualMonad d r m
-  => MnistData r -> DualNumberVariables d r -> m (DualNumber d r)
-fcnnMnistLossFused2 (input, target) variables = do
-  result <- inline fcnnMnist2 logistic id input variables
-  return $! lossSoftMaxCrossEntropyV target result
+  :: IsScalar d r
+  => MnistData r -> DualNumberVariables d r -> DualNumber d r
+fcnnMnistLossFused2 (input, target) variables =
+  let result = inline fcnnMnist2 logistic id input variables
+  in lossSoftMaxCrossEntropyV target result
 
 fcnnMnistLossFusedRelu2
-  :: DualMonad d r m
-  => MnistData r -> DualNumberVariables d r -> m (DualNumber d r)
-fcnnMnistLossFusedRelu2 (input, target) variables = do
-  result <- inline fcnnMnist2 relu id input variables
-  return $! lossSoftMaxCrossEntropyV target result
+  :: IsScalar d r
+  => MnistData r -> DualNumberVariables d r -> DualNumber d r
+fcnnMnistLossFusedRelu2 (input, target) variables =
+  let result = inline fcnnMnist2 relu id input variables
+  in lossSoftMaxCrossEntropyV target result
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.

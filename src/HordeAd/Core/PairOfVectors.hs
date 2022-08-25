@@ -11,7 +11,7 @@
 module HordeAd.Core.PairOfVectors
   ( DualNumberVariables
   , makeDualNumberVariables, var0, vars, var1, var2, varX, varS
-  , ifoldMDual', foldMDual', ifoldlDual', foldlDual'
+  , ifoldlDual', foldlDual'
   ) where
 
 import Prelude
@@ -77,32 +77,6 @@ varS (_, _, _, _, _, _, vValue, vVar) i =
 #else
   undefined
 #endif
-
-ifoldMDual' :: forall a d r m. (Monad m, IsScalar d r)
-             => (a -> Int -> DualNumber d r -> m a)
-             -> a
-             -> DualNumberVariables d r
-             -> m a
-{-# INLINE ifoldMDual' #-}
-ifoldMDual' f a (vecR, vecD, _, _, _, _, _, _) = do
-  let g :: a -> Int -> r -> m a
-      g !acc i valX = do
-        let !b = D valX (vecD V.! i)
-        f acc i b
-  V.ifoldM' g a vecR
-
-foldMDual' :: forall a d r m. (Monad m, IsScalar d r)
-            => (a -> DualNumber d r -> m a)
-            -> a
-            -> DualNumberVariables d r
-            -> m a
-{-# INLINE foldMDual' #-}
-foldMDual' f a (vecR, vecD, _, _, _, _, _, _) = do
-  let g :: a -> Int -> r -> m a
-      g !acc i valX = do
-        let !b = D valX (vecD V.! i)
-        f acc b
-  V.ifoldM' g a vecR
 
 ifoldlDual' :: forall a d r. IsScalar d r
              => (a -> Int -> DualNumber d r -> a)
