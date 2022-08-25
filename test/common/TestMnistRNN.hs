@@ -890,7 +890,7 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
                       (nnMnistRNNLossL 128)
                       (lenMnistRNNL 128 1)
                       (return trainData)
-                      [39.26529993277164, 39.26529871965807, 39.26529500592892]
+                      [39.26534020336613, 39.26529993277164, 39.26529871965807, 39.26529500592892]
   , let rws (input, target) =
           (map (\k -> V.slice (k * 28) 28 input) [0 .. 27], target)
     in sgdTestCase "firstLL 100 trainset samples only"
