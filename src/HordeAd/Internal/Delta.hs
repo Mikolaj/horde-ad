@@ -48,7 +48,6 @@ module HordeAd.Internal.Delta
   , Domain0, Domain1, Domain2, DomainX, Domains
   , gradientFromDelta, derivativeFromDelta
   , isTensorDummy
-  , CodeOut(..)
   ) where
 
 import Prelude
@@ -90,9 +89,6 @@ import           HordeAd.Internal.OrthotopeOrphanInstances (liftVS2, liftVT2)
 -- Many operations span the ranks and so span the datatypes, which makes
 -- the datatypes mutually recursive.
 --
--- The @Outline@ constructors represent primitive numeric function applications
--- for which we delay computing and forgo inlining of the derivative.
---
 -- The identifier that is the first argument of @Delta0@ marks
 -- the identity of a subterm as part of the whole global term tree.
 --
@@ -118,8 +114,6 @@ data Delta0' r =
 
   | FromX0 (DeltaX r)  -- ^ one of many conversions
   | FromS0 (DeltaS '[] r)
-
-  | Outline0 CodeOut [r] [Delta0 r]
 
 deriving instance (Show r, Numeric r) => Show (Delta0 r)
 deriving instance (Show r, Numeric r) => Show (Delta0' r)
@@ -156,8 +150,6 @@ data Delta1' r =
   | FlattenX1 OT.ShapeL (DeltaX r)
   | forall sh. OS.Shape sh
     => FlattenS1 (DeltaS sh r)
-
-  | Outline1 CodeOut [Vector r] [Delta1 r]
 
 deriving instance (Show r, Numeric r) => Show (Delta1 r)
 deriving instance (Show r, Numeric r) => Show (Delta1' r)
@@ -196,8 +188,6 @@ data Delta2' r =
   | Reshape2 Int (Delta1 r)
   | Conv2 (Matrix r) (Delta2 r)
 
-  | Outline2 CodeOut [Matrix r] [Delta2 r]
-
 deriving instance (Show r, Numeric r) => Show (Delta2 r)
 deriving instance (Show r, Numeric r) => Show (Delta2' r)
 
@@ -234,8 +224,6 @@ data DeltaX' r =
   | From2X (Delta2 r) Int
   | forall sh. OS.Shape sh
     => FromSX (DeltaS sh r)
-
-  | OutlineX CodeOut [OT.Array r] [DeltaX r]
 
 deriving instance (Show r, Numeric r) => Show (DeltaX r)
 deriving instance (Show r, Numeric r) => Show (DeltaX' r)
@@ -276,8 +264,6 @@ data DeltaS' :: [Nat] -> Type -> Type where
   From2S :: KnownNat cols
          => Proxy cols -> Delta2 r -> DeltaS' '[rows, cols] r
   FromXS :: DeltaX r -> DeltaS' sh r
-
-  OutlineS :: CodeOut -> [OS.Array sh r] -> [DeltaS sh r] -> DeltaS' sh r
 
 instance Show (DeltaS sh r) where
   show _ = "a DeltaS delta expression"
@@ -417,28 +403,17 @@ type Domains r = (Domain0 r, Domain1 r, Domain2 r, DomainX r)
 -- that are to be evaluated, in the given order, starting with the top-level
 -- binding of a scalar type provided in the next argument and with respect
 -- to perturbation @dt@ (usually set to @1@) in the last argument.
-gradientFromDelta :: (Eq r, Numeric r, Num (Vector r))
-                  => (CodeOut -> [r] -> [Delta0 r] -> Delta0 r)
-                  -> (CodeOut -> [Vector r] -> [Delta1 r] -> Delta1 r)
-                  -> (CodeOut -> [Matrix r] -> [Delta2 r] -> Delta2 r)
-                  -> (CodeOut -> [OT.Array r] -> [DeltaX r] -> DeltaX r)
-                  -> (forall sh. OS.Shape sh
-                      => CodeOut -> [OS.Array sh r] -> [DeltaS sh r]
-                      -> DeltaS sh r)
-                  -> Int -> Int -> Int -> Int -> DeltaCounters r -> Delta0 r -> r
-                  -> Domains r
-gradientFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
-                  inlineDerivativeX inlineDerivativeS
-                  dim0 dim1 dim2 dimX st deltaTopLevel dt =
+gradientFromDelta
+  :: (Eq r, Numeric r, Num (Vector r))
+  => Int -> Int -> Int -> Int -> DeltaCounters r -> Delta0 r -> r
+  -> Domains r
+gradientFromDelta dim0 dim1 dim2 dimX st deltaTopLevel dt =
 -- traceShow (dim0, dim1, dim2, dimX, st) $
   -- This is morally @V.create@ and so totally safe,
   -- but we can't just call @V.create@ thrice, because it would run
   -- the @ST@ action thrice, so we inline and extend @V.create@ here.
   runST $ do
-    (rMap0, rMap1, rMap2, rMapX) <-
-      buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
-                   inlineDerivativeX inlineDerivativeS
-                   st deltaTopLevel dt
+    (rMap0, rMap1, rMap2, rMapX) <- buildFinMaps st deltaTopLevel dt
     v0 <- V.unsafeFreeze $ VM.take dim0 rMap0
     v1 <- V.unsafeFreeze $ VM.take dim1 rMap1
     v2 <- V.unsafeFreeze $ VM.take dim2 rMap2
@@ -447,14 +422,7 @@ gradientFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
     -- that is not discarded.
     return (v0, v1, V.map MO.convertMatrixOuterOrNull v2, vX)
 {-# SPECIALIZE gradientFromDelta
-  :: (CodeOut -> [Double] -> [Delta0 Double] -> Delta0 Double)
-  -> (CodeOut -> [Vector Double] -> [Delta1 Double] -> Delta1 Double)
-  -> (CodeOut -> [Matrix Double] -> [Delta2 Double] -> Delta2 Double)
-  -> (CodeOut -> [OT.Array Double] -> [DeltaX Double] -> DeltaX Double)
-  -> (forall sh. OS.Shape sh
-      => CodeOut -> [OS.Array sh Double] -> [DeltaS sh Double]
-  -> DeltaS sh Double)
-  -> Int -> Int -> Int -> Int -> DeltaCounters Double -> Delta0 Double -> Double
+  :: Int -> Int -> Int -> Int -> DeltaCounters Double -> Delta0 Double -> Double
   -> Domains Double #-}
 
 -- | Create vectors (representing finite maps) that hold delta-variable
@@ -488,21 +456,12 @@ initializeFinMaps st = do
   return (rMap0, rMap1, rMap2, rMapX, dMap)
 
 buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
-             => (CodeOut -> [r] -> [Delta0 r] -> Delta0 r)
-             -> (CodeOut -> [Vector r] -> [Delta1 r] -> Delta1 r)
-             -> (CodeOut -> [Matrix r] -> [Delta2 r] -> Delta2 r)
-             -> (CodeOut -> [OT.Array r] -> [DeltaX r] -> DeltaX r)
-             -> (forall sh. OS.Shape sh
-                 => CodeOut -> [OS.Array sh r] -> [DeltaS sh r]
-                 -> DeltaS sh r)
-             -> DeltaCounters r -> Delta0 r -> r
+             => DeltaCounters r -> Delta0 r -> r
              -> ST s ( Data.Vector.Storable.Mutable.MVector s r
                      , Data.Vector.Mutable.MVector s (Vector r)
                      , Data.Vector.Mutable.MVector s (MO.MatrixOuter r)
                      , Data.Vector.Mutable.MVector s (OT.Array r) )
-buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
-             inlineDerivativeX inlineDerivativeS
-             st deltaTopLevel dt = do
+buildFinMaps st deltaTopLevel dt = do
   (rMap0, rMap1, rMap2, rMapX, dMap) <- initializeFinMaps st
   let addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
@@ -545,8 +504,6 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         FromX0 d -> evalX (OT.scalar r) d
         FromS0 d -> evalS (OS.scalar r) d
 
-        Outline0 codeOut primalArgs dualArgs ->
-          eval0 r $ inlineDerivative0 codeOut primalArgs dualArgs
       eval1 :: Vector r -> Delta1 r -> ST s ()
       eval1 _ Zero1 = return ()
       eval1 !r (Input1 (DeltaId i)) =
@@ -584,8 +541,6 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         FlattenX1 sh d -> evalX (OT.fromVector sh r) d
         FlattenS1 d -> evalS (OS.fromVector r) d
 
-        Outline1 codeOut primalArgs dualArgs ->
-          eval1 r $ inlineDerivative1 codeOut primalArgs dualArgs
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
       eval2 _ Zero2 = return ()
       eval2 !r (Input2 (DeltaId i)) =
@@ -644,8 +599,6 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
               moc = MO.MatrixOuter (Just convolved) Nothing Nothing
           in eval2 moc md
 
-        Outline2 codeOut primalArgs dualArgs ->
-          eval2 r $ inlineDerivative2 codeOut primalArgs dualArgs
       evalX :: OT.Array r -> DeltaX r -> ST s ()
       evalX _ ZeroX = return ()
       evalX !r (InputX (DeltaId i)) =
@@ -691,8 +644,6 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
                 d
         FromSX d -> evalS (Data.Array.Convert.convert r) d
 
-        OutlineX codeOut primalArgs dualArgs ->
-          evalX r $ inlineDerivativeX codeOut primalArgs dualArgs
       evalS :: OS.Shape sh
             => OS.Array sh r -> DeltaS sh r -> ST s ()
       evalS _ ZeroS = return ()
@@ -738,8 +689,6 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
                 d
         FromXS d -> evalX (Data.Array.Convert.convert r) d
 
-        OutlineS codeOut primalArgs dualArgs ->
-          evalS r $ inlineDerivativeS codeOut primalArgs dualArgs
 #endif
 
   eval0 dt deltaTopLevel
@@ -772,14 +721,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
 
   return (rMap0, rMap1, rMap2, rMapX)
 {-# SPECIALIZE buildFinMaps
-  :: (CodeOut -> [Double] -> [Delta0 Double] -> Delta0 Double)
-  -> (CodeOut -> [Vector Double] -> [Delta1 Double] -> Delta1 Double)
-  -> (CodeOut -> [Matrix Double] -> [Delta2 Double] -> Delta2 Double)
-  -> (CodeOut -> [OT.Array Double] -> [DeltaX Double] -> DeltaX Double)
-  -> (forall sh. OS.Shape sh
-      => CodeOut -> [OS.Array sh Double] -> [DeltaS sh Double]
-      -> DeltaS sh Double)
-  -> DeltaCounters Double -> Delta0 Double -> Double
+  :: DeltaCounters Double -> Delta0 Double -> Double
   -> ST s ( Data.Vector.Storable.Mutable.MVector s Double
           , Data.Vector.Mutable.MVector s (Vector Double)
           , Data.Vector.Mutable.MVector s (MO.MatrixOuter Double)
@@ -795,39 +737,17 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
 -- given in the last parameter called @ds@.
 derivativeFromDelta
   :: forall r. (Numeric r, Num (Vector r))
-  => (CodeOut -> [r] -> [Delta0 r] -> Delta0 r)
-  -> (CodeOut -> [Vector r] -> [Delta1 r] -> Delta1 r)
-  -> (CodeOut -> [Matrix r] -> [Delta2 r] -> Delta2 r)
-  -> (CodeOut -> [OT.Array r] -> [DeltaX r] -> DeltaX r)
-  -> (forall sh. OS.Shape sh
-      => CodeOut -> [OS.Array sh r] -> [DeltaS sh r]
-      -> DeltaS sh r)
-  -> DeltaCounters r -> Delta0 r -> Domains r -> r
-derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
-                    inlineDerivativeX inlineDerivativeS
-                    st deltaTopLevel
-                    ds =
-  runST $ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
-                                            inlineDerivativeX inlineDerivativeS
-                                            st deltaTopLevel
-                                            ds
+  => DeltaCounters r -> Delta0 r -> Domains r -> r
+derivativeFromDelta st deltaTopLevel ds =
+  runST $ buildDerivative st deltaTopLevel ds
 
 -- | This mimics 'initializeFinMaps', but in reverse. Perhaps this can be
 -- simplified, but at least the simplest formulation does not honour sharing,
 -- evaluating shared subexpressions repeatedly.
 buildDerivative
   :: forall s r. (Numeric r, Num (Vector r))
-  => (CodeOut -> [r] -> [Delta0 r] -> Delta0 r)
-  -> (CodeOut -> [Vector r] -> [Delta1 r] -> Delta1 r)
-  -> (CodeOut -> [Matrix r] -> [Delta2 r] -> Delta2 r)
-  -> (CodeOut -> [OT.Array r] -> [DeltaX r] -> DeltaX r)
-  -> (forall sh. OS.Shape sh
-      => CodeOut -> [OS.Array sh r] -> [DeltaS sh r]
-      -> DeltaS sh r)
-  -> DeltaCounters r -> Delta0 r -> Domains r -> ST s r
-buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
-                inlineDerivativeX inlineDerivativeS
-                st deltaTopLevel
+  => DeltaCounters r -> Delta0 r -> Domains r -> ST s r
+buildDerivative st deltaTopLevel
                 (params0Init, params1Init, params2Init, paramsXInit) = do
   (rMap0, rMap1, outerFinMap2, rMapX, dMap) <- initializeFinMaps st
   -- We use normal hmatrix matrices rather than the sparse replacement.
@@ -869,8 +789,6 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         FromX0 d -> OT.unScalar <$> evalX d
         FromS0 d -> OS.unScalar <$> evalS d
 
-        Outline0 codeOut primalArgs dualArgs ->
-          eval0 $ inlineDerivative0 codeOut primalArgs dualArgs
       eval1 :: Delta1 r -> ST s (Vector r)
       eval1 Zero1 = return 0
       eval1 (Input1 (DeltaId i)) =
@@ -913,8 +831,6 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         FlattenX1 _sh d -> OT.toVector <$> evalX d
         FlattenS1 d -> OS.toVector <$> evalS d
 
-        Outline1 codeOut primalArgs dualArgs ->
-          eval1 $ inlineDerivative1 codeOut primalArgs dualArgs
       eval2 :: Delta2 r -> ST s (Matrix r)
       eval2 Zero2 = return 0
       eval2 (Input2 (DeltaId i)) =
@@ -971,8 +887,6 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         Reshape2 cols d -> HM.reshape cols <$> eval1 d
         Conv2 m md -> HM.conv2 m <$> eval2 md
 
-        Outline2 codeOut primalArgs dualArgs ->
-          eval2 $ inlineDerivative2 codeOut primalArgs dualArgs
       evalX :: DeltaX r -> ST s (OT.Array r)
       evalX ZeroX = return 0
       evalX (InputX (DeltaId i)) =
@@ -1014,8 +928,6 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
           return $! OT.fromVector [HM.rows l, cols] $ HM.flatten l
         FromSX d -> Data.Array.Convert.convert <$> evalS d
 
-        OutlineX codeOut primalArgs dualArgs ->
-          evalX $ inlineDerivativeX codeOut primalArgs dualArgs
       evalS :: OS.Shape sh => DeltaS sh r -> ST s (OS.Array sh r)
       evalS ZeroS = return 0
       evalS (InputS (DeltaId i)) =
@@ -1052,10 +964,8 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         From1S d -> OS.fromVector <$> eval1 d
         From2S _ d -> OS.fromVector <$> HM.flatten <$> eval2 d
         FromXS d -> Data.Array.Convert.convert <$> evalX d
-
-        OutlineS codeOut primalArgs dualArgs ->
-          evalS $ inlineDerivativeS codeOut primalArgs dualArgs
 #endif
+
   eval0 deltaTopLevel
 
 {- Note [SumElements0]
@@ -1098,12 +1008,3 @@ isTensorDummy (Data.Array.Internal.DynamicS.A
                  (Data.Array.Internal.DynamicG.A _
                     (Data.Array.Internal.T _ (-1) _))) = True
 isTensorDummy _ = False
-
-data CodeOut =
-    PlusOut | MinusOut | TimesOut | NegateOut | AbsOut | SignumOut
-  | DivideOut | RecipOut
-  | ExpOut | LogOut | SqrtOut | PowerOut | LogBaseOut
-  | SinOut | CosOut | TanOut | AsinOut | AcosOut | AtanOut
-  | SinhOut | CoshOut | TanhOut | AsinhOut | AcoshOut | AtanhOut
-  | Atan2Out
-  deriving Show
