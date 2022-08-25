@@ -34,7 +34,7 @@ fcnnMnistLayersS
   :: forall widthHidden widthHidden2 d r m.
      (DualMonad d r m, KnownNat widthHidden, KnownNat widthHidden2)
   => (forall sh. OS.Shape sh
-      => DualNumber d (OS.Array sh r) -> m (DualNumber d (OS.Array sh r)))
+      => DualNumber d (OS.Array sh r) -> DualNumber d (OS.Array sh r))
   -> OS.Array '[SizeMnistGlyph] r
   -- All below is the type of all paramters of this nn. The same is reflected
   -- in the length function below and read from variables further down.
@@ -48,11 +48,11 @@ fcnnMnistLayersS
 fcnnMnistLayersS factivationHidden input
                  weightsL0 biasesV0 weightsL1 biasesV1 weightsL2 biasesV2 = do
   let !_A = assert (sizeMnistGlyph == OS.size input) ()
-  let hiddenLayer1 = weightsL0 #>$ constant input + biasesV0
-  nonlinearLayer1 <- factivationHidden hiddenLayer1
-  let hiddenLayer2 = weightsL1 #>$ nonlinearLayer1 + biasesV1
-  nonlinearLayer2 <- factivationHidden hiddenLayer2
-  let outputLayer = weightsL2 #>$ nonlinearLayer2 + biasesV2
+      hiddenLayer1 = weightsL0 #>$ constant input + biasesV0
+      nonlinearLayer1 = factivationHidden hiddenLayer1
+      hiddenLayer2 = weightsL1 #>$ nonlinearLayer1 + biasesV1
+      nonlinearLayer2 =factivationHidden hiddenLayer2
+      outputLayer = weightsL2 #>$ nonlinearLayer2 + biasesV2
   returnLet outputLayer
 
 -- It seems that without plugins or TH we really have to copy-paste
@@ -78,7 +78,7 @@ fcnnMnistS
   :: forall widthHidden widthHidden2 d r m.
      (DualMonad d r m, KnownNat widthHidden, KnownNat widthHidden2)
   => (forall sh. OS.Shape sh
-      => DualNumber d (OS.Array sh r) -> m (DualNumber d (OS.Array sh r)))
+      => DualNumber d (OS.Array sh r) -> DualNumber d (OS.Array sh r))
   -> OS.Array '[SizeMnistGlyph] r
   -> DualNumberVariables d r
   -> m (DualNumber d (OS.Array '[SizeMnistLabel] r))
@@ -108,8 +108,8 @@ fcnnMnistLossFusedS
   -> MnistData r -> DualNumberVariables d r -> m (DualNumber d r)
 fcnnMnistLossFusedS _ _ (input, target) variables = do
   result <- fcnnMnistS @widthHidden @widthHidden2
-                       logisticAct (OS.fromVector input) variables
-  lossSoftMaxCrossEntropyV target $ fromS1 result
+                       logistic (OS.fromVector input) variables
+  return $! lossSoftMaxCrossEntropyV target $ fromS1 result
 
 fcnnMnistLossFusedReluS
   :: forall widthHidden widthHidden2 d r m.
@@ -118,8 +118,8 @@ fcnnMnistLossFusedReluS
   -> MnistData r -> DualNumberVariables d r -> m (DualNumber d r)
 fcnnMnistLossFusedReluS _ _ (input, target) variables = do
   result <- fcnnMnistS @widthHidden @widthHidden2
-                       reluAct (OS.fromVector input) variables
-  lossSoftMaxCrossEntropyV target $ fromS1 result
+                       relu (OS.fromVector input) variables
+  return $! lossSoftMaxCrossEntropyV target $ fromS1 result
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
@@ -131,7 +131,7 @@ fcnnMnistTestS inputs parameters =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
         let nn = fcnnMnistS @widthHidden @widthHidden2
-                            logisticAct (OS.fromVector glyph)
+                            logistic (OS.fromVector glyph)
             value = OS.toVector $ primalValue nn parameters
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))

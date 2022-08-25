@@ -153,7 +153,7 @@ rnnMnistLossFusedS _ (glyphS, labelS) variables = do
   result <- rnnMnistS @out_width xs variables
   let targets2 = HM.tr $ HM.reshape (valueOf @SizeMnistLabel)
                        $ OS.toVector labelS
-  vec <- lossSoftMaxCrossEntropyL targets2 (fromS2 result)
+      vec = lossSoftMaxCrossEntropyL targets2 (fromS2 result)
   returnLet $ scale (recip $ fromIntegral (valueOf @batch_size :: Int))
             $ sumElements0 vec
 

@@ -54,7 +54,8 @@ sumConstantData xs offset variables = do
 
 hiddenLayerMnist
   :: forall d r m. DualMonad d r m
-  => (DualNumber d r -> m (DualNumber d r)) -> Vector r
+  => (DualNumber d r -> DualNumber d r)
+  -> Vector r
   -> DualNumberVariables d r -> Int
   -> m (Data.Vector.Vector (DualNumber d r))
 hiddenLayerMnist factivation input variables width = do
@@ -62,12 +63,12 @@ hiddenLayerMnist factivation input variables width = do
       f :: Int -> m (DualNumber d r)
       f i = do
         outSum <- sumConstantData input (i * nWeightsAndBias) variables
-        factivation outSum
+        return $! factivation outSum
   V.generateM width f
 
 middleLayerMnist
   :: forall d r m. DualMonad d r m
-  => (DualNumber d r -> m (DualNumber d r))
+  => (DualNumber d r -> DualNumber d r)
   -> Data.Vector.Vector (DualNumber d r)
   -> Int -> DualNumberVariables d r -> Int
   -> m (Data.Vector.Vector (DualNumber d r))
@@ -78,13 +79,13 @@ middleLayerMnist factivation hiddenVec offset variables width = do
         outSum <- sumTrainableInputs hiddenVec
                                      (offset + i * nWeightsAndBias)
                                      variables
-        factivation outSum
+        return $! factivation outSum
   V.generateM width f
 
 outputLayerMnist
   :: forall d r m. DualMonad d r m
   => (Data.Vector.Vector (DualNumber d r)
-      -> m (Data.Vector.Vector (DualNumber d r)))
+      -> Data.Vector.Vector (DualNumber d r))
   -> Data.Vector.Vector (DualNumber d r) -> Int
   -> DualNumberVariables d r -> Int
   -> m (Data.Vector.Vector (DualNumber d r))
@@ -95,7 +96,7 @@ outputLayerMnist factivation hiddenVec offset variables width = do
                                (offset + i * nWeightsAndBias)
                                variables
   vOfSums <- V.generateM width f
-  factivation vOfSums
+  return $! factivation vOfSums
 
 fcnnMnistLen0 :: Int -> Int -> Int
 fcnnMnistLen0 widthHidden widthHidden2 =
@@ -110,9 +111,9 @@ fcnnMnistLen0 widthHidden widthHidden2 =
 -- and from these, the @fcnnMnistLen2@ function computes the number
 -- of scalar dual number parameters (variables) to be given to the program.
 fcnnMnist0 :: forall d r m. DualMonad d r m
-           => (DualNumber d r -> m (DualNumber d r))
+           => (DualNumber d r -> DualNumber d r)
            -> (Data.Vector.Vector (DualNumber d r)
-               -> m (Data.Vector.Vector (DualNumber d r)))
+               -> Data.Vector.Vector (DualNumber d r))
            -> Int
            -> Int
            -> Vector r
@@ -137,9 +138,9 @@ fcnnMnistLoss0
   => Int -> Int -> MnistData r -> DualNumberVariables d r
   -> m (DualNumber d r)
 fcnnMnistLoss0 widthHidden widthHidden2 (input, target) variables = do
-  result <- inline fcnnMnist0 logisticAct softMaxAct
+  result <- inline fcnnMnist0 logistic softMax
                               widthHidden widthHidden2 input variables
-  lossCrossEntropy target result
+  return $! lossCrossEntropy target result
 {-# SPECIALIZE fcnnMnistLoss0 :: Int -> Int -> MnistData Double -> DualNumberVariables 'DModeGradient Double -> DualMonadGradient Double (DualNumber 'DModeGradient Double) #-}
 
 -- | A function testing the neural network given testing set of inputs
@@ -151,7 +152,7 @@ fcnnMnistTest0 widthHidden widthHidden2 inputs params0 =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
         let nn = inline (fcnnMnist0 @'DModeValue)
-                        logisticAct softMaxAct
+                        logistic softMax
                         widthHidden widthHidden2 glyph
             value = V.map (\(D r _) -> r)
                     $ primalValueGeneral nn (params0, V.empty, V.empty, V.empty)
