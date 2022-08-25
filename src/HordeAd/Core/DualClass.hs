@@ -254,7 +254,7 @@ class HasRanks (d :: DMode) r where
 -- The bangs are necessary to ensure call by value, which is needed
 -- for id ordering to reflect data dependencies.
 instance IsPrimal 'DModeGradient Double where
-  dZero = Delta0 (-1) dummyDeltaId Zero0
+  dZero = Zero0
     -- The @-1@ hack is not just a speedup, but also prevents a mixup
     -- from GHC optimization (even with -O0) that replaces all calls
     -- to dZero with a call to a shared top level one, performing counter
@@ -264,57 +264,57 @@ instance IsPrimal 'DModeGradient Double where
 
 instance IsPrimal 'DModeGradient Float where
   -- Identical as above:
-  dZero = Delta0 (-1) dummyDeltaId Zero0
+  dZero = Zero0
   dScale !k !d = wrapDelta0 $ Scale0 k d
   dAdd !d !e = wrapDelta0 $ Add0 d e
 
 instance IsPrimal 'DModeGradient (Vector r) where
-  dZero = Delta1 (-1) dummyDeltaId Zero1
+  dZero = Zero1
   dScale !k !d = wrapDelta1 $ Scale1 k d
   dAdd !d !e = wrapDelta1 $ Add1 d e
 
 instance IsPrimal 'DModeGradient (Matrix r) where
-  dZero = Delta2 (-1) dummyDeltaId Zero2
+  dZero = Zero2
   dScale !k !d = wrapDelta2 $ Scale2 k d
   dAdd !d !e = wrapDelta2 $ Add2 d e
 
 instance IsPrimal 'DModeGradient (OT.Array r) where
-  dZero = DeltaX (-1) dummyDeltaId ZeroX
+  dZero = ZeroX
   dScale !k !d = wrapDeltaX $ ScaleX k d
   dAdd !d !e = wrapDeltaX $ AddX d e
 
 instance IsPrimalS 'DModeGradient r where
-  dZeroS = DeltaS (-1) dummyDeltaId ZeroS
+  dZeroS = ZeroS
   dScaleS !k !d = wrapDeltaS $ ScaleS k d
   dAddS !d !e = wrapDeltaS $ AddS d e
 
 instance HasVariables Double where
-  dVar !did = Delta0 (-1) did Zero0
+  dVar = Input0
   dOutline codeOut primalArgs !dualArgs =
     wrapDelta0 $ Outline0 codeOut primalArgs dualArgs
 
 instance HasVariables Float where
-  dVar !did = Delta0 (-1) did Zero0
+  dVar = Input0
   dOutline codeOut primalArgs !dualArgs =
     wrapDelta0 $ Outline0 codeOut primalArgs dualArgs
 
 instance HasVariables (Vector r) where
-  dVar !did = Delta1 (-1) did Zero1
+  dVar = Input1
   dOutline codeOut primalArgs !dualArgs =
     wrapDelta1 $ Outline1 codeOut primalArgs dualArgs
 
 instance HasVariables (Matrix r) where
-  dVar !did = Delta2 (-1) did Zero2
+  dVar = Input2
   dOutline codeOut primalArgs !dualArgs =
     wrapDelta2 $ Outline2 codeOut primalArgs dualArgs
 
 instance HasVariables (OT.Array r) where
-  dVar !did = DeltaX (-1) did ZeroX
+  dVar = InputX
   dOutline codeOut primalArgs !dualArgs =
     wrapDeltaX $ OutlineX codeOut primalArgs dualArgs
 
 instance HasVariables (OS.Array sh r) where
-  dVar !did = DeltaS (-1) did ZeroS
+  dVar = InputS
   dOutline codeOut primalArgs !dualArgs =
     wrapDeltaS $ OutlineS codeOut primalArgs dualArgs
 

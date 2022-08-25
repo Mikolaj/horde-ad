@@ -42,7 +42,7 @@ module HordeAd.Internal.Delta
   , DeltaX (..), DeltaX' (..)
   , DeltaS (..), DeltaS' (..)
   , -- * Delta expression identifiers
-    DeltaId, toDeltaId, convertDeltaId, succDeltaId, dummyDeltaId
+    DeltaId, toDeltaId, convertDeltaId, succDeltaId
   , -- * Evaluation of the delta expressions
     DeltaCounters (..)
   , Domain0, Domain1, Domain2, DomainX, Domains
@@ -95,22 +95,20 @@ import           HordeAd.Internal.OrthotopeOrphanInstances (liftVS2, liftVT2)
 --
 -- The identifier that is the first argument of @Delta0@ marks
 -- the identity of a subterm as part of the whole global term tree.
--- If it's negative, the term's identify is unimportant,
--- because it does not contribute to the derivative and so doesn't have
--- any effect on the gradient computation. In particular, the term
--- never appears inside @dMap@. Examples are @Zero0@ derivatives and inputs.
 --
 -- The per-rank identifier that is the second argument of @Delta0@
 -- is an index into a contigous vector of gradient or derivative components
 -- (partial gradients/derivatives wrt that term's position?) corresponding
--- to subterms of that rank. If it's negative, the term not only
--- does not contribute to the derivative, but we are not even interested
+-- to subterms of that rank. There is no corresponding argument to the
+-- @Zero0@ constructor, because the term not only does not contribute
+-- to the derivative (similarly as @Input0@), but we are not even interested
 -- in what the (partial) gradient for that subterm position would be.
--- Examples are @Zero0@ derivatives that do not correspond to any input.
-data Delta0 r = Delta0 Int (DeltaId r) (Delta0' r)
+data Delta0 r =
+    Delta0 Int (DeltaId r) (Delta0' r)
+  | Zero0
+  | Input0 (DeltaId r)
 data Delta0' r =
-    Zero0
-  | Scale0 r (Delta0 r)
+    Scale0 r (Delta0 r)
   | Add0 (Delta0 r) (Delta0 r)
 
   | SumElements0 (Delta1 r) Int  -- ^ see Note [SumElements0]
@@ -128,10 +126,12 @@ deriving instance (Show r, Numeric r) => Show (Delta0' r)
 
 -- | This is the grammar of delta-expressions at tensor rank 1, that is,
 -- at vector level.
-data Delta1 r = Delta1 Int (DeltaId (Vector r)) (Delta1' r)
+data Delta1 r =
+    Delta1 Int (DeltaId (Vector r)) (Delta1' r)
+  | Zero1
+  | Input1 (DeltaId (Vector r))
 data Delta1' r =
-    Zero1
-  | Scale1 (Vector r) (Delta1 r)
+    Scale1 (Vector r) (Delta1 r)
   | Add1 (Delta1 r) (Delta1 r)
 
   | Seq1 (Data.Vector.Vector (Delta0 r))  -- ^ "unboxing" conversion
@@ -164,10 +164,12 @@ deriving instance (Show r, Numeric r) => Show (Delta1' r)
 
 -- | This is the grammar of delta-expressions at tensor rank 2, that is,
 -- at matrix level.
-data Delta2 r = Delta2 Int (DeltaId (Matrix r)) (Delta2' r)
+data Delta2 r =
+    Delta2 Int (DeltaId (Matrix r)) (Delta2' r)
+  | Zero2
+  | Input2 (DeltaId (Matrix r))
 data Delta2' r =
-    Zero2
-  | Scale2 (Matrix r) (Delta2 r)
+    Scale2 (Matrix r) (Delta2 r)
   | Add2 (Delta2 r) (Delta2 r)
 
   | FromRows2 (Data.Vector.Vector (Delta1 r))  -- ^ "unboxing" conversion again
@@ -202,10 +204,12 @@ deriving instance (Show r, Numeric r) => Show (Delta2' r)
 -- | This is the grammar of delta-expressions at arbitrary tensor rank.
 --
 -- Warning: not tested enough nor benchmarked.
-data DeltaX r = DeltaX Int (DeltaId (OT.Array r)) (DeltaX' r)
+data DeltaX r =
+    DeltaX Int (DeltaId (OT.Array r)) (DeltaX' r)
+  | ZeroX
+  | InputX (DeltaId (OT.Array r))
 data DeltaX' r =
-    ZeroX
-  | ScaleX (OT.Array r) (DeltaX r)
+    ScaleX (OT.Array r) (DeltaX r)
   | AddX (DeltaX r) (DeltaX r)
 
   | KonstX (Delta0 r) OT.ShapeL  -- ^ size; needed only for forward derivative
@@ -240,9 +244,11 @@ deriving instance (Show r, Numeric r) => Show (DeltaX' r)
 -- the fully typed Shaped version.
 --
 -- Warning: not tested enough nor benchmarked.
-data DeltaS sh r = DeltaS Int (DeltaId (OS.Array sh r)) (DeltaS' sh r)
+data DeltaS :: [Nat] -> Type -> Type where
+  DeltaS :: Int -> DeltaId (OS.Array sh r) -> DeltaS' sh r -> DeltaS sh r
+  ZeroS :: DeltaS sh r
+  InputS :: DeltaId (OS.Array sh r) -> DeltaS sh r
 data DeltaS' :: [Nat] -> Type -> Type where
-  ZeroS :: DeltaS' sh r
   ScaleS :: OS.Array sh r -> DeltaS sh r -> DeltaS' sh r
   AddS :: DeltaS sh r -> DeltaS sh r -> DeltaS' sh r
 
@@ -296,10 +302,6 @@ convertDeltaId (DeltaId i) = DeltaId i
 succDeltaId :: DeltaId a -> DeltaId a
 succDeltaId (DeltaId i) = DeltaId (succ i)
 
--- | An id that can't be obtained via `toDeltaId` and `succDeltaId`.
-dummyDeltaId :: DeltaId a
-dummyDeltaId = DeltaId (-1)
-
 
 -- * Evaluation of the delta expressions
 
@@ -310,6 +312,7 @@ data DeltaBinding r =
   | DeltaBindingX (DeltaId (OT.Array r)) (DeltaX' r)
   | forall sh. OS.Shape sh
     => DeltaBindingS (DeltaId (OS.Array sh r)) (DeltaS' sh r)
+  | DeltaBindingEmpty
 
 data DeltaCounters r = DeltaCounters
   { deltaCounter  :: Int
@@ -481,7 +484,7 @@ initializeFinMaps st = do
   rMap1 <- VM.replicate counter1 (V.empty :: Vector r)
   rMap2 <- VM.replicate counter2 MO.emptyMatrixOuter
   rMapX <- VM.replicate counterX dummyTensor
-  dMap <- VM.replicate n (DeltaBinding0 dummyDeltaId Zero0)  -- dummy
+  dMap <- VM.replicate n DeltaBindingEmpty
   return (rMap0, rMap1, rMap2, rMapX, dMap)
 
 buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
@@ -513,18 +516,19 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
                                then rs
                                else liftVT2 (+) v rs
       eval0 :: r -> Delta0 r -> ST s ()
-      eval0 !r (Delta0 n did@(DeltaId i) d) = unless (i < 0) $ do
+      eval0 _ Zero0 = return ()
+      eval0 !r (Input0 (DeltaId i)) =
         VM.modify rMap0 (+ r) i
-        when (n >= 0) $
-          VM.write dMap n (DeltaBinding0 did d)
+      eval0 !r (Delta0 n did@(DeltaId i) d) = do
+        VM.modify rMap0 (+ r) i
+        VM.write dMap n (DeltaBinding0 did d)
       eval0' :: r -> Delta0' r -> ST s ()
       eval0' !r = \case
-        Zero0 -> return ()
         Scale0 k d -> eval0 (k * r) d
         Add0 d e -> eval0 r d >> eval0 r e
 
         SumElements0 vd n -> eval1 (HM.konst r n) vd
-        Index0 (Delta1 (-1) (DeltaId i) Zero1) ix k | i >= 0 -> do
+        Index0 (Input1 (DeltaId i)) ix k | i >= 0 -> do
           let f v = if V.null v
                     then HM.konst 0 k V.// [(ix, r)]
                     else v V.// [(ix, v V.! ix + r)]
@@ -533,7 +537,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
             -- the general case below, if not for the non-mutable update,
             -- which involves copying the whole vector, so it's just
             -- several times faster (same allocation, but not adding vectors).
-            -- TODO: does it make sense to extend this beyond @Zero@?
+            -- TODO: does it make sense to extend this beyond @Input1@?
         Index0 d ix k -> eval1 (HM.konst 0 k V.// [(ix, r)]) d
 
         Dot0 v vd -> eval1 (HM.scale r v) vd
@@ -544,13 +548,15 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         Outline0 codeOut primalArgs dualArgs ->
           eval0 r $ inlineDerivative0 codeOut primalArgs dualArgs
       eval1 :: Vector r -> Delta1 r -> ST s ()
-      eval1 !r (Delta1 n did@(DeltaId i) d) = unless (i < 0) $ do
+      eval1 _ Zero1 = return ()
+      eval1 !r (Input1 (DeltaId i)) =
+        VM.modify rMap1 (addToVector r) i
+      eval1 !r (Delta1 n did@(DeltaId i) d) = do
         VM.modify rMap1 (addToVector r) i
         when (n >= 0) $
           VM.write dMap n (DeltaBinding1 did d)
       eval1' :: Vector r -> Delta1' r -> ST s ()
       eval1' !r = \case
-        Zero1 -> return ()
         Scale1 k d -> eval1 (k * r) d
         Add1 d e -> eval1 r d >> eval1 r e
 
@@ -581,13 +587,15 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         Outline1 codeOut primalArgs dualArgs ->
           eval1 r $ inlineDerivative1 codeOut primalArgs dualArgs
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
-      eval2 !r (Delta2 n did@(DeltaId i) d) = unless (i < 0) $ do
+      eval2 _ Zero2 = return ()
+      eval2 !r (Input2 (DeltaId i)) =
+        VM.modify rMap2 (addToMatrix r) i
+      eval2 !r (Delta2 n did@(DeltaId i) d) = do
         VM.modify rMap2 (addToMatrix r) i
         when (n >= 0) $
           VM.write dMap n (DeltaBinding2 did d)
       eval2' :: MO.MatrixOuter r -> Delta2' r -> ST s ()
       eval2' !r = \case
-        Zero2 -> return ()
         Scale2 k d -> eval2 (MO.multiplyWithOuter k r) d
         Add2 d e -> eval2 r d >> eval2 r e
 
@@ -639,13 +647,15 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         Outline2 codeOut primalArgs dualArgs ->
           eval2 r $ inlineDerivative2 codeOut primalArgs dualArgs
       evalX :: OT.Array r -> DeltaX r -> ST s ()
-      evalX !r (DeltaX n did@(DeltaId i) d) = unless (i < 0) $ do
+      evalX _ ZeroX = return ()
+      evalX !r (InputX (DeltaId i)) =
+        VM.modify rMapX (addToArray r) i
+      evalX !r (DeltaX n did@(DeltaId i) d) = do
         VM.modify rMapX (addToArray r) i
         when (n >= 0) $
           VM.write dMap n (DeltaBindingX did d)
       evalX' :: OT.Array r -> DeltaX' r -> ST s ()
       evalX' !r = \case
-        ZeroX -> return ()
         ScaleX k d -> evalX (liftVT2 (*) k r) d
         AddX d e -> evalX r d >> evalX r e
 
@@ -685,14 +695,16 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           evalX r $ inlineDerivativeX codeOut primalArgs dualArgs
       evalS :: OS.Shape sh
             => OS.Array sh r -> DeltaS sh r -> ST s ()
-      evalS !r (DeltaS n did@(DeltaId i) d) = unless (i < 0) $ do
+      evalS _ ZeroS = return ()
+      evalS !r (InputS (DeltaId i)) =
+        VM.modify rMapX (addToArrayS r) i
+      evalS !r (DeltaS n did@(DeltaId i) d) = do
         VM.modify rMapX (addToArrayS r) i
         when (n >= 0) $
           VM.write dMap n (DeltaBindingS did d)
       evalS' :: OS.Shape sh
              => OS.Array sh r -> DeltaS' sh r -> ST s ()
       evalS' !r = \case
-        ZeroS -> return ()
         ScaleS k d -> evalS (liftVS2 (*) k r) d
         AddS d e -> evalS r d >> evalS r e
 
@@ -733,22 +745,24 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
   eval0 dt deltaTopLevel
 
   let evalUnlessZero :: DeltaBinding r -> ST s ()
-      evalUnlessZero (DeltaBinding0 (DeltaId i) d) = unless (i < 0) $ do
+      evalUnlessZero (DeltaBinding0 (DeltaId i) d) = do
         r <- rMap0 `VM.read` i
         unless (r == 0) $  -- a cheap optimization in case of scalars
           eval0' r d
-      evalUnlessZero (DeltaBinding1 (DeltaId i) d) = unless (i < 0) $ do
+      evalUnlessZero (DeltaBinding1 (DeltaId i) d) = do
         r <- rMap1 `VM.read` i
         eval1' r d
-      evalUnlessZero (DeltaBinding2 (DeltaId i) d) = unless (i < 0) $ do
+      evalUnlessZero (DeltaBinding2 (DeltaId i) d) = do
         r <- rMap2 `VM.read` i
         eval2' r d
-      evalUnlessZero (DeltaBindingX (DeltaId i) d) = unless (i < 0) $ do
+      evalUnlessZero (DeltaBindingX (DeltaId i) d) = do
         r <- rMapX `VM.read` i
         evalX' r d
-      evalUnlessZero (DeltaBindingS (DeltaId i) d) = unless (i < 0) $ do
+      evalUnlessZero (DeltaBindingS (DeltaId i) d) = do
         r <- rMapX `VM.read` i
         evalS' (Data.Array.Convert.convert r) d
+      evalUnlessZero DeltaBindingEmpty = return ()
+        -- a cell did not get updated with a real delta; fine
       evalFromdMap :: Int -> ST s ()
       evalFromdMap k = do
         d <- dMap `VM.read` k
@@ -826,8 +840,8 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
   V.unsafeCopy (VM.take (V.length params2Init) rMap2) params2Init
   V.unsafeCopy (VM.take (V.length paramsXInit) rMapX) paramsXInit
   let eval0 :: Delta0 r -> ST s r
-      eval0 (Delta0 _ (DeltaId (-1)) _) = return 0
-      eval0 (Delta0 (-1) (DeltaId i) Zero0) =
+      eval0 Zero0 = return 0
+      eval0 (Input0 (DeltaId i)) =
         if i < V.length params0Init
         then VM.read rMap0 i
         else error "derivativeFromDelta.eval': wrong index for an input"
@@ -836,7 +850,7 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         -- for initializeFinMaps and some of a similar code.
         d0 <- VM.read dMap n
         case d0 of
-          DeltaBinding0 (DeltaId (-1)) Zero0 -> do
+          DeltaBindingEmpty -> do
             VM.write dMap n (DeltaBinding0 did d)  -- only marks that visited
             r <- eval0' d
             VM.write rMap0 i r
@@ -844,7 +858,6 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
           _ -> VM.read rMap0 i
       eval0' :: Delta0' r -> ST s r
       eval0' = \case
-        Zero0 -> return 0
         Scale0 k d -> (k *) <$> eval0 d
         Add0 d e -> liftM2 (+) (eval0 d) (eval0 e)
 
@@ -859,15 +872,15 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         Outline0 codeOut primalArgs dualArgs ->
           eval0 $ inlineDerivative0 codeOut primalArgs dualArgs
       eval1 :: Delta1 r -> ST s (Vector r)
-      eval1 (Delta1 _ (DeltaId (-1)) _) = return 0
-      eval1 (Delta1 (-1) (DeltaId i) Zero1) =
+      eval1 Zero1 = return 0
+      eval1 (Input1 (DeltaId i)) =
         if i < V.length params1Init
         then VM.read rMap1 i
         else error "derivativeFromDelta.eval': wrong index for an input"
       eval1 (Delta1 n did@(DeltaId i) d) = assert (n >= 0) $ do
         d0 <- VM.read dMap n
         case d0 of
-          DeltaBinding0 (DeltaId (-1)) Zero0 -> do
+          DeltaBindingEmpty -> do
             VM.write dMap n (DeltaBinding1 did d)  -- only marks that visited
             r <- eval1' d
             VM.write rMap1 i r
@@ -875,7 +888,6 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
           _ -> VM.read rMap1 i
       eval1' :: Delta1' r -> ST s (Vector r)
       eval1' = \case
-        Zero1 -> return 0
         Scale1 k d -> (k *) <$> eval1 d
         Add1 d e -> liftM2 (+) (eval1 d) (eval1 e)
 
@@ -904,15 +916,15 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         Outline1 codeOut primalArgs dualArgs ->
           eval1 $ inlineDerivative1 codeOut primalArgs dualArgs
       eval2 :: Delta2 r -> ST s (Matrix r)
-      eval2 (Delta2 _ (DeltaId (-1)) _) = return 0
-      eval2 (Delta2 (-1) (DeltaId i) Zero2) =
+      eval2 Zero2 = return 0
+      eval2 (Input2 (DeltaId i)) =
         if i < V.length params2Init
         then VM.read rMap2 i
         else error "derivativeFromDelta.eval': wrong index for an input"
       eval2 (Delta2 n did@(DeltaId i) d) = assert (n >= 0) $ do
         d0 <- VM.read dMap n
         case d0 of
-          DeltaBinding0 (DeltaId (-1)) Zero0 -> do
+          DeltaBindingEmpty -> do
             VM.write dMap n (DeltaBinding2 did d)  -- only marks that visited
             r <- eval2' d
             VM.write rMap2 i r
@@ -920,7 +932,6 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
           _ -> VM.read rMap2 i
       eval2' :: Delta2' r -> ST s (Matrix r)
       eval2' = \case
-        Zero2 -> return 0
         Scale2 k d -> (k *) <$> eval2 d
         Add2 d e -> liftM2 (+) (eval2 d) (eval2 e)
 
@@ -963,15 +974,15 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         Outline2 codeOut primalArgs dualArgs ->
           eval2 $ inlineDerivative2 codeOut primalArgs dualArgs
       evalX :: DeltaX r -> ST s (OT.Array r)
-      evalX (DeltaX _ (DeltaId (-1)) _) = return 0
-      evalX (DeltaX (-1) (DeltaId i) ZeroX) =
+      evalX ZeroX = return 0
+      evalX (InputX (DeltaId i)) =
         if i < V.length paramsXInit
         then VM.read rMapX i
         else error "derivativeFromDelta.eval': wrong index for an input"
       evalX (DeltaX n did@(DeltaId i) d) = assert (n >= 0) $ do
         d0 <- VM.read dMap n
         case d0 of
-          DeltaBinding0 (DeltaId (-1)) Zero0 -> do
+          DeltaBindingEmpty -> do
             VM.write dMap n (DeltaBindingX did d)  -- only marks that visited
             r <- evalX' d
             VM.write rMapX i r
@@ -979,7 +990,6 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
           _ -> VM.read rMapX i
       evalX' :: DeltaX' r -> ST s (OT.Array r)
       evalX' = \case
-        ZeroX -> return 0
         ScaleX k d -> (k *) <$> evalX d
         AddX d e -> liftM2 (+) (evalX d) (evalX e)
 
@@ -1007,15 +1017,15 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
         OutlineX codeOut primalArgs dualArgs ->
           evalX $ inlineDerivativeX codeOut primalArgs dualArgs
       evalS :: OS.Shape sh => DeltaS sh r -> ST s (OS.Array sh r)
-      evalS (DeltaS _ (DeltaId (-1)) _) = return 0
-      evalS (DeltaS (-1) (DeltaId i) ZeroS) =
+      evalS ZeroS = return 0
+      evalS (InputS (DeltaId i)) =
         if i < V.length paramsXInit
         then Data.Array.Convert.convert <$> VM.read rMapX i
         else error "derivativeFromDelta.eval': wrong index for an input"
       evalS (DeltaS n did@(DeltaId i) d) = assert (n >= 0) $ do
         d0 <- VM.read dMap n
         case d0 of
-          DeltaBinding0 (DeltaId (-1)) Zero0 -> do
+          DeltaBindingEmpty -> do
             VM.write dMap n (DeltaBindingS did d)  -- only marks that visited
             r <- evalS' d
             VM.write rMapX i (Data.Array.Convert.convert r)
@@ -1023,7 +1033,6 @@ buildDerivative inlineDerivative0 inlineDerivative1 inlineDerivative2
           _ -> Data.Array.Convert.convert <$> VM.read rMapX i
       evalS' :: OS.Shape sh => DeltaS' sh r -> ST s (OS.Array sh r)
       evalS' = \case
-        ZeroS -> return 0
         ScaleS k d -> (k *) <$> evalS d
         AddS d e -> liftM2 (+) (evalS d) (evalS e)
 

@@ -305,6 +305,7 @@ initializerFixed seed range (nParams0, lParams1, lParams2, lParamsX) =
 -- to any created inner nodes. This is messy, because we can't use
 -- Num and other instances either from DualNumber or from DualClass,
 -- because they impurely assign counters.
+-- Or do https://github.com/Mikolaj/horde-ad/issues/61#issuecomment-1221319592.
 outDualNumber :: (IsPrimal d a, RealFloat a, Show a, Show (Dual d a))
               => CodeOut -> [a] -> [Dual d a]
               -> DualNumber d a
