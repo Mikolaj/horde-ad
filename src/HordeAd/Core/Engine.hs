@@ -7,9 +7,11 @@
 -- and implementations of calculating gradient, derivative and value
 -- of an objective function defined on dual numbers.
 module HordeAd.Core.Engine
-  ( DualMonadValue, primalValueGeneral, primalValue
-  , DualMonadGradient, dReverseGeneral, dReverse, dForwardGeneral, dForward, prettyPrintDf
-  , DualMonadForward, dFastForwardGeneral, dFastForward
+  ( primalValueGeneral, primalValue
+  , dReverseGeneral, dReverse
+  , dForwardGeneral, dForward
+  , dFastForwardGeneral, dFastForward
+  , prettyPrintDf
   , generateDeltaVars, initializerFixed
   ) where
 
@@ -17,7 +19,6 @@ import Prelude
 
 import qualified Data.Array.DynamicS as OT
 import           Data.Functor (void)
-import           Data.Functor.Identity
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
@@ -37,25 +38,13 @@ import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 import HordeAd.Internal.Delta
   (derivativeFromDelta, gradientFromDelta, toDeltaId)
 
--- * The dummy monad implementation that does not collect deltas.
+-- * Evaluation that does not collect deltas.
 -- It's intended for efficiently calculating the value of the function only.
 
--- An overcomplicated
--- @type DualMonadValue r = Identity@
--- to avoid @-Wno-orphans@ and @UndecidableInstances@.
-newtype DualMonadValue r a = DualMonadValue
-  { runDualMonadValue :: Identity a }
-  deriving (Monad, Functor, Applicative)
-
-instance IsScalar 'DModeValue r
-         => DualMonad 'DModeValue r (DualMonadValue r) where
-  returnLet (D u _u') = DualMonadValue $ Identity $ D u dZero
-
--- The general case, needed for old, hacky tests using only scalars.
+-- The general case, needed for old hacky tests using only scalars.
 primalValueGeneral
   :: forall r a. IsScalar 'DModeValue r
-  => (DualNumberVariables 'DModeValue r
-      -> DualMonadValue r a)
+  => (DualNumberVariables 'DModeValue r -> a)
   -> Domains r
   -> a
 -- Small enough that inline won't hurt.
@@ -68,12 +57,11 @@ primalValueGeneral f (params0, params1, params2, paramsX) =
                     , replicateZeros params1
                     , replicateZeros params2
                     , replicateZeros paramsX )
-  in runIdentity $ runDualMonadValue $ f variables
+  in f variables
 
 primalValue
   :: forall r a. IsScalar 'DModeValue r
-  => (DualNumberVariables 'DModeValue r
-      -> DualMonadValue r (DualNumber 'DModeValue a))
+  => (DualNumberVariables 'DModeValue r -> DualNumber 'DModeValue a)
   -> Domains r
   -> a
 -- Small enough that inline won't hurt.
@@ -83,25 +71,13 @@ primalValue f parameters =
   in value
 
 
--- * The fully-fledged monad implementation for gradients
--- and the code that uses it to compute gradients and also derivatives.
-
-newtype DualMonadGradient r a = DualMonadGradient
-  { runDualMonadGradient :: Identity a }
-  deriving (Monad, Functor, Applicative)
-
-instance IsScalar 'DModeGradient r
-         => DualMonad 'DModeGradient
-                      r (DualMonadGradient r) where
-  returnLet d = DualMonadGradient $ Identity d
-    -- TODO: the monad is unused, remove it
+-- * The fully-fledged evaluation for gradients.
 
 dReverseGeneral
   :: forall r. HasDelta r
   => r
   -> DualNumberVariables 'DModeGradient r
-  -> (DualNumberVariables 'DModeGradient r
-      -> DualMonadGradient r (DualNumber 'DModeGradient r))
+  -> (DualNumberVariables 'DModeGradient r -> DualNumber 'DModeGradient r)
   -> IO (Domains r, r)
 -- The functions in which @dReverseGeneral@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
@@ -116,7 +92,7 @@ dReverseGeneral dt
       dimX = V.length paramsX
       -- It needs to be fully evaluated before finalizing the counters,
       -- because it modifies the counters (via impure side-effect):
-      !(D !value !d) = runIdentity $ runDualMonadGradient (f variables)
+      !(D !value !d) = f variables
   counters <- finalizeCounters
   let gradient = gradientFromDelta dim0 dim1 dim2 dimX counters d dt
   return (gradient, value)
@@ -124,8 +100,7 @@ dReverseGeneral dt
 dReverse
   :: HasDelta r
   => r
-  -> (DualNumberVariables 'DModeGradient r
-      -> DualMonadGradient r (DualNumber 'DModeGradient r))
+  -> (DualNumberVariables 'DModeGradient r -> DualNumber 'DModeGradient r)
   -> Domains r
   -> IO (Domains r, r)
 dReverse dt f parameters = do
@@ -133,13 +108,14 @@ dReverse dt f parameters = do
       variables = makeDualNumberVariables parameters varDeltas
   dReverseGeneral dt variables f
 
--- This function uses @DualMonadGradient@ for an inefficient computation
--- of forward derivaties. See @dFastForwardGeneral@ for an efficient variant.
+
+-- * The fully-fledged but slow evaluation for derivatives that uses
+-- the same delta expressions as for gradients. See @dFastForwardGeneral@
+-- for an efficient variant.
 dForwardGeneral
   :: forall r. HasDelta r
   => DualNumberVariables 'DModeGradient r
-  -> (DualNumberVariables 'DModeGradient r
-      -> DualMonadGradient r (DualNumber 'DModeGradient r))
+  -> (DualNumberVariables 'DModeGradient r -> DualNumber 'DModeGradient r)
   -> Domains r
   -> IO (r, r)
 {-# INLINE dForwardGeneral #-}
@@ -148,7 +124,7 @@ dForwardGeneral variables@(params0, _, params1, _, params2, _, paramsX, _)
   initializeCounters (params0, params1, params2, paramsX)
   let -- It needs to be fully evaluated before finalizing the counters,
       -- because it modifies the counters (via impure side-effect):
-      !(D !value !d) = runIdentity $ runDualMonadGradient (f variables)
+      !(D !value !d) = f variables
   counters <- finalizeCounters
   let derivative = derivativeFromDelta counters d ds
   return (derivative, value)
@@ -156,8 +132,7 @@ dForwardGeneral variables@(params0, _, params1, _, params2, _, paramsX, _)
 -- The direction vector ds is taken as an extra argument.
 dForward
   :: HasDelta r
-  => (DualNumberVariables 'DModeGradient r
-      -> DualMonadGradient r (DualNumber 'DModeGradient r))
+  => (DualNumberVariables 'DModeGradient r -> DualNumber 'DModeGradient r)
   -> Domains r
   -> Domains r
   -> IO (r, r)
@@ -166,34 +141,22 @@ dForward f parameters ds = do
       variables = makeDualNumberVariables parameters varDeltas
   dForwardGeneral variables f ds
 
--- * A monad for efficiently computing forward derivatives.
+-- * The evaluation for efficiently computing forward derivatives.
 
-newtype DualMonadForward r a = DualMonadForward
-  { runDualMonadForward :: Identity a }
-  deriving (Monad, Functor, Applicative)
-
-instance IsScalar 'DModeDerivative r
-         => DualMonad 'DModeDerivative
-                      r (DualMonadForward r) where
-  returnLet d = DualMonadForward $ Identity d
-
--- This the efficient variant of forward derivative computation.
 dFastForwardGeneral
   :: Dual 'DModeDerivative r ~ r
   => DualNumberVariables 'DModeDerivative r
-  -> (DualNumberVariables 'DModeDerivative r
-      -> DualMonadForward r (DualNumber 'DModeDerivative r))
+  -> (DualNumberVariables 'DModeDerivative r -> DualNumber 'DModeDerivative r)
   -> (r, r)
 {-# INLINE dFastForwardGeneral #-}
 dFastForwardGeneral variables f =
-  let D value d = runIdentity $ runDualMonadForward $ f variables
+  let D value d = f variables
   in (d, value)
 
 -- The direction vector ds is taken as an extra argument.
 dFastForward
   :: forall r. (Numeric r, Dual 'DModeDerivative r ~ r)
-  => (DualNumberVariables 'DModeDerivative r
-      -> DualMonadForward r (DualNumber 'DModeDerivative r))
+  => (DualNumberVariables 'DModeDerivative r -> DualNumber 'DModeDerivative r)
   -> Domains r
   -> Domains r
   -> (r, r)
@@ -209,15 +172,14 @@ dFastForward f parameters (params0, params1, params2, paramsX) =
 
 prettyPrintDf
   :: forall r. HasDelta r
-  => (DualNumberVariables 'DModeGradient r
-      -> DualMonadGradient r (DualNumber 'DModeGradient r))
+  => (DualNumberVariables 'DModeGradient r -> DualNumber 'DModeGradient r)
   -> Domains r
   -> IO String
 prettyPrintDf f parameters = do
   initializeCounters parameters
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
-      D _ deltaTopLevel = runIdentity $ runDualMonadGradient (f variables)
+      D _ deltaTopLevel = f variables
       s = ppShow deltaTopLevel
       -- It needs to be fully evaluated before finalizing the counters,
       -- because it modifies the counters (via impure side-effect):

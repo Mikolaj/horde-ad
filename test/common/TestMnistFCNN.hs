@@ -50,7 +50,7 @@ shortTestForCITrees = [ dumbMnistTests
 
 sgdShow :: HasDelta r
         => r
-        -> (a -> DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
+        -> (a -> DualNumberVariables 'DModeGradient r -> DualNumber 'DModeGradient r)
         -> [a]  -- ^ training data
         -> Domain0 r  -- ^ initial parameters
         -> IO r
@@ -65,8 +65,7 @@ sgdTestCase :: String
                 -> Int
                 -> a
                 -> DualNumberVariables 'DModeGradient Double
-                -> DualMonadGradient Double
-                                     (DualNumber 'DModeGradient Double))
+                -> DualNumber 'DModeGradient Double)
             -> Double
             -> Double
             -> TestTree
@@ -91,7 +90,7 @@ mnistTestCase2
       -> Int
       -> MnistData Double
       -> DualNumberVariables 'DModeGradient Double
-      -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
+      -> DualNumber 'DModeGradient Double)
   -> Int
   -> Int
   -> Double
@@ -148,7 +147,7 @@ mnistTestCase2V
       -> Int
       -> MnistData Double
       -> DualNumberVariables 'DModeGradient Double
-      -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
+      -> DualNumber 'DModeGradient Double)
   -> Int
   -> Int
   -> Double
@@ -206,25 +205,25 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
              1 - fcnnMnistTest1 widthHidden widthHidden2 testData res
        testErrorFinal @?~ expected
 
-fcnnMnistLossTanh :: DualMonad 'DModeGradient Double m
-                => Int
+fcnnMnistLossTanh ::
+                   Int
                 -> Int
                 -> MnistData Double
                 -> DualNumberVariables 'DModeGradient Double
-                -> m (DualNumber 'DModeGradient Double)
-fcnnMnistLossTanh widthHidden widthHidden2 (xs, targ) vec = do
-  res <- fcnnMnist0 tanhAct softMaxAct widthHidden widthHidden2 xs vec
-  lossCrossEntropy targ res
+                -> DualNumber 'DModeGradient Double
+fcnnMnistLossTanh widthHidden widthHidden2 (xs, targ) vec =
+  let res = fcnnMnist0 tanh softMax widthHidden widthHidden2 xs vec
+  in lossCrossEntropy targ res
 
-fcnnMnistLossRelu :: DualMonad 'DModeGradient Double m
-                => Int
+fcnnMnistLossRelu ::
+                   Int
                 -> Int
                 -> MnistData Double
                 -> DualNumberVariables 'DModeGradient Double
-                -> m (DualNumber 'DModeGradient Double)
-fcnnMnistLossRelu widthHidden widthHidden2 (xs, targ) vec = do
-  res <- fcnnMnist0 reluAct softMaxAct widthHidden widthHidden2 xs vec
-  lossCrossEntropy targ res
+                -> DualNumber 'DModeGradient Double
+fcnnMnistLossRelu widthHidden widthHidden2 (xs, targ) vec =
+  let res = fcnnMnist0 relu softMax widthHidden widthHidden2 xs vec
+  in lossCrossEntropy targ res
 
 mnistTestCase2L
   :: String
@@ -232,7 +231,7 @@ mnistTestCase2L
   -> Int
   -> (MnistData Double
       -> DualNumberVariables 'DModeGradient Double
-      -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
+      -> DualNumber 'DModeGradient Double)
   -> Int
   -> Int
   -> Double
@@ -290,7 +289,7 @@ mnistTestCase2T
   -> Int
   -> (MnistData Double
       -> DualNumberVariables 'DModeGradient Double
-      -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
+      -> DualNumber 'DModeGradient Double)
   -> Int
   -> Int
   -> Double
@@ -358,7 +357,7 @@ mnistTestCase2D
   -> Int
   -> (MnistData Double
       -> DualNumberVariables 'DModeGradient Double
-      -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
+      -> DualNumber 'DModeGradient Double)
   -> Int
   -> Int
   -> Double
@@ -432,7 +431,7 @@ mnistTestCase2F
   -> Int
   -> (MnistData Double
       -> DualNumberVariables 'DModeDerivative Double
-      -> DualMonadForward Double (DualNumber 'DModeDerivative Double))
+      -> DualNumber 'DModeDerivative Double)
   -> Int
   -> Int
   -> Double
@@ -504,9 +503,9 @@ mnistTestCase2S
   -> String
   -> Int
   -> Int
-  -> (forall d r m. DualMonad d r m
+  -> (forall d r. IsScalar d r
       => Proxy widthHidden -> Proxy widthHidden2
-      -> MnistData r -> DualNumberVariables d r -> m (DualNumber d r))
+      -> MnistData r -> DualNumberVariables d r -> DualNumber d r)
   -> Double
   -> Double
   -> TestTree
@@ -658,8 +657,8 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             (_, _, _, ds) = initializerFixed seedDs rangeDs paramShape
             (_, _, _, parametersPerturbation) =
               initializerFixed (seed + seedDs) 1e-7 paramShape
-            f :: forall d r m. (DualMonad d r m, r ~ Double)
-              => DualNumberVariables d r -> m (DualNumber d r)
+            f :: forall d r. (IsScalar d r, r ~ Double)
+              => DualNumberVariables d r -> DualNumber d r
             f = fcnnMnistLoss0 widthHidden widthHidden2 mnistData
         in ioProperty $ qcPropDom f parameters ds parametersPerturbation 1
   , testProperty "Compare two forward derivatives and gradient for Mnist1" $
@@ -678,8 +677,8 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             (_, _, _, ds) = initializerFixed seedDs rangeDs paramShape
             (_, _, _, parametersPerturbation) =
               initializerFixed (seed + seedDs) 1e-7 paramShape
-            f :: forall d r m. (DualMonad d r m, r ~ Double)
-              => DualNumberVariables d r -> m (DualNumber d r)
+            f :: forall d r. (IsScalar d r, r ~ Double)
+              => DualNumberVariables d r -> DualNumber d r
             f = fcnnMnistLoss1 widthHidden widthHidden2 mnistData
         in ioProperty $ qcPropDom f parameters ds parametersPerturbation 1
   , testProperty "Compare two forward derivatives and gradient for Mnist2" $
@@ -702,8 +701,8 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             (_, _, _, parametersPerturbation) =
               initializerFixed (seed + seedDs) 1e-7 paramShape
             f, fOneHot, fFused
-              :: forall d r m. (DualMonad d r m, r ~ Double)
-                 => DualNumberVariables d r -> m (DualNumber d r)
+              :: forall d r. (IsScalar d r, r ~ Double)
+                 => DualNumberVariables d r -> DualNumber d r
             f = fcnnMnistLoss2 mnistData
             fOneHot = fcnnMnistLoss2 mnistDataOneHot
             fFused = fcnnMnistLossFused2 mnistDataOneHot

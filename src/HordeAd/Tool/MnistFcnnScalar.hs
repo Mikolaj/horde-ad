@@ -24,79 +24,79 @@ import HordeAd.Tool.MnistData
 -- at @variables@ starting at @offset@. Useful for neurons in the middle
 -- of the network, receiving inputs from other neurons.
 sumTrainableInputs
-  :: forall d r m. DualMonad d r m
+  :: forall d r. IsScalar d r
   => Data.Vector.Vector (DualNumber d r) -> Int -> DualNumberVariables d r
-  -> m (DualNumber d r)
-sumTrainableInputs xs offset variables = do
+  -> DualNumber d r
+sumTrainableInputs xs offset variables =
   let bias = var0 variables offset
       f :: DualNumber d r -> Int -> DualNumber d r -> DualNumber d r
       f !acc i u =
         let v = var0 variables (offset + 1 + i)
         in acc + u * v
-  returnLet $ V.ifoldl' f bias xs
-{-# SPECIALIZE sumTrainableInputs :: Data.Vector.Vector (DualNumber 'DModeGradient Double) -> Int -> DualNumberVariables 'DModeGradient Double -> DualMonadGradient Double (DualNumber 'DModeGradient Double) #-}
+  in V.ifoldl' f bias xs
+{-# SPECIALIZE sumTrainableInputs :: Data.Vector.Vector (DualNumber 'DModeGradient Double) -> Int -> DualNumberVariables 'DModeGradient Double -> DualNumber 'DModeGradient Double #-}
 
 -- | Compute the output of a neuron, without applying activation function,
 -- from constant data in @xs@ and parameters (the bias and weights)
 -- at @variables@ starting at @offset@. Useful for neurons at the bottom
 -- of the network, tasked with ingesting the data.
 sumConstantData
-  :: forall d r m. DualMonad d r m
-  => Vector r -> Int -> DualNumberVariables d r -> m (DualNumber d r)
-sumConstantData xs offset variables = do
+  :: forall d r. IsScalar d r
+  => Vector r -> Int -> DualNumberVariables d r -> DualNumber d r
+sumConstantData xs offset variables =
   let bias = var0 variables offset
       f :: DualNumber d r -> Int -> r -> DualNumber d r
       f !acc i r =
         let v = var0 variables (offset + 1 + i)
         in acc + scale r v
-  returnLet $ V.ifoldl' f bias xs
-{-# SPECIALIZE sumConstantData :: Vector Double -> Int -> DualNumberVariables 'DModeGradient Double -> DualMonadGradient Double (DualNumber 'DModeGradient Double) #-}
+  in V.ifoldl' f bias xs
+{-# SPECIALIZE sumConstantData :: Vector Double -> Int -> DualNumberVariables 'DModeGradient Double -> DualNumber 'DModeGradient Double #-}
 
 hiddenLayerMnist
-  :: forall d r m. DualMonad d r m
+  :: forall d r. IsScalar d r
   => (DualNumber d r -> DualNumber d r)
   -> Vector r
   -> DualNumberVariables d r -> Int
-  -> m (Data.Vector.Vector (DualNumber d r))
-hiddenLayerMnist factivation input variables width = do
+  -> Data.Vector.Vector (DualNumber d r)
+hiddenLayerMnist factivation input variables width =
   let nWeightsAndBias = V.length input + 1
-      f :: Int -> m (DualNumber d r)
-      f i = do
-        outSum <- sumConstantData input (i * nWeightsAndBias) variables
-        return $! factivation outSum
-  V.generateM width f
+      f :: Int -> DualNumber d r
+      f i =
+        let outSum = sumConstantData input (i * nWeightsAndBias) variables
+        in factivation outSum
+  in V.generate width f
 
 middleLayerMnist
-  :: forall d r m. DualMonad d r m
+  :: forall d r. IsScalar d r
   => (DualNumber d r -> DualNumber d r)
   -> Data.Vector.Vector (DualNumber d r)
   -> Int -> DualNumberVariables d r -> Int
-  -> m (Data.Vector.Vector (DualNumber d r))
-middleLayerMnist factivation hiddenVec offset variables width = do
+  -> Data.Vector.Vector (DualNumber d r)
+middleLayerMnist factivation hiddenVec offset variables width =
   let nWeightsAndBias = V.length hiddenVec + 1
-      f :: Int -> m (DualNumber d r)
-      f i = do
-        outSum <- sumTrainableInputs hiddenVec
-                                     (offset + i * nWeightsAndBias)
-                                     variables
-        return $! factivation outSum
-  V.generateM width f
+      f :: Int -> DualNumber d r
+      f i =
+        let outSum = sumTrainableInputs hiddenVec
+                                        (offset + i * nWeightsAndBias)
+                                        variables
+        in factivation outSum
+  in V.generate width f
 
 outputLayerMnist
-  :: forall d r m. DualMonad d r m
+  :: forall d r. IsScalar d r
   => (Data.Vector.Vector (DualNumber d r)
       -> Data.Vector.Vector (DualNumber d r))
   -> Data.Vector.Vector (DualNumber d r) -> Int
   -> DualNumberVariables d r -> Int
-  -> m (Data.Vector.Vector (DualNumber d r))
-outputLayerMnist factivation hiddenVec offset variables width = do
+  -> Data.Vector.Vector (DualNumber d r)
+outputLayerMnist factivation hiddenVec offset variables width =
   let nWeightsAndBias = V.length hiddenVec + 1
-      f :: Int -> m (DualNumber d r)
+      f :: Int -> DualNumber d r
       f i = sumTrainableInputs hiddenVec
                                (offset + i * nWeightsAndBias)
                                variables
-  vOfSums <- V.generateM width f
-  return $! factivation vOfSums
+      vOfSums = V.generate width f
+  in factivation vOfSums
 
 fcnnMnistLen0 :: Int -> Int -> Int
 fcnnMnistLen0 widthHidden widthHidden2 =
@@ -110,7 +110,7 @@ fcnnMnistLen0 widthHidden widthHidden2 =
 -- The widths of the hidden layers are @widthHidden@ and @widthHidden2@
 -- and from these, the @fcnnMnistLen2@ function computes the number
 -- of scalar dual number parameters (variables) to be given to the program.
-fcnnMnist0 :: forall d r m. DualMonad d r m
+fcnnMnist0 :: forall d r. IsScalar d r
            => (DualNumber d r -> DualNumber d r)
            -> (Data.Vector.Vector (DualNumber d r)
                -> Data.Vector.Vector (DualNumber d r))
@@ -118,30 +118,30 @@ fcnnMnist0 :: forall d r m. DualMonad d r m
            -> Int
            -> Vector r
            -> DualNumberVariables d r
-           -> m (Data.Vector.Vector (DualNumber d r))
+           -> Data.Vector.Vector (DualNumber d r)
 fcnnMnist0 factivationHidden factivationOutput widthHidden widthHidden2
-           input variables = do
+           input variables =
   let !_A = assert (sizeMnistGlyph == V.length input) ()
-  layer1 <- inline hiddenLayerMnist factivationHidden input
-                                    variables widthHidden
-  let offsetMiddle = widthHidden * (sizeMnistGlyph + 1)
-  layer2 <- inline middleLayerMnist factivationHidden layer1
-                                    offsetMiddle variables widthHidden2
-  let offsetOutput = offsetMiddle + widthHidden2 * (widthHidden + 1)
-  inline outputLayerMnist factivationOutput layer2
-                          offsetOutput variables sizeMnistLabel
+      layer1 = inline hiddenLayerMnist factivationHidden input
+                                       variables widthHidden
+      offsetMiddle = widthHidden * (sizeMnistGlyph + 1)
+      layer2 = inline middleLayerMnist factivationHidden layer1
+                                       offsetMiddle variables widthHidden2
+      offsetOutput = offsetMiddle + widthHidden2 * (widthHidden + 1)
+  in inline outputLayerMnist factivationOutput layer2
+                             offsetOutput variables sizeMnistLabel
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 fcnnMnistLoss0
-  :: DualMonad d r m
+  :: IsScalar d r
   => Int -> Int -> MnistData r -> DualNumberVariables d r
-  -> m (DualNumber d r)
-fcnnMnistLoss0 widthHidden widthHidden2 (input, target) variables = do
-  result <- inline fcnnMnist0 logistic softMax
-                              widthHidden widthHidden2 input variables
-  return $! lossCrossEntropy target result
-{-# SPECIALIZE fcnnMnistLoss0 :: Int -> Int -> MnistData Double -> DualNumberVariables 'DModeGradient Double -> DualMonadGradient Double (DualNumber 'DModeGradient Double) #-}
+  -> DualNumber d r
+fcnnMnistLoss0 widthHidden widthHidden2 (input, target) variables =
+  let result = inline fcnnMnist0 logistic softMax
+                                 widthHidden widthHidden2 input variables
+  in lossCrossEntropy target result
+{-# SPECIALIZE fcnnMnistLoss0 :: Int -> Int -> MnistData Double -> DualNumberVariables 'DModeGradient Double -> DualNumber 'DModeGradient Double #-}
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
