@@ -31,7 +31,7 @@ testTrees = [ testDReverse0
 dReverse0
   :: HasDelta r
   => (DualNumberVariables 'DModeGradient r
-      -> DualMonadGradient r (DualNumber 'DModeGradient r))
+      -> DualNumber 'DModeGradient r)
   -> [r]
   -> IO ([r], r)
 dReverse0 f deltaInput = do
@@ -39,93 +39,80 @@ dReverse0 f deltaInput = do
     dReverse 1 f (V.fromList deltaInput, V.empty, V.empty, V.empty)
   return (V.toList results, value)
 
-fX :: DualMonad 'DModeGradient Float m
-   => DualNumberVariables 'DModeGradient Float
-   -> m (DualNumber 'DModeGradient Float)
-fX variables = do
-  let x = var0 variables 0
-  return x
+fX :: DualNumberVariables 'DModeGradient Float
+   -> DualNumber 'DModeGradient Float
+fX variables = var0 variables 0
 
-fXp1 :: DualMonad 'DModeGradient Float m
-     => DualNumberVariables 'DModeGradient Float
-     -> m (DualNumber 'DModeGradient Float)
-fXp1 variables = do
+fXp1 :: DualNumberVariables 'DModeGradient Float
+     -> DualNumber 'DModeGradient Float
+fXp1 variables =
   let x = var0 variables 0
-  x +\ 1
+  in x + 1
 
-fXpX :: DualMonad 'DModeGradient Float m
-     => DualNumberVariables 'DModeGradient Float
-     -> m (DualNumber 'DModeGradient Float)
-fXpX variables = do
+fXpX :: DualNumberVariables 'DModeGradient Float
+     -> DualNumber 'DModeGradient Float
+fXpX variables =
   let x = var0 variables 0
-  x +\ x
+  in x + x
 
-fXX :: DualMonad 'DModeGradient Float m
-     => DualNumberVariables 'DModeGradient Float
-     -> m (DualNumber 'DModeGradient Float)
-fXX variables = do
+fXX :: DualNumberVariables 'DModeGradient Float
+    -> DualNumber 'DModeGradient Float
+fXX variables =
   let x = var0 variables 0
-  x *\ x
+  in x * x
 
-fX1X :: DualMonad 'DModeGradient Float m
-     => DualNumberVariables 'DModeGradient Float
-     -> m (DualNumber 'DModeGradient Float)
-fX1X variables = do
+fX1X :: DualNumberVariables 'DModeGradient Float
+     -> DualNumber 'DModeGradient Float
+fX1X variables =
   let x = var0 variables 0
-  x1 <- x +\ 1
-  x1 *\ x
+      x1 = x + 1
+  in x1 * x
 
-fX1Y :: DualMonad 'DModeGradient Float m
-     => DualNumberVariables 'DModeGradient Float
-     -> m (DualNumber 'DModeGradient Float)
-fX1Y variables = do
+fX1Y :: DualNumberVariables 'DModeGradient Float
+     -> DualNumber 'DModeGradient Float
+fX1Y variables =
   let x = var0 variables 0
       y = var0 variables 1
-  x1 <- x +\ 1
-  x1 *\ y
+      x1 = x + 1
+  in x1 * y
 
-fY1X :: DualMonad 'DModeGradient Float m
-     => DualNumberVariables 'DModeGradient Float
-     -> m (DualNumber 'DModeGradient Float)
-fY1X variables = do
+fY1X :: DualNumberVariables 'DModeGradient Float
+     -> DualNumber 'DModeGradient Float
+fY1X variables =
   let x = var0 variables 0
       y = var0 variables 1
-  x1 <- y +\ 1
-  x1 *\ x
+      x1 = y + 1
+  in x1 * x
 
-fXXY :: DualMonad 'DModeGradient Float m
-     => DualNumberVariables 'DModeGradient Float
-     -> m (DualNumber 'DModeGradient Float)
-fXXY variables = do
+fXXY ::  DualNumberVariables 'DModeGradient Float
+     -> DualNumber 'DModeGradient Float
+fXXY variables =
   let x = var0 variables 0
       y = var0 variables 1
-  xy <- x *\ y
-  x *\ xy
+      xy = x * y
+  in x * xy
 
-fXYplusZ :: DualMonad 'DModeGradient Float m
-         => DualNumberVariables 'DModeGradient Float
-         -> m (DualNumber 'DModeGradient Float)
-fXYplusZ variables = do
+fXYplusZ :: DualNumberVariables 'DModeGradient Float
+         -> DualNumber 'DModeGradient Float
+fXYplusZ variables =
   let x = var0 variables 0
       y = var0 variables 1
       z = var0 variables 2
-  xy <- x *\ y
-  xy +\ z
+      xy = x * y
+  in xy + z
 
-fXtoY :: DualMonad 'DModeGradient Float m
-      => DualNumberVariables 'DModeGradient Float
-      -> m (DualNumber 'DModeGradient Float)
-fXtoY variables = do
+fXtoY :: DualNumberVariables 'DModeGradient Float
+      -> DualNumber 'DModeGradient Float
+fXtoY variables =
   let x = var0 variables 0
       y = var0 variables 1
-  x **\ y
+  in x ** y
 
-freluX :: DualMonad 'DModeGradient Float m
-       => DualNumberVariables 'DModeGradient Float
-       -> m (DualNumber 'DModeGradient Float)
-freluX variables = do
+freluX :: DualNumberVariables 'DModeGradient Float
+       -> DualNumber 'DModeGradient Float
+freluX variables =
   let x = var0 variables 0
-  reluAct x
+  in relu x
 
 testDReverse0 :: TestTree
 testDReverse0 = testGroup "Simple dReverse application tests" $
@@ -155,56 +142,56 @@ testDReverse0 = testGroup "Simple dReverse application tests" $
     ]
 
 vec_omit_scalarSum_aux
-  :: DualMonad d r m
-  => DualNumberVariables d r -> m (DualNumber d r)
-vec_omit_scalarSum_aux vec = returnLet $ foldlDual' (+) 0 vec
+  :: IsScalar d r
+  => DualNumberVariables d r -> DualNumber d r
+vec_omit_scalarSum_aux vec = foldlDual' (+) 0 vec
 
 sumElementsV
-  :: DualMonad d r m
-  => DualNumberVariables d r -> m (DualNumber d r)
-sumElementsV variables = do
+  :: IsScalar d r
+  => DualNumberVariables d r -> DualNumber d r
+sumElementsV variables =
   let x = var1 variables 0
-  returnLet $ sumElements0 x
+  in sumElements0 x
 
 altSumElementsV
-  :: DualMonad d r m
-  => DualNumberVariables d r -> m (DualNumber d r)
-altSumElementsV variables = do
+  :: IsScalar d r
+  => DualNumberVariables d r -> DualNumber d r
+altSumElementsV variables =
   let x = var1 variables 0
-  returnLet $ altSumElements0 x
+  in altSumElements0 x
 
 -- hlint would complain about spurious @id@, so we need to define our own.
 id2 :: a -> a
 id2 x = x
 
 sinKonst
-  :: DualMonad d r m
-  => DualNumberVariables d r -> m (DualNumber d r)
-sinKonst variables = do
+  :: IsScalar d r
+  => DualNumberVariables d r -> DualNumber d r
+sinKonst variables =
   let x = var1 variables 0
-  return $ sumElements0 $
-    sin x + (id2 $ id2 $ id2 $ konst1 1 2)
+  in sumElements0 $
+       sin x + (id2 $ id2 $ id2 $ konst1 1 2)
 
 powKonst
-  :: DualMonad d r m
-  => DualNumberVariables d r -> m (DualNumber d r)
-powKonst variables = do
+  :: IsScalar d r
+  => DualNumberVariables d r -> DualNumber d r
+powKonst variables =
   let x = var1 variables 0
-  return $ sumElements0 $
-    x ** (sin x + (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
+  in sumElements0 $
+       x ** (sin x + (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
 
 sinKonstS
-  :: forall d r m. DualMonad d r m
-  => DualNumberVariables d r -> m (DualNumber d r)
-sinKonstS variables = do
+  :: forall d r. IsScalar d r
+  => DualNumberVariables d r -> DualNumber d r
+sinKonstS variables =
   let x = varS variables 0
-  return $ sumElements0 $ fromS1
-    ((sin x + (id2 $ id2 $ id2 $ konstS 1))
-       :: DualNumber d (OS.Array '[2] r))
+  in sumElements0 $ fromS1
+       ((sin x + (id2 $ id2 $ id2 $ konstS 1))
+         :: DualNumber d (OS.Array '[2] r))
 
 dReverse1
   :: (r ~ Float, d ~ 'DModeGradient)
-  => (DualNumberVariables d r -> DualMonadGradient r (DualNumber d r))
+  => (DualNumberVariables d r -> DualNumber d r)
   -> [[r]]
   -> IO ([[r]], r)
 dReverse1 f deltaInput = do
@@ -323,21 +310,10 @@ sumElementsOfDualNumbers
 sumElementsOfDualNumbers = V.foldl' (+) 0
 
 -- Here we apply the function.
-atanReadmeScalar
+atanReadmeM
   :: IsScalar d r
   => DualNumberVariables d r -> DualNumber d r
-atanReadmeScalar = sumElementsOfDualNumbers . atanReadmeVariables
-
--- Here we introduce a single delta-let binding (`returnLet`) to ensure
--- that if this code is used in a larger context and repeated,
--- no explosion of delta-expressions can happen.
--- If the code above had any repeated non-variable expressions
--- (e.g., if @w@ appeared twice) the user would need to make it monadic
--- and apply @returnLet@ already there.
-atanReadmeM
-  :: DualMonad d r m
-  => DualNumberVariables d r -> m (DualNumber d r)
-atanReadmeM = returnLet . atanReadmeScalar
+atanReadmeM = sumElementsOfDualNumbers . atanReadmeVariables
 
 -- The underscores and empty vectors are placeholders for the vector,
 -- matrix and arbitrary tensor components of the parameters tuple,
@@ -370,16 +346,16 @@ readmeTests = testGroup "Simple tests for README"
 -- vectors of primitive differentiable scalars.
 
 vatanReadmeM
-  :: DualMonad d r m
-  => DualNumberVariables d r -> m (DualNumber d r)
-vatanReadmeM variables = do
+  :: IsScalar d r
+  => DualNumberVariables d r -> DualNumber d r
+vatanReadmeM variables =
   let xyzVector = var1 variables 0
       [x, y, z] = map (index0 xyzVector) [0, 1, 2]
       v = seq1 $ atanReadmeOriginal x y z
-  returnLet $ sumElements0 v
+  in sumElements0 v
 
 vatanReadmeDReverse :: HasDelta r
-                    => Domain1 r -> IO(Domain1 r, r)
+                    => Domain1 r -> IO (Domain1 r, r)
 vatanReadmeDReverse dsV = do
   ((_, !result, _, _), !value) <-
     dReverse 1 vatanReadmeM (V.empty, dsV, V.empty, V.empty)

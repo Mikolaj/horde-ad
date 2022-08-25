@@ -21,7 +21,8 @@ import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 -- | Simple Gradient Descent.
 gdSimple :: forall r. HasDelta r
          => r
-         -> (DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
+         -> (DualNumberVariables 'DModeGradient r
+             -> DualNumber 'DModeGradient r)
          -> Int  -- ^ requested number of iterations
          -> Domains r  -- ^ initial parameters
          -> IO (Domains r)
@@ -42,7 +43,8 @@ gdSimple gamma f n0 parameters0 = go n0 parameters0 where
 -- | Stochastic Gradient Descent.
 sgd :: forall r a. HasDelta r
     => r
-    -> (a -> DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
+    -> (a -> DualNumberVariables 'DModeGradient r
+        -> DualNumber 'DModeGradient r)
     -> [a]  -- ^ training data
     -> Domains r  -- ^ initial parameters
     -> IO (Domains r, r)
@@ -59,13 +61,14 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
     else go rest parametersNew
 {-# SPECIALIZE sgd
   :: Double
-  -> ((Vector Double, Vector Double) -> DualNumberVariables 'DModeGradient Double -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
+  -> ((Vector Double, Vector Double) -> DualNumberVariables 'DModeGradient Double -> DualNumber 'DModeGradient Double)
   -> [(Vector Double, Vector Double)]
   -> Domains Double
   -> IO (Domains Double, Double) #-}
 
 sgdAdam :: forall r a. HasDelta r
-        => (a -> DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
+        => (a -> DualNumberVariables 'DModeGradient r
+            -> DualNumber 'DModeGradient r)
         -> [a]
         -> Domains r
         -> StateAdam r
@@ -75,7 +78,7 @@ sgdAdam = sgdAdamArgs defaultArgsAdam
 sgdAdamArgs :: forall r a. HasDelta r
             => ArgsAdam r
             -> (a -> DualNumberVariables 'DModeGradient r
-                -> DualMonadGradient r (DualNumber 'DModeGradient r))
+                -> DualNumber 'DModeGradient r)
             -> [a]
             -> Domains r
             -> StateAdam r

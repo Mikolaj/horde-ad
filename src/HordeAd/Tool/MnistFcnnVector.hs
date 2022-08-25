@@ -70,18 +70,18 @@ fcnnMnistLen1 widthHidden widthHidden2 =
 -- and from these, the @len*@ functions compute the number and dimensions
 -- of scalars (none in this case) and vectors of dual number parameters
 -- (variables) to be given to the program.
-fcnnMnist1 :: forall d r m. DualMonad d r m
+fcnnMnist1 :: forall d r. IsScalar d r
            => (DualNumber d (Vector r) -> DualNumber d (Vector r))
            -> (DualNumber d (Vector r) -> DualNumber d (Vector r))
            -> Int
            -> Int
            -> Vector r
            -> DualNumberVariables d r
-           -> m (DualNumber d (Vector r))
+           -> DualNumber d (Vector r)
 fcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
-          input variables = do
+          input variables =
   let !_A = assert (sizeMnistGlyph == V.length input) ()
-  let hiddenLayer1 = sumConstantDataL input 0 variables widthHidden
+      hiddenLayer1 = sumConstantDataL input 0 variables widthHidden
                      + var1 variables widthHidden  -- bias
       nonlinearLayer1 = factivationHidden hiddenLayer1
       offsetMiddle = widthHidden + 1
@@ -93,18 +93,18 @@ fcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
       outputLayer = sumTrainableInputsL nonlinearLayer2 offsetOutput
                                         variables sizeMnistLabel
                     + var1 variables (offsetOutput + sizeMnistLabel)  -- bias
-  return $! factivationOutput outputLayer
+  in factivationOutput outputLayer
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 fcnnMnistLoss1
-  :: DualMonad d r m
+  :: IsScalar d r
   => Int -> Int -> MnistData r -> DualNumberVariables d r
-  -> m (DualNumber d r)
-fcnnMnistLoss1 widthHidden widthHidden2 (input, target) variables = do
-  result <- inline fcnnMnist1 logistic softMaxV
+  -> DualNumber d r
+fcnnMnistLoss1 widthHidden widthHidden2 (input, target) variables =
+  let result = inline fcnnMnist1 logistic softMaxV
                               widthHidden widthHidden2 input variables
-  return $! lossCrossEntropyV target result
+  in lossCrossEntropyV target result
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
