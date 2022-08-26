@@ -65,6 +65,7 @@ import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import           Data.Kind (Type)
 import           Data.Proxy (Proxy)
+import           Data.STRef (STRef, newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Strict.Vector.Autogen.Mutable as Data.Vector.Mutable
 import qualified Data.Vector.Generic as V
@@ -297,7 +298,7 @@ data DeltaBinding r =
   | DeltaBinding2 (DeltaId (Matrix r)) (Delta2' r)
   | DeltaBindingX (DeltaId (OT.Array r)) (DeltaX' r)
   | forall sh. OS.Shape sh
-    => DeltaBindingS (DeltaId (OS.Array sh r)) (DeltaS' sh r)
+    => DeltaBindingS (DeltaId (OT.Array r)) (DeltaS' sh r)
   | DeltaBindingEmpty
 
 data DeltaCounters r = DeltaCounters
@@ -309,18 +310,7 @@ data DeltaCounters r = DeltaCounters
   }
   deriving Show
 
--- | Helper definitions to shorten type signatures. Note that these
--- differ from their counterparts in all other modules, because the type
--- argument here is the underlying scalar (e.g., @Double),
--- while elsewhere it's the dual component of dual numbers from
--- rank 0 (scalar) level (e.g., @Delta0 Double@).
--- By chance, these definitions and definitions from other modules
--- coincide in case of "forward derivatives computed on the spot"
--- where @r@ is @Double@ and @Double@ is also the dual component.
---
--- More generally, @r@ in this module tends to refer to the underlying
--- scalar type, while in all other modules it refers to the rank 0 dual
--- component type.
+-- | Helper definitions to shorten type signatures.
 type Domain0 r = Vector r
 
 type Domain1 r = Data.Vector.Vector (Vector r)
@@ -413,7 +403,8 @@ gradientFromDelta dim0 dim1 dim2 dimX st deltaTopLevel dt =
   -- but we can't just call @V.create@ thrice, because it would run
   -- the @ST@ action thrice, so we inline and extend @V.create@ here.
   runST $ do
-    (rMap0, rMap1, rMap2, rMapX) <- buildFinMaps st deltaTopLevel dt
+    (rMap0, rMap1, rMap2, rMapX)
+      <- buildFinMaps dim0 dim1 dim2 dimX st deltaTopLevel dt
     v0 <- V.unsafeFreeze $ VM.take dim0 rMap0
     v1 <- V.unsafeFreeze $ VM.take dim1 rMap1
     v2 <- V.unsafeFreeze $ VM.take dim2 rMap2
@@ -436,13 +427,17 @@ gradientFromDelta dim0 dim1 dim2 dimX st deltaTopLevel dt =
 -- via delta-expression duplication.
 initializeFinMaps
   :: forall s r. Numeric r
-  => DeltaCounters r
+  => Int -> Int -> Int -> Int -> DeltaCounters r
   -> ST s ( Data.Vector.Storable.Mutable.MVector s r
           , Data.Vector.Mutable.MVector s (Vector r)
           , Data.Vector.Mutable.MVector s (MO.MatrixOuter r)
           , Data.Vector.Mutable.MVector s (OT.Array r)
-          , Data.Vector.Mutable.MVector s (DeltaBinding r) )
-initializeFinMaps st = do
+          , Data.Vector.Mutable.MVector s (DeltaBinding r)
+          , STRef s (DeltaId r)
+          , STRef s (DeltaId (Vector r))
+          , STRef s (DeltaId (Matrix r))
+          , STRef s (DeltaId (OT.Array r)) )
+initializeFinMaps dim0 dim1 dim2 dimX st = do
   let n = deltaCounter st
       DeltaId counter0 = deltaCounter0 st
       DeltaId counter1 = deltaCounter1 st
@@ -453,16 +448,22 @@ initializeFinMaps st = do
   rMap2 <- VM.replicate counter2 MO.emptyMatrixOuter
   rMapX <- VM.replicate counterX dummyTensor
   dMap <- VM.replicate n DeltaBindingEmpty
-  return (rMap0, rMap1, rMap2, rMapX, dMap)
+  -- The start of rMap* vectors is taken by parameters, hence the offset.
+  ref0 <- newSTRef (DeltaId dim0)
+  ref1 <- newSTRef (DeltaId dim1)
+  ref2 <- newSTRef (DeltaId dim2)
+  refX <- newSTRef (DeltaId dimX)
+  return (rMap0, rMap1, rMap2, rMapX, dMap, ref0, ref1, ref2, refX)
 
 buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
-             => DeltaCounters r -> Delta0 r -> r
+             => Int -> Int -> Int -> Int -> DeltaCounters r -> Delta0 r -> r
              -> ST s ( Data.Vector.Storable.Mutable.MVector s r
                      , Data.Vector.Mutable.MVector s (Vector r)
                      , Data.Vector.Mutable.MVector s (MO.MatrixOuter r)
                      , Data.Vector.Mutable.MVector s (OT.Array r) )
-buildFinMaps st deltaTopLevel dt = do
-  (rMap0, rMap1, rMap2, rMapX, dMap) <- initializeFinMaps st
+buildFinMaps dim0 dim1 dim2 dimX st deltaTopLevel dt = do
+  (rMap0, rMap1, rMap2, rMapX, dMap, ref0, ref1, ref2, refX)
+    <- initializeFinMaps dim0 dim1 dim2 dimX st
   let addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
       addToMatrix :: MO.MatrixOuter r -> MO.MatrixOuter r -> MO.MatrixOuter r
@@ -478,13 +479,18 @@ buildFinMaps st deltaTopLevel dt = do
       eval0 _ Zero0 = return ()
       eval0 !r (Input0 (DeltaId i)) =
         VM.modify rMap0 (+ r) i
-      eval0 !r (Delta0 n did@(DeltaId i) d) = do
-        VM.modify rMap0 (+ r) i
+      eval0 !r (Delta0 n _ d) = do
         old <- VM.read dMap n
-        case old of
-          DeltaBindingEmpty ->
+        DeltaId i <- case old of
+          DeltaBinding0 did _ ->
+            return did
+          DeltaBindingEmpty -> do
+            did <- readSTRef ref0
+            writeSTRef ref0 (succDeltaId did)
             VM.write dMap n (DeltaBinding0 did d)
-          _ -> return ()
+            return did
+          _ -> error "buildFinMaps: corrupted dMap"
+        VM.modify rMap0 (+ r) i
       eval0' :: r -> Delta0' r -> ST s ()
       eval0' !r = \case
         Scale0 k d -> eval0 (k * r) d
@@ -512,13 +518,18 @@ buildFinMaps st deltaTopLevel dt = do
       eval1 _ Zero1 = return ()
       eval1 !r (Input1 (DeltaId i)) =
         VM.modify rMap1 (addToVector r) i
-      eval1 !r (Delta1 n did@(DeltaId i) d) = do
-        VM.modify rMap1 (addToVector r) i
+      eval1 !r (Delta1 n _ d) = do
         old <- VM.read dMap n
-        case old of
-          DeltaBindingEmpty ->
+        DeltaId i <- case old of
+          DeltaBinding1 did _ ->
+            return did
+          DeltaBindingEmpty -> do
+            did <- readSTRef ref1
+            writeSTRef ref1 (succDeltaId did)
             VM.write dMap n (DeltaBinding1 did d)
-          _ -> return ()
+            return did
+          _ -> error "buildFinMaps: corrupted dMap"
+        VM.modify rMap1 (addToVector r) i
       eval1' :: Vector r -> Delta1' r -> ST s ()
       eval1' !r = \case
         Scale1 k d -> eval1 (k * r) d
@@ -552,13 +563,18 @@ buildFinMaps st deltaTopLevel dt = do
       eval2 _ Zero2 = return ()
       eval2 !r (Input2 (DeltaId i)) =
         VM.modify rMap2 (addToMatrix r) i
-      eval2 !r (Delta2 n did@(DeltaId i) d) = do
-        VM.modify rMap2 (addToMatrix r) i
+      eval2 !r (Delta2 n _ d) = do
         old <- VM.read dMap n
-        case old of
-          DeltaBindingEmpty ->
+        DeltaId i <- case old of
+          DeltaBinding2 did _ ->
+            return did
+          DeltaBindingEmpty -> do
+            did <- readSTRef ref2
+            writeSTRef ref2 (succDeltaId did)
             VM.write dMap n (DeltaBinding2 did d)
-          _ -> return ()
+            return did
+          _ -> error "buildFinMaps: corrupted dMap"
+        VM.modify rMap2 (addToMatrix r) i
       eval2' :: MO.MatrixOuter r -> Delta2' r -> ST s ()
       eval2' !r = \case
         Scale2 k d -> eval2 (MO.multiplyWithOuter k r) d
@@ -613,13 +629,18 @@ buildFinMaps st deltaTopLevel dt = do
       evalX _ ZeroX = return ()
       evalX !r (InputX (DeltaId i)) =
         VM.modify rMapX (addToArray r) i
-      evalX !r (DeltaX n did@(DeltaId i) d) = do
-        VM.modify rMapX (addToArray r) i
+      evalX !r (DeltaX n _ d) = do
         old <- VM.read dMap n
-        case old of
-          DeltaBindingEmpty ->
+        DeltaId i <- case old of
+          DeltaBindingX did _ ->
+            return did
+          DeltaBindingEmpty -> do
+            did <- readSTRef refX
+            writeSTRef refX (succDeltaId did)
             VM.write dMap n (DeltaBindingX did d)
-          _ -> return ()
+            return did
+          _ -> error "buildFinMaps: corrupted dMap"
+        VM.modify rMapX (addToArray r) i
       evalX' :: OT.Array r -> DeltaX' r -> ST s ()
       evalX' !r = \case
         ScaleX k d -> evalX (liftVT2 (*) k r) d
@@ -662,13 +683,18 @@ buildFinMaps st deltaTopLevel dt = do
       evalS _ ZeroS = return ()
       evalS !r (InputS (DeltaId i)) =
         VM.modify rMapX (addToArrayS r) i
-      evalS !r (DeltaS n did@(DeltaId i) d) = do
-        VM.modify rMapX (addToArrayS r) i
+      evalS !r (DeltaS n _ d) = do
         old <- VM.read dMap n
-        case old of
-          DeltaBindingEmpty ->
+        DeltaId i <- case old of
+          DeltaBindingS did _ ->
+            return did
+          DeltaBindingEmpty -> do
+            did <- readSTRef refX
+            writeSTRef refX (succDeltaId did)
             VM.write dMap n (DeltaBindingS did d)
-          _ -> return ()
+            return did
+          _ -> error "buildFinMaps: corrupted dMap"
+        VM.modify rMapX (addToArrayS r) i
       evalS' :: OS.Shape sh
              => OS.Array sh r -> DeltaS' sh r -> ST s ()
       evalS' !r = \case
@@ -737,7 +763,7 @@ buildFinMaps st deltaTopLevel dt = do
 
   return (rMap0, rMap1, rMap2, rMapX)
 {-# SPECIALIZE buildFinMaps
-  :: DeltaCounters Double -> Delta0 Double -> Double
+  :: Int -> Int -> Int -> Int -> DeltaCounters Double -> Delta0 Double -> Double
   -> ST s ( Data.Vector.Storable.Mutable.MVector s Double
           , Data.Vector.Mutable.MVector s (Vector Double)
           , Data.Vector.Mutable.MVector s (MO.MatrixOuter Double)
@@ -753,45 +779,51 @@ buildFinMaps st deltaTopLevel dt = do
 -- given in the last parameter called @ds@.
 derivativeFromDelta
   :: forall r. (Numeric r, Num (Vector r))
-  => DeltaCounters r -> Delta0 r -> Domains r -> r
-derivativeFromDelta st deltaTopLevel ds =
-  runST $ buildDerivative st deltaTopLevel ds
+  => Int -> Int -> Int -> Int -> DeltaCounters r -> Delta0 r -> Domains r -> r
+derivativeFromDelta dim0 dim1 dim2 dimX st deltaTopLevel ds =
+  runST $ buildDerivative dim0 dim1 dim2 dimX st deltaTopLevel ds
 
 -- | This mimics 'initializeFinMaps', but in reverse. Perhaps this can be
 -- simplified, but at least the simplest formulation does not honour sharing,
 -- evaluating shared subexpressions repeatedly.
 buildDerivative
   :: forall s r. (Numeric r, Num (Vector r))
-  => DeltaCounters r -> Delta0 r -> Domains r -> ST s r
-buildDerivative st deltaTopLevel
+  => Int -> Int -> Int -> Int -> DeltaCounters r -> Delta0 r -> Domains r
+  -> ST s r
+buildDerivative dim0 dim1 dim2 dimX st deltaTopLevel
                 (params0Init, params1Init, params2Init, paramsXInit) = do
-  (rMap0, rMap1, outerFinMap2, rMapX, dMap) <- initializeFinMaps st
+  (rMap0, rMap1, outerFinMap2, rMapX, dMap, ref0, ref1, ref2, refX)
+    <- initializeFinMaps dim0 dim1 dim2 dimX st
   -- We use normal hmatrix matrices rather than the sparse replacement.
   rMap2 <- VM.replicate (VM.length outerFinMap2) (HM.fromRows [])
   -- TODO: the following coredumps without the @VM.take@; it's a shame
   -- there's no copying of a smaller vector into a larger one in the API.
   -- Perhaps use https://hackage.haskell.org/package/base-4.16.0.0/docs/Foreign-Marshal-Array.html#v:copyArray?
-  V.unsafeCopy (VM.take (V.length params0Init) rMap0) params0Init
-  V.unsafeCopy (VM.take (V.length params1Init) rMap1) params1Init
-  V.unsafeCopy (VM.take (V.length params2Init) rMap2) params2Init
-  V.unsafeCopy (VM.take (V.length paramsXInit) rMapX) paramsXInit
+  V.unsafeCopy (VM.take dim0 rMap0) params0Init
+  V.unsafeCopy (VM.take dim1 rMap1) params1Init
+  V.unsafeCopy (VM.take dim2 rMap2) params2Init
+  V.unsafeCopy (VM.take dimX rMapX) paramsXInit
   let eval0 :: Delta0 r -> ST s r
       eval0 Zero0 = return 0
       eval0 (Input0 (DeltaId i)) =
-        if i < V.length params0Init
+        if i < dim0
         then VM.read rMap0 i
         else error "derivativeFromDelta.eval': wrong index for an input"
-      eval0 (Delta0 n did@(DeltaId i) d) = assert (n >= 0) $ do
+      eval0 (Delta0 n _ d) = do
         -- This is too complex, but uses components already defined
         -- for initializeFinMaps and some of a similar code.
-        d0 <- VM.read dMap n
-        case d0 of
+        old <- VM.read dMap n
+        case old of
+          DeltaBinding0 (DeltaId i) _ ->
+            VM.read rMap0 i
           DeltaBindingEmpty -> do
-            VM.write dMap n (DeltaBinding0 did d)  -- only marks that visited
+            did@(DeltaId i) <- readSTRef ref0
+            writeSTRef ref0 (succDeltaId did)
+            VM.write dMap n (DeltaBinding0 did d)
             r <- eval0' d
             VM.write rMap0 i r
             return r
-          _ -> VM.read rMap0 i
+          _ -> error "buildDerivative: corrupted dMap"
       eval0' :: Delta0' r -> ST s r
       eval0' = \case
         Scale0 k d -> (k *) <$> eval0 d
@@ -808,18 +840,22 @@ buildDerivative st deltaTopLevel
       eval1 :: Delta1 r -> ST s (Vector r)
       eval1 Zero1 = return 0
       eval1 (Input1 (DeltaId i)) =
-        if i < V.length params1Init
+        if i < dim1
         then VM.read rMap1 i
         else error "derivativeFromDelta.eval': wrong index for an input"
-      eval1 (Delta1 n did@(DeltaId i) d) = assert (n >= 0) $ do
-        d0 <- VM.read dMap n
-        case d0 of
+      eval1 (Delta1 n _ d) = do
+        old <- VM.read dMap n
+        case old of
+          DeltaBinding1 (DeltaId i) _ ->
+            VM.read rMap1 i
           DeltaBindingEmpty -> do
-            VM.write dMap n (DeltaBinding1 did d)  -- only marks that visited
+            did@(DeltaId i) <- readSTRef ref1
+            writeSTRef ref1 (succDeltaId did)
+            VM.write dMap n (DeltaBinding1 did d)
             r <- eval1' d
             VM.write rMap1 i r
             return r
-          _ -> VM.read rMap1 i
+          _ -> error "buildDerivative: corrupted dMap"
       eval1' :: Delta1' r -> ST s (Vector r)
       eval1' = \case
         Scale1 k d -> (k *) <$> eval1 d
@@ -850,18 +886,22 @@ buildDerivative st deltaTopLevel
       eval2 :: Delta2 r -> ST s (Matrix r)
       eval2 Zero2 = return 0
       eval2 (Input2 (DeltaId i)) =
-        if i < V.length params2Init
+        if i < dim2
         then VM.read rMap2 i
         else error "derivativeFromDelta.eval': wrong index for an input"
-      eval2 (Delta2 n did@(DeltaId i) d) = assert (n >= 0) $ do
-        d0 <- VM.read dMap n
-        case d0 of
+      eval2 (Delta2 n _ d) = do
+        old <- VM.read dMap n
+        case old of
+          DeltaBinding2 (DeltaId i) _ ->
+            VM.read rMap2 i
           DeltaBindingEmpty -> do
-            VM.write dMap n (DeltaBinding2 did d)  -- only marks that visited
+            did@(DeltaId i) <- readSTRef ref2
+            writeSTRef ref2 (succDeltaId did)
+            VM.write dMap n (DeltaBinding2 did d)
             r <- eval2' d
             VM.write rMap2 i r
             return r
-          _ -> VM.read rMap2 i
+          _ -> error "buildDerivative: corrupted dMap"
       eval2' :: Delta2' r -> ST s (Matrix r)
       eval2' = \case
         Scale2 k d -> (k *) <$> eval2 d
@@ -906,18 +946,22 @@ buildDerivative st deltaTopLevel
       evalX :: DeltaX r -> ST s (OT.Array r)
       evalX ZeroX = return 0
       evalX (InputX (DeltaId i)) =
-        if i < V.length paramsXInit
+        if i < dimX
         then VM.read rMapX i
         else error "derivativeFromDelta.eval': wrong index for an input"
-      evalX (DeltaX n did@(DeltaId i) d) = assert (n >= 0) $ do
-        d0 <- VM.read dMap n
-        case d0 of
+      evalX (DeltaX n _ d) = do
+        old <- VM.read dMap n
+        case old of
+          DeltaBindingX (DeltaId i) _ ->
+            VM.read rMapX i
           DeltaBindingEmpty -> do
-            VM.write dMap n (DeltaBindingX did d)  -- only marks that visited
+            did@(DeltaId i) <- readSTRef refX
+            writeSTRef refX (succDeltaId did)
+            VM.write dMap n (DeltaBindingX did d)
             r <- evalX' d
             VM.write rMapX i r
             return r
-          _ -> VM.read rMapX i
+          _ -> error "buildDerivative: corrupted dMap"
       evalX' :: DeltaX' r -> ST s (OT.Array r)
       evalX' = \case
         ScaleX k d -> (k *) <$> evalX d
@@ -947,18 +991,22 @@ buildDerivative st deltaTopLevel
       evalS :: OS.Shape sh => DeltaS sh r -> ST s (OS.Array sh r)
       evalS ZeroS = return 0
       evalS (InputS (DeltaId i)) =
-        if i < V.length paramsXInit
+        if i < dimX
         then Data.Array.Convert.convert <$> VM.read rMapX i
         else error "derivativeFromDelta.eval': wrong index for an input"
-      evalS (DeltaS n did@(DeltaId i) d) = assert (n >= 0) $ do
-        d0 <- VM.read dMap n
-        case d0 of
+      evalS (DeltaS n _ d) = do
+        old <- VM.read dMap n
+        case old of
+          DeltaBindingS (DeltaId i) _ ->
+            Data.Array.Convert.convert <$> VM.read rMapX i
           DeltaBindingEmpty -> do
-            VM.write dMap n (DeltaBindingS did d)  -- only marks that visited
+            did@(DeltaId i) <- readSTRef refX
+            writeSTRef refX (succDeltaId did)
+            VM.write dMap n (DeltaBindingS did d)
             r <- evalS' d
             VM.write rMapX i (Data.Array.Convert.convert r)
             return r
-          _ -> Data.Array.Convert.convert <$> VM.read rMapX i
+          _ -> error "buildDerivative: corrupted dMap"
       evalS' :: OS.Shape sh => DeltaS' sh r -> ST s (OS.Array sh r)
       evalS' = \case
         ScaleS k d -> (k *) <$> evalS d
