@@ -253,10 +253,6 @@ class HasRanks (d :: DMode) r where
 -- for id ordering to reflect data dependencies.
 instance IsPrimal 'DModeGradient Double where
   dZero = Zero0
-    -- The @-1@ hack is not just a speedup, but also prevents a mixup
-    -- from GHC optimization (even with -O0) that replaces all calls
-    -- to dZero with a call to a shared top level one, performing counter
-    -- increment only once per program.
   dScale !k !d = wrapDelta0 $ Scale0 k d
   dAdd !d !e = wrapDelta0 $ Add0 d e
 
