@@ -122,11 +122,15 @@ dForwardGeneral
 dForwardGeneral variables@(params0, _, params1, _, params2, _, paramsX, _)
                 f ds = do
   initializeCounters (params0, params1, params2, paramsX)
-  let -- It needs to be fully evaluated before finalizing the counters,
+  let dim0 = V.length params0
+      dim1 = V.length params1
+      dim2 = V.length params2
+      dimX = V.length paramsX
+      -- It needs to be fully evaluated before finalizing the counters,
       -- because it modifies the counters (via impure side-effect):
       !(D !value !d) = f variables
   counters <- finalizeCounters
-  let derivative = derivativeFromDelta counters d ds
+  let derivative = derivativeFromDelta dim0 dim1 dim2 dimX counters d ds
   return (derivative, value)
 
 -- The direction vector ds is taken as an extra argument.
