@@ -619,14 +619,14 @@ unsafeGetFreshId mvar = unsafePerformIO $ do
 -- from the critical section (via thunks or via Haskell optimizing code
 -- and moving some bits out of the critical section, hence @-fno-full-laziness@
 -- to make it less likely).
-initializeCounters :: Numeric r => Domains r -> IO ()
-initializeCounters (params0, params1, params2, paramsX) = do
+initializeCounters :: Int -> Int -> Int -> Int -> IO ()
+initializeCounters dim0 dim1 dim2 dimX  = do
   takeMVar counterUsageLock
   putMVar unsafeGlobalCounter 0
-  putMVar unsafeDeltaCounter0 $ toDeltaId (V.length params0)
-  putMVar unsafeDeltaCounter1 $ toDeltaId (V.length params1)
-  putMVar unsafeDeltaCounter2 $ toDeltaId (V.length params2)
-  putMVar unsafeDeltaCounterX $ toDeltaId (V.length paramsX)
+  putMVar unsafeDeltaCounter0 $ toDeltaId dim0
+  putMVar unsafeDeltaCounter1 $ toDeltaId dim1
+  putMVar unsafeDeltaCounter2 $ toDeltaId dim2
+  putMVar unsafeDeltaCounterX $ toDeltaId dimX
 
 finalizeCounters :: IO (DeltaCounters r)
 finalizeCounters = do
