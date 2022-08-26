@@ -480,7 +480,11 @@ buildFinMaps st deltaTopLevel dt = do
         VM.modify rMap0 (+ r) i
       eval0 !r (Delta0 n did@(DeltaId i) d) = do
         VM.modify rMap0 (+ r) i
-        VM.write dMap n (DeltaBinding0 did d)
+        old <- VM.read dMap n
+        case old of
+          DeltaBindingEmpty ->
+            VM.write dMap n (DeltaBinding0 did d)
+          _ -> return ()
       eval0' :: r -> Delta0' r -> ST s ()
       eval0' !r = \case
         Scale0 k d -> eval0 (k * r) d
@@ -510,7 +514,11 @@ buildFinMaps st deltaTopLevel dt = do
         VM.modify rMap1 (addToVector r) i
       eval1 !r (Delta1 n did@(DeltaId i) d) = do
         VM.modify rMap1 (addToVector r) i
-        VM.write dMap n (DeltaBinding1 did d)
+        old <- VM.read dMap n
+        case old of
+          DeltaBindingEmpty ->
+            VM.write dMap n (DeltaBinding1 did d)
+          _ -> return ()
       eval1' :: Vector r -> Delta1' r -> ST s ()
       eval1' !r = \case
         Scale1 k d -> eval1 (k * r) d
@@ -546,7 +554,11 @@ buildFinMaps st deltaTopLevel dt = do
         VM.modify rMap2 (addToMatrix r) i
       eval2 !r (Delta2 n did@(DeltaId i) d) = do
         VM.modify rMap2 (addToMatrix r) i
-        VM.write dMap n (DeltaBinding2 did d)
+        old <- VM.read dMap n
+        case old of
+          DeltaBindingEmpty ->
+            VM.write dMap n (DeltaBinding2 did d)
+          _ -> return ()
       eval2' :: MO.MatrixOuter r -> Delta2' r -> ST s ()
       eval2' !r = \case
         Scale2 k d -> eval2 (MO.multiplyWithOuter k r) d
@@ -603,7 +615,11 @@ buildFinMaps st deltaTopLevel dt = do
         VM.modify rMapX (addToArray r) i
       evalX !r (DeltaX n did@(DeltaId i) d) = do
         VM.modify rMapX (addToArray r) i
-        VM.write dMap n (DeltaBindingX did d)
+        old <- VM.read dMap n
+        case old of
+          DeltaBindingEmpty ->
+            VM.write dMap n (DeltaBindingX did d)
+          _ -> return ()
       evalX' :: OT.Array r -> DeltaX' r -> ST s ()
       evalX' !r = \case
         ScaleX k d -> evalX (liftVT2 (*) k r) d
@@ -648,7 +664,11 @@ buildFinMaps st deltaTopLevel dt = do
         VM.modify rMapX (addToArrayS r) i
       evalS !r (DeltaS n did@(DeltaId i) d) = do
         VM.modify rMapX (addToArrayS r) i
-        VM.write dMap n (DeltaBindingS did d)
+        old <- VM.read dMap n
+        case old of
+          DeltaBindingEmpty ->
+            VM.write dMap n (DeltaBindingS did d)
+          _ -> return ()
       evalS' :: OS.Shape sh
              => OS.Array sh r -> DeltaS' sh r -> ST s ()
       evalS' !r = \case
