@@ -598,15 +598,15 @@ unsafeDeltaCounterX = unsafePerformIO newEmptyMVar
 
 -- The following three are the only operations directly touching the counters.
 -- This function is the only one, except for global variable definitions,
--- that contain `unsafePerformIO'.
-unsafeGetFreshId :: MVar (DeltaId a) -> (Int, DeltaId a)
+-- that contains `unsafePerformIO'.
+unsafeGetFreshId :: MVar (DeltaId a) -> Int
 {-# NOINLINE unsafeGetFreshId #-}
 unsafeGetFreshId mvar = unsafePerformIO $ do
   i <- takeMVar mvar
   n <- takeMVar unsafeGlobalCounter
-  putMVar unsafeGlobalCounter $ succ n
-  putMVar mvar $ succDeltaId i
-  return (n, i)
+  putMVar unsafeGlobalCounter $! succ n
+  putMVar mvar $! succDeltaId i
+  return n
 
 -- Any modification or reading of counters should happen between
 -- these two functions and so they acquire and release the lock
@@ -641,29 +641,29 @@ finalizeCounters = do
 wrapDelta0 :: Delta0' r -> Delta0 r
 {-# NOINLINE wrapDelta0 #-}
 wrapDelta0 !d =
-  let (!n, !i) = unsafeGetFreshId unsafeDeltaCounter0
-  in Delta0 n i d
+  let !n = unsafeGetFreshId unsafeDeltaCounter0
+  in Delta0 n d
 
 wrapDelta1 :: Delta1' r -> Delta1 r
 {-# NOINLINE wrapDelta1 #-}
 wrapDelta1 !d =
-  let (!n, !i) = unsafeGetFreshId unsafeDeltaCounter1
-  in Delta1 n i d
+  let !n = unsafeGetFreshId unsafeDeltaCounter1
+  in Delta1 n d
 
 wrapDelta2 :: Delta2' r -> Delta2 r
 {-# NOINLINE wrapDelta2 #-}
 wrapDelta2 !d =
-  let (!n, !i) = unsafeGetFreshId unsafeDeltaCounter2
-  in Delta2 n i d
+  let !n = unsafeGetFreshId unsafeDeltaCounter2
+  in Delta2 n d
 
 wrapDeltaX :: DeltaX' r -> DeltaX r
 {-# NOINLINE wrapDeltaX #-}
 wrapDeltaX !d =
-  let (!n, !i) = unsafeGetFreshId unsafeDeltaCounterX
-  in DeltaX n i d
+  let !n = unsafeGetFreshId unsafeDeltaCounterX
+  in DeltaX n d
 
 wrapDeltaS :: DeltaS' sh r -> DeltaS sh r
 {-# NOINLINE wrapDeltaS #-}
 wrapDeltaS !d =
-  let (!n, !i) = unsafeGetFreshId unsafeDeltaCounterX  -- not S!
-  in DeltaS n (convertDeltaId i) d
+  let !n = unsafeGetFreshId unsafeDeltaCounterX  -- not S!
+  in DeltaS n d
