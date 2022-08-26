@@ -578,7 +578,7 @@ counterUsageLock = unsafePerformIO (newMVar ())
 
 unsafeGlobalCounter :: MVar Int
 {-# NOINLINE unsafeGlobalCounter #-}
-unsafeGlobalCounter = unsafePerformIO newEmptyMVar
+unsafeGlobalCounter = unsafePerformIO (newMVar 0)
 
 unsafeDeltaCounter0 :: MVar (DeltaId r)
 {-# NOINLINE unsafeDeltaCounter0 #-}
@@ -622,7 +622,6 @@ unsafeGetFreshId mvar = unsafePerformIO $ do
 initializeCounters :: IO ()
 initializeCounters = do
   takeMVar counterUsageLock
-  putMVar unsafeGlobalCounter 0
   putMVar unsafeDeltaCounter0 $ toDeltaId 0
   putMVar unsafeDeltaCounter1 $ toDeltaId 0
   putMVar unsafeDeltaCounter2 $ toDeltaId 0
@@ -630,7 +629,6 @@ initializeCounters = do
 
 finalizeCounters :: IO (DeltaCounters r)
 finalizeCounters = do
-  deltaCounter <- takeMVar unsafeGlobalCounter
   deltaCounter0 <- takeMVar unsafeDeltaCounter0
   deltaCounter1 <- takeMVar unsafeDeltaCounter1
   deltaCounter2 <- takeMVar unsafeDeltaCounter2
