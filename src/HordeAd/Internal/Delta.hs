@@ -63,6 +63,7 @@ import qualified Data.Array.Internal.DynamicG
 import qualified Data.Array.Internal.DynamicS
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
+import qualified Data.IntMap.Strict as IM
 import           Data.Kind (Type)
 import           Data.Proxy (Proxy)
 import           Data.STRef (STRef, newSTRef, readSTRef, writeSTRef)
@@ -299,7 +300,6 @@ data DeltaBinding r =
   | DeltaBindingX (DeltaId (OT.Array r)) (DeltaX' r)
   | forall sh. OS.Shape sh
     => DeltaBindingS (DeltaId (OT.Array r)) (DeltaS' sh r)
-  | DeltaBindingEmpty
 
 data DeltaCounters r = DeltaCounters
   { deltaCounter  :: Int
@@ -440,10 +440,9 @@ initializeFinMaps
           , Data.Vector.Mutable.MVector s (Vector r)
           , Data.Vector.Mutable.MVector s (MO.MatrixOuter r)
           , Data.Vector.Mutable.MVector s (OT.Array r)
-          , Data.Vector.Mutable.MVector s (DeltaBinding r) )
+          , STRef s (IM.IntMap (DeltaBinding r)) )
 initializeFinMaps dim0 dim1 dim2 dimX counters = do
-  let n = deltaCounter counters
-      DeltaId counter0 = deltaCounter0 counters
+  let DeltaId counter0 = deltaCounter0 counters
       DeltaId counter1 = deltaCounter1 counters
       DeltaId counter2 = deltaCounter2 counters
       DeltaId counterX = deltaCounterX counters
@@ -460,7 +459,7 @@ initializeFinMaps dim0 dim1 dim2 dimX counters = do
   rMap1 <- VM.replicate counter1 (V.empty :: Vector r)
   rMap2 <- VM.replicate counter2 MO.emptyMatrixOuter
   rMapX <- VM.replicate counterX dummyTensor
-  dMap <- VM.replicate n DeltaBindingEmpty
+  dMap <- newSTRef IM.empty
   return ( iMap0, iMap1, iMap2, iMapX
          , ref0, ref1, ref2, refX
          , rMap0, rMap1, rMap2, rMapX, dMap )
@@ -494,14 +493,14 @@ buildFinMaps dim0 dim1 dim2 dimX counters deltaTopLevel dt = do
       eval0 !r (Input0 (DeltaId i)) =
         VM.modify iMap0 (+ r) i
       eval0 !r (Delta0 n d) = do
-        old <- VM.read dMap n
-        DeltaId i <- case old of
-          DeltaBinding0 did _ ->
+        im <- readSTRef dMap
+        DeltaId i <- case IM.lookup n im of
+          Just (DeltaBinding0 did _) ->
             return did
-          DeltaBindingEmpty -> do
+          Nothing -> do
             did <- readSTRef ref0
             writeSTRef ref0 (succDeltaId did)
-            VM.write dMap n (DeltaBinding0 did d)
+            writeSTRef dMap $ IM.insert n (DeltaBinding0 did d) im
             return did
           _ -> error "buildFinMaps: corrupted dMap"
         VM.modify rMap0 (+ r) i
@@ -533,14 +532,14 @@ buildFinMaps dim0 dim1 dim2 dimX counters deltaTopLevel dt = do
       eval1 !r (Input1 (DeltaId i)) =
         VM.modify iMap1 (addToVector r) i
       eval1 !r (Delta1 n d) = do
-        old <- VM.read dMap n
-        DeltaId i <- case old of
-          DeltaBinding1 did _ ->
+        im <- readSTRef dMap
+        DeltaId i <- case IM.lookup n im of
+          Just (DeltaBinding1 did _) ->
             return did
-          DeltaBindingEmpty -> do
+          Nothing -> do
             did <- readSTRef ref1
             writeSTRef ref1 (succDeltaId did)
-            VM.write dMap n (DeltaBinding1 did d)
+            writeSTRef dMap $ IM.insert n (DeltaBinding1 did d) im
             return did
           _ -> error "buildFinMaps: corrupted dMap"
         VM.modify rMap1 (addToVector r) i
@@ -578,14 +577,14 @@ buildFinMaps dim0 dim1 dim2 dimX counters deltaTopLevel dt = do
       eval2 !r (Input2 (DeltaId i)) =
         VM.modify iMap2 (addToMatrix $ MO.convertMatrixOuter r) i
       eval2 !r (Delta2 n d) = do
-        old <- VM.read dMap n
-        DeltaId i <- case old of
-          DeltaBinding2 did _ ->
+        im <- readSTRef dMap
+        DeltaId i <- case IM.lookup n im of
+          Just (DeltaBinding2 did _) ->
             return did
-          DeltaBindingEmpty -> do
+          Nothing -> do
             did <- readSTRef ref2
             writeSTRef ref2 (succDeltaId did)
-            VM.write dMap n (DeltaBinding2 did d)
+            writeSTRef dMap $ IM.insert n (DeltaBinding2 did d) im
             return did
           _ -> error "buildFinMaps: corrupted dMap"
         VM.modify rMap2 (addToMO r) i
@@ -644,14 +643,14 @@ buildFinMaps dim0 dim1 dim2 dimX counters deltaTopLevel dt = do
       evalX !r (InputX (DeltaId i)) =
         VM.modify iMapX (addToArray r) i
       evalX !r (DeltaX n d) = do
-        old <- VM.read dMap n
-        DeltaId i <- case old of
-          DeltaBindingX did _ ->
+        im <- readSTRef dMap
+        DeltaId i <- case IM.lookup n im of
+          Just (DeltaBindingX did _) ->
             return did
-          DeltaBindingEmpty -> do
+          Nothing -> do
             did <- readSTRef refX
             writeSTRef refX (succDeltaId did)
-            VM.write dMap n (DeltaBindingX did d)
+            writeSTRef dMap $ IM.insert n (DeltaBindingX did d) im
             return did
           _ -> error "buildFinMaps: corrupted dMap"
         VM.modify rMapX (addToArray r) i
@@ -698,14 +697,14 @@ buildFinMaps dim0 dim1 dim2 dimX counters deltaTopLevel dt = do
       evalS !r (InputS (DeltaId i)) =
         VM.modify iMapX (addToArrayS r) i
       evalS !r (DeltaS n d) = do
-        old <- VM.read dMap n
-        DeltaId i <- case old of
-          DeltaBindingS did _ ->
+        im <- readSTRef dMap
+        DeltaId i <- case IM.lookup n im of
+          Just (DeltaBindingS did _) ->
             return did
-          DeltaBindingEmpty -> do
+          Nothing -> do
             did <- readSTRef refX
             writeSTRef refX (succDeltaId did)
-            VM.write dMap n (DeltaBindingS did d)
+            writeSTRef dMap $ IM.insert n (DeltaBindingS did d) im
             return did
           _ -> error "buildFinMaps: corrupted dMap"
         VM.modify rMapX (addToArrayS r) i
@@ -765,14 +764,16 @@ buildFinMaps dim0 dim1 dim2 dimX counters deltaTopLevel dt = do
       evalUnlessZero (DeltaBindingS (DeltaId i) d) = do
         r <- rMapX `VM.read` i
         evalS' (Data.Array.Convert.convert r) d
-      evalUnlessZero DeltaBindingEmpty = return ()
-        -- a cell did not get updated with a real delta; fine
-      evalFromdMap :: Int -> ST s ()
-      evalFromdMap k = do
-        d <- dMap `VM.read` k
-        evalUnlessZero d
-      n = deltaCounter counters
-  mapM_ evalFromdMap [n-1, n-2 .. 0]
+      evalFromdMap :: ST s ()
+      evalFromdMap = do
+        im <- readSTRef dMap
+        case IM.maxView im of
+          Just (b, im2) -> do
+            writeSTRef dMap im2
+            evalUnlessZero b
+            evalFromdMap
+          Nothing -> return ()  -- loop ends
+  evalFromdMap
 
   return (iMap0, iMap1, iMap2, iMapX)
 {-# SPECIALIZE buildFinMaps
@@ -821,14 +822,14 @@ buildDerivative dim0 dim1 dim2 dimX counters deltaTopLevel
       eval0 (Delta0 n d) = do
         -- This is too complex, but uses components already defined
         -- for initializeFinMaps and some of a similar code.
-        old <- VM.read dMap n
-        case old of
-          DeltaBinding0 (DeltaId i) _ ->
+        im <- readSTRef dMap
+        case IM.lookup n im of
+          Just (DeltaBinding0 (DeltaId i) _) ->
             VM.read rMap0 i
-          DeltaBindingEmpty -> do
+          Nothing -> do
             did@(DeltaId i) <- readSTRef ref0
             writeSTRef ref0 (succDeltaId did)
-            VM.write dMap n (DeltaBinding0 did d)
+            writeSTRef dMap $ IM.insert n (DeltaBinding0 did d) im
             r <- eval0' d
             VM.write rMap0 i r
             return r
@@ -853,14 +854,14 @@ buildDerivative dim0 dim1 dim2 dimX counters deltaTopLevel
         then return $! params1Init V.! i
         else error "derivativeFromDelta.eval': wrong index for an input"
       eval1 (Delta1 n d) = do
-        old <- VM.read dMap n
-        case old of
-          DeltaBinding1 (DeltaId i) _ ->
+        im <- readSTRef dMap
+        case IM.lookup n im of
+          Just (DeltaBinding1 (DeltaId i) _) ->
             VM.read rMap1 i
-          DeltaBindingEmpty -> do
+          Nothing -> do
             did@(DeltaId i) <- readSTRef ref1
             writeSTRef ref1 (succDeltaId did)
-            VM.write dMap n (DeltaBinding1 did d)
+            writeSTRef dMap $ IM.insert n (DeltaBinding1 did d) im
             r <- eval1' d
             VM.write rMap1 i r
             return r
@@ -899,14 +900,14 @@ buildDerivative dim0 dim1 dim2 dimX counters deltaTopLevel
         then return $! params2Init V.! i
         else error "derivativeFromDelta.eval': wrong index for an input"
       eval2 (Delta2 n d) = do
-        old <- VM.read dMap n
-        case old of
-          DeltaBinding2 (DeltaId i) _ ->
+        im <- readSTRef dMap
+        case IM.lookup n im of
+          Just (DeltaBinding2 (DeltaId i) _) ->
             VM.read rMap2 i
-          DeltaBindingEmpty -> do
+          Nothing -> do
             did@(DeltaId i) <- readSTRef ref2
             writeSTRef ref2 (succDeltaId did)
-            VM.write dMap n (DeltaBinding2 did d)
+            writeSTRef dMap $ IM.insert n (DeltaBinding2 did d) im
             r <- eval2' d
             VM.write rMap2 i r
             return r
@@ -959,14 +960,14 @@ buildDerivative dim0 dim1 dim2 dimX counters deltaTopLevel
         then return $! paramsXInit V.! i
         else error "derivativeFromDelta.eval': wrong index for an input"
       evalX (DeltaX n d) = do
-        old <- VM.read dMap n
-        case old of
-          DeltaBindingX (DeltaId i) _ ->
+        im <- readSTRef dMap
+        case IM.lookup n im of
+          Just (DeltaBindingX (DeltaId i) _) ->
             VM.read rMapX i
-          DeltaBindingEmpty -> do
+          Nothing -> do
             did@(DeltaId i) <- readSTRef refX
             writeSTRef refX (succDeltaId did)
-            VM.write dMap n (DeltaBindingX did d)
+            writeSTRef dMap $ IM.insert n (DeltaBindingX did d) im
             r <- evalX' d
             VM.write rMapX i r
             return r
@@ -1004,14 +1005,14 @@ buildDerivative dim0 dim1 dim2 dimX counters deltaTopLevel
         then return $! Data.Array.Convert.convert $ paramsXInit V.! i
         else error "derivativeFromDelta.eval': wrong index for an input"
       evalS (DeltaS n d) = do
-        old <- VM.read dMap n
-        case old of
-          DeltaBindingS (DeltaId i) _ ->
+        im <- readSTRef dMap
+        case IM.lookup n im of
+          Just (DeltaBindingS (DeltaId i) _) ->
             Data.Array.Convert.convert <$> VM.read rMapX i
-          DeltaBindingEmpty -> do
+          Nothing -> do
             did@(DeltaId i) <- readSTRef refX
             writeSTRef refX (succDeltaId did)
-            VM.write dMap n (DeltaBindingS did d)
+            writeSTRef dMap $ IM.insert n (DeltaBindingS did d) im
             r <- evalS' d
             VM.write rMapX i (Data.Array.Convert.convert r)
             return r
