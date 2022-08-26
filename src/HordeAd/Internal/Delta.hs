@@ -302,8 +302,7 @@ data DeltaBinding r =
     => DeltaBindingS (DeltaId (OT.Array r)) (DeltaS' sh r)
 
 data DeltaCounters r = DeltaCounters
-  { deltaCounter  :: Int
-  , deltaCounter0 :: DeltaId r
+  { deltaCounter0 :: DeltaId r
   , deltaCounter1 :: DeltaId (Vector r)
   , deltaCounter2 :: DeltaId (Matrix r)
   , deltaCounterX :: DeltaId (OT.Array r)
