@@ -328,7 +328,7 @@ type Domains r = (Domain0 r, Domain1 r, Domain2 r, DomainX r)
 -- "Provably correct, asymptotically efficient, higher-order reverse-mode
 -- automatic differentiation":
 --
--- > dt <.> derivativeFromDelta st d ds = gradientFromDelta st d dt <.> ds
+-- > dt <.> derivativeFromDelta ct d ds = gradientFromDelta ct d dt <.> ds
 --
 -- where @\<.\>@ denotes generalized dot product (multiplying
 -- all tensors element-wise and summing the results),
@@ -397,21 +397,21 @@ gradientFromDelta
   :: (Eq r, Numeric r, Num (Vector r))
   => Int -> Int -> Int -> Int -> DeltaCounters r -> Delta0 r -> r
   -> Domains r
-gradientFromDelta dim0 dim1 dim2 dimX st deltaTopLevel dt =
--- traceShow (dim0, dim1, dim2, dimX, st) $
+gradientFromDelta dim0 dim1 dim2 dimX counters deltaTopLevel dt =
+-- traceShow (dim0, dim1, dim2, dimX, counters) $
   -- This is morally @V.create@ and so totally safe,
   -- but we can't just call @V.create@ thrice, because it would run
   -- the @ST@ action thrice, so we inline and extend @V.create@ here.
   runST $ do
-    (rMap0, rMap1, rMap2, rMapX)
-      <- buildFinMaps dim0 dim1 dim2 dimX st deltaTopLevel dt
-    v0 <- V.unsafeFreeze $ VM.take dim0 rMap0
-    v1 <- V.unsafeFreeze $ VM.take dim1 rMap1
-    v2 <- V.unsafeFreeze $ VM.take dim2 rMap2
-    vX <- V.unsafeFreeze $ VM.take dimX rMapX
+    (iMap0, iMap1, iMap2, iMapX)
+      <- buildFinMaps dim0 dim1 dim2 dimX counters deltaTopLevel dt
+    v0 <- V.unsafeFreeze iMap0
+    v1 <- V.unsafeFreeze iMap1
+    v2 <- V.unsafeFreeze iMap2
+    vX <- V.unsafeFreeze iMapX
     -- Convert to normal matrices, but only the portion of vector
     -- that is not discarded.
-    return (v0, v1, V.map MO.convertMatrixOuterOrNull v2, vX)
+    return (v0, v1, v2, vX)
 {-# SPECIALIZE gradientFromDelta
   :: Int -> Int -> Int -> Int -> DeltaCounters Double -> Delta0 Double -> Double
   -> Domains Double #-}
@@ -430,44 +430,58 @@ initializeFinMaps
   => Int -> Int -> Int -> Int -> DeltaCounters r
   -> ST s ( Data.Vector.Storable.Mutable.MVector s r
           , Data.Vector.Mutable.MVector s (Vector r)
-          , Data.Vector.Mutable.MVector s (MO.MatrixOuter r)
+          , Data.Vector.Mutable.MVector s (Matrix r)
           , Data.Vector.Mutable.MVector s (OT.Array r)
-          , Data.Vector.Mutable.MVector s (DeltaBinding r)
           , STRef s (DeltaId r)
           , STRef s (DeltaId (Vector r))
           , STRef s (DeltaId (Matrix r))
-          , STRef s (DeltaId (OT.Array r)) )
-initializeFinMaps dim0 dim1 dim2 dimX st = do
-  let n = deltaCounter st
-      DeltaId counter0 = deltaCounter0 st
-      DeltaId counter1 = deltaCounter1 st
-      DeltaId counter2 = deltaCounter2 st
-      DeltaId counterX = deltaCounterX st
+          , STRef s (DeltaId (OT.Array r))
+          , Data.Vector.Storable.Mutable.MVector s r
+          , Data.Vector.Mutable.MVector s (Vector r)
+          , Data.Vector.Mutable.MVector s (MO.MatrixOuter r)
+          , Data.Vector.Mutable.MVector s (OT.Array r)
+          , Data.Vector.Mutable.MVector s (DeltaBinding r) )
+initializeFinMaps dim0 dim1 dim2 dimX counters = do
+  let n = deltaCounter counters
+      DeltaId counter0 = deltaCounter0 counters
+      DeltaId counter1 = deltaCounter1 counters
+      DeltaId counter2 = deltaCounter2 counters
+      DeltaId counterX = deltaCounterX counters
+  iMap0 <- VM.replicate dim0 0
+  iMap1 <- VM.replicate dim1 (V.empty :: Vector r)
+  iMap2 <- VM.replicate dim2 (HM.fromRows [])
+  iMapX <- VM.replicate dimX dummyTensor
+  -- These index into the respective four vectors below.
+  ref0 <- newSTRef (DeltaId 0)
+  ref1 <- newSTRef (DeltaId 0)
+  ref2 <- newSTRef (DeltaId 0)
+  refX <- newSTRef (DeltaId 0)
   rMap0 <- VM.replicate counter0 0  -- correct value; below are dummy values
   rMap1 <- VM.replicate counter1 (V.empty :: Vector r)
   rMap2 <- VM.replicate counter2 MO.emptyMatrixOuter
   rMapX <- VM.replicate counterX dummyTensor
   dMap <- VM.replicate n DeltaBindingEmpty
-  -- The start of rMap* vectors is taken by parameters, hence the offset.
-  ref0 <- newSTRef (DeltaId dim0)
-  ref1 <- newSTRef (DeltaId dim1)
-  ref2 <- newSTRef (DeltaId dim2)
-  refX <- newSTRef (DeltaId dimX)
-  return (rMap0, rMap1, rMap2, rMapX, dMap, ref0, ref1, ref2, refX)
+  return ( iMap0, iMap1, iMap2, iMapX
+         , ref0, ref1, ref2, refX
+         , rMap0, rMap1, rMap2, rMapX, dMap )
 
 buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
              => Int -> Int -> Int -> Int -> DeltaCounters r -> Delta0 r -> r
              -> ST s ( Data.Vector.Storable.Mutable.MVector s r
                      , Data.Vector.Mutable.MVector s (Vector r)
-                     , Data.Vector.Mutable.MVector s (MO.MatrixOuter r)
+                     , Data.Vector.Mutable.MVector s (Matrix r)
                      , Data.Vector.Mutable.MVector s (OT.Array r) )
-buildFinMaps dim0 dim1 dim2 dimX st deltaTopLevel dt = do
-  (rMap0, rMap1, rMap2, rMapX, dMap, ref0, ref1, ref2, refX)
-    <- initializeFinMaps dim0 dim1 dim2 dimX st
+buildFinMaps dim0 dim1 dim2 dimX counters deltaTopLevel dt = do
+  ( iMap0, iMap1, iMap2, iMapX
+   ,ref0, ref1, ref2, refX
+   ,rMap0, rMap1, rMap2, rMapX, dMap )
+    <- initializeFinMaps dim0 dim1 dim2 dimX counters
   let addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
-      addToMatrix :: MO.MatrixOuter r -> MO.MatrixOuter r -> MO.MatrixOuter r
-      addToMatrix r = \v -> if MO.nullMatrixOuter v then r else MO.plus v r
+      addToMatrix :: Matrix r -> Matrix r -> Matrix r
+      addToMatrix r = \v -> if HM.rows v <= 0 then r else v + r
+      addToMO :: MO.MatrixOuter r -> MO.MatrixOuter r -> MO.MatrixOuter r
+      addToMO r = \v -> if MO.nullMatrixOuter v then r else MO.plus v r
       addToArray :: OT.Array r -> OT.Array r -> OT.Array r
       addToArray r = \v -> if isTensorDummy v then r else liftVT2 (+) v r
       addToArrayS :: OS.Shape sh => OS.Array sh r -> OT.Array r -> OT.Array r
@@ -478,7 +492,7 @@ buildFinMaps dim0 dim1 dim2 dimX st deltaTopLevel dt = do
       eval0 :: r -> Delta0 r -> ST s ()
       eval0 _ Zero0 = return ()
       eval0 !r (Input0 (DeltaId i)) =
-        VM.modify rMap0 (+ r) i
+        VM.modify iMap0 (+ r) i
       eval0 !r (Delta0 n d) = do
         old <- VM.read dMap n
         DeltaId i <- case old of
@@ -501,7 +515,7 @@ buildFinMaps dim0 dim1 dim2 dimX st deltaTopLevel dt = do
           let f v = if V.null v
                     then HM.konst 0 k V.// [(ix, r)]
                     else v V.// [(ix, v V.! ix + r)]
-          VM.modify rMap1 f i
+          VM.modify iMap1 f i
             -- This would be an asymptotic optimization compared to
             -- the general case below, if not for the non-mutable update,
             -- which involves copying the whole vector, so it's just
@@ -517,7 +531,7 @@ buildFinMaps dim0 dim1 dim2 dimX st deltaTopLevel dt = do
       eval1 :: Vector r -> Delta1 r -> ST s ()
       eval1 _ Zero1 = return ()
       eval1 !r (Input1 (DeltaId i)) =
-        VM.modify rMap1 (addToVector r) i
+        VM.modify iMap1 (addToVector r) i
       eval1 !r (Delta1 n d) = do
         old <- VM.read dMap n
         DeltaId i <- case old of
@@ -562,7 +576,7 @@ buildFinMaps dim0 dim1 dim2 dimX st deltaTopLevel dt = do
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
       eval2 _ Zero2 = return ()
       eval2 !r (Input2 (DeltaId i)) =
-        VM.modify rMap2 (addToMatrix r) i
+        VM.modify iMap2 (addToMatrix $ MO.convertMatrixOuter r) i
       eval2 !r (Delta2 n d) = do
         old <- VM.read dMap n
         DeltaId i <- case old of
@@ -574,7 +588,7 @@ buildFinMaps dim0 dim1 dim2 dimX st deltaTopLevel dt = do
             VM.write dMap n (DeltaBinding2 did d)
             return did
           _ -> error "buildFinMaps: corrupted dMap"
-        VM.modify rMap2 (addToMatrix r) i
+        VM.modify rMap2 (addToMO r) i
       eval2' :: MO.MatrixOuter r -> Delta2' r -> ST s ()
       eval2' !r = \case
         Scale2 k d -> eval2 (MO.multiplyWithOuter k r) d
@@ -628,7 +642,7 @@ buildFinMaps dim0 dim1 dim2 dimX st deltaTopLevel dt = do
       evalX :: OT.Array r -> DeltaX r -> ST s ()
       evalX _ ZeroX = return ()
       evalX !r (InputX (DeltaId i)) =
-        VM.modify rMapX (addToArray r) i
+        VM.modify iMapX (addToArray r) i
       evalX !r (DeltaX n d) = do
         old <- VM.read dMap n
         DeltaId i <- case old of
@@ -682,7 +696,7 @@ buildFinMaps dim0 dim1 dim2 dimX st deltaTopLevel dt = do
             => OS.Array sh r -> DeltaS sh r -> ST s ()
       evalS _ ZeroS = return ()
       evalS !r (InputS (DeltaId i)) =
-        VM.modify rMapX (addToArrayS r) i
+        VM.modify iMapX (addToArrayS r) i
       evalS !r (DeltaS n d) = do
         old <- VM.read dMap n
         DeltaId i <- case old of
@@ -757,15 +771,15 @@ buildFinMaps dim0 dim1 dim2 dimX st deltaTopLevel dt = do
       evalFromdMap k = do
         d <- dMap `VM.read` k
         evalUnlessZero d
-      n = deltaCounter st
+      n = deltaCounter counters
   mapM_ evalFromdMap [n-1, n-2 .. 0]
 
-  return (rMap0, rMap1, rMap2, rMapX)
+  return (iMap0, iMap1, iMap2, iMapX)
 {-# SPECIALIZE buildFinMaps
   :: Int -> Int -> Int -> Int -> DeltaCounters Double -> Delta0 Double -> Double
   -> ST s ( Data.Vector.Storable.Mutable.MVector s Double
           , Data.Vector.Mutable.MVector s (Vector Double)
-          , Data.Vector.Mutable.MVector s (MO.MatrixOuter Double)
+          , Data.Vector.Mutable.MVector s (Matrix Double)
           , Data.Vector.Mutable.MVector s (OT.Array Double) ) #-}
 
 -- | Forward derivative computation via forward-evaluation of delta-expressions
@@ -779,8 +793,8 @@ buildFinMaps dim0 dim1 dim2 dimX st deltaTopLevel dt = do
 derivativeFromDelta
   :: forall r. (Numeric r, Num (Vector r))
   => Int -> Int -> Int -> Int -> DeltaCounters r -> Delta0 r -> Domains r -> r
-derivativeFromDelta dim0 dim1 dim2 dimX st deltaTopLevel ds =
-  runST $ buildDerivative dim0 dim1 dim2 dimX st deltaTopLevel ds
+derivativeFromDelta dim0 dim1 dim2 dimX counters deltaTopLevel ds =
+  runST $ buildDerivative dim0 dim1 dim2 dimX counters deltaTopLevel ds
 
 -- | This mimics 'initializeFinMaps', but in reverse. Perhaps this can be
 -- simplified, but at least the simplest formulation does not honour sharing,
@@ -789,24 +803,20 @@ buildDerivative
   :: forall s r. (Numeric r, Num (Vector r))
   => Int -> Int -> Int -> Int -> DeltaCounters r -> Delta0 r -> Domains r
   -> ST s r
-buildDerivative dim0 dim1 dim2 dimX st deltaTopLevel
+buildDerivative dim0 dim1 dim2 dimX counters deltaTopLevel
                 (params0Init, params1Init, params2Init, paramsXInit) = do
-  (rMap0, rMap1, outerFinMap2, rMapX, dMap, ref0, ref1, ref2, refX)
-    <- initializeFinMaps dim0 dim1 dim2 dimX st
+  ( _, _, _, _
+   ,ref0, ref1, ref2, refX
+   ,rMap0, rMap1, outerFinMap2, rMapX, dMap )
+    <- initializeFinMaps dim0 dim1 dim2 dimX counters
   -- We use normal hmatrix matrices rather than the sparse replacement.
-  rMap2 <- VM.replicate (VM.length outerFinMap2) (HM.fromRows [])
-  -- TODO: the following coredumps without the @VM.take@; it's a shame
-  -- there's no copying of a smaller vector into a larger one in the API.
-  -- Perhaps use https://hackage.haskell.org/package/base-4.16.0.0/docs/Foreign-Marshal-Array.html#v:copyArray?
-  V.unsafeCopy (VM.take dim0 rMap0) params0Init
-  V.unsafeCopy (VM.take dim1 rMap1) params1Init
-  V.unsafeCopy (VM.take dim2 rMap2) params2Init
-  V.unsafeCopy (VM.take dimX rMapX) paramsXInit
+  rMap2 :: Data.Vector.Mutable.MVector s (Matrix r)
+    <- VM.replicate (VM.length outerFinMap2) (HM.fromRows [])
   let eval0 :: Delta0 r -> ST s r
       eval0 Zero0 = return 0
       eval0 (Input0 (DeltaId i)) =
         if i < dim0
-        then VM.read rMap0 i
+        then return $! params0Init V.! i
         else error "derivativeFromDelta.eval': wrong index for an input"
       eval0 (Delta0 n d) = do
         -- This is too complex, but uses components already defined
@@ -840,7 +850,7 @@ buildDerivative dim0 dim1 dim2 dimX st deltaTopLevel
       eval1 Zero1 = return 0
       eval1 (Input1 (DeltaId i)) =
         if i < dim1
-        then VM.read rMap1 i
+        then return $! params1Init V.! i
         else error "derivativeFromDelta.eval': wrong index for an input"
       eval1 (Delta1 n d) = do
         old <- VM.read dMap n
@@ -886,7 +896,7 @@ buildDerivative dim0 dim1 dim2 dimX st deltaTopLevel
       eval2 Zero2 = return 0
       eval2 (Input2 (DeltaId i)) =
         if i < dim2
-        then VM.read rMap2 i
+        then return $! params2Init V.! i
         else error "derivativeFromDelta.eval': wrong index for an input"
       eval2 (Delta2 n d) = do
         old <- VM.read dMap n
@@ -946,7 +956,7 @@ buildDerivative dim0 dim1 dim2 dimX st deltaTopLevel
       evalX ZeroX = return 0
       evalX (InputX (DeltaId i)) =
         if i < dimX
-        then VM.read rMapX i
+        then return $! paramsXInit V.! i
         else error "derivativeFromDelta.eval': wrong index for an input"
       evalX (DeltaX n d) = do
         old <- VM.read dMap n
@@ -991,7 +1001,7 @@ buildDerivative dim0 dim1 dim2 dimX st deltaTopLevel
       evalS ZeroS = return 0
       evalS (InputS (DeltaId i)) =
         if i < dimX
-        then Data.Array.Convert.convert <$> VM.read rMapX i
+        then return $! Data.Array.Convert.convert $ paramsXInit V.! i
         else error "derivativeFromDelta.eval': wrong index for an input"
       evalS (DeltaS n d) = do
         old <- VM.read dMap n
