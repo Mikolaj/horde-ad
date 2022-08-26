@@ -498,8 +498,8 @@ buildFinMaps dim0 dim1 dim2 dimX counters deltaTopLevel dt = do
             return did
           Nothing -> do
             did <- readSTRef ref0
-            writeSTRef ref0 (succDeltaId did)
-            writeSTRef dMap $ IM.insert n (DeltaBinding0 did d) im
+            writeSTRef ref0 $! succDeltaId did
+            writeSTRef dMap $! IM.insert n (DeltaBinding0 did d) im
             return did
           _ -> error "buildFinMaps: corrupted dMap"
         VM.modify rMap0 (+ r) i
@@ -537,8 +537,8 @@ buildFinMaps dim0 dim1 dim2 dimX counters deltaTopLevel dt = do
             return did
           Nothing -> do
             did <- readSTRef ref1
-            writeSTRef ref1 (succDeltaId did)
-            writeSTRef dMap $ IM.insert n (DeltaBinding1 did d) im
+            writeSTRef ref1 $! succDeltaId did
+            writeSTRef dMap $! IM.insert n (DeltaBinding1 did d) im
             return did
           _ -> error "buildFinMaps: corrupted dMap"
         VM.modify rMap1 (addToVector r) i
@@ -582,8 +582,8 @@ buildFinMaps dim0 dim1 dim2 dimX counters deltaTopLevel dt = do
             return did
           Nothing -> do
             did <- readSTRef ref2
-            writeSTRef ref2 (succDeltaId did)
-            writeSTRef dMap $ IM.insert n (DeltaBinding2 did d) im
+            writeSTRef ref2 $! succDeltaId did
+            writeSTRef dMap $! IM.insert n (DeltaBinding2 did d) im
             return did
           _ -> error "buildFinMaps: corrupted dMap"
         VM.modify rMap2 (addToMO r) i
@@ -648,8 +648,8 @@ buildFinMaps dim0 dim1 dim2 dimX counters deltaTopLevel dt = do
             return did
           Nothing -> do
             did <- readSTRef refX
-            writeSTRef refX (succDeltaId did)
-            writeSTRef dMap $ IM.insert n (DeltaBindingX did d) im
+            writeSTRef refX $! succDeltaId did
+            writeSTRef dMap $! IM.insert n (DeltaBindingX did d) im
             return did
           _ -> error "buildFinMaps: corrupted dMap"
         VM.modify rMapX (addToArray r) i
@@ -702,8 +702,8 @@ buildFinMaps dim0 dim1 dim2 dimX counters deltaTopLevel dt = do
             return did
           Nothing -> do
             did <- readSTRef refX
-            writeSTRef refX (succDeltaId did)
-            writeSTRef dMap $ IM.insert n (DeltaBindingS did d) im
+            writeSTRef refX $! succDeltaId did
+            writeSTRef dMap $! IM.insert n (DeltaBindingS did d) im
             return did
           _ -> error "buildFinMaps: corrupted dMap"
         VM.modify rMapX (addToArrayS r) i
@@ -768,7 +768,7 @@ buildFinMaps dim0 dim1 dim2 dimX counters deltaTopLevel dt = do
         im <- readSTRef dMap
         case IM.maxView im of
           Just (b, im2) -> do
-            writeSTRef dMap im2
+            writeSTRef dMap $! im2
             evalUnlessZero b
             evalFromdMap
           Nothing -> return ()  -- loop ends
@@ -827,8 +827,8 @@ buildDerivative dim0 dim1 dim2 dimX counters deltaTopLevel
             VM.read rMap0 i
           Nothing -> do
             did@(DeltaId i) <- readSTRef ref0
-            writeSTRef ref0 (succDeltaId did)
-            writeSTRef dMap $ IM.insert n (DeltaBinding0 did d) im
+            writeSTRef ref0 $! succDeltaId did
+            writeSTRef dMap $! IM.insert n (DeltaBinding0 did d) im
             r <- eval0' d
             VM.write rMap0 i r
             return r
@@ -859,8 +859,8 @@ buildDerivative dim0 dim1 dim2 dimX counters deltaTopLevel
             VM.read rMap1 i
           Nothing -> do
             did@(DeltaId i) <- readSTRef ref1
-            writeSTRef ref1 (succDeltaId did)
-            writeSTRef dMap $ IM.insert n (DeltaBinding1 did d) im
+            writeSTRef ref1 $! succDeltaId did
+            writeSTRef dMap $! IM.insert n (DeltaBinding1 did d) im
             r <- eval1' d
             VM.write rMap1 i r
             return r
@@ -905,8 +905,8 @@ buildDerivative dim0 dim1 dim2 dimX counters deltaTopLevel
             VM.read rMap2 i
           Nothing -> do
             did@(DeltaId i) <- readSTRef ref2
-            writeSTRef ref2 (succDeltaId did)
-            writeSTRef dMap $ IM.insert n (DeltaBinding2 did d) im
+            writeSTRef ref2 $! succDeltaId did
+            writeSTRef dMap $! IM.insert n (DeltaBinding2 did d) im
             r <- eval2' d
             VM.write rMap2 i r
             return r
@@ -965,8 +965,8 @@ buildDerivative dim0 dim1 dim2 dimX counters deltaTopLevel
             VM.read rMapX i
           Nothing -> do
             did@(DeltaId i) <- readSTRef refX
-            writeSTRef refX (succDeltaId did)
-            writeSTRef dMap $ IM.insert n (DeltaBindingX did d) im
+            writeSTRef refX $! succDeltaId did
+            writeSTRef dMap $! IM.insert n (DeltaBindingX did d) im
             r <- evalX' d
             VM.write rMapX i r
             return r
@@ -1010,8 +1010,8 @@ buildDerivative dim0 dim1 dim2 dimX counters deltaTopLevel
             Data.Array.Convert.convert <$> VM.read rMapX i
           Nothing -> do
             did@(DeltaId i) <- readSTRef refX
-            writeSTRef refX (succDeltaId did)
-            writeSTRef dMap $ IM.insert n (DeltaBindingS did d) im
+            writeSTRef refX $! succDeltaId did
+            writeSTRef dMap $! IM.insert n (DeltaBindingS did d) im
             r <- evalS' d
             VM.write rMapX i (Data.Array.Convert.convert r)
             return r
