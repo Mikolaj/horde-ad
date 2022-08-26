@@ -85,12 +85,12 @@ dReverseGeneral
 dReverseGeneral dt
                 variables@(params0, _, params1, _, params2, _, paramsX, _)
                 f = do
-  initializeCounters (params0, params1, params2, paramsX)
   let dim0 = V.length params0
       dim1 = V.length params1
       dim2 = V.length params2
       dimX = V.length paramsX
-      -- It needs to be fully evaluated before finalizing the counters,
+  initializeCounters dim0 dim1 dim2 dimX
+  let -- It needs to be fully evaluated before finalizing the counters,
       -- because it modifies the counters (via impure side-effect):
       !(D !value !d) = f variables
   counters <- finalizeCounters
@@ -121,12 +121,12 @@ dForwardGeneral
 {-# INLINE dForwardGeneral #-}
 dForwardGeneral variables@(params0, _, params1, _, params2, _, paramsX, _)
                 f ds = do
-  initializeCounters (params0, params1, params2, paramsX)
   let dim0 = V.length params0
       dim1 = V.length params1
       dim2 = V.length params2
       dimX = V.length paramsX
-      -- It needs to be fully evaluated before finalizing the counters,
+  initializeCounters dim0 dim1 dim2 dimX
+  let -- It needs to be fully evaluated before finalizing the counters,
       -- because it modifies the counters (via impure side-effect):
       !(D !value !d) = f variables
   counters <- finalizeCounters
@@ -179,8 +179,12 @@ prettyPrintDf
   => (DualNumberVariables 'DModeGradient r -> DualNumber 'DModeGradient r)
   -> Domains r
   -> IO String
-prettyPrintDf f parameters = do
-  initializeCounters parameters
+prettyPrintDf f parameters@(params0, params1, params2, paramsX) = do
+  let dim0 = V.length params0
+      dim1 = V.length params1
+      dim2 = V.length params2
+      dimX = V.length paramsX
+  initializeCounters dim0 dim1 dim2 dimX
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
       D _ deltaTopLevel = f variables
