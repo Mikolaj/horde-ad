@@ -101,7 +101,7 @@ import           HordeAd.Internal.OrthotopeOrphanInstances (liftVS2, liftVT2)
 -- to the derivative (similarly as @Input0@), but we are not even interested
 -- in what the (partial) gradient for that subterm position would be.
 data Delta0 r =
-    Delta0 Int (DeltaId r) (Delta0' r)
+    Delta0 Int (Delta0' r)
   | Zero0
   | Input0 (DeltaId r)
 data Delta0' r =
@@ -122,7 +122,7 @@ deriving instance (Show r, Numeric r) => Show (Delta0' r)
 -- | This is the grammar of delta-expressions at tensor rank 1, that is,
 -- at vector level.
 data Delta1 r =
-    Delta1 Int (DeltaId (Vector r)) (Delta1' r)
+    Delta1 Int (Delta1' r)
   | Zero1
   | Input1 (DeltaId (Vector r))
 data Delta1' r =
@@ -158,7 +158,7 @@ deriving instance (Show r, Numeric r) => Show (Delta1' r)
 -- | This is the grammar of delta-expressions at tensor rank 2, that is,
 -- at matrix level.
 data Delta2 r =
-    Delta2 Int (DeltaId (Matrix r)) (Delta2' r)
+    Delta2 Int (Delta2' r)
   | Zero2
   | Input2 (DeltaId (Matrix r))
 data Delta2' r =
@@ -196,7 +196,7 @@ deriving instance (Show r, Numeric r) => Show (Delta2' r)
 --
 -- Warning: not tested enough nor benchmarked.
 data DeltaX r =
-    DeltaX Int (DeltaId (OT.Array r)) (DeltaX' r)
+    DeltaX Int (DeltaX' r)
   | ZeroX
   | InputX (DeltaId (OT.Array r))
 data DeltaX' r =
@@ -234,7 +234,7 @@ deriving instance (Show r, Numeric r) => Show (DeltaX' r)
 --
 -- Warning: not tested enough nor benchmarked.
 data DeltaS :: [Nat] -> Type -> Type where
-  DeltaS :: Int -> DeltaId (OS.Array sh r) -> DeltaS' sh r -> DeltaS sh r
+  DeltaS :: Int -> DeltaS' sh r -> DeltaS sh r
   ZeroS :: DeltaS sh r
   InputS :: DeltaId (OS.Array sh r) -> DeltaS sh r
 data DeltaS' :: [Nat] -> Type -> Type where
@@ -479,7 +479,7 @@ buildFinMaps dim0 dim1 dim2 dimX st deltaTopLevel dt = do
       eval0 _ Zero0 = return ()
       eval0 !r (Input0 (DeltaId i)) =
         VM.modify rMap0 (+ r) i
-      eval0 !r (Delta0 n _ d) = do
+      eval0 !r (Delta0 n d) = do
         old <- VM.read dMap n
         DeltaId i <- case old of
           DeltaBinding0 did _ ->
@@ -518,7 +518,7 @@ buildFinMaps dim0 dim1 dim2 dimX st deltaTopLevel dt = do
       eval1 _ Zero1 = return ()
       eval1 !r (Input1 (DeltaId i)) =
         VM.modify rMap1 (addToVector r) i
-      eval1 !r (Delta1 n _ d) = do
+      eval1 !r (Delta1 n d) = do
         old <- VM.read dMap n
         DeltaId i <- case old of
           DeltaBinding1 did _ ->
@@ -563,7 +563,7 @@ buildFinMaps dim0 dim1 dim2 dimX st deltaTopLevel dt = do
       eval2 _ Zero2 = return ()
       eval2 !r (Input2 (DeltaId i)) =
         VM.modify rMap2 (addToMatrix r) i
-      eval2 !r (Delta2 n _ d) = do
+      eval2 !r (Delta2 n d) = do
         old <- VM.read dMap n
         DeltaId i <- case old of
           DeltaBinding2 did _ ->
@@ -629,7 +629,7 @@ buildFinMaps dim0 dim1 dim2 dimX st deltaTopLevel dt = do
       evalX _ ZeroX = return ()
       evalX !r (InputX (DeltaId i)) =
         VM.modify rMapX (addToArray r) i
-      evalX !r (DeltaX n _ d) = do
+      evalX !r (DeltaX n d) = do
         old <- VM.read dMap n
         DeltaId i <- case old of
           DeltaBindingX did _ ->
@@ -683,7 +683,7 @@ buildFinMaps dim0 dim1 dim2 dimX st deltaTopLevel dt = do
       evalS _ ZeroS = return ()
       evalS !r (InputS (DeltaId i)) =
         VM.modify rMapX (addToArrayS r) i
-      evalS !r (DeltaS n _ d) = do
+      evalS !r (DeltaS n d) = do
         old <- VM.read dMap n
         DeltaId i <- case old of
           DeltaBindingS did _ ->
@@ -730,7 +730,6 @@ buildFinMaps dim0 dim1 dim2 dimX st deltaTopLevel dt = do
                    Nothing Nothing)
                 d
         FromXS d -> evalX (Data.Array.Convert.convert r) d
-
 #endif
 
   eval0 dt deltaTopLevel
@@ -809,7 +808,7 @@ buildDerivative dim0 dim1 dim2 dimX st deltaTopLevel
         if i < dim0
         then VM.read rMap0 i
         else error "derivativeFromDelta.eval': wrong index for an input"
-      eval0 (Delta0 n _ d) = do
+      eval0 (Delta0 n d) = do
         -- This is too complex, but uses components already defined
         -- for initializeFinMaps and some of a similar code.
         old <- VM.read dMap n
@@ -843,7 +842,7 @@ buildDerivative dim0 dim1 dim2 dimX st deltaTopLevel
         if i < dim1
         then VM.read rMap1 i
         else error "derivativeFromDelta.eval': wrong index for an input"
-      eval1 (Delta1 n _ d) = do
+      eval1 (Delta1 n d) = do
         old <- VM.read dMap n
         case old of
           DeltaBinding1 (DeltaId i) _ ->
@@ -889,7 +888,7 @@ buildDerivative dim0 dim1 dim2 dimX st deltaTopLevel
         if i < dim2
         then VM.read rMap2 i
         else error "derivativeFromDelta.eval': wrong index for an input"
-      eval2 (Delta2 n _ d) = do
+      eval2 (Delta2 n d) = do
         old <- VM.read dMap n
         case old of
           DeltaBinding2 (DeltaId i) _ ->
@@ -949,7 +948,7 @@ buildDerivative dim0 dim1 dim2 dimX st deltaTopLevel
         if i < dimX
         then VM.read rMapX i
         else error "derivativeFromDelta.eval': wrong index for an input"
-      evalX (DeltaX n _ d) = do
+      evalX (DeltaX n d) = do
         old <- VM.read dMap n
         case old of
           DeltaBindingX (DeltaId i) _ ->
@@ -994,7 +993,7 @@ buildDerivative dim0 dim1 dim2 dimX st deltaTopLevel
         if i < dimX
         then Data.Array.Convert.convert <$> VM.read rMapX i
         else error "derivativeFromDelta.eval': wrong index for an input"
-      evalS (DeltaS n _ d) = do
+      evalS (DeltaS n d) = do
         old <- VM.read dMap n
         case old of
           DeltaBindingS (DeltaId i) _ ->
