@@ -603,9 +603,9 @@ unsafeGetFreshId :: MVar (DeltaId a) -> Int
 {-# NOINLINE unsafeGetFreshId #-}
 unsafeGetFreshId mvar = unsafePerformIO $ do
   i <- takeMVar mvar
+  putMVar mvar $! succDeltaId i
   n <- takeMVar unsafeGlobalCounter
   putMVar unsafeGlobalCounter $! succ n
-  putMVar mvar $! succDeltaId i
   return n
 
 -- Any modification or reading of counters should happen between
