@@ -572,9 +572,11 @@ counterUsageLock :: MVar ()
 {-# NOINLINE counterUsageLock #-}
 counterUsageLock = unsafePerformIO (newMVar ())
 
+-- Start at a large number to make tests measuring the size of pretty
+-- printed terms less fragile.
 unsafeGlobalCounter :: MVar Int
 {-# NOINLINE unsafeGlobalCounter #-}
-unsafeGlobalCounter = unsafePerformIO (newMVar 0)
+unsafeGlobalCounter = unsafePerformIO (newMVar 100000000)
 
 unsafeDeltaCounter0 :: MVar (DeltaId r)
 {-# NOINLINE unsafeDeltaCounter0 #-}
