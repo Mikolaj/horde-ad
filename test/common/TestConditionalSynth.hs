@@ -1,6 +1,4 @@
 {-# LANGUAGE DataKinds, TypeFamilies #-}
--- Needed due to unsafePerformIO:
-{-# OPTIONS_GHC -fno-full-laziness #-}
 module TestConditionalSynth (testTrees) where
 
 import Prelude

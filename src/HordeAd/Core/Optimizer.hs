@@ -1,6 +1,4 @@
 {-# LANGUAGE DataKinds, TypeFamilies #-}
--- Needed due to unsafePerformIO:
-{-# OPTIONS_GHC -fno-full-laziness #-}
 -- | A couple of gradient descent scheme implementations.
 module HordeAd.Core.Optimizer
   ( gdSimple
