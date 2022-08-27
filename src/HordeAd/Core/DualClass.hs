@@ -6,18 +6,6 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 #endif
--- Needed due to unsafePerformIO:
-{-# OPTIONS_GHC -fno-full-laziness #-}
--- TODO: Apparently -fno-cse is not needed, probably because we are fine
--- with assigning the same id to subterms that have the same structure,
--- as long as we are in the same gradient computation run.
--- And between runs, assigning same ids to the whole term is fine, too.
--- The scenario of a shared subterm in different terms/runs is apparently
--- not realized as long as we keep @-fno-full-laziness@, but we'd need
--- to write a simple test that triggers it without @-fno-full-laziness@
--- to confirm the scenario that leads to breakage and warn users against that.
--- The situations where this appears in existing tests are too complex
--- and mysterious to distill easily.
 -- | The class defining dual components of dual numbers and related classes,
 -- type families, constraints and instances. This is a low-level API
 -- used to define types and operations in "HordeAd.Core.DualNumber"
@@ -587,9 +575,8 @@ counterUsageLock = unsafePerformIO (newMVar ())
 -- but always properly from @IO@, so it guards the resource (the counter)
 -- effectively, as long as the impure accesses to the counter don't escape
 -- from the critical section (via thunks or via Haskell optimizing code
--- and moving some bits out of the critical section, hence @-fno-full-laziness@
--- to make it less likely). However, even if impurity escapes, only performance
--- is affected.
+-- and moving some bits out of the critical section. However, even
+-- if impurity escapes, only performance is affected.
 initializeCounters :: IO ()
 initializeCounters = do
   takeMVar counterUsageLock
