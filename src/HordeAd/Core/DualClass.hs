@@ -24,7 +24,7 @@ import qualified Data.Array.Dynamic as OTB
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
-import           Data.IORef (IORef, atomicModifyIORef', newIORef)
+import           Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import           Data.MonoTraversable (Element, MonoFunctor)
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
@@ -553,14 +553,14 @@ instance HasRanks 'DModeValue r where
 
 
 -- * Impure generation of fresh ids (thread-safe, admits parallel tests,
--- does not require initialization or finalization nor -fno-full-laziness
--- nor -fno-cse). The only tricky point is that smart constructors above
--- should be call-by-value to ensure proper order of identifiers of subterms.
+-- does not require -fno-full-laziness nor -fno-cse). The only tricky point
+-- is mandatory use of the smart constructors above and that any new
+-- smart constructors should be similarly call-by-value to ensure proper
+-- order of identifiers of subterms.
 
 -- Start at a large number to make tests measuring the size of pretty
--- printed terms less fragile. IORef should be consistent enough, but if
--- user programs use complex concurrency we may need to swtich to the
--- slower MVar.
+-- printed terms less fragile. IORef in safe enough with locking
+-- of the critical section, so it's better than the slower MVar.
 unsafeGlobalCounter :: IORef Int
 {-# NOINLINE unsafeGlobalCounter #-}
 unsafeGlobalCounter = unsafePerformIO (newIORef 100000000)
@@ -573,7 +573,9 @@ counterUsageLock = unsafePerformIO (newMVar ())
 -- or reading of the counter should happen between
 -- these two functions that acquire and release the lock. Make sure
 -- delta terms are fully evaluated before a call to 'finalizeCounters'
--- or it doesn't make any difference.
+-- or it doesn't make any difference. The locking permits us also
+-- to use the faster @writeIORef@ instead of @atomicModifyIORef'@.
+--
 -- Note that 'counterUsageLock' is never accessed impurely in this codebase,
 -- but always properly from @IO@, so it guards the resource (the counter)
 -- effectively, as long as the impure accesses to the counter don't escape
@@ -593,7 +595,10 @@ finalizeCounters = do
 -- and causing performance anomalies.
 unsafeGetFreshId :: IO Int
 {-# INLINE unsafeGetFreshId #-}
-unsafeGetFreshId = atomicModifyIORef' unsafeGlobalCounter $ \n -> (succ n, n)
+unsafeGetFreshId = do
+  n <- readIORef unsafeGlobalCounter
+  writeIORef unsafeGlobalCounter $! succ n
+  return n
 
 -- The following functions are the only places, except for global
 -- variable definitions, that contain `unsafePerformIO'.
