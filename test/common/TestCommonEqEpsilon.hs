@@ -5,6 +5,7 @@ module TestCommonEqEpsilon (EqEpsilon, setEpsilonEq, assertCloseElem, (@?~)) whe
 import Prelude
 import Data.Typeable
 
+import           Control.Exception
 import           Data.IORef
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Storable as VS
@@ -35,6 +36,9 @@ eqEpsilonRef = unsafePerformIO $ newIORef eqEpsilonDefault
 setEpsilonEq :: EqEpsilon -> IO ()
 setEpsilonEq (EqEpsilon x) = atomicWriteIORef eqEpsilonRef x
 
+exceptionHandler :: HUnitFailure -> IO ()
+exceptionHandler e = putStrLn $ "Hello from exceptionHandler! We got HUnitFailure: " ++ show e
+
 -- | Asserts that the specified actual floating point value is close to the expected value.
 -- The output message will contain the prefix, the expected value, and the
 -- actual value.
@@ -47,8 +51,12 @@ assertClose :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
             -> a      -- ^ The actual value
             -> Assertion
 assertClose preface expected actual = do
+  putStrLn "DEBUG-XXX-0"
   eqEpsilon <- readIORef eqEpsilonRef
-  Test.HUnit.Approx.assertApproxEqual preface (fromRational eqEpsilon) expected actual
+  putStrLn "DEBUG-XXX-1"
+  putStrLn "DEBUG-XXX-2"
+  catch (Test.HUnit.Approx.assertApproxEqual preface (fromRational eqEpsilon) expected actual) exceptionHandler
+  putStrLn "DEBUG-XXX-3"
 
 -- | Asserts that the specified actual floating point value is close to at least one of the expected values.
 assertCloseElem :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
