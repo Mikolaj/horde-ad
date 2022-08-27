@@ -1,6 +1,4 @@
 {-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
--- Needed due to unsafePerformIO:
-{-# OPTIONS_GHC -fno-full-laziness #-}
 module TestSimpleDescent (testTrees) where
 
 import Prelude

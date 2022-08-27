@@ -1,7 +1,5 @@
 {-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
--- Needed due to unsafePerformIO:
-{-# OPTIONS_GHC -fno-full-laziness #-}
 module TestSingleGradient (testTrees) where
 
 import Prelude
