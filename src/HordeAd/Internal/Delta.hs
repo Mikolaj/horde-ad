@@ -63,9 +63,7 @@ import qualified Data.Array.Internal.DynamicS
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import qualified Data.IntMap.Strict as IM
-import qualified Data.IntSet as IS
 import           Data.Kind (Type)
-import           Data.List (foldl')
 import           Data.Proxy (Proxy)
 import           Data.STRef (STRef, newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
@@ -302,14 +300,6 @@ data DeltaBinding r =
   | forall sh. OS.Shape sh
     => DeltaBindingS (DeltaId (OT.Array r)) (DeltaS' sh r)
 
-data DeltaCounters r = DeltaCounters
-  { deltaCounter0 :: DeltaId r
-  , deltaCounter1 :: DeltaId (Vector r)
-  , deltaCounter2 :: DeltaId (Matrix r)
-  , deltaCounterX :: DeltaId (OT.Array r)
-  }
-  deriving Show
-
 -- | Helper definitions to shorten type signatures.
 type Domain0 r = Vector r
 
@@ -427,7 +417,7 @@ gradientFromDelta dim0 dim1 dim2 dimX deltaTopLevel dt =
 -- via delta-expression duplication.
 initializeFinMaps
   :: forall s r. Numeric r
-  => Int -> Int -> Int -> Int -> DeltaCounters r
+  => Int -> Int -> Int -> Int
   -> ST s ( Data.Vector.Storable.Mutable.MVector s r
           , Data.Vector.Mutable.MVector s (Vector r)
           , Data.Vector.Mutable.MVector s (Matrix r)
@@ -441,11 +431,7 @@ initializeFinMaps
           , Data.Vector.Mutable.MVector s (MO.MatrixOuter r)
           , Data.Vector.Mutable.MVector s (OT.Array r)
           , STRef s (IM.IntMap (DeltaBinding r)) )
-initializeFinMaps dim0 dim1 dim2 dimX counters = do
-  let DeltaId counter0 = deltaCounter0 counters
-      DeltaId counter1 = deltaCounter1 counters
-      DeltaId counter2 = deltaCounter2 counters
-      DeltaId counterX = deltaCounterX counters
+initializeFinMaps dim0 dim1 dim2 dimX = do
   iMap0 <- VM.replicate dim0 0
   iMap1 <- VM.replicate dim1 (V.empty :: Vector r)
   iMap2 <- VM.replicate dim2 (HM.fromRows [])
@@ -455,10 +441,10 @@ initializeFinMaps dim0 dim1 dim2 dimX counters = do
   ref1 <- newSTRef (DeltaId 0)
   ref2 <- newSTRef (DeltaId 0)
   refX <- newSTRef (DeltaId 0)
-  rMap0 <- VM.replicate counter0 0  -- correct value; below are dummy values
-  rMap1 <- VM.replicate counter1 (V.empty :: Vector r)
-  rMap2 <- VM.replicate counter2 MO.emptyMatrixOuter
-  rMapX <- VM.replicate counterX dummyTensor
+  rMap0 <- VM.replicate (max 1000 dim0) 0  -- correct value; below are dummy
+  rMap1 <- VM.replicate (max 1000 dim1) (V.empty :: Vector r)
+  rMap2 <- VM.replicate (max 1000 dim2) MO.emptyMatrixOuter
+  rMapX <- VM.replicate (max 1000 dimX) dummyTensor
   dMap <- newSTRef IM.empty
   return ( iMap0, iMap1, iMap2, iMapX
          , ref0, ref1, ref2, refX
@@ -471,17 +457,14 @@ buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
                      , Data.Vector.Mutable.MVector s (Matrix r)
                      , Data.Vector.Mutable.MVector s (OT.Array r) )
 buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
-  let counters = countSubterms deltaTopLevel
   ( iMap0, iMap1, iMap2, iMapX
    ,ref0, ref1, ref2, refX
    ,rMap0, rMap1, rMap2, rMapX, dMap )
-    <- initializeFinMaps dim0 dim1 dim2 dimX counters
+    <- initializeFinMaps dim0 dim1 dim2 dimX
   let addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
       addToMatrix :: Matrix r -> Matrix r -> Matrix r
       addToMatrix r = \v -> if HM.rows v <= 0 then r else v + r
-      addToMO :: MO.MatrixOuter r -> MO.MatrixOuter r -> MO.MatrixOuter r
-      addToMO r = \v -> if MO.nullMatrixOuter v then r else MO.plus v r
       addToArray :: OT.Array r -> OT.Array r -> OT.Array r
       addToArray r = \v -> if isTensorDummy v then r else liftVT2 (+) v r
       addToArrayS :: OS.Shape sh => OS.Array sh r -> OT.Array r -> OT.Array r
@@ -495,16 +478,15 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
         VM.modify iMap0 (+ r) i
       eval0 !r (Delta0 n d) = do
         im <- readSTRef dMap
-        DeltaId i <- case IM.lookup n im of
-          Just (DeltaBinding0 did _) ->
-            return did
+        case IM.lookup n im of
+          Just (DeltaBinding0 (DeltaId i) _) ->
+            VM.modify rMap0 (+ r) i
           Nothing -> do
-            did <- readSTRef ref0
+            did@(DeltaId i) <- readSTRef ref0
             writeSTRef ref0 $! succDeltaId did
             writeSTRef dMap $! IM.insert n (DeltaBinding0 did d) im
-            return did
+            VM.write rMap0 i r
           _ -> error "buildFinMaps: corrupted dMap"
-        VM.modify rMap0 (+ r) i
       eval0' :: r -> Delta0' r -> ST s ()
       eval0' !r = \case
         Scale0 k d -> eval0 (k * r) d
@@ -534,16 +516,15 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
         VM.modify iMap1 (addToVector r) i
       eval1 !r (Delta1 n d) = do
         im <- readSTRef dMap
-        DeltaId i <- case IM.lookup n im of
-          Just (DeltaBinding1 did _) ->
-            return did
+        case IM.lookup n im of
+          Just (DeltaBinding1 (DeltaId i) _) ->
+            VM.modify rMap1 (+ r) i
           Nothing -> do
-            did <- readSTRef ref1
+            did@(DeltaId i) <- readSTRef ref1
             writeSTRef ref1 $! succDeltaId did
             writeSTRef dMap $! IM.insert n (DeltaBinding1 did d) im
-            return did
+            VM.write rMap1 i r
           _ -> error "buildFinMaps: corrupted dMap"
-        VM.modify rMap1 (addToVector r) i
       eval1' :: Vector r -> Delta1' r -> ST s ()
       eval1' !r = \case
         Scale1 k d -> eval1 (k * r) d
@@ -579,16 +560,15 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
         VM.modify iMap2 (addToMatrix $ MO.convertMatrixOuter r) i
       eval2 !r (Delta2 n d) = do
         im <- readSTRef dMap
-        DeltaId i <- case IM.lookup n im of
-          Just (DeltaBinding2 did _) ->
-            return did
+        case IM.lookup n im of
+          Just (DeltaBinding2 (DeltaId i) _) ->
+            VM.modify rMap2 (MO.plus r) i
           Nothing -> do
-            did <- readSTRef ref2
+            did@(DeltaId i) <- readSTRef ref2
             writeSTRef ref2 $! succDeltaId did
             writeSTRef dMap $! IM.insert n (DeltaBinding2 did d) im
-            return did
+            VM.write rMap2 i r
           _ -> error "buildFinMaps: corrupted dMap"
-        VM.modify rMap2 (addToMO r) i
       eval2' :: MO.MatrixOuter r -> Delta2' r -> ST s ()
       eval2' !r = \case
         Scale2 k d -> eval2 (MO.multiplyWithOuter k r) d
@@ -645,16 +625,15 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
         VM.modify iMapX (addToArray r) i
       evalX !r (DeltaX n d) = do
         im <- readSTRef dMap
-        DeltaId i <- case IM.lookup n im of
-          Just (DeltaBindingX did _) ->
-            return did
+        case IM.lookup n im of
+          Just (DeltaBindingX (DeltaId i) _) ->
+            VM.modify rMapX (liftVT2 (+) r) i
           Nothing -> do
-            did <- readSTRef refX
+            did@(DeltaId i) <- readSTRef refX
             writeSTRef refX $! succDeltaId did
             writeSTRef dMap $! IM.insert n (DeltaBindingX did d) im
-            return did
+            VM.write rMapX i r
           _ -> error "buildFinMaps: corrupted dMap"
-        VM.modify rMapX (addToArray r) i
       evalX' :: OT.Array r -> DeltaX' r -> ST s ()
       evalX' !r = \case
         ScaleX k d -> evalX (liftVT2 (*) k r) d
@@ -699,16 +678,16 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
         VM.modify iMapX (addToArrayS r) i
       evalS !r (DeltaS n d) = do
         im <- readSTRef dMap
-        DeltaId i <- case IM.lookup n im of
-          Just (DeltaBindingS did _) ->
-            return did
+        case IM.lookup n im of
+          Just (DeltaBindingS (DeltaId i) _) -> do
+            let rs = Data.Array.Convert.convert r
+            VM.modify rMapX (liftVT2 (+) rs) i
           Nothing -> do
-            did <- readSTRef refX
+            did@(DeltaId i) <- readSTRef refX
             writeSTRef refX $! succDeltaId did
             writeSTRef dMap $! IM.insert n (DeltaBindingS did d) im
-            return did
+            VM.write rMapX i (Data.Array.Convert.convert r)
           _ -> error "buildFinMaps: corrupted dMap"
-        VM.modify rMapX (addToArrayS r) i
       evalS' :: OS.Shape sh
              => OS.Array sh r -> DeltaS' sh r -> ST s ()
       evalS' !r = \case
@@ -784,141 +763,6 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
           , Data.Vector.Mutable.MVector s (Matrix Double)
           , Data.Vector.Mutable.MVector s (OT.Array Double) ) #-}
 
-data CountState r = CountState IS.IntSet (DeltaCounters r)
-
-countSubterms :: Delta0 r -> DeltaCounters r
-countSubterms deltaTopLevel =
-  let count0 :: CountState r -> Delta0 r -> CountState r
-      count0 isc@(CountState is c) (Delta0 n d) =
-        if n `IS.member` is
-        then isc
-        else count0'
-               (CountState (IS.insert n is)
-                           c {deltaCounter0 = succDeltaId (deltaCounter0 c)})
-               d
-      count0 isc _ = isc
-      count0' :: CountState r -> Delta0' r -> CountState r
-      count0' isc = \case
-        Scale0 _ d -> count0 isc d
-        Add0 d e -> count0 (count0 isc d) e
-        SumElements0 d _ -> count1 isc d
-        Index0 d _ _ -> count1 isc d
-        Dot0 _ d -> count1 isc d
-        FromX0 d -> countX isc d
-        FromS0 d -> countS isc d
-      count1 :: CountState r -> Delta1 r -> CountState r
-      count1 isc@(CountState is c) (Delta1 n d) =
-        if n `IS.member` is
-        then isc
-        else count1'
-               (CountState (IS.insert n is)
-                           c {deltaCounter1 = succDeltaId (deltaCounter1 c)})
-               d
-      count1 isc _ = isc
-      count1' :: CountState r -> Delta1' r -> CountState r
-      count1' isc = \case
-        Scale1 _ d -> count1 isc d
-        Add1 d e -> count1 (count1 isc d) e
-        Seq1 lsd -> V.foldl' (\isc2 d2 -> count0 isc2 d2) isc lsd
-        Konst1 d _ -> count0 isc d
-        Append1 d _ e -> count1 (count1 isc d) e
-        Slice1 _ _ d _ -> count1 isc d
-        SumRows1 d _ -> count2 isc d
-        SumColumns1 d _ -> count2 isc d
-        M_VD1 _ d -> count1 isc d
-        MD_V1 d _ -> count2 isc d
-        FromX1 d -> countX isc d
-        FromS1 d -> countS isc d
-        Reverse1 d -> count1 isc d
-        Flatten1 _ _ d -> count2 isc d
-        FlattenX1 _ d -> countX isc d
-        FlattenS1 d -> countS isc d
-      count2 :: CountState r -> Delta2 r -> CountState r
-      count2 isc@(CountState is c) (Delta2 n d) =
-        if n `IS.member` is
-        then isc
-        else count2'
-               (CountState (IS.insert n is)
-                           c {deltaCounter2 = succDeltaId (deltaCounter2 c)})
-               d
-      count2 isc _ = isc
-      count2' :: CountState r -> Delta2' r -> CountState r
-      count2' isc = \case
-        Scale2 _ d -> count2 isc d
-        Add2 d e -> count2 (count2 isc d) e
-        FromRows2 lvd -> V.foldl' (\isc2 d2 -> count1 isc2 d2) isc lvd
-        FromColumns2 lvd -> V.foldl' (\isc2 d2 -> count1 isc2 d2) isc lvd
-        Konst2 d _ -> count0 isc d
-        Transpose2 d -> count2 isc d
-        M_MD2 _ d -> count2 isc d
-        MD_M2 d _ -> count2 isc d
-        RowAppend2 d _ e -> count2 (count2 isc d) e
-        ColumnAppend2 d _ e -> count2 (count2 isc d) e
-        RowSlice2 _ _ d _ -> count2 isc d
-        ColumnSlice2 _ _ d _ -> count2 isc d
-        AsRow2 d -> count1 isc d
-        AsColumn2 d -> count1 isc d
-        FromX2 d -> countX isc d
-        FromS2 d -> countS isc d
-        Flipud2 d -> count2 isc d
-        Fliprl2 d -> count2 isc d
-        Reshape2 _ d -> count1 isc d
-        Conv2 _ d -> count2 isc d
-      countX :: CountState r -> DeltaX r -> CountState r
-      countX isc@(CountState is c) (DeltaX n d) =
-        if n `IS.member` is
-        then isc
-        else countX'
-               (CountState (IS.insert n is)
-                           c {deltaCounterX = succDeltaId (deltaCounterX c)})
-               d
-      countX isc _ = isc
-      countX' :: CountState r -> DeltaX' r -> CountState r
-      countX' isc = \case
-        ScaleX _ d -> countX isc d
-        AddX d e -> countX (countX isc d) e
-        KonstX d _ -> count0 isc d
-        AppendX d _ e -> countX (countX isc d) e
-        SliceX _ _ d _ -> countX isc d
-        IndexX d _ _ -> countX isc d
-        RavelFromListX ld -> foldl' (\isc2 d2 -> countX isc2 d2) isc ld
-        ReshapeX _ _ d -> countX isc d
-        From0X d -> count0 isc d
-        From1X d -> count1 isc d
-        From2X d _ -> count2 isc d
-        FromSX d -> countS isc d
-      countS :: OS.Shape sh => CountState r -> DeltaS sh r -> CountState r
-      countS isc@(CountState is c) (DeltaS n d) =
-        if n `IS.member` is
-        then isc
-        else countS'
-               (CountState (IS.insert n is)
-                           c {deltaCounterX = succDeltaId (deltaCounterX c)})
-               d
-      countS isc _ = isc
-      countS' :: OS.Shape sh => CountState r -> DeltaS' sh r -> CountState r
-      countS' isc = \case
-        ScaleS _ d -> countS isc d
-        AddS d e -> countS (countS isc d) e
-        KonstS d -> count0 isc d
-        AppendS d e -> countS (countS isc d) e
-        SliceS _ _ d -> countS isc d
-        IndexS d _ -> countS isc d
-        RavelFromListS ld -> foldl' (\isc2 d2 -> countS isc2 d2) isc ld
-        ReshapeS d -> countS isc d
-        From0S d -> count0 isc d
-        From1S d -> count1 isc d
-        From2S _ d -> count2 isc d
-        FromXS d -> countX isc d
-      zeroCounters = DeltaCounters { deltaCounter0 = DeltaId 0
-                                   , deltaCounter1 = DeltaId 0
-                                   , deltaCounter2 = DeltaId 0
-                                   , deltaCounterX = DeltaId 0
-                                   }
-      CountState _ counters =
-        count0 (CountState IS.empty zeroCounters) deltaTopLevel
-  in counters
-
 -- | Forward derivative computation via forward-evaluation of delta-expressions
 -- (which is surprisingly competitive to the direct forward method,
 -- until the allocation of deltas gets large enough to affect cache hits).
@@ -942,11 +786,10 @@ buildDerivative
   -> ST s r
 buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
                 (params0Init, params1Init, params2Init, paramsXInit) = do
-  let counters = countSubterms deltaTopLevel
   ( _, _, _, _
    ,ref0, ref1, ref2, refX
    ,rMap0, rMap1, outerFinMap2, rMapX, dMap )
-    <- initializeFinMaps dim0 dim1 dim2 dimX counters
+    <- initializeFinMaps dim0 dim1 dim2 dimX
   -- We use normal hmatrix matrices rather than the sparse replacement.
   rMap2 :: Data.Vector.Mutable.MVector s (Matrix r)
     <- VM.replicate (VM.length outerFinMap2) (HM.fromRows [])
