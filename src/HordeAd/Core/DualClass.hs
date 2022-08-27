@@ -30,8 +30,7 @@ module HordeAd.Core.DualClass
 
 import Prelude
 
-import           Control.Concurrent.MVar
-  (MVar, newEmptyMVar, newMVar, putMVar, takeMVar)
+import           Control.Concurrent.MVar (MVar, newMVar, putMVar, takeMVar)
 import qualified Data.Array.Convert
 import qualified Data.Array.Dynamic as OTB
 import qualified Data.Array.DynamicS as OT
@@ -564,13 +563,10 @@ instance HasRanks 'DModeValue r where
 #endif
 
 
--- * Impure generation of fresh ids (thread-safe, but only one critical
--- section that modifies the counters can run at a time, initialized
--- and eventually finalized, guarded by a lock; it's also fully re-entrant)
-
-counterUsageLock :: MVar ()
-{-# NOINLINE counterUsageLock #-}
-counterUsageLock = unsafePerformIO (newMVar ())
+-- * Impure generation of fresh ids (thread-safe, admits parallel tests,
+-- does not require initialization or finalization nor -fno-full-laziness
+-- nor -fno-cse). The only tricky point is that smart constructors above
+-- should be call-by-value to ensure proper order of identifiers of subterms.
 
 -- Start at a large number to make tests measuring the size of pretty
 -- printed terms less fragile.
@@ -578,88 +574,68 @@ unsafeGlobalCounter :: MVar Int
 {-# NOINLINE unsafeGlobalCounter #-}
 unsafeGlobalCounter = unsafePerformIO (newMVar 100000000)
 
-unsafeDeltaCounter0 :: MVar (DeltaId r)
-{-# NOINLINE unsafeDeltaCounter0 #-}
-unsafeDeltaCounter0 = unsafePerformIO newEmptyMVar
+counterUsageLock :: MVar ()
+{-# NOINLINE counterUsageLock #-}
+counterUsageLock = unsafePerformIO (newMVar ())
 
-unsafeDeltaCounter1 :: MVar (DeltaId (Vector r))
-{-# NOINLINE unsafeDeltaCounter1 #-}
-unsafeDeltaCounter1 = unsafePerformIO newEmptyMVar
+-- To avoid @counterUsageLock@ contention, any modification
+-- or reading of the counter should happen between
+-- these two functions that acquire and release the lock. Make sure
+-- delta terms are fully evaluated before a call to 'finalizeCounters'
+-- or it doesn't make any difference.
+-- Note that 'counterUsageLock' is never accessed impurely in this codebase,
+-- but always properly from @IO@, so it guards the resource (the counter)
+-- effectively, as long as the impure accesses to the counter don't escape
+-- from the critical section (via thunks or via Haskell optimizing code
+-- and moving some bits out of the critical section, hence @-fno-full-laziness@
+-- to make it less likely). However, even if impurity escapes, only performance
+-- is affected.
+initializeCounters :: IO ()
+initializeCounters = do
+  takeMVar counterUsageLock
 
-unsafeDeltaCounter2 :: MVar (DeltaId (Matrix r))
-{-# NOINLINE unsafeDeltaCounter2 #-}
-unsafeDeltaCounter2 = unsafePerformIO newEmptyMVar
+finalizeCounters :: IO ()
+finalizeCounters = do
+  putMVar counterUsageLock ()
 
-unsafeDeltaCounterX :: MVar (DeltaId (OT.Array r))
-{-# NOINLINE unsafeDeltaCounterX #-}
-unsafeDeltaCounterX = unsafePerformIO newEmptyMVar
-
--- The following three are the only operations directly touching the counters.
--- This function is the only one, except for global variable definitions,
--- that contains `unsafePerformIO'.
-unsafeGetFreshId :: MVar (DeltaId a) -> Int
-{-# NOINLINE unsafeGetFreshId #-}
-unsafeGetFreshId mvar = unsafePerformIO $ do
-  i <- takeMVar mvar
-  putMVar mvar $! succDeltaId i
+-- This is the only operation directly touching the counter.
+-- It's manually inlined to prevent random GHCs deciding otherwise
+-- and causing performance anomalies.
+unsafeGetFreshId :: IO Int
+{-# INLINE unsafeGetFreshId #-}
+unsafeGetFreshId = do
   n <- takeMVar unsafeGlobalCounter
   putMVar unsafeGlobalCounter $! succ n
   return n
 
--- Any modification or reading of counters should happen between
--- these two functions and so they acquire and release the lock
--- to permit parallel execution of gradient computation (because
--- only the delta term creation is a critical section). Make sure
--- delta terms are fully evaluated before a call to 'finalizeCounters'.
--- Note that 'counterUsageLock' is never accessed impurely in this codebase,
--- but always properly from @IO@, so it guards the resource (the counters)
--- effectively, as long as the impure accesses to counters don't escape
--- from the critical section (via thunks or via Haskell optimizing code
--- and moving some bits out of the critical section, hence @-fno-full-laziness@
--- to make it less likely).
-initializeCounters :: IO ()
-initializeCounters = do
-  takeMVar counterUsageLock
-  putMVar unsafeDeltaCounter0 $ toDeltaId 0
-  putMVar unsafeDeltaCounter1 $ toDeltaId 0
-  putMVar unsafeDeltaCounter2 $ toDeltaId 0
-  putMVar unsafeDeltaCounterX $ toDeltaId 0
-
-finalizeCounters :: IO (DeltaCounters r)
-finalizeCounters = do
-  deltaCounter0 <- takeMVar unsafeDeltaCounter0
-  deltaCounter1 <- takeMVar unsafeDeltaCounter1
-  deltaCounter2 <- takeMVar unsafeDeltaCounter2
-  deltaCounterX <- takeMVar unsafeDeltaCounterX
-  putMVar counterUsageLock ()
-  return DeltaCounters{..}
-
+-- The following functions are the only places, except for global
+-- variable definitions, that contain `unsafePerformIO'.
 wrapDelta0 :: Delta0' r -> Delta0 r
 {-# NOINLINE wrapDelta0 #-}
-wrapDelta0 !d =
-  let !n = unsafeGetFreshId unsafeDeltaCounter0
-  in Delta0 n d
+wrapDelta0 !d = unsafePerformIO $ do
+  n <- unsafeGetFreshId
+  return $! Delta0 n d
 
 wrapDelta1 :: Delta1' r -> Delta1 r
 {-# NOINLINE wrapDelta1 #-}
-wrapDelta1 !d =
-  let !n = unsafeGetFreshId unsafeDeltaCounter1
-  in Delta1 n d
+wrapDelta1 !d = unsafePerformIO $ do
+  n <- unsafeGetFreshId
+  return $! Delta1 n d
 
 wrapDelta2 :: Delta2' r -> Delta2 r
 {-# NOINLINE wrapDelta2 #-}
-wrapDelta2 !d =
-  let !n = unsafeGetFreshId unsafeDeltaCounter2
-  in Delta2 n d
+wrapDelta2 !d = unsafePerformIO $ do
+  n <- unsafeGetFreshId
+  return $! Delta2 n d
 
 wrapDeltaX :: DeltaX' r -> DeltaX r
 {-# NOINLINE wrapDeltaX #-}
-wrapDeltaX !d =
-  let !n = unsafeGetFreshId unsafeDeltaCounterX
-  in DeltaX n d
+wrapDeltaX !d = unsafePerformIO $ do
+  n <- unsafeGetFreshId
+  return $! DeltaX n d
 
 wrapDeltaS :: DeltaS' sh r -> DeltaS sh r
 {-# NOINLINE wrapDeltaS #-}
-wrapDeltaS !d =
-  let !n = unsafeGetFreshId unsafeDeltaCounterX  -- not S!
-  in DeltaS n d
+wrapDeltaS !d = unsafePerformIO $ do
+  n <- unsafeGetFreshId
+  return $! DeltaS n d

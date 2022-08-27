@@ -18,7 +18,6 @@ module HordeAd.Core.Engine
 import Prelude
 
 import qualified Data.Array.DynamicS as OT
-import           Data.Functor (void)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
@@ -90,11 +89,11 @@ dReverseGeneral dt
       dim1 = V.length params1
       dim2 = V.length params2
       dimX = V.length paramsX
-      -- It needs to be fully evaluated before finalizing the counters,
-      -- because it modifies the counters (via impure side-effect):
+      -- This needs to be fully evaluated before finalizing the counters,
+      -- for the locking to have any effect.
       !(D !value !d) = f variables
-  counters <- finalizeCounters
-  let gradient = gradientFromDelta dim0 dim1 dim2 dimX counters d dt
+  finalizeCounters
+  let gradient = gradientFromDelta dim0 dim1 dim2 dimX d dt
   return (gradient, value)
 
 dReverse
@@ -109,9 +108,10 @@ dReverse dt f parameters = do
   dReverseGeneral dt variables f
 
 
--- * The fully-fledged but slow evaluation for derivatives that uses
--- the same delta expressions as for gradients. See @dFastForwardGeneral@
+-- * The slow evaluation for derivatives that uses the same
+-- delta expressions as for gradients. See @dFastForwardGeneral@
 -- for an efficient variant.
+
 dForwardGeneral
   :: forall r. HasDelta r
   => DualNumberVariables 'DModeGradient r
@@ -126,11 +126,11 @@ dForwardGeneral variables@(params0, _, params1, _, params2, _, paramsX, _)
       dim1 = V.length params1
       dim2 = V.length params2
       dimX = V.length paramsX
-      -- It needs to be fully evaluated before finalizing the counters,
-      -- because it modifies the counters (via impure side-effect):
+      -- This needs to be fully evaluated before finalizing the counters,
+      -- for the locking to have any effect.
       !(D !value !d) = f variables
-  counters <- finalizeCounters
-  let derivative = derivativeFromDelta dim0 dim1 dim2 dimX counters d ds
+  finalizeCounters
+  let derivative = derivativeFromDelta dim0 dim1 dim2 dimX d ds
   return (derivative, value)
 
 -- The direction vector ds is taken as an extra argument.
@@ -185,10 +185,10 @@ prettyPrintDf f parameters = do
       variables = makeDualNumberVariables parameters varDeltas
       D _ deltaTopLevel = f variables
       s = ppShow deltaTopLevel
-      -- It needs to be fully evaluated before finalizing the counters,
-      -- because it modifies the counters (via impure side-effect):
+      -- This needs to be fully evaluated before finalizing the counters,
+      -- for the locking to have any effect.
       !_ = length s
-  void finalizeCounters
+  finalizeCounters
   return s
 
 generateDeltaVars
