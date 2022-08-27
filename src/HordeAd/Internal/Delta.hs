@@ -42,10 +42,9 @@ module HordeAd.Internal.Delta
   , DeltaX (..), DeltaX' (..)
   , DeltaS (..), DeltaS' (..)
   , -- * Delta expression identifiers
-    DeltaId, toDeltaId, convertDeltaId, succDeltaId
+    DeltaId, toDeltaId, convertDeltaId
   , -- * Evaluation of the delta expressions
-    DeltaCounters (..)
-  , Domain0, Domain1, Domain2, DomainX, Domains
+    Domain0, Domain1, Domain2, DomainX, Domains
   , gradientFromDelta, derivativeFromDelta
   , isTensorDummy
   ) where
@@ -396,16 +395,16 @@ type Domains r = (Domain0 r, Domain1 r, Domain2 r, DomainX r)
 -- to perturbation @dt@ (usually set to @1@) in the last argument.
 gradientFromDelta
   :: (Eq r, Numeric r, Num (Vector r))
-  => Int -> Int -> Int -> Int -> DeltaCounters r -> Delta0 r -> r
+  => Int -> Int -> Int -> Int -> Delta0 r -> r
   -> Domains r
-gradientFromDelta dim0 dim1 dim2 dimX counters deltaTopLevel dt =
--- traceShow (dim0, dim1, dim2, dimX, counters) $
+gradientFromDelta dim0 dim1 dim2 dimX deltaTopLevel dt =
+-- traceShow (dim0, dim1, dim2, dimX) $
   -- This is morally @V.create@ and so totally safe,
   -- but we can't just call @V.create@ thrice, because it would run
   -- the @ST@ action thrice, so we inline and extend @V.create@ here.
   runST $ do
     (iMap0, iMap1, iMap2, iMapX)
-      <- buildFinMaps dim0 dim1 dim2 dimX counters deltaTopLevel dt
+      <- buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt
     v0 <- V.unsafeFreeze iMap0
     v1 <- V.unsafeFreeze iMap1
     v2 <- V.unsafeFreeze iMap2
@@ -414,7 +413,7 @@ gradientFromDelta dim0 dim1 dim2 dimX counters deltaTopLevel dt =
     -- that is not discarded.
     return (v0, v1, v2, vX)
 {-# SPECIALIZE gradientFromDelta
-  :: Int -> Int -> Int -> Int -> DeltaCounters Double -> Delta0 Double -> Double
+  :: Int -> Int -> Int -> Int -> Delta0 Double -> Double
   -> Domains Double #-}
 
 -- | Create vectors (representing finite maps) that hold delta-variable
@@ -466,12 +465,12 @@ initializeFinMaps dim0 dim1 dim2 dimX counters = do
          , rMap0, rMap1, rMap2, rMapX, dMap )
 
 buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
-             => Int -> Int -> Int -> Int -> DeltaCounters r -> Delta0 r -> r
+             => Int -> Int -> Int -> Int -> Delta0 r -> r
              -> ST s ( Data.Vector.Storable.Mutable.MVector s r
                      , Data.Vector.Mutable.MVector s (Vector r)
                      , Data.Vector.Mutable.MVector s (Matrix r)
                      , Data.Vector.Mutable.MVector s (OT.Array r) )
-buildFinMaps dim0 dim1 dim2 dimX _counters deltaTopLevel dt = do
+buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
   let counters = countSubterms deltaTopLevel
   ( iMap0, iMap1, iMap2, iMapX
    ,ref0, ref1, ref2, refX
@@ -779,7 +778,7 @@ buildFinMaps dim0 dim1 dim2 dimX _counters deltaTopLevel dt = do
 
   return (iMap0, iMap1, iMap2, iMapX)
 {-# SPECIALIZE buildFinMaps
-  :: Int -> Int -> Int -> Int -> DeltaCounters Double -> Delta0 Double -> Double
+  :: Int -> Int -> Int -> Int -> Delta0 Double -> Double
   -> ST s ( Data.Vector.Storable.Mutable.MVector s Double
           , Data.Vector.Mutable.MVector s (Vector Double)
           , Data.Vector.Mutable.MVector s (Matrix Double)
@@ -930,18 +929,18 @@ countSubterms deltaTopLevel =
 -- given in the last parameter called @ds@.
 derivativeFromDelta
   :: forall r. (Numeric r, Num (Vector r))
-  => Int -> Int -> Int -> Int -> DeltaCounters r -> Delta0 r -> Domains r -> r
-derivativeFromDelta dim0 dim1 dim2 dimX counters deltaTopLevel ds =
-  runST $ buildDerivative dim0 dim1 dim2 dimX counters deltaTopLevel ds
+  => Int -> Int -> Int -> Int -> Delta0 r -> Domains r -> r
+derivativeFromDelta dim0 dim1 dim2 dimX deltaTopLevel ds =
+  runST $ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel ds
 
 -- | This mimics 'initializeFinMaps', but in reverse. Perhaps this can be
 -- simplified, but at least the simplest formulation does not honour sharing,
 -- evaluating shared subexpressions repeatedly.
 buildDerivative
   :: forall s r. (Numeric r, Num (Vector r))
-  => Int -> Int -> Int -> Int -> DeltaCounters r -> Delta0 r -> Domains r
+  => Int -> Int -> Int -> Int -> Delta0 r -> Domains r
   -> ST s r
-buildDerivative dim0 dim1 dim2 dimX _counters deltaTopLevel
+buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
                 (params0Init, params1Init, params2Init, paramsXInit) = do
   let counters = countSubterms deltaTopLevel
   ( _, _, _, _
