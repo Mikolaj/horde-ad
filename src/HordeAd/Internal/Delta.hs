@@ -64,7 +64,9 @@ import qualified Data.Array.Internal.DynamicS
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import qualified Data.IntMap.Strict as IM
+import qualified Data.IntSet as IS
 import           Data.Kind (Type)
+import           Data.List (foldl')
 import           Data.Proxy (Proxy)
 import           Data.STRef (STRef, newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
@@ -469,7 +471,8 @@ buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
                      , Data.Vector.Mutable.MVector s (Vector r)
                      , Data.Vector.Mutable.MVector s (Matrix r)
                      , Data.Vector.Mutable.MVector s (OT.Array r) )
-buildFinMaps dim0 dim1 dim2 dimX counters deltaTopLevel dt = do
+buildFinMaps dim0 dim1 dim2 dimX _counters deltaTopLevel dt = do
+  let counters = countSubterms deltaTopLevel
   ( iMap0, iMap1, iMap2, iMapX
    ,ref0, ref1, ref2, refX
    ,rMap0, rMap1, rMap2, rMapX, dMap )
@@ -782,6 +785,141 @@ buildFinMaps dim0 dim1 dim2 dimX counters deltaTopLevel dt = do
           , Data.Vector.Mutable.MVector s (Matrix Double)
           , Data.Vector.Mutable.MVector s (OT.Array Double) ) #-}
 
+data CountState r = CountState IS.IntSet (DeltaCounters r)
+
+countSubterms :: Delta0 r -> DeltaCounters r
+countSubterms deltaTopLevel =
+  let count0 :: CountState r -> Delta0 r -> CountState r
+      count0 isc@(CountState is c) (Delta0 n d) =
+        if n `IS.member` is
+        then isc
+        else count0'
+               (CountState (IS.insert n is)
+                           c {deltaCounter0 = succDeltaId (deltaCounter0 c)})
+               d
+      count0 isc _ = isc
+      count0' :: CountState r -> Delta0' r -> CountState r
+      count0' isc = \case
+        Scale0 _ d -> count0 isc d
+        Add0 d e -> count0 (count0 isc d) e
+        SumElements0 d _ -> count1 isc d
+        Index0 d _ _ -> count1 isc d
+        Dot0 _ d -> count1 isc d
+        FromX0 d -> countX isc d
+        FromS0 d -> countS isc d
+      count1 :: CountState r -> Delta1 r -> CountState r
+      count1 isc@(CountState is c) (Delta1 n d) =
+        if n `IS.member` is
+        then isc
+        else count1'
+               (CountState (IS.insert n is)
+                           c {deltaCounter1 = succDeltaId (deltaCounter1 c)})
+               d
+      count1 isc _ = isc
+      count1' :: CountState r -> Delta1' r -> CountState r
+      count1' isc = \case
+        Scale1 _ d -> count1 isc d
+        Add1 d e -> count1 (count1 isc d) e
+        Seq1 lsd -> V.foldl' (\isc2 d2 -> count0 isc2 d2) isc lsd
+        Konst1 d _ -> count0 isc d
+        Append1 d _ e -> count1 (count1 isc d) e
+        Slice1 _ _ d _ -> count1 isc d
+        SumRows1 d _ -> count2 isc d
+        SumColumns1 d _ -> count2 isc d
+        M_VD1 _ d -> count1 isc d
+        MD_V1 d _ -> count2 isc d
+        FromX1 d -> countX isc d
+        FromS1 d -> countS isc d
+        Reverse1 d -> count1 isc d
+        Flatten1 _ _ d -> count2 isc d
+        FlattenX1 _ d -> countX isc d
+        FlattenS1 d -> countS isc d
+      count2 :: CountState r -> Delta2 r -> CountState r
+      count2 isc@(CountState is c) (Delta2 n d) =
+        if n `IS.member` is
+        then isc
+        else count2'
+               (CountState (IS.insert n is)
+                           c {deltaCounter2 = succDeltaId (deltaCounter2 c)})
+               d
+      count2 isc _ = isc
+      count2' :: CountState r -> Delta2' r -> CountState r
+      count2' isc = \case
+        Scale2 _ d -> count2 isc d
+        Add2 d e -> count2 (count2 isc d) e
+        FromRows2 lvd -> V.foldl' (\isc2 d2 -> count1 isc2 d2) isc lvd
+        FromColumns2 lvd -> V.foldl' (\isc2 d2 -> count1 isc2 d2) isc lvd
+        Konst2 d _ -> count0 isc d
+        Transpose2 d -> count2 isc d
+        M_MD2 _ d -> count2 isc d
+        MD_M2 d _ -> count2 isc d
+        RowAppend2 d _ e -> count2 (count2 isc d) e
+        ColumnAppend2 d _ e -> count2 (count2 isc d) e
+        RowSlice2 _ _ d _ -> count2 isc d
+        ColumnSlice2 _ _ d _ -> count2 isc d
+        AsRow2 d -> count1 isc d
+        AsColumn2 d -> count1 isc d
+        FromX2 d -> countX isc d
+        FromS2 d -> countS isc d
+        Flipud2 d -> count2 isc d
+        Fliprl2 d -> count2 isc d
+        Reshape2 _ d -> count1 isc d
+        Conv2 _ d -> count2 isc d
+      countX :: CountState r -> DeltaX r -> CountState r
+      countX isc@(CountState is c) (DeltaX n d) =
+        if n `IS.member` is
+        then isc
+        else countX'
+               (CountState (IS.insert n is)
+                           c {deltaCounterX = succDeltaId (deltaCounterX c)})
+               d
+      countX isc _ = isc
+      countX' :: CountState r -> DeltaX' r -> CountState r
+      countX' isc = \case
+        ScaleX _ d -> countX isc d
+        AddX d e -> countX (countX isc d) e
+        KonstX d _ -> count0 isc d
+        AppendX d _ e -> countX (countX isc d) e
+        SliceX _ _ d _ -> countX isc d
+        IndexX d _ _ -> countX isc d
+        RavelFromListX ld -> foldl' (\isc2 d2 -> countX isc2 d2) isc ld
+        ReshapeX _ _ d -> countX isc d
+        From0X d -> count0 isc d
+        From1X d -> count1 isc d
+        From2X d _ -> count2 isc d
+        FromSX d -> countS isc d
+      countS :: OS.Shape sh => CountState r -> DeltaS sh r -> CountState r
+      countS isc@(CountState is c) (DeltaS n d) =
+        if n `IS.member` is
+        then isc
+        else countS'
+               (CountState (IS.insert n is)
+                           c {deltaCounterX = succDeltaId (deltaCounterX c)})
+               d
+      countS isc _ = isc
+      countS' :: OS.Shape sh => CountState r -> DeltaS' sh r -> CountState r
+      countS' isc = \case
+        ScaleS _ d -> countS isc d
+        AddS d e -> countS (countS isc d) e
+        KonstS d -> count0 isc d
+        AppendS d e -> countS (countS isc d) e
+        SliceS _ _ d -> countS isc d
+        IndexS d _ -> countS isc d
+        RavelFromListS ld -> foldl' (\isc2 d2 -> countS isc2 d2) isc ld
+        ReshapeS d -> countS isc d
+        From0S d -> count0 isc d
+        From1S d -> count1 isc d
+        From2S _ d -> count2 isc d
+        FromXS d -> countX isc d
+      zeroCounters = DeltaCounters { deltaCounter0 = DeltaId 0
+                                   , deltaCounter1 = DeltaId 0
+                                   , deltaCounter2 = DeltaId 0
+                                   , deltaCounterX = DeltaId 0
+                                   }
+      CountState _ counters =
+        count0 (CountState IS.empty zeroCounters) deltaTopLevel
+  in counters
+
 -- | Forward derivative computation via forward-evaluation of delta-expressions
 -- (which is surprisingly competitive to the direct forward method,
 -- until the allocation of deltas gets large enough to affect cache hits).
@@ -803,8 +941,9 @@ buildDerivative
   :: forall s r. (Numeric r, Num (Vector r))
   => Int -> Int -> Int -> Int -> DeltaCounters r -> Delta0 r -> Domains r
   -> ST s r
-buildDerivative dim0 dim1 dim2 dimX counters deltaTopLevel
+buildDerivative dim0 dim1 dim2 dimX _counters deltaTopLevel
                 (params0Init, params1Init, params2Init, paramsXInit) = do
+  let counters = countSubterms deltaTopLevel
   ( _, _, _, _
    ,ref0, ref1, ref2, refX
    ,rMap0, rMap1, outerFinMap2, rMapX, dMap )
