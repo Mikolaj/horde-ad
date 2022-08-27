@@ -24,6 +24,7 @@ import qualified Data.Array.Dynamic as OTB
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
+import           Data.IORef (IORef, atomicModifyIORef', newIORef)
 import           Data.MonoTraversable (Element, MonoFunctor)
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
@@ -557,10 +558,12 @@ instance HasRanks 'DModeValue r where
 -- should be call-by-value to ensure proper order of identifiers of subterms.
 
 -- Start at a large number to make tests measuring the size of pretty
--- printed terms less fragile.
-unsafeGlobalCounter :: MVar Int
+-- printed terms less fragile. IORef should be consistent enough, but if
+-- user programs use complex concurrency we may need to swtich to the
+-- slower MVar.
+unsafeGlobalCounter :: IORef Int
 {-# NOINLINE unsafeGlobalCounter #-}
-unsafeGlobalCounter = unsafePerformIO (newMVar 100000000)
+unsafeGlobalCounter = unsafePerformIO (newIORef 100000000)
 
 counterUsageLock :: MVar ()
 {-# NOINLINE counterUsageLock #-}
@@ -590,10 +593,7 @@ finalizeCounters = do
 -- and causing performance anomalies.
 unsafeGetFreshId :: IO Int
 {-# INLINE unsafeGetFreshId #-}
-unsafeGetFreshId = do
-  n <- takeMVar unsafeGlobalCounter
-  putMVar unsafeGlobalCounter $! succ n
-  return n
+unsafeGetFreshId = atomicModifyIORef' unsafeGlobalCounter $ \n -> (succ n, n)
 
 -- The following functions are the only places, except for global
 -- variable definitions, that contain `unsafePerformIO'.
