@@ -569,7 +569,7 @@ counterUsageLock :: MVar ()
 {-# NOINLINE counterUsageLock #-}
 counterUsageLock = unsafePerformIO (newMVar ())
 
--- To avoid @counterUsageLock@ contention, any modification
+-- To avoid @unsafeGlobalCounter@ contention, any modification
 -- or reading of the counter should happen between
 -- these two functions that acquire and release the lock. Make sure
 -- delta terms are fully evaluated before a call to 'finalizeCounters'
