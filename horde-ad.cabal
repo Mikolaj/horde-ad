@@ -164,6 +164,7 @@ library
       , pretty-show
       , random
       , strict-containers
+      , unboxed-ref
       , vector
       , zlib
 

@@ -13,18 +13,17 @@
 module HordeAd.Core.DualClass
   ( IsPrimalWithScalar, IsPrimalAndHasFeatures, IsScalar, HasDelta
   , DMode(..), Dual, IsPrimal(..), HasRanks(..)
-  , HasVariables(..), initializeCounters, finalizeCounters  -- use sparingly
+  , HasVariables(..)  -- use sparingly
   ) where
 
 import Prelude
 
-import           Control.Concurrent.MVar (MVar, newMVar, putMVar, takeMVar)
 import qualified Data.Array.Convert
 import qualified Data.Array.Dynamic as OTB
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
-import           Data.IORef (IORef, newIORef, readIORef, writeIORef)
+import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.MonoTraversable (Element, MonoFunctor)
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
@@ -559,46 +558,17 @@ instance HasRanks 'DModeValue r where
 -- order of identifiers of subterms.
 
 -- Start at a large number to make tests measuring the size of pretty
--- printed terms less fragile. IORef in safe enough with locking
--- of the critical section, so it's better than the slower MVar.
-unsafeGlobalCounter :: IORef Int
+-- printed terms less fragile. Counter is as safe, but faster than an MVar.
+unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}
-unsafeGlobalCounter = unsafePerformIO (newIORef 100000000)
-
-counterUsageLock :: MVar ()
-{-# NOINLINE counterUsageLock #-}
-counterUsageLock = unsafePerformIO (newMVar ())
-
--- To avoid @unsafeGlobalCounter@ contention, any modification
--- or reading of the counter should happen between
--- these two functions that acquire and release the lock. Make sure
--- delta terms are fully evaluated before a call to 'finalizeCounters'
--- or it doesn't make any difference. The locking permits us also
--- to use the faster @writeIORef@ instead of @atomicModifyIORef'@.
---
--- Note that 'counterUsageLock' is never accessed impurely in this codebase,
--- but always properly from @IO@, so it guards the resource (the counter)
--- effectively, as long as the impure accesses to the counter don't escape
--- from the critical section (via thunks or via Haskell optimizing code
--- and moving some bits out of the critical section. However, even
--- if impurity escapes, only performance is affected.
-initializeCounters :: IO ()
-initializeCounters = do
-  takeMVar counterUsageLock
-
-finalizeCounters :: IO ()
-finalizeCounters = do
-  putMVar counterUsageLock ()
+unsafeGlobalCounter = unsafePerformIO (newCounter 100000000)
 
 -- This is the only operation directly touching the counter.
 -- It's manually inlined to prevent random GHCs deciding otherwise
 -- and causing performance anomalies.
 unsafeGetFreshId :: IO Int
 {-# INLINE unsafeGetFreshId #-}
-unsafeGetFreshId = do
-  n <- readIORef unsafeGlobalCounter
-  writeIORef unsafeGlobalCounter $! succ n
-  return n
+unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
 
 -- The following functions are the only places, except for global
 -- variable definitions, that contain `unsafePerformIO'.
