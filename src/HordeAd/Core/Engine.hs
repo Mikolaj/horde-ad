@@ -22,14 +22,7 @@ import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           Text.Show.Pretty (ppShow)
 
-import HordeAd.Core.DualClass
-  ( Dual
-  , IsPrimal (..)
-  , IsPrimalWithScalar
-  , dVar
-  , finalizeCounters
-  , initializeCounters
-  )
+import HordeAd.Core.DualClass (Dual, IsPrimal (..), IsPrimalWithScalar, dVar)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
 import HordeAd.Internal.Delta
@@ -70,6 +63,8 @@ primalValue f parameters =
 
 -- * The fully-fledged evaluation for gradients.
 
+-- This and other functions don't need to be in @IO@; it's a historical
+-- accident, but it may prove useful in the future.
 dReverseGeneral
   :: forall r. HasDelta r
   => r
@@ -82,15 +77,11 @@ dReverseGeneral
 dReverseGeneral dt
                 variables@(params0, _, params1, _, params2, _, paramsX, _)
                 f = do
-  initializeCounters
   let dim0 = V.length params0
       dim1 = V.length params1
       dim2 = V.length params2
       dimX = V.length paramsX
-      -- This needs to be fully evaluated before finalizing the counters,
-      -- for the locking to have any effect.
       !(D !value !d) = f variables
-  finalizeCounters
   let gradient = gradientFromDelta dim0 dim1 dim2 dimX d dt
   return (gradient, value)
 
@@ -119,15 +110,11 @@ dForwardGeneral
 {-# INLINE dForwardGeneral #-}
 dForwardGeneral variables@(params0, _, params1, _, params2, _, paramsX, _)
                 f ds = do
-  initializeCounters
   let dim0 = V.length params0
       dim1 = V.length params1
       dim2 = V.length params2
       dimX = V.length paramsX
-      -- This needs to be fully evaluated before finalizing the counters,
-      -- for the locking to have any effect.
       !(D !value !d) = f variables
-  finalizeCounters
   let derivative = derivativeFromDelta dim0 dim1 dim2 dimX d ds
   return (derivative, value)
 
@@ -178,16 +165,10 @@ prettyPrintDf
   -> Domains r
   -> IO String
 prettyPrintDf f parameters = do
-  initializeCounters
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
       D _ deltaTopLevel = f variables
-      s = ppShow deltaTopLevel
-      -- This needs to be fully evaluated before finalizing the counters,
-      -- for the locking to have any effect.
-      !_ = length s
-  finalizeCounters
-  return s
+  return $! ppShow deltaTopLevel
 
 generateDeltaVars
   :: forall r. IsScalar 'DModeGradient r
