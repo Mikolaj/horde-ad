@@ -438,7 +438,7 @@ initializeFinMaps
           , STRefU s Int
           , STRef s (IM.IntMap (DeltaBinding r)) )
 initializeFinMaps dim0 dim1 dim2 dimX = do
-  iMap0 <- VM.replicate dim0 0
+  iMap0 <- VM.replicate dim0 0  -- correct value; below are dummy
   iMap1 <- VM.replicate dim1 (V.empty :: Vector r)
   iMap2 <- VM.replicate dim2 (HM.fromRows [])
   iMapX <- VM.replicate dimX dummyTensor
@@ -447,10 +447,12 @@ initializeFinMaps dim0 dim1 dim2 dimX = do
   ref1 <- newSTRefU (DeltaId 0)
   ref2 <- newSTRefU (DeltaId 0)
   refX <- newSTRefU (DeltaId 0)
-  rMap0' <- VM.replicate (max 1000 dim0) 0  -- correct value; below are dummy
-  rMap1' <- VM.replicate (max 1000 dim1) (V.empty :: Vector r)
-  rMap2' <- VM.replicate (max 1000 dim2) MO.emptyMatrixOuter
-  rMapX' <- VM.replicate (max 1000 dimX) dummyTensor
+  -- Unsafe is fine, because it initializes to bottoms and we always
+  -- write before reading.
+  rMap0' <- VM.unsafeNew (max 1 dim0)
+  rMap1' <- VM.unsafeNew (max 1 dim1)
+  rMap2' <- VM.unsafeNew (max 1 dim2)
+  rMapX' <- VM.unsafeNew (max 1 dimX)
   rMap0 <- newSTRef rMap0'
   rMap1 <- newSTRef rMap1'
   rMap2 <- newSTRef rMap2'
@@ -507,6 +509,8 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
             writeSTRef dMap $! IM.insert n (DeltaBinding0 did d) im
             len <- readSTRefU len0
             if i >= len then do
+              -- Unsafe is fine, because it initializes to bottoms and we always
+              -- write before reading.
               rmG <- VM.unsafeGrow rm len
               VM.write rmG i r
               writeSTRef rMap0 rmG
