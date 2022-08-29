@@ -1,16 +1,20 @@
 {-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-module TestSingleGradient (testTrees) where
+module TestSingleGradient (testTrees, finalCounter) where
 
 import Prelude
 
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
+import           System.IO (hPutStrLn, stderr)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
+import           Text.Printf
 
 import HordeAd hiding (sumElementsVectorOfDual)
+import HordeAd.Core.DualClass (unsafeGetFreshId)
+  -- for a special test
 
 import TestCommon
 import TestCommonEqEpsilon
@@ -372,3 +376,9 @@ readmeTestsV = testGroup "Simple tests of vector-based code for README"
                                          , 1.1761365368997136 ]
               , 4.9375516951604155 )
   ]
+
+finalCounter :: TestTree
+finalCounter = testCase "Final counter value" $ do
+  counter <- unsafeGetFreshId
+  hPutStrLn stderr $ printf "\nFinal counter value: %d" counter
+  assertBool "counter dangerously high" $ counter < 2 ^ (62 :: Int)

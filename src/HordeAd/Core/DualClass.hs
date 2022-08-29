@@ -14,6 +14,7 @@ module HordeAd.Core.DualClass
   ( IsPrimalWithScalar, IsPrimalAndHasFeatures, IsScalar, HasDelta
   , DMode(..), Dual, IsPrimal(..), HasRanks(..)
   , HasVariables(..)  -- use sparingly
+  , unsafeGetFreshId  -- exposed only for special tests
   ) where
 
 import Prelude
