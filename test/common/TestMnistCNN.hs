@@ -2,8 +2,6 @@
              TypeOperators #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- GHC 9.2.4 panics with -fno-full-laziness in this module, so we can't
--- set it here. See below for tests that had to be disabled due to that.
 module TestMnistCNN (testTrees, shortTestForCITrees) where
 
 import Prelude
@@ -652,13 +650,12 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
   [ convMnistTestCaseCNN "artificial 1 1 1 1 1" 1 1
                          convMnistLossCNN convMnistTestCNN final_image_size
                          1 1 1 0.9026
--- These tests fail due to lack of -fno-full-laziness.
---  , convMnistTestCaseCNN "S artificial 1 1 1 1 1" 1 1
---                         convMnistLossCNNS convMnistTestCNNS final_image_sizeS
---                         1 1 1 0.9026
---  , convMnistTestCaseCNN "P artificial 1 1 1 1 1" 1 1
---                         convMnistLossCNNP convMnistTestCNNP final_image_size
---                         1 1 1 0.9026
+  , convMnistTestCaseCNN "S artificial 1 1 1 1 1" 1 1
+                         convMnistLossCNNS convMnistTestCNNS final_image_sizeS
+                         1 1 1 0.9026
+  , convMnistTestCaseCNN "P artificial 1 1 1 1 1" 1 1
+                         convMnistLossCNNP convMnistTestCNNP final_image_size
+                         1 1 1 0.9026
   , convMnistTestCaseCNNT @4 @4 @1 @1 @SizeMnistHeight @SizeMnistWidth @1
                           "T artificial 1 1 1 1 1" 1 1
                           convMnistLossFusedS convMnistTestS convMnistLenS
