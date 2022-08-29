@@ -20,8 +20,9 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
-import           System.Mem (performMinorGC)
 import           Text.Show.Pretty (ppShow)
+
+-- import           System.Mem (performMinorGC)
 
 import HordeAd.Core.DualClass (Dual, IsPrimal (..), IsPrimalWithScalar, dVar)
 import HordeAd.Core.DualNumber
@@ -82,11 +83,13 @@ dReverseGeneral dt
       dim1 = V.length params1
       dim2 = V.length params2
       dimX = V.length paramsX
+      -- Evaluate completely after terms constructed, to free memory before
+      -- before evaluation allocates new memory and new FFI is started
       !(D value deltaTopLevel) = f variables
-  -- Make GC more predictable, in particular for benchmarks.
-  performMinorGC  -- clean up cruft after terms constructed and forced
-                  -- and FFI is finished, but before evaluation allocates
-                  -- new memory and new FFI is started
+  -- Uncomment for benchmarks to make GC more predictable and so
+  -- benchmark results less random. This slows down parallel tests much
+  -- more than sequential benchmarks.
+--  performMinorGC
   let gradient = gradientFromDelta dim0 dim1 dim2 dimX deltaTopLevel dt
   return (gradient, value)
 
@@ -120,7 +123,6 @@ dForwardGeneral variables@(params0, _, params1, _, params2, _, paramsX, _)
       dim2 = V.length params2
       dimX = V.length paramsX
       !(D value deltaTopLevel) = f variables
-  performMinorGC
   let derivative = derivativeFromDelta dim0 dim1 dim2 dimX deltaTopLevel ds
   return (derivative, value)
 
@@ -174,7 +176,6 @@ prettyPrintDf f parameters = do
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
       !(D _ deltaTopLevel) = f variables
-  performMinorGC
   return $! ppShow deltaTopLevel
 
 generateDeltaVars
