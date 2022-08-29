@@ -1,5 +1,5 @@
-{-# LANGUAGE CPP, DataKinds, GADTs, KindSignatures, RankNTypes,
-             StandaloneDeriving, TypeOperators #-}
+{-# LANGUAGE CPP, DataKinds, GADTs, GeneralizedNewtypeDeriving, KindSignatures,
+             RankNTypes, StandaloneDeriving, TypeOperators, UnboxedTuples #-}
 #if !MIN_VERSION_base(4,16,0)
 {-# LANGUAGE IncoherentInstances #-}
 #endif
@@ -64,15 +64,17 @@ import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import qualified Data.IntMap.Strict as IM
 import           Data.Kind (Type)
+import           Data.Primitive (Prim)
 import           Data.Proxy (Proxy)
 import           Data.STRef (STRef, newSTRef, readSTRef, writeSTRef)
+import           Data.STRef.Unboxed (STRefU, newSTRefU, readSTRefU, writeSTRefU)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Strict.Vector.Autogen.Mutable as Data.Vector.Mutable
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Storable.Mutable
 import           GHC.TypeLits (KnownNat, Nat, natVal, type (+))
-import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, (#>), (<.>))
+import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, ( #> ), (<.>))
 import qualified Numeric.LinearAlgebra as HM
 
 import qualified HordeAd.Internal.MatrixOuter as MO
@@ -275,7 +277,7 @@ instance Show (DeltaS' sh r) where
 -- * Delta expression identifiers
 
 newtype DeltaId a = DeltaId Int
-  deriving Show
+  deriving (Show, Prim)
     -- no Eq instance to limit hacks outside this module
 
 -- | Wrap non-negative (only!) integers in the `DeltaId` newtype.
@@ -422,18 +424,18 @@ initializeFinMaps
           , Data.Vector.Mutable.MVector s (Vector r)
           , Data.Vector.Mutable.MVector s (Matrix r)
           , Data.Vector.Mutable.MVector s (OT.Array r)
-          , STRef s (DeltaId r)
-          , STRef s (DeltaId (Vector r))
-          , STRef s (DeltaId (Matrix r))
-          , STRef s (DeltaId (OT.Array r))
+          , STRefU s (DeltaId r)
+          , STRefU s (DeltaId (Vector r))
+          , STRefU s (DeltaId (Matrix r))
+          , STRefU s (DeltaId (OT.Array r))
           , STRef s (Data.Vector.Storable.Mutable.MVector s r)
           , STRef s (Data.Vector.Mutable.MVector s (Vector r))
           , STRef s (Data.Vector.Mutable.MVector s (MO.MatrixOuter r))
           , STRef s (Data.Vector.Mutable.MVector s (OT.Array r))
-          , STRef s Int
-          , STRef s Int
-          , STRef s Int
-          , STRef s Int
+          , STRefU s Int
+          , STRefU s Int
+          , STRefU s Int
+          , STRefU s Int
           , STRef s (IM.IntMap (DeltaBinding r)) )
 initializeFinMaps dim0 dim1 dim2 dimX = do
   iMap0 <- VM.replicate dim0 0
@@ -441,10 +443,10 @@ initializeFinMaps dim0 dim1 dim2 dimX = do
   iMap2 <- VM.replicate dim2 (HM.fromRows [])
   iMapX <- VM.replicate dimX dummyTensor
   -- These index into the respective four vectors below.
-  ref0 <- newSTRef (DeltaId 0)
-  ref1 <- newSTRef (DeltaId 0)
-  ref2 <- newSTRef (DeltaId 0)
-  refX <- newSTRef (DeltaId 0)
+  ref0 <- newSTRefU (DeltaId 0)
+  ref1 <- newSTRefU (DeltaId 0)
+  ref2 <- newSTRefU (DeltaId 0)
+  refX <- newSTRefU (DeltaId 0)
   rMap0' <- VM.replicate (max 1000 dim0) 0  -- correct value; below are dummy
   rMap1' <- VM.replicate (max 1000 dim1) (V.empty :: Vector r)
   rMap2' <- VM.replicate (max 1000 dim2) MO.emptyMatrixOuter
@@ -454,10 +456,10 @@ initializeFinMaps dim0 dim1 dim2 dimX = do
   rMap2 <- newSTRef rMap2'
   rMapX <- newSTRef rMapX'
   -- These keep current lengths of the vectors above.
-  len0 <- newSTRef (VM.length rMap0')
-  len1 <- newSTRef (VM.length rMap1')
-  len2 <- newSTRef (VM.length rMap2')
-  lenX <- newSTRef (VM.length rMapX')
+  len0 <- newSTRefU (VM.length rMap0')
+  len1 <- newSTRefU (VM.length rMap1')
+  len2 <- newSTRefU (VM.length rMap2')
+  lenX <- newSTRefU (VM.length rMapX')
   dMap <- newSTRef IM.empty
   return ( iMap0, iMap1, iMap2, iMapX
          , ref0, ref1, ref2, refX
@@ -500,15 +502,15 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
           Just (DeltaBinding0 (DeltaId i) _) ->
             VM.modify rm (+ r) i
           Nothing -> do
-            did@(DeltaId i) <- readSTRef ref0
-            writeSTRef ref0 $! succDeltaId did
+            did@(DeltaId i) <- readSTRefU ref0
+            writeSTRefU ref0 $ succDeltaId did
             writeSTRef dMap $! IM.insert n (DeltaBinding0 did d) im
-            len <- readSTRef len0
+            len <- readSTRefU len0
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
               VM.write rmG i r
               writeSTRef rMap0 rmG
-              writeSTRef len0 $! 2 * len
+              writeSTRefU len0 $ 2 * len
             else
               VM.write rm i r
           _ -> error "buildFinMaps: corrupted dMap"
@@ -546,15 +548,15 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
           Just (DeltaBinding1 (DeltaId i) _) ->
             VM.modify rm (+ r) i
           Nothing -> do
-            did@(DeltaId i) <- readSTRef ref1
-            writeSTRef ref1 $! succDeltaId did
+            did@(DeltaId i) <- readSTRefU ref1
+            writeSTRefU ref1 $ succDeltaId did
             writeSTRef dMap $! IM.insert n (DeltaBinding1 did d) im
-            len <- readSTRef len1
+            len <- readSTRefU len1
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
               VM.write rmG i r
               writeSTRef rMap1 rmG
-              writeSTRef len1 $! 2 * len
+              writeSTRefU len1 $ 2 * len
             else
               VM.write rm i r
           _ -> error "buildFinMaps: corrupted dMap"
@@ -598,15 +600,15 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
           Just (DeltaBinding2 (DeltaId i) _) ->
             VM.modify rm (MO.plus r) i
           Nothing -> do
-            did@(DeltaId i) <- readSTRef ref2
-            writeSTRef ref2 $! succDeltaId did
+            did@(DeltaId i) <- readSTRefU ref2
+            writeSTRefU ref2 $ succDeltaId did
             writeSTRef dMap $! IM.insert n (DeltaBinding2 did d) im
-            len <- readSTRef len2
+            len <- readSTRefU len2
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
               VM.write rmG i r
               writeSTRef rMap2 rmG
-              writeSTRef len2 $! 2 * len
+              writeSTRefU len2 $ 2 * len
             else
               VM.write rm i r
           _ -> error "buildFinMaps: corrupted dMap"
@@ -671,15 +673,15 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
           Just (DeltaBindingX (DeltaId i) _) ->
             VM.modify rm (liftVT2 (+) r) i
           Nothing -> do
-            did@(DeltaId i) <- readSTRef refX
-            writeSTRef refX $! succDeltaId did
+            did@(DeltaId i) <- readSTRefU refX
+            writeSTRefU refX $ succDeltaId did
             writeSTRef dMap $! IM.insert n (DeltaBindingX did d) im
-            len <- readSTRef lenX
+            len <- readSTRefU lenX
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
               VM.write rmG i r
               writeSTRef rMapX rmG
-              writeSTRef lenX $! 2 * len
+              writeSTRefU lenX $ 2 * len
             else
               VM.write rm i r
           _ -> error "buildFinMaps: corrupted dMap"
@@ -733,15 +735,15 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
             let rs = Data.Array.Convert.convert r
             VM.modify rm (liftVT2 (+) rs) i
           Nothing -> do
-            did@(DeltaId i) <- readSTRef refX
-            writeSTRef refX $! succDeltaId did
+            did@(DeltaId i) <- readSTRefU refX
+            writeSTRefU refX $ succDeltaId did
             writeSTRef dMap $! IM.insert n (DeltaBindingS did d) im
-            len <- readSTRef lenX
+            len <- readSTRefU lenX
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
               VM.write rmG i (Data.Array.Convert.convert r)
               writeSTRef rMapX rmG
-              writeSTRef lenX $! 2 * len
+              writeSTRefU lenX $ 2 * len
             else
               VM.write rm i (Data.Array.Convert.convert r)
           _ -> error "buildFinMaps: corrupted dMap"
@@ -855,7 +857,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
    ,dMap )
    <- initializeFinMaps dim0 dim1 dim2 dimX
   -- We use normal hmatrix matrices rather than the sparse replacement.
-  lenOuter <- readSTRef len2
+  lenOuter <- readSTRefU len2
   rMap2' :: Data.Vector.Mutable.MVector s (Matrix r)
     <- VM.replicate lenOuter (HM.fromRows [])
   rMap2 <- newSTRef rMap2'
@@ -877,15 +879,15 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
             r <- eval0' d
             imNew <- readSTRef dMap
             rm <- readSTRef rMap0
-            did@(DeltaId i) <- readSTRef ref0
-            writeSTRef ref0 $! succDeltaId did
+            did@(DeltaId i) <- readSTRefU ref0
+            writeSTRefU ref0 $ succDeltaId did
             writeSTRef dMap $! IM.insert n (DeltaBinding0 did d) imNew
-            len <- readSTRef len0
+            len <- readSTRefU len0
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
               VM.write rmG i r
               writeSTRef rMap0 rmG
-              writeSTRef len0 $! 2 * len
+              writeSTRefU len0 $ 2 * len
             else
               VM.write rm i r
             return r
@@ -919,15 +921,15 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
             r <- eval1' d
             imNew <- readSTRef dMap
             rm <- readSTRef rMap1
-            did@(DeltaId i) <- readSTRef ref1
-            writeSTRef ref1 $! succDeltaId did
+            did@(DeltaId i) <- readSTRefU ref1
+            writeSTRefU ref1 $ succDeltaId did
             writeSTRef dMap $! IM.insert n (DeltaBinding1 did d) imNew
-            len <- readSTRef len1
+            len <- readSTRefU len1
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
               VM.write rmG i r
               writeSTRef rMap1 rmG
-              writeSTRef len1 $! 2 * len
+              writeSTRefU len1 $ 2 * len
             else
               VM.write rm i r
             return r
@@ -948,8 +950,8 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         SumColumns1 dm _rows ->
           V.fromList <$> map HM.sumElements <$> HM.toColumns <$> eval2 dm
 
-        M_VD1 m dRow -> (#>) m <$> eval1 dRow
-        MD_V1 md row -> flip (#>) row <$> eval2 md
+        M_VD1 m dRow -> ( #> ) m <$> eval1 dRow
+        MD_V1 md row -> flip ( #> ) row <$> eval2 md
 
         FromX1 d -> OT.toVector <$> evalX d
         FromS1 d -> OS.toVector <$> evalS d
@@ -975,15 +977,15 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
             r <- eval2' d
             imNew <- readSTRef dMap
             rm <- readSTRef rMap2
-            did@(DeltaId i) <- readSTRef ref2
-            writeSTRef ref2 $! succDeltaId did
+            did@(DeltaId i) <- readSTRefU ref2
+            writeSTRefU ref2 $ succDeltaId did
             writeSTRef dMap $! IM.insert n (DeltaBinding2 did d) imNew
-            len <- readSTRef len2
+            len <- readSTRefU len2
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
               VM.write rmG i r
               writeSTRef rMap2 rmG
-              writeSTRef len2 $! 2 * len
+              writeSTRefU len2 $ 2 * len
             else
               VM.write rm i r
             return r
@@ -1045,15 +1047,15 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
             r <- evalX' d
             imNew <- readSTRef dMap
             rm <- readSTRef rMapX
-            did@(DeltaId i) <- readSTRef refX
-            writeSTRef refX $! succDeltaId did
+            did@(DeltaId i) <- readSTRefU refX
+            writeSTRefU refX $ succDeltaId did
             writeSTRef dMap $! IM.insert n (DeltaBindingX did d) imNew
-            len <- readSTRef lenX
+            len <- readSTRefU lenX
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
               VM.write rmG i r
               writeSTRef rMapX rmG
-              writeSTRef lenX $! 2 * len
+              writeSTRefU lenX $ 2 * len
             else
               VM.write rm i r
             return r
@@ -1100,15 +1102,15 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
             r <- evalS' d
             imNew <- readSTRef dMap
             rm <- readSTRef rMapX
-            did@(DeltaId i) <- readSTRef refX
-            writeSTRef refX $! succDeltaId did
+            did@(DeltaId i) <- readSTRefU refX
+            writeSTRefU refX $ succDeltaId did
             writeSTRef dMap $! IM.insert n (DeltaBindingS did d) imNew
-            len <- readSTRef lenX
+            len <- readSTRefU lenX
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
               VM.write rmG i (Data.Array.Convert.convert r)
               writeSTRef rMapX rmG
-              writeSTRef lenX $! 2 * len
+              writeSTRefU lenX $ 2 * len
             else
               VM.write rm i (Data.Array.Convert.convert r)
             return r
