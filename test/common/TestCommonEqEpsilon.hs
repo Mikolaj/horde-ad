@@ -36,8 +36,10 @@ eqEpsilonRef = unsafePerformIO $ newIORef eqEpsilonDefault
 setEpsilonEq :: EqEpsilon -> IO ()
 setEpsilonEq (EqEpsilon x) = atomicWriteIORef eqEpsilonRef x
 
-exceptionHandler :: HUnitFailure -> IO ()
-exceptionHandler e = putStrLn $ "Hello from exceptionHandler! We got HUnitFailure: " ++ show e
+exceptionHandler :: SomeException -> IO ()
+exceptionHandler e = do
+  putStrLn $ "Hello from exceptionHandler! We got HUnitFailure: " ++ show e
+  throwIO e
 
 -- | Asserts that the specified actual floating point value is close to the expected value.
 -- The output message will contain the prefix, the expected value, and the
