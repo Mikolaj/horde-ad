@@ -47,4 +47,5 @@ tests = testGroup "Tests" $
   ++ TestMnistFCNN.testTrees
   ++ TestMnistRNN.testTrees
   ++ TestMnistCNN.testTrees
+  ++ [TestSingleGradient.finalCounter]
 #endif

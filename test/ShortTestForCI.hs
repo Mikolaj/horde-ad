@@ -42,6 +42,7 @@ tests = testGroup "Short tests for CI" $
   ++ TestMnistFCNN.shortTestForCITrees
   ++ TestMnistRNN.shortTestForCITrees
   ++ TestMnistCNN.shortTestForCITrees
+  ++ [TestSingleGradient.finalCounter]
 #else
   []
 #endif
