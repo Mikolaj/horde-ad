@@ -278,7 +278,9 @@ instance Show (DeltaS' sh r) where
 
 newtype DeltaId a = DeltaId Int
   deriving (Show, Prim)
-    -- no Eq instance to limit hacks outside this module
+    -- No Eq instance to limit hacks outside this module.
+    -- The Prim instance conversions take lots of time when old-time profiling,
+    -- but are completely optimized away in normal builds.
 
 -- | Wrap non-negative (only!) integers in the `DeltaId` newtype.
 toDeltaId :: Int -> DeltaId a
@@ -436,7 +438,7 @@ initializeFinMaps
           , STRefU s Int
           , STRefU s Int
           , STRefU s Int
-          , STRef s (IM.IntMap (DeltaBinding r)) )
+          , STRef s (IM.IntMap (DeltaBinding r)) )  -- Map is way slower
 initializeFinMaps dim0 dim1 dim2 dimX = do
   iMap0 <- VM.replicate dim0 0  -- correct value; below are dummy
   iMap1 <- VM.replicate dim1 (V.empty :: Vector r)
