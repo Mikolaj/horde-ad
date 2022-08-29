@@ -20,6 +20,7 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
+import           System.Mem (performMinorGC)
 import           Text.Show.Pretty (ppShow)
 
 import HordeAd.Core.DualClass (Dual, IsPrimal (..), IsPrimalWithScalar, dVar)
@@ -64,7 +65,7 @@ primalValue f parameters =
 -- * The fully-fledged evaluation for gradients.
 
 -- This and other functions don't need to be in @IO@; it's a historical
--- accident, but it may prove useful in the future.
+-- accident, but it proves useful for performance hacks, e.g., forcing GC.
 dReverseGeneral
   :: forall r. HasDelta r
   => r
@@ -81,8 +82,12 @@ dReverseGeneral dt
       dim1 = V.length params1
       dim2 = V.length params2
       dimX = V.length paramsX
-      !(D !value !d) = f variables
-  let gradient = gradientFromDelta dim0 dim1 dim2 dimX d dt
+      !(D value deltaTopLevel) = f variables
+  -- Make GC more predictable, in particular for benchmarks.
+  performMinorGC  -- clean up cruft after terms constructed and forced
+                  -- and FFI is finished, but before evaluation allocates
+                  -- new memory and new FFI is started
+  let gradient = gradientFromDelta dim0 dim1 dim2 dimX deltaTopLevel dt
   return (gradient, value)
 
 dReverse
@@ -114,8 +119,9 @@ dForwardGeneral variables@(params0, _, params1, _, params2, _, paramsX, _)
       dim1 = V.length params1
       dim2 = V.length params2
       dimX = V.length paramsX
-      !(D !value !d) = f variables
-  let derivative = derivativeFromDelta dim0 dim1 dim2 dimX d ds
+      !(D value deltaTopLevel) = f variables
+  performMinorGC
+  let derivative = derivativeFromDelta dim0 dim1 dim2 dimX deltaTopLevel ds
   return (derivative, value)
 
 -- The direction vector ds is taken as an extra argument.
@@ -167,7 +173,8 @@ prettyPrintDf
 prettyPrintDf f parameters = do
   let varDeltas = generateDeltaVars parameters
       variables = makeDualNumberVariables parameters varDeltas
-      D _ deltaTopLevel = f variables
+      !(D _ deltaTopLevel) = f variables
+  performMinorGC
   return $! ppShow deltaTopLevel
 
 generateDeltaVars
