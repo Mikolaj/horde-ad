@@ -74,7 +74,7 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Storable.Mutable
 import           GHC.TypeLits (KnownNat, Nat, natVal, type (+))
-import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, ( #> ), (<.>))
+import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, (<.>))
 import qualified Numeric.LinearAlgebra as HM
 
 import qualified HordeAd.Internal.MatrixOuter as MO
@@ -954,8 +954,8 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         SumColumns1 dm _rows ->
           V.fromList <$> map HM.sumElements <$> HM.toColumns <$> eval2 dm
 
-        M_VD1 m dRow -> ( #> ) m <$> eval1 dRow
-        MD_V1 md row -> flip ( #> ) row <$> eval2 md
+        M_VD1 m dRow -> (HM.#>) m <$> eval1 dRow
+        MD_V1 md row -> flip (HM.#>) row <$> eval2 md
 
         FromX1 d -> OT.toVector <$> evalX d
         FromS1 d -> OS.toVector <$> evalS d
