@@ -26,7 +26,8 @@ import           Text.Show.Pretty (ppShow)
 
 import HordeAd.Core.DualClass (Dual, IsPrimal (..), IsPrimalWithScalar, dVar)
 import HordeAd.Core.DualNumber
-import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
+import HordeAd.Core.PairOfVectors
+  (DualNumberVariables (..), makeDualNumberVariables)
 import HordeAd.Internal.Delta
   (derivativeFromDelta, gradientFromDelta, toDeltaId)
 
@@ -77,12 +78,11 @@ dReverseGeneral
 -- in client code, so the bloat is limited.
 {-# INLINE dReverseGeneral #-}
 dReverseGeneral dt
-                variables@(params0, _, params1, _, params2, _, paramsX, _)
-                f = do
-  let dim0 = V.length params0
-      dim1 = V.length params1
-      dim2 = V.length params2
-      dimX = V.length paramsX
+                variables@DualNumberVariables{..} f = do
+  let dim0 = V.length inputPrimal0
+      dim1 = V.length inputPrimal1
+      dim2 = V.length inputPrimal2
+      dimX = V.length inputPrimalX
       -- Evaluate completely after terms constructed, to free memory before
       -- before evaluation allocates new memory and new FFI is started
       !(D value deltaTopLevel) = f variables
@@ -116,12 +116,11 @@ dForwardGeneral
   -> Domains r
   -> IO (r, r)
 {-# INLINE dForwardGeneral #-}
-dForwardGeneral variables@(params0, _, params1, _, params2, _, paramsX, _)
-                f ds = do
-  let dim0 = V.length params0
-      dim1 = V.length params1
-      dim2 = V.length params2
-      dimX = V.length paramsX
+dForwardGeneral variables@DualNumberVariables{..} f ds = do
+  let dim0 = V.length inputPrimal0
+      dim1 = V.length inputPrimal1
+      dim2 = V.length inputPrimal2
+      dimX = V.length inputPrimalX
       !(D value deltaTopLevel) = f variables
   let derivative = derivativeFromDelta dim0 dim1 dim2 dimX deltaTopLevel ds
   return (derivative, value)
