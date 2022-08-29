@@ -93,7 +93,8 @@ common options
                       GeneralizedNewtypeDeriving, TupleSections,
                       DeriveFoldable, DeriveTraversable,
                       ExistentialQuantification, GADTs, StandaloneDeriving,
-                      DataKinds, KindSignatures, DeriveGeneric, DeriveLift, CPP
+                      DataKinds, KindSignatures, DeriveGeneric, DeriveLift,
+                      UnboxedTuples, CPP
   ghc-options:        -Wall -Wcompat -Worphans -Wincomplete-uni-patterns -Wincomplete-record-updates -Wimplicit-prelude -Wmissing-home-modules -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages
   ghc-options:        -fno-ignore-asserts
 
@@ -166,6 +167,7 @@ library
       , mono-traversable
       , orthotope
       , pretty-show
+      , primitive
       , random
       , strict-containers
       , unboxed-ref
