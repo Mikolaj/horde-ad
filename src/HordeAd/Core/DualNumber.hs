@@ -35,7 +35,8 @@ import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 
 import HordeAd.Core.DualClass
-import HordeAd.Internal.Delta (Domain0, Domain1, Domain2, DomainX, Domains)
+import HordeAd.Internal.Delta
+  (Domain0, Domain1, Domain2, DomainX, Domains, isTensorDummy)
 
 -- * The main dual number types
 
@@ -51,9 +52,18 @@ addParameters (a0, a1, a2, aX) (b0, b1, b2, bX) =
 dotParameters :: Numeric r => Domains r -> Domains r -> r
 dotParameters (a0, a1, a2, aX) (b0, b1, b2, bX) =
   a0 HM.<.> b0
-  + V.sum (V.zipWith (HM.<.>) a1 b1)
-  + V.sum (V.zipWith (HM.<.>) (V.map HM.flatten a2) (V.map HM.flatten b2))
-  + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector aX) (V.map OT.toVector bX))
+  + V.sum (V.zipWith (\v1 u1 ->
+      if V.null v1 || V.null u1
+      then 0
+      else v1 HM.<.> u1) a1 b1)
+  + V.sum (V.zipWith (\v2 u2 ->
+      if HM.rows v2 <= 0 || HM.rows u2 <= 0
+      then 0
+      else HM.flatten v2 HM.<.> HM.flatten u2) a2 b2)
+  + V.sum (V.zipWith (\vX uX ->
+      if isTensorDummy vX || isTensorDummy uX
+      then 0
+      else OT.toVector vX HM.<.> OT.toVector uX) aX bX)
 
 
 -- * General operations, for any tensor rank
