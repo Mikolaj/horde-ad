@@ -17,13 +17,12 @@
 -- The \'sparsity\' is less obvious when the domain of the function consists
 -- of multiple vectors, matrices and tensors and when the expressions themselves
 -- contain vectors, matrices and tensors. However, a single tiny delta
--- expression (e.g., a sum of two variables) may denote a vector of matrices.
+-- expression (e.g., a sum of two inputs) may denote a vector of matrices.
 -- Even a delta expression containing a big matrix denotes something much
 -- bigger: a whole vector of such matrices and more.
 --
 -- The algebraic structure here is an extension of vector space.
--- The crucial extra constructor of a variable is used both to represent
--- sharing in order to avoid exponential blowup and to replace the one-hot
+-- The crucial extra constructor of a input replaces the one-hot
 -- access to parameters with something cheaper and more uniform.
 -- A lot of the remaining additional structure is for introducing
 -- and reducing dimensions (ranks).
@@ -315,7 +314,12 @@ type DomainX r = Data.Vector.Vector (OT.Array r)
 
 type Domains r = (Domain0 r, Domain1 r, Domain2 r, DomainX r)
 
--- | Delta expressions naturally denote forward derivatives,
+-- | Note: this documentation is now outdated, because per-node
+-- identities have replaces variables and so exploitation of sharing
+-- in order to avoid duplicated computation can't be explained
+-- using the common concept of variables and their valuations.
+--
+-- Delta expressions naturally denote forward derivatives,
 -- as encoded in function 'derivativeFromDelta'. However, we are more
 -- interested in computing gradients, which is what @gradientFromDelta@ does.
 -- The two functions are bound by the equation from Lemma 5 from the paper
@@ -326,7 +330,7 @@ type Domains r = (Domain0 r, Domain1 r, Domain2 r, DomainX r)
 --
 -- where @\<.\>@ denotes generalized dot product (multiplying
 -- all tensors element-wise and summing the results),
--- @st@ contains bindings of delta variables and @d@ is the top level
+-- @ct@ contains bindings of delta inputs and @d@ is the top level
 -- delta expression from translation of the objective function @f@ to dual
 -- numbers, @ds@ belongs to the domain of @f@ and @dt@ to the codomain.
 -- We omitted for clarity the @dim0@, @dim1@, @dim2@ and @dimX@ arguments
@@ -355,7 +359,7 @@ type Domains r = (Domain0 r, Domain1 r, Domain2 r, DomainX r)
 -- for the derivative follows straightforwardly the syntactic form
 -- of the delta expression @d@ (see 'derivativeFromDelta').
 --
--- Let's now describe the semantics of closed delta expression @d@
+-- Let's now describe the semantics of a delta expression @d@
 -- as the gradient of @f@ at point @P@ with respect to a @dt@ that belongs
 -- to @r@. Here the semantics of @d@ is a collection of four finite maps
 -- (vectors) @v0@, @v1@, @v2@, @vX@, corresponding to @C@,
@@ -365,21 +369,8 @@ type Domains r = (Domain0 r, Domain1 r, Domain2 r, DomainX r)
 -- The value of @vi@ at index @DeltaId k@ is the partial derivative
 -- of function @f@ at @P@ with respect to its parameter of type @ai@.
 -- The position of the @ai@ parameter is represented by @DeltaId k@
--- (in other words, the partial derivative is with respect to a variable
+-- (in other words, the partial derivative is with respect to an input
 -- quantity tagged with @DeltaId k@) and its value comes from @dt@.
---
--- The semantics of a delta expression that is not closed but contains
--- occurrences of variables that do not correspond to parameters of @f@ is only
--- defined in the context of four vectors that contain values associated
--- to its free variables or, alternatively, of bindings from which the values
--- can be computed, or of a mixture of both. This semantics does not change
--- if a bound expression is substituted for a variable instead of being used
--- to compute a value. (Note however that a computed value can't be
--- substituted for all occurrences of the variable in an expression,
--- because the "computing backwards" trick, needed to get gradients
--- from derivative expressions, computes a value for each occurrence
--- of a variable separately and sums over all occurrences instead
--- of substituting a single value into each occurrence.)
 --
 -- Function @gradientFromDelta@ computes the four vectors described above.
 -- Requested lengths of the vectors are given in the first few arguments.
@@ -410,15 +401,13 @@ gradientFromDelta dim0 dim1 dim2 dimX deltaTopLevel dt =
   :: Int -> Int -> Int -> Int -> Delta0 Double -> Double
   -> Domains Double #-}
 
--- | Create vectors (representing finite maps) that hold delta-variable
--- values. They are initialized with dummy values so that it's cheap to check
--- if any update has already been performed to a cell (allocating big matrices
+-- | Create vectors (representing finite maps) that hold values
+-- associated with inputes and (possibly shared) nodes. The former are
+-- initialized with dummy values so that it's cheap to check if any update
+-- has already been performed to a cell (allocating big matrices
 -- filled with zeros is too costly, especially if never used in an iteration,
 -- and adding to such matrices and especially using them as scaling factors
--- is wasteful). The vectors are longer than those representing objective
--- function parameters (e.g., @deltaCounter0@ vs @dim0@), because variables
--- represent not only parameters, but also the bindings that prevent blowup
--- via delta-expression duplication.
+-- is wasteful).
 initializeFinMaps
   :: forall s r. Numeric r
   => Int -> Int -> Int -> Int
@@ -1170,7 +1159,7 @@ https://github.com/Mikolaj/horde-ad/blob/d069a45773ed849913b5ebd0345153072f304fd
 
 and proved to be prohibitively slow in the two implementations
 that don't use the SumElements0 primitive in benchmarks (despite
-an ingenious optimization of the common case of Index0 applied to a variable):
+an ingenious optimization of the common case of Index0 applied to a input):
 
 https://github.com/Mikolaj/horde-ad/blob/d069a45773ed849913b5ebd0345153072f304fd9/bench/BenchProdTools.hs#L178-L193
 -}

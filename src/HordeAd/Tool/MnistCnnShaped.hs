@@ -24,7 +24,7 @@ import qualified GHC.TypeLits
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.PairOfVectors (DualNumberVariables, varS)
+import HordeAd.Core.PairOfVectors (DualNumberInputs, atS)
 import HordeAd.Tool.MnistData
 
 convMnistLayerS
@@ -70,7 +70,7 @@ convMnistTwoS
      , IsScalar d r )
   => OS.Array '[batch_size, in_channels, in_height, in_width] r
   -- All below is the type of all paramters of this nn. The same is reflected
-  -- in the length function below and read from variables further down.
+  -- in the length function below and read from inputs further down.
   -> DualNumber d (OS.Array '[ out_channels, in_channels
                              , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
   -> DualNumber d (OS.Array '[out_channels] r)
@@ -148,17 +148,17 @@ convMnistS
      , 1 <= kwidth_minus_1
      , IsScalar d r )
   => OS.Array '[batch_size, 1, in_height, in_width] r
-  -> DualNumberVariables d r
+  -> DualNumberInputs d r
   -> DualNumber d (OS.Array '[SizeMnistLabel, batch_size] r)
-convMnistS x variables =
-  let ker1 = varS variables 0
-      bias1 = varS variables 1
-      ker2 = varS variables 2
-      bias2 = varS variables 3
-      weigthsDense = varS variables 4
-      biasesDense = varS variables 5
-      weigthsReadout = varS variables 6
-      biasesReadout = varS variables 7
+convMnistS x inputs =
+  let ker1 = atS inputs 0
+      bias1 = atS inputs 1
+      ker2 = atS inputs 2
+      bias2 = atS inputs 3
+      weigthsDense = atS inputs 4
+      biasesDense = atS inputs 5
+      weigthsReadout = atS inputs 6
+      biasesReadout = atS inputs 7
   in convMnistTwoS @kheight_minus_1 @kwidth_minus_1 @num_hidden @out_channels
                    x ker1 bias1 ker2 bias2
                    weigthsDense biasesDense weigthsReadout biasesReadout
@@ -178,14 +178,14 @@ convMnistLossFusedS
   -> Proxy out_channels
   -> ( OS.Array '[batch_size, in_height, in_width] r
      , OS.Array '[batch_size, SizeMnistLabel] r )
-  -> DualNumberVariables d r
+  -> DualNumberInputs d r
   -> DualNumber d r
-convMnistLossFusedS _ _ _ _ (glyphS, labelS) variables =
+convMnistLossFusedS _ _ _ _ (glyphS, labelS) inputs =
   let xs :: OS.Array '[batch_size, 1, in_height, in_width] r
       xs = OS.reshape glyphS
       result = convMnistS @kheight_minus_1 @kwidth_minus_1
                           @num_hidden @out_channels
-                          xs variables
+                          xs inputs
       targets2 = HM.tr $ HM.reshape (valueOf @SizeMnistLabel)
                        $ OS.toVector labelS
       vec = lossSoftMaxCrossEntropyL targets2 (fromS2 result)
@@ -218,7 +218,7 @@ convMnistTestS _ _ _ _ inputs parameters =
       matchesLabels (glyph, label) =
         let tx :: OS.Array '[1, 1, in_height, in_width] r
             tx = OS.reshape glyph
-            nn :: DualNumberVariables 'DModeValue r
+            nn :: DualNumberInputs 'DModeValue r
                -> DualNumber 'DModeValue (OS.Array '[SizeMnistLabel, 1] r)
             nn = convMnistS @kheight_minus_1 @kwidth_minus_1
                             @num_hidden @out_channels
