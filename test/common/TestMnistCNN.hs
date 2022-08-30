@@ -636,11 +636,12 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
               in (V.empty, V.empty, V.empty, qX)
             parametersT = paramsToT parameters
             dsT = paramsToT ds
+            parametersPerturbationT = paramsToT parametersPerturbation
         in ioProperty (qcPropDom f parameters ds parametersPerturbation 1)
            .&&. ioProperty
                   (qcPropDom fP parameters ds parametersPerturbation 1)
            .&&. ioProperty
-                  (qcPropDom fT parametersT dsT parametersPerturbation 1)
+                  (qcPropDom fT parametersT dsT parametersPerturbationT 1)
            .&&. cmpTwoSimple f fP parameters ds
            .&&. cmpTwo f fT parameters parametersT ds dsT
   ]
