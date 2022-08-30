@@ -547,7 +547,39 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                           "T1 epoch 1 batch" 1 1
                           convMnistLossFusedS convMnistTestS convMnistLenS
                           0.02 0.8200000000000001
-  , testProperty "Compare gradients and two forward derivatives for a single 2d convolution implemented from primitive operations and as a hardwired primitive" $
+   ]
+
+mnistCNNTestsShort :: TestTree
+mnistCNNTestsShort = testGroup "MNIST CNN short tests"
+  [ convMnistTestCaseCNN "artificial 1 1 1 1 1" 1 1
+                         convMnistLossCNN convMnistTestCNN final_image_size
+                         1 1 1 0.9026
+  , convMnistTestCaseCNN "S artificial 1 1 1 1 1" 1 1
+                         convMnistLossCNNS convMnistTestCNNS final_image_sizeS
+                         1 1 1 0.9026
+  , convMnistTestCaseCNN "P artificial 1 1 1 1 1" 1 1
+                         convMnistLossCNNP convMnistTestCNNP final_image_size
+                         1 1 1 0.9026
+  , convMnistTestCaseCNNT @4 @4 @1 @1 @SizeMnistHeight @SizeMnistWidth @1
+                          "T artificial 1 1 1 1 1" 1 1
+                          convMnistLossFusedS convMnistTestS convMnistLenS
+                          1 0.85
+{-
+  , convMnistTestCaseCNN "artificial 1 2 3 4 5" 1 2
+                         convMnistLossCNN convMnistTestCNN final_image_size
+                         3 4 5 0.902
+  , convMnistTestCaseCNN "S artificial 1 2 3 4 5" 1 2
+                         convMnistLossCNNS convMnistTestCNNS final_image_sizeS
+                         3 4 5 0.902
+  , convMnistTestCaseCNN "P artificial 1 2 3 4 5" 1 2
+                         convMnistLossCNNP convMnistTestCNNP final_image_size
+                         3 4 5 0.8972
+-}
+  , convMnistTestCaseCNNT @4 @4 @4 @3 @SizeMnistHeight @SizeMnistWidth @5
+                          "T artificial 1 2 3 4 5" 1 2
+                          convMnistLossFusedS convMnistTestS convMnistLenS
+                          6 0.92
+ , testProperty "Compare gradients and two forward derivatives for a single 2d convolution implemented from primitive operations and as a hardwired primitive" $
       forAll (choose (1, 30)) $ \seed ->
       forAll (choose (1, 50)) $ \seedDs ->
       forAll (choose (1, 100)) $ \widthHidden ->
@@ -583,7 +615,6 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
         in ioProperty (qcPropDom f parameters ds parametersPerturbation 1)
            .&&. ioProperty (qcPropDom fP parameters ds parametersPerturbation 1)
            .&&. cmpTwoSimple f fP parameters ds
-
   , testProperty "Compare gradients and two forward derivatives for convMnistTestCNN and convMnistTestCNNP" $
       \seed ->
       forAll (choose (0, sizeMnistLabel - 1)) $ \seedDs ->
@@ -644,36 +675,4 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                   (qcPropDom fT parametersT dsT parametersPerturbationT 1)
            .&&. cmpTwoSimple f fP parameters ds
            .&&. cmpTwo f fT parameters parametersT ds dsT
-  ]
-
-mnistCNNTestsShort :: TestTree
-mnistCNNTestsShort = testGroup "MNIST CNN short tests"
-  [ convMnistTestCaseCNN "artificial 1 1 1 1 1" 1 1
-                         convMnistLossCNN convMnistTestCNN final_image_size
-                         1 1 1 0.9026
-  , convMnistTestCaseCNN "S artificial 1 1 1 1 1" 1 1
-                         convMnistLossCNNS convMnistTestCNNS final_image_sizeS
-                         1 1 1 0.9026
-  , convMnistTestCaseCNN "P artificial 1 1 1 1 1" 1 1
-                         convMnistLossCNNP convMnistTestCNNP final_image_size
-                         1 1 1 0.9026
-  , convMnistTestCaseCNNT @4 @4 @1 @1 @SizeMnistHeight @SizeMnistWidth @1
-                          "T artificial 1 1 1 1 1" 1 1
-                          convMnistLossFusedS convMnistTestS convMnistLenS
-                          1 0.85
-{-
-  , convMnistTestCaseCNN "artificial 1 2 3 4 5" 1 2
-                         convMnistLossCNN convMnistTestCNN final_image_size
-                         3 4 5 0.902
-  , convMnistTestCaseCNN "S artificial 1 2 3 4 5" 1 2
-                         convMnistLossCNNS convMnistTestCNNS final_image_sizeS
-                         3 4 5 0.902
-  , convMnistTestCaseCNN "P artificial 1 2 3 4 5" 1 2
-                         convMnistLossCNNP convMnistTestCNNP final_image_size
-                         3 4 5 0.8972
--}
-  , convMnistTestCaseCNNT @4 @4 @4 @3 @SizeMnistHeight @SizeMnistWidth @5
-                          "T artificial 1 2 3 4 5" 1 2
-                          convMnistLossFusedS convMnistTestS convMnistLenS
-                          6 0.92
   ]
