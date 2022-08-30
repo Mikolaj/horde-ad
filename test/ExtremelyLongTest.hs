@@ -39,13 +39,13 @@ main = do
 
 tests :: TestTree
 tests = testGroup "Tests" $
-  TestOutdated.testTrees
-  ++ TestConditionalSynth.testTrees
 #if defined(VERSION_ghc_typelits_natnormalise)
-  ++ TestSingleGradient.testTrees
+  TestSingleGradient.testTrees
   ++ TestSimpleDescent.testTrees
   ++ TestMnistFCNN.testTrees
   ++ TestMnistRNN.testTrees
   ++ TestMnistCNN.testTrees
-  ++ [TestSingleGradient.finalCounter]
 #endif
+  ++ TestOutdated.testTrees
+  ++ TestConditionalSynth.testTrees
+  ++ [TestSingleGradient.finalCounter]
