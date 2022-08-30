@@ -21,7 +21,7 @@ testTrees = [ gdSimpleTests
 
 gdSimpleShow :: HasDelta r
              => r
-             -> (DualNumberVariables 'DModeGradient r
+             -> (DualNumberInputs 'DModeGradient r
                  -> DualNumber 'DModeGradient r)
              -> Domain0 r
              -> Int
@@ -33,8 +33,8 @@ gdSimpleShow gamma f initVec n = do
 
 -- Catastrophic loss of sharing prevented via the monad.
 fblowup :: forall d. IsScalar d Float
-        => DualNumberVariables d Float -> DualNumber d Float
-fblowup variables =
+        => DualNumberInputs d Float -> DualNumber d Float
+fblowup inputs =
   let blowup :: Int -> DualNumber d Float -> DualNumber d Float
       blowup 0 y = y
       blowup n y =
@@ -42,7 +42,7 @@ fblowup variables =
             yscaled = 0.499999985 * ysum
           -- without the scaling we'd get NaN at once
         in blowup (pred n) yscaled
-      y0 = fquad variables
+      y0 = fquad inputs
   in blowup 100 y0
 
 gdSimpleTests :: TestTree
@@ -85,10 +85,10 @@ type ARecordDD sh d r = ARecord (DualNumber d (OS.Array sh r))
 adaptFunctionRecord
   :: forall sh r d. (IsScalar d r, OS.Shape sh)
   => (ARecordDD sh d r -> DualNumber d r)
-  -> (DualNumberVariables d r -> DualNumber d r)
-adaptFunctionRecord f variables =
-  let a = varS variables 0
-      b = varS variables 1
+  -> (DualNumberInputs d r -> DualNumber d r)
+adaptFunctionRecord f inputs =
+  let a = atS inputs 0
+      b = atS inputs 1
   in f $ ARecord a b
 
 adaptDReverseRecord
@@ -183,12 +183,12 @@ gdTestsRecord = testGroup "Record of shaped tensors tests"
 -- (one binding per each subexpression, even when not needed), which is fine,
 -- just not enough for comprehensive benchmarks.
 scaleAddWithBias :: IsScalar d Float
-                 => DualNumber d Float -> DualNumber d Float -> Int -> DualNumberVariables d Float
+                 => DualNumber d Float -> DualNumber d Float -> Int -> DualNumberInputs d Float
                  -> DualNumber d Float
-scaleAddWithBias x y ixWeight variables =
-  let wx = var0 variables ixWeight
-      wy = var0 variables (ixWeight + 1)
-      bias = var0 variables (ixWeight + 2)
+scaleAddWithBias x y ixWeight inputs =
+  let wx = at0 inputs ixWeight
+      wy = at0 inputs (ixWeight + 1)
+      bias = at0 inputs (ixWeight + 2)
       sx = x * wx
       sy = y * wy
       sxy = sx + sy
@@ -197,38 +197,38 @@ scaleAddWithBias x y ixWeight variables =
 neuron :: IsScalar d Float
        => (DualNumber d Float -> DualNumber d Float)
        -> DualNumber d Float -> DualNumber d Float -> Int
-       -> DualNumberVariables d Float
+       -> DualNumberInputs d Float
        -> DualNumber d Float
-neuron factivation x y ixWeight variables =
-  let sc = scaleAddWithBias x y ixWeight variables
+neuron factivation x y ixWeight inputs =
+  let sc = scaleAddWithBias x y ixWeight inputs
   in factivation sc
 
 nnXor :: IsScalar d Float
       => (DualNumber d Float -> DualNumber d Float)
-      -> DualNumber d Float -> DualNumber d Float -> DualNumberVariables d Float
+      -> DualNumber d Float -> DualNumber d Float -> DualNumberInputs d Float
       -> DualNumber d Float
-nnXor factivation x y variables =
-  let n1 = neuron factivation x y 0 variables
-      n2 = neuron factivation x y 3 variables
-  in neuron factivation n1 n2 6 variables
+nnXor factivation x y inputs =
+  let n1 = neuron factivation x y 0 inputs
+      n2 = neuron factivation x y 3 inputs
+  in neuron factivation n1 n2 6 inputs
 
 nnXorLoss :: IsScalar d Float
           => (DualNumber d Float -> DualNumber d Float)
-          -> Float -> Float -> Float -> DualNumberVariables d Float
+          -> Float -> Float -> Float -> DualNumberInputs d Float
           -> DualNumber d Float
-nnXorLoss factivation x y targ variables =
-  let res = nnXor factivation (constant x) (constant y) variables
+nnXorLoss factivation x y targ inputs =
+  let res = nnXor factivation (constant x) (constant y) inputs
   in squaredDifference targ res
 
 nnXorLossTotal :: IsScalar d Float
                => (DualNumber d Float -> DualNumber d Float)
-               -> DualNumberVariables d Float
+               -> DualNumberInputs d Float
                -> DualNumber d Float
-nnXorLossTotal factivation variables =
-  let n1 = nnXorLoss factivation 0 0 0 variables
-      n2 = nnXorLoss factivation 0 1 1 variables
-      n3 = nnXorLoss factivation 1 0 1 variables
-      n4 = nnXorLoss factivation 1 1 0 variables
+nnXorLossTotal factivation inputs =
+  let n1 = nnXorLoss factivation 0 0 0 inputs
+      n2 = nnXorLoss factivation 0 1 1 inputs
+      n3 = nnXorLoss factivation 1 0 1 inputs
+      n4 = nnXorLoss factivation 1 1 0 inputs
       n12 = n1 + n2
       n34 = n3 + n4
   in n12 + n34

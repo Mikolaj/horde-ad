@@ -132,7 +132,7 @@ bgroup5e7 allxs =
 -- of a custom operation here, where there's no gradient descent
 -- to manage the vectors for us.
 vec_prod_aux :: forall d r. IsScalar d r
-             => DualNumberVariables d r -> DualNumber d r
+             => DualNumberInputs d r -> DualNumber d r
 vec_prod_aux = foldlDual' (*) 1
   -- no handwritten derivatives; only the derivative for @(*)@ is provided;
   -- also, not omitting bindings; all let-bindings are present, see below
@@ -156,7 +156,7 @@ grad_toList_prod l = V.toList <$> grad_vec_prod (V.fromList l)
 
 vec_omit_prod_aux
   :: forall d r. IsScalar d r
-  => DualNumberVariables d r -> DualNumber d r
+  => DualNumberInputs d r -> DualNumber d r
 vec_omit_prod_aux vec = foldlDual' (*) 1 vec
   -- omitting most bindings, because we know nothing repeats inside
 
@@ -174,19 +174,19 @@ grad_vec_omit_prod ds =
 
 vec_omit_scalarSum_aux
   :: forall d r. IsScalar d r
-  => DualNumberVariables d r -> DualNumber d r
+  => DualNumberInputs d r -> DualNumber d r
 vec_omit_scalarSum_aux vec = foldlDual' (+) 0 vec
 
-sumElementsV :: DualNumberVariables 'DModeGradient Double
+sumElementsV :: DualNumberInputs 'DModeGradient Double
              -> DualNumber 'DModeGradient Double
-sumElementsV variables =
-  let x = var1 variables 0
+sumElementsV inputs =
+  let x = at1 inputs 0
   in sumElements0 x
 
-altSumElementsV :: DualNumberVariables 'DModeGradient Double
+altSumElementsV :: DualNumberInputs 'DModeGradient Double
                 -> DualNumber 'DModeGradient Double
-altSumElementsV variables =
-  let x = var1 variables 0
+altSumElementsV inputs =
+  let x = at1 inputs 0
   in altSumElements0 x
 
 grad_vec_omit_scalarSum :: HasDelta r => Vector r -> IO (Vector r)

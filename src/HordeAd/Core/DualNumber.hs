@@ -184,7 +184,7 @@ maximum0 :: IsScalar d r => DualNumber d (Vector r) -> DualNumber d r
 maximum0 (D u u') =
   D (HM.maxElement u) (dIndex0 u' (HM.maxIndex u) (V.length u))
 
--- If @v'@ is a @Var1@, this is much faster due to the optimization
+-- If @v'@ is a @Input1@, this is much faster due to the optimization
 -- in @Index0@.
 foldl'0 :: IsScalar d r
         => (DualNumber d r -> DualNumber d r -> DualNumber d r)
@@ -302,7 +302,7 @@ sumColumns1 :: IsScalar d r
 sumColumns1 (D u u') = D (V.fromList $ map HM.sumElements $ HM.toColumns u)
                          (dSumColumns1 u' (HM.rows u))
 
--- If @v'@ is a @Var1@, this is much faster due to the optimization
+-- If @v'@ is a @Input1@, this is much faster due to the optimization
 -- in @Index0@. The detour through a boxed vector (list probably fuses away)
 -- is costly, but only matters if @f@ is cheap.
 map1 :: IsScalar d r
@@ -362,8 +362,7 @@ corr1 ker@(D u _) vv@(D v _) = case (V.length u, V.length v) of
                                ++ " > len vector " ++ show lenV
 
 -- This is not optimally implemented: @append1@ is costly compared
--- to a @mconcat@ counterpart and @z@ is used twice without
--- assigning it to a variable.
+-- to the @mconcat@ counterpart.
 conv1 :: IsScalar d r
       => DualNumber d (Vector r) -> DualNumber d (Vector r)
       -> DualNumber d (Vector r)

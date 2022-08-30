@@ -19,13 +19,13 @@ import           GHC.TypeLits (KnownNat)
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.PairOfVectors (DualNumberVariables, varS)
+import HordeAd.Core.PairOfVectors (DualNumberInputs, atS)
 import HordeAd.Tool.MnistData
 
 -- | Fully connected neural network for the MNIST digit classification task.
 -- There are two hidden layers and both use the same activation function.
 -- The width of the layers is determined by the dimensions of the matrices
--- and vectors given as dual number parameters (variables).
+-- and vectors given as dual number parameters (inputs).
 -- The dimensions, in turn, can be computed by the @len*@ functions
 -- on the basis of the requested widths, see above.
 fcnnMnistLayersS
@@ -35,7 +35,7 @@ fcnnMnistLayersS
       => DualNumber d (OS.Array sh r) -> DualNumber d (OS.Array sh r))
   -> OS.Array '[SizeMnistGlyph] r
   -- All below is the type of all paramters of this nn. The same is reflected
-  -- in the length function below and read from variables further down.
+  -- in the length function below and read from inputs further down.
   -> DualNumber d (OS.Array '[widthHidden, SizeMnistGlyph] r)
   -> DualNumber d (OS.Array '[widthHidden] r)
   -> DualNumber d (OS.Array '[widthHidden2, widthHidden] r)
@@ -43,10 +43,10 @@ fcnnMnistLayersS
   -> DualNumber d (OS.Array '[SizeMnistLabel, widthHidden2] r)
   -> DualNumber d (OS.Array '[SizeMnistLabel] r)
   -> DualNumber d (OS.Array '[SizeMnistLabel] r)
-fcnnMnistLayersS factivationHidden input
+fcnnMnistLayersS factivationHidden datum
                  weightsL0 biasesV0 weightsL1 biasesV1 weightsL2 biasesV2 =
-  let !_A = assert (sizeMnistGlyph == OS.size input) ()
-      hiddenLayer1 = weightsL0 #>$ constant input + biasesV0
+  let !_A = assert (sizeMnistGlyph == OS.size datum) ()
+      hiddenLayer1 = weightsL0 #>$ constant datum + biasesV0
       nonlinearLayer1 = factivationHidden hiddenLayer1
       hiddenLayer2 = weightsL1 #>$ nonlinearLayer1 + biasesV1
       nonlinearLayer2 =factivationHidden hiddenLayer2
@@ -78,18 +78,18 @@ fcnnMnistS
   => (forall sh. OS.Shape sh
       => DualNumber d (OS.Array sh r) -> DualNumber d (OS.Array sh r))
   -> OS.Array '[SizeMnistGlyph] r
-  -> DualNumberVariables d r
+  -> DualNumberInputs d r
   -> DualNumber d (OS.Array '[SizeMnistLabel] r)
 {-# INLINE fcnnMnistS #-}
-fcnnMnistS factivationHidden input variables =
-  let weightsL0 = varS variables 0
-      biasesV0 = varS variables 1
-      weightsL1 = varS variables 2
-      biasesV1 = varS variables 3
-      weightsL2 = varS variables 4
-      biasesV2 = varS variables 5
+fcnnMnistS factivationHidden datum inputs =
+  let weightsL0 = atS inputs 0
+      biasesV0 = atS inputs 1
+      weightsL1 = atS inputs 2
+      biasesV1 = atS inputs 3
+      weightsL2 = atS inputs 4
+      biasesV2 = atS inputs 5
   in fcnnMnistLayersS @widthHidden @widthHidden2
-                      factivationHidden input
+                      factivationHidden datum
                       weightsL0 biasesV0 weightsL1 biasesV1 weightsL2 biasesV2
 
 -- | The neural network applied to concrete activation functions
@@ -103,20 +103,20 @@ fcnnMnistLossFusedS
   :: forall widthHidden widthHidden2 d r.
      (IsScalar d r, KnownNat widthHidden, KnownNat widthHidden2)
   => Proxy widthHidden -> Proxy widthHidden2
-  -> MnistData r -> DualNumberVariables d r -> DualNumber d r
-fcnnMnistLossFusedS _ _ (input, target) variables =
+  -> MnistData r -> DualNumberInputs d r -> DualNumber d r
+fcnnMnistLossFusedS _ _ (datum, target) inputs =
   let result = fcnnMnistS @widthHidden @widthHidden2
-                          logistic (OS.fromVector input) variables
+                          logistic (OS.fromVector datum) inputs
   in lossSoftMaxCrossEntropyV target $ fromS1 result
 
 fcnnMnistLossFusedReluS
   :: forall widthHidden widthHidden2 d r.
      (IsScalar d r, KnownNat widthHidden, KnownNat widthHidden2)
   => Proxy widthHidden -> Proxy widthHidden2
-  -> MnistData r -> DualNumberVariables d r -> DualNumber d r
-fcnnMnistLossFusedReluS _ _ (input, target) variables =
+  -> MnistData r -> DualNumberInputs d r -> DualNumber d r
+fcnnMnistLossFusedReluS _ _ (datum, target) inputs =
   let result = fcnnMnistS @widthHidden @widthHidden2
-                          relu (OS.fromVector input) variables
+                          relu (OS.fromVector datum) inputs
   in lossSoftMaxCrossEntropyV target $ fromS1 result
 
 -- | A function testing the neural network given testing set of inputs
