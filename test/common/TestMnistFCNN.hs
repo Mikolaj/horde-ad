@@ -743,7 +743,7 @@ vectorMnistTests = testGroup "MNIST VV tests with a 2-hidden-layer nn"
   , mnistTestCase2V "artificial 1 2 3 4 5" 1 2 fcnnMnistLoss1 3 4 5
                     0.8972
   , mnistTestCase2V "artificial 5 4 3 2 1" 5 4 fcnnMnistLoss1 3 2 1
-                    0.7756000000000001
+                    0.6585
   ]
 
 matrixMnistTests :: TestTree
