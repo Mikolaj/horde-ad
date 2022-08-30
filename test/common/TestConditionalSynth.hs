@@ -103,30 +103,30 @@ synthLossAll factivation samples ps1 ps2 ps3 =
 sumTrainableInputsS :: forall d r. IsScalar d r
                     => DualNumber d (Vector r)
                     -> Int
-                    -> DualNumberVariables d r
+                    -> DualNumberInputs d r
                     -> Int
                     -> Data.Vector.Vector (DualNumber d r)
-sumTrainableInputsS x offset variables width =
+sumTrainableInputsS x offset inputs width =
   let f :: Int -> DualNumber d r
-      f i = sumTrainableInputsV x (offset + i) variables
+      f i = sumTrainableInputsV x (offset + i) inputs
   in V.generate width f
 
 splitLayerV :: forall d r. IsScalar d r
             => (DualNumber d (Vector r) -> DualNumber d (Vector r))
             -> DualNumber d (Vector r)
             -> Int
-            -> DualNumberVariables d r
+            -> DualNumberInputs d r
             -> Int
             -> ( DualNumber d (Vector r)
                , DualNumber d (Vector r)
                , DualNumber d (Vector r) )
-splitLayerV factivation hiddenVec offset variables width =
-  let multiplied = sumTrainableInputsS hiddenVec offset variables width
+splitLayerV factivation hiddenVec offset inputs width =
+  let multiplied = sumTrainableInputsS hiddenVec offset inputs width
       chunkWidth = width `div` 3
       activate :: Int -> DualNumber d (Vector r)
       activate n = do
         let v = V.slice (n * chunkWidth) chunkWidth multiplied
-        factivation $ seq1 v + var1 variables (offset + width + n)
+        factivation $ seq1 v + at1 inputs (offset + width + n)
       a0 = activate 0
       a1 = activate 1
       a2 = activate 2
@@ -139,20 +139,20 @@ synthLossBareTotal
   -> (DualNumber d (Vector r) -> DualNumber d (Vector r))
   -> Int
   -> Data.Vector.Storable.Vector (r, r)
-  -> DualNumberVariables d r
+  -> DualNumberInputs d r
   -> DualNumber d r
 synthLossBareTotal factivation factivationHidden factivationMiddle
-                   width samples variables =
-  let (inputs, outputs) = V.unzip samples
+                   width samples inputs =
+  let (datums, outputs) = V.unzip samples
       nSamples = V.length samples
-      sampleData = inputs <> outputs
-      hiddenLayer1 = sumConstantDataL sampleData 0 variables width
-                     + var1 variables width  -- bias
+      sampleData = datums <> outputs
+      hiddenLayer1 = sumConstantDataL sampleData 0 inputs width
+                     + at1 inputs width  -- bias
       nonlinearLayer1 = factivationHidden hiddenLayer1
       offsetMiddle = width + 1
       (ps1, ps2, ps3) =
         inline splitLayerV factivationMiddle nonlinearLayer1
-                           offsetMiddle variables (bloat * nSamples * 3)
+                           offsetMiddle inputs (bloat * nSamples * 3)
   in inline synthLossAll factivation samples ps1 ps2 ps3
 
 
@@ -183,7 +183,7 @@ gradSmartTestCase
   => String
   -> (Int
       -> Data.Vector.Storable.Vector (r, r)
-      -> DualNumberVariables 'DModeGradient r
+      -> DualNumberInputs 'DModeGradient r
       -> DualNumber 'DModeGradient r)
   -> Int -> Int -> Int -> Int -> r
   -> TestTree

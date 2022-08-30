@@ -13,7 +13,7 @@
 module HordeAd.Core.DualClass
   ( IsPrimalWithScalar, IsPrimalAndHasFeatures, IsScalar, HasDelta
   , DMode(..), Dual, IsPrimal(..), HasRanks(..)
-  , HasVariables(..)  -- use sparingly
+  , HasInputs(..)  -- use sparingly
   , unsafeGetFreshId  -- exposed only for special tests
   ) where
 
@@ -43,7 +43,7 @@ import HordeAd.Internal.Delta
 -- at an unknown rank, with the given differentiation mode
 -- and underlying scalar.
 type IsPrimalWithScalar (d :: DMode) a r =
-  (ScalarOf a ~ r, IsPrimal d a, HasVariables a)
+  (ScalarOf a ~ r, IsPrimal d a, HasInputs a)
 
 -- | A shorthand for a useful set of constraints.
 type IsPrimalAndHasFeatures (d :: DMode) a r =
@@ -146,10 +146,10 @@ instance (IsPrimalS d r, OS.Shape sh) => IsPrimal d (OS.Array sh r) where
 
 -- | Assuming that the first argument is the primal component of dual numbers
 -- with the underyling scalar in the second argument and with differentiation
--- mode `DModeGradient`, it additionally admits delta-variable
+-- mode `DModeGradient`, it additionally admits delta-input
 -- introduction and binding as defined by the methods of the class.
-class HasVariables a where
-  dVar :: DeltaId a -> Dual 'DModeGradient a
+class HasInputs a where
+  dInput :: DeltaId a -> Dual 'DModeGradient a
 
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
@@ -270,23 +270,23 @@ instance IsPrimalS 'DModeGradient r where
   dScaleS !k !d = wrapDeltaS $ ScaleS k d
   dAddS !d !e = wrapDeltaS $ AddS d e
 
-instance HasVariables Double where
-  dVar = Input0
+instance HasInputs Double where
+  dInput = Input0
 
-instance HasVariables Float where
-  dVar = Input0
+instance HasInputs Float where
+  dInput = Input0
 
-instance HasVariables (Vector r) where
-  dVar = Input1
+instance HasInputs (Vector r) where
+  dInput = Input1
 
-instance HasVariables (Matrix r) where
-  dVar = Input2
+instance HasInputs (Matrix r) where
+  dInput = Input2
 
-instance HasVariables (OT.Array r) where
-  dVar = InputX
+instance HasInputs (OT.Array r) where
+  dInput = InputX
 
-instance HasVariables (OS.Array sh r) where
-  dVar = InputS
+instance HasInputs (OS.Array sh r) where
+  dInput = InputS
 
 instance Dual 'DModeGradient r ~ Delta0 r
          => HasRanks 'DModeGradient r where

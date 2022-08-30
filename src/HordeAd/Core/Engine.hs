@@ -10,7 +10,7 @@ module HordeAd.Core.Engine
   , dForwardGeneral, dForward
   , dFastForwardGeneral, dFastForward
   , prettyPrintDf
-  , generateDeltaVars, initializerFixed
+  , generateDeltaInputs, initializerFixed
   ) where
 
 import Prelude
@@ -24,10 +24,9 @@ import           Text.Show.Pretty (ppShow)
 
 -- import           System.Mem (performMinorGC)
 
-import HordeAd.Core.DualClass (Dual, IsPrimal (..), IsPrimalWithScalar, dVar)
+import HordeAd.Core.DualClass (Dual, IsPrimal (..), IsPrimalWithScalar, dInput)
 import HordeAd.Core.DualNumber
-import HordeAd.Core.PairOfVectors
-  (DualNumberVariables (..), makeDualNumberVariables)
+import HordeAd.Core.PairOfVectors (DualNumberInputs (..), makeDualNumberInputs)
 import HordeAd.Internal.Delta
   (derivativeFromDelta, gradientFromDelta, toDeltaId)
 
@@ -37,24 +36,24 @@ import HordeAd.Internal.Delta
 -- The general case, needed for old hacky tests using only scalars.
 primalValueGeneral
   :: forall r a. IsScalar 'DModeValue r
-  => (DualNumberVariables 'DModeValue r -> a)
+  => (DualNumberInputs 'DModeValue r -> a)
   -> Domains r
   -> a
 -- Small enough that inline won't hurt.
 {-# INLINE primalValueGeneral #-}
 primalValueGeneral f (params0, params1, params2, paramsX) =
   let replicateZeros p = V.replicate (V.length p) dZero
-      variables = makeDualNumberVariables
+      inputs = makeDualNumberInputs
                     (params0, params1, params2, paramsX)
                     ( replicateZeros params0  -- dummy
                     , replicateZeros params1
                     , replicateZeros params2
                     , replicateZeros paramsX )
-  in f variables
+  in f inputs
 
 primalValue
   :: forall r a. IsScalar 'DModeValue r
-  => (DualNumberVariables 'DModeValue r -> DualNumber 'DModeValue a)
+  => (DualNumberInputs 'DModeValue r -> DualNumber 'DModeValue a)
   -> Domains r
   -> a
 -- Small enough that inline won't hurt.
@@ -71,21 +70,21 @@ primalValue f parameters =
 dReverseGeneral
   :: forall r. HasDelta r
   => r
-  -> DualNumberVariables 'DModeGradient r
-  -> (DualNumberVariables 'DModeGradient r -> DualNumber 'DModeGradient r)
+  -> DualNumberInputs 'DModeGradient r
+  -> (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
   -> IO (Domains r, r)
 -- The functions in which @dReverseGeneral@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE dReverseGeneral #-}
 dReverseGeneral dt
-                variables@DualNumberVariables{..} f = do
+                inputs@DualNumberInputs{..} f = do
   let dim0 = V.length inputPrimal0
       dim1 = V.length inputPrimal1
       dim2 = V.length inputPrimal2
       dimX = V.length inputPrimalX
       -- Evaluate completely after terms constructed, to free memory before
       -- before evaluation allocates new memory and new FFI is started
-      !(D value deltaTopLevel) = f variables
+      !(D value deltaTopLevel) = f inputs
   -- Uncomment for benchmarks to make GC more predictable and so
   -- benchmark results less random. This slows down parallel tests much
   -- more than sequential benchmarks.
@@ -96,13 +95,13 @@ dReverseGeneral dt
 dReverse
   :: HasDelta r
   => r
-  -> (DualNumberVariables 'DModeGradient r -> DualNumber 'DModeGradient r)
+  -> (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
   -> Domains r
   -> IO (Domains r, r)
 dReverse dt f parameters = do
-  let varDeltas = generateDeltaVars parameters
-      variables = makeDualNumberVariables parameters varDeltas
-  dReverseGeneral dt variables f
+  let deltaInputs = generateDeltaInputs parameters
+      inputs = makeDualNumberInputs parameters deltaInputs
+  dReverseGeneral dt inputs f
 
 
 -- * The slow evaluation for derivatives that uses the same
@@ -111,89 +110,90 @@ dReverse dt f parameters = do
 
 dForwardGeneral
   :: forall r. HasDelta r
-  => DualNumberVariables 'DModeGradient r
-  -> (DualNumberVariables 'DModeGradient r -> DualNumber 'DModeGradient r)
+  => DualNumberInputs 'DModeGradient r
+  -> (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
   -> Domains r
   -> IO (r, r)
 {-# INLINE dForwardGeneral #-}
-dForwardGeneral variables@DualNumberVariables{..} f ds = do
+dForwardGeneral inputs@DualNumberInputs{..} f ds = do
   let dim0 = V.length inputPrimal0
       dim1 = V.length inputPrimal1
       dim2 = V.length inputPrimal2
       dimX = V.length inputPrimalX
-      !(D value deltaTopLevel) = f variables
+      !(D value deltaTopLevel) = f inputs
   let derivative = derivativeFromDelta dim0 dim1 dim2 dimX deltaTopLevel ds
   return (derivative, value)
 
 -- The direction vector ds is taken as an extra argument.
 dForward
   :: HasDelta r
-  => (DualNumberVariables 'DModeGradient r -> DualNumber 'DModeGradient r)
+  => (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
   -> Domains r
   -> Domains r
   -> IO (r, r)
 dForward f parameters ds = do
-  let varDeltas = generateDeltaVars parameters
-      variables = makeDualNumberVariables parameters varDeltas
-  dForwardGeneral variables f ds
+  let deltaInputs = generateDeltaInputs parameters
+      inputs = makeDualNumberInputs parameters deltaInputs
+  dForwardGeneral inputs f ds
 
 -- * The evaluation for efficiently computing forward derivatives.
 
 dFastForwardGeneral
   :: Dual 'DModeDerivative r ~ r
-  => DualNumberVariables 'DModeDerivative r
-  -> (DualNumberVariables 'DModeDerivative r -> DualNumber 'DModeDerivative r)
+  => DualNumberInputs 'DModeDerivative r
+  -> (DualNumberInputs 'DModeDerivative r -> DualNumber 'DModeDerivative r)
   -> (r, r)
 {-# INLINE dFastForwardGeneral #-}
-dFastForwardGeneral variables f =
-  let D value d = f variables
+dFastForwardGeneral inputs f =
+  let D value d = f inputs
   in (d, value)
 
 -- The direction vector ds is taken as an extra argument.
 dFastForward
   :: forall r. (Numeric r, Dual 'DModeDerivative r ~ r)
-  => (DualNumberVariables 'DModeDerivative r -> DualNumber 'DModeDerivative r)
+  => (DualNumberInputs 'DModeDerivative r -> DualNumber 'DModeDerivative r)
   -> Domains r
   -> Domains r
   -> (r, r)
 dFastForward f parameters (params0, params1, params2, paramsX) =
-  let variables =
-        makeDualNumberVariables
+  let inputs =
+        makeDualNumberInputs
           parameters
           (V.convert params0, params1, params2, paramsX)  -- ds
-  in dFastForwardGeneral variables f
+  in dFastForwardGeneral inputs f
 
 
 -- * Additional mechanisms
 
 prettyPrintDf
   :: forall r. HasDelta r
-  => (DualNumberVariables 'DModeGradient r -> DualNumber 'DModeGradient r)
+  => (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
   -> Domains r
   -> IO String
 prettyPrintDf f parameters = do
-  let varDeltas = generateDeltaVars parameters
-      variables = makeDualNumberVariables parameters varDeltas
-      !(D _ deltaTopLevel) = f variables
+  let deltaInputs = generateDeltaInputs parameters
+      inputs = makeDualNumberInputs parameters deltaInputs
+      !(D _ deltaTopLevel) = f inputs
   return $! ppShow deltaTopLevel
 
-generateDeltaVars
+generateDeltaInputs
   :: forall r. IsScalar 'DModeGradient r
   => Domains r
   -> ( Data.Vector.Vector (Dual 'DModeGradient r)
      , Data.Vector.Vector (Dual 'DModeGradient (Vector r))
      , Data.Vector.Vector (Dual 'DModeGradient (Matrix r))
      , Data.Vector.Vector (Dual 'DModeGradient (OT.Array r)) )
-generateDeltaVars (params0, params1, params2, paramsX) =
-  let vVar :: forall a v. (IsPrimalWithScalar 'DModeGradient a r, V.Vector v a)
-           => v a -> Data.Vector.Vector (Dual 'DModeGradient a)
-      vVar p = V.generate (V.length p) (dVar . toDeltaId)
-      !v0 = vVar params0
-      !v1 = vVar params1
-      !v2 = vVar params2
-      !vX = vVar paramsX
+generateDeltaInputs (params0, params1, params2, paramsX) =
+  let intToInput
+        :: forall a v. (IsPrimalWithScalar 'DModeGradient a r, V.Vector v a)
+        => v a -> Data.Vector.Vector (Dual 'DModeGradient a)
+      intToInput p = V.generate (V.length p) (dInput . toDeltaId)
+      !v0 = intToInput params0
+      !v1 = intToInput params1
+      !v2 = intToInput params2
+      !vX = intToInput paramsX
   in (v0, v1, v2, vX)
-{-# SPECIALIZE generateDeltaVars
+{-# SPECIALIZE generateDeltaInputs
   :: Domains Double
   -> ( Data.Vector.Vector (Dual 'DModeGradient Double)
      , Data.Vector.Vector (Dual 'DModeGradient (Vector Double))

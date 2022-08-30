@@ -34,10 +34,10 @@ quad x y =
   in tmp + 5
 
 fquad :: forall r d. IsScalar d r
-      => DualNumberVariables d r -> DualNumber d r
-fquad variables =
-  let x = var0 variables 0
-      y = var0 variables 1
+      => DualNumberInputs d r -> DualNumber d r
+fquad inputs =
+  let x = at0 inputs 0
+      y = at0 inputs 1
   in quad x y
 
 listsToParameters :: forall r. (OT.Storable r)
@@ -54,7 +54,7 @@ listsToParameters4 (a0, a1, a2, aX) =
 
 quickCheckTest0 :: TestName
        -> (forall d r. IsScalar d r
-           => DualNumberVariables d r -> DualNumber d r)
+           => DualNumberInputs d r -> DualNumber d r)
        -> ((Double, Double, Double) -> ([Double], [Double], [Double], [Double]))
        -> TestTree
 quickCheckTest0 txt f fArg =
@@ -63,8 +63,8 @@ quickCheckTest0 txt f fArg =
 -- A quick check to compare the derivatives and values of 2 given functions.
 cmpTwo
   :: (d ~ 'DModeDerivative, Dual d r ~ r, IsScalar d r)
-  => (DualNumberVariables d r -> DualNumber d r)
-  -> (DualNumberVariables d r -> DualNumber d r)
+  => (DualNumberInputs d r -> DualNumber d r)
+  -> (DualNumberInputs d r -> DualNumber d r)
   -> Domains r
   -> Domains r
   -> Domains r
@@ -76,8 +76,8 @@ cmpTwo f1 f2 params1 params2 ds1 ds2 =
 -- A quick check to compare the derivatives and values of 2 given functions.
 cmpTwoSimple
   :: (d ~ 'DModeDerivative, Dual d r ~ r, IsScalar d r)
-  => (DualNumberVariables d r -> DualNumber d r)
-  -> (DualNumberVariables d r -> DualNumber d r)
+  => (DualNumberInputs d r -> DualNumber d r)
+  -> (DualNumberInputs d r -> DualNumber d r)
   -> Domains r
   -> Domains r
   -> Property
@@ -88,7 +88,7 @@ cmpTwoSimple f1 f2 parameters ds =
 -- and all kinds of computing the value of the objective function.
 qcPropDom :: (forall d r. ( IsScalar d r
                             , r ~ Double )
-              => DualNumberVariables d r -> DualNumber d r)
+              => DualNumberInputs d r -> DualNumber d r)
           -> Domains Double
           -> Domains Double
           -> Domains Double
@@ -117,7 +117,7 @@ qcPropDom f args ds perturbation dt = do
 -- A quick consistency check of all the kinds of derivatives and gradients
 -- and all kinds of computing the value of the objective function.
 qcPropFArg :: (forall d r. IsScalar d r
-               => DualNumberVariables d r -> DualNumber d r)
+               => DualNumberInputs d r -> DualNumber d r)
            -> ((Double, Double, Double) -> Domains Double)
            -> (Double, Double, Double)
            -> (Double, Double, Double)
@@ -135,7 +135,7 @@ qcPropFArg f fArgDom xyz dsRaw perturbationRaw dt = do
 qcTestRanges
   :: TestName
   -> (forall d r. IsScalar d r
-      => DualNumberVariables d r -> DualNumber d r)
+      => DualNumberInputs d r -> DualNumber d r)
   -> ((Double, Double, Double) -> Domains Double)
   -> ((Double, Double, Double), (Double, Double, Double))
   -> ((Double, Double, Double), (Double, Double, Double))

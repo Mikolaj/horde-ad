@@ -26,7 +26,7 @@ import qualified GHC.TypeLits
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.PairOfVectors (DualNumberVariables, varS)
+import HordeAd.Core.PairOfVectors (DualNumberInputs, atS)
 import HordeAd.Tool.MnistData
 
 zeroStateS
@@ -90,7 +90,7 @@ rnnMnistZeroS
      , KnownNat sizeMnistWidth, KnownNat sizeMnistHeight )
   => OS.Array '[sizeMnistWidth, sizeMnistHeight, batch_size] r
   -- All below is the type of all parameters of this nn. The same is reflected
-  -- in the length function below and read from variables further down.
+  -- in the length function below and read from inputs further down.
   -> ( LayerWeigthsRNN sizeMnistHeight out_width d r
      , LayerWeigthsRNN out_width out_width d r )
   -> DualNumber d (OS.Array '[SizeMnistLabel, out_width] r)
@@ -126,17 +126,17 @@ rnnMnistS
      ( IsScalar d r, KnownNat out_width, KnownNat batch_size
      , KnownNat sizeMnistWidth, KnownNat sizeMnistHeight )
   => OS.Array '[sizeMnistWidth, sizeMnistHeight, batch_size] r
-  -> DualNumberVariables d r
+  -> DualNumberInputs d r
   -> DualNumber d (OS.Array '[SizeMnistLabel, batch_size] r)
-rnnMnistS xs variables =
-  let wX = varS variables 0
-      wS = varS variables 1
-      b = varS variables 2
-      wX2 = varS variables 3
-      wS2 = varS variables 4
-      b2 = varS variables 5
-      w3 = varS variables 6
-      b3 = varS variables 7
+rnnMnistS xs inputs =
+  let wX = atS inputs 0
+      wS = atS inputs 1
+      b = atS inputs 2
+      wX2 = atS inputs 3
+      wS2 = atS inputs 4
+      b2 = atS inputs 5
+      w3 = atS inputs 6
+      b3 = atS inputs 7
   in rnnMnistZeroS @out_width xs ((wX, wS, b), (wX2, wS2, b2)) w3 b3
 
 rnnMnistLossFusedS
@@ -144,11 +144,11 @@ rnnMnistLossFusedS
      (IsScalar d r, KnownNat out_width, KnownNat batch_size)
   => Proxy out_width
   -> MnistDataBatchS batch_size r
-  -> DualNumberVariables d r
+  -> DualNumberInputs d r
   -> DualNumber d r
-rnnMnistLossFusedS _ (glyphS, labelS) variables =
+rnnMnistLossFusedS _ (glyphS, labelS) inputs =
   let xs = OS.transpose @'[2, 1, 0] glyphS
-      result = rnnMnistS @out_width xs variables
+      result = rnnMnistS @out_width xs inputs
       targets2 = HM.tr $ HM.reshape (valueOf @SizeMnistLabel)
                        $ OS.toVector labelS
       vec = lossSoftMaxCrossEntropyL targets2 (fromS2 result)

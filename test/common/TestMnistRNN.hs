@@ -53,74 +53,74 @@ shortTestForCITrees = [ sinRNNTests
 hiddenLayerSinRNN :: IsScalar d r
                   => r
                   -> DualNumber d (Vector r)
-                  -> DualNumberVariables d r
+                  -> DualNumberInputs d r
                   -> (DualNumber d (Vector r), DualNumber d (Vector r))
-hiddenLayerSinRNN x s variables =
-  let wX = var2 variables 0
-      wS = var2 variables 1
-      b = var1 variables 0
+hiddenLayerSinRNN x s inputs =
+  let wX = at2 inputs 0
+      wS = at2 inputs 1
+      b = at1 inputs 0
       y = wX #>!! V.singleton x + wS #>! s + b
       yLogistic = logistic y
   in (y, yLogistic)
 
 outputLayerSinRNN :: IsScalar d r
                   => DualNumber d (Vector r)
-                  -> DualNumberVariables d r
+                  -> DualNumberInputs d r
                   -> DualNumber d r
-outputLayerSinRNN vec variables =
-  let w = var1 variables 1
-      b = var0 variables 0
+outputLayerSinRNN vec inputs =
+  let w = at1 inputs 1
+      b = at0 inputs 0
   in w <.>! vec + b
 
 fcfcrnn :: IsScalar d r
         => r
         -> DualNumber d (Vector r)
-        -> DualNumberVariables d r
+        -> DualNumberInputs d r
         -> (DualNumber d r, DualNumber d (Vector r))
-fcfcrnn x s variables =
-  let (hiddenLayer, sHiddenLayer) = hiddenLayerSinRNN x s variables
-      outputLayer = outputLayerSinRNN hiddenLayer variables
+fcfcrnn x s inputs =
+  let (hiddenLayer, sHiddenLayer) = hiddenLayerSinRNN x s inputs
+      outputLayer = outputLayerSinRNN hiddenLayer inputs
   in (outputLayer, sHiddenLayer)
 
 unrollLast' :: forall d r. IsScalar d r
             => (r
                 -> DualNumber d (Vector r)
-                -> DualNumberVariables d r
+                -> DualNumberInputs d r
                 -> (DualNumber d r, DualNumber d (Vector r)))
             -> (Vector r
                 -> DualNumber d (Vector r)
-                -> DualNumberVariables d r
+                -> DualNumberInputs d r
                 -> (DualNumber d r, DualNumber d (Vector r)))
-unrollLast' f xs s0 variables =
+unrollLast' f xs s0 inputs =
   let g :: (DualNumber d r, DualNumber d (Vector r)) -> r
         -> (DualNumber d r, DualNumber d (Vector r))
-      g (_, s) x = f x s variables
+      g (_, s) x = f x s inputs
   in V.foldl' g (undefined, s0) xs
 
 zeroState :: IsScalar d r
           => Int
           -> (a
               -> DualNumber d (Vector r)
-              -> DualNumberVariables d r
+              -> DualNumberInputs d r
               -> (DualNumber d r2, DualNumber d (Vector r)))
           -> (a
-              -> DualNumberVariables d r
+              -> DualNumberInputs d r
               -> (DualNumber d r2))
-zeroState k f xs variables =
-  fst $ f xs (constant $ HM.konst 0 k) variables
+zeroState k f xs inputs =
+  fst $ f xs (constant $ HM.konst 0 k) inputs
 
 nnSinRNN :: IsScalar d r
          => Vector r
-         -> DualNumberVariables d r
+         -> DualNumberInputs d r
          -> DualNumber d r
 nnSinRNN = zeroState 30 (unrollLast' fcfcrnn)
 
 nnSinRNNLoss :: IsScalar d r
              => (Vector r, r)
-             -> DualNumberVariables d r
+             -> DualNumberInputs d r
              -> DualNumber d r
-nnSinRNNLoss (xs, target) variables =
-  let result = nnSinRNN xs variables
+nnSinRNNLoss (xs, target) inputs =
+  let result = nnSinRNN xs inputs
   in squaredDifference target result
 
 series :: [Double]
@@ -130,7 +130,7 @@ samples :: [(Vector Double, Double)]
 samples  = [(V.fromList $ init c, last c) | c <- chunksOf 19 series]
 
 sgdShow :: HasDelta r
-        => (a -> DualNumberVariables 'DModeGradient r -> DualNumber 'DModeGradient r)
+        => (a -> DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
         -> [a]
         -> Domains r
         -> IO r
@@ -140,7 +140,7 @@ sgdShow f trainData parameters = do
 
 sgdTestCase :: String
             -> (a
-                -> DualNumberVariables 'DModeGradient Double
+                -> DualNumberInputs 'DModeGradient Double
                 -> DualNumber 'DModeGradient Double)
             -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
             -> IO [a]
@@ -159,7 +159,7 @@ sgdTestCase prefix f nParameters trainDataIO expected =
 
 sgdTestCaseAlt :: String
             -> (a
-                -> DualNumberVariables 'DModeGradient Double
+                -> DualNumberInputs 'DModeGradient Double
                 -> DualNumber 'DModeGradient Double)
             -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
             -> IO [a]
@@ -179,7 +179,7 @@ sgdTestCaseAlt prefix f nParameters trainDataIO expected =
 prime :: IsScalar 'DModeValue r
       => (r
           -> DualNumber 'DModeValue (Vector r)
-          -> DualNumberVariables 'DModeValue r
+          -> DualNumberInputs 'DModeValue r
           -> (DualNumber 'DModeValue r, DualNumber 'DModeValue (Vector r)))
       -> Domains r
       -> Vector r
@@ -191,7 +191,7 @@ prime f parameters =
 feedback :: IsScalar 'DModeValue r
          => (r
              -> DualNumber 'DModeValue (Vector r)
-             -> DualNumberVariables 'DModeValue r
+             -> DualNumberInputs 'DModeValue r
              -> (DualNumber 'DModeValue r, DualNumber 'DModeValue (Vector r)))
          -> Domains r
          -> Vector r
@@ -206,11 +206,11 @@ feedback f parameters s0 x0 =
 feedbackTestCase :: String
                  -> (Double
                      -> DualNumber 'DModeValue (Vector Double)
-                     -> DualNumberVariables 'DModeValue Double
+                     -> DualNumberInputs 'DModeValue Double
                      -> ( DualNumber 'DModeValue Double
                         , DualNumber 'DModeValue (Vector Double) ))
                  -> (a
-                     -> DualNumberVariables 'DModeGradient Double
+                     -> DualNumberInputs 'DModeGradient Double
                      -> DualNumber 'DModeGradient Double)
                  -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
                  -> [a]
@@ -233,40 +233,40 @@ feedbackTestCase prefix fp f nParameters trainData expected =
 hiddenLayerSinRNNV :: IsScalar d r
                    => r
                    -> DualNumber d (Vector r)
-                   -> DualNumberVariables d r
+                   -> DualNumberInputs d r
                    -> (DualNumber d (Vector r), DualNumber d (Vector r))
-hiddenLayerSinRNNV x s variables =
-  let wX = var1 variables 0
-      b = var1 variables 31
-      y = scale (HM.konst x 30) wX + sumTrainableInputsL s 1 variables 30 + b
+hiddenLayerSinRNNV x s inputs =
+  let wX = at1 inputs 0
+      b = at1 inputs 31
+      y = scale (HM.konst x 30) wX + sumTrainableInputsL s 1 inputs 30 + b
       yLogistic = logistic y
   in (y, yLogistic)
 
 outputLayerSinRNNV :: IsScalar d r
                    => DualNumber d (Vector r)
-                   -> DualNumberVariables d r
+                   -> DualNumberInputs d r
                    -> DualNumber d r
-outputLayerSinRNNV vec variables =
-  let w = var1 variables 32
-      b = var0 variables 0
+outputLayerSinRNNV vec inputs =
+  let w = at1 inputs 32
+      b = at0 inputs 0
   in w <.>! vec + b
 
 fcfcrnnV :: IsScalar d r
          => r
          -> DualNumber d (Vector r)
-         -> DualNumberVariables d r
+         -> DualNumberInputs d r
          -> (DualNumber d r, DualNumber d (Vector r))
-fcfcrnnV x s variables =
-  let (hiddenLayer, sHiddenLayer) = hiddenLayerSinRNNV x s variables
-      outputLayer = outputLayerSinRNNV hiddenLayer variables
+fcfcrnnV x s inputs =
+  let (hiddenLayer, sHiddenLayer) = hiddenLayerSinRNNV x s inputs
+      outputLayer = outputLayerSinRNNV hiddenLayer inputs
   in (outputLayer, sHiddenLayer)
 
 nnSinRNNLossV :: IsScalar d r
               => (Vector r, r)
-              -> DualNumberVariables d r
+              -> DualNumberInputs d r
               -> DualNumber d r
-nnSinRNNLossV (xs, target) variables =
-  let result = zeroState 30 (unrollLast' fcfcrnnV) xs variables
+nnSinRNNLossV (xs, target) inputs =
+  let result = zeroState 30 (unrollLast' fcfcrnnV) xs inputs
   in squaredDifference target result
 
 -- Autoregressive model with degree 2
@@ -274,22 +274,22 @@ nnSinRNNLossV (xs, target) variables =
 ar2Sin :: IsScalar d r
        => r
        -> DualNumber d (Vector r)
-       -> DualNumberVariables d r
+       -> DualNumberInputs d r
        -> (DualNumber d r, DualNumber d (Vector r))
-ar2Sin yLast s variables =
-  let c = var0 variables 0
-      phi1 = var0 variables 1
-      phi2 = var0 variables 2
+ar2Sin yLast s inputs =
+  let c = at0 inputs 0
+      phi1 = at0 inputs 1
+      phi2 = at0 inputs 2
       yLastLast = index0 s 0  -- dummy vector for compatibility
       y = c + scale yLast phi1 + phi2 * yLastLast
   in (y, constant $ V.singleton yLast)
 
 ar2SinLoss :: IsScalar d r
            => (Vector r, r)
-           -> DualNumberVariables d r
+           -> DualNumberInputs d r
            -> DualNumber d r
-ar2SinLoss (xs, target) variables =
-  let result = zeroState 30 (unrollLast' ar2Sin) xs variables
+ar2SinLoss (xs, target) inputs =
+  let result = zeroState 30 (unrollLast' ar2Sin) xs inputs
   in squaredDifference target result
 
 sinRNNTests :: TestTree
@@ -331,12 +331,12 @@ sinRNNTests = testGroup "Sine RNN tests"
 hiddenLayerMnistRNNL :: IsScalar d r
                      => Vector r
                      -> DualNumber d (Vector r)
-                     -> DualNumberVariables d r
+                     -> DualNumberInputs d r
                      -> (DualNumber d (Vector r), DualNumber d (Vector r))
-hiddenLayerMnistRNNL x s variables =
-  let wX = var2 variables 0  -- 128x28
-      wS = var2 variables 1  -- 128x128
-      b = var1 variables 0  -- 128
+hiddenLayerMnistRNNL x s inputs =
+  let wX = at2 inputs 0  -- 128x28
+      wS = at2 inputs 1  -- 128x128
+      b = at1 inputs 0  -- 128
       y = wX #>!! x + wS #>! s + b
       yTanh = tanh y
   in (yTanh, yTanh)  -- tanh in both, as per https://github.com/keras-team/keras/blob/v2.8.0/keras/layers/legacy_rnn/rnn_cell_impl.py#L468
@@ -344,88 +344,88 @@ hiddenLayerMnistRNNL x s variables =
 middleLayerMnistRNNL :: IsScalar d r
                      => DualNumber d (Vector r)
                      -> DualNumber d (Vector r)
-                     -> DualNumberVariables d r
+                     -> DualNumberInputs d r
                      -> (DualNumber d (Vector r), DualNumber d (Vector r))
-middleLayerMnistRNNL vec s variables =
-  let wX = var2 variables 3  -- 128x128
-      wS = var2 variables 4  -- 128x128
-      b = var1 variables 2  -- 128
+middleLayerMnistRNNL vec s inputs =
+  let wX = at2 inputs 3  -- 128x128
+      wS = at2 inputs 4  -- 128x128
+      b = at1 inputs 2  -- 128
       y = wX #>! vec + wS #>! s + b
       yTanh = tanh y
   in (yTanh, yTanh)
 
 outputLayerMnistRNNL :: IsScalar d r
                      => DualNumber d (Vector r)
-                     -> DualNumberVariables d r
+                     -> DualNumberInputs d r
                      -> DualNumber d (Vector r)
-outputLayerMnistRNNL vec variables =
-  let w = var2 variables 2  -- 10x128
-      b = var1 variables 1  -- 10
+outputLayerMnistRNNL vec inputs =
+  let w = at2 inputs 2  -- 10x128
+      b = at1 inputs 1  -- 10
   in w #>! vec + b  -- I assume there is no activations, as per https://www.tensorflow.org/api_docs/python/tf/compat/v1/layers/dense
 
 fcfcrnnMnistL :: IsScalar d r
               => Vector r
               -> DualNumber d (Vector r)
-              -> DualNumberVariables d r
+              -> DualNumberInputs d r
               -> (DualNumber d (Vector r), DualNumber d (Vector r))
 fcfcrnnMnistL = hiddenLayerMnistRNNL
 
 fcfcrnnMnistL2 :: IsScalar d r
                => Vector r
                -> DualNumber d (Vector r)
-               -> DualNumberVariables d r
+               -> DualNumberInputs d r
                -> (DualNumber d (Vector r), DualNumber d (Vector r))
-fcfcrnnMnistL2 x s@(D u _) variables =
+fcfcrnnMnistL2 x s@(D u _) inputs =
   let len = V.length u `div` 2
       s1 = slice1 0 len s
       s2 = slice1 len len s
-      (vec1, s1') = hiddenLayerMnistRNNL x s1 variables
-      (vec2, s2') = middleLayerMnistRNNL vec1 s2 variables
+      (vec1, s1') = hiddenLayerMnistRNNL x s1 inputs
+      (vec2, s2') = middleLayerMnistRNNL vec1 s2 inputs
       s3 = append1 s1' s2'
   in (vec2, s3)
 
 unrollLastG :: forall d a b c r.
-               (a -> b -> DualNumberVariables d r -> (c, b))
-            -> ([a] -> b -> DualNumberVariables d r -> (c, b))
-unrollLastG f xs s0 variables =
+               (a -> b -> DualNumberInputs d r -> (c, b))
+            -> ([a] -> b -> DualNumberInputs d r -> (c, b))
+unrollLastG f xs s0 inputs =
   let g :: (c, b) -> a -> (c, b)
-      g (_, s) x = f x s variables
+      g (_, s) x = f x s inputs
   in foldl' g (undefined, s0) xs
 
 nnMnistRNNL :: forall d r. IsScalar d r
             => Int
             -> [Vector r]
-            -> DualNumberVariables d r
+            -> DualNumberInputs d r
             -> DualNumber d (Vector r)
-nnMnistRNNL width x variables =
-  let rnnLayer = zeroState width (unrollLastG fcfcrnnMnistL) x variables
-  in outputLayerMnistRNNL rnnLayer variables
+nnMnistRNNL width x inputs =
+  let rnnLayer = zeroState width (unrollLastG fcfcrnnMnistL) x inputs
+  in outputLayerMnistRNNL rnnLayer inputs
 
 nnMnistRNNL2 :: IsScalar d r
              => Int
              -> [Vector r]
-             -> DualNumberVariables d r
+             -> DualNumberInputs d r
              -> DualNumber d (Vector r)
-nnMnistRNNL2 width x variables =
-  let rnnLayer = zeroState (2 * width) (unrollLastG fcfcrnnMnistL2) x variables
-  in outputLayerMnistRNNL rnnLayer variables
+nnMnistRNNL2 width x inputs =
+  let rnnLayer = zeroState (2 * width) (unrollLastG fcfcrnnMnistL2) x inputs
+  in outputLayerMnistRNNL rnnLayer inputs
 
 nnMnistRNNLossL :: forall d r. IsScalar d r
                 => Int
                 -> ([Vector r], Vector r)
-                -> DualNumberVariables d r
+                -> DualNumberInputs d r
                 -> DualNumber d r
-nnMnistRNNLossL width (xs, target) variables =
-  let result = nnMnistRNNL width xs variables
+nnMnistRNNLossL width (xs, target) inputs =
+  let result = nnMnistRNNL width xs inputs
   in lossSoftMaxCrossEntropyV target result
 
 nnMnistRNNLossL2 :: IsScalar d r
                  => Int
                  -> ([Vector r], Vector r)
-                 -> DualNumberVariables d r
+                 -> DualNumberInputs d r
                  -> DualNumber d r
-nnMnistRNNLossL2 width (xs, target) variables =
-  let result = nnMnistRNNL2 width xs variables
+nnMnistRNNLossL2 width (xs, target) inputs =
+  let result = nnMnistRNNL2 width xs inputs
   in lossSoftMaxCrossEntropyV target result
 
 testMnistRNNL :: forall r. IsScalar 'DModeValue r
@@ -456,12 +456,12 @@ hiddenLayerMnistRNNV :: IsScalar d r
                      => Int
                      -> Vector r
                      -> DualNumber d (Vector r)
-                     -> DualNumberVariables d r
+                     -> DualNumberInputs d r
                      -> (DualNumber d (Vector r), DualNumber d (Vector r))
-hiddenLayerMnistRNNV width x s variables =
-  let b = var1 variables (width + width)  -- 128
-      y = sumConstantDataL x 0 variables width
-          + sumTrainableInputsL s width variables width
+hiddenLayerMnistRNNV width x s inputs =
+  let b = at1 inputs (width + width)  -- 128
+      y = sumConstantDataL x 0 inputs width
+          + sumTrainableInputsL s width inputs width
           + b
       yTanh = tanh y
   in (yTanh, yTanh)
@@ -469,36 +469,36 @@ hiddenLayerMnistRNNV width x s variables =
 outputLayerMnistRNNV :: IsScalar d r
                      => Int
                      -> DualNumber d (Vector r)
-                     -> DualNumberVariables d r
+                     -> DualNumberInputs d r
                      -> DualNumber d (Vector r)
-outputLayerMnistRNNV width vec variables =
-  let b = var1 variables (width + width + 1 + 10)  -- 10
-  in sumTrainableInputsL vec (width + width + 1) variables 10 + b
+outputLayerMnistRNNV width vec inputs =
+  let b = at1 inputs (width + width + 1 + 10)  -- 10
+  in sumTrainableInputsL vec (width + width + 1) inputs 10 + b
 
 fcfcrnnMnistV :: IsScalar d r
               => Int
               -> Vector r
               -> DualNumber d (Vector r)
-              -> DualNumberVariables d r
+              -> DualNumberInputs d r
               -> (DualNumber d (Vector r), DualNumber d (Vector r))
 fcfcrnnMnistV = hiddenLayerMnistRNNV
 
 nnMnistRNNV :: IsScalar d r
             => Int
             -> [Vector r]
-            -> DualNumberVariables d r
+            -> DualNumberInputs d r
             -> DualNumber d (Vector r)
-nnMnistRNNV width x variables =
-  let rnnLayer = zeroState width (unrollLastG $ fcfcrnnMnistV width) x variables
-  in outputLayerMnistRNNV width rnnLayer variables
+nnMnistRNNV width x inputs =
+  let rnnLayer = zeroState width (unrollLastG $ fcfcrnnMnistV width) x inputs
+  in outputLayerMnistRNNV width rnnLayer inputs
 
 nnMnistRNNLossV :: IsScalar d r
                 => Int
                 -> ([Vector r], Vector r)
-                -> DualNumberVariables d r
+                -> DualNumberInputs d r
                 -> DualNumber d r
-nnMnistRNNLossV width (xs, target) variables =
-  let result = nnMnistRNNV width xs variables
+nnMnistRNNLossV width (xs, target) inputs =
+  let result = nnMnistRNNV width xs inputs
   in lossSoftMaxCrossEntropyV target result
 
 testMnistRNNV :: forall r. IsScalar 'DModeValue r
@@ -538,7 +538,7 @@ mnistTestCaseRNN
   -> Int
   -> (Int
       -> ([Vector Double], Vector Double)
-      -> DualNumberVariables 'DModeGradient Double
+      -> DualNumberInputs 'DModeGradient Double
       -> DualNumber 'DModeGradient Double)
   -> (Int -> [([Vector Double], Vector Double)] -> Domains Double -> Double)
   -> (Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
@@ -599,12 +599,12 @@ mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
 hiddenLayerMnistRNNB :: IsScalar d r
                      => Matrix r  -- the mini-batch of data 28x150
                      -> DualNumber d (Matrix r)  -- state for mini-batch 128x150
-                     -> DualNumberVariables d r
+                     -> DualNumberInputs d r
                      -> (DualNumber d (Matrix r), DualNumber d (Matrix r))
-hiddenLayerMnistRNNB x s variables =
-  let wX = var2 variables 0  -- 128x28
-      wS = var2 variables 1  -- 128x128
-      b = var1 variables 0  -- 128
+hiddenLayerMnistRNNB x s inputs =
+  let wX = at2 inputs 0  -- 128x28
+      wS = at2 inputs 1  -- 128x128
+      b = at1 inputs 0  -- 128
       batchSize = HM.cols x
       y = wX <>!! x + wS <>! s + asColumn2 b batchSize
       yTanh = tanh y
@@ -613,12 +613,12 @@ hiddenLayerMnistRNNB x s variables =
 middleLayerMnistRNNB :: IsScalar d r
                      => DualNumber d (Matrix r)  -- 128x150
                      -> DualNumber d (Matrix r)  -- 128x150
-                     -> DualNumberVariables d r
+                     -> DualNumberInputs d r
                      -> (DualNumber d (Matrix r), DualNumber d (Matrix r))
-middleLayerMnistRNNB batchOfVec@(D u _) s variables =
-  let wX = var2 variables 3  -- 128x128
-      wS = var2 variables 4  -- 128x128
-      b = var1 variables 2  -- 128
+middleLayerMnistRNNB batchOfVec@(D u _) s inputs =
+  let wX = at2 inputs 3  -- 128x128
+      wS = at2 inputs 4  -- 128x128
+      b = at1 inputs 2  -- 128
       batchSize = HM.cols u
       y = wX <>! batchOfVec + wS <>! s + asColumn2 b batchSize
       yTanh = tanh y
@@ -626,85 +626,85 @@ middleLayerMnistRNNB batchOfVec@(D u _) s variables =
 
 outputLayerMnistRNNB :: IsScalar d r
                      => DualNumber d (Matrix r)  -- 128x150
-                     -> DualNumberVariables d r
+                     -> DualNumberInputs d r
                      -> DualNumber d (Matrix r)
-outputLayerMnistRNNB batchOfVec@(D u _) variables =
-  let w = var2 variables 2  -- 10x128
-      b = var1 variables 1  -- 10
+outputLayerMnistRNNB batchOfVec@(D u _) inputs =
+  let w = at2 inputs 2  -- 10x128
+      b = at1 inputs 1  -- 10
       batchSize = HM.cols u
   in w <>! batchOfVec + asColumn2 b batchSize
 
 fcfcrnnMnistB :: IsScalar d r
               => Matrix r
               -> DualNumber d (Matrix r)
-              -> DualNumberVariables d r
+              -> DualNumberInputs d r
               -> (DualNumber d (Matrix r), DualNumber d (Matrix r))
 fcfcrnnMnistB = hiddenLayerMnistRNNB
 
 fcfcrnnMnistB2 :: IsScalar d r
                => Matrix r  -- 28x150
                -> DualNumber d (Matrix r)  -- 256x150
-               -> DualNumberVariables d r
+               -> DualNumberInputs d r
                -> (DualNumber d (Matrix r), DualNumber d (Matrix r))
-fcfcrnnMnistB2 x s@(D u _) variables =
+fcfcrnnMnistB2 x s@(D u _) inputs =
   let len = HM.rows u `div` 2
       s1 = rowSlice2 0 len s
       s2 = rowSlice2 len len s
-      (vec1, s1') = hiddenLayerMnistRNNB x s1 variables
-      (vec2, s2') = middleLayerMnistRNNB vec1 s2 variables
+      (vec1, s1') = hiddenLayerMnistRNNB x s1 inputs
+      (vec2, s2') = middleLayerMnistRNNB vec1 s2 inputs
   in (vec2, rowAppend2 s1' s2')
 
 zeroStateB :: IsScalar d r
            => (Int, Int)
            -> (a
                -> DualNumber d (Matrix r)
-               -> DualNumberVariables d r
+               -> DualNumberInputs d r
                -> (DualNumber d r2, DualNumber d (Matrix r)))
            -> (a
-               -> DualNumberVariables d r
+               -> DualNumberInputs d r
                -> DualNumber d r2)
-zeroStateB ij f xs variables =
-  fst $ f xs (constant $ HM.konst 0 ij) variables
+zeroStateB ij f xs inputs =
+  fst $ f xs (constant $ HM.konst 0 ij) inputs
 
 nnMnistRNNB :: IsScalar d r
             => Int
             -> [Matrix r]
-            -> DualNumberVariables d r
+            -> DualNumberInputs d r
             -> DualNumber d (Matrix r)
-nnMnistRNNB width xs variables =
+nnMnistRNNB width xs inputs =
   let batchSize = HM.cols $ head xs
       rnnLayer = zeroStateB (width, batchSize) (unrollLastG fcfcrnnMnistB)
-                            xs variables
-  in outputLayerMnistRNNB rnnLayer variables
+                            xs inputs
+  in outputLayerMnistRNNB rnnLayer inputs
 
 nnMnistRNNB2 :: IsScalar d r
              => Int
              -> [Matrix r]
-             -> DualNumberVariables d r
+             -> DualNumberInputs d r
              -> DualNumber d (Matrix r)
-nnMnistRNNB2 width xs variables =
+nnMnistRNNB2 width xs inputs =
   let batchSize = HM.cols $ head xs
       rnnLayer = zeroStateB (2 * width, batchSize) (unrollLastG fcfcrnnMnistB2)
-                            xs variables
-  in outputLayerMnistRNNB rnnLayer variables
+                            xs inputs
+  in outputLayerMnistRNNB rnnLayer inputs
 
 nnMnistRNNLossB :: IsScalar d r
                 => Int
                 -> ([Matrix r], Matrix r)
-                -> DualNumberVariables d r
+                -> DualNumberInputs d r
                 -> DualNumber d r
-nnMnistRNNLossB width (xs, target) variables =
-  let result = nnMnistRNNB width xs variables
+nnMnistRNNLossB width (xs, target) inputs =
+  let result = nnMnistRNNB width xs inputs
       vec@(D u _) = lossSoftMaxCrossEntropyL target result
   in scale (recip $ fromIntegral $ V.length u) $ sumElements0 vec
 
 nnMnistRNNLossB2 :: IsScalar d r
                  => Int
                  -> ([Matrix r], Matrix r)
-                 -> DualNumberVariables d r
+                 -> DualNumberInputs d r
                  -> DualNumber d r
-nnMnistRNNLossB2 width (xs, target) variables =
-  let result = nnMnistRNNB2 width xs variables
+nnMnistRNNLossB2 width (xs, target) inputs =
+  let result = nnMnistRNNB2 width xs inputs
       vec@(D u _) = lossSoftMaxCrossEntropyL target result
   in scale (recip $ fromIntegral $ V.length u) $ sumElements0 vec
 
@@ -714,7 +714,7 @@ mnistTestCaseRNNB
   -> Int
   -> (Int
       -> ([Matrix Double], Matrix Double)
-      -> DualNumberVariables 'DModeGradient Double
+      -> DualNumberInputs 'DModeGradient Double
       -> DualNumber 'DModeGradient Double)
   -> (Int -> [([Vector Double], Vector Double)] -> Domains Double -> Double)
   -> (Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
@@ -791,7 +791,7 @@ mnistTestCaseRNNS
       (IsScalar d r, KnownNat out_width', KnownNat batch_size')
       => Proxy out_width'
       -> MnistDataBatchS batch_size' r
-      -> DualNumberVariables d r
+      -> DualNumberInputs d r
       -> DualNumber d r)
   -> (forall out_width' batch_size'.
       (IsScalar d r, KnownNat out_width', KnownNat batch_size')
