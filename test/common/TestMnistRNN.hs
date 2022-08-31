@@ -921,8 +921,8 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
                     <$> loadMnistData trainGlyphsPath trainLabelsPath)
                    2.772595855528805
   , mnistTestCaseRNN "1LL2 1 epoch, 1 batch" 1 1
-                     nnMnistRNNLossL2 testMnistRNNL2 lenMnistRNNL 128 2
-                     0.2945
+                     nnMnistRNNLossL2 testMnistRNNL2 lenMnistRNNL 64 2
+                     0.44210000000000005
   , mnistTestCaseRNNB "1BB2 1 epoch, 1 batch" 1 1
                       nnMnistRNNLossB2 testMnistRNNL2 lenMnistRNNL 128 2
                       0.2945
@@ -944,8 +944,8 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
                     <$> loadMnistData trainGlyphsPath trainLabelsPath)
                    2.749410768938081
   , mnistTestCaseRNN "1VV 1 epoch, 1 batch" 1 1
-                     nnMnistRNNLossV testMnistRNNV lenMnistRNNV 128 1
-                     0.3024
+                     nnMnistRNNLossV testMnistRNNV lenMnistRNNV 48 1
+                     0.6880999999999999
   , mnistTestCaseRNNS @120 @15 "1S 1 epoch, 1 batch" 1 1
                       rnnMnistLossFusedS rnnMnistTestS rnnMnistLenS
                       0.8418
