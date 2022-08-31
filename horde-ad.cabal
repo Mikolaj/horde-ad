@@ -209,7 +209,6 @@ library testLibrary
     build-depends:
         base
       , deepseq
-      , HUnit-approx
       , hmatrix
       , horde-ad
       , ilist
