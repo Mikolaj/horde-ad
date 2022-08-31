@@ -6,13 +6,35 @@ import Prelude
 import Data.Typeable
 
 import           Control.Exception
+import           Control.Monad (unless)
 import           Data.IORef
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Storable as VS
 import           System.IO.Unsafe
-import qualified Test.HUnit.Approx
 import           Test.Tasty.HUnit
 import           Test.Tasty.Options
+
+-- | Copied from: https://hackage.haskell.org/package/HUnit-approx-1.1.1.1/docs/src/Test-HUnit-Approx.html#assertApproxEqual
+-- because we do not want to depend on Test.HUnit.Approx . Instead, we're using an outdated copy of HUnit hardcoded into
+-- Tasty (Test.Tasty.HUnit).
+--
+-- Asserts that the specified actual value is approximately equal to the
+-- expected value. The output message will contain the prefix, the expected
+-- value, the actual value, and the maximum margin of error.
+--
+-- If the prefix is the empty string (i.e., @\"\"@), then the prefix is omitted
+-- and only the expected and actual values are output.
+assertApproxEqual :: (HasCallStack, Ord a, Num a, Show a)
+                  => String -- ^ The message prefix
+                  -> a      -- ^ Maximum allowable margin of error
+                  -> a      -- ^ The expected value
+                  -> a      -- ^ The actual value
+                  -> Assertion
+assertApproxEqual preface epsilon expected actual =
+  unless (abs (actual - expected) <= epsilon) (assertFailure msg)
+  where msg = (if null preface then "" else preface ++ "\n") ++
+              "expected: " ++ show expected ++ "\n but got: " ++ show actual ++
+              "\n (maximum margin of error: " ++ show epsilon ++ ")"
 
 newtype EqEpsilon = EqEpsilon Rational
   deriving (Typeable, Num, Fractional)
@@ -36,14 +58,14 @@ eqEpsilonRef = unsafePerformIO $ newIORef eqEpsilonDefault
 setEpsilonEq :: EqEpsilon -> IO ()
 setEpsilonEq (EqEpsilon x) = atomicWriteIORef eqEpsilonRef x
 
-exceptionHandler :: SomeException -> IO ()
-exceptionHandler (SomeException e) = do
-  case e of
-    -- The wildcard branch below prints:
-    -- Hello from exceptionHandler! Exception is: HUnitFailure (Just (SrcLoc {srcLocPackage = "horde-ad-0.1.0.0-inplace-testLibrary", srcLocModule = "TestCommonEqEpsilon", srcLocFile = "test/common/TestCommonEqEpsilon.hs", srcLocStartLine = 118, srcLocStartCol = 5, srcLocEndLine = 118, srcLocEndCol = 16})) (Reason "expected: 0.8991\n but got: 0.7424999999999999\n (maximum margin of error: 1.0e-6)") of type: HUnitFailure
-    -- BUT we cannot match e with HUnitFailure x y because it doesn't compile:
-    -- HUnitFailure x y -> putStrLn $ "We got HUnitFailure!"
-    _ -> putStrLn $ "Hello from exceptionHandler! Exception is: " ++ (show e) ++ " of type: " ++ (show $ typeOf e)
+--exceptionHandler :: SomeException -> IO ()
+--exceptionHandler (SomeException e) = do
+--  case e of
+--    -- The wildcard branch below prints:
+--    -- Hello from exceptionHandler! Exception is: HUnitFailure (Just (SrcLoc {srcLocPackage = "horde-ad-0.1.0.0-inplace-testLibrary", srcLocModule = "TestCommonEqEpsilon", srcLocFile = "test/common/TestCommonEqEpsilon.hs", srcLocStartLine = 118, srcLocStartCol = 5, srcLocEndLine = 118, srcLocEndCol = 16})) (Reason "expected: 0.8991\n but got: 0.7424999999999999\n (maximum margin of error: 1.0e-6)") of type: HUnitFailure
+--    -- BUT we cannot match e with HUnitFailure x y because it doesn't compile:
+--    HUnitFailure x y -> putStrLn $ "We got HUnitFailure!"
+--    _ -> putStrLn $ "Hello from exceptionHandler! Exception is: " ++ (show e) ++ " of type: " ++ (show $ typeOf e)
 
 -- | Asserts that the specified actual floating point value is close to the expected value.
 -- The output message will contain the prefix, the expected value, and the
@@ -57,12 +79,8 @@ assertClose :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
             -> a      -- ^ The actual value
             -> Assertion
 assertClose preface expected actual = do
-  putStrLn "DEBUG-XXX-0"
   eqEpsilon <- readIORef eqEpsilonRef
-  putStrLn "DEBUG-XXX-1"
-  putStrLn "DEBUG-XXX-2"
-  catch (Test.HUnit.Approx.assertApproxEqual preface (fromRational eqEpsilon) expected actual) exceptionHandler
-  putStrLn "DEBUG-XXX-3"
+  assertApproxEqual preface (fromRational eqEpsilon) expected actual
 
 -- | Asserts that the specified actual floating point value is close to at least one of the expected values.
 assertCloseElem :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
