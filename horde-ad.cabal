@@ -114,8 +114,12 @@ common exe-options
   ghc-options:        "-with-rtsopts=-H1.5g -A0.75g -I0"
 
 common exe-options-test
-  if ! flag(test_seq)
-    ghc-options:      -threaded "-with-rtsopts=-N"
+  ghc-options:        -rtsopts -threaded
+  if flag(test_seq)
+    ghc-options:      "-with-rtsopts=-H1.5g -A0.75g -I0"
+  else
+    -- Beware, -with-rtsopts is not cumulative!
+    ghc-options:      "-with-rtsopts=-H1.5g -A0.75g -I0 -N"
 
 library
     -- Import common warning flags.
@@ -231,7 +235,7 @@ library testLibrary
 -- These tests don't require any dataset, so can be enabled in Hackage package.
 -- This is fully contained in shortTestForCI, so CI doesn't need to run it.
 test-suite minimalTest
-    import:           options, exe-options, exe-options-test
+    import:           options, exe-options-test
 
     -- The interface type and version of the test suite.
     type:             exitcode-stdio-1.0
@@ -256,7 +260,7 @@ test-suite minimalTest
 -- The data files for this are not included in the cabal package,
 -- hence 'buildable: False'.
 test-suite shortTestForCI
-    import:           options, exe-options, exe-options-test
+    import:           options, exe-options-test
 
     if flag(release)
       buildable: False
@@ -286,7 +290,7 @@ test-suite shortTestForCI
 -- The data files for this are not included in the cabal package,
 -- hence 'buildable: False'.
 test-suite extremelyLongTest
-    import:           options, exe-options, exe-options-test
+    import:           options, exe-options-test
 
     if flag(release)
       buildable: False
