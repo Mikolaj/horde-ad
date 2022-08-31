@@ -40,10 +40,10 @@ exceptionHandler :: SomeException -> IO ()
 exceptionHandler (SomeException e) = do
   case e of
     -- The wildcard branch below prints:
-    -- Hello from exceptionHandler! (1) Exception is: HUnitFailure (Just (SrcLoc {srcLocPackage = "horde-ad-0.1.0.0-inplace-testLibrary", srcLocModule = "TestCommonEqEpsilon", srcLocFile = "test/common/TestCommonEqEpsilon.hs", srcLocStartLine = 122, srcLocStartCol = 5, srcLocEndLine = 122, srcLocEndCol = 16})) (Reason "expected: 0.8991\n but got: 0.7424999999999999\n (maximum margin of error: 1.0e-6)") of type: HUnitFailure
+    -- Hello from exceptionHandler! Exception is: HUnitFailure (Just (SrcLoc {srcLocPackage = "horde-ad-0.1.0.0-inplace-testLibrary", srcLocModule = "TestCommonEqEpsilon", srcLocFile = "test/common/TestCommonEqEpsilon.hs", srcLocStartLine = 118, srcLocStartCol = 5, srcLocEndLine = 118, srcLocEndCol = 16})) (Reason "expected: 0.8991\n but got: 0.7424999999999999\n (maximum margin of error: 1.0e-6)") of type: HUnitFailure
     -- BUT we cannot match e with HUnitFailure x y because it doesn't compile:
     -- HUnitFailure x y -> putStrLn $ "We got HUnitFailure!"
-    _ -> putStrLn $ "Hello from exceptionHandler! (1) Exception is: " ++ (show e) ++ " of type: " ++ (show $ typeOf e)
+    _ -> putStrLn $ "Hello from exceptionHandler! Exception is: " ++ (show e) ++ " of type: " ++ (show $ typeOf e)
 
 -- | Asserts that the specified actual floating point value is close to the expected value.
 -- The output message will contain the prefix, the expected value, and the
