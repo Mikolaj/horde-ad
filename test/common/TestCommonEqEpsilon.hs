@@ -5,7 +5,6 @@ module TestCommonEqEpsilon (EqEpsilon, setEpsilonEq, assertCloseElem, (@?~)) whe
 import Prelude
 import Data.Typeable
 
-import           Control.Exception
 import           Control.Monad (unless)
 import           Data.IORef
 import qualified Data.Vector.Generic as VG
