@@ -110,7 +110,8 @@ common options
 
 common exe-options
   ghc-options:        -rtsopts
---  ghc-options:        "-with-rtsopts=-A99m -I0"
+  -- Make GC more predictable in benchmarks.
+  ghc-options:        "-with-rtsopts=-H1.5g -A0.75g -I0"
 
 common exe-options-test
   if ! flag(test_seq)
