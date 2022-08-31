@@ -17,6 +17,8 @@ import           Test.Tasty.Options
 -- because we do not want to depend on Test.HUnit.Approx . Instead, we're using an outdated copy of HUnit hardcoded into
 -- Tasty (Test.Tasty.HUnit).
 --
+-- TODO: remove assertApproxEqual once it is available in Tasty
+--
 -- Asserts that the specified actual value is approximately equal to the
 -- expected value. The output message will contain the prefix, the expected
 -- value, the actual value, and the maximum margin of error.
