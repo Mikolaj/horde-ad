@@ -63,18 +63,18 @@ mnistTrainBGroup2 xs0 chunkLength =
     , mnistTrainBench2 "500|150 " chunkLength xs 500 150 0.02
     ]
 
-mnistTrainBGroup2500 :: [MnistData Double] -> Int -> Benchmark
-mnistTrainBGroup2500 xs0 chunkLength =
+mnistTrainBGroup2000 :: [MnistData Double] -> Int -> Benchmark
+mnistTrainBGroup2000 xs0 chunkLength =
   env (return (xs0, map (V.map realToFrac *** V.map realToFrac)
                     $ take chunkLength xs0)) $
   \ ~(xs, xsFloat) ->
   bgroup ("huge 2-hidden-layer MNIST nn with samples: " ++ show chunkLength)
-    [ mnistTestBench2 "2500|750 " chunkLength xs 2500 750
+    [ mnistTestBench2 "2000|600 " chunkLength xs 2000 600
         -- probably mostly wasted
-    , mnistTrainBench2 "2500|750 " chunkLength xs 2500 750 0.02
-    , mnistTestBench2 "(Float) 2500|750 " chunkLength xsFloat 2500 750
+    , mnistTrainBench2 "2000|600 " chunkLength xs 2000 600 0.02
+    , mnistTestBench2 "(Float) 2000|600 " chunkLength xsFloat 2000 600
         -- Float test
-    , mnistTrainBench2 "(Float) 2500|750 " chunkLength xsFloat 2500 750
+    , mnistTrainBench2 "(Float) 2000|600 " chunkLength xsFloat 2000 600
                        (0.02 :: Float)
     ]
 
