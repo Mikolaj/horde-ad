@@ -35,11 +35,12 @@ import TestCommonEqEpsilon
 testTrees :: [TestTree]
 testTrees = [ mnistCNNTestsShort
             , mnistCNNTestsLong
-            ]
+            ] ++ comparisonTests 30
+
 
 shortTestForCITrees :: [TestTree]
 shortTestForCITrees = [ mnistCNNTestsShort
-                      ]
+                      ] ++ comparisonTests 7
 
 -- * The simplest possible convolutional net, based on
 -- https://www.ritchieng.com/machine-learning/deep-learning/tensorflow/convnets/#Problem-1
@@ -547,7 +548,7 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                           "T1 epoch 1 batch" 1 1
                           convMnistLossFusedS convMnistTestS convMnistLenS
                           0.02 0.8200000000000001
-   ]
+  ]
 
 mnistCNNTestsShort :: TestTree
 mnistCNNTestsShort = testGroup "MNIST CNN short tests"
@@ -579,11 +580,15 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
                           "T artificial 1 2 3 4 5" 1 2
                           convMnistLossFusedS convMnistTestS convMnistLenS
                           6 0.92
- , testProperty "Compare gradients and two forward derivatives for a single 2d convolution implemented from primitive operations and as a hardwired primitive" $
+  ]
+
+comparisonTests :: Int -> [TestTree]
+comparisonTests volume =
+ [ testProperty "Compare gradients and two forward derivatives for a single 2d convolution implemented twice" $
       forAll (choose (1, 30)) $ \seed ->
       forAll (choose (1, 50)) $ \seedDs ->
-      forAll (choose (1, 100)) $ \widthHidden ->
-      forAll (choose (1, 150)) $ \widthHidden2 ->
+      forAll (choose (1, 5 * volume)) $ \widthHidden ->
+      forAll (choose (1, 8 * volume)) $ \widthHidden2 ->
       forAll (choose (0, seed + widthHidden - 2)) $ \ix1 ->
       forAll (choose (0, seedDs + widthHidden2 - 2)) $ \ix2 ->
       forAll (choose (0.01, 10)) $ \range ->
@@ -615,11 +620,11 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
         in ioProperty (qcPropDom f parameters ds parametersPerturbation 1)
            .&&. ioProperty (qcPropDom fP parameters ds parametersPerturbation 1)
            .&&. cmpTwoSimple f fP parameters ds
-  , testProperty "Compare gradients and two forward derivatives for convMnistTestCNN and convMnistTestCNNP" $
+  , testProperty "Compare gradients and two forward derivatives for 3 implementations of CNN MNIST" $
       \seed ->
       forAll (choose (0, sizeMnistLabel - 1)) $ \seedDs ->
-      forAll (choose (1, 20)) $ \depth ->
-      forAll (choose (1, 30)) $ \num_hidden ->
+      forAll (choose (1, volume)) $ \depth ->
+      forAll (choose (1, volume)) $ \num_hidden ->
       forAll (choose (0.01, 0.5)) $ \range ->
       forAll (choose (0.01, 10)) $ \rangeDs ->
         let createRandomVector n seedV = HM.randomVector seedV HM.Uniform n
