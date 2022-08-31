@@ -95,7 +95,9 @@ common options
                       ExistentialQuantification, GADTs, StandaloneDeriving,
                       DataKinds, KindSignatures, DeriveGeneric, DeriveLift,
                       UnboxedTuples, CPP
-  ghc-options:        -Wall -Wcompat -Worphans -Wincomplete-uni-patterns -Wincomplete-record-updates -Wimplicit-prelude -Wmissing-home-modules -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages -Wredundant-strictness-flags
+  ghc-options:        -Wall -Wcompat -Worphans -Wincomplete-uni-patterns -Wincomplete-record-updates -Wimplicit-prelude -Wmissing-home-modules -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages
+  if impl(ghc >= 9.4)
+    ghc-options:        -Wredundant-strictness-flags
   ghc-options:        -fno-ignore-asserts
 
   -- Disabling this breaks performance:
