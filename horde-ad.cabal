@@ -412,3 +412,21 @@ benchmark shortMnistForCI
       , criterion
       , horde-ad
       , random
+
+-- takes forever, so mostly to invoke with --benchmark-options='-n 1 +RTS -s'
+benchmark realisticMnistBench
+    import:           options, exe-options
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
+
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   bench
+    main-is:          RealisticMnistBench.hs
+    build-depends: benchLibrary
+      , base
+      , criterion
+      , horde-ad
+      , random
