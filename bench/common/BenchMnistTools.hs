@@ -12,7 +12,10 @@ import qualified Data.Vector.Generic as V
 import qualified Numeric.LinearAlgebra as HM
 import           System.Random
 
+-- import           System.IO (hPutStrLn, stderr)
+
 import HordeAd
+import HordeAd.Core.DualClass (unsafeGetFreshId)
 import HordeAd.Tool.MnistData
 import HordeAd.Tool.MnistFcnnMatrix
 import HordeAd.Tool.MnistFcnnScalar
@@ -32,7 +35,12 @@ mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
       name = "" ++ extraPrefix
              ++ unwords [ "s" ++ show nParams0, "v0"
                         , "m0" ++ "=" ++ show nParams0 ]
-  bench name $ nfIO $ grad chunk
+  bench name $ nfIO $ do
+    grad chunk
+    counter <- unsafeGetFreshId
+    if counter > 2 ^ (62 :: Int)
+    then error $ "Counter is dangerously high: " ++ show counter
+    else return ()  -- hPutStrLn stderr $ "Counter value: " ++ show counter
 {-# SPECIALIZE mnistTrainBench2 :: String -> Int -> [MnistData Double] -> Int -> Int -> Double -> Benchmark #-}
 
 mnistTestBench2
