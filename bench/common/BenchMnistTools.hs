@@ -54,14 +54,20 @@ mnistTrainBGroup2 :: [MnistData Double] -> Int -> Benchmark
 mnistTrainBGroup2 xs0 chunkLength =
   env (return $ take chunkLength xs0) $
   \ xs ->
-  bgroup ("2-hidden-layer MNIST nn with samples: " ++ show chunkLength)
-    [ mnistTestBench2 "30|10 " chunkLength xs 30 10  -- toy width
-    , mnistTrainBench2 "30|10 " chunkLength xs 30 10 0.02
-    , mnistTestBench2 "300|100 " chunkLength xs 300 100  -- ordinary width
-    , mnistTrainBench2 "300|100 " chunkLength xs 300 100 0.02
-    , mnistTestBench2 "500|150 " chunkLength xs 500 150  -- another common size
-    , mnistTrainBench2 "500|150 " chunkLength xs 500 150 0.02
-    ]
+  bgroup ("2-hidden-layer MNIST nn with samples: " ++ show chunkLength) $
+    (if chunkLength <= 1000
+     then
+       [ mnistTestBench2 "30|10 " chunkLength xs 30 10  -- toy width
+       , mnistTrainBench2 "30|10 " chunkLength xs 30 10 0.02
+       , mnistTestBench2 "300|100 " chunkLength xs 300 100  -- ordinary width
+       , mnistTrainBench2 "300|100 " chunkLength xs 300 100 0.02
+       ]
+     else
+       [])
+    ++ [ mnistTestBench2 "500|150 " chunkLength xs 500 150
+                                                     -- another common size
+       , mnistTrainBench2 "500|150 " chunkLength xs 500 150 0.02
+       ]
 
 mnistTrainBGroup2000 :: [MnistData Double] -> Int -> Benchmark
 mnistTrainBGroup2000 xs0 chunkLength =
@@ -119,14 +125,20 @@ mnistTrainBGroup2V :: [MnistData Double] -> Int -> Benchmark
 mnistTrainBGroup2V xs0 chunkLength =
   env (return $ take chunkLength xs0) $
   \ xs ->
-  bgroup ("2-hidden-layer V MNIST nn with samples: " ++ show chunkLength)
-    [ mnistTestBench2V "30|10 " chunkLength xs 30 10  -- toy width
-    , mnistTrainBench2V "30|10 " chunkLength xs 30 10 0.02
-    , mnistTestBench2V "300|100 " chunkLength xs 300 100  -- ordinary width
-    , mnistTrainBench2V "300|100 " chunkLength xs 300 100 0.02
-    , mnistTestBench2V "500|150 " chunkLength xs 500 150  -- another common size
-    , mnistTrainBench2V "500|150 " chunkLength xs 500 150 0.02
-    ]
+  bgroup ("2-hidden-layer V MNIST nn with samples: " ++ show chunkLength) $
+    (if chunkLength <= 1000
+     then
+       [ mnistTestBench2V "30|10 " chunkLength xs 30 10  -- toy width
+       , mnistTrainBench2V "30|10 " chunkLength xs 30 10 0.02
+       , mnistTestBench2V "300|100 " chunkLength xs 300 100  -- ordinary width
+       , mnistTrainBench2V "300|100 " chunkLength xs 300 100 0.02
+       ]
+     else
+       [])
+    ++ [ mnistTestBench2V "500|150 " chunkLength xs 500 150
+                                                    -- another common size
+       , mnistTrainBench2V "500|150 " chunkLength xs 500 150 0.02
+       ]
 
 mnistTrainBench2L :: String -> Int -> [MnistData Double] -> Int -> Int
                   -> Double
@@ -163,11 +175,17 @@ mnistTrainBGroup2L :: [MnistData Double] -> Int -> Benchmark
 mnistTrainBGroup2L xs0 chunkLength =
   env (return $ take chunkLength xs0) $
   \ xs ->
-  bgroup ("2-hidden-layer L MNIST nn with samples: " ++ show chunkLength)
-    [ mnistTestBench2L "30|10 " chunkLength xs 30 10  -- toy width
-    , mnistTrainBench2L "30|10 " chunkLength xs 30 10 0.02
-    , mnistTestBench2L "300|100 " chunkLength xs 300 100  -- ordinary width
-    , mnistTrainBench2L "300|100 " chunkLength xs 300 100 0.02
-    , mnistTestBench2L "500|150 " chunkLength xs 500 150  -- another common size
-    , mnistTrainBench2L "500|150 " chunkLength xs 500 150 0.02
-    ]
+  bgroup ("2-hidden-layer L MNIST nn with samples: " ++ show chunkLength) $
+    (if chunkLength <= 1000
+     then
+       [ mnistTestBench2L "30|10 " chunkLength xs 30 10  -- toy width
+       , mnistTrainBench2L "30|10 " chunkLength xs 30 10 0.02
+       , mnistTestBench2L "300|100 " chunkLength xs 300 100  -- ordinary width
+       , mnistTrainBench2L "300|100 " chunkLength xs 300 100 0.02
+       ]
+    else
+       [])
+    ++ [ mnistTestBench2L "500|150 " chunkLength xs 500 150
+                                                    -- another common size
+       , mnistTrainBench2L "500|150 " chunkLength xs 500 150 0.02
+       ]
