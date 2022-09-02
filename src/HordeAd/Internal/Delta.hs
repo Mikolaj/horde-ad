@@ -61,12 +61,14 @@ import qualified Data.Array.Internal.DynamicG
 import qualified Data.Array.Internal.DynamicS
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
-import qualified Data.IntMap.Strict as IM
+import qualified Data.HashTable.Class as H
+import qualified Data.HashTable.ST.Cuckoo as HB
 import           Data.Kind (Type)
 import           Data.Primitive (Prim)
 import           Data.Proxy (Proxy)
 import           Data.STRef (STRef, newSTRef, readSTRef, writeSTRef)
-import           Data.STRef.Unboxed (STRefU, newSTRefU, readSTRefU, writeSTRefU)
+import           Data.STRef.Unboxed
+  (STRefU, modifySTRefU, newSTRefU, readSTRefU, writeSTRefU)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Strict.Vector.Autogen.Mutable as Data.Vector.Mutable
 import qualified Data.Vector.Generic as V
@@ -295,6 +297,8 @@ succDeltaId (DeltaId i) = DeltaId (succ i)
 
 -- * Evaluation of the delta expressions
 
+type HashTable s k v = HB.HashTable s k v
+
 data DeltaBinding r =
     DeltaBinding0 (DeltaId r) (Delta0' r)
   | DeltaBinding1 (DeltaId (Vector r)) (Delta1' r)
@@ -427,7 +431,8 @@ initializeFinMaps
           , STRefU s Int
           , STRefU s Int
           , STRefU s Int
-          , STRef s (IM.IntMap (DeltaBinding r)) )  -- Map is way slower
+          , HashTable s Int (DeltaBinding r) )  -- IntMap allocates too often,
+                                                -- Map is way slower still
 initializeFinMaps dim0 dim1 dim2 dimX = do
   iMap0 <- VM.replicate dim0 0  -- correct value; below are dummy
   iMap1 <- VM.replicate dim1 (V.empty :: Vector r)
@@ -453,7 +458,7 @@ initializeFinMaps dim0 dim1 dim2 dimX = do
   len1 <- newSTRefU (VM.length rMap1')
   len2 <- newSTRefU (VM.length rMap2')
   lenX <- newSTRefU (VM.length rMapX')
-  dMap <- newSTRef IM.empty
+  dMap <- H.new
   return ( iMap0, iMap1, iMap2, iMapX
          , ref0, ref1, ref2, refX
          , rMap0, rMap1, rMap2, rMapX
@@ -473,6 +478,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
    ,len0, len1, len2, lenX
    ,dMap )
     <- initializeFinMaps dim0 dim1 dim2 dimX
+  lenD <- newSTRefU (0 :: Int)
   let addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
       addToMatrix :: Matrix r -> Matrix r -> Matrix r
@@ -490,14 +496,15 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
         VM.modify iMap0 (+ r) i
       eval0 !r (Delta0 n d) = do
         rm <- readSTRef rMap0
-        im <- readSTRef dMap
-        case IM.lookup n im of
+        maybeBinding <- H.lookup dMap n
+        case maybeBinding of
           Just (DeltaBinding0 (DeltaId i) _) ->
             VM.modify rm (+ r) i
           Nothing -> do
             did@(DeltaId i) <- readSTRefU ref0
             writeSTRefU ref0 $ succDeltaId did
-            writeSTRef dMap $! IM.insert n (DeltaBinding0 did d) im
+            H.insert dMap n (DeltaBinding0 did d)
+            modifySTRefU lenD succ
             len <- readSTRefU len0
             if i >= len then do
               -- Unsafe is fine, because it initializes to bottoms and we always
@@ -538,14 +545,15 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
         VM.modify iMap1 (addToVector r) i
       eval1 !r (Delta1 n d) = do
         rm <- readSTRef rMap1
-        im <- readSTRef dMap
-        case IM.lookup n im of
+        maybeBinding <- H.lookup dMap n
+        case maybeBinding of
           Just (DeltaBinding1 (DeltaId i) _) ->
             VM.modify rm (+ r) i
           Nothing -> do
             did@(DeltaId i) <- readSTRefU ref1
             writeSTRefU ref1 $ succDeltaId did
-            writeSTRef dMap $! IM.insert n (DeltaBinding1 did d) im
+            H.insert dMap n (DeltaBinding1 did d)
+            modifySTRefU lenD succ
             len <- readSTRefU len1
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
@@ -590,14 +598,15 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
         VM.modify iMap2 (addToMatrix $ MO.convertMatrixOuter r) i
       eval2 !r (Delta2 n d) = do
         rm <- readSTRef rMap2
-        im <- readSTRef dMap
-        case IM.lookup n im of
+        maybeBinding <- H.lookup dMap n
+        case maybeBinding of
           Just (DeltaBinding2 (DeltaId i) _) ->
             VM.modify rm (MO.plus r) i
           Nothing -> do
             did@(DeltaId i) <- readSTRefU ref2
             writeSTRefU ref2 $ succDeltaId did
-            writeSTRef dMap $! IM.insert n (DeltaBinding2 did d) im
+            H.insert dMap n (DeltaBinding2 did d)
+            modifySTRefU lenD succ
             len <- readSTRefU len2
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
@@ -663,14 +672,15 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
         VM.modify iMapX (addToArray r) i
       evalX !r (DeltaX n d) = do
         rm <- readSTRef rMapX
-        im <- readSTRef dMap
-        case IM.lookup n im of
+        maybeBinding <- H.lookup dMap n
+        case maybeBinding of
           Just (DeltaBindingX (DeltaId i) _) ->
             VM.modify rm (liftVT2 (+) r) i
           Nothing -> do
             did@(DeltaId i) <- readSTRefU refX
             writeSTRefU refX $ succDeltaId did
-            writeSTRef dMap $! IM.insert n (DeltaBindingX did d) im
+            H.insert dMap n (DeltaBindingX did d)
+            modifySTRefU lenD succ
             len <- readSTRefU lenX
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
@@ -724,15 +734,16 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
         VM.modify iMapX (addToArrayS r) i
       evalS !r (DeltaS n d) = do
         rm <- readSTRef rMapX
-        im <- readSTRef dMap
-        case IM.lookup n im of
+        maybeBinding <- H.lookup dMap n
+        case maybeBinding of
           Just (DeltaBindingS (DeltaId i) _) -> do
             let rs = Data.Array.Convert.convert r
             VM.modify rm (liftVT2 (+) rs) i
           Nothing -> do
             did@(DeltaId i) <- readSTRefU refX
             writeSTRefU refX $ succDeltaId did
-            writeSTRef dMap $! IM.insert n (DeltaBindingS did d) im
+            H.insert dMap n (DeltaBindingS did d)
+            modifySTRefU lenD succ
             len <- readSTRefU lenX
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
@@ -803,16 +814,28 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
         rm <- readSTRef rMapX
         r <- rm `VM.read` i
         evalS' (Data.Array.Convert.convert r) d
-      evalFromdMap :: ST s ()
-      evalFromdMap = do
-        im <- readSTRef dMap
-        case IM.maxView im of
-          Just (b, im2) -> do
-            writeSTRef dMap $! im2
+      evalFromdMap :: Int -> ST s ()
+      evalFromdMap !n = do
+        maybeBinding <- H.lookup dMap n
+        case maybeBinding of
+          Just b -> do
+            H.delete dMap n
+            modifySTRefU lenD pred
             evalUnlessZero b
-            evalFromdMap
-          Nothing -> return ()  -- loop ends
-  evalFromdMap
+            evalFromdMap (n - 1)
+          Nothing -> do
+            dlen <- readSTRefU lenD
+            if n <= 0 || dlen <= 0
+            then return ()  -- loop ends
+            else do
+              elms <- H.toList dMap
+              evalFromdMap $ maximum $ map fst elms
+      deltaTopLevelN = case deltaTopLevel of
+        Zero0 -> 0
+        Input0 _ -> 0
+        Delta0 n _ -> n
+
+  evalFromdMap deltaTopLevelN
 
   return (iMap0, iMap1, iMap2, iMapX)
 {-# SPECIALIZE buildFinMaps
@@ -865,18 +888,17 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
       eval0 (Delta0 n d) = do
         -- This is too complex, but uses components already defined
         -- for initializeFinMaps and some of a similar code.
-        im <- readSTRef dMap
-        case IM.lookup n im of
+        maybeBinding <- H.lookup dMap n
+        case maybeBinding of
           Just (DeltaBinding0 (DeltaId i) _) -> do
             rm <- readSTRef rMap0
             VM.read rm i
           Nothing -> do
             r <- eval0' d
-            imNew <- readSTRef dMap
             rm <- readSTRef rMap0
             did@(DeltaId i) <- readSTRefU ref0
             writeSTRefU ref0 $ succDeltaId did
-            writeSTRef dMap $! IM.insert n (DeltaBinding0 did d) imNew
+            H.insert dMap n (DeltaBinding0 did d)
             len <- readSTRefU len0
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
@@ -907,18 +929,17 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         then return $! params1Init V.! i
         else error "derivativeFromDelta.eval': wrong index for an input"
       eval1 (Delta1 n d) = do
-        im <- readSTRef dMap
-        case IM.lookup n im of
+        maybeBinding <- H.lookup dMap n
+        case maybeBinding of
           Just (DeltaBinding1 (DeltaId i) _) -> do
             rm <- readSTRef rMap1
             VM.read rm i
           Nothing -> do
             r <- eval1' d
-            imNew <- readSTRef dMap
             rm <- readSTRef rMap1
             did@(DeltaId i) <- readSTRefU ref1
             writeSTRefU ref1 $ succDeltaId did
-            writeSTRef dMap $! IM.insert n (DeltaBinding1 did d) imNew
+            H.insert dMap n (DeltaBinding1 did d)
             len <- readSTRefU len1
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
@@ -963,18 +984,17 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         then return $! params2Init V.! i
         else error "derivativeFromDelta.eval': wrong index for an input"
       eval2 (Delta2 n d) = do
-        im <- readSTRef dMap
-        case IM.lookup n im of
+        maybeBinding <- H.lookup dMap n
+        case maybeBinding of
           Just (DeltaBinding2 (DeltaId i) _) -> do
             rm <- readSTRef rMap2
             VM.read rm i
           Nothing -> do
             r <- eval2' d
-            imNew <- readSTRef dMap
             rm <- readSTRef rMap2
             did@(DeltaId i) <- readSTRefU ref2
             writeSTRefU ref2 $ succDeltaId did
-            writeSTRef dMap $! IM.insert n (DeltaBinding2 did d) imNew
+            H.insert dMap n (DeltaBinding2 did d)
             len <- readSTRefU len2
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
@@ -1033,18 +1053,17 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         then return $! paramsXInit V.! i
         else error "derivativeFromDelta.eval': wrong index for an input"
       evalX (DeltaX n d) = do
-        im <- readSTRef dMap
-        case IM.lookup n im of
+        maybeBinding <- H.lookup dMap n
+        case maybeBinding of
           Just (DeltaBindingX (DeltaId i) _) -> do
             rm <- readSTRef rMapX
             VM.read rm i
           Nothing -> do
             r <- evalX' d
-            imNew <- readSTRef dMap
             rm <- readSTRef rMapX
             did@(DeltaId i) <- readSTRefU refX
             writeSTRefU refX $ succDeltaId did
-            writeSTRef dMap $! IM.insert n (DeltaBindingX did d) imNew
+            H.insert dMap n (DeltaBindingX did d)
             len <- readSTRefU lenX
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
@@ -1088,18 +1107,17 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         then return $! Data.Array.Convert.convert $ paramsXInit V.! i
         else error "derivativeFromDelta.eval': wrong index for an input"
       evalS (DeltaS n d) = do
-        im <- readSTRef dMap
-        case IM.lookup n im of
+        maybeBinding <- H.lookup dMap n
+        case maybeBinding of
           Just (DeltaBindingS (DeltaId i) _) -> do
             rm <- readSTRef rMapX
             Data.Array.Convert.convert <$> VM.read rm i
           Nothing -> do
             r <- evalS' d
-            imNew <- readSTRef dMap
             rm <- readSTRef rMapX
             did@(DeltaId i) <- readSTRefU refX
             writeSTRefU refX $ succDeltaId did
-            writeSTRef dMap $! IM.insert n (DeltaBindingS did d) imNew
+            H.insert dMap n (DeltaBindingS did d)
             len <- readSTRefU lenX
             if i >= len then do
               rmG <- VM.unsafeGrow rm len

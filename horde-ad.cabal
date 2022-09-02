@@ -162,7 +162,7 @@ library
         assert-failure
       , base >= 4.14 && < 99
       , bytestring
-      , containers
+      , hashtables
       , hmatrix
       , ilist
       , mnist-idx
