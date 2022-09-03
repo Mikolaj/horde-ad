@@ -140,13 +140,13 @@ testDReverse0 = testGroup "Simple dReverse application tests" $
     , ("freluX3", freluX, [0.0001], ([1.0],1.0e-4))
     , ("freluX4", freluX, [99], ([1.0],99.0))
     , ("fquad", fquad, [2, 3], ([4.0,6.0],18.0))
-    , ("scalarSum", vec_omit_scalarSum_aux, [1, 1, 3], ([1.0,1.0,1.0],5.0))
+    , ("scalarSum", vec_scalarSum_aux, [1, 1, 3], ([1.0,1.0,1.0],5.0))
     ]
 
-vec_omit_scalarSum_aux
+vec_scalarSum_aux
   :: IsScalar d r
   => DualNumberInputs d r -> DualNumber d r
-vec_omit_scalarSum_aux vec = foldlDual' (+) 0 vec
+vec_scalarSum_aux = foldlDual' (+) 0
 
 sumElementsV
   :: IsScalar d r
