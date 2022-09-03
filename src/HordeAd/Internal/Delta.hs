@@ -473,6 +473,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
    ,len0, len1, len2, lenX
    ,dMap )
     <- initializeFinMaps dim0 dim1 dim2 dimX
+  nLast <- newSTRefU 0  -- counter of the last fully evaluated binding
   let addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
       addToMatrix :: Matrix r -> Matrix r -> Matrix r
@@ -489,16 +490,32 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
       eval0 !r (Input0 (DeltaId i)) =
         VM.modify iMap0 (+ r) i
       eval0 !r (Delta0 n d) = do
-        rm <- readSTRef rMap0
         im <- readSTRef dMap
-        case IM.lookup n im of
-          Just (DeltaBinding0 (DeltaId i) _) ->
+        nL <- readSTRefU nLast
+        if n == pred nL
+        then do  -- this would be evaluated next, so let's shortcut,
+                 -- avoiding lots of short-lived allocations and also
+                 -- shrinking the environment in which the evaluation occurs
+          writeSTRefU nLast n
+          rFinal <- case IM.lookup n im of
+            Just (DeltaBinding0 (DeltaId i) _) -> do
+              writeSTRef dMap $! IM.delete n im
+              rm <- readSTRef rMap0
+              (+ r) <$> rm `VM.read` i
+            Nothing -> return r
+            _ -> error "buildFinMaps: corrupted dMap"
+          unless (rFinal == 0) $  -- a cheap optimization in case of scalars
+            eval0' rFinal d
+        else case IM.lookup n im of
+          Just (DeltaBinding0 (DeltaId i) _) -> do
+            rm <- readSTRef rMap0
             VM.modify rm (+ r) i
           Nothing -> do
             did@(DeltaId i) <- readSTRefU ref0
             writeSTRefU ref0 $ succDeltaId did
             writeSTRef dMap $! IM.insert n (DeltaBinding0 did d) im
             len <- readSTRefU len0
+            rm <- readSTRef rMap0
             if i >= len then do
               -- Unsafe is fine, because it initializes to bottoms and we always
               -- write before reading.
@@ -537,16 +554,31 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
       eval1 !r (Input1 (DeltaId i)) =
         VM.modify iMap1 (addToVector r) i
       eval1 !r (Delta1 n d) = do
-        rm <- readSTRef rMap1
         im <- readSTRef dMap
-        case IM.lookup n im of
-          Just (DeltaBinding1 (DeltaId i) _) ->
+        nL <- readSTRefU nLast
+        if n == pred nL
+        then do  -- this would be evaluated next, so let's shortcut,
+                 -- avoiding lots of short-lived allocations and also
+                 -- shrinking the environment in which the evaluation occurs
+          writeSTRefU nLast n
+          rFinal <- case IM.lookup n im of
+            Just (DeltaBinding1 (DeltaId i) _) -> do
+              writeSTRef dMap $! IM.delete n im
+              rm <- readSTRef rMap1
+              (+ r) <$> rm `VM.read` i
+            Nothing -> return r
+            _ -> error "buildFinMaps: corrupted dMap"
+          eval1' rFinal d
+        else case IM.lookup n im of
+          Just (DeltaBinding1 (DeltaId i) _) -> do
+            rm <- readSTRef rMap1
             VM.modify rm (+ r) i
           Nothing -> do
             did@(DeltaId i) <- readSTRefU ref1
             writeSTRefU ref1 $ succDeltaId did
             writeSTRef dMap $! IM.insert n (DeltaBinding1 did d) im
             len <- readSTRefU len1
+            rm <- readSTRef rMap1
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
               VM.write rmG i r
@@ -589,16 +621,31 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
       eval2 !r (Input2 (DeltaId i)) =
         VM.modify iMap2 (addToMatrix $ MO.convertMatrixOuter r) i
       eval2 !r (Delta2 n d) = do
-        rm <- readSTRef rMap2
         im <- readSTRef dMap
-        case IM.lookup n im of
-          Just (DeltaBinding2 (DeltaId i) _) ->
+        nL <- readSTRefU nLast
+        if n == pred nL
+        then do  -- this would be evaluated next, so let's shortcut,
+                 -- avoiding lots of short-lived allocations and also
+                 -- shrinking the environment in which the evaluation occurs
+          writeSTRefU nLast n
+          rFinal <- case IM.lookup n im of
+            Just (DeltaBinding2 (DeltaId i) _) -> do
+              writeSTRef dMap $! IM.delete n im
+              rm <- readSTRef rMap2
+              (MO.plus r) <$> rm `VM.read` i
+            Nothing -> return r
+            _ -> error "buildFinMaps: corrupted dMap"
+          eval2' rFinal d
+        else case IM.lookup n im of
+          Just (DeltaBinding2 (DeltaId i) _) -> do
+            rm <- readSTRef rMap2
             VM.modify rm (MO.plus r) i
           Nothing -> do
             did@(DeltaId i) <- readSTRefU ref2
             writeSTRefU ref2 $ succDeltaId did
             writeSTRef dMap $! IM.insert n (DeltaBinding2 did d) im
             len <- readSTRefU len2
+            rm <- readSTRef rMap2
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
               VM.write rmG i r
@@ -662,16 +709,31 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
       evalX !r (InputX (DeltaId i)) =
         VM.modify iMapX (addToArray r) i
       evalX !r (DeltaX n d) = do
-        rm <- readSTRef rMapX
         im <- readSTRef dMap
-        case IM.lookup n im of
-          Just (DeltaBindingX (DeltaId i) _) ->
+        nL <- readSTRefU nLast
+        if n == pred nL
+        then do  -- this would be evaluated next, so let's shortcut,
+                 -- avoiding lots of short-lived allocations and also
+                 -- shrinking the environment in which the evaluation occurs
+          writeSTRefU nLast n
+          rFinal <- case IM.lookup n im of
+            Just (DeltaBindingX (DeltaId i) _) -> do
+              writeSTRef dMap $! IM.delete n im
+              rm <- readSTRef rMapX
+              (liftVT2 (+) r) <$> rm `VM.read` i
+            Nothing -> return r
+            _ -> error "buildFinMaps: corrupted dMap"
+          evalX' rFinal d
+        else case IM.lookup n im of
+          Just (DeltaBindingX (DeltaId i) _) -> do
+            rm <- readSTRef rMapX
             VM.modify rm (liftVT2 (+) r) i
           Nothing -> do
             did@(DeltaId i) <- readSTRefU refX
             writeSTRefU refX $ succDeltaId did
             writeSTRef dMap $! IM.insert n (DeltaBindingX did d) im
             len <- readSTRefU lenX
+            rm <- readSTRef rMapX
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
               VM.write rmG i r
@@ -723,10 +785,25 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
       evalS !r (InputS (DeltaId i)) =
         VM.modify iMapX (addToArrayS r) i
       evalS !r (DeltaS n d) = do
-        rm <- readSTRef rMapX
         im <- readSTRef dMap
-        case IM.lookup n im of
+        nL <- readSTRefU nLast
+        if n == pred nL
+        then do  -- this would be evaluated next, so let's shortcut,
+                 -- avoiding lots of short-lived allocations and also
+                 -- shrinking the environment in which the evaluation occurs
+          writeSTRefU nLast n
+          rFinal <- case IM.lookup n im of
+            Just (DeltaBindingS (DeltaId i) _) -> do
+              writeSTRef dMap $! IM.delete n im
+              rm <- readSTRef rMapX
+              rx <- rm `VM.read` i
+              return $! liftVS2 (+) r (Data.Array.Convert.convert rx)
+            Nothing -> return r
+            _ -> error "buildFinMaps: corrupted dMap"
+          evalS' rFinal d
+        else case IM.lookup n im of
           Just (DeltaBindingS (DeltaId i) _) -> do
+            rm <- readSTRef rMapX
             let rs = Data.Array.Convert.convert r
             VM.modify rm (liftVT2 (+) rs) i
           Nothing -> do
@@ -734,6 +811,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
             writeSTRefU refX $ succDeltaId did
             writeSTRef dMap $! IM.insert n (DeltaBindingS did d) im
             len <- readSTRefU lenX
+            rm <- readSTRef rMapX
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
               VM.write rmG i (Data.Array.Convert.convert r)
@@ -806,8 +884,9 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
       evalFromdMap :: ST s ()
       evalFromdMap = do
         im <- readSTRef dMap
-        case IM.maxView im of
-          Just (b, im2) -> do
+        case IM.maxViewWithKey im of
+          Just ((n, b), im2) -> do
+            writeSTRefU nLast n
             writeSTRef dMap $! im2
             evalUnlessZero b
             evalFromdMap
