@@ -529,7 +529,10 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
       eval0' :: r -> Delta0' r -> ST s ()
       eval0' !r = \case
         Scale0 k d -> eval0 (k * r) d
-        Add0 d e -> eval0 r d >> eval0 r e
+        Add0 d e -> eval0 r e >> eval0 r d
+          -- reversed order of evaluation to enable the shortcut as often
+          -- as possible due to the parent and the first evaluated child
+          -- having adjacent counter values
 
         SumElements0 vd n -> eval1 (HM.konst r n) vd
         Index0 (Input1 (DeltaId i)) ix k | i >= 0 -> do
@@ -590,11 +593,15 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
       eval1' :: Vector r -> Delta1' r -> ST s ()
       eval1' !r = \case
         Scale1 k d -> eval1 (k * r) d
-        Add1 d e -> eval1 r d >> eval1 r e
+        Add1 d e -> eval1 r e >> eval1 r d
 
-        Seq1 lsd -> V.imapM_ (\i d -> eval0 (r V.! i) d) lsd
+        Seq1 lsd -> V.imapM_ (\i d -> eval0 (r V.! (V.length lsd - 1 - i)) d)
+                    $ V.reverse lsd
+          -- the argument vector is often created in the natural order,
+          -- so we have to reverse it to enable the shortcut more often
         Konst1 d _n -> V.mapM_ (`eval0` d) r
-        Append1 d k e -> eval1 (V.take k r) d >> eval1 (V.drop k r) e
+        Append1 d k e -> eval1 (V.drop k r) e >> eval1 (V.take k r) d
+          -- reversed order of evaluation; see Add0
         Slice1 i n d len ->
           eval1 (HM.konst 0 i V.++ r V.++ HM.konst 0 (len - i - n)) d
         SumRows1 dm cols -> eval2 (MO.asColumn r cols) dm
@@ -657,7 +664,9 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
       eval2' :: MO.MatrixOuter r -> Delta2' r -> ST s ()
       eval2' !r = \case
         Scale2 k d -> eval2 (MO.multiplyWithOuter k r) d
-        Add2 d e -> eval2 r d >> eval2 r e
+        Add2 d e -> eval2 r e >> eval2 r d
+          -- from here onwards we only reverse order in Add*, because
+          -- the benefits are minimal at these higher ranks
 
         FromRows2 lvd -> zipWithM_ eval1 (MO.toRows r) (V.toList lvd)
         FromColumns2 lvd -> zipWithM_ eval1 (MO.toColumns r) (V.toList lvd)
@@ -745,7 +754,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
       evalX' :: OT.Array r -> DeltaX' r -> ST s ()
       evalX' !r = \case
         ScaleX k d -> evalX (liftVT2 (*) k r) d
-        AddX d e -> evalX r d >> evalX r e
+        AddX d e -> evalX r e >> evalX r d
 
         KonstX d _sz -> mapM_ (`eval0` d) $ OT.toList r
         AppendX d k e -> case OT.shapeL r of
@@ -824,7 +833,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
              => OS.Array sh r -> DeltaS' sh r -> ST s ()
       evalS' !r = \case
         ScaleS k d -> evalS (liftVS2 (*) k r) d
-        AddS d e -> evalS r d >> evalS r e
+        AddS d e -> evalS r e >> evalS r d
 
 #if defined(VERSION_ghc_typelits_natnormalise)
         KonstS d -> mapM_ (`eval0` d) $ OS.toList r
