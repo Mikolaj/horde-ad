@@ -105,7 +105,7 @@ zeroState :: IsScalar d r
               -> (DualNumber d r2, DualNumber d (Vector r)))
           -> (a
               -> DualNumberInputs d r
-              -> (DualNumber d r2))
+              -> DualNumber d r2)
 zeroState k f xs inputs =
   fst $ f xs (constant $ HM.konst 0 k) inputs
 

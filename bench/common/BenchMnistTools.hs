@@ -36,11 +36,12 @@ mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
              ++ unwords [ "s" ++ show nParams0, "v0"
                         , "m0" ++ "=" ++ show nParams0 ]
   bench name $ nfIO $ do
-    grad chunk
+    res <- grad chunk
     counter <- unsafeGetFreshId
-    if counter > 2 ^ (62 :: Int)
-    then error $ "Counter is dangerously high: " ++ show counter
-    else return ()  -- hPutStrLn stderr $ "Counter value: " ++ show counter
+    (if counter > 2 ^ (62 :: Int)
+     then error $ "Counter is dangerously high: " ++ show counter
+     else return ())  -- hPutStrLn stderr $ "Counter value: " ++ show counter
+    return res
 {-# SPECIALIZE mnistTrainBench2 :: String -> Int -> [MnistData Double] -> Int -> Int -> Double -> Benchmark #-}
 
 mnistTestBench2

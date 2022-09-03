@@ -639,7 +639,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
             Just (DeltaBinding2 (DeltaId i) _) -> do
               writeSTRef dMap $! IM.delete n im
               rm <- readSTRef rMap2
-              (MO.plus r) <$> rm `VM.read` i
+              MO.plus r <$> rm `VM.read` i
             Nothing -> return r
             _ -> error "buildFinMaps: corrupted dMap"
           eval2' rFinal d
@@ -729,7 +729,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
             Just (DeltaBindingX (DeltaId i) _) -> do
               writeSTRef dMap $! IM.delete n im
               rm <- readSTRef rMapX
-              (liftVT2 (+) r) <$> rm `VM.read` i
+              liftVT2 (+) r <$> rm `VM.read` i
             Nothing -> return r
             _ -> error "buildFinMaps: corrupted dMap"
           evalX' rFinal d
@@ -1029,9 +1029,9 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         Append1 d _k e -> liftM2 (V.++) (eval1 d) (eval1 e)
         Slice1 i n d _len -> V.slice i n <$> eval1 d
         SumRows1 dm _cols ->
-          V.fromList <$> map HM.sumElements <$> HM.toRows <$> eval2 dm
+          V.fromList . map HM.sumElements . HM.toRows <$> eval2 dm
         SumColumns1 dm _rows ->
-          V.fromList <$> map HM.sumElements <$> HM.toColumns <$> eval2 dm
+          V.fromList . map HM.sumElements . HM.toColumns <$> eval2 dm
 
         M_VD1 m dRow -> (HM.#>) m <$> eval1 dRow
         MD_V1 md row -> flip (HM.#>) row <$> eval2 md
@@ -1091,9 +1091,9 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         RowAppend2 d _k e -> liftM2 (HM.===) (eval2 d) (eval2 e)
         ColumnAppend2 d _k e -> liftM2 (HM.|||) (eval2 d) (eval2 e)
         RowSlice2 i n d _rows ->
-          HM.takeRows n <$> HM.dropRows i <$> eval2 d
+          HM.takeRows n . HM.dropRows i <$> eval2 d
         ColumnSlice2 i n d _cols ->
-          HM.takeColumns n <$> HM.dropColumns i <$> eval2 d
+          HM.takeColumns n . HM.dropColumns i <$> eval2 d
 
         AsRow2 dRow -> HM.asRow <$> eval1 dRow  -- TODO: risky
         AsColumn2 dCol -> HM.asColumn <$> eval1 dCol  -- TODO: risky
@@ -1217,7 +1217,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
 
         From0S d -> OS.scalar <$> eval0 d
         From1S d -> OS.fromVector <$> eval1 d
-        From2S _ d -> OS.fromVector <$> HM.flatten <$> eval2 d
+        From2S _ d -> OS.fromVector . HM.flatten <$> eval2 d
         FromXS d -> Data.Array.Convert.convert <$> evalX d
 #endif
 

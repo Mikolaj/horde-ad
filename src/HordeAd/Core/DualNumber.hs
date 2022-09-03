@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes, CPP, DataKinds, FlexibleInstances,
-             FunctionalDependencies, QuantifiedConstraints, RankNTypes,
-             TypeFamilies, TypeOperators #-}
+             QuantifiedConstraints, RankNTypes, TypeFamilies, TypeOperators #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 #if defined(VERSION_ghc_typelits_natnormalise)

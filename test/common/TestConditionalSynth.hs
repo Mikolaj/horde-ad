@@ -3,6 +3,7 @@ module TestConditionalSynth (testTrees) where
 
 import Prelude
 
+import           Control.Monad (mapAndUnzipM)
 import           Data.List (nub, sort, unfoldr)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -15,6 +16,7 @@ import qualified Numeric.LinearAlgebra as HM
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
+
 
 import HordeAd
 import HordeAd.Tool.MnistFcnnVector
@@ -208,7 +210,7 @@ gradSmartTestCase prefix lossFunction seedSamples
        (parametersResult, _) <-
          sgdAdam f samples parametersInit (initialStateAdam parametersInit)
        (_, values) <-
-         unzip <$> mapM (\t -> dReverse 1 (f t) parametersResult) testSamples
+         mapAndUnzipM (\t -> dReverse 1 (f t) parametersResult) testSamples
        (sum values / 100) @?~ expected
 
 conditionalSynthTests:: TestTree

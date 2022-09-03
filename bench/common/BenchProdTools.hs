@@ -126,7 +126,7 @@ vec_prod ds = primalValue vec_prod_aux (ds, V.empty, V.empty, V.empty)
 
 grad_vec_prod :: HasDelta r => Vector r -> IO (Vector r)
 grad_vec_prod ds =
-  (\(v, _, _, _) -> v) <$> fst <$> dReverse 1 vec_prod_aux (ds, V.empty, V.empty, V.empty)
+  (\(v, _, _, _) -> v) . fst <$> dReverse 1 vec_prod_aux (ds, V.empty, V.empty, V.empty)
 
 grad_toList_prod :: HasDelta r => [r] -> IO [r]
 grad_toList_prod l = V.toList <$> grad_vec_prod (V.fromList l)
@@ -134,7 +134,7 @@ grad_toList_prod l = V.toList <$> grad_vec_prod (V.fromList l)
 vec_scalarSum_aux
   :: forall d r. IsScalar d r
   => DualNumberInputs d r -> DualNumber d r
-vec_scalarSum_aux vec = foldlDual' (+) 0 vec
+vec_scalarSum_aux = foldlDual' (+) 0
 
 sumElementsV :: DualNumberInputs 'DModeGradient Double
              -> DualNumber 'DModeGradient Double
@@ -151,14 +151,14 @@ altSumElementsV inputs =
 grad_vec_scalarSum :: HasDelta r => Vector r -> IO (Vector r)
 grad_vec_scalarSum ds =
   (\(v, _, _, _) -> v)
-  <$> fst <$> dReverse 1 vec_scalarSum_aux (ds, V.empty, V.empty, V.empty)
+  . fst <$> dReverse 1 vec_scalarSum_aux (ds, V.empty, V.empty, V.empty)
 
 grad_vec_sum :: Vector Double -> IO (Vector Double)
 grad_vec_sum ds =
   (\(_, v, _, _) -> V.head v)
-  <$> fst <$> dReverse 1 sumElementsV (V.empty, V.singleton ds, V.empty, V.empty)
+  . fst <$> dReverse 1 sumElementsV (V.empty, V.singleton ds, V.empty, V.empty)
 
 grad_vec_altSum :: Vector Double -> IO (Vector Double)
 grad_vec_altSum ds =
   (\(_, v, _, _) -> V.head v)
-  <$> fst <$> dReverse 1 altSumElementsV (V.empty, V.singleton ds, V.empty, V.empty)
+  . fst <$> dReverse 1 altSumElementsV (V.empty, V.singleton ds, V.empty, V.empty)

@@ -83,10 +83,10 @@ convMiddleMnistCNN :: IsScalar d r
                    -> [DualNumber d (Matrix r)] -> Int
                    -> DualNumber d (Matrix r)
 convMiddleMnistCNN depth inputs ms1 k =
-  let conv (m, n) =
+  let conv m n =
         let ker = at2 inputs ((1 + k) * depth + n)
         in conv2 ker m
-      ms2 = map conv $ zip ms1 [0 ..]
+      ms2 = zipWith conv ms1 [0 ..]
       yConv@(D u _) = sum ms2
       bias = at0 inputs (depth + k)
       yRelu = relu $ yConv + konst2 bias (HM.size u)
@@ -228,10 +228,10 @@ convMiddleMnistCNNS :: IsScalar d r
                     -> [DualNumber d (Matrix r)] -> Int
                     -> DualNumber d (Matrix r)
 convMiddleMnistCNNS depth inputs ms1 k =
-  let conv (m, n) =
+  let conv m n =
         let ker = at2 inputs ((1 + k) * depth + n)
         in convSame2 ker m
-      ms2 = map conv $ zip ms1 [0 ..]
+      ms2 = zipWith conv ms1 [0 ..]
       yConv@(D u _) = sum ms2
       bias = at0 inputs (depth + k)
       yRelu = relu $ yConv + konst2 bias (HM.size u)
@@ -298,10 +298,10 @@ convMiddleMnistCNNP :: IsScalar d r
                     -> [DualNumber d (Matrix r)] -> Int
                     -> DualNumber d (Matrix r)
 convMiddleMnistCNNP depth inputs ms1 k =
-  let conv (m, n) =
+  let conv m n =
         let ker = at2 inputs ((1 + k) * depth + n)
         in conv2' ker m
-      ms2 = map conv $ zip ms1 [0 ..]
+      ms2 = zipWith conv ms1 [0 ..]
       yConv@(D u _) = sum ms2
       bias = at0 inputs (depth + k)
       yRelu = relu $ yConv + konst2 bias (HM.size u)
