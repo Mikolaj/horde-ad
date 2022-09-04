@@ -6,15 +6,24 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 #endif
--- | The class defining dual components of dual numbers and related classes,
--- type families, constraints and instances. This is a low-level API
+-- | The class defining dual components of dual numbers. It contains
+-- relevant classes, type families, constraints and instances.
+-- This is a mid-level API ("HordeAd.Internal.Delta" is low level)
 -- used to define types and operations in "HordeAd.Core.DualNumber"
 -- that is the high-level API.
+--
+-- This module contains impurity, which produces pure data with particular
+-- properties that low level modules require (a specific order
+-- of per-node integer identifiers) and that can't be controlled, accessed
+-- nor observed by any other module nor by users of the library.
+-- The @Show@ instance is the only way the impurity can be detected
+-- and so it should be used only in debugging or low-level testing context.
+-- Similarly, instances such as @Eq@ or @Read@ should not be added.
 module HordeAd.Core.DualClass
   ( IsPrimalWithScalar, IsPrimalAndHasFeatures, IsScalar, HasDelta
-  , DMode(..), Dual, IsPrimal(..), HasRanks(..)
-  , HasInputs(..)  -- use sparingly
-  , unsafeGetFreshId  -- exposed only for special tests
+  , DMode(..), Dual, IsPrimal(..), HasRanks(..), HasInputs(..)
+  , -- * Internal operations
+    unsafeGetFreshId
   ) where
 
 import Prelude
@@ -237,34 +246,61 @@ class HasRanks (d :: DMode) r where
 
 -- * Backprop gradient method instances
 
--- The bangs are necessary to ensure call by value, which is needed
--- for id ordering to reflect data dependencies.
+-- | This, just as many other @DModeGradient@ instances, is an impure instance.
+-- Each created term tree node gets an @Int@ identifier
+-- that is afterwards incremented (and never changed in any other way).
+-- The identifiers are not part of any non-internal module API
+-- and the impure counter that gets incremented is exposed only
+-- to be used in special low level tests. The per-node identifiers
+-- are used only in internal modules. They are assigned once and then read-only.
+-- They ensure that subterms that are shared in memory are evaluated only once.
+-- If pointer equality worked efficiently (e.g., if compact regions
+-- with sharing were cheaper), we wouldn't need the impurity.
+--
+-- Given that we have to use impurity anyway, we make the implementation
+-- faster by ensuring the order of identifiers reflects data dependency,
+-- that is, parent nodes always have higher identifier than child nodes.
+-- The bangs in the implementation of the instances are necessary to ensure
+-- call by value, which is needed for that identifier ordering.
+--
+-- As long as "HordeAd.Internal.Delta" is used exclusively through
+-- smart constructors from this API and the API is not (wrongly) modified,
+-- the impurity is completely safe. Even compiler optimizations,
+-- e.g., as cse and full-laziness, can't break the required invariants.
+-- On the contrary, they increase sharing and make evaluation yet cheaper.
+-- Of course, if the compiler, e.g., stopped honouring @NOINLINE@,
+-- all this breaks down.
 instance IsPrimal 'DModeGradient Double where
   dZero = Zero0
   dScale !k !d = wrapDelta0 $ Scale0 k d
   dAdd !d !e = wrapDelta0 $ Add0 d e
 
+-- | This is an impure instance. See above.
 instance IsPrimal 'DModeGradient Float where
   -- Identical as above:
   dZero = Zero0
   dScale !k !d = wrapDelta0 $ Scale0 k d
   dAdd !d !e = wrapDelta0 $ Add0 d e
 
+-- | This is an impure instance. See above.
 instance IsPrimal 'DModeGradient (Vector r) where
   dZero = Zero1
   dScale !k !d = wrapDelta1 $ Scale1 k d
   dAdd !d !e = wrapDelta1 $ Add1 d e
 
+-- | This is an impure instance. See above.
 instance IsPrimal 'DModeGradient (Matrix r) where
   dZero = Zero2
   dScale !k !d = wrapDelta2 $ Scale2 k d
   dAdd !d !e = wrapDelta2 $ Add2 d e
 
+-- | This is an impure instance. See above.
 instance IsPrimal 'DModeGradient (OT.Array r) where
   dZero = ZeroX
   dScale !k !d = wrapDeltaX $ ScaleX k d
   dAdd !d !e = wrapDeltaX $ AddX d e
 
+-- | This is an impure instance. See above.
 instance IsPrimalS 'DModeGradient r where
   dZeroS = ZeroS
   dScaleS !k !d = wrapDeltaS $ ScaleS k d
@@ -288,6 +324,7 @@ instance HasInputs (OT.Array r) where
 instance HasInputs (OS.Array sh r) where
   dInput = InputS
 
+-- | This is an impure instance. See above.
 instance Dual 'DModeGradient r ~ Delta0 r
          => HasRanks 'DModeGradient r where
   dSumElements0 !vd !n = wrapDelta0 $ SumElements0 vd n
@@ -552,27 +589,35 @@ instance HasRanks 'DModeValue r where
 #endif
 
 
--- * Impure generation of fresh ids (thread-safe, admits parallel tests,
--- does not require -fno-full-laziness nor -fno-cse). The only tricky point
--- is mandatory use of the smart constructors above and that any new
--- smart constructors should be similarly call-by-value to ensure proper
--- order of identifiers of subterms.
-
--- Start at a large number to make tests measuring the size of pretty
--- printed terms less fragile. Counter is as safe, but faster than an MVar.
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}
 unsafeGlobalCounter = unsafePerformIO (newCounter 100000000)
 
--- This is the only operation directly touching the counter.
--- It's manually inlined to prevent random GHCs deciding otherwise
--- and causing performance anomalies.
+-- | Do not use; this is exposed only for special low level tests,
+-- just as the @Show@ instance.
+--
+-- This is the only operation directly touching the single impure counter
+-- that holds fresh and continuously incremented integer identifiers,
+-- The impurity in this module, stemming from the use of this operation
+-- under @unsafePerformIO@ is thread-safe, admits parallel tests
+-- and does not require @-fno-full-laziness@ nor @-fno-cse@.
+-- The only tricky point is mandatory use of the smart constructors
+-- above and that any new smart constructors should be similarly
+-- call-by-value to ensure proper order of identifiers of subterms.
+--
+-- We start at a large number to make tests measuring the size of pretty
+-- printed terms less fragile. @Counter@ datatype is just as safe,
+-- but faster than an @MVar@ and than an atomic @IORef@
+-- (and even non-atomic @IORef@). The operation is manually inlined
+-- to prevent GHCs deciding otherwise and causing performance anomalies.
 unsafeGetFreshId :: IO Int
 {-# INLINE unsafeGetFreshId #-}
 unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
 
 -- The following functions are the only places, except for global
 -- variable definitions, that contain `unsafePerformIO'.
+-- BTW, test don't show a speedup from `unsafeDupablePerformIO`,
+-- perhaps due to counter gaps that it may introduce.
 wrapDelta0 :: Delta0' r -> Delta0 r
 {-# NOINLINE wrapDelta0 #-}
 wrapDelta0 !d = unsafePerformIO $ do
