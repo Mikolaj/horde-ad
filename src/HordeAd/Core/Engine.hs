@@ -23,7 +23,8 @@ import           Text.Show.Pretty (ppShow)
 
 -- import           System.Mem (performMinorGC)
 
-import HordeAd.Core.DualClass (Dual, IsPrimal (..), IsPrimalWithScalar, dInput)
+import HordeAd.Core.DualClass
+  (Dual, IsPrimal (..), IsPrimalAndHasFeatures, dInput)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.PairOfVectors (DualNumberInputs (..), makeDualNumberInputs)
 import HordeAd.Internal.Delta
@@ -184,7 +185,7 @@ generateDeltaInputs
      , Data.Vector.Vector (Dual 'DModeGradient (OT.Array r)) )
 generateDeltaInputs (params0, params1, params2, paramsX) =
   let intToInput
-        :: forall a v. (IsPrimalWithScalar 'DModeGradient a r, V.Vector v a)
+        :: forall a v. (IsPrimalAndHasFeatures 'DModeGradient a r, V.Vector v a)
         => v a -> Data.Vector.Vector (Dual 'DModeGradient a)
       intToInput p = V.generate (V.length p) (dInput . toDeltaId)
       !v0 = intToInput params0

@@ -52,11 +52,12 @@ import HordeAd.Internal.Delta
 -- at an unknown rank, with the given differentiation mode
 -- and underlying scalar.
 type IsPrimalWithScalar (d :: DMode) a r =
-  (ScalarOf a ~ r, IsPrimal d a, HasInputs a)
+  (IsPrimal d a, ScalarOf a ~ r)
 
 -- | A shorthand for a useful set of constraints.
 type IsPrimalAndHasFeatures (d :: DMode) a r =
-  (IsPrimalWithScalar d a r, RealFloat a, MonoFunctor a, Element a ~ r)
+  ( IsPrimalWithScalar d a r
+  , HasInputs a, RealFloat a, MonoFunctor a, Element a ~ r )
 
 -- | A mega-shorthand for a bundle of connected type constraints.
 -- The @Scalar@ in the name means that the second argument is the underlying
