@@ -16,7 +16,7 @@ import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.PairOfVectors (DualNumberVariables, var1, var2)
+import HordeAd.Core.PairOfVectors (DualNumberInputs, at1, at2)
 import HordeAd.Tool.MnistData
 
 fcnnMnistLen2 :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
@@ -33,55 +33,55 @@ fcnnMnistLen2 widthHidden widthHidden2 =
 -- There are two hidden layers and both use the same activation function.
 -- The output layer uses a different activation function.
 -- The width of the layers is determined by the dimensions of the matrices
--- and vectors given as dual number parameters (variables).
+-- and vectors given as dual number parameters (inputs).
 -- The dimensions, in turn, can be computed by the @len*@ functions
 -- on the basis of the requested widths, see above.
-fcnnMnist2 :: forall d r m. DualMonad d r m
-           => (DualNumber d (Vector r) -> m (DualNumber d (Vector r)))
-           -> (DualNumber d (Vector r) -> m (DualNumber d (Vector r)))
+fcnnMnist2 :: forall d r. IsScalar d r
+           => (DualNumber d (Vector r) -> DualNumber d (Vector r))
+           -> (DualNumber d (Vector r) -> DualNumber d (Vector r))
            -> Vector r
-           -> DualNumberVariables d r
-           -> m (DualNumber d (Vector r))
-fcnnMnist2 factivationHidden factivationOutput input variables = do
-  let !_A = assert (sizeMnistGlyph == V.length input) ()
-      weightsL0 = var2 variables 0
-      biasesV0 = var1 variables 0
-      weightsL1 = var2 variables 1
-      biasesV1 = var1 variables 1
-      weightsL2 = var2 variables 2
-      biasesV2 = var1 variables 2
-  let hiddenLayer1 = weightsL0 #>!! input + biasesV0
-  nonlinearLayer1 <- factivationHidden hiddenLayer1
-  let hiddenLayer2 = weightsL1 #>! nonlinearLayer1 + biasesV1
-  nonlinearLayer2 <- factivationHidden hiddenLayer2
-  let outputLayer = weightsL2 #>! nonlinearLayer2 + biasesV2
-  factivationOutput outputLayer
+           -> DualNumberInputs d r
+           -> DualNumber d (Vector r)
+fcnnMnist2 factivationHidden factivationOutput datum inputs =
+  let !_A = assert (sizeMnistGlyph == V.length datum) ()
+      weightsL0 = at2 inputs 0
+      biasesV0 = at1 inputs 0
+      weightsL1 = at2 inputs 1
+      biasesV1 = at1 inputs 1
+      weightsL2 = at2 inputs 2
+      biasesV2 = at1 inputs 2
+      hiddenLayer1 = weightsL0 #>!! datum + biasesV0
+      nonlinearLayer1 = factivationHidden hiddenLayer1
+      hiddenLayer2 = weightsL1 #>! nonlinearLayer1 + biasesV1
+      nonlinearLayer2 =factivationHidden hiddenLayer2
+      outputLayer = weightsL2 #>! nonlinearLayer2 + biasesV2
+  in factivationOutput outputLayer
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 fcnnMnistLoss2
-  :: DualMonad d r m
-  => MnistData r -> DualNumberVariables d r -> m (DualNumber d r)
-fcnnMnistLoss2 (input, target) variables = do
-  result <- inline fcnnMnist2 logisticAct softMaxActV input variables
-  lossCrossEntropyV target result
+  :: IsScalar d r
+  => MnistData r -> DualNumberInputs d r -> DualNumber d r
+fcnnMnistLoss2 (datum, target) inputs =
+  let result = inline fcnnMnist2 logistic softMaxV datum inputs
+  in lossCrossEntropyV target result
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function, using fused
 -- softMax and cross entropy as the loss function.
 fcnnMnistLossFused2
-  :: DualMonad d r m
-  => MnistData r -> DualNumberVariables d r -> m (DualNumber d r)
-fcnnMnistLossFused2 (input, target) variables = do
-  result <- inline fcnnMnist2 logisticAct return input variables
-  lossSoftMaxCrossEntropyV target result
+  :: IsScalar d r
+  => MnistData r -> DualNumberInputs d r -> DualNumber d r
+fcnnMnistLossFused2 (datum, target) inputs =
+  let result = inline fcnnMnist2 logistic id datum inputs
+  in lossSoftMaxCrossEntropyV target result
 
 fcnnMnistLossFusedRelu2
-  :: DualMonad d r m
-  => MnistData r -> DualNumberVariables d r -> m (DualNumber d r)
-fcnnMnistLossFusedRelu2 (input, target) variables = do
-  result <- inline fcnnMnist2 reluAct return input variables
-  lossSoftMaxCrossEntropyV target result
+  :: IsScalar d r
+  => MnistData r -> DualNumberInputs d r -> DualNumber d r
+fcnnMnistLossFusedRelu2 (datum, target) inputs =
+  let result = inline fcnnMnist2 relu id datum inputs
+  in lossSoftMaxCrossEntropyV target result
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
@@ -91,8 +91,7 @@ fcnnMnistTest2
 fcnnMnistTest2 inputs parameters =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let nn = inline (fcnnMnist2 @'DModeValue)
-                        logisticAct softMaxActV glyph
+        let nn = inline (fcnnMnist2 @'DModeValue) logistic softMaxV glyph
             value = primalValue nn parameters
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))

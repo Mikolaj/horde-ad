@@ -7,11 +7,11 @@
 -- For this reason, this representation is currently used only to represent
 -- the inputs of functions, that is, dual numbers with initial values
 -- of parameters and, in case of dual components that are delta-expressions,
--- with @Delta@ variables assigned to each.
+-- with @Delta@ inputs assigned to each.
 module HordeAd.Core.PairOfVectors
-  ( DualNumberVariables
-  , makeDualNumberVariables, var0, vars, var1, var2, varX, varS
-  , ifoldMDual', foldMDual', ifoldlDual', foldlDual'
+  ( DualNumberInputs(..)
+  , makeDualNumberInputs, at0, atList0, at1, at2, atX, atS
+  , ifoldlDual', foldlDual'
   ) where
 
 import Prelude
@@ -30,102 +30,81 @@ import HordeAd.Core.DualNumber
 -- in an efficient way (especially, or only, with gradient descent,
 -- where the vectors are reused in some ways).
 
-type DualNumberVariables d r =
-  ( Domain0 r
-  , Data.Vector.Vector (Dual d r)
-  , Domain1 r
-  , Data.Vector.Vector (Dual d (Vector r))
-  , Domain2 r
-  , Data.Vector.Vector (Dual d (Matrix r))
-  , DomainX r
-  , Data.Vector.Vector (Dual d (OT.Array r))
-  )
+data DualNumberInputs d r = DualNumberInputs
+  { inputPrimal0 :: Domain0 r
+  , inputDual0   :: Data.Vector.Vector (Dual d r)
+  , inputPrimal1 :: Domain1 r
+  , inputDual1   :: Data.Vector.Vector (Dual d (Vector r))
+  , inputPrimal2 :: Domain2 r
+  , inputDual2   :: Data.Vector.Vector (Dual d (Matrix r))
+  , inputPrimalX :: DomainX r
+  , inputDualX   :: Data.Vector.Vector (Dual d (OT.Array r))
+  }
 
-makeDualNumberVariables
+makeDualNumberInputs
   :: Domains r
   -> ( Data.Vector.Vector (Dual d r)
      , Data.Vector.Vector (Dual d (Vector r))
      , Data.Vector.Vector (Dual d (Matrix r))
      , Data.Vector.Vector (Dual d (OT.Array r)) )
-  -> DualNumberVariables d r
-{-# INLINE makeDualNumberVariables #-}
-makeDualNumberVariables (params0, params1, params2, paramsX)
+  -> DualNumberInputs d r
+{-# INLINE makeDualNumberInputs #-}
+makeDualNumberInputs (params0, params1, params2, paramsX)
                         (vs0, vs1, vs2, vsX)
-  = (params0, vs0, params1, vs1, params2, vs2, paramsX, vsX)
+  = DualNumberInputs params0 vs0 params1 vs1 params2 vs2 paramsX vsX
 
-var0 :: IsScalar d r => DualNumberVariables d r -> Int -> DualNumber d r
-var0 (vValue, vVar, _, _, _, _, _, _) i = D (vValue V.! i) (vVar V.! i)
+at0 :: IsScalar d r => DualNumberInputs d r -> Int -> DualNumber d r
+{-# INLINE at0 #-}
+at0 DualNumberInputs{..} i = D (inputPrimal0 V.! i) (inputDual0 V.! i)
 
 -- Unsafe, but handy for toy examples.
-vars :: IsScalar d r => DualNumberVariables d r -> [DualNumber d r]
-vars vec = map ( var0 vec) [0 ..]
+atList0 :: IsScalar d r => DualNumberInputs d r -> [DualNumber d r]
+atList0 vec = map (at0 vec) [0 ..]
 
-var1 :: DualNumberVariables d r -> Int -> DualNumber d (Vector r)
-var1 (_, _, vValue, vVar, _, _, _, _) i = D (vValue V.! i) (vVar V.! i)
+at1 :: DualNumberInputs d r -> Int -> DualNumber d (Vector r)
+{-# INLINE at1 #-}
+at1 DualNumberInputs{..} i = D (inputPrimal1 V.! i) (inputDual1 V.! i)
 
-var2 :: DualNumberVariables d r -> Int -> DualNumber d (Matrix r)
-var2 (_, _, _, _, vValue, vVar, _, _) i = D (vValue V.! i) (vVar V.! i)
+at2 :: DualNumberInputs d r -> Int -> DualNumber d (Matrix r)
+{-# INLINE at2 #-}
+at2 DualNumberInputs{..} i = D (inputPrimal2 V.! i) (inputDual2 V.! i)
 
-varX :: DualNumberVariables d r -> Int -> DualNumber d (OT.Array r)
-varX (_, _, _, _, _, _, vValue, vVar) i = D (vValue V.! i) (vVar V.! i)
+atX :: DualNumberInputs d r -> Int -> DualNumber d (OT.Array r)
+{-# INLINE atX #-}
+atX DualNumberInputs{..} i = D (inputPrimalX V.! i) (inputDualX V.! i)
 
-varS :: (IsScalar d r, OS.Shape sh)
-     => DualNumberVariables d r -> Int -> DualNumber d (OS.Array sh r)
-varS (_, _, _, _, _, _, vValue, vVar) i =
+atS :: (IsScalar d r, OS.Shape sh)
+     => DualNumberInputs d r -> Int -> DualNumber d (OS.Array sh r)
+{-# INLINE atS #-}
+atS DualNumberInputs{..} i =
 #if defined(VERSION_ghc_typelits_natnormalise)
-  inline fromXS $ D (vValue V.! i) (vVar V.! i)
+  inline fromXS $ D (inputPrimalX V.! i) (inputDualX V.! i)
 #else
   undefined
 #endif
 
-ifoldMDual' :: forall a d r m. (Monad m, IsScalar d r)
-             => (a -> Int -> DualNumber d r -> m a)
-             -> a
-             -> DualNumberVariables d r
-             -> m a
-{-# INLINE ifoldMDual' #-}
-ifoldMDual' f a (vecR, vecD, _, _, _, _, _, _) = do
-  let g :: a -> Int -> r -> m a
-      g !acc i valX = do
-        let !b = D valX (vecD V.! i)
-        f acc i b
-  V.ifoldM' g a vecR
-
-foldMDual' :: forall a d r m. (Monad m, IsScalar d r)
-            => (a -> DualNumber d r -> m a)
-            -> a
-            -> DualNumberVariables d r
-            -> m a
-{-# INLINE foldMDual' #-}
-foldMDual' f a (vecR, vecD, _, _, _, _, _, _) = do
-  let g :: a -> Int -> r -> m a
-      g !acc i valX = do
-        let !b = D valX (vecD V.! i)
-        f acc b
-  V.ifoldM' g a vecR
-
 ifoldlDual' :: forall a d r. IsScalar d r
              => (a -> Int -> DualNumber d r -> a)
              -> a
-             -> DualNumberVariables d r
+             -> DualNumberInputs d r
              -> a
 {-# INLINE ifoldlDual' #-}
-ifoldlDual' f a (vecR, vecD, _, _, _, _, _, _) = do
+ifoldlDual' f a DualNumberInputs{..} = do
   let g :: a -> Int -> r -> a
       g !acc i valX =
-        let !b = D valX (vecD V.! i)
+        let !b = D valX (inputDual0 V.! i)
         in f acc i b
-  V.ifoldl' g a vecR
+  V.ifoldl' g a inputPrimal0
 
 foldlDual' :: forall a d r. IsScalar d r
             => (a -> DualNumber d r -> a)
             -> a
-            -> DualNumberVariables d r
+            -> DualNumberInputs d r
             -> a
 {-# INLINE foldlDual' #-}
-foldlDual' f a (vecR, vecD, _, _, _, _, _, _) = do
+foldlDual' f a DualNumberInputs{..} = do
   let g :: a -> Int -> r -> a
       g !acc i valX =
-        let !b = D valX (vecD V.! i)
+        let !b = D valX (inputDual0 V.! i)
         in f acc b
-  V.ifoldl' g a vecR
+  V.ifoldl' g a inputPrimal0

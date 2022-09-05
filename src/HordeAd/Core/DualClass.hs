@@ -6,14 +6,24 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 #endif
--- | The class defining dual components of dual numbers and related classes,
--- type families, constraints and instances. This is a low-level API
+-- | The class defining dual components of dual numbers. It contains
+-- relevant classes, type families, constraints and instances.
+-- This is a mid-level API ("HordeAd.Internal.Delta" is low level)
 -- used to define types and operations in "HordeAd.Core.DualNumber"
 -- that is the high-level API.
+--
+-- This module contains impurity, which produces pure data with particular
+-- properties that low level modules require (a specific order
+-- of per-node integer identifiers) and that can't be controlled, accessed
+-- nor observed by any other module nor by users of the library.
+-- The @Show@ instance is the only way the impurity can be detected
+-- and so it should be used only in debugging or low-level testing context.
+-- Similarly, instances such as @Eq@ or @Read@ should not be added.
 module HordeAd.Core.DualClass
   ( IsPrimalWithScalar, IsPrimalAndHasFeatures, IsScalar, HasDelta
-  , DMode(..), Dual, IsPrimal(..), HasRanks(..)
-  , HasVariables(..)  -- use sparringly
+  , DMode(..), Dual, IsPrimal(..), HasRanks(..), HasInputs(..)
+  , -- * Internal operations
+    unsafeGetFreshId
   ) where
 
 import Prelude
@@ -23,6 +33,7 @@ import qualified Data.Array.Dynamic as OTB
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
+import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.MonoTraversable (Element, MonoFunctor)
 import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
@@ -30,6 +41,7 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, natVal, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
+import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Internal.Delta
 
@@ -40,11 +52,12 @@ import HordeAd.Internal.Delta
 -- at an unknown rank, with the given differentiation mode
 -- and underlying scalar.
 type IsPrimalWithScalar (d :: DMode) a r =
-  (ScalarOf a ~ r, IsPrimal d a, HasVariables a)
+  (IsPrimal d a, ScalarOf a ~ r)
 
 -- | A shorthand for a useful set of constraints.
 type IsPrimalAndHasFeatures (d :: DMode) a r =
-  (IsPrimalWithScalar d a r, RealFloat a, MonoFunctor a, Element a ~ r)
+  ( IsPrimalWithScalar d a r
+  , HasInputs a, RealFloat a, MonoFunctor a, Element a ~ r )
 
 -- | A mega-shorthand for a bundle of connected type constraints.
 -- The @Scalar@ in the name means that the second argument is the underlying
@@ -123,7 +136,6 @@ class IsPrimal d a where
   dZero :: Dual d a
   dScale :: a -> Dual d a -> Dual d a
   dAdd :: Dual d a -> Dual d a -> Dual d a
-  dDelay :: Dual d a -> Dual d a
 
 -- | Part 1/2 of a hack to squeeze the shaped tensors rank,
 -- with its extra @sh@ parameter, into the 'IsPrimal' class.
@@ -134,8 +146,6 @@ class IsPrimalS d r where
   dAddS :: forall sh. OS.Shape sh
         => Dual d (OS.Array sh r) -> Dual d (OS.Array sh r)
         -> Dual d (OS.Array sh r)
-  dDelayS :: forall sh. OS.Shape sh
-             => Dual d (OS.Array sh r) -> Dual d (OS.Array sh r)
 
 -- | Part 2/2 of a hack to squeeze the shaped tensors rank,
 -- with its extra @sh@ parameter, into the 'IsPrimal' class.
@@ -143,19 +153,13 @@ instance (IsPrimalS d r, OS.Shape sh) => IsPrimal d (OS.Array sh r) where
   dZero = dZeroS
   dScale = dScaleS
   dAdd = dAddS
-  dDelay = dDelayS
 
 -- | Assuming that the first argument is the primal component of dual numbers
 -- with the underyling scalar in the second argument and with differentiation
--- mode `DModeGradient`, it additionally admits delta-variable
+-- mode `DModeGradient`, it additionally admits delta-input
 -- introduction and binding as defined by the methods of the class.
-class HasVariables a where
-  dVar :: DeltaId a -> Dual 'DModeGradient a
-  bindInState :: Dual 'DModeGradient a
-              -> DeltaState (ScalarOf a)
-              -> (DeltaState (ScalarOf a), DeltaId a )
-  dOutline :: CodeOut -> [a] -> [Dual 'DModeGradient a]
-           -> Dual 'DModeGradient a
+class HasInputs a where
+  dInput :: DeltaId a -> Dual 'DModeGradient a
 
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
@@ -243,139 +247,144 @@ class HasRanks (d :: DMode) r where
 
 -- * Backprop gradient method instances
 
+-- | This, just as many other @DModeGradient@ instances, is an impure instance.
+-- Each created term tree node gets an @Int@ identifier
+-- that is afterwards incremented (and never changed in any other way).
+-- The identifiers are not part of any non-internal module API
+-- and the impure counter that gets incremented is exposed only
+-- to be used in special low level tests. The per-node identifiers
+-- are used only in internal modules. They are assigned once and then read-only.
+-- They ensure that subterms that are shared in memory are evaluated only once.
+-- If pointer equality worked efficiently (e.g., if compact regions
+-- with sharing were cheaper), we wouldn't need the impurity.
+--
+-- Given that we have to use impurity anyway, we make the implementation
+-- faster by ensuring the order of identifiers reflects data dependency,
+-- that is, parent nodes always have higher identifier than child nodes.
+-- The bangs in the implementation of the instances are necessary to ensure
+-- call by value, which is needed for that identifier ordering.
+--
+-- As long as "HordeAd.Internal.Delta" is used exclusively through
+-- smart constructors from this API and the API is not (wrongly) modified,
+-- the impurity is completely safe. Even compiler optimizations,
+-- e.g., as cse and full-laziness, can't break the required invariants.
+-- On the contrary, they increase sharing and make evaluation yet cheaper.
+-- Of course, if the compiler, e.g., stopped honouring @NOINLINE@,
+-- all this breaks down.
 instance IsPrimal 'DModeGradient Double where
   dZero = Zero0
-  dScale = Scale0
-  dAdd = Add0
-  dDelay = Delay0
+  dScale !k !d = wrapDelta0 $ Scale0 k d
+  dAdd !d !e = wrapDelta0 $ Add0 d e
 
+-- | This is an impure instance. See above.
 instance IsPrimal 'DModeGradient Float where
   -- Identical as above:
   dZero = Zero0
-  dScale = Scale0
-  dAdd = Add0
-  dDelay = Delay0
+  dScale !k !d = wrapDelta0 $ Scale0 k d
+  dAdd !d !e = wrapDelta0 $ Add0 d e
 
+-- | This is an impure instance. See above.
 instance IsPrimal 'DModeGradient (Vector r) where
   dZero = Zero1
-  dScale = Scale1
-  dAdd = Add1
-  dDelay = Delay1
+  dScale !k !d = wrapDelta1 $ Scale1 k d
+  dAdd !d !e = wrapDelta1 $ Add1 d e
 
+-- | This is an impure instance. See above.
 instance IsPrimal 'DModeGradient (Matrix r) where
   dZero = Zero2
-  dScale = Scale2
-  dAdd = Add2
-  dDelay = Delay2
+  dScale !k !d = wrapDelta2 $ Scale2 k d
+  dAdd !d !e = wrapDelta2 $ Add2 d e
 
+-- | This is an impure instance. See above.
 instance IsPrimal 'DModeGradient (OT.Array r) where
   dZero = ZeroX
-  dScale = ScaleX
-  dAdd = AddX
-  dDelay = DelayX
+  dScale !k !d = wrapDeltaX $ ScaleX k d
+  dAdd !d !e = wrapDeltaX $ AddX d e
 
+-- | This is an impure instance. See above.
 instance IsPrimalS 'DModeGradient r where
   dZeroS = ZeroS
-  dScaleS = ScaleS
-  dAddS = AddS
-  dDelayS = DelayS
+  dScaleS !k !d = wrapDeltaS $ ScaleS k d
+  dAddS !d !e = wrapDeltaS $ AddS d e
 
-instance HasVariables Double where
-  dVar = Var0
-  {-# INLINE bindInState #-}
-  bindInState = bindInState0
-  dOutline = Outline0
+instance HasInputs Double where
+  dInput = Input0
 
-instance HasVariables Float where
-  dVar = Var0
-  {-# INLINE bindInState #-}
-  bindInState = bindInState0
-  dOutline = Outline0
+instance HasInputs Float where
+  dInput = Input0
 
-instance HasVariables (Vector r) where
-  dVar = Var1
-  {-# INLINE bindInState #-}
-  bindInState = bindInState1
-  dOutline = Outline1
+instance HasInputs (Vector r) where
+  dInput = Input1
 
-instance HasVariables (Matrix r) where
-  dVar = Var2
-  {-# INLINE bindInState #-}
-  bindInState = bindInState2
-  dOutline = Outline2
+instance HasInputs (Matrix r) where
+  dInput = Input2
 
-instance HasVariables (OT.Array r) where
-  dVar = VarX
-  {-# INLINE bindInState #-}
-  bindInState = bindInStateX
-  dOutline = OutlineX
+instance HasInputs (OT.Array r) where
+  dInput = InputX
 
-instance OS.Shape sh => HasVariables (OS.Array sh r) where
-  dVar = VarS
-  {-# INLINE bindInState #-}
-  bindInState u' st = let (st2, did) = bindInStateX (FromSX u') st
-                      in (st2, convertDeltaId did)
-  dOutline = OutlineS
+instance HasInputs (OS.Array sh r) where
+  dInput = InputS
 
+-- | This is an impure instance. See above.
 instance Dual 'DModeGradient r ~ Delta0 r
          => HasRanks 'DModeGradient r where
-  dSumElements0 = SumElements0
-  dIndex0 = Index0
-  dDot0 = Dot0
-  dFromX0 = FromX0
-  dFromS0 = FromS0
-  dSeq1 = Seq1
-  dKonst1 = Konst1
-  dAppend1 = Append1
-  dSlice1 = Slice1
-  dSumRows1 = SumRows1
-  dSumColumns1 = SumColumns1
-  dM_VD1 = M_VD1
-  dMD_V1 = MD_V1
-  dFromX1 = FromX1
-  dFromS1 = FromS1
-  dReverse1 = Reverse1
-  dFlatten1 = Flatten1
-  dFlattenX1 = FlattenX1
-  dFlattenS1 = FlattenS1
-  dFromRows2 = FromRows2
-  dFromColumns2 = FromColumns2
-  dKonst2 = Konst2
-  dTranspose2 = Transpose2
-  dM_MD2 = M_MD2
-  dMD_M2 = MD_M2
-  dRowAppend2 = RowAppend2
-  dColumnAppend2 = ColumnAppend2
-  dRowSlice2 = RowSlice2
-  dColumnSlice2 = ColumnSlice2
-  dAsRow2 = AsRow2
-  dAsColumn2 = AsColumn2
-  dFromX2 = FromX2
-  dFromS2 = FromS2
-  dFlipud2 = Flipud2
-  dFliprl2 = Fliprl2
-  dReshape2 = Reshape2
-  dConv2 = Conv2
-  dKonstX = KonstX
-  dAppendX = AppendX
-  dSliceX = SliceX
-  dIndexX = IndexX
-  dRavelFromListX = RavelFromListX
-  dReshapeX = ReshapeX
-  dFrom0X = From0X
-  dFrom1X = From1X
-  dFrom2X = From2X
-  dFromSX = FromSX
-  dKonstS = KonstS
-  dAppendS = AppendS
-  dSliceS = SliceS
-  dIndexS = IndexS
-  dRavelFromListS = RavelFromListS
-  dReshapeS = ReshapeS
-  dFrom0S = From0S
-  dFrom1S = From1S
-  dFrom2S = From2S
-  dFromXS = FromXS
+  dSumElements0 !vd !n = wrapDelta0 $ SumElements0 vd n
+  dIndex0 !d !ix !k = wrapDelta0 $ Index0 d ix k
+  dDot0 !v !vd = wrapDelta0 $ Dot0 v vd
+  dFromX0 !d = wrapDelta0 $ FromX0 d
+  dFromS0 !d = wrapDelta0 $ FromS0 d
+  dSeq1 !lsd = wrapDelta1 $ Seq1 lsd
+  dKonst1 !d !n = wrapDelta1 $ Konst1 d n
+  dAppend1 !d !k !e = wrapDelta1 $ Append1 d k e
+  dSlice1 !i !n !d !len = wrapDelta1 $ Slice1 i n d len
+  dSumRows1 !dm !cols = wrapDelta1 $ SumRows1 dm cols
+  dSumColumns1 !dm !rows = wrapDelta1 $ SumColumns1 dm rows
+  dM_VD1 !m !dRow = wrapDelta1 $ M_VD1 m dRow
+  dMD_V1 !md !row = wrapDelta1 $ MD_V1 md row
+  dFromX1 !d = wrapDelta1 $ FromX1 d
+  dFromS1 !d = wrapDelta1 $ FromS1 d
+  dReverse1 !d = wrapDelta1 $ Reverse1 d
+  dFlatten1 !rows !cols !d = wrapDelta1 $ Flatten1 rows cols d
+  dFlattenX1 !sh !d = wrapDelta1 $ FlattenX1 sh d
+  dFlattenS1 !d = wrapDelta1 $ FlattenS1 d
+  dFromRows2 !lvd = wrapDelta2 $ FromRows2 lvd
+  dFromColumns2 !lvd = wrapDelta2 $ FromColumns2 lvd
+  dKonst2 !d !sz = wrapDelta2 $ Konst2 d sz
+  dTranspose2 !md = wrapDelta2 $ Transpose2 md
+  dM_MD2 !m !md = wrapDelta2 $ M_MD2 m md
+  dMD_M2 !md !m = wrapDelta2 $ MD_M2 md m
+  dRowAppend2 !d !k !e = wrapDelta2 $ RowAppend2 d k e
+  dColumnAppend2 !d !k !e = wrapDelta2 $ ColumnAppend2 d k e
+  dRowSlice2 !i !n !d !rows = wrapDelta2 $ RowSlice2 i n d rows
+  dColumnSlice2 !i !n !d !cols = wrapDelta2 $ ColumnSlice2 i n d cols
+  dAsRow2 !dRow = wrapDelta2 $ AsRow2 dRow
+  dAsColumn2 !dCol = wrapDelta2 $ AsColumn2 dCol
+  dFromX2 !d = wrapDelta2 $ FromX2 d
+  dFromS2 !d = wrapDelta2 $ FromS2 d
+  dFlipud2 !d = wrapDelta2 $ Flipud2 d
+  dFliprl2 !d = wrapDelta2 $ Fliprl2 d
+  dReshape2 !cols !d = wrapDelta2 $ Reshape2 cols d
+  dConv2 !m !md = wrapDelta2 $ Conv2 m md
+  dKonstX !d !sz = wrapDeltaX $ KonstX d sz
+  dAppendX !d !k !e = wrapDeltaX $ AppendX d k e
+  dSliceX !i !n !d !len = wrapDeltaX $ SliceX i n d len
+  dIndexX !d !ix !len = wrapDeltaX $ IndexX d ix len
+  dRavelFromListX !ld = wrapDeltaX $ RavelFromListX ld
+  dReshapeX !sh !sh' !d = wrapDeltaX $ ReshapeX sh sh' d
+  dFrom0X !d = wrapDeltaX $ From0X d
+  dFrom1X !d = wrapDeltaX $ From1X d
+  dFrom2X !d !cols = wrapDeltaX $ From2X d cols
+  dFromSX !d = wrapDeltaX $ FromSX d
+  dKonstS !d = wrapDeltaS $ KonstS d
+  dAppendS !d !e = wrapDeltaS $ AppendS d e
+  dSliceS !iProxy !nProxy !d = wrapDeltaS $ SliceS iProxy nProxy d
+  dIndexS !d !ixProxy = wrapDeltaS $ IndexS d ixProxy
+  dRavelFromListS !ld = wrapDeltaS $ RavelFromListS ld
+  dReshapeS !d = wrapDeltaS $ ReshapeS d
+  dFrom0S !d = wrapDeltaS $ From0S d
+  dFrom1S !d = wrapDeltaS $ From1S d
+  dFrom2S !proxyCols !d = wrapDeltaS $ From2S proxyCols d
+  dFromXS !d = wrapDeltaS $ FromXS d
 
 
 -- * Alternative instances: forward derivatives computed on the spot
@@ -384,13 +393,11 @@ instance IsPrimal 'DModeDerivative Double where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
-  dDelay = id  -- no delaying
 
 instance IsPrimal 'DModeDerivative Float where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
-  dDelay = id
 
 -- These constraints force @UndecidableInstances@.
 instance Num (Vector r)
@@ -398,28 +405,24 @@ instance Num (Vector r)
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
-  dDelay = id
 
 instance Num (Matrix r)
          => IsPrimal 'DModeDerivative (Matrix r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
-  dDelay = id
 
 instance Num (OT.Array r)
          => IsPrimal 'DModeDerivative (OT.Array r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
-  dDelay = id
 
 instance (Numeric r, Num (Vector r))
          => IsPrimalS 'DModeDerivative r where
   dZeroS = 0
   dScaleS k d = k * d
   dAddS d e = d + e
-  dDelayS = id
 
 instance ( Numeric r, Num (Vector r)
          , Dual 'DModeDerivative r ~ r )
@@ -492,43 +495,38 @@ instance ( Numeric r, Num (Vector r)
   dFromXS = Data.Array.Convert.convert
 #endif
 
+
 -- * Other alternative instances: only the objective function's value computed
 
 instance IsPrimal 'DModeValue Double where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
-  dDelay _ = DummyDual ()
 
 instance IsPrimal 'DModeValue Float where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
-  dDelay _ = DummyDual ()
 
 instance IsPrimal 'DModeValue (Vector r) where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
-  dDelay _ = DummyDual ()
 
 instance IsPrimal 'DModeValue (Matrix r) where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
-  dDelay _ = DummyDual ()
 
 instance IsPrimal 'DModeValue (OT.Array r) where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
-  dDelay _ = DummyDual ()
 
 instance IsPrimalS 'DModeValue r where
   dZeroS = DummyDual ()
   dScaleS _ _ = DummyDual ()
   dAddS _ _ = DummyDual ()
-  dDelayS _ = DummyDual ()
 
 instance HasRanks 'DModeValue r where
   dSumElements0 _ _ = DummyDual ()
@@ -590,3 +588,63 @@ instance HasRanks 'DModeValue r where
   dFrom2S _ _ = DummyDual ()
   dFromXS _ = DummyDual ()
 #endif
+
+
+unsafeGlobalCounter :: Counter
+{-# NOINLINE unsafeGlobalCounter #-}
+unsafeGlobalCounter = unsafePerformIO (newCounter 100000000)
+
+-- | Do not use; this is exposed only for special low level tests,
+-- just as the @Show@ instance.
+--
+-- This is the only operation directly touching the single impure counter
+-- that holds fresh and continuously incremented integer identifiers,
+-- The impurity in this module, stemming from the use of this operation
+-- under @unsafePerformIO@ is thread-safe, admits parallel tests
+-- and does not require @-fno-full-laziness@ nor @-fno-cse@.
+-- The only tricky point is mandatory use of the smart constructors
+-- above and that any new smart constructors should be similarly
+-- call-by-value to ensure proper order of identifiers of subterms.
+--
+-- We start at a large number to make tests measuring the size of pretty
+-- printed terms less fragile. @Counter@ datatype is just as safe,
+-- but faster than an @MVar@ and than an atomic @IORef@
+-- (and even non-atomic @IORef@). The operation is manually inlined
+-- to prevent GHCs deciding otherwise and causing performance anomalies.
+unsafeGetFreshId :: IO Int
+{-# INLINE unsafeGetFreshId #-}
+unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
+
+-- The following functions are the only places, except for global
+-- variable definitions, that contain `unsafePerformIO'.
+-- BTW, test don't show a speedup from `unsafeDupablePerformIO`,
+-- perhaps due to counter gaps that it may introduce.
+wrapDelta0 :: Delta0' r -> Delta0 r
+{-# NOINLINE wrapDelta0 #-}
+wrapDelta0 !d = unsafePerformIO $ do
+  n <- unsafeGetFreshId
+  return $! Delta0 n d
+
+wrapDelta1 :: Delta1' r -> Delta1 r
+{-# NOINLINE wrapDelta1 #-}
+wrapDelta1 !d = unsafePerformIO $ do
+  n <- unsafeGetFreshId
+  return $! Delta1 n d
+
+wrapDelta2 :: Delta2' r -> Delta2 r
+{-# NOINLINE wrapDelta2 #-}
+wrapDelta2 !d = unsafePerformIO $ do
+  n <- unsafeGetFreshId
+  return $! Delta2 n d
+
+wrapDeltaX :: DeltaX' r -> DeltaX r
+{-# NOINLINE wrapDeltaX #-}
+wrapDeltaX !d = unsafePerformIO $ do
+  n <- unsafeGetFreshId
+  return $! DeltaX n d
+
+wrapDeltaS :: DeltaS' sh r -> DeltaS sh r
+{-# NOINLINE wrapDeltaS #-}
+wrapDeltaS !d = unsafePerformIO $ do
+  n <- unsafeGetFreshId
+  return $! DeltaS n d

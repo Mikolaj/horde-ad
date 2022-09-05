@@ -16,39 +16,39 @@ import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.PairOfVectors (DualNumberVariables, var1)
+import HordeAd.Core.PairOfVectors (DualNumberInputs, at1)
 import HordeAd.Tool.MnistData
 
 sumTrainableInputsV
   :: IsScalar d r
-  => DualNumber d (Vector r) -> Int -> DualNumberVariables d r -> DualNumber d r
-sumTrainableInputsV x offset variables =
-  let v = var1 variables offset
+  => DualNumber d (Vector r) -> Int -> DualNumberInputs d r -> DualNumber d r
+sumTrainableInputsV x offset inputs =
+  let v = at1 inputs offset
   in v <.>! x
 
 sumTrainableInputsL
   :: forall d r. IsScalar d r
-  => DualNumber d (Vector r) -> Int -> DualNumberVariables d r -> Int
+  => DualNumber d (Vector r) -> Int -> DualNumberInputs d r -> Int
   -> DualNumber d (Vector r)
-sumTrainableInputsL x offset variables width =
+sumTrainableInputsL x offset inputs width =
   let f :: Int -> DualNumber d r
-      f i = sumTrainableInputsV x (offset + i) variables
+      f i = sumTrainableInputsV x (offset + i) inputs
   in seq1 $ V.generate width f
 
 sumConstantDataV
   :: IsScalar d r
-  => Vector r -> Int -> DualNumberVariables d r -> DualNumber d r
-sumConstantDataV x offset variables =
-  let v = var1 variables offset
+  => Vector r -> Int -> DualNumberInputs d r -> DualNumber d r
+sumConstantDataV x offset inputs =
+  let v = at1 inputs offset
   in v <.>!! x
 
 sumConstantDataL
   :: forall d r. IsScalar d r
-  => Vector r -> Int -> DualNumberVariables d r -> Int
+  => Vector r -> Int -> DualNumberInputs d r -> Int
   -> DualNumber d (Vector r)
-sumConstantDataL x offset variables width =
+sumConstantDataL x offset inputs width =
   let f :: Int -> DualNumber d r
-      f i = sumConstantDataV x (offset + i) variables
+      f i = sumConstantDataV x (offset + i) inputs
   in seq1 $ V.generate width f
 
 fcnnMnistLen1 :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
@@ -67,42 +67,42 @@ fcnnMnistLen1 widthHidden widthHidden2 =
 -- The widths of the hidden layers are @widthHidden@ and @widthHidden2@
 -- and from these, the @len*@ functions compute the number and dimensions
 -- of scalars (none in this case) and vectors of dual number parameters
--- (variables) to be given to the program.
-fcnnMnist1 :: forall d r m. DualMonad d r m
-           => (DualNumber d (Vector r) -> m (DualNumber d (Vector r)))
-           -> (DualNumber d (Vector r) -> m (DualNumber d (Vector r)))
+-- (inputs) to be given to the program.
+fcnnMnist1 :: forall d r. IsScalar d r
+           => (DualNumber d (Vector r) -> DualNumber d (Vector r))
+           -> (DualNumber d (Vector r) -> DualNumber d (Vector r))
            -> Int
            -> Int
            -> Vector r
-           -> DualNumberVariables d r
-           -> m (DualNumber d (Vector r))
+           -> DualNumberInputs d r
+           -> DualNumber d (Vector r)
 fcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
-          input variables = do
-  let !_A = assert (sizeMnistGlyph == V.length input) ()
-  let hiddenLayer1 = sumConstantDataL input 0 variables widthHidden
-                     + var1 variables widthHidden  -- bias
-  nonlinearLayer1 <- factivationHidden hiddenLayer1
-  let offsetMiddle = widthHidden + 1
+          datum inputs =
+  let !_A = assert (sizeMnistGlyph == V.length datum) ()
+      hiddenLayer1 = sumConstantDataL datum 0 inputs widthHidden
+                     + at1 inputs widthHidden  -- bias
+      nonlinearLayer1 = factivationHidden hiddenLayer1
+      offsetMiddle = widthHidden + 1
       hiddenLayer2 = sumTrainableInputsL nonlinearLayer1 offsetMiddle
-                                         variables widthHidden2
-                     + var1 variables (offsetMiddle + widthHidden2)  -- bias
-  nonlinearLayer2 <- factivationHidden hiddenLayer2
-  let offsetOutput = offsetMiddle + widthHidden2 + 1
+                                         inputs widthHidden2
+                     + at1 inputs (offsetMiddle + widthHidden2)  -- bias
+      nonlinearLayer2 = factivationHidden hiddenLayer2
+      offsetOutput = offsetMiddle + widthHidden2 + 1
       outputLayer = sumTrainableInputsL nonlinearLayer2 offsetOutput
-                                        variables sizeMnistLabel
-                    + var1 variables (offsetOutput + sizeMnistLabel)  -- bias
-  factivationOutput outputLayer
+                                        inputs sizeMnistLabel
+                    + at1 inputs (offsetOutput + sizeMnistLabel)  -- bias
+  in factivationOutput outputLayer
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 fcnnMnistLoss1
-  :: DualMonad d r m
-  => Int -> Int -> MnistData r -> DualNumberVariables d r
-  -> m (DualNumber d r)
-fcnnMnistLoss1 widthHidden widthHidden2 (input, target) variables = do
-  result <- inline fcnnMnist1 logisticAct softMaxActV
-                              widthHidden widthHidden2 input variables
-  lossCrossEntropyV target result
+  :: IsScalar d r
+  => Int -> Int -> MnistData r -> DualNumberInputs d r
+  -> DualNumber d r
+fcnnMnistLoss1 widthHidden widthHidden2 (datum, target) inputs =
+  let result = inline fcnnMnist1 logistic softMaxV
+                              widthHidden widthHidden2 datum inputs
+  in lossCrossEntropyV target result
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
@@ -112,8 +112,8 @@ fcnnMnistTest1
 fcnnMnistTest1 widthHidden widthHidden2 inputs (params0, params1) =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let nn = inline fcnnMnist1 logisticAct softMaxActV
-                                        widthHidden widthHidden2 glyph
+        let nn = inline fcnnMnist1 logistic softMaxV
+                                   widthHidden widthHidden2 glyph
             value = primalValue nn (params0, params1, V.empty, V.empty)
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))

@@ -14,7 +14,7 @@ import           Test.Tasty
 import           Test.Tasty.Options
 import           Test.Tasty.Runners
 
-import           TestCommonEqEpsilon
+import TestCommonEqEpsilon
 #if defined(VERSION_ghc_typelits_natnormalise)
 import qualified TestMnistCNN
 import qualified TestMnistFCNN
@@ -42,6 +42,7 @@ tests = testGroup "Short tests for CI" $
   ++ TestMnistFCNN.shortTestForCITrees
   ++ TestMnistRNN.shortTestForCITrees
   ++ TestMnistCNN.shortTestForCITrees
+  ++ [TestSingleGradient.finalCounter]
 #else
   []
 #endif

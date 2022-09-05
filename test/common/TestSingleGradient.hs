@@ -1,18 +1,20 @@
 {-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-module TestSingleGradient (testTrees) where
+module TestSingleGradient (testTrees, finalCounter) where
 
 import Prelude
 
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           Numeric.LinearAlgebra (Vector)
+import           System.IO (hPutStrLn, stderr)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
+import           Text.Printf
 
 import HordeAd hiding (sumElementsVectorOfDual)
-import HordeAd.Core.DualClass (IsPrimal, dAdd, dScale)
+import HordeAd.Core.DualClass (unsafeGetFreshId)
+  -- for a special test
 
 import TestCommon
 import TestCommonEqEpsilon
@@ -30,71 +32,104 @@ testTrees = [ testDReverse0
 
 dReverse0
   :: HasDelta r
-  => (DualNumberVariables 'DModeGradient r
-      -> DualMonadGradient r (DualNumber 'DModeGradient r))
+  => (DualNumberInputs 'DModeGradient r
+      -> DualNumber 'DModeGradient r)
   -> [r]
-  -> ([r], r)
-dReverse0 f deltaInput =
-  let ((results, _, _, _), value) =
-        dReverse 1 f (V.fromList deltaInput, V.empty, V.empty, V.empty)
-  in (V.toList results, value)
+  -> IO ([r], r)
+dReverse0 f deltaInput = do
+  ((!results, _, _, _), !value) <-
+    dReverse 1 f (V.fromList deltaInput, V.empty, V.empty, V.empty)
+  return (V.toList results, value)
 
-fX :: DualMonad 'DModeGradient Float m
-   => DualNumberVariables 'DModeGradient Float
-   -> m (DualNumber 'DModeGradient Float)
-fX variables = do
-  let x = var0 variables 0
-  return x
+fX :: DualNumberInputs 'DModeGradient Float
+   -> DualNumber 'DModeGradient Float
+fX inputs = at0 inputs 0
 
-fX1Y :: DualMonad 'DModeGradient Float m
-     => DualNumberVariables 'DModeGradient Float
-     -> m (DualNumber 'DModeGradient Float)
-fX1Y variables = do
-  let x = var0 variables 0
-      y = var0 variables 1
-  x1 <- x +\ 1
-  x1 *\ y
+fXp1 :: DualNumberInputs 'DModeGradient Float
+     -> DualNumber 'DModeGradient Float
+fXp1 inputs =
+  let x = at0 inputs 0
+  in x + 1
 
-fXXY :: DualMonad 'DModeGradient Float m
-     => DualNumberVariables 'DModeGradient Float
-     -> m (DualNumber 'DModeGradient Float)
-fXXY variables = do
-  let x = var0 variables 0
-      y = var0 variables 1
-  xy <- x *\ y
-  x *\ xy
+fXpX :: DualNumberInputs 'DModeGradient Float
+     -> DualNumber 'DModeGradient Float
+fXpX inputs =
+  let x = at0 inputs 0
+  in x + x
 
-fXYplusZ :: DualMonad 'DModeGradient Float m
-         => DualNumberVariables 'DModeGradient Float
-         -> m (DualNumber 'DModeGradient Float)
-fXYplusZ variables = do
-  let x = var0 variables 0
-      y = var0 variables 1
-      z = var0 variables 2
-  xy <- x *\ y
-  xy +\ z
+fXX :: DualNumberInputs 'DModeGradient Float
+    -> DualNumber 'DModeGradient Float
+fXX inputs =
+  let x = at0 inputs 0
+  in x * x
 
-fXtoY :: DualMonad 'DModeGradient Float m
-      => DualNumberVariables 'DModeGradient Float
-      -> m (DualNumber 'DModeGradient Float)
-fXtoY variables = do
-  let x = var0 variables 0
-      y = var0 variables 1
-  x **\ y
+fX1X :: DualNumberInputs 'DModeGradient Float
+     -> DualNumber 'DModeGradient Float
+fX1X inputs =
+  let x = at0 inputs 0
+      x1 = x + 1
+  in x1 * x
 
-freluX :: DualMonad 'DModeGradient Float m
-       => DualNumberVariables 'DModeGradient Float
-       -> m (DualNumber 'DModeGradient Float)
-freluX variables = do
-  let x = var0 variables 0
-  reluAct x
+fX1Y :: DualNumberInputs 'DModeGradient Float
+     -> DualNumber 'DModeGradient Float
+fX1Y inputs =
+  let x = at0 inputs 0
+      y = at0 inputs 1
+      x1 = x + 1
+  in x1 * y
+
+fY1X :: DualNumberInputs 'DModeGradient Float
+     -> DualNumber 'DModeGradient Float
+fY1X inputs =
+  let x = at0 inputs 0
+      y = at0 inputs 1
+      x1 = y + 1
+  in x1 * x
+
+fXXY ::  DualNumberInputs 'DModeGradient Float
+     -> DualNumber 'DModeGradient Float
+fXXY inputs =
+  let x = at0 inputs 0
+      y = at0 inputs 1
+      xy = x * y
+  in x * xy
+
+fXYplusZ :: DualNumberInputs 'DModeGradient Float
+         -> DualNumber 'DModeGradient Float
+fXYplusZ inputs =
+  let x = at0 inputs 0
+      y = at0 inputs 1
+      z = at0 inputs 2
+      xy = x * y
+  in xy + z
+
+fXtoY :: DualNumberInputs 'DModeGradient Float
+      -> DualNumber 'DModeGradient Float
+fXtoY inputs =
+  let x = at0 inputs 0
+      y = at0 inputs 1
+  in x ** y
+
+freluX :: DualNumberInputs 'DModeGradient Float
+       -> DualNumber 'DModeGradient Float
+freluX inputs =
+  let x = at0 inputs 0
+  in relu x
 
 testDReverse0 :: TestTree
 testDReverse0 = testGroup "Simple dReverse application tests" $
   map (\(txt, f, v, expected) ->
-        testCase txt $ dReverse0 f v @?~ expected)
+        testCase txt $ do
+          res <- dReverse0 f v
+          res @?~ expected)
     [ ("fX", fX, [99], ([1.0],99.0))
+    , ("fXagain", fX, [99], ([1.0],99.0))
+    , ("fXp1", fXp1, [99], ([1.0],100))
+    , ("fXpX", fXpX, [99], ([2.0],198))
+    , ("fXX", fXX, [2], ([4],4))
+    , ("fX1X", fX1X, [2], ([5],6))
     , ("fX1Y", fX1Y, [3, 2], ([2.0,4.0],8.0))
+    , ("fY1X", fY1X, [2, 3], ([4.0,2.0],8.0))
     , ("fXXY", fXXY, [3, 2], ([12.0,9.0],18.0))
     , ("fXYplusZ", fXYplusZ, [1, 2, 3], ([2.0,1.0,1.0],5.0))
     , ( "fXtoY", fXtoY, [0.00000000000001, 2]
@@ -105,210 +140,97 @@ testDReverse0 = testGroup "Simple dReverse application tests" $
     , ("freluX3", freluX, [0.0001], ([1.0],1.0e-4))
     , ("freluX4", freluX, [99], ([1.0],99.0))
     , ("fquad", fquad, [2, 3], ([4.0,6.0],18.0))
-    , ("scalarSum", vec_omit_scalarSum_aux, [1, 1, 3], ([1.0,1.0,1.0],5.0))
+    , ("scalarSum", vec_scalarSum_aux, [1, 1, 3], ([1.0,1.0,1.0],5.0))
     ]
 
-vec_omit_scalarSum_aux
-  :: DualMonad d r m
-  => DualNumberVariables d r -> m (DualNumber d r)
-vec_omit_scalarSum_aux vec = returnLet $ foldlDual' (+) 0 vec
+vec_scalarSum_aux
+  :: IsScalar d r
+  => DualNumberInputs d r -> DualNumber d r
+vec_scalarSum_aux = foldlDual' (+) 0
 
 sumElementsV
-  :: DualMonad d r m
-  => DualNumberVariables d r -> m (DualNumber d r)
-sumElementsV variables = do
-  let x = var1 variables 0
-  returnLet $ sumElements0 x
+  :: IsScalar d r
+  => DualNumberInputs d r -> DualNumber d r
+sumElementsV inputs =
+  let x = at1 inputs 0
+  in sumElements0 x
 
 altSumElementsV
-  :: DualMonad d r m
-  => DualNumberVariables d r -> m (DualNumber d r)
-altSumElementsV variables = do
-  let x = var1 variables 0
-  returnLet $ altSumElements0 x
+  :: IsScalar d r
+  => DualNumberInputs d r -> DualNumber d r
+altSumElementsV inputs =
+  let x = at1 inputs 0
+  in altSumElements0 x
 
 -- hlint would complain about spurious @id@, so we need to define our own.
 id2 :: a -> a
 id2 x = x
 
 sinKonst
-  :: DualMonad d r m
-  => DualNumberVariables d r -> m (DualNumber d r)
-sinKonst variables = do
-  let x = var1 variables 0
-  return $ sumElements0 $
-    sin x + (id2 $ id2 $ id2 $ konst1 1 2)
-
-sinKonstOut
-  :: ( DualMonad d r m
-     , Floating (Out (DualNumber d (Vector r))) )
-  => DualNumberVariables d r -> m (DualNumber d r)
-sinKonstOut variables = do
-  let x = var1 variables 0
-  return $ sumElements0 $
-    unOut $ sin (Out x) + Out (id2 $ id2 $ id2 $ konst1 1 2)
-
-sinDelayed :: (Floating a, IsPrimal d a) => DualNumber d a -> DualNumber d a
-sinDelayed (D u u') = delayD (sin u) (dScale (cos u) u')
-
-plusDelayed :: (Floating a, IsPrimal d a)
-            => DualNumber d a -> DualNumber d a -> DualNumber d a
-plusDelayed (D u u') (D v v') = delayD (u + v) (dAdd u' v')
-
-sinKonstDelay
-  :: DualMonad d r m
-  => DualNumberVariables d r -> m (DualNumber d r)
-sinKonstDelay variables = do
-  let x = var1 variables 0
-  return $ sumElements0 $
-    sinDelayed x `plusDelayed` (id2 $ id2 $ id2 $ konst1 1 2)
+  :: IsScalar d r
+  => DualNumberInputs d r -> DualNumber d r
+sinKonst inputs =
+  let x = at1 inputs 0
+  in sumElements0 $
+       sin x + (id2 $ id2 $ id2 $ konst1 1 2)
 
 powKonst
-  :: DualMonad d r m
-  => DualNumberVariables d r -> m (DualNumber d r)
-powKonst variables = do
-  let x = var1 variables 0
-  return $ sumElements0 $
-    x ** (sin x + (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
-
-powKonstOut
-  :: ( DualMonad d r m
-     , Floating (Out (DualNumber d (Vector r))) )
-  => DualNumberVariables d r -> m (DualNumber d r)
-powKonstOut variables = do
-  let x = var1 variables 0
-  return $ sumElements0 $
-    x ** unOut (sin (Out x)
-                + Out (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
-
-powKonstDelay
-  :: DualMonad d r m
-  => DualNumberVariables d r -> m (DualNumber d r)
-powKonstDelay variables = do
-  let x = var1 variables 0
-  return $ sumElements0 $
-    x ** (sinDelayed x
-          `plusDelayed` (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
+  :: IsScalar d r
+  => DualNumberInputs d r -> DualNumber d r
+powKonst inputs =
+  let x = at1 inputs 0
+  in sumElements0 $
+       x ** (sin x + (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
 
 sinKonstS
-  :: forall d r m. DualMonad d r m
-  => DualNumberVariables d r -> m (DualNumber d r)
-sinKonstS variables = do
-  let x = varS variables 0
-  return $ sumElements0 $ fromS1
-    ((sin x + (id2 $ id2 $ id2 $ konstS 1))
-       :: DualNumber d (OS.Array '[2] r))
-
-sinKonstOutS
-  :: forall r d m. ( DualMonad d r m
-                   , Floating (Out (DualNumber d (OS.Array '[2] r))) )
-  => DualNumberVariables d r -> m (DualNumber d r)
-sinKonstOutS variables = do
-  let x = varS variables 0
-  return $ sumElements0 $ fromS1
-    (unOut (sin (Out x) + Out (id2 $ id2 $ id2 $ konstS 1))
-       :: DualNumber d (OS.Array '[2] r))
-
-sinKonstDelayS
-  :: forall d r m. DualMonad d r m
-  => DualNumberVariables d r -> m (DualNumber d r)
-sinKonstDelayS variables = do
-  let x = varS variables 0
-  return $ sumElements0 $ fromS1
-    ((sinDelayed x `plusDelayed` (id2 $ id2 $ id2 $ konstS 1))
-       :: DualNumber d (OS.Array '[2] r))
+  :: forall d r. IsScalar d r
+  => DualNumberInputs d r -> DualNumber d r
+sinKonstS inputs =
+  let x = atS inputs 0
+  in sumElements0 $ fromS1
+       ((sin x + (id2 $ id2 $ id2 $ konstS 1))
+         :: DualNumber d (OS.Array '[2] r))
 
 dReverse1
   :: (r ~ Float, d ~ 'DModeGradient)
-  => (DualNumberVariables d r -> DualMonadGradient r (DualNumber d r))
+  => (DualNumberInputs d r -> DualNumber d r)
   -> [[r]]
-  -> ([[r]], r)
-dReverse1 f deltaInput =
-  let ((_, results, _, _), value) =
-        dReverse 1 f
-          (V.empty, V.fromList (map V.fromList deltaInput), V.empty, V.empty)
-  in (map V.toList $ V.toList results, value)
+  -> IO ([[r]], r)
+dReverse1 f deltaInput = do
+  ((_, !results, _, _), !value) <-
+    dReverse 1 f
+             (V.empty, V.fromList (map V.fromList deltaInput), V.empty, V.empty)
+  return (map V.toList $ V.toList results, value)
 
 testDReverse1 :: TestTree
 testDReverse1 = testGroup "Simple dReverse application to vectors tests" $
   map (\(txt, f, v, expected) ->
-        testCase txt $ dReverse1 f v @?~ expected)
+        testCase txt $ do
+          res <- dReverse1 f v
+          res @?~ expected)
     [ ("sumElementsV", sumElementsV, [[1, 1, 3]], ([[1.0,1.0,1.0]],5.0))
     , ("altSumElementsV", altSumElementsV, [[1, 1, 3]], ([[1.0,1.0,1.0]],5.0))
     , ( "sinKonst", sinKonst, [[1, 3]]
       , ([[0.5403023,-0.9899925]],2.982591) )
-    , ( "sinKonstOut", sinKonstOut, [[1, 3]]
-      , ([[0.5403023,-0.9899925]],2.982591) )
-    , ( "sinKonstDelay", sinKonstDelay, [[1, 3]]
-      , ([[0.5403023,-0.9899925]],2.982591) )
     , ( "powKonst", powKonst, [[1, 3]]
-      , ([[108.7523,131.60072]],95.58371) )
-    , ( "powKonstOut", powKonstOut, [[1, 3]]
-      , ([[108.7523,131.60072]],95.58371) )
-    , ( "powKonstDelay", powKonstDelay, [[1, 3]]
       , ([[108.7523,131.60072]],95.58371) )
     ]
 
 testPrintDf :: TestTree
 testPrintDf = testGroup "Pretty printing test" $
   map (\(txt, f, v, expected) ->
-        testCase txt $ prettyPrintDf False f
-          (V.empty, V.fromList (map V.fromList v), V.empty, V.empty)
-        @?= expected)
+        testCase txt $ do
+          output <- prettyPrintDf f
+                      (V.empty, V.fromList (map V.fromList v), V.empty, V.empty)
+          length output @?= expected)
     [ ( "sumElementsV", sumElementsV, [[1 :: Float, 1, 3]]
-      , unlines
-        [ "let0 DeltaId_0 = SumElements0 (Var1 (DeltaId 0)) 3"
-        , "in Var0 (DeltaId 0)" ] )
+      , 54 )
     , ( "altSumElementsV", altSumElementsV, [[1, 1, 3]]
-      , unlines
-        [ "let0 DeltaId_0 = Add0"
-        , "  (Index0 (Var1 (DeltaId 0)) 2 3)"
-        , "  (Add0"
-        , "     (Index0 (Var1 (DeltaId 0)) 1 3)"
-        , "     (Add0 (Index0 (Var1 (DeltaId 0)) 0 3) Zero0))"
-        , "in Var0 (DeltaId 0)" ] )
+      , 337 )
     , ( "sinKonst", sinKonst, [[1, 3]]
-      , unlines
-        [ "in SumElements0"
-        , "  (Add1"
-        , "     (Scale1 [ 0.5403023 , -0.9899925 ] (Var1 (DeltaId 0)))"
-        , "     (Konst1 Zero0 2))"
-        , "  2" ] )
-    , ( "sinKonstOut", sinKonstOut, [[1, 3]]
-      , unlines
-        [ "in SumElements0"
-        , "  (Outline1"
-        , "     PlusOut"
-        , "     [ [ 0.84147096 , 0.14112 ] , [ 1.0 , 1.0 ] ]"
-        , "     [ Outline1 SinOut [ [ 1.0 , 3.0 ] ] [ Var1 (DeltaId 0) ]"
-        , "     , Konst1 Zero0 2"
-        , "     ])"
-        , "  2" ] )
+      , 237 )
     , ( "powKonst", powKonst, [[1, 3]]
-      , unlines
-        [ "in SumElements0"
-        , "  (Add1"
-        , "     (Scale1 [ 4.8414707 , 130.56084 ] (Var1 (DeltaId 0)))"
-        , "     (Scale1"
-        , "        [ 0.0 , 103.91083 ]"
-        , "        (Add1"
-        , "           (Scale1 [ 0.5403023 , -0.9899925 ] (Var1 (DeltaId 0)))"
-        , "           (Konst1 (SumElements0 (Var1 (DeltaId 0)) 2) 2))))"
-        , "  2" ] )
-    , ( "powKonstOut", powKonstOut, [[1, 3]]
-      , unlines
-        [ "in SumElements0"
-        , "  (Add1"
-        , "     (Scale1 [ 4.8414707 , 130.56084 ] (Var1 (DeltaId 0)))"
-        , "     (Scale1"
-        , "        [ 0.0 , 103.91083 ]"
-        , "        (Outline1"
-        , "           PlusOut"
-        , "           [ [ 0.84147096 , 0.14112 ] , [ 4.0 , 4.0 ] ]"
-        , "           [ Outline1 SinOut [ [ 1.0 , 3.0 ] ] [ Var1 (DeltaId 0) ]"
-        , "           , Konst1 (SumElements0 (Var1 (DeltaId 0)) 2) 2"
-        , "           ])))"
-        , "  2" ] )
+      , 692 )
     ]
 
 testDForward :: TestTree
@@ -316,7 +238,9 @@ testDForward =
  testGroup "Simple dForward application tests" $
   map (\(txt, f, v, expected) ->
         let vp = listsToParameters v
-        in testCase txt $ dForward f vp vp @?~ expected)
+        in testCase txt $ do
+          res <- dForward f vp vp
+          res @?~ expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
     , ( "atanReadmeM", atanReadmeM, ([1.1, 2.2, 3.3], [])
       , (7.662345305800865, 4.9375516951604155) )
@@ -349,15 +273,7 @@ quickCheckForwardAndBackward =
              (\(x, y, z) -> ([], [x, y, z], [], []))
     , quickCheckTest0 "sinKonst" sinKonst  -- powKonst NaNs immediately
              (\(x, _, z) -> ([], [x, z], [], []))
-    , quickCheckTest0 "sinKonstOut" sinKonstOut
-             (\(x, _, z) -> ([], [x, z], [], []))
-    , quickCheckTest0 "sinKonstDelay" sinKonstDelay
-             (\(x, _, z) -> ([], [x, z], [], []))
     , quickCheckTest0 "sinKonstS" sinKonstS
-             (\(x, _, z) -> ([], [], [], [x, z]))
-    , quickCheckTest0 "sinKonstOutS" sinKonstOutS
-             (\(x, _, z) -> ([], [], [], [x, z]))
-    , quickCheckTest0 "sinKonstDelayS" sinKonstDelayS
              (\(x, _, z) -> ([], [], [], [x, z]))
    ]
 
@@ -372,12 +288,12 @@ atanReadmeOriginal x y z =
 -- Here we instantiate the function to dual numbers
 -- and add a glue code that selects the function inputs from
 -- a uniform representation of objective function parameters
--- represented as delta-variables (`DualNumberVariables`).
-atanReadmeVariables
+-- represented as delta-inputs (`DualNumberInputs`).
+atanReadmeInputs
   :: IsScalar d r
-  => DualNumberVariables d r -> Data.Vector.Vector (DualNumber d r)
-atanReadmeVariables variables =
-  let x : y : z : _ = vars variables
+  => DualNumberInputs d r -> Data.Vector.Vector (DualNumber d r)
+atanReadmeInputs inputs =
+  let x : y : z : _ = atList0 inputs
   in atanReadmeOriginal x y z
 
 -- According to the paper, to handle functions with non-scalar results,
@@ -396,21 +312,10 @@ sumElementsOfDualNumbers
 sumElementsOfDualNumbers = V.foldl' (+) 0
 
 -- Here we apply the function.
-atanReadmeScalar
-  :: IsScalar d r
-  => DualNumberVariables d r -> DualNumber d r
-atanReadmeScalar = sumElementsOfDualNumbers . atanReadmeVariables
-
--- Here we introduce a single delta-let binding (`returnLet`) to ensure
--- that if this code is used in a larger context and repeated,
--- no explosion of delta-expressions can happen.
--- If the code above had any repeated non-variable expressions
--- (e.g., if @w@ appeared twice) the user would need to make it monadic
--- and apply @returnLet@ already there.
 atanReadmeM
-  :: DualMonad d r m
-  => DualNumberVariables d r -> m (DualNumber d r)
-atanReadmeM = returnLet . atanReadmeScalar
+  :: IsScalar d r
+  => DualNumberInputs d r -> DualNumber d r
+atanReadmeM = sumElementsOfDualNumbers . atanReadmeInputs
 
 -- The underscores and empty vectors are placeholders for the vector,
 -- matrix and arbitrary tensor components of the parameters tuple,
@@ -418,23 +323,23 @@ atanReadmeM = returnLet . atanReadmeScalar
 -- but it's a vector of scalar parameters, not a single parameter
 -- of rank 1).
 atanReadmeDReverse :: HasDelta r
-                   => Domain0 r -> (Domain0 r, r)
-atanReadmeDReverse ds =
-  let ((result, _, _, _), value) =
-        dReverse 1 atanReadmeM (ds, V.empty, V.empty, V.empty)
-  in (result, value)
+                   => Domain0 r -> IO (Domain0 r, r)
+atanReadmeDReverse ds = do
+  ((!result, _, _, _), !value) <-
+    dReverse 1 atanReadmeM (ds, V.empty, V.empty, V.empty)
+  return (result, value)
 
 readmeTests :: TestTree
 readmeTests = testGroup "Simple tests for README"
-  [ testCase " Float (1.1, 2.2, 3.3)"
-    $ atanReadmeDReverse (V.fromList [1.1 :: Float, 2.2, 3.3])
-      @?~ (V.fromList [3.0715904, 0.18288425, 1.1761366], 4.937552)
-  , testCase " Double (1.1, 2.2, 3.3)"
-    $ atanReadmeDReverse (V.fromList [1.1 :: Double, 2.2, 3.3])
-      @?~ ( V.fromList [ 3.071590389300859
-                       , 0.18288422990948425
-                       , 1.1761365368997136 ]
-          , 4.9375516951604155 )
+  [ testCase " Float (1.1, 2.2, 3.3)" $ do
+      res <- atanReadmeDReverse (V.fromList [1.1 :: Float, 2.2, 3.3])
+      res @?~ (V.fromList [3.0715904, 0.18288425, 1.1761366], 4.937552)
+  , testCase " Double (1.1, 2.2, 3.3)" $ do
+      res <- atanReadmeDReverse (V.fromList [1.1 :: Double, 2.2, 3.3])
+      res @?~ ( V.fromList [ 3.071590389300859
+                           , 0.18288422990948425
+                           , 1.1761365368997136 ]
+              , 4.9375516951604155 )
   ]
 
 -- And here's a version of the example that uses vector parameters
@@ -443,31 +348,37 @@ readmeTests = testGroup "Simple tests for README"
 -- vectors of primitive differentiable scalars.
 
 vatanReadmeM
-  :: DualMonad d r m
-  => DualNumberVariables d r -> m (DualNumber d r)
-vatanReadmeM variables = do
-  let xyzVector = var1 variables 0
+  :: IsScalar d r
+  => DualNumberInputs d r -> DualNumber d r
+vatanReadmeM inputs =
+  let xyzVector = at1 inputs 0
       [x, y, z] = map (index0 xyzVector) [0, 1, 2]
       v = seq1 $ atanReadmeOriginal x y z
-  returnLet $ sumElements0 v
+  in sumElements0 v
 
 vatanReadmeDReverse :: HasDelta r
-                    => Domain1 r -> (Domain1 r, r)
-vatanReadmeDReverse dsV =
-  let ((_, result, _, _), value) =
-        dReverse 1 vatanReadmeM (V.empty, dsV, V.empty, V.empty)
-  in (result, value)
+                    => Domain1 r -> IO (Domain1 r, r)
+vatanReadmeDReverse dsV = do
+  ((_, !result, _, _), !value) <-
+    dReverse 1 vatanReadmeM (V.empty, dsV, V.empty, V.empty)
+  return (result, value)
 
 readmeTestsV :: TestTree
 readmeTestsV = testGroup "Simple tests of vector-based code for README"
-  [ testCase "V Float (1.1, 2.2, 3.3)"
-    $ vatanReadmeDReverse (V.singleton $ V.fromList [1.1 :: Float, 2.2, 3.3])
-      @?~ ( V.singleton $ V.fromList [3.0715904, 0.18288425, 1.1761366]
-          , 4.937552 )
-  , testCase "V Double (1.1, 2.2, 3.3)"
-    $ vatanReadmeDReverse (V.singleton $ V.fromList [1.1 :: Double, 2.2, 3.3])
-      @?~ ( V.singleton $ V.fromList [ 3.071590389300859
-                                     , 0.18288422990948425
-                                     , 1.1761365368997136 ]
-          , 4.9375516951604155 )
+  [ testCase "V Float (1.1, 2.2, 3.3)" $ do
+      res <- vatanReadmeDReverse (V.singleton $ V.fromList [1.1 :: Float, 2.2, 3.3])
+      res @?~ ( V.singleton $ V.fromList [3.0715904, 0.18288425, 1.1761366]
+              , 4.937552 )
+  , testCase "V Double (1.1, 2.2, 3.3)" $ do
+      res <- vatanReadmeDReverse (V.singleton $ V.fromList [1.1 :: Double, 2.2, 3.3])
+      res @?~ ( V.singleton $ V.fromList [ 3.071590389300859
+                                         , 0.18288422990948425
+                                         , 1.1761365368997136 ]
+              , 4.9375516951604155 )
   ]
+
+finalCounter :: TestTree
+finalCounter = testCase "Final counter value" $ do
+  counter <- unsafeGetFreshId
+  hPutStrLn stderr $ printf "\nFinal counter value: %d" counter
+  assertBool "counter dangerously high" $ counter < 2 ^ (62 :: Int)

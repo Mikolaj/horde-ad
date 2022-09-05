@@ -24,26 +24,26 @@ import qualified GHC.TypeLits
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.PairOfVectors (DualNumberVariables, varS)
+import HordeAd.Core.PairOfVectors (DualNumberInputs, atS)
 import HordeAd.Tool.MnistData
 
 convMnistLayerS
   :: forall kheight_minus_1 kwidth_minus_1 out_channels
-            in_height in_width in_channels batch_size d r m.
+            in_height in_width in_channels batch_size d r.
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1, KnownNat out_channels
      , KnownNat in_height, KnownNat in_width
      , KnownNat in_channels, KnownNat batch_size
      , 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1  -- wrongly reported as redundant
-     , DualMonad d r m )
+     , IsScalar d r )
   => DualNumber d (OS.Array '[ out_channels, in_channels
                              , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
   -> DualNumber d (OS.Array '[batch_size, in_channels, in_height, in_width] r)
   -> DualNumber d (OS.Array '[out_channels] r)
-  -> m (DualNumber d (OS.Array '[ batch_size, out_channels
-                                , (in_height + kheight_minus_1) `Div` 2
-                                , (in_width + kwidth_minus_1) `Div` 2 ] r))
-convMnistLayerS ker x bias = do
+  -> DualNumber d (OS.Array '[ batch_size, out_channels
+                             , (in_height + kheight_minus_1) `Div` 2
+                             , (in_width + kwidth_minus_1) `Div` 2 ] r)
+convMnistLayerS ker x bias =
   let yConv = conv24 ker x
       replicateBias
         :: DualNumber d (OS.Array '[] r)
@@ -55,23 +55,22 @@ convMnistLayerS ker x bias = do
                       $ mapS replicateBias bias
         -- TODO: this is weakly typed; add and use replicateS instead
         -- or broadcastS or stretchS, possibly with transposeS?
-  yRelu <- reluAct $ yConv + biasStretched
-  maxPool24 @1 @2 yRelu
-
+      yRelu = relu $ yConv + biasStretched
+  in maxPool24 @1 @2 yRelu
 
 convMnistTwoS
   :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
-            in_height in_width in_channels batch_size d r m.
+            in_height in_width in_channels batch_size d r.
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
      , KnownNat num_hidden, KnownNat out_channels
      , KnownNat in_height, KnownNat in_width, KnownNat batch_size
      , in_channels ~ 1
      , 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
-     , DualMonad d r m )
+     , IsScalar d r )
   => OS.Array '[batch_size, in_channels, in_height, in_width] r
   -- All below is the type of all paramters of this nn. The same is reflected
-  -- in the length function below and read from variables further down.
+  -- in the length function below and read from inputs further down.
   -> DualNumber d (OS.Array '[ out_channels, in_channels
                              , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
   -> DualNumber d (OS.Array '[out_channels] r)
@@ -90,16 +89,16 @@ convMnistTwoS
   -> DualNumber d (OS.Array '[num_hidden] r)
   -> DualNumber d (OS.Array '[SizeMnistLabel, num_hidden] r)
   -> DualNumber d (OS.Array '[SizeMnistLabel] r)
-  -> m (DualNumber d (OS.Array '[SizeMnistLabel, batch_size] r))
+  -> DualNumber d (OS.Array '[SizeMnistLabel, batch_size] r)
 convMnistTwoS x ker1 bias1 ker2 bias2
-              weigthsDense biasesDense weigthsReadout biasesReadout = do
-  t1 <- convMnistLayerS ker1 (constant x) bias1
-  t2 <- convMnistLayerS ker2 t1 bias2
-  let m1 = mapS reshapeS t2
+              weigthsDense biasesDense weigthsReadout biasesReadout =
+  let t1 = convMnistLayerS ker1 (constant x) bias1
+      t2 = convMnistLayerS ker2 t1 bias2
+      m1 = mapS reshapeS t2
       m2 = transpose2S m1
       denseLayer = weigthsDense <>$ m2 + asColumnS biasesDense
-  denseRelu <- reluAct denseLayer
-  returnLet $ weigthsReadout <>$ denseRelu + asColumnS biasesReadout
+      denseRelu = relu denseLayer
+  in weigthsReadout <>$ denseRelu + asColumnS biasesReadout
 
 convMnistLenS
   :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
@@ -141,57 +140,57 @@ convMnistLenS _ _ _ _ _ _ =
 
 convMnistS
   :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
-            in_height in_width batch_size d r m.
+            in_height in_width batch_size d r.
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
      , KnownNat num_hidden, KnownNat out_channels
      , KnownNat in_height, KnownNat in_width, KnownNat batch_size
      , 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
-     , DualMonad d r m )
+     , IsScalar d r )
   => OS.Array '[batch_size, 1, in_height, in_width] r
-  -> DualNumberVariables d r
-  -> m (DualNumber d (OS.Array '[SizeMnistLabel, batch_size] r))
-convMnistS x variables = do
-  let ker1 = varS variables 0
-      bias1 = varS variables 1
-      ker2 = varS variables 2
-      bias2 = varS variables 3
-      weigthsDense = varS variables 4
-      biasesDense = varS variables 5
-      weigthsReadout = varS variables 6
-      biasesReadout = varS variables 7
-  convMnistTwoS @kheight_minus_1 @kwidth_minus_1 @num_hidden @out_channels
-                x ker1 bias1 ker2 bias2
-                weigthsDense biasesDense weigthsReadout biasesReadout
+  -> DualNumberInputs d r
+  -> DualNumber d (OS.Array '[SizeMnistLabel, batch_size] r)
+convMnistS x inputs =
+  let ker1 = atS inputs 0
+      bias1 = atS inputs 1
+      ker2 = atS inputs 2
+      bias2 = atS inputs 3
+      weigthsDense = atS inputs 4
+      biasesDense = atS inputs 5
+      weigthsReadout = atS inputs 6
+      biasesReadout = atS inputs 7
+  in convMnistTwoS @kheight_minus_1 @kwidth_minus_1 @num_hidden @out_channels
+                   x ker1 bias1 ker2 bias2
+                   weigthsDense biasesDense weigthsReadout biasesReadout
 
 convMnistLossFusedS
   :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
-            in_height in_width batch_size d r m.
+            in_height in_width batch_size d r.
      ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
      , KnownNat num_hidden, KnownNat out_channels
      , KnownNat in_height, KnownNat in_width, KnownNat batch_size
      , 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
-     , DualMonad d r m )
+     , IsScalar d r )
   => Proxy kheight_minus_1
   -> Proxy kwidth_minus_1
   -> Proxy num_hidden
   -> Proxy out_channels
   -> ( OS.Array '[batch_size, in_height, in_width] r
      , OS.Array '[batch_size, SizeMnistLabel] r )
-  -> DualNumberVariables d r
-  -> m (DualNumber d r)
-convMnistLossFusedS _ _ _ _ (glyphS, labelS) variables = do
+  -> DualNumberInputs d r
+  -> DualNumber d r
+convMnistLossFusedS _ _ _ _ (glyphS, labelS) inputs =
   let xs :: OS.Array '[batch_size, 1, in_height, in_width] r
       xs = OS.reshape glyphS
-  result <- convMnistS @kheight_minus_1 @kwidth_minus_1
-                       @num_hidden @out_channels
-                       xs variables
-  let targets2 = HM.tr $ HM.reshape (valueOf @SizeMnistLabel)
+      result = convMnistS @kheight_minus_1 @kwidth_minus_1
+                          @num_hidden @out_channels
+                          xs inputs
+      targets2 = HM.tr $ HM.reshape (valueOf @SizeMnistLabel)
                        $ OS.toVector labelS
-  vec <- lossSoftMaxCrossEntropyL targets2 (fromS2 result)
-  returnLet $ scale (recip $ fromIntegral (valueOf @batch_size :: Int))
-            $ sumElements0 vec
+      vec = lossSoftMaxCrossEntropyL targets2 (fromS2 result)
+  in scale (recip $ fromIntegral (valueOf @batch_size :: Int))
+     $ sumElements0 vec
 
 -- For simplicity, testing is performed in mini-batches of 1.
 -- See RNN for testing done in batches.
@@ -219,8 +218,8 @@ convMnistTestS _ _ _ _ inputs parameters =
       matchesLabels (glyph, label) =
         let tx :: OS.Array '[1, 1, in_height, in_width] r
             tx = OS.reshape glyph
-            nn :: DualNumberVariables 'DModeValue r
-               -> DualMonadValue r (DualNumber 'DModeValue (OS.Array '[SizeMnistLabel, 1] r))
+            nn :: DualNumberInputs 'DModeValue r
+               -> DualNumber 'DModeValue (OS.Array '[SizeMnistLabel, 1] r)
             nn = convMnistS @kheight_minus_1 @kwidth_minus_1
                             @num_hidden @out_channels
                             tx

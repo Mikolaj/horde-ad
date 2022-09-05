@@ -48,23 +48,22 @@ shortTestForCITrees = [ dumbMnistTests
 
 sgdShow :: HasDelta r
         => r
-        -> (a -> DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
+        -> (a -> DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
         -> [a]  -- ^ training data
         -> Domain0 r  -- ^ initial parameters
-        -> r
-sgdShow gamma f trainData params0Init =
-  let result =
-        fst $ sgd gamma f trainData (params0Init, V.empty, V.empty, V.empty)
-  in snd $ dReverse 1 (f $ head trainData) result
+        -> IO r
+sgdShow gamma f trainData params0Init = do
+  result <-
+    fst <$> sgd gamma f trainData (params0Init, V.empty, V.empty, V.empty)
+  snd <$> dReverse 1 (f $ head trainData) result
 
 sgdTestCase :: String
             -> IO [a]
             -> (Int
                 -> Int
                 -> a
-                -> DualNumberVariables 'DModeGradient Double
-                -> DualMonadGradient Double
-                                     (DualNumber 'DModeGradient Double))
+                -> DualNumberInputs 'DModeGradient Double
+                -> DualNumber 'DModeGradient Double)
             -> Double
             -> Double
             -> TestTree
@@ -77,9 +76,9 @@ sgdTestCase prefix trainDataIO trainWithLoss gamma expected =
              ++ unwords [show widthHidden, show nParams0, show gamma]
   in testCase name $ do
        trainData <- trainDataIO
-       sgdShow gamma (trainWithLoss widthHidden widthHidden2)
-                     trainData vec
-         @?~ expected
+       res <- sgdShow gamma (trainWithLoss widthHidden widthHidden2)
+                      trainData vec
+       res @?~ expected
 
 mnistTestCase2
   :: String
@@ -88,8 +87,8 @@ mnistTestCase2
   -> (Int
       -> Int
       -> MnistData Double
-      -> DualNumberVariables 'DModeGradient Double
-      -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
+      -> DualNumberInputs 'DModeGradient Double
+      -> DualNumber 'DModeGradient Double)
   -> Int
   -> Int
   -> Double
@@ -114,9 +113,9 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                     -> IO (Domain0 Double)
            runBatch !params0 (k, chunk) = do
              let f = trainWithLoss widthHidden widthHidden2
-                 (!res, _, _, _) =
-                   fst $ sgd gamma f chunk (params0, V.empty, V.empty, V.empty)
-                 !trainScore = fcnnMnistTest0 widthHidden widthHidden2 chunk res
+             (!res, _, _, _) <-
+               fst <$> sgd gamma f chunk (params0, V.empty, V.empty, V.empty)
+             let !trainScore = fcnnMnistTest0 widthHidden widthHidden2 chunk res
                  !testScore =
                    fcnnMnistTest0 widthHidden widthHidden2 testData res
                  !lenChunk = length chunk
@@ -145,8 +144,8 @@ mnistTestCase2V
   -> (Int
       -> Int
       -> MnistData Double
-      -> DualNumberVariables 'DModeGradient Double
-      -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
+      -> DualNumberInputs 'DModeGradient Double
+      -> DualNumber 'DModeGradient Double)
   -> Int
   -> Int
   -> Double
@@ -177,9 +176,9 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                     -> IO (Domain0 Double, Domain1 Double)
            runBatch (!params0, !params1) (k, chunk) = do
              let f = trainWithLoss widthHidden widthHidden2
-                 (resS, resV, _, _) =
-                   fst $ sgd gamma f chunk (params0, params1, V.empty, V.empty)
-                 res = (resS, resV)
+             (resS, resV, _, _) <-
+               fst <$> sgd gamma f chunk (params0, params1, V.empty, V.empty)
+             let res = (resS, resV)
                  !trainScore = fcnnMnistTest1
                                          widthHidden widthHidden2 chunk res
                  !testScore = fcnnMnistTest1
@@ -204,33 +203,33 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
              1 - fcnnMnistTest1 widthHidden widthHidden2 testData res
        testErrorFinal @?~ expected
 
-fcnnMnistLossTanh :: DualMonad 'DModeGradient Double m
-                => Int
+fcnnMnistLossTanh ::
+                   Int
                 -> Int
                 -> MnistData Double
-                -> DualNumberVariables 'DModeGradient Double
-                -> m (DualNumber 'DModeGradient Double)
-fcnnMnistLossTanh widthHidden widthHidden2 (xs, targ) vec = do
-  res <- fcnnMnist0 tanhAct softMaxAct widthHidden widthHidden2 xs vec
-  lossCrossEntropy targ res
+                -> DualNumberInputs 'DModeGradient Double
+                -> DualNumber 'DModeGradient Double
+fcnnMnistLossTanh widthHidden widthHidden2 (xs, targ) vec =
+  let res = fcnnMnist0 tanh softMax widthHidden widthHidden2 xs vec
+  in lossCrossEntropy targ res
 
-fcnnMnistLossRelu :: DualMonad 'DModeGradient Double m
-                => Int
+fcnnMnistLossRelu ::
+                   Int
                 -> Int
                 -> MnistData Double
-                -> DualNumberVariables 'DModeGradient Double
-                -> m (DualNumber 'DModeGradient Double)
-fcnnMnistLossRelu widthHidden widthHidden2 (xs, targ) vec = do
-  res <- fcnnMnist0 reluAct softMaxAct widthHidden widthHidden2 xs vec
-  lossCrossEntropy targ res
+                -> DualNumberInputs 'DModeGradient Double
+                -> DualNumber 'DModeGradient Double
+fcnnMnistLossRelu widthHidden widthHidden2 (xs, targ) vec =
+  let res = fcnnMnist0 relu softMax widthHidden widthHidden2 xs vec
+  in lossCrossEntropy targ res
 
 mnistTestCase2L
   :: String
   -> Int
   -> Int
   -> (MnistData Double
-      -> DualNumberVariables 'DModeGradient Double
-      -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
+      -> DualNumberInputs 'DModeGradient Double
+      -> DualNumber 'DModeGradient Double)
   -> Int
   -> Int
   -> Double
@@ -257,9 +256,9 @@ mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                     -> IO (Domains Double)
            runBatch (!params0, !params1, !params2, !paramsX) (k, chunk) = do
              let f = trainWithLoss
-                 res = fst $ sgd gamma f chunk
-                                 (params0, params1, params2, paramsX)
-                 !trainScore = fcnnMnistTest2 @Double chunk res
+             res <- fst <$> sgd gamma f chunk
+                                (params0, params1, params2, paramsX)
+             let !trainScore = fcnnMnistTest2 @Double chunk res
                  !testScore = fcnnMnistTest2 @Double testData res
                  !lenChunk = length chunk
              hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
@@ -287,8 +286,8 @@ mnistTestCase2T
   -> Int
   -> Int
   -> (MnistData Double
-      -> DualNumberVariables 'DModeGradient Double
-      -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
+      -> DualNumberInputs 'DModeGradient Double
+      -> DualNumber 'DModeGradient Double)
   -> Int
   -> Int
   -> Double
@@ -321,8 +320,8 @@ mnistTestCase2T reallyWriteFile
                hPutStrLn stderr $ printf "%s: %d " prefix k
                hFlush stderr
              let f = trainWithLoss
-                 (!params0New, !value) =
-                   sgd gamma f chunk (params0, params1, params2, paramsX)
+             (!params0New, !value) <-
+               sgd gamma f chunk (params0, params1, params2, paramsX)
              time <- getPOSIXTime
              return (params0New, (time, value) : times)
        let runEpoch :: Int
@@ -355,8 +354,8 @@ mnistTestCase2D
   -> Int
   -> Int
   -> (MnistData Double
-      -> DualNumberVariables 'DModeGradient Double
-      -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
+      -> DualNumberInputs 'DModeGradient Double
+      -> DualNumber 'DModeGradient Double)
   -> Int
   -> Int
   -> Double
@@ -393,9 +392,9 @@ mnistTestCase2D reallyWriteFile miniBatchSize decay
                  gamma = if decay
                          then gamma0 * exp (- fromIntegral k * 1e-4)
                          else gamma0
-                 (!params0New, !value) =
-                   sgdBatchForward (33 + k * 7) miniBatchSize gamma f chunk
-                                   (params0, params1, params2, paramsX) np
+             (!params0New, !value) <-
+                sgdBatchForward (33 + k * 7) miniBatchSize gamma f chunk
+                                (params0, params1, params2, paramsX) np
              time <- getPOSIXTime
              return (params0New, (time, value) : times)
        let runEpoch :: Int
@@ -429,8 +428,8 @@ mnistTestCase2F
   -> Int
   -> Int
   -> (MnistData Double
-      -> DualNumberVariables 'DModeDerivative Double
-      -> DualMonadForward Double (DualNumber 'DModeDerivative Double))
+      -> DualNumberInputs 'DModeDerivative Double
+      -> DualNumber 'DModeDerivative Double)
   -> Int
   -> Int
   -> Double
@@ -502,9 +501,9 @@ mnistTestCase2S
   -> String
   -> Int
   -> Int
-  -> (forall d r m. DualMonad d r m
+  -> (forall d r. IsScalar d r
       => Proxy widthHidden -> Proxy widthHidden2
-      -> MnistData r -> DualNumberVariables d r -> m (DualNumber d r))
+      -> MnistData r -> DualNumberInputs d r -> DualNumber d r)
   -> Double
   -> Double
   -> TestTree
@@ -528,9 +527,9 @@ mnistTestCase2S proxy proxy2
                  -> IO (Domains Double)
         runBatch (!params0, !params1, !params2, !paramsX) (k, chunk) = do
           let f = trainWithLoss proxy proxy2
-              res = fst $ sgd gamma f chunk
-                              (params0, params1, params2, paramsX)
-              !trainScore = fcnnMnistTestS @widthHidden @widthHidden2
+          res <- fst <$> sgd gamma f chunk
+                             (params0, params1, params2, paramsX)
+          let !trainScore = fcnnMnistTestS @widthHidden @widthHidden2
                                           chunk res
               !testScore = fcnnMnistTestS @widthHidden @widthHidden2
                                          testData res
@@ -567,10 +566,10 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           blackGlyph = V.replicate sizeMnistGlyph 4
           blackLabel = V.replicate sizeMnistLabel 5
           trainData = (blackGlyph, blackLabel)
-          output = prettyPrintDf False (fcnnMnistLoss2 trainData)
-                                 (params0, params1, params2, V.empty)
+      output <- prettyPrintDf (fcnnMnistLoss2 trainData)
+                              (params0, params1, params2, V.empty)
       -- printf "%s" output
-      length output @?= 13348
+      length output @?= 194702
   , testCase "2pretty-print in grey 3 2 fused" $ do
       let (nParams0, lParams1, lParams2, _) = fcnnMnistLen2 4 3
           vParams1 = V.fromList lParams1
@@ -581,17 +580,17 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           blackGlyph = V.replicate sizeMnistGlyph 4
           blackLabel = V.replicate sizeMnistLabel 5
           trainData = (blackGlyph, blackLabel)
-          output = prettyPrintDf True (fcnnMnistLossFused2 trainData)
-                                 (params0, params1, params2, V.empty)
+      output <- prettyPrintDf (fcnnMnistLossFused2 trainData)
+                              (params0, params1, params2, V.empty)
       --- printf "%s" output
-      length output @?= 12431
+      length output @?= 59622
   , testCase "3pretty-print on testset 3 2" $ do
       let (_, _, _, parameters0) = initializerFixed 44 0.5 (fcnnMnistLen2 4 3)
       testData <- loadMnistData testGlyphsPath testLabelsPath
       let trainDataItem = head testData
-          output = prettyPrintDf True (fcnnMnistLoss2 trainDataItem) parameters0
+      output <- prettyPrintDf (fcnnMnistLoss2 trainDataItem) parameters0
       -- printf "%s" output
-      length output @?= 16449
+      length output @?= 200544
   , let blackGlyph = V.replicate sizeMnistGlyph 0
         blackLabel = V.replicate sizeMnistLabel 0
         trainData = replicate 10 (blackGlyph, blackLabel)
@@ -656,11 +655,10 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             (_, _, _, ds) = initializerFixed seedDs rangeDs paramShape
             (_, _, _, parametersPerturbation) =
               initializerFixed (seed + seedDs) 1e-7 paramShape
-            f :: forall d r m. (DualMonad d r m, r ~ Double)
-              => DualNumberVariables d r -> m (DualNumber d r)
+            f :: forall d r. (IsScalar d r, r ~ Double)
+              => DualNumberInputs d r -> DualNumber d r
             f = fcnnMnistLoss0 widthHidden widthHidden2 mnistData
-        in
-            qcPropDom f parameters ds parametersPerturbation 1
+        in ioProperty $ qcPropDom f parameters ds parametersPerturbation 1
   , testProperty "Compare two forward derivatives and gradient for Mnist1" $
       \seed seedDs ->
       forAll (choose (1, 2000)) $ \widthHidden ->
@@ -677,11 +675,10 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             (_, _, _, ds) = initializerFixed seedDs rangeDs paramShape
             (_, _, _, parametersPerturbation) =
               initializerFixed (seed + seedDs) 1e-7 paramShape
-            f :: forall d r m. (DualMonad d r m, r ~ Double)
-              => DualNumberVariables d r -> m (DualNumber d r)
+            f :: forall d r. (IsScalar d r, r ~ Double)
+              => DualNumberInputs d r -> DualNumber d r
             f = fcnnMnistLoss1 widthHidden widthHidden2 mnistData
-        in
-            qcPropDom f parameters ds parametersPerturbation 1
+        in ioProperty $ qcPropDom f parameters ds parametersPerturbation 1
   , testProperty "Compare two forward derivatives and gradient for Mnist2" $
       \seed ->
       forAll (choose (0, sizeMnistLabel - 1)) $ \seedDs ->
@@ -702,16 +699,17 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             (_, _, _, parametersPerturbation) =
               initializerFixed (seed + seedDs) 1e-7 paramShape
             f, fOneHot, fFused
-              :: forall d r m. (DualMonad d r m, r ~ Double)
-                 => DualNumberVariables d r -> m (DualNumber d r)
+              :: forall d r. (IsScalar d r, r ~ Double)
+                 => DualNumberInputs d r -> DualNumber d r
             f = fcnnMnistLoss2 mnistData
             fOneHot = fcnnMnistLoss2 mnistDataOneHot
             fFused = fcnnMnistLossFused2 mnistDataOneHot
-        in
-            qcPropDom f       parameters ds parametersPerturbation 1 .&&.
-            qcPropDom fOneHot parameters ds parametersPerturbation 1 .&&.
-            qcPropDom fFused  parameters ds parametersPerturbation 1 .&&.
-            cmpTwoSimple fOneHot fFused  parameters ds
+        in ioProperty (qcPropDom f parameters ds parametersPerturbation 1)
+           .&&. ioProperty
+                  (qcPropDom fOneHot parameters ds parametersPerturbation 1)
+           .&&. ioProperty
+                  (qcPropDom fFused parameters ds parametersPerturbation 1)
+           .&&. cmpTwoSimple fOneHot fFused parameters ds
   ]
 
 bigMnistTests :: TestTree
@@ -745,7 +743,7 @@ vectorMnistTests = testGroup "MNIST VV tests with a 2-hidden-layer nn"
   , mnistTestCase2V "artificial 1 2 3 4 5" 1 2 fcnnMnistLoss1 3 4 5
                     0.8972
   , mnistTestCase2V "artificial 5 4 3 2 1" 5 4 fcnnMnistLoss1 3 2 1
-                    0.7756000000000001
+                    0.6585
   ]
 
 matrixMnistTests :: TestTree
@@ -877,7 +875,7 @@ shortCIMnistTests = testGroup "Short CI MNIST tests"
   , mnistTestCase2V "VV artificial 1 2 3 4 5" 1 2 fcnnMnistLoss1 3 4 5
                     0.8972
   , mnistTestCase2V "VV artificial 5 4 3 2 1" 5 4 fcnnMnistLoss1 3 2 1
-                    0.7756000000000001
+                    0.6585
   , mnistTestCase2L "LL 1 epoch, 1 batch" 1 1 fcnnMnistLoss2 300 100 0.02
                     0.12339999999999995
   , mnistTestCase2L "LL artificial 1 2 3 4 5" 1 2 fcnnMnistLoss2 3 4 5

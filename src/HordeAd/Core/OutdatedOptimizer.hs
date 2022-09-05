@@ -7,16 +7,16 @@ module HordeAd.Core.OutdatedOptimizer where
 
 import Prelude
 
-import           Control.Monad (foldM)
 import qualified Data.Array.DynamicS as OT
 import           Data.Coerce (coerce)
+import           Data.List (foldl')
 import qualified Data.Vector.Generic as V
 import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.OptimizerTools
-import HordeAd.Core.PairOfVectors (DualNumberVariables, makeDualNumberVariables)
+import HordeAd.Core.PairOfVectors (DualNumberInputs, makeDualNumberInputs)
 
 -- | Stochastic Gradient Descent with mini-batches, taking the mean
 -- of the results from each mini-batch. Additionally, it uses
@@ -41,40 +41,38 @@ sgdBatchForward
      Int
   -> Int  -- ^ batch size
   -> Double  -- ^ gamma (learning_rate?)
-  -> (a -> DualNumberVariables 'DModeGradient Double
-      -> DualMonadGradient Double (DualNumber 'DModeGradient Double))
+  -> (a -> DualNumberInputs 'DModeGradient Double
+      -> DualNumber 'DModeGradient Double)
   -> [a]  -- ^ training data
   -> Domains Double  -- ^ initial parameters
   -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
-  -> (Domains Double, Double)
+  -> IO (Domains Double, Double)
 sgdBatchForward seed0 batchSize gamma f trainingData parameters0 nParameters =
   go seed0 trainingData parameters0 0
  where
-  varDeltas = generateDeltaVars parameters0
-  go :: Int -> [a] -> Domains Double -> Double -> (Domains Double, Double)
-  go _ [] parameters value = (parameters, value)
-  go seed l parameters _ =
+  deltaInputs = generateDeltaInputs parameters0
+  go :: Int -> [a] -> Domains Double -> Double -> IO (Domains Double, Double)
+  go _ [] parameters value = return (parameters, value)
+  go seed l parameters _ = do
     let (batch, rest) = splitAt batchSize l
-        fAdd :: DualNumberVariables 'DModeGradient Double
+        fAdd :: DualNumberInputs 'DModeGradient Double
              -> DualNumber 'DModeGradient Double -> a
-             -> DualMonadGradient Double (DualNumber 'DModeGradient Double)
-        fAdd vars !acc a = do
-          res <- f a vars
-          return $! acc + res
-        fBatch :: DualNumberVariables 'DModeGradient Double
-               -> DualMonadGradient Double (DualNumber 'DModeGradient Double)
-        fBatch vars = do
-          resBatch <- foldM (fAdd vars) 0 batch
-          return $! resBatch / fromIntegral (length batch)
+             -> DualNumber 'DModeGradient Double
+        fAdd vars !acc a = acc + f a vars
+        fBatch :: DualNumberInputs 'DModeGradient Double
+               -> DualNumber 'DModeGradient Double
+        fBatch vars =
+          let resBatch = foldl' (fAdd vars) 0 batch
+          in resBatch / fromIntegral (length batch)
         unitVarianceRange = sqrt 12 / 2
         (g1, g2) = (seed + 5, seed + 13)
         (_, _, _, direction) = initializerFixed g1 unitVarianceRange nParameters
-        variables = makeDualNumberVariables parameters varDeltas
-        (directionalDerivative, valueNew) =
-          dForwardGeneral variables fBatch direction
-        gammaDirectional = gamma * directionalDerivative
+        inputs = makeDualNumberInputs parameters deltaInputs
+    (directionalDerivative, valueNew) <-
+      dForwardGeneral inputs fBatch direction
+    let gammaDirectional = gamma * directionalDerivative
         parametersNew = updateWithGradient gammaDirectional parameters direction
-    in go g2 rest parametersNew valueNew
+    go g2 rest parametersNew valueNew
 
 -- | A variant with fast forward derivative computation.
 sgdBatchFastForward
@@ -82,8 +80,8 @@ sgdBatchFastForward
      Int
   -> Int  -- ^ batch size
   -> Double  -- ^ gamma (learning_rate?)
-  -> (a -> DualNumberVariables 'DModeDerivative Double
-      -> DualMonadForward Double (DualNumber 'DModeDerivative Double))
+  -> (a -> DualNumberInputs 'DModeDerivative Double
+      -> DualNumber 'DModeDerivative Double)
   -> [a]  -- ^ training data
   -> Domains Double  -- ^ initial parameters
   -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
@@ -96,28 +94,26 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
   go _ [] parameters value = (parameters, value)
   go seed l parameters@(params0, params1, params2, paramsX) _ =
     let (batch, rest) = splitAt batchSize l
-        fAdd :: DualNumberVariables 'DModeDerivative Double
+        fAdd :: DualNumberInputs 'DModeDerivative Double
              -> DualNumber 'DModeDerivative Double -> a
-             -> DualMonadForward Double (DualNumber 'DModeDerivative Double)
-        fAdd vars !acc a = do
-          res <- f a vars
-          return $! acc + res
-        fBatch :: DualNumberVariables 'DModeDerivative Double
-               -> DualMonadForward Double (DualNumber 'DModeDerivative Double)
-        fBatch vars = do
-          resBatch <- foldM (fAdd vars) 0 batch
-          return $! resBatch / fromIntegral (length batch)
+             -> DualNumber 'DModeDerivative Double
+        fAdd vars !acc a = acc + f a vars
+        fBatch :: DualNumberInputs 'DModeDerivative Double
+               -> DualNumber 'DModeDerivative Double
+        fBatch vars =
+          let resBatch = foldl' (fAdd vars) 0 batch
+          in resBatch / fromIntegral (length batch)
         unitVarianceRange = sqrt 12 / 2
         (g1, g2) = (seed + 5, seed + 13)
         (_, _, _, direction@(dparams0, dparams1, dparams2, dparamsX)) =
           initializerFixed g1 unitVarianceRange nParameters
-        variables =
-          makeDualNumberVariables
+        inputs =
+          makeDualNumberInputs
             ( coerce params0, coerce params1, coerce params2
             , unsafeCoerce paramsX )
             (V.convert dparams0, dparams1, dparams2, dparamsX)
         (directionalDerivative, valueNew) =
-          dFastForwardGeneral variables fBatch
+          dFastForwardGeneral inputs fBatch
         gammaDirectional = gamma * directionalDerivative
         parametersNew = updateWithGradient gammaDirectional parameters direction
     in go g2 rest parametersNew valueNew
@@ -125,73 +121,75 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
 sgdAdamBatch
   :: forall r a. HasDelta r
   => Int  -- ^ batch size
-  -> (a -> DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
+  -> (a -> DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
   -> [a]
   -> Domains r
   -> StateAdam r
-  -> (Domains r, StateAdam r)
+  -> IO (Domains r, StateAdam r)
 sgdAdamBatch = sgdAdamBatchArgs defaultArgsAdam
 
 sgdAdamBatchArgs
   :: forall r a. HasDelta r
   => ArgsAdam r
   -> Int  -- ^ batch size
-  -> (a -> DualNumberVariables 'DModeGradient r
-      -> DualMonadGradient r (DualNumber 'DModeGradient r))
+  -> (a -> DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
   -> [a]
   -> Domains r
   -> StateAdam r
-  -> (Domains r, StateAdam r)
+  -> IO (Domains r, StateAdam r)
 sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
-  varDeltas = generateDeltaVars parameters0
-  go :: [a] -> Domains r-> StateAdam r -> (Domains r, StateAdam r)
-  go [] parameters stateAdam = (parameters, stateAdam)
-  go l parameters stateAdam =
-    let variables = makeDualNumberVariables parameters varDeltas
+  deltaInputs = generateDeltaInputs parameters0
+  go :: [a] -> Domains r-> StateAdam r -> IO (Domains r, StateAdam r)
+  go [] parameters stateAdam = return (parameters, stateAdam)
+  go l parameters stateAdam = do
+    let inputs = makeDualNumberInputs parameters deltaInputs
         (batch, rest) = splitAt batchSize l
-        fAdd :: DualNumberVariables 'DModeGradient r -> DualNumber 'DModeGradient r -> a
-             -> DualMonadGradient r (DualNumber 'DModeGradient r)
-        fAdd vars !acc a = do
-          res <- f a vars
-          return $! acc + res
-        fBatch :: DualNumberVariables 'DModeGradient r
-               -> DualMonadGradient r (DualNumber 'DModeGradient r)
-        fBatch vars = do
-          resBatch <- foldM (fAdd vars) 0 batch
-          return $! resBatch / fromIntegral (length batch)
-        gradients = fst $ dReverseGeneral 1 variables fBatch
-        (parametersNew, stateAdamNew) =
+        fAdd :: DualNumberInputs 'DModeGradient r
+             -> DualNumber 'DModeGradient r -> a
+             -> DualNumber 'DModeGradient r
+        fAdd vars !acc a = acc + f a vars
+        fBatch :: DualNumberInputs 'DModeGradient r
+               -> DualNumber 'DModeGradient r
+        fBatch vars =
+          let resBatch = foldl' (fAdd vars) 0 batch
+          in resBatch / fromIntegral (length batch)
+    gradients <- fst <$> dReverseGeneral 1 inputs fBatch
+    let (parametersNew, stateAdamNew) =
           updateWithGradientAdam argsAdam stateAdam parameters gradients
-    in go rest parametersNew stateAdamNew
+    go rest parametersNew stateAdamNew
 
 -- | Relatively Smart Gradient Descent.
 -- Based on @gradientDescent@ from package @ad@ which is in turn based
 -- on the one from the VLAD compiler.
 gdSmart :: forall r. HasDelta r
-        => (DualNumberVariables 'DModeGradient r -> DualMonadGradient r (DualNumber 'DModeGradient r))
+        => (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
         -> Int  -- ^ requested number of iterations
         -> Domains r  -- ^ initial parameters
-        -> (Domains r, r)
-gdSmart f n0 parameters0 = go n0 parameters0 0.1 gradients0 value0 0 where
-  varDeltas = generateDeltaVars parameters0
-  variables0 = makeDualNumberVariables parameters0 varDeltas
-  (gradients0, value0) = dReverseGeneral 1 variables0 f
-  go :: Int -> Domains r -> r -> Domains r -> r -> Int
-     -> (Domains r, r)
-  go 0 parameters !gamma _gradientsPrev _valuePrev !_i = (parameters, gamma)
-  go _ parameters 0 _ _ _ = (parameters, 0)
-  go n parameters gamma gradientsPrev valuePrev i =
-    -- The trick is that we use the previous gradient here,
-    -- and the new gradient is only computed by accident together
-    -- with the new value that is needed now to revert if we overshoot.
-    let parametersNew = updateWithGradient gamma parameters gradientsPrev
-        variables = makeDualNumberVariables parametersNew varDeltas
-        (gradients, value) = dReverseGeneral 1 variables f
-    in if | gradientIsNil gradientsPrev ->
-              (parameters, gamma)
-          | value > valuePrev ->
-              go n parameters (gamma / 2) gradientsPrev valuePrev 0  -- overshot
-          | i == 10 -> go (pred n) parametersNew (gamma * 2) gradients value 0
-          | otherwise -> go (pred n) parametersNew gamma gradients value (i + 1)
+        -> IO (Domains r, r)
+gdSmart f n0 parameters0 = do
+  let deltaInputs = generateDeltaInputs parameters0
+      inputs0 = makeDualNumberInputs parameters0 deltaInputs
+  (gradients0, value0) <- dReverseGeneral 1 inputs0 f
+  let go :: Int -> Domains r -> r -> Domains r -> r -> Int
+         -> IO (Domains r, r)
+      go 0 parameters !gamma _gradientsPrev _valuePrev !_i =
+        return (parameters, gamma)
+      go _ parameters 0 _ _ _ = return (parameters, 0)
+      go n parameters gamma gradientsPrev valuePrev i = do
+        -- The trick is that we use the previous gradient here,
+        -- and the new gradient is only computed by accident together
+        -- with the new value that is needed now to revert if we overshoot.
+        let parametersNew = updateWithGradient gamma parameters gradientsPrev
+            inputs = makeDualNumberInputs parametersNew deltaInputs
+        (gradients, value) <- dReverseGeneral 1 inputs f
+        if | gradientIsNil gradientsPrev ->
+               return (parameters, gamma)
+           | value > valuePrev ->
+               go n parameters (gamma / 2) gradientsPrev valuePrev 0
+                 -- overshot
+           | i == 10 -> go (pred n) parametersNew (gamma * 2) gradients value 0
+           | otherwise ->
+               go (pred n) parametersNew gamma gradients value (i + 1)
+  go n0 parameters0 0.1 gradients0 value0 0

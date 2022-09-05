@@ -1,5 +1,5 @@
-{-# LANGUAGE CPP, DataKinds, GADTs, KindSignatures, RankNTypes,
-             StandaloneDeriving, TypeOperators #-}
+{-# LANGUAGE CPP, DataKinds, GADTs, GeneralizedNewtypeDeriving, KindSignatures,
+             RankNTypes, StandaloneDeriving, TypeOperators, UnboxedTuples #-}
 #if !MIN_VERSION_base(4,16,0)
 {-# LANGUAGE IncoherentInstances #-}
 #endif
@@ -17,13 +17,12 @@
 -- The \'sparsity\' is less obvious when the domain of the function consists
 -- of multiple vectors, matrices and tensors and when the expressions themselves
 -- contain vectors, matrices and tensors. However, a single tiny delta
--- expression (e.g., a sum of two variables) may denote a vector of matrices.
+-- expression (e.g., a sum of two inputs) may denote a vector of matrices.
 -- Even a delta expression containing a big matrix denotes something much
 -- bigger: a whole vector of such matrices and more.
 --
 -- The algebraic structure here is an extension of vector space.
--- The crucial extra constructor of a variable is used both to represent
--- sharing in order to avoid exponential blowup and to replace the one-hot
+-- The crucial extra constructor of a input replaces the one-hot
 -- access to parameters with something cheaper and more uniform.
 -- A lot of the remaining additional structure is for introducing
 -- and reducing dimensions (ranks).
@@ -36,23 +35,23 @@
 -- grow large enough to affect cache misses).
 module HordeAd.Internal.Delta
   ( -- * Abstract syntax trees of the delta expressions
-    Delta0 (..), Delta1 (..), Delta2 (..), DeltaX (..), DeltaS (..)
+    Delta0 (..), Delta0' (..)
+  , Delta1 (..), Delta1' (..)
+  , Delta2 (..), Delta2' (..)
+  , DeltaX (..), DeltaX' (..)
+  , DeltaS (..), DeltaS' (..)
   , -- * Delta expression identifiers
     DeltaId, toDeltaId, convertDeltaId
   , -- * Evaluation of the delta expressions
-    DeltaBinding
-  , DeltaState (..)
-  , Domain0, Domain1, Domain2, DomainX, Domains
-  , gradientFromDelta, derivativeFromDelta, ppBindings
-  , bindInState0, bindInState1, bindInState2, bindInStateX
+    Domain0, Domain1, Domain2, DomainX, Domains
+  , gradientFromDelta, derivativeFromDelta
   , isTensorDummy
-  , CodeOut(..)
   ) where
 
 import Prelude
 
 import           Control.Exception (assert)
-import           Control.Monad (unless, zipWithM_)
+import           Control.Monad (liftM2, unless, zipWithM_)
 import           Control.Monad.ST.Strict (ST, runST)
 import qualified Data.Array.Convert
 import qualified Data.Array.Dynamic as OTB
@@ -62,18 +61,20 @@ import qualified Data.Array.Internal.DynamicG
 import qualified Data.Array.Internal.DynamicS
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
+import qualified Data.IntMap.Strict as IM
 import           Data.Kind (Type)
-import           Data.List (foldl')
+import           Data.Primitive (Prim)
 import           Data.Proxy (Proxy)
+import           Data.STRef (STRef, newSTRef, readSTRef, writeSTRef)
+import           Data.STRef.Unboxed (STRefU, newSTRefU, readSTRefU, writeSTRefU)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Strict.Vector.Autogen.Mutable as Data.Vector.Mutable
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Storable.Mutable
 import           GHC.TypeLits (KnownNat, Nat, natVal, type (+))
-import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, (#>), (<.>))
+import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, (<.>))
 import qualified Numeric.LinearAlgebra as HM
-import           Text.Show.Pretty (ppShow)
 
 import qualified HordeAd.Internal.MatrixOuter as MO
 import           HordeAd.Internal.OrthotopeOrphanInstances (liftVS2, liftVT2)
@@ -90,13 +91,23 @@ import           HordeAd.Internal.OrthotopeOrphanInstances (liftVS2, liftVT2)
 -- Many operations span the ranks and so span the datatypes, which makes
 -- the datatypes mutually recursive.
 --
--- The @Outline@ constructors represent primitive numeric function applications
--- for which we delay computing and forgo inlining of the derivative.
+-- The identifier that is the first argument of @Delta0@ marks
+-- the identity of a subterm as part of the whole global term tree.
+--
+-- The per-rank identifier that is the second argument of @Delta0@
+-- is an index into a contigous vector of gradient or derivative components
+-- (partial gradients/derivatives wrt that term's position?) corresponding
+-- to subterms of that rank. There is no corresponding argument to the
+-- @Zero0@ constructor, because the term not only does not contribute
+-- to the derivative (similarly as @Input0@), but we are not even interested
+-- in what the (partial) gradient for that subterm position would be.
 data Delta0 r =
-    Zero0
-  | Scale0 r (Delta0 r)
+    Delta0 Int (Delta0' r)
+  | Zero0
+  | Input0 (DeltaId r)
+data Delta0' r =
+    Scale0 r (Delta0 r)
   | Add0 (Delta0 r) (Delta0 r)
-  | Var0 (DeltaId r)
 
   | SumElements0 (Delta1 r) Int  -- ^ see Note [SumElements0]
   | Index0 (Delta1 r) Int Int  -- ^ second integer is the length of the vector
@@ -106,18 +117,18 @@ data Delta0 r =
   | FromX0 (DeltaX r)  -- ^ one of many conversions
   | FromS0 (DeltaS '[] r)
 
-  | Outline0 CodeOut [r] [Delta0 r]
-  | Delay0 ~(Delta0 r)
-
 deriving instance (Show r, Numeric r) => Show (Delta0 r)
+deriving instance (Show r, Numeric r) => Show (Delta0' r)
 
 -- | This is the grammar of delta-expressions at tensor rank 1, that is,
 -- at vector level.
 data Delta1 r =
-    Zero1
-  | Scale1 (Vector r) (Delta1 r)
+    Delta1 Int (Delta1' r)
+  | Zero1
+  | Input1 (DeltaId (Vector r))
+data Delta1' r =
+    Scale1 (Vector r) (Delta1 r)
   | Add1 (Delta1 r) (Delta1 r)
-  | Var1 (DeltaId (Vector r))
 
   | Seq1 (Data.Vector.Vector (Delta0 r))  -- ^ "unboxing" conversion
   | Konst1 (Delta0 r) Int  -- ^ length; needed only for forward derivative
@@ -142,18 +153,18 @@ data Delta1 r =
   | forall sh. OS.Shape sh
     => FlattenS1 (DeltaS sh r)
 
-  | Outline1 CodeOut [Vector r] [Delta1 r]
-  | Delay1 ~(Delta1 r)
-
 deriving instance (Show r, Numeric r) => Show (Delta1 r)
+deriving instance (Show r, Numeric r) => Show (Delta1' r)
 
 -- | This is the grammar of delta-expressions at tensor rank 2, that is,
 -- at matrix level.
 data Delta2 r =
-    Zero2
-  | Scale2 (Matrix r) (Delta2 r)
+    Delta2 Int (Delta2' r)
+  | Zero2
+  | Input2 (DeltaId (Matrix r))
+data Delta2' r =
+    Scale2 (Matrix r) (Delta2 r)
   | Add2 (Delta2 r) (Delta2 r)
-  | Var2 (DeltaId (Matrix r))
 
   | FromRows2 (Data.Vector.Vector (Delta1 r))  -- ^ "unboxing" conversion again
   | FromColumns2 (Data.Vector.Vector (Delta1 r))
@@ -179,19 +190,19 @@ data Delta2 r =
   | Reshape2 Int (Delta1 r)
   | Conv2 (Matrix r) (Delta2 r)
 
-  | Outline2 CodeOut [Matrix r] [Delta2 r]
-  | Delay2 ~(Delta2 r)
-
 deriving instance (Show r, Numeric r) => Show (Delta2 r)
+deriving instance (Show r, Numeric r) => Show (Delta2' r)
 
 -- | This is the grammar of delta-expressions at arbitrary tensor rank.
 --
 -- Warning: not tested enough nor benchmarked.
 data DeltaX r =
-    ZeroX
-  | ScaleX (OT.Array r) (DeltaX r)
+    DeltaX Int (DeltaX' r)
+  | ZeroX
+  | InputX (DeltaId (OT.Array r))
+data DeltaX' r =
+    ScaleX (OT.Array r) (DeltaX r)
   | AddX (DeltaX r) (DeltaX r)
-  | VarX (DeltaId (OT.Array r))
 
   | KonstX (Delta0 r) OT.ShapeL  -- ^ size; needed only for forward derivative
   | AppendX (DeltaX r) Int (DeltaX r)
@@ -216,60 +227,63 @@ data DeltaX r =
   | forall sh. OS.Shape sh
     => FromSX (DeltaS sh r)
 
-  | OutlineX CodeOut [OT.Array r] [DeltaX r]
-  | DelayX ~(DeltaX r)
-
 deriving instance (Show r, Numeric r) => Show (DeltaX r)
+deriving instance (Show r, Numeric r) => Show (DeltaX' r)
 
 -- | This is the grammar of delta-expressions at arbitrary tensor rank,
 -- the fully typed Shaped version.
 --
 -- Warning: not tested enough nor benchmarked.
 data DeltaS :: [Nat] -> Type -> Type where
+  DeltaS :: Int -> DeltaS' sh r -> DeltaS sh r
   ZeroS :: DeltaS sh r
-  ScaleS :: OS.Array sh r -> DeltaS sh r -> DeltaS sh r
-  AddS :: DeltaS sh r -> DeltaS sh r -> DeltaS sh r
-  VarS :: DeltaId (OS.Array sh r) -> DeltaS sh r
+  InputS :: DeltaId (OS.Array sh r) -> DeltaS sh r
+data DeltaS' :: [Nat] -> Type -> Type where
+  ScaleS :: OS.Array sh r -> DeltaS sh r -> DeltaS' sh r
+  AddS :: DeltaS sh r -> DeltaS sh r -> DeltaS' sh r
 
-  KonstS :: Delta0 r -> DeltaS sh r
+  KonstS :: Delta0 r -> DeltaS' sh r
   AppendS :: (OS.Shape sh, KnownNat m, KnownNat n)
           => DeltaS (m ': sh) r -> DeltaS (n ': sh) r
-          -> DeltaS ((m + n) ': sh) r
+          -> DeltaS' ((m + n) ': sh) r
     -- ^ Append two arrays along the outermost dimension.
   SliceS :: (KnownNat i, KnownNat n, KnownNat k, OS.Shape rest)
          => Proxy i -> Proxy n -> DeltaS (i + n + k ': rest) r
-         -> DeltaS (n ': rest) r
+         -> DeltaS' (n ': rest) r
     -- ^ Extract a slice of an array along the outermost dimension.
   IndexS :: (KnownNat ix, KnownNat k, OS.Shape rest)
-         => DeltaS (ix + 1 + k ': rest) r -> Proxy ix -> DeltaS rest r
+         => DeltaS (ix + 1 + k ': rest) r -> Proxy ix -> DeltaS' rest r
     -- ^ The sub-tensors at the given index of the outermost dimension.
   RavelFromListS :: (KnownNat k, OS.Shape rest)
-                 => [DeltaS rest r] -> DeltaS (k : rest) r
+                 => [DeltaS rest r] -> DeltaS' (k : rest) r
     -- ^ Create a tensor from a list treated as the outermost dimension.
   ReshapeS :: (OS.Shape sh, OS.Shape sh', OS.Size sh ~ OS.Size sh')
-           => DeltaS sh r -> DeltaS sh' r
+           => DeltaS sh r -> DeltaS' sh' r
     -- ^ Change the shape of the tensor.
 
-  From0S :: Delta0 r -> DeltaS '[] r
-  From1S :: Delta1 r -> DeltaS '[n] r
+  From0S :: Delta0 r -> DeltaS' '[] r
+  From1S :: Delta1 r -> DeltaS' '[n] r
   From2S :: KnownNat cols
-         => Proxy cols -> Delta2 r -> DeltaS '[rows, cols] r
-  FromXS :: DeltaX r -> DeltaS sh r
-
-  OutlineS :: CodeOut -> [OS.Array sh r] -> [DeltaS sh r] -> DeltaS sh r
-  DelayS :: ~(DeltaS sh r) -> DeltaS sh r
+         => Proxy cols -> Delta2 r -> DeltaS' '[rows, cols] r
+  FromXS :: DeltaX r -> DeltaS' sh r
 
 instance Show (DeltaS sh r) where
   show _ = "a DeltaS delta expression"
+instance Show (DeltaS' sh r) where
+  show _ = "a DeltaS' delta expression"
 
 
 -- * Delta expression identifiers
 
 newtype DeltaId a = DeltaId Int
-  deriving Show
+  deriving (Show, Prim)
+    -- No Eq instance to limit hacks outside this module.
+    -- The Prim instance conversions take lots of time when old-time profiling,
+    -- but are completely optimized away in normal builds.
 
+-- | Wrap non-negative (only!) integers in the `DeltaId` newtype.
 toDeltaId :: Int -> DeltaId a
-toDeltaId = DeltaId
+toDeltaId i = assert (i >= 0) $ DeltaId i
 
 convertDeltaId :: DeltaId (OT.Array r) -> DeltaId (OS.Array sh r)
 convertDeltaId (DeltaId i) = DeltaId i
@@ -281,38 +295,15 @@ succDeltaId (DeltaId i) = DeltaId (succ i)
 
 -- * Evaluation of the delta expressions
 
--- | Binding at one of the ranks, with a given underlying scalar.
---
--- The 'DeltaId' components could be re-computed on the fly in 'buildFinMaps',
--- but it costs more (they are boxed, so re-allocation is expensive)
--- than storing them here at the time of binding creation and accessing
--- in `buildFinMaps`.
 data DeltaBinding r =
-    DeltaBinding0 (DeltaId r) (Delta0 r)
-  | DeltaBinding1 (DeltaId (Vector r)) (Delta1 r)
-  | DeltaBinding2 (DeltaId (Matrix r)) (Delta2 r)
-  | DeltaBindingX (DeltaId (OT.Array r)) (DeltaX r)
+    DeltaBinding0 (DeltaId r) (Delta0' r)
+  | DeltaBinding1 (DeltaId (Vector r)) (Delta1' r)
+  | DeltaBinding2 (DeltaId (Matrix r)) (Delta2' r)
+  | DeltaBindingX (DeltaId (OT.Array r)) (DeltaX' r)
+  | forall sh. OS.Shape sh
+    => DeltaBindingS (DeltaId (OT.Array r)) (DeltaS' sh r)
 
-data DeltaState r = DeltaState
-  { deltaCounter0 :: DeltaId r
-  , deltaCounter1 :: DeltaId (Vector r)
-  , deltaCounter2 :: DeltaId (Matrix r)
-  , deltaCounterX :: DeltaId (OT.Array r)
-  , deltaBindings :: [DeltaBinding r]
-  }
-
--- | Helper definitions to shorten type signatures. Note that these
--- differ from their counterparts in all other modules, because the type
--- argument here is the underlying scalar (e.g., @Double),
--- while elsewhere it's the dual component of dual numbers from
--- rank 0 (scalar) level (e.g., @Delta0 Double@).
--- By chance, these definitions and definitions from other modules
--- coincide in case of "forward derivatives computed on the spot"
--- where @r@ is @Double@ and @Double@ is also the dual component.
---
--- More generally, @r@ in this module tends to refer to the underlying
--- scalar type, while in all other modules it refers to the rank 0 dual
--- component type.
+-- | Helper definitions to shorten type signatures.
 type Domain0 r = Vector r
 
 type Domain1 r = Data.Vector.Vector (Vector r)
@@ -323,18 +314,23 @@ type DomainX r = Data.Vector.Vector (OT.Array r)
 
 type Domains r = (Domain0 r, Domain1 r, Domain2 r, DomainX r)
 
--- | Delta expressions naturally denote forward derivatives,
+-- | Note: this documentation is now outdated, because per-node
+-- identities have replaces variables and so exploitation of sharing
+-- in order to avoid duplicated computation can't be explained
+-- using the common concept of variables and their valuations.
+--
+-- Delta expressions naturally denote forward derivatives,
 -- as encoded in function 'derivativeFromDelta'. However, we are more
 -- interested in computing gradients, which is what @gradientFromDelta@ does.
 -- The two functions are bound by the equation from Lemma 5 from the paper
 -- "Provably correct, asymptotically efficient, higher-order reverse-mode
 -- automatic differentiation":
 --
--- > dt <.> derivativeFromDelta st d ds = gradientFromDelta st d dt <.> ds
+-- > dt <.> derivativeFromDelta ct d ds = gradientFromDelta ct d dt <.> ds
 --
 -- where @\<.\>@ denotes generalized dot product (multiplying
 -- all tensors element-wise and summing the results),
--- @st@ contains bindings of delta variables and @d@ is the top level
+-- @ct@ contains bindings of delta inputs and @d@ is the top level
 -- delta expression from translation of the objective function @f@ to dual
 -- numbers, @ds@ belongs to the domain of @f@ and @dt@ to the codomain.
 -- We omitted for clarity the @dim0@, @dim1@, @dim2@ and @dimX@ arguments
@@ -363,7 +359,7 @@ type Domains r = (Domain0 r, Domain1 r, Domain2 r, DomainX r)
 -- for the derivative follows straightforwardly the syntactic form
 -- of the delta expression @d@ (see 'derivativeFromDelta').
 --
--- Let's now describe the semantics of closed delta expression @d@
+-- Let's now describe the semantics of a delta expression @d@
 -- as the gradient of @f@ at point @P@ with respect to a @dt@ that belongs
 -- to @r@. Here the semantics of @d@ is a collection of four finite maps
 -- (vectors) @v0@, @v1@, @v2@, @vX@, corresponding to @C@,
@@ -373,21 +369,8 @@ type Domains r = (Domain0 r, Domain1 r, Domain2 r, DomainX r)
 -- The value of @vi@ at index @DeltaId k@ is the partial derivative
 -- of function @f@ at @P@ with respect to its parameter of type @ai@.
 -- The position of the @ai@ parameter is represented by @DeltaId k@
--- (in other words, the partial derivative is with respect to a variable
+-- (in other words, the partial derivative is with respect to an input
 -- quantity tagged with @DeltaId k@) and its value comes from @dt@.
---
--- The semantics of a delta expression that is not closed but contains
--- occurrences of variables that do not correspond to parameters of @f@ is only
--- defined in the context of four vectors that contain values associated
--- to its free variables or, alternatively, of bindings from which the values
--- can be computed, or of a mixture of both. This semantics does not change
--- if a bound expression is substituted for a variable instead of being used
--- to compute a value. (Note however that a computed value can't be
--- substituted for all occurrences of the variable in an expression,
--- because the "computing backwards" trick, needed to get gradients
--- from derivative expressions, computes a value for each occurrence
--- of a variable separately and sums over all occurrences instead
--- of substituting a single value into each occurrence.)
 --
 -- Function @gradientFromDelta@ computes the four vectors described above.
 -- Requested lengths of the vectors are given in the first few arguments.
@@ -395,98 +378,106 @@ type Domains r = (Domain0 r, Domain1 r, Domain2 r, DomainX r)
 -- that are to be evaluated, in the given order, starting with the top-level
 -- binding of a scalar type provided in the next argument and with respect
 -- to perturbation @dt@ (usually set to @1@) in the last argument.
-gradientFromDelta :: (Eq r, Numeric r, Num (Vector r))
-                  => (CodeOut -> [r] -> [Delta0 r] -> Delta0 r)
-                  -> (CodeOut -> [Vector r] -> [Delta1 r] -> Delta1 r)
-                  -> (CodeOut -> [Matrix r] -> [Delta2 r] -> Delta2 r)
-                  -> (CodeOut -> [OT.Array r] -> [DeltaX r] -> DeltaX r)
-                  -> (forall sh. OS.Shape sh
-                      => CodeOut -> [OS.Array sh r] -> [DeltaS sh r]
-                      -> DeltaS sh r)
-                  -> Int -> Int -> Int -> Int -> DeltaState r -> Delta0 r -> r
-                  -> Domains r
-gradientFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
-                  inlineDerivativeX inlineDerivativeS
-                  dim0 dim1 dim2 dimX st deltaTopLevel dt =
+gradientFromDelta
+  :: (Eq r, Numeric r, Num (Vector r))
+  => Int -> Int -> Int -> Int -> Delta0 r -> r
+  -> Domains r
+gradientFromDelta dim0 dim1 dim2 dimX deltaTopLevel dt =
+-- traceShow (dim0, dim1, dim2, dimX) $
   -- This is morally @V.create@ and so totally safe,
   -- but we can't just call @V.create@ thrice, because it would run
   -- the @ST@ action thrice, so we inline and extend @V.create@ here.
   runST $ do
-    (finMap0, finMap1, finMap2, finMapX) <-
-      buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
-                   inlineDerivativeX inlineDerivativeS
-                   st deltaTopLevel dt
-    v0 <- V.unsafeFreeze $ VM.take dim0 finMap0
-    v1 <- V.unsafeFreeze $ VM.take dim1 finMap1
-    v2 <- V.unsafeFreeze $ VM.take dim2 finMap2
-    vX <- V.unsafeFreeze $ VM.take dimX finMapX
+    (iMap0, iMap1, iMap2, iMapX)
+      <- buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt
+    v0 <- V.unsafeFreeze iMap0
+    v1 <- V.unsafeFreeze iMap1
+    v2 <- V.unsafeFreeze iMap2
+    vX <- V.unsafeFreeze iMapX
     -- Convert to normal matrices, but only the portion of vector
     -- that is not discarded.
-    return (v0, v1, V.map MO.convertMatrixOuterOrNull v2, vX)
+    return (v0, v1, v2, vX)
 {-# SPECIALIZE gradientFromDelta
-  :: (CodeOut -> [Double] -> [Delta0 Double] -> Delta0 Double)
-  -> (CodeOut -> [Vector Double] -> [Delta1 Double] -> Delta1 Double)
-  -> (CodeOut -> [Matrix Double] -> [Delta2 Double] -> Delta2 Double)
-  -> (CodeOut -> [OT.Array Double] -> [DeltaX Double] -> DeltaX Double)
-  -> (forall sh. OS.Shape sh
-      => CodeOut -> [OS.Array sh Double] -> [DeltaS sh Double]
-  -> DeltaS sh Double)
-  -> Int -> Int -> Int -> Int -> DeltaState Double -> Delta0 Double -> Double
+  :: Int -> Int -> Int -> Int -> Delta0 Double -> Double
   -> Domains Double #-}
 
--- | Create vectors (representing finite maps) that hold delta-variable
--- values. They are initialized with dummy values so that it's cheap to check
--- if any update has already been performed to a cell (allocating big matrices
+-- | Create vectors (representing finite maps) that hold values
+-- associated with inputes and (possibly shared) nodes. The former are
+-- initialized with dummy values so that it's cheap to check if any update
+-- has already been performed to a cell (allocating big matrices
 -- filled with zeros is too costly, especially if never used in an iteration,
 -- and adding to such matrices and especially using them as scaling factors
--- is wasteful). The vectors are longer than those representing objective
--- function parameters (e.g., @deltaCounter0@ vs @dim0@), because variables
--- represent not only parameters, but also the bindings that prevent blowup
--- via delta-expression duplication.
-initializeFinMaps :: forall s r. Numeric r
-                  => DeltaState r
-                  -> ST s ( Data.Vector.Storable.Mutable.MVector s r
-                          , Data.Vector.Mutable.MVector s (Vector r)
-                          , Data.Vector.Mutable.MVector s (MO.MatrixOuter r)
-                          , Data.Vector.Mutable.MVector s (OT.Array r) )
-initializeFinMaps st = do
-  let DeltaId counter0 = deltaCounter0 st
-      DeltaId counter1 = deltaCounter1 st
-      DeltaId counter2 = deltaCounter2 st
-      DeltaId counterX = deltaCounterX st
-  finMap0 <- VM.replicate counter0 0  -- correct value
-  finMap1 <- VM.replicate counter1 (V.empty :: Vector r)  -- dummy value
-  finMap2 <- VM.replicate counter2 MO.emptyMatrixOuter  -- dummy value
-  finMapX <- VM.replicate counterX dummyTensor
-  return (finMap0, finMap1, finMap2, finMapX)
-{-# SPECIALIZE initializeFinMaps
-  :: DeltaState Double
-  -> ST s ( Data.Vector.Storable.Mutable.MVector s Double
-          , Data.Vector.Mutable.MVector s (Vector Double)
-          , Data.Vector.Mutable.MVector s (MO.MatrixOuter Double)
-          , Data.Vector.Mutable.MVector s (OT.Array Double) ) #-}
+-- is wasteful).
+initializeFinMaps
+  :: forall s r. Numeric r
+  => Int -> Int -> Int -> Int
+  -> ST s ( Data.Vector.Storable.Mutable.MVector s r
+          , Data.Vector.Mutable.MVector s (Vector r)
+          , Data.Vector.Mutable.MVector s (Matrix r)
+          , Data.Vector.Mutable.MVector s (OT.Array r)
+          , STRefU s (DeltaId r)
+          , STRefU s (DeltaId (Vector r))
+          , STRefU s (DeltaId (Matrix r))
+          , STRefU s (DeltaId (OT.Array r))
+          , STRef s (Data.Vector.Storable.Mutable.MVector s r)
+          , STRef s (Data.Vector.Mutable.MVector s (Vector r))
+          , STRef s (Data.Vector.Mutable.MVector s (MO.MatrixOuter r))
+          , STRef s (Data.Vector.Mutable.MVector s (OT.Array r))
+          , STRefU s Int
+          , STRefU s Int
+          , STRefU s Int
+          , STRefU s Int
+          , STRef s (IM.IntMap (DeltaBinding r)) )  -- Map is way slower
+initializeFinMaps dim0 dim1 dim2 dimX = do
+  iMap0 <- VM.replicate dim0 0  -- correct value; below are dummy
+  iMap1 <- VM.replicate dim1 (V.empty :: Vector r)
+  iMap2 <- VM.replicate dim2 (HM.fromRows [])
+  iMapX <- VM.replicate dimX dummyTensor
+  -- These index into the respective four vectors below.
+  ref0 <- newSTRefU (DeltaId 0)
+  ref1 <- newSTRefU (DeltaId 0)
+  ref2 <- newSTRefU (DeltaId 0)
+  refX <- newSTRefU (DeltaId 0)
+  -- Unsafe is fine, because it initializes to bottoms and we always
+  -- write before reading.
+  rMap0' <- VM.unsafeNew (max 1 dim0)
+  rMap1' <- VM.unsafeNew (max 1 dim1)
+  rMap2' <- VM.unsafeNew (max 1 dim2)
+  rMapX' <- VM.unsafeNew (max 1 dimX)
+  rMap0 <- newSTRef rMap0'
+  rMap1 <- newSTRef rMap1'
+  rMap2 <- newSTRef rMap2'
+  rMapX <- newSTRef rMapX'
+  -- These keep current lengths of the vectors above.
+  len0 <- newSTRefU (VM.length rMap0')
+  len1 <- newSTRefU (VM.length rMap1')
+  len2 <- newSTRefU (VM.length rMap2')
+  lenX <- newSTRefU (VM.length rMapX')
+  dMap <- newSTRef IM.empty
+  return ( iMap0, iMap1, iMap2, iMapX
+         , ref0, ref1, ref2, refX
+         , rMap0, rMap1, rMap2, rMapX
+         , len0, len1, len2, lenX
+         , dMap )
 
 buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
-             => (CodeOut -> [r] -> [Delta0 r] -> Delta0 r)
-             -> (CodeOut -> [Vector r] -> [Delta1 r] -> Delta1 r)
-             -> (CodeOut -> [Matrix r] -> [Delta2 r] -> Delta2 r)
-             -> (CodeOut -> [OT.Array r] -> [DeltaX r] -> DeltaX r)
-             -> (forall sh. OS.Shape sh
-                 => CodeOut -> [OS.Array sh r] -> [DeltaS sh r]
-                 -> DeltaS sh r)
-             -> DeltaState r -> Delta0 r -> r
+             => Int -> Int -> Int -> Int -> Delta0 r -> r
              -> ST s ( Data.Vector.Storable.Mutable.MVector s r
                      , Data.Vector.Mutable.MVector s (Vector r)
-                     , Data.Vector.Mutable.MVector s (MO.MatrixOuter r)
+                     , Data.Vector.Mutable.MVector s (Matrix r)
                      , Data.Vector.Mutable.MVector s (OT.Array r) )
-buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
-             inlineDerivativeX inlineDerivativeS
-             st deltaTopLevel dt = do
-  (finMap0, finMap1, finMap2, finMapX) <- initializeFinMaps st
+buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
+  ( iMap0, iMap1, iMap2, iMapX
+   ,ref0, ref1, ref2, refX
+   ,rMap0, rMap1, rMap2, rMapX
+   ,len0, len1, len2, lenX
+   ,dMap )
+    <- initializeFinMaps dim0 dim1 dim2 dimX
+  nLast <- newSTRefU 0  -- counter of the last fully evaluated binding
   let addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
-      addToMatrix :: MO.MatrixOuter r -> MO.MatrixOuter r -> MO.MatrixOuter r
-      addToMatrix r = \v -> if MO.nullMatrixOuter v then r else MO.plus v r
+      addToMatrix :: Matrix r -> Matrix r -> Matrix r
+      addToMatrix r = \v -> if HM.rows v <= 0 then r else v + r
       addToArray :: OT.Array r -> OT.Array r -> OT.Array r
       addToArray r = \v -> if isTensorDummy v then r else liftVT2 (+) v r
       addToArrayS :: OS.Shape sh => OS.Array sh r -> OT.Array r -> OT.Array r
@@ -495,22 +486,65 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
                                then rs
                                else liftVT2 (+) v rs
       eval0 :: r -> Delta0 r -> ST s ()
-      eval0 !r = \case
-        Zero0 -> return ()
+      eval0 _ Zero0 = return ()
+      eval0 !r (Input0 (DeltaId i)) =
+        VM.modify iMap0 (+ r) i
+      eval0 !r (Delta0 n d) = do
+        im <- readSTRef dMap
+        nL <- readSTRefU nLast
+        if n == pred nL
+        then do  -- this would be evaluated next, so let's shortcut,
+                 -- avoiding lots of short-lived allocations and also
+                 -- shrinking the environment in which the evaluation occurs
+          writeSTRefU nLast n
+          rFinal <- case IM.lookup n im of
+            Just (DeltaBinding0 (DeltaId i) _) -> do
+              writeSTRef dMap $! IM.delete n im
+              rm <- readSTRef rMap0
+              (+ r) <$> rm `VM.read` i
+            Nothing -> return r
+            _ -> error "buildFinMaps: corrupted dMap"
+          unless (rFinal == 0) $  -- a cheap optimization in case of scalars
+            eval0' rFinal d
+        else case IM.lookup n im of
+          Just (DeltaBinding0 (DeltaId i) _) -> do
+            rm <- readSTRef rMap0
+            VM.modify rm (+ r) i
+          Nothing -> do
+            did@(DeltaId i) <- readSTRefU ref0
+            writeSTRefU ref0 $ succDeltaId did
+            writeSTRef dMap $! IM.insert n (DeltaBinding0 did d) im
+            len <- readSTRefU len0
+            rm <- readSTRef rMap0
+            if i >= len then do
+              -- Unsafe is fine, because it initializes to bottoms and we always
+              -- write before reading.
+              rmG <- VM.unsafeGrow rm len
+              VM.write rmG i r
+              writeSTRef rMap0 rmG
+              writeSTRefU len0 $ 2 * len
+            else
+              VM.write rm i r
+          _ -> error "buildFinMaps: corrupted dMap"
+      eval0' :: r -> Delta0' r -> ST s ()
+      eval0' !r = \case
         Scale0 k d -> eval0 (k * r) d
-        Add0 d e -> eval0 r d >> eval0 r e
-        Var0 (DeltaId i) -> VM.modify finMap0 (+ r) i
+        Add0 d e -> eval0 r e >> eval0 r d
+          -- reversed order of evaluation to enable the shortcut as often
+          -- as possible due to the parent and the first evaluated child
+          -- having adjacent counter values
 
         SumElements0 vd n -> eval1 (HM.konst r n) vd
-        Index0 (Var1 (DeltaId i)) ix k -> do
+        Index0 (Input1 (DeltaId i)) ix k | i >= 0 -> do
           let f v = if V.null v
                     then HM.konst 0 k V.// [(ix, r)]
                     else v V.// [(ix, v V.! ix + r)]
-          VM.modify finMap1 f i
-            -- this would be an asymptotic optimization compared to
+          VM.modify iMap1 f i
+            -- This would be an asymptotic optimization compared to
             -- the general case below, if not for the non-mutable update,
             -- which involves copying the whole vector, so it's just
-            -- several times faster (same allocation, but not adding vectors)
+            -- several times faster (same allocation, but not adding vectors).
+            -- TODO: does it make sense to extend this beyond @Input1@?
         Index0 d ix k -> eval1 (HM.konst 0 k V.// [(ix, r)]) d
 
         Dot0 v vd -> eval1 (HM.scale r v) vd
@@ -518,19 +552,56 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         FromX0 d -> evalX (OT.scalar r) d
         FromS0 d -> evalS (OS.scalar r) d
 
-        Outline0 codeOut primalArgs dualArgs ->
-          eval0 r $ inlineDerivative0 codeOut primalArgs dualArgs
-        Delay0 d -> eval0 r d
       eval1 :: Vector r -> Delta1 r -> ST s ()
-      eval1 !r = \case
-        Zero1 -> return ()
+      eval1 _ Zero1 = return ()
+      eval1 !r (Input1 (DeltaId i)) =
+        VM.modify iMap1 (addToVector r) i
+      eval1 !r (Delta1 n d) = do
+        im <- readSTRef dMap
+        nL <- readSTRefU nLast
+        if n == pred nL
+        then do  -- this would be evaluated next, so let's shortcut,
+                 -- avoiding lots of short-lived allocations and also
+                 -- shrinking the environment in which the evaluation occurs
+          writeSTRefU nLast n
+          rFinal <- case IM.lookup n im of
+            Just (DeltaBinding1 (DeltaId i) _) -> do
+              writeSTRef dMap $! IM.delete n im
+              rm <- readSTRef rMap1
+              (+ r) <$> rm `VM.read` i
+            Nothing -> return r
+            _ -> error "buildFinMaps: corrupted dMap"
+          eval1' rFinal d
+        else case IM.lookup n im of
+          Just (DeltaBinding1 (DeltaId i) _) -> do
+            rm <- readSTRef rMap1
+            VM.modify rm (+ r) i
+          Nothing -> do
+            did@(DeltaId i) <- readSTRefU ref1
+            writeSTRefU ref1 $ succDeltaId did
+            writeSTRef dMap $! IM.insert n (DeltaBinding1 did d) im
+            len <- readSTRefU len1
+            rm <- readSTRef rMap1
+            if i >= len then do
+              rmG <- VM.unsafeGrow rm len
+              VM.write rmG i r
+              writeSTRef rMap1 rmG
+              writeSTRefU len1 $ 2 * len
+            else
+              VM.write rm i r
+          _ -> error "buildFinMaps: corrupted dMap"
+      eval1' :: Vector r -> Delta1' r -> ST s ()
+      eval1' !r = \case
         Scale1 k d -> eval1 (k * r) d
-        Add1 d e -> eval1 r d >> eval1 r e
-        Var1 (DeltaId i) -> VM.modify finMap1 (addToVector r) i
+        Add1 d e -> eval1 r e >> eval1 r d
 
-        Seq1 lsd -> V.imapM_ (\i d -> eval0 (r V.! i) d) lsd
+        Seq1 lsd -> V.imapM_ (\i d -> eval0 (r V.! (V.length lsd - 1 - i)) d)
+                    $ V.reverse lsd
+          -- the argument vector is often created in the natural order,
+          -- so we have to reverse it to enable the shortcut more often
         Konst1 d _n -> V.mapM_ (`eval0` d) r
-        Append1 d k e -> eval1 (V.take k r) d >> eval1 (V.drop k r) e
+        Append1 d k e -> eval1 (V.drop k r) e >> eval1 (V.take k r) d
+          -- reversed order of evaluation; see Add0
         Slice1 i n d len ->
           eval1 (HM.konst 0 i V.++ r V.++ HM.konst 0 (len - i - n)) d
         SumRows1 dm cols -> eval2 (MO.asColumn r cols) dm
@@ -552,15 +623,50 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
         FlattenX1 sh d -> evalX (OT.fromVector sh r) d
         FlattenS1 d -> evalS (OS.fromVector r) d
 
-        Outline1 codeOut primalArgs dualArgs ->
-          eval1 r $ inlineDerivative1 codeOut primalArgs dualArgs
-        Delay1 d -> eval1 r d
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
-      eval2 !r = \case
-        Zero2 -> return ()
+      eval2 _ Zero2 = return ()
+      eval2 !r (Input2 (DeltaId i)) =
+        VM.modify iMap2 (addToMatrix $ MO.convertMatrixOuter r) i
+      eval2 !r (Delta2 n d) = do
+        im <- readSTRef dMap
+        nL <- readSTRefU nLast
+        if n == pred nL
+        then do  -- this would be evaluated next, so let's shortcut,
+                 -- avoiding lots of short-lived allocations and also
+                 -- shrinking the environment in which the evaluation occurs
+          writeSTRefU nLast n
+          rFinal <- case IM.lookup n im of
+            Just (DeltaBinding2 (DeltaId i) _) -> do
+              writeSTRef dMap $! IM.delete n im
+              rm <- readSTRef rMap2
+              MO.plus r <$> rm `VM.read` i
+            Nothing -> return r
+            _ -> error "buildFinMaps: corrupted dMap"
+          eval2' rFinal d
+        else case IM.lookup n im of
+          Just (DeltaBinding2 (DeltaId i) _) -> do
+            rm <- readSTRef rMap2
+            VM.modify rm (MO.plus r) i
+          Nothing -> do
+            did@(DeltaId i) <- readSTRefU ref2
+            writeSTRefU ref2 $ succDeltaId did
+            writeSTRef dMap $! IM.insert n (DeltaBinding2 did d) im
+            len <- readSTRefU len2
+            rm <- readSTRef rMap2
+            if i >= len then do
+              rmG <- VM.unsafeGrow rm len
+              VM.write rmG i r
+              writeSTRef rMap2 rmG
+              writeSTRefU len2 $ 2 * len
+            else
+              VM.write rm i r
+          _ -> error "buildFinMaps: corrupted dMap"
+      eval2' :: MO.MatrixOuter r -> Delta2' r -> ST s ()
+      eval2' !r = \case
         Scale2 k d -> eval2 (MO.multiplyWithOuter k r) d
-        Add2 d e -> eval2 r d >> eval2 r e
-        Var2 (DeltaId i) -> VM.modify finMap2 (addToMatrix r) i
+        Add2 d e -> eval2 r e >> eval2 r d
+          -- from here onwards we only reverse order in Add*, because
+          -- the benefits are minimal at these higher ranks
 
         FromRows2 lvd -> zipWithM_ eval1 (MO.toRows r) (V.toList lvd)
         FromColumns2 lvd -> zipWithM_ eval1 (MO.toColumns r) (V.toList lvd)
@@ -607,15 +713,48 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
               moc = MO.MatrixOuter (Just convolved) Nothing Nothing
           in eval2 moc md
 
-        Outline2 codeOut primalArgs dualArgs ->
-          eval2 r $ inlineDerivative2 codeOut primalArgs dualArgs
-        Delay2 d -> eval2 r d
       evalX :: OT.Array r -> DeltaX r -> ST s ()
-      evalX !r = \case
-        ZeroX -> return ()
+      evalX _ ZeroX = return ()
+      evalX !r (InputX (DeltaId i)) =
+        VM.modify iMapX (addToArray r) i
+      evalX !r (DeltaX n d) = do
+        im <- readSTRef dMap
+        nL <- readSTRefU nLast
+        if n == pred nL
+        then do  -- this would be evaluated next, so let's shortcut,
+                 -- avoiding lots of short-lived allocations and also
+                 -- shrinking the environment in which the evaluation occurs
+          writeSTRefU nLast n
+          rFinal <- case IM.lookup n im of
+            Just (DeltaBindingX (DeltaId i) _) -> do
+              writeSTRef dMap $! IM.delete n im
+              rm <- readSTRef rMapX
+              liftVT2 (+) r <$> rm `VM.read` i
+            Nothing -> return r
+            _ -> error "buildFinMaps: corrupted dMap"
+          evalX' rFinal d
+        else case IM.lookup n im of
+          Just (DeltaBindingX (DeltaId i) _) -> do
+            rm <- readSTRef rMapX
+            VM.modify rm (liftVT2 (+) r) i
+          Nothing -> do
+            did@(DeltaId i) <- readSTRefU refX
+            writeSTRefU refX $ succDeltaId did
+            writeSTRef dMap $! IM.insert n (DeltaBindingX did d) im
+            len <- readSTRefU lenX
+            rm <- readSTRef rMapX
+            if i >= len then do
+              rmG <- VM.unsafeGrow rm len
+              VM.write rmG i r
+              writeSTRef rMapX rmG
+              writeSTRefU lenX $ 2 * len
+            else
+              VM.write rm i r
+          _ -> error "buildFinMaps: corrupted dMap"
+      evalX' :: OT.Array r -> DeltaX' r -> ST s ()
+      evalX' !r = \case
         ScaleX k d -> evalX (liftVT2 (*) k r) d
-        AddX d e -> evalX r d >> evalX r e
-        VarX (DeltaId i) -> VM.modify finMapX (addToArray r) i
+        AddX d e -> evalX r e >> evalX r d
 
         KonstX d _sz -> mapM_ (`eval0` d) $ OT.toList r
         AppendX d k e -> case OT.shapeL r of
@@ -635,7 +774,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           in evalX (OT.concatOuter [ OT.constant (ix : rest) 0
                                    , OT.reshape (1 : rest) r
                                    , OT.constant (len - ix - 1 : rest) 0 ])
-                   d  -- TODO: optimize for Var case
+                   d  -- TODO: optimize for input case
         RavelFromListX ld -> do
           let lr = OTB.toList $ OT.unravel r
           mapM_ (uncurry evalX) (zip lr ld)
@@ -649,16 +788,52 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
                 d
         FromSX d -> evalS (Data.Array.Convert.convert r) d
 
-        OutlineX codeOut primalArgs dualArgs ->
-          evalX r $ inlineDerivativeX codeOut primalArgs dualArgs
-        DelayX d -> evalX r d
       evalS :: OS.Shape sh
             => OS.Array sh r -> DeltaS sh r -> ST s ()
-      evalS !r = \case
-        ZeroS -> return ()
+      evalS _ ZeroS = return ()
+      evalS !r (InputS (DeltaId i)) =
+        VM.modify iMapX (addToArrayS r) i
+      evalS !r (DeltaS n d) = do
+        im <- readSTRef dMap
+        nL <- readSTRefU nLast
+        if n == pred nL
+        then do  -- this would be evaluated next, so let's shortcut,
+                 -- avoiding lots of short-lived allocations and also
+                 -- shrinking the environment in which the evaluation occurs
+          writeSTRefU nLast n
+          rFinal <- case IM.lookup n im of
+            Just (DeltaBindingS (DeltaId i) _) -> do
+              writeSTRef dMap $! IM.delete n im
+              rm <- readSTRef rMapX
+              rx <- rm `VM.read` i
+              return $! liftVS2 (+) r (Data.Array.Convert.convert rx)
+            Nothing -> return r
+            _ -> error "buildFinMaps: corrupted dMap"
+          evalS' rFinal d
+        else case IM.lookup n im of
+          Just (DeltaBindingS (DeltaId i) _) -> do
+            rm <- readSTRef rMapX
+            let rs = Data.Array.Convert.convert r
+            VM.modify rm (liftVT2 (+) rs) i
+          Nothing -> do
+            did@(DeltaId i) <- readSTRefU refX
+            writeSTRefU refX $ succDeltaId did
+            writeSTRef dMap $! IM.insert n (DeltaBindingS did d) im
+            len <- readSTRefU lenX
+            rm <- readSTRef rMapX
+            if i >= len then do
+              rmG <- VM.unsafeGrow rm len
+              VM.write rmG i (Data.Array.Convert.convert r)
+              writeSTRef rMapX rmG
+              writeSTRefU lenX $ 2 * len
+            else
+              VM.write rm i (Data.Array.Convert.convert r)
+          _ -> error "buildFinMaps: corrupted dMap"
+      evalS' :: OS.Shape sh
+             => OS.Array sh r -> DeltaS' sh r -> ST s ()
+      evalS' !r = \case
         ScaleS k d -> evalS (liftVS2 (*) k r) d
-        AddS d e -> evalS r d >> evalS r e
-        VarS (DeltaId i) -> VM.modify finMapX (addToArrayS r) i
+        AddS d e -> evalS r e >> evalS r d
 
 #if defined(VERSION_ghc_typelits_natnormalise)
         KonstS d -> mapM_ (`eval0` d) $ OS.toList r
@@ -674,7 +849,7 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
           evalS (OS.constant @(ix ': rest) 0
                  `OS.append` OS.reshape r
                  `OS.append` OS.constant 0)
-                d  -- TODO: optimize for Var case
+                d  -- TODO: optimize for input case
         RavelFromListS ld -> do
           let lr = OSB.toList $ OS.unravel r
           mapM_ (uncurry evalS) (zip lr ld)
@@ -689,45 +864,50 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
                    Nothing Nothing)
                 d
         FromXS d -> evalX (Data.Array.Convert.convert r) d
-
-        OutlineS codeOut primalArgs dualArgs ->
-          evalS r $ inlineDerivativeS codeOut primalArgs dualArgs
-        DelayS d -> evalS r d
 #endif
 
   eval0 dt deltaTopLevel
 
   let evalUnlessZero :: DeltaBinding r -> ST s ()
       evalUnlessZero (DeltaBinding0 (DeltaId i) d) = do
-        r <- finMap0 `VM.read` i
-        unless (r == 0) $  -- we init with exactly 0.0 so the comparison works
-          eval0 r d
+        rm <- readSTRef rMap0
+        r <- rm `VM.read` i
+        unless (r == 0) $  -- a cheap optimization in case of scalars
+          eval0' r d
       evalUnlessZero (DeltaBinding1 (DeltaId i) d) = do
-        r <- finMap1 `VM.read` i
-        unless (V.null r) $
-          eval1 r d
+        rm <- readSTRef rMap1
+        r <- rm `VM.read` i
+        eval1' r d
       evalUnlessZero (DeltaBinding2 (DeltaId i) d) = do
-        r <- finMap2 `VM.read` i
-        unless (MO.nullMatrixOuter r) $
-          eval2 r d
+        rm <- readSTRef rMap2
+        r <- rm `VM.read` i
+        eval2' r d
       evalUnlessZero (DeltaBindingX (DeltaId i) d) = do
-        r <- finMapX `VM.read` i
-        unless (isTensorDummy r) $
-          evalX r d
-  mapM_ evalUnlessZero (deltaBindings st)
-  return (finMap0, finMap1, finMap2, finMapX)
+        rm <- readSTRef rMapX
+        r <- rm `VM.read` i
+        evalX' r d
+      evalUnlessZero (DeltaBindingS (DeltaId i) d) = do
+        rm <- readSTRef rMapX
+        r <- rm `VM.read` i
+        evalS' (Data.Array.Convert.convert r) d
+      evalFromdMap :: ST s ()
+      evalFromdMap = do
+        im <- readSTRef dMap
+        case IM.maxViewWithKey im of
+          Just ((n, b), im2) -> do
+            writeSTRefU nLast n
+            writeSTRef dMap $! im2
+            evalUnlessZero b
+            evalFromdMap
+          Nothing -> return ()  -- loop ends
+  evalFromdMap
+
+  return (iMap0, iMap1, iMap2, iMapX)
 {-# SPECIALIZE buildFinMaps
-  :: (CodeOut -> [Double] -> [Delta0 Double] -> Delta0 Double)
-  -> (CodeOut -> [Vector Double] -> [Delta1 Double] -> Delta1 Double)
-  -> (CodeOut -> [Matrix Double] -> [Delta2 Double] -> Delta2 Double)
-  -> (CodeOut -> [OT.Array Double] -> [DeltaX Double] -> DeltaX Double)
-  -> (forall sh. OS.Shape sh
-      => CodeOut -> [OS.Array sh Double] -> [DeltaS sh Double]
-      -> DeltaS sh Double)
-  -> DeltaState Double -> Delta0 Double -> Double
+  :: Int -> Int -> Int -> Int -> Delta0 Double -> Double
   -> ST s ( Data.Vector.Storable.Mutable.MVector s Double
           , Data.Vector.Mutable.MVector s (Vector Double)
-          , Data.Vector.Mutable.MVector s (MO.MatrixOuter Double)
+          , Data.Vector.Mutable.MVector s (Matrix Double)
           , Data.Vector.Mutable.MVector s (OT.Array Double) ) #-}
 
 -- | Forward derivative computation via forward-evaluation of delta-expressions
@@ -740,263 +920,308 @@ buildFinMaps inlineDerivative0 inlineDerivative1 inlineDerivative2
 -- given in the last parameter called @ds@.
 derivativeFromDelta
   :: forall r. (Numeric r, Num (Vector r))
-  => (CodeOut -> [r] -> [Delta0 r] -> Delta0 r)
-  -> (CodeOut -> [Vector r] -> [Delta1 r] -> Delta1 r)
-  -> (CodeOut -> [Matrix r] -> [Delta2 r] -> Delta2 r)
-  -> (CodeOut -> [OT.Array r] -> [DeltaX r] -> DeltaX r)
-  -> (forall sh. OS.Shape sh
-      => CodeOut -> [OS.Array sh r] -> [DeltaS sh r]
-      -> DeltaS sh r)
-  -> DeltaState r -> Delta0 r -> Domains r -> r
-derivativeFromDelta inlineDerivative0 inlineDerivative1 inlineDerivative2
-                    inlineDerivativeX inlineDerivativeS
-                    st deltaTopLevel
-                    _ds@(params0Init, params1Init, params2Init, paramsXInit) =
-  let eval0 :: Domains r -> Delta0 r -> r
-      eval0 parameters@(params0, _, _, _) = \case
-        Zero0 -> 0
-        Scale0 k d -> k * eval0 parameters d
-        Add0 d e -> eval0 parameters d + eval0 parameters e
-        Var0 (DeltaId i) -> params0 V.! i
+  => Int -> Int -> Int -> Int -> Delta0 r -> Domains r -> r
+derivativeFromDelta dim0 dim1 dim2 dimX deltaTopLevel ds =
+  runST $ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel ds
 
-        SumElements0 vd _n -> HM.sumElements $ eval1 parameters vd
-        Index0 d ix _k -> eval1 parameters d V.! ix
+-- | This mimics 'initializeFinMaps', but in reverse. Perhaps this can be
+-- simplified, but at least the simplest formulation does not honour sharing,
+-- evaluating shared subexpressions repeatedly.
+buildDerivative
+  :: forall s r. (Numeric r, Num (Vector r))
+  => Int -> Int -> Int -> Int -> Delta0 r -> Domains r
+  -> ST s r
+buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
+                (params0Init, params1Init, params2Init, paramsXInit) = do
+  ( _, _, _, _
+   ,ref0, ref1, ref2, refX
+   ,rMap0, rMap1, _, rMapX
+   ,len0, len1, len2, lenX
+   ,dMap )
+   <- initializeFinMaps dim0 dim1 dim2 dimX
+  -- We use normal hmatrix matrices rather than the sparse replacement.
+  lenOuter <- readSTRefU len2
+  rMap2' :: Data.Vector.Mutable.MVector s (Matrix r)
+    <- VM.replicate lenOuter (HM.fromRows [])
+  rMap2 <- newSTRef rMap2'
+  let eval0 :: Delta0 r -> ST s r
+      eval0 Zero0 = return 0
+      eval0 (Input0 (DeltaId i)) =
+        if i < dim0
+        then return $! params0Init V.! i
+        else error "derivativeFromDelta.eval': wrong index for an input"
+      eval0 (Delta0 n d) = do
+        -- This is too complex, but uses components already defined
+        -- for initializeFinMaps and some of a similar code.
+        im <- readSTRef dMap
+        case IM.lookup n im of
+          Just (DeltaBinding0 (DeltaId i) _) -> do
+            rm <- readSTRef rMap0
+            VM.read rm i
+          Nothing -> do
+            r <- eval0' d
+            imNew <- readSTRef dMap
+            rm <- readSTRef rMap0
+            did@(DeltaId i) <- readSTRefU ref0
+            writeSTRefU ref0 $ succDeltaId did
+            writeSTRef dMap $! IM.insert n (DeltaBinding0 did d) imNew
+            len <- readSTRefU len0
+            if i >= len then do
+              rmG <- VM.unsafeGrow rm len
+              VM.write rmG i r
+              writeSTRef rMap0 rmG
+              writeSTRefU len0 $ 2 * len
+            else
+              VM.write rm i r
+            return r
+          _ -> error "buildDerivative: corrupted dMap"
+      eval0' :: Delta0' r -> ST s r
+      eval0' = \case
+        Scale0 k d -> (k *) <$> eval0 d
+        Add0 d e -> liftM2 (+) (eval0 d) (eval0 e)
 
-        Dot0 vr vd -> vr <.> eval1 parameters vd
+        SumElements0 vd _n -> HM.sumElements <$> eval1 vd
+        Index0 d ix _k -> flip (V.!) ix <$> eval1 d
 
-        FromX0 d -> OT.unScalar $ evalX parameters d
-        FromS0 d -> OS.unScalar $ evalS parameters d
+        Dot0 vr vd -> (<.>) vr <$> eval1 vd
 
-        Outline0 codeOut primalArgs dualArgs ->
-          eval0 parameters $ inlineDerivative0 codeOut primalArgs dualArgs
-        Delay0 d -> eval0 parameters d
-      eval1 :: Domains r -> Delta1 r -> Vector r
-      eval1 parameters@(_, params1, _, _) = \case
-        Zero1 -> 0
-        Scale1 k d -> k * eval1 parameters d
-        Add1 d e -> eval1 parameters d + eval1 parameters e
-        Var1 (DeltaId i) -> params1 V.! i
+        FromX0 d -> OT.unScalar <$> evalX d
+        FromS0 d -> OS.unScalar <$> evalS d
 
-        Seq1 lsd -> V.convert $ V.map (eval0 parameters) lsd
-        Konst1 d n -> HM.konst (eval0 parameters d) n
-        Append1 d _k e -> eval1 parameters d V.++ eval1 parameters e
-        Slice1 i n d _len -> V.slice i n $ eval1 parameters d
+      eval1 :: Delta1 r -> ST s (Vector r)
+      eval1 Zero1 = return 0
+      eval1 (Input1 (DeltaId i)) =
+        if i < dim1
+        then return $! params1Init V.! i
+        else error "derivativeFromDelta.eval': wrong index for an input"
+      eval1 (Delta1 n d) = do
+        im <- readSTRef dMap
+        case IM.lookup n im of
+          Just (DeltaBinding1 (DeltaId i) _) -> do
+            rm <- readSTRef rMap1
+            VM.read rm i
+          Nothing -> do
+            r <- eval1' d
+            imNew <- readSTRef dMap
+            rm <- readSTRef rMap1
+            did@(DeltaId i) <- readSTRefU ref1
+            writeSTRefU ref1 $ succDeltaId did
+            writeSTRef dMap $! IM.insert n (DeltaBinding1 did d) imNew
+            len <- readSTRefU len1
+            if i >= len then do
+              rmG <- VM.unsafeGrow rm len
+              VM.write rmG i r
+              writeSTRef rMap1 rmG
+              writeSTRefU len1 $ 2 * len
+            else
+              VM.write rm i r
+            return r
+          _ -> error "buildDerivative: corrupted dMap"
+      eval1' :: Delta1' r -> ST s (Vector r)
+      eval1' = \case
+        Scale1 k d -> (k *) <$> eval1 d
+        Add1 d e -> liftM2 (+) (eval1 d) (eval1 e)
+
+        Seq1 lsd -> do
+          v <- V.mapM eval0 lsd
+          return $! V.convert v
+        Konst1 d n -> flip HM.konst n <$> eval0 d
+        Append1 d _k e -> liftM2 (V.++) (eval1 d) (eval1 e)
+        Slice1 i n d _len -> V.slice i n <$> eval1 d
         SumRows1 dm _cols ->
-          V.fromList $ map HM.sumElements $ HM.toRows $ eval2 parameters dm
+          V.fromList . map HM.sumElements . HM.toRows <$> eval2 dm
         SumColumns1 dm _rows ->
-          V.fromList $ map HM.sumElements $ HM.toColumns $ eval2 parameters dm
+          V.fromList . map HM.sumElements . HM.toColumns <$> eval2 dm
 
-        M_VD1 m dRow -> m #> eval1 parameters dRow
-        MD_V1 md row -> eval2 parameters md #> row
+        M_VD1 m dRow -> (HM.#>) m <$> eval1 dRow
+        MD_V1 md row -> flip (HM.#>) row <$> eval2 md
 
-        FromX1 d -> OT.toVector $ evalX parameters d
-        FromS1 d -> OS.toVector $ evalS parameters d
+        FromX1 d -> OT.toVector <$> evalX d
+        FromS1 d -> OS.toVector <$> evalS d
 
-        Reverse1 d -> V.reverse $ eval1 parameters d
-        Flatten1 _rows _cols d -> HM.flatten $ eval2 parameters d
-        FlattenX1 _sh d -> OT.toVector $ evalX parameters d
-        FlattenS1 d -> OS.toVector $ evalS parameters d
+        Reverse1 d -> V.reverse <$> eval1 d
+        Flatten1 _rows _cols d -> HM.flatten <$> eval2 d
+        FlattenX1 _sh d -> OT.toVector <$> evalX d
+        FlattenS1 d -> OS.toVector <$> evalS d
 
-        Outline1 codeOut primalArgs dualArgs ->
-          eval1 parameters $ inlineDerivative1 codeOut primalArgs dualArgs
-        Delay1 d -> eval1 parameters d
-      eval2 :: Domains r -> Delta2 r -> Matrix r
-      eval2 parameters@( _, _, params2, _) = \case
-        Zero2 -> 0
-        Scale2 k d -> k * eval2 parameters d
-        Add2 d e -> eval2 parameters d + eval2 parameters e
-        Var2 (DeltaId i) -> params2 V.! i
+      eval2 :: Delta2 r -> ST s (Matrix r)
+      eval2 Zero2 = return 0
+      eval2 (Input2 (DeltaId i)) =
+        if i < dim2
+        then return $! params2Init V.! i
+        else error "derivativeFromDelta.eval': wrong index for an input"
+      eval2 (Delta2 n d) = do
+        im <- readSTRef dMap
+        case IM.lookup n im of
+          Just (DeltaBinding2 (DeltaId i) _) -> do
+            rm <- readSTRef rMap2
+            VM.read rm i
+          Nothing -> do
+            r <- eval2' d
+            imNew <- readSTRef dMap
+            rm <- readSTRef rMap2
+            did@(DeltaId i) <- readSTRefU ref2
+            writeSTRefU ref2 $ succDeltaId did
+            writeSTRef dMap $! IM.insert n (DeltaBinding2 did d) imNew
+            len <- readSTRefU len2
+            if i >= len then do
+              rmG <- VM.unsafeGrow rm len
+              VM.write rmG i r
+              writeSTRef rMap2 rmG
+              writeSTRefU len2 $ 2 * len
+            else
+              VM.write rm i r
+            return r
+          _ -> error "buildDerivative: corrupted dMap"
+      eval2' :: Delta2' r -> ST s (Matrix r)
+      eval2' = \case
+        Scale2 k d -> (k *) <$> eval2 d
+        Add2 d e -> liftM2 (+) (eval2 d) (eval2 e)
 
-        FromRows2 lvd ->
-          HM.fromRows $ map (eval1 parameters) $ V.toList lvd
-        FromColumns2 lvd ->
-          HM.fromColumns $ map (eval1 parameters) $ V.toList lvd
-        Konst2 d sz -> HM.konst (eval0 parameters d) sz
-        Transpose2 md -> HM.tr' $ eval2 parameters md
-        M_MD2 m md -> m HM.<> eval2 parameters md
-        MD_M2 md m -> eval2 parameters md HM.<> m
-        RowAppend2 d _k e -> eval2 parameters d HM.=== eval2 parameters e
-        ColumnAppend2 d _k e -> eval2 parameters d HM.||| eval2 parameters e
+        FromRows2 lvd -> do
+          l <- mapM eval1 $ V.toList lvd
+          return $! HM.fromRows l
+        FromColumns2 lvd -> do
+          l <- mapM eval1 $ V.toList lvd
+          return $! HM.fromColumns l
+        Konst2 d sz -> flip HM.konst sz <$> eval0 d
+        Transpose2 md -> HM.tr' <$> eval2 md
+        M_MD2 m md -> (HM.<>) m <$> eval2 md
+        MD_M2 md m -> flip (HM.<>) m <$> eval2 md
+        RowAppend2 d _k e -> liftM2 (HM.===) (eval2 d) (eval2 e)
+        ColumnAppend2 d _k e -> liftM2 (HM.|||) (eval2 d) (eval2 e)
         RowSlice2 i n d _rows ->
-          HM.takeRows n $ HM.dropRows i $ eval2 parameters d
+          HM.takeRows n . HM.dropRows i <$> eval2 d
         ColumnSlice2 i n d _cols ->
-          HM.takeColumns n $ HM.dropColumns i $ eval2 parameters d
+          HM.takeColumns n . HM.dropColumns i <$> eval2 d
 
-        AsRow2 dRow -> HM.asRow $ eval1 parameters dRow  -- TODO: risky
-        AsColumn2 dCol -> HM.asColumn $ eval1 parameters dCol  -- TODO: risky
+        AsRow2 dRow -> HM.asRow <$> eval1 dRow  -- TODO: risky
+        AsColumn2 dCol -> HM.asColumn <$> eval1 dCol  -- TODO: risky
 
-        FromX2 d ->
-          let t = evalX parameters d
-          in case OT.shapeL t of
-            [_rows, cols] -> HM.reshape cols $ OT.toVector t
+        FromX2 d -> do
+          t <- evalX d
+          case OT.shapeL t of
+            [_rows, cols] -> return $! HM.reshape cols $ OT.toVector t
             _ -> error "eval2: wrong tensor dimensions"
-        FromS2 d ->
-          let t = evalS parameters d
-          in case OS.shapeL t of
-            [_rows, cols] -> HM.reshape cols $ OS.toVector t
+        FromS2 d -> do
+          t <- evalS d
+          case OS.shapeL t of
+            [_rows, cols] -> return $! HM.reshape cols $ OS.toVector t
             _ -> error "eval2: wrong tensor dimensions"
 
-        Flipud2 d -> HM.flipud $ eval2 parameters d
-        Fliprl2 d -> HM.fliprl $ eval2 parameters d
-        Reshape2 cols d -> HM.reshape cols $ eval1 parameters d
-        Conv2 m md -> HM.conv2 m $ eval2 parameters md
+        Flipud2 d -> HM.flipud <$> eval2 d
+        Fliprl2 d -> HM.fliprl <$> eval2 d
+        Reshape2 cols d -> HM.reshape cols <$> eval1 d
+        Conv2 m md -> HM.conv2 m <$> eval2 md
 
-        Outline2 codeOut primalArgs dualArgs ->
-          eval2 parameters $ inlineDerivative2 codeOut primalArgs dualArgs
-        Delay2 d -> eval2 parameters d
-      evalX :: Domains r -> DeltaX r -> OT.Array r
-      evalX parameters@( _, _, _, paramsX) = \case
-        ZeroX -> 0
-        ScaleX k d -> k * evalX parameters d
-        AddX d e -> evalX parameters d + evalX parameters e
-        VarX (DeltaId i) -> paramsX V.! i
+      evalX :: DeltaX r -> ST s (OT.Array r)
+      evalX ZeroX = return 0
+      evalX (InputX (DeltaId i)) =
+        if i < dimX
+        then return $! paramsXInit V.! i
+        else error "derivativeFromDelta.eval': wrong index for an input"
+      evalX (DeltaX n d) = do
+        im <- readSTRef dMap
+        case IM.lookup n im of
+          Just (DeltaBindingX (DeltaId i) _) -> do
+            rm <- readSTRef rMapX
+            VM.read rm i
+          Nothing -> do
+            r <- evalX' d
+            imNew <- readSTRef dMap
+            rm <- readSTRef rMapX
+            did@(DeltaId i) <- readSTRefU refX
+            writeSTRefU refX $ succDeltaId did
+            writeSTRef dMap $! IM.insert n (DeltaBindingX did d) imNew
+            len <- readSTRefU lenX
+            if i >= len then do
+              rmG <- VM.unsafeGrow rm len
+              VM.write rmG i r
+              writeSTRef rMapX rmG
+              writeSTRefU lenX $ 2 * len
+            else
+              VM.write rm i r
+            return r
+          _ -> error "buildDerivative: corrupted dMap"
+      evalX' :: DeltaX' r -> ST s (OT.Array r)
+      evalX' = \case
+        ScaleX k d -> (k *) <$> evalX d
+        AddX d e -> liftM2 (+) (evalX d) (evalX e)
 
-        KonstX d sz -> OT.constant sz $ eval0 parameters d
-        AppendX d _k e -> evalX parameters d `OT.append` evalX parameters e
-        SliceX i n d _len -> OT.slice [(i, n)] $ evalX parameters d
-        IndexX d ix _len -> OT.index (evalX parameters d) ix
-        RavelFromListX ld ->
-          let la = map (evalX parameters) ld
-              sh = case la of
+        KonstX d sz -> OT.constant sz <$> eval0 d
+        AppendX d _k e -> liftM2 OT.append (evalX d) (evalX e)
+        SliceX i n d _len -> OT.slice [(i, n)] <$> evalX d
+        IndexX d ix _len -> flip OT.index ix <$> evalX d
+        RavelFromListX ld -> do
+          la <- mapM evalX ld
+          let sh = case la of
                 a : _ -> length la : OT.shapeL a
                 [] -> []
-          in OT.ravel $ OTB.fromList sh la
-        ReshapeX _sh sh' d -> OT.reshape sh' $ evalX parameters d
+          return $! OT.ravel $ OTB.fromList sh la
+        ReshapeX _sh sh' d -> OT.reshape sh' <$> evalX d
 
-        From0X d -> OT.scalar $ eval0 parameters d
-        From1X d -> let v = eval1 parameters d
-                    in OT.fromVector [V.length v] v
-        From2X d cols -> let l = eval2 parameters d
-                         in OT.fromVector [HM.rows l, cols] $ HM.flatten l
-        FromSX d -> Data.Array.Convert.convert $ evalS parameters d
+        From0X d -> OT.scalar <$> eval0 d
+        From1X d -> do
+          v <- eval1 d
+          return $! OT.fromVector [V.length v] v
+        From2X d cols -> do
+          l <- eval2 d
+          return $! OT.fromVector [HM.rows l, cols] $ HM.flatten l
+        FromSX d -> Data.Array.Convert.convert <$> evalS d
 
-        OutlineX codeOut primalArgs dualArgs ->
-          evalX parameters $ inlineDerivativeX codeOut primalArgs dualArgs
-        DelayX d -> evalX parameters d
-      evalS :: OS.Shape sh => Domains r -> DeltaS sh r -> OS.Array sh r
-      evalS parameters@( _, _, _, paramsX) = \case
-        ZeroS -> 0
-        ScaleS k d -> k * evalS parameters d
-        AddS d e -> evalS parameters d + evalS parameters e
-        VarS (DeltaId i) -> Data.Array.Convert.convert $ paramsX V.! i
+      evalS :: OS.Shape sh => DeltaS sh r -> ST s (OS.Array sh r)
+      evalS ZeroS = return 0
+      evalS (InputS (DeltaId i)) =
+        if i < dimX
+        then return $! Data.Array.Convert.convert $ paramsXInit V.! i
+        else error "derivativeFromDelta.eval': wrong index for an input"
+      evalS (DeltaS n d) = do
+        im <- readSTRef dMap
+        case IM.lookup n im of
+          Just (DeltaBindingS (DeltaId i) _) -> do
+            rm <- readSTRef rMapX
+            Data.Array.Convert.convert <$> VM.read rm i
+          Nothing -> do
+            r <- evalS' d
+            imNew <- readSTRef dMap
+            rm <- readSTRef rMapX
+            did@(DeltaId i) <- readSTRefU refX
+            writeSTRefU refX $ succDeltaId did
+            writeSTRef dMap $! IM.insert n (DeltaBindingS did d) imNew
+            len <- readSTRefU lenX
+            if i >= len then do
+              rmG <- VM.unsafeGrow rm len
+              VM.write rmG i (Data.Array.Convert.convert r)
+              writeSTRef rMapX rmG
+              writeSTRefU lenX $ 2 * len
+            else
+              VM.write rm i (Data.Array.Convert.convert r)
+            return r
+          _ -> error "buildDerivative: corrupted dMap"
+      evalS' :: OS.Shape sh => DeltaS' sh r -> ST s (OS.Array sh r)
+      evalS' = \case
+        ScaleS k d -> (k *) <$> evalS d
+        AddS d e -> liftM2 (+) (evalS d) (evalS e)
 
 #if defined(VERSION_ghc_typelits_natnormalise)
-        KonstS d -> OS.constant $ eval0 parameters d
-        AppendS d e -> evalS parameters d `OS.append` evalS parameters e
+        KonstS d -> OS.constant <$> eval0 d
+        AppendS d e -> liftM2 OS.append (evalS d) (evalS e)
         SliceS (_ :: Proxy i) (_ :: Proxy n) d ->
-          OS.slice @'[ '(i, n) ] $ evalS parameters d
+          OS.slice @'[ '(i, n) ] <$> evalS d
         IndexS d proxyIx ->
-          OS.index (evalS parameters d) (fromInteger $ natVal proxyIx)
-        RavelFromListS ld ->
-          let la = map (evalS parameters) ld
-          in OS.ravel $ OSB.fromList la
-        ReshapeS d -> OS.reshape $ evalS parameters d
+          flip OS.index (fromInteger $ natVal proxyIx) <$> evalS d
+        RavelFromListS ld -> do
+          la <- mapM evalS ld
+          return $! OS.ravel $ OSB.fromList la
+        ReshapeS d -> OS.reshape <$> evalS d
 
-        From0S d -> OS.scalar $ eval0 parameters d
-        From1S d -> OS.fromVector $ eval1 parameters d
-        From2S _ d -> OS.fromVector $ HM.flatten $ eval2 parameters d
-        FromXS d -> Data.Array.Convert.convert $ evalX parameters d
-
-        OutlineS codeOut primalArgs dualArgs ->
-          evalS parameters $ inlineDerivativeS codeOut primalArgs dualArgs
-        DelayS d -> evalS parameters d
+        From0S d -> OS.scalar <$> eval0 d
+        From1S d -> OS.fromVector <$> eval1 d
+        From2S _ d -> OS.fromVector . HM.flatten <$> eval2 d
+        FromXS d -> Data.Array.Convert.convert <$> evalX d
 #endif
 
-      evalUnlessZero :: Domains r -> DeltaBinding r -> Domains r
-      evalUnlessZero parameters@(!params0, !params1, !params2, !paramsX) = \case
-        DeltaBinding0 (DeltaId i) d ->
-          let v = eval0 parameters d
-          in (params0 V.// [(i, v)], params1, params2, paramsX)
-        DeltaBinding1 (DeltaId i) d ->
-          let v = eval1 parameters d
-          in (params0, params1 V.// [(i, v)], params2, paramsX)
-        DeltaBinding2 (DeltaId i) d ->
-          let v = eval2 parameters d
-          in (params0, params1, params2 V.// [(i, v)], paramsX)
-        DeltaBindingX (DeltaId i) d ->
-          let v = evalX parameters d
-          in (params0, params1, params2, paramsX V.// [(i, v)])
-      parameters1 = runST $ do
-        (finMap0, finMap1, outerFinMap2, finMapX) <- initializeFinMaps st
-        -- We use normal hmatrix matrices rather than the sparse replacement.
-        finMap2 <- VM.replicate (VM.length outerFinMap2) (HM.fromRows [])
-        -- TODO: the following coredumps without the @VM.take@; it's a shame
-        -- there's no copying of a smaller vector into a larger one in the API.
-        -- Perhaps use https://hackage.haskell.org/package/base-4.16.0.0/docs/Foreign-Marshal-Array.html#v:copyArray?
-        V.unsafeCopy (VM.take (V.length params0Init) finMap0) params0Init
-        V.unsafeCopy (VM.take (V.length params1Init) finMap1) params1Init
-        V.unsafeCopy (VM.take (V.length params2Init) finMap2) params2Init
-        V.unsafeCopy (VM.take (V.length paramsXInit) finMapX) paramsXInit
-        v0 <- V.unsafeFreeze finMap0
-        v1 <- V.unsafeFreeze finMap1
-        v2 <- V.unsafeFreeze finMap2
-        vX <- V.unsafeFreeze finMapX
-        return (v0, v1, v2, vX)
-      parametersB = foldl' evalUnlessZero parameters1
-                           (reverse $ deltaBindings st)
-  in eval0 parametersB deltaTopLevel
-
--- | This is yet another semantics of delta-expressions and their
--- bindings --- by pretty-printing as texts.
-ppBindings :: (Show r, Numeric r) => Bool -> DeltaState r -> Delta0 r -> String
-ppBindings reversed st deltaTopLevel =
-  let pp = if reversed
-           then foldl' (\ !l b -> l ++ ppBinding "where" b)
-                       ["COMPUTE " ++ ppShow deltaTopLevel ++ "\n"]
-           else foldl' (\ !l b -> ppBinding "let" b ++ l)
-                       ["in " ++ ppShow deltaTopLevel ++ "\n"]
-  in concat $ pp $ deltaBindings st
-
-ppBinding :: (Show r, Numeric r) => String -> DeltaBinding r -> [String]
-ppBinding prefix = \case
-  DeltaBinding0 (DeltaId i) d ->
-    [prefix ++ "0 DeltaId_", show i, " = ", ppShow d, "\n"]
-  DeltaBinding1 (DeltaId i) d ->
-    [prefix ++ "1 DeltaId_", show i, " = ", ppShow d, "\n"]
-  DeltaBinding2 (DeltaId i) d ->
-    [prefix ++ "2 DeltaId_", show i, " = ", ppShow d, "\n"]
-  DeltaBindingX (DeltaId i) d ->
-    [prefix ++ "X DeltaId_", show i, " = ", ppShow d, "\n"]
-
-bindInState0 :: Delta0 r -> DeltaState r -> (DeltaState r, DeltaId r)
-{-# INLINE bindInState0 #-}
-bindInState0 u' st =
-  let dId = deltaCounter0 st
-      !binding = DeltaBinding0 dId u'
-  in ( st { deltaCounter0 = succDeltaId dId
-          , deltaBindings = binding : deltaBindings st
-          }
-     , dId )
-
-bindInState1 :: Delta1 r -> DeltaState r -> (DeltaState r, DeltaId (Vector r))
-{-# INLINE bindInState1 #-}
-bindInState1 u' st =
-  let dId = deltaCounter1 st
-      !binding = DeltaBinding1 dId u'
-  in ( st { deltaCounter1 = succDeltaId dId
-          , deltaBindings = binding : deltaBindings st
-          }
-     , dId )
-
-bindInState2 :: Delta2 r -> DeltaState r -> (DeltaState r, DeltaId (Matrix r))
-{-# INLINE bindInState2 #-}
-bindInState2 u' st =
-  let dId = deltaCounter2 st
-      !binding = DeltaBinding2 dId u'
-  in ( st { deltaCounter2 = succDeltaId dId
-          , deltaBindings = binding : deltaBindings st
-          }
-     , dId )
-
-bindInStateX :: DeltaX r -> DeltaState r -> (DeltaState r, DeltaId (OT.Array r))
-{-# INLINE bindInStateX #-}
-bindInStateX u' st =
-  let dId = deltaCounterX st
-      !binding = DeltaBindingX dId u'
-  in ( st { deltaCounterX = succDeltaId dId
-          , deltaBindings = binding : deltaBindings st
-          }
-     , dId )
+  eval0 deltaTopLevel
 
 {- Note [SumElements0]
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -1022,7 +1247,7 @@ https://github.com/Mikolaj/horde-ad/blob/d069a45773ed849913b5ebd0345153072f304fd
 
 and proved to be prohibitively slow in the two implementations
 that don't use the SumElements0 primitive in benchmarks (despite
-an ingenious optimization of the common case of Index0 applied to a variable):
+an ingenious optimization of the common case of Index0 applied to a input):
 
 https://github.com/Mikolaj/horde-ad/blob/d069a45773ed849913b5ebd0345153072f304fd9/bench/BenchProdTools.hs#L178-L193
 -}
@@ -1038,12 +1263,3 @@ isTensorDummy (Data.Array.Internal.DynamicS.A
                  (Data.Array.Internal.DynamicG.A _
                     (Data.Array.Internal.T _ (-1) _))) = True
 isTensorDummy _ = False
-
-data CodeOut =
-    PlusOut | MinusOut | TimesOut | NegateOut | AbsOut | SignumOut
-  | DivideOut | RecipOut
-  | ExpOut | LogOut | SqrtOut | PowerOut | LogBaseOut
-  | SinOut | CosOut | TanOut | AsinOut | AcosOut | AtanOut
-  | SinhOut | CoshOut | TanhOut | AsinhOut | AcoshOut | AtanhOut
-  | Atan2Out
-  deriving Show

@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes, CPP, DataKinds, FlexibleInstances,
-             FunctionalDependencies, QuantifiedConstraints, RankNTypes,
-             TypeFamilies, TypeOperators #-}
+             QuantifiedConstraints, RankNTypes, TypeFamilies, TypeOperators #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 #if defined(VERSION_ghc_typelits_natnormalise)
@@ -9,7 +8,8 @@
 #endif
 -- | Dual numbers and various operations on them, arithmetic and related
 -- to tensors (vectors, matrices and others). This is the high-level API,
--- defined using the low-level API in "HordeAd.Core.DualClass".
+-- defined using the mid-level (and safely impure) API
+-- in "HordeAd.Core.DualClass".
 module HordeAd.Core.DualNumber
   ( module HordeAd.Core.DualNumber
   , IsScalar, HasDelta, DMode(..)
@@ -25,7 +25,7 @@ import           Data.Array.Internal (valueOf)
 import           Data.Array.Shape (DivRoundUp)
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
-import           Data.List.Index (imap, imapM)
+import           Data.List.Index (imap)
 import           Data.MonoTraversable (MonoFunctor (omap))
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
@@ -36,17 +36,12 @@ import qualified Numeric.LinearAlgebra as HM
 
 import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta
-  (CodeOut (..), Domain0, Domain1, Domain2, DomainX, Domains)
+  (Domain0, Domain1, Domain2, DomainX, Domains, isTensorDummy)
 
 -- * The main dual number types
 
 -- | Dual numbers with the second type argument being the primal component.
 data DualNumber (d :: DMode) a = D a (Dual d a)
-
-class (IsScalar d r, Monad m, Functor m, Applicative m)
-      => DualMonad d r m | m -> d r where
-  returnLet :: IsPrimalWithScalar d a r
-            => DualNumber d a -> m (DualNumber d a)
 
 addParameters :: (Numeric r, Num (Vector r))
               => Domains r -> Domains r -> Domains r
@@ -57,9 +52,18 @@ addParameters (a0, a1, a2, aX) (b0, b1, b2, bX) =
 dotParameters :: Numeric r => Domains r -> Domains r -> r
 dotParameters (a0, a1, a2, aX) (b0, b1, b2, bX) =
   a0 HM.<.> b0
-  + V.sum (V.zipWith (HM.<.>) a1 b1)
-  + V.sum (V.zipWith (HM.<.>) (V.map HM.flatten a2) (V.map HM.flatten b2))
-  + V.sum (V.zipWith (HM.<.>) (V.map OT.toVector aX) (V.map OT.toVector bX))
+  + V.sum (V.zipWith (\v1 u1 ->
+      if V.null v1 || V.null u1
+      then 0
+      else v1 HM.<.> u1) a1 b1)
+  + V.sum (V.zipWith (\v2 u2 ->
+      if HM.rows v2 <= 0 || HM.rows u2 <= 0
+      then 0
+      else HM.flatten v2 HM.<.> HM.flatten u2) a2 b2)
+  + V.sum (V.zipWith (\vX uX ->
+      if isTensorDummy vX || isTensorDummy uX
+      then 0
+      else OT.toVector vX HM.<.> OT.toVector uX) aX bX)
 
 
 -- * General operations, for any tensor rank
@@ -138,18 +142,10 @@ constant a = D a dZero
 scale :: (Num a, IsPrimal d a) => a -> DualNumber d a -> DualNumber d a
 scale a (D u u') = D (a * u) (dScale a u')
 
-tanhAct :: (DualMonad d r m, IsPrimalAndHasFeatures d a r)
-        => DualNumber d a -> m (DualNumber d a)
-tanhAct = returnLet . tanh
-
 logistic :: (Floating a, IsPrimal d a) => DualNumber d a -> DualNumber d a
 logistic (D u u') =
   let y = recip (1 + exp (- u))
   in D y (dScale (y * (1 - y)) u')
-
-logisticAct :: (DualMonad d r m, IsPrimalAndHasFeatures d a r)
-            => DualNumber d a -> m (DualNumber d a)
-logisticAct = returnLet . logistic
 
 -- Optimized and more clearly written @u ** 2@.
 square :: (Num a, IsPrimal d a) => DualNumber d a -> DualNumber d a
@@ -159,21 +155,17 @@ squaredDifference :: (Num a, IsPrimal d a)
                   => a -> DualNumber d a -> DualNumber d a
 squaredDifference targ res = square $ res - constant targ
 
-lossSquared :: (DualMonad d r m, IsPrimalAndHasFeatures d a r)
-            => a -> DualNumber d a -> m (DualNumber d a)
-lossSquared targ res = returnLet $ squaredDifference targ res
-
-reluAct :: (DualMonad d r m, IsPrimalAndHasFeatures d a r)
-        => DualNumber d a -> m (DualNumber d a)
-reluAct v@(D u _) = do
+relu :: (IsScalar d r, IsPrimalAndHasFeatures d a r)
+     => DualNumber d a -> DualNumber d a
+relu v@(D u _) =
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0) u
-  returnLet $ scale oneIfGtZero v
+  in scale oneIfGtZero v
 
-reluLeakyAct :: (DualMonad d r m, IsPrimalAndHasFeatures d a r)
-             => DualNumber d a -> m (DualNumber d a)
-reluLeakyAct v@(D u _) = do
+reluLeaky :: (IsScalar d r, IsPrimalAndHasFeatures d a r)
+          => DualNumber d a -> DualNumber d a
+reluLeaky v@(D u _) =
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) u
-  returnLet $ scale oneIfGtZero v
+  in scale oneIfGtZero v
 
 
 -- * Operations resulting in a scalar
@@ -192,7 +184,7 @@ maximum0 :: IsScalar d r => DualNumber d (Vector r) -> DualNumber d r
 maximum0 (D u u') =
   D (HM.maxElement u) (dIndex0 u' (HM.maxIndex u) (V.length u))
 
--- If @v'@ is a @Var1@, this is much faster due to the optimization
+-- If @v'@ is a @Input1@, this is much faster due to the optimization
 -- in @Index0@.
 foldl'0 :: IsScalar d r
         => (DualNumber d r -> DualNumber d r -> DualNumber d r)
@@ -234,40 +226,40 @@ sumElementsVectorOfDual
   :: IsScalar d r => Data.Vector.Vector (DualNumber d r) -> DualNumber d r
 sumElementsVectorOfDual = V.foldl' (+) 0
 
-softMaxAct :: DualMonad d r m
-           => Data.Vector.Vector (DualNumber d r)
-           -> m (Data.Vector.Vector (DualNumber d r))
-softMaxAct us = do
-  expUs <- V.mapM (returnLet . exp) us
-  let sumExpUs = sumElementsVectorOfDual expUs
-  -- This has to be let-bound, because it's used many times below.
-  recipSum <- returnLet $ recip sumExpUs
-  V.mapM (\r -> returnLet $ r * recipSum) expUs
+softMax :: IsScalar d r
+        => Data.Vector.Vector (DualNumber d r)
+        -> Data.Vector.Vector (DualNumber d r)
+softMax us =
+  let -- This has to be let-bound, because it's used two times below
+      -- and we want it shared and cse may or may not be turned on.
+      expUs = V.map exp us
+      sumExpUs = sumElementsVectorOfDual expUs
+  in V.map (\r -> r * recip sumExpUs) expUs
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropy :: forall d r m. DualMonad d r m
+lossCrossEntropy :: forall d r. IsScalar d r
                  => Vector r
                  -> Data.Vector.Vector (DualNumber d r)
-                 -> m (DualNumber d r)
-lossCrossEntropy targ res = do
+                 -> DualNumber d r
+lossCrossEntropy targ res =
   let f :: DualNumber d r -> Int -> DualNumber d r -> DualNumber d r
       f !acc i d = acc + scale (targ V.! i) (log d)
-  returnLet $ negate $ V.ifoldl' f 0 res
+  in negate $ V.ifoldl' f 0 res
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropyV :: DualMonad d r m
+lossCrossEntropyV :: IsScalar d r
                   => Vector r
                   -> DualNumber d (Vector r)
-                  -> m (DualNumber d r)
-lossCrossEntropyV targ res = returnLet $ negate $ log res <.>!! targ
+                  -> DualNumber d r
+lossCrossEntropyV targ res = negate $ log res <.>!! targ
 
 -- Note that this is equivalent to a composition of softMax and cross entropy
 -- only when @target@ is one-hot. Otherwise, results vary wildly. In our
 -- rendering of the MNIST data all labels are on-hot.
 lossSoftMaxCrossEntropyV
-  :: DualMonad d r m
-  => Vector r -> DualNumber d (Vector r) -> m (DualNumber d r)
-lossSoftMaxCrossEntropyV target (D u u') = do
+  :: IsScalar d r
+  => Vector r -> DualNumber d (Vector r) -> DualNumber d r
+lossSoftMaxCrossEntropyV target (D u u') =
   -- The following protects from underflows, overflows and exploding gradients
   -- and is required by the QuickCheck test in TestMnistCNN.
   -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106
@@ -277,8 +269,8 @@ lossSoftMaxCrossEntropyV target (D u u') = do
       recipSum = recip sumExpU
 -- not exposed: softMaxU = HM.scaleRecip sumExpU expU
       softMaxU = HM.scale recipSum expU
-  returnLet $ D (negate $ log softMaxU HM.<.> target)  -- TODO: avoid: log . exp
-                (dDot0 (softMaxU - target) u')
+  in D (negate $ log softMaxU HM.<.> target)  -- TODO: avoid: log . exp
+       (dDot0 (softMaxU - target) u')
 
 
 -- * Operations resulting in a vector
@@ -310,7 +302,7 @@ sumColumns1 :: IsScalar d r
 sumColumns1 (D u u') = D (V.fromList $ map HM.sumElements $ HM.toColumns u)
                          (dSumColumns1 u' (HM.rows u))
 
--- If @v'@ is a @Var1@, this is much faster due to the optimization
+-- If @v'@ is a @Input1@, this is much faster due to the optimization
 -- in @Index0@. The detour through a boxed vector (list probably fuses away)
 -- is costly, but only matters if @f@ is cheap.
 map1 :: IsScalar d r
@@ -321,16 +313,6 @@ map1 f (D v v') =
       g ix p = f $ D p (dIndex0 v' ix k)
       ds = imap g $ V.toList v
   in seq1 $ V.fromList ds
-
-map1M :: forall d r m. DualMonad d r m
-      => (DualNumber d r -> m (DualNumber d r)) -> DualNumber d (Vector r)
-      -> m (DualNumber d (Vector r))
-map1M f (D v v') = do
-  let k = V.length v
-      g :: Int -> r -> m (DualNumber d r)
-      g ix p = f $ D p (dIndex0 v' ix k)
-  ds <- imapM g $ V.toList v
-  returnLet $ seq1 $ V.fromList ds
 
 -- | Dense matrix-vector product.
 infixr 8 #>!
@@ -380,8 +362,7 @@ corr1 ker@(D u _) vv@(D v _) = case (V.length u, V.length v) of
                                ++ " > len vector " ++ show lenV
 
 -- This is not optimally implemented: @append1@ is costly compared
--- to a @mconcat@ counterpart and @z@ is used twice without
--- assigning it to a variable.
+-- to the @mconcat@ counterpart.
 conv1 :: IsScalar d r
       => DualNumber d (Vector r) -> DualNumber d (Vector r)
       -> DualNumber d (Vector r)
@@ -402,24 +383,22 @@ maxPool1 ksize stride v@(D u _) =
   let slices = [slice1 i ksize v | i <- [0, stride .. V.length u - ksize]]
   in seq1 $ V.fromList $ map maximum0 slices
 
-softMaxActV :: DualMonad d r m
-            => DualNumber d (Vector r) -> m (DualNumber d (Vector r))
-softMaxActV d@(D u _) = do
-  expU <- returnLet $ exp d
-  let sumExpU = sumElements0 expU
-  -- This has to be let-bound, because it's used many times below.
-  recipSum <- returnLet $ recip sumExpU
-  returnLet $ konst1 recipSum (V.length u) * expU
+softMaxV :: IsScalar d r
+         => DualNumber d (Vector r) -> DualNumber d (Vector r)
+softMaxV d@(D u _) =
+  let expU = exp d  -- shared in 2 places, though cse may do this for us
+      sumExpU = sumElements0 expU
+  in konst1 (recip sumExpU) (V.length u) * expU
 
 -- Note that this is equivalent to a composition of softMax and cross entropy
 -- only when @target@ is one-hot. Otherwise, results vary wildly. In our
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyL
-  :: DualMonad d r m
+  :: IsScalar d r
   => Matrix r
   -> DualNumber d (Matrix r)
-  -> m (DualNumber d (Vector r))
-lossSoftMaxCrossEntropyL target (D u u') = do
+  -> DualNumber d (Vector r)
+lossSoftMaxCrossEntropyL target (D u u') =
   let expU = exp (u - HM.scalar (HM.maxElement u))  -- vs exploding gradients
       sumExpU = V.fromList $ map HM.sumElements $ HM.toColumns expU
       recipSum = recip sumExpU
@@ -427,7 +406,7 @@ lossSoftMaxCrossEntropyL target (D u u') = do
                    -- this @asRow@ is safe; multiplied at once
       scaled = D (negate $ log softMaxU * target)
                  (dScale (softMaxU - target) u')
-  returnLet $ sumColumns1 scaled
+  in sumColumns1 scaled
 
 
 -- * Operations resulting in a matrix
@@ -527,14 +506,13 @@ reshape2 :: IsScalar d r
 reshape2 cols (D u u') = D (HM.reshape cols u) (dReshape2 cols u')
 
 -- TODO: This has list of matrices result instead of a cube tensor.
-matrixSlices2 :: DualMonad d r m
-              => Int -> DualNumber d (Matrix r) -> m [DualNumber d (Matrix r)]
-matrixSlices2 dr m@(D u _) = do
+matrixSlices2 :: IsScalar d r
+              => Int -> DualNumber d (Matrix r) -> [DualNumber d (Matrix r)]
+matrixSlices2 dr m@(D u _) =
   let (rows, cols) = HM.size u
       n = dr * cols
-  v <- returnLet $ flatten1 m  -- used many times below
-  let f k = returnLet $ reshape2 cols $ slice1 (k * cols) n v
-  mapM f [0 .. rows - dr]
+      f k = reshape2 cols $ slice1 (k * cols) n (flatten1 m)
+  in map f [0 .. rows - dr]
 
 -- Not optimal: matrix is constructed and destructed immediately,
 -- which is costly when evaluating delta expressions. The transposes
@@ -542,46 +520,46 @@ matrixSlices2 dr m@(D u _) = do
 -- of scalars, which is horrible for performance. Unlike @corr1@
 -- this uses the slow dot product instead of the fast matrix-vector
 -- (or matrix-matrix) multiplication.
-corr2 :: forall d r m. DualMonad d r m
+corr2 :: forall d r. IsScalar d r
       => DualNumber d (Matrix r) -> DualNumber d (Matrix r)
-      -> m (DualNumber d (Matrix r))
-corr2 ker@(D u _) m@(D v _) = do
+      -> DualNumber d (Matrix r)
+corr2 ker@(D u _) m@(D v _) =
   let (rowsK, colsK) = HM.size u
       (rowsM, colsM) = HM.size v
       rr = rowsM - rowsK + 1
       rc = colsM - colsK + 1
-  if | rowsK <= 0 || colsK <= 0 ->
-       error $ "corr2: empty kernel not handled: " ++ show (rowsK, colsK)
-     | rr <= 0 || rc <= 0 ->
-       error $ "corr2: dim kernel " ++ show (rowsK, colsK)
-               ++ " > dim matrix " ++ show (rowsM, colsM)
-     | otherwise -> do
-       kerTransV <- returnLet $ flatten1 (transpose2 ker)
-       let dotColSlices :: DualNumber d (Matrix r) -> m [DualNumber d r]
-           dotColSlices tm = do
-             ttm <- returnLet $ transpose2 tm
-             colSlices <- matrixSlices2 colsK ttm
-             let f :: DualNumber d (Matrix r) -> DualNumber d r
-                 f sm = kerTransV <.>! flatten1 sm
-             return $ map f colSlices
-       rowSlices <- matrixSlices2 rowsK m
-       dotSlicesOfSlices <- mapM dotColSlices rowSlices
-       returnLet $ reshape2 rc $ seq1 $ V.fromList $ concat dotSlicesOfSlices
+  in if | rowsK <= 0 || colsK <= 0 ->
+          error $ "corr2: empty kernel not handled: " ++ show (rowsK, colsK)
+        | rr <= 0 || rc <= 0 ->
+          error $ "corr2: dim kernel " ++ show (rowsK, colsK)
+                  ++ " > dim matrix " ++ show (rowsM, colsM)
+        | otherwise ->
+          let kerTransV = flatten1 (transpose2 ker)
+              dotColSlices :: DualNumber d (Matrix r) -> [DualNumber d r]
+              dotColSlices tm =
+                let ttm = transpose2 tm
+                    colSlices = matrixSlices2 colsK ttm
+                    f :: DualNumber d (Matrix r) -> DualNumber d r
+                    f sm = kerTransV <.>! flatten1 sm
+                in map f colSlices
+              rowSlices = matrixSlices2 rowsK m
+              dotSlicesOfSlices = map dotColSlices rowSlices
+          in reshape2 rc $ seq1 $ V.fromList $ concat dotSlicesOfSlices
 
-conv2 :: forall d r m. DualMonad d r m
+conv2 :: forall d r. IsScalar d r
       => DualNumber d (Matrix r) -> DualNumber d (Matrix r)
-      -> m (DualNumber d (Matrix r))
-conv2 ker@(D u _) m@(D v _) = do
+      -> DualNumber d (Matrix r)
+conv2 ker@(D u _) m@(D v _) =
   let (rowsK, colsK) = HM.size u
       (rowsM, colsM) = HM.size v
-  if | rowsK <= 0 || colsK <= 0 ->
-       returnLet $ konst2 0 (rowsM + rowsK - 1, colsM + colsK - 1)
-     | otherwise -> do
-       let zRow = konst2 0 (rowsK - 1, colsM)
-           rowPadded = rowAppend2 zRow $ rowAppend2 m zRow
-           zCol = konst2 0 (rowsM + 2 * (rowsK - 1), colsK - 1)
-           padded = columnAppend2 zCol $ columnAppend2 rowPadded zCol
-       corr2 (fliprl2 . flipud2 $ ker) padded
+  in if | rowsK <= 0 || colsK <= 0 ->
+          konst2 0 (rowsM + rowsK - 1, colsM + colsK - 1)
+        | otherwise ->
+          let zRow = konst2 0 (rowsK - 1, colsM)
+              rowPadded = rowAppend2 zRow $ rowAppend2 m zRow
+              zCol = konst2 0 (rowsM + 2 * (rowsK - 1), colsK - 1)
+              padded = columnAppend2 zCol $ columnAppend2 rowPadded zCol
+          in corr2 (fliprl2 . flipud2 $ ker) padded
 
 conv2' :: IsScalar d r
        => DualNumber d (Matrix r) -> DualNumber d (Matrix r)
@@ -593,37 +571,37 @@ conv2' (D u u') (D v v') = D (HM.conv2 u v) (dAdd (dConv2 u v') (dConv2 v u'))
 -- It also performs convolution wrt flipped kernel (and so saves
 -- on flipping it here), which makes no practical difference when
 -- the kernel is initialized randomly.
-convSame2 :: forall d r m. DualMonad d r m
+convSame2 :: forall d r. IsScalar d r
           => DualNumber d (Matrix r) -> DualNumber d (Matrix r)
-          -> m (DualNumber d (Matrix r))
-convSame2 ker@(D u _) m@(D v _) = do
+          -> DualNumber d (Matrix r)
+convSame2 ker@(D u _) m@(D v _) =
   let (rowsK, colsK) = HM.size u
       (rowsM, colsM) = HM.size v
-  if | rowsK <= 0 || colsK <= 0 ->
-       returnLet $ konst2 0 (rowsM, colsM)
-     | otherwise -> do
-       let zRow = konst2 0 ((rowsK - 1) `div` 2, colsM)
-           rowPadded = rowAppend2 zRow $ rowAppend2 m zRow
-           zCol = konst2 0 (rowsM + rowsK - 1, (colsK - 1) `div` 2)
-           padded = columnAppend2 zCol $ columnAppend2 rowPadded zCol
-       corr2 ker padded
+  in if | rowsK <= 0 || colsK <= 0 ->
+          konst2 0 (rowsM, colsM)
+        | otherwise ->
+          let zRow = konst2 0 ((rowsK - 1) `div` 2, colsM)
+              rowPadded = rowAppend2 zRow $ rowAppend2 m zRow
+              zCol = konst2 0 (rowsM + rowsK - 1, (colsK - 1) `div` 2)
+              padded = columnAppend2 zCol $ columnAppend2 rowPadded zCol
+          in corr2 ker padded
 
 -- No padding; remaining areas ignored.
-maxPool2 :: forall d r m. DualMonad d r m
-         => Int -> Int -> DualNumber d (Matrix r) -> m (DualNumber d (Matrix r))
-maxPool2 ksize stride m@(D u _) = do
+maxPool2 :: forall d r. IsScalar d r
+         => Int -> Int -> DualNumber d (Matrix r) -> DualNumber d (Matrix r)
+maxPool2 ksize stride m@(D u _) =
   let (rows, cols) = HM.size u
       colsOut = cols `div` stride
       resultRows = [0, stride .. rows - ksize]
       resultCols = [0, stride .. cols - ksize]
       resultCoords = [(r, c) | r <- resultRows, c <- resultCols]
-  v <- returnLet $ flatten1 m  -- used many times below
-  let getArea :: (Int, Int) -> DualNumber d (Vector r)
+      getArea :: (Int, Int) -> DualNumber d (Vector r)
       getArea (r0, c0) =
-        let getAreaAtRow r1 = append1 (slice1 (r1 * cols + c0) ksize v)
+        let getAreaAtRow r1 =
+              append1 (slice1 (r1 * cols + c0) ksize (flatten1 m))
         in foldr getAreaAtRow (seq1 V.empty) [r0 .. r0 + ksize - 1]
       mins = map (maximum0 . getArea) resultCoords
-  returnLet $ reshape2 colsOut $ seq1 $ V.fromList mins
+  in reshape2 colsOut $ seq1 $ V.fromList mins
 
 
 -- * Operations resulting in an arbitrary untyped tensor
@@ -750,16 +728,6 @@ mapS :: forall k sh1 sh d r.
      -> DualNumber d (OS.Array (k : sh) r)
 mapS f = ravelFromListS . map f . unravelToListS
 
-mapMS :: forall k sh1 sh d r m.
-         (Monad m, KnownNat k, IsScalar d r, OS.Shape sh, OS.Shape sh1)
-      => (DualNumber d (OS.Array sh1 r) -> m (DualNumber d (OS.Array sh r)))
-      -> DualNumber d (OS.Array (k : sh1) r)
-      -> m (DualNumber d (OS.Array (k : sh) r))
-mapMS f d = do
-  let ld = unravelToListS d
-  ld2 <- mapM f ld
-  return $! ravelFromListS ld2
-
 zipWithS :: forall k sh1 sh2 sh d r.
             ( KnownNat k, IsScalar d r, OS.Shape sh, OS.Shape sh1, OS.Shape sh2)
          => (DualNumber d (OS.Array sh1 r) -> DualNumber d (OS.Array sh2 r)
@@ -865,7 +833,7 @@ conv24 ker = mapS conv23 where
     -- slow; should go through Tensor2, or the Num instance should when possible
 
 maxPool24
-  :: forall ksize_minus_1 stride in_height in_width batch_size channels d r m.
+  :: forall ksize_minus_1 stride in_height in_width batch_size channels d r.
      ( KnownNat ksize_minus_1, KnownNat stride
      , KnownNat in_height, KnownNat in_width
      , KnownNat batch_size, KnownNat channels
@@ -874,186 +842,16 @@ maxPool24
      , ksize_minus_1 <= in_width
      , 1 <= in_height - ksize_minus_1 + stride
      , 1 <= in_width - ksize_minus_1 + stride
-     , DualMonad d r m )
+     , IsScalar d r )
      => DualNumber d (OS.Array '[batch_size, channels, in_height, in_width] r)
-     -> m (DualNumber d
-             (OS.Array '[ batch_size, channels
-                         , (in_height - ksize_minus_1) `DivRoundUp` stride
-                         , (in_width - ksize_minus_1) `DivRoundUp` stride ] r))
-maxPool24 d = do
-  res <- mapMS (mapMS (fmap from2S
-                       . maxPool2 (valueOf @ksize_minus_1 + 1)
-                                  (valueOf @stride)
-                       . fromS2)) d
-  returnLet res
+     -> DualNumber d
+          (OS.Array '[ batch_size, channels
+                     , (in_height - ksize_minus_1) `DivRoundUp` stride
+                     , (in_width - ksize_minus_1) `DivRoundUp` stride ] r)
+maxPool24 d =
+  let res = mapS (mapS (from2S
+                        . maxPool2 (valueOf @ksize_minus_1 + 1)
+                                   (valueOf @stride)
+                        . fromS2)) d
+  in res
 #endif
-
-
--- * Operations creating delayed/outlined derivatives
-
--- | The version of the @D@ constructor lazy in the second argument.
--- To be used as in
---
--- > sinDelayed :: (Floating a, IsPrimal d a)
--- >            => DualNumber d a -> DualNumber d a
--- > sinDelayed (D u u') = delayD (sin u) (dScale (cos u) u')
--- >
--- > plusDelayed :: (Floating a, IsPrimal d a)
--- >             => DualNumber d a -> DualNumber d a -> DualNumber d a
--- > plusDelayed (D u u') (D v v') = delayD (u + v) (dAdd u' v')
--- >
--- > x ** (sinDelayed x
--- >       `plusDelayed` (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
---
--- The outlining is lost when serializing or logging, unlike with @Out@,
--- @Outline0@, etc.
---
--- Yet another incomparable variant that can't be serialized would be
--- (illustrating with an example of a constructor at rank 0)
---
--- > FromParams0 (Domains -> Delta0 r)
---
--- that expects the initial parameters. But it's more troublesome
--- than @Delay0@ both in implementation and usage.
-delayD :: IsPrimal d a => a -> Dual d a -> DualNumber d a
-delayD u ~u' = D u (dDelay u')
-
--- | A wrapper type to delay/outline computation of the derivatives of the given
--- primitive numeric function inside the dual component of the created dual
--- number. The rule is that if all arguments of a function are wrapped
--- in @Out@ then the function gets delayed. Inconsistent wrapping,
--- e.g., only one of the arguments, leads to early type errors.
---
--- To be used as in
---
--- > x ** unOut (sin (Out x) + Out (id $ id $ id $ konst1 (sumElements0 x) 2))
---
--- which delays computing the dual component of sine and of addition
--- (both in rank 1), but not of power, konst and sumElements. The last two
--- can't be currently delayed, because only primitive numeric functions
--- are supported (an attempt would not type-check).
-newtype Out a = Out {unOut :: a}
-  deriving (Eq, Ord)
-
-returnOut :: (DualMonad d r m, IsPrimalWithScalar d a r)
-          => Out (DualNumber d a) -> m (Out (DualNumber d a))
-returnOut dOut = do
-  dvar <- returnLet $ unOut dOut
-  return $ Out dvar
-
-instance (Num a, IsPrimal 'DModeGradient a, HasVariables a)
-         => Num (Out (DualNumber 'DModeGradient a)) where
-  Out (D u u') + Out (D v v') =
-    Out $ D (u + v) (dOutline PlusOut [u, v] [u', v'])
-  Out (D u u') - Out (D v v') =
-    Out $ D (u - v) (dOutline MinusOut [u, v] [u', v'])
-  Out (D u u') * Out (D v v') =
-    Out $ D (u * v) (dOutline TimesOut [u, v] [u', v'])
-  negate (Out (D v v')) = Out $ D (negate v) (dOutline NegateOut [v] [v'])
-  abs (Out (D v v')) = Out $ D (abs v) (dOutline AbsOut [v] [v'])
-  signum (Out (D v v')) = Out $ D (signum v) (dOutline SignumOut [v] [v'])
-  fromInteger = Out . constant . fromInteger
-
-instance (Real a, IsPrimal 'DModeGradient a, HasVariables a)
-         => Real (Out (DualNumber 'DModeGradient a)) where
-  toRational = undefined  -- TODO?
-
-instance (Fractional a, IsPrimal 'DModeGradient a, HasVariables a)
-         => Fractional (Out (DualNumber 'DModeGradient a)) where
-  Out (D u u') / Out (D v v') =
-    Out $ D (u / v) (dOutline DivideOut [u, v] [u', v'])
-  recip (Out (D v v')) = Out $ D (recip v) (dOutline RecipOut [v] [v'])
-  fromRational = Out . constant . fromRational
-
-instance (Floating a, IsPrimal 'DModeGradient a, HasVariables a)
-         => Floating (Out (DualNumber 'DModeGradient a)) where
-  pi = Out $ constant pi
-  exp (Out (D u u')) = Out $ D (exp u) (dOutline ExpOut [u] [u'])
-  log (Out (D u u')) = Out $ D (log u) (dOutline LogOut [u] [u'])
-  sqrt (Out (D u u')) = Out $ D (sqrt u) (dOutline SqrtOut [u] [u'])
-  Out (D u u') ** Out (D v v') =
-    Out $ D (u ** v) (dOutline PowerOut [u, v] [u', v'])
-  logBase (Out (D u u')) (Out (D v v')) =
-    Out $ D (logBase u v) (dOutline LogBaseOut [u, v] [u', v'])
-  sin (Out (D u u')) = Out $ D (sin u) (dOutline SinOut [u] [u'])
-  cos (Out (D u u')) = Out $ D (cos u) (dOutline CosOut [u] [u'])
-  tan (Out (D u u')) = Out $ D (tan u) (dOutline TanOut [u] [u'])
-  asin (Out (D u u')) = Out $ D (asin u) (dOutline AsinOut [u] [u'])
-  acos (Out (D u u')) = Out $ D (acos u) (dOutline AcosOut [u] [u'])
-  atan (Out (D u u')) = Out $ D (atan u) (dOutline AtanOut [u] [u'])
-  sinh (Out (D u u')) = Out $ D (sinh u) (dOutline SinhOut [u] [u'])
-  cosh (Out (D u u')) = Out $ D (cosh u) (dOutline CoshOut [u] [u'])
-  tanh (Out (D u u')) = Out $ D (tanh u) (dOutline TanhOut [u] [u'])
-  asinh (Out (D u u')) = Out $ D (asinh u) (dOutline AsinhOut [u] [u'])
-  acosh (Out (D u u')) = Out $ D (acosh u) (dOutline AcoshOut [u] [u'])
-  atanh (Out (D u u')) = Out $ D (atanh u) (dOutline AtanhOut [u] [u'])
-
-instance (RealFrac a, IsPrimal 'DModeGradient a, HasVariables a)
-         => RealFrac (Out (DualNumber 'DModeGradient a)) where
-  properFraction = undefined
-    -- very low priority, since these are all extremely not continuous
-
-instance (RealFloat a, IsPrimal 'DModeGradient a, HasVariables a)
-         => RealFloat (Out (DualNumber 'DModeGradient a)) where
-  atan2 (Out (D u u')) (Out (D v v')) =
-    Out $ D (atan2 u v) (dOutline Atan2Out [u, v] [u', v'])
-      -- we can be selective here and omit the other methods,
-      -- most of which don't even have a differentiable codomain
-
-
--- * Busywork to let the derivatives mode ignore all outlining
-
--- | Note that this should apply only when @d@ is @'DModeDerivative@.
--- However, GHC can't tell that @d@ has only two cases. Therefore, we need
--- to overgeneralize these definitions and mark them with @OVERLAPPABLE@
--- or else GHC complains that not enough instances are given
--- whenever type-checking code polymorphic on @d@.
-instance {-# OVERLAPPABLE #-} (Num a, IsPrimal d a)
-                              => Num (Out (DualNumber d a)) where
-  Out d + Out e = Out (d + e)
-  Out d - Out e = Out (d - e)
-  Out d * Out e = Out (d * e)
-  negate (Out e) = Out (negate e)
-  abs (Out e) = Out (abs e)
-  signum (Out e) = Out (signum e)
-  fromInteger = Out . constant . fromInteger
-
-instance {-# OVERLAPPABLE #-} (Real a, IsPrimal d a)
-                              => Real (Out (DualNumber d a)) where
-  toRational = undefined  -- TODO?
-
-instance {-# OVERLAPPABLE #-} (Fractional a, IsPrimal d a)
-                              => Fractional (Out (DualNumber d a)) where
-  Out d / Out e = Out (d / e)
-  recip (Out e) = Out (recip e)
-  fromRational = Out . constant . fromRational
-
-instance {-# OVERLAPPABLE #-} (Floating a, IsPrimal d a)
-                              => Floating (Out (DualNumber d a)) where
-  pi = Out $ constant pi
-  exp (Out d) = Out (exp d)
-  log (Out d) = Out (log d)
-  sqrt (Out d) = Out (sqrt d)
-  Out d ** Out e = Out (d ** e)
-  logBase (Out x) (Out y) = Out (logBase x y)
-  sin (Out d) = Out (sin d)
-  cos (Out d) = Out (cos d)
-  tan (Out d) = Out (tan d)
-  asin (Out d) = Out (asin d)
-  acos (Out d) = Out (acos d)
-  atan (Out d) = Out (atan d)
-  sinh (Out d) = Out (sinh d)
-  cosh (Out d) = Out (cosh d)
-  tanh (Out d) = Out (tanh d)
-  asinh (Out d) = Out (asinh d)
-  acosh (Out d) = Out (acosh d)
-  atanh (Out d) = Out (atanh d)
-
-instance {-# OVERLAPPABLE #-} (RealFrac a, IsPrimal d a)
-                              => RealFrac (Out (DualNumber d a)) where
-  properFraction = undefined
-    -- very low priority, since these are all extremely not continuous
-
-instance {-# OVERLAPPABLE #-} (RealFloat a, IsPrimal d a)
-                              => RealFloat (Out (DualNumber d a)) where
-  atan2 (Out d) (Out e) = Out (atan2 d e)
