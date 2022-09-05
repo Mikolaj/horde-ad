@@ -26,8 +26,8 @@ testTrees = [ testDReverse0
             , testDForward
             , testDFastForward
             , quickCheckForwardAndBackward
-            , readmeTests
-            , readmeTestsV
+            , oldReadmeTests
+            , oldReadmeTestsV
             ]
 
 dReverse0
@@ -242,9 +242,9 @@ testDForward =
           res <- dForward f vp vp
           res @?~ expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
-    , ( "atanReadmeM", atanReadmeM, ([1.1, 2.2, 3.3], [])
+    , ( "atanOldReadme", atanOldReadme, ([1.1, 2.2, 3.3], [])
       , (7.662345305800865, 4.9375516951604155) )
-    , ( "vatanReadmeM", vatanReadmeM, ([], [1.1, 2.2, 3.3])
+    , ( "vatanOldReadme", vatanOldReadme, ([], [1.1, 2.2, 3.3])
       , (7.662345305800865, 4.9375516951604155) )
     ]
 
@@ -255,9 +255,9 @@ testDFastForward =
         let vp = listsToParameters v
         in testCase txt $ dFastForward f vp vp @?~ expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
-    , ( "atanReadmeM", atanReadmeM, ([1.1, 2.2, 3.3], [])
+    , ( "atanOldReadme", atanOldReadme, ([1.1, 2.2, 3.3], [])
       , (7.662345305800865, 4.9375516951604155) )
-    , ( "vatanReadmeM", vatanReadmeM, ([], [1.1, 2.2, 3.3])
+    , ( "vatanOldReadme", vatanOldReadme, ([], [1.1, 2.2, 3.3])
       , (7.662345305800865, 4.9375516951604155) )
     ]
 
@@ -267,9 +267,9 @@ quickCheckForwardAndBackward :: TestTree
 quickCheckForwardAndBackward =
   testGroup "Simple QuickCheck of gradient vs derivative vs perturbation"
     [ quickCheckTest0 "fquad" fquad (\(x, y, _z) -> ([x, y], [], [], []))
-    , quickCheckTest0 "atanReadmeM" atanReadmeM
+    , quickCheckTest0 "atanOldReadme" atanOldReadme
              (\(x, y, z) -> ([x, y, z], [], [], []))
-    , quickCheckTest0 "vatanReadmeM" vatanReadmeM
+    , quickCheckTest0 "vatanOldReadme" vatanOldReadme
              (\(x, y, z) -> ([], [x, y, z], [], []))
     , quickCheckTest0 "sinKonst" sinKonst  -- powKonst NaNs immediately
              (\(x, _, z) -> ([], [x, z], [], []))
@@ -280,8 +280,8 @@ quickCheckForwardAndBackward =
 -- A function that goes from `R^3` to `R^2`, with a representation
 -- of the input and the output tuple that is convenient for interfacing
 -- with the library.
-atanReadmeOriginal :: RealFloat a => a -> a -> a -> Data.Vector.Vector a
-atanReadmeOriginal x y z =
+atanOldReadmeOriginal :: RealFloat a => a -> a -> a -> Data.Vector.Vector a
+atanOldReadmeOriginal x y z =
   let w = x * sin y
   in V.fromList [atan2 z w, z * x]
 
@@ -289,12 +289,12 @@ atanReadmeOriginal x y z =
 -- and add a glue code that selects the function inputs from
 -- a uniform representation of objective function parameters
 -- represented as delta-inputs (`DualNumberInputs`).
-atanReadmeInputs
+atanOldReadmeInputs
   :: IsScalar d r
   => DualNumberInputs d r -> Data.Vector.Vector (DualNumber d r)
-atanReadmeInputs inputs =
+atanOldReadmeInputs inputs =
   let x : y : z : _ = atList0 inputs
-  in atanReadmeOriginal x y z
+  in atanOldReadmeOriginal x y z
 
 -- According to the paper, to handle functions with non-scalar results,
 -- we dot-product them with dt which, for simplicity, we here set
@@ -312,30 +312,30 @@ sumElementsOfDualNumbers
 sumElementsOfDualNumbers = V.foldl' (+) 0
 
 -- Here we apply the function.
-atanReadmeM
+atanOldReadme
   :: IsScalar d r
   => DualNumberInputs d r -> DualNumber d r
-atanReadmeM = sumElementsOfDualNumbers . atanReadmeInputs
+atanOldReadme = sumElementsOfDualNumbers . atanOldReadmeInputs
 
 -- The underscores and empty vectors are placeholders for the vector,
 -- matrix and arbitrary tensor components of the parameters tuple,
 -- which we here don't use (above we construct a vector output,
 -- but it's a vector of scalar parameters, not a single parameter
 -- of rank 1).
-atanReadmeDReverse :: HasDelta r
+atanOldReadmeDReverse :: HasDelta r
                    => Domain0 r -> IO (Domain0 r, r)
-atanReadmeDReverse ds = do
+atanOldReadmeDReverse ds = do
   ((!result, _, _, _), !value) <-
-    dReverse 1 atanReadmeM (ds, V.empty, V.empty, V.empty)
+    dReverse 1 atanOldReadme (ds, V.empty, V.empty, V.empty)
   return (result, value)
 
-readmeTests :: TestTree
-readmeTests = testGroup "Simple tests for README"
+oldReadmeTests :: TestTree
+oldReadmeTests = testGroup "Simple tests for README"
   [ testCase " Float (1.1, 2.2, 3.3)" $ do
-      res <- atanReadmeDReverse (V.fromList [1.1 :: Float, 2.2, 3.3])
+      res <- atanOldReadmeDReverse (V.fromList [1.1 :: Float, 2.2, 3.3])
       res @?~ (V.fromList [3.0715904, 0.18288425, 1.1761366], 4.937552)
   , testCase " Double (1.1, 2.2, 3.3)" $ do
-      res <- atanReadmeDReverse (V.fromList [1.1 :: Double, 2.2, 3.3])
+      res <- atanOldReadmeDReverse (V.fromList [1.1 :: Double, 2.2, 3.3])
       res @?~ ( V.fromList [ 3.071590389300859
                            , 0.18288422990948425
                            , 1.1761365368997136 ]
@@ -347,30 +347,30 @@ readmeTests = testGroup "Simple tests for README"
 -- via a primitive differentiable type of vectors instead of inside
 -- vectors of primitive differentiable scalars.
 
-vatanReadmeM
+vatanOldReadme
   :: IsScalar d r
   => DualNumberInputs d r -> DualNumber d r
-vatanReadmeM inputs =
+vatanOldReadme inputs =
   let xyzVector = at1 inputs 0
       [x, y, z] = map (index0 xyzVector) [0, 1, 2]
-      v = seq1 $ atanReadmeOriginal x y z
+      v = seq1 $ atanOldReadmeOriginal x y z
   in sumElements0 v
 
-vatanReadmeDReverse :: HasDelta r
+vatanOldReadmeDReverse :: HasDelta r
                     => Domain1 r -> IO (Domain1 r, r)
-vatanReadmeDReverse dsV = do
+vatanOldReadmeDReverse dsV = do
   ((_, !result, _, _), !value) <-
-    dReverse 1 vatanReadmeM (V.empty, dsV, V.empty, V.empty)
+    dReverse 1 vatanOldReadme (V.empty, dsV, V.empty, V.empty)
   return (result, value)
 
-readmeTestsV :: TestTree
-readmeTestsV = testGroup "Simple tests of vector-based code for README"
+oldReadmeTestsV :: TestTree
+oldReadmeTestsV = testGroup "Simple tests of vector-based code for README"
   [ testCase "V Float (1.1, 2.2, 3.3)" $ do
-      res <- vatanReadmeDReverse (V.singleton $ V.fromList [1.1 :: Float, 2.2, 3.3])
+      res <- vatanOldReadmeDReverse (V.singleton $ V.fromList [1.1 :: Float, 2.2, 3.3])
       res @?~ ( V.singleton $ V.fromList [3.0715904, 0.18288425, 1.1761366]
               , 4.937552 )
   , testCase "V Double (1.1, 2.2, 3.3)" $ do
-      res <- vatanReadmeDReverse (V.singleton $ V.fromList [1.1 :: Double, 2.2, 3.3])
+      res <- vatanOldReadmeDReverse (V.singleton $ V.fromList [1.1 :: Double, 2.2, 3.3])
       res @?~ ( V.singleton $ V.fromList [ 3.071590389300859
                                          , 0.18288422990948425
                                          , 1.1761365368997136 ]
