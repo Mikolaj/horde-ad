@@ -120,6 +120,11 @@ instance {-# OVERLAPPABLE #-} (Traversable t, AssertClose a) => AssertClose (t a
   (@?~) (actual_xs, actual_x) (expected_xs, expected_x) =
     (@?~) actual_x expected_x >> assertCloseList (asList expected_xs) (asList actual_xs)
 
+instance {-# OVERLAPPABLE #-} (VS.Storable a, AssertClose a) => AssertClose (VS.Vector a) where
+  (@?~) :: VS.Vector a -> VS.Vector a -> Assertion
+  (@?~) actual_xs expected_xs = assertCloseList (VG.toList expected_xs) (VG.toList actual_xs)
+
+-- TODO; make an instance for pairs instead
 instance (VS.Storable a, AssertClose a) => AssertClose (VS.Vector a, a) where
   (@?~) :: (VS.Vector a, a) -> (VS.Vector a, a) -> Assertion
   (@?~) (actual_xs, actual_x) (expected_xs, expected_x) =

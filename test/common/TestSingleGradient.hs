@@ -1,4 +1,5 @@
-{-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
+{-# LANGUAGE DataKinds, FlexibleInstances, MultiParamTypeClasses, RankNTypes,
+             TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 module TestSingleGradient (testTrees, finalCounter) where
 
@@ -28,6 +29,7 @@ testTrees = [ testDReverse0
             , quickCheckForwardAndBackward
             , oldReadmeTests
             , oldReadmeTestsV
+            , readmeTests0
             ]
 
 dReverse0
@@ -383,3 +385,57 @@ finalCounter = testCase "Final counter value" $ do
   counter <- unsafeGetFreshId
   hPutStrLn stderr $ printf "\nFinal counter value: %d" counter
   assertBool "counter dangerously high" $ counter < 2 ^ (62 :: Int)
+
+-- Inspired by adapters from @tomjaguarpaw's branch.
+class Adaptable r fdr where
+  toDomains :: fdr -> Domains r
+  fromDualNumberInputs :: DualNumberInputs 'DModeGradient r -> fdr
+
+instance IsScalar 'DModeGradient r
+         => Adaptable r ( DualNumber 'DModeGradient r
+                        , DualNumber 'DModeGradient r
+                        , DualNumber 'DModeGradient r ) where
+  toDomains (D a _, D b _, D c _) =
+    (V.fromList [a, b, c], V.empty, V.empty, V.empty)
+  fromDualNumberInputs inputs = case atList0 inputs of
+    r1 : r2 : r3 : _ -> (r1, r2, r3)
+    _ -> error "fromDualNumberInputs in Adaptable r (r, r, r)"
+
+grad :: (HasDelta r, Adaptable r x)
+     => (x -> DualNumber 'DModeGradient r) -> x -> Domains r
+grad f x =
+  let g inputs = f $ fromDualNumberInputs inputs
+  in fst $ dReverseFun 1 g (toDomains x)
+
+-- A function that goes from `R^3` to `R`.
+foo :: RealFloat a => (a,a,a) -> a
+foo (x,y,z) =
+  let w = x * sin y
+  in atan2 z w + z * w
+
+testFoo :: Assertion
+testFoo =
+  assertEqualUpToEps (1e-10 :: Double)
+    (grad foo (1.1, 2.2, 3.3))
+    ( V.fromList [2.4396285219055063, -1.953374825727421, 0.9654825811012627]
+    , V.empty, V.empty, V.empty )
+
+assertEqualUpToEps :: Double -> Domains Double -> Domains Double -> Assertion
+assertEqualUpToEps _eps (x, _, _, _) (y, _, _, _) =  -- TODO: use the _eps instead of the default one
+  x @?~ y
+
+readmeTests0 :: TestTree
+readmeTests0 = testGroup "Simple tests of tuple-based code for README"
+  [ testCase "T Double (1.1, 2.2, 3.3)" $
+      testFoo
+  ]
+
+{-
+bar :: RealFloat a => (a,a,a) -> a
+bar (x,y,z) =
+  let w = foo (x,y,z) * sin y
+  in atan2 z w + z * w
+
+testBar =
+   assertEqualUpToEps 1e-9 (grad bar (1.1 :: Double,2.2,3.3)) (4.4,5.5,6.6)
+-}
