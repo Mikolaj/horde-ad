@@ -220,8 +220,9 @@ testPrintDf :: TestTree
 testPrintDf = testGroup "Pretty printing test" $
   map (\(txt, f, v, expected) ->
         testCase txt $ do
-          output <- prettyPrintDf f
-                      (V.empty, V.fromList (map V.fromList v), V.empty, V.empty)
+          let output =
+                prettyPrintDf f
+                  (V.empty, V.fromList (map V.fromList v), V.empty, V.empty)
           length output @?= expected)
     [ ( "sumElementsV", sumElementsV, [[1 :: Float, 1, 3]]
       , 54 )

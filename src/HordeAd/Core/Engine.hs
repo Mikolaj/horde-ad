@@ -5,8 +5,8 @@
 -- of an objective function defined on dual numbers.
 module HordeAd.Core.Engine
   ( primalValueGeneral, primalValue
-  , dReverseGeneral, dReverse
-  , dForwardGeneral, dForward
+  , dReverseGeneral, dReverse, dReverseFun
+  , dForwardGeneral, dForward, dForwardFun
   , dFastForwardGeneral, dFastForward
   , prettyPrintDf
   , generateDeltaInputs, initializerFixed
@@ -65,32 +65,46 @@ primalValue f parameters =
 
 -- * The fully-fledged evaluation for gradients.
 
--- This and other functions don't need to be in @IO@; it's a historical
--- accident, but it proves useful for performance hacks, e.g., forcing GC.
+dReverseGeneralFun
+  :: forall r. HasDelta r
+  => r
+  -> DualNumberInputs 'DModeGradient r
+  -> (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
+  -> (Domains r, r)
+-- The functions in which @dReverseGeneral@ inlines are not inlined themselves
+-- in client code, so the bloat is limited.
+{-# INLINE dReverseGeneral #-}
+dReverseGeneralFun dt inputs@DualNumberInputs{..} f =
+  let dim0 = V.length inputPrimal0
+      dim1 = V.length inputPrimal1
+      dim2 = V.length inputPrimal2
+      dimX = V.length inputPrimalX
+      -- Evaluate completely after terms constructed, to free memory
+      -- before evaluation allocates new memory and new FFI is started
+      !(D value deltaTopLevel) = f inputs
+  in let gradient = gradientFromDelta dim0 dim1 dim2 dimX deltaTopLevel dt
+     in (gradient, value)
+
+-- Tests expect this to be in IO by historical accident.
+-- But we can possibly add hacks here in the future, such as @performMinorGC@.
 dReverseGeneral
   :: forall r. HasDelta r
   => r
   -> DualNumberInputs 'DModeGradient r
   -> (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
   -> IO (Domains r, r)
--- The functions in which @dReverseGeneral@ inlines are not inlined themselves
--- in client code, so the bloat is limited.
-{-# INLINE dReverseGeneral #-}
-dReverseGeneral dt
-                inputs@DualNumberInputs{..} f = do
-  let dim0 = V.length inputPrimal0
-      dim1 = V.length inputPrimal1
-      dim2 = V.length inputPrimal2
-      dimX = V.length inputPrimalX
-      -- Evaluate completely after terms constructed, to free memory before
-      -- before evaluation allocates new memory and new FFI is started
-      !(D value deltaTopLevel) = f inputs
-  -- Uncomment for benchmarks to make GC more predictable and so
-  -- benchmark results less random. This slows down parallel tests much
-  -- more than sequential benchmarks.
---  performMinorGC
-  let gradient = gradientFromDelta dim0 dim1 dim2 dimX deltaTopLevel dt
-  return (gradient, value)
+dReverseGeneral dt inputs f = return $! dReverseGeneralFun dt inputs f
+
+dReverseFun
+  :: HasDelta r
+  => r
+  -> (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
+  -> Domains r
+  -> (Domains r, r)
+dReverseFun dt f parameters =
+  let deltaInputs = generateDeltaInputs parameters
+      inputs = makeDualNumberInputs parameters deltaInputs
+  in dReverseGeneralFun dt inputs f
 
 dReverse
   :: HasDelta r
@@ -98,15 +112,28 @@ dReverse
   -> (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
   -> Domains r
   -> IO (Domains r, r)
-dReverse dt f parameters = do
-  let deltaInputs = generateDeltaInputs parameters
-      inputs = makeDualNumberInputs parameters deltaInputs
-  dReverseGeneral dt inputs f
+dReverse dt f parameters = return $! dReverseFun dt f parameters
 
 
 -- * The slow evaluation for derivatives that uses the same
 -- delta expressions as for gradients. See @dFastForwardGeneral@
 -- for an efficient variant.
+
+dForwardGeneralFun
+  :: forall r. HasDelta r
+  => DualNumberInputs 'DModeGradient r
+  -> (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
+  -> Domains r
+  -> (r, r)
+{-# INLINE dForwardGeneral #-}
+dForwardGeneralFun inputs@DualNumberInputs{..} f ds =
+  let dim0 = V.length inputPrimal0
+      dim1 = V.length inputPrimal1
+      dim2 = V.length inputPrimal2
+      dimX = V.length inputPrimalX
+      !(D value deltaTopLevel) = f inputs
+  in let derivative = derivativeFromDelta dim0 dim1 dim2 dimX deltaTopLevel ds
+     in (derivative, value)
 
 dForwardGeneral
   :: forall r. HasDelta r
@@ -114,27 +141,28 @@ dForwardGeneral
   -> (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
   -> Domains r
   -> IO (r, r)
-{-# INLINE dForwardGeneral #-}
-dForwardGeneral inputs@DualNumberInputs{..} f ds = do
-  let dim0 = V.length inputPrimal0
-      dim1 = V.length inputPrimal1
-      dim2 = V.length inputPrimal2
-      dimX = V.length inputPrimalX
-      !(D value deltaTopLevel) = f inputs
-  let derivative = derivativeFromDelta dim0 dim1 dim2 dimX deltaTopLevel ds
-  return (derivative, value)
+dForwardGeneral inputs f ds = return $! dForwardGeneralFun inputs f ds
 
 -- The direction vector ds is taken as an extra argument.
+dForwardFun
+  :: HasDelta r
+  => (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
+  -> Domains r
+  -> Domains r
+  -> (r, r)
+dForwardFun f parameters ds =
+  let deltaInputs = generateDeltaInputs parameters
+      inputs = makeDualNumberInputs parameters deltaInputs
+  in dForwardGeneralFun inputs f ds
+
 dForward
   :: HasDelta r
   => (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
   -> Domains r
   -> Domains r
   -> IO (r, r)
-dForward f parameters ds = do
-  let deltaInputs = generateDeltaInputs parameters
-      inputs = makeDualNumberInputs parameters deltaInputs
-  dForwardGeneral inputs f ds
+dForward f parameters ds = return $! dForwardFun f parameters ds
+
 
 -- * The evaluation for efficiently computing forward derivatives.
 
@@ -169,12 +197,12 @@ prettyPrintDf
   :: forall r. HasDelta r
   => (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
   -> Domains r
-  -> IO String
-prettyPrintDf f parameters = do
+  -> String
+prettyPrintDf f parameters =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeDualNumberInputs parameters deltaInputs
       !(D _ deltaTopLevel) = f inputs
-  return $! ppShow deltaTopLevel
+  in ppShow deltaTopLevel
 
 generateDeltaInputs
   :: forall r. IsScalar 'DModeGradient r
