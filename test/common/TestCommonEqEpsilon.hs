@@ -9,7 +9,6 @@ import           Data.IORef
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Storable as VS
 import           System.IO.Unsafe
-import qualified Test.HUnit.Approx
 import           Test.Tasty.HUnit
 import           Test.Tasty.Options
 
@@ -48,7 +47,10 @@ assertClose :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
             -> Assertion
 assertClose preface expected actual = do
   eqEpsilon <- readIORef eqEpsilonRef
-  Test.HUnit.Approx.assertApproxEqual preface (fromRational eqEpsilon) expected actual
+  assertBool (msg eqEpsilon) (abs (expected-actual) < fromRational eqEpsilon)
+  where msg errorMargin = (if null preface then "" else preface ++ "\n") ++
+                           "expected: " ++ show expected ++ "\n but got: " ++ show actual ++
+                           "\n (maximum margin of error: " ++ show (fromRational errorMargin :: Double) ++ ")"
 
 -- | Asserts that the specified actual floating point value is close to at least one of the expected values.
 assertCloseElem :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
