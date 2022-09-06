@@ -522,7 +522,8 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
             len <- readSTRefU len0
             rm <- readSTRef rMap0
             if i >= len then do
-              -- Unsafe is fine, because it initializes to bottoms and we always
+              -- Unsafe is fine, because it initializes to bottoms (not to
+              -- random words than may look like pointers) and we always
               -- write before reading.
               rmG <- VM.unsafeGrow rm len
               VM.write rmG i r
