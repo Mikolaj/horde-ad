@@ -398,6 +398,17 @@ testFoo =
     (grad foo (1.1, 2.2, 3.3))
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
 
+bar :: RealFloat a => (a,a,a) -> a
+bar (x,y,z) =
+  let w = foo (x,y,z) * sin y
+  in atan2 z w + z * w
+
+testBar :: Assertion
+testBar =
+  assertEqualUpToEps (1e-9 :: Double)
+    (grad bar (1.1, 2.2, 3.3))
+    (6.221706565357043, -12.856908977773593, 6.043601532156671)
+
 grad :: (HasDelta r, Adaptable r x rs)
      => (x -> DualNumber 'DModeGradient r) -> x -> rs
 grad f x =
@@ -429,16 +440,8 @@ assertEqualUpToEps _eps (r1, r2, r3) (u1, u2, u3) =  -- TODO: use the _eps inste
 
 readmeTests0 :: TestTree
 readmeTests0 = testGroup "Simple tests of tuple-based code for README"
-  [ testCase "T Double (1.1, 2.2, 3.3)" $
+  [ testCase "foo T Double (1.1, 2.2, 3.3)" $
       testFoo
+  , testCase "bar T Double (1.1, 2.2, 3.3)" $
+      testBar
   ]
-
-{-
-bar :: RealFloat a => (a,a,a) -> a
-bar (x,y,z) =
-  let w = foo (x,y,z) * sin y
-  in atan2 z w + z * w
-
-testBar =
-   assertEqualUpToEps 1e-9 (grad bar (1.1 :: Double,2.2,3.3)) (4.4,5.5,6.6)
--}
