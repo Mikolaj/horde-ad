@@ -41,7 +41,7 @@ module HordeAd.Internal.Delta
   , DeltaX (..), DeltaX' (..)
   , DeltaS (..), DeltaS' (..)
   , -- * Delta expression identifiers
-    DeltaId, toDeltaId, convertDeltaId
+    NodeId, DeltaId, toDeltaId, convertDeltaId
   , -- * Evaluation of the delta expressions
     Domain0, Domain1, Domain2, DomainX, Domains
   , gradientFromDelta, derivativeFromDelta
@@ -102,7 +102,7 @@ import           HordeAd.Internal.OrthotopeOrphanInstances (liftVS2, liftVT2)
 -- to the derivative (similarly as @Input0@), but we are not even interested
 -- in what the (partial) gradient for that subterm position would be.
 data Delta0 r =
-    Delta0 Int (Delta0' r)
+    Delta0 NodeId (Delta0' r)
   | Zero0
   | Input0 (DeltaId r)
 data Delta0' r =
@@ -123,7 +123,7 @@ deriving instance (Show r, Numeric r) => Show (Delta0' r)
 -- | This is the grammar of delta-expressions at tensor rank 1, that is,
 -- at vector level.
 data Delta1 r =
-    Delta1 Int (Delta1' r)
+    Delta1 NodeId (Delta1' r)
   | Zero1
   | Input1 (DeltaId (Vector r))
 data Delta1' r =
@@ -159,7 +159,7 @@ deriving instance (Show r, Numeric r) => Show (Delta1' r)
 -- | This is the grammar of delta-expressions at tensor rank 2, that is,
 -- at matrix level.
 data Delta2 r =
-    Delta2 Int (Delta2' r)
+    Delta2 NodeId (Delta2' r)
   | Zero2
   | Input2 (DeltaId (Matrix r))
 data Delta2' r =
@@ -197,7 +197,7 @@ deriving instance (Show r, Numeric r) => Show (Delta2' r)
 --
 -- Warning: not tested enough nor benchmarked.
 data DeltaX r =
-    DeltaX Int (DeltaX' r)
+    DeltaX NodeId (DeltaX' r)
   | ZeroX
   | InputX (DeltaId (OT.Array r))
 data DeltaX' r =
@@ -235,7 +235,7 @@ deriving instance (Show r, Numeric r) => Show (DeltaX' r)
 --
 -- Warning: not tested enough nor benchmarked.
 data DeltaS :: [Nat] -> Type -> Type where
-  DeltaS :: Int -> DeltaS' sh r -> DeltaS sh r
+  DeltaS :: NodeId -> DeltaS' sh r -> DeltaS sh r
   ZeroS :: DeltaS sh r
   InputS :: DeltaId (OS.Array sh r) -> DeltaS sh r
 data DeltaS' :: [Nat] -> Type -> Type where
@@ -274,6 +274,8 @@ instance Show (DeltaS' sh r) where
 
 
 -- * Delta expression identifiers
+
+type NodeId = Int
 
 newtype DeltaId a = DeltaId Int
   deriving (Show, Prim)
@@ -427,7 +429,9 @@ initializeFinMaps
           , STRefU s Int
           , STRefU s Int
           , STRefU s Int
-          , STRef s (IM.IntMap (DeltaBinding r)) )  -- Map is way slower
+          , STRef s (IM.IntMap (DeltaBinding r)) )
+              -- the Int here is morally NodeId;
+              -- Map and HashTable are way slower than the IntMap
 initializeFinMaps dim0 dim1 dim2 dimX = do
   iMap0 <- VM.replicate dim0 0  -- correct value; below are dummy
   iMap1 <- VM.replicate dim1 (V.empty :: Vector r)

@@ -613,7 +613,7 @@ unsafeGlobalCounter = unsafePerformIO (newCounter 100000000)
 -- but faster than an @MVar@ and than an atomic @IORef@
 -- (and even non-atomic @IORef@). The operation is manually inlined
 -- to prevent GHCs deciding otherwise and causing performance anomalies.
-unsafeGetFreshId :: IO Int
+unsafeGetFreshId :: IO NodeId
 {-# INLINE unsafeGetFreshId #-}
 unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
 
