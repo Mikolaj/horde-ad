@@ -41,7 +41,7 @@ module HordeAd.Internal.Delta
   , DeltaX (..), DeltaX' (..)
   , DeltaS (..), DeltaS' (..)
   , -- * Delta expression identifiers
-    NodeId, DeltaId, toDeltaId, convertDeltaId
+    NodeId, InputId, toInputId, DeltaId
   , -- * Evaluation of the delta expressions
     Domain0, Domain1, Domain2, DomainX, Domains
   , gradientFromDelta, derivativeFromDelta
@@ -104,7 +104,7 @@ import           HordeAd.Internal.OrthotopeOrphanInstances (liftVS2, liftVT2)
 data Delta0 r =
     Delta0 NodeId (Delta0' r)
   | Zero0
-  | Input0 (DeltaId r)
+  | Input0 (InputId r)
 data Delta0' r =
     Scale0 r (Delta0 r)
   | Add0 (Delta0 r) (Delta0 r)
@@ -125,7 +125,7 @@ deriving instance (Show r, Numeric r) => Show (Delta0' r)
 data Delta1 r =
     Delta1 NodeId (Delta1' r)
   | Zero1
-  | Input1 (DeltaId (Vector r))
+  | Input1 (InputId (Vector r))
 data Delta1' r =
     Scale1 (Vector r) (Delta1 r)
   | Add1 (Delta1 r) (Delta1 r)
@@ -161,7 +161,7 @@ deriving instance (Show r, Numeric r) => Show (Delta1' r)
 data Delta2 r =
     Delta2 NodeId (Delta2' r)
   | Zero2
-  | Input2 (DeltaId (Matrix r))
+  | Input2 (InputId (Matrix r))
 data Delta2' r =
     Scale2 (Matrix r) (Delta2 r)
   | Add2 (Delta2 r) (Delta2 r)
@@ -199,7 +199,7 @@ deriving instance (Show r, Numeric r) => Show (Delta2' r)
 data DeltaX r =
     DeltaX NodeId (DeltaX' r)
   | ZeroX
-  | InputX (DeltaId (OT.Array r))
+  | InputX (InputId (OT.Array r))
 data DeltaX' r =
     ScaleX (OT.Array r) (DeltaX r)
   | AddX (DeltaX r) (DeltaX r)
@@ -237,7 +237,7 @@ deriving instance (Show r, Numeric r) => Show (DeltaX' r)
 data DeltaS :: [Nat] -> Type -> Type where
   DeltaS :: NodeId -> DeltaS' sh r -> DeltaS sh r
   ZeroS :: DeltaS sh r
-  InputS :: DeltaId (OS.Array sh r) -> DeltaS sh r
+  InputS :: InputId (OS.Array sh r) -> DeltaS sh r
 data DeltaS' :: [Nat] -> Type -> Type where
   ScaleS :: OS.Array sh r -> DeltaS sh r -> DeltaS' sh r
   AddS :: DeltaS sh r -> DeltaS sh r -> DeltaS' sh r
@@ -277,18 +277,19 @@ instance Show (DeltaS' sh r) where
 
 type NodeId = Int
 
+newtype InputId a = InputId Int
+  deriving Show
+    -- No Eq instance to limit hacks outside this module.
+
+-- | Wrap non-negative (only!) integers in the `InputId` newtype.
+toInputId :: Int -> InputId a
+toInputId i = assert (i >= 0) $ InputId i
+
 newtype DeltaId a = DeltaId Int
   deriving (Show, Prim)
     -- No Eq instance to limit hacks outside this module.
     -- The Prim instance conversions take lots of time when old-time profiling,
     -- but are completely optimized away in normal builds.
-
--- | Wrap non-negative (only!) integers in the `DeltaId` newtype.
-toDeltaId :: Int -> DeltaId a
-toDeltaId i = assert (i >= 0) $ DeltaId i
-
-convertDeltaId :: DeltaId (OT.Array r) -> DeltaId (OS.Array sh r)
-convertDeltaId (DeltaId i) = DeltaId i
 
 -- The key property is that it preserves the phantom type.
 succDeltaId :: DeltaId a -> DeltaId a
@@ -491,7 +492,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
                                else liftVT2 (+) v rs
       eval0 :: r -> Delta0 r -> ST s ()
       eval0 _ Zero0 = return ()
-      eval0 !r (Input0 (DeltaId i)) =
+      eval0 !r (Input0 (InputId i)) =
         VM.modify iMap0 (+ r) i
       eval0 !r (Delta0 n d) = do
         im <- readSTRef dMap
@@ -539,7 +540,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
           -- having adjacent counter values
 
         SumElements0 vd n -> eval1 (HM.konst r n) vd
-        Index0 (Input1 (DeltaId i)) ix k | i >= 0 -> do
+        Index0 (Input1 (InputId i)) ix k | i >= 0 -> do
           let f v = if V.null v
                     then HM.konst 0 k V.// [(ix, r)]
                     else v V.// [(ix, v V.! ix + r)]
@@ -558,7 +559,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
 
       eval1 :: Vector r -> Delta1 r -> ST s ()
       eval1 _ Zero1 = return ()
-      eval1 !r (Input1 (DeltaId i)) =
+      eval1 !r (Input1 (InputId i)) =
         VM.modify iMap1 (addToVector r) i
       eval1 !r (Delta1 n d) = do
         im <- readSTRef dMap
@@ -629,7 +630,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
 
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
       eval2 _ Zero2 = return ()
-      eval2 !r (Input2 (DeltaId i)) =
+      eval2 !r (Input2 (InputId i)) =
         VM.modify iMap2 (addToMatrix $ MO.convertMatrixOuter r) i
       eval2 !r (Delta2 n d) = do
         im <- readSTRef dMap
@@ -719,7 +720,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
 
       evalX :: OT.Array r -> DeltaX r -> ST s ()
       evalX _ ZeroX = return ()
-      evalX !r (InputX (DeltaId i)) =
+      evalX !r (InputX (InputId i)) =
         VM.modify iMapX (addToArray r) i
       evalX !r (DeltaX n d) = do
         im <- readSTRef dMap
@@ -795,7 +796,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
       evalS :: OS.Shape sh
             => OS.Array sh r -> DeltaS sh r -> ST s ()
       evalS _ ZeroS = return ()
-      evalS !r (InputS (DeltaId i)) =
+      evalS !r (InputS (InputId i)) =
         VM.modify iMapX (addToArrayS r) i
       evalS !r (DeltaS n d) = do
         im <- readSTRef dMap
@@ -950,7 +951,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
   rMap2 <- newSTRef rMap2'
   let eval0 :: Delta0 r -> ST s r
       eval0 Zero0 = return 0
-      eval0 (Input0 (DeltaId i)) =
+      eval0 (Input0 (InputId i)) =
         if i < dim0
         then return $! params0Init V.! i
         else error "derivativeFromDelta.eval': wrong index for an input"
@@ -994,7 +995,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
 
       eval1 :: Delta1 r -> ST s (Vector r)
       eval1 Zero1 = return 0
-      eval1 (Input1 (DeltaId i)) =
+      eval1 (Input1 (InputId i)) =
         if i < dim1
         then return $! params1Init V.! i
         else error "derivativeFromDelta.eval': wrong index for an input"
@@ -1050,7 +1051,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
 
       eval2 :: Delta2 r -> ST s (Matrix r)
       eval2 Zero2 = return 0
-      eval2 (Input2 (DeltaId i)) =
+      eval2 (Input2 (InputId i)) =
         if i < dim2
         then return $! params2Init V.! i
         else error "derivativeFromDelta.eval': wrong index for an input"
@@ -1120,7 +1121,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
 
       evalX :: DeltaX r -> ST s (OT.Array r)
       evalX ZeroX = return 0
-      evalX (InputX (DeltaId i)) =
+      evalX (InputX (InputId i)) =
         if i < dimX
         then return $! paramsXInit V.! i
         else error "derivativeFromDelta.eval': wrong index for an input"
@@ -1175,7 +1176,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
 
       evalS :: OS.Shape sh => DeltaS sh r -> ST s (OS.Array sh r)
       evalS ZeroS = return 0
-      evalS (InputS (DeltaId i)) =
+      evalS (InputS (InputId i)) =
         if i < dimX
         then return $! Data.Array.Convert.convert $ paramsXInit V.! i
         else error "derivativeFromDelta.eval': wrong index for an input"

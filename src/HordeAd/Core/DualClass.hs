@@ -161,7 +161,7 @@ instance (IsPrimalS d r, OS.Shape sh) => IsPrimal d (OS.Array sh r) where
 -- mode `DModeGradient`, it additionally admits delta-input
 -- introduction and binding as defined by the methods of the class.
 class HasInputs a where
-  dInput :: DeltaId a -> Dual 'DModeGradient a
+  dInput :: InputId a -> Dual 'DModeGradient a
 
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers

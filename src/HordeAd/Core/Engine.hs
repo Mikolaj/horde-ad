@@ -28,7 +28,7 @@ import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
 import HordeAd.Core.PairOfVectors (DualNumberInputs (..), makeDualNumberInputs)
 import HordeAd.Internal.Delta
-  (derivativeFromDelta, gradientFromDelta, toDeltaId)
+  (derivativeFromDelta, gradientFromDelta, toInputId)
 
 -- * Evaluation that does not collect deltas.
 -- It's intended for efficiently calculating the value of the function only.
@@ -215,7 +215,7 @@ generateDeltaInputs (params0, params1, params2, paramsX) =
   let intToInput
         :: forall a v. (IsPrimalAndHasFeatures 'DModeGradient a r, V.Vector v a)
         => v a -> Data.Vector.Vector (Dual 'DModeGradient a)
-      intToInput p = V.generate (V.length p) (dInput . toDeltaId)
+      intToInput p = V.generate (V.length p) (dInput . toInputId)
       !v0 = intToInput params0
       !v1 = intToInput params1
       !v2 = intToInput params2
