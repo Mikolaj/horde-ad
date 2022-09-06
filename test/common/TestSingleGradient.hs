@@ -416,15 +416,15 @@ grad f x =
   in fromDomains $ fst $ dReverseFun 1 g (toDomains x)
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
-class Adaptable d r fdr rs | fdr -> d rs, rs -> fdr where
+class Adaptable d r fdr rs | fdr -> d rs, d rs -> fdr where
   toDomains :: fdr -> Domains r
   fromDualNumberInputs :: DualNumberInputs d r -> fdr
   fromDomains :: Domains r -> rs
 
-instance IsScalar 'DModeGradient r
-         => Adaptable 'DModeGradient r ( DualNumber 'DModeGradient r
-                                       , DualNumber 'DModeGradient r
-                                       , DualNumber 'DModeGradient r ) (r, r, r) where
+instance IsScalar d r
+         => Adaptable d r ( DualNumber d r
+                          , DualNumber d r
+                          , DualNumber d r ) (r, r, r) where
   toDomains (D a _, D b _, D c _) =
     (V.fromList [a, b, c], V.empty, V.empty, V.empty)
   fromDualNumberInputs inputs = case atList0 inputs of
