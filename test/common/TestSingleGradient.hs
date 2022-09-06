@@ -1,5 +1,5 @@
-{-# LANGUAGE DataKinds, FlexibleInstances, MultiParamTypeClasses, RankNTypes,
-             TypeFamilies #-}
+{-# LANGUAGE DataKinds, FlexibleInstances, FunctionalDependencies,
+             MultiParamTypeClasses, RankNTypes, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 module TestSingleGradient (testTrees, finalCounter) where
 
@@ -396,33 +396,36 @@ testFoo :: Assertion
 testFoo =
   assertEqualUpToEps (1e-10 :: Double)
     (grad foo (1.1, 2.2, 3.3))
-    ( V.fromList [2.4396285219055063, -1.953374825727421, 0.9654825811012627]
-    , V.empty, V.empty, V.empty )
+    (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
 
-grad :: (HasDelta r, Adaptable r x)
-     => (x -> DualNumber 'DModeGradient r) -> x -> Domains r
+grad :: (HasDelta r, Adaptable r x rs)
+     => (x -> DualNumber 'DModeGradient r) -> x -> rs
 grad f x =
   let g inputs = f $ fromDualNumberInputs inputs
-  in fst $ dReverseFun 1 g (toDomains x)
+  in fromDomains $ fst $ dReverseFun 1 g (toDomains x)
 
--- Inspired by adapters from @tomjaguarpaw's branch.
-class Adaptable r fdr where
+-- Inspired by adaptors from @tomjaguarpaw's branch.
+class Adaptable r fdr rs | fdr -> rs, rs -> fdr where
   toDomains :: fdr -> Domains r
   fromDualNumberInputs :: DualNumberInputs 'DModeGradient r -> fdr
+  fromDomains :: Domains r -> rs
 
 instance IsScalar 'DModeGradient r
          => Adaptable r ( DualNumber 'DModeGradient r
                         , DualNumber 'DModeGradient r
-                        , DualNumber 'DModeGradient r ) where
+                        , DualNumber 'DModeGradient r ) (r, r, r) where
   toDomains (D a _, D b _, D c _) =
     (V.fromList [a, b, c], V.empty, V.empty, V.empty)
   fromDualNumberInputs inputs = case atList0 inputs of
     r1 : r2 : r3 : _ -> (r1, r2, r3)
     _ -> error "fromDualNumberInputs in Adaptable r (r, r, r)"
+  fromDomains (v, _, _, _) = case V.toList v of
+    r1 : r2 : r3 : _ -> (r1, r2, r3)
+    _ -> error "fromDualNumberInputs in Adaptable r (r, r, r)"
 
-assertEqualUpToEps :: Double -> Domains Double -> Domains Double -> Assertion
-assertEqualUpToEps _eps (x, _, _, _) (y, _, _, _) =  -- TODO: use the _eps instead of the default one
-  x @?~ y
+assertEqualUpToEps :: Double -> (Double, Double, Double) -> (Double, Double, Double) -> Assertion
+assertEqualUpToEps _eps (r1, r2, r3) (u1, u2, u3) =  -- TODO: use the _eps instead of the default one
+  r1 @?~ u1 >> r2 @?~ u2 >> r3 @?~ u3
 
 readmeTests0 :: TestTree
 readmeTests0 = testGroup "Simple tests of tuple-based code for README"
