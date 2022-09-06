@@ -18,7 +18,9 @@
 -- nor observed by any other module nor by users of the library.
 -- The @Show@ instance is the only way the impurity can be detected
 -- and so it should be used only in debugging or low-level testing context.
--- Similarly, instances such as @Eq@ or @Read@ should not be added.
+-- Similarly, instances such as @Eq@ or @Read@ should not be added,
+-- unless they are not auto-derived, but carefully crafted to respect sharing.
+-- This would be the case even without impurity, not to ruin sharing.
 module HordeAd.Core.DualClass
   ( IsPrimalWithScalar, IsPrimalAndHasFeatures, IsScalar, HasDelta
   , DMode(..), Dual, IsPrimal(..), HasRanks(..), HasInputs(..)
