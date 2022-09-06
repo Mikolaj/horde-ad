@@ -409,22 +409,22 @@ testBar =
     (grad bar (1.1, 2.2, 3.3))
     (6.221706565357043, -12.856908977773593, 6.043601532156671)
 
-grad :: (HasDelta r, Adaptable r x rs)
+grad :: (HasDelta r, Adaptable 'DModeGradient r x rs)
      => (x -> DualNumber 'DModeGradient r) -> x -> rs
 grad f x =
   let g inputs = f $ fromDualNumberInputs inputs
   in fromDomains $ fst $ dReverseFun 1 g (toDomains x)
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
-class Adaptable r fdr rs | fdr -> rs, rs -> fdr where
+class Adaptable d r fdr rs | fdr -> d rs, rs -> fdr where
   toDomains :: fdr -> Domains r
-  fromDualNumberInputs :: DualNumberInputs 'DModeGradient r -> fdr
+  fromDualNumberInputs :: DualNumberInputs d r -> fdr
   fromDomains :: Domains r -> rs
 
 instance IsScalar 'DModeGradient r
-         => Adaptable r ( DualNumber 'DModeGradient r
-                        , DualNumber 'DModeGradient r
-                        , DualNumber 'DModeGradient r ) (r, r, r) where
+         => Adaptable 'DModeGradient r ( DualNumber 'DModeGradient r
+                                       , DualNumber 'DModeGradient r
+                                       , DualNumber 'DModeGradient r ) (r, r, r) where
   toDomains (D a _, D b _, D c _) =
     (V.fromList [a, b, c], V.empty, V.empty, V.empty)
   fromDualNumberInputs inputs = case atList0 inputs of
