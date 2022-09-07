@@ -103,6 +103,9 @@ common options
   -- Disabling this breaks performance:
   ghc-options:        -fexpose-all-unfoldings -fspecialise-aggressively -fsimpl-tick-factor=200
 
+-- ghc-options: -fworker-wrapper-cbv  -- 10% speed up, but supposedly risky
+-- TODO: benchmark on big examples and include if speed up is much higher
+
   ghc-options:        -Wmissed-specialisations
 
   if flag(with_expensive_assertions)
