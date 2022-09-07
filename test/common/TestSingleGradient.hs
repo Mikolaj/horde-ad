@@ -441,6 +441,10 @@ testBaz =
 -- If terms are numbered and @z@ is, wrongly, decorated with number 0,
 -- here @fooConstant@ is likely to clash with @z@, since it was numbered
 -- starting from 0, too.
+-- The test fails if term numbering is reset to 0 between gradient computation
+-- runs (verified) as well as when delta-expression evaluation assumes
+-- it can only encounter terms numbered in the current run and,
+-- e.g., allocates an array with only that much space (not verified).
 -- Actually, with term counter zeroed just before @grad@ application,
 -- even a single @testBaz@ execution produces wrong results, but this test
 -- is likely to fail in less naive implementations, as well.
