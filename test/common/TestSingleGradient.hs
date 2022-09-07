@@ -409,6 +409,34 @@ testBar =
     (grad bar (1.1, 2.2, 3.3))
     (6.221706565357043, -12.856908977773593, 6.043601532156671)
 
+-- This test fails (not on first run, but on repetition) if old terms,
+-- from before current iteration of gradient descent, are not soundly
+-- handled in new computations (due to naive impurity, TH, plugins,
+-- or just following the papers that assume a single isolated run).
+-- This example requires monomorphic types and is contrived,
+-- but GHC does optimize and factor out some accidentally constant
+-- subterms in real examples (presumably after it monomorphizes them)
+-- causing exactly the same danger.
+-- This example also tests unused parameters (x), another common cause
+-- of crashes in naive gradient computing code.
+baz :: ( DualNumber 'DModeGradient Double
+       , DualNumber 'DModeGradient Double
+       , DualNumber 'DModeGradient Double )
+    -> DualNumber 'DModeGradient Double
+baz (_x,y,z) =
+  let w = fooConstant * bar (y,y,z) * sin y
+  in atan2 z w + z * w
+
+-- An "old term", computed once, stored at top level.
+fooConstant :: DualNumber 'DModeGradient Double
+fooConstant = foo (7, 8, 9)
+
+testBaz :: Assertion
+testBaz =
+  assertEqualUpToEps (1e-9 :: Double)
+    (grad baz (1.1, 2.2, 3.3))
+    (0, -5219.20995030263, 2782.276274462047)
+
 grad :: (HasDelta r, Adaptable r x rs)
      => (x -> DualNumber 'DModeGradient r) -> x -> rs
 grad f x =
@@ -444,4 +472,8 @@ readmeTests0 = testGroup "Simple tests of tuple-based code for README"
       testFoo
   , testCase "bar T Double (1.1, 2.2, 3.3)" $
       testBar
+  , testCase "baz old to force fooConstant" $
+      testBaz
+  , testCase "baz new to reuse fooConstant" $
+      testBaz
   ]
