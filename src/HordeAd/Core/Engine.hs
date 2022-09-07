@@ -73,7 +73,7 @@ dReverseGeneralFun
   -> (Domains r, r)
 -- The functions in which @dReverseGeneral@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
-{-# INLINE dReverseGeneral #-}
+{-# INLINE dReverseGeneralFun #-}
 dReverseGeneralFun dt inputs@DualNumberInputs{..} f =
   let dim0 = V.length inputPrimal0
       dim1 = V.length inputPrimal1
@@ -93,6 +93,7 @@ dReverseGeneral
   -> DualNumberInputs 'DModeGradient r
   -> (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
   -> IO (Domains r, r)
+{-# INLINE dReverseGeneral #-}
 dReverseGeneral dt inputs f = return $! dReverseGeneralFun dt inputs f
 
 dReverseFun
@@ -125,7 +126,7 @@ dForwardGeneralFun
   -> (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
   -> Domains r
   -> (r, r)
-{-# INLINE dForwardGeneral #-}
+{-# INLINE dForwardGeneralFun #-}
 dForwardGeneralFun inputs@DualNumberInputs{..} f ds =
   let dim0 = V.length inputPrimal0
       dim1 = V.length inputPrimal1
@@ -141,6 +142,7 @@ dForwardGeneral
   -> (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
   -> Domains r
   -> IO (r, r)
+{-# INLINE dForwardGeneral #-}
 dForwardGeneral inputs f ds = return $! dForwardGeneralFun inputs f ds
 
 -- The direction vector ds is taken as an extra argument.
