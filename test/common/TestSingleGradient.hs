@@ -409,6 +409,7 @@ testBar =
     (grad bar (1.1, 2.2, 3.3))
     (6.221706565357043, -12.856908977773593, 6.043601532156671)
 
+-- A check if gradient computation is re-entrant.
 -- This test fails (not on first run, but on repetition) if old terms,
 -- from before current iteration of gradient descent, are not soundly
 -- handled in new computations (due to naive impurity, TH, plugins,
@@ -436,6 +437,18 @@ testBaz =
   assertEqualUpToEps (1e-9 :: Double)
     (grad baz (1.1, 2.2, 3.3))
     (0, -5219.20995030263, 2782.276274462047)
+
+-- If terms are numbered and @z@ is, wrongly, decorated with number 0,
+-- here @fooConstant@ is likely to clash with @z@, since it was numbered
+-- starting from 0, too.
+-- Actually, with term counter zeroed just before @grad@ application,
+-- even a single @testBaz@ execution produces wrong results, but this test
+-- is likely to fail in less naive implementations, as well.
+testBazRenumbered :: Assertion
+testBazRenumbered =
+  assertEqualUpToEps (1e-9 :: Double)
+    (grad (\(x,y,z) -> z + baz (x,y,z)) (1.1, 2.2, 3.3))
+    (0, -5219.20995030263, 2783.276274462047)
 
 grad :: (HasDelta r, Adaptable r x rs)
      => (x -> DualNumber 'DModeGradient r) -> x -> rs
@@ -474,6 +487,8 @@ readmeTests0 = testGroup "Simple tests of tuple-based code for README"
       testBar
   , testCase "baz old to force fooConstant" $
       testBaz
-  , testCase "baz new to reuse fooConstant" $
+  , testCase "baz new to check if mere repetition breaks things" $
       testBaz
+  , testCase "baz again to use fooConstant with renumbered terms" $
+      testBazRenumbered
   ]
