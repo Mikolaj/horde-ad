@@ -25,11 +25,20 @@ import           System.Random
 -- until stylish-haskell accepts NoStarIsType
 import qualified GHC.TypeLits
 
+import HordeAd.Core.DualNumber
+
 type SizeMnistWidth = 28 :: Nat
-type SizeMnistHeight = SizeMnistWidth
 
 sizeMnistWidth :: Int
 sizeMnistWidth = valueOf @SizeMnistWidth
+
+sizeMnistWidth2 :: StaticNat SizeMnistWidth
+sizeMnistWidth2 = MkSN @SizeMnistWidth
+
+type SizeMnistHeight = SizeMnistWidth
+
+sizeMnistHeight2 :: StaticNat SizeMnistHeight
+sizeMnistHeight2 = MkSN @SizeMnistHeight
 
 type SizeMnistGlyph = SizeMnistWidth GHC.TypeLits.* SizeMnistHeight
 
@@ -37,6 +46,9 @@ sizeMnistGlyph :: Int
 sizeMnistGlyph = valueOf @SizeMnistGlyph
 
 type SizeMnistLabel = 10 :: Nat
+
+sizeMnistLabel2 :: StaticNat SizeMnistLabel
+sizeMnistLabel2 = MkSN @SizeMnistLabel
 
 sizeMnistLabel :: Int
 sizeMnistLabel = valueOf @SizeMnistLabel

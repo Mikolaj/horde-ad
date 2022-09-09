@@ -39,14 +39,17 @@ import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta
   (Domain0, Domain1, Domain2, DomainX, Domains, isTensorDummy)
 
--- | Sizes of tensor dimensions, packed for passing between functions
--- as witnesses of type variable values.
+-- | Sizes of tensor dimensions, of batches, etc., packed for passing
+-- between functions as witnesses of type variable values.
 data StaticNat (n :: Nat) where
   MkSN :: KnownNat n => StaticNat n
 
-staticNatValue :: forall n i . (KnownNat n, Num i) => StaticNat n -> i
+staticNatValue :: forall n i. (KnownNat n, Num i) => StaticNat n -> i
 {-# INLINE staticNatValue #-}
 staticNatValue = fromInteger . natVal
+
+staticNatFromProxy :: KnownNat n => Proxy n -> StaticNat n
+staticNatFromProxy Proxy = MkSN
 
 -- * The main dual number types
 

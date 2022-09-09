@@ -9,12 +9,10 @@ import Prelude
 import           Control.Arrow (first)
 import           Control.Monad (foldM)
 import qualified Data.Array.DynamicS as OT
-import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
-import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, SomeNat (..), someNatVal, type (<=))
+import           GHC.TypeLits (SomeNat (..), someNatVal, type (<=))
 import           Numeric.LinearAlgebra (Matrix, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           System.IO (hPutStrLn, stderr)
@@ -353,79 +351,71 @@ convMnistTestCNNP depth inputs parameters =
 convMnistTestCaseCNNT
   :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
             in_height in_width batch_size d r.
-     ( KnownNat kheight_minus_1, KnownNat kwidth_minus_1
-     , KnownNat num_hidden, KnownNat out_channels
-     , KnownNat in_height, KnownNat in_width, KnownNat batch_size
-     , 1 <= kheight_minus_1
+     ( 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
      , r ~ Double, d ~ 'DModeGradient )
-  => String
+  => StaticNat kheight_minus_1 -> StaticNat kwidth_minus_1
+  -> StaticNat num_hidden
+  -> StaticNat out_channels
+  -> StaticNat in_height -> StaticNat in_width
+  -> StaticNat batch_size
+  -> String
   -> Int
   -> Int
   -> (forall kheight_minus_1' kwidth_minus_1' num_hidden' out_channels'
              in_height' in_width' batch_size'.
-      ( KnownNat kheight_minus_1', KnownNat kwidth_minus_1'
-      , KnownNat num_hidden', KnownNat out_channels'
-      , KnownNat in_height', KnownNat in_width', KnownNat batch_size'
-      , 1 <= kheight_minus_1'
+      ( 1 <= kheight_minus_1'
       , 1 <= kwidth_minus_1'
       , IsScalar d r )
-      => Proxy kheight_minus_1'
-      -> Proxy kwidth_minus_1'
-      -> Proxy num_hidden'
-      -> Proxy out_channels'
+      => StaticNat kheight_minus_1' -> StaticNat kwidth_minus_1'
+      -> StaticNat num_hidden'
+      -> StaticNat out_channels'
+      -> StaticNat in_height' -> StaticNat in_width'
+      -> StaticNat batch_size'
       -> ( OS.Array '[batch_size', in_height', in_width'] r
          , OS.Array '[batch_size', SizeMnistLabel] r )
       -> DualNumberInputs d r
       -> DualNumber d r)
   -> (forall kheight_minus_1' kwidth_minus_1' num_hidden' out_channels'
              in_height' in_width'.
-      ( KnownNat kheight_minus_1', KnownNat kwidth_minus_1'
-      , KnownNat num_hidden', KnownNat out_channels'
-      , KnownNat in_height', KnownNat in_width'
-      , 1 <= kheight_minus_1'
+      ( 1 <= kheight_minus_1'
       , 1 <= kwidth_minus_1'
       , IsScalar d r )
-      => Proxy kheight_minus_1'
-      -> Proxy kwidth_minus_1'
-      -> Proxy num_hidden'
-      -> Proxy out_channels'
+      => StaticNat kheight_minus_1' -> StaticNat kwidth_minus_1'
+      -> StaticNat num_hidden'
+      -> StaticNat out_channels'
+      -> StaticNat in_height' -> StaticNat in_width'
       -> [( OS.Array '[in_height', in_width'] r
           , OS.Array '[SizeMnistLabel] r )]
       -> Domains r
       -> r)
   -> (forall kheight_minus_1' kwidth_minus_1' num_hidden' out_channels'
              in_height' in_width'.
-      ( KnownNat kheight_minus_1', KnownNat kwidth_minus_1'
-      , KnownNat num_hidden', KnownNat out_channels'
-      , KnownNat in_height', KnownNat in_width' )
-      => Proxy kheight_minus_1'
-      -> Proxy kwidth_minus_1'
-      -> Proxy num_hidden'
-      -> Proxy out_channels'
-      -> Proxy in_height'
-      -> Proxy in_width'
+         StaticNat kheight_minus_1' -> StaticNat kwidth_minus_1'
+      -> StaticNat num_hidden'
+      -> StaticNat out_channels'
+      -> StaticNat in_height' -> StaticNat in_width'
       -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
   -> Double
   -> Double
   -> TestTree
-convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
+convMnistTestCaseCNNT kheight_minus_1@MkSN kwidth_minus_1@MkSN
+                      num_hidden@MkSN
+                      out_channels@MkSN
+                      in_height@MkSN in_width@MkSN
+                      batch_size@MkSN
+                      prefix epochs maxBatches trainWithLoss ftest flen
                       gamma expected =
-  let proxy_kheight_minus_1 = Proxy @kheight_minus_1
-      proxy_kwidth_minus_1 = Proxy @kwidth_minus_1
-      proxy_num_hidden = Proxy @num_hidden
-      proxy_out_channels  = Proxy @out_channels
-      proxy_in_height = Proxy @in_height
-      proxy_in_width = Proxy @in_width
-      batch_size = valueOf @batch_size
+  let batchSize = staticNatValue batch_size :: Int
       ((_, _, _, nParamsX), totalParams, range, parametersInit) =
         initializerFixed 44 0.05
-          (flen proxy_kheight_minus_1 proxy_kwidth_minus_1
-                proxy_num_hidden proxy_out_channels
-                proxy_in_height proxy_in_width)
+          (flen kheight_minus_1 kwidth_minus_1
+                num_hidden out_channels
+                in_height in_width)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
-                        , show (valueOf @num_hidden :: Int), show batch_size
+                        , show (staticNatValue num_hidden :: Int)
+                        , show batchSize
                         , show nParamsX, show totalParams
                         , show gamma, show range ]
       packBatchS :: [( OS.Array '[in_height, in_width] r
@@ -453,17 +443,21 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
                            , OS.Array '[SizeMnistLabel] r )])
                  -> IO (Domains r)
         runBatch parameters@(!_, !_, !_, !_) (k, chunk) = do
-          let f = trainWithLoss proxy_kheight_minus_1 proxy_kwidth_minus_1
-                                proxy_num_hidden proxy_out_channels
+          let f = trainWithLoss kheight_minus_1 kwidth_minus_1
+                                num_hidden out_channels
+                                in_height in_width
+                                batch_size
               chunkS = map packBatchS
-                       $ filter (\ch -> length ch >= batch_size)
-                       $ chunksOf batch_size chunk
+                       $ filter (\ch -> length ch >= batchSize)
+                       $ chunksOf batchSize chunk
           res <- fst <$> sgd gamma f chunkS parameters
-          let !trainScore = ftest proxy_kheight_minus_1 proxy_kwidth_minus_1
-                                  proxy_num_hidden proxy_out_channels
+          let !trainScore = ftest kheight_minus_1 kwidth_minus_1
+                                  num_hidden out_channels
+                                  in_height in_width
                                   chunk res
-              !testScore = ftest proxy_kheight_minus_1 proxy_kwidth_minus_1
-                                 proxy_num_hidden proxy_out_channels
+              !testScore = ftest kheight_minus_1 kwidth_minus_1
+                                 num_hidden out_channels
+                                 in_height in_width
                                  testData res
               !lenChunk = length chunk
           hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
@@ -477,13 +471,14 @@ convMnistTestCaseCNNT prefix epochs maxBatches trainWithLoss ftest flen
           let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
               chunks = take maxBatches
                        $ zip [1 ..]
-                       $ chunksOf (2 * batch_size) trainDataShuffled
-                           -- TODO: (10 * batch_size) takes forever
+                       $ chunksOf (2 * batchSize) trainDataShuffled
+                           -- TODO: (10 * batchSize) takes forever
           !res <- foldM runBatch params2 chunks
           runEpoch (succ n) res
     res <- runEpoch 1 parametersInit
-    let testErrorFinal = 1 - ftest proxy_kheight_minus_1 proxy_kwidth_minus_1
-                                   proxy_num_hidden proxy_out_channels
+    let testErrorFinal = 1 - ftest kheight_minus_1 kwidth_minus_1
+                                   num_hidden out_channels
+                                   in_height in_width
                                    testData res
     testErrorFinal @?~ expected
 
@@ -498,7 +493,9 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
   , -}convMnistTestCaseCNN "P artificial 5 4 3 2 1" 5 4
                          convMnistLossCNNP convMnistTestCNNP final_image_size
                          3 2 1 0.8991
-  , convMnistTestCaseCNNT @4 @4 @2 @3 @SizeMnistHeight @SizeMnistWidth @1
+  , convMnistTestCaseCNNT (MkSN @4) (MkSN @4) (MkSN @2) (MkSN @3)
+                          (MkSN @SizeMnistHeight) (MkSN @SizeMnistWidth)
+                          (MkSN @1)
                           "T artificial 5 4 3 2 1" 5 4
                           convMnistLossFusedS convMnistTestS convMnistLenS
                           0.02 0.98
@@ -544,7 +541,9 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                          final_image_size depth0 num_hidden0
                          0.02 2.7000000000000024e-2
 -}
-  , convMnistTestCaseCNNT @4 @4 @64 @16 @SizeMnistHeight @SizeMnistWidth @16
+  , convMnistTestCaseCNNT (MkSN @4) (MkSN @4) (MkSN @64) (MkSN @16)
+                          (MkSN @SizeMnistHeight) (MkSN @SizeMnistWidth)
+                          (MkSN @16)
                           "T1 epoch 1 batch" 1 1
                           convMnistLossFusedS convMnistTestS convMnistLenS
                           0.02 0.8200000000000001
@@ -561,7 +560,9 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
   , convMnistTestCaseCNN "P artificial 1 1 1 1 1" 1 1
                          convMnistLossCNNP convMnistTestCNNP final_image_size
                          1 1 1 0.9026
-  , convMnistTestCaseCNNT @4 @4 @1 @1 @SizeMnistHeight @SizeMnistWidth @1
+  , convMnistTestCaseCNNT (MkSN @4) (MkSN @4) (MkSN @1) (MkSN @1)
+                          (MkSN @SizeMnistHeight) (MkSN @SizeMnistWidth)
+                          (MkSN @1)
                           "T artificial 1 1 1 1 1" 1 1
                           convMnistLossFusedS convMnistTestS convMnistLenS
                           1 0.85
@@ -576,7 +577,9 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
                          convMnistLossCNNP convMnistTestCNNP final_image_size
                          3 4 5 0.8972
 -}
-  , convMnistTestCaseCNNT @4 @4 @4 @3 @SizeMnistHeight @SizeMnistWidth @5
+  , convMnistTestCaseCNNT (MkSN @4) (MkSN @4) (MkSN @4) (MkSN @3)
+                          (MkSN @SizeMnistHeight) (MkSN @SizeMnistWidth)
+                          (MkSN @5)
                           "T artificial 1 2 3 4 5" 1 2
                           convMnistLossFusedS convMnistTestS convMnistLenS
                           6 0.92
@@ -645,8 +648,11 @@ comparisonTests volume =
                       , someNatVal $ toInteger depth ) of
               ( Just (SomeNat proxy_num_hidden)
                ,Just (SomeNat proxy_out_channel) ) ->
-                convMnistLossFusedS (Proxy @4) (Proxy @4)
-                                    proxy_num_hidden proxy_out_channel
+                convMnistLossFusedS (MkSN @4) (MkSN @4)
+                                    (staticNatFromProxy proxy_num_hidden)
+                                    (staticNatFromProxy proxy_out_channel)
+                                    sizeMnistHeight2 sizeMnistWidth2
+                                    (MkSN @1)
                                     (packBatch @1 [shapeBatch
                                                   $ first HM.flatten mnistData])
               _ -> error "fT panic"
