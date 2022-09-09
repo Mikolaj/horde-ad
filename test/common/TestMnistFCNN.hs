@@ -823,41 +823,41 @@ fusedMnistTests = testGroup "MNIST fused LL tests with a 2-hidden-layer nn"
                     0.8972
   , mnistTestCase2L "artificial 5 4 3 2 1" 5 4 fcnnMnistLossFused2 3 2 1
                     0.7033
-  , mnistTestCase2S (MkStaticNat @300) (MkStaticNat @100)
+  , mnistTestCase2S (MkSN @300) (MkSN @100)
                     "S 1 epoch, 1 batch" 1 1 fcnnMnistLossFusedS 0.02
                     0.1311
-  , mnistTestCase2S (MkStaticNat @500) (MkStaticNat @150)
+  , mnistTestCase2S (MkSN @500) (MkSN @150)
                     "S 1 epoch, 1 batch, wider" 1 1 fcnnMnistLossFusedS 0.02
                     0.12470000000000003
-  , mnistTestCase2S (MkStaticNat @300) (MkStaticNat @100)
+  , mnistTestCase2S (MkSN @300) (MkSN @100)
                     "S 2 epochs, but only 1 batch" 2 1 fcnnMnistLossFusedS 0.02
                     9.630000000000005e-2
-  , mnistTestCase2S (MkStaticNat @300) (MkStaticNat @100)
+  , mnistTestCase2S (MkSN @300) (MkSN @100)
                     "S 1 epoch, all batches" 1 99 fcnnMnistLossFusedS 0.02
                     5.620000000000003e-2
-  , mnistTestCase2S (MkStaticNat @3) (MkStaticNat @4)
+  , mnistTestCase2S (MkSN @3) (MkSN @4)
                     "S artificial 1 2 3 4 5" 1 2 fcnnMnistLossFusedS 5
                     0.8972
-  , mnistTestCase2S (MkStaticNat @3) (MkStaticNat @2)
+  , mnistTestCase2S (MkSN @3) (MkSN @2)
                     "S artificial 5 4 3 2 1" 5 4 fcnnMnistLossFusedS 1
                     0.8246
-  , mnistTestCase2S (MkStaticNat @300) (MkStaticNat @100)
+  , mnistTestCase2S (MkSN @300) (MkSN @100)
                     "SR 1 epoch, 1 batch" 1 1 fcnnMnistLossFusedReluS 0.02
                     0.7068
-  , mnistTestCase2S (MkStaticNat @500) (MkStaticNat @150)
+  , mnistTestCase2S (MkSN @500) (MkSN @150)
                     "SR 1 epoch, 1 batch, wider" 1 1
                     fcnnMnistLossFusedReluS 0.02
                     0.8874
-  , mnistTestCase2S (MkStaticNat @300) (MkStaticNat @100)
+  , mnistTestCase2S (MkSN @300) (MkSN @100)
                     "SR 2 epochs, but 1 batch" 2 1 fcnnMnistLossFusedReluS 0.02
                     0.8352999999999999
-  , mnistTestCase2S (MkStaticNat @300) (MkStaticNat @100)
+  , mnistTestCase2S (MkSN @300) (MkSN @100)
                     "SR 1 epoch, all batches" 1 99 fcnnMnistLossFusedReluS 0.02
                     0.6415
-  , mnistTestCase2S (MkStaticNat @3) (MkStaticNat @4)
+  , mnistTestCase2S (MkSN @3) (MkSN @4)
                     "SR artificial 1 2 3 4 5" 1 2 fcnnMnistLossFusedReluS 5
                     0.8972
-  , mnistTestCase2S (MkStaticNat @3) (MkStaticNat @2)
+  , mnistTestCase2S (MkSN @3) (MkSN @2)
                     "SR artificial 5 4 3 2 1" 5 4 fcnnMnistLossFusedReluS 1
                     0.8991
   ]
@@ -893,19 +893,19 @@ shortCIMnistTests = testGroup "Short CI MNIST tests"
                     "fused DL artificial 5 4 3 2 1" 5 4
                     fcnnMnistLossFused2 3 2 1
                     0.8991
-  , mnistTestCase2S (MkStaticNat @300) (MkStaticNat @100)
+  , mnistTestCase2S (MkSN @300) (MkSN @100)
                     "S 1 epoch, 1 batch" 1 1 fcnnMnistLossFusedS 0.02
                     0.1311
-  , mnistTestCase2S (MkStaticNat @3) (MkStaticNat @4)
+  , mnistTestCase2S (MkSN @3) (MkSN @4)
                     "S artificial 1 2 3 4 5" 1 2 fcnnMnistLossFusedS 5
                     0.8972
-  , mnistTestCase2S (MkStaticNat @3) (MkStaticNat @2)
+  , mnistTestCase2S (MkSN @3) (MkSN @2)
                     "S artificial 5 4 3 2 1" 5 4 fcnnMnistLossFusedS 1
                     0.8246
-  , mnistTestCase2S (MkStaticNat @3) (MkStaticNat @4)
+  , mnistTestCase2S (MkSN @3) (MkSN @4)
                     "SR artificial 1 2 3 4 5" 1 2 fcnnMnistLossFusedReluS 5
                     0.8972
-  , mnistTestCase2S (MkStaticNat @3) (MkStaticNat @2)
+  , mnistTestCase2S (MkSN @3) (MkSN @2)
                     "SR artificial 5 4 3 2 1" 5 4 fcnnMnistLossFusedReluS 1
                     0.8991
   ]

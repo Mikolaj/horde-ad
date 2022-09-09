@@ -41,7 +41,7 @@ fcnnMnistLayersS
   -> DualNumber d (OS.Array '[SizeMnistLabel, widthHidden2] r)
   -> DualNumber d (OS.Array '[SizeMnistLabel] r)
   -> DualNumber d (OS.Array '[SizeMnistLabel] r)
-fcnnMnistLayersS MkStaticNat MkStaticNat factivationHidden datum
+fcnnMnistLayersS MkSN MkSN factivationHidden datum
                  weightsL0 biasesV0 weightsL1 biasesV1 weightsL2 biasesV2 =
   let !_A = assert (sizeMnistGlyph == OS.size datum) ()
       hiddenLayer1 = weightsL0 #>$ constant datum + biasesV0
@@ -57,7 +57,7 @@ fcnnMnistLenS
   :: forall widthHidden widthHidden2.
       StaticNat widthHidden -> StaticNat widthHidden2
   -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
-fcnnMnistLenS MkStaticNat MkStaticNat =
+fcnnMnistLenS MkSN MkSN =
   ( 0
   , []
   , []
@@ -79,7 +79,7 @@ fcnnMnistS
   -> DualNumberInputs d r
   -> DualNumber d (OS.Array '[SizeMnistLabel] r)
 {-# INLINE fcnnMnistS #-}
-fcnnMnistS widthHidden@MkStaticNat widthHidden2@MkStaticNat
+fcnnMnistS widthHidden@MkSN widthHidden2@MkSN
            factivationHidden datum inputs =
   let weightsL0 = atS inputs 0
       biasesV0 = atS inputs 1

@@ -42,7 +42,7 @@ import HordeAd.Internal.Delta
 -- | Sizes of tensor dimensions, packed for passing between functions
 -- as witnesses of type variable values.
 data StaticNat (n :: Nat) where
-  MkStaticNat :: KnownNat n => StaticNat n
+  MkSN :: KnownNat n => StaticNat n
 
 staticNatValue :: forall n i . (KnownNat n, Num i) => StaticNat n -> i
 {-# INLINE staticNatValue #-}
