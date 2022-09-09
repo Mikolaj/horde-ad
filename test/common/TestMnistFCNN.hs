@@ -559,8 +559,8 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           params0 = V.replicate nParams0 (1 :: Float)
           params1 = V.map (`V.replicate` 2) vParams1
           params2 = V.map (HM.konst 3) vParams2
-          blackGlyph = V.replicate sizeMnistGlyph 4
-          blackLabel = V.replicate sizeMnistLabel 5
+          blackGlyph = V.replicate sizeMnistGlyphInt 4
+          blackLabel = V.replicate sizeMnistLabelInt 5
           trainData = (blackGlyph, blackLabel)
           output = prettyPrintDf (fcnnMnistLoss2 trainData)
                                  (params0, params1, params2, V.empty)
@@ -573,8 +573,8 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           params0 = V.replicate nParams0 (1 :: Float)
           params1 = V.map (`V.replicate` 2) vParams1
           params2 = V.map (HM.konst 3) vParams2
-          blackGlyph = V.replicate sizeMnistGlyph 4
-          blackLabel = V.replicate sizeMnistLabel 5
+          blackGlyph = V.replicate sizeMnistGlyphInt 4
+          blackLabel = V.replicate sizeMnistLabelInt 5
           trainData = (blackGlyph, blackLabel)
           output = prettyPrintDf (fcnnMnistLossFused2 trainData)
                                  (params0, params1, params2, V.empty)
@@ -587,23 +587,23 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           output = prettyPrintDf (fcnnMnistLoss2 trainDataItem) parameters0
       -- printf "%s" output
       length output @?= 200544
-  , let blackGlyph = V.replicate sizeMnistGlyph 0
-        blackLabel = V.replicate sizeMnistLabel 0
+  , let blackGlyph = V.replicate sizeMnistGlyphInt 0
+        blackLabel = V.replicate sizeMnistLabelInt 0
         trainData = replicate 10 (blackGlyph, blackLabel)
     in sgdTestCase "black"
          (return trainData) fcnnMnistLoss0 0.02 (-0.0)
-  , let whiteGlyph = V.replicate sizeMnistGlyph 1
-        whiteLabel = V.replicate sizeMnistLabel 1
+  , let whiteGlyph = V.replicate sizeMnistGlyphInt 1
+        whiteLabel = V.replicate sizeMnistLabelInt 1
         trainData = replicate 20 (whiteGlyph, whiteLabel)
     in sgdTestCase "white"
          (return trainData) fcnnMnistLoss0 0.02 23.02585095418536
-  , let blackGlyph = V.replicate sizeMnistGlyph 0
-        whiteLabel = V.replicate sizeMnistLabel 1
+  , let blackGlyph = V.replicate sizeMnistGlyphInt 0
+        whiteLabel = V.replicate sizeMnistLabelInt 1
         trainData = replicate 50 (blackGlyph, whiteLabel)
     in sgdTestCase "black/white"
          (return trainData) fcnnMnistLoss0 0.02 23.025850929940457
-  , let glyph = V.unfoldrExactN sizeMnistGlyph (uniformR (0, 1))
-        label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
+  , let glyph = V.unfoldrExactN sizeMnistGlyphInt (uniformR (0, 1))
+        label = V.unfoldrExactN sizeMnistLabelInt (uniformR (0, 1))
         trainData = map ((\g -> (glyph g, label g)) . mkStdGen) [1 .. 100]
     in sgdTestCase "random 100"
          (return trainData) fcnnMnistLoss0 0.02 11.089140063760212
@@ -641,8 +641,8 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       forAll (choose (0.01, 10)) $ \range ->
       forAll (choose (0.01, 10)) $ \rangeDs ->
         let createRandomVector n seedV = HM.randomVector seedV HM.Uniform n
-            glyph = createRandomVector sizeMnistGlyph seed
-            label = createRandomVector sizeMnistLabel seedDs
+            glyph = createRandomVector sizeMnistGlyphInt seed
+            label = createRandomVector sizeMnistLabelInt seedDs
             mnistData :: MnistData Double
             mnistData = (glyph, label)
             nParams0 = fcnnMnistLen0 widthHidden widthHidden2
@@ -662,8 +662,8 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       forAll (choose (0.01, 0.5)) $ \range ->  -- large nn, so NaNs fast
       forAll (choose (0.01, 10)) $ \rangeDs ->
         let createRandomVector n seedV = HM.randomVector seedV HM.Uniform n
-            glyph = createRandomVector sizeMnistGlyph seed
-            label = createRandomVector sizeMnistLabel seedDs
+            glyph = createRandomVector sizeMnistGlyphInt seed
+            label = createRandomVector sizeMnistLabelInt seedDs
             mnistData :: MnistData Double
             mnistData = (glyph, label)
             paramShape = fcnnMnistLen1 widthHidden widthHidden2
@@ -677,15 +677,15 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
         in ioProperty $ qcPropDom f parameters ds parametersPerturbation 1
   , testProperty "Compare two forward derivatives and gradient for Mnist2" $
       \seed ->
-      forAll (choose (0, sizeMnistLabel - 1)) $ \seedDs ->
+      forAll (choose (0, sizeMnistLabelInt - 1)) $ \seedDs ->
       forAll (choose (1, 5000)) $ \widthHidden ->
       forAll (choose (1, 1000)) $ \widthHidden2 ->
       forAll (choose (0.01, 1)) $ \range ->
       forAll (choose (0.01, 10)) $ \rangeDs ->
         let createRandomVector n seedV = HM.randomVector seedV HM.Uniform n
-            glyph = createRandomVector sizeMnistGlyph seed
-            label = createRandomVector sizeMnistLabel seedDs
-            labelOneHot = HM.konst 0 sizeMnistLabel V.// [(seedDs, 1)]
+            glyph = createRandomVector sizeMnistGlyphInt seed
+            label = createRandomVector sizeMnistLabelInt seedDs
+            labelOneHot = HM.konst 0 sizeMnistLabelInt V.// [(seedDs, 1)]
             mnistData, mnistDataOneHot :: MnistData Double
             mnistData = (glyph, label)
             mnistDataOneHot = (glyph, labelOneHot)

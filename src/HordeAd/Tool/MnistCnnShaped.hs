@@ -211,7 +211,7 @@ convMnistLossFusedS
       result = convMnistS kheight_minus_1 kwidth_minus_1 num_hidden out_channels
                           in_height in_width batch_size
                           xs inputs
-      targets2 = HM.tr $ HM.reshape (staticNatValue sizeMnistLabel2 :: Int)
+      targets2 = HM.tr $ HM.reshape (staticNatValue sizeMnistLabel :: Int)
                        $ OS.toVector labelS
       vec = lossSoftMaxCrossEntropyL targets2 (fromS2 result)
   in scale (recip $ fromIntegral (staticNatValue batch_size :: Int))

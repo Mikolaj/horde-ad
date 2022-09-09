@@ -877,8 +877,8 @@ mnistRNNTestsLong = testGroup "MNIST RNN long tests"
 
 mnistRNNTestsShort :: TestTree
 mnistRNNTestsShort = testGroup "MNIST RNN short tests"
-  [ let glyph = V.unfoldrExactN sizeMnistGlyph (uniformR (0, 1))
-        label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
+  [ let glyph = V.unfoldrExactN sizeMnistGlyphInt (uniformR (0, 1))
+        label = V.unfoldrExactN sizeMnistLabelInt (uniformR (0, 1))
         rws v = map (\k -> V.slice (k * 28) 28 v) [0 .. 27]
         trainData = map ((\g -> (rws (glyph g), label g)) . mkStdGen) [1 .. 140]
     in sgdTestCaseAlt "randomLL 140"
@@ -900,8 +900,8 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
   , mnistTestCaseRNNB "1BB 1 epoch, 1 batch" 1 1
                       nnMnistRNNLossB testMnistRNNL lenMnistRNNL 128 1
                       0.2845
-  , let glyph = V.unfoldrExactN sizeMnistGlyph (uniformR (0, 1))
-        label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
+  , let glyph = V.unfoldrExactN sizeMnistGlyphInt (uniformR (0, 1))
+        label = V.unfoldrExactN sizeMnistLabelInt (uniformR (0, 1))
         rws v = map (\k -> V.slice (k * 28) 28 v) [0 .. 27]
         trainData = map ((\g -> (rws (glyph g), label g)) . mkStdGen) [1 .. 140]
     in sgdTestCaseAlt "randomLL2 140"
@@ -923,8 +923,8 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
   , mnistTestCaseRNNB "1BB2 1 epoch, 1 batch" 1 1
                       nnMnistRNNLossB2 testMnistRNNL2 lenMnistRNNL 128 2
                       0.2945
-  , let glyph = V.unfoldrExactN sizeMnistGlyph (uniformR (0, 1))
-        label = V.unfoldrExactN sizeMnistLabel (uniformR (0, 1))
+  , let glyph = V.unfoldrExactN sizeMnistGlyphInt (uniformR (0, 1))
+        label = V.unfoldrExactN sizeMnistLabelInt (uniformR (0, 1))
         rws v = map (\k -> V.slice (k * 28) 28 v) [0 .. 27]
         trainData = map ((\g -> (rws (glyph g), label g)) . mkStdGen) [1 .. 100]
     in sgdTestCase "randomVV 100"

@@ -22,10 +22,10 @@ import HordeAd.Tool.MnistData
 fcnnMnistLen2 :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
 fcnnMnistLen2 widthHidden widthHidden2 =
   ( 0
-  , [widthHidden, widthHidden2, sizeMnistLabel]
-  , [ (widthHidden, sizeMnistGlyph)
+  , [widthHidden, widthHidden2, sizeMnistLabelInt]
+  , [ (widthHidden, sizeMnistGlyphInt)
     , (widthHidden2, widthHidden)
-    , (sizeMnistLabel, widthHidden2) ]
+    , (sizeMnistLabelInt, widthHidden2) ]
   , []
   )
 
@@ -43,7 +43,7 @@ fcnnMnist2 :: forall d r. IsScalar d r
            -> DualNumberInputs d r
            -> DualNumber d (Vector r)
 fcnnMnist2 factivationHidden factivationOutput datum inputs =
-  let !_A = assert (sizeMnistGlyph == V.length datum) ()
+  let !_A = assert (sizeMnistGlyphInt == V.length datum) ()
       weightsL0 = at2 inputs 0
       biasesV0 = at1 inputs 0
       weightsL1 = at2 inputs 1

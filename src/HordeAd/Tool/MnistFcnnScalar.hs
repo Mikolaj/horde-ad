@@ -98,9 +98,9 @@ outputLayerMnist factivation hiddenVec offset inputs width =
 
 fcnnMnistLen0 :: Int -> Int -> Int
 fcnnMnistLen0 widthHidden widthHidden2 =
-  widthHidden * (sizeMnistGlyph + 1)
+  widthHidden * (sizeMnistGlyphInt + 1)
   + widthHidden2 * (widthHidden + 1)
-  + sizeMnistLabel * (widthHidden2 + 1)
+  + sizeMnistLabelInt * (widthHidden2 + 1)
 
 -- | Fully connected neural network for the MNIST digit classification task.
 -- There are two hidden layers and both use the same activation function.
@@ -119,15 +119,15 @@ fcnnMnist0 :: forall d r. IsScalar d r
            -> Data.Vector.Vector (DualNumber d r)
 fcnnMnist0 factivationHidden factivationOutput widthHidden widthHidden2
            datum inputs =
-  let !_A = assert (sizeMnistGlyph == V.length datum) ()
+  let !_A = assert (sizeMnistGlyphInt == V.length datum) ()
       layer1 = inline hiddenLayerMnist factivationHidden datum
                                        inputs widthHidden
-      offsetMiddle = widthHidden * (sizeMnistGlyph + 1)
+      offsetMiddle = widthHidden * (sizeMnistGlyphInt + 1)
       layer2 = inline middleLayerMnist factivationHidden layer1
                                        offsetMiddle inputs widthHidden2
       offsetOutput = offsetMiddle + widthHidden2 * (widthHidden + 1)
   in inline outputLayerMnist factivationOutput layer2
-                             offsetOutput inputs sizeMnistLabel
+                             offsetOutput inputs sizeMnistLabelInt
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.

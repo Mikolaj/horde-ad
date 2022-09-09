@@ -54,9 +54,9 @@ sumConstantDataL x offset inputs width =
 fcnnMnistLen1 :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
 fcnnMnistLen1 widthHidden widthHidden2 =
   ( 0
-  , replicate widthHidden sizeMnistGlyph ++ [widthHidden]
+  , replicate widthHidden sizeMnistGlyphInt ++ [widthHidden]
     ++ replicate widthHidden2 widthHidden ++ [widthHidden2]
-    ++ replicate sizeMnistLabel widthHidden2 ++ [sizeMnistLabel]
+    ++ replicate sizeMnistLabelInt widthHidden2 ++ [sizeMnistLabelInt]
   , []
   , []
   )
@@ -78,7 +78,7 @@ fcnnMnist1 :: forall d r. IsScalar d r
            -> DualNumber d (Vector r)
 fcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
           datum inputs =
-  let !_A = assert (sizeMnistGlyph == V.length datum) ()
+  let !_A = assert (sizeMnistGlyphInt == V.length datum) ()
       hiddenLayer1 = sumConstantDataL datum 0 inputs widthHidden
                      + at1 inputs widthHidden  -- bias
       nonlinearLayer1 = factivationHidden hiddenLayer1
@@ -89,8 +89,8 @@ fcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
       nonlinearLayer2 = factivationHidden hiddenLayer2
       offsetOutput = offsetMiddle + widthHidden2 + 1
       outputLayer = sumTrainableInputsL nonlinearLayer2 offsetOutput
-                                        inputs sizeMnistLabel
-                    + at1 inputs (offsetOutput + sizeMnistLabel)  -- bias
+                                        inputs sizeMnistLabelInt
+                    + at1 inputs (offsetOutput + sizeMnistLabelInt)  -- bias
   in factivationOutput outputLayer
 
 -- | The neural network applied to concrete activation functions

@@ -57,10 +57,10 @@ final_image_size = 10  -- if size was not increased: 7, see below
 lenMnistCNN :: Int -> Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
 lenMnistCNN final_image_sz depth num_hidden =
   ( depth + depth
-  , [num_hidden, sizeMnistLabel]
+  , [num_hidden, sizeMnistLabelInt]
   , replicate (depth + depth * depth) (patch_size, patch_size)
     ++ [(num_hidden, final_image_sz * final_image_sz * depth)]
-    ++ [(sizeMnistLabel, num_hidden)]
+    ++ [(sizeMnistLabelInt, num_hidden)]
   , []
   )
 
@@ -625,14 +625,14 @@ comparisonTests volume =
            .&&. cmpTwoSimple f fP parameters ds
   , testProperty "Compare gradients and two forward derivatives for 3 implementations of CNN MNIST" $
       \seed ->
-      forAll (choose (0, sizeMnistLabel - 1)) $ \seedDs ->
+      forAll (choose (0, sizeMnistLabelInt - 1)) $ \seedDs ->
       forAll (choose (1, volume)) $ \depth ->
       forAll (choose (1, volume)) $ \num_hidden ->
       forAll (choose (0.01, 0.5)) $ \range ->
       forAll (choose (0.01, 10)) $ \rangeDs ->
         let createRandomVector n seedV = HM.randomVector seedV HM.Uniform n
             glyph = HM.reshape 28 $ createRandomVector (28 * 28) seed
-            label = HM.konst 0 sizeMnistLabel V.// [(seedDs, 1)]
+            label = HM.konst 0 sizeMnistLabelInt V.// [(seedDs, 1)]
             mnistData :: MnistData2 Double
             mnistData = (glyph, label)
             paramShape = lenMnistCNN final_image_size depth num_hidden
@@ -651,7 +651,7 @@ comparisonTests volume =
                 convMnistLossFusedS (MkSN @4) (MkSN @4)
                                     (staticNatFromProxy proxy_num_hidden)
                                     (staticNatFromProxy proxy_out_channel)
-                                    sizeMnistHeight2 sizeMnistWidth2
+                                    sizeMnistHeight sizeMnistWidth
                                     (MkSN @1)
                                     (packBatch @1 [shapeBatch
                                                   $ first HM.flatten mnistData])
@@ -670,10 +670,10 @@ comparisonTests volume =
                       in OT.fromVector [num_hidden, HM.cols m]
                          $ HM.flatten m
                     , OT.fromVector [num_hidden] $ p1 V.! 0
-                    , OT.fromVector [sizeMnistLabel, num_hidden]
+                    , OT.fromVector [sizeMnistLabelInt, num_hidden]
                       $ HM.flatten
                       $ p2 V.! (depth + depth * depth + 1)
-                    , OT.fromVector [sizeMnistLabel] $ p1 V.! 1
+                    , OT.fromVector [sizeMnistLabelInt] $ p1 V.! 1
                     ]
               in (V.empty, V.empty, V.empty, qX)
             parametersT = paramsToT parameters

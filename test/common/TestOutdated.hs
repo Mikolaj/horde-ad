@@ -727,7 +727,7 @@ sgdTestCase prefix trainDataIO trainWithLoss gamma expected =
 
 lenMnist :: Int -> Int
 lenMnist widthHidden =
-  widthHidden * (sizeMnistGlyph + 1) + sizeMnistLabel * (widthHidden + 1)
+  widthHidden * (sizeMnistGlyphInt + 1) + sizeMnistLabelInt * (widthHidden + 1)
 
 nnFit3ForStochastic :: Int
                     -> (Double, Double)

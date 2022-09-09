@@ -43,7 +43,7 @@ fcnnMnistLayersS
   -> DualNumber d (OS.Array '[SizeMnistLabel] r)
 fcnnMnistLayersS MkSN MkSN factivationHidden datum
                  weightsL0 biasesV0 weightsL1 biasesV1 weightsL2 biasesV2 =
-  let !_A = assert (sizeMnistGlyph == OS.size datum) ()
+  let !_A = assert (sizeMnistGlyphInt == OS.size datum) ()
       hiddenLayer1 = weightsL0 #>$ constant datum + biasesV0
       nonlinearLayer1 = factivationHidden hiddenLayer1
       hiddenLayer2 = weightsL1 #>$ nonlinearLayer1 + biasesV1

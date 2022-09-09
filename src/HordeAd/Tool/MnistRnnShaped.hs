@@ -79,11 +79,11 @@ rnnMnistTwoS
            -- final state
 rnnMnistTwoS out_width@MkSN
              batch_size@MkSN
-             sizeMnistHeight@MkSN
+             sizeMnistHeightHere@MkSN
              s x ((wX, wS, b), (wX2, wS2, b2)) =
   let s1 = sliceS @0 @out_width s
       s2 = sliceS @out_width @out_width s
-      (vec1, s1') = rnnMnistLayerS sizeMnistHeight
+      (vec1, s1') = rnnMnistLayerS sizeMnistHeightHere
                                    out_width
                                    batch_size
                                    s1 (constant x) (wX, wS, b)
@@ -175,7 +175,7 @@ rnnMnistLossFusedS out_width@MkSN
   let xs = OS.transpose @'[2, 1, 0] glyphS
       result = rnnMnistS out_width
                          batch_size
-                         sizeMnistWidth2 sizeMnistHeight2
+                         sizeMnistWidth sizeMnistHeight
                          xs inputs
       targets2 = HM.tr $ HM.reshape (valueOf @SizeMnistLabel)
                        $ OS.toVector labelS
@@ -196,7 +196,7 @@ rnnMnistTestS out_width@MkSN
   let xs = OS.transpose @'[2, 1, 0] glyphS
       outputS = primalValue (rnnMnistS out_width
                                        batch_size
-                                       sizeMnistWidth2 sizeMnistHeight2
+                                       sizeMnistWidth sizeMnistHeight
                                        xs) parameters
       outputs = map OS.toVector $ OSB.toList $ OS.unravel
                 $ OS.transpose @'[1, 0] $ outputS

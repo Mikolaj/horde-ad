@@ -29,29 +29,29 @@ import HordeAd.Core.DualNumber
 
 type SizeMnistWidth = 28 :: Nat
 
-sizeMnistWidth :: Int
-sizeMnistWidth = valueOf @SizeMnistWidth
+sizeMnistWidth :: StaticNat SizeMnistWidth
+sizeMnistWidth = MkSN @SizeMnistWidth
 
-sizeMnistWidth2 :: StaticNat SizeMnistWidth
-sizeMnistWidth2 = MkSN @SizeMnistWidth
+sizeMnistWidthInt :: Int
+sizeMnistWidthInt = staticNatValue sizeMnistWidth
 
 type SizeMnistHeight = SizeMnistWidth
 
-sizeMnistHeight2 :: StaticNat SizeMnistHeight
-sizeMnistHeight2 = MkSN @SizeMnistHeight
+sizeMnistHeight :: StaticNat SizeMnistHeight
+sizeMnistHeight = MkSN @SizeMnistHeight
 
 type SizeMnistGlyph = SizeMnistWidth GHC.TypeLits.* SizeMnistHeight
 
-sizeMnistGlyph :: Int
-sizeMnistGlyph = valueOf @SizeMnistGlyph
+sizeMnistGlyphInt :: Int
+sizeMnistGlyphInt = valueOf @SizeMnistGlyph
 
 type SizeMnistLabel = 10 :: Nat
 
-sizeMnistLabel2 :: StaticNat SizeMnistLabel
-sizeMnistLabel2 = MkSN @SizeMnistLabel
+sizeMnistLabel :: StaticNat SizeMnistLabel
+sizeMnistLabel = MkSN @SizeMnistLabel
 
-sizeMnistLabel :: Int
-sizeMnistLabel = valueOf @SizeMnistLabel
+sizeMnistLabelInt :: Int
+sizeMnistLabelInt = staticNatValue sizeMnistLabel
 
 type LengthTestData = 10000 :: Nat
 
@@ -102,7 +102,7 @@ readMnistData glyphsBS labelsBS =
       -- I have no idea how this is different from @labeledDoubleData@, etc.
       f (labN, v) =
         ( V.map (\r -> fromIntegral r / 255) $ V.convert v
-        , V.generate sizeMnistLabel (\i -> if i == labN then 1 else 0) )
+        , V.generate sizeMnistLabelInt (\i -> if i == labN then 1 else 0) )
   in map f intData
 
 trainGlyphsPath, trainLabelsPath, testGlyphsPath, testLabelsPath :: FilePath
@@ -123,7 +123,7 @@ loadMnistData glyphsPath labelsPath =
 loadMnistData2 :: FilePath -> FilePath -> IO [MnistData2 Double]
 loadMnistData2 glyphsPath labelsPath = do
   ds <- loadMnistData glyphsPath labelsPath
-  return $! map (first $ HM.reshape sizeMnistWidth) ds
+  return $! map (first $ HM.reshape sizeMnistWidthInt) ds
 
 -- Good enough for QuickCheck, so good enough for me.
 shuffle :: RandomGen g => g -> [a] -> [a]
