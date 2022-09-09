@@ -852,7 +852,7 @@ conv24 ker = mapS conv23 where
 -- No proxies or anything similar needed here, but we may introduce StaticNat
 -- regardless, if the implicitly passed tensor sizes become confusing
 -- or if they start being passes explicitly via type application too often.
-maxPool24StaticNat
+maxPool24
   :: forall ksize_minus_1 stride in_height in_width batch_size channels d r.
      ( KnownNat ksize_minus_1, KnownNat stride
      , KnownNat in_height, KnownNat in_width
