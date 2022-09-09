@@ -8,11 +8,8 @@ import Prelude
 
 import           Control.Monad (foldM)
 import qualified Data.Array.DynamicS as OT
-import           Data.Array.Internal (valueOf)
 import           Data.List (foldl', unfoldr)
-import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Matrix, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           System.IO (hPutStrLn, stderr)
@@ -781,38 +778,35 @@ mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
 -- * A version written using shaped tensors
 
 mnistTestCaseRNNS
-  :: forall out_width batch_size d r.
-     ( KnownNat out_width, KnownNat batch_size
-     , r ~ Double, d ~ 'DModeGradient )
-  => String
+  :: forall out_width batch_size d r. (r ~ Double, d ~ 'DModeGradient)
+  => StaticNat out_width -> StaticNat batch_size
+  -> String
   -> Int
   -> Int
-  -> (forall out_width' batch_size'.
-      (IsScalar d r, KnownNat out_width', KnownNat batch_size')
-      => Proxy out_width'
+  -> (forall out_width' batch_size'. IsScalar d r
+      => StaticNat out_width' -> StaticNat batch_size'
       -> MnistDataBatchS batch_size' r
       -> DualNumberInputs d r
       -> DualNumber d r)
-  -> (forall out_width' batch_size'.
-      (IsScalar d r, KnownNat out_width', KnownNat batch_size')
-      => Proxy out_width'
+  -> (forall out_width' batch_size'. IsScalar d r
+      => StaticNat out_width' -> StaticNat batch_size'
       -> MnistDataBatchS batch_size' r
       -> Domains r
       -> r)
   -> (forall out_width' sizeMnistWidth'.
-      (KnownNat out_width', KnownNat sizeMnistWidth')
-      => Proxy out_width' -> Proxy sizeMnistWidth'
+         StaticNat out_width'
+      -> StaticNat sizeMnistWidth'
       -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
   -> Double
   -> TestTree
-mnistTestCaseRNNS prefix epochs maxBatches trainWithLoss ftest flen expected =
-  let proxy_out_width = Proxy @out_width
-      batch_size = valueOf @batch_size
+mnistTestCaseRNNS out_width@MkSN batch_size@MkSN
+                  prefix epochs maxBatches trainWithLoss ftest flen expected =
+  let batchSize = staticNatValue batch_size :: Int
       ((_, _, _, nParamsX), totalParams, range, parametersInit) =
-        initializerFixed 44 0.2 (flen proxy_out_width (Proxy @SizeMnistWidth))
+        initializerFixed 44 0.2 (flen out_width (MkSN @SizeMnistWidth))
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
-                        , show (valueOf @out_width :: Int), show batch_size
+                        , show (staticNatValue out_width :: Int), show batchSize
                         , show nParamsX, show totalParams, show range ]
   in testCase name $ do
     hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -827,16 +821,17 @@ mnistTestCaseRNNS prefix epochs maxBatches trainWithLoss ftest flen expected =
                  -> (Int, [MnistDataS r])
                  -> IO (Domains r, StateAdam r)
         runBatch (parameters@(!_, !_, !_, !_), stateAdam) (k, chunk) = do
-          let f = trainWithLoss proxy_out_width
+          let f = trainWithLoss out_width batch_size
               chunkS = map (packBatch @batch_size)
-                       $ filter (\ch -> length ch >= batch_size)
-                       $ chunksOf batch_size chunk
+                       $ filter (\ch -> length ch >= batchSize)
+                       $ chunksOf batchSize chunk
           res@(parameters2, _) <- sgdAdam f chunkS parameters stateAdam
           let !trainScore =
-                ftest proxy_out_width
+                ftest out_width (MkSN @(10 GHC.TypeLits.* batch_size))
                       (packBatch @(10 GHC.TypeLits.* batch_size) chunk)
                       parameters2
-              !testScore = ftest proxy_out_width testDataS parameters2
+              !testScore = ftest out_width (MkSN @LengthTestData)
+                                 testDataS parameters2
               !lenChunk = length chunk
           hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
           hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
@@ -849,11 +844,12 @@ mnistTestCaseRNNS prefix epochs maxBatches trainWithLoss ftest flen expected =
           let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
               chunks = take maxBatches
                        $ zip [1 ..]
-                       $ chunksOf (10 * batch_size) trainDataShuffled
+                       $ chunksOf (10 * batchSize) trainDataShuffled
           !res <- foldM runBatch paramsStateAdam chunks
           runEpoch (succ n) res
     res <- runEpoch 1 (parametersInit, initialStateAdam parametersInit)
-    let testErrorFinal = 1 - ftest proxy_out_width testDataS res
+    let testErrorFinal = 1 - ftest out_width (MkSN @LengthTestData)
+                                   testDataS res
     testErrorFinal @?~ expected
 
 mnistRNNTestsLong :: TestTree
@@ -873,7 +869,8 @@ mnistRNNTestsLong = testGroup "MNIST RNN long tests"
   , mnistTestCaseRNN "99VV 1 epoch, all batches" 1 99
                      nnMnistRNNLossV testMnistRNNV lenMnistRNNV 128 1
                      6.740000000000002e-2
-  , mnistTestCaseRNNS @128 @150 "1S 1 epoch, 1 batch" 1 1
+  , mnistTestCaseRNNS (MkSN @128) (MkSN @150)
+                      "1S 1 epoch, 1 batch" 1 1
                       rnnMnistLossFusedS rnnMnistTestS rnnMnistLenS
                       0.4375
   ]
@@ -946,7 +943,8 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
   , mnistTestCaseRNN "1VV 1 epoch, 1 batch" 1 1
                      nnMnistRNNLossV testMnistRNNV lenMnistRNNV 48 1
                      0.6880999999999999
-  , mnistTestCaseRNNS @120 @15 "1S 1 epoch, 1 batch" 1 1
+  , mnistTestCaseRNNS (MkSN @120) (MkSN @15)
+                      "1S 1 epoch, 1 batch" 1 1
                       rnnMnistLossFusedS rnnMnistTestS rnnMnistLenS
                       0.8418
   ]
