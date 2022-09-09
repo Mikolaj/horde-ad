@@ -11,7 +11,6 @@ import           Data.Coerce (coerce)
 import           Data.List.Index (imap)
 import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat)
 import qualified Numeric.LinearAlgebra as HM
 import           System.IO (hFlush, hPutStrLn, stderr)
 import           System.Random
@@ -494,8 +493,7 @@ mnistTestCase2F reallyWriteFile miniBatchSize decay
 
 mnistTestCase2S
   :: forall widthHidden widthHidden2.
-     (KnownNat widthHidden, KnownNat widthHidden2)
-  => StaticNat widthHidden -> StaticNat widthHidden2
+     StaticNat widthHidden -> StaticNat widthHidden2
   -> String
   -> Int
   -> Int
@@ -505,7 +503,7 @@ mnistTestCase2S
   -> Double
   -> Double
   -> TestTree
-mnistTestCase2S widthHidden widthHidden2
+mnistTestCase2S widthHidden@MkSN widthHidden2@MkSN
                 prefix epochs maxBatches trainWithLoss gamma expected =
   let ((_, _, _, nParamsX), totalParams, range, parametersInit) =
         initializerFixed 44 0.5 (fcnnMnistLenS widthHidden widthHidden2)

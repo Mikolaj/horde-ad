@@ -16,7 +16,6 @@ import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import           Data.List (foldl')
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as HM
 
@@ -36,10 +35,11 @@ zeroStateS
 zeroStateS f = f (konstS 0)
 
 unrollLastS :: forall d state c w r k rest.
-               (IsScalar d r, KnownNat k, OS.Shape rest)
-            => (state -> OS.Array rest r -> w -> (c, state))
+               (IsScalar d r, OS.Shape rest)
+            => StaticNat k
+            -> (state -> OS.Array rest r -> w -> (c, state))
             -> (state -> OS.Array (k : rest) r -> w -> (c, state))
-unrollLastS f s0 xs w =
+unrollLastS MkSN f s0 xs w =
   let g :: (c, state) -> OS.Array rest r -> (c, state)
       g (_, s) x = f s x w
   in foldl' g (undefined, s0) $ OSB.toList $ OS.unravel xs
@@ -110,10 +110,10 @@ rnnMnistZeroS
   -> DualNumber d (OS.Array '[SizeMnistLabel, batch_size] r)
 rnnMnistZeroS out_width@MkSN
               batch_size@MkSN
-              MkSN sizeMnistHeightHere@MkSN
+              sizeMnistWidthHere@MkSN sizeMnistHeightHere@MkSN
               xs ((wX, wS, b), (wX2, wS2, b2)) w3 b3 =
   let rnnMnistTwo = rnnMnistTwoS out_width batch_size sizeMnistHeightHere
-      (out, _s) = zeroStateS (unrollLastS @d rnnMnistTwo) xs
+      (out, _s) = zeroStateS (unrollLastS @d sizeMnistWidthHere rnnMnistTwo) xs
                              ((wX, wS, b), (wX2, wS2, b2))
   in w3 <>$ out + asColumnS b3
 
