@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes, CPP, DataKinds, FlexibleInstances, GADTs,
-             QuantifiedConstraints, RankNTypes, TypeFamilies, TypeOperators #-}
+             QuantifiedConstraints, RankNTypes, TypeFamilies, TypeOperators,
+             UndecidableInstances #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 #if defined(VERSION_ghc_typelits_natnormalise)
@@ -31,7 +32,15 @@ import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
-  (KnownNat, Nat, natVal, type (+), type (-), type (<=))
+  ( ErrorMessage (Text)
+  , KnownNat
+  , Nat
+  , TypeError
+  , natVal
+  , type (+)
+  , type (-)
+  , type (<=)
+  )
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 
@@ -42,13 +51,63 @@ import HordeAd.Internal.Delta
 -- | Sizes of tensor dimensions, of batches, etc., packed for passing
 -- between functions as witnesses of type variable values.
 data StaticNat (n :: Nat) where
-  MkSN :: KnownNat n => StaticNat n
+  MkSN :: AmbiguousNat n => StaticNat n
+
+class KnownNat n => AmbiguousNat n
+instance AmbiguousNat 0
+instance AmbiguousNat 1
+instance AmbiguousNat 2
+instance AmbiguousNat 3
+instance AmbiguousNat 4
+instance AmbiguousNat 5
+instance AmbiguousNat 6
+instance AmbiguousNat 7
+instance AmbiguousNat 8
+instance AmbiguousNat 9
+instance AmbiguousNat 10
+instance AmbiguousNat 11
+instance AmbiguousNat 12
+instance AmbiguousNat 13
+instance AmbiguousNat 14
+instance AmbiguousNat 15
+instance AmbiguousNat 16
+instance AmbiguousNat 17
+instance AmbiguousNat 18
+instance AmbiguousNat 19
+instance AmbiguousNat 20
+instance AmbiguousNat 21
+instance AmbiguousNat 22
+instance AmbiguousNat 23
+instance AmbiguousNat 24
+instance AmbiguousNat 25
+instance AmbiguousNat 26
+instance AmbiguousNat 27
+instance AmbiguousNat 28
+instance AmbiguousNat 29
+instance AmbiguousNat 30
+instance AmbiguousNat 31
+instance AmbiguousNat 32
+instance AmbiguousNat 40
+instance AmbiguousNat 50
+instance AmbiguousNat 64
+instance AmbiguousNat 100
+instance AmbiguousNat 128
+instance AmbiguousNat 200
+instance AmbiguousNat 256
+instance AmbiguousNat 300
+instance AmbiguousNat 400
+instance AmbiguousNat 500
+instance AmbiguousNat 512
+instance AmbiguousNat 1000
+instance AmbiguousNat 1024
+
+instance {-# OVERLAPPABLE #-} (TypeError (Text "You forgot the @n bit, or you didn't and then just write instance AmbiguousNat n for your choice of n!"), KnownNat n) => AmbiguousNat n
 
 staticNatValue :: forall n i. (KnownNat n, Num i) => StaticNat n -> i
 {-# INLINE staticNatValue #-}
 staticNatValue = fromInteger . natVal
 
-staticNatFromProxy :: KnownNat n => Proxy n -> StaticNat n
+staticNatFromProxy :: AmbiguousNat n => Proxy n -> StaticNat n
 staticNatFromProxy Proxy = MkSN
 
 -- * The main dual number types
