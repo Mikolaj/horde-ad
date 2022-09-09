@@ -702,6 +702,10 @@ appendS :: (KnownNat m, KnownNat n, IsScalar d r, OS.Shape sh)
         -> DualNumber d (OS.Array ((m + n) ': sh) r)
 appendS (D u u') (D v v') = D (u `OS.append` v) (dAppendS u' v')
 
+-- The API of this modules should not have proxies (but StaticNat instead).
+-- However, lower level APIs are fine with Proxies. Not using StaticNat
+-- there may even prevent mixing up high and mid or low APIs.
+-- Or accessing low level APIs directly instead of via high level.
 sliceS :: forall i n k rest d r.
           (KnownNat i, KnownNat n, KnownNat k, IsScalar d r, OS.Shape rest)
        => DualNumber d (OS.Array (i + n + k ': rest) r)
@@ -845,7 +849,10 @@ conv24 ker = mapS conv23 where
   sumOutermost = sum . unravelToListS
     -- slow; should go through Tensor2, or the Num instance should when possible
 
-maxPool24
+-- No proxies or anything similar needed here, but we may introduce StaticNat
+-- regardless, if the implicitly passed tensor sizes become confusing
+-- or if they start being passes explicitly via type application too often.
+maxPool24StaticNat
   :: forall ksize_minus_1 stride in_height in_width batch_size channels d r.
      ( KnownNat ksize_minus_1, KnownNat stride
      , KnownNat in_height, KnownNat in_width
