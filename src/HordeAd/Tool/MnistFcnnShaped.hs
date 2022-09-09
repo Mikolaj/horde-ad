@@ -14,7 +14,6 @@ import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Shape
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat)
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
@@ -28,8 +27,7 @@ import HordeAd.Tool.MnistData
 -- The dimensions, in turn, can be computed by the @len*@ functions
 -- on the basis of the requested widths, see above.
 fcnnMnistLayersS
-  :: forall widthHidden widthHidden2 d r.
-     (IsScalar d r, KnownNat widthHidden, KnownNat widthHidden2)
+  :: forall widthHidden widthHidden2 d r. IsScalar d r
   => StaticNat widthHidden -> StaticNat widthHidden2
   -> (forall sh. OS.Shape sh
       => DualNumber d (OS.Array sh r) -> DualNumber d (OS.Array sh r))
@@ -43,7 +41,7 @@ fcnnMnistLayersS
   -> DualNumber d (OS.Array '[SizeMnistLabel, widthHidden2] r)
   -> DualNumber d (OS.Array '[SizeMnistLabel] r)
   -> DualNumber d (OS.Array '[SizeMnistLabel] r)
-fcnnMnistLayersS _ _ factivationHidden datum
+fcnnMnistLayersS MkStaticNat MkStaticNat factivationHidden datum
                  weightsL0 biasesV0 weightsL1 biasesV1 weightsL2 biasesV2 =
   let !_A = assert (sizeMnistGlyph == OS.size datum) ()
       hiddenLayer1 = weightsL0 #>$ constant datum + biasesV0
@@ -57,10 +55,9 @@ fcnnMnistLayersS _ _ factivationHidden datum
 -- the six-element type list from signature of @nnMnistLayersS@.
 fcnnMnistLenS
   :: forall widthHidden widthHidden2.
-     (KnownNat widthHidden, KnownNat widthHidden2)
-  =>  StaticNat widthHidden -> StaticNat widthHidden2
+      StaticNat widthHidden -> StaticNat widthHidden2
   -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
-fcnnMnistLenS _ _ =
+fcnnMnistLenS MkStaticNat MkStaticNat =
   ( 0
   , []
   , []
@@ -74,8 +71,7 @@ fcnnMnistLenS _ _ =
   )
 
 fcnnMnistS
-  :: forall widthHidden widthHidden2 d r.
-     (IsScalar d r, KnownNat widthHidden, KnownNat widthHidden2)
+  :: forall widthHidden widthHidden2 d r. IsScalar d r
   => StaticNat widthHidden -> StaticNat widthHidden2
   -> (forall sh. OS.Shape sh
       => DualNumber d (OS.Array sh r) -> DualNumber d (OS.Array sh r))
@@ -83,7 +79,8 @@ fcnnMnistS
   -> DualNumberInputs d r
   -> DualNumber d (OS.Array '[SizeMnistLabel] r)
 {-# INLINE fcnnMnistS #-}
-fcnnMnistS widthHidden widthHidden2 factivationHidden datum inputs =
+fcnnMnistS widthHidden@MkStaticNat widthHidden2@MkStaticNat
+           factivationHidden datum inputs =
   let weightsL0 = atS inputs 0
       biasesV0 = atS inputs 1
       weightsL1 = atS inputs 2
@@ -98,8 +95,7 @@ fcnnMnistS widthHidden widthHidden2 factivationHidden datum inputs =
 -- and composed with the appropriate loss function, using fused
 -- softMax and cross entropy as the loss function.
 fcnnMnistLossFusedS
-  :: forall widthHidden widthHidden2 d r.
-     (IsScalar d r, KnownNat widthHidden, KnownNat widthHidden2)
+  :: forall widthHidden widthHidden2 d r. IsScalar d r
   => StaticNat widthHidden -> StaticNat widthHidden2
   -> MnistData r -> DualNumberInputs d r -> DualNumber d r
 fcnnMnistLossFusedS widthHidden widthHidden2 (datum, target) inputs =
@@ -108,8 +104,7 @@ fcnnMnistLossFusedS widthHidden widthHidden2 (datum, target) inputs =
   in lossSoftMaxCrossEntropyV target $ fromS1 result
 
 fcnnMnistLossFusedReluS
-  :: forall widthHidden widthHidden2 d r.
-     (IsScalar d r, KnownNat widthHidden, KnownNat widthHidden2)
+  :: forall widthHidden widthHidden2 d r. IsScalar d r
   => StaticNat widthHidden -> StaticNat widthHidden2
   -> MnistData r -> DualNumberInputs d r -> DualNumber d r
 fcnnMnistLossFusedReluS widthHidden widthHidden2 (datum, target) inputs =
@@ -120,8 +115,7 @@ fcnnMnistLossFusedReluS widthHidden widthHidden2 (datum, target) inputs =
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 fcnnMnistTestS
-  :: forall widthHidden widthHidden2 r.
-     (IsScalar 'DModeValue r, KnownNat widthHidden, KnownNat widthHidden2)
+  :: forall widthHidden widthHidden2 r. IsScalar 'DModeValue r
   => StaticNat widthHidden -> StaticNat widthHidden2
   -> [MnistData r] -> Domains r -> r
 fcnnMnistTestS widthHidden widthHidden2 inputs parameters =
