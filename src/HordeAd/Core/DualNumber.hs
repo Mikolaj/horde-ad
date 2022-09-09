@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, CPP, DataKinds, FlexibleInstances,
+{-# LANGUAGE AllowAmbiguousTypes, CPP, DataKinds, FlexibleInstances, GADTs,
              QuantifiedConstraints, RankNTypes, TypeFamilies, TypeOperators #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
@@ -30,13 +30,23 @@ import           Data.MonoTraversable (MonoFunctor (omap))
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
+import           GHC.TypeLits
+  (KnownNat, Nat, natVal, type (+), type (-), type (<=))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 
 import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta
   (Domain0, Domain1, Domain2, DomainX, Domains, isTensorDummy)
+
+-- | Sizes of tensor dimensions, packed for passing between functions
+-- as witnesses of type variable values.
+data StaticNat (n :: Nat) where
+  MkStaticNat :: KnownNat n => StaticNat n
+
+staticNatValue :: forall n i . (KnownNat n, Num i) => StaticNat n -> i
+{-# INLINE staticNatValue #-}
+staticNatValue = fromInteger . natVal
 
 -- * The main dual number types
 

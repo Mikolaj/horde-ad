@@ -7,10 +7,8 @@ import Prelude
 
 import           Control.DeepSeq
 import           Control.Monad (foldM, when)
-import           Data.Array.Internal (valueOf)
 import           Data.Coerce (coerce)
 import           Data.List.Index (imap)
-import           Data.Proxy (Proxy (Proxy))
 import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
@@ -497,24 +495,24 @@ mnistTestCase2F reallyWriteFile miniBatchSize decay
 mnistTestCase2S
   :: forall widthHidden widthHidden2.
      (KnownNat widthHidden, KnownNat widthHidden2)
-  => Proxy widthHidden -> Proxy widthHidden2
+  => StaticNat widthHidden -> StaticNat widthHidden2
   -> String
   -> Int
   -> Int
   -> (forall d r. IsScalar d r
-      => Proxy widthHidden -> Proxy widthHidden2
+      => StaticNat widthHidden -> StaticNat widthHidden2
       -> MnistData r -> DualNumberInputs d r -> DualNumber d r)
   -> Double
   -> Double
   -> TestTree
-mnistTestCase2S proxy proxy2
+mnistTestCase2S widthHidden widthHidden2
                 prefix epochs maxBatches trainWithLoss gamma expected =
   let ((_, _, _, nParamsX), totalParams, range, parametersInit) =
-        initializerFixed 44 0.5 (fcnnMnistLenS @widthHidden @widthHidden2)
+        initializerFixed 44 0.5 (fcnnMnistLenS widthHidden widthHidden2)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
-                        , show (valueOf @widthHidden :: Int)
-                        , show (valueOf @widthHidden2 :: Int)
+                        , show (staticNatValue widthHidden :: Int)
+                        , show (staticNatValue widthHidden2 :: Int)
                         , show nParamsX, show totalParams
                         , show gamma, show range ]
   in testCase name $ do
@@ -526,12 +524,12 @@ mnistTestCase2S proxy proxy2
                  -> (Int, [MnistData Double])
                  -> IO (Domains Double)
         runBatch (!params0, !params1, !params2, !paramsX) (k, chunk) = do
-          let f = trainWithLoss proxy proxy2
+          let f = trainWithLoss widthHidden widthHidden2
           res <- fst <$> sgd gamma f chunk
                              (params0, params1, params2, paramsX)
-          let !trainScore = fcnnMnistTestS @widthHidden @widthHidden2
+          let !trainScore = fcnnMnistTestS widthHidden widthHidden2
                                           chunk res
-              !testScore = fcnnMnistTestS @widthHidden @widthHidden2
+              !testScore = fcnnMnistTestS widthHidden widthHidden2
                                          testData res
               !lenChunk = length chunk
           hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
@@ -550,7 +548,7 @@ mnistTestCase2S proxy proxy2
           !res <- foldM runBatch params2 chunks
           runEpoch (succ n) res
     res <- runEpoch 1 parametersInit
-    let testErrorFinal = 1 - fcnnMnistTestS @widthHidden @widthHidden2
+    let testErrorFinal = 1 - fcnnMnistTestS widthHidden widthHidden2
                                             testData res
     testErrorFinal @?~ expected
 
@@ -825,41 +823,41 @@ fusedMnistTests = testGroup "MNIST fused LL tests with a 2-hidden-layer nn"
                     0.8972
   , mnistTestCase2L "artificial 5 4 3 2 1" 5 4 fcnnMnistLossFused2 3 2 1
                     0.7033
-  , mnistTestCase2S (Proxy @300) (Proxy @100)
+  , mnistTestCase2S (MkStaticNat @300) (MkStaticNat @100)
                     "S 1 epoch, 1 batch" 1 1 fcnnMnistLossFusedS 0.02
                     0.1311
-  , mnistTestCase2S (Proxy @500) (Proxy @150)
+  , mnistTestCase2S (MkStaticNat @500) (MkStaticNat @150)
                     "S 1 epoch, 1 batch, wider" 1 1 fcnnMnistLossFusedS 0.02
                     0.12470000000000003
-  , mnistTestCase2S (Proxy @300) (Proxy @100)
+  , mnistTestCase2S (MkStaticNat @300) (MkStaticNat @100)
                     "S 2 epochs, but only 1 batch" 2 1 fcnnMnistLossFusedS 0.02
                     9.630000000000005e-2
-  , mnistTestCase2S (Proxy @300) (Proxy @100)
+  , mnistTestCase2S (MkStaticNat @300) (MkStaticNat @100)
                     "S 1 epoch, all batches" 1 99 fcnnMnistLossFusedS 0.02
                     5.620000000000003e-2
-  , mnistTestCase2S (Proxy @3) (Proxy @4)
+  , mnistTestCase2S (MkStaticNat @3) (MkStaticNat @4)
                     "S artificial 1 2 3 4 5" 1 2 fcnnMnistLossFusedS 5
                     0.8972
-  , mnistTestCase2S (Proxy @3) (Proxy @2)
+  , mnistTestCase2S (MkStaticNat @3) (MkStaticNat @2)
                     "S artificial 5 4 3 2 1" 5 4 fcnnMnistLossFusedS 1
                     0.8246
-  , mnistTestCase2S (Proxy @300) (Proxy @100)
+  , mnistTestCase2S (MkStaticNat @300) (MkStaticNat @100)
                     "SR 1 epoch, 1 batch" 1 1 fcnnMnistLossFusedReluS 0.02
                     0.7068
-  , mnistTestCase2S (Proxy @500) (Proxy @150)
+  , mnistTestCase2S (MkStaticNat @500) (MkStaticNat @150)
                     "SR 1 epoch, 1 batch, wider" 1 1
                     fcnnMnistLossFusedReluS 0.02
                     0.8874
-  , mnistTestCase2S (Proxy @300) (Proxy @100)
+  , mnistTestCase2S (MkStaticNat @300) (MkStaticNat @100)
                     "SR 2 epochs, but 1 batch" 2 1 fcnnMnistLossFusedReluS 0.02
                     0.8352999999999999
-  , mnistTestCase2S (Proxy @300) (Proxy @100)
+  , mnistTestCase2S (MkStaticNat @300) (MkStaticNat @100)
                     "SR 1 epoch, all batches" 1 99 fcnnMnistLossFusedReluS 0.02
                     0.6415
-  , mnistTestCase2S (Proxy @3) (Proxy @4)
+  , mnistTestCase2S (MkStaticNat @3) (MkStaticNat @4)
                     "SR artificial 1 2 3 4 5" 1 2 fcnnMnistLossFusedReluS 5
                     0.8972
-  , mnistTestCase2S (Proxy @3) (Proxy @2)
+  , mnistTestCase2S (MkStaticNat @3) (MkStaticNat @2)
                     "SR artificial 5 4 3 2 1" 5 4 fcnnMnistLossFusedReluS 1
                     0.8991
   ]
@@ -895,19 +893,19 @@ shortCIMnistTests = testGroup "Short CI MNIST tests"
                     "fused DL artificial 5 4 3 2 1" 5 4
                     fcnnMnistLossFused2 3 2 1
                     0.8991
-  , mnistTestCase2S (Proxy @300) (Proxy @100)
+  , mnistTestCase2S (MkStaticNat @300) (MkStaticNat @100)
                     "S 1 epoch, 1 batch" 1 1 fcnnMnistLossFusedS 0.02
                     0.1311
-  , mnistTestCase2S (Proxy @3) (Proxy @4)
+  , mnistTestCase2S (MkStaticNat @3) (MkStaticNat @4)
                     "S artificial 1 2 3 4 5" 1 2 fcnnMnistLossFusedS 5
                     0.8972
-  , mnistTestCase2S (Proxy @3) (Proxy @2)
+  , mnistTestCase2S (MkStaticNat @3) (MkStaticNat @2)
                     "S artificial 5 4 3 2 1" 5 4 fcnnMnistLossFusedS 1
                     0.8246
-  , mnistTestCase2S (Proxy @3) (Proxy @4)
+  , mnistTestCase2S (MkStaticNat @3) (MkStaticNat @4)
                     "SR artificial 1 2 3 4 5" 1 2 fcnnMnistLossFusedReluS 5
                     0.8972
-  , mnistTestCase2S (Proxy @3) (Proxy @2)
+  , mnistTestCase2S (MkStaticNat @3) (MkStaticNat @2)
                     "SR artificial 5 4 3 2 1" 5 4 fcnnMnistLossFusedReluS 1
                     0.8991
   ]
