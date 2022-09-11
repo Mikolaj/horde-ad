@@ -530,7 +530,7 @@ readmeTests0 = testGroup "Simple tests of tuple-based code for README"
 -- of the third.
 -- Solving type-level inequalities is too hard, so we use the type-level plus
 -- to express the bounds on tensor sizes.
-fooS :: (IsScalar d r, len1 ~ l1 + 1, len2 ~ l2 + 2, len3 ~ l3 + 3)
+fooS :: (IsScalar d r, len1 ~ (l1 + 1), len2 ~ (l2 + 2), len3 ~ (l3 + 3))
      => StaticNat len1 -> StaticNat len2 -> StaticNat len3
      -> ( DualNumber d (OS.Array '[len1] r)
         , DualNumber d (OS.Array '[len2] r)
