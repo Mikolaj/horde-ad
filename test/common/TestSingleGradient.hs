@@ -1,13 +1,17 @@
 {-# LANGUAGE DataKinds, FlexibleInstances, FunctionalDependencies,
-             MultiParamTypeClasses, RankNTypes, TypeFamilies #-}
+             MultiParamTypeClasses, RankNTypes, TypeFamilies, TypeOperators #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module TestSingleGradient (testTrees, finalCounter) where
 
 import Prelude
 
+import qualified Data.Array.Convert
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
+import           GHC.TypeLits (type (+))
 import           System.IO (hPutStrLn, stderr)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -30,6 +34,8 @@ testTrees = [ testDReverse0
             , oldReadmeTests
             , oldReadmeTestsV
             , readmeTests0
+            , testGroup "Simple tests of tensor-based code for README"
+                        [testCase "S" testFooS]
             ]
 
 dReverse0
@@ -479,6 +485,27 @@ instance IsScalar 'DModeGradient r
     r1 : r2 : r3 : _ -> (r1, r2, r3)
     _ -> error "fromDualNumberInputs in Adaptable r (r, r, r)"
 
+instance (IsScalar 'DModeGradient r, OS.Shape sh1, OS.Shape sh2, OS.Shape sh3)
+         => Adaptable r ( DualNumber 'DModeGradient (OS.Array sh1 r)
+                        , DualNumber 'DModeGradient (OS.Array sh2 r)
+                        , DualNumber 'DModeGradient (OS.Array sh3 r) )
+                        (OS.Array sh1 r, OS.Array sh2 r, OS.Array sh3 r) where
+  toDomains (D a _, D b _, D c _) =
+    ( V.empty, V.empty, V.empty
+    , V.fromList [ Data.Array.Convert.convert a
+                 , Data.Array.Convert.convert b
+                 , Data.Array.Convert.convert c ] )
+  fromDualNumberInputs inputs =
+    let a = atS inputs 0
+        b = atS inputs 1
+        c = atS inputs 2
+    in (a, b, c)
+  fromDomains (_, _, _, v) = case V.toList v of
+    a : b : c : _ -> ( Data.Array.Convert.convert a
+                     , Data.Array.Convert.convert b
+                     , Data.Array.Convert.convert c )
+    _ -> error "fromDualNumberInputs in Adaptable r (S, S, S)"
+
 assertEqualUpToEps :: Double -> (Double, Double, Double) -> (Double, Double, Double) -> Assertion
 assertEqualUpToEps _eps (r1, r2, r3) (u1, u2, u3) =  -- TODO: use the _eps instead of the default one
   r1 @?~ u1 >> r2 @?~ u2 >> r3 @?~ u3
@@ -496,3 +523,33 @@ readmeTests0 = testGroup "Simple tests of tuple-based code for README"
   , testCase "baz again to use fooConstant with renumbered terms" $
       testBazRenumbered
   ]
+
+-- A dual-number version of a function that goes from three rank one
+-- (vector-like) tensors to `R`. It multiplies first elements
+-- of the first tensor by the second of the second and by the third
+-- of the third.
+-- Solving type-level inequalities is too hard, so we use the type-level plus
+-- to express the bounds on tensor sizes.
+fooS :: (IsScalar d r, len1 ~ l1 + 1, len2 ~ l2 + 2, len3 ~ l3 + 3)
+     => StaticNat len1 -> StaticNat len2 -> StaticNat len3
+     -> ( DualNumber d (OS.Array '[len1] r)
+        , DualNumber d (OS.Array '[len2] r)
+        , DualNumber d (OS.Array '[len3] r) ) -> DualNumber d r
+fooS MkSN MkSN MkSN (x1, x2, x3) =
+  fromS0 $ indexS @0 x1 * indexS @1 x2 * indexS @2 x3
+
+testFooS :: Assertion
+testFooS =
+  assertEqualUpToEpsS (1e-10 :: Double)
+    (grad (fooS (MkSN @1) (MkSN @5) (MkSN @3))
+          ( ravelFromListS $ map from0S [1.1]
+          , ravelFromListS $ map from0S [2.2, 2.3, 7.2, 7.3, 7.4]
+          , ravelFromListS $ map from0S [3.3, 3.4, 3.5]) )
+    ( OS.fromList [8.049999999999999]
+    , OS.fromList [0, 3.8500000000000005, 0, 0, 0]
+    , OS.fromList [0, 0, 2.53] )
+
+-- A hack: the normal assertEqualUpToEps should work here. And AssertClose should work for shaped and untyped tensors.
+assertEqualUpToEpsS :: (OS.Shape sh1, OS.Shape sh2, OS.Shape sh3) => Double -> (OS.Array sh1 Double, OS.Array sh2 Double, OS.Array sh3 Double) -> (OS.Array sh1 Double, OS.Array sh2 Double, OS.Array sh3 Double) -> Assertion
+assertEqualUpToEpsS _eps (r1, r2, r3) (u1, u2, u3) =  -- TODO: use the _eps instead of the default one
+  OS.toList r1 @?~ OS.toList u1 >> OS.toList r2 @?~ OS.toList u2 >> OS.toList r3 @?~ OS.toList u3
