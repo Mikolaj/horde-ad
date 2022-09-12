@@ -460,6 +460,20 @@ testBazRenumbered =
     (grad (\(x,y,z) -> z + baz (x,y,z)) (1.1, 2.2, 3.3))
     (0, -5219.20995030263, 2783.276274462047)
 
+-- A dual-number and list-based version of a function that goes
+-- from `R^3` to `R`.
+fooD :: IsScalar d r => [DualNumber d r] -> DualNumber d r
+fooD [x, y, z] =
+  let w = x * sin y
+  in atan2 z w + z * w
+fooD _ = error "wrong number of arguments"
+
+testFooD :: Assertion
+testFooD =
+  assertEqualUpToEpsD (1e-10 :: Double)
+    (grad fooD [1.1, 2.2, 3.3])
+    [2.4396285219055063, -1.953374825727421, 0.9654825811012627]
+
 grad :: (HasDelta r, Adaptable r x rs)
      => (x -> DualNumber 'DModeGradient r) -> x -> rs
 grad f x =
@@ -484,6 +498,18 @@ instance IsScalar 'DModeGradient r
   fromDomains (v, _, _, _) = case V.toList v of
     r1 : r2 : r3 : _ -> (r1, r2, r3)
     _ -> error "fromDualNumberInputs in Adaptable r (r, r, r)"
+
+-- TODO
+instance IsScalar 'DModeGradient r
+         => Adaptable r [DualNumber 'DModeGradient r] [r] where
+  toDomains [D a _, D b _, D c _] =
+    (V.fromList [a, b, c], V.empty, V.empty, V.empty)
+  fromDualNumberInputs inputs = case atList0 inputs of
+    r1 : r2 : r3 : _ -> [r1, r2, r3]
+    _ -> error "fromDualNumberInputs in Adaptable r [r]"
+  fromDomains (v, _, _, _) = case V.toList v of
+    r1 : r2 : r3 : _ -> [r1, r2, r3]
+    _ -> error "fromDualNumberInputs in Adaptable r [r]"
 
 instance (IsScalar 'DModeGradient r, OS.Shape sh1, OS.Shape sh2, OS.Shape sh3)
          => Adaptable r ( DualNumber 'DModeGradient (OS.Array sh1 r)
@@ -510,6 +536,10 @@ assertEqualUpToEps :: Double -> (Double, Double, Double) -> (Double, Double, Dou
 assertEqualUpToEps _eps (r1, r2, r3) (u1, u2, u3) =  -- TODO: use the _eps instead of the default one
   r1 @?~ u1 >> r2 @?~ u2 >> r3 @?~ u3
 
+assertEqualUpToEpsD :: Double -> [Double] -> [Double] -> Assertion
+assertEqualUpToEpsD _eps l1 l2 =  -- TODO
+  l1 @?~ l2
+
 readmeTests0 :: TestTree
 readmeTests0 = testGroup "Simple tests of tuple-based code for README"
   [ testCase "foo T Double (1.1, 2.2, 3.3)" $
@@ -522,6 +552,8 @@ readmeTests0 = testGroup "Simple tests of tuple-based code for README"
       testBaz
   , testCase "baz again to use fooConstant with renumbered terms" $
       testBazRenumbered
+   , testCase "fooD T Double [1.1, 2.2, 3.3]" $
+      testFooD
   ]
 
 -- A dual-number version of a function that goes from three rank one
