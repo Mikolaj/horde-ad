@@ -10,7 +10,7 @@
 -- relevant classes, type families, constraints and instances.
 -- This is a mid-level API ("HordeAd.Internal.Delta" is low level)
 -- used to define types and operations in "HordeAd.Core.DualNumber"
--- that is the high-level API.
+-- that is the foundation of the high-level API.
 --
 -- This module contains impurity, which produces pure data with particular
 -- properties that low level modules require (a specific order
@@ -22,9 +22,13 @@
 -- unless they are not auto-derived, but carefully crafted to respect sharing.
 -- This would be the case even without impurity, not to ruin sharing.
 module HordeAd.Core.DualClass
-  ( IsPrimalWithScalar, IsPrimalAndHasFeatures, ADModeAndNum, HasDelta
-  , ADMode(..), Dual, IsPrimal(..), HasRanks(..), HasInputs(..)
-  , -- * Internal operations
+  ( -- * The most often used part of the mid-level API that gets re-exported in high-level API
+    ADMode(..), ADModeAndNum
+  , -- * The less often used part of the mid-level API that gets re-exported in high-level API; it leaks implementation details
+    IsPrimal(..), IsPrimalAndHasFeatures, HasDelta
+  , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
+    Dual, HasRanks(..), HasInputs(..)
+  , -- * Internal operations, exposed, e.g., for tests
     unsafeGetFreshId
   ) where
 

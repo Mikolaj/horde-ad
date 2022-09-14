@@ -1,15 +1,21 @@
 {-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances,
              MultiParamTypeClasses, TypeFamilies #-}
--- | Several implementations of the monad in which our dual numbers live
--- and implementations of calculating gradient, derivative and value
--- of an objective function defined on dual numbers.
+-- | The implementation of calculating gradient, derivative and value
+-- of an objective function defined on dual numbers, as defined
+-- in "HordeAd.Core.DualNumber". Together with that module, this forms
+-- the basic high-level API of the horde-ad library. Optimizers, etc.,
+-- are add-ons.
 module HordeAd.Core.Engine
-  ( primalValueGeneral, primalValue
-  , dReverseGeneral, dReverse, dReverseFun
-  , dForwardGeneral, dForward, dForwardFun
-  , dFastForwardGeneral, dFastForward
-  , prettyPrintDf
+  ( -- * The most often used part of the high-level API
+    dReverseFun, dFastForward, primalValue
+  , -- * The less often used part of the high-level API
+    dReverse, primalValueGeneral
+  , -- * Operations exposed not for the library users but add-on makers
+    dReverseGeneral, dFastForwardGeneral
   , generateDeltaInputs, initializerFixed
+  , -- * Internal operations, exposed, e.g., for tests
+    dForwardGeneral, dForward, dForwardFun
+  , prettyPrintDf
   ) where
 
 import Prelude

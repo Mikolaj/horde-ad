@@ -7,9 +7,10 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 #endif
 -- | Dual numbers and various operations on them, arithmetic and related
--- to tensors (vectors, matrices and others). This is the high-level API,
--- defined using the mid-level (and safely impure) API
--- in "HordeAd.Core.DualClass".
+-- to tensors (vectors, matrices and others). This is a part of
+-- the high-level API of the horde-ad library, defined using the mid-level
+-- (and safely impure) API in "HordeAd.Core.DualClass". The other part
+-- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.DualNumber
   ( module HordeAd.Core.DualNumber
   , ADModeAndNum, HasDelta, ADMode(..)
