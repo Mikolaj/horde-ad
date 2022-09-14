@@ -53,7 +53,15 @@ staticNatFromProxy Proxy = MkSN
 
 -- * The main dual number types
 
--- | Dual numbers with the second type argument being the primal component.
+-- | Values the objective functions operate on (a generalization of scalars
+-- and of vectors, matrices, tensors and any other supported containers
+-- of scalars). The first type argument is the differentiation mode
+-- and the second is the underlying values (the scalars, vectors, etc.).
+--
+-- Here, the datatype is implemented as dual numbers (hence @D@),
+-- where the \"numbers\" can be any containers of scalars.
+-- Thus, the primal component has the type given as the second type argument
+-- and the dual component (named @Dual@) is special and defined elsewhere.
 data ADVal (d :: DMode) a = D a (Dual d a)
 
 addParameters :: (Numeric r, Num (Vector r))
