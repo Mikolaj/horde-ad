@@ -45,7 +45,7 @@ shortTestForCITrees = [ dumbMnistTests
 
 sgdShow :: HasDelta r
         => r
-        -> (a -> ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
+        -> (a -> ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
         -> [a]  -- ^ training data
         -> Domain0 r  -- ^ initial parameters
         -> IO r
@@ -59,8 +59,8 @@ sgdTestCase :: String
             -> (Int
                 -> Int
                 -> a
-                -> ADValInputs 'DModeGradient Double
-                -> ADVal 'DModeGradient Double)
+                -> ADValInputs 'ADModeGradient Double
+                -> ADVal 'ADModeGradient Double)
             -> Double
             -> Double
             -> TestTree
@@ -84,8 +84,8 @@ mnistTestCase2
   -> (Int
       -> Int
       -> MnistData Double
-      -> ADValInputs 'DModeGradient Double
-      -> ADVal 'DModeGradient Double)
+      -> ADValInputs 'ADModeGradient Double
+      -> ADVal 'ADModeGradient Double)
   -> Int
   -> Int
   -> Double
@@ -141,8 +141,8 @@ mnistTestCase2V
   -> (Int
       -> Int
       -> MnistData Double
-      -> ADValInputs 'DModeGradient Double
-      -> ADVal 'DModeGradient Double)
+      -> ADValInputs 'ADModeGradient Double
+      -> ADVal 'ADModeGradient Double)
   -> Int
   -> Int
   -> Double
@@ -204,8 +204,8 @@ fcnnMnistLossTanh ::
                    Int
                 -> Int
                 -> MnistData Double
-                -> ADValInputs 'DModeGradient Double
-                -> ADVal 'DModeGradient Double
+                -> ADValInputs 'ADModeGradient Double
+                -> ADVal 'ADModeGradient Double
 fcnnMnistLossTanh widthHidden widthHidden2 (xs, targ) vec =
   let res = fcnnMnist0 tanh softMax widthHidden widthHidden2 xs vec
   in lossCrossEntropy targ res
@@ -214,8 +214,8 @@ fcnnMnistLossRelu ::
                    Int
                 -> Int
                 -> MnistData Double
-                -> ADValInputs 'DModeGradient Double
-                -> ADVal 'DModeGradient Double
+                -> ADValInputs 'ADModeGradient Double
+                -> ADVal 'ADModeGradient Double
 fcnnMnistLossRelu widthHidden widthHidden2 (xs, targ) vec =
   let res = fcnnMnist0 relu softMax widthHidden widthHidden2 xs vec
   in lossCrossEntropy targ res
@@ -225,8 +225,8 @@ mnistTestCase2L
   -> Int
   -> Int
   -> (MnistData Double
-      -> ADValInputs 'DModeGradient Double
-      -> ADVal 'DModeGradient Double)
+      -> ADValInputs 'ADModeGradient Double
+      -> ADVal 'ADModeGradient Double)
   -> Int
   -> Int
   -> Double
@@ -283,8 +283,8 @@ mnistTestCase2T
   -> Int
   -> Int
   -> (MnistData Double
-      -> ADValInputs 'DModeGradient Double
-      -> ADVal 'DModeGradient Double)
+      -> ADValInputs 'ADModeGradient Double
+      -> ADVal 'ADModeGradient Double)
   -> Int
   -> Int
   -> Double
@@ -351,8 +351,8 @@ mnistTestCase2D
   -> Int
   -> Int
   -> (MnistData Double
-      -> ADValInputs 'DModeGradient Double
-      -> ADVal 'DModeGradient Double)
+      -> ADValInputs 'ADModeGradient Double
+      -> ADVal 'ADModeGradient Double)
   -> Int
   -> Int
   -> Double
@@ -425,8 +425,8 @@ mnistTestCase2F
   -> Int
   -> Int
   -> (MnistData Double
-      -> ADValInputs 'DModeDerivative Double
-      -> ADVal 'DModeDerivative Double)
+      -> ADValInputs 'ADModeDerivative Double
+      -> ADVal 'ADModeDerivative Double)
   -> Int
   -> Int
   -> Double

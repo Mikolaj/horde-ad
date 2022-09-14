@@ -40,8 +40,8 @@ testTrees = [ testDReverse0
 
 dReverse0
   :: HasDelta r
-  => (ADValInputs 'DModeGradient r
-      -> ADVal 'DModeGradient r)
+  => (ADValInputs 'ADModeGradient r
+      -> ADVal 'ADModeGradient r)
   -> [r]
   -> IO ([r], r)
 dReverse0 f deltaInput = do
@@ -49,61 +49,61 @@ dReverse0 f deltaInput = do
     dReverse 1 f (V.fromList deltaInput, V.empty, V.empty, V.empty)
   return (V.toList results, value)
 
-fX :: ADValInputs 'DModeGradient Float
-   -> ADVal 'DModeGradient Float
+fX :: ADValInputs 'ADModeGradient Float
+   -> ADVal 'ADModeGradient Float
 fX inputs = at0 inputs 0
 
-fXp1 :: ADValInputs 'DModeGradient Float
-     -> ADVal 'DModeGradient Float
+fXp1 :: ADValInputs 'ADModeGradient Float
+     -> ADVal 'ADModeGradient Float
 fXp1 inputs =
   let x = at0 inputs 0
   in x + 1
 
-fXpX :: ADValInputs 'DModeGradient Float
-     -> ADVal 'DModeGradient Float
+fXpX :: ADValInputs 'ADModeGradient Float
+     -> ADVal 'ADModeGradient Float
 fXpX inputs =
   let x = at0 inputs 0
   in x + x
 
-fXX :: ADValInputs 'DModeGradient Float
-    -> ADVal 'DModeGradient Float
+fXX :: ADValInputs 'ADModeGradient Float
+    -> ADVal 'ADModeGradient Float
 fXX inputs =
   let x = at0 inputs 0
   in x * x
 
-fX1X :: ADValInputs 'DModeGradient Float
-     -> ADVal 'DModeGradient Float
+fX1X :: ADValInputs 'ADModeGradient Float
+     -> ADVal 'ADModeGradient Float
 fX1X inputs =
   let x = at0 inputs 0
       x1 = x + 1
   in x1 * x
 
-fX1Y :: ADValInputs 'DModeGradient Float
-     -> ADVal 'DModeGradient Float
+fX1Y :: ADValInputs 'ADModeGradient Float
+     -> ADVal 'ADModeGradient Float
 fX1Y inputs =
   let x = at0 inputs 0
       y = at0 inputs 1
       x1 = x + 1
   in x1 * y
 
-fY1X :: ADValInputs 'DModeGradient Float
-     -> ADVal 'DModeGradient Float
+fY1X :: ADValInputs 'ADModeGradient Float
+     -> ADVal 'ADModeGradient Float
 fY1X inputs =
   let x = at0 inputs 0
       y = at0 inputs 1
       x1 = y + 1
   in x1 * x
 
-fXXY ::  ADValInputs 'DModeGradient Float
-     -> ADVal 'DModeGradient Float
+fXXY ::  ADValInputs 'ADModeGradient Float
+     -> ADVal 'ADModeGradient Float
 fXXY inputs =
   let x = at0 inputs 0
       y = at0 inputs 1
       xy = x * y
   in x * xy
 
-fXYplusZ :: ADValInputs 'DModeGradient Float
-         -> ADVal 'DModeGradient Float
+fXYplusZ :: ADValInputs 'ADModeGradient Float
+         -> ADVal 'ADModeGradient Float
 fXYplusZ inputs =
   let x = at0 inputs 0
       y = at0 inputs 1
@@ -111,15 +111,15 @@ fXYplusZ inputs =
       xy = x * y
   in xy + z
 
-fXtoY :: ADValInputs 'DModeGradient Float
-      -> ADVal 'DModeGradient Float
+fXtoY :: ADValInputs 'ADModeGradient Float
+      -> ADVal 'ADModeGradient Float
 fXtoY inputs =
   let x = at0 inputs 0
       y = at0 inputs 1
   in x ** y
 
-freluX :: ADValInputs 'DModeGradient Float
-       -> ADVal 'DModeGradient Float
+freluX :: ADValInputs 'ADModeGradient Float
+       -> ADVal 'ADModeGradient Float
 freluX inputs =
   let x = at0 inputs 0
   in relu x
@@ -200,7 +200,7 @@ sinKonstS inputs =
          :: ADVal d (OS.Array '[2] r))
 
 dReverse1
-  :: (r ~ Float, d ~ 'DModeGradient)
+  :: (r ~ Float, d ~ 'ADModeGradient)
   => (ADValInputs d r -> ADVal d r)
   -> [[r]]
   -> IO ([[r]], r)
@@ -426,16 +426,16 @@ testBar =
 -- causing exactly the same danger.
 -- This example also tests unused parameters (x), another common cause
 -- of crashes in naive gradient computing code.
-baz :: ( ADVal 'DModeGradient Double
-       , ADVal 'DModeGradient Double
-       , ADVal 'DModeGradient Double )
-    -> ADVal 'DModeGradient Double
+baz :: ( ADVal 'ADModeGradient Double
+       , ADVal 'ADModeGradient Double
+       , ADVal 'ADModeGradient Double )
+    -> ADVal 'ADModeGradient Double
 baz (_x,y,z) =
   let w = fooConstant * bar (y,y,z) * sin y
   in atan2 z w + z * w
 
 -- An "old term", computed once, stored at top level.
-fooConstant :: ADVal 'DModeGradient Double
+fooConstant :: ADVal 'ADModeGradient Double
 fooConstant = foo (7, 8, 9)
 
 testBaz :: Assertion
@@ -475,7 +475,7 @@ testFooD =
     [2.4396285219055063, -1.953374825727421, 0.9654825811012627]
 
 grad :: (HasDelta r, Adaptable r x rs)
-     => (x -> ADVal 'DModeGradient r) -> x -> rs
+     => (x -> ADVal 'ADModeGradient r) -> x -> rs
 grad f x =
   let g inputs = f $ fromADValInputs inputs
   in fromDomains $ fst $ dReverseFun 1 g (toDomains x)
@@ -483,13 +483,13 @@ grad f x =
 -- Inspired by adaptors from @tomjaguarpaw's branch.
 class Adaptable r fdr rs | fdr -> rs, rs -> fdr where
   toDomains :: fdr -> Domains r
-  fromADValInputs :: ADValInputs 'DModeGradient r -> fdr
+  fromADValInputs :: ADValInputs 'ADModeGradient r -> fdr
   fromDomains :: Domains r -> rs
 
-instance ADModeAndNum 'DModeGradient r
-         => Adaptable r ( ADVal 'DModeGradient r
-                        , ADVal 'DModeGradient r
-                        , ADVal 'DModeGradient r ) (r, r, r) where
+instance ADModeAndNum 'ADModeGradient r
+         => Adaptable r ( ADVal 'ADModeGradient r
+                        , ADVal 'ADModeGradient r
+                        , ADVal 'ADModeGradient r ) (r, r, r) where
   toDomains (D a _, D b _, D c _) =
     (V.fromList [a, b, c], V.empty, V.empty, V.empty)
   fromADValInputs inputs = case atList0 inputs of
@@ -500,8 +500,8 @@ instance ADModeAndNum 'DModeGradient r
     _ -> error "fromADValInputs in Adaptable r (r, r, r)"
 
 -- TODO
-instance ADModeAndNum 'DModeGradient r
-         => Adaptable r [ADVal 'DModeGradient r] [r] where
+instance ADModeAndNum 'ADModeGradient r
+         => Adaptable r [ADVal 'ADModeGradient r] [r] where
   toDomains [D a _, D b _, D c _] =
     (V.fromList [a, b, c], V.empty, V.empty, V.empty)
   fromADValInputs inputs = case atList0 inputs of
@@ -511,10 +511,10 @@ instance ADModeAndNum 'DModeGradient r
     r1 : r2 : r3 : _ -> [r1, r2, r3]
     _ -> error "fromADValInputs in Adaptable r [r]"
 
-instance (ADModeAndNum 'DModeGradient r, OS.Shape sh1, OS.Shape sh2, OS.Shape sh3)
-         => Adaptable r ( ADVal 'DModeGradient (OS.Array sh1 r)
-                        , ADVal 'DModeGradient (OS.Array sh2 r)
-                        , ADVal 'DModeGradient (OS.Array sh3 r) )
+instance (ADModeAndNum 'ADModeGradient r, OS.Shape sh1, OS.Shape sh2, OS.Shape sh3)
+         => Adaptable r ( ADVal 'ADModeGradient (OS.Array sh1 r)
+                        , ADVal 'ADModeGradient (OS.Array sh2 r)
+                        , ADVal 'ADModeGradient (OS.Array sh3 r) )
                         (OS.Array sh1 r, OS.Array sh2 r, OS.Array sh3 r) where
   toDomains (D a _, D b _, D c _) =
     ( V.empty, V.empty, V.empty

@@ -41,8 +41,8 @@ sgdBatchForward
      Int
   -> Int  -- ^ batch size
   -> Double  -- ^ gamma (learning_rate?)
-  -> (a -> ADValInputs 'DModeGradient Double
-      -> ADVal 'DModeGradient Double)
+  -> (a -> ADValInputs 'ADModeGradient Double
+      -> ADVal 'ADModeGradient Double)
   -> [a]  -- ^ training data
   -> Domains Double  -- ^ initial parameters
   -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
@@ -55,12 +55,12 @@ sgdBatchForward seed0 batchSize gamma f trainingData parameters0 nParameters =
   go _ [] parameters value = return (parameters, value)
   go seed l parameters _ = do
     let (batch, rest) = splitAt batchSize l
-        fAdd :: ADValInputs 'DModeGradient Double
-             -> ADVal 'DModeGradient Double -> a
-             -> ADVal 'DModeGradient Double
+        fAdd :: ADValInputs 'ADModeGradient Double
+             -> ADVal 'ADModeGradient Double -> a
+             -> ADVal 'ADModeGradient Double
         fAdd vars !acc a = acc + f a vars
-        fBatch :: ADValInputs 'DModeGradient Double
-               -> ADVal 'DModeGradient Double
+        fBatch :: ADValInputs 'ADModeGradient Double
+               -> ADVal 'ADModeGradient Double
         fBatch vars =
           let resBatch = foldl' (fAdd vars) 0 batch
           in resBatch / fromIntegral (length batch)
@@ -80,8 +80,8 @@ sgdBatchFastForward
      Int
   -> Int  -- ^ batch size
   -> Double  -- ^ gamma (learning_rate?)
-  -> (a -> ADValInputs 'DModeDerivative Double
-      -> ADVal 'DModeDerivative Double)
+  -> (a -> ADValInputs 'ADModeDerivative Double
+      -> ADVal 'ADModeDerivative Double)
   -> [a]  -- ^ training data
   -> Domains Double  -- ^ initial parameters
   -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
@@ -94,12 +94,12 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
   go _ [] parameters value = (parameters, value)
   go seed l parameters@(params0, params1, params2, paramsX) _ =
     let (batch, rest) = splitAt batchSize l
-        fAdd :: ADValInputs 'DModeDerivative Double
-             -> ADVal 'DModeDerivative Double -> a
-             -> ADVal 'DModeDerivative Double
+        fAdd :: ADValInputs 'ADModeDerivative Double
+             -> ADVal 'ADModeDerivative Double -> a
+             -> ADVal 'ADModeDerivative Double
         fAdd vars !acc a = acc + f a vars
-        fBatch :: ADValInputs 'DModeDerivative Double
-               -> ADVal 'DModeDerivative Double
+        fBatch :: ADValInputs 'ADModeDerivative Double
+               -> ADVal 'ADModeDerivative Double
         fBatch vars =
           let resBatch = foldl' (fAdd vars) 0 batch
           in resBatch / fromIntegral (length batch)
@@ -121,7 +121,7 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
 sgdAdamBatch
   :: forall r a. HasDelta r
   => Int  -- ^ batch size
-  -> (a -> ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
+  -> (a -> ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> [a]
   -> Domains r
   -> StateAdam r
@@ -132,7 +132,7 @@ sgdAdamBatchArgs
   :: forall r a. HasDelta r
   => ArgsAdam r
   -> Int  -- ^ batch size
-  -> (a -> ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
+  -> (a -> ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> [a]
   -> Domains r
   -> StateAdam r
@@ -146,12 +146,12 @@ sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
   go l parameters stateAdam = do
     let inputs = makeADValInputs parameters deltaInputs
         (batch, rest) = splitAt batchSize l
-        fAdd :: ADValInputs 'DModeGradient r
-             -> ADVal 'DModeGradient r -> a
-             -> ADVal 'DModeGradient r
+        fAdd :: ADValInputs 'ADModeGradient r
+             -> ADVal 'ADModeGradient r -> a
+             -> ADVal 'ADModeGradient r
         fAdd vars !acc a = acc + f a vars
-        fBatch :: ADValInputs 'DModeGradient r
-               -> ADVal 'DModeGradient r
+        fBatch :: ADValInputs 'ADModeGradient r
+               -> ADVal 'ADModeGradient r
         fBatch vars =
           let resBatch = foldl' (fAdd vars) 0 batch
           in resBatch / fromIntegral (length batch)
@@ -164,7 +164,7 @@ sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
 -- Based on @gradientDescent@ from package @ad@ which is in turn based
 -- on the one from the VLAD compiler.
 gdSmart :: forall r. HasDelta r
-        => (ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
+        => (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
         -> Int  -- ^ requested number of iterations
         -> Domains r  -- ^ initial parameters
         -> IO (Domains r, r)

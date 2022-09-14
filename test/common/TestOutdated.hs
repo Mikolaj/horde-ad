@@ -20,9 +20,9 @@ import HordeAd.Tool.MnistData
 import HordeAd.Tool.MnistFcnnScalar
 import TestCommonEqEpsilon
 
-type ADValD = ADVal 'DModeGradient Double
+type ADValD = ADVal 'ADModeGradient Double
 
-type ADValInputsD = ADValInputs 'DModeGradient Double
+type ADValInputsD = ADValInputs 'ADModeGradient Double
 
 testTrees :: [TestTree]
 testTrees = [ fitTests
@@ -141,7 +141,7 @@ wsFitSeparated range@(low, hi) seed k =
 
 gdSimpleShow :: HasDelta r
              => r
-             -> (ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
+             -> (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
              -> Domain0 r
              -> Int
              -> IO ([r], r)
@@ -694,7 +694,7 @@ smartFit3TestsL3 =
 
 sgdShow :: HasDelta r
         => r
-        -> (a -> ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
+        -> (a -> ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
         -> [a]  -- ^ training data
         -> Domain0 r  -- ^ initial parameters
         -> IO ([r], r)

@@ -185,8 +185,8 @@ gradSmartTestCase
   => String
   -> (Int
       -> Data.Vector.Storable.Vector (r, r)
-      -> ADValInputs 'DModeGradient r
-      -> ADVal 'DModeGradient r)
+      -> ADValInputs 'ADModeGradient r
+      -> ADVal 'ADModeGradient r)
   -> Int -> Int -> Int -> Int -> r
   -> TestTree
 gradSmartTestCase prefix lossFunction seedSamples

@@ -86,12 +86,12 @@ fcnnMnistLossFusedRelu2 (datum, target) inputs =
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 fcnnMnistTest2
-  :: forall r. ADModeAndNum 'DModeValue r
+  :: forall r. ADModeAndNum 'ADModeValue r
   => [MnistData r] -> Domains r -> r
 fcnnMnistTest2 inputs parameters =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let nn = inline (fcnnMnist2 @'DModeValue) logistic softMaxV glyph
+        let nn = inline (fcnnMnist2 @'ADModeValue) logistic softMaxV glyph
             value = primalValue nn parameters
         in V.maxIndex value == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))

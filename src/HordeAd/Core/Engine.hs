@@ -35,8 +35,8 @@ import HordeAd.Internal.Delta
 
 -- The general case, needed for old hacky tests using only scalars.
 primalValueGeneral
-  :: forall r a. ADModeAndNum 'DModeValue r
-  => (ADValInputs 'DModeValue r -> a)
+  :: forall r a. ADModeAndNum 'ADModeValue r
+  => (ADValInputs 'ADModeValue r -> a)
   -> Domains r
   -> a
 -- Small enough that inline won't hurt.
@@ -52,8 +52,8 @@ primalValueGeneral f (params0, params1, params2, paramsX) =
   in f inputs
 
 primalValue
-  :: forall r a. ADModeAndNum 'DModeValue r
-  => (ADValInputs 'DModeValue r -> ADVal 'DModeValue a)
+  :: forall r a. ADModeAndNum 'ADModeValue r
+  => (ADValInputs 'ADModeValue r -> ADVal 'ADModeValue a)
   -> Domains r
   -> a
 -- Small enough that inline won't hurt.
@@ -68,8 +68,8 @@ primalValue f parameters =
 dReverseGeneralFun
   :: forall r. HasDelta r
   => r
-  -> ADValInputs 'DModeGradient r
-  -> (ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
+  -> ADValInputs 'ADModeGradient r
+  -> (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> (Domains r, r)
 -- The functions in which @dReverseGeneral@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
@@ -90,8 +90,8 @@ dReverseGeneralFun dt inputs@ADValInputs{..} f =
 dReverseGeneral
   :: forall r. HasDelta r
   => r
-  -> ADValInputs 'DModeGradient r
-  -> (ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
+  -> ADValInputs 'ADModeGradient r
+  -> (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> IO (Domains r, r)
 {-# INLINE dReverseGeneral #-}
 dReverseGeneral dt inputs f = return $! dReverseGeneralFun dt inputs f
@@ -99,7 +99,7 @@ dReverseGeneral dt inputs f = return $! dReverseGeneralFun dt inputs f
 dReverseFun
   :: HasDelta r
   => r
-  -> (ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
+  -> (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> (Domains r, r)
 dReverseFun dt f parameters =
@@ -110,7 +110,7 @@ dReverseFun dt f parameters =
 dReverse
   :: HasDelta r
   => r
-  -> (ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
+  -> (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> IO (Domains r, r)
 dReverse dt f parameters = return $! dReverseFun dt f parameters
@@ -122,8 +122,8 @@ dReverse dt f parameters = return $! dReverseFun dt f parameters
 
 dForwardGeneralFun
   :: forall r. HasDelta r
-  => ADValInputs 'DModeGradient r
-  -> (ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
+  => ADValInputs 'ADModeGradient r
+  -> (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> (r, r)
 {-# INLINE dForwardGeneralFun #-}
@@ -138,8 +138,8 @@ dForwardGeneralFun inputs@ADValInputs{..} f ds =
 
 dForwardGeneral
   :: forall r. HasDelta r
-  => ADValInputs 'DModeGradient r
-  -> (ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
+  => ADValInputs 'ADModeGradient r
+  -> (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> IO (r, r)
 {-# INLINE dForwardGeneral #-}
@@ -148,7 +148,7 @@ dForwardGeneral inputs f ds = return $! dForwardGeneralFun inputs f ds
 -- The direction vector ds is taken as an extra argument.
 dForwardFun
   :: HasDelta r
-  => (ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
+  => (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> Domains r
   -> (r, r)
@@ -159,7 +159,7 @@ dForwardFun f parameters ds =
 
 dForward
   :: HasDelta r
-  => (ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
+  => (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> Domains r
   -> IO (r, r)
@@ -169,9 +169,9 @@ dForward f parameters ds = return $! dForwardFun f parameters ds
 -- * The evaluation for efficiently computing forward derivatives.
 
 dFastForwardGeneral
-  :: Dual 'DModeDerivative r ~ r
-  => ADValInputs 'DModeDerivative r
-  -> (ADValInputs 'DModeDerivative r -> ADVal 'DModeDerivative r)
+  :: Dual 'ADModeDerivative r ~ r
+  => ADValInputs 'ADModeDerivative r
+  -> (ADValInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative r)
   -> (r, r)
 {-# INLINE dFastForwardGeneral #-}
 dFastForwardGeneral inputs f =
@@ -180,8 +180,8 @@ dFastForwardGeneral inputs f =
 
 -- The direction vector ds is taken as an extra argument.
 dFastForward
-  :: forall r. (Numeric r, Dual 'DModeDerivative r ~ r)
-  => (ADValInputs 'DModeDerivative r -> ADVal 'DModeDerivative r)
+  :: forall r. (Numeric r, Dual 'ADModeDerivative r ~ r)
+  => (ADValInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative r)
   -> Domains r
   -> Domains r
   -> (r, r)
@@ -197,7 +197,7 @@ dFastForward f parameters (params0, params1, params2, paramsX) =
 
 prettyPrintDf
   :: forall r. HasDelta r
-  => (ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
+  => (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> String
 prettyPrintDf f parameters =
@@ -207,16 +207,16 @@ prettyPrintDf f parameters =
   in ppShow deltaTopLevel
 
 generateDeltaInputs
-  :: forall r. ADModeAndNum 'DModeGradient r
+  :: forall r. ADModeAndNum 'ADModeGradient r
   => Domains r
-  -> ( Data.Vector.Vector (Dual 'DModeGradient r)
-     , Data.Vector.Vector (Dual 'DModeGradient (Vector r))
-     , Data.Vector.Vector (Dual 'DModeGradient (Matrix r))
-     , Data.Vector.Vector (Dual 'DModeGradient (OT.Array r)) )
+  -> ( Data.Vector.Vector (Dual 'ADModeGradient r)
+     , Data.Vector.Vector (Dual 'ADModeGradient (Vector r))
+     , Data.Vector.Vector (Dual 'ADModeGradient (Matrix r))
+     , Data.Vector.Vector (Dual 'ADModeGradient (OT.Array r)) )
 generateDeltaInputs (params0, params1, params2, paramsX) =
   let intToInput
-        :: forall a v. (IsPrimalAndHasFeatures 'DModeGradient a r, V.Vector v a)
-        => v a -> Data.Vector.Vector (Dual 'DModeGradient a)
+        :: forall a v. (IsPrimalAndHasFeatures 'ADModeGradient a r, V.Vector v a)
+        => v a -> Data.Vector.Vector (Dual 'ADModeGradient a)
       intToInput p = V.generate (V.length p) (dInput . toInputId)
       !v0 = intToInput params0
       !v1 = intToInput params1
@@ -225,10 +225,10 @@ generateDeltaInputs (params0, params1, params2, paramsX) =
   in (v0, v1, v2, vX)
 {-# SPECIALIZE generateDeltaInputs
   :: Domains Double
-  -> ( Data.Vector.Vector (Dual 'DModeGradient Double)
-     , Data.Vector.Vector (Dual 'DModeGradient (Vector Double))
-     , Data.Vector.Vector (Dual 'DModeGradient (Matrix Double))
-     , Data.Vector.Vector (Dual 'DModeGradient (OT.Array Double)) ) #-}
+  -> ( Data.Vector.Vector (Dual 'ADModeGradient Double)
+     , Data.Vector.Vector (Dual 'ADModeGradient (Vector Double))
+     , Data.Vector.Vector (Dual 'ADModeGradient (Matrix Double))
+     , Data.Vector.Vector (Dual 'ADModeGradient (OT.Array Double)) ) #-}
 
 -- | Initialize parameters using a uniform distribution with a fixed range
 -- taken from an argument.

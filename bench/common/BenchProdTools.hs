@@ -120,7 +120,7 @@ vec_prod_aux :: forall d r. ADModeAndNum d r
 vec_prod_aux = foldlDual' (*) 1
   -- no handwritten derivatives; only the derivative for @(*)@ is provided
 
-vec_prod :: forall r. ADModeAndNum 'DModeValue r
+vec_prod :: forall r. ADModeAndNum 'ADModeValue r
          => Vector r -> r
 vec_prod ds = primalValue vec_prod_aux (ds, V.empty, V.empty, V.empty)
 
@@ -136,14 +136,14 @@ vec_scalarSum_aux
   => ADValInputs d r -> ADVal d r
 vec_scalarSum_aux = foldlDual' (+) 0
 
-sumElementsV :: ADValInputs 'DModeGradient Double
-             -> ADVal 'DModeGradient Double
+sumElementsV :: ADValInputs 'ADModeGradient Double
+             -> ADVal 'ADModeGradient Double
 sumElementsV inputs =
   let x = at1 inputs 0
   in sumElements0 x
 
-altSumElementsV :: ADValInputs 'DModeGradient Double
-                -> ADVal 'DModeGradient Double
+altSumElementsV :: ADValInputs 'ADModeGradient Double
+                -> ADVal 'ADModeGradient Double
 altSumElementsV inputs =
   let x = at1 inputs 0
   in altSumElements0 x

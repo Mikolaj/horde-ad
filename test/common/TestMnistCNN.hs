@@ -116,7 +116,7 @@ convMnistLossCNN depth (x, target) inputs =
   in lossSoftMaxCrossEntropyV target result
 
 convMnistTestCNN
-  :: forall r. ADModeAndNum 'DModeValue r
+  :: forall r. ADModeAndNum 'ADModeValue r
   => Int -> [MnistData2 r] -> Domains r -> r
 convMnistTestCNN depth inputs parameters =
   let matchesLabels :: MnistData2 r -> Bool
@@ -139,8 +139,8 @@ convMnistTestCaseCNN
   -> Int
   -> (Int
       -> MnistData2 Double
-      -> ADValInputs 'DModeGradient Double
-      -> ADVal 'DModeGradient Double)
+      -> ADValInputs 'ADModeGradient Double
+      -> ADVal 'ADModeGradient Double)
   -> (Int -> [MnistData2 Double]-> Domains Double -> Double)
   -> Int
   -> Int
@@ -261,7 +261,7 @@ convMnistLossCNNS depth (x, target) inputs =
   in lossSoftMaxCrossEntropyV target result
 
 convMnistTestCNNS
-  :: forall r. ADModeAndNum 'DModeValue r
+  :: forall r. ADModeAndNum 'ADModeValue r
   => Int -> [MnistData2 r] -> Domains r -> r
 convMnistTestCNNS depth inputs parameters =
   let matchesLabels :: MnistData2 r -> Bool
@@ -331,7 +331,7 @@ convMnistLossCNNP depth (x, target) inputs =
   in lossSoftMaxCrossEntropyV target result
 
 convMnistTestCNNP
-  :: forall r. ADModeAndNum 'DModeValue r
+  :: forall r. ADModeAndNum 'ADModeValue r
   => Int -> [MnistData2 r] -> Domains r -> r
 convMnistTestCNNP depth inputs parameters =
   let matchesLabels :: MnistData2 r -> Bool
@@ -353,7 +353,7 @@ convMnistTestCaseCNNT
             in_height in_width batch_size d r.
      ( 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
-     , r ~ Double, d ~ 'DModeGradient )
+     , r ~ Double, d ~ 'ADModeGradient )
   => StaticNat kheight_minus_1 -> StaticNat kwidth_minus_1
   -> StaticNat num_hidden
   -> StaticNat out_channels

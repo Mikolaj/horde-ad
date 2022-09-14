@@ -12,7 +12,7 @@
 -- in "HordeAd.Core.DualClass".
 module HordeAd.Core.DualNumber
   ( module HordeAd.Core.DualNumber
-  , ADModeAndNum, HasDelta, DMode(..)
+  , ADModeAndNum, HasDelta, ADMode(..)
   , Domain0, Domain1, Domain2, DomainX, Domains  -- an important re-export
   ) where
 
@@ -62,7 +62,7 @@ staticNatFromProxy Proxy = MkSN
 -- where the \"numbers\" can be any containers of scalars.
 -- Thus, the primal component has the type given as the second type argument
 -- and the dual component (named @Dual@) is special and defined elsewhere.
-data ADVal (d :: DMode) a = D a (Dual d a)
+data ADVal (d :: ADMode) a = D a (Dual d a)
 
 addParameters :: (Numeric r, Num (Vector r))
               => Domains r -> Domains r -> Domains r

@@ -23,7 +23,7 @@
 -- This would be the case even without impurity, not to ruin sharing.
 module HordeAd.Core.DualClass
   ( IsPrimalWithScalar, IsPrimalAndHasFeatures, ADModeAndNum, HasDelta
-  , DMode(..), Dual, IsPrimal(..), HasRanks(..), HasInputs(..)
+  , ADMode(..), Dual, IsPrimal(..), HasRanks(..), HasInputs(..)
   , -- * Internal operations
     unsafeGetFreshId
   ) where
@@ -53,11 +53,11 @@ import HordeAd.Internal.Delta
 -- is that the second type is the primal component of a dual number type
 -- at an unknown rank, with the given differentiation mode
 -- and underlying scalar.
-type IsPrimalWithScalar (d :: DMode) a r =
+type IsPrimalWithScalar (d :: ADMode) a r =
   (IsPrimal d a, ScalarOf a ~ r)
 
 -- | A shorthand for a useful set of constraints.
-type IsPrimalAndHasFeatures (d :: DMode) a r =
+type IsPrimalAndHasFeatures (d :: ADMode) a r =
   ( IsPrimalWithScalar d a r
   , HasInputs a, RealFloat a, MonoFunctor a, Element a ~ r )
 
@@ -65,7 +65,7 @@ type IsPrimalAndHasFeatures (d :: DMode) a r =
 -- The @Scalar@ in the name means that the second argument is the underlying
 -- scalar type of a well behaved (wrt the differentiation mode in the first
 -- argument) collection of primal and dual components of dual numbers.
-type ADModeAndNum (d :: DMode) r =
+type ADModeAndNum (d :: ADMode) r =
   ( HasRanks d r, Ord r, Numeric r, Show r
   , IsPrimalAndHasFeatures d r r
   , IsPrimalAndHasFeatures d (Vector r) r
@@ -77,18 +77,18 @@ type ADModeAndNum (d :: DMode) r =
   )
 
 -- | Is a scalar and will be used to compute gradients via delta-expressions.
-type HasDelta r = ( ADModeAndNum 'DModeGradient r
-                  , Dual 'DModeGradient r ~ Delta0 r )
+type HasDelta r = ( ADModeAndNum 'ADModeGradient r
+                  , Dual 'ADModeGradient r ~ Delta0 r )
 
 
 -- * Class definitions
 
 -- | The enumeration of all possible differentiation (and more generally,
 -- computation with dual numbers) schemes.
-data DMode =
-    DModeGradient
-  | DModeDerivative
-  | DModeValue
+data ADMode =
+    ADModeGradient
+  | ADModeDerivative
+  | ADModeValue
 
 -- | The type family that enumerates all possible "ranks"
 -- for each differentiation mode.
@@ -103,21 +103,21 @@ data DMode =
 -- Rank S is special, because of the extra type parameter @sh@ representing
 -- a shape. This is another obstacle to a dual number representation via
 -- a single-argument type constructor.
-type family Dual (d :: DMode) a = result | result -> d a where
-  Dual 'DModeGradient Double = Delta0 Double
-  Dual 'DModeGradient Float = Delta0 Float
-  Dual 'DModeGradient (Vector r) = Delta1 r
-  Dual 'DModeGradient (Matrix r) = Delta2 r
-  Dual 'DModeGradient (OT.Array r) = DeltaX r
-  Dual 'DModeGradient (OS.Array sh r) = DeltaS sh r
--- not injective:  Dual 'DModeDerivative r = r
-  Dual 'DModeDerivative Double = Double
-  Dual 'DModeDerivative Float = Float
-  Dual 'DModeDerivative (Vector r) = Vector r
-  Dual 'DModeDerivative (Matrix r) = Matrix r
-  Dual 'DModeDerivative (OT.Array r) = OT.Array r
-  Dual 'DModeDerivative (OS.Array sh r) = OS.Array sh r
-  Dual 'DModeValue a = DummyDual a
+type family Dual (d :: ADMode) a = result | result -> d a where
+  Dual 'ADModeGradient Double = Delta0 Double
+  Dual 'ADModeGradient Float = Delta0 Float
+  Dual 'ADModeGradient (Vector r) = Delta1 r
+  Dual 'ADModeGradient (Matrix r) = Delta2 r
+  Dual 'ADModeGradient (OT.Array r) = DeltaX r
+  Dual 'ADModeGradient (OS.Array sh r) = DeltaS sh r
+-- not injective:  Dual 'ADModeDerivative r = r
+  Dual 'ADModeDerivative Double = Double
+  Dual 'ADModeDerivative Float = Float
+  Dual 'ADModeDerivative (Vector r) = Vector r
+  Dual 'ADModeDerivative (Matrix r) = Matrix r
+  Dual 'ADModeDerivative (OT.Array r) = OT.Array r
+  Dual 'ADModeDerivative (OS.Array sh r) = OS.Array sh r
+  Dual 'ADModeValue a = DummyDual a
 
 -- A bit more verbose, but a bit faster than @data@, perhaps by chance.
 newtype DummyDual a = DummyDual ()
@@ -158,15 +158,15 @@ instance (IsPrimalS d r, OS.Shape sh) => IsPrimal d (OS.Array sh r) where
 
 -- | Assuming that the first argument is the primal component of dual numbers
 -- with the underyling scalar in the second argument and with differentiation
--- mode `DModeGradient`, it additionally admits delta-input
+-- mode `ADModeGradient`, it additionally admits delta-input
 -- introduction and binding as defined by the methods of the class.
 class HasInputs a where
-  dInput :: InputId a -> Dual 'DModeGradient a
+  dInput :: InputId a -> Dual 'ADModeGradient a
 
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
 -- of various ranks wrt the differentation mode given in the first argument.
-class HasRanks (d :: DMode) r where
+class HasRanks (d :: ADMode) r where
   dSumElements0 :: Dual d (Vector r) -> Int -> Dual d r
   dIndex0 :: Dual d (Vector r) -> Int -> Int -> Dual d r
   dDot0 :: Vector r -> Dual d (Vector r) -> Dual d r
@@ -249,7 +249,7 @@ class HasRanks (d :: DMode) r where
 
 -- * Backprop gradient method instances
 
--- | This, just as many other @DModeGradient@ instances, is an impure instance.
+-- | This, just as many other @ADModeGradient@ instances, is an impure instance.
 -- Each created term tree node gets an @Int@ identifier
 -- that is afterwards incremented (and never changed in any other way).
 -- The identifiers are not part of any non-internal module API
@@ -273,38 +273,38 @@ class HasRanks (d :: DMode) r where
 -- On the contrary, they increase sharing and make evaluation yet cheaper.
 -- Of course, if the compiler, e.g., stopped honouring @NOINLINE@,
 -- all this breaks down.
-instance IsPrimal 'DModeGradient Double where
+instance IsPrimal 'ADModeGradient Double where
   dZero = Zero0
   dScale !k !d = wrapDelta0 $ Scale0 k d
   dAdd !d !e = wrapDelta0 $ Add0 d e
 
 -- | This is an impure instance. See above.
-instance IsPrimal 'DModeGradient Float where
+instance IsPrimal 'ADModeGradient Float where
   -- Identical as above:
   dZero = Zero0
   dScale !k !d = wrapDelta0 $ Scale0 k d
   dAdd !d !e = wrapDelta0 $ Add0 d e
 
 -- | This is an impure instance. See above.
-instance IsPrimal 'DModeGradient (Vector r) where
+instance IsPrimal 'ADModeGradient (Vector r) where
   dZero = Zero1
   dScale !k !d = wrapDelta1 $ Scale1 k d
   dAdd !d !e = wrapDelta1 $ Add1 d e
 
 -- | This is an impure instance. See above.
-instance IsPrimal 'DModeGradient (Matrix r) where
+instance IsPrimal 'ADModeGradient (Matrix r) where
   dZero = Zero2
   dScale !k !d = wrapDelta2 $ Scale2 k d
   dAdd !d !e = wrapDelta2 $ Add2 d e
 
 -- | This is an impure instance. See above.
-instance IsPrimal 'DModeGradient (OT.Array r) where
+instance IsPrimal 'ADModeGradient (OT.Array r) where
   dZero = ZeroX
   dScale !k !d = wrapDeltaX $ ScaleX k d
   dAdd !d !e = wrapDeltaX $ AddX d e
 
 -- | This is an impure instance. See above.
-instance IsPrimalS 'DModeGradient r where
+instance IsPrimalS 'ADModeGradient r where
   dZeroS = ZeroS
   dScaleS !k !d = wrapDeltaS $ ScaleS k d
   dAddS !d !e = wrapDeltaS $ AddS d e
@@ -328,8 +328,8 @@ instance HasInputs (OS.Array sh r) where
   dInput = InputS
 
 -- | This is an impure instance. See above.
-instance Dual 'DModeGradient r ~ Delta0 r
-         => HasRanks 'DModeGradient r where
+instance Dual 'ADModeGradient r ~ Delta0 r
+         => HasRanks 'ADModeGradient r where
   dSumElements0 !vd !n = wrapDelta0 $ SumElements0 vd n
   dIndex0 !d !ix !k = wrapDelta0 $ Index0 d ix k
   dDot0 !v !vd = wrapDelta0 $ Dot0 v vd
@@ -391,44 +391,44 @@ instance Dual 'DModeGradient r ~ Delta0 r
 
 -- * Alternative instances: forward derivatives computed on the spot
 
-instance IsPrimal 'DModeDerivative Double where
+instance IsPrimal 'ADModeDerivative Double where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
 
-instance IsPrimal 'DModeDerivative Float where
+instance IsPrimal 'ADModeDerivative Float where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
 
 -- These constraints force @UndecidableInstances@.
 instance Num (Vector r)
-         => IsPrimal 'DModeDerivative (Vector r) where
+         => IsPrimal 'ADModeDerivative (Vector r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
 
 instance Num (Matrix r)
-         => IsPrimal 'DModeDerivative (Matrix r) where
+         => IsPrimal 'ADModeDerivative (Matrix r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
 
 instance Num (OT.Array r)
-         => IsPrimal 'DModeDerivative (OT.Array r) where
+         => IsPrimal 'ADModeDerivative (OT.Array r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
 
 instance (Numeric r, Num (Vector r))
-         => IsPrimalS 'DModeDerivative r where
+         => IsPrimalS 'ADModeDerivative r where
   dZeroS = 0
   dScaleS k d = k * d
   dAddS d e = d + e
 
 instance ( Numeric r, Num (Vector r)
-         , Dual 'DModeDerivative r ~ r )
-         => HasRanks 'DModeDerivative r where
+         , Dual 'ADModeDerivative r ~ r )
+         => HasRanks 'ADModeDerivative r where
   dSumElements0 vd _ = HM.sumElements vd
   dIndex0 d ix _ = d V.! ix
   dDot0 = (HM.<.>)
@@ -500,37 +500,37 @@ instance ( Numeric r, Num (Vector r)
 
 -- * Other alternative instances: only the objective function's value computed
 
-instance IsPrimal 'DModeValue Double where
+instance IsPrimal 'ADModeValue Double where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
 
-instance IsPrimal 'DModeValue Float where
+instance IsPrimal 'ADModeValue Float where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
 
-instance IsPrimal 'DModeValue (Vector r) where
+instance IsPrimal 'ADModeValue (Vector r) where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
 
-instance IsPrimal 'DModeValue (Matrix r) where
+instance IsPrimal 'ADModeValue (Matrix r) where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
 
-instance IsPrimal 'DModeValue (OT.Array r) where
+instance IsPrimal 'ADModeValue (OT.Array r) where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
 
-instance IsPrimalS 'DModeValue r where
+instance IsPrimalS 'ADModeValue r where
   dZeroS = DummyDual ()
   dScaleS _ _ = DummyDual ()
   dAddS _ _ = DummyDual ()
 
-instance HasRanks 'DModeValue r where
+instance HasRanks 'ADModeValue r where
   dSumElements0 _ _ = DummyDual ()
   dIndex0 _ _ _ = DummyDual ()
   dDot0 _ _ = DummyDual ()

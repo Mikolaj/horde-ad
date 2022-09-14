@@ -115,7 +115,7 @@ fcnnMnistLossFusedReluS widthHidden widthHidden2 (datum, target) inputs =
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 fcnnMnistTestS
-  :: forall widthHidden widthHidden2 r. ADModeAndNum 'DModeValue r
+  :: forall widthHidden widthHidden2 r. ADModeAndNum 'ADModeValue r
   => StaticNat widthHidden -> StaticNat widthHidden2
   -> [MnistData r] -> Domains r -> r
 fcnnMnistTestS widthHidden widthHidden2 inputs parameters =

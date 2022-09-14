@@ -21,8 +21,8 @@ testTrees = [ gdSimpleTests
 
 gdSimpleShow :: HasDelta r
              => r
-             -> (ADValInputs 'DModeGradient r
-                 -> ADVal 'DModeGradient r)
+             -> (ADValInputs 'ADModeGradient r
+                 -> ADVal 'ADModeGradient r)
              -> Domain0 r
              -> Int
              -> IO ([r], r)

@@ -184,7 +184,7 @@ rnnMnistLossFusedS out_width@MkSN
      $ sumElements0 vec
 
 rnnMnistTestS
-  :: forall out_width batch_size r. ADModeAndNum 'DModeValue r
+  :: forall out_width batch_size r. ADModeAndNum 'ADModeValue r
   => StaticNat out_width
   -> StaticNat batch_size
   -> MnistDataBatchS batch_size r

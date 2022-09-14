@@ -32,7 +32,7 @@ sumTrainableInputs xs offset inputs =
         let v = at0 inputs (offset + 1 + i)
         in acc + u * v
   in V.ifoldl' f bias xs
-{-# SPECIALIZE sumTrainableInputs :: Data.Vector.Vector (ADVal 'DModeGradient Double) -> Int -> ADValInputs 'DModeGradient Double -> ADVal 'DModeGradient Double #-}
+{-# SPECIALIZE sumTrainableInputs :: Data.Vector.Vector (ADVal 'ADModeGradient Double) -> Int -> ADValInputs 'ADModeGradient Double -> ADVal 'ADModeGradient Double #-}
 
 -- | Compute the output of a neuron, without applying activation function,
 -- from constant data in @xs@ and parameters (the bias and weights)
@@ -48,7 +48,7 @@ sumConstantData xs offset inputs =
         let v = at0 inputs (offset + 1 + i)
         in acc + scale r v
   in V.ifoldl' f bias xs
-{-# SPECIALIZE sumConstantData :: Vector Double -> Int -> ADValInputs 'DModeGradient Double -> ADVal 'DModeGradient Double #-}
+{-# SPECIALIZE sumConstantData :: Vector Double -> Int -> ADValInputs 'ADModeGradient Double -> ADVal 'ADModeGradient Double #-}
 
 hiddenLayerMnist
   :: forall d r. ADModeAndNum d r
@@ -139,17 +139,17 @@ fcnnMnistLoss0 widthHidden widthHidden2 (datum, target) inputs =
   let result = inline fcnnMnist0 logistic softMax
                                  widthHidden widthHidden2 datum inputs
   in lossCrossEntropy target result
-{-# SPECIALIZE fcnnMnistLoss0 :: Int -> Int -> MnistData Double -> ADValInputs 'DModeGradient Double -> ADVal 'DModeGradient Double #-}
+{-# SPECIALIZE fcnnMnistLoss0 :: Int -> Int -> MnistData Double -> ADValInputs 'ADModeGradient Double -> ADVal 'ADModeGradient Double #-}
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
-fcnnMnistTest0 :: forall r. ADModeAndNum 'DModeValue r
+fcnnMnistTest0 :: forall r. ADModeAndNum 'ADModeValue r
                => Int -> Int -> [MnistData r] -> Domain0 r
                -> r
 fcnnMnistTest0 widthHidden widthHidden2 inputs params0 =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let nn = inline (fcnnMnist0 @'DModeValue)
+        let nn = inline (fcnnMnist0 @'ADModeValue)
                         logistic softMax
                         widthHidden widthHidden2 glyph
             value = V.map (\(D r _) -> r)

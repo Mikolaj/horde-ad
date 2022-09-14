@@ -127,7 +127,7 @@ samples :: [(Vector Double, Double)]
 samples  = [(V.fromList $ init c, last c) | c <- chunksOf 19 series]
 
 sgdShow :: HasDelta r
-        => (a -> ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
+        => (a -> ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
         -> [a]
         -> Domains r
         -> IO r
@@ -137,8 +137,8 @@ sgdShow f trainData parameters = do
 
 sgdTestCase :: String
             -> (a
-                -> ADValInputs 'DModeGradient Double
-                -> ADVal 'DModeGradient Double)
+                -> ADValInputs 'ADModeGradient Double
+                -> ADVal 'ADModeGradient Double)
             -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
             -> IO [a]
             -> Double
@@ -156,8 +156,8 @@ sgdTestCase prefix f nParameters trainDataIO expected =
 
 sgdTestCaseAlt :: String
             -> (a
-                -> ADValInputs 'DModeGradient Double
-                -> ADVal 'DModeGradient Double)
+                -> ADValInputs 'ADModeGradient Double
+                -> ADVal 'ADModeGradient Double)
             -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
             -> IO [a]
             -> [Double]
@@ -173,11 +173,11 @@ sgdTestCaseAlt prefix f nParameters trainDataIO expected =
        res <- sgdShow f trainData parameters0
        assertCloseElem "" expected res
 
-prime :: ADModeAndNum 'DModeValue r
+prime :: ADModeAndNum 'ADModeValue r
       => (r
-          -> ADVal 'DModeValue (Vector r)
-          -> ADValInputs 'DModeValue r
-          -> (ADVal 'DModeValue r, ADVal 'DModeValue (Vector r)))
+          -> ADVal 'ADModeValue (Vector r)
+          -> ADValInputs 'ADModeValue r
+          -> (ADVal 'ADModeValue r, ADVal 'ADModeValue (Vector r)))
       -> Domains r
       -> Vector r
       -> [r]
@@ -185,11 +185,11 @@ prime :: ADModeAndNum 'DModeValue r
 prime f parameters =
   foldl' (\s x -> primalValue (snd . f x (constant s)) parameters)
 
-feedback :: ADModeAndNum 'DModeValue r
+feedback :: ADModeAndNum 'ADModeValue r
          => (r
-             -> ADVal 'DModeValue (Vector r)
-             -> ADValInputs 'DModeValue r
-             -> (ADVal 'DModeValue r, ADVal 'DModeValue (Vector r)))
+             -> ADVal 'ADModeValue (Vector r)
+             -> ADValInputs 'ADModeValue r
+             -> (ADVal 'ADModeValue r, ADVal 'ADModeValue (Vector r)))
          -> Domains r
          -> Vector r
          -> r
@@ -202,13 +202,13 @@ feedback f parameters s0 x0 =
 
 feedbackTestCase :: String
                  -> (Double
-                     -> ADVal 'DModeValue (Vector Double)
-                     -> ADValInputs 'DModeValue Double
-                     -> ( ADVal 'DModeValue Double
-                        , ADVal 'DModeValue (Vector Double) ))
+                     -> ADVal 'ADModeValue (Vector Double)
+                     -> ADValInputs 'ADModeValue Double
+                     -> ( ADVal 'ADModeValue Double
+                        , ADVal 'ADModeValue (Vector Double) ))
                  -> (a
-                     -> ADValInputs 'DModeGradient Double
-                     -> ADVal 'DModeGradient Double)
+                     -> ADValInputs 'ADModeGradient Double
+                     -> ADVal 'ADModeGradient Double)
                  -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
                  -> [a]
                  -> [Double]
@@ -425,7 +425,7 @@ nnMnistRNNLossL2 width (xs, target) inputs =
   let result = nnMnistRNNL2 width xs inputs
   in lossSoftMaxCrossEntropyV target result
 
-testMnistRNNL :: forall r. ADModeAndNum 'DModeValue r
+testMnistRNNL :: forall r. ADModeAndNum 'ADModeValue r
               => Int -> [([Vector r], Vector r)] -> Domains r -> r
 testMnistRNNL width inputs parameters =
   let matchesLabels :: ([Vector r], Vector r) -> Bool
@@ -436,7 +436,7 @@ testMnistRNNL width inputs parameters =
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
 
-testMnistRNNL2 :: forall r. ADModeAndNum 'DModeValue r
+testMnistRNNL2 :: forall r. ADModeAndNum 'ADModeValue r
                => Int -> [([Vector r], Vector r)] -> Domains r -> r
 testMnistRNNL2 width inputs parameters =
   let matchesLabels :: ([Vector r], Vector r) -> Bool
@@ -498,7 +498,7 @@ nnMnistRNNLossV width (xs, target) inputs =
   let result = nnMnistRNNV width xs inputs
   in lossSoftMaxCrossEntropyV target result
 
-testMnistRNNV :: forall r. ADModeAndNum 'DModeValue r
+testMnistRNNV :: forall r. ADModeAndNum 'ADModeValue r
               => Int -> [([Vector r], Vector r)] -> Domains r -> r
 testMnistRNNV width inputs parameters =
   let matchesLabels :: ([Vector r], Vector r) -> Bool
@@ -535,8 +535,8 @@ mnistTestCaseRNN
   -> Int
   -> (Int
       -> ([Vector Double], Vector Double)
-      -> ADValInputs 'DModeGradient Double
-      -> ADVal 'DModeGradient Double)
+      -> ADValInputs 'ADModeGradient Double
+      -> ADVal 'ADModeGradient Double)
   -> (Int -> [([Vector Double], Vector Double)] -> Domains Double -> Double)
   -> (Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
   -> Int
@@ -711,8 +711,8 @@ mnistTestCaseRNNB
   -> Int
   -> (Int
       -> ([Matrix Double], Matrix Double)
-      -> ADValInputs 'DModeGradient Double
-      -> ADVal 'DModeGradient Double)
+      -> ADValInputs 'ADModeGradient Double
+      -> ADVal 'ADModeGradient Double)
   -> (Int -> [([Vector Double], Vector Double)] -> Domains Double -> Double)
   -> (Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
   -> Int
@@ -778,7 +778,7 @@ mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
 -- * A version written using shaped tensors
 
 mnistTestCaseRNNS
-  :: forall out_width batch_size d r. (r ~ Double, d ~ 'DModeGradient)
+  :: forall out_width batch_size d r. (r ~ Double, d ~ 'ADModeGradient)
   => StaticNat out_width -> StaticNat batch_size
   -> String
   -> Int

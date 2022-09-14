@@ -224,7 +224,7 @@ convMnistTestS
             in_height in_width r.
      ( 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
-     , ADModeAndNum 'DModeValue r )
+     , ADModeAndNum 'ADModeValue r )
   => StaticNat kheight_minus_1 -> StaticNat kwidth_minus_1
   -> StaticNat num_hidden
   -> StaticNat out_channels
@@ -245,8 +245,8 @@ convMnistTestS kheight_minus_1@MkSN kwidth_minus_1@MkSN
         let tx :: OS.Array '[1, 1, in_height, in_width] r
             tx = OS.reshape glyph
             batch_size_1 = MkSN @1
-            nn :: ADValInputs 'DModeValue r
-               -> ADVal 'DModeValue (OS.Array '[SizeMnistLabel, 1] r)
+            nn :: ADValInputs 'ADModeValue r
+               -> ADVal 'ADModeValue (OS.Array '[SizeMnistLabel, 1] r)
             nn = convMnistS kheight_minus_1 kwidth_minus_1
                             num_hidden out_channels
                             in_height in_width batch_size_1

@@ -62,7 +62,7 @@ quickCheckTest0 txt f fArg =
 
 -- A quick check to compare the derivatives and values of 2 given functions.
 cmpTwo
-  :: (d ~ 'DModeDerivative, Dual d r ~ r, ADModeAndNum d r)
+  :: (d ~ 'ADModeDerivative, Dual d r ~ r, ADModeAndNum d r)
   => (ADValInputs d r -> ADVal d r)
   -> (ADValInputs d r -> ADVal d r)
   -> Domains r
@@ -75,7 +75,7 @@ cmpTwo f1 f2 params1 params2 ds1 ds2 =
 
 -- A quick check to compare the derivatives and values of 2 given functions.
 cmpTwoSimple
-  :: (d ~ 'DModeDerivative, Dual d r ~ r, ADModeAndNum d r)
+  :: (d ~ 'ADModeDerivative, Dual d r ~ r, ADModeAndNum d r)
   => (ADValInputs d r -> ADVal d r)
   -> (ADValInputs d r -> ADVal d r)
   -> Domains r
