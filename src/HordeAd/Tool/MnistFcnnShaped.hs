@@ -17,7 +17,7 @@ import qualified Data.Vector.Generic as V
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.PairOfVectors (DualNumberInputs, atS)
+import HordeAd.Core.PairOfVectors (ADValInputs, atS)
 import HordeAd.Tool.MnistData
 
 -- | Fully connected neural network for the MNIST digit classification task.
@@ -27,20 +27,20 @@ import HordeAd.Tool.MnistData
 -- The dimensions, in turn, can be computed by the @len*@ functions
 -- on the basis of the requested widths, see above.
 fcnnMnistLayersS
-  :: forall widthHidden widthHidden2 d r. IsScalar d r
+  :: forall widthHidden widthHidden2 d r. ADModeAndNum d r
   => StaticNat widthHidden -> StaticNat widthHidden2
   -> (forall sh. OS.Shape sh
-      => DualNumber d (OS.Array sh r) -> DualNumber d (OS.Array sh r))
+      => ADVal d (OS.Array sh r) -> ADVal d (OS.Array sh r))
   -> OS.Array '[SizeMnistGlyph] r
   -- All below is the type of all paramters of this nn. The same is reflected
   -- in the length function below and read from inputs further down.
-  -> DualNumber d (OS.Array '[widthHidden, SizeMnistGlyph] r)
-  -> DualNumber d (OS.Array '[widthHidden] r)
-  -> DualNumber d (OS.Array '[widthHidden2, widthHidden] r)
-  -> DualNumber d (OS.Array '[widthHidden2] r)
-  -> DualNumber d (OS.Array '[SizeMnistLabel, widthHidden2] r)
-  -> DualNumber d (OS.Array '[SizeMnistLabel] r)
-  -> DualNumber d (OS.Array '[SizeMnistLabel] r)
+  -> ADVal d (OS.Array '[widthHidden, SizeMnistGlyph] r)
+  -> ADVal d (OS.Array '[widthHidden] r)
+  -> ADVal d (OS.Array '[widthHidden2, widthHidden] r)
+  -> ADVal d (OS.Array '[widthHidden2] r)
+  -> ADVal d (OS.Array '[SizeMnistLabel, widthHidden2] r)
+  -> ADVal d (OS.Array '[SizeMnistLabel] r)
+  -> ADVal d (OS.Array '[SizeMnistLabel] r)
 fcnnMnistLayersS MkSN MkSN factivationHidden datum
                  weightsL0 biasesV0 weightsL1 biasesV1 weightsL2 biasesV2 =
   let !_A = assert (sizeMnistGlyphInt == OS.size datum) ()
@@ -71,13 +71,13 @@ fcnnMnistLenS MkSN MkSN =
   )
 
 fcnnMnistS
-  :: forall widthHidden widthHidden2 d r. IsScalar d r
+  :: forall widthHidden widthHidden2 d r. ADModeAndNum d r
   => StaticNat widthHidden -> StaticNat widthHidden2
   -> (forall sh. OS.Shape sh
-      => DualNumber d (OS.Array sh r) -> DualNumber d (OS.Array sh r))
+      => ADVal d (OS.Array sh r) -> ADVal d (OS.Array sh r))
   -> OS.Array '[SizeMnistGlyph] r
-  -> DualNumberInputs d r
-  -> DualNumber d (OS.Array '[SizeMnistLabel] r)
+  -> ADValInputs d r
+  -> ADVal d (OS.Array '[SizeMnistLabel] r)
 {-# INLINE fcnnMnistS #-}
 fcnnMnistS widthHidden@MkSN widthHidden2@MkSN
            factivationHidden datum inputs =
@@ -95,18 +95,18 @@ fcnnMnistS widthHidden@MkSN widthHidden2@MkSN
 -- and composed with the appropriate loss function, using fused
 -- softMax and cross entropy as the loss function.
 fcnnMnistLossFusedS
-  :: forall widthHidden widthHidden2 d r. IsScalar d r
+  :: forall widthHidden widthHidden2 d r. ADModeAndNum d r
   => StaticNat widthHidden -> StaticNat widthHidden2
-  -> MnistData r -> DualNumberInputs d r -> DualNumber d r
+  -> MnistData r -> ADValInputs d r -> ADVal d r
 fcnnMnistLossFusedS widthHidden widthHidden2 (datum, target) inputs =
   let result = fcnnMnistS widthHidden widthHidden2
                           logistic (OS.fromVector datum) inputs
   in lossSoftMaxCrossEntropyV target $ fromS1 result
 
 fcnnMnistLossFusedReluS
-  :: forall widthHidden widthHidden2 d r. IsScalar d r
+  :: forall widthHidden widthHidden2 d r. ADModeAndNum d r
   => StaticNat widthHidden -> StaticNat widthHidden2
-  -> MnistData r -> DualNumberInputs d r -> DualNumber d r
+  -> MnistData r -> ADValInputs d r -> ADVal d r
 fcnnMnistLossFusedReluS widthHidden widthHidden2 (datum, target) inputs =
   let result = fcnnMnistS widthHidden widthHidden2
                           relu (OS.fromVector datum) inputs
@@ -115,7 +115,7 @@ fcnnMnistLossFusedReluS widthHidden widthHidden2 (datum, target) inputs =
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 fcnnMnistTestS
-  :: forall widthHidden widthHidden2 r. IsScalar 'DModeValue r
+  :: forall widthHidden widthHidden2 r. ADModeAndNum 'DModeValue r
   => StaticNat widthHidden -> StaticNat widthHidden2
   -> [MnistData r] -> Domains r -> r
 fcnnMnistTestS widthHidden widthHidden2 inputs parameters =

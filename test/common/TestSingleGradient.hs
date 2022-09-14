@@ -40,8 +40,8 @@ testTrees = [ testDReverse0
 
 dReverse0
   :: HasDelta r
-  => (DualNumberInputs 'DModeGradient r
-      -> DualNumber 'DModeGradient r)
+  => (ADValInputs 'DModeGradient r
+      -> ADVal 'DModeGradient r)
   -> [r]
   -> IO ([r], r)
 dReverse0 f deltaInput = do
@@ -49,61 +49,61 @@ dReverse0 f deltaInput = do
     dReverse 1 f (V.fromList deltaInput, V.empty, V.empty, V.empty)
   return (V.toList results, value)
 
-fX :: DualNumberInputs 'DModeGradient Float
-   -> DualNumber 'DModeGradient Float
+fX :: ADValInputs 'DModeGradient Float
+   -> ADVal 'DModeGradient Float
 fX inputs = at0 inputs 0
 
-fXp1 :: DualNumberInputs 'DModeGradient Float
-     -> DualNumber 'DModeGradient Float
+fXp1 :: ADValInputs 'DModeGradient Float
+     -> ADVal 'DModeGradient Float
 fXp1 inputs =
   let x = at0 inputs 0
   in x + 1
 
-fXpX :: DualNumberInputs 'DModeGradient Float
-     -> DualNumber 'DModeGradient Float
+fXpX :: ADValInputs 'DModeGradient Float
+     -> ADVal 'DModeGradient Float
 fXpX inputs =
   let x = at0 inputs 0
   in x + x
 
-fXX :: DualNumberInputs 'DModeGradient Float
-    -> DualNumber 'DModeGradient Float
+fXX :: ADValInputs 'DModeGradient Float
+    -> ADVal 'DModeGradient Float
 fXX inputs =
   let x = at0 inputs 0
   in x * x
 
-fX1X :: DualNumberInputs 'DModeGradient Float
-     -> DualNumber 'DModeGradient Float
+fX1X :: ADValInputs 'DModeGradient Float
+     -> ADVal 'DModeGradient Float
 fX1X inputs =
   let x = at0 inputs 0
       x1 = x + 1
   in x1 * x
 
-fX1Y :: DualNumberInputs 'DModeGradient Float
-     -> DualNumber 'DModeGradient Float
+fX1Y :: ADValInputs 'DModeGradient Float
+     -> ADVal 'DModeGradient Float
 fX1Y inputs =
   let x = at0 inputs 0
       y = at0 inputs 1
       x1 = x + 1
   in x1 * y
 
-fY1X :: DualNumberInputs 'DModeGradient Float
-     -> DualNumber 'DModeGradient Float
+fY1X :: ADValInputs 'DModeGradient Float
+     -> ADVal 'DModeGradient Float
 fY1X inputs =
   let x = at0 inputs 0
       y = at0 inputs 1
       x1 = y + 1
   in x1 * x
 
-fXXY ::  DualNumberInputs 'DModeGradient Float
-     -> DualNumber 'DModeGradient Float
+fXXY ::  ADValInputs 'DModeGradient Float
+     -> ADVal 'DModeGradient Float
 fXXY inputs =
   let x = at0 inputs 0
       y = at0 inputs 1
       xy = x * y
   in x * xy
 
-fXYplusZ :: DualNumberInputs 'DModeGradient Float
-         -> DualNumber 'DModeGradient Float
+fXYplusZ :: ADValInputs 'DModeGradient Float
+         -> ADVal 'DModeGradient Float
 fXYplusZ inputs =
   let x = at0 inputs 0
       y = at0 inputs 1
@@ -111,15 +111,15 @@ fXYplusZ inputs =
       xy = x * y
   in xy + z
 
-fXtoY :: DualNumberInputs 'DModeGradient Float
-      -> DualNumber 'DModeGradient Float
+fXtoY :: ADValInputs 'DModeGradient Float
+      -> ADVal 'DModeGradient Float
 fXtoY inputs =
   let x = at0 inputs 0
       y = at0 inputs 1
   in x ** y
 
-freluX :: DualNumberInputs 'DModeGradient Float
-       -> DualNumber 'DModeGradient Float
+freluX :: ADValInputs 'DModeGradient Float
+       -> ADVal 'DModeGradient Float
 freluX inputs =
   let x = at0 inputs 0
   in relu x
@@ -152,20 +152,20 @@ testDReverse0 = testGroup "Simple dReverse application tests" $
     ]
 
 vec_scalarSum_aux
-  :: IsScalar d r
-  => DualNumberInputs d r -> DualNumber d r
+  :: ADModeAndNum d r
+  => ADValInputs d r -> ADVal d r
 vec_scalarSum_aux = foldlDual' (+) 0
 
 sumElementsV
-  :: IsScalar d r
-  => DualNumberInputs d r -> DualNumber d r
+  :: ADModeAndNum d r
+  => ADValInputs d r -> ADVal d r
 sumElementsV inputs =
   let x = at1 inputs 0
   in sumElements0 x
 
 altSumElementsV
-  :: IsScalar d r
-  => DualNumberInputs d r -> DualNumber d r
+  :: ADModeAndNum d r
+  => ADValInputs d r -> ADVal d r
 altSumElementsV inputs =
   let x = at1 inputs 0
   in altSumElements0 x
@@ -175,33 +175,33 @@ id2 :: a -> a
 id2 x = x
 
 sinKonst
-  :: IsScalar d r
-  => DualNumberInputs d r -> DualNumber d r
+  :: ADModeAndNum d r
+  => ADValInputs d r -> ADVal d r
 sinKonst inputs =
   let x = at1 inputs 0
   in sumElements0 $
        sin x + (id2 $ id2 $ id2 $ konst1 1 2)
 
 powKonst
-  :: IsScalar d r
-  => DualNumberInputs d r -> DualNumber d r
+  :: ADModeAndNum d r
+  => ADValInputs d r -> ADVal d r
 powKonst inputs =
   let x = at1 inputs 0
   in sumElements0 $
        x ** (sin x + (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
 
 sinKonstS
-  :: forall d r. IsScalar d r
-  => DualNumberInputs d r -> DualNumber d r
+  :: forall d r. ADModeAndNum d r
+  => ADValInputs d r -> ADVal d r
 sinKonstS inputs =
   let x = atS inputs 0
   in sumElements0 $ fromS1
        ((sin x + (id2 $ id2 $ id2 $ konstS 1))
-         :: DualNumber d (OS.Array '[2] r))
+         :: ADVal d (OS.Array '[2] r))
 
 dReverse1
   :: (r ~ Float, d ~ 'DModeGradient)
-  => (DualNumberInputs d r -> DualNumber d r)
+  => (ADValInputs d r -> ADVal d r)
   -> [[r]]
   -> IO ([[r]], r)
 dReverse1 f deltaInput = do
@@ -297,10 +297,10 @@ atanOldReadmeOriginal x y z =
 -- Here we instantiate the function to dual numbers
 -- and add a glue code that selects the function inputs from
 -- a uniform representation of objective function parameters
--- represented as delta-inputs (`DualNumberInputs`).
+-- represented as delta-inputs (`ADValInputs`).
 atanOldReadmeInputs
-  :: IsScalar d r
-  => DualNumberInputs d r -> Data.Vector.Vector (DualNumber d r)
+  :: ADModeAndNum d r
+  => ADValInputs d r -> Data.Vector.Vector (ADVal d r)
 atanOldReadmeInputs inputs =
   let x : y : z : _ = atList0 inputs
   in atanOldReadmeOriginal x y z
@@ -315,16 +315,16 @@ atanOldReadmeInputs inputs =
 
 -- Here is the function for dot product with ones, which is just the sum
 -- of elements of a vector.
-sumElementsOfDualNumbers
-  :: IsScalar d r
-  => Data.Vector.Vector (DualNumber d r) -> DualNumber d r
-sumElementsOfDualNumbers = V.foldl' (+) 0
+sumElementsOfADVals
+  :: ADModeAndNum d r
+  => Data.Vector.Vector (ADVal d r) -> ADVal d r
+sumElementsOfADVals = V.foldl' (+) 0
 
 -- Here we apply the function.
 atanOldReadme
-  :: IsScalar d r
-  => DualNumberInputs d r -> DualNumber d r
-atanOldReadme = sumElementsOfDualNumbers . atanOldReadmeInputs
+  :: ADModeAndNum d r
+  => ADValInputs d r -> ADVal d r
+atanOldReadme = sumElementsOfADVals . atanOldReadmeInputs
 
 -- The underscores and empty vectors are placeholders for the vector,
 -- matrix and arbitrary tensor components of the parameters tuple,
@@ -357,8 +357,8 @@ oldReadmeTests = testGroup "Simple tests for README"
 -- vectors of primitive differentiable scalars.
 
 vatanOldReadme
-  :: IsScalar d r
-  => DualNumberInputs d r -> DualNumber d r
+  :: ADModeAndNum d r
+  => ADValInputs d r -> ADVal d r
 vatanOldReadme inputs =
   let xyzVector = at1 inputs 0
       [x, y, z] = map (index0 xyzVector) [0, 1, 2]
@@ -426,16 +426,16 @@ testBar =
 -- causing exactly the same danger.
 -- This example also tests unused parameters (x), another common cause
 -- of crashes in naive gradient computing code.
-baz :: ( DualNumber 'DModeGradient Double
-       , DualNumber 'DModeGradient Double
-       , DualNumber 'DModeGradient Double )
-    -> DualNumber 'DModeGradient Double
+baz :: ( ADVal 'DModeGradient Double
+       , ADVal 'DModeGradient Double
+       , ADVal 'DModeGradient Double )
+    -> ADVal 'DModeGradient Double
 baz (_x,y,z) =
   let w = fooConstant * bar (y,y,z) * sin y
   in atan2 z w + z * w
 
 -- An "old term", computed once, stored at top level.
-fooConstant :: DualNumber 'DModeGradient Double
+fooConstant :: ADVal 'DModeGradient Double
 fooConstant = foo (7, 8, 9)
 
 testBaz :: Assertion
@@ -462,7 +462,7 @@ testBazRenumbered =
 
 -- A dual-number and list-based version of a function that goes
 -- from `R^3` to `R`.
-fooD :: IsScalar d r => [DualNumber d r] -> DualNumber d r
+fooD :: ADModeAndNum d r => [ADVal d r] -> ADVal d r
 fooD [x, y, z] =
   let w = x * sin y
   in atan2 z w + z * w
@@ -475,53 +475,53 @@ testFooD =
     [2.4396285219055063, -1.953374825727421, 0.9654825811012627]
 
 grad :: (HasDelta r, Adaptable r x rs)
-     => (x -> DualNumber 'DModeGradient r) -> x -> rs
+     => (x -> ADVal 'DModeGradient r) -> x -> rs
 grad f x =
-  let g inputs = f $ fromDualNumberInputs inputs
+  let g inputs = f $ fromADValInputs inputs
   in fromDomains $ fst $ dReverseFun 1 g (toDomains x)
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
 class Adaptable r fdr rs | fdr -> rs, rs -> fdr where
   toDomains :: fdr -> Domains r
-  fromDualNumberInputs :: DualNumberInputs 'DModeGradient r -> fdr
+  fromADValInputs :: ADValInputs 'DModeGradient r -> fdr
   fromDomains :: Domains r -> rs
 
-instance IsScalar 'DModeGradient r
-         => Adaptable r ( DualNumber 'DModeGradient r
-                        , DualNumber 'DModeGradient r
-                        , DualNumber 'DModeGradient r ) (r, r, r) where
+instance ADModeAndNum 'DModeGradient r
+         => Adaptable r ( ADVal 'DModeGradient r
+                        , ADVal 'DModeGradient r
+                        , ADVal 'DModeGradient r ) (r, r, r) where
   toDomains (D a _, D b _, D c _) =
     (V.fromList [a, b, c], V.empty, V.empty, V.empty)
-  fromDualNumberInputs inputs = case atList0 inputs of
+  fromADValInputs inputs = case atList0 inputs of
     r1 : r2 : r3 : _ -> (r1, r2, r3)
-    _ -> error "fromDualNumberInputs in Adaptable r (r, r, r)"
+    _ -> error "fromADValInputs in Adaptable r (r, r, r)"
   fromDomains (v, _, _, _) = case V.toList v of
     r1 : r2 : r3 : _ -> (r1, r2, r3)
-    _ -> error "fromDualNumberInputs in Adaptable r (r, r, r)"
+    _ -> error "fromADValInputs in Adaptable r (r, r, r)"
 
 -- TODO
-instance IsScalar 'DModeGradient r
-         => Adaptable r [DualNumber 'DModeGradient r] [r] where
+instance ADModeAndNum 'DModeGradient r
+         => Adaptable r [ADVal 'DModeGradient r] [r] where
   toDomains [D a _, D b _, D c _] =
     (V.fromList [a, b, c], V.empty, V.empty, V.empty)
-  fromDualNumberInputs inputs = case atList0 inputs of
+  fromADValInputs inputs = case atList0 inputs of
     r1 : r2 : r3 : _ -> [r1, r2, r3]
-    _ -> error "fromDualNumberInputs in Adaptable r [r]"
+    _ -> error "fromADValInputs in Adaptable r [r]"
   fromDomains (v, _, _, _) = case V.toList v of
     r1 : r2 : r3 : _ -> [r1, r2, r3]
-    _ -> error "fromDualNumberInputs in Adaptable r [r]"
+    _ -> error "fromADValInputs in Adaptable r [r]"
 
-instance (IsScalar 'DModeGradient r, OS.Shape sh1, OS.Shape sh2, OS.Shape sh3)
-         => Adaptable r ( DualNumber 'DModeGradient (OS.Array sh1 r)
-                        , DualNumber 'DModeGradient (OS.Array sh2 r)
-                        , DualNumber 'DModeGradient (OS.Array sh3 r) )
+instance (ADModeAndNum 'DModeGradient r, OS.Shape sh1, OS.Shape sh2, OS.Shape sh3)
+         => Adaptable r ( ADVal 'DModeGradient (OS.Array sh1 r)
+                        , ADVal 'DModeGradient (OS.Array sh2 r)
+                        , ADVal 'DModeGradient (OS.Array sh3 r) )
                         (OS.Array sh1 r, OS.Array sh2 r, OS.Array sh3 r) where
   toDomains (D a _, D b _, D c _) =
     ( V.empty, V.empty, V.empty
     , V.fromList [ Data.Array.Convert.convert a
                  , Data.Array.Convert.convert b
                  , Data.Array.Convert.convert c ] )
-  fromDualNumberInputs inputs =
+  fromADValInputs inputs =
     let a = atS inputs 0
         b = atS inputs 1
         c = atS inputs 2
@@ -530,7 +530,7 @@ instance (IsScalar 'DModeGradient r, OS.Shape sh1, OS.Shape sh2, OS.Shape sh3)
     a : b : c : _ -> ( Data.Array.Convert.convert a
                      , Data.Array.Convert.convert b
                      , Data.Array.Convert.convert c )
-    _ -> error "fromDualNumberInputs in Adaptable r (S, S, S)"
+    _ -> error "fromADValInputs in Adaptable r (S, S, S)"
 
 assertEqualUpToEps :: Double -> (Double, Double, Double) -> (Double, Double, Double) -> Assertion
 assertEqualUpToEps _eps (r1, r2, r3) (u1, u2, u3) =  -- TODO: use the _eps instead of the default one
@@ -562,11 +562,11 @@ readmeTests0 = testGroup "Simple tests of tuple-based code for README"
 -- of the third.
 -- Solving type-level inequalities is too hard, so we use the type-level plus
 -- to express the bounds on tensor sizes.
-fooS :: (IsScalar d r, len1 ~ (l1 + 1), len2 ~ (l2 + 2), len3 ~ (l3 + 3))
+fooS :: (ADModeAndNum d r, len1 ~ (l1 + 1), len2 ~ (l2 + 2), len3 ~ (l3 + 3))
      => StaticNat len1 -> StaticNat len2 -> StaticNat len3
-     -> ( DualNumber d (OS.Array '[len1] r)
-        , DualNumber d (OS.Array '[len2] r)
-        , DualNumber d (OS.Array '[len3] r) ) -> DualNumber d r
+     -> ( ADVal d (OS.Array '[len1] r)
+        , ADVal d (OS.Array '[len2] r)
+        , ADVal d (OS.Array '[len3] r) ) -> ADVal d r
 fooS MkSN MkSN MkSN (x1, x2, x3) =
   fromS0 $ indexS @0 x1 * indexS @1 x2 * indexS @2 x3
 

@@ -115,12 +115,12 @@ bgroup5e7 allxs =
 -- which works fine there, but costs us some cycles and the use
 -- of a custom operation here, where there's no gradient descent
 -- to manage the vectors for us.
-vec_prod_aux :: forall d r. IsScalar d r
-             => DualNumberInputs d r -> DualNumber d r
+vec_prod_aux :: forall d r. ADModeAndNum d r
+             => ADValInputs d r -> ADVal d r
 vec_prod_aux = foldlDual' (*) 1
   -- no handwritten derivatives; only the derivative for @(*)@ is provided
 
-vec_prod :: forall r. IsScalar 'DModeValue r
+vec_prod :: forall r. ADModeAndNum 'DModeValue r
          => Vector r -> r
 vec_prod ds = primalValue vec_prod_aux (ds, V.empty, V.empty, V.empty)
 
@@ -132,18 +132,18 @@ grad_toList_prod :: HasDelta r => [r] -> IO [r]
 grad_toList_prod l = V.toList <$> grad_vec_prod (V.fromList l)
 
 vec_scalarSum_aux
-  :: forall d r. IsScalar d r
-  => DualNumberInputs d r -> DualNumber d r
+  :: forall d r. ADModeAndNum d r
+  => ADValInputs d r -> ADVal d r
 vec_scalarSum_aux = foldlDual' (+) 0
 
-sumElementsV :: DualNumberInputs 'DModeGradient Double
-             -> DualNumber 'DModeGradient Double
+sumElementsV :: ADValInputs 'DModeGradient Double
+             -> ADVal 'DModeGradient Double
 sumElementsV inputs =
   let x = at1 inputs 0
   in sumElements0 x
 
-altSumElementsV :: DualNumberInputs 'DModeGradient Double
-                -> DualNumber 'DModeGradient Double
+altSumElementsV :: ADValInputs 'DModeGradient Double
+                -> ADVal 'DModeGradient Double
 altSumElementsV inputs =
   let x = at1 inputs 0
   in altSumElements0 x

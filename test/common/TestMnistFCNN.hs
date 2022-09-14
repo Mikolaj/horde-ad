@@ -45,7 +45,7 @@ shortTestForCITrees = [ dumbMnistTests
 
 sgdShow :: HasDelta r
         => r
-        -> (a -> DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
+        -> (a -> ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
         -> [a]  -- ^ training data
         -> Domain0 r  -- ^ initial parameters
         -> IO r
@@ -59,8 +59,8 @@ sgdTestCase :: String
             -> (Int
                 -> Int
                 -> a
-                -> DualNumberInputs 'DModeGradient Double
-                -> DualNumber 'DModeGradient Double)
+                -> ADValInputs 'DModeGradient Double
+                -> ADVal 'DModeGradient Double)
             -> Double
             -> Double
             -> TestTree
@@ -84,8 +84,8 @@ mnistTestCase2
   -> (Int
       -> Int
       -> MnistData Double
-      -> DualNumberInputs 'DModeGradient Double
-      -> DualNumber 'DModeGradient Double)
+      -> ADValInputs 'DModeGradient Double
+      -> ADVal 'DModeGradient Double)
   -> Int
   -> Int
   -> Double
@@ -141,8 +141,8 @@ mnistTestCase2V
   -> (Int
       -> Int
       -> MnistData Double
-      -> DualNumberInputs 'DModeGradient Double
-      -> DualNumber 'DModeGradient Double)
+      -> ADValInputs 'DModeGradient Double
+      -> ADVal 'DModeGradient Double)
   -> Int
   -> Int
   -> Double
@@ -204,8 +204,8 @@ fcnnMnistLossTanh ::
                    Int
                 -> Int
                 -> MnistData Double
-                -> DualNumberInputs 'DModeGradient Double
-                -> DualNumber 'DModeGradient Double
+                -> ADValInputs 'DModeGradient Double
+                -> ADVal 'DModeGradient Double
 fcnnMnistLossTanh widthHidden widthHidden2 (xs, targ) vec =
   let res = fcnnMnist0 tanh softMax widthHidden widthHidden2 xs vec
   in lossCrossEntropy targ res
@@ -214,8 +214,8 @@ fcnnMnistLossRelu ::
                    Int
                 -> Int
                 -> MnistData Double
-                -> DualNumberInputs 'DModeGradient Double
-                -> DualNumber 'DModeGradient Double
+                -> ADValInputs 'DModeGradient Double
+                -> ADVal 'DModeGradient Double
 fcnnMnistLossRelu widthHidden widthHidden2 (xs, targ) vec =
   let res = fcnnMnist0 relu softMax widthHidden widthHidden2 xs vec
   in lossCrossEntropy targ res
@@ -225,8 +225,8 @@ mnistTestCase2L
   -> Int
   -> Int
   -> (MnistData Double
-      -> DualNumberInputs 'DModeGradient Double
-      -> DualNumber 'DModeGradient Double)
+      -> ADValInputs 'DModeGradient Double
+      -> ADVal 'DModeGradient Double)
   -> Int
   -> Int
   -> Double
@@ -283,8 +283,8 @@ mnistTestCase2T
   -> Int
   -> Int
   -> (MnistData Double
-      -> DualNumberInputs 'DModeGradient Double
-      -> DualNumber 'DModeGradient Double)
+      -> ADValInputs 'DModeGradient Double
+      -> ADVal 'DModeGradient Double)
   -> Int
   -> Int
   -> Double
@@ -351,8 +351,8 @@ mnistTestCase2D
   -> Int
   -> Int
   -> (MnistData Double
-      -> DualNumberInputs 'DModeGradient Double
-      -> DualNumber 'DModeGradient Double)
+      -> ADValInputs 'DModeGradient Double
+      -> ADVal 'DModeGradient Double)
   -> Int
   -> Int
   -> Double
@@ -425,8 +425,8 @@ mnistTestCase2F
   -> Int
   -> Int
   -> (MnistData Double
-      -> DualNumberInputs 'DModeDerivative Double
-      -> DualNumber 'DModeDerivative Double)
+      -> ADValInputs 'DModeDerivative Double
+      -> ADVal 'DModeDerivative Double)
   -> Int
   -> Int
   -> Double
@@ -497,9 +497,9 @@ mnistTestCase2S
   -> String
   -> Int
   -> Int
-  -> (forall d r. IsScalar d r
+  -> (forall d r. ADModeAndNum d r
       => StaticNat widthHidden -> StaticNat widthHidden2
-      -> MnistData r -> DualNumberInputs d r -> DualNumber d r)
+      -> MnistData r -> ADValInputs d r -> ADVal d r)
   -> Double
   -> Double
   -> TestTree
@@ -651,8 +651,8 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             (_, _, _, ds) = initializerFixed seedDs rangeDs paramShape
             (_, _, _, parametersPerturbation) =
               initializerFixed (seed + seedDs) 1e-7 paramShape
-            f :: forall d r. (IsScalar d r, r ~ Double)
-              => DualNumberInputs d r -> DualNumber d r
+            f :: forall d r. (ADModeAndNum d r, r ~ Double)
+              => ADValInputs d r -> ADVal d r
             f = fcnnMnistLoss0 widthHidden widthHidden2 mnistData
         in ioProperty $ qcPropDom f parameters ds parametersPerturbation 1
   , testProperty "Compare two forward derivatives and gradient for Mnist1" $
@@ -671,8 +671,8 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             (_, _, _, ds) = initializerFixed seedDs rangeDs paramShape
             (_, _, _, parametersPerturbation) =
               initializerFixed (seed + seedDs) 1e-7 paramShape
-            f :: forall d r. (IsScalar d r, r ~ Double)
-              => DualNumberInputs d r -> DualNumber d r
+            f :: forall d r. (ADModeAndNum d r, r ~ Double)
+              => ADValInputs d r -> ADVal d r
             f = fcnnMnistLoss1 widthHidden widthHidden2 mnistData
         in ioProperty $ qcPropDom f parameters ds parametersPerturbation 1
   , testProperty "Compare two forward derivatives and gradient for Mnist2" $
@@ -695,8 +695,8 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             (_, _, _, parametersPerturbation) =
               initializerFixed (seed + seedDs) 1e-7 paramShape
             f, fOneHot, fFused
-              :: forall d r. (IsScalar d r, r ~ Double)
-                 => DualNumberInputs d r -> DualNumber d r
+              :: forall d r. (ADModeAndNum d r, r ~ Double)
+                 => ADValInputs d r -> ADVal d r
             f = fcnnMnistLoss2 mnistData
             fOneHot = fcnnMnistLoss2 mnistDataOneHot
             fFused = fcnnMnistLossFused2 mnistDataOneHot

@@ -14,7 +14,7 @@ import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.PairOfVectors (DualNumberInputs, at0)
+import HordeAd.Core.PairOfVectors (ADValInputs, at0)
 import HordeAd.Tool.MnistData
 
 -- | Compute the output of a neuron, without applying activation function,
@@ -22,57 +22,57 @@ import HordeAd.Tool.MnistData
 -- at @inputs@ starting at @offset@. Useful for neurons in the middle
 -- of the network, receiving inputs from other neurons.
 sumTrainableInputs
-  :: forall d r. IsScalar d r
-  => Data.Vector.Vector (DualNumber d r) -> Int -> DualNumberInputs d r
-  -> DualNumber d r
+  :: forall d r. ADModeAndNum d r
+  => Data.Vector.Vector (ADVal d r) -> Int -> ADValInputs d r
+  -> ADVal d r
 sumTrainableInputs xs offset inputs =
   let bias = at0 inputs offset
-      f :: DualNumber d r -> Int -> DualNumber d r -> DualNumber d r
+      f :: ADVal d r -> Int -> ADVal d r -> ADVal d r
       f !acc i u =
         let v = at0 inputs (offset + 1 + i)
         in acc + u * v
   in V.ifoldl' f bias xs
-{-# SPECIALIZE sumTrainableInputs :: Data.Vector.Vector (DualNumber 'DModeGradient Double) -> Int -> DualNumberInputs 'DModeGradient Double -> DualNumber 'DModeGradient Double #-}
+{-# SPECIALIZE sumTrainableInputs :: Data.Vector.Vector (ADVal 'DModeGradient Double) -> Int -> ADValInputs 'DModeGradient Double -> ADVal 'DModeGradient Double #-}
 
 -- | Compute the output of a neuron, without applying activation function,
 -- from constant data in @xs@ and parameters (the bias and weights)
 -- at @inputs@ starting at @offset@. Useful for neurons at the bottom
 -- of the network, tasked with ingesting the data.
 sumConstantData
-  :: forall d r. IsScalar d r
-  => Vector r -> Int -> DualNumberInputs d r -> DualNumber d r
+  :: forall d r. ADModeAndNum d r
+  => Vector r -> Int -> ADValInputs d r -> ADVal d r
 sumConstantData xs offset inputs =
   let bias = at0 inputs offset
-      f :: DualNumber d r -> Int -> r -> DualNumber d r
+      f :: ADVal d r -> Int -> r -> ADVal d r
       f !acc i r =
         let v = at0 inputs (offset + 1 + i)
         in acc + scale r v
   in V.ifoldl' f bias xs
-{-# SPECIALIZE sumConstantData :: Vector Double -> Int -> DualNumberInputs 'DModeGradient Double -> DualNumber 'DModeGradient Double #-}
+{-# SPECIALIZE sumConstantData :: Vector Double -> Int -> ADValInputs 'DModeGradient Double -> ADVal 'DModeGradient Double #-}
 
 hiddenLayerMnist
-  :: forall d r. IsScalar d r
-  => (DualNumber d r -> DualNumber d r)
+  :: forall d r. ADModeAndNum d r
+  => (ADVal d r -> ADVal d r)
   -> Vector r
-  -> DualNumberInputs d r -> Int
-  -> Data.Vector.Vector (DualNumber d r)
+  -> ADValInputs d r -> Int
+  -> Data.Vector.Vector (ADVal d r)
 hiddenLayerMnist factivation datum inputs width =
   let nWeightsAndBias = V.length datum + 1
-      f :: Int -> DualNumber d r
+      f :: Int -> ADVal d r
       f i =
         let outSum = sumConstantData datum (i * nWeightsAndBias) inputs
         in factivation outSum
   in V.generate width f
 
 middleLayerMnist
-  :: forall d r. IsScalar d r
-  => (DualNumber d r -> DualNumber d r)
-  -> Data.Vector.Vector (DualNumber d r)
-  -> Int -> DualNumberInputs d r -> Int
-  -> Data.Vector.Vector (DualNumber d r)
+  :: forall d r. ADModeAndNum d r
+  => (ADVal d r -> ADVal d r)
+  -> Data.Vector.Vector (ADVal d r)
+  -> Int -> ADValInputs d r -> Int
+  -> Data.Vector.Vector (ADVal d r)
 middleLayerMnist factivation hiddenVec offset inputs width =
   let nWeightsAndBias = V.length hiddenVec + 1
-      f :: Int -> DualNumber d r
+      f :: Int -> ADVal d r
       f i =
         let outSum = sumTrainableInputs hiddenVec
                                         (offset + i * nWeightsAndBias)
@@ -81,15 +81,15 @@ middleLayerMnist factivation hiddenVec offset inputs width =
   in V.generate width f
 
 outputLayerMnist
-  :: forall d r. IsScalar d r
-  => (Data.Vector.Vector (DualNumber d r)
-      -> Data.Vector.Vector (DualNumber d r))
-  -> Data.Vector.Vector (DualNumber d r) -> Int
-  -> DualNumberInputs d r -> Int
-  -> Data.Vector.Vector (DualNumber d r)
+  :: forall d r. ADModeAndNum d r
+  => (Data.Vector.Vector (ADVal d r)
+      -> Data.Vector.Vector (ADVal d r))
+  -> Data.Vector.Vector (ADVal d r) -> Int
+  -> ADValInputs d r -> Int
+  -> Data.Vector.Vector (ADVal d r)
 outputLayerMnist factivation hiddenVec offset inputs width =
   let nWeightsAndBias = V.length hiddenVec + 1
-      f :: Int -> DualNumber d r
+      f :: Int -> ADVal d r
       f i = sumTrainableInputs hiddenVec
                                (offset + i * nWeightsAndBias)
                                inputs
@@ -108,15 +108,15 @@ fcnnMnistLen0 widthHidden widthHidden2 =
 -- The widths of the hidden layers are @widthHidden@ and @widthHidden2@
 -- and from these, the @fcnnMnistLen2@ function computes the number
 -- of scalar dual number parameters (inputs) to be given to the program.
-fcnnMnist0 :: forall d r. IsScalar d r
-           => (DualNumber d r -> DualNumber d r)
-           -> (Data.Vector.Vector (DualNumber d r)
-               -> Data.Vector.Vector (DualNumber d r))
+fcnnMnist0 :: forall d r. ADModeAndNum d r
+           => (ADVal d r -> ADVal d r)
+           -> (Data.Vector.Vector (ADVal d r)
+               -> Data.Vector.Vector (ADVal d r))
            -> Int
            -> Int
            -> Vector r
-           -> DualNumberInputs d r
-           -> Data.Vector.Vector (DualNumber d r)
+           -> ADValInputs d r
+           -> Data.Vector.Vector (ADVal d r)
 fcnnMnist0 factivationHidden factivationOutput widthHidden widthHidden2
            datum inputs =
   let !_A = assert (sizeMnistGlyphInt == V.length datum) ()
@@ -132,18 +132,18 @@ fcnnMnist0 factivationHidden factivationOutput widthHidden widthHidden2
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 fcnnMnistLoss0
-  :: IsScalar d r
-  => Int -> Int -> MnistData r -> DualNumberInputs d r
-  -> DualNumber d r
+  :: ADModeAndNum d r
+  => Int -> Int -> MnistData r -> ADValInputs d r
+  -> ADVal d r
 fcnnMnistLoss0 widthHidden widthHidden2 (datum, target) inputs =
   let result = inline fcnnMnist0 logistic softMax
                                  widthHidden widthHidden2 datum inputs
   in lossCrossEntropy target result
-{-# SPECIALIZE fcnnMnistLoss0 :: Int -> Int -> MnistData Double -> DualNumberInputs 'DModeGradient Double -> DualNumber 'DModeGradient Double #-}
+{-# SPECIALIZE fcnnMnistLoss0 :: Int -> Int -> MnistData Double -> ADValInputs 'DModeGradient Double -> ADVal 'DModeGradient Double #-}
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
-fcnnMnistTest0 :: forall r. IsScalar 'DModeValue r
+fcnnMnistTest0 :: forall r. ADModeAndNum 'DModeValue r
                => Int -> Int -> [MnistData r] -> Domain0 r
                -> r
 fcnnMnistTest0 widthHidden widthHidden2 inputs params0 =

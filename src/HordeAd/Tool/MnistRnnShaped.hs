@@ -24,18 +24,18 @@ import qualified GHC.TypeLits
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.PairOfVectors (DualNumberInputs, atS)
+import HordeAd.Core.PairOfVectors (ADValInputs, atS)
 import HordeAd.Tool.MnistData
 
 zeroStateS
-  :: (IsScalar d r, OS.Shape sh)
-  => (DualNumber d (OS.Array sh r)  -- state
+  :: (ADModeAndNum d r, OS.Shape sh)
+  => (ADVal d (OS.Array sh r)  -- state
       -> a)
   -> a
 zeroStateS f = f (konstS 0)
 
 unrollLastS :: forall d state c w r k rest.
-               (IsScalar d r, OS.Shape rest)
+               (ADModeAndNum d r, OS.Shape rest)
             => StaticNat k
             -> (state -> OS.Array rest r -> w -> (c, state))
             -> (state -> OS.Array (k : rest) r -> w -> (c, state))
@@ -45,19 +45,19 @@ unrollLastS MkSN f s0 xs w =
   in foldl' g (undefined, s0) $ OSB.toList $ OS.unravel xs
 
 type LayerWeigthsRNN in_width out_width d r =
-  ( DualNumber d (OS.Array '[out_width, in_width] r)   -- input weight
-  , DualNumber d (OS.Array '[out_width, out_width] r)  -- state weight
-  , DualNumber d (OS.Array '[out_width] r) )           -- bias
+  ( ADVal d (OS.Array '[out_width, in_width] r)   -- input weight
+  , ADVal d (OS.Array '[out_width, out_width] r)  -- state weight
+  , ADVal d (OS.Array '[out_width] r) )           -- bias
 
 rnnMnistLayerS
-  :: forall in_width out_width batch_size d r. IsScalar d r
+  :: forall in_width out_width batch_size d r. ADModeAndNum d r
   => StaticNat in_width -> StaticNat out_width
   -> StaticNat batch_size
-  -> DualNumber d (OS.Array '[out_width, batch_size] r)  -- in state
-  -> DualNumber d (OS.Array '[in_width, batch_size] r)  -- in
+  -> ADVal d (OS.Array '[out_width, batch_size] r)  -- in state
+  -> ADVal d (OS.Array '[in_width, batch_size] r)  -- in
   -> LayerWeigthsRNN in_width out_width d r
-  -> ( DualNumber d (OS.Array '[out_width, batch_size] r)  -- out
-     , DualNumber d (OS.Array '[out_width, batch_size] r) ) -- out state
+  -> ( ADVal d (OS.Array '[out_width, batch_size] r)  -- out
+     , ADVal d (OS.Array '[out_width, batch_size] r) ) -- out state
 rnnMnistLayerS MkSN MkSN MkSN
                s x (wX, wS, b) =
   let y = wX <>$ x + wS <>$ s + asColumnS b
@@ -65,17 +65,17 @@ rnnMnistLayerS MkSN MkSN MkSN
   in (yTanh, yTanh)
 
 rnnMnistTwoS
-  :: forall out_width batch_size sizeMnistHeight d r. IsScalar d r
+  :: forall out_width batch_size sizeMnistHeight d r. ADModeAndNum d r
   => StaticNat out_width
   -> StaticNat batch_size
   -> StaticNat sizeMnistHeight
-  -> DualNumber d (OS.Array '[2 GHC.TypeLits.* out_width, batch_size] r)
+  -> ADVal d (OS.Array '[2 GHC.TypeLits.* out_width, batch_size] r)
        -- initial state
   -> OS.Array '[sizeMnistHeight, batch_size] r
   -> ( LayerWeigthsRNN sizeMnistHeight out_width d r
      , LayerWeigthsRNN out_width out_width d r )
-  -> ( DualNumber d (OS.Array '[out_width, batch_size] r)
-     , DualNumber d (OS.Array '[2 GHC.TypeLits.* out_width, batch_size] r) )
+  -> ( ADVal d (OS.Array '[out_width, batch_size] r)
+     , ADVal d (OS.Array '[2 GHC.TypeLits.* out_width, batch_size] r) )
            -- final state
 rnnMnistTwoS out_width@MkSN
              batch_size@MkSN
@@ -96,7 +96,7 @@ rnnMnistTwoS out_width@MkSN
 
 rnnMnistZeroS
   :: forall out_width batch_size sizeMnistWidth sizeMnistHeight d r.
-     IsScalar d r
+     ADModeAndNum d r
   => StaticNat out_width
   -> StaticNat batch_size
   -> StaticNat sizeMnistWidth -> StaticNat sizeMnistHeight
@@ -105,9 +105,9 @@ rnnMnistZeroS
   -- in the length function below and read from inputs further down.
   -> ( LayerWeigthsRNN sizeMnistHeight out_width d r
      , LayerWeigthsRNN out_width out_width d r )
-  -> DualNumber d (OS.Array '[SizeMnistLabel, out_width] r)
-  -> DualNumber d (OS.Array '[SizeMnistLabel] r)
-  -> DualNumber d (OS.Array '[SizeMnistLabel, batch_size] r)
+  -> ADVal d (OS.Array '[SizeMnistLabel, out_width] r)
+  -> ADVal d (OS.Array '[SizeMnistLabel] r)
+  -> ADVal d (OS.Array '[SizeMnistLabel, batch_size] r)
 rnnMnistZeroS out_width@MkSN
               batch_size@MkSN
               sizeMnistWidthHere@MkSN sizeMnistHeightHere@MkSN
@@ -138,13 +138,13 @@ rnnMnistLenS MkSN MkSN =
 
 rnnMnistS
   :: forall out_width batch_size sizeMnistWidth sizeMnistHeight d r.
-     IsScalar d r
+     ADModeAndNum d r
   => StaticNat out_width
   -> StaticNat batch_size
   -> StaticNat sizeMnistWidth -> StaticNat sizeMnistHeight
   -> OS.Array '[sizeMnistWidth, sizeMnistHeight, batch_size] r
-  -> DualNumberInputs d r
-  -> DualNumber d (OS.Array '[SizeMnistLabel, batch_size] r)
+  -> ADValInputs d r
+  -> ADVal d (OS.Array '[SizeMnistLabel, batch_size] r)
 rnnMnistS out_width@MkSN
           batch_size@MkSN
           sizeMnistWidthHere@MkSN sizeMnistHeightHere@MkSN
@@ -163,12 +163,12 @@ rnnMnistS out_width@MkSN
                    xs ((wX, wS, b), (wX2, wS2, b2)) w3 b3
 
 rnnMnistLossFusedS
-  :: forall out_width batch_size d r. IsScalar d r
+  :: forall out_width batch_size d r. ADModeAndNum d r
   => StaticNat out_width
   -> StaticNat batch_size
   -> MnistDataBatchS batch_size r
-  -> DualNumberInputs d r
-  -> DualNumber d r
+  -> ADValInputs d r
+  -> ADVal d r
 rnnMnistLossFusedS out_width@MkSN
                    batch_size@MkSN
                    (glyphS, labelS) inputs =
@@ -184,7 +184,7 @@ rnnMnistLossFusedS out_width@MkSN
      $ sumElements0 vec
 
 rnnMnistTestS
-  :: forall out_width batch_size r. IsScalar 'DModeValue r
+  :: forall out_width batch_size r. ADModeAndNum 'DModeValue r
   => StaticNat out_width
   -> StaticNat batch_size
   -> MnistDataBatchS batch_size r

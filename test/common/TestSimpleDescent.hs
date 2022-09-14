@@ -21,8 +21,8 @@ testTrees = [ gdSimpleTests
 
 gdSimpleShow :: HasDelta r
              => r
-             -> (DualNumberInputs 'DModeGradient r
-                 -> DualNumber 'DModeGradient r)
+             -> (ADValInputs 'DModeGradient r
+                 -> ADVal 'DModeGradient r)
              -> Domain0 r
              -> Int
              -> IO ([r], r)
@@ -32,10 +32,10 @@ gdSimpleShow gamma f initVec n = do
   return (V.toList res, value)
 
 -- Catastrophic loss of sharing prevented via the monad.
-fblowup :: forall d. IsScalar d Float
-        => DualNumberInputs d Float -> DualNumber d Float
+fblowup :: forall d. ADModeAndNum d Float
+        => ADValInputs d Float -> ADVal d Float
 fblowup inputs =
-  let blowup :: Int -> DualNumber d Float -> DualNumber d Float
+  let blowup :: Int -> ADVal d Float -> ADVal d Float
       blowup 0 y = y
       blowup n y =
         let ysum = y + y
@@ -79,13 +79,13 @@ data ARecord a b = ARecord a b
 type ARecordAA sh r = ARecord (OS.Array sh r)
                               (OS.Array sh r)
 
-type ARecordDD sh d r = ARecord (DualNumber d (OS.Array sh r))
-                                (DualNumber d (OS.Array sh r))
+type ARecordDD sh d r = ARecord (ADVal d (OS.Array sh r))
+                                (ADVal d (OS.Array sh r))
 
 adaptFunctionRecord
-  :: forall sh r d. (IsScalar d r, OS.Shape sh)
-  => (ARecordDD sh d r -> DualNumber d r)
-  -> (DualNumberInputs d r -> DualNumber d r)
+  :: forall sh r d. (ADModeAndNum d r, OS.Shape sh)
+  => (ARecordDD sh d r -> ADVal d r)
+  -> (ADValInputs d r -> ADVal d r)
 adaptFunctionRecord f inputs =
   let a = atS inputs 0
       b = atS inputs 1
@@ -94,8 +94,8 @@ adaptFunctionRecord f inputs =
 adaptDReverseRecord
   :: forall sh r. (HasDelta r, OS.Shape sh)
   => r
-  -> (forall d. IsScalar d r
-      => ARecordDD sh d r -> DualNumber d r)
+  -> (forall d. ADModeAndNum d r
+      => ARecordDD sh d r -> ADVal d r)
   -> ARecordAA sh r
   -> IO (ARecordAA sh r, r)
 adaptDReverseRecord dt f (ARecord a b) = do
@@ -112,8 +112,8 @@ adaptDReverseRecord dt f (ARecord a b) = do
 adaptGdSimpleRecord
   :: forall sh r. (HasDelta r, OS.Shape sh)
   => r
-  -> (forall d. IsScalar d r
-      => ARecordDD sh d r -> DualNumber d r)
+  -> (forall d. ADModeAndNum d r
+      => ARecordDD sh d r -> ADVal d r)
   -> Int
   -> ARecordAA sh r
   -> IO (ARecordAA sh r)
@@ -130,8 +130,8 @@ adaptGdSimpleRecord gamma f n0 (ARecord a b) = do
 gdShowRecord
   :: forall sh r. (HasDelta r, OS.Shape sh)
   => r
-  -> (forall d. IsScalar d r
-      => ARecordDD sh d r -> DualNumber d r)
+  -> (forall d. ADModeAndNum d r
+      => ARecordDD sh d r -> ADVal d r)
   -> [[r]]
   -> Int
   -> IO ([r], r)
@@ -146,8 +146,8 @@ gdShowRecord gamma f initList n = do
       ppARecord (ARecord a b) = OS.toList a ++ OS.toList b
   return (ppARecord gradient, value)
 
-fquadRecord :: forall k d r. (IsScalar d r, KnownNat k)
-            => ARecordDD '[k] d r -> DualNumber d r
+fquadRecord :: forall k d r. (ADModeAndNum d r, KnownNat k)
+            => ARecordDD '[k] d r -> ADVal d r
 fquadRecord (ARecord x y) = quad (fromS0 (head (unravelToListS x)))
                                  (fromS0 (head (unravelToListS y)))
 
@@ -182,9 +182,9 @@ gdTestsRecord = testGroup "Record of shaped tensors tests"
 -- This, and other XOR nn operations, have unfused Delta let-bindings
 -- (one binding per each subexpression, even when not needed), which is fine,
 -- just not enough for comprehensive benchmarks.
-scaleAddWithBias :: IsScalar d Float
-                 => DualNumber d Float -> DualNumber d Float -> Int -> DualNumberInputs d Float
-                 -> DualNumber d Float
+scaleAddWithBias :: ADModeAndNum d Float
+                 => ADVal d Float -> ADVal d Float -> Int -> ADValInputs d Float
+                 -> ADVal d Float
 scaleAddWithBias x y ixWeight inputs =
   let wx = at0 inputs ixWeight
       wy = at0 inputs (ixWeight + 1)
@@ -194,36 +194,36 @@ scaleAddWithBias x y ixWeight inputs =
       sxy = sx + sy
   in sxy + bias
 
-neuron :: IsScalar d Float
-       => (DualNumber d Float -> DualNumber d Float)
-       -> DualNumber d Float -> DualNumber d Float -> Int
-       -> DualNumberInputs d Float
-       -> DualNumber d Float
+neuron :: ADModeAndNum d Float
+       => (ADVal d Float -> ADVal d Float)
+       -> ADVal d Float -> ADVal d Float -> Int
+       -> ADValInputs d Float
+       -> ADVal d Float
 neuron factivation x y ixWeight inputs =
   let sc = scaleAddWithBias x y ixWeight inputs
   in factivation sc
 
-nnXor :: IsScalar d Float
-      => (DualNumber d Float -> DualNumber d Float)
-      -> DualNumber d Float -> DualNumber d Float -> DualNumberInputs d Float
-      -> DualNumber d Float
+nnXor :: ADModeAndNum d Float
+      => (ADVal d Float -> ADVal d Float)
+      -> ADVal d Float -> ADVal d Float -> ADValInputs d Float
+      -> ADVal d Float
 nnXor factivation x y inputs =
   let n1 = neuron factivation x y 0 inputs
       n2 = neuron factivation x y 3 inputs
   in neuron factivation n1 n2 6 inputs
 
-nnXorLoss :: IsScalar d Float
-          => (DualNumber d Float -> DualNumber d Float)
-          -> Float -> Float -> Float -> DualNumberInputs d Float
-          -> DualNumber d Float
+nnXorLoss :: ADModeAndNum d Float
+          => (ADVal d Float -> ADVal d Float)
+          -> Float -> Float -> Float -> ADValInputs d Float
+          -> ADVal d Float
 nnXorLoss factivation x y targ inputs =
   let res = nnXor factivation (constant x) (constant y) inputs
   in squaredDifference targ res
 
-nnXorLossTotal :: IsScalar d Float
-               => (DualNumber d Float -> DualNumber d Float)
-               -> DualNumberInputs d Float
-               -> DualNumber d Float
+nnXorLossTotal :: ADModeAndNum d Float
+               => (ADVal d Float -> ADVal d Float)
+               -> ADValInputs d Float
+               -> ADVal d Float
 nnXorLossTotal factivation inputs =
   let n1 = nnXorLoss factivation 0 0 0 inputs
       n2 = nnXorLoss factivation 0 1 1 inputs

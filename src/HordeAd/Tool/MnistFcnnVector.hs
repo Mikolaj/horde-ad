@@ -16,38 +16,38 @@ import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.PairOfVectors (DualNumberInputs, at1)
+import HordeAd.Core.PairOfVectors (ADValInputs, at1)
 import HordeAd.Tool.MnistData
 
 sumTrainableInputsV
-  :: IsScalar d r
-  => DualNumber d (Vector r) -> Int -> DualNumberInputs d r -> DualNumber d r
+  :: ADModeAndNum d r
+  => ADVal d (Vector r) -> Int -> ADValInputs d r -> ADVal d r
 sumTrainableInputsV x offset inputs =
   let v = at1 inputs offset
   in v <.>! x
 
 sumTrainableInputsL
-  :: forall d r. IsScalar d r
-  => DualNumber d (Vector r) -> Int -> DualNumberInputs d r -> Int
-  -> DualNumber d (Vector r)
+  :: forall d r. ADModeAndNum d r
+  => ADVal d (Vector r) -> Int -> ADValInputs d r -> Int
+  -> ADVal d (Vector r)
 sumTrainableInputsL x offset inputs width =
-  let f :: Int -> DualNumber d r
+  let f :: Int -> ADVal d r
       f i = sumTrainableInputsV x (offset + i) inputs
   in seq1 $ V.generate width f
 
 sumConstantDataV
-  :: IsScalar d r
-  => Vector r -> Int -> DualNumberInputs d r -> DualNumber d r
+  :: ADModeAndNum d r
+  => Vector r -> Int -> ADValInputs d r -> ADVal d r
 sumConstantDataV x offset inputs =
   let v = at1 inputs offset
   in v <.>!! x
 
 sumConstantDataL
-  :: forall d r. IsScalar d r
-  => Vector r -> Int -> DualNumberInputs d r -> Int
-  -> DualNumber d (Vector r)
+  :: forall d r. ADModeAndNum d r
+  => Vector r -> Int -> ADValInputs d r -> Int
+  -> ADVal d (Vector r)
 sumConstantDataL x offset inputs width =
-  let f :: Int -> DualNumber d r
+  let f :: Int -> ADVal d r
       f i = sumConstantDataV x (offset + i) inputs
   in seq1 $ V.generate width f
 
@@ -68,14 +68,14 @@ fcnnMnistLen1 widthHidden widthHidden2 =
 -- and from these, the @len*@ functions compute the number and dimensions
 -- of scalars (none in this case) and vectors of dual number parameters
 -- (inputs) to be given to the program.
-fcnnMnist1 :: forall d r. IsScalar d r
-           => (DualNumber d (Vector r) -> DualNumber d (Vector r))
-           -> (DualNumber d (Vector r) -> DualNumber d (Vector r))
+fcnnMnist1 :: forall d r. ADModeAndNum d r
+           => (ADVal d (Vector r) -> ADVal d (Vector r))
+           -> (ADVal d (Vector r) -> ADVal d (Vector r))
            -> Int
            -> Int
            -> Vector r
-           -> DualNumberInputs d r
-           -> DualNumber d (Vector r)
+           -> ADValInputs d r
+           -> ADVal d (Vector r)
 fcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
           datum inputs =
   let !_A = assert (sizeMnistGlyphInt == V.length datum) ()
@@ -96,9 +96,9 @@ fcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 fcnnMnistLoss1
-  :: IsScalar d r
-  => Int -> Int -> MnistData r -> DualNumberInputs d r
-  -> DualNumber d r
+  :: ADModeAndNum d r
+  => Int -> Int -> MnistData r -> ADValInputs d r
+  -> ADVal d r
 fcnnMnistLoss1 widthHidden widthHidden2 (datum, target) inputs =
   let result = inline fcnnMnist1 logistic softMaxV
                               widthHidden widthHidden2 datum inputs
@@ -107,7 +107,7 @@ fcnnMnistLoss1 widthHidden widthHidden2 (datum, target) inputs =
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 fcnnMnistTest1
-  :: forall r. IsScalar 'DModeValue r
+  :: forall r. ADModeAndNum 'DModeValue r
   => Int -> Int -> [MnistData r] -> (Domain0 r, Domain1 r) -> r
 fcnnMnistTest1 widthHidden widthHidden2 inputs (params0, params1) =
   let matchesLabels :: MnistData r -> Bool

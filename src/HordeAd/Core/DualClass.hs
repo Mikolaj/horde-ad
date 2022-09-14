@@ -22,7 +22,7 @@
 -- unless they are not auto-derived, but carefully crafted to respect sharing.
 -- This would be the case even without impurity, not to ruin sharing.
 module HordeAd.Core.DualClass
-  ( IsPrimalWithScalar, IsPrimalAndHasFeatures, IsScalar, HasDelta
+  ( IsPrimalWithScalar, IsPrimalAndHasFeatures, ADModeAndNum, HasDelta
   , DMode(..), Dual, IsPrimal(..), HasRanks(..), HasInputs(..)
   , -- * Internal operations
     unsafeGetFreshId
@@ -65,7 +65,7 @@ type IsPrimalAndHasFeatures (d :: DMode) a r =
 -- The @Scalar@ in the name means that the second argument is the underlying
 -- scalar type of a well behaved (wrt the differentiation mode in the first
 -- argument) collection of primal and dual components of dual numbers.
-type IsScalar (d :: DMode) r =
+type ADModeAndNum (d :: DMode) r =
   ( HasRanks d r, Ord r, Numeric r, Show r
   , IsPrimalAndHasFeatures d r r
   , IsPrimalAndHasFeatures d (Vector r) r
@@ -77,7 +77,7 @@ type IsScalar (d :: DMode) r =
   )
 
 -- | Is a scalar and will be used to compute gradients via delta-expressions.
-type HasDelta r = ( IsScalar 'DModeGradient r
+type HasDelta r = ( ADModeAndNum 'DModeGradient r
                   , Dual 'DModeGradient r ~ Delta0 r )
 
 

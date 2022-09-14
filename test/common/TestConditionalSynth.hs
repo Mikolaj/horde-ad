@@ -54,78 +54,78 @@ lenSynthV width nSamples =
 -- To approximate the samples (a list of input and result pairs on which
 -- parameters are trained or tested) using this code, divide the input
 -- and multiply result appropriately, see @synthLossSquared@.
-synthValue :: forall d r. IsScalar d r
-           => (DualNumber d (Vector r) -> DualNumber d (Vector r))
+synthValue :: forall d r. ADModeAndNum d r
+           => (ADVal d (Vector r) -> ADVal d (Vector r))
            -> r
-           -> DualNumber d (Vector r)
-           -> DualNumber d (Vector r)
-           -> DualNumber d (Vector r)
-           -> DualNumber d r
+           -> ADVal d (Vector r)
+           -> ADVal d (Vector r)
+           -> ADVal d (Vector r)
+           -> ADVal d r
 synthValue factivation x ps1@(D u _) ps2 ps3 =
   let activated = factivation $ scale (HM.konst x (V.length u)) ps1 + ps2
   in activated <.>! ps3
 
-synthLossSquared :: IsScalar d r
-                 => (DualNumber d (Vector r) -> DualNumber d (Vector r))
+synthLossSquared :: ADModeAndNum d r
+                 => (ADVal d (Vector r) -> ADVal d (Vector r))
                  -> r
-                 -> DualNumber d (Vector r)
-                 -> DualNumber d (Vector r)
-                 -> DualNumber d (Vector r)
+                 -> ADVal d (Vector r)
+                 -> ADVal d (Vector r)
+                 -> ADVal d (Vector r)
                  -> r
-                 -> DualNumber d r
+                 -> ADVal d r
 synthLossSquared factivation x ps1 ps2 ps3 targ =
   let y = inline synthValue factivation (x / 1000) ps1 ps2 ps3
   in squaredDifference (targ / 10000) y  -- smaller target to overcome @tanh@ clamping
 
 -- Inlined to avoid the tiny overhead of calling an unknown function.
-sumResultsDual :: forall d r a. (IsScalar d r, Storable a)
-               => (a -> DualNumber d r)
+sumResultsDual :: forall d r a. (ADModeAndNum d r, Storable a)
+               => (a -> ADVal d r)
                -> Vector a
-               -> DualNumber d r
+               -> ADVal d r
 {-# INLINE sumResultsDual #-}
 sumResultsDual f as =
-  let g :: DualNumber d r -> a -> DualNumber d r
+  let g :: ADVal d r -> a -> ADVal d r
       g !acc a = acc + f a
       sumUs = V.foldl' g 0 as
   in sumUs
 
 synthLossAll
-  :: forall d r. IsScalar d r
-  => (DualNumber d (Vector r) -> DualNumber d (Vector r))
+  :: forall d r. ADModeAndNum d r
+  => (ADVal d (Vector r) -> ADVal d (Vector r))
   -> Data.Vector.Storable.Vector (r, r)
-  -> DualNumber d (Vector r)
-  -> DualNumber d (Vector r)
-  -> DualNumber d (Vector r)
-  -> DualNumber d r
+  -> ADVal d (Vector r)
+  -> ADVal d (Vector r)
+  -> ADVal d (Vector r)
+  -> ADVal d r
 synthLossAll factivation samples ps1 ps2 ps3 =
-  let f :: (r, r) -> DualNumber d r
+  let f :: (r, r) -> ADVal d r
       f (x, y) = inline synthLossSquared factivation x ps1 ps2 ps3 y
   in sumResultsDual f samples
 
-sumTrainableInputsS :: forall d r. IsScalar d r
-                    => DualNumber d (Vector r)
+sumTrainableInputsS :: forall d r. ADModeAndNum d r
+                    => ADVal d (Vector r)
                     -> Int
-                    -> DualNumberInputs d r
+                    -> ADValInputs d r
                     -> Int
-                    -> Data.Vector.Vector (DualNumber d r)
+                    -> Data.Vector.Vector (ADVal d r)
 sumTrainableInputsS x offset inputs width =
-  let f :: Int -> DualNumber d r
+  let f :: Int -> ADVal d r
       f i = sumTrainableInputsV x (offset + i) inputs
   in V.generate width f
 
-splitLayerV :: forall d r. IsScalar d r
-            => (DualNumber d (Vector r) -> DualNumber d (Vector r))
-            -> DualNumber d (Vector r)
+splitLayerV :: forall d r. ADModeAndNum d r
+            => (ADVal d (Vector r) -> ADVal d (Vector r))
+            -> ADVal d (Vector r)
             -> Int
-            -> DualNumberInputs d r
+            -> ADValInputs d r
             -> Int
-            -> ( DualNumber d (Vector r)
-               , DualNumber d (Vector r)
-               , DualNumber d (Vector r) )
+            -> ( ADVal d (Vector r)
+               , ADVal d (Vector r)
+               , ADVal d (Vector r) )
 splitLayerV factivation hiddenVec offset inputs width =
   let multiplied = sumTrainableInputsS hiddenVec offset inputs width
       chunkWidth = width `div` 3
-      activate :: Int -> DualNumber d (Vector r)
+      activate :: Int -> ADVal d (Vector r)
       activate n = do
         let v = V.slice (n * chunkWidth) chunkWidth multiplied
         factivation $ seq1 v + at1 inputs (offset + width + n)
@@ -135,14 +135,14 @@ splitLayerV factivation hiddenVec offset inputs width =
   in (a0, a1, a2)
 
 synthLossBareTotal
-  :: forall d r. IsScalar d r
-  => (DualNumber d (Vector r) -> DualNumber d (Vector r))
-  -> (DualNumber d (Vector r) -> DualNumber d (Vector r))
-  -> (DualNumber d (Vector r) -> DualNumber d (Vector r))
+  :: forall d r. ADModeAndNum d r
+  => (ADVal d (Vector r) -> ADVal d (Vector r))
+  -> (ADVal d (Vector r) -> ADVal d (Vector r))
+  -> (ADVal d (Vector r) -> ADVal d (Vector r))
   -> Int
   -> Data.Vector.Storable.Vector (r, r)
-  -> DualNumberInputs d r
-  -> DualNumber d r
+  -> ADValInputs d r
+  -> ADVal d r
 synthLossBareTotal factivation factivationHidden factivationMiddle
                    width samples inputs =
   let (datums, outputs) = V.unzip samples
@@ -185,8 +185,8 @@ gradSmartTestCase
   => String
   -> (Int
       -> Data.Vector.Storable.Vector (r, r)
-      -> DualNumberInputs 'DModeGradient r
-      -> DualNumber 'DModeGradient r)
+      -> ADValInputs 'DModeGradient r
+      -> ADVal 'DModeGradient r)
   -> Int -> Int -> Int -> Int -> r
   -> TestTree
 gradSmartTestCase prefix lossFunction seedSamples

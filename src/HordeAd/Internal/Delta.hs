@@ -1244,7 +1244,7 @@ Sum of vector elements can be implemented using a delta-expression
 primitive SumElements0 as well as without this primitive, referring
 only to the primitive Index0:
 
-https://github.com/Mikolaj/horde-ad/blob/d069a45773ed849913b5ebd0345153072f304fd9/src/HordeAd/Core/DualNumber.hs#L125-L143
+https://github.com/Mikolaj/horde-ad/blob/d069a45773ed849913b5ebd0345153072f304fd9/src/HordeAd.Core.DualNumber.hs#L125-L143
 
 which is confirmed by tests to be equivalent in three different
 implementations:

@@ -22,7 +22,7 @@ import qualified GHC.TypeLits
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.PairOfVectors (DualNumberInputs, atS)
+import HordeAd.Core.PairOfVectors (ADValInputs, atS)
 import HordeAd.Tool.MnistData
 
 convMnistLayerS
@@ -30,17 +30,17 @@ convMnistLayerS
             in_height in_width in_channels batch_size d r.
      ( 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1  -- wrongly reported as redundant
-     , IsScalar d r )
+     , ADModeAndNum d r )
   => StaticNat kheight_minus_1 -> StaticNat kwidth_minus_1
   -> StaticNat out_channels
   -> StaticNat in_height -> StaticNat in_width
   -> StaticNat in_channels
   -> StaticNat batch_size
-  -> DualNumber d (OS.Array '[ out_channels, in_channels
+  -> ADVal d (OS.Array '[ out_channels, in_channels
                              , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
-  -> DualNumber d (OS.Array '[batch_size, in_channels, in_height, in_width] r)
-  -> DualNumber d (OS.Array '[out_channels] r)
-  -> DualNumber d (OS.Array '[ batch_size, out_channels
+  -> ADVal d (OS.Array '[batch_size, in_channels, in_height, in_width] r)
+  -> ADVal d (OS.Array '[out_channels] r)
+  -> ADVal d (OS.Array '[ batch_size, out_channels
                              , (in_height + kheight_minus_1) `Div` 2
                              , (in_width + kwidth_minus_1) `Div` 2 ] r)
 convMnistLayerS MkSN MkSN MkSN MkSN MkSN MkSN
@@ -48,8 +48,8 @@ convMnistLayerS MkSN MkSN MkSN MkSN MkSN MkSN
                 ker x bias =
   let yConv = conv24 ker x
       replicateBias
-        :: DualNumber d (OS.Array '[] r)
-        -> DualNumber d (OS.Array '[ in_height + kheight_minus_1
+        :: ADVal d (OS.Array '[] r)
+        -> ADVal d (OS.Array '[ in_height + kheight_minus_1
                                    , in_width + kwidth_minus_1 ] r)
       replicateBias = konstS . fromS0
       biasStretched = ravelFromListS
@@ -66,7 +66,7 @@ convMnistTwoS
      ( in_channels ~ 1
      , 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
-     , IsScalar d r )
+     , ADModeAndNum d r )
   => StaticNat kheight_minus_1 -> StaticNat kwidth_minus_1
   -> StaticNat num_hidden
   -> StaticNat out_channels
@@ -75,13 +75,13 @@ convMnistTwoS
   -> OS.Array '[batch_size, in_channels, in_height, in_width] r
   -- All below is the type of all paramters of this nn. The same is reflected
   -- in the length function below and read from inputs further down.
-  -> DualNumber d (OS.Array '[ out_channels, in_channels
+  -> ADVal d (OS.Array '[ out_channels, in_channels
                              , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
-  -> DualNumber d (OS.Array '[out_channels] r)
-  -> DualNumber d (OS.Array '[ out_channels, out_channels
+  -> ADVal d (OS.Array '[out_channels] r)
+  -> ADVal d (OS.Array '[ out_channels, out_channels
                              , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
-  -> DualNumber d (OS.Array '[out_channels] r)
-  -> DualNumber d (OS.Array '[ num_hidden
+  -> ADVal d (OS.Array '[out_channels] r)
+  -> ADVal d (OS.Array '[ num_hidden
                              , out_channels
                                  GHC.TypeLits.*
                                    (((in_height + kheight_minus_1) `Div` 2
@@ -90,10 +90,10 @@ convMnistTwoS
                                    (((in_width + kwidth_minus_1) `Div` 2
                                      + kwidth_minus_1) `Div` 2)
                              ] r)
-  -> DualNumber d (OS.Array '[num_hidden] r)
-  -> DualNumber d (OS.Array '[SizeMnistLabel, num_hidden] r)
-  -> DualNumber d (OS.Array '[SizeMnistLabel] r)
-  -> DualNumber d (OS.Array '[SizeMnistLabel, batch_size] r)
+  -> ADVal d (OS.Array '[num_hidden] r)
+  -> ADVal d (OS.Array '[SizeMnistLabel, num_hidden] r)
+  -> ADVal d (OS.Array '[SizeMnistLabel] r)
+  -> ADVal d (OS.Array '[SizeMnistLabel, batch_size] r)
 convMnistTwoS kheight_minus_1@MkSN kwidth_minus_1@MkSN
               _num_hidden@MkSN
               out_channels@MkSN
@@ -156,15 +156,15 @@ convMnistS
             in_height in_width batch_size d r.
      ( 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
-     , IsScalar d r )
+     , ADModeAndNum d r )
   => StaticNat kheight_minus_1 -> StaticNat kwidth_minus_1
   -> StaticNat num_hidden
   -> StaticNat out_channels
   -> StaticNat in_height -> StaticNat in_width
   -> StaticNat batch_size
   -> OS.Array '[batch_size, 1, in_height, in_width] r
-  -> DualNumberInputs d r
-  -> DualNumber d (OS.Array '[SizeMnistLabel, batch_size] r)
+  -> ADValInputs d r
+  -> ADVal d (OS.Array '[SizeMnistLabel, batch_size] r)
 convMnistS kheight_minus_1@MkSN kwidth_minus_1@MkSN
            num_hidden@MkSN
            out_channels@MkSN
@@ -189,7 +189,7 @@ convMnistLossFusedS
             in_height in_width batch_size d r.
      ( 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
-     , IsScalar d r )
+     , ADModeAndNum d r )
   => StaticNat kheight_minus_1 -> StaticNat kwidth_minus_1
   -> StaticNat num_hidden
   -> StaticNat out_channels
@@ -197,8 +197,8 @@ convMnistLossFusedS
   -> StaticNat batch_size
   -> ( OS.Array '[batch_size, in_height, in_width] r
      , OS.Array '[batch_size, SizeMnistLabel] r )
-  -> DualNumberInputs d r
-  -> DualNumber d r
+  -> ADValInputs d r
+  -> ADVal d r
 convMnistLossFusedS
     kheight_minus_1@MkSN kwidth_minus_1@MkSN
     num_hidden@MkSN
@@ -224,7 +224,7 @@ convMnistTestS
             in_height in_width r.
      ( 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
-     , IsScalar 'DModeValue r )
+     , ADModeAndNum 'DModeValue r )
   => StaticNat kheight_minus_1 -> StaticNat kwidth_minus_1
   -> StaticNat num_hidden
   -> StaticNat out_channels
@@ -245,8 +245,8 @@ convMnistTestS kheight_minus_1@MkSN kwidth_minus_1@MkSN
         let tx :: OS.Array '[1, 1, in_height, in_width] r
             tx = OS.reshape glyph
             batch_size_1 = MkSN @1
-            nn :: DualNumberInputs 'DModeValue r
-               -> DualNumber 'DModeValue (OS.Array '[SizeMnistLabel, 1] r)
+            nn :: ADValInputs 'DModeValue r
+               -> ADVal 'DModeValue (OS.Array '[SizeMnistLabel, 1] r)
             nn = convMnistS kheight_minus_1 kwidth_minus_1
                             num_hidden out_channels
                             in_height in_width batch_size_1

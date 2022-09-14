@@ -26,7 +26,7 @@ import           Text.Show.Pretty (ppShow)
 import HordeAd.Core.DualClass
   (Dual, IsPrimal (..), IsPrimalAndHasFeatures, dInput)
 import HordeAd.Core.DualNumber
-import HordeAd.Core.PairOfVectors (DualNumberInputs (..), makeDualNumberInputs)
+import HordeAd.Core.PairOfVectors (ADValInputs (..), makeADValInputs)
 import HordeAd.Internal.Delta
   (derivativeFromDelta, gradientFromDelta, toInputId)
 
@@ -35,15 +35,15 @@ import HordeAd.Internal.Delta
 
 -- The general case, needed for old hacky tests using only scalars.
 primalValueGeneral
-  :: forall r a. IsScalar 'DModeValue r
-  => (DualNumberInputs 'DModeValue r -> a)
+  :: forall r a. ADModeAndNum 'DModeValue r
+  => (ADValInputs 'DModeValue r -> a)
   -> Domains r
   -> a
 -- Small enough that inline won't hurt.
 {-# INLINE primalValueGeneral #-}
 primalValueGeneral f (params0, params1, params2, paramsX) =
   let replicateZeros p = V.replicate (V.length p) dZero
-      inputs = makeDualNumberInputs
+      inputs = makeADValInputs
                     (params0, params1, params2, paramsX)
                     ( replicateZeros params0  -- dummy
                     , replicateZeros params1
@@ -52,8 +52,8 @@ primalValueGeneral f (params0, params1, params2, paramsX) =
   in f inputs
 
 primalValue
-  :: forall r a. IsScalar 'DModeValue r
-  => (DualNumberInputs 'DModeValue r -> DualNumber 'DModeValue a)
+  :: forall r a. ADModeAndNum 'DModeValue r
+  => (ADValInputs 'DModeValue r -> ADVal 'DModeValue a)
   -> Domains r
   -> a
 -- Small enough that inline won't hurt.
@@ -68,13 +68,13 @@ primalValue f parameters =
 dReverseGeneralFun
   :: forall r. HasDelta r
   => r
-  -> DualNumberInputs 'DModeGradient r
-  -> (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
+  -> ADValInputs 'DModeGradient r
+  -> (ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
   -> (Domains r, r)
 -- The functions in which @dReverseGeneral@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE dReverseGeneralFun #-}
-dReverseGeneralFun dt inputs@DualNumberInputs{..} f =
+dReverseGeneralFun dt inputs@ADValInputs{..} f =
   let dim0 = V.length inputPrimal0
       dim1 = V.length inputPrimal1
       dim2 = V.length inputPrimal2
@@ -90,8 +90,8 @@ dReverseGeneralFun dt inputs@DualNumberInputs{..} f =
 dReverseGeneral
   :: forall r. HasDelta r
   => r
-  -> DualNumberInputs 'DModeGradient r
-  -> (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
+  -> ADValInputs 'DModeGradient r
+  -> (ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
   -> IO (Domains r, r)
 {-# INLINE dReverseGeneral #-}
 dReverseGeneral dt inputs f = return $! dReverseGeneralFun dt inputs f
@@ -99,18 +99,18 @@ dReverseGeneral dt inputs f = return $! dReverseGeneralFun dt inputs f
 dReverseFun
   :: HasDelta r
   => r
-  -> (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
+  -> (ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
   -> Domains r
   -> (Domains r, r)
 dReverseFun dt f parameters =
   let deltaInputs = generateDeltaInputs parameters
-      inputs = makeDualNumberInputs parameters deltaInputs
+      inputs = makeADValInputs parameters deltaInputs
   in dReverseGeneralFun dt inputs f
 
 dReverse
   :: HasDelta r
   => r
-  -> (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
+  -> (ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
   -> Domains r
   -> IO (Domains r, r)
 dReverse dt f parameters = return $! dReverseFun dt f parameters
@@ -122,12 +122,12 @@ dReverse dt f parameters = return $! dReverseFun dt f parameters
 
 dForwardGeneralFun
   :: forall r. HasDelta r
-  => DualNumberInputs 'DModeGradient r
-  -> (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
+  => ADValInputs 'DModeGradient r
+  -> (ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
   -> Domains r
   -> (r, r)
 {-# INLINE dForwardGeneralFun #-}
-dForwardGeneralFun inputs@DualNumberInputs{..} f ds =
+dForwardGeneralFun inputs@ADValInputs{..} f ds =
   let dim0 = V.length inputPrimal0
       dim1 = V.length inputPrimal1
       dim2 = V.length inputPrimal2
@@ -138,8 +138,8 @@ dForwardGeneralFun inputs@DualNumberInputs{..} f ds =
 
 dForwardGeneral
   :: forall r. HasDelta r
-  => DualNumberInputs 'DModeGradient r
-  -> (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
+  => ADValInputs 'DModeGradient r
+  -> (ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
   -> Domains r
   -> IO (r, r)
 {-# INLINE dForwardGeneral #-}
@@ -148,18 +148,18 @@ dForwardGeneral inputs f ds = return $! dForwardGeneralFun inputs f ds
 -- The direction vector ds is taken as an extra argument.
 dForwardFun
   :: HasDelta r
-  => (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
+  => (ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
   -> Domains r
   -> Domains r
   -> (r, r)
 dForwardFun f parameters ds =
   let deltaInputs = generateDeltaInputs parameters
-      inputs = makeDualNumberInputs parameters deltaInputs
+      inputs = makeADValInputs parameters deltaInputs
   in dForwardGeneralFun inputs f ds
 
 dForward
   :: HasDelta r
-  => (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
+  => (ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
   -> Domains r
   -> Domains r
   -> IO (r, r)
@@ -170,8 +170,8 @@ dForward f parameters ds = return $! dForwardFun f parameters ds
 
 dFastForwardGeneral
   :: Dual 'DModeDerivative r ~ r
-  => DualNumberInputs 'DModeDerivative r
-  -> (DualNumberInputs 'DModeDerivative r -> DualNumber 'DModeDerivative r)
+  => ADValInputs 'DModeDerivative r
+  -> (ADValInputs 'DModeDerivative r -> ADVal 'DModeDerivative r)
   -> (r, r)
 {-# INLINE dFastForwardGeneral #-}
 dFastForwardGeneral inputs f =
@@ -181,13 +181,13 @@ dFastForwardGeneral inputs f =
 -- The direction vector ds is taken as an extra argument.
 dFastForward
   :: forall r. (Numeric r, Dual 'DModeDerivative r ~ r)
-  => (DualNumberInputs 'DModeDerivative r -> DualNumber 'DModeDerivative r)
+  => (ADValInputs 'DModeDerivative r -> ADVal 'DModeDerivative r)
   -> Domains r
   -> Domains r
   -> (r, r)
 dFastForward f parameters (params0, params1, params2, paramsX) =
   let inputs =
-        makeDualNumberInputs
+        makeADValInputs
           parameters
           (V.convert params0, params1, params2, paramsX)  -- ds
   in dFastForwardGeneral inputs f
@@ -197,17 +197,17 @@ dFastForward f parameters (params0, params1, params2, paramsX) =
 
 prettyPrintDf
   :: forall r. HasDelta r
-  => (DualNumberInputs 'DModeGradient r -> DualNumber 'DModeGradient r)
+  => (ADValInputs 'DModeGradient r -> ADVal 'DModeGradient r)
   -> Domains r
   -> String
 prettyPrintDf f parameters =
   let deltaInputs = generateDeltaInputs parameters
-      inputs = makeDualNumberInputs parameters deltaInputs
+      inputs = makeADValInputs parameters deltaInputs
       !(D _ deltaTopLevel) = f inputs
   in ppShow deltaTopLevel
 
 generateDeltaInputs
-  :: forall r. IsScalar 'DModeGradient r
+  :: forall r. ADModeAndNum 'DModeGradient r
   => Domains r
   -> ( Data.Vector.Vector (Dual 'DModeGradient r)
      , Data.Vector.Vector (Dual 'DModeGradient (Vector r))
