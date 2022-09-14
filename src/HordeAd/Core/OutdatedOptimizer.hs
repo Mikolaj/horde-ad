@@ -25,12 +25,12 @@ import HordeAd.Core.PairOfVectors (ADValInputs, makeADValInputs)
 -- Philip Torr.
 --
 -- Note that we can't generalize this to use either
--- @dForwardGeneral@ or @dReverseGeneral@, because the optimized call
+-- @dForwardGeneral@ or @revGeneral@, because the optimized call
 -- to @updateWithGradient@ below would not be possible with the common API
 -- for obtaining gradients and at least twice more allocations would
 -- be done there. With small mini-batch sizes this matters,
 -- especially for optimal forward gradient implementation
--- @dFastForwardGeneral@, where there's no overhead from storing
+-- @fwdGeneral@, where there's no overhead from storing
 -- and evaluating delta-expressions.
 --
 -- An option: vectorize and only then take the mean of the vector of results
@@ -52,7 +52,7 @@ sgdBatchForward seed0 batchSize gamma f trainingData parameters0 nParameters =
  where
   deltaInputs = generateDeltaInputs parameters0
   go :: Int -> [a] -> Domains Double -> Double -> IO (Domains Double, Double)
-  go _ [] parameters value = return (parameters, value)
+  go _ [] parameters v = return (parameters, v)
   go seed l parameters _ = do
     let (batch, rest) = splitAt batchSize l
         fAdd :: ADValInputs 'ADModeGradient Double
@@ -91,7 +91,7 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
   go seed0 trainingData parameters0 0
  where
   go :: Int -> [a] -> Domains Double -> Double -> (Domains Double, Double)
-  go _ [] parameters value = (parameters, value)
+  go _ [] parameters v = (parameters, v)
   go seed l parameters@(params0, params1, params2, paramsX) _ =
     let (batch, rest) = splitAt batchSize l
         fAdd :: ADValInputs 'ADModeDerivative Double
@@ -113,7 +113,7 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
             , unsafeCoerce paramsX )
             (V.convert dparams0, dparams1, dparams2, dparamsX)
         (directionalDerivative, valueNew) =
-          dFastForwardGeneral inputs fBatch
+          fwdGeneral inputs fBatch
         gammaDirectional = gamma * directionalDerivative
         parametersNew = updateWithGradient gammaDirectional parameters direction
     in go g2 rest parametersNew valueNew
@@ -155,7 +155,7 @@ sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
         fBatch vars =
           let resBatch = foldl' (fAdd vars) 0 batch
           in resBatch / fromIntegral (length batch)
-    gradients <- fst <$> dReverseGeneral 1 inputs fBatch
+    gradients <- fst <$> revGeneral 1 inputs fBatch
     let (parametersNew, stateAdamNew) =
           updateWithGradientAdam argsAdam stateAdam parameters gradients
     go rest parametersNew stateAdamNew
@@ -171,7 +171,7 @@ gdSmart :: forall r. HasDelta r
 gdSmart f n0 parameters0 = do
   let deltaInputs = generateDeltaInputs parameters0
       inputs0 = makeADValInputs parameters0 deltaInputs
-  (gradients0, value0) <- dReverseGeneral 1 inputs0 f
+  (gradients0, value0) <- revGeneral 1 inputs0 f
   let go :: Int -> Domains r -> r -> Domains r -> r -> Int
          -> IO (Domains r, r)
       go 0 parameters !gamma _gradientsPrev _valuePrev !_i =
@@ -183,13 +183,13 @@ gdSmart f n0 parameters0 = do
         -- with the new value that is needed now to revert if we overshoot.
         let parametersNew = updateWithGradient gamma parameters gradientsPrev
             inputs = makeADValInputs parametersNew deltaInputs
-        (gradients, value) <- dReverseGeneral 1 inputs f
+        (gradients, valueCur) <- revGeneral 1 inputs f
         if | gradientIsNil gradientsPrev ->
                return (parameters, gamma)
-           | value > valuePrev ->
+           | valueCur > valuePrev ->
                go n parameters (gamma / 2) gradientsPrev valuePrev 0
                  -- overshot
-           | i == 10 -> go (pred n) parametersNew (gamma * 2) gradients value 0
+           | i == 10 -> go (pred n) parametersNew (gamma * 2) gradients valueCur 0
            | otherwise ->
-               go (pred n) parametersNew gamma gradients value (i + 1)
+               go (pred n) parametersNew gamma gradients valueCur (i + 1)
   go n0 parameters0 0.1 gradients0 value0 0

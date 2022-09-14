@@ -147,8 +147,8 @@ gdSimpleShow :: HasDelta r
              -> IO ([r], r)
 gdSimpleShow gamma f initVec n = do
   (res, _, _, _) <- gdSimple gamma f n (initVec, V.empty, V.empty, V.empty)
-  (_, value) <- dReverse 1 f (res, V.empty, V.empty, V.empty)
-  return (V.toList res, value)
+  (_, v) <- revIO 1 f (res, V.empty, V.empty, V.empty)
+  return (V.toList res, v)
 
 gdSimpleTestCase
   :: Num a
@@ -323,8 +323,8 @@ gdSmartShow :: (ADValInputsD -> ADValD)
             -> IO ([Double], (Double, Double))
 gdSmartShow f initVec n = do
   ((res, _, _, _), gamma) <- gdSmart f n (initVec, V.empty, V.empty, V.empty)
-  (_, value) <- dReverse 1 f (res, V.empty, V.empty, V.empty)
-  return (V.toList res, (value, gamma))
+  (_, v) <- revIO 1 f (res, V.empty, V.empty, V.empty)
+  return (V.toList res, (v, gamma))
 
 gradSmartTestCase :: Num a
                   => String
@@ -701,8 +701,8 @@ sgdShow :: HasDelta r
 sgdShow gamma f trainData params0Init = do
   (res, _, _, _) <-
     fst <$> sgd gamma f trainData (params0Init, V.empty, V.empty, V.empty)
-  (_, value) <- dReverse 1 (f $ head trainData) (res, V.empty, V.empty, V.empty)
-  return (V.toList res, value)
+  (_, v) <- revIO 1 (f $ head trainData) (res, V.empty, V.empty, V.empty)
+  return (V.toList res, v)
 
 sgdTestCase
   :: String

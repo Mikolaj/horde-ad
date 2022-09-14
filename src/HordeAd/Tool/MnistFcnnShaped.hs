@@ -123,7 +123,7 @@ fcnnMnistTestS widthHidden widthHidden2 inputs parameters =
       matchesLabels (glyph, label) =
         let nn = fcnnMnistS widthHidden widthHidden2
                             logistic (OS.fromVector glyph)
-            value = OS.toVector $ primalValue nn parameters
-        in V.maxIndex value == V.maxIndex label
+            v = OS.toVector $ valueFun nn parameters
+        in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)

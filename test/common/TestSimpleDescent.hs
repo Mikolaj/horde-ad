@@ -28,8 +28,8 @@ gdSimpleShow :: HasDelta r
              -> IO ([r], r)
 gdSimpleShow gamma f initVec n = do
   (res, _, _, _) <- gdSimple gamma f n (initVec, V.empty, V.empty, V.empty)
-  (_, value) <- dReverse 1 f (res, V.empty, V.empty, V.empty)
-  return (V.toList res, value)
+  (_, v) <- revIO 1 f (res, V.empty, V.empty, V.empty)
+  return (V.toList res, v)
 
 -- Catastrophic loss of sharing prevented via the monad.
 fblowup :: forall d. ADModeAndNum d Float
@@ -101,13 +101,13 @@ adaptDReverseRecord
 adaptDReverseRecord dt f (ARecord a b) = do
   let initVec = V.fromList $ map Data.Array.Convert.convert [a, b]
       g = adaptFunctionRecord f
-  ((_, _, _, gradient), value) <-
-    dReverse dt g (V.empty, V.empty, V.empty, initVec)
+  ((_, _, _, gradient), v) <-
+    revIO dt g (V.empty, V.empty, V.empty, initVec)
   let gradientRecord = case V.toList gradient of
         [a2, b2] -> ARecord (Data.Array.Convert.convert a2)
                                       (Data.Array.Convert.convert b2)
         _ -> error "adaptDReverseRecord"
-  return (gradientRecord, value)
+  return (gradientRecord, v)
 
 adaptGdSimpleRecord
   :: forall sh r. (HasDelta r, OS.Shape sh)
@@ -141,10 +141,10 @@ gdShowRecord gamma f initList n = do
                           (OS.fromList b)
         _ -> error "gdShowRecord"
   gradient <- adaptGdSimpleRecord gamma f n initRecord
-  (_, value) <- adaptDReverseRecord 1 f gradient
+  (_, v) <- adaptDReverseRecord 1 f gradient
   let ppARecord :: ARecordAA sh r -> [r]
       ppARecord (ARecord a b) = OS.toList a ++ OS.toList b
-  return (ppARecord gradient, value)
+  return (ppARecord gradient, v)
 
 fquadRecord :: forall k d r. (ADModeAndNum d r, KnownNat k)
             => ARecordDD '[k] d r -> ADVal d r

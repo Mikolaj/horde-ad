@@ -152,9 +152,9 @@ fcnnMnistTest0 widthHidden widthHidden2 inputs params0 =
         let nn = inline (fcnnMnist0 @'ADModeValue)
                         logistic softMax
                         widthHidden widthHidden2 glyph
-            value = V.map (\(D r _) -> r)
-                    $ primalValueGeneral nn (params0, V.empty, V.empty, V.empty)
-        in V.maxIndex value == V.maxIndex label
+            v = V.map (\(D r _) -> r)
+                    $ valueGeneral nn (params0, V.empty, V.empty, V.empty)
+        in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
 {-# SPECIALIZE fcnnMnistTest0 :: Int -> Int -> [MnistData Double] -> Domain0 Double -> Double #-}

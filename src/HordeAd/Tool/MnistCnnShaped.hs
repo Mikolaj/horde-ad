@@ -251,7 +251,7 @@ convMnistTestS kheight_minus_1@MkSN kwidth_minus_1@MkSN
                             num_hidden out_channels
                             in_height in_width batch_size_1
                             tx
-            value = primalValue nn parameters
-        in V.maxIndex (OS.toVector value) == V.maxIndex (OS.toVector label)
+            v = valueFun nn parameters
+        in V.maxIndex (OS.toVector v) == V.maxIndex (OS.toVector label)
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)

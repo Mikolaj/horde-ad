@@ -210,7 +210,7 @@ gradSmartTestCase prefix lossFunction seedSamples
        (parametersResult, _) <-
          sgdAdam f samples parametersInit (initialStateAdam parametersInit)
        (_, values) <-
-         mapAndUnzipM (\t -> dReverse 1 (f t) parametersResult) testSamples
+         mapAndUnzipM (\t -> revIO 1 (f t) parametersResult) testSamples
        (sum values / 100) @?~ expected
 
 conditionalSynthTests:: TestTree

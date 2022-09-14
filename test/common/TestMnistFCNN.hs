@@ -52,7 +52,7 @@ sgdShow :: HasDelta r
 sgdShow gamma f trainData params0Init = do
   result <-
     fst <$> sgd gamma f trainData (params0Init, V.empty, V.empty, V.empty)
-  snd <$> dReverse 1 (f $ head trainData) result
+  snd <$> revIO 1 (f $ head trainData) result
 
 sgdTestCase :: String
             -> IO [a]
@@ -317,10 +317,10 @@ mnistTestCase2T reallyWriteFile
                hPutStrLn stderr $ printf "%s: %d " prefix k
                hFlush stderr
              let f = trainWithLoss
-             (!params0New, !value) <-
+             (!params0New, !v) <-
                sgd gamma f chunk (params0, params1, params2, paramsX)
              time <- getPOSIXTime
-             return (params0New, (time, value) : times)
+             return (params0New, (time, v) : times)
        let runEpoch :: Int
                     -> (Domains Double, [(POSIXTime, Double)])
                     -> IO (Domains Double, [(POSIXTime, Double)])
@@ -389,11 +389,11 @@ mnistTestCase2D reallyWriteFile miniBatchSize decay
                  gamma = if decay
                          then gamma0 * exp (- fromIntegral k * 1e-4)
                          else gamma0
-             (!params0New, !value) <-
+             (!params0New, !v) <-
                 sgdBatchForward (33 + k * 7) miniBatchSize gamma f chunk
                                 (params0, params1, params2, paramsX) np
              time <- getPOSIXTime
-             return (params0New, (time, value) : times)
+             return (params0New, (time, v) : times)
        let runEpoch :: Int
                     -> (Domains Double, [(POSIXTime, Double)])
                     -> IO (Domains Double, [(POSIXTime, Double)])
@@ -463,11 +463,11 @@ mnistTestCase2F reallyWriteFile miniBatchSize decay
                  gamma = if decay
                          then gamma0 * exp (- fromIntegral k * 1e-4)
                          else gamma0
-                 (!params0New, !value) =
+                 (!params0New, !v) =
                    sgdBatchFastForward (33 + k * 7) miniBatchSize gamma f chunk
                                        (params0, params1, params2, paramsX) np
              time <- getPOSIXTime
-             return (params0New, (time, value) : times)
+             return (params0New, (time, v) : times)
        let runEpoch :: Int
                     -> (Domains Double, [(POSIXTime, Double)])
                     -> IO (Domains Double, [(POSIXTime, Double)])

@@ -38,16 +38,16 @@ testTrees = [ testDReverse0
                         [testCase "S" testFooS]
             ]
 
-dReverse0
+revIO0
   :: HasDelta r
   => (ADValInputs 'ADModeGradient r
       -> ADVal 'ADModeGradient r)
   -> [r]
   -> IO ([r], r)
-dReverse0 f deltaInput = do
-  ((!results, _, _, _), !value) <-
-    dReverse 1 f (V.fromList deltaInput, V.empty, V.empty, V.empty)
-  return (V.toList results, value)
+revIO0 f deltaInput = do
+  ((!results, _, _, _), !v) <-
+    revIO 1 f (V.fromList deltaInput, V.empty, V.empty, V.empty)
+  return (V.toList results, v)
 
 fX :: ADValInputs 'ADModeGradient Float
    -> ADVal 'ADModeGradient Float
@@ -125,10 +125,10 @@ freluX inputs =
   in relu x
 
 testDReverse0 :: TestTree
-testDReverse0 = testGroup "Simple dReverse application tests" $
+testDReverse0 = testGroup "Simple revIO application tests" $
   map (\(txt, f, v, expected) ->
         testCase txt $ do
-          res <- dReverse0 f v
+          res <- revIO0 f v
           res @?~ expected)
     [ ("fX", fX, [99], ([1.0],99.0))
     , ("fXagain", fX, [99], ([1.0],99.0))
@@ -205,13 +205,13 @@ dReverse1
   -> [[r]]
   -> IO ([[r]], r)
 dReverse1 f deltaInput = do
-  ((_, !results, _, _), !value) <-
-    dReverse 1 f
+  ((_, !results, _, _), !v) <-
+    revIO 1 f
              (V.empty, V.fromList (map V.fromList deltaInput), V.empty, V.empty)
-  return (map V.toList $ V.toList results, value)
+  return (map V.toList $ V.toList results, v)
 
 testDReverse1 :: TestTree
-testDReverse1 = testGroup "Simple dReverse application to vectors tests" $
+testDReverse1 = testGroup "Simple revIO application to vectors tests" $
   map (\(txt, f, v, expected) ->
         testCase txt $ do
           res <- dReverse1 f v
@@ -259,10 +259,10 @@ testDForward =
 
 testDFastForward :: TestTree
 testDFastForward =
- testGroup "Simple dFastForward application tests" $
+ testGroup "Simple fwdFun application tests" $
   map (\(txt, f, v, expected) ->
         let vp = listsToParameters v
-        in testCase txt $ dFastForward f vp vp @?~ expected)
+        in testCase txt $ fwdFun f vp vp @?~ expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
     , ( "atanOldReadme", atanOldReadme, ([1.1, 2.2, 3.3], [])
       , (7.662345305800865, 4.9375516951604155) )
@@ -334,9 +334,9 @@ atanOldReadme = sumElementsOfADVals . atanOldReadmeInputs
 atanOldReadmeDReverse :: HasDelta r
                    => Domain0 r -> IO (Domain0 r, r)
 atanOldReadmeDReverse ds = do
-  ((!result, _, _, _), !value) <-
-    dReverse 1 atanOldReadme (ds, V.empty, V.empty, V.empty)
-  return (result, value)
+  ((!result, _, _, _), !v) <-
+    revIO 1 atanOldReadme (ds, V.empty, V.empty, V.empty)
+  return (result, v)
 
 oldReadmeTests :: TestTree
 oldReadmeTests = testGroup "Simple tests for README"
@@ -368,9 +368,9 @@ vatanOldReadme inputs =
 vatanOldReadmeDReverse :: HasDelta r
                     => Domain1 r -> IO (Domain1 r, r)
 vatanOldReadmeDReverse dsV = do
-  ((_, !result, _, _), !value) <-
-    dReverse 1 vatanOldReadme (V.empty, dsV, V.empty, V.empty)
-  return (result, value)
+  ((_, !result, _, _), !v) <-
+    revIO 1 vatanOldReadme (V.empty, dsV, V.empty, V.empty)
+  return (result, v)
 
 oldReadmeTestsV :: TestTree
 oldReadmeTestsV = testGroup "Simple tests of vector-based code for README"
@@ -401,7 +401,7 @@ foo (x,y,z) =
 testFoo :: Assertion
 testFoo =
   assertEqualUpToEps (1e-10 :: Double)
-    (grad foo (1.1, 2.2, 3.3))
+    (rev foo (1.1, 2.2, 3.3))
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
 
 bar :: RealFloat a => (a,a,a) -> a
@@ -412,7 +412,7 @@ bar (x,y,z) =
 testBar :: Assertion
 testBar =
   assertEqualUpToEps (1e-9 :: Double)
-    (grad bar (1.1, 2.2, 3.3))
+    (rev bar (1.1, 2.2, 3.3))
     (6.221706565357043, -12.856908977773593, 6.043601532156671)
 
 -- A check if gradient computation is re-entrant.
@@ -441,7 +441,7 @@ fooConstant = foo (7, 8, 9)
 testBaz :: Assertion
 testBaz =
   assertEqualUpToEps (1e-9 :: Double)
-    (grad baz (1.1, 2.2, 3.3))
+    (rev baz (1.1, 2.2, 3.3))
     (0, -5219.20995030263, 2782.276274462047)
 
 -- If terms are numbered and @z@ is, wrongly, decorated with number 0,
@@ -451,13 +451,13 @@ testBaz =
 -- runs (verified) as well as when delta-expression evaluation assumes
 -- it can only encounter terms numbered in the current run and,
 -- e.g., allocates an array with only that much space (not verified).
--- Actually, with term counter zeroed just before @grad@ application,
+-- Actually, with term counter zeroed just before @rev@ application,
 -- even a single @testBaz@ execution produces wrong results, but this test
 -- is likely to fail in less naive implementations, as well.
 testBazRenumbered :: Assertion
 testBazRenumbered =
   assertEqualUpToEps (1e-9 :: Double)
-    (grad (\(x,y,z) -> z + baz (x,y,z)) (1.1, 2.2, 3.3))
+    (rev (\(x,y,z) -> z + baz (x,y,z)) (1.1, 2.2, 3.3))
     (0, -5219.20995030263, 2783.276274462047)
 
 -- A dual-number and list-based version of a function that goes
@@ -471,14 +471,14 @@ fooD _ = error "wrong number of arguments"
 testFooD :: Assertion
 testFooD =
   assertEqualUpToEpsD (1e-10 :: Double)
-    (grad fooD [1.1, 2.2, 3.3])
+    (rev fooD [1.1, 2.2, 3.3])
     [2.4396285219055063, -1.953374825727421, 0.9654825811012627]
 
-grad :: (HasDelta r, Adaptable r x rs)
+rev :: (HasDelta r, Adaptable r x rs)
      => (x -> ADVal 'ADModeGradient r) -> x -> rs
-grad f x =
+rev f x =
   let g inputs = f $ fromADValInputs inputs
-  in fromDomains $ fst $ dReverseFun 1 g (toDomains x)
+  in fromDomains $ fst $ revFun 1 g (toDomains x)
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
 class Adaptable r fdr rs | fdr -> rs, rs -> fdr where
@@ -573,7 +573,7 @@ fooS MkSN MkSN MkSN (x1, x2, x3) =
 testFooS :: Assertion
 testFooS =
   assertEqualUpToEpsS (1e-10 :: Double)
-    (grad (fooS (MkSN @1) (MkSN @5) (MkSN @3))
+    (rev (fooS (MkSN @1) (MkSN @5) (MkSN @3))
           ( ravelFromListS $ map from0S [1.1]
           , ravelFromListS $ map from0S [2.2, 2.3, 7.2, 7.3, 7.4]
           , ravelFromListS $ map from0S [3.3, 3.4, 3.5]) )

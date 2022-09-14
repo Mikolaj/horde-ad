@@ -7,11 +7,11 @@
 -- are add-ons.
 module HordeAd.Core.Engine
   ( -- * The most often used part of the high-level API
-    dReverseFun, dFastForward, primalValue
+    revFun, fwdFun, valueFun
   , -- * The less often used part of the high-level API
-    dReverse, primalValueGeneral
+    revIO, valueGeneral
   , -- * Operations exposed not for the library users but add-on makers
-    dReverseGeneral, dFastForwardGeneral
+    revGeneral, fwdGeneral
   , generateDeltaInputs, initializerFixed
   , -- * Internal operations, exposed, e.g., for tests
     dForwardGeneral, dForward, dForwardFun
@@ -40,14 +40,14 @@ import HordeAd.Internal.Delta
 -- It's intended for efficiently calculating the value of the function only.
 
 -- The general case, needed for old hacky tests using only scalars.
-primalValueGeneral
+valueGeneral
   :: forall r a. ADModeAndNum 'ADModeValue r
   => (ADValInputs 'ADModeValue r -> a)
   -> Domains r
   -> a
 -- Small enough that inline won't hurt.
-{-# INLINE primalValueGeneral #-}
-primalValueGeneral f (params0, params1, params2, paramsX) =
+{-# INLINE valueGeneral #-}
+valueGeneral f (params0, params1, params2, paramsX) =
   let replicateZeros p = V.replicate (V.length p) dZero
       inputs = makeADValInputs
                     (params0, params1, params2, paramsX)
@@ -57,73 +57,75 @@ primalValueGeneral f (params0, params1, params2, paramsX) =
                     , replicateZeros paramsX )
   in f inputs
 
-primalValue
+valueFun
   :: forall r a. ADModeAndNum 'ADModeValue r
   => (ADValInputs 'ADModeValue r -> ADVal 'ADModeValue a)
   -> Domains r
   -> a
 -- Small enough that inline won't hurt.
-{-# INLINE primalValue #-}
-primalValue f parameters =
-  let D value _ = primalValueGeneral f parameters
-  in value
+{-# INLINE valueFun #-}
+valueFun f parameters =
+  let D v _ = valueGeneral f parameters
+  in v
 
 
 -- * The fully-fledged evaluation for gradients.
 
-dReverseGeneralFun
+revGeneralFun
   :: forall r. HasDelta r
   => r
   -> ADValInputs 'ADModeGradient r
   -> (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> (Domains r, r)
--- The functions in which @dReverseGeneral@ inlines are not inlined themselves
+-- The functions in which @revGeneral@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
-{-# INLINE dReverseGeneralFun #-}
-dReverseGeneralFun dt inputs@ADValInputs{..} f =
+{-# INLINE revGeneralFun #-}
+revGeneralFun dt inputs@ADValInputs{..} f =
   let dim0 = V.length inputPrimal0
       dim1 = V.length inputPrimal1
       dim2 = V.length inputPrimal2
       dimX = V.length inputPrimalX
       -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started
-      !(D value deltaTopLevel) = f inputs
+      !(D v deltaTopLevel) = f inputs
   in let gradient = gradientFromDelta dim0 dim1 dim2 dimX deltaTopLevel dt
-     in (gradient, value)
+     in (gradient, v)
 
 -- Tests expect this to be in IO by historical accident.
 -- But we can possibly add hacks here in the future, such as @performMinorGC@.
-dReverseGeneral
+revGeneral
   :: forall r. HasDelta r
   => r
   -> ADValInputs 'ADModeGradient r
   -> (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> IO (Domains r, r)
-{-# INLINE dReverseGeneral #-}
-dReverseGeneral dt inputs f = return $! dReverseGeneralFun dt inputs f
+{-# INLINE revGeneral #-}
+revGeneral dt inputs f = return $! revGeneralFun dt inputs f
 
-dReverseFun
+-- jvp (jacobian-vector product) is an alternative name, but newbies
+-- might have trouble understanding it.
+revFun
   :: HasDelta r
   => r
   -> (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> (Domains r, r)
-dReverseFun dt f parameters =
+revFun dt f parameters =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADValInputs parameters deltaInputs
-  in dReverseGeneralFun dt inputs f
+  in revGeneralFun dt inputs f
 
-dReverse
+revIO
   :: HasDelta r
   => r
   -> (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> IO (Domains r, r)
-dReverse dt f parameters = return $! dReverseFun dt f parameters
+revIO dt f parameters = return $! revFun dt f parameters
 
 
 -- * The slow evaluation for derivatives that uses the same
--- delta expressions as for gradients. See @dFastForwardGeneral@
+-- delta expressions as for gradients. See @fwdGeneral@
 -- for an efficient variant.
 
 dForwardGeneralFun
@@ -138,9 +140,9 @@ dForwardGeneralFun inputs@ADValInputs{..} f ds =
       dim1 = V.length inputPrimal1
       dim2 = V.length inputPrimal2
       dimX = V.length inputPrimalX
-      !(D value deltaTopLevel) = f inputs
+      !(D v deltaTopLevel) = f inputs
   in let derivative = derivativeFromDelta dim0 dim1 dim2 dimX deltaTopLevel ds
-     in (derivative, value)
+     in (derivative, v)
 
 dForwardGeneral
   :: forall r. HasDelta r
@@ -174,29 +176,29 @@ dForward f parameters ds = return $! dForwardFun f parameters ds
 
 -- * The evaluation for efficiently computing forward derivatives.
 
-dFastForwardGeneral
+fwdGeneral
   :: Dual 'ADModeDerivative r ~ r
   => ADValInputs 'ADModeDerivative r
   -> (ADValInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative r)
   -> (r, r)
-{-# INLINE dFastForwardGeneral #-}
-dFastForwardGeneral inputs f =
-  let D value d = f inputs
-  in (d, value)
+{-# INLINE fwdGeneral #-}
+fwdGeneral inputs f =
+  let D v d = f inputs
+  in (d, v)
 
 -- The direction vector ds is taken as an extra argument.
-dFastForward
+fwdFun
   :: forall r. (Numeric r, Dual 'ADModeDerivative r ~ r)
   => (ADValInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative r)
   -> Domains r
   -> Domains r
   -> (r, r)
-dFastForward f parameters (params0, params1, params2, paramsX) =
+fwdFun f parameters (params0, params1, params2, paramsX) =
   let inputs =
         makeADValInputs
           parameters
           (V.convert params0, params1, params2, paramsX)  -- ds
-  in dFastForwardGeneral inputs f
+  in fwdGeneral inputs f
 
 
 -- * Additional mechanisms
