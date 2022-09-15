@@ -102,8 +102,8 @@ revGeneral
 {-# INLINE revGeneral #-}
 revGeneral dt inputs f = return $! revGeneralFun dt inputs f
 
--- jvp (jacobian-vector product) is an alternative name, but newbies
--- might have trouble understanding it.
+-- VJP (vector-jacobian product) or Lop (left operations) are alternative
+-- names, but newbies may have trouble understanding it.
 revFun
   :: HasDelta r
   => r
@@ -186,6 +186,8 @@ fwdGeneral inputs f =
   let D v d = f inputs
   in (d, v)
 
+-- JVP (jacobian-vector product) or Rop (right operation) are alternative
+-- names, but newbies may have trouble understanding it.
 -- The direction vector ds is taken as an extra argument.
 fwdFun
   :: forall r. (Numeric r, Dual 'ADModeDerivative r ~ r)
