@@ -50,7 +50,7 @@ shortTestForCITrees = [ sinRNNTests
 hiddenLayerSinRNN :: ADModeAndNum d r
                   => r
                   -> ADVal d (Vector r)
-                  -> ADValInputs d r
+                  -> ADInputs d r
                   -> (ADVal d (Vector r), ADVal d (Vector r))
 hiddenLayerSinRNN x s inputs =
   let wX = at2 inputs 0
@@ -62,7 +62,7 @@ hiddenLayerSinRNN x s inputs =
 
 outputLayerSinRNN :: ADModeAndNum d r
                   => ADVal d (Vector r)
-                  -> ADValInputs d r
+                  -> ADInputs d r
                   -> ADVal d r
 outputLayerSinRNN vec inputs =
   let w = at1 inputs 1
@@ -72,7 +72,7 @@ outputLayerSinRNN vec inputs =
 fcfcrnn :: ADModeAndNum d r
         => r
         -> ADVal d (Vector r)
-        -> ADValInputs d r
+        -> ADInputs d r
         -> (ADVal d r, ADVal d (Vector r))
 fcfcrnn x s inputs =
   let (hiddenLayer, sHiddenLayer) = hiddenLayerSinRNN x s inputs
@@ -82,11 +82,11 @@ fcfcrnn x s inputs =
 unrollLast' :: forall d r. ADModeAndNum d r
             => (r
                 -> ADVal d (Vector r)
-                -> ADValInputs d r
+                -> ADInputs d r
                 -> (ADVal d r, ADVal d (Vector r)))
             -> (Vector r
                 -> ADVal d (Vector r)
-                -> ADValInputs d r
+                -> ADInputs d r
                 -> (ADVal d r, ADVal d (Vector r)))
 unrollLast' f xs s0 inputs =
   let g :: (ADVal d r, ADVal d (Vector r)) -> r
@@ -98,23 +98,23 @@ zeroState :: ADModeAndNum d r
           => Int
           -> (a
               -> ADVal d (Vector r)
-              -> ADValInputs d r
+              -> ADInputs d r
               -> (ADVal d r2, ADVal d (Vector r)))
           -> (a
-              -> ADValInputs d r
+              -> ADInputs d r
               -> ADVal d r2)
 zeroState k f xs inputs =
   fst $ f xs (constant $ HM.konst 0 k) inputs
 
 nnSinRNN :: ADModeAndNum d r
          => Vector r
-         -> ADValInputs d r
+         -> ADInputs d r
          -> ADVal d r
 nnSinRNN = zeroState 30 (unrollLast' fcfcrnn)
 
 nnSinRNNLoss :: ADModeAndNum d r
              => (Vector r, r)
-             -> ADValInputs d r
+             -> ADInputs d r
              -> ADVal d r
 nnSinRNNLoss (xs, target) inputs =
   let result = nnSinRNN xs inputs
@@ -127,7 +127,7 @@ samples :: [(Vector Double, Double)]
 samples  = [(V.fromList $ init c, last c) | c <- chunksOf 19 series]
 
 sgdShow :: HasDelta r
-        => (a -> ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+        => (a -> ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
         -> [a]
         -> Domains r
         -> IO r
@@ -137,7 +137,7 @@ sgdShow f trainData parameters = do
 
 sgdTestCase :: String
             -> (a
-                -> ADValInputs 'ADModeGradient Double
+                -> ADInputs 'ADModeGradient Double
                 -> ADVal 'ADModeGradient Double)
             -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
             -> IO [a]
@@ -156,7 +156,7 @@ sgdTestCase prefix f nParameters trainDataIO expected =
 
 sgdTestCaseAlt :: String
             -> (a
-                -> ADValInputs 'ADModeGradient Double
+                -> ADInputs 'ADModeGradient Double
                 -> ADVal 'ADModeGradient Double)
             -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
             -> IO [a]
@@ -176,7 +176,7 @@ sgdTestCaseAlt prefix f nParameters trainDataIO expected =
 prime :: ADModeAndNum 'ADModeValue r
       => (r
           -> ADVal 'ADModeValue (Vector r)
-          -> ADValInputs 'ADModeValue r
+          -> ADInputs 'ADModeValue r
           -> (ADVal 'ADModeValue r, ADVal 'ADModeValue (Vector r)))
       -> Domains r
       -> Vector r
@@ -188,7 +188,7 @@ prime f parameters =
 feedback :: ADModeAndNum 'ADModeValue r
          => (r
              -> ADVal 'ADModeValue (Vector r)
-             -> ADValInputs 'ADModeValue r
+             -> ADInputs 'ADModeValue r
              -> (ADVal 'ADModeValue r, ADVal 'ADModeValue (Vector r)))
          -> Domains r
          -> Vector r
@@ -203,11 +203,11 @@ feedback f parameters s0 x0 =
 feedbackTestCase :: String
                  -> (Double
                      -> ADVal 'ADModeValue (Vector Double)
-                     -> ADValInputs 'ADModeValue Double
+                     -> ADInputs 'ADModeValue Double
                      -> ( ADVal 'ADModeValue Double
                         , ADVal 'ADModeValue (Vector Double) ))
                  -> (a
-                     -> ADValInputs 'ADModeGradient Double
+                     -> ADInputs 'ADModeGradient Double
                      -> ADVal 'ADModeGradient Double)
                  -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
                  -> [a]
@@ -230,7 +230,7 @@ feedbackTestCase prefix fp f nParameters trainData expected =
 hiddenLayerSinRNNV :: ADModeAndNum d r
                    => r
                    -> ADVal d (Vector r)
-                   -> ADValInputs d r
+                   -> ADInputs d r
                    -> (ADVal d (Vector r), ADVal d (Vector r))
 hiddenLayerSinRNNV x s inputs =
   let wX = at1 inputs 0
@@ -241,7 +241,7 @@ hiddenLayerSinRNNV x s inputs =
 
 outputLayerSinRNNV :: ADModeAndNum d r
                    => ADVal d (Vector r)
-                   -> ADValInputs d r
+                   -> ADInputs d r
                    -> ADVal d r
 outputLayerSinRNNV vec inputs =
   let w = at1 inputs 32
@@ -251,7 +251,7 @@ outputLayerSinRNNV vec inputs =
 fcfcrnnV :: ADModeAndNum d r
          => r
          -> ADVal d (Vector r)
-         -> ADValInputs d r
+         -> ADInputs d r
          -> (ADVal d r, ADVal d (Vector r))
 fcfcrnnV x s inputs =
   let (hiddenLayer, sHiddenLayer) = hiddenLayerSinRNNV x s inputs
@@ -260,7 +260,7 @@ fcfcrnnV x s inputs =
 
 nnSinRNNLossV :: ADModeAndNum d r
               => (Vector r, r)
-              -> ADValInputs d r
+              -> ADInputs d r
               -> ADVal d r
 nnSinRNNLossV (xs, target) inputs =
   let result = zeroState 30 (unrollLast' fcfcrnnV) xs inputs
@@ -271,7 +271,7 @@ nnSinRNNLossV (xs, target) inputs =
 ar2Sin :: ADModeAndNum d r
        => r
        -> ADVal d (Vector r)
-       -> ADValInputs d r
+       -> ADInputs d r
        -> (ADVal d r, ADVal d (Vector r))
 ar2Sin yLast s inputs =
   let c = at0 inputs 0
@@ -283,7 +283,7 @@ ar2Sin yLast s inputs =
 
 ar2SinLoss :: ADModeAndNum d r
            => (Vector r, r)
-           -> ADValInputs d r
+           -> ADInputs d r
            -> ADVal d r
 ar2SinLoss (xs, target) inputs =
   let result = zeroState 30 (unrollLast' ar2Sin) xs inputs
@@ -328,7 +328,7 @@ sinRNNTests = testGroup "Sine RNN tests"
 hiddenLayerMnistRNNL :: ADModeAndNum d r
                      => Vector r
                      -> ADVal d (Vector r)
-                     -> ADValInputs d r
+                     -> ADInputs d r
                      -> (ADVal d (Vector r), ADVal d (Vector r))
 hiddenLayerMnistRNNL x s inputs =
   let wX = at2 inputs 0  -- 128x28
@@ -341,7 +341,7 @@ hiddenLayerMnistRNNL x s inputs =
 middleLayerMnistRNNL :: ADModeAndNum d r
                      => ADVal d (Vector r)
                      -> ADVal d (Vector r)
-                     -> ADValInputs d r
+                     -> ADInputs d r
                      -> (ADVal d (Vector r), ADVal d (Vector r))
 middleLayerMnistRNNL vec s inputs =
   let wX = at2 inputs 3  -- 128x128
@@ -353,7 +353,7 @@ middleLayerMnistRNNL vec s inputs =
 
 outputLayerMnistRNNL :: ADModeAndNum d r
                      => ADVal d (Vector r)
-                     -> ADValInputs d r
+                     -> ADInputs d r
                      -> ADVal d (Vector r)
 outputLayerMnistRNNL vec inputs =
   let w = at2 inputs 2  -- 10x128
@@ -363,14 +363,14 @@ outputLayerMnistRNNL vec inputs =
 fcfcrnnMnistL :: ADModeAndNum d r
               => Vector r
               -> ADVal d (Vector r)
-              -> ADValInputs d r
+              -> ADInputs d r
               -> (ADVal d (Vector r), ADVal d (Vector r))
 fcfcrnnMnistL = hiddenLayerMnistRNNL
 
 fcfcrnnMnistL2 :: ADModeAndNum d r
                => Vector r
                -> ADVal d (Vector r)
-               -> ADValInputs d r
+               -> ADInputs d r
                -> (ADVal d (Vector r), ADVal d (Vector r))
 fcfcrnnMnistL2 x s@(D u _) inputs =
   let len = V.length u `div` 2
@@ -382,8 +382,8 @@ fcfcrnnMnistL2 x s@(D u _) inputs =
   in (vec2, s3)
 
 unrollLastG :: forall d a b c r.
-               (a -> b -> ADValInputs d r -> (c, b))
-            -> ([a] -> b -> ADValInputs d r -> (c, b))
+               (a -> b -> ADInputs d r -> (c, b))
+            -> ([a] -> b -> ADInputs d r -> (c, b))
 unrollLastG f xs s0 inputs =
   let g :: (c, b) -> a -> (c, b)
       g (_, s) x = f x s inputs
@@ -392,7 +392,7 @@ unrollLastG f xs s0 inputs =
 nnMnistRNNL :: forall d r. ADModeAndNum d r
             => Int
             -> [Vector r]
-            -> ADValInputs d r
+            -> ADInputs d r
             -> ADVal d (Vector r)
 nnMnistRNNL width x inputs =
   let rnnLayer = zeroState width (unrollLastG fcfcrnnMnistL) x inputs
@@ -401,7 +401,7 @@ nnMnistRNNL width x inputs =
 nnMnistRNNL2 :: ADModeAndNum d r
              => Int
              -> [Vector r]
-             -> ADValInputs d r
+             -> ADInputs d r
              -> ADVal d (Vector r)
 nnMnistRNNL2 width x inputs =
   let rnnLayer = zeroState (2 * width) (unrollLastG fcfcrnnMnistL2) x inputs
@@ -410,7 +410,7 @@ nnMnistRNNL2 width x inputs =
 nnMnistRNNLossL :: forall d r. ADModeAndNum d r
                 => Int
                 -> ([Vector r], Vector r)
-                -> ADValInputs d r
+                -> ADInputs d r
                 -> ADVal d r
 nnMnistRNNLossL width (xs, target) inputs =
   let result = nnMnistRNNL width xs inputs
@@ -419,7 +419,7 @@ nnMnistRNNLossL width (xs, target) inputs =
 nnMnistRNNLossL2 :: ADModeAndNum d r
                  => Int
                  -> ([Vector r], Vector r)
-                 -> ADValInputs d r
+                 -> ADInputs d r
                  -> ADVal d r
 nnMnistRNNLossL2 width (xs, target) inputs =
   let result = nnMnistRNNL2 width xs inputs
@@ -453,7 +453,7 @@ hiddenLayerMnistRNNV :: ADModeAndNum d r
                      => Int
                      -> Vector r
                      -> ADVal d (Vector r)
-                     -> ADValInputs d r
+                     -> ADInputs d r
                      -> (ADVal d (Vector r), ADVal d (Vector r))
 hiddenLayerMnistRNNV width x s inputs =
   let b = at1 inputs (width + width)  -- 128
@@ -466,7 +466,7 @@ hiddenLayerMnistRNNV width x s inputs =
 outputLayerMnistRNNV :: ADModeAndNum d r
                      => Int
                      -> ADVal d (Vector r)
-                     -> ADValInputs d r
+                     -> ADInputs d r
                      -> ADVal d (Vector r)
 outputLayerMnistRNNV width vec inputs =
   let b = at1 inputs (width + width + 1 + 10)  -- 10
@@ -476,14 +476,14 @@ fcfcrnnMnistV :: ADModeAndNum d r
               => Int
               -> Vector r
               -> ADVal d (Vector r)
-              -> ADValInputs d r
+              -> ADInputs d r
               -> (ADVal d (Vector r), ADVal d (Vector r))
 fcfcrnnMnistV = hiddenLayerMnistRNNV
 
 nnMnistRNNV :: ADModeAndNum d r
             => Int
             -> [Vector r]
-            -> ADValInputs d r
+            -> ADInputs d r
             -> ADVal d (Vector r)
 nnMnistRNNV width x inputs =
   let rnnLayer = zeroState width (unrollLastG $ fcfcrnnMnistV width) x inputs
@@ -492,7 +492,7 @@ nnMnistRNNV width x inputs =
 nnMnistRNNLossV :: ADModeAndNum d r
                 => Int
                 -> ([Vector r], Vector r)
-                -> ADValInputs d r
+                -> ADInputs d r
                 -> ADVal d r
 nnMnistRNNLossV width (xs, target) inputs =
   let result = nnMnistRNNV width xs inputs
@@ -535,7 +535,7 @@ mnistTestCaseRNN
   -> Int
   -> (Int
       -> ([Vector Double], Vector Double)
-      -> ADValInputs 'ADModeGradient Double
+      -> ADInputs 'ADModeGradient Double
       -> ADVal 'ADModeGradient Double)
   -> (Int -> [([Vector Double], Vector Double)] -> Domains Double -> Double)
   -> (Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
@@ -596,7 +596,7 @@ mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
 hiddenLayerMnistRNNB :: ADModeAndNum d r
                      => Matrix r  -- the mini-batch of data 28x150
                      -> ADVal d (Matrix r)  -- state for mini-batch 128x150
-                     -> ADValInputs d r
+                     -> ADInputs d r
                      -> (ADVal d (Matrix r), ADVal d (Matrix r))
 hiddenLayerMnistRNNB x s inputs =
   let wX = at2 inputs 0  -- 128x28
@@ -610,7 +610,7 @@ hiddenLayerMnistRNNB x s inputs =
 middleLayerMnistRNNB :: ADModeAndNum d r
                      => ADVal d (Matrix r)  -- 128x150
                      -> ADVal d (Matrix r)  -- 128x150
-                     -> ADValInputs d r
+                     -> ADInputs d r
                      -> (ADVal d (Matrix r), ADVal d (Matrix r))
 middleLayerMnistRNNB batchOfVec@(D u _) s inputs =
   let wX = at2 inputs 3  -- 128x128
@@ -623,7 +623,7 @@ middleLayerMnistRNNB batchOfVec@(D u _) s inputs =
 
 outputLayerMnistRNNB :: ADModeAndNum d r
                      => ADVal d (Matrix r)  -- 128x150
-                     -> ADValInputs d r
+                     -> ADInputs d r
                      -> ADVal d (Matrix r)
 outputLayerMnistRNNB batchOfVec@(D u _) inputs =
   let w = at2 inputs 2  -- 10x128
@@ -634,14 +634,14 @@ outputLayerMnistRNNB batchOfVec@(D u _) inputs =
 fcfcrnnMnistB :: ADModeAndNum d r
               => Matrix r
               -> ADVal d (Matrix r)
-              -> ADValInputs d r
+              -> ADInputs d r
               -> (ADVal d (Matrix r), ADVal d (Matrix r))
 fcfcrnnMnistB = hiddenLayerMnistRNNB
 
 fcfcrnnMnistB2 :: ADModeAndNum d r
                => Matrix r  -- 28x150
                -> ADVal d (Matrix r)  -- 256x150
-               -> ADValInputs d r
+               -> ADInputs d r
                -> (ADVal d (Matrix r), ADVal d (Matrix r))
 fcfcrnnMnistB2 x s@(D u _) inputs =
   let len = HM.rows u `div` 2
@@ -655,10 +655,10 @@ zeroStateB :: ADModeAndNum d r
            => (Int, Int)
            -> (a
                -> ADVal d (Matrix r)
-               -> ADValInputs d r
+               -> ADInputs d r
                -> (ADVal d r2, ADVal d (Matrix r)))
            -> (a
-               -> ADValInputs d r
+               -> ADInputs d r
                -> ADVal d r2)
 zeroStateB ij f xs inputs =
   fst $ f xs (constant $ HM.konst 0 ij) inputs
@@ -666,7 +666,7 @@ zeroStateB ij f xs inputs =
 nnMnistRNNB :: ADModeAndNum d r
             => Int
             -> [Matrix r]
-            -> ADValInputs d r
+            -> ADInputs d r
             -> ADVal d (Matrix r)
 nnMnistRNNB width xs inputs =
   let batchSize = HM.cols $ head xs
@@ -677,7 +677,7 @@ nnMnistRNNB width xs inputs =
 nnMnistRNNB2 :: ADModeAndNum d r
              => Int
              -> [Matrix r]
-             -> ADValInputs d r
+             -> ADInputs d r
              -> ADVal d (Matrix r)
 nnMnistRNNB2 width xs inputs =
   let batchSize = HM.cols $ head xs
@@ -688,7 +688,7 @@ nnMnistRNNB2 width xs inputs =
 nnMnistRNNLossB :: ADModeAndNum d r
                 => Int
                 -> ([Matrix r], Matrix r)
-                -> ADValInputs d r
+                -> ADInputs d r
                 -> ADVal d r
 nnMnistRNNLossB width (xs, target) inputs =
   let result = nnMnistRNNB width xs inputs
@@ -698,7 +698,7 @@ nnMnistRNNLossB width (xs, target) inputs =
 nnMnistRNNLossB2 :: ADModeAndNum d r
                  => Int
                  -> ([Matrix r], Matrix r)
-                 -> ADValInputs d r
+                 -> ADInputs d r
                  -> ADVal d r
 nnMnistRNNLossB2 width (xs, target) inputs =
   let result = nnMnistRNNB2 width xs inputs
@@ -711,7 +711,7 @@ mnistTestCaseRNNB
   -> Int
   -> (Int
       -> ([Matrix Double], Matrix Double)
-      -> ADValInputs 'ADModeGradient Double
+      -> ADInputs 'ADModeGradient Double
       -> ADVal 'ADModeGradient Double)
   -> (Int -> [([Vector Double], Vector Double)] -> Domains Double -> Double)
   -> (Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
@@ -786,7 +786,7 @@ mnistTestCaseRNNS
   -> (forall out_width' batch_size'. ADModeAndNum d r
       => StaticNat out_width' -> StaticNat batch_size'
       -> MnistDataBatchS batch_size' r
-      -> ADValInputs d r
+      -> ADInputs d r
       -> ADVal d r)
   -> (forall out_width' batch_size'. ADModeAndNum d r
       => StaticNat out_width' -> StaticNat batch_size'

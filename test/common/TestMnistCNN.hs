@@ -66,7 +66,7 @@ lenMnistCNN final_image_sz depth num_hidden =
 
 -- This is simple convolution with depth 1.
 convDataMnistCNN :: ADModeAndNum d r
-                 => ADValInputs d r -> Matrix r -> Int
+                 => ADInputs d r -> Matrix r -> Int
                  -> ADVal d (Matrix r)
 convDataMnistCNN inputs x offset =
   let ker = at2 inputs offset
@@ -77,7 +77,7 @@ convDataMnistCNN inputs x offset =
 
 -- This simulates convolution of nontrivial depth, without using tensors.
 convMiddleMnistCNN :: ADModeAndNum d r
-                   => Int -> ADValInputs d r
+                   => Int -> ADInputs d r
                    -> [ADVal d (Matrix r)] -> Int
                    -> ADVal d (Matrix r)
 convMiddleMnistCNN depth inputs ms1 k =
@@ -92,7 +92,7 @@ convMiddleMnistCNN depth inputs ms1 k =
 
 convMnistCNN :: ADModeAndNum d r
              => Int -> Matrix r  -- 28x28
-             -> ADValInputs d r
+             -> ADInputs d r
              -> ADVal d (Vector r)
 convMnistCNN depth x inputs =
   let ms1 = map (convDataMnistCNN inputs x) [0 .. depth - 1]
@@ -109,7 +109,7 @@ convMnistCNN depth x inputs =
 
 convMnistLossCNN :: ADModeAndNum d r
                  => Int -> MnistData2 r
-                 -> ADValInputs d r
+                 -> ADInputs d r
                  -> ADVal d r
 convMnistLossCNN depth (x, target) inputs =
   let result = convMnistCNN depth x inputs
@@ -139,7 +139,7 @@ convMnistTestCaseCNN
   -> Int
   -> (Int
       -> MnistData2 Double
-      -> ADValInputs 'ADModeGradient Double
+      -> ADInputs 'ADModeGradient Double
       -> ADVal 'ADModeGradient Double)
   -> (Int -> [MnistData2 Double]-> Domains Double -> Double)
   -> Int
@@ -211,7 +211,7 @@ final_image_sizeS = 7
 
 -- This is simple convolution with depth 1.
 convDataMnistCNNS :: ADModeAndNum d r
-                  => ADValInputs d r -> Matrix r -> Int
+                  => ADInputs d r -> Matrix r -> Int
                   -> ADVal d (Matrix r)
 convDataMnistCNNS inputs x offset =
   let ker = at2 inputs offset
@@ -222,7 +222,7 @@ convDataMnistCNNS inputs x offset =
 
 -- This simulates convolution of nontrivial depth, without using tensors.
 convMiddleMnistCNNS :: ADModeAndNum d r
-                    => Int -> ADValInputs d r
+                    => Int -> ADInputs d r
                     -> [ADVal d (Matrix r)] -> Int
                     -> ADVal d (Matrix r)
 convMiddleMnistCNNS depth inputs ms1 k =
@@ -237,7 +237,7 @@ convMiddleMnistCNNS depth inputs ms1 k =
 
 convMnistCNNS :: ADModeAndNum d r
               => Int -> Matrix r  -- 28x28
-              -> ADValInputs d r
+              -> ADInputs d r
               -> ADVal d (Vector r)
 convMnistCNNS depth x inputs =
   let ms1 = map (convDataMnistCNNS inputs x) [0 .. depth - 1]
@@ -254,7 +254,7 @@ convMnistCNNS depth x inputs =
 
 convMnistLossCNNS :: ADModeAndNum d r
                   => Int -> MnistData2 r
-                  -> ADValInputs d r
+                  -> ADInputs d r
                   -> ADVal d r
 convMnistLossCNNS depth (x, target) inputs =
   let result = convMnistCNNS depth x inputs
@@ -280,7 +280,7 @@ convMnistTestCNNS depth inputs parameters =
 
 -- This is simple convolution with depth 1.
 convDataMnistCNNP :: ADModeAndNum d r
-                  => ADValInputs d r -> Matrix r -> Int
+                  => ADInputs d r -> Matrix r -> Int
                   -> ADVal d (Matrix r)
 convDataMnistCNNP inputs x offset =
   let ker = at2 inputs offset
@@ -292,7 +292,7 @@ convDataMnistCNNP inputs x offset =
 
 -- This simulates convolution of nontrivial depth, without using tensors.
 convMiddleMnistCNNP :: ADModeAndNum d r
-                    => Int -> ADValInputs d r
+                    => Int -> ADInputs d r
                     -> [ADVal d (Matrix r)] -> Int
                     -> ADVal d (Matrix r)
 convMiddleMnistCNNP depth inputs ms1 k =
@@ -307,7 +307,7 @@ convMiddleMnistCNNP depth inputs ms1 k =
 
 convMnistCNNP :: ADModeAndNum d r
               => Int -> Matrix r  -- 28x28
-              -> ADValInputs d r
+              -> ADInputs d r
               -> ADVal d (Vector r)
 convMnistCNNP depth x inputs =
   let ms1 = map (convDataMnistCNNP inputs x) [0 .. depth - 1]
@@ -324,7 +324,7 @@ convMnistCNNP depth x inputs =
 
 convMnistLossCNNP :: ADModeAndNum d r
                   => Int -> MnistData2 r
-                  -> ADValInputs d r
+                  -> ADInputs d r
                   -> ADVal d r
 convMnistLossCNNP depth (x, target) inputs =
   let result = convMnistCNNP depth x inputs
@@ -374,7 +374,7 @@ convMnistTestCaseCNNT
       -> StaticNat batch_size'
       -> ( OS.Array '[batch_size', in_height', in_width'] r
          , OS.Array '[batch_size', SizeMnistLabel] r )
-      -> ADValInputs d r
+      -> ADInputs d r
       -> ADVal d r)
   -> (forall kheight_minus_1' kwidth_minus_1' num_hidden' out_channels'
              in_height' in_width'.
@@ -603,7 +603,7 @@ comparisonTests volume =
             (_, _, _, parametersPerturbation) =
               initializerFixed (seed + seedDs) 1e-7 paramShape
             f, fP :: forall d r. (ADModeAndNum d r)
-                  => ADValInputs d r -> ADVal d r
+                  => ADInputs d r -> ADVal d r
             f inputs =
               let ker = at2 inputs 0
                   x = at2 inputs 1
@@ -641,7 +641,7 @@ comparisonTests volume =
             (_, _, _, parametersPerturbation) =
               initializerFixed (seed + seedDs) 1e-7 paramShape
             f, fP, fT :: forall d r. (ADModeAndNum d r, r ~ Double)
-                      => ADValInputs d r -> ADVal d r
+                      => ADInputs d r -> ADVal d r
             f = convMnistLossCNN depth mnistData
             fP = convMnistLossCNNP depth mnistData
             fT = case ( someNatVal $ toInteger num_hidden

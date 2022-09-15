@@ -14,12 +14,12 @@ import Numeric.LinearAlgebra (Vector)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.OptimizerTools
-import HordeAd.Core.PairOfVectors (ADValInputs, makeADValInputs)
+import HordeAd.Core.PairOfVectors (ADInputs, makeADInputs)
 
 -- | Simple Gradient Descent.
 gdSimple :: forall r. HasDelta r
          => r
-         -> (ADValInputs 'ADModeGradient r
+         -> (ADInputs 'ADModeGradient r
              -> ADVal 'ADModeGradient r)
          -> Int  -- ^ requested number of iterations
          -> Domains r  -- ^ initial parameters
@@ -33,7 +33,7 @@ gdSimple gamma f n0 parameters0 = go n0 parameters0 where
   go :: Int -> Domains r -> IO (Domains r)
   go 0 parameters = return parameters
   go n parameters = do
-    let inputs = makeADValInputs parameters deltaInputs
+    let inputs = makeADInputs parameters deltaInputs
     gradients <- fst <$> revGeneral 1 inputs f
     let !parametersNew = updateWithGradient gamma parameters gradients
     go (pred n) parametersNew
@@ -41,7 +41,7 @@ gdSimple gamma f n0 parameters0 = go n0 parameters0 where
 -- | Stochastic Gradient Descent.
 sgd :: forall r a. HasDelta r
     => r
-    -> (a -> ADValInputs 'ADModeGradient r
+    -> (a -> ADInputs 'ADModeGradient r
         -> ADVal 'ADModeGradient r)
     -> [a]  -- ^ training data
     -> Domains r  -- ^ initial parameters
@@ -51,7 +51,7 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
   go :: [a] -> Domains r -> IO (Domains r, r)
   go [] parameters = return (parameters, 0)
   go (a : rest) parameters = do
-    let inputs = makeADValInputs parameters deltaInputs
+    let inputs = makeADInputs parameters deltaInputs
     (gradients, valueNew) <- revGeneral 1 inputs (f a)
     let !parametersNew = updateWithGradient gamma parameters gradients
     if null rest
@@ -59,13 +59,13 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
     else go rest parametersNew
 {-# SPECIALIZE sgd
   :: Double
-  -> ((Vector Double, Vector Double) -> ADValInputs 'ADModeGradient Double -> ADVal 'ADModeGradient Double)
+  -> ((Vector Double, Vector Double) -> ADInputs 'ADModeGradient Double -> ADVal 'ADModeGradient Double)
   -> [(Vector Double, Vector Double)]
   -> Domains Double
   -> IO (Domains Double, Double) #-}
 
 sgdAdam :: forall r a. HasDelta r
-        => (a -> ADValInputs 'ADModeGradient r
+        => (a -> ADInputs 'ADModeGradient r
             -> ADVal 'ADModeGradient r)
         -> [a]
         -> Domains r
@@ -75,7 +75,7 @@ sgdAdam = sgdAdamArgs defaultArgsAdam
 
 sgdAdamArgs :: forall r a. HasDelta r
             => ArgsAdam r
-            -> (a -> ADValInputs 'ADModeGradient r
+            -> (a -> ADInputs 'ADModeGradient r
                 -> ADVal 'ADModeGradient r)
             -> [a]
             -> Domains r
@@ -88,7 +88,7 @@ sgdAdamArgs argsAdam f trainingData parameters0 stateAdam0 =
   go :: [a] -> Domains r-> StateAdam r -> IO (Domains r, StateAdam r)
   go [] parameters stateAdam = return (parameters, stateAdam)
   go (a : rest) parameters stateAdam = do
-    let inputs = makeADValInputs parameters deltaInputs
+    let inputs = makeADInputs parameters deltaInputs
     gradients <- fst <$> revGeneral 1 inputs (f a)
     let (parametersNew, stateAdamNew) =
           updateWithGradientAdam argsAdam stateAdam parameters gradients

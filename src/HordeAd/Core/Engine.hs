@@ -32,7 +32,7 @@ import           Text.Show.Pretty (ppShow)
 import HordeAd.Core.DualClass
   (Dual, IsPrimal (..), IsPrimalAndHasFeatures, dInput)
 import HordeAd.Core.DualNumber
-import HordeAd.Core.PairOfVectors (ADValInputs (..), makeADValInputs)
+import HordeAd.Core.PairOfVectors (ADInputs (..), makeADInputs)
 import HordeAd.Internal.Delta
   (derivativeFromDelta, gradientFromDelta, toInputId)
 
@@ -42,14 +42,14 @@ import HordeAd.Internal.Delta
 -- The general case, needed for old hacky tests using only scalars.
 valueGeneral
   :: forall r a. ADModeAndNum 'ADModeValue r
-  => (ADValInputs 'ADModeValue r -> a)
+  => (ADInputs 'ADModeValue r -> a)
   -> Domains r
   -> a
 -- Small enough that inline won't hurt.
 {-# INLINE valueGeneral #-}
 valueGeneral f (params0, params1, params2, paramsX) =
   let replicateZeros p = V.replicate (V.length p) dZero
-      inputs = makeADValInputs
+      inputs = makeADInputs
                     (params0, params1, params2, paramsX)
                     ( replicateZeros params0  -- dummy
                     , replicateZeros params1
@@ -59,7 +59,7 @@ valueGeneral f (params0, params1, params2, paramsX) =
 
 valueFun
   :: forall r a. ADModeAndNum 'ADModeValue r
-  => (ADValInputs 'ADModeValue r -> ADVal 'ADModeValue a)
+  => (ADInputs 'ADModeValue r -> ADVal 'ADModeValue a)
   -> Domains r
   -> a
 -- Small enough that inline won't hurt.
@@ -74,13 +74,13 @@ valueFun f parameters =
 revGeneralFun
   :: forall r. HasDelta r
   => r
-  -> ADValInputs 'ADModeGradient r
-  -> (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+  -> ADInputs 'ADModeGradient r
+  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> (Domains r, r)
 -- The functions in which @revGeneral@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE revGeneralFun #-}
-revGeneralFun dt inputs@ADValInputs{..} f =
+revGeneralFun dt inputs@ADInputs{..} f =
   let dim0 = V.length inputPrimal0
       dim1 = V.length inputPrimal1
       dim2 = V.length inputPrimal2
@@ -96,8 +96,8 @@ revGeneralFun dt inputs@ADValInputs{..} f =
 revGeneral
   :: forall r. HasDelta r
   => r
-  -> ADValInputs 'ADModeGradient r
-  -> (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+  -> ADInputs 'ADModeGradient r
+  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> IO (Domains r, r)
 {-# INLINE revGeneral #-}
 revGeneral dt inputs f = return $! revGeneralFun dt inputs f
@@ -107,18 +107,18 @@ revGeneral dt inputs f = return $! revGeneralFun dt inputs f
 revFun
   :: HasDelta r
   => r
-  -> (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> (Domains r, r)
 revFun dt f parameters =
   let deltaInputs = generateDeltaInputs parameters
-      inputs = makeADValInputs parameters deltaInputs
+      inputs = makeADInputs parameters deltaInputs
   in revGeneralFun dt inputs f
 
 revIO
   :: HasDelta r
   => r
-  -> (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> IO (Domains r, r)
 revIO dt f parameters = return $! revFun dt f parameters
@@ -130,12 +130,12 @@ revIO dt f parameters = return $! revFun dt f parameters
 
 dForwardGeneralFun
   :: forall r. HasDelta r
-  => ADValInputs 'ADModeGradient r
-  -> (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+  => ADInputs 'ADModeGradient r
+  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> (r, r)
 {-# INLINE dForwardGeneralFun #-}
-dForwardGeneralFun inputs@ADValInputs{..} f ds =
+dForwardGeneralFun inputs@ADInputs{..} f ds =
   let dim0 = V.length inputPrimal0
       dim1 = V.length inputPrimal1
       dim2 = V.length inputPrimal2
@@ -146,8 +146,8 @@ dForwardGeneralFun inputs@ADValInputs{..} f ds =
 
 dForwardGeneral
   :: forall r. HasDelta r
-  => ADValInputs 'ADModeGradient r
-  -> (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+  => ADInputs 'ADModeGradient r
+  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> IO (r, r)
 {-# INLINE dForwardGeneral #-}
@@ -156,18 +156,18 @@ dForwardGeneral inputs f ds = return $! dForwardGeneralFun inputs f ds
 -- The direction vector ds is taken as an extra argument.
 dForwardFun
   :: HasDelta r
-  => (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+  => (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> Domains r
   -> (r, r)
 dForwardFun f parameters ds =
   let deltaInputs = generateDeltaInputs parameters
-      inputs = makeADValInputs parameters deltaInputs
+      inputs = makeADInputs parameters deltaInputs
   in dForwardGeneralFun inputs f ds
 
 dForward
   :: HasDelta r
-  => (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+  => (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> Domains r
   -> IO (r, r)
@@ -178,8 +178,8 @@ dForward f parameters ds = return $! dForwardFun f parameters ds
 
 fwdGeneral
   :: Dual 'ADModeDerivative r ~ r
-  => ADValInputs 'ADModeDerivative r
-  -> (ADValInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative r)
+  => ADInputs 'ADModeDerivative r
+  -> (ADInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative r)
   -> (r, r)
 {-# INLINE fwdGeneral #-}
 fwdGeneral inputs f =
@@ -189,13 +189,13 @@ fwdGeneral inputs f =
 -- The direction vector ds is taken as an extra argument.
 fwdFun
   :: forall r. (Numeric r, Dual 'ADModeDerivative r ~ r)
-  => (ADValInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative r)
+  => (ADInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative r)
   -> Domains r
   -> Domains r
   -> (r, r)
 fwdFun f parameters (params0, params1, params2, paramsX) =
   let inputs =
-        makeADValInputs
+        makeADInputs
           parameters
           (V.convert params0, params1, params2, paramsX)  -- ds
   in fwdGeneral inputs f
@@ -205,12 +205,12 @@ fwdFun f parameters (params0, params1, params2, paramsX) =
 
 prettyPrintDf
   :: forall r. HasDelta r
-  => (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+  => (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> String
 prettyPrintDf f parameters =
   let deltaInputs = generateDeltaInputs parameters
-      inputs = makeADValInputs parameters deltaInputs
+      inputs = makeADInputs parameters deltaInputs
       !(D _ deltaTopLevel) = f inputs
   in ppShow deltaTopLevel
 

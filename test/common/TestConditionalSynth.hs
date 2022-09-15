@@ -105,7 +105,7 @@ synthLossAll factivation samples ps1 ps2 ps3 =
 sumTrainableInputsS :: forall d r. ADModeAndNum d r
                     => ADVal d (Vector r)
                     -> Int
-                    -> ADValInputs d r
+                    -> ADInputs d r
                     -> Int
                     -> Data.Vector.Vector (ADVal d r)
 sumTrainableInputsS x offset inputs width =
@@ -117,7 +117,7 @@ splitLayerV :: forall d r. ADModeAndNum d r
             => (ADVal d (Vector r) -> ADVal d (Vector r))
             -> ADVal d (Vector r)
             -> Int
-            -> ADValInputs d r
+            -> ADInputs d r
             -> Int
             -> ( ADVal d (Vector r)
                , ADVal d (Vector r)
@@ -141,7 +141,7 @@ synthLossBareTotal
   -> (ADVal d (Vector r) -> ADVal d (Vector r))
   -> Int
   -> Data.Vector.Storable.Vector (r, r)
-  -> ADValInputs d r
+  -> ADInputs d r
   -> ADVal d r
 synthLossBareTotal factivation factivationHidden factivationMiddle
                    width samples inputs =
@@ -185,7 +185,7 @@ gradSmartTestCase
   => String
   -> (Int
       -> Data.Vector.Storable.Vector (r, r)
-      -> ADValInputs 'ADModeGradient r
+      -> ADInputs 'ADModeGradient r
       -> ADVal 'ADModeGradient r)
   -> Int -> Int -> Int -> Int -> r
   -> TestTree

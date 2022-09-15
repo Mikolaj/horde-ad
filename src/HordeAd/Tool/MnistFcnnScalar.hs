@@ -14,7 +14,7 @@ import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.PairOfVectors (ADValInputs, at0)
+import HordeAd.Core.PairOfVectors (ADInputs, at0)
 import HordeAd.Tool.MnistData
 
 -- | Compute the output of a neuron, without applying activation function,
@@ -23,7 +23,7 @@ import HordeAd.Tool.MnistData
 -- of the network, receiving inputs from other neurons.
 sumTrainableInputs
   :: forall d r. ADModeAndNum d r
-  => Data.Vector.Vector (ADVal d r) -> Int -> ADValInputs d r
+  => Data.Vector.Vector (ADVal d r) -> Int -> ADInputs d r
   -> ADVal d r
 sumTrainableInputs xs offset inputs =
   let bias = at0 inputs offset
@@ -32,7 +32,7 @@ sumTrainableInputs xs offset inputs =
         let v = at0 inputs (offset + 1 + i)
         in acc + u * v
   in V.ifoldl' f bias xs
-{-# SPECIALIZE sumTrainableInputs :: Data.Vector.Vector (ADVal 'ADModeGradient Double) -> Int -> ADValInputs 'ADModeGradient Double -> ADVal 'ADModeGradient Double #-}
+{-# SPECIALIZE sumTrainableInputs :: Data.Vector.Vector (ADVal 'ADModeGradient Double) -> Int -> ADInputs 'ADModeGradient Double -> ADVal 'ADModeGradient Double #-}
 
 -- | Compute the output of a neuron, without applying activation function,
 -- from constant data in @xs@ and parameters (the bias and weights)
@@ -40,7 +40,7 @@ sumTrainableInputs xs offset inputs =
 -- of the network, tasked with ingesting the data.
 sumConstantData
   :: forall d r. ADModeAndNum d r
-  => Vector r -> Int -> ADValInputs d r -> ADVal d r
+  => Vector r -> Int -> ADInputs d r -> ADVal d r
 sumConstantData xs offset inputs =
   let bias = at0 inputs offset
       f :: ADVal d r -> Int -> r -> ADVal d r
@@ -48,13 +48,13 @@ sumConstantData xs offset inputs =
         let v = at0 inputs (offset + 1 + i)
         in acc + scale r v
   in V.ifoldl' f bias xs
-{-# SPECIALIZE sumConstantData :: Vector Double -> Int -> ADValInputs 'ADModeGradient Double -> ADVal 'ADModeGradient Double #-}
+{-# SPECIALIZE sumConstantData :: Vector Double -> Int -> ADInputs 'ADModeGradient Double -> ADVal 'ADModeGradient Double #-}
 
 hiddenLayerMnist
   :: forall d r. ADModeAndNum d r
   => (ADVal d r -> ADVal d r)
   -> Vector r
-  -> ADValInputs d r -> Int
+  -> ADInputs d r -> Int
   -> Data.Vector.Vector (ADVal d r)
 hiddenLayerMnist factivation datum inputs width =
   let nWeightsAndBias = V.length datum + 1
@@ -68,7 +68,7 @@ middleLayerMnist
   :: forall d r. ADModeAndNum d r
   => (ADVal d r -> ADVal d r)
   -> Data.Vector.Vector (ADVal d r)
-  -> Int -> ADValInputs d r -> Int
+  -> Int -> ADInputs d r -> Int
   -> Data.Vector.Vector (ADVal d r)
 middleLayerMnist factivation hiddenVec offset inputs width =
   let nWeightsAndBias = V.length hiddenVec + 1
@@ -85,7 +85,7 @@ outputLayerMnist
   => (Data.Vector.Vector (ADVal d r)
       -> Data.Vector.Vector (ADVal d r))
   -> Data.Vector.Vector (ADVal d r) -> Int
-  -> ADValInputs d r -> Int
+  -> ADInputs d r -> Int
   -> Data.Vector.Vector (ADVal d r)
 outputLayerMnist factivation hiddenVec offset inputs width =
   let nWeightsAndBias = V.length hiddenVec + 1
@@ -115,7 +115,7 @@ fcnnMnist0 :: forall d r. ADModeAndNum d r
            -> Int
            -> Int
            -> Vector r
-           -> ADValInputs d r
+           -> ADInputs d r
            -> Data.Vector.Vector (ADVal d r)
 fcnnMnist0 factivationHidden factivationOutput widthHidden widthHidden2
            datum inputs =
@@ -133,13 +133,13 @@ fcnnMnist0 factivationHidden factivationOutput widthHidden widthHidden2
 -- and composed with the appropriate loss function.
 fcnnMnistLoss0
   :: ADModeAndNum d r
-  => Int -> Int -> MnistData r -> ADValInputs d r
+  => Int -> Int -> MnistData r -> ADInputs d r
   -> ADVal d r
 fcnnMnistLoss0 widthHidden widthHidden2 (datum, target) inputs =
   let result = inline fcnnMnist0 logistic softMax
                                  widthHidden widthHidden2 datum inputs
   in lossCrossEntropy target result
-{-# SPECIALIZE fcnnMnistLoss0 :: Int -> Int -> MnistData Double -> ADValInputs 'ADModeGradient Double -> ADVal 'ADModeGradient Double #-}
+{-# SPECIALIZE fcnnMnistLoss0 :: Int -> Int -> MnistData Double -> ADInputs 'ADModeGradient Double -> ADVal 'ADModeGradient Double #-}
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.

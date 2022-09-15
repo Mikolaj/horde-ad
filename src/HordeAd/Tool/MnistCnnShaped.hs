@@ -22,7 +22,7 @@ import qualified GHC.TypeLits
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.PairOfVectors (ADValInputs, atS)
+import HordeAd.Core.PairOfVectors (ADInputs, atS)
 import HordeAd.Tool.MnistData
 
 convMnistLayerS
@@ -163,7 +163,7 @@ convMnistS
   -> StaticNat in_height -> StaticNat in_width
   -> StaticNat batch_size
   -> OS.Array '[batch_size, 1, in_height, in_width] r
-  -> ADValInputs d r
+  -> ADInputs d r
   -> ADVal d (OS.Array '[SizeMnistLabel, batch_size] r)
 convMnistS kheight_minus_1@MkSN kwidth_minus_1@MkSN
            num_hidden@MkSN
@@ -197,7 +197,7 @@ convMnistLossFusedS
   -> StaticNat batch_size
   -> ( OS.Array '[batch_size, in_height, in_width] r
      , OS.Array '[batch_size, SizeMnistLabel] r )
-  -> ADValInputs d r
+  -> ADInputs d r
   -> ADVal d r
 convMnistLossFusedS
     kheight_minus_1@MkSN kwidth_minus_1@MkSN
@@ -245,7 +245,7 @@ convMnistTestS kheight_minus_1@MkSN kwidth_minus_1@MkSN
         let tx :: OS.Array '[1, 1, in_height, in_width] r
             tx = OS.reshape glyph
             batch_size_1 = MkSN @1
-            nn :: ADValInputs 'ADModeValue r
+            nn :: ADInputs 'ADModeValue r
                -> ADVal 'ADModeValue (OS.Array '[SizeMnistLabel, 1] r)
             nn = convMnistS kheight_minus_1 kwidth_minus_1
                             num_hidden out_channels

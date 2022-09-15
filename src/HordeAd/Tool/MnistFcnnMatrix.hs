@@ -16,7 +16,7 @@ import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.PairOfVectors (ADValInputs, at1, at2)
+import HordeAd.Core.PairOfVectors (ADInputs, at1, at2)
 import HordeAd.Tool.MnistData
 
 fcnnMnistLen2 :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
@@ -40,7 +40,7 @@ fcnnMnist2 :: forall d r. ADModeAndNum d r
            => (ADVal d (Vector r) -> ADVal d (Vector r))
            -> (ADVal d (Vector r) -> ADVal d (Vector r))
            -> Vector r
-           -> ADValInputs d r
+           -> ADInputs d r
            -> ADVal d (Vector r)
 fcnnMnist2 factivationHidden factivationOutput datum inputs =
   let !_A = assert (sizeMnistGlyphInt == V.length datum) ()
@@ -61,7 +61,7 @@ fcnnMnist2 factivationHidden factivationOutput datum inputs =
 -- and composed with the appropriate loss function.
 fcnnMnistLoss2
   :: ADModeAndNum d r
-  => MnistData r -> ADValInputs d r -> ADVal d r
+  => MnistData r -> ADInputs d r -> ADVal d r
 fcnnMnistLoss2 (datum, target) inputs =
   let result = inline fcnnMnist2 logistic softMaxV datum inputs
   in lossCrossEntropyV target result
@@ -71,14 +71,14 @@ fcnnMnistLoss2 (datum, target) inputs =
 -- softMax and cross entropy as the loss function.
 fcnnMnistLossFused2
   :: ADModeAndNum d r
-  => MnistData r -> ADValInputs d r -> ADVal d r
+  => MnistData r -> ADInputs d r -> ADVal d r
 fcnnMnistLossFused2 (datum, target) inputs =
   let result = inline fcnnMnist2 logistic id datum inputs
   in lossSoftMaxCrossEntropyV target result
 
 fcnnMnistLossFusedRelu2
   :: ADModeAndNum d r
-  => MnistData r -> ADValInputs d r -> ADVal d r
+  => MnistData r -> ADInputs d r -> ADVal d r
 fcnnMnistLossFusedRelu2 (datum, target) inputs =
   let result = inline fcnnMnist2 relu id datum inputs
   in lossSoftMaxCrossEntropyV target result

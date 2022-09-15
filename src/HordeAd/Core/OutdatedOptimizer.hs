@@ -16,7 +16,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.OptimizerTools
-import HordeAd.Core.PairOfVectors (ADValInputs, makeADValInputs)
+import HordeAd.Core.PairOfVectors (ADInputs, makeADInputs)
 
 -- | Stochastic Gradient Descent with mini-batches, taking the mean
 -- of the results from each mini-batch. Additionally, it uses
@@ -41,7 +41,7 @@ sgdBatchForward
      Int
   -> Int  -- ^ batch size
   -> Double  -- ^ gamma (learning_rate?)
-  -> (a -> ADValInputs 'ADModeGradient Double
+  -> (a -> ADInputs 'ADModeGradient Double
       -> ADVal 'ADModeGradient Double)
   -> [a]  -- ^ training data
   -> Domains Double  -- ^ initial parameters
@@ -55,11 +55,11 @@ sgdBatchForward seed0 batchSize gamma f trainingData parameters0 nParameters =
   go _ [] parameters v = return (parameters, v)
   go seed l parameters _ = do
     let (batch, rest) = splitAt batchSize l
-        fAdd :: ADValInputs 'ADModeGradient Double
+        fAdd :: ADInputs 'ADModeGradient Double
              -> ADVal 'ADModeGradient Double -> a
              -> ADVal 'ADModeGradient Double
         fAdd vars !acc a = acc + f a vars
-        fBatch :: ADValInputs 'ADModeGradient Double
+        fBatch :: ADInputs 'ADModeGradient Double
                -> ADVal 'ADModeGradient Double
         fBatch vars =
           let resBatch = foldl' (fAdd vars) 0 batch
@@ -67,7 +67,7 @@ sgdBatchForward seed0 batchSize gamma f trainingData parameters0 nParameters =
         unitVarianceRange = sqrt 12 / 2
         (g1, g2) = (seed + 5, seed + 13)
         (_, _, _, direction) = initializerFixed g1 unitVarianceRange nParameters
-        inputs = makeADValInputs parameters deltaInputs
+        inputs = makeADInputs parameters deltaInputs
     (directionalDerivative, valueNew) <-
       dForwardGeneral inputs fBatch direction
     let gammaDirectional = gamma * directionalDerivative
@@ -80,7 +80,7 @@ sgdBatchFastForward
      Int
   -> Int  -- ^ batch size
   -> Double  -- ^ gamma (learning_rate?)
-  -> (a -> ADValInputs 'ADModeDerivative Double
+  -> (a -> ADInputs 'ADModeDerivative Double
       -> ADVal 'ADModeDerivative Double)
   -> [a]  -- ^ training data
   -> Domains Double  -- ^ initial parameters
@@ -94,11 +94,11 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
   go _ [] parameters v = (parameters, v)
   go seed l parameters@(params0, params1, params2, paramsX) _ =
     let (batch, rest) = splitAt batchSize l
-        fAdd :: ADValInputs 'ADModeDerivative Double
+        fAdd :: ADInputs 'ADModeDerivative Double
              -> ADVal 'ADModeDerivative Double -> a
              -> ADVal 'ADModeDerivative Double
         fAdd vars !acc a = acc + f a vars
-        fBatch :: ADValInputs 'ADModeDerivative Double
+        fBatch :: ADInputs 'ADModeDerivative Double
                -> ADVal 'ADModeDerivative Double
         fBatch vars =
           let resBatch = foldl' (fAdd vars) 0 batch
@@ -108,7 +108,7 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
         (_, _, _, direction@(dparams0, dparams1, dparams2, dparamsX)) =
           initializerFixed g1 unitVarianceRange nParameters
         inputs =
-          makeADValInputs
+          makeADInputs
             ( coerce params0, coerce params1, coerce params2
             , unsafeCoerce paramsX )
             (V.convert dparams0, dparams1, dparams2, dparamsX)
@@ -121,7 +121,7 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
 sgdAdamBatch
   :: forall r a. HasDelta r
   => Int  -- ^ batch size
-  -> (a -> ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+  -> (a -> ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> [a]
   -> Domains r
   -> StateAdam r
@@ -132,7 +132,7 @@ sgdAdamBatchArgs
   :: forall r a. HasDelta r
   => ArgsAdam r
   -> Int  -- ^ batch size
-  -> (a -> ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+  -> (a -> ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> [a]
   -> Domains r
   -> StateAdam r
@@ -144,13 +144,13 @@ sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
   go :: [a] -> Domains r-> StateAdam r -> IO (Domains r, StateAdam r)
   go [] parameters stateAdam = return (parameters, stateAdam)
   go l parameters stateAdam = do
-    let inputs = makeADValInputs parameters deltaInputs
+    let inputs = makeADInputs parameters deltaInputs
         (batch, rest) = splitAt batchSize l
-        fAdd :: ADValInputs 'ADModeGradient r
+        fAdd :: ADInputs 'ADModeGradient r
              -> ADVal 'ADModeGradient r -> a
              -> ADVal 'ADModeGradient r
         fAdd vars !acc a = acc + f a vars
-        fBatch :: ADValInputs 'ADModeGradient r
+        fBatch :: ADInputs 'ADModeGradient r
                -> ADVal 'ADModeGradient r
         fBatch vars =
           let resBatch = foldl' (fAdd vars) 0 batch
@@ -164,13 +164,13 @@ sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
 -- Based on @gradientDescent@ from package @ad@ which is in turn based
 -- on the one from the VLAD compiler.
 gdSmart :: forall r. HasDelta r
-        => (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+        => (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
         -> Int  -- ^ requested number of iterations
         -> Domains r  -- ^ initial parameters
         -> IO (Domains r, r)
 gdSmart f n0 parameters0 = do
   let deltaInputs = generateDeltaInputs parameters0
-      inputs0 = makeADValInputs parameters0 deltaInputs
+      inputs0 = makeADInputs parameters0 deltaInputs
   (gradients0, value0) <- revGeneral 1 inputs0 f
   let go :: Int -> Domains r -> r -> Domains r -> r -> Int
          -> IO (Domains r, r)
@@ -182,7 +182,7 @@ gdSmart f n0 parameters0 = do
         -- and the new gradient is only computed by accident together
         -- with the new value that is needed now to revert if we overshoot.
         let parametersNew = updateWithGradient gamma parameters gradientsPrev
-            inputs = makeADValInputs parametersNew deltaInputs
+            inputs = makeADInputs parametersNew deltaInputs
         (gradients, valueCur) <- revGeneral 1 inputs f
         if | gradientIsNil gradientsPrev ->
                return (parameters, gamma)

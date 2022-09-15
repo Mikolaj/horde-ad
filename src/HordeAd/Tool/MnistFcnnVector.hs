@@ -16,19 +16,19 @@ import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.PairOfVectors (ADValInputs, at1)
+import HordeAd.Core.PairOfVectors (ADInputs, at1)
 import HordeAd.Tool.MnistData
 
 sumTrainableInputsV
   :: ADModeAndNum d r
-  => ADVal d (Vector r) -> Int -> ADValInputs d r -> ADVal d r
+  => ADVal d (Vector r) -> Int -> ADInputs d r -> ADVal d r
 sumTrainableInputsV x offset inputs =
   let v = at1 inputs offset
   in v <.>! x
 
 sumTrainableInputsL
   :: forall d r. ADModeAndNum d r
-  => ADVal d (Vector r) -> Int -> ADValInputs d r -> Int
+  => ADVal d (Vector r) -> Int -> ADInputs d r -> Int
   -> ADVal d (Vector r)
 sumTrainableInputsL x offset inputs width =
   let f :: Int -> ADVal d r
@@ -37,14 +37,14 @@ sumTrainableInputsL x offset inputs width =
 
 sumConstantDataV
   :: ADModeAndNum d r
-  => Vector r -> Int -> ADValInputs d r -> ADVal d r
+  => Vector r -> Int -> ADInputs d r -> ADVal d r
 sumConstantDataV x offset inputs =
   let v = at1 inputs offset
   in v <.>!! x
 
 sumConstantDataL
   :: forall d r. ADModeAndNum d r
-  => Vector r -> Int -> ADValInputs d r -> Int
+  => Vector r -> Int -> ADInputs d r -> Int
   -> ADVal d (Vector r)
 sumConstantDataL x offset inputs width =
   let f :: Int -> ADVal d r
@@ -74,7 +74,7 @@ fcnnMnist1 :: forall d r. ADModeAndNum d r
            -> Int
            -> Int
            -> Vector r
-           -> ADValInputs d r
+           -> ADInputs d r
            -> ADVal d (Vector r)
 fcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
           datum inputs =
@@ -97,7 +97,7 @@ fcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
 -- and composed with the appropriate loss function.
 fcnnMnistLoss1
   :: ADModeAndNum d r
-  => Int -> Int -> MnistData r -> ADValInputs d r
+  => Int -> Int -> MnistData r -> ADInputs d r
   -> ADVal d r
 fcnnMnistLoss1 widthHidden widthHidden2 (datum, target) inputs =
   let result = inline fcnnMnist1 logistic softMaxV

@@ -40,7 +40,7 @@ testTrees = [ testDReverse0
 
 revIO0
   :: HasDelta r
-  => (ADValInputs 'ADModeGradient r
+  => (ADInputs 'ADModeGradient r
       -> ADVal 'ADModeGradient r)
   -> [r]
   -> IO ([r], r)
@@ -49,36 +49,36 @@ revIO0 f deltaInput = do
     revIO 1 f (V.fromList deltaInput, V.empty, V.empty, V.empty)
   return (V.toList results, v)
 
-fX :: ADValInputs 'ADModeGradient Float
+fX :: ADInputs 'ADModeGradient Float
    -> ADVal 'ADModeGradient Float
 fX inputs = at0 inputs 0
 
-fXp1 :: ADValInputs 'ADModeGradient Float
+fXp1 :: ADInputs 'ADModeGradient Float
      -> ADVal 'ADModeGradient Float
 fXp1 inputs =
   let x = at0 inputs 0
   in x + 1
 
-fXpX :: ADValInputs 'ADModeGradient Float
+fXpX :: ADInputs 'ADModeGradient Float
      -> ADVal 'ADModeGradient Float
 fXpX inputs =
   let x = at0 inputs 0
   in x + x
 
-fXX :: ADValInputs 'ADModeGradient Float
+fXX :: ADInputs 'ADModeGradient Float
     -> ADVal 'ADModeGradient Float
 fXX inputs =
   let x = at0 inputs 0
   in x * x
 
-fX1X :: ADValInputs 'ADModeGradient Float
+fX1X :: ADInputs 'ADModeGradient Float
      -> ADVal 'ADModeGradient Float
 fX1X inputs =
   let x = at0 inputs 0
       x1 = x + 1
   in x1 * x
 
-fX1Y :: ADValInputs 'ADModeGradient Float
+fX1Y :: ADInputs 'ADModeGradient Float
      -> ADVal 'ADModeGradient Float
 fX1Y inputs =
   let x = at0 inputs 0
@@ -86,7 +86,7 @@ fX1Y inputs =
       x1 = x + 1
   in x1 * y
 
-fY1X :: ADValInputs 'ADModeGradient Float
+fY1X :: ADInputs 'ADModeGradient Float
      -> ADVal 'ADModeGradient Float
 fY1X inputs =
   let x = at0 inputs 0
@@ -94,7 +94,7 @@ fY1X inputs =
       x1 = y + 1
   in x1 * x
 
-fXXY ::  ADValInputs 'ADModeGradient Float
+fXXY ::  ADInputs 'ADModeGradient Float
      -> ADVal 'ADModeGradient Float
 fXXY inputs =
   let x = at0 inputs 0
@@ -102,7 +102,7 @@ fXXY inputs =
       xy = x * y
   in x * xy
 
-fXYplusZ :: ADValInputs 'ADModeGradient Float
+fXYplusZ :: ADInputs 'ADModeGradient Float
          -> ADVal 'ADModeGradient Float
 fXYplusZ inputs =
   let x = at0 inputs 0
@@ -111,14 +111,14 @@ fXYplusZ inputs =
       xy = x * y
   in xy + z
 
-fXtoY :: ADValInputs 'ADModeGradient Float
+fXtoY :: ADInputs 'ADModeGradient Float
       -> ADVal 'ADModeGradient Float
 fXtoY inputs =
   let x = at0 inputs 0
       y = at0 inputs 1
   in x ** y
 
-freluX :: ADValInputs 'ADModeGradient Float
+freluX :: ADInputs 'ADModeGradient Float
        -> ADVal 'ADModeGradient Float
 freluX inputs =
   let x = at0 inputs 0
@@ -153,19 +153,19 @@ testDReverse0 = testGroup "Simple revIO application tests" $
 
 vec_scalarSum_aux
   :: ADModeAndNum d r
-  => ADValInputs d r -> ADVal d r
+  => ADInputs d r -> ADVal d r
 vec_scalarSum_aux = foldlDual' (+) 0
 
 sumElementsV
   :: ADModeAndNum d r
-  => ADValInputs d r -> ADVal d r
+  => ADInputs d r -> ADVal d r
 sumElementsV inputs =
   let x = at1 inputs 0
   in sumElements0 x
 
 altSumElementsV
   :: ADModeAndNum d r
-  => ADValInputs d r -> ADVal d r
+  => ADInputs d r -> ADVal d r
 altSumElementsV inputs =
   let x = at1 inputs 0
   in altSumElements0 x
@@ -176,7 +176,7 @@ id2 x = x
 
 sinKonst
   :: ADModeAndNum d r
-  => ADValInputs d r -> ADVal d r
+  => ADInputs d r -> ADVal d r
 sinKonst inputs =
   let x = at1 inputs 0
   in sumElements0 $
@@ -184,7 +184,7 @@ sinKonst inputs =
 
 powKonst
   :: ADModeAndNum d r
-  => ADValInputs d r -> ADVal d r
+  => ADInputs d r -> ADVal d r
 powKonst inputs =
   let x = at1 inputs 0
   in sumElements0 $
@@ -192,7 +192,7 @@ powKonst inputs =
 
 sinKonstS
   :: forall d r. ADModeAndNum d r
-  => ADValInputs d r -> ADVal d r
+  => ADInputs d r -> ADVal d r
 sinKonstS inputs =
   let x = atS inputs 0
   in sumElements0 $ fromS1
@@ -201,7 +201,7 @@ sinKonstS inputs =
 
 dReverse1
   :: (r ~ Float, d ~ 'ADModeGradient)
-  => (ADValInputs d r -> ADVal d r)
+  => (ADInputs d r -> ADVal d r)
   -> [[r]]
   -> IO ([[r]], r)
 dReverse1 f deltaInput = do
@@ -297,10 +297,10 @@ atanOldReadmeOriginal x y z =
 -- Here we instantiate the function to dual numbers
 -- and add a glue code that selects the function inputs from
 -- a uniform representation of objective function parameters
--- represented as delta-inputs (`ADValInputs`).
+-- represented as delta-inputs (`ADInputs`).
 atanOldReadmeInputs
   :: ADModeAndNum d r
-  => ADValInputs d r -> Data.Vector.Vector (ADVal d r)
+  => ADInputs d r -> Data.Vector.Vector (ADVal d r)
 atanOldReadmeInputs inputs =
   let x : y : z : _ = atList0 inputs
   in atanOldReadmeOriginal x y z
@@ -323,7 +323,7 @@ sumElementsOfADVals = V.foldl' (+) 0
 -- Here we apply the function.
 atanOldReadme
   :: ADModeAndNum d r
-  => ADValInputs d r -> ADVal d r
+  => ADInputs d r -> ADVal d r
 atanOldReadme = sumElementsOfADVals . atanOldReadmeInputs
 
 -- The underscores and empty vectors are placeholders for the vector,
@@ -358,7 +358,7 @@ oldReadmeTests = testGroup "Simple tests for README"
 
 vatanOldReadme
   :: ADModeAndNum d r
-  => ADValInputs d r -> ADVal d r
+  => ADInputs d r -> ADVal d r
 vatanOldReadme inputs =
   let xyzVector = at1 inputs 0
       [x, y, z] = map (index0 xyzVector) [0, 1, 2]
@@ -477,13 +477,13 @@ testFooD =
 rev :: (HasDelta r, Adaptable r x rs)
      => (x -> ADVal 'ADModeGradient r) -> x -> rs
 rev f x =
-  let g inputs = f $ fromADValInputs inputs
+  let g inputs = f $ fromADInputs inputs
   in fromDomains $ fst $ revFun 1 g (toDomains x)
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
 class Adaptable r fdr rs | fdr -> rs, rs -> fdr where
   toDomains :: fdr -> Domains r
-  fromADValInputs :: ADValInputs 'ADModeGradient r -> fdr
+  fromADInputs :: ADInputs 'ADModeGradient r -> fdr
   fromDomains :: Domains r -> rs
 
 instance ADModeAndNum 'ADModeGradient r
@@ -492,24 +492,24 @@ instance ADModeAndNum 'ADModeGradient r
                         , ADVal 'ADModeGradient r ) (r, r, r) where
   toDomains (D a _, D b _, D c _) =
     (V.fromList [a, b, c], V.empty, V.empty, V.empty)
-  fromADValInputs inputs = case atList0 inputs of
+  fromADInputs inputs = case atList0 inputs of
     r1 : r2 : r3 : _ -> (r1, r2, r3)
-    _ -> error "fromADValInputs in Adaptable r (r, r, r)"
+    _ -> error "fromADInputs in Adaptable r (r, r, r)"
   fromDomains (v, _, _, _) = case V.toList v of
     r1 : r2 : r3 : _ -> (r1, r2, r3)
-    _ -> error "fromADValInputs in Adaptable r (r, r, r)"
+    _ -> error "fromADInputs in Adaptable r (r, r, r)"
 
 -- TODO
 instance ADModeAndNum 'ADModeGradient r
          => Adaptable r [ADVal 'ADModeGradient r] [r] where
   toDomains [D a _, D b _, D c _] =
     (V.fromList [a, b, c], V.empty, V.empty, V.empty)
-  fromADValInputs inputs = case atList0 inputs of
+  fromADInputs inputs = case atList0 inputs of
     r1 : r2 : r3 : _ -> [r1, r2, r3]
-    _ -> error "fromADValInputs in Adaptable r [r]"
+    _ -> error "fromADInputs in Adaptable r [r]"
   fromDomains (v, _, _, _) = case V.toList v of
     r1 : r2 : r3 : _ -> [r1, r2, r3]
-    _ -> error "fromADValInputs in Adaptable r [r]"
+    _ -> error "fromADInputs in Adaptable r [r]"
 
 instance (ADModeAndNum 'ADModeGradient r, OS.Shape sh1, OS.Shape sh2, OS.Shape sh3)
          => Adaptable r ( ADVal 'ADModeGradient (OS.Array sh1 r)
@@ -521,7 +521,7 @@ instance (ADModeAndNum 'ADModeGradient r, OS.Shape sh1, OS.Shape sh2, OS.Shape s
     , V.fromList [ Data.Array.Convert.convert a
                  , Data.Array.Convert.convert b
                  , Data.Array.Convert.convert c ] )
-  fromADValInputs inputs =
+  fromADInputs inputs =
     let a = atS inputs 0
         b = atS inputs 1
         c = atS inputs 2
@@ -530,7 +530,7 @@ instance (ADModeAndNum 'ADModeGradient r, OS.Shape sh1, OS.Shape sh2, OS.Shape s
     a : b : c : _ -> ( Data.Array.Convert.convert a
                      , Data.Array.Convert.convert b
                      , Data.Array.Convert.convert c )
-    _ -> error "fromADValInputs in Adaptable r (S, S, S)"
+    _ -> error "fromADInputs in Adaptable r (S, S, S)"
 
 assertEqualUpToEps :: Double -> (Double, Double, Double) -> (Double, Double, Double) -> Assertion
 assertEqualUpToEps _eps (r1, r2, r3) (u1, u2, u3) =  -- TODO: use the _eps instead of the default one

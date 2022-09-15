@@ -22,7 +22,7 @@ import TestCommonEqEpsilon
 
 type ADValD = ADVal 'ADModeGradient Double
 
-type ADValInputsD = ADValInputs 'ADModeGradient Double
+type ADInputsD = ADInputs 'ADModeGradient Double
 
 testTrees :: [TestTree]
 testTrees = [ fitTests
@@ -49,15 +49,15 @@ sumResultsDual f as =
       sumUs = V.foldl' g 0 as
   in sumUs
 
-lengthADVal :: Storable r => ADValInputs d r -> Int
-lengthADVal ADValInputs{inputPrimal0} = V.length inputPrimal0
+lengthADVal :: Storable r => ADInputs d r -> Int
+lengthADVal ADInputs{inputPrimal0} = V.length inputPrimal0
 
 -- This, and other Fit and Fit2 nn operations, have unfused Delta let-bindings
 -- (one binding per each subexpression, even when not needed), which is fine,
 -- just not enough for comprehensive benchmarks.
 hiddenLayerFit :: (ADValD -> ADValD)
                -> Double
-               -> ADValInputsD
+               -> ADInputsD
                -> Int
                -> Data.Vector.Vector ADValD
 hiddenLayerFit factivation x vec width =
@@ -73,7 +73,7 @@ hiddenLayerFit factivation x vec width =
 outputLayerFit :: (ADValD -> ADValD)
                -> Data.Vector.Vector ADValD
                -> Int
-               -> ADValInputsD
+               -> ADInputsD
                -> ADValD
 outputLayerFit factivation hiddenVec offset vec =
   let outSum = sumTrainableInputs hiddenVec offset vec
@@ -81,7 +81,7 @@ outputLayerFit factivation hiddenVec offset vec =
 
 nnFit :: (ADValD -> ADValD)
       -> (ADValD -> ADValD)
-      -> Double -> ADValInputsD -> ADValD
+      -> Double -> ADInputsD -> ADValD
 nnFit factivationHidden factivationOutput x vec =
   -- One bias of the outer layer, a list of weights of the outer layer,
   -- a list of the same length of weights and biases of the hidden layer.
@@ -91,7 +91,7 @@ nnFit factivationHidden factivationOutput x vec =
 
 nnFitLoss :: (ADValD -> ADValD)
           -> (ADValD -> ADValD)
-          -> Double -> Double -> ADValInputsD -> ADValD
+          -> Double -> Double -> ADInputsD -> ADValD
 nnFitLoss factivationHidden factivationOutput x targ vec =
   let res = nnFit factivationHidden factivationOutput x vec
   in squaredDifference targ res
@@ -99,7 +99,7 @@ nnFitLoss factivationHidden factivationOutput x targ vec =
 nnFitLossTotal :: (ADValD -> ADValD)
                -> (ADValD -> ADValD)
                -> Vector (Double, Double)
-               -> ADValInputsD
+               -> ADInputsD
                -> ADValD
 nnFitLossTotal factivationHidden factivationOutput samples vec =
   let f :: (Double, Double) -> ADValD
@@ -141,7 +141,7 @@ wsFitSeparated range@(low, hi) seed k =
 
 gdSimpleShow :: HasDelta r
              => r
-             -> (ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+             -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
              -> Domain0 r
              -> Int
              -> IO ([r], r)
@@ -158,7 +158,7 @@ gdSimpleTestCase
   -> ((ADValD -> ADValD)
       -> (ADValD -> ADValD)
       -> Vector (Double, Double)
-      -> ADValInputsD
+      -> ADInputsD
       -> ADValD)
   -> Int -> Int -> Int -> Double -> Int -> Double
   -> TestTree
@@ -178,7 +178,7 @@ gdSimpleWsTestCase
   :: ((ADValD -> ADValD)
       -> (ADValD -> ADValD)
       -> Vector (Double, Double)
-      -> ADValInputsD
+      -> ADInputsD
       -> ADValD)
   -> Int -> Int -> Int -> Double -> Int -> Double
   -> TestTree
@@ -188,7 +188,7 @@ gdSimpleSeparatedTestCase
   :: ((ADValD -> ADValD)
       -> (ADValD -> ADValD)
       -> Vector (Double, Double)
-      -> ADValInputsD
+      -> ADInputsD
       -> ADValD)
   -> Int -> Int -> Int -> Double -> Int -> Double
   -> TestTree
@@ -224,7 +224,7 @@ fitTests = testGroup "Sample fitting fully connected neural net tests"
 middleLayerFit2 :: (ADValD -> ADValD)
                 -> Data.Vector.Vector ADValD
                 -> Int
-                -> ADValInputsD
+                -> ADInputsD
                 -> Data.Vector.Vector ADValD
 middleLayerFit2 factivation hiddenVec offset vec =
   let f :: Int -> ADValD -> ADValD
@@ -239,7 +239,7 @@ middleLayerFit2 factivation hiddenVec offset vec =
 nnFit2 :: (ADValD -> ADValD)
        -> (ADValD -> ADValD)
        -> (ADValD -> ADValD)
-       -> Double -> ADValInputsD -> ADValD
+       -> Double -> ADInputsD -> ADValD
 nnFit2 factivationHidden factivationMiddle factivationOutput x vec =
   -- Due to not being fully connected, the parameters are only:
   -- one bias of the outer layer, a list of weights of the outer layer,
@@ -253,7 +253,7 @@ nnFit2 factivationHidden factivationMiddle factivationOutput x vec =
 nnFit2Loss :: (ADValD -> ADValD)
            -> (ADValD -> ADValD)
            -> (ADValD -> ADValD)
-           -> Double -> Double -> ADValInputsD -> ADValD
+           -> Double -> Double -> ADInputsD -> ADValD
 nnFit2Loss factivationHidden factivationMiddle factivationOutput x targ vec =
   let res = nnFit2 factivationHidden factivationMiddle factivationOutput x vec
   in squaredDifference targ res
@@ -262,7 +262,7 @@ nnFit2LossTotal :: (ADValD -> ADValD)
                 -> (ADValD -> ADValD)
                 -> (ADValD -> ADValD)
                 -> Vector (Double, Double)
-                -> ADValInputsD
+                -> ADInputsD
                 -> ADValD
 nnFit2LossTotal factivationHidden factivationMiddle factivationOutput
                 samples vec =
@@ -317,7 +317,7 @@ fit2TestsL = testGroup "logistic: Sample fitting 2 hidden layer not fully connec
       1.2453082870396885
   ]
 
-gdSmartShow :: (ADValInputsD -> ADValD)
+gdSmartShow :: (ADInputsD -> ADValD)
             -> Domain0 Double
             -> Int
             -> IO ([Double], (Double, Double))
@@ -333,7 +333,7 @@ gradSmartTestCase :: Num a
                   -> ((ADValD -> ADValD)
                       -> (ADValD -> ADValD)
                       -> Vector (Double, Double)
-                      -> ADValInputsD
+                      -> ADInputsD
                       -> ADValD)
                   -> Int -> Int -> Int -> Int -> (Double, Double)
                   -> TestTree
@@ -352,7 +352,7 @@ gradSmartWsTestCase
   :: ((ADValD -> ADValD)
       -> (ADValD -> ADValD)
       -> Vector (Double, Double)
-      -> ADValInputsD
+      -> ADInputsD
       -> ADValD)
   -> Int -> Int -> Int -> Int -> (Double, Double)
   -> TestTree
@@ -362,7 +362,7 @@ gradSmartSeparatedTestCase
   :: ((ADValD -> ADValD)
       -> (ADValD -> ADValD)
       -> Vector (Double, Double)
-      -> ADValInputsD
+      -> ADInputsD
       -> ADValD)
   -> Int -> Int -> Int -> Int -> (Double, Double)
   -> TestTree
@@ -471,7 +471,7 @@ smartFit2TestsL =
 middleLayerFit3 :: (ADValD -> ADValD)
                 -> Data.Vector.Vector ADValD
                 -> Int
-                -> ADValInputsD
+                -> ADInputsD
                 -> Data.Vector.Vector ADValD
 middleLayerFit3 factivation hiddenVec offset vec =
   middleLayerMnist factivation hiddenVec offset vec $ V.length hiddenVec
@@ -479,7 +479,7 @@ middleLayerFit3 factivation hiddenVec offset vec =
 nnFit3 :: (ADValD -> ADValD)
        -> (ADValD -> ADValD)
        -> (ADValD -> ADValD)
-       -> Double -> ADValInputsD -> ADValD
+       -> Double -> ADInputsD -> ADValD
 nnFit3 factivationHidden factivationMiddle factivationOutput x vec =
   -- This is fully connected, so given width w, the number of parameters is:
   -- one bias of the outer layer, a list of weights of the outer layer
@@ -498,7 +498,7 @@ nnFit3 factivationHidden factivationMiddle factivationOutput x vec =
 nnFit3Loss :: (ADValD -> ADValD)
            -> (ADValD -> ADValD)
            -> (ADValD -> ADValD)
-           -> Double -> Double -> ADValInputsD -> ADValD
+           -> Double -> Double -> ADInputsD -> ADValD
 nnFit3Loss factivationHidden factivationMiddle factivationOutput x targ vec =
   let res = nnFit3 factivationHidden factivationMiddle factivationOutput x vec
   in squaredDifference targ res
@@ -507,7 +507,7 @@ nnFit3LossTotal :: (ADValD -> ADValD)
                 -> (ADValD -> ADValD)
                 -> (ADValD -> ADValD)
                 -> Vector (Double, Double)
-                -> ADValInputsD
+                -> ADInputsD
                 -> ADValD
 nnFit3LossTotal factivationHidden factivationMiddle factivationOutput
                 samples vec =
@@ -631,7 +631,7 @@ nnFit3LossTotalOutput :: (ADValD -> ADValD)
                       -> (ADValD -> ADValD)
                       -> (ADValD -> ADValD)
                       -> Vector (Double, Double)
-                      -> ADValInputsD
+                      -> ADInputsD
                       -> ADValD
 nnFit3LossTotalOutput f1 f2 f3 samples vec =
   nnFit3LossTotal f2 f3 f1 samples vec
@@ -694,7 +694,7 @@ smartFit3TestsL3 =
 
 sgdShow :: HasDelta r
         => r
-        -> (a -> ADValInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+        -> (a -> ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
         -> [a]  -- ^ training data
         -> Domain0 r  -- ^ initial parameters
         -> IO ([r], r)
@@ -709,7 +709,7 @@ sgdTestCase
   -> IO [a]
   -> (Int
       -> a
-      -> ADValInputsD
+      -> ADInputsD
       -> ADValD)
   -> Double
   -> Double
@@ -731,7 +731,7 @@ lenMnist widthHidden =
 
 nnFit3ForStochastic :: Int
                     -> (Double, Double)
-                    -> ADValInputsD
+                    -> ADInputsD
                     -> ADValD
 nnFit3ForStochastic _ (x, res) = nnFit3Loss tanh tanh tanh x res
 

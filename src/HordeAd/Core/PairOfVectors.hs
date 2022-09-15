@@ -9,8 +9,8 @@
 -- of parameters and, in case of dual components that are delta-expressions,
 -- with @Delta@ inputs assigned to each.
 module HordeAd.Core.PairOfVectors
-  ( ADValInputs(..)
-  , makeADValInputs, at0, atList0, at1, at2, atX, atS
+  ( ADInputs(..)
+  , makeADInputs, at0, atList0, at1, at2, atX, atS
   , ifoldlDual', foldlDual'
   ) where
 
@@ -30,7 +30,7 @@ import HordeAd.Core.DualNumber
 -- in an efficient way (especially, or only, with gradient descent,
 -- where the vectors are reused in some ways).
 
-data ADValInputs d r = ADValInputs
+data ADInputs d r = ADInputs
   { inputPrimal0 :: Domain0 r
   , inputDual0   :: Data.Vector.Vector (Dual d r)
   , inputPrimal1 :: Domain1 r
@@ -41,42 +41,42 @@ data ADValInputs d r = ADValInputs
   , inputDualX   :: Data.Vector.Vector (Dual d (OT.Array r))
   }
 
-makeADValInputs
+makeADInputs
   :: Domains r
   -> ( Data.Vector.Vector (Dual d r)
      , Data.Vector.Vector (Dual d (Vector r))
      , Data.Vector.Vector (Dual d (Matrix r))
      , Data.Vector.Vector (Dual d (OT.Array r)) )
-  -> ADValInputs d r
-{-# INLINE makeADValInputs #-}
-makeADValInputs (params0, params1, params2, paramsX)
+  -> ADInputs d r
+{-# INLINE makeADInputs #-}
+makeADInputs (params0, params1, params2, paramsX)
                         (vs0, vs1, vs2, vsX)
-  = ADValInputs params0 vs0 params1 vs1 params2 vs2 paramsX vsX
+  = ADInputs params0 vs0 params1 vs1 params2 vs2 paramsX vsX
 
-at0 :: ADModeAndNum d r => ADValInputs d r -> Int -> ADVal d r
+at0 :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d r
 {-# INLINE at0 #-}
-at0 ADValInputs{..} i = D (inputPrimal0 V.! i) (inputDual0 V.! i)
+at0 ADInputs{..} i = D (inputPrimal0 V.! i) (inputDual0 V.! i)
 
 -- Unsafe, but handy for toy examples.
-atList0 :: ADModeAndNum d r => ADValInputs d r -> [ADVal d r]
+atList0 :: ADModeAndNum d r => ADInputs d r -> [ADVal d r]
 atList0 vec = map (at0 vec) [0 ..]
 
-at1 :: ADValInputs d r -> Int -> ADVal d (Vector r)
+at1 :: ADInputs d r -> Int -> ADVal d (Vector r)
 {-# INLINE at1 #-}
-at1 ADValInputs{..} i = D (inputPrimal1 V.! i) (inputDual1 V.! i)
+at1 ADInputs{..} i = D (inputPrimal1 V.! i) (inputDual1 V.! i)
 
-at2 :: ADValInputs d r -> Int -> ADVal d (Matrix r)
+at2 :: ADInputs d r -> Int -> ADVal d (Matrix r)
 {-# INLINE at2 #-}
-at2 ADValInputs{..} i = D (inputPrimal2 V.! i) (inputDual2 V.! i)
+at2 ADInputs{..} i = D (inputPrimal2 V.! i) (inputDual2 V.! i)
 
-atX :: ADValInputs d r -> Int -> ADVal d (OT.Array r)
+atX :: ADInputs d r -> Int -> ADVal d (OT.Array r)
 {-# INLINE atX #-}
-atX ADValInputs{..} i = D (inputPrimalX V.! i) (inputDualX V.! i)
+atX ADInputs{..} i = D (inputPrimalX V.! i) (inputDualX V.! i)
 
 atS :: (ADModeAndNum d r, OS.Shape sh)
-     => ADValInputs d r -> Int -> ADVal d (OS.Array sh r)
+     => ADInputs d r -> Int -> ADVal d (OS.Array sh r)
 {-# INLINE atS #-}
-atS ADValInputs{..} i =
+atS ADInputs{..} i =
 #if defined(VERSION_ghc_typelits_natnormalise)
   inline fromXS $ D (inputPrimalX V.! i) (inputDualX V.! i)
 #else
@@ -86,10 +86,10 @@ atS ADValInputs{..} i =
 ifoldlDual' :: forall a d r. ADModeAndNum d r
              => (a -> Int -> ADVal d r -> a)
              -> a
-             -> ADValInputs d r
+             -> ADInputs d r
              -> a
 {-# INLINE ifoldlDual' #-}
-ifoldlDual' f a ADValInputs{..} = do
+ifoldlDual' f a ADInputs{..} = do
   let g :: a -> Int -> r -> a
       g !acc i valX =
         let !b = D valX (inputDual0 V.! i)
@@ -99,10 +99,10 @@ ifoldlDual' f a ADValInputs{..} = do
 foldlDual' :: forall a d r. ADModeAndNum d r
             => (a -> ADVal d r -> a)
             -> a
-            -> ADValInputs d r
+            -> ADInputs d r
             -> a
 {-# INLINE foldlDual' #-}
-foldlDual' f a ADValInputs{..} = do
+foldlDual' f a ADInputs{..} = do
   let g :: a -> Int -> r -> a
       g !acc i valX =
         let !b = D valX (inputDual0 V.! i)

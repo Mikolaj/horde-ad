@@ -24,7 +24,7 @@ import qualified GHC.TypeLits
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.PairOfVectors (ADValInputs, atS)
+import HordeAd.Core.PairOfVectors (ADInputs, atS)
 import HordeAd.Tool.MnistData
 
 zeroStateS
@@ -143,7 +143,7 @@ rnnMnistS
   -> StaticNat batch_size
   -> StaticNat sizeMnistWidth -> StaticNat sizeMnistHeight
   -> OS.Array '[sizeMnistWidth, sizeMnistHeight, batch_size] r
-  -> ADValInputs d r
+  -> ADInputs d r
   -> ADVal d (OS.Array '[SizeMnistLabel, batch_size] r)
 rnnMnistS out_width@MkSN
           batch_size@MkSN
@@ -167,7 +167,7 @@ rnnMnistLossFusedS
   => StaticNat out_width
   -> StaticNat batch_size
   -> MnistDataBatchS batch_size r
-  -> ADValInputs d r
+  -> ADInputs d r
   -> ADVal d r
 rnnMnistLossFusedS out_width@MkSN
                    batch_size@MkSN

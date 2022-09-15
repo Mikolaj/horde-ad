@@ -34,7 +34,7 @@ quad x y =
   in tmp + 5
 
 fquad :: forall r d. ADModeAndNum d r
-      => ADValInputs d r -> ADVal d r
+      => ADInputs d r -> ADVal d r
 fquad inputs =
   let x = at0 inputs 0
       y = at0 inputs 1
@@ -54,7 +54,7 @@ listsToParameters4 (a0, a1, a2, aX) =
 
 quickCheckTest0 :: TestName
        -> (forall d r. ADModeAndNum d r
-           => ADValInputs d r -> ADVal d r)
+           => ADInputs d r -> ADVal d r)
        -> ((Double, Double, Double) -> ([Double], [Double], [Double], [Double]))
        -> TestTree
 quickCheckTest0 txt f fArg =
@@ -63,8 +63,8 @@ quickCheckTest0 txt f fArg =
 -- A quick check to compare the derivatives and values of 2 given functions.
 cmpTwo
   :: (d ~ 'ADModeDerivative, Dual d r ~ r, ADModeAndNum d r)
-  => (ADValInputs d r -> ADVal d r)
-  -> (ADValInputs d r -> ADVal d r)
+  => (ADInputs d r -> ADVal d r)
+  -> (ADInputs d r -> ADVal d r)
   -> Domains r
   -> Domains r
   -> Domains r
@@ -76,8 +76,8 @@ cmpTwo f1 f2 params1 params2 ds1 ds2 =
 -- A quick check to compare the derivatives and values of 2 given functions.
 cmpTwoSimple
   :: (d ~ 'ADModeDerivative, Dual d r ~ r, ADModeAndNum d r)
-  => (ADValInputs d r -> ADVal d r)
-  -> (ADValInputs d r -> ADVal d r)
+  => (ADInputs d r -> ADVal d r)
+  -> (ADInputs d r -> ADVal d r)
   -> Domains r
   -> Domains r
   -> Property
@@ -88,7 +88,7 @@ cmpTwoSimple f1 f2 parameters ds =
 -- and all kinds of computing the value of the objective function.
 qcPropDom :: (forall d r. ( ADModeAndNum d r
                             , r ~ Double )
-              => ADValInputs d r -> ADVal d r)
+              => ADInputs d r -> ADVal d r)
           -> Domains Double
           -> Domains Double
           -> Domains Double
@@ -117,7 +117,7 @@ qcPropDom f args ds perturbation dt = do
 -- A quick consistency check of all the kinds of derivatives and gradients
 -- and all kinds of computing the value of the objective function.
 qcPropFArg :: (forall d r. ADModeAndNum d r
-               => ADValInputs d r -> ADVal d r)
+               => ADInputs d r -> ADVal d r)
            -> ((Double, Double, Double) -> Domains Double)
            -> (Double, Double, Double)
            -> (Double, Double, Double)
@@ -135,7 +135,7 @@ qcPropFArg f fArgDom xyz dsRaw perturbationRaw dt = do
 qcTestRanges
   :: TestName
   -> (forall d r. ADModeAndNum d r
-      => ADValInputs d r -> ADVal d r)
+      => ADInputs d r -> ADVal d r)
   -> ((Double, Double, Double) -> Domains Double)
   -> ((Double, Double, Double), (Double, Double, Double))
   -> ((Double, Double, Double), (Double, Double, Double))

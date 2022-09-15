@@ -21,7 +21,7 @@ testTrees = [ gdSimpleTests
 
 gdSimpleShow :: HasDelta r
              => r
-             -> (ADValInputs 'ADModeGradient r
+             -> (ADInputs 'ADModeGradient r
                  -> ADVal 'ADModeGradient r)
              -> Domain0 r
              -> Int
@@ -33,7 +33,7 @@ gdSimpleShow gamma f initVec n = do
 
 -- Catastrophic loss of sharing prevented via the monad.
 fblowup :: forall d. ADModeAndNum d Float
-        => ADValInputs d Float -> ADVal d Float
+        => ADInputs d Float -> ADVal d Float
 fblowup inputs =
   let blowup :: Int -> ADVal d Float -> ADVal d Float
       blowup 0 y = y
@@ -85,7 +85,7 @@ type ARecordDD sh d r = ARecord (ADVal d (OS.Array sh r))
 adaptFunctionRecord
   :: forall sh r d. (ADModeAndNum d r, OS.Shape sh)
   => (ARecordDD sh d r -> ADVal d r)
-  -> (ADValInputs d r -> ADVal d r)
+  -> (ADInputs d r -> ADVal d r)
 adaptFunctionRecord f inputs =
   let a = atS inputs 0
       b = atS inputs 1
@@ -183,7 +183,7 @@ gdTestsRecord = testGroup "Record of shaped tensors tests"
 -- (one binding per each subexpression, even when not needed), which is fine,
 -- just not enough for comprehensive benchmarks.
 scaleAddWithBias :: ADModeAndNum d Float
-                 => ADVal d Float -> ADVal d Float -> Int -> ADValInputs d Float
+                 => ADVal d Float -> ADVal d Float -> Int -> ADInputs d Float
                  -> ADVal d Float
 scaleAddWithBias x y ixWeight inputs =
   let wx = at0 inputs ixWeight
@@ -197,7 +197,7 @@ scaleAddWithBias x y ixWeight inputs =
 neuron :: ADModeAndNum d Float
        => (ADVal d Float -> ADVal d Float)
        -> ADVal d Float -> ADVal d Float -> Int
-       -> ADValInputs d Float
+       -> ADInputs d Float
        -> ADVal d Float
 neuron factivation x y ixWeight inputs =
   let sc = scaleAddWithBias x y ixWeight inputs
@@ -205,7 +205,7 @@ neuron factivation x y ixWeight inputs =
 
 nnXor :: ADModeAndNum d Float
       => (ADVal d Float -> ADVal d Float)
-      -> ADVal d Float -> ADVal d Float -> ADValInputs d Float
+      -> ADVal d Float -> ADVal d Float -> ADInputs d Float
       -> ADVal d Float
 nnXor factivation x y inputs =
   let n1 = neuron factivation x y 0 inputs
@@ -214,7 +214,7 @@ nnXor factivation x y inputs =
 
 nnXorLoss :: ADModeAndNum d Float
           => (ADVal d Float -> ADVal d Float)
-          -> Float -> Float -> Float -> ADValInputs d Float
+          -> Float -> Float -> Float -> ADInputs d Float
           -> ADVal d Float
 nnXorLoss factivation x y targ inputs =
   let res = nnXor factivation (constant x) (constant y) inputs
@@ -222,7 +222,7 @@ nnXorLoss factivation x y targ inputs =
 
 nnXorLossTotal :: ADModeAndNum d Float
                => (ADVal d Float -> ADVal d Float)
-               -> ADValInputs d Float
+               -> ADInputs d Float
                -> ADVal d Float
 nnXorLossTotal factivation inputs =
   let n1 = nnXorLoss factivation 0 0 0 inputs

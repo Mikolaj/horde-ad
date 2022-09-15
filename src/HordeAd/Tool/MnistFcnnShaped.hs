@@ -17,7 +17,7 @@ import qualified Data.Vector.Generic as V
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.PairOfVectors (ADValInputs, atS)
+import HordeAd.Core.PairOfVectors (ADInputs, atS)
 import HordeAd.Tool.MnistData
 
 -- | Fully connected neural network for the MNIST digit classification task.
@@ -76,7 +76,7 @@ fcnnMnistS
   -> (forall sh. OS.Shape sh
       => ADVal d (OS.Array sh r) -> ADVal d (OS.Array sh r))
   -> OS.Array '[SizeMnistGlyph] r
-  -> ADValInputs d r
+  -> ADInputs d r
   -> ADVal d (OS.Array '[SizeMnistLabel] r)
 {-# INLINE fcnnMnistS #-}
 fcnnMnistS widthHidden@MkSN widthHidden2@MkSN
@@ -97,7 +97,7 @@ fcnnMnistS widthHidden@MkSN widthHidden2@MkSN
 fcnnMnistLossFusedS
   :: forall widthHidden widthHidden2 d r. ADModeAndNum d r
   => StaticNat widthHidden -> StaticNat widthHidden2
-  -> MnistData r -> ADValInputs d r -> ADVal d r
+  -> MnistData r -> ADInputs d r -> ADVal d r
 fcnnMnistLossFusedS widthHidden widthHidden2 (datum, target) inputs =
   let result = fcnnMnistS widthHidden widthHidden2
                           logistic (OS.fromVector datum) inputs
@@ -106,7 +106,7 @@ fcnnMnistLossFusedS widthHidden widthHidden2 (datum, target) inputs =
 fcnnMnistLossFusedReluS
   :: forall widthHidden widthHidden2 d r. ADModeAndNum d r
   => StaticNat widthHidden -> StaticNat widthHidden2
-  -> MnistData r -> ADValInputs d r -> ADVal d r
+  -> MnistData r -> ADInputs d r -> ADVal d r
 fcnnMnistLossFusedReluS widthHidden widthHidden2 (datum, target) inputs =
   let result = fcnnMnistS widthHidden widthHidden2
                           relu (OS.fromVector datum) inputs

@@ -116,7 +116,7 @@ bgroup5e7 allxs =
 -- of a custom operation here, where there's no gradient descent
 -- to manage the vectors for us.
 vec_prod_aux :: forall d r. ADModeAndNum d r
-             => ADValInputs d r -> ADVal d r
+             => ADInputs d r -> ADVal d r
 vec_prod_aux = foldlDual' (*) 1
   -- no handwritten derivatives; only the derivative for @(*)@ is provided
 
@@ -133,16 +133,16 @@ grad_toList_prod l = V.toList <$> grad_vec_prod (V.fromList l)
 
 vec_scalarSum_aux
   :: forall d r. ADModeAndNum d r
-  => ADValInputs d r -> ADVal d r
+  => ADInputs d r -> ADVal d r
 vec_scalarSum_aux = foldlDual' (+) 0
 
-sumElementsV :: ADValInputs 'ADModeGradient Double
+sumElementsV :: ADInputs 'ADModeGradient Double
              -> ADVal 'ADModeGradient Double
 sumElementsV inputs =
   let x = at1 inputs 0
   in sumElements0 x
 
-altSumElementsV :: ADValInputs 'ADModeGradient Double
+altSumElementsV :: ADInputs 'ADModeGradient Double
                 -> ADVal 'ADModeGradient Double
 altSumElementsV inputs =
   let x = at1 inputs 0
