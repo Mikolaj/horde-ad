@@ -475,10 +475,18 @@ testFooD =
     [2.4396285219055063, -1.953374825727421, 0.9654825811012627]
 
 rev :: (HasDelta r, Adaptable r x rs)
-     => (x -> ADVal 'ADModeGradient r) -> x -> rs
+    => (x -> ADVal 'ADModeGradient r) -> x -> rs
 rev f x =
   let g inputs = f $ fromADInputs inputs
   in fromDomains $ fst $ revFun 1 g (toDomains x)
+
+{- TODO: fromADInputs needs to be generalized to any @d@ for this to work
+value :: (ADModeAndNum 'ADModeValue r, Adaptable r x rs)
+      => (x -> ADVal 'ADModeValue a) -> x -> a
+value f x =
+  let g inputs = f $ fromADInputs inputs
+  in valueFun g (toDomains x)
+-}
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
 class Adaptable r fdr rs | fdr -> rs, rs -> fdr where
