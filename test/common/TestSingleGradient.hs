@@ -37,7 +37,9 @@ testTrees = [ testDReverse0
             , oldReadmeTestsV
             , readmeTests0
             , testGroup "Simple tests of tensor-based code for README"
-                        [testCase "S" testFooS, testCase "B" testBarS]
+                        [ testCase "S" testFooS
+                        , testCase "B" testBarS
+                        , testCase "V" testBarV]
             ]
 
 revIO0
@@ -482,13 +484,11 @@ rev f rs =
   let g inputs = f $ fromADInputs inputs
   in fromDomains $ fst $ revFun 1 g (toDomains rs)
 
-{- TODO: fromADInputs needs to be generalized to any @d@ for this to work
-value :: (ADModeAndNum 'ADModeValue r, Adaptable 'ADModeValue r x rs)
-      => (x -> ADVal 'ADModeValue a) -> rs -> a
+value :: (ADModeAndNum 'ADModeValue r, Adaptable 'ADModeValue r advals rs)
+      => (advals -> ADVal 'ADModeValue a) -> rs -> a
 value f rs =
   let g inputs = f $ fromADInputs inputs
   in valueFun g (toDomains rs)
--}
 
 -- TODO: fromADInputs needs to be generalized to any @d@ for this to work
 -- without the Adaptable' code duplication
@@ -665,14 +665,35 @@ barS MkSN MkSN (s, w, xs) =
     -- with a given type, and not a constant that would be interpreted according
     -- to the inferred type
 
--- TODO: this is a fake implementation
+-- TODO: this is a fake implementation and of the medium-general variant
 dot :: (ADModeAndNum d r, OS.Shape sh, KnownNat n1)
     => ADVal d (OS.Array '[n1, n2] r)
     -> ADVal d (OS.Array (n2 ': sh) r)
     -> ADVal d (OS.Array (n1 ': sh) r)
 dot _ _ = konstS 42
 
--- TODO: bar_3_75 = value (barS (MkSN @3) (MkSN @75))
+-- @ravelFromListS@ is needed, because @valueFun@ expects the objective
+-- function to have a dual number codomain and here we'd have a list
+-- of dual numbers.
+bar_3_75
+  :: ( ADModeAndNum 'ADModeValue r
+     , KnownNat k, OS.Shape sh)
+  => ( r
+     , OS.Array '[3, 75] r
+     , [OS.Array (75 ': sh) r] )
+  -> OS.Array (k ': 3 ': sh) r
+bar_3_75 = value (ravelFromListS . barS (MkSN @3) (MkSN @75))
+
+testBarV :: Assertion
+testBarV =
+  assertEqualUpToEps1S @'[2, 3, 337] (1e-12 :: Double)
+    (bar_3_75
+       ( 1.1
+       , OS.constant 17.3  -- TODO: create more interesting test data
+       , [ OS.constant 2.4
+         , OS.constant 3.6 ] ))
+    (OS.constant 46.2)
+
 bar_vjp_3_75
   :: forall sh r.
      ( ADModeAndNum 'ADModeDerivative r, Dual 'ADModeDerivative r ~ r
@@ -684,9 +705,10 @@ bar_vjp_3_75
      , OS.Array '[3, 75] r
      , [OS.Array (75 ': sh) r] )
   -> r
-bar_vjp_3_75 = fwd (sumElements0 . fromS1 . reshapeS @(3 ': sh) . head . barS (MkSN @3) (MkSN @75))
+bar_vjp_3_75 = fwd (sumElements0 . fromS1 . reshapeS @(3 ': sh) . head
+                    . barS (MkSN @3) (MkSN @75))
   -- TODO: implement real vjp
-  -- TODO: @head@, etc., are required, because our engine assumes
+  -- TODO: @head@, etc., are required, because our engine so far assumes
   -- objective functions with scalar codomain, as in the paper
 
 testBarS :: Assertion
@@ -703,7 +725,12 @@ testBarS =
          , OS.constant 4.6 ] ))  -- ds
     63503.99999999918
 
--- A hack: the normal assertEqualUpToEps should work here. And AssertClose should work for shaped and untyped tensors.
+-- TODO
 assertEqualUpToEpsDot :: Double -> Double -> Double -> Assertion
-assertEqualUpToEpsDot _eps r1 u1 =  -- TODO: use the _eps instead of the default one
+assertEqualUpToEpsDot _eps r1 u1 =
   r1 @?~ u1
+
+-- TODO
+assertEqualUpToEps1S :: OS.Shape sh => Double -> OS.Array sh Double -> OS.Array sh Double -> Assertion
+assertEqualUpToEps1S _eps r1 u1 =
+  OS.toList r1 @?~ OS.toList u1
