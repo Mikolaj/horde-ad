@@ -475,22 +475,22 @@ testFooD =
     [2.4396285219055063, -1.953374825727421, 0.9654825811012627]
 
 rev :: (HasDelta r, Adaptable r x rs)
-    => (x -> ADVal 'ADModeGradient r) -> x -> rs
-rev f x =
+    => (x -> ADVal 'ADModeGradient r) -> rs -> rs
+rev f rs =
   let g inputs = f $ fromADInputs inputs
-  in fromDomains $ fst $ revFun 1 g (toDomains x)
+  in fromDomains $ fst $ revFun 1 g (toDomains rs)
 
 {- TODO: fromADInputs needs to be generalized to any @d@ for this to work
 value :: (ADModeAndNum 'ADModeValue r, Adaptable r x rs)
-      => (x -> ADVal 'ADModeValue a) -> x -> a
-value f x =
+      => (x -> ADVal 'ADModeValue a) -> rs -> a
+value f rs =
   let g inputs = f $ fromADInputs inputs
-  in valueFun g (toDomains x)
+  in valueFun g (toDomains rs)
 -}
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
 class Adaptable r fdr rs | fdr -> rs, rs -> fdr where
-  toDomains :: fdr -> Domains r
+  toDomains :: rs -> Domains r
   fromADInputs :: ADInputs 'ADModeGradient r -> fdr
   fromDomains :: Domains r -> rs
 
@@ -498,7 +498,7 @@ instance ADModeAndNum 'ADModeGradient r
          => Adaptable r ( ADVal 'ADModeGradient r
                         , ADVal 'ADModeGradient r
                         , ADVal 'ADModeGradient r ) (r, r, r) where
-  toDomains (D a _, D b _, D c _) =
+  toDomains (a, b, c) =
     (V.fromList [a, b, c], V.empty, V.empty, V.empty)
   fromADInputs inputs = case atList0 inputs of
     r1 : r2 : r3 : _ -> (r1, r2, r3)
@@ -510,8 +510,9 @@ instance ADModeAndNum 'ADModeGradient r
 -- TODO
 instance ADModeAndNum 'ADModeGradient r
          => Adaptable r [ADVal 'ADModeGradient r] [r] where
-  toDomains [D a _, D b _, D c _] =
+  toDomains [a, b, c] =
     (V.fromList [a, b, c], V.empty, V.empty, V.empty)
+  toDomains _ = error "fromADInputs in Adaptable r [r]"
   fromADInputs inputs = case atList0 inputs of
     r1 : r2 : r3 : _ -> [r1, r2, r3]
     _ -> error "fromADInputs in Adaptable r [r]"
@@ -524,7 +525,7 @@ instance (ADModeAndNum 'ADModeGradient r, OS.Shape sh1, OS.Shape sh2, OS.Shape s
                         , ADVal 'ADModeGradient (OS.Array sh2 r)
                         , ADVal 'ADModeGradient (OS.Array sh3 r) )
                         (OS.Array sh1 r, OS.Array sh2 r, OS.Array sh3 r) where
-  toDomains (D a _, D b _, D c _) =
+  toDomains (a, b, c) =
     ( V.empty, V.empty, V.empty
     , V.fromList [ Data.Array.Convert.convert a
                  , Data.Array.Convert.convert b
@@ -582,9 +583,9 @@ testFooS :: Assertion
 testFooS =
   assertEqualUpToEpsS (1e-10 :: Double)
     (rev (fooS (MkSN @1) (MkSN @5) (MkSN @3))
-          ( ravelFromListS $ map from0S [1.1]
-          , ravelFromListS $ map from0S [2.2, 2.3, 7.2, 7.3, 7.4]
-          , ravelFromListS $ map from0S [3.3, 3.4, 3.5]) )
+          ( OS.fromList [1.1]
+          , OS.fromList [2.2, 2.3, 7.2, 7.3, 7.4]
+          , OS.fromList [3.3, 3.4, 3.5]) )
     ( OS.fromList [8.049999999999999]
     , OS.fromList [0, 3.8500000000000005, 0, 0, 0]
     , OS.fromList [0, 0, 2.53] )
