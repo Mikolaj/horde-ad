@@ -764,7 +764,9 @@ zipWithS :: forall k sh1 sh2 sh d r.
 zipWithS f d e =
   ravelFromListS $ zipWith f (unravelToListS d) (unravelToListS e)
 
-reshapeS :: (ADModeAndNum d r, OS.Shape sh, OS.Shape sh', OS.Size sh ~ OS.Size sh')
+reshapeS :: forall sh sh' d r.
+            ( ADModeAndNum d r
+            , OS.Shape sh, OS.Shape sh', OS.Size sh ~ OS.Size sh' )
          => ADVal d (OS.Array sh r) -> ADVal d (OS.Array sh' r)
 reshapeS (D u u') = D (OS.reshape u) (dReshapeS u')
 

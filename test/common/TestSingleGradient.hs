@@ -1,5 +1,6 @@
-{-# LANGUAGE DataKinds, FlexibleInstances, FunctionalDependencies,
-             MultiParamTypeClasses, RankNTypes, TypeFamilies, TypeOperators #-}
+{-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances,
+             FunctionalDependencies, MultiParamTypeClasses, RankNTypes,
+             TypeFamilies, TypeOperators #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
@@ -475,14 +476,14 @@ testFooD =
     (rev fooD [1.1, 2.2, 3.3])
     [2.4396285219055063, -1.953374825727421, 0.9654825811012627]
 
-rev :: (HasDelta r, Adaptable r fdr rs)
-    => (fdr -> ADVal 'ADModeGradient r) -> rs -> rs
+rev :: (HasDelta r, Adaptable 'ADModeGradient r advals rs)
+    => (advals -> ADVal 'ADModeGradient r) -> rs -> rs
 rev f rs =
   let g inputs = f $ fromADInputs inputs
   in fromDomains $ fst $ revFun 1 g (toDomains rs)
 
 {- TODO: fromADInputs needs to be generalized to any @d@ for this to work
-value :: (ADModeAndNum 'ADModeValue r, Adaptable r x rs)
+value :: (ADModeAndNum 'ADModeValue r, Adaptable 'ADModeValue r x rs)
       => (x -> ADVal 'ADModeValue a) -> rs -> a
 value f rs =
   let g inputs = f $ fromADInputs inputs
@@ -491,86 +492,108 @@ value f rs =
 
 -- TODO: fromADInputs needs to be generalized to any @d@ for this to work
 -- without the Adaptable' code duplication
-fwd :: (Numeric r, Dual 'ADModeDerivative r ~ r, Adaptable' r fdr rs)
-    => (fdr -> ADVal 'ADModeDerivative r) -> rs -> rs -> r
+fwd :: ( Numeric r, Dual 'ADModeDerivative r ~ r
+       , Adaptable 'ADModeDerivative r advals rs )
+    => (advals -> ADVal 'ADModeDerivative r) -> rs -> rs -> r
 fwd f x ds =
-  let g inputs = f $ fromADInputs' inputs
-  in fst $ fwdFun g (toDomains' x) (toDomains' ds)
+  let g inputs = f $ fromADInputs inputs
+  in fst $ fwdFun g (toDomains x) (toDomains ds)
 
-class Adaptable' r fdr rs | fdr -> rs, rs -> fdr where
-  toDomains' :: rs -> Domains r
-  fromADInputs' :: ADInputs 'ADModeDerivative r -> fdr
-
-instance (ADModeAndNum 'ADModeDerivative r, OS.Shape sh, KnownNat n1, KnownNat n2)
-         => Adaptable' r ( ADVal 'ADModeDerivative r
-                         , ADVal 'ADModeDerivative (OS.Array '[n1, n2] r)
-                         , [ADVal 'ADModeDerivative (OS.Array (n2 ': sh) r)] )
-                         ( r
-                         , OS.Array '[n1, n2] r
-                         , [OS.Array (n2 ': sh) r] ) where
-  toDomains' (a, b, c) =
+instance (Numeric r, OS.Shape sh, KnownNat n1, KnownNat n2)
+         => AdaptableDomains r ( r
+                               , OS.Array '[n1, n2] r
+                               , [OS.Array (n2 ': sh) r] ) where
+  toDomains (a, b, c) =
     ( V.singleton a, V.empty, V.empty
     , V.fromList $ Data.Array.Convert.convert b
                    : map Data.Array.Convert.convert c )
-  fromADInputs' inputs@ADInputs{..} =
+  fromDomains = undefined  -- TODO
+
+instance (ADModeAndNum d r, OS.Shape sh, KnownNat n1, KnownNat n2)
+         => AdaptableInputs d r ( ADVal d r
+                                , ADVal d (OS.Array '[n1, n2] r)
+                                , [ADVal d (OS.Array (n2 ': sh) r)] ) where
+  fromADInputs inputs@ADInputs{..} =
     let a = at0 inputs 0
         (b, c) = case zipWith D (V.toList inputPrimalX) (V.toList inputDualX) of
           xb : xc -> (fromXS xb, map fromXS xc)
-          _ -> error "fromADInputs in Adaptable'"
+          _ -> error "fromADInputs in Adaptable r ..."
     in (a, b, c)
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
-class Adaptable r fdr rs | fdr -> rs, rs -> fdr where
+type Adaptable d r advals rs =
+  (AdaptableDomains r rs, AdaptableInputs d r advals)
+
+-- TODO: here, @| rs -> r@ fails if the 4-tuple below is 3-tuple instead.
+-- Probably associated type families are unavoidable.
+class AdaptableDomains r rs | rs -> r where
   toDomains :: rs -> Domains r
-  fromADInputs :: ADInputs 'ADModeGradient r -> fdr
   fromDomains :: Domains r -> rs
 
-instance ADModeAndNum 'ADModeGradient r
-         => Adaptable r ( ADVal 'ADModeGradient r
-                        , ADVal 'ADModeGradient r
-                        , ADVal 'ADModeGradient r ) (r, r, r) where
+class AdaptableInputs d r advals | advals -> r where
+  fromADInputs :: ADInputs d r -> advals
+
+instance Numeric r => AdaptableDomains r (r, r, r) where
   toDomains (a, b, c) =
     (V.fromList [a, b, c], V.empty, V.empty, V.empty)
-  fromADInputs inputs = case atList0 inputs of
-    r1 : r2 : r3 : _ -> (r1, r2, r3)
-    _ -> error "fromADInputs in Adaptable r (r, r, r)"
   fromDomains (v, _, _, _) = case V.toList v of
+    r1 : r2 : r3 : _ -> (r1, r2, r3)
+    _ -> error "fromDomains in Adaptable r (r, r, r)"
+
+instance ADModeAndNum d r
+         => AdaptableInputs d r ( ADVal d r
+                                , ADVal d r
+                                , ADVal d r ) where
+  fromADInputs inputs = case atList0 inputs of
     r1 : r2 : r3 : _ -> (r1, r2, r3)
     _ -> error "fromADInputs in Adaptable r (r, r, r)"
 
 -- TODO
-instance ADModeAndNum 'ADModeGradient r
-         => Adaptable r [ADVal 'ADModeGradient r] [r] where
+instance Numeric r => AdaptableDomains r [r] where
   toDomains [a, b, c] =
     (V.fromList [a, b, c], V.empty, V.empty, V.empty)
-  toDomains _ = error "fromADInputs in Adaptable r [r]"
+  toDomains _ = error "toDomains in Adaptable r [r]"
+  fromDomains (v, _, _, _) = case V.toList v of
+    r1 : r2 : r3 : _ -> [r1, r2, r3]
+    _ -> error "fromDomains in Adaptable r [r]"
+
+instance ADModeAndNum d r
+         => AdaptableInputs d r [ADVal d r] where
   fromADInputs inputs = case atList0 inputs of
     r1 : r2 : r3 : _ -> [r1, r2, r3]
     _ -> error "fromADInputs in Adaptable r [r]"
-  fromDomains (v, _, _, _) = case V.toList v of
-    r1 : r2 : r3 : _ -> [r1, r2, r3]
-    _ -> error "fromADInputs in Adaptable r [r]"
 
-instance (ADModeAndNum 'ADModeGradient r, OS.Shape sh1, OS.Shape sh2, OS.Shape sh3)
-         => Adaptable r ( ADVal 'ADModeGradient (OS.Array sh1 r)
-                        , ADVal 'ADModeGradient (OS.Array sh2 r)
-                        , ADVal 'ADModeGradient (OS.Array sh3 r) )
-                        (OS.Array sh1 r, OS.Array sh2 r, OS.Array sh3 r) where
-  toDomains (a, b, c) =
+instance ( Numeric r
+         , OS.Shape sh1, OS.Shape sh2, OS.Shape sh3, OS.Shape sh4 )
+         => AdaptableDomains r ( OS.Array sh1 r
+                               , OS.Array sh2 r
+                               , OS.Array sh3 r
+                               , OS.Array sh4 r ) where
+  toDomains (a, b, c, d) =
     ( V.empty, V.empty, V.empty
     , V.fromList [ Data.Array.Convert.convert a
                  , Data.Array.Convert.convert b
-                 , Data.Array.Convert.convert c ] )
+                 , Data.Array.Convert.convert c
+                 , Data.Array.Convert.convert d ] )
+  fromDomains (_, _, _, v) = case V.toList v of
+    a : b : c : d : _ -> ( Data.Array.Convert.convert a
+                         , Data.Array.Convert.convert b
+                         , Data.Array.Convert.convert c
+                         , Data.Array.Convert.convert d )
+    _ -> error "fromDomains in Adaptable r (S, S, S)"
+
+instance ( ADModeAndNum d r
+         , OS.Shape sh1, OS.Shape sh2, OS.Shape sh3, OS.Shape sh4 )
+         => AdaptableInputs d r ( ADVal d (OS.Array sh1 r)
+                                , ADVal d (OS.Array sh2 r)
+                                , ADVal d (OS.Array sh3 r)
+                                , ADVal d (OS.Array sh4 r) ) where
   fromADInputs inputs =
     let a = atS inputs 0
         b = atS inputs 1
         c = atS inputs 2
-    in (a, b, c)
-  fromDomains (_, _, _, v) = case V.toList v of
-    a : b : c : _ -> ( Data.Array.Convert.convert a
-                     , Data.Array.Convert.convert b
-                     , Data.Array.Convert.convert c )
-    _ -> error "fromADInputs in Adaptable r (S, S, S)"
+        d = atS inputs 3
+    in (a, b, c, d)
 
 assertEqualUpToEps :: Double -> (Double, Double, Double) -> (Double, Double, Double) -> Assertion
 assertEqualUpToEps _eps (r1, r2, r3) (u1, u2, u3) =  -- TODO: use the _eps instead of the default one
@@ -602,29 +625,33 @@ readmeTests0 = testGroup "Simple tests of tuple-based code for README"
 -- of the third.
 -- Solving type-level inequalities is too hard, so we use the type-level plus
 -- to express the bounds on tensor sizes.
-fooS :: (ADModeAndNum d r, len1 ~ (l1 + 1), len2 ~ (l2 + 2), len3 ~ (l3 + 3))
-     => StaticNat len1 -> StaticNat len2 -> StaticNat len3
+fooS :: ( ADModeAndNum d r
+        , len1 ~ (l1 + 1), len2 ~ (l2 + 2), len3 ~ (l3 + 3), len4 ~ (l4 + 4) )
+     => StaticNat len1 -> StaticNat len2 -> StaticNat len3 -> StaticNat len4
      -> ( ADVal d (OS.Array '[len1] r)
         , ADVal d (OS.Array '[len2] r)
-        , ADVal d (OS.Array '[len3] r) ) -> ADVal d r
-fooS MkSN MkSN MkSN (x1, x2, x3) =
-  fromS0 $ indexS @0 x1 * indexS @1 x2 * indexS @2 x3
+        , ADVal d (OS.Array '[len3] r)
+        , ADVal d (OS.Array '[len4] r) ) -> ADVal d r
+fooS MkSN MkSN MkSN MkSN (x1, x2, x3, x4) =
+  fromS0 $ indexS @0 x1 * indexS @1 x2 * indexS @2 x3 * indexS @3 x4
 
 testFooS :: Assertion
 testFooS =
-  assertEqualUpToEpsS (1e-10 :: Double)
-    (rev (fooS (MkSN @1) (MkSN @5) (MkSN @3))
+  assertEqualUpToEpsS @'[1] @'[5] @'[3] @'[4] (1e-10 :: Double)
+    (rev (fooS (MkSN @1) (MkSN @5) (MkSN @3) (MkSN @4))
           ( OS.fromList [1.1]
           , OS.fromList [2.2, 2.3, 7.2, 7.3, 7.4]
-          , OS.fromList [3.3, 3.4, 3.5]) )
-    ( OS.fromList [8.049999999999999]
-    , OS.fromList [0, 3.8500000000000005, 0, 0, 0]
-    , OS.fromList [0, 0, 2.53] )
+          , OS.fromList [3.3, 3.4, 3.5]
+          , OS.fromList [4.4, 4.5, 4.6, 4.7]) )
+    ( OS.fromList [37.834999999999994]
+    , OS.fromList [0, 18.095000000000002, 0, 0, 0]
+    , OS.fromList [0, 0, 11.891]
+    , OS.fromList [0, 0, 0, 8.854999999999999] )
 
 -- A hack: the normal assertEqualUpToEps should work here. And AssertClose should work for shaped and untyped tensors.
-assertEqualUpToEpsS :: (OS.Shape sh1, OS.Shape sh2, OS.Shape sh3) => Double -> (OS.Array sh1 Double, OS.Array sh2 Double, OS.Array sh3 Double) -> (OS.Array sh1 Double, OS.Array sh2 Double, OS.Array sh3 Double) -> Assertion
-assertEqualUpToEpsS _eps (r1, r2, r3) (u1, u2, u3) =  -- TODO: use the _eps instead of the default one
-  OS.toList r1 @?~ OS.toList u1 >> OS.toList r2 @?~ OS.toList u2 >> OS.toList r3 @?~ OS.toList u3
+assertEqualUpToEpsS :: (OS.Shape sh1, OS.Shape sh2, OS.Shape sh3, OS.Shape sh4) => Double -> (OS.Array sh1 Double, OS.Array sh2 Double, OS.Array sh3 Double, OS.Array sh4 Double) -> (OS.Array sh1 Double, OS.Array sh2 Double, OS.Array sh3 Double, OS.Array sh4 Double) -> Assertion
+assertEqualUpToEpsS _eps (r1, r2, r3, r4) (u1, u2, u3, u4) =  -- TODO: use the _eps instead of the default one
+  OS.toList r1 @?~ OS.toList u1 >> OS.toList r2 @?~ OS.toList u2 >> OS.toList r3 @?~ OS.toList u3 >> OS.toList r4 @?~ OS.toList u4
 
 barS :: (ADModeAndNum d r, OS.Shape sh)
      => StaticNat n1 -> StaticNat n2
@@ -649,7 +676,7 @@ dot _ _ = konstS 42
 bar_vjp_3_75
   :: forall sh r.
      ( ADModeAndNum 'ADModeDerivative r, Dual 'ADModeDerivative r ~ r
-     , OS.Shape sh, KnownNat (OS.Size (3 ': sh)))
+     , OS.Shape sh, KnownNat (OS.Size (3 ': sh)) )
   => ( r
      , OS.Array '[3, 75] r
      , [OS.Array (75 ': sh) r] )
@@ -657,7 +684,7 @@ bar_vjp_3_75
      , OS.Array '[3, 75] r
      , [OS.Array (75 ': sh) r] )
   -> r
-bar_vjp_3_75 = fwd (sumElements0 . fromS1 . reshapeS . head . barS (MkSN @3) (MkSN @75))
+bar_vjp_3_75 = fwd (sumElements0 . fromS1 . reshapeS @(3 ': sh) . head . barS (MkSN @3) (MkSN @75))
   -- TODO: implement real vjp
   -- TODO: @head@, etc., are required, because our engine assumes
   -- objective functions with scalar codomain, as in the paper
