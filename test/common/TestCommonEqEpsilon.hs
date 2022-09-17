@@ -40,6 +40,24 @@ setEpsilonEq (EqEpsilon x) = atomicWriteIORef eqEpsilonRef x
 --
 -- If the prefix is the empty string (i.e., @\"\"@), then the prefix is omitted
 -- and only the expected and actual values are output.
+assertEqualUpToEps :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
+            => String -- ^ The message prefix
+            -> a      -- ^ The error margin
+            -> a      -- ^ The expected value
+            -> a      -- ^ The actual value
+            -> Assertion
+assertEqualUpToEps preface eqEpsilon expected actual = do
+  assertBool (msg eqEpsilon) (abs (expected-actual) < eqEpsilon)
+  where msg errorMargin = (if null preface then "" else preface ++ "\n") ++
+                           "expected: " ++ show expected ++ "\n but got: " ++ show actual ++
+                           "\n (maximum margin of error: " ++ show errorMargin ++ ")"
+
+-- | Asserts that the specified actual floating point value is close to the expected value.
+-- The output message will contain the prefix, the expected value, and the
+-- actual value.
+--
+-- If the prefix is the empty string (i.e., @\"\"@), then the prefix is omitted
+-- and only the expected and actual values are output.
 assertClose :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
             => String -- ^ The message prefix
             -> a      -- ^ The expected value
@@ -47,10 +65,7 @@ assertClose :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
             -> Assertion
 assertClose preface expected actual = do
   eqEpsilon <- readIORef eqEpsilonRef
-  assertBool (msg eqEpsilon) (abs (expected-actual) < fromRational eqEpsilon)
-  where msg errorMargin = (if null preface then "" else preface ++ "\n") ++
-                           "expected: " ++ show expected ++ "\n but got: " ++ show actual ++
-                           "\n (maximum margin of error: " ++ show (fromRational errorMargin :: Double) ++ ")"
+  assertEqualUpToEps preface (fromRational eqEpsilon) expected actual
 
 -- | Asserts that the specified actual floating point value is close to at least one of the expected values.
 assertCloseElem :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
