@@ -179,10 +179,10 @@ dForward f parameters ds = return $! dForwardFun f parameters ds
 -- * The evaluation for efficiently computing forward derivatives.
 
 fwdGeneral
-  :: Dual 'ADModeDerivative r ~ r
+  :: Dual 'ADModeDerivative a ~ a
   => ADInputs 'ADModeDerivative r
-  -> (ADInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative r)
-  -> (r, r)
+  -> (ADInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative a)
+  -> (a, a)
 {-# INLINE fwdGeneral #-}
 fwdGeneral inputs f =
   let D v d = f inputs
@@ -192,11 +192,12 @@ fwdGeneral inputs f =
 -- names, but newbies may have trouble understanding it.
 -- The direction vector ds is taken as an extra argument.
 fwdFun
-  :: forall r. (Numeric r, Dual 'ADModeDerivative r ~ r)
-  => (ADInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative r)
+  :: forall a r. ( Numeric r, Dual 'ADModeDerivative r ~ r
+                 , Dual 'ADModeDerivative a ~ a )
+  => (ADInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative a)
   -> Domains r
   -> Domains r
-  -> (r, r)
+  -> (a, a)
 fwdFun f parameters (params0, params1, params2, paramsX) =
   let inputs =
         makeADInputs

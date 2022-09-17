@@ -38,8 +38,9 @@ testTrees = [ testDReverse0
             , readmeTests0
             , testGroup "Simple tests of tensor-based code for README"
                         [ testCase "S" testFooS
-                        , testCase "B" testBarS
-                        , testCase "V" testBarV]
+                        , testCase "V" testBarV
+                        , testCase "F" testBarF
+                        , testCase "R" testBarR]
             ]
 
 revIO0
@@ -493,8 +494,9 @@ value f rs =
 -- TODO: fromADInputs needs to be generalized to any @d@ for this to work
 -- without the Adaptable' code duplication
 fwd :: ( Numeric r, Dual 'ADModeDerivative r ~ r
+       , Dual 'ADModeDerivative a ~ a
        , Adaptable 'ADModeDerivative r advals rs )
-    => (advals -> ADVal 'ADModeDerivative r) -> rs -> rs -> r
+    => (advals -> ADVal 'ADModeDerivative a) -> rs -> rs -> a
 fwd f x ds =
   let g inputs = f $ fromADInputs inputs
   in fst $ fwdFun g (toDomains x) (toDomains ds)
@@ -507,7 +509,11 @@ instance (Numeric r, OS.Shape sh, KnownNat n1, KnownNat n2)
     ( V.singleton a, V.empty, V.empty
     , V.fromList $ Data.Array.Convert.convert b
                    : map Data.Array.Convert.convert c )
-  fromDomains = undefined  -- TODO
+  fromDomains (vr, _, _, vs) = case V.toList vs of
+    b : c -> ( vr V.! 0
+             , Data.Array.Convert.convert b
+             , map Data.Array.Convert.convert c )
+    _ -> error "fromDomains in Adaptable r ..."
 
 instance (ADModeAndNum d r, OS.Shape sh, KnownNat n1, KnownNat n2)
          => AdaptableInputs d r ( ADVal d r
@@ -615,7 +621,7 @@ readmeTests0 = testGroup "Simple tests of tuple-based code for README"
       testBaz
   , testCase "baz again to use fooConstant with renumbered terms" $
       testBazRenumbered
-   , testCase "fooD T Double [1.1, 2.2, 3.3]" $
+  , testCase "fooD T Double [1.1, 2.2, 3.3]" $
       testFooD
   ]
 
@@ -672,9 +678,6 @@ dot :: (ADModeAndNum d r, OS.Shape sh, KnownNat n1)
     -> ADVal d (OS.Array (n1 ': sh) r)
 dot _ _ = konstS 42
 
--- @ravelFromListS@ is needed, because @valueFun@ expects the objective
--- function to have a dual number codomain and here we'd have a list
--- of dual numbers.
 bar_3_75
   :: ( ADModeAndNum 'ADModeValue r
      , KnownNat k, OS.Shape sh)
@@ -683,10 +686,13 @@ bar_3_75
      , [OS.Array (75 ': sh) r] )
   -> OS.Array (k ': 3 ': sh) r
 bar_3_75 = value (ravelFromListS . barS (MkSN @3) (MkSN @75))
+  -- @ravelFromListS@ is needed, because @valueFun@ expects the objective
+  -- function to have a dual number codomain and here we'd have a list
+  -- of dual numbers. The same problem is worked around with @head@ below.
 
 testBarV :: Assertion
 testBarV =
-  assertEqualUpToEps1S @'[2, 3, 337] (1e-12 :: Double)
+  assertEqualUpToEpsVF @'[2, 3, 337] (1e-12 :: Double)
     (bar_3_75
        ( 1.1
        , OS.constant 17.3  -- TODO: create more interesting test data
@@ -697,23 +703,24 @@ testBarV =
 bar_vjp_3_75
   :: forall sh r.
      ( ADModeAndNum 'ADModeDerivative r, Dual 'ADModeDerivative r ~ r
-     , OS.Shape sh, KnownNat (OS.Size (3 ': sh)) )
+     , OS.Shape sh )
   => ( r
      , OS.Array '[3, 75] r
      , [OS.Array (75 ': sh) r] )
   -> ( r
      , OS.Array '[3, 75] r
      , [OS.Array (75 ': sh) r] )
-  -> r
-bar_vjp_3_75 = fwd (sumElements0 . fromS1 . reshapeS @(3 ': sh) . head
-                    . barS (MkSN @3) (MkSN @75))
+  -> OS.Array (3 ': sh) r
+bar_vjp_3_75 = fwd (head . barS (MkSN @3) (MkSN @75))
   -- TODO: implement real vjp
-  -- TODO: @head@, etc., are required, because our engine so far assumes
-  -- objective functions with scalar codomain, as in the paper
+  -- TODO: @head@os required, because our engine so far assumes
+  -- objective functions have dual number codomains (though they may be
+  -- of arbitrary rank). The same problem is worked around with
+  -- @ravelFromListS@ below.
 
-testBarS :: Assertion
-testBarS =
-  assertEqualUpToEpsDot (1e-7 :: Double)
+testBarF :: Assertion
+testBarF =
+  assertEqualUpToEpsVF (1e-7 :: Double)
     (bar_vjp_3_75
        ( 1.1
        , OS.constant 17.3  -- TODO: create more interesting test data
@@ -723,14 +730,52 @@ testBarS =
        , OS.constant 18.3
        , [ OS.constant 3.4
          , OS.constant 4.6 ] ))  -- ds
-    63503.99999999918
+    (OS.constant 88.2)
+
+bar_rev_3_75
+  :: forall sh r.
+     ( HasDelta r
+     , OS.Shape sh, KnownNat (OS.Size (3 ': sh)) )
+  => ( r
+     , OS.Array '[3, 75] r
+     , [OS.Array (75 ': sh) r] )
+  -> ( r
+     , OS.Array '[3, 75] r
+     , [OS.Array (75 ': sh) r] )
+bar_rev_3_75 = rev (sumElements0 . fromS1 . reshapeS @(3 ': sh) . head
+                    . barS (MkSN @3) (MkSN @75))
+  -- TODO: @head@, etc., are required, because our engine so far assumes
+  -- objective functions with scalar codomain, as in the paper
+
+testBarR :: Assertion
+testBarR =
+  assertEqualUpToEpsR @'[2, 3, 341, 1, 5] (1e-7 :: Double)
+    (bar_rev_3_75
+       ( 1.1
+       , OS.constant 17.3  -- TODO: create more interesting test data
+       , [ OS.constant 2.4
+         , OS.constant 3.6 ] ))  -- input
+    ( 1288980.0
+    , OS.constant 18.3
+    , [ OS.constant 3.4
+      , OS.constant 4.6 ] )
 
 -- TODO
-assertEqualUpToEpsDot :: Double -> Double -> Double -> Assertion
-assertEqualUpToEpsDot _eps r1 u1 =
-  r1 @?~ u1
-
--- TODO
-assertEqualUpToEps1S :: OS.Shape sh => Double -> OS.Array sh Double -> OS.Array sh Double -> Assertion
-assertEqualUpToEps1S _eps r1 u1 =
+assertEqualUpToEpsVF :: OS.Shape sh => Double -> OS.Array sh Double -> OS.Array sh Double -> Assertion
+assertEqualUpToEpsVF _eps r1 u1 =
   OS.toList r1 @?~ OS.toList u1
+
+assertEqualUpToEpsR
+  :: OS.Shape sh
+  => Double
+  -> ( Double
+     , OS.Array '[3, 75] Double
+     , [OS.Array (75 ': sh) Double] )
+  -> ( Double
+     , OS.Array '[3, 75] Double
+     , [OS.Array (75 ': sh) Double] )
+  -> Assertion
+assertEqualUpToEpsR _eps (r1, r2, r3) (u1, u2, u3) =
+  r1 @?~ u1
+  >> OS.toList r2 @?~ OS.toList u2
+  >> concatMap OS.toList r3 @?~ concatMap OS.toList u3
