@@ -155,7 +155,7 @@ sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
         fBatch vars =
           let resBatch = foldl' (fAdd vars) 0 batch
           in resBatch / fromIntegral (length batch)
-    gradients <- fst <$> revGeneral 1 inputs fBatch
+    gradients <- fst <$> revGeneral 1 fBatch inputs
     let (parametersNew, stateAdamNew) =
           updateWithGradientAdam argsAdam stateAdam parameters gradients
     go rest parametersNew stateAdamNew
@@ -171,7 +171,7 @@ gdSmart :: forall r. HasDelta r
 gdSmart f n0 parameters0 = do
   let deltaInputs = generateDeltaInputs parameters0
       inputs0 = makeADInputs parameters0 deltaInputs
-  (gradients0, value0) <- revGeneral 1 inputs0 f
+  (gradients0, value0) <- revGeneral 1 f inputs0
   let go :: Int -> Domains r -> r -> Domains r -> r -> Int
          -> IO (Domains r, r)
       go 0 parameters !gamma _gradientsPrev _valuePrev !_i =
@@ -183,7 +183,7 @@ gdSmart f n0 parameters0 = do
         -- with the new value that is needed now to revert if we overshoot.
         let parametersNew = updateWithGradient gamma parameters gradientsPrev
             inputs = makeADInputs parametersNew deltaInputs
-        (gradients, valueCur) <- revGeneral 1 inputs f
+        (gradients, valueCur) <- revGeneral 1 f inputs
         if | gradientIsNil gradientsPrev ->
                return (parameters, gamma)
            | valueCur > valuePrev ->

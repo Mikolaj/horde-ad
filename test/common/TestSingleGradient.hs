@@ -250,7 +250,7 @@ testDForward =
   map (\(txt, f, v, expected) ->
         let vp = listsToParameters v
         in testCase txt $ do
-          res <- dForward f vp vp
+          res <- dForward vp f vp
           res @?~ expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
     , ( "atanOldReadme", atanOldReadme, ([1.1, 2.2, 3.3], [])
@@ -264,7 +264,7 @@ testDFastForward =
  testGroup "Simple fwdFun application tests" $
   map (\(txt, f, v, expected) ->
         let vp = listsToParameters v
-        in testCase txt $ fwdFun f vp vp @?~ expected)
+        in testCase txt $ fwdFun vp f vp @?~ expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
     , ( "atanOldReadme", atanOldReadme, ([1.1, 2.2, 3.3], [])
       , (7.662345305800865, 4.9375516951604155) )
@@ -648,7 +648,7 @@ fwd :: ( Numeric r, Dual 'ADModeDerivative r ~ r
     => (advals -> ADVal 'ADModeDerivative a) -> rs -> rs -> a
 fwd f x ds =
   let g inputs = f $ fromADInputs inputs
-  in fst $ fwdFun g (toDomains x) (toDomains ds)
+  in fst $ fwdFun (toDomains x) g (toDomains ds)
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
 type Adaptable d r advals rs =

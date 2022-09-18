@@ -74,13 +74,13 @@ valueFun f parameters =
 revGeneralFun
   :: forall r. HasDelta r
   => r
-  -> ADInputs 'ADModeGradient r
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+  -> ADInputs 'ADModeGradient r
   -> (Domains r, r)
 -- The functions in which @revGeneral@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE revGeneralFun #-}
-revGeneralFun dt inputs@ADInputs{..} f =
+revGeneralFun dt f inputs@ADInputs{..} =
   let dim0 = V.length inputPrimal0
       dim1 = V.length inputPrimal1
       dim2 = V.length inputPrimal2
@@ -96,11 +96,11 @@ revGeneralFun dt inputs@ADInputs{..} f =
 revGeneral
   :: forall r. HasDelta r
   => r
-  -> ADInputs 'ADModeGradient r
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+  -> ADInputs 'ADModeGradient r
   -> IO (Domains r, r)
 {-# INLINE revGeneral #-}
-revGeneral dt inputs f = return $! revGeneralFun dt inputs f
+revGeneral dt f inputs = return $! revGeneralFun dt f inputs
 
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newbies may have trouble understanding it.
@@ -115,7 +115,7 @@ revFun
 revFun dt f parameters =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
-  in revGeneralFun dt inputs f
+  in revGeneralFun dt f inputs
 
 revIO
   :: HasDelta r
@@ -158,22 +158,22 @@ dForwardGeneral inputs f ds = return $! dForwardGeneralFun inputs f ds
 -- The direction vector ds is taken as an extra argument.
 dForwardFun
   :: HasDelta r
-  => (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
-  -> Domains r
+  => Domains r
+  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> (r, r)
-dForwardFun f parameters ds =
+dForwardFun parameters f ds =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
   in dForwardGeneralFun inputs f ds
 
 dForward
   :: HasDelta r
-  => (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
-  -> Domains r
+  => Domains r
+  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> IO (r, r)
-dForward f parameters ds = return $! dForwardFun f parameters ds
+dForward parameters f ds = return $! dForwardFun parameters f ds
 
 
 -- * The evaluation for efficiently computing forward derivatives.
@@ -194,11 +194,11 @@ fwdGeneral inputs f =
 fwdFun
   :: forall a r. ( Numeric r, Dual 'ADModeDerivative r ~ r
                  , Dual 'ADModeDerivative a ~ a )
-  => (ADInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative a)
-  -> Domains r
-  -> Domains r
+  => Domains r
+  -> (ADInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative a)
+  -> Domains r  -- ds
   -> (a, a)
-fwdFun f parameters (params0, params1, params2, paramsX) =
+fwdFun parameters f (params0, params1, params2, paramsX) =
   let inputs =
         makeADInputs
           parameters
