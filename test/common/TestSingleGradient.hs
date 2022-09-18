@@ -634,36 +634,38 @@ testBarR =
 -- * Operations required to express the tests above (#66)
 
 value :: ( ADModeAndNum 'ADModeValue r
-         , Adaptable 'ADModeValue r advals rs )
-      => (advals -> ADVal 'ADModeValue a) -> rs -> a
-value f rs =
+         , Adaptable 'ADModeValue r advals vals )
+      => (advals -> ADVal 'ADModeValue a) -> vals -> a
+value f vals =
   let g inputs = f $ fromADInputs inputs
-  in valueFun g (toDomains rs)
+  in valueFun g (toDomains vals)
 
 rev :: ( HasDelta r, IsPrimalAndHasFeatures 'ADModeGradient a r
-       , Adaptable 'ADModeGradient r advals rs )
-    => (advals -> ADVal 'ADModeGradient a) -> rs -> rs
-rev f rs =
+       , Adaptable 'ADModeGradient r advals vals )
+    => (advals -> ADVal 'ADModeGradient a) -> vals -> vals
+rev f vals =
   let g inputs = f $ fromADInputs inputs
-  in fromDomains $ fst $ revFun 1 g (toDomains rs)
+  in fromDomains $ fst $ revFun 1 g (toDomains vals)
 
 fwd :: ( Numeric r, Dual 'ADModeDerivative r ~ r
        , Dual 'ADModeDerivative a ~ a
-       , Adaptable 'ADModeDerivative r advals rs )
-    => (advals -> ADVal 'ADModeDerivative a) -> rs -> rs -> a
+       , Adaptable 'ADModeDerivative r advals vals )
+    => (advals -> ADVal 'ADModeDerivative a) -> vals -> vals -> a
 fwd f x ds =
   let g inputs = f $ fromADInputs inputs
   in fst $ fwdFun (toDomains x) g (toDomains ds)
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
-type Adaptable d r advals rs =
-  (AdaptableDomains r rs, AdaptableInputs d r advals)
+type Adaptable d r advals vals =
+  (AdaptableDomains r vals, AdaptableInputs d r advals)
 
--- TODO: here, @| rs -> r@ fails if the 4-tuple below is 3-tuple instead.
--- Probably associated type families are unavoidable.
-class AdaptableDomains r rs | rs -> r where
-  toDomains :: rs -> Domains r
-  fromDomains :: Domains r -> rs
+-- TODO: here, @| vals -> r@ fails if the 4-tuple below is 3-tuple instead.
+-- Probably associated type families are unavoidable
+-- and then probably we'd have a single class again, not two joined
+-- in the single constraint @Adaptable@.
+class AdaptableDomains r vals | vals -> r where
+  toDomains :: vals -> Domains r
+  fromDomains :: Domains r -> vals
 
 class AdaptableInputs d r advals | advals -> r where
   fromADInputs :: ADInputs d r -> advals
