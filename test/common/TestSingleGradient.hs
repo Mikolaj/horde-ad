@@ -37,11 +37,7 @@ testTrees = [ testDReverse0
             , oldReadmeTests
             , oldReadmeTestsV
             , readmeTests0
-            , testGroup "Simple tests of tensor-based code for README"
-                        [ testCase "S" testFooS
-                        , testCase "V" testBarV
-                        , testCase "F" testBarF
-                        , testCase "R" testBarR]
+            , readmeTestsS
             ]
 
 revIO0
@@ -398,6 +394,27 @@ finalCounter = testCase "Final counter value" $ do
   hPutStrLn stderr $ printf "\nFinal counter value: %d" counter
   assertBool "counter dangerously high" $ counter < 2 ^ (62 :: Int)
 
+
+-- * Newer README tests
+
+readmeTests0 :: TestTree
+readmeTests0 = testGroup "Simple tests of tuple-based code for README"
+  [ testCase "foo T Double (1.1, 2.2, 3.3)" testFoo
+  , testCase "bar T Double (1.1, 2.2, 3.3)" testBar
+  , testCase "baz old to force fooConstant" testBaz
+  , testCase "baz new to check if mere repetition breaks things" testBaz
+  , testCase "baz again to use fooConstant with renumbered terms" testBazRenumbered
+  , testCase "fooD T Double [1.1, 2.2, 3.3]" testFooD
+  ]
+
+readmeTestsS :: TestTree
+readmeTestsS = testGroup "Simple tests of shaped tensor-based code for README"
+  [ testCase "S" testFooS
+  , testCase "V" testBarV
+  , testCase "F" testBarF
+  , testCase "R" testBarR
+  ]
+
 -- A function that goes from `R^3` to `R`.
 foo :: RealFloat a => (a,a,a) -> a
 foo (x,y,z) =
@@ -480,152 +497,6 @@ testFooD =
     (rev fooD [1.1, 2.2, 3.3])
     [2.4396285219055063, -1.953374825727421, 0.9654825811012627]
 
-rev :: (HasDelta r, Adaptable 'ADModeGradient r advals rs)
-    => (advals -> ADVal 'ADModeGradient r) -> rs -> rs
-rev f rs =
-  let g inputs = f $ fromADInputs inputs
-  in fromDomains $ fst $ revFun 1 g (toDomains rs)
-
-value :: (ADModeAndNum 'ADModeValue r, Adaptable 'ADModeValue r advals rs)
-      => (advals -> ADVal 'ADModeValue a) -> rs -> a
-value f rs =
-  let g inputs = f $ fromADInputs inputs
-  in valueFun g (toDomains rs)
-
--- TODO: fromADInputs needs to be generalized to any @d@ for this to work
--- without the Adaptable' code duplication
-fwd :: ( Numeric r, Dual 'ADModeDerivative r ~ r
-       , Dual 'ADModeDerivative a ~ a
-       , Adaptable 'ADModeDerivative r advals rs )
-    => (advals -> ADVal 'ADModeDerivative a) -> rs -> rs -> a
-fwd f x ds =
-  let g inputs = f $ fromADInputs inputs
-  in fst $ fwdFun g (toDomains x) (toDomains ds)
-
-instance (Numeric r, OS.Shape sh, KnownNat n1, KnownNat n2)
-         => AdaptableDomains r ( r
-                               , OS.Array '[n1, n2] r
-                               , [OS.Array (n2 ': sh) r] ) where
-  toDomains (a, b, c) =
-    ( V.singleton a, V.empty, V.empty
-    , V.fromList $ Data.Array.Convert.convert b
-                   : map Data.Array.Convert.convert c )
-  fromDomains (vr, _, _, vs) = case V.toList vs of
-    b : c -> ( vr V.! 0
-             , toShapedOrDummy b
-             , map toShapedOrDummy c )
-    _ -> error "fromDomains in Adaptable r ..."
-
-instance (ADModeAndNum d r, OS.Shape sh, KnownNat n1, KnownNat n2)
-         => AdaptableInputs d r ( ADVal d r
-                                , ADVal d (OS.Array '[n1, n2] r)
-                                , [ADVal d (OS.Array (n2 ': sh) r)] ) where
-  fromADInputs inputs@ADInputs{..} =
-    let a = at0 inputs 0
-        (b, c) = case zipWith D (V.toList inputPrimalX) (V.toList inputDualX) of
-          xb : xc -> (fromXS xb, map fromXS xc)
-          _ -> error "fromADInputs in Adaptable r ..."
-    in (a, b, c)
-
--- Inspired by adaptors from @tomjaguarpaw's branch.
-type Adaptable d r advals rs =
-  (AdaptableDomains r rs, AdaptableInputs d r advals)
-
--- TODO: here, @| rs -> r@ fails if the 4-tuple below is 3-tuple instead.
--- Probably associated type families are unavoidable.
-class AdaptableDomains r rs | rs -> r where
-  toDomains :: rs -> Domains r
-  fromDomains :: Domains r -> rs
-
-class AdaptableInputs d r advals | advals -> r where
-  fromADInputs :: ADInputs d r -> advals
-
-instance Numeric r => AdaptableDomains r (r, r, r) where
-  toDomains (a, b, c) =
-    (V.fromList [a, b, c], V.empty, V.empty, V.empty)
-  fromDomains (v, _, _, _) = case V.toList v of
-    r1 : r2 : r3 : _ -> (r1, r2, r3)
-    _ -> error "fromDomains in Adaptable r (r, r, r)"
-
-instance ADModeAndNum d r
-         => AdaptableInputs d r ( ADVal d r
-                                , ADVal d r
-                                , ADVal d r ) where
-  fromADInputs inputs = case atList0 inputs of
-    r1 : r2 : r3 : _ -> (r1, r2, r3)
-    _ -> error "fromADInputs in Adaptable r (r, r, r)"
-
--- TODO
-instance Numeric r => AdaptableDomains r [r] where
-  toDomains [a, b, c] =
-    (V.fromList [a, b, c], V.empty, V.empty, V.empty)
-  toDomains _ = error "toDomains in Adaptable r [r]"
-  fromDomains (v, _, _, _) = case V.toList v of
-    r1 : r2 : r3 : _ -> [r1, r2, r3]
-    _ -> error "fromDomains in Adaptable r [r]"
-
-instance ADModeAndNum d r
-         => AdaptableInputs d r [ADVal d r] where
-  fromADInputs inputs = case atList0 inputs of
-    r1 : r2 : r3 : _ -> [r1, r2, r3]
-    _ -> error "fromADInputs in Adaptable r [r]"
-
-instance ( Numeric r
-         , OS.Shape sh1, OS.Shape sh2, OS.Shape sh3, OS.Shape sh4 )
-         => AdaptableDomains r ( OS.Array sh1 r
-                               , OS.Array sh2 r
-                               , OS.Array sh3 r
-                               , OS.Array sh4 r ) where
-  toDomains (a, b, c, d) =
-    ( V.empty, V.empty, V.empty
-    , V.fromList [ Data.Array.Convert.convert a
-                 , Data.Array.Convert.convert b
-                 , Data.Array.Convert.convert c
-                 , Data.Array.Convert.convert d ] )
-  fromDomains (_, _, _, v) = case V.toList v of
-    a : b : c : d : _ -> ( toShapedOrDummy a
-                         , toShapedOrDummy b
-                         , toShapedOrDummy c
-                         , toShapedOrDummy d )
-    _ -> error "fromDomains in Adaptable r (S, S, S)"
-
-instance ( ADModeAndNum d r
-         , OS.Shape sh1, OS.Shape sh2, OS.Shape sh3, OS.Shape sh4 )
-         => AdaptableInputs d r ( ADVal d (OS.Array sh1 r)
-                                , ADVal d (OS.Array sh2 r)
-                                , ADVal d (OS.Array sh3 r)
-                                , ADVal d (OS.Array sh4 r) ) where
-  fromADInputs inputs =
-    let a = atS inputs 0
-        b = atS inputs 1
-        c = atS inputs 2
-        d = atS inputs 3
-    in (a, b, c, d)
-
-assertEqualUpToEps :: Double -> (Double, Double, Double) -> (Double, Double, Double) -> Assertion
-assertEqualUpToEps _eps (r1, r2, r3) (u1, u2, u3) =  -- TODO: use the _eps instead of the default one
-  r1 @?~ u1 >> r2 @?~ u2 >> r3 @?~ u3
-
-assertEqualUpToEpsD :: Double -> [Double] -> [Double] -> Assertion
-assertEqualUpToEpsD _eps l1 l2 =  -- TODO
-  l1 @?~ l2
-
-readmeTests0 :: TestTree
-readmeTests0 = testGroup "Simple tests of tuple-based code for README"
-  [ testCase "foo T Double (1.1, 2.2, 3.3)" $
-      testFoo
-  , testCase "bar T Double (1.1, 2.2, 3.3)" $
-      testBar
-  , testCase "baz old to force fooConstant" $
-      testBaz
-  , testCase "baz new to check if mere repetition breaks things" $
-      testBaz
-  , testCase "baz again to use fooConstant with renumbered terms" $
-      testBazRenumbered
-  , testCase "fooD T Double [1.1, 2.2, 3.3]" $
-      testFooD
-  ]
-
 -- A dual-number version of a function that goes from three rank one
 -- (vector-like) tensors to `R`. It multiplies first elements
 -- of the first tensor by the second of the second and by the third
@@ -654,11 +525,6 @@ testFooS =
     , OS.fromList [0, 18.095000000000002, 0, 0, 0]
     , OS.fromList [0, 0, 11.891]
     , OS.fromList [0, 0, 0, 8.854999999999999] )
-
--- A hack: the normal assertEqualUpToEps should work here. And AssertClose should work for shaped and untyped tensors.
-assertEqualUpToEpsS :: (OS.Shape sh1, OS.Shape sh2, OS.Shape sh3, OS.Shape sh4) => Double -> (OS.Array sh1 Double, OS.Array sh2 Double, OS.Array sh3 Double, OS.Array sh4 Double) -> (OS.Array sh1 Double, OS.Array sh2 Double, OS.Array sh3 Double, OS.Array sh4 Double) -> Assertion
-assertEqualUpToEpsS _eps (r1, r2, r3, r4) (u1, u2, u3, u4) =  -- TODO: use the _eps instead of the default one
-  OS.toList r1 @?~ OS.toList u1 >> OS.toList r2 @?~ OS.toList u2 >> OS.toList r3 @?~ OS.toList u3 >> OS.toList r4 @?~ OS.toList u4
 
 barS :: (ADModeAndNum d r, OS.Shape sh)
      => StaticNat n1 -> StaticNat n2
@@ -761,9 +627,147 @@ testBarR =
     , [ OS.constant 0
       , OS.constant 0 ] )
 
+
+-- * Operations required to express the tests above (#66)
+
+value :: (ADModeAndNum 'ADModeValue r, Adaptable 'ADModeValue r advals rs)
+      => (advals -> ADVal 'ADModeValue a) -> rs -> a
+value f rs =
+  let g inputs = f $ fromADInputs inputs
+  in valueFun g (toDomains rs)
+
+rev :: (HasDelta r, Adaptable 'ADModeGradient r advals rs)
+    => (advals -> ADVal 'ADModeGradient r) -> rs -> rs
+rev f rs =
+  let g inputs = f $ fromADInputs inputs
+  in fromDomains $ fst $ revFun 1 g (toDomains rs)
+
+fwd :: ( Numeric r, Dual 'ADModeDerivative r ~ r
+       , Dual 'ADModeDerivative a ~ a
+       , Adaptable 'ADModeDerivative r advals rs )
+    => (advals -> ADVal 'ADModeDerivative a) -> rs -> rs -> a
+fwd f x ds =
+  let g inputs = f $ fromADInputs inputs
+  in fst $ fwdFun g (toDomains x) (toDomains ds)
+
+-- Inspired by adaptors from @tomjaguarpaw's branch.
+type Adaptable d r advals rs =
+  (AdaptableDomains r rs, AdaptableInputs d r advals)
+
+-- TODO: here, @| rs -> r@ fails if the 4-tuple below is 3-tuple instead.
+-- Probably associated type families are unavoidable.
+class AdaptableDomains r rs | rs -> r where
+  toDomains :: rs -> Domains r
+  fromDomains :: Domains r -> rs
+
+class AdaptableInputs d r advals | advals -> r where
+  fromADInputs :: ADInputs d r -> advals
+
+instance Numeric r => AdaptableDomains r (r, r, r) where
+  toDomains (a, b, c) =
+    (V.fromList [a, b, c], V.empty, V.empty, V.empty)
+  fromDomains (v, _, _, _) = case V.toList v of
+    r1 : r2 : r3 : _ -> (r1, r2, r3)
+    _ -> error "fromDomains in Adaptable r (r, r, r)"
+
+instance ADModeAndNum d r
+         => AdaptableInputs d r ( ADVal d r
+                                , ADVal d r
+                                , ADVal d r ) where
+  fromADInputs inputs = case atList0 inputs of
+    r1 : r2 : r3 : _ -> (r1, r2, r3)
+    _ -> error "fromADInputs in Adaptable r (r, r, r)"
+
 -- TODO
+instance Numeric r => AdaptableDomains r [r] where
+  toDomains [a, b, c] =
+    (V.fromList [a, b, c], V.empty, V.empty, V.empty)
+  toDomains _ = error "toDomains in Adaptable r [r]"
+  fromDomains (v, _, _, _) = case V.toList v of
+    r1 : r2 : r3 : _ -> [r1, r2, r3]
+    _ -> error "fromDomains in Adaptable r [r]"
+
+instance ADModeAndNum d r
+         => AdaptableInputs d r [ADVal d r] where
+  fromADInputs inputs = case atList0 inputs of
+    r1 : r2 : r3 : _ -> [r1, r2, r3]
+    _ -> error "fromADInputs in Adaptable r [r]"
+
+instance ( Numeric r
+         , OS.Shape sh1, OS.Shape sh2, OS.Shape sh3, OS.Shape sh4 )
+         => AdaptableDomains r ( OS.Array sh1 r
+                               , OS.Array sh2 r
+                               , OS.Array sh3 r
+                               , OS.Array sh4 r ) where
+  toDomains (a, b, c, d) =
+    ( V.empty, V.empty, V.empty
+    , V.fromList [ Data.Array.Convert.convert a
+                 , Data.Array.Convert.convert b
+                 , Data.Array.Convert.convert c
+                 , Data.Array.Convert.convert d ] )
+  fromDomains (_, _, _, v) = case V.toList v of
+    a : b : c : d : _ -> ( toShapedOrDummy a
+                         , toShapedOrDummy b
+                         , toShapedOrDummy c
+                         , toShapedOrDummy d )
+    _ -> error "fromDomains in Adaptable r (S, S, S)"
+
+instance ( ADModeAndNum d r
+         , OS.Shape sh1, OS.Shape sh2, OS.Shape sh3, OS.Shape sh4 )
+         => AdaptableInputs d r ( ADVal d (OS.Array sh1 r)
+                                , ADVal d (OS.Array sh2 r)
+                                , ADVal d (OS.Array sh3 r)
+                                , ADVal d (OS.Array sh4 r) ) where
+  fromADInputs inputs =
+    let a = atS inputs 0
+        b = atS inputs 1
+        c = atS inputs 2
+        d = atS inputs 3
+    in (a, b, c, d)
+
+instance (Numeric r, OS.Shape sh, KnownNat n1, KnownNat n2)
+         => AdaptableDomains r ( r
+                               , OS.Array '[n1, n2] r
+                               , [OS.Array (n2 ': sh) r] ) where
+  toDomains (a, b, c) =
+    ( V.singleton a, V.empty, V.empty
+    , V.fromList $ Data.Array.Convert.convert b
+                   : map Data.Array.Convert.convert c )
+  fromDomains (vr, _, _, vs) = case V.toList vs of
+    b : c -> ( vr V.! 0
+             , toShapedOrDummy b
+             , map toShapedOrDummy c )
+    _ -> error "fromDomains in Adaptable r ..."
+
+instance (ADModeAndNum d r, OS.Shape sh, KnownNat n1, KnownNat n2)
+         => AdaptableInputs d r ( ADVal d r
+                                , ADVal d (OS.Array '[n1, n2] r)
+                                , [ADVal d (OS.Array (n2 ': sh) r)] ) where
+  fromADInputs inputs@ADInputs{..} =
+    let a = at0 inputs 0
+        (b, c) = case zipWith D (V.toList inputPrimalX) (V.toList inputDualX) of
+          xb : xc -> (fromXS xb, map fromXS xc)
+          _ -> error "fromADInputs in Adaptable r ..."
+    in (a, b, c)
+
+
+-- * assertEqualUpToEps hacks (#65)
+
+assertEqualUpToEps :: Double -> (Double, Double, Double) -> (Double, Double, Double) -> Assertion
+assertEqualUpToEps _eps (r1, r2, r3) (u1, u2, u3) =  -- TODO: use the _eps instead of the default one
+  r1 @?~ u1 >> r2 @?~ u2 >> r3 @?~ u3
+
+assertEqualUpToEpsD :: Double -> [Double] -> [Double] -> Assertion
+assertEqualUpToEpsD _eps l1 l2 =  -- TODO
+  l1 @?~ l2
+
+-- A hack: the normal assertEqualUpToEps should work here. And AssertClose should work for shaped and untyped tensors.
+assertEqualUpToEpsS :: (OS.Shape sh1, OS.Shape sh2, OS.Shape sh3, OS.Shape sh4) => Double -> (OS.Array sh1 Double, OS.Array sh2 Double, OS.Array sh3 Double, OS.Array sh4 Double) -> (OS.Array sh1 Double, OS.Array sh2 Double, OS.Array sh3 Double, OS.Array sh4 Double) -> Assertion
+assertEqualUpToEpsS _eps (r1, r2, r3, r4) (u1, u2, u3, u4) =  -- TODO: use the _eps instead of the default one
+  OS.toList r1 @?~ OS.toList u1 >> OS.toList r2 @?~ OS.toList u2 >> OS.toList r3 @?~ OS.toList u3 >> OS.toList r4 @?~ OS.toList u4
+
 assertEqualUpToEpsVF :: OS.Shape sh => Double -> OS.Array sh Double -> OS.Array sh Double -> Assertion
-assertEqualUpToEpsVF _eps r1 u1 =
+assertEqualUpToEpsVF _eps r1 u1 =  -- TODO
   OS.toList r1 @?~ OS.toList u1
 
 assertEqualUpToEpsR
@@ -776,7 +780,7 @@ assertEqualUpToEpsR
      , OS.Array '[3, 75] Double
      , [OS.Array (75 ': sh) Double] )
   -> Assertion
-assertEqualUpToEpsR _eps (r1, r2, r3) (u1, u2, u3) =
+assertEqualUpToEpsR _eps (r1, r2, r3) (u1, u2, u3) =  -- TODO
   r1 @?~ u1
   >> OS.toList r2 @?~ OS.toList u2
   >> concatMap OS.toList r3 @?~ concatMap OS.toList u3
