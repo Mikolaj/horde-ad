@@ -314,7 +314,8 @@ data DeltaBinding r =
   | forall sh. OS.Shape sh
     => DeltaBindingS (DeltaId (OT.Array r)) (DeltaS' sh r)
 
--- | Helper definitions to shorten type signatures.
+-- | Helper definitions to shorten type signatures. @Domains@, among other
+-- roles, is the internal representation of domains of objective functions.
 type Domain0 r = Vector r
 
 type Domain1 r = Data.Vector.Vector (Vector r)
@@ -325,7 +326,7 @@ type DomainX r = Data.Vector.Vector (OT.Array r)
 
 type Domains r = (Domain0 r, Domain1 r, Domain2 r, DomainX r)
 
--- | Note: this documentation is now outdated, because per-node
+-- | TODO: this single haddock is now outdated, because per-node
 -- identities have replaces variables and so exploitation of sharing
 -- in order to avoid duplicated computation can't be explained
 -- using the common concept of variables and their valuations.
@@ -385,10 +386,8 @@ type Domains r = (Domain0 r, Domain1 r, Domain2 r, DomainX r)
 --
 -- Function @gradientFromDelta@ computes the four vectors described above.
 -- Requested lengths of the vectors are given in the first few arguments.
--- The delta state contains a list of mutually-referencing delta bindings
--- that are to be evaluated, in the given order, starting with the top-level
--- binding of a scalar type provided in the next argument and with respect
--- to perturbation @dt@ (usually set to @1@) in the last argument.
+-- The delta expression to be evaluated, together with the @dt@ perturbation
+-- value (usually set to @1@) is given in the @DeltaDt r@ parameter.
 gradientFromDelta
   :: (Eq r, Numeric r, Num (Vector r))
   => Int -> Int -> Int -> Int -> DeltaDt r
@@ -413,12 +412,13 @@ gradientFromDelta dim0 dim1 dim2 dimX deltaDt =
   -> Domains Double #-}
 
 -- | Create vectors (representing finite maps) that hold values
--- associated with inputes and (possibly shared) nodes. The former are
--- initialized with dummy values so that it's cheap to check if any update
--- has already been performed to a cell (allocating big matrices
--- filled with zeros is too costly, especially if never used in an iteration,
--- and adding to such matrices and especially using them as scaling factors
--- is wasteful).
+-- associated with inputes and (possibly shared) term tree nodes.
+-- The former are initialized with dummy values so that it's cheap
+-- to check if any update has already been performed to a cell
+-- (allocating big matrices filled with zeros is too costly,
+-- especially if never used in an iteration, and adding to such matrices
+-- and especially using them as scaling factors is wasteful; additionally,
+-- it may not be easy to deduce the sizes of the matrices).
 initializeFinMaps
   :: forall s r. Numeric r
   => Int -> Int -> Int -> Int
@@ -508,7 +508,8 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         if n == pred nL
         then do  -- this would be evaluated next, so let's shortcut,
                  -- avoiding lots of short-lived allocations and also
-                 -- shrinking the environment in which the evaluation occurs
+                 -- shrinking the environment in which the evaluation occurs;
+                 -- the same applies everywhere below
           writeSTRefU nLast n
           rFinal <- case IM.lookup n im of
             Just (DeltaBinding0 (DeltaId i) _) -> do
@@ -574,9 +575,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         im <- readSTRef dMap
         nL <- readSTRefU nLast
         if n == pred nL
-        then do  -- this would be evaluated next, so let's shortcut,
-                 -- avoiding lots of short-lived allocations and also
-                 -- shrinking the environment in which the evaluation occurs
+        then do
           writeSTRefU nLast n
           rFinal <- case IM.lookup n im of
             Just (DeltaBinding1 (DeltaId i) _) -> do
@@ -645,9 +644,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         im <- readSTRef dMap
         nL <- readSTRefU nLast
         if n == pred nL
-        then do  -- this would be evaluated next, so let's shortcut,
-                 -- avoiding lots of short-lived allocations and also
-                 -- shrinking the environment in which the evaluation occurs
+        then do
           writeSTRefU nLast n
           rFinal <- case IM.lookup n im of
             Just (DeltaBinding2 (DeltaId i) _) -> do
@@ -735,9 +732,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         im <- readSTRef dMap
         nL <- readSTRefU nLast
         if n == pred nL
-        then do  -- this would be evaluated next, so let's shortcut,
-                 -- avoiding lots of short-lived allocations and also
-                 -- shrinking the environment in which the evaluation occurs
+        then do
           writeSTRefU nLast n
           rFinal <- case IM.lookup n im of
             Just (DeltaBindingX (DeltaId i) _) -> do
@@ -811,9 +806,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         im <- readSTRef dMap
         nL <- readSTRefU nLast
         if n == pred nL
-        then do  -- this would be evaluated next, so let's shortcut,
-                 -- avoiding lots of short-lived allocations and also
-                 -- shrinking the environment in which the evaluation occurs
+        then do
           writeSTRefU nLast n
           rFinal <- case IM.lookup n im of
             Just (DeltaBindingS (DeltaId i) _) -> do
@@ -945,8 +938,8 @@ derivativeFromDelta dim0 dim1 dim2 dimX deltaTopLevel ds =
   runST $ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel ds
 
 -- | This mimics 'initializeFinMaps', but in reverse. Perhaps this can be
--- simplified, but at least the simplest formulation does not honour sharing,
--- evaluating shared subexpressions repeatedly.
+-- simplified, but the obvious simplest formulation does not honour sharing
+-- and evaluates shared subexpressions repeatedly.
 buildDerivative
   :: forall s r. (Numeric r, Num (Vector r))
   => Int -> Int -> Int -> Int -> Delta0 r -> Domains r
