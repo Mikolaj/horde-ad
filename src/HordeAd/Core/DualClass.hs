@@ -166,6 +166,7 @@ instance (IsPrimalS d r, OS.Shape sh) => IsPrimal d (OS.Array sh r) where
 -- introduction and binding as defined by the methods of the class.
 class HasInputs a where
   dInput :: InputId a -> Dual 'ADModeGradient a
+  packDeltaDt :: a -> Dual 'ADModeGradient a -> DeltaDt (ScalarOf a)
 
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
@@ -315,21 +316,27 @@ instance IsPrimalS 'ADModeGradient r where
 
 instance HasInputs Double where
   dInput = Input0
+  packDeltaDt = DeltaDt0
 
 instance HasInputs Float where
   dInput = Input0
+  packDeltaDt = DeltaDt0
 
 instance HasInputs (Vector r) where
   dInput = Input1
+  packDeltaDt = DeltaDt1
 
 instance HasInputs (Matrix r) where
   dInput = Input2
+  packDeltaDt = DeltaDt2
 
 instance HasInputs (OT.Array r) where
   dInput = InputX
+  packDeltaDt = DeltaDtX
 
-instance HasInputs (OS.Array sh r) where
+instance OS.Shape sh => HasInputs (OS.Array sh r) where
   dInput = InputS
+  packDeltaDt = DeltaDtS
 
 -- | This is an impure instance. See above.
 instance Dual 'ADModeGradient r ~ Delta0 r

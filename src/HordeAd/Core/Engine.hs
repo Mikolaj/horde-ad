@@ -29,8 +29,7 @@ import           Text.Show.Pretty (ppShow)
 
 -- import           System.Mem (performMinorGC)
 
-import HordeAd.Core.DualClass
-  (Dual, IsPrimal (..), IsPrimalAndHasFeatures, dInput)
+import HordeAd.Core.DualClass (Dual, dInput, packDeltaDt)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.PairOfVectors (ADInputs (..), makeADInputs)
 import HordeAd.Internal.Delta
@@ -72,11 +71,11 @@ valueFun f parameters =
 -- * The fully-fledged evaluation for gradients.
 
 revGeneralFun
-  :: forall r. HasDelta r
-  => r
-  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+  :: forall a r. (HasDelta r, IsPrimalAndHasFeatures 'ADModeGradient a r)
+  => a
+  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
   -> ADInputs 'ADModeGradient r
-  -> (Domains r, r)
+  -> (Domains r, a)
 -- The functions in which @revGeneral@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE revGeneralFun #-}
@@ -88,17 +87,18 @@ revGeneralFun dt f inputs@ADInputs{..} =
       -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started
       !(D v deltaTopLevel) = f inputs
-  in let gradient = gradientFromDelta dim0 dim1 dim2 dimX deltaTopLevel dt
+      deltaDt = packDeltaDt dt deltaTopLevel
+  in let gradient = gradientFromDelta dim0 dim1 dim2 dimX deltaDt
      in (gradient, v)
 
 -- Tests expect this to be in IO by historical accident.
 -- But we can possibly add hacks here in the future, such as @performMinorGC@.
 revGeneral
-  :: forall r. HasDelta r
-  => r
-  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+  :: forall a r. (HasDelta r, IsPrimalAndHasFeatures 'ADModeGradient a r)
+  => a
+  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
   -> ADInputs 'ADModeGradient r
-  -> IO (Domains r, r)
+  -> IO (Domains r, a)
 {-# INLINE revGeneral #-}
 revGeneral dt f inputs = return $! revGeneralFun dt f inputs
 
@@ -107,22 +107,22 @@ revGeneral dt f inputs = return $! revGeneralFun dt f inputs
 -- Also, as of now, @rev@ is restricted to objective functions with scalar
 -- codomains, while VJP is fully general.
 revFun
-  :: HasDelta r
-  => r
-  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+  :: (HasDelta r, IsPrimalAndHasFeatures 'ADModeGradient a r)
+  => a
+  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
   -> Domains r
-  -> (Domains r, r)
+  -> (Domains r, a)
 revFun dt f parameters =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
   in revGeneralFun dt f inputs
 
 revIO
-  :: HasDelta r
-  => r
-  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+  :: (HasDelta r, IsPrimalAndHasFeatures 'ADModeGradient a r)
+  => a
+  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
   -> Domains r
-  -> IO (Domains r, r)
+  -> IO (Domains r, a)
 revIO dt f parameters = return $! revFun dt f parameters
 
 

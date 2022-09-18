@@ -13,7 +13,8 @@
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.DualNumber
   ( module HordeAd.Core.DualNumber
-  , ADModeAndNum, HasDelta, ADMode(..)
+  , ADMode(..), ADModeAndNum
+  , IsPrimal (..), IsPrimalAndHasFeatures, HasDelta
   , Domain0, Domain1, Domain2, DomainX, Domains  -- an important re-export
   ) where
 

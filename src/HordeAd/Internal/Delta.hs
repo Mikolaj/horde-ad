@@ -43,7 +43,7 @@ module HordeAd.Internal.Delta
   , -- * Delta expression identifiers
     NodeId, InputId, toInputId, DeltaId
   , -- * Evaluation of the delta expressions
-    Domain0, Domain1, Domain2, DomainX, Domains
+    DeltaDt (..), Domain0, Domain1, Domain2, DomainX, Domains
   , gradientFromDelta, derivativeFromDelta
   , isTensorDummy, toShapedOrDummy
   ) where
@@ -298,6 +298,14 @@ succDeltaId (DeltaId i) = DeltaId (succ i)
 
 -- * Evaluation of the delta expressions
 
+data DeltaDt r =
+    DeltaDt0 r (Delta0 r)
+  | DeltaDt1 (Vector r) (Delta1 r)
+  | DeltaDt2 (Matrix r) (Delta2 r)
+  | DeltaDtX (OT.Array r) (DeltaX r)
+  | forall sh. OS.Shape sh
+    => DeltaDtS (OS.Array sh r) (DeltaS sh r)
+
 data DeltaBinding r =
     DeltaBinding0 (DeltaId r) (Delta0' r)
   | DeltaBinding1 (DeltaId (Vector r)) (Delta1' r)
@@ -383,16 +391,16 @@ type Domains r = (Domain0 r, Domain1 r, Domain2 r, DomainX r)
 -- to perturbation @dt@ (usually set to @1@) in the last argument.
 gradientFromDelta
   :: (Eq r, Numeric r, Num (Vector r))
-  => Int -> Int -> Int -> Int -> Delta0 r -> r
+  => Int -> Int -> Int -> Int -> DeltaDt r
   -> Domains r
-gradientFromDelta dim0 dim1 dim2 dimX deltaTopLevel dt =
+gradientFromDelta dim0 dim1 dim2 dimX deltaDt =
 -- traceShow (dim0, dim1, dim2, dimX) $
   -- This is morally @V.create@ and so totally safe,
   -- but we can't just call @V.create@ thrice, because it would run
   -- the @ST@ action thrice, so we inline and extend @V.create@ here.
   runST $ do
     (iMap0, iMap1, iMap2, iMapX)
-      <- buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt
+      <- buildFinMaps dim0 dim1 dim2 dimX deltaDt
     v0 <- V.unsafeFreeze iMap0
     v1 <- V.unsafeFreeze iMap1
     v2 <- V.unsafeFreeze iMap2
@@ -401,7 +409,7 @@ gradientFromDelta dim0 dim1 dim2 dimX deltaTopLevel dt =
     -- that is not discarded.
     return (v0, v1, v2, vX)
 {-# SPECIALIZE gradientFromDelta
-  :: Int -> Int -> Int -> Int -> Delta0 Double -> Double
+  :: Int -> Int -> Int -> Int -> DeltaDt Double
   -> Domains Double #-}
 
 -- | Create vectors (representing finite maps) that hold values
@@ -466,12 +474,12 @@ initializeFinMaps dim0 dim1 dim2 dimX = do
          , dMap )
 
 buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
-             => Int -> Int -> Int -> Int -> Delta0 r -> r
+             => Int -> Int -> Int -> Int -> DeltaDt r
              -> ST s ( Data.Vector.Storable.Mutable.MVector s r
                      , Data.Vector.Mutable.MVector s (Vector r)
                      , Data.Vector.Mutable.MVector s (Matrix r)
                      , Data.Vector.Mutable.MVector s (OT.Array r) )
-buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
+buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
   ( iMap0, iMap1, iMap2, iMapX
    ,ref0, ref1, ref2, refX
    ,rMap0, rMap1, rMap2, rMapX
@@ -872,7 +880,13 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
         FromXS d -> evalX (Data.Array.Convert.convert r) d
 #endif
 
-  eval0 dt deltaTopLevel
+  case deltaDt of
+    DeltaDt0 dt deltaTopLevel -> eval0 dt deltaTopLevel
+    DeltaDt1 dt deltaTopLevel -> eval1 dt deltaTopLevel
+    DeltaDt2 dt deltaTopLevel ->
+      eval2 (MO.MatrixOuter (Just dt) Nothing Nothing) deltaTopLevel
+    DeltaDtX dt deltaTopLevel -> evalX dt deltaTopLevel
+    DeltaDtS dt deltaTopLevel -> evalS dt deltaTopLevel
 
   let evalUnlessZero :: DeltaBinding r -> ST s ()
       evalUnlessZero (DeltaBinding0 (DeltaId i) d) = do
@@ -910,7 +924,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaTopLevel dt = do
 
   return (iMap0, iMap1, iMap2, iMapX)
 {-# SPECIALIZE buildFinMaps
-  :: Int -> Int -> Int -> Int -> Delta0 Double -> Double
+  :: Int -> Int -> Int -> Int -> DeltaDt Double
   -> ST s ( Data.Vector.Storable.Mutable.MVector s Double
           , Data.Vector.Mutable.MVector s (Vector Double)
           , Data.Vector.Mutable.MVector s (Matrix Double)

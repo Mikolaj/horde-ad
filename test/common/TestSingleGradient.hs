@@ -602,17 +602,20 @@ testBarF =
 bar_rev_3_75
   :: forall sh r.
      ( HasDelta r
-     , OS.Shape sh, KnownNat (OS.Size (3 ': sh)) )
+     , OS.Shape sh)
   => ( r
      , OS.Array '[3, 75] r
      , [OS.Array (75 ': sh) r] )
   -> ( r
      , OS.Array '[3, 75] r
      , [OS.Array (75 ': sh) r] )
-bar_rev_3_75 = rev (sumElements0 . fromS1 . reshapeS @(3 ': sh) . head
+bar_rev_3_75 = rev ((head :: [ADVal 'ADModeGradient (OS.Array (n1 ': sh) r)]
+                          -> ADVal 'ADModeGradient (OS.Array (n1 ': sh) r))
                     . barS (MkSN @3) (MkSN @75))
-  -- TODO: @head@, etc., are required, because our engine so far assumes
+  -- TODO: @head@ is required, because our engine so far assumes
   -- objective functions with scalar codomain, as in the paper
+  -- objective functions have dual number codomains (though they may be
+  -- of arbitrary rank)
 
 testBarR :: Assertion
 testBarR =
@@ -630,14 +633,16 @@ testBarR =
 
 -- * Operations required to express the tests above (#66)
 
-value :: (ADModeAndNum 'ADModeValue r, Adaptable 'ADModeValue r advals rs)
+value :: ( ADModeAndNum 'ADModeValue r
+         , Adaptable 'ADModeValue r advals rs )
       => (advals -> ADVal 'ADModeValue a) -> rs -> a
 value f rs =
   let g inputs = f $ fromADInputs inputs
   in valueFun g (toDomains rs)
 
-rev :: (HasDelta r, Adaptable 'ADModeGradient r advals rs)
-    => (advals -> ADVal 'ADModeGradient r) -> rs -> rs
+rev :: ( HasDelta r, IsPrimalAndHasFeatures 'ADModeGradient a r
+       , Adaptable 'ADModeGradient r advals rs )
+    => (advals -> ADVal 'ADModeGradient a) -> rs -> rs
 rev f rs =
   let g inputs = f $ fromADInputs inputs
   in fromDomains $ fst $ revFun 1 g (toDomains rs)
