@@ -45,7 +45,7 @@ module HordeAd.Internal.Delta
   , -- * Evaluation of the delta expressions
     Domain0, Domain1, Domain2, DomainX, Domains
   , gradientFromDelta, derivativeFromDelta
-  , isTensorDummy
+  , isTensorDummy, toShapedOrDummy
   ) where
 
 import Prelude
@@ -1269,3 +1269,9 @@ isTensorDummy (Data.Array.Internal.DynamicS.A
                  (Data.Array.Internal.DynamicG.A _
                     (Data.Array.Internal.T _ (-1) _))) = True
 isTensorDummy _ = False
+
+toShapedOrDummy :: (Numeric r, OS.Shape sh)
+                => OT.Array r -> OS.Array sh r
+toShapedOrDummy x = if isTensorDummy x
+                    then OS.constant 0
+                    else Data.Array.Convert.convert x

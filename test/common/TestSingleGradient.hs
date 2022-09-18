@@ -22,6 +22,7 @@ import           Text.Printf
 import HordeAd hiding (sumElementsVectorOfDual)
 import HordeAd.Core.DualClass (Dual, unsafeGetFreshId)
   -- for a special test
+import HordeAd.Internal.Delta (toShapedOrDummy)
 
 import TestCommon
 import TestCommonEqEpsilon
@@ -511,8 +512,8 @@ instance (Numeric r, OS.Shape sh, KnownNat n1, KnownNat n2)
                    : map Data.Array.Convert.convert c )
   fromDomains (vr, _, _, vs) = case V.toList vs of
     b : c -> ( vr V.! 0
-             , Data.Array.Convert.convert b
-             , map Data.Array.Convert.convert c )
+             , toShapedOrDummy b
+             , map toShapedOrDummy c )
     _ -> error "fromDomains in Adaptable r ..."
 
 instance (ADModeAndNum d r, OS.Shape sh, KnownNat n1, KnownNat n2)
@@ -582,10 +583,10 @@ instance ( Numeric r
                  , Data.Array.Convert.convert c
                  , Data.Array.Convert.convert d ] )
   fromDomains (_, _, _, v) = case V.toList v of
-    a : b : c : d : _ -> ( Data.Array.Convert.convert a
-                         , Data.Array.Convert.convert b
-                         , Data.Array.Convert.convert c
-                         , Data.Array.Convert.convert d )
+    a : b : c : d : _ -> ( toShapedOrDummy a
+                         , toShapedOrDummy b
+                         , toShapedOrDummy c
+                         , toShapedOrDummy d )
     _ -> error "fromDomains in Adaptable r (S, S, S)"
 
 instance ( ADModeAndNum d r
@@ -756,9 +757,9 @@ testBarR =
        , [ OS.constant 2.4
          , OS.constant 3.6 ] ))  -- input
     ( 1288980.0
-    , OS.constant 18.3
-    , [ OS.constant 3.4
-      , OS.constant 4.6 ] )
+    , OS.constant 0
+    , [ OS.constant 0
+      , OS.constant 0 ] )
 
 -- TODO
 assertEqualUpToEpsVF :: OS.Shape sh => Double -> OS.Array sh Double -> OS.Array sh Double -> Assertion

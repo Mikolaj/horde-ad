@@ -11,6 +11,7 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
+import HordeAd.Internal.Delta (toShapedOrDummy)
 import TestCommon (fquad, quad)
 import TestCommonEqEpsilon
 
@@ -104,8 +105,8 @@ adaptDReverseRecord dt f (ARecord a b) = do
   ((_, _, _, gradient), v) <-
     revIO dt g (V.empty, V.empty, V.empty, initVec)
   let gradientRecord = case V.toList gradient of
-        [a2, b2] -> ARecord (Data.Array.Convert.convert a2)
-                                      (Data.Array.Convert.convert b2)
+        [a2, b2] -> ARecord (toShapedOrDummy a2)
+                            (toShapedOrDummy b2)
         _ -> error "adaptDReverseRecord"
   return (gradientRecord, v)
 
@@ -123,8 +124,8 @@ adaptGdSimpleRecord gamma f n0 (ARecord a b) = do
   (_, _, _, gradient) <-
     gdSimple gamma g n0 (V.empty, V.empty, V.empty, initVec)
   case V.toList gradient of
-    [a2, b2] -> return $! ARecord (Data.Array.Convert.convert a2)
-                                  (Data.Array.Convert.convert b2)
+    [a2, b2] -> return $! ARecord (toShapedOrDummy a2)
+                                  (toShapedOrDummy b2)
     _ -> error "adaptGdSimpleRecord"
 
 gdShowRecord
