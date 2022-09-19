@@ -1,7 +1,6 @@
 {-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances,
              FunctionalDependencies, MultiParamTypeClasses, RankNTypes,
              TypeFamilies, TypeOperators #-}
-{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module TestSingleGradient (testTrees, finalCounter) where
@@ -304,8 +303,9 @@ atanOldReadmeInputs
   :: ADModeAndNum d r
   => ADInputs d r -> Data.Vector.Vector (ADVal d r)
 atanOldReadmeInputs inputs =
-  let x : y : z : _ = atList0 inputs
-  in atanOldReadmeOriginal x y z
+  case atList0 inputs of
+    x : y : z : _ -> atanOldReadmeOriginal x y z
+    _ -> error "atanOldReadmeInputs"
 
 -- According to the paper, to handle functions with non-scalar results,
 -- we dot-product them with dt which, for simplicity, we here set
@@ -363,7 +363,8 @@ vatanOldReadme
   => ADInputs d r -> ADVal d r
 vatanOldReadme inputs =
   let xyzVector = at1 inputs 0
-      [x, y, z] = map (index0 xyzVector) [0, 1, 2]
+      f = index0 xyzVector
+      (x, y, z) = (f 0, f 1, f 2)
       v = seq1 $ atanOldReadmeOriginal x y z
   in sumElements0 v
 
