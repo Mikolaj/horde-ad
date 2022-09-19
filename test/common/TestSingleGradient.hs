@@ -494,7 +494,7 @@ fooD _ = error "wrong number of arguments"
 
 testFooD :: Assertion
 testFooD =
-  assertEqualUpToEpsD (1e-10 :: Double)
+  assertEqualUpToEpsList "testFooD" (1e-10 :: Double)
     (rev fooD [1.1, 2.2, 3.3])
     [2.4396285219055063, -1.953374825727421, 0.9654825811012627]
 
