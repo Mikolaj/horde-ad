@@ -45,11 +45,11 @@ setEpsilonEq (EqEpsilon x) = atomicWriteIORef eqEpsilonRef x
 -- If the prefix is the empty string (i.e., @\"\"@), then the prefix is omitted
 -- and only the expected and actual values are output.
 assertEqualUpToEps :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
-            => String -- ^ The message prefix
-            -> a      -- ^ The error margin
-            -> a      -- ^ The expected value
-            -> a      -- ^ The actual value
-            -> Assertion
+                   => String -- ^ The message prefix
+                   -> a      -- ^ The error margin
+                   -> a      -- ^ The expected value
+                   -> a      -- ^ The actual value
+                   -> Assertion
 assertEqualUpToEps preface eqEpsilon expected actual = do
   assertBool (msg eqEpsilon) (abs (expected-actual) < eqEpsilon)
   where msg errorMargin = (if null preface then "" else preface ++ "\n") ++
@@ -57,11 +57,11 @@ assertEqualUpToEps preface eqEpsilon expected actual = do
                            "\n (maximum margin of error: " ++ show errorMargin ++ ")"
 
 assertEqualUpToEps3 :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
-            => String  -- ^ The message prefix
-            -> a       -- ^ The error margin
-            -> (a,a,a) -- ^ The expected value
-            -> (a,a,a) -- ^ The actual value
-            -> Assertion
+                    => String  -- ^ The message prefix
+                    -> a       -- ^ The error margin
+                    -> (a,a,a) -- ^ The expected value
+                    -> (a,a,a) -- ^ The actual value
+                    -> Assertion
 assertEqualUpToEps3 preface eqEpsilon (e1,e2,e3) (a1,a2,a3) =
   assertEqualUpToEps preface eqEpsilon e1 a1 >>
   assertEqualUpToEps preface eqEpsilon e2 a2 >>
@@ -86,11 +86,11 @@ assert_list make_assert expected actual =
       (make_assert head_exp head_act) >> go_assert tail_exp tail_act
 
 assertEqualUpToEpsList :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
-                => String   -- ^ The message prefix
-                -> a        -- ^ The error margin
-                -> [a]      -- ^ The expected value
-                -> [a]      -- ^ The actual value
-                -> Assertion
+                       => String   -- ^ The message prefix
+                       -> a        -- ^ The error margin
+                       -> [a]      -- ^ The expected value
+                       -> [a]      -- ^ The actual value
+                       -> Assertion
 assertEqualUpToEpsList preface eqEpsilon expected actual =
   assert_list (assertEqualUpToEps preface eqEpsilon) expected actual
 
