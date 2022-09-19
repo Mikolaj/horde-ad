@@ -761,10 +761,19 @@ instance (ADModeAndNum d r, OS.Shape sh, KnownNat n1, KnownNat n2)
 
 -- * assertEqualUpToEps hacks (#65)
 
--- A hack: the normal assertEqualUpToEps should work here. And AssertClose should work for shaped and untyped tensors.
-assertEqualUpToEpsS :: (OS.Shape sh1, OS.Shape sh2, OS.Shape sh3, OS.Shape sh4) => Double -> (OS.Array sh1 Double, OS.Array sh2 Double, OS.Array sh3 Double, OS.Array sh4 Double) -> (OS.Array sh1 Double, OS.Array sh2 Double, OS.Array sh3 Double, OS.Array sh4 Double) -> Assertion
-assertEqualUpToEpsS _eps (r1, r2, r3, r4) (u1, u2, u3, u4) =  -- TODO: use the _eps instead of the default one
-  OS.toList r1 @?~ OS.toList u1 >> OS.toList r2 @?~ OS.toList u2 >> OS.toList r3 @?~ OS.toList u3 >> OS.toList r4 @?~ OS.toList u4
+assertEqualUpToEpsS :: forall a sh1 sh2 sh3 sh4 . (Fractional a, Ord a, Show a, OS.Unbox a,
+                                                   OS.Shape sh1, OS.Shape sh2, OS.Shape sh3, OS.Shape sh4,
+                                                   HasCallStack)
+                     => String
+                     -> a
+                     -> (OS.Array sh1 a, OS.Array sh2 a, OS.Array sh3 a, OS.Array sh4 a)
+                     -> (OS.Array sh1 a, OS.Array sh2 a, OS.Array sh3 a, OS.Array sh4 a)
+                     -> Assertion
+assertEqualUpToEpsS preface eqEpsilon (e1, e2, e3, e4) (a1, a2, a3, a4) =
+  assertEqualUpToEpsList preface eqEpsilon (OS.toList e1) (OS.toList a1) >>
+  assertEqualUpToEpsList preface eqEpsilon (OS.toList e2) (OS.toList a2) >>
+  assertEqualUpToEpsList preface eqEpsilon (OS.toList e3) (OS.toList a3) >>
+  assertEqualUpToEpsList preface eqEpsilon (OS.toList e4) (OS.toList a4)
 
 assertEqualUpToEpsVF :: OS.Shape sh => Double -> OS.Array sh Double -> OS.Array sh Double -> Assertion
 assertEqualUpToEpsVF _eps r1 u1 =  -- TODO
