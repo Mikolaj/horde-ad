@@ -86,7 +86,7 @@ common options
                       BangPatterns, RecordWildCards, NamedFieldPuns, MultiWayIf,
                       LambdaCase, DefaultSignatures, InstanceSigs,
                       PatternSynonyms, StrictData, TypeApplications,
-                      FlexibleContexts, NoStarIsType
+                      FlexibleContexts, NoStarIsType, TypeOperators
   other-extensions:   TemplateHaskell, MultiParamTypeClasses, RankNTypes,
                       TypeFamilies, FlexibleInstances,
                       DeriveFunctor, FunctionalDependencies,
