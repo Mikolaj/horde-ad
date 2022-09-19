@@ -41,6 +41,36 @@ eqEpsilonRef = unsafePerformIO $ newIORef eqEpsilonDefault
 setEpsilonEq :: EqEpsilon -> IO ()
 setEpsilonEq (EqEpsilon x) = atomicWriteIORef eqEpsilonRef x
 
+----------------------------------------------------------------------------
+-- Helper functions
+----------------------------------------------------------------------------
+
+assert_list :: forall a. ()
+            => (a -> a -> Assertion) -- ^ The function used to make an assertion on two elements (expected, actual)
+            -> [a]                   -- ^ The expected value
+            -> [a]                   -- ^ The actual value
+            -> Assertion
+assert_list make_assert expected actual =
+  go_assert expected actual
+  where
+    len1 :: Int = length expected
+    len2 :: Int = length actual
+    msgneq :: String = "expected " ++ show len1 ++ " elements, but got " ++ show len2
+    go_assert :: [a] -> [a] -> Assertion
+    go_assert [] [] = assertBool "" True
+    go_assert [] (_:_) = assertFailure msgneq
+    go_assert (_:_) [] = assertFailure msgneq
+    go_assert (head_exp:tail_exp) (head_act:tail_act) =
+      make_assert head_exp head_act >> go_assert tail_exp tail_act
+
+-- | Foldable to list.
+asList :: Foldable t => t a -> [a]
+asList = foldr (:) []
+
+----------------------------------------------------------------------------
+-- Generic comparisons with explicit error margin
+----------------------------------------------------------------------------
+
 -- | Asserts that the specified actual floating point value is close to the expected value.
 -- The output message will contain the prefix, the expected value, and the
 -- actual value.
@@ -69,24 +99,6 @@ assertEqualUpToEps3 preface eqEpsilon (e1,e2,e3) (a1,a2,a3) =
   assertEqualUpToEps preface eqEpsilon e1 a1 >>
   assertEqualUpToEps preface eqEpsilon e2 a2 >>
   assertEqualUpToEps preface eqEpsilon e3 a3
-
-assert_list :: forall a. ()
-            => (a -> a -> Assertion) -- ^ The function used to make an assertion on two elements (expected, actual)
-            -> [a]                   -- ^ The expected value
-            -> [a]                   -- ^ The actual value
-            -> Assertion
-assert_list make_assert expected actual =
-  go_assert expected actual
-  where
-    len1 :: Int = length expected
-    len2 :: Int = length actual
-    msgneq :: String = "expected " ++ show len1 ++ " elements, but got " ++ show len2
-    go_assert :: [a] -> [a] -> Assertion
-    go_assert [] [] = assertBool "" True
-    go_assert [] (_:_) = assertFailure msgneq
-    go_assert (_:_) [] = assertFailure msgneq
-    go_assert (head_exp:tail_exp) (head_act:tail_act) =
-      make_assert head_exp head_act >> go_assert tail_exp tail_act
 
 assertEqualUpToEpsList :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
                        => String   -- ^ The message prefix
@@ -118,6 +130,10 @@ assertEqualUpToEpsShape4 preface eqEpsilon (e1, e2, e3, e4) (a1, a2, a3, a4) =
   assertEqualUpToEpsList preface eqEpsilon (OS.toList e2) (OS.toList a2) >>
   assertEqualUpToEpsList preface eqEpsilon (OS.toList e3) (OS.toList a3) >>
   assertEqualUpToEpsList preface eqEpsilon (OS.toList e4) (OS.toList a4)
+
+----------------------------------------------------------------------------
+-- Generic comparisons without explicit error margin
+----------------------------------------------------------------------------
 
 -- | Asserts that the specified actual floating point value is close to the expected value.
 -- The output message will contain the prefix, the expected value, and the
@@ -158,9 +174,9 @@ assertCloseList :: forall a. (AssertClose a)
                 -> Assertion
 assertCloseList = assert_list (flip (@?~))
 
--- | Foldable to list.
-asList :: Foldable t => t a -> [a]
-asList = foldr (:) []
+----------------------------------------------------------------------------
+-- AssertClose class together with (@?~) operator
+----------------------------------------------------------------------------
 
 -- | Things that can be asserted to be "approximately equal" to each other. The
 --   contract for this relation is that it must be reflexive and symmetrical,
