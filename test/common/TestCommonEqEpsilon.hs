@@ -5,8 +5,8 @@ module TestCommonEqEpsilon (EqEpsilon, setEpsilonEq,
                             assertEqualUpToEps3,
                             assertEqualUpToEpsList,
                             assertEqualUpToEpsVF,
-                            assertEqualUpToEpsS1,
-                            assertEqualUpToEpsS,
+                            assertEqualUpToEpsShape1,
+                            assertEqualUpToEpsShape4,
                             assertCloseElem, (@?~)) where
 
 import Data.Typeable
@@ -97,35 +97,32 @@ assertEqualUpToEpsList :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
                        -> Assertion
 assertEqualUpToEpsList preface eqEpsilon = assert_list (assertEqualUpToEps preface eqEpsilon)
 
-assertEqualUpToEpsS1 :: (OS.Shape sh1)
+assertEqualUpToEpsShape1 :: (OS.Shape sh1)
                     => forall a . (Fractional a, Ord a, Show a, OS.Unbox a, HasCallStack)
                     => String
                     -> a
                     -> (OS.Array sh1 a)
                     -> (OS.Array sh1 a)
                     -> Assertion
-assertEqualUpToEpsS1 preface eqEpsilon e1 a1 =
+assertEqualUpToEpsShape1 preface eqEpsilon e1 a1 =
   assertEqualUpToEpsList preface eqEpsilon (OS.toList e1) (OS.toList a1)
 
-assertEqualUpToEpsS :: (OS.Shape sh1, OS.Shape sh2, OS.Shape sh3, OS.Shape sh4)
+assertEqualUpToEpsShape4 :: (OS.Shape sh1, OS.Shape sh2, OS.Shape sh3, OS.Shape sh4)
                     => forall a . (Fractional a, Ord a, Show a, OS.Unbox a, HasCallStack)
                     => String
                     -> a
                     -> (OS.Array sh1 a, OS.Array sh2 a, OS.Array sh3 a, OS.Array sh4 a)
                     -> (OS.Array sh1 a, OS.Array sh2 a, OS.Array sh3 a, OS.Array sh4 a)
                     -> Assertion
-assertEqualUpToEpsS preface eqEpsilon (e1, e2, e3, e4) (a1, a2, a3, a4) =
+assertEqualUpToEpsShape4 preface eqEpsilon (e1, e2, e3, e4) (a1, a2, a3, a4) =
   assertEqualUpToEpsList preface eqEpsilon (OS.toList e1) (OS.toList a1) >>
   assertEqualUpToEpsList preface eqEpsilon (OS.toList e2) (OS.toList a2) >>
   assertEqualUpToEpsList preface eqEpsilon (OS.toList e3) (OS.toList a3) >>
   assertEqualUpToEpsList preface eqEpsilon (OS.toList e4) (OS.toList a4)
 
-
 assertEqualUpToEpsVF :: OS.Shape sh => Double -> OS.Array sh Double -> OS.Array sh Double -> Assertion
 assertEqualUpToEpsVF _eps r1 u1 =  -- TODO
   OS.toList r1 @?~ OS.toList u1
-
-
 
 -- | Asserts that the specified actual floating point value is close to the expected value.
 -- The output message will contain the prefix, the expected value, and the

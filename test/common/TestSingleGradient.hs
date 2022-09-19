@@ -516,7 +516,7 @@ fooS MkSN MkSN MkSN MkSN (x1, x2, x3, x4) =
 
 testFooS :: Assertion
 testFooS =
-  assertEqualUpToEpsS @'[1] @'[5] @'[3] @'[4] "testFooS" (1e-10 :: Double)
+  assertEqualUpToEpsShape4 @'[1] @'[5] @'[3] @'[4] "testFooS" (1e-10 :: Double)
     (rev (fooS (MkSN @1) (MkSN @5) (MkSN @3) (MkSN @4))
           ( OS.fromList [1.1]
           , OS.fromList [2.2, 2.3, 7.2, 7.3, 7.4]
@@ -560,7 +560,7 @@ bar_3_75 = value (ravelFromListS . barS (MkSN @3) (MkSN @75))
 
 testBarV :: Assertion
 testBarV =
-  assertEqualUpToEpsS1 @'[2, 3, 337] "testBarV" (1e-12 :: Double)
+  assertEqualUpToEpsShape1 @'[2, 3, 337] "testBarV" (1e-12 :: Double)
     (bar_3_75
        ( 1.1
        , OS.constant 17.3  -- TODO: create more interesting test data
@@ -588,7 +588,7 @@ bar_vjp_3_75 = fwd (head . barS (MkSN @3) (MkSN @75))
 
 testBarF :: Assertion
 testBarF =
-  assertEqualUpToEpsS1 "testBarF" (1e-7 :: Double)
+  assertEqualUpToEpsShape1 "testBarF" (1e-7 :: Double)
     (bar_vjp_3_75
        ( 1.1
        , OS.constant 17.3  -- TODO: create more interesting test data
