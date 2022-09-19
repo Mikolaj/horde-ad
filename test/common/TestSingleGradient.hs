@@ -762,11 +762,11 @@ instance (ADModeAndNum d r, OS.Shape sh, KnownNat n1, KnownNat n2)
 -- * assertEqualUpToEps hacks (#65)
 
 assertEqualUpToEpsS :: (OS.Shape sh1, OS.Shape sh2, OS.Shape sh3, OS.Shape sh4)
-                     => forall a . (Fractional a, Ord a, Show a, OS.Unbox a, HasCallStack)
-                     => a
-                     -> (OS.Array sh1 a, OS.Array sh2 a, OS.Array sh3 a, OS.Array sh4 a)
-                     -> (OS.Array sh1 a, OS.Array sh2 a, OS.Array sh3 a, OS.Array sh4 a)
-                     -> Assertion
+                    => forall a . (Fractional a, Ord a, Show a, OS.Unbox a, HasCallStack)
+                    => a
+                    -> (OS.Array sh1 a, OS.Array sh2 a, OS.Array sh3 a, OS.Array sh4 a)
+                    -> (OS.Array sh1 a, OS.Array sh2 a, OS.Array sh3 a, OS.Array sh4 a)
+                    -> Assertion
 assertEqualUpToEpsS eqEpsilon (e1, e2, e3, e4) (a1, a2, a3, a4) =
   assertEqualUpToEpsList "" eqEpsilon (OS.toList e1) (OS.toList a1) >>
   assertEqualUpToEpsList "" eqEpsilon (OS.toList e2) (OS.toList a2) >>
