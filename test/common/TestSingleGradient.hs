@@ -761,14 +761,6 @@ instance (ADModeAndNum d r, OS.Shape sh, KnownNat n1, KnownNat n2)
 
 -- * assertEqualUpToEps hacks (#65)
 
-assertEqualUpToEps :: Double -> (Double, Double, Double) -> (Double, Double, Double) -> Assertion
-assertEqualUpToEps _eps (r1, r2, r3) (u1, u2, u3) =  -- TODO: use the _eps instead of the default one
-  r1 @?~ u1 >> r2 @?~ u2 >> r3 @?~ u3
-
-assertEqualUpToEpsD :: Double -> [Double] -> [Double] -> Assertion
-assertEqualUpToEpsD _eps l1 l2 =  -- TODO
-  l1 @?~ l2
-
 -- A hack: the normal assertEqualUpToEps should work here. And AssertClose should work for shaped and untyped tensors.
 assertEqualUpToEpsS :: (OS.Shape sh1, OS.Shape sh2, OS.Shape sh3, OS.Shape sh4) => Double -> (OS.Array sh1 Double, OS.Array sh2 Double, OS.Array sh3 Double, OS.Array sh4 Double) -> (OS.Array sh1 Double, OS.Array sh2 Double, OS.Array sh3 Double, OS.Array sh4 Double) -> Assertion
 assertEqualUpToEpsS _eps (r1, r2, r3, r4) (u1, u2, u3, u4) =  -- TODO: use the _eps instead of the default one
