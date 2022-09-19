@@ -127,7 +127,7 @@ assertCloseElem preface expected actual = do
       if abs (h-actual) < fromRational eqEps then assertClose msg h actual else go_assert eqEps t
 
 -- | Asserts that the specified actual floating point value list is close to the expected value.
-assertCloseList :: forall a. (AssertClose a, HasCallStack)
+assertCloseList :: forall a. (AssertClose a)
                 => [a]      -- ^ The expected value
                 -> [a]      -- ^ The actual value
                 -> Assertion
