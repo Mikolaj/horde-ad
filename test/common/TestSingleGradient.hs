@@ -516,7 +516,7 @@ fooS MkSN MkSN MkSN MkSN (x1, x2, x3, x4) =
 
 testFooS :: Assertion
 testFooS =
-  assertEqualUpToEpsS @'[1] @'[5] @'[3] @'[4] (1e-10 :: Double)
+  assertEqualUpToEpsS @'[1] @'[5] @'[3] @'[4] "testFooS" (1e-10 :: Double)
     (rev (fooS (MkSN @1) (MkSN @5) (MkSN @3) (MkSN @4))
           ( OS.fromList [1.1]
           , OS.fromList [2.2, 2.3, 7.2, 7.3, 7.4]
@@ -760,18 +760,6 @@ instance (ADModeAndNum d r, OS.Shape sh, KnownNat n1, KnownNat n2)
 
 
 -- * assertEqualUpToEps hacks (#65)
-
-assertEqualUpToEpsS :: (OS.Shape sh1, OS.Shape sh2, OS.Shape sh3, OS.Shape sh4)
-                    => forall a . (Fractional a, Ord a, Show a, OS.Unbox a, HasCallStack)
-                    => a
-                    -> (OS.Array sh1 a, OS.Array sh2 a, OS.Array sh3 a, OS.Array sh4 a)
-                    -> (OS.Array sh1 a, OS.Array sh2 a, OS.Array sh3 a, OS.Array sh4 a)
-                    -> Assertion
-assertEqualUpToEpsS eqEpsilon (e1, e2, e3, e4) (a1, a2, a3, a4) =
-  assertEqualUpToEpsList "" eqEpsilon (OS.toList e1) (OS.toList a1) >>
-  assertEqualUpToEpsList "" eqEpsilon (OS.toList e2) (OS.toList a2) >>
-  assertEqualUpToEpsList "" eqEpsilon (OS.toList e3) (OS.toList a3) >>
-  assertEqualUpToEpsList "" eqEpsilon (OS.toList e4) (OS.toList a4)
 
 assertEqualUpToEpsVF :: OS.Shape sh => Double -> OS.Array sh Double -> OS.Array sh Double -> Assertion
 assertEqualUpToEpsVF _eps r1 u1 =  -- TODO
