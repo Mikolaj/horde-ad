@@ -560,7 +560,7 @@ bar_3_75 = value (ravelFromListS . barS (MkSN @3) (MkSN @75))
 
 testBarV :: Assertion
 testBarV =
-  assertEqualUpToEpsVF @'[2, 3, 337] (1e-12 :: Double)
+  assertEqualUpToEpsS1 @'[2, 3, 337] "testBarV" (1e-12 :: Double)
     (bar_3_75
        ( 1.1
        , OS.constant 17.3  -- TODO: create more interesting test data
@@ -588,7 +588,7 @@ bar_vjp_3_75 = fwd (head . barS (MkSN @3) (MkSN @75))
 
 testBarF :: Assertion
 testBarF =
-  assertEqualUpToEpsVF (1e-7 :: Double)
+  assertEqualUpToEpsS1 "testBarF" (1e-7 :: Double)
     (bar_vjp_3_75
        ( 1.1
        , OS.constant 17.3  -- TODO: create more interesting test data
@@ -760,10 +760,6 @@ instance (ADModeAndNum d r, OS.Shape sh, KnownNat n1, KnownNat n2)
 
 
 -- * assertEqualUpToEps hacks (#65)
-
-assertEqualUpToEpsVF :: OS.Shape sh => Double -> OS.Array sh Double -> OS.Array sh Double -> Assertion
-assertEqualUpToEpsVF _eps r1 u1 =  -- TODO
-  OS.toList r1 @?~ OS.toList u1
 
 assertEqualUpToEpsR
   :: OS.Shape sh
