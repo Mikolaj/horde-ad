@@ -4,7 +4,6 @@ module TestCommonEqEpsilon (EqEpsilon, setEpsilonEq,
                             assertEqualUpToEps,
                             assertEqualUpToEps3,
                             assertEqualUpToEpsList,
-                            assertEqualUpToEpsVF,
                             assertEqualUpToEpsShape1,
                             assertEqualUpToEpsShape4,
                             assertCloseElem, (@?~)) where
@@ -119,10 +118,6 @@ assertEqualUpToEpsShape4 preface eqEpsilon (e1, e2, e3, e4) (a1, a2, a3, a4) =
   assertEqualUpToEpsList preface eqEpsilon (OS.toList e2) (OS.toList a2) >>
   assertEqualUpToEpsList preface eqEpsilon (OS.toList e3) (OS.toList a3) >>
   assertEqualUpToEpsList preface eqEpsilon (OS.toList e4) (OS.toList a4)
-
-assertEqualUpToEpsVF :: OS.Shape sh => Double -> OS.Array sh Double -> OS.Array sh Double -> Assertion
-assertEqualUpToEpsVF _eps r1 u1 =  -- TODO
-  OS.toList r1 @?~ OS.toList u1
 
 -- | Asserts that the specified actual floating point value is close to the expected value.
 -- The output message will contain the prefix, the expected value, and the
