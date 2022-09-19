@@ -3,6 +3,7 @@
 module TestCommonEqEpsilon (EqEpsilon, setEpsilonEq,
                             assertEqualUpToEps,
                             assertEqualUpToEps3,
+                            assertEqualUpToEpsList,
                             assertCloseElem, (@?~)) where
 
 import Data.Typeable
@@ -66,6 +67,31 @@ assertEqualUpToEps3 preface eqEpsilon (e1,e2,e3) (a1,a2,a3) =
   assertEqualUpToEps preface eqEpsilon e2 a2 >>
   assertEqualUpToEps preface eqEpsilon e3 a3
 
+assert_list :: (a -> a -> Assertion) -- ^ The function used to make an assertion on two elements (expected, actual)
+            -> [a]                   -- ^ The expected value
+            -> [a]                   -- ^ The actual value
+            -> Assertion
+assert_list make_assert expected actual =
+  go_assert expected actual
+  where
+    len1 :: Int = length expected
+    len2 :: Int = length actual
+    msgneq :: String = "expected " ++ show len1 ++ " elements, but got " ++ show len2
+    go_assert [] [] = assertBool "" True
+    go_assert [] (_:_) = assertFailure msgneq
+    go_assert (_:_) [] = assertFailure msgneq
+    go_assert (head_exp:tail_exp) (head_act:tail_act) =
+      (make_assert head_exp head_act) >> go_assert tail_exp tail_act
+
+assertEqualUpToEpsList :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
+                => String   -- ^ The message prefix
+                -> a        -- ^ The error margin
+                -> [a]      -- ^ The expected value
+                -> [a]      -- ^ The actual value
+                -> Assertion
+assertEqualUpToEpsList preface eqEpsilon expected actual =
+  assert_list (assertEqualUpToEps preface eqEpsilon) expected actual
+
 -- | Asserts that the specified actual floating point value is close to the expected value.
 -- The output message will contain the prefix, the expected value, and the
 -- actual value.
@@ -104,17 +130,7 @@ assertCloseList :: forall a. (AssertClose a, HasCallStack)
                 -> [a]      -- ^ The actual value
                 -> Assertion
 assertCloseList expected actual =
-  go_assert expected actual
-  where
-    len1 :: Int = length expected
-    len2 :: Int = length actual
-    msgneq :: String = "expected " ++ show len1 ++ " elements, but got " ++ show len2
-    go_assert :: [a] -> [a] -> Assertion
-    go_assert [] [] = assertBool "" True
-    go_assert [] (_:_) = assertFailure msgneq
-    go_assert (_:_) [] = assertFailure msgneq
-    go_assert (head_exp:tail_exp) (head_act:tail_act) =
-      (@?~) head_act head_exp >> go_assert tail_exp tail_act
+  assert_list (flip (@?~)) expected actual
 
 -- | Foldable to list.
 asList :: Foldable t => t a -> [a]
