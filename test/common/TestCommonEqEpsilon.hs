@@ -83,7 +83,7 @@ assert_list make_assert expected actual =
     go_assert [] (_:_) = assertFailure msgneq
     go_assert (_:_) [] = assertFailure msgneq
     go_assert (head_exp:tail_exp) (head_act:tail_act) =
-      (make_assert head_exp head_act) >> go_assert tail_exp tail_act
+      make_assert head_exp head_act >> go_assert tail_exp tail_act
 
 assertEqualUpToEpsList :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
                        => String   -- ^ The message prefix
@@ -91,8 +91,7 @@ assertEqualUpToEpsList :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
                        -> [a]      -- ^ The expected value
                        -> [a]      -- ^ The actual value
                        -> Assertion
-assertEqualUpToEpsList preface eqEpsilon expected actual =
-  assert_list (assertEqualUpToEps preface eqEpsilon) expected actual
+assertEqualUpToEpsList preface eqEpsilon = assert_list (assertEqualUpToEps preface eqEpsilon)
 
 -- | Asserts that the specified actual floating point value is close to the expected value.
 -- The output message will contain the prefix, the expected value, and the
@@ -131,8 +130,7 @@ assertCloseList :: forall a. (AssertClose a)
                 => [a]      -- ^ The expected value
                 -> [a]      -- ^ The actual value
                 -> Assertion
-assertCloseList expected actual =
-  assert_list (flip (@?~)) expected actual
+assertCloseList = assert_list (flip (@?~))
 
 -- | Foldable to list.
 asList :: Foldable t => t a -> [a]
