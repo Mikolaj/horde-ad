@@ -424,7 +424,7 @@ foo (x,y,z) =
 
 testFoo :: Assertion
 testFoo =
-  assertEqualUpToEps (1e-10 :: Double)
+  assertEqualUpToEps3 "" (1e-10 :: Double)
     (rev foo (1.1, 2.2, 3.3))
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
 
@@ -435,7 +435,7 @@ bar (x,y,z) =
 
 testBar :: Assertion
 testBar =
-  assertEqualUpToEps (1e-9 :: Double)
+  assertEqualUpToEps3 "" (1e-9 :: Double)
     (rev bar (1.1, 2.2, 3.3))
     (6.221706565357043, -12.856908977773593, 6.043601532156671)
 
@@ -464,7 +464,7 @@ fooConstant = foo (7, 8, 9)
 
 testBaz :: Assertion
 testBaz =
-  assertEqualUpToEps (1e-9 :: Double)
+  assertEqualUpToEps3 "" (1e-9 :: Double)
     (rev baz (1.1, 2.2, 3.3))
     (0, -5219.20995030263, 2782.276274462047)
 
@@ -480,7 +480,7 @@ testBaz =
 -- is likely to fail in less naive implementations, as well.
 testBazRenumbered :: Assertion
 testBazRenumbered =
-  assertEqualUpToEps (1e-9 :: Double)
+  assertEqualUpToEps3 "" (1e-9 :: Double)
     (rev (\(x,y,z) -> z + baz (x,y,z)) (1.1, 2.2, 3.3))
     (0, -5219.20995030263, 2783.276274462047)
 

@@ -1,6 +1,9 @@
 {-# LANGUAGE FlexibleInstances, GeneralizedNewtypeDeriving,
              UndecidableInstances #-}
-module TestCommonEqEpsilon (EqEpsilon, setEpsilonEq, assertCloseElem, (@?~)) where
+module TestCommonEqEpsilon (EqEpsilon, setEpsilonEq,
+                            assertEqualUpToEps,
+                            assertEqualUpToEps3,
+                            assertCloseElem, (@?~)) where
 
 import Data.Typeable
 import Prelude
@@ -51,6 +54,17 @@ assertEqualUpToEps preface eqEpsilon expected actual = do
   where msg errorMargin = (if null preface then "" else preface ++ "\n") ++
                            "expected: " ++ show expected ++ "\n but got: " ++ show actual ++
                            "\n (maximum margin of error: " ++ show errorMargin ++ ")"
+
+assertEqualUpToEps3 :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
+            => String  -- ^ The message prefix
+            -> a       -- ^ The error margin
+            -> (a,a,a) -- ^ The expected value
+            -> (a,a,a) -- ^ The actual value
+            -> Assertion
+assertEqualUpToEps3 preface eqEpsilon (e1,e2,e3) (a1,a2,a3) =
+  assertEqualUpToEps preface eqEpsilon e1 a1 >>
+  assertEqualUpToEps preface eqEpsilon e2 a2 >>
+  assertEqualUpToEps preface eqEpsilon e3 a3
 
 -- | Asserts that the specified actual floating point value is close to the expected value.
 -- The output message will contain the prefix, the expected value, and the
