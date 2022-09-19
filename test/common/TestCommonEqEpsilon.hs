@@ -67,7 +67,8 @@ assertEqualUpToEps3 preface eqEpsilon (e1,e2,e3) (a1,a2,a3) =
   assertEqualUpToEps preface eqEpsilon e2 a2 >>
   assertEqualUpToEps preface eqEpsilon e3 a3
 
-assert_list :: (a -> a -> Assertion) -- ^ The function used to make an assertion on two elements (expected, actual)
+assert_list :: forall a. ()
+            => (a -> a -> Assertion) -- ^ The function used to make an assertion on two elements (expected, actual)
             -> [a]                   -- ^ The expected value
             -> [a]                   -- ^ The actual value
             -> Assertion
@@ -77,6 +78,7 @@ assert_list make_assert expected actual =
     len1 :: Int = length expected
     len2 :: Int = length actual
     msgneq :: String = "expected " ++ show len1 ++ " elements, but got " ++ show len2
+    go_assert :: [a] -> [a] -> Assertion
     go_assert [] [] = assertBool "" True
     go_assert [] (_:_) = assertFailure msgneq
     go_assert (_:_) [] = assertFailure msgneq
