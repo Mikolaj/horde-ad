@@ -45,23 +45,30 @@ setEpsilonEq (EqEpsilon x) = atomicWriteIORef eqEpsilonRef x
 -- Helper functions
 ----------------------------------------------------------------------------
 
+go_assert_list :: forall a. ()
+               => (a -> a -> Assertion) -- ^ The function used to make an assertion on two elements (expected, actual)
+               -> [a]                   -- ^ The expected value
+               -> [a]                   -- ^ The actual value
+               -> Assertion
+go_assert_list _ [] [] = assertBool "" True
+go_assert_list _ [] (_:_) = assertFailure "More list elements than expected!"
+go_assert_list _ (_:_) [] = assertFailure "Less list elements than expected!"
+go_assert_list mk (head_exp:tail_exp) (head_act:tail_act) =
+      mk head_exp head_act >> go_assert_list mk tail_exp tail_act
+
 assert_list :: forall a. ()
             => (a -> a -> Assertion) -- ^ The function used to make an assertion on two elements (expected, actual)
             -> [a]                   -- ^ The expected value
             -> [a]                   -- ^ The actual value
             -> Assertion
 assert_list make_assert expected actual =
-  go_assert expected actual
+  if lenE == lenA then
+    go_assert_list make_assert expected actual
+  else
+    assertFailure $ "List too " ++ (if lenE < lenA then "long" else "short") ++ ": expected " ++ show lenE ++ "elements, but got: " ++ show lenA
   where
-    len1 :: Int = length expected
-    len2 :: Int = length actual
-    msgneq :: String = "expected " ++ show len1 ++ " elements, but got " ++ show len2
-    go_assert :: [a] -> [a] -> Assertion
-    go_assert [] [] = assertBool "" True
-    go_assert [] (_:_) = assertFailure msgneq
-    go_assert (_:_) [] = assertFailure msgneq
-    go_assert (head_exp:tail_exp) (head_act:tail_act) =
-      make_assert head_exp head_act >> go_assert tail_exp tail_act
+    lenE :: Int = length expected
+    lenA :: Int = length actual
 
 -- | Foldable to list.
 asList :: Foldable t => t a -> [a]
