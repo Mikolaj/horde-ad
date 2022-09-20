@@ -1,7 +1,6 @@
 {-# LANGUAGE FlexibleInstances, GeneralizedNewtypeDeriving, MultiParamTypeClasses,
              UndecidableInstances #-}
 module TestCommonEqEpsilon (EqEpsilon, setEpsilonEq,
-                            assertEqualUpToEpsShape4,
                             assertEqualUpToEpsilon,
                             assertCloseElem, (@?~)) where
 
@@ -115,19 +114,6 @@ assertEqualUpToEpsList :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
                        -> Assertion
 assertEqualUpToEpsList preface eqEpsilon = assert_list (assertEqualUpToEps preface eqEpsilon)
 
-assertEqualUpToEpsShape4 :: (OS.Shape sh1, OS.Shape sh2, OS.Shape sh3, OS.Shape sh4)
-                    => forall a . (Fractional a, Ord a, Show a, OS.Unbox a, HasCallStack)
-                    => String
-                    -> a
-                    -> (OS.Array sh1 a, OS.Array sh2 a, OS.Array sh3 a, OS.Array sh4 a)
-                    -> (OS.Array sh1 a, OS.Array sh2 a, OS.Array sh3 a, OS.Array sh4 a)
-                    -> Assertion
-assertEqualUpToEpsShape4 preface eqEpsilon (e1, e2, e3, e4) (a1, a2, a3, a4) =
-  assertEqualUpToEpsList preface eqEpsilon (OS.toList e1) (OS.toList a1) >>
-  assertEqualUpToEpsList preface eqEpsilon (OS.toList e2) (OS.toList a2) >>
-  assertEqualUpToEpsList preface eqEpsilon (OS.toList e3) (OS.toList a3) >>
-  assertEqualUpToEpsList preface eqEpsilon (OS.toList e4) (OS.toList a4)
-
 ----------------------------------------------------------------------------
 -- AssertEqualUpToEpsilon class
 ----------------------------------------------------------------------------
@@ -157,6 +143,17 @@ instance {-# OVERLAPPABLE #-} (AssertEqualUpToEpsilon z a,
     assertEqualUpToEpsilon eqEpsilon e1 a1 >>
     assertEqualUpToEpsilon eqEpsilon e2 a2 >>
     assertEqualUpToEpsilon eqEpsilon e3 a3
+
+instance {-# OVERLAPPABLE #-} (AssertEqualUpToEpsilon z a,
+                               AssertEqualUpToEpsilon z b,
+                               AssertEqualUpToEpsilon z c,
+                               AssertEqualUpToEpsilon z d) => AssertEqualUpToEpsilon z (a,b,c,d) where
+  assertEqualUpToEpsilon :: z -> (a,b,c,d) -> (a,b,c,d) -> Assertion
+  assertEqualUpToEpsilon eqEpsilon (e1,e2,e3,e4) (a1,a2,a3,a4) =
+    assertEqualUpToEpsilon eqEpsilon e1 a1 >>
+    assertEqualUpToEpsilon eqEpsilon e2 a2 >>
+    assertEqualUpToEpsilon eqEpsilon e3 a3 >>
+    assertEqualUpToEpsilon eqEpsilon e4 a4
 
 instance {-# OVERLAPPABLE #-} (Traversable t, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (t a) where
   assertEqualUpToEpsilon :: z -> t a -> t a -> Assertion
