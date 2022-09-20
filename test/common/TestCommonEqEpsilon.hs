@@ -108,17 +108,6 @@ assertEqualUpToEps preface eqEpsilon expected actual = do
                            "expected: " ++ show expected ++ "\n but got: " ++ show actual ++
                            "\n (maximum margin of error: " ++ show errorMargin ++ ")"
 
-assertEqualUpToEps3 :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
-                    => String  -- ^ The message prefix
-                    -> a       -- ^ The error margin
-                    -> (a,a,a) -- ^ The expected value
-                    -> (a,a,a) -- ^ The actual value
-                    -> Assertion
-assertEqualUpToEps3 preface eqEpsilon (e1,e2,e3) (a1,a2,a3) =
-  assertEqualUpToEps preface eqEpsilon e1 a1 >>
-  assertEqualUpToEps preface eqEpsilon e2 a2 >>
-  assertEqualUpToEps preface eqEpsilon e3 a3
-
 assertEqualUpToEpsList :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
                        => String   -- ^ The message prefix
                        -> a        -- ^ The error margin
