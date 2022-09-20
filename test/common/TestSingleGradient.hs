@@ -424,8 +424,8 @@ foo (x,y,z) =
 
 testFoo :: Assertion
 testFoo =
-  assertEqualUpToEps3 "testFoo" (1e-10 :: Double)
-    (rev foo (1.1, 2.2, 3.3))
+  assertEqualUpToEpsilon (1e-10 :: Double)
+    (rev foo (1.1, 2.2, 3.3) :: (Double,Double,Double))
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
 
 bar :: RealFloat a => (a,a,a) -> a
@@ -435,8 +435,8 @@ bar (x,y,z) =
 
 testBar :: Assertion
 testBar =
-  assertEqualUpToEps3 "testBar" (1e-9 :: Double)
-    (rev bar (1.1, 2.2, 3.3))
+  assertEqualUpToEpsilon (1e-9 :: Double)
+    (rev bar (1.1, 2.2, 3.3) :: (Double,Double,Double))
     (6.221706565357043, -12.856908977773593, 6.043601532156671)
 
 -- A check if gradient computation is re-entrant.
@@ -464,8 +464,8 @@ fooConstant = foo (7, 8, 9)
 
 testBaz :: Assertion
 testBaz =
-  assertEqualUpToEps3 "testBaz" (1e-9 :: Double)
-    (rev baz (1.1, 2.2, 3.3))
+  assertEqualUpToEpsilon (1e-9 :: Double)
+    (rev baz (1.1, 2.2, 3.3) :: (Double,Double,Double))
     (0, -5219.20995030263, 2782.276274462047)
 
 -- If terms are numbered and @z@ is, wrongly, decorated with number 0,
@@ -480,8 +480,8 @@ testBaz =
 -- is likely to fail in less naive implementations, as well.
 testBazRenumbered :: Assertion
 testBazRenumbered =
-  assertEqualUpToEps3 "testBazRenumbered" (1e-9 :: Double)
-    (rev (\(x,y,z) -> z + baz (x,y,z)) (1.1, 2.2, 3.3))
+  assertEqualUpToEpsilon (1e-9 :: Double)
+    (rev (\(x,y,z) -> z + baz (x,y,z)) (1.1, 2.2, 3.3) :: (Double,Double,Double))
     (0, -5219.20995030263, 2783.276274462047)
 
 -- A dual-number and list-based version of a function that goes
@@ -494,8 +494,8 @@ fooD _ = error "wrong number of arguments"
 
 testFooD :: Assertion
 testFooD =
-  assertEqualUpToEpsList "testFooD" (1e-10 :: Double)
-    (rev fooD [1.1, 2.2, 3.3])
+  assertEqualUpToEpsilon (1e-10 :: Double)
+    (rev fooD [1.1, 2.2, 3.3] :: [Double])
     [2.4396285219055063, -1.953374825727421, 0.9654825811012627]
 
 -- A dual-number version of a function that goes from three rank one
@@ -588,7 +588,7 @@ bar_vjp_3_75 = fwd (head . barS (MkSN @3) (MkSN @75))
 
 testBarF :: Assertion
 testBarF =
-  assertEqualUpToEpsShape1 "testBarF" (1e-7 :: Double)
+  assertEqualUpToEpsilon (1e-7 :: Double)
     (bar_vjp_3_75
        ( 1.1
        , OS.constant 17.3  -- TODO: create more interesting test data

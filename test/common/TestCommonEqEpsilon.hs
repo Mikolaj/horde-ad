@@ -1,11 +1,9 @@
 {-# LANGUAGE FlexibleInstances, GeneralizedNewtypeDeriving, MultiParamTypeClasses,
              UndecidableInstances #-}
 module TestCommonEqEpsilon (EqEpsilon, setEpsilonEq,
-                            assertEqualUpToEps,
-                            assertEqualUpToEps3,
-                            assertEqualUpToEpsList,
                             assertEqualUpToEpsShape1,
                             assertEqualUpToEpsShape4,
+                            assertEqualUpToEpsilon,
                             assertCloseElem, (@?~)) where
 
 import Data.Typeable
