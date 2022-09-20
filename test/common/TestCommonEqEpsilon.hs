@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, GeneralizedNewtypeDeriving,
+{-# LANGUAGE FlexibleInstances, GeneralizedNewtypeDeriving, MultiParamTypeClasses,
              UndecidableInstances #-}
 module TestCommonEqEpsilon (EqEpsilon, setEpsilonEq,
                             assertEqualUpToEps,
@@ -130,6 +130,20 @@ assertEqualUpToEpsShape4 preface eqEpsilon (e1, e2, e3, e4) (a1, a2, a3, a4) =
   assertEqualUpToEpsList preface eqEpsilon (OS.toList e2) (OS.toList a2) >>
   assertEqualUpToEpsList preface eqEpsilon (OS.toList e3) (OS.toList a3) >>
   assertEqualUpToEpsList preface eqEpsilon (OS.toList e4) (OS.toList a4)
+
+----------------------------------------------------------------------------
+-- AssertEqualUpToEpsilon class
+----------------------------------------------------------------------------
+
+class (Fractional e, Ord e, Show e) => AssertEqualUpToEpsilon a e where
+  assertEqualUpToEpsilon :: e -- ^ The error margin (i.e., the epsilon)
+                         -> a -- ^ The expected value
+                         -> a -- ^ The actual value
+                         -> Assertion
+
+instance {-# OVERLAPPABLE #-} (Fractional a, Ord a, Show a) => AssertEqualUpToEpsilon a a where
+  assertEqualUpToEpsilon :: a -> a -> a -> Assertion
+  assertEqualUpToEpsilon = assertEqualUpToEps ""
 
 ----------------------------------------------------------------------------
 -- Generic comparisons without explicit error margin
