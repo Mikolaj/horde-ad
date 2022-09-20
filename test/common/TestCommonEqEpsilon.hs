@@ -192,6 +192,10 @@ instance {-# OVERLAPPABLE #-} (VS.Storable a, AssertEqualUpToEpsilon z a) => Ass
   assertEqualUpToEpsilon eqEpsilon expected actual =
     assert_list (assertEqualUpToEpsilon eqEpsilon) (VG.toList expected) (VG.toList actual)
 
+instance {-# OVERLAPPABLE #-} (VS.Storable a, OS.Shape sh1, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (OS.Array sh1 a) where
+  assertEqualUpToEpsilon :: z -> OS.Array sh1 a -> OS.Array sh1 a -> Assertion
+  assertEqualUpToEpsilon eqEpsilon = assert_shape (assertEqualUpToEpsilon eqEpsilon)
+
 ----------------------------------------------------------------------------
 -- Generic comparisons without explicit error margin
 ----------------------------------------------------------------------------
