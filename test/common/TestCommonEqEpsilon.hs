@@ -70,6 +70,20 @@ assert_list make_assert expected actual =
     lenE :: Int = length expected
     lenA :: Int = length actual
 
+assert_shape :: forall a sh. (VS.Storable a, OS.Shape sh)
+            => (a -> a -> Assertion) -- ^ The function used to make an assertion on two elements (expected, actual)
+            -> (OS.Array sh a)       -- ^ The expected value
+            -> (OS.Array sh a)       -- ^ The actual value
+            -> Assertion
+assert_shape make_assert expected actual =
+  if shapeE == shapeA then
+    assert_list make_assert (OS.toList expected) (OS.toList actual)
+  else
+    assertFailure $ "Expected shape: " ++ show shapeE ++ ", but got: " ++ show shapeA
+  where
+    shapeE = OS.shapeL expected
+    shapeA = OS.shapeL actual
+
 -- | Foldable to list.
 asList :: Foldable t => t a -> [a]
 asList = foldr (:) []
