@@ -152,6 +152,15 @@ instance {-# OVERLAPPABLE #-} (AssertEqualUpToEpsilon z a,
     assertEqualUpToEpsilon eqEpsilon e1 a1 >>
     assertEqualUpToEpsilon eqEpsilon e2 a2
 
+instance {-# OVERLAPPABLE #-} (AssertEqualUpToEpsilon z a,
+                               AssertEqualUpToEpsilon z b,
+                               AssertEqualUpToEpsilon z c) => AssertEqualUpToEpsilon z (a,b,c) where
+  assertEqualUpToEpsilon :: z -> (a,b,c) -> (a,b,c) -> Assertion
+  assertEqualUpToEpsilon eqEpsilon (e1,e2,e3) (a1,a2,a3) =
+    assertEqualUpToEpsilon eqEpsilon e1 a1 >>
+    assertEqualUpToEpsilon eqEpsilon e2 a2 >>
+    assertEqualUpToEpsilon eqEpsilon e3 a3
+
 ----------------------------------------------------------------------------
 -- Generic comparisons without explicit error margin
 ----------------------------------------------------------------------------
