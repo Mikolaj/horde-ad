@@ -560,7 +560,7 @@ bar_3_75 = value (ravelFromListS . barS (MkSN @3) (MkSN @75))
 
 testBarV :: Assertion
 testBarV =
-  assertEqualUpToEpsilon @'[2, 3, 337] (1e-12 :: Double)
+  assertEqualUpToEpsilon @Double @(OS.Array '[2, 3, 337] Double) (1e-12 :: Double)
     (bar_3_75
        ( 1.1
        , OS.constant 17.3  -- TODO: create more interesting test data
