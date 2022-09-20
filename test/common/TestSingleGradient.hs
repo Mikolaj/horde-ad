@@ -1,6 +1,6 @@
 {-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances,
-             FunctionalDependencies, MultiParamTypeClasses, RankNTypes,
-             TypeFamilies #-}
+             FunctionalDependencies, RankNTypes,
+             TypeFamilies, TypeOperators #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module TestSingleGradient (testTrees, finalCounter) where
@@ -516,7 +516,7 @@ fooS MkSN MkSN MkSN MkSN (x1, x2, x3, x4) =
 
 testFooS :: Assertion
 testFooS =
-  assertEqualUpToEpsilon @Double @((OS.Array '[1] Double), (OS.Array '[5] Double), (OS.Array '[3] Double), (OS.Array '[4] Double))
+  assertEqualUpToEpsilon @Double @(OS.Array '[1] Double, OS.Array '[5] Double, OS.Array '[3] Double, OS.Array '[4] Double)
     (1e-12 :: Double)
     (rev (fooS (MkSN @1) (MkSN @5) (MkSN @3) (MkSN @4))
           ( OS.fromList [1.1]

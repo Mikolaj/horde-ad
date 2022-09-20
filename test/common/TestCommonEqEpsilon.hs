@@ -68,8 +68,8 @@ assert_list make_assert expected actual =
 
 assert_shape :: forall a sh. (VS.Storable a, OS.Shape sh)
              => (a -> a -> Assertion) -- ^ The function used to make an assertion on two elements (expected, actual)
-             -> (OS.Array sh a)       -- ^ The expected value
-             -> (OS.Array sh a)       -- ^ The actual value
+             -> OS.Array sh a         -- ^ The expected value
+             -> OS.Array sh a         -- ^ The actual value
              -> Assertion
 assert_shape make_assert expected actual =
   if shapeE == shapeA then
