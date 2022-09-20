@@ -161,6 +161,11 @@ instance {-# OVERLAPPABLE #-} (AssertEqualUpToEpsilon z a,
     assertEqualUpToEpsilon eqEpsilon e2 a2 >>
     assertEqualUpToEpsilon eqEpsilon e3 a3
 
+instance {-# OVERLAPPABLE #-} (Traversable t, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (t a) where
+  assertEqualUpToEpsilon :: z -> t a -> t a -> Assertion
+  assertEqualUpToEpsilon eqEpsilon expected actual =
+    assert_list (assertEqualUpToEpsilon eqEpsilon) (asList expected) (asList actual)
+
 ----------------------------------------------------------------------------
 -- Generic comparisons without explicit error margin
 ----------------------------------------------------------------------------
