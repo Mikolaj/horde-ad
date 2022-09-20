@@ -135,8 +135,8 @@ assertEqualUpToEpsShape4 preface eqEpsilon (e1, e2, e3, e4) (a1, a2, a3, a4) =
 -- AssertEqualUpToEpsilon class
 ----------------------------------------------------------------------------
 
-class (Fractional e, Ord e, Show e) => AssertEqualUpToEpsilon a e where
-  assertEqualUpToEpsilon :: e -- ^ The error margin (i.e., the epsilon)
+class (Fractional z, Ord z, Show z) => AssertEqualUpToEpsilon z a where
+  assertEqualUpToEpsilon :: z -- ^ The error margin (i.e., the epsilon)
                          -> a -- ^ The expected value
                          -> a -- ^ The actual value
                          -> Assertion
@@ -144,6 +144,13 @@ class (Fractional e, Ord e, Show e) => AssertEqualUpToEpsilon a e where
 instance {-# OVERLAPPABLE #-} (Fractional a, Ord a, Show a) => AssertEqualUpToEpsilon a a where
   assertEqualUpToEpsilon :: a -> a -> a -> Assertion
   assertEqualUpToEpsilon = assertEqualUpToEps ""
+
+instance {-# OVERLAPPABLE #-} (AssertEqualUpToEpsilon z a,
+                               AssertEqualUpToEpsilon z b) => AssertEqualUpToEpsilon z (a,b) where
+  assertEqualUpToEpsilon :: z -> (a,b) -> (a,b) -> Assertion
+  assertEqualUpToEpsilon eqEpsilon (e1,e2) (a1,a2) =
+    assertEqualUpToEpsilon eqEpsilon e1 a1 >>
+    assertEqualUpToEpsilon eqEpsilon e2 a2
 
 ----------------------------------------------------------------------------
 -- Generic comparisons without explicit error margin
