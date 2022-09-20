@@ -1,7 +1,6 @@
 {-# LANGUAGE FlexibleInstances, GeneralizedNewtypeDeriving, MultiParamTypeClasses,
              UndecidableInstances #-}
 module TestCommonEqEpsilon (EqEpsilon, setEpsilonEq,
-                            assertEqualUpToEpsShape1,
                             assertEqualUpToEpsShape4,
                             assertEqualUpToEpsilon,
                             assertCloseElem, (@?~)) where
@@ -115,16 +114,6 @@ assertEqualUpToEpsList :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
                        -> [a]      -- ^ The actual value
                        -> Assertion
 assertEqualUpToEpsList preface eqEpsilon = assert_list (assertEqualUpToEps preface eqEpsilon)
-
-assertEqualUpToEpsShape1 :: (OS.Shape sh1)
-                    => forall a . (Fractional a, Ord a, Show a, OS.Unbox a, HasCallStack)
-                    => String
-                    -> a
-                    -> (OS.Array sh1 a)
-                    -> (OS.Array sh1 a)
-                    -> Assertion
-assertEqualUpToEpsShape1 preface eqEpsilon e1 a1 =
-  assertEqualUpToEpsList preface eqEpsilon (OS.toList e1) (OS.toList a1)
 
 assertEqualUpToEpsShape4 :: (OS.Shape sh1, OS.Shape sh2, OS.Shape sh3, OS.Shape sh4)
                     => forall a . (Fractional a, Ord a, Show a, OS.Unbox a, HasCallStack)
