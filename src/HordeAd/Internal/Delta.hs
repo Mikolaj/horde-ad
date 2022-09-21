@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP, DataKinds, GADTs, GeneralizedNewtypeDeriving, KindSignatures,
-             RankNTypes, StandaloneDeriving, TypeOperators, UnboxedTuples #-}
+             RankNTypes, StandaloneDeriving, UnboxedTuples #-}
 #if !MIN_VERSION_base(4,16,0)
 {-# LANGUAGE IncoherentInstances #-}
 #endif

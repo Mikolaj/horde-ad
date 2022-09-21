@@ -1,6 +1,6 @@
 {-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances,
              FunctionalDependencies, MultiParamTypeClasses, RankNTypes,
-             TypeFamilies, TypeOperators #-}
+             TypeFamilies #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module TestSingleGradient (testTrees, finalCounter) where

@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, KindSignatures, TypeOperators #-}
+{-# LANGUAGE DataKinds, KindSignatures #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 -- | Parsing and pre-processing MNIST data.
 module HordeAd.Tool.MnistData where
