@@ -41,8 +41,7 @@ setEpsilonEq (EqEpsilon x) = atomicWriteIORef eqEpsilonRef x
 -- Helper functions
 ----------------------------------------------------------------------------
 
-go_assert_list :: forall a. ()
-               => (a -> a -> Assertion) -- ^ The function used to make an assertion on two elements (expected, actual)
+go_assert_list :: (a -> a -> Assertion) -- ^ The function used to make an assertion on two elements (expected, actual)
                -> [a]                   -- ^ The expected value
                -> [a]                   -- ^ The actual value
                -> Assertion
@@ -52,8 +51,7 @@ go_assert_list _ (_:_) [] = assertFailure "Less list elements than expected!"
 go_assert_list mk (head_exp:tail_exp) (head_act:tail_act) =
       mk head_exp head_act >> go_assert_list mk tail_exp tail_act
 
-assert_list :: forall a. ()
-            => (a -> a -> Assertion) -- ^ The function used to make an assertion on two elements (expected, actual)
+assert_list :: (a -> a -> Assertion) -- ^ The function used to make an assertion on two elements (expected, actual)
             -> [a]                   -- ^ The expected value
             -> [a]                   -- ^ The actual value
             -> Assertion
@@ -66,7 +64,7 @@ assert_list make_assert expected actual =
     lenE :: Int = length expected
     lenA :: Int = length actual
 
-assert_shape :: forall a sh. (VS.Storable a, OS.Shape sh)
+assert_shape :: (VS.Storable a, OS.Shape sh)
              => (a -> a -> Assertion) -- ^ The function used to make an assertion on two elements (expected, actual)
              -> OS.Array sh a         -- ^ The expected value
              -> OS.Array sh a         -- ^ The actual value
@@ -94,7 +92,7 @@ asList = foldr (:) []
 --
 -- If the prefix is the empty string (i.e., @\"\"@), then the prefix is omitted
 -- and only the expected and actual values are output.
-assertEqualUpToEps :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
+assertEqualUpToEps :: (Fractional a, Ord a, Show a, HasCallStack)
                    => String -- ^ The message prefix
                    -> a      -- ^ The error margin
                    -> a      -- ^ The expected value
@@ -171,7 +169,7 @@ instance {-# OVERLAPPABLE #-} (VS.Storable a, OS.Shape sh1, AssertEqualUpToEpsil
 --
 -- If the prefix is the empty string (i.e., @\"\"@), then the prefix is omitted
 -- and only the expected and actual values are output.
-assertClose :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
+assertClose :: (Fractional a, Ord a, Show a, HasCallStack)
             => String -- ^ The message prefix
             -> a      -- ^ The expected value
             -> a      -- ^ The actual value
@@ -198,7 +196,7 @@ assertCloseElem preface expected actual = do
       if abs (h-actual) < fromRational eqEps then assertClose msg h actual else go_assert eqEps t
 
 -- | Asserts that the specified actual floating point value list is close to the expected value.
-assertCloseList :: forall a. (AssertClose a)
+assertCloseList :: (AssertClose a)
                 => [a]      -- ^ The expected value
                 -> [a]      -- ^ The actual value
                 -> Assertion
