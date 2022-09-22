@@ -92,7 +92,7 @@ asList = foldr (:) []
 --
 -- If the prefix is the empty string (i.e., @\"\"@), then the prefix is omitted
 -- and only the expected and actual values are output.
-assertEqualUpToEps :: (Fractional a, Ord a, Show a, HasCallStack)
+assertEqualUpToEps :: (Num a, Ord a, Show a, HasCallStack)
                    => String -- ^ The message prefix
                    -> a      -- ^ The error margin
                    -> a      -- ^ The expected value
