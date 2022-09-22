@@ -108,13 +108,13 @@ assertEqualUpToEps preface eqEpsilon expected actual = do
 -- AssertEqualUpToEpsilon class
 ----------------------------------------------------------------------------
 
-class (Fractional z, Ord z, Show z) => AssertEqualUpToEpsilon z a where
+class AssertEqualUpToEpsilon z a where
   assertEqualUpToEpsilon :: z -- ^ The error margin (i.e., the epsilon)
                          -> a -- ^ The expected value
                          -> a -- ^ The actual value
                          -> Assertion
 
-instance {-# OVERLAPPABLE #-} (Fractional a, Ord a, Show a) => AssertEqualUpToEpsilon a a where
+instance {-# OVERLAPPABLE #-} (Num a, Ord a, Show a) => AssertEqualUpToEpsilon a a where
   assertEqualUpToEpsilon :: a -> a -> a -> Assertion
   assertEqualUpToEpsilon = assertEqualUpToEps ""
 
