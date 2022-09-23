@@ -12,6 +12,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.IORef
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Storable as VS
+import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe
 import           Test.Tasty.HUnit
 import           Test.Tasty.Options
@@ -159,6 +160,11 @@ instance (VS.Storable a, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z
   assertEqualUpToEpsilon :: z -> VS.Vector a -> VS.Vector a -> Assertion
   assertEqualUpToEpsilon eqEpsilon expected actual =
     assert_list (assertEqualUpToEpsilon eqEpsilon) (VG.toList expected) (VG.toList actual)
+
+instance (VS.Storable a, LA.Element a, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (LA.Matrix a) where
+  assertEqualUpToEpsilon :: z -> LA.Matrix a -> LA.Matrix a -> Assertion
+  assertEqualUpToEpsilon eqEpsilon expected actual =
+    assert_list (assertEqualUpToEpsilon eqEpsilon) (VG.toList $ LA.flatten expected) (VG.toList $ LA.flatten actual)
 
 instance (VS.Storable a, OS.Shape sh1, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (OS.Array sh1 a) where
   assertEqualUpToEpsilon :: z -> OS.Array sh1 a -> OS.Array sh1 a -> Assertion
