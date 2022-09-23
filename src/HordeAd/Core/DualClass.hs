@@ -12,15 +12,20 @@
 -- used to define types and operations in "HordeAd.Core.DualNumber"
 -- that is the foundation of the high-level API.
 --
--- This module contains impurity, which produces pure data with particular
--- properties that low level modules require (a specific order
--- of per-node integer identifiers) and that can't be controlled, accessed
--- nor observed by any other module nor by users of the library.
--- The @Show@ instance is the only way the impurity can be detected
--- and so it should be used only in debugging or low-level testing context.
--- Similarly, instances such as @Eq@ or @Read@ should not be added,
--- unless they are not auto-derived, but carefully crafted to respect sharing.
--- This would be the case even without impurity, not to ruin sharing.
+-- This module contains impurity, which produces pure data with a particular
+-- property. The property is an order of per-node integer identifiers
+-- that represents data dependencies and sharing. The low-level API
+-- depends on this property, but is completely isolated from the impurity.
+-- The high-level API invokes the impurity through smart constructors,
+-- but can't observe any impure behaviour. Neither can any other module
+-- in the package, except for the testing modules that import
+-- testing-exclusive operations and instances.
+--
+-- @Show@ is such a testing-only instance and so should be used
+-- only in debugging or testing. Similarly, instances such as @Eq@
+-- or @Read@ should not be auto-derived, but carefully crafted to respect
+-- sharing. This applies regardless of impurity, because repeated processing
+-- of the same shared terms is prohibitive expensive.
 module HordeAd.Core.DualClass
   ( -- * The most often used part of the mid-level API that gets re-exported in high-level API
     ADMode(..), ADModeAndNum
@@ -87,24 +92,23 @@ type HasDelta r = ( ADModeAndNum 'ADModeGradient r
 
 -- * Class definitions
 
--- | The enumeration of all possible differentiation (and more generally,
--- computation with dual numbers) schemes.
+-- | The enumeration of all available automatic differentiation computation
+-- modes.
 data ADMode =
     ADModeGradient
   | ADModeDerivative
   | ADModeValue
 
--- | The type family that enumerates all possible "ranks"
--- for each differentiation mode.
--- The second type argument is meant to be the primal component
--- of dual numbers. The result is the dual component.
+-- | The type family that enumerates all possible \"ranks\" for each
+-- automatic differentiation mode. The second type argument is meant
+-- to be the primal component of dual numbers. The result is the dual component.
 --
--- Rank 0 is special because, in derivatives mode, the dual component
+-- Rank 0 is troublesome because, in derivative mode, the dual component
 -- is not the primal component wrapped in a datatype or newtype constructor.
 -- This makes impossible a representation of primal and dual components as
 -- the primal plus the type constructor for creating the dual.
 --
--- Rank S is special, because of the extra type parameter @sh@ representing
+-- Rank S is troublesome because of the extra type parameter @sh@ representing
 -- a shape. This is another obstacle to a dual number representation via
 -- a single-argument type constructor.
 type family Dual (d :: ADMode) a = result | result -> d a where
@@ -136,7 +140,7 @@ type family ScalarOf a where
   ScalarOf (OT.Array r) = r
   ScalarOf (OS.Array sh r) = r
 
--- | Second argument is a primal component of dual numbers at some rank
+-- | Second argument is the primal component of a dual number at some rank
 -- wrt the differentiation mode given in the first argument.
 class IsPrimal d a where
   dZero :: Dual d a
@@ -160,17 +164,17 @@ instance (IsPrimalS d r, OS.Shape sh) => IsPrimal d (OS.Array sh r) where
   dScale = dScaleS
   dAdd = dAddS
 
--- | Assuming that the first argument is the primal component of dual numbers
--- with the underyling scalar in the second argument and with differentiation
--- mode `ADModeGradient`, it additionally admits delta-input
--- introduction and binding as defined by the methods of the class.
+-- | Assuming that the type argument is the primal component of dual numbers
+-- with differentiation mode `ADModeGradient`, this class makes available
+-- the additional operations of delta-input and of packing a delta expression
+-- and a dt parameter for computing its gradient.
 class HasInputs a where
   dInput :: InputId a -> Dual 'ADModeGradient a
   packDeltaDt :: a -> Dual 'ADModeGradient a -> DeltaDt (ScalarOf a)
 
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
--- of various ranks wrt the differentation mode given in the first argument.
+-- of various ranks wrt the differentation mode given in the first parameter.
 class HasRanks (d :: ADMode) r where
   dSumElements0 :: Dual d (Vector r) -> Int -> Dual d r
   dIndex0 :: Dual d (Vector r) -> Int -> Int -> Dual d r
@@ -201,8 +205,10 @@ class HasRanks (d :: ADMode) r where
   dTranspose2 :: Dual d (Matrix r) -> Dual d (Matrix r)
   dM_MD2 :: Matrix r -> Dual d (Matrix r) -> Dual d (Matrix r)
   dMD_M2 :: Dual d (Matrix r) -> Matrix r -> Dual d (Matrix r)
-  dRowAppend2 :: Dual d (Matrix r) -> Int -> Dual d (Matrix r) -> Dual d (Matrix r)
-  dColumnAppend2 :: Dual d (Matrix r) -> Int -> Dual d (Matrix r) -> Dual d (Matrix r)
+  dRowAppend2 :: Dual d (Matrix r) -> Int -> Dual d (Matrix r)
+              -> Dual d (Matrix r)
+  dColumnAppend2 :: Dual d (Matrix r) -> Int -> Dual d (Matrix r)
+                 -> Dual d (Matrix r)
   dRowSlice2 :: Int -> Int -> Dual d (Matrix r) -> Int -> Dual d (Matrix r)
   dColumnSlice2 :: Int -> Int -> Dual d (Matrix r) -> Int -> Dual d (Matrix r)
   dAsRow2 :: Dual d (Vector r) -> Dual d (Matrix r)
@@ -217,11 +223,13 @@ class HasRanks (d :: ADMode) r where
   dConv2 :: Matrix r -> Dual d (Matrix r) -> Dual d (Matrix r)
 
   dKonstX :: Dual d r -> OT.ShapeL -> Dual d (OT.Array r)
-  dAppendX :: Dual d (OT.Array r) -> Int -> Dual d (OT.Array r) -> Dual d (OT.Array r)
+  dAppendX :: Dual d (OT.Array r) -> Int -> Dual d (OT.Array r)
+           -> Dual d (OT.Array r)
   dSliceX :: Int -> Int -> Dual d (OT.Array r) -> Int -> Dual d (OT.Array r)
   dIndexX :: Dual d (OT.Array r) -> Int -> Int -> Dual d (OT.Array r)
   dRavelFromListX :: [Dual d (OT.Array r)] -> Dual d (OT.Array r)
-  dReshapeX :: OT.ShapeL -> OT.ShapeL -> Dual d (OT.Array r) -> Dual d (OT.Array r)
+  dReshapeX :: OT.ShapeL -> OT.ShapeL -> Dual d (OT.Array r)
+            -> Dual d (OT.Array r)
   dFrom0X :: Dual d r -> Dual d (OT.Array r)
   dFrom1X :: Dual d (Vector r) -> Dual d (OT.Array r)
   dFrom2X :: Dual d (Matrix r) -> Int -> Dual d (OT.Array r)
@@ -254,13 +262,15 @@ class HasRanks (d :: ADMode) r where
 
 -- * Backprop gradient method instances
 
--- | This, just as many other @ADModeGradient@ instances, is an impure instance.
--- Each created term tree node gets an @Int@ identifier
--- that is afterwards incremented (and never changed in any other way).
+-- | This, just as many other @ADModeGradient@ instances, is an impure
+-- instance. Each created term tree node gets an @Int@ identifier
+-- from a counter that is afterwards incremented (and never changed
+-- in any other way).
+--
 -- The identifiers are not part of any non-internal module API
--- and the impure counter that gets incremented is exposed only
--- to be used in special low level tests. The per-node identifiers
--- are used only in internal modules. They are assigned once and then read-only.
+-- and the impure counter that gets incremented is not exposed
+-- (except for low level tests). The per-node identifiers are used
+-- only in internal modules. They are assigned once and then read-only.
 -- They ensure that subterms that are shared in memory are evaluated only once.
 -- If pointer equality worked efficiently (e.g., if compact regions
 -- with sharing were cheaper), we wouldn't need the impurity.
@@ -274,9 +284,9 @@ class HasRanks (d :: ADMode) r where
 -- As long as "HordeAd.Internal.Delta" is used exclusively through
 -- smart constructors from this API and the API is not (wrongly) modified,
 -- the impurity is completely safe. Even compiler optimizations,
--- e.g., as cse and full-laziness, can't break the required invariants.
+-- e.g., cse and full-laziness, can't break the required invariants.
 -- On the contrary, they increase sharing and make evaluation yet cheaper.
--- Of course, if the compiler, e.g., stopped honouring @NOINLINE@,
+-- Of course, if the compiler, e.g., stops honouring @NOINLINE@,
 -- all this breaks down.
 instance IsPrimal 'ADModeGradient Double where
   dZero = Zero0
@@ -400,7 +410,7 @@ instance Dual 'ADModeGradient r ~ Delta0 r
   dFromXS !d = wrapDeltaS $ FromXS d
 
 
--- * Alternative instances: forward derivatives computed on the spot
+-- * Alternative instance: forward derivatives computed on the spot
 
 instance IsPrimal 'ADModeDerivative Double where
   dZero = 0
@@ -509,7 +519,7 @@ instance ( Numeric r, Num (Vector r)
 #endif
 
 
--- * Other alternative instances: only the objective function's value computed
+-- * Another alternative instance: only the objective function's value computed
 
 instance IsPrimal 'ADModeValue Double where
   dZero = DummyDual ()
@@ -608,12 +618,12 @@ unsafeGlobalCounter :: Counter
 unsafeGlobalCounter = unsafePerformIO (newCounter 100000000)
 
 -- | Do not use; this is exposed only for special low level tests,
--- just as the @Show@ instance.
+-- similarly as the @Show@ instance.
 --
 -- This is the only operation directly touching the single impure counter
 -- that holds fresh and continuously incremented integer identifiers,
 -- The impurity in this module, stemming from the use of this operation
--- under @unsafePerformIO@ is thread-safe, admits parallel tests
+-- under @unsafePerformIO@, is thread-safe, admits parallel tests
 -- and does not require @-fno-full-laziness@ nor @-fno-cse@.
 -- The only tricky point is mandatory use of the smart constructors
 -- above and that any new smart constructors should be similarly
@@ -621,16 +631,16 @@ unsafeGlobalCounter = unsafePerformIO (newCounter 100000000)
 --
 -- We start at a large number to make tests measuring the size of pretty
 -- printed terms less fragile. @Counter@ datatype is just as safe,
--- but faster than an @MVar@ and than an atomic @IORef@
--- (and even non-atomic @IORef@). The operation is manually inlined
--- to prevent GHCs deciding otherwise and causing performance anomalies.
+-- but faster than an @MVar@ or an atomic @IORef@ (and even non-atomic @IORef@).
+-- The operation is manually inlined to prevent GHCs deciding otherwise
+-- and causing performance anomalies.
 unsafeGetFreshId :: IO NodeId
 {-# INLINE unsafeGetFreshId #-}
 unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
 
 -- The following functions are the only places, except for global
 -- variable definitions, that contain `unsafePerformIO'.
--- BTW, test don't show a speedup from `unsafeDupablePerformIO`,
+-- BTW, tests don't show a speedup from `unsafeDupablePerformIO`,
 -- perhaps due to counter gaps that it may introduce.
 wrapDelta0 :: Delta0' r -> Delta0 r
 {-# NOINLINE wrapDelta0 #-}

@@ -53,17 +53,18 @@ staticNatValue = fromInteger . natVal
 staticNatFromProxy :: KnownNat n => Proxy n -> StaticNat n
 staticNatFromProxy Proxy = MkSN
 
--- * The main dual number types
+-- * The main dual number type
 
--- | Values the objective functions operate on (a generalization of scalars
--- and of vectors, matrices, tensors and any other supported containers
--- of scalars). The first type argument is the differentiation mode
--- and the second is the underlying values (the scalars, vectors, etc.).
+-- | Values the objective functions operate on. The first type argument
+-- is the automatic differentiation mode and the second is the underlying
+-- basic values (scalars, vectors, matrices, tensors and any other
+-- supported containers of scalars).
 --
 -- Here, the datatype is implemented as dual numbers (hence @D@),
--- where the \"numbers\" can be any containers of scalars.
--- Thus, the primal component has the type given as the second type argument
--- and the dual component (named @Dual@) is special and defined elsewhere.
+-- where the primal component, the basic value, the \"number\"
+-- can be any containers of scalars. The primal component has the type
+-- given as the second type argument and the dual component (with the type
+-- determined by the type faimly @Dual@) is defined elsewhere.
 data ADVal (d :: ADMode) a = D a (Dual d a)
 
 addParameters :: (Numeric r, Num (Vector r))
@@ -71,7 +72,7 @@ addParameters :: (Numeric r, Num (Vector r))
 addParameters (a0, a1, a2, aX) (b0, b1, b2, bX) =
   (a0 + b0, V.zipWith (+) a1 b1, V.zipWith (+) a2 b2, V.zipWith (+) aX bX)
 
--- Dot product and sum respective ranks and sum it all.
+-- Dot product and sum respective ranks and then sum it all.
 dotParameters :: Numeric r => Domains r -> Domains r -> r
 dotParameters (a0, a1, a2, aX) (b0, b1, b2, bX) =
   a0 HM.<.> b0
@@ -98,10 +99,6 @@ instance Eq (ADVal d a) where
 
 instance Ord (ADVal d a) where
 
--- These instances are dangerous due to possible subexpression copies
--- leading to allocation explosion. Expressions should be wrapped in
--- the monadic @returnLet@ whenever there is a possibility they can be
--- used multiple times in a larger expression.
 instance (Num a, IsPrimal d a) => Num (ADVal d a) where
   D u u' + D v v' = D (u + v) (dAdd u' v')
   D u u' - D v v' = D (u - v) (dAdd u' (dScale (-1) v'))
@@ -116,7 +113,7 @@ instance (Real a, IsPrimal d a) => Real (ADVal d a) where
 
 instance (Fractional a, IsPrimal d a) => Fractional (ADVal d a) where
   D u u' / D v v' =
-    let recipSq = recip (v * v)
+    let recipSq = recip (v * v)  -- ensure sharing; also elsewhere
     in D (u / v) (dAdd (dScale (v * recipSq) u') (dScale (- u * recipSq) v'))
   recip (D v v') =
     let minusRecipSq = - recip (v * v)
@@ -150,7 +147,7 @@ instance (Floating a, IsPrimal d a) => Floating (ADVal d a) where
 
 instance (RealFrac a, IsPrimal d a) => RealFrac (ADVal d a) where
   properFraction = undefined
-    -- very low priority, since these are all extremely not continuous
+    -- TODO: others, but low priority, since these are extremely not continuous
 
 instance (RealFloat a, IsPrimal d a) => RealFloat (ADVal d a) where
   atan2 (D u u') (D v v') =
@@ -207,8 +204,6 @@ maximum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
 maximum0 (D u u') =
   D (HM.maxElement u) (dIndex0 u' (HM.maxIndex u) (V.length u))
 
--- If @v'@ is a @Input1@, this is much faster due to the optimization
--- in @Index0@.
 foldl'0 :: ADModeAndNum d r
         => (ADVal d r -> ADVal d r -> ADVal d r)
         -> ADVal d r -> ADVal d (Vector r)
@@ -253,9 +248,7 @@ softMax :: ADModeAndNum d r
         => Data.Vector.Vector (ADVal d r)
         -> Data.Vector.Vector (ADVal d r)
 softMax us =
-  let -- This has to be let-bound, because it's used two times below
-      -- and we want it shared and cse may or may not be turned on.
-      expUs = V.map exp us
+  let expUs = V.map exp us  -- used twice below, so named, to enable sharing
       sumExpUs = sumElementsVectorOfDual expUs
   in V.map (\r -> r * recip sumExpUs) expUs
 
@@ -278,7 +271,7 @@ lossCrossEntropyV targ res = negate $ log res <.>!! targ
 
 -- Note that this is equivalent to a composition of softMax and cross entropy
 -- only when @target@ is one-hot. Otherwise, results vary wildly. In our
--- rendering of the MNIST data all labels are on-hot.
+-- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyV
   :: ADModeAndNum d r
   => Vector r -> ADVal d (Vector r) -> ADVal d r
@@ -325,8 +318,7 @@ sumColumns1 :: ADModeAndNum d r
 sumColumns1 (D u u') = D (V.fromList $ map HM.sumElements $ HM.toColumns u)
                          (dSumColumns1 u' (HM.rows u))
 
--- If @v'@ is a @Input1@, this is much faster due to the optimization
--- in @Index0@. The detour through a boxed vector (list probably fuses away)
+-- The detour through a boxed vector (list probably fuses away)
 -- is costly, but only matters if @f@ is cheap.
 map1 :: ADModeAndNum d r
      => (ADVal d r -> ADVal d r) -> ADVal d (Vector r)
@@ -661,9 +653,8 @@ ravelFromListX ld =
 unravelToListX :: ADModeAndNum d r
                => ADVal d (OT.Array r) -> [ADVal d (OT.Array r)]
 unravelToListX (D v v') = case OT.shapeL v of
-  k : _ ->
-    let g ix p = D p (dIndexX v' ix k)
-    in imap g $ OTB.toList $ OT.unravel v
+  k : _ -> let g ix p = D p (dIndexX v' ix k)
+           in imap g $ OTB.toList $ OT.unravel v
   [] -> error "unravelToListX: wrong tensor dimensions"  -- catch early
 
 mapX :: ADModeAndNum d r
@@ -714,8 +705,8 @@ appendS (D u u') (D v v') = D (u `OS.append` v) (dAppendS u' v')
 
 -- The API of this modules should not have proxies (but StaticNat instead).
 -- However, lower level APIs are fine with Proxies. Not using StaticNat
--- there may even prevent mixing up high and mid or low APIs.
--- Or accessing low level APIs directly instead of via high level.
+-- there may even prevent mixing up high and mid or low APIs
+-- and accessing low level APIs directly instead of via higher levels.
 sliceS :: forall i n k rest d r.
           (KnownNat i, KnownNat n, KnownNat k, ADModeAndNum d r, OS.Shape rest)
        => ADVal d (OS.Array (i + n + k ': rest) r)
@@ -756,7 +747,8 @@ mapS :: forall k sh1 sh d r.
 mapS f = ravelFromListS . map f . unravelToListS
 
 zipWithS :: forall k sh1 sh2 sh d r.
-            ( KnownNat k, ADModeAndNum d r, OS.Shape sh, OS.Shape sh1, OS.Shape sh2)
+            ( ADModeAndNum d r
+            , KnownNat k, OS.Shape sh, OS.Shape sh1, OS.Shape sh2 )
          => (ADVal d (OS.Array sh1 r) -> ADVal d (OS.Array sh2 r)
              -> ADVal d (OS.Array sh r))
          -> ADVal d (OS.Array (k : sh1) r)
@@ -822,7 +814,7 @@ conv2S :: forall d r kheight_minus_1 kwidth_minus_1 in_height in_width.
        => ADVal d (OS.Array '[kheight_minus_1 + 1, kwidth_minus_1 + 1] r)
        -> ADVal d (OS.Array '[in_height, in_width] r)
        -> ADVal d (OS.Array '[ in_height + kheight_minus_1
-                                 , in_width + kwidth_minus_1 ] r)
+                             , in_width + kwidth_minus_1 ] r)
 conv2S ker x = from2S $ conv2' (fromS2 ker) (fromS2 x)
 
 -- Convolution of many matrices at once. Some of the names of dimensions
@@ -834,32 +826,32 @@ conv24 :: forall kheight_minus_1 kwidth_minus_1
           , KnownNat batch_size, KnownNat in_channels
           , ADModeAndNum d r )
        => ADVal d (OS.Array '[ out_channels, in_channels
-                                 , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
+                             , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
        -> ADVal d (OS.Array '[ batch_size, in_channels
-                                  , in_height, in_width ] r)
+                             , in_height, in_width ] r)
        -> ADVal d (OS.Array '[ batch_size, out_channels
-                                 , in_height + kheight_minus_1
-                                 , in_width + kwidth_minus_1 ] r)
+                             , in_height + kheight_minus_1
+                             , in_width + kwidth_minus_1 ] r)
 conv24 ker = mapS conv23 where
   conv23 :: ADVal d (OS.Array '[in_channels, in_height, in_width] r)
          -> ADVal d (OS.Array '[ out_channels
-                                   , in_height + kheight_minus_1
-                                   , in_width + kwidth_minus_1 ] r)
+                               , in_height + kheight_minus_1
+                               , in_width + kwidth_minus_1 ] r)
   conv23 x = mapS (convFilters x) ker
   convFilters
     :: ADVal d (OS.Array '[in_channels, in_height, in_width] r)
     -> ADVal d (OS.Array '[ in_channels
-                              , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
+                          , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
     -> ADVal d (OS.Array '[ in_height + kheight_minus_1
-                              , in_width + kwidth_minus_1 ] r)
+                          , in_width + kwidth_minus_1 ] r)
   convFilters x ker1 = sumOutermost $ zipWithS conv2S ker1 x
   sumOutermost :: ADVal d (OS.Array '[ in_channels
-                                         , in_height + kheight_minus_1
-                                         , in_width + kwidth_minus_1 ] r)
+                                     , in_height + kheight_minus_1
+                                     , in_width + kwidth_minus_1 ] r)
                -> ADVal d (OS.Array '[ in_height + kheight_minus_1
-                                         , in_width + kwidth_minus_1 ] r)
+                                     , in_width + kwidth_minus_1 ] r)
   sumOutermost = sum . unravelToListS
-    -- slow; should go through Tensor2, or the Num instance should when possible
+    -- slow; should go through Tensor2, or the Num instance when possible
 
 -- No proxies or anything similar needed here, but we may introduce StaticNat
 -- regardless, if the implicitly passed tensor sizes become confusing
