@@ -185,16 +185,10 @@ assertCloseElem preface expected actual = do
     go_assert eqEps (h:t) =
       if abs (h-actual) < fromRational eqEps then assertEqualUpToEps msg (fromRational eqEps) h actual else go_assert eqEps t
 
-assert_close :: (AssertEqualUpToEpsilon z a)
-      => a -- ^ The expected value
-      -> a -- ^ The actual value
-      -> Assertion
-assert_close expected actual = do
-  eqEpsilon <- readIORef eqEpsilonRef
-  assertEqualUpToEpsilon (fromRational eqEpsilon) expected actual
-
 (@?~) :: (AssertEqualUpToEpsilon z a)
       => a -- ^ The actual value
       -> a -- ^ The expected value
       -> Assertion
-(@?~) = flip assert_close
+(@?~) actual expected = do
+  eqEpsilon <- readIORef eqEpsilonRef
+  assertEqualUpToEpsilon (fromRational eqEpsilon) expected actual
