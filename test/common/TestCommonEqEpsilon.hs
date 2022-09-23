@@ -115,34 +115,34 @@ class (Fractional z) => AssertEqualUpToEpsilon z a | a -> z where
                          -> a -- ^ The actual value
                          -> Assertion
 
-instance {-# OVERLAPPABLE #-} AssertEqualUpToEpsilon Double Double where
+instance AssertEqualUpToEpsilon Double Double where
   assertEqualUpToEpsilon :: Double -> Double -> Double -> Assertion
   assertEqualUpToEpsilon = assert_close_eps ""
 
-instance {-# OVERLAPPABLE #-} AssertEqualUpToEpsilon Float Float where
+instance AssertEqualUpToEpsilon Float Float where
   assertEqualUpToEpsilon :: Float -> Float -> Float -> Assertion
   assertEqualUpToEpsilon = assert_close_eps ""
 
-instance {-# OVERLAPPABLE #-} (AssertEqualUpToEpsilon z a,
-                               AssertEqualUpToEpsilon z b) => AssertEqualUpToEpsilon z (a,b) where
+instance (AssertEqualUpToEpsilon z a,
+          AssertEqualUpToEpsilon z b) => AssertEqualUpToEpsilon z (a,b) where
   assertEqualUpToEpsilon :: z -> (a,b) -> (a,b) -> Assertion
   assertEqualUpToEpsilon eqEpsilon (e1,e2) (a1,a2) =
     assertEqualUpToEpsilon eqEpsilon e1 a1 >>
     assertEqualUpToEpsilon eqEpsilon e2 a2
 
-instance {-# OVERLAPPABLE #-} (AssertEqualUpToEpsilon z a,
-                               AssertEqualUpToEpsilon z b,
-                               AssertEqualUpToEpsilon z c) => AssertEqualUpToEpsilon z (a,b,c) where
+instance (AssertEqualUpToEpsilon z a,
+          AssertEqualUpToEpsilon z b,
+          AssertEqualUpToEpsilon z c) => AssertEqualUpToEpsilon z (a,b,c) where
   assertEqualUpToEpsilon :: z -> (a,b,c) -> (a,b,c) -> Assertion
   assertEqualUpToEpsilon eqEpsilon (e1,e2,e3) (a1,a2,a3) =
     assertEqualUpToEpsilon eqEpsilon e1 a1 >>
     assertEqualUpToEpsilon eqEpsilon e2 a2 >>
     assertEqualUpToEpsilon eqEpsilon e3 a3
 
-instance {-# OVERLAPPABLE #-} (AssertEqualUpToEpsilon z a,
-                               AssertEqualUpToEpsilon z b,
-                               AssertEqualUpToEpsilon z c,
-                               AssertEqualUpToEpsilon z d) => AssertEqualUpToEpsilon z (a,b,c,d) where
+instance (AssertEqualUpToEpsilon z a,
+          AssertEqualUpToEpsilon z b,
+          AssertEqualUpToEpsilon z c,
+          AssertEqualUpToEpsilon z d) => AssertEqualUpToEpsilon z (a,b,c,d) where
   assertEqualUpToEpsilon :: z -> (a,b,c,d) -> (a,b,c,d) -> Assertion
   assertEqualUpToEpsilon eqEpsilon (e1,e2,e3,e4) (a1,a2,a3,a4) =
     assertEqualUpToEpsilon eqEpsilon e1 a1 >>
@@ -150,17 +150,17 @@ instance {-# OVERLAPPABLE #-} (AssertEqualUpToEpsilon z a,
     assertEqualUpToEpsilon eqEpsilon e3 a3 >>
     assertEqualUpToEpsilon eqEpsilon e4 a4
 
-instance {-# OVERLAPPABLE #-} (Traversable t, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (t a) where
+instance (Traversable t, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (t a) where
   assertEqualUpToEpsilon :: z -> t a -> t a -> Assertion
   assertEqualUpToEpsilon eqEpsilon expected actual =
     assert_list (assertEqualUpToEpsilon eqEpsilon) (as_list expected) (as_list actual)
 
-instance {-# OVERLAPPABLE #-} (VS.Storable a, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (VS.Vector a) where
+instance (VS.Storable a, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (VS.Vector a) where
   assertEqualUpToEpsilon :: z -> VS.Vector a -> VS.Vector a -> Assertion
   assertEqualUpToEpsilon eqEpsilon expected actual =
     assert_list (assertEqualUpToEpsilon eqEpsilon) (VG.toList expected) (VG.toList actual)
 
-instance {-# OVERLAPPABLE #-} (VS.Storable a, OS.Shape sh1, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (OS.Array sh1 a) where
+instance (VS.Storable a, OS.Shape sh1, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (OS.Array sh1 a) where
   assertEqualUpToEpsilon :: z -> OS.Array sh1 a -> OS.Array sh1 a -> Assertion
   assertEqualUpToEpsilon eqEpsilon = assert_shape (assertEqualUpToEpsilon eqEpsilon)
 
