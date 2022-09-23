@@ -1,4 +1,5 @@
-{-# LANGUAGE FlexibleInstances, GeneralizedNewtypeDeriving, MultiParamTypeClasses,
+{-# LANGUAGE FlexibleInstances, FunctionalDependencies, GeneralizedNewtypeDeriving,
+             QuantifiedConstraints,
              UndecidableInstances #-}
 module TestCommonEqEpsilon (EqEpsilon, setEpsilonEq,
                             assertEqualUpToEpsilon,
@@ -108,14 +109,18 @@ assertEqualUpToEps preface eqEpsilon expected actual = do
 -- AssertEqualUpToEpsilon class
 ----------------------------------------------------------------------------
 
-class AssertEqualUpToEpsilon z a where
+class (Fractional z) => AssertEqualUpToEpsilon z a | a -> z where
   assertEqualUpToEpsilon :: z -- ^ The error margin (i.e., the epsilon)
                          -> a -- ^ The expected value
                          -> a -- ^ The actual value
                          -> Assertion
 
-instance {-# OVERLAPPABLE #-} (Num a, Ord a, Show a) => AssertEqualUpToEpsilon a a where
-  assertEqualUpToEpsilon :: a -> a -> a -> Assertion
+instance {-# OVERLAPPABLE #-} AssertEqualUpToEpsilon Double Double where
+  assertEqualUpToEpsilon :: Double -> Double -> Double -> Assertion
+  assertEqualUpToEpsilon = assertEqualUpToEps ""
+
+instance {-# OVERLAPPABLE #-} AssertEqualUpToEpsilon Float Float where
+  assertEqualUpToEpsilon :: Float -> Float -> Float -> Assertion
   assertEqualUpToEpsilon = assertEqualUpToEps ""
 
 instance {-# OVERLAPPABLE #-} (AssertEqualUpToEpsilon z a,
@@ -195,52 +200,16 @@ assertCloseElem preface expected actual = do
     go_assert eqEps (h:t) =
       if abs (h-actual) < fromRational eqEps then assertClose msg h actual else go_assert eqEps t
 
--- | Asserts that the specified actual floating point value list is close to the expected value.
-assertCloseList :: (AssertClose a)
-                => [a]      -- ^ The expected value
-                -> [a]      -- ^ The actual value
-                -> Assertion
-assertCloseList = assert_list (flip (@?~))
+assert_close :: (AssertEqualUpToEpsilon z a)
+      => a -- ^ The expected value
+      -> a -- ^ The actual value
+      -> Assertion
+assert_close expected actual = do
+  eqEpsilon <- readIORef eqEpsilonRef
+  assertEqualUpToEpsilon (fromRational eqEpsilon) expected actual
 
-----------------------------------------------------------------------------
--- AssertClose class together with (@?~) operator
-----------------------------------------------------------------------------
-
--- | Things that can be asserted to be "approximately equal" to each other. The
---   contract for this relation is that it must be reflexive and symmetrical,
---   but not necessarily transitive.
-class AssertClose a where
-  -- | Makes an assertion that the actual value is close to the expected value.
-  (@?~) :: a -- ^ The actual value
-        -> a -- ^ The expected value
-        -> Assertion
-
-instance {-# OVERLAPPABLE #-} (Fractional a, Ord a, Show a) => AssertClose a where
-  (@?~) :: a -> a -> Assertion
-  (@?~) actual expected =
-    assertClose "" expected actual
-
-instance (AssertClose a) => AssertClose (a,a) where
-  (@?~) :: (a,a) -> (a,a) -> Assertion
-  (@?~) actual expected =
-    (@?~) (fst actual) (fst expected) >> (@?~) (snd actual) (snd expected)
-
-instance {-# OVERLAPPABLE #-} (Traversable t, AssertClose a) => AssertClose (t a) where
-  (@?~) :: t a -> t a -> Assertion
-  (@?~) actual expected =
-    assertCloseList (asList expected) (asList actual)
-
-instance {-# OVERLAPPABLE #-} (Traversable t, AssertClose a) => AssertClose (t a, a) where
-  (@?~) :: (t a, a) -> (t a, a) -> Assertion
-  (@?~) (actual_xs, actual_x) (expected_xs, expected_x) =
-    (@?~) actual_x expected_x >> assertCloseList (asList expected_xs) (asList actual_xs)
-
-instance {-# OVERLAPPABLE #-} (VS.Storable a, AssertClose a) => AssertClose (VS.Vector a) where
-  (@?~) :: VS.Vector a -> VS.Vector a -> Assertion
-  (@?~) actual_xs expected_xs = assertCloseList (VG.toList expected_xs) (VG.toList actual_xs)
-
--- TODO; make an instance for pairs instead
-instance (VS.Storable a, AssertClose a) => AssertClose (VS.Vector a, a) where
-  (@?~) :: (VS.Vector a, a) -> (VS.Vector a, a) -> Assertion
-  (@?~) (actual_xs, actual_x) (expected_xs, expected_x) =
-    (@?~) actual_x expected_x >> assertCloseList (VG.toList expected_xs) (VG.toList actual_xs)
+(@?~) :: (AssertEqualUpToEpsilon z a)
+      => a -- ^ The actual value
+      -> a -- ^ The expected value
+      -> Assertion
+(@?~) = flip assert_close
