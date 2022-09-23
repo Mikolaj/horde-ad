@@ -80,8 +80,8 @@ assert_shape make_assert expected actual =
     shapeA = OS.shapeL actual
 
 -- | Foldable to list.
-asList :: Foldable t => t a -> [a]
-asList = foldr (:) []
+as_list :: Foldable t => t a -> [a]
+as_list = foldr (:) []
 
 ----------------------------------------------------------------------------
 -- Generic comparisons with explicit error margin
@@ -153,7 +153,7 @@ instance {-# OVERLAPPABLE #-} (AssertEqualUpToEpsilon z a,
 instance {-# OVERLAPPABLE #-} (Traversable t, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (t a) where
   assertEqualUpToEpsilon :: z -> t a -> t a -> Assertion
   assertEqualUpToEpsilon eqEpsilon expected actual =
-    assert_list (assertEqualUpToEpsilon eqEpsilon) (asList expected) (asList actual)
+    assert_list (assertEqualUpToEpsilon eqEpsilon) (as_list expected) (as_list actual)
 
 instance {-# OVERLAPPABLE #-} (VS.Storable a, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (VS.Vector a) where
   assertEqualUpToEpsilon :: z -> VS.Vector a -> VS.Vector a -> Assertion
