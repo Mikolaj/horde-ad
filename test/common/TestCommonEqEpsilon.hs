@@ -93,13 +93,13 @@ as_list = foldr (:) []
 --
 -- If the prefix is the empty string (i.e., @\"\"@), then the prefix is omitted
 -- and only the expected and actual values are output.
-assertEqualUpToEps :: (Num a, Ord a, Show a, HasCallStack)
+assert_close_eps :: (Num a, Ord a, Show a, HasCallStack)
                    => String -- ^ The message prefix
                    -> a      -- ^ The error margin
                    -> a      -- ^ The expected value
                    -> a      -- ^ The actual value
                    -> Assertion
-assertEqualUpToEps preface eqEpsilon expected actual = do
+assert_close_eps preface eqEpsilon expected actual = do
   assertBool (msg eqEpsilon) (abs (expected-actual) < eqEpsilon)
   where msg errorMargin = (if null preface then "" else preface ++ "\n") ++
                            "expected: " ++ show expected ++ "\n but got: " ++ show actual ++
@@ -117,11 +117,11 @@ class (Fractional z) => AssertEqualUpToEpsilon z a | a -> z where
 
 instance {-# OVERLAPPABLE #-} AssertEqualUpToEpsilon Double Double where
   assertEqualUpToEpsilon :: Double -> Double -> Double -> Assertion
-  assertEqualUpToEpsilon = assertEqualUpToEps ""
+  assertEqualUpToEpsilon = assert_close_eps ""
 
 instance {-# OVERLAPPABLE #-} AssertEqualUpToEpsilon Float Float where
   assertEqualUpToEpsilon :: Float -> Float -> Float -> Assertion
-  assertEqualUpToEpsilon = assertEqualUpToEps ""
+  assertEqualUpToEpsilon = assert_close_eps ""
 
 instance {-# OVERLAPPABLE #-} (AssertEqualUpToEpsilon z a,
                                AssertEqualUpToEpsilon z b) => AssertEqualUpToEpsilon z (a,b) where
@@ -183,7 +183,7 @@ assertCloseElem preface expected actual = do
     go_assert :: Rational -> [a] -> Assertion
     go_assert _ [] = assertFailure msg
     go_assert eqEps (h:t) =
-      if abs (h-actual) < fromRational eqEps then assertEqualUpToEps msg (fromRational eqEps) h actual else go_assert eqEps t
+      if abs (h-actual) < fromRational eqEps then assert_close_eps msg (fromRational eqEps) h actual else go_assert eqEps t
 
 (@?~) :: (AssertEqualUpToEpsilon z a)
       => a -- ^ The actual value
