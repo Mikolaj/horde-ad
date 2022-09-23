@@ -8,6 +8,7 @@ module TestCommonEqEpsilon (EqEpsilon, setEpsilonEq,
 import Data.Typeable
 import Prelude
 
+import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.ShapedS as OS
 import           Data.IORef
 import qualified Data.Vector.Generic as VG
@@ -160,6 +161,11 @@ instance (VS.Storable a, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z
   assertEqualUpToEpsilon :: z -> VS.Vector a -> VS.Vector a -> Assertion
   assertEqualUpToEpsilon eqEpsilon expected actual =
     assert_list (assertEqualUpToEpsilon eqEpsilon) (VG.toList expected) (VG.toList actual)
+
+instance (VS.Storable a, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (OT.Array a) where
+  assertEqualUpToEpsilon :: z -> OT.Array a -> OT.Array a -> Assertion
+  assertEqualUpToEpsilon eqEpsilon expected actual =
+    assert_list (assertEqualUpToEpsilon eqEpsilon) (OT.toList expected) (OT.toList actual)
 
 instance (VS.Storable a, LA.Element a, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (LA.Matrix a) where
   assertEqualUpToEpsilon :: z -> LA.Matrix a -> LA.Matrix a -> Assertion
