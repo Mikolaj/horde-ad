@@ -168,21 +168,6 @@ instance {-# OVERLAPPABLE #-} (VS.Storable a, OS.Shape sh1, AssertEqualUpToEpsil
 -- Generic comparisons without explicit error margin
 ----------------------------------------------------------------------------
 
--- | Asserts that the specified actual floating point value is close to the expected value.
--- The output message will contain the prefix, the expected value, and the
--- actual value.
---
--- If the prefix is the empty string (i.e., @\"\"@), then the prefix is omitted
--- and only the expected and actual values are output.
-assertClose :: (Fractional a, Ord a, Show a, HasCallStack)
-            => String -- ^ The message prefix
-            -> a      -- ^ The expected value
-            -> a      -- ^ The actual value
-            -> Assertion
-assertClose preface expected actual = do
-  eqEpsilon <- readIORef eqEpsilonRef
-  assertEqualUpToEps preface (fromRational eqEpsilon) expected actual
-
 -- | Asserts that the specified actual floating point value is close to at least one of the expected values.
 assertCloseElem :: forall a. (Fractional a, Ord a, Show a, HasCallStack)
                 => String   -- ^ The message prefix
@@ -198,7 +183,7 @@ assertCloseElem preface expected actual = do
     go_assert :: Rational -> [a] -> Assertion
     go_assert _ [] = assertFailure msg
     go_assert eqEps (h:t) =
-      if abs (h-actual) < fromRational eqEps then assertClose msg h actual else go_assert eqEps t
+      if abs (h-actual) < fromRational eqEps then assertEqualUpToEps msg (fromRational eqEps) h actual else go_assert eqEps t
 
 assert_close :: (AssertEqualUpToEpsilon z a)
       => a -- ^ The expected value
