@@ -164,6 +164,9 @@ type ShapeL = [Int]
 class HasShape a where
   shapeL :: a -> ShapeL
 
+instance (VS.Storable a) => HasShape (VS.Vector a) where
+  shapeL vec = [VS.length vec]
+
 instance HasShape (OT.Array a) where
   shapeL = OT.shapeL
 
@@ -179,6 +182,9 @@ instance HasShape (HM.Matrix a) where
 
 class Linearizable a b | a -> b where
   linearize :: a -> [b]
+
+instance (VS.Storable a) => Linearizable (VS.Vector a) a where
+  linearize = VS.toList
 
 instance (VS.Storable a) => Linearizable (OT.Array a) a where
   linearize = OT.toList
