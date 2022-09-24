@@ -108,7 +108,7 @@ bgroup5e7 allxs =
         , bench "grad_vec_sum" $ nfIO $ grad_vec_sum vec
         ]
 
--- The @foldMDual'@, instead of the standard @foldM'@, is an awkward clutch
+-- The @foldlDual'@, instead of the standard @foldl'@, is an awkward clutch
 -- that can't be avoided without changing the representation of the vector
 -- of dual numbers. The use of a pair of vectors to represent
 -- a vector of dual numbers is an optimization for gradient descent,
@@ -126,7 +126,8 @@ vec_prod ds = valueFun vec_prod_aux (ds, V.empty, V.empty, V.empty)
 
 grad_vec_prod :: HasDelta r => Vector r -> IO (Vector r)
 grad_vec_prod ds =
-  (\(v, _, _, _) -> v) . fst <$> revIO 1 vec_prod_aux (ds, V.empty, V.empty, V.empty)
+  (\(v, _, _, _) -> v) . fst
+  <$> revIO 1 vec_prod_aux (ds, V.empty, V.empty, V.empty)
 
 grad_toList_prod :: HasDelta r => [r] -> IO [r]
 grad_toList_prod l = V.toList <$> grad_vec_prod (V.fromList l)
@@ -155,10 +156,10 @@ grad_vec_scalarSum ds =
 
 grad_vec_sum :: Vector Double -> IO (Vector Double)
 grad_vec_sum ds =
-  (\(_, v, _, _) -> V.head v)
-  . fst <$> revIO 1 sumElementsV (V.empty, V.singleton ds, V.empty, V.empty)
+  (\(_, v, _, _) -> V.head v) . fst
+  <$> revIO 1 sumElementsV (V.empty, V.singleton ds, V.empty, V.empty)
 
 grad_vec_altSum :: Vector Double -> IO (Vector Double)
 grad_vec_altSum ds =
-  (\(_, v, _, _) -> V.head v)
-  . fst <$> revIO 1 altSumElementsV (V.empty, V.singleton ds, V.empty, V.empty)
+  (\(_, v, _, _) -> V.head v) . fst
+  <$> revIO 1 altSumElementsV (V.empty, V.singleton ds, V.empty, V.empty)

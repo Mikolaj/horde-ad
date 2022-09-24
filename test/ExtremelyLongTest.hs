@@ -39,8 +39,9 @@ main = do
 
 tests :: TestTree
 tests = testGroup "Tests" $
+  []
 #if defined(VERSION_ghc_typelits_natnormalise)
-  TestSingleGradient.testTrees
+  ++ TestSingleGradient.testTrees
   ++ TestSimpleDescent.testTrees
   ++ TestMnistFCNN.testTrees
   ++ TestMnistRNN.testTrees

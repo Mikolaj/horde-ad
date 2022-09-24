@@ -14,7 +14,8 @@ import           Test.Tasty
 import           Test.Tasty.Options
 import           Test.Tasty.Runners
 
-import           TestCommonEqEpsilon
+import TestCommonEqEpsilon
+
 #if defined(VERSION_ghc_typelits_natnormalise)
 import qualified TestSimpleDescent
 import qualified TestSingleGradient
