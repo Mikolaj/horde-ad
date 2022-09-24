@@ -23,51 +23,6 @@ import           Numeric.LinearAlgebra.Devel
 
 import HordeAd.Internal.Delta (Domains, isTensorDummy)
 
-{-
-60% of heap allocation in matrix- and vector-based MNIST
-with simple gradient descent (no mini-batches) is performed
-by @updateWithGradient.updateVector@ below
-
-  let updateVector i r = i - HM.scale gamma r
-
-due to allocating once in @scale@ and again in @-@
-(and there seems to be one more allocation judging by the numbers).
-Something like the following code would be needed to eliminate
-one allocation, but it would requre the hmatrix maintainer to expose
-internal modules.
-
-import           Internal.Vectorized
-  ( FunCodeSV (Scale), FunCodeVV (Sub), applyRaw, c_vectorMapValR
-  , c_vectorZipR, createVector )
-
-minusTimesGamma :: Storable r => r -> Vector r -> Vector r -> Vector r
-minusTimesGamma gamma u v = unsafePerformIO $ do
-  r <- createVector (dim0 u)
-  pval <- newArray [gamma]
-  (v `applyRaw` (r `applyRaw` id))
-    (c_vectorMapValR (fromei Scale) pval)
-    #| "minusTimesGamma1"
-  free pval
-  (u `applyRaw` (v `applyRaw` (r `applyRaw` id)))
-    (c_vectorZipR (fromei Sub))
-    #| "minusTimesGamma2"
-  return r
-
-BTW, a version with HM.Devel.zipVectorWith makes
-the test twice slower and allocate twice more
-
-  let updateVector = zipVectorWith (\i r -> i - gamma * r)
-
-and a version with Vector.Storable makes the test thrice slower
-and allocate thrice more
-
-  let updateVector = V.zipWith (\i r -> i - gamma * r)
-
-which is probably a bug in stream fusion which, additionally in this case,
-can't fuse with anything and so can't pay for its overhead.
-
--}
-
 updateWithGradient :: (Numeric r, Floating (Vector r))
                    => r -> Domains r -> Domains r -> Domains r
 updateWithGradient gamma (params0, params1, params2, paramsX)
@@ -91,16 +46,14 @@ updateWithGradient gamma (params0, params1, params2, paramsX)
   in (params0New, params1New, params2New, paramsXNew)
 {-# SPECIALIZE updateWithGradient :: Double -> Domains Double -> Domains Double -> Domains Double #-}
 
-gradientIsNil :: (Eq r, Numeric r)
-              => Domains r -> Bool
+gradientIsNil :: (Eq r, Numeric r) => Domains r -> Bool
 gradientIsNil (gradient0, gradient1, gradient2, gradientX) =
   V.all (== 0) gradient0
   && V.all V.null gradient1
   && V.all (\r -> HM.rows r <= 0) gradient2
   && V.all isTensorDummy gradientX
 
-minimumGradient :: (Ord r, Numeric r)
-                => Domains r -> r
+minimumGradient :: (Ord r, Numeric r) => Domains r -> r
 minimumGradient (gradient0, gradient1, gradient2, gradientX) =
   min (if V.null gradient0 then 0 else HM.minElement gradient0)
       (min (if V.null gradient1 then 0
@@ -110,8 +63,7 @@ minimumGradient (gradient0, gradient1, gradient2, gradientX) =
                 (if V.null gradientX then 0
                  else V.minimum (V.map OT.minimumA gradientX))))
 
-maximumGradient :: (Ord r, Numeric r)
-                => Domains r -> r
+maximumGradient :: (Ord r, Numeric r) => Domains r -> r
 maximumGradient (gradient0, gradient1, gradient2, gradientX) =
   max (if V.null gradient0 then 0 else HM.maxElement gradient0)
       (max (if V.null gradient1 then 0
@@ -205,13 +157,12 @@ liftArray43 :: ( Numeric a, Numeric b, Numeric c, Numeric d
 liftArray43 f m1 m2 m3 m4 =
   let sz = OT.shapeL m1
   in if sz == OT.shapeL m2 && sz == OT.shapeL m3 && sz == OT.shapeL m4
-     then
-       let (vx, vy, vz) = f (OT.toVector m1) (OT.toVector m2)
-                            (OT.toVector m3) (OT.toVector m4)
-       in ( OT.fromVector sz vx
-          , OT.fromVector sz vy
-          , OT.fromVector sz vz
-          )
+     then let (vx, vy, vz) = f (OT.toVector m1) (OT.toVector m2)
+                               (OT.toVector m3) (OT.toVector m4)
+          in ( OT.fromVector sz vx
+             , OT.fromVector sz vy
+             , OT.fromVector sz vz
+             )
      else error
           $ "nonconformant arrays in liftArray43: "
             ++ show (OT.shapeL m1, OT.shapeL m2, OT.shapeL m3, OT.shapeL m4)

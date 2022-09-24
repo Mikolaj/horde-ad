@@ -1,16 +1,19 @@
 {-# LANGUAGE CPP, TypeFamilies #-}
 -- | The "pair of vectors" implementation of vectors of dual numbers.
 -- This is much faster than "vector of pairs" implementation, but terribly
--- hard to use in case of scalar dual numbers, in particular to efficiently
--- construct in @ST@ such pairs of vectors from monadic operations that create
--- vector elements (a bit easier in @IO@, but so far we managed to avoid @IO@).
+-- hard to use in case of rank 0 dual numbers, because they need to be stored
+-- in unboxed vectors, unlike the other ranks. In particular, it's hard
+-- to efficiently construct in @ST@ such pairs of vectors of rank 0 dual
+-- numbers from monadic operations that create individual vector elements
+-- (a bit easier in @IO@, but so far we managed to avoid @IO@).
+--
 -- For this reason, this representation is currently used only to represent
 -- the inputs of functions, that is, dual numbers with initial values
--- of parameters and, in case of dual components that are delta-expressions,
+-- of parameters and, in case of dual components containing delta-expressions,
 -- with @Delta@ inputs assigned to each.
 module HordeAd.Core.PairOfVectors
   ( ADInputs(..)
-  , makeADInputs, at0, atList0, at1, at2, atX, atS
+  , makeADInputs, at0, at1, at2, atX, atS
   , ifoldlDual', foldlDual'
   ) where
 
@@ -56,10 +59,6 @@ makeADInputs (params0, params1, params2, paramsX)
 at0 :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d r
 {-# INLINE at0 #-}
 at0 ADInputs{..} i = D (inputPrimal0 V.! i) (inputDual0 V.! i)
-
--- Unsafe, but handy for toy examples.
-atList0 :: ADModeAndNum d r => ADInputs d r -> [ADVal d r]
-atList0 vec = map (at0 vec) [0 ..]
 
 at1 :: ADInputs d r -> Int -> ADVal d (Vector r)
 {-# INLINE at1 #-}

@@ -14,7 +14,7 @@ module HordeAd.Core.Engine
     revGeneral, fwdGeneral
   , generateDeltaInputs, initializerFixed
   , -- * Internal operations, exposed, e.g., for tests
-    dForwardGeneral, dForward, dForwardFun
+    slowFwdGeneral, slowFwd, slowFwdFun
   , prettyPrintDf
   ) where
 
@@ -35,7 +35,7 @@ import HordeAd.Core.PairOfVectors (ADInputs (..), makeADInputs)
 import HordeAd.Internal.Delta
   (derivativeFromDelta, gradientFromDelta, toInputId)
 
--- * Evaluation that does not collect deltas.
+-- * Evaluation that ignores the dual part of the dual numbers.
 -- It's intended for efficiently calculating the value of the function only.
 
 -- The general case, needed for old hacky tests using only scalars.
@@ -48,12 +48,11 @@ valueGeneral
 {-# INLINE valueGeneral #-}
 valueGeneral f (params0, params1, params2, paramsX) =
   let replicateZeros p = V.replicate (V.length p) dZero
-      inputs = makeADInputs
-                    (params0, params1, params2, paramsX)
-                    ( replicateZeros params0  -- dummy
-                    , replicateZeros params1
-                    , replicateZeros params2
-                    , replicateZeros paramsX )
+      inputs = makeADInputs (params0, params1, params2, paramsX)
+                            ( replicateZeros params0  -- dummy
+                            , replicateZeros params1
+                            , replicateZeros params2
+                            , replicateZeros paramsX )
   in f inputs
 
 valueFun
@@ -68,7 +67,7 @@ valueFun f parameters =
   in v
 
 
--- * The fully-fledged evaluation for gradients.
+-- * Evaluation that computes gradients.
 
 revGeneralFun
   :: forall a r. (HasDelta r, IsPrimalAndHasFeatures 'ADModeGradient a r)
@@ -76,7 +75,7 @@ revGeneralFun
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
   -> ADInputs 'ADModeGradient r
   -> (Domains r, a)
--- The functions in which @revGeneral@ inlines are not inlined themselves
+-- The functions in which @revGeneralFun@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
 {-# INLINE revGeneralFun #-}
 revGeneralFun dt f inputs@ADInputs{..} =
@@ -104,7 +103,7 @@ revGeneral dt f inputs = return $! revGeneralFun dt f inputs
 
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newbies may have trouble understanding it.
--- Also, as of now, @rev@ is restricted to objective functions with scalar
+-- Also, as of now, @revFun@ is restricted to objective functions with scalar
 -- codomains, while VJP is fully general.
 revFun
   :: (HasDelta r, IsPrimalAndHasFeatures 'ADModeGradient a r)
@@ -127,17 +126,17 @@ revIO dt f parameters = return $! revFun dt f parameters
 
 
 -- * The slow evaluation for derivatives that uses the same
--- delta expressions as for gradients. See @fwdGeneral@
--- for an efficient variant.
+-- delta expressions as for gradients. See @fwdFun@
+-- for a fast variant.
 
-dForwardGeneralFun
+slowFwdGeneralFun
   :: forall r. HasDelta r
   => ADInputs 'ADModeGradient r
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> (r, r)
-{-# INLINE dForwardGeneralFun #-}
-dForwardGeneralFun inputs@ADInputs{..} f ds =
+{-# INLINE slowFwdGeneralFun #-}
+slowFwdGeneralFun inputs@ADInputs{..} f ds =
   let dim0 = V.length inputPrimal0
       dim1 = V.length inputPrimal1
       dim2 = V.length inputPrimal2
@@ -146,37 +145,37 @@ dForwardGeneralFun inputs@ADInputs{..} f ds =
   in let derivative = derivativeFromDelta dim0 dim1 dim2 dimX deltaTopLevel ds
      in (derivative, v)
 
-dForwardGeneral
+slowFwdGeneral
   :: forall r. HasDelta r
   => ADInputs 'ADModeGradient r
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> IO (r, r)
-{-# INLINE dForwardGeneral #-}
-dForwardGeneral inputs f ds = return $! dForwardGeneralFun inputs f ds
+{-# INLINE slowFwdGeneral #-}
+slowFwdGeneral inputs f ds = return $! slowFwdGeneralFun inputs f ds
 
 -- The direction vector ds is taken as an extra argument.
-dForwardFun
+slowFwdFun
   :: HasDelta r
   => Domains r
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> (r, r)
-dForwardFun parameters f ds =
+slowFwdFun parameters f ds =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
-  in dForwardGeneralFun inputs f ds
+  in slowFwdGeneralFun inputs f ds
 
-dForward
+slowFwd
   :: HasDelta r
   => Domains r
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> IO (r, r)
-dForward parameters f ds = return $! dForwardFun parameters f ds
+slowFwd parameters f ds = return $! slowFwdFun parameters f ds
 
 
--- * The evaluation for efficiently computing forward derivatives.
+-- * Evaluation for efficiently computing forward derivatives.
 
 fwdGeneral
   :: Dual 'ADModeDerivative a ~ a
@@ -227,9 +226,9 @@ generateDeltaInputs
      , Data.Vector.Vector (Dual 'ADModeGradient (Matrix r))
      , Data.Vector.Vector (Dual 'ADModeGradient (OT.Array r)) )
 generateDeltaInputs (params0, params1, params2, paramsX) =
-  let intToInput
-        :: forall a v. (IsPrimalAndHasFeatures 'ADModeGradient a r, V.Vector v a)
-        => v a -> Data.Vector.Vector (Dual 'ADModeGradient a)
+  let intToInput :: forall a v.
+                    (IsPrimalAndHasFeatures 'ADModeGradient a r, V.Vector v a)
+                 => v a -> Data.Vector.Vector (Dual 'ADModeGradient a)
       intToInput p = V.generate (V.length p) (dInput . toInputId)
       !v0 = intToInput params0
       !v1 = intToInput params1
@@ -267,13 +266,13 @@ initializerFixed seed range (nParams0, lParams1, lParams2, lParamsX) =
         V.imap (\i nPV -> createRandomVector nPV (seed + nPV + i)) vParams1
       params2Init =
         V.imap (\i (rows, cols) ->
-                 HM.reshape cols
-                 $ createRandomVector (rows * cols) (seed + rows + i)) vParams2
+                  HM.reshape cols
+                  $ createRandomVector (rows * cols) (seed + rows + i)) vParams2
       paramsXInit =
         V.imap (\i sh ->
-                 let sz = product sh
-                 in OT.fromVector sh
-                    $ createRandomVector sz (seed + sz + i)) vParamsX
+                  let sz = product sh
+                  in OT.fromVector sh
+                     $ createRandomVector sz (seed + sz + i)) vParamsX
       totalParams = nParams0
                     + V.sum vParams1
                     + V.sum (V.map (uncurry (*)) vParams2)

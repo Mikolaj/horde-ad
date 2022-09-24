@@ -25,7 +25,7 @@ import HordeAd.Core.PairOfVectors (ADInputs, makeADInputs)
 -- Philip Torr.
 --
 -- Note that we can't generalize this to use either
--- @dForwardGeneral@ or @revGeneral@, because the optimized call
+-- @slowFwdGeneral@ or @revGeneral@, because the optimized call
 -- to @updateWithGradient@ below would not be possible with the common API
 -- for obtaining gradients and at least twice more allocations would
 -- be done there. With small mini-batch sizes this matters,
@@ -41,8 +41,7 @@ sgdBatchForward
      Int
   -> Int  -- ^ batch size
   -> Double  -- ^ gamma (learning_rate?)
-  -> (a -> ADInputs 'ADModeGradient Double
-      -> ADVal 'ADModeGradient Double)
+  -> (a -> ADInputs 'ADModeGradient Double -> ADVal 'ADModeGradient Double)
   -> [a]  -- ^ training data
   -> Domains Double  -- ^ initial parameters
   -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
@@ -69,7 +68,7 @@ sgdBatchForward seed0 batchSize gamma f trainingData parameters0 nParameters =
         (_, _, _, direction) = initializerFixed g1 unitVarianceRange nParameters
         inputs = makeADInputs parameters deltaInputs
     (directionalDerivative, valueNew) <-
-      dForwardGeneral inputs fBatch direction
+      slowFwdGeneral inputs fBatch direction
     let gammaDirectional = gamma * directionalDerivative
         parametersNew = updateWithGradient gammaDirectional parameters direction
     go g2 rest parametersNew valueNew
@@ -80,8 +79,7 @@ sgdBatchFastForward
      Int
   -> Int  -- ^ batch size
   -> Double  -- ^ gamma (learning_rate?)
-  -> (a -> ADInputs 'ADModeDerivative Double
-      -> ADVal 'ADModeDerivative Double)
+  -> (a -> ADInputs 'ADModeDerivative Double -> ADVal 'ADModeDerivative Double)
   -> [a]  -- ^ training data
   -> Domains Double  -- ^ initial parameters
   -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
@@ -95,7 +93,8 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
   go seed l parameters@(params0, params1, params2, paramsX) _ =
     let (batch, rest) = splitAt batchSize l
         fAdd :: ADInputs 'ADModeDerivative Double
-             -> ADVal 'ADModeDerivative Double -> a
+             -> ADVal 'ADModeDerivative Double
+             -> a
              -> ADVal 'ADModeDerivative Double
         fAdd vars !acc a = acc + f a vars
         fBatch :: ADInputs 'ADModeDerivative Double
@@ -189,7 +188,8 @@ gdSmart f n0 parameters0 = do
            | valueCur > valuePrev ->
                go n parameters (gamma / 2) gradientsPrev valuePrev 0
                  -- overshot
-           | i == 10 -> go (pred n) parametersNew (gamma * 2) gradients valueCur 0
+           | i == 10 ->
+               go (pred n) parametersNew (gamma * 2) gradients valueCur 0
            | otherwise ->
                go (pred n) parametersNew gamma gradients valueCur (i + 1)
   go n0 parameters0 0.1 gradients0 value0 0

@@ -99,7 +99,7 @@ qcPropDom f args ds perturbation dt = do
       (derivativeAtPerturbation, valueAtPerturbation) =
         fwdFun args f perturbation
   (gradient, revValue) <- revIO dt f args
-  res <- dForward args f ds
+  res <- slowFwd args f ds
   return $!
     -- Two forward derivative implementations agree fully:
     res === ff

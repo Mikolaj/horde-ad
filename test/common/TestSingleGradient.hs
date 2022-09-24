@@ -245,11 +245,11 @@ testPrintDf = testGroup "Pretty printing test" $
 
 testDForward :: TestTree
 testDForward =
- testGroup "Simple dForward application tests" $
+ testGroup "Simple slowFwd application tests" $
   map (\(txt, f, v, expected) ->
         let vp = listsToParameters v
         in testCase txt $ do
-          res <- dForward vp f vp
+          res <- slowFwd vp f vp
           res @?~ expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
     , ( "atanOldReadme", atanOldReadme, ([1.1, 2.2, 3.3], [])
@@ -303,7 +303,7 @@ atanOldReadmeInputs
   :: ADModeAndNum d r
   => ADInputs d r -> Data.Vector.Vector (ADVal d r)
 atanOldReadmeInputs inputs =
-  case atList0 inputs of
+  case map (at0 inputs) [0 ..] of
     x : y : z : _ -> atanOldReadmeOriginal x y z
     _ -> error "atanOldReadmeInputs"
 
@@ -682,7 +682,7 @@ instance ADModeAndNum d r
          => AdaptableInputs d r ( ADVal d r
                                 , ADVal d r
                                 , ADVal d r ) where
-  fromADInputs inputs = case atList0 inputs of
+  fromADInputs inputs = case map (at0 inputs) [0 ..] of
     r1 : r2 : r3 : _ -> (r1, r2, r3)
     _ -> error "fromADInputs in Adaptable r (r, r, r)"
 
@@ -697,7 +697,7 @@ instance Numeric r => AdaptableDomains r [r] where
 
 instance ADModeAndNum d r
          => AdaptableInputs d r [ADVal d r] where
-  fromADInputs inputs = case atList0 inputs of
+  fromADInputs inputs = case map (at0 inputs) [0 ..] of
     r1 : r2 : r3 : _ -> [r1, r2, r3]
     _ -> error "fromADInputs in Adaptable r [r]"
 

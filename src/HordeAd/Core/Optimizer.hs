@@ -19,8 +19,7 @@ import HordeAd.Core.PairOfVectors (ADInputs, makeADInputs)
 -- | Simple Gradient Descent.
 gdSimple :: forall r. HasDelta r
          => r
-         -> (ADInputs 'ADModeGradient r
-             -> ADVal 'ADModeGradient r)
+         -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
          -> Int  -- ^ requested number of iterations
          -> Domains r  -- ^ initial parameters
          -> IO (Domains r)
@@ -41,8 +40,7 @@ gdSimple gamma f n0 parameters0 = go n0 parameters0 where
 -- | Stochastic Gradient Descent.
 sgd :: forall r a. HasDelta r
     => r
-    -> (a -> ADInputs 'ADModeGradient r
-        -> ADVal 'ADModeGradient r)
+    -> (a -> ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
     -> [a]  -- ^ training data
     -> Domains r  -- ^ initial parameters
     -> IO (Domains r, r)
@@ -59,14 +57,15 @@ sgd gamma f trainingData parameters0 = go trainingData parameters0 where
     else go rest parametersNew
 {-# SPECIALIZE sgd
   :: Double
-  -> ((Vector Double, Vector Double) -> ADInputs 'ADModeGradient Double -> ADVal 'ADModeGradient Double)
+  -> ((Vector Double, Vector Double)
+      -> ADInputs 'ADModeGradient Double
+      -> ADVal 'ADModeGradient Double)
   -> [(Vector Double, Vector Double)]
   -> Domains Double
   -> IO (Domains Double, Double) #-}
 
 sgdAdam :: forall r a. HasDelta r
-        => (a -> ADInputs 'ADModeGradient r
-            -> ADVal 'ADModeGradient r)
+        => (a -> ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
         -> [a]
         -> Domains r
         -> StateAdam r
@@ -75,8 +74,7 @@ sgdAdam = sgdAdamArgs defaultArgsAdam
 
 sgdAdamArgs :: forall r a. HasDelta r
             => ArgsAdam r
-            -> (a -> ADInputs 'ADModeGradient r
-                -> ADVal 'ADModeGradient r)
+            -> (a -> ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
             -> [a]
             -> Domains r
             -> StateAdam r
