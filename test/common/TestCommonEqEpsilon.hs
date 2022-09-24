@@ -151,7 +151,7 @@ instance (AssertEqualUpToEpsilon z a,
     assertEqualUpToEpsilon eqEpsilon e3 a3 >>
     assertEqualUpToEpsilon eqEpsilon e4 a4
 
-instance {-# OVERLAPPABLE #-} (Traversable t, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (t a) where
+instance {-# OVERLAPPABLE #-} (Foldable t, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (t a) where
   assertEqualUpToEpsilon :: z -> t a -> t a -> Assertion
   assertEqualUpToEpsilon eqEpsilon expected actual =
     assert_list (assertEqualUpToEpsilon eqEpsilon) (as_list expected) (as_list actual)
