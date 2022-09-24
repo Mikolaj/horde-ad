@@ -151,21 +151,20 @@ instance (AssertEqualUpToEpsilon z a,
     assertEqualUpToEpsilon eqEpsilon e3 a3 >>
     assertEqualUpToEpsilon eqEpsilon e4 a4
 
-instance (Traversable t, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (t a) where
+instance {-# OVERLAPPABLE #-} (Traversable t, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (t a) where
   assertEqualUpToEpsilon :: z -> t a -> t a -> Assertion
   assertEqualUpToEpsilon eqEpsilon expected actual =
     assert_list (assertEqualUpToEpsilon eqEpsilon) (as_list expected) (as_list actual)
 
 instance (VS.Storable a, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (VS.Vector a) where
   assertEqualUpToEpsilon :: z -> VS.Vector a -> VS.Vector a -> Assertion
-  assertEqualUpToEpsilon eqEpsilon expected actual =
-    assert_list (assertEqualUpToEpsilon eqEpsilon) (VS.toList expected) (VS.toList actual)
+  assertEqualUpToEpsilon eqEpsilon = assert_shape (assertEqualUpToEpsilon eqEpsilon)
 
 instance (VS.Storable a, OS.Shape sh1, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (OS.Array sh1 a) where
   assertEqualUpToEpsilon :: z -> OS.Array sh1 a -> OS.Array sh1 a -> Assertion
   assertEqualUpToEpsilon eqEpsilon = assert_shape (assertEqualUpToEpsilon eqEpsilon)
 
-instance (Fractional z, HasShape a, Linearizable a b, AssertEqualUpToEpsilon z b) => AssertEqualUpToEpsilon z a where
+instance {-# OVERLAPPABLE #-} (Fractional z, HasShape a, Linearizable a b, AssertEqualUpToEpsilon z b) => AssertEqualUpToEpsilon z a where
   assertEqualUpToEpsilon :: z -> a -> a -> Assertion
   assertEqualUpToEpsilon eqEpsilon = assert_shape (assertEqualUpToEpsilon eqEpsilon)
 
