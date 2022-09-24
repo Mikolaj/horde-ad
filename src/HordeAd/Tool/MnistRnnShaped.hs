@@ -194,9 +194,9 @@ rnnMnistTestS out_width@MkSN
               (glyphS, labelS) parameters =
   let xs = OS.transpose @'[2, 1, 0] glyphS
       outputS = valueFun (rnnMnistS out_width
-                                       batch_size
-                                       sizeMnistWidth sizeMnistHeight
-                                       xs) parameters
+                                    batch_size
+                                    sizeMnistWidth sizeMnistHeight
+                                    xs) parameters
       outputs = map OS.toVector $ OSB.toList $ OS.unravel
                 $ OS.transpose @'[1, 0] $ outputS
       labels = map OS.toVector $ OSB.toList $ OS.unravel labelS

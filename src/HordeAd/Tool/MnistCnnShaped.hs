@@ -36,20 +36,19 @@ convMnistLayerS
   -> StaticNat in_channels
   -> StaticNat batch_size
   -> ADVal d (OS.Array '[ out_channels, in_channels
-                             , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
+                        , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
   -> ADVal d (OS.Array '[batch_size, in_channels, in_height, in_width] r)
   -> ADVal d (OS.Array '[out_channels] r)
   -> ADVal d (OS.Array '[ batch_size, out_channels
-                             , (in_height + kheight_minus_1) `Div` 2
-                             , (in_width + kwidth_minus_1) `Div` 2 ] r)
+                        , (in_height + kheight_minus_1) `Div` 2
+                        , (in_width + kwidth_minus_1) `Div` 2 ] r)
 convMnistLayerS MkSN MkSN MkSN MkSN MkSN MkSN
-                batch_size@MkSN
-                ker x bias =
+                batch_size@MkSN ker x bias =
   let yConv = conv24 ker x
       replicateBias
         :: ADVal d (OS.Array '[] r)
         -> ADVal d (OS.Array '[ in_height + kheight_minus_1
-                                   , in_width + kwidth_minus_1 ] r)
+                              , in_width + kwidth_minus_1 ] r)
       replicateBias = konstS . fromS0
       biasStretched = ravelFromListS
                       $ replicate (staticNatValue batch_size)
@@ -75,20 +74,20 @@ convMnistTwoS
   -- All below is the type of all paramters of this nn. The same is reflected
   -- in the length function below and read from inputs further down.
   -> ADVal d (OS.Array '[ out_channels, in_channels
-                             , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
+                        , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
   -> ADVal d (OS.Array '[out_channels] r)
   -> ADVal d (OS.Array '[ out_channels, out_channels
-                             , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
+                        , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
   -> ADVal d (OS.Array '[out_channels] r)
   -> ADVal d (OS.Array '[ num_hidden
-                             , out_channels
-                                 GHC.TypeLits.*
-                                   (((in_height + kheight_minus_1) `Div` 2
-                                     + kheight_minus_1) `Div` 2)
-                                 GHC.TypeLits.*
-                                   (((in_width + kwidth_minus_1) `Div` 2
-                                     + kwidth_minus_1) `Div` 2)
-                             ] r)
+                        , out_channels
+                            GHC.TypeLits.*
+                              (((in_height + kheight_minus_1) `Div` 2
+                                + kheight_minus_1) `Div` 2)
+                            GHC.TypeLits.*
+                              (((in_width + kwidth_minus_1) `Div` 2
+                                + kwidth_minus_1) `Div` 2)
+                        ] r)
   -> ADVal d (OS.Array '[num_hidden] r)
   -> ADVal d (OS.Array '[SizeMnistLabel, num_hidden] r)
   -> ADVal d (OS.Array '[SizeMnistLabel] r)
@@ -198,13 +197,12 @@ convMnistLossFusedS
      , OS.Array '[batch_size, SizeMnistLabel] r )
   -> ADInputs d r
   -> ADVal d r
-convMnistLossFusedS
-    kheight_minus_1@MkSN kwidth_minus_1@MkSN
-    num_hidden@MkSN
-    out_channels@MkSN
-    in_height@MkSN in_width@MkSN
-    batch_size@MkSN
-    (glyphS, labelS) inputs =
+convMnistLossFusedS kheight_minus_1@MkSN kwidth_minus_1@MkSN
+                    num_hidden@MkSN
+                    out_channels@MkSN
+                    in_height@MkSN in_width@MkSN
+                    batch_size@MkSN
+                    (glyphS, labelS) inputs =
   let xs :: OS.Array '[batch_size, 1, in_height, in_width] r
       xs = OS.reshape glyphS
       result = convMnistS kheight_minus_1 kwidth_minus_1 num_hidden out_channels

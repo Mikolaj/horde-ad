@@ -73,11 +73,10 @@ middleLayerMnist
 middleLayerMnist factivation hiddenVec offset inputs width =
   let nWeightsAndBias = V.length hiddenVec + 1
       f :: Int -> ADVal d r
-      f i =
-        let outSum = sumTrainableInputs hiddenVec
-                                        (offset + i * nWeightsAndBias)
-                                        inputs
-        in factivation outSum
+      f i = let outSum = sumTrainableInputs hiddenVec
+                                            (offset + i * nWeightsAndBias)
+                                            inputs
+            in factivation outSum
   in V.generate width f
 
 outputLayerMnist
@@ -153,7 +152,7 @@ fcnnMnistTest0 widthHidden widthHidden2 inputs params0 =
                         logistic softMax
                         widthHidden widthHidden2 glyph
             v = V.map (\(D r _) -> r)
-                    $ valueGeneral nn (params0, V.empty, V.empty, V.empty)
+                $ valueGeneral nn (params0, V.empty, V.empty, V.empty)
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)

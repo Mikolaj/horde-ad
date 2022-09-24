@@ -17,12 +17,12 @@ import HordeAd.Core.DualClass (Dual)
 
 -- Checks if 2 numbers are close enough.
 close1 :: forall r. (Ord r, Fractional r)
-          => r -> r -> Bool
+       => r -> r -> Bool
 close1 a b = abs (a - b) <= 1e-4
 
 -- Checks if 2 number pairs are close enough.
 close2 :: forall r. (Ord r, Fractional r)
-          => (r,r) -> (r,r) -> Property
+       => (r,r) -> (r,r) -> Property
 close2 (a1, b1) (a2, b2) = close1 a1 a2 .&&. close1 b1 b2
 
 quad :: ADModeAndNum d r
@@ -52,13 +52,16 @@ listsToParameters4 (a0, a1, a2, aX) =
   , if null a2 then V.empty else V.singleton $ HM.matrix 1 a2
   , if null aX then V.empty else V.singleton $ OT.fromList [length aX] aX )
 
-quickCheckTest0 :: TestName
-       -> (forall d r. ADModeAndNum d r
-           => ADInputs d r -> ADVal d r)
-       -> ((Double, Double, Double) -> ([Double], [Double], [Double], [Double]))
-       -> TestTree
+quickCheckTest0
+  :: TestName
+  -> (forall d r. ADModeAndNum d r => ADInputs d r -> ADVal d r)
+  -> ((Double, Double, Double)
+  -> ([Double], [Double], [Double], [Double]))
+  -> TestTree
 quickCheckTest0 txt f fArg =
-  qcTestRanges txt f (listsToParameters4 . fArg) ((-2, -2, -2), (2, 2, 2)) ((-1e-7, -1e-7, -1e-7), (1e-7, 1e-7, 1e-7)) (-10, 10)
+  qcTestRanges txt f (listsToParameters4 . fArg)
+               ((-2, -2, -2), (2, 2, 2))
+               ((-1e-7, -1e-7, -1e-7), (1e-7, 1e-7, 1e-7)) (-10, 10)
 
 -- A quick check to compare the derivatives and values of 2 given functions.
 cmpTwo
@@ -86,8 +89,7 @@ cmpTwoSimple f1 f2 parameters ds =
 
 -- A quick consistency check of all the kinds of derivatives and gradients
 -- and all kinds of computing the value of the objective function.
-qcPropDom :: (forall d r. ( ADModeAndNum d r
-                            , r ~ Double )
+qcPropDom :: (forall d r. (ADModeAndNum d r, r ~ Double)
               => ADInputs d r -> ADVal d r)
           -> Domains Double
           -> Domains Double
