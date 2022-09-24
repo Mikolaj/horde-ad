@@ -80,6 +80,10 @@ assert_shape make_assert expected actual =
     shapeE = shapeL expected
     shapeA = shapeL actual
 
+-- | Foldable to list.
+as_list :: Foldable t => t a -> [a]
+as_list = foldr (:) []
+
 ----------------------------------------------------------------------------
 -- Generic comparisons with explicit error margin
 ----------------------------------------------------------------------------
@@ -147,6 +151,11 @@ instance (AssertEqualUpToEpsilon z a,
     assertEqualUpToEpsilon eqEpsilon e3 a3 >>
     assertEqualUpToEpsilon eqEpsilon e4 a4
 
+instance {-# OVERLAPPABLE #-} (Foldable t, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (t a) where
+  assertEqualUpToEpsilon :: z -> t a -> t a -> Assertion
+  assertEqualUpToEpsilon eqEpsilon expected actual =
+    assert_list (assertEqualUpToEpsilon eqEpsilon) (as_list expected) (as_list actual)
+
 instance (VS.Storable a, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (VS.Vector a) where
   assertEqualUpToEpsilon :: z -> VS.Vector a -> VS.Vector a -> Assertion
   assertEqualUpToEpsilon eqEpsilon = assert_shape (assertEqualUpToEpsilon eqEpsilon)
@@ -155,17 +164,9 @@ instance (VS.Storable a, OS.Shape sh1, AssertEqualUpToEpsilon z a) => AssertEqua
   assertEqualUpToEpsilon :: z -> OS.Array sh1 a -> OS.Array sh1 a -> Assertion
   assertEqualUpToEpsilon eqEpsilon = assert_shape (assertEqualUpToEpsilon eqEpsilon)
 
--- TODO: how do we make use of assert_shape in case (HasShape a)? Something like this (but this causes "duplicate instance declarations" error):
---
--- instance {-# OVERLAPPABLE #-} (Fractional z, HasShape t, Linearizable t a, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z t where
---   assertEqualUpToEpsilon :: z -> a -> a -> Assertion
---   assertEqualUpToEpsilon eqEpsilon = assert_shape (assertEqualUpToEpsilon eqEpsilon)
---
--- For now, we just use assert_list ...
-instance {-# OVERLAPPABLE #-} (Fractional z, Linearizable t a, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z t where
-  assertEqualUpToEpsilon :: z -> t -> t -> Assertion
-  assertEqualUpToEpsilon eqEpsilon expected actual =
-    assert_list (assertEqualUpToEpsilon eqEpsilon) (linearize expected) (linearize actual)
+instance {-# OVERLAPPABLE #-} (Fractional z, HasShape a, Linearizable a b, AssertEqualUpToEpsilon z b) => AssertEqualUpToEpsilon z a where
+  assertEqualUpToEpsilon :: z -> a -> a -> Assertion
+  assertEqualUpToEpsilon eqEpsilon = assert_shape (assertEqualUpToEpsilon eqEpsilon)
 
 ----------------------------------------------------------------------------
 -- Generic comparisons without explicit error margin
