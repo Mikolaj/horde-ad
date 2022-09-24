@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, FlexibleInstances, FunctionalDependencies, MultiParamTypeClasses, RankNTypes, TypeFamilies #-}
+{-# LANGUAGE DataKinds, FlexibleInstances, FunctionalDependencies, RankNTypes, TypeFamilies #-}
 module TestCommon (listsToParameters,
                    cmpTwo, cmpTwoSimple,
                    qcPropDom, quickCheckTest0, fquad, quad,
