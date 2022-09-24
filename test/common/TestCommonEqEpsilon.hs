@@ -3,17 +3,14 @@
              UndecidableInstances #-}
 module TestCommonEqEpsilon (EqEpsilon, setEpsilonEq,
                             assertEqualUpToEpsilon,
-                            assertCloseElem, (@?~)) where
+                            assertCloseElem, assertClose, (@?~)) where
 
 import Data.Typeable
 import Prelude
 
---import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.ShapedS as OS
 import           Data.IORef
-import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Storable as VS
---import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe
 import           Test.Tasty.HUnit
 import           Test.Tasty.Options
@@ -162,7 +159,7 @@ instance {-# OVERLAPPABLE #-} (Traversable t, AssertEqualUpToEpsilon z a) => Ass
 instance (VS.Storable a, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (VS.Vector a) where
   assertEqualUpToEpsilon :: z -> VS.Vector a -> VS.Vector a -> Assertion
   assertEqualUpToEpsilon eqEpsilon expected actual =
-    assert_list (assertEqualUpToEpsilon eqEpsilon) (VG.toList expected) (VG.toList actual)
+    assert_list (assertEqualUpToEpsilon eqEpsilon) (VS.toList expected) (VS.toList actual)
 
 instance {-# OVERLAPPABLE #-} (VS.Storable a, OS.Shape sh1, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (OS.Array sh1 a) where
   assertEqualUpToEpsilon :: z -> OS.Array sh1 a -> OS.Array sh1 a -> Assertion
@@ -193,10 +190,16 @@ assertCloseElem preface expected actual = do
     go_assert eqEps (h:t) =
       if abs (h-actual) < fromRational eqEps then assert_close_eps msg (fromRational eqEps) h actual else go_assert eqEps t
 
+assertClose :: (AssertEqualUpToEpsilon z a)
+      => a -- ^ The expected value
+      -> a -- ^ The actual value
+      -> Assertion
+assertClose expected actual = do
+  eqEpsilon <- readIORef eqEpsilonRef
+  assertEqualUpToEpsilon (fromRational eqEpsilon) expected actual
+
 (@?~) :: (AssertEqualUpToEpsilon z a)
       => a -- ^ The actual value
       -> a -- ^ The expected value
       -> Assertion
-(@?~) actual expected = do
-  eqEpsilon <- readIORef eqEpsilonRef
-  assertEqualUpToEpsilon (fromRational eqEpsilon) expected actual
+(@?~) = flip assertClose
