@@ -80,10 +80,6 @@ assert_shape make_assert expected actual =
     shapeE = shapeL expected
     shapeA = shapeL actual
 
--- | Foldable to list.
-as_list :: Foldable t => t a -> [a]
-as_list = foldr (:) []
-
 ----------------------------------------------------------------------------
 -- Generic comparisons with explicit error margin
 ----------------------------------------------------------------------------
@@ -155,7 +151,7 @@ instance (VS.Storable a, OS.Shape sh1, AssertEqualUpToEpsilon z a) => AssertEqua
   assertEqualUpToEpsilon :: z -> OS.Array sh1 a -> OS.Array sh1 a -> Assertion
   assertEqualUpToEpsilon eqEpsilon = assert_shape (assertEqualUpToEpsilon eqEpsilon)
 
-instance (Fractional z, HasShape a, Linearizable a b, AssertEqualUpToEpsilon z b) => AssertEqualUpToEpsilon z a where
+instance {-# OVERLAPPABLE #-} (Fractional z, HasShape a, Linearizable a b, AssertEqualUpToEpsilon z b) => AssertEqualUpToEpsilon z a where
   assertEqualUpToEpsilon :: z -> a -> a -> Assertion
   assertEqualUpToEpsilon eqEpsilon = assert_shape (assertEqualUpToEpsilon eqEpsilon)
 
