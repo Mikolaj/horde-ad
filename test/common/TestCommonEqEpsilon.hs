@@ -160,7 +160,7 @@ instance (AssertEqualUpToEpsilon z a,
 
 instance (VS.Storable a, OS.Shape sh1, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (OS.Array sh1 a) where
   assertEqualUpToEpsilonWithMsg :: String -> z -> OS.Array sh1 a -> OS.Array sh1 a -> Assertion
-  assertEqualUpToEpsilonWithMsg msg eqEpsilon = assert_shape (assertEqualUpToEpsilonWithMsg msg eqEpsilon)
+  assertEqualUpToEpsilonWithMsg msg eqEpsilon expected actual = assert_list (assertEqualUpToEpsilonWithMsg msg eqEpsilon) (linearize expected) (linearize actual)
 
 instance {-# OVERLAPPABLE #-} (Fractional z, Show a, HasShape a, Linearizable a b, AssertEqualUpToEpsilon z b) => AssertEqualUpToEpsilon z a where
   assertEqualUpToEpsilonWithMsg :: String -> z -> a -> a -> Assertion
