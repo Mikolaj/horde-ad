@@ -176,6 +176,9 @@ instance (OS.Shape sh) => HasShape (OS.Array sh a) where
 instance HasShape (HM.Matrix a) where
   shapeL matrix = [HM.rows matrix, HM.cols matrix]
 
+instance {-# OVERLAPPABLE #-} (Foldable t) => HasShape (t a) where
+  shapeL = (.) (flip (:) []) length
+
 ----------------------------------------------------------------------------
 -- Things that can be linearized, i.e. converted to a list
 ----------------------------------------------------------------------------
@@ -194,3 +197,6 @@ instance (VS.Storable a, OS.Shape sh) => Linearizable (OS.Array sh a) a where
 
 instance (VS.Storable a, HM.Element a) => Linearizable (HM.Matrix a) a where
   linearize = HM.toList . HM.flatten
+
+instance {-# OVERLAPPABLE #-} (Foldable t) => Linearizable (t a) a where
+  linearize = foldr (:) []
