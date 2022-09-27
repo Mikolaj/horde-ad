@@ -1,5 +1,5 @@
 {-# LANGUAGE DataKinds, FlexibleInstances, FunctionalDependencies, RankNTypes, TypeFamilies #-}
-module TestCommon (listsToParameters,
+module TestCommon (lowercase, listsToParameters,
                    cmpTwo, cmpTwoSimple,
                    qcPropDom, quickCheckTest0, fquad, quad,
                    HasShape (shapeL),
@@ -10,6 +10,7 @@ import Prelude
 
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.ShapedS as OS
+import qualified Data.Char
 import qualified Data.Foldable
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable as VS
@@ -19,6 +20,9 @@ import           Test.Tasty.QuickCheck
 
 import HordeAd hiding (sumElementsVectorOfDual)
 import HordeAd.Core.DualClass (Dual)
+
+lowercase :: String -> String
+lowercase = map Data.Char.toLower
 
 -- Checks if 2 numbers are close enough.
 close1 :: forall r. (Ord r, Fractional r)

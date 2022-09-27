@@ -10,7 +10,6 @@ import Prelude
 
 import qualified Data.Array.ShapedS as OS
 import           Data.IORef
-import           Distribution.Simple.Utils (lowercase)
 import qualified Data.Vector.Storable as VS
 import           System.IO.Unsafe
 import           Test.Tasty.HUnit
@@ -101,10 +100,11 @@ assert_close_eps preface epilogue eqEpsilon expected actual = do
   assertBool (message eqEpsilon) (abs (expected-actual) <= eqEpsilon)
   where
     msg = "expected: " ++ show expected ++ "\n but got: " ++ show actual
-    t = lowercase
     message errorMargin = (if null preface then "" else preface ++ "\n") ++
                           msg ++ "\n (maximum margin of error: " ++ show errorMargin ++ ")" ++
-                          (if (null epilogue) || (t epilogue == t preface) || (t epilogue == t msg) then "" else "\n" ++ epilogue)
+                          (if (null epilogue) ||
+                              (lowercase epilogue == lowercase preface) ||
+                              (lowercase epilogue == lowercase msg) then "" else "\n" ++ epilogue)
 
 ----------------------------------------------------------------------------
 -- AssertEqualUpToEpsilon class
