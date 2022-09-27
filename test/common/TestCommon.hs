@@ -1,19 +1,28 @@
-{-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
-module TestCommon (listsToParameters,
+{-# LANGUAGE DataKinds, FlexibleInstances, FunctionalDependencies, RankNTypes, TypeFamilies #-}
+module TestCommon (lowercase, listsToParameters,
                    cmpTwo, cmpTwoSimple,
-                   qcPropDom, quickCheckTest0, fquad, quad
+                   qcPropDom, quickCheckTest0, fquad, quad,
+                   HasShape (shapeL),
+                   Linearizable (linearize)
                   ) where
 
 import Prelude
 
 import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.ShapedS as OS
+import qualified Data.Char
+import qualified Data.Foldable
 import qualified Data.Vector.Generic as V
+import qualified Data.Vector.Storable as VS
 import qualified Numeric.LinearAlgebra as HM
 import           Test.Tasty
 import           Test.Tasty.QuickCheck
 
 import HordeAd hiding (sumElementsVectorOfDual)
 import HordeAd.Core.DualClass (Dual)
+
+lowercase :: String -> String
+lowercase = map Data.Char.toLower
 
 -- Checks if 2 numbers are close enough.
 close1 :: forall r. (Ord r, Fractional r)
@@ -149,3 +158,47 @@ qcTestRanges txt f fArgDom dsRange perturbationRange dtRange =
   forAll (choose perturbationRange) $ \perturbationRaw ->
   forAll (choose dtRange) $ \dt ->
   ioProperty $ qcPropFArg f fArgDom xyz dsRaw perturbationRaw dt
+
+----------------------------------------------------------------------------
+-- Things that have shape
+----------------------------------------------------------------------------
+
+-- | Shape of the thing, typically a list of the sizes of its dimensions.
+type ShapeL = [Int]
+
+class HasShape a where
+  shapeL :: a -> ShapeL
+
+instance (VS.Storable a) => HasShape (VS.Vector a) where
+  shapeL = (: []) . VS.length
+
+instance HasShape (OT.Array a) where
+  shapeL = OT.shapeL
+
+instance HasShape (HM.Matrix a) where
+  shapeL matrix = [HM.rows matrix, HM.cols matrix]
+
+instance {-# OVERLAPPABLE #-} (Foldable t) => HasShape (t a) where
+  shapeL = (: []) . length
+
+----------------------------------------------------------------------------
+-- Things that can be linearized, i.e. converted to a list
+----------------------------------------------------------------------------
+
+class Linearizable a b | a -> b where
+  linearize :: a -> [b]
+
+instance (VS.Storable a) => Linearizable (VS.Vector a) a where
+  linearize = VS.toList
+
+instance (VS.Storable a) => Linearizable (OT.Array a) a where
+  linearize = OT.toList
+
+instance (VS.Storable a, OS.Shape sh) => Linearizable (OS.Array sh a) a where
+  linearize = OS.toList
+
+instance (VS.Storable a, HM.Element a) => Linearizable (HM.Matrix a) a where
+  linearize = HM.toList . HM.flatten
+
+instance {-# OVERLAPPABLE #-} (Foldable t) => Linearizable (t a) a where
+  linearize = Data.Foldable.toList

@@ -1,6 +1,6 @@
 {-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances,
-             FunctionalDependencies, MultiParamTypeClasses, RankNTypes,
-             TypeFamilies #-}
+             FunctionalDependencies, RankNTypes,
+             TypeFamilies, TypeOperators #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module TestSingleGradient (testTrees, finalCounter) where
@@ -424,8 +424,8 @@ foo (x,y,z) =
 
 testFoo :: Assertion
 testFoo =
-  assertEqualUpToEps (1e-10 :: Double)
-    (rev foo (1.1, 2.2, 3.3))
+  assertEqualUpToEpsilon (1e-10 :: Double)
+    (rev foo (1.1, 2.2, 3.3) :: (Double,Double,Double))
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
 
 bar :: RealFloat a => (a,a,a) -> a
@@ -435,8 +435,8 @@ bar (x,y,z) =
 
 testBar :: Assertion
 testBar =
-  assertEqualUpToEps (1e-9 :: Double)
-    (rev bar (1.1, 2.2, 3.3))
+  assertEqualUpToEpsilon (1e-9 :: Double)
+    (rev bar (1.1, 2.2, 3.3) :: (Double,Double,Double))
     (6.221706565357043, -12.856908977773593, 6.043601532156671)
 
 -- A check if gradient computation is re-entrant.
@@ -464,8 +464,8 @@ fooConstant = foo (7, 8, 9)
 
 testBaz :: Assertion
 testBaz =
-  assertEqualUpToEps (1e-9 :: Double)
-    (rev baz (1.1, 2.2, 3.3))
+  assertEqualUpToEpsilon (1e-9 :: Double)
+    (rev baz (1.1, 2.2, 3.3) :: (Double,Double,Double))
     (0, -5219.20995030263, 2782.276274462047)
 
 -- If terms are numbered and @z@ is, wrongly, decorated with number 0,
@@ -480,8 +480,8 @@ testBaz =
 -- is likely to fail in less naive implementations, as well.
 testBazRenumbered :: Assertion
 testBazRenumbered =
-  assertEqualUpToEps (1e-9 :: Double)
-    (rev (\(x,y,z) -> z + baz (x,y,z)) (1.1, 2.2, 3.3))
+  assertEqualUpToEpsilon (1e-9 :: Double)
+    (rev (\(x,y,z) -> z + baz (x,y,z)) (1.1, 2.2, 3.3) :: (Double,Double,Double))
     (0, -5219.20995030263, 2783.276274462047)
 
 -- A dual-number and list-based version of a function that goes
@@ -494,8 +494,8 @@ fooD _ = error "wrong number of arguments"
 
 testFooD :: Assertion
 testFooD =
-  assertEqualUpToEpsD (1e-10 :: Double)
-    (rev fooD [1.1, 2.2, 3.3])
+  assertEqualUpToEpsilon (1e-10 :: Double)
+    (rev fooD [1.1, 2.2, 3.3] :: [Double])
     [2.4396285219055063, -1.953374825727421, 0.9654825811012627]
 
 -- A dual-number version of a function that goes from three rank one
@@ -516,7 +516,8 @@ fooS MkSN MkSN MkSN MkSN (x1, x2, x3, x4) =
 
 testFooS :: Assertion
 testFooS =
-  assertEqualUpToEpsS @'[1] @'[5] @'[3] @'[4] (1e-10 :: Double)
+  assertEqualUpToEpsilon @Double @(OS.Array '[1] Double, OS.Array '[5] Double, OS.Array '[3] Double, OS.Array '[4] Double)
+    (1e-12 :: Double)
     (rev (fooS (MkSN @1) (MkSN @5) (MkSN @3) (MkSN @4))
           ( OS.fromList [1.1]
           , OS.fromList [2.2, 2.3, 7.2, 7.3, 7.4]
@@ -560,7 +561,7 @@ bar_3_75 = value (ravelFromListS . barS (MkSN @3) (MkSN @75))
 
 testBarV :: Assertion
 testBarV =
-  assertEqualUpToEpsVF @'[2, 3, 337] (1e-12 :: Double)
+  assertEqualUpToEpsilon @Double @(OS.Array '[2, 3, 337] Double) (1e-12 :: Double)
     (bar_3_75
        ( 1.1
        , OS.constant 17.3  -- TODO: create more interesting test data
@@ -588,7 +589,7 @@ bar_vjp_3_75 = fwd (head . barS (MkSN @3) (MkSN @75))
 
 testBarF :: Assertion
 testBarF =
-  assertEqualUpToEpsVF (1e-7 :: Double)
+  assertEqualUpToEpsilon (1e-7 :: Double)
     (bar_vjp_3_75
        ( 1.1
        , OS.constant 17.3  -- TODO: create more interesting test data
@@ -760,23 +761,6 @@ instance (ADModeAndNum d r, OS.Shape sh, KnownNat n1, KnownNat n2)
 
 
 -- * assertEqualUpToEps hacks (#65)
-
-assertEqualUpToEps :: Double -> (Double, Double, Double) -> (Double, Double, Double) -> Assertion
-assertEqualUpToEps _eps (r1, r2, r3) (u1, u2, u3) =  -- TODO: use the _eps instead of the default one
-  r1 @?~ u1 >> r2 @?~ u2 >> r3 @?~ u3
-
-assertEqualUpToEpsD :: Double -> [Double] -> [Double] -> Assertion
-assertEqualUpToEpsD _eps l1 l2 =  -- TODO
-  l1 @?~ l2
-
--- A hack: the normal assertEqualUpToEps should work here. And AssertClose should work for shaped and untyped tensors.
-assertEqualUpToEpsS :: (OS.Shape sh1, OS.Shape sh2, OS.Shape sh3, OS.Shape sh4) => Double -> (OS.Array sh1 Double, OS.Array sh2 Double, OS.Array sh3 Double, OS.Array sh4 Double) -> (OS.Array sh1 Double, OS.Array sh2 Double, OS.Array sh3 Double, OS.Array sh4 Double) -> Assertion
-assertEqualUpToEpsS _eps (r1, r2, r3, r4) (u1, u2, u3, u4) =  -- TODO: use the _eps instead of the default one
-  OS.toList r1 @?~ OS.toList u1 >> OS.toList r2 @?~ OS.toList u2 >> OS.toList r3 @?~ OS.toList u3 >> OS.toList r4 @?~ OS.toList u4
-
-assertEqualUpToEpsVF :: OS.Shape sh => Double -> OS.Array sh Double -> OS.Array sh Double -> Assertion
-assertEqualUpToEpsVF _eps r1 u1 =  -- TODO
-  OS.toList r1 @?~ OS.toList u1
 
 assertEqualUpToEpsR
   :: OS.Shape sh
