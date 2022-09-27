@@ -102,7 +102,7 @@ assert_close_eps preface epilogue eqEpsilon expected actual = do
     msg = "expected: " ++ show expected ++ "\n but got: " ++ show actual
     message errorMargin = (if null preface then "" else preface ++ "\n") ++
                           msg ++ "\n (maximum margin of error: " ++ show errorMargin ++ ")" ++
-                          (if (null epilogue) ||
+                          (if null epilogue ||
                               (lowercase epilogue == lowercase preface) ||
                               (lowercase epilogue == lowercase msg) then "" else "\n" ++ epilogue)
 
@@ -123,7 +123,7 @@ class (Fractional z, Show a) => AssertEqualUpToEpsilon z a | a -> z where
                          -> a -- ^ The actual value
                          -> Assertion
   assertEqualUpToEpsilon error_margin expected actual =
-    assertEqualUpToEpsilonWithMsg ("Expected: " ++ (show expected) ++ "\n but got: " ++ (show actual)) error_margin expected actual
+    assertEqualUpToEpsilonWithMsg ("Expected: " ++ show expected ++ "\n but got: " ++ show actual) error_margin expected actual
 
 instance AssertEqualUpToEpsilon Double Double where
   assertEqualUpToEpsilonWithMsg :: String -> Double -> Double -> Double -> Assertion
