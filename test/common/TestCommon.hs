@@ -171,9 +171,6 @@ instance (VS.Storable a) => HasShape (VS.Vector a) where
 instance HasShape (OT.Array a) where
   shapeL = OT.shapeL
 
-instance (OS.Shape sh) => HasShape (OS.Array sh a) where
-  shapeL = OS.shapeL
-
 instance HasShape (HM.Matrix a) where
   shapeL matrix = [HM.rows matrix, HM.cols matrix]
 
