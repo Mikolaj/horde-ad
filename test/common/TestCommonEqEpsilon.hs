@@ -43,28 +43,27 @@ setEpsilonEq (EqEpsilon x) = atomicWriteIORef eqEpsilonRef x
 -- Helper functions
 ----------------------------------------------------------------------------
 
-go_assert_list :: (a -> a -> Assertion) -- ^ The function used to make an assertion on two elements (expected, actual)
-               -> [a]                   -- ^ The expected value
-               -> [a]                   -- ^ The actual value
-               -> Assertion
-go_assert_list _ [] [] = assertBool "" True
-go_assert_list _ [] (_:_) = assertFailure "More list elements than expected!"
-go_assert_list _ (_:_) [] = assertFailure "Less list elements than expected!"
-go_assert_list mk (head_exp:tail_exp) (head_act:tail_act) =
-      mk head_exp head_act >> go_assert_list mk tail_exp tail_act
-
-assert_list :: (a -> a -> Assertion) -- ^ The function used to make an assertion on two elements (expected, actual)
-            -> [a]                   -- ^ The expected value
-            -> [a]                   -- ^ The actual value
+assert_list :: forall a. (a -> a -> Assertion) -- ^ The function used to make an assertion on two elements (expected, actual)
+            -> [a]                             -- ^ The expected value
+            -> [a]                             -- ^ The actual value
             -> Assertion
 assert_list make_assert expected actual =
   if lenE == lenA then
-    go_assert_list make_assert expected actual
+    go_assert_list expected actual
   else
     assertFailure $ "List too " ++ (if lenE < lenA then "long" else "short") ++ ": expected " ++ show lenE ++ "elements, but got: " ++ show lenA
   where
     lenE :: Int = length expected
     lenA :: Int = length actual
+
+    go_assert_list :: [a]                   -- ^ The expected value
+                   -> [a]                   -- ^ The actual value
+                   -> Assertion
+    go_assert_list [] [] = assertBool "" True
+    go_assert_list [] (_:_) = assertFailure "More list elements than expected!"
+    go_assert_list (_:_) [] = assertFailure "Less list elements than expected!"
+    go_assert_list (head_exp:tail_exp) (head_act:tail_act) =
+          make_assert head_exp head_act >> go_assert_list tail_exp tail_act
 
 assert_shape :: forall a b. (HasShape a, Linearizable a b)
              => (b -> b -> Assertion) -- ^ The function used to make an assertion on two elements (expected, actual)
