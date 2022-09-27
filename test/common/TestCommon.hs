@@ -166,7 +166,7 @@ class HasShape a where
   shapeL :: a -> ShapeL
 
 instance (VS.Storable a) => HasShape (VS.Vector a) where
-  shapeL vec = [VS.length vec]
+  shapeL = (: []) . VS.length
 
 instance HasShape (OT.Array a) where
   shapeL = OT.shapeL
@@ -175,7 +175,7 @@ instance HasShape (HM.Matrix a) where
   shapeL matrix = [HM.rows matrix, HM.cols matrix]
 
 instance {-# OVERLAPPABLE #-} (Foldable t) => HasShape (t a) where
-  shapeL = (.) (flip (:) []) length
+  shapeL = (: []) . length
 
 ----------------------------------------------------------------------------
 -- Things that can be linearized, i.e. converted to a list
