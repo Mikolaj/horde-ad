@@ -157,6 +157,114 @@ instance (AssertEqualUpToEpsilon z a,
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e3 a3 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e4 a4
 
+instance (AssertEqualUpToEpsilon z a,
+          AssertEqualUpToEpsilon z b,
+          AssertEqualUpToEpsilon z c,
+          AssertEqualUpToEpsilon z d,
+          AssertEqualUpToEpsilon z e) => AssertEqualUpToEpsilon z (a,b,c,d,e) where
+  assertEqualUpToEpsilonWithMsg :: String -> z -> (a,b,c,d,e) -> (a,b,c,d,e) -> Assertion
+  assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5) (a1,a2,a3,a4,a5) =
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e3 a3 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e4 a4 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e5 a5
+
+instance (AssertEqualUpToEpsilon z a,
+          AssertEqualUpToEpsilon z b,
+          AssertEqualUpToEpsilon z c,
+          AssertEqualUpToEpsilon z d,
+          AssertEqualUpToEpsilon z e,
+          AssertEqualUpToEpsilon z f) => AssertEqualUpToEpsilon z (a,b,c,d,e,f) where
+  assertEqualUpToEpsilonWithMsg :: String -> z -> (a,b,c,d,e,f) -> (a,b,c,d,e,f) -> Assertion
+  assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6) (a1,a2,a3,a4,a5,a6) =
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e3 a3 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e4 a4 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e5 a5 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e6 a6
+
+instance (AssertEqualUpToEpsilon z a,
+          AssertEqualUpToEpsilon z b,
+          AssertEqualUpToEpsilon z c,
+          AssertEqualUpToEpsilon z d,
+          AssertEqualUpToEpsilon z e,
+          AssertEqualUpToEpsilon z f,
+          AssertEqualUpToEpsilon z g) => AssertEqualUpToEpsilon z (a,b,c,d,e,f,g) where
+  assertEqualUpToEpsilonWithMsg :: String -> z -> (a,b,c,d,e,f,g) -> (a,b,c,d,e,f,g) -> Assertion
+  assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6,e7) (a1,a2,a3,a4,a5,a6,a7) =
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e3 a3 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e4 a4 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e5 a5 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e6 a6 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e7 a7
+
+instance (AssertEqualUpToEpsilon z a,
+          AssertEqualUpToEpsilon z b,
+          AssertEqualUpToEpsilon z c,
+          AssertEqualUpToEpsilon z d,
+          AssertEqualUpToEpsilon z e,
+          AssertEqualUpToEpsilon z f,
+          AssertEqualUpToEpsilon z g,
+          AssertEqualUpToEpsilon z h) => AssertEqualUpToEpsilon z (a,b,c,d,e,f,g,h) where
+  assertEqualUpToEpsilonWithMsg :: String -> z -> (a,b,c,d,e,f,g,h) -> (a,b,c,d,e,f,g,h) -> Assertion
+  assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6,e7,e8) (a1,a2,a3,a4,a5,a6,a7,a8) =
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e3 a3 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e4 a4 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e5 a5 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e6 a6 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e7 a7 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e8 a8
+
+instance (AssertEqualUpToEpsilon z a,
+          AssertEqualUpToEpsilon z b,
+          AssertEqualUpToEpsilon z c,
+          AssertEqualUpToEpsilon z d,
+          AssertEqualUpToEpsilon z e,
+          AssertEqualUpToEpsilon z f,
+          AssertEqualUpToEpsilon z g,
+          AssertEqualUpToEpsilon z h,
+          AssertEqualUpToEpsilon z i) => AssertEqualUpToEpsilon z (a,b,c,d,e,f,g,h,i) where
+  assertEqualUpToEpsilonWithMsg :: String -> z -> (a,b,c,d,e,f,g,h,i) -> (a,b,c,d,e,f,g,h,i) -> Assertion
+  assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6,e7,e8,e9) (a1,a2,a3,a4,a5,a6,a7,a8,a9) =
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e3 a3 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e4 a4 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e5 a5 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e6 a6 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e7 a7 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e8 a8 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e9 a9
+
+instance (AssertEqualUpToEpsilon z a,
+          AssertEqualUpToEpsilon z b,
+          AssertEqualUpToEpsilon z c,
+          AssertEqualUpToEpsilon z d,
+          AssertEqualUpToEpsilon z e,
+          AssertEqualUpToEpsilon z f,
+          AssertEqualUpToEpsilon z g,
+          AssertEqualUpToEpsilon z h,
+          AssertEqualUpToEpsilon z i,
+          AssertEqualUpToEpsilon z j) => AssertEqualUpToEpsilon z (a,b,c,d,e,f,g,h,i,j) where
+  assertEqualUpToEpsilonWithMsg :: String -> z -> (a,b,c,d,e,f,g,h,i,j) -> (a,b,c,d,e,f,g,h,i,j) -> Assertion
+  assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6,e7,e8,e9,e10) (a1,a2,a3,a4,a5,a6,a7,a8,a9,a10) =
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e1  a1 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e2  a2 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e3  a3 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e4  a4 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e5  a5 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e6  a6 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e7  a7 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e8  a8 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e9  a9 >>
+    assertEqualUpToEpsilonWithMsg msg eqEpsilon e10 a10
+
 instance (VS.Storable a, OS.Shape sh1, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (OS.Array sh1 a) where
   assertEqualUpToEpsilonWithMsg :: String -> z -> OS.Array sh1 a -> OS.Array sh1 a -> Assertion
   assertEqualUpToEpsilonWithMsg msg eqEpsilon expected actual = assert_list (assertEqualUpToEpsilonWithMsg msg eqEpsilon) (linearize expected) (linearize actual)
