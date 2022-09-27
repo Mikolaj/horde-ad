@@ -24,7 +24,7 @@ instance IsOption EqEpsilon where
   defaultValue = EqEpsilon eqEpsilonDefault
   parseValue s = fmap (EqEpsilon . toRational) ((safeRead :: String -> Maybe Double) s)
   optionName = return "eq-epsilon"
-  optionHelp = return $ "Epsilon to use for floating point comparisons: abs(a-b) < epsilon . Default: " ++ show (fromRational eqEpsilonDefault :: Double)
+  optionHelp = return $ "Epsilon to use for floating point comparisons: abs(a-b) <= epsilon . Default: " ++ show (fromRational eqEpsilonDefault :: Double)
 
 -- Default value for eqEpsilonRef
 eqEpsilonDefault :: Rational
@@ -98,7 +98,7 @@ assert_close_eps :: (Num a, Ord a, Show a, HasCallStack)
                    -> a      -- ^ The actual value
                    -> Assertion
 assert_close_eps preface epilogue eqEpsilon expected actual = do
-  assertBool (msg eqEpsilon) (abs (expected-actual) < eqEpsilon)
+  assertBool (msg eqEpsilon) (abs (expected-actual) <= eqEpsilon)
   where msg errorMargin = (if null preface then "" else preface ++ "\n") ++
                            "expected: " ++ show expected ++ "\n but got: " ++ show actual ++
                            "\n (maximum margin of error: " ++ show errorMargin ++ ")" ++
@@ -185,7 +185,7 @@ assertCloseElem preface expected actual = do
     go_assert :: Rational -> [a] -> Assertion
     go_assert _ [] = assertFailure msg
     go_assert eqEps (h:t) =
-      if abs (h-actual) < fromRational eqEps then assert_close_eps msg "" (fromRational eqEps) h actual else go_assert eqEps t
+      if abs (h-actual) <= fromRational eqEps then assert_close_eps msg "" (fromRational eqEps) h actual else go_assert eqEps t
 
 assertClose :: (AssertEqualUpToEpsilon z a)
       => a -- ^ The expected value
