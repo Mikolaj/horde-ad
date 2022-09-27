@@ -10,6 +10,7 @@ import Prelude
 
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.ShapedS as OS
+import qualified Data.Foldable
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable as VS
 import qualified Numeric.LinearAlgebra as HM
@@ -199,4 +200,4 @@ instance (VS.Storable a, HM.Element a) => Linearizable (HM.Matrix a) a where
   linearize = HM.toList . HM.flatten
 
 instance {-# OVERLAPPABLE #-} (Foldable t) => Linearizable (t a) a where
-  linearize = foldr (:) []
+  linearize = Data.Foldable.toList
