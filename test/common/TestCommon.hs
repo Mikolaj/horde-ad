@@ -2,8 +2,8 @@
 module TestCommon (listsToParameters,
                    cmpTwo, cmpTwoSimple,
                    qcPropDom, quickCheckTest0, fquad, quad,
-                   HasShape, shapeL,
-                   Linearizable, linearize
+                   HasShape (shapeL),
+                   Linearizable (linearize)
                   ) where
 
 import Prelude
