@@ -5,7 +5,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Shaped tensor-based implementation of fully connected neutral network
 -- for classification of MNIST digits. Sports 2 hidden layers.
-module HordeAd.Tool.MnistFcnnShaped where
+module MnistFcnnShaped where
 
 import Prelude
 
@@ -18,7 +18,7 @@ import qualified Data.Vector.Generic as V
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors (ADInputs, atS)
-import HordeAd.Tool.MnistData
+import MnistData
 
 -- | Fully connected neural network for the MNIST digit classification task.
 -- There are two hidden layers and both use the same activation function.

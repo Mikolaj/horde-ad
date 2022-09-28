@@ -5,7 +5,7 @@ import Prelude
 import Criterion.Main
 import System.Random
 
-import HordeAd.Tool.MnistData
+import MnistData
 
 import BenchMnistTools
 

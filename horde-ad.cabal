@@ -143,16 +143,6 @@ library
                       HordeAd.Internal.Delta
                       HordeAd.Internal.MatrixOuter
                       HordeAd.Internal.OrthotopeOrphanInstances
-                      HordeAd.Tool.MnistData
-                      HordeAd.Tool.MnistFcnnMatrix
-                      HordeAd.Tool.MnistFcnnScalar
-                      HordeAd.Tool.MnistFcnnVector
-
-  if flag(use_typelits_plugins) {
-    exposed-modules:  HordeAd.Tool.MnistCnnShaped
-                      HordeAd.Tool.MnistFcnnShaped
-                      HordeAd.Tool.MnistRnnShaped
-  }
 
     -- Modules included in this library but not exported.
     -- other-modules:
@@ -164,20 +154,16 @@ library
     build-depends:
         assert-failure
       , base >= 4.14 && < 99
-      , bytestring
       , containers
       , hmatrix
       , ilist
-      , mnist-idx
       , mono-traversable
       , orthotope
       , pretty-show
       , primitive
-      , random
       , strict-containers
       , unboxed-ref
       , vector
-      , zlib
 
   if flag(use_typelits_plugins) {
     build-depends:
@@ -188,9 +174,53 @@ library
     -- Directories containing source files.
     hs-source-dirs:   src
 
+library exampleLibrary
+    -- Import common warning flags.
+    import:           options
+
+    -- Modules exported by the library.
+    exposed-modules:  MnistData
+                      MnistFcnnMatrix
+                      MnistFcnnScalar
+                      MnistFcnnVector
+
+  if flag(use_typelits_plugins) {
+    exposed-modules:  MnistCnnShaped
+                      MnistFcnnShaped
+                      MnistRnnShaped
+  }
+
+    -- Modules included in this library but not exported.
+    -- other-modules:
+
+    -- LANGUAGE extensions used by modules in this package.
+    -- other-extensions:
+
+    -- Other library packages from which modules are imported.
+    build-depends:
+        base
+      , bytestring
+      , hmatrix
+      , horde-ad
+      , mnist-idx
+      , orthotope
+      , random
+      , strict-containers
+      , vector
+      , zlib
+
+  if flag(use_typelits_plugins) {
+    build-depends:
+        ghc-typelits-knownnat
+      , ghc-typelits-natnormalise
+  }
+
+    -- Directories containing source files.
+    hs-source-dirs:   example
+
 -- The data files for this are not included in the cabal package,
 -- hence 'buildable: False'.
-library testLibrary
+library testCommonLibrary
     -- Import common warning flags.
     import:           options
 
@@ -214,8 +244,8 @@ library testLibrary
   }
 
     -- Other library packages from which modules are imported.
-    build-depends:
-        base
+    build-depends: exampleLibrary
+      , base
       , deepseq
       , hmatrix
       , horde-ad
@@ -254,7 +284,7 @@ test-suite minimalTest
     main-is:          MinimalTest.hs
 
     -- Test dependencies.
-    build-depends: testLibrary
+    build-depends: testCommonLibrary
       , base
       , tasty >= 1.0
 
@@ -284,7 +314,7 @@ test-suite shortTestForCI
     main-is:          ShortTestForCI.hs
 
     -- Test dependencies.
-    build-depends: testLibrary
+    build-depends: testCommonLibrary
       , base
       , tasty >= 1.0
 
@@ -314,7 +344,7 @@ test-suite extremelyLongTest
     main-is:          ExtremelyLongTest.hs
 
     -- Test dependencies.
-    build-depends: testLibrary
+    build-depends: testCommonLibrary
       , base
       , tasty >= 1.0
 
@@ -324,7 +354,7 @@ test-suite extremelyLongTest
       , ghc-typelits-natnormalise
   }
 
-library benchLibrary
+library benchCommonLibrary
     import:           options
 
     if flag(release)
@@ -335,8 +365,8 @@ library benchLibrary
     exposed-modules:  BenchProdTools
                       BenchMnistTools
 
-    build-depends:
-        base
+    build-depends: exampleLibrary
+      , base
       , criterion
       , deepseq
       , hmatrix
@@ -359,7 +389,7 @@ benchmark longProdBench
     hs-source-dirs:   bench
     main-is:          LongProdBench.hs
     other-modules:
-    build-depends: benchLibrary
+    build-depends: benchCommonLibrary
       , base
       , criterion
       , deepseq
@@ -376,7 +406,7 @@ benchmark shortProdForCI
     type:             exitcode-stdio-1.0
     hs-source-dirs:   bench
     main-is:          ShortProdForCI.hs
-    build-depends: benchLibrary
+    build-depends: benchCommonLibrary
       , base
       , criterion
       , deepseq
@@ -395,10 +425,9 @@ benchmark longMnistBench
     type:             exitcode-stdio-1.0
     hs-source-dirs:   bench
     main-is:          LongMnistBench.hs
-    build-depends: benchLibrary
+    build-depends: benchCommonLibrary, exampleLibrary
       , base
       , criterion
-      , horde-ad
       , random
 
 -- The data files for this are not included in the cabal package,
@@ -414,10 +443,9 @@ benchmark shortMnistForCI
     type:             exitcode-stdio-1.0
     hs-source-dirs:   bench
     main-is:          ShortMnistForCI.hs
-    build-depends: benchLibrary
+    build-depends: benchCommonLibrary, exampleLibrary
       , base
       , criterion
-      , horde-ad
       , random
 
 -- takes forever, so mostly to invoke with --benchmark-options='-n 1 +RTS -s'
@@ -432,8 +460,7 @@ benchmark realisticMnistBench
     type:             exitcode-stdio-1.0
     hs-source-dirs:   bench
     main-is:          RealisticMnistBench.hs
-    build-depends: benchLibrary
+    build-depends: benchCommonLibrary, exampleLibrary
       , base
       , criterion
-      , horde-ad
       , random

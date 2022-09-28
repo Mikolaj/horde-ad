@@ -19,7 +19,7 @@ import           Test.Tasty.HUnit hiding (assert)
 
 
 import HordeAd
-import HordeAd.Tool.MnistFcnnVector
+import MnistFcnnVector
 import TestCommonEqEpsilon
 
 testTrees :: [TestTree]

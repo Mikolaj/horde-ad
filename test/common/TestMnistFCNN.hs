@@ -21,11 +21,11 @@ import           Text.Printf
 
 import HordeAd
 import HordeAd.Core.OutdatedOptimizer
-import HordeAd.Tool.MnistData
-import HordeAd.Tool.MnistFcnnMatrix
-import HordeAd.Tool.MnistFcnnScalar
-import HordeAd.Tool.MnistFcnnShaped
-import HordeAd.Tool.MnistFcnnVector
+import MnistData
+import MnistFcnnMatrix
+import MnistFcnnScalar
+import MnistFcnnShaped
+import MnistFcnnVector
 
 import TestCommon
 import TestCommonEqEpsilon

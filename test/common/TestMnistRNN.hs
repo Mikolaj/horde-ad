@@ -20,9 +20,9 @@ import           Text.Printf
 
 import HordeAd
 import HordeAd.Core.OutdatedOptimizer
-import HordeAd.Tool.MnistData
-import HordeAd.Tool.MnistFcnnVector
-import HordeAd.Tool.MnistRnnShaped
+import MnistData
+import MnistFcnnVector
+import MnistRnnShaped
 
 import TestCommonEqEpsilon
 

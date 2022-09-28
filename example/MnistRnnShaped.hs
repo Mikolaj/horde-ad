@@ -4,7 +4,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Shaped tensor-based implementation of Recurrent Neural Network
 -- for classification of MNIST digits. Sports 2 hidden layers.
-module HordeAd.Tool.MnistRnnShaped where
+module MnistRnnShaped where
 
 import Prelude
 
@@ -22,7 +22,7 @@ import qualified Numeric.LinearAlgebra as HM
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors (ADInputs, atS)
-import HordeAd.Tool.MnistData
+import MnistData
 
 zeroStateS
   :: (ADModeAndNum d r, OS.Shape sh)

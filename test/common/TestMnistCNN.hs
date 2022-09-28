@@ -23,8 +23,8 @@ import           Text.Printf
 
 import HordeAd
 import HordeAd.Core.DualClass (HasRanks (dKonst2))
-import HordeAd.Tool.MnistCnnShaped
-import HordeAd.Tool.MnistData
+import MnistCnnShaped
+import MnistData
 
 import TestCommon
 import TestCommonEqEpsilon

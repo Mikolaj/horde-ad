@@ -5,7 +5,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Shaped tensor-based implementation of Convolutional Neural Network
 -- for classification of MNIST digits. Sports 2 hidden layers.
-module HordeAd.Tool.MnistCnnShaped where
+module MnistCnnShaped where
 
 import Prelude
 
@@ -19,7 +19,7 @@ import qualified Numeric.LinearAlgebra as HM
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors (ADInputs, atS)
-import HordeAd.Tool.MnistData
+import MnistData
 
 convMnistLayerS
   :: forall kheight_minus_1 kwidth_minus_1 out_channels

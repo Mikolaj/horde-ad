@@ -16,10 +16,10 @@ import           System.Random
 
 import HordeAd
 import HordeAd.Core.DualClass (unsafeGetFreshId)
-import HordeAd.Tool.MnistData
-import HordeAd.Tool.MnistFcnnMatrix
-import HordeAd.Tool.MnistFcnnScalar
-import HordeAd.Tool.MnistFcnnVector
+import MnistData
+import MnistFcnnMatrix
+import MnistFcnnScalar
+import MnistFcnnVector
 
 mnistTrainBench2 :: forall r. (NFData r, UniformRange r, HasDelta r)
                  => String -> Int -> [MnistData r] -> Int -> Int

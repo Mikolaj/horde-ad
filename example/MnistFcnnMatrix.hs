@@ -4,7 +4,7 @@
 -- consider matrices, not scalars, as the primitive differentiable type)
 -- implementation of fully connected neutral network for classification
 -- of MNIST digits. Sports 2 hidden layers.
-module HordeAd.Tool.MnistFcnnMatrix where
+module MnistFcnnMatrix where
 
 import Prelude
 
@@ -17,7 +17,7 @@ import           Numeric.LinearAlgebra (Vector)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors (ADInputs, at1, at2)
-import HordeAd.Tool.MnistData
+import MnistData
 
 fcnnMnistLen2 :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
 fcnnMnistLen2 widthHidden widthHidden2 =

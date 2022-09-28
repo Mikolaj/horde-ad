@@ -16,8 +16,8 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 import HordeAd.Core.OutdatedOptimizer
-import HordeAd.Tool.MnistData
-import HordeAd.Tool.MnistFcnnScalar
+import MnistData
+import MnistFcnnScalar
 import TestCommonEqEpsilon
 
 type ADValD = ADVal 'ADModeGradient Double
