@@ -136,9 +136,9 @@ library
                       HordeAd.Core.DualNumber
                       HordeAd.Core.Engine
                       HordeAd.Core.DualClass
-                      HordeAd.Core.Optimizer
-                      HordeAd.Core.OptimizerTools
-                      HordeAd.Core.OutdatedOptimizer
+                      HordeAd.External.Optimizer
+                      HordeAd.External.OptimizerTools
+                      HordeAd.External.OutdatedOptimizer
                       HordeAd.Core.PairOfVectors
                       HordeAd.Internal.Delta
                       HordeAd.Internal.MatrixOuter

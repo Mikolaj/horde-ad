@@ -15,7 +15,7 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
-import HordeAd.Core.OutdatedOptimizer
+import HordeAd.External.OutdatedOptimizer
 import MnistData
 import MnistFcnnScalar
 import TestCommonEqEpsilon

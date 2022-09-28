@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 -- | Tools for implementing (and debugging the use of) gradient descent schemes.
-module HordeAd.Core.OptimizerTools
+module HordeAd.External.OptimizerTools
   ( updateWithGradient
   , gradientIsNil, minimumGradient, maximumGradient
   , ArgsAdam(..), defaultArgsAdam

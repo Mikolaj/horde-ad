@@ -3,7 +3,7 @@
 -- | Outdated and/or superseded implementations of gradient descent.
 -- They are used only for special tests and for comparison with the recommended
 -- optimizers to make sure the latter are superior in all contexts.
-module HordeAd.Core.OutdatedOptimizer where
+module HordeAd.External.OutdatedOptimizer where
 
 import Prelude
 
@@ -15,7 +15,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.OptimizerTools
+import HordeAd.External.OptimizerTools
 import HordeAd.Core.PairOfVectors (ADInputs, makeADInputs)
 
 -- | Stochastic Gradient Descent with mini-batches, taking the mean

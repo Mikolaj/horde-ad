@@ -1,6 +1,6 @@
 {-# LANGUAGE DataKinds, TypeFamilies #-}
 -- | A couple of gradient descent scheme implementations.
-module HordeAd.Core.Optimizer
+module HordeAd.External.Optimizer
   ( gdSimple
   , sgd
   , sgdAdam, sgdAdamArgs
@@ -13,8 +13,8 @@ import Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.Core.OptimizerTools
 import HordeAd.Core.PairOfVectors (ADInputs, makeADInputs)
+import HordeAd.External.OptimizerTools
 
 -- | Simple Gradient Descent.
 gdSimple :: forall r. HasDelta r

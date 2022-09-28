@@ -19,7 +19,7 @@ import           Test.Tasty.HUnit hiding (assert)
 import           Text.Printf
 
 import HordeAd
-import HordeAd.Core.OutdatedOptimizer
+import HordeAd.External.OutdatedOptimizer
 import MnistData
 import MnistFcnnVector
 import MnistRnnShaped

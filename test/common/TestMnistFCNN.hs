@@ -20,7 +20,7 @@ import           Test.Tasty.QuickCheck hiding (label, shuffle)
 import           Text.Printf
 
 import HordeAd
-import HordeAd.Core.OutdatedOptimizer
+import HordeAd.External.OutdatedOptimizer
 import MnistData
 import MnistFcnnMatrix
 import MnistFcnnScalar
