@@ -420,8 +420,8 @@ foo (x,y,z) =
 
 testFoo :: Assertion
 testFoo =
-  assertEqualUpToEpsilon (1e-10 :: Double)
-    (rev foo (1.1, 2.2, 3.3) :: (Double,Double,Double))
+  assertEqualUpToEpsilon 1e-10
+    (rev foo (1.1, 2.2, 3.3) :: (Double, Double, Double))
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
 
 bar :: RealFloat a => (a,a,a) -> a
@@ -431,8 +431,8 @@ bar (x,y,z) =
 
 testBar :: Assertion
 testBar =
-  assertEqualUpToEpsilon (1e-9 :: Double)
-    (rev bar (1.1, 2.2, 3.3) :: (Double,Double,Double))
+  assertEqualUpToEpsilon 1e-9
+    (rev bar (1.1, 2.2, 3.3) :: (Double, Double, Double))
     (6.221706565357043, -12.856908977773593, 6.043601532156671)
 
 -- A check if gradient computation is re-entrant.
@@ -460,8 +460,8 @@ fooConstant = foo (7, 8, 9)
 
 testBaz :: Assertion
 testBaz =
-  assertEqualUpToEpsilon (1e-9 :: Double)
-    (rev baz (1.1, 2.2, 3.3) :: (Double,Double,Double))
+  assertEqualUpToEpsilon 1e-9
+    (rev baz (1.1, 2.2, 3.3) :: (Double, Double, Double))
     (0, -5219.20995030263, 2782.276274462047)
 
 -- If terms are numbered and @z@ is, wrongly, decorated with number 0,
@@ -476,13 +476,14 @@ testBaz =
 -- is likely to fail in less naive implementations, as well.
 testBazRenumbered :: Assertion
 testBazRenumbered =
-  assertEqualUpToEpsilon (1e-9 :: Double)
-    (rev (\(x,y,z) -> z + baz (x,y,z)) (1.1, 2.2, 3.3) :: (Double,Double,Double))
+  assertEqualUpToEpsilon 1e-9
+    (rev (\(x,y,z) -> z + baz (x,y,z)) (1.1, 2.2, 3.3)
+                      :: (Double, Double, Double))
     (0, -5219.20995030263, 2783.276274462047)
 
 -- A dual-number and list-based version of a function that goes
 -- from `R^3` to `R`.
-fooD :: ADModeAndNum d r => [ADVal d r] -> ADVal d r
+fooD :: forall r d. ADModeAndNum d r => [ADVal d r] -> ADVal d r
 fooD [x, y, z] =
   let w = x * sin y
   in atan2 z w + z * w
@@ -490,8 +491,8 @@ fooD _ = error "wrong number of arguments"
 
 testFooD :: Assertion
 testFooD =
-  assertEqualUpToEpsilon (1e-10 :: Double)
-    (rev fooD [1.1, 2.2, 3.3] :: [Double])
+  assertEqualUpToEpsilon 1e-10
+    (rev (fooD @Double) [1.1, 2.2, 3.3])
     [2.4396285219055063, -1.953374825727421, 0.9654825811012627]
 
 -- A dual-number version of a function that goes from three rank one
@@ -500,7 +501,8 @@ testFooD =
 -- of the third.
 -- Solving type-level inequalities is too hard, so we use the type-level plus
 -- to express the bounds on tensor sizes.
-fooS :: ( ADModeAndNum d r
+fooS :: forall r len1 l1 len2 l2 len3 l3 len4 l4 d.
+        ( ADModeAndNum d r
         , len1 ~ (l1 + 1), len2 ~ (l2 + 2), len3 ~ (l3 + 3), len4 ~ (l4 + 4) )
      => StaticNat len1 -> StaticNat len2 -> StaticNat len3 -> StaticNat len4
      -> ( ADVal d (OS.Array '[len1] r)
@@ -513,8 +515,8 @@ fooS MkSN MkSN MkSN MkSN (x1, x2, x3, x4) =
 testFooS :: Assertion
 testFooS =
   assertEqualUpToEpsilon @Double @(OS.Array '[1] Double, OS.Array '[5] Double, OS.Array '[3] Double, OS.Array '[4] Double)
-    (1e-12 :: Double)
-    (rev (fooS (MkSN @1) (MkSN @5) (MkSN @3) (MkSN @4))
+                         1e-12
+    (rev (fooS @Double (MkSN @1) (MkSN @5) (MkSN @3) (MkSN @4))
           ( OS.fromList [1.1]
           , OS.fromList [2.2, 2.3, 7.2, 7.3, 7.4]
           , OS.fromList [3.3, 3.4, 3.5]
@@ -557,8 +559,8 @@ bar_3_75 = value (ravelFromListS . barS (MkSN @3) (MkSN @75))
 
 testBarV :: Assertion
 testBarV =
-  assertEqualUpToEpsilon @Double @(OS.Array '[2, 3, 337] Double) (1e-12 :: Double)
-    (bar_3_75
+  assertEqualUpToEpsilon 1e-12
+    (bar_3_75 @Double @2 @'[3, 337]
        ( 1.1
        , OS.constant 17.3  -- TODO: create more interesting test data
        , [ OS.constant 2.4
@@ -566,7 +568,7 @@ testBarV =
     (OS.constant 46.2)
 
 bar_vjp_3_75
-  :: forall sh r.
+  :: forall r sh.
      ( ADModeAndNum 'ADModeDerivative r, Dual 'ADModeDerivative r ~ r
      , OS.Shape sh )
   => ( r
@@ -585,11 +587,11 @@ bar_vjp_3_75 = fwd (head . barS (MkSN @3) (MkSN @75))
 
 testBarF :: Assertion
 testBarF =
-  assertEqualUpToEpsilon (1e-7 :: Double)
-    (bar_vjp_3_75
+  assertEqualUpToEpsilon 1e-7
+    (bar_vjp_3_75 @Double @'[12, 2, 5, 2]
        ( 1.1
        , OS.constant 17.3  -- TODO: create more interesting test data
-       , [ OS.constant 2.4 :: OS.Array [75, 12, 2, 5, 2] Double
+       , [ OS.constant 2.4
          , OS.constant 3.6 ] )  -- input
        ( 2.1
        , OS.constant 18.3
@@ -618,14 +620,12 @@ bar_rev_3_75 = rev ((head :: [ADVal 'ADModeGradient (OS.Array (n1 ': sh) r)]
 testBarR :: Assertion
 testBarR =
   assertEqualUpToEpsilon 1e-7
-    (bar_rev_3_75
+    (bar_rev_3_75 @Double @'[2, 3, 341, 1, 5]
        ( 1.1
        , OS.constant 17.3  -- TODO: create more interesting test data
        , [ OS.constant 2.4
          , OS.constant 3.6 ] ))  -- input
-    (( 1288980.0
-     , OS.constant 0
-     , [ OS.constant 0
-       , OS.constant 0 ] ) :: ( Double
-                              , OS.Array '[3, 75] Double
-                              , [OS.Array '[75, 2, 3, 341, 1, 5] Double] ))
+    ( 1288980.0
+    , OS.constant 0
+    , [ OS.constant 0
+      , OS.constant 0 ] )
