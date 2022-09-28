@@ -14,7 +14,7 @@ import           Test.Tasty
 import           Test.Tasty.Options
 import           Test.Tasty.Runners
 
-import           TestCommonEqEpsilon
+import           Tool.EqEpsilon
 import qualified TestConditionalSynth
 import qualified TestOutdated
 

@@ -23,8 +23,8 @@ import HordeAd.Core.DualClass (Dual, unsafeGetFreshId)
   -- for a special test
 import HordeAd.Internal.Delta (toShapedOrDummy)
 
-import TestCommon
-import TestCommonEqEpsilon
+import Tool.Shared
+import Tool.EqEpsilon
 
 testTrees :: [TestTree]
 testTrees = [ testDReverse0

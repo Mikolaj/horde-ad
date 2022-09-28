@@ -18,7 +18,7 @@ import HordeAd
 import HordeAd.External.OutdatedOptimizer
 import MnistData
 import MnistFcnnScalar
-import TestCommonEqEpsilon
+import Tool.EqEpsilon
 
 type ADValD = ADVal 'ADModeGradient Double
 

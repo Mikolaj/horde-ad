@@ -1,10 +1,11 @@
-{-# LANGUAGE DataKinds, FlexibleInstances, FunctionalDependencies, RankNTypes, TypeFamilies #-}
+{-# LANGUAGE DataKinds, FlexibleInstances, FunctionalDependencies, RankNTypes,
+             TypeFamilies #-}
 module Tool.Shared (lowercase, listsToParameters,
-                   cmpTwo, cmpTwoSimple,
-                   qcPropDom, quickCheckTest0, fquad, quad,
-                   HasShape (shapeL),
-                   Linearizable (linearize)
-                  ) where
+                    cmpTwo, cmpTwoSimple,
+                    qcPropDom, quickCheckTest0, fquad, quad,
+                    HasShape (shapeL),
+                    Linearizable (linearize)
+                   ) where
 
 import Prelude
 

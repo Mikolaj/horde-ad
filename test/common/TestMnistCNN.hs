@@ -26,8 +26,8 @@ import HordeAd.Core.DualClass (HasRanks (dKonst2))
 import MnistCnnShaped
 import MnistData
 
-import TestCommon
-import TestCommonEqEpsilon
+import Tool.Shared
+import Tool.EqEpsilon
 
 testTrees :: [TestTree]
 testTrees = [ mnistCNNTestsShort

@@ -230,8 +230,8 @@ library testCommonLibrary
       buildable: True
 
     -- Modules exported by the library.
-    exposed-modules:  TestCommon
-                      TestCommonEqEpsilon
+    exposed-modules:  Tool.Shared
+                      Tool.EqEpsilon
                       TestConditionalSynth
                       TestOutdated
 

@@ -27,8 +27,8 @@ import MnistFcnnScalar
 import MnistFcnnShaped
 import MnistFcnnVector
 
-import TestCommon
-import TestCommonEqEpsilon
+import Tool.Shared
+import Tool.EqEpsilon
 
 testTrees :: [TestTree]
 testTrees = [ dumbMnistTests

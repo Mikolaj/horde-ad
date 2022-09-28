@@ -12,8 +12,8 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 import HordeAd.Internal.Delta (toShapedOrDummy)
-import TestCommon (fquad, quad)
-import TestCommonEqEpsilon
+import Tool.Shared (fquad, quad)
+import Tool.EqEpsilon
 
 testTrees :: [TestTree]
 testTrees = [ gdSimpleTests

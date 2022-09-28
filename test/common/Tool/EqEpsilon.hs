@@ -1,9 +1,9 @@
-{-# LANGUAGE FlexibleInstances, FunctionalDependencies, GeneralizedNewtypeDeriving,
-             QuantifiedConstraints,
+{-# LANGUAGE FlexibleInstances, FunctionalDependencies,
+             GeneralizedNewtypeDeriving, QuantifiedConstraints,
              UndecidableInstances #-}
 module Tool.EqEpsilon (EqEpsilon, setEpsilonEq,
-                            assertEqualUpToEpsilon,
-                            assertCloseElem, assertClose, (@?~)) where
+                       assertEqualUpToEpsilon,
+                       assertCloseElem, assertClose, (@?~)) where
 
 import Data.Typeable
 import Prelude
@@ -15,7 +15,7 @@ import           System.IO.Unsafe
 import           Test.Tasty.HUnit
 import           Test.Tasty.Options
 
-import           Tool.Shared
+import Tool.Shared
 
 newtype EqEpsilon = EqEpsilon Rational
   deriving (Typeable, Num, Fractional)
