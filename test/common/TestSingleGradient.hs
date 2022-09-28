@@ -598,7 +598,7 @@ testBarF =
     (OS.constant 88.2)
 
 bar_rev_3_75
-  :: forall sh r.
+  :: forall r sh.
      ( HasDelta r
      , OS.Shape sh)
   => ( r
@@ -617,33 +617,15 @@ bar_rev_3_75 = rev ((head :: [ADVal 'ADModeGradient (OS.Array (n1 ': sh) r)]
 
 testBarR :: Assertion
 testBarR =
-  assertEqualUpToEpsR @'[2, 3, 341, 1, 5] (1e-7 :: Double)
+  assertEqualUpToEpsilon 1e-7
     (bar_rev_3_75
        ( 1.1
        , OS.constant 17.3  -- TODO: create more interesting test data
        , [ OS.constant 2.4
          , OS.constant 3.6 ] ))  -- input
-    ( 1288980.0
-    , OS.constant 0
-    , [ OS.constant 0
-      , OS.constant 0 ] )
-
-
-
-
--- * assertEqualUpToEps hacks (#65)
-
-assertEqualUpToEpsR
-  :: OS.Shape sh
-  => Double
-  -> ( Double
-     , OS.Array '[3, 75] Double
-     , [OS.Array (75 ': sh) Double] )
-  -> ( Double
-     , OS.Array '[3, 75] Double
-     , [OS.Array (75 ': sh) Double] )
-  -> Assertion
-assertEqualUpToEpsR _eps (r1, r2, r3) (u1, u2, u3) =  -- TODO
-  r1 @?~ u1
-  >> OS.toList r2 @?~ OS.toList u2
-  >> concatMap OS.toList r3 @?~ concatMap OS.toList u3
+    (( 1288980.0
+     , OS.constant 0
+     , [ OS.constant 0
+       , OS.constant 0 ] ) :: ( Double
+                              , OS.Array '[3, 75] Double
+                              , [OS.Array '[75, 2, 3, 341, 1, 5] Double] ))
