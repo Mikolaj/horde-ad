@@ -32,7 +32,7 @@ module HordeAd.Core.DualClass
   , -- * The less often used part of the mid-level API that gets re-exported in high-level API; it leaks implementation details
     IsPrimal(..), IsPrimalAndHasFeatures, HasDelta
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
-    Dual, HasRanks(..), HasInputs(..)
+    Dual, HasRanks(..), HasInputs(..), dummyDual
   , -- * Internal operations, exposed, e.g., for tests
     unsafeGetFreshId
   ) where
@@ -129,6 +129,9 @@ type family Dual (d :: ADMode) a = result | result -> d a where
 
 -- A bit more verbose, but a bit faster than @data@, perhaps by chance.
 newtype DummyDual a = DummyDual ()
+
+dummyDual :: DummyDual a
+dummyDual = DummyDual ()
 
 -- | The underlying scalar of a given primal component of a dual number.
 -- A long name to remember not to use, unless necessary, and not to export.

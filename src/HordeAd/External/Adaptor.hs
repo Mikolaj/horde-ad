@@ -23,7 +23,7 @@ import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors
 import HordeAd.Internal.Delta (toShapedOrDummy)
 
-value :: ( ADModeAndNum 'ADModeValue r
+value :: ( Numeric r
          , Adaptable 'ADModeValue r advals vals )
       => (advals -> ADVal 'ADModeValue a) -> vals -> a
 value f vals =

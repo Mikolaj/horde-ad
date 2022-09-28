@@ -29,7 +29,7 @@ import           Text.Show.Pretty (ppShow)
 
 -- import           System.Mem (performMinorGC)
 
-import HordeAd.Core.DualClass (Dual, dInput, packDeltaDt)
+import HordeAd.Core.DualClass (Dual, dInput, dummyDual, packDeltaDt)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.PairOfVectors (ADInputs (..), makeADInputs)
 import HordeAd.Internal.Delta
@@ -40,23 +40,23 @@ import HordeAd.Internal.Delta
 
 -- The general case, needed for old hacky tests using only scalars.
 valueGeneral
-  :: ADModeAndNum 'ADModeValue r
+  :: Numeric r
   => (ADInputs 'ADModeValue r -> a)
   -> Domains r
   -> a
 -- Small enough that inline won't hurt.
 {-# INLINE valueGeneral #-}
 valueGeneral f (params0, params1, params2, paramsX) =
-  let replicateZeros p = V.replicate (V.length p) dZero
+  let replicateDummy p = V.replicate (V.length p) dummyDual
       inputs = makeADInputs (params0, params1, params2, paramsX)
-                            ( replicateZeros params0  -- dummy
-                            , replicateZeros params1
-                            , replicateZeros params2
-                            , replicateZeros paramsX )
+                            ( replicateDummy params0  -- dummy
+                            , replicateDummy params1
+                            , replicateDummy params2
+                            , replicateDummy paramsX )
   in f inputs
 
 valueFun
-  :: ADModeAndNum 'ADModeValue r
+  :: Numeric r
   => (ADInputs 'ADModeValue r -> ADVal 'ADModeValue a)
   -> Domains r
   -> a
@@ -189,6 +189,9 @@ fwdGeneral inputs f =
 -- JVP (jacobian-vector product) or Rop (right operation) are alternative
 -- names, but newbies may have trouble understanding it.
 -- The direction vector ds is taken as an extra argument.
+--
+-- The type equality constraint is needed, because the `Dual` type family
+-- can't declare it, because it needs to remain injective.
 fwdFun
   :: (Numeric r, Dual 'ADModeDerivative r ~ r)
   => Domains r
