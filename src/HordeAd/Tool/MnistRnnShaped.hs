@@ -15,11 +15,9 @@ import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import           Data.List (foldl')
 import qualified Data.Vector.Generic as V
+import           GHC.TypeLits
 import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as HM
-
--- until stylish-haskell accepts NoStarIsType
-import qualified GHC.TypeLits
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
@@ -68,13 +66,13 @@ rnnMnistTwoS
   => StaticNat out_width
   -> StaticNat batch_size
   -> StaticNat sizeMnistHeight
-  -> ADVal d (OS.Array '[2 GHC.TypeLits.* out_width, batch_size] r)
+  -> ADVal d (OS.Array '[2 * out_width, batch_size] r)
        -- initial state
   -> OS.Array '[sizeMnistHeight, batch_size] r
   -> ( LayerWeigthsRNN sizeMnistHeight out_width d r
      , LayerWeigthsRNN out_width out_width d r )
   -> ( ADVal d (OS.Array '[out_width, batch_size] r)
-     , ADVal d (OS.Array '[2 GHC.TypeLits.* out_width, batch_size] r) )
+     , ADVal d (OS.Array '[2 * out_width, batch_size] r) )
            -- final state
 rnnMnistTwoS out_width@MkSN
              batch_size@MkSN

@@ -13,11 +13,8 @@ import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Shape
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (type (+), type (<=), type Div)
+import           GHC.TypeLits
 import qualified Numeric.LinearAlgebra as HM
-
--- until stylish-haskell accepts NoStarIsType
-import qualified GHC.TypeLits
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
@@ -81,12 +78,12 @@ convMnistTwoS
   -> ADVal d (OS.Array '[out_channels] r)
   -> ADVal d (OS.Array '[ num_hidden
                         , out_channels
-                            GHC.TypeLits.*
-                              (((in_height + kheight_minus_1) `Div` 2
-                                + kheight_minus_1) `Div` 2)
-                            GHC.TypeLits.*
-                              (((in_width + kwidth_minus_1) `Div` 2
-                                + kwidth_minus_1) `Div` 2)
+                            * (((in_height + kheight_minus_1) `Div` 2
+                                + kheight_minus_1)
+                               `Div` 2)
+                            * (((in_width + kwidth_minus_1) `Div` 2
+                                + kwidth_minus_1)
+                               `Div` 2)
                         ] r)
   -> ADVal d (OS.Array '[num_hidden] r)
   -> ADVal d (OS.Array '[SizeMnistLabel, num_hidden] r)
@@ -136,11 +133,9 @@ convMnistLenS MkSN MkSN MkSN MkSN MkSN MkSN =
     , Data.Array.Shape.shapeT @'[out_channels]
     , Data.Array.Shape.shapeT @'[ num_hidden
                                 , out_channels
-                                    GHC.TypeLits.*
-                                      ((in_height + kheight_minus_1) `Div` 2
+                                    * ((in_height + kheight_minus_1) `Div` 2
                                        + kheight_minus_1) `Div` 2
-                                    GHC.TypeLits.*
-                                      ((in_width + kwidth_minus_1) `Div` 2
+                                    * ((in_width + kwidth_minus_1) `Div` 2
                                        + kheight_minus_1) `Div` 2
                                 ]
     , Data.Array.Shape.shapeT @'[num_hidden]

@@ -9,6 +9,7 @@ import           Control.Monad (foldM)
 import qualified Data.Array.DynamicS as OT
 import           Data.List (foldl', unfoldr)
 import qualified Data.Vector.Generic as V
+import           GHC.TypeLits
 import           Numeric.LinearAlgebra (Matrix, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           System.IO (hPutStrLn, stderr)
@@ -16,9 +17,6 @@ import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 import           Text.Printf
-
--- until stylish-haskell accepts NoStarIsType
-import qualified GHC.TypeLits
 
 import HordeAd
 import HordeAd.Core.OutdatedOptimizer
@@ -826,8 +824,8 @@ mnistTestCaseRNNS out_width@MkSN batch_size@MkSN
                        $ chunksOf batchSize chunk
           res@(parameters2, _) <- sgdAdam f chunkS parameters stateAdam
           let !trainScore =
-                ftest out_width (MkSN @(10 GHC.TypeLits.* batch_size))
-                      (packBatch @(10 GHC.TypeLits.* batch_size) chunk)
+                ftest out_width (MkSN @(10 * batch_size))
+                      (packBatch @(10 * batch_size) chunk)
                       parameters2
               !testScore = ftest out_width (MkSN @LengthTestData)
                                  testDataS parameters2

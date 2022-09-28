@@ -16,14 +16,11 @@ import           Data.List (sortOn)
 import           Data.Maybe (fromMaybe)
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Unboxed
-import           GHC.TypeLits (KnownNat, Nat)
+import           GHC.TypeLits
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           System.IO (IOMode (ReadMode), withBinaryFile)
 import           System.Random
-
--- until stylish-haskell accepts NoStarIsType
-import qualified GHC.TypeLits
 
 import HordeAd.Core.DualNumber
 
@@ -40,7 +37,7 @@ type SizeMnistHeight = SizeMnistWidth
 sizeMnistHeight :: StaticNat SizeMnistHeight
 sizeMnistHeight = MkSN @SizeMnistHeight
 
-type SizeMnistGlyph = SizeMnistWidth GHC.TypeLits.* SizeMnistHeight
+type SizeMnistGlyph = SizeMnistWidth * SizeMnistHeight
 
 sizeMnistGlyphInt :: Int
 sizeMnistGlyphInt = valueOf @SizeMnistGlyph
