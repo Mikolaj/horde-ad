@@ -40,7 +40,7 @@ import HordeAd.Internal.Delta
 
 -- The general case, needed for old hacky tests using only scalars.
 valueGeneral
-  :: forall r a. ADModeAndNum 'ADModeValue r
+  :: ADModeAndNum 'ADModeValue r
   => (ADInputs 'ADModeValue r -> a)
   -> Domains r
   -> a
@@ -56,7 +56,7 @@ valueGeneral f (params0, params1, params2, paramsX) =
   in f inputs
 
 valueFun
-  :: forall r a. ADModeAndNum 'ADModeValue r
+  :: ADModeAndNum 'ADModeValue r
   => (ADInputs 'ADModeValue r -> ADVal 'ADModeValue a)
   -> Domains r
   -> a
@@ -70,7 +70,7 @@ valueFun f parameters =
 -- * Evaluation that computes gradients.
 
 revGeneralFun
-  :: forall a r. (HasDelta r, IsPrimalAndHasFeatures 'ADModeGradient a r)
+  :: (HasDelta r, IsPrimalAndHasFeatures 'ADModeGradient a r)
   => a
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
   -> ADInputs 'ADModeGradient r
@@ -93,7 +93,7 @@ revGeneralFun dt f inputs@ADInputs{..} =
 -- Tests expect this to be in IO by historical accident.
 -- But we can possibly add hacks here in the future, such as @performMinorGC@.
 revGeneral
-  :: forall a r. (HasDelta r, IsPrimalAndHasFeatures 'ADModeGradient a r)
+  :: (HasDelta r, IsPrimalAndHasFeatures 'ADModeGradient a r)
   => a
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
   -> ADInputs 'ADModeGradient r
@@ -130,7 +130,7 @@ revIO dt f parameters = return $! revFun dt f parameters
 -- for a fast variant.
 
 slowFwdGeneralFun
-  :: forall r. HasDelta r
+  :: HasDelta r
   => ADInputs 'ADModeGradient r
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
@@ -146,7 +146,7 @@ slowFwdGeneralFun inputs@ADInputs{..} f ds =
      in (derivative, v)
 
 slowFwdGeneral
-  :: forall r. HasDelta r
+  :: HasDelta r
   => ADInputs 'ADModeGradient r
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
@@ -178,10 +178,9 @@ slowFwd parameters f ds = return $! slowFwdFun parameters f ds
 -- * Evaluation for efficiently computing forward derivatives.
 
 fwdGeneral
-  :: Dual 'ADModeDerivative a ~ a
-  => ADInputs 'ADModeDerivative r
+  :: ADInputs 'ADModeDerivative r
   -> (ADInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative a)
-  -> (a, a)
+  -> (Dual 'ADModeDerivative a, a)
 {-# INLINE fwdGeneral #-}
 fwdGeneral inputs f =
   let D v d = f inputs
@@ -191,12 +190,11 @@ fwdGeneral inputs f =
 -- names, but newbies may have trouble understanding it.
 -- The direction vector ds is taken as an extra argument.
 fwdFun
-  :: forall a r. ( Numeric r, Dual 'ADModeDerivative r ~ r
-                 , Dual 'ADModeDerivative a ~ a )
+  :: (Numeric r, Dual 'ADModeDerivative r ~ r)
   => Domains r
   -> (ADInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative a)
   -> Domains r  -- ds
-  -> (a, a)
+  -> (Dual 'ADModeDerivative a, a)
 fwdFun parameters f (params0, params1, params2, paramsX) =
   let inputs =
         makeADInputs
@@ -208,7 +206,7 @@ fwdFun parameters f (params0, params1, params2, paramsX) =
 -- * Additional mechanisms
 
 prettyPrintDf
-  :: forall r. HasDelta r
+  :: HasDelta r
   => (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> String

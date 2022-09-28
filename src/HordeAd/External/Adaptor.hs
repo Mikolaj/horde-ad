@@ -38,9 +38,9 @@ rev f vals =
   in fromDomains $ fst $ revFun 1 g (toDomains vals)
 
 fwd :: ( Numeric r, Dual 'ADModeDerivative r ~ r
-       , Dual 'ADModeDerivative a ~ a
        , Adaptable 'ADModeDerivative r advals vals )
-    => (advals -> ADVal 'ADModeDerivative a) -> vals -> vals -> a
+    => (advals -> ADVal 'ADModeDerivative a) -> vals -> vals
+    -> Dual 'ADModeDerivative a  -- normally equals @a@
 fwd f x ds =
   let g inputs = f $ fromADInputs inputs
   in fst $ fwdFun (toDomains x) g (toDomains ds)
