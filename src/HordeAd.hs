@@ -5,13 +5,15 @@
 module HordeAd
   ( module HordeAd.Core.DualNumber
   , module HordeAd.Core.Engine
-  , module HordeAd.External.Optimizer
   , module HordeAd.Core.PairOfVectors
- ) where
+  , module HordeAd.External.Adaptor
+  , module HordeAd.External.Optimizer
+  ) where
 
 import Prelude ()
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.External.Optimizer
 import HordeAd.Core.PairOfVectors
+import HordeAd.External.Adaptor
+import HordeAd.External.Optimizer

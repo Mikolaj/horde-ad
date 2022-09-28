@@ -136,6 +136,7 @@ library
                       HordeAd.Core.DualNumber
                       HordeAd.Core.Engine
                       HordeAd.Core.DualClass
+                      HordeAd.External.Adaptor
                       HordeAd.External.Optimizer
                       HordeAd.External.OptimizerTools
                       HordeAd.External.OutdatedOptimizer
