@@ -179,6 +179,7 @@ library simplified
     import:           options
 
     exposed-modules:  HordeAd.Simplified.Delta
+                      HordeAd.Simplified.DualNumber
 
     build-depends:
         assert-failure
