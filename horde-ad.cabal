@@ -175,6 +175,26 @@ library
     -- Directories containing source files.
     hs-source-dirs:   src
 
+library simplified
+    import:           options
+
+    exposed-modules:  HordeAd.Simplified.Delta
+
+    build-depends:
+        assert-failure
+      , base >= 4.14 && < 99
+      , containers
+      , hmatrix
+      , ilist
+      , mono-traversable
+      , pretty-show
+      , primitive
+      , strict-containers
+      , unboxed-ref
+      , vector
+
+    hs-source-dirs:   simplified
+
 library exampleLibrary
     -- Import common warning flags.
     import:           options
