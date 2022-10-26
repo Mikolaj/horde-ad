@@ -7,7 +7,9 @@ import Prelude
 
 import           Control.DeepSeq
 import           Control.Monad (foldM, when)
+import qualified Data.Array.DynamicS as OT
 import           Data.Coerce (coerce)
+import           Data.List (foldl')
 import           Data.List.Index (imap)
 import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import qualified Data.Vector.Generic as V
@@ -18,17 +20,18 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 import           Test.Tasty.QuickCheck hiding (label, shuffle)
 import           Text.Printf
+import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd
-import HordeAd.External.OutdatedOptimizer
+import HordeAd.External.OptimizerTools
 import MnistData
 import MnistFcnnMatrix
 import MnistFcnnScalar
 import MnistFcnnShaped
 import MnistFcnnVector
 
-import Tool.Shared
 import Tool.EqEpsilon
+import Tool.Shared
 
 testTrees :: [TestTree]
 testTrees = [ dumbMnistTests
@@ -343,6 +346,7 @@ mnistTestCase2T reallyWriteFile
        let testErrorFinal = 1 - fcnnMnistTest2 testData res
        testErrorFinal @?~ expected
 
+
 mnistTestCase2D
   :: Bool
   -> Int
@@ -417,6 +421,62 @@ mnistTestCase2D reallyWriteFile miniBatchSize decay
        let testErrorFinal = 1 - fcnnMnistTest2 testData res
        testErrorFinal @?~ expected
 
+-- | Stochastic Gradient Descent with mini-batches, taking the mean
+-- of the results from each mini-batch. Additionally, it uses
+-- "forward gradient" from "Gradients without Backpropagation"
+-- by Atilim Gunes Baydin, Barak A. Pearlmutter, Don Syme, Frank Wood,
+-- Philip Torr.
+--
+-- Note that we can't generalize this to use either
+-- @slowFwdGeneral@ or @revGeneral@, because the optimized call
+-- to @updateWithGradient@ below would not be possible with the common API
+-- for obtaining gradients and at least twice more allocations would
+-- be done there. With small mini-batch sizes this matters,
+-- especially for optimal forward gradient implementation
+-- @fwdGeneral@, where there's no overhead from storing
+-- and evaluating delta-expressions.
+--
+-- An option: vectorize and only then take the mean of the vector of results
+-- and also parallelize taking advantage of vectorization (but currently
+-- we have a global state, so that's tricky).
+sgdBatchForward
+  :: forall a.
+     Int
+  -> Int  -- ^ batch size
+  -> Double  -- ^ gamma (learning_rate?)
+  -> (a -> ADInputs 'ADModeGradient Double -> ADVal 'ADModeGradient Double)
+  -> [a]  -- ^ training data
+  -> Domains Double  -- ^ initial parameters
+  -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+  -> IO (Domains Double, Double)
+sgdBatchForward seed0 batchSize gamma f trainingData parameters0 nParameters =
+  go seed0 trainingData parameters0 0
+ where
+  deltaInputs = generateDeltaInputs parameters0
+  go :: Int -> [a] -> Domains Double -> Double -> IO (Domains Double, Double)
+  go _ [] parameters v = return (parameters, v)
+  go seed l parameters _ = do
+    let (batch, rest) = splitAt batchSize l
+        fAdd :: ADInputs 'ADModeGradient Double
+             -> ADVal 'ADModeGradient Double -> a
+             -> ADVal 'ADModeGradient Double
+        fAdd vars !acc a = acc + f a vars
+        fBatch :: ADInputs 'ADModeGradient Double
+               -> ADVal 'ADModeGradient Double
+        fBatch vars =
+          let resBatch = foldl' (fAdd vars) 0 batch
+          in resBatch / fromIntegral (length batch)
+        unitVarianceRange = sqrt 12 / 2
+        (g1, g2) = (seed + 5, seed + 13)
+        (_, _, _, direction) = initializerFixed g1 unitVarianceRange nParameters
+        inputs = makeADInputs parameters deltaInputs
+    (directionalDerivative, valueNew) <-
+      slowFwdGeneral inputs fBatch direction
+    let gammaDirectional = gamma * directionalDerivative
+        parametersNew = updateWithGradient gammaDirectional parameters direction
+    go g2 rest parametersNew valueNew
+
+
 mnistTestCase2F
   :: Bool
   -> Int
@@ -490,6 +550,51 @@ mnistTestCase2F reallyWriteFile miniBatchSize decay
          writeFile "walltimeLoss.txt" $ unlines $ map ppTime times
        let testErrorFinal = 1 - fcnnMnistTest2 testData res
        testErrorFinal @?~ expected
+
+-- | A variant of 'sgdBatchForward' with fast forward derivative computation.
+sgdBatchFastForward
+  :: forall a.
+     Int
+  -> Int  -- ^ batch size
+  -> Double  -- ^ gamma (learning_rate?)
+  -> (a -> ADInputs 'ADModeDerivative Double -> ADVal 'ADModeDerivative Double)
+  -> [a]  -- ^ training data
+  -> Domains Double  -- ^ initial parameters
+  -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+  -> (Domains Double, Double)
+sgdBatchFastForward seed0 batchSize gamma f trainingData
+                    parameters0 nParameters =
+  go seed0 trainingData parameters0 0
+ where
+  go :: Int -> [a] -> Domains Double -> Double -> (Domains Double, Double)
+  go _ [] parameters v = (parameters, v)
+  go seed l parameters@(params0, params1, params2, paramsX) _ =
+    let (batch, rest) = splitAt batchSize l
+        fAdd :: ADInputs 'ADModeDerivative Double
+             -> ADVal 'ADModeDerivative Double
+             -> a
+             -> ADVal 'ADModeDerivative Double
+        fAdd vars !acc a = acc + f a vars
+        fBatch :: ADInputs 'ADModeDerivative Double
+               -> ADVal 'ADModeDerivative Double
+        fBatch vars =
+          let resBatch = foldl' (fAdd vars) 0 batch
+          in resBatch / fromIntegral (length batch)
+        unitVarianceRange = sqrt 12 / 2
+        (g1, g2) = (seed + 5, seed + 13)
+        (_, _, _, direction@(dparams0, dparams1, dparams2, dparamsX)) =
+          initializerFixed g1 unitVarianceRange nParameters
+        inputs =
+          makeADInputs
+            ( coerce params0, coerce params1, coerce params2
+            , unsafeCoerce paramsX )
+            (V.convert dparams0, dparams1, dparams2, dparamsX)
+        (directionalDerivative, valueNew) =
+          fwdGeneral inputs fBatch
+        gammaDirectional = gamma * directionalDerivative
+        parametersNew = updateWithGradient gammaDirectional parameters direction
+    in go g2 rest parametersNew valueNew
+
 
 mnistTestCase2S
   :: forall widthHidden widthHidden2.

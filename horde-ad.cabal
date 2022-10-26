@@ -139,7 +139,6 @@ library
                       HordeAd.External.Adaptor
                       HordeAd.External.Optimizer
                       HordeAd.External.OptimizerTools
-                      HordeAd.External.OutdatedOptimizer
                       HordeAd.Core.PairOfVectors
                       HordeAd.Internal.Delta
                       HordeAd.Internal.MatrixOuter
