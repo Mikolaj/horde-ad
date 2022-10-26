@@ -1,7 +1,9 @@
 {-# LANGUAGE AllowAmbiguousTypes, CPP, DataKinds, FlexibleInstances, GADTs,
-             QuantifiedConstraints, RankNTypes, TypeFamilies #-}
+             QuantifiedConstraints, RankNTypes, TypeFamilies,
+             UndecidableInstances #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 -- | Dual numbers and various operations on them, arithmetic and related
 -- to tensors (vectors, matrices and others). This is a part of
 -- the high-level API of the horde-ad library, defined using the mid-level
@@ -17,11 +19,12 @@ module HordeAd.Simplified.DualNumber
 import Prelude
 
 import           Data.List.Index (imap)
-import           Data.MonoTraversable (MonoFunctor (omap))
+import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
+import qualified Numeric.LinearAlgebra.Devel
 
 import HordeAd.Simplified.Delta (Domain0, Domain1, Domains)
 import HordeAd.Simplified.DualClass
@@ -289,3 +292,34 @@ softMaxV d@(D u _) =
   let expU = exp d  -- shared in 2 places, though cse may do this for us
       sumExpU = sumElements0 expU
   in konst1 (recip sumExpU) (V.length u) * expU
+
+
+-- TODO: move to separate orphan module(s) at some point
+-- This requires UndecidableInstances
+
+instance (Num (Vector r), Numeric r, Ord r)
+         => Real (Vector r) where
+  toRational = undefined
+    -- very low priority, since these are all extremely not continuous
+
+instance (Num (Vector r), Numeric r, Fractional r, Ord r)
+         => RealFrac (Vector r) where
+  properFraction = undefined
+    -- very low priority, since these are all extremely not continuous
+
+-- TODO: is there atan2 in hmatrix or can it be computed faster than this?
+instance ( Floating (Vector r), Numeric r, RealFloat r )
+         => RealFloat (Vector r) where
+  atan2 = Numeric.LinearAlgebra.Devel.zipVectorWith atan2
+    -- we can be selective here and omit the other methods,
+    -- most of which don't even have a differentiable codomain
+
+type instance Element Double = Double
+
+type instance Element Float = Float
+
+instance MonoFunctor Double where
+  omap f = f
+
+instance MonoFunctor Float where
+  omap f = f
