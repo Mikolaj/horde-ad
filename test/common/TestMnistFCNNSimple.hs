@@ -26,6 +26,7 @@ import Tool.Shared
 
 testTrees :: [TestTree]
 testTrees = [ dumbMnistTests
+            , shortCIMnistTests
             , bigMnistTests
             , vectorMnistTests
             ]
@@ -305,26 +306,16 @@ bigMnistTests = testGroup "MNIST tests with a 2-hidden-layer nn"
                    0.1269
   , mnistTestCase2 "2 epochs, but only 1 batch" 2 1 fcnnMnistLoss0 300 100 0.02
                    9.809999999999997e-2
-  , mnistTestCase2 "artificial 1 2 3 4 5" 1 2 fcnnMnistLoss0 3 4 5
-                   0.8972
-  , mnistTestCase2 "artificial 5 4 3 2 1" 5 4 fcnnMnistLoss0 3 2 1
-                   0.8991
   ]
 
 vectorMnistTests :: TestTree
 vectorMnistTests = testGroup "MNIST VV tests with a 2-hidden-layer nn"
-  [ mnistTestCase2V "1 epoch, 1 batch" 1 1 fcnnMnistLoss1 300 100 0.02
-                    0.12960000000000005
-  , mnistTestCase2V "1 epoch, 1 batch, wider" 1 1 fcnnMnistLoss1 500 150 0.02
+  [ mnistTestCase2V "1 epoch, 1 batch, wider" 1 1 fcnnMnistLoss1 500 150 0.02
                     0.13959999999999995
   , mnistTestCase2V "2 epochs, but only 1 batch" 2 1 fcnnMnistLoss1 300 100 0.02
                     0.10019999999999996
   , mnistTestCase2V "1 epoch, all batches" 1 99 fcnnMnistLoss1 300 100 0.02
                     5.389999999999995e-2
-  , mnistTestCase2V "artificial 1 2 3 4 5" 1 2 fcnnMnistLoss1 3 4 5
-                    0.8972
-  , mnistTestCase2V "artificial 5 4 3 2 1" 5 4 fcnnMnistLoss1 3 2 1
-                    0.6585
   ]
 
 shortCIMnistTests :: TestTree

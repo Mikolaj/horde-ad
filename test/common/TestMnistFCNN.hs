@@ -33,7 +33,8 @@ import Tool.Shared
 testTrees :: [TestTree]
 testTrees = [ dumbMnistTests
             , matrixMnistTests
-            , fusedMnistTests
+            , shortCIMnistTests
+            , longMnistTests
             ]
 
 shortTestForCITrees :: [TestTree]
@@ -556,22 +557,12 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
 
 matrixMnistTests :: TestTree
 matrixMnistTests = testGroup "MNIST LL tests with a 2-hidden-layer nn"
-  [ mnistTestCase2L "1 epoch, 1 batch" 1 1 fcnnMnistLoss2 300 100 0.02
-                    0.12339999999999995
-  , mnistTestCase2L "1 epoch, 1 batch, wider" 1 1 fcnnMnistLoss2 500 150 0.02
+  [ mnistTestCase2L "1 epoch, 1 batch, wider" 1 1 fcnnMnistLoss2 500 150 0.02
                     0.15039999999999998
   , mnistTestCase2L "2 epochs, but only 1 batch" 2 1 fcnnMnistLoss2 300 100 0.02
                     8.879999999999999e-2
   , mnistTestCase2L "1 epoch, all batches" 1 99 fcnnMnistLoss2 300 100 0.02
                     5.1100000000000034e-2
-  , mnistTestCase2L "artificial 1 2 3 4 5" 1 2 fcnnMnistLoss2 3 4 5
-                    0.8972
-  , mnistTestCase2T False
-                    "artificial TL 5 4 3 2 1" 5 4 fcnnMnistLoss2 3 2 1
-                    0.8865
-  , mnistTestCase2D False 1 False
-                    "artificial DL 5 4 3 2 1" 5 4 fcnnMnistLoss2 3 2 1
-                    0.8991
   , mnistTestCase2F False 1 False
                     "artificial FL 5 4 3 2 1" 5 4 fcnnMnistLoss2 3 2 1
                     0.8991
@@ -617,11 +608,9 @@ matrixMnistTests = testGroup "MNIST LL tests with a 2-hidden-layer nn"
 --                    0.7465999999999999
   ]
 
-fusedMnistTests :: TestTree
-fusedMnistTests = testGroup "MNIST fused LL tests with a 2-hidden-layer nn"
-  [ mnistTestCase2L "1 epoch, 1 batch" 1 1 fcnnMnistLossFused2 300 100 0.02
-                    0.12339999999999995
-  , mnistTestCase2L "1 epoch, 1 batch, wider" 1 1
+longMnistTests :: TestTree
+longMnistTests = testGroup "MNIST fused LL tests with a 2-hidden-layer nn"
+  [ mnistTestCase2L "1 epoch, 1 batch, wider" 1 1
                     fcnnMnistLossFused2 500 150 0.02
                     0.15039999999999998
   , mnistTestCase2L "2 epochs, but only 1 batch" 2 1
@@ -629,13 +618,6 @@ fusedMnistTests = testGroup "MNIST fused LL tests with a 2-hidden-layer nn"
                     8.879999999999999e-2
   , mnistTestCase2L "1 epoch, all batches" 1 99 fcnnMnistLossFused2 300 100 0.02
                     5.1100000000000034e-2
-  , mnistTestCase2L "artificial 1 2 3 4 5" 1 2 fcnnMnistLossFused2 3 4 5
-                    0.8972
-  , mnistTestCase2L "artificial 5 4 3 2 1" 5 4 fcnnMnistLossFused2 3 2 1
-                    0.7033
-  , mnistTestCase2S (MkSN @300) (MkSN @100)
-                    "S 1 epoch, 1 batch" 1 1 fcnnMnistLossFusedS 0.02
-                    0.1311
   , mnistTestCase2S (MkSN @500) (MkSN @150)
                     "S 1 epoch, 1 batch, wider" 1 1 fcnnMnistLossFusedS 0.02
                     0.12470000000000003
@@ -645,12 +627,6 @@ fusedMnistTests = testGroup "MNIST fused LL tests with a 2-hidden-layer nn"
   , mnistTestCase2S (MkSN @300) (MkSN @100)
                     "S 1 epoch, all batches" 1 99 fcnnMnistLossFusedS 0.02
                     5.620000000000003e-2
-  , mnistTestCase2S (MkSN @3) (MkSN @4)
-                    "S artificial 1 2 3 4 5" 1 2 fcnnMnistLossFusedS 5
-                    0.8972
-  , mnistTestCase2S (MkSN @3) (MkSN @2)
-                    "S artificial 5 4 3 2 1" 5 4 fcnnMnistLossFusedS 1
-                    0.8246
   , mnistTestCase2S (MkSN @300) (MkSN @100)
                     "SR 1 epoch, 1 batch" 1 1 fcnnMnistLossFusedReluS 0.02
                     0.7068
@@ -664,12 +640,6 @@ fusedMnistTests = testGroup "MNIST fused LL tests with a 2-hidden-layer nn"
   , mnistTestCase2S (MkSN @300) (MkSN @100)
                     "SR 1 epoch, all batches" 1 99 fcnnMnistLossFusedReluS 0.02
                     0.6415
-  , mnistTestCase2S (MkSN @3) (MkSN @4)
-                    "SR artificial 1 2 3 4 5" 1 2 fcnnMnistLossFusedReluS 5
-                    0.8972
-  , mnistTestCase2S (MkSN @3) (MkSN @2)
-                    "SR artificial 5 4 3 2 1" 5 4 fcnnMnistLossFusedReluS 1
-                    0.8991
   ]
 
 shortCIMnistTests :: TestTree
@@ -693,6 +663,9 @@ shortCIMnistTests = testGroup "Short CI MNIST tests"
                     "fused DL artificial 5 4 3 2 1" 5 4
                     fcnnMnistLossFused2 3 2 1
                     0.8991
+  , mnistTestCase2S (MkSN @3) (MkSN @2)
+                    "SR artificial 5 4 3 2 1" 5 4 fcnnMnistLossFusedReluS 1
+                    0.8991
   , mnistTestCase2S (MkSN @300) (MkSN @100)
                     "S 1 epoch, 1 batch" 1 1 fcnnMnistLossFusedS 0.02
                     0.1311
@@ -705,7 +678,4 @@ shortCIMnistTests = testGroup "Short CI MNIST tests"
   , mnistTestCase2S (MkSN @3) (MkSN @4)
                     "SR artificial 1 2 3 4 5" 1 2 fcnnMnistLossFusedReluS 5
                     0.8972
-  , mnistTestCase2S (MkSN @3) (MkSN @2)
-                    "SR artificial 5 4 3 2 1" 5 4 fcnnMnistLossFusedReluS 1
-                    0.8991
   ]
