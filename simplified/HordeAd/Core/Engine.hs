@@ -12,10 +12,10 @@ module HordeAd.Core.Engine
     revIO, valueGeneral
   , -- * Operations exposed not for the library users but add-on makers
     revGeneral, fwdGeneral
-  , generateDeltaInputs, initializerFixed
+  , generateDeltaInputs, initializerFixed, initializerFixed01
   , -- * Internal operations, exposed, e.g., for tests
     slowFwdGeneral, slowFwd, slowFwdFun
-  , prettyPrintDf, domainsFrom01
+  , prettyPrintDf, domainsFrom01, domainsFrom012X, domainsTo01
   ) where
 
 import Prelude
@@ -240,9 +240,9 @@ generateDeltaInputs (params0, params1) =
 -- A rule of thumb range for weights is @sqrt(6 / (F_in + F_out)@,
 -- where @F_in + F_out@ is the sum of inputs and outputs of the largest level.
 -- See https://github.com/pytorch/pytorch/issues/15314 and their newer code.
-initializerFixed :: Int -> Double -> (Int, [Int])
+initializerFixed :: Int -> Double -> (Int, [Int], c, d)
                  -> ((Int, Int), Int, Double, Domains Double)
-initializerFixed seed range (nParams0, lParams1) =
+initializerFixed seed range (nParams0, lParams1, _, _) =
   let vParams1 = V.fromList lParams1
       createRandomVector n seedV =
         HM.scale (2 * range)
@@ -257,8 +257,18 @@ initializerFixed seed range (nParams0, lParams1) =
      , range
      , (params0Init, params1Init) )
 
+initializerFixed01 :: Int -> Double -> (Int, [Int])
+                   -> ((Int, Int), Int, Double, Domains Double)
+initializerFixed01 seed range (nParams0, lParams1) =
+  initializerFixed seed range (nParams0, lParams1, undefined, undefined)
 
 -- * Simplified version compatibility shims
 
 domainsFrom01 :: Domain0 r -> Domain1 r -> Domains r
 domainsFrom01 params0 params1 = (params0, params1)
+
+domainsFrom012X :: Domain0 r -> Domain1 r -> c -> d -> Domains r
+domainsFrom012X a b _ _ = (a, b)
+
+domainsTo01 :: Domains r -> (Domain0 r, Domain1 r)
+domainsTo01 = id

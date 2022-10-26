@@ -519,3 +519,41 @@ library exampleLibrarySimplified
       , zlib
 
     hs-source-dirs:   example
+
+-- The data files for this are not included in the cabal package,
+-- hence 'buildable: False'.
+library testCommonLibrarySimple
+    -- Import common warning flags.
+    import:           options
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
+
+    -- Modules exported by the library.
+    exposed-modules:  Tool.Shared
+                      Tool.EqEpsilon
+                      TestConditionalSynth
+                      TestMnistFCNNSimple
+                      TestMnistRNNSimple
+                      TestDescentSimple
+                      TestGradientSimple
+
+    -- Other library packages from which modules are imported.
+    build-depends: exampleLibrarySimplified
+      , base
+      , hmatrix
+      , horde-ad-simplified
+      , ilist
+      , orthotope
+      , random
+      , storable-tuple
+      , strict-containers
+      , tasty >= 1.0
+      , tasty-hunit
+      , tasty-quickcheck
+      , vector
+
+    -- Directories containing source files.
+    hs-source-dirs:   test/common

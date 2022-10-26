@@ -23,8 +23,9 @@ gdSimpleShow :: HasDelta r
              -> Int
              -> IO ([r], r)
 gdSimpleShow gamma f initVec n = do
-  (res, _, _, _) <- gdSimple gamma f n (initVec, V.empty, V.empty, V.empty)
-  (_, v) <- revIO 1 f (res, V.empty, V.empty, V.empty)
+  (res, _) <-
+    domainsTo01 <$> gdSimple gamma f n (domainsFrom01 initVec V.empty)
+  (_, v) <- revIO 1 f (domainsFrom01 res V.empty)
   return (V.toList res, v)
 
 -- Catastrophic loss of sharing prevented.

@@ -13,6 +13,7 @@ import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Char
 import qualified Data.Foldable
+import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable as VS
 import qualified Numeric.LinearAlgebra as HM
@@ -53,14 +54,17 @@ fquad inputs =
 listsToParameters :: forall r. (OT.Storable r)
                   => ([r], [r]) -> Domains r
 listsToParameters (a0, a1) =
-  (V.fromList a0, V.singleton $ V.fromList a1, V.empty, V.empty)
+  domainsFrom01 (V.fromList a0) (V.singleton $ V.fromList a1)
 
 listsToParameters4 :: ([Double], [Double], [Double], [Double]) -> Domains Double
 listsToParameters4 (a0, a1, a2, aX) =
-  ( V.fromList a0
-  , V.singleton $ V.fromList a1
-  , if null a2 then V.empty else V.singleton $ HM.matrix 1 a2
-  , if null aX then V.empty else V.singleton $ OT.fromList [length aX] aX )
+  domainsFrom012X
+    (V.fromList a0)
+    (V.singleton $ V.fromList a1)
+    (if null a2 then Data.Vector.empty
+                else V.singleton $ HM.matrix 1 a2)
+    (if null aX then Data.Vector.empty
+                else V.singleton $ OT.fromList [length aX] aX)
 
 quickCheckTest0
   :: TestName

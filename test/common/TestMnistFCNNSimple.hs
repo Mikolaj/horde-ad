@@ -44,7 +44,7 @@ sgdShow :: HasDelta r
         -> IO r
 sgdShow gamma f trainData params0Init = do
   result <-
-    fst <$> sgd gamma f trainData (params0Init, V.empty, V.empty, V.empty)
+    fst <$> sgd gamma f trainData (domainsFrom01 params0Init V.empty)
   snd <$> revIO 1 (f $ head trainData) result
 
 sgdTestCase :: String
@@ -103,8 +103,9 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                     -> IO (Domain0 Double)
            runBatch !params0 (k, chunk) = do
              let f = trainWithLoss widthHidden widthHidden2
-             (!res, _, _, _) <-
-               fst <$> sgd gamma f chunk (params0, V.empty, V.empty, V.empty)
+             (!res, _) <-
+               domainsTo01 . fst
+               <$> sgd gamma f chunk (domainsFrom01 params0 V.empty)
              let !trainScore = fcnnMnistTest0 widthHidden widthHidden2 chunk res
                  !testScore =
                    fcnnMnistTest0 widthHidden widthHidden2 testData res
@@ -166,8 +167,9 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                     -> IO (Domain0 Double, Domain1 Double)
            runBatch (!params0, !params1) (k, chunk) = do
              let f = trainWithLoss widthHidden widthHidden2
-             (resS, resV, _, _) <-
-               fst <$> sgd gamma f chunk (params0, params1, V.empty, V.empty)
+             (resS, resV) <-
+               domainsTo01 . fst
+               <$> sgd gamma f chunk (domainsFrom01 params0 params1)
              let res = (resS, resV)
                  !trainScore = fcnnMnistTest1
                                          widthHidden widthHidden2 chunk res

@@ -12,10 +12,10 @@ module HordeAd.Core.Engine
     revIO, valueGeneral
   , -- * Operations exposed not for the library users but add-on makers
     revGeneral, fwdGeneral
-  , generateDeltaInputs, initializerFixed
+  , generateDeltaInputs, initializerFixed, initializerFixed01
   , -- * Internal operations, exposed, e.g., for tests
     slowFwdGeneral, slowFwd, slowFwdFun
-  , prettyPrintDf, domainsFrom01
+  , prettyPrintDf, domainsFrom01, domainsFrom012X, domainsTo01
   ) where
 
 import Prelude
@@ -250,7 +250,7 @@ generateDeltaInputs (params0, params1, params2, paramsX) =
 --
 -- This only works fine for nets with levels that have similar size and use
 -- the same activation function. Otherwise, the range should vary per level.
--- A rule of thumb range for weights is @sqrt(6 / (F_in + F_out)@,
+-- A rule of thumb range for weights is @sqrt(6 / (F_in + F_out))@,
 -- where @F_in + F_out@ is the sum of inputs and outputs of the largest level.
 -- See https://github.com/pytorch/pytorch/issues/15314 and their newer code.
 initializerFixed :: Int -> Double -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
@@ -283,8 +283,20 @@ initializerFixed seed range (nParams0, lParams1, lParams2, lParamsX) =
      , range
      , (params0Init, params1Init, params2Init, paramsXInit) )
 
+initializerFixed01 :: Int -> Double -> (Int, [Int])
+                   -> ((Int, Int), Int, Double, Domains Double)
+initializerFixed01 seed range (nParams0, lParams1) =
+  let ((n0, n1, _, _), totalParams, range2, parameters) =
+        initializerFixed seed range (nParams0, lParams1, [], [])
+  in ((n0, n1), totalParams, range2, parameters)
 
 -- * Simplified version compatibility shims
 
 domainsFrom01 :: Domain0 r -> Domain1 r -> Domains r
 domainsFrom01 params0 params1 = (params0, params1, V.empty, V.empty)
+
+domainsFrom012X :: Domain0 r -> Domain1 r -> Domain2 r -> DomainX r -> Domains r
+domainsFrom012X a b c d = (a, b, c, d)
+
+domainsTo01 :: Domains r -> (Domain0 r, Domain1 r)
+domainsTo01 (a, b, _, _) = (a, b)

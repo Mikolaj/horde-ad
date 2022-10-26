@@ -5,6 +5,7 @@ module TestGradientSimple (testTrees, finalCounter) where
 
 import Prelude
 
+import           Control.Arrow (first)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           System.IO (hPutStrLn, stderr)
@@ -36,8 +37,9 @@ revIO0
   -> [r]
   -> IO ([r], r)
 revIO0 f deltaInput = do
-  ((!results, _, _, _), !v) <-
-    revIO 1 f (V.fromList deltaInput, V.empty, V.empty, V.empty)
+  ((!results, _), !v) <-
+    first domainsTo01
+    <$> revIO 1 f (domainsFrom01 (V.fromList deltaInput) V.empty)
   return (V.toList results, v)
 
 fX :: ADInputs 'ADModeGradient Float
@@ -187,9 +189,10 @@ dReverse1
   -> [[r]]
   -> IO ([[r]], r)
 dReverse1 f deltaInput = do
-  ((_, !results, _, _), !v) <-
-    revIO 1 f
-             (V.empty, V.fromList (map V.fromList deltaInput), V.empty, V.empty)
+  ((_, !results), !v) <-
+    first domainsTo01
+    <$> revIO 1 f
+          (domainsFrom01 V.empty (V.fromList (map V.fromList deltaInput)))
   return (map V.toList $ V.toList results, v)
 
 testDReverse1 :: TestTree
@@ -212,7 +215,7 @@ testPrintDf = testGroup "Pretty printing test" $
         testCase txt $ do
           let output =
                 prettyPrintDf f
-                  (V.empty, V.fromList (map V.fromList v), V.empty, V.empty)
+                  (domainsFrom01 V.empty (V.fromList (map V.fromList v)))
           length output @?= expected)
     [ ( "sumElementsV", sumElementsV, [[1 :: Float, 1, 3]]
       , 54 )
@@ -315,8 +318,8 @@ atanOldReadme = sumElementsOfADVals . atanOldReadmeInputs
 atanOldReadmeDReverse :: HasDelta r
                    => Domain0 r -> IO (Domain0 r, r)
 atanOldReadmeDReverse ds = do
-  ((!result, _, _, _), !v) <-
-    revIO 1 atanOldReadme (ds, V.empty, V.empty, V.empty)
+  ((!result, _), !v) <-
+    first domainsTo01 <$> revIO 1 atanOldReadme (domainsFrom01 ds V.empty)
   return (result, v)
 
 oldReadmeTests :: TestTree
@@ -350,8 +353,8 @@ vatanOldReadme inputs =
 vatanOldReadmeDReverse :: HasDelta r
                     => Domain1 r -> IO (Domain1 r, r)
 vatanOldReadmeDReverse dsV = do
-  ((_, !result, _, _), !v) <-
-    revIO 1 vatanOldReadme (V.empty, dsV, V.empty, V.empty)
+  ((_, !result), !v) <-
+    first domainsTo01 <$> revIO 1 vatanOldReadme (domainsFrom01 V.empty dsV)
   return (result, v)
 
 oldReadmeTestsV :: TestTree

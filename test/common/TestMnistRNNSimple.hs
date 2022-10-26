@@ -4,7 +4,6 @@ module TestMnistRNNSimple (testTrees, shortTestForCITrees) where
 import Prelude
 
 import           Control.Monad (foldM)
-import qualified Data.Array.DynamicS as OT
 import           Data.List (foldl', unfoldr)
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Vector)
@@ -59,15 +58,15 @@ sgdTestCase :: String
             -> (a
                 -> ADInputs 'ADModeGradient Double
                 -> ADVal 'ADModeGradient Double)
-            -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+            -> (Int, [Int])
             -> IO [a]
             -> Double
             -> TestTree
 sgdTestCase prefix f nParameters trainDataIO expected =
-  let ((nParams0, nParams1, nParams2, _), totalParams, range, parameters0) =
-        initializerFixed 44 0.05 nParameters
+  let ((nParams0, nParams1), totalParams, range, parameters0) =
+        initializerFixed01 44 0.05 nParameters
       name = prefix ++ " "
-             ++ unwords [ show nParams0, show nParams1, show nParams2
+             ++ unwords [ show nParams0, show nParams1
                         , show totalParams, show range ]
   in testCase name $ do
        trainData <- trainDataIO
@@ -110,15 +109,15 @@ feedbackTestCase :: String
                  -> (a
                      -> ADInputs 'ADModeGradient Double
                      -> ADVal 'ADModeGradient Double)
-                 -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+                 -> (Int, [Int])
                  -> [a]
                  -> [Double]
                  -> TestTree
 feedbackTestCase prefix fp f nParameters trainData expected =
-  let ((nParams0, nParams1, nParams2, _), totalParams, range, parameters0) =
-        initializerFixed 44 0.05 nParameters
+  let ((nParams0, nParams1), totalParams, range, parameters0) =
+        initializerFixed01 44 0.05 nParameters
       name = prefix ++ " "
-             ++ unwords [ show nParams0, show nParams1, show nParams2
+             ++ unwords [ show nParams0, show nParams1
                         , show totalParams, show range ]
   in testCase name $ do
        trained <- fst <$> sgd 0.1 f trainData parameters0
@@ -225,18 +224,18 @@ ar2SinLoss (xs, target) inputs =
 
 sinRNNTests :: TestTree
 sinRNNTests = testGroup "Sine RNN tests"
-  [ sgdTestCase "trainVV" nnSinRNNLossV (1, replicate 33 30, [], [])
+  [ sgdTestCase "trainVV" nnSinRNNLossV (1, replicate 33 30)
                 (return $ take 30000 samples) 4.6511403967229306e-5
       -- different random initial paramaters produce a worse result;
       -- matrix implementation faster, because the matrices still fit in cache
   , feedbackTestCase "feedbackVV" fcfcrnnV nnSinRNNLossV
-                     (1, replicate 33 30, [], [])
+                     (1, replicate 33 30)
                      (take 10000 samples)
                      [-0.9980267284282716,-0.9660899403337656,-0.8930568599923028,-0.7791304201898077,-0.6245654477568863,-0.4314435277698684,-0.2058673183484546,4.0423225394292085e-2,0.29029630688547203,0.5241984159992963,0.7250013011527577,0.8820730400055012,0.9922277361823716,1.057620382863504,1.08252746840241,1.070784986731554,1.0245016946328942,0.9438848015250431,0.827868146535437,0.6753691437632174,0.48708347071773117,0.26756701680655437,2.6913747557207532e-2,-0.21912614372802072,-0.45154893423928943,-0.6525638736434227,-0.8098403108946983,-0.9180866488182939,-0.9775459850131992,-0.9910399864230198]
-  , sgdTestCase "trainAR" ar2SinLoss (3, [], [], [])
+  , sgdTestCase "trainAR" ar2SinLoss (3, [])
                 (return $ take 30000 samples) 6.327978161031336e-23
   , feedbackTestCase "feedbackAR" ar2Sin ar2SinLoss
-                     (3, [], [], [])
+                     (3, [])
                      (take 10000 samples)
                      [-0.9980267284282716,-0.9510565162972417,-0.8443279255081759,-0.6845471059406962,-0.48175367412103653,-0.24868988719256901,-3.673766846290505e-11,0.24868988711894977,0.4817536740469978,0.6845471058659982,0.8443279254326351,0.9510565162207472,0.9980267283507953,0.9822872506502898,0.9048270523889208,0.7705132427021685,0.5877852522243431,0.3681245526237731,0.12533323351198067,-0.1253332336071494,-0.36812455271766376,-0.5877852523157643,-0.7705132427900961,-0.9048270524725681,-0.9822872507291605,-0.9980267284247174,-0.9510565162898851,-0.844327925497479,-0.6845471059273313,-0.48175367410584324]
   ]
@@ -315,15 +314,13 @@ testMnistRNNV width inputs parameters =
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
 
-lenMnistRNNV :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+lenMnistRNNV :: Int -> Int -> (Int, [Int])
 lenMnistRNNV width nLayers =
   ( 0
   , replicate width 28 ++ replicate width width ++ [width]
     ++ replicate 10 width ++ [10]
     ++ concat (replicate (nLayers - 1)
                 (replicate width width ++ replicate width width ++ [width]))
-  , []
-  , []
   )
 
 mnistTestCaseRNN
@@ -335,19 +332,19 @@ mnistTestCaseRNN
       -> ADInputs 'ADModeGradient Double
       -> ADVal 'ADModeGradient Double)
   -> (Int -> [([Vector Double], Vector Double)] -> Domains Double -> Double)
-  -> (Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
+  -> (Int -> Int -> (Int, [Int]))
   -> Int
   -> Int
   -> Double
   -> TestTree
 mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
                  expected =
-  let ((nParams0, nParams1, nParams2, _), totalParams, range, parameters0) =
-        initializerFixed 44 0.2 (flen width nLayers)
+  let ((nParams0, nParams1), totalParams, range, parameters0) =
+        initializerFixed01 44 0.2 (flen width nLayers)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show width, show nLayers
-                        , show nParams0, show nParams1, show nParams2
+                        , show nParams0, show nParams1
                         , show totalParams, show range ]
   in testCase name $ do
        hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
@@ -361,7 +358,7 @@ mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
        let runBatch :: (Domains Double, StateAdam Double)
                     -> (Int, [([Vector Double], Vector Double)])
                     -> IO (Domains Double, StateAdam Double)
-           runBatch (parameters@(!_, !_, !_, !_), stateAdam) (k, chunk) = do
+           runBatch (parameters, stateAdam) (k, chunk) = do
              res@(parameters2, _) <-
                sgdAdamBatch 150 (f width) chunk parameters stateAdam
              let !trainScore = ftest width chunk parameters2
@@ -412,8 +409,8 @@ sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
   deltaInputs = generateDeltaInputs parameters0
-  go :: [a] -> Domains r-> StateAdam r -> IO (Domains r, StateAdam r)
-  go [] parameters stateAdam = return (parameters, stateAdam)
+  go :: [a] -> Domains r -> StateAdam r -> IO (Domains r, StateAdam r)
+  go [] !parameters !stateAdam = return (parameters, stateAdam)
   go l parameters stateAdam = do
     let inputs = makeADInputs parameters deltaInputs
         (batch, rest) = splitAt batchSize l

@@ -201,7 +201,7 @@ gradSmartTestCase prefix lossFunction seedSamples
         V.imap (\i nPV -> HM.randomVector (33 + nPV + i) HM.Uniform nPV
                           - HM.scalar 0.5)
                nParams1
-      parametersInit = (V.empty, params1Init, V.empty, V.empty)
+      parametersInit = domainsFrom01 V.empty params1Init
       name = prefix ++ " "
              ++ unwords [ show seedSamples, show nSamples, show width
                         , show (V.length nParams1), show (V.sum nParams1) ]
