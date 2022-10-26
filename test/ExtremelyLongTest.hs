@@ -44,8 +44,6 @@ tests :: TestTree
 tests = testGroup "Tests" $
   TestGradientSimple.testTrees
   ++ TestDescentSimple.testTrees
-  ++ TestMnistFCNNSimple.testTrees
-  ++ TestMnistRNNSimple.testTrees
 #if defined(VERSION_ghc_typelits_natnormalise)
   ++ TestGradient.testTrees
   ++ TestDescent.testTrees
@@ -53,5 +51,7 @@ tests = testGroup "Tests" $
   ++ TestMnistRNN.testTrees
   ++ TestMnistCNN.testTrees
 #endif
+  ++ TestMnistFCNNSimple.testTrees
+  ++ TestMnistRNNSimple.testTrees
   ++ TestConditionalSynth.testTrees
   ++ [TestGradientSimple.finalCounter]
