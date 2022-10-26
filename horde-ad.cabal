@@ -180,6 +180,7 @@ library simplified
 
     exposed-modules:  HordeAd.Simplified.Delta
                       HordeAd.Simplified.DualNumber
+                      HordeAd.Simplified.DualClass
 
     build-depends:
         assert-failure
