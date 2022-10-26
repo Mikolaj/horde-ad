@@ -513,11 +513,9 @@ library exampleLibrarySimplified
 
     hs-source-dirs:   example
 
-library testCommonLibrarySimple
-    -- Import common warning flags.
+library testCommonLibrarySimplified
     import:           options
 
-    -- Modules exported by the library.
     exposed-modules:  Tool.Shared
                       Tool.EqEpsilon
                       TestConditionalSynth
@@ -526,7 +524,6 @@ library testCommonLibrarySimple
                       TestDescentSimple
                       TestGradientSimple
 
-    -- Other library packages from which modules are imported.
     build-depends: exampleLibrarySimplified
       , base
       , hmatrix
@@ -541,5 +538,44 @@ library testCommonLibrarySimple
       , tasty-quickcheck
       , vector
 
-    -- Directories containing source files.
     hs-source-dirs:   test/common
+
+-- The data files for this are not included in the cabal package,
+-- hence 'buildable: False'.
+test-suite shortTestForCISimplified
+    import:           options, exe-options-test
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
+
+    type:             exitcode-stdio-1.0
+
+    hs-source-dirs:   test
+
+    main-is:          ShortTestForCI.hs
+
+    build-depends: testCommonLibrarySimplified
+      , base
+      , tasty >= 1.0
+
+-- The data files for this are not included in the cabal package,
+-- hence 'buildable: False'.
+test-suite extremelyLongTestSimplified
+    import:           options, exe-options-test
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
+
+    type:             exitcode-stdio-1.0
+
+    hs-source-dirs:   test
+
+    main-is:          ExtremelyLongTest.hs
+
+    build-depends: testCommonLibrarySimplified
+      , base
+      , tasty >= 1.0
