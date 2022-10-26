@@ -15,8 +15,8 @@ import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
-import HordeAd.External.OptimizerTools
 import HordeAd.Core.PairOfVectors (ADInputs, makeADInputs)
+import HordeAd.External.OptimizerTools
 
 -- | Stochastic Gradient Descent with mini-batches, taking the mean
 -- of the results from each mini-batch. Additionally, it uses
@@ -158,38 +158,3 @@ sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
     let (parametersNew, stateAdamNew) =
           updateWithGradientAdam argsAdam stateAdam parameters gradients
     go rest parametersNew stateAdamNew
-
--- | Relatively Smart Gradient Descent.
--- Based on @gradientDescent@ from package @ad@ which is in turn based
--- on the one from the VLAD compiler.
-gdSmart :: forall r. HasDelta r
-        => (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
-        -> Int  -- ^ requested number of iterations
-        -> Domains r  -- ^ initial parameters
-        -> IO (Domains r, r)
-gdSmart f n0 parameters0 = do
-  let deltaInputs = generateDeltaInputs parameters0
-      inputs0 = makeADInputs parameters0 deltaInputs
-  (gradients0, value0) <- revGeneral 1 f inputs0
-  let go :: Int -> Domains r -> r -> Domains r -> r -> Int
-         -> IO (Domains r, r)
-      go 0 parameters !gamma _gradientsPrev _valuePrev !_i =
-        return (parameters, gamma)
-      go _ parameters 0 _ _ _ = return (parameters, 0)
-      go n parameters gamma gradientsPrev valuePrev i = do
-        -- The trick is that we use the previous gradient here,
-        -- and the new gradient is only computed by accident together
-        -- with the new value that is needed now to revert if we overshoot.
-        let parametersNew = updateWithGradient gamma parameters gradientsPrev
-            inputs = makeADInputs parametersNew deltaInputs
-        (gradients, valueCur) <- revGeneral 1 f inputs
-        if | gradientIsNil gradientsPrev ->
-               return (parameters, gamma)
-           | valueCur > valuePrev ->
-               go n parameters (gamma / 2) gradientsPrev valuePrev 0
-                 -- overshot
-           | i == 10 ->
-               go (pred n) parametersNew (gamma * 2) gradients valueCur 0
-           | otherwise ->
-               go (pred n) parametersNew gamma gradients valueCur (i + 1)
-  go n0 parameters0 0.1 gradients0 value0 0

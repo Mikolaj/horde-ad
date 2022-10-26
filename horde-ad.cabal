@@ -258,7 +258,6 @@ library testCommonLibrary
     exposed-modules:  Tool.Shared
                       Tool.EqEpsilon
                       TestConditionalSynth
-                      TestOutdated
 
   if flag(use_typelits_plugins) {
     exposed-modules:  TestMnistCNN

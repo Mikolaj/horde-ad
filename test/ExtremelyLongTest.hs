@@ -14,9 +14,8 @@ import           Test.Tasty
 import           Test.Tasty.Options
 import           Test.Tasty.Runners
 
-import           Tool.EqEpsilon
 import qualified TestConditionalSynth
-import qualified TestOutdated
+import           Tool.EqEpsilon
 
 #if defined(VERSION_ghc_typelits_natnormalise)
 import qualified TestMnistCNN
@@ -47,6 +46,5 @@ tests = testGroup "Tests" $
   ++ TestMnistRNN.testTrees
   ++ TestMnistCNN.testTrees
 #endif
-  ++ TestOutdated.testTrees
   ++ TestConditionalSynth.testTrees
   ++ [TestSingleGradient.finalCounter]
