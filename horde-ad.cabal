@@ -221,16 +221,9 @@ library exampleLibrary
     -- Directories containing source files.
     hs-source-dirs:   example
 
--- The data files for this are not included in the cabal package,
--- hence 'buildable: False'.
 library testCommonLibrary
     -- Import common warning flags.
     import:           options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
 
     -- Modules exported by the library.
     exposed-modules:  Tool.Shared
@@ -520,16 +513,9 @@ library exampleLibrarySimplified
 
     hs-source-dirs:   example
 
--- The data files for this are not included in the cabal package,
--- hence 'buildable: False'.
 library testCommonLibrarySimple
     -- Import common warning flags.
     import:           options
-
-    if flag(release)
-      buildable: False
-    else
-      buildable: True
 
     -- Modules exported by the library.
     exposed-modules:  Tool.Shared
