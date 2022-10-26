@@ -219,14 +219,14 @@ conditionalSynthTests = do
  testGroup "synthesizing a sum of linear conditionals matching samples"
   [ gradSmartTestCase "relu"
       f 42 10 10  100
-      4.740275311294229
+      4.7793920408188075
   , gradSmartTestCase "relu"
       f 42 10 10  10000
-      3.83451707827233e-2
+      4.347426093722476e-2
   , gradSmartTestCase "relu"
       f 42 10 10  100000
-      3.135485708489271e-2
+      3.216391476848565e-2
   , gradSmartTestCase "relu"
       f 42 10 100 100000
-      3.2872191198993095e-2
+      3.2904664300000004e-2
   ]
