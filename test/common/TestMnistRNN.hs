@@ -19,7 +19,7 @@ import           Test.Tasty.HUnit hiding (assert)
 import           Text.Printf
 
 import HordeAd
-import HordeAd.External.OutdatedOptimizer
+import HordeAd.External.OptimizerTools
 import MnistData
 import MnistFcnnVector
 import MnistRnnShaped
@@ -585,6 +585,51 @@ mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
        res <- runEpoch 1 (parameters0, initialStateAdam parameters0)
        let testErrorFinal = 1 - ftest width testData res
        testErrorFinal @?~ expected
+
+-- For testing, we want to avoid using matrices, so we can't express
+-- mini-batches as tensors one dimension larger, so the following variant
+-- of the optimizer is necessary.
+sgdAdamBatch
+  :: forall r a. HasDelta r
+  => Int  -- ^ batch size
+  -> (a -> ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+  -> [a]
+  -> Domains r
+  -> StateAdam r
+  -> IO (Domains r, StateAdam r)
+sgdAdamBatch = sgdAdamBatchArgs defaultArgsAdam
+
+sgdAdamBatchArgs
+  :: forall r a. HasDelta r
+  => ArgsAdam r
+  -> Int  -- ^ batch size
+  -> (a -> ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+  -> [a]
+  -> Domains r
+  -> StateAdam r
+  -> IO (Domains r, StateAdam r)
+sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
+  go trainingData parameters0 stateAdam0
+ where
+  deltaInputs = generateDeltaInputs parameters0
+  go :: [a] -> Domains r-> StateAdam r -> IO (Domains r, StateAdam r)
+  go [] parameters stateAdam = return (parameters, stateAdam)
+  go l parameters stateAdam = do
+    let inputs = makeADInputs parameters deltaInputs
+        (batch, rest) = splitAt batchSize l
+        fAdd :: ADInputs 'ADModeGradient r
+             -> ADVal 'ADModeGradient r -> a
+             -> ADVal 'ADModeGradient r
+        fAdd vars !acc a = acc + f a vars
+        fBatch :: ADInputs 'ADModeGradient r
+               -> ADVal 'ADModeGradient r
+        fBatch vars =
+          let resBatch = foldl' (fAdd vars) 0 batch
+          in resBatch / fromIntegral (length batch)
+    gradients <- fst <$> revGeneral 1 fBatch inputs
+    let (parametersNew, stateAdamNew) =
+          updateWithGradientAdam argsAdam stateAdam parameters gradients
+    go rest parametersNew stateAdamNew
 
 
 -- * A version written using matrices to express mini-batches of data
