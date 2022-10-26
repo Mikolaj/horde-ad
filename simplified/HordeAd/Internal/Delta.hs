@@ -26,7 +26,7 @@
 -- of forward derivatives (because @derivativeFromDelta@ below,
 -- computing derivatives from delta-expressions, is slow once the expressions
 -- grow large enough to affect cache misses).
-module HordeAd.Simplified.Delta
+module HordeAd.Internal.Delta
   ( -- * Abstract syntax trees of the delta expressions
     Delta0 (..), Delta0' (..)
   , Delta1 (..), Delta1' (..)

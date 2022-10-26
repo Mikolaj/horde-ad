@@ -22,7 +22,7 @@
 -- or @Read@ should not be auto-derived, but carefully crafted to respect
 -- sharing. This applies regardless of impurity, because repeated processing
 -- of the same shared terms is prohibitive expensive.
-module HordeAd.Simplified.DualClass
+module HordeAd.Core.DualClass
   ( -- * The most often used part of the mid-level API that gets re-exported in high-level API
     ADMode(..), ADModeAndNum
   , -- * The less often used part of the mid-level API that gets re-exported in high-level API; it leaks implementation details
@@ -43,7 +43,7 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           System.IO.Unsafe (unsafePerformIO)
 
-import HordeAd.Simplified.Delta
+import HordeAd.Internal.Delta
 
 -- * Abbreviations to export (not used anywhere below)
 

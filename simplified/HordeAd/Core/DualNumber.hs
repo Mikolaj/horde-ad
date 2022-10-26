@@ -9,8 +9,8 @@
 -- the high-level API of the horde-ad library, defined using the mid-level
 -- (and safely impure) API in "HordeAd.Core.DualClass". The other part
 -- of the high-level API is in "HordeAd.Core.Engine".
-module HordeAd.Simplified.DualNumber
-  ( module HordeAd.Simplified.DualNumber
+module HordeAd.Core.DualNumber
+  ( module HordeAd.Core.DualNumber
   , ADMode(..), ADModeAndNum
   , IsPrimal (..), IsPrimalAndHasFeatures, HasDelta
   , Domain0, Domain1, Domains  -- an important re-export
@@ -26,8 +26,8 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import qualified Numeric.LinearAlgebra.Devel
 
-import HordeAd.Simplified.Delta (Domain0, Domain1, Domains)
-import HordeAd.Simplified.DualClass
+import HordeAd.Core.DualClass
+import HordeAd.Internal.Delta (Domain0, Domain1, Domains)
 
 -- * The main dual number type
 

@@ -177,13 +177,13 @@ library
 library simplified
     import:           options
 
-    exposed-modules:  HordeAd.Simplified.Delta
-                      HordeAd.Simplified.DualClass
-                      HordeAd.Simplified.DualNumber
-                      HordeAd.Simplified.Engine
-                      HordeAd.Simplified.Optimizer
-                      HordeAd.Simplified.OptimizerTools
-                      HordeAd.Simplified.PairOfVectors
+    exposed-modules:  HordeAd.Core.DualNumber
+                      HordeAd.Core.Engine
+                      HordeAd.Core.DualClass
+                      HordeAd.External.Optimizer
+                      HordeAd.External.OptimizerTools
+                      HordeAd.Core.PairOfVectors
+                      HordeAd.Internal.Delta
 
     build-depends:
         base >= 4.14 && < 99

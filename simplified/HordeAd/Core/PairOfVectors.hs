@@ -11,7 +11,7 @@
 -- the inputs of functions, that is, dual numbers with initial values
 -- of parameters and, in case of dual components containing delta-expressions,
 -- with @Delta@ inputs assigned to each.
-module HordeAd.Simplified.PairOfVectors
+module HordeAd.Core.PairOfVectors
   ( ADInputs(..)
   , makeADInputs, at0, at1
   , ifoldlDual', foldlDual'
@@ -23,8 +23,8 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Vector)
 
-import HordeAd.Simplified.DualClass (Dual)
-import HordeAd.Simplified.DualNumber
+import HordeAd.Core.DualClass (Dual)
+import HordeAd.Core.DualNumber
 
 -- These are optimized as "pair of vectors" representing vectors of @ADVal@
 -- in an efficient way (especially, or only, with gradient descent,

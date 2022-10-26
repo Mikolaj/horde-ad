@@ -5,7 +5,7 @@
 -- in "HordeAd.Core.DualNumber". Together with that module, this forms
 -- the basic high-level API of the horde-ad library. Optimizers, etc.,
 -- are add-ons.
-module HordeAd.Simplified.Engine
+module HordeAd.Core.Engine
   ( -- * The most often used part of the high-level API
     revFun, fwdFun, valueFun
   , -- * The less often used part of the high-level API
@@ -28,11 +28,11 @@ import           Text.Show.Pretty (ppShow)
 
 -- import           System.Mem (performMinorGC)
 
-import HordeAd.Simplified.Delta
+import HordeAd.Core.DualClass (Dual, dInput, dummyDual, packDeltaDt)
+import HordeAd.Core.DualNumber
+import HordeAd.Core.PairOfVectors (ADInputs (..), makeADInputs)
+import HordeAd.Internal.Delta
   (derivativeFromDelta, gradientFromDelta, toInputId)
-import HordeAd.Simplified.DualClass (Dual, dInput, dummyDual, packDeltaDt)
-import HordeAd.Simplified.DualNumber
-import HordeAd.Simplified.PairOfVectors (ADInputs (..), makeADInputs)
 
 -- * Evaluation that ignores the dual part of the dual numbers.
 -- It's intended for efficiently calculating the value of the function only.

@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 -- | Tools for implementing (and debugging the use of) gradient descent schemes.
-module HordeAd.Simplified.OptimizerTools
+module HordeAd.External.OptimizerTools
   ( updateWithGradient
   , gradientIsNil, minimumGradient, maximumGradient
   , ArgsAdam(..), defaultArgsAdam
@@ -16,7 +16,7 @@ import qualified Data.Vector.Generic.Mutable as VM
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 
-import HordeAd.Simplified.Delta (Domains)
+import HordeAd.Internal.Delta (Domains)
 
 updateWithGradient :: (Numeric r, Floating (Vector r))
                    => r -> Domains r -> Domains r -> Domains r
