@@ -15,7 +15,7 @@ module HordeAd.Core.Engine
   , generateDeltaInputs, initializerFixed
   , -- * Internal operations, exposed, e.g., for tests
     slowFwdGeneral, slowFwd, slowFwdFun
-  , prettyPrintDf
+  , prettyPrintDf, domainsFrom01
   ) where
 
 import Prelude
@@ -282,3 +282,9 @@ initializerFixed seed range (nParams0, lParams1, lParams2, lParamsX) =
      , totalParams
      , range
      , (params0Init, params1Init, params2Init, paramsXInit) )
+
+
+-- * Simplified version compatibility shims
+
+domainsFrom01 :: Domain0 r -> Domain1 r -> Domains r
+domainsFrom01 params0 params1 = (params0, params1, V.empty, V.empty)

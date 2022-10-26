@@ -101,7 +101,7 @@ fcnnMnistLoss1
   -> ADVal d r
 fcnnMnistLoss1 widthHidden widthHidden2 (datum, target) inputs =
   let result = inline fcnnMnist1 logistic softMaxV
-                              widthHidden widthHidden2 datum inputs
+                                 widthHidden widthHidden2 datum inputs
   in lossCrossEntropyV target result
 
 -- | A function testing the neural network given testing set of inputs
@@ -114,7 +114,7 @@ fcnnMnistTest1 widthHidden widthHidden2 inputs (params0, params1) =
       matchesLabels (glyph, label) =
         let nn = inline fcnnMnist1 logistic softMaxV
                                    widthHidden widthHidden2 glyph
-            v = valueFun nn (params0, params1, V.empty, V.empty)
+            v = valueFun nn (domainsFrom01 params0 params1)
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)

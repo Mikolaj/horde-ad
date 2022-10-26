@@ -177,31 +177,6 @@ library
     -- Directories containing source files.
     hs-source-dirs:   src
 
-library simplified
-    import:           options
-
-    exposed-modules:  HordeAd.Core.DualNumber
-                      HordeAd.Core.Engine
-                      HordeAd.Core.DualClass
-                      HordeAd.External.Optimizer
-                      HordeAd.External.OptimizerTools
-                      HordeAd.Core.PairOfVectors
-                      HordeAd.Internal.Delta
-
-    build-depends:
-        base >= 4.14 && < 99
-      , containers
-      , hmatrix
-      , ilist
-      , mono-traversable
-      , pretty-show
-      , primitive
-      , strict-containers
-      , unboxed-ref
-      , vector
-
-    hs-source-dirs:   simplified
-
 library exampleLibrary
     -- Import common warning flags.
     import:           options
@@ -491,3 +466,50 @@ benchmark realisticMnistBench
       , base
       , criterion
       , random
+
+
+library simplified
+    import:           options
+
+    exposed-modules:  HordeAd.Core.DualNumber
+                      HordeAd.Core.Engine
+                      HordeAd.Core.DualClass
+                      HordeAd.External.Optimizer
+                      HordeAd.External.OptimizerTools
+                      HordeAd.Core.PairOfVectors
+                      HordeAd.Internal.Delta
+
+    build-depends:
+        base >= 4.14 && < 99
+      , containers
+      , hmatrix
+      , ilist
+      , mono-traversable
+      , pretty-show
+      , primitive
+      , strict-containers
+      , unboxed-ref
+      , vector
+
+    hs-source-dirs:   simplified
+
+library exampleLibrarySimplified
+    import:           options
+
+    exposed-modules:  MnistData
+                      MnistFcnnScalar
+                      MnistFcnnVector
+
+    build-depends:
+        base
+      , bytestring
+      , hmatrix
+      , simplified
+      , mnist-idx
+      , orthotope
+      , random
+      , strict-containers
+      , vector
+      , zlib
+
+    hs-source-dirs:   example

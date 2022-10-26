@@ -152,7 +152,7 @@ fcnnMnistTest0 widthHidden widthHidden2 inputs params0 =
                         logistic softMax
                         widthHidden widthHidden2 glyph
             v = V.map (\(D r _) -> r)
-                $ valueGeneral nn (params0, V.empty, V.empty, V.empty)
+                $ valueGeneral nn (domainsFrom01 params0 V.empty)
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)

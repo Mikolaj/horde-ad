@@ -20,14 +20,30 @@ import Prelude
 
 import           Data.List.Index (imap)
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
+import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
+import           GHC.TypeLits (KnownNat, Nat, natVal)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import qualified Numeric.LinearAlgebra.Devel
 
 import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta (Domain0, Domain1, Domains)
+
+-- This is not needed in the simplified version, except for compilation
+-- with the common test code.
+-- | Sizes of tensor dimensions, of batches, etc., packed for passing
+-- between functions as witnesses of type variable values.
+data StaticNat (n :: Nat) where
+  MkSN :: KnownNat n => StaticNat n
+
+staticNatValue :: forall n i. (KnownNat n, Num i) => StaticNat n -> i
+{-# INLINE staticNatValue #-}
+staticNatValue = fromInteger . natVal
+
+staticNatFromProxy :: KnownNat n => Proxy n -> StaticNat n
+staticNatFromProxy Proxy = MkSN
 
 -- * The main dual number type
 
