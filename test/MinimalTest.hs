@@ -14,11 +14,13 @@ import           Test.Tasty
 import           Test.Tasty.Options
 import           Test.Tasty.Runners
 
-import Tool.EqEpsilon
+import qualified TestDescentSimple
+import qualified TestGradientSimple
+import           Tool.EqEpsilon
 
 #if defined(VERSION_ghc_typelits_natnormalise)
-import qualified TestSimpleDescent
-import qualified TestSingleGradient
+import qualified TestDescent
+import qualified TestGradient
 #endif
 
 main :: IO ()
@@ -34,9 +36,9 @@ main = do
 
 tests :: TestTree
 tests = testGroup "Minimal test that doesn't require any dataset" $
+  TestGradientSimple.testTrees
+  ++ TestDescentSimple.testTrees
 #if defined(VERSION_ghc_typelits_natnormalise)
-  TestSingleGradient.testTrees
-  ++ TestSimpleDescent.testTrees
-#else
-  []
+  ++ TestGradient.testTrees
+  ++ TestDescent.testTrees
 #endif

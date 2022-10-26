@@ -238,13 +238,15 @@ library testCommonLibrary
                       TestConditionalSynth
                       TestMnistFCNNSimple
                       TestMnistRNNSimple
+                      TestDescentSimple
+                      TestGradientSimple
 
   if flag(use_typelits_plugins) {
     exposed-modules:  TestMnistCNN
                       TestMnistFCNN
                       TestMnistRNN
-                      TestSimpleDescent
-                      TestSingleGradient
+                      TestDescent
+                      TestGradient
   }
 
     -- Other library packages from which modules are imported.

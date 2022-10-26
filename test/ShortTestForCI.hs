@@ -14,16 +14,18 @@ import           Test.Tasty
 import           Test.Tasty.Options
 import           Test.Tasty.Runners
 
+import qualified TestDescentSimple
+import qualified TestGradientSimple
 import qualified TestMnistFCNNSimple
 import qualified TestMnistRNNSimple
 import           Tool.EqEpsilon
 
 #if defined(VERSION_ghc_typelits_natnormalise)
+import qualified TestDescent
+import qualified TestGradient
 import qualified TestMnistCNN
 import qualified TestMnistFCNN
 import qualified TestMnistRNN
-import qualified TestSimpleDescent
-import qualified TestSingleGradient
 #endif
 
 main :: IO ()
@@ -39,13 +41,15 @@ main = do
 
 tests :: TestTree
 tests = testGroup "Short tests for CI" $
-  TestMnistFCNNSimple.testTrees
+  TestGradientSimple.testTrees
+  ++ TestDescentSimple.testTrees
+  ++ TestMnistFCNNSimple.testTrees
   ++ TestMnistRNNSimple.testTrees
 #if defined(VERSION_ghc_typelits_natnormalise)
-  ++ TestSingleGradient.testTrees
-  ++ TestSimpleDescent.testTrees
+  ++ TestGradient.testTrees
+  ++ TestDescent.testTrees
   ++ TestMnistFCNN.shortTestForCITrees
   ++ TestMnistRNN.shortTestForCITrees
   ++ TestMnistCNN.shortTestForCITrees
-  ++ [TestSingleGradient.finalCounter]
 #endif
+  ++ [TestGradientSimple.finalCounter]
