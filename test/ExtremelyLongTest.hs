@@ -47,4 +47,6 @@ tests = testGroup "Tests" $
   ++ TestMnistCNN.testTrees
 #endif
   ++ TestConditionalSynth.testTrees
+#if defined(VERSION_ghc_typelits_natnormalise)
   ++ [TestSingleGradient.finalCounter]
+#endif

@@ -136,13 +136,16 @@ library
                       HordeAd.Core.DualNumber
                       HordeAd.Core.Engine
                       HordeAd.Core.DualClass
-                      HordeAd.External.Adaptor
                       HordeAd.External.Optimizer
                       HordeAd.External.OptimizerTools
                       HordeAd.Core.PairOfVectors
                       HordeAd.Internal.Delta
                       HordeAd.Internal.MatrixOuter
                       HordeAd.Internal.OrthotopeOrphanInstances
+
+  if flag(use_typelits_plugins) {
+    exposed-modules:  HordeAd.External.Adaptor
+  }
 
     -- Modules included in this library but not exported.
     -- other-modules:

@@ -37,13 +37,12 @@ main = do
 
 tests :: TestTree
 tests = testGroup "Short tests for CI" $
+  []
 #if defined(VERSION_ghc_typelits_natnormalise)
-  TestSingleGradient.testTrees
+  ++ TestSingleGradient.testTrees
   ++ TestSimpleDescent.testTrees
   ++ TestMnistFCNN.shortTestForCITrees
   ++ TestMnistRNN.shortTestForCITrees
   ++ TestMnistCNN.shortTestForCITrees
   ++ [TestSingleGradient.finalCounter]
-#else
-  []
 #endif
