@@ -1,6 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, RankNTypes, TypeFamilies #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module TestMnistRNNSimple (testTrees, shortTestForCITrees) where
 
 import Prelude

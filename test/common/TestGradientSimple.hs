@@ -1,8 +1,6 @@
 {-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances,
              FunctionalDependencies, RankNTypes, TypeFamilies,
              TypeOperators #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module TestGradientSimple (testTrees, finalCounter) where
 
 import Prelude
