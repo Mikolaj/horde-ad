@@ -276,7 +276,8 @@ library testCommonLibrary
     hs-source-dirs:   test/common
 
 -- These tests don't require any dataset, so can be enabled in Hackage package.
--- This is fully contained in shortTestForCI, so CI doesn't need to run it.
+-- This is fully contained in shortTestForCI, so CI doesn't need to run it
+-- separately.
 test-suite minimalTest
     import:           options, exe-options-test
 
@@ -472,10 +473,11 @@ benchmark realisticMnistBench
       , random
 
 
-library simplified
+library horde-ad-simplified
     import:           options
 
-    exposed-modules:  HordeAd.Core.DualNumber
+    exposed-modules:  HordeAd
+                      HordeAd.Core.DualNumber
                       HordeAd.Core.Engine
                       HordeAd.Core.DualClass
                       HordeAd.External.Optimizer
@@ -508,7 +510,7 @@ library exampleLibrarySimplified
         base
       , bytestring
       , hmatrix
-      , simplified
+      , horde-ad-simplified
       , mnist-idx
       , orthotope
       , random
