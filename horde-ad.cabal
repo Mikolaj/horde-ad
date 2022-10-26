@@ -181,11 +181,12 @@ library simplified
                       HordeAd.Simplified.DualClass
                       HordeAd.Simplified.DualNumber
                       HordeAd.Simplified.Engine
+                      HordeAd.Simplified.Optimizer
+                      HordeAd.Simplified.OptimizerTools
                       HordeAd.Simplified.PairOfVectors
 
     build-depends:
-        assert-failure
-      , base >= 4.14 && < 99
+        base >= 4.14 && < 99
       , containers
       , hmatrix
       , ilist

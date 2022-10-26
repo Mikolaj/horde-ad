@@ -14,7 +14,6 @@ import           Control.Monad.ST.Strict (runST)
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
-import           HordeAd.Internal.OrthotopeOrphanInstances (liftVT2)
 import           Numeric.LinearAlgebra (Element, Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as HM
 import           Numeric.LinearAlgebra.Data (flatten)
@@ -22,6 +21,7 @@ import           Numeric.LinearAlgebra.Devel
   (MatrixOrder (..), liftMatrix, liftMatrix2, matrixFromVector, orderOf)
 
 import HordeAd.Internal.Delta (Domains, isTensorDummy)
+import HordeAd.Internal.OrthotopeOrphanInstances (liftVT2)
 
 updateWithGradient :: (Numeric r, Floating (Vector r))
                    => r -> Domains r -> Domains r -> Domains r
