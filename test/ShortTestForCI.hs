@@ -43,8 +43,8 @@ tests :: TestTree
 tests = testGroup "Short tests for CI" $
   TestGradientSimple.testTrees
   ++ TestDescentSimple.testTrees
-  ++ TestMnistFCNNSimple.testTrees
-  ++ TestMnistRNNSimple.testTrees
+  ++ TestMnistFCNNSimple.shortTestForCITrees
+  ++ TestMnistRNNSimple.shortTestForCITrees
 #if defined(VERSION_ghc_typelits_natnormalise)
   ++ TestGradient.testTrees
   ++ TestDescent.testTrees
