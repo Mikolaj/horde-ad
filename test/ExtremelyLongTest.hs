@@ -16,6 +16,7 @@ import           Test.Tasty.Runners
 
 import qualified TestConditionalSynth
 import qualified TestMnistFCNNSimple
+import qualified TestMnistRNNSimple
 import           Tool.EqEpsilon
 
 #if defined(VERSION_ghc_typelits_natnormalise)
@@ -40,6 +41,7 @@ main = do
 tests :: TestTree
 tests = testGroup "Tests" $
   TestMnistFCNNSimple.testTrees
+  ++ TestMnistRNNSimple.testTrees
 #if defined(VERSION_ghc_typelits_natnormalise)
   ++ TestSingleGradient.testTrees
   ++ TestSimpleDescent.testTrees

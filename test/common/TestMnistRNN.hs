@@ -21,7 +21,6 @@ import           Text.Printf
 import HordeAd
 import HordeAd.External.OptimizerTools
 import MnistData
-import MnistFcnnVector
 import MnistRnnShaped
 
 import Tool.EqEpsilon
@@ -222,70 +221,6 @@ feedbackTestCase prefix fp f nParameters trainData expected =
            output = feedback fp trained primed (series !! 19)
        take 30 output @?~ expected
 
--- A version written using vectors
-
-hiddenLayerSinRNNV :: ADModeAndNum d r
-                   => r
-                   -> ADVal d (Vector r)
-                   -> ADInputs d r
-                   -> (ADVal d (Vector r), ADVal d (Vector r))
-hiddenLayerSinRNNV x s inputs =
-  let wX = at1 inputs 0
-      b = at1 inputs 31
-      y = scale (HM.konst x 30) wX + sumTrainableInputsL s 1 inputs 30 + b
-      yLogistic = logistic y
-  in (y, yLogistic)
-
-outputLayerSinRNNV :: ADModeAndNum d r
-                   => ADVal d (Vector r)
-                   -> ADInputs d r
-                   -> ADVal d r
-outputLayerSinRNNV vec inputs =
-  let w = at1 inputs 32
-      b = at0 inputs 0
-  in w <.>! vec + b
-
-fcfcrnnV :: ADModeAndNum d r
-         => r
-         -> ADVal d (Vector r)
-         -> ADInputs d r
-         -> (ADVal d r, ADVal d (Vector r))
-fcfcrnnV x s inputs =
-  let (hiddenLayer, sHiddenLayer) = hiddenLayerSinRNNV x s inputs
-      outputLayer = outputLayerSinRNNV hiddenLayer inputs
-  in (outputLayer, sHiddenLayer)
-
-nnSinRNNLossV :: ADModeAndNum d r
-              => (Vector r, r)
-              -> ADInputs d r
-              -> ADVal d r
-nnSinRNNLossV (xs, target) inputs =
-  let result = zeroState 30 (unrollLast' fcfcrnnV) xs inputs
-  in squaredDifference target result
-
--- Autoregressive model with degree 2
-
-ar2Sin :: ADModeAndNum d r
-       => r
-       -> ADVal d (Vector r)
-       -> ADInputs d r
-       -> (ADVal d r, ADVal d (Vector r))
-ar2Sin yLast s inputs =
-  let c = at0 inputs 0
-      phi1 = at0 inputs 1
-      phi2 = at0 inputs 2
-      yLastLast = index0 s 0  -- dummy vector for compatibility
-      y = c + scale yLast phi1 + phi2 * yLastLast
-  in (y, constant $ V.singleton yLast)
-
-ar2SinLoss :: ADModeAndNum d r
-           => (Vector r, r)
-           -> ADInputs d r
-           -> ADVal d r
-ar2SinLoss (xs, target) inputs =
-  let result = zeroState 30 (unrollLast' ar2Sin) xs inputs
-  in squaredDifference target result
-
 sinRNNTests :: TestTree
 sinRNNTests = testGroup "Sine RNN tests"
   [ sgdTestCase "train" nnSinRNNLoss (1, [30, 30], [(30, 1), (30, 30)], [])
@@ -294,22 +229,7 @@ sinRNNTests = testGroup "Sine RNN tests"
                      (1, [30, 30], [(30, 1), (30, 30)], [])
                      (take 10000 samples)
                      [-0.9980267284282716,-0.9655322144631203,-0.8919588317267176,-0.7773331580548076,-0.6212249872512189,-0.4246885094957385,-0.19280278430361192,6.316924614971235e-2,0.3255160857644734,0.5731149496491759,0.7872840563791541,0.957217059407527,1.0815006200684472,1.1654656874016613,1.2170717188563214,1.2437913143303263,1.251142657837598,1.2423738174804864,1.2186583377053681,1.1794148708577938,1.1226117988569018,1.0450711676413071,0.9428743310020188,0.8120257428038534,0.6495453130357101,0.45507653540664667,0.23281831228915612,-6.935736916677385e-3,-0.24789484923780786,-0.4705527193222155]
-  , sgdTestCase "trainVV" nnSinRNNLossV (1, replicate 33 30, [], [])
-                (return $ take 30000 samples) 4.6511403967229306e-5
-      -- different random initial paramaters produce a worse result;
-      -- matrix implementation faster, because the matrices still fit in cache
-  , feedbackTestCase "feedbackVV" fcfcrnnV nnSinRNNLossV
-                     (1, replicate 33 30, [], [])
-                     (take 10000 samples)
-                     [-0.9980267284282716,-0.9660899403337656,-0.8930568599923028,-0.7791304201898077,-0.6245654477568863,-0.4314435277698684,-0.2058673183484546,4.0423225394292085e-2,0.29029630688547203,0.5241984159992963,0.7250013011527577,0.8820730400055012,0.9922277361823716,1.057620382863504,1.08252746840241,1.070784986731554,1.0245016946328942,0.9438848015250431,0.827868146535437,0.6753691437632174,0.48708347071773117,0.26756701680655437,2.6913747557207532e-2,-0.21912614372802072,-0.45154893423928943,-0.6525638736434227,-0.8098403108946983,-0.9180866488182939,-0.9775459850131992,-0.9910399864230198]
-  , sgdTestCase "trainAR" ar2SinLoss (3, [], [], [])
-                (return $ take 30000 samples) 6.327978161031336e-23
-  , feedbackTestCase "feedbackAR" ar2Sin ar2SinLoss
-                     (3, [], [], [])
-                     (take 10000 samples)
-                     [-0.9980267284282716,-0.9510565162972417,-0.8443279255081759,-0.6845471059406962,-0.48175367412103653,-0.24868988719256901,-3.673766846290505e-11,0.24868988711894977,0.4817536740469978,0.6845471058659982,0.8443279254326351,0.9510565162207472,0.9980267283507953,0.9822872506502898,0.9048270523889208,0.7705132427021685,0.5877852522243431,0.3681245526237731,0.12533323351198067,-0.1253332336071494,-0.36812455271766376,-0.5877852523157643,-0.7705132427900961,-0.9048270524725681,-0.9822872507291605,-0.9980267284247174,-0.9510565162898851,-0.844327925497479,-0.6845471059273313,-0.48175367410584324]
   ]
-
 
 -- * A 1 recurrent layer net with 128 neurons for MNIST, based on
 -- https://medium.com/machine-learning-algorithms/mnist-using-recurrent-neural-network-2d070a5915a2
@@ -444,85 +364,12 @@ testMnistRNNL2 width inputs parameters =
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
 
--- A version written using vectors
-
-hiddenLayerMnistRNNV :: ADModeAndNum d r
-                     => Int
-                     -> Vector r
-                     -> ADVal d (Vector r)
-                     -> ADInputs d r
-                     -> (ADVal d (Vector r), ADVal d (Vector r))
-hiddenLayerMnistRNNV width x s inputs =
-  let b = at1 inputs (width + width)  -- 128
-      y = sumConstantDataL x 0 inputs width
-          + sumTrainableInputsL s width inputs width
-          + b
-      yTanh = tanh y
-  in (yTanh, yTanh)
-
-outputLayerMnistRNNV :: ADModeAndNum d r
-                     => Int
-                     -> ADVal d (Vector r)
-                     -> ADInputs d r
-                     -> ADVal d (Vector r)
-outputLayerMnistRNNV width vec inputs =
-  let b = at1 inputs (width + width + 1 + 10)  -- 10
-  in sumTrainableInputsL vec (width + width + 1) inputs 10 + b
-
-fcfcrnnMnistV :: ADModeAndNum d r
-              => Int
-              -> Vector r
-              -> ADVal d (Vector r)
-              -> ADInputs d r
-              -> (ADVal d (Vector r), ADVal d (Vector r))
-fcfcrnnMnistV = hiddenLayerMnistRNNV
-
-nnMnistRNNV :: ADModeAndNum d r
-            => Int
-            -> [Vector r]
-            -> ADInputs d r
-            -> ADVal d (Vector r)
-nnMnistRNNV width x inputs =
-  let rnnLayer = zeroState width (unrollLastG $ fcfcrnnMnistV width) x inputs
-  in outputLayerMnistRNNV width rnnLayer inputs
-
-nnMnistRNNLossV :: ADModeAndNum d r
-                => Int
-                -> ([Vector r], Vector r)
-                -> ADInputs d r
-                -> ADVal d r
-nnMnistRNNLossV width (xs, target) inputs =
-  let result = nnMnistRNNV width xs inputs
-  in lossSoftMaxCrossEntropyV target result
-
-testMnistRNNV :: forall r. ADModeAndNum 'ADModeValue r
-              => Int -> [([Vector r], Vector r)] -> Domains r -> r
-testMnistRNNV width inputs parameters =
-  let matchesLabels :: ([Vector r], Vector r) -> Bool
-      matchesLabels (glyph, label) =
-        let nn = nnMnistRNNV width glyph
-            v = valueFun nn parameters
-        in V.maxIndex v == V.maxIndex label
-  in fromIntegral (length (filter matchesLabels inputs))
-     / fromIntegral (length inputs)
-
 lenMnistRNNL :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
 lenMnistRNNL width nLayers =
   ( 0
   , [width, 10] ++ replicate (nLayers - 1) width
   , [(width, 28), (width, width), (10, width)]
     ++ concat (replicate (nLayers - 1) [(width, width), (width, width)])
-  , []
-  )
-
-lenMnistRNNV :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
-lenMnistRNNV width nLayers =
-  ( 0
-  , replicate width 28 ++ replicate width width ++ [width]
-    ++ replicate 10 width ++ [10]
-    ++ concat (replicate (nLayers - 1)
-                (replicate width width ++ replicate width width ++ [width]))
-  , []
   , []
   )
 
@@ -908,9 +755,6 @@ mnistRNNTestsLong = testGroup "MNIST RNN long tests"
   , mnistTestCaseRNNB "99BB2 1 epoch, all batches" 1 99
                       nnMnistRNNLossB2 testMnistRNNL2 lenMnistRNNL 128 2
                       6.259999999999999e-2
-  , mnistTestCaseRNN "99VV 1 epoch, all batches" 1 99
-                     nnMnistRNNLossV testMnistRNNV lenMnistRNNV 128 1
-                     6.740000000000002e-2
   , mnistTestCaseRNNS (MkSN @128) (MkSN @150)
                       "1S 1 epoch, 1 batch" 1 1
                       rnnMnistLossFusedS rnnMnistTestS rnnMnistLenS
@@ -965,26 +809,6 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
   , mnistTestCaseRNNB "1BB2 1 epoch, 1 batch" 1 1
                       nnMnistRNNLossB2 testMnistRNNL2 lenMnistRNNL 128 2
                       0.2945
-  , let glyph = V.unfoldrExactN sizeMnistGlyphInt (uniformR (0, 1))
-        label = V.unfoldrExactN sizeMnistLabelInt (uniformR (0, 1))
-        rws v = map (\k -> V.slice (k * 28) 28 v) [0 .. 27]
-        trainData = map ((\g -> (rws (glyph g), label g)) . mkStdGen) [1 .. 100]
-    in sgdTestCase "randomVV 100"
-                   (nnMnistRNNLossV 128)
-                   (lenMnistRNNV 128 1)
-                   (return trainData)
-                   48.93543453250378
-  , let rws (input, target) =
-          (map (\k -> V.slice (k * 28) 28 input) [0 .. 27], target)
-    in sgdTestCase "firstVV 100 trainset samples only"
-                   (nnMnistRNNLossV 128)
-                   (lenMnistRNNV 128 1)
-                   (map rws . take 100
-                    <$> loadMnistData trainGlyphsPath trainLabelsPath)
-                   2.749410768938081
-  , mnistTestCaseRNN "1VV 1 epoch, 1 batch" 1 1
-                     nnMnistRNNLossV testMnistRNNV lenMnistRNNV 48 1
-                     0.6880999999999999
   , mnistTestCaseRNNS (MkSN @120) (MkSN @15)
                       "1S 1 epoch, 1 batch" 1 1
                       rnnMnistLossFusedS rnnMnistTestS rnnMnistLenS

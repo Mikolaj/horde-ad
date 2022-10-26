@@ -237,6 +237,7 @@ library testCommonLibrary
                       Tool.EqEpsilon
                       TestConditionalSynth
                       TestMnistFCNNSimple
+                      TestMnistRNNSimple
 
   if flag(use_typelits_plugins) {
     exposed-modules:  TestMnistCNN

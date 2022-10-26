@@ -15,6 +15,7 @@ import           Test.Tasty.Options
 import           Test.Tasty.Runners
 
 import qualified TestMnistFCNNSimple
+import qualified TestMnistRNNSimple
 import           Tool.EqEpsilon
 
 #if defined(VERSION_ghc_typelits_natnormalise)
@@ -39,6 +40,7 @@ main = do
 tests :: TestTree
 tests = testGroup "Short tests for CI" $
   TestMnistFCNNSimple.testTrees
+  ++ TestMnistRNNSimple.testTrees
 #if defined(VERSION_ghc_typelits_natnormalise)
   ++ TestSingleGradient.testTrees
   ++ TestSimpleDescent.testTrees
