@@ -157,7 +157,7 @@ library
     build-depends:
         assert-failure
       , base >= 4.14 && < 99
-      , containers
+      , enummapset
       , hmatrix
       , ilist
       , mono-traversable
@@ -480,7 +480,7 @@ library horde-ad-simplified
 
     build-depends:
         base >= 4.14 && < 99
-      , containers
+      , enummapset
       , hmatrix
       , ilist
       , mono-traversable

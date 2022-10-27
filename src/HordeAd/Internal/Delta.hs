@@ -41,7 +41,7 @@ module HordeAd.Internal.Delta
   , DeltaX (..), DeltaX' (..)
   , DeltaS (..), DeltaS' (..)
   , -- * Delta expression identifiers
-    NodeId, InputId, toInputId, DeltaId
+    NodeId(..), InputId, toInputId, DeltaId
   , -- * Evaluation of the delta expressions
     DeltaDt (..), Domain0, Domain1, Domain2, DomainX, Domains
   , gradientFromDelta, derivativeFromDelta
@@ -61,7 +61,7 @@ import qualified Data.Array.Internal.DynamicG
 import qualified Data.Array.Internal.DynamicS
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
-import qualified Data.IntMap.Strict as IM
+import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Type)
 import           Data.Primitive (Prim)
 import           Data.Proxy (Proxy)
@@ -275,7 +275,8 @@ instance Show (DeltaS' sh r) where
 
 -- * Delta expression identifiers
 
-type NodeId = Int
+newtype NodeId = NodeId {fromNodeId :: Int}
+  deriving (Show, Eq, Enum, Prim)
 
 newtype InputId a = InputId Int
   deriving Show
@@ -412,7 +413,7 @@ gradientFromDelta dim0 dim1 dim2 dimX deltaDt =
   -> Domains Double #-}
 
 -- | Create vectors (representing finite maps) that hold values
--- associated with inputes and (possibly shared) term tree nodes.
+-- associated with inputs and (possibly shared) term tree nodes.
 -- The former are initialized with dummy values so that it's cheap
 -- to check if any update has already been performed to a cell
 -- (allocating big matrices filled with zeros is too costly,
@@ -438,9 +439,8 @@ initializeFinMaps
           , STRefU s Int
           , STRefU s Int
           , STRefU s Int
-          , STRef s (IM.IntMap (DeltaBinding r)) )
-              -- the Int here is morally NodeId;
-              -- Map and HashTable are way slower than the IntMap
+          , STRef s (EM.EnumMap NodeId (DeltaBinding r)) )
+              -- Map and HashTable are way slower than the IntMap/EnumMap
 initializeFinMaps dim0 dim1 dim2 dimX = do
   iMap0 <- VM.replicate dim0 0  -- correct value; below are dummy
   iMap1 <- VM.replicate dim1 (V.empty :: Vector r)
@@ -466,7 +466,7 @@ initializeFinMaps dim0 dim1 dim2 dimX = do
   len1 <- newSTRefU (VM.length rMap1')
   len2 <- newSTRefU (VM.length rMap2')
   lenX <- newSTRefU (VM.length rMapX')
-  dMap <- newSTRef IM.empty
+  dMap <- newSTRef EM.empty
   return ( iMap0, iMap1, iMap2, iMapX
          , ref0, ref1, ref2, refX
          , rMap0, rMap1, rMap2, rMapX
@@ -486,7 +486,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
    ,len0, len1, len2, lenX
    ,dMap )
     <- initializeFinMaps dim0 dim1 dim2 dimX
-  nLast <- newSTRefU 0  -- counter of the last fully evaluated binding
+  nLast <- newSTRefU (NodeId 0)  -- counter of the last fully evaluated binding
   let addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
       addToMatrix :: Matrix r -> Matrix r -> Matrix r
@@ -511,23 +511,23 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                  -- shrinking the environment in which the evaluation occurs;
                  -- the same applies everywhere below
           writeSTRefU nLast n
-          rFinal <- case IM.lookup n im of
+          rFinal <- case EM.lookup n im of
             Just (DeltaBinding0 (DeltaId i) _) -> do
-              writeSTRef dMap $! IM.delete n im
+              writeSTRef dMap $! EM.delete n im
               rm <- readSTRef rMap0
               (+ r) <$> rm `VM.read` i
             Nothing -> return r
             _ -> error "buildFinMaps: corrupted dMap"
           unless (rFinal == 0) $  -- a cheap optimization in case of scalars
             eval0' rFinal d
-        else case IM.lookup n im of
+        else case EM.lookup n im of
           Just (DeltaBinding0 (DeltaId i) _) -> do
             rm <- readSTRef rMap0
             VM.modify rm (+ r) i
           Nothing -> do
             did@(DeltaId i) <- readSTRefU ref0
             writeSTRefU ref0 $ succDeltaId did
-            writeSTRef dMap $! IM.insert n (DeltaBinding0 did d) im
+            writeSTRef dMap $! EM.insert n (DeltaBinding0 did d) im
             len <- readSTRefU len0
             rm <- readSTRef rMap0
             if i >= len then do
@@ -577,22 +577,22 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         if n == pred nL
         then do
           writeSTRefU nLast n
-          rFinal <- case IM.lookup n im of
+          rFinal <- case EM.lookup n im of
             Just (DeltaBinding1 (DeltaId i) _) -> do
-              writeSTRef dMap $! IM.delete n im
+              writeSTRef dMap $! EM.delete n im
               rm <- readSTRef rMap1
               (+ r) <$> rm `VM.read` i
             Nothing -> return r
             _ -> error "buildFinMaps: corrupted dMap"
           eval1' rFinal d
-        else case IM.lookup n im of
+        else case EM.lookup n im of
           Just (DeltaBinding1 (DeltaId i) _) -> do
             rm <- readSTRef rMap1
             VM.modify rm (+ r) i
           Nothing -> do
             did@(DeltaId i) <- readSTRefU ref1
             writeSTRefU ref1 $ succDeltaId did
-            writeSTRef dMap $! IM.insert n (DeltaBinding1 did d) im
+            writeSTRef dMap $! EM.insert n (DeltaBinding1 did d) im
             len <- readSTRefU len1
             rm <- readSTRef rMap1
             if i >= len then do
@@ -646,22 +646,22 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         if n == pred nL
         then do
           writeSTRefU nLast n
-          rFinal <- case IM.lookup n im of
+          rFinal <- case EM.lookup n im of
             Just (DeltaBinding2 (DeltaId i) _) -> do
-              writeSTRef dMap $! IM.delete n im
+              writeSTRef dMap $! EM.delete n im
               rm <- readSTRef rMap2
               MO.plus r <$> rm `VM.read` i
             Nothing -> return r
             _ -> error "buildFinMaps: corrupted dMap"
           eval2' rFinal d
-        else case IM.lookup n im of
+        else case EM.lookup n im of
           Just (DeltaBinding2 (DeltaId i) _) -> do
             rm <- readSTRef rMap2
             VM.modify rm (MO.plus r) i
           Nothing -> do
             did@(DeltaId i) <- readSTRefU ref2
             writeSTRefU ref2 $ succDeltaId did
-            writeSTRef dMap $! IM.insert n (DeltaBinding2 did d) im
+            writeSTRef dMap $! EM.insert n (DeltaBinding2 did d) im
             len <- readSTRefU len2
             rm <- readSTRef rMap2
             if i >= len then do
@@ -734,22 +734,22 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         if n == pred nL
         then do
           writeSTRefU nLast n
-          rFinal <- case IM.lookup n im of
+          rFinal <- case EM.lookup n im of
             Just (DeltaBindingX (DeltaId i) _) -> do
-              writeSTRef dMap $! IM.delete n im
+              writeSTRef dMap $! EM.delete n im
               rm <- readSTRef rMapX
               liftVT2 (+) r <$> rm `VM.read` i
             Nothing -> return r
             _ -> error "buildFinMaps: corrupted dMap"
           evalX' rFinal d
-        else case IM.lookup n im of
+        else case EM.lookup n im of
           Just (DeltaBindingX (DeltaId i) _) -> do
             rm <- readSTRef rMapX
             VM.modify rm (liftVT2 (+) r) i
           Nothing -> do
             did@(DeltaId i) <- readSTRefU refX
             writeSTRefU refX $ succDeltaId did
-            writeSTRef dMap $! IM.insert n (DeltaBindingX did d) im
+            writeSTRef dMap $! EM.insert n (DeltaBindingX did d) im
             len <- readSTRefU lenX
             rm <- readSTRef rMapX
             if i >= len then do
@@ -808,16 +808,16 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         if n == pred nL
         then do
           writeSTRefU nLast n
-          rFinal <- case IM.lookup n im of
+          rFinal <- case EM.lookup n im of
             Just (DeltaBindingS (DeltaId i) _) -> do
-              writeSTRef dMap $! IM.delete n im
+              writeSTRef dMap $! EM.delete n im
               rm <- readSTRef rMapX
               rx <- rm `VM.read` i
               return $! liftVS2 (+) r (Data.Array.Convert.convert rx)
             Nothing -> return r
             _ -> error "buildFinMaps: corrupted dMap"
           evalS' rFinal d
-        else case IM.lookup n im of
+        else case EM.lookup n im of
           Just (DeltaBindingS (DeltaId i) _) -> do
             rm <- readSTRef rMapX
             let rs = Data.Array.Convert.convert r
@@ -825,7 +825,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
           Nothing -> do
             did@(DeltaId i) <- readSTRefU refX
             writeSTRefU refX $ succDeltaId did
-            writeSTRef dMap $! IM.insert n (DeltaBindingS did d) im
+            writeSTRef dMap $! EM.insert n (DeltaBindingS did d) im
             len <- readSTRefU lenX
             rm <- readSTRef rMapX
             if i >= len then do
@@ -906,7 +906,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
       evalFromdMap :: ST s ()
       evalFromdMap = do
         im <- readSTRef dMap
-        case IM.maxViewWithKey im of
+        case EM.maxViewWithKey im of
           Just ((n, b), im2) -> do
             writeSTRefU nLast n
             writeSTRef dMap $! im2
@@ -967,7 +967,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         -- This is too complex, but uses components already defined
         -- for initializeFinMaps and some of a similar code.
         im <- readSTRef dMap
-        case IM.lookup n im of
+        case EM.lookup n im of
           Just (DeltaBinding0 (DeltaId i) _) -> do
             rm <- readSTRef rMap0
             VM.read rm i
@@ -977,7 +977,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
             rm <- readSTRef rMap0
             did@(DeltaId i) <- readSTRefU ref0
             writeSTRefU ref0 $ succDeltaId did
-            writeSTRef dMap $! IM.insert n (DeltaBinding0 did d) imNew
+            writeSTRef dMap $! EM.insert n (DeltaBinding0 did d) imNew
             len <- readSTRefU len0
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
@@ -1009,7 +1009,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         else error "derivativeFromDelta.eval': wrong index for an input"
       eval1 (Delta1 n d) = do
         im <- readSTRef dMap
-        case IM.lookup n im of
+        case EM.lookup n im of
           Just (DeltaBinding1 (DeltaId i) _) -> do
             rm <- readSTRef rMap1
             VM.read rm i
@@ -1019,7 +1019,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
             rm <- readSTRef rMap1
             did@(DeltaId i) <- readSTRefU ref1
             writeSTRefU ref1 $ succDeltaId did
-            writeSTRef dMap $! IM.insert n (DeltaBinding1 did d) imNew
+            writeSTRef dMap $! EM.insert n (DeltaBinding1 did d) imNew
             len <- readSTRefU len1
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
@@ -1065,7 +1065,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         else error "derivativeFromDelta.eval': wrong index for an input"
       eval2 (Delta2 n d) = do
         im <- readSTRef dMap
-        case IM.lookup n im of
+        case EM.lookup n im of
           Just (DeltaBinding2 (DeltaId i) _) -> do
             rm <- readSTRef rMap2
             VM.read rm i
@@ -1075,7 +1075,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
             rm <- readSTRef rMap2
             did@(DeltaId i) <- readSTRefU ref2
             writeSTRefU ref2 $ succDeltaId did
-            writeSTRef dMap $! IM.insert n (DeltaBinding2 did d) imNew
+            writeSTRef dMap $! EM.insert n (DeltaBinding2 did d) imNew
             len <- readSTRefU len2
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
@@ -1135,7 +1135,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         else error "derivativeFromDelta.eval': wrong index for an input"
       evalX (DeltaX n d) = do
         im <- readSTRef dMap
-        case IM.lookup n im of
+        case EM.lookup n im of
           Just (DeltaBindingX (DeltaId i) _) -> do
             rm <- readSTRef rMapX
             VM.read rm i
@@ -1145,7 +1145,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
             rm <- readSTRef rMapX
             did@(DeltaId i) <- readSTRefU refX
             writeSTRefU refX $ succDeltaId did
-            writeSTRef dMap $! IM.insert n (DeltaBindingX did d) imNew
+            writeSTRef dMap $! EM.insert n (DeltaBindingX did d) imNew
             len <- readSTRefU lenX
             if i >= len then do
               rmG <- VM.unsafeGrow rm len
@@ -1190,7 +1190,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         else error "derivativeFromDelta.eval': wrong index for an input"
       evalS (DeltaS n d) = do
         im <- readSTRef dMap
-        case IM.lookup n im of
+        case EM.lookup n im of
           Just (DeltaBindingS (DeltaId i) _) -> do
             rm <- readSTRef rMapX
             Data.Array.Convert.convert <$> VM.read rm i
@@ -1200,7 +1200,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
             rm <- readSTRef rMapX
             did@(DeltaId i) <- readSTRefU refX
             writeSTRefU refX $ succDeltaId did
-            writeSTRef dMap $! IM.insert n (DeltaBindingS did d) imNew
+            writeSTRef dMap $! EM.insert n (DeltaBindingS did d) imNew
             len <- readSTRefU lenX
             if i >= len then do
               rmG <- VM.unsafeGrow rm len

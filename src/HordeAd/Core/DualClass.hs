@@ -637,7 +637,7 @@ unsafeGlobalCounter = unsafePerformIO (newCounter 100000000)
 -- but faster than an @MVar@ or an atomic @IORef@ (and even non-atomic @IORef@).
 -- The operation is manually inlined to prevent GHCs deciding otherwise
 -- and causing performance anomalies.
-unsafeGetFreshId :: IO NodeId
+unsafeGetFreshId :: IO Int
 {-# INLINE unsafeGetFreshId #-}
 unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
 
@@ -649,28 +649,28 @@ wrapDelta0 :: Delta0' r -> Delta0 r
 {-# NOINLINE wrapDelta0 #-}
 wrapDelta0 !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
-  return $! Delta0 n d
+  return $! Delta0 (NodeId n) d
 
 wrapDelta1 :: Delta1' r -> Delta1 r
 {-# NOINLINE wrapDelta1 #-}
 wrapDelta1 !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
-  return $! Delta1 n d
+  return $! Delta1 (NodeId n) d
 
 wrapDelta2 :: Delta2' r -> Delta2 r
 {-# NOINLINE wrapDelta2 #-}
 wrapDelta2 !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
-  return $! Delta2 n d
+  return $! Delta2 (NodeId n) d
 
 wrapDeltaX :: DeltaX' r -> DeltaX r
 {-# NOINLINE wrapDeltaX #-}
 wrapDeltaX !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
-  return $! DeltaX n d
+  return $! DeltaX (NodeId n) d
 
 wrapDeltaS :: DeltaS' sh r -> DeltaS sh r
 {-# NOINLINE wrapDeltaS #-}
 wrapDeltaS !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
-  return $! DeltaS n d
+  return $! DeltaS (NodeId n) d
