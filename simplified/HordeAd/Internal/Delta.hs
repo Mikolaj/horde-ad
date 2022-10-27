@@ -286,7 +286,6 @@ buildFinMaps dim0 dim1 deltaDt = do
    ,rMap0, rMap1
    ,dMap )
     <- initializeFinMaps dim0 dim1
-  nLast <- newSTRefU (NodeId 0)  -- counter of the last fully evaluated binding
   let addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
       eval0 :: r -> Delta0 r -> ST s ()
@@ -295,23 +294,7 @@ buildFinMaps dim0 dim1 deltaDt = do
         VM.modify iMap0 (+ r) i
       eval0 !r (Delta0 n d) = do
         im <- readSTRef dMap
-        nL <- readSTRefU nLast
-        if n == pred nL
-        then do  -- this would be evaluated next, so let's shortcut,
-                 -- avoiding lots of short-lived allocations and also
-                 -- shrinking the environment in which the evaluation occurs;
-                 -- the same applies everywhere below
-          writeSTRefU nLast n
-          rFinal <- case EM.lookup n im of
-            Just (DeltaBinding0 did _) -> do
-              writeSTRef dMap $! EM.delete n im
-              rm <- readSTRef rMap0
-              return $! rm EM.! did + r
-            Nothing -> return r
-            _ -> error "buildFinMaps: corrupted dMap"
-          unless (rFinal == 0) $  -- a cheap optimization in case of scalars
-            eval0' rFinal d
-        else case EM.lookup n im of
+        case EM.lookup n im of
           Just (DeltaBinding0 did _) -> do
             rm <- readSTRef rMap0
             writeSTRef rMap0 $! EM.adjust (+ r) did rm
@@ -326,9 +309,6 @@ buildFinMaps dim0 dim1 deltaDt = do
       eval0' !r = \case
         Scale0 k d -> eval0 (k * r) d
         Add0 d e -> eval0 r e >> eval0 r d
-          -- reversed order of evaluation to enable the shortcut as often
-          -- as possible due to the parent and the first evaluated child
-          -- having adjacent counter values
 
         SumElements0 vd n -> eval1 (HM.konst r n) vd
         Index0 (Input1 (InputId i)) ix k | i >= 0 -> do
@@ -351,19 +331,7 @@ buildFinMaps dim0 dim1 deltaDt = do
         VM.modify iMap1 (addToVector r) i
       eval1 !r (Delta1 n d) = do
         im <- readSTRef dMap
-        nL <- readSTRefU nLast
-        if n == pred nL
-        then do
-          writeSTRefU nLast n
-          rFinal <- case EM.lookup n im of
-            Just (DeltaBinding1 did _) -> do
-              writeSTRef dMap $! EM.delete n im
-              rm <- readSTRef rMap1
-              return $! rm EM.! did + r
-            Nothing -> return r
-            _ -> error "buildFinMaps: corrupted dMap"
-          eval1' rFinal d
-        else case EM.lookup n im of
+        case EM.lookup n im of
           Just (DeltaBinding1 did _) -> do
             rm <- readSTRef rMap1
             writeSTRef rMap1 $! EM.adjust (+ r) did rm
@@ -379,13 +347,9 @@ buildFinMaps dim0 dim1 deltaDt = do
         Scale1 k d -> eval1 (k * r) d
         Add1 d e -> eval1 r e >> eval1 r d
 
-        Seq1 lsd -> V.imapM_ (\i d -> eval0 (r V.! (V.length lsd - 1 - i)) d)
-                    $ V.reverse lsd
-          -- the argument vector is often created in the natural order,
-          -- so we have to reverse it to enable the shortcut more often
+        Seq1 lsd -> V.imapM_ (\i d -> eval0 (r V.! i) d) lsd
         Konst1 d _n -> V.mapM_ (`eval0` d) r
         Append1 d k e -> eval1 (V.drop k r) e >> eval1 (V.take k r) d
-          -- reversed order of evaluation; see Add0
         Slice1 i n d len ->
           eval1 (HM.konst 0 i V.++ r V.++ HM.konst 0 (len - i - n)) d
 
@@ -408,9 +372,8 @@ buildFinMaps dim0 dim1 deltaDt = do
       evalFromdMap :: ST s ()
       evalFromdMap = do
         im <- readSTRef dMap
-        case EM.maxViewWithKey im of
-          Just ((n, b), im2) -> do
-            writeSTRefU nLast n
+        case EM.maxView im of
+          Just (b, im2) -> do
             writeSTRef dMap $! im2
             evalUnlessZero b
             evalFromdMap
