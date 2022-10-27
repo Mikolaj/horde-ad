@@ -128,7 +128,7 @@ toInputId :: Int -> InputId a
 toInputId i = assert (i >= 0) $ InputId i
 
 newtype DeltaId a = DeltaId Int
-  deriving (Show, Prim)
+  deriving (Show, Enum, Prim)
     -- No Eq instance to limit hacks outside this module.
     -- The Prim instance conversions take lots of time when old-time profiling,
     -- but are completely optimized away in normal builds.
@@ -253,10 +253,8 @@ initializeFinMaps
           , Data.Vector.Mutable.MVector s (Vector r)
           , STRefU s (DeltaId r)
           , STRefU s (DeltaId (Vector r))
-          , STRef s (Data.Vector.Storable.Mutable.MVector s r)
-          , STRef s (Data.Vector.Mutable.MVector s (Vector r))
-          , STRefU s Int
-          , STRefU s Int
+          , STRef s (EM.EnumMap (DeltaId r) r)
+          , STRef s (EM.EnumMap (DeltaId (Vector r)) (Vector r))
           , STRef s (EM.EnumMap NodeId (DeltaBinding r)) )
               -- Map and HashTable are way slower than the IntMap/EnumMap
 initializeFinMaps dim0 dim1 = do
@@ -267,18 +265,12 @@ initializeFinMaps dim0 dim1 = do
   ref1 <- newSTRefU (DeltaId 0)
   -- Unsafe is fine, because it initializes to bottoms and we always
   -- write before reading.
-  rMap0' <- VM.unsafeNew (max 1 dim0)
-  rMap1' <- VM.unsafeNew (max 1 dim1)
-  rMap0 <- newSTRef rMap0'
-  rMap1 <- newSTRef rMap1'
-  -- These keep current lengths of the vectors above.
-  len0 <- newSTRefU (VM.length rMap0')
-  len1 <- newSTRefU (VM.length rMap1')
+  rMap0 <- newSTRef EM.empty
+  rMap1 <- newSTRef EM.empty
   dMap <- newSTRef EM.empty
   return ( iMap0, iMap1
          , ref0, ref1
          , rMap0, rMap1
-         , len0, len1
          , dMap )
 
 buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
@@ -289,7 +281,6 @@ buildFinMaps dim0 dim1 deltaDt = do
   ( iMap0, iMap1
    ,ref0, ref1
    ,rMap0, rMap1
-   ,len0, len1
    ,dMap )
     <- initializeFinMaps dim0 dim1
   nLast <- newSTRefU (NodeId 0)  -- counter of the last fully evaluated binding
@@ -309,34 +300,24 @@ buildFinMaps dim0 dim1 deltaDt = do
                  -- the same applies everywhere below
           writeSTRefU nLast n
           rFinal <- case EM.lookup n im of
-            Just (DeltaBinding0 (DeltaId i) _) -> do
+            Just (DeltaBinding0 did _) -> do
               writeSTRef dMap $! EM.delete n im
               rm <- readSTRef rMap0
-              (+ r) <$> rm `VM.read` i
+              return $! rm EM.! did + r
             Nothing -> return r
             _ -> error "buildFinMaps: corrupted dMap"
           unless (rFinal == 0) $  -- a cheap optimization in case of scalars
             eval0' rFinal d
         else case EM.lookup n im of
-          Just (DeltaBinding0 (DeltaId i) _) -> do
+          Just (DeltaBinding0 did _) -> do
             rm <- readSTRef rMap0
-            VM.modify rm (+ r) i
+            writeSTRef rMap0 $! EM.adjust (+ r) did rm
           Nothing -> do
-            did@(DeltaId i) <- readSTRefU ref0
+            did <- readSTRefU ref0
             writeSTRefU ref0 $ succDeltaId did
             writeSTRef dMap $! EM.insert n (DeltaBinding0 did d) im
-            len <- readSTRefU len0
             rm <- readSTRef rMap0
-            if i >= len then do
-              -- Unsafe is fine, because it initializes to bottoms (not to
-              -- random words than may look like pointers) and we always
-              -- write before reading.
-              rmG <- VM.unsafeGrow rm len
-              VM.write rmG i r
-              writeSTRef rMap0 rmG
-              writeSTRefU len0 $ 2 * len
-            else
-              VM.write rm i r
+            writeSTRef rMap0 $! EM.insert did r rm
           _ -> error "buildFinMaps: corrupted dMap"
       eval0' :: r -> Delta0' r -> ST s ()
       eval0' !r = \case
@@ -372,30 +353,23 @@ buildFinMaps dim0 dim1 deltaDt = do
         then do
           writeSTRefU nLast n
           rFinal <- case EM.lookup n im of
-            Just (DeltaBinding1 (DeltaId i) _) -> do
+            Just (DeltaBinding1 did _) -> do
               writeSTRef dMap $! EM.delete n im
               rm <- readSTRef rMap1
-              (+ r) <$> rm `VM.read` i
+              return $! rm EM.! did + r
             Nothing -> return r
             _ -> error "buildFinMaps: corrupted dMap"
           eval1' rFinal d
         else case EM.lookup n im of
-          Just (DeltaBinding1 (DeltaId i) _) -> do
+          Just (DeltaBinding1 did _) -> do
             rm <- readSTRef rMap1
-            VM.modify rm (+ r) i
+            writeSTRef rMap1 $! EM.adjust (+ r) did rm
           Nothing -> do
-            did@(DeltaId i) <- readSTRefU ref1
+            did <- readSTRefU ref1
             writeSTRefU ref1 $ succDeltaId did
             writeSTRef dMap $! EM.insert n (DeltaBinding1 did d) im
-            len <- readSTRefU len1
             rm <- readSTRef rMap1
-            if i >= len then do
-              rmG <- VM.unsafeGrow rm len
-              VM.write rmG i r
-              writeSTRef rMap1 rmG
-              writeSTRefU len1 $ 2 * len
-            else
-              VM.write rm i r
+            writeSTRef rMap1 $! EM.insert did r rm
           _ -> error "buildFinMaps: corrupted dMap"
       eval1' :: Vector r -> Delta1' r -> ST s ()
       eval1' !r = \case
@@ -419,14 +393,14 @@ buildFinMaps dim0 dim1 deltaDt = do
     DeltaDt1 dt deltaTopLevel -> eval1 dt deltaTopLevel
 
   let evalUnlessZero :: DeltaBinding r -> ST s ()
-      evalUnlessZero (DeltaBinding0 (DeltaId i) d) = do
+      evalUnlessZero (DeltaBinding0 did d) = do
         rm <- readSTRef rMap0
-        r <- rm `VM.read` i
+        let r = rm EM.! did
         unless (r == 0) $  -- a cheap optimization in case of scalars
           eval0' r d
-      evalUnlessZero (DeltaBinding1 (DeltaId i) d) = do
+      evalUnlessZero (DeltaBinding1 did d) = do
         rm <- readSTRef rMap1
-        r <- rm `VM.read` i
+        let r = rm EM.! did
         eval1' r d
       evalFromdMap :: ST s ()
       evalFromdMap = do
@@ -472,7 +446,6 @@ buildDerivative dim0 dim1 deltaTopLevel
   ( _, _
    ,ref0, ref1
    ,rMap0, rMap1
-   ,len0, len1
    ,dMap )
    <- initializeFinMaps dim0 dim1
   let eval0 :: Delta0 r -> ST s r
@@ -486,24 +459,17 @@ buildDerivative dim0 dim1 deltaTopLevel
         -- for initializeFinMaps and some of a similar code.
         im <- readSTRef dMap
         case EM.lookup n im of
-          Just (DeltaBinding0 (DeltaId i) _) -> do
+          Just (DeltaBinding0 did _) -> do
             rm <- readSTRef rMap0
-            VM.read rm i
+            return $! rm EM.! did
           Nothing -> do
             r <- eval0' d
             imNew <- readSTRef dMap
             rm <- readSTRef rMap0
-            did@(DeltaId i) <- readSTRefU ref0
+            did <- readSTRefU ref0
             writeSTRefU ref0 $ succDeltaId did
             writeSTRef dMap $! EM.insert n (DeltaBinding0 did d) imNew
-            len <- readSTRefU len0
-            if i >= len then do
-              rmG <- VM.unsafeGrow rm len
-              VM.write rmG i r
-              writeSTRef rMap0 rmG
-              writeSTRefU len0 $ 2 * len
-            else
-              VM.write rm i r
+            writeSTRef rMap0 $! EM.insert did r rm
             return r
           _ -> error "buildDerivative: corrupted dMap"
       eval0' :: Delta0' r -> ST s r
@@ -525,24 +491,17 @@ buildDerivative dim0 dim1 deltaTopLevel
       eval1 (Delta1 n d) = do
         im <- readSTRef dMap
         case EM.lookup n im of
-          Just (DeltaBinding1 (DeltaId i) _) -> do
+          Just (DeltaBinding1 did _) -> do
             rm <- readSTRef rMap1
-            VM.read rm i
+            return $! rm EM.! did
           Nothing -> do
             r <- eval1' d
             imNew <- readSTRef dMap
             rm <- readSTRef rMap1
-            did@(DeltaId i) <- readSTRefU ref1
+            did <- readSTRefU ref1
             writeSTRefU ref1 $ succDeltaId did
             writeSTRef dMap $! EM.insert n (DeltaBinding1 did d) imNew
-            len <- readSTRefU len1
-            if i >= len then do
-              rmG <- VM.unsafeGrow rm len
-              VM.write rmG i r
-              writeSTRef rMap1 rmG
-              writeSTRefU len1 $ 2 * len
-            else
-              VM.write rm i r
+            writeSTRef rMap1 $! EM.insert did r rm
             return r
           _ -> error "buildDerivative: corrupted dMap"
       eval1' :: Delta1' r -> ST s (Vector r)
