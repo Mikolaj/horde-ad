@@ -45,7 +45,6 @@ import           Control.Monad.ST.Strict (ST, runST)
 import qualified Data.EnumMap.Strict as EM
 import           Data.Primitive (Prim)
 import           Data.STRef (STRef, newSTRef, readSTRef, writeSTRef)
-import           Data.STRef.Unboxed (STRefU, newSTRefU, readSTRefU, writeSTRefU)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Strict.Vector.Autogen.Mutable as Data.Vector.Mutable
 import qualified Data.Vector.Generic as V
@@ -254,8 +253,6 @@ initializeFinMaps
   => Int -> Int
   -> ST s ( Data.Vector.Storable.Mutable.MVector s r
           , Data.Vector.Mutable.MVector s (Vector r)
-          , STRefU s (DeltaId r)
-          , STRefU s (DeltaId (Vector r))
           , STRef s (EM.EnumMap (DeltaId r) r)
           , STRef s (EM.EnumMap (DeltaId (Vector r)) (Vector r))
           , STRef s (EM.EnumMap NodeId (DeltaBinding r)) )
@@ -263,16 +260,12 @@ initializeFinMaps
 initializeFinMaps dim0 dim1 = do
   iMap0 <- VM.replicate dim0 0  -- correct value; below are dummy
   iMap1 <- VM.replicate dim1 (V.empty :: Vector r)
-  -- These index into the respective maps below.
-  ref0 <- newSTRefU (DeltaId 0)
-  ref1 <- newSTRefU (DeltaId 0)
   -- Unsafe is fine, because it initializes to bottoms and we always
   -- write before reading.
   rMap0 <- newSTRef EM.empty
   rMap1 <- newSTRef EM.empty
   dMap <- newSTRef EM.empty
   return ( iMap0, iMap1
-         , ref0, ref1
          , rMap0, rMap1
          , dMap )
 
@@ -282,7 +275,6 @@ buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
                      , Data.Vector.Mutable.MVector s (Vector r) )
 buildFinMaps dim0 dim1 deltaDt = do
   ( iMap0, iMap1
-   ,ref0, ref1
    ,rMap0, rMap1
    ,dMap )
     <- initializeFinMaps dim0 dim1
@@ -299,10 +291,11 @@ buildFinMaps dim0 dim1 deltaDt = do
             rm <- readSTRef rMap0
             writeSTRef rMap0 $! EM.adjust (+ r) did rm
           Nothing -> do
-            did <- readSTRefU ref0
-            writeSTRefU ref0 $ succDeltaId did
-            writeSTRef dMap $! EM.insert n (DeltaBinding0 did d) im
             rm <- readSTRef rMap0
+            let did = case EM.lookupMax rm of
+                  Nothing -> DeltaId 0
+                  Just (didOld, _) -> succDeltaId didOld
+            writeSTRef dMap $! EM.insert n (DeltaBinding0 did d) im
             writeSTRef rMap0 $! EM.insert did r rm
           _ -> error "buildFinMaps: corrupted dMap"
       eval0' :: r -> Delta0' r -> ST s ()
@@ -336,10 +329,11 @@ buildFinMaps dim0 dim1 deltaDt = do
             rm <- readSTRef rMap1
             writeSTRef rMap1 $! EM.adjust (+ r) did rm
           Nothing -> do
-            did <- readSTRefU ref1
-            writeSTRefU ref1 $ succDeltaId did
-            writeSTRef dMap $! EM.insert n (DeltaBinding1 did d) im
             rm <- readSTRef rMap1
+            let did = case EM.lookupMax rm of
+                  Nothing -> DeltaId 0
+                  Just (didOld, _) -> succDeltaId didOld
+            writeSTRef dMap $! EM.insert n (DeltaBinding1 did d) im
             writeSTRef rMap1 $! EM.insert did r rm
           _ -> error "buildFinMaps: corrupted dMap"
       eval1' :: Vector r -> Delta1' r -> ST s ()
@@ -410,7 +404,6 @@ buildDerivative
 buildDerivative dim0 dim1 deltaTopLevel
                 (params0Init, params1Init) = do
   ( _, _
-   ,ref0, ref1
    ,rMap0, rMap1
    ,dMap )
    <- initializeFinMaps dim0 dim1
@@ -432,8 +425,9 @@ buildDerivative dim0 dim1 deltaTopLevel
             r <- eval0' d
             imNew <- readSTRef dMap
             rm <- readSTRef rMap0
-            did <- readSTRefU ref0
-            writeSTRefU ref0 $ succDeltaId did
+            let did = case EM.lookupMax rm of
+                  Nothing -> DeltaId 0
+                  Just (didOld, _) -> succDeltaId didOld
             writeSTRef dMap $! EM.insert n (DeltaBinding0 did d) imNew
             writeSTRef rMap0 $! EM.insert did r rm
             return r
@@ -464,8 +458,9 @@ buildDerivative dim0 dim1 deltaTopLevel
             r <- eval1' d
             imNew <- readSTRef dMap
             rm <- readSTRef rMap1
-            did <- readSTRefU ref1
-            writeSTRefU ref1 $ succDeltaId did
+            let did = case EM.lookupMax rm of
+                  Nothing -> DeltaId 0
+                  Just (didOld, _) -> succDeltaId didOld
             writeSTRef dMap $! EM.insert n (DeltaBinding1 did d) imNew
             writeSTRef rMap1 $! EM.insert did r rm
             return r
