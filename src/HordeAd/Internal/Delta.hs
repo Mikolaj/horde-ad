@@ -399,8 +399,8 @@ gradientFromDelta
 gradientFromDelta dim0 dim1 dim2 dimX deltaDt =
 -- traceShow (dim0, dim1, dim2, dimX) $
   -- This is morally @V.create@ and so totally safe,
-  -- but we can't just call @V.create@ thrice, because it would run
-  -- the @ST@ action thrice, so we inline and extend @V.create@ here.
+  -- but we can't just call @V.create@ four times, because it would run
+  -- the @ST@ action four times, so we inline and extend @V.create@ here.
   runST $ do
     (iMap0, iMap1, iMap2, iMapX)
       <- buildFinMaps dim0 dim1 dim2 dimX deltaDt
@@ -408,8 +408,6 @@ gradientFromDelta dim0 dim1 dim2 dimX deltaDt =
     v1 <- V.unsafeFreeze iMap1
     v2 <- V.unsafeFreeze iMap2
     vX <- V.unsafeFreeze iMapX
-    -- Convert to normal matrices, but only the portion of vector
-    -- that is not discarded.
     return (v0, v1, v2, vX)
 {-# SPECIALIZE gradientFromDelta
   :: Int -> Int -> Int -> Int -> DeltaDt Double

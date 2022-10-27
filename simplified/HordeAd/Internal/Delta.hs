@@ -44,12 +44,9 @@ import           Control.Monad (liftM2, unless)
 import           Control.Monad.ST.Strict (ST, runST)
 import qualified Data.EnumMap.Strict as EM
 import           Data.Primitive (Prim)
-import           Data.STRef (STRef, newSTRef, readSTRef, writeSTRef)
+import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
-import qualified Data.Strict.Vector.Autogen.Mutable as Data.Vector.Mutable
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Generic.Mutable as VM
-import qualified Data.Vector.Storable.Mutable
 import           Numeric.LinearAlgebra (Numeric, Vector, (<.>))
 import qualified Numeric.LinearAlgebra as HM
 
@@ -122,7 +119,7 @@ instance Show NodeId where
   show (NodeId n) = show n  -- to keep debug printouts readable
 
 newtype InputId a = InputId Int
-  deriving Show
+  deriving (Show, Enum)
     -- No Eq instance to limit hacks outside this module.
 
 -- | Wrap non-negative (only!) integers in the `InputId` newtype.
@@ -225,65 +222,41 @@ gradientFromDelta
   => Int -> Int -> DeltaDt r
   -> Domains r
 gradientFromDelta dim0 dim1 deltaDt =
-  -- This is morally @V.create@ and so totally safe,
-  -- but we can't just call @V.create@ thrice, because it would run
-  -- the @ST@ action thrice, so we inline and extend @V.create@ here.
-  runST $ do
-    (iMap0, iMap1)
-      <- buildFinMaps dim0 dim1 deltaDt
-    v0 <- V.unsafeFreeze iMap0
-    v1 <- V.unsafeFreeze iMap1
-    -- Convert to normal matrices, but only the portion of vector
-    -- that is not discarded.
-    return (v0, v1)
+  runST $ buildFinMaps dim0 dim1 deltaDt
 {-# SPECIALIZE gradientFromDelta
-  :: Int -> Int -> DeltaDt Double
-  -> Domains Double #-}
-
--- | Create vectors (representing finite maps) that hold values
--- associated with inputs and (possibly shared) term tree nodes.
--- The former are initialized with dummy values so that it's cheap
--- to check if any update has already been performed to a cell
--- (allocating big matrices filled with zeros is too costly,
--- especially if never used in an iteration, and adding to such matrices
--- and especially using them as scaling factors is wasteful; additionally,
--- it may not be easy to deduce the sizes of the matrices).
-initializeFinMaps
-  :: forall s r. Numeric r
-  => Int -> Int
-  -> ST s ( Data.Vector.Storable.Mutable.MVector s r
-          , Data.Vector.Mutable.MVector s (Vector r)
-          , STRef s (EM.EnumMap (DeltaId r) r)
-          , STRef s (EM.EnumMap (DeltaId (Vector r)) (Vector r))
-          , STRef s (EM.EnumMap NodeId (DeltaBinding r)) )
-              -- Map and HashTable are way slower than the IntMap/EnumMap
-initializeFinMaps dim0 dim1 = do
-  iMap0 <- VM.replicate dim0 0  -- correct value; below are dummy
-  iMap1 <- VM.replicate dim1 (V.empty :: Vector r)
-  -- Unsafe is fine, because it initializes to bottoms and we always
-  -- write before reading.
-  rMap0 <- newSTRef EM.empty
-  rMap1 <- newSTRef EM.empty
-  dMap <- newSTRef EM.empty
-  return ( iMap0, iMap1
-         , rMap0, rMap1
-         , dMap )
+  :: Int -> Int -> DeltaDt Double -> Domains Double #-}
 
 buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
              => Int -> Int -> DeltaDt r
-             -> ST s ( Data.Vector.Storable.Mutable.MVector s r
-                     , Data.Vector.Mutable.MVector s (Vector r) )
+             -> ST s ( Vector  r
+                     , Data.Vector.Vector (Vector r) )
 buildFinMaps dim0 dim1 deltaDt = do
-  ( iMap0, iMap1
-   ,rMap0, rMap1
-   ,dMap )
-    <- initializeFinMaps dim0 dim1
+  -- Create finite maps that hold values associated with inputs
+  -- and with (possibly shared) term tree nodes.
+  -- The former are initialized with dummy values so that it's cheap
+  -- to check if any update has already been performed to a cell
+  -- (allocating big vectors filled with zeros is too costly,
+  -- especially if never used in an iteration, and adding to such vectors
+  -- and especially using them as scaling factors is wasteful; additionally,
+  -- it may not be easy to deduce the sizes of the vectors).
+  iMap0 <- newSTRef $ EM.fromDistinctAscList
+                    $ zip [toInputId 0 ..]
+                          (replicate dim0 0)
+             -- 0 is the correct value; below is a dummy value
+  iMap1 <- newSTRef $ EM.fromDistinctAscList
+                    $ zip [toInputId 0 ..]
+                          (replicate dim1 (V.empty :: Vector r))
+  rMap0 <- newSTRef EM.empty
+  rMap1 <- newSTRef EM.empty
+  dMap <- newSTRef EM.empty
+  -- Eval.
   let addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
       eval0 :: r -> Delta0 r -> ST s ()
       eval0 _ Zero0 = return ()
-      eval0 !r (Input0 (InputId i)) =
-        VM.modify iMap0 (+ r) i
+      eval0 !r (Input0 i) = do
+        iv <- readSTRef iMap0
+        writeSTRef iMap0 $! EM.adjust (+ r) i iv
       eval0 !r (Delta0 n d) = do
         im <- readSTRef dMap
         case EM.lookup n im of
@@ -304,11 +277,11 @@ buildFinMaps dim0 dim1 deltaDt = do
         Add0 d e -> eval0 r e >> eval0 r d
 
         SumElements0 vd n -> eval1 (HM.konst r n) vd
-        Index0 (Input1 (InputId i)) ix k | i >= 0 -> do
-          let f v = if V.null v
-                    then HM.konst 0 k V.// [(ix, r)]
-                    else v V.// [(ix, v V.! ix + r)]
-          VM.modify iMap1 f i
+--        Index0 (Input1 i) ix k | i >= 0 -> do
+--          let f v = if V.null v
+--                    then HM.konst 0 k V.// [(ix, r)]
+--                    else v V.// [(ix, v V.! ix + r)]
+--          VM.modify iMap1 f i
             -- This would be an asymptotic optimization compared to
             -- the general case below, if not for the non-mutable update,
             -- which involves copying the whole vector, so it's just
@@ -320,8 +293,9 @@ buildFinMaps dim0 dim1 deltaDt = do
 
       eval1 :: Vector r -> Delta1 r -> ST s ()
       eval1 _ Zero1 = return ()
-      eval1 !r (Input1 (InputId i)) =
-        VM.modify iMap1 (addToVector r) i
+      eval1 !r (Input1 i) = do
+        iv <- readSTRef iMap1
+        writeSTRef iMap1 $! EM.adjust (addToVector r) i iv
       eval1 !r (Delta1 n d) = do
         im <- readSTRef dMap
         case EM.lookup n im of
@@ -374,11 +348,14 @@ buildFinMaps dim0 dim1 deltaDt = do
           Nothing -> return ()  -- loop ends
   evalFromdMap
 
-  return (iMap0, iMap1)
+  -- Extract results.
+  iv0 <- readSTRef iMap0
+  iv1 <- readSTRef iMap1
+  return (V.fromList $ EM.elems iv0, V.fromList $ EM.elems iv1)
 {-# SPECIALIZE buildFinMaps
   :: Int -> Int -> DeltaDt Double
-  -> ST s ( Data.Vector.Storable.Mutable.MVector s Double
-          , Data.Vector.Mutable.MVector s (Vector Double) ) #-}
+  -> ST s ( Vector Double
+          , Data.Vector.Vector (Vector Double) ) #-}
 
 -- | Forward derivative computation via forward-evaluation of delta-expressions
 -- (which is surprisingly competitive to the direct forward method,
@@ -403,10 +380,9 @@ buildDerivative
   -> ST s r
 buildDerivative dim0 dim1 deltaTopLevel
                 (params0Init, params1Init) = do
-  ( _, _
-   ,rMap0, rMap1
-   ,dMap )
-   <- initializeFinMaps dim0 dim1
+  rMap0 <- newSTRef EM.empty
+  rMap1 <- newSTRef EM.empty
+  dMap <- newSTRef EM.empty
   let eval0 :: Delta0 r -> ST s r
       eval0 Zero0 = return 0
       eval0 (Input0 (InputId i)) =
