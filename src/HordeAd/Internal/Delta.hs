@@ -276,7 +276,10 @@ instance Show (DeltaS' sh r) where
 -- * Delta expression identifiers
 
 newtype NodeId = NodeId {fromNodeId :: Int}
-  deriving (Show, Eq, Enum, Prim)
+  deriving (Eq, Enum, Prim)
+
+instance Show NodeId where
+  show (NodeId n) = show n  -- to keep debug printouts readable
 
 newtype InputId a = InputId Int
   deriving Show
