@@ -447,11 +447,12 @@ initializeFinMaps dim0 dim1 dim2 dimX = do
   iMap1 <- VM.replicate dim1 (V.empty :: Vector r)
   iMap2 <- VM.replicate dim2 (HM.fromRows [])
   iMapX <- VM.replicate dimX dummyTensor
-  -- These index into the respective four vectors below.
-  ref0 <- newSTRefU (DeltaId 0)
-  ref1 <- newSTRefU (DeltaId 0)
-  ref2 <- newSTRefU (DeltaId 0)
-  refX <- newSTRefU (DeltaId 0)
+  -- These indicate the current position for writing into the respective
+  -- four vectors below. The position is only ever incremented.
+  didCur0 <- newSTRefU (DeltaId 0)
+  didCur1 <- newSTRefU (DeltaId 0)
+  didCur2 <- newSTRefU (DeltaId 0)
+  didCurX <- newSTRefU (DeltaId 0)
   -- Unsafe is fine, because it initializes to bottoms and we always
   -- write before reading.
   dMap0' <- VM.unsafeNew (max 1 dim0)
@@ -469,7 +470,7 @@ initializeFinMaps dim0 dim1 dim2 dimX = do
   lenX <- newSTRefU (VM.length dMapX')
   nMap <- newSTRef EM.empty
   return ( iMap0, iMap1, iMap2, iMapX
-         , ref0, ref1, ref2, refX
+         , didCur0, didCur1, didCur2, didCurX
          , dMap0, dMap1, dMap2, dMapX
          , len0, len1, len2, lenX
          , nMap )
@@ -482,7 +483,7 @@ buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
                      , Data.Vector.Mutable.MVector s (OT.Array r) )
 buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
   ( iMap0, iMap1, iMap2, iMapX
-   ,ref0, ref1, ref2, refX
+   ,didCur0, didCur1, didCur2, didCurX
    ,dMap0, dMap1, dMap2, dMapX
    ,len0, len1, len2, lenX
    ,nMap )
@@ -526,8 +527,8 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
             dm <- readSTRef dMap0
             VM.modify dm (+ r) i
           Nothing -> do
-            did@(DeltaId i) <- readSTRefU ref0
-            writeSTRefU ref0 $ succDeltaId did
+            did@(DeltaId i) <- readSTRefU didCur0
+            writeSTRefU didCur0 $ succDeltaId did
             writeSTRef nMap $! EM.insert n (DeltaBinding0 did d) nm
             len <- readSTRefU len0
             dm <- readSTRef dMap0
@@ -591,8 +592,8 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
             dm <- readSTRef dMap1
             VM.modify dm (+ r) i
           Nothing -> do
-            did@(DeltaId i) <- readSTRefU ref1
-            writeSTRefU ref1 $ succDeltaId did
+            did@(DeltaId i) <- readSTRefU didCur1
+            writeSTRefU didCur1 $ succDeltaId did
             writeSTRef nMap $! EM.insert n (DeltaBinding1 did d) nm
             len <- readSTRefU len1
             dm <- readSTRef dMap1
@@ -660,8 +661,8 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
             dm <- readSTRef dMap2
             VM.modify dm (MO.plus r) i
           Nothing -> do
-            did@(DeltaId i) <- readSTRefU ref2
-            writeSTRefU ref2 $ succDeltaId did
+            did@(DeltaId i) <- readSTRefU didCur2
+            writeSTRefU didCur2 $ succDeltaId did
             writeSTRef nMap $! EM.insert n (DeltaBinding2 did d) nm
             len <- readSTRefU len2
             dm <- readSTRef dMap2
@@ -748,8 +749,8 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
             dm <- readSTRef dMapX
             VM.modify dm (liftVT2 (+) r) i
           Nothing -> do
-            did@(DeltaId i) <- readSTRefU refX
-            writeSTRefU refX $ succDeltaId did
+            did@(DeltaId i) <- readSTRefU didCurX
+            writeSTRefU didCurX $ succDeltaId did
             writeSTRef nMap $! EM.insert n (DeltaBindingX did d) nm
             len <- readSTRefU lenX
             dm <- readSTRef dMapX
@@ -824,8 +825,8 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
             let rs = Data.Array.Convert.convert r
             VM.modify dm (liftVT2 (+) rs) i
           Nothing -> do
-            did@(DeltaId i) <- readSTRefU refX
-            writeSTRefU refX $ succDeltaId did
+            did@(DeltaId i) <- readSTRefU didCurX
+            writeSTRefU didCurX $ succDeltaId did
             writeSTRef nMap $! EM.insert n (DeltaBindingS did d) nm
             len <- readSTRefU lenX
             dm <- readSTRef dMapX
@@ -948,7 +949,7 @@ buildDerivative
 buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
                 (params0Init, params1Init, params2Init, paramsXInit) = do
   ( _, _, _, _
-   ,ref0, ref1, ref2, refX
+   ,didCur0, didCur1, didCur2, didCurX
    ,dMap0, dMap1, _, dMapX
    ,len0, len1, len2, lenX
    ,nMap )
@@ -976,8 +977,8 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
             r <- eval0' d
             nmNew <- readSTRef nMap
             dm <- readSTRef dMap0
-            did@(DeltaId i) <- readSTRefU ref0
-            writeSTRefU ref0 $ succDeltaId did
+            did@(DeltaId i) <- readSTRefU didCur0
+            writeSTRefU didCur0 $ succDeltaId did
             writeSTRef nMap $! EM.insert n (DeltaBinding0 did d) nmNew
             len <- readSTRefU len0
             if i >= len then do
@@ -1018,8 +1019,8 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
             r <- eval1' d
             nmNew <- readSTRef nMap
             dm <- readSTRef dMap1
-            did@(DeltaId i) <- readSTRefU ref1
-            writeSTRefU ref1 $ succDeltaId did
+            did@(DeltaId i) <- readSTRefU didCur1
+            writeSTRefU didCur1 $ succDeltaId did
             writeSTRef nMap $! EM.insert n (DeltaBinding1 did d) nmNew
             len <- readSTRefU len1
             if i >= len then do
@@ -1074,8 +1075,8 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
             r <- eval2' d
             nmNew <- readSTRef nMap
             dm <- readSTRef dMap2
-            did@(DeltaId i) <- readSTRefU ref2
-            writeSTRefU ref2 $ succDeltaId did
+            did@(DeltaId i) <- readSTRefU didCur2
+            writeSTRefU didCur2 $ succDeltaId did
             writeSTRef nMap $! EM.insert n (DeltaBinding2 did d) nmNew
             len <- readSTRefU len2
             if i >= len then do
@@ -1144,8 +1145,8 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
             r <- evalX' d
             nmNew <- readSTRef nMap
             dm <- readSTRef dMapX
-            did@(DeltaId i) <- readSTRefU refX
-            writeSTRefU refX $ succDeltaId did
+            did@(DeltaId i) <- readSTRefU didCurX
+            writeSTRefU didCurX $ succDeltaId did
             writeSTRef nMap $! EM.insert n (DeltaBindingX did d) nmNew
             len <- readSTRefU lenX
             if i >= len then do
@@ -1199,8 +1200,8 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
             r <- evalS' d
             nmNew <- readSTRef nMap
             dm <- readSTRef dMapX
-            did@(DeltaId i) <- readSTRefU refX
-            writeSTRefU refX $ succDeltaId did
+            did@(DeltaId i) <- readSTRefU didCurX
+            writeSTRefU didCurX $ succDeltaId did
             writeSTRef nMap $! EM.insert n (DeltaBindingS did d) nmNew
             len <- readSTRefU lenX
             if i >= len then do
