@@ -157,10 +157,18 @@ type Domains r = (Domain0 r, Domain1 r)
 
 data EvalState r = EvalState
   { iMap0 :: EM.EnumMap (InputId r) r
+      -- ^ gradually accumulated gradients for input nodes of rank 0
   , iMap1 :: EM.EnumMap (InputId (Vector r)) (Vector r)
+      -- ^ gradually accumulated gradients for input nodes of rank 1
   , dMap0 :: EM.EnumMap (DeltaId r) r
+      -- ^ gradually accumulated gradients for other delta expression
+      -- nodes of rank 0
   , dMap1 :: EM.EnumMap (DeltaId (Vector r)) (Vector r)
-  , nMap :: EM.EnumMap NodeId (DeltaBinding r)
+      -- ^ gradually accumulated gradients for other delta expression
+      -- nodes of rank 1
+  , nMap  :: EM.EnumMap NodeId (DeltaBinding r)
+      -- ^ node identifiers left to be processed, with their corresponding
+      -- index into @dMap@ finite map and delta expression
   }
 
 -- | TODO: this single haddock is now outdated, because per-node
@@ -262,9 +270,7 @@ gradientFromDelta dim0 dim1 deltaDt =
 buildFinMaps :: forall r. (Numeric r, Num (Vector r))
              => EvalState r -> DeltaDt r -> EvalState r
 buildFinMaps s0 deltaDt =
-  let addToVector :: Vector r -> Vector r -> Vector r
-      addToVector r = \v -> if V.null v then r else v + r
-      eval0 :: EvalState r -> r -> Delta0 r -> EvalState r
+  let eval0 :: EvalState r -> r -> Delta0 r -> EvalState r
       eval0 s _ Zero0 = s
       eval0 s@EvalState{iMap0} !r (Input0 i) =
         s {iMap0 = EM.adjust (+ r) i iMap0}
@@ -289,6 +295,8 @@ buildFinMaps s0 deltaDt =
 
         Dot0 v vd -> eval1 s (HM.scale r v) vd
 
+      addToVector :: Vector r -> Vector r -> Vector r
+      addToVector r = \v -> if V.null v then r else v + r
       eval1 :: EvalState r -> Vector r -> Delta1 r -> EvalState r
       eval1 s _ Zero1 = s
       eval1 s@EvalState{iMap1} !r (Input1 i) =
@@ -339,9 +347,9 @@ buildFinMaps s0 deltaDt =
 {-# SPECIALIZE buildFinMaps
   :: EvalState Double -> DeltaDt Double -> EvalState Double #-}
 
--- Unlike @buildFinMaps@, the following is simplier written in ST
+-- Unlike @buildFinMaps@, the following is simpler written in ST
 -- than with explicit passing of state, because changing the state here
--- is really an irritatin side effect, while in @buildFinMaps@ it's building
+-- is really an irritating side effect, while in @buildFinMaps@ it's building
 -- the result.
 
 -- | Forward derivative computation via forward-evaluation of delta-expressions

@@ -443,6 +443,7 @@ initializeFinMaps
           , STRef s (EM.EnumMap NodeId (DeltaBinding r)) )
               -- Map and HashTable are way slower than the IntMap/EnumMap
 initializeFinMaps dim0 dim1 dim2 dimX = do
+  -- Gradually accumulated gradients for input nodes.
   iMap0 <- VM.replicate dim0 0  -- correct value; below are dummy
   iMap1 <- VM.replicate dim1 (V.empty :: Vector r)
   iMap2 <- VM.replicate dim2 (HM.fromRows [])
@@ -453,6 +454,7 @@ initializeFinMaps dim0 dim1 dim2 dimX = do
   didCur1 <- newSTRefU (DeltaId 0)
   didCur2 <- newSTRefU (DeltaId 0)
   didCurX <- newSTRefU (DeltaId 0)
+  -- Gradually accumulated gradients for other nodes.
   -- Unsafe is fine, because it initializes to bottoms and we always
   -- write before reading.
   dMap0' <- VM.unsafeNew (max 1 dim0)
@@ -468,6 +470,8 @@ initializeFinMaps dim0 dim1 dim2 dimX = do
   len1 <- newSTRefU (VM.length dMap1')
   len2 <- newSTRefU (VM.length dMap2')
   lenX <- newSTRefU (VM.length dMapX')
+  -- Node identifiers left to be processed, with their corresponding
+  -- index into @dMap@ finite map and delta expression.
   nMap <- newSTRef EM.empty
   return ( iMap0, iMap1, iMap2, iMapX
          , didCur0, didCur1, didCur2, didCurX
@@ -489,6 +493,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
    ,nMap )
     <- initializeFinMaps dim0 dim1 dim2 dimX
   nLast <- newSTRefU (NodeId 0)  -- counter of the last fully evaluated binding
+
   let addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
       addToMatrix :: Matrix r -> Matrix r -> Matrix r
@@ -500,6 +505,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                             in if isTensorDummy v
                                then rs
                                else liftVT2 (+) v rs
+
       eval0 :: r -> Delta0 r -> ST s ()
       eval0 _ Zero0 = return ()
       eval0 !r (Input0 (InputId i)) =
