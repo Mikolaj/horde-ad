@@ -132,14 +132,6 @@ toInputId i = assert (i >= 0) $ InputId i
 
 -- * Evaluation of the delta expressions
 
-data DeltaDt r =
-    DeltaDt0 r (Delta0 r)
-  | DeltaDt1 (Vector r) (Delta1 r)
-
-data DeltaBinding r =
-    DeltaBinding0 (Delta0' r)
-  | DeltaBinding1 (Delta1' r)
-
 -- | Helper definitions to shorten type signatures. @Domains@, among other
 -- roles, is the internal representation of domains of objective functions.
 type Domain0 r = Vector r
@@ -147,6 +139,13 @@ type Domain0 r = Vector r
 type Domain1 r = Data.Vector.Vector (Vector r)
 
 type Domains r = (Domain0 r, Domain1 r)
+
+-- | The main input of the differentiation functions.
+-- The delta expression to be differentiated and the dt perturbation
+-- to be used.
+data DeltaDt r =
+    DeltaDt0 r (Delta0 r)
+  | DeltaDt1 (Vector r) (Delta1 r)
 
 data EvalState r = EvalState
   { iMap0 :: EM.EnumMap (InputId r) r
@@ -164,6 +163,11 @@ data EvalState r = EvalState
   , nMap  :: EM.EnumMap NodeId (DeltaBinding r)
       -- ^ nodes left to be processed
   }
+
+-- | Nodes left to be processed.
+data DeltaBinding r =
+    DeltaBinding0 (Delta0' r)
+  | DeltaBinding1 (Delta1' r)
 
 -- | TODO: this single haddock is now outdated, because per-node
 -- identities have replaces variables and so exploitation of sharing
@@ -338,7 +342,7 @@ buildFinMaps s0 deltaDt =
 -- Unlike @buildFinMaps@, the following is simpler written in ST
 -- than with explicit passing of state, because changing the state here
 -- is really an irritating side effect, while in @buildFinMaps@ it's building
--- the result.
+-- the result. Perhaps this can be simplified completely differently.
 
 -- | Forward derivative computation via forward-evaluation of delta-expressions
 -- (which is surprisingly competitive to the direct forward method,

@@ -303,22 +303,6 @@ succDeltaId (DeltaId i) = DeltaId (succ i)
 
 -- * Evaluation of the delta expressions
 
-data DeltaDt r =
-    DeltaDt0 r (Delta0 r)
-  | DeltaDt1 (Vector r) (Delta1 r)
-  | DeltaDt2 (Matrix r) (Delta2 r)
-  | DeltaDtX (OT.Array r) (DeltaX r)
-  | forall sh. OS.Shape sh
-    => DeltaDtS (OS.Array sh r) (DeltaS sh r)
-
-data DeltaBinding r =
-    DeltaBinding0 (DeltaId r) (Delta0' r)
-  | DeltaBinding1 (DeltaId (Vector r)) (Delta1' r)
-  | DeltaBinding2 (DeltaId (Matrix r)) (Delta2' r)
-  | DeltaBindingX (DeltaId (OT.Array r)) (DeltaX' r)
-  | forall sh. OS.Shape sh
-    => DeltaBindingS (DeltaId (OT.Array r)) (DeltaS' sh r)
-
 -- | Helper definitions to shorten type signatures. @Domains@, among other
 -- roles, is the internal representation of domains of objective functions.
 type Domain0 r = Vector r
@@ -330,6 +314,27 @@ type Domain2 r = Data.Vector.Vector (Matrix r)
 type DomainX r = Data.Vector.Vector (OT.Array r)
 
 type Domains r = (Domain0 r, Domain1 r, Domain2 r, DomainX r)
+
+-- | The main input of the differentiation functions.
+-- The delta expression to be differentiated and the dt perturbation
+-- to be used.
+data DeltaDt r =
+    DeltaDt0 r (Delta0 r)
+  | DeltaDt1 (Vector r) (Delta1 r)
+  | DeltaDt2 (Matrix r) (Delta2 r)
+  | DeltaDtX (OT.Array r) (DeltaX r)
+  | forall sh. OS.Shape sh
+    => DeltaDtS (OS.Array sh r) (DeltaS sh r)
+
+-- | Node identifiers left to be processed, with their corresponding
+-- index into @dMap@ finite map and delta expression.
+data DeltaBinding r =
+    DeltaBinding0 (DeltaId r) (Delta0' r)
+  | DeltaBinding1 (DeltaId (Vector r)) (Delta1' r)
+  | DeltaBinding2 (DeltaId (Matrix r)) (Delta2' r)
+  | DeltaBindingX (DeltaId (OT.Array r)) (DeltaX' r)
+  | forall sh. OS.Shape sh
+    => DeltaBindingS (DeltaId (OT.Array r)) (DeltaS' sh r)
 
 -- | TODO: this single haddock is now outdated, because per-node
 -- identities have replaces variables and so exploitation of sharing
