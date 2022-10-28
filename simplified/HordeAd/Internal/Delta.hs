@@ -226,7 +226,7 @@ data EvalState r = EvalState
 -- The delta expression to be evaluated, together with the @dt@ perturbation
 -- value (usually set to @1@) is given in the @DeltaDt r@ parameter.
 gradientFromDelta
-  :: forall r. (Eq r, Numeric r, Num (Vector r))
+  :: forall r. (Numeric r, Num (Vector r))
   => Int -> Int -> DeltaDt r
   -> Domains r
 gradientFromDelta dim0 dim1 deltaDt =
@@ -259,7 +259,7 @@ gradientFromDelta dim0 dim1 deltaDt =
 {-# SPECIALIZE gradientFromDelta
   :: Int -> Int -> DeltaDt Double -> Domains Double #-}
 
-buildFinMaps :: forall r. (Eq r, Numeric r, Num (Vector r))
+buildFinMaps :: forall r. (Numeric r, Num (Vector r))
              => EvalState r -> DeltaDt r -> EvalState r
 buildFinMaps s0 deltaDt =
   let addToVector :: Vector r -> Vector r -> Vector r
@@ -285,16 +285,6 @@ buildFinMaps s0 deltaDt =
         Add0 d e -> eval0 (eval0 s r e) r d
 
         SumElements0 vd n -> eval1 s (HM.konst r n) vd
---        Index0 (Input1 i) ix k | i >= 0 -> do
---          let f v = if V.null v
---                    then HM.konst 0 k V.// [(ix, r)]
---                    else v V.// [(ix, v V.! ix + r)]
---          VM.modify iMap1 f i
-            -- This would be an asymptotic optimization compared to
-            -- the general case below, if not for the non-mutable update,
-            -- which involves copying the whole vector, so it's just
-            -- several times faster (same allocation, but not adding vectors).
-            -- TODO: does it make sense to extend this beyond @Input1@?
         Index0 d ix k -> eval1 s (HM.konst 0 k V.// [(ix, r)]) d
 
         Dot0 v vd -> eval1 s (HM.scale r v) vd
@@ -328,21 +318,16 @@ buildFinMaps s0 deltaDt =
 
         Reverse1 d -> eval1 s (V.reverse r) d
 
-      evalUnlessZero :: EvalState r -> DeltaBinding r -> EvalState r
-      evalUnlessZero s@EvalState{rMap0} (DeltaBinding0 did d) =
-        let r = rMap0 EM.! did
-        in if r == 0
-           then s  -- a cheap optimization in case of scalars
-           else eval0' s r d
-      evalUnlessZero s@EvalState{rMap1} (DeltaBinding1 did d) =
-        let r = rMap1 EM.! did
-        in eval1' s r d
       evalFromdMap :: EvalState r -> EvalState r
-      evalFromdMap s@EvalState{dMap} =
+      evalFromdMap s@EvalState{dMap, rMap0, rMap1} =
         case EM.maxView dMap of
           Just (b, dMap2) ->
             let s2 = s {dMap = dMap2}
-                s3 = evalUnlessZero s2 b
+                s3 = case b of
+                  DeltaBinding0 did d -> let r = rMap0 EM.! did
+                                         in eval0' s2 r d
+                  DeltaBinding1 did d -> let r = rMap1 EM.! did
+                                         in eval1' s2 r d
             in evalFromdMap s3
           Nothing -> s  -- loop ends
 
