@@ -129,14 +129,6 @@ newtype InputId a = InputId Int
 toInputId :: Int -> InputId a
 toInputId i = assert (i >= 0) $ InputId i
 
-newtype DeltaId a = DeltaId Int
-  deriving (Show, Enum, Prim)
-    -- No Eq instance to limit hacks outside this module.
-
--- The key property is that it preserves the phantom type.
-succDeltaId :: DeltaId a -> DeltaId a
-succDeltaId (DeltaId i) = DeltaId (succ i)
-
 
 -- * Evaluation of the delta expressions
 
@@ -145,8 +137,8 @@ data DeltaDt r =
   | DeltaDt1 (Vector r) (Delta1 r)
 
 data DeltaBinding r =
-    DeltaBinding0 (DeltaId r) (Delta0' r)
-  | DeltaBinding1 (DeltaId (Vector r)) (Delta1' r)
+    DeltaBinding0 (Delta0' r)
+  | DeltaBinding1 (Delta1' r)
 
 -- | Helper definitions to shorten type signatures. @Domains@, among other
 -- roles, is the internal representation of domains of objective functions.
@@ -158,18 +150,19 @@ type Domains r = (Domain0 r, Domain1 r)
 
 data EvalState r = EvalState
   { iMap0 :: EM.EnumMap (InputId r) r
-      -- ^ gradually accumulated gradients for input nodes of rank 0
+      -- ^ gradually accumulated gradients for input nodes of rank 0;
+      -- the identifiers need to be contiguous and start at 0
   , iMap1 :: EM.EnumMap (InputId (Vector r)) (Vector r)
-      -- ^ gradually accumulated gradients for input nodes of rank 1
-  , dMap0 :: EM.EnumMap (DeltaId r) r
+      -- ^ gradually accumulated gradients for input nodes of rank 1;
+      -- the identifiers need to be contiguous and start at 0
+  , dMap0 :: EM.EnumMap NodeId r
       -- ^ gradually accumulated gradients for other delta expression
       -- nodes of rank 0
-  , dMap1 :: EM.EnumMap (DeltaId (Vector r)) (Vector r)
+  , dMap1 :: EM.EnumMap NodeId (Vector r)
       -- ^ gradually accumulated gradients for other delta expression
       -- nodes of rank 1
   , nMap  :: EM.EnumMap NodeId (DeltaBinding r)
-      -- ^ node identifiers left to be processed, with their corresponding
-      -- index into @dMap@ finite map and delta expression
+      -- ^ nodes left to be processed
   }
 
 -- | TODO: this single haddock is now outdated, because per-node
@@ -277,14 +270,11 @@ buildFinMaps s0 deltaDt =
         s {iMap0 = EM.adjust (+ r) i iMap0}
       eval0 s@EvalState{..} !r (Delta0 n d) =
         case EM.lookup n nMap of
-          Just (DeltaBinding0 did _) ->
-            s {dMap0 = EM.adjust (+ r) did dMap0}
+          Just (DeltaBinding0 _) ->
+            s {dMap0 = EM.adjust (+ r) n dMap0}
           Nothing ->
-            let didNew = case EM.lookupMax dMap0 of
-                  Nothing -> DeltaId 0
-                  Just (didOldMax, _) -> succDeltaId didOldMax
-            in s { nMap = EM.insert n (DeltaBinding0 didNew d) nMap
-                 , dMap0 = EM.insert didNew r dMap0 }
+            s { nMap = EM.insert n (DeltaBinding0 d) nMap
+              , dMap0 = EM.insert n r dMap0 }
           _ -> error "buildFinMaps: corrupted nMap"
       eval0' :: EvalState r -> r -> Delta0' r -> EvalState r
       eval0' s !r = \case
@@ -304,14 +294,11 @@ buildFinMaps s0 deltaDt =
         s {iMap1 = EM.adjust (addToVector r) i iMap1}
       eval1 s@EvalState{..} !r (Delta1 n d) = do
         case EM.lookup n nMap of
-          Just (DeltaBinding1 did _) ->
-            s {dMap1 = EM.adjust (+ r) did dMap1}
+          Just (DeltaBinding1 _) ->
+            s {dMap1 = EM.adjust (+ r) n dMap1}
           Nothing ->
-            let didNew = case EM.lookupMax dMap1 of
-                  Nothing -> DeltaId 0
-                  Just (didOldMax, _) -> succDeltaId didOldMax
-            in s { nMap = EM.insert n (DeltaBinding1 didNew d) nMap
-                 , dMap1 = EM.insert didNew r dMap1 }
+            s { nMap = EM.insert n (DeltaBinding1 d) nMap
+              , dMap1 = EM.insert n r dMap1 }
           _ -> error "buildFinMaps: corrupted nMap"
       eval1' :: EvalState r -> Vector r -> Delta1' r -> EvalState r
       eval1' s !r = \case
@@ -329,14 +316,14 @@ buildFinMaps s0 deltaDt =
 
       evalFromnMap :: EvalState r -> EvalState r
       evalFromnMap s@EvalState{nMap, dMap0, dMap1} =
-        case EM.maxView nMap of
-          Just (b, nMap2) ->
+        case EM.maxViewWithKey nMap of
+          Just ((n, b), nMap2) ->
             let s2 = s {nMap = nMap2}
                 s3 = case b of
-                  DeltaBinding0 did d -> let r = dMap0 EM.! did
-                                         in eval0' s2 r d
-                  DeltaBinding1 did d -> let r = dMap1 EM.! did
-                                         in eval1' s2 r d
+                  DeltaBinding0 d -> let r = dMap0 EM.! n
+                                     in eval0' s2 r d
+                  DeltaBinding1 d -> let r = dMap1 EM.! n
+                                     in eval1' s2 r d
             in evalFromnMap s3
           Nothing -> s  -- loop ends
 
@@ -390,18 +377,15 @@ buildDerivative dim0 dim1 deltaTopLevel
         -- for initializeFinMaps and some of a similar code.
         nm <- readSTRef nMap
         case EM.lookup n nm of
-          Just (DeltaBinding0 did _) -> do
+          Just (DeltaBinding0 _) -> do
             dm <- readSTRef dMap0
-            return $! dm EM.! did
+            return $! dm EM.! n
           Nothing -> do
             r <- eval0' d
             nmNew <- readSTRef nMap
             dm <- readSTRef dMap0
-            let did = case EM.lookupMax dm of
-                  Nothing -> DeltaId 0
-                  Just (didOld, _) -> succDeltaId didOld
-            writeSTRef nMap $! EM.insert n (DeltaBinding0 did d) nmNew
-            writeSTRef dMap0 $! EM.insert did r dm
+            writeSTRef nMap $! EM.insert n (DeltaBinding0 d) nmNew
+            writeSTRef dMap0 $! EM.insert n r dm
             return r
           _ -> error "buildDerivative: corrupted nMap"
       eval0' :: Delta0' r -> ST s r
@@ -423,18 +407,15 @@ buildDerivative dim0 dim1 deltaTopLevel
       eval1 (Delta1 n d) = do
         nm <- readSTRef nMap
         case EM.lookup n nm of
-          Just (DeltaBinding1 did _) -> do
+          Just (DeltaBinding1 _) -> do
             dm <- readSTRef dMap1
-            return $! dm EM.! did
+            return $! dm EM.! n
           Nothing -> do
             r <- eval1' d
             nmNew <- readSTRef nMap
             dm <- readSTRef dMap1
-            let did = case EM.lookupMax dm of
-                  Nothing -> DeltaId 0
-                  Just (didOld, _) -> succDeltaId didOld
-            writeSTRef nMap $! EM.insert n (DeltaBinding1 did d) nmNew
-            writeSTRef dMap1 $! EM.insert did r dm
+            writeSTRef nMap $! EM.insert n (DeltaBinding1 d) nmNew
+            writeSTRef dMap1 $! EM.insert n r dm
             return r
           _ -> error "buildDerivative: corrupted nMap"
       eval1' :: Delta1' r -> ST s (Vector r)
