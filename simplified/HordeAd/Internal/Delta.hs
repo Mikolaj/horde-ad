@@ -273,11 +273,11 @@ buildFinMaps s0 deltaDt =
           Just (DeltaBinding0 did _) ->
             s {rMap0 = EM.adjust (+ r) did rMap0}
           Nothing ->
-            let did = case EM.lookupMax rMap0 of
+            let didNew = case EM.lookupMax rMap0 of
                   Nothing -> DeltaId 0
-                  Just (didOld, _) -> succDeltaId didOld
-            in s { dMap = EM.insert n (DeltaBinding0 did d) dMap
-                 , rMap0 = EM.insert did r rMap0 }
+                  Just (didOldMax, _) -> succDeltaId didOldMax
+            in s { dMap = EM.insert n (DeltaBinding0 didNew d) dMap
+                 , rMap0 = EM.insert didNew r rMap0 }
           _ -> error "buildFinMaps: corrupted dMap"
       eval0' :: EvalState r -> r -> Delta0' r -> EvalState r
       eval0' s !r = \case
@@ -298,11 +298,11 @@ buildFinMaps s0 deltaDt =
           Just (DeltaBinding1 did _) ->
             s {rMap1 = EM.adjust (+ r) did rMap1}
           Nothing ->
-            let did = case EM.lookupMax rMap1 of
+            let didNew = case EM.lookupMax rMap1 of
                   Nothing -> DeltaId 0
-                  Just (didOld, _) -> succDeltaId didOld
-            in s { dMap = EM.insert n (DeltaBinding1 did d) dMap
-                 , rMap1 = EM.insert did r rMap1 }
+                  Just (didOldMax, _) -> succDeltaId didOldMax
+            in s { dMap = EM.insert n (DeltaBinding1 didNew d) dMap
+                 , rMap1 = EM.insert didNew r rMap1 }
           _ -> error "buildFinMaps: corrupted dMap"
       eval1' :: EvalState r -> Vector r -> Delta1' r -> EvalState r
       eval1' s !r = \case
