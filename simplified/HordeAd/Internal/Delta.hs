@@ -40,7 +40,7 @@ module HordeAd.Internal.Delta
 import Prelude
 
 import           Control.Exception (assert)
-import           Control.Monad (liftM2, unless)
+import           Control.Monad (liftM2)
 import           Control.Monad.ST.Strict (ST, runST)
 import qualified Data.EnumMap.Strict as EM
 import           Data.Primitive (Prim)
@@ -155,6 +155,14 @@ type Domain1 r = Data.Vector.Vector (Vector r)
 
 type Domains r = (Domain0 r, Domain1 r)
 
+data EvalState r = EvalState
+  { iMap0 :: EM.EnumMap (InputId r) r
+  , iMap1 :: EM.EnumMap (InputId (Vector r)) (Vector r)
+  , rMap0 :: EM.EnumMap (DeltaId r) r
+  , rMap1 :: EM.EnumMap (DeltaId (Vector r)) (Vector r)
+  , dMap :: EM.EnumMap NodeId (DeltaBinding r)
+  }
+
 -- | TODO: this single haddock is now outdated, because per-node
 -- identities have replaces variables and so exploitation of sharing
 -- in order to avoid duplicated computation can't be explained
@@ -218,19 +226,10 @@ type Domains r = (Domain0 r, Domain1 r)
 -- The delta expression to be evaluated, together with the @dt@ perturbation
 -- value (usually set to @1@) is given in the @DeltaDt r@ parameter.
 gradientFromDelta
-  :: (Eq r, Numeric r, Num (Vector r))
+  :: forall r. (Eq r, Numeric r, Num (Vector r))
   => Int -> Int -> DeltaDt r
   -> Domains r
 gradientFromDelta dim0 dim1 deltaDt =
-  runST $ buildFinMaps dim0 dim1 deltaDt
-{-# SPECIALIZE gradientFromDelta
-  :: Int -> Int -> DeltaDt Double -> Domains Double #-}
-
-buildFinMaps :: forall s r. (Eq r, Numeric r, Num (Vector r))
-             => Int -> Int -> DeltaDt r
-             -> ST s ( Vector  r
-                     , Data.Vector.Vector (Vector r) )
-buildFinMaps dim0 dim1 deltaDt = do
   -- Create finite maps that hold values associated with inputs
   -- and with (possibly shared) term tree nodes.
   -- The former are initialized with dummy values so that it's cheap
@@ -239,44 +238,53 @@ buildFinMaps dim0 dim1 deltaDt = do
   -- especially if never used in an iteration, and adding to such vectors
   -- and especially using them as scaling factors is wasteful; additionally,
   -- it may not be easy to deduce the sizes of the vectors).
-  iMap0 <- newSTRef $ EM.fromDistinctAscList
+  let s0 =
+        let iMap0 = EM.fromDistinctAscList
                     $ zip [toInputId 0 ..]
                           (replicate dim0 0)
-             -- 0 is the correct value; below is a dummy value
-  iMap1 <- newSTRef $ EM.fromDistinctAscList
+                      -- 0 is the correct value; below is a dummy value
+            iMap1 = EM.fromDistinctAscList
                     $ zip [toInputId 0 ..]
                           (replicate dim1 (V.empty :: Vector r))
-  rMap0 <- newSTRef EM.empty
-  rMap1 <- newSTRef EM.empty
-  dMap <- newSTRef EM.empty
+            rMap0 = EM.empty
+            rMap1 = EM.empty
+            dMap = EM.empty
+        in EvalState {..}
+
   -- Eval.
+  in let EvalState{iMap0, iMap1} = buildFinMaps s0 deltaDt
+
+  -- Extract results.
+  in (V.fromList $ EM.elems iMap0, V.fromList $ EM.elems iMap1)
+{-# SPECIALIZE gradientFromDelta
+  :: Int -> Int -> DeltaDt Double -> Domains Double #-}
+
+buildFinMaps :: forall r. (Eq r, Numeric r, Num (Vector r))
+             => EvalState r -> DeltaDt r -> EvalState r
+buildFinMaps s0 deltaDt =
   let addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
-      eval0 :: r -> Delta0 r -> ST s ()
-      eval0 _ Zero0 = return ()
-      eval0 !r (Input0 i) = do
-        iv <- readSTRef iMap0
-        writeSTRef iMap0 $! EM.adjust (+ r) i iv
-      eval0 !r (Delta0 n d) = do
-        im <- readSTRef dMap
-        case EM.lookup n im of
-          Just (DeltaBinding0 did _) -> do
-            rm <- readSTRef rMap0
-            writeSTRef rMap0 $! EM.adjust (+ r) did rm
-          Nothing -> do
-            rm <- readSTRef rMap0
-            let did = case EM.lookupMax rm of
+      eval0 :: EvalState r -> r -> Delta0 r -> EvalState r
+      eval0 s _ Zero0 = s
+      eval0 s@EvalState{iMap0} !r (Input0 i) =
+        s {iMap0 = EM.adjust (+ r) i iMap0}
+      eval0 s@EvalState{..} !r (Delta0 n d) =
+        case EM.lookup n dMap of
+          Just (DeltaBinding0 did _) ->
+            s {rMap0 = EM.adjust (+ r) did rMap0}
+          Nothing ->
+            let did = case EM.lookupMax rMap0 of
                   Nothing -> DeltaId 0
                   Just (didOld, _) -> succDeltaId didOld
-            writeSTRef dMap $! EM.insert n (DeltaBinding0 did d) im
-            writeSTRef rMap0 $! EM.insert did r rm
+            in s { dMap = EM.insert n (DeltaBinding0 did d) dMap
+                 , rMap0 = EM.insert did r rMap0 }
           _ -> error "buildFinMaps: corrupted dMap"
-      eval0' :: r -> Delta0' r -> ST s ()
-      eval0' !r = \case
-        Scale0 k d -> eval0 (k * r) d
-        Add0 d e -> eval0 r e >> eval0 r d
+      eval0' :: EvalState r -> r -> Delta0' r -> EvalState r
+      eval0' s !r = \case
+        Scale0 k d -> eval0 s (k * r) d
+        Add0 d e -> eval0 (eval0 s r e) r d
 
-        SumElements0 vd n -> eval1 (HM.konst r n) vd
+        SumElements0 vd n -> eval1 s (HM.konst r n) vd
 --        Index0 (Input1 i) ix k | i >= 0 -> do
 --          let f v = if V.null v
 --                    then HM.konst 0 k V.// [(ix, r)]
@@ -287,75 +295,69 @@ buildFinMaps dim0 dim1 deltaDt = do
             -- which involves copying the whole vector, so it's just
             -- several times faster (same allocation, but not adding vectors).
             -- TODO: does it make sense to extend this beyond @Input1@?
-        Index0 d ix k -> eval1 (HM.konst 0 k V.// [(ix, r)]) d
+        Index0 d ix k -> eval1 s (HM.konst 0 k V.// [(ix, r)]) d
 
-        Dot0 v vd -> eval1 (HM.scale r v) vd
+        Dot0 v vd -> eval1 s (HM.scale r v) vd
 
-      eval1 :: Vector r -> Delta1 r -> ST s ()
-      eval1 _ Zero1 = return ()
-      eval1 !r (Input1 i) = do
-        iv <- readSTRef iMap1
-        writeSTRef iMap1 $! EM.adjust (addToVector r) i iv
-      eval1 !r (Delta1 n d) = do
-        im <- readSTRef dMap
-        case EM.lookup n im of
-          Just (DeltaBinding1 did _) -> do
-            rm <- readSTRef rMap1
-            writeSTRef rMap1 $! EM.adjust (+ r) did rm
-          Nothing -> do
-            rm <- readSTRef rMap1
-            let did = case EM.lookupMax rm of
+      eval1 :: EvalState r -> Vector r -> Delta1 r -> EvalState r
+      eval1 s _ Zero1 = s
+      eval1 s@EvalState{iMap1} !r (Input1 i) =
+        s {iMap1 = EM.adjust (addToVector r) i iMap1}
+      eval1 s@EvalState{..} !r (Delta1 n d) = do
+        case EM.lookup n dMap of
+          Just (DeltaBinding1 did _) ->
+            s {rMap1 = EM.adjust (+ r) did rMap1}
+          Nothing ->
+            let did = case EM.lookupMax rMap1 of
                   Nothing -> DeltaId 0
                   Just (didOld, _) -> succDeltaId didOld
-            writeSTRef dMap $! EM.insert n (DeltaBinding1 did d) im
-            writeSTRef rMap1 $! EM.insert did r rm
+            in s { dMap = EM.insert n (DeltaBinding1 did d) dMap
+                 , rMap1 = EM.insert did r rMap1 }
           _ -> error "buildFinMaps: corrupted dMap"
-      eval1' :: Vector r -> Delta1' r -> ST s ()
-      eval1' !r = \case
-        Scale1 k d -> eval1 (k * r) d
-        Add1 d e -> eval1 r e >> eval1 r d
+      eval1' :: EvalState r -> Vector r -> Delta1' r -> EvalState r
+      eval1' s !r = \case
+        Scale1 k d -> eval1 s (k * r) d
+        Add1 d e -> eval1 (eval1 s r e) r d
 
-        Seq1 lsd -> V.imapM_ (\i d -> eval0 (r V.! i) d) lsd
-        Konst1 d _n -> V.mapM_ (`eval0` d) r
-        Append1 d k e -> eval1 (V.drop k r) e >> eval1 (V.take k r) d
+        Seq1 lsd -> V.ifoldl' (\s2 i d -> eval0 s2 (r V.! i) d) s lsd
+        Konst1 d _n -> V.foldl' (\s2 r2 -> eval0 s2 r2 d) s r
+
+        Append1 d k e -> eval1 (eval1 s (V.drop k r) e) (V.take k r) d
         Slice1 i n d len ->
-          eval1 (HM.konst 0 i V.++ r V.++ HM.konst 0 (len - i - n)) d
+          eval1 s (HM.konst 0 i V.++ r V.++ HM.konst 0 (len - i - n)) d
 
-        Reverse1 d -> eval1 (V.reverse r) d
+        Reverse1 d -> eval1 s (V.reverse r) d
 
-  case deltaDt of
-    DeltaDt0 dt deltaTopLevel -> eval0 dt deltaTopLevel
-    DeltaDt1 dt deltaTopLevel -> eval1 dt deltaTopLevel
+      evalUnlessZero :: EvalState r -> DeltaBinding r -> EvalState r
+      evalUnlessZero s@EvalState{rMap0} (DeltaBinding0 did d) =
+        let r = rMap0 EM.! did
+        in if r == 0
+           then s  -- a cheap optimization in case of scalars
+           else eval0' s r d
+      evalUnlessZero s@EvalState{rMap1} (DeltaBinding1 did d) =
+        let r = rMap1 EM.! did
+        in eval1' s r d
+      evalFromdMap :: EvalState r -> EvalState r
+      evalFromdMap s@EvalState{dMap} =
+        case EM.maxView dMap of
+          Just (b, dMap2) ->
+            let s2 = s {dMap = dMap2}
+                s3 = evalUnlessZero s2 b
+            in evalFromdMap s3
+          Nothing -> s  -- loop ends
 
-  let evalUnlessZero :: DeltaBinding r -> ST s ()
-      evalUnlessZero (DeltaBinding0 did d) = do
-        rm <- readSTRef rMap0
-        let r = rm EM.! did
-        unless (r == 0) $  -- a cheap optimization in case of scalars
-          eval0' r d
-      evalUnlessZero (DeltaBinding1 did d) = do
-        rm <- readSTRef rMap1
-        let r = rm EM.! did
-        eval1' r d
-      evalFromdMap :: ST s ()
-      evalFromdMap = do
-        im <- readSTRef dMap
-        case EM.maxView im of
-          Just (b, im2) -> do
-            writeSTRef dMap $! im2
-            evalUnlessZero b
-            evalFromdMap
-          Nothing -> return ()  -- loop ends
-  evalFromdMap
+      s1 = case deltaDt of
+        DeltaDt0 dt deltaTopLevel -> eval0 s0 dt deltaTopLevel
+        DeltaDt1 dt deltaTopLevel -> eval1 s0 dt deltaTopLevel
+  in evalFromdMap s1
 
-  -- Extract results.
-  iv0 <- readSTRef iMap0
-  iv1 <- readSTRef iMap1
-  return (V.fromList $ EM.elems iv0, V.fromList $ EM.elems iv1)
 {-# SPECIALIZE buildFinMaps
-  :: Int -> Int -> DeltaDt Double
-  -> ST s ( Vector Double
-          , Data.Vector.Vector (Vector Double) ) #-}
+  :: EvalState Double -> DeltaDt Double -> EvalState Double #-}
+
+-- Unlike @buildFinMaps@, the following is simplier written in ST
+-- than with explicit passing of state, because changing the state here
+-- is really an irritatin side effect, while in @buildFinMaps@ it's building
+-- the result.
 
 -- | Forward derivative computation via forward-evaluation of delta-expressions
 -- (which is surprisingly competitive to the direct forward method,
