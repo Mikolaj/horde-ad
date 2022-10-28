@@ -41,7 +41,7 @@ module HordeAd.Internal.Delta
   , DeltaX (..), DeltaX' (..)
   , DeltaS (..), DeltaS' (..)
   , -- * Delta expression identifiers
-    NodeId(..), InputId, toInputId, DeltaId
+    NodeId(..), InputId, toInputId
   , -- * Evaluation of the delta expressions
     DeltaDt (..), Domain0, Domain1, Domain2, DomainX, Domains
   , gradientFromDelta, derivativeFromDelta
@@ -276,7 +276,10 @@ instance Show (DeltaS' sh r) where
 -- * Delta expression identifiers
 
 newtype NodeId = NodeId {fromNodeId :: Int}
-  deriving (Eq, Enum, Prim)
+  deriving (Enum, Prim)
+    -- The Prim instance conversions take lots of time when old-time profiling,
+    -- but are completely optimized away in normal builds.
+    -- No Eq instance to limit hacks outside this module.
 
 instance Show NodeId where
   show (NodeId n) = show n  -- to keep debug printouts readable
@@ -292,8 +295,6 @@ toInputId i = assert (i >= 0) $ InputId i
 newtype DeltaId a = DeltaId Int
   deriving (Show, Prim)
     -- No Eq instance to limit hacks outside this module.
-    -- The Prim instance conversions take lots of time when old-time profiling,
-    -- but are completely optimized away in normal builds.
 
 -- The key property is that it preserves the phantom type.
 succDeltaId :: DeltaId a -> DeltaId a
@@ -513,7 +514,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
       eval0 !r (Delta0 n d) = do
         nm <- readSTRef nMap
         nL <- readSTRefU nLast
-        if n == pred nL
+        if fromNodeId n == fromNodeId (pred nL)
         then do  -- this would be evaluated next, so let's shortcut,
                  -- avoiding lots of short-lived allocations and also
                  -- shrinking the environment in which the evaluation occurs;
@@ -582,7 +583,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
       eval1 !r (Delta1 n d) = do
         nm <- readSTRef nMap
         nL <- readSTRefU nLast
-        if n == pred nL
+        if fromNodeId n == fromNodeId (pred nL)
         then do
           writeSTRefU nLast n
           rFinal <- case EM.lookup n nm of
@@ -651,7 +652,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
       eval2 !r (Delta2 n d) = do
         nm <- readSTRef nMap
         nL <- readSTRefU nLast
-        if n == pred nL
+        if fromNodeId n == fromNodeId (pred nL)
         then do
           writeSTRefU nLast n
           rFinal <- case EM.lookup n nm of
@@ -739,7 +740,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
       evalX !r (DeltaX n d) = do
         nm <- readSTRef nMap
         nL <- readSTRefU nLast
-        if n == pred nL
+        if fromNodeId n == fromNodeId (pred nL)
         then do
           writeSTRefU nLast n
           rFinal <- case EM.lookup n nm of
@@ -813,7 +814,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
       evalS !r (DeltaS n d) = do
         nm <- readSTRef nMap
         nL <- readSTRefU nLast
-        if n == pred nL
+        if fromNodeId n == fromNodeId (pred nL)
         then do
           writeSTRefU nLast n
           rFinal <- case EM.lookup n nm of

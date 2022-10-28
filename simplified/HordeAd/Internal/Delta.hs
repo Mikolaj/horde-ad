@@ -31,7 +31,7 @@ module HordeAd.Internal.Delta
     Delta0 (..), Delta0' (..)
   , Delta1 (..), Delta1' (..)
   , -- * Delta expression identifiers
-    NodeId(..), InputId, toInputId, DeltaId
+    NodeId(..), InputId, toInputId
   , -- * Evaluation of the delta expressions
     DeltaDt (..), Domain0, Domain1, Domains
   , gradientFromDelta, derivativeFromDelta
@@ -113,7 +113,10 @@ deriving instance (Show r, Numeric r) => Show (Delta1' r)
 -- * Delta expression identifiers
 
 newtype NodeId = NodeId {fromNodeId :: Int}
-  deriving (Eq, Enum, Prim)
+  deriving (Enum, Prim)
+    -- The Prim instance conversions take lots of time when old-time profiling,
+    -- but are completely optimized away in normal builds.
+    -- No Eq instance to limit hacks outside this module.
 
 instance Show NodeId where
   show (NodeId n) = show n  -- to keep debug printouts readable
@@ -129,8 +132,6 @@ toInputId i = assert (i >= 0) $ InputId i
 newtype DeltaId a = DeltaId Int
   deriving (Show, Enum, Prim)
     -- No Eq instance to limit hacks outside this module.
-    -- The Prim instance conversions take lots of time when old-time profiling,
-    -- but are completely optimized away in normal builds.
 
 -- The key property is that it preserves the phantom type.
 succDeltaId :: DeltaId a -> DeltaId a
