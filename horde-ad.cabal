@@ -610,3 +610,25 @@ test-suite extremelyLongTestSimplified
 
       , base
       , tasty >= 1.0
+
+test-suite simplifiedOnlyTest
+    import:           options, exe-options-test
+
+    type:             exitcode-stdio-1.0
+
+    hs-source-dirs:   test
+                      test/simplified
+
+    main-is:          SimplifiedOnlyTest.hs
+
+    other-modules:    TestSimplified
+
+    build-depends:
+      , horde-ad-simplified
+      , testCommonLibrarySimplified
+
+      , base
+      , strict-containers
+      , tasty >= 1.0
+      , tasty-hunit
+      , vector
