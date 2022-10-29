@@ -202,7 +202,7 @@ instance (VS.Storable a) => Linearizable (OT.Array a) a where
 instance (VS.Storable a, OS.Shape sh) => Linearizable (OS.Array sh a) a where
   linearize = OS.toList
 
-instance (VS.Storable a, HM.Element a) => Linearizable (HM.Matrix a) a where
+instance (HM.Element a) => Linearizable (HM.Matrix a) a where
   linearize = HM.toList . HM.flatten
 
 instance {-# OVERLAPPABLE #-} (Foldable t) => Linearizable (t a) a where
