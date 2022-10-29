@@ -70,7 +70,7 @@ quickCheckTest0
   :: TestName
   -> (forall d r. ADModeAndNum d r => ADInputs d r -> ADVal d r)
   -> ((Double, Double, Double)
-  -> ([Double], [Double], [Double], [Double]))
+      -> ([Double], [Double], [Double], [Double]))
   -> TestTree
 quickCheckTest0 txt f fArg =
   qcTestRanges txt f (listsToParameters4 . fArg)

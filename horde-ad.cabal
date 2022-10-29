@@ -628,7 +628,6 @@ test-suite simplifiedOnlyTest
       , testCommonLibrarySimplified
 
       , base
-      , strict-containers
       , tasty >= 1.0
       , tasty-hunit
       , vector
