@@ -48,6 +48,7 @@ import           Data.Primitive (Prim)
 import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
+import           GHC.Show (showSpace)
 import           Numeric.LinearAlgebra (Numeric, Vector, (<.>))
 import qualified Numeric.LinearAlgebra as HM
 
@@ -109,9 +110,94 @@ data Delta1' r =
   | Reverse1 (Delta1 r)
 
 deriving instance (Show r, Numeric r) => Show (Delta1 r)
-instance Show (Delta1' r) where
-  show _ = "a (Delta1' expression"
-    -- Build1 breaks deriving Show.
+
+-- Build1 breaks deriving.
+instance (Show r, Numeric r)
+         => Show (Delta1' r) where
+    showsPrec
+      a_a8Ye
+      (Scale1 b1_a8Yf b2_a8Yg)
+      = showParen
+          (a_a8Ye >= 11)
+          ((.)
+             (showString "Scale1 ")
+             ((.)
+                (showsPrec 11 b1_a8Yf)
+                ((.) showSpace (showsPrec 11 b2_a8Yg))))
+    showsPrec
+      a_a8Yh
+      (Add1 b1_a8Yi b2_a8Yj)
+      = showParen
+          (a_a8Yh >= 11)
+          ((.)
+             (showString "Add1 ")
+             ((.)
+                (showsPrec 11 b1_a8Yi)
+                ((.) showSpace (showsPrec 11 b2_a8Yj))))
+    showsPrec a_a8Yk (Seq1 b1_a8Yl)
+      = showParen
+          (a_a8Yk >= 11)
+          ((.)
+             (showString "Seq1 ") (showsPrec 11 b1_a8Yl))
+    showsPrec
+      a_a8Ym
+      (Konst1 b1_a8Yn b2_a8Yo)
+      = showParen
+          (a_a8Ym >= 11)
+          ((.)
+             (showString "Konst1 ")
+             ((.)
+                (showsPrec 11 b1_a8Yn)
+                ((.) showSpace (showsPrec 11 b2_a8Yo))))
+    showsPrec
+      a_a8Yp
+      (Append1 b1_a8Yq b2_a8Yr b3_a8Ys)
+      = showParen
+          (a_a8Yp >= 11)
+          ((.)
+             (showString "Append1 ")
+             ((.)
+                (showsPrec 11 b1_a8Yq)
+                ((.)
+                   showSpace
+                   ((.)
+                      (showsPrec 11 b2_a8Yr)
+                      ((.)
+                         showSpace (showsPrec 11 b3_a8Ys))))))
+    showsPrec
+      a_a8Yt
+      (Slice1 b1_a8Yu b2_a8Yv b3_a8Yw b4_a8Yx)
+      = showParen
+          (a_a8Yt >= 11)
+          ((.)
+             (showString "Slice1 ")
+             ((.)
+                (showsPrec 11 b1_a8Yu)
+                ((.)
+                   showSpace
+                   ((.)
+                      (showsPrec 11 b2_a8Yv)
+                      ((.)
+                         showSpace
+                         ((.)
+                            (showsPrec 11 b3_a8Yw)
+                            ((.)
+                               showSpace (showsPrec 11 b4_a8Yx))))))))
+    showsPrec
+      a_a8Ym
+      (Build1 b1_a8Yn _)
+      = showParen
+          (a_a8Ym >= 11)
+          ((.)
+             (showString "Build1 ")
+             ((.)
+                (showsPrec 11 b1_a8Yn)
+                ((.) showSpace (showString "<f>"))))
+    showsPrec a_a8Yy (Reverse1 b1_a8Yz)
+      = showParen
+          (a_a8Yy >= 11)
+          ((.)
+             (showString "Reverse1 ") (showsPrec 11 b1_a8Yz))
 
 
 -- * Delta expression identifiers
