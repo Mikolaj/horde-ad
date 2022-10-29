@@ -201,10 +201,11 @@ library exampleLibrary
 
     -- Other library packages from which modules are imported.
     build-depends:
-        base
+      , horde-ad
+
+      , base
       , bytestring
       , hmatrix
-      , horde-ad
       , mnist-idx
       , orthotope
       , random
@@ -243,11 +244,13 @@ library testCommonLibrary
   }
 
     -- Other library packages from which modules are imported.
-    build-depends: exampleLibrary
+    build-depends:
+      , exampleLibrary
+      , horde-ad
+
       , base
       , deepseq
       , hmatrix
-      , horde-ad
       , ilist
       , orthotope
       , random
@@ -284,7 +287,9 @@ test-suite minimalTest
     main-is:          MinimalTest.hs
 
     -- Test dependencies.
-    build-depends: testCommonLibrary
+    build-depends:
+      , testCommonLibrary
+
       , base
       , tasty >= 1.0
 
@@ -314,7 +319,9 @@ test-suite shortTestForCI
     main-is:          ShortTestForCI.hs
 
     -- Test dependencies.
-    build-depends: testCommonLibrary
+    build-depends:
+      , testCommonLibrary
+
       , base
       , tasty >= 1.0
 
@@ -344,7 +351,9 @@ test-suite extremelyLongTest
     main-is:          ExtremelyLongTest.hs
 
     -- Test dependencies.
-    build-depends: testCommonLibrary
+    build-depends:
+      , testCommonLibrary
+
       , base
       , tasty >= 1.0
 
@@ -365,12 +374,14 @@ library benchCommonLibrary
     exposed-modules:  BenchProdTools
                       BenchMnistTools
 
-    build-depends: exampleLibrary
+    build-depends:
+      , exampleLibrary
+      , horde-ad
+
       , base
       , criterion
       , deepseq
       , hmatrix
-      , horde-ad
       , ilist
       , random
       , vector
@@ -389,7 +400,9 @@ benchmark longProdBench
     hs-source-dirs:   bench
     main-is:          LongProdBench.hs
     other-modules:
-    build-depends: benchCommonLibrary
+    build-depends:
+      , benchCommonLibrary
+
       , base
       , criterion
       , deepseq
@@ -406,7 +419,9 @@ benchmark shortProdForCI
     type:             exitcode-stdio-1.0
     hs-source-dirs:   bench
     main-is:          ShortProdForCI.hs
-    build-depends: benchCommonLibrary
+    build-depends:
+      , benchCommonLibrary
+
       , base
       , criterion
       , deepseq
@@ -425,7 +440,10 @@ benchmark longMnistBench
     type:             exitcode-stdio-1.0
     hs-source-dirs:   bench
     main-is:          LongMnistBench.hs
-    build-depends: benchCommonLibrary, exampleLibrary
+    build-depends:
+      , benchCommonLibrary
+      , exampleLibrary
+
       , base
       , criterion
       , random
@@ -443,7 +461,10 @@ benchmark shortMnistForCI
     type:             exitcode-stdio-1.0
     hs-source-dirs:   bench
     main-is:          ShortMnistForCI.hs
-    build-depends: benchCommonLibrary, exampleLibrary
+    build-depends:
+      , benchCommonLibrary
+      , exampleLibrary
+
       , base
       , criterion
       , random
@@ -460,7 +481,10 @@ benchmark realisticMnistBench
     type:             exitcode-stdio-1.0
     hs-source-dirs:   bench
     main-is:          RealisticMnistBench.hs
-    build-depends: benchCommonLibrary, exampleLibrary
+    build-depends:
+      , benchCommonLibrary
+      , exampleLibrary
+
       , base
       , criterion
       , random
@@ -500,10 +524,11 @@ library exampleLibrarySimplified
                       MnistFcnnVector
 
     build-depends:
-        base
+      , horde-ad-simplified
+
+      , base
       , bytestring
       , hmatrix
-      , horde-ad-simplified
       , mnist-idx
       , orthotope
       , random
@@ -524,10 +549,12 @@ library testCommonLibrarySimplified
                       TestDescentSimple
                       TestGradientSimple
 
-    build-depends: exampleLibrarySimplified
+    build-depends:
+      , exampleLibrarySimplified
+      , horde-ad-simplified
+
       , base
       , hmatrix
-      , horde-ad-simplified
       , ilist
       , orthotope
       , random
@@ -556,7 +583,9 @@ test-suite shortTestForCISimplified
 
     main-is:          ShortTestForCI.hs
 
-    build-depends: testCommonLibrarySimplified
+    build-depends:
+      , testCommonLibrarySimplified
+
       , base
       , tasty >= 1.0
 
@@ -576,6 +605,8 @@ test-suite extremelyLongTestSimplified
 
     main-is:          ExtremelyLongTest.hs
 
-    build-depends: testCommonLibrarySimplified
+    build-depends:
+      , testCommonLibrarySimplified
+
       , base
       , tasty >= 1.0
