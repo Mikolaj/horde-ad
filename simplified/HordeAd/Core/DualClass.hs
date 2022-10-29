@@ -145,6 +145,7 @@ class HasRanks (d :: ADMode) r where
   dKonst1 :: Dual d r -> Int -> Dual d (Vector r)
   dAppend1 :: Dual d (Vector r) -> Int -> Dual d (Vector r) -> Dual d (Vector r)
   dSlice1 :: Int -> Int -> Dual d (Vector r) -> Int -> Dual d (Vector r)
+  dBuild1 :: Int -> (Int -> Dual d r) -> Dual d (Vector r)
   dReverse1 :: Dual d (Vector r) -> Dual d (Vector r)
 
 
@@ -216,6 +217,7 @@ instance Dual 'ADModeGradient r ~ Delta0 r
   dKonst1 !d !n = wrapDelta1 $ Konst1 d n
   dAppend1 !d !k !e = wrapDelta1 $ Append1 d k e
   dSlice1 !i !n !d !len = wrapDelta1 $ Slice1 i n d len
+  dBuild1 !n f = wrapDelta1 $ Build1 n f
   dReverse1 !d = wrapDelta1 $ Reverse1 d
 
 
@@ -248,6 +250,7 @@ instance ( Numeric r
   dKonst1 = HM.konst
   dAppend1 d _k e = d V.++ e
   dSlice1 i n d _len = V.slice i n d
+  dBuild1 n f = V.fromList $ map f [0 .. n - 1]
   dReverse1 = V.reverse
 
 -- * Another alternative instance: only the objective function's value computed
@@ -275,6 +278,7 @@ instance HasRanks 'ADModeValue r where
   dKonst1 _ _ = DummyDual ()
   dAppend1 _ _ _ = DummyDual ()
   dSlice1 _ _ _ _ = DummyDual ()
+  dBuild1 _ _ = DummyDual ()
   dReverse1 _ = DummyDual ()
 
 

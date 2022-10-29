@@ -281,6 +281,17 @@ slice1 :: ADModeAndNum d r
        => Int -> Int -> ADVal d (Vector r) -> ADVal d (Vector r)
 slice1 i n (D u u') = D (V.slice i n u) (dSlice1 i n u' (V.length u))
 
+build1Seq :: ADModeAndNum d r
+          => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
+build1Seq n f = seq1 $ V.fromList $ map f [0 .. n - 1]
+
+build1 :: ADModeAndNum d r
+       => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
+build1 n f =
+  let g i = let D u _ = f i in u
+      h i = let D _ u' = f i in u'
+  in D (V.fromList $ map g [0 .. n - 1]) (dBuild1 n h)
+
 -- The detour through a boxed vector (list probably fuses away)
 -- is costly, but only matters if @f@ is cheap.
 map1 :: ADModeAndNum d r

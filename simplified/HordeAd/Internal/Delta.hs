@@ -43,6 +43,7 @@ import           Control.Exception (assert)
 import           Control.Monad (liftM2)
 import           Control.Monad.ST.Strict (ST, runST)
 import qualified Data.EnumMap.Strict as EM
+import           Data.List (foldl')
 import           Data.Primitive (Prim)
 import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
@@ -102,12 +103,15 @@ data Delta1' r =
   | Konst1 (Delta0 r) Int  -- ^ length; needed only for forward derivative
   | Append1 (Delta1 r) Int (Delta1 r)  -- ^ the length of the first argument
   | Slice1 Int Int (Delta1 r) Int  -- ^ last integer is the length of argument
+  | Build1 Int (Int -> Delta0 r)
 
     -- unsorted and undocumented yet
   | Reverse1 (Delta1 r)
 
 deriving instance (Show r, Numeric r) => Show (Delta1 r)
-deriving instance (Show r, Numeric r) => Show (Delta1' r)
+instance Show (Delta1' r) where
+  show _ = "a (Delta1' expression"
+    -- Build1 breaks deriving Show.
 
 
 -- * Delta expression identifiers
@@ -315,6 +319,7 @@ buildFinMaps s0 deltaDt =
         Append1 d k e -> eval1 (eval1 s (V.drop k r) e) (V.take k r) d
         Slice1 i n d len ->
           eval1 s (HM.konst 0 i V.++ r V.++ HM.konst 0 (len - i - n)) d
+        Build1 n f -> foldl' (\s2 i -> eval0 s2 (r V.! i) (f i)) s [0 .. n - 1]
 
         Reverse1 d -> eval1 s (V.reverse r) d
 
@@ -433,6 +438,9 @@ buildDerivative dim0 dim1 deltaTopLevel
         Konst1 d n -> flip HM.konst n <$> eval0 d
         Append1 d _k e -> liftM2 (V.++) (eval1 d) (eval1 e)
         Slice1 i n d _len -> V.slice i n <$> eval1 d
+        Build1 n f -> do
+          l <- mapM (eval0 . f) [0 .. n - 1]
+          return $! V.fromList l
 
         Reverse1 d -> V.reverse <$> eval1 d
 
