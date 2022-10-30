@@ -1,6 +1,5 @@
-{-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances,
-             FunctionalDependencies, RankNTypes, TypeFamilies,
-             TypeOperators #-}
+{-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances, RankNTypes,
+             TypeFamilies, TypeOperators #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module TestGradient (testTrees) where
@@ -187,7 +186,7 @@ barS :: (ADModeAndNum d r, OS.Shape sh)
         , [ADVal d (OS.Array (n2 ': sh) r)] )
      -> [ADVal d (OS.Array (n1 ': sh) r)]
 barS MkSN MkSN (s, w, xs) =
-  map (\x -> konstS s * (dot w x)) xs
+  map (\x -> konstS s * dot w x) xs
     -- konstS is needed, after all, because @s@ is a differentiable quantity
     -- with a given type, and not a constant that would be interpreted according
     -- to the inferred type

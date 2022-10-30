@@ -1,6 +1,5 @@
-{-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances,
-             FunctionalDependencies, RankNTypes, TypeFamilies,
-             TypeOperators #-}
+{-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances, RankNTypes,
+             TypeFamilies, TypeOperators #-}
 module TestGradientSimple (testTrees, finalCounter) where
 
 import Prelude

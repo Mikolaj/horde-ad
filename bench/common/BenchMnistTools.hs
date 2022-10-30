@@ -6,6 +6,7 @@ import Prelude
 
 import           Control.Arrow ((***))
 import           Control.DeepSeq (NFData)
+import           Control.Monad (when)
 import           Criterion.Main
 import           Data.List.Index (imap)
 import qualified Data.Vector.Generic as V
@@ -38,9 +39,9 @@ mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
   bench name $ nfIO $ do
     res <- grad chunk
     counter <- unsafeGetFreshId
-    (if counter > 2 ^ (62 :: Int)
-     then error $ "Counter is dangerously high: " ++ show counter
-     else return ())  -- hPutStrLn stderr $ "Counter value: " ++ show counter
+    when (counter > 2 ^ (62 :: Int)) $
+      error $ "Counter is dangerously high: " ++ show counter
+    -- hPutStrLn stderr $ "Counter value: " ++ show counter
     return res
 {-# SPECIALIZE mnistTrainBench2 :: String -> Int -> [MnistData Double] -> Int -> Int -> Double -> Benchmark #-}
 
