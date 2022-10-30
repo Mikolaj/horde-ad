@@ -320,10 +320,10 @@ sumColumns1 (D u u') = D (V.fromList $ map HM.sumElements $ HM.toColumns u)
 
 -- The detour through a boxed vector (list probably fuses away)
 -- is costly, but only matters if @f@ is cheap.
-map1 :: ADModeAndNum d r
-     => (ADVal d r -> ADVal d r) -> ADVal d (Vector r)
-     -> ADVal d (Vector r)
-map1 f (D v v') =
+map1Seq :: ADModeAndNum d r
+        => (ADVal d r -> ADVal d r) -> ADVal d (Vector r)
+        -> ADVal d (Vector r)
+map1Seq f (D v v') =
   let k = V.length v
       g ix p = f $ D p (dIndex0 v' ix k)
       ds = imap g $ V.toList v

@@ -624,7 +624,8 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
 
         Seq1 lsd -> V.imapM_ (\i d -> eval0 (r V.! (V.length lsd - 1 - i)) d)
                     $ V.reverse lsd
-          -- the argument vector is often created in the natural order,
+          -- lsd is a list (boxed vector) of scalar delta expressions;
+          -- it is often created in the natural order,
           -- so we have to reverse it to enable the shortcut more often
         Konst1 d _n -> V.mapM_ (`eval0` d) r
         Append1 d k e -> eval1 (V.drop k r) e >> eval1 (V.take k r) d

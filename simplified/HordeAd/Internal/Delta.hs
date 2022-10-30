@@ -104,10 +104,10 @@ data Delta1' r =
   | Konst1 (Delta0 r) Int  -- ^ length; needed only for forward derivative
   | Append1 (Delta1 r) Int (Delta1 r)  -- ^ the length of the first argument
   | Slice1 Int Int (Delta1 r) Int  -- ^ last integer is the length of argument
-  | Build1 Int (Int -> Delta0 r)
 
     -- unsorted and undocumented yet
   | Reverse1 (Delta1 r)
+  | Build1 Int (Int -> Delta0 r)
 
 deriving instance (Show r, Numeric r) => Show (Delta1 r)
 
@@ -183,6 +183,11 @@ instance (Show r, Numeric r)
                             (showsPrec 11 b3_a8Yw)
                             ((.)
                                showSpace (showsPrec 11 b4_a8Yx))))))))
+    showsPrec a_a8Yy (Reverse1 b1_a8Yz)
+      = showParen
+          (a_a8Yy >= 11)
+          ((.)
+             (showString "Reverse1 ") (showsPrec 11 b1_a8Yz))
     showsPrec
       a_a8Ym
       (Build1 b1_a8Yn _)
@@ -193,11 +198,6 @@ instance (Show r, Numeric r)
              ((.)
                 (showsPrec 11 b1_a8Yn)
                 ((.) showSpace (showString "<f>"))))
-    showsPrec a_a8Yy (Reverse1 b1_a8Yz)
-      = showParen
-          (a_a8Yy >= 11)
-          ((.)
-             (showString "Reverse1 ") (showsPrec 11 b1_a8Yz))
 
 
 -- * Delta expression identifiers
@@ -400,14 +400,15 @@ buildFinMaps s0 deltaDt =
         Add1 d e -> eval1 (eval1 s r e) r d
 
         Seq1 lsd -> V.ifoldl' (\s2 i d -> eval0 s2 (r V.! i) d) s lsd
+          -- lsd is a list (boxed vector) of scalar delta expressions
         Konst1 d _n -> V.foldl' (\s2 r2 -> eval0 s2 r2 d) s r
 
         Append1 d k e -> eval1 (eval1 s (V.drop k r) e) (V.take k r) d
         Slice1 i n d len ->
           eval1 s (HM.konst 0 i V.++ r V.++ HM.konst 0 (len - i - n)) d
-        Build1 n f -> foldl' (\s2 i -> eval0 s2 (r V.! i) (f i)) s [0 .. n - 1]
 
         Reverse1 d -> eval1 s (V.reverse r) d
+        Build1 n f -> foldl' (\s2 i -> eval0 s2 (r V.! i) (f i)) s [0 .. n - 1]
 
       evalFromnMap :: EvalState r -> EvalState r
       evalFromnMap s@EvalState{nMap, dMap0, dMap1} =
@@ -524,11 +525,11 @@ buildDerivative dim0 dim1 deltaTopLevel
         Konst1 d n -> flip HM.konst n <$> eval0 d
         Append1 d _k e -> liftM2 (V.++) (eval1 d) (eval1 e)
         Slice1 i n d _len -> V.slice i n <$> eval1 d
+
+        Reverse1 d -> V.reverse <$> eval1 d
         Build1 n f -> do
           l <- mapM (eval0 . f) [0 .. n - 1]
           return $! V.fromList l
-
-        Reverse1 d -> V.reverse <$> eval1 d
 
   eval0 deltaTopLevel
 

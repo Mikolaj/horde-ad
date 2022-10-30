@@ -281,6 +281,9 @@ slice1 :: ADModeAndNum d r
        => Int -> Int -> ADVal d (Vector r) -> ADVal d (Vector r)
 slice1 i n (D u u') = D (V.slice i n u) (dSlice1 i n u' (V.length u))
 
+reverse1 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d (Vector r)
+reverse1 (D u u') = D (V.reverse u) (dReverse1 u')
+
 build1Seq :: ADModeAndNum d r
           => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
 build1Seq n f = seq1 $ V.fromList $ map f [0 .. n - 1]
@@ -294,17 +297,19 @@ build1 n f =
 
 -- The detour through a boxed vector (list probably fuses away)
 -- is costly, but only matters if @f@ is cheap.
-map1 :: ADModeAndNum d r
-     => (ADVal d r -> ADVal d r) -> ADVal d (Vector r)
-     -> ADVal d (Vector r)
-map1 f (D v v') =
+map1Seq :: ADModeAndNum d r
+        => (ADVal d r -> ADVal d r) -> ADVal d (Vector r)
+        -> ADVal d (Vector r)
+map1Seq f (D v v') =
   let k = V.length v
       g ix p = f $ D p (dIndex0 v' ix k)
       ds = imap g $ V.toList v
   in seq1 $ V.fromList ds
 
-reverse1 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d (Vector r)
-reverse1 (D u u') = D (V.reverse u) (dReverse1 u')
+map1Build :: ADModeAndNum d r
+          => (ADVal d r -> ADVal d r) -> ADVal d (Vector r)
+          -> ADVal d (Vector r)
+map1Build f d@(D v _) = build1 (V.length v) $ \i -> f (index0 d i)
 
 -- No padding; remaining areas ignored.
 maxPool1 :: ADModeAndNum d r
