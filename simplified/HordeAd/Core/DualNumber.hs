@@ -25,7 +25,7 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, natVal)
 import           Numeric.LinearAlgebra (Numeric, Vector)
-import qualified Numeric.LinearAlgebra as HM
+import qualified Numeric.LinearAlgebra as LA
 import qualified Numeric.LinearAlgebra.Devel
 
 import HordeAd.Core.DualClass
@@ -67,11 +67,11 @@ addParameters (a0, a1) (b0, b1) =
 -- Dot product and sum respective ranks and then sum it all.
 dotParameters :: Numeric r => Domains r -> Domains r -> r
 dotParameters (a0, a1) (b0, b1) =
-  a0 HM.<.> b0
+  a0 LA.<.> b0
   + V.sum (V.zipWith (\v1 u1 ->
       if V.null v1 || V.null u1
       then 0
-      else v1 HM.<.> u1) a1 b1)
+      else v1 LA.<.> u1) a1 b1)
 
 
 -- * General operations, for any tensor rank
@@ -175,18 +175,18 @@ reluLeaky v@(D u _) =
 -- * Operations resulting in a scalar
 
 sumElements0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
-sumElements0 (D u u') = D (HM.sumElements u) (dSumElements0 u' (V.length u))
+sumElements0 (D u u') = D (LA.sumElements u) (dSumElements0 u' (V.length u))
 
 index0 :: ADModeAndNum d r => ADVal d (Vector r) -> Int -> ADVal d r
 index0 (D u u') ix = D (u V.! ix) (dIndex0 u' ix (V.length u))
 
 minimum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
 minimum0 (D u u') =
-  D (HM.minElement u) (dIndex0 u' (HM.minIndex u) (V.length u))
+  D (LA.minElement u) (dIndex0 u' (LA.minIndex u) (V.length u))
 
 maximum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
 maximum0 (D u u') =
-  D (HM.maxElement u) (dIndex0 u' (HM.maxIndex u) (V.length u))
+  D (LA.maxElement u) (dIndex0 u' (LA.maxIndex u) (V.length u))
 
 foldl'0 :: ADModeAndNum d r
         => (ADVal d r -> ADVal d r -> ADVal d r)
@@ -204,13 +204,13 @@ altSumElements0 = foldl'0 (+) 0
 infixr 8 <.>!
 (<.>!) :: ADModeAndNum d r
        => ADVal d (Vector r) -> ADVal d (Vector r) -> ADVal d r
-(<.>!) (D u u') (D v v') = D (u HM.<.> v) (dAdd (dDot0 v u') (dDot0 u v'))
+(<.>!) (D u u') (D v v') = D (u LA.<.> v) (dAdd (dDot0 v u') (dDot0 u v'))
 
 -- | Dot product with a constant vector.
 infixr 8 <.>!!
 (<.>!!) :: ADModeAndNum d r
         => ADVal d (Vector r) -> Vector r -> ADVal d r
-(<.>!!) (D u u') v = D (u HM.<.> v) (dDot0 v u')
+(<.>!!) (D u u') v = D (u LA.<.> v) (dDot0 v u')
 
 sumElementsVectorOfDual
   :: ADModeAndNum d r => Data.Vector.Vector (ADVal d r) -> ADVal d r
@@ -252,12 +252,12 @@ lossSoftMaxCrossEntropyV target (D u u') =
   -- and is required by the QuickCheck test in TestMnistCNN.
   -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106
   -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
-  let expU = exp (u - HM.scalar (HM.maxElement u))
-      sumExpU = HM.sumElements expU
+  let expU = exp (u - LA.scalar (LA.maxElement u))
+      sumExpU = LA.sumElements expU
       recipSum = recip sumExpU
--- not exposed: softMaxU = HM.scaleRecip sumExpU expU
-      softMaxU = HM.scale recipSum expU
-  in D (negate $ log softMaxU HM.<.> target)  -- TODO: avoid: log . exp
+-- not exposed: softMaxU = LA.scaleRecip sumExpU expU
+      softMaxU = LA.scale recipSum expU
+  in D (negate $ log softMaxU LA.<.> target)  -- TODO: avoid: log . exp
        (dDot0 (softMaxU - target) u')
 
 
@@ -270,7 +270,7 @@ seq1 v = D (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
            (dSeq1 $ V.map (\(D _ u') -> u') v)
 
 konst1 :: ADModeAndNum d r => ADVal d r -> Int -> ADVal d (Vector r)
-konst1 (D u u') n = D (HM.konst u n) (dKonst1 u' n)
+konst1 (D u u') n = D (LA.konst u n) (dKonst1 u' n)
 
 append1 :: ADModeAndNum d r
         => ADVal d (Vector r) -> ADVal d (Vector r)

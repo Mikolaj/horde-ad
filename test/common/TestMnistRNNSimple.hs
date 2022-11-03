@@ -7,7 +7,7 @@ import           Control.Monad (foldM)
 import           Data.List (foldl', unfoldr)
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Vector)
-import qualified Numeric.LinearAlgebra as HM
+import qualified Numeric.LinearAlgebra as LA
 import           System.IO (hPutStrLn, stderr)
 import           System.Random
 import           Test.Tasty
@@ -121,7 +121,7 @@ feedbackTestCase prefix fp f nParameters trainData expected =
                         , show totalParams, show range ]
   in testCase name $ do
        trained <- fst <$> sgd 0.1 f trainData parameters0
-       let primed = prime fp trained (HM.konst 0 30) (take 19 series)
+       let primed = prime fp trained (LA.konst 0 30) (take 19 series)
            output = feedback fp trained primed (series !! 19)
        take 30 output @?~ expected
 
@@ -150,7 +150,7 @@ zeroState :: ADModeAndNum d r
               -> ADInputs d r
               -> ADVal d r2)
 zeroState k f xs inputs =
-  fst $ f xs (constant $ HM.konst 0 k) inputs
+  fst $ f xs (constant $ LA.konst 0 k) inputs
 
 unrollLastG :: forall d a b c r.
                (a -> b -> ADInputs d r -> (c, b))
@@ -168,7 +168,7 @@ hiddenLayerSinRNNV :: ADModeAndNum d r
 hiddenLayerSinRNNV x s inputs =
   let wX = at1 inputs 0
       b = at1 inputs 31
-      y = scale (HM.konst x 30) wX + sumTrainableInputsL s 1 inputs 30 + b
+      y = scale (LA.konst x 30) wX + sumTrainableInputsL s 1 inputs 30 + b
       yLogistic = logistic y
   in (y, yLogistic)
 

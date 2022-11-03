@@ -51,7 +51,7 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, natVal, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
-import qualified Numeric.LinearAlgebra as HM
+import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Internal.Delta
@@ -453,47 +453,47 @@ instance (Numeric r, Num (Vector r))
 instance ( Numeric r, Num (Vector r)
          , Dual 'ADModeDerivative r ~ r )
          => HasRanks 'ADModeDerivative r where
-  dSumElements0 vd _ = HM.sumElements vd
+  dSumElements0 vd _ = LA.sumElements vd
   dIndex0 d ix _ = d V.! ix
-  dDot0 = (HM.<.>)
+  dDot0 = (LA.<.>)
   dFromX0 = OT.unScalar
   dFromS0 = OS.unScalar
   dSeq1 = V.convert
-  dKonst1 = HM.konst
+  dKonst1 = LA.konst
   dAppend1 d _k e = d V.++ e
   dSlice1 i n d _len = V.slice i n d
-  dM_VD1 = (HM.#>)
-  dMD_V1 = (HM.#>)
-  dSumRows1 dm _cols = V.fromList $ map HM.sumElements $ HM.toRows dm
-  dSumColumns1 dm _rows = V.fromList $ map HM.sumElements $ HM.toColumns dm
+  dM_VD1 = (LA.#>)
+  dMD_V1 = (LA.#>)
+  dSumRows1 dm _cols = V.fromList $ map LA.sumElements $ LA.toRows dm
+  dSumColumns1 dm _rows = V.fromList $ map LA.sumElements $ LA.toColumns dm
   dFromX1 = OT.toVector
   dFromS1 = OS.toVector
   dReverse1 = V.reverse
-  dFlatten1 _rows _cols = HM.flatten
+  dFlatten1 _rows _cols = LA.flatten
   dFlattenX1 _sh = OT.toVector
   dFlattenS1 = OS.toVector
-  dFromRows2 = HM.fromRows . V.toList
-  dFromColumns2 = HM.fromColumns . V.toList
-  dKonst2 = HM.konst
-  dTranspose2 = HM.tr'
-  dM_MD2 = (HM.<>)
-  dMD_M2 = (HM.<>)
-  dAsRow2 = HM.asRow
-  dAsColumn2 = HM.asColumn
-  dRowAppend2 d _k e = d HM.=== e
-  dColumnAppend2 d _k e = d HM.||| e
-  dRowSlice2 i n d _rows = HM.takeRows n $ HM.dropRows i d
-  dColumnSlice2 i n d _cols = HM.takeColumns n $ HM.dropColumns i d
+  dFromRows2 = LA.fromRows . V.toList
+  dFromColumns2 = LA.fromColumns . V.toList
+  dKonst2 = LA.konst
+  dTranspose2 = LA.tr'
+  dM_MD2 = (LA.<>)
+  dMD_M2 = (LA.<>)
+  dAsRow2 = LA.asRow
+  dAsColumn2 = LA.asColumn
+  dRowAppend2 d _k e = d LA.=== e
+  dColumnAppend2 d _k e = d LA.||| e
+  dRowSlice2 i n d _rows = LA.takeRows n $ LA.dropRows i d
+  dColumnSlice2 i n d _cols = LA.takeColumns n $ LA.dropColumns i d
   dFromX2 d = case OT.shapeL d of
-    [_rows, cols] -> HM.reshape cols $ OT.toVector d
+    [_rows, cols] -> LA.reshape cols $ OT.toVector d
     _ -> error "dFromX2: wrong tensor dimensions"
   dFromS2 d = case OS.shapeL d of
-    [_rows, cols] -> HM.reshape cols $ OS.toVector d
+    [_rows, cols] -> LA.reshape cols $ OS.toVector d
     _ -> error "dFromS2: wrong tensor dimensions"
-  dFlipud2 = HM.flipud
-  dFliprl2 = HM.fliprl
-  dReshape2 = HM.reshape
-  dConv2 = HM.conv2
+  dFlipud2 = LA.flipud
+  dFliprl2 = LA.fliprl
+  dReshape2 = LA.reshape
+  dConv2 = LA.conv2
   dKonstX d sz = OT.constant sz d
   dAppendX d _k e = d `OT.append` e
   dSliceX i n d _len = OT.slice [(i, n)] d
@@ -506,7 +506,7 @@ instance ( Numeric r, Num (Vector r)
   dReshapeX _sh = OT.reshape
   dFrom0X = OT.scalar
   dFrom1X d = OT.fromVector [V.length d] d
-  dFrom2X d cols = OT.fromVector [HM.rows d, cols] $ HM.flatten d
+  dFrom2X d cols = OT.fromVector [LA.rows d, cols] $ LA.flatten d
   dFromSX = Data.Array.Convert.convert
 #if defined(VERSION_ghc_typelits_natnormalise)
   dKonstS = OS.constant
@@ -517,7 +517,7 @@ instance ( Numeric r, Num (Vector r)
   dReshapeS = OS.reshape
   dFrom0S = OS.scalar
   dFrom1S = OS.fromVector
-  dFrom2S _ = OS.fromVector . HM.flatten
+  dFrom2S _ = OS.fromVector . LA.flatten
   dFromXS = Data.Array.Convert.convert
 #endif
 

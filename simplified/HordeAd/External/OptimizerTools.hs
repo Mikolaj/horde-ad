@@ -14,7 +14,7 @@ import           Control.Monad.ST.Strict (runST)
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import           Numeric.LinearAlgebra (Numeric, Vector)
-import qualified Numeric.LinearAlgebra as HM
+import qualified Numeric.LinearAlgebra as LA
 
 import HordeAd.Internal.Delta (Domains)
 
@@ -22,7 +22,7 @@ updateWithGradient :: (Numeric r, Floating (Vector r))
                    => r -> Domains r -> Domains r -> Domains r
 updateWithGradient gamma (params0, params1)
                          (gradient0, gradient1) =
-  let updateVector i r = i - HM.scale gamma r
+  let updateVector i r = i - LA.scale gamma r
       !params0New = updateVector params0 gradient0
       update1 i r = if V.null r  -- eval didn't update it, would crash
                     then i
@@ -38,15 +38,15 @@ gradientIsNil (gradient0, gradient1) =
 
 minimumGradient :: (Ord r, Numeric r) => Domains r -> r
 minimumGradient (gradient0, gradient1) =
-  min (if V.null gradient0 then 0 else HM.minElement gradient0)
+  min (if V.null gradient0 then 0 else LA.minElement gradient0)
       (if V.null gradient1 then 0
-       else V.minimum (V.map HM.minElement gradient1))
+       else V.minimum (V.map LA.minElement gradient1))
 
 maximumGradient :: (Ord r, Numeric r) => Domains r -> r
 maximumGradient (gradient0, gradient1) =
-  max (if V.null gradient0 then 0 else HM.maxElement gradient0)
+  max (if V.null gradient0 then 0 else LA.maxElement gradient0)
       (if V.null gradient1 then 0
-       else V.maximum (V.map HM.maxElement gradient1))
+       else V.maximum (V.map LA.maxElement gradient1))
 
 data ArgsAdam r = ArgsAdam
   { alpha   :: r
@@ -110,14 +110,14 @@ updateWithGradientAdam ArgsAdam{..}
                    -> Vector r -> Vector r
                    -> (Vector r, Vector r, Vector r)
       updateVector mA vA p g =
-        let mANew = HM.scale betaOne mA + HM.scale oneMinusBeta1 g
-            vANew = HM.scale betaTwo vA + HM.scale oneMinusBeta2 (g * g)
+        let mANew = LA.scale betaOne mA + LA.scale oneMinusBeta1 g
+            vANew = LA.scale betaTwo vA + LA.scale oneMinusBeta2 (g * g)
             alphat = alpha * sqrt (1 - betaTwo ^ tAdamNew)
                              / (1 - betaOne ^ tAdamNew)
         in ( mANew
            , vANew
-           , p - HM.scale alphat mANew
-                 / (sqrt vANew + HM.scalar epsilon) )  -- the @scalar@ is safe
+           , p - LA.scale alphat mANew
+                 / (sqrt vANew + LA.scalar epsilon) )  -- the @scalar@ is safe
                       -- @addConstant@ would be better, but it's not exposed
       (!mAdam0New, !vAdam0New, !params0New) =
         updateVector mAdam0 vAdam0 params0 gradient0

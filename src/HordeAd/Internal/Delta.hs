@@ -74,7 +74,7 @@ import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Storable.Mutable
 import           GHC.TypeLits (KnownNat, Nat, natVal, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, (<.>))
-import qualified Numeric.LinearAlgebra as HM
+import qualified Numeric.LinearAlgebra as LA
 
 import qualified HordeAd.Internal.MatrixOuter as MO
 import           HordeAd.Internal.OrthotopeOrphanInstances (liftVS2, liftVT2)
@@ -452,7 +452,7 @@ initializeFinMaps dim0 dim1 dim2 dimX = do
   -- Gradually accumulated gradients for input nodes.
   iMap0 <- VM.replicate dim0 0  -- correct value; below are dummy
   iMap1 <- VM.replicate dim1 (V.empty :: Vector r)
-  iMap2 <- VM.replicate dim2 (HM.fromRows [])
+  iMap2 <- VM.replicate dim2 (LA.fromRows [])
   iMapX <- VM.replicate dimX dummyTensor
   -- These indicate the current position for writing into the respective
   -- four vectors below. The position is only ever incremented.
@@ -503,7 +503,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
   let addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
       addToMatrix :: Matrix r -> Matrix r -> Matrix r
-      addToMatrix r = \v -> if HM.rows v <= 0 then r else v + r
+      addToMatrix r = \v -> if LA.rows v <= 0 then r else v + r
       addToArray :: OT.Array r -> OT.Array r -> OT.Array r
       addToArray r = \v -> if isTensorDummy v then r else liftVT2 (+) v r
       addToArrayS :: OS.Shape sh => OS.Array sh r -> OT.Array r -> OT.Array r
@@ -563,10 +563,10 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
           -- as possible due to the parent and the first evaluated child
           -- having adjacent counter values
 
-        SumElements0 vd n -> eval1 (HM.konst r n) vd
+        SumElements0 vd n -> eval1 (LA.konst r n) vd
         Index0 (Input1 (InputId i)) ix k | i >= 0 -> do
           let f v = if V.null v
-                    then HM.konst 0 k V.// [(ix, r)]
+                    then LA.konst 0 k V.// [(ix, r)]
                     else v V.// [(ix, v V.! ix + r)]
           VM.modify iMap1 f i
             -- This would be an asymptotic optimization compared to
@@ -574,9 +574,9 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
             -- which involves copying the whole vector, so it's just
             -- several times faster (same allocation, but not adding vectors).
             -- TODO: does it make sense to extend this beyond @Input1@?
-        Index0 d ix k -> eval1 (HM.konst 0 k V.// [(ix, r)]) d
+        Index0 d ix k -> eval1 (LA.konst 0 k V.// [(ix, r)]) d
 
-        Dot0 v vd -> eval1 (HM.scale r v) vd
+        Dot0 v vd -> eval1 (LA.scale r v) vd
 
         FromX0 d -> evalX (OT.scalar r) d
         FromS0 d -> evalS (OS.scalar r) d
@@ -631,7 +631,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         Append1 d k e -> eval1 (V.drop k r) e >> eval1 (V.take k r) d
           -- reversed order of evaluation; see Add0
         Slice1 i n d len ->
-          eval1 (HM.konst 0 i V.++ r V.++ HM.konst 0 (len - i - n)) d
+          eval1 (LA.konst 0 i V.++ r V.++ LA.konst 0 (len - i - n)) d
         SumRows1 dm cols -> eval2 (MO.asColumn r cols) dm
         SumColumns1 dm rows -> eval2 (MO.asRow r rows) dm
 
@@ -645,7 +645,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
 
         Reverse1 d -> eval1 (V.reverse r) d
         Flatten1 rows cols d ->
-          eval2 (MO.MatrixOuter (Just $ rows HM.>< cols $ V.toList r)
+          eval2 (MO.MatrixOuter (Just $ rows LA.>< cols $ V.toList r)
                                 Nothing Nothing)
                 d
         FlattenX1 sh d -> evalX (OT.fromVector sh r) d
@@ -699,10 +699,10 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         Konst2 d _sz -> mapM_ (V.mapM_ (`eval0` d)) $ MO.toRows r
         Transpose2 md -> eval2 (MO.transpose r) md  -- TODO: test!
         M_MD2 m md ->
-          let mo = MO.MatrixOuter (Just $ HM.tr' m) Nothing Nothing
+          let mo = MO.MatrixOuter (Just $ LA.tr' m) Nothing Nothing
           in eval2 (MO.matMul mo r) md
         MD_M2 md m ->
-          let mo = MO.MatrixOuter (Just $ HM.tr' m) Nothing Nothing
+          let mo = MO.MatrixOuter (Just $ LA.tr' m) Nothing Nothing
           in eval2 (MO.matMul r mo) md
         RowAppend2 d k e -> eval2 (MO.takeRows k r) d
                             >> eval2 (MO.dropRows k r) e
@@ -735,7 +735,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         Reshape2 _cols d -> eval1 (V.concat $ MO.toRows r) d
         Conv2 m md ->
           let mor = MO.convertMatrixOuter r
-              convolved = HM.corr2 m mor
+              convolved = LA.corr2 m mor
               moc = MO.MatrixOuter (Just convolved) Nothing Nothing
           in eval2 moc md
 
@@ -807,7 +807,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         From0X d -> eval0 (OT.unScalar r) d
         From1X d -> eval1 (OT.toVector r) d
         From2X d cols ->
-          eval2 (MO.MatrixOuter (Just $ HM.reshape cols $ OT.toVector r)
+          eval2 (MO.MatrixOuter (Just $ LA.reshape cols $ OT.toVector r)
                                 Nothing Nothing)
                 d
         FromSX d -> evalS (Data.Array.Convert.convert r) d
@@ -881,7 +881,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         From1S d -> eval1 (OS.toVector r) d
         From2S proxyCols d ->
           eval2 (MO.MatrixOuter
-                   (Just $ HM.reshape (fromInteger $ natVal proxyCols)
+                   (Just $ LA.reshape (fromInteger $ natVal proxyCols)
                          $ OS.toVector r)
                    Nothing Nothing)
                 d
@@ -970,7 +970,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
   -- We use normal hmatrix matrices rather than the sparse replacement.
   lenOuter <- readSTRefU len2
   dMap2' :: Data.Vector.Mutable.MVector s (Matrix r)
-    <- VM.replicate lenOuter (HM.fromRows [])
+    <- VM.replicate lenOuter (LA.fromRows [])
   dMap2 <- newSTRef dMap2'
   let eval0 :: Delta0 r -> ST s r
       eval0 Zero0 = return 0
@@ -1008,7 +1008,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         Scale0 k d -> (k *) <$> eval0 d
         Add0 d e -> liftM2 (+) (eval0 d) (eval0 e)
 
-        SumElements0 vd _n -> HM.sumElements <$> eval1 vd
+        SumElements0 vd _n -> LA.sumElements <$> eval1 vd
         Index0 d ix _k -> flip (V.!) ix <$> eval1 d
 
         Dot0 vr vd -> (<.>) vr <$> eval1 vd
@@ -1053,22 +1053,22 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         Seq1 lsd -> do
           v <- V.mapM eval0 lsd
           return $! V.convert v
-        Konst1 d n -> flip HM.konst n <$> eval0 d
+        Konst1 d n -> flip LA.konst n <$> eval0 d
         Append1 d _k e -> liftM2 (V.++) (eval1 d) (eval1 e)
         Slice1 i n d _len -> V.slice i n <$> eval1 d
         SumRows1 dm _cols ->
-          V.fromList . map HM.sumElements . HM.toRows <$> eval2 dm
+          V.fromList . map LA.sumElements . LA.toRows <$> eval2 dm
         SumColumns1 dm _rows ->
-          V.fromList . map HM.sumElements . HM.toColumns <$> eval2 dm
+          V.fromList . map LA.sumElements . LA.toColumns <$> eval2 dm
 
-        M_VD1 m dRow -> (HM.#>) m <$> eval1 dRow
-        MD_V1 md row -> flip (HM.#>) row <$> eval2 md
+        M_VD1 m dRow -> (LA.#>) m <$> eval1 dRow
+        MD_V1 md row -> flip (LA.#>) row <$> eval2 md
 
         FromX1 d -> OT.toVector <$> evalX d
         FromS1 d -> OS.toVector <$> evalS d
 
         Reverse1 d -> V.reverse <$> eval1 d
-        Flatten1 _rows _cols d -> HM.flatten <$> eval2 d
+        Flatten1 _rows _cols d -> LA.flatten <$> eval2 d
         FlattenX1 _sh d -> OT.toVector <$> evalX d
         FlattenS1 d -> OS.toVector <$> evalS d
 
@@ -1108,39 +1108,39 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
 
         FromRows2 lvd -> do
           l <- mapM eval1 $ V.toList lvd
-          return $! HM.fromRows l
+          return $! LA.fromRows l
         FromColumns2 lvd -> do
           l <- mapM eval1 $ V.toList lvd
-          return $! HM.fromColumns l
-        Konst2 d sz -> flip HM.konst sz <$> eval0 d
-        Transpose2 md -> HM.tr' <$> eval2 md
-        M_MD2 m md -> (HM.<>) m <$> eval2 md
-        MD_M2 md m -> flip (HM.<>) m <$> eval2 md
-        RowAppend2 d _k e -> liftM2 (HM.===) (eval2 d) (eval2 e)
-        ColumnAppend2 d _k e -> liftM2 (HM.|||) (eval2 d) (eval2 e)
+          return $! LA.fromColumns l
+        Konst2 d sz -> flip LA.konst sz <$> eval0 d
+        Transpose2 md -> LA.tr' <$> eval2 md
+        M_MD2 m md -> (LA.<>) m <$> eval2 md
+        MD_M2 md m -> flip (LA.<>) m <$> eval2 md
+        RowAppend2 d _k e -> liftM2 (LA.===) (eval2 d) (eval2 e)
+        ColumnAppend2 d _k e -> liftM2 (LA.|||) (eval2 d) (eval2 e)
         RowSlice2 i n d _rows ->
-          HM.takeRows n . HM.dropRows i <$> eval2 d
+          LA.takeRows n . LA.dropRows i <$> eval2 d
         ColumnSlice2 i n d _cols ->
-          HM.takeColumns n . HM.dropColumns i <$> eval2 d
+          LA.takeColumns n . LA.dropColumns i <$> eval2 d
 
-        AsRow2 dRow -> HM.asRow <$> eval1 dRow  -- TODO: risky
-        AsColumn2 dCol -> HM.asColumn <$> eval1 dCol  -- TODO: risky
+        AsRow2 dRow -> LA.asRow <$> eval1 dRow  -- TODO: risky
+        AsColumn2 dCol -> LA.asColumn <$> eval1 dCol  -- TODO: risky
 
         FromX2 d -> do
           t <- evalX d
           case OT.shapeL t of
-            [_rows, cols] -> return $! HM.reshape cols $ OT.toVector t
+            [_rows, cols] -> return $! LA.reshape cols $ OT.toVector t
             _ -> error "eval2: wrong tensor dimensions"
         FromS2 d -> do
           t <- evalS d
           case OS.shapeL t of
-            [_rows, cols] -> return $! HM.reshape cols $ OS.toVector t
+            [_rows, cols] -> return $! LA.reshape cols $ OS.toVector t
             _ -> error "eval2: wrong tensor dimensions"
 
-        Flipud2 d -> HM.flipud <$> eval2 d
-        Fliprl2 d -> HM.fliprl <$> eval2 d
-        Reshape2 cols d -> HM.reshape cols <$> eval1 d
-        Conv2 m md -> HM.conv2 m <$> eval2 md
+        Flipud2 d -> LA.flipud <$> eval2 d
+        Fliprl2 d -> LA.fliprl <$> eval2 d
+        Reshape2 cols d -> LA.reshape cols <$> eval1 d
+        Conv2 m md -> LA.conv2 m <$> eval2 md
 
       evalX :: DeltaX r -> ST s (OT.Array r)
       evalX ZeroX = return 0
@@ -1194,7 +1194,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
           return $! OT.fromVector [V.length v] v
         From2X d cols -> do
           l <- eval2 d
-          return $! OT.fromVector [HM.rows l, cols] $ HM.flatten l
+          return $! OT.fromVector [LA.rows l, cols] $ LA.flatten l
         FromSX d -> Data.Array.Convert.convert <$> evalS d
 
       evalS :: OS.Shape sh => DeltaS sh r -> ST s (OS.Array sh r)
@@ -1245,7 +1245,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
 
         From0S d -> OS.scalar <$> eval0 d
         From1S d -> OS.fromVector <$> eval1 d
-        From2S _ d -> OS.fromVector . HM.flatten <$> eval2 d
+        From2S _ d -> OS.fromVector . LA.flatten <$> eval2 d
         FromXS d -> Data.Array.Convert.convert <$> evalX d
 #endif
 

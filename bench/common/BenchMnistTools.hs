@@ -10,7 +10,7 @@ import           Control.Monad (when)
 import           Criterion.Main
 import           Data.List.Index (imap)
 import qualified Data.Vector.Generic as V
-import qualified Numeric.LinearAlgebra as HM
+import qualified Numeric.LinearAlgebra as LA
 import           System.Random
 
 -- import           System.IO (hPutStrLn, stderr)
@@ -99,10 +99,10 @@ mnistTrainBench2V :: String -> Int -> [MnistData Double]
                   -> Benchmark
 mnistTrainBench2V extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
   let (nParams0, nParams1, _, _) = fcnnMnistLen1 widthHidden widthHidden2
-      params0Init = HM.randomVector 33 HM.Uniform nParams0 - HM.scalar 0.5
+      params0Init = LA.randomVector 33 LA.Uniform nParams0 - LA.scalar 0.5
       params1Init = V.fromList $
-        imap (\i nPV -> HM.randomVector (33 + nPV + i) HM.Uniform nPV
-                        - HM.scalar 0.5)
+        imap (\i nPV -> LA.randomVector (33 + nPV + i) LA.Uniform nPV
+                        - LA.scalar 0.5)
              nParams1
       f = fcnnMnistLoss1 widthHidden widthHidden2
       chunk = take chunkLength xs
@@ -118,10 +118,10 @@ mnistTestBench2V :: String -> Int -> [MnistData Double] -> Int -> Int
                  -> Benchmark
 mnistTestBench2V extraPrefix chunkLength xs widthHidden widthHidden2 = do
   let (nParams0, nParams1, _, _) = fcnnMnistLen1 widthHidden widthHidden2
-      params0Init = HM.randomVector 33 HM.Uniform nParams0 - HM.scalar 0.5
+      params0Init = LA.randomVector 33 LA.Uniform nParams0 - LA.scalar 0.5
       params1Init = V.fromList $
-        imap (\i nPV -> HM.randomVector (33 + nPV + i) HM.Uniform nPV
-                        - HM.scalar 0.5)
+        imap (\i nPV -> LA.randomVector (33 + nPV + i) LA.Uniform nPV
+                        - LA.scalar 0.5)
              nParams1
       chunk = take chunkLength xs
       score c = fcnnMnistTest1 widthHidden widthHidden2 c

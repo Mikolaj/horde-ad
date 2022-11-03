@@ -16,7 +16,7 @@ import qualified Data.Foldable
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable as VS
-import qualified Numeric.LinearAlgebra as HM
+import qualified Numeric.LinearAlgebra as LA
 import           Test.Tasty
 import           Test.Tasty.QuickCheck
 
@@ -62,7 +62,7 @@ listsToParameters4 (a0, a1, a2, aX) =
     (V.fromList a0)
     (V.singleton $ V.fromList a1)
     (if null a2 then Data.Vector.empty
-                else V.singleton $ HM.matrix 1 a2)
+                else V.singleton $ LA.matrix 1 a2)
     (if null aX then Data.Vector.empty
                 else V.singleton $ OT.fromList [length aX] aX)
 
@@ -180,8 +180,8 @@ instance (VS.Storable a) => HasShape (VS.Vector a) where
 instance HasShape (OT.Array a) where
   shapeL = OT.shapeL
 
-instance HasShape (HM.Matrix a) where
-  shapeL matrix = [HM.rows matrix, HM.cols matrix]
+instance HasShape (LA.Matrix a) where
+  shapeL matrix = [LA.rows matrix, LA.cols matrix]
 
 instance {-# OVERLAPPABLE #-} (Foldable t) => HasShape (t a) where
   shapeL = (: []) . length
@@ -202,8 +202,8 @@ instance (VS.Storable a) => Linearizable (OT.Array a) a where
 instance (VS.Storable a, OS.Shape sh) => Linearizable (OS.Array sh a) a where
   linearize = OS.toList
 
-instance (HM.Element a) => Linearizable (HM.Matrix a) a where
-  linearize = HM.toList . HM.flatten
+instance (LA.Element a) => Linearizable (LA.Matrix a) a where
+  linearize = LA.toList . LA.flatten
 
 instance {-# OVERLAPPABLE #-} (Foldable t) => Linearizable (t a) a where
   linearize = Data.Foldable.toList

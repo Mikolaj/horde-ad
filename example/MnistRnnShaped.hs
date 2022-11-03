@@ -17,7 +17,7 @@ import           Data.List (foldl')
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
 import           Numeric.LinearAlgebra (Vector)
-import qualified Numeric.LinearAlgebra as HM
+import qualified Numeric.LinearAlgebra as LA
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
@@ -174,7 +174,7 @@ rnnMnistLossFusedS out_width@MkSN
                          batch_size
                          sizeMnistWidth sizeMnistHeight
                          xs inputs
-      targets2 = HM.tr $ HM.reshape (valueOf @SizeMnistLabel)
+      targets2 = LA.tr $ LA.reshape (valueOf @SizeMnistLabel)
                        $ OS.toVector labelS
       vec = lossSoftMaxCrossEntropyL targets2 (fromS2 result)
   in scale (recip $ fromIntegral (valueOf @batch_size :: Int))

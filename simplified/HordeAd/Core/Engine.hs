@@ -23,7 +23,7 @@ import Prelude
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Numeric, Vector)
-import qualified Numeric.LinearAlgebra as HM
+import qualified Numeric.LinearAlgebra as LA
 import           Text.Show.Pretty (ppShow)
 
 -- import           System.Mem (performMinorGC)
@@ -245,8 +245,8 @@ initializerFixed :: Int -> Double -> (Int, [Int], c, d)
 initializerFixed seed range (nParams0, lParams1, _, _) =
   let vParams1 = V.fromList lParams1
       createRandomVector n seedV =
-        HM.scale (2 * range)
-        $ HM.randomVector seedV HM.Uniform n - HM.scalar 0.5
+        LA.scale (2 * range)
+        $ LA.randomVector seedV LA.Uniform n - LA.scalar 0.5
       params0Init = createRandomVector nParams0 seed
       params1Init =
         V.imap (\i nPV -> createRandomVector nPV (seed + nPV + i)) vParams1

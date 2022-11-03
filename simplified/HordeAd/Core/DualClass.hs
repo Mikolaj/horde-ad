@@ -40,7 +40,7 @@ import           Data.MonoTraversable (Element, MonoFunctor)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Numeric, Vector)
-import qualified Numeric.LinearAlgebra as HM
+import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Internal.Delta
@@ -243,11 +243,11 @@ instance Num (Vector r)
 instance ( Numeric r
          , Dual 'ADModeDerivative r ~ r )
          => HasRanks 'ADModeDerivative r where
-  dSumElements0 vd _ = HM.sumElements vd
+  dSumElements0 vd _ = LA.sumElements vd
   dIndex0 d ix _ = d V.! ix
-  dDot0 = (HM.<.>)
+  dDot0 = (LA.<.>)
   dSeq1 = V.convert
-  dKonst1 = HM.konst
+  dKonst1 = LA.konst
   dAppend1 d _k e = d V.++ e
   dSlice1 i n d _len = V.slice i n d
   dReverse1 = V.reverse

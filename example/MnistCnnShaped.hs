@@ -14,7 +14,7 @@ import qualified Data.Array.Shape
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
-import qualified Numeric.LinearAlgebra as HM
+import qualified Numeric.LinearAlgebra as LA
 
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
@@ -203,7 +203,7 @@ convMnistLossFusedS kheight_minus_1@MkSN kwidth_minus_1@MkSN
       result = convMnistS kheight_minus_1 kwidth_minus_1 num_hidden out_channels
                           in_height in_width batch_size
                           xs inputs
-      targets2 = HM.tr $ HM.reshape (staticNatValue sizeMnistLabel :: Int)
+      targets2 = LA.tr $ LA.reshape (staticNatValue sizeMnistLabel :: Int)
                        $ OS.toVector labelS
       vec = lossSoftMaxCrossEntropyL targets2 (fromS2 result)
   in scale (recip $ fromIntegral (staticNatValue batch_size :: Int))

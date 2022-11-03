@@ -8,7 +8,7 @@ import Prelude
 import           Control.Monad (foldM)
 import           Data.List.Index (imap)
 import qualified Data.Vector.Generic as V
-import qualified Numeric.LinearAlgebra as HM
+import qualified Numeric.LinearAlgebra as LA
 import           System.IO (hPutStrLn, stderr)
 import           System.Random
 import           Test.Tasty
@@ -61,7 +61,7 @@ sgdTestCase prefix trainDataIO trainWithLoss gamma expected =
   let widthHidden = 250
       widthHidden2 = 50
       nParams0 = fcnnMnistLen0 widthHidden widthHidden2
-      vec = HM.randomVector 33 HM.Uniform nParams0 - HM.scalar 0.5
+      vec = LA.randomVector 33 LA.Uniform nParams0 - LA.scalar 0.5
       name = prefix ++ " "
              ++ unwords [show widthHidden, show nParams0, show gamma]
   in testCase name $ do
@@ -87,7 +87,7 @@ mnistTestCase2
 mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                gamma expected =
   let nParams0 = fcnnMnistLen0 widthHidden widthHidden2
-      params0Init = HM.randomVector 44 HM.Uniform nParams0 - HM.scalar 0.5
+      params0Init = LA.randomVector 44 LA.Uniform nParams0 - LA.scalar 0.5
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show widthHidden, show widthHidden2
@@ -145,10 +145,10 @@ mnistTestCase2V
 mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                 gamma expected =
   let (nParams0, nParams1, _, _) = fcnnMnistLen1 widthHidden widthHidden2
-      params0Init = HM.randomVector 44 HM.Uniform nParams0 - HM.scalar 0.5
+      params0Init = LA.randomVector 44 LA.Uniform nParams0 - LA.scalar 0.5
       params1Init = V.fromList $
-        imap (\i nPV -> HM.randomVector (44 + nPV + i) HM.Uniform nPV
-                        - HM.scalar 0.5)
+        imap (\i nPV -> LA.randomVector (44 + nPV + i) LA.Uniform nPV
+                        - LA.scalar 0.5)
              nParams1
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
@@ -259,7 +259,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       forAll (choose (1, 100)) $ \widthHidden2 ->
       forAll (choose (0.01, 10)) $ \range ->
       forAll (choose (0.01, 10)) $ \rangeDs ->
-        let createRandomVector n seedV = HM.randomVector seedV HM.Uniform n
+        let createRandomVector n seedV = LA.randomVector seedV LA.Uniform n
             glyph = createRandomVector sizeMnistGlyphInt seed
             label = createRandomVector sizeMnistLabelInt seedDs
             mnistData :: MnistData Double
@@ -280,7 +280,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       forAll (choose (1, 5000)) $ \widthHidden2 ->
       forAll (choose (0.01, 0.5)) $ \range ->  -- large nn, so NaNs fast
       forAll (choose (0.01, 10)) $ \rangeDs ->
-        let createRandomVector n seedV = HM.randomVector seedV HM.Uniform n
+        let createRandomVector n seedV = LA.randomVector seedV LA.Uniform n
             glyph = createRandomVector sizeMnistGlyphInt seed
             label = createRandomVector sizeMnistLabelInt seedDs
             mnistData :: MnistData Double

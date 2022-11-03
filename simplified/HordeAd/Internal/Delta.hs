@@ -49,7 +49,7 @@ import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Numeric, Vector, (<.>))
-import qualified Numeric.LinearAlgebra as HM
+import qualified Numeric.LinearAlgebra as LA
 import           Text.Show.Functions ()
 
 -- * Abstract syntax trees of the delta expressions
@@ -287,10 +287,10 @@ buildFinMaps s0 deltaDt =
         Scale0 k d -> eval0 s (k * r) d
         Add0 d e -> eval0 (eval0 s r e) r d
 
-        SumElements0 vd n -> eval1 s (HM.konst r n) vd
-        Index0 d ix k -> eval1 s (HM.konst 0 k V.// [(ix, r)]) d
+        SumElements0 vd n -> eval1 s (LA.konst r n) vd
+        Index0 d ix k -> eval1 s (LA.konst 0 k V.// [(ix, r)]) d
 
-        Dot0 v vd -> eval1 s (HM.scale r v) vd
+        Dot0 v vd -> eval1 s (LA.scale r v) vd
 
       addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
@@ -317,7 +317,7 @@ buildFinMaps s0 deltaDt =
 
         Append1 d k e -> eval1 (eval1 s (V.drop k r) e) (V.take k r) d
         Slice1 i n d len ->
-          eval1 s (HM.konst 0 i V.++ r V.++ HM.konst 0 (len - i - n)) d
+          eval1 s (LA.konst 0 i V.++ r V.++ LA.konst 0 (len - i - n)) d
 
         Reverse1 d -> eval1 s (V.reverse r) d
         Build1 n f -> foldl' (\s2 i -> eval0 s2 (r V.! i) (f i)) s [0 .. n - 1]
@@ -401,7 +401,7 @@ buildDerivative dim0 dim1 deltaTopLevel
         Scale0 k d -> (k *) <$> eval0 d
         Add0 d e -> liftM2 (+) (eval0 d) (eval0 e)
 
-        SumElements0 vd _n -> HM.sumElements <$> eval1 vd
+        SumElements0 vd _n -> LA.sumElements <$> eval1 vd
         Index0 d ix _k -> flip (V.!) ix <$> eval1 d
 
         Dot0 vr vd -> (<.>) vr <$> eval1 vd
@@ -434,7 +434,7 @@ buildDerivative dim0 dim1 deltaTopLevel
         Seq1 lsd -> do
           v <- V.mapM eval0 lsd
           return $! V.convert v
-        Konst1 d n -> flip HM.konst n <$> eval0 d
+        Konst1 d n -> flip LA.konst n <$> eval0 d
         Append1 d _k e -> liftM2 (V.++) (eval1 d) (eval1 e)
         Slice1 i n d _len -> V.slice i n <$> eval1 d
 

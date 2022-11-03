@@ -37,7 +37,7 @@ import           Control.Exception.Assert.Sugar
 import           Data.Maybe (fromJust)
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
-import qualified Numeric.LinearAlgebra as HM
+import qualified Numeric.LinearAlgebra as LA
 
 -- | A representation of a matrix as a product of a basic matrix
 -- and an outer product of two vectors. Each component defaults to ones.
@@ -52,61 +52,61 @@ nullMatrixOuter (MatrixOuter Nothing Nothing Nothing) = True
 nullMatrixOuter _ = False
 
 rows :: Numeric r => MatrixOuter r -> Int
-rows (MatrixOuter (Just m) _ _) = HM.rows m
+rows (MatrixOuter (Just m) _ _) = LA.rows m
 rows (MatrixOuter Nothing (Just c) _) = V.length c
 rows _ = error "rows: dimensions can't be determined"
 
 cols :: Numeric r => MatrixOuter r -> Int
-cols (MatrixOuter (Just m) _ _) = HM.cols m
+cols (MatrixOuter (Just m) _ _) = LA.cols m
 cols (MatrixOuter Nothing _ (Just r)) = V.length r
 cols _ = error "cols: dimensions can't be determined"
 
 convertMatrixOuter :: (Numeric r, Num (Vector r)) => MatrixOuter r -> Matrix r
 convertMatrixOuter (MatrixOuter (Just m) Nothing Nothing) = m
-convertMatrixOuter (MatrixOuter (Just m) (Just c) Nothing) = m * HM.asColumn c
+convertMatrixOuter (MatrixOuter (Just m) (Just c) Nothing) = m * LA.asColumn c
   -- This @asColumn@ is safe, because it's expanded via @m@.
   --
   -- Beware, depending on context, @m * outer c (konst 1 (cols m))@
   -- may allocate much less and perhaps @fromRows . toRowsMatrixOuter@
   -- may be even better; that's probably vector being picky about fusing.
   -- It doesn't matter if @m@ comes first.
-convertMatrixOuter (MatrixOuter (Just m) Nothing (Just r)) = m * HM.asRow r
+convertMatrixOuter (MatrixOuter (Just m) Nothing (Just r)) = m * LA.asRow r
   -- This @asRow@ is safe, because it's expanded via @m@.
-convertMatrixOuter (MatrixOuter (Just m) (Just c) (Just r)) = m * HM.outer c r
-convertMatrixOuter (MatrixOuter Nothing (Just c) (Just r)) = HM.outer c r
+convertMatrixOuter (MatrixOuter (Just m) (Just c) (Just r)) = m * LA.outer c r
+convertMatrixOuter (MatrixOuter Nothing (Just c) (Just r)) = LA.outer c r
 convertMatrixOuter _ =
   error "convertMatrixOuter: dimensions can't be determined"
 
 convertMatrixOuterOrNull :: (Numeric r, Num (Vector r))
                          => MatrixOuter r -> Matrix r
-convertMatrixOuterOrNull (MatrixOuter Nothing Nothing Nothing) = HM.fromRows []
+convertMatrixOuterOrNull (MatrixOuter Nothing Nothing Nothing) = LA.fromRows []
 convertMatrixOuterOrNull m = convertMatrixOuter m
 
 toRows :: (Numeric r, Num (Vector r)) => MatrixOuter r -> [Vector r]
-toRows (MatrixOuter (Just m) Nothing Nothing) = HM.toRows m
+toRows (MatrixOuter (Just m) Nothing Nothing) = LA.toRows m
 toRows (MatrixOuter (Just m) mc Nothing) =
-  maybe id (zipWith HM.scale . V.toList) mc $ HM.toRows m
+  maybe id (zipWith LA.scale . V.toList) mc $ LA.toRows m
 toRows (MatrixOuter (Just m) mc (Just r)) =
-  maybe (map (r *)) (zipWith (\s row -> r * HM.scale s row) . V.toList) mc
-  $ HM.toRows m
+  maybe (map (r *)) (zipWith (\s row -> r * LA.scale s row) . V.toList) mc
+  $ LA.toRows m
 toRows (MatrixOuter Nothing (Just c) (Just r)) =
-  map (`HM.scale` r) $ V.toList c
+  map (`LA.scale` r) $ V.toList c
 toRows _ = error "toRows: dimensions can't be determined"
 
 toColumns :: (Numeric r, Num (Vector r)) => MatrixOuter r -> [Vector r]
-toColumns (MatrixOuter (Just m) Nothing Nothing) = HM.toColumns m
+toColumns (MatrixOuter (Just m) Nothing Nothing) = LA.toColumns m
 toColumns (MatrixOuter (Just m) Nothing mr) =
-  maybe id (zipWith HM.scale . V.toList) mr $ HM.toColumns m
+  maybe id (zipWith LA.scale . V.toList) mr $ LA.toColumns m
 toColumns (MatrixOuter (Just m) (Just c) mr) =
 -- traceShow (sizeMatrixOuter (MatrixOuter (Just m) (Just c) mr)) $
-  maybe (map (c *)) (zipWith (\s col -> c * HM.scale s col) . V.toList) mr
-  $ HM.toColumns m
+  maybe (map (c *)) (zipWith (\s col -> c * LA.scale s col) . V.toList) mr
+  $ LA.toColumns m
 toColumns (MatrixOuter Nothing (Just c) (Just r)) =
-  map (`HM.scale` c) $ V.toList r
+  map (`LA.scale` c) $ V.toList r
 toColumns _ = error "toColumns: dimensions can't be determined"
 
 size :: Numeric r => MatrixOuter r -> (Maybe (Int, Int), Maybe Int, Maybe Int)
-size (MatrixOuter mm mc mr) = (HM.size <$> mm, HM.size <$> mc, HM.size <$> mr)
+size (MatrixOuter mm mc mr) = (LA.size <$> mm, LA.size <$> mc, LA.size <$> mr)
 
 plus :: (Numeric r, Num (Vector r))
      => MatrixOuter r -> MatrixOuter r -> MatrixOuter r
@@ -122,77 +122,77 @@ plus o1 o2 =
 multiplyWithOuter :: (Numeric r, Num (Vector r))
                   => Matrix r -> MatrixOuter r -> MatrixOuter r
 multiplyWithOuter k o@(MatrixOuter mm mc mr) =
-  assert (HM.size k
-          == maybe (HM.size $ fromJust mc, HM.size $ fromJust mr) HM.size mm
-         `blame` (HM.size k, size o)) $
+  assert (LA.size k
+          == maybe (LA.size $ fromJust mc, LA.size $ fromJust mr) LA.size mm
+         `blame` (LA.size k, size o)) $
   let !m = maybe k (k *) mm
   in MatrixOuter (Just m) mc mr
 
 konst :: Numeric r => r -> Int -> Int -> MatrixOuter r
 konst x nrows ncols =
-  let !c = HM.konst x nrows
-      !r = HM.konst x ncols
+  let !c = LA.konst x nrows
+      !r = LA.konst x ncols
   in MatrixOuter Nothing (Just c) (Just r)
 
 asRow :: Numeric r => Vector r -> Int -> MatrixOuter r
 asRow !r nrows =
-  let !c = HM.konst 1 nrows
+  let !c = LA.konst 1 nrows
   in MatrixOuter Nothing (Just c) (Just r)
 
 asColumn :: Numeric r => Vector r -> Int -> MatrixOuter r
 asColumn !c ncols =
-  let !r = HM.konst 1 ncols
+  let !r = LA.konst 1 ncols
   in MatrixOuter Nothing (Just c) (Just r)
 
 rowAppend :: (Numeric r, Num (Vector r))
           => MatrixOuter r -> MatrixOuter r -> MatrixOuter r
 rowAppend o1 o2 =
-  let !o = convertMatrixOuter o1 HM.=== convertMatrixOuter o2
+  let !o = convertMatrixOuter o1 LA.=== convertMatrixOuter o2
   in MatrixOuter (Just o) Nothing Nothing
 
 columnAppend :: (Numeric r, Num (Vector r))
              => MatrixOuter r -> MatrixOuter r -> MatrixOuter r
 columnAppend o1 o2 =
-  let !o = convertMatrixOuter o1 HM.||| convertMatrixOuter o2
+  let !o = convertMatrixOuter o1 LA.||| convertMatrixOuter o2
   in MatrixOuter (Just o) Nothing Nothing
 
 takeRows :: Numeric r => Int -> MatrixOuter r -> MatrixOuter r
 takeRows k (MatrixOuter mm mc mr) =
-  MatrixOuter (HM.takeRows k <$> mm)
+  MatrixOuter (LA.takeRows k <$> mm)
               (V.take k <$> mc)
               mr
 
 takeColumns :: Numeric r => Int -> MatrixOuter r -> MatrixOuter r
 takeColumns k (MatrixOuter mm mc mr) =
-  MatrixOuter (HM.takeColumns k <$> mm)
+  MatrixOuter (LA.takeColumns k <$> mm)
               mc
               (V.take k <$> mr)
 
 dropRows :: Numeric r => Int -> MatrixOuter r -> MatrixOuter r
 dropRows k (MatrixOuter mm mc mr) =
-  MatrixOuter (HM.dropRows k <$> mm)
+  MatrixOuter (LA.dropRows k <$> mm)
               (V.drop k <$> mc)
               mr
 
 dropColumns :: Numeric r => Int -> MatrixOuter r -> MatrixOuter r
 dropColumns k (MatrixOuter mm mc mr) =
-  MatrixOuter (HM.dropColumns k <$> mm)
+  MatrixOuter (LA.dropColumns k <$> mm)
               mc
               (V.drop k <$> mr)
 
 transpose :: Numeric r => MatrixOuter r -> MatrixOuter r
-transpose (MatrixOuter mm mc mr) = MatrixOuter (HM.tr' <$> mm) mr mc
+transpose (MatrixOuter mm mc mr) = MatrixOuter (LA.tr' <$> mm) mr mc
 
 matMul :: (Numeric r, Num (Vector r))
        => MatrixOuter r -> MatrixOuter r -> MatrixOuter r
 matMul m1 m2 =
-  MatrixOuter (Just $ convertMatrixOuter m1 HM.<> convertMatrixOuter m2)
+  MatrixOuter (Just $ convertMatrixOuter m1 LA.<> convertMatrixOuter m2)
               Nothing Nothing
 
 flipud :: Numeric r => MatrixOuter r -> MatrixOuter r
 flipud (MatrixOuter mm mc mr) =
-  MatrixOuter (HM.flipud <$> mm) mr (V.reverse <$> mc)
+  MatrixOuter (LA.flipud <$> mm) mr (V.reverse <$> mc)
 
 fliprl :: Numeric r => MatrixOuter r -> MatrixOuter r
 fliprl (MatrixOuter mm mc mr) =
-  MatrixOuter (HM.fliprl <$> mm) (V.reverse <$> mr) mc
+  MatrixOuter (LA.fliprl <$> mm) (V.reverse <$> mr) mc

@@ -12,7 +12,7 @@ import           Foreign.Storable (Storable)
 import           Foreign.Storable.Tuple ()
 import           GHC.Exts (inline)
 import           Numeric.LinearAlgebra (Vector)
-import qualified Numeric.LinearAlgebra as HM
+import qualified Numeric.LinearAlgebra as LA
 import           System.Random
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -62,7 +62,7 @@ synthValue :: forall d r. ADModeAndNum d r
            -> ADVal d (Vector r)
            -> ADVal d r
 synthValue factivation x ps1@(D u _) ps2 ps3 =
-  let activated = factivation $ scale (HM.konst x (V.length u)) ps1 + ps2
+  let activated = factivation $ scale (LA.konst x (V.length u)) ps1 + ps2
   in activated <.>! ps3
 
 synthLossSquared :: ADModeAndNum d r
@@ -198,8 +198,8 @@ gradSmartTestCase prefix lossFunction seedSamples
       nParams1 = lenSynthV width nSamples
       -- Values from -0.5 to 0.5. TODO: start biases at 1
       params1Init =
-        V.imap (\i nPV -> HM.randomVector (33 + nPV + i) HM.Uniform nPV
-                          - HM.scalar 0.5)
+        V.imap (\i nPV -> LA.randomVector (33 + nPV + i) LA.Uniform nPV
+                          - LA.scalar 0.5)
                nParams1
       parametersInit = domainsFrom01 V.empty params1Init
       name = prefix ++ " "

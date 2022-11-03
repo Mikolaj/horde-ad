@@ -35,7 +35,7 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
   (KnownNat, Nat, natVal, type (+), type (-), type (<=))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
-import qualified Numeric.LinearAlgebra as HM
+import qualified Numeric.LinearAlgebra as LA
 
 import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta
@@ -75,19 +75,19 @@ addParameters (a0, a1, a2, aX) (b0, b1, b2, bX) =
 -- Dot product and sum respective ranks and then sum it all.
 dotParameters :: Numeric r => Domains r -> Domains r -> r
 dotParameters (a0, a1, a2, aX) (b0, b1, b2, bX) =
-  a0 HM.<.> b0
+  a0 LA.<.> b0
   + V.sum (V.zipWith (\v1 u1 ->
       if V.null v1 || V.null u1
       then 0
-      else v1 HM.<.> u1) a1 b1)
+      else v1 LA.<.> u1) a1 b1)
   + V.sum (V.zipWith (\v2 u2 ->
-      if HM.rows v2 <= 0 || HM.rows u2 <= 0
+      if LA.rows v2 <= 0 || LA.rows u2 <= 0
       then 0
-      else HM.flatten v2 HM.<.> HM.flatten u2) a2 b2)
+      else LA.flatten v2 LA.<.> LA.flatten u2) a2 b2)
   + V.sum (V.zipWith (\vX uX ->
       if isTensorDummy vX || isTensorDummy uX
       then 0
-      else OT.toVector vX HM.<.> OT.toVector uX) aX bX)
+      else OT.toVector vX LA.<.> OT.toVector uX) aX bX)
 
 
 -- * General operations, for any tensor rank
@@ -191,18 +191,18 @@ reluLeaky v@(D u _) =
 -- * Operations resulting in a scalar
 
 sumElements0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
-sumElements0 (D u u') = D (HM.sumElements u) (dSumElements0 u' (V.length u))
+sumElements0 (D u u') = D (LA.sumElements u) (dSumElements0 u' (V.length u))
 
 index0 :: ADModeAndNum d r => ADVal d (Vector r) -> Int -> ADVal d r
 index0 (D u u') ix = D (u V.! ix) (dIndex0 u' ix (V.length u))
 
 minimum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
 minimum0 (D u u') =
-  D (HM.minElement u) (dIndex0 u' (HM.minIndex u) (V.length u))
+  D (LA.minElement u) (dIndex0 u' (LA.minIndex u) (V.length u))
 
 maximum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
 maximum0 (D u u') =
-  D (HM.maxElement u) (dIndex0 u' (HM.maxIndex u) (V.length u))
+  D (LA.maxElement u) (dIndex0 u' (LA.maxIndex u) (V.length u))
 
 foldl'0 :: ADModeAndNum d r
         => (ADVal d r -> ADVal d r -> ADVal d r)
@@ -220,13 +220,13 @@ altSumElements0 = foldl'0 (+) 0
 infixr 8 <.>!
 (<.>!) :: ADModeAndNum d r
        => ADVal d (Vector r) -> ADVal d (Vector r) -> ADVal d r
-(<.>!) (D u u') (D v v') = D (u HM.<.> v) (dAdd (dDot0 v u') (dDot0 u v'))
+(<.>!) (D u u') (D v v') = D (u LA.<.> v) (dAdd (dDot0 v u') (dDot0 u v'))
 
 -- | Dot product with a constant vector.
 infixr 8 <.>!!
 (<.>!!) :: ADModeAndNum d r
         => ADVal d (Vector r) -> Vector r -> ADVal d r
-(<.>!!) (D u u') v = D (u HM.<.> v) (dDot0 v u')
+(<.>!!) (D u u') v = D (u LA.<.> v) (dDot0 v u')
 
 infixr 8 <.>$
 (<.>$) :: (ADModeAndNum d r, KnownNat n)
@@ -280,12 +280,12 @@ lossSoftMaxCrossEntropyV target (D u u') =
   -- and is required by the QuickCheck test in TestMnistCNN.
   -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106
   -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
-  let expU = exp (u - HM.scalar (HM.maxElement u))
-      sumExpU = HM.sumElements expU
+  let expU = exp (u - LA.scalar (LA.maxElement u))
+      sumExpU = LA.sumElements expU
       recipSum = recip sumExpU
--- not exposed: softMaxU = HM.scaleRecip sumExpU expU
-      softMaxU = HM.scale recipSum expU
-  in D (negate $ log softMaxU HM.<.> target)  -- TODO: avoid: log . exp
+-- not exposed: softMaxU = LA.scaleRecip sumExpU expU
+      softMaxU = LA.scale recipSum expU
+  in D (negate $ log softMaxU LA.<.> target)  -- TODO: avoid: log . exp
        (dDot0 (softMaxU - target) u')
 
 
@@ -298,7 +298,7 @@ seq1 v = D (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
            (dSeq1 $ V.map (\(D _ u') -> u') v)
 
 konst1 :: ADModeAndNum d r => ADVal d r -> Int -> ADVal d (Vector r)
-konst1 (D u u') n = D (HM.konst u n) (dKonst1 u' n)
+konst1 (D u u') n = D (LA.konst u n) (dKonst1 u' n)
 
 append1 :: ADModeAndNum d r
         => ADVal d (Vector r) -> ADVal d (Vector r)
@@ -310,13 +310,13 @@ slice1 :: ADModeAndNum d r
 slice1 i n (D u u') = D (V.slice i n u) (dSlice1 i n u' (V.length u))
 
 sumRows1 :: ADModeAndNum d r => ADVal d (Matrix r) -> ADVal d (Vector r)
-sumRows1 (D u u') = D (V.fromList $ map HM.sumElements $ HM.toRows u)
-                      (dSumRows1 u' (HM.cols u))
+sumRows1 (D u u') = D (V.fromList $ map LA.sumElements $ LA.toRows u)
+                      (dSumRows1 u' (LA.cols u))
 
 sumColumns1 :: ADModeAndNum d r
             => ADVal d (Matrix r) -> ADVal d (Vector r)
-sumColumns1 (D u u') = D (V.fromList $ map HM.sumElements $ HM.toColumns u)
-                         (dSumColumns1 u' (HM.rows u))
+sumColumns1 (D u u') = D (V.fromList $ map LA.sumElements $ LA.toColumns u)
+                         (dSumColumns1 u' (LA.rows u))
 
 -- The detour through a boxed vector (list probably fuses away)
 -- is costly, but only matters if @f@ is cheap.
@@ -334,14 +334,14 @@ infixr 8 #>!
 (#>!) :: ADModeAndNum d r
       => ADVal d (Matrix r) -> ADVal d (Vector r)
       -> ADVal d (Vector r)
-(#>!) (D u u') (D v v') = D (u HM.#> v) (dAdd (dMD_V1 u' v) (dM_VD1 u v'))
+(#>!) (D u u') (D v v') = D (u LA.#> v) (dAdd (dMD_V1 u' v) (dM_VD1 u v'))
 
 -- | Dense matrix-vector product with a constant vector.
 infixr 8 #>!!
 (#>!!) :: ADModeAndNum d r
        => ADVal d (Matrix r) -> Vector r
        -> ADVal d (Vector r)
-(#>!!) (D u u') v = D (u HM.#> v) (dMD_V1 u' v)
+(#>!!) (D u u') v = D (u LA.#> v) (dMD_V1 u' v)
 
 fromX1 :: ADModeAndNum d r => ADVal d (OT.Array r) -> ADVal d (Vector r)
 fromX1 (D u u') = D (OT.toVector u) (dFromX1 u')
@@ -354,8 +354,8 @@ reverse1 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d (Vector r)
 reverse1 (D u u') = D (V.reverse u) (dReverse1 u')
 
 flatten1 :: ADModeAndNum d r => ADVal d (Matrix r) -> ADVal d (Vector r)
-flatten1 (D u u') = let (rows, cols) = HM.size u
-                    in D (HM.flatten u) (dFlatten1 rows cols u')
+flatten1 (D u u') = let (rows, cols) = LA.size u
+                    in D (LA.flatten u) (dFlatten1 rows cols u')
 
 flattenX1 :: ADModeAndNum d r
           => ADVal d (OT.Array r) -> ADVal d (Vector r)
@@ -414,10 +414,10 @@ lossSoftMaxCrossEntropyL
   -> ADVal d (Matrix r)
   -> ADVal d (Vector r)
 lossSoftMaxCrossEntropyL target (D u u') =
-  let expU = exp (u - HM.scalar (HM.maxElement u))  -- vs exploding gradients
-      sumExpU = V.fromList $ map HM.sumElements $ HM.toColumns expU
+  let expU = exp (u - LA.scalar (LA.maxElement u))  -- vs exploding gradients
+      sumExpU = V.fromList $ map LA.sumElements $ LA.toColumns expU
       recipSum = recip sumExpU
-      softMaxU = HM.asRow recipSum * expU
+      softMaxU = LA.asRow recipSum * expU
                    -- this @asRow@ is safe; multiplied at once
       scaled = D (negate $ log softMaxU * target)
                  (dScale (softMaxU - target) u')
@@ -430,21 +430,21 @@ lossSoftMaxCrossEntropyL target (D u u') =
 fromRows2 :: ADModeAndNum d r
           => Data.Vector.Vector (ADVal d (Vector r))
           -> ADVal d (Matrix r)
-fromRows2 v = D (HM.fromRows $ map (\(D u _) -> u) $ V.toList v)
+fromRows2 v = D (LA.fromRows $ map (\(D u _) -> u) $ V.toList v)
                 (dFromRows2 $ V.map (\(D _ u') -> u') v)
 
 fromColumns2 :: ADModeAndNum d r
              => Data.Vector.Vector (ADVal d (Vector r))
              -> ADVal d (Matrix r)
-fromColumns2 v = D (HM.fromRows $ map (\(D u _) -> u) $ V.toList v)
+fromColumns2 v = D (LA.fromRows $ map (\(D u _) -> u) $ V.toList v)
                    (dFromColumns2 $ V.map (\(D _ u') -> u') v)
 
 konst2 :: ADModeAndNum d r
        => ADVal d r -> (Int, Int) -> ADVal d (Matrix r)
-konst2 (D u u') sz = D (HM.konst u sz) (dKonst2 u' sz)
+konst2 (D u u') sz = D (LA.konst u sz) (dKonst2 u' sz)
 
 transpose2 :: ADModeAndNum d r => ADVal d (Matrix r) -> ADVal d (Matrix r)
-transpose2 (D u u') = D (HM.tr' u) (dTranspose2 u')
+transpose2 (D u u') = D (LA.tr' u) (dTranspose2 u')
 
 -- | Dense matrix-matrix product.
 --
@@ -454,62 +454,62 @@ infixr 8 <>!
 (<>!) :: ADModeAndNum d r
       => ADVal d (Matrix r) -> ADVal d (Matrix r)
       -> ADVal d (Matrix r)
-(<>!) (D u u') (D v v') = D (u HM.<> v) (dAdd (dMD_M2 u' v) (dM_MD2 u v'))
+(<>!) (D u u') (D v v') = D (u LA.<> v) (dAdd (dMD_M2 u' v) (dM_MD2 u v'))
 
 -- | Dense matrix-matrix product with a constant matrix.
 infixr 8 <>!!
 (<>!!) :: ADModeAndNum d r
        => ADVal d (Matrix r) -> Matrix r
        -> ADVal d (Matrix r)
-(<>!!) (D u u') v = D (u HM.<> v) (dMD_M2 u' v)
+(<>!!) (D u u') v = D (u LA.<> v) (dMD_M2 u' v)
 
 rowAppend2 :: ADModeAndNum d r
            => ADVal d (Matrix r) -> ADVal d (Matrix r)
            -> ADVal d (Matrix r)
 rowAppend2 (D u u') (D v v') =
-  D (u HM.=== v) (dRowAppend2 u' (HM.rows u) v')
+  D (u LA.=== v) (dRowAppend2 u' (LA.rows u) v')
 
 columnAppend2 :: ADModeAndNum d r
               => ADVal d (Matrix r) -> ADVal d (Matrix r)
               -> ADVal d (Matrix r)
 columnAppend2 (D u u') (D v v') =
-  D (u HM.||| v) (dColumnAppend2 u' (HM.cols u) v')
+  D (u LA.||| v) (dColumnAppend2 u' (LA.cols u) v')
 
 rowSlice2 :: ADModeAndNum d r
           => Int -> Int -> ADVal d (Matrix r)
           -> ADVal d (Matrix r)
-rowSlice2 i n (D u u') = D (HM.subMatrix (i, 0) (n, HM.cols u) u)
-                           (dRowSlice2 i n u' (HM.rows u))
+rowSlice2 i n (D u u') = D (LA.subMatrix (i, 0) (n, LA.cols u) u)
+                           (dRowSlice2 i n u' (LA.rows u))
 
 columnSlice2 :: ADModeAndNum d r
              => Int -> Int -> ADVal d (Matrix r)
              -> ADVal d (Matrix r)
-columnSlice2 i n (D u u') = D (HM.subMatrix (0, i) (HM.rows u, n) u)
-                              (dColumnSlice2 i n u' (HM.rows u))
+columnSlice2 i n (D u u') = D (LA.subMatrix (0, i) (LA.rows u, n) u)
+                              (dColumnSlice2 i n u' (LA.rows u))
 
 asRow2 :: ADModeAndNum d r
        => ADVal d (Vector r) -> Int -> ADVal d (Matrix r)
-asRow2 (D u u') n = D (HM.fromRows $ replicate n u) (dAsRow2 u')
+asRow2 (D u u') n = D (LA.fromRows $ replicate n u) (dAsRow2 u')
 
 asColumn2 :: ADModeAndNum d r
           => ADVal d (Vector r) -> Int -> ADVal d (Matrix r)
-asColumn2 (D u u') n = D (HM.fromColumns $ replicate n u) (dAsColumn2 u')
+asColumn2 (D u u') n = D (LA.fromColumns $ replicate n u) (dAsColumn2 u')
 
 fromX2 :: ADModeAndNum d r => ADVal d (OT.Array r) -> ADVal d (Matrix r)
 fromX2 (D u u') = case OT.shapeL u of
-  [_, cols] -> D (HM.reshape cols $ OT.toVector u) (dFromX2 u')
+  [_, cols] -> D (LA.reshape cols $ OT.toVector u) (dFromX2 u')
   dims -> error $ "fromX2: the tensor has wrong dimensions " ++ show dims
 
 fromS2 :: forall rows cols d r.
           (KnownNat rows, KnownNat cols, ADModeAndNum d r)
        => ADVal d (OS.Array '[rows, cols] r) -> ADVal d (Matrix r)
-fromS2 (D u u') = D (HM.reshape (valueOf @cols) $ OS.toVector u) (dFromS2 u')
+fromS2 (D u u') = D (LA.reshape (valueOf @cols) $ OS.toVector u) (dFromS2 u')
 
 flipud2 :: ADModeAndNum d r => ADVal d (Matrix r) -> ADVal d (Matrix r)
-flipud2 (D u u') = D (HM.flipud u) (dFlipud2 u')
+flipud2 (D u u') = D (LA.flipud u) (dFlipud2 u')
 
 fliprl2 :: ADModeAndNum d r => ADVal d (Matrix r) -> ADVal d (Matrix r)
-fliprl2 (D u u') = D (HM.fliprl u) (dFliprl2 u')
+fliprl2 (D u u') = D (LA.fliprl u) (dFliprl2 u')
 
 vectorSlices2 :: ADModeAndNum d r
               => Int -> ADVal d (Vector r) -> ADVal d (Matrix r)
@@ -518,13 +518,13 @@ vectorSlices2 n vv@(D v _) =
 
 reshape2 :: ADModeAndNum d r
          => Int -> ADVal d (Vector r) -> ADVal d (Matrix r)
-reshape2 cols (D u u') = D (HM.reshape cols u) (dReshape2 cols u')
+reshape2 cols (D u u') = D (LA.reshape cols u) (dReshape2 cols u')
 
 -- TODO: This has list of matrices result instead of a cube tensor.
 matrixSlices2 :: ADModeAndNum d r
               => Int -> ADVal d (Matrix r) -> [ADVal d (Matrix r)]
 matrixSlices2 dr m@(D u _) =
-  let (rows, cols) = HM.size u
+  let (rows, cols) = LA.size u
       n = dr * cols
       f k = reshape2 cols $ slice1 (k * cols) n (flatten1 m)
   in map f [0 .. rows - dr]
@@ -539,8 +539,8 @@ corr2 :: forall d r. ADModeAndNum d r
       => ADVal d (Matrix r) -> ADVal d (Matrix r)
       -> ADVal d (Matrix r)
 corr2 ker@(D u _) m@(D v _) =
-  let (rowsK, colsK) = HM.size u
-      (rowsM, colsM) = HM.size v
+  let (rowsK, colsK) = LA.size u
+      (rowsM, colsM) = LA.size v
       rr = rowsM - rowsK + 1
       rc = colsM - colsK + 1
   in if | rowsK <= 0 || colsK <= 0 ->
@@ -565,8 +565,8 @@ conv2 :: forall d r. ADModeAndNum d r
       => ADVal d (Matrix r) -> ADVal d (Matrix r)
       -> ADVal d (Matrix r)
 conv2 ker@(D u _) m@(D v _) =
-  let (rowsK, colsK) = HM.size u
-      (rowsM, colsM) = HM.size v
+  let (rowsK, colsK) = LA.size u
+      (rowsM, colsM) = LA.size v
   in if | rowsK <= 0 || colsK <= 0 ->
           konst2 0 (rowsM + rowsK - 1, colsM + colsK - 1)
         | otherwise ->
@@ -579,7 +579,7 @@ conv2 ker@(D u _) m@(D v _) =
 conv2' :: ADModeAndNum d r
        => ADVal d (Matrix r) -> ADVal d (Matrix r)
        -> ADVal d (Matrix r)
-conv2' (D u u') (D v v') = D (HM.conv2 u v) (dAdd (dConv2 u v') (dConv2 v u'))
+conv2' (D u u') (D v v') = D (LA.conv2 u v) (dAdd (dConv2 u v') (dConv2 v u'))
 
 -- A variant with limited padding, corresponding to SAME padding
 -- from Tensorflow. Data size does not change with this padding.
@@ -590,8 +590,8 @@ convSame2 :: forall d r. ADModeAndNum d r
           => ADVal d (Matrix r) -> ADVal d (Matrix r)
           -> ADVal d (Matrix r)
 convSame2 ker@(D u _) m@(D v _) =
-  let (rowsK, colsK) = HM.size u
-      (rowsM, colsM) = HM.size v
+  let (rowsK, colsK) = LA.size u
+      (rowsM, colsM) = LA.size v
   in if | rowsK <= 0 || colsK <= 0 ->
           konst2 0 (rowsM, colsM)
         | otherwise ->
@@ -605,7 +605,7 @@ convSame2 ker@(D u _) m@(D v _) =
 maxPool2 :: forall d r. ADModeAndNum d r
          => Int -> Int -> ADVal d (Matrix r) -> ADVal d (Matrix r)
 maxPool2 ksize stride m@(D u _) =
-  let (rows, cols) = HM.size u
+  let (rows, cols) = LA.size u
       colsOut = cols `div` stride
       resultRows = [0, stride .. rows - ksize]
       resultCols = [0, stride .. cols - ksize]
@@ -682,8 +682,8 @@ from1X :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d (OT.Array r)
 from1X (D u u') = D (OT.fromVector [V.length u] u) (dFrom1X u')
 
 from2X :: ADModeAndNum d r => ADVal d (Matrix r) -> ADVal d (OT.Array r)
-from2X (D u u') = D (OT.fromVector [HM.rows u, HM.cols u] $ HM.flatten u)
-                    (dFrom2X u' (HM.cols u))
+from2X (D u u') = D (OT.fromVector [LA.rows u, LA.cols u] $ LA.flatten u)
+                    (dFrom2X u' (LA.cols u))
 
 fromSX :: forall sh d r. (ADModeAndNum d r, OS.Shape sh)
        => ADVal d (OS.Array sh r) -> ADVal d (OT.Array r)
@@ -781,7 +781,7 @@ from1S (D u u') = D (OS.fromVector u) (dFrom1S u')
 
 from2S :: (KnownNat rows, KnownNat cols, ADModeAndNum d r)
        => ADVal d (Matrix r) -> ADVal d (OS.Array '[rows, cols] r)
-from2S (D u u') = D (OS.fromVector $ HM.flatten u) (dFrom2S Proxy u')
+from2S (D u u') = D (OS.fromVector $ LA.flatten u) (dFrom2S Proxy u')
 
 fromXS :: (ADModeAndNum d r, OS.Shape sh)
        => ADVal d (OT.Array r) -> ADVal d (OS.Array sh r)

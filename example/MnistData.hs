@@ -18,7 +18,7 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Unboxed
 import           GHC.TypeLits
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
-import qualified Numeric.LinearAlgebra as HM
+import qualified Numeric.LinearAlgebra as LA
 import           System.IO (IOMode (ReadMode), withBinaryFile)
 import           System.Random
 
@@ -120,7 +120,7 @@ loadMnistData glyphsPath labelsPath =
 loadMnistData2 :: FilePath -> FilePath -> IO [MnistData2 Double]
 loadMnistData2 glyphsPath labelsPath = do
   ds <- loadMnistData glyphsPath labelsPath
-  return $! map (first $ HM.reshape sizeMnistWidthInt) ds
+  return $! map (first $ LA.reshape sizeMnistWidthInt) ds
 
 -- Good enough for QuickCheck, so good enough for me.
 shuffle :: RandomGen g => g -> [a] -> [a]

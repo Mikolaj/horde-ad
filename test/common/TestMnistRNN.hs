@@ -11,7 +11,7 @@ import           Data.List (foldl', unfoldr)
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
 import           Numeric.LinearAlgebra (Matrix, Vector)
-import qualified Numeric.LinearAlgebra as HM
+import qualified Numeric.LinearAlgebra as LA
 import           System.IO (hPutStrLn, stderr)
 import           System.Random
 import           Test.Tasty
@@ -100,7 +100,7 @@ zeroState :: ADModeAndNum d r
               -> ADInputs d r
               -> ADVal d r2)
 zeroState k f xs inputs =
-  fst $ f xs (constant $ HM.konst 0 k) inputs
+  fst $ f xs (constant $ LA.konst 0 k) inputs
 
 nnSinRNN :: ADModeAndNum d r
          => Vector r
@@ -217,7 +217,7 @@ feedbackTestCase prefix fp f nParameters trainData expected =
                         , show totalParams, show range ]
   in testCase name $ do
        trained <- fst <$> sgd 0.1 f trainData parameters0
-       let primed = prime fp trained (HM.konst 0 30) (take 19 series)
+       let primed = prime fp trained (LA.konst 0 30) (take 19 series)
            output = feedback fp trained primed (series !! 19)
        take 30 output @?~ expected
 
@@ -491,7 +491,7 @@ hiddenLayerMnistRNNB x s inputs =
   let wX = at2 inputs 0  -- 128x28
       wS = at2 inputs 1  -- 128x128
       b = at1 inputs 0  -- 128
-      batchSize = HM.cols x
+      batchSize = LA.cols x
       y = wX <>!! x + wS <>! s + asColumn2 b batchSize
       yTanh = tanh y
   in (yTanh, yTanh)
@@ -505,7 +505,7 @@ middleLayerMnistRNNB batchOfVec@(D u _) s inputs =
   let wX = at2 inputs 3  -- 128x128
       wS = at2 inputs 4  -- 128x128
       b = at1 inputs 2  -- 128
-      batchSize = HM.cols u
+      batchSize = LA.cols u
       y = wX <>! batchOfVec + wS <>! s + asColumn2 b batchSize
       yTanh = tanh y
   in (yTanh, yTanh)
@@ -517,7 +517,7 @@ outputLayerMnistRNNB :: ADModeAndNum d r
 outputLayerMnistRNNB batchOfVec@(D u _) inputs =
   let w = at2 inputs 2  -- 10x128
       b = at1 inputs 1  -- 10
-      batchSize = HM.cols u
+      batchSize = LA.cols u
   in w <>! batchOfVec + asColumn2 b batchSize
 
 fcfcrnnMnistB :: ADModeAndNum d r
@@ -533,7 +533,7 @@ fcfcrnnMnistB2 :: ADModeAndNum d r
                -> ADInputs d r
                -> (ADVal d (Matrix r), ADVal d (Matrix r))
 fcfcrnnMnistB2 x s@(D u _) inputs =
-  let len = HM.rows u `div` 2
+  let len = LA.rows u `div` 2
       s1 = rowSlice2 0 len s
       s2 = rowSlice2 len len s
       (vec1, s1') = hiddenLayerMnistRNNB x s1 inputs
@@ -550,7 +550,7 @@ zeroStateB :: ADModeAndNum d r
                -> ADInputs d r
                -> ADVal d r2)
 zeroStateB ij f xs inputs =
-  fst $ f xs (constant $ HM.konst 0 ij) inputs
+  fst $ f xs (constant $ LA.konst 0 ij) inputs
 
 nnMnistRNNB :: ADModeAndNum d r
             => Int
@@ -558,7 +558,7 @@ nnMnistRNNB :: ADModeAndNum d r
             -> ADInputs d r
             -> ADVal d (Matrix r)
 nnMnistRNNB width xs inputs =
-  let batchSize = HM.cols $ head xs
+  let batchSize = LA.cols $ head xs
       rnnLayer = zeroStateB (width, batchSize) (unrollLastG fcfcrnnMnistB)
                             xs inputs
   in outputLayerMnistRNNB rnnLayer inputs
@@ -569,7 +569,7 @@ nnMnistRNNB2 :: ADModeAndNum d r
              -> ADInputs d r
              -> ADVal d (Matrix r)
 nnMnistRNNB2 width xs inputs =
-  let batchSize = HM.cols $ head xs
+  let batchSize = LA.cols $ head xs
       rnnLayer = zeroStateB (2 * width, batchSize) (unrollLastG fcfcrnnMnistB2)
                             xs inputs
   in outputLayerMnistRNNB rnnLayer inputs
@@ -630,9 +630,9 @@ mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
            packChunk chunk =
              let (inputs, targets) = unzip chunk
                  behead !acc ([] : _) = reverse acc
-                 behead !acc l = behead (HM.fromColumns (map head l) : acc)
+                 behead !acc l = behead (LA.fromColumns (map head l) : acc)
                                         (map tail l)
-             in (behead [] inputs, HM.fromColumns targets)
+             in (behead [] inputs, LA.fromColumns targets)
            -- There is some visual feedback, because some of these take long.
            runBatch :: (Domains Double, StateAdam Double)
                     -> (Int, [([Vector Double], Vector Double)])

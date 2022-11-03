@@ -12,7 +12,7 @@ import           Data.Coerce (coerce)
 import           Data.List (foldl')
 import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import qualified Data.Vector.Generic as V
-import qualified Numeric.LinearAlgebra as HM
+import qualified Numeric.LinearAlgebra as LA
 import           System.IO (hFlush, hPutStrLn, stderr)
 import           System.Random
 import           Test.Tasty
@@ -482,7 +482,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           vParams2 = V.fromList lParams2
           params0 = V.replicate nParams0 (1 :: Float)
           params1 = V.map (`V.replicate` 2) vParams1
-          params2 = V.map (HM.konst 3) vParams2
+          params2 = V.map (LA.konst 3) vParams2
           blackGlyph = V.replicate sizeMnistGlyphInt 4
           blackLabel = V.replicate sizeMnistLabelInt 5
           trainData = (blackGlyph, blackLabel)
@@ -496,7 +496,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           vParams2 = V.fromList lParams2
           params0 = V.replicate nParams0 (1 :: Float)
           params1 = V.map (`V.replicate` 2) vParams1
-          params2 = V.map (HM.konst 3) vParams2
+          params2 = V.map (LA.konst 3) vParams2
           blackGlyph = V.replicate sizeMnistGlyphInt 4
           blackLabel = V.replicate sizeMnistLabelInt 5
           trainData = (blackGlyph, blackLabel)
@@ -517,7 +517,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           vParams2 = V.fromList lParams2
           params0 = V.replicate nParams0 0.1
           params1 = V.map (`V.replicate` 0.1) vParams1
-          params2 = V.map (HM.konst 0.1) vParams2
+          params2 = V.map (LA.konst 0.1) vParams2
       testData <- loadMnistData testGlyphsPath testLabelsPath
       (1 - fcnnMnistTest2 testData
                       (params0, params1, params2, V.empty))
@@ -529,10 +529,10 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       forAll (choose (1, 1000)) $ \widthHidden2 ->
       forAll (choose (0.01, 1)) $ \range ->
       forAll (choose (0.01, 10)) $ \rangeDs ->
-        let createRandomVector n seedV = HM.randomVector seedV HM.Uniform n
+        let createRandomVector n seedV = LA.randomVector seedV LA.Uniform n
             glyph = createRandomVector sizeMnistGlyphInt seed
             label = createRandomVector sizeMnistLabelInt seedDs
-            labelOneHot = HM.konst 0 sizeMnistLabelInt V.// [(seedDs, 1)]
+            labelOneHot = LA.konst 0 sizeMnistLabelInt V.// [(seedDs, 1)]
             mnistData, mnistDataOneHot :: MnistData Double
             mnistData = (glyph, label)
             mnistDataOneHot = (glyph, labelOneHot)

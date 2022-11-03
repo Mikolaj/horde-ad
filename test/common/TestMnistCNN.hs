@@ -13,7 +13,7 @@ import qualified Data.Array.ShapedS as OS
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (SomeNat (..), someNatVal, type (<=))
 import           Numeric.LinearAlgebra (Matrix, Vector)
-import qualified Numeric.LinearAlgebra as HM
+import qualified Numeric.LinearAlgebra as LA
 import           System.IO (hPutStrLn, stderr)
 import           System.Random
 import           Test.Tasty
@@ -70,8 +70,8 @@ convDataMnistCNN :: ADModeAndNum d r
 convDataMnistCNN inputs x offset =
   let ker = at2 inputs offset
       bias = at0 inputs offset
-      yConv@(D u _) = conv2 ker (D x (dKonst2 dZero (HM.size x)))  -- == (scalar x)
-      yRelu = relu $ yConv + konst2 bias (HM.size u)
+      yConv@(D u _) = conv2 ker (D x (dKonst2 dZero (LA.size x)))  -- == (scalar x)
+      yRelu = relu $ yConv + konst2 bias (LA.size u)
   in maxPool2 2 2 yRelu
 
 -- This simulates convolution of nontrivial depth, without using tensors.
@@ -86,7 +86,7 @@ convMiddleMnistCNN depth inputs ms1 k =
       ms2 = zipWith conv ms1 [0 ..]
       yConv@(D u _) = sum ms2
       bias = at0 inputs (depth + k)
-      yRelu = relu $ yConv + konst2 bias (HM.size u)
+      yRelu = relu $ yConv + konst2 bias (LA.size u)
   in maxPool2 2 2 yRelu
 
 convMnistCNN :: ADModeAndNum d r
@@ -216,7 +216,7 @@ convDataMnistCNNS inputs x offset =
   let ker = at2 inputs offset
       bias = at0 inputs offset
       yConv@(D u _) = convSame2 ker (constant x)
-      yRelu = relu $ yConv + konst2 bias (HM.size u)
+      yRelu = relu $ yConv + konst2 bias (LA.size u)
   in maxPool2 2 2 yRelu
 
 -- This simulates convolution of nontrivial depth, without using tensors.
@@ -231,7 +231,7 @@ convMiddleMnistCNNS depth inputs ms1 k =
       ms2 = zipWith conv ms1 [0 ..]
       yConv@(D u _) = sum ms2
       bias = at0 inputs (depth + k)
-      yRelu = relu $ yConv + konst2 bias (HM.size u)
+      yRelu = relu $ yConv + konst2 bias (LA.size u)
   in maxPool2 2 2 yRelu
 
 convMnistCNNS :: ADModeAndNum d r
@@ -285,8 +285,8 @@ convDataMnistCNNP inputs x offset =
   let ker = at2 inputs offset
       bias = at0 inputs offset
       yConv@(D u _) =
-        conv2' ker (D x (dKonst2 dZero (HM.size x)))  -- == (scalar x)
-      yRelu = relu $ yConv + konst2 bias (HM.size u)
+        conv2' ker (D x (dKonst2 dZero (LA.size x)))  -- == (scalar x)
+      yRelu = relu $ yConv + konst2 bias (LA.size u)
   in maxPool2 2 2 yRelu
 
 -- This simulates convolution of nontrivial depth, without using tensors.
@@ -301,7 +301,7 @@ convMiddleMnistCNNP depth inputs ms1 k =
       ms2 = zipWith conv ms1 [0 ..]
       yConv@(D u _) = sum ms2
       bias = at0 inputs (depth + k)
-      yRelu = relu $ yConv + konst2 bias (HM.size u)
+      yRelu = relu $ yConv + konst2 bias (LA.size u)
   in maxPool2 2 2 yRelu
 
 convMnistCNNP :: ADModeAndNum d r
@@ -629,9 +629,9 @@ comparisonTests volume =
       forAll (choose (1, volume)) $ \num_hidden ->
       forAll (choose (0.01, 0.5)) $ \range ->
       forAll (choose (0.01, 10)) $ \rangeDs ->
-        let createRandomVector n seedV = HM.randomVector seedV HM.Uniform n
-            glyph = HM.reshape 28 $ createRandomVector (28 * 28) seed
-            label = HM.konst 0 sizeMnistLabelInt V.// [(seedDs, 1)]
+        let createRandomVector n seedV = LA.randomVector seedV LA.Uniform n
+            glyph = LA.reshape 28 $ createRandomVector (28 * 28) seed
+            label = LA.konst 0 sizeMnistLabelInt V.// [(seedDs, 1)]
             mnistData :: MnistData2 Double
             mnistData = (glyph, label)
             paramShape = lenMnistCNN final_image_size depth num_hidden
@@ -653,24 +653,24 @@ comparisonTests volume =
                                     sizeMnistHeight sizeMnistWidth
                                     (MkSN @1)
                                     (packBatch @1 [shapeBatch
-                                                  $ first HM.flatten mnistData])
+                                                  $ first LA.flatten mnistData])
               _ -> error "fT panic"
             paramsToT (p0, p1, p2, _) =
               let qX = V.fromList
                     [ OT.fromVector [depth, 1, 5, 5]
-                      $ V.concat $ map HM.flatten
+                      $ V.concat $ map LA.flatten
                       $ take depth $ V.toList p2
                     , OT.fromVector [depth] $ V.take depth p0
                     , OT.fromVector [depth, depth, 5, 5]
-                      $ V.concat $ map HM.flatten
+                      $ V.concat $ map LA.flatten
                       $ take (depth * depth) (drop depth $ V.toList p2)
                     , OT.fromVector [depth] $ V.drop depth p0
                     , let m = p2 V.! (depth + depth * depth)
-                      in OT.fromVector [num_hidden, HM.cols m]
-                         $ HM.flatten m
+                      in OT.fromVector [num_hidden, LA.cols m]
+                         $ LA.flatten m
                     , OT.fromVector [num_hidden] $ p1 V.! 0
                     , OT.fromVector [sizeMnistLabelInt, num_hidden]
-                      $ HM.flatten
+                      $ LA.flatten
                       $ p2 V.! (depth + depth * depth + 1)
                     , OT.fromVector [sizeMnistLabelInt] $ p1 V.! 1
                     ]

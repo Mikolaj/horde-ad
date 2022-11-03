@@ -15,7 +15,7 @@ import qualified Data.Array.DynamicS as OT
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import           Numeric.LinearAlgebra (Element, Matrix, Numeric, Vector)
-import qualified Numeric.LinearAlgebra as HM
+import qualified Numeric.LinearAlgebra as LA
 import           Numeric.LinearAlgebra.Data (flatten)
 import           Numeric.LinearAlgebra.Devel
   (MatrixOrder (..), liftMatrix, liftMatrix2, matrixFromVector, orderOf)
@@ -27,21 +27,22 @@ updateWithGradient :: (Numeric r, Floating (Vector r))
                    => r -> Domains r -> Domains r -> Domains r
 updateWithGradient gamma (params0, params1, params2, paramsX)
                          (gradient0, gradient1, gradient2, gradientX) =
-  let updateVector i r = i - HM.scale gamma r
+  let updateVector i r = i - LA.scale gamma r
       !params0New = updateVector params0 gradient0
       update1 i r = if V.null r  -- eval didn't update it, would crash
                     then i
                     else updateVector i r
       !params1New = V.zipWith update1 params1 gradient1
-      update2 i r = if HM.rows r <= 0  -- eval didn't update it, would crash
+      update2 i r = if LA.rows r <= 0  -- eval didn't update it, would crash
                     then i
                     else liftMatrix2 updateVector i r
       !params2New = V.zipWith update2 params2 gradient2
       updateX i r = if isTensorDummy r  -- eval didn't update it, would crash
                     then i
                     else liftVT2 updateVector i r
-                      -- TODO: this is slow; add @liftArray2@ and use HM,
-                      -- unless we move away from HM; similarly other OT calls
+                      -- TODO: this is slow; add @liftArray2@ and use hmatrix,
+                      -- unless we move away from hmatrix;
+                      -- similarly other OT calls
       !paramsXNew = V.zipWith updateX paramsX gradientX
   in (params0New, params1New, params2New, paramsXNew)
 {-# SPECIALIZE updateWithGradient :: Double -> Domains Double -> Domains Double -> Domains Double #-}
@@ -50,26 +51,26 @@ gradientIsNil :: (Eq r, Numeric r) => Domains r -> Bool
 gradientIsNil (gradient0, gradient1, gradient2, gradientX) =
   V.all (== 0) gradient0
   && V.all V.null gradient1
-  && V.all (\r -> HM.rows r <= 0) gradient2
+  && V.all (\r -> LA.rows r <= 0) gradient2
   && V.all isTensorDummy gradientX
 
 minimumGradient :: (Ord r, Numeric r) => Domains r -> r
 minimumGradient (gradient0, gradient1, gradient2, gradientX) =
-  min (if V.null gradient0 then 0 else HM.minElement gradient0)
+  min (if V.null gradient0 then 0 else LA.minElement gradient0)
       (min (if V.null gradient1 then 0
-            else V.minimum (V.map HM.minElement gradient1))
+            else V.minimum (V.map LA.minElement gradient1))
            (min (if V.null gradient2 then 0
-                 else V.minimum (V.map HM.minElement gradient2))
+                 else V.minimum (V.map LA.minElement gradient2))
                 (if V.null gradientX then 0
                  else V.minimum (V.map OT.minimumA gradientX))))
 
 maximumGradient :: (Ord r, Numeric r) => Domains r -> r
 maximumGradient (gradient0, gradient1, gradient2, gradientX) =
-  max (if V.null gradient0 then 0 else HM.maxElement gradient0)
+  max (if V.null gradient0 then 0 else LA.maxElement gradient0)
       (max (if V.null gradient1 then 0
-            else V.maximum (V.map HM.maxElement gradient1))
+            else V.maximum (V.map LA.maxElement gradient1))
            (max (if V.null gradient2 then 0
-                 else V.maximum (V.map HM.maxElement gradient2))
+                 else V.maximum (V.map LA.maxElement gradient2))
                 (if V.null gradientX then 0
                  else V.maximum (V.map OT.maximumA gradientX))))
 
@@ -127,22 +128,22 @@ liftMatrix43 :: ( Numeric a, Numeric b, Numeric c, Numeric d
              -> Matrix a -> Matrix b -> Matrix c -> Matrix d
              -> (Matrix x, Matrix y, Matrix z)
 liftMatrix43 f m1 m2 m3 m4 =
-  let sz@(r, c) = HM.size m1
+  let sz@(r, c) = LA.size m1
       rowOrder = orderOf m1
         -- checking @m4@ (gradient) makes RNN LL test much faster and BB slower
         -- so this needs much more benchmarking and understading to tweak
-  in if sz == HM.size m2 && sz == HM.size m3 && sz == HM.size m4
+  in if sz == LA.size m2 && sz == LA.size m3 && sz == LA.size m4
      then
        let (vx, vy, vz) = case rowOrder of
              RowMajor -> f (flatten m1) (flatten m2) (flatten m3) (flatten m4)
-             ColumnMajor -> f (flatten (HM.tr' m1)) (flatten (HM.tr' m2))
-                              (flatten (HM.tr' m3)) (flatten (HM.tr' m4))
+             ColumnMajor -> f (flatten (LA.tr' m1)) (flatten (LA.tr' m2))
+                              (flatten (LA.tr' m3)) (flatten (LA.tr' m4))
        in ( matrixFromVector rowOrder r c vx
           , matrixFromVector rowOrder r c vy
           , matrixFromVector rowOrder r c vz
           )
      else error $ "nonconformant matrices in liftMatrix43: "
-                  ++ show (HM.size m1, HM.size m2, HM.size m3, HM.size m4)
+                  ++ show (LA.size m1, LA.size m2, LA.size m3, LA.size m4)
 
 -- TOOD: make sure this is not worse that OT.zipWith3A when transposing
 -- between each application or that we never encounter such situations
@@ -185,14 +186,14 @@ updateWithGradientAdam ArgsAdam{..}
                    -> Vector r -> Vector r
                    -> (Vector r, Vector r, Vector r)
       updateVector mA vA p g =
-        let mANew = HM.scale betaOne mA + HM.scale oneMinusBeta1 g
-            vANew = HM.scale betaTwo vA + HM.scale oneMinusBeta2 (g * g)
+        let mANew = LA.scale betaOne mA + LA.scale oneMinusBeta1 g
+            vANew = LA.scale betaTwo vA + LA.scale oneMinusBeta2 (g * g)
             alphat = alpha * sqrt (1 - betaTwo ^ tAdamNew)
                              / (1 - betaOne ^ tAdamNew)
         in ( mANew
            , vANew
-           , p - HM.scale alphat mANew
-                 / (sqrt vANew + HM.scalar epsilon) )  -- the @scalar@ is safe
+           , p - LA.scale alphat mANew
+                 / (sqrt vANew + LA.scalar epsilon) )  -- the @scalar@ is safe
                       -- @addConstant@ would be better, but it's not exposed
       (!mAdam0New, !vAdam0New, !params0New) =
         updateVector mAdam0 vAdam0 params0 gradient0
@@ -201,7 +202,7 @@ updateWithGradientAdam ArgsAdam{..}
                           else updateVector mA vA p g
       (!mAdam1New, !vAdam1New, !params1New) =
         V.unzip3 $ V.zipWith4 update1 mAdam1 vAdam1 params1 gradient1
-      update2 mA vA p g = if HM.rows g <= 0  -- eval didn't update it; crash
+      update2 mA vA p g = if LA.rows g <= 0  -- eval didn't update it; crash
                           then (mA, vA, p)
                           else liftMatrix43 updateVector mA vA p g
       (!mAdam2New, !vAdam2New, !params2New) =

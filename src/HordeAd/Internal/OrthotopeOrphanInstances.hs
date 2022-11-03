@@ -12,7 +12,7 @@ import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.ShapedS as OS
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
-import qualified Numeric.LinearAlgebra as HM
+import qualified Numeric.LinearAlgebra as LA
 import qualified Numeric.LinearAlgebra.Devel
 
 liftVT :: Numeric r
@@ -198,7 +198,7 @@ type instance Element Double = Double
 type instance Element Float = Float
 
 instance Numeric r => MonoFunctor (Matrix r) where
-  omap = HM.cmap
+  omap = LA.cmap
 
 instance MonoFunctor Double where
   omap f = f
