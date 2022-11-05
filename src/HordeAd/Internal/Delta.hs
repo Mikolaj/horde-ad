@@ -571,6 +571,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
           -- having adjacent counter values
 
         SumElements0 vd n -> eval1 (LA.konst r n) vd
+        Index0 Zero1 _ _ -> return ()  -- shortcut
         Index0 (Input1 (InputId i)) ix k -> do
           let f v = if V.null v
                     then LA.konst 0 k V.// [(ix, r)]
@@ -581,7 +582,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
             -- in the 'else' branch, which implies copying the whole
             -- @v@ vector, so it's only several times faster (same allocation,
             -- but not adding to each cell of @v@).
-            -- TODO: does it make sense to extend this beyond @Input1@?
+            -- TODO: is it worthwhile to extend this to Delta1?
         Index0 d ix k -> eval1 (LA.konst 0 k V.// [(ix, r)]) d
 
         Dot0 v vd -> eval1 (LA.scale r v) vd

@@ -300,18 +300,32 @@ buildFinMaps s0 deltaDt =
         Add0 d e -> eval0 (eval0 s r e) r d
 
         SumElements0 vd n -> eval1 s (LA.konst r n) vd
+        -- The general case looks as follows
+        -- > Index0 d ix k -> eval1 s (LA.konst 0 k V.// [(ix, r)]) d
+        -- but it's faster with inlined @eval1@, as below.
+        -- BTW, such an optimization doesn't really belong in the simplified
+        -- horde-ad and no consistent benefit should be expected here.
+        Index0 Zero1 _ _ -> s  -- shortcut
         Index0 (Input1 i) ix k ->
           let f v = if V.null v
                     then LA.konst 0 k V.// [(ix, r)]
                     else v V.// [(ix, v V.! ix + r)]
           in s {iMap1 = EM.adjust f i $ iMap1 s}
-            -- This would be an asymptotic optimization compared to
-            -- the general case below, if not for the non-mutable update
-            -- in the 'else' branch, which implies copying the whole
-            -- @v@ vector, so it's only several times faster (same allocation,
-            -- but not adding to each cell of @v@).
-            -- TODO: does it make sense to extend this beyond @Input1@?
-        Index0 d ix k -> eval1 s (LA.konst 0 k V.// [(ix, r)]) d
+        Index0 (Delta1 n d) ix k ->
+          case EM.lookup n $ nMap s of
+            Just (DeltaBinding1 _) ->
+              let f v = v V.// [(ix, v V.! ix + r)]
+              in s {dMap1 = EM.adjust f n $ dMap1 s}
+                -- This would be an asymptotic optimization compared to
+                -- the general case, if not for the non-mutable update,
+                -- which implies copying the whole @v@ vector,
+                -- so it's only several times faster (same allocation,
+                -- but not adding to each cell of @v@).
+            Nothing ->
+              let v = LA.konst 0 k V.// [(ix, r)]
+              in s { nMap = EM.insert n (DeltaBinding1 d) $ nMap s
+                   , dMap1 = EM.insert n v $ dMap1 s}
+            _ -> error "buildFinMaps: corrupted nMap"
 
         Dot0 v vd -> eval1 s (LA.scale r v) vd
 
