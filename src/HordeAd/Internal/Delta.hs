@@ -7,7 +7,8 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 #endif
--- | The second component of dual numbers, @Delta@, with its semantics.
+-- | The second component of our rendition of dual numbers,
+-- delta expressions, with its semantics.
 -- Neel Krishnaswami calls it \"sparse vector expressions\",
 -- and indeed even in the simplest case of an objective function
 -- defined on scalars only, the codomain of the function that computes
@@ -22,17 +23,19 @@
 -- bigger: a whole vector of such matrices and more.
 --
 -- The algebraic structure here is an extension of vector space.
--- The crucial extra constructor of a input replaces the one-hot
+-- The crucial extra constructor of an input replaces the one-hot
 -- access to parameters with something cheaper and more uniform.
 -- A lot of the remaining additional structure is for introducing
 -- and reducing dimensions (ranks).
 --
--- This is an internal API now, superseded by "HordeAd.Core.DualClass"
--- that permits other kinds of second component of dual numbers,
--- e.g., the same as primal component, for fast computation
+-- This is an internal low-level API, while the module @DualClass@
+-- is an intermediate mid-level API that generates 'NodeId' identifiers,
+-- wraps delta-expression datatype constructors in smart constructors
+-- and provides a generalization to other kinds of second components
+-- of dual numbers, e.g., the same as primal component, for fast computation
 -- of forward derivatives (because @derivativeFromDelta@ below,
--- computing derivatives from delta-expressions, is slow once the expressions
--- grow large enough to affect cache misses).
+-- computing derivatives from delta-expressions, is slow once
+-- the expressions grow large enough to affect cache misses).
 module HordeAd.Internal.Delta
   ( -- * Abstract syntax trees of the delta expressions
     Delta0 (..), Delta0' (..)
@@ -81,26 +84,35 @@ import           HordeAd.Internal.OrthotopeOrphanInstances (liftVS2, liftVT2)
 
 -- * Abstract syntax trees of the delta expressions
 
--- | This is the grammar of delta-expressions at tensor rank 0, that is,
--- at scalar level. The first few operations have analogues
--- at the level of vectors, matrices and arbitrary tensors.
---
--- For each choice of the underlying scalar type @r@,
+-- | For each choice of the underlying scalar type @r@,
 -- we have several primitive differentiable types based on the scalar:
 -- the scalar type @r@ itself, @Vector r@, @Matrix r@ and tensors.
 -- Many operations span the ranks and so span the datatypes, which makes
--- the datatypes mutually recursive.
+-- the datatypes mutually recursive. Later on in this module,
+-- algorithms are implemented for computing gradients and for computing
+-- derivatives of objective functions from which such delta expressions
+-- are obtained via our dual number method.
 --
--- The identifier that is the first argument of @Delta0@ marks
--- the identity of a subterm as part of the whole global term tree.
+-- The first pair of grammars given below are of delta-expressions
+-- at tensor rank 0, that is, at the scalar level. The first few operations
+-- have analogues at the level of vectors, matrices and arbitrary tensors,
+-- but the other operations are specific to the rank.
 --
--- The per-rank identifier that is the second argument of @Delta0@
--- is an index into a contigous vector of gradient or derivative components
--- (partial gradients/derivatives wrt that term's position?) corresponding
--- to subterms of that rank. There is no corresponding argument to the
--- @Zero0@ constructor, because the term not only does not contribute
--- to the derivative (similarly as @Input0@), but we are not even interested
--- in what the (partial) gradient for that subterm position would be.
+-- The `NodeId` identifier, which is the first argument of the @Delta0@
+-- constructor, marks the unique identity of a subterm among
+-- all subtrees of all top level delta expression terms.
+-- It also represents data dependencies among the subterms for the purpose
+-- of computing contangents (partial derivatives of the objective function
+-- with respect to the position of the subterm in hand, as if the subterm
+-- was replaced by an input variable).
+--
+-- The per-rank `InputId` identifier in term constructor @Input0@
+-- is an index into a contiguous vector of contangents of exclusively @Input0@
+-- subterms of the whole term. The value at that index is the partial
+-- derivative of the objective function (represented by the whole term)
+-- with respect to the input parameter component of the objective
+-- function corresponding to that @Input0@ term. The collection of all such
+-- vectors of partial derivatives across all ranks is the gradient.
 data Delta0 r =
     Delta0 NodeId (Delta0' r)
   | Zero0
@@ -132,7 +144,8 @@ data Delta1' r =
 
   | Seq1 (Data.Vector.Vector (Delta0 r))  -- ^ "unboxing" conversion
   | Konst1 (Delta0 r) Int  -- ^ length; needed only for forward derivative
-  | Append1 (Delta1 r) Int (Delta1 r)  -- ^ the length of the first argument
+  | Append1 (Delta1 r) Int (Delta1 r)
+      -- ^ second argument is the length of the first argument
   | Slice1 Int Int (Delta1 r) Int  -- ^ last integer is the length of argument
   | SumRows1 (Delta2 r) Int  -- ^ the integer is the number of columns
   | SumColumns1 (Delta2 r) Int  -- ^ the integer is the number of rows
@@ -315,9 +328,10 @@ type DomainX r = Data.Vector.Vector (OT.Array r)
 
 type Domains r = (Domain0 r, Domain1 r, Domain2 r, DomainX r)
 
--- | The main input of the differentiation functions.
--- The delta expression to be differentiated and the dt perturbation
--- to be used.
+-- | The main input of the differentiation functions:
+-- the delta expression to be differentiated and the dt perturbation
+-- (small change) of the objective function codomain, for which we compute
+-- the gradient.
 data DeltaDt r =
     DeltaDt0 r (Delta0 r)
   | DeltaDt1 (Vector r) (Delta1 r)
@@ -328,6 +342,8 @@ data DeltaDt r =
 
 -- | Node identifiers left to be processed, with their corresponding
 -- index into @dMap@ finite map and delta expression.
+-- We can't process them at once, because their other shared copies
+-- may still not be processed, so we'd not take advantage of the sharing.
 data DeltaBinding r =
     DeltaBinding0 (DeltaId r) (Delta0' r)
   | DeltaBinding1 (DeltaId (Vector r)) (Delta1' r)
@@ -336,63 +352,48 @@ data DeltaBinding r =
   | forall sh. OS.Shape sh
     => DeltaBindingS (DeltaId (OT.Array r)) (DeltaS' sh r)
 
--- | TODO: this single haddock is now outdated, because per-node
--- identities have replaces variables and so exploitation of sharing
--- in order to avoid duplicated computation can't be explained
--- using the common concept of variables and their valuations.
---
--- Delta expressions naturally denote forward derivatives,
--- as encoded in function 'derivativeFromDelta'. However, we are more
+-- | Delta expressions naturally denote forward derivatives, as encoded
+-- in function 'derivativeFromDelta'. However, we are usually more
 -- interested in computing gradients, which is what @gradientFromDelta@ does.
 -- The two functions are bound by the equation from Lemma 5 from the paper
 -- "Provably correct, asymptotically efficient, higher-order reverse-mode
 -- automatic differentiation":
 --
--- > dt <.> derivativeFromDelta ct d ds = gradientFromDelta ct d dt <.> ds
+-- > dt <.> derivativeFromDelta d ds = gradientFromDelta d dt <.> ds
 --
 -- where @\<.\>@ denotes generalized dot product (multiplying
--- all tensors element-wise and summing the results),
--- @ct@ contains bindings of delta inputs and @d@ is the top level
+-- all tensors element-wise and summing the results), @d@ is the top level
 -- delta expression from translation of the objective function @f@ to dual
 -- numbers, @ds@ belongs to the domain of @f@ and @dt@ to the codomain.
+-- In other words, @ds@ is a perturbation (small change) of the arguments
+-- of @f@, for which we compute the derivative, and @dt@ is a perturbation
+-- of the result of @f@, for which we compute the gradient.
 -- We omitted for clarity the @dim0@, @dim1@, @dim2@ and @dimX@ arguments
 -- that are the lengths of vectors of the tensors in the domain of @f@.
---
--- Intuitively, @ds@ is a tiny perturbation of the arguments of @f@,
--- for which we compute the derivative, that is, the induced change
--- in the result of @f@. Similarly, @dt@ is a tiny perturbation of the
--- result of @f@, for which we compute the gradient, that is, the change
--- of arguments of @f@ sufficient to cause the perturbation.
--- Note that the scaling factor @r@ in functions @eval*@ in @gradientFromDelta@
--- locally plays the role of @dt@, just as the argument @parameters@
--- in @eval*@ in @derivativeFromDelta@ corresponds to @ds@.
 --
 -- Let's first discuss in detail the semantics of delta-expressions
 -- in terms of forward derivatives, since it's more straightforward.
 -- Let @r@ be the type of underlying scalars. Let @f@ be a mathematical
--- differentiable function that takes a collection of type @C@
--- of arguments and produces a single result of type @r@.
--- Let a dual number counterpart of @f@ applied to a collection
--- of parameters @P@ of type @C@ be represented as a Haskell value @b@.
--- Let @d :: Delta0 r@ be the closed delta expression that is the second
--- component of @b@, let @ds@ belong to @C@. The semantics of @d@ is a linear
--- function from @C@ to @r@ that is the derivative of @f@ at point @P@
+-- differentiable function that takes arguments (a collection
+-- of fininte maps or vectors) of type @Domains r@ and produces
+-- a single result of type @r@. Let a dual number counterpart
+-- of @f@ applied to a fixed collection of parameters @P@
+-- of type @Domains r@ be represented as a Haskell value @b@.
+-- Let @d :: Delta0 r@ be the delta expression that is
+-- the second component of @b@, let @ds@ belong to @Domains r@.
+-- The semantics of @d@ is a linear function from @Domains r@
+-- to @r@ that is the derivative of @f@ at point @P@
 -- with respect to the perturbation @ds@. The mathematical formula
 -- for the derivative follows straightforwardly the syntactic form
 -- of the delta expression @d@ (see 'derivativeFromDelta').
 --
 -- Let's now describe the semantics of a delta expression @d@
 -- as the gradient of @f@ at point @P@ with respect to a @dt@ that belongs
--- to @r@. Here the semantics of @d@ is a collection of four finite maps
--- (vectors) @v0@, @v1@, @v2@, @vX@, corresponding to @C@,
--- each map @vi@ taking indexes of type @DeltaId ai@ to values of type @ai@,
--- where @a0@ is @r@, @a1@ is @Vector r@, @a2@ is @Matrix r@
--- and @aX@ is the type of tensors of @r@.
--- The value of @vi@ at index @DeltaId k@ is the partial derivative
--- of function @f@ at @P@ with respect to its parameter of type @ai@.
--- The position of the @ai@ parameter is represented by @DeltaId k@
--- (in other words, the partial derivative is with respect to an input
--- quantity tagged with @DeltaId k@) and its value comes from @dt@.
+-- to @r@. Here the semantics of @d@ is a collection of finite maps
+-- (vectors) @v0@, @v1@, ..., corresponding to @Domains r@.
+-- The value of @vi@ at index @k@ is the partial derivative
+-- of function @f@ at @P@ with respect to its parameter of type @ai@
+-- residing at index @k@.
 --
 -- Function @gradientFromDelta@ computes the four vectors described above.
 -- Requested lengths of the vectors are given in the first few arguments.
@@ -449,7 +450,9 @@ initializeFinMaps
           , STRef s (EM.EnumMap NodeId (DeltaBinding r)) )
               -- Map and HashTable are way slower than the IntMap/EnumMap
 initializeFinMaps dim0 dim1 dim2 dimX = do
-  -- Gradually accumulated gradients for input nodes.
+  -- Cotangents of objective function inputs of rank 0.
+  -- When filled and frozen, these four vectors together become
+  -- the gradient of the objective function.
   iMap0 <- VM.replicate dim0 0  -- correct value; below are dummy
   iMap1 <- VM.replicate dim1 (V.empty :: Vector r)
   iMap2 <- VM.replicate dim2 (LA.fromRows [])
@@ -460,7 +463,7 @@ initializeFinMaps dim0 dim1 dim2 dimX = do
   didCur1 <- newSTRefU (DeltaId 0)
   didCur2 <- newSTRefU (DeltaId 0)
   didCurX <- newSTRefU (DeltaId 0)
-  -- Gradually accumulated gradients for other nodes.
+  -- Cotangents of non-input subterms.
   -- Unsafe is fine, because it initializes to bottoms and we always
   -- write before reading.
   dMap0' <- VM.unsafeNew (max 1 dim0)
@@ -512,6 +515,10 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                                then rs
                                else liftVT2 (+) v rs
 
+      -- The first argument, the scaling factor @r@, is the cotangent
+      -- of the currently processed individual copy of a shared subterm.
+      -- Potentially, many different such individual cotangents are summed up
+      -- for each subterm in the finite maps that gather cotangents.
       eval0 :: r -> Delta0 r -> ST s ()
       eval0 _ Zero0 = return ()
       eval0 !r (Input0 (InputId i)) =
@@ -952,7 +959,7 @@ derivativeFromDelta
 derivativeFromDelta dim0 dim1 dim2 dimX deltaTopLevel ds =
   runST $ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel ds
 
--- | This mimics 'initializeFinMaps', but in reverse. Perhaps this can be
+-- | This mimics 'buildFinMaps', but in reverse. Perhaps this can be
 -- simplified, but the obvious simplest formulation does not honour sharing
 -- and evaluates shared subexpressions repeatedly.
 buildDerivative
