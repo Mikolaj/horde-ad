@@ -571,15 +571,16 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
           -- having adjacent counter values
 
         SumElements0 vd n -> eval1 (LA.konst r n) vd
-        Index0 (Input1 (InputId i)) ix k | i >= 0 -> do
+        Index0 (Input1 (InputId i)) ix k -> do
           let f v = if V.null v
                     then LA.konst 0 k V.// [(ix, r)]
                     else v V.// [(ix, v V.! ix + r)]
           VM.modify iMap1 f i
             -- This would be an asymptotic optimization compared to
-            -- the general case below, if not for the non-mutable update,
-            -- which involves copying the whole vector, so it's just
-            -- several times faster (same allocation, but not adding vectors).
+            -- the general case below, if not for the non-mutable update
+            -- in the 'else' branch, which implies copying the whole
+            -- @v@ vector, so it's only several times faster (same allocation,
+            -- but not adding to each cell of @v@).
             -- TODO: does it make sense to extend this beyond @Input1@?
         Index0 d ix k -> eval1 (LA.konst 0 k V.// [(ix, r)]) d
 
