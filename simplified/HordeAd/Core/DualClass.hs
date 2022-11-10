@@ -124,6 +124,7 @@ class IsPrimal d a where
   dZero :: Dual d a
   dScale :: a -> Dual d a -> Dual d a
   dAdd :: Dual d a -> Dual d a -> Dual d a
+  recordSharing :: Dual d a -> Dual d a
 
 -- | Assuming that the type argument is the primal component of dual numbers
 -- with differentiation mode `ADModeGradient`, this class makes available
@@ -152,17 +153,18 @@ class HasRanks (d :: ADMode) r where
 -- * Backprop gradient method instances
 
 -- | This, just as many other @ADModeGradient@ instances, is an impure
--- instance. Each created term tree node gets an @Int@ identifier
+-- instance, because 'recordSharing' adorns terms with an @Int@ identifier
 -- from a counter that is afterwards incremented (and never changed
 -- in any other way).
 --
 -- The identifiers are not part of any non-internal module API
 -- and the impure counter that gets incremented is not exposed
--- (except for low level tests). The per-node identifiers are used
--- only in internal modules. They are assigned once and then read-only.
--- They ensure that subterms that are shared in memory are evaluated only once.
--- If pointer equality worked efficiently (e.g., if compact regions
--- with sharing were cheaper), we wouldn't need the impurity.
+-- (except for low level tests). The identifiers are read only in internal
+-- modules. They are assigned here once and ever accessed read-only.
+-- Their uniqueness ensures that subterms that are shared in memory
+-- are evaluated only once. If pointer equality worked efficiently
+-- (e.g., if compact regions with sharing were cheaper), we wouldn't need
+-- the impurity.
 --
 -- Given that we have to use impurity anyway, we make the implementation
 -- faster by ensuring the order of identifiers reflects data dependency,
@@ -171,29 +173,49 @@ class HasRanks (d :: ADMode) r where
 -- call by value, which is needed for that identifier ordering.
 --
 -- As long as "HordeAd.Internal.Delta" is used exclusively through
--- smart constructors from this API and the API is not (wrongly) modified,
--- the impurity is completely safe. Even compiler optimizations,
--- e.g., cse and full-laziness, can't break the required invariants.
--- On the contrary, they increase sharing and make evaluation yet cheaper.
+-- smart constructors from this API, the impurity is completely safe.
+-- Even compiler optimizations, e.g., cse and full-laziness,
+-- can't break the required invariants. On the contrary,
+-- they increase sharing and make evaluation yet cheaper.
 -- Of course, if the compiler, e.g., stops honouring @NOINLINE@,
 -- all this breaks down.
+--
+-- The pattern-matching in 'recordSharing' is a crucial optimization
+-- and it could, presumably, be extended to further limit which
+-- terms get an identifier. Alternatively, 'HordeAd.Core.DualNumber.dD'
+-- or library definitions that use it could be made smarter.
 instance IsPrimal 'ADModeGradient Double where
   dZero = Zero0
-  dScale !k !d = wrapDelta0 $ Scale0 k d
-  dAdd !d !e = wrapDelta0 $ Add0 d e
+  dScale !k !d = Scale0 k d
+  dAdd !d !e = Add0 d e
+  recordSharing d = case d of
+    Zero0 -> d
+    Input0{} -> d
+    Let0{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> wrapDelta0 d
 
 -- | This is an impure instance. See above.
 instance IsPrimal 'ADModeGradient Float where
   -- Identical as above:
   dZero = Zero0
-  dScale !k !d = wrapDelta0 $ Scale0 k d
-  dAdd !d !e = wrapDelta0 $ Add0 d e
+  dScale !k !d = Scale0 k d
+  dAdd !d !e = Add0 d e
+  recordSharing d = case d of
+    Zero0 -> d
+    Input0{} -> d
+    Let0{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> wrapDelta0 d
 
 -- | This is an impure instance. See above.
 instance IsPrimal 'ADModeGradient (Vector r) where
   dZero = Zero1
-  dScale !k !d = wrapDelta1 $ Scale1 k d
-  dAdd !d !e = wrapDelta1 $ Add1 d e
+  dScale !k !d = Scale1 k d
+  dAdd !d !e = Add1 d e
+  recordSharing d = case d of
+    Zero1 -> d
+    Input1{} -> d
+    Let1{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> wrapDelta1 d
 
 instance HasInputs Double where
   dInput = Input0
@@ -210,15 +232,15 @@ instance HasInputs (Vector r) where
 -- | This is an impure instance. See above.
 instance Dual 'ADModeGradient r ~ Delta0 r
          => HasRanks 'ADModeGradient r where
-  dSumElements0 !vd !n = wrapDelta0 $ SumElements0 vd n
-  dIndex0 !d !ix !k = wrapDelta0 $ Index0 d ix k
-  dDot0 !v !vd = wrapDelta0 $ Dot0 v vd
-  dSeq1 !lsd = wrapDelta1 $ Seq1 lsd
-  dKonst1 !d !n = wrapDelta1 $ Konst1 d n
-  dAppend1 !d !k !e = wrapDelta1 $ Append1 d k e
-  dSlice1 !i !n !d !len = wrapDelta1 $ Slice1 i n d len
-  dReverse1 !d = wrapDelta1 $ Reverse1 d
-  dBuild1 !n f = wrapDelta1 $ Build1 n f
+  dSumElements0 !vd !n = SumElements0 vd n
+  dIndex0 !d !ix !k = Index0 d ix k
+  dDot0 !v !vd = Dot0 v vd
+  dSeq1 !lsd = Seq1 lsd
+  dKonst1 !d !n = Konst1 d n
+  dAppend1 !d !k !e = Append1 d k e
+  dSlice1 !i !n !d !len = Slice1 i n d len
+  dReverse1 !d = Reverse1 d
+  dBuild1 !n f = Build1 n f
 
 
 -- * Alternative instance: forward derivatives computed on the spot
@@ -227,11 +249,13 @@ instance IsPrimal 'ADModeDerivative Double where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
+  recordSharing = id
 
 instance IsPrimal 'ADModeDerivative Float where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
+  recordSharing = id
 
 -- These constraints force @UndecidableInstances@.
 instance Num (Vector r)
@@ -239,6 +263,7 @@ instance Num (Vector r)
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
+  recordSharing = id
 
 instance ( Numeric r
          , Dual 'ADModeDerivative r ~ r )
@@ -259,16 +284,19 @@ instance IsPrimal 'ADModeValue Double where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
+  recordSharing = id
 
 instance IsPrimal 'ADModeValue Float where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
+  recordSharing = id
 
 instance IsPrimal 'ADModeValue (Vector r) where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
+  recordSharing = id
 
 instance HasRanks 'ADModeValue r where
   dSumElements0 _ _ = DummyDual ()
@@ -311,14 +339,14 @@ unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
 -- variable definitions, that contain `unsafePerformIO'.
 -- BTW, tests don't show a speedup from `unsafeDupablePerformIO`,
 -- perhaps due to counter gaps that it may introduce.
-wrapDelta0 :: Delta0' r -> Delta0 r
+wrapDelta0 :: Delta0 r -> Delta0 r
 {-# NOINLINE wrapDelta0 #-}
 wrapDelta0 !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
-  return $! Delta0 (NodeId n) d
+  return $! Let0 (NodeId n) d
 
-wrapDelta1 :: Delta1' r -> Delta1 r
+wrapDelta1 :: Delta1 r -> Delta1 r
 {-# NOINLINE wrapDelta1 #-}
 wrapDelta1 !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
-  return $! Delta1 (NodeId n) d
+  return $! Let1 (NodeId n) d

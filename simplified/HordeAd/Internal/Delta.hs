@@ -31,8 +31,7 @@
 -- the expressions grow large enough to affect cache misses).
 module HordeAd.Internal.Delta
   ( -- * Abstract syntax trees of the delta expressions
-    Delta0 (..), Delta0' (..)
-  , Delta1 (..), Delta1' (..)
+    Delta0 (..), Delta1 (..)
   , -- * Delta expression identifiers
     NodeId(..), InputId, toInputId
   , -- * Evaluation of the delta expressions
@@ -72,7 +71,7 @@ import           Text.Show.Functions ()
 -- have analogues at the level of vectors, matrices and arbitrary tensors,
 -- but the other operations are specific to the rank.
 --
--- The `NodeId` identifier, which is the first argument of the @Delta0@
+-- The `NodeId` identifier, which is the first argument of the @Let0@
 -- constructor, marks the unique identity of a subterm among
 -- all subtrees of all top level delta expression terms.
 -- The uniqueness of the identity is used to avoid processing
@@ -104,12 +103,11 @@ import           Text.Show.Functions ()
 -- in the objective function domain. The collection of all such
 -- vectors of partial derivatives across all ranks is the gradient.
 data Delta0 r =
-    Delta0 NodeId (Delta0' r)
-  | Zero0
+    Zero0
   | Input0 (InputId r)
-data Delta0' r =
-    Scale0 r (Delta0 r)
+  | Scale0 r (Delta0 r)
   | Add0 (Delta0 r) (Delta0 r)
+  | Let0 NodeId (Delta0 r)
 
   | SumElements0 (Delta1 r) Int  -- ^ see Note [SumElements0]
   | Index0 (Delta1 r) Int Int  -- ^ second integer is the length of the vector
@@ -117,17 +115,15 @@ data Delta0' r =
   | Dot0 (Vector r) (Delta1 r)  -- ^ Dot0 v vd == SumElements0 (Scale1 v vd) n
 
 deriving instance (Show r, Numeric r) => Show (Delta0 r)
-deriving instance (Show r, Numeric r) => Show (Delta0' r)
 
 -- | This is the grammar of delta-expressions at tensor rank 1, that is,
 -- at vector level.
 data Delta1 r =
-    Delta1 NodeId (Delta1' r)
-  | Zero1
+    Zero1
   | Input1 (InputId (Vector r))
-data Delta1' r =
-    Scale1 (Vector r) (Delta1 r)
+  | Scale1 (Vector r) (Delta1 r)
   | Add1 (Delta1 r) (Delta1 r)
+  | Let1 NodeId (Delta1 r)
 
   | Seq1 (Data.Vector.Vector (Delta0 r))  -- ^ "unboxing" conversion
   | Konst1 (Delta0 r) Int  -- ^ length; needed only for forward derivative
@@ -140,7 +136,6 @@ data Delta1' r =
   | Build1 Int (Int -> Delta0 r)
 
 deriving instance (Show r, Numeric r) => Show (Delta1 r)
-deriving instance (Show r, Numeric r) => Show (Delta1' r)
 
 -- * Delta expression identifiers
 
@@ -197,7 +192,7 @@ data EvalState r = EvalState
   , dMap1 :: EM.EnumMap NodeId (Vector r)
       -- ^ cotangents of non-input subterms of rank 1 indexed by their
       -- node identifiers
- , nMap   :: EM.EnumMap NodeId (DeltaBinding r)
+  , nMap  :: EM.EnumMap NodeId (DeltaBinding r)
       -- ^ nodes left to be processed
   }
 
@@ -205,8 +200,8 @@ data EvalState r = EvalState
 -- We can't process them at once, because their other shared copies
 -- may still not be processed, so we'd not take advantage of the sharing.
 data DeltaBinding r =
-    DeltaBinding0 (Delta0' r)
-  | DeltaBinding1 (Delta1' r)
+    DeltaBinding0 (Delta0 r)
+  | DeltaBinding1 (Delta1 r)
 
 -- | Delta expressions naturally denote forward derivatives, as encoded
 -- in function 'derivativeFromDelta'. However, we are usually more
@@ -299,26 +294,28 @@ buildFinMaps s0 deltaDt =
   -- For input terms, the eventual sums end up in the cells
   -- of the gradient vectors.
   let eval0 :: EvalState r -> r -> Delta0 r -> EvalState r
-      eval0 s _ Zero0 = s
-      eval0 s@EvalState{iMap0} !r (Input0 i) =
-        s {iMap0 = EM.adjust (+ r) i iMap0}
-      eval0 s@EvalState{..} !r (Delta0 n d) =
-        case EM.lookup n nMap of
-          Just (DeltaBinding0 _) ->
-            s {dMap0 = EM.adjust (+ r) n dMap0}
-          Nothing ->
-            s { nMap = EM.insert n (DeltaBinding0 d) nMap
-              , dMap0 = EM.insert n r dMap0 }
-          _ -> error "buildFinMaps: corrupted nMap"
-      eval0' :: EvalState r -> r -> Delta0' r -> EvalState r
-      eval0' s !r = \case
+      eval0 s !r = \case
+        Zero0 -> s
+        Input0 i -> s {iMap0 = EM.adjust (+ r) i $ iMap0 s}
         Scale0 k d -> eval0 s (k * r) d
         Add0 d e -> eval0 (eval0 s r e) r d
+        Let0 n d ->
+          assert (case d of
+                    Zero0 -> False
+                    Input0{} -> False
+                    Let0{} -> False  -- wasteful and nonsensical
+                    _ -> True)
+          $ case EM.lookup n $ nMap s of
+              Just (DeltaBinding0 _) ->
+                s {dMap0 = EM.adjust (+ r) n $ dMap0 s}
+              Nothing ->
+                s { nMap = EM.insert n (DeltaBinding0 d) $ nMap s
+                  , dMap0 = EM.insert n r $ dMap0 s }
+              _ -> error "buildFinMaps: corrupted nMap"
 
         SumElements0 vd n -> eval1 s (LA.konst r n) vd
-        -- The general case looks as follows
-        -- > Index0 d ix k -> eval1 s (LA.konst 0 k V.// [(ix, r)]) d
-        -- but it's faster with inlined @eval1@, as below.
+        -- The general case is given as the last one below,
+        -- but for a few constructors it's faster to inline @eval1@ instead.
         -- BTW, such an optimization doesn't really belong in the simplified
         -- horde-ad and no consistent benefit should be expected here.
         Index0 Zero1 _ _ -> s  -- shortcut
@@ -327,7 +324,7 @@ buildFinMaps s0 deltaDt =
                     then LA.konst 0 k V.// [(ix, r)]
                     else v V.// [(ix, v V.! ix + r)]
           in s {iMap1 = EM.adjust f i $ iMap1 s}
-        Index0 (Delta1 n d) ix k ->
+        Index0 (Let1 n d) ix k ->
           case EM.lookup n $ nMap s of
             Just (DeltaBinding1 _) ->
               let f v = v V.// [(ix, v V.! ix + r)]
@@ -342,27 +339,31 @@ buildFinMaps s0 deltaDt =
               in s { nMap = EM.insert n (DeltaBinding1 d) $ nMap s
                    , dMap1 = EM.insert n v $ dMap1 s}
             _ -> error "buildFinMaps: corrupted nMap"
+        Index0 d ix k -> eval1 s (LA.konst 0 k V.// [(ix, r)]) d
 
         Dot0 v vd -> eval1 s (LA.scale r v) vd
 
       addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
       eval1 :: EvalState r -> Vector r -> Delta1 r -> EvalState r
-      eval1 s _ Zero1 = s
-      eval1 s@EvalState{iMap1} !r (Input1 i) =
-        s {iMap1 = EM.adjust (addToVector r) i iMap1}
-      eval1 s@EvalState{..} !r (Delta1 n d) = do
-        case EM.lookup n nMap of
-          Just (DeltaBinding1 _) ->
-            s {dMap1 = EM.adjust (+ r) n dMap1}
-          Nothing ->
-            s { nMap = EM.insert n (DeltaBinding1 d) nMap
-              , dMap1 = EM.insert n r dMap1 }
-          _ -> error "buildFinMaps: corrupted nMap"
-      eval1' :: EvalState r -> Vector r -> Delta1' r -> EvalState r
-      eval1' s !r = \case
+      eval1 s !r = \case
+        Zero1 -> s
+        Input1 i -> s {iMap1 = EM.adjust (addToVector r) i $ iMap1 s}
         Scale1 k d -> eval1 s (k * r) d
         Add1 d e -> eval1 (eval1 s r e) r d
+        Let1 n d ->
+          assert (case d of
+                    Zero1 -> False
+                    Input1{} -> False
+                    Let1{} -> False  -- wasteful and nonsensical
+                    _ -> True)
+          $ case EM.lookup n $ nMap s of
+              Just (DeltaBinding1 _) ->
+                s {dMap1 = EM.adjust (+ r) n $ dMap1 s}
+              Nothing ->
+                s { nMap = EM.insert n (DeltaBinding1 d) $ nMap s
+                  , dMap1 = EM.insert n r $ dMap1 s }
+              _ -> error "buildFinMaps: corrupted nMap"
 
         Seq1 lsd -> V.ifoldl' (\s2 i d -> eval0 s2 (r V.! i) d) s lsd
           -- lsd is a list (boxed vector) of scalar delta expressions
@@ -382,9 +383,9 @@ buildFinMaps s0 deltaDt =
             let s2 = s {nMap = nMap2}
                 s3 = case b of
                   DeltaBinding0 d -> let r = dMap0 EM.! n
-                                     in eval0' s2 r d
+                                     in eval0 s2 r d
                   DeltaBinding1 d -> let r = dMap1 EM.! n
-                                     in eval1' s2 r d
+                                     in eval1 s2 r d
             in evalFromnMap s3
           Nothing -> s  -- loop ends
 
@@ -428,31 +429,30 @@ buildDerivative dim0 dim1 deltaTopLevel
   dMap1 <- newSTRef EM.empty
   nMap <- newSTRef EM.empty
   let eval0 :: Delta0 r -> ST s r
-      eval0 Zero0 = return 0
-      eval0 (Input0 (InputId i)) =
-        if i < dim0
-        then return $! params0Init V.! i
-        else error "derivativeFromDelta.eval': wrong index for an input"
-      eval0 (Delta0 n d) = do
-        -- This is too complex, but uses components already defined
-        -- for initializeFinMaps and some of a similar code.
-        nm <- readSTRef nMap
-        case EM.lookup n nm of
-          Just (DeltaBinding0 _) -> do
-            dm <- readSTRef dMap0
-            return $! dm EM.! n
-          Nothing -> do
-            r <- eval0' d
-            nmNew <- readSTRef nMap
-            dm <- readSTRef dMap0
-            writeSTRef nMap $! EM.insert n (DeltaBinding0 d) nmNew
-            writeSTRef dMap0 $! EM.insert n r dm
-            return r
-          _ -> error "buildDerivative: corrupted nMap"
-      eval0' :: Delta0' r -> ST s r
-      eval0' = \case
+      eval0 = \case
+        Zero0 -> return 0
+        Input0 (InputId i) ->
+          if i < dim0
+          then return $! params0Init V.! i
+          else error "derivativeFromDelta.eval': wrong index for an input"
         Scale0 k d -> (k *) <$> eval0 d
         Add0 d e -> liftM2 (+) (eval0 d) (eval0 e)
+        Let0 n d -> do
+          -- This is too complex, but uses components already defined
+          -- for initializeFinMaps and some of a similar code.
+          nm <- readSTRef nMap
+          case EM.lookup n nm of
+            Just (DeltaBinding0 _) -> do
+              dm <- readSTRef dMap0
+              return $! dm EM.! n
+            Nothing -> do
+              r <- eval0 d
+              nmNew <- readSTRef nMap
+              dm <- readSTRef dMap0
+              writeSTRef nMap $! EM.insert n (DeltaBinding0 d) nmNew
+              writeSTRef dMap0 $! EM.insert n r dm
+              return r
+            _ -> error "buildDerivative: corrupted nMap"
 
         SumElements0 vd _n -> LA.sumElements <$> eval1 vd
         Index0 d ix _k -> flip (V.!) ix <$> eval1 d
@@ -460,29 +460,28 @@ buildDerivative dim0 dim1 deltaTopLevel
         Dot0 vr vd -> (<.>) vr <$> eval1 vd
 
       eval1 :: Delta1 r -> ST s (Vector r)
-      eval1 Zero1 = return 0
-      eval1 (Input1 (InputId i)) =
-        if i < dim1
-        then return $! params1Init V.! i
-        else error "derivativeFromDelta.eval': wrong index for an input"
-      eval1 (Delta1 n d) = do
-        nm <- readSTRef nMap
-        case EM.lookup n nm of
-          Just (DeltaBinding1 _) -> do
-            dm <- readSTRef dMap1
-            return $! dm EM.! n
-          Nothing -> do
-            r <- eval1' d
-            nmNew <- readSTRef nMap
-            dm <- readSTRef dMap1
-            writeSTRef nMap $! EM.insert n (DeltaBinding1 d) nmNew
-            writeSTRef dMap1 $! EM.insert n r dm
-            return r
-          _ -> error "buildDerivative: corrupted nMap"
-      eval1' :: Delta1' r -> ST s (Vector r)
-      eval1' = \case
+      eval1 = \case
+        Zero1 -> return 0
+        Input1 (InputId i) ->
+          if i < dim1
+          then return $! params1Init V.! i
+          else error "derivativeFromDelta.eval': wrong index for an input"
         Scale1 k d -> (k *) <$> eval1 d
         Add1 d e -> liftM2 (+) (eval1 d) (eval1 e)
+        Let1 n d -> do
+          nm <- readSTRef nMap
+          case EM.lookup n nm of
+            Just (DeltaBinding1 _) -> do
+              dm <- readSTRef dMap1
+              return $! dm EM.! n
+            Nothing -> do
+              r <- eval1 d
+              nmNew <- readSTRef nMap
+              dm <- readSTRef dMap1
+              writeSTRef nMap $! EM.insert n (DeltaBinding1 d) nmNew
+              writeSTRef dMap1 $! EM.insert n r dm
+              return r
+            _ -> error "buildDerivative: corrupted nMap"
 
         Seq1 lsd -> do
           v <- V.mapM eval0 lsd

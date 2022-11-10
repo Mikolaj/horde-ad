@@ -59,6 +59,13 @@ staticNatFromProxy Proxy = MkSN
 -- determined by the type faimly @Dual@) is defined elsewhere.
 data ADVal (d :: ADMode) a = D a (Dual d a)
 
+-- | Smart constructor for 'D' of 'ADVal' that additionally records sharing
+-- information, if applicable for the differentiation mode in question.
+-- The bare constructor should not be used directly (which is not enforced
+-- by the types yet), except when deconstructing via pattern-matching.
+dD :: IsPrimal d a => a -> (Dual d a) -> ADVal d a
+dD a dual = D a (recordSharing dual)
+
 addParameters :: Num (Vector r)
               => Domains r -> Domains r -> Domains r
 addParameters (a0, a1) (b0, b1) =
@@ -84,12 +91,12 @@ instance Eq (ADVal d a) where
 instance Ord (ADVal d a) where
 
 instance (Num a, IsPrimal d a) => Num (ADVal d a) where
-  D u u' + D v v' = D (u + v) (dAdd u' v')
-  D u u' - D v v' = D (u - v) (dAdd u' (dScale (-1) v'))
-  D u u' * D v v' = D (u * v) (dAdd (dScale v u') (dScale u v'))
-  negate (D v v') = D (negate v) (dScale (-1) v')
-  abs (D v v') = D (abs v) (dScale (signum v) v')
-  signum (D v _) = D (signum v) dZero
+  D u u' + D v v' = dD (u + v) (dAdd u' v')
+  D u u' - D v v' = dD (u - v) (dAdd u' (dScale (-1) v'))
+  D u u' * D v v' = dD (u * v) (dAdd (dScale v u') (dScale u v'))
+  negate (D v v') = dD (negate v) (dScale (-1) v')
+  abs (D v v') = dD (abs v) (dScale (signum v) v')
+  signum (D v _) = dD (signum v) dZero
   fromInteger = constant . fromInteger
 
 instance (Real a, IsPrimal d a) => Real (ADVal d a) where
@@ -98,36 +105,36 @@ instance (Real a, IsPrimal d a) => Real (ADVal d a) where
 instance (Fractional a, IsPrimal d a) => Fractional (ADVal d a) where
   D u u' / D v v' =
     let recipSq = recip (v * v)  -- ensure sharing; also elsewhere
-    in D (u / v) (dAdd (dScale (v * recipSq) u') (dScale (- u * recipSq) v'))
+    in dD (u / v) (dAdd (dScale (v * recipSq) u') (dScale (- u * recipSq) v'))
   recip (D v v') =
     let minusRecipSq = - recip (v * v)
-    in D (recip v) (dScale minusRecipSq v')
+    in dD (recip v) (dScale minusRecipSq v')
   fromRational = constant . fromRational
 
 instance (Floating a, IsPrimal d a) => Floating (ADVal d a) where
   pi = constant pi
   exp (D u u') = let expU = exp u
-                 in D expU (dScale expU u')
-  log (D u u') = D (log u) (dScale (recip u) u')
+                 in dD expU (dScale expU u')
+  log (D u u') = dD (log u) (dScale (recip u) u')
   sqrt (D u u') = let sqrtU = sqrt u
-                  in D sqrtU (dScale (recip (sqrtU + sqrtU)) u')
-  D u u' ** D v v' = D (u ** v) (dAdd (dScale (v * (u ** (v - 1))) u')
-                                      (dScale ((u ** v) * log u) v'))
+                  in dD sqrtU (dScale (recip (sqrtU + sqrtU)) u')
+  D u u' ** D v v' = dD (u ** v) (dAdd (dScale (v * (u ** (v - 1))) u')
+                                       (dScale ((u ** v) * log u) v'))
   logBase x y = log y / log x
-  sin (D u u') = D (sin u) (dScale (cos u) u')
-  cos (D u u') = D (cos u) (dScale (- (sin u)) u')
+  sin (D u u') = dD (sin u) (dScale (cos u) u')
+  cos (D u u') = dD (cos u) (dScale (- (sin u)) u')
   tan (D u u') = let cosU = cos u
-                 in D (tan u) (dScale (recip (cosU * cosU)) u')
-  asin (D u u') = D (asin u) (dScale (recip (sqrt (1 - u*u))) u')
-  acos (D u u') = D (acos u) (dScale (- recip (sqrt (1 - u*u))) u')
-  atan (D u u') = D (atan u) (dScale (recip (1 + u*u)) u')
-  sinh (D u u') = D (sinh u) (dScale (cosh u) u')
-  cosh (D u u') = D (cosh u) (dScale (sinh u) u')
+                 in dD (tan u) (dScale (recip (cosU * cosU)) u')
+  asin (D u u') = dD (asin u) (dScale (recip (sqrt (1 - u*u))) u')
+  acos (D u u') = dD (acos u) (dScale (- recip (sqrt (1 - u*u))) u')
+  atan (D u u') = dD (atan u) (dScale (recip (1 + u*u)) u')
+  sinh (D u u') = dD (sinh u) (dScale (cosh u) u')
+  cosh (D u u') = dD (cosh u) (dScale (sinh u) u')
   tanh (D u u') = let y = tanh u
-                  in D y (dScale (1 - y * y) u')
-  asinh (D u u') = D (asinh u) (dScale (recip (sqrt (1 + u*u))) u')
-  acosh (D u u') = D (acosh u) (dScale (recip (sqrt (u*u - 1))) u')
-  atanh (D u u') = D (atanh u) (dScale (recip (1 - u*u)) u')
+                  in dD y (dScale (1 - y * y) u')
+  asinh (D u u') = dD (asinh u) (dScale (recip (sqrt (1 + u*u))) u')
+  acosh (D u u') = dD (acosh u) (dScale (recip (sqrt (u*u - 1))) u')
+  atanh (D u u') = dD (atanh u) (dScale (recip (1 - u*u)) u')
 
 instance (RealFrac a, IsPrimal d a) => RealFrac (ADVal d a) where
   properFraction = undefined
@@ -136,24 +143,24 @@ instance (RealFrac a, IsPrimal d a) => RealFrac (ADVal d a) where
 instance (RealFloat a, IsPrimal d a) => RealFloat (ADVal d a) where
   atan2 (D u u') (D v v') =
     let t = 1 / (u * u + v * v)
-    in D (atan2 u v) (dAdd (dScale (- u * t) v') (dScale (v * t) u'))
+    in dD (atan2 u v) (dAdd (dScale (- u * t) v') (dScale (v * t) u'))
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a differentiable codomain
 
 constant :: IsPrimal d a => a -> ADVal d a
-constant a = D a dZero
+constant a = dD a dZero
 
 scale :: (Num a, IsPrimal d a) => a -> ADVal d a -> ADVal d a
-scale a (D u u') = D (a * u) (dScale a u')
+scale a (D u u') = dD (a * u) (dScale a u')
 
 logistic :: (Floating a, IsPrimal d a) => ADVal d a -> ADVal d a
 logistic (D u u') =
   let y = recip (1 + exp (- u))
-  in D y (dScale (y * (1 - y)) u')
+  in dD y (dScale (y * (1 - y)) u')
 
 -- Optimized and more clearly written @u ** 2@.
 square :: (Num a, IsPrimal d a) => ADVal d a -> ADVal d a
-square (D u u') = D (u * u) (dScale (2 * u) u')
+square (D u u') = dD (u * u) (dScale (2 * u) u')
 
 squaredDifference :: (Num a, IsPrimal d a)
                   => a -> ADVal d a -> ADVal d a
@@ -175,18 +182,18 @@ reluLeaky v@(D u _) =
 -- * Operations resulting in a scalar
 
 sumElements0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
-sumElements0 (D u u') = D (LA.sumElements u) (dSumElements0 u' (V.length u))
+sumElements0 (D u u') = dD (LA.sumElements u) (dSumElements0 u' (V.length u))
 
 index0 :: ADModeAndNum d r => ADVal d (Vector r) -> Int -> ADVal d r
-index0 (D u u') ix = D (u V.! ix) (dIndex0 u' ix (V.length u))
+index0 (D u u') ix = dD (u V.! ix) (dIndex0 u' ix (V.length u))
 
 minimum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
 minimum0 (D u u') =
-  D (LA.minElement u) (dIndex0 u' (LA.minIndex u) (V.length u))
+  dD (LA.minElement u) (dIndex0 u' (LA.minIndex u) (V.length u))
 
 maximum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
 maximum0 (D u u') =
-  D (LA.maxElement u) (dIndex0 u' (LA.maxIndex u) (V.length u))
+  dD (LA.maxElement u) (dIndex0 u' (LA.maxIndex u) (V.length u))
 
 foldl'0 :: ADModeAndNum d r
         => (ADVal d r -> ADVal d r -> ADVal d r)
@@ -194,7 +201,7 @@ foldl'0 :: ADModeAndNum d r
         -> ADVal d r
 foldl'0 f uu' (D v v') =
   let k = V.length v
-      g !acc ix p = f (D p (dIndex0 v' ix k)) acc
+      g !acc ix p = f (dD p (dIndex0 v' ix k)) acc
   in V.ifoldl' g uu' v
 
 altSumElements0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
@@ -204,13 +211,13 @@ altSumElements0 = foldl'0 (+) 0
 infixr 8 <.>!
 (<.>!) :: ADModeAndNum d r
        => ADVal d (Vector r) -> ADVal d (Vector r) -> ADVal d r
-(<.>!) (D u u') (D v v') = D (u LA.<.> v) (dAdd (dDot0 v u') (dDot0 u v'))
+(<.>!) (D u u') (D v v') = dD (u LA.<.> v) (dAdd (dDot0 v u') (dDot0 u v'))
 
 -- | Dot product with a constant vector.
 infixr 8 <.>!!
 (<.>!!) :: ADModeAndNum d r
         => ADVal d (Vector r) -> Vector r -> ADVal d r
-(<.>!!) (D u u') v = D (u LA.<.> v) (dDot0 v u')
+(<.>!!) (D u u') v = dD (u LA.<.> v) (dDot0 v u')
 
 sumElementsVectorOfDual
   :: ADModeAndNum d r => Data.Vector.Vector (ADVal d r) -> ADVal d r
@@ -257,8 +264,8 @@ lossSoftMaxCrossEntropyV target (D u u') =
       recipSum = recip sumExpU
 -- not exposed: softMaxU = LA.scaleRecip sumExpU expU
       softMaxU = LA.scale recipSum expU
-  in D (negate $ log softMaxU LA.<.> target)  -- TODO: avoid: log . exp
-       (dDot0 (softMaxU - target) u')
+  in dD (negate $ log softMaxU LA.<.> target)  -- TODO: avoid: log . exp
+        (dDot0 (softMaxU - target) u')
 
 
 -- * Operations resulting in a vector
@@ -266,23 +273,23 @@ lossSoftMaxCrossEntropyV target (D u u') =
 -- @1@ means rank one, so the dual component represents a vector.
 seq1 :: ADModeAndNum d r
      => Data.Vector.Vector (ADVal d r) -> ADVal d (Vector r)
-seq1 v = D (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
-           (dSeq1 $ V.map (\(D _ u') -> u') v)
+seq1 v = dD (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
+            (dSeq1 $ V.map (\(D _ u') -> u') v)
 
 konst1 :: ADModeAndNum d r => ADVal d r -> Int -> ADVal d (Vector r)
-konst1 (D u u') n = D (LA.konst u n) (dKonst1 u' n)
+konst1 (D u u') n = dD (LA.konst u n) (dKonst1 u' n)
 
 append1 :: ADModeAndNum d r
         => ADVal d (Vector r) -> ADVal d (Vector r)
         -> ADVal d (Vector r)
-append1 (D u u') (D v v') = D (u V.++ v) (dAppend1 u' (V.length u) v')
+append1 (D u u') (D v v') = dD (u V.++ v) (dAppend1 u' (V.length u) v')
 
 slice1 :: ADModeAndNum d r
        => Int -> Int -> ADVal d (Vector r) -> ADVal d (Vector r)
-slice1 i n (D u u') = D (V.slice i n u) (dSlice1 i n u' (V.length u))
+slice1 i n (D u u') = dD (V.slice i n u) (dSlice1 i n u' (V.length u))
 
 reverse1 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d (Vector r)
-reverse1 (D u u') = D (V.reverse u) (dReverse1 u')
+reverse1 (D u u') = dD (V.reverse u) (dReverse1 u')
 
 build1Seq :: ADModeAndNum d r
           => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
@@ -293,7 +300,7 @@ build1 :: ADModeAndNum d r
 build1 n f =
   let g i = let D u _ = f i in u
       h i = let D _ u' = f i in u'
-  in D (V.fromList $ map g [0 .. n - 1]) (dBuild1 n h)
+  in dD (V.fromList $ map g [0 .. n - 1]) (dBuild1 n h)
 
 -- The detour through a boxed vector (list probably fuses away)
 -- is costly, but only matters if @f@ is cheap.
@@ -302,7 +309,7 @@ map1Seq :: ADModeAndNum d r
         -> ADVal d (Vector r)
 map1Seq f (D v v') =
   let k = V.length v
-      g ix p = f $ D p (dIndex0 v' ix k)
+      g ix p = f $ dD p (dIndex0 v' ix k)
       ds = imap g $ V.toList v
   in seq1 $ V.fromList ds
 

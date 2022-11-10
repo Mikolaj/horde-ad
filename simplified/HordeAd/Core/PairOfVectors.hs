@@ -49,11 +49,11 @@ makeADInputs (params0, params1)
 
 at0 :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d r
 {-# INLINE at0 #-}
-at0 ADInputs{..} i = D (inputPrimal0 V.! i) (inputDual0 V.! i)
+at0 ADInputs{..} i = dD (inputPrimal0 V.! i) (inputDual0 V.! i)
 
-at1 :: ADInputs d r -> Int -> ADVal d (Vector r)
+at1 :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d (Vector r)
 {-# INLINE at1 #-}
-at1 ADInputs{..} i = D (inputPrimal1 V.! i) (inputDual1 V.! i)
+at1 ADInputs{..} i = dD (inputPrimal1 V.! i) (inputDual1 V.! i)
 
 ifoldlDual' :: forall a d r. ADModeAndNum d r
              => (a -> Int -> ADVal d r -> a)
@@ -64,7 +64,7 @@ ifoldlDual' :: forall a d r. ADModeAndNum d r
 ifoldlDual' f a ADInputs{..} = do
   let g :: a -> Int -> r -> a
       g !acc i valX =
-        let !b = D valX (inputDual0 V.! i)
+        let !b = dD valX (inputDual0 V.! i)
         in f acc i b
   V.ifoldl' g a inputPrimal0
 
@@ -77,6 +77,6 @@ foldlDual' :: forall a d r. ADModeAndNum d r
 foldlDual' f a ADInputs{..} = do
   let g :: a -> Int -> r -> a
       g !acc i valX =
-        let !b = D valX (inputDual0 V.! i)
+        let !b = dD valX (inputDual0 V.! i)
         in f acc b
   V.ifoldl' g a inputPrimal0
