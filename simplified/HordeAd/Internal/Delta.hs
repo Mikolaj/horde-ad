@@ -298,7 +298,7 @@ buildFinMaps s0 deltaDt =
         Zero0 -> s
         Input0 i -> s {iMap0 = EM.adjust (+ r) i $ iMap0 s}
         Scale0 k d -> eval0 s (k * r) d
-        Add0 d e -> eval0 (eval0 s r e) r d
+        Add0 d e -> eval0 (eval0 s r d) r e
         Let0 n d ->
           assert (case d of
                     Zero0 -> False
@@ -350,7 +350,7 @@ buildFinMaps s0 deltaDt =
         Zero1 -> s
         Input1 i -> s {iMap1 = EM.adjust (addToVector r) i $ iMap1 s}
         Scale1 k d -> eval1 s (k * r) d
-        Add1 d e -> eval1 (eval1 s r e) r d
+        Add1 d e -> eval1 (eval1 s r d) r e
         Let1 n d ->
           assert (case d of
                     Zero1 -> False
@@ -369,7 +369,7 @@ buildFinMaps s0 deltaDt =
           -- lsd is a list (boxed vector) of scalar delta expressions
         Konst1 d _n -> V.foldl' (\s2 r2 -> eval0 s2 r2 d) s r
 
-        Append1 d k e -> eval1 (eval1 s (V.drop k r) e) (V.take k r) d
+        Append1 d k e -> eval1 (eval1 s (V.take k r) d) (V.drop k r) e
         Slice1 i n d len ->
           eval1 s (LA.konst 0 i V.++ r V.++ LA.konst 0 (len - i - n)) d
 

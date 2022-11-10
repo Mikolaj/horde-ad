@@ -502,7 +502,6 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
    ,len0, len1, len2, lenX
    ,nMap )
     <- initializeFinMaps dim0 dim1 dim2 dimX
-  nLast <- newSTRefU (NodeId 0)  -- counter of the last fully evaluated binding
 
   let addToVector :: Vector r -> Vector r -> Vector r
       addToVector r = \v -> if V.null v then r else v + r
@@ -526,10 +525,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         Input0 (InputId i) ->
           VM.modify iMap0 (+ r) i
         Scale0 k d -> eval0 (k * r) d
-        Add0 d e -> eval0 r e >> eval0 r d
-          -- reversed order of evaluation to enable the shortcut as often
-          -- as possible due to the parent and the first evaluated child
-          -- having adjacent counter values
+        Add0 d e -> eval0 r d >> eval0 r e
         Let0 n d -> assert (case d of
                       Zero0 -> False
                       Input0{} -> False
@@ -537,23 +533,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                       _ -> True)
                     $ do
           nm <- readSTRef nMap
-          nL <- readSTRefU nLast
-          if fromNodeId n == fromNodeId (pred nL)
-          then do  -- this would be evaluated next, so let's shortcut,
-                   -- avoiding lots of short-lived allocations and also
-                   -- shrinking the environment in which the evaluation occurs;
-                   -- the same applies everywhere below
-            writeSTRefU nLast n
-            rFinal <- case EM.lookup n nm of
-              Just (DeltaBinding0 (DeltaId i) _) -> do
-                writeSTRef nMap $! EM.delete n nm
-                dm <- readSTRef dMap0
-                (+ r) <$> dm `VM.read` i
-              Nothing -> return r
-              _ -> error "buildFinMaps: corrupted nMap"
-            unless (rFinal == 0) $  -- a cheap optimization in case of scalars
-              eval0 rFinal d
-          else case EM.lookup n nm of
+          case EM.lookup n nm of
             Just (DeltaBinding0 (DeltaId i) _) -> do
               dm <- readSTRef dMap0
               VM.modify dm (+ r) i
@@ -601,7 +581,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         Input1 (InputId i) ->
           VM.modify iMap1 (addToVector r) i
         Scale1 k d -> eval1 (k * r) d
-        Add1 d e -> eval1 r e >> eval1 r d
+        Add1 d e -> eval1 r d >> eval1 r e
         Let1 n d -> assert (case d of
                       Zero1 -> False
                       Input1{} -> False
@@ -609,19 +589,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                       _ -> True)
                     $ do
           nm <- readSTRef nMap
-          nL <- readSTRefU nLast
-          if fromNodeId n == fromNodeId (pred nL)
-          then do
-            writeSTRefU nLast n
-            rFinal <- case EM.lookup n nm of
-              Just (DeltaBinding1 (DeltaId i) _) -> do
-                writeSTRef nMap $! EM.delete n nm
-                dm <- readSTRef dMap1
-                (+ r) <$> dm `VM.read` i
-              Nothing -> return r
-              _ -> error "buildFinMaps: corrupted nMap"
-            eval1 rFinal d
-          else case EM.lookup n nm of
+          case EM.lookup n nm of
             Just (DeltaBinding1 (DeltaId i) _) -> do
               dm <- readSTRef dMap1
               VM.modify dm (+ r) i
@@ -640,14 +608,10 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                 VM.write dm i r
             _ -> error "buildFinMaps: corrupted nMap"
 
-        Seq1 lsd -> V.imapM_ (\i d -> eval0 (r V.! (V.length lsd - 1 - i)) d)
-                    $ V.reverse lsd
-          -- lsd is a list (boxed vector) of scalar delta expressions;
-          -- it is often created in the natural order,
-          -- so we have to reverse it to enable the shortcut more often
+        Seq1 lsd -> V.imapM_ (\i d -> eval0 (r V.! i) d) lsd
+          -- lsd is a list (boxed vector) of scalar delta expressions
         Konst1 d _n -> V.mapM_ (`eval0` d) r
-        Append1 d k e -> eval1 (V.drop k r) e >> eval1 (V.take k r) d
-          -- reversed order of evaluation; see Add0
+        Append1 d k e -> eval1 (V.take k r) d >> eval1 (V.drop k r) e
         Slice1 i n d len ->
           eval1 (LA.konst 0 i V.++ r V.++ LA.konst 0 (len - i - n)) d
         SumRows1 dm cols -> eval2 (MO.asColumn r cols) dm
@@ -675,9 +639,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         Input2 (InputId i) ->
           VM.modify iMap2 (addToMatrix $ MO.convertMatrixOuter r) i
         Scale2 k d -> eval2 (MO.multiplyWithOuter k r) d
-        Add2 d e -> eval2 r e >> eval2 r d
-          -- from here onwards we only reverse order in Add*, because
-          -- the benefits are minimal at these higher ranks
+        Add2 d e -> eval2 r d >> eval2 r e
         Let2 n d -> assert (case d of
                       Zero2 -> False
                       Input2{} -> False
@@ -685,19 +647,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                       _ -> True)
                     $ do
           nm <- readSTRef nMap
-          nL <- readSTRefU nLast
-          if fromNodeId n == fromNodeId (pred nL)
-          then do
-            writeSTRefU nLast n
-            rFinal <- case EM.lookup n nm of
-              Just (DeltaBinding2 (DeltaId i) _) -> do
-                writeSTRef nMap $! EM.delete n nm
-                dm <- readSTRef dMap2
-                MO.plus r <$> dm `VM.read` i
-              Nothing -> return r
-              _ -> error "buildFinMaps: corrupted nMap"
-            eval2 rFinal d
-          else case EM.lookup n nm of
+          case EM.lookup n nm of
             Just (DeltaBinding2 (DeltaId i) _) -> do
               dm <- readSTRef dMap2
               VM.modify dm (MO.plus r) i
@@ -767,7 +717,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         InputX (InputId i) ->
           VM.modify iMapX (addToArray r) i
         ScaleX k d -> evalX (liftVT2 (*) k r) d
-        AddX d e -> evalX r e >> evalX r d
+        AddX d e -> evalX r d >> evalX r e
         LetX n d -> assert (case d of
                       ZeroX -> False
                       InputX{} -> False
@@ -775,19 +725,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                       _ -> True)
                     $ do
           nm <- readSTRef nMap
-          nL <- readSTRefU nLast
-          if fromNodeId n == fromNodeId (pred nL)
-          then do
-            writeSTRefU nLast n
-            rFinal <- case EM.lookup n nm of
-              Just (DeltaBindingX (DeltaId i) _) -> do
-                writeSTRef nMap $! EM.delete n nm
-                dm <- readSTRef dMapX
-                liftVT2 (+) r <$> dm `VM.read` i
-              Nothing -> return r
-              _ -> error "buildFinMaps: corrupted nMap"
-            evalX rFinal d
-          else case EM.lookup n nm of
+          case EM.lookup n nm of
             Just (DeltaBindingX (DeltaId i) _) -> do
               dm <- readSTRef dMapX
               VM.modify dm (liftVT2 (+) r) i
@@ -845,7 +783,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         InputS (InputId i) ->
          VM.modify iMapX (addToArrayS r) i
         ScaleS k d -> evalS (liftVS2 (*) k r) d
-        AddS d e -> evalS r e >> evalS r d
+        AddS d e -> evalS r d >> evalS r e
         LetS n d -> assert (case d of
                       ZeroS -> False
                       InputS{} -> False
@@ -853,20 +791,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                       _ -> True)
                     $ do
           nm <- readSTRef nMap
-          nL <- readSTRefU nLast
-          if fromNodeId n == fromNodeId (pred nL)
-          then do
-            writeSTRefU nLast n
-            rFinal <- case EM.lookup n nm of
-              Just (DeltaBindingS (DeltaId i) _) -> do
-                writeSTRef nMap $! EM.delete n nm
-                dm <- readSTRef dMapX
-                rx <- dm `VM.read` i
-                return $! liftVS2 (+) r (Data.Array.Convert.convert rx)
-              Nothing -> return r
-              _ -> error "buildFinMaps: corrupted nMap"
-            evalS rFinal d
-          else case EM.lookup n nm of
+          case EM.lookup n nm of
             Just (DeltaBindingS (DeltaId i) _) -> do
               dm <- readSTRef dMapX
               let rs = Data.Array.Convert.convert r
@@ -950,9 +875,8 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
       evalFromnMap :: ST s ()
       evalFromnMap = do
         nm <- readSTRef nMap
-        case EM.maxViewWithKey nm of
-          Just ((n, b), nm2) -> do
-            writeSTRefU nLast n
+        case EM.maxView nm of
+          Just (b, nm2) -> do
             writeSTRef nMap $! nm2
             evalUnlessZero b
             evalFromnMap
