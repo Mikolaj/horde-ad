@@ -42,6 +42,20 @@ fblowup inputs =
       y0 = fquad inputs
   in blowup 100 y0
 
+-- Catastrophic loss of sharing prevented also with non-trivial multiplication.
+fblowupMult :: forall d. ADModeAndNum d Float
+            => Int -> ADInputs d Float -> ADVal d Float
+fblowupMult k inputs =
+  let blowup :: Int -> ADVal d Float -> ADVal d Float
+      blowup 0 y = y
+      blowup n y =
+        let ysum = y + y * y / (y - 0.000000001)
+            yscaled = sqrt $ 0.499999985 * 0.499999985 * ysum * ysum
+          -- without the scaling we'd get NaN at once
+        in blowup (pred n) yscaled
+      y0 = fquad inputs
+  in blowup k y0
+
 gdSimpleTests :: TestTree
 gdSimpleTests = testGroup "Simple gradient descent tests"
   [ testCase "0.1 30" $ do
@@ -69,6 +83,18 @@ gdSimpleTests = testGroup "Simple gradient descent tests"
   , testCase "blowup 0.01 1000000" $ do
       res <- gdSimpleShow 0.01 fblowup (V.fromList [2, 3]) 1000000
       res @?~ ([3.5e-44,3.5e-44],4.9999523)
+  , testCase "blowupMult 0.01 100 10000" $ do
+      res <- gdSimpleShow 0.01 (fblowupMult 100) (V.fromList [2, 3]) 10000
+      res @?~ ([4.0746778e-10,6.1120126e-10],5)
+  , testCase "blowupMult 0.01 10000 100" $ do
+      res <- gdSimpleShow 0.01 (fblowupMult 10000) (V.fromList [2, 3]) 100
+      res @?~ ([0.26549283,0.3982393],5.2290807)
+  , testCase "blowupMult 0.01 10 1000000" $ do
+      res <- gdSimpleShow 0.01 (fblowupMult 10) (V.fromList [2, 3]) 1000000
+      res @?~ ([3.5e-44,3.5e-44],5)
+  , testCase "blowupMult 0.01 1000000 10" $ do
+      res <- gdSimpleShow 0.01 (fblowupMult 1000000) (V.fromList [2, 3]) 10
+      res @?~ ([1.640273,2.4604096],13.744109)
   ]
 
 -- This, and other XOR nn operations, have unfused Delta let-bindings
