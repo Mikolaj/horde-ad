@@ -149,6 +149,7 @@ class IsPrimal d a where
   dZero :: Dual d a
   dScale :: a -> Dual d a -> Dual d a
   dAdd :: Dual d a -> Dual d a -> Dual d a
+  recordSharing :: Dual d a -> Dual d a
 
 -- | Part 1/2 of a hack to squeeze the shaped tensors rank,
 -- with its extra @sh@ parameter, into the 'IsPrimal' class.
@@ -159,6 +160,8 @@ class IsPrimalS d r where
   dAddS :: forall sh. OS.Shape sh
         => Dual d (OS.Array sh r) -> Dual d (OS.Array sh r)
         -> Dual d (OS.Array sh r)
+  recordSharingS :: forall sh. OS.Shape sh
+                 => Dual d (OS.Array sh r) -> Dual d (OS.Array sh r)
 
 -- | Part 2/2 of a hack to squeeze the shaped tensors rank,
 -- with its extra @sh@ parameter, into the 'IsPrimal' class.
@@ -166,6 +169,7 @@ instance (IsPrimalS d r, OS.Shape sh) => IsPrimal d (OS.Array sh r) where
   dZero = dZeroS
   dScale = dScaleS
   dAdd = dAddS
+  recordSharing = recordSharingS
 
 -- | Assuming that the type argument is the primal component of dual numbers
 -- with differentiation mode `ADModeGradient`, this class makes available
@@ -266,17 +270,18 @@ class HasRanks (d :: ADMode) r where
 -- * Backprop gradient method instances
 
 -- | This, just as many other @ADModeGradient@ instances, is an impure
--- instance. Each created term tree node gets an @Int@ identifier
+-- instance, because 'recordSharing' adorns terms with an @Int@ identifier
 -- from a counter that is afterwards incremented (and never changed
 -- in any other way).
 --
 -- The identifiers are not part of any non-internal module API
 -- and the impure counter that gets incremented is not exposed
--- (except for low level tests). The per-node identifiers are used
--- only in internal modules. They are assigned once and then read-only.
--- They ensure that subterms that are shared in memory are evaluated only once.
--- If pointer equality worked efficiently (e.g., if compact regions
--- with sharing were cheaper), we wouldn't need the impurity.
+-- (except for low level tests). The identifiers are read only in internal
+-- modules. They are assigned here once and ever accessed read-only.
+-- Their uniqueness ensures that subterms that are shared in memory
+-- are evaluated only once. If pointer equality worked efficiently
+-- (e.g., if compact regions with sharing were cheaper), we wouldn't need
+-- the impurity.
 --
 -- Given that we have to use impurity anyway, we make the implementation
 -- faster by ensuring the order of identifiers reflects data dependency,
@@ -285,47 +290,82 @@ class HasRanks (d :: ADMode) r where
 -- call by value, which is needed for that identifier ordering.
 --
 -- As long as "HordeAd.Internal.Delta" is used exclusively through
--- smart constructors from this API and the API is not (wrongly) modified,
--- the impurity is completely safe. Even compiler optimizations,
--- e.g., cse and full-laziness, can't break the required invariants.
--- On the contrary, they increase sharing and make evaluation yet cheaper.
+-- smart constructors from this API, the impurity is completely safe.
+-- Even compiler optimizations, e.g., cse and full-laziness,
+-- can't break the required invariants. On the contrary,
+-- they increase sharing and make evaluation yet cheaper.
 -- Of course, if the compiler, e.g., stops honouring @NOINLINE@,
 -- all this breaks down.
+--
+-- The pattern-matching in 'recordSharing' is a crucial optimization
+-- and it could, presumably, be extended to further limit which
+-- terms get an identifier. Alternatively, 'HordeAd.Core.DualNumber.dD'
+-- or library definitions that use it could be made smarter.
 instance IsPrimal 'ADModeGradient Double where
   dZero = Zero0
-  dScale !k !d = wrapDelta0 $ Scale0 k d
-  dAdd !d !e = wrapDelta0 $ Add0 d e
+  dScale !k !d = Scale0 k d
+  dAdd !d !e = Add0 d e
+  recordSharing d = case d of
+    Zero0 -> d
+    Input0{} -> d
+    Let0{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> wrapDelta0 d
 
 -- | This is an impure instance. See above.
 instance IsPrimal 'ADModeGradient Float where
   -- Identical as above:
   dZero = Zero0
-  dScale !k !d = wrapDelta0 $ Scale0 k d
-  dAdd !d !e = wrapDelta0 $ Add0 d e
+  dScale !k !d = Scale0 k d
+  dAdd !d !e = Add0 d e
+  recordSharing d = case d of
+    Zero0 -> d
+    Input0{} -> d
+    Let0{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> wrapDelta0 d
 
 -- | This is an impure instance. See above.
 instance IsPrimal 'ADModeGradient (Vector r) where
   dZero = Zero1
-  dScale !k !d = wrapDelta1 $ Scale1 k d
-  dAdd !d !e = wrapDelta1 $ Add1 d e
+  dScale !k !d = Scale1 k d
+  dAdd !d !e = Add1 d e
+  recordSharing d = case d of
+    Zero1 -> d
+    Input1{} -> d
+    Let1{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> wrapDelta1 d
 
 -- | This is an impure instance. See above.
 instance IsPrimal 'ADModeGradient (Matrix r) where
   dZero = Zero2
-  dScale !k !d = wrapDelta2 $ Scale2 k d
-  dAdd !d !e = wrapDelta2 $ Add2 d e
+  dScale !k !d = Scale2 k d
+  dAdd !d !e = Add2 d e
+  recordSharing d = case d of
+    Zero2 -> d
+    Input2{} -> d
+    Let2{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> wrapDelta2 d
 
 -- | This is an impure instance. See above.
 instance IsPrimal 'ADModeGradient (OT.Array r) where
   dZero = ZeroX
-  dScale !k !d = wrapDeltaX $ ScaleX k d
-  dAdd !d !e = wrapDeltaX $ AddX d e
+  dScale !k !d = ScaleX k d
+  dAdd !d !e = AddX d e
+  recordSharing d = case d of
+    ZeroX -> d
+    InputX{} -> d
+    LetX{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> wrapDeltaX d
 
 -- | This is an impure instance. See above.
 instance IsPrimalS 'ADModeGradient r where
   dZeroS = ZeroS
-  dScaleS !k !d = wrapDeltaS $ ScaleS k d
-  dAddS !d !e = wrapDeltaS $ AddS d e
+  dScaleS !k !d = ScaleS k d
+  dAddS !d !e = AddS d e
+  recordSharingS d = case d of
+    ZeroS -> d
+    InputS{} -> d
+    LetS{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> wrapDeltaS d
 
 instance HasInputs Double where
   dInput = Input0
@@ -354,63 +394,63 @@ instance OS.Shape sh => HasInputs (OS.Array sh r) where
 -- | This is an impure instance. See above.
 instance Dual 'ADModeGradient r ~ Delta0 r
          => HasRanks 'ADModeGradient r where
-  dSumElements0 !vd !n = wrapDelta0 $ SumElements0 vd n
-  dIndex0 !d !ix !k = wrapDelta0 $ Index0 d ix k
-  dDot0 !v !vd = wrapDelta0 $ Dot0 v vd
-  dFromX0 !d = wrapDelta0 $ FromX0 d
-  dFromS0 !d = wrapDelta0 $ FromS0 d
-  dSeq1 !lsd = wrapDelta1 $ Seq1 lsd
-  dKonst1 !d !n = wrapDelta1 $ Konst1 d n
-  dAppend1 !d !k !e = wrapDelta1 $ Append1 d k e
-  dSlice1 !i !n !d !len = wrapDelta1 $ Slice1 i n d len
-  dSumRows1 !dm !cols = wrapDelta1 $ SumRows1 dm cols
-  dSumColumns1 !dm !rows = wrapDelta1 $ SumColumns1 dm rows
-  dM_VD1 !m !dRow = wrapDelta1 $ M_VD1 m dRow
-  dMD_V1 !md !row = wrapDelta1 $ MD_V1 md row
-  dFromX1 !d = wrapDelta1 $ FromX1 d
-  dFromS1 !d = wrapDelta1 $ FromS1 d
-  dReverse1 !d = wrapDelta1 $ Reverse1 d
-  dFlatten1 !rows !cols !d = wrapDelta1 $ Flatten1 rows cols d
-  dFlattenX1 !sh !d = wrapDelta1 $ FlattenX1 sh d
-  dFlattenS1 !d = wrapDelta1 $ FlattenS1 d
-  dFromRows2 !lvd = wrapDelta2 $ FromRows2 lvd
-  dFromColumns2 !lvd = wrapDelta2 $ FromColumns2 lvd
-  dKonst2 !d !sz = wrapDelta2 $ Konst2 d sz
-  dTranspose2 !md = wrapDelta2 $ Transpose2 md
-  dM_MD2 !m !md = wrapDelta2 $ M_MD2 m md
-  dMD_M2 !md !m = wrapDelta2 $ MD_M2 md m
-  dRowAppend2 !d !k !e = wrapDelta2 $ RowAppend2 d k e
-  dColumnAppend2 !d !k !e = wrapDelta2 $ ColumnAppend2 d k e
-  dRowSlice2 !i !n !d !rows = wrapDelta2 $ RowSlice2 i n d rows
-  dColumnSlice2 !i !n !d !cols = wrapDelta2 $ ColumnSlice2 i n d cols
-  dAsRow2 !dRow = wrapDelta2 $ AsRow2 dRow
-  dAsColumn2 !dCol = wrapDelta2 $ AsColumn2 dCol
-  dFromX2 !d = wrapDelta2 $ FromX2 d
-  dFromS2 !d = wrapDelta2 $ FromS2 d
-  dFlipud2 !d = wrapDelta2 $ Flipud2 d
-  dFliprl2 !d = wrapDelta2 $ Fliprl2 d
-  dReshape2 !cols !d = wrapDelta2 $ Reshape2 cols d
-  dConv2 !m !md = wrapDelta2 $ Conv2 m md
-  dKonstX !d !sz = wrapDeltaX $ KonstX d sz
-  dAppendX !d !k !e = wrapDeltaX $ AppendX d k e
-  dSliceX !i !n !d !len = wrapDeltaX $ SliceX i n d len
-  dIndexX !d !ix !len = wrapDeltaX $ IndexX d ix len
-  dRavelFromListX !ld = wrapDeltaX $ RavelFromListX ld
-  dReshapeX !sh !sh' !d = wrapDeltaX $ ReshapeX sh sh' d
-  dFrom0X !d = wrapDeltaX $ From0X d
-  dFrom1X !d = wrapDeltaX $ From1X d
-  dFrom2X !d !cols = wrapDeltaX $ From2X d cols
-  dFromSX !d = wrapDeltaX $ FromSX d
-  dKonstS !d = wrapDeltaS $ KonstS d
-  dAppendS !d !e = wrapDeltaS $ AppendS d e
-  dSliceS !iProxy !nProxy !d = wrapDeltaS $ SliceS iProxy nProxy d
-  dIndexS !d !ixProxy = wrapDeltaS $ IndexS d ixProxy
-  dRavelFromListS !ld = wrapDeltaS $ RavelFromListS ld
-  dReshapeS !d = wrapDeltaS $ ReshapeS d
-  dFrom0S !d = wrapDeltaS $ From0S d
-  dFrom1S !d = wrapDeltaS $ From1S d
-  dFrom2S !proxyCols !d = wrapDeltaS $ From2S proxyCols d
-  dFromXS !d = wrapDeltaS $ FromXS d
+  dSumElements0 !vd !n = SumElements0 vd n
+  dIndex0 !d !ix !k = Index0 d ix k
+  dDot0 !v !vd = Dot0 v vd
+  dFromX0 !d = FromX0 d
+  dFromS0 !d = FromS0 d
+  dSeq1 !lsd = Seq1 lsd
+  dKonst1 !d !n = Konst1 d n
+  dAppend1 !d !k !e = Append1 d k e
+  dSlice1 !i !n !d !len = Slice1 i n d len
+  dSumRows1 !dm !cols = SumRows1 dm cols
+  dSumColumns1 !dm !rows = SumColumns1 dm rows
+  dM_VD1 !m !dRow = M_VD1 m dRow
+  dMD_V1 !md !row = MD_V1 md row
+  dFromX1 !d = FromX1 d
+  dFromS1 !d = FromS1 d
+  dReverse1 !d = Reverse1 d
+  dFlatten1 !rows !cols !d = Flatten1 rows cols d
+  dFlattenX1 !sh !d = FlattenX1 sh d
+  dFlattenS1 !d = FlattenS1 d
+  dFromRows2 !lvd = FromRows2 lvd
+  dFromColumns2 !lvd = FromColumns2 lvd
+  dKonst2 !d !sz = Konst2 d sz
+  dTranspose2 !md = Transpose2 md
+  dM_MD2 !m !md = M_MD2 m md
+  dMD_M2 !md !m = MD_M2 md m
+  dRowAppend2 !d !k !e = RowAppend2 d k e
+  dColumnAppend2 !d !k !e = ColumnAppend2 d k e
+  dRowSlice2 !i !n !d !rows = RowSlice2 i n d rows
+  dColumnSlice2 !i !n !d !cols = ColumnSlice2 i n d cols
+  dAsRow2 !dRow = AsRow2 dRow
+  dAsColumn2 !dCol = AsColumn2 dCol
+  dFromX2 !d = FromX2 d
+  dFromS2 !d = FromS2 d
+  dFlipud2 !d = Flipud2 d
+  dFliprl2 !d = Fliprl2 d
+  dReshape2 !cols !d = Reshape2 cols d
+  dConv2 !m !md = Conv2 m md
+  dKonstX !d !sz = KonstX d sz
+  dAppendX !d !k !e = AppendX d k e
+  dSliceX !i !n !d !len = SliceX i n d len
+  dIndexX !d !ix !len = IndexX d ix len
+  dRavelFromListX !ld = RavelFromListX ld
+  dReshapeX !sh !sh' !d = ReshapeX sh sh' d
+  dFrom0X !d = From0X d
+  dFrom1X !d = From1X d
+  dFrom2X !d !cols = From2X d cols
+  dFromSX !d = FromSX d
+  dKonstS !d = KonstS d
+  dAppendS !d !e = AppendS d e
+  dSliceS !iProxy !nProxy !d = SliceS iProxy nProxy d
+  dIndexS !d !ixProxy = IndexS d ixProxy
+  dRavelFromListS !ld = RavelFromListS ld
+  dReshapeS !d = ReshapeS d
+  dFrom0S !d = From0S d
+  dFrom1S !d = From1S d
+  dFrom2S !proxyCols !d = From2S proxyCols d
+  dFromXS !d = FromXS d
 
 
 -- * Alternative instance: forward derivatives computed on the spot
@@ -419,11 +459,13 @@ instance IsPrimal 'ADModeDerivative Double where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
+  recordSharing = id
 
 instance IsPrimal 'ADModeDerivative Float where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
+  recordSharing = id
 
 -- These constraints force @UndecidableInstances@.
 instance Num (Vector r)
@@ -431,24 +473,28 @@ instance Num (Vector r)
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
+  recordSharing = id
 
 instance Num (Matrix r)
          => IsPrimal 'ADModeDerivative (Matrix r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
+  recordSharing = id
 
 instance Num (OT.Array r)
          => IsPrimal 'ADModeDerivative (OT.Array r) where
   dZero = 0
   dScale k d = k * d
   dAdd d e = d + e
+  recordSharing = id
 
 instance (Numeric r, Num (Vector r))
          => IsPrimalS 'ADModeDerivative r where
   dZeroS = 0
   dScaleS k d = k * d
   dAddS d e = d + e
+  recordSharingS = id
 
 instance ( Numeric r, Num (Vector r)
          , Dual 'ADModeDerivative r ~ r )
@@ -528,31 +574,37 @@ instance IsPrimal 'ADModeValue Double where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
+  recordSharing = id
 
 instance IsPrimal 'ADModeValue Float where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
+  recordSharing = id
 
 instance IsPrimal 'ADModeValue (Vector r) where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
+  recordSharing = id
 
 instance IsPrimal 'ADModeValue (Matrix r) where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
+  recordSharing = id
 
 instance IsPrimal 'ADModeValue (OT.Array r) where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
+  recordSharing = id
 
 instance IsPrimalS 'ADModeValue r where
   dZeroS = DummyDual ()
   dScaleS _ _ = DummyDual ()
   dAddS _ _ = DummyDual ()
+  recordSharingS = id
 
 instance HasRanks 'ADModeValue r where
   dSumElements0 _ _ = DummyDual ()
@@ -645,32 +697,32 @@ unsafeGetFreshId = atomicAddCounter_ unsafeGlobalCounter 1
 -- variable definitions, that contain `unsafePerformIO'.
 -- BTW, tests don't show a speedup from `unsafeDupablePerformIO`,
 -- perhaps due to counter gaps that it may introduce.
-wrapDelta0 :: Delta0' r -> Delta0 r
+wrapDelta0 :: Delta0 r -> Delta0 r
 {-# NOINLINE wrapDelta0 #-}
 wrapDelta0 !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
-  return $! Delta0 (NodeId n) d
+  return $! Let0 (NodeId n) d
 
-wrapDelta1 :: Delta1' r -> Delta1 r
+wrapDelta1 :: Delta1 r -> Delta1 r
 {-# NOINLINE wrapDelta1 #-}
 wrapDelta1 !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
-  return $! Delta1 (NodeId n) d
+  return $! Let1 (NodeId n) d
 
-wrapDelta2 :: Delta2' r -> Delta2 r
+wrapDelta2 :: Delta2 r -> Delta2 r
 {-# NOINLINE wrapDelta2 #-}
 wrapDelta2 !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
-  return $! Delta2 (NodeId n) d
+  return $! Let2 (NodeId n) d
 
-wrapDeltaX :: DeltaX' r -> DeltaX r
+wrapDeltaX :: DeltaX r -> DeltaX r
 {-# NOINLINE wrapDeltaX #-}
 wrapDeltaX !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
-  return $! DeltaX (NodeId n) d
+  return $! LetX (NodeId n) d
 
-wrapDeltaS :: DeltaS' sh r -> DeltaS sh r
+wrapDeltaS :: DeltaS sh r -> DeltaS sh r
 {-# NOINLINE wrapDeltaS #-}
 wrapDeltaS !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
-  return $! DeltaS (NodeId n) d
+  return $! LetS (NodeId n) d

@@ -67,6 +67,13 @@ staticNatFromProxy Proxy = MkSN
 -- determined by the type faimly @Dual@) is defined elsewhere.
 data ADVal (d :: ADMode) a = D a (Dual d a)
 
+-- | Smart constructor for 'D' of 'ADVal' that additionally records sharing
+-- information, if applicable for the differentiation mode in question.
+-- The bare constructor should not be used directly (which is not enforced
+-- by the types yet), except when deconstructing via pattern-matching.
+dD :: IsPrimal d a => a -> (Dual d a) -> ADVal d a
+dD a dual = D a (recordSharing dual)
+
 addParameters :: (Numeric r, Num (Vector r))
               => Domains r -> Domains r -> Domains r
 addParameters (a0, a1, a2, aX) (b0, b1, b2, bX) =
@@ -100,12 +107,12 @@ instance Eq (ADVal d a) where
 instance Ord (ADVal d a) where
 
 instance (Num a, IsPrimal d a) => Num (ADVal d a) where
-  D u u' + D v v' = D (u + v) (dAdd u' v')
-  D u u' - D v v' = D (u - v) (dAdd u' (dScale (-1) v'))
-  D u u' * D v v' = D (u * v) (dAdd (dScale v u') (dScale u v'))
-  negate (D v v') = D (negate v) (dScale (-1) v')
-  abs (D v v') = D (abs v) (dScale (signum v) v')
-  signum (D v _) = D (signum v) dZero
+  D u u' + D v v' = dD (u + v) (dAdd u' v')
+  D u u' - D v v' = dD (u - v) (dAdd u' (dScale (-1) v'))
+  D u u' * D v v' = dD (u * v) (dAdd (dScale v u') (dScale u v'))
+  negate (D v v') = dD (negate v) (dScale (-1) v')
+  abs (D v v') = dD (abs v) (dScale (signum v) v')
+  signum (D v _) = dD (signum v) dZero
   fromInteger = constant . fromInteger
 
 instance (Real a, IsPrimal d a) => Real (ADVal d a) where
@@ -114,36 +121,36 @@ instance (Real a, IsPrimal d a) => Real (ADVal d a) where
 instance (Fractional a, IsPrimal d a) => Fractional (ADVal d a) where
   D u u' / D v v' =
     let recipSq = recip (v * v)  -- ensure sharing; also elsewhere
-    in D (u / v) (dAdd (dScale (v * recipSq) u') (dScale (- u * recipSq) v'))
+    in dD (u / v) (dAdd (dScale (v * recipSq) u') (dScale (- u * recipSq) v'))
   recip (D v v') =
     let minusRecipSq = - recip (v * v)
-    in D (recip v) (dScale minusRecipSq v')
+    in dD (recip v) (dScale minusRecipSq v')
   fromRational = constant . fromRational
 
 instance (Floating a, IsPrimal d a) => Floating (ADVal d a) where
   pi = constant pi
   exp (D u u') = let expU = exp u
-                 in D expU (dScale expU u')
-  log (D u u') = D (log u) (dScale (recip u) u')
+                 in dD expU (dScale expU u')
+  log (D u u') = dD (log u) (dScale (recip u) u')
   sqrt (D u u') = let sqrtU = sqrt u
-                  in D sqrtU (dScale (recip (sqrtU + sqrtU)) u')
-  D u u' ** D v v' = D (u ** v) (dAdd (dScale (v * (u ** (v - 1))) u')
+                  in dD sqrtU (dScale (recip (sqrtU + sqrtU)) u')
+  D u u' ** D v v' = dD (u ** v) (dAdd (dScale (v * (u ** (v - 1))) u')
                                       (dScale ((u ** v) * log u) v'))
   logBase x y = log y / log x
-  sin (D u u') = D (sin u) (dScale (cos u) u')
-  cos (D u u') = D (cos u) (dScale (- (sin u)) u')
+  sin (D u u') = dD (sin u) (dScale (cos u) u')
+  cos (D u u') = dD (cos u) (dScale (- (sin u)) u')
   tan (D u u') = let cosU = cos u
-                 in D (tan u) (dScale (recip (cosU * cosU)) u')
-  asin (D u u') = D (asin u) (dScale (recip (sqrt (1 - u*u))) u')
-  acos (D u u') = D (acos u) (dScale (- recip (sqrt (1 - u*u))) u')
-  atan (D u u') = D (atan u) (dScale (recip (1 + u*u)) u')
-  sinh (D u u') = D (sinh u) (dScale (cosh u) u')
-  cosh (D u u') = D (cosh u) (dScale (sinh u) u')
+                 in dD (tan u) (dScale (recip (cosU * cosU)) u')
+  asin (D u u') = dD (asin u) (dScale (recip (sqrt (1 - u*u))) u')
+  acos (D u u') = dD (acos u) (dScale (- recip (sqrt (1 - u*u))) u')
+  atan (D u u') = dD (atan u) (dScale (recip (1 + u*u)) u')
+  sinh (D u u') = dD (sinh u) (dScale (cosh u) u')
+  cosh (D u u') = dD (cosh u) (dScale (sinh u) u')
   tanh (D u u') = let y = tanh u
-                  in D y (dScale (1 - y * y) u')
-  asinh (D u u') = D (asinh u) (dScale (recip (sqrt (1 + u*u))) u')
-  acosh (D u u') = D (acosh u) (dScale (recip (sqrt (u*u - 1))) u')
-  atanh (D u u') = D (atanh u) (dScale (recip (1 - u*u)) u')
+                  in dD y (dScale (1 - y * y) u')
+  asinh (D u u') = dD (asinh u) (dScale (recip (sqrt (1 + u*u))) u')
+  acosh (D u u') = dD (acosh u) (dScale (recip (sqrt (u*u - 1))) u')
+  atanh (D u u') = dD (atanh u) (dScale (recip (1 - u*u)) u')
 
 instance (RealFrac a, IsPrimal d a) => RealFrac (ADVal d a) where
   properFraction = undefined
@@ -152,24 +159,24 @@ instance (RealFrac a, IsPrimal d a) => RealFrac (ADVal d a) where
 instance (RealFloat a, IsPrimal d a) => RealFloat (ADVal d a) where
   atan2 (D u u') (D v v') =
     let t = 1 / (u * u + v * v)
-    in D (atan2 u v) (dAdd (dScale (- u * t) v') (dScale (v * t) u'))
+    in dD (atan2 u v) (dAdd (dScale (- u * t) v') (dScale (v * t) u'))
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a differentiable codomain
 
 constant :: IsPrimal d a => a -> ADVal d a
-constant a = D a dZero
+constant a = dD a dZero
 
 scale :: (Num a, IsPrimal d a) => a -> ADVal d a -> ADVal d a
-scale a (D u u') = D (a * u) (dScale a u')
+scale a (D u u') = dD (a * u) (dScale a u')
 
 logistic :: (Floating a, IsPrimal d a) => ADVal d a -> ADVal d a
 logistic (D u u') =
   let y = recip (1 + exp (- u))
-  in D y (dScale (y * (1 - y)) u')
+  in dD y (dScale (y * (1 - y)) u')
 
 -- Optimized and more clearly written @u ** 2@.
 square :: (Num a, IsPrimal d a) => ADVal d a -> ADVal d a
-square (D u u') = D (u * u) (dScale (2 * u) u')
+square (D u u') = dD (u * u) (dScale (2 * u) u')
 
 squaredDifference :: (Num a, IsPrimal d a)
                   => a -> ADVal d a -> ADVal d a
@@ -191,18 +198,18 @@ reluLeaky v@(D u _) =
 -- * Operations resulting in a scalar
 
 sumElements0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
-sumElements0 (D u u') = D (LA.sumElements u) (dSumElements0 u' (V.length u))
+sumElements0 (D u u') = dD (LA.sumElements u) (dSumElements0 u' (V.length u))
 
 index0 :: ADModeAndNum d r => ADVal d (Vector r) -> Int -> ADVal d r
-index0 (D u u') ix = D (u V.! ix) (dIndex0 u' ix (V.length u))
+index0 (D u u') ix = dD (u V.! ix) (dIndex0 u' ix (V.length u))
 
 minimum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
 minimum0 (D u u') =
-  D (LA.minElement u) (dIndex0 u' (LA.minIndex u) (V.length u))
+  dD (LA.minElement u) (dIndex0 u' (LA.minIndex u) (V.length u))
 
 maximum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
 maximum0 (D u u') =
-  D (LA.maxElement u) (dIndex0 u' (LA.maxIndex u) (V.length u))
+  dD (LA.maxElement u) (dIndex0 u' (LA.maxIndex u) (V.length u))
 
 foldl'0 :: ADModeAndNum d r
         => (ADVal d r -> ADVal d r -> ADVal d r)
@@ -210,7 +217,7 @@ foldl'0 :: ADModeAndNum d r
         -> ADVal d r
 foldl'0 f uu' (D v v') =
   let k = V.length v
-      g !acc ix p = f (D p (dIndex0 v' ix k)) acc
+      g !acc ix p = f (dD p (dIndex0 v' ix k)) acc
   in V.ifoldl' g uu' v
 
 altSumElements0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
@@ -220,13 +227,13 @@ altSumElements0 = foldl'0 (+) 0
 infixr 8 <.>!
 (<.>!) :: ADModeAndNum d r
        => ADVal d (Vector r) -> ADVal d (Vector r) -> ADVal d r
-(<.>!) (D u u') (D v v') = D (u LA.<.> v) (dAdd (dDot0 v u') (dDot0 u v'))
+(<.>!) (D u u') (D v v') = dD (u LA.<.> v) (dAdd (dDot0 v u') (dDot0 u v'))
 
 -- | Dot product with a constant vector.
 infixr 8 <.>!!
 (<.>!!) :: ADModeAndNum d r
         => ADVal d (Vector r) -> Vector r -> ADVal d r
-(<.>!!) (D u u') v = D (u LA.<.> v) (dDot0 v u')
+(<.>!!) (D u u') v = dD (u LA.<.> v) (dDot0 v u')
 
 infixr 8 <.>$
 (<.>$) :: (ADModeAndNum d r, KnownNat n)
@@ -235,10 +242,10 @@ infixr 8 <.>$
 (<.>$) d e = fromS1 d <.>! fromS1 e
 
 fromX0 :: ADModeAndNum d r => ADVal d (OT.Array r) -> ADVal d r
-fromX0 (D u u') = D (OT.unScalar u) (dFromX0 u')
+fromX0 (D u u') = dD (OT.unScalar u) (dFromX0 u')
 
 fromS0 :: ADModeAndNum d r => ADVal d (OS.Array '[] r) -> ADVal d r
-fromS0 (D u u') = D (OS.unScalar u) (dFromS0 u')
+fromS0 (D u u') = dD (OS.unScalar u) (dFromS0 u')
 
 sumElementsVectorOfDual
   :: ADModeAndNum d r => Data.Vector.Vector (ADVal d r) -> ADVal d r
@@ -285,7 +292,7 @@ lossSoftMaxCrossEntropyV target (D u u') =
       recipSum = recip sumExpU
 -- not exposed: softMaxU = LA.scaleRecip sumExpU expU
       softMaxU = LA.scale recipSum expU
-  in D (negate $ log softMaxU LA.<.> target)  -- TODO: avoid: log . exp
+  in dD (negate $ log softMaxU LA.<.> target)  -- TODO: avoid: log . exp
        (dDot0 (softMaxU - target) u')
 
 
@@ -294,29 +301,29 @@ lossSoftMaxCrossEntropyV target (D u u') =
 -- @1@ means rank one, so the dual component represents a vector.
 seq1 :: ADModeAndNum d r
      => Data.Vector.Vector (ADVal d r) -> ADVal d (Vector r)
-seq1 v = D (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
-           (dSeq1 $ V.map (\(D _ u') -> u') v)
+seq1 v = dD (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
+            (dSeq1 $ V.map (\(D _ u') -> u') v)
 
 konst1 :: ADModeAndNum d r => ADVal d r -> Int -> ADVal d (Vector r)
-konst1 (D u u') n = D (LA.konst u n) (dKonst1 u' n)
+konst1 (D u u') n = dD (LA.konst u n) (dKonst1 u' n)
 
 append1 :: ADModeAndNum d r
         => ADVal d (Vector r) -> ADVal d (Vector r)
         -> ADVal d (Vector r)
-append1 (D u u') (D v v') = D (u V.++ v) (dAppend1 u' (V.length u) v')
+append1 (D u u') (D v v') = dD (u V.++ v) (dAppend1 u' (V.length u) v')
 
 slice1 :: ADModeAndNum d r
        => Int -> Int -> ADVal d (Vector r) -> ADVal d (Vector r)
-slice1 i n (D u u') = D (V.slice i n u) (dSlice1 i n u' (V.length u))
+slice1 i n (D u u') = dD (V.slice i n u) (dSlice1 i n u' (V.length u))
 
 sumRows1 :: ADModeAndNum d r => ADVal d (Matrix r) -> ADVal d (Vector r)
-sumRows1 (D u u') = D (V.fromList $ map LA.sumElements $ LA.toRows u)
-                      (dSumRows1 u' (LA.cols u))
+sumRows1 (D u u') = dD (V.fromList $ map LA.sumElements $ LA.toRows u)
+                       (dSumRows1 u' (LA.cols u))
 
 sumColumns1 :: ADModeAndNum d r
             => ADVal d (Matrix r) -> ADVal d (Vector r)
-sumColumns1 (D u u') = D (V.fromList $ map LA.sumElements $ LA.toColumns u)
-                         (dSumColumns1 u' (LA.rows u))
+sumColumns1 (D u u') = dD (V.fromList $ map LA.sumElements $ LA.toColumns u)
+                          (dSumColumns1 u' (LA.rows u))
 
 -- The detour through a boxed vector (list probably fuses away)
 -- is costly, but only matters if @f@ is cheap.
@@ -325,7 +332,7 @@ map1Seq :: ADModeAndNum d r
         -> ADVal d (Vector r)
 map1Seq f (D v v') =
   let k = V.length v
-      g ix p = f $ D p (dIndex0 v' ix k)
+      g ix p = f $ dD p (dIndex0 v' ix k)
       ds = imap g $ V.toList v
   in seq1 $ V.fromList ds
 
@@ -334,37 +341,37 @@ infixr 8 #>!
 (#>!) :: ADModeAndNum d r
       => ADVal d (Matrix r) -> ADVal d (Vector r)
       -> ADVal d (Vector r)
-(#>!) (D u u') (D v v') = D (u LA.#> v) (dAdd (dMD_V1 u' v) (dM_VD1 u v'))
+(#>!) (D u u') (D v v') = dD (u LA.#> v) (dAdd (dMD_V1 u' v) (dM_VD1 u v'))
 
 -- | Dense matrix-vector product with a constant vector.
 infixr 8 #>!!
 (#>!!) :: ADModeAndNum d r
        => ADVal d (Matrix r) -> Vector r
        -> ADVal d (Vector r)
-(#>!!) (D u u') v = D (u LA.#> v) (dMD_V1 u' v)
+(#>!!) (D u u') v = dD (u LA.#> v) (dMD_V1 u' v)
 
 fromX1 :: ADModeAndNum d r => ADVal d (OT.Array r) -> ADVal d (Vector r)
-fromX1 (D u u') = D (OT.toVector u) (dFromX1 u')
+fromX1 (D u u') = dD (OT.toVector u) (dFromX1 u')
 
 fromS1 :: forall len d r. (KnownNat len, ADModeAndNum d r)
        => ADVal d (OS.Array '[len] r) -> ADVal d (Vector r)
-fromS1 (D u u') = D (OS.toVector u) (dFromS1 u')
+fromS1 (D u u') = dD (OS.toVector u) (dFromS1 u')
 
 reverse1 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d (Vector r)
-reverse1 (D u u') = D (V.reverse u) (dReverse1 u')
+reverse1 (D u u') = dD (V.reverse u) (dReverse1 u')
 
 flatten1 :: ADModeAndNum d r => ADVal d (Matrix r) -> ADVal d (Vector r)
 flatten1 (D u u') = let (rows, cols) = LA.size u
-                    in D (LA.flatten u) (dFlatten1 rows cols u')
+                    in dD (LA.flatten u) (dFlatten1 rows cols u')
 
 flattenX1 :: ADModeAndNum d r
           => ADVal d (OT.Array r) -> ADVal d (Vector r)
 flattenX1 (D u u') = let sh = OT.shapeL u
-                     in D (OT.toVector u) (dFlattenX1 sh u')
+                     in dD (OT.toVector u) (dFlattenX1 sh u')
 
 flattenS1 :: (ADModeAndNum d r, OS.Shape sh)
           => ADVal d (OS.Array sh r) -> ADVal d (Vector r)
-flattenS1 (D u u') = D (OS.toVector u) (dFlattenS1 u')
+flattenS1 (D u u') = dD (OS.toVector u) (dFlattenS1 u')
 
 corr1 :: ADModeAndNum d r
       => ADVal d (Vector r) -> ADVal d (Vector r)
@@ -419,8 +426,8 @@ lossSoftMaxCrossEntropyL target (D u u') =
       recipSum = recip sumExpU
       softMaxU = LA.asRow recipSum * expU
                    -- this @asRow@ is safe; multiplied at once
-      scaled = D (negate $ log softMaxU * target)
-                 (dScale (softMaxU - target) u')
+      scaled = dD (negate $ log softMaxU * target)
+                  (dScale (softMaxU - target) u')
   in sumColumns1 scaled
 
 
@@ -430,21 +437,21 @@ lossSoftMaxCrossEntropyL target (D u u') =
 fromRows2 :: ADModeAndNum d r
           => Data.Vector.Vector (ADVal d (Vector r))
           -> ADVal d (Matrix r)
-fromRows2 v = D (LA.fromRows $ map (\(D u _) -> u) $ V.toList v)
-                (dFromRows2 $ V.map (\(D _ u') -> u') v)
+fromRows2 v = dD (LA.fromRows $ map (\(D u _) -> u) $ V.toList v)
+                 (dFromRows2 $ V.map (\(D _ u') -> u') v)
 
 fromColumns2 :: ADModeAndNum d r
              => Data.Vector.Vector (ADVal d (Vector r))
              -> ADVal d (Matrix r)
-fromColumns2 v = D (LA.fromRows $ map (\(D u _) -> u) $ V.toList v)
-                   (dFromColumns2 $ V.map (\(D _ u') -> u') v)
+fromColumns2 v = dD (LA.fromRows $ map (\(D u _) -> u) $ V.toList v)
+                    (dFromColumns2 $ V.map (\(D _ u') -> u') v)
 
 konst2 :: ADModeAndNum d r
        => ADVal d r -> (Int, Int) -> ADVal d (Matrix r)
-konst2 (D u u') sz = D (LA.konst u sz) (dKonst2 u' sz)
+konst2 (D u u') sz = dD (LA.konst u sz) (dKonst2 u' sz)
 
 transpose2 :: ADModeAndNum d r => ADVal d (Matrix r) -> ADVal d (Matrix r)
-transpose2 (D u u') = D (LA.tr' u) (dTranspose2 u')
+transpose2 (D u u') = dD (LA.tr' u) (dTranspose2 u')
 
 -- | Dense matrix-matrix product.
 --
@@ -454,62 +461,62 @@ infixr 8 <>!
 (<>!) :: ADModeAndNum d r
       => ADVal d (Matrix r) -> ADVal d (Matrix r)
       -> ADVal d (Matrix r)
-(<>!) (D u u') (D v v') = D (u LA.<> v) (dAdd (dMD_M2 u' v) (dM_MD2 u v'))
+(<>!) (D u u') (D v v') = dD (u LA.<> v) (dAdd (dMD_M2 u' v) (dM_MD2 u v'))
 
 -- | Dense matrix-matrix product with a constant matrix.
 infixr 8 <>!!
 (<>!!) :: ADModeAndNum d r
        => ADVal d (Matrix r) -> Matrix r
        -> ADVal d (Matrix r)
-(<>!!) (D u u') v = D (u LA.<> v) (dMD_M2 u' v)
+(<>!!) (D u u') v = dD (u LA.<> v) (dMD_M2 u' v)
 
 rowAppend2 :: ADModeAndNum d r
            => ADVal d (Matrix r) -> ADVal d (Matrix r)
            -> ADVal d (Matrix r)
 rowAppend2 (D u u') (D v v') =
-  D (u LA.=== v) (dRowAppend2 u' (LA.rows u) v')
+  dD (u LA.=== v) (dRowAppend2 u' (LA.rows u) v')
 
 columnAppend2 :: ADModeAndNum d r
               => ADVal d (Matrix r) -> ADVal d (Matrix r)
               -> ADVal d (Matrix r)
 columnAppend2 (D u u') (D v v') =
-  D (u LA.||| v) (dColumnAppend2 u' (LA.cols u) v')
+  dD (u LA.||| v) (dColumnAppend2 u' (LA.cols u) v')
 
 rowSlice2 :: ADModeAndNum d r
           => Int -> Int -> ADVal d (Matrix r)
           -> ADVal d (Matrix r)
-rowSlice2 i n (D u u') = D (LA.subMatrix (i, 0) (n, LA.cols u) u)
-                           (dRowSlice2 i n u' (LA.rows u))
+rowSlice2 i n (D u u') = dD (LA.subMatrix (i, 0) (n, LA.cols u) u)
+                            (dRowSlice2 i n u' (LA.rows u))
 
 columnSlice2 :: ADModeAndNum d r
              => Int -> Int -> ADVal d (Matrix r)
              -> ADVal d (Matrix r)
-columnSlice2 i n (D u u') = D (LA.subMatrix (0, i) (LA.rows u, n) u)
-                              (dColumnSlice2 i n u' (LA.rows u))
+columnSlice2 i n (D u u') = dD (LA.subMatrix (0, i) (LA.rows u, n) u)
+                               (dColumnSlice2 i n u' (LA.rows u))
 
 asRow2 :: ADModeAndNum d r
        => ADVal d (Vector r) -> Int -> ADVal d (Matrix r)
-asRow2 (D u u') n = D (LA.fromRows $ replicate n u) (dAsRow2 u')
+asRow2 (D u u') n = dD (LA.fromRows $ replicate n u) (dAsRow2 u')
 
 asColumn2 :: ADModeAndNum d r
           => ADVal d (Vector r) -> Int -> ADVal d (Matrix r)
-asColumn2 (D u u') n = D (LA.fromColumns $ replicate n u) (dAsColumn2 u')
+asColumn2 (D u u') n = dD (LA.fromColumns $ replicate n u) (dAsColumn2 u')
 
 fromX2 :: ADModeAndNum d r => ADVal d (OT.Array r) -> ADVal d (Matrix r)
 fromX2 (D u u') = case OT.shapeL u of
-  [_, cols] -> D (LA.reshape cols $ OT.toVector u) (dFromX2 u')
+  [_, cols] -> dD (LA.reshape cols $ OT.toVector u) (dFromX2 u')
   dims -> error $ "fromX2: the tensor has wrong dimensions " ++ show dims
 
 fromS2 :: forall rows cols d r.
           (KnownNat rows, KnownNat cols, ADModeAndNum d r)
        => ADVal d (OS.Array '[rows, cols] r) -> ADVal d (Matrix r)
-fromS2 (D u u') = D (LA.reshape (valueOf @cols) $ OS.toVector u) (dFromS2 u')
+fromS2 (D u u') = dD (LA.reshape (valueOf @cols) $ OS.toVector u) (dFromS2 u')
 
 flipud2 :: ADModeAndNum d r => ADVal d (Matrix r) -> ADVal d (Matrix r)
-flipud2 (D u u') = D (LA.flipud u) (dFlipud2 u')
+flipud2 (D u u') = dD (LA.flipud u) (dFlipud2 u')
 
 fliprl2 :: ADModeAndNum d r => ADVal d (Matrix r) -> ADVal d (Matrix r)
-fliprl2 (D u u') = D (LA.fliprl u) (dFliprl2 u')
+fliprl2 (D u u') = dD (LA.fliprl u) (dFliprl2 u')
 
 vectorSlices2 :: ADModeAndNum d r
               => Int -> ADVal d (Vector r) -> ADVal d (Matrix r)
@@ -518,7 +525,7 @@ vectorSlices2 n vv@(D v _) =
 
 reshape2 :: ADModeAndNum d r
          => Int -> ADVal d (Vector r) -> ADVal d (Matrix r)
-reshape2 cols (D u u') = D (LA.reshape cols u) (dReshape2 cols u')
+reshape2 cols (D u u') = dD (LA.reshape cols u) (dReshape2 cols u')
 
 -- TODO: This has list of matrices result instead of a cube tensor.
 matrixSlices2 :: ADModeAndNum d r
@@ -579,7 +586,7 @@ conv2 ker@(D u _) m@(D v _) =
 conv2' :: ADModeAndNum d r
        => ADVal d (Matrix r) -> ADVal d (Matrix r)
        -> ADVal d (Matrix r)
-conv2' (D u u') (D v v') = D (LA.conv2 u v) (dAdd (dConv2 u v') (dConv2 v u'))
+conv2' (D u u') (D v v') = dD (LA.conv2 u v) (dAdd (dConv2 u v') (dConv2 v u'))
 
 -- A variant with limited padding, corresponding to SAME padding
 -- from Tensorflow. Data size does not change with this padding.
@@ -623,23 +630,23 @@ maxPool2 ksize stride m@(D u _) =
 
 konstX :: ADModeAndNum d r
        => ADVal d r -> OT.ShapeL -> ADVal d (OT.Array r)
-konstX (D u u') sh = D (OT.constant sh u) (dKonstX u' sh)
+konstX (D u u') sh = dD (OT.constant sh u) (dKonstX u' sh)
 
 appendX :: ADModeAndNum d r
         => ADVal d (OT.Array r) -> ADVal d (OT.Array r)
         -> ADVal d (OT.Array r)
 appendX (D u u') (D v v') =
-  D (u `OT.append` v) (dAppendX u' (head $ OT.shapeL u) v')
+  dD (u `OT.append` v) (dAppendX u' (head $ OT.shapeL u) v')
 
 sliceX :: ADModeAndNum d r
        => Int -> Int -> ADVal d (OT.Array r) -> ADVal d (OT.Array r)
-sliceX i n (D u u') = D (OT.slice [(i, n)] u)
-                        (dSliceX i n u' (head $ OT.shapeL u))
+sliceX i n (D u u') = dD (OT.slice [(i, n)] u)
+                         (dSliceX i n u' (head $ OT.shapeL u))
 
 indexX :: ADModeAndNum d r
        => ADVal d (OT.Array r) -> Int -> ADVal d (OT.Array r)
-indexX (D u u') ix = D (OT.index u ix)
-                       (dIndexX u' ix (head $ OT.shapeL u))
+indexX (D u u') ix = dD (OT.index u ix)
+                        (dIndexX u' ix (head $ OT.shapeL u))
 
 ravelFromListX :: ADModeAndNum d r
                => [ADVal d (OT.Array r)] -> ADVal d (OT.Array r)
@@ -648,12 +655,12 @@ ravelFromListX ld =
       sh = case lu of
         u : _ -> length lu : OT.shapeL u
         [] -> []
-  in D (OT.ravel $ OTB.fromList sh lu) (dRavelFromListX lu')
+  in dD (OT.ravel $ OTB.fromList sh lu) (dRavelFromListX lu')
 
 unravelToListX :: ADModeAndNum d r
                => ADVal d (OT.Array r) -> [ADVal d (OT.Array r)]
 unravelToListX (D v v') = case OT.shapeL v of
-  k : _ -> let g ix p = D p (dIndexX v' ix k)
+  k : _ -> let g ix p = dD p (dIndexX v' ix k)
            in imap g $ OTB.toList $ OT.unravel v
   [] -> error "unravelToListX: wrong tensor dimensions"  -- catch early
 
@@ -673,21 +680,21 @@ zipWithX f d e =
 
 reshapeX :: ADModeAndNum d r
          => OT.ShapeL -> ADVal d (OT.Array r) -> ADVal d (OT.Array r)
-reshapeX sh' (D u u') = D (OT.reshape sh' u) (dReshapeX (OT.shapeL u) sh' u')
+reshapeX sh' (D u u') = dD (OT.reshape sh' u) (dReshapeX (OT.shapeL u) sh' u')
 
 from0X :: ADModeAndNum d r => ADVal d r -> ADVal d (OT.Array r)
-from0X (D u u') = D (OT.scalar u) (dFrom0X u')
+from0X (D u u') = dD (OT.scalar u) (dFrom0X u')
 
 from1X :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d (OT.Array r)
-from1X (D u u') = D (OT.fromVector [V.length u] u) (dFrom1X u')
+from1X (D u u') = dD (OT.fromVector [V.length u] u) (dFrom1X u')
 
 from2X :: ADModeAndNum d r => ADVal d (Matrix r) -> ADVal d (OT.Array r)
-from2X (D u u') = D (OT.fromVector [LA.rows u, LA.cols u] $ LA.flatten u)
-                    (dFrom2X u' (LA.cols u))
+from2X (D u u') = dD (OT.fromVector [LA.rows u, LA.cols u] $ LA.flatten u)
+                     (dFrom2X u' (LA.cols u))
 
 fromSX :: forall sh d r. (ADModeAndNum d r, OS.Shape sh)
        => ADVal d (OS.Array sh r) -> ADVal d (OT.Array r)
-fromSX (D u u') = D (Data.Array.Convert.convert u) (dFromSX u')
+fromSX (D u u') = dD (Data.Array.Convert.convert u) (dFromSX u')
 
 
 #if defined(VERSION_ghc_typelits_natnormalise)
@@ -695,13 +702,13 @@ fromSX (D u u') = D (Data.Array.Convert.convert u) (dFromSX u')
 
 konstS :: (ADModeAndNum d r, OS.Shape sh)
        => ADVal d r -> ADVal d (OS.Array sh r)
-konstS (D u u') = D (OS.constant u) (dKonstS u')
+konstS (D u u') = dD (OS.constant u) (dKonstS u')
 
 appendS :: (KnownNat m, KnownNat n, ADModeAndNum d r, OS.Shape sh)
         => ADVal d (OS.Array (m ': sh) r)
         -> ADVal d (OS.Array (n ': sh) r)
         -> ADVal d (OS.Array ((m + n) ': sh) r)
-appendS (D u u') (D v v') = D (u `OS.append` v) (dAppendS u' v')
+appendS (D u u') (D v v') = dD (u `OS.append` v) (dAppendS u' v')
 
 -- The API of this modules should not have proxies (but StaticNat instead).
 -- However, lower level APIs are fine with Proxies. Not using StaticNat
@@ -711,15 +718,15 @@ sliceS :: forall i n k rest d r.
           (KnownNat i, KnownNat n, KnownNat k, ADModeAndNum d r, OS.Shape rest)
        => ADVal d (OS.Array (i + n + k ': rest) r)
        -> ADVal d (OS.Array (n ': rest) r)
-sliceS (D u u') = D (OS.slice @'[ '(i, n) ] u)
-                    (dSliceS (Proxy :: Proxy i) Proxy u')
+sliceS (D u u') = dD (OS.slice @'[ '(i, n) ] u)
+                     (dSliceS (Proxy :: Proxy i) Proxy u')
 
 indexS :: forall ix k rest d r.
           (KnownNat ix, KnownNat k, ADModeAndNum d r, OS.Shape rest)
        => ADVal d (OS.Array (ix + 1 + k ': rest) r)
        -> ADVal d (OS.Array rest r)
-indexS (D u u') = D (OS.index u (valueOf @ix))
-                    (dIndexS u' (Proxy :: Proxy ix))
+indexS (D u u') = dD (OS.index u (valueOf @ix))
+                     (dIndexS u' (Proxy :: Proxy ix))
 
 ravelFromListS :: forall rest k d r.
                   (KnownNat k, ADModeAndNum d r, OS.Shape rest)
@@ -727,7 +734,7 @@ ravelFromListS :: forall rest k d r.
                -> ADVal d (OS.Array (k : rest) r)
 ravelFromListS ld =
   let (lu, lu') = unzip $ map (\(D u u') -> (u, u')) ld
-  in D (OS.ravel $ OSB.fromList lu) (dRavelFromListS lu')
+  in dD (OS.ravel $ OSB.fromList lu) (dRavelFromListS lu')
 
 unravelToListS :: forall k rest d r.
                   (KnownNat k, ADModeAndNum d r, OS.Shape rest)
@@ -736,7 +743,7 @@ unravelToListS :: forall k rest d r.
 unravelToListS (D v v') =
   -- @dIndexS@ is rigid, with type-level bound-checking, so we have to switch
   -- to @dIndexX@ for this function.
-  let g ix p = D p (dFromXS $ dIndexX (dFromSX v') ix (valueOf @k))
+  let g ix p = dD p (dFromXS $ dIndexX (dFromSX v') ix (valueOf @k))
   in imap g $ OSB.toList $ OS.unravel v
 
 mapS :: forall k sh1 sh d r.
@@ -761,7 +768,7 @@ reshapeS :: forall sh sh' d r.
             ( ADModeAndNum d r
             , OS.Shape sh, OS.Shape sh', OS.Size sh ~ OS.Size sh' )
          => ADVal d (OS.Array sh r) -> ADVal d (OS.Array sh' r)
-reshapeS (D u u') = D (OS.reshape u) (dReshapeS u')
+reshapeS (D u u') = dD (OS.reshape u) (dReshapeS u')
 
 -- TODO: generalize as broadcast or stretch
 asRowS :: forall k n d r. (ADModeAndNum d r, KnownNat k, KnownNat n)
@@ -773,19 +780,19 @@ asColumnS :: forall k n d r. (ADModeAndNum d r, KnownNat k, KnownNat n)
 asColumnS d = from2S $ asColumn2 (fromS1 d) (valueOf @n)
 
 from0S :: ADModeAndNum d r => ADVal d r -> ADVal d (OS.Array '[] r)
-from0S (D u u') = D (OS.scalar u) (dFrom0S u')
+from0S (D u u') = dD (OS.scalar u) (dFrom0S u')
 
 from1S :: (KnownNat n, ADModeAndNum d r)
        => ADVal d (Vector r) -> ADVal d (OS.Array '[n] r)
-from1S (D u u') = D (OS.fromVector u) (dFrom1S u')
+from1S (D u u') = dD (OS.fromVector u) (dFrom1S u')
 
 from2S :: (KnownNat rows, KnownNat cols, ADModeAndNum d r)
        => ADVal d (Matrix r) -> ADVal d (OS.Array '[rows, cols] r)
-from2S (D u u') = D (OS.fromVector $ LA.flatten u) (dFrom2S Proxy u')
+from2S (D u u') = dD (OS.fromVector $ LA.flatten u) (dFrom2S Proxy u')
 
 fromXS :: (ADModeAndNum d r, OS.Shape sh)
        => ADVal d (OT.Array r) -> ADVal d (OS.Array sh r)
-fromXS (D u u') = D (Data.Array.Convert.convert u) (dFromXS u')
+fromXS (D u u') = dD (Data.Array.Convert.convert u) (dFromXS u')
 
 -- TODO: generalize to arbitrary permutations of arbitrarily many ranks using https://hackage.haskell.org/package/orthotope/docs/Data-Array-ShapedS.html#v:transpose
 transpose2S :: (ADModeAndNum d r, KnownNat rows, KnownNat cols)

@@ -58,26 +58,26 @@ makeADInputs (params0, params1, params2, paramsX)
 
 at0 :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d r
 {-# INLINE at0 #-}
-at0 ADInputs{..} i = D (inputPrimal0 V.! i) (inputDual0 V.! i)
+at0 ADInputs{..} i = dD (inputPrimal0 V.! i) (inputDual0 V.! i)
 
-at1 :: ADInputs d r -> Int -> ADVal d (Vector r)
+at1 :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d (Vector r)
 {-# INLINE at1 #-}
-at1 ADInputs{..} i = D (inputPrimal1 V.! i) (inputDual1 V.! i)
+at1 ADInputs{..} i = dD (inputPrimal1 V.! i) (inputDual1 V.! i)
 
-at2 :: ADInputs d r -> Int -> ADVal d (Matrix r)
+at2 :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d (Matrix r)
 {-# INLINE at2 #-}
-at2 ADInputs{..} i = D (inputPrimal2 V.! i) (inputDual2 V.! i)
+at2 ADInputs{..} i = dD (inputPrimal2 V.! i) (inputDual2 V.! i)
 
-atX :: ADInputs d r -> Int -> ADVal d (OT.Array r)
+atX :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d (OT.Array r)
 {-# INLINE atX #-}
-atX ADInputs{..} i = D (inputPrimalX V.! i) (inputDualX V.! i)
+atX ADInputs{..} i = dD (inputPrimalX V.! i) (inputDualX V.! i)
 
 atS :: (ADModeAndNum d r, OS.Shape sh)
-     => ADInputs d r -> Int -> ADVal d (OS.Array sh r)
+    => ADInputs d r -> Int -> ADVal d (OS.Array sh r)
 {-# INLINE atS #-}
 atS ADInputs{..} i =
 #if defined(VERSION_ghc_typelits_natnormalise)
-  inline fromXS $ D (inputPrimalX V.! i) (inputDualX V.! i)
+  inline fromXS $ dD (inputPrimalX V.! i) (inputDualX V.! i)
 #else
   undefined
 #endif
@@ -91,7 +91,7 @@ ifoldlDual' :: forall a d r. ADModeAndNum d r
 ifoldlDual' f a ADInputs{..} = do
   let g :: a -> Int -> r -> a
       g !acc i valX =
-        let !b = D valX (inputDual0 V.! i)
+        let !b = dD valX (inputDual0 V.! i)
         in f acc i b
   V.ifoldl' g a inputPrimal0
 
@@ -104,6 +104,6 @@ foldlDual' :: forall a d r. ADModeAndNum d r
 foldlDual' f a ADInputs{..} = do
   let g :: a -> Int -> r -> a
       g !acc i valX =
-        let !b = D valX (inputDual0 V.! i)
+        let !b = dD valX (inputDual0 V.! i)
         in f acc b
   V.ifoldl' g a inputPrimal0

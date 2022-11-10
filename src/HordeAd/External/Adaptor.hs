@@ -189,7 +189,8 @@ instance (ADModeAndNum d r, OS.Shape sh, KnownNat n1, KnownNat n2)
                                 , [ADVal d (OS.Array (n2 ': sh) r)] ) where
   fromADInputs inputs@ADInputs{..} =
     let a = at0 inputs 0
-        (b, c) = case zipWith D (V.toList inputPrimalX) (V.toList inputDualX) of
-          xb : xc -> (fromXS xb, map fromXS xc)
-          _ -> error "fromADInputs in Adaptable r ..."
+        (b, c) =
+          case zipWith dD (V.toList inputPrimalX) (V.toList inputDualX) of
+            xb : xc -> (fromXS xb, map fromXS xc)
+            _ -> error "fromADInputs in Adaptable r ..."
     in (a, b, c)
