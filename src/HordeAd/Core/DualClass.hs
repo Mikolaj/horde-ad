@@ -286,8 +286,8 @@ class HasRanks (d :: ADMode) r where
 -- Given that we have to use impurity anyway, we make the implementation
 -- faster by ensuring the order of identifiers reflects data dependency,
 -- that is, parent nodes always have higher identifier than child nodes.
--- The bangs in the implementation of the instances are necessary to ensure
--- call by value, which is needed for that identifier ordering.
+-- The @StrictData@ extension ensures that the implementation of the instances
+-- are call by value, which is needed for that identifier ordering.
 --
 -- As long as "HordeAd.Internal.Delta" is used exclusively through
 -- smart constructors from this API, the impurity is completely safe.
@@ -303,8 +303,8 @@ class HasRanks (d :: ADMode) r where
 -- or library definitions that use it could be made smarter.
 instance IsPrimal 'ADModeGradient Double where
   dZero = Zero0
-  dScale !k !d = Scale0 k d
-  dAdd !d !e = Add0 d e
+  dScale k d = Scale0 k d
+  dAdd d e = Add0 d e
   recordSharing d = case d of
     Zero0 -> d
     Input0{} -> d
@@ -315,8 +315,8 @@ instance IsPrimal 'ADModeGradient Double where
 instance IsPrimal 'ADModeGradient Float where
   -- Identical as above:
   dZero = Zero0
-  dScale !k !d = Scale0 k d
-  dAdd !d !e = Add0 d e
+  dScale k d = Scale0 k d
+  dAdd d e = Add0 d e
   recordSharing d = case d of
     Zero0 -> d
     Input0{} -> d
@@ -326,8 +326,8 @@ instance IsPrimal 'ADModeGradient Float where
 -- | This is an impure instance. See above.
 instance IsPrimal 'ADModeGradient (Vector r) where
   dZero = Zero1
-  dScale !k !d = Scale1 k d
-  dAdd !d !e = Add1 d e
+  dScale k d = Scale1 k d
+  dAdd d e = Add1 d e
   recordSharing d = case d of
     Zero1 -> d
     Input1{} -> d
@@ -337,8 +337,8 @@ instance IsPrimal 'ADModeGradient (Vector r) where
 -- | This is an impure instance. See above.
 instance IsPrimal 'ADModeGradient (Matrix r) where
   dZero = Zero2
-  dScale !k !d = Scale2 k d
-  dAdd !d !e = Add2 d e
+  dScale k d = Scale2 k d
+  dAdd d e = Add2 d e
   recordSharing d = case d of
     Zero2 -> d
     Input2{} -> d
@@ -348,8 +348,8 @@ instance IsPrimal 'ADModeGradient (Matrix r) where
 -- | This is an impure instance. See above.
 instance IsPrimal 'ADModeGradient (OT.Array r) where
   dZero = ZeroX
-  dScale !k !d = ScaleX k d
-  dAdd !d !e = AddX d e
+  dScale k d = ScaleX k d
+  dAdd d e = AddX d e
   recordSharing d = case d of
     ZeroX -> d
     InputX{} -> d
@@ -359,8 +359,8 @@ instance IsPrimal 'ADModeGradient (OT.Array r) where
 -- | This is an impure instance. See above.
 instance IsPrimalS 'ADModeGradient r where
   dZeroS = ZeroS
-  dScaleS !k !d = ScaleS k d
-  dAddS !d !e = AddS d e
+  dScaleS k d = ScaleS k d
+  dAddS d e = AddS d e
   recordSharingS d = case d of
     ZeroS -> d
     InputS{} -> d
@@ -394,63 +394,63 @@ instance OS.Shape sh => HasInputs (OS.Array sh r) where
 -- | This is an impure instance. See above.
 instance Dual 'ADModeGradient r ~ Delta0 r
          => HasRanks 'ADModeGradient r where
-  dSumElements0 !vd !n = SumElements0 vd n
-  dIndex0 !d !ix !k = Index0 d ix k
-  dDot0 !v !vd = Dot0 v vd
-  dFromX0 !d = FromX0 d
-  dFromS0 !d = FromS0 d
-  dSeq1 !lsd = Seq1 lsd
-  dKonst1 !d !n = Konst1 d n
-  dAppend1 !d !k !e = Append1 d k e
-  dSlice1 !i !n !d !len = Slice1 i n d len
-  dSumRows1 !dm !cols = SumRows1 dm cols
-  dSumColumns1 !dm !rows = SumColumns1 dm rows
-  dM_VD1 !m !dRow = M_VD1 m dRow
-  dMD_V1 !md !row = MD_V1 md row
-  dFromX1 !d = FromX1 d
-  dFromS1 !d = FromS1 d
-  dReverse1 !d = Reverse1 d
-  dFlatten1 !rows !cols !d = Flatten1 rows cols d
-  dFlattenX1 !sh !d = FlattenX1 sh d
-  dFlattenS1 !d = FlattenS1 d
-  dFromRows2 !lvd = FromRows2 lvd
-  dFromColumns2 !lvd = FromColumns2 lvd
-  dKonst2 !d !sz = Konst2 d sz
-  dTranspose2 !md = Transpose2 md
-  dM_MD2 !m !md = M_MD2 m md
-  dMD_M2 !md !m = MD_M2 md m
-  dRowAppend2 !d !k !e = RowAppend2 d k e
-  dColumnAppend2 !d !k !e = ColumnAppend2 d k e
-  dRowSlice2 !i !n !d !rows = RowSlice2 i n d rows
-  dColumnSlice2 !i !n !d !cols = ColumnSlice2 i n d cols
-  dAsRow2 !dRow = AsRow2 dRow
-  dAsColumn2 !dCol = AsColumn2 dCol
-  dFromX2 !d = FromX2 d
-  dFromS2 !d = FromS2 d
-  dFlipud2 !d = Flipud2 d
-  dFliprl2 !d = Fliprl2 d
-  dReshape2 !cols !d = Reshape2 cols d
-  dConv2 !m !md = Conv2 m md
-  dKonstX !d !sz = KonstX d sz
-  dAppendX !d !k !e = AppendX d k e
-  dSliceX !i !n !d !len = SliceX i n d len
-  dIndexX !d !ix !len = IndexX d ix len
-  dRavelFromListX !ld = RavelFromListX ld
-  dReshapeX !sh !sh' !d = ReshapeX sh sh' d
-  dFrom0X !d = From0X d
-  dFrom1X !d = From1X d
-  dFrom2X !d !cols = From2X d cols
-  dFromSX !d = FromSX d
-  dKonstS !d = KonstS d
-  dAppendS !d !e = AppendS d e
-  dSliceS !iProxy !nProxy !d = SliceS iProxy nProxy d
-  dIndexS !d !ixProxy = IndexS d ixProxy
-  dRavelFromListS !ld = RavelFromListS ld
-  dReshapeS !d = ReshapeS d
-  dFrom0S !d = From0S d
-  dFrom1S !d = From1S d
-  dFrom2S !proxyCols !d = From2S proxyCols d
-  dFromXS !d = FromXS d
+  dSumElements0 vd n = SumElements0 vd n
+  dIndex0 d ix k = Index0 d ix k
+  dDot0 v vd = Dot0 v vd
+  dFromX0 d = FromX0 d
+  dFromS0 d = FromS0 d
+  dSeq1 lsd = Seq1 lsd
+  dKonst1 d n = Konst1 d n
+  dAppend1 d k e = Append1 d k e
+  dSlice1 i n d len = Slice1 i n d len
+  dSumRows1 dm cols = SumRows1 dm cols
+  dSumColumns1 dm rows = SumColumns1 dm rows
+  dM_VD1 m dRow = M_VD1 m dRow
+  dMD_V1 md row = MD_V1 md row
+  dFromX1 d = FromX1 d
+  dFromS1 d = FromS1 d
+  dReverse1 d = Reverse1 d
+  dFlatten1 rows cols d = Flatten1 rows cols d
+  dFlattenX1 sh d = FlattenX1 sh d
+  dFlattenS1 d = FlattenS1 d
+  dFromRows2 lvd = FromRows2 lvd
+  dFromColumns2 lvd = FromColumns2 lvd
+  dKonst2 d sz = Konst2 d sz
+  dTranspose2 md = Transpose2 md
+  dM_MD2 m md = M_MD2 m md
+  dMD_M2 md m = MD_M2 md m
+  dRowAppend2 d k e = RowAppend2 d k e
+  dColumnAppend2 d k e = ColumnAppend2 d k e
+  dRowSlice2 i n d rows = RowSlice2 i n d rows
+  dColumnSlice2 i n d cols = ColumnSlice2 i n d cols
+  dAsRow2 dRow = AsRow2 dRow
+  dAsColumn2 dCol = AsColumn2 dCol
+  dFromX2 d = FromX2 d
+  dFromS2 d = FromS2 d
+  dFlipud2 d = Flipud2 d
+  dFliprl2 d = Fliprl2 d
+  dReshape2 cols d = Reshape2 cols d
+  dConv2 m md = Conv2 m md
+  dKonstX d sz = KonstX d sz
+  dAppendX d k e = AppendX d k e
+  dSliceX i n d len = SliceX i n d len
+  dIndexX d ix len = IndexX d ix len
+  dRavelFromListX ld = RavelFromListX ld
+  dReshapeX sh sh' d = ReshapeX sh sh' d
+  dFrom0X d = From0X d
+  dFrom1X d = From1X d
+  dFrom2X d cols = From2X d cols
+  dFromSX d = FromSX d
+  dKonstS d = KonstS d
+  dAppendS d e = AppendS d e
+  dSliceS iProxy nProxy d = SliceS iProxy nProxy d
+  dIndexS d ixProxy = IndexS d ixProxy
+  dRavelFromListS ld = RavelFromListS ld
+  dReshapeS d = ReshapeS d
+  dFrom0S d = From0S d
+  dFrom1S d = From1S d
+  dFrom2S proxyCols d = From2S proxyCols d
+  dFromXS d = FromXS d
 
 
 -- * Alternative instance: forward derivatives computed on the spot
