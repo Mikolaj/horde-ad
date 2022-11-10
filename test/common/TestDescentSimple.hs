@@ -88,13 +88,13 @@ gdSimpleTests = testGroup "Simple gradient descent tests"
       res @?~ ([4.0746778e-10,6.1120126e-10],5)
   , testCase "blowupMult 0.01 10000 100" $ do
       res <- gdSimpleShow 0.01 (fblowupMult 10000) (V.fromList [2, 3]) 100
-      res @?~ ([0.26549283,0.3982393],5.2290807)
+      res @?~ ([0.2655635,0.39834508],5.229202)
   , testCase "blowupMult 0.01 10 1000000" $ do
       res <- gdSimpleShow 0.01 (fblowupMult 10) (V.fromList [2, 3]) 1000000
       res @?~ ([3.5e-44,3.5e-44],5)
   , testCase "blowupMult 0.01 1000000 10" $ do
       res <- gdSimpleShow 0.01 (fblowupMult 1000000) (V.fromList [2, 3]) 10
-      res @?~ ([1.640273,2.4604096],13.744109)
+      res @?~ ([1.6491792,2.4737687],13.839284)
   ]
 
 -- This, and other XOR nn operations, have unfused Delta let-bindings

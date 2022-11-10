@@ -217,13 +217,13 @@ testPrintDf = testGroup "Pretty printing test" $
                   (domainsFrom01 V.empty (V.fromList (map V.fromList v)))
           length output @?= expected)
     [ ( "sumElementsV", sumElementsV, [[1 :: Float, 1, 3]]
-      , 54 )
+      , 52 )
     , ( "altSumElementsV", altSumElementsV, [[1, 1, 3]]
-      , 337 )
+      , 308 )
     , ( "sinKonst", sinKonst, [[1, 3]]
-      , 237 )
+      , 229 )
     , ( "powKonst", powKonst, [[1, 3]]
-      , 692 )
+      , 570 )
     ]
 
 testDForward :: TestTree
