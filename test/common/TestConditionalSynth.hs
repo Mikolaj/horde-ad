@@ -19,7 +19,9 @@ import           Test.Tasty.HUnit hiding (assert)
 
 
 import HordeAd
+import HordeAd.Core.DualClass (pattern D)
 import MnistFcnnVector
+
 import Tool.EqEpsilon
 
 testTrees :: [TestTree]

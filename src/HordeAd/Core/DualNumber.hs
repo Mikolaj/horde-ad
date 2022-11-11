@@ -2,6 +2,7 @@
              QuantifiedConstraints, RankNTypes, TypeFamilies #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 #if defined(VERSION_ghc_typelits_natnormalise)
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
@@ -13,6 +14,7 @@
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.DualNumber
   ( module HordeAd.Core.DualNumber
+  , ADVal, dD, dDnotShared
   , ADMode(..), ADModeAndNum
   , IsPrimal (..), IsPrimalAndHasFeatures, HasDelta
   , Domain0, Domain1, Domain2, DomainX, Domains  -- an important re-export
@@ -41,6 +43,8 @@ import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta
   (Domain0, Domain1, Domain2, DomainX, Domains, isTensorDummy)
 
+-- * Auxiliary definitions
+
 -- | Sizes of tensor dimensions, of batches, etc., packed for passing
 -- between functions as witnesses of type variable values.
 data StaticNat (n :: Nat) where
@@ -52,36 +56,6 @@ staticNatValue = fromInteger . natVal
 
 staticNatFromProxy :: KnownNat n => Proxy n -> StaticNat n
 staticNatFromProxy Proxy = MkSN
-
--- * The main dual number type
-
--- | Values the objective functions operate on. The first type argument
--- is the automatic differentiation mode and the second is the underlying
--- basic values (scalars, vectors, matrices, tensors and any other
--- supported containers of scalars).
---
--- Here, the datatype is implemented as dual numbers (hence @D@),
--- where the primal component, the basic value, the \"number\"
--- can be any containers of scalars. The primal component has the type
--- given as the second type argument and the dual component (with the type
--- determined by the type faimly @Dual@) is defined elsewhere.
-data ADVal (d :: ADMode) a = D a (Dual d a)
-
--- | Smart constructor for 'D' of 'ADVal' that additionally records sharing
--- information, if applicable for the differentiation mode in question.
--- The bare constructor should not be used directly (which is not enforced
--- by the types yet), except when deconstructing via pattern-matching.
-dD :: IsPrimal d a => a -> (Dual d a) -> ADVal d a
-dD a dual = D a (recordSharing dual)
-
--- | This a not so smart constructor for 'D' of 'ADVal' that does not record
--- sharing information. If used in contexts where sharing may occur,
--- it may cause exponential blowup when evaluating the term
--- in backpropagation phase. In contexts without sharing, it saves
--- some evaluation time and memory (in term structure, but even more
--- in the per-node data stored while evaluating).
-dDnotShared :: a -> (Dual d a) -> ADVal d a
-dDnotShared a dual = D a dual
 
 -- | Add sharing information to the top level of a term, presumably
 -- constructed using multiple applications of the `dDnotShared` operation.

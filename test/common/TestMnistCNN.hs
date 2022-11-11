@@ -22,12 +22,12 @@ import           Test.Tasty.QuickCheck hiding (label, scale, shuffle)
 import           Text.Printf
 
 import HordeAd
-import HordeAd.Core.DualClass (HasRanks (dKonst2))
+import HordeAd.Core.DualClass (HasRanks (dKonst2), pattern D)
 import MnistCnnShaped
 import MnistData
 
-import Tool.Shared
 import Tool.EqEpsilon
+import Tool.Shared
 
 testTrees :: [TestTree]
 testTrees = [ mnistCNNTestsShort
