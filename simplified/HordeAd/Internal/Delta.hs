@@ -89,10 +89,12 @@ import           Text.Show.Functions ()
 -- are going to be larger than their ancestors').
 --
 -- When computing gradients, node identifiers are also used to index,
--- directly or indirectly, the data stored for each node, in the form of
+-- directly or indirectly, the data accumulated for each node, in the form of
 -- cotangents, that is partial derivatives of the objective function
 -- with respect to the position of the node in the whole term,
--- as if the node was replaced by a variable over which we differentiate.
+-- as if the node was replaced by a variable over which we differentiate
+-- (and, more generally, a collection of such positions if the term
+-- is shared between them, as marked by an identical node identifier).
 -- The exception are the @Input@ nodes of all ranks that fill the role
 -- of such variables and that have a separate data storage.
 -- The per-rank `InputId` identifiers in the @Input@ term constructors
@@ -175,23 +177,28 @@ data DeltaDt r =
     DeltaDt0 r (Delta0 r)
   | DeltaDt1 (Vector r) (Delta1 r)
 
+-- | The state of evaluation. It consists of several maps.
+-- The maps indexed by input identifiers and node identifiers
+-- eventually store cotangents for their respective nodes.
+-- The cotangents are built gradually during the evaluation,
+-- by summing cotangent contributions.
 data EvalState r = EvalState
   { iMap0 :: EM.EnumMap (InputId r) r
-      -- ^ cotangents of objective function inputs of rank 0
+      -- ^ eventually, cotangents of objective function inputs of rank 0
       -- (eventually copied to the vector representing the rank 0 portion
       -- of the gradient of the objective function);
       -- the identifiers need to be contiguous and start at 0
   , iMap1 :: EM.EnumMap (InputId (Vector r)) (Vector r)
-      -- ^ cotangents of objective function inputs of rank 1;
+      -- ^ eventually, cotangents of objective function inputs of rank 1;
       -- (eventually copied to the vector representing the rank 1 portion
       -- of the gradient of the objective function);
       -- the identifiers need to be contiguous and start at 0
   , dMap0 :: EM.EnumMap NodeId r
-      -- ^ cotangents of non-input subterms of rank 0 indexed by their
-      -- node identifiers
+      -- ^ eventually, cotangents of non-input subterms of rank 0 indexed
+      -- by their node identifiers
   , dMap1 :: EM.EnumMap NodeId (Vector r)
-      -- ^ cotangents of non-input subterms of rank 1 indexed by their
-      -- node identifiers
+      -- ^ eventually, cotangents of non-input subterms of rank 1 indexed
+      -- by their node identifiers
   , nMap  :: EM.EnumMap NodeId (DeltaBinding r)
       -- ^ nodes left to be processed
   }
@@ -287,12 +294,9 @@ gradientFromDelta dim0 dim1 deltaDt =
 buildFinMaps :: forall r. (Numeric r, Num (Vector r))
              => EvalState r -> DeltaDt r -> EvalState r
 buildFinMaps s0 deltaDt =
-  -- The second argument, the scaling factor @r@, is the cotangent
-  -- of the currently processed individual copy of a shared subterm.
-  -- Potentially, many different such individual cotangents are summed up
-  -- for each subterm in the finite maps that gather cotangents.
-  -- For input terms, the eventual sums end up in the cells
-  -- of the gradient vectors.
+  -- The first argument is the evaluation state being modified,
+  -- the second is the cotangent contribution for this term tree node
+  -- (see below for an explanation) and the third argument is the node itself.
   let eval0 :: EvalState r -> r -> Delta0 r -> EvalState r
       eval0 s !r = \case
         Zero0 -> s
@@ -300,6 +304,31 @@ buildFinMaps s0 deltaDt =
         Scale0 k d -> eval0 s (k * r) d
         Add0 d e -> eval0 (eval0 s r d) r e
         Let0 n d ->
+          -- In this context, by construction, @d@ is the dual component
+          -- of a dual number. Let's say that, at this point, evaluation
+          -- considers position (node) p out of possibly multiple positions
+          -- at which that dual number resides in the term tree
+          -- of the dual number representation of the objective function.
+          -- If so, the @r@ argument of @eval0@, called cotangent
+          -- contribution, is the partial derivative of the objective
+          -- function with respect to position p.
+          --
+          -- If there are indeed multiple such positions (the term is shared)
+          -- then, over the course of evaluation, cotangent contributions
+          -- of them all are gradually accumulated in the finite
+          -- maps and eventually their total sum represents the total
+          -- influence of the shared term @Let0 n d@ on the objective
+          -- function's behaviour. This total influence is called
+          -- the cotangent of @Let0 n d@ (or, in short, the cotangent
+          -- of the node identifier @n@). In other words, a cotangent of @n@
+          -- is the partial derivative of the objective function with respect
+          -- to the collection of all positions (subterm nodes) containing
+          -- @Let0 n d@, as if the same differentiation variable was placed
+          -- in all of these nodes.
+          --
+          -- For input terms, the eventual lists of cotangents end up
+          -- in the cells of the gradient vectors that are the final
+          -- result of the evaluation.
           assert (case d of
                     Zero0 -> False
                     Input0{} -> False
