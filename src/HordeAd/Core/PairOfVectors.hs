@@ -56,6 +56,7 @@ makeADInputs (params0, params1, params2, paramsX)
              (vs0, vs1, vs2, vsX)
   = ADInputs params0 vs0 params1 vs1 params2 vs2 paramsX vsX
 
+-- We could use @dDnotShared@ here and below, but the gains are negligible.
 at0 :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d r
 {-# INLINE at0 #-}
 at0 ADInputs{..} i = dD (inputPrimal0 V.! i) (inputDual0 V.! i)

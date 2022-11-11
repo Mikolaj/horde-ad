@@ -18,6 +18,7 @@ bgroup100 allxs =
       bgroup "100"
         [ bench "func_vec" $ nf vec_prod vec
         , bench "grad_vec" $ nfIO $ grad_vec_prod vec
+        , bench "grad_vec_NotShared" $ nfIO $ grad_vec_prod_NotShared vec
         , bench "grad_toList" $ nfIO $ grad_toList_prod list
         , bench "grad_vec_scalarSum" $ nfIO $ grad_vec_scalarSum vec
         , bench "grad_vec_sum" $ nfIO $ grad_vec_sum vec
@@ -30,6 +31,7 @@ bgroup200 allxs =
       bgroup "200"
         [ bench "func_vec" $ nf vec_prod vec
         , bench "grad_vec" $ nfIO $ grad_vec_prod vec
+        , bench "grad_vec_NotShared" $ nfIO $ grad_vec_prod_NotShared vec
         , bench "grad_toList" $ nfIO $ grad_toList_prod list
         , bench "grad_vec_scalarSum" $ nfIO $ grad_vec_scalarSum vec
         , bench "grad_vec_sum" $ nfIO $ grad_vec_sum vec
@@ -42,6 +44,7 @@ bgroup1000 allxs =
       bgroup "1000"
         [ bench "func_vec" $ nf vec_prod vec
         , bench "grad_vec" $ nfIO $ grad_vec_prod vec
+        , bench "grad_vec_NotShared" $ nfIO $ grad_vec_prod_NotShared vec
         , bench "grad_toList" $ nfIO $ grad_toList_prod list
         , bench "grad_vec_scalarSum" $ nfIO $ grad_vec_scalarSum vec
         , bench "grad_vec_sum" $ nfIO $ grad_vec_sum vec
@@ -54,6 +57,7 @@ bgroup1e4 allxs =
       bgroup "1e4"
         [ bench "func_vec" $ nf vec_prod vec
         , bench "grad_vec" $ nfIO $ grad_vec_prod vec
+        , bench "grad_vec_NotShared" $ nfIO $ grad_vec_prod_NotShared vec
         , bench "grad_toList" $ nfIO $ grad_toList_prod list
         , bench "grad_vec_scalarSum" $ nfIO $ grad_vec_scalarSum vec
         , bench "grad_vec_sum" $ nfIO $ grad_vec_sum vec
@@ -66,6 +70,7 @@ bgroup1e5 allxs =
       bgroup "1e5"
         [ bench "func_vec" $ nf vec_prod vec
         , bench "grad_vec" $ nfIO $ grad_vec_prod vec
+        , bench "grad_vec_NotShared" $ nfIO $ grad_vec_prod_NotShared vec
         , bench "grad_toList" $ nfIO $ grad_toList_prod list
         , bench "grad_vec_scalarSum" $ nfIO $ grad_vec_scalarSum vec
         , bench "grad_vec_sum" $ nfIO $ grad_vec_sum vec
@@ -78,6 +83,7 @@ bgroup1e6 allxs =
       bgroup "1e6"
         [ bench "func_vec" $ nf vec_prod vec
         , bench "grad_vec" $ nfIO $ grad_vec_prod vec
+        , bench "grad_vec_NotShared" $ nfIO $ grad_vec_prod_NotShared vec
         , bench "grad_toList" $ nfIO $ grad_toList_prod list
         , bench "grad_vec_scalarSum" $ nfIO $ grad_vec_scalarSum vec
         , bench "grad_vec_sum" $ nfIO $ grad_vec_sum vec
@@ -91,6 +97,7 @@ bgroup1e7 allxs =
       bgroup "1e7"
         [ bench "func_vec" $ nf vec_prod vec
         , bench "grad_vec" $ nfIO $ grad_vec_prod vec
+        , bench "grad_vec_NotShared" $ nfIO $ grad_vec_prod_NotShared vec
         , bench "grad_toList" $ nfIO $ grad_toList_prod list
         , bench "grad_vec_scalarSum" $ nfIO $ grad_vec_scalarSum vec
         , bench "grad_vec_sum" $ nfIO $ grad_vec_sum vec
@@ -102,6 +109,7 @@ bgroup5e7 allxs =
       bgroup "5e7"  -- 5e7 == 5 * 10^7 == 0.5 * 10^8 == 0.5e8
         [ bench "func_vec" $ nf vec_prod vec
         , bench "grad_vec" $ nfIO $ grad_vec_prod vec
+        , bench "grad_vec_NotShared" $ nfIO $ grad_vec_prod_NotShared vec
 -- this already takes 35G, so the worse variants not attempted:
 --        , bench "grad_toList" $ nfIO $ grad_toList_prod list
         , bench "grad_vec_scalarSum" $ nfIO $ grad_vec_scalarSum vec
@@ -128,6 +136,11 @@ grad_vec_prod :: HasDelta r => Vector r -> IO (Vector r)
 grad_vec_prod ds =
   (\(v, _, _, _) -> v) . fst
   <$> revIO 1 vec_prod_aux (ds, V.empty, V.empty, V.empty)
+
+grad_vec_prod_NotShared :: HasDelta r => Vector r -> IO (Vector r)
+grad_vec_prod_NotShared ds =
+  (\(v, _, _, _) -> v) . fst
+  <$> revIO 1 (foldlDual' multNotShared 1) (ds, V.empty, V.empty, V.empty)
 
 grad_toList_prod :: HasDelta r => [r] -> IO [r]
 grad_toList_prod l = V.toList <$> grad_vec_prod (V.fromList l)

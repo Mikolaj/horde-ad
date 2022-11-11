@@ -30,8 +30,13 @@ sumTrainableInputs xs offset inputs =
       f :: ADVal d r -> Int -> ADVal d r -> ADVal d r
       f !acc i u =
         let v = at0 inputs (offset + 1 + i)
-        in acc + u * v
-  in V.ifoldl' f bias xs
+        in -- This is a performance hack. Morally this would be
+           -- > acc + u * v
+           -- but we additionally remove spurious sharing information
+           -- to save memory and evaluate faster.
+           acc `addNotShared` (u `multNotShared` v)
+  in ensureToplevelSharing $ V.ifoldl' f bias xs
+       -- prepare for sharing of the whole result later on
 {-# SPECIALIZE sumTrainableInputs :: Data.Vector.Vector (ADVal 'ADModeGradient Double) -> Int -> ADInputs 'ADModeGradient Double -> ADVal 'ADModeGradient Double #-}
 
 -- | Compute the output of a neuron, without applying activation function,
@@ -46,8 +51,13 @@ sumConstantData xs offset inputs =
       f :: ADVal d r -> Int -> r -> ADVal d r
       f !acc i r =
         let v = at0 inputs (offset + 1 + i)
-        in acc + scale r v
-  in V.ifoldl' f bias xs
+        in -- This is a performance hack. Morally this would be
+           -- > acc + scale r v
+           -- but we additionally remove spurious sharing information
+           -- to save memory and evaluate faster.
+           acc `addNotShared` scaleNotShared r v
+  in ensureToplevelSharing $ V.ifoldl' f bias xs
+       -- prepare for sharing of the whole result later on
 {-# SPECIALIZE sumConstantData :: Vector Double -> Int -> ADInputs 'ADModeGradient Double -> ADVal 'ADModeGradient Double #-}
 
 hiddenLayerMnist

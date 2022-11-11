@@ -74,6 +74,32 @@ data ADVal (d :: ADMode) a = D a (Dual d a)
 dD :: IsPrimal d a => a -> (Dual d a) -> ADVal d a
 dD a dual = D a (recordSharing dual)
 
+-- | This a not so smart constructor for 'D' of 'ADVal' that does not record
+-- sharing information. If used in contexts where sharing may occur,
+-- it may cause exponential blowup when evaluating the term
+-- in backpropagation phase. In contexts without sharing, it saves
+-- some evaluation time and memory (in term structure, but even more
+-- in the per-node data stored while evaluating).
+dDnotShared :: a -> (Dual d a) -> ADVal d a
+dDnotShared a dual = D a dual
+
+-- | Add sharing information to the top level of a term, presumably
+-- constructed using multiple applications of the `dDnotShared` operation.
+-- The resulting term may not have sharing information inside,
+-- but is ready to be shared as a whole.
+ensureToplevelSharing :: IsPrimal d a => ADVal d a -> ADVal d a
+ensureToplevelSharing (D u u') = dD u u'
+
+scaleNotShared :: (Num a, IsPrimal d a) => a -> ADVal d a -> ADVal d a
+scaleNotShared a (D u u') = dDnotShared (a * u) (dScale a u')
+
+addNotShared :: (Num a, IsPrimal d a) => ADVal d a -> ADVal d a -> ADVal d a
+addNotShared (D u u') (D v v') = dDnotShared (u + v) (dAdd u' v')
+
+multNotShared :: (Num a, IsPrimal d a) => ADVal d a -> ADVal d a -> ADVal d a
+multNotShared (D u u') (D v v') =
+  dDnotShared (u * v) (dAdd (dScale v u') (dScale u v'))
+
 addParameters :: (Numeric r, Num (Vector r))
               => Domains r -> Domains r -> Domains r
 addParameters (a0, a1, a2, aX) (b0, b1, b2, bX) =
