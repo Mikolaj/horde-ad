@@ -112,10 +112,12 @@ import           HordeAd.Internal.OrthotopeOrphanInstances (liftVS2, liftVT2)
 -- are going to be larger than their ancestors').
 --
 -- When computing gradients, node identifiers are also used to index,
--- directly or indirectly, the data stored for each node, in the form of
+-- directly or indirectly, the data accumulated for each node, in the form of
 -- cotangents, that is partial derivatives of the objective function
 -- with respect to the position of the node in the whole term,
--- as if the node was replaced by a variable over which we differentiate.
+-- as if the node was replaced by a variable over which we differentiate
+-- (and, more generally, a collection of such positions if the term
+-- is shared between them, as marked by an identical node identifier).
 -- The exception are the @Input@ nodes of all ranks that fill the role
 -- of such variables and that have a separate data storage.
 -- The per-rank `InputId` identifiers in the @Input@ term constructors
@@ -421,10 +423,18 @@ gradientFromDelta dim0 dim1 dim2 dimX deltaDt =
   :: Int -> Int -> Int -> Int -> DeltaDt Double
   -> Domains Double #-}
 
--- | Create vectors (representing finite maps) that hold values
--- associated with inputs and (possibly shared) term tree nodes.
--- The former are initialized with dummy values so that it's cheap
--- to check if any update has already been performed to a cell
+-- | Create vectors (representing finite maps) and an intmap
+-- that store the state of evaluation.
+--
+-- The vectors are, morally, indexed by input identifiers and node identifiers
+-- and they eventually store cotangents for their respective nodes.
+-- The cotangents are built gradually during the evaluation,
+-- by summing cotangent contributions. The intmap records nodes
+-- left to be processed.
+--
+-- The vectors indexed by input identifiers are initialized
+-- with dummy values so that it's cheap to check
+-- if any update has already been performed to a cell
 -- (allocating big matrices filled with zeros is too costly,
 -- especially if never used in an iteration, and adding to such matrices
 -- and especially using them as scaling factors is wasteful; additionally,
@@ -451,7 +461,7 @@ initializeFinMaps
           , STRef s (EM.EnumMap NodeId (DeltaBinding r)) )
               -- Map and HashTable are way slower than the IntMap/EnumMap
 initializeFinMaps dim0 dim1 dim2 dimX = do
-  -- Cotangents of objective function inputs of rank 0.
+  -- Eventually, cotangents of objective function inputs of rank 0.
   -- When filled and frozen, these four vectors together become
   -- the gradient of the objective function.
   iMap0 <- VM.replicate dim0 0  -- correct value; below are dummy
@@ -464,7 +474,7 @@ initializeFinMaps dim0 dim1 dim2 dimX = do
   didCur1 <- newSTRefU (DeltaId 0)
   didCur2 <- newSTRefU (DeltaId 0)
   didCurX <- newSTRefU (DeltaId 0)
-  -- Cotangents of non-input subterms.
+  -- Eventually, cotangents of non-input subterms.
   -- Unsafe is fine, because it initializes to bottoms and we always
   -- write before reading.
   dMap0' <- VM.unsafeNew (max 1 dim0)
@@ -515,10 +525,10 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                                then rs
                                else liftVT2 (+) v rs
 
-      -- The first argument, the scaling factor @r@, is the cotangent
-      -- of the currently processed individual copy of a shared subterm.
-      -- Potentially, many different such individual cotangents are summed up
-      -- for each subterm in the finite maps that gather cotangents.
+      -- This function modifies state comprising of vectors and a map.
+      -- Its second argument is a delta expression tree node and the first
+      -- is the cotangent contribution for this term tree, see below
+      -- for an explanation.
       eval0 :: r -> Delta0 r -> ST s ()
       eval0 !r = \case
         Zero0 -> return ()
@@ -532,6 +542,31 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                       Let0{} -> False  -- wasteful and nonsensical
                       _ -> True)
                     $ do
+          -- In this context, by construction, @d@ is the dual component
+          -- of a dual number. Let's say that, at this point, evaluation
+          -- considers position (node) p out of possibly multiple positions
+          -- at which that dual number resides in the term tree
+          -- of the dual number representation of the objective function.
+          -- If so, the @r@ argument of @eval0@, called cotangent
+          -- contribution, is the partial derivative of the objective
+          -- function with respect to position p.
+          --
+          -- If there are indeed multiple such positions (the term is shared)
+          -- then, over the course of evaluation, cotangent contributions
+          -- of them all are gradually accumulated in the finite
+          -- maps and eventually their total sum represents the total
+          -- influence of the shared term @Let0 n d@ on the objective
+          -- function's behaviour. This total influence is called
+          -- the cotangent of @Let0 n d@ (or, in short, the cotangent
+          -- of the node identifier @n@). In other words, a cotangent of @n@
+          -- is the partial derivative of the objective function with respect
+          -- to the collection of all positions (subterm nodes) containing
+          -- @Let0 n d@, as if the same differentiation variable was placed
+          -- in all of these nodes.
+          --
+          -- For input terms, the eventual lists of cotangents end up
+          -- in the cells of the gradient vectors that are the final
+          -- result of the evaluation.
           nm <- readSTRef nMap
           case EM.lookup n nm of
             Just (DeltaBinding0 (DeltaId i) _) -> do
