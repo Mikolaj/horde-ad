@@ -10,7 +10,7 @@
 -- the dual number type itself, hiding its constructor, but exposing
 -- a couple of smart constructors.
 --
--- This module contains the relevant classes, type families,
+-- This module defines the relevant classes, type families,
 -- constraints and instances for the dual numbers data structure.
 -- This is a mid-level API ("HordeAd.Internal.Delta" is low level)
 -- used to define types and operations in "HordeAd.Core.DualNumber"

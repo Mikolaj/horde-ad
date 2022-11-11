@@ -28,7 +28,7 @@ import           Text.Show.Pretty (ppShow)
 
 -- import           System.Mem (performMinorGC)
 
-import HordeAd.Core.DualClass (Dual, dInput, dummyDual, packDeltaDt)
+import HordeAd.Core.DualClass (Dual, dInput, dummyDual, packDeltaDt, pattern D)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.PairOfVectors (ADInputs (..), makeADInputs)
 import HordeAd.Internal.Delta

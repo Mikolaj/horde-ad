@@ -11,6 +11,7 @@
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.DualNumber
   ( module HordeAd.Core.DualNumber
+  , ADVal, dD, dDnotShared
   , ADMode(..), ADModeAndNum
   , IsPrimal (..), IsPrimalAndHasFeatures, HasDelta
   , Domain0, Domain1, Domains  -- an important re-export
@@ -31,6 +32,8 @@ import qualified Numeric.LinearAlgebra.Devel
 import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta (Domain0, Domain1, Domains)
 
+-- * Auxiliary definitions
+
 -- This is not needed in the simplified version, except for compilation
 -- with the common test code.
 -- | Sizes of tensor dimensions, of batches, etc., packed for passing
@@ -45,26 +48,22 @@ staticNatValue = fromInteger . natVal
 staticNatFromProxy :: KnownNat n => Proxy n -> StaticNat n
 staticNatFromProxy Proxy = MkSN
 
--- * The main dual number type
+-- | Add sharing information to the top level of a term, presumably
+-- constructed using multiple applications of the `dDnotShared` operation.
+-- The resulting term may not have sharing information inside,
+-- but is ready to be shared as a whole.
+ensureToplevelSharing :: IsPrimal d a => ADVal d a -> ADVal d a
+ensureToplevelSharing (D u u') = dD u u'
 
--- | Values the objective functions operate on. The first type argument
--- is the automatic differentiation mode and the second is the underlying
--- basic values (scalars, vectors, matrices, tensors and any other
--- supported containers of scalars).
---
--- Here, the datatype is implemented as dual numbers (hence @D@),
--- where the primal component, the basic value, the \"number\"
--- can be any containers of scalars. The primal component has the type
--- given as the second type argument and the dual component (with the type
--- determined by the type faimly @Dual@) is defined elsewhere.
-data ADVal (d :: ADMode) a = D a (Dual d a)
+scaleNotShared :: (Num a, IsPrimal d a) => a -> ADVal d a -> ADVal d a
+scaleNotShared a (D u u') = dDnotShared (a * u) (dScale a u')
 
--- | Smart constructor for 'D' of 'ADVal' that additionally records sharing
--- information, if applicable for the differentiation mode in question.
--- The bare constructor should not be used directly (which is not enforced
--- by the types yet), except when deconstructing via pattern-matching.
-dD :: IsPrimal d a => a -> (Dual d a) -> ADVal d a
-dD a dual = D a (recordSharing dual)
+addNotShared :: (Num a, IsPrimal d a) => ADVal d a -> ADVal d a -> ADVal d a
+addNotShared (D u u') (D v v') = dDnotShared (u + v) (dAdd u' v')
+
+multNotShared :: (Num a, IsPrimal d a) => ADVal d a -> ADVal d a -> ADVal d a
+multNotShared (D u u') (D v v') =
+  dDnotShared (u * v) (dAdd (dScale v u') (dScale u v'))
 
 addParameters :: Num (Vector r)
               => Domains r -> Domains r -> Domains r
