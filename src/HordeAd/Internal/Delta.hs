@@ -597,12 +597,34 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                     then LA.konst 0 k V.// [(ix, r)]
                     else v V.// [(ix, v V.! ix + r)]
           VM.modify iMap1 f i
-            -- This would be an asymptotic optimization compared to
-            -- the general case below, if not for the non-mutable update
-            -- in the 'else' branch, which implies copying the whole
-            -- @v@ vector, so it's only several times faster (same allocation,
-            -- but not adding to each cell of @v@).
-            -- TODO: is it worthwhile to extend this to Let1?
+        Index0 (Let1 n d) ix k -> do
+          nm <- readSTRef nMap
+          case EM.lookup n nm of
+            Just (DeltaBinding1 (DeltaId i) _) -> do
+              dm <- readSTRef dMap1
+              let f v = v V.// [(ix, v V.! ix + r)]
+              VM.modify dm f i
+                -- This would be an asymptotic optimization compared to
+                -- the general case below, if not for the non-mutable update,
+                --  which implies copying the whole @v@ vector,
+                -- so it's only several times faster (same allocation,
+                -- but not adding to each cell of @v@).
+                -- TODO: test, benchmark, improve and extend to higher ranks
+            Nothing -> do
+              did@(DeltaId i) <- readSTRefU didCur1
+              writeSTRefU didCur1 $ succDeltaId did
+              writeSTRef nMap $! EM.insert n (DeltaBinding1 did d) nm
+              len <- readSTRefU len1
+              dm <- readSTRef dMap1
+              let v = LA.konst 0 k V.// [(ix, r)]
+              if i >= len then do
+                dmG <- VM.unsafeGrow dm len
+                VM.write dmG i v
+                writeSTRef dMap1 dmG
+                writeSTRefU len1 $ 2 * len
+              else
+                VM.write dm i v
+            _ -> error "buildFinMaps: corrupted nMap"
         Index0 d ix k -> eval1 (LA.konst 0 k V.// [(ix, r)]) d
 
         Dot0 v vd -> eval1 (LA.scale r v) vd
