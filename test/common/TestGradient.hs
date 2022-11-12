@@ -220,7 +220,7 @@ testBarV =
          , OS.constant 3.6 ] ))
     (OS.constant 46.2)
 
-bar_vjp_3_75
+bar_jvp_3_75
   :: forall r sh.
      ( ADModeAndNum 'ADModeDerivative r, Dual 'ADModeDerivative r ~ r
      , OS.Shape sh )
@@ -231,9 +231,9 @@ bar_vjp_3_75
      , OS.Array '[3, 75] r
      , [OS.Array (75 ': sh) r] )
   -> OS.Array (3 ': sh) r
-bar_vjp_3_75 = fwd (head . barS (MkSN @3) (MkSN @75))
-  -- TODO: implement real vjp
-  -- TODO: @head@os required, because our engine so far assumes
+bar_jvp_3_75 = fwd (head . barS (MkSN @3) (MkSN @75))
+  -- TODO: implement real jvp (forward) and vjp (back)
+  -- TODO: @head@ is required, because our engine so far assumes
   -- objective functions have dual number codomains (though they may be
   -- of arbitrary rank). The same problem is worked around with
   -- @ravelFromListS@ below.
@@ -241,7 +241,7 @@ bar_vjp_3_75 = fwd (head . barS (MkSN @3) (MkSN @75))
 testBarF :: Assertion
 testBarF =
   assertEqualUpToEpsilon 1e-7
-    (bar_vjp_3_75 @Double @'[12, 2, 5, 2]
+    (bar_jvp_3_75 @Double @'[12, 2, 5, 2]
        ( 1.1
        , OS.constant 17.3  -- TODO: create more interesting test data
        , [ OS.constant 2.4
