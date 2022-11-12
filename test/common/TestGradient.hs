@@ -74,7 +74,7 @@ foo (x,y,z) =
 testFoo :: Assertion
 testFoo =
   assertEqualUpToEpsilon 1e-10
-    (rev foo (1.1, 2.2, 3.3) :: (Double, Double, Double))
+    (rev @Double foo (1.1, 2.2, 3.3) :: (Double, Double, Double))
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
 
 bar :: RealFloat a => (a,a,a) -> a
@@ -85,7 +85,7 @@ bar (x,y,z) =
 testBar :: Assertion
 testBar =
   assertEqualUpToEpsilon 1e-9
-    (rev bar (1.1, 2.2, 3.3) :: (Double, Double, Double))
+    (rev @Double bar (1.1, 2.2, 3.3) :: (Double, Double, Double))
     (6.221706565357043, -12.856908977773593, 6.043601532156671)
 
 -- A check if gradient computation is re-entrant.
@@ -114,7 +114,7 @@ fooConstant = foo (7, 8, 9)
 testBaz :: Assertion
 testBaz =
   assertEqualUpToEpsilon 1e-9
-    (rev baz (1.1, 2.2, 3.3) :: (Double, Double, Double))
+    (rev @Double baz (1.1, 2.2, 3.3) :: (Double, Double, Double))
     (0, -5219.20995030263, 2782.276274462047)
 
 -- If terms are numbered and @z@ is, wrongly, decorated with number 0,
@@ -145,8 +145,8 @@ fooD _ = error "wrong number of arguments"
 testFooD :: Assertion
 testFooD =
   assertEqualUpToEpsilon 1e-10
-    (rev (fooD @Double) [1.1, 2.2, 3.3])
-    [2.4396285219055063, -1.953374825727421, 0.9654825811012627]
+    (rev @Double (fooD @Double) [1.1, 2.2, 3.3])
+    [2.4396285219055063, -1.953374825727421 :: Double, 0.9654825811012627]
 
 -- A dual-number version of a function that goes from three rank one
 -- (vector-like) tensors to `R`. It multiplies first elements
@@ -200,6 +200,7 @@ dot _ _ = konstS 42
 
 bar_3_75
   :: ( ADModeAndNum 'ADModeValue r
+     , Adaptable 'ADModeValue r (ADVal 'ADModeValue r) r
      , KnownNat k, OS.Shape sh)
   => ( r
      , OS.Array '[3, 75] r
@@ -223,6 +224,7 @@ testBarV =
 bar_jvp_3_75
   :: forall r sh.
      ( ADModeAndNum 'ADModeDerivative r, Dual 'ADModeDerivative r ~ r
+     , Adaptable 'ADModeDerivative r (ADVal 'ADModeDerivative r) r
      , OS.Shape sh )
   => ( r
      , OS.Array '[3, 75] r
@@ -254,7 +256,7 @@ testBarF =
 
 bar_rev_3_75
   :: forall r sh.
-     ( HasDelta r
+     ( HasDelta r, Adaptable 'ADModeGradient r (ADVal 'ADModeGradient r) r
      , OS.Shape sh)
   => ( r
      , OS.Array '[3, 75] r
