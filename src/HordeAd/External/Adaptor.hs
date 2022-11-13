@@ -24,7 +24,7 @@ import HordeAd.Core.PairOfVectors
 import HordeAd.Internal.Delta (toShapedOrDummy)
 
 value :: forall a vals r advals.
-         (Adaptable 'ADModeValue vals r advals)
+         (Numeric r, Adaptable 'ADModeValue vals r advals)
       => (advals -> ADVal 'ADModeValue a) -> vals -> a
 value f vals =
   let g inputs = f $ fst $ fromADInputs vals inputs
@@ -39,7 +39,7 @@ rev f vals =
   in fst $ fromDomains vals $ fst $ revFun 1 g (toDomains vals)
 
 fwd :: forall a vals r advals.
-       ( Dual 'ADModeDerivative r ~ r
+       ( Numeric r, Dual 'ADModeDerivative r ~ r
        , Adaptable 'ADModeDerivative vals r advals )
     => (advals -> ADVal 'ADModeDerivative a) -> vals -> vals
     -> Dual 'ADModeDerivative a  -- normally equals @a@
@@ -49,8 +49,8 @@ fwd f x ds =
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
 type Adaptable d vals r advals =
-  ( r ~ Scalar vals, vals ~ Value advals, Numeric r
-  , AdaptableDomains vals, AdaptableInputs d r advals )
+  ( r ~ Scalar vals, vals ~ Value advals
+  , AdaptableDomains (Value advals), AdaptableInputs d (Scalar (Value advals)) advals )
 
 type AdaptableScalar d r = (ADModeAndNum d r, Adaptable d r r (ADVal d r))
 
