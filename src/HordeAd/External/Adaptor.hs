@@ -23,8 +23,7 @@ import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors
 import HordeAd.Internal.Delta (toShapedOrDummy)
 
-value :: ( Numeric r
-         , Adaptable 'ADModeValue r advals vals )
+value :: (Adaptable 'ADModeValue r advals vals)
       => (advals -> ADVal 'ADModeValue a) -> vals -> a
 value f vals =
   let g inputs = f $ fst $ fromADInputs inputs
@@ -38,7 +37,7 @@ rev f vals =
   let g inputs = f $ fst $ fromADInputs inputs
   in fst $ fromDomains vals $ fst $ revFun 1 g (toDomains vals)
 
-fwd :: ( Numeric r, Dual 'ADModeDerivative r ~ r
+fwd :: ( Dual 'ADModeDerivative r ~ r
        , Adaptable 'ADModeDerivative r advals vals )
     => (advals -> ADVal 'ADModeDerivative a) -> vals -> vals
     -> Dual 'ADModeDerivative a  -- normally equals @a@
@@ -48,20 +47,23 @@ fwd f x ds =
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
 type Adaptable d r advals vals =
-  (AdaptableDomains r vals, AdaptableInputs d r advals)
+  ( r ~ Scalar vals, Numeric r
+  , AdaptableDomains vals, AdaptableInputs d r advals )
 
-class AdaptableDomains r vals | vals -> r where
-  toDomains :: vals -> Domains r
-  fromDomains :: vals -> Domains r -> (vals, Domains r)
+class AdaptableDomains vals where
+  type Scalar vals
+  toDomains :: vals -> Domains (Scalar vals)
+  fromDomains :: vals -> Domains (Scalar vals) -> (vals, Domains (Scalar vals))
 
 class AdaptableInputs d r advals | advals -> r where
   fromADInputs :: ADInputs d r -> (advals, ADInputs d r)
 
-instance AdaptableDomains Double Double where
+instance AdaptableDomains Double where
+  type Scalar Double = Double
   toDomains a = (V.singleton a, V.empty, V.empty, V.empty)
   fromDomains _aInit (v0, v1, v2, vX) = case V.uncons v0 of
     Just (a, rest) -> (a, (rest, v1, v2, vX))
-    Nothing -> error "fromDomains in AdaptableDomains Double Double"
+    Nothing -> error "fromDomains in AdaptableDomains Double"
 
 instance ADModeAndNum d Double
          => AdaptableInputs d Double (ADVal d Double) where
@@ -74,12 +76,13 @@ instance ADModeAndNum d Double
     Nothing -> error "fromADInputs in AdaptableInputs Double"
 
 instance (Numeric r, OS.Shape sh)
-         => AdaptableDomains r (OS.Array sh r) where
+         => AdaptableDomains (OS.Array sh r) where
+  type Scalar (OS.Array sh r) = r
   toDomains a =
     (V.empty, V.empty, V.empty, V.singleton (Data.Array.Convert.convert a))
   fromDomains _aInit (v0, v1, v2, vX) = case V.uncons vX of
     Just (a, rest) -> (toShapedOrDummy a, (v0, v1, v2, rest))
-    Nothing -> error "fromDomains in AdaptableDomains r (OS.Array sh r)"
+    Nothing -> error "fromDomains in AdaptableDomains (OS.Array sh r)"
 
 instance (ADModeAndNum d r, OS.Shape sh)
          => AdaptableInputs d r (ADVal d (OS.Array sh r)) where
@@ -91,8 +94,9 @@ instance (ADModeAndNum d r, OS.Shape sh)
       Nothing -> error "fromADInputs in AdaptableInputs (OS.Array sh r)"
     Nothing -> error "fromADInputs in AdaptableInputs (OS.Array sh r)"
 
-instance (Numeric r, AdaptableDomains r a)
-         => AdaptableDomains r [a] where
+instance (Numeric (Scalar a), AdaptableDomains a)
+         => AdaptableDomains [a] where
+  type Scalar [a] = Scalar a
   toDomains l =
     let (l0, l1, l2, lX) = unzip4 $ map toDomains l
     in (V.concat l0, V.concat l1, V.concat l2, V.concat lX)
@@ -107,9 +111,10 @@ instance ( ADModeAndNum d r
          => AdaptableInputs d r [ADVal d a] where
   fromADInputs _inputs = undefined
 
-instance ( Numeric r
-         , AdaptableDomains r a
-         , AdaptableDomains r b ) => AdaptableDomains r (a, b) where
+instance ( r ~ Scalar a, Numeric r, Scalar b ~ r
+         , AdaptableDomains a
+         , AdaptableDomains b ) => AdaptableDomains (a, b) where
+  type Scalar (a, b) = Scalar a
   toDomains (a, b) =
     let (a0, a1, a2, aX) = toDomains a
         (b0, b1, b2, bX) = toDomains b
@@ -122,10 +127,11 @@ instance ( Numeric r
         (b, bRest) = fromDomains bInit aRest
     in ((a, b), bRest)
 
-instance ( Numeric r
-         , AdaptableDomains r a
-         , AdaptableDomains r b
-         , AdaptableDomains r c ) => AdaptableDomains r (a, b, c) where
+instance ( r ~ Scalar a, Numeric r, Scalar b ~ r, Scalar c ~ r
+         , AdaptableDomains a
+         , AdaptableDomains b
+         , AdaptableDomains c ) => AdaptableDomains (a, b, c) where
+  type Scalar (a, b, c) = Scalar a
   toDomains (a, b, c) =
     let (a0, a1, a2, aX) = toDomains a
         (b0, b1, b2, bX) = toDomains b
@@ -140,11 +146,12 @@ instance ( Numeric r
         (c, rest) = fromDomains cInit bRest
     in ((a, b, c), rest)
 
-instance ( Numeric r
-         , AdaptableDomains r a
-         , AdaptableDomains r b
-         , AdaptableDomains r c
-         , AdaptableDomains r d ) => AdaptableDomains r (a, b, c, d) where
+instance ( r ~ Scalar a, Numeric r, Scalar b ~ r, Scalar c ~ r, Scalar d ~ r
+         , AdaptableDomains a
+         , AdaptableDomains b
+         , AdaptableDomains c
+         , AdaptableDomains d ) => AdaptableDomains (a, b, c, d) where
+  type Scalar (a, b, c, d) = Scalar a
   toDomains (a, b, c, d) =
     let (a0, a1, a2, aX) = toDomains a
         (b0, b1, b2, bX) = toDomains b
