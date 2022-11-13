@@ -49,8 +49,8 @@ fwd f x ds =
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
 type Adaptable d vals r advals =
-  ( r ~ Scalar vals, Numeric r
-  , AdaptableDomains vals, AdaptableInputs d vals r advals )
+  ( r ~ Scalar vals, vals ~ Value advals, Numeric r
+  , AdaptableDomains vals, AdaptableInputs d r advals )
 
 type AdaptableScalar d r = (ADModeAndNum d r, Adaptable d r r (ADVal d r))
 
@@ -63,9 +63,10 @@ class AdaptableDomains vals where
     :: Numeric (Scalar vals)
     => vals -> Domains (Scalar vals) -> (vals, Domains (Scalar vals))
 
-class AdaptableInputs d vals r advals where
+class AdaptableInputs d r advals where
+  type Value advals
   fromADInputs
-    :: vals -> ADInputs d r -> (advals, ADInputs d r)
+    :: Value advals -> ADInputs d r -> (advals, ADInputs d r)
 
 instance AdaptableDomains Double where
   type Scalar Double = Double
@@ -75,7 +76,8 @@ instance AdaptableDomains Double where
     Nothing -> error "fromDomains in AdaptableDomains Double"
 
 instance ADModeAndNum d Double
-         => AdaptableInputs d Double Double (ADVal d Double) where
+         => AdaptableInputs d Double (ADVal d Double) where
+  type Value (ADVal d Double) = Double
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal0 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual0 of
       Just (aDual, restDual) ->
@@ -94,7 +96,8 @@ instance OS.Shape sh
     Nothing -> error "fromDomains in AdaptableDomains (OS.Array sh r)"
 
 instance (ADModeAndNum d r, OS.Shape sh)
-         => AdaptableInputs d (OS.Array sh r) r (ADVal d (OS.Array sh r)) where
+         => AdaptableInputs d r (ADVal d (OS.Array sh r)) where
+  type Value (ADVal d (OS.Array sh r)) = OS.Array sh r
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimalX of
     Just (aPrimal, restPrimal) -> case V.uncons inputDualX of
       Just (aDual, restDual) ->
@@ -116,8 +119,9 @@ instance AdaptableDomains a
         (l, restAll) = foldl' f ([], source) lInit
     in (reverse l, restAll)
 
-instance AdaptableInputs d a r a'
-         => AdaptableInputs d [a] r [a'] where
+instance AdaptableInputs d r a
+         => AdaptableInputs d r [a] where
+  type Value [a] = [Value a]
   fromADInputs lInit sources =
     let f (lAcc, restAcc) aInit =
           let (a, rest) = fromADInputs aInit restAcc
@@ -182,29 +186,32 @@ instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
         (d, rest) = fromDomains dInit cRest
     in ((a, b, c, d), rest)
 
-instance ( AdaptableInputs d a r a'
-         , AdaptableInputs d b r b' )
-         => AdaptableInputs d (a, b) r (a', b') where
+instance ( AdaptableInputs d r a
+         , AdaptableInputs d r b )
+         => AdaptableInputs d r (a, b) where
+  type Value (a, b) = (Value a, Value b)
   fromADInputs (aInit, bInit) source =
     let (a, aRest) = fromADInputs aInit source
         (b, rest) = fromADInputs bInit aRest
     in ((a, b), rest)
 
-instance ( AdaptableInputs d a r a'
-         , AdaptableInputs d b r b'
-         , AdaptableInputs d c r c' )
-         => AdaptableInputs d (a, b, c) r (a', b', c') where
+instance ( AdaptableInputs d r a
+         , AdaptableInputs d r b
+         , AdaptableInputs d r c )
+         => AdaptableInputs d r (a, b, c) where
+  type Value (a, b, c) = (Value a, Value b, Value c)
   fromADInputs (aInit, bInit, cInit) source =
     let (a, aRest) = fromADInputs aInit source
         (b, bRest) = fromADInputs bInit aRest
         (c, rest) = fromADInputs cInit bRest
     in ((a, b, c), rest)
 
-instance ( AdaptableInputs d a r a'
-         , AdaptableInputs d b r b'
-         , AdaptableInputs d c r c'
-         , AdaptableInputs d d' r d'' )
-         => AdaptableInputs d (a, b, c, d') r (a', b', c', d'') where
+instance ( AdaptableInputs d r a
+         , AdaptableInputs d r b
+         , AdaptableInputs d r c
+         , AdaptableInputs d r d' )
+         => AdaptableInputs d r (a, b, c, d') where
+  type Value (a, b, c, d') = (Value a, Value b, Value c, Value d')
   fromADInputs (aInit, bInit, cInit, dInit) source =
     let (a, aRest) = fromADInputs aInit source
         (b, bRest) = fromADInputs bInit aRest
