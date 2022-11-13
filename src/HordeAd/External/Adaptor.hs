@@ -1,6 +1,6 @@
 {-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances,
-             FunctionalDependencies, RankNTypes, TypeFamilies, TypeOperators,
-             UndecidableInstances #-}
+             FunctionalDependencies, RankNTypes, TypeFamilies,
+             TypeOperators #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module HordeAd.External.Adaptor
@@ -52,11 +52,16 @@ type Adaptable d r advals vals =
 
 class AdaptableDomains vals where
   type Scalar vals
-  toDomains :: vals -> Domains (Scalar vals)
-  fromDomains :: vals -> Domains (Scalar vals) -> (vals, Domains (Scalar vals))
+  toDomains
+    :: Numeric (Scalar vals)
+    => vals -> Domains (Scalar vals)
+  fromDomains
+    :: Numeric (Scalar vals)
+    => vals -> Domains (Scalar vals) -> (vals, Domains (Scalar vals))
 
-class AdaptableInputs d r advals vals | advals -> r where
-  fromADInputs :: vals -> ADInputs d r -> (advals, ADInputs d r)
+class AdaptableInputs d r advals vals where
+  fromADInputs
+    :: vals -> ADInputs d r -> (advals, ADInputs d r)
 
 instance AdaptableDomains Double where
   type Scalar Double = Double
@@ -75,7 +80,7 @@ instance ADModeAndNum d Double
       Nothing -> error "fromADInputs in AdaptableInputs Double"
     Nothing -> error "fromADInputs in AdaptableInputs Double"
 
-instance (Numeric r, OS.Shape sh)
+instance OS.Shape sh
          => AdaptableDomains (OS.Array sh r) where
   type Scalar (OS.Array sh r) = r
   toDomains a =
@@ -94,7 +99,7 @@ instance (ADModeAndNum d r, OS.Shape sh)
       Nothing -> error "fromADInputs in AdaptableInputs (OS.Array sh r)"
     Nothing -> error "fromADInputs in AdaptableInputs (OS.Array sh r)"
 
-instance (Numeric (Scalar a), AdaptableDomains a)
+instance AdaptableDomains a
          => AdaptableDomains [a] where
   type Scalar [a] = Scalar a
   toDomains l =
@@ -107,7 +112,7 @@ instance (Numeric (Scalar a), AdaptableDomains a)
         (l, restAll) = foldl' f ([], source) lInit
     in (reverse l, restAll)
 
-instance (ADModeAndNum d r, AdaptableInputs d r a a')
+instance AdaptableInputs d r a a'
          => AdaptableInputs d r [a] [a'] where
   fromADInputs lInit sources =
     let f (lAcc, restAcc) aInit =
@@ -116,7 +121,7 @@ instance (ADModeAndNum d r, AdaptableInputs d r a a')
         (l, restAll) = foldl' f ([], sources) lInit
     in (reverse l, restAll)
 
-instance ( r ~ Scalar a, Numeric r, Scalar b ~ r
+instance ( r ~ Scalar a, r ~ Scalar b
          , AdaptableDomains a
          , AdaptableDomains b ) => AdaptableDomains (a, b) where
   type Scalar (a, b) = Scalar a
@@ -132,7 +137,7 @@ instance ( r ~ Scalar a, Numeric r, Scalar b ~ r
         (b, bRest) = fromDomains bInit aRest
     in ((a, b), bRest)
 
-instance ( r ~ Scalar a, Numeric r, Scalar b ~ r, Scalar c ~ r
+instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
          , AdaptableDomains a
          , AdaptableDomains b
          , AdaptableDomains c ) => AdaptableDomains (a, b, c) where
@@ -151,7 +156,7 @@ instance ( r ~ Scalar a, Numeric r, Scalar b ~ r, Scalar c ~ r
         (c, rest) = fromDomains cInit bRest
     in ((a, b, c), rest)
 
-instance ( r ~ Scalar a, Numeric r, Scalar b ~ r, Scalar c ~ r, Scalar d ~ r
+instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
          , AdaptableDomains a
          , AdaptableDomains b
          , AdaptableDomains c
@@ -173,8 +178,15 @@ instance ( r ~ Scalar a, Numeric r, Scalar b ~ r, Scalar c ~ r, Scalar d ~ r
         (d, rest) = fromDomains dInit cRest
     in ((a, b, c, d), rest)
 
-instance ( ADModeAndNum d r
-         , AdaptableInputs d r a a'
+instance ( AdaptableInputs d r a a'
+         , AdaptableInputs d r b b' )
+         => AdaptableInputs d r (a, b) (a', b') where
+  fromADInputs (aInit, bInit) source =
+    let (a, aRest) = fromADInputs aInit source
+        (b, rest) = fromADInputs bInit aRest
+    in ((a, b), rest)
+
+instance ( AdaptableInputs d r a a'
          , AdaptableInputs d r b b'
          , AdaptableInputs d r c c' )
          => AdaptableInputs d r (a, b, c) (a', b', c') where
@@ -184,8 +196,7 @@ instance ( ADModeAndNum d r
         (c, rest) = fromADInputs cInit bRest
     in ((a, b, c), rest)
 
-instance ( ADModeAndNum d r
-         , AdaptableInputs d r a a'
+instance ( AdaptableInputs d r a a'
          , AdaptableInputs d r b b'
          , AdaptableInputs d r c c'
          , AdaptableInputs d r d' d'' )
