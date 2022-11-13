@@ -17,48 +17,53 @@ import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Numeric)
 
 import HordeAd.Core.DualClass (Dual)
-  -- for a special test
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors
 import HordeAd.Internal.Delta (toShapedOrDummy)
 
-value :: forall a vals r advals.
+value :: forall a vals r advals d.
          ( r ~ Scalar vals, vals ~ Value advals
-         , Numeric r, Adaptable 'ADModeValue advals )
-      => (advals -> ADVal 'ADModeValue a) -> vals -> a
+         , d ~ Mode advals, d ~ 'ADModeValue
+         , Numeric r, Adaptable advals )
+      => (advals -> ADVal d a) -> vals -> a
 value f vals =
   let g inputs = f $ fst $ fromADInputs vals inputs
   in valueFun g (toDomains vals)
 
-rev :: forall a vals r advals.
+rev :: forall a vals r advals d.
        ( r ~ Scalar vals, vals ~ Value advals
-       , HasDelta r, IsPrimalAndHasFeatures 'ADModeGradient a r
-       , Adaptable 'ADModeGradient advals )
-    => (advals -> ADVal 'ADModeGradient a) -> vals -> vals
+       , d ~ Mode advals, d ~ 'ADModeGradient
+       , HasDelta r, IsPrimalAndHasFeatures d a r
+       , Adaptable advals )
+    => (advals -> ADVal d a) -> vals -> vals
 rev f vals =
   let g inputs = f $ fst $ fromADInputs vals inputs
   in fst $ fromDomains vals $ fst $ revFun 1 g (toDomains vals)
 
-fwd :: forall a vals r advals.
+fwd :: forall a vals r advals d.
        ( r ~ Scalar vals, vals ~ Value advals
-       , Numeric r, Dual 'ADModeDerivative r ~ r
-       , Adaptable 'ADModeDerivative advals )
-    => (advals -> ADVal 'ADModeDerivative a) -> vals -> vals
-    -> Dual 'ADModeDerivative a  -- normally equals @a@
+       , d ~ Mode advals, d ~ 'ADModeDerivative
+       , Numeric r, Dual d r ~ r
+       , Adaptable advals )
+    => (advals -> ADVal d a) -> vals -> vals
+    -> Dual d a  -- normally equals @a@
 fwd f x ds =
   let g inputs = f $ fst $ fromADInputs ds inputs
   in fst $ fwdFun (toDomains x) g (toDomains ds)
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
-type Adaptable d advals =
+type Adaptable advals =
   ( AdaptableDomains (Value advals)
-  , AdaptableInputs d (Scalar (Value advals)) advals )
+  , AdaptableInputs (Scalar (Value advals)) advals )
 
 type AdaptableScalar d r =
-  ( Scalar r ~ r, Value (ADVal d r) ~ r
-  , ADModeAndNum d r, Adaptable d (ADVal d r) )
+  ( Scalar r ~ r, Value (ADVal d r) ~ r, Mode (ADVal d r) ~ d
+  , ADModeAndNum d r, Adaptable (ADVal d r) )
 
+-- TODO: merge these two classes. Is it even possible?
+-- Bonus points if no AllowAmbiguousTypes nor UndecidableInstances
+-- have to be added.
 class AdaptableDomains vals where
   type Scalar vals
   toDomains
@@ -68,10 +73,12 @@ class AdaptableDomains vals where
     :: Numeric (Scalar vals)
     => vals -> Domains (Scalar vals) -> (vals, Domains (Scalar vals))
 
-class AdaptableInputs d r advals where
+class AdaptableInputs r advals where
   type Value advals
+  type Mode advals :: ADMode
   fromADInputs
-    :: Value advals -> ADInputs d r -> (advals, ADInputs d r)
+    :: Value advals -> ADInputs (Mode advals) r
+    -> (advals, ADInputs (Mode advals) r)
 
 instance AdaptableDomains Double where
   type Scalar Double = Double
@@ -81,8 +88,9 @@ instance AdaptableDomains Double where
     Nothing -> error "fromDomains in AdaptableDomains Double"
 
 instance ADModeAndNum d Double
-         => AdaptableInputs d Double (ADVal d Double) where
+         => AdaptableInputs Double (ADVal d Double) where
   type Value (ADVal d Double) = Double
+  type Mode (ADVal d Double) = d
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal0 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual0 of
       Just (aDual, restDual) ->
@@ -101,8 +109,9 @@ instance OS.Shape sh
     Nothing -> error "fromDomains in AdaptableDomains (OS.Array sh r)"
 
 instance (ADModeAndNum d r, OS.Shape sh)
-         => AdaptableInputs d r (ADVal d (OS.Array sh r)) where
+         => AdaptableInputs r (ADVal d (OS.Array sh r)) where
   type Value (ADVal d (OS.Array sh r)) = OS.Array sh r
+  type Mode (ADVal d (OS.Array sh r)) = d
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimalX of
     Just (aPrimal, restPrimal) -> case V.uncons inputDualX of
       Just (aDual, restDual) ->
@@ -124,9 +133,10 @@ instance AdaptableDomains a
         (l, restAll) = foldl' f ([], source) lInit
     in (reverse l, restAll)
 
-instance AdaptableInputs d r a
-         => AdaptableInputs d r [a] where
+instance AdaptableInputs r a
+         => AdaptableInputs r [a] where
   type Value [a] = [Value a]
+  type Mode [a] = Mode a
   fromADInputs lInit sources =
     let f (lAcc, restAcc) aInit =
           let (a, rest) = fromADInputs aInit restAcc
@@ -191,32 +201,38 @@ instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
         (d, rest) = fromDomains dInit cRest
     in ((a, b, c, d), rest)
 
-instance ( AdaptableInputs d r a
-         , AdaptableInputs d r b )
-         => AdaptableInputs d r (a, b) where
+instance ( d ~ Mode a, d ~ Mode b
+         , AdaptableInputs r a
+         , AdaptableInputs r b )
+         => AdaptableInputs r (a, b) where
   type Value (a, b) = (Value a, Value b)
+  type Mode (a, b) = Mode a
   fromADInputs (aInit, bInit) source =
     let (a, aRest) = fromADInputs aInit source
         (b, rest) = fromADInputs bInit aRest
     in ((a, b), rest)
 
-instance ( AdaptableInputs d r a
-         , AdaptableInputs d r b
-         , AdaptableInputs d r c )
-         => AdaptableInputs d r (a, b, c) where
+instance ( d ~ Mode a, d ~ Mode b, d ~ Mode c
+         , AdaptableInputs r a
+         , AdaptableInputs r b
+         , AdaptableInputs r c )
+         => AdaptableInputs r (a, b, c) where
   type Value (a, b, c) = (Value a, Value b, Value c)
+  type Mode (a, b, c) = Mode a
   fromADInputs (aInit, bInit, cInit) source =
     let (a, aRest) = fromADInputs aInit source
         (b, bRest) = fromADInputs bInit aRest
         (c, rest) = fromADInputs cInit bRest
     in ((a, b, c), rest)
 
-instance ( AdaptableInputs d r a
-         , AdaptableInputs d r b
-         , AdaptableInputs d r c
-         , AdaptableInputs d r d' )
-         => AdaptableInputs d r (a, b, c, d') where
-  type Value (a, b, c, d') = (Value a, Value b, Value c, Value d')
+instance ( dd ~ Mode a, dd ~ Mode b, dd ~ Mode c, dd ~ Mode d
+         , AdaptableInputs r a
+         , AdaptableInputs r b
+         , AdaptableInputs r c
+         , AdaptableInputs r d )
+         => AdaptableInputs r (a, b, c, d) where
+  type Value (a, b, c, d) = (Value a, Value b, Value c, Value d)
+  type Mode (a, b, c, d) = Mode a
   fromADInputs (aInit, bInit, cInit, dInit) source =
     let (a, aRest) = fromADInputs aInit source
         (b, bRest) = fromADInputs bInit aRest
