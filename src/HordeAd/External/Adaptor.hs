@@ -4,7 +4,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module HordeAd.External.Adaptor
-  ( Adaptable, AdaptableDomains
+  ( Adaptable, AdaptableScalar
   , value, rev, fwd
   ) where
 
@@ -49,6 +49,8 @@ fwd f x ds =
 type Adaptable d r advals vals =
   ( r ~ Scalar vals, Numeric r
   , AdaptableDomains vals, AdaptableInputs d r advals vals )
+
+type AdaptableScalar d r = (ADModeAndNum d r, Adaptable d r (ADVal d r) r)
 
 class AdaptableDomains vals where
   type Scalar vals

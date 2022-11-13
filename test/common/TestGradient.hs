@@ -199,8 +199,8 @@ dot :: (ADModeAndNum d r, OS.Shape sh, KnownNat n1)
 dot _ _ = konstS 42
 
 bar_3_75
-  :: ( ADModeAndNum 'ADModeValue r
-     , Adaptable 'ADModeValue r (ADVal 'ADModeValue r) r
+  :: forall r k sh d.
+     ( d ~ 'ADModeValue, AdaptableScalar d r
      , KnownNat k, OS.Shape sh)
   => ( r
      , OS.Array '[3, 75] r
@@ -222,9 +222,8 @@ testBarV =
     (OS.constant 46.2)
 
 bar_jvp_3_75
-  :: forall r sh.
-     ( ADModeAndNum 'ADModeDerivative r, Dual 'ADModeDerivative r ~ r
-     , Adaptable 'ADModeDerivative r (ADVal 'ADModeDerivative r) r
+  :: forall r sh d.
+     ( d ~ 'ADModeDerivative, Dual d r ~ r, AdaptableScalar d r
      , OS.Shape sh )
   => ( r
      , OS.Array '[3, 75] r
@@ -255,8 +254,8 @@ testBarF =
     (OS.constant 88.2)
 
 bar_rev_3_75
-  :: forall r sh.
-     ( HasDelta r, Adaptable 'ADModeGradient r (ADVal 'ADModeGradient r) r
+  :: forall r sh d.
+     ( d ~ 'ADModeGradient, HasDelta r, AdaptableScalar d r
      , OS.Shape sh)
   => ( r
      , OS.Array '[3, 75] r
@@ -264,13 +263,12 @@ bar_rev_3_75
   -> ( r
      , OS.Array '[3, 75] r
      , [OS.Array (75 ': sh) r] )
-bar_rev_3_75 = rev ((head :: [ADVal 'ADModeGradient (OS.Array (n1 ': sh) r)]
-                          -> ADVal 'ADModeGradient (OS.Array (n1 ': sh) r))
+bar_rev_3_75 = rev ((head :: [ADVal d (OS.Array (n1 ': sh) r)]
+                          -> ADVal d (OS.Array (n1 ': sh) r))
                     . barS (MkSN @3) (MkSN @75))
   -- TODO: @head@ is required, because our engine so far assumes
-  -- objective functions with scalar codomain, as in the paper
-  -- objective functions have dual number codomains (though they may be
-  -- of arbitrary rank)
+  -- objective functions with dual number codomains (though they may be
+  -- of arbitrary ranks)
 
 testBarR :: Assertion
 testBarR =
