@@ -74,7 +74,7 @@ foo (x,y,z) =
 testFoo :: Assertion
 testFoo =
   assertEqualUpToEpsilon 1e-10
-    (rev @Double foo (1.1, 2.2, 3.3) :: (Double, Double, Double))
+    (rev @Double foo ((1.1, 2.2, 3.3) :: (Double, Double, Double)))
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
 
 bar :: RealFloat a => (a,a,a) -> a
@@ -85,7 +85,7 @@ bar (x,y,z) =
 testBar :: Assertion
 testBar =
   assertEqualUpToEpsilon 1e-9
-    (rev @Double bar (1.1, 2.2, 3.3) :: (Double, Double, Double))
+    (rev @Double @(Double, Double, Double) bar (1.1, 2.2, 3.3))
     (6.221706565357043, -12.856908977773593, 6.043601532156671)
 
 -- A check if gradient computation is re-entrant.
@@ -114,7 +114,7 @@ fooConstant = foo (7, 8, 9)
 testBaz :: Assertion
 testBaz =
   assertEqualUpToEpsilon 1e-9
-    (rev @Double baz (1.1, 2.2, 3.3) :: (Double, Double, Double))
+    (rev baz (1.1, 2.2, 3.3) :: (Double, Double, Double))
     (0, -5219.20995030263, 2782.276274462047)
 
 -- If terms are numbered and @z@ is, wrongly, decorated with number 0,
@@ -130,8 +130,8 @@ testBaz =
 testBazRenumbered :: Assertion
 testBazRenumbered =
   assertEqualUpToEpsilon 1e-9
-    (rev (\(x,y,z) -> z + baz (x,y,z)) (1.1, 2.2, 3.3)
-                      :: (Double, Double, Double))
+    (rev (\(x,y,z) -> z + baz (x,y,z))
+         ((1.1, 2.2, 3.3) :: (Double, Double, Double)))
     (0, -5219.20995030263, 2783.276274462047)
 
 -- A dual-number and list-based version of a function that goes
@@ -145,8 +145,8 @@ fooD _ = error "wrong number of arguments"
 testFooD :: Assertion
 testFooD =
   assertEqualUpToEpsilon 1e-10
-    (rev @Double (fooD @Double) [1.1, 2.2, 3.3])
-    [2.4396285219055063, -1.953374825727421 :: Double, 0.9654825811012627]
+    (rev fooD [1.1 :: Double, 2.2, 3.3])
+    [2.4396285219055063, -1.953374825727421, 0.9654825811012627]
 
 -- A dual-number version of a function that goes from three rank one
 -- (vector-like) tensors to `R`. It multiplies first elements
@@ -165,10 +165,16 @@ fooS :: forall r len1 l1 len2 l2 len3 l3 len4 l4 d.
 fooS MkSN MkSN MkSN MkSN (x1, x2, x3, x4) =
   fromS0 $ indexS @0 x1 * indexS @1 x2 * indexS @2 x3 * indexS @3 x4
 
+-- TODO: duplication
 testFooS :: Assertion
 testFooS =
-  assertEqualUpToEpsilon @Double @(OS.Array '[1] Double, OS.Array '[5] Double, OS.Array '[3] Double, OS.Array '[4] Double)
-                         1e-12
+  assertEqualUpToEpsilon
+    @Double
+    @( OS.Array '[1] Double
+     , OS.Array '[5] Double
+     , OS.Array '[3] Double
+     , OS.Array '[4] Double )
+    1e-12
     (rev (fooS @Double (MkSN @1) (MkSN @5) (MkSN @3) (MkSN @4))
           ( OS.fromList [1.1]
           , OS.fromList [2.2, 2.3, 7.2, 7.3, 7.4]
