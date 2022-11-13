@@ -68,7 +68,7 @@ data ADVal (d :: ADMode) a = D a (Dual d a)
 -- information, if applicable for the differentiation mode in question.
 -- The bare constructor should not be used directly (which is not enforced
 -- by the types yet), except when deconstructing via pattern-matching.
-dD :: IsPrimal d a => a -> (Dual d a) -> ADVal d a
+dD :: IsPrimal d a => a -> Dual d a -> ADVal d a
 dD a dual = D a (recordSharing dual)
 
 -- | This a not so smart constructor for 'D' of 'ADVal' that does not record
@@ -77,8 +77,8 @@ dD a dual = D a (recordSharing dual)
 -- in backpropagation phase. In contexts without sharing, it saves
 -- some evaluation time and memory (in term structure, but even more
 -- in the per-node data stored while evaluating).
-dDnotShared :: a -> (Dual d a) -> ADVal d a
-dDnotShared a dual = D a dual
+dDnotShared :: a -> Dual d a -> ADVal d a
+dDnotShared = D
 
 
 -- * Abbreviations to export (not used anywhere below)
@@ -222,8 +222,8 @@ class HasRanks (d :: ADMode) r where
 -- or library definitions that use it could be made smarter.
 instance IsPrimal 'ADModeGradient Double where
   dZero = Zero0
-  dScale k d = Scale0 k d
-  dAdd d e = Add0 d e
+  dScale = Scale0
+  dAdd = Add0
   recordSharing d = case d of
     Zero0 -> d
     Input0{} -> d
@@ -234,8 +234,8 @@ instance IsPrimal 'ADModeGradient Double where
 instance IsPrimal 'ADModeGradient Float where
   -- Identical as above:
   dZero = Zero0
-  dScale k d = Scale0 k d
-  dAdd d e = Add0 d e
+  dScale = Scale0
+  dAdd = Add0
   recordSharing d = case d of
     Zero0 -> d
     Input0{} -> d
@@ -245,8 +245,8 @@ instance IsPrimal 'ADModeGradient Float where
 -- | This is an impure instance. See above.
 instance IsPrimal 'ADModeGradient (Vector r) where
   dZero = Zero1
-  dScale k d = Scale1 k d
-  dAdd d e = Add1 d e
+  dScale = Scale1
+  dAdd = Add1
   recordSharing d = case d of
     Zero1 -> d
     Input1{} -> d
@@ -268,15 +268,15 @@ instance HasInputs (Vector r) where
 -- | This is an impure instance. See above.
 instance Dual 'ADModeGradient r ~ Delta0 r
          => HasRanks 'ADModeGradient r where
-  dSumElements0 vd n = SumElements0 vd n
-  dIndex0 d ix k = Index0 d ix k
-  dDot0 v vd = Dot0 v vd
-  dSeq1 lsd = Seq1 lsd
-  dKonst1 d n = Konst1 d n
-  dAppend1 d k e = Append1 d k e
-  dSlice1 i n d len = Slice1 i n d len
-  dReverse1 d = Reverse1 d
-  dBuild1 n f = Build1 n f
+  dSumElements0 = SumElements0
+  dIndex0 = Index0
+  dDot0 = Dot0
+  dSeq1 = Seq1
+  dKonst1 = Konst1
+  dAppend1 = Append1
+  dSlice1 = Slice1
+  dReverse1 = Reverse1
+  dBuild1 = Build1
 
 
 -- * Alternative instance: forward derivatives computed on the spot
