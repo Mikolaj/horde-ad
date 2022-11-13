@@ -24,23 +24,26 @@ import HordeAd.Core.PairOfVectors
 import HordeAd.Internal.Delta (toShapedOrDummy)
 
 value :: forall a vals r advals.
-         (Numeric r, Adaptable 'ADModeValue vals r advals)
+         ( r ~ Scalar vals, vals ~ Value advals
+         , Numeric r, Adaptable 'ADModeValue advals )
       => (advals -> ADVal 'ADModeValue a) -> vals -> a
 value f vals =
   let g inputs = f $ fst $ fromADInputs vals inputs
   in valueFun g (toDomains vals)
 
 rev :: forall a vals r advals.
-       ( HasDelta r, IsPrimalAndHasFeatures 'ADModeGradient a r
-       , Adaptable 'ADModeGradient vals r advals )
+       ( r ~ Scalar vals, vals ~ Value advals
+       , HasDelta r, IsPrimalAndHasFeatures 'ADModeGradient a r
+       , Adaptable 'ADModeGradient advals )
     => (advals -> ADVal 'ADModeGradient a) -> vals -> vals
 rev f vals =
   let g inputs = f $ fst $ fromADInputs vals inputs
   in fst $ fromDomains vals $ fst $ revFun 1 g (toDomains vals)
 
 fwd :: forall a vals r advals.
-       ( Numeric r, Dual 'ADModeDerivative r ~ r
-       , Adaptable 'ADModeDerivative vals r advals )
+       ( r ~ Scalar vals, vals ~ Value advals
+       , Numeric r, Dual 'ADModeDerivative r ~ r
+       , Adaptable 'ADModeDerivative advals )
     => (advals -> ADVal 'ADModeDerivative a) -> vals -> vals
     -> Dual 'ADModeDerivative a  -- normally equals @a@
 fwd f x ds =
@@ -48,11 +51,13 @@ fwd f x ds =
   in fst $ fwdFun (toDomains x) g (toDomains ds)
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
-type Adaptable d vals r advals =
-  ( r ~ Scalar vals, vals ~ Value advals
-  , AdaptableDomains (Value advals), AdaptableInputs d (Scalar (Value advals)) advals )
+type Adaptable d advals =
+  ( AdaptableDomains (Value advals)
+  , AdaptableInputs d (Scalar (Value advals)) advals )
 
-type AdaptableScalar d r = (ADModeAndNum d r, Adaptable d r r (ADVal d r))
+type AdaptableScalar d r =
+  ( Scalar r ~ r, Value (ADVal d r) ~ r
+  , ADModeAndNum d r, Adaptable d (ADVal d r) )
 
 class AdaptableDomains vals where
   type Scalar vals
