@@ -23,22 +23,24 @@ import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors
 import HordeAd.Internal.Delta (toShapedOrDummy)
 
-value :: (Adaptable 'ADModeValue r advals vals)
+value :: forall a vals r advals.
+         (Adaptable 'ADModeValue vals r advals)
       => (advals -> ADVal 'ADModeValue a) -> vals -> a
 value f vals =
   let g inputs = f $ fst $ fromADInputs vals inputs
   in valueFun g (toDomains vals)
 
-rev :: forall a r advals vals.
+rev :: forall a vals r advals.
        ( HasDelta r, IsPrimalAndHasFeatures 'ADModeGradient a r
-       , Adaptable 'ADModeGradient r advals vals )
+       , Adaptable 'ADModeGradient vals r advals )
     => (advals -> ADVal 'ADModeGradient a) -> vals -> vals
 rev f vals =
   let g inputs = f $ fst $ fromADInputs vals inputs
   in fst $ fromDomains vals $ fst $ revFun 1 g (toDomains vals)
 
-fwd :: ( Dual 'ADModeDerivative r ~ r
-       , Adaptable 'ADModeDerivative r advals vals )
+fwd :: forall a vals r advals.
+       ( Dual 'ADModeDerivative r ~ r
+       , Adaptable 'ADModeDerivative vals r advals )
     => (advals -> ADVal 'ADModeDerivative a) -> vals -> vals
     -> Dual 'ADModeDerivative a  -- normally equals @a@
 fwd f x ds =
@@ -46,11 +48,11 @@ fwd f x ds =
   in fst $ fwdFun (toDomains x) g (toDomains ds)
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
-type Adaptable d r advals vals =
+type Adaptable d vals r advals =
   ( r ~ Scalar vals, Numeric r
-  , AdaptableDomains vals, AdaptableInputs d r advals vals )
+  , AdaptableDomains vals, AdaptableInputs d vals r advals )
 
-type AdaptableScalar d r = (ADModeAndNum d r, Adaptable d r (ADVal d r) r)
+type AdaptableScalar d r = (ADModeAndNum d r, Adaptable d r r (ADVal d r))
 
 class AdaptableDomains vals where
   type Scalar vals
@@ -61,7 +63,7 @@ class AdaptableDomains vals where
     :: Numeric (Scalar vals)
     => vals -> Domains (Scalar vals) -> (vals, Domains (Scalar vals))
 
-class AdaptableInputs d r advals vals where
+class AdaptableInputs d vals r advals where
   fromADInputs
     :: vals -> ADInputs d r -> (advals, ADInputs d r)
 
@@ -73,7 +75,7 @@ instance AdaptableDomains Double where
     Nothing -> error "fromDomains in AdaptableDomains Double"
 
 instance ADModeAndNum d Double
-         => AdaptableInputs d Double (ADVal d Double) Double where
+         => AdaptableInputs d Double Double (ADVal d Double) where
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal0 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual0 of
       Just (aDual, restDual) ->
@@ -92,7 +94,7 @@ instance OS.Shape sh
     Nothing -> error "fromDomains in AdaptableDomains (OS.Array sh r)"
 
 instance (ADModeAndNum d r, OS.Shape sh)
-         => AdaptableInputs d r (ADVal d (OS.Array sh r)) (OS.Array sh r) where
+         => AdaptableInputs d (OS.Array sh r) r (ADVal d (OS.Array sh r)) where
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimalX of
     Just (aPrimal, restPrimal) -> case V.uncons inputDualX of
       Just (aDual, restDual) ->
@@ -114,8 +116,8 @@ instance AdaptableDomains a
         (l, restAll) = foldl' f ([], source) lInit
     in (reverse l, restAll)
 
-instance AdaptableInputs d r a a'
-         => AdaptableInputs d r [a] [a'] where
+instance AdaptableInputs d a r a'
+         => AdaptableInputs d [a] r [a'] where
   fromADInputs lInit sources =
     let f (lAcc, restAcc) aInit =
           let (a, rest) = fromADInputs aInit restAcc
@@ -180,29 +182,29 @@ instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
         (d, rest) = fromDomains dInit cRest
     in ((a, b, c, d), rest)
 
-instance ( AdaptableInputs d r a a'
-         , AdaptableInputs d r b b' )
-         => AdaptableInputs d r (a, b) (a', b') where
+instance ( AdaptableInputs d a r a'
+         , AdaptableInputs d b r b' )
+         => AdaptableInputs d (a, b) r (a', b') where
   fromADInputs (aInit, bInit) source =
     let (a, aRest) = fromADInputs aInit source
         (b, rest) = fromADInputs bInit aRest
     in ((a, b), rest)
 
-instance ( AdaptableInputs d r a a'
-         , AdaptableInputs d r b b'
-         , AdaptableInputs d r c c' )
-         => AdaptableInputs d r (a, b, c) (a', b', c') where
+instance ( AdaptableInputs d a r a'
+         , AdaptableInputs d b r b'
+         , AdaptableInputs d c r c' )
+         => AdaptableInputs d (a, b, c) r (a', b', c') where
   fromADInputs (aInit, bInit, cInit) source =
     let (a, aRest) = fromADInputs aInit source
         (b, bRest) = fromADInputs bInit aRest
         (c, rest) = fromADInputs cInit bRest
     in ((a, b, c), rest)
 
-instance ( AdaptableInputs d r a a'
-         , AdaptableInputs d r b b'
-         , AdaptableInputs d r c c'
-         , AdaptableInputs d r d' d'' )
-         => AdaptableInputs d r (a, b, c, d') (a', b', c', d'') where
+instance ( AdaptableInputs d a r a'
+         , AdaptableInputs d b r b'
+         , AdaptableInputs d c r c'
+         , AdaptableInputs d d' r d'' )
+         => AdaptableInputs d (a, b, c, d') r (a', b', c', d'') where
   fromADInputs (aInit, bInit, cInit, dInit) source =
     let (a, aRest) = fromADInputs aInit source
         (b, bRest) = fromADInputs bInit aRest
