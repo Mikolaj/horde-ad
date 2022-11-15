@@ -37,7 +37,8 @@ module HordeAd.Core.DualClass
   , -- * The less often used part of the mid-level API that gets re-exported in high-level API; it leaks implementation details
     IsPrimal(..), IsPrimalAndHasFeatures, HasDelta
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
-    Dual, HasRanks(..), HasInputs(..), dummyDual
+    Dual, HasRanks(..), HasInputs(..)
+  , dummyDual, toShapedOrDummy, toDynamicOrDummy
   , -- * Internal operations, exposed, e.g., for tests
     unsafeGetFreshId
   ) where

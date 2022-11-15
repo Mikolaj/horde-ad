@@ -11,7 +11,7 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
-import HordeAd.Internal.Delta (toShapedOrDummy)
+import HordeAd.Core.DualClass (toShapedOrDummy)
 import Tool.EqEpsilon
 import Tool.Shared (quad)
 
