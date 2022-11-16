@@ -624,10 +624,10 @@ test-suite simplifiedOnlyTest
     other-modules:    TestSimplified
 
     build-depends:
-      , horde-ad-simplified
+--      , horde-ad-simplified
       , testCommonLibrarySimplified
 
       , base
       , tasty >= 1.0
-      , tasty-hunit
-      , vector
+--      , tasty-hunit
+--      , vector

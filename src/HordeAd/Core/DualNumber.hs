@@ -325,17 +325,6 @@ sumColumns1 :: ADModeAndNum d r
 sumColumns1 (D u u') = dD (V.fromList $ map LA.sumElements $ LA.toColumns u)
                           (dSumColumns1 u' (LA.rows u))
 
--- The detour through a boxed vector (list probably fuses away)
--- is costly, but only matters if @f@ is cheap.
-map1Seq :: ADModeAndNum d r
-        => (ADVal d r -> ADVal d r) -> ADVal d (Vector r)
-        -> ADVal d (Vector r)
-map1Seq f (D v v') =
-  let k = V.length v
-      g ix p = f $ dD p (dIndex0 v' ix k)
-      ds = imap g $ V.toList v
-  in seq1 $ V.fromList ds
-
 -- | Dense matrix-vector product.
 infixr 8 #>!
 (#>!) :: ADModeAndNum d r
@@ -429,6 +418,33 @@ lossSoftMaxCrossEntropyL target (D u u') =
       scaled = dD (negate $ log softMaxU * target)
                   (dScale (softMaxU - target) u')
   in sumColumns1 scaled
+
+build1Seq :: ADModeAndNum d r
+          => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
+build1Seq n f = seq1 $ V.fromList $ map f [0 .. n - 1]
+
+build1 :: ADModeAndNum d r
+       => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
+build1 n f =
+  let g i = let D u _ = f i in u
+      h i = let D _ u' = f i in u'
+  in dD (V.fromList $ map g [0 .. n - 1]) (dBuild1 n h)
+
+-- The detour through a boxed vector (list probably fuses away)
+-- is costly, but only matters if @f@ is cheap.
+map1Seq :: ADModeAndNum d r
+        => (ADVal d r -> ADVal d r) -> ADVal d (Vector r)
+        -> ADVal d (Vector r)
+map1Seq f (D v v') =
+  let k = V.length v
+      g ix p = f $ dD p (dIndex0 v' ix k)
+      ds = imap g $ V.toList v
+  in seq1 $ V.fromList ds
+
+map1Build :: ADModeAndNum d r
+          => (ADVal d r -> ADVal d r) -> ADVal d (Vector r)
+          -> ADVal d (Vector r)
+map1Build f d@(D v _) = build1 (V.length v) $ \i -> f (index0 d i)
 
 
 -- * Operations resulting in a matrix

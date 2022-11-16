@@ -74,6 +74,7 @@ import qualified Data.Vector.Storable.Mutable
 import           GHC.TypeLits (KnownNat, Nat, natVal, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, (<.>))
 import qualified Numeric.LinearAlgebra as LA
+import           Text.Show.Functions ()
 
 import qualified HordeAd.Internal.MatrixOuter as MO
 import           HordeAd.Internal.OrthotopeOrphanInstances (liftVS2, liftVT2)
@@ -176,6 +177,7 @@ data Delta1 r =
   | FlattenX1 OT.ShapeL (DeltaX r)
   | forall sh. OS.Shape sh
     => FlattenS1 (DeltaS sh r)
+  | Build1 Int (Int -> Delta0 r)
 
 deriving instance (Show r, Numeric r) => Show (Delta1 r)
 
@@ -689,6 +691,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                 d
         FlattenX1 sh d -> evalX (OT.fromVector sh r) d
         FlattenS1 d -> evalS (OS.fromVector r) d
+        Build1 n f -> mapM_ (\i -> eval0 (r V.! i) (f i)) [0 .. n - 1]
 
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
       eval2 !r = \case
@@ -1079,6 +1082,9 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         Flatten1 _rows _cols d -> LA.flatten <$> eval2 d
         FlattenX1 _sh d -> OT.toVector <$> evalX d
         FlattenS1 d -> OS.toVector <$> evalS d
+        Build1 n f -> do
+          l <- mapM (eval0 . f) [0 .. n - 1]
+          return $! V.fromList l
 
       eval2 :: Delta2 r -> ST s (Matrix r)
       eval2 = \case

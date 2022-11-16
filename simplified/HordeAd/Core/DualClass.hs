@@ -312,6 +312,7 @@ instance ( Numeric r
   dReverse1 = V.reverse
   dBuild1 n f = V.fromList $ map f [0 .. n - 1]
 
+
 -- * Another alternative instance: only the objective function's value computed
 
 instance IsPrimal 'ADModeValue Double where
