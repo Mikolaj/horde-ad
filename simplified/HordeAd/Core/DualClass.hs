@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP, ConstraintKinds, DataKinds, FlexibleInstances, GADTs,
              MultiParamTypeClasses, PolyKinds, QuantifiedConstraints,
-             TypeFamilyDependencies, UndecidableInstances #-}
+             TypeFamilyDependencies #-}
 -- | The class defining dual components of dual numbers and
 -- the dual number type itself, hiding its constructor, but exposing
 -- a couple of smart constructors.
@@ -292,7 +292,6 @@ instance IsPrimal 'ADModeDerivative Float where
   dAdd d e = d + e
   recordSharing = id
 
--- These constraints force @UndecidableInstances@.
 instance Num (Vector r)
          => IsPrimal 'ADModeDerivative (Vector r) where
   dZero = 0
