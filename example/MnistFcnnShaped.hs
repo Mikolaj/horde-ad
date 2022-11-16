@@ -1,5 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, ImpredicativeTypes,
-             TypeFamilies #-}
+{-# LANGUAGE DataKinds, ImpredicativeTypes, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}

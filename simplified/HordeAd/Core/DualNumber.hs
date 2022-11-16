@@ -1,6 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes, CPP, DataKinds, FlexibleInstances, GADTs,
-             QuantifiedConstraints, RankNTypes, TypeFamilies,
-             UndecidableInstances #-}
+{-# LANGUAGE CPP, DataKinds, FlexibleInstances, GADTs, QuantifiedConstraints,
+             RankNTypes, TypeFamilies, UndecidableInstances #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -Wno-orphans #-}

@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, RankNTypes, TypeFamilies #-}
+{-# LANGUAGE DataKinds, RankNTypes, TypeFamilies #-}
 module TestMnistRNNSimple (testTrees, shortTestForCITrees) where
 
 import Prelude

@@ -1,7 +1,6 @@
-{-# LANGUAGE AllowAmbiguousTypes, CPP, ConstraintKinds, DataKinds,
-             FlexibleInstances, GADTs, MultiParamTypeClasses, PolyKinds,
-             QuantifiedConstraints, TypeFamilyDependencies,
-             UndecidableInstances #-}
+{-# LANGUAGE CPP, ConstraintKinds, DataKinds, FlexibleInstances, GADTs,
+             MultiParamTypeClasses, PolyKinds, QuantifiedConstraints,
+             TypeFamilyDependencies, UndecidableInstances #-}
 -- | The class defining dual components of dual numbers and
 -- the dual number type itself, hiding its constructor, but exposing
 -- a couple of smart constructors.

@@ -1,7 +1,6 @@
-{-# LANGUAGE AllowAmbiguousTypes, CPP, ConstraintKinds, DataKinds,
-             FlexibleInstances, GADTs, MultiParamTypeClasses, PolyKinds,
-             QuantifiedConstraints, TypeFamilyDependencies,
-             UndecidableInstances #-}
+{-# LANGUAGE CPP, ConstraintKinds, DataKinds, FlexibleInstances, GADTs,
+             MultiParamTypeClasses, PolyKinds, QuantifiedConstraints,
+             TypeFamilyDependencies, UndecidableInstances #-}
 #if defined(VERSION_ghc_typelits_natnormalise)
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
