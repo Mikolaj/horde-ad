@@ -45,7 +45,6 @@ import           Control.Exception (assert)
 import           Control.Monad (liftM2)
 import           Control.Monad.ST.Strict (ST, runST)
 import qualified Data.EnumMap.Strict as EM
-import           Data.List (foldl')
 import           Data.Primitive (Prim)
 import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
@@ -136,6 +135,7 @@ data Delta1 r =
     -- unsorted and undocumented yet
   | Reverse1 (Delta1 r)
   | Build1 Int (Int -> Delta0 r)
+      -- ^ the first argument is length; needed only for forward derivative
 
 deriving instance (Show r, Numeric r) => Show (Delta1 r)
 
@@ -403,7 +403,7 @@ buildFinMaps s0 deltaDt =
           eval1 s (LA.konst 0 i V.++ r V.++ LA.konst 0 (len - i - n)) d
 
         Reverse1 d -> eval1 s (V.reverse r) d
-        Build1 n f -> foldl' (\s2 i -> eval0 s2 (r V.! i) (f i)) s [0 .. n - 1]
+        Build1 _n f -> V.ifoldl' (\s2 i r0 -> eval0 s2 r0 (f i)) s r
 
       evalFromnMap :: EvalState r -> EvalState r
       evalFromnMap s@EvalState{nMap, dMap0, dMap1} =

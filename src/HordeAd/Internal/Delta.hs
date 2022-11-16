@@ -178,6 +178,7 @@ data Delta1 r =
   | forall sh. OS.Shape sh
     => FlattenS1 (DeltaS sh r)
   | Build1 Int (Int -> Delta0 r)
+      -- ^ the first argument is length; needed only for forward derivative
 
 deriving instance (Show r, Numeric r) => Show (Delta1 r)
 
@@ -691,7 +692,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                 d
         FlattenX1 sh d -> evalX (OT.fromVector sh r) d
         FlattenS1 d -> evalS (OS.fromVector r) d
-        Build1 n f -> mapM_ (\i -> eval0 (r V.! i) (f i)) [0 .. n - 1]
+        Build1 _n f -> V.imapM_ (\i r0 -> eval0 r0 (f i)) r
 
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
       eval2 !r = \case
