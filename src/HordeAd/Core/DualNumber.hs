@@ -135,7 +135,7 @@ instance (Floating a, IsPrimal d a) => Floating (ADVal d a) where
   sqrt (D u u') = let sqrtU = sqrt u
                   in dD sqrtU (dScale (recip (sqrtU + sqrtU)) u')
   D u u' ** D v v' = dD (u ** v) (dAdd (dScale (v * (u ** (v - 1))) u')
-                                      (dScale ((u ** v) * log u) v'))
+                                       (dScale ((u ** v) * log u) v'))
   logBase x y = log y / log x
   sin (D u u') = dD (sin u) (dScale (cos u) u')
   cos (D u u') = dD (cos u) (dScale (- (sin u)) u')
@@ -293,7 +293,7 @@ lossSoftMaxCrossEntropyV target (D u u') =
 -- not exposed: softMaxU = LA.scaleRecip sumExpU expU
       softMaxU = LA.scale recipSum expU
   in dD (negate $ log softMaxU LA.<.> target)  -- TODO: avoid: log . exp
-       (dDot0 (softMaxU - target) u')
+        (dDot0 (softMaxU - target) u')
 
 
 -- * Operations resulting in a vector
@@ -455,6 +455,17 @@ map1Build f d@(D v _) = build1 (V.length v) $ \i -> f (index0 d i)
 -- * Operations resulting in a matrix
 
 -- @2@ means rank two, so the dual component represents a matrix.
+fromList2 :: ADModeAndNum d r
+          => (Int, Int) -> [ADVal d r] -> ADVal d (Matrix r)
+fromList2 (i, j) l = dD (j LA.>< i $ map (\(D u _) -> u) l)
+                        (dFromList2 (i, j) $ map (\(D _ u') -> u') l)
+
+fromVector2 :: ADModeAndNum d r
+            => (Int, Int) -> Data.Vector.Vector (ADVal d r)
+            -> ADVal d (Matrix r)
+fromVector2 (i, j) v = dD (LA.reshape j $ V.convert $ V.map (\(D u _) -> u) v)
+                          (dFromVector2 (i, j) $ V.map (\(D _ u') -> u') v)
+
 fromRows2 :: ADModeAndNum d r
           => Data.Vector.Vector (ADVal d (Vector r))
           -> ADVal d (Matrix r)

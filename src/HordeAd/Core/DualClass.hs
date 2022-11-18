@@ -244,6 +244,9 @@ class HasRanks (d :: ADMode) r where
              => Dual d (OS.Array sh r) -> Dual d (Vector r)
   dBuild1 :: RealFrac r => Int -> (Int -> Dual d r) -> Dual d (Vector r)
 
+  dFromList2 :: (Int, Int) -> [Dual d r] -> Dual d (Matrix r)
+  dFromVector2 :: (Int, Int) -> Data.Vector.Vector (Dual d r)
+               -> Dual d (Matrix r)
   dFromRows2 :: Data.Vector.Vector (Dual d (Vector r)) -> Dual d (Matrix r)
   dFromColumns2 :: Data.Vector.Vector (Dual d (Vector r)) -> Dual d (Matrix r)
   dKonst2 :: Dual d r -> (Int, Int) -> Dual d (Matrix r)
@@ -458,6 +461,8 @@ instance Dual 'ADModeGradient r ~ Delta0 r
   dFlattenX1 = FlattenX1
   dFlattenS1 = FlattenS1
   dBuild1 = Build1
+  dFromList2 = FromList2
+  dFromVector2 = FromVector2
   dFromRows2 = FromRows2
   dFromColumns2 = FromColumns2
   dKonst2 = Konst2
@@ -568,6 +573,8 @@ instance ( Numeric r, Num (Vector r)
   dFlattenX1 _sh = OT.toVector
   dFlattenS1 = OS.toVector
   dBuild1 n f = LA.build n (f . floor)
+  dFromList2 (i, j) = j LA.>< i
+  dFromVector2 (_i, j) = LA.reshape j . V.convert
   dFromRows2 = LA.fromRows . V.toList
   dFromColumns2 = LA.fromColumns . V.toList
   dKonst2 = LA.konst
@@ -681,6 +688,8 @@ instance HasRanks 'ADModeValue r where
   dFlattenX1 _ _ = DummyDual ()
   dFlattenS1 _ = DummyDual ()
   dBuild1 _ _ = DummyDual ()
+  dFromList2 _ _ = DummyDual ()
+  dFromVector2 _ _ = DummyDual ()
   dFromRows2 _ = DummyDual ()
   dFromColumns2 _ = DummyDual ()
   dKonst2 _ _ = DummyDual ()

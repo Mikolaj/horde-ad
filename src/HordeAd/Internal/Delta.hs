@@ -194,7 +194,9 @@ data Delta2 r =
   | Add2 (Delta2 r) (Delta2 r)
   | Let2 NodeId (Delta2 r)
 
-  | FromRows2 (Data.Vector.Vector (Delta1 r))  -- ^ "unboxing" conversion again
+  | FromList2 (Int, Int) [Delta0 r]
+  | FromVector2 (Int, Int) (Data.Vector.Vector (Delta0 r))
+  | FromRows2 (Data.Vector.Vector (Delta1 r))
   | FromColumns2 (Data.Vector.Vector (Delta1 r))
   | Konst2 (Delta0 r) (Int, Int)  -- ^ size; needed only for forward derivative
   | Transpose2 (Delta2 r)
@@ -680,7 +682,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         FromList1 lsd -> imapM_ (\i d -> eval0 (r V.! i) d) lsd
           -- lsd is a list (boxed vector) of scalar delta expressions
         FromVector1 lsd -> V.imapM_ (\i d -> eval0 (r V.! i) d) lsd
-          -- lsd is a list (boxed vector) of scalar delta expressions
+          -- lsd is a boxed vector of scalar delta expressions
         Konst1 d _n -> V.mapM_ (`eval0` d) r
         Append1 d k e -> eval1 (V.take k r) d >> eval1 (V.drop k r) e
         Slice1 i n d len ->
@@ -738,6 +740,14 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                 VM.write dm i r
             _ -> error "buildFinMaps: corrupted nMap"
 
+        FromList2 _ij lsd -> do
+          -- TODO: speedup likely via an indexing operation on MatrixOuter
+          -- or perhaps a flatten/toList operation
+          let vr = LA.flatten $ MO.convertMatrixOuter r
+          imapM_ (\i d -> eval0 (vr V.! i) d) lsd
+        FromVector2 _ij lsd -> do
+          let vr = LA.flatten $ MO.convertMatrixOuter r
+          V.imapM_ (\i d -> eval0 (vr V.! i) d) lsd
         FromRows2 lvd -> zipWithM_ eval1 (MO.toRows r) (V.toList lvd)
         FromColumns2 lvd -> zipWithM_ eval1 (MO.toColumns r) (V.toList lvd)
         Konst2 d _sz -> mapM_ (V.mapM_ (`eval0` d)) $ MO.toRows r
@@ -1101,8 +1111,8 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
             _ -> error "buildDerivative: corrupted nMap"
 
         FromList1 lsd -> do
-          v <- mapM eval0 lsd
-          return $! V.fromList v
+          l <- mapM eval0 lsd
+          return $! V.fromList l
         FromVector1 lsd -> do
           v <- V.mapM eval0 lsd
           return $! V.convert v
@@ -1161,6 +1171,12 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
               return r
             _ -> error "buildDerivative: corrupted nMap"
 
+        FromList2 (i, j) lsd -> do
+          l <- mapM eval0 lsd
+          return $! (j LA.>< i) l
+        FromVector2 (_i, j) lsd -> do
+          v <- V.mapM eval0 lsd
+          return $! LA.reshape j $ V.convert v  -- TODO: fail if _i fake
         FromRows2 lvd -> do
           l <- mapM eval1 $ V.toList lvd
           return $! LA.fromRows l

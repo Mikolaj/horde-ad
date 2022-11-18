@@ -517,8 +517,8 @@ buildDerivative dim0 dim1 deltaTopLevel
             _ -> error "buildDerivative: corrupted nMap"
 
         FromList1 lsd -> do
-          v <- mapM eval0 lsd
-          return $! V.fromList v
+          l <- mapM eval0 lsd
+          return $! V.fromList l
         FromVector1 lsd -> do
           v <- V.mapM eval0 lsd
           return $! V.convert v
