@@ -130,7 +130,7 @@ splitLayerV factivation hiddenVec offset inputs width =
       activate :: Int -> ADVal d (Vector r)
       activate n = do
         let v = V.slice (n * chunkWidth) chunkWidth multiplied
-        factivation $ seq1 v + at1 inputs (offset + width + n)
+        factivation $ fromVector1 v + at1 inputs (offset + width + n)
       a0 = activate 0
       a1 = activate 1
       a2 = activate 2

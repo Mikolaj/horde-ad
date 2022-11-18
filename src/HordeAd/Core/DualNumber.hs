@@ -299,10 +299,10 @@ lossSoftMaxCrossEntropyV target (D u u') =
 -- * Operations resulting in a vector
 
 -- @1@ means rank one, so the dual component represents a vector.
-seq1 :: ADModeAndNum d r
-     => Data.Vector.Vector (ADVal d r) -> ADVal d (Vector r)
-seq1 v = dD (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
-            (dSeq1 $ V.map (\(D _ u') -> u') v)
+fromList1 :: ADModeAndNum d r
+          => [ADVal d r] -> ADVal d (Vector r)
+fromList1 l = dD (V.fromList $ map (\(D u _) -> u) l)  -- I hope this fuses
+                 (dFromList1 $ map (\(D _ u') -> u') l)
 
 fromVector1 :: ADModeAndNum d r
             => Data.Vector.Vector (ADVal d r) -> ADVal d (Vector r)
@@ -397,7 +397,7 @@ maxPool1 :: ADModeAndNum d r
          => Int -> Int -> ADVal d (Vector r) -> ADVal d (Vector r)
 maxPool1 ksize stride v@(D u _) =
   let slices = [slice1 i ksize v | i <- [0, stride .. V.length u - ksize]]
-  in seq1 $ V.fromList $ map maximum0 slices
+  in fromList1 $ map maximum0 slices
 
 softMaxV :: ADModeAndNum d r
          => ADVal d (Vector r) -> ADVal d (Vector r)
@@ -426,7 +426,7 @@ lossSoftMaxCrossEntropyL target (D u u') =
 
 build1Seq :: ADModeAndNum d r
           => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
-build1Seq n f = seq1 $ V.fromList $ map f [0 .. n - 1]
+build1Seq n f = fromList1 $ map f [0 .. n - 1]
 
 build1 :: ADModeAndNum d r
        => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
@@ -444,7 +444,7 @@ map1Seq f (D v v') =
   let k = V.length v
       g ix p = f $ dD p (dIndex0 v' ix k)
       ds = imap g $ V.toList v
-  in seq1 $ V.fromList ds
+  in fromList1 ds
 
 map1Build :: ADModeAndNum d r
           => (ADVal d r -> ADVal d r) -> ADVal d (Vector r)
@@ -587,7 +587,7 @@ corr2 ker@(D u _) m@(D v _) =
                 in map f colSlices
               rowSlices = matrixSlices2 rowsK m
               dotSlicesOfSlices = map dotColSlices rowSlices
-          in reshape2 rc $ seq1 $ V.fromList $ concat dotSlicesOfSlices
+          in reshape2 rc $ fromList1 $ concat dotSlicesOfSlices
 
 conv2 :: forall d r. ADModeAndNum d r
       => ADVal d (Matrix r) -> ADVal d (Matrix r)
@@ -642,9 +642,9 @@ maxPool2 ksize stride m@(D u _) =
       getArea (r0, c0) =
         let getAreaAtRow r1 =
               append1 (slice1 (r1 * cols + c0) ksize (flatten1 m))
-        in foldr getAreaAtRow (seq1 V.empty) [r0 .. r0 + ksize - 1]
+        in foldr getAreaAtRow (fromVector1 V.empty) [r0 .. r0 + ksize - 1]
       mins = map (maximum0 . getArea) resultCoords
-  in reshape2 colsOut $ seq1 $ V.fromList mins
+  in reshape2 colsOut $ fromList1 mins
 
 
 -- * Operations resulting in an arbitrary untyped tensor

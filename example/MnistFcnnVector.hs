@@ -33,7 +33,7 @@ sumTrainableInputsL
 sumTrainableInputsL x offset inputs width =
   let f :: Int -> ADVal d r
       f i = sumTrainableInputsV x (offset + i) inputs
-  in seq1 $ V.generate width f
+  in fromVector1 $ V.generate width f
 
 sumConstantDataV
   :: ADModeAndNum d r
@@ -49,7 +49,7 @@ sumConstantDataL
 sumConstantDataL x offset inputs width =
   let f :: Int -> ADVal d r
       f i = sumConstantDataV x (offset + i) inputs
-  in seq1 $ V.generate width f
+  in fromVector1 $ V.generate width f
 
 fcnnMnistLen1 :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
 fcnnMnistLen1 widthHidden widthHidden2 =

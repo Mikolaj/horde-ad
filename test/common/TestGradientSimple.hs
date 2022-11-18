@@ -348,7 +348,7 @@ vatanOldReadme inputs =
   let xyzVector = at1 inputs 0
       f = index0 xyzVector
       (x, y, z) = (f 0, f 1, f 2)
-      v = seq1 $ atanOldReadmeOriginal x y z
+      v = fromVector1 $ atanOldReadmeOriginal x y z
   in sumElements0 v
 
 vatanOldReadmeDReverse :: HasDelta r

@@ -45,6 +45,7 @@ import           Control.Exception (assert)
 import           Control.Monad (liftM2)
 import           Control.Monad.ST.Strict (ST, runST)
 import qualified Data.EnumMap.Strict as EM
+import           Data.List.Index (ifoldl')
 import           Data.Primitive (Prim)
 import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
@@ -126,7 +127,7 @@ data Delta1 r =
   | Add1 (Delta1 r) (Delta1 r)
   | Let1 NodeId (Delta1 r)
 
-  | Seq1 (Data.Vector.Vector (Delta0 r))  -- ^ "unboxing" conversion
+  | FromList1 [Delta0 r]
   | FromVector1 (Data.Vector.Vector (Delta0 r))  -- ^ "unboxing" conversion
   | Konst1 (Delta0 r) Int  -- ^ length; needed only for forward derivative
   | Append1 (Delta1 r) Int (Delta1 r)
@@ -395,10 +396,10 @@ buildFinMaps s0 deltaDt =
                   , dMap1 = EM.insert n r $ dMap1 s }
               _ -> error "buildFinMaps: corrupted nMap"
 
-        Seq1 lsd -> V.ifoldl' (\s2 i d -> eval0 s2 (r V.! i) d) s lsd
-          -- lsd is a list (boxed vector) of scalar delta expressions
+        FromList1 lsd -> ifoldl' (\s2 i d -> eval0 s2 (r V.! i) d) s lsd
+          -- lsd is a list of scalar delta expressions
         FromVector1 lsd -> V.ifoldl' (\s2 i d -> eval0 s2 (r V.! i) d) s lsd
-          -- lsd is a list (boxed vector) of scalar delta expressions
+          -- lsd is a boxed vector of scalar delta expressions
         Konst1 d _n -> V.foldl' (\s2 r2 -> eval0 s2 r2 d) s r
 
         Append1 d k e -> eval1 (eval1 s (V.take k r) d) (V.drop k r) e
@@ -515,9 +516,9 @@ buildDerivative dim0 dim1 deltaTopLevel
               return r
             _ -> error "buildDerivative: corrupted nMap"
 
-        Seq1 lsd -> do
-          v <- V.mapM eval0 lsd
-          return $! V.convert v
+        FromList1 lsd -> do
+          v <- mapM eval0 lsd
+          return $! V.fromList v
         FromVector1 lsd -> do
           v <- V.mapM eval0 lsd
           return $! V.convert v

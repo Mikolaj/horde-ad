@@ -62,6 +62,7 @@ import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Type)
+import           Data.List.Index (imapM_)
 import           Data.Primitive (Prim)
 import           Data.Proxy (Proxy (Proxy))
 import           Data.STRef (STRef, newSTRef, readSTRef, writeSTRef)
@@ -155,7 +156,7 @@ data Delta1 r =
   | Add1 (Delta1 r) (Delta1 r)
   | Let1 NodeId (Delta1 r)
 
-  | Seq1 (Data.Vector.Vector (Delta0 r))  -- ^ "unboxing" conversion
+  | FromList1 [Delta0 r]
   | FromVector1 (Data.Vector.Vector (Delta0 r))  -- ^ "unboxing" conversion
   | Konst1 (Delta0 r) Int  -- ^ length; needed only for forward derivative
   | Append1 (Delta1 r) Int (Delta1 r)
@@ -676,7 +677,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                 VM.write dm i r
             _ -> error "buildFinMaps: corrupted nMap"
 
-        Seq1 lsd -> V.imapM_ (\i d -> eval0 (r V.! i) d) lsd
+        FromList1 lsd -> imapM_ (\i d -> eval0 (r V.! i) d) lsd
           -- lsd is a list (boxed vector) of scalar delta expressions
         FromVector1 lsd -> V.imapM_ (\i d -> eval0 (r V.! i) d) lsd
           -- lsd is a list (boxed vector) of scalar delta expressions
@@ -1099,9 +1100,9 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
               return r
             _ -> error "buildDerivative: corrupted nMap"
 
-        Seq1 lsd -> do
-          v <- V.mapM eval0 lsd
-          return $! V.convert v
+        FromList1 lsd -> do
+          v <- mapM eval0 lsd
+          return $! V.fromList v
         FromVector1 lsd -> do
           v <- V.mapM eval0 lsd
           return $! V.convert v
