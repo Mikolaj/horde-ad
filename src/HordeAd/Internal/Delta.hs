@@ -234,6 +234,8 @@ data DeltaX r =
   | AddX (DeltaX r) (DeltaX r)
   | LetX NodeId (DeltaX r)
 
+  | FromListX OT.ShapeL [Delta0 r]
+  | FromVectorX OT.ShapeL (Data.Vector.Vector (Delta0 r))
   | KonstX (Delta0 r) OT.ShapeL  -- ^ size; needed only for forward derivative
   | AppendX (DeltaX r) Int (DeltaX r)
       -- ^ Append two arrays along the outermost dimension.
@@ -272,6 +274,8 @@ data DeltaS :: [Nat] -> Type -> Type where
   AddS :: DeltaS sh r -> DeltaS sh r -> DeltaS sh r
   LetS :: NodeId -> DeltaS sh r -> DeltaS sh r
 
+  FromListS :: [Delta0 r] -> DeltaS sh r
+  FromVectorS :: Data.Vector.Vector (Delta0 r) -> DeltaS sh r
   KonstS :: Delta0 r -> DeltaS sh r
   AppendS :: (OS.Shape sh, KnownNat m, KnownNat n)
           => DeltaS (m ': sh) r -> DeltaS (n ': sh) r
@@ -830,6 +834,12 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                 VM.write dm i r
             _ -> error "buildFinMaps: corrupted nMap"
 
+        FromListX _sh lsd -> do
+          let vr = OT.toVector r
+          imapM_ (\i d -> eval0 (vr V.! i) d) lsd
+        FromVectorX _sh lsd -> do
+          let vr = OT.toVector r
+          V.imapM_ (\i d -> eval0 (vr V.! i) d) lsd
         KonstX d _sz -> mapM_ (`eval0` d) $ OT.toList r
         AppendX d k e -> case OT.shapeL r of
           n : _ -> evalX (OT.slice [(0, k)] r) d
@@ -909,6 +919,12 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
             _ -> error "buildFinMaps: corrupted nMap"
 
 #if defined(VERSION_ghc_typelits_natnormalise)
+        FromListS lsd -> do
+          let vr = OS.toVector r
+          imapM_ (\i d -> eval0 (vr V.! i) d) lsd
+        FromVectorS lsd -> do
+          let vr = OS.toVector r
+          V.imapM_ (\i d -> eval0 (vr V.! i) d) lsd
         KonstS d -> mapM_ (`eval0` d) $ OS.toList r
         AppendS (d :: DeltaS (k ': rest) r) (e :: DeltaS (l ': rest) r) ->
           evalS (OS.slice @'[ '(0, k) ] r) d
@@ -1250,6 +1266,12 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
               return r
             _ -> error "buildDerivative: corrupted nMap"
 
+        FromListX sh lsd -> do
+          l <- mapM eval0 lsd
+          return $! OT.fromList sh l
+        FromVectorX sh lsd -> do
+          v <- V.mapM eval0 lsd
+          return $! OT.fromVector sh $ V.convert v
         KonstX d sz -> OT.constant sz <$> eval0 d
         AppendX d _k e -> liftM2 OT.append (evalX d) (evalX e)
         SliceX i n d _len -> OT.slice [(i, n)] <$> evalX d
@@ -1318,6 +1340,12 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
             _ -> error "buildDerivative: corrupted nMap"
 
 #if defined(VERSION_ghc_typelits_natnormalise)
+        FromListS lsd -> do
+          l <- mapM eval0 lsd
+          return $! OS.fromList l
+        FromVectorS lsd -> do
+          v <- V.mapM eval0 lsd
+          return $! OS.fromVector $ V.convert v
         KonstS d -> OS.constant <$> eval0 d
         AppendS d e -> liftM2 OS.append (evalS d) (evalS e)
         SliceS (_ :: Proxy i) (_ :: Proxy n) d ->

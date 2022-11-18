@@ -660,6 +660,17 @@ maxPool2 ksize stride m@(D u _) =
 
 -- * Operations resulting in an arbitrary untyped tensor
 
+fromListX :: ADModeAndNum d r
+          => OT.ShapeL -> [ADVal d r] -> ADVal d (OT.Array r)
+fromListX sh l = dD (OT.fromList sh $ map (\(D u _) -> u) l)
+                    (dFromListX sh $ map (\(D _ u') -> u') l)
+
+fromVectorX :: ADModeAndNum d r
+            => OT.ShapeL -> Data.Vector.Vector (ADVal d r)
+            -> ADVal d (OT.Array r)
+fromVectorX sh v = dD (OT.fromVector sh $ V.convert $ V.map (\(D u _) -> u) v)
+                      (dFromVectorX sh $ V.map (\(D _ u') -> u') v)
+
 konstX :: ADModeAndNum d r
        => ADVal d r -> OT.ShapeL -> ADVal d (OT.Array r)
 konstX (D u u') sh = dD (OT.constant sh u) (dKonstX u' sh)
@@ -731,6 +742,17 @@ fromSX (D u u') = dD (Data.Array.Convert.convert u) (dFromSX u')
 
 #if defined(VERSION_ghc_typelits_natnormalise)
 -- * Operations resulting in an arbitrary fully typed Shaped tensor
+
+fromListS :: (ADModeAndNum d r, OS.Shape sh)
+          => [ADVal d r] -> ADVal d (OS.Array sh r)
+fromListS l = dD (OS.fromList $ map (\(D u _) -> u) l)
+                 (dFromListS $ map (\(D _ u') -> u') l)
+
+fromVectorS :: (ADModeAndNum d r, OS.Shape sh)
+            => Data.Vector.Vector (ADVal d r)
+            -> ADVal d (OS.Array sh r)
+fromVectorS v = dD (OS.fromVector $ V.convert $ V.map (\(D u _) -> u) v)
+                   (dFromVectorS $ V.map (\(D _ u') -> u') v)
 
 konstS :: (ADModeAndNum d r, OS.Shape sh)
        => ADVal d r -> ADVal d (OS.Array sh r)

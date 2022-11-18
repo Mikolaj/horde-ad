@@ -272,6 +272,9 @@ class HasRanks (d :: ADMode) r where
   dBuild2 :: RealFrac r
           => (Int, Int) -> ((Int, Int) -> Dual d r) -> Dual d (Matrix r)
 
+  dFromListX :: OT.ShapeL -> [Dual d r] -> Dual d (OT.Array r)
+  dFromVectorX :: OT.ShapeL -> Data.Vector.Vector (Dual d r)
+               -> Dual d (OT.Array r)
   dKonstX :: Dual d r -> OT.ShapeL -> Dual d (OT.Array r)
   dAppendX :: Dual d (OT.Array r) -> Int -> Dual d (OT.Array r)
            -> Dual d (OT.Array r)
@@ -288,6 +291,11 @@ class HasRanks (d :: ADMode) r where
 
   dBuildX :: OT.ShapeL -> ([Int] -> Dual d r) -> Dual d (OT.Array r)
 
+  dFromListS :: OS.Shape sh
+             => [Dual d r] -> Dual d (OS.Array sh r)
+  dFromVectorS :: OS.Shape sh
+               => Data.Vector.Vector (Dual d r)
+               -> Dual d (OS.Array sh r)
   dKonstS :: OS.Shape sh
           => Dual d r -> Dual d (OS.Array sh r)
   dAppendS :: (OS.Shape sh, KnownNat m, KnownNat n)
@@ -482,6 +490,8 @@ instance Dual 'ADModeGradient r ~ Delta0 r
   dReshape2 = Reshape2
   dConv2 = Conv2
   dBuild2 = Build2
+  dFromListX = FromListX
+  dFromVectorX = FromVectorX
   dKonstX = KonstX
   dAppendX = AppendX
   dSliceX = SliceX
@@ -493,6 +503,8 @@ instance Dual 'ADModeGradient r ~ Delta0 r
   dFrom2X = From2X
   dFromSX = FromSX
   dBuildX = BuildX
+  dFromListS = FromListS
+  dFromVectorS = FromVectorS
   dKonstS = KonstS
   dAppendS = AppendS
   dSliceS = SliceS
@@ -598,6 +610,8 @@ instance ( Numeric r, Num (Vector r)
   dReshape2 = LA.reshape
   dConv2 = LA.conv2
   dBuild2 n f = LA.build n (\i j -> f (floor i, floor j))
+  dFromListX sh = OT.fromList sh
+  dFromVectorX sh = OT.fromVector sh . V.convert
   dKonstX d sz = OT.constant sz d
   dAppendX d _k e = d `OT.append` e
   dSliceX i n d _len = OT.slice [(i, n)] d
@@ -614,6 +628,8 @@ instance ( Numeric r, Num (Vector r)
   dFromSX = Data.Array.Convert.convert
   dBuildX = OT.generate
 #if defined(VERSION_ghc_typelits_natnormalise)
+  dFromListS = OS.fromList
+  dFromVectorS = OS.fromVector . V.convert
   dKonstS = OS.constant
   dAppendS = OS.append
   dSliceS (_ :: Proxy i) (_ :: Proxy n) = OS.slice @'[ '(i, n) ]
@@ -709,6 +725,8 @@ instance HasRanks 'ADModeValue r where
   dReshape2 _ _ = DummyDual ()
   dConv2 _ _ = DummyDual ()
   dBuild2 _ _ = DummyDual ()
+  dFromListX _ _ = DummyDual ()
+  dFromVectorX _ _ = DummyDual ()
   dKonstX _ _ = DummyDual ()
   dAppendX _ _ _ = DummyDual ()
   dSliceX _ _ _ _ = DummyDual ()
@@ -721,6 +739,8 @@ instance HasRanks 'ADModeValue r where
   dFromSX _ = DummyDual ()
   dBuildX _ _ = DummyDual ()
 #if defined(VERSION_ghc_typelits_natnormalise)
+  dFromListS _ = DummyDual ()
+  dFromVectorS _ = DummyDual ()
   dKonstS _ = DummyDual ()
   dAppendS _ _ = DummyDual ()
   dSliceS _ _ _ = DummyDual ()
