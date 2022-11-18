@@ -274,6 +274,11 @@ seq1 :: ADModeAndNum d r
 seq1 v = dD (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
             (dSeq1 $ V.map (\(D _ u') -> u') v)
 
+fromVector1 :: ADModeAndNum d r
+            => Data.Vector.Vector (ADVal d r) -> ADVal d (Vector r)
+fromVector1 v = dD (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
+                   (dFromVector1 $ V.map (\(D _ u') -> u') v)
+
 konst1 :: ADModeAndNum d r => ADVal d r -> Int -> ADVal d (Vector r)
 konst1 (D u u') n = dD (LA.konst u n) (dKonst1 u' n)
 

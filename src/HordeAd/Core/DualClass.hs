@@ -226,6 +226,7 @@ class HasRanks (d :: ADMode) r where
   dFromS0 :: Dual d (OS.Array '[] r) -> Dual d r
 
   dSeq1 :: Data.Vector.Vector (Dual d r) -> Dual d (Vector r)
+  dFromVector1 :: Data.Vector.Vector (Dual d r) -> Dual d (Vector r)
   dKonst1 :: Dual d r -> Int -> Dual d (Vector r)
   dAppend1 :: Dual d (Vector r) -> Int -> Dual d (Vector r) -> Dual d (Vector r)
   dSlice1 :: Int -> Int -> Dual d (Vector r) -> Int -> Dual d (Vector r)
@@ -442,6 +443,7 @@ instance Dual 'ADModeGradient r ~ Delta0 r
   dFromX0 = FromX0
   dFromS0 = FromS0
   dSeq1 = Seq1
+  dFromVector1 = FromVector1
   dKonst1 = Konst1
   dAppend1 = Append1
   dSlice1 = Slice1
@@ -551,6 +553,7 @@ instance ( Numeric r, Num (Vector r)
   dFromX0 = OT.unScalar
   dFromS0 = OS.unScalar
   dSeq1 = V.convert
+  dFromVector1 = V.convert
   dKonst1 = LA.konst
   dAppend1 d _k e = d V.++ e
   dSlice1 i n d _len = V.slice i n d
@@ -663,6 +666,7 @@ instance HasRanks 'ADModeValue r where
   dFromX0 _ = DummyDual ()
   dFromS0 _ = DummyDual ()
   dSeq1 _ = DummyDual ()
+  dFromVector1 _ = DummyDual ()
   dKonst1 _ _ = DummyDual ()
   dAppend1 _ _ _ = DummyDual ()
   dSlice1 _ _ _ _ = DummyDual ()
