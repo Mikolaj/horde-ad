@@ -63,7 +63,7 @@ import qualified Data.Array.ShapedS as OS
 import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Type)
 import           Data.Primitive (Prim)
-import           Data.Proxy (Proxy)
+import           Data.Proxy (Proxy (Proxy))
 import           Data.STRef (STRef, newSTRef, readSTRef, writeSTRef)
 import           Data.STRef.Unboxed (STRefU, newSTRefU, readSTRefU, writeSTRefU)
 import qualified Data.Strict.Vector as Data.Vector
@@ -74,6 +74,7 @@ import qualified Data.Vector.Storable.Mutable
 import           GHC.TypeLits (KnownNat, Nat, natVal, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, (<.>))
 import qualified Numeric.LinearAlgebra as LA
+import qualified Numeric.LinearAlgebra.Devel
 import           Text.Show.Functions ()
 
 import qualified HordeAd.Internal.MatrixOuter as MO
@@ -214,6 +215,8 @@ data Delta2 r =
   | Fliprl2 (Delta2 r)
   | Reshape2 Int (Delta1 r)
   | Conv2 (Matrix r) (Delta2 r)
+  | Build2 (Int, Int) ((Int, Int) -> Delta0 r)
+      -- ^ the first argument is size; needed only for forward derivative
 
 deriving instance (Show r, Numeric r) => Show (Delta2 r)
 
@@ -249,6 +252,8 @@ data DeltaX r =
   | From2X (Delta2 r) Int
   | forall sh. OS.Shape sh
     => FromSX (DeltaS sh r)
+
+  | BuildX OT.ShapeL ([Int] -> Delta0 r)
 
 deriving instance (Show r, Numeric r) => Show (DeltaX r)
 
@@ -287,6 +292,8 @@ data DeltaS :: [Nat] -> Type -> Type where
   From2S :: KnownNat cols
          => Proxy cols -> Delta2 r -> DeltaS '[rows, cols] r
   FromXS :: DeltaX r -> DeltaS sh r
+
+  BuildS :: ([Int] -> Delta0 r) -> DeltaS sh r
 
 instance Show (DeltaS sh r) where
   show _ = "a DeltaS delta expression"
@@ -771,6 +778,10 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
               convolved = LA.corr2 m mor
               moc = MO.MatrixOuter (Just convolved) Nothing Nothing
           in eval2 moc md
+        Build2 _ij f -> do
+          let mor = MO.convertMatrixOuter r
+          Numeric.LinearAlgebra.Devel.mapMatrixWithIndexM_
+            (\ij r0 -> eval0 r0 (f ij)) mor
 
       evalX :: OT.Array r -> DeltaX r -> ST s ()
       evalX !r = \case
@@ -837,6 +848,17 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                 d
         FromSX d -> evalS (Data.Array.Convert.convert r) d
 
+        BuildX sh f -> do
+          -- Copied from Data.Array.Internal.
+          let getStridesT :: OT.ShapeL -> [Int]
+              getStridesT = scanr (*) 1
+              ss = case getStridesT sh of
+                _ : ss2 -> ss2
+                [] -> error "scanr in buildDerivative"
+              toIx [] _ = []
+              toIx (n:ns) i = q : toIx ns r2 where (q, r2) = quotRem i n
+          V.imapM_ (\i r0 -> eval0 r0 (f $ toIx ss i)) $ OT.toVector r
+
       evalS :: OS.Shape sh
             => OS.Array sh r -> DeltaS sh r -> ST s ()
       evalS !r = \case
@@ -901,6 +923,18 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                    Nothing Nothing)
                 d
         FromXS d -> evalX (Data.Array.Convert.convert r) d
+
+        BuildS f -> do
+          -- Copied from Data.Array.Internal.
+          let getStridesT :: OS.ShapeL -> [Int]
+              getStridesT = scanr (*) 1
+              ss = case getStridesT sh of
+                _ : ss2 -> ss2
+                [] -> error "scanr in buildDerivative"
+              toIx [] _ = []
+              toIx (n:ns) i = q : toIx ns r2 where (q, r2) = quotRem i n
+              sh = OS.shapeL r
+          V.imapM_ (\i r0 -> eval0 r0 (f $ toIx ss i)) $ OS.toVector r
 #endif
 
   case deltaDt of
@@ -1155,6 +1189,10 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         Fliprl2 d -> LA.fliprl <$> eval2 d
         Reshape2 cols d -> LA.reshape cols <$> eval1 d
         Conv2 m md -> LA.conv2 m <$> eval2 md
+        Build2 (i, j) f -> do
+          l <- mapM (eval0 . f)
+               $ [(i1, j1) | i1 <- [0 .. i - 1], j1 <- [0 .. j - 1]]
+          return $! (j LA.>< i) l
 
       evalX :: DeltaX r -> ST s (OT.Array r)
       evalX = \case
@@ -1210,7 +1248,20 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
           return $! OT.fromVector [LA.rows l, cols] $ LA.flatten l
         FromSX d -> Data.Array.Convert.convert <$> evalS d
 
-      evalS :: OS.Shape sh => DeltaS sh r -> ST s (OS.Array sh r)
+        BuildX sh f -> do
+          -- Copied from Data.Array.Internal.
+          let getStridesT :: OT.ShapeL -> [Int]
+              getStridesT = scanr (*) 1
+              (s, ss) = case getStridesT sh of
+                s2 : ss2 -> (s2, ss2)
+                [] -> error "scanr in buildDerivative"
+              toIx [] _ = []
+              toIx (n:ns) i = q : toIx ns r where (q, r) = quotRem i n
+          l <- mapM (eval0 . f)
+               $ [toIx ss i | i <- [0 .. s - 1]]
+          return $! OT.fromList sh l
+
+      evalS :: forall sh. OS.Shape sh => DeltaS sh r -> ST s (OS.Array sh r)
       evalS = \case
         ZeroS -> return 0
         InputS (InputId i) ->
@@ -1259,6 +1310,20 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         From1S d -> OS.fromVector <$> eval1 d
         From2S _ d -> OS.fromVector . LA.flatten <$> eval2 d
         FromXS d -> Data.Array.Convert.convert <$> evalX d
+
+        BuildS f -> do
+          -- Copied from Data.Array.Internal.
+          let getStridesT :: OS.ShapeL -> [Int]
+              getStridesT = scanr (*) 1
+              (s, ss) = case getStridesT sh of
+                s2 : ss2 -> (s2, ss2)
+                [] -> error "scanr in buildDerivative"
+              toIx [] _ = []
+              toIx (n:ns) i = q : toIx ns r where (q, r) = quotRem i n
+              sh = OS.shapeP (Proxy :: Proxy sh)
+          l <- mapM (eval0 . f)
+               $ [toIx ss i | i <- [0 .. s - 1]]
+          return $! OS.fromList l
 #endif
 
   eval0 deltaTopLevel

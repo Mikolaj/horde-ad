@@ -241,7 +241,7 @@ class HasRanks (d :: ADMode) r where
   dFlattenX1 :: OT.ShapeL -> Dual d (OT.Array r) -> Dual d (Vector r)
   dFlattenS1 :: OS.Shape sh
              => Dual d (OS.Array sh r) -> Dual d (Vector r)
-  dBuild1 :: Int -> (Int -> Dual d r) -> Dual d (Vector r)
+  dBuild1 :: RealFrac r => Int -> (Int -> Dual d r) -> Dual d (Vector r)
 
   dFromRows2 :: Data.Vector.Vector (Dual d (Vector r)) -> Dual d (Matrix r)
   dFromColumns2 :: Data.Vector.Vector (Dual d (Vector r)) -> Dual d (Matrix r)
@@ -265,6 +265,8 @@ class HasRanks (d :: ADMode) r where
   dFliprl2 :: Dual d (Matrix r) -> Dual d (Matrix r)
   dReshape2 :: Int -> Dual d (Vector r) -> Dual d (Matrix r)
   dConv2 :: Matrix r -> Dual d (Matrix r) -> Dual d (Matrix r)
+  dBuild2 :: RealFrac r
+          => (Int, Int) -> ((Int, Int) -> Dual d r) -> Dual d (Matrix r)
 
   dKonstX :: Dual d r -> OT.ShapeL -> Dual d (OT.Array r)
   dAppendX :: Dual d (OT.Array r) -> Int -> Dual d (OT.Array r)
@@ -279,6 +281,8 @@ class HasRanks (d :: ADMode) r where
   dFrom2X :: Dual d (Matrix r) -> Int -> Dual d (OT.Array r)
   dFromSX :: OS.Shape sh
           => Dual d (OS.Array sh r) -> Dual d (OT.Array r)
+
+  dBuildX :: OT.ShapeL -> ([Int] -> Dual d r) -> Dual d (OT.Array r)
 
   dKonstS :: OS.Shape sh
           => Dual d r -> Dual d (OS.Array sh r)
@@ -303,6 +307,7 @@ class HasRanks (d :: ADMode) r where
           -> Dual d (Matrix r) -> Dual d (OS.Array '[rows, cols] r)
   dFromXS :: OS.Shape sh => Dual d (OT.Array r) -> Dual d (OS.Array sh r)
 
+  dBuildS :: OS.Shape sh => ([Int] -> Dual d r) -> Dual d (OS.Array sh r)
 
 -- * Backprop gradient method instances
 
@@ -469,6 +474,7 @@ instance Dual 'ADModeGradient r ~ Delta0 r
   dFliprl2 = Fliprl2
   dReshape2 = Reshape2
   dConv2 = Conv2
+  dBuild2 = Build2
   dKonstX = KonstX
   dAppendX = AppendX
   dSliceX = SliceX
@@ -479,6 +485,7 @@ instance Dual 'ADModeGradient r ~ Delta0 r
   dFrom1X = From1X
   dFrom2X = From2X
   dFromSX = FromSX
+  dBuildX = BuildX
   dKonstS = KonstS
   dAppendS = AppendS
   dSliceS = SliceS
@@ -489,6 +496,7 @@ instance Dual 'ADModeGradient r ~ Delta0 r
   dFrom1S = From1S
   dFrom2S = From2S
   dFromXS = FromXS
+  dBuildS = BuildS
 
 
 -- * Alternative instance: forward derivatives computed on the spot
@@ -556,7 +564,7 @@ instance ( Numeric r, Num (Vector r)
   dFlatten1 _rows _cols = LA.flatten
   dFlattenX1 _sh = OT.toVector
   dFlattenS1 = OS.toVector
-  dBuild1 n f = V.fromList $ map f [0 .. n - 1]
+  dBuild1 n f = LA.build n (f . floor)
   dFromRows2 = LA.fromRows . V.toList
   dFromColumns2 = LA.fromColumns . V.toList
   dKonst2 = LA.konst
@@ -579,6 +587,7 @@ instance ( Numeric r, Num (Vector r)
   dFliprl2 = LA.fliprl
   dReshape2 = LA.reshape
   dConv2 = LA.conv2
+  dBuild2 n f = LA.build n (\i j -> f (floor i, floor j))
   dKonstX d sz = OT.constant sz d
   dAppendX d _k e = d `OT.append` e
   dSliceX i n d _len = OT.slice [(i, n)] d
@@ -593,6 +602,7 @@ instance ( Numeric r, Num (Vector r)
   dFrom1X d = OT.fromVector [V.length d] d
   dFrom2X d cols = OT.fromVector [LA.rows d, cols] $ LA.flatten d
   dFromSX = Data.Array.Convert.convert
+  dBuildX = OT.generate
 #if defined(VERSION_ghc_typelits_natnormalise)
   dKonstS = OS.constant
   dAppendS = OS.append
@@ -604,6 +614,7 @@ instance ( Numeric r, Num (Vector r)
   dFrom1S = OS.fromVector
   dFrom2S _ = OS.fromVector . LA.flatten
   dFromXS = Data.Array.Convert.convert
+  dBuildS = OS.generate
 #endif
 
 
@@ -684,6 +695,7 @@ instance HasRanks 'ADModeValue r where
   dFliprl2 _ = DummyDual ()
   dReshape2 _ _ = DummyDual ()
   dConv2 _ _ = DummyDual ()
+  dBuild2 _ _ = DummyDual ()
   dKonstX _ _ = DummyDual ()
   dAppendX _ _ _ = DummyDual ()
   dSliceX _ _ _ _ = DummyDual ()
@@ -694,6 +706,7 @@ instance HasRanks 'ADModeValue r where
   dFrom1X _ = DummyDual ()
   dFrom2X _ _ = DummyDual ()
   dFromSX _ = DummyDual ()
+  dBuildX _ _ = DummyDual ()
 #if defined(VERSION_ghc_typelits_natnormalise)
   dKonstS _ = DummyDual ()
   dAppendS _ _ = DummyDual ()
@@ -705,6 +718,7 @@ instance HasRanks 'ADModeValue r where
   dFrom1S _ = DummyDual ()
   dFrom2S _ _ = DummyDual ()
   dFromXS _ = DummyDual ()
+  dBuildS _ = DummyDual ()
 #endif
 
 
