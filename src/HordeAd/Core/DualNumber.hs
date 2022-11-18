@@ -707,18 +707,18 @@ unravelToListX (D v v') = case OT.shapeL v of
            in imap g $ OTB.toList $ OT.unravel v
   [] -> error "unravelToListX: wrong tensor dimensions"  -- catch early
 
-mapX :: ADModeAndNum d r
+mapOuterX :: ADModeAndNum d r
      => (ADVal d (OT.Array r) -> ADVal d (OT.Array r))
      -> ADVal d (OT.Array r)
      -> ADVal d (OT.Array r)
-mapX f = ravelFromListX . map f . unravelToListX
+mapOuterX f = ravelFromListX . map f . unravelToListX
 
-zipWithX :: ADModeAndNum d r
+zipWithOuterX :: ADModeAndNum d r
          => (ADVal d (OT.Array r) -> ADVal d (OT.Array r)
              -> ADVal d (OT.Array r))
          -> ADVal d (OT.Array r) -> ADVal d (OT.Array r)
          -> ADVal d (OT.Array r)
-zipWithX f d e =
+zipWithOuterX f d e =
   ravelFromListX $ zipWith f (unravelToListX d) (unravelToListX e)
 
 reshapeX :: ADModeAndNum d r
@@ -800,14 +800,14 @@ unravelToListS (D v v') =
   let g ix p = dD p (dFromXS $ dIndexX (dFromSX v') ix (valueOf @k))
   in imap g $ OSB.toList $ OS.unravel v
 
-mapS :: forall k sh1 sh d r.
+mapOuterS :: forall k sh1 sh d r.
         (KnownNat k, ADModeAndNum d r, OS.Shape sh, OS.Shape sh1)
      => (ADVal d (OS.Array sh1 r) -> ADVal d (OS.Array sh r))
      -> ADVal d (OS.Array (k : sh1) r)
      -> ADVal d (OS.Array (k : sh) r)
-mapS f = ravelFromListS . map f . unravelToListS
+mapOuterS f = ravelFromListS . map f . unravelToListS
 
-zipWithS :: forall k sh1 sh2 sh d r.
+zipWithOuterS :: forall k sh1 sh2 sh d r.
             ( ADModeAndNum d r
             , KnownNat k, OS.Shape sh, OS.Shape sh1, OS.Shape sh2 )
          => (ADVal d (OS.Array sh1 r) -> ADVal d (OS.Array sh2 r)
@@ -815,7 +815,7 @@ zipWithS :: forall k sh1 sh2 sh d r.
          -> ADVal d (OS.Array (k : sh1) r)
          -> ADVal d (OS.Array (k : sh2) r)
          -> ADVal d (OS.Array (k : sh) r)
-zipWithS f d e =
+zipWithOuterS f d e =
   ravelFromListS $ zipWith f (unravelToListS d) (unravelToListS e)
 
 reshapeS :: forall sh sh' d r.
@@ -893,19 +893,19 @@ conv24 :: forall kheight_minus_1 kwidth_minus_1
        -> ADVal d (OS.Array '[ batch_size, out_channels
                              , in_height + kheight_minus_1
                              , in_width + kwidth_minus_1 ] r)
-conv24 ker = mapS conv23 where
+conv24 ker = mapOuterS conv23 where
   conv23 :: ADVal d (OS.Array '[in_channels, in_height, in_width] r)
          -> ADVal d (OS.Array '[ out_channels
                                , in_height + kheight_minus_1
                                , in_width + kwidth_minus_1 ] r)
-  conv23 x = mapS (convFilters x) ker
+  conv23 x = mapOuterS (convFilters x) ker
   convFilters
     :: ADVal d (OS.Array '[in_channels, in_height, in_width] r)
     -> ADVal d (OS.Array '[ in_channels
                           , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
     -> ADVal d (OS.Array '[ in_height + kheight_minus_1
                           , in_width + kwidth_minus_1 ] r)
-  convFilters x ker1 = sumOutermost $ zipWithS conv2S ker1 x
+  convFilters x ker1 = sumOutermost $ zipWithOuterS conv2S ker1 x
   sumOutermost :: ADVal d (OS.Array '[ in_channels
                                      , in_height + kheight_minus_1
                                      , in_width + kwidth_minus_1 ] r)
@@ -934,7 +934,7 @@ maxPool24
                      , (in_height - ksize_minus_1) `DivRoundUp` stride
                      , (in_width - ksize_minus_1) `DivRoundUp` stride ] r)
 maxPool24 d =
-  let res = mapS (mapS (from2S
+  let res = mapOuterS (mapOuterS (from2S
                         . maxPool2 (valueOf @ksize_minus_1 + 1)
                                    (valueOf @stride)
                         . fromS2)) d

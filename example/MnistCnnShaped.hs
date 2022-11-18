@@ -49,7 +49,7 @@ convMnistLayerS MkSN MkSN MkSN MkSN MkSN MkSN
       replicateBias = konstS . fromS0
       biasStretched = ravelFromListS
                       $ replicate (staticNatValue batch_size)
-                      $ mapS replicateBias bias
+                      $ mapOuterS replicateBias bias
         -- TODO: this is weakly typed; add and use replicateS instead
         -- or broadcastS or stretchS, possibly with transposeS?
       yRelu = relu $ yConv + biasStretched
@@ -107,7 +107,7 @@ convMnistTwoS kheight_minus_1@MkSN kwidth_minus_1@MkSN
                            (MkSN @((in_width + kwidth_minus_1) `Div` 2))
                            out_channels batch_size
                            ker2 t1 bias2
-      m1 = mapS reshapeS t2
+      m1 = mapOuterS reshapeS t2
       m2 = transpose2S m1
       denseLayer = weigthsDense <>$ m2 + asColumnS biasesDense
       denseRelu = relu denseLayer
