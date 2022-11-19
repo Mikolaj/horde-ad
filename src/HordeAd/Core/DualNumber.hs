@@ -673,6 +673,31 @@ maxPool2 ksize stride m@(D u _) =
       mins = map (maximum0 . getArea) resultCoords
   in reshape2 colsOut $ fromList1 mins
 
+build2Seq :: ADModeAndNum d r
+          => (Int, Int) -> ((Int, Int) -> ADVal d r) -> ADVal d (Matrix r)
+build2Seq (i, j) f =
+  let ijs = [(i1, j1) | i1 <- [0 .. i - 1], j1 <- [0 .. j - 1]]
+  in fromList2 (i, j) $ map f ijs
+
+build2 :: ADModeAndNum d r
+       => (Int, Int) -> ((Int, Int) -> ADVal d r) -> ADVal d (Matrix r)
+build2 (i, j) f =
+  let g ij = let D u _ = f ij in u
+      h ij = let D _ u' = f ij in u'
+      ijs = [(i1, j1) | i1 <- [0 .. i - 1], j1 <- [0 .. j - 1]]
+        -- TODO: tests needed to determine if the order of pairs is right
+  in dD ((j LA.>< i) $ map g ijs) (dBuild2 (i, j) h)
+
+map2Seq :: ADModeAndNum d r
+        => (ADVal d r -> ADVal d r) -> ADVal d (Matrix r)
+        -> ADVal d (Matrix r)
+map2Seq f d@(D v _) = build2Seq (LA.size v) $ \i -> f (index20 d i)
+
+map2Build :: ADModeAndNum d r
+          => (ADVal d r -> ADVal d r) -> ADVal d (Matrix r)
+          -> ADVal d (Matrix r)
+map2Build f d@(D v _) = build2 (LA.size v) $ \i -> f (index20 d i)
+
 
 -- * Operations resulting in an arbitrary untyped tensor
 
@@ -754,6 +779,46 @@ from2X (D u u') = dD (OT.fromVector [LA.rows u, LA.cols u] $ LA.flatten u)
 fromSX :: forall sh d r. (ADModeAndNum d r, OS.Shape sh)
        => ADVal d (OS.Array sh r) -> ADVal d (OT.Array r)
 fromSX (D u u') = dD (Data.Array.Convert.convert u) (dFromSX u')
+
+buildXSeq :: ADModeAndNum d r
+          => OT.ShapeL -> ([Int] -> ADVal d r) -> ADVal d (OT.Array r)
+buildXSeq sh f =
+  -- Copied from Data.Array.Internal.
+  let getStridesT :: OT.ShapeL -> [Int]
+      getStridesT = scanr (*) 1
+      (s, ss) = case getStridesT sh of
+        s2 : ss2 -> (s2, ss2)
+        [] -> error "scanr in buildDerivative"
+      toIx [] _ = []
+      toIx (n:ns) i = q : toIx ns r where (q, r) = quotRem i n
+      ixs = [toIx ss i | i <- [0 .. s - 1]]
+  in fromListX sh $ map f ixs
+
+buildX :: ADModeAndNum d r
+       => OT.ShapeL -> ([Int] -> ADVal d r) -> ADVal d (OT.Array r)
+buildX sh f =
+  let g i = let D u _ = f i in u
+      h i = let D _ u' = f i in u'
+      -- Copied from Data.Array.Internal.
+      getStridesT :: OT.ShapeL -> [Int]
+      getStridesT = scanr (*) 1
+      (s, ss) = case getStridesT sh of
+        s2 : ss2 -> (s2, ss2)
+        [] -> error "scanr in buildDerivative"
+      toIx [] _ = []
+      toIx (n:ns) i = q : toIx ns r where (q, r) = quotRem i n
+      ixs = [toIx ss i | i <- [0 .. s - 1]]
+  in dD (OT.fromList sh $ map g ixs) (dBuildX sh h)
+
+mapXSeq :: ADModeAndNum d r
+        => (ADVal d r -> ADVal d r) -> ADVal d (OT.Array r)
+        -> ADVal d (OT.Array r)
+mapXSeq f d@(D v _) = buildXSeq (OT.shapeL v) $ \i -> f (indexX0 d i)
+
+mapXBuild :: ADModeAndNum d r
+          => (ADVal d r -> ADVal d r) -> ADVal d (OT.Array r)
+          -> ADVal d (OT.Array r)
+mapXBuild f d@(D v _) = buildX (OT.shapeL v) $ \i -> f (indexX0 d i)
 
 
 #if defined(VERSION_ghc_typelits_natnormalise)
@@ -955,4 +1020,46 @@ maxPool24 d =
                                    (valueOf @stride)
                         . fromS2)) d
   in res
+
+buildSSeq :: forall sh d r. (ADModeAndNum d r, OS.Shape sh)
+          => ([Int] -> ADVal d r) -> ADVal d (OS.Array sh r)
+buildSSeq f =
+  -- Copied from Data.Array.Internal.
+  let getStridesT :: OS.ShapeL -> [Int]
+      getStridesT = scanr (*) 1
+      (s, ss) = case getStridesT sh of
+        s2 : ss2 -> (s2, ss2)
+        [] -> error "scanr in buildDerivative"
+      toIx [] _ = []
+      toIx (n:ns) i = q : toIx ns r where (q, r) = quotRem i n
+      sh = OS.shapeP (Proxy :: Proxy sh)
+      ixs = [toIx ss i | i <- [0 .. s - 1]]
+  in fromListS $ map f ixs
+
+buildS :: forall sh d r. (ADModeAndNum d r, OS.Shape sh)
+       => ([Int] -> ADVal d r) -> ADVal d (OS.Array sh r)
+buildS f =
+  let g i = let D u _ = f i in u
+      h i = let D _ u' = f i in u'
+      -- Copied from Data.Array.Internal.
+      getStridesT :: OS.ShapeL -> [Int]
+      getStridesT = scanr (*) 1
+      (s, ss) = case getStridesT sh of
+        s2 : ss2 -> (s2, ss2)
+        [] -> error "scanr in buildDerivative"
+      toIx [] _ = []
+      toIx (n:ns) i = q : toIx ns r where (q, r) = quotRem i n
+      sh = OS.shapeP (Proxy :: Proxy sh)
+      ixs = [toIx ss i | i <- [0 .. s - 1]]
+  in dD (OS.fromList $ map g ixs) (dBuildS h)
+
+mapSSeq :: (ADModeAndNum d r, OS.Shape sh)
+        => (ADVal d r -> ADVal d r) -> ADVal d (OS.Array sh r)
+        -> ADVal d (OS.Array sh r)
+mapSSeq f d = buildSSeq $ \i -> f (indexS0 d i)
+
+mapSBuild :: (ADModeAndNum d r, OS.Shape sh)
+          => (ADVal d r -> ADVal d r) -> ADVal d (OS.Array sh r)
+          -> ADVal d (OS.Array sh r)
+mapSBuild f d = buildS $ \i -> f (indexS0 d i)
 #endif
