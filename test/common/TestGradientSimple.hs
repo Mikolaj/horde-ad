@@ -346,7 +346,7 @@ vatanOldReadme
   => ADInputs d r -> ADVal d r
 vatanOldReadme inputs =
   let xyzVector = at1 inputs 0
-      f = index0 xyzVector
+      f = index10 xyzVector
       (x, y, z) = (f 0, f 1, f 2)
       v = fromVector1 $ atanOldReadmeOriginal x y z
   in sumElements0 v

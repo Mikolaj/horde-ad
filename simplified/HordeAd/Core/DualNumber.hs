@@ -182,16 +182,16 @@ reluLeaky v@(D u _) =
 sumElements0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
 sumElements0 (D u u') = dD (LA.sumElements u) (dSumElements0 u' (V.length u))
 
-index0 :: ADModeAndNum d r => ADVal d (Vector r) -> Int -> ADVal d r
-index0 (D u u') ix = dD (u V.! ix) (dIndex0 u' ix (V.length u))
+index10 :: ADModeAndNum d r => ADVal d (Vector r) -> Int -> ADVal d r
+index10 (D u u') ix = dD (u V.! ix) (dIndex10 u' ix (V.length u))
 
 minimum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
 minimum0 (D u u') =
-  dD (LA.minElement u) (dIndex0 u' (LA.minIndex u) (V.length u))
+  dD (LA.minElement u) (dIndex10 u' (LA.minIndex u) (V.length u))
 
 maximum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
 maximum0 (D u u') =
-  dD (LA.maxElement u) (dIndex0 u' (LA.maxIndex u) (V.length u))
+  dD (LA.maxElement u) (dIndex10 u' (LA.maxIndex u) (V.length u))
 
 foldl'0 :: ADModeAndNum d r
         => (ADVal d r -> ADVal d r -> ADVal d r)
@@ -199,7 +199,7 @@ foldl'0 :: ADModeAndNum d r
         -> ADVal d r
 foldl'0 f uu' (D v v') =
   let k = V.length v
-      g !acc ix p = f (dD p (dIndex0 v' ix k)) acc
+      g !acc ix p = f (dD p (dIndex10 v' ix k)) acc
   in V.ifoldl' g uu' v
 
 altSumElements0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
@@ -306,20 +306,20 @@ build1 n f =
   in dD (V.fromList $ map g [0 .. n - 1]) (dBuild1 n h)
 
 -- The list probably fuses away. This may be a bit faster than
--- @build1Seq (V.length v) $ \i -> f (index0 d i)@.
+-- @build1Seq (V.length v) $ \i -> f (index10 d i)@.
 map1Seq :: ADModeAndNum d r
         => (ADVal d r -> ADVal d r) -> ADVal d (Vector r)
         -> ADVal d (Vector r)
 map1Seq f (D v v') =
   let k = V.length v
-      g ix p = f $ dD p (dIndex0 v' ix k)
+      g ix p = f $ dD p (dIndex10 v' ix k)
       ds = imap g $ V.toList v
   in fromList1 ds
 
 map1Build :: ADModeAndNum d r
           => (ADVal d r -> ADVal d r) -> ADVal d (Vector r)
           -> ADVal d (Vector r)
-map1Build f d@(D v _) = build1 (V.length v) $ \i -> f (index0 d i)
+map1Build f d@(D v _) = build1 (V.length v) $ \i -> f (index10 d i)
 
 -- No padding; remaining areas ignored.
 maxPool1 :: ADModeAndNum d r

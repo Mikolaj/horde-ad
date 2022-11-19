@@ -211,7 +211,7 @@ ar2Sin yLast s inputs =
   let c = at0 inputs 0
       phi1 = at0 inputs 1
       phi2 = at0 inputs 2
-      yLastLast = index0 s 0  -- dummy vector for compatibility
+      yLastLast = index10 s 0  -- dummy vector for compatibility
       y = c + scale yLast phi1 + phi2 * yLastLast
   in (y, constant $ V.singleton yLast)
 

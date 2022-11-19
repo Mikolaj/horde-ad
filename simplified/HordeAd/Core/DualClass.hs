@@ -174,7 +174,7 @@ class HasInputs a where
 -- of various ranks wrt the differentation mode given in the first parameter.
 class HasRanks (d :: ADMode) r where
   dSumElements0 :: Dual d (Vector r) -> Int -> Dual d r
-  dIndex0 :: Dual d (Vector r) -> Int -> Int -> Dual d r
+  dIndex10 :: Dual d (Vector r) -> Int -> Int -> Dual d r
   dDot0 :: Vector r -> Dual d (Vector r) -> Dual d r
 
   dFromList1 :: [Dual d r] -> Dual d (Vector r)
@@ -269,7 +269,7 @@ instance HasInputs (Vector r) where
 instance Dual 'ADModeGradient r ~ Delta0 r
          => HasRanks 'ADModeGradient r where
   dSumElements0 = SumElements0
-  dIndex0 = Index0
+  dIndex10 = Index10
   dDot0 = Dot0
   dFromList1 = FromList1
   dFromVector1 = FromVector1
@@ -305,7 +305,7 @@ instance ( Numeric r
          , Dual 'ADModeDerivative r ~ r )
          => HasRanks 'ADModeDerivative r where
   dSumElements0 vd _ = LA.sumElements vd
-  dIndex0 d ix _ = d V.! ix
+  dIndex10 d ix _ = d V.! ix
   dDot0 = (LA.<.>)
   dFromList1 = V.fromList
   dFromVector1 = V.convert
@@ -338,7 +338,7 @@ instance IsPrimal 'ADModeValue (Vector r) where
 
 instance HasRanks 'ADModeValue r where
   dSumElements0 _ _ = DummyDual ()
-  dIndex0 _ _ _ = DummyDual ()
+  dIndex10 _ _ _ = DummyDual ()
   dDot0 _ _ = DummyDual ()
   dFromList1 _ = DummyDual ()
   dFromVector1 _ = DummyDual ()

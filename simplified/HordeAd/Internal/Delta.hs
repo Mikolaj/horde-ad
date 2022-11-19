@@ -112,7 +112,7 @@ data Delta0 r =
   | Let0 NodeId (Delta0 r)
 
   | SumElements0 (Delta1 r) Int  -- ^ see Note [SumElements0]
-  | Index0 (Delta1 r) Int Int  -- ^ second integer is the length of the vector
+  | Index10 (Delta1 r) Int Int  -- ^ second integer is the length of the vector
 
   | Dot0 (Vector r) (Delta1 r)  -- ^ Dot0 v vd == SumElements0 (Scale1 v vd) n
 
@@ -349,13 +349,13 @@ buildFinMaps s0 deltaDt =
         -- but for a few constructors it's faster to inline @eval1@ instead.
         -- BTW, such an optimization doesn't really belong in the simplified
         -- horde-ad and no consistent benefit should be expected here.
-        Index0 Zero1 _ _ -> s  -- shortcut
-        Index0 (Input1 i) ix k ->
+        Index10 Zero1 _ _ -> s  -- shortcut
+        Index10 (Input1 i) ix k ->
           let f v = if V.null v
                     then LA.konst 0 k V.// [(ix, r)]
                     else v V.// [(ix, v V.! ix + r)]
           in s {iMap1 = EM.adjust f i $ iMap1 s}
-        Index0 (Let1 n d) ix k ->
+        Index10 (Let1 n d) ix k ->
           case EM.lookup n $ nMap s of
             Just (DeltaBinding1 _) ->
               let f v = v V.// [(ix, v V.! ix + r)]
@@ -370,7 +370,7 @@ buildFinMaps s0 deltaDt =
               in s { nMap = EM.insert n (DeltaBinding1 d) $ nMap s
                    , dMap1 = EM.insert n v $ dMap1 s}
             _ -> error "buildFinMaps: corrupted nMap"
-        Index0 d ix k -> eval1 s (LA.konst 0 k V.// [(ix, r)]) d
+        Index10 d ix k -> eval1 s (LA.konst 0 k V.// [(ix, r)]) d
 
         Dot0 v vd -> eval1 s (LA.scale r v) vd
 
@@ -488,7 +488,7 @@ buildDerivative dim0 dim1 deltaTopLevel
             _ -> error "buildDerivative: corrupted nMap"
 
         SumElements0 vd _n -> LA.sumElements <$> eval1 vd
-        Index0 d ix _k -> flip (V.!) ix <$> eval1 d
+        Index10 d ix _k -> flip (V.!) ix <$> eval1 d
 
         Dot0 vr vd -> (<.>) vr <$> eval1 vd
 
@@ -546,7 +546,7 @@ would not be needed.
 
 Sum of vector elements can be implemented using a delta-expression
 primitive SumElements0 as well as without this primitive, referring
-only to the primitive Index0:
+only to the primitive Index10:
 
 https://github.com/Mikolaj/horde-ad/blob/d069a45773ed849913b5ebd0345153072f304fd9/src/HordeAd.Core.DualNumber.hs#L125-L143
 
@@ -557,7 +557,7 @@ https://github.com/Mikolaj/horde-ad/blob/d069a45773ed849913b5ebd0345153072f304fd
 
 and proved to be prohibitively slow in the two implementations
 that don't use the SumElements0 primitive in benchmarks (despite
-an ingenious optimization of the common case of Index0 applied to a input):
+an ingenious optimization of the common case of Index10 applied to a input):
 
 https://github.com/Mikolaj/horde-ad/blob/d069a45773ed849913b5ebd0345153072f304fd9/bench/BenchProdTools.hs#L178-L193
 -}

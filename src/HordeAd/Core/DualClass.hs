@@ -220,7 +220,7 @@ class HasInputs a where
 -- of various ranks wrt the differentation mode given in the first parameter.
 class HasRanks (d :: ADMode) r where
   dSumElements0 :: Dual d (Vector r) -> Int -> Dual d r
-  dIndex0 :: Dual d (Vector r) -> Int -> Int -> Dual d r
+  dIndex10 :: Dual d (Vector r) -> Int -> Int -> Dual d r
   dDot0 :: Vector r -> Dual d (Vector r) -> Dual d r
   dFromX0 :: Dual d (OT.Array r) -> Dual d r
   dFromS0 :: Dual d (OS.Array '[] r) -> Dual d r
@@ -449,7 +449,7 @@ instance OS.Shape sh => HasInputs (OS.Array sh r) where
 instance Dual 'ADModeGradient r ~ Delta0 r
          => HasRanks 'ADModeGradient r where
   dSumElements0 = SumElements0
-  dIndex0 = Index0
+  dIndex10 = Index10
   dDot0 = Dot0
   dFromX0 = FromX0
   dFromS0 = FromS0
@@ -565,7 +565,7 @@ instance ( Numeric r, Num (Vector r)
          , Dual 'ADModeDerivative r ~ r )
          => HasRanks 'ADModeDerivative r where
   dSumElements0 vd _ = LA.sumElements vd
-  dIndex0 d ix _ = d V.! ix
+  dIndex10 d ix _ = d V.! ix
   dDot0 = (LA.<.>)
   dFromX0 = OT.unScalar
   dFromS0 = OS.unScalar
@@ -684,7 +684,7 @@ instance IsPrimalS 'ADModeValue r where
 
 instance HasRanks 'ADModeValue r where
   dSumElements0 _ _ = DummyDual ()
-  dIndex0 _ _ _ = DummyDual ()
+  dIndex10 _ _ _ = DummyDual ()
   dDot0 _ _ = DummyDual ()
   dFromX0 _ = DummyDual ()
   dFromS0 _ = DummyDual ()
