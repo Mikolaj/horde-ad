@@ -305,8 +305,8 @@ build1 n f =
       h i = let D _ u' = f i in u'
   in dD (V.fromList $ map g [0 .. n - 1]) (dBuild1 n h)
 
--- The detour through a boxed vector (list probably fuses away)
--- is costly, but only matters if @f@ is cheap.
+-- The list probably fuses away. This may be a bit faster than
+-- @build1Seq (V.length v) $ \i -> f (index0 d i)@.
 map1Seq :: ADModeAndNum d r
         => (ADVal d r -> ADVal d r) -> ADVal d (Vector r)
         -> ADVal d (Vector r)
