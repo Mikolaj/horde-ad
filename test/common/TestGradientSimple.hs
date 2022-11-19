@@ -221,7 +221,7 @@ testPrintDf = testGroup "Pretty printing test" $
     [ ( "sumElementsV", sumElementsV, [[1 :: Float, 1, 3]]
       , 52 )
     , ( "altSumElementsV", altSumElementsV, [[1, 1, 3]]
-      , 308 )
+      , 328 )
     , ( "sinKonst", sinKonst, [[1, 3]]
       , 229 )
     , ( "powKonst", powKonst, [[1, 3]]
