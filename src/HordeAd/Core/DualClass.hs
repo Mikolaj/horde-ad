@@ -221,6 +221,8 @@ class HasInputs a where
 class HasRanks (d :: ADMode) r where
   dSumElements0 :: Dual d (Vector r) -> Int -> Dual d r
   dIndex10 :: Dual d (Vector r) -> Int -> Int -> Dual d r
+  dIndex20 :: Dual d (Matrix r) -> (Int, Int) -> (Int, Int) -> Dual d r
+  dIndexX0 :: Dual d (OT.Array r) -> [Int] -> [Int] -> Dual d r
   dDot0 :: Vector r -> Dual d (Vector r) -> Dual d r
   dFromX0 :: Dual d (OT.Array r) -> Dual d r
   dFromS0 :: Dual d (OS.Array '[] r) -> Dual d r
@@ -450,6 +452,8 @@ instance Dual 'ADModeGradient r ~ Delta0 r
          => HasRanks 'ADModeGradient r where
   dSumElements0 = SumElements0
   dIndex10 = Index10
+  dIndex20 = Index20
+  dIndexX0 = IndexX0
   dDot0 = Dot0
   dFromX0 = FromX0
   dFromS0 = FromS0
@@ -566,6 +570,8 @@ instance ( Numeric r, Num (Vector r)
          => HasRanks 'ADModeDerivative r where
   dSumElements0 vd _ = LA.sumElements vd
   dIndex10 d ix _ = d V.! ix
+  dIndex20 d ix _ = d `LA.atIndex` ix
+  dIndexX0 d ix _ = d `atIndexInTensor` ix
   dDot0 = (LA.<.>)
   dFromX0 = OT.unScalar
   dFromS0 = OS.unScalar
@@ -612,7 +618,7 @@ instance ( Numeric r, Num (Vector r)
   dBuild2 n f = LA.build n (\i j -> f (floor i, floor j))
   dFromListX sh = OT.fromList sh
   dFromVectorX sh = OT.fromVector sh . V.convert
-  dKonstX d sz = OT.constant sz d
+  dKonstX d sh = OT.constant sh d
   dAppendX d _k e = d `OT.append` e
   dSliceX i n d _len = OT.slice [(i, n)] d
   dIndexX d ix _len = OT.index d ix
@@ -685,6 +691,8 @@ instance IsPrimalS 'ADModeValue r where
 instance HasRanks 'ADModeValue r where
   dSumElements0 _ _ = DummyDual ()
   dIndex10 _ _ _ = DummyDual ()
+  dIndex20 _ _ _ = DummyDual ()
+  dIndexX0 _ _ _ = DummyDual ()
   dDot0 _ _ = DummyDual ()
   dFromX0 _ = DummyDual ()
   dFromS0 _ = DummyDual ()

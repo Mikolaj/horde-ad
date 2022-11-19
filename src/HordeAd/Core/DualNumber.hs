@@ -41,7 +41,7 @@ import qualified Numeric.LinearAlgebra as LA
 
 import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta
-  (Domain0, Domain1, Domain2, DomainX, Domains, isTensorDummy)
+  (Domain0, Domain1, Domain2, DomainX, Domains, atIndexInTensor, isTensorDummy)
 
 -- * Auxiliary definitions
 
@@ -202,6 +202,22 @@ sumElements0 (D u u') = dD (LA.sumElements u) (dSumElements0 u' (V.length u))
 
 index10 :: ADModeAndNum d r => ADVal d (Vector r) -> Int -> ADVal d r
 index10 (D u u') ix = dD (u V.! ix) (dIndex10 u' ix (V.length u))
+
+-- index10(flatten) is not a solution, because it's O(n).
+index20 :: ADModeAndNum d r => ADVal d (Matrix r) -> (Int, Int) -> ADVal d r
+index20 (D u u') ix = dD (u `LA.atIndex` ix) (dIndex20 u' ix (LA.size u))
+
+indexX0 :: ADModeAndNum d r => ADVal d (OT.Array r) -> [Int] -> ADVal d r
+indexX0 (D u u') ix = dD (u `atIndexInTensor` ix) (dIndexX0 u' ix (OT.shapeL u))
+
+-- Passing the index via type application, as in @indexS@,
+-- would guarantee it's in bounds, but would require it to be statically
+-- known (unless we deploy some machinery that postpones to runtime
+-- the type checks that are determined impossible at compile-time).
+-- Conversion in @fromSX@ is O(1).
+indexS0 :: (ADModeAndNum d r, OS.Shape sh)
+        => ADVal d (OS.Array sh r) -> [Int] -> ADVal d r
+indexS0 d ix = indexX0 (fromSX d) ix
 
 minimum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
 minimum0 (D u u') =

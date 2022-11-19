@@ -44,7 +44,7 @@ module HordeAd.Internal.Delta
   , -- * Evaluation of the delta expressions
     DeltaDt (..), Domain0, Domain1, Domain2, DomainX, Domains
   , gradientFromDelta, derivativeFromDelta
-  , isTensorDummy, toShapedOrDummy, toDynamicOrDummy
+  , isTensorDummy, toShapedOrDummy, toDynamicOrDummy, atIndexInTensor
   ) where
 
 import Prelude
@@ -139,6 +139,8 @@ data Delta0 r =
 
   | SumElements0 (Delta1 r) Int  -- ^ see Note [SumElements0]
   | Index10 (Delta1 r) Int Int  -- ^ second integer is the length of the vector
+  | Index20 (Delta2 r) (Int, Int) (Int, Int)
+  | IndexX0 (DeltaX r) [Int] [Int]
 
   | Dot0 (Vector r) (Delta1 r)  -- ^ Dot0 v vd == SumElements0 (Scale1 v vd) n
 
@@ -644,6 +646,13 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                 VM.write dm i v
             _ -> error "buildFinMaps: corrupted nMap"
         Index10 d ix k -> eval1 (LA.konst 0 k V.// [(ix, r)]) d
+        Index20 d ix ij -> do
+          let mInit = LA.konst 0 ij  -- TODO: or should ij be reversed? test!
+              m = LA.accum mInit const [(ix, r)]  -- TODO: or flip const?
+              mo = MO.MatrixOuter (Just m) Nothing Nothing
+          eval2 mo d
+        IndexX0 d ix sh -> evalX (OT.constant sh 0 `OT.update` [(ix, r)]) d
+          -- TODO: perhaps inline eval, just as for Index10
 
         Dot0 v vd -> eval1 (LA.scale r v) vd
 
@@ -840,7 +849,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         FromVectorX _sh lsd -> do
           let vr = OT.toVector r
           V.imapM_ (\i d -> eval0 (vr V.! i) d) lsd
-        KonstX d _sz -> mapM_ (`eval0` d) $ OT.toList r
+        KonstX d _sh -> mapM_ (`eval0` d) $ OT.toList r
         AppendX d k e -> case OT.shapeL r of
           n : _ -> evalX (OT.slice [(0, k)] r) d
                    >> evalX (OT.slice [(k, n - k)] r) e
@@ -1087,6 +1096,8 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
 
         SumElements0 vd _n -> LA.sumElements <$> eval1 vd
         Index10 d ix _k -> flip (V.!) ix <$> eval1 d
+        Index20 d ix _ij -> flip LA.atIndex ix <$> eval2 d
+        IndexX0 d ix _sh -> flip atIndexInTensor ix <$> evalX d
 
         Dot0 vr vd -> (<.>) vr <$> eval1 vd
 
@@ -1272,7 +1283,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         FromVectorX sh lsd -> do
           v <- V.mapM eval0 lsd
           return $! OT.fromVector sh $ V.convert v
-        KonstX d sz -> OT.constant sz <$> eval0 d
+        KonstX d sh -> OT.constant sh <$> eval0 d
         AppendX d _k e -> liftM2 OT.append (evalX d) (evalX e)
         SliceX i n d _len -> OT.slice [(i, n)] <$> evalX d
         IndexX d ix _len -> flip OT.index ix <$> evalX d
@@ -1431,3 +1442,10 @@ toDynamicOrDummy :: Numeric r
 toDynamicOrDummy sh x = if isTensorDummy x
                         then OT.constant sh 0
                         else x
+
+atIndexInTensor :: Numeric r => OT.Array r -> [Int] -> r
+atIndexInTensor (Data.Array.Internal.DynamicS.A
+                   (Data.Array.Internal.DynamicG.A _
+                      Data.Array.Internal.T{..})) is =
+  values V.! (offset + sum (zipWith (*) is strides))
+    -- TODO: tests are needed to verify if order of dimensions is right
