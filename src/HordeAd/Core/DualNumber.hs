@@ -1110,13 +1110,13 @@ slicezS d ixBase =
 
 -- | Retrieve the element at the given index,
 --   returning zero for out of range indices.
-indexzS0 :: forall sh r d. (ADModeAndNum d r, OS.Shape sh)
+indexzS0 :: forall sh d r. (ADModeAndNum d r, OS.Shape sh)
          => ADVal d (OS.Array sh r) -> [Int] -> ADVal d r
-indexzS0 d ix = if withinS @sh ix then indexS0 d ix else 0
+indexzS0 d ix = if withinOS @sh ix then indexS0 d ix else 0
 
 -- | Given an index and shape, check if the index is fully within the shape.
-withinS :: forall sh. OS.Shape sh => [Int] -> Bool
-withinS ix =
+withinOS :: forall sh. OS.Shape sh => [Int] -> Bool
+withinOS ix =
   let sh = OS.shapeP (Proxy :: Proxy sh)
       within i dim = i >= 0 && i < dim
   in and $ zipWith within ix sh

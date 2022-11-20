@@ -6,13 +6,17 @@ module TestGradient (testTrees) where
 
 import Prelude
 
+import qualified Data.Array.Convert
 import qualified Data.Array.ShapedS as OS
 import           GHC.TypeLits (KnownNat, type (+))
+import           Numeric.LinearAlgebra (Numeric)
+import qualified Numeric.LinearAlgebra as LA
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd hiding (sumElementsVectorOfDual)
 import HordeAd.Core.DualClass (Dual)
+import HordeAd.Internal.Delta (atIndexInTensor)
 
 import Tool.EqEpsilon
 import Tool.Shared
@@ -280,3 +284,58 @@ testBarR =
     , OS.constant 0
     , [ OS.constant 0
       , OS.constant 0 ] )
+
+-- The following are borrowed from https://github.com/benl23x5/adops.
+
+-- | Derivative of unpadded full convolution with respect to the input image.
+--
+conv2d_dInp
+  :: forall shK shA shB shK1 nImgs nCinpA nAh nAw nCoutK nCinpK nKh nKw r.
+     ( Numeric r
+     , KnownNat nImgs, KnownNat nCinpA, KnownNat nAh, KnownNat nAw
+     , KnownNat nCoutK, KnownNat nKh, KnownNat nKw
+     , nCinpA ~ nCinpK
+     , shK ~ '[nCoutK, nCinpK, nKh, nKw]
+     , shA ~ '[nImgs, nCinpA, nAh, nAw]
+     , shB ~ '[nImgs, nCoutK, nAh, nAw]
+     , shK1 ~ '[1, nCinpK, nKh, nKw] )
+  => OS.Array shK r
+  -> OS.Array shB r
+  -> OS.Array shA r
+conv2d_dInp arrK arrB =
+  OS.generate $ \l -> case l of
+    [iImg, iCinp, iAh, iAw] ->
+      let arrBt = slicezOS @shK1 arrB [iImg, 0, iAh, iAw]
+          arrKt = slicezOS @shK1 arrK [iCinp, 0, 0, 0]
+      in dotOS arrBt arrKt
+    _ -> error "wrong index length in conv2d"
+
+-- | Slice a section out of a tensor,
+--   given a base offset and shape of the section.
+--
+--   If the slice extends out side the source array then the corresponding
+--   elements are set to zero.
+slicezOS :: forall shOut sh r.
+            ( Numeric r, OS.Shape sh, OS.Shape shOut
+            , OS.Rank sh ~ OS.Rank shOut )
+         => OS.Array sh r -> [Int] -> OS.Array shOut r
+slicezOS arr ixBase =
+  OS.generate $ \ixResult -> indexzOS arr (zipWith (+) ixBase ixResult)
+    -- TODO: check at least at runtime that ixBase has the right length;
+    -- my version is less precisely typed than the adops original;
+    -- to improve, I'd need sized lists, but probably orthotope
+    -- doesn't use them (e.g., in @generate@) for a good reason
+
+-- | Retrieve the element at the given index,
+--   returning zero for out of range indices.
+indexzOS :: forall sh r. (Numeric r, OS.Shape sh)
+         => OS.Array sh r -> [Int] -> r
+indexzOS arr ix = if withinOS @sh ix
+                  then atIndexInTensor (Data.Array.Convert.convert arr) ix
+                  else 0
+
+-- | Compute the dot product of elements in two arrays.
+--   The arrays have the same shape.
+dotOS :: (Numeric r, OS.Shape sh)
+      => OS.Array sh r -> OS.Array sh r -> r
+dotOS arr1 arr2 = OS.toVector arr1 LA.<.> OS.toVector arr2
