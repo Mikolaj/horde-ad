@@ -800,6 +800,8 @@ buildX sh f =
   let g i = let D u _ = f i in u
       h i = let D _ u' = f i in u'
       -- Copied from Data.Array.Internal.
+      -- This could be replaced by Data.Array.DynamicS.generate,
+      -- but it would obfuscate the connection with other similar code.
       getStridesT :: OT.ShapeL -> [Int]
       getStridesT = scanr (*) 1
       (s, ss) = case getStridesT sh of
@@ -1042,6 +1044,8 @@ buildS f =
   let g i = let D u _ = f i in u
       h i = let D _ u' = f i in u'
       -- Copied from Data.Array.Internal.
+      -- This could be replaced by Data.Array.ShapedS.generate,
+      -- but it would obfuscate the connection with other similar code.
       getStridesT :: OS.ShapeL -> [Int]
       getStridesT = scanr (*) 1
       (s, ss) = case getStridesT sh of
