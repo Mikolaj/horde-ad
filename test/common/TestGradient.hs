@@ -25,6 +25,7 @@ testTrees :: [TestTree]
 testTrees = [ quickCheckForwardAndBackward
             , readmeTests0
             , readmeTestsS
+            , adoptTests
             ]
 
 -- hlint would complain about spurious @id@, so we need to define our own.
@@ -172,10 +173,10 @@ testFooS :: Assertion
 testFooS =
   assertEqualUpToEpsilon 1e-12
     (rev (fooS (MkSN @1) (MkSN @5) (MkSN @3) (MkSN @4))
-          ( OS.fromList [1.1 :: Double]
-          , OS.fromList [2.2, 2.3, 7.2, 7.3, 7.4]
-          , OS.fromList [3.3, 3.4, 3.5]
-          , OS.fromList [4.4, 4.5, 4.6, 4.7]) )
+         ( OS.fromList [1.1 :: Double]
+         , OS.fromList [2.2, 2.3, 7.2, 7.3, 7.4]
+         , OS.fromList [3.3, 3.4, 3.5]
+         , OS.fromList [4.4, 4.5, 4.6, 4.7]) )
     ( OS.fromList [37.834999999999994]
     , OS.fromList [0, 18.095000000000002, 0, 0, 0]
     , OS.fromList [0, 0, 11.891]
@@ -321,10 +322,6 @@ slicezOS :: forall shOut sh r.
          => OS.Array sh r -> [Int] -> OS.Array shOut r
 slicezOS arr ixBase =
   OS.generate $ \ixResult -> indexzOS arr (zipWith (+) ixBase ixResult)
-    -- TODO: check at least at runtime that ixBase has the right length;
-    -- my version is less precisely typed than the adops original;
-    -- to improve, I'd need sized lists, but probably orthotope
-    -- doesn't use them (e.g., in @generate@) for a good reason
 
 -- | Retrieve the element at the given index,
 --   returning zero for out of range indices.
@@ -339,3 +336,17 @@ indexzOS arr ix = if withinOS @sh ix
 dotOS :: (Numeric r, OS.Shape sh)
       => OS.Array sh r -> OS.Array sh r -> r
 dotOS arr1 arr2 = OS.toVector arr1 LA.<.> OS.toVector arr2
+
+adoptTests :: TestTree
+adoptTests = testGroup "Tests of the port of adopt code"
+  [ testCase "17.3" test_conv2d_dInp
+  ]
+
+test_conv2d_dInp :: Assertion
+test_conv2d_dInp =
+  let arrK = OS.constant 0 {-17.3-} :: OS.Array '[2, 2, 3, 4] Double
+      arrB = OS.constant 0 {-2.28-} :: OS.Array '[5, 2, 6, 7] Double
+  in assertEqualUpToEpsilon 1e-7
+       (rev (conv2d (constant arrK))  -- gradient wrt second argument
+            arrB )  -- input
+       (conv2d_dInp arrK arrB)  -- expected result
