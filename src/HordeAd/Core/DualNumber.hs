@@ -1062,4 +1062,64 @@ mapSBuild :: (ADModeAndNum d r, OS.Shape sh)
           => (ADVal d r -> ADVal d r) -> ADVal d (OS.Array sh r)
           -> ADVal d (OS.Array sh r)
 mapSBuild f d = buildS $ \i -> f (indexS0 d i)
+
+-- The following are borrowed from https://github.com/benl23x5/adops.
+
+-- | Unpadded full convolution,
+--   where the output size is the same as the input size.
+conv2d
+  :: forall shK shA shB shK1 nImgs nCinpA nAh nAw nCoutK nCinpK nKh nKw d r.
+     ( ADModeAndNum d r
+     , KnownNat nImgs, KnownNat nCinpA, KnownNat nAh, KnownNat nAw
+     , KnownNat nCoutK, KnownNat nKh, KnownNat nKw
+     , nCinpA ~ nCinpK
+     , shK ~ '[nCoutK, nCinpK, nKh, nKw]
+     , shA ~ '[nImgs, nCinpA, nAh, nAw]
+     , shB ~ '[nImgs, nCoutK, nAh, nAw]
+     , shK1 ~ '[1, nCinpK, nKh, nKw] )
+  => ADVal d (OS.Array shK r)
+  -> ADVal d (OS.Array shA r)
+  -> ADVal d (OS.Array shB r)
+conv2d arrK arrA =
+  buildS $ \l -> case l of
+    [iImg, iCout, iBh, iBw] ->
+      let arrAt = slicezS @shK1 arrA [iImg, 0, iBh, iBw]
+          arrKt = slicezS @shK1 arrK [iCout, 0, 0, 0]
+      in dotS0 arrAt arrKt
+    _ -> error "wrong index length in conv2d"
+
+-- | Slice a section out of a tensor,
+--   given a base offset and shape of the section.
+--
+--   If the slice extends out side the source array then the corresponding
+--   elements are set to zero.
+slicezS :: forall shOut sh d r.
+           ( ADModeAndNum d r, OS.Shape sh, OS.Shape shOut
+           , OS.Rank sh ~ OS.Rank shOut )
+        => ADVal d (OS.Array sh r) -> [Int] -> ADVal d (OS.Array shOut r)
+slicezS d ixBase =
+  buildS $ \ixResult -> indexzS0 d (zipWith (+) ixBase ixResult)
+    -- TODO: check at least at runtime that ixBase has the right length;
+    -- my version is less precisely typed than the adops original;
+    -- to improve, I'd need sized lists, but probably orthotope
+    -- doesn't use them (e.g., in @generate@) for a good reason
+
+-- | Retrieve the element at the given index,
+--   returning zero for out of range indices.
+indexzS0 :: forall sh r d. (ADModeAndNum d r, OS.Shape sh)
+         => ADVal d (OS.Array sh r) -> [Int] -> ADVal d r
+indexzS0 d ix = if withinS @sh ix then indexS0 d ix else 0
+
+-- | Given an index and shape, check if the index is fully within the shape.
+withinS :: forall sh. OS.Shape sh => [Int] -> Bool
+withinS ix =
+  let sh = OS.shapeP (Proxy :: Proxy sh)
+      within i dim = i >= 0 && i < dim
+  in and $ zipWith within ix sh
+
+-- | Compute the dot product of elements in two arrays.
+--   The arrays have the same shape.
+dotS0 :: (ADModeAndNum d r, OS.Shape sh)
+      => ADVal d (OS.Array sh r) -> ADVal d (OS.Array sh r) -> ADVal d r
+dotS0 d1 d2 = flattenS1 d1 <.>! flattenS1 d2
 #endif
