@@ -4,7 +4,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module HordeAd.External.Adaptor
   ( Adaptable, AdaptableScalar
-  , value, rev, fwd
+  , value, rev, revDt, fwd
   ) where
 
 import Prelude
@@ -35,11 +35,23 @@ rev :: forall a vals r advals d.
        , d ~ Mode advals, d ~ 'ADModeGradient
        , HasDelta r, IsPrimalAndHasFeatures d a r
        , Adaptable advals )
-    => (advals -> ADVal d a) -> vals -> vals
-rev f vals =
-  let g inputs = f $ fst $ fromADInputs vals inputs
-  in fst $ fromDomains vals $ fst $ revFun 1 g (toDomains vals)
+    => (advals -> ADVal d a) -> vals
+    -> vals
+rev f vals = revDt f vals 1
 
+-- This version additionally takes the sensitivity parameter.
+revDt :: forall a vals r advals d.
+         ( r ~ Scalar vals, vals ~ Value advals
+         , d ~ Mode advals, d ~ 'ADModeGradient
+         , HasDelta r, IsPrimalAndHasFeatures d a r
+         , Adaptable advals )
+      => (advals -> ADVal d a) -> vals -> a
+      -> vals
+revDt f vals dt =
+  let g inputs = f $ fst $ fromADInputs vals inputs
+  in fst $ fromDomains vals $ fst $ revFun dt g (toDomains vals)
+
+-- This takes the sensitivity by convention.
 fwd :: forall a vals r advals d.
        ( r ~ Scalar vals, vals ~ Value advals
        , d ~ Mode advals, d ~ 'ADModeDerivative

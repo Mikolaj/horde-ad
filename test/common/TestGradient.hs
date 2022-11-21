@@ -344,9 +344,15 @@ adoptTests = testGroup "Tests of the port of adopt code"
 
 test_conv2d_dInp :: Assertion
 test_conv2d_dInp =
-  let arrK = OS.constant 0 {-17.3-} :: OS.Array '[2, 2, 3, 4] Double
-      arrB = OS.constant 0 {-2.28-} :: OS.Array '[5, 2, 6, 7] Double
+  -- Below, @17.3@ is just @OS.constant 17.3@ via a @Num@ instance.
+  let arrK = 0 {-17.3-} :: OS.Array '[2, 2 {-6-}, 3, 4] Double
+      arrB = 0 {-2.28-} :: OS.Array '[5, 2, 6, 7] Double
+        -- this fails with the commented out values;
+        -- and fails to typecheck with the commented out dimension size,
+        -- because conv2d_dInp lacks the arrA parameter
   in assertEqualUpToEpsilon 1e-7
-       (rev (conv2d (constant arrK))  -- gradient wrt second argument
-            arrB )  -- input
+       (revDt (conv2d (constant arrK))  -- gradient wrt second argument
+              arrB   -- dummy, should be arrA, the point at which we take
+                     -- the gradient: https://en.wikipedia.org/wiki/Gradient
+              arrB )  -- sensitivity; should we normally test with 1?
        (conv2d_dInp arrK arrB)  -- expected result
