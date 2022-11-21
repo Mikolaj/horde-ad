@@ -51,7 +51,7 @@ revDt f vals dt =
   let g inputs = f $ fst $ fromADInputs vals inputs
   in fst $ fromDomains vals $ fst $ revFun dt g (toDomains vals)
 
--- This takes the sensitivity by convention.
+-- This takes the sensitivity parameter, by convention.
 fwd :: forall a vals r advals d.
        ( r ~ Scalar vals, vals ~ Value advals
        , d ~ Mode advals, d ~ 'ADModeDerivative
@@ -77,19 +77,17 @@ type AdaptableScalar d r =
 -- have to be added.
 class AdaptableDomains vals where
   type Scalar vals
-  toDomains
-    :: Numeric (Scalar vals)
-    => vals -> Domains (Scalar vals)
-  fromDomains
-    :: Numeric (Scalar vals)
-    => vals -> Domains (Scalar vals) -> (vals, Domains (Scalar vals))
+  toDomains :: Numeric (Scalar vals)
+            => vals -> Domains (Scalar vals)
+  fromDomains :: Numeric (Scalar vals)
+              => vals -> Domains (Scalar vals)
+              -> (vals, Domains (Scalar vals))
 
 class AdaptableInputs r advals where
   type Value advals
   type Mode advals :: ADMode
-  fromADInputs
-    :: Value advals -> ADInputs (Mode advals) r
-    -> (advals, ADInputs (Mode advals) r)
+  fromADInputs :: Value advals -> ADInputs (Mode advals) r
+               -> (advals, ADInputs (Mode advals) r)
 
 instance AdaptableDomains Double where
   type Scalar Double = Double
@@ -219,6 +217,10 @@ instance AdaptableDomains a
           in (a : lAcc, rest)
         (l, restAll) = foldl' f ([], source) lInit
     in (reverse l, restAll)
+    -- is the following as performant? benchmark:
+    -- > fromDomains lInit source =
+    -- >   let f = swap . flip fromDomains
+    -- >   in swap $ mapAccumL f source lInit
 
 instance AdaptableInputs r a
          => AdaptableInputs r [a] where
