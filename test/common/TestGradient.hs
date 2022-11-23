@@ -189,17 +189,18 @@ barS :: (ADModeAndNum d r, OS.Shape sh)
         , [ADVal d (OS.Array (n2 ': sh) r)] )
      -> [ADVal d (OS.Array (n1 ': sh) r)]
 barS MkSN MkSN (s, w, xs) =
-  map (\x -> konstS s * dot w x) xs
-    -- konstS is needed, after all, because @s@ is a differentiable quantity
-    -- with a given type, and not a constant that would be interpreted according
-    -- to the inferred type
+  map (\x -> konstS s * dotGeneral w x) xs
+    -- konstS is needed, after all, because @s@ is a differentiable unknown
+    -- quantity with a given type, and not a constant that would be
+    -- interpreted according to the inferred type;
 
--- TODO: this is a fake implementation and of the medium-general variant
-dot :: (ADModeAndNum d r, OS.Shape sh, KnownNat n1)
-    => ADVal d (OS.Array '[n1, n2] r)
-    -> ADVal d (OS.Array (n2 ': sh) r)
-    -> ADVal d (OS.Array (n1 ': sh) r)
-dot _ _ = konstS 42
+-- TODO: this is a fake implementation and not general enough type,
+-- waiting for https://github.com/Mikolaj/horde-ad/issues/69
+dotGeneral :: (ADModeAndNum d r, OS.Shape sh, KnownNat n1)
+           => ADVal d (OS.Array '[n1, n2] r)
+           -> ADVal d (OS.Array (n2 ': sh) r)
+           -> ADVal d (OS.Array (n1 ': sh) r)
+dotGeneral _ _ = konstS 42
 
 bar_3_75
   :: forall r k sh d.
