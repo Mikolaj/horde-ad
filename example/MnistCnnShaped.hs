@@ -21,31 +21,31 @@ import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors (ADInputs, atS)
 import MnistData
 
+-- Due to subtraction complicating posititive number type inference,
+-- @kh@ denotes kernel height minus one and analogously @kw@ is kernel
+-- width minus one.
 convMnistLayerS
-  :: forall kheight_minus_1 kwidth_minus_1 out_channels
-            in_height in_width in_channels batch_size d r.
-     ( 1 <= kheight_minus_1
-     , 1 <= kwidth_minus_1  -- wrongly reported as redundant
+  :: forall kh kw c_out h w c_in batch_size d r.
+     ( 1 <= kh
+     , 1 <= kw  -- wrongly reported as redundant
      , ADModeAndNum d r )
-  => StaticNat kheight_minus_1 -> StaticNat kwidth_minus_1
-  -> StaticNat out_channels
-  -> StaticNat in_height -> StaticNat in_width
-  -> StaticNat in_channels
+  => StaticNat kh -> StaticNat kw
+  -> StaticNat c_out
+  -> StaticNat h -> StaticNat w
+  -> StaticNat c_in
   -> StaticNat batch_size
-  -> ADVal d (OS.Array '[ out_channels, in_channels
-                        , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
-  -> ADVal d (OS.Array '[batch_size, in_channels, in_height, in_width] r)
-  -> ADVal d (OS.Array '[out_channels] r)
-  -> ADVal d (OS.Array '[ batch_size, out_channels
-                        , (in_height + kheight_minus_1) `Div` 2
-                        , (in_width + kwidth_minus_1) `Div` 2 ] r)
+  -> ADVal d (OS.Array '[c_out, c_in, kh + 1, kw + 1] r)
+  -> ADVal d (OS.Array '[batch_size, c_in, h, w] r)
+  -> ADVal d (OS.Array '[c_out] r)
+  -> ADVal d (OS.Array '[ batch_size, c_out
+                        , (h + kh) `Div` 2
+                        , (w + kw) `Div` 2 ] r)
 convMnistLayerS MkSN MkSN MkSN MkSN MkSN MkSN
                 batch_size@MkSN ker x bias =
   let yConv = conv24 ker x
       replicateBias
         :: ADVal d (OS.Array '[] r)
-        -> ADVal d (OS.Array '[ in_height + kheight_minus_1
-                              , in_width + kwidth_minus_1 ] r)
+        -> ADVal d (OS.Array '[h + kh, w + kw] r)
       replicateBias = konstS . fromS0
       biasStretched = ravelFromListS
                       $ replicate (staticNatValue batch_size)
@@ -56,56 +56,49 @@ convMnistLayerS MkSN MkSN MkSN MkSN MkSN MkSN
   in maxPool24 @1 @2 yRelu
 
 convMnistTwoS
-  :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
-            in_height in_width in_channels batch_size d r.
-     ( in_channels ~ 1
-     , 1 <= kheight_minus_1
-     , 1 <= kwidth_minus_1
+  :: forall kh kw num_hidden c_out h w c_in batch_size d r.
+     ( c_in ~ 1
+     , 1 <= kh
+     , 1 <= kw
      , ADModeAndNum d r )
-  => StaticNat kheight_minus_1 -> StaticNat kwidth_minus_1
+  => StaticNat kh -> StaticNat kw
   -> StaticNat num_hidden
-  -> StaticNat out_channels
-  -> StaticNat in_height -> StaticNat in_width
+  -> StaticNat c_out
+  -> StaticNat h -> StaticNat w
   -> StaticNat batch_size
-  -> OS.Array '[batch_size, in_channels, in_height, in_width] r
+  -> OS.Array '[batch_size, c_in, h, w] r
   -- All below is the type of all paramters of this nn. The same is reflected
   -- in the length function below and read from inputs further down.
-  -> ADVal d (OS.Array '[ out_channels, in_channels
-                        , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
-  -> ADVal d (OS.Array '[out_channels] r)
-  -> ADVal d (OS.Array '[ out_channels, out_channels
-                        , kheight_minus_1 + 1, kwidth_minus_1 + 1 ] r)
-  -> ADVal d (OS.Array '[out_channels] r)
+  -> ADVal d (OS.Array '[c_out, c_in, kh + 1, kw + 1] r)
+  -> ADVal d (OS.Array '[c_out] r)
+  -> ADVal d (OS.Array '[c_out, c_out, kh + 1, kw + 1] r)
+  -> ADVal d (OS.Array '[c_out] r)
   -> ADVal d (OS.Array '[ num_hidden
-                        , out_channels
-                            * (((in_height + kheight_minus_1) `Div` 2
-                                + kheight_minus_1)
-                               `Div` 2)
-                            * (((in_width + kwidth_minus_1) `Div` 2
-                                + kwidth_minus_1)
-                               `Div` 2)
+                        , c_out
+                          * (((h + kh) `Div` 2 + kh) `Div` 2)
+                          * (((w + kw) `Div` 2 + kw) `Div` 2)
                         ] r)
   -> ADVal d (OS.Array '[num_hidden] r)
   -> ADVal d (OS.Array '[SizeMnistLabel, num_hidden] r)
   -> ADVal d (OS.Array '[SizeMnistLabel] r)
   -> ADVal d (OS.Array '[SizeMnistLabel, batch_size] r)
-convMnistTwoS kheight_minus_1@MkSN kwidth_minus_1@MkSN
+convMnistTwoS kh@MkSN kw@MkSN
               _num_hidden@MkSN
-              out_channels@MkSN
-              in_height@MkSN in_width@MkSN
+              c_out@MkSN
+              h@MkSN w@MkSN
               batch_size@MkSN
               x ker1 bias1 ker2 bias2
               weigthsDense biasesDense weigthsReadout biasesReadout =
-  let t1 = convMnistLayerS kheight_minus_1 kwidth_minus_1
-                           out_channels
-                           in_height in_width
-                           (MkSN @in_channels) batch_size
+  let t1 = convMnistLayerS kh kw
+                           c_out
+                           h w
+                           (MkSN @c_in) batch_size
                            ker1 (constant x) bias1
-      t2 = convMnistLayerS kheight_minus_1 kwidth_minus_1
-                           out_channels
-                           (MkSN @((in_height + kheight_minus_1) `Div` 2))
-                           (MkSN @((in_width + kwidth_minus_1) `Div` 2))
-                           out_channels batch_size
+      t2 = convMnistLayerS kh kw
+                           c_out
+                           (MkSN @((h + kh) `Div` 2))
+                           (MkSN @((w + kw) `Div` 2))
+                           c_out batch_size
                            ker2 t1 bias2
       m1 = mapOuterS reshapeS t2
       m2 = transpose2S m1
@@ -114,29 +107,24 @@ convMnistTwoS kheight_minus_1@MkSN kwidth_minus_1@MkSN
   in weigthsReadout <>$ denseRelu + asColumnS biasesReadout
 
 convMnistLenS
-  :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
-            in_height in_width.
-     StaticNat kheight_minus_1 -> StaticNat kwidth_minus_1
+  :: forall kh kw num_hidden c_out h w.
+     StaticNat kh -> StaticNat kw
   -> StaticNat num_hidden
-  -> StaticNat out_channels
-  -> StaticNat in_height -> StaticNat in_width
+  -> StaticNat c_out
+  -> StaticNat h -> StaticNat w
   -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
 convMnistLenS MkSN MkSN MkSN MkSN MkSN MkSN =
   ( 0
   , []
   , []
-  , [ Data.Array.Shape.shapeT @'[ out_channels, 1
-                                , kheight_minus_1 + 1, kwidth_minus_1 + 1 ]
-    , Data.Array.Shape.shapeT @'[out_channels]
-    , Data.Array.Shape.shapeT @'[ out_channels, out_channels
-                                , kheight_minus_1 + 1, kwidth_minus_1 + 1 ]
-    , Data.Array.Shape.shapeT @'[out_channels]
+  , [ Data.Array.Shape.shapeT @'[c_out, 1, kh + 1, kw + 1]
+    , Data.Array.Shape.shapeT @'[c_out]
+    , Data.Array.Shape.shapeT @'[c_out, c_out, kh + 1, kw + 1]
+    , Data.Array.Shape.shapeT @'[c_out]
     , Data.Array.Shape.shapeT @'[ num_hidden
-                                , out_channels
-                                    * ((in_height + kheight_minus_1) `Div` 2
-                                       + kheight_minus_1) `Div` 2
-                                    * ((in_width + kwidth_minus_1) `Div` 2
-                                       + kheight_minus_1) `Div` 2
+                                , c_out
+                                  * ((h + kh) `Div` 2 + kh) `Div` 2
+                                  * ((w + kw) `Div` 2 + kh) `Div` 2
                                 ]
     , Data.Array.Shape.shapeT @'[num_hidden]
     , Data.Array.Shape.shapeT @'[SizeMnistLabel, num_hidden]
@@ -145,23 +133,22 @@ convMnistLenS MkSN MkSN MkSN MkSN MkSN MkSN =
   )
 
 convMnistS
-  :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
-            in_height in_width batch_size d r.
-     ( 1 <= kheight_minus_1
-     , 1 <= kwidth_minus_1
+  :: forall kh kw num_hidden c_out h w batch_size d r.
+     ( 1 <= kh
+     , 1 <= kw
      , ADModeAndNum d r )
-  => StaticNat kheight_minus_1 -> StaticNat kwidth_minus_1
+  => StaticNat kh -> StaticNat kw
   -> StaticNat num_hidden
-  -> StaticNat out_channels
-  -> StaticNat in_height -> StaticNat in_width
+  -> StaticNat c_out
+  -> StaticNat h -> StaticNat w
   -> StaticNat batch_size
-  -> OS.Array '[batch_size, 1, in_height, in_width] r
+  -> OS.Array '[batch_size, 1, h, w] r
   -> ADInputs d r
   -> ADVal d (OS.Array '[SizeMnistLabel, batch_size] r)
-convMnistS kheight_minus_1@MkSN kwidth_minus_1@MkSN
+convMnistS kh@MkSN kw@MkSN
            num_hidden@MkSN
-           out_channels@MkSN
-           in_height@MkSN in_width@MkSN
+           c_out@MkSN
+           h@MkSN w@MkSN
            batch_size@MkSN
            x inputs =
   let ker1 = atS inputs 0
@@ -172,36 +159,35 @@ convMnistS kheight_minus_1@MkSN kwidth_minus_1@MkSN
       biasesDense = atS inputs 5
       weigthsReadout = atS inputs 6
       biasesReadout = atS inputs 7
-  in convMnistTwoS kheight_minus_1 kwidth_minus_1 num_hidden out_channels
-                   in_height in_width batch_size
+  in convMnistTwoS kh kw num_hidden c_out
+                   h w batch_size
                    x ker1 bias1 ker2 bias2
                    weigthsDense biasesDense weigthsReadout biasesReadout
 
 convMnistLossFusedS
-  :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
-            in_height in_width batch_size d r.
-     ( 1 <= kheight_minus_1
-     , 1 <= kwidth_minus_1
+  :: forall kh kw num_hidden c_out h w batch_size d r.
+     ( 1 <= kh
+     , 1 <= kw
      , ADModeAndNum d r )
-  => StaticNat kheight_minus_1 -> StaticNat kwidth_minus_1
+  => StaticNat kh -> StaticNat kw
   -> StaticNat num_hidden
-  -> StaticNat out_channels
-  -> StaticNat in_height -> StaticNat in_width
+  -> StaticNat c_out
+  -> StaticNat h -> StaticNat w
   -> StaticNat batch_size
-  -> ( OS.Array '[batch_size, in_height, in_width] r
+  -> ( OS.Array '[batch_size, h, w] r
      , OS.Array '[batch_size, SizeMnistLabel] r )
   -> ADInputs d r
   -> ADVal d r
-convMnistLossFusedS kheight_minus_1@MkSN kwidth_minus_1@MkSN
+convMnistLossFusedS kh@MkSN kw@MkSN
                     num_hidden@MkSN
-                    out_channels@MkSN
-                    in_height@MkSN in_width@MkSN
+                    c_out@MkSN
+                    h@MkSN w@MkSN
                     batch_size@MkSN
                     (glyphS, labelS) inputs =
-  let xs :: OS.Array '[batch_size, 1, in_height, in_width] r
+  let xs :: OS.Array '[batch_size, 1, h, w] r
       xs = OS.reshape glyphS
-      result = convMnistS kheight_minus_1 kwidth_minus_1 num_hidden out_channels
-                          in_height in_width batch_size
+      result = convMnistS kh kw num_hidden c_out
+                          h w batch_size
                           xs inputs
       targets2 = LA.tr $ LA.reshape (staticNatValue sizeMnistLabel :: Int)
                        $ OS.toVector labelS
@@ -212,36 +198,36 @@ convMnistLossFusedS kheight_minus_1@MkSN kwidth_minus_1@MkSN
 -- For simplicity, testing is performed in mini-batches of 1.
 -- See RNN for testing done in batches.
 convMnistTestS
-  :: forall kheight_minus_1 kwidth_minus_1 num_hidden out_channels
-            in_height in_width r.
-     ( 1 <= kheight_minus_1
-     , 1 <= kwidth_minus_1
+  :: forall kh kw num_hidden c_out
+            h w r.
+     ( 1 <= kh
+     , 1 <= kw
      , ADModeAndNum 'ADModeValue r )
-  => StaticNat kheight_minus_1 -> StaticNat kwidth_minus_1
+  => StaticNat kh -> StaticNat kw
   -> StaticNat num_hidden
-  -> StaticNat out_channels
-  -> StaticNat in_height -> StaticNat in_width
-  -> [( OS.Array '[in_height, in_width] r
+  -> StaticNat c_out
+  -> StaticNat h -> StaticNat w
+  -> [( OS.Array '[h, w] r
       , OS.Array '[SizeMnistLabel] r )]
   -> Domains r
   -> r
-convMnistTestS kheight_minus_1@MkSN kwidth_minus_1@MkSN
+convMnistTestS kh@MkSN kw@MkSN
                num_hidden@MkSN
-               out_channels@MkSN
-               in_height@MkSN in_width@MkSN
+               c_out@MkSN
+               h@MkSN w@MkSN
                inputs parameters =
-  let matchesLabels :: ( OS.Array '[in_height, in_width] r
+  let matchesLabels :: ( OS.Array '[h, w] r
                        , OS.Array '[SizeMnistLabel] r )
                     -> Bool
       matchesLabels (glyph, label) =
-        let tx :: OS.Array '[1, 1, in_height, in_width] r
+        let tx :: OS.Array '[1, 1, h, w] r
             tx = OS.reshape glyph
             batch_size_1 = MkSN @1
             nn :: ADInputs 'ADModeValue r
                -> ADVal 'ADModeValue (OS.Array '[SizeMnistLabel, 1] r)
-            nn = convMnistS kheight_minus_1 kwidth_minus_1
-                            num_hidden out_channels
-                            in_height in_width batch_size_1
+            nn = convMnistS kh kw
+                            num_hidden c_out
+                            h w batch_size_1
                             tx
             v = valueFun nn parameters
         in V.maxIndex (OS.toVector v) == V.maxIndex (OS.toVector label)
