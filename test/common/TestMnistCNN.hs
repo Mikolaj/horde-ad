@@ -361,39 +361,35 @@ convMnistTestCaseCNNT
   -> String
   -> Int
   -> Int
-  -> (forall kheight_minus_1' kwidth_minus_1' num_hidden' out_channels'
-             in_height' in_width' batch_size'.
-      ( 1 <= kheight_minus_1'
-      , 1 <= kwidth_minus_1'
+  -> (forall kh kw h w c_out batch_size' num_hidden'.
+      ( 1 <= kh
+      , 1 <= kw
       , ADModeAndNum d r )
-      => StaticNat kheight_minus_1' -> StaticNat kwidth_minus_1'
-      -> StaticNat num_hidden'
-      -> StaticNat out_channels'
-      -> StaticNat in_height' -> StaticNat in_width'
-      -> StaticNat batch_size'
-      -> ( OS.Array '[batch_size', in_height', in_width'] r
+      => StaticNat kh -> StaticNat kw
+      -> StaticNat h -> StaticNat w
+      -> StaticNat c_out
+      -> StaticNat batch_size' -> StaticNat num_hidden'
+      -> ( OS.Array '[batch_size', h, w] r
          , OS.Array '[batch_size', SizeMnistLabel] r )
       -> ADInputs d r
       -> ADVal d r)
-  -> (forall kheight_minus_1' kwidth_minus_1' num_hidden' out_channels'
-             in_height' in_width'.
-      ( 1 <= kheight_minus_1'
-      , 1 <= kwidth_minus_1'
+  -> (forall kh kw h w c_out num_hidden'.
+      ( 1 <= kh
+      , 1 <= kw
       , ADModeAndNum d r )
-      => StaticNat kheight_minus_1' -> StaticNat kwidth_minus_1'
+      => StaticNat kh -> StaticNat kw
+      -> StaticNat h -> StaticNat w
+      -> StaticNat c_out
       -> StaticNat num_hidden'
-      -> StaticNat out_channels'
-      -> StaticNat in_height' -> StaticNat in_width'
-      -> [( OS.Array '[in_height', in_width'] r
+      -> [( OS.Array '[h, w] r
           , OS.Array '[SizeMnistLabel] r )]
       -> Domains r
       -> r)
-  -> (forall kheight_minus_1' kwidth_minus_1' num_hidden' out_channels'
-             in_height' in_width'.
-         StaticNat kheight_minus_1' -> StaticNat kwidth_minus_1'
+  -> (forall kh kw h w c_out num_hidden'.
+         StaticNat kh -> StaticNat kw
+      -> StaticNat h -> StaticNat w
+      -> StaticNat c_out
       -> StaticNat num_hidden'
-      -> StaticNat out_channels'
-      -> StaticNat in_height' -> StaticNat in_width'
       -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
   -> Double
   -> Double
@@ -409,8 +405,8 @@ convMnistTestCaseCNNT kheight_minus_1@MkSN kwidth_minus_1@MkSN
       ((_, _, _, nParamsX), totalParams, range, parametersInit) =
         initializerFixed 44 0.05
           (flen kheight_minus_1 kwidth_minus_1
-                num_hidden out_channels
-                in_height in_width)
+                in_height in_width
+                out_channels num_hidden)
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show (staticNatValue num_hidden :: Int)
@@ -443,20 +439,20 @@ convMnistTestCaseCNNT kheight_minus_1@MkSN kwidth_minus_1@MkSN
                  -> IO (Domains r)
         runBatch parameters@(!_, !_, !_, !_) (k, chunk) = do
           let f = trainWithLoss kheight_minus_1 kwidth_minus_1
-                                num_hidden out_channels
                                 in_height in_width
-                                batch_size
+                                out_channels
+                                batch_size num_hidden
               chunkS = map packBatchS
                        $ filter (\ch -> length ch >= batchSize)
                        $ chunksOf batchSize chunk
           res <- fst <$> sgd gamma f chunkS parameters
           let !trainScore = ftest kheight_minus_1 kwidth_minus_1
-                                  num_hidden out_channels
                                   in_height in_width
+                                  out_channels num_hidden
                                   chunk res
               !testScore = ftest kheight_minus_1 kwidth_minus_1
-                                 num_hidden out_channels
                                  in_height in_width
+                                 out_channels num_hidden
                                  testData res
               !lenChunk = length chunk
           hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
@@ -476,8 +472,8 @@ convMnistTestCaseCNNT kheight_minus_1@MkSN kwidth_minus_1@MkSN
           runEpoch (succ n) res
     res <- runEpoch 1 parametersInit
     let testErrorFinal = 1 - ftest kheight_minus_1 kwidth_minus_1
-                                   num_hidden out_channels
                                    in_height in_width
+                                   out_channels num_hidden
                                    testData res
     testErrorFinal @?~ expected
 
@@ -648,12 +644,13 @@ comparisonTests volume =
               ( Just (SomeNat proxy_num_hidden)
                ,Just (SomeNat proxy_out_channel) ) ->
                 convMnistLossFusedS (MkSN @4) (MkSN @4)
-                                    (staticNatFromProxy proxy_num_hidden)
-                                    (staticNatFromProxy proxy_out_channel)
                                     sizeMnistHeight sizeMnistWidth
+                                    (staticNatFromProxy proxy_out_channel)
                                     (MkSN @1)
-                                    (packBatch @1 [shapeBatch
-                                                  $ first LA.flatten mnistData])
+                                    (staticNatFromProxy proxy_num_hidden)
+                                    (packBatch
+                                       @1 [shapeBatch
+                                           $ first LA.flatten mnistData])
               _ -> error "fT panic"
             paramsToT (p0, p1, p2, _) =
               let qX = V.fromList
