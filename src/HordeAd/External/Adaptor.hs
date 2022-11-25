@@ -4,7 +4,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module HordeAd.External.Adaptor
   ( Adaptable, AdaptableScalar
-  , value, rev, revDt, fwd
+  , value, valueAtDomains, rev, revDt, fwd
   ) where
 
 import Prelude
@@ -26,9 +26,16 @@ value :: forall a vals r advals d.
          , d ~ Mode advals, d ~ 'ADModeValue
          , Numeric r, Adaptable advals )
       => (advals -> ADVal d a) -> vals -> a
-value f vals =
+value f vals = valueAtDomains f vals (toDomains vals)
+
+valueAtDomains :: forall a vals r advals d.
+                  ( r ~ Scalar vals, vals ~ Value advals
+                  , d ~ Mode advals, d ~ 'ADModeValue
+                  , Numeric r, Adaptable advals )
+               => (advals -> ADVal d a) -> vals -> Domains r -> a
+valueAtDomains f vals parameters =
   let g inputs = f $ fst $ fromADInputs vals inputs
-  in valueFun g (toDomains vals)
+  in valueFun g parameters
 
 rev :: forall a vals r advals d.
        ( r ~ Scalar vals, vals ~ Value advals
@@ -314,20 +321,20 @@ instance ( d ~ Mode a, d ~ Mode b, d ~ Mode c
         (c, rest) = fromADInputs cInit bRest
     in ((a, b, c), rest)
 
-instance ( dd ~ Mode a, dd ~ Mode b, dd ~ Mode c, dd ~ Mode d
+instance ( d ~ Mode a, d ~ Mode b, d ~ Mode c, d ~ Mode dd
          , AdaptableInputs r a
          , AdaptableInputs r b
          , AdaptableInputs r c
-         , AdaptableInputs r d )
-         => AdaptableInputs r (a, b, c, d) where
-  type Value (a, b, c, d) = (Value a, Value b, Value c, Value d)
-  type Mode (a, b, c, d) = Mode a
+         , AdaptableInputs r dd )
+         => AdaptableInputs r (a, b, c, dd) where
+  type Value (a, b, c, dd) = (Value a, Value b, Value c, Value dd)
+  type Mode (a, b, c, dd) = Mode a
   fromADInputs (aInit, bInit, cInit, dInit) source =
     let (a, aRest) = fromADInputs aInit source
         (b, bRest) = fromADInputs bInit aRest
         (c, cRest) = fromADInputs cInit bRest
-        (d, rest) = fromADInputs dInit cRest
-    in ((a, b, c, d), rest)
+        (dd, rest) = fromADInputs dInit cRest
+    in ((a, b, c, dd), rest)
 
 instance (r ~ Scalar a, r ~ Scalar b, AdaptableDomains a, AdaptableDomains b)
          => AdaptableDomains (Either a b) where
@@ -341,7 +348,7 @@ instance (r ~ Scalar a, r ~ Scalar b, AdaptableDomains a, AdaptableDomains b)
     Right b -> let (b2, rest) = fromDomains b source
                in (Right b2, rest)
 
-instance (dd ~ Mode a, dd ~ Mode b, AdaptableInputs r a, AdaptableInputs r b)
+instance (d ~ Mode a, d ~ Mode b, AdaptableInputs r a, AdaptableInputs r b)
          => AdaptableInputs r (Either a b) where
   type Value (Either a b) = Either (Value a) (Value b)
   type Mode (Either a b) = Mode a
