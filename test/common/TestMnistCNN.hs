@@ -361,14 +361,14 @@ convMnistTestCaseCNNT
   -> String
   -> Int
   -> Int
-  -> (forall kh kw h w c_out batch_size' num_hidden'.
+  -> (forall kh kw h w c_out num_hidden' batch_size'.
       ( 1 <= kh
       , 1 <= kw
       , ADModeAndNum d r )
       => StaticNat kh -> StaticNat kw
       -> StaticNat h -> StaticNat w
       -> StaticNat c_out
-      -> StaticNat batch_size' -> StaticNat num_hidden'
+      -> StaticNat num_hidden' -> StaticNat batch_size'
       -> ( OS.Array '[batch_size', h, w] r
          , OS.Array '[batch_size', SizeMnistLabel] r )
       -> ADInputs d r
@@ -441,7 +441,7 @@ convMnistTestCaseCNNT kheight_minus_1@MkSN kwidth_minus_1@MkSN
           let f = trainWithLoss kheight_minus_1 kwidth_minus_1
                                 in_height in_width
                                 out_channels
-                                batch_size num_hidden
+                                num_hidden batch_size
               chunkS = map packBatchS
                        $ filter (\ch -> length ch >= batchSize)
                        $ chunksOf batchSize chunk
@@ -646,8 +646,8 @@ comparisonTests volume =
                 convMnistLossFusedS (MkSN @4) (MkSN @4)
                                     sizeMnistHeight sizeMnistWidth
                                     (staticNatFromProxy proxy_out_channel)
-                                    (MkSN @1)
                                     (staticNatFromProxy proxy_num_hidden)
+                                    (MkSN @1)
                                     (packBatch
                                        @1 [shapeBatch
                                            $ first LA.flatten mnistData])

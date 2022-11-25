@@ -56,7 +56,7 @@ convMnistLayerS MkSN MkSN MkSN MkSN MkSN MkSN batch_size@MkSN
   in maxPool24 @1 @2 yRelu
 
 convMnistTwoS
-  :: forall kh kw h w c_in c_out batch_size n_hidden d r.
+  :: forall kh kw h w c_in c_out n_hidden batch_size d r.
      ( c_in ~ 1
      , 1 <= kh
      , 1 <= kw
@@ -64,7 +64,7 @@ convMnistTwoS
   => StaticNat kh -> StaticNat kw
   -> StaticNat h -> StaticNat w
   -> StaticNat c_out
-  -> StaticNat batch_size -> StaticNat n_hidden
+  -> StaticNat n_hidden -> StaticNat batch_size
   -> OS.Array '[batch_size, c_in, h, w] r
   -- All below is the type of all parameters of this nn. The same is reflected
   -- in the length function below and read from inputs further down.
@@ -83,7 +83,7 @@ convMnistTwoS
 convMnistTwoS kh@MkSN kw@MkSN
               h@MkSN w@MkSN
               c_out@MkSN
-              batch_size@MkSN _n_hidden@MkSN
+              _n_hidden@MkSN batch_size@MkSN
               x ker1 bias1 ker2 bias2
               weigthsDense biasesDense weigthsReadout biasesReadout =
   let t1 = convMnistLayerS kh kw
@@ -153,19 +153,19 @@ convMnistS kh@MkSN kw@MkSN
       biasesDense = atS inputs 5
       weigthsReadout = atS inputs 6
       biasesReadout = atS inputs 7
-  in convMnistTwoS kh kw h w c_out batch_size n_hidden
+  in convMnistTwoS kh kw h w c_out n_hidden batch_size
                    x ker1 bias1 ker2 bias2
                    weigthsDense biasesDense weigthsReadout biasesReadout
 
 convMnistLossFusedS
-  :: forall kh kw h w c_out batch_size n_hidden d r.
+  :: forall kh kw h w c_out n_hidden batch_size d r.
      ( 1 <= kh
      , 1 <= kw
      , ADModeAndNum d r )
   => StaticNat kh -> StaticNat kw
   -> StaticNat h -> StaticNat w
   -> StaticNat c_out
-  -> StaticNat batch_size -> StaticNat n_hidden
+  -> StaticNat n_hidden -> StaticNat batch_size
   -> ( OS.Array '[batch_size, h, w] r
      , OS.Array '[batch_size, SizeMnistLabel] r )
   -> ADInputs d r
@@ -173,7 +173,7 @@ convMnistLossFusedS
 convMnistLossFusedS kh@MkSN kw@MkSN
                     h@MkSN w@MkSN
                     c_out@MkSN
-                    batch_size@MkSN n_hidden@MkSN
+                    n_hidden@MkSN batch_size@MkSN
                     (glyphS, labelS) inputs =
   let xs :: OS.Array '[batch_size, 1, h, w] r
       xs = OS.reshape glyphS
