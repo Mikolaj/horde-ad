@@ -70,17 +70,25 @@ readmeTestsS = testGroup "Simple tests of shaped tensor-based code for README"
   , testCase "R" testBarR
   ]
 
+-- Current README
+
 -- A function that goes from `R^3` to `R`.
 foo :: RealFloat a => (a,a,a) -> a
 foo (x,y,z) =
   let w = x * sin y
   in atan2 z w + z * w
 
+grad_foo :: forall r. (HasDelta r, AdaptableScalar 'ADModeGradient r)
+         => (r, r, r) -> (r, r, r)
+grad_foo = rev @r foo
+
 testFoo :: Assertion
 testFoo =
   assertEqualUpToEpsilon 1e-10
-    (rev @Double foo (1.1, 2.2, 3.3))
+    (grad_foo (1.1 :: Double, 2.2, 3.3))
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
+
+-- End of current README
 
 bar :: RealFloat a => (a,a,a) -> a
 bar (x,y,z) =
