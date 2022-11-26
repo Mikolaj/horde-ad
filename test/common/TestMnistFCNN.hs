@@ -610,13 +610,14 @@ matrixMnistTests = testGroup "MNIST LL tests with a 2-hidden-layer nn"
 
 longMnistTests :: TestTree
 longMnistTests = testGroup "MNIST fused LL tests with a 2-hidden-layer nn"
-  [ mnistTestCase2L "1 epoch, 1 batch, wider" 1 1
+  [ mnistTestCase2L "F 1 epoch, 1 batch, wider" 1 1
                     fcnnMnistLossFused2 500 150 0.02
                     0.15039999999999998
-  , mnistTestCase2L "2 epochs, but only 1 batch" 2 1
+  , mnistTestCase2L "F 2 epochs, but only 1 batch" 2 1
                     fcnnMnistLossFused2 300 100 0.02
                     8.879999999999999e-2
-  , mnistTestCase2L "1 epoch, all batches" 1 99 fcnnMnistLossFused2 300 100 0.02
+  , mnistTestCase2L "F 1 epoch, all batches" 1 99
+                    fcnnMnistLossFused2 300 100 0.02
                     5.1100000000000034e-2
   , mnistTestCase2S (MkSN @500) (MkSN @150)
                     "S 1 epoch, 1 batch, wider" 1 1 fcnnMnistLossFusedS 0.02

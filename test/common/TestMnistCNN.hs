@@ -629,7 +629,7 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
   , convMnistTestCaseCNNO (MkSN @4) (MkSN @4) (MkSN @2) (MkSN @3)
                           (MkSN @SizeMnistHeight) (MkSN @SizeMnistWidth)
                           (MkSN @1)
-                          "T artificial 5 4 3 2 1" 5 4
+                          "O artificial 5 4 3 2 1" 5 4
                           convMnistLossFusedO convMnistTestO convMnistLenS
                           0.02 0.98
   , convMnistTestCaseCNN "1 epoch 1 batch" 1 1
@@ -679,11 +679,11 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                           (MkSN @16)
                           "T1 epoch 1 batch" 1 1
                           convMnistLossFusedS convMnistTestS
-                          0.02 0.8200000000000001
+                          0.02 0.86
   , convMnistTestCaseCNNO (MkSN @4) (MkSN @4) (MkSN @64) (MkSN @16)
                           (MkSN @SizeMnistHeight) (MkSN @SizeMnistWidth)
                           (MkSN @16)
-                          "T1 epoch 1 batch" 1 1
+                          "O1 epoch 1 batch" 1 1
                           convMnistLossFusedO convMnistTestO convMnistLenS
                           0.02 0.8200000000000001
   ]
@@ -708,7 +708,7 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
   , convMnistTestCaseCNNO (MkSN @4) (MkSN @4) (MkSN @1) (MkSN @1)
                           (MkSN @SizeMnistHeight) (MkSN @SizeMnistWidth)
                           (MkSN @1)
-                          "T artificial 1 1 1 1 1" 1 1
+                          "O artificial 1 1 1 1 1" 1 1
                           convMnistLossFusedO convMnistTestO convMnistLenS
                           1 0.85
 {-
@@ -731,7 +731,7 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
   , convMnistTestCaseCNNO (MkSN @4) (MkSN @4) (MkSN @4) (MkSN @3)
                           (MkSN @SizeMnistHeight) (MkSN @SizeMnistWidth)
                           (MkSN @5)
-                          "T artificial 1 2 3 4 5" 1 2
+                          "O artificial 1 2 3 4 5" 1 2
                           convMnistLossFusedO convMnistTestO convMnistLenS
                           6 0.92
   ]

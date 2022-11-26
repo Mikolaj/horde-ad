@@ -312,11 +312,12 @@ bigMnistTests = testGroup "MNIST tests with a 2-hidden-layer nn"
 
 vectorMnistTests :: TestTree
 vectorMnistTests = testGroup "MNIST VV tests with a 2-hidden-layer nn"
-  [ mnistTestCase2V "1 epoch, 1 batch, wider" 1 1 fcnnMnistLoss1 500 150 0.02
+  [ mnistTestCase2V "V 1 epoch, 1 batch, wider" 1 1 fcnnMnistLoss1 500 150 0.02
                     0.13959999999999995
-  , mnistTestCase2V "2 epochs, but only 1 batch" 2 1 fcnnMnistLoss1 300 100 0.02
+  , mnistTestCase2V "V 2 epochs, but only 1 batch" 2 1
+                    fcnnMnistLoss1 300 100 0.02
                     0.10019999999999996
-  , mnistTestCase2V "1 epoch, all batches" 1 99 fcnnMnistLoss1 300 100 0.02
+  , mnistTestCase2V "V 1 epoch, all batches" 1 99 fcnnMnistLoss1 300 100 0.02
                     5.389999999999995e-2
   ]
 
