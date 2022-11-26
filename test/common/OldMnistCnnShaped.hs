@@ -6,7 +6,8 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Shaped tensor-based implementation of Convolutional Neural Network
 -- for classification of MNIST digits. Sports 2 hidden layers.
--- Written in the old style without adaptors and with @atS@ function instead.
+-- Written in the old style without adaptors and with convMnistLenS
+-- and the @atS@ function instead.
 module OldMnistCnnShaped where
 
 import Prelude
@@ -158,7 +159,7 @@ convMnistS kh@MkSN kw@MkSN
                    x ker1 bias1 ker2 bias2
                    weigthsDense biasesDense weigthsReadout biasesReadout
 
-convMnistLossFusedS
+convMnistLossFusedO
   :: forall kh kw h w c_out n_hidden batch_size d r.
      ( 1 <= kh
      , 1 <= kw
@@ -171,7 +172,7 @@ convMnistLossFusedS
      , OS.Array '[batch_size, SizeMnistLabel] r )
   -> ADInputs d r
   -> ADVal d r
-convMnistLossFusedS kh@MkSN kw@MkSN
+convMnistLossFusedO kh@MkSN kw@MkSN
                     h@MkSN w@MkSN
                     c_out@MkSN
                     n_hidden@MkSN batch_size@MkSN
@@ -188,7 +189,7 @@ convMnistLossFusedS kh@MkSN kw@MkSN
 
 -- For simplicity, testing is performed in mini-batches of 1.
 -- See RNN for testing done in batches.
-convMnistTestS
+convMnistTestO
   :: forall kh kw h w c_out n_hidden r.
      ( 1 <= kh
      , 1 <= kw
@@ -201,7 +202,7 @@ convMnistTestS
       , OS.Array '[SizeMnistLabel] r )]
   -> Domains r
   -> r
-convMnistTestS kh@MkSN kw@MkSN
+convMnistTestO kh@MkSN kw@MkSN
                h@MkSN w@MkSN
                c_out@MkSN
                n_hidden@MkSN
