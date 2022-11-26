@@ -164,6 +164,7 @@ library
       , orthotope
       , pretty-show
       , primitive
+      , random
       , strict-containers
       , unboxed-ref
       , vector

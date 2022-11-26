@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module HordeAd.External.Adaptor
-  ( Adaptable, AdaptableScalar
+  ( Adaptable, AdaptableScalar, AdaptableDomains(..), AdaptableInputs(..)
   , value, valueAtDomains, rev, revDt, fwd
   ) where
 
@@ -13,8 +13,11 @@ import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.ShapedS as OS
 import           Data.List (foldl', unzip4)
+import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
+import qualified Numeric.LinearAlgebra as LA
+import           System.Random
 
 import HordeAd.Core.DualClass (Dual, toDynamicOrDummy, toShapedOrDummy)
 import HordeAd.Core.DualNumber
@@ -77,7 +80,8 @@ type Adaptable advals =
 
 type AdaptableScalar d r =
   ( Scalar r ~ r, Value (ADVal d r) ~ r, Mode (ADVal d r) ~ d
-  , ADModeAndNum d r, Adaptable (ADVal d r) )
+  , ADModeAndNum d r, Adaptable (ADVal d r)
+  , Random r )
 
 -- TODO: merge these two classes. Is it even possible?
 -- Bonus points if no AllowAmbiguousTypes nor UndecidableInstances
@@ -89,6 +93,13 @@ class AdaptableDomains vals where
   fromDomains :: Numeric (Scalar vals)
               => vals -> Domains (Scalar vals)
               -> (vals, Domains (Scalar vals))
+  randomVals
+    :: ( RandomGen g
+       , r ~ Scalar vals, Numeric r, Fractional r, Random r, Num (Vector r) )
+    => r -> g -> (vals, g)
+  nParams :: vals -> Int
+  nScalars :: Numeric (Scalar vals)
+              => vals -> Int
 
 class AdaptableInputs r advals where
   type Value advals
@@ -102,6 +113,8 @@ instance AdaptableDomains Double where
   fromDomains _aInit (v0, v1, v2, vX) = case V.uncons v0 of
     Just (a, rest) -> (a, (rest, v1, v2, vX))
     Nothing -> error "fromDomains in AdaptableDomains Double"
+  randomVals range g = randomR (- range, range) g
+    -- note that unlike in hmatrix the range is closed from the top
 
 instance ADModeAndNum d Double
          => AdaptableInputs Double (ADVal d Double) where
@@ -121,6 +134,7 @@ instance AdaptableDomains Float where
   fromDomains _aInit (v0, v1, v2, vX) = case V.uncons v0 of
     Just (a, rest) -> (a, (rest, v1, v2, vX))
     Nothing -> error "fromDomains in AdaptableDomains Float"
+  randomVals range g = randomR (- range, range) g
 
 instance ADModeAndNum d Float
          => AdaptableInputs Float (ADVal d Float) where
@@ -140,6 +154,7 @@ instance AdaptableDomains (Vector r) where
   fromDomains _aInit (v0, v1, v2, vX) = case V.uncons v1 of
     Just (a, rest) -> (a, (v0, rest, v2, vX))
     Nothing -> error "fromDomains in AdaptableDomains (Vector r)"
+  randomVals = undefined  -- we don't know the length of the vector
 
 instance ADModeAndNum d r
          => AdaptableInputs r (ADVal d (Vector r)) where
@@ -159,6 +174,7 @@ instance AdaptableDomains (Matrix r) where
   fromDomains _aInit (v0, v1, v2, vX) = case V.uncons v2 of
     Just (a, rest) -> (a, (v0, v1, rest, vX))
     Nothing -> error "fromDomains in AdaptableDomains (Matrix r)"
+  randomVals = undefined  -- we don't know the size of the matrix
 
 instance ADModeAndNum d r
          => AdaptableInputs r (ADVal d (Matrix r)) where
@@ -178,6 +194,7 @@ instance AdaptableDomains (OT.Array r) where
   fromDomains aInit (v0, v1, v2, vX) = case V.uncons vX of
     Just (a, rest) -> (toDynamicOrDummy (OT.shapeL aInit) a, (v0, v1, v2, rest))
     Nothing -> error "fromDomains in AdaptableDomains (OT.Array r)"
+  randomVals = undefined  -- we don't know the size of the tensor
 
 instance ADModeAndNum d r
          => AdaptableInputs r (ADVal d (OT.Array r)) where
@@ -191,6 +208,29 @@ instance ADModeAndNum d r
       Nothing -> error "fromADInputs in AdaptableInputs (OT.Array r)"
     Nothing -> error "fromADInputs in AdaptableInputs (OT.Array r)"
 
+{- TODO: requires IncoherentInstances no matter what pragma I stick in
+-- A special case, because for @Double@ we have faster @randomVals@,
+-- though the quality of randomness is worse (going through a single @Int@).
+instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
+         OS.Shape sh
+         => AdaptableDomains (OS.Array sh Double) where
+  type Scalar (OS.Array sh Double) = Double
+  toDomains a =
+    (V.empty, V.empty, V.empty, V.singleton (Data.Array.Convert.convert a))
+  fromDomains _aInit (v0, v1, v2, vX) = case V.uncons vX of
+    Just (a, rest) -> (toShapedOrDummy a, (v0, v1, v2, rest))
+    Nothing -> error "fromDomains in AdaptableDomains (OS.Array sh r)"
+  randomVals range g =
+    let -- Note that hmatrix produces numbers from the range open at the top,
+        -- unlike package random.
+        createRandomVector n seedInt =
+          LA.scale (2 * range)
+          $ LA.randomVector seedInt LA.Uniform n - LA.scalar 0.5
+        (i, g2) = random g
+        arr = OS.fromVector $ createRandomVector (OS.sizeP (Proxy @sh)) i
+    in (arr, g2)
+-}
+
 instance OS.Shape sh
          => AdaptableDomains (OS.Array sh r) where
   type Scalar (OS.Array sh r) = r
@@ -199,6 +239,13 @@ instance OS.Shape sh
   fromDomains _aInit (v0, v1, v2, vX) = case V.uncons vX of
     Just (a, rest) -> (toShapedOrDummy a, (v0, v1, v2, rest))
     Nothing -> error "fromDomains in AdaptableDomains (OS.Array sh r)"
+  randomVals range g =
+    let createRandomVector n seed =
+          LA.scale (2 * range)
+          $ V.fromListN n (randoms seed) - LA.scalar 0.5
+        (g1, g2) = split g
+        arr = OS.fromVector $ createRandomVector (OS.sizeP (Proxy @sh)) g1
+    in (arr, g2)
 
 instance (ADModeAndNum d r, OS.Shape sh)
          => AdaptableInputs r (ADVal d (OS.Array sh r)) where
@@ -228,6 +275,7 @@ instance AdaptableDomains a
     -- > fromDomains lInit source =
     -- >   let f = swap . flip fromDomains
     -- >   in swap $ mapAccumL f source lInit
+  randomVals = undefined  -- we don't know the length of the list
 
 instance AdaptableInputs r a
          => AdaptableInputs r [a] where
@@ -255,6 +303,10 @@ instance ( r ~ Scalar a, r ~ Scalar b
     let (a, aRest) = fromDomains aInit source
         (b, bRest) = fromDomains bInit aRest
     in ((a, b), bRest)
+  randomVals range g =
+    let (v1, g1) = randomVals range g
+        (v2, g2) = randomVals range g1
+    in ((v1, v2), g2)
 
 instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
          , AdaptableDomains a
@@ -274,6 +326,11 @@ instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
         (b, bRest) = fromDomains bInit aRest
         (c, rest) = fromDomains cInit bRest
     in ((a, b, c), rest)
+  randomVals range g =
+    let (v1, g1) = randomVals range g
+        (v2, g2) = randomVals range g1
+        (v3, g3) = randomVals range g2
+    in ((v1, v2, v3), g3)
 
 instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
          , AdaptableDomains a
@@ -296,6 +353,12 @@ instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
         (c, cRest) = fromDomains cInit bRest
         (d, rest) = fromDomains dInit cRest
     in ((a, b, c, d), rest)
+  randomVals range g =
+    let (v1, g1) = randomVals range g
+        (v2, g2) = randomVals range g1
+        (v3, g3) = randomVals range g2
+        (v4, g4) = randomVals range g3
+    in ((v1, v2, v3, v4), g4)
 
 instance ( d ~ Mode a, d ~ Mode b
          , AdaptableInputs r a
@@ -347,6 +410,7 @@ instance (r ~ Scalar a, r ~ Scalar b, AdaptableDomains a, AdaptableDomains b)
               in (Left a2, rest)
     Right b -> let (b2, rest) = fromDomains b source
                in (Right b2, rest)
+  randomVals = undefined  -- we don't which side the sum type to use
 
 instance (d ~ Mode a, d ~ Mode b, AdaptableInputs r a, AdaptableInputs r b)
          => AdaptableInputs r (Either a b) where
@@ -368,6 +432,7 @@ instance AdaptableDomains a
     Nothing -> (Nothing, source)
     Just a -> let (a2, rest) = fromDomains a source
               in (Just a2, rest)
+  randomVals = undefined  -- we don't which side the sum type to use
 
 instance AdaptableInputs r a
          => AdaptableInputs r (Maybe a) where
