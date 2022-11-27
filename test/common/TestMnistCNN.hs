@@ -401,6 +401,9 @@ convMnistTestCaseCNNT kheight_minus_1@MkSN kwidth_minus_1@MkSN
       batchSize = staticNatValue batch_size :: Int
       seed = mkStdGen 44
       range = 0.05
+      valsInit :: Value (ADConvMnistParameters kheight_minus_1 kwidth_minus_1
+                                               in_height in_width
+                                               out_channels n_hidden d r)
       valsInit = fst $ randomVals range seed
       parametersInit = toDomains valsInit
       name = prefix ++ ": "
@@ -410,18 +413,24 @@ convMnistTestCaseCNNT kheight_minus_1@MkSN kwidth_minus_1@MkSN
                         , show (nParams valsInit)
                         , show (nScalars valsInit)
                         , show gamma, show range ]
+      ftrain :: MnistDataBatchS batch_size r
+             -> ADInputs d r
+             -> ADVal d r
+      ftrain input adinputs =
+        ftrainWithLoss kheight_minus_1 kwidth_minus_1
+                       in_height in_width
+                       out_channels
+                       n_hidden batch_size
+                       input (parseADInputs valsInit adinputs)
       ftest :: StaticNat batch_size'
             -> MnistDataBatchS batch_size' r
             -> Domains r
             -> r
-      ftest batch_size' = ftestWithParams kheight_minus_1 kwidth_minus_1
-                                          out_channels
-                                          n_hidden batch_size'
-                                          valsInit
-      ftrain = ftrainWithLoss kheight_minus_1 kwidth_minus_1
-                              in_height in_width
-                              out_channels
-                              n_hidden batch_size
+      ftest batch_size' =
+        ftestWithParams kheight_minus_1 kwidth_minus_1
+                        out_channels
+                        n_hidden batch_size'
+                        valsInit
   in testCase name $ do
     hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
            prefix epochs maxBatches
@@ -436,12 +445,10 @@ convMnistTestCaseCNNT kheight_minus_1@MkSN kwidth_minus_1@MkSN
                  -> (Int, [MnistDataS r])
                  -> IO (Domains r)
         runBatch parameters@(!_, !_, !_, !_) (k, chunk) = do
-          let f input adinputs =
-                ftrain input (parseADInputs valsInit adinputs)
-              chunkS = map (packBatch @batch_size)
+          let chunkS = map (packBatch @batch_size)
                        $ filter (\ch -> length ch >= batchSize)
                        $ chunksOf batchSize chunk
-          res <- fst <$> sgd gamma f chunkS parameters
+          res <- fst <$> sgd gamma ftrain chunkS parameters
           let !trainScore = ftest (MkSN @(10 * batch_size))
                                   (packBatch @(10 * batch_size) chunk)
                                   res
