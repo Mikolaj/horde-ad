@@ -350,11 +350,9 @@ convMnistTestCNNP depth inputs parameters =
 -- * A variant of @convMnistCNN@ with shaped tensors, including mini-batches
 
 convMnistTestCaseCNNT
-  :: forall kheight_minus_1 kwidth_minus_1 n_hidden out_channels
-            in_height in_width batch_size r.
+  :: forall kheight_minus_1 kwidth_minus_1 n_hidden out_channels batch_size r.
      ( 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
-     , in_height ~ SizeMnistHeight, in_width ~ SizeMnistWidth
      , HasDelta r, ADModeAndNum 'ADModeValue r
      , Random r, PrintfArg r, AssertEqualUpToEpsilon r r )
   => StaticNat kheight_minus_1 -> StaticNat kwidth_minus_1
@@ -364,16 +362,15 @@ convMnistTestCaseCNNT
   -> String
   -> Int
   -> Int
-  -> (forall kh kw h w c_out n_hidden' batch_size'.
+  -> (forall kh kw c_out n_hidden' batch_size'.
       ( 1 <= kh
       , 1 <= kw )
       => StaticNat kh -> StaticNat kw
-      -> StaticNat h -> StaticNat w
       -> StaticNat c_out
       -> StaticNat n_hidden' -> StaticNat batch_size'
-      -> ( OS.Array '[batch_size', h, w] r
+      -> ( OS.Array '[batch_size', SizeMnistHeight, SizeMnistWidth] r
          , OS.Array '[batch_size', SizeMnistLabel] r )
-      -> ADConvMnistParameters kh kw h w c_out n_hidden' 'ADModeGradient r
+      -> ADConvMnistParameters kh kw c_out n_hidden' 'ADModeGradient r
       -> ADVal 'ADModeGradient r)
   -> (forall kh kw c_out n_hidden' batch_size'.
       ( 1 <= kh
@@ -382,7 +379,7 @@ convMnistTestCaseCNNT
       -> StaticNat c_out
       -> StaticNat n_hidden' -> StaticNat batch_size'
       -> MnistDataBatchS batch_size' r
-      -> ((ADConvMnistParameters kh kw in_height in_width c_out n_hidden'
+      -> ((ADConvMnistParameters kh kw c_out n_hidden'
                                  'ADModeValue r
            -> ADVal 'ADModeValue (OS.Array '[SizeMnistLabel, batch_size'] r))
           -> OS.Array '[SizeMnistLabel, batch_size'] r)
@@ -396,14 +393,11 @@ convMnistTestCaseCNNT kheight_minus_1@MkSN kwidth_minus_1@MkSN
                       batch_size@MkSN
                       prefix epochs maxBatches ftrainWithLoss ftestWithParams
                       gamma expected =
-  let in_height = MkSN @in_height
-      in_width = MkSN @in_height
-      batchSize = staticNatValue batch_size :: Int
+  let batchSize = staticNatValue batch_size :: Int
       seed = mkStdGen 44
       range = 0.05
       valsInit
         :: Value (ADConvMnistParameters kheight_minus_1 kwidth_minus_1
-                                        in_height in_width
                                         out_channels n_hidden 'ADModeGradient r)
       valsInit = fst $ randomVals range seed
       parametersInit = toDomains valsInit
@@ -419,7 +413,6 @@ convMnistTestCaseCNNT kheight_minus_1@MkSN kwidth_minus_1@MkSN
              -> ADVal 'ADModeGradient r
       ftrain mnist adinputs =
         ftrainWithLoss kheight_minus_1 kwidth_minus_1
-                       in_height in_width
                        out_channels
                        n_hidden batch_size
                        mnist (parseADInputs valsInit adinputs)
