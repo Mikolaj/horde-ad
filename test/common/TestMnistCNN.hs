@@ -619,7 +619,7 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                           (MkSN @1)
                           "CNNT artificial 5 4 3 2 1" 5 4
                           convMnistLossFusedS convMnistTestS
-                          0.02 (0.86 :: Float)
+                          0.02 (0.89 :: Float)
   , convMnistTestCaseCNNO (MkSN @4) (MkSN @4) (MkSN @2) (MkSN @3)
                           (MkSN @SizeMnistHeight) (MkSN @SizeMnistWidth)
                           (MkSN @1)
