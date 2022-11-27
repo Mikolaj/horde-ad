@@ -4,7 +4,8 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module HordeAd.External.Adaptor
   ( Adaptable, AdaptableScalar
-  , AdaptableDomains(toDomains, randomVals, nParams, nScalars)
+  , AdaptableDomains(toDomains, nParams, nScalars)
+  , RandomDomains(randomVals)
   , AdaptableInputs(Value), parseADInputs
   , value, valueAtDomains, rev, revDt, fwd
   ) where
@@ -96,13 +97,15 @@ class AdaptableDomains vals where
   fromDomains :: Numeric (Scalar vals)
               => vals -> Domains (Scalar vals)
               -> (vals, Domains (Scalar vals))
+  nParams :: vals -> Int
+  nScalars :: Numeric (Scalar vals)
+              => vals -> Int
+
+class RandomDomains vals where
   randomVals
     :: ( RandomGen g
        , r ~ Scalar vals, Numeric r, Fractional r, Random r, Num (Vector r) )
     => r -> g -> (vals, g)
-  nParams :: vals -> Int
-  nScalars :: Numeric (Scalar vals)
-              => vals -> Int
 
 class AdaptableInputs r advals where
   type Value advals
@@ -129,10 +132,12 @@ instance AdaptableDomains Double where
   fromDomains _aInit (v0, v1, v2, vX) = case V.uncons v0 of
     Just (a, rest) -> (a, (rest, v1, v2, vX))
     Nothing -> error "fromDomains in AdaptableDomains Double"
-  randomVals range g = randomR (- range, range) g
-    -- note that unlike in hmatrix the range is closed from the top
   nParams _ = 1
   nScalars _ = 1
+
+instance RandomDomains Double where
+  randomVals range g = randomR (- range, range) g
+    -- note that unlike in hmatrix the range is closed from the top
 
 instance ADModeAndNum d Double
          => AdaptableInputs Double (ADVal d Double) where
@@ -152,9 +157,11 @@ instance AdaptableDomains Float where
   fromDomains _aInit (v0, v1, v2, vX) = case V.uncons v0 of
     Just (a, rest) -> (a, (rest, v1, v2, vX))
     Nothing -> error "fromDomains in AdaptableDomains Float"
-  randomVals range g = randomR (- range, range) g
   nParams _ = 1
   nScalars _ = 1
+
+instance RandomDomains Float where
+  randomVals range g = randomR (- range, range) g
 
 instance ADModeAndNum d Float
          => AdaptableInputs Float (ADVal d Float) where
@@ -174,7 +181,6 @@ instance AdaptableDomains (Vector r) where
   fromDomains _aInit (v0, v1, v2, vX) = case V.uncons v1 of
     Just (a, rest) -> (a, (v0, rest, v2, vX))
     Nothing -> error "fromDomains in AdaptableDomains (Vector r)"
-  randomVals = undefined  -- we don't know the length of the vector
   nParams _ = 1
   nScalars = V.length
 
@@ -196,7 +202,6 @@ instance AdaptableDomains (Matrix r) where
   fromDomains _aInit (v0, v1, v2, vX) = case V.uncons v2 of
     Just (a, rest) -> (a, (v0, v1, rest, vX))
     Nothing -> error "fromDomains in AdaptableDomains (Matrix r)"
-  randomVals = undefined  -- we don't know the size of the matrix
   nParams _ = 1
   nScalars m = let (i, j) = LA.size m in i * j
 
@@ -218,7 +223,6 @@ instance AdaptableDomains (OT.Array r) where
   fromDomains aInit (v0, v1, v2, vX) = case V.uncons vX of
     Just (a, rest) -> (toDynamicOrDummy (OT.shapeL aInit) a, (v0, v1, v2, rest))
     Nothing -> error "fromDomains in AdaptableDomains (OT.Array r)"
-  randomVals = undefined  -- we don't know the size of the tensor
   nParams _ = 1
   nScalars = OT.size
 
@@ -265,6 +269,11 @@ instance OS.Shape sh
   fromDomains _aInit (v0, v1, v2, vX) = case V.uncons vX of
     Just (a, rest) -> (toShapedOrDummy a, (v0, v1, v2, rest))
     Nothing -> error "fromDomains in AdaptableDomains (OS.Array sh r)"
+  nParams _ = 1
+  nScalars = OS.size
+
+instance OS.Shape sh
+         => RandomDomains (OS.Array sh r) where
   randomVals range g =
     let createRandomVector n seed =
           LA.scale (2 * range)
@@ -272,8 +281,6 @@ instance OS.Shape sh
         (g1, g2) = split g
         arr = OS.fromVector $ createRandomVector (OS.sizeP (Proxy @sh)) g1
     in (arr, g2)
-  nParams _ = 1
-  nScalars = OS.size
 
 instance (ADModeAndNum d r, OS.Shape sh)
          => AdaptableInputs r (ADVal d (OS.Array sh r)) where
@@ -303,7 +310,6 @@ instance AdaptableDomains a
     -- > fromDomains lInit source =
     -- >   let f = swap . flip fromDomains
     -- >   in swap $ mapAccumL f source lInit
-  randomVals = undefined  -- we don't know the length of the list
   nParams = sum . map nParams
   nScalars = sum . map nScalars
 
@@ -333,12 +339,16 @@ instance ( r ~ Scalar a, r ~ Scalar b
     let (a, aRest) = fromDomains aInit source
         (b, bRest) = fromDomains bInit aRest
     in ((a, b), bRest)
+  nParams (a, b) = nParams a + nParams b
+  nScalars (a, b) = nScalars a + nScalars b
+
+instance ( r ~ Scalar a, r ~ Scalar b
+         , RandomDomains a
+         , RandomDomains b ) => RandomDomains (a, b) where
   randomVals range g =
     let (v1, g1) = randomVals range g
         (v2, g2) = randomVals range g1
     in ((v1, v2), g2)
-  nParams (a, b) = nParams a + nParams b
-  nScalars (a, b) = nScalars a + nScalars b
 
 instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
          , AdaptableDomains a
@@ -358,13 +368,18 @@ instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
         (b, bRest) = fromDomains bInit aRest
         (c, rest) = fromDomains cInit bRest
     in ((a, b, c), rest)
+  nParams (a, b, c) = nParams a + nParams b + nParams c
+  nScalars (a, b, c) = nScalars a + nScalars b + nScalars c
+
+instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
+         , RandomDomains a
+         , RandomDomains b
+         , RandomDomains c ) => RandomDomains (a, b, c) where
   randomVals range g =
     let (v1, g1) = randomVals range g
         (v2, g2) = randomVals range g1
         (v3, g3) = randomVals range g2
     in ((v1, v2, v3), g3)
-  nParams (a, b, c) = nParams a + nParams b + nParams c
-  nScalars (a, b, c) = nScalars a + nScalars b + nScalars c
 
 instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
          , AdaptableDomains a
@@ -387,14 +402,20 @@ instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
         (c, cRest) = fromDomains cInit bRest
         (d, rest) = fromDomains dInit cRest
     in ((a, b, c, d), rest)
+  nParams (a, b, c, d) = nParams a + nParams b + nParams c + nParams d
+  nScalars (a, b, c, d) = nScalars a + nScalars b + nScalars c + nScalars d
+
+instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
+         , RandomDomains a
+         , RandomDomains b
+         , RandomDomains c
+         , RandomDomains d ) => RandomDomains (a, b, c, d) where
   randomVals range g =
     let (v1, g1) = randomVals range g
         (v2, g2) = randomVals range g1
         (v3, g3) = randomVals range g2
         (v4, g4) = randomVals range g3
     in ((v1, v2, v3, v4), g4)
-  nParams (a, b, c, d) = nParams a + nParams b + nParams c + nParams d
-  nScalars (a, b, c, d) = nScalars a + nScalars b + nScalars c + nScalars d
 
 instance ( d ~ Mode a, d ~ Mode b
          , AdaptableInputs r a
@@ -446,7 +467,6 @@ instance (r ~ Scalar a, r ~ Scalar b, AdaptableDomains a, AdaptableDomains b)
               in (Left a2, rest)
     Right b -> let (b2, rest) = fromDomains b source
                in (Right b2, rest)
-  randomVals = undefined  -- we don't which side the sum type to use
   nParams = either nParams nParams
   nScalars = either nScalars nScalars
 
@@ -470,7 +490,6 @@ instance AdaptableDomains a
     Nothing -> (Nothing, source)
     Just a -> let (a2, rest) = fromDomains a source
               in (Just a2, rest)
-  randomVals = undefined  -- we don't which side the sum type to use
   nParams = maybe 0 nParams
   nScalars = maybe 0 nScalars
 

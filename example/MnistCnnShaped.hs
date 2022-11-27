@@ -171,7 +171,7 @@ convMnistTestS
 convMnistTestS kh@MkSN kw@MkSN
                c_out@MkSN
                n_hidden@MkSN batch_size@MkSN
-               (glyphS, labelS) evalAtFixedParams =
+               (glyphS, labelS) evalAtTestParams =
   let input :: OS.Array '[batch_size, c_in, h, w] r
       input = OS.reshape glyphS
       outputS =
@@ -181,7 +181,7 @@ convMnistTestS kh@MkSN kw@MkSN
               convMnistTwoS kh kw (MkSN @h) (MkSN @w) (MkSN @c_in) c_out
                             n_hidden batch_size
                             input a1 a2 a3 a4
-        in evalAtFixedParams nn
+        in evalAtTestParams nn
       outputs = map OS.toVector $ OSB.toList $ OS.unravel
                 $ OS.transpose @'[1, 0] $ outputS
       labels = map OS.toVector $ OSB.toList $ OS.unravel labelS

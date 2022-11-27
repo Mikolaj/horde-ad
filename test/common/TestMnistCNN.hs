@@ -420,15 +420,15 @@ convMnistTestCaseCNNT kheight_minus_1@MkSN kwidth_minus_1@MkSN
             -> MnistDataBatchS batch_size' r
             -> Domains r
             -> r
-      ftest batch_size' mnist flattenedParameters =
+      ftest batch_size' mnist testParams =
         ftestWithParams kheight_minus_1 kwidth_minus_1
                         out_channels
                         n_hidden batch_size'
                         mnist
-                        (valueAtDomains valsInit flattenedParameters)
+                        (valueAtDomains valsInit testParams)
   in testCase name $ do
     hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
-           prefix epochs maxBatches
+                              prefix epochs maxBatches
     trainData <- map shapeBatch
                  <$> loadMnistData trainGlyphsPath trainLabelsPath
     testData <- take 100  -- TODO: reduced for now, because too slow
