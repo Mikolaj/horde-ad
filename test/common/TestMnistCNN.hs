@@ -12,7 +12,7 @@ import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (SomeNat (..), someNatVal, type (<=))
+import           GHC.TypeLits
 import           Numeric.LinearAlgebra (Matrix, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.IO (hPutStrLn, stderr)
@@ -354,11 +354,11 @@ convMnistTestCaseCNNT
             in_height in_width batch_size d r.
      ( 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
+     , in_height ~ SizeMnistHeight, in_width ~ SizeMnistWidth
      , r ~ Double, d ~ 'ADModeGradient )
   => StaticNat kheight_minus_1 -> StaticNat kwidth_minus_1
   -> StaticNat n_hidden
   -> StaticNat out_channels
-  -> StaticNat in_height -> StaticNat in_width
   -> StaticNat batch_size
   -> String
   -> Int
@@ -375,17 +375,16 @@ convMnistTestCaseCNNT
          , OS.Array '[batch_size', SizeMnistLabel] r )
       -> ADConvMnistParameters kh kw h w c_out n_hidden' d r
       -> ADVal d r)
-  -> (forall kh kw h w c_out n_hidden'.
+  -> (forall kh kw c_out n_hidden' batch_size'.
       ( 1 <= kh
       , 1 <= kw
       , ADModeAndNum d r )
       => StaticNat kh -> StaticNat kw
-      -> StaticNat h -> StaticNat w
       -> StaticNat c_out
-      -> StaticNat n_hidden'
-      -> ConvMnistParameters kh kw h w c_out n_hidden' 'ADModeValue r
-      -> [( OS.Array '[h, w] r
-          , OS.Array '[SizeMnistLabel] r )]
+      -> StaticNat n_hidden' -> StaticNat batch_size'
+      -> ConvMnistParameters kh kw in_height in_width c_out n_hidden'
+                             'ADModeValue r
+      -> MnistDataBatchS batch_size' r
       -> Domains r
       -> r)
   -> Double
@@ -394,11 +393,12 @@ convMnistTestCaseCNNT
 convMnistTestCaseCNNT kheight_minus_1@MkSN kwidth_minus_1@MkSN
                       n_hidden@MkSN
                       out_channels@MkSN
-                      in_height@MkSN in_width@MkSN
                       batch_size@MkSN
                       prefix epochs maxBatches ftrainWithLoss ftestWithParams
                       gamma expected =
-  let batchSize = staticNatValue batch_size :: Int
+  let in_height = MkSN @in_height
+      in_width = MkSN @in_height
+      batchSize = staticNatValue batch_size :: Int
       seed = mkStdGen 44
       range = 0.05
       valsInit = fst $ randomVals range seed
@@ -410,54 +410,48 @@ convMnistTestCaseCNNT kheight_minus_1@MkSN kwidth_minus_1@MkSN
                         , show (nParams valsInit)
                         , show (nScalars valsInit)
                         , show gamma, show range ]
-      ftest = ftestWithParams kheight_minus_1 kwidth_minus_1
+      ftest :: StaticNat batch_size'
+            -> MnistDataBatchS batch_size' r
+            -> Domains r
+            -> r
+      ftest batch_size' = ftestWithParams kheight_minus_1 kwidth_minus_1
+                                          out_channels
+                                          n_hidden batch_size'
+                                          valsInit
+      ftrain = ftrainWithLoss kheight_minus_1 kwidth_minus_1
                               in_height in_width
-                              out_channels n_hidden
-                              valsInit
-      packBatchS :: [( OS.Array '[in_height, in_width] r
-                    , OS.Array '[SizeMnistLabel] r )]
-                -> ( OS.Array '[batch_size, in_height, in_width] r
-                   , OS.Array '[batch_size, SizeMnistLabel] r )
-      packBatchS l =
-        let (inputs, targets) = unzip l
-        in (OS.ravel $ OSB.fromList inputs, OS.ravel $ OSB.fromList targets)
-      shapeBatchS :: MnistData r
-                  -> ( OS.Array '[in_height, in_width] r
-                     , OS.Array '[SizeMnistLabel] r )
-      shapeBatchS (input, target) = (OS.fromVector input, OS.fromVector target)
+                              out_channels
+                              n_hidden batch_size
   in testCase name $ do
     hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
            prefix epochs maxBatches
-    trainData <- map shapeBatchS
+    trainData <- map shapeBatch
                  <$> loadMnistData trainGlyphsPath trainLabelsPath
     testData <- take 100  -- TODO: reduced for now, because too slow
-                . map shapeBatchS
+                . map shapeBatch
                 <$> loadMnistData testGlyphsPath testLabelsPath
-     -- There is some visual feedback, because some of these take long.
-    let runBatch :: Domains r
-                 -> (Int, [( OS.Array '[in_height, in_width] r
-                           , OS.Array '[SizeMnistLabel] r )])
+    let testDataS = packBatch @100 testData  -- TODO: @LengthTestData
+        -- There is some visual feedback, because some of these take long.
+        runBatch :: Domains r
+                 -> (Int, [MnistDataS r])
                  -> IO (Domains r)
         runBatch parameters@(!_, !_, !_, !_) (k, chunk) = do
           let f input adinputs =
-                ftrainWithLoss kheight_minus_1 kwidth_minus_1
-                               in_height in_width
-                               out_channels
-                               n_hidden batch_size
-                               input
-                               (parseADInputs valsInit adinputs)
-              chunkS = map packBatchS
+                ftrain input (parseADInputs valsInit adinputs)
+              chunkS = map (packBatch @batch_size)
                        $ filter (\ch -> length ch >= batchSize)
                        $ chunksOf batchSize chunk
           res <- fst <$> sgd gamma f chunkS parameters
-          let !trainScore = ftest chunk res
-              !testScore = ftest testData res
+          let !trainScore = ftest (MkSN @(2 * batch_size))
+                                  (packBatch @(2 * batch_size) chunk)
+                                  res
+              !testScore = ftest (MkSN @100) testDataS res
               !lenChunk = length chunk
           hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
           hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
           hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
           return res
-    let runEpoch :: Int -> Domains r -> IO (Domains r)
+        runEpoch :: Int -> Domains r -> IO (Domains r)
         runEpoch n params2 | n > epochs = return params2
         runEpoch n params2 = do
           hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
@@ -465,11 +459,11 @@ convMnistTestCaseCNNT kheight_minus_1@MkSN kwidth_minus_1@MkSN
               chunks = take maxBatches
                        $ zip [1 ..]
                        $ chunksOf (2 * batchSize) trainDataShuffled
-                           -- TODO: (10 * batchSize) takes forever
+                           -- TODO: (10 * batchSize) (also above); takes forever
           !res <- foldM runBatch params2 chunks
           runEpoch (succ n) res
     res <- runEpoch 1 parametersInit
-    let testErrorFinal = 1 - ftest testData res
+    let testErrorFinal = 1 - ftest (MkSN @100) testDataS res
     testErrorFinal @?~ expected
 
 
@@ -621,7 +615,6 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                          convMnistLossCNNP convMnistTestCNNP final_image_size
                          3 2 1 0.8991
   , convMnistTestCaseCNNT (MkSN @4) (MkSN @4) (MkSN @2) (MkSN @3)
-                          (MkSN @SizeMnistHeight) (MkSN @SizeMnistWidth)
                           (MkSN @1)
                           "T artificial 5 4 3 2 1" 5 4
                           convMnistLossFusedS convMnistTestS
@@ -675,7 +668,6 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                          0.02 2.7000000000000024e-2
 -}
   , convMnistTestCaseCNNT (MkSN @4) (MkSN @4) (MkSN @64) (MkSN @16)
-                          (MkSN @SizeMnistHeight) (MkSN @SizeMnistWidth)
                           (MkSN @16)
                           "T1 epoch 1 batch" 1 1
                           convMnistLossFusedS convMnistTestS
@@ -700,7 +692,6 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
                          convMnistLossCNNP convMnistTestCNNP final_image_size
                          1 1 1 0.9026
   , convMnistTestCaseCNNT (MkSN @4) (MkSN @4) (MkSN @1) (MkSN @1)
-                          (MkSN @SizeMnistHeight) (MkSN @SizeMnistWidth)
                           (MkSN @1)
                           "T artificial 1 1 1 1 1" 1 1
                           convMnistLossFusedS convMnistTestS
@@ -723,7 +714,6 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
                          3 4 5 0.8972
 -}
   , convMnistTestCaseCNNT (MkSN @4) (MkSN @4) (MkSN @4) (MkSN @3)
-                          (MkSN @SizeMnistHeight) (MkSN @SizeMnistWidth)
                           (MkSN @5)
                           "T artificial 1 2 3 4 5" 1 2
                           convMnistLossFusedS convMnistTestS

@@ -10,9 +10,12 @@ module MnistCnnShaped where
 
 import Prelude
 
+import           Data.Array.Internal (valueOf)
+import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
+import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as LA
 
 import HordeAd.Core.DualNumber
@@ -154,44 +157,39 @@ convMnistLossFusedS kh@MkSN kw@MkSN
   in scale (recip $ fromIntegral (staticNatValue batch_size :: Int))
      $ sumElements0 vec
 
--- For simplicity, testing is performed in mini-batches of 1.
--- See RNN for testing done in batches.
 convMnistTestS
-  :: forall kh kw h w c_in c_out n_hidden r.
+  :: forall kh kw h w c_in c_out n_hidden batch_size r.
      ( c_in ~ 1
+     , h ~ SizeMnistHeight, w ~ SizeMnistWidth
      , 1 <= kh
      , 1 <= kw
      , ADModeAndNum 'ADModeValue r )
   => StaticNat kh -> StaticNat kw
-  -> StaticNat h -> StaticNat w
   -> StaticNat c_out
-  -> StaticNat n_hidden
+  -> StaticNat n_hidden -> StaticNat batch_size
   -> ConvMnistParameters kh kw h w c_out n_hidden 'ADModeValue r
-  -> [( OS.Array '[h, w] r
-      , OS.Array '[SizeMnistLabel] r )]
+  -> MnistDataBatchS batch_size r
   -> Domains r
   -> r
 convMnistTestS kh@MkSN kw@MkSN
-               h@MkSN w@MkSN
                c_out@MkSN
-               n_hidden@MkSN
-               valsInit glyphsAndLabels flattenedParameters =
-  let matchesLabels :: ( OS.Array '[h, w] r
-                       , OS.Array '[SizeMnistLabel] r )
-                    -> Bool
-      matchesLabels (glyph, label) =
-        let input :: OS.Array '[1, c_in, h, w] r
-            input = OS.reshape glyph
-            batch_size_1 = MkSN @1
-            nn :: ADConvMnistParameters kh kw h w c_out n_hidden
-                                       'ADModeValue r
-               -> ADVal 'ADModeValue (OS.Array '[SizeMnistLabel, 1] r)
+               n_hidden@MkSN batch_size@MkSN
+               valsInit (glyphS, labelS) flattenedParameters =
+  let input :: OS.Array '[batch_size, c_in, h, w] r
+      input = OS.reshape glyphS
+      outputS =
+        let nn :: ADConvMnistParameters kh kw h w c_out n_hidden 'ADModeValue r
+               -> ADVal 'ADModeValue (OS.Array '[SizeMnistLabel, batch_size] r)
             nn _adparameters@(a1, a2, a3, a4) =
-              convMnistTwoS kh kw h w (MkSN @c_in) c_out
-                            n_hidden batch_size_1
+              convMnistTwoS kh kw (MkSN @h) (MkSN @w) (MkSN @c_in) c_out
+                            n_hidden batch_size
                             input a1 a2 a3 a4
-            -- TODO: simplify; perhaps after switching to mini-batches > 1
-            v = valueAtDomains nn valsInit flattenedParameters
-        in V.maxIndex (OS.toVector v) == V.maxIndex (OS.toVector label)
-  in fromIntegral (length (filter matchesLabels glyphsAndLabels))
-     / fromIntegral (length glyphsAndLabels)
+        in valueAtDomains nn valsInit flattenedParameters  -- TODO: simplify
+      outputs = map OS.toVector $ OSB.toList $ OS.unravel
+                $ OS.transpose @'[1, 0] $ outputS
+      labels = map OS.toVector $ OSB.toList $ OS.unravel labelS
+      matchesLabels :: Vector r -> Vector r -> Int
+      matchesLabels output label | V.maxIndex output == V.maxIndex label = 1
+                                 | otherwise = 0
+  in fromIntegral (sum (zipWith matchesLabels outputs labels))
+     / fromIntegral (valueOf @batch_size :: Int)
