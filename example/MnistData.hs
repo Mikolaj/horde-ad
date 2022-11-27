@@ -86,7 +86,8 @@ packBatch l =
   let (inputs, targets) = unzip l
   in (OS.ravel $ OSB.fromList inputs, OS.ravel $ OSB.fromList targets)
 
-readMnistData :: LBS.ByteString -> LBS.ByteString -> [MnistData Double]
+readMnistData :: forall r. (Numeric r, Fractional r)
+              => LBS.ByteString -> LBS.ByteString -> [MnistData r]
 readMnistData glyphsBS labelsBS =
   let glyphs = fromMaybe (error "wrong MNIST glyphs file")
                $ decodeIDX glyphsBS
@@ -94,7 +95,7 @@ readMnistData glyphsBS labelsBS =
                $ decodeIDXLabels labelsBS
       intData = fromMaybe (error "can't decode MNIST file into integers")
                 $ labeledIntData labels glyphs
-      f :: (Int, Data.Vector.Unboxed.Vector Int) -> MnistData Double
+      f :: (Int, Data.Vector.Unboxed.Vector Int) -> MnistData r
       -- Copied from library backprop to enable comparison of results.
       -- I have no idea how this is different from @labeledDoubleData@, etc.
       f (labN, v) =
@@ -108,7 +109,8 @@ trainLabelsPath = "samplesData/train-labels-idx1-ubyte.gz"
 testGlyphsPath  = "samplesData/t10k-images-idx3-ubyte.gz"
 testLabelsPath  = "samplesData/t10k-labels-idx1-ubyte.gz"
 
-loadMnistData :: FilePath -> FilePath -> IO [MnistData Double]
+loadMnistData :: (Numeric r, Fractional r)
+              => FilePath -> FilePath -> IO [MnistData r]
 loadMnistData glyphsPath labelsPath =
   withBinaryFile glyphsPath ReadMode $ \glyphsHandle ->
     withBinaryFile labelsPath ReadMode $ \labelsHandle -> do
@@ -117,7 +119,8 @@ loadMnistData glyphsPath labelsPath =
       return $! readMnistData (decompress glyphsContents)
                               (decompress labelsContents)
 
-loadMnistData2 :: FilePath -> FilePath -> IO [MnistData2 Double]
+loadMnistData2 :: (Numeric r, Fractional r)
+              => FilePath -> FilePath -> IO [MnistData2 r]
 loadMnistData2 glyphsPath labelsPath = do
   ds <- loadMnistData glyphsPath labelsPath
   return $! map (first $ LA.reshape sizeMnistWidthInt) ds

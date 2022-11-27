@@ -242,13 +242,13 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       fcnnMnistLoss0 0.02 3.233123290489956
   , testCase "fcnnMnistTest0 on 0.1 params0 300 100 width 10k testset" $ do
       let nParams0 = fcnnMnistLen0 300 100
-          params0 = V.replicate nParams0 0.1
+          params0 = V.replicate nParams0 (0.1 :: Double)
       testData <- loadMnistData testGlyphsPath testLabelsPath
       (1 - fcnnMnistTest0 300 100 testData params0)
         @?~ 0.902
   , testCase "fcnnMnistTest2VV on 0.1 params0 300 100 width 10k testset" $ do
       let (nParams0, nParams1, _, _) = fcnnMnistLen1 300 100
-          params0 = V.replicate nParams0 0.1
+          params0 = V.replicate nParams0 (0.1 :: Float)
           params1 = V.fromList $ map (`V.replicate` 0.1) nParams1
       testData <- loadMnistData testGlyphsPath testLabelsPath
       (1 - fcnnMnistTest1 300 100 testData (params0, params1))

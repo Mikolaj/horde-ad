@@ -325,7 +325,8 @@ mnistTestCase2F reallyWriteFile miniBatchSize decay
   in testCase name $ do
        hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
               prefix epochs maxBatches
-       trainData0 <- loadMnistData trainGlyphsPath trainLabelsPath
+       trainData0 :: [MnistData Float]
+         <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- loadMnistData testGlyphsPath testLabelsPath
        let !trainData = coerce $ force $ shuffle (mkStdGen 6) trainData0
        -- Mimic how backprop tests and display it, even though tests
@@ -515,12 +516,12 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       let (nParams0, lParams1, lParams2, _) = fcnnMnistLen2 300 100
           vParams1 = V.fromList lParams1
           vParams2 = V.fromList lParams2
-          params0 = V.replicate nParams0 0.1
+          params0 = V.replicate nParams0 (0.1 :: Float)
           params1 = V.map (`V.replicate` 0.1) vParams1
           params2 = V.map (LA.konst 0.1) vParams2
       testData <- loadMnistData testGlyphsPath testLabelsPath
       (1 - fcnnMnistTest2 testData
-                      (params0, params1, params2, V.empty))
+                          (params0, params1, params2, V.empty))
         @?~ 0.902
   , testProperty "Compare two forward derivatives and gradient for Mnist2" $
       \seed ->
