@@ -348,8 +348,9 @@ mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
                         , show nParams0, show nParams1
                         , show totalParams, show range ]
   in testCase name $ do
-       hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
-              prefix epochs maxBatches
+       hPutStrLn stderr $
+         printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
+                prefix epochs maxBatches
        let rws (input, target) =
              ( map (\k -> V.slice (k * 28) 28 input) [0 .. 27]
              , target )

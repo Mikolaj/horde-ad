@@ -79,12 +79,16 @@ type MnistDataBatchS batch_size r =
 
 shapeBatch :: Numeric r => MnistData r -> MnistDataS r
 shapeBatch (input, target) = (OS.fromVector input, OS.fromVector target)
+{-# SPECIALIZE shapeBatch :: MnistData Double -> MnistDataS Double #-}
+{-# SPECIALIZE shapeBatch :: MnistData Float -> MnistDataS Float #-}
 
 packBatch :: forall batch_size r. (Numeric r, KnownNat batch_size)
           => [MnistDataS r] -> MnistDataBatchS batch_size r
 packBatch l =
   let (inputs, targets) = unzip l
   in (OS.ravel $ OSB.fromList inputs, OS.ravel $ OSB.fromList targets)
+{-# SPECIALIZE packBatch :: forall batch_size. KnownNat batch_size => [MnistDataS Double] -> MnistDataBatchS batch_size Double #-}
+{-# SPECIALIZE packBatch :: forall batch_size. KnownNat batch_size => [MnistDataS Float] -> MnistDataBatchS batch_size Float #-}
 
 readMnistData :: forall r. (Numeric r, Fractional r)
               => LBS.ByteString -> LBS.ByteString -> [MnistData r]
@@ -102,6 +106,8 @@ readMnistData glyphsBS labelsBS =
         ( V.map (\r -> fromIntegral r / 255) $ V.convert v
         , V.generate sizeMnistLabelInt (\i -> if i == labN then 1 else 0) )
   in map f intData
+{-# SPECIALIZE readMnistData :: LBS.ByteString -> LBS.ByteString -> [MnistData Double] #-}
+{-# SPECIALIZE readMnistData :: LBS.ByteString -> LBS.ByteString -> [MnistData Float] #-}
 
 trainGlyphsPath, trainLabelsPath, testGlyphsPath, testLabelsPath :: FilePath
 trainGlyphsPath = "samplesData/train-images-idx3-ubyte.gz"
@@ -118,12 +124,16 @@ loadMnistData glyphsPath labelsPath =
       labelsContents <- LBS.hGetContents labelsHandle
       return $! readMnistData (decompress glyphsContents)
                               (decompress labelsContents)
+{-# SPECIALIZE loadMnistData :: FilePath -> FilePath -> IO [MnistData Double] #-}
+{-# SPECIALIZE loadMnistData :: FilePath -> FilePath -> IO [MnistData Float] #-}
 
 loadMnistData2 :: (Numeric r, Fractional r)
-              => FilePath -> FilePath -> IO [MnistData2 r]
+               => FilePath -> FilePath -> IO [MnistData2 r]
 loadMnistData2 glyphsPath labelsPath = do
   ds <- loadMnistData glyphsPath labelsPath
   return $! map (first $ LA.reshape sizeMnistWidthInt) ds
+{-# SPECIALIZE loadMnistData2 :: FilePath -> FilePath -> IO [MnistData2 Double] #-}
+{-# SPECIALIZE loadMnistData2 :: FilePath -> FilePath -> IO [MnistData2 Float] #-}
 
 -- Good enough for QuickCheck, so good enough for me.
 shuffle :: RandomGen g => g -> [a] -> [a]
