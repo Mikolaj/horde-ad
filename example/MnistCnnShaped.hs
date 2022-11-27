@@ -19,7 +19,6 @@ import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as LA
 
 import HordeAd.Core.DualNumber
-import HordeAd.External.Adaptor (Value, valueAtDomains)
 import MnistData
 
 -- Due to subtraction complicating posititive number type inference,
@@ -108,12 +107,7 @@ convMnistTwoS kh@MkSN kw@MkSN
       denseRelu = relu denseLayer
   in weigthsReadout <>$ denseRelu + asColumnS biasesReadout
 
--- The type of all trainable parameters of this nn.
-type ConvMnistParameters kh kw h w c_out n_hidden d r =
- Value
-  (ADConvMnistParameters kh kw h w c_out n_hidden d r)
-
--- And its differentiable version. We need both.
+-- The differentiable type of all trainable parameters of this nn.
 type ADConvMnistParameters kh kw h w c_out n_hidden d r =
   ( ( ADVal d (OS.Array '[c_out, 1, kh + 1, kw + 1] r)
     , ADVal d (OS.Array '[c_out] r) )
@@ -167,14 +161,15 @@ convMnistTestS
   => StaticNat kh -> StaticNat kw
   -> StaticNat c_out
   -> StaticNat n_hidden -> StaticNat batch_size
-  -> ConvMnistParameters kh kw h w c_out n_hidden 'ADModeValue r
   -> MnistDataBatchS batch_size r
-  -> Domains r
+  -> ((ADConvMnistParameters kh kw h w c_out n_hidden 'ADModeValue r
+       -> ADVal 'ADModeValue (OS.Array '[SizeMnistLabel, batch_size] r))
+      -> (OS.Array '[SizeMnistLabel, batch_size] r))
   -> r
 convMnistTestS kh@MkSN kw@MkSN
                c_out@MkSN
                n_hidden@MkSN batch_size@MkSN
-               valsInit (glyphS, labelS) flattenedParameters =
+               (glyphS, labelS) evalAtFixedParams =
   let input :: OS.Array '[batch_size, c_in, h, w] r
       input = OS.reshape glyphS
       outputS =
@@ -184,7 +179,7 @@ convMnistTestS kh@MkSN kw@MkSN
               convMnistTwoS kh kw (MkSN @h) (MkSN @w) (MkSN @c_in) c_out
                             n_hidden batch_size
                             input a1 a2 a3 a4
-        in valueAtDomains nn valsInit flattenedParameters  -- TODO: simplify
+        in evalAtFixedParams nn
       outputs = map OS.toVector $ OSB.toList $ OS.unravel
                 $ OS.transpose @'[1, 0] $ outputS
       labels = map OS.toVector $ OSB.toList $ OS.unravel labelS

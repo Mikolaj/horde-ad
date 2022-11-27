@@ -351,12 +351,12 @@ convMnistTestCNNP depth inputs parameters =
 
 convMnistTestCaseCNNT
   :: forall kheight_minus_1 kwidth_minus_1 n_hidden out_channels
-            in_height in_width batch_size d r.
+            in_height in_width batch_size r.
      ( 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
      , in_height ~ SizeMnistHeight, in_width ~ SizeMnistWidth
-     , HasDelta r, Random r, PrintfArg r, AssertEqualUpToEpsilon r r
-     , d ~ 'ADModeGradient )
+     , HasDelta r, ADModeAndNum 'ADModeValue r
+     , Random r, PrintfArg r, AssertEqualUpToEpsilon r r )
   => StaticNat kheight_minus_1 -> StaticNat kwidth_minus_1
   -> StaticNat n_hidden
   -> StaticNat out_channels
@@ -366,27 +366,26 @@ convMnistTestCaseCNNT
   -> Int
   -> (forall kh kw h w c_out n_hidden' batch_size'.
       ( 1 <= kh
-      , 1 <= kw
-      , ADModeAndNum d r )
+      , 1 <= kw )
       => StaticNat kh -> StaticNat kw
       -> StaticNat h -> StaticNat w
       -> StaticNat c_out
       -> StaticNat n_hidden' -> StaticNat batch_size'
       -> ( OS.Array '[batch_size', h, w] r
          , OS.Array '[batch_size', SizeMnistLabel] r )
-      -> ADConvMnistParameters kh kw h w c_out n_hidden' d r
-      -> ADVal d r)
+      -> ADConvMnistParameters kh kw h w c_out n_hidden' 'ADModeGradient r
+      -> ADVal 'ADModeGradient r)
   -> (forall kh kw c_out n_hidden' batch_size'.
       ( 1 <= kh
-      , 1 <= kw
-      , ADModeAndNum d r )
+      , 1 <= kw )
       => StaticNat kh -> StaticNat kw
       -> StaticNat c_out
       -> StaticNat n_hidden' -> StaticNat batch_size'
-      -> ConvMnistParameters kh kw in_height in_width c_out n_hidden'
-                             'ADModeValue r
       -> MnistDataBatchS batch_size' r
-      -> Domains r
+      -> ((ADConvMnistParameters kh kw in_height in_width c_out n_hidden'
+                                 'ADModeValue r
+           -> ADVal 'ADModeValue (OS.Array '[SizeMnistLabel, batch_size'] r))
+          -> OS.Array '[SizeMnistLabel, batch_size'] r)
       -> r)
   -> r
   -> r
@@ -402,9 +401,10 @@ convMnistTestCaseCNNT kheight_minus_1@MkSN kwidth_minus_1@MkSN
       batchSize = staticNatValue batch_size :: Int
       seed = mkStdGen 44
       range = 0.05
-      valsInit :: Value (ADConvMnistParameters kheight_minus_1 kwidth_minus_1
-                                               in_height in_width
-                                               out_channels n_hidden d r)
+      valsInit
+        :: Value (ADConvMnistParameters kheight_minus_1 kwidth_minus_1
+                                        in_height in_width
+                                        out_channels n_hidden 'ADModeGradient r)
       valsInit = fst $ randomVals range seed
       parametersInit = toDomains valsInit
       name = prefix ++ ": "
@@ -415,23 +415,24 @@ convMnistTestCaseCNNT kheight_minus_1@MkSN kwidth_minus_1@MkSN
                         , show (nScalars valsInit)
                         , show gamma, show range ]
       ftrain :: MnistDataBatchS batch_size r
-             -> ADInputs d r
-             -> ADVal d r
-      ftrain input adinputs =
+             -> ADInputs 'ADModeGradient r
+             -> ADVal 'ADModeGradient r
+      ftrain mnist adinputs =
         ftrainWithLoss kheight_minus_1 kwidth_minus_1
                        in_height in_width
                        out_channels
                        n_hidden batch_size
-                       input (parseADInputs valsInit adinputs)
+                       mnist (parseADInputs valsInit adinputs)
       ftest :: StaticNat batch_size'
             -> MnistDataBatchS batch_size' r
             -> Domains r
             -> r
-      ftest batch_size' =
+      ftest batch_size' mnist flattenedParameters =
         ftestWithParams kheight_minus_1 kwidth_minus_1
                         out_channels
                         n_hidden batch_size'
-                        valsInit
+                        mnist
+                        (valueAtDomains valsInit flattenedParameters)
   in testCase name $ do
     hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
            prefix epochs maxBatches
