@@ -17,7 +17,8 @@ module HordeAd.Core.DualNumber
   , ADVal, dD, dDnotShared
   , ADMode(..), ADModeAndNum
   , IsPrimal (..), IsPrimalAndHasFeatures, HasDelta
-  , Domain0, Domain1, Domain2, DomainX, Domains  -- an important re-export
+  , Domain0, Domain1, Domain2, DomainX, Domains, nullDomains
+      -- an important re-export
   ) where
 
 import Prelude
@@ -41,7 +42,15 @@ import qualified Numeric.LinearAlgebra as LA
 
 import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta
-  (Domain0, Domain1, Domain2, DomainX, Domains, atIndexInTensor, isTensorDummy)
+  ( Domain0
+  , Domain1
+  , Domain2
+  , DomainX
+  , Domains
+  , atIndexInTensor
+  , isTensorDummy
+  , nullDomains
+  )
 
 -- * Auxiliary definitions
 

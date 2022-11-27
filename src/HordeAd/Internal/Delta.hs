@@ -42,7 +42,7 @@ module HordeAd.Internal.Delta
   , -- * Delta expression identifiers
     NodeId(..), InputId, toInputId
   , -- * Evaluation of the delta expressions
-    DeltaDt (..), Domain0, Domain1, Domain2, DomainX, Domains
+    DeltaDt (..), Domain0, Domain1, Domain2, DomainX, Domains, nullDomains
   , gradientFromDelta, derivativeFromDelta
   , isTensorDummy, toShapedOrDummy, toDynamicOrDummy, atIndexInTensor
   ) where
@@ -350,6 +350,9 @@ type Domain2 r = Data.Vector.Vector (Matrix r)
 type DomainX r = Data.Vector.Vector (OT.Array r)
 
 type Domains r = (Domain0 r, Domain1 r, Domain2 r, DomainX r)
+
+nullDomains :: Numeric r => Domains r -> Bool
+nullDomains (v0, v1, v2, vX) = V.null v0 && V.null v1 && V.null v2 && V.null vX
 
 -- | The main input of the differentiation functions:
 -- the delta expression to be differentiated and the dt perturbation

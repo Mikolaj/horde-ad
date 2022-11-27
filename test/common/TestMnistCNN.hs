@@ -445,7 +445,7 @@ convMnistTestCaseCNNT kheight_minus_1@MkSN kwidth_minus_1@MkSN
                                out_channels
                                n_hidden batch_size
                                input
-                               (fst $ fromADInputs valsInit adinputs)
+                               (parseADInputs valsInit adinputs)
               chunkS = map packBatchS
                        $ filter (\ch -> length ch >= batchSize)
                        $ chunksOf batchSize chunk

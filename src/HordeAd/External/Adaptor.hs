@@ -3,12 +3,15 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module HordeAd.External.Adaptor
-  ( Adaptable, AdaptableScalar, AdaptableDomains(..), AdaptableInputs(..)
+  ( Adaptable, AdaptableScalar
+  , AdaptableDomains(toDomains, randomVals, nParams, nScalars)
+  , AdaptableInputs(Value), parseADInputs
   , value, valueAtDomains, rev, revDt, fwd
   ) where
 
 import Prelude
 
+import           Control.Exception (assert)
 import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.ShapedS as OS
@@ -37,7 +40,7 @@ valueAtDomains :: forall a vals r advals d.
                   , Numeric r, Adaptable advals )
                => (advals -> ADVal d a) -> vals -> Domains r -> a
 valueAtDomains f vals parameters =
-  let g inputs = f $ fst $ fromADInputs vals inputs
+  let g inputs = f $ parseADInputs vals inputs
   in valueFun g parameters
 
 rev :: forall a vals r advals d.
@@ -58,8 +61,8 @@ revDt :: forall a vals r advals d.
       => (advals -> ADVal d a) -> vals -> a
       -> vals
 revDt f vals dt =
-  let g inputs = f $ fst $ fromADInputs vals inputs
-  in fst $ fromDomains vals $ fst $ revFun dt g (toDomains vals)
+  let g inputs = f $ parseADInputs vals inputs
+  in parseDomains vals $ fst $ revFun dt g (toDomains vals)
 
 -- This takes the sensitivity parameter, by convention.
 fwd :: forall a vals r advals d.
@@ -70,7 +73,7 @@ fwd :: forall a vals r advals d.
     => (advals -> ADVal d a) -> vals -> vals
     -> Dual d a  -- normally equals @a@
 fwd f x ds =
-  let g inputs = f $ fst $ fromADInputs ds inputs
+  let g inputs = f $ parseADInputs ds inputs
   in fst $ fwdFun (toDomains x) g (toDomains ds)
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
@@ -106,6 +109,19 @@ class AdaptableInputs r advals where
   type Mode advals :: ADMode
   fromADInputs :: Value advals -> ADInputs (Mode advals) r
                -> (advals, ADInputs (Mode advals) r)
+
+parseDomains :: (AdaptableDomains vals, Numeric (Scalar vals))
+             => vals -> Domains (Scalar vals) -> vals
+parseDomains aInit domains =
+  let (vals, rest) = fromDomains aInit domains
+  in assert (nullDomains rest) vals
+
+parseADInputs :: (AdaptableInputs r advals, Numeric r)
+              => Value advals -> ADInputs (Mode advals) r
+              -> advals
+parseADInputs aInit inputs =
+  let (advals, rest) = fromADInputs aInit inputs
+  in assert (nullADInputs rest) advals
 
 instance AdaptableDomains Double where
   type Scalar Double = Double

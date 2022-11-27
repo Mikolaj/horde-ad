@@ -13,7 +13,7 @@
 -- with @Delta@ inputs assigned to each.
 module HordeAd.Core.PairOfVectors
   ( ADInputs(..)
-  , makeADInputs, at0, at1
+  , makeADInputs, nullADInputs, at0, at1
   , ifoldlDual', foldlDual'
   ) where
 
@@ -21,7 +21,7 @@ import Prelude
 
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           Numeric.LinearAlgebra (Vector)
+import           Numeric.LinearAlgebra (Numeric, Vector)
 
 import HordeAd.Core.DualClass (Dual)
 import HordeAd.Core.DualNumber
@@ -46,6 +46,11 @@ makeADInputs
 makeADInputs (params0, params1)
              (vs0, vs1)
   = ADInputs params0 vs0 params1 vs1
+
+nullADInputs :: Numeric r => ADInputs d r -> Bool
+nullADInputs ADInputs{..} =
+  nullDomains (inputPrimal0, inputPrimal1)
+  && V.null inputDual0 && V.null inputDual1
 
 at0 :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d r
 {-# INLINE at0 #-}

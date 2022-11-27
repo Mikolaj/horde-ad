@@ -13,7 +13,7 @@
 -- with @Delta@ inputs assigned to each.
 module HordeAd.Core.PairOfVectors
   ( ADInputs(..)
-  , makeADInputs, at0, at1, at2, atX, atS
+  , makeADInputs, nullADInputs, at0, at1, at2, atX, atS
   , ifoldlDual', foldlDual'
   ) where
 
@@ -24,7 +24,7 @@ import qualified Data.Array.ShapedS as OS
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (inline)
-import           Numeric.LinearAlgebra (Matrix, Vector)
+import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 
 import HordeAd.Core.DualClass (Dual)
 import HordeAd.Core.DualNumber
@@ -55,6 +55,12 @@ makeADInputs
 makeADInputs (params0, params1, params2, paramsX)
              (vs0, vs1, vs2, vsX)
   = ADInputs params0 vs0 params1 vs1 params2 vs2 paramsX vsX
+
+nullADInputs :: Numeric r => ADInputs d r -> Bool
+nullADInputs ADInputs{..} =
+  nullDomains (inputPrimal0, inputPrimal1, inputPrimal2, inputPrimalX)
+  && V.null inputDual0 && V.null inputDual1 && V.null inputDual2
+  && V.null inputDualX
 
 -- We could use @dDnotShared@ here and below, but the gains are negligible.
 at0 :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d r
