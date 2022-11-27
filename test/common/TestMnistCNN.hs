@@ -355,7 +355,8 @@ convMnistTestCaseCNNT
      ( 1 <= kheight_minus_1
      , 1 <= kwidth_minus_1
      , in_height ~ SizeMnistHeight, in_width ~ SizeMnistWidth
-     , r ~ Double, d ~ 'ADModeGradient )
+     , HasDelta r, Random r, PrintfArg r, AssertEqualUpToEpsilon r r
+     , d ~ 'ADModeGradient )
   => StaticNat kheight_minus_1 -> StaticNat kwidth_minus_1
   -> StaticNat n_hidden
   -> StaticNat out_channels
@@ -387,8 +388,8 @@ convMnistTestCaseCNNT
       -> MnistDataBatchS batch_size' r
       -> Domains r
       -> r)
-  -> Double
-  -> Double
+  -> r
+  -> r
   -> TestTree
 convMnistTestCaseCNNT kheight_minus_1@MkSN kwidth_minus_1@MkSN
                       n_hidden@MkSN
@@ -624,7 +625,7 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                           (MkSN @1)
                           "CNNT artificial 5 4 3 2 1" 5 4
                           convMnistLossFusedS convMnistTestS
-                          0.02 0.86
+                          0.02 (0.86 :: Float)
   , convMnistTestCaseCNNO (MkSN @4) (MkSN @4) (MkSN @2) (MkSN @3)
                           (MkSN @SizeMnistHeight) (MkSN @SizeMnistWidth)
                           (MkSN @1)
@@ -677,7 +678,7 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                           (MkSN @16)
                           "CNNT1 epoch 1 batch" 1 1
                           convMnistLossFusedS convMnistTestS
-                          0.02 0.85
+                          0.02 (0.85 :: Double)
   , convMnistTestCaseCNNO (MkSN @4) (MkSN @4) (MkSN @64) (MkSN @16)
                           (MkSN @SizeMnistHeight) (MkSN @SizeMnistWidth)
                           (MkSN @16)
@@ -701,7 +702,7 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
                           (MkSN @1)
                           "CNNT artificial 1 1 1 1 1" 1 1
                           convMnistLossFusedS convMnistTestS
-                          1 0.92
+                          1 (0.92 :: Double)
   , convMnistTestCaseCNNO (MkSN @4) (MkSN @4) (MkSN @1) (MkSN @1)
                           (MkSN @SizeMnistHeight) (MkSN @SizeMnistWidth)
                           (MkSN @1)
@@ -723,7 +724,7 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
                           (MkSN @5)
                           "CNNT artificial 1 2 3 4 5" 1 2
                           convMnistLossFusedS convMnistTestS
-                          6 0.86
+                          6 (0.86 :: Float)
   , convMnistTestCaseCNNO (MkSN @4) (MkSN @4) (MkSN @4) (MkSN @3)
                           (MkSN @SizeMnistHeight) (MkSN @SizeMnistWidth)
                           (MkSN @5)

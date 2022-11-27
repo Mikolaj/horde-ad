@@ -1,9 +1,11 @@
 {-# LANGUAGE FlexibleInstances, FunctionalDependencies,
              GeneralizedNewtypeDeriving, QuantifiedConstraints,
              UndecidableInstances #-}
-module Tool.EqEpsilon (EqEpsilon, setEpsilonEq,
-                       assertEqualUpToEpsilon,
-                       assertCloseElem, assertClose, (@?~)) where
+module Tool.EqEpsilon
+  ( EqEpsilon, setEpsilonEq
+  , AssertEqualUpToEpsilon, assertEqualUpToEpsilon
+  , assertCloseElem, assertClose, (@?~)
+  ) where
 
 import Data.Typeable
 import Prelude
