@@ -442,8 +442,8 @@ convMnistTestCaseCNNT kheight_minus_1@MkSN kwidth_minus_1@MkSN
                        $ filter (\ch -> length ch >= batchSize)
                        $ chunksOf batchSize chunk
           res <- fst <$> sgd gamma f chunkS parameters
-          let !trainScore = ftest (MkSN @(2 * batch_size))
-                                  (packBatch @(2 * batch_size) chunk)
+          let !trainScore = ftest (MkSN @(10 * batch_size))
+                                  (packBatch @(10 * batch_size) chunk)
                                   res
               !testScore = ftest (MkSN @100) testDataS res
               !lenChunk = length chunk
@@ -458,8 +458,7 @@ convMnistTestCaseCNNT kheight_minus_1@MkSN kwidth_minus_1@MkSN
           let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
               chunks = take maxBatches
                        $ zip [1 ..]
-                       $ chunksOf (2 * batchSize) trainDataShuffled
-                           -- TODO: (10 * batchSize) (also above); takes forever
+                       $ chunksOf (10 * batchSize) trainDataShuffled
           !res <- foldM runBatch params2 chunks
           runEpoch (succ n) res
     res <- runEpoch 1 parametersInit
@@ -616,9 +615,9 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
                          3 2 1 0.8991
   , convMnistTestCaseCNNT (MkSN @4) (MkSN @4) (MkSN @2) (MkSN @3)
                           (MkSN @1)
-                          "T artificial 5 4 3 2 1" 5 4
+                          "CNNT artificial 5 4 3 2 1" 5 4
                           convMnistLossFusedS convMnistTestS
-                          0.02 0.98
+                          0.02 0.86
   , convMnistTestCaseCNNO (MkSN @4) (MkSN @4) (MkSN @2) (MkSN @3)
                           (MkSN @SizeMnistHeight) (MkSN @SizeMnistWidth)
                           (MkSN @1)
@@ -669,9 +668,9 @@ mnistCNNTestsLong = testGroup "MNIST CNN long tests"
 -}
   , convMnistTestCaseCNNT (MkSN @4) (MkSN @4) (MkSN @64) (MkSN @16)
                           (MkSN @16)
-                          "T1 epoch 1 batch" 1 1
+                          "CNNT1 epoch 1 batch" 1 1
                           convMnistLossFusedS convMnistTestS
-                          0.02 0.86
+                          0.02 0.85
   , convMnistTestCaseCNNO (MkSN @4) (MkSN @4) (MkSN @64) (MkSN @16)
                           (MkSN @SizeMnistHeight) (MkSN @SizeMnistWidth)
                           (MkSN @16)
@@ -693,9 +692,9 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
                          1 1 1 0.9026
   , convMnistTestCaseCNNT (MkSN @4) (MkSN @4) (MkSN @1) (MkSN @1)
                           (MkSN @1)
-                          "T artificial 1 1 1 1 1" 1 1
+                          "CNNT artificial 1 1 1 1 1" 1 1
                           convMnistLossFusedS convMnistTestS
-                          1 0.85
+                          1 0.92
   , convMnistTestCaseCNNO (MkSN @4) (MkSN @4) (MkSN @1) (MkSN @1)
                           (MkSN @SizeMnistHeight) (MkSN @SizeMnistWidth)
                           (MkSN @1)
@@ -715,9 +714,9 @@ mnistCNNTestsShort = testGroup "MNIST CNN short tests"
 -}
   , convMnistTestCaseCNNT (MkSN @4) (MkSN @4) (MkSN @4) (MkSN @3)
                           (MkSN @5)
-                          "T artificial 1 2 3 4 5" 1 2
+                          "CNNT artificial 1 2 3 4 5" 1 2
                           convMnistLossFusedS convMnistTestS
-                          6 0.92
+                          6 0.86
   , convMnistTestCaseCNNO (MkSN @4) (MkSN @4) (MkSN @4) (MkSN @3)
                           (MkSN @SizeMnistHeight) (MkSN @SizeMnistWidth)
                           (MkSN @5)
