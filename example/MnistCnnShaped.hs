@@ -54,14 +54,18 @@ convMnistLayerS MkSN MkSN MkSN MkSN MkSN MkSN batch_size@MkSN
 convMnistTwoS
   :: forall kh kw h w c_in c_out n_hidden batch_size d r.
      -- @c_in@ will be alwayst 1, grayscale, but this function works for any
-     ( 1 <= kh
-     , 1 <= kw
-     , ADModeAndNum d r )
+     ( 1 <= kh             -- kernel height is large enough
+     , 1 <= kw             -- kernel width is large enough
+     , ADModeAndNum d r )  -- differentiation mode and scalar type are legal
   => StaticNat kh -> StaticNat kw
   -> StaticNat h -> StaticNat w
   -> StaticNat c_in -> StaticNat c_out
   -> StaticNat n_hidden -> StaticNat batch_size
-  -> OS.Array '[batch_size, c_in, h, w] r
+       -- ^ these boilerplate lines tie type parameters to the corresponding
+       -- value parameters (@MkSN@ below) denoting basic dimensions
+
+  -> OS.Array '[batch_size, c_in, h, w] r  -- ^ input images
+
   -- All the pairs below form the set of all parameters of this nn,
   -- slightly generalized (arbitrary @c_in@). Compare with
   -- @ADConvMnistParameters@.
@@ -76,7 +80,8 @@ convMnistTwoS
      , ADVal d (OS.Array '[n_hidden] r) )
   -> ( ADVal d (OS.Array '[SizeMnistLabel, n_hidden] r)
      , ADVal d (OS.Array '[SizeMnistLabel] r) )
-  -> ADVal d (OS.Array '[SizeMnistLabel, batch_size] r)
+
+  -> ADVal d (OS.Array '[SizeMnistLabel, batch_size] r)  -- classification
 convMnistTwoS kh@MkSN kw@MkSN
               h@MkSN w@MkSN
               c_in@MkSN c_out@MkSN
