@@ -103,8 +103,9 @@ revGeneral dt f inputs = return $! revGeneralFun dt f inputs
 
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newbies may have trouble understanding it.
--- Also, as of now, @revFun@ is restricted to objective functions with scalar
--- codomains, while VJP is fully general.
+-- Also, as of now, @revFun@ is restricted to objective functions with
+-- codomains comprising of one rank type (either scalar or vector or matrix
+-- or tensor; never a tuple of those), while VJP is fully general.
 revFun
   :: (HasDelta r, IsPrimalAndHasFeatures 'ADModeGradient a r)
   => a
