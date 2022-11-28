@@ -208,9 +208,9 @@ gradSmartTestCase prefix lossFunction seedSamples
                         , show (V.length nParams1), show (V.sum nParams1) ]
       f = lossFunction width
   in testCase name $ do
-       (parametersResult, _) <-
-         sgdAdam f samples parametersInit (initialStateAdam parametersInit)
-       let (_, values) =
+       let (parametersResult, _) =
+             sgdAdam f samples parametersInit (initialStateAdam parametersInit)
+           (_, values) =
              unzip
              $ map (\t -> revOnDomains 1 (f t) parametersResult) testSamples
        (sum values / 100) @?~ expected

@@ -127,10 +127,10 @@ sgdShow :: HasDelta r
         => (a -> ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
         -> [a]
         -> Domains r
-        -> IO r
-sgdShow f trainData parameters = do
-  result <- fst <$> sgd 0.1 f trainData parameters
-  return $! snd $ revOnDomains 1 (f $ head trainData) result
+        -> r
+sgdShow f trainData parameters =
+  let result = fst $ sgd 0.1 f trainData parameters
+  in snd $ revOnDomains 1 (f $ head trainData) result
 
 sgdTestCase :: String
             -> (a
@@ -148,7 +148,7 @@ sgdTestCase prefix f nParameters trainDataIO expected =
                         , show totalParams, show range ]
   in testCase name $ do
        trainData <- trainDataIO
-       res <- sgdShow f trainData parameters0
+       let res = sgdShow f trainData parameters0
        res @?~ expected
 
 sgdTestCaseAlt :: String
@@ -167,7 +167,7 @@ sgdTestCaseAlt prefix f nParameters trainDataIO expected =
                         , show totalParams, show range ]
   in testCase name $ do
        trainData <- trainDataIO
-       res <- sgdShow f trainData parameters0
+       let res = sgdShow f trainData parameters0
        assertCloseElem "" expected res
 
 prime :: ADModeAndNum 'ADModeValue r
@@ -217,8 +217,8 @@ feedbackTestCase prefix fp f nParameters trainData expected =
              ++ unwords [ show nParams0, show nParams1, show nParams2
                         , show totalParams, show range ]
   in testCase name $ do
-       trained <- fst <$> sgd 0.1 f trainData parameters0
-       let primed = prime fp trained (LA.konst 0 30) (take 19 series)
+       let trained = fst $ sgd 0.1 f trainData parameters0
+           primed = prime fp trained (LA.konst 0 30) (take 19 series)
            output = feedback fp trained primed (series !! 19)
        take 30 output @?~ expected
 
@@ -410,9 +410,9 @@ mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
                     -> (Int, [([Vector Double], Vector Double)])
                     -> IO (Domains Double, StateAdam Double)
            runBatch (parameters@(!_, !_, !_, !_), stateAdam) (k, chunk) = do
-             res@(parameters2, _) <-
-               sgdAdamBatch 150 (f width) chunk parameters stateAdam
-             let !trainScore = ftest width chunk parameters2
+             let res@(parameters2, _) =
+                   sgdAdamBatch 150 (f width) chunk parameters stateAdam
+                 !trainScore = ftest width chunk parameters2
                  !testScore = ftest width testData parameters2
                  !lenChunk = length chunk
              hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
@@ -444,7 +444,7 @@ sgdAdamBatch
   -> [a]
   -> Domains r
   -> StateAdam r
-  -> IO (Domains r, StateAdam r)
+  -> (Domains r, StateAdam r)
 sgdAdamBatch = sgdAdamBatchArgs defaultArgsAdam
 
 sgdAdamBatchArgs
@@ -455,14 +455,14 @@ sgdAdamBatchArgs
   -> [a]
   -> Domains r
   -> StateAdam r
-  -> IO (Domains r, StateAdam r)
+  -> (Domains r, StateAdam r)
 sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
   go trainingData parameters0 stateAdam0
  where
   deltaInputs = generateDeltaInputs parameters0
-  go :: [a] -> Domains r-> StateAdam r -> IO (Domains r, StateAdam r)
-  go [] parameters stateAdam = return (parameters, stateAdam)
-  go l parameters stateAdam = do
+  go :: [a] -> Domains r-> StateAdam r -> (Domains r, StateAdam r)
+  go [] parameters stateAdam = (parameters, stateAdam)
+  go l parameters stateAdam =
     let inputs = makeADInputs parameters deltaInputs
         (batch, rest) = splitAt batchSize l
         fAdd :: ADInputs 'ADModeGradient r
@@ -474,10 +474,10 @@ sgdAdamBatchArgs argsAdam batchSize f trainingData parameters0 stateAdam0 =
         fBatch vars =
           let resBatch = foldl' (fAdd vars) 0 batch
           in resBatch / fromIntegral (length batch)
-    gradients <- fst <$> revGeneral 1 fBatch inputs
-    let (parametersNew, stateAdamNew) =
+        gradients = fst $ revOnADInputs 1 fBatch inputs
+        (parametersNew, stateAdamNew) =
           updateWithGradientAdam argsAdam stateAdam parameters gradients
-    go rest parametersNew stateAdamNew
+    in go rest parametersNew stateAdamNew
 
 
 -- * A version written using matrices to express mini-batches of data
@@ -639,10 +639,10 @@ mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
                     -> (Int, [([Vector Double], Vector Double)])
                     -> IO (Domains Double, StateAdam Double)
            runBatch (parameters@(!_, !_, !_, !_), stateAdam) (k, chunk) = do
-             res@(parameters2, _) <-
-               sgdAdam (f width) (map packChunk $ chunksOf 150 chunk)
-                       parameters stateAdam
-             let !trainScore = ftest width chunk parameters2
+             let res@(parameters2, _) =
+                   sgdAdam (f width) (map packChunk $ chunksOf 150 chunk)
+                           parameters stateAdam
+                 !trainScore = ftest width chunk parameters2
                  !testScore = ftest width testData parameters2
                  !lenChunk = length chunk
              hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
@@ -715,8 +715,8 @@ mnistTestCaseRNNS out_width@MkSN batch_size@MkSN
               chunkS = map (packBatch @batch_size)
                        $ filter (\ch -> length ch >= batchSize)
                        $ chunksOf batchSize chunk
-          res@(parameters2, _) <- sgdAdam f chunkS parameters stateAdam
-          let !trainScore =
+              res@(parameters2, _) = sgdAdam f chunkS parameters stateAdam
+              !trainScore =
                 ftest out_width (MkSN @(10 * batch_size))
                       (packBatch @(10 * batch_size) chunk)
                       parameters2

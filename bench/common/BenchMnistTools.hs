@@ -32,12 +32,12 @@ mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
                     $ mkStdGen 33
       f = fcnnMnistLoss0 widthHidden widthHidden2
       chunk = take chunkLength xs
-      grad c = fst <$> sgd gamma f c (params0Init, V.empty, V.empty, V.empty)
+      grad c = fst $ sgd gamma f c (params0Init, V.empty, V.empty, V.empty)
       name = "" ++ extraPrefix
              ++ unwords [ "s" ++ show nParams0, "v0"
                         , "m0" ++ "=" ++ show nParams0 ]
   bench name $ nfIO $ do
-    res <- grad chunk
+    let res = grad chunk
     counter <- unsafeGetFreshId
     when (counter > 2 ^ (62 :: Int)) $
       error $ "Counter is dangerously high: " ++ show counter
@@ -107,12 +107,12 @@ mnistTrainBench2V extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
       f = fcnnMnistLoss1 widthHidden widthHidden2
       chunk = take chunkLength xs
       grad c =
-        fst <$> sgd gamma f c (params0Init, params1Init, V.empty, V.empty)
+        fst $ sgd gamma f c (params0Init, params1Init, V.empty, V.empty)
       totalParams = nParams0 + sum nParams1
       name = "" ++ extraPrefix
              ++ unwords [ "s" ++ show nParams0, "v" ++ show (length nParams1)
                         , "m0" ++ "=" ++ show totalParams ]
-  bench name $ nfIO $ grad chunk
+  bench name $ nf grad chunk
 
 mnistTestBench2V :: String -> Int -> [MnistData Double] -> Int -> Int
                  -> Benchmark
@@ -162,12 +162,12 @@ mnistTrainBench2L extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
       -- not againts the derived gradients that are definitively slower.
       f = fcnnMnistLossFused2
       chunk = take chunkLength xs
-      grad c = fst <$> sgd gamma f c parameters0
+      grad c = fst $ sgd gamma f c parameters0
       name = "" ++ extraPrefix
              ++ unwords [ "s" ++ show nParams0, "v" ++ show nParams1
                         , "m" ++ show nParams2
                           ++ "=" ++ show totalParams ]
-  bench name $ nfIO $ grad chunk
+  bench name $ nf grad chunk
 
 mnistTestBench2L :: String -> Int -> [MnistData Double] -> Int -> Int
                  -> Benchmark

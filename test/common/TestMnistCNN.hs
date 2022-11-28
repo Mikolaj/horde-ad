@@ -174,9 +174,9 @@ convMnistTestCaseCNN prefix epochs maxBatches trainWithLoss testLoss
                     -> IO (Domains Double)
            runBatch (!params0, !params1, !params2, !paramsX) (k, chunk) = do
              let f = trainWithLoss widthHidden
-             res <- fst <$> sgd gamma f chunk
-                                (params0, params1, params2, paramsX)
-             let !trainScore = testLoss widthHidden chunk res
+                 res = fst $ sgd gamma f chunk
+                                 (params0, params1, params2, paramsX)
+                 !trainScore = testLoss widthHidden chunk res
                  !testScore = testLoss widthHidden testData res
                  !lenChunk = length chunk
              hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
@@ -444,8 +444,8 @@ convMnistTestCaseCNNT kheight_minus_1@MkSN kwidth_minus_1@MkSN
           let chunkS = map (packBatch @batch_size)
                        $ filter (\ch -> length ch >= batchSize)
                        $ chunksOf batchSize chunk
-          res <- fst <$> sgd gamma ftrain chunkS parameters
-          let !trainScore = ftest (MkSN @(10 * batch_size))
+              res = fst $ sgd gamma ftrain chunkS parameters
+              !trainScore = ftest (MkSN @(10 * batch_size))
                                   (packBatch @(10 * batch_size) chunk)
                                   res
               !testScore = ftest (MkSN @100) testDataS res
@@ -572,8 +572,8 @@ convMnistTestCaseCNNO kheight_minus_1@MkSN kwidth_minus_1@MkSN
               chunkS = map packBatchS
                        $ filter (\ch -> length ch >= batchSize)
                        $ chunksOf batchSize chunk
-          res <- fst <$> sgd gamma f chunkS parameters
-          let !trainScore = ftest kheight_minus_1 kwidth_minus_1
+              res = fst $ sgd gamma f chunkS parameters
+              !trainScore = ftest kheight_minus_1 kwidth_minus_1
                                   in_height in_width
                                   out_channels n_hidden
                                   chunk res

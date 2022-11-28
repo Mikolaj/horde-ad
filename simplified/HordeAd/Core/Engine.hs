@@ -9,12 +9,12 @@ module HordeAd.Core.Engine
   ( -- * The most often used part of the high-level API
     revOnDomains, fwdOnDomains, valueOnDomains
   , -- * The less often used part of the high-level API
-    revIO, valueGeneral
+    valueGeneral
   , -- * Operations exposed not for the library users but add-on makers
-    revGeneral, fwdGeneral
+    revOnADInputs, fwdOnADInputs
   , generateDeltaInputs, initializerFixed, initializerFixed01
   , -- * Internal operations, exposed, e.g., for tests
-    slowFwdGeneral, slowFwd, slowFwdOnDomains
+    slowFwdOnADInputs, slowFwdOnDomains
   , prettyPrintDf, domainsFrom01, domainsFrom012X, domainsTo01
   ) where
 
@@ -25,8 +25,6 @@ import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Text.Show.Pretty (ppShow)
-
--- import           System.Mem (performMinorGC)
 
 import HordeAd.Core.DualClass (Dual, dInput, dummyDual, packDeltaDt, pattern D)
 import HordeAd.Core.DualNumber
@@ -85,17 +83,6 @@ revOnADInputs dt f inputs@ADInputs{..} =
   in let gradient = gradientFromDelta dim0 dim1 deltaDt
      in (gradient, v)
 
--- Tests expect this to be in IO by historical accident.
--- But we can possibly add hacks here in the future, such as @performMinorGC@.
-revGeneral
-  :: (HasDelta r, IsPrimalAndHasFeatures 'ADModeGradient a r)
-  => a
-  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
-  -> ADInputs 'ADModeGradient r
-  -> IO (Domains r, a)
-{-# INLINE revGeneral #-}
-revGeneral dt f inputs = return $! revOnADInputs dt f inputs
-
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newbies may have trouble understanding it.
 -- Also, as of now, @revOnDomains@ is restricted to objective functions with scalar
@@ -110,14 +97,6 @@ revOnDomains dt f parameters =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
   in revOnADInputs dt f inputs
-
-revIO
-  :: (HasDelta r, IsPrimalAndHasFeatures 'ADModeGradient a r)
-  => a
-  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
-  -> Domains r
-  -> IO (Domains r, a)
-revIO dt f parameters = return $! revOnDomains dt f parameters
 
 
 -- * The slow evaluation for derivatives that uses the same
@@ -138,15 +117,6 @@ slowFwdOnADInputs inputs@ADInputs{..} f ds =
   in let derivative = derivativeFromDelta dim0 dim1 deltaTopLevel ds
      in (derivative, v)
 
-slowFwdGeneral
-  :: HasDelta r
-  => ADInputs 'ADModeGradient r
-  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
-  -> Domains r
-  -> IO (r, r)
-{-# INLINE slowFwdGeneral #-}
-slowFwdGeneral inputs f ds = return $! slowFwdOnADInputs inputs f ds
-
 -- The direction vector ds is taken as an extra argument.
 slowFwdOnDomains
   :: HasDelta r
@@ -159,23 +129,15 @@ slowFwdOnDomains parameters f ds =
       inputs = makeADInputs parameters deltaInputs
   in slowFwdOnADInputs inputs f ds
 
-slowFwd
-  :: HasDelta r
-  => Domains r
-  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
-  -> Domains r
-  -> IO (r, r)
-slowFwd parameters f ds = return $! slowFwdOnDomains parameters f ds
-
 
 -- * Evaluation for efficiently computing forward derivatives.
 
-fwdGeneral
+fwdOnADInputs
   :: ADInputs 'ADModeDerivative r
   -> (ADInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative a)
   -> (Dual 'ADModeDerivative a, a)
-{-# INLINE fwdGeneral #-}
-fwdGeneral inputs f =
+{-# INLINE fwdOnADInputs #-}
+fwdOnADInputs inputs f =
   let D v d = f inputs
   in (d, v)
 
@@ -196,7 +158,7 @@ fwdOnDomains parameters f (params0, params1) =
         makeADInputs
           parameters
           (V.convert params0, params1)  -- ds
-  in fwdGeneral inputs f
+  in fwdOnADInputs inputs f
 
 
 -- * Additional mechanisms

@@ -234,7 +234,7 @@ testDForward =
   map (\(txt, f, v, expected) ->
         let vp = listsToParameters v
         in testCase txt $ do
-          res <- slowFwd vp f vp
+          let res = slowFwdOnDomains vp f vp
           res @?~ expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
     , ( "atanOldReadme", atanOldReadme, ([1.1, 2.2, 3.3], [])

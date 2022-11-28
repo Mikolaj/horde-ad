@@ -75,9 +75,9 @@ mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                     -> IO (Domains Double)
            runBatch (!params0, !params1, !params2, !paramsX) (k, chunk) = do
              let f = trainWithLoss
-             res <- fst <$> sgd gamma f chunk
-                                (params0, params1, params2, paramsX)
-             let !trainScore = fcnnMnistTest2 @Double chunk res
+                 res = fst $ sgd gamma f chunk
+                                 (params0, params1, params2, paramsX)
+                 !trainScore = fcnnMnistTest2 @Double chunk res
                  !testScore = fcnnMnistTest2 @Double testData res
                  !lenChunk = length chunk
              hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
@@ -139,8 +139,8 @@ mnistTestCase2T reallyWriteFile
                hPutStrLn stderr $ printf "%s: %d " prefix k
                hFlush stderr
              let f = trainWithLoss
-             (!params0New, !v) <-
-               sgd gamma f chunk (params0, params1, params2, paramsX)
+                 (!params0New, !v) =
+                   sgd gamma f chunk (params0, params1, params2, paramsX)
              time <- getPOSIXTime
              return (params0New, (time, v) : times)
        let runEpoch :: Int
@@ -212,9 +212,9 @@ mnistTestCase2D reallyWriteFile miniBatchSize decay
                  gamma = if decay
                          then gamma0 * exp (- fromIntegral k * 1e-4)
                          else gamma0
-             (!params0New, !v) <-
-                sgdBatchForward (33 + k * 7) miniBatchSize gamma f chunk
-                                (params0, params1, params2, paramsX) np
+                 (!params0New, !v) =
+                   sgdBatchForward (33 + k * 7) miniBatchSize gamma f chunk
+                                   (params0, params1, params2, paramsX) np
              time <- getPOSIXTime
              return (params0New, (time, v) : times)
        let runEpoch :: Int
@@ -252,7 +252,7 @@ mnistTestCase2D reallyWriteFile miniBatchSize decay
 -- for obtaining gradients and at least twice more allocations would
 -- be done there. With small mini-batch sizes this matters,
 -- especially for optimal forward gradient implementation
--- @fwdGeneral@, where there's no overhead from storing
+-- @fwdOnADInputs@, where there's no overhead from storing
 -- and evaluating delta-expressions.
 --
 -- An option: vectorize and only then take the mean of the vector of results
@@ -267,14 +267,14 @@ sgdBatchForward
   -> [a]  -- ^ training data
   -> Domains Double  -- ^ initial parameters
   -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
-  -> IO (Domains Double, Double)
+  -> (Domains Double, Double)
 sgdBatchForward seed0 batchSize gamma f trainingData parameters0 nParameters =
   go seed0 trainingData parameters0 0
  where
   deltaInputs = generateDeltaInputs parameters0
-  go :: Int -> [a] -> Domains Double -> Double -> IO (Domains Double, Double)
-  go _ [] parameters v = return (parameters, v)
-  go seed l parameters _ = do
+  go :: Int -> [a] -> Domains Double -> Double -> (Domains Double, Double)
+  go _ [] parameters v = (parameters, v)
+  go seed l parameters _ =
     let (batch, rest) = splitAt batchSize l
         fAdd :: ADInputs 'ADModeGradient Double
              -> ADVal 'ADModeGradient Double -> a
@@ -289,11 +289,11 @@ sgdBatchForward seed0 batchSize gamma f trainingData parameters0 nParameters =
         (g1, g2) = (seed + 5, seed + 13)
         (_, _, _, direction) = initializerFixed g1 unitVarianceRange nParameters
         inputs = makeADInputs parameters deltaInputs
-    (directionalDerivative, valueNew) <-
-      slowFwdGeneral inputs fBatch direction
-    let gammaDirectional = gamma * directionalDerivative
+        (directionalDerivative, valueNew) =
+          slowFwdOnADInputs inputs fBatch direction
+        gammaDirectional = gamma * directionalDerivative
         parametersNew = updateWithGradient gammaDirectional parameters direction
-    go g2 rest parametersNew valueNew
+    in go g2 rest parametersNew valueNew
 
 
 mnistTestCase2F
@@ -410,7 +410,7 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
             , unsafeCoerce paramsX )
             (V.convert dparams0, dparams1, dparams2, dparamsX)
         (directionalDerivative, valueNew) =
-          fwdGeneral inputs fBatch
+          fwdOnADInputs inputs fBatch
         gammaDirectional = gamma * directionalDerivative
         parametersNew = updateWithGradient gammaDirectional parameters direction
     in go g2 rest parametersNew valueNew
@@ -448,9 +448,9 @@ mnistTestCase2S widthHidden@MkSN widthHidden2@MkSN
                  -> IO (Domains Double)
         runBatch (!params0, !params1, !params2, !paramsX) (k, chunk) = do
           let f = trainWithLoss widthHidden widthHidden2
-          res <- fst <$> sgd gamma f chunk
-                             (params0, params1, params2, paramsX)
-          let !trainScore = fcnnMnistTestS widthHidden widthHidden2
+              res = fst $ sgd gamma f chunk
+                              (params0, params1, params2, paramsX)
+              !trainScore = fcnnMnistTestS widthHidden widthHidden2
                                           chunk res
               !testScore = fcnnMnistTestS widthHidden widthHidden2
                                          testData res

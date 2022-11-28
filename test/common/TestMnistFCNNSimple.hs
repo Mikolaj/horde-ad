@@ -41,11 +41,10 @@ sgdShow :: HasDelta r
         -> (a -> ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
         -> [a]  -- ^ training data
         -> Domain0 r  -- ^ initial parameters
-        -> IO r
-sgdShow gamma f trainData params0Init = do
-  result <-
-    fst <$> sgd gamma f trainData (domainsFrom01 params0Init V.empty)
-  return $! snd $ revOnDomains 1 (f $ head trainData) result
+        -> r
+sgdShow gamma f trainData params0Init =
+  let result = fst $ sgd gamma f trainData (domainsFrom01 params0Init V.empty)
+  in snd $ revOnDomains 1 (f $ head trainData) result
 
 sgdTestCase :: String
             -> IO [a]
@@ -66,8 +65,8 @@ sgdTestCase prefix trainDataIO trainWithLoss gamma expected =
              ++ unwords [show widthHidden, show nParams0, show gamma]
   in testCase name $ do
        trainData <- trainDataIO
-       res <- sgdShow gamma (trainWithLoss widthHidden widthHidden2)
-                      trainData vec
+       let res = sgdShow gamma (trainWithLoss widthHidden widthHidden2)
+                         trainData vec
        res @?~ expected
 
 mnistTestCase2
@@ -103,10 +102,10 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                     -> IO (Domain0 Double)
            runBatch !params0 (k, chunk) = do
              let f = trainWithLoss widthHidden widthHidden2
-             (!res, _) <-
-               domainsTo01 . fst
-               <$> sgd gamma f chunk (domainsFrom01 params0 V.empty)
-             let !trainScore = fcnnMnistTest0 widthHidden widthHidden2 chunk res
+                 (!res, _) =
+                   domainsTo01 . fst
+                   $ sgd gamma f chunk (domainsFrom01 params0 V.empty)
+                 !trainScore = fcnnMnistTest0 widthHidden widthHidden2 chunk res
                  !testScore =
                    fcnnMnistTest0 widthHidden widthHidden2 testData res
                  !lenChunk = length chunk
@@ -167,10 +166,10 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                     -> IO (Domain0 Double, Domain1 Double)
            runBatch (!params0, !params1) (k, chunk) = do
              let f = trainWithLoss widthHidden widthHidden2
-             (resS, resV) <-
-               domainsTo01 . fst
-               <$> sgd gamma f chunk (domainsFrom01 params0 params1)
-             let res = (resS, resV)
+                 (resS, resV) =
+                   domainsTo01 . fst
+                   $ sgd gamma f chunk (domainsFrom01 params0 params1)
+                 res = (resS, resV)
                  !trainScore = fcnnMnistTest1
                                          widthHidden widthHidden2 chunk res
                  !testScore = fcnnMnistTest1
