@@ -191,7 +191,7 @@ rnnMnistTestS out_width@MkSN
               batch_size@MkSN
               (glyphS, labelS) parameters =
   let xs = OS.transpose @'[2, 1, 0] glyphS
-      outputS = valueFun (rnnMnistS out_width
+      outputS = valueOnDomains (rnnMnistS out_width
                                     batch_size
                                     sizeMnistWidth sizeMnistHeight
                                     xs) parameters

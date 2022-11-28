@@ -45,9 +45,9 @@ adaptDReverseRecord
 adaptDReverseRecord dt f (ARecord a b) = do
   let initVec = V.fromList $ map Data.Array.Convert.convert [a, b]
       g = adaptFunctionRecord f
-  ((_, _, _, gradient), v) <-
-    revIO dt g (V.empty, V.empty, V.empty, initVec)
-  let gradientRecord = case V.toList gradient of
+      ((_, _, _, gradient), v) =
+        revOnDomains dt g (V.empty, V.empty, V.empty, initVec)
+      gradientRecord = case V.toList gradient of
         [a2, b2] -> ARecord (toShapedOrDummy a2)
                             (toShapedOrDummy b2)
         _ -> error "adaptDReverseRecord"

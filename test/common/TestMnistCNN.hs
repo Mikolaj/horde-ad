@@ -126,7 +126,7 @@ convMnistTestCNN depth inputs parameters =
         let nn xs =
               let m = convMnistCNN depth glyph xs
               in softMaxV m
-            v = valueFun nn parameters
+            v = valueOnDomains nn parameters
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
@@ -271,7 +271,7 @@ convMnistTestCNNS depth inputs parameters =
         let nn xs =
               let m = convMnistCNNS depth glyph xs
               in softMaxV m
-            v = valueFun nn parameters
+            v = valueOnDomains nn parameters
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
@@ -341,7 +341,7 @@ convMnistTestCNNP depth inputs parameters =
         let nn xs =
               let m = convMnistCNNP depth glyph xs
               in softMaxV m
-            v = valueFun nn parameters
+            v = valueOnDomains nn parameters
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)

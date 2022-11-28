@@ -25,7 +25,7 @@ gdSimpleShow :: HasDelta r
 gdSimpleShow gamma f initVec n = do
   (res, _) <-
     domainsTo01 <$> gdSimple gamma f n (domainsFrom01 initVec V.empty)
-  (_, v) <- revIO 1 f (domainsFrom01 res V.empty)
+  let (_, v) = revOnDomains 1 f (domainsFrom01 res V.empty)
   return (V.toList res, v)
 
 -- Catastrophic loss of sharing prevented.

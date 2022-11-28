@@ -45,7 +45,7 @@ sgdShow :: HasDelta r
 sgdShow gamma f trainData params0Init = do
   result <-
     fst <$> sgd gamma f trainData (domainsFrom01 params0Init V.empty)
-  snd <$> revIO 1 (f $ head trainData) result
+  return $! snd $ revOnDomains 1 (f $ head trainData) result
 
 sgdTestCase :: String
             -> IO [a]

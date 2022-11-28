@@ -114,7 +114,7 @@ fcnnMnistTest1 widthHidden widthHidden2 inputs (params0, params1) =
       matchesLabels (glyph, label) =
         let nn = inline fcnnMnist1 logistic softMaxV
                                    widthHidden widthHidden2 glyph
-            v = valueFun nn (domainsFrom01 params0 params1)
+            v = valueOnDomains nn (domainsFrom01 params0 params1)
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)

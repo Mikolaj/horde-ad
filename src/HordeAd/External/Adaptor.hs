@@ -42,7 +42,7 @@ valueAtDomains :: forall a vals r advals d.
                => vals -> Domains r -> (advals -> ADVal d a) -> a
 valueAtDomains vals parameters f =
   let g inputs = f $ parseADInputs vals inputs
-  in valueFun g parameters
+  in valueOnDomains g parameters
 
 rev :: forall a vals r advals d.
        ( r ~ Scalar vals, vals ~ Value advals
@@ -63,7 +63,7 @@ revDt :: forall a vals r advals d.
       -> vals
 revDt f vals dt =
   let g inputs = f $ parseADInputs vals inputs
-  in parseDomains vals $ fst $ revFun dt g (toDomains vals)
+  in parseDomains vals $ fst $ revOnDomains dt g (toDomains vals)
 
 -- This takes the sensitivity parameter, by convention.
 fwd :: forall a vals r advals d.
@@ -75,7 +75,7 @@ fwd :: forall a vals r advals d.
     -> Dual d a  -- normally equals @a@
 fwd f x ds =
   let g inputs = f $ parseADInputs ds inputs
-  in fst $ fwdFun (toDomains x) g (toDomains ds)
+  in fst $ fwdOnDomains (toDomains x) g (toDomains ds)
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
 type Adaptable advals =

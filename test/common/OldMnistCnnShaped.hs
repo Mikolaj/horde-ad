@@ -219,7 +219,7 @@ convMnistTestO kh@MkSN kw@MkSN
             nn = convMnistS kh kw h w c_out
                             n_hidden batch_size_1
                             tx
-            v = valueFun nn parameters
+            v = valueOnDomains nn parameters
         in V.maxIndex (OS.toVector v) == V.maxIndex (OS.toVector label)
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)

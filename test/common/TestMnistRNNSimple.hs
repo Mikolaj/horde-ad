@@ -53,7 +53,7 @@ sgdShow :: HasDelta r
         -> IO r
 sgdShow f trainData parameters = do
   result <- fst <$> sgd 0.1 f trainData parameters
-  snd <$> revIO 1 (f $ head trainData) result
+  return $! snd $ revOnDomains 1 (f $ head trainData) result
 
 sgdTestCase :: String
             -> (a
@@ -84,7 +84,7 @@ prime :: ADModeAndNum 'ADModeValue r
       -> [r]
       -> Vector r
 prime f parameters =
-  foldl' (\s x -> valueFun (snd . f x (constant s)) parameters)
+  foldl' (\s x -> valueOnDomains (snd . f x (constant s)) parameters)
 
 feedback :: ADModeAndNum 'ADModeValue r
          => (r
@@ -310,7 +310,7 @@ testMnistRNNV width inputs parameters =
   let matchesLabels :: ([Vector r], Vector r) -> Bool
       matchesLabels (glyph, label) =
         let nn = nnMnistRNNV width glyph
-            v = valueFun nn parameters
+            v = valueOnDomains nn parameters
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)

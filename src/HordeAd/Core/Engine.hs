@@ -7,14 +7,14 @@
 -- are add-ons.
 module HordeAd.Core.Engine
   ( -- * The most often used part of the high-level API
-    revFun, fwdFun, valueFun
+    revOnDomains, fwdOnDomains, valueOnDomains
   , -- * The less often used part of the high-level API
-    revIO, valueGeneral
+    valueGeneral
   , -- * Operations exposed not for the library users but add-on makers
     revGeneral, fwdGeneral
   , generateDeltaInputs, initializerFixed, initializerFixed01
   , -- * Internal operations, exposed, e.g., for tests
-    slowFwdGeneral, slowFwd, slowFwdFun
+    slowFwdGeneral, slowFwd, slowFwdOnDomains
   , prettyPrintDf, domainsFrom01, domainsFrom012X, domainsTo01
   ) where
 
@@ -55,30 +55,30 @@ valueGeneral f (params0, params1, params2, paramsX) =
                             , replicateDummy paramsX )
   in f inputs
 
-valueFun
+valueOnDomains
   :: Numeric r
   => (ADInputs 'ADModeValue r -> ADVal 'ADModeValue a)
   -> Domains r
   -> a
 -- Small enough that inline won't hurt.
-{-# INLINE valueFun #-}
-valueFun f parameters =
+{-# INLINE valueOnDomains #-}
+valueOnDomains f parameters =
   let D v _ = valueGeneral f parameters
   in v
 
 
 -- * Evaluation that computes gradients.
 
-revGeneralFun
+revOnADInputs
   :: (HasDelta r, IsPrimalAndHasFeatures 'ADModeGradient a r)
   => a
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
   -> ADInputs 'ADModeGradient r
   -> (Domains r, a)
--- The functions in which @revGeneralFun@ inlines are not inlined themselves
+-- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
-{-# INLINE revGeneralFun #-}
-revGeneralFun dt f inputs@ADInputs{..} =
+{-# INLINE revOnADInputs #-}
+revOnADInputs dt f inputs@ADInputs{..} =
   let dim0 = V.length inputPrimal0
       dim1 = V.length inputPrimal1
       dim2 = V.length inputPrimal2
@@ -99,45 +99,37 @@ revGeneral
   -> ADInputs 'ADModeGradient r
   -> IO (Domains r, a)
 {-# INLINE revGeneral #-}
-revGeneral dt f inputs = return $! revGeneralFun dt f inputs
+revGeneral dt f inputs = return $! revOnADInputs dt f inputs
 
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newbies may have trouble understanding it.
--- Also, as of now, @revFun@ is restricted to objective functions with
+-- Also, as of now, @revOnDomains@ is restricted to objective functions with
 -- codomains comprising of one rank type (either scalar or vector or matrix
 -- or tensor; never a tuple of those), while VJP is fully general.
-revFun
+revOnDomains
   :: (HasDelta r, IsPrimalAndHasFeatures 'ADModeGradient a r)
   => a
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
   -> Domains r
   -> (Domains r, a)
-revFun dt f parameters =
+revOnDomains dt f parameters =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
-  in revGeneralFun dt f inputs
-
-revIO
-  :: (HasDelta r, IsPrimalAndHasFeatures 'ADModeGradient a r)
-  => a
-  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
-  -> Domains r
-  -> IO (Domains r, a)
-revIO dt f parameters = return $! revFun dt f parameters
+  in revOnADInputs dt f inputs
 
 
 -- * The slow evaluation for derivatives that uses the same
--- delta expressions as for gradients. See @fwdFun@
+-- delta expressions as for gradients. See @fwdOnDomains@
 -- for a fast variant.
 
-slowFwdGeneralFun
+slowFwdOnADInputs
   :: HasDelta r
   => ADInputs 'ADModeGradient r
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> (r, r)
-{-# INLINE slowFwdGeneralFun #-}
-slowFwdGeneralFun inputs@ADInputs{..} f ds =
+{-# INLINE slowFwdOnADInputs #-}
+slowFwdOnADInputs inputs@ADInputs{..} f ds =
   let dim0 = V.length inputPrimal0
       dim1 = V.length inputPrimal1
       dim2 = V.length inputPrimal2
@@ -153,19 +145,19 @@ slowFwdGeneral
   -> Domains r
   -> IO (r, r)
 {-# INLINE slowFwdGeneral #-}
-slowFwdGeneral inputs f ds = return $! slowFwdGeneralFun inputs f ds
+slowFwdGeneral inputs f ds = return $! slowFwdOnADInputs inputs f ds
 
 -- The direction vector ds is taken as an extra argument.
-slowFwdFun
+slowFwdOnDomains
   :: HasDelta r
   => Domains r
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> (r, r)
-slowFwdFun parameters f ds =
+slowFwdOnDomains parameters f ds =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
-  in slowFwdGeneralFun inputs f ds
+  in slowFwdOnADInputs inputs f ds
 
 slowFwd
   :: HasDelta r
@@ -173,7 +165,7 @@ slowFwd
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
   -> Domains r
   -> IO (r, r)
-slowFwd parameters f ds = return $! slowFwdFun parameters f ds
+slowFwd parameters f ds = return $! slowFwdOnDomains parameters f ds
 
 
 -- * Evaluation for efficiently computing forward derivatives.
@@ -193,13 +185,13 @@ fwdGeneral inputs f =
 --
 -- The type equality constraint is needed, because the `Dual` type family
 -- can't declare it, because it needs to remain injective.
-fwdFun
+fwdOnDomains
   :: (Numeric r, Dual 'ADModeDerivative r ~ r)
   => Domains r
   -> (ADInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative a)
   -> Domains r  -- ds
   -> (Dual 'ADModeDerivative a, a)
-fwdFun parameters f (params0, params1, params2, paramsX) =
+fwdOnDomains parameters f (params0, params1, params2, paramsX) =
   let inputs =
         makeADInputs
           parameters

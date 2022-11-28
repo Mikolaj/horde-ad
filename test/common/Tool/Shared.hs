@@ -88,7 +88,7 @@ cmpTwo
   -> Domains r
   -> Property
 cmpTwo f1 f2 params1 params2 ds1 ds2 =
-  close2 (fwdFun params1 f1 ds1) (fwdFun params2 f2 ds2)
+  close2 (fwdOnDomains params1 f1 ds1) (fwdOnDomains params2 f2 ds2)
 
 -- A quick check to compare the derivatives and values of 2 given functions.
 cmpTwoSimple
@@ -111,11 +111,11 @@ qcPropDom :: (forall d r. (ADModeAndNum d r, r ~ Double)
           -> Double
           -> IO Property
 qcPropDom f args ds perturbation dt = do
-  let ff@(derivative, ffValue) = fwdFun args f ds
+  let ff@(derivative, ffValue) = fwdOnDomains args f ds
       (derivativeAtPerturbation, valueAtPerturbation) =
-        fwdFun args f perturbation
-  (gradient, revValue) <- revIO dt f args
-  res <- slowFwd args f ds
+        fwdOnDomains args f perturbation
+      (gradient, revValue) = revOnDomains dt f args
+      res = slowFwdOnDomains args f ds
   return $!
     -- Two forward derivative implementations agree fully:
     res === ff
@@ -127,7 +127,7 @@ qcPropDom f args ds perturbation dt = do
     -- Objective function value is unaffected by perturbation.
     .&&. ffValue == valueAtPerturbation
     -- Derivative approximates the perturbation of value.
-    .&&. close1 (valueFun f (addParameters args perturbation))
+    .&&. close1 (valueOnDomains f (addParameters args perturbation))
                 (ffValue + derivativeAtPerturbation)
 
 -- A quick consistency check of all the kinds of derivatives and gradients

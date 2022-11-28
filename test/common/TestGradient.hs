@@ -219,7 +219,7 @@ bar_3_75
      , [OS.Array (75 ': sh) r] )
   -> OS.Array (k ': 3 ': sh) r
 bar_3_75 = value (ravelFromListS . barS (MkSN @3) (MkSN @75))
-  -- @ravelFromListS@ is needed, because @valueFun@ expects the objective
+  -- @ravelFromListS@ is needed, because @valueOnDomains@ expects the objective
   -- function to have a dual number codomain and here we'd have a list
   -- of dual numbers. The same problem is worked around with @head@ below.
 

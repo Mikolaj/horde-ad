@@ -31,17 +31,17 @@ testTrees = [ testDReverse0
             , quickCheck0Tests
             ]
 
-revIO0
+revOnDomains0
   :: HasDelta r
   => (ADInputs 'ADModeGradient r
       -> ADVal 'ADModeGradient r)
   -> [r]
-  -> IO ([r], r)
-revIO0 f deltaInput = do
-  ((!results, _), !v) <-
-    first domainsTo01
-    <$> revIO 1 f (domainsFrom01 (V.fromList deltaInput) V.empty)
-  return (V.toList results, v)
+  -> ([r], r)
+revOnDomains0 f deltaInput =
+  let ((!results, _), !v) =
+        first domainsTo01
+        $ revOnDomains 1 f (domainsFrom01 (V.fromList deltaInput) V.empty)
+  in (V.toList results, v)
 
 fX :: ADInputs 'ADModeGradient Float
    -> ADVal 'ADModeGradient Float
@@ -119,10 +119,10 @@ freluX inputs =
   in relu x
 
 testDReverse0 :: TestTree
-testDReverse0 = testGroup "Simple revIO application tests" $
+testDReverse0 = testGroup "Simple revOnDomains application tests" $
   map (\(txt, f, v, expected) ->
         testCase txt $ do
-          res <- revIO0 f v
+          let res = revOnDomains0 f v
           res @?~ expected)
     [ ("fX", fX, [99], ([1.0],99.0))
     , ("fXagain", fX, [99], ([1.0],99.0))
@@ -188,19 +188,19 @@ dReverse1
   :: (r ~ Float, d ~ 'ADModeGradient)
   => (ADInputs d r -> ADVal d r)
   -> [[r]]
-  -> IO ([[r]], r)
-dReverse1 f deltaInput = do
-  ((_, !results), !v) <-
-    first domainsTo01
-    <$> revIO 1 f
-          (domainsFrom01 V.empty (V.fromList (map V.fromList deltaInput)))
-  return (map V.toList $ V.toList results, v)
+  -> ([[r]], r)
+dReverse1 f deltaInput =
+  let ((_, !results), !v) =
+        first domainsTo01
+        $ revOnDomains 1 f
+            (domainsFrom01 V.empty (V.fromList (map V.fromList deltaInput)))
+  in (map V.toList $ V.toList results, v)
 
 testDReverse1 :: TestTree
-testDReverse1 = testGroup "Simple revIO application to vectors tests" $
+testDReverse1 = testGroup "Simple revOnDomains application to vectors tests" $
   map (\(txt, f, v, expected) ->
         testCase txt $ do
-          res <- dReverse1 f v
+          let res = dReverse1 f v
           res @?~ expected)
     [ ("sumElementsV", sumElementsV, [[1, 1, 3]], ([[1.0,1.0,1.0]],5.0))
     , ("altSumElementsV", altSumElementsV, [[1, 1, 3]], ([[1.0,1.0,1.0]],5.0))
@@ -245,10 +245,10 @@ testDForward =
 
 testDFastForward :: TestTree
 testDFastForward =
- testGroup "Simple fwdFun application tests" $
+ testGroup "Simple fwdOnDomains application tests" $
   map (\(txt, f, v, expected) ->
         let vp = listsToParameters v
-        in testCase txt $ fwdFun vp f vp @?~ expected)
+        in testCase txt $ fwdOnDomains vp f vp @?~ expected)
     [ ("fquad", fquad, ([2 :: Double, 3], []), (26.0, 18.0))
     , ( "atanOldReadme", atanOldReadme, ([1.1, 2.2, 3.3], [])
       , (7.662345305800865, 4.9375516951604155) )
@@ -317,19 +317,20 @@ atanOldReadme = sumElementsOfADVals . atanOldReadmeInputs
 -- but it's a vector of scalar parameters, not a single parameter
 -- of rank 1).
 atanOldReadmeDReverse :: HasDelta r
-                   => Domain0 r -> IO (Domain0 r, r)
-atanOldReadmeDReverse ds = do
-  ((!result, _), !v) <-
-    first domainsTo01 <$> revIO 1 atanOldReadme (domainsFrom01 ds V.empty)
-  return (result, v)
+                      => Domain0 r -> (Domain0 r, r)
+atanOldReadmeDReverse ds =
+  let ((!result, _), !v) =
+        first domainsTo01
+        $ revOnDomains 1 atanOldReadme (domainsFrom01 ds V.empty)
+  in (result, v)
 
 oldReadmeTests :: TestTree
 oldReadmeTests = testGroup "Simple tests for README"
   [ testCase " Float (1.1, 2.2, 3.3)" $ do
-      res <- atanOldReadmeDReverse (V.fromList [1.1 :: Float, 2.2, 3.3])
+      let res = atanOldReadmeDReverse (V.fromList [1.1 :: Float, 2.2, 3.3])
       res @?~ (V.fromList [3.0715904, 0.18288425, 1.1761366], 4.937552)
   , testCase " Double (1.1, 2.2, 3.3)" $ do
-      res <- atanOldReadmeDReverse (V.fromList [1.1 :: Double, 2.2, 3.3])
+      let res = atanOldReadmeDReverse (V.fromList [1.1 :: Double, 2.2, 3.3])
       res @?~ ( V.fromList [ 3.071590389300859
                            , 0.18288422990948425
                            , 1.1761365368997136 ]
@@ -352,20 +353,21 @@ vatanOldReadme inputs =
   in sumElements0 v
 
 vatanOldReadmeDReverse :: HasDelta r
-                    => Domain1 r -> IO (Domain1 r, r)
-vatanOldReadmeDReverse dsV = do
-  ((_, !result), !v) <-
-    first domainsTo01 <$> revIO 1 vatanOldReadme (domainsFrom01 V.empty dsV)
-  return (result, v)
+                       => Domain1 r -> (Domain1 r, r)
+vatanOldReadmeDReverse dsV =
+  let ((_, !result), !v) =
+        first domainsTo01
+        $ revOnDomains 1 vatanOldReadme (domainsFrom01 V.empty dsV)
+  in (result, v)
 
 oldReadmeTestsV :: TestTree
 oldReadmeTestsV = testGroup "Simple tests of vector-based code for README"
   [ testCase "V Float (1.1, 2.2, 3.3)" $ do
-      res <- vatanOldReadmeDReverse (V.singleton $ V.fromList [1.1 :: Float, 2.2, 3.3])
+      let res = vatanOldReadmeDReverse (V.singleton $ V.fromList [1.1 :: Float, 2.2, 3.3])
       res @?~ ( V.singleton $ V.fromList [3.0715904, 0.18288425, 1.1761366]
               , 4.937552 )
   , testCase "V Double (1.1, 2.2, 3.3)" $ do
-      res <- vatanOldReadmeDReverse (V.singleton $ V.fromList [1.1 :: Double, 2.2, 3.3])
+      let res = vatanOldReadmeDReverse (V.singleton $ V.fromList [1.1 :: Double, 2.2, 3.3])
       res @?~ ( V.singleton $ V.fromList [ 3.071590389300859
                                          , 0.18288422990948425
                                          , 1.1761365368997136 ]
@@ -538,7 +540,7 @@ dRev0
 dRev0 f x =
   let g adInputs = f $ adInputs `at0` 0
       (domains, val) =
-        revFun 1 g (domainsFrom01 (V.singleton x) V.empty)
+        revOnDomains 1 g (domainsFrom01 (V.singleton x) V.empty)
       (gradient0, _) = domainsTo01 domains
   in (gradient0 V.! 0, val)
 
