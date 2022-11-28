@@ -147,7 +147,7 @@ qcPropFArg f fArgDom xyz dsRaw perturbationRaw dt = do
   qcPropDom f args ds perturbation dt
 
 -- A quick consistency check of all the kinds of derivatives and gradients
--- and all kinds of computing the value of the objective function.
+-- and all kinds of computing of the value of the objective function.
 qcTestRanges
   :: TestName
   -> (forall d r. ADModeAndNum d r

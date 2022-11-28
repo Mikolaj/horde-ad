@@ -11,6 +11,7 @@ import           Control.Monad (foldM)
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
+import           Data.Proxy (Proxy)
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
 import           Numeric.LinearAlgebra (Matrix, Vector)
@@ -765,14 +766,8 @@ comparisonTests volume =
         in ioProperty (qcPropDom f parameters ds parametersPerturbation 1)
            .&&. ioProperty (qcPropDom fP parameters ds parametersPerturbation 1)
            .&&. cmpTwoSimple f fP parameters ds
-  , testProperty "Compare gradients and two forward derivatives for 3 implementations of CNN MNIST" $
+  , testProperty "Compare gradients and two forward derivatives for 4 implementations of CNN MNIST" $
       \seed ->
-      -- Comparing convMnistLossFusedS would be hard, because it uses
-      -- a different method of generating random parameters than
-      -- the 3 other implementations and also qcPropDom uses flat domains
-      -- instead of shaped parameters.
-      -- TODO: perhaps do that anyway, manually shuffling that 8 tensors,
-      -- just as paramsToT does and converting back and forth for qcPropDom
       forAll (choose (0, sizeMnistLabelInt - 1)) $ \seedDs ->
       forAll (choose (1, volume)) $ \depth ->
       forAll (choose (1, volume)) $ \num_hidden ->
@@ -788,8 +783,8 @@ comparisonTests volume =
             (_, _, _, ds) = initializerFixed seedDs rangeDs paramShape
             (_, _, _, parametersPerturbation) =
               initializerFixed (seed + seedDs) 1e-7 paramShape
-            f, fP, fO :: forall d r. (ADModeAndNum d r, r ~ Double)
-                      => ADInputs d r -> ADVal d r
+            f, fP, fO, fS :: forall d r. (ADModeAndNum d r, r ~ Double)
+                          => ADInputs d r -> ADVal d r
             f = convMnistLossCNN depth mnistData
             fP = convMnistLossCNNP depth mnistData
             fO = case ( someNatVal $ toInteger num_hidden
@@ -805,6 +800,26 @@ comparisonTests volume =
                                        @1 [shapeBatch
                                            $ first LA.flatten mnistData])
               _ -> error "fO panic"
+            fS = case ( someNatVal $ toInteger num_hidden
+                      , someNatVal $ toInteger depth ) of
+              ( Just (SomeNat (proxy_num_hidden :: Proxy n_hidden))
+               ,Just (SomeNat (proxy_out_channel :: Proxy c_out)) ) ->
+                let c_out = staticNatFromProxy proxy_out_channel
+                    n_hidden = staticNatFromProxy proxy_num_hidden
+                    valsInit
+                      :: Value (ADConvMnistParameters 4 4
+                                                      c_out n_hidden
+                                                     'ADModeGradient r)
+                    valsInit = fst $ randomVals (1 :: Double) (mkStdGen 1)
+                in \adinputs ->
+                  convMnistLossFusedS (MkSN @4) (MkSN @4)
+                                      c_out n_hidden
+                                      (MkSN @1)
+                                      (packBatch
+                                         @1 [shapeBatch
+                                             $ first LA.flatten mnistData])
+                                      (parseADInputs valsInit adinputs)
+              _ -> error "fT panic"
             paramsToT (p0, p1, p2, _) =
               let qX = V.fromList
                     [ OT.fromVector [depth, 1, 5, 5]
@@ -833,6 +848,9 @@ comparisonTests volume =
                   (qcPropDom fP parameters ds parametersPerturbation 1)
            .&&. ioProperty
                   (qcPropDom fO parametersT dsT parametersPerturbationT 1)
+           .&&. ioProperty
+                  (qcPropDom fS parametersT dsT parametersPerturbationT 1)
            .&&. cmpTwoSimple f fP parameters ds
            .&&. cmpTwo f fO parameters parametersT ds dsT
+           .&&. cmpTwo f fS parameters parametersT ds dsT
   ]
