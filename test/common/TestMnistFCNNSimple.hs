@@ -272,7 +272,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             f :: forall d r. (ADModeAndNum d r, r ~ Double)
               => ADInputs d r -> ADVal d r
             f = fcnnMnistLoss0 widthHidden widthHidden2 mnistData
-        in ioProperty $ qcPropDom f parameters ds parametersPerturbation 1
+        in qcPropDom f parameters ds parametersPerturbation 1
   , testProperty "Compare two forward derivatives and gradient for Mnist1" $
       \seed seedDs ->
       forAll (choose (1, 2000)) $ \widthHidden ->
@@ -292,7 +292,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             f :: forall d r. (ADModeAndNum d r, r ~ Double)
               => ADInputs d r -> ADVal d r
             f = fcnnMnistLoss1 widthHidden widthHidden2 mnistData
-        in ioProperty $ qcPropDom f parameters ds parametersPerturbation 1
+        in qcPropDom f parameters ds parametersPerturbation 1
   ]
 
 bigMnistTests :: TestTree

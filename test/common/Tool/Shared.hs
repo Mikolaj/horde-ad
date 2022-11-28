@@ -109,14 +109,14 @@ qcPropDom :: (forall d r. (ADModeAndNum d r, r ~ Double)
           -> Domains Double
           -> Domains Double
           -> Double
-          -> IO Property
-qcPropDom f args ds perturbation dt = do
+          -> Property
+qcPropDom f args ds perturbation dt =
   let ff@(derivative, ffValue) = fwdOnDomains args f ds
       (derivativeAtPerturbation, valueAtPerturbation) =
         fwdOnDomains args f perturbation
       (gradient, revValue) = revOnDomains dt f args
       res = slowFwdOnDomains args f ds
-  return $!
+  in
     -- Two forward derivative implementations agree fully:
     res === ff
     -- Objective function value from gradients is the same.
@@ -139,12 +139,12 @@ qcPropFArg :: (forall d r. ADModeAndNum d r
            -> (Double, Double, Double)
            -> (Double, Double, Double)
            -> Double
-           -> IO Property
-qcPropFArg f fArgDom xyz dsRaw perturbationRaw dt = do
+           -> Property
+qcPropFArg f fArgDom xyz dsRaw perturbationRaw dt =
   let args = fArgDom xyz
       ds = fArgDom dsRaw
       perturbation = fArgDom perturbationRaw
-  qcPropDom f args ds perturbation dt
+  in qcPropDom f args ds perturbation dt
 
 -- A quick consistency check of all the kinds of derivatives and gradients
 -- and all kinds of computing of the value of the objective function.
@@ -162,7 +162,7 @@ qcTestRanges txt f fArgDom dsRange perturbationRange dtRange =
   forAll (choose dsRange) $ \xyz dsRaw ->
   forAll (choose perturbationRange) $ \perturbationRaw ->
   forAll (choose dtRange) $ \dt ->
-  ioProperty $ qcPropFArg f fArgDom xyz dsRaw perturbationRaw dt
+    qcPropFArg f fArgDom xyz dsRaw perturbationRaw dt
 
 ----------------------------------------------------------------------------
 -- Things that have shape

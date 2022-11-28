@@ -548,11 +548,9 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             f = fcnnMnistLoss2 mnistData
             fOneHot = fcnnMnistLoss2 mnistDataOneHot
             fFused = fcnnMnistLossFused2 mnistDataOneHot
-        in ioProperty (qcPropDom f parameters ds parametersPerturbation 1)
-           .&&. ioProperty
-                  (qcPropDom fOneHot parameters ds parametersPerturbation 1)
-           .&&. ioProperty
-                  (qcPropDom fFused parameters ds parametersPerturbation 1)
+        in qcPropDom f parameters ds parametersPerturbation 1
+           .&&. qcPropDom fOneHot parameters ds parametersPerturbation 1
+           .&&. qcPropDom fFused parameters ds parametersPerturbation 1
            .&&. cmpTwoSimple fOneHot fFused parameters ds
   ]
 

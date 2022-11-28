@@ -763,8 +763,8 @@ comparisonTests volume =
                   cx1 = indexX cx ix1
                   cx2 = indexX cx1 ix2
               in fromX0 cx2
-        in ioProperty (qcPropDom f parameters ds parametersPerturbation 1)
-           .&&. ioProperty (qcPropDom fP parameters ds parametersPerturbation 1)
+        in qcPropDom f parameters ds parametersPerturbation 1
+           .&&. qcPropDom fP parameters ds parametersPerturbation 1
            .&&. cmpTwoSimple f fP parameters ds
   , testProperty "Compare gradients and two forward derivatives for 4 implementations of CNN MNIST" $
       \seed ->
@@ -843,13 +843,10 @@ comparisonTests volume =
             parametersT = paramsToT parameters
             dsT = paramsToT ds
             parametersPerturbationT = paramsToT parametersPerturbation
-        in ioProperty (qcPropDom f parameters ds parametersPerturbation 1)
-           .&&. ioProperty
-                  (qcPropDom fP parameters ds parametersPerturbation 1)
-           .&&. ioProperty
-                  (qcPropDom fO parametersT dsT parametersPerturbationT 1)
-           .&&. ioProperty
-                  (qcPropDom fS parametersT dsT parametersPerturbationT 1)
+        in qcPropDom f parameters ds parametersPerturbation 1
+           .&&. qcPropDom fP parameters ds parametersPerturbation 1
+           .&&. qcPropDom fO parametersT dsT parametersPerturbationT 1
+           .&&. qcPropDom fS parametersT dsT parametersPerturbationT 1
            .&&. cmpTwoSimple f fP parameters ds
            .&&. cmpTwo f fO parameters parametersT ds dsT
            .&&. cmpTwo f fS parameters parametersT ds dsT
