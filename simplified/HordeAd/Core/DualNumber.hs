@@ -294,6 +294,11 @@ slice1 i n (D u u') = dD (V.slice i n u) (dSlice1 i n u' (V.length u))
 reverse1 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d (Vector r)
 reverse1 (D u u') = dD (V.reverse u) (dReverse1 u')
 
+build1POPL :: Int -> (Int -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
+build1POPL n f = V.fromList $ map f [0 .. n - 1]
+
+-- Fake rank 1. This is still an array of delta expressions, thinly wrapped,
+-- not a single delta expression representing an array.
 build1Seq :: ADModeAndNum d r
           => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
 build1Seq n f = fromList1 $ map f [0 .. n - 1]

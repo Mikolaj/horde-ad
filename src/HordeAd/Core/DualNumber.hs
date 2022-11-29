@@ -449,6 +449,11 @@ lossSoftMaxCrossEntropyL target (D u u') =
                   (dScale (softMaxU - target) u')
   in sumColumns1 scaled
 
+build1POPL :: Int -> (Int -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
+build1POPL n f = V.fromList $ map f [0 .. n - 1]
+
+-- Fake rank 1. This is still an array of delta expressions, thinly wrapped,
+-- not a single delta expression representing an array.
 build1Seq :: ADModeAndNum d r
           => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
 build1Seq n f = fromList1 $ map f [0 .. n - 1]

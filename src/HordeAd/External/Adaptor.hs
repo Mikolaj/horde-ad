@@ -40,9 +40,9 @@ valueAtDomains :: forall a vals r advals d.
                   , d ~ Mode advals, d ~ 'ADModeValue
                   , Numeric r, Adaptable advals )
                => vals -> Domains r -> (advals -> ADVal d a) -> a
-valueAtDomains vals parameters f =
+valueAtDomains vals flattenedParameters f =
   let g inputs = f $ parseADInputs vals inputs
-  in valueOnDomains g parameters
+  in valueOnDomains g flattenedParameters
 
 rev :: forall a vals r advals d.
        ( r ~ Scalar vals, vals ~ Value advals
