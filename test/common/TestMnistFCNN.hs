@@ -28,7 +28,6 @@ import MnistData
 import MnistFcnnMatrix
 import MnistFcnnShaped
 import MnistFcnnVector
-import OldMnistFcnnVector
 
 import Tool.EqEpsilon
 import Tool.Shared
@@ -605,7 +604,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       (1 - fcnnMnistTest2 testData
                           (params0, params1, params2, V.empty))
         @?~ 0.902
-  , testProperty "Compare two forward derivatives and gradient for Mnist1" $
+  , testProperty "Compare two forward derivatives and gradient for Mnist1A" $
       \seed seedDs ->
       forAll (choose (1, 2000)) $ \widthHidden ->
       forAll (choose (1, 5000)) $ \widthHidden2 ->
@@ -616,14 +615,26 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             label = createRandomVector sizeMnistLabelInt seedDs
             mnistData :: MnistData Double
             mnistData = (glyph, label)
-            paramShape = fcnnMnistLen1 widthHidden widthHidden2
+            paramShape = afcnnMnistLen1 widthHidden widthHidden2
+            -- This is a very ugly and probably unavoidable boilerplate:
+            -- we have to manually define a dummy value
+            -- of type ADFcnnMnistParameters
+            -- with the correct list lengths (vector lengths can be fake)
+            -- to bootstrap the adaptor machinery. Such boilerplate can be
+            -- avoided only with shapely typed tensors and scalars or when
+            -- not using adaptors.
+            valsInit = ( (replicate widthHidden V.empty, V.empty)
+                       , (replicate widthHidden2 V.empty, V.empty)
+                       , (replicate sizeMnistLabelInt V.empty, V.empty) )
             (_, _, _, parameters) = initializerFixed seed range paramShape
             (_, _, _, ds) = initializerFixed seedDs rangeDs paramShape
             (_, _, _, parametersPerturbation) =
               initializerFixed (seed + seedDs) 1e-7 paramShape
             f :: forall d r. (ADModeAndNum d r, r ~ Double)
               => ADInputs d r -> ADVal d r
-            f = fcnnMnistLoss1 widthHidden widthHidden2 mnistData
+            f adinputs =
+              afcnnMnistLoss1 widthHidden widthHidden2 mnistData
+                              (parseADInputs valsInit adinputs)
         in qcPropDom f parameters ds parametersPerturbation 1
   , testProperty "Compare two forward derivatives and gradient for Mnist2" $
       \seed ->
