@@ -19,7 +19,6 @@ import           Text.Printf
 import HordeAd
 import MnistData
 import MnistFcnnScalar
-import MnistFcnnVector
 import OldMnistFcnnVector
 
 import Tool.EqEpsilon
@@ -274,7 +273,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
               => ADInputs d r -> ADVal d r
             f = fcnnMnistLoss0 widthHidden widthHidden2 mnistData
         in qcPropDom f parameters ds parametersPerturbation 1
-  , testProperty "Compare two forward derivatives and gradient for Mnist1" $
+  , testProperty "Compare two forward derivatives and gradient for old Mnist1" $
       \seed seedDs ->
       forAll (choose (1, 2000)) $ \widthHidden ->
       forAll (choose (1, 5000)) $ \widthHidden2 ->

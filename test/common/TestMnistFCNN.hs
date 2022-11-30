@@ -10,6 +10,7 @@ import           Control.Monad (foldM, when)
 import qualified Data.Array.DynamicS as OT
 import           Data.Coerce (coerce)
 import           Data.List (foldl')
+import           Data.List.Index (imap)
 import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import qualified Data.Vector.Generic as V
 import qualified Numeric.LinearAlgebra as LA
@@ -26,12 +27,15 @@ import HordeAd.External.OptimizerTools
 import MnistData
 import MnistFcnnMatrix
 import MnistFcnnShaped
+import MnistFcnnVector
+import OldMnistFcnnVector
 
 import Tool.EqEpsilon
 import Tool.Shared
 
 testTrees :: [TestTree]
 testTrees = [ dumbMnistTests
+            , vectorMnistTests
             , matrixMnistTests
             , shortCIMnistTests
             , longMnistTests
@@ -41,6 +45,84 @@ shortTestForCITrees :: [TestTree]
 shortTestForCITrees = [ dumbMnistTests
                       , shortCIMnistTests
                       ]
+mnistTestCase2VA
+  :: String
+  -> Int
+  -> Int
+  -> (Int
+      -> Int
+      -> MnistData Double
+      -> ADFcnnMnistParameters 'ADModeGradient Double
+      -> ADVal 'ADModeGradient Double)
+  -> Int
+  -> Int
+  -> Double
+  -> Double
+  -> TestTree
+mnistTestCase2VA prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
+                 gamma expected =
+  let (nParams0, nParams1, _, _) = afcnnMnistLen1 widthHidden widthHidden2
+      params0Init = LA.randomVector 44 LA.Uniform nParams0 - LA.scalar 0.5
+      params1Init = V.fromList $
+        imap (\i nPV -> LA.randomVector (44 + nPV + i) LA.Uniform nPV
+                        - LA.scalar 0.5)
+             nParams1
+      -- This is a very ugly and probably unavoidable boilerplate:
+      -- we have to manually define a dummy value of type ADFcnnMnistParameters
+      -- with the correct list lengths (vector lengths can be fake)
+      -- to bootstrap the adaptor machinery. Such boilerplate can be
+      -- avoided only with shapely typed tensors and scalars or when
+      -- not using adaptors.
+      valsInit = ( (replicate widthHidden V.empty, V.empty)
+                 , (replicate widthHidden2 V.empty, V.empty)
+                 , (replicate sizeMnistLabelInt V.empty, V.empty) )
+      name = prefix ++ ": "
+             ++ unwords [ show epochs, show maxBatches
+                        , show widthHidden, show widthHidden2
+                        , show nParams0, show (length nParams1)
+                        , show (sum nParams1 + nParams0), show gamma ]
+      ftest mnist testParams =
+        afcnnMnistTest1 widthHidden widthHidden2 mnist
+                        (valueAtDomains valsInit
+                         $ uncurry domainsFrom01 testParams)
+  in testCase name $ do
+       hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
+              prefix epochs maxBatches
+       trainData <- loadMnistData trainGlyphsPath trainLabelsPath
+       testData <- loadMnistData testGlyphsPath testLabelsPath
+       -- Mimic how backprop tests and display it, even though tests
+       -- should not print, in principle.
+       let runBatch :: (Domain0 Double, Domain1 Double)
+                    -> (Int, [MnistData Double])
+                    -> IO (Domain0 Double, Domain1 Double)
+           runBatch (!params0, !params1) (k, chunk) = do
+             let f mnist adinputs =
+                   trainWithLoss widthHidden widthHidden2
+                                 mnist (parseADInputs valsInit adinputs)
+                 (resS, resV) =
+                   domainsTo01 . fst
+                   $ sgd gamma f chunk (domainsFrom01 params0 params1)
+                 res = (resS, resV)
+                 !trainScore = ftest chunk res
+                 !testScore = ftest testData res
+                 !lenChunk = length chunk
+             hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
+             hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
+             hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
+             return res
+       let runEpoch :: Int -> (Domain0 Double, Domain1 Double)
+                    -> IO (Domain0 Double, Domain1 Double)
+           runEpoch n params2 | n > epochs = return params2
+           runEpoch n params2 = do
+             hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
+             let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
+                 chunks = take maxBatches
+                          $ zip [1 ..] $ chunksOf 5000 trainDataShuffled
+             !res <- foldM runBatch params2 chunks
+             runEpoch (succ n) res
+       res <- runEpoch 1 (params0Init, params1Init)
+       let testErrorFinal = 1 - ftest testData res
+       testErrorFinal @?~ expected
 
 mnistTestCase2L
   :: String
@@ -523,6 +605,26 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       (1 - fcnnMnistTest2 testData
                           (params0, params1, params2, V.empty))
         @?~ 0.902
+  , testProperty "Compare two forward derivatives and gradient for Mnist1" $
+      \seed seedDs ->
+      forAll (choose (1, 2000)) $ \widthHidden ->
+      forAll (choose (1, 5000)) $ \widthHidden2 ->
+      forAll (choose (0.01, 0.5)) $ \range ->  -- large nn, so NaNs fast
+      forAll (choose (0.01, 10)) $ \rangeDs ->
+        let createRandomVector n seedV = LA.randomVector seedV LA.Uniform n
+            glyph = createRandomVector sizeMnistGlyphInt seed
+            label = createRandomVector sizeMnistLabelInt seedDs
+            mnistData :: MnistData Double
+            mnistData = (glyph, label)
+            paramShape = fcnnMnistLen1 widthHidden widthHidden2
+            (_, _, _, parameters) = initializerFixed seed range paramShape
+            (_, _, _, ds) = initializerFixed seedDs rangeDs paramShape
+            (_, _, _, parametersPerturbation) =
+              initializerFixed (seed + seedDs) 1e-7 paramShape
+            f :: forall d r. (ADModeAndNum d r, r ~ Double)
+              => ADInputs d r -> ADVal d r
+            f = fcnnMnistLoss1 widthHidden widthHidden2 mnistData
+        in qcPropDom f parameters ds parametersPerturbation 1
   , testProperty "Compare two forward derivatives and gradient for Mnist2" $
       \seed ->
       forAll (choose (0, sizeMnistLabelInt - 1)) $ \seedDs ->
@@ -552,6 +654,19 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
            .&&. qcPropDom fOneHot parameters ds parametersPerturbation 1
            .&&. qcPropDom fFused parameters ds parametersPerturbation 1
            .&&. cmpTwoSimple fOneHot fFused parameters ds
+  ]
+
+vectorMnistTests :: TestTree
+vectorMnistTests = testGroup "MNIST VV tests with a 2-hidden-layer nn"
+  [ mnistTestCase2VA "VA 1 epoch, 1 batch, wider" 1 1
+                     afcnnMnistLoss1 500 150 0.02
+                     0.13959999999999995
+  , mnistTestCase2VA "VA 2 epochs, but only 1 batch" 2 1
+                     afcnnMnistLoss1 300 100 0.02
+                     0.10019999999999996
+  , mnistTestCase2VA "VA 1 epoch, all batches" 1 99
+                     afcnnMnistLoss1 300 100 0.02
+                     5.389999999999995e-2
   ]
 
 matrixMnistTests :: TestTree
@@ -644,7 +759,13 @@ longMnistTests = testGroup "MNIST fused LL tests with a 2-hidden-layer nn"
 
 shortCIMnistTests :: TestTree
 shortCIMnistTests = testGroup "Short CI MNIST tests"
-  [ mnistTestCase2L "LL 1 epoch, 1 batch" 1 1 fcnnMnistLoss2 300 100 0.02
+  [ mnistTestCase2VA "VA 1 epoch, 1 batch" 1 1 afcnnMnistLoss1 300 100 0.02
+                     0.12960000000000005
+  , mnistTestCase2VA "VA artificial 1 2 3 4 5" 1 2 afcnnMnistLoss1 3 4 5
+                     0.8972
+  , mnistTestCase2VA "VA artificial 5 4 3 2 1" 5 4 afcnnMnistLoss1 3 2 1
+                     0.6585
+  , mnistTestCase2L "LL 1 epoch, 1 batch" 1 1 fcnnMnistLoss2 300 100 0.02
                     0.12339999999999995
   , mnistTestCase2L "LL artificial 1 2 3 4 5" 1 2 fcnnMnistLoss2 3 4 5
                     0.8972
