@@ -111,12 +111,12 @@ fcnnMnistLoss1 widthHidden widthHidden2 (datum, target) inputs =
 fcnnMnistTest1
   :: forall r. ADModeAndNum 'ADModeValue r
   => Int -> Int -> [MnistData r] -> (Domain0 r, Domain1 r) -> r
-fcnnMnistTest1 widthHidden widthHidden2 inputs (params0, params1) =
+fcnnMnistTest1 widthHidden widthHidden2 dataList (params0, params1) =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
         let nn = inline fcnnMnist1 logistic softMaxV
                                    widthHidden widthHidden2 glyph
             v = valueOnDomains nn (domainsFrom01 params0 params1)
         in V.maxIndex v == V.maxIndex label
-  in fromIntegral (length (filter matchesLabels inputs))
-     / fromIntegral (length inputs)
+  in fromIntegral (length (filter matchesLabels dataList))
+     / fromIntegral (length dataList)

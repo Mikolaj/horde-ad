@@ -15,41 +15,25 @@ import           GHC.Exts (inline)
 import           Numeric.LinearAlgebra (Vector)
 
 import HordeAd.Core.DualNumber
-import HordeAd.Core.Engine
-import HordeAd.Core.PairOfVectors (ADInputs, at1)
 import MnistData
-
-sumTrainableInputsV
-  :: ADModeAndNum d r
-  => ADVal d (Vector r) -> Int -> ADInputs d r -> ADVal d r
-sumTrainableInputsV x offset inputs =
-  let v = at1 inputs offset
-  in v <.>! x
 
 sumTrainableInputsL
   :: forall d r. ADModeAndNum d r
-  => ADVal d (Vector r) -> Int -> ADInputs d r -> Int
+  => ADVal d (Vector r) -> [ADVal d (Vector r)]
   -> ADVal d (Vector r)
-sumTrainableInputsL x offset inputs width =
-  let f :: Int -> ADVal d r
-      f i = sumTrainableInputsV x (offset + i) inputs
-  in fromVector1 $ V.generate width f
-
-sumConstantDataV
-  :: ADModeAndNum d r
-  => Vector r -> Int -> ADInputs d r -> ADVal d r
-sumConstantDataV x offset inputs =
-  let v = at1 inputs offset
-  in v <.>!! x
+sumTrainableInputsL x weights =
+  let f :: ADVal d (Vector r) -> ADVal d r
+      f v = v <.>! x
+  in fromList1 $ map f weights
 
 sumConstantDataL
   :: forall d r. ADModeAndNum d r
-  => Vector r -> Int -> ADInputs d r -> Int
+  => Vector r -> [ADVal d (Vector r)]
   -> ADVal d (Vector r)
-sumConstantDataL x offset inputs width =
-  let f :: Int -> ADVal d r
-      f i = sumConstantDataV x (offset + i) inputs
-  in fromVector1 $ V.generate width f
+sumConstantDataL x weights =
+  let f :: ADVal d (Vector r) -> ADVal d r
+      f v = v <.>!! x
+  in fromList1 $ map f weights
 
 afcnnMnistLen1 :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
 afcnnMnistLen1 widthHidden widthHidden2 =
@@ -59,6 +43,16 @@ afcnnMnistLen1 widthHidden widthHidden2 =
     ++ replicate sizeMnistLabelInt widthHidden2 ++ [sizeMnistLabelInt]
   , []
   , []
+  )
+
+-- The differentiable type of all trainable parameters of this nn.
+type ADFcnnMnistParameters d r =
+  ( ( [ADVal d (Vector r)]  -- @widthHidden@ copies, length @sizeMnistGlyphInt@
+    , ADVal d (Vector r) )  -- length @widthHidden@
+  , ( [ADVal d (Vector r)]  -- @widthHidden2@ copies, length @widthHidden@
+    , ADVal d (Vector r) )  -- length @widthHidden2@
+  , ( [ADVal d (Vector r)]  -- @sizeMnistLabelInt@ copies, length @widthHidden2@
+    , ADVal d (Vector r) )  -- length @sizeMnistLabelInt@
   )
 
 -- | Fully connected neural network for the MNIST digit classification task.
@@ -74,47 +68,49 @@ afcnnMnist1 :: forall d r. ADModeAndNum d r
             -> Int
             -> Int
             -> Vector r
-            -> ADInputs d r
+            -> ADFcnnMnistParameters d r
             -> ADVal d (Vector r)
 afcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
-          datum inputs =
-  let !_A = assert (sizeMnistGlyphInt == V.length datum) ()
-      hiddenLayer1 = sumConstantDataL datum 0 inputs widthHidden
-                     + at1 inputs widthHidden  -- bias
+            datum ((hidden, bias), (hidden2, bias2), (readout, biasr)) =
+  let !_A = assert (sizeMnistGlyphInt == V.length datum
+                    && length hidden == widthHidden
+                    && length hidden2 == widthHidden2
+                    && length readout == sizeMnistLabelInt) ()
+      hiddenLayer1 = sumConstantDataL datum hidden + bias
       nonlinearLayer1 = factivationHidden hiddenLayer1
-      offsetMiddle = widthHidden + 1
-      hiddenLayer2 = sumTrainableInputsL nonlinearLayer1 offsetMiddle
-                                         inputs widthHidden2
-                     + at1 inputs (offsetMiddle + widthHidden2)  -- bias
+      hiddenLayer2 = sumTrainableInputsL nonlinearLayer1 hidden2 + bias2
       nonlinearLayer2 = factivationHidden hiddenLayer2
-      offsetOutput = offsetMiddle + widthHidden2 + 1
-      outputLayer = sumTrainableInputsL nonlinearLayer2 offsetOutput
-                                        inputs sizeMnistLabelInt
-                    + at1 inputs (offsetOutput + sizeMnistLabelInt)  -- bias
+      outputLayer = sumTrainableInputsL nonlinearLayer2 readout + biasr
   in factivationOutput outputLayer
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
 afcnnMnistLoss1
   :: ADModeAndNum d r
-  => Int -> Int -> MnistData r -> ADInputs d r
+  => Int -> Int -> MnistData r -> ADFcnnMnistParameters d r
   -> ADVal d r
-afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) inputs =
+afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) adparams =
   let result = inline afcnnMnist1 logistic softMaxV
-                                  widthHidden widthHidden2 datum inputs
+                                  widthHidden widthHidden2 datum adparams
   in lossCrossEntropyV target result
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
 afcnnMnistTest1
   :: forall r. ADModeAndNum 'ADModeValue r
-  => Int -> Int -> [MnistData r] -> (Domain0 r, Domain1 r) -> r
-afcnnMnistTest1 widthHidden widthHidden2 inputs (params0, params1) =
+  => Int -> Int -> [MnistData r]
+  -> ((ADFcnnMnistParameters 'ADModeValue r
+       -> ADVal 'ADModeValue (Vector r))
+      -> Vector r)
+  -> r
+afcnnMnistTest1 widthHidden widthHidden2 dataList evalAtTestParams =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let nn = inline afcnnMnist1 logistic softMaxV
+        let nn :: ADFcnnMnistParameters 'ADModeValue r
+               -> ADVal 'ADModeValue (Vector r)
+            nn = inline afcnnMnist1 logistic softMaxV
                                     widthHidden widthHidden2 glyph
-            v = valueOnDomains nn (domainsFrom01 params0 params1)
+            v = evalAtTestParams nn
         in V.maxIndex v == V.maxIndex label
-  in fromIntegral (length (filter matchesLabels inputs))
-     / fromIntegral (length inputs)
+  in fromIntegral (length (filter matchesLabels dataList))
+     / fromIntegral (length dataList)
