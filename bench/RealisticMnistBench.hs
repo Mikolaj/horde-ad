@@ -16,5 +16,6 @@ main = do
   defaultMain
     [ mnistTrainBGroup2 testData 4000
     , mnistTrainBGroup2V testData 4000
+    , mnistTrainBGroup2VA testData 4000
     , mnistTrainBGroup2L testData 4000
     ]

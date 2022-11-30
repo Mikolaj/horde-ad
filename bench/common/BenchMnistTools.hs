@@ -151,6 +151,86 @@ mnistTrainBGroup2V xs0 chunkLength =
                                                     -- another common size
        , mnistTrainBench2V "500|150 " chunkLength xs 500 150 0.02
        ]
+mnistTrainBench2VA :: String -> Int -> [MnistData Double]
+                   -> Int -> Int -> Double
+                   -> Benchmark
+mnistTrainBench2VA extraPrefix chunkLength xs widthHidden widthHidden2
+                   gamma = do
+  let (nParams0, nParams1, _, _) = afcnnMnistLen1 widthHidden widthHidden2
+      params0Init = LA.randomVector 33 LA.Uniform nParams0 - LA.scalar 0.5
+      params1Init = V.fromList $
+        imap (\i nPV -> LA.randomVector (33 + nPV + i) LA.Uniform nPV
+                        - LA.scalar 0.5)
+             nParams1
+      -- This is a very ugly and probably unavoidable boilerplate:
+      -- we have to manually define a dummy value of type ADFcnnMnistParameters
+      -- with the correct list lengths (vector lengths can be fake)
+      -- to bootstrap the adaptor machinery. Such boilerplate can be
+      -- avoided only with shapely typed tensors and scalars or when
+      -- not using adaptors.
+      valsInit = ( (replicate widthHidden V.empty, V.empty)
+                 , (replicate widthHidden2 V.empty, V.empty)
+                 , (replicate sizeMnistLabelInt V.empty, V.empty) )
+      f mnist adinputs =
+        afcnnMnistLoss1 widthHidden widthHidden2
+                        mnist (parseADInputs valsInit adinputs)
+      chunk = take chunkLength xs
+      grad c =
+        fst $ sgd gamma f c (params0Init, params1Init, V.empty, V.empty)
+      totalParams = nParams0 + sum nParams1
+      name = "" ++ extraPrefix
+             ++ unwords [ "s" ++ show nParams0, "v" ++ show (length nParams1)
+                        , "m0" ++ "=" ++ show totalParams ]
+  bench name $ nf grad chunk
+
+mnistTestBench2VA :: String -> Int -> [MnistData Double] -> Int -> Int
+                  -> Benchmark
+mnistTestBench2VA extraPrefix chunkLength xs widthHidden widthHidden2 = do
+  let (nParams0, nParams1, _, _) = fcnnMnistLen1 widthHidden widthHidden2
+      params0Init = LA.randomVector 33 LA.Uniform nParams0 - LA.scalar 0.5
+      params1Init = V.fromList $
+        imap (\i nPV -> LA.randomVector (33 + nPV + i) LA.Uniform nPV
+                        - LA.scalar 0.5)
+             nParams1
+      -- This is a very ugly and probably unavoidable boilerplate:
+      -- we have to manually define a dummy value of type ADFcnnMnistParameters
+      -- with the correct list lengths (vector lengths can be fake)
+      -- to bootstrap the adaptor machinery. Such boilerplate can be
+      -- avoided only with shapely typed tensors and scalars or when
+      -- not using adaptors.
+      valsInit = ( (replicate widthHidden V.empty, V.empty)
+                 , (replicate widthHidden2 V.empty, V.empty)
+                 , (replicate sizeMnistLabelInt V.empty, V.empty) )
+      ftest mnist testParams =
+        afcnnMnistTest1 widthHidden widthHidden2 mnist
+                        (valueAtDomains valsInit
+                         $ uncurry domainsFrom01 testParams)
+      chunk = take chunkLength xs
+      score c = ftest c (params0Init, params1Init)
+      totalParams = nParams0 + sum nParams1
+      name = "test " ++ extraPrefix
+             ++ unwords [ "s" ++ show nParams0, "v" ++ show (length nParams1)
+                        , "m0" ++ "=" ++ show totalParams ]
+  bench name $ whnf score chunk
+
+mnistTrainBGroup2VA :: [MnistData Double] -> Int -> Benchmark
+mnistTrainBGroup2VA xs0 chunkLength =
+  env (return $ take chunkLength xs0) $
+  \ xs ->
+  bgroup ("2-hidden-layer VA MNIST nn with samples: " ++ show chunkLength) $
+    (if chunkLength <= 1000
+     then
+       [ mnistTestBench2VA "30|10 " chunkLength xs 30 10  -- toy width
+       , mnistTrainBench2VA "30|10 " chunkLength xs 30 10 0.02
+       , mnistTestBench2VA "300|100 " chunkLength xs 300 100  -- ordinary width
+       , mnistTrainBench2VA "300|100 " chunkLength xs 300 100 0.02
+       ]
+     else
+       [])
+    ++ [ mnistTestBench2VA "500|150 " chunkLength xs 500 150
+                                                    -- another common size
+       , mnistTrainBench2VA "500|150 " chunkLength xs 500 150 0.02
+       ]
 
 mnistTrainBench2L :: String -> Int -> [MnistData Double] -> Int -> Int
                   -> Double
