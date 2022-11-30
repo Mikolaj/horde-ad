@@ -187,6 +187,7 @@ library exampleLibrary
                       MnistFcnnMatrix
                       MnistFcnnScalar
                       MnistFcnnVector
+                      OldMnistFcnnVector
 
   if flag(use_typelits_plugins) {
     exposed-modules:  MnistCnnShaped
@@ -237,8 +238,8 @@ library testCommonLibrary
                       TestGradientSimple
 
   if flag(use_typelits_plugins) {
-    exposed-modules:  TestMnistCNN
-                      OldMnistCnnShaped
+    exposed-modules:  OldMnistCnnShaped
+                      TestMnistCNN
                       TestMnistFCNN
                       TestMnistRNN
                       TestDescent
@@ -524,6 +525,7 @@ library exampleLibrarySimplified
     exposed-modules:  MnistData
                       MnistFcnnScalar
                       MnistFcnnVector
+                      OldMnistFcnnVector
 
     build-depends:
       , horde-ad-simplified

@@ -20,6 +20,7 @@ import HordeAd
 import MnistData
 import MnistFcnnScalar
 import MnistFcnnVector
+import OldMnistFcnnVector
 
 import Tool.EqEpsilon
 import Tool.Shared

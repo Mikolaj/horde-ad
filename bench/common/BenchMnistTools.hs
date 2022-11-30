@@ -21,6 +21,7 @@ import MnistData
 import MnistFcnnMatrix
 import MnistFcnnScalar
 import MnistFcnnVector
+import OldMnistFcnnVector
 
 mnistTrainBench2 :: forall r. (NFData r, UniformRange r, HasDelta r)
                  => String -> Int -> [MnistData r] -> Int -> Int

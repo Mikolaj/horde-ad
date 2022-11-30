@@ -3,8 +3,10 @@
 -- | Vector-based (meaning that dual numbers for gradient computation
 -- consider vectors, not scalars, as the primitive differentiable type)
 -- implementation of fully connected neutral network for classification
--- of MNIST digits. Sports 2 hidden layers. Adaptors-based version.
-module MnistFcnnVector where
+-- of MNIST digits. Sports 2 hidden layers.
+-- Written in the old style without adaptors and instead directly
+-- specyfing the layout of trainable parameter chunks in ADInputs.
+module OldMnistFcnnVector where
 
 import Prelude
 
@@ -51,8 +53,8 @@ sumConstantDataL x offset inputs width =
       f i = sumConstantDataV x (offset + i) inputs
   in fromVector1 $ V.generate width f
 
-afcnnMnistLen1 :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
-afcnnMnistLen1 widthHidden widthHidden2 =
+fcnnMnistLen1 :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+fcnnMnistLen1 widthHidden widthHidden2 =
   ( 0
   , replicate widthHidden sizeMnistGlyphInt ++ [widthHidden]
     ++ replicate widthHidden2 widthHidden ++ [widthHidden2]
@@ -68,15 +70,15 @@ afcnnMnistLen1 widthHidden widthHidden2 =
 -- and from these, the @len*@ functions compute the number and dimensions
 -- of scalars (none in this case) and vectors of dual number parameters
 -- (inputs) to be given to the program.
-afcnnMnist1 :: forall d r. ADModeAndNum d r
-            => (ADVal d (Vector r) -> ADVal d (Vector r))
-            -> (ADVal d (Vector r) -> ADVal d (Vector r))
-            -> Int
-            -> Int
-            -> Vector r
-            -> ADInputs d r
-            -> ADVal d (Vector r)
-afcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
+fcnnMnist1 :: forall d r. ADModeAndNum d r
+           => (ADVal d (Vector r) -> ADVal d (Vector r))
+           -> (ADVal d (Vector r) -> ADVal d (Vector r))
+           -> Int
+           -> Int
+           -> Vector r
+           -> ADInputs d r
+           -> ADVal d (Vector r)
+fcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
           datum inputs =
   let !_A = assert (sizeMnistGlyphInt == V.length datum) ()
       hiddenLayer1 = sumConstantDataL datum 0 inputs widthHidden
@@ -95,25 +97,25 @@ afcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function.
-afcnnMnistLoss1
+fcnnMnistLoss1
   :: ADModeAndNum d r
   => Int -> Int -> MnistData r -> ADInputs d r
   -> ADVal d r
-afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) inputs =
-  let result = inline afcnnMnist1 logistic softMaxV
-                                  widthHidden widthHidden2 datum inputs
+fcnnMnistLoss1 widthHidden widthHidden2 (datum, target) inputs =
+  let result = inline fcnnMnist1 logistic softMaxV
+                                 widthHidden widthHidden2 datum inputs
   in lossCrossEntropyV target result
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
-afcnnMnistTest1
+fcnnMnistTest1
   :: forall r. ADModeAndNum 'ADModeValue r
   => Int -> Int -> [MnistData r] -> (Domain0 r, Domain1 r) -> r
-afcnnMnistTest1 widthHidden widthHidden2 inputs (params0, params1) =
+fcnnMnistTest1 widthHidden widthHidden2 inputs (params0, params1) =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let nn = inline afcnnMnist1 logistic softMaxV
-                                    widthHidden widthHidden2 glyph
+        let nn = inline fcnnMnist1 logistic softMaxV
+                                   widthHidden widthHidden2 glyph
             v = valueOnDomains nn (domainsFrom01 params0 params1)
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))

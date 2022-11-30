@@ -18,7 +18,7 @@ import HordeAd
 import HordeAd.Core.DualClass (pattern D)
 import HordeAd.External.OptimizerTools
 import MnistData
-import MnistFcnnVector
+import OldMnistFcnnVector
 
 import Tool.EqEpsilon
 
