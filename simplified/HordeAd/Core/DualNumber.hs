@@ -294,14 +294,18 @@ slice1 i n (D u u') = dD (V.slice i n u) (dSlice1 i n u' (V.length u))
 reverse1 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d (Vector r)
 reverse1 (D u u') = dD (V.reverse u) (dReverse1 u')
 
+-- Build variants
+
 build1POPL :: Int -> (Int -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
 build1POPL n f = V.fromList $ map f [0 .. n - 1]
 
 -- Fake rank 1. This is still an array of delta expressions, thinly wrapped,
--- not a single delta expression representing an array.
+-- instead of a single delta expression representing an array.
+-- We gain a little by storing the primal part in an unboxed vector.
 build1Seq :: ADModeAndNum d r
           => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
 build1Seq n f = fromList1 $ map f [0 .. n - 1]
+  -- equivalent to @fromVector1 $ build1POPL n f@
 
 build1 :: ADModeAndNum d r
        => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
@@ -310,16 +314,26 @@ build1 n f =
       h i = let D _ u' = f i in u'
   in dD (V.fromList $ map g [0 .. n - 1]) (dBuild1 n h)
 
--- The list probably fuses away. This may be a bit faster than
--- @build1Seq (V.length v) $ \i -> f (index10 d i)@.
+-- Map variants
+
+map1POPL :: (ADVal d r -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
+         -> Data.Vector.Vector (ADVal d r)
+map1POPL f vd = V.map f vd
+
+-- The list probably fuses away, which may make it a bit faster than
+-- if written using @build1Seq@.
 map1Seq :: ADModeAndNum d r
         => (ADVal d r -> ADVal d r) -> ADVal d (Vector r)
         -> ADVal d (Vector r)
-map1Seq f (D v v') =
+map1Seq f _d@(D v v') =
   let k = V.length v
       g ix p = f $ dD p (dIndex10 v' ix k)
       ds = imap g $ V.toList v
   in fromList1 ds
+    -- equivalent to @build1Seq (V.length v) $ \i -> f (index10 _d i)@
+    -- equivalent to
+    -- @fromVector1 . map1POPL f . rank1toVector
+    --   where rank1toVector d@(D v _v') = V.generate (V.length v) (index10 d)@
 
 map1Build :: ADModeAndNum d r
           => (ADVal d r -> ADVal d r) -> ADVal d (Vector r)
