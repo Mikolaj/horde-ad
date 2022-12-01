@@ -28,6 +28,7 @@ import MnistData
 import MnistFcnnMatrix
 import MnistFcnnShaped
 import MnistFcnnVector
+import OldMnistFcnnShaped
 
 import Tool.EqEpsilon
 import Tool.Shared

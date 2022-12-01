@@ -4,7 +4,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Shaped tensor-based implementation of Recurrent Neural Network
 -- for classification of MNIST digits. Sports 2 hidden layers.
--- Written in the old style without adaptors and with convMnistLenS
+-- Written in the old style without adaptors and with @rnnMnistLenS@
 -- and the @atS@ function instead.
 module OldMnistRnnShaped where
 

@@ -4,11 +4,15 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Shaped tensor-based implementation of fully connected neutral network
 -- for classification of MNIST digits. Sports 2 hidden layers.
-module MnistFcnnShaped where
+-- Written in the old style without adaptors and with @fcnnMnistLenS@
+-- and the @atS@ function instead.
+module OldMnistFcnnShaped where
 
 import Prelude
 
 import           Control.Exception (assert)
+import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.Shape
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Vector.Generic as V
 
@@ -48,6 +52,25 @@ fcnnMnistLayersS MkSN MkSN factivationHidden datum
       outputLayer = weightsL2 #>$ nonlinearLayer2 + biasesV2
   in outputLayer
 
+-- It seems that without plugins or TH we really have to copy-paste
+-- the six-element type list from signature of @nnMnistLayersS@.
+fcnnMnistLenS
+  :: forall widthHidden widthHidden2.
+      StaticNat widthHidden -> StaticNat widthHidden2
+  -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
+fcnnMnistLenS MkSN MkSN =
+  ( 0
+  , []
+  , []
+  , [ Data.Array.Shape.shapeT @'[widthHidden, SizeMnistGlyph]
+    , Data.Array.Shape.shapeT @'[widthHidden]
+    , Data.Array.Shape.shapeT @'[widthHidden2, widthHidden]
+    , Data.Array.Shape.shapeT @'[widthHidden2]
+    , Data.Array.Shape.shapeT @'[SizeMnistLabel, widthHidden2]
+    , Data.Array.Shape.shapeT @'[SizeMnistLabel]
+    ]
+  )
+
 fcnnMnistS
   :: forall widthHidden widthHidden2 d r. ADModeAndNum d r
   => StaticNat widthHidden -> StaticNat widthHidden2
@@ -72,22 +95,31 @@ fcnnMnistS widthHidden@MkSN widthHidden2@MkSN
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function, using fused
 -- softMax and cross entropy as the loss function.
-afcnnMnistLossFusedS
+fcnnMnistLossFusedS
   :: forall widthHidden widthHidden2 d r. ADModeAndNum d r
   => StaticNat widthHidden -> StaticNat widthHidden2
   -> MnistData r -> ADInputs d r -> ADVal d r
-afcnnMnistLossFusedS widthHidden widthHidden2 (datum, target) inputs =
+fcnnMnistLossFusedS widthHidden widthHidden2 (datum, target) inputs =
   let result = fcnnMnistS widthHidden widthHidden2
                           logistic (OS.fromVector datum) inputs
   in lossSoftMaxCrossEntropyV target $ fromS1 result
 
+fcnnMnistLossFusedReluS
+  :: forall widthHidden widthHidden2 d r. ADModeAndNum d r
+  => StaticNat widthHidden -> StaticNat widthHidden2
+  -> MnistData r -> ADInputs d r -> ADVal d r
+fcnnMnistLossFusedReluS widthHidden widthHidden2 (datum, target) inputs =
+  let result = fcnnMnistS widthHidden widthHidden2
+                          relu (OS.fromVector datum) inputs
+  in lossSoftMaxCrossEntropyV target $ fromS1 result
+
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
-afcnnMnistTestS
+fcnnMnistTestS
   :: forall widthHidden widthHidden2 r. ADModeAndNum 'ADModeValue r
   => StaticNat widthHidden -> StaticNat widthHidden2
   -> [MnistData r] -> Domains r -> r
-afcnnMnistTestS widthHidden widthHidden2 inputs parameters =
+fcnnMnistTestS widthHidden widthHidden2 inputs parameters =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
         let nn = fcnnMnistS widthHidden widthHidden2
