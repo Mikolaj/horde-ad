@@ -425,8 +425,7 @@ convMnistTestCaseCNNT kheight_minus_1@MkSN kwidth_minus_1@MkSN
         ftestWithParams kheight_minus_1 kwidth_minus_1
                         out_channels
                         n_hidden batch_size'
-                        mnist
-                        (valueAtDomains valsInit testParams)
+                        mnist (valueAtDomains valsInit testParams)
   in testCase name $ do
     hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
                               prefix epochs maxBatches

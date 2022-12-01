@@ -7,6 +7,7 @@ import Prelude
 
 import           Control.Monad (foldM)
 import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.ShapedS as OS
 import           Data.List (foldl', unfoldr)
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
@@ -677,6 +678,97 @@ mnistTestCaseRNNS
   -> (forall out_width' batch_size'. ADModeAndNum d r
       => StaticNat out_width' -> StaticNat batch_size'
       -> MnistDataBatchS batch_size' r
+      -> ADRnnMnistParameters SizeMnistHeight out_width' d r
+      -> ADVal d r)
+  -> (forall out_width' batch_size'. ADModeAndNum d r
+      => StaticNat out_width' -> StaticNat batch_size'
+      -> MnistDataBatchS batch_size' r
+      -> ((ADRnnMnistParameters SizeMnistHeight out_width' 'ADModeValue r
+           -> ADVal 'ADModeValue (OS.Array '[SizeMnistLabel, batch_size'] r))
+          -> (OS.Array '[SizeMnistLabel, batch_size'] r))
+      -> r)
+  -> Double
+  -> TestTree
+mnistTestCaseRNNS out_width@MkSN batch_size@MkSN
+                  prefix epochs maxBatches trainWithLoss ftestWithParams
+                  expected =
+  let batchSize = staticNatValue batch_size :: Int
+      seed = mkStdGen 44
+      range = 0.2
+      valsInit
+        :: Value (ADRnnMnistParameters SizeMnistHeight out_width
+                                       'ADModeGradient r)
+      valsInit = fst $ randomVals range seed
+      parametersInit = toDomains valsInit
+      name = prefix ++ ": "
+             ++ unwords [ show epochs, show maxBatches
+                        , show (staticNatValue out_width :: Int)
+                        , show batchSize
+                        , show (nParams valsInit)
+                        , show (nScalars valsInit)
+                        , show range ]
+      ftest :: StaticNat batch_size'
+            -> MnistDataBatchS batch_size' r
+            -> Domains r
+            -> r
+      ftest batch_size' mnist testParams =
+        ftestWithParams out_width batch_size'
+                        mnist (valueAtDomains valsInit testParams)
+  in testCase name $ do
+    hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
+           prefix epochs maxBatches
+    trainData <- map shapeBatch
+                 <$> loadMnistData trainGlyphsPath trainLabelsPath
+    testData <- map shapeBatch
+                <$> loadMnistData testGlyphsPath testLabelsPath
+    let testDataS = packBatch @LengthTestData testData
+        -- There is some visual feedback, because some of these take long.
+        runBatch :: (Domains r, StateAdam r)
+                 -> (Int, [MnistDataS r])
+                 -> IO (Domains r, StateAdam r)
+        runBatch (parameters@(!_, !_, !_, !_), stateAdam) (k, chunk) = do
+          let f mnist adinputs =
+                trainWithLoss out_width batch_size
+                              mnist (parseADInputs valsInit adinputs)
+              chunkS = map (packBatch @batch_size)
+                       $ filter (\ch -> length ch >= batchSize)
+                       $ chunksOf batchSize chunk
+              res@(parameters2, _) = sgdAdam f chunkS parameters stateAdam
+              !trainScore =
+                ftest (MkSN @(10 * batch_size))
+                      (packBatch @(10 * batch_size) chunk)
+                      parameters2
+              !testScore = ftest (MkSN @LengthTestData)
+                                 testDataS parameters2
+              !lenChunk = length chunk
+          hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
+          hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
+          hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
+          return res
+        runEpoch :: Int -> (Domains r, StateAdam r) -> IO (Domains r)
+        runEpoch n (params2, _) | n > epochs = return params2
+        runEpoch n paramsStateAdam = do
+          hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
+          let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
+              chunks = take maxBatches
+                       $ zip [1 ..]
+                       $ chunksOf (10 * batchSize) trainDataShuffled
+          !res <- foldM runBatch paramsStateAdam chunks
+          runEpoch (succ n) res
+    res <- runEpoch 1 (parametersInit, initialStateAdam parametersInit)
+    let testErrorFinal = 1 - ftest (MkSN @LengthTestData)
+                                   testDataS res
+    testErrorFinal @?~ expected
+
+mnistTestCaseRNNO
+  :: forall out_width batch_size d r. (r ~ Double, d ~ 'ADModeGradient)
+  => StaticNat out_width -> StaticNat batch_size
+  -> String
+  -> Int
+  -> Int
+  -> (forall out_width' batch_size'. ADModeAndNum d r
+      => StaticNat out_width' -> StaticNat batch_size'
+      -> MnistDataBatchS batch_size' r
       -> ADInputs d r
       -> ADVal d r)
   -> (forall out_width' batch_size'. ADModeAndNum d r
@@ -690,7 +782,7 @@ mnistTestCaseRNNS
       -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
   -> Double
   -> TestTree
-mnistTestCaseRNNS out_width@MkSN batch_size@MkSN
+mnistTestCaseRNNO out_width@MkSN batch_size@MkSN
                   prefix epochs maxBatches trainWithLoss ftest flen expected =
   let batchSize = staticNatValue batch_size :: Int
       ((_, _, _, nParamsX), totalParams, range, parametersInit) =
@@ -759,6 +851,10 @@ mnistRNNTestsLong = testGroup "MNIST RNN long tests"
                       6.259999999999999e-2
   , mnistTestCaseRNNS (MkSN @128) (MkSN @150)
                       "1S 1 epoch, 1 batch" 1 1
+                      arnnMnistLossFusedS arnnMnistTestS
+                      0.5448999999999999
+  , mnistTestCaseRNNO (MkSN @128) (MkSN @150)
+                      "1O 1 epoch, 1 batch" 1 1
                       rnnMnistLossFusedS rnnMnistTestS rnnMnistLenS
                       0.4375
   ]
@@ -813,6 +909,10 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
                       0.2945
   , mnistTestCaseRNNS (MkSN @120) (MkSN @15)
                       "1S 1 epoch, 1 batch" 1 1
+                      arnnMnistLossFusedS arnnMnistTestS
+                      0.6793
+  , mnistTestCaseRNNO (MkSN @120) (MkSN @15)
+                      "1O 1 epoch, 1 batch" 1 1
                       rnnMnistLossFusedS rnnMnistTestS rnnMnistLenS
                       0.8418
   ]
