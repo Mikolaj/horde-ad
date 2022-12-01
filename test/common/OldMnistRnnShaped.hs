@@ -4,7 +4,9 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Shaped tensor-based implementation of Recurrent Neural Network
 -- for classification of MNIST digits. Sports 2 hidden layers.
-module MnistRnnShaped where
+-- Written in the old style without adaptors and with convMnistLenS
+-- and the @atS@ function instead.
+module OldMnistRnnShaped where
 
 import Prelude
 
@@ -114,11 +116,11 @@ rnnMnistZeroS out_width@MkSN
                              ((wX, wS, b), (wX2, wS2, b2))
   in w3 <>$ out + asColumnS b3
 
-arnnMnistLenS
+rnnMnistLenS
   :: forall out_width sizeMnistWidth.
      StaticNat out_width -> StaticNat sizeMnistWidth
   -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
-arnnMnistLenS MkSN MkSN =
+rnnMnistLenS MkSN MkSN =
   ( 0
   , []
   , []
@@ -159,16 +161,16 @@ rnnMnistS out_width@MkSN
                    sizeMnistWidthHere sizeMnistHeightHere
                    xs ((wX, wS, b), (wX2, wS2, b2)) w3 b3
 
-arnnMnistLossFusedS
+rnnMnistLossFusedS
   :: forall out_width batch_size d r. ADModeAndNum d r
   => StaticNat out_width
   -> StaticNat batch_size
   -> MnistDataBatchS batch_size r
   -> ADInputs d r
   -> ADVal d r
-arnnMnistLossFusedS out_width@MkSN
-                    batch_size@MkSN
-                    (glyphS, labelS) inputs =
+rnnMnistLossFusedS out_width@MkSN
+                   batch_size@MkSN
+                   (glyphS, labelS) inputs =
   let xs = OS.transpose @'[2, 1, 0] glyphS
       result = rnnMnistS out_width
                          batch_size
@@ -180,16 +182,16 @@ arnnMnistLossFusedS out_width@MkSN
   in scale (recip $ fromIntegral (valueOf @batch_size :: Int))
      $ sumElements0 vec
 
-arnnMnistTestS
+rnnMnistTestS
   :: forall out_width batch_size r. ADModeAndNum 'ADModeValue r
   => StaticNat out_width
   -> StaticNat batch_size
   -> MnistDataBatchS batch_size r
   -> Domains r
   -> r
-arnnMnistTestS out_width@MkSN
-               batch_size@MkSN
-               (glyphS, labelS) parameters =
+rnnMnistTestS out_width@MkSN
+              batch_size@MkSN
+              (glyphS, labelS) parameters =
   let xs = OS.transpose @'[2, 1, 0] glyphS
       outputS = valueOnDomains (rnnMnistS out_width
                                     batch_size

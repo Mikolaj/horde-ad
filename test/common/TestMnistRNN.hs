@@ -23,6 +23,7 @@ import HordeAd.Core.DualClass (pattern D)
 import HordeAd.External.OptimizerTools
 import MnistData
 import MnistRnnShaped
+import OldMnistRnnShaped
 
 import Tool.EqEpsilon
 

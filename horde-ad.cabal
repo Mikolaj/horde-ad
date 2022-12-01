@@ -239,6 +239,7 @@ library testCommonLibrary
 
   if flag(use_typelits_plugins) {
     exposed-modules:  OldMnistCnnShaped
+                      OldMnistRnnShaped
                       TestMnistCNN
                       TestMnistFCNN
                       TestMnistRNN
