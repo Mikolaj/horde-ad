@@ -493,8 +493,15 @@ benchmark realisticMnistBench
       , random
 
 
+-- Not buildable in release mode, because this is educational version
+-- of the code, not a part of the real library API.
 library horde-ad-simplified
     import:           options
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
 
     exposed-modules:  HordeAd
                       HordeAd.Core.DualNumber
@@ -522,6 +529,11 @@ library horde-ad-simplified
 library exampleLibrarySimplified
     import:           options
 
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
+
     exposed-modules:  MnistData
                       MnistFcnnScalar
                       MnistFcnnVector
@@ -544,6 +556,11 @@ library exampleLibrarySimplified
 
 library testCommonLibrarySimplified
     import:           options
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
 
     exposed-modules:  Tool.Shared
                       Tool.EqEpsilon
@@ -617,6 +634,11 @@ test-suite extremelyLongTestSimplified
 
 test-suite simplifiedOnlyTest
     import:           options, exe-options-test
+
+    if flag(release)
+      buildable: False
+    else
+      buildable: True
 
     type:             exitcode-stdio-1.0
 
