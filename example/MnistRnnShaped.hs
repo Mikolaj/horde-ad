@@ -8,9 +8,7 @@ module MnistRnnShaped where
 
 import Prelude
 
-import qualified Data.Array.DynamicS as OT
 import           Data.Array.Internal (valueOf)
-import qualified Data.Array.Shape
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import           Data.List (foldl')
@@ -20,8 +18,6 @@ import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as LA
 
 import HordeAd.Core.DualNumber
-import HordeAd.Core.Engine
-import HordeAd.Core.PairOfVectors (ADInputs, atS)
 import MnistData
 
 zeroStateS
@@ -98,82 +94,40 @@ rnnMnistZeroS
   -> StaticNat batch_size
   -> StaticNat sizeMnistWidth -> StaticNat sizeMnistHeight
   -> OS.Array '[sizeMnistWidth, sizeMnistHeight, batch_size] r
-  -- All below is the type of all parameters of this nn. The same is reflected
-  -- in the length function below and read from inputs further down.
-  -> ( LayerWeigthsRNN sizeMnistHeight out_width d r
-     , LayerWeigthsRNN out_width out_width d r )
-  -> ADVal d (OS.Array '[SizeMnistLabel, out_width] r)
-  -> ADVal d (OS.Array '[SizeMnistLabel] r)
+  -> ADRnnMnistParameters sizeMnistHeight out_width d r
   -> ADVal d (OS.Array '[SizeMnistLabel, batch_size] r)
 rnnMnistZeroS out_width@MkSN
               batch_size@MkSN
               sizeMnistWidthHere@MkSN sizeMnistHeightHere@MkSN
-              xs ((wX, wS, b), (wX2, wS2, b2)) w3 b3 =
+              xs ((wX, wS, b), (wX2, wS2, b2), (w3, b3)) =
   let rnnMnistTwo = rnnMnistTwoS out_width batch_size sizeMnistHeightHere
       (out, _s) = zeroStateS (unrollLastS @d sizeMnistWidthHere rnnMnistTwo) xs
                              ((wX, wS, b), (wX2, wS2, b2))
   in w3 <>$ out + asColumnS b3
 
-arnnMnistLenS
-  :: forall out_width sizeMnistWidth.
-     StaticNat out_width -> StaticNat sizeMnistWidth
-  -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
-arnnMnistLenS MkSN MkSN =
-  ( 0
-  , []
-  , []
-  , [ Data.Array.Shape.shapeT @'[out_width, sizeMnistWidth]
-    , Data.Array.Shape.shapeT @'[out_width, out_width]
-    , Data.Array.Shape.shapeT @'[out_width]
-    , Data.Array.Shape.shapeT @'[out_width, out_width]
-    , Data.Array.Shape.shapeT @'[out_width, out_width]
-    , Data.Array.Shape.shapeT @'[out_width]
-    , Data.Array.Shape.shapeT @'[SizeMnistLabel, out_width]
-    , Data.Array.Shape.shapeT @'[SizeMnistLabel]
-    ]
-  )
+-- The differentiable type of all trainable parameters of this nn.
+type ADRnnMnistParameters sizeMnistHeight out_width d r =
+  ( LayerWeigthsRNN sizeMnistHeight out_width d r
+  , LayerWeigthsRNN out_width out_width d r
+  , ( ADVal d (OS.Array '[SizeMnistLabel, out_width] r)
+    , ADVal d (OS.Array '[SizeMnistLabel] r) ) )
 
-rnnMnistS
-  :: forall out_width batch_size sizeMnistWidth sizeMnistHeight d r.
+arnnMnistLossFusedS
+  :: forall out_width batch_size d r.
      ADModeAndNum d r
   => StaticNat out_width
   -> StaticNat batch_size
-  -> StaticNat sizeMnistWidth -> StaticNat sizeMnistHeight
-  -> OS.Array '[sizeMnistWidth, sizeMnistHeight, batch_size] r
-  -> ADInputs d r
-  -> ADVal d (OS.Array '[SizeMnistLabel, batch_size] r)
-rnnMnistS out_width@MkSN
-          batch_size@MkSN
-          sizeMnistWidthHere@MkSN sizeMnistHeightHere@MkSN
-          xs inputs =
-  let wX = atS inputs 0
-      wS = atS inputs 1
-      b = atS inputs 2
-      wX2 = atS inputs 3
-      wS2 = atS inputs 4
-      b2 = atS inputs 5
-      w3 = atS inputs 6
-      b3 = atS inputs 7
-  in rnnMnistZeroS out_width
-                   batch_size
-                   sizeMnistWidthHere sizeMnistHeightHere
-                   xs ((wX, wS, b), (wX2, wS2, b2)) w3 b3
-
-arnnMnistLossFusedS
-  :: forall out_width batch_size d r. ADModeAndNum d r
-  => StaticNat out_width
-  -> StaticNat batch_size
   -> MnistDataBatchS batch_size r
-  -> ADInputs d r
+  -> ADRnnMnistParameters SizeMnistHeight out_width d r
   -> ADVal d r
 arnnMnistLossFusedS out_width@MkSN
                     batch_size@MkSN
-                    (glyphS, labelS) inputs =
+                    (glyphS, labelS) adparameters =
   let xs = OS.transpose @'[2, 1, 0] glyphS
-      result = rnnMnistS out_width
-                         batch_size
-                         sizeMnistWidth sizeMnistHeight
-                         xs inputs
+      result = rnnMnistZeroS out_width
+                             batch_size
+                             (MkSN @SizeMnistWidth) (MkSN @SizeMnistHeight)
+                             xs adparameters
       targets2 = LA.tr $ LA.reshape (valueOf @SizeMnistLabel)
                        $ OS.toVector labelS
       vec = lossSoftMaxCrossEntropyL targets2 (fromS2 result)
@@ -181,20 +135,28 @@ arnnMnistLossFusedS out_width@MkSN
      $ sumElements0 vec
 
 arnnMnistTestS
-  :: forall out_width batch_size r. ADModeAndNum 'ADModeValue r
+  :: forall out_width batch_size r.
+     ADModeAndNum 'ADModeValue r
   => StaticNat out_width
   -> StaticNat batch_size
   -> MnistDataBatchS batch_size r
-  -> Domains r
+  -> ((ADRnnMnistParameters SizeMnistHeight out_width 'ADModeValue r
+       -> ADVal 'ADModeValue (OS.Array '[SizeMnistLabel, batch_size] r))
+      -> (OS.Array '[SizeMnistLabel, batch_size] r))
   -> r
 arnnMnistTestS out_width@MkSN
                batch_size@MkSN
-               (glyphS, labelS) parameters =
+               (glyphS, labelS) evalAtTestParams =
   let xs = OS.transpose @'[2, 1, 0] glyphS
-      outputS = valueOnDomains (rnnMnistS out_width
-                                    batch_size
-                                    sizeMnistWidth sizeMnistHeight
-                                    xs) parameters
+      outputS =
+        let nn :: ADRnnMnistParameters SizeMnistHeight out_width 'ADModeValue r
+               -> ADVal 'ADModeValue (OS.Array '[SizeMnistLabel, batch_size] r)
+            nn adparameters =
+              rnnMnistZeroS out_width
+                            batch_size
+                            (MkSN @SizeMnistWidth) (MkSN @SizeMnistHeight)
+                            xs adparameters
+        in evalAtTestParams nn
       outputs = map OS.toVector $ OSB.toList $ OS.unravel
                 $ OS.transpose @'[1, 0] $ outputS
       labels = map OS.toVector $ OSB.toList $ OS.unravel labelS
