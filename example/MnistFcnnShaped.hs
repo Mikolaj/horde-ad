@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Shaped tensor-based implementation of fully connected neutral network
--- for classification of MNIST digits. Sports 2 hidden layers.
+-- for classification of MNIST digits. Sports 2 hidden layers. No mini-batches.
 module MnistFcnnShaped where
 
 import Prelude
@@ -13,8 +13,6 @@ import qualified Data.Array.ShapedS as OS
 import qualified Data.Vector.Generic as V
 
 import HordeAd.Core.DualNumber
-import HordeAd.Core.Engine
-import HordeAd.Core.PairOfVectors (ADInputs, atS)
 import MnistData
 
 -- | Fully connected neural network for the MNIST digit classification task.
@@ -31,15 +29,12 @@ fcnnMnistLayersS
   -> OS.Array '[SizeMnistGlyph] r
   -- All below is the type of all paramters of this nn. The same is reflected
   -- in the length function below and read from inputs further down.
-  -> ADVal d (OS.Array '[widthHidden, SizeMnistGlyph] r)
-  -> ADVal d (OS.Array '[widthHidden] r)
-  -> ADVal d (OS.Array '[widthHidden2, widthHidden] r)
-  -> ADVal d (OS.Array '[widthHidden2] r)
-  -> ADVal d (OS.Array '[SizeMnistLabel, widthHidden2] r)
-  -> ADVal d (OS.Array '[SizeMnistLabel] r)
+  -> ADFcnnMnistParameters widthHidden widthHidden2 d r
   -> ADVal d (OS.Array '[SizeMnistLabel] r)
 fcnnMnistLayersS MkSN MkSN factivationHidden datum
-                 weightsL0 biasesV0 weightsL1 biasesV1 weightsL2 biasesV2 =
+                 ( (weightsL0, biasesV0)
+                 , (weightsL1, biasesV1)
+                 , (weightsL2, biasesV2) ) =
   let !_A = assert (sizeMnistGlyphInt == OS.size datum) ()
       hiddenLayer1 = weightsL0 #>$ constant datum + biasesV0
       nonlinearLayer1 = factivationHidden hiddenLayer1
@@ -48,26 +43,15 @@ fcnnMnistLayersS MkSN MkSN factivationHidden datum
       outputLayer = weightsL2 #>$ nonlinearLayer2 + biasesV2
   in outputLayer
 
-fcnnMnistS
-  :: forall widthHidden widthHidden2 d r. ADModeAndNum d r
-  => StaticNat widthHidden -> StaticNat widthHidden2
-  -> (forall sh. OS.Shape sh
-      => ADVal d (OS.Array sh r) -> ADVal d (OS.Array sh r))
-  -> OS.Array '[SizeMnistGlyph] r
-  -> ADInputs d r
-  -> ADVal d (OS.Array '[SizeMnistLabel] r)
-{-# INLINE fcnnMnistS #-}
-fcnnMnistS widthHidden@MkSN widthHidden2@MkSN
-           factivationHidden datum inputs =
-  let weightsL0 = atS inputs 0
-      biasesV0 = atS inputs 1
-      weightsL1 = atS inputs 2
-      biasesV1 = atS inputs 3
-      weightsL2 = atS inputs 4
-      biasesV2 = atS inputs 5
-  in fcnnMnistLayersS widthHidden widthHidden2
-                      factivationHidden datum
-                      weightsL0 biasesV0 weightsL1 biasesV1 weightsL2 biasesV2
+-- The differentiable type of all trainable parameters of this nn.
+type ADFcnnMnistParameters widthHidden widthHidden2 d r =
+  ( ( ADVal d (OS.Array '[widthHidden, SizeMnistGlyph] r)
+    , ADVal d (OS.Array '[widthHidden] r) )
+  , ( ADVal d (OS.Array '[widthHidden2, widthHidden] r)
+    , ADVal d (OS.Array '[widthHidden2] r) )
+  , ( ADVal d (OS.Array '[SizeMnistLabel, widthHidden2] r)
+    , ADVal d (OS.Array '[SizeMnistLabel] r) )
+  )
 
 -- | The neural network applied to concrete activation functions
 -- and composed with the appropriate loss function, using fused
@@ -75,10 +59,23 @@ fcnnMnistS widthHidden@MkSN widthHidden2@MkSN
 afcnnMnistLossFusedS
   :: forall widthHidden widthHidden2 d r. ADModeAndNum d r
   => StaticNat widthHidden -> StaticNat widthHidden2
-  -> MnistData r -> ADInputs d r -> ADVal d r
-afcnnMnistLossFusedS widthHidden widthHidden2 (datum, target) inputs =
-  let result = fcnnMnistS widthHidden widthHidden2
-                          logistic (OS.fromVector datum) inputs
+  -> MnistData r
+  -> ADFcnnMnistParameters widthHidden widthHidden2 d r
+  -> ADVal d r
+afcnnMnistLossFusedS widthHidden widthHidden2 (datum, target) adparameters =
+  let result = fcnnMnistLayersS widthHidden widthHidden2
+                                logistic (OS.fromVector datum) adparameters
+  in lossSoftMaxCrossEntropyV target $ fromS1 result
+
+afcnnMnistLossFusedReluS
+  :: forall widthHidden widthHidden2 d r. ADModeAndNum d r
+  => StaticNat widthHidden -> StaticNat widthHidden2
+  -> MnistData r
+  -> ADFcnnMnistParameters widthHidden widthHidden2 d r
+  -> ADVal d r
+afcnnMnistLossFusedReluS widthHidden widthHidden2 (datum, target) adparameters =
+  let result = fcnnMnistLayersS widthHidden widthHidden2
+                                relu (OS.fromVector datum) adparameters
   in lossSoftMaxCrossEntropyV target $ fromS1 result
 
 -- | A function testing the neural network given testing set of inputs
@@ -86,13 +83,19 @@ afcnnMnistLossFusedS widthHidden widthHidden2 (datum, target) inputs =
 afcnnMnistTestS
   :: forall widthHidden widthHidden2 r. ADModeAndNum 'ADModeValue r
   => StaticNat widthHidden -> StaticNat widthHidden2
-  -> [MnistData r] -> Domains r -> r
-afcnnMnistTestS widthHidden widthHidden2 inputs parameters =
+  -> [MnistData r]
+  -> ((ADFcnnMnistParameters widthHidden widthHidden2 'ADModeValue r
+       -> ADVal 'ADModeValue (OS.Array '[SizeMnistLabel] r))
+      -> OS.Array '[SizeMnistLabel] r)
+  -> r
+afcnnMnistTestS widthHidden widthHidden2 inputs evalAtTestParams =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let nn = fcnnMnistS widthHidden widthHidden2
-                            logistic (OS.fromVector glyph)
-            v = OS.toVector $ valueOnDomains nn parameters
+        let nn :: ADFcnnMnistParameters widthHidden widthHidden2 'ADModeValue r
+               -> ADVal 'ADModeValue (OS.Array '[SizeMnistLabel] r)
+            nn = fcnnMnistLayersS widthHidden widthHidden2
+                                  logistic (OS.fromVector glyph)
+            v = OS.toVector $ evalAtTestParams nn
         in V.maxIndex v == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)

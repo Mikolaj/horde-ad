@@ -52,7 +52,7 @@ mnistTestCase2VA
   -> (Int
       -> Int
       -> MnistData Double
-      -> ADFcnnMnistParameters 'ADModeGradient Double
+      -> ADFcnnMnist1Parameters 'ADModeGradient Double
       -> ADVal 'ADModeGradient Double)
   -> Int
   -> Int
@@ -68,7 +68,7 @@ mnistTestCase2VA prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                         - LA.scalar 0.5)
              nParams1
       -- This is a very ugly and probably unavoidable boilerplate:
-      -- we have to manually define a dummy value of type ADFcnnMnistParameters
+      -- we have to manually define a dummy value of type ADFcnnMnist1Parameters
       -- with the correct list lengths (vector lengths can be fake)
       -- to bootstrap the adaptor machinery. Such boilerplate can be
       -- avoided only with shapely typed tensors and scalars or when
@@ -619,7 +619,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
             paramShape = afcnnMnistLen1 widthHidden widthHidden2
             -- This is a very ugly and probably unavoidable boilerplate:
             -- we have to manually define a dummy value
-            -- of type ADFcnnMnistParameters
+            -- of type ADFcnnMnist1Parameters
             -- with the correct list lengths (vector lengths can be fake)
             -- to bootstrap the adaptor machinery. Such boilerplate can be
             -- avoided only with shapely typed tensors and scalars or when

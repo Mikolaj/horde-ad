@@ -46,7 +46,7 @@ afcnnMnistLen1 widthHidden widthHidden2 =
   )
 
 -- The differentiable type of all trainable parameters of this nn.
-type ADFcnnMnistParameters d r =
+type ADFcnnMnist1Parameters d r =
   ( ( [ADVal d (Vector r)]  -- @widthHidden@ copies, length @sizeMnistGlyphInt@
     , ADVal d (Vector r) )  -- length @widthHidden@
   , ( [ADVal d (Vector r)]  -- @widthHidden2@ copies, length @widthHidden@
@@ -68,7 +68,7 @@ afcnnMnist1 :: forall d r. ADModeAndNum d r
             -> Int
             -> Int
             -> Vector r
-            -> ADFcnnMnistParameters d r
+            -> ADFcnnMnist1Parameters d r
             -> ADVal d (Vector r)
 afcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
             datum ((hidden, bias), (hidden2, bias2), (readout, biasr)) =
@@ -87,7 +87,7 @@ afcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
 -- and composed with the appropriate loss function.
 afcnnMnistLoss1
   :: ADModeAndNum d r
-  => Int -> Int -> MnistData r -> ADFcnnMnistParameters d r
+  => Int -> Int -> MnistData r -> ADFcnnMnist1Parameters d r
   -> ADVal d r
 afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) adparams =
   let result = inline afcnnMnist1 logistic softMaxV
@@ -99,14 +99,14 @@ afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) adparams =
 afcnnMnistTest1
   :: forall r. ADModeAndNum 'ADModeValue r
   => Int -> Int -> [MnistData r]
-  -> ((ADFcnnMnistParameters 'ADModeValue r
+  -> ((ADFcnnMnist1Parameters 'ADModeValue r
        -> ADVal 'ADModeValue (Vector r))
       -> Vector r)
   -> r
 afcnnMnistTest1 widthHidden widthHidden2 dataList evalAtTestParams =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
-        let nn :: ADFcnnMnistParameters 'ADModeValue r
+        let nn :: ADFcnnMnist1Parameters 'ADModeValue r
                -> ADVal 'ADModeValue (Vector r)
             nn = inline afcnnMnist1 logistic softMaxV
                                     widthHidden widthHidden2 glyph

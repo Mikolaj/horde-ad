@@ -166,7 +166,7 @@ convMnistTestS
   -> MnistDataBatchS batch_size r
   -> ((ADConvMnistParameters kh kw c_out n_hidden 'ADModeValue r
        -> ADVal 'ADModeValue (OS.Array '[SizeMnistLabel, batch_size] r))
-      -> (OS.Array '[SizeMnistLabel, batch_size] r))
+      -> OS.Array '[SizeMnistLabel, batch_size] r)
   -> r
 convMnistTestS kh@MkSN kw@MkSN
                c_out@MkSN

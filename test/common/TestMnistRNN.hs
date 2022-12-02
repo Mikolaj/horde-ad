@@ -685,7 +685,7 @@ mnistTestCaseRNNS
       -> MnistDataBatchS batch_size' r
       -> ((ADRnnMnistParameters SizeMnistHeight out_width' 'ADModeValue r
            -> ADVal 'ADModeValue (OS.Array '[SizeMnistLabel, batch_size'] r))
-          -> (OS.Array '[SizeMnistLabel, batch_size'] r))
+          -> OS.Array '[SizeMnistLabel, batch_size'] r)
       -> r)
   -> Double
   -> TestTree

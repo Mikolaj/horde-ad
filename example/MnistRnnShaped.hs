@@ -142,7 +142,7 @@ arnnMnistTestS
   -> MnistDataBatchS batch_size r
   -> ((ADRnnMnistParameters SizeMnistHeight out_width 'ADModeValue r
        -> ADVal 'ADModeValue (OS.Array '[SizeMnistLabel, batch_size] r))
-      -> (OS.Array '[SizeMnistLabel, batch_size] r))
+      -> OS.Array '[SizeMnistLabel, batch_size] r)
   -> r
 arnnMnistTestS out_width@MkSN
                batch_size@MkSN
@@ -151,11 +151,10 @@ arnnMnistTestS out_width@MkSN
       outputS =
         let nn :: ADRnnMnistParameters SizeMnistHeight out_width 'ADModeValue r
                -> ADVal 'ADModeValue (OS.Array '[SizeMnistLabel, batch_size] r)
-            nn adparameters =
-              rnnMnistZeroS out_width
-                            batch_size
-                            (MkSN @SizeMnistWidth) (MkSN @SizeMnistHeight)
-                            xs adparameters
+            nn = rnnMnistZeroS out_width
+                               batch_size
+                               (MkSN @SizeMnistWidth) (MkSN @SizeMnistHeight)
+                               xs
         in evalAtTestParams nn
       outputs = map OS.toVector $ OSB.toList $ OS.unravel
                 $ OS.transpose @'[1, 0] $ outputS
