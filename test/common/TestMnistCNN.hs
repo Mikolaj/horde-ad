@@ -785,17 +785,17 @@ comparisonTests volume =
                           => ADInputs d r -> ADVal d r
             f = convMnistLossCNN depth mnistData
             fP = convMnistLossCNNP depth mnistData
-            fO = (withStaticNat depth  -- reverse order than args taken
-                  $ withStaticNat num_hidden
+            fO = (withStaticNat num_hidden  -- reverse order than args taken
+                  $ withStaticNat depth
                   $ convMnistLossFusedO (MkSN @4) (MkSN @4)
                                         sizeMnistHeight sizeMnistWidth
                  )
                    (MkSN @1)
                    (packBatch @1 [shapeBatch $ first LA.flatten mnistData])
             fS adinputs =
-              withStaticNat depth  -- reverse order than args below
-              $ withStaticNat num_hidden
-              $ \(n_hidden :: StaticNat n_hidden) (c_out :: StaticNat c_out) ->
+              withStaticNat num_hidden  -- reverse order than args below
+              $ withStaticNat depth
+              $ \(c_out :: StaticNat c_out) (n_hidden :: StaticNat n_hidden) ->
                   let valsInit
                         :: Value (ADConvMnistParameters 4 4 c_out n_hidden
                                                         'ADModeGradient r)
