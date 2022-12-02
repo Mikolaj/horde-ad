@@ -102,11 +102,14 @@ assert_close_eps preface epilogue eqEpsilon expected actual = do
   assertBool (message eqEpsilon) (abs (expected-actual) <= eqEpsilon)
   where
     msg = "expected: " ++ show expected ++ "\n but got: " ++ show actual
-    message errorMargin = (if null preface then "" else preface ++ "\n") ++
-                          msg ++ "\n (maximum margin of error: " ++ show errorMargin ++ ")" ++
-                          (if null epilogue ||
-                              (lowercase epilogue == lowercase preface) ||
-                              (lowercase epilogue == lowercase msg) then "" else "\n" ++ epilogue)
+    message errorMargin =
+      (if null preface then "" else preface ++ "\n")
+      ++ msg ++ "\n (maximum margin of error: " ++ show errorMargin ++ ")"
+      ++ (if null epilogue
+             || (lowercase epilogue == lowercase preface)
+             || (lowercase epilogue == lowercase msg)
+          then ""
+          else "\n" ++ epilogue)
 
 ----------------------------------------------------------------------------
 -- AssertEqualUpToEpsilon class
@@ -114,38 +117,41 @@ assert_close_eps preface epilogue eqEpsilon expected actual = do
 
 class (Fractional z, Show a) => AssertEqualUpToEpsilon z a | a -> z where
 
-  assertEqualUpToEpsilonWithMsg :: String -- ^ The message suffix
-                                -> z      -- ^ The error margin (i.e., the epsilon)
-                                -> a      -- ^ The expected value
-                                -> a      -- ^ The actual value
-                                -> Assertion
+  assertEqualUpToEpsilonWithMsg
+    :: String  -- ^ message suffix
+    -> z       -- ^ error margin (i.e., the epsilon)
+    -> a       -- ^ expected value
+    -> a       -- ^ actual value
+    -> Assertion
 
-  assertEqualUpToEpsilon :: z -- ^ The error margin (i.e., the epsilon)
-                         -> a -- ^ The expected value
-                         -> a -- ^ The actual value
-                         -> Assertion
+  assertEqualUpToEpsilon
+    :: z  -- ^ error margin (i.e., the epsilon)
+    -> a  -- ^ expected value
+    -> a  -- ^ actual value
+    -> Assertion
   assertEqualUpToEpsilon error_margin expected actual =
-    assertEqualUpToEpsilonWithMsg ("Expected: " ++ show expected ++ "\n but got: " ++ show actual) error_margin expected actual
+    assertEqualUpToEpsilonWithMsg
+      ("Expected: " ++ show expected ++ "\n but got: " ++ show actual)
+      error_margin
+      expected actual
 
 instance AssertEqualUpToEpsilon Double Double where
-  assertEqualUpToEpsilonWithMsg :: String -> Double -> Double -> Double -> Assertion
   assertEqualUpToEpsilonWithMsg = assert_close_eps ""
 
 instance AssertEqualUpToEpsilon Float Float where
-  assertEqualUpToEpsilonWithMsg :: String -> Float -> Float -> Float -> Assertion
   assertEqualUpToEpsilonWithMsg = assert_close_eps ""
 
 instance (AssertEqualUpToEpsilon z a,
-          AssertEqualUpToEpsilon z b) => AssertEqualUpToEpsilon z (a,b) where
-  assertEqualUpToEpsilonWithMsg :: String -> z -> (a,b) -> (a,b) -> Assertion
+          AssertEqualUpToEpsilon z b)
+         => AssertEqualUpToEpsilon z (a,b) where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2) (a1,a2) =
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2
 
 instance (AssertEqualUpToEpsilon z a,
           AssertEqualUpToEpsilon z b,
-          AssertEqualUpToEpsilon z c) => AssertEqualUpToEpsilon z (a,b,c) where
-  assertEqualUpToEpsilonWithMsg :: String -> z -> (a,b,c) -> (a,b,c) -> Assertion
+          AssertEqualUpToEpsilon z c)
+         => AssertEqualUpToEpsilon z (a,b,c) where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3) (a1,a2,a3) =
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2 >>
@@ -154,8 +160,8 @@ instance (AssertEqualUpToEpsilon z a,
 instance (AssertEqualUpToEpsilon z a,
           AssertEqualUpToEpsilon z b,
           AssertEqualUpToEpsilon z c,
-          AssertEqualUpToEpsilon z d) => AssertEqualUpToEpsilon z (a,b,c,d) where
-  assertEqualUpToEpsilonWithMsg :: String -> z -> (a,b,c,d) -> (a,b,c,d) -> Assertion
+          AssertEqualUpToEpsilon z d)
+         => AssertEqualUpToEpsilon z (a,b,c,d) where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4) (a1,a2,a3,a4) =
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2 >>
@@ -166,8 +172,8 @@ instance (AssertEqualUpToEpsilon z a,
           AssertEqualUpToEpsilon z b,
           AssertEqualUpToEpsilon z c,
           AssertEqualUpToEpsilon z d,
-          AssertEqualUpToEpsilon z e) => AssertEqualUpToEpsilon z (a,b,c,d,e) where
-  assertEqualUpToEpsilonWithMsg :: String -> z -> (a,b,c,d,e) -> (a,b,c,d,e) -> Assertion
+          AssertEqualUpToEpsilon z e)
+         => AssertEqualUpToEpsilon z (a,b,c,d,e) where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5) (a1,a2,a3,a4,a5) =
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2 >>
@@ -180,8 +186,8 @@ instance (AssertEqualUpToEpsilon z a,
           AssertEqualUpToEpsilon z c,
           AssertEqualUpToEpsilon z d,
           AssertEqualUpToEpsilon z e,
-          AssertEqualUpToEpsilon z f) => AssertEqualUpToEpsilon z (a,b,c,d,e,f) where
-  assertEqualUpToEpsilonWithMsg :: String -> z -> (a,b,c,d,e,f) -> (a,b,c,d,e,f) -> Assertion
+          AssertEqualUpToEpsilon z f)
+         => AssertEqualUpToEpsilon z (a,b,c,d,e,f) where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6) (a1,a2,a3,a4,a5,a6) =
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2 >>
@@ -196,8 +202,8 @@ instance (AssertEqualUpToEpsilon z a,
           AssertEqualUpToEpsilon z d,
           AssertEqualUpToEpsilon z e,
           AssertEqualUpToEpsilon z f,
-          AssertEqualUpToEpsilon z g) => AssertEqualUpToEpsilon z (a,b,c,d,e,f,g) where
-  assertEqualUpToEpsilonWithMsg :: String -> z -> (a,b,c,d,e,f,g) -> (a,b,c,d,e,f,g) -> Assertion
+          AssertEqualUpToEpsilon z g)
+         => AssertEqualUpToEpsilon z (a,b,c,d,e,f,g) where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6,e7) (a1,a2,a3,a4,a5,a6,a7) =
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2 >>
@@ -214,8 +220,8 @@ instance (AssertEqualUpToEpsilon z a,
           AssertEqualUpToEpsilon z e,
           AssertEqualUpToEpsilon z f,
           AssertEqualUpToEpsilon z g,
-          AssertEqualUpToEpsilon z h) => AssertEqualUpToEpsilon z (a,b,c,d,e,f,g,h) where
-  assertEqualUpToEpsilonWithMsg :: String -> z -> (a,b,c,d,e,f,g,h) -> (a,b,c,d,e,f,g,h) -> Assertion
+          AssertEqualUpToEpsilon z h)
+         => AssertEqualUpToEpsilon z (a,b,c,d,e,f,g,h) where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6,e7,e8) (a1,a2,a3,a4,a5,a6,a7,a8) =
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2 >>
@@ -234,8 +240,8 @@ instance (AssertEqualUpToEpsilon z a,
           AssertEqualUpToEpsilon z f,
           AssertEqualUpToEpsilon z g,
           AssertEqualUpToEpsilon z h,
-          AssertEqualUpToEpsilon z i) => AssertEqualUpToEpsilon z (a,b,c,d,e,f,g,h,i) where
-  assertEqualUpToEpsilonWithMsg :: String -> z -> (a,b,c,d,e,f,g,h,i) -> (a,b,c,d,e,f,g,h,i) -> Assertion
+          AssertEqualUpToEpsilon z i)
+         => AssertEqualUpToEpsilon z (a,b,c,d,e,f,g,h,i) where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6,e7,e8,e9) (a1,a2,a3,a4,a5,a6,a7,a8,a9) =
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e1 a1 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e2 a2 >>
@@ -256,8 +262,8 @@ instance (AssertEqualUpToEpsilon z a,
           AssertEqualUpToEpsilon z g,
           AssertEqualUpToEpsilon z h,
           AssertEqualUpToEpsilon z i,
-          AssertEqualUpToEpsilon z j) => AssertEqualUpToEpsilon z (a,b,c,d,e,f,g,h,i,j) where
-  assertEqualUpToEpsilonWithMsg :: String -> z -> (a,b,c,d,e,f,g,h,i,j) -> (a,b,c,d,e,f,g,h,i,j) -> Assertion
+          AssertEqualUpToEpsilon z j)
+         => AssertEqualUpToEpsilon z (a,b,c,d,e,f,g,h,i,j) where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon (e1,e2,e3,e4,e5,e6,e7,e8,e9,e10) (a1,a2,a3,a4,a5,a6,a7,a8,a9,a10) =
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e1  a1 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e2  a2 >>
@@ -270,13 +276,18 @@ instance (AssertEqualUpToEpsilon z a,
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e9  a9 >>
     assertEqualUpToEpsilonWithMsg msg eqEpsilon e10 a10
 
-instance (VS.Storable a, OS.Shape sh1, AssertEqualUpToEpsilon z a) => AssertEqualUpToEpsilon z (OS.Array sh1 a) where
-  assertEqualUpToEpsilonWithMsg :: String -> z -> OS.Array sh1 a -> OS.Array sh1 a -> Assertion
-  assertEqualUpToEpsilonWithMsg msg eqEpsilon expected actual = assert_list (assertEqualUpToEpsilonWithMsg msg eqEpsilon) (linearize expected) (linearize actual)
+instance (VS.Storable a, OS.Shape sh1, AssertEqualUpToEpsilon z a)
+         => AssertEqualUpToEpsilon z (OS.Array sh1 a) where
+  assertEqualUpToEpsilonWithMsg msg eqEpsilon expected actual =
+    assert_list (assertEqualUpToEpsilonWithMsg msg eqEpsilon)
+                (linearize expected)
+                (linearize actual)
 
-instance {-# OVERLAPPABLE #-} (Fractional z, Show a, HasShape a, Linearizable a b, AssertEqualUpToEpsilon z b) => AssertEqualUpToEpsilon z a where
-  assertEqualUpToEpsilonWithMsg :: String -> z -> a -> a -> Assertion
-  assertEqualUpToEpsilonWithMsg msg eqEpsilon = assert_shape (assertEqualUpToEpsilonWithMsg msg eqEpsilon)
+instance {-# OVERLAPPABLE #-}
+         (Fractional z, Show a, HasShape a, Linearizable a b, AssertEqualUpToEpsilon z b)
+         => AssertEqualUpToEpsilon z a where
+  assertEqualUpToEpsilonWithMsg msg eqEpsilon =
+    assert_shape (assertEqualUpToEpsilonWithMsg msg eqEpsilon)
 
 ----------------------------------------------------------------------------
 -- Generic comparisons without explicit error margin
