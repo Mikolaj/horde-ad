@@ -363,11 +363,13 @@ vatanOldReadmeDReverse dsV =
 oldReadmeTestsV :: TestTree
 oldReadmeTestsV = testGroup "Simple tests of vector-based code for README"
   [ testCase "V Float (1.1, 2.2, 3.3)" $ do
-      let res = vatanOldReadmeDReverse (V.singleton $ V.fromList [1.1 :: Float, 2.2, 3.3])
+      let res = vatanOldReadmeDReverse
+                  (V.singleton $ V.fromList [1.1 :: Float, 2.2, 3.3])
       res @?~ ( V.singleton $ V.fromList [3.0715904, 0.18288425, 1.1761366]
               , 4.937552 )
   , testCase "V Double (1.1, 2.2, 3.3)" $ do
-      let res = vatanOldReadmeDReverse (V.singleton $ V.fromList [1.1 :: Double, 2.2, 3.3])
+      let res = vatanOldReadmeDReverse
+                  (V.singleton $ V.fromList [1.1 :: Double, 2.2, 3.3])
       res @?~ ( V.singleton $ V.fromList [ 3.071590389300859
                                          , 0.18288422990948425
                                          , 1.1761365368997136 ]
@@ -386,28 +388,28 @@ testBaseline1 =
     (dRev0 baseline1 1.5)
     (6, 9)
 
-build1SeqSimple1
+build1ElementwiseSimple1
   :: ADModeAndNum d r
   => ADVal d r -> ADVal d r
-build1SeqSimple1 x =
-  sumElements0 (build1Seq 4 $ \i -> fromInteger (toInteger i) * x)
+build1ElementwiseSimple1 x =
+  sumElements0 (build1Elementwise 4 $ \i -> fromInteger (toInteger i) * x)
 
-testBuild1SeqSimple1 :: Assertion
-testBuild1SeqSimple1 =
+testBuild1ElementwiseSimple1 :: Assertion
+testBuild1ElementwiseSimple1 =
   assertEqualUpToEpsilon 1e-7
-    (dRev0 build1SeqSimple1 1.5)
+    (dRev0 build1ElementwiseSimple1 1.5)
     (6, 9)
 
-build1Simple1
+build1ClosureSimple1
   :: ADModeAndNum d r
   => ADVal d r -> ADVal d r
-build1Simple1 x =
-  sumElements0 (build1 4 $ \i -> fromInteger (toInteger i) * x)
+build1ClosureSimple1 x =
+  sumElements0 (build1Closure 4 $ \i -> fromInteger (toInteger i) * x)
 
-testBuild1Simple1 :: Assertion
-testBuild1Simple1 =
+testBuild1ClosureSimple1 :: Assertion
+testBuild1ClosureSimple1 =
   assertEqualUpToEpsilon 1e-7
-    (dRev0 build1Simple1 1.5)
+    (dRev0 build1ClosureSimple1 1.5)
     (6, 9)
 
 
@@ -422,32 +424,33 @@ testBaseline2 =
     (dRev0 baseline2 1.5)
     (26.0,23.25)
 
-build1SeqSimple2
+build1ElementwiseSimple2
   :: ADModeAndNum d r
   => ADVal d r -> ADVal d r
-build1SeqSimple2 x =
+build1ElementwiseSimple2 x =
   let !x2 = x * x
   in x2 + x
-     + sumElements0 (build1Seq 4 $ \i -> fromInteger (toInteger i) * x2 + x)
+     + sumElements0 (build1Elementwise 4 $ \i ->
+                      fromInteger (toInteger i) * x2 + x)
 
-testBuild1SeqSimple2 :: Assertion
-testBuild1SeqSimple2 =
+testBuild1ElementwiseSimple2 :: Assertion
+testBuild1ElementwiseSimple2 =
   assertEqualUpToEpsilon 1e-7
-    (dRev0 build1SeqSimple2 1.5)
+    (dRev0 build1ElementwiseSimple2 1.5)
     (26.0,23.25)
 
-build1Simple2
+build1ClosureSimple2
   :: ADModeAndNum d r
   => ADVal d r -> ADVal d r
-build1Simple2 x =
+build1ClosureSimple2 x =
   let !x2 = x * x
   in x2 + x
-     + sumElements0 (build1 4 $ \i -> fromInteger (toInteger i) * x2 + x)
+     + sumElements0 (build1Closure 4 $ \i -> fromInteger (toInteger i) * x2 + x)
 
-testBuild1Simple2 :: Assertion
-testBuild1Simple2 =
+testBuild1ClosureSimple2 :: Assertion
+testBuild1ClosureSimple2 =
   assertEqualUpToEpsilon 1e-7
-    (dRev0 build1Simple2 1.5)
+    (dRev0 build1ClosureSimple2 1.5)
     (26.0,23.25)
 
 
@@ -462,59 +465,61 @@ testBaseline3 =
     (dRev0 baseline3 1.5)
     (20.0,18.75)
 
-build1SeqSimple3
+build1ElementwiseSimple3
   :: ADModeAndNum d r
   => ADVal d r -> ADVal d r
-build1SeqSimple3 x =
+build1ElementwiseSimple3 x =
   let !x2 = x * x
-      !v = build1Seq 1 $ \i -> fromInteger (toInteger i) * x2 + x * x + x
+      !v = build1Elementwise 1 $ \i ->
+             fromInteger (toInteger i) * x2 + x * x + x
   in sumElements0
      $ v
-       + build1Seq 1 (const $ sumElements0 v)
+       + build1Elementwise 1 (const $ sumElements0 v)
        + v
-       + build1Seq 1
+       + build1Elementwise 1
            (const $ sumElements0
-            $ build1Seq 1 $ \i -> fromInteger (toInteger i) * x2 + x2 + x)
+            $ build1Elementwise 1 $ \i ->
+                fromInteger (toInteger i) * x2 + x2 + x)
        + v
 
-testBuild1SeqSimple3 :: Assertion
-testBuild1SeqSimple3 =
+testBuild1ElementwiseSimple3 :: Assertion
+testBuild1ElementwiseSimple3 =
   assertEqualUpToEpsilon 1e-7
-    (dRev0 build1SeqSimple3 1.5)
+    (dRev0 build1ElementwiseSimple3 1.5)
     (20.0,18.75)
 
-build1Simple3
+build1ClosureSimple3
   :: ADModeAndNum d r
   => ADVal d r -> ADVal d r
-build1Simple3 x =
+build1ClosureSimple3 x =
   let !x2 = x * x
-      !v = build1 1 $ \i -> fromInteger (toInteger i) * x2 + x * x + x
+      !v = build1Closure 1 $ \i -> fromInteger (toInteger i) * x2 + x * x + x
   in sumElements0
      $ v
-       + build1 1 (const $ sumElements0 v)
+       + build1Closure 1 (const $ sumElements0 v)
        + v
-       + build1 1
+       + build1Closure 1
            (const $ sumElements0
-            $ build1 1 $ \i -> fromInteger (toInteger i) * x2 + x2 + x)
+            $ build1Closure 1 $ \i -> fromInteger (toInteger i) * x2 + x2 + x)
        + v
 
-testBuild1Simple3 :: Assertion
-testBuild1Simple3 =
+testBuild1ClosureSimple3 :: Assertion
+testBuild1ClosureSimple3 =
   assertEqualUpToEpsilon 1e-7
-    (dRev0 build1Simple3 1.5)
+    (dRev0 build1ClosureSimple3 1.5)
     (20.0,18.75)
 
 simple0Tests :: TestTree
 simple0Tests = testGroup "Simple0Tests of build1"
   [ testCase "testBaseline1" testBaseline1
-  , testCase "testBuild1SeqSimple1" testBuild1SeqSimple1
-  , testCase "testBuild1Simple1" testBuild1Simple1
+  , testCase "testBuild1ElementwiseSimple1" testBuild1ElementwiseSimple1
+  , testCase "testBuild1ClosureSimple1" testBuild1ClosureSimple1
   , testCase "testBaseline2" testBaseline2
-  , testCase "testBuild1SeqSimple2" testBuild1SeqSimple2
-  , testCase "testBuild1Simple2" testBuild1Simple2
+  , testCase "testBuild1ElementwiseSimple2" testBuild1ElementwiseSimple2
+  , testCase "testBuild1ClosureSimple2" testBuild1ClosureSimple2
   , testCase "testBaseline3" testBaseline3
-  , testCase "testBuild1SeqSimple3" testBuild1SeqSimple3
-  , testCase "testBuild1Simple3" testBuild1Simple3
+  , testCase "testBuild1ElementwiseSimple3" testBuild1ElementwiseSimple3
+  , testCase "testBuild1ClosureSimple3" testBuild1ClosureSimple3
   ]
 
 quickCheck0Tests :: TestTree
@@ -522,14 +527,14 @@ quickCheck0Tests =
  testGroup
   "TuickCheck tests of build1's gradient vs derivative vs perturbation"
   [ quickCheckTestBuild "testBaseline1" baseline1
-  , quickCheckTestBuild "testBuild1SeqSimple1" build1SeqSimple1
-  , quickCheckTestBuild "testBuild1Simple1" build1Simple1
+  , quickCheckTestBuild "testBuild1ElementwiseSimple1" build1ElementwiseSimple1
+  , quickCheckTestBuild "testBuild1ClosureSimple1" build1ClosureSimple1
   , quickCheckTestBuild "testBaseline2" baseline2
-  , quickCheckTestBuild "testBuild1SeqSimple2" build1SeqSimple2
-  , quickCheckTestBuild "testBuild1Simple2" build1Simple2
+  , quickCheckTestBuild "testBuild1ElementwiseSimple2" build1ElementwiseSimple2
+  , quickCheckTestBuild "testBuild1ClosureSimple2" build1ClosureSimple2
   , quickCheckTestBuild "testBaseline3" baseline3
-  , quickCheckTestBuild "testBuild1SeqSimple3" build1SeqSimple3
-  , quickCheckTestBuild "testBuild1Simple3" build1Simple3
+  , quickCheckTestBuild "testBuild1ElementwiseSimple3" build1ElementwiseSimple3
+  , quickCheckTestBuild "testBuild1ClosureSimple3" build1ClosureSimple3
   ]
 
 dRev0

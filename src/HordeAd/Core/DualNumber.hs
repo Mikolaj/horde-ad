@@ -455,41 +455,40 @@ build1POPL n f = V.fromList $ map f [0 .. n - 1]
 -- Fake rank 1. This is still an array of delta expressions, thinly wrapped,
 -- instead of a single delta expression representing an array.
 -- We gain a little by storing the primal part in an unboxed vector.
-build1Seq :: ADModeAndNum d r
-          => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
-build1Seq n f = fromList1 $ map f [0 .. n - 1]
+build1Elementwise, build1Closure, build1
+  :: ADModeAndNum d r
+  => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
+build1Elementwise n f = fromList1 $ map f [0 .. n - 1]
   -- equivalent to @fromVector1 $ build1POPL n f@
 
-build1 :: ADModeAndNum d r
-       => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
-build1 n f =
+build1Closure n f =
   let g i = let D u _ = f i in u
       h i = let D _ u' = f i in u'
   in dD (V.fromList $ map g [0 .. n - 1]) (dBuild1 n h)
+
+build1 = build1Closure
 
 map1POPL :: (ADVal d r -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
          -> Data.Vector.Vector (ADVal d r)
 map1POPL f vd = V.map f vd
 
 -- The list probably fuses away, which may make it a bit faster than
--- if written using @build1Seq@.
-map1Seq :: ADModeAndNum d r
-        => (ADVal d r -> ADVal d r) -> ADVal d (Vector r)
-        -> ADVal d (Vector r)
-map1Seq f _d@(D v v') =
+-- if written using @build1Elementwise@.
+map1Elementwise, map1Closure
+  :: ADModeAndNum d r
+  => (ADVal d r -> ADVal d r) -> ADVal d (Vector r)
+  -> ADVal d (Vector r)
+map1Elementwise f _d@(D v v') =
   let k = V.length v
       g ix p = f $ dD p (dIndex10 v' ix k)
       ds = imap g $ V.toList v
   in fromList1 ds
-    -- equivalent to @build1Seq (V.length v) $ \i -> f (index10 _d i)@
+    -- equivalent to @build1Elementwise (V.length v) $ \i -> f (index10 _d i)@
     -- equivalent to
     -- @fromVector1 . map1POPL f . rank1toVector
     --   where rank1toVector d@(D v _v') = V.generate (V.length v) (index10 d)@
 
-map1Build :: ADModeAndNum d r
-          => (ADVal d r -> ADVal d r) -> ADVal d (Vector r)
-          -> ADVal d (Vector r)
-map1Build f d@(D v _) = build1 (V.length v) $ \i -> f (index10 d i)
+map1Closure f d@(D v _) = build1Closure (V.length v) $ \i -> f (index10 d i)
 
 
 -- * Operations resulting in a matrix
@@ -697,30 +696,31 @@ maxPool2 ksize stride m@(D u _) =
       mins = map (maximum0 . getArea) resultCoords
   in reshape2 colsOut $ fromList1 mins
 
-build2Seq :: ADModeAndNum d r
-          => (Int, Int) -> ((Int, Int) -> ADVal d r) -> ADVal d (Matrix r)
-build2Seq (i, j) f =
+build2Elementwise, build2Closure, build2
+  :: ADModeAndNum d r
+  => (Int, Int) -> ((Int, Int) -> ADVal d r) -> ADVal d (Matrix r)
+build2Elementwise (i, j) f =
   let ijs = [(i1, j1) | i1 <- [0 .. i - 1], j1 <- [0 .. j - 1]]
   in fromList2 (i, j) $ map f ijs
 
-build2 :: ADModeAndNum d r
-       => (Int, Int) -> ((Int, Int) -> ADVal d r) -> ADVal d (Matrix r)
-build2 (i, j) f =
+build2Closure (i, j) f =
   let g ij = let D u _ = f ij in u
       h ij = let D _ u' = f ij in u'
       ijs = [(i1, j1) | i1 <- [0 .. i - 1], j1 <- [0 .. j - 1]]
         -- TODO: tests needed to determine if the order of pairs is right
   in dD ((j LA.>< i) $ map g ijs) (dBuild2 (i, j) h)
 
-map2Seq :: ADModeAndNum d r
-        => (ADVal d r -> ADVal d r) -> ADVal d (Matrix r)
-        -> ADVal d (Matrix r)
-map2Seq f d@(D v _) = build2Seq (LA.size v) $ \i -> f (index20 d i)
+build2 = build2Closure
 
-map2Build :: ADModeAndNum d r
-          => (ADVal d r -> ADVal d r) -> ADVal d (Matrix r)
-          -> ADVal d (Matrix r)
-map2Build f d@(D v _) = build2 (LA.size v) $ \i -> f (index20 d i)
+map2Elementwise, map2Closure
+  :: ADModeAndNum d r
+  => (ADVal d r -> ADVal d r) -> ADVal d (Matrix r)
+  -> ADVal d (Matrix r)
+map2Elementwise f d@(D v _) =
+  build2Elementwise (LA.size v) $ \i -> f (index20 d i)
+
+map2Closure f d@(D v _) =
+  build2Closure (LA.size v) $ \i -> f (index20 d i)
 
 
 -- * Operations resulting in an arbitrary untyped tensor
@@ -804,23 +804,22 @@ fromSX :: forall sh d r. (ADModeAndNum d r, OS.Shape sh)
        => ADVal d (OS.Array sh r) -> ADVal d (OT.Array r)
 fromSX (D u u') = dD (Data.Array.Convert.convert u) (dFromSX u')
 
-buildXSeq :: ADModeAndNum d r
-          => OT.ShapeL -> ([Int] -> ADVal d r) -> ADVal d (OT.Array r)
-buildXSeq sh f =
+buildXElementwise, buildXClosure, buildX
+  :: ADModeAndNum d r
+  => OT.ShapeL -> ([Int] -> ADVal d r) -> ADVal d (OT.Array r)
+buildXElementwise sh f =
   -- Copied from Data.Array.Internal.
   let getStridesT :: OT.ShapeL -> [Int]
       getStridesT = scanr (*) 1
       (s, ss) = case getStridesT sh of
         s2 : ss2 -> (s2, ss2)
-        [] -> error "scanr in buildDerivative"
+        [] -> error "scanr in buildXElementwise"
       toIx [] _ = []
       toIx (n:ns) i = q : toIx ns r where (q, r) = quotRem i n
       ixs = [toIx ss i | i <- [0 .. s - 1]]
   in fromListX sh $ map f ixs
 
-buildX :: ADModeAndNum d r
-       => OT.ShapeL -> ([Int] -> ADVal d r) -> ADVal d (OT.Array r)
-buildX sh f =
+buildXClosure sh f =
   let g i = let D u _ = f i in u
       h i = let D _ u' = f i in u'
       -- Copied from Data.Array.Internal.
@@ -830,21 +829,23 @@ buildX sh f =
       getStridesT = scanr (*) 1
       (s, ss) = case getStridesT sh of
         s2 : ss2 -> (s2, ss2)
-        [] -> error "scanr in buildDerivative"
+        [] -> error "scanr in buildXClosure"
       toIx [] _ = []
       toIx (n:ns) i = q : toIx ns r where (q, r) = quotRem i n
       ixs = [toIx ss i | i <- [0 .. s - 1]]
   in dD (OT.fromList sh $ map g ixs) (dBuildX sh h)
 
-mapXSeq :: ADModeAndNum d r
-        => (ADVal d r -> ADVal d r) -> ADVal d (OT.Array r)
-        -> ADVal d (OT.Array r)
-mapXSeq f d@(D v _) = buildXSeq (OT.shapeL v) $ \i -> f (indexX0 d i)
+buildX = buildXClosure
 
-mapXBuild :: ADModeAndNum d r
-          => (ADVal d r -> ADVal d r) -> ADVal d (OT.Array r)
-          -> ADVal d (OT.Array r)
-mapXBuild f d@(D v _) = buildX (OT.shapeL v) $ \i -> f (indexX0 d i)
+mapXElementwise, mapXClosure
+  :: ADModeAndNum d r
+  => (ADVal d r -> ADVal d r) -> ADVal d (OT.Array r)
+  -> ADVal d (OT.Array r)
+mapXElementwise f d@(D v _) =
+  buildXElementwise (OT.shapeL v) $ \i -> f (indexX0 d i)
+
+mapXClosure f d@(D v _) =
+  buildXClosure (OT.shapeL v) $ \i -> f (indexX0 d i)
 
 
 #if defined(VERSION_ghc_typelits_natnormalise)
@@ -1047,24 +1048,23 @@ maxPool24 d =
                         . fromS2)) d
   in res
 
-buildSSeq :: forall sh d r. (ADModeAndNum d r, OS.Shape sh)
-          => ([Int] -> ADVal d r) -> ADVal d (OS.Array sh r)
-buildSSeq f =
+buildSElementwise, buildSClosure, buildS
+  :: forall sh d r. (ADModeAndNum d r, OS.Shape sh)
+  => ([Int] -> ADVal d r) -> ADVal d (OS.Array sh r)
+buildSElementwise f =
   -- Copied from Data.Array.Internal.
   let getStridesT :: OS.ShapeL -> [Int]
       getStridesT = scanr (*) 1
       (s, ss) = case getStridesT sh of
         s2 : ss2 -> (s2, ss2)
-        [] -> error "scanr in buildDerivative"
+        [] -> error "scanr in buildSElementwise"
       toIx [] _ = []
       toIx (n:ns) i = q : toIx ns r where (q, r) = quotRem i n
       sh = OS.shapeP (Proxy :: Proxy sh)
       ixs = [toIx ss i | i <- [0 .. s - 1]]
   in fromListS $ map f ixs
 
-buildS :: forall sh d r. (ADModeAndNum d r, OS.Shape sh)
-       => ([Int] -> ADVal d r) -> ADVal d (OS.Array sh r)
-buildS f =
+buildSClosure f =
   let g i = let D u _ = f i in u
       h i = let D _ u' = f i in u'
       -- Copied from Data.Array.Internal.
@@ -1074,22 +1074,24 @@ buildS f =
       getStridesT = scanr (*) 1
       (s, ss) = case getStridesT sh of
         s2 : ss2 -> (s2, ss2)
-        [] -> error "scanr in buildDerivative"
+        [] -> error "scanr in buildSClosure"
       toIx [] _ = []
       toIx (n:ns) i = q : toIx ns r where (q, r) = quotRem i n
       sh = OS.shapeP (Proxy :: Proxy sh)
       ixs = [toIx ss i | i <- [0 .. s - 1]]
   in dD (OS.fromList $ map g ixs) (dBuildS h)
 
-mapSSeq :: (ADModeAndNum d r, OS.Shape sh)
-        => (ADVal d r -> ADVal d r) -> ADVal d (OS.Array sh r)
-        -> ADVal d (OS.Array sh r)
-mapSSeq f d = buildSSeq $ \i -> f (indexS0 d i)
+buildS = buildSClosure
 
-mapSBuild :: (ADModeAndNum d r, OS.Shape sh)
-          => (ADVal d r -> ADVal d r) -> ADVal d (OS.Array sh r)
-          -> ADVal d (OS.Array sh r)
-mapSBuild f d = buildS $ \i -> f (indexS0 d i)
+mapSElementwise, mapSClosure
+  :: (ADModeAndNum d r, OS.Shape sh)
+  => (ADVal d r -> ADVal d r) -> ADVal d (OS.Array sh r)
+  -> ADVal d (OS.Array sh r)
+mapSElementwise f d =
+  buildSElementwise $ \i -> f (indexS0 d i)
+
+mapSClosure f d =
+  buildSClosure $ \i -> f (indexS0 d i)
 
 -- The following are borrowed from https://github.com/benl23x5/adops.
 
