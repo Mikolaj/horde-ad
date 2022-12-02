@@ -8,8 +8,8 @@ import Prelude
 
 import qualified Data.Array.Convert
 import qualified Data.Array.ShapedS as OS
-import           GHC.TypeLits (KnownNat, type (+))
 import           Data.Proxy
+import           GHC.TypeLits (KnownNat, natVal, type (+))
 import           Numeric.LinearAlgebra (Numeric)
 import qualified Numeric.LinearAlgebra as LA
 import           Test.Tasty
@@ -21,7 +21,6 @@ import HordeAd.Internal.Delta (atIndexInTensor)
 
 import Tool.EqEpsilon
 import Tool.Shared
-import GHC.TypeLits
 
 testTrees :: [TestTree]
 testTrees = [ quickCheckForwardAndBackward
@@ -297,6 +296,7 @@ testBarR =
     , [ OS.constant 0
       , OS.constant 0 ] )
 
+
 -- The following are borrowed from https://github.com/benl23x5/adops.
 
 -- | Derivative of full convolution with respect to the input image,
@@ -314,20 +314,26 @@ conv2d_dInp
      , shA  ~ '[nImgs, nCinp, nAh, nAw]
      , shB  ~ '[nImgs, nCout, nAh, nAw]
      , shB1 ~ '[1,     1,     nAh, nAw]
-     , sh1  ~ '[nCout])
+     , sh1  ~ '[nCout] )
   => OS.Array shK r
   -> OS.Array shB r
   -> OS.Array shA r
 conv2d_dInp arrK arrB =
   let nKh = fromIntegral (natVal $ Proxy @nKh) :: Int
       nKw = fromIntegral (natVal $ Proxy @nKw) :: Int
-  in OS.generate $ \l -> case l of
+  in OS.generate $ \case
     [iImg, iCinp, iAh, iAw] ->
-      OS.sumA ((OS.generate $ \l -> case l of
-        [iCout] ->
-          let arrBt = slicezOS @shB1 arrB [iImg,  iCout, iAh-nKh+1, iAw-nKw+1]
-              arrKt = slicezOS @shB1 arrK [iCout, iCinp, 0, 0]
-          in  dotOS arrBt arrKt) :: OS.Array sh1 r)
+      let arr1 :: OS.Array sh1 r
+          arr1 = OS.generate $ \case
+            [iCout] ->
+              let arrBt = slicezOS @shB1 arrB
+                                   [iImg,  iCout, iAh-nKh+1, iAw-nKw+1]
+                  arrKt = slicezOS @shB1 arrK
+                                   [iCout, iCinp, 0, 0]
+              in dotOS arrBt arrKt
+            _ -> error "OS.generate in conv2d_dInp"
+      in OS.sumA arr1
+    _ -> error "OS.generate in conv2d_dInp"
 
 -- | Derivative of full convolution with respect to the kernels,
 --   where the output size is the same as the input size.
@@ -343,18 +349,22 @@ conv2d_dKrn
      , shA  ~ '[nImgs, nCinp, nAh, nAw]
      , shB  ~ '[nImgs, nCout, nAh, nAw]
      , shB1 ~ '[1,     1,     nAh, nAw]
-     , sh1  ~ '[nCout])
+     , sh1  ~ '[nCout] )
   => OS.Array shA r
   -> OS.Array shB r
   -> OS.Array shK r
 conv2d_dKrn arrA arrB =
-  OS.generate $ \l -> case l of
+  OS.generate $ \case
     [iCout, iCinp, iKh, iKw] ->
-      OS.sumA ((OS.generate $ \l -> case l of
-        [iImg] ->
-          let arrBt = slicezOS @shB1 arrB [iImg, iCout, 0,   0  ]
-              arrAt = slicezOS @shB1 arrA [iImg, iCinp, iKh, iKw]
-          in  dotOS arrBt arrAt) :: OS.Array sh1 r)
+      let arr1 :: OS.Array sh1 r
+          arr1 = OS.generate $ \case
+            [iImg] ->
+              let arrBt = slicezOS @shB1 arrB [iImg, iCout, 0,   0  ]
+                  arrAt = slicezOS @shB1 arrA [iImg, iCinp, iKh, iKw]
+              in dotOS arrBt arrAt
+            _ -> error "OS.generate in conv2d_dKrn"
+      in OS.sumA arr1
+    _ -> error "OS.generate in conv2d_dKrn"
 
 -- | Slice a section out of a tensor,
 --   given a base offset and shape of the section.
@@ -384,31 +394,32 @@ dotOS arr1 arr2 = OS.toVector arr1 LA.<.> OS.toVector arr2
 
 adoptTests :: TestTree
 adoptTests = testGroup "Tests of the port of adopt code"
-  [ testCase "17.3" test_conv2d_dInp
+  [ testCase "conv2d_dInp" test_conv2d_dInp
+  , testCase "conv2d_dKrn" test_conv2d_dKrn
   ]
 
 test_conv2d_dInp :: Assertion
 test_conv2d_dInp =
   let -- Input of shape: batch x chas x height x width
-      arrA   = 1 :: OS.Array '[5, 2, 4, 8] Double
+      arrA = 1 :: OS.Array '[5, 2, 4, 8] Double
       -- Filters of shape: num_filters x chas x kernel_height x kernel_width
-      arrK   = 1 :: OS.Array '[7, 2, 1, 3] Double
+      arrK = 1 :: OS.Array '[7, 2, 1, 3] Double
       -- Output gradient of shape: batch x chas x output_height x output_width
-      arrB'  = 1 :: OS.Array '[5, 7, 4, 8] Double
+      arrB = 1 :: OS.Array '[5, 7, 4, 8] Double
       -- Compare the ad version against the manual derivative.
-      dInp   = conv2d_dInp arrK arrB'
-      vjp    = revDt (conv2d (constant arrK)) arrA arrB'
+      dInp = conv2d_dInp arrK arrB
+      vjp  = revDt (conv2d (constant arrK)) arrA arrB
   in assertEqualUpToEpsilon 1e-7 vjp dInp
 
 test_conv2d_dKrn :: Assertion
 test_conv2d_dKrn =
   let -- Input of shape: batch x chas x height x width
-      arrA   = 1 :: OS.Array '[5, 2, 4, 8] Double
+      arrA = 1 :: OS.Array '[5, 2, 4, 8] Double
       -- Filters of shape: num_filters x chas x kernel_height x kernel_width
-      arrK   = 1 :: OS.Array '[7, 2, 1, 3] Double
+      arrK = 1 :: OS.Array '[7, 2, 1, 3] Double
       -- Output gradient of shape: batch x chas x output_height x output_width
-      arrB'  = 1 :: OS.Array '[5, 7, 4, 8] Double
+      arrB = 1 :: OS.Array '[5, 7, 4, 8] Double
       -- Compare the ad version against the manual derivative.
-      dKrn   = conv2d_dKrn arrA arrB'
-      vjp    = revDt (flip conv2d (constant arrA)) arrK arrB'
+      dKrn = conv2d_dKrn arrA arrB
+      vjp  = revDt (flip conv2d (constant arrA)) arrK arrB
   in assertEqualUpToEpsilon 1e-7 vjp dKrn
