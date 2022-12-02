@@ -309,6 +309,8 @@ adoptTests = testGroup "Tests of the port of adopt code"
       (quickcheck_conv2dNonDualNumber @Double)
   , testProperty "quickcheck_conv2dNonDualNumber Float"
       (quickcheck_conv2dNonDualNumber @Float)
+  , testProperty "quickcheck_conv2d Double" (quickcheck_conv2d @Double)
+  , testProperty "quickcheck_conv2d Float" (quickcheck_conv2d @Float)
   ]
 
 -- | Unpadded full convolution
@@ -499,3 +501,57 @@ test_conv2d_dKrn =
       dKrn = conv2d_dKrn arrA arrB
       vjp  = revDt (flip conv2d (constant arrA)) arrK arrB
   in assertEqualUpToEpsilon 1e-7 vjp dKrn
+
+static_conv2d
+  :: forall r nImgs nCinp nCout nAh nAw nKh nKw
+            shK shA shB.
+     ( HasDelta r
+     , shK ~ '[nCout, nCinp, nKh, nKw]
+     , shA ~ '[nImgs, nCinp, nAh, nAw]
+     , shB ~ '[nImgs, nCout, nAh, nAw] )
+  => StaticNat nImgs -> StaticNat nCinp -> StaticNat nCout
+  -> StaticNat nAh -> StaticNat nAw -> StaticNat nKh -> StaticNat nKw
+  -> OS.Array shK r
+       -- ^ Filters of shape: num_filters x chas x kernel_height x kernel_width
+  -> OS.Array shA r
+       -- ^ Input of shape: batch x chas x height x width
+  -> OS.Array shB r
+       -- ^ Output gradient of shape:
+       --     batch x chas x output_height x output_width
+  -> Bool
+static_conv2d MkSN MkSN MkSN MkSN MkSN MkSN MkSN arrK arrA arrB =
+  let -- Compare the ad version against the manual derivative.
+      -- Note that manual versions don't take one of the arguments (the point
+      -- at which the gradient is taken), because maths (something about
+      -- convolution being linear and so gradient the same everywhere).
+      -- First, the gradient wrt the input image taken at point @arrA@.
+      vjpI = revDt (conv2d (constant arrK)) arrA arrB
+      dInp = conv2d_dInp arrK arrB  -- manually written
+      -- Second, the gradient wrt the kernels taken at point @arrK@.
+      vjpK  = revDt (flip conv2d (constant arrA)) arrK arrB
+      dKrn = conv2d_dKrn arrA arrB  -- manually written
+  in abs (vjpI - dInp) <= 1e-7
+     && abs (vjpK - dKrn) <= 1e-7
+
+-- Testing, 100 times, with small random arrays of up to 2.5K elements each,
+-- because horde-ad is not yet optimized for the build/index style.
+quickcheck_conv2d
+  :: forall r. (HasDelta r, Arbitrary r) => Property
+quickcheck_conv2d =
+  forAll (choose (0, 7)) $ \nImgs' ->
+  forAll (choose (0, 7)) $ \nCinp' ->
+  forAll (choose (0, 7)) $ \nCout' ->
+  forAll (choose (0, 7)) $ \nAh' ->
+  forAll (choose (0, 7)) $ \nAw' ->
+  forAll (choose (0, 7)) $ \nKh' ->
+  forAll (choose (0, 7)) $ \nKw' ->
+    -- The glue below is needed to bridge the dependently-typed
+    -- vs normal world.
+    withStaticNat nImgs' $ \nImgs ->
+    withStaticNat nCinp' $ \nCinp ->
+    withStaticNat nCout' $ \nCout ->
+    withStaticNat nAh' $ \nAh ->
+    withStaticNat nAw' $ \nAw ->
+    withStaticNat nKh' $ \nKh ->
+    withStaticNat nKw' $ \nKw ->
+      property $ static_conv2d @r nImgs nCinp nCout nAh nAw nKh nKw
