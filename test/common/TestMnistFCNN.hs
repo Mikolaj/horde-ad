@@ -506,11 +506,83 @@ mnistTestCase2S
   -> Int
   -> (forall d r. ADModeAndNum d r
       => StaticNat widthHidden -> StaticNat widthHidden2
-      -> MnistData r -> ADInputs d r -> ADVal d r)
+      -> MnistData r
+      -> ADFcnnMnistParameters widthHidden widthHidden2 d r
+      -> ADVal d r)
   -> Double
   -> Double
   -> TestTree
 mnistTestCase2S widthHidden@MkSN widthHidden2@MkSN
+                prefix epochs maxBatches trainWithLoss gamma expected =
+  let seed = mkStdGen 44
+      range = 0.5
+      valsInit
+        :: Value (ADFcnnMnistParameters widthHidden widthHidden2
+                                       'ADModeGradient Double)
+      valsInit = fst $ randomVals range seed
+      parametersInit = toDomains valsInit
+      name = prefix ++ ": "
+             ++ unwords [ show epochs, show maxBatches
+                        , show (staticNatValue widthHidden :: Int)
+                        , show (staticNatValue widthHidden2 :: Int)
+                        , show (nParams valsInit)
+                        , show (nScalars valsInit)
+                        , show gamma, show range ]
+      ftest :: [MnistData Double]
+            -> Domains Double
+            -> Double
+      ftest mnist testParams =
+        afcnnMnistTestS widthHidden widthHidden2
+                        mnist (valueAtDomains valsInit testParams)
+  in testCase name $ do
+    hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
+                              prefix epochs maxBatches
+    trainData <- loadMnistData trainGlyphsPath trainLabelsPath
+    testData <- loadMnistData testGlyphsPath testLabelsPath
+    let runBatch :: Domains Double
+                 -> (Int, [MnistData Double])
+                 -> IO (Domains Double)
+        runBatch (!params0, !params1, !params2, !paramsX) (k, chunk) = do
+          let f mnist adinputs =
+                trainWithLoss widthHidden widthHidden2
+                              mnist (parseADInputs valsInit adinputs)
+              res = fst $ sgd gamma f chunk
+                              (params0, params1, params2, paramsX)
+              !trainScore = ftest chunk res
+              !testScore = ftest testData res
+              !lenChunk = length chunk
+          hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
+          hPutStrLn stderr $ printf "%s: Training error:   %.2f%%" prefix ((1 - trainScore) * 100)
+          hPutStrLn stderr $ printf "%s: Validation error: %.2f%%" prefix ((1 - testScore ) * 100)
+          return res
+    let runEpoch :: Int
+                 -> Domains Double
+                 -> IO (Domains Double)
+        runEpoch n params2 | n > epochs = return params2
+        runEpoch n params2 = do
+          hPutStrLn stderr $ printf "\n%s: [Epoch %d]" prefix n
+          let trainDataShuffled = shuffle (mkStdGen $ n + 5) trainData
+              chunks = take maxBatches
+                       $ zip [1 ..] $ chunksOf 5000 trainDataShuffled
+          !res <- foldM runBatch params2 chunks
+          runEpoch (succ n) res
+    res <- runEpoch 1 parametersInit
+    let testErrorFinal = 1 - ftest testData res
+    testErrorFinal @?~ expected
+
+mnistTestCase2O
+  :: forall widthHidden widthHidden2.
+     StaticNat widthHidden -> StaticNat widthHidden2
+  -> String
+  -> Int
+  -> Int
+  -> (forall d r. ADModeAndNum d r
+      => StaticNat widthHidden -> StaticNat widthHidden2
+      -> MnistData r -> ADInputs d r -> ADVal d r)
+  -> Double
+  -> Double
+  -> TestTree
+mnistTestCase2O widthHidden@MkSN widthHidden2@MkSN
                 prefix epochs maxBatches trainWithLoss gamma expected =
   let ((_, _, _, nParamsX), totalParams, range, parametersInit) =
         initializerFixed 44 0.5 (fcnnMnistLenS widthHidden widthHidden2)
@@ -746,26 +818,48 @@ longMnistTests = testGroup "MNIST fused LL tests with a 2-hidden-layer nn"
                     fcnnMnistLossFused2 300 100 0.02
                     5.1100000000000034e-2
   , mnistTestCase2S (MkSN @500) (MkSN @150)
-                    "S 1 epoch, 1 batch, wider" 1 1 fcnnMnistLossFusedS 0.02
-                    0.12470000000000003
+                    "S 1 epoch, 1 batch, wider" 1 1 afcnnMnistLossFusedS 0.02
+                    0.13829999999999998
   , mnistTestCase2S (MkSN @300) (MkSN @100)
-                    "S 2 epochs, but only 1 batch" 2 1 fcnnMnistLossFusedS 0.02
-                    9.630000000000005e-2
+                    "S 2 epochs, but only 1 batch" 2 1 afcnnMnistLossFusedS 0.02
+                    9.519999999999995e-2
   , mnistTestCase2S (MkSN @300) (MkSN @100)
-                    "S 1 epoch, all batches" 1 99 fcnnMnistLossFusedS 0.02
-                    5.620000000000003e-2
+                    "S 1 epoch, all batches" 1 99 afcnnMnistLossFusedS 0.02
+                    5.359999999999998e-2
   , mnistTestCase2S (MkSN @300) (MkSN @100)
-                    "SR 1 epoch, 1 batch" 1 1 fcnnMnistLossFusedReluS 0.02
-                    0.7068
+                    "SR 1 epoch, 1 batch" 1 1 afcnnMnistLossFusedReluS 0.02
+                    0.7862
   , mnistTestCase2S (MkSN @500) (MkSN @150)
                     "SR 1 epoch, 1 batch, wider" 1 1
+                    afcnnMnistLossFusedReluS 0.02
+                    0.8513
+  , mnistTestCase2S (MkSN @300) (MkSN @100)
+                    "SR 2 epochs, but 1 batch" 2 1 afcnnMnistLossFusedReluS 0.02
+                    0.7442
+  , mnistTestCase2S (MkSN @300) (MkSN @100)
+                    "SR 1 epoch, all batches" 1 99 afcnnMnistLossFusedReluS 0.02
+                    0.5462
+  , mnistTestCase2O (MkSN @500) (MkSN @150)
+                    "O 1 epoch, 1 batch, wider" 1 1 fcnnMnistLossFusedS 0.02
+                    0.12470000000000003
+  , mnistTestCase2O (MkSN @300) (MkSN @100)
+                    "O 2 epochs, but only 1 batch" 2 1 fcnnMnistLossFusedS 0.02
+                    9.630000000000005e-2
+  , mnistTestCase2O (MkSN @300) (MkSN @100)
+                    "O 1 epoch, all batches" 1 99 fcnnMnistLossFusedS 0.02
+                    5.620000000000003e-2
+  , mnistTestCase2O (MkSN @300) (MkSN @100)
+                    "OR 1 epoch, 1 batch" 1 1 fcnnMnistLossFusedReluS 0.02
+                    0.7068
+  , mnistTestCase2O (MkSN @500) (MkSN @150)
+                    "OR 1 epoch, 1 batch, wider" 1 1
                     fcnnMnistLossFusedReluS 0.02
                     0.8874
-  , mnistTestCase2S (MkSN @300) (MkSN @100)
-                    "SR 2 epochs, but 1 batch" 2 1 fcnnMnistLossFusedReluS 0.02
+  , mnistTestCase2O (MkSN @300) (MkSN @100)
+                    "OR 2 epochs, but 1 batch" 2 1 fcnnMnistLossFusedReluS 0.02
                     0.8352999999999999
-  , mnistTestCase2S (MkSN @300) (MkSN @100)
-                    "SR 1 epoch, all batches" 1 99 fcnnMnistLossFusedReluS 0.02
+  , mnistTestCase2O (MkSN @300) (MkSN @100)
+                    "OR 1 epoch, all batches" 1 99 fcnnMnistLossFusedReluS 0.02
                     0.6415
   ]
 
@@ -797,18 +891,33 @@ shortCIMnistTests = testGroup "Short CI MNIST tests"
                     fcnnMnistLossFused2 3 2 1
                     0.8991
   , mnistTestCase2S (MkSN @3) (MkSN @2)
-                    "SR artificial 5 4 3 2 1" 5 4 fcnnMnistLossFusedReluS 1
-                    0.8991
+                    "SR artificial 5 4 3 2 1" 5 4 afcnnMnistLossFusedReluS 1
+                    0.8972
   , mnistTestCase2S (MkSN @300) (MkSN @100)
-                    "S 1 epoch, 1 batch" 1 1 fcnnMnistLossFusedS 0.02
-                    0.1311
+                    "S 1 epoch, 1 batch" 1 1 afcnnMnistLossFusedS 0.02
+                    0.137
   , mnistTestCase2S (MkSN @3) (MkSN @4)
-                    "S artificial 1 2 3 4 5" 1 2 fcnnMnistLossFusedS 5
+                    "S artificial 1 2 3 4 5" 1 2 afcnnMnistLossFusedS 5
                     0.8972
   , mnistTestCase2S (MkSN @3) (MkSN @2)
-                    "S artificial 5 4 3 2 1" 5 4 fcnnMnistLossFusedS 1
-                    0.8246
+                    "S artificial 5 4 3 2 1" 5 4 afcnnMnistLossFusedS 1
+                    0.8093
   , mnistTestCase2S (MkSN @3) (MkSN @4)
-                    "SR artificial 1 2 3 4 5" 1 2 fcnnMnistLossFusedReluS 5
+                    "SR artificial 1 2 3 4 5" 1 2 afcnnMnistLossFusedReluS 5
+                    0.8972
+  , mnistTestCase2O (MkSN @3) (MkSN @2)
+                    "OR artificial 5 4 3 2 1" 5 4 fcnnMnistLossFusedReluS 1
+                    0.8991
+  , mnistTestCase2O (MkSN @300) (MkSN @100)
+                    "O 1 epoch, 1 batch" 1 1 fcnnMnistLossFusedS 0.02
+                    0.1311
+  , mnistTestCase2O (MkSN @3) (MkSN @4)
+                    "O artificial 1 2 3 4 5" 1 2 fcnnMnistLossFusedS 5
+                    0.8972
+  , mnistTestCase2O (MkSN @3) (MkSN @2)
+                    "O artificial 5 4 3 2 1" 5 4 fcnnMnistLossFusedS 1
+                    0.8246
+  , mnistTestCase2O (MkSN @3) (MkSN @4)
+                    "OR artificial 1 2 3 4 5" 1 2 fcnnMnistLossFusedReluS 5
                     0.8972
   ]
