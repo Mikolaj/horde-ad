@@ -36,7 +36,15 @@ import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
-  (KnownNat, Nat, natVal, type (+), type (-), type (<=))
+  ( KnownNat
+  , Nat
+  , SomeNat (..)
+  , natVal
+  , someNatVal
+  , type (+)
+  , type (-)
+  , type (<=)
+  )
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 
@@ -62,6 +70,12 @@ data StaticNat (n :: Nat) where
 staticNatValue :: forall n i. (KnownNat n, Num i) => StaticNat n -> i
 {-# INLINE staticNatValue #-}
 staticNatValue = fromInteger . natVal
+
+-- | Warning: takes the absolute value of the argument.
+withStaticNat :: Int -> (forall n. KnownNat n => (StaticNat n -> r)) -> r
+withStaticNat i f = case someNatVal $ toInteger $ abs i of
+  Just (SomeNat (_ :: Proxy n)) -> f (MkSN :: StaticNat n)
+  Nothing -> error "impossible in mkStaticNat"
 
 staticNatFromProxy :: KnownNat n => Proxy n -> StaticNat n
 staticNatFromProxy Proxy = MkSN

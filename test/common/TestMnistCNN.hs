@@ -11,7 +11,6 @@ import           Control.Monad (foldM)
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
-import           Data.Proxy (Proxy)
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
 import           Numeric.LinearAlgebra (Matrix, Vector)
@@ -786,39 +785,27 @@ comparisonTests volume =
                           => ADInputs d r -> ADVal d r
             f = convMnistLossCNN depth mnistData
             fP = convMnistLossCNNP depth mnistData
-            fO = case ( someNatVal $ toInteger num_hidden
-                      , someNatVal $ toInteger depth ) of
-              ( Just (SomeNat proxy_num_hidden)
-               ,Just (SomeNat proxy_out_channel) ) ->
-                convMnistLossFusedO (MkSN @4) (MkSN @4)
-                                    sizeMnistHeight sizeMnistWidth
-                                    (staticNatFromProxy proxy_out_channel)
-                                    (staticNatFromProxy proxy_num_hidden)
-                                    (MkSN @1)
-                                    (packBatch
-                                       @1 [shapeBatch
-                                           $ first LA.flatten mnistData])
-              _ -> error "fO panic"
-            fS = case ( someNatVal $ toInteger num_hidden
-                      , someNatVal $ toInteger depth ) of
-              ( Just (SomeNat (proxy_num_hidden :: Proxy n_hidden))
-               ,Just (SomeNat (proxy_out_channel :: Proxy c_out)) ) ->
-                let c_out = staticNatFromProxy proxy_out_channel
-                    n_hidden = staticNatFromProxy proxy_num_hidden
-                    valsInit
-                      :: Value (ADConvMnistParameters 4 4
-                                                      c_out n_hidden
-                                                     'ADModeGradient r)
-                    valsInit = fst $ randomVals (1 :: Double) (mkStdGen 1)
-                in \adinputs ->
-                  convMnistLossFusedS (MkSN @4) (MkSN @4)
-                                      c_out n_hidden
-                                      (MkSN @1)
-                                      (packBatch
-                                         @1 [shapeBatch
-                                             $ first LA.flatten mnistData])
-                                      (parseADInputs valsInit adinputs)
-              _ -> error "fT panic"
+            fO = (withStaticNat depth  -- reverse order than args taken
+                  $ withStaticNat num_hidden
+                  $ convMnistLossFusedO (MkSN @4) (MkSN @4)
+                                        sizeMnistHeight sizeMnistWidth
+                 )
+                   (MkSN @1)
+                   (packBatch @1 [shapeBatch $ first LA.flatten mnistData])
+            fS adinputs =
+              withStaticNat depth  -- reverse order than args below
+              $ withStaticNat num_hidden
+              $ \(n_hidden :: StaticNat n_hidden) (c_out :: StaticNat c_out) ->
+                  let valsInit
+                        :: Value (ADConvMnistParameters 4 4 c_out n_hidden
+                                                        'ADModeGradient r)
+                      valsInit = fst $ randomVals (1 :: Double) (mkStdGen 1)
+                  in convMnistLossFusedS
+                       (MkSN @4) (MkSN @4)
+                       c_out n_hidden
+                       (MkSN @1)
+                       (packBatch @1 [shapeBatch $ first LA.flatten mnistData])
+                       (parseADInputs valsInit adinputs)
             paramsToT (p0, p1, p2, _) =
               let qX = V.fromList
                     [ OT.fromVector [depth, 1, 5, 5]
