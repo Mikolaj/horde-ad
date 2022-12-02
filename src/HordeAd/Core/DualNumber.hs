@@ -1125,7 +1125,7 @@ conv2d
   -> ADVal d (OS.Array shA r)
   -> ADVal d (OS.Array shB r)
 conv2d arrK arrA =
-  buildS $ \l -> case l of
+  buildS $ \case
     [iImg, iCout, iBh, iBw] ->
       let arrAt = slicezS @shK1 arrA [iImg, 0, iBh, iBw]
           arrKt = slicezS @shK1 arrK [iCout, 0, 0, 0]

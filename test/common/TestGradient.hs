@@ -14,6 +14,7 @@ import           Numeric.LinearAlgebra (Numeric)
 import qualified Numeric.LinearAlgebra as LA
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
+import           Test.Tasty.QuickCheck (Property, choose, forAll, testProperty)
 
 import HordeAd hiding (sumElementsVectorOfDual)
 import HordeAd.Core.DualClass (Dual)
@@ -297,7 +298,85 @@ testBarR =
       , OS.constant 0 ] )
 
 
--- The following are borrowed from https://github.com/benl23x5/adops.
+-- Most of the following is borrowed from https://github.com/benl23x5/adops.
+
+adoptTests :: TestTree
+adoptTests = testGroup "Tests of the port of adopt code"
+  [ testCase "conv2d_dInp" test_conv2d_dInp
+  , testCase "conv2d_dKrn" test_conv2d_dKrn
+  , testProperty "quickcheck_conv2dNonDualNumber" quickcheck_conv2dNonDualNumber
+  ]
+
+-- | Unpadded full convolution
+--   where the output size is the same as the input size.
+--
+-- This is a non-dual-number counterpart to
+-- 'HordeAd.Core.DualNumber.conv2d', used below to test that the primal value
+-- computed by the dual number version is correct.
+conv2dNonDualNumber
+  :: forall shK shA shB shK1 nImgs nCinpA nAh nAw nCoutK nCinpK nKh nKw r.
+     ( Numeric r
+     , KnownNat nImgs, KnownNat nCinpA, KnownNat nAh, KnownNat nAw
+     , KnownNat nCoutK, KnownNat nKh, KnownNat nKw
+     , nCinpA ~ nCinpK
+     , shK ~ '[nCoutK, nCinpK, nKh, nKw]
+     , shA ~ '[nImgs, nCinpA, nAh, nAw]
+     , shB ~ '[nImgs, nCoutK, nAh, nAw]
+     , shK1 ~ '[1, nCinpK, nKh, nKw] )
+  => OS.Array shK r
+  -> OS.Array shA r
+  -> OS.Array shB r
+conv2dNonDualNumber arrK arrA =
+  OS.generate $ \case
+    [iImg, iCout, iBh, iBw] ->
+      let arrAt = slicezOS @shK1 arrA [iImg, 0, iBh, iBw]
+          arrKt = slicezOS @shK1 arrK [iCout, 0, 0, 0]
+      in dotOS arrAt arrKt
+    _ -> error "wrong index length in conv2dNonDualNumber"
+
+static_conv2dNonDualNumber
+  :: forall shK shA shB
+            nImgs nCinp nCout nAh nAw nKh nKw.
+     ( shK ~ '[nCout, nCinp, nKh, nKw]
+     , shA ~ '[nImgs, nCinp, nAh, nAw]
+     , shB ~ '[nImgs, nCout, nAh, nAw] )
+  => Int -> Int
+  -> StaticNat nImgs -> StaticNat nCinp -> StaticNat nCout
+  -> StaticNat nAh -> StaticNat nAw -> StaticNat nKh -> StaticNat nKw
+  -> Bool
+static_conv2dNonDualNumber seedA seedK
+                           MkSN MkSN MkSN MkSN MkSN MkSN MkSN =
+  let randomArray :: forall sh. OS.Shape sh => Int -> OS.Array sh Double
+      randomArray seedInt =
+        let len = OS.sizeP (Proxy @sh)
+        in OS.fromVector $ LA.randomVector seedInt LA.Uniform len
+          -- TODO: this is probably much faster than what a cheap QC instance
+          -- would do, but we forgo shrinking (except for the dimensions)
+      -- Input of shape: batch x chas x height x width
+      arrA = randomArray seedA :: OS.Array shA Double
+      -- Filters of shape: num_filters x chas x kernel_height x kernel_width
+      arrK = randomArray seedK :: OS.Array shK Double
+      -- Compare the value produced by the dual number version
+      -- against the value from a normal version of the objective function.
+      v = value (uncurry conv2d) (arrK, arrA) :: OS.Array shB Double
+      v0 = conv2dNonDualNumber arrK arrA :: OS.Array shB Double
+  in abs (v - v0) <= 1e-7
+
+quickcheck_conv2dNonDualNumber :: Int -> Int -> Property
+quickcheck_conv2dNonDualNumber seedA seedK =
+  forAll (choose (0, 12)) $ \nImgs ->
+  forAll (choose (0, 12)) $ \nCinp ->
+  forAll (choose (0, 12)) $ \nCout ->
+  forAll (choose (0, 12)) $ \nAh ->
+  forAll (choose (0, 12)) $ \nAw ->
+  forAll (choose (0, 12)) $ \nKh ->
+  forAll (choose (0, 12)) $ \nKw ->
+    -- The glue below is needed to bridge the dependently-typed vs normal world.
+    -- Note the reverse order of arguments.
+    withStaticNat nKw $ withStaticNat nKh
+    $ withStaticNat nAw $ withStaticNat nAh
+    $ withStaticNat nCout $ withStaticNat nCinp $ withStaticNat nImgs
+    $ static_conv2dNonDualNumber seedA seedK
 
 -- | Derivative of full convolution with respect to the input image,
 --   where the output size is the same as the input size.
@@ -391,12 +470,6 @@ indexzOS arr ix = if withinOS @sh ix
 dotOS :: (Numeric r, OS.Shape sh)
       => OS.Array sh r -> OS.Array sh r -> r
 dotOS arr1 arr2 = OS.toVector arr1 LA.<.> OS.toVector arr2
-
-adoptTests :: TestTree
-adoptTests = testGroup "Tests of the port of adopt code"
-  [ testCase "conv2d_dInp" test_conv2d_dInp
-  , testCase "conv2d_dKrn" test_conv2d_dKrn
-  ]
 
 test_conv2d_dInp :: Assertion
 test_conv2d_dInp =
