@@ -9,6 +9,7 @@ import Prelude
 import qualified Data.Array.Convert
 import qualified Data.Array.ShapedS as OS
 import           GHC.TypeLits (KnownNat, type (+))
+import           Data.Proxy
 import           Numeric.LinearAlgebra (Numeric)
 import qualified Numeric.LinearAlgebra as LA
 import           Test.Tasty
@@ -20,6 +21,7 @@ import HordeAd.Internal.Delta (atIndexInTensor)
 
 import Tool.EqEpsilon
 import Tool.Shared
+import GHC.TypeLits
 
 testTrees :: [TestTree]
 testTrees = [ quickCheckForwardAndBackward
@@ -297,28 +299,62 @@ testBarR =
 
 -- The following are borrowed from https://github.com/benl23x5/adops.
 
--- | Derivative of unpadded full convolution with respect to the input image.
+-- | Derivative of full convolution with respect to the input image,
+--   where the output size is the same as the input size.
 --
 conv2d_dInp
-  :: forall shK shA shB shK1 nImgs nCinpA nAh nAw nCoutK nCinpK nKh nKw r.
+  :: forall
+    shK shA shB shB1 sh1
+    nImgs nCinp nCout nAh nAw nKh nKw r.
      ( Numeric r
-     , KnownNat nImgs, KnownNat nCinpA, KnownNat nAh, KnownNat nAw
-     , KnownNat nCoutK, KnownNat nKh, KnownNat nKw
-     , nCinpA ~ nCinpK
-     , shK ~ '[nCoutK, nCinpK, nKh, nKw]
-     , shA ~ '[nImgs, nCinpA, nAh, nAw]
-     , shB ~ '[nImgs, nCoutK, nAh, nAw]
-     , shK1 ~ '[1, nCinpK, nKh, nKw] )
+     , KnownNat nImgs, KnownNat nCinp, KnownNat nCout
+     , KnownNat nAh, KnownNat nAw
+     , KnownNat nKh, KnownNat nKw
+     , shK  ~ '[nCout, nCinp, nKh, nKw]
+     , shA  ~ '[nImgs, nCinp, nAh, nAw]
+     , shB  ~ '[nImgs, nCout, nAh, nAw]
+     , shB1 ~ '[1,     1,     nAh, nAw]
+     , sh1  ~ '[nCout])
   => OS.Array shK r
   -> OS.Array shB r
   -> OS.Array shA r
 conv2d_dInp arrK arrB =
-  OS.generate $ \l -> case l of
+  let nKh = fromIntegral (natVal $ Proxy @nKh) :: Int
+      nKw = fromIntegral (natVal $ Proxy @nKw) :: Int
+  in OS.generate $ \l -> case l of
     [iImg, iCinp, iAh, iAw] ->
-      let arrBt = slicezOS @shK1 arrB [iImg, 0, iAh, iAw]
-          arrKt = slicezOS @shK1 arrK [iCinp, 0, 0, 0]
-      in dotOS arrBt arrKt
-    _ -> error "wrong index length in conv2d"
+      OS.sumA ((OS.generate $ \l -> case l of
+        [iCout] ->
+          let arrBt = slicezOS @shB1 arrB [iImg,  iCout, iAh-nKh+1, iAw-nKw+1]
+              arrKt = slicezOS @shB1 arrK [iCout, iCinp, 0, 0]
+          in  dotOS arrBt arrKt) :: OS.Array sh1 r)
+
+-- | Derivative of full convolution with respect to the kernels,
+--   where the output size is the same as the input size.
+--
+conv2d_dKrn
+  :: forall
+    shK shA shB shB1 sh1
+    nImgs nCinp nCout nAh nAw nKh nKw r.
+     ( Numeric r
+     , KnownNat nImgs, KnownNat nCinp, KnownNat nCout
+     , KnownNat nAh, KnownNat nAw, KnownNat nKh, KnownNat nKw
+     , shK  ~ '[nCout, nCinp, nKh, nKw]
+     , shA  ~ '[nImgs, nCinp, nAh, nAw]
+     , shB  ~ '[nImgs, nCout, nAh, nAw]
+     , shB1 ~ '[1,     1,     nAh, nAw]
+     , sh1  ~ '[nCout])
+  => OS.Array shA r
+  -> OS.Array shB r
+  -> OS.Array shK r
+conv2d_dKrn arrA arrB =
+  OS.generate $ \l -> case l of
+    [iCout, iCinp, iKh, iKw] ->
+      OS.sumA ((OS.generate $ \l -> case l of
+        [iImg] ->
+          let arrBt = slicezOS @shB1 arrB [iImg, iCout, 0,   0  ]
+              arrAt = slicezOS @shB1 arrA [iImg, iCinp, iKh, iKw]
+          in  dotOS arrBt arrAt) :: OS.Array sh1 r)
 
 -- | Slice a section out of a tensor,
 --   given a base offset and shape of the section.
@@ -353,15 +389,26 @@ adoptTests = testGroup "Tests of the port of adopt code"
 
 test_conv2d_dInp :: Assertion
 test_conv2d_dInp =
-  -- Below, @17.3@ is just @OS.constant 17.3@ via a @Num@ instance.
-  let arrK = 0 {-17.3-} :: OS.Array '[2, 2 {-6-}, 3, 4] Double
-      arrB = 0 {-2.28-} :: OS.Array '[5, 2, 6, 7] Double
-        -- this fails with the commented out values;
-        -- and fails to typecheck with the commented out dimension size,
-        -- because conv2d_dInp lacks the arrA parameter
-  in assertEqualUpToEpsilon 1e-7
-       (revDt (conv2d (constant arrK))  -- gradient wrt second argument
-              arrB   -- dummy, should be arrA, the point at which we take
-                     -- the gradient: https://en.wikipedia.org/wiki/Gradient
-              arrB )  -- sensitivity; should we normally test with 1?
-       (conv2d_dInp arrK arrB)  -- expected result
+  let -- Input of shape: batch x chas x height x width
+      arrA   = 1 :: OS.Array '[5, 2, 4, 8] Double
+      -- Filters of shape: num_filters x chas x kernel_height x kernel_width
+      arrK   = 1 :: OS.Array '[7, 2, 1, 3] Double
+      -- Output gradient of shape: batch x chas x output_height x output_width
+      arrB'  = 1 :: OS.Array '[5, 7, 4, 8] Double
+      -- Compare the ad version against the manual derivative.
+      dInp   = conv2d_dInp arrK arrB'
+      vjp    = revDt (conv2d (constant arrK)) arrA arrB'
+  in assertEqualUpToEpsilon 1e-7 vjp dInp
+
+test_conv2d_dKrn :: Assertion
+test_conv2d_dKrn =
+  let -- Input of shape: batch x chas x height x width
+      arrA   = 1 :: OS.Array '[5, 2, 4, 8] Double
+      -- Filters of shape: num_filters x chas x kernel_height x kernel_width
+      arrK   = 1 :: OS.Array '[7, 2, 1, 3] Double
+      -- Output gradient of shape: batch x chas x output_height x output_width
+      arrB'  = 1 :: OS.Array '[5, 7, 4, 8] Double
+      -- Compare the ad version against the manual derivative.
+      dKrn   = conv2d_dKrn arrA arrB'
+      vjp    = revDt (flip conv2d (constant arrA)) arrK arrB'
+  in assertEqualUpToEpsilon 1e-7 vjp dKrn
