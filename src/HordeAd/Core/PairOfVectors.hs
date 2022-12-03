@@ -52,8 +52,7 @@ makeADInputs
      , Data.Vector.Vector (Dual d (OT.Array r)) )
   -> ADInputs d r
 {-# INLINE makeADInputs #-}
-makeADInputs Domains{..}
-             (vs0, vs1, vs2, vsX)
+makeADInputs Domains{..} (vs0, vs1, vs2, vsX)
   = ADInputs domains0 vs0 domains1 vs1 domains2 vs2 domainsX vsX
 
 inputsToDomains :: ADInputs d r -> Domains r

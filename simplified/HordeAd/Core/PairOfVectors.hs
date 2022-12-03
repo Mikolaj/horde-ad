@@ -43,13 +43,16 @@ makeADInputs
      , Data.Vector.Vector (Dual d (Vector r)) )
   -> ADInputs d r
 {-# INLINE makeADInputs #-}
-makeADInputs (params0, params1)
-             (vs0, vs1)
-  = ADInputs params0 vs0 params1 vs1
+makeADInputs Domains{..} (vs0, vs1)
+  = ADInputs domains0 vs0 domains1 vs1
+
+inputsToDomains :: ADInputs d r -> Domains r
+inputsToDomains ADInputs{..} =
+  Domains inputPrimal0 inputPrimal1
 
 nullADInputs :: Numeric r => ADInputs d r -> Bool
-nullADInputs ADInputs{..} =
-  nullDomains (inputPrimal0, inputPrimal1)
+nullADInputs adinputs@ADInputs{..} =
+  nullDomains (inputsToDomains adinputs)
   && V.null inputDual0 && V.null inputDual1
 
 at0 :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d r

@@ -43,11 +43,11 @@ valueGeneral
   -> a
 -- Small enough that inline won't hurt.
 {-# INLINE valueGeneral #-}
-valueGeneral f (params0, params1) =
+valueGeneral f domains@Domains{..} =
   let replicateDummy p = V.replicate (V.length p) dummyDual
-      inputs = makeADInputs (params0, params1)
-                            ( replicateDummy params0  -- dummy
-                            , replicateDummy params1 )
+      inputs = makeADInputs domains
+                            ( replicateDummy domains0  -- dummy
+                            , replicateDummy domains1 )
   in f inputs
 
 valueOnDomains
@@ -153,11 +153,11 @@ fwdOnDomains
   -> (ADInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative a)
   -> Domains r  -- ds
   -> (Dual 'ADModeDerivative a, a)
-fwdOnDomains parameters f (params0, params1) =
+fwdOnDomains parameters f Domains{..} =
   let inputs =
         makeADInputs
           parameters
-          (V.convert params0, params1)  -- ds
+          (V.convert domains0, domains1)  -- ds
   in fwdOnADInputs inputs f
 
 
@@ -179,13 +179,13 @@ generateDeltaInputs
   => Domains r
   -> ( Data.Vector.Vector (Dual 'ADModeGradient r)
      , Data.Vector.Vector (Dual 'ADModeGradient (Vector r)) )
-generateDeltaInputs (params0, params1) =
+generateDeltaInputs Domains{..} =
   let intToInput :: forall a v.
                     (IsPrimalAndHasFeatures 'ADModeGradient a r, V.Vector v a)
                  => v a -> Data.Vector.Vector (Dual 'ADModeGradient a)
       intToInput p = V.generate (V.length p) (dInput . toInputId)
-      !v0 = intToInput params0
-      !v1 = intToInput params1
+      !v0 = intToInput domains0
+      !v1 = intToInput domains1
   in (v0, v1)
 {-# SPECIALIZE generateDeltaInputs
   :: Domains Double
@@ -209,15 +209,15 @@ initializerFixed seed range (nParams0, lParams1, _, _) =
       createRandomVector n seedV =
         LA.scale (2 * range)
         $ LA.randomVector seedV LA.Uniform n - LA.scalar 0.5
-      params0Init = createRandomVector nParams0 seed
-      params1Init =
+      domains0 = createRandomVector nParams0 seed
+      domains1 =
         V.imap (\i nPV -> createRandomVector nPV (seed + nPV + i)) vParams1
       totalParams = nParams0
                     + V.sum vParams1
   in ( (nParams0, V.length vParams1)
      , totalParams
      , range
-     , (params0Init, params1Init) )
+     , Domains{..} )
 
 initializerFixed01 :: Int -> Double -> (Int, [Int])
                    -> ((Int, Int), Int, Double, Domains Double)
@@ -227,10 +227,10 @@ initializerFixed01 seed range (nParams0, lParams1) =
 -- * Simplified version compatibility shims
 
 domainsFrom01 :: Domain0 r -> Domain1 r -> Domains r
-domainsFrom01 params0 params1 = (params0, params1)
+domainsFrom01 params0 params1 = Domains params0 params1
 
 domainsFrom012X :: Domain0 r -> Domain1 r -> c -> d -> Domains r
-domainsFrom012X a b _ _ = (a, b)
+domainsFrom012X a b _ _ = Domains a b
 
 domainsTo01 :: Domains r -> (Domain0 r, Domain1 r)
-domainsTo01 = id
+domainsTo01 Domains{..} = (domains0, domains1)

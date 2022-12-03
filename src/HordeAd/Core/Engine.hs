@@ -225,14 +225,14 @@ initializerFixed seed range (nParams0, lParams1, lParams2, lParamsX) =
       createRandomVector n seedV =
         LA.scale (2 * range)
         $ LA.randomVector seedV LA.Uniform n - LA.scalar 0.5
-      params0Init = createRandomVector nParams0 seed
-      params1Init =
+      domains0 = createRandomVector nParams0 seed
+      domains1 =
         V.imap (\i nPV -> createRandomVector nPV (seed + nPV + i)) vParams1
-      params2Init =
+      domains2 =
         V.imap (\i (rows, cols) ->
                   LA.reshape cols
                   $ createRandomVector (rows * cols) (seed + rows + i)) vParams2
-      paramsXInit =
+      domainsX =
         V.imap (\i sh ->
                   let sz = product sh
                   in OT.fromVector sh
@@ -244,7 +244,7 @@ initializerFixed seed range (nParams0, lParams1, lParams2, lParamsX) =
   in ( (nParams0, V.length vParams1, V.length vParams2, V.length vParamsX)
      , totalParams
      , range
-     , Domains params0Init params1Init params2Init paramsXInit )
+     , Domains{..} )
 
 initializerFixed01 :: Int -> Double -> (Int, [Int])
                    -> ((Int, Int), Int, Double, Domains Double)
@@ -262,4 +262,4 @@ domainsFrom012X :: Domain0 r -> Domain1 r -> Domain2 r -> DomainX r -> Domains r
 domainsFrom012X = Domains
 
 domainsTo01 :: Domains r -> (Domain0 r, Domain1 r)
-domainsTo01 (Domains a b _ _) = (a, b)
+domainsTo01 Domains{..} = (domains0, domains1)

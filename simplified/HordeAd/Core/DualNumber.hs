@@ -13,7 +13,7 @@ module HordeAd.Core.DualNumber
   , ADVal, dD, dDnotShared
   , ADMode(..), ADModeAndNum
   , IsPrimal (..), IsPrimalAndHasFeatures, HasDelta
-  , Domain0, Domain1, Domains, nullDomains  -- an important re-export
+  , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
   ) where
 
 import Prelude
@@ -29,7 +29,7 @@ import qualified Numeric.LinearAlgebra as LA
 import qualified Numeric.LinearAlgebra.Devel
 
 import HordeAd.Core.DualClass
-import HordeAd.Internal.Delta (Domain0, Domain1, Domains, nullDomains)
+import HordeAd.Internal.Delta (Domain0, Domain1, Domains (..), nullDomains)
 
 -- * Auxiliary definitions
 
@@ -66,12 +66,13 @@ multNotShared (D u u') (D v v') =
 
 addParameters :: Num (Vector r)
               => Domains r -> Domains r -> Domains r
-addParameters (a0, a1) (b0, b1) =
-  (a0 + b0, V.zipWith (+) a1 b1)
+addParameters (Domains a0 a1) (Domains b0 b1) =
+  Domains (a0 + b0)
+          (V.zipWith (+) a1 b1)
 
 -- Dot product and sum respective ranks and then sum it all.
 dotParameters :: Numeric r => Domains r -> Domains r -> r
-dotParameters (a0, a1) (b0, b1) =
+dotParameters (Domains a0 a1) (Domains b0 b1) =
   a0 LA.<.> b0
   + V.sum (V.zipWith (\v1 u1 ->
       if V.null v1 || V.null u1

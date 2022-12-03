@@ -44,7 +44,7 @@ updateWithGradient gamma (Domains params0 params1 params2 paramsX)
                       -- unless we move away from hmatrix;
                       -- similarly other OT calls
       !paramsXNew = V.zipWith updateX paramsX gradientX
-  in (Domains params0New params1New params2New paramsXNew)
+  in Domains params0New params1New params2New paramsXNew
 {-# SPECIALIZE updateWithGradient :: Double -> Domains Double -> Domains Double -> Domains Double #-}
 
 gradientIsNil :: (Eq r, Numeric r) => Domains r -> Bool

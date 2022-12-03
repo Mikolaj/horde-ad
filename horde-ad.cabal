@@ -517,6 +517,7 @@ library horde-ad-simplified
 
     build-depends:
         base >= 4.14 && < 99
+      , deepseq
       , enummapset
       , hmatrix
       , ilist
