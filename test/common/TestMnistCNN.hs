@@ -171,10 +171,9 @@ convMnistTestCaseCNN prefix epochs maxBatches trainWithLoss testLoss
        let runBatch :: Domains Double
                     -> (Int, [MnistData2 Double])
                     -> IO (Domains Double)
-           runBatch (!params0, !params1, !params2, !paramsX) (k, chunk) = do
+           runBatch !domains (k, chunk) = do
              let f = trainWithLoss widthHidden
-                 res = fst $ sgd gamma f chunk
-                                 (params0, params1, params2, paramsX)
+                 res = fst $ sgd gamma f chunk domains
                  !trainScore = testLoss widthHidden chunk res
                  !testScore = testLoss widthHidden testData res
                  !lenChunk = length chunk
@@ -438,7 +437,7 @@ convMnistTestCaseCNNT kheight_minus_1@MkSN kwidth_minus_1@MkSN
         runBatch :: Domains r
                  -> (Int, [MnistDataS r])
                  -> IO (Domains r)
-        runBatch parameters@(!_, !_, !_, !_) (k, chunk) = do
+        runBatch !parameters (k, chunk) = do
           let chunkS = map (packBatch @batch_size)
                        $ filter (\ch -> length ch >= batchSize)
                        $ chunksOf batchSize chunk
@@ -562,7 +561,7 @@ convMnistTestCaseCNNO kheight_minus_1@MkSN kwidth_minus_1@MkSN
                  -> (Int, [( OS.Array '[in_height, in_width] r
                            , OS.Array '[SizeMnistLabel] r )])
                  -> IO (Domains r)
-        runBatch parameters@(!_, !_, !_, !_) (k, chunk) = do
+        runBatch !parameters (k, chunk) = do
           let f = trainWithLoss kheight_minus_1 kwidth_minus_1
                                 in_height in_width
                                 out_channels
@@ -806,7 +805,7 @@ comparisonTests volume =
                        (MkSN @1)
                        (packBatch @1 [shapeBatch $ first LA.flatten mnistData])
                        (parseADInputs valsInit adinputs)
-            paramsToT (p0, p1, p2, _) =
+            paramsToT (Domains p0 p1 p2 _) =
               let qX = V.fromList
                     [ OT.fromVector [depth, 1, 5, 5]
                       $ V.concat $ map LA.flatten
@@ -825,7 +824,7 @@ comparisonTests volume =
                       $ p2 V.! (depth + depth * depth + 1)
                     , OT.fromVector [sizeMnistLabelInt] $ p1 V.! 1
                     ]
-              in (V.empty, V.empty, V.empty, qX)
+              in Domains V.empty V.empty V.empty qX
             parametersT = paramsToT parameters
             dsT = paramsToT ds
             parametersPerturbationT = paramsToT parametersPerturbation

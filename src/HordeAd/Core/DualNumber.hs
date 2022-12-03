@@ -17,7 +17,7 @@ module HordeAd.Core.DualNumber
   , ADVal, dD, dDnotShared
   , ADMode(..), ADModeAndNum
   , IsPrimal (..), IsPrimalAndHasFeatures, HasDelta
-  , Domain0, Domain1, Domain2, DomainX, Domains, nullDomains
+  , Domain0, Domain1, Domain2, DomainX, Domains(..), nullDomains
       -- an important re-export
   ) where
 
@@ -54,7 +54,7 @@ import HordeAd.Internal.Delta
   , Domain1
   , Domain2
   , DomainX
-  , Domains
+  , Domains (..)
   , atIndexInTensor
   , isTensorDummy
   , nullDomains
@@ -99,12 +99,15 @@ multNotShared (D u u') (D v v') =
 
 addParameters :: (Numeric r, Num (Vector r))
               => Domains r -> Domains r -> Domains r
-addParameters (a0, a1, a2, aX) (b0, b1, b2, bX) =
-  (a0 + b0, V.zipWith (+) a1 b1, V.zipWith (+) a2 b2, V.zipWith (+) aX bX)
+addParameters (Domains a0 a1 a2 aX) (Domains b0 b1 b2 bX) =
+  Domains (a0 + b0)
+          (V.zipWith (+) a1 b1)
+          (V.zipWith (+) a2 b2)
+          (V.zipWith (+) aX bX)
 
 -- Dot product and sum respective ranks and then sum it all.
 dotParameters :: Numeric r => Domains r -> Domains r -> r
-dotParameters (a0, a1, a2, aX) (b0, b1, b2, bX) =
+dotParameters (Domains a0 a1 a2 aX) (Domains b0 b1 b2 bX) =
   a0 LA.<.> b0
   + V.sum (V.zipWith (\v1 u1 ->
       if V.null v1 || V.null u1

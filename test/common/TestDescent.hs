@@ -45,9 +45,9 @@ adaptDReverseRecord
 adaptDReverseRecord dt f (ARecord a b) =
   let initVec = V.fromList $ map Data.Array.Convert.convert [a, b]
       g = adaptFunctionRecord f
-      ((_, _, _, gradient), v) =
-        revOnDomains dt g (V.empty, V.empty, V.empty, initVec)
-      gradientRecord = case V.toList gradient of
+      (Domains{domainsX}, v) =
+        revOnDomains dt g (Domains V.empty V.empty V.empty initVec)
+      gradientRecord = case V.toList domainsX of
         [a2, b2] -> ARecord (toShapedOrDummy a2)
                             (toShapedOrDummy b2)
         _ -> error "adaptDReverseRecord"
@@ -64,9 +64,9 @@ adaptGdSimpleRecord
 adaptGdSimpleRecord gamma f n0 (ARecord a b) =
   let initVec = V.fromList $ map Data.Array.Convert.convert [a, b]
       g = adaptFunctionRecord f
-      (_, _, _, gradient) =
-        gdSimple gamma g n0 (V.empty, V.empty, V.empty, initVec)
-  in case V.toList gradient of
+      Domains{domainsX} =
+        gdSimple gamma g n0 (Domains V.empty V.empty V.empty initVec)
+  in case V.toList domainsX of
     [a2, b2] -> ARecord (toShapedOrDummy a2)
                         (toShapedOrDummy b2)
     _ -> error "adaptGdSimpleRecord"

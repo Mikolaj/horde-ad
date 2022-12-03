@@ -157,6 +157,7 @@ library
     build-depends:
         assert-failure
       , base >= 4.14 && < 99
+      , deepseq
       , enummapset
       , hmatrix
       , ilist

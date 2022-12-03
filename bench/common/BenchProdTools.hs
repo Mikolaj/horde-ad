@@ -130,17 +130,18 @@ vec_prod_aux = foldlDual' (*) 1
 
 vec_prod :: forall r. ADModeAndNum 'ADModeValue r
          => Vector r -> r
-vec_prod ds = valueOnDomains vec_prod_aux (ds, V.empty, V.empty, V.empty)
+vec_prod ds = valueOnDomains vec_prod_aux (Domains ds V.empty V.empty V.empty)
 
 grad_vec_prod :: HasDelta r => Vector r -> Vector r
 grad_vec_prod ds =
-  (\(v, _, _, _) -> v) . fst
-  $ revOnDomains 1 vec_prod_aux (ds, V.empty, V.empty, V.empty)
+  (\(Domains v _ _ _) -> v) . fst
+  $ revOnDomains 1 vec_prod_aux (Domains ds V.empty V.empty V.empty)
 
 grad_vec_prod_NotShared :: HasDelta r => Vector r -> Vector r
 grad_vec_prod_NotShared ds =
-  (\(v, _, _, _) -> v) . fst
-  $ revOnDomains 1 (foldlDual' multNotShared 1) (ds, V.empty, V.empty, V.empty)
+  (\(Domains v _ _ _) -> v) . fst
+  $ revOnDomains 1 (foldlDual' multNotShared 1)
+                 (Domains ds V.empty V.empty V.empty)
 
 grad_toList_prod :: HasDelta r => [r] -> [r]
 grad_toList_prod l = V.toList $ grad_vec_prod (V.fromList l)
@@ -164,15 +165,17 @@ altSumElementsV inputs =
 
 grad_vec_scalarSum :: HasDelta r => Vector r -> Vector r
 grad_vec_scalarSum ds =
-  (\(v, _, _, _) -> v)
-  . fst $ revOnDomains 1 vec_scalarSum_aux (ds, V.empty, V.empty, V.empty)
+  (\(Domains v _ _ _) -> v)
+  . fst $ revOnDomains 1 vec_scalarSum_aux (Domains ds V.empty V.empty V.empty)
 
 grad_vec_sum :: Vector Double -> Vector Double
 grad_vec_sum ds =
-  (\(_, v, _, _) -> V.head v) . fst
-  $ revOnDomains 1 sumElementsV (V.empty, V.singleton ds, V.empty, V.empty)
+  (\(Domains _ v _ _) -> V.head v) . fst
+  $ revOnDomains 1 sumElementsV
+                 (Domains V.empty (V.singleton ds) V.empty V.empty)
 
 grad_vec_altSum :: Vector Double -> Vector Double
 grad_vec_altSum ds =
-  (\(_, v, _, _) -> V.head v) . fst
-  $ revOnDomains 1 altSumElementsV (V.empty, V.singleton ds, V.empty, V.empty)
+  (\(Domains _ v _ _) -> V.head v) . fst
+  $ revOnDomains 1 altSumElementsV
+                 (Domains V.empty (V.singleton ds) V.empty V.empty)

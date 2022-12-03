@@ -44,13 +44,13 @@ valueGeneral
   -> a
 -- Small enough that inline won't hurt.
 {-# INLINE valueGeneral #-}
-valueGeneral f (params0, params1, params2, paramsX) =
+valueGeneral f domains@Domains{..} =
   let replicateDummy p = V.replicate (V.length p) dummyDual
-      inputs = makeADInputs (params0, params1, params2, paramsX)
-                            ( replicateDummy params0  -- dummy
-                            , replicateDummy params1
-                            , replicateDummy params2
-                            , replicateDummy paramsX )
+      inputs = makeADInputs domains
+                            ( replicateDummy domains0  -- dummy
+                            , replicateDummy domains1
+                            , replicateDummy domains2
+                            , replicateDummy domainsX )
   in f inputs
 
 valueOnDomains
@@ -161,11 +161,11 @@ fwdOnDomains
   -> (ADInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative a)
   -> Domains r  -- ds
   -> (Dual 'ADModeDerivative a, a)
-fwdOnDomains parameters f (params0, params1, params2, paramsX) =
+fwdOnDomains parameters f Domains{..} =
   let inputs =
         makeADInputs
           parameters
-          (V.convert params0, params1, params2, paramsX)  -- ds
+          (V.convert domains0, domains1, domains2, domainsX)  -- ds
   in fwdOnADInputs inputs f
 
 
@@ -189,15 +189,15 @@ generateDeltaInputs
      , Data.Vector.Vector (Dual 'ADModeGradient (Vector r))
      , Data.Vector.Vector (Dual 'ADModeGradient (Matrix r))
      , Data.Vector.Vector (Dual 'ADModeGradient (OT.Array r)) )
-generateDeltaInputs (params0, params1, params2, paramsX) =
+generateDeltaInputs Domains{..} =
   let intToInput :: forall a v.
                     (IsPrimalAndHasFeatures 'ADModeGradient a r, V.Vector v a)
                  => v a -> Data.Vector.Vector (Dual 'ADModeGradient a)
       intToInput p = V.generate (V.length p) (dInput . toInputId)
-      !v0 = intToInput params0
-      !v1 = intToInput params1
-      !v2 = intToInput params2
-      !vX = intToInput paramsX
+      !v0 = intToInput domains0
+      !v1 = intToInput domains1
+      !v2 = intToInput domains2
+      !vX = intToInput domainsX
   in (v0, v1, v2, vX)
 {-# SPECIALIZE generateDeltaInputs
   :: Domains Double
@@ -244,7 +244,7 @@ initializerFixed seed range (nParams0, lParams1, lParams2, lParamsX) =
   in ( (nParams0, V.length vParams1, V.length vParams2, V.length vParamsX)
      , totalParams
      , range
-     , (params0Init, params1Init, params2Init, paramsXInit) )
+     , Domains params0Init params1Init params2Init paramsXInit )
 
 initializerFixed01 :: Int -> Double -> (Int, [Int])
                    -> ((Int, Int), Int, Double, Domains Double)
@@ -256,10 +256,10 @@ initializerFixed01 seed range (nParams0, lParams1) =
 -- * Simplified version compatibility shims
 
 domainsFrom01 :: Domain0 r -> Domain1 r -> Domains r
-domainsFrom01 params0 params1 = (params0, params1, V.empty, V.empty)
+domainsFrom01 params0 params1 = Domains params0 params1 V.empty V.empty
 
 domainsFrom012X :: Domain0 r -> Domain1 r -> Domain2 r -> DomainX r -> Domains r
-domainsFrom012X a b c d = (a, b, c, d)
+domainsFrom012X = Domains
 
 domainsTo01 :: Domains r -> (Domain0 r, Domain1 r)
-domainsTo01 (a, b, _, _) = (a, b)
+domainsTo01 (Domains a b _ _) = (a, b)

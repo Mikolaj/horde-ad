@@ -411,7 +411,7 @@ mnistTestCaseRNN prefix epochs maxBatches f ftest flen width nLayers
        let runBatch :: (Domains Double, StateAdam Double)
                     -> (Int, [([Vector Double], Vector Double)])
                     -> IO (Domains Double, StateAdam Double)
-           runBatch (parameters@(!_, !_, !_, !_), stateAdam) (k, chunk) = do
+           runBatch (!parameters, !stateAdam) (k, chunk) = do
              let res@(parameters2, _) =
                    sgdAdamBatch 150 (f width) chunk parameters stateAdam
                  !trainScore = ftest width chunk parameters2
@@ -640,7 +640,7 @@ mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
            runBatch :: (Domains Double, StateAdam Double)
                     -> (Int, [([Vector Double], Vector Double)])
                     -> IO (Domains Double, StateAdam Double)
-           runBatch (parameters@(!_, !_, !_, !_), stateAdam) (k, chunk) = do
+           runBatch (!parameters, !stateAdam) (k, chunk) = do
              let res@(parameters2, _) =
                    sgdAdam (f width) (map packChunk $ chunksOf 150 chunk)
                            parameters stateAdam
@@ -726,7 +726,7 @@ mnistTestCaseRNNS out_width@MkSN batch_size@MkSN
         runBatch :: (Domains r, StateAdam r)
                  -> (Int, [MnistDataS r])
                  -> IO (Domains r, StateAdam r)
-        runBatch (parameters@(!_, !_, !_, !_), stateAdam) (k, chunk) = do
+        runBatch (!parameters, !stateAdam) (k, chunk) = do
           let f mnist adinputs =
                 trainWithLoss out_width batch_size
                               mnist (parseADInputs valsInit adinputs)
@@ -803,7 +803,7 @@ mnistTestCaseRNNO out_width@MkSN batch_size@MkSN
         runBatch :: (Domains r, StateAdam r)
                  -> (Int, [MnistDataS r])
                  -> IO (Domains r, StateAdam r)
-        runBatch (parameters@(!_, !_, !_, !_), stateAdam) (k, chunk) = do
+        runBatch (!parameters, !stateAdam) (k, chunk) = do
           let f = trainWithLoss out_width batch_size
               chunkS = map (packBatch @batch_size)
                        $ filter (\ch -> length ch >= batchSize)

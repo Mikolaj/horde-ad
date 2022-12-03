@@ -20,13 +20,13 @@ import           Numeric.LinearAlgebra.Data (flatten)
 import           Numeric.LinearAlgebra.Devel
   (MatrixOrder (..), liftMatrix, liftMatrix2, matrixFromVector, orderOf)
 
-import HordeAd.Internal.Delta (Domains, isTensorDummy)
+import HordeAd.Internal.Delta (Domains (..), isTensorDummy)
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVT2)
 
 updateWithGradient :: (Numeric r, Floating (Vector r))
                    => r -> Domains r -> Domains r -> Domains r
-updateWithGradient gamma (params0, params1, params2, paramsX)
-                         (gradient0, gradient1, gradient2, gradientX) =
+updateWithGradient gamma (Domains params0 params1 params2 paramsX)
+                         (Domains gradient0 gradient1 gradient2 gradientX) =
   let updateVector i r = i - LA.scale gamma r
       !params0New = updateVector params0 gradient0
       update1 i r = if V.null r  -- eval didn't update it, would crash
@@ -44,18 +44,18 @@ updateWithGradient gamma (params0, params1, params2, paramsX)
                       -- unless we move away from hmatrix;
                       -- similarly other OT calls
       !paramsXNew = V.zipWith updateX paramsX gradientX
-  in (params0New, params1New, params2New, paramsXNew)
+  in (Domains params0New params1New params2New paramsXNew)
 {-# SPECIALIZE updateWithGradient :: Double -> Domains Double -> Domains Double -> Domains Double #-}
 
 gradientIsNil :: (Eq r, Numeric r) => Domains r -> Bool
-gradientIsNil (gradient0, gradient1, gradient2, gradientX) =
+gradientIsNil (Domains gradient0 gradient1 gradient2 gradientX) =
   V.all (== 0) gradient0
   && V.all V.null gradient1
   && V.all (\r -> LA.rows r <= 0) gradient2
   && V.all isTensorDummy gradientX
 
 minimumGradient :: (Ord r, Numeric r) => Domains r -> r
-minimumGradient (gradient0, gradient1, gradient2, gradientX) =
+minimumGradient (Domains gradient0 gradient1 gradient2 gradientX) =
   min (if V.null gradient0 then 0 else LA.minElement gradient0)
       (min (if V.null gradient1 then 0
             else V.minimum (V.map LA.minElement gradient1))
@@ -65,7 +65,7 @@ minimumGradient (gradient0, gradient1, gradient2, gradientX) =
                  else V.minimum (V.map OT.minimumA gradientX))))
 
 maximumGradient :: (Ord r, Numeric r) => Domains r -> r
-maximumGradient (gradient0, gradient1, gradient2, gradientX) =
+maximumGradient (Domains gradient0 gradient1 gradient2 gradientX) =
   max (if V.null gradient0 then 0 else LA.maxElement gradient0)
       (max (if V.null gradient1 then 0
             else V.maximum (V.map LA.maxElement gradient1))
@@ -100,15 +100,16 @@ data StateAdam r = StateAdam
 -- The arguments are just sample params0, for dimensions.
 zeroParameters :: Numeric r
                => Domains r -> Domains r
-zeroParameters (params0, params1, params2, paramsX) =
+zeroParameters Domains{..} =
   let zeroVector v = runST $ do
         vThawed <- V.thaw v
         VM.set vThawed 0
         V.unsafeFreeze vThawed
-  in ( zeroVector params0
-     , V.map zeroVector params1
-     , V.map (liftMatrix zeroVector) params2
-     , V.map (\a -> OT.constant (OT.shapeL a) 0) paramsX )  -- fast allright
+  in Domains (zeroVector domains0)
+             (V.map zeroVector domains1)
+             (V.map (liftMatrix zeroVector) domains2)
+             (V.map (\a -> OT.constant (OT.shapeL a) 0) domainsX)
+                -- fast allright
 
 initialStateAdam :: Numeric r
                  => Domains r -> StateAdam r
@@ -174,11 +175,11 @@ updateWithGradientAdam
   -> (Domains r, StateAdam r)
 updateWithGradientAdam ArgsAdam{..}
                        StateAdam{ tAdam
-                                , mAdam = (mAdam0, mAdam1, mAdam2, mAdamX)
-                                , vAdam = (vAdam0, vAdam1, vAdam2, vAdamX)
+                                , mAdam = Domains mAdam0 mAdam1 mAdam2 mAdamX
+                                , vAdam = Domains vAdam0 vAdam1 vAdam2 vAdamX
                                 }
-                       (params0, params1, params2, paramsX)
-                       (gradient0, gradient1, gradient2, gradientX) =
+                       (Domains params0 params1 params2 paramsX)
+                       (Domains gradient0 gradient1 gradient2 gradientX) =
   let tAdamNew = tAdam + 1
       oneMinusBeta1 = 1 - betaOne
       oneMinusBeta2 = 1 - betaTwo
@@ -212,9 +213,9 @@ updateWithGradientAdam ArgsAdam{..}
                           else liftArray43 updateVector mA vA p g
       (!mAdamXNew, !vAdamXNew, !paramsXNew) =
         V.unzip3 $ V.zipWith4 updateX mAdamX vAdamX paramsX gradientX
-  in ( (params0New, params1New, params2New, paramsXNew)
+  in ( Domains params0New params1New params2New paramsXNew
      , StateAdam { tAdam = tAdamNew
-                 , mAdam = (mAdam0New, mAdam1New, mAdam2New, mAdamXNew)
-                 , vAdam = (vAdam0New, vAdam1New, vAdam2New, vAdamXNew)
+                 , mAdam = Domains mAdam0New mAdam1New mAdam2New mAdamXNew
+                 , vAdam = Domains vAdam0New vAdam1New vAdam2New vAdamXNew
                  }
      )

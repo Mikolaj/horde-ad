@@ -128,9 +128,9 @@ parseADInputs aInit inputs =
 
 instance AdaptableDomains Double where
   type Scalar Double = Double
-  toDomains a = (V.singleton a, V.empty, V.empty, V.empty)
-  fromDomains _aInit (v0, v1, v2, vX) = case V.uncons v0 of
-    Just (a, rest) -> (a, (rest, v1, v2, vX))
+  toDomains a = Domains (V.singleton a) V.empty V.empty V.empty
+  fromDomains _aInit (Domains v0 v1 v2 vX) = case V.uncons v0 of
+    Just (a, rest) -> (a, Domains rest v1 v2 vX)
     Nothing -> error "fromDomains in AdaptableDomains Double"
   nParams _ = 1
   nScalars _ = 1
@@ -153,9 +153,9 @@ instance ADModeAndNum d Double
 
 instance AdaptableDomains Float where
   type Scalar Float = Float
-  toDomains a = (V.singleton a, V.empty, V.empty, V.empty)
-  fromDomains _aInit (v0, v1, v2, vX) = case V.uncons v0 of
-    Just (a, rest) -> (a, (rest, v1, v2, vX))
+  toDomains a = Domains (V.singleton a) V.empty V.empty V.empty
+  fromDomains _aInit (Domains v0 v1 v2 vX) = case V.uncons v0 of
+    Just (a, rest) -> (a, Domains rest v1 v2 vX)
     Nothing -> error "fromDomains in AdaptableDomains Float"
   nParams _ = 1
   nScalars _ = 1
@@ -177,9 +177,9 @@ instance ADModeAndNum d Float
 
 instance AdaptableDomains (Vector r) where
   type Scalar (Vector r) = r
-  toDomains a = (V.empty, V.singleton a, V.empty, V.empty)
-  fromDomains _aInit (v0, v1, v2, vX) = case V.uncons v1 of
-    Just (a, rest) -> (a, (v0, rest, v2, vX))
+  toDomains a = Domains V.empty (V.singleton a) V.empty V.empty
+  fromDomains _aInit (Domains v0 v1 v2 vX) = case V.uncons v1 of
+    Just (a, rest) -> (a, Domains v0 rest v2 vX)
     Nothing -> error "fromDomains in AdaptableDomains (Vector r)"
   nParams _ = 1
   nScalars = V.length
@@ -198,9 +198,9 @@ instance ADModeAndNum d r
 
 instance AdaptableDomains (Matrix r) where
   type Scalar (Matrix r) = r
-  toDomains a = (V.empty, V.empty, V.singleton a, V.empty)
-  fromDomains _aInit (v0, v1, v2, vX) = case V.uncons v2 of
-    Just (a, rest) -> (a, (v0, v1, rest, vX))
+  toDomains a = Domains V.empty V.empty (V.singleton a) V.empty
+  fromDomains _aInit (Domains v0 v1 v2 vX) = case V.uncons v2 of
+    Just (a, rest) -> (a, Domains v0 v1 rest vX)
     Nothing -> error "fromDomains in AdaptableDomains (Matrix r)"
   nParams _ = 1
   nScalars m = let (i, j) = LA.size m in i * j
@@ -219,9 +219,10 @@ instance ADModeAndNum d r
 
 instance AdaptableDomains (OT.Array r) where
   type Scalar (OT.Array r) = r
-  toDomains a = (V.empty, V.empty, V.empty, V.singleton a)
-  fromDomains aInit (v0, v1, v2, vX) = case V.uncons vX of
-    Just (a, rest) -> (toDynamicOrDummy (OT.shapeL aInit) a, (v0, v1, v2, rest))
+  toDomains a = Domains V.empty V.empty V.empty (V.singleton a)
+  fromDomains aInit (Domains v0 v1 v2 vX) = case V.uncons vX of
+    Just (a, rest) ->
+      (toDynamicOrDummy (OT.shapeL aInit) a, Domains v0 v1 v2 rest)
     Nothing -> error "fromDomains in AdaptableDomains (OT.Array r)"
   nParams _ = 1
   nScalars = OT.size
@@ -265,9 +266,9 @@ instance OS.Shape sh
          => AdaptableDomains (OS.Array sh r) where
   type Scalar (OS.Array sh r) = r
   toDomains a =
-    (V.empty, V.empty, V.empty, V.singleton (Data.Array.Convert.convert a))
-  fromDomains _aInit (v0, v1, v2, vX) = case V.uncons vX of
-    Just (a, rest) -> (toShapedOrDummy a, (v0, v1, v2, rest))
+    Domains V.empty V.empty V.empty (V.singleton (Data.Array.Convert.convert a))
+  fromDomains _aInit (Domains v0 v1 v2 vX) = case V.uncons vX of
+    Just (a, rest) -> (toShapedOrDummy a, Domains v0 v1 v2 rest)
     Nothing -> error "fromDomains in AdaptableDomains (OS.Array sh r)"
   nParams _ = 1
   nScalars = OS.size
@@ -298,8 +299,8 @@ instance AdaptableDomains a
          => AdaptableDomains [a] where
   type Scalar [a] = Scalar a
   toDomains l =
-    let (l0, l1, l2, lX) = unzip4 $ map toDomains l
-    in (V.concat l0, V.concat l1, V.concat l2, V.concat lX)
+    let (l0, l1, l2, lX) = unzip4 $ map (domainsToQuadruple . toDomains) l
+    in Domains (V.concat l0) (V.concat l1) (V.concat l2) (V.concat lX)
   fromDomains lInit source =
     let f (lAcc, restAcc) aInit =
           let (a, rest) = fromDomains aInit restAcc
@@ -312,6 +313,9 @@ instance AdaptableDomains a
     -- >   in swap $ mapAccumL f source lInit
   nParams = sum . map nParams
   nScalars = sum . map nScalars
+
+domainsToQuadruple :: Domains r -> (Domain0 r, Domain1 r, Domain2 r, DomainX r)
+domainsToQuadruple Domains{..} = (domains0, domains1, domains2, domainsX)
 
 instance AdaptableInputs r a
          => AdaptableInputs r [a] where
@@ -329,12 +333,12 @@ instance ( r ~ Scalar a, r ~ Scalar b
          , AdaptableDomains b ) => AdaptableDomains (a, b) where
   type Scalar (a, b) = Scalar a
   toDomains (a, b) =
-    let (a0, a1, a2, aX) = toDomains a
-        (b0, b1, b2, bX) = toDomains b
-    in ( V.concat [a0, b0]
-       , V.concat [a1, b1]
-       , V.concat [a2, b2]
-       , V.concat [aX, bX] )
+    let Domains a0 a1 a2 aX = toDomains a
+        Domains b0 b1 b2 bX = toDomains b
+    in Domains (V.concat [a0, b0])
+               (V.concat [a1, b1])
+               (V.concat [a2, b2])
+               (V.concat [aX, bX])
   fromDomains (aInit, bInit) source =
     let (a, aRest) = fromDomains aInit source
         (b, bRest) = fromDomains bInit aRest
@@ -356,13 +360,13 @@ instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c
          , AdaptableDomains c ) => AdaptableDomains (a, b, c) where
   type Scalar (a, b, c) = Scalar a
   toDomains (a, b, c) =
-    let (a0, a1, a2, aX) = toDomains a
-        (b0, b1, b2, bX) = toDomains b
-        (c0, c1, c2, cX) = toDomains c
-    in ( V.concat [a0, b0, c0]
-       , V.concat [a1, b1, c1]
-       , V.concat [a2, b2, c2]
-       , V.concat [aX, bX, cX] )
+    let Domains a0 a1 a2 aX = toDomains a
+        Domains b0 b1 b2 bX = toDomains b
+        Domains c0 c1 c2 cX = toDomains c
+    in Domains (V.concat [a0, b0, c0])
+               (V.concat [a1, b1, c1])
+               (V.concat [a2, b2, c2])
+               (V.concat [aX, bX, cX])
   fromDomains (aInit, bInit, cInit) source =
     let (a, aRest) = fromDomains aInit source
         (b, bRest) = fromDomains bInit aRest
@@ -388,14 +392,14 @@ instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
          , AdaptableDomains d ) => AdaptableDomains (a, b, c, d) where
   type Scalar (a, b, c, d) = Scalar a
   toDomains (a, b, c, d) =
-    let (a0, a1, a2, aX) = toDomains a
-        (b0, b1, b2, bX) = toDomains b
-        (c0, c1, c2, cX) = toDomains c
-        (d0, d1, d2, dX) = toDomains d
-    in ( V.concat [a0, b0, c0, d0]
-       , V.concat [a1, b1, c1, d1]
-       , V.concat [a2, b2, c2, d2]
-       , V.concat [aX, bX, cX, dX] )
+    let Domains a0 a1 a2 aX = toDomains a
+        Domains b0 b1 b2 bX = toDomains b
+        Domains c0 c1 c2 cX = toDomains c
+        Domains d0 d1 d2 dX = toDomains d
+    in Domains (V.concat [a0, b0, c0, d0])
+               (V.concat [a1, b1, c1, d1])
+               (V.concat [a2, b2, c2, d2])
+               (V.concat [aX, bX, cX, dX])
   fromDomains (aInit, bInit, cInit, dInit) source =
     let (a, aRest) = fromDomains aInit source
         (b, bRest) = fromDomains bInit aRest
@@ -484,7 +488,7 @@ instance AdaptableDomains a
          => AdaptableDomains (Maybe a) where
   type Scalar (Maybe a) = Scalar a
   toDomains e = case e of
-    Nothing -> (V.empty, V.empty, V.empty, V.empty)
+    Nothing -> Domains V.empty V.empty V.empty V.empty
     Just a -> toDomains a
   fromDomains eInit source = case eInit of
     Nothing -> (Nothing, source)

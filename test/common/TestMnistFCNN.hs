@@ -155,10 +155,9 @@ mnistTestCase2L prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
        let runBatch :: Domains Double
                     -> (Int, [MnistData Double])
                     -> IO (Domains Double)
-           runBatch (!params0, !params1, !params2, !paramsX) (k, chunk) = do
+           runBatch !domains (k, chunk) = do
              let f = trainWithLoss
-                 res = fst $ sgd gamma f chunk
-                                 (params0, params1, params2, paramsX)
+                 res = fst $ sgd gamma f chunk domains
                  !trainScore = fcnnMnistTest2 @Double chunk res
                  !testScore = fcnnMnistTest2 @Double testData res
                  !lenChunk = length chunk
@@ -215,14 +214,13 @@ mnistTestCase2T reallyWriteFile
        let runBatch :: (Domains Double, [(POSIXTime, Double)])
                     -> (Int, [MnistData Double])
                     -> IO (Domains Double, [(POSIXTime, Double)])
-           runBatch ((!params0, !params1, !params2, !paramsX), !times)
+           runBatch (!domains, !times)
                     (k, chunk) = do
              when (k `mod` 100 == 0) $ do
                hPutStrLn stderr $ printf "%s: %d " prefix k
                hFlush stderr
              let f = trainWithLoss
-                 (!params0New, !v) =
-                   sgd gamma f chunk (params0, params1, params2, paramsX)
+                 (!params0New, !v) = sgd gamma f chunk domains
              time <- getPOSIXTime
              return (params0New, (time, v) : times)
        let runEpoch :: Int
@@ -285,7 +283,7 @@ mnistTestCase2D reallyWriteFile miniBatchSize decay
        let runBatch :: (Domains Double, [(POSIXTime, Double)])
                     -> (Int, [MnistData Double])
                     -> IO (Domains Double, [(POSIXTime, Double)])
-           runBatch ((!params0, !params1, !params2, !paramsX), !times)
+           runBatch (!domains, !times)
                     (k, chunk) = do
              when (k `mod` 100 == 0) $ do
                hPutStrLn stderr $ printf "%s: %d " prefix k
@@ -296,7 +294,7 @@ mnistTestCase2D reallyWriteFile miniBatchSize decay
                          else gamma0
                  (!params0New, !v) =
                    sgdBatchForward (33 + k * 7) miniBatchSize gamma f chunk
-                                   (params0, params1, params2, paramsX) np
+                                   domains np
              time <- getPOSIXTime
              return (params0New, (time, v) : times)
        let runEpoch :: Int
@@ -416,7 +414,7 @@ mnistTestCase2F reallyWriteFile miniBatchSize decay
        let runBatch :: (Domains Double, [(POSIXTime, Double)])
                     -> (Int, [MnistData Double])
                     -> IO (Domains Double, [(POSIXTime, Double)])
-           runBatch ((!params0, !params1, !params2, !paramsX), !times)
+           runBatch (!domains, !times)
                     (k, chunk) = do
              when (k `mod` 100 == 0) $ do
                hPutStrLn stderr $ printf "%s: %d " prefix k
@@ -427,7 +425,7 @@ mnistTestCase2F reallyWriteFile miniBatchSize decay
                          else gamma0
                  (!params0New, !v) =
                    sgdBatchFastForward (33 + k * 7) miniBatchSize gamma f chunk
-                                       (params0, params1, params2, paramsX) np
+                                       domains np
              time <- getPOSIXTime
              return (params0New, (time, v) : times)
        let runEpoch :: Int
@@ -470,7 +468,7 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
  where
   go :: Int -> [a] -> Domains Double -> Double -> (Domains Double, Double)
   go _ [] parameters v = (parameters, v)
-  go seed l parameters@(params0, params1, params2, paramsX) _ =
+  go seed l parameters@Domains{..} _ =
     let (batch, rest) = splitAt batchSize l
         fAdd :: ADInputs 'ADModeDerivative Double
              -> ADVal 'ADModeDerivative Double
@@ -484,12 +482,12 @@ sgdBatchFastForward seed0 batchSize gamma f trainingData
           in resBatch / fromIntegral (length batch)
         unitVarianceRange = sqrt 12 / 2
         (g1, g2) = (seed + 5, seed + 13)
-        (_, _, _, direction@(dparams0, dparams1, dparams2, dparamsX)) =
+        (_, _, _, direction@(Domains dparams0 dparams1 dparams2 dparamsX)) =
           initializerFixed g1 unitVarianceRange nParameters
         inputs =
           makeADInputs
-            ( coerce params0, coerce params1, coerce params2
-            , unsafeCoerce paramsX )
+            (Domains (coerce domains0) (coerce domains1) (coerce domains2)
+                     ( unsafeCoerce domainsX))
             (V.convert dparams0, dparams1, dparams2, dparamsX)
         (directionalDerivative, valueNew) =
           fwdOnADInputs inputs fBatch
@@ -542,12 +540,11 @@ mnistTestCase2S widthHidden@MkSN widthHidden2@MkSN
     let runBatch :: Domains Double
                  -> (Int, [MnistData Double])
                  -> IO (Domains Double)
-        runBatch (!params0, !params1, !params2, !paramsX) (k, chunk) = do
+        runBatch !domains (k, chunk) = do
           let f mnist adinputs =
                 trainWithLoss widthHidden widthHidden2
                               mnist (parseADInputs valsInit adinputs)
-              res = fst $ sgd gamma f chunk
-                              (params0, params1, params2, paramsX)
+              res = fst $ sgd gamma f chunk domains
               !trainScore = ftest chunk res
               !testScore = ftest testData res
               !lenChunk = length chunk
@@ -600,10 +597,9 @@ mnistTestCase2O widthHidden@MkSN widthHidden2@MkSN
     let runBatch :: Domains Double
                  -> (Int, [MnistData Double])
                  -> IO (Domains Double)
-        runBatch (!params0, !params1, !params2, !paramsX) (k, chunk) = do
+        runBatch !domains0 (k, chunk) = do
           let f = trainWithLoss widthHidden widthHidden2
-              res = fst $ sgd gamma f chunk
-                              (params0, params1, params2, paramsX)
+              res = fst $ sgd gamma f chunk domains0
               !trainScore = fcnnMnistTestS widthHidden widthHidden2
                                           chunk res
               !testScore = fcnnMnistTestS widthHidden widthHidden2
@@ -635,28 +631,28 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       let (nParams0, lParams1, lParams2, _) = fcnnMnistLen2 4 3
           vParams1 = V.fromList lParams1
           vParams2 = V.fromList lParams2
-          params0 = V.replicate nParams0 (1 :: Float)
-          params1 = V.map (`V.replicate` 2) vParams1
-          params2 = V.map (LA.konst 3) vParams2
+          domains0 = V.replicate nParams0 (1 :: Float)
+          domains1 = V.map (`V.replicate` 2) vParams1
+          domains2 = V.map (LA.konst 3) vParams2
+          domainsX = V.empty
           blackGlyph = V.replicate sizeMnistGlyphInt 4
           blackLabel = V.replicate sizeMnistLabelInt 5
           trainData = (blackGlyph, blackLabel)
-          output = prettyPrintDf (fcnnMnistLoss2 trainData)
-                                 (params0, params1, params2, V.empty)
+          output = prettyPrintDf (fcnnMnistLoss2 trainData) Domains{..}
       -- printf "%s" output
       length output @?= 176576
   , testCase "2pretty-print in grey 3 2 fused" $ do
       let (nParams0, lParams1, lParams2, _) = fcnnMnistLen2 4 3
           vParams1 = V.fromList lParams1
           vParams2 = V.fromList lParams2
-          params0 = V.replicate nParams0 (1 :: Float)
-          params1 = V.map (`V.replicate` 2) vParams1
-          params2 = V.map (LA.konst 3) vParams2
+          domains0 = V.replicate nParams0 (1 :: Float)
+          domains1 = V.map (`V.replicate` 2) vParams1
+          domains2 = V.map (LA.konst 3) vParams2
+          domainsX = V.empty
           blackGlyph = V.replicate sizeMnistGlyphInt 4
           blackLabel = V.replicate sizeMnistLabelInt 5
           trainData = (blackGlyph, blackLabel)
-          output = prettyPrintDf (fcnnMnistLossFused2 trainData)
-                                 (params0, params1, params2, V.empty)
+          output = prettyPrintDf (fcnnMnistLossFused2 trainData) Domains{..}
       --- printf "%s" output
       length output @?= 54268
   , testCase "3pretty-print on testset 3 2" $ do
@@ -670,12 +666,12 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       let (nParams0, lParams1, lParams2, _) = fcnnMnistLen2 300 100
           vParams1 = V.fromList lParams1
           vParams2 = V.fromList lParams2
-          params0 = V.replicate nParams0 (0.1 :: Float)
-          params1 = V.map (`V.replicate` 0.1) vParams1
-          params2 = V.map (LA.konst 0.1) vParams2
+          domains0 = V.replicate nParams0 (0.1 :: Float)
+          domains1 = V.map (`V.replicate` 0.1) vParams1
+          domains2 = V.map (LA.konst 0.1) vParams2
+          domainsX = V.empty
       testData <- loadMnistData testGlyphsPath testLabelsPath
-      (1 - fcnnMnistTest2 testData
-                          (params0, params1, params2, V.empty))
+      (1 - fcnnMnistTest2 testData Domains{..})
         @?~ 0.902
   , testProperty "Compare two forward derivatives and gradient for Mnist1A" $
       \seed seedDs ->

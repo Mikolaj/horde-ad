@@ -1,5 +1,6 @@
-{-# LANGUAGE CPP, DataKinds, GADTs, GeneralizedNewtypeDeriving, KindSignatures,
-             RankNTypes, StandaloneDeriving, UnboxedTuples #-}
+{-# LANGUAGE CPP, DataKinds, DeriveAnyClass, DeriveGeneric, DerivingStrategies,
+             GADTs, GeneralizedNewtypeDeriving, KindSignatures, RankNTypes,
+             StandaloneDeriving, UnboxedTuples #-}
 #if !MIN_VERSION_base(4,16,0)
 {-# LANGUAGE IncoherentInstances #-}
 #endif
@@ -42,13 +43,14 @@ module HordeAd.Internal.Delta
   , -- * Delta expression identifiers
     NodeId(..), InputId, toInputId
   , -- * Evaluation of the delta expressions
-    DeltaDt (..), Domain0, Domain1, Domain2, DomainX, Domains, nullDomains
+    DeltaDt (..), Domain0, Domain1, Domain2, DomainX, Domains(..), nullDomains
   , gradientFromDelta, derivativeFromDelta
   , isTensorDummy, toShapedOrDummy, toDynamicOrDummy, atIndexInTensor
   ) where
 
 import Prelude
 
+import           Control.DeepSeq (NFData)
 import           Control.Exception (assert)
 import           Control.Monad (liftM2, unless, zipWithM_)
 import           Control.Monad.ST.Strict (ST, runST)
@@ -72,6 +74,7 @@ import qualified Data.Strict.Vector.Autogen.Mutable as Data.Vector.Mutable
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Storable.Mutable
+import           GHC.Generics (Generic)
 import           GHC.TypeLits (KnownNat, Nat, natVal, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, (<.>))
 import qualified Numeric.LinearAlgebra as LA
@@ -312,7 +315,7 @@ instance Show (DeltaS sh r) where
 -- * Delta expression identifiers
 
 newtype NodeId = NodeId {fromNodeId :: Int}
-  deriving (Enum, Prim)
+  deriving newtype (Enum, Prim)
     -- The Prim instance conversions take lots of time when old-time profiling,
     -- but are completely optimized away in normal builds.
     -- No Eq instance to limit hacks outside this module.
@@ -329,7 +332,7 @@ toInputId :: Int -> InputId a
 toInputId i = assert (i >= 0) $ InputId i
 
 newtype DeltaId a = DeltaId Int
-  deriving (Show, Prim)
+  deriving newtype (Show, Prim)
     -- No Eq instance to limit hacks outside this module.
 
 -- The key property is that it preserves the phantom type.
@@ -349,10 +352,17 @@ type Domain2 r = Data.Vector.Vector (Matrix r)
 
 type DomainX r = Data.Vector.Vector (OT.Array r)
 
-type Domains r = (Domain0 r, Domain1 r, Domain2 r, DomainX r)
+data Domains r = Domains
+  { domains0 :: Domain0 r
+  , domains1 :: Domain1 r
+  , domains2 :: Domain2 r
+  , domainsX :: DomainX r
+  }
+  deriving (Show, Generic, NFData)
 
 nullDomains :: Numeric r => Domains r -> Bool
-nullDomains (v0, v1, v2, vX) = V.null v0 && V.null v1 && V.null v2 && V.null vX
+nullDomains Domains{..} =
+  V.null domains0 && V.null domains1 && V.null domains2 && V.null domainsX
 
 -- | The main input of the differentiation functions:
 -- the delta expression to be differentiated and the dt perturbation
@@ -437,11 +447,11 @@ gradientFromDelta dim0 dim1 dim2 dimX deltaDt =
   runST $ do
     (iMap0, iMap1, iMap2, iMapX)
       <- buildFinMaps dim0 dim1 dim2 dimX deltaDt
-    v0 <- V.unsafeFreeze iMap0
-    v1 <- V.unsafeFreeze iMap1
-    v2 <- V.unsafeFreeze iMap2
-    vX <- V.unsafeFreeze iMapX
-    return (v0, v1, v2, vX)
+    domains0 <- V.unsafeFreeze iMap0
+    domains1 <- V.unsafeFreeze iMap1
+    domains2 <- V.unsafeFreeze iMap2
+    domainsX <- V.unsafeFreeze iMapX
+    return $! Domains{..}
 {-# SPECIALIZE gradientFromDelta
   :: Int -> Int -> Int -> Int -> DeltaDt Double
   -> Domains Double #-}
@@ -1050,7 +1060,7 @@ buildDerivative
   => Int -> Int -> Int -> Int -> Delta0 r -> Domains r
   -> ST s r
 buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
-                (params0Init, params1Init, params2Init, paramsXInit) = do
+                Domains{..} = do
   ( _, _, _, _
    ,didCur0, didCur1, didCur2, didCurX
    ,dMap0, dMap1, _, dMapX
@@ -1067,7 +1077,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         Zero0 -> return 0
         Input0 (InputId i) ->
           if i < dim0
-          then return $! params0Init V.! i
+          then return $! domains0 V.! i
           else error "derivativeFromDelta.eval': wrong index for an input"
         Scale0 k d -> (k *) <$> eval0 d
         Add0 d e -> liftM2 (+) (eval0 d) (eval0 e)
@@ -1112,7 +1122,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         Zero1 -> return 0
         Input1 (InputId i) ->
           if i < dim1
-          then return $! params1Init V.! i
+          then return $! domains1 V.! i
           else error "derivativeFromDelta.eval': wrong index for an input"
         Scale1 k d -> (k *) <$> eval1 d
         Add1 d e -> liftM2 (+) (eval1 d) (eval1 e)
@@ -1173,7 +1183,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         Zero2 -> return 0
         Input2 (InputId i) ->
           if i < dim2
-          then return $! params2Init V.! i
+          then return $! domains2 V.! i
           else error "derivativeFromDelta.eval': wrong index for an input"
         Scale2 k d -> (k *) <$> eval2 d
         Add2 d e -> liftM2 (+) (eval2 d) (eval2 e)
@@ -1252,7 +1262,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         ZeroX -> return 0
         InputX (InputId i) ->
           if i < dimX
-          then return $! paramsXInit V.! i
+          then return $! domainsX V.! i
           else error "derivativeFromDelta.eval': wrong index for an input"
         ScaleX k d -> (k *) <$> evalX d
         AddX d e -> liftM2 (+) (evalX d) (evalX e)
@@ -1325,7 +1335,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         ZeroS -> return 0
         InputS (InputId i) ->
           if i < dimX
-          then return $! Data.Array.Convert.convert $ paramsXInit V.! i
+          then return $! Data.Array.Convert.convert $ domainsX V.! i
           else error "derivativeFromDelta.eval': wrong index for an input"
         ScaleS k d -> (k *) <$> evalS d
         AddS d e -> liftM2 (+) (evalS d) (evalS e)

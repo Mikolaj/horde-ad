@@ -33,7 +33,7 @@ mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
                     $ mkStdGen 33
       f = fcnnMnistLoss0 widthHidden widthHidden2
       chunk = take chunkLength xs
-      grad c = fst $ sgd gamma f c (params0Init, V.empty, V.empty, V.empty)
+      grad c = fst $ sgd gamma f c (Domains params0Init V.empty V.empty V.empty)
       name = "" ++ extraPrefix
              ++ unwords [ "s" ++ show nParams0, "v0"
                         , "m0" ++ "=" ++ show nParams0 ]
@@ -108,7 +108,7 @@ mnistTrainBench2V extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
       f = fcnnMnistLoss1 widthHidden widthHidden2
       chunk = take chunkLength xs
       grad c =
-        fst $ sgd gamma f c (params0Init, params1Init, V.empty, V.empty)
+        fst $ sgd gamma f c (Domains params0Init params1Init V.empty V.empty)
       totalParams = nParams0 + sum nParams1
       name = "" ++ extraPrefix
              ++ unwords [ "s" ++ show nParams0, "v" ++ show (length nParams1)
@@ -176,7 +176,7 @@ mnistTrainBench2VA extraPrefix chunkLength xs widthHidden widthHidden2
                         mnist (parseADInputs valsInit adinputs)
       chunk = take chunkLength xs
       grad c =
-        fst $ sgd gamma f c (params0Init, params1Init, V.empty, V.empty)
+        fst $ sgd gamma f c (Domains params0Init params1Init V.empty V.empty)
       totalParams = nParams0 + sum nParams1
       name = "" ++ extraPrefix
              ++ unwords [ "s" ++ show nParams0, "v" ++ show (length nParams1)
