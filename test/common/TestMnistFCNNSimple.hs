@@ -5,6 +5,7 @@ module TestMnistFCNNSimple
 
 import Prelude
 
+import           Control.Arrow ((&&&))
 import           Control.Monad (foldM)
 import           Data.List.Index (imap)
 import qualified Data.Vector.Generic as V
@@ -102,8 +103,8 @@ mnistTestCase2 prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                     -> IO (Domain0 Double)
            runBatch !params0 (k, chunk) = do
              let f = trainWithLoss widthHidden widthHidden2
-                 (!res, _) =
-                   domainsTo01 . fst
+                 !res =
+                   domains0 . fst
                    $ sgd gamma f chunk (domainsFrom01 params0 V.empty)
                  !trainScore = fcnnMnistTest0 widthHidden widthHidden2 chunk res
                  !testScore =
@@ -167,7 +168,7 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
            runBatch (!params0, !params1) (k, chunk) = do
              let f = trainWithLoss widthHidden widthHidden2
                  (resS, resV) =
-                   domainsTo01 . fst
+                   (domains0 &&& domains1) . fst
                    $ sgd gamma f chunk (domainsFrom01 params0 params1)
                  res = (resS, resV)
                  !trainScore = fcnnMnistTest1

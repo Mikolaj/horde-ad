@@ -38,8 +38,8 @@ revOnDomains0
   -> [r]
   -> ([r], r)
 revOnDomains0 f deltaInput =
-  let ((!results, _), !v) =
-        first domainsTo01
+  let (!results, !v) =
+        first domains0
         $ revOnDomains 1 f (domainsFrom01 (V.fromList deltaInput) V.empty)
   in (V.toList results, v)
 
@@ -190,8 +190,8 @@ dReverse1
   -> [[r]]
   -> ([[r]], r)
 dReverse1 f deltaInput =
-  let ((_, !results), !v) =
-        first domainsTo01
+  let (!results, !v) =
+        first domains1
         $ revOnDomains 1 f
             (domainsFrom01 V.empty (V.fromList (map V.fromList deltaInput)))
   in (map V.toList $ V.toList results, v)
@@ -319,8 +319,8 @@ atanOldReadme = sumElementsOfADVals . atanOldReadmeInputs
 atanOldReadmeDReverse :: HasDelta r
                       => Domain0 r -> (Domain0 r, r)
 atanOldReadmeDReverse ds =
-  let ((!result, _), !v) =
-        first domainsTo01
+  let (!result, !v) =
+        first domains0
         $ revOnDomains 1 atanOldReadme (domainsFrom01 ds V.empty)
   in (result, v)
 
@@ -355,8 +355,8 @@ vatanOldReadme inputs =
 vatanOldReadmeDReverse :: HasDelta r
                        => Domain1 r -> (Domain1 r, r)
 vatanOldReadmeDReverse dsV =
-  let ((_, !result), !v) =
-        first domainsTo01
+  let (!result, !v) =
+        first domains1
         $ revOnDomains 1 vatanOldReadme (domainsFrom01 V.empty dsV)
   in (result, v)
 
@@ -546,7 +546,7 @@ dRev0 f x =
   let g adInputs = f $ adInputs `at0` 0
       (domains, val) =
         revOnDomains 1 g (domainsFrom01 (V.singleton x) V.empty)
-      (gradient0, _) = domainsTo01 domains
+      gradient0 = domains0 domains
   in (gradient0 V.! 0, val)
 
 quickCheckTestBuild

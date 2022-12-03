@@ -15,7 +15,7 @@ module HordeAd.Core.Engine
   , generateDeltaInputs, initializerFixed, initializerFixed01
   , -- * Internal operations, exposed, e.g., for tests
     slowFwdOnADInputs, slowFwdOnDomains
-  , prettyPrintDf, domainsFrom01, domainsFrom012X, domainsTo01
+  , prettyPrintDf, domainsFrom01, domainsFrom012X
   ) where
 
 import Prelude
@@ -260,6 +260,3 @@ domainsFrom01 params0 params1 = Domains params0 params1 V.empty V.empty
 
 domainsFrom012X :: Domain0 r -> Domain1 r -> Domain2 r -> DomainX r -> Domains r
 domainsFrom012X = Domains
-
-domainsTo01 :: Domains r -> (Domain0 r, Domain1 r)
-domainsTo01 Domains{..} = (domains0, domains1)

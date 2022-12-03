@@ -5,6 +5,7 @@ module TestMnistFCNN
 
 import Prelude
 
+import           Control.Arrow ((&&&))
 import           Control.DeepSeq
 import           Control.Monad (foldM, when)
 import qualified Data.Array.DynamicS as OT
@@ -100,7 +101,7 @@ mnistTestCase2VA prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                    trainWithLoss widthHidden widthHidden2
                                  mnist (parseADInputs valsInit adinputs)
                  (resS, resV) =
-                   domainsTo01 . fst
+                   (domains0 &&& domains1) . fst
                    $ sgd gamma f chunk (domainsFrom01 params0 params1)
                  res = (resS, resV)
                  !trainScore = ftest chunk res

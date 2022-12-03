@@ -23,8 +23,7 @@ gdSimpleShow :: HasDelta r
              -> Int
              -> ([r], r)
 gdSimpleShow gamma f initVec n =
-  let (res, _) =
-        domainsTo01 $ gdSimple gamma f n (domainsFrom01 initVec V.empty)
+  let res = domains0 $ gdSimple gamma f n (domainsFrom01 initVec V.empty)
       (_, v) = revOnDomains 1 f (domainsFrom01 res V.empty)
   in (V.toList res, v)
 
