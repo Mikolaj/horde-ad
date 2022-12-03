@@ -1,5 +1,5 @@
-{-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances, RankNTypes,
-             TypeFamilies, TypeOperators #-}
+{-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, DataKinds, FlexibleInstances,
+             RankNTypes, TypeFamilies, TypeOperators #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module TestGradient (testTrees) where
@@ -15,7 +15,7 @@ import qualified Numeric.LinearAlgebra as LA
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 import           Test.Tasty.QuickCheck
-  (Property, choose, forAll, property, testProperty)
+  (Arbitrary, Property, choose, forAll, property, testProperty)
 
 import HordeAd hiding (sumElementsVectorOfDual)
 import HordeAd.Core.DualClass (Dual)
@@ -305,7 +305,10 @@ adoptTests :: TestTree
 adoptTests = testGroup "Tests of the port of adopt code"
   [ testCase "conv2d_dInp" test_conv2d_dInp
   , testCase "conv2d_dKrn" test_conv2d_dKrn
-  , testProperty "quickcheck_conv2dNonDualNumber" quickcheck_conv2dNonDualNumber
+  , testProperty "quickcheck_conv2dNonDualNumber Double"
+      (quickcheck_conv2dNonDualNumber @Double)
+  , testProperty "quickcheck_conv2dNonDualNumber Float"
+      (quickcheck_conv2dNonDualNumber @Float)
   ]
 
 -- | Unpadded full convolution
@@ -337,34 +340,36 @@ conv2dNonDualNumber arrK arrA =
     _ -> error "wrong index length in conv2dNonDualNumber"
 
 static_conv2dNonDualNumber
-  :: forall nImgs nCinp nCout nAh nAw nKh nKw
+  :: forall r nImgs nCinp nCout nAh nAw nKh nKw
             shK shA shB.
-     ( shK ~ '[nCout, nCinp, nKh, nKw]
+     ( ADModeAndNum 'ADModeValue r
+     , shK ~ '[nCout, nCinp, nKh, nKw]
      , shA ~ '[nImgs, nCinp, nAh, nAw]
      , shB ~ '[nImgs, nCout, nAh, nAw] )
   => StaticNat nImgs -> StaticNat nCinp -> StaticNat nCout
   -> StaticNat nAh -> StaticNat nAw -> StaticNat nKh -> StaticNat nKw
-  -> OS.Array shK Double
+  -> OS.Array shK r
        -- ^ Filters of shape: num_filters x chas x kernel_height x kernel_width
-  -> OS.Array shA Double
+  -> OS.Array shA r
        -- ^ Input of shape: batch x chas x height x width
   -> Bool
 static_conv2dNonDualNumber MkSN MkSN MkSN MkSN MkSN MkSN MkSN arrK arrA =
   let -- Compare the value produced by the dual number version
       -- against the value from a normal version of the objective function.
-      v = value (uncurry conv2d) (arrK, arrA) :: OS.Array shB Double
-      v0 = conv2dNonDualNumber arrK arrA :: OS.Array shB Double
+      v = value (uncurry conv2d) (arrK, arrA) :: OS.Array shB r
+      v0 = conv2dNonDualNumber arrK arrA :: OS.Array shB r
   in abs (v - v0) <= 1e-7
 
-quickcheck_conv2dNonDualNumber :: Property
+quickcheck_conv2dNonDualNumber
+  :: forall r. (ADModeAndNum 'ADModeValue r, Arbitrary r) => Property
 quickcheck_conv2dNonDualNumber =
-  forAll (choose (0, 12)) $ \nImgs' ->
-  forAll (choose (0, 12)) $ \nCinp' ->
-  forAll (choose (0, 12)) $ \nCout' ->
-  forAll (choose (0, 12)) $ \nAh' ->
-  forAll (choose (0, 12)) $ \nAw' ->
-  forAll (choose (0, 12)) $ \nKh' ->
-  forAll (choose (0, 12)) $ \nKw' ->
+  forAll (choose (0, 10)) $ \nImgs' ->
+  forAll (choose (0, 10)) $ \nCinp' ->
+  forAll (choose (0, 10)) $ \nCout' ->
+  forAll (choose (0, 10)) $ \nAh' ->
+  forAll (choose (0, 10)) $ \nAw' ->
+  forAll (choose (0, 10)) $ \nKh' ->
+  forAll (choose (0, 10)) $ \nKw' ->
     -- The glue below is needed to bridge the dependently-typed
     -- vs normal world.
     withStaticNat nImgs' $ \nImgs ->
@@ -374,7 +379,7 @@ quickcheck_conv2dNonDualNumber =
     withStaticNat nAw' $ \nAw ->
     withStaticNat nKh' $ \nKh ->
     withStaticNat nKw' $ \nKw ->
-      property $ static_conv2dNonDualNumber nImgs nCinp nCout nAh nAw nKh nKw
+      property $ static_conv2dNonDualNumber @r nImgs nCinp nCout nAh nAw nKh nKw
 
 -- | Derivative of full convolution with respect to the input image,
 --   where the output size is the same as the input size.
