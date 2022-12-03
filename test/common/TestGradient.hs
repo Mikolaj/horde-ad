@@ -540,13 +540,13 @@ static_conv2d MkSN MkSN MkSN MkSN MkSN MkSN MkSN arrK arrA arrB =
 quickcheck_conv2d
   :: forall r. (HasDelta r, Arbitrary r) => Property
 quickcheck_conv2d =
-  forAll (choose (0, 1)) $ \nImgs' ->
-  forAll (choose (0, 1)) $ \nCinp' ->
-  forAll (choose (0, 1)) $ \nCout' ->
-  forAll (choose (0, 1)) $ \nAh' ->
-  forAll (choose (0, 2)) $ \nAw' ->
-  forAll (choose (0, 1)) $ \nKh' ->
-  forAll (choose (0, 2)) $ \nKw' ->
+  forAll (choose (1, 1)) $ \nImgs' ->
+  forAll (choose (1, 1)) $ \nCinp' ->
+  forAll (choose (1, 1)) $ \nCout' ->
+  forAll (choose (1, 1)) $ \nAh' ->
+  forAll (choose (1, 2)) $ \nAw' ->
+  forAll (choose (1, 1)) $ \nKh' ->
+  forAll (choose (1, 2)) $ \nKw' ->
     -- The glue below is needed to bridge the dependently-typed
     -- vs normal world.
     withStaticNat nImgs' $ \nImgs ->
