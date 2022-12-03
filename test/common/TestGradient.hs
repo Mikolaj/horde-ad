@@ -8,13 +8,14 @@ import Prelude
 
 import qualified Data.Array.Convert
 import qualified Data.Array.ShapedS as OS
-import           Data.Proxy
+import           Data.Proxy (Proxy (Proxy))
 import           GHC.TypeLits (KnownNat, natVal, type (+))
 import           Numeric.LinearAlgebra (Numeric)
 import qualified Numeric.LinearAlgebra as LA
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
-import           Test.Tasty.QuickCheck (Property, choose, forAll, testProperty)
+import           Test.Tasty.QuickCheck
+  (Property, choose, forAll, property, testProperty)
 
 import HordeAd hiding (sumElementsVectorOfDual)
 import HordeAd.Core.DualClass (Dual)
@@ -314,7 +315,8 @@ adoptTests = testGroup "Tests of the port of adopt code"
 -- 'HordeAd.Core.DualNumber.conv2d', used below to test that the primal value
 -- computed by the dual number version is correct.
 conv2dNonDualNumber
-  :: forall shK shA shB shK1 nImgs nCinpA nAh nAw nCoutK nCinpK nKh nKw r.
+  :: forall nImgs nCinpA nAh nAw nCoutK nCinpK nKh nKw
+            shK shA shB shK1 r.
      ( Numeric r
      , KnownNat nImgs, KnownNat nCinpA, KnownNat nAh, KnownNat nAw
      , KnownNat nCoutK, KnownNat nKh, KnownNat nKw
@@ -335,48 +337,44 @@ conv2dNonDualNumber arrK arrA =
     _ -> error "wrong index length in conv2dNonDualNumber"
 
 static_conv2dNonDualNumber
-  :: forall shK shA shB
-            nImgs nCinp nCout nAh nAw nKh nKw.
+  :: forall nImgs nCinp nCout nAh nAw nKh nKw
+            shK shA shB.
      ( shK ~ '[nCout, nCinp, nKh, nKw]
      , shA ~ '[nImgs, nCinp, nAh, nAw]
      , shB ~ '[nImgs, nCout, nAh, nAw] )
-  => Int -> Int
-  -> StaticNat nImgs -> StaticNat nCinp -> StaticNat nCout
+  => StaticNat nImgs -> StaticNat nCinp -> StaticNat nCout
   -> StaticNat nAh -> StaticNat nAw -> StaticNat nKh -> StaticNat nKw
+  -> OS.Array shK Double
+       -- ^ Filters of shape: num_filters x chas x kernel_height x kernel_width
+  -> OS.Array shA Double
+       -- ^ Input of shape: batch x chas x height x width
   -> Bool
-static_conv2dNonDualNumber seedA seedK
-                           MkSN MkSN MkSN MkSN MkSN MkSN MkSN =
-  let randomArray :: forall sh. OS.Shape sh => Int -> OS.Array sh Double
-      randomArray seedInt =
-        let len = OS.sizeP (Proxy @sh)
-        in OS.fromVector $ LA.randomVector seedInt LA.Uniform len
-          -- TODO: this is probably much faster than what a cheap QC instance
-          -- would do, but we forgo shrinking (except for the dimensions)
-      -- Input of shape: batch x chas x height x width
-      arrA = randomArray seedA :: OS.Array shA Double
-      -- Filters of shape: num_filters x chas x kernel_height x kernel_width
-      arrK = randomArray seedK :: OS.Array shK Double
-      -- Compare the value produced by the dual number version
+static_conv2dNonDualNumber MkSN MkSN MkSN MkSN MkSN MkSN MkSN arrK arrA =
+  let -- Compare the value produced by the dual number version
       -- against the value from a normal version of the objective function.
       v = value (uncurry conv2d) (arrK, arrA) :: OS.Array shB Double
       v0 = conv2dNonDualNumber arrK arrA :: OS.Array shB Double
   in abs (v - v0) <= 1e-7
 
-quickcheck_conv2dNonDualNumber :: Int -> Int -> Property
-quickcheck_conv2dNonDualNumber seedA seedK =
-  forAll (choose (0, 12)) $ \nImgs ->
-  forAll (choose (0, 12)) $ \nCinp ->
-  forAll (choose (0, 12)) $ \nCout ->
-  forAll (choose (0, 12)) $ \nAh ->
-  forAll (choose (0, 12)) $ \nAw ->
-  forAll (choose (0, 12)) $ \nKh ->
-  forAll (choose (0, 12)) $ \nKw ->
-    -- The glue below is needed to bridge the dependently-typed vs normal world.
-    -- Note the reverse order of arguments.
-    withStaticNat nKw $ withStaticNat nKh
-    $ withStaticNat nAw $ withStaticNat nAh
-    $ withStaticNat nCout $ withStaticNat nCinp $ withStaticNat nImgs
-    $ static_conv2dNonDualNumber seedA seedK
+quickcheck_conv2dNonDualNumber :: Property
+quickcheck_conv2dNonDualNumber =
+  forAll (choose (0, 12)) $ \nImgs' ->
+  forAll (choose (0, 12)) $ \nCinp' ->
+  forAll (choose (0, 12)) $ \nCout' ->
+  forAll (choose (0, 12)) $ \nAh' ->
+  forAll (choose (0, 12)) $ \nAw' ->
+  forAll (choose (0, 12)) $ \nKh' ->
+  forAll (choose (0, 12)) $ \nKw' ->
+    -- The glue below is needed to bridge the dependently-typed
+    -- vs normal world.
+    withStaticNat nImgs' $ \nImgs ->
+    withStaticNat nCinp' $ \nCinp ->
+    withStaticNat nCout' $ \nCout ->
+    withStaticNat nAh' $ \nAh ->
+    withStaticNat nAw' $ \nAw ->
+    withStaticNat nKh' $ \nKh ->
+    withStaticNat nKw' $ \nKw ->
+      property $ static_conv2dNonDualNumber nImgs nCinp nCout nAh nAw nKh nKw
 
 -- | Derivative of full convolution with respect to the input image,
 --   where the output size is the same as the input size.

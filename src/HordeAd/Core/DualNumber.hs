@@ -1112,7 +1112,8 @@ mapSClosure f d =
 -- | Unpadded full convolution,
 --   where the output size is the same as the input size.
 conv2d
-  :: forall shK shA shB shK1 nImgs nCinpA nAh nAw nCoutK nCinpK nKh nKw d r.
+  :: forall nImgs nCinpA nAh nAw nCoutK nCinpK nKh nKw
+            shK shA shB shK1 d r.
      ( ADModeAndNum d r
      , KnownNat nImgs, KnownNat nCinpA, KnownNat nAh, KnownNat nAw
      , KnownNat nCoutK, KnownNat nKh, KnownNat nKw
