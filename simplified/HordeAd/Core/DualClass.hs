@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP, ConstraintKinds, DataKinds, FlexibleInstances, GADTs,
              MultiParamTypeClasses, PolyKinds, QuantifiedConstraints,
              TypeFamilyDependencies #-}
+{-# OPTIONS_GHC -Wno-missing-methods #-}
 -- | The class defining dual components of dual numbers and
 -- the dual number type itself, hiding its constructor, but exposing
 -- a couple of smart constructors.
@@ -33,8 +34,8 @@ module HordeAd.Core.DualClass
     IsPrimal(..), IsPrimalAndHasFeatures, HasDelta
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
     Dual, HasRanks(..), HasInputs(..), dummyDual
-  , -- * Internal operations, exposed, e.g., for tests
-    unsafeGetFreshId
+  , -- * Internal operations, exposed for tests, debugging and experiments
+    unsafeGetFreshId, Ast(..), AstInt(..), CodeOut(..), RelOut(..)
   ) where
 
 import Prelude
@@ -91,7 +92,7 @@ type IsPrimalWithScalar (d :: ADMode) a r =
 
 -- | A shorthand for a useful set of constraints.
 type IsPrimalAndHasFeatures (d :: ADMode) a r =
-  ( IsPrimalWithScalar d a r
+  ( IsPrimalWithScalar d a r, IsPrimalWithScalar d (Ast d r) (Ast d r)
   , HasInputs a, RealFloat a, MonoFunctor a, Element a ~ r )
 
 -- | A mega-shorthand for a bundle of connected type constraints.
@@ -133,17 +134,21 @@ data ADMode =
 type family Dual (d :: ADMode) a = result | result -> d a where
   Dual 'ADModeGradient Double = Delta0 Double
   Dual 'ADModeGradient Float = Delta0 Float
+  Dual 'ADModeGradient (Ast 'ADModeGradient a) =
+    DummyDual 'ADModeGradient a
   Dual 'ADModeGradient (Vector r) = Delta1 r
 -- not injective:  Dual 'ADModeDerivative r = r
   Dual 'ADModeDerivative Double = Double
   Dual 'ADModeDerivative Float = Float
+  Dual 'ADModeDerivative (Ast 'ADModeDerivative a) =
+    DummyDual 'ADModeDerivative a
   Dual 'ADModeDerivative (Vector r) = Vector r
-  Dual 'ADModeValue a = DummyDual a
+  Dual 'ADModeValue a = DummyDual 'ADModeValue a
 
 -- A bit more verbose, but a bit faster than @data@, perhaps by chance.
-newtype DummyDual a = DummyDual ()
+newtype DummyDual (d :: ADMode) a = DummyDual ()
 
-dummyDual :: DummyDual a
+dummyDual :: DummyDual d a
 dummyDual = DummyDual ()
 
 -- | The underlying scalar of a given primal component of a dual number.
@@ -151,6 +156,7 @@ dummyDual = DummyDual ()
 type family ScalarOf a where
   ScalarOf Double = Double
   ScalarOf Float = Float
+  ScalarOf (Ast d a) = (Ast d a)
   ScalarOf (Vector r) = r
 
 -- | Second argument is the primal component of a dual number at some rank
@@ -242,6 +248,12 @@ instance IsPrimal 'ADModeGradient Float where
     Let0{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta0 d
 
+instance IsPrimal 'ADModeGradient (Ast 'ADModeGradient a) where
+  dZero = DummyDual ()
+  dScale _ _ = DummyDual ()
+  dAdd _ _ = DummyDual ()
+  recordSharing _ = DummyDual ()
+
 -- | This is an impure instance. See above.
 instance IsPrimal 'ADModeGradient (Vector r) where
   dZero = Zero1
@@ -294,6 +306,12 @@ instance IsPrimal 'ADModeDerivative Float where
   dAdd d e = d + e
   recordSharing = id
 
+instance IsPrimal 'ADModeDerivative (Ast 'ADModeDerivative a) where
+  dZero = DummyDual ()
+  dScale _ _ = DummyDual ()
+  dAdd _ _ = DummyDual ()
+  recordSharing _ = DummyDual ()
+
 instance Num (Vector r)
          => IsPrimal 'ADModeDerivative (Vector r) where
   dZero = 0
@@ -330,6 +348,12 @@ instance IsPrimal 'ADModeValue Float where
   dAdd _ _ = DummyDual ()
   recordSharing = id
 
+instance IsPrimal 'ADModeValue (Ast 'ADModeValue a) where
+  dZero = DummyDual ()
+  dScale _ _ = DummyDual ()
+  dAdd _ _ = DummyDual ()
+  recordSharing _ = DummyDual ()
+
 instance IsPrimal 'ADModeValue (Vector r) where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
@@ -348,6 +372,8 @@ instance HasRanks 'ADModeValue r where
   dReverse1 _ = DummyDual ()
   dBuild1 _ _ = DummyDual ()
 
+
+-- * Counter handling
 
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}
@@ -389,3 +415,75 @@ wrapDelta1 :: Delta1 r -> Delta1 r
 wrapDelta1 !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! Let1 (NodeId n) d
+
+
+-- * Definitions for the fake scalar Ast
+
+-- TODO: GADT this so that the variables can't be mixed up and/or split
+-- into mutually recursive types
+-- | @Ast@ is a fake scalar imitating a real scalar @r@. It builds up
+-- an AST instead of reducing @r@ arithmetic operations to their results.
+data Ast (d :: ADMode) a =
+    AstOp CodeOut [Ast d a]
+  | AstRel RelOut [Ast d a]
+  | AstIndex (Ast d (Vector a)) AstInt
+  | AstCond AstBool (Ast d a) (Ast d a)
+  | AstConst (ADVal d a)
+  | AstVar String  -- instantiated to @r@
+
+data AstInt =
+    AstIntOp CodeOut [AstInt]
+  | AstIntConst Int
+  | AstIntVar String  -- instantiated to @Int@
+
+data AstBool  -- TODO
+
+-- deriving instance (Show a, Numeric a) => Show (Ast a)
+
+-- @Out@ is a leftover from the outlining mechanism deleted in
+-- https://github.com/Mikolaj/horde-ad/commit/c59947e13082c319764ec35e54b8adf8bc01691f
+data CodeOut =
+    PlusOut | MinusOut | TimesOut | NegateOut | AbsOut | SignumOut
+  | DivideOut | RecipOut
+  | ExpOut | LogOut | SqrtOut | PowerOut | LogBaseOut
+  | SinOut | CosOut | TanOut | AsinOut | AcosOut | AtanOut
+  | SinhOut | CoshOut | TanhOut | AsinhOut | AcoshOut | AtanhOut
+  | Atan2Out
+  | MaxOut | MinOut
+  deriving Show
+
+data RelOut =
+    EqOut | Neq
+  | LeqOut| GeqOut | LOut | GOut
+
+-- See the comment about @Eq@ and @Ord@ in "DualNumber".
+instance Eq (Ast d a) where
+
+instance Ord (Ast d a) where
+
+instance (Num a, IsPrimal d a) => Num (Ast d a) where
+  u + v = AstOp PlusOut [u, v]
+  u - v = AstOp MinusOut [u, v]
+  u * v = AstOp TimesOut [u, v]
+  negate u = AstOp NegateOut [u]
+  abs v = AstOp AbsOut [v]
+  signum v = AstOp SignumOut [v]
+  fromInteger k = AstConst (D (fromInteger k) dZero)
+
+instance (Real a, IsPrimal d a) => Real (Ast d a) where
+  toRational = undefined  -- TODO?
+
+-- The rest TODO.
+instance (Fractional a, IsPrimal d a) => Fractional (Ast d a) where
+instance (Floating a, IsPrimal d a) => Floating (Ast d a) where
+instance (RealFrac a, IsPrimal d a) => RealFrac (Ast d a) where
+instance (RealFloat a, IsPrimal d a) => RealFloat (Ast d a) where
+
+instance Num AstInt where
+  u + v = AstIntOp PlusOut [u, v]
+  u - v = AstIntOp MinusOut [u, v]
+  u * v = AstIntOp TimesOut [u, v]
+  negate u = AstIntOp NegateOut [u]
+  abs v = AstIntOp AbsOut [v]
+  signum v = AstIntOp SignumOut [v]
+  fromInteger = AstIntConst . fromInteger

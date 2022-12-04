@@ -14,6 +14,7 @@ module HordeAd.Core.DualNumber
   , ADMode(..), ADModeAndNum
   , IsPrimal (..), IsPrimalAndHasFeatures, HasDelta
   , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
+  , Ast(..), AstInt(..), CodeOut(..), RelOut(..)
   ) where
 
 import Prelude
@@ -177,6 +178,12 @@ reluLeaky v@(D u _) =
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) u
   in scale oneIfGtZero v
 
+varAst :: String -> ADVal d (Ast d a)
+varAst s = dDnotShared (AstVar s) undefined
+
+liftToAst :: ADVal d a -> ADVal d (Ast d a)
+liftToAst d = dDnotShared (AstConst d) undefined
+
 
 -- * Operations resulting in a scalar
 
@@ -185,6 +192,12 @@ sumElements0 (D u u') = dD (LA.sumElements u) (dSumElements0 u' (V.length u))
 
 index10 :: ADModeAndNum d r => ADVal d (Vector r) -> Int -> ADVal d r
 index10 (D u u') ix = dD (u V.! ix) (dIndex10 u' ix (V.length u))
+
+indexAst10 :: ADVal d (Ast d (Vector r)) -> AstInt -> ADVal d (Ast d r)
+indexAst10 (D u _) ix = dDnotShared (AstIndex u ix)
+                                    undefined  -- dummy anyway
+  -- TODO: despite dDnotShared, consider sharing Ast expressions,
+  -- but within the primal part, not dual or both
 
 minimum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
 minimum0 (D u u') =
@@ -316,6 +329,31 @@ build1Closure n f =
 
 build1 = build1Closure
 
+buildAst1
+  :: ADModeAndNum d r
+  => Int -> (String, ADVal d (Ast d r)) -> ADVal d (Vector r)
+buildAst1 n (var, D u _) = case u of
+-- TODO:
+-- AstOp PlusOut [e1, e2] -> ... if works like bulk, replace by bulk
+-- TODO:
+-- AstCond b x1 x2 -> ...
+--   handle conditionals that depend on var, so that we produce conditional
+--   delta expressions of size proportional to the exponent of conditional
+--   nesting, instead of proportional to the number of elements of the tensor
+  AstIndex v (AstIntVar var2) | var2 == var -> slice1 0 n $ interpret v
+  AstConst d -> konst1 d n
+  _ ->  -- fallback to POPL (memory blowup, but avoids functions on tape)
+    build1Elementwise n (interpretLambdaInt var u)
+
+interpret :: Ast d a -> ADVal d a
+interpret = undefined  -- TODO, easy but tedious; some code exists
+
+interpretLambda :: String -> Ast d r -> ADVal d r -> ADVal d r
+interpretLambda = undefined  -- TODO
+
+interpretLambdaInt :: String -> Ast d r -> Int -> ADVal d r
+interpretLambdaInt = undefined  -- TODO
+
 map1POPL :: (ADVal d r -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
          -> Data.Vector.Vector (ADVal d r)
 map1POPL f vd = V.map f vd
@@ -324,8 +362,7 @@ map1POPL f vd = V.map f vd
 -- if written using @build1Elementwise@.
 map1Elementwise, map1Closure
   :: ADModeAndNum d r
-  => (ADVal d r -> ADVal d r) -> ADVal d (Vector r)
-  -> ADVal d (Vector r)
+  => (ADVal d r -> ADVal d r) -> ADVal d (Vector r) -> ADVal d (Vector r)
 map1Elementwise f _d@(D v v') =
   let k = V.length v
       g ix p = f $ dD p (dIndex10 v' ix k)
@@ -338,6 +375,18 @@ map1Elementwise f _d@(D v v') =
 
 map1Closure f d@(D v _) = build1Closure (V.length v) $ \i -> f (index10 d i)
 
+mapAst1
+  :: ADModeAndNum d r
+  => (String, ADVal d (Ast d r)) -> ADVal d (Vector r) -> ADVal d (Vector r)
+mapAst1 (var, D u _) e@(D v _v') = case u of
+-- TODO:
+-- AstOp PlusOut [e1, e2] -> ... if works like bulk, replace by bulk
+-- AstCond b x1 x2 -> ...
+  AstVar var2 | var2 == var -> e  -- identity mapping
+  AstVar _var2 -> undefined  -- TODO: a problem, nested map or build
+  AstConst d -> konst1 d (V.length v)
+  _ ->  -- fallback to POPL (memory blowup, but avoids functions on tape)
+    map1Elementwise (interpretLambda var u) e
 
 -- No padding; remaining areas ignored.
 maxPool1 :: ADModeAndNum d r
