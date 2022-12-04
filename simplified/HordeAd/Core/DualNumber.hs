@@ -14,12 +14,15 @@ module HordeAd.Core.DualNumber
   , ADMode(..), ADModeAndNum
   , IsPrimal (..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
   , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
+  , Ast(..), AstVar(..), AstInt(..), AstBool(..)
+  , CodeOut(..), CodeIntOut(..), CodeBoolOut(..), RelOut(..)
   ) where
 
 import Prelude
 
 import           Data.List.Index (imap)
-import           Data.MonoTraversable (MonoFunctor (omap))
+import qualified Data.Map.Strict as M
+import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -176,14 +179,41 @@ reluLeaky v@(D u _) =
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) u
   in scale oneIfGtZero v
 
+varAst0 :: ADModeAndNum d r => String -> ADVal d (Ast r d r)
+varAst0 s = dD (AstVar0 s) undefined
+
+liftToAst :: IsPrimal d (Ast r d a) => ADVal d a -> ADVal d (Ast r d a)
+liftToAst d = dD (AstD d) undefined
+
 
 -- * Operations resulting in a scalar
 
-sumElements10 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
-sumElements10 (D u u') = dD (LA.sumElements u) (dSumElements10 u' (V.length u))
+class VectorLike vector where
+  llength :: vector -> NumOf vector
+  lsumElements10 :: vector -> Element vector
+  lindex10 :: vector -> NumOf vector -> Element vector
 
-index10 :: ADModeAndNum d r => ADVal d (Vector r) -> Int -> ADVal d r
-index10 (D u u') ix = dD (u V.! ix) (dIndex10 u' ix (V.length u))
+instance Numeric r => VectorLike (Vector r) where
+  llength = V.length
+  lsumElements10 = LA.sumElements
+  lindex10 = (V.!)
+
+instance VectorLike (Ast r d (Vector r)) where
+  llength = AstLength
+  lsumElements10 = AstSumElements10
+  lindex10 = AstIndex10
+
+sumElements10
+  :: ( IsPrimalAndHasFeatures d a a, HasRanks v d a
+     , VectorLike v, Element v ~ a )
+  => ADVal d v -> ADVal d a
+sumElements10 (D u u') = dD (lsumElements10 u) (dSumElements10 u' (llength u))
+
+index10
+  :: ( IsPrimalAndHasFeatures d a a, HasRanks v d a
+     , VectorLike v, Element v ~ a )
+  => ADVal d v -> NumOf v -> ADVal d a
+index10 (D u u') ix = dD (lindex10 u ix) (dIndex10 u' ix (llength u))
 
 minimum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
 minimum0 (D u u') =
@@ -315,6 +345,170 @@ build1Closure n f =
 
 build1 = build1Closure
 
+-- TODO: generalize to this to vector, thus nesting buildAst1
+buildAst1
+  :: ADModeAndNum d r
+  => Int -> (String, ADVal d (Ast r d r)) -> ADVal d (Vector r)
+buildAst1 n (var, D u _) = case u of
+-- TODO:
+-- AstOp PlusOut [e1, e2] -> ...
+--   if works like bulk, replace by bulk and then fuse back somehow
+-- TODO:
+-- AstCond b x1 x2 -> ...
+--   handle conditionals that depend on var, so that we produce conditional
+--   delta expressions of size proportional to the exponent of conditional
+--   nesting, instead of proportional to the number of elements of the tensor
+  AstIndex10 v (AstIntVar var2) | var2 == var ->
+    slice1 0 n $ interpretAst M.empty v
+    -- if a more complex index expression, construct 'gather' somehow
+  AstConst r -> constant (LA.konst r n)
+  AstD d -> konst1 d n
+  _ ->  -- fallback to POPL (memory blowup, but avoids functions on tape)
+    build1Elementwise n (interpretLambdaI M.empty (var, u))
+
+interpretLambdaD0 :: (ADModeAndNum d r, IsPrimalAndHasFeatures d a r)
+                  => M.Map String (AstVar r d) -> (String, Ast r d a)
+                  -> ADVal d r -> ADVal d a
+interpretLambdaD0 env (var, ast) =
+  \d -> interpretAst (M.insert var (AstVarD0 d) env) ast
+
+interpretLambdaD1 :: (ADModeAndNum d r, IsPrimalAndHasFeatures d a r)
+                  => M.Map String (AstVar r d) -> (String, Ast r d a)
+                  -> ADVal d (Vector r) -> ADVal d a
+interpretLambdaD1 env (var, ast) =
+  \d -> interpretAst (M.insert var (AstVarD1 d) env) ast
+
+interpretLambdaI :: (ADModeAndNum d r, IsPrimalAndHasFeatures d a r)
+                 => M.Map String (AstVar r d) -> (String, Ast r d a)
+                 -> Int -> ADVal d a
+interpretLambdaI env (var, ast) =
+  \i -> interpretAst (M.insert var (AstVarI i) env) ast
+
+interpretAst :: (ADModeAndNum d r, IsPrimalAndHasFeatures d a r)
+             => M.Map String (AstVar r d) -> Ast r d a -> ADVal d a
+interpretAst env = \case
+  AstOp codeOut args ->
+    interpretAstOp (interpretAst env) codeOut args
+  AstCond b a1 a2 -> if interpretAstBool env b
+                     then interpretAst env a1
+                     else interpretAst env a2
+  AstConst a -> constant a
+  AstD d -> d
+  AstVar0 var -> case M.lookup var env of
+    Just (AstVarD0 d) -> d
+    Just AstVarD1{} -> error $ "interpretAst: type mismatch for " ++ var
+    Just AstVarI{} -> error $ "interpretAst: type mismatch for " ++ var
+    Nothing -> error $ "interpretAst: unknown variable " ++ var
+  AstVar1 var -> case M.lookup var env of
+    Just AstVarD0{} -> error $ "interpretAst: type mismatch for " ++ var
+    Just (AstVarD1 d) -> d
+    Just AstVarI{} -> error $ "interpretAst: type mismatch for " ++ var
+    Nothing -> error $ "interpretAst: unknown variable " ++ var
+  AstSumElements10 v -> sumElements10 $ interpretAst env v
+  AstIndex10 v i -> index10 (interpretAst env v) (interpretAstInt env i)
+  _ -> error $ "TODO"
+
+interpretAstInt :: ADModeAndNum d r
+                => M.Map String (AstVar r d) -> AstInt r d -> Int
+interpretAstInt env = \case
+  AstIntOp codeIntOut args ->
+    interpretAstIntOp (interpretAstInt env) codeIntOut args
+  AstIntCond b a1 a2 -> if interpretAstBool env b
+                        then interpretAstInt env a1
+                        else interpretAstInt env a2
+  AstIntConst a -> a
+  AstIntVar var -> case M.lookup var env of
+    Just AstVarD0{} -> error $ "interpretAstP: type mismatch for " ++ var
+    Just AstVarD1{} -> error $ "interpretAstP: type mismatch for " ++ var
+    Just (AstVarI i) -> i
+    Nothing -> error $ "interpretAstP: unknown variable " ++ var
+  AstLength v -> V.length $ let D u _u' = interpretAst env v in u
+
+interpretAstBool :: ADModeAndNum d r
+                 => M.Map String (AstVar r d) -> AstBool r d -> Bool
+interpretAstBool env = \case
+  AstBoolOp codeBoolOut args ->
+    interpretAstBoolOp (interpretAstBool env) codeBoolOut args
+  AstBoolConst a -> a
+  AstRel relOut args ->
+    let f x = let D u _u' = interpretAst env x in u
+    in interpretAstRel f relOut args
+  AstRelInt relOut args ->
+    let f = interpretAstInt env
+    in interpretAstRel f relOut args
+
+interpretAstOp :: RealFloat b
+               => (Ast r d a -> b) -> CodeOut -> [Ast r d a] -> b
+{-# INLINE interpretAstOp #-}
+interpretAstOp f PlusOut [u, v] = f u + f v
+interpretAstOp f MinusOut [u, v] = f u - f v
+interpretAstOp f TimesOut [u, v] = f u * f v
+interpretAstOp f NegateOut [u] = negate $ f u
+interpretAstOp f AbsOut [u] = abs $ f u
+interpretAstOp f SignumOut [u] = signum $ f u
+interpretAstOp f DivideOut [u, v] = f u / f v
+interpretAstOp f RecipOut [u] = recip $ f u
+interpretAstOp f ExpOut [u] = exp $ f u
+interpretAstOp f LogOut [u] = log $ f u
+interpretAstOp f SqrtOut [u] = sqrt $ f u
+interpretAstOp f PowerOut [u, v] = f u ** f v
+interpretAstOp f LogBaseOut [u, v] = logBase (f u) (f v)
+interpretAstOp f SinOut [u] = sin $ f u
+interpretAstOp f CosOut [u] = cos $ f u
+interpretAstOp f TanOut [u] = tan $ f u
+interpretAstOp f AsinOut [u] = asin $ f u
+interpretAstOp f AcosOut [u] = acos $ f u
+interpretAstOp f AtanOut [u] = atan $ f u
+interpretAstOp f SinhOut [u] = sinh $ f u
+interpretAstOp f CoshOut [u] = cosh $ f u
+interpretAstOp f TanhOut [u] = tanh $ f u
+interpretAstOp f AsinhOut [u] = asinh $ f u
+interpretAstOp f AcoshOut [u] = acosh $ f u
+interpretAstOp f AtanhOut [u] = atanh $ f u
+interpretAstOp f Atan2Out [u, v] = atan2 (f u) (f v)
+interpretAstOp f MaxOut [u, v] = max (f u) (f v)
+interpretAstOp f MinOut [u, v] = min (f u) (f v)
+interpretAstOp _ codeOut args =
+  error $ "interpretAstOp: wrong number of arguments"
+          ++ show (codeOut, length args)
+
+interpretAstIntOp :: (AstInt r d -> Int) -> CodeIntOut -> [AstInt r d] -> Int
+{-# INLINE interpretAstIntOp #-}
+interpretAstIntOp f PlusIntOut [u, v] = f u + f v
+interpretAstIntOp f MinusIntOut [u, v] = f u - f v
+interpretAstIntOp f TimesIntOut [u, v] = f u * f v
+interpretAstIntOp f NegateIntOut [u] = negate $ f u
+interpretAstIntOp f AbsIntOut [u] = abs $ f u
+interpretAstIntOp f SignumIntOut [u] = signum $ f u
+interpretAstIntOp f MaxIntOut [u, v] = max (f u) (f v)
+interpretAstIntOp f MinIntOut [u, v] = min (f u) (f v)
+interpretAstIntOp _ codeIntOut args =
+  error $ "interpretAstIntOp: wrong number of arguments"
+          ++ show (codeIntOut, length args)
+
+interpretAstBoolOp :: (AstBool r d -> Bool) -> CodeBoolOut -> [AstBool r d]
+                   -> Bool
+{-# INLINE interpretAstBoolOp #-}
+interpretAstBoolOp f NotOut [u] = not $ f u
+interpretAstBoolOp f AndOut [u, v] = f u && f v
+interpretAstBoolOp f OrOut [u, v] = f u || f v
+interpretAstBoolOp f IffOut [u, v] = f u == f v
+interpretAstBoolOp _ codeBoolOut args =
+  error $ "interpretAstBoolOp: wrong number of arguments"
+          ++ show (codeBoolOut, length args)
+
+interpretAstRel :: Ord b => (a -> b) -> RelOut -> [a] -> Bool
+{-# INLINE interpretAstRel #-}
+interpretAstRel f EqOut [u, v] = f u == f v
+interpretAstRel f NeqOut [u, v] = f u /= f v
+interpretAstRel f LeqOut [u, v] = f u <= f v
+interpretAstRel f GeqOut [u, v] = f u >= f v
+interpretAstRel f LOut [u, v] = f u < f v
+interpretAstRel f GOut [u, v] = f u > f v
+interpretAstRel _ codeRelOut args =
+  error $ "interpretAstRel: wrong number of arguments"
+          ++ show (codeRelOut, length args)
+
 map1POPL :: (ADVal d r -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
          -> Data.Vector.Vector (ADVal d r)
 map1POPL f vd = V.map f vd
@@ -323,8 +517,7 @@ map1POPL f vd = V.map f vd
 -- if written using @build1Elementwise@.
 map1Elementwise, map1Closure
   :: ADModeAndNum d r
-  => (ADVal d r -> ADVal d r) -> ADVal d (Vector r)
-  -> ADVal d (Vector r)
+  => (ADVal d r -> ADVal d r) -> ADVal d (Vector r) -> ADVal d (Vector r)
 map1Elementwise f _d@(D v v') =
   let k = V.length v
       g ix p = f $ dD p (dIndex10 v' ix k)
@@ -337,6 +530,19 @@ map1Elementwise f _d@(D v v') =
 
 map1Closure f d@(D v _) = build1Closure (V.length v) $ \i -> f (index10 d i)
 
+mapAst1
+  :: ADModeAndNum d r
+  => (String, ADVal d (Ast r d r)) -> ADVal d (Vector r) -> ADVal d (Vector r)
+mapAst1 (var, D u _) e@(D v _v') = case u of
+-- TODO:
+-- AstOp PlusOut [e1, e2] -> ...
+-- AstCond b x1 x2 -> ...
+  AstVar0 var2 | var2 == var -> e  -- identity mapping
+  AstVar0 _var2 -> undefined  -- TODO: a problem, nested map or build
+  AstConst r -> constant (LA.konst r (V.length v))
+  AstD d -> konst1 d (V.length v)
+  _ ->  -- fallback to POPL (memory blowup, but avoids functions on tape)
+    map1Elementwise (interpretLambdaD0 M.empty (var, u)) e
 
 -- No padding; remaining areas ignored.
 maxPool1 :: ADModeAndNum d r

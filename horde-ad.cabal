@@ -517,6 +517,7 @@ library horde-ad-simplified
 
     build-depends:
         base >= 4.14 && < 99
+      , containers
       , deepseq
       , enummapset
       , hmatrix
@@ -654,10 +655,11 @@ test-suite simplifiedOnlyTest
     other-modules:    TestSimplified
 
     build-depends:
---      , horde-ad-simplified
+      , horde-ad-simplified
       , testCommonLibrarySimplified
 
       , base
+      , hmatrix
       , tasty >= 1.0
---      , tasty-hunit
---      , vector
+      , tasty-hunit
+      , vector

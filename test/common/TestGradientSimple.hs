@@ -7,6 +7,8 @@ import Prelude
 import           Control.Arrow (first)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
+import           Numeric.LinearAlgebra (Vector)
+import qualified Numeric.LinearAlgebra as LA
 import           System.IO (hPutStrLn, stderr)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -21,6 +23,7 @@ import Tool.Shared
 testTrees :: [TestTree]
 testTrees = [ testDReverse0
             , testDReverse1
+            , testCase "map1Elementwise" testMap1Elementwise
             , testPrintDf
             , testDForward
             , testDFastForward
@@ -209,6 +212,21 @@ testDReverse1 = testGroup "Simple revOnDomains application to vectors tests" $
     , ( "powKonst", powKonst, [[1, 3]]
       , ([[108.7523,131.60072]],95.58371) )
     ]
+
+fooMap1 :: ADModeAndNum d r
+        => ADVal d r -> ADVal d (Vector r)
+fooMap1 r =
+  let v = konst1 r 130
+  in map1Elementwise (\x -> x * r + 5) v
+
+testMap1Elementwise :: Assertion
+testMap1Elementwise =
+  (domains0 $ fst
+   $ revOnDomains
+       (LA.konst 1 130)  -- 1 wrong due to fragility of hmatrix optimization
+       (\adinputs -> fooMap1 (adinputs `at0` 0))
+       (domainsFrom01 (V.singleton (1.1 :: Double)) V.empty))
+  @?~ V.fromList [285.9999999999997]
 
 testPrintDf :: TestTree
 testPrintDf = testGroup "Pretty printing test" $
