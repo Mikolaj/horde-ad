@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP, DataKinds, DeriveAnyClass, DeriveGeneric, DerivingStrategies,
              GADTs, GeneralizedNewtypeDeriving, KindSignatures, RankNTypes,
              StandaloneDeriving, UnboxedTuples #-}
+{-# OPTIONS_GHC -Wno-missing-methods #-}
 -- | The second component of our rendition of dual numbers:
 -- delta expressions, with their semantics.
 -- Neel Krishnaswami calls them \"sparse vector expressions\",
@@ -37,6 +38,7 @@ module HordeAd.Internal.Delta
   , -- * Evaluation of the delta expressions
     DeltaDt (..), Domain0, Domain1, Domains(..), nullDomains
   , gradientFromDelta, derivativeFromDelta
+  , Ast(..), CodeOut(..)
   ) where
 
 import Prelude
@@ -142,6 +144,17 @@ data Delta1 r =
   | Reverse1 (Delta1 r)
   | Build1 Int (Int -> Delta0 r)
       -- ^ the first argument is length; needed only for forward derivative
+
+  -- TODO: this may not be needed if we bulkify before differentiating
+  -- and fallback to POPL or Build1 above; however, delta-conditionals
+  -- may need to be added to avoid, whenever possible, evaluating them
+  -- separately in each tensor element
+  | MapAst1 String (Delta0 (Ast r))
+      -- ^ the string is the name of the @AstVar@ variable ranging over @r@
+      -- through which the mapping occurs
+  | BuildAst1 Int String (Delta0 (Ast r))
+      -- ^ the string is the name of the @AstIndex@ variable ranging over @Int@
+      -- through which the building occurs
 
 deriving instance (Show r, Numeric r) => Show (Delta1 r)
 
@@ -585,3 +598,53 @@ an ingenious optimization of the common case of Index10 applied to a input):
 
 https://github.com/Mikolaj/horde-ad/blob/d069a45773ed849913b5ebd0345153072f304fd9/bench/BenchProdTools.hs#L178-L193
 -}
+
+
+-- * Definitions for the fake scalar Ast
+
+-- TODO: not sure if we need @r@ and if @r@ could be Vector
+-- TODO: GADT this so that the variables can't be mixed up
+-- | @Ast@ is a fake scalar imitating a real scalar @r@. It builds up
+-- an AST instead of reducing @r@ arithmetic operations to their results.
+data Ast r =
+    AstOp CodeOut [Ast r]
+  | AstConst r
+  | AstVar String  -- instantiated to @r@
+  | AstIndex String  -- instantiated to @Int@
+  deriving Show
+
+-- @Out@ is a leftover from the outlining mechanism deleted in
+-- https://github.com/Mikolaj/horde-ad/commit/c59947e13082c319764ec35e54b8adf8bc01691f
+data CodeOut =
+    PlusOut | MinusOut | TimesOut | NegateOut | AbsOut | SignumOut
+  | DivideOut | RecipOut
+  | ExpOut | LogOut | SqrtOut | PowerOut | LogBaseOut
+  | SinOut | CosOut | TanOut | AsinOut | AcosOut | AtanOut
+  | SinhOut | CoshOut | TanhOut | AsinhOut | AcoshOut | AtanhOut
+  | Atan2Out
+  | IndexOut
+  | CondOut
+  deriving Show
+
+-- See the comment about @Eq@ and @Ord@ in "DualNumber".
+instance Eq (Ast r) where
+
+instance Ord (Ast r) where
+
+instance Num r => Num (Ast r) where
+  u + v = AstOp PlusOut [u, v]
+  u - v = AstOp MinusOut [u, v]
+  u * v = AstOp TimesOut [u, v]
+  negate u = AstOp NegateOut [u]
+  abs v = AstOp AbsOut [v]
+  signum v = AstOp SignumOut [v]
+  fromInteger = AstConst . fromInteger
+
+instance Real r => Real (Ast r) where
+  toRational = undefined  -- TODO?
+
+-- The rest TODO.
+instance Fractional r => Fractional (Ast r) where
+instance Floating r => Floating (Ast r) where
+instance RealFrac r => RealFrac (Ast r) where
+instance RealFloat r => RealFloat (Ast r) where

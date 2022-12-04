@@ -33,8 +33,8 @@ module HordeAd.Core.DualClass
     IsPrimal(..), IsPrimalAndHasFeatures, HasDelta
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
     Dual, HasRanks(..), HasInputs(..), dummyDual
-  , -- * Internal operations, exposed, e.g., for tests
-    unsafeGetFreshId
+  , -- * Internal operations, exposed for tests, debugging and experiments
+    unsafeGetFreshId, Ast(..), CodeOut(..)
   ) where
 
 import Prelude
@@ -133,6 +133,7 @@ data ADMode =
 type family Dual (d :: ADMode) a = result | result -> d a where
   Dual 'ADModeGradient Double = Delta0 Double
   Dual 'ADModeGradient Float = Delta0 Float
+  Dual 'ADModeGradient (Ast r) = Delta0 (Ast r)
   Dual 'ADModeGradient (Vector r) = Delta1 r
 -- not injective:  Dual 'ADModeDerivative r = r
   Dual 'ADModeDerivative Double = Double
@@ -151,6 +152,7 @@ dummyDual = DummyDual ()
 type family ScalarOf a where
   ScalarOf Double = Double
   ScalarOf Float = Float
+  ScalarOf (Ast r) = Ast r  -- TODO: or @r@?
   ScalarOf (Vector r) = r
 
 -- | Second argument is the primal component of a dual number at some rank
@@ -242,6 +244,15 @@ instance IsPrimal 'ADModeGradient Float where
     Let0{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta0 d
 
+instance IsPrimal 'ADModeGradient (Ast r) where
+  -- Identical as above:
+  dZero = Zero0
+  dScale = Scale0
+  dAdd = Add0
+  recordSharing = id  -- TODO; consider also sharing Ast expressions
+                      -- between the primal and dual part, not only delta
+                      -- expressions withtin the dual part
+
 -- | This is an impure instance. See above.
 instance IsPrimal 'ADModeGradient (Vector r) where
   dZero = Zero1
@@ -259,6 +270,10 @@ instance HasInputs Double where
 
 instance HasInputs Float where
   dInput = Input0
+  packDeltaDt = DeltaDt0
+
+instance HasInputs (Ast r) where
+  dInput = Input0  -- TODO: good enough?
   packDeltaDt = DeltaDt0
 
 instance HasInputs (Vector r) where

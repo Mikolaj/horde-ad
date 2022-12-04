@@ -186,6 +186,13 @@ sumElements0 (D u u') = dD (LA.sumElements u) (dSumElements0 u' (V.length u))
 index10 :: ADModeAndNum d r => ADVal d (Vector r) -> Int -> ADVal d r
 index10 (D u u') ix = dD (u V.! ix) (dIndex10 u' ix (V.length u))
 
+-- TODO: or should the domain be ADVal d (Ast (Ast r))?
+-- TODO: should the dual part be dummy? do we really want to store it on tape?
+-- are we ever going to analyze it?
+indexAst10 :: ADVal d (Ast r) -> Ast r -> ADVal d (Ast r)
+indexAst10 (D u _u') ix = dDnotShared (AstOp IndexOut [u, ix])
+                                      undefined  -- TODO
+
 minimum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
 minimum0 (D u u') =
   dD (LA.minElement u) (dIndex10 u' (LA.minIndex u) (V.length u))
@@ -316,6 +323,9 @@ build1Closure n f =
 
 build1 = build1Closure
 
+buildAst1 :: String -> ADVal d (Ast r) -> ADVal d (Vector r)
+buildAst1 _var (D _u _u') = undefined  -- TODO
+
 map1POPL :: (ADVal d r -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
          -> Data.Vector.Vector (ADVal d r)
 map1POPL f vd = V.map f vd
@@ -338,6 +348,25 @@ map1Elementwise f _d@(D v v') =
 
 map1Closure f d@(D v _) = build1Closure (V.length v) $ \i -> f (index10 d i)
 
+mapAst1
+  :: ADModeAndNum d r
+  => String -> ADVal d (Ast r) -> ADVal d (Vector r) -> ADVal d (Vector r)
+mapAst1 var (D u _u') e@(D v _) = case u of
+-- TODO:
+-- AstOp PlusOut [e1, e2] -> ... if works like bulk, replace by bulk
+-- TODO:
+-- CondOut ... -> ...
+--   handle conditionals that depend on var, so that we produce conditional
+--   delta expressions of size proportional to the exponent of conditional
+--   nesting, instead of proportional to the number of elements of the tensor
+  AstVar var2 | var2 == var -> e  -- identity mapping
+  AstVar _var2 -> undefined  -- TODO: a problem, nested map or build
+  AstConst r -> dD (LA.konst r (V.length v)) dZero
+  _ ->  -- fallback to POPL (memory blowup, but avoids functions on tape)
+    map1Elementwise (interpretLambda var u) e
+
+interpretLambda :: String -> Ast r -> ADVal d r -> ADVal d r
+interpretLambda = undefined  -- TODO, easy but tedious; some code exists
 
 -- No padding; remaining areas ignored.
 maxPool1 :: ADModeAndNum d r
