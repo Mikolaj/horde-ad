@@ -14,12 +14,13 @@ module HordeAd.Core.DualNumber
   , ADMode(..), ADModeAndNum
   , IsPrimal (..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
   , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
+  , Ast(..), CodeOut(..), RelOut(..)
   ) where
 
 import Prelude
 
 import           Data.List.Index (imap)
-import           Data.MonoTraversable (MonoFunctor (omap))
+import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -176,14 +177,41 @@ reluLeaky v@(D u _) =
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) u
   in scale oneIfGtZero v
 
+varAst :: String -> ADVal d (Ast d a)
+varAst s = dDnotShared (AstVar s) undefined
+
+liftToAst :: ADVal d a -> ADVal d (Ast d a)
+liftToAst d = dDnotShared (AstD d) undefined
+
 
 -- * Operations resulting in a scalar
 
-sumElements10 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
-sumElements10 (D u u') = dD (LA.sumElements u) (dSumElements10 u' (V.length u))
+class VectorLike vector where
+  llength :: vector -> NumOf vector
+  lsumElements10 :: vector -> Element vector
+  lindex10 :: vector -> NumOf vector -> Element vector
 
-index10 :: ADModeAndNum d r => ADVal d (Vector r) -> Int -> ADVal d r
-index10 (D u u') ix = dD (u V.! ix) (dIndex10 u' ix (V.length u))
+instance Numeric r => VectorLike (Vector r) where
+  llength = V.length
+  lsumElements10 = LA.sumElements
+  lindex10 = (V.!)
+
+instance VectorLike (Ast d (Vector r)) where
+  llength = AstLength
+  lsumElements10 = AstSumElements10
+  lindex10 = AstIndex10
+
+sumElements10
+  :: ( IsPrimalAndHasFeatures d a a, HasRanks v d a
+     , VectorLike v, Element v ~ a )
+  => ADVal d v -> ADVal d a
+sumElements10 (D u u') = dD (lsumElements10 u) (dSumElements10 u' (llength u))
+
+index10
+  :: ( IsPrimalAndHasFeatures d a a, HasRanks v d a
+     , VectorLike v, Element v ~ a )
+  => ADVal d v -> NumOf v -> ADVal d a
+index10 (D u u') ix = dD (lindex10 u ix) (dIndex10 u' ix (llength u))
 
 minimum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
 minimum0 (D u u') =
@@ -315,6 +343,32 @@ build1Closure n f =
 
 build1 = build1Closure
 
+buildAst1
+  :: ADModeAndNum d r
+  => Int -> (String, ADVal d (Ast d r)) -> ADVal d (Vector r)
+buildAst1 n (var, D u _) = case u of
+-- TODO:
+-- AstOp PlusOut [e1, e2] -> ... if works like bulk, replace by bulk
+-- TODO:
+-- AstCond b x1 x2 -> ...
+--   handle conditionals that depend on var, so that we produce conditional
+--   delta expressions of size proportional to the exponent of conditional
+--   nesting, instead of proportional to the number of elements of the tensor
+  AstIndex10 v (AstVar var2) | var2 == var -> slice1 0 n $ interpret v
+  AstD d -> konst1 d n
+  AstConst r -> constant (LA.konst r n)
+  _ ->  -- fallback to POPL (memory blowup, but avoids functions on tape)
+    build1Elementwise n (interpretLambdaInt var u)
+
+interpret :: Ast d a -> ADVal d a
+interpret = undefined  -- TODO, easy but tedious; some code exists
+
+interpretLambda :: String -> Ast d r -> ADVal d r -> ADVal d r
+interpretLambda = undefined  -- TODO
+
+interpretLambdaInt :: String -> Ast d r -> Int -> ADVal d r
+interpretLambdaInt = undefined  -- TODO
+
 map1POPL :: (ADVal d r -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
          -> Data.Vector.Vector (ADVal d r)
 map1POPL f vd = V.map f vd
@@ -323,8 +377,7 @@ map1POPL f vd = V.map f vd
 -- if written using @build1Elementwise@.
 map1Elementwise, map1Closure
   :: ADModeAndNum d r
-  => (ADVal d r -> ADVal d r) -> ADVal d (Vector r)
-  -> ADVal d (Vector r)
+  => (ADVal d r -> ADVal d r) -> ADVal d (Vector r) -> ADVal d (Vector r)
 map1Elementwise f _d@(D v v') =
   let k = V.length v
       g ix p = f $ dD p (dIndex10 v' ix k)
@@ -337,6 +390,19 @@ map1Elementwise f _d@(D v v') =
 
 map1Closure f d@(D v _) = build1Closure (V.length v) $ \i -> f (index10 d i)
 
+mapAst1
+  :: ADModeAndNum d r
+  => (String, ADVal d (Ast d r)) -> ADVal d (Vector r) -> ADVal d (Vector r)
+mapAst1 (var, D u _) e@(D v _v') = case u of
+-- TODO:
+-- AstOp PlusOut [e1, e2] -> ... if works like bulk, replace by bulk
+-- AstCond b x1 x2 -> ...
+  AstVar var2 | var2 == var -> e  -- identity mapping
+  AstVar _var2 -> undefined  -- TODO: a problem, nested map or build
+  AstD d -> konst1 d (V.length v)
+  AstConst r -> constant (LA.konst r (V.length v))
+  _ ->  -- fallback to POPL (memory blowup, but avoids functions on tape)
+    map1Elementwise (interpretLambda var u) e
 
 -- No padding; remaining areas ignored.
 maxPool1 :: ADModeAndNum d r
