@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP, ConstraintKinds, DataKinds, FlexibleInstances, GADTs,
              MultiParamTypeClasses, PolyKinds, QuantifiedConstraints,
              TypeFamilyDependencies #-}
+{-# OPTIONS_GHC -Wno-missing-methods #-}
 -- | The class defining dual components of dual numbers and
 -- the dual number type itself, hiding its constructor, but exposing
 -- a couple of smart constructors.
@@ -30,17 +31,18 @@ module HordeAd.Core.DualClass
     ADVal, pattern D, dD, dDnotShared
   , ADMode(..), ADModeAndNum
   , -- * The less often used part of the mid-level API that gets re-exported in high-level API; it leaks implementation details
-    IsPrimal(..), IsPrimalAndHasFeatures, HasDelta
+    IsPrimal(..), IsPrimalAndHasFeatures, IsPrimalAndHasAmenities, HasDelta
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
     Dual, HasRanks(..), HasInputs(..), dummyDual
-  , -- * Internal operations, exposed, e.g., for tests
-    unsafeGetFreshId
+  , -- * Internal operations, exposed for tests, debugging and experiments
+    unsafeGetFreshId, Ast(..), AstInt(..), CodeOut(..), RelOut(..)
   ) where
 
 import Prelude
 
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
-import           Data.MonoTraversable (Element, MonoFunctor)
+import           Data.Kind (Type)
+import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Numeric, Vector)
@@ -90,18 +92,27 @@ type IsPrimalWithScalar (d :: ADMode) a r =
   (IsPrimal d a, ScalarOf a ~ r)
 
 -- | A shorthand for a useful set of constraints.
-type IsPrimalAndHasFeatures (d :: ADMode) a r =
+type IsPrimalAndHasAmenities (d :: ADMode) a r =
   ( IsPrimalWithScalar d a r
-  , HasInputs a, RealFloat a, MonoFunctor a, Element a ~ r )
+  , RealFloat a, MonoFunctor a, Element a ~ r )
+
+-- | A shorthand for a useful set of constraints.
+type IsPrimalAndHasFeatures (d :: ADMode) a r =
+  ( IsPrimalAndHasAmenities d a r
+  , HasInputs a )
 
 -- | A mega-shorthand for a bundle of connected type constraints.
 -- The @Scalar@ in the name means that the second argument is the underlying
 -- scalar type of a well behaved (wrt the differentiation mode in the first
 -- argument) collection of primal and dual components of dual numbers.
 type ADModeAndNum (d :: ADMode) r =
-  ( HasRanks d r, Ord r, Numeric r, Show r
+  ( HasRanks (Vector r) d r
+  , HasRanks (Ast d (Vector r)) d (Ast d r)
+  , Ord r, Numeric r, Show r
   , IsPrimalAndHasFeatures d r r
+  , IsPrimalAndHasAmenities d (Ast d r) (Ast d r)
   , IsPrimalAndHasFeatures d (Vector r) r
+  , IsPrimalAndHasAmenities d (Ast d (Vector r)) (Ast d r)
   )
 
 -- | Is a scalar and will be used to compute gradients via delta-expressions.
@@ -133,17 +144,21 @@ data ADMode =
 type family Dual (d :: ADMode) a = result | result -> d a where
   Dual 'ADModeGradient Double = Delta0 Double
   Dual 'ADModeGradient Float = Delta0 Float
+  Dual 'ADModeGradient (Ast 'ADModeGradient a) =
+    DummyDual 'ADModeGradient a
   Dual 'ADModeGradient (Vector r) = Delta1 r
 -- not injective:  Dual 'ADModeDerivative r = r
   Dual 'ADModeDerivative Double = Double
   Dual 'ADModeDerivative Float = Float
+  Dual 'ADModeDerivative (Ast 'ADModeDerivative a) =
+    DummyDual 'ADModeDerivative a
   Dual 'ADModeDerivative (Vector r) = Vector r
-  Dual 'ADModeValue a = DummyDual a
+  Dual 'ADModeValue a = DummyDual 'ADModeValue a
 
 -- A bit more verbose, but a bit faster than @data@, perhaps by chance.
-newtype DummyDual a = DummyDual ()
+newtype DummyDual (d :: ADMode) a = DummyDual ()
 
-dummyDual :: DummyDual a
+dummyDual :: DummyDual d a
 dummyDual = DummyDual ()
 
 -- | The underlying scalar of a given primal component of a dual number.
@@ -151,7 +166,10 @@ dummyDual = DummyDual ()
 type family ScalarOf a where
   ScalarOf Double = Double
   ScalarOf Float = Float
+  ScalarOf (Ast d Double) = Ast d Double
+  ScalarOf (Ast d Float) = Ast d Float
   ScalarOf (Vector r) = r
+  ScalarOf (Ast d (Vector r)) = Ast d r
 
 -- | Second argument is the primal component of a dual number at some rank
 -- wrt the differentiation mode given in the first argument.
@@ -172,18 +190,18 @@ class HasInputs a where
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
 -- of various ranks wrt the differentation mode given in the first parameter.
-class HasRanks (d :: ADMode) r where
-  dSumElements0 :: Dual d (Vector r) -> Int -> Dual d r
-  dIndex10 :: Dual d (Vector r) -> Int -> Int -> Dual d r
-  dDot0 :: Vector r -> Dual d (Vector r) -> Dual d r
+class ScalarOf vector ~ r => HasRanks vector (d :: ADMode) r where
+  dSumElements0 :: Dual d vector -> Int -> Dual d r
+  dIndex10 :: Dual d vector -> Int -> Int -> Dual d r
+  dDot0 :: vector -> Dual d vector -> Dual d r
 
-  dFromList1 :: [Dual d r] -> Dual d (Vector r)
-  dFromVector1 :: Data.Vector.Vector (Dual d r) -> Dual d (Vector r)
-  dKonst1 :: Dual d r -> Int -> Dual d (Vector r)
-  dAppend1 :: Dual d (Vector r) -> Int -> Dual d (Vector r) -> Dual d (Vector r)
-  dSlice1 :: Int -> Int -> Dual d (Vector r) -> Int -> Dual d (Vector r)
-  dReverse1 :: Dual d (Vector r) -> Dual d (Vector r)
-  dBuild1 :: Int -> (Int -> Dual d r) -> Dual d (Vector r)
+  dFromList1 :: [Dual d r] -> Dual d vector
+  dFromVector1 :: Data.Vector.Vector (Dual d r) -> Dual d vector
+  dKonst1 :: Dual d r -> Int -> Dual d vector
+  dAppend1 :: Dual d vector -> Int -> Dual d vector -> Dual d vector
+  dSlice1 :: Int -> Int -> Dual d vector -> Int -> Dual d vector
+  dReverse1 :: Dual d vector -> Dual d vector
+  dBuild1 :: Int -> (Int -> Dual d r) -> Dual d vector
 
 
 -- * Backprop gradient method instances
@@ -242,6 +260,12 @@ instance IsPrimal 'ADModeGradient Float where
     Let0{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta0 d
 
+instance IsPrimal 'ADModeGradient (Ast 'ADModeGradient a) where
+  dZero = DummyDual ()
+  dScale _ _ = DummyDual ()
+  dAdd _ _ = DummyDual ()
+  recordSharing _ = DummyDual ()
+
 -- | This is an impure instance. See above.
 instance IsPrimal 'ADModeGradient (Vector r) where
   dZero = Zero1
@@ -267,7 +291,7 @@ instance HasInputs (Vector r) where
 
 -- | This is an impure instance. See above.
 instance Dual 'ADModeGradient r ~ Delta0 r
-         => HasRanks 'ADModeGradient r where
+         => HasRanks (Vector r) 'ADModeGradient r where
   dSumElements0 = SumElements0
   dIndex10 = Index10
   dDot0 = Dot0
@@ -278,6 +302,19 @@ instance Dual 'ADModeGradient r ~ Delta0 r
   dSlice1 = Slice1
   dReverse1 = Reverse1
   dBuild1 = Build1
+
+instance HasRanks (Ast 'ADModeGradient (Vector r)) 'ADModeGradient
+                  (Ast 'ADModeGradient r) where
+  dSumElements0 _ _ = DummyDual ()
+  dIndex10 _ _ _ = DummyDual ()
+  dDot0 _ _ = DummyDual ()
+  dFromList1 _ = DummyDual ()
+  dFromVector1 _ = DummyDual ()
+  dKonst1 _ _ = DummyDual ()
+  dAppend1 _ _ _ = DummyDual ()
+  dSlice1 _ _ _ _ = DummyDual ()
+  dReverse1 _ = DummyDual ()
+  dBuild1 _ _ = DummyDual ()
 
 
 -- * Alternative instance: forward derivatives computed on the spot
@@ -294,6 +331,12 @@ instance IsPrimal 'ADModeDerivative Float where
   dAdd d e = d + e
   recordSharing = id
 
+instance IsPrimal 'ADModeDerivative (Ast 'ADModeDerivative a) where
+  dZero = DummyDual ()
+  dScale _ _ = DummyDual ()
+  dAdd _ _ = DummyDual ()
+  recordSharing _ = DummyDual ()
+
 instance Num (Vector r)
          => IsPrimal 'ADModeDerivative (Vector r) where
   dZero = 0
@@ -303,7 +346,7 @@ instance Num (Vector r)
 
 instance ( Numeric r
          , Dual 'ADModeDerivative r ~ r )
-         => HasRanks 'ADModeDerivative r where
+         => HasRanks (Vector r) 'ADModeDerivative r where
   dSumElements0 vd _ = LA.sumElements vd
   dIndex10 d ix _ = d V.! ix
   dDot0 = (LA.<.>)
@@ -315,6 +358,18 @@ instance ( Numeric r
   dReverse1 = V.reverse
   dBuild1 n f = V.fromList $ map f [0 .. n - 1]
 
+instance HasRanks (Ast 'ADModeDerivative (Vector r)) 'ADModeDerivative
+                  (Ast 'ADModeDerivative r) where
+  dSumElements0 _ _ = DummyDual ()
+  dIndex10 _ _ _ = DummyDual ()
+  dDot0 _ _ = DummyDual ()
+  dFromList1 _ = DummyDual ()
+  dFromVector1 _ = DummyDual ()
+  dKonst1 _ _ = DummyDual ()
+  dAppend1 _ _ _ = DummyDual ()
+  dSlice1 _ _ _ _ = DummyDual ()
+  dReverse1 _ = DummyDual ()
+  dBuild1 _ _ = DummyDual ()
 
 -- * Another alternative instance: only the objective function's value computed
 
@@ -330,13 +385,19 @@ instance IsPrimal 'ADModeValue Float where
   dAdd _ _ = DummyDual ()
   recordSharing = id
 
+instance IsPrimal 'ADModeValue (Ast 'ADModeValue a) where
+  dZero = DummyDual ()
+  dScale _ _ = DummyDual ()
+  dAdd _ _ = DummyDual ()
+  recordSharing _ = DummyDual ()
+
 instance IsPrimal 'ADModeValue (Vector r) where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
   recordSharing = id
 
-instance HasRanks 'ADModeValue r where
+instance ScalarOf vector ~ r => HasRanks vector 'ADModeValue r where
   dSumElements0 _ _ = DummyDual ()
   dIndex10 _ _ _ = DummyDual ()
   dDot0 _ _ = DummyDual ()
@@ -348,6 +409,8 @@ instance HasRanks 'ADModeValue r where
   dReverse1 _ = DummyDual ()
   dBuild1 _ _ = DummyDual ()
 
+
+-- * Counter handling
 
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}
@@ -389,3 +452,105 @@ wrapDelta1 :: Delta1 r -> Delta1 r
 wrapDelta1 !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! Let1 (NodeId n) d
+
+
+-- * Definitions for the fake scalar Ast
+
+-- TODO: perhaps slip into mutually recursive datatypes, duplicating
+-- some constructors, to avoid Vector (Vector Float)
+-- | @Ast@ is a fake scalar imitating a real scalar @r@. It builds up
+-- an AST instead of reducing @r@ arithmetic operations to their results.
+data Ast :: ADMode -> Type -> Type where
+  AstOp :: CodeOut -> [Ast d a] -> Ast d a
+  AstRel :: RelOut -> [Ast d a] -> Ast d a
+  AstCond :: AstBool -> Ast d a -> Ast d a -> Ast d a
+  AstConst :: ADVal d a -> Ast d a
+  AstVar :: String -> Ast d a
+
+  AstOMap1 :: (Ast d a -> Ast d a) -> Ast d (Vector a) -> Ast d (Vector a)
+
+  AstSumElements10 :: Ast d (Vector a) -> Ast d a
+  AstIndex10 :: Ast d (Vector a) -> AstInt -> Ast d a
+  AstDot0 :: Ast d (Vector a) -> Ast d (Vector a) -> Ast d a
+
+  AstFromList1 :: [Ast d a] -> Ast d (Vector a)
+  AstFromVector1 :: Data.Vector.Vector (Ast d a) -> Ast d (Vector a)
+  AstKonst1 :: Ast d a -> AstInt -> Ast d (Vector a)
+  AstAppend1 :: Ast d (Vector a) -> Ast d (Vector a) -> Ast d (Vector a)
+  AstSlice1 :: AstInt -> AstInt -> Ast d (Vector a) -> Ast d (Vector a)
+  AstReverse1 :: Ast d (Vector a) -> Ast d (Vector a)
+  AstBuild1 :: AstInt -> (AstInt -> Ast d a) -> Ast d (Vector a)  -- TODO
+
+data AstInt =
+    AstIntOp CodeOut [AstInt]
+  | AstIntConst Int
+  | AstIntVar String  -- instantiated to @Int@
+
+  -- AstLength (Ast d (Vector a))
+
+data AstBool  -- TODO
+
+-- deriving instance (Show a, Numeric a) => Show (Ast a)
+
+-- @Out@ is a leftover from the outlining mechanism deleted in
+-- https://github.com/Mikolaj/horde-ad/commit/c59947e13082c319764ec35e54b8adf8bc01691f
+data CodeOut =
+    PlusOut | MinusOut | TimesOut | NegateOut | AbsOut | SignumOut
+  | DivideOut | RecipOut
+  | ExpOut | LogOut | SqrtOut | PowerOut | LogBaseOut
+  | SinOut | CosOut | TanOut | AsinOut | AcosOut | AtanOut
+  | SinhOut | CoshOut | TanhOut | AsinhOut | AcoshOut | AtanhOut
+  | Atan2Out
+  | MaxOut | MinOut
+  deriving Show
+
+data RelOut =
+    EqOut | Neq
+  | LeqOut| GeqOut | LOut | GOut
+
+-- See the comment about @Eq@ and @Ord@ in "DualNumber".
+instance Eq (Ast d a) where
+
+instance Ord (Ast d a) where
+
+instance (Num a, IsPrimal d a) => Num (Ast d a) where
+  u + v = AstOp PlusOut [u, v]
+  u - v = AstOp MinusOut [u, v]
+  u * v = AstOp TimesOut [u, v]
+  negate u = AstOp NegateOut [u]
+  abs v = AstOp AbsOut [v]
+  signum v = AstOp SignumOut [v]
+  fromInteger k = AstConst (D (fromInteger k) dZero)
+
+instance (Real a, IsPrimal d a) => Real (Ast d a) where
+  toRational = undefined  -- TODO?
+
+-- The rest TODO.
+instance (Fractional a, IsPrimal d a) => Fractional (Ast d a) where
+instance (Floating a, IsPrimal d a) => Floating (Ast d a) where
+instance (RealFrac a, IsPrimal d a) => RealFrac (Ast d a) where
+instance (RealFloat a, IsPrimal d a) => RealFloat (Ast d a) where
+
+instance Num AstInt where
+  u + v = AstIntOp PlusOut [u, v]
+  u - v = AstIntOp MinusOut [u, v]
+  u * v = AstIntOp TimesOut [u, v]
+  negate u = AstIntOp NegateOut [u]
+  abs v = AstIntOp AbsOut [v]
+  signum v = AstIntOp SignumOut [v]
+  fromInteger = AstIntConst . fromInteger
+
+type instance Element (Ast d (Vector r)) = Ast d r
+
+type instance Element (Ast d Double) = Ast d Double
+
+type instance Element (Ast d Float) = Ast d Float
+
+instance MonoFunctor (Ast d (Vector r)) where
+  omap = AstOMap1
+
+instance MonoFunctor (Ast d Double) where
+  omap f = f
+
+instance MonoFunctor (Ast d Float) where
+  omap f = f
