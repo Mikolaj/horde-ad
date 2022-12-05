@@ -523,7 +523,7 @@ map1Closure f d@(D v _) = build1Closure (V.length v) $ \i -> f (index10 d i)
 -- @2@ means rank two, so the dual component represents a matrix.
 fromList2 :: ADModeAndNum d r
           => (Int, Int) -> [ADVal d r] -> ADVal d (Matrix r)
-fromList2 (i, j) l = dD (j LA.>< i $ map (\(D u _) -> u) l)
+fromList2 (i, j) l = dD (i LA.>< j $ map (\(D u _) -> u) l)
                         (dFromList2 (i, j) $ map (\(D _ u') -> u') l)
 
 fromVector2 :: ADModeAndNum d r
@@ -735,7 +735,7 @@ build2Closure (i, j) f =
       h ij = let D _ u' = f ij in u'
       ijs = [(i1, j1) | i1 <- [0 .. i - 1], j1 <- [0 .. j - 1]]
         -- TODO: tests needed to determine if the order of pairs is right
-  in dD ((j LA.>< i) $ map g ijs) (dBuild2 (i, j) h)
+  in dD ((i LA.>< j) $ map g ijs) (dBuild2 (i, j) h)
 
 build2 = build2Closure
 

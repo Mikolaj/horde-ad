@@ -664,7 +664,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
             _ -> error "buildFinMaps: corrupted nMap"
         Index10 d ix k -> eval1 (LA.konst 0 k V.// [(ix, r)]) d
         Index20 d ix ij -> do
-          let mInit = LA.konst 0 ij -- TODO: or should ij be reversed? test!
+          let mInit = LA.konst 0 ij
               m = LA.accum mInit const [(ix, r)]  -- TODO: or flip const?
               mo = MO.MatrixOuter (Just m) Nothing Nothing
           eval2 mo d
@@ -1219,7 +1219,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
 
         FromList2 (i, j) lsd -> do
           l <- mapM eval0 lsd
-          return $! (j LA.>< i) l
+          return $! (i LA.>< j) l
         FromVector2 (_i, j) lsd -> do
           v <- V.mapM eval0 lsd
           return $! LA.reshape j $ V.convert v  -- TODO: fail if _i fake
@@ -1261,7 +1261,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         Build2 (i, j) f -> do
           l <- mapM (eval0 . f)
                $ [(i1, j1) | i1 <- [0 .. i - 1], j1 <- [0 .. j - 1]]
-          return $! (j LA.>< i) l
+          return $! (i LA.>< j) l
 
       evalX :: DeltaX r -> ST s (OT.Array r)
       evalX = \case
