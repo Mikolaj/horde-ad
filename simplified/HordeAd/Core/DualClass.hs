@@ -1,6 +1,8 @@
 {-# LANGUAGE CPP, ConstraintKinds, DataKinds, FlexibleInstances, GADTs,
              MultiParamTypeClasses, PolyKinds, QuantifiedConstraints,
-             TypeFamilyDependencies #-}
+             TypeFamilyDependencies, UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-missing-methods #-}
 -- | The class defining dual components of dual numbers and
 -- the dual number type itself, hiding its constructor, but exposing
 -- a couple of smart constructors.
@@ -40,11 +42,12 @@ module HordeAd.Core.DualClass
 import Prelude
 
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
-import           Data.MonoTraversable (Element, MonoFunctor)
+import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
+import qualified Numeric.LinearAlgebra.Devel
 import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Internal.Delta
@@ -87,12 +90,12 @@ dDnotShared = D
 -- at an unknown rank, with the given differentiation mode
 -- and underlying scalar.
 type IsPrimalWithScalar (d :: ADMode) a r =
-  (IsPrimal d a, ScalarOf a ~ r)
+  (IsPrimal d a, MonoFunctor a, Element a ~ r)
 
 -- | A shorthand for a useful set of constraints.
 type IsPrimalAndHasFeatures (d :: ADMode) a r =
   ( IsPrimalWithScalar d a r
-  , HasInputs a, RealFloat a, MonoFunctor a, Element a ~ r )
+  , HasInputs a, RealFloat a )
 
 -- | A mega-shorthand for a bundle of connected type constraints.
 -- The @Scalar@ in the name means that the second argument is the underlying
@@ -146,13 +149,6 @@ newtype DummyDual a = DummyDual ()
 dummyDual :: DummyDual a
 dummyDual = DummyDual ()
 
--- | The underlying scalar of a given primal component of a dual number.
--- A long name to remember not to use, unless necessary, and not to export.
-type family ScalarOf a where
-  ScalarOf Double = Double
-  ScalarOf Float = Float
-  ScalarOf (Vector r) = r
-
 -- | Second argument is the primal component of a dual number at some rank
 -- wrt the differentiation mode given in the first argument.
 class IsPrimal d a where
@@ -167,7 +163,7 @@ class IsPrimal d a where
 -- and a dt parameter for computing its gradient.
 class HasInputs a where
   dInput :: InputId a -> Dual 'ADModeGradient a
-  packDeltaDt :: a -> Dual 'ADModeGradient a -> DeltaDt (ScalarOf a)
+  packDeltaDt :: a -> Dual 'ADModeGradient a -> DeltaDt (Element a)
 
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
@@ -389,3 +385,36 @@ wrapDelta1 :: Delta1 r -> Delta1 r
 wrapDelta1 !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! Let1 (NodeId n) d
+
+
+
+
+-- TODO: move to separate orphan module(s) at some point
+-- This requires UndecidableInstances
+
+instance (Num (Vector r), Numeric r, Ord r)
+         => Real (Vector r) where
+  toRational = undefined
+    -- very low priority, since these are all extremely not continuous
+
+instance (Num (Vector r), Numeric r, Fractional r, Ord r)
+         => RealFrac (Vector r) where
+  properFraction = undefined
+    -- very low priority, since these are all extremely not continuous
+
+-- TODO: is there atan2 in hmatrix or can it be computed faster than this?
+instance ( Floating (Vector r), Numeric r, RealFloat r )
+         => RealFloat (Vector r) where
+  atan2 = Numeric.LinearAlgebra.Devel.zipVectorWith atan2
+    -- we can be selective here and omit the other methods,
+    -- most of which don't even have a differentiable codomain
+
+type instance Element Double = Double
+
+type instance Element Float = Float
+
+instance MonoFunctor Double where
+  omap f = f
+
+instance MonoFunctor Float where
+  omap f = f

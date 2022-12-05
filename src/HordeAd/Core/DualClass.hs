@@ -99,12 +99,12 @@ dDnotShared = D
 -- at an unknown rank, with the given differentiation mode
 -- and underlying scalar.
 type IsPrimalWithScalar (d :: ADMode) a r =
-  (IsPrimal d a, ScalarOf a ~ r)
+  (IsPrimal d a, MonoFunctor a, Element a ~ r)
 
 -- | A shorthand for a useful set of constraints.
 type IsPrimalAndHasFeatures (d :: ADMode) a r =
   ( IsPrimalWithScalar d a r
-  , HasInputs a, RealFloat a, MonoFunctor a, Element a ~ r )
+  , HasInputs a, RealFloat a )
 
 -- | A mega-shorthand for a bundle of connected type constraints.
 -- The @Scalar@ in the name means that the second argument is the underlying
@@ -169,16 +169,6 @@ newtype DummyDual a = DummyDual ()
 dummyDual :: DummyDual a
 dummyDual = DummyDual ()
 
--- | The underlying scalar of a given primal component of a dual number.
--- A long name to remember not to use, unless necessary, and not to export.
-type family ScalarOf a where
-  ScalarOf Double = Double
-  ScalarOf Float = Float
-  ScalarOf (Vector r) = r
-  ScalarOf (Matrix r) = r
-  ScalarOf (OT.Array r) = r
-  ScalarOf (OS.Array sh r) = r
-
 -- | Second argument is the primal component of a dual number at some rank
 -- wrt the differentiation mode given in the first argument.
 class IsPrimal d a where
@@ -213,7 +203,7 @@ instance (IsPrimalS d r, OS.Shape sh) => IsPrimal d (OS.Array sh r) where
 -- and a dt parameter for computing its gradient.
 class HasInputs a where
   dInput :: InputId a -> Dual 'ADModeGradient a
-  packDeltaDt :: a -> Dual 'ADModeGradient a -> DeltaDt (ScalarOf a)
+  packDeltaDt :: a -> Dual 'ADModeGradient a -> DeltaDt (Element a)
 
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
