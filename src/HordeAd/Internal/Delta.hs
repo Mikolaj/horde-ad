@@ -141,6 +141,8 @@ data Delta0 r =
   | Let0 NodeId (Delta0 r)
 
   | SumElements0 (Delta1 r) Int  -- ^ see Note [SumElements0]
+  | forall sh. OS.Shape sh
+    => SumElementsS0 (DeltaS sh r)
   | Index10 (Delta1 r) Int Int  -- ^ second integer is the length of the vector
   | Index20 (Delta2 r) (Int, Int) (Int, Int)
   | IndexX0 (DeltaX r) [Int] [Int]
@@ -624,6 +626,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
             _ -> error "buildFinMaps: corrupted nMap"
 
         SumElements0 vd n -> eval1 (LA.konst r n) vd
+        SumElementsS0 d -> evalS (OS.constant r) d
         Index10 Zero1 _ _ -> return ()  -- shortcut
         Index10 (Input1 (InputId i)) ix k -> do
           let f v = if V.null v
@@ -1108,6 +1111,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
             _ -> error "buildDerivative: corrupted nMap"
 
         SumElements0 vd _n -> LA.sumElements <$> eval1 vd
+        SumElementsS0 d -> OS.sumA <$> evalS d
         Index10 d ix _k -> flip (V.!) ix <$> eval1 d
         Index20 d ix _ij -> flip LA.atIndex ix <$> eval2 d
         IndexX0 d ix _sh -> flip atIndexInTensor ix <$> evalX d
