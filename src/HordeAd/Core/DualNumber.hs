@@ -1066,7 +1066,7 @@ maxPool24 d =
   in res
 
 buildSElementwise, buildSClosure, buildS
-  :: forall sh d r. (ADModeAndNum d r, OS.Shape sh)
+  :: forall sh r d. (ADModeAndNum d r, OS.Shape sh)
   => ([Int] -> ADVal d r) -> ADVal d (OS.Array sh r)
 buildSElementwise f =
   -- Copied from Data.Array.Internal.

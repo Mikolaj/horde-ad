@@ -103,7 +103,8 @@ class AdaptableDomains vals where
 
 class RandomDomains vals where
   randomVals
-    :: ( RandomGen g
+    :: forall r g.
+       ( RandomGen g
        , r ~ Scalar vals, Numeric r, Fractional r, Random r, Num (Vector r) )
     => r -> g -> (vals, g)
 
