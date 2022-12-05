@@ -169,7 +169,7 @@ class HasInputs a where
 -- to be the underlying scalar of a well behaved collection of dual numbers
 -- of various ranks wrt the differentation mode given in the first parameter.
 class HasRanks (d :: ADMode) r where
-  dSumElements0 :: Dual d (Vector r) -> Int -> Dual d r
+  dSumElements10 :: Dual d (Vector r) -> Int -> Dual d r
   dIndex10 :: Dual d (Vector r) -> Int -> Int -> Dual d r
   dDot0 :: Vector r -> Dual d (Vector r) -> Dual d r
 
@@ -264,7 +264,7 @@ instance HasInputs (Vector r) where
 -- | This is an impure instance. See above.
 instance Dual 'ADModeGradient r ~ Delta0 r
          => HasRanks 'ADModeGradient r where
-  dSumElements0 = SumElements0
+  dSumElements10 = SumElements10
   dIndex10 = Index10
   dDot0 = Dot0
   dFromList1 = FromList1
@@ -300,7 +300,7 @@ instance Num (Vector r)
 instance ( Numeric r
          , Dual 'ADModeDerivative r ~ r )
          => HasRanks 'ADModeDerivative r where
-  dSumElements0 vd _ = LA.sumElements vd
+  dSumElements10 vd _ = LA.sumElements vd
   dIndex10 d ix _ = d V.! ix
   dDot0 = (LA.<.>)
   dFromList1 = V.fromList
@@ -333,7 +333,7 @@ instance IsPrimal 'ADModeValue (Vector r) where
   recordSharing = id
 
 instance HasRanks 'ADModeValue r where
-  dSumElements0 _ _ = DummyDual ()
+  dSumElements10 _ _ = DummyDual ()
   dIndex10 _ _ _ = DummyDual ()
   dDot0 _ _ = DummyDual ()
   dFromList1 _ = DummyDual ()

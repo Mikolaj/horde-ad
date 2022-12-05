@@ -140,14 +140,14 @@ data Delta0 r =
   | Add0 (Delta0 r) (Delta0 r)
   | Let0 NodeId (Delta0 r)
 
-  | SumElements0 (Delta1 r) Int  -- ^ see Note [SumElements0]
+  | SumElements10 (Delta1 r) Int  -- ^ see Note [SumElements10]
   | forall sh. OS.Shape sh
     => SumElementsS0 (DeltaS sh r)
   | Index10 (Delta1 r) Int Int  -- ^ second integer is the length of the vector
   | Index20 (Delta2 r) (Int, Int) (Int, Int)
   | IndexX0 (DeltaX r) [Int] [Int]
 
-  | Dot0 (Vector r) (Delta1 r)  -- ^ Dot0 v vd == SumElements0 (Scale1 v vd) n
+  | Dot0 (Vector r) (Delta1 r)  -- ^ Dot0 v vd == SumElements10 (Scale1 v vd) n
 
   | FromX0 (DeltaX r)  -- ^ one of many conversions
   | FromS0 (DeltaS '[] r)
@@ -625,7 +625,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                 VM.write dm i r
             _ -> error "buildFinMaps: corrupted nMap"
 
-        SumElements0 vd n -> eval1 (LA.konst r n) vd
+        SumElements10 vd n -> eval1 (LA.konst r n) vd
         SumElementsS0 d -> evalS (OS.constant r) d
         Index10 Zero1 _ _ -> return ()  -- shortcut
         Index10 (Input1 (InputId i)) ix k -> do
@@ -1110,7 +1110,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
               return r
             _ -> error "buildDerivative: corrupted nMap"
 
-        SumElements0 vd _n -> LA.sumElements <$> eval1 vd
+        SumElements10 vd _n -> LA.sumElements <$> eval1 vd
         SumElementsS0 d -> OS.sumA <$> evalS d
         Index10 d ix _k -> flip (V.!) ix <$> eval1 d
         Index20 d ix _ij -> flip LA.atIndex ix <$> eval2 d
@@ -1407,19 +1407,19 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
 
   eval0 deltaTopLevel
 
-{- Note [SumElements0]
+{- Note [SumElements10]
 ~~~~~~~~~~~~~~~~~~~~~~
 
-The second argument of SumElements0 is the length of the vector
+The second argument of SumElements10 is the length of the vector
 to be summed. Given that we sum a delta-expression representing
 a vector, we can't call Vector.length on it, so the length needs
 to be recorded in the constructor. Alternatively, it could be
-recorded in the Delta1 argument to SumElements0. This is what
+recorded in the Delta1 argument to SumElements10. This is what
 shaped tensors do at the type level, so for DeltaS the argument
 would not be needed.
 
 Sum of vector elements can be implemented using a delta-expression
-primitive SumElements0 as well as without this primitive, referring
+primitive SumElements10 as well as without this primitive, referring
 only to the primitive Index10:
 
 https://github.com/Mikolaj/horde-ad/blob/d069a45773ed849913b5ebd0345153072f304fd9/src/HordeAd.Core.DualNumber.hs#L125-L143
@@ -1430,7 +1430,7 @@ implementations:
 https://github.com/Mikolaj/horde-ad/blob/d069a45773ed849913b5ebd0345153072f304fd9/test/TestSingleGradient.hs#L116-L128
 
 and proved to be prohibitively slow in the two implementations
-that don't use the SumElements0 primitive in benchmarks (despite
+that don't use the SumElements10 primitive in benchmarks (despite
 an ingenious optimization of the common case of Index10 applied to a input):
 
 https://github.com/Mikolaj/horde-ad/blob/d069a45773ed849913b5ebd0345153072f304fd9/bench/BenchProdTools.hs#L178-L193

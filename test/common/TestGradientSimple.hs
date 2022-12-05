@@ -155,14 +155,14 @@ sumElementsV
   => ADInputs d r -> ADVal d r
 sumElementsV inputs =
   let x = at1 inputs 0
-  in sumElements0 x
+  in sumElements10 x
 
 altSumElementsV
   :: ADModeAndNum d r
   => ADInputs d r -> ADVal d r
 altSumElementsV inputs =
   let x = at1 inputs 0
-  in altSumElements0 x
+  in altSumElements10 x
 
 -- hlint would complain about spurious @id@, so we need to define our own.
 id2 :: a -> a
@@ -173,7 +173,7 @@ sinKonst
   => ADInputs d r -> ADVal d r
 sinKonst inputs =
   let x = at1 inputs 0
-  in sumElements0 $
+  in sumElements10 $
        sin x + (id2 $ id2 $ id2 $ konst1 1 2)
 
 powKonst
@@ -181,8 +181,8 @@ powKonst
   => ADInputs d r -> ADVal d r
 powKonst inputs =
   let x = at1 inputs 0
-  in sumElements0 $
-       x ** (sin x + (id2 $ id2 $ id2 $ konst1 (sumElements0 x) 2))
+  in sumElements10 $
+       x ** (sin x + (id2 $ id2 $ id2 $ konst1 (sumElements10 x) 2))
 
 dReverse1
   :: (r ~ Float, d ~ 'ADModeGradient)
@@ -350,7 +350,7 @@ vatanOldReadme inputs =
       f = index10 xyzVector
       (x, y, z) = (f 0, f 1, f 2)
       v = fromVector1 $ atanOldReadmeOriginal x y z
-  in sumElements0 v
+  in sumElements10 v
 
 vatanOldReadmeDReverse :: HasDelta r
                        => Domain1 r -> (Domain1 r, r)
@@ -392,7 +392,7 @@ build1ElementwiseSimple1
   :: ADModeAndNum d r
   => ADVal d r -> ADVal d r
 build1ElementwiseSimple1 x =
-  sumElements0 (build1Elementwise 4 $ \i -> fromInteger (toInteger i) * x)
+  sumElements10 (build1Elementwise 4 $ \i -> fromInteger (toInteger i) * x)
 
 testBuild1ElementwiseSimple1 :: Assertion
 testBuild1ElementwiseSimple1 =
@@ -404,7 +404,7 @@ build1ClosureSimple1
   :: ADModeAndNum d r
   => ADVal d r -> ADVal d r
 build1ClosureSimple1 x =
-  sumElements0 (build1Closure 4 $ \i -> fromInteger (toInteger i) * x)
+  sumElements10 (build1Closure 4 $ \i -> fromInteger (toInteger i) * x)
 
 testBuild1ClosureSimple1 :: Assertion
 testBuild1ClosureSimple1 =
@@ -430,7 +430,7 @@ build1ElementwiseSimple2
 build1ElementwiseSimple2 x =
   let !x2 = x * x
   in x2 + x
-     + sumElements0 (build1Elementwise 4 $ \i ->
+     + sumElements10 (build1Elementwise 4 $ \i ->
                       fromInteger (toInteger i) * x2 + x)
 
 testBuild1ElementwiseSimple2 :: Assertion
@@ -445,7 +445,7 @@ build1ClosureSimple2
 build1ClosureSimple2 x =
   let !x2 = x * x
   in x2 + x
-     + sumElements0 (build1Closure 4 $ \i -> fromInteger (toInteger i) * x2 + x)
+     + sumElements10 (build1Closure 4 $ \i -> fromInteger (toInteger i) * x2 + x)
 
 testBuild1ClosureSimple2 :: Assertion
 testBuild1ClosureSimple2 =
@@ -472,12 +472,12 @@ build1ElementwiseSimple3 x =
   let !x2 = x * x
       !v = build1Elementwise 1 $ \i ->
              fromInteger (toInteger i) * x2 + x * x + x
-  in sumElements0
+  in sumElements10
      $ v
-       + build1Elementwise 1 (const $ sumElements0 v)
+       + build1Elementwise 1 (const $ sumElements10 v)
        + v
        + build1Elementwise 1
-           (const $ sumElements0
+           (const $ sumElements10
             $ build1Elementwise 1 $ \i ->
                 fromInteger (toInteger i) * x2 + x2 + x)
        + v
@@ -494,12 +494,12 @@ build1ClosureSimple3
 build1ClosureSimple3 x =
   let !x2 = x * x
       !v = build1Closure 1 $ \i -> fromInteger (toInteger i) * x2 + x * x + x
-  in sumElements0
+  in sumElements10
      $ v
-       + build1Closure 1 (const $ sumElements0 v)
+       + build1Closure 1 (const $ sumElements10 v)
        + v
        + build1Closure 1
-           (const $ sumElements0
+           (const $ sumElements10
             $ build1Closure 1 $ \i -> fromInteger (toInteger i) * x2 + x2 + x)
        + v
 

@@ -223,8 +223,8 @@ reluLeaky v@(D u _) =
 
 -- * Operations resulting in a scalar
 
-sumElements0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
-sumElements0 (D u u') = dD (LA.sumElements u) (dSumElements0 u' (V.length u))
+sumElements10 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
+sumElements10 (D u u') = dD (LA.sumElements u) (dSumElements10 u' (V.length u))
 
 sumElementsS0 :: (ADModeAndNum d r, OS.Shape sh)
               => ADVal d (OS.Array sh r) -> ADVal d r
@@ -266,8 +266,8 @@ foldl'0 f uu' (D v v') =
       g !acc ix p = f (dD p (dIndex10 v' ix k)) acc
   in V.ifoldl' g uu' v
 
-altSumElements0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
-altSumElements0 = foldl'0 (+) 0
+altSumElements10 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
+altSumElements10 = foldl'0 (+) 0
 
 -- | Dot product.
 infixr 8 <.>!
@@ -449,7 +449,7 @@ softMaxV :: ADModeAndNum d r
          => ADVal d (Vector r) -> ADVal d (Vector r)
 softMaxV d@(D u _) =
   let expU = exp d  -- shared in 2 places, though cse may do this for us
-      sumExpU = sumElements0 expU
+      sumExpU = sumElements10 expU
   in konst1 (recip sumExpU) (V.length u) * expU
 
 -- Note that this is equivalent to a composition of softMax and cross entropy

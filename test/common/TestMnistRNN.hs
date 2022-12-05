@@ -585,7 +585,7 @@ nnMnistRNNLossB :: ADModeAndNum d r
 nnMnistRNNLossB width (xs, target) inputs =
   let result = nnMnistRNNB width xs inputs
       vec@(D u _) = lossSoftMaxCrossEntropyL target result
-  in scale (recip $ fromIntegral $ V.length u) $ sumElements0 vec
+  in scale (recip $ fromIntegral $ V.length u) $ sumElements10 vec
 
 nnMnistRNNLossB2 :: ADModeAndNum d r
                  => Int
@@ -595,7 +595,7 @@ nnMnistRNNLossB2 :: ADModeAndNum d r
 nnMnistRNNLossB2 width (xs, target) inputs =
   let result = nnMnistRNNB2 width xs inputs
       vec@(D u _) = lossSoftMaxCrossEntropyL target result
-  in scale (recip $ fromIntegral $ V.length u) $ sumElements0 vec
+  in scale (recip $ fromIntegral $ V.length u) $ sumElements10 vec
 
 mnistTestCaseRNNB
   :: String

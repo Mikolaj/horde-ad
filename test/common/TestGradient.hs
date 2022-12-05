@@ -40,7 +40,7 @@ sinKonstS
   => ADInputs d r -> ADVal d r
 sinKonstS inputs =
   let x = atS inputs 0
-  in sumElements0 $ fromS1
+  in sumElements10 $ fromS1
        ((sin x + (id2 $ id2 $ id2 $ konstS 1))
          :: ADVal d (OS.Array '[2] r))
 

@@ -180,7 +180,7 @@ rnnMnistLossFusedS out_width@MkSN
                        $ OS.toVector labelS
       vec = lossSoftMaxCrossEntropyL targets2 (fromS2 result)
   in scale (recip $ fromIntegral (valueOf @batch_size :: Int))
-     $ sumElements0 vec
+     $ sumElements10 vec
 
 rnnMnistTestS
   :: forall out_width batch_size r. ADModeAndNum 'ADModeValue r

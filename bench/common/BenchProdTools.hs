@@ -155,13 +155,13 @@ sumElementsV :: ADInputs 'ADModeGradient Double
              -> ADVal 'ADModeGradient Double
 sumElementsV inputs =
   let x = at1 inputs 0
-  in sumElements0 x
+  in sumElements10 x
 
 altSumElementsV :: ADInputs 'ADModeGradient Double
                 -> ADVal 'ADModeGradient Double
 altSumElementsV inputs =
   let x = at1 inputs 0
-  in altSumElements0 x
+  in altSumElements10 x
 
 grad_vec_scalarSum :: HasDelta r => Vector r -> Vector r
 grad_vec_scalarSum ds =

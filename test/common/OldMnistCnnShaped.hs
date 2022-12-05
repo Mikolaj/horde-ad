@@ -185,7 +185,7 @@ convMnistLossFusedO kh@MkSN kw@MkSN
                        $ OS.toVector labelS
       vec = lossSoftMaxCrossEntropyL targets2 (fromS2 result)
   in scale (recip $ fromIntegral (staticNatValue batch_size :: Int))
-     $ sumElements0 vec
+     $ sumElements10 vec
 
 -- For simplicity, testing is performed in mini-batches of 1.
 -- See RNN for testing done in batches.
