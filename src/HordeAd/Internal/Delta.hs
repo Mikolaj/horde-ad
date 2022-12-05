@@ -626,7 +626,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
             _ -> error "buildFinMaps: corrupted nMap"
 
         SumElements10 d n -> eval1 (LA.konst r n) d
-        SumElements20 d (i, j) -> eval2 (MO.konst r i j) d
+        SumElements20 d (rows, cols) -> eval2 (MO.konst r rows cols) d
         SumElementsX0 d sh -> evalX (OT.constant sh r) d
         Index10 Zero1 _ _ -> return ()  -- shortcut
         Index10 (Input1 (InputId i)) ix k -> do
@@ -663,8 +663,8 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                 VM.write dm i v
             _ -> error "buildFinMaps: corrupted nMap"
         Index10 d ix k -> eval1 (LA.konst 0 k V.// [(ix, r)]) d
-        Index20 d ix ij -> do
-          let mInit = LA.konst 0 ij
+        Index20 d ix rowsCols -> do
+          let mInit = LA.konst 0 rowsCols
               m = LA.accum mInit const [(ix, r)]  -- TODO: or flip const?
               mo = MO.MatrixOuter (Just m) Nothing Nothing
           eval2 mo d
@@ -770,12 +770,12 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                 VM.write dm i r
             _ -> error "buildFinMaps: corrupted nMap"
 
-        FromList2 _ij lsd -> do
+        FromList2 _rowsCols lsd -> do
           -- TODO: speedup likely via an indexing operation on MatrixOuter
           -- or perhaps a flatten/toList operation
           let vr = LA.flatten $ MO.convertMatrixOuter r
           imapM_ (\i d -> eval0 (vr V.! i) d) lsd
-        FromVector2 _ij lsd -> do
+        FromVector2 __rowsCols lsd -> do
           let vr = LA.flatten $ MO.convertMatrixOuter r
           V.imapM_ (\i d -> eval0 (vr V.! i) d) lsd
         FromRows2 lvd -> zipWithM_ eval1 (MO.toRows r) (V.toList lvd)
@@ -822,10 +822,10 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
               convolved = LA.corr2 m mor
               moc = MO.MatrixOuter (Just convolved) Nothing Nothing
           in eval2 moc md
-        Build2 _ij f -> do
+        Build2 _rowsCols f -> do
           let mor = MO.convertMatrixOuter r
           Numeric.LinearAlgebra.Devel.mapMatrixWithIndexM_
-            (\ij r0 -> eval0 r0 (f ij)) mor
+            (\rowsCols r0 -> eval0 r0 (f rowsCols)) mor
 
       evalX :: OT.Array r -> DeltaX r -> ST s ()
       evalX !r = \case
@@ -1115,7 +1115,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         SumElements20 d _ -> LA.sumElements <$> eval2 d
         SumElementsX0 d _ -> OT.sumA <$> evalX d
         Index10 d ix _k -> flip (V.!) ix <$> eval1 d
-        Index20 d ix _ij -> flip LA.atIndex ix <$> eval2 d
+        Index20 d ix _rowsCols -> flip LA.atIndex ix <$> eval2 d
         IndexX0 d ix _sh -> flip atIndexInTensor ix <$> evalX d
 
         Dot0 vr vd -> (<.>) vr <$> eval1 vd
@@ -1217,9 +1217,9 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
               return r
             _ -> error "buildDerivative: corrupted nMap"
 
-        FromList2 (i, j) lsd -> do
+        FromList2 (rows, cols) lsd -> do
           l <- mapM eval0 lsd
-          return $! (i LA.>< j) l
+          return $! (rows LA.>< cols) l
         FromVector2 (_i, j) lsd -> do
           v <- V.mapM eval0 lsd
           return $! LA.reshape j $ V.convert v  -- TODO: fail if _i fake
@@ -1258,10 +1258,10 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         Fliprl2 d -> LA.fliprl <$> eval2 d
         Reshape2 cols d -> LA.reshape cols <$> eval1 d
         Conv2 m md -> LA.conv2 m <$> eval2 md
-        Build2 (i, j) f -> do
+        Build2 (rows, cols) f -> do
           l <- mapM (eval0 . f)
-               $ [(i1, j1) | i1 <- [0 .. i - 1], j1 <- [0 .. j - 1]]
-          return $! (i LA.>< j) l
+               $ [(i1, j1) | i1 <- [0 .. rows - 1], j1 <- [0 .. cols - 1]]
+          return $! (rows LA.>< cols) l
 
       evalX :: DeltaX r -> ST s (OT.Array r)
       evalX = \case

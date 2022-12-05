@@ -523,14 +523,16 @@ map1Closure f d@(D v _) = build1Closure (V.length v) $ \i -> f (index10 d i)
 -- @2@ means rank two, so the dual component represents a matrix.
 fromList2 :: ADModeAndNum d r
           => (Int, Int) -> [ADVal d r] -> ADVal d (Matrix r)
-fromList2 (i, j) l = dD (i LA.>< j $ map (\(D u _) -> u) l)
-                        (dFromList2 (i, j) $ map (\(D _ u') -> u') l)
+fromList2 (rows, cols) l =
+  dD (rows LA.>< cols $ map (\(D u _) -> u) l)
+     (dFromList2 (rows, cols) $ map (\(D _ u') -> u') l)
 
 fromVector2 :: ADModeAndNum d r
             => (Int, Int) -> Data.Vector.Vector (ADVal d r)
             -> ADVal d (Matrix r)
-fromVector2 (i, j) v = dD (LA.reshape j $ V.convert $ V.map (\(D u _) -> u) v)
-                          (dFromVector2 (i, j) $ V.map (\(D _ u') -> u') v)
+fromVector2 (rows, cols) v =
+  dD (LA.reshape cols $ V.convert $ V.map (\(D u _) -> u) v)
+     (dFromVector2 (rows, cols) $ V.map (\(D _ u') -> u') v)
 
 fromRows2 :: ADModeAndNum d r
           => Data.Vector.Vector (ADVal d (Vector r))
@@ -726,16 +728,16 @@ maxPool2 ksize stride m@(D u _) =
 build2Elementwise, build2Closure, build2
   :: ADModeAndNum d r
   => (Int, Int) -> ((Int, Int) -> ADVal d r) -> ADVal d (Matrix r)
-build2Elementwise (i, j) f =
-  let ijs = [(i1, j1) | i1 <- [0 .. i - 1], j1 <- [0 .. j - 1]]
-  in fromList2 (i, j) $ map f ijs
+build2Elementwise (rows, cols) f =
+  let ijs = [(i1, j1) | i1 <- [0 .. rows - 1], j1 <- [0 .. cols - 1]]
+  in fromList2 (rows, cols) $ map f ijs
 
-build2Closure (i, j) f =
+build2Closure (rows, cols) f =
   let g ij = let D u _ = f ij in u
       h ij = let D _ u' = f ij in u'
-      ijs = [(i1, j1) | i1 <- [0 .. i - 1], j1 <- [0 .. j - 1]]
+      ijs = [(i1, j1) | i1 <- [0 .. rows - 1], j1 <- [0 .. cols - 1]]
         -- TODO: tests needed to determine if the order of pairs is right
-  in dD ((i LA.>< j) $ map g ijs) (dBuild2 (i, j) h)
+  in dD ((rows LA.>< cols) $ map g ijs) (dBuild2 (rows, cols) h)
 
 build2 = build2Closure
 

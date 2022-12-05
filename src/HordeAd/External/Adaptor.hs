@@ -204,7 +204,7 @@ instance AdaptableDomains (Matrix r) where
     Just (a, rest) -> (a, Domains v0 v1 rest vX)
     Nothing -> error "fromDomains in AdaptableDomains (Matrix r)"
   nParams _ = 1
-  nScalars m = let (i, j) = LA.size m in i * j
+  nScalars m = let (rows, cols) = LA.size m in rows * cols
 
 instance ADModeAndNum d r
          => AdaptableInputs r (ADVal d (Matrix r)) where

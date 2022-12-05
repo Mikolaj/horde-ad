@@ -552,8 +552,8 @@ zeroStateB :: ADModeAndNum d r
            -> (a
                -> ADInputs d r
                -> ADVal d r2)
-zeroStateB ij f xs inputs =
-  fst $ f xs (constant $ LA.konst 0 ij) inputs
+zeroStateB rowsCols f xs inputs =
+  fst $ f xs (constant $ LA.konst 0 rowsCols) inputs
 
 nnMnistRNNB :: ADModeAndNum d r
             => Int

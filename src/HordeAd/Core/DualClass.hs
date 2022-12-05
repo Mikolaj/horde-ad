@@ -587,7 +587,7 @@ instance ( Numeric r, Num (Vector r)
   dFlattenX1 _sh = OT.toVector
   dFlattenS1 = OS.toVector
   dBuild1 n f = LA.build n (f . floor)
-  dFromList2 (i, j) = i LA.>< j
+  dFromList2 (rows, cols) = rows LA.>< cols
   dFromVector2 (_i, j) = LA.reshape j . V.convert
   dFromRows2 = LA.fromRows . V.toList
   dFromColumns2 = LA.fromColumns . V.toList
