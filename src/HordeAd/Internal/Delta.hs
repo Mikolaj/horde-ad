@@ -141,8 +141,8 @@ data Delta0 r =
   | Let0 NodeId (Delta0 r)
 
   | SumElements10 (Delta1 r) Int  -- ^ see Note [SumElements10]
-  | forall sh. OS.Shape sh
-    => SumElementsS0 (DeltaS sh r)
+  | SumElements20 (Delta2 r) (Int, Int)
+  | SumElementsX0 (DeltaX r) [Int]
   | Index10 (Delta1 r) Int Int  -- ^ second integer is the length of the vector
   | Index20 (Delta2 r) (Int, Int) (Int, Int)
   | IndexX0 (DeltaX r) [Int] [Int]
@@ -625,8 +625,9 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                 VM.write dm i r
             _ -> error "buildFinMaps: corrupted nMap"
 
-        SumElements10 vd n -> eval1 (LA.konst r n) vd
-        SumElementsS0 d -> evalS (OS.constant r) d
+        SumElements10 d n -> eval1 (LA.konst r n) d
+        SumElements20 d (i, j) -> eval2 (MO.konst r i j) d
+        SumElementsX0 d sh -> evalX (OT.constant sh r) d
         Index10 Zero1 _ _ -> return ()  -- shortcut
         Index10 (Input1 (InputId i)) ix k -> do
           let f v = if V.null v
@@ -663,7 +664,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
             _ -> error "buildFinMaps: corrupted nMap"
         Index10 d ix k -> eval1 (LA.konst 0 k V.// [(ix, r)]) d
         Index20 d ix ij -> do
-          let mInit = LA.konst 0 ij  -- TODO: or should ij be reversed? test!
+          let mInit = LA.konst 0 ij -- TODO: or should ij be reversed? test!
               m = LA.accum mInit const [(ix, r)]  -- TODO: or flip const?
               mo = MO.MatrixOuter (Just m) Nothing Nothing
           eval2 mo d
@@ -1110,8 +1111,9 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
               return r
             _ -> error "buildDerivative: corrupted nMap"
 
-        SumElements10 vd _n -> LA.sumElements <$> eval1 vd
-        SumElementsS0 d -> OS.sumA <$> evalS d
+        SumElements10 d _ -> LA.sumElements <$> eval1 d
+        SumElements20 d _ -> LA.sumElements <$> eval2 d
+        SumElementsX0 d _ -> OT.sumA <$> evalX d
         Index10 d ix _k -> flip (V.!) ix <$> eval1 d
         Index20 d ix _ij -> flip LA.atIndex ix <$> eval2 d
         IndexX0 d ix _sh -> flip atIndexInTensor ix <$> evalX d

@@ -226,9 +226,15 @@ reluLeaky v@(D u _) =
 sumElements10 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
 sumElements10 (D u u') = dD (LA.sumElements u) (dSumElements10 u' (V.length u))
 
+sumElements20 :: ADModeAndNum d r => ADVal d (Matrix r) -> ADVal d r
+sumElements20 (D u u') = dD (LA.sumElements u) (dSumElements20 u' (LA.size u))
+
+sumElementsX0 :: ADModeAndNum d r => ADVal d (OT.Array r) -> ADVal d r
+sumElementsX0 (D u u') = dD (OT.sumA u) (dSumElementsX0 u' (OT.shapeL u))
+
 sumElementsS0 :: (ADModeAndNum d r, OS.Shape sh)
               => ADVal d (OS.Array sh r) -> ADVal d r
-sumElementsS0 (D u u') = dD (OS.sumA u) (dSumElementsS0 u')
+sumElementsS0 d = sumElementsX0 (fromSX d)
 
 index10 :: ADModeAndNum d r => ADVal d (Vector r) -> Int -> ADVal d r
 index10 (D u u') ix = dD (u V.! ix) (dIndex10 u' ix (V.length u))

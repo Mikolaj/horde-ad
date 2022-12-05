@@ -210,8 +210,8 @@ class HasInputs a where
 -- of various ranks wrt the differentation mode given in the first parameter.
 class HasRanks (d :: ADMode) r where
   dSumElements10 :: Dual d (Vector r) -> Int -> Dual d r
-  dSumElementsS0 :: OS.Shape sh
-                 => Dual d (OS.Array sh r) -> Dual d r
+  dSumElements20 :: Dual d (Matrix r) -> (Int, Int) -> Dual d r
+  dSumElementsX0 :: Dual d (OT.Array r) -> [Int] -> Dual d r
   dIndex10 :: Dual d (Vector r) -> Int -> Int -> Dual d r
   dIndex20 :: Dual d (Matrix r) -> (Int, Int) -> (Int, Int) -> Dual d r
   dIndexX0 :: Dual d (OT.Array r) -> [Int] -> [Int] -> Dual d r
@@ -443,7 +443,8 @@ instance OS.Shape sh => HasInputs (OS.Array sh r) where
 instance Dual 'ADModeGradient r ~ Delta0 r
          => HasRanks 'ADModeGradient r where
   dSumElements10 = SumElements10
-  dSumElementsS0 = SumElementsS0
+  dSumElements20 = SumElements20
+  dSumElementsX0 = SumElementsX0
   dIndex10 = Index10
   dIndex20 = Index20
   dIndexX0 = IndexX0
@@ -561,8 +562,9 @@ instance (Numeric r, Num (Vector r))
 instance ( Numeric r, Num (Vector r)
          , Dual 'ADModeDerivative r ~ r )
          => HasRanks 'ADModeDerivative r where
-  dSumElements10 vd _ = LA.sumElements vd
-  dSumElementsS0 d = OS.sumA d
+  dSumElements10 d _ = LA.sumElements d
+  dSumElements20 d _ = LA.sumElements d
+  dSumElementsX0 d _ = OT.sumA d
   dIndex10 d ix _ = d V.! ix
   dIndex20 d ix _ = d `LA.atIndex` ix
   dIndexX0 d ix _ = d `atIndexInTensor` ix
@@ -684,7 +686,8 @@ instance IsPrimalS 'ADModeValue r where
 
 instance HasRanks 'ADModeValue r where
   dSumElements10 _ _ = DummyDual ()
-  dSumElementsS0 _ = DummyDual ()
+  dSumElements20 _ _ = DummyDual ()
+  dSumElementsX0 _ _ = DummyDual ()
   dIndex10 _ _ _ = DummyDual ()
   dIndex20 _ _ _ = DummyDual ()
   dIndexX0 _ _ _ = DummyDual ()
