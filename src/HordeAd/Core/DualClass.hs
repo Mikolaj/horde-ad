@@ -761,6 +761,8 @@ instance HasRanks 'ADModeValue r where
 #endif
 
 
+-- * Counter handling
+
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}
 unsafeGlobalCounter = unsafePerformIO (newCounter 100000000)

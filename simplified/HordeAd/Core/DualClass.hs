@@ -345,6 +345,8 @@ instance HasRanks 'ADModeValue r where
   dBuild1 _ _ = DummyDual ()
 
 
+-- * Counter handling
+
 unsafeGlobalCounter :: Counter
 {-# NOINLINE unsafeGlobalCounter #-}
 unsafeGlobalCounter = unsafePerformIO (newCounter 100000000)
