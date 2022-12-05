@@ -641,7 +641,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           trainData = (blackGlyph, blackLabel)
           output = prettyPrintDf (fcnnMnistLoss2 trainData) Domains{..}
       -- printf "%s" output
-      length output @?= 176576
+      length output @?= 176577
   , testCase "2pretty-print in grey 3 2 fused" $ do
       let (nParams0, lParams1, lParams2, _) = fcnnMnistLen2 4 3
           vParams1 = V.fromList lParams1
@@ -662,7 +662,7 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
       let trainDataItem = head testData
           output = prettyPrintDf (fcnnMnistLoss2 trainDataItem) parameters0
       -- printf "%s" output
-      length output @?= 183127
+      length output @?= 183128
   , testCase "fcnnMnistTest2LL on 0.1 params0 300 100 width 10k testset" $ do
       let (nParams0, lParams1, lParams2, _) = fcnnMnistLen2 300 100
           vParams1 = V.fromList lParams1
