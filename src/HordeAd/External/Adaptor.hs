@@ -47,7 +47,7 @@ valueAtDomains vals flattenedParameters f =
 rev :: forall a vals r advals d.
        ( r ~ Scalar vals, vals ~ Value advals
        , d ~ Mode advals, d ~ 'ADModeGradient
-       , HasDelta r, IsPrimalAndHasFeatures d a r
+       , HasDelta r, IsPrimalAndHasInputs d a r
        , Adaptable advals )
     => (advals -> ADVal d a) -> vals
     -> vals
@@ -57,7 +57,7 @@ rev f vals = revDt f vals 1
 revDt :: forall a vals r advals d.
          ( r ~ Scalar vals, vals ~ Value advals
          , d ~ Mode advals, d ~ 'ADModeGradient
-         , HasDelta r, IsPrimalAndHasFeatures d a r
+         , HasDelta r, IsPrimalAndHasInputs d a r
          , Adaptable advals )
       => (advals -> ADVal d a) -> vals -> a
       -> vals

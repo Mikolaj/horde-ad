@@ -12,7 +12,7 @@ module HordeAd.Core.DualNumber
   ( module HordeAd.Core.DualNumber
   , ADVal, dD, dDnotShared
   , ADMode(..), ADModeAndNum
-  , IsPrimal (..), IsPrimalAndHasFeatures, HasDelta
+  , IsPrimal (..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
   , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
   ) where
 

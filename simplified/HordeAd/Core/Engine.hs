@@ -65,7 +65,7 @@ valueOnDomains f parameters =
 -- * Evaluation that computes gradients.
 
 revOnADInputs
-  :: (HasDelta r, IsPrimalAndHasFeatures 'ADModeGradient a r)
+  :: (HasDelta r, IsPrimalAndHasInputs 'ADModeGradient a r)
   => a
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
   -> ADInputs 'ADModeGradient r
@@ -88,7 +88,7 @@ revOnADInputs dt f inputs@ADInputs{..} =
 -- Also, as of now, @revOnDomains@ is restricted to objective functions with scalar
 -- codomains, while VJP is fully general.
 revOnDomains
-  :: (HasDelta r, IsPrimalAndHasFeatures 'ADModeGradient a r)
+  :: (HasDelta r, IsPrimalAndHasInputs 'ADModeGradient a r)
   => a
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
   -> Domains r
@@ -175,13 +175,13 @@ prettyPrintDf f parameters =
   in ppShow deltaTopLevel
 
 generateDeltaInputs
-  :: forall r. ADModeAndNum 'ADModeGradient r
+  :: forall r. HasDelta r
   => Domains r
   -> ( Data.Vector.Vector (Dual 'ADModeGradient r)
      , Data.Vector.Vector (Dual 'ADModeGradient (Vector r)) )
 generateDeltaInputs Domains{..} =
   let intToInput :: forall a v.
-                    (IsPrimalAndHasFeatures 'ADModeGradient a r, V.Vector v a)
+                    (IsPrimalAndHasInputs 'ADModeGradient a r, V.Vector v a)
                  => v a -> Data.Vector.Vector (Dual 'ADModeGradient a)
       intToInput p = V.generate (V.length p) (dInput . toInputId)
       !v0 = intToInput domains0

@@ -34,7 +34,7 @@ module HordeAd.Core.DualClass
     ADVal, pattern D, dD, dDnotShared
   , ADMode(..), ADModeAndNum
   , -- * The less often used part of the mid-level API that gets re-exported in high-level API; it leaks implementation details
-    IsPrimal(..), IsPrimalAndHasFeatures, HasDelta
+    IsPrimal(..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
     Dual, HasRanks(..), HasInputs(..)
   , dummyDual, toShapedOrDummy, toDynamicOrDummy
@@ -103,8 +103,11 @@ type IsPrimalWithScalar (d :: ADMode) a r =
 
 -- | A shorthand for a useful set of constraints.
 type IsPrimalAndHasFeatures (d :: ADMode) a r =
-  ( IsPrimalWithScalar d a r
-  , HasInputs a, RealFloat a )
+  (IsPrimalWithScalar d a r, RealFloat a)
+
+-- | A shorthand for a useful set of constraints.
+type IsPrimalAndHasInputs (d :: ADMode) a r =
+  (IsPrimalAndHasFeatures d a r, HasInputs a)
 
 -- | A mega-shorthand for a bundle of connected type constraints.
 -- The @Scalar@ in the name means that the second argument is the underlying
@@ -123,6 +126,7 @@ type ADModeAndNum (d :: ADMode) r =
 
 -- | Is a scalar and will be used to compute gradients via delta-expressions.
 type HasDelta r = ( ADModeAndNum 'ADModeGradient r
+                  , HasInputs r
                   , Dual 'ADModeGradient r ~ Delta0 r )
 
 
