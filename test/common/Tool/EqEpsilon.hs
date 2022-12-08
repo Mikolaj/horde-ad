@@ -318,6 +318,7 @@ assertClose expected actual = do
   eqEpsilon <- readIORef eqEpsilonRef
   assertEqualUpToEpsilon (fromRational eqEpsilon) expected actual
 
+infix 1 @?~
 (@?~) :: (AssertEqualUpToEpsilon z a)
       => a -- ^ The actual value
       -> a -- ^ The expected value
