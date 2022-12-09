@@ -100,7 +100,7 @@ import           Text.Show.Functions ()
 -- in which subterms with the same node identifier are collapsed).
 -- Only the @Input@ nodes of all ranks have a separate data storage.
 -- The per-rank `InputId` identifiers in the @Input@ term constructors
--- are indexes into contiguous vectors of contangents of exclusively @Input@
+-- are indexes into contiguous vectors of cotangents of exclusively @Input@
 -- subterms of the whole term. The value at that index is the partial
 -- derivative of the objective function (represented by the whole term,
 -- or more precisely by (the data flow graph of) its particular
@@ -254,7 +254,7 @@ data DeltaBinding r =
 -- in terms of forward derivatives, since it's more straightforward.
 -- Let @r@ be the type of underlying scalars. Let @f@ be a mathematical
 -- differentiable function that takes arguments (a collection
--- of fininte maps or vectors) of type @Domains r@ and produces
+-- of finite maps or vectors) of type @Domains r@ and produces
 -- a single result of type @r@. Let a dual number counterpart
 -- of @f@ applied to a fixed collection of parameters @P@
 -- of type @Domains r@ be represented as a Haskell value @b@.
@@ -289,8 +289,8 @@ gradientFromDelta dim0 dim1 deltaDt =
   -- to check if any update has already been performed to a cell
   -- (allocating big vectors filled with zeros is too costly,
   -- especially if never used in an iteration, and adding to such vectors
-  -- and especially using them as scaling factors is wasteful; additionally,
-  -- it may not be easy to deduce the sizes of the vectors).
+  -- and especially using them as cotangent accumulators is wasteful;
+  -- additionally, it may not be easy to deduce the sizes of the vectors).
   let s0 =
         let iMap0 = EM.fromDistinctAscList
                     $ zip [toInputId 0 ..]
@@ -318,7 +318,7 @@ buildFinMaps s0 deltaDt =
   -- The first argument is the evaluation state being modified,
   -- the second is the cotangent accumulator that will become an actual
   -- cotangent contribution when complete (see below for an explanation)
-  -- and the third argument is the node itself.
+  -- and the third argument is the node to evaluate.
   let eval0 :: EvalState r -> r -> Delta0 r -> EvalState r
       eval0 s !c = \case
         Zero0 -> s
@@ -386,7 +386,7 @@ buildFinMaps s0 deltaDt =
               let f v = v V.// [(ix, v V.! ix + c)]
               in s {dMap1 = EM.adjust f n $ dMap1 s}
                 -- This would be an asymptotic optimization compared to
-                -- the general case, if not for the non-mutable update,
+                -- the general case below, if not for the non-mutable update,
                 -- which implies copying the whole @v@ vector,
                 -- so it's only several times faster (same allocation,
                 -- but not adding to each cell of @v@).

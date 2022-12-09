@@ -8,9 +8,9 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 #endif
--- | The second component of our rendition of dual numbers,
--- delta expressions, with its semantics.
--- Neel Krishnaswami calls it \"sparse vector expressions\",
+-- | The second component of our rendition of dual numbers:
+-- delta expressions, with their semantics.
+-- Neel Krishnaswami calls them \"sparse vector expressions\",
 -- and indeed even in the simplest case of an objective function
 -- defined on scalars only, the codomain of the function that computes
 -- gradients from such delta expressions is a set of vectors, because
@@ -20,8 +20,8 @@
 -- of multiple vectors, matrices and tensors and when the expressions themselves
 -- contain vectors, matrices and tensors. However, a single tiny delta
 -- expression (e.g., a sum of two inputs) may denote a vector of matrices.
--- Even a delta expression containing a big matrix denotes something much
--- bigger: a whole vector of such matrices and more.
+-- Even a delta expression containing a big matrix usually denotes something
+-- much bigger: a whole vector of such matrices and more.
 --
 -- The algebraic structure here is an extension of vector space.
 -- The crucial extra constructor of an input replaces the one-hot
@@ -30,10 +30,9 @@
 -- and reducing dimensions (ranks).
 --
 -- This is an internal low-level API, while the module @DualClass@
--- is an intermediate mid-level API that generates 'NodeId' identifiers,
--- wraps delta-expression datatype constructors in smart constructors
+-- is an intermediate mid-level API that generates 'NodeId' identifiers
 -- and provides a generalization to other kinds of second components
--- of dual numbers, e.g., the same as primal component, for fast computation
+-- of dual numbers, e.g., the same as primal component for fast computation
 -- of forward derivatives (because @derivativeFromDelta@ below,
 -- computing derivatives from delta-expressions, is slow once
 -- the expressions grow large enough to affect cache misses).
@@ -100,11 +99,12 @@ import           HordeAd.Internal.OrthotopeOrphanInstances (liftVS2, liftVT2)
 -- have analogues at the level of vectors, matrices and arbitrary tensors,
 -- but the other operations are specific to the rank.
 --
--- The `NodeId` identifier, which is the first argument of the @Let0@
--- constructor, marks the unique identity of a subterm among
--- all subtrees of all top level delta expression terms.
--- The uniqueness of the identity is used to avoid processing
--- shared subterm repeatedly in gradient and derivative computations.
+-- The `NodeId` identifier that appears in a @Let0 n d@ expression
+-- is the unique identity stamp of subterm @d@, that is, there is
+-- no different term @e@ such that @Let0 n e@ appears in any delta
+-- expression term in memory during the same run of an executable.
+-- The subterm identity is used to avoid evaluating shared
+-- subterms repeatedly in gradient and derivative computations.
 -- The identifier also represents data dependencies among terms
 -- for the purpose of gradient and derivative computation. Computation for
 -- a term may depend only on data obtained from terms with lower value
@@ -118,18 +118,19 @@ import           HordeAd.Internal.OrthotopeOrphanInstances (liftVS2, liftVT2)
 -- are going to be larger than their ancestors').
 --
 -- When computing gradients, node identifiers are also used to index,
--- directly or indirectly, the data accumulated for each node, in the form of
--- cotangents, that is partial derivatives of the objective function
--- with respect to the position of the node in the whole term,
--- as if the node was replaced by a variable over which we differentiate
--- (and, more generally, a collection of such positions if the term
--- is shared between them, as marked by an identical node identifier).
--- The exception are the @Input@ nodes of all ranks that fill the role
--- of such variables and that have a separate data storage.
+-- directly or indirectly, the data accumulated for each node,
+-- in the form of cotangents, that is partial derivatives
+-- of the objective function with respect to the position(s)
+-- of the node in the whole objective function dual number term
+-- (or, more precisely, with respect to the single node in the term DAG,
+-- in which subterms with the same node identifier are collapsed).
+-- Only the @Input@ nodes of all ranks have a separate data storage.
 -- The per-rank `InputId` identifiers in the @Input@ term constructors
--- are indexes into contiguous vectors of contangents of exclusively @Input@
+-- are indexes into contiguous vectors of cotangents of exclusively @Input@
 -- subterms of the whole term. The value at that index is the partial
--- derivative of the objective function (represented by the whole term)
+-- derivative of the objective function (represented by the whole term,
+-- or more precisely by (the data flow graph of) its particular
+-- evaluation from which the delta expression originates)
 -- with respect to the input parameter component at that index
 -- in the objective function domain. The collection of all such
 -- vectors of partial derivatives across all ranks is the gradient.
@@ -378,10 +379,11 @@ data DeltaDt r =
   | forall sh. OS.Shape sh
     => DeltaDtS (OS.Array sh r) (DeltaS sh r)
 
--- | Node identifiers left to be processed, with their corresponding
+-- | Node identifiers left to be evaluated, with their corresponding
 -- index into @dMap@ finite map and delta expression.
--- We can't process them at once, because their other shared copies
--- may still not be processed, so we'd not take advantage of the sharing.
+-- We can't evaluate them at once, because their other shared copies
+-- may still not be processed, so we'd not take advantage of the sharing
+-- and not take into account the whole summed context when finally evaluating.
 data DeltaBinding r =
     DeltaBinding0 (DeltaId r) (Delta0 r)
   | DeltaBinding1 (DeltaId (Vector r)) (Delta1 r)
@@ -413,7 +415,7 @@ data DeltaBinding r =
 -- in terms of forward derivatives, since it's more straightforward.
 -- Let @r@ be the type of underlying scalars. Let @f@ be a mathematical
 -- differentiable function that takes arguments (a collection
--- of fininte maps or vectors) of type @Domains r@ and produces
+-- of finite maps or vectors) of type @Domains r@ and produces
 -- a single result of type @r@. Let a dual number counterpart
 -- of @f@ applied to a fixed collection of parameters @P@
 -- of type @Domains r@ be represented as a Haskell value @b@.
@@ -458,8 +460,12 @@ gradientFromDelta dim0 dim1 dim2 dimX deltaDt =
   :: Int -> Int -> Int -> Int -> DeltaDt Double
   -> Domains Double #-}
 
--- | Create vectors (representing finite maps) and an intmap
--- that store the state of evaluation.
+-- | Create vectors (representing finite maps) and an intmap that store
+-- the state of evaluation, which holds values associated with inputs
+-- and with (possibly shared) term tree nodes. For a pure rendition
+-- of (a subset of) the state, with data invariants, see datatype
+-- @EvalState@ in module @HordeAd.Internal.Delta@ in the codebase
+-- of simplified horde-ad.
 --
 -- The vectors are, morally, indexed by input identifiers and node identifiers
 -- and they eventually store cotangents for their respective nodes.
@@ -470,10 +476,11 @@ gradientFromDelta dim0 dim1 dim2 dimX deltaDt =
 -- The vectors indexed by input identifiers are initialized
 -- with dummy values so that it's cheap to check
 -- if any update has already been performed to a cell
--- (allocating big matrices filled with zeros is too costly,
+-- (allocating big vectors and matrices filled with zeros is too costly,
 -- especially if never used in an iteration, and adding to such matrices
--- and especially using them as scaling factors is wasteful; additionally,
--- it may not be easy to deduce the sizes of the matrices).
+-- and especially using them as cotangent accumulators is wasteful;
+-- additionally, it may not be easy to deduce the sizes of the vectors
+-- and matrices).
 initializeFinMaps
   :: forall s r. Numeric r
   => Int -> Int -> Int -> Int
@@ -525,7 +532,7 @@ initializeFinMaps dim0 dim1 dim2 dimX = do
   len1 <- newSTRefU (VM.length dMap1')
   len2 <- newSTRefU (VM.length dMap2')
   lenX <- newSTRefU (VM.length dMapX')
-  -- Node identifiers left to be processed, with their corresponding
+  -- Node identifiers left to be evaluated, with their corresponding
   -- index into @dMap@ finite map and delta expression.
   nMap <- newSTRef EM.empty
   return ( iMap0, iMap1, iMap2, iMapX
@@ -561,9 +568,9 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                                else liftVT2 (+) v cs
 
       -- This function modifies state comprising of vectors and a map.
-      -- Its second argument is a delta expression tree node and the first
-      -- is the cotangent contribution for this term tree, see below
-      -- for an explanation.
+      -- The first argument is the cotangent accumulator that will become
+      -- an actual cotangent contribution when complete (see below for
+      -- an explanation) and the second argument is the node to evaluate.
       eval0 :: r -> Delta0 r -> ST s ()
       eval0 !c = \case
         Zero0 -> return ()
@@ -578,28 +585,33 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                       _ -> True)
                     $ do
           -- In this context, by construction, @d@ is the dual component
-          -- of a dual number. Let's say that, at this point, evaluation
+          -- of a dual number term. Let's say that, at this point, evaluation
           -- considers position (node) p out of possibly multiple positions
-          -- at which that dual number resides in the term tree
+          -- at which that dual number resides in the whole term tree
           -- of the dual number representation of the objective function.
-          -- If so, the @c@ argument of @eval0@, called cotangent
-          -- contribution, is the partial derivative of the objective
-          -- function with respect to position p.
+          -- (Equivalently, considers edges p, one of many leading to the only
+          -- node with identifier @n@ in the DAG representing the term).
+          -- If so, the @c@ argument of @eval0@ is the cotangent
+          -- contribution for position p, that is, the partial derivative
+          -- of the objective function with respect to position p.
           --
           -- If there are indeed multiple such positions (the term is shared)
           -- then, over the course of evaluation, cotangent contributions
           -- of them all are gradually accumulated in the finite
           -- maps and eventually their total sum represents the total
-          -- influence of the shared term @Let0 n d@ on the objective
-          -- function's behaviour. This total influence is called
-          -- the cotangent of @Let0 n d@ (or, in short, the cotangent
-          -- of the node identifier @n@). In other words, a cotangent of @n@
-          -- is the partial derivative of the objective function with respect
-          -- to the collection of all positions (subterm nodes) containing
-          -- @Let0 n d@, as if the same differentiation variable was placed
-          -- in all of these nodes.
+          -- influence of the objective function's subcomputation
+          -- (more precisely, subgraph of the data flow graph in question)
+          -- corresponding to the shared term @Let0 n d@. This total
+          -- influence over the objective function's behaviour is called
+          -- in short the cotangent of the node identifier @n@.
+          -- In other words, the cotangent of @n@ is the sum,
+          -- over all positions (edges) q in the global delta-expression DAG
+          -- that are a reference to node @n@, of the partial derivative
+          -- of the objective function with respect to the subcomputation
+          -- corresponding to @q@ (meaning, subcomputations denoted by
+          -- Haskell terms whose dual components are @Let n ...@).
           --
-          -- For input terms, the eventual lists of cotangents end up
+          -- For @Input@ terms, the eventual lists of cotangents end up
           -- in the cells of the gradient vectors that are the final
           -- result of the evaluation.
           nm <- readSTRef nMap
