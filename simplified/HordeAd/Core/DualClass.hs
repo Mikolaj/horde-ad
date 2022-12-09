@@ -112,7 +112,7 @@ type IsPrimalAndHasInputs (d :: ADMode) a r =
 -- scalar type of a well behaved (wrt the differentiation mode in the first
 -- argument) collection of primal and dual components of dual numbers.
 type ADModeAndNum (d :: ADMode) r =
-  ( Ord r, Numeric r, Show r
+  ( Numeric r, Show r
   , HasRanks (Vector r) d r
   , HasRanks (Ast r d (Vector r)) d (Ast r d r)
   , IsPrimalAndHasFeatures d r r
