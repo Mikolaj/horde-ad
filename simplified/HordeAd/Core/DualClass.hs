@@ -476,7 +476,7 @@ data Ast :: Type -> ADMode -> Type -> Type where
   AstVar1 :: String -> Ast r d (Vector r)
 
   AstOMap1 :: (Ast r d r -> Ast r d r) -> Ast r d (Vector r)
-           -> Ast r d (Vector r)  -- TODO: is the function OK?
+           -> Ast r d (Vector r)  -- TODO: is the function OK? nope
 
   AstSumElements10 :: Ast r d (Vector r) -> Ast r d r
   AstIndex10 :: Ast r d (Vector r) -> AstInt r d -> Ast r d r

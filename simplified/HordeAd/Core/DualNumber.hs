@@ -349,10 +349,15 @@ build1 = build1Closure
 buildAst1
   :: ADModeAndNum d r
   => Int -> (String, ADVal d (Ast r d r)) -> ADVal d (Vector r)
-buildAst1 n (var, D u _) = case u of
+buildAst1 n (var, D u _) = buildAst1Rec n (var, u)
+
+buildAst1Rec
+  :: ADModeAndNum d r
+  => Int -> (String, Ast r d r) -> ADVal d (Vector r)
+buildAst1Rec n (var, u) = case u of
   AstOp codeOut args ->
-    interpretAstOp (\v -> buildAst1 n (var, dD v undefined)) codeOut args
-      -- TODO: perhaps partially fuse back before taking interpreting?
+    interpretAstOp (\v -> buildAst1Rec n (var, v)) codeOut args
+      -- TODO: perhaps partially fuse back before interpreting?
 -- TODO:
 -- AstCond b x1 x2 -> ...
 --   handle conditionals that depend on var, so that we produce conditional
@@ -393,9 +398,14 @@ map1Closure f d@(D v _) = build1Closure (V.length v) $ \i -> f (index10 d i)
 mapAst1
   :: ADModeAndNum d r
   => (String, ADVal d (Ast r d r)) -> ADVal d (Vector r) -> ADVal d (Vector r)
-mapAst1 (var, D u _) e@(D v _v') = case u of
+mapAst1 (var, D u _) e = mapAst1Rec (var, u) e
+
+mapAst1Rec
+  :: ADModeAndNum d r
+  => (String, Ast r d r) -> ADVal d (Vector r) -> ADVal d (Vector r)
+mapAst1Rec (var, u) e@(D v _v') = case u of
   AstOp codeOut args ->
-    interpretAstOp (\w -> mapAst1 (var, dD w undefined) e) codeOut args
+    interpretAstOp (\w -> mapAst1Rec (var, w) e) codeOut args
       -- TODO: perhaps partially fuse back before taking interpreting?
 -- TODO:
 -- AstCond b x1 x2 -> ...
