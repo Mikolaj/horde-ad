@@ -25,8 +25,7 @@ foo (x,y,z) =
   let w = x * sin y
   in atan2 z w + z * w
 
--- TODO: probably dummy instances suffice to extend to full ADModeAndNum d r
-bar :: (RealFloat r, IsPrimal d r)
+bar :: ADModeAndNumNew d r
     => (ADVal d r, ADVal d r) -> ADVal d r
 bar (x, y) =
   let w = foo (x, y, x) * sin y

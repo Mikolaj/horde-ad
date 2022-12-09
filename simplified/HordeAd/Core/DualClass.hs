@@ -31,14 +31,14 @@
 module HordeAd.Core.DualClass
   ( -- * The most often used part of the mid-level API that gets re-exported in high-level API
     ADVal, pattern D, dD, dDnotShared
-  , ADMode(..), ADModeAndNum
+  , ADMode(..), ADModeAndNum, ADModeAndNumNew, IsVectorWithScalar
   , -- * The less often used part of the mid-level API that gets re-exported in high-level API; it leaks implementation details
     IsPrimal(..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
     Dual, HasRanks(..), HasInputs(..), NumOf, dummyDual
   , -- * Internal operations, exposed for tests, debugging and experiments
     unsafeGetFreshId
-  , Ast(..), AstVar(..), AstInt(..), AstBool(..)
+  , VectorLike(..), Ast(..), AstVar(..), AstInt(..), AstBool(..)
   , CodeOut(..), CodeIntOut(..), CodeBoolOut(..), RelOut(..)
   ) where
 
@@ -112,14 +112,21 @@ type IsPrimalAndHasInputs (d :: ADMode) a r =
 -- scalar type of a well behaved (wrt the differentiation mode in the first
 -- argument) collection of primal and dual components of dual numbers.
 type ADModeAndNum (d :: ADMode) r =
-  ( HasRanks (Vector r) d r
+  ( Ord r, Numeric r, Show r
+  , HasRanks (Vector r) d r
   , HasRanks (Ast r d (Vector r)) d (Ast r d r)
-  , Ord r, Numeric r, Show r
   , IsPrimalAndHasFeatures d r r
   , IsPrimalAndHasFeatures d (Ast r d r) (Ast r d r)
   , IsPrimalAndHasFeatures d (Vector r) r
   , IsPrimalAndHasFeatures d (Ast r d (Vector r)) (Ast r d r)
   )
+
+type ADModeAndNumNew (d :: ADMode) r = IsPrimalAndHasFeatures d r r
+
+-- | A shorthand for a useful set of constraints.
+type IsVectorWithScalar (d :: ADMode) v r =
+  ( IsPrimalAndHasFeatures d r r, IsPrimalAndHasFeatures d v r, HasRanks v d r
+  , VectorLike v )
 
 -- | Is a scalar and will be used to compute gradients via delta-expressions.
 type HasDelta r = ( ADModeAndNum 'ADModeGradient r
@@ -461,6 +468,21 @@ wrapDelta1 !d = unsafePerformIO $ do
 
 
 -- * Definitions for the Ast primal value wrapper
+
+class VectorLike vector where
+  llength :: vector -> NumOf vector
+  lsumElements10 :: vector -> Element vector
+  lindex10 :: vector -> NumOf vector -> Element vector
+
+instance Numeric r => VectorLike (Vector r) where
+  llength = V.length
+  lsumElements10 = LA.sumElements
+  lindex10 = (V.!)
+
+instance VectorLike (Ast r d (Vector r)) where
+  llength = AstLength
+  lsumElements10 = AstSumElements10
+  lindex10 = AstIndex10
 
 -- TODO: consider sharing Ast expressions, both within the primal part
 -- and between primal and dual

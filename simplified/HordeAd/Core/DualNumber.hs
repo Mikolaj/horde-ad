@@ -11,7 +11,7 @@
 module HordeAd.Core.DualNumber
   ( module HordeAd.Core.DualNumber
   , ADVal, dD, dDnotShared
-  , ADMode(..), ADModeAndNum
+  , ADMode(..), ADModeAndNum, ADModeAndNumNew, IsVectorWithScalar
   , IsPrimal (..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
   , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
   , Ast(..), AstVar(..), AstInt(..), AstBool(..)
@@ -22,7 +22,7 @@ import Prelude
 
 import           Data.List.Index (imap)
 import qualified Data.Map.Strict as M
-import           Data.MonoTraversable (Element, MonoFunctor (omap))
+import           Data.MonoTraversable (MonoFunctor (omap))
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -179,40 +179,19 @@ reluLeaky v@(D u _) =
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) u
   in scale oneIfGtZero v
 
-varAst0 :: ADModeAndNum d r => String -> ADVal d (Ast r d r)
-varAst0 s = dD (AstVar0 s) undefined
-
 liftToAst :: IsPrimal d (Ast r d a) => ADVal d a -> ADVal d (Ast r d a)
 liftToAst d = dD (AstD d) undefined
 
 
 -- * Operations resulting in a scalar
 
-class VectorLike vector where
-  llength :: vector -> NumOf vector
-  lsumElements10 :: vector -> Element vector
-  lindex10 :: vector -> NumOf vector -> Element vector
+varAst0 :: ADModeAndNumNew d (Ast r d r) => String -> ADVal d (Ast r d r)
+varAst0 s = dD (AstVar0 s) undefined
 
-instance Numeric r => VectorLike (Vector r) where
-  llength = V.length
-  lsumElements10 = LA.sumElements
-  lindex10 = (V.!)
-
-instance VectorLike (Ast r d (Vector r)) where
-  llength = AstLength
-  lsumElements10 = AstSumElements10
-  lindex10 = AstIndex10
-
-sumElements10
-  :: ( IsPrimalAndHasFeatures d a a, HasRanks v d a
-     , VectorLike v, Element v ~ a )
-  => ADVal d v -> ADVal d a
+sumElements10 :: IsVectorWithScalar d v r => ADVal d v -> ADVal d r
 sumElements10 (D u u') = dD (lsumElements10 u) (dSumElements10 u' (llength u))
 
-index10
-  :: ( IsPrimalAndHasFeatures d a a, HasRanks v d a
-     , VectorLike v, Element v ~ a )
-  => ADVal d v -> NumOf v -> ADVal d a
+index10 :: IsVectorWithScalar d v r => ADVal d v -> NumOf v -> ADVal d r
 index10 (D u u') ix = dD (lindex10 u ix) (dIndex10 u' ix (llength u))
 
 minimum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
