@@ -369,6 +369,50 @@ buildAst1 n (var, D u _) = case u of
   _ ->  -- fallback to POPL (memory blowup, but avoids functions on tape)
     build1Elementwise n (interpretLambdaI M.empty (var, u))
 
+map1POPL :: (ADVal d r -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
+         -> Data.Vector.Vector (ADVal d r)
+map1POPL f vd = V.map f vd
+
+-- The list probably fuses away, which may make it a bit faster than
+-- if written using @build1Elementwise@.
+map1Elementwise, map1Closure
+  :: ADModeAndNum d r
+  => (ADVal d r -> ADVal d r) -> ADVal d (Vector r) -> ADVal d (Vector r)
+map1Elementwise f _d@(D v v') =
+  let k = V.length v
+      g ix p = f $ dD p (dIndex10 v' ix k)
+      ds = imap g $ V.toList v
+  in fromList1 ds
+    -- equivalent to @build1Elementwise (V.length v) $ \i -> f (index10 _d i)@
+    -- equivalent to
+    -- @fromVector1 . map1POPL f . rank1toVector
+    --   where rank1toVector d@(D v _v') = V.generate (V.length v) (index10 d)@
+
+map1Closure f d@(D v _) = build1Closure (V.length v) $ \i -> f (index10 d i)
+
+mapAst1
+  :: ADModeAndNum d r
+  => (String, ADVal d (Ast r d r)) -> ADVal d (Vector r) -> ADVal d (Vector r)
+mapAst1 (var, D u _) e@(D v _v') = case u of
+  AstOp codeOut args ->
+    interpretAstOp (\w -> mapAst1 (var, dD w undefined) e) codeOut args
+      -- TODO: perhaps partially fuse back before taking interpreting?
+-- TODO:
+-- AstCond b x1 x2 -> ...
+--   handle conditionals that depend on var, so that we produce conditional
+--   delta expressions of size proportional to the exponent of conditional
+--   nesting, instead of proportional to the number of elements of the tensor
+--
+--   Perhaps partition indexes vs b resulting in bitmasks b1 and b2
+--   and recursively process vectorized b1 * x1 + b2 * x2.
+  AstConst r -> constant (LA.konst r (V.length v))
+  AstD d -> konst1 d (V.length v)
+  AstVar0 var2 | var2 == var -> e  -- identity mapping
+  AstVar0 _var2 -> undefined  -- TODO: a problem, nested map or build
+  -- inaccessible code: AstVar1{} -> error "mapAst1: type mismatch"
+  _ ->  -- fallback to POPL (memory blowup, but avoids functions on tape)
+    map1Elementwise (interpretLambdaD0 M.empty (var, u)) e
+
 interpretLambdaD0 :: (ADModeAndNum d r, IsPrimalAndHasFeatures d a r)
                   => M.Map String (AstVar r d) -> (String, Ast r d a)
                   -> ADVal d r -> ADVal d a
@@ -511,50 +555,6 @@ interpretAstRel f GOut [u, v] = f u > f v
 interpretAstRel _ codeRelOut args =
   error $ "interpretAstRel: wrong number of arguments"
           ++ show (codeRelOut, length args)
-
-map1POPL :: (ADVal d r -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
-         -> Data.Vector.Vector (ADVal d r)
-map1POPL f vd = V.map f vd
-
--- The list probably fuses away, which may make it a bit faster than
--- if written using @build1Elementwise@.
-map1Elementwise, map1Closure
-  :: ADModeAndNum d r
-  => (ADVal d r -> ADVal d r) -> ADVal d (Vector r) -> ADVal d (Vector r)
-map1Elementwise f _d@(D v v') =
-  let k = V.length v
-      g ix p = f $ dD p (dIndex10 v' ix k)
-      ds = imap g $ V.toList v
-  in fromList1 ds
-    -- equivalent to @build1Elementwise (V.length v) $ \i -> f (index10 _d i)@
-    -- equivalent to
-    -- @fromVector1 . map1POPL f . rank1toVector
-    --   where rank1toVector d@(D v _v') = V.generate (V.length v) (index10 d)@
-
-map1Closure f d@(D v _) = build1Closure (V.length v) $ \i -> f (index10 d i)
-
-mapAst1
-  :: ADModeAndNum d r
-  => (String, ADVal d (Ast r d r)) -> ADVal d (Vector r) -> ADVal d (Vector r)
-mapAst1 (var, D u _) e@(D v _v') = case u of
-  AstOp codeOut args ->
-    interpretAstOp (\w -> mapAst1 (var, dD w undefined) e) codeOut args
-      -- TODO: perhaps partially fuse back before taking interpreting?
--- TODO:
--- AstCond b x1 x2 -> ...
---   handle conditionals that depend on var, so that we produce conditional
---   delta expressions of size proportional to the exponent of conditional
---   nesting, instead of proportional to the number of elements of the tensor
---
---   Perhaps partition indexes vs b resulting in bitmasks b1 and b2
---   and recursively process vectorized b1 * x1 + b2 * x2.
-  AstConst r -> constant (LA.konst r (V.length v))
-  AstD d -> konst1 d (V.length v)
-  AstVar0 var2 | var2 == var -> e  -- identity mapping
-  AstVar0 _var2 -> undefined  -- TODO: a problem, nested map or build
-  -- inaccessible code: AstVar1{} -> error "mapAst1: type mismatch"
-  _ ->  -- fallback to POPL (memory blowup, but avoids functions on tape)
-    map1Elementwise (interpretLambdaD0 M.empty (var, u)) e
 
 -- No padding; remaining areas ignored.
 maxPool1 :: ADModeAndNum d r
