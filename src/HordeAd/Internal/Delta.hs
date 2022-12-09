@@ -1063,7 +1063,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
 -- to compute it's dual number result) and along the direction vector(s)
 -- given in the last parameter called @ds@.
 derivativeFromDelta
-  :: forall r. (Numeric r, Num (Vector r))
+  :: (Numeric r, Num (Vector r))
   => Int -> Int -> Int -> Int -> Delta0 r -> Domains r -> r
 derivativeFromDelta dim0 dim1 dim2 dimX deltaTopLevel ds =
   runST $ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel ds
