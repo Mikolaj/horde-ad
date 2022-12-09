@@ -13,7 +13,7 @@ import qualified Data.Array.ShapedS as OS
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
-import qualified Numeric.LinearAlgebra.Devel
+import           Numeric.LinearAlgebra.Data (arctan2)
 
 liftVT :: Numeric r
        => (Vector r -> Vector r)
@@ -163,10 +163,9 @@ instance (Num (Vector r), Numeric r, Fractional r, Ord r)
   properFraction = undefined
     -- very low priority, since these are all extremely not continuous
 
--- TODO: is there atan2 in hmatrix or can it be computed faster than this?
 instance ( Floating (Vector r), Numeric r, RealFloat r )
          => RealFloat (Vector r) where
-  atan2 = Numeric.LinearAlgebra.Devel.zipVectorWith atan2
+  atan2 = arctan2
     -- we can be selective here and omit the other methods,
     -- most of which don't even have a differentiable codomain
 
@@ -187,7 +186,7 @@ instance (Num (Vector r), Numeric r, Fractional r, Ord r, Ord (Matrix r))
 
 instance ( Floating (Vector r), Numeric r, RealFloat r, Ord (Matrix r) )
          => RealFloat (Matrix r) where
-  atan2 = Numeric.LinearAlgebra.Devel.liftMatrix2 atan2
+  atan2 = arctan2
     -- we can be selective here and omit the other methods,
     -- most of which don't even have a differentiable codomain
 

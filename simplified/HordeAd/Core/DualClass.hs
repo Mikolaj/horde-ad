@@ -51,7 +51,7 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
-import qualified Numeric.LinearAlgebra.Devel
+import           Numeric.LinearAlgebra.Data (arctan2)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Text.Show.Functions ()
 
@@ -661,10 +661,9 @@ instance (Num (Vector r), Numeric r, Fractional r, Ord r)
   properFraction = undefined
     -- very low priority, since these are all extremely not continuous
 
--- TODO: is there atan2 in hmatrix or can it be computed faster than this?
 instance ( Floating (Vector r), Numeric r, RealFloat r )
          => RealFloat (Vector r) where
-  atan2 = Numeric.LinearAlgebra.Devel.zipVectorWith atan2
+  atan2 = arctan2
     -- we can be selective here and omit the other methods,
     -- most of which don't even have a differentiable codomain
 
