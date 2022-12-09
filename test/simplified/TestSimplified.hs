@@ -64,7 +64,7 @@ testFooMap :: Assertion
 testFooMap =
   (domains0 $ fst
    $ revOnDomains
-       (LA.konst 1 130)  -- 1 wrong due to fragility of hmatrix optimization
+       (LA.konst 1 2)  -- 1 wrong due to fragility of hmatrix optimization
        (\adinputs -> fooMap1 (adinputs `at0` 0))
        (domainsFrom01 (V.singleton (1.1 :: Double)) V.empty))
   @?~ V.fromList [2.70437106657724e7]

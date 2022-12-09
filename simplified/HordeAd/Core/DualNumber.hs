@@ -349,7 +349,8 @@ buildAst1Rec n (var, u) = case u of
   AstD d -> konst1 d n
   AstIndex10 v (AstIntVar var2) | var2 == var ->
     slice1 0 n $ interpretAst M.empty v
-      -- if a more complex index expression, construct 'gather' somehow
+      -- TODO: add a new 'gather' operation somehow and if a more complex index
+      -- expression, construct 'gather'
   _ ->  -- fallback to POPL (memory blowup, but avoids functions on tape)
     build1Elementwise n (interpretLambdaI M.empty (var, u))
 
