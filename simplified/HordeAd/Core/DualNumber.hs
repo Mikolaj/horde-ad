@@ -345,24 +345,27 @@ build1Closure n f =
 
 build1 = build1Closure
 
--- TODO: generalize to this to vector, thus nesting buildAst1
+-- TODO: generalize this to vector, thus enabling nesting buildAst1
 buildAst1
   :: ADModeAndNum d r
   => Int -> (String, ADVal d (Ast r d r)) -> ADVal d (Vector r)
 buildAst1 n (var, D u _) = case u of
--- TODO:
--- AstOp PlusOut [e1, e2] -> ...
---   if works like bulk, replace by bulk and then fuse back somehow
+  AstOp codeOut args ->
+    interpretAstOp (\v -> buildAst1 n (var, dD v undefined)) codeOut args
+      -- TODO: perhaps partially fuse back before taking interpreting?
 -- TODO:
 -- AstCond b x1 x2 -> ...
 --   handle conditionals that depend on var, so that we produce conditional
 --   delta expressions of size proportional to the exponent of conditional
 --   nesting, instead of proportional to the number of elements of the tensor
-  AstIndex10 v (AstIntVar var2) | var2 == var ->
-    slice1 0 n $ interpretAst M.empty v
-    -- if a more complex index expression, construct 'gather' somehow
+--
+--   Perhaps partition indexes vs b resulting in bitmasks b1 and b2
+--   and recursively process vectorized b1 * x1 + b2 * x2.
   AstConst r -> constant (LA.konst r n)
   AstD d -> konst1 d n
+  AstIndex10 v (AstIntVar var2) | var2 == var ->
+    slice1 0 n $ interpretAst M.empty v
+      -- if a more complex index expression, construct 'gather' somehow
   _ ->  -- fallback to POPL (memory blowup, but avoids functions on tape)
     build1Elementwise n (interpretLambdaI M.empty (var, u))
 
@@ -534,13 +537,22 @@ mapAst1
   :: ADModeAndNum d r
   => (String, ADVal d (Ast r d r)) -> ADVal d (Vector r) -> ADVal d (Vector r)
 mapAst1 (var, D u _) e@(D v _v') = case u of
+  AstOp codeOut args ->
+    interpretAstOp (\w -> mapAst1 (var, dD w undefined) e) codeOut args
+      -- TODO: perhaps partially fuse back before taking interpreting?
 -- TODO:
--- AstOp PlusOut [e1, e2] -> ...
 -- AstCond b x1 x2 -> ...
-  AstVar0 var2 | var2 == var -> e  -- identity mapping
-  AstVar0 _var2 -> undefined  -- TODO: a problem, nested map or build
+--   handle conditionals that depend on var, so that we produce conditional
+--   delta expressions of size proportional to the exponent of conditional
+--   nesting, instead of proportional to the number of elements of the tensor
+--
+--   Perhaps partition indexes vs b resulting in bitmasks b1 and b2
+--   and recursively process vectorized b1 * x1 + b2 * x2.
   AstConst r -> constant (LA.konst r (V.length v))
   AstD d -> konst1 d (V.length v)
+  AstVar0 var2 | var2 == var -> e  -- identity mapping
+  AstVar0 _var2 -> undefined  -- TODO: a problem, nested map or build
+  -- inaccessible code: AstVar1{} -> error "mapAst1: type mismatch"
   _ ->  -- fallback to POPL (memory blowup, but avoids functions on tape)
     map1Elementwise (interpretLambdaD0 M.empty (var, u)) e
 
