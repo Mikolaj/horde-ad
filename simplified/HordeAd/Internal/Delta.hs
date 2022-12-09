@@ -316,8 +316,9 @@ buildFinMaps :: forall r. (Numeric r, Num (Vector r))
              => EvalState r -> DeltaDt r -> EvalState r
 buildFinMaps s0 deltaDt =
   -- The first argument is the evaluation state being modified,
-  -- the second is the cotangent contribution for this term tree node
-  -- (see below for an explanation) and the third argument is the node itself.
+  -- the second is the cotangent accumulator that will become an actual
+  -- cotangent contribution when complete (see below for an explanation)
+  -- and the third argument is the node itself.
   let eval0 :: EvalState r -> r -> Delta0 r -> EvalState r
       eval0 s !r = \case
         Zero0 -> s
@@ -332,9 +333,9 @@ buildFinMaps s0 deltaDt =
           -- of the dual number representation of the objective function.
           -- (Equivalently, considers edges p, one of many leading to the only
           -- node with identifier @n@ in the DAG representing the term).
-          -- If so, the @r@ argument of @eval0@, called cotangent
-          -- contribution, is the partial derivative of the objective
-          -- function with respect to position p.
+          -- If so, the @r@ argument of @eval0@ is the cotangent
+          -- contribution for position p, that is, the partial derivative
+          -- of the objective function with respect to position p.
           --
           -- If there are indeed multiple such positions (the term is shared)
           -- then, over the course of evaluation, cotangent contributions
