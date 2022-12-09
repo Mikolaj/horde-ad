@@ -549,28 +549,28 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
     <- initializeFinMaps dim0 dim1 dim2 dimX
 
   let addToVector :: Vector r -> Vector r -> Vector r
-      addToVector r = \v -> if V.null v then r else v + r
+      addToVector c = \v -> if V.null v then c else v + c
       addToMatrix :: Matrix r -> Matrix r -> Matrix r
-      addToMatrix r = \v -> if LA.rows v <= 0 then r else v + r
+      addToMatrix c = \v -> if LA.rows v <= 0 then c else v + c
       addToArray :: OT.Array r -> OT.Array r -> OT.Array r
-      addToArray r = \v -> if isTensorDummy v then r else liftVT2 (+) v r
+      addToArray c = \v -> if isTensorDummy v then c else liftVT2 (+) v c
       addToArrayS :: OS.Shape sh => OS.Array sh r -> OT.Array r -> OT.Array r
-      addToArrayS r = \v -> let rs = Data.Array.Convert.convert r
+      addToArrayS c = \v -> let cs = Data.Array.Convert.convert c
                             in if isTensorDummy v
-                               then rs
-                               else liftVT2 (+) v rs
+                               then cs
+                               else liftVT2 (+) v cs
 
       -- This function modifies state comprising of vectors and a map.
       -- Its second argument is a delta expression tree node and the first
       -- is the cotangent contribution for this term tree, see below
       -- for an explanation.
       eval0 :: r -> Delta0 r -> ST s ()
-      eval0 !r = \case
+      eval0 !c = \case
         Zero0 -> return ()
         Input0 (InputId i) ->
-          VM.modify iMap0 (+ r) i
-        Scale0 k d -> eval0 (k * r) d
-        Add0 d e -> eval0 r d >> eval0 r e
+          VM.modify iMap0 (+ c) i
+        Scale0 k d -> eval0 (k * c) d
+        Add0 d e -> eval0 c d >> eval0 c e
         Let0 n d -> assert (case d of
                       Zero0 -> False
                       Input0{} -> False
@@ -582,7 +582,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
           -- considers position (node) p out of possibly multiple positions
           -- at which that dual number resides in the term tree
           -- of the dual number representation of the objective function.
-          -- If so, the @r@ argument of @eval0@, called cotangent
+          -- If so, the @c@ argument of @eval0@, called cotangent
           -- contribution, is the partial derivative of the objective
           -- function with respect to position p.
           --
@@ -606,7 +606,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
           case EM.lookup n nm of
             Just (DeltaBinding0 (DeltaId i) _) -> do
               dm <- readSTRef dMap0
-              VM.modify dm (+ r) i
+              VM.modify dm (+ c) i
             Nothing -> do
               did@(DeltaId i) <- readSTRefU didCur0
               writeSTRefU didCur0 $ succDeltaId did
@@ -618,28 +618,28 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                 -- random words than may look like pointers) and we always
                 -- write before reading.
                 dmG <- VM.unsafeGrow dm len
-                VM.write dmG i r
+                VM.write dmG i c
                 writeSTRef dMap0 dmG
                 writeSTRefU len0 $ 2 * len
               else
-                VM.write dm i r
+                VM.write dm i c
             _ -> error "buildFinMaps: corrupted nMap"
 
-        SumElements10 d n -> eval1 (LA.konst r n) d
-        SumElements20 d (rows, cols) -> eval2 (MO.konst r rows cols) d
-        SumElementsX0 d sh -> evalX (OT.constant sh r) d
+        SumElements10 d n -> eval1 (LA.konst c n) d
+        SumElements20 d (rows, cols) -> eval2 (MO.konst c rows cols) d
+        SumElementsX0 d sh -> evalX (OT.constant sh c) d
         Index10 Zero1 _ _ -> return ()  -- shortcut
         Index10 (Input1 (InputId i)) ix k -> do
           let f v = if V.null v
-                    then LA.konst 0 k V.// [(ix, r)]
-                    else v V.// [(ix, v V.! ix + r)]
+                    then LA.konst 0 k V.// [(ix, c)]
+                    else v V.// [(ix, v V.! ix + c)]
           VM.modify iMap1 f i
         Index10 (Let1 n d) ix k -> do
           nm <- readSTRef nMap
           case EM.lookup n nm of
             Just (DeltaBinding1 (DeltaId i) _) -> do
               dm <- readSTRef dMap1
-              let f v = v V.// [(ix, v V.! ix + r)]
+              let f v = v V.// [(ix, v V.! ix + c)]
               VM.modify dm f i
                 -- This would be an asymptotic optimization compared to
                 -- the general case below, if not for the non-mutable update,
@@ -653,7 +653,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
               writeSTRef nMap $! EM.insert n (DeltaBinding1 did d) nm
               len <- readSTRefU len1
               dm <- readSTRef dMap1
-              let v = LA.konst 0 k V.// [(ix, r)]
+              let v = LA.konst 0 k V.// [(ix, c)]
               if i >= len then do
                 dmG <- VM.unsafeGrow dm len
                 VM.write dmG i v
@@ -662,27 +662,27 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
               else
                 VM.write dm i v
             _ -> error "buildFinMaps: corrupted nMap"
-        Index10 d ix k -> eval1 (LA.konst 0 k V.// [(ix, r)]) d
+        Index10 d ix k -> eval1 (LA.konst 0 k V.// [(ix, c)]) d
         Index20 d ix rowsCols -> do
           let mInit = LA.konst 0 rowsCols
-              m = LA.accum mInit const [(ix, r)]  -- TODO: or flip const?
+              m = LA.accum mInit const [(ix, c)]  -- TODO: or flip const?
               mo = MO.MatrixOuter (Just m) Nothing Nothing
           eval2 mo d
-        IndexX0 d ix sh -> evalX (OT.constant sh 0 `OT.update` [(ix, r)]) d
+        IndexX0 d ix sh -> evalX (OT.constant sh 0 `OT.update` [(ix, c)]) d
           -- TODO: perhaps inline eval, just as for Index10
 
-        Dot0 v vd -> eval1 (LA.scale r v) vd
+        Dot0 v vd -> eval1 (LA.scale c v) vd
 
-        FromX0 d -> evalX (OT.scalar r) d
-        FromS0 d -> evalS (OS.scalar r) d
+        FromX0 d -> evalX (OT.scalar c) d
+        FromS0 d -> evalS (OS.scalar c) d
 
       eval1 :: Vector r -> Delta1 r -> ST s ()
-      eval1 !r = \case
+      eval1 !c = \case
         Zero1 -> return ()
         Input1 (InputId i) ->
-          VM.modify iMap1 (addToVector r) i
-        Scale1 k d -> eval1 (k * r) d
-        Add1 d e -> eval1 r d >> eval1 r e
+          VM.modify iMap1 (addToVector c) i
+        Scale1 k d -> eval1 (k * c) d
+        Add1 d e -> eval1 c d >> eval1 c e
         Let1 n d -> assert (case d of
                       Zero1 -> False
                       Input1{} -> False
@@ -693,7 +693,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
           case EM.lookup n nm of
             Just (DeltaBinding1 (DeltaId i) _) -> do
               dm <- readSTRef dMap1
-              VM.modify dm (+ r) i
+              VM.modify dm (+ c) i
             Nothing -> do
               did@(DeltaId i) <- readSTRefU didCur1
               writeSTRefU didCur1 $ succDeltaId did
@@ -702,48 +702,48 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
               dm <- readSTRef dMap1
               if i >= len then do
                 dmG <- VM.unsafeGrow dm len
-                VM.write dmG i r
+                VM.write dmG i c
                 writeSTRef dMap1 dmG
                 writeSTRefU len1 $ 2 * len
               else
-                VM.write dm i r
+                VM.write dm i c
             _ -> error "buildFinMaps: corrupted nMap"
 
-        FromList1 lsd -> imapM_ (\i d -> eval0 (r V.! i) d) lsd
+        FromList1 lsd -> imapM_ (\i d -> eval0 (c V.! i) d) lsd
           -- lsd is a list (boxed vector) of scalar delta expressions
-        FromVector1 lsd -> V.imapM_ (\i d -> eval0 (r V.! i) d) lsd
+        FromVector1 lsd -> V.imapM_ (\i d -> eval0 (c V.! i) d) lsd
           -- lsd is a boxed vector of scalar delta expressions
-        Konst1 d _n -> V.mapM_ (`eval0` d) r
-        Append1 d k e -> eval1 (V.take k r) d >> eval1 (V.drop k r) e
+        Konst1 d _n -> V.mapM_ (`eval0` d) c
+        Append1 d k e -> eval1 (V.take k c) d >> eval1 (V.drop k c) e
         Slice1 i n d len ->
-          eval1 (LA.konst 0 i V.++ r V.++ LA.konst 0 (len - i - n)) d
-        SumRows1 dm cols -> eval2 (MO.asColumn r cols) dm
-        SumColumns1 dm rows -> eval2 (MO.asRow r rows) dm
+          eval1 (LA.konst 0 i V.++ c V.++ LA.konst 0 (len - i - n)) d
+        SumRows1 dm cols -> eval2 (MO.asColumn c cols) dm
+        SumColumns1 dm rows -> eval2 (MO.asRow c rows) dm
 
         M_VD1 m dRow ->
           mapM_ (`eval1` dRow)
-                (MO.toRows (MO.MatrixOuter (Just m) (Just r) Nothing))
-        MD_V1 md row -> eval2 (MO.MatrixOuter Nothing (Just r) (Just row)) md
+                (MO.toRows (MO.MatrixOuter (Just m) (Just c) Nothing))
+        MD_V1 md row -> eval2 (MO.MatrixOuter Nothing (Just c) (Just row)) md
 
-        FromX1 d -> evalX (OT.fromVector [V.length r] r) d
-        FromS1 d -> evalS (OS.fromVector r) d
+        FromX1 d -> evalX (OT.fromVector [V.length c] c) d
+        FromS1 d -> evalS (OS.fromVector c) d
 
-        Reverse1 d -> eval1 (V.reverse r) d
+        Reverse1 d -> eval1 (V.reverse c) d
         Flatten1 rows cols d ->
-          eval2 (MO.MatrixOuter (Just $ rows LA.>< cols $ V.toList r)
+          eval2 (MO.MatrixOuter (Just $ rows LA.>< cols $ V.toList c)
                                 Nothing Nothing)
                 d
-        FlattenX1 sh d -> evalX (OT.fromVector sh r) d
-        FlattenS1 d -> evalS (OS.fromVector r) d
-        Build1 _n f -> V.imapM_ (\i r0 -> eval0 r0 (f i)) r
+        FlattenX1 sh d -> evalX (OT.fromVector sh c) d
+        FlattenS1 d -> evalS (OS.fromVector c) d
+        Build1 _n f -> V.imapM_ (\i c0 -> eval0 c0 (f i)) c
 
       eval2 :: MO.MatrixOuter r -> Delta2 r -> ST s ()
-      eval2 !r = \case
+      eval2 !c = \case
         Zero2 -> return ()
         Input2 (InputId i) ->
-          VM.modify iMap2 (addToMatrix $ MO.convertMatrixOuter r) i
-        Scale2 k d -> eval2 (MO.multiplyWithOuter k r) d
-        Add2 d e -> eval2 r d >> eval2 r e
+          VM.modify iMap2 (addToMatrix $ MO.convertMatrixOuter c) i
+        Scale2 k d -> eval2 (MO.multiplyWithOuter k c) d
+        Add2 d e -> eval2 c d >> eval2 c e
         Let2 n d -> assert (case d of
                       Zero2 -> False
                       Input2{} -> False
@@ -754,7 +754,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
           case EM.lookup n nm of
             Just (DeltaBinding2 (DeltaId i) _) -> do
               dm <- readSTRef dMap2
-              VM.modify dm (MO.plus r) i
+              VM.modify dm (MO.plus c) i
             Nothing -> do
               did@(DeltaId i) <- readSTRefU didCur2
               writeSTRefU didCur2 $ succDeltaId did
@@ -763,77 +763,77 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
               dm <- readSTRef dMap2
               if i >= len then do
                 dmG <- VM.unsafeGrow dm len
-                VM.write dmG i r
+                VM.write dmG i c
                 writeSTRef dMap2 dmG
                 writeSTRefU len2 $ 2 * len
               else
-                VM.write dm i r
+                VM.write dm i c
             _ -> error "buildFinMaps: corrupted nMap"
 
         FromList2 _rowsCols lsd -> do
           -- TODO: speedup likely via an indexing operation on MatrixOuter
           -- or perhaps a flatten/toList operation
-          let vr = LA.flatten $ MO.convertMatrixOuter r
-          imapM_ (\i d -> eval0 (vr V.! i) d) lsd
+          let vc = LA.flatten $ MO.convertMatrixOuter c
+          imapM_ (\i d -> eval0 (vc V.! i) d) lsd
         FromVector2 __rowsCols lsd -> do
-          let vr = LA.flatten $ MO.convertMatrixOuter r
-          V.imapM_ (\i d -> eval0 (vr V.! i) d) lsd
-        FromRows2 lvd -> zipWithM_ eval1 (MO.toRows r) (V.toList lvd)
-        FromColumns2 lvd -> zipWithM_ eval1 (MO.toColumns r) (V.toList lvd)
-        Konst2 d _sz -> mapM_ (V.mapM_ (`eval0` d)) $ MO.toRows r
-        Transpose2 md -> eval2 (MO.transpose r) md  -- TODO: test!
+          let vc = LA.flatten $ MO.convertMatrixOuter c
+          V.imapM_ (\i d -> eval0 (vc V.! i) d) lsd
+        FromRows2 lvd -> zipWithM_ eval1 (MO.toRows c) (V.toList lvd)
+        FromColumns2 lvd -> zipWithM_ eval1 (MO.toColumns c) (V.toList lvd)
+        Konst2 d _sz -> mapM_ (V.mapM_ (`eval0` d)) $ MO.toRows c
+        Transpose2 md -> eval2 (MO.transpose c) md  -- TODO: test!
         M_MD2 m md ->
           let mo = MO.MatrixOuter (Just $ LA.tr' m) Nothing Nothing
-          in eval2 (MO.matMul mo r) md
+          in eval2 (MO.matMul mo c) md
         MD_M2 md m ->
           let mo = MO.MatrixOuter (Just $ LA.tr' m) Nothing Nothing
-          in eval2 (MO.matMul r mo) md
-        RowAppend2 d k e -> eval2 (MO.takeRows k r) d
-                            >> eval2 (MO.dropRows k r) e
-        ColumnAppend2 d k e -> eval2 (MO.takeColumns k r) d
-                               >> eval2 (MO.dropColumns k r) e
+          in eval2 (MO.matMul c mo) md
+        RowAppend2 d k e -> eval2 (MO.takeRows k c) d
+                            >> eval2 (MO.dropRows k c) e
+        ColumnAppend2 d k e -> eval2 (MO.takeColumns k c) d
+                               >> eval2 (MO.dropColumns k c) e
         RowSlice2 i n d rows ->
-          assert (MO.rows r == n) $
-          let cols = MO.cols r
+          assert (MO.rows c == n) $
+          let cols = MO.cols c
           in eval2 (MO.konst 0 i cols
-                    `MO.rowAppend` r
+                    `MO.rowAppend` c
                     `MO.rowAppend` MO.konst 0 (rows - i - n) cols)
                    d
         ColumnSlice2 i n d cols ->
-          assert (MO.cols r == n) $
-          let rows = MO.rows r
+          assert (MO.cols c == n) $
+          let rows = MO.rows c
           in eval2 (MO.konst 0 rows i
-                    `MO.columnAppend` r
+                    `MO.columnAppend` c
                     `MO.columnAppend` MO.konst 0 rows (cols - i - n))
                    d
 
-        AsRow2 dRow -> mapM_ (`eval1` dRow) (MO.toRows r)
-        AsColumn2 dCol -> mapM_ (`eval1` dCol) (MO.toColumns r)
+        AsRow2 dRow -> mapM_ (`eval1` dRow) (MO.toRows c)
+        AsColumn2 dCol -> mapM_ (`eval1` dCol) (MO.toColumns c)
 
-        FromX2 d -> evalX (OT.fromVector [MO.rows r, MO.cols r]
-                                         (V.concat $ MO.toRows r)) d
-        FromS2 d -> evalS (OS.fromVector $ V.concat $ MO.toRows r) d
+        FromX2 d -> evalX (OT.fromVector [MO.rows c, MO.cols c]
+                                         (V.concat $ MO.toRows c)) d
+        FromS2 d -> evalS (OS.fromVector $ V.concat $ MO.toRows c) d
 
-        Flipud2 d -> eval2 (MO.flipud r) d
-        Fliprl2 d -> eval2 (MO.fliprl r) d
-        Reshape2 _cols d -> eval1 (V.concat $ MO.toRows r) d
+        Flipud2 d -> eval2 (MO.flipud c) d
+        Fliprl2 d -> eval2 (MO.fliprl c) d
+        Reshape2 _cols d -> eval1 (V.concat $ MO.toRows c) d
         Conv2 m md ->
-          let mor = MO.convertMatrixOuter r
-              convolved = LA.corr2 m mor
-              moc = MO.MatrixOuter (Just convolved) Nothing Nothing
-          in eval2 moc md
+          let moc = MO.convertMatrixOuter c
+              convolved = LA.corr2 m moc
+              moConv = MO.MatrixOuter (Just convolved) Nothing Nothing
+          in eval2 moConv md
         Build2 _rowsCols f -> do
-          let mor = MO.convertMatrixOuter r
+          let moc = MO.convertMatrixOuter c
           Numeric.LinearAlgebra.Devel.mapMatrixWithIndexM_
-            (\rowsCols r0 -> eval0 r0 (f rowsCols)) mor
+            (\rowsCols c0 -> eval0 c0 (f rowsCols)) moc
 
       evalX :: OT.Array r -> DeltaX r -> ST s ()
-      evalX !r = \case
+      evalX !c = \case
         ZeroX -> return ()
         InputX (InputId i) ->
-          VM.modify iMapX (addToArray r) i
-        ScaleX k d -> evalX (liftVT2 (*) k r) d
-        AddX d e -> evalX r d >> evalX r e
+          VM.modify iMapX (addToArray c) i
+        ScaleX k d -> evalX (liftVT2 (*) k c) d
+        AddX d e -> evalX c d >> evalX c e
         LetX n d -> assert (case d of
                       ZeroX -> False
                       InputX{} -> False
@@ -844,7 +844,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
           case EM.lookup n nm of
             Just (DeltaBindingX (DeltaId i) _) -> do
               dm <- readSTRef dMapX
-              VM.modify dm (liftVT2 (+) r) i
+              VM.modify dm (liftVT2 (+) c) i
             Nothing -> do
               did@(DeltaId i) <- readSTRefU didCurX
               writeSTRefU didCurX $ succDeltaId did
@@ -853,50 +853,50 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
               dm <- readSTRef dMapX
               if i >= len then do
                 dmG <- VM.unsafeGrow dm len
-                VM.write dmG i r
+                VM.write dmG i c
                 writeSTRef dMapX dmG
                 writeSTRefU lenX $ 2 * len
               else
-                VM.write dm i r
+                VM.write dm i c
             _ -> error "buildFinMaps: corrupted nMap"
 
         FromListX _sh lsd -> do
-          let vr = OT.toVector r
-          imapM_ (\i d -> eval0 (vr V.! i) d) lsd
+          let vc = OT.toVector c
+          imapM_ (\i d -> eval0 (vc V.! i) d) lsd
         FromVectorX _sh lsd -> do
-          let vr = OT.toVector r
-          V.imapM_ (\i d -> eval0 (vr V.! i) d) lsd
-        KonstX d _sh -> mapM_ (`eval0` d) $ OT.toList r
-        AppendX d k e -> case OT.shapeL r of
-          n : _ -> evalX (OT.slice [(0, k)] r) d
-                   >> evalX (OT.slice [(k, n - k)] r) e
+          let vc = OT.toVector c
+          V.imapM_ (\i d -> eval0 (vc V.! i) d) lsd
+        KonstX d _sh -> mapM_ (`eval0` d) $ OT.toList c
+        AppendX d k e -> case OT.shapeL c of
+          n : _ -> evalX (OT.slice [(0, k)] c) d
+                   >> evalX (OT.slice [(k, n - k)] c) e
           [] -> error "evalX: appending a 0-dimensional tensor"
-        SliceX i n d len -> case OT.shapeL r of
+        SliceX i n d len -> case OT.shapeL c of
           n' : rest ->
             assert (n' == n) $
             evalX (OT.concatOuter [ OT.constant (i : rest) 0
-                                  , r
+                                  , c
                                   , OT.constant (len - i - n : rest) 0 ])
                   d
           [] -> error "evalX: slicing a 0-dimensional tensor"
         IndexX d ix len ->
-          let rest = OT.shapeL r
+          let rest = OT.shapeL c
           in evalX (OT.concatOuter [ OT.constant (ix : rest) 0
-                                   , OT.reshape (1 : rest) r
+                                   , OT.reshape (1 : rest) c
                                    , OT.constant (len - ix - 1 : rest) 0 ])
                    d  -- TODO: optimize for input case
         RavelFromListX ld -> do
-          let lr = OTB.toList $ OT.unravel r
-          mapM_ (uncurry evalX) (zip lr ld)
-        ReshapeX sh _sh' d -> evalX (OT.reshape sh r) d
+          let lc = OTB.toList $ OT.unravel c
+          mapM_ (uncurry evalX) (zip lc ld)
+        ReshapeX sh _sh' d -> evalX (OT.reshape sh c) d
 
-        From0X d -> eval0 (OT.unScalar r) d
-        From1X d -> eval1 (OT.toVector r) d
+        From0X d -> eval0 (OT.unScalar c) d
+        From1X d -> eval1 (OT.toVector c) d
         From2X d cols ->
-          eval2 (MO.MatrixOuter (Just $ LA.reshape cols $ OT.toVector r)
+          eval2 (MO.MatrixOuter (Just $ LA.reshape cols $ OT.toVector c)
                                 Nothing Nothing)
                 d
-        FromSX d -> evalS (Data.Array.Convert.convert r) d
+        FromSX d -> evalS (Data.Array.Convert.convert c) d
 
         BuildX sh f -> do
           -- Copied from Data.Array.Internal.
@@ -906,17 +906,17 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                 _ : ss2 -> ss2
                 [] -> error "scanr in buildDerivative"
               toIx [] _ = []
-              toIx (n:ns) i = q : toIx ns r2 where (q, r2) = quotRem i n
-          V.imapM_ (\i r0 -> eval0 r0 (f $ toIx ss i)) $ OT.toVector r
+              toIx (n:ns) i = q : toIx ns r where (q, r) = quotRem i n
+          V.imapM_ (\i c0 -> eval0 c0 (f $ toIx ss i)) $ OT.toVector c
 
       evalS :: OS.Shape sh
             => OS.Array sh r -> DeltaS sh r -> ST s ()
-      evalS !r = \case
+      evalS !c = \case
         ZeroS -> return ()
         InputS (InputId i) ->
-         VM.modify iMapX (addToArrayS r) i
-        ScaleS k d -> evalS (liftVS2 (*) k r) d
-        AddS d e -> evalS r d >> evalS r e
+         VM.modify iMapX (addToArrayS c) i
+        ScaleS k d -> evalS (liftVS2 (*) k c) d
+        AddS d e -> evalS c d >> evalS c e
         LetS n d -> assert (case d of
                       ZeroS -> False
                       InputS{} -> False
@@ -927,8 +927,8 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
           case EM.lookup n nm of
             Just (DeltaBindingS (DeltaId i) _) -> do
               dm <- readSTRef dMapX
-              let rs = Data.Array.Convert.convert r
-              VM.modify dm (liftVT2 (+) rs) i
+              let cs = Data.Array.Convert.convert c
+              VM.modify dm (liftVT2 (+) cs) i
             Nothing -> do
               did@(DeltaId i) <- readSTRefU didCurX
               writeSTRefU didCurX $ succDeltaId did
@@ -937,48 +937,48 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
               dm <- readSTRef dMapX
               if i >= len then do
                 dmG <- VM.unsafeGrow dm len
-                VM.write dmG i (Data.Array.Convert.convert r)
+                VM.write dmG i (Data.Array.Convert.convert c)
                 writeSTRef dMapX dmG
                 writeSTRefU lenX $ 2 * len
               else
-                VM.write dm i (Data.Array.Convert.convert r)
+                VM.write dm i (Data.Array.Convert.convert c)
             _ -> error "buildFinMaps: corrupted nMap"
 
 #if defined(VERSION_ghc_typelits_natnormalise)
         FromListS lsd -> do
-          let vr = OS.toVector r
-          imapM_ (\i d -> eval0 (vr V.! i) d) lsd
+          let vc = OS.toVector c
+          imapM_ (\i d -> eval0 (vc V.! i) d) lsd
         FromVectorS lsd -> do
-          let vr = OS.toVector r
-          V.imapM_ (\i d -> eval0 (vr V.! i) d) lsd
-        KonstS d -> mapM_ (`eval0` d) $ OS.toList r
-        AppendS (d :: DeltaS (k ': rest) r) (e :: DeltaS (l ': rest) r) ->
-          evalS (OS.slice @'[ '(0, k) ] r) d
-          >> evalS (OS.slice @'[ '(k, l) ] r) e
-        SliceS (_ :: Proxy i) _ (d :: DeltaS (i_plus_n_plus_k ': rest) r) ->
+          let vc = OS.toVector c
+          V.imapM_ (\i d -> eval0 (vc V.! i) d) lsd
+        KonstS d -> mapM_ (`eval0` d) $ OS.toList c
+        AppendS (d :: DeltaS (k ': rest) c) (e :: DeltaS (l ': rest) c) ->
+          evalS (OS.slice @'[ '(0, k) ] c) d
+          >> evalS (OS.slice @'[ '(k, l) ] c) e
+        SliceS (_ :: Proxy i) _ (d :: DeltaS (i_plus_n_plus_k ': rest) c) ->
           evalS (OS.constant @(i ': rest) 0
-                 `OS.append` r
+                 `OS.append` c
                  `OS.append` OS.constant 0)
                 d
-        IndexS (d :: DeltaS (ix_plus_1_plus_k ': rest) r) (_ :: Proxy ix) ->
+        IndexS (d :: DeltaS (ix_plus_1_plus_k ': rest) c) (_ :: Proxy ix) ->
           evalS (OS.constant @(ix ': rest) 0
-                 `OS.append` OS.reshape r
+                 `OS.append` OS.reshape c
                  `OS.append` OS.constant 0)
                 d  -- TODO: optimize for input case
         RavelFromListS ld -> do
-          let lr = OSB.toList $ OS.unravel r
-          mapM_ (uncurry evalS) (zip lr ld)
-        ReshapeS d -> evalS (OS.reshape r) d
+          let lc = OSB.toList $ OS.unravel c
+          mapM_ (uncurry evalS) (zip lc ld)
+        ReshapeS d -> evalS (OS.reshape c) d
 
-        From0S d -> eval0 (OS.unScalar r) d
-        From1S d -> eval1 (OS.toVector r) d
+        From0S d -> eval0 (OS.unScalar c) d
+        From1S d -> eval1 (OS.toVector c) d
         From2S proxyCols d ->
           eval2 (MO.MatrixOuter
                    (Just $ LA.reshape (fromInteger $ natVal proxyCols)
-                         $ OS.toVector r)
+                         $ OS.toVector c)
                    Nothing Nothing)
                 d
-        FromXS d -> evalX (Data.Array.Convert.convert r) d
+        FromXS d -> evalX (Data.Array.Convert.convert c) d
 
         BuildS f -> do
           -- Copied from Data.Array.Internal.
@@ -988,9 +988,9 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                 _ : ss2 -> ss2
                 [] -> error "scanr in buildDerivative"
               toIx [] _ = []
-              toIx (n:ns) i = q : toIx ns r2 where (q, r2) = quotRem i n
-              sh = OS.shapeL r
-          V.imapM_ (\i r0 -> eval0 r0 (f $ toIx ss i)) $ OS.toVector r
+              toIx (n:ns) i = q : toIx ns r where (q, r) = quotRem i n
+              sh = OS.shapeL c
+          V.imapM_ (\i c0 -> eval0 c0 (f $ toIx ss i)) $ OS.toVector c
 #endif
 
   case deltaDt of
@@ -1004,25 +1004,25 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
   let evalUnlessZero :: DeltaBinding r -> ST s ()
       evalUnlessZero (DeltaBinding0 (DeltaId i) d) = do
         dm <- readSTRef dMap0
-        r <- dm `VM.read` i
-        unless (r == 0) $  -- a cheap optimization in case of scalars
-          eval0 r d
+        c <- dm `VM.read` i
+        unless (c == 0) $  -- a cheap optimization in case of scalars
+          eval0 c d
       evalUnlessZero (DeltaBinding1 (DeltaId i) d) = do
         dm <- readSTRef dMap1
-        r <- dm `VM.read` i
-        eval1 r d
+        c <- dm `VM.read` i
+        eval1 c d
       evalUnlessZero (DeltaBinding2 (DeltaId i) d) = do
         dm <- readSTRef dMap2
-        r <- dm `VM.read` i
-        eval2 r d
+        c <- dm `VM.read` i
+        eval2 c d
       evalUnlessZero (DeltaBindingX (DeltaId i) d) = do
         dm <- readSTRef dMapX
-        r <- dm `VM.read` i
-        evalX r d
+        c <- dm `VM.read` i
+        evalX c d
       evalUnlessZero (DeltaBindingS (DeltaId i) d) = do
         dm <- readSTRef dMapX
-        r <- dm `VM.read` i
-        evalS (Data.Array.Convert.convert r) d
+        c <- dm `VM.read` i
+        evalS (Data.Array.Convert.convert c) d
       evalFromnMap :: ST s ()
       evalFromnMap = do
         nm <- readSTRef nMap
@@ -1094,7 +1094,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
               dm <- readSTRef dMap0
               VM.read dm i
             Nothing -> do
-              r <- eval0 d
+              c <- eval0 d
               nmNew <- readSTRef nMap
               dm <- readSTRef dMap0
               did@(DeltaId i) <- readSTRefU didCur0
@@ -1103,12 +1103,12 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
               len <- readSTRefU len0
               if i >= len then do
                 dmG <- VM.unsafeGrow dm len
-                VM.write dmG i r
+                VM.write dmG i c
                 writeSTRef dMap0 dmG
                 writeSTRefU len0 $ 2 * len
               else
-                VM.write dm i r
-              return r
+                VM.write dm i c
+              return c
             _ -> error "buildDerivative: corrupted nMap"
 
         SumElements10 d _ -> LA.sumElements <$> eval1 d
@@ -1118,7 +1118,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         Index20 d ix _rowsCols -> flip LA.atIndex ix <$> eval2 d
         IndexX0 d ix _sh -> flip atIndexInTensor ix <$> evalX d
 
-        Dot0 vr vd -> (<.>) vr <$> eval1 vd
+        Dot0 vc vd -> (<.>) vc <$> eval1 vd
 
         FromX0 d -> OT.unScalar <$> evalX d
         FromS0 d -> OS.unScalar <$> evalS d
@@ -1139,7 +1139,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
               dm <- readSTRef dMap1
               VM.read dm i
             Nothing -> do
-              r <- eval1 d
+              c <- eval1 d
               nmNew <- readSTRef nMap
               dm <- readSTRef dMap1
               did@(DeltaId i) <- readSTRefU didCur1
@@ -1148,12 +1148,12 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
               len <- readSTRefU len1
               if i >= len then do
                 dmG <- VM.unsafeGrow dm len
-                VM.write dmG i r
+                VM.write dmG i c
                 writeSTRef dMap1 dmG
                 writeSTRefU len1 $ 2 * len
               else
-                VM.write dm i r
-              return r
+                VM.write dm i c
+              return c
             _ -> error "buildDerivative: corrupted nMap"
 
         FromList1 lsd -> do
@@ -1200,7 +1200,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
               dm <- readSTRef dMap2
               VM.read dm i
             Nothing -> do
-              r <- eval2 d
+              c <- eval2 d
               nmNew <- readSTRef nMap
               dm <- readSTRef dMap2
               did@(DeltaId i) <- readSTRefU didCur2
@@ -1209,12 +1209,12 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
               len <- readSTRefU len2
               if i >= len then do
                 dmG <- VM.unsafeGrow dm len
-                VM.write dmG i r
+                VM.write dmG i c
                 writeSTRef dMap2 dmG
                 writeSTRefU len2 $ 2 * len
               else
-                VM.write dm i r
-              return r
+                VM.write dm i c
+              return c
             _ -> error "buildDerivative: corrupted nMap"
 
         FromList2 (rows, cols) lsd -> do
@@ -1279,7 +1279,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
               dm <- readSTRef dMapX
               VM.read dm i
             Nothing -> do
-              r <- evalX d
+              c <- evalX d
               nmNew <- readSTRef nMap
               dm <- readSTRef dMapX
               did@(DeltaId i) <- readSTRefU didCurX
@@ -1288,12 +1288,12 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
               len <- readSTRefU lenX
               if i >= len then do
                 dmG <- VM.unsafeGrow dm len
-                VM.write dmG i r
+                VM.write dmG i c
                 writeSTRef dMapX dmG
                 writeSTRefU lenX $ 2 * len
               else
-                VM.write dm i r
-              return r
+                VM.write dm i c
+              return c
             _ -> error "buildDerivative: corrupted nMap"
 
         FromListX sh lsd -> do
@@ -1352,7 +1352,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
               dm <- readSTRef dMapX
               Data.Array.Convert.convert <$> VM.read dm i
             Nothing -> do
-              r <- evalS d
+              c <- evalS d
               nmNew <- readSTRef nMap
               dm <- readSTRef dMapX
               did@(DeltaId i) <- readSTRefU didCurX
@@ -1361,12 +1361,12 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
               len <- readSTRefU lenX
               if i >= len then do
                 dmG <- VM.unsafeGrow dm len
-                VM.write dmG i (Data.Array.Convert.convert r)
+                VM.write dmG i (Data.Array.Convert.convert c)
                 writeSTRef dMapX dmG
                 writeSTRefU lenX $ 2 * len
               else
-                VM.write dm i (Data.Array.Convert.convert r)
-              return r
+                VM.write dm i (Data.Array.Convert.convert c)
+              return c
             _ -> error "buildDerivative: corrupted nMap"
 
 #if defined(VERSION_ghc_typelits_natnormalise)

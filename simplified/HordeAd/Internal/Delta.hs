@@ -320,11 +320,11 @@ buildFinMaps s0 deltaDt =
   -- cotangent contribution when complete (see below for an explanation)
   -- and the third argument is the node itself.
   let eval0 :: EvalState r -> r -> Delta0 r -> EvalState r
-      eval0 s !r = \case
+      eval0 s !c = \case
         Zero0 -> s
-        Input0 i -> s {iMap0 = EM.adjust (+ r) i $ iMap0 s}
-        Scale0 k d -> eval0 s (k * r) d
-        Add0 d e -> eval0 (eval0 s r d) r e
+        Input0 i -> s {iMap0 = EM.adjust (+ c) i $ iMap0 s}
+        Scale0 k d -> eval0 s (k * c) d
+        Add0 d e -> eval0 (eval0 s c d) c e
         Let0 n d ->
           -- In this context, by construction, @d@ is the dual component
           -- of a dual number term. Let's say that, at this point, evaluation
@@ -333,7 +333,7 @@ buildFinMaps s0 deltaDt =
           -- of the dual number representation of the objective function.
           -- (Equivalently, considers edges p, one of many leading to the only
           -- node with identifier @n@ in the DAG representing the term).
-          -- If so, the @r@ argument of @eval0@ is the cotangent
+          -- If so, the @c@ argument of @eval0@ is the cotangent
           -- contribution for position p, that is, the partial derivative
           -- of the objective function with respect to position p.
           --
@@ -363,13 +363,13 @@ buildFinMaps s0 deltaDt =
                     _ -> True)
           $ case EM.lookup n $ nMap s of
               Just (DeltaBinding0 _) ->
-                s {dMap0 = EM.adjust (+ r) n $ dMap0 s}
+                s {dMap0 = EM.adjust (+ c) n $ dMap0 s}
               Nothing ->
                 s { nMap = EM.insert n (DeltaBinding0 d) $ nMap s
-                  , dMap0 = EM.insert n r $ dMap0 s }
+                  , dMap0 = EM.insert n c $ dMap0 s }
               _ -> error "buildFinMaps: corrupted nMap"
 
-        SumElements10 vd n -> eval1 s (LA.konst r n) vd
+        SumElements10 vd n -> eval1 s (LA.konst c n) vd
         -- The general case is given as the last one below,
         -- but for a few constructors it's faster to inline @eval1@ instead.
         -- BTW, such an optimization doesn't really belong in the simplified
@@ -377,13 +377,13 @@ buildFinMaps s0 deltaDt =
         Index10 Zero1 _ _ -> s  -- shortcut
         Index10 (Input1 i) ix k ->
           let f v = if V.null v
-                    then LA.konst 0 k V.// [(ix, r)]
-                    else v V.// [(ix, v V.! ix + r)]
+                    then LA.konst 0 k V.// [(ix, c)]
+                    else v V.// [(ix, v V.! ix + c)]
           in s {iMap1 = EM.adjust f i $ iMap1 s}
         Index10 (Let1 n d) ix k ->
           case EM.lookup n $ nMap s of
             Just (DeltaBinding1 _) ->
-              let f v = v V.// [(ix, v V.! ix + r)]
+              let f v = v V.// [(ix, v V.! ix + c)]
               in s {dMap1 = EM.adjust f n $ dMap1 s}
                 -- This would be an asymptotic optimization compared to
                 -- the general case, if not for the non-mutable update,
@@ -391,22 +391,22 @@ buildFinMaps s0 deltaDt =
                 -- so it's only several times faster (same allocation,
                 -- but not adding to each cell of @v@).
             Nothing ->
-              let v = LA.konst 0 k V.// [(ix, r)]
+              let v = LA.konst 0 k V.// [(ix, c)]
               in s { nMap = EM.insert n (DeltaBinding1 d) $ nMap s
                    , dMap1 = EM.insert n v $ dMap1 s }
             _ -> error "buildFinMaps: corrupted nMap"
-        Index10 d ix k -> eval1 s (LA.konst 0 k V.// [(ix, r)]) d
+        Index10 d ix k -> eval1 s (LA.konst 0 k V.// [(ix, c)]) d
 
-        Dot0 v vd -> eval1 s (LA.scale r v) vd
+        Dot0 v vd -> eval1 s (LA.scale c v) vd
 
       addToVector :: Vector r -> Vector r -> Vector r
-      addToVector r = \v -> if V.null v then r else v + r
+      addToVector c = \v -> if V.null v then c else v + c
       eval1 :: EvalState r -> Vector r -> Delta1 r -> EvalState r
-      eval1 s !r = \case
+      eval1 s !c = \case
         Zero1 -> s
-        Input1 i -> s {iMap1 = EM.adjust (addToVector r) i $ iMap1 s}
-        Scale1 k d -> eval1 s (k * r) d
-        Add1 d e -> eval1 (eval1 s r d) r e
+        Input1 i -> s {iMap1 = EM.adjust (addToVector c) i $ iMap1 s}
+        Scale1 k d -> eval1 s (k * c) d
+        Add1 d e -> eval1 (eval1 s c d) c e
         Let1 n d ->
           assert (case d of
                     Zero1 -> False
@@ -415,24 +415,24 @@ buildFinMaps s0 deltaDt =
                     _ -> True)
           $ case EM.lookup n $ nMap s of
               Just (DeltaBinding1 _) ->
-                s {dMap1 = EM.adjust (+ r) n $ dMap1 s}
+                s {dMap1 = EM.adjust (+ c) n $ dMap1 s}
               Nothing ->
                 s { nMap = EM.insert n (DeltaBinding1 d) $ nMap s
-                  , dMap1 = EM.insert n r $ dMap1 s }
+                  , dMap1 = EM.insert n c $ dMap1 s }
               _ -> error "buildFinMaps: corrupted nMap"
 
-        FromList1 lsd -> ifoldl' (\s2 i d -> eval0 s2 (r V.! i) d) s lsd
+        FromList1 lsd -> ifoldl' (\s2 i d -> eval0 s2 (c V.! i) d) s lsd
           -- lsd is a list of scalar delta expressions
-        FromVector1 lsd -> V.ifoldl' (\s2 i d -> eval0 s2 (r V.! i) d) s lsd
+        FromVector1 lsd -> V.ifoldl' (\s2 i d -> eval0 s2 (c V.! i) d) s lsd
           -- lsd is a boxed vector of scalar delta expressions
-        Konst1 d _n -> V.foldl' (\s2 r2 -> eval0 s2 r2 d) s r
+        Konst1 d _n -> V.foldl' (\s2 c2 -> eval0 s2 c2 d) s c
 
-        Append1 d k e -> eval1 (eval1 s (V.take k r) d) (V.drop k r) e
+        Append1 d k e -> eval1 (eval1 s (V.take k c) d) (V.drop k c) e
         Slice1 i n d len ->
-          eval1 s (LA.konst 0 i V.++ r V.++ LA.konst 0 (len - i - n)) d
+          eval1 s (LA.konst 0 i V.++ c V.++ LA.konst 0 (len - i - n)) d
 
-        Reverse1 d -> eval1 s (V.reverse r) d
-        Build1 _n f -> V.ifoldl' (\s2 i r0 -> eval0 s2 r0 (f i)) s r
+        Reverse1 d -> eval1 s (V.reverse c) d
+        Build1 _n f -> V.ifoldl' (\s2 i c0 -> eval0 s2 c0 (f i)) s c
 
       evalFromnMap :: EvalState r -> EvalState r
       evalFromnMap s@EvalState{nMap, dMap0, dMap1} =
@@ -440,10 +440,10 @@ buildFinMaps s0 deltaDt =
           Just ((n, b), nMap2) ->
             let s2 = s {nMap = nMap2}
                 s3 = case b of
-                  DeltaBinding0 d -> let r = dMap0 EM.! n
-                                     in eval0 s2 r d
-                  DeltaBinding1 d -> let r = dMap1 EM.! n
-                                     in eval1 s2 r d
+                  DeltaBinding0 d -> let c = dMap0 EM.! n
+                                     in eval0 s2 c d
+                  DeltaBinding1 d -> let c = dMap1 EM.! n
+                                     in eval1 s2 c d
             in evalFromnMap s3
           Nothing -> s  -- loop ends
 
@@ -504,12 +504,12 @@ buildDerivative dim0 dim1 deltaTopLevel
               dm <- readSTRef dMap0
               return $! dm EM.! n
             Nothing -> do
-              r <- eval0 d
+              c <- eval0 d
               nmNew <- readSTRef nMap
               dm <- readSTRef dMap0
               writeSTRef nMap $! EM.insert n (DeltaBinding0 d) nmNew
-              writeSTRef dMap0 $! EM.insert n r dm
-              return r
+              writeSTRef dMap0 $! EM.insert n c dm
+              return c
             _ -> error "buildDerivative: corrupted nMap"
 
         SumElements10 vd _n -> LA.sumElements <$> eval1 vd
@@ -533,12 +533,12 @@ buildDerivative dim0 dim1 deltaTopLevel
               dm <- readSTRef dMap1
               return $! dm EM.! n
             Nothing -> do
-              r <- eval1 d
+              c <- eval1 d
               nmNew <- readSTRef nMap
               dm <- readSTRef dMap1
               writeSTRef nMap $! EM.insert n (DeltaBinding1 d) nmNew
-              writeSTRef dMap1 $! EM.insert n r dm
-              return r
+              writeSTRef dMap1 $! EM.insert n c dm
+              return c
             _ -> error "buildDerivative: corrupted nMap"
 
         FromList1 lsd -> do
