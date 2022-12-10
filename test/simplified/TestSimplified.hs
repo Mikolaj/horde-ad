@@ -39,7 +39,7 @@ fooBuild1 v =
   let v' = liftToAst v :: ADVal d (Ast r d (Vector r))
       r' = sumElements10 v' :: ADVal d (Ast r d r)
   in buildAst1 2 ("ix", r' * foo (3, 5 * r', r' * liftToAst (minimum0 v))
-                        + bar (r', index10 v' (AstIntVar "ix" + 1)))
+                        + bar (r', index10 v' (varInt "ix" + 1)))
        -- note how foo and bar are used in the Ast universe without lifting
        -- their result, just as sumElements10 and index10 is
 
@@ -58,10 +58,10 @@ fooNoGo v =
   let v' = liftToAst v :: ADVal d (Ast r d (Vector r))
       r' = sumElements10 v' :: ADVal d (Ast r d r)
   in buildAst1 3 ("ix",
-       index10 v' (AstIntVar "ix")
+       index10 v' (varInt "ix")
        + condAst (AstBoolOp AndOut  -- TODO: overload &&, <=, >, etc.
-                            [ index10 v' (AstIntVar "ix" * 2) `leqAst` 0
-                            , 6 `gtIntAst` abs (AstIntVar "ix") ])
+                            [ index10 v' (varInt "ix" * 2) `leqAst` 0
+                            , 6 `gtIntAst` abs (varInt "ix") ])
                  r' (5 * r'))
      / slice1 1 3 (mapAst1 ("x", condAst (varAst0 "x" `gtAst` r')
                                          r' (varAst0 "x")) v)
@@ -78,9 +78,9 @@ nestedBuildMap r =
   in mapAst1 ("x", varAst0 "x"
                    * sumElements10
                        (buildAst1 4 ("ix", bar ( varAst0 "x"
-                                               , index10 v' (AstIntVar "ix")) )
+                                               , index10 v' (varInt "ix")) )
                         + nestedMap)
-             ) (buildAst1 5 ("ix", index10 v' (AstIntVar "ix" + 1)))
+             ) (buildAst1 5 ("ix", index10 v' (varInt "ix" + 1)))
 
 -- In simplified horde-ad we don't have access to the highest level API
 -- (adaptors), so the testing glue is tedious:

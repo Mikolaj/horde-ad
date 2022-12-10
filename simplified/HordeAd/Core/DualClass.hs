@@ -38,7 +38,7 @@ module HordeAd.Core.DualClass
     Dual, HasRanks(..), HasInputs(..), NumOf, dummyDual
   , -- * Internal operations, exposed for tests, debugging and experiments
     unsafeGetFreshId
-  , VectorLike(..), Ast(..), AstVar(..), AstInt(..), AstBool(..)
+  , VectorLike(..), Ast(..), AstVarName(..), AstVar(..), AstInt(..), AstBool(..)
   , CodeOut(..), CodeIntOut(..), CodeBoolOut(..), RelOut(..)
   ) where
 
@@ -503,7 +503,7 @@ data Ast :: Type -> ADMode -> Type -> Type where
   AstConst :: a -> Ast r d a
   AstD :: ADVal d a -> Ast r d a
 
-  AstVar :: String -> Ast r d r
+  AstVar :: AstVarName (ADVal d r) -> Ast r d r
 
   AstOMap1 :: (Ast r d r -> Ast r d r) -> Ast r d (Vector r)
            -> Ast r d (Vector r)  -- TODO: is the function OK? nope
@@ -519,8 +519,12 @@ data Ast :: Type -> ADMode -> Type -> Type where
   AstSlice1 :: AstInt r d -> AstInt r d -> Ast r d (Vector r)
             -> Ast r d (Vector r)
   AstReverse1 :: Ast r d (Vector r) -> Ast r d (Vector r)
-  AstBuild1 :: AstInt r d -> (String, Ast r d r) -> Ast r d (Vector r)
-  AstMap1 :: (String, Ast r d r) -> Ast r d (Vector r) -> Ast r d (Vector r)
+  AstBuild1 :: AstInt r d -> (AstVarName Int, Ast r d r) -> Ast r d (Vector r)
+  AstMap1 :: (AstVarName (ADVal d r), Ast r d r) -> Ast r d (Vector r)
+          -> Ast r d (Vector r)
+
+newtype AstVarName t = AstVarName String
+  deriving (Show, Eq)
 
 data AstVar r d =
     AstVar0 (ADVal d r)
@@ -530,7 +534,7 @@ data AstInt :: Type -> ADMode -> Type where
   AstIntOp :: CodeIntOut -> [AstInt r d] -> AstInt r d
   AstIntCond :: AstBool r d -> AstInt r d -> AstInt r d -> AstInt r d
   AstIntConst :: Int -> AstInt r d
-  AstIntVar :: String -> AstInt r d
+  AstIntVar :: AstVarName Int -> AstInt r d
   AstLength :: Ast r d (Vector r) -> AstInt r d
 
 data AstBool :: Type -> ADMode -> Type where

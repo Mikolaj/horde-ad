@@ -200,7 +200,7 @@ gtIntAst i j = AstRelInt GtOut [i, j]
 -- * Operations resulting in a scalar
 
 varAst0 :: ADModeAndNumNew d (Ast r d r) => String -> ADVal d (Ast r d r)
-varAst0 s = dD (AstVar s) undefined
+varAst0 s = dD (AstVar $ AstVarName s) undefined
 
 sumElements10 :: IsVectorWithScalar d v r => ADVal d v -> ADVal d r
 sumElements10 (D u u') = dD (lsumElements10 u) (dSumElements10 u' (llength u))
@@ -347,8 +347,9 @@ build1 = build1Closure
 -- UndecidableInstances needed due to instances below
 
 class AstVectorLike d r vector | vector -> r where
-  lbuildAst1 :: Int -> (String, Ast r d r) -> ADVal d vector
-  lmapAst1 :: (String, Ast r d r) -> ADVal d (Vector r) -> ADVal d vector
+  lbuildAst1 :: Int -> (AstVarName Int, Ast r d r) -> ADVal d vector
+  lmapAst1 :: (AstVarName (ADVal d r), Ast r d r) -> ADVal d (Vector r)
+           -> ADVal d vector
 
 instance (IsVectorWithScalar d (Vector r) r, Numeric r)
          => AstVectorLike d r (Vector r) where
@@ -365,13 +366,13 @@ instance ( IsVectorWithScalar d (Vector r) r
 buildAst1
   :: AstVectorLike d r v
   => Int -> (String, ADVal d (Ast r d r)) -> ADVal d v
-buildAst1 n (var, D u _) = lbuildAst1 n (var, u)
+buildAst1 n (var, D u _) = lbuildAst1 n (AstVarName var, u)
 
 -- TODO: question: now I simplify nested builds/maps when they are created;
 -- should I instead wait and simplify the whole term?
 buildAst1Simplify
   :: (IsVectorWithScalar d (Vector r) r, Numeric r)
-  => Int -> (String, Ast r d r) -> Ast r d (Vector r)
+  => Int -> (AstVarName Int, Ast r d r) -> Ast r d (Vector r)
 buildAst1Simplify n (var, u) = case u of
   AstOp codeOut args ->
     AstOp codeOut $ map (\w -> buildAst1Simplify n (var, w)) args
@@ -414,12 +415,14 @@ map1Closure f d@(D v _) = build1Closure (V.length v) $ \i -> f (index10 d i)
 
 mapAst1
   :: AstVectorLike d r v
-  => (String, ADVal d (Ast r d r)) -> ADVal d (Vector r) -> ADVal d v
-mapAst1 (var, D u _) e = lmapAst1 (var, u) e
+  => (String, ADVal d (Ast r d r)) -> ADVal d (Vector r)
+  -> ADVal d v
+mapAst1 (var, D u _) e = lmapAst1 (AstVarName var, u) e
 
 mapAst1Simplify
   :: (IsVectorWithScalar d (Vector r) r, Numeric r)
-  => (String, Ast r d r) -> ADVal d (Vector r) -> Ast r d (Vector r)
+  => (AstVarName (ADVal d r), Ast r d r) -> ADVal d (Vector r)
+  -> Ast r d (Vector r)
 mapAst1Simplify (var, u) e@(D v _v') = case u of
   AstOp codeOut args ->
     AstOp codeOut $ map (\w -> mapAst1Simplify (var, w) e) args
@@ -438,18 +441,23 @@ mapAst1Simplify (var, u) e@(D v _v') = case u of
   _ -> AstMap1 (var, u) (AstD e)
     -- fallback to POPL (memory blowup, but avoids functions on tape)
 
-interpretLambdaD0 :: ( IsVectorWithScalar d (Vector r) r, Numeric r
-                     , IsPrimalAndHasFeatures d a r )
-                  => M.Map String (AstVar r d) -> (String, Ast r d a)
-                  -> ADVal d r -> ADVal d a
-interpretLambdaD0 env (var, ast) =
+varInt :: String -> AstInt r d
+varInt = AstIntVar . AstVarName
+
+interpretLambdaD0
+  :: ( IsVectorWithScalar d (Vector r) r, Numeric r
+     , IsPrimalAndHasFeatures d a r )
+  => M.Map String (AstVar r d) -> (AstVarName (ADVal d r), Ast r d a)
+  -> ADVal d r -> ADVal d a
+interpretLambdaD0 env (AstVarName var, ast) =
   \d -> interpretAst (M.insert var (AstVar0 d) env) ast
 
-interpretLambdaI :: ( IsVectorWithScalar d (Vector r) r, Numeric r
-                    , IsPrimalAndHasFeatures d a r )
-                 => M.Map String (AstVar r d) -> (String, Ast r d a)
-                 -> Int -> ADVal d a
-interpretLambdaI env (var, ast) =
+interpretLambdaI
+  :: ( IsVectorWithScalar d (Vector r) r, Numeric r
+     , IsPrimalAndHasFeatures d a r )
+  => M.Map String (AstVar r d) -> (AstVarName Int, Ast r d a)
+  -> Int -> ADVal d a
+interpretLambdaI env (AstVarName var, ast) =
   \i -> interpretAst (M.insert var (AstVarI i) env) ast
 
 interpretAst
@@ -464,7 +472,7 @@ interpretAst env = \case
                      else interpretAst env a2
   AstConst a -> constant a
   AstD d -> d
-  AstVar var -> case M.lookup var env of
+  AstVar (AstVarName var) -> case M.lookup var env of
     Just (AstVar0 d) -> d
     Just AstVarI{} -> error $ "interpretAst: type mismatch for " ++ var
     Nothing -> error $ "interpretAst: unknown variable " ++ var
@@ -496,7 +504,7 @@ interpretAstInt env = \case
                         then interpretAstInt env a1
                         else interpretAstInt env a2
   AstIntConst a -> a
-  AstIntVar var -> case M.lookup var env of
+  AstIntVar (AstVarName var) -> case M.lookup var env of
     Just AstVar0{} -> error $ "interpretAstP: type mismatch for " ++ var
     Just (AstVarI i) -> i
     Nothing -> error $ "interpretAstP: unknown variable " ++ var
