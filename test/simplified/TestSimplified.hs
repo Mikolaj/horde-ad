@@ -19,7 +19,8 @@ import Prelude ()
 testTrees :: [TestTree]
 testTrees = [ testCase "fooBuild1" testFooBuild
             , testCase "fooMap1" testFooMap
-            , testCase "fooNoGo" testFooNoGo ]
+            , testCase "fooNoGo" testFooNoGo
+            , testCase "nestedBuildMap" testNestedBuildMap ]
 
 foo :: RealFloat a => (a,a,a) -> a
 foo (x,y,z) =
@@ -51,7 +52,7 @@ fooMap1 r =
 
 -- A test that doesn't vectorize currently due to conditionals
 -- and so falls back to POPL.
-fooNoGo :: forall r d. ADModeAndNum d r
+fooNoGo :: forall r d. (ADModeAndNum d r, AstVectorLike d r (Vector r))
         => ADVal d (Vector r) -> ADVal d (Vector r)
 fooNoGo v =
   let v' = liftToAst v :: ADVal d (Ast r d (Vector r))
@@ -64,7 +65,22 @@ fooNoGo v =
                  r' (5 * r'))
      / slice1 1 3 (mapAst1 ("x", condAst (varAst0 "x" `gtAst` r')
                                          r' (varAst0 "x")) v)
-     * buildAst1 3 ("ix", 1)
+     * buildAst1 3 ("ix", 1 :: ADVal d (Ast r d r))  -- TODO: @::@ required
+
+-- TODO: Two obvious @::@ required.
+nestedBuildMap :: forall r d. ADModeAndNum d r
+               => ADVal d r -> ADVal d (Vector r)
+nestedBuildMap r =
+  let v = konst1 r 4
+      v' = konst1 (liftToAst r) 7 :: ADVal d (Ast r d (Vector r))
+      nestedMap :: ADVal d (Ast r d (Vector r))
+      nestedMap = mapAst1 ("y", varAst0 "x" / varAst0 "y") v
+  in mapAst1 ("x", varAst0 "x"
+                   * sumElements10
+                       (buildAst1 4 ("ix", bar ( varAst0 "x"
+                                               , index10 v' (AstIntVar "ix")) )
+                        + nestedMap)
+             ) (buildAst1 5 ("ix", index10 v' (AstIntVar "ix" + 1)))
 
 -- In simplified horde-ad we don't have access to the highest level API
 -- (adaptors), so the testing glue is tedious:
@@ -97,3 +113,12 @@ testFooNoGo =
                       (V.singleton (V.fromList
                                       [1.1 :: Double, 2.2, 3.3, 4, 5]))))
   @?~ V.singleton (V.fromList [5.492424242424241,-11.002066115702474,-2.0766758494031228,-4.33712121212122e-2,5.037878787878787])
+
+testNestedBuildMap :: Assertion
+testNestedBuildMap =
+  (domains0 $ fst
+   $ revOnDomains
+       (LA.konst 1 5)  -- 1 wrong due to fragility of hmatrix optimization
+       (\adinputs -> nestedBuildMap (adinputs `at0` 0))
+       (domainsFrom01 (V.singleton (1.1 :: Double)) V.empty))
+  @?~ V.fromList [168.7696084911277]

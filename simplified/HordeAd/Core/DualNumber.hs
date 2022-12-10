@@ -1,5 +1,6 @@
-{-# LANGUAGE CPP, DataKinds, FlexibleInstances, GADTs, QuantifiedConstraints,
-             RankNTypes, TypeFamilies #-}
+{-# LANGUAGE CPP, DataKinds, FlexibleInstances, FunctionalDependencies, GADTs,
+             MultiParamTypeClasses, QuantifiedConstraints, RankNTypes,
+             TypeFamilies, UndecidableInstances #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -324,30 +325,52 @@ build1POPL n f = V.fromList $ map f [0 .. n - 1]
 -- Fake rank 1. This is still an array of delta expressions, thinly wrapped,
 -- instead of a single delta expression representing an array.
 -- We gain a little by storing the primal part in an unboxed vector.
-build1Elementwise, build1Closure, build1
-  :: ADModeAndNum d r
+build1Elementwise
+  :: IsVectorWithScalar d (Vector r) r
   => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
 build1Elementwise n f = fromList1 $ map f [0 .. n - 1]
   -- equivalent to @fromVector1 $ build1POPL n f@
 
+build1Closure
+  :: (IsVectorWithScalar d (Vector r) r, Numeric r)
+  => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
 build1Closure n f =
   let g i = let D u _ = f i in u
       h i = let D _ u' = f i in u'
   in dD (V.fromList $ map g [0 .. n - 1]) (dBuild1 n h)
 
+build1
+  :: (IsVectorWithScalar d (Vector r) r, Numeric r)
+  => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
 build1 = build1Closure
 
--- TODO: generalize this to vector, thus enabling nesting buildAst1
+-- UndecidableInstances needed due to instances below
+
+class AstVectorLike d r vector | vector -> r where
+  lbuildAst1 :: Int -> (String, Ast r d r) -> ADVal d vector
+  lmapAst1 :: (String, Ast r d r) -> ADVal d (Vector r) -> ADVal d vector
+
+instance (IsVectorWithScalar d (Vector r) r, Numeric r)
+         => AstVectorLike d r (Vector r) where
+  lbuildAst1 n (var, u) = interpretAst M.empty $ buildAst1Simplify n (var, u)
+  lmapAst1 (var, u) e = interpretAst M.empty $ mapAst1Simplify (var, u) e
+
+instance ( IsVectorWithScalar d (Vector r) r
+         , Numeric r
+         , IsPrimal d (Ast r d (Vector r)) )
+         => AstVectorLike d r (Ast r d (Vector r)) where
+  lbuildAst1 n (var, u) = dD (buildAst1Simplify n (var, u)) undefined
+  lmapAst1 (var, u) e = dD (mapAst1Simplify (var, u) e) undefined
+
 buildAst1
-  :: ADModeAndNum d r
-  => Int -> (String, ADVal d (Ast r d r)) -> ADVal d (Vector r)
-buildAst1 n (var, D u _) = interpretAst M.empty $ buildAst1Simplify n (var, u)
-  -- TODO: perhaps partially fuse back before interpreting?
+  :: AstVectorLike d r v
+  => Int -> (String, ADVal d (Ast r d r)) -> ADVal d v
+buildAst1 n (var, D u _) = lbuildAst1 n (var, u)
 
 -- TODO: question: now I simplify nested builds/maps when they are created;
 -- should I instead wait and simplify the whole term?
 buildAst1Simplify
-  :: ADModeAndNum d r
+  :: (IsVectorWithScalar d (Vector r) r, Numeric r)
   => Int -> (String, Ast r d r) -> Ast r d (Vector r)
 buildAst1Simplify n (var, u) = case u of
   AstOp codeOut args ->
@@ -375,7 +398,7 @@ map1POPL f vd = V.map f vd
 -- The list probably fuses away, which may make it a bit faster than
 -- if written using @build1Elementwise@.
 map1Elementwise, map1Closure
-  :: ADModeAndNum d r
+  :: (IsVectorWithScalar d (Vector r) r, Numeric r)
   => (ADVal d r -> ADVal d r) -> ADVal d (Vector r) -> ADVal d (Vector r)
 map1Elementwise f _d@(D v v') =
   let k = V.length v
@@ -390,12 +413,12 @@ map1Elementwise f _d@(D v v') =
 map1Closure f d@(D v _) = build1Closure (V.length v) $ \i -> f (index10 d i)
 
 mapAst1
-  :: ADModeAndNum d r
-  => (String, ADVal d (Ast r d r)) -> ADVal d (Vector r) -> ADVal d (Vector r)
-mapAst1 (var, D u _) e = interpretAst M.empty $ mapAst1Simplify (var, u) e
+  :: AstVectorLike d r v
+  => (String, ADVal d (Ast r d r)) -> ADVal d (Vector r) -> ADVal d v
+mapAst1 (var, D u _) e = lmapAst1 (var, u) e
 
 mapAst1Simplify
-  :: ADModeAndNum d r
+  :: (IsVectorWithScalar d (Vector r) r, Numeric r)
   => (String, Ast r d r) -> ADVal d (Vector r) -> Ast r d (Vector r)
 mapAst1Simplify (var, u) e@(D v _v') = case u of
   AstOp codeOut args ->
@@ -411,31 +434,36 @@ mapAst1Simplify (var, u) e@(D v _v') = case u of
   AstConst r -> AstConst (LA.konst r (V.length v))
   AstD d -> AstD (konst1 d (V.length v))
   AstVar0 var2 | var2 == var -> AstD e  -- identity mapping
-  AstVar0 _var2 -> undefined  -- TODO: a problem, nested map or build
+  -- AstVar0 _var2 -> TODO: a problem, nested map or build
   -- inaccessible code: AstVar1{} -> error "mapAst1: type mismatch"
   _ -> AstMap1 (var, u) (AstD e)
     -- fallback to POPL (memory blowup, but avoids functions on tape)
 
-interpretLambdaD0 :: (ADModeAndNum d r, IsPrimalAndHasFeatures d a r)
+interpretLambdaD0 :: ( IsVectorWithScalar d (Vector r) r, Numeric r
+                     , IsPrimalAndHasFeatures d a r )
                   => M.Map String (AstVar r d) -> (String, Ast r d a)
                   -> ADVal d r -> ADVal d a
 interpretLambdaD0 env (var, ast) =
   \d -> interpretAst (M.insert var (AstVarD0 d) env) ast
 
-interpretLambdaD1 :: (ADModeAndNum d r, IsPrimalAndHasFeatures d a r)
+interpretLambdaD1 :: ( IsVectorWithScalar d (Vector r) r, Numeric r
+                     , IsPrimalAndHasFeatures d a r )
                   => M.Map String (AstVar r d) -> (String, Ast r d a)
                   -> ADVal d (Vector r) -> ADVal d a
 interpretLambdaD1 env (var, ast) =
   \d -> interpretAst (M.insert var (AstVarD1 d) env) ast
 
-interpretLambdaI :: (ADModeAndNum d r, IsPrimalAndHasFeatures d a r)
+interpretLambdaI :: ( IsVectorWithScalar d (Vector r) r, Numeric r
+                    , IsPrimalAndHasFeatures d a r )
                  => M.Map String (AstVar r d) -> (String, Ast r d a)
                  -> Int -> ADVal d a
 interpretLambdaI env (var, ast) =
   \i -> interpretAst (M.insert var (AstVarI i) env) ast
 
-interpretAst :: (ADModeAndNum d r, IsPrimalAndHasFeatures d a r)
-             => M.Map String (AstVar r d) -> Ast r d a -> ADVal d a
+interpretAst
+  :: ( IsVectorWithScalar d (Vector r) r, Numeric r
+     , IsPrimalAndHasFeatures d a r )
+  => M.Map String (AstVar r d) -> Ast r d a -> ADVal d a
 interpretAst env = \case
   AstOp codeOut args ->
     interpretAstOp (interpretAst env) codeOut args
@@ -456,6 +484,7 @@ interpretAst env = \case
     Nothing -> error $ "interpretAst: unknown variable " ++ var
   AstSumElements10 v -> sumElements10 $ interpretAst env v
   AstIndex10 v i -> index10 (interpretAst env v) (interpretAstInt env i)
+  AstKonst1 r n -> konst1 (interpretAst env r) (interpretAstInt env n)
   AstSlice1 i n v -> slice1 (interpretAstInt env i)
                             (interpretAstInt env n)
                             (interpretAst env v)
@@ -465,9 +494,14 @@ interpretAst env = \case
   AstMap1 (var, r) e ->
     map1Elementwise (interpretLambdaD0 env (var, r)) (interpretAst env e)
       -- fallback to POPL (memory blowup, but avoids functions on tape)
-  _ -> error $ "TODO"
+  AstOMap1{} -> error "TODO: AstOMap1"
+  AstDot0{} -> error "TODO: AstDot0"
+  AstFromList1{} -> error "TODO: AstFromList1"
+  AstFromVector1{} -> error "TODO: AstFromVector1"
+  AstAppend1{} -> error "TODO: AstAppend1"
+  AstReverse1{} -> error "TODO: AstReverse1"
 
-interpretAstInt :: ADModeAndNum d r
+interpretAstInt :: (IsVectorWithScalar d (Vector r) r, Numeric r)
                 => M.Map String (AstVar r d) -> AstInt r d -> Int
 interpretAstInt env = \case
   AstIntOp codeIntOut args ->
@@ -483,7 +517,7 @@ interpretAstInt env = \case
     Nothing -> error $ "interpretAstP: unknown variable " ++ var
   AstLength v -> V.length $ let D u _u' = interpretAst env v in u
 
-interpretAstBool :: ADModeAndNum d r
+interpretAstBool :: (IsVectorWithScalar d (Vector r) r, Numeric r)
                  => M.Map String (AstVar r d) -> AstBool r d -> Bool
 interpretAstBool env = \case
   AstBoolOp codeBoolOut args ->
