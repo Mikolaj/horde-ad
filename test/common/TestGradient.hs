@@ -9,8 +9,9 @@ import Prelude
 import qualified Data.Array.Convert
 import qualified Data.Array.ShapedS as OS
 import           Data.Proxy (Proxy (Proxy))
+import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, natVal, type (+))
-import           Numeric.LinearAlgebra (Numeric)
+import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -28,6 +29,8 @@ testTrees :: [TestTree]
 testTrees = [ quickCheckForwardAndBackward
             , readmeTests0
             , readmeTestsS
+            , testCase "fooNoGo" testFooNoGo
+            , testCase "fooNoGoAdaptor" testFooNoGoAdaptor
             , adoptTests
             ]
 
@@ -297,6 +300,28 @@ testBarR =
     , OS.constant 0
     , [ OS.constant 0
       , OS.constant 0 ] )
+
+fooNoGo :: forall r d. ADModeAndNum d r
+        => ADVal d (Vector r) -> ADVal d (Vector r)
+fooNoGo _v = constant 1
+
+testFooNoGo :: Assertion
+testFooNoGo =
+  (domains1 $ fst
+   $ revOnDomains
+       (LA.konst 1 3)  -- 1 wrong due to fragility of hmatrix optimization
+       (\adinputs -> fooNoGo (adinputs `at1` 0))
+       (domainsFrom01 V.empty
+                      (V.singleton (V.fromList
+                                      [1.1 :: Double, 2.2, 3.3, 4, 5]))))
+  @?~ V.singleton (V.empty)  -- without an adaptor, ignored vector results
+                             -- in an empty gradient instead of zero gradient
+
+testFooNoGoAdaptor :: Assertion
+testFooNoGoAdaptor =
+  assertEqualUpToEpsilon 1e-7
+    (rev fooNoGo (V.fromList [1.1 :: Double, 2.2, 3.3, 4, 5]))
+    (V.fromList [0,0,0,0,0])  -- correct gradient despite ignored input
 
 
 -- Most of the following is borrowed from https://github.com/benl23x5/adops.

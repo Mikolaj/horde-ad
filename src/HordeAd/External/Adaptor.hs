@@ -23,7 +23,8 @@ import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.Random
 
-import HordeAd.Core.DualClass (Dual, toDynamicOrDummy, toShapedOrDummy)
+import HordeAd.Core.DualClass
+  (Dual, toDynamicOrDummy, toMatrixOrDummy, toShapedOrDummy, toVectorOrDummy)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors
@@ -179,8 +180,8 @@ instance ADModeAndNum d Float
 instance AdaptableDomains (Vector r) where
   type Scalar (Vector r) = r
   toDomains a = Domains V.empty (V.singleton a) V.empty V.empty
-  fromDomains _aInit (Domains v0 v1 v2 vX) = case V.uncons v1 of
-    Just (a, rest) -> (a, Domains v0 rest v2 vX)
+  fromDomains aInit (Domains v0 v1 v2 vX) = case V.uncons v1 of
+    Just (a, rest) -> (toVectorOrDummy (LA.size aInit) a, Domains v0 rest v2 vX)
     Nothing -> error "fromDomains in AdaptableDomains (Vector r)"
   nParams _ = 1
   nScalars = V.length
@@ -200,8 +201,8 @@ instance ADModeAndNum d r
 instance AdaptableDomains (Matrix r) where
   type Scalar (Matrix r) = r
   toDomains a = Domains V.empty V.empty (V.singleton a) V.empty
-  fromDomains _aInit (Domains v0 v1 v2 vX) = case V.uncons v2 of
-    Just (a, rest) -> (a, Domains v0 v1 rest vX)
+  fromDomains aInit (Domains v0 v1 v2 vX) = case V.uncons v2 of
+    Just (a, rest) -> (toMatrixOrDummy (LA.size aInit) a, Domains v0 v1 rest vX)
     Nothing -> error "fromDomains in AdaptableDomains (Matrix r)"
   nParams _ = 1
   nScalars m = let (rows, cols) = LA.size m in rows * cols
