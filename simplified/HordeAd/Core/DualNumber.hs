@@ -182,6 +182,19 @@ reluLeaky v@(D u _) =
 liftToAst :: IsPrimal d (Ast r d a) => ADVal d a -> ADVal d (Ast r d a)
 liftToAst d = dD (AstD d) undefined
 
+condAst :: IsPrimal d (Ast r d a)
+        => AstBool r d -> ADVal d (Ast r d a) -> ADVal d (Ast r d a)
+        -> ADVal d (Ast r d a)
+condAst b (D d _) (D e _) = dD (AstCond b d e) undefined
+
+leqAst :: ADVal d (Ast r d r) -> ADVal d (Ast r d r) -> AstBool r d
+leqAst (D d _) (D e _) = AstRel LeqOut [d, e]
+
+gtAst :: ADVal d (Ast r d r) -> ADVal d (Ast r d r) -> AstBool r d
+gtAst (D d _) (D e _) = AstRel GtOut [d, e]
+
+gtIntAst :: AstInt r d -> AstInt r d -> AstBool r d
+gtIntAst i j = AstRelInt GtOut [i, j]
 
 -- * Operations resulting in a scalar
 
@@ -328,15 +341,17 @@ build1 = build1Closure
 buildAst1
   :: ADModeAndNum d r
   => Int -> (String, ADVal d (Ast r d r)) -> ADVal d (Vector r)
-buildAst1 n (var, D u _) = buildAst1Rec n (var, u)
+buildAst1 n (var, D u _) = interpretAst M.empty $ buildAst1Simplify n (var, u)
+  -- TODO: perhaps partially fuse back before interpreting?
 
-buildAst1Rec
+-- TODO: question: now I simplify nested builds/maps when they are created;
+-- should I instead wait and simplify the whole term?
+buildAst1Simplify
   :: ADModeAndNum d r
-  => Int -> (String, Ast r d r) -> ADVal d (Vector r)
-buildAst1Rec n (var, u) = case u of
+  => Int -> (String, Ast r d r) -> Ast r d (Vector r)
+buildAst1Simplify n (var, u) = case u of
   AstOp codeOut args ->
-    interpretAstOp (\v -> buildAst1Rec n (var, v)) codeOut args
-      -- TODO: perhaps partially fuse back before interpreting?
+    AstOp codeOut $ map (\w -> buildAst1Simplify n (var, w)) args
 -- TODO:
 -- AstCond b x1 x2 -> ...
 --   handle conditionals that depend on var, so that we produce conditional
@@ -345,14 +360,13 @@ buildAst1Rec n (var, u) = case u of
 --
 --   Perhaps partition indexes vs b resulting in bitmasks b1 and b2
 --   and recursively process vectorized b1 * x1 + b2 * x2.
-  AstConst r -> constant (LA.konst r n)
-  AstD d -> konst1 d n
-  AstIndex10 v (AstIntVar var2) | var2 == var ->
-    slice1 0 n $ interpretAst M.empty v
+  AstConst r -> AstConst (LA.konst r n)
+  AstD d -> AstD (konst1 d n)
+  AstIndex10 v (AstIntVar var2) | var2 == var -> AstSlice1 0 (AstIntConst n) v
       -- TODO: add a new 'gather' operation somehow and if a more complex index
       -- expression, construct 'gather'
-  _ ->  -- fallback to POPL (memory blowup, but avoids functions on tape)
-    build1Elementwise n (interpretLambdaI M.empty (var, u))
+  _ -> AstBuild1 (AstIntConst n) (var, u)
+    -- fallback to POPL (memory blowup, but avoids functions on tape)
 
 map1POPL :: (ADVal d r -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
          -> Data.Vector.Vector (ADVal d r)
@@ -378,15 +392,14 @@ map1Closure f d@(D v _) = build1Closure (V.length v) $ \i -> f (index10 d i)
 mapAst1
   :: ADModeAndNum d r
   => (String, ADVal d (Ast r d r)) -> ADVal d (Vector r) -> ADVal d (Vector r)
-mapAst1 (var, D u _) e = mapAst1Rec (var, u) e
+mapAst1 (var, D u _) e = interpretAst M.empty $ mapAst1Simplify (var, u) e
 
-mapAst1Rec
+mapAst1Simplify
   :: ADModeAndNum d r
-  => (String, Ast r d r) -> ADVal d (Vector r) -> ADVal d (Vector r)
-mapAst1Rec (var, u) e@(D v _v') = case u of
+  => (String, Ast r d r) -> ADVal d (Vector r) -> Ast r d (Vector r)
+mapAst1Simplify (var, u) e@(D v _v') = case u of
   AstOp codeOut args ->
-    interpretAstOp (\w -> mapAst1Rec (var, w) e) codeOut args
-      -- TODO: perhaps partially fuse back before taking interpreting?
+    AstOp codeOut $ map (\w -> mapAst1Simplify (var, w) e) args
 -- TODO:
 -- AstCond b x1 x2 -> ...
 --   handle conditionals that depend on var, so that we produce conditional
@@ -395,13 +408,13 @@ mapAst1Rec (var, u) e@(D v _v') = case u of
 --
 --   Perhaps partition indexes vs b resulting in bitmasks b1 and b2
 --   and recursively process vectorized b1 * x1 + b2 * x2.
-  AstConst r -> constant (LA.konst r (V.length v))
-  AstD d -> konst1 d (V.length v)
-  AstVar0 var2 | var2 == var -> e  -- identity mapping
+  AstConst r -> AstConst (LA.konst r (V.length v))
+  AstD d -> AstD (konst1 d (V.length v))
+  AstVar0 var2 | var2 == var -> AstD e  -- identity mapping
   AstVar0 _var2 -> undefined  -- TODO: a problem, nested map or build
   -- inaccessible code: AstVar1{} -> error "mapAst1: type mismatch"
-  _ ->  -- fallback to POPL (memory blowup, but avoids functions on tape)
-    map1Elementwise (interpretLambdaD0 M.empty (var, u)) e
+  _ -> AstMap1 (var, u) (AstD e)
+    -- fallback to POPL (memory blowup, but avoids functions on tape)
 
 interpretLambdaD0 :: (ADModeAndNum d r, IsPrimalAndHasFeatures d a r)
                   => M.Map String (AstVar r d) -> (String, Ast r d a)
@@ -443,6 +456,15 @@ interpretAst env = \case
     Nothing -> error $ "interpretAst: unknown variable " ++ var
   AstSumElements10 v -> sumElements10 $ interpretAst env v
   AstIndex10 v i -> index10 (interpretAst env v) (interpretAstInt env i)
+  AstSlice1 i n v -> slice1 (interpretAstInt env i)
+                            (interpretAstInt env n)
+                            (interpretAst env v)
+  AstBuild1 i (var, r) ->
+    build1Elementwise (interpretAstInt env i) (interpretLambdaI env (var, r))
+      -- fallback to POPL (memory blowup, but avoids functions on tape)
+  AstMap1 (var, r) e ->
+    map1Elementwise (interpretLambdaD0 env (var, r)) (interpretAst env e)
+      -- fallback to POPL (memory blowup, but avoids functions on tape)
   _ -> error $ "TODO"
 
 interpretAstInt :: ADModeAndNum d r
@@ -540,8 +562,8 @@ interpretAstRel f EqOut [u, v] = f u == f v
 interpretAstRel f NeqOut [u, v] = f u /= f v
 interpretAstRel f LeqOut [u, v] = f u <= f v
 interpretAstRel f GeqOut [u, v] = f u >= f v
-interpretAstRel f LOut [u, v] = f u < f v
-interpretAstRel f GOut [u, v] = f u > f v
+interpretAstRel f LsOut [u, v] = f u < f v
+interpretAstRel f GtOut [u, v] = f u > f v
 interpretAstRel _ codeRelOut args =
   error $ "interpretAstRel: wrong number of arguments"
           ++ show (codeRelOut, length args)

@@ -520,7 +520,8 @@ data Ast :: Type -> ADMode -> Type -> Type where
   AstSlice1 :: AstInt r d -> AstInt r d -> Ast r d (Vector r)
             -> Ast r d (Vector r)
   AstReverse1 :: Ast r d (Vector r) -> Ast r d (Vector r)
-  AstBuild1 :: AstInt r d -> (AstInt r d -> Ast r d r) -> Ast r d (Vector r)
+  AstBuild1 :: AstInt r d -> (String, Ast r d r) -> Ast r d (Vector r)
+  AstMap1 :: (String, Ast r d r) -> Ast r d (Vector r) -> Ast r d (Vector r)
 
 data AstVar r d =
     AstVarD0 (ADVal d r)
@@ -537,7 +538,7 @@ data AstInt :: Type -> ADMode -> Type where
 data AstBool :: Type -> ADMode -> Type where
   AstBoolOp :: CodeBoolOut -> [AstBool r d] -> AstBool r d
   AstBoolConst :: Bool -> AstBool r d
-  AstRel :: RelOut -> [Ast r d r] -> AstBool r d
+  AstRel :: RelOut -> [Ast r d r] -> AstBool r d  -- TODO: Vector?
   AstRelInt :: RelOut -> [AstInt r d] -> AstBool r d
 
 deriving instance ( Show a, Show r, Numeric r
@@ -585,7 +586,7 @@ data CodeBoolOut =
 
 data RelOut =
     EqOut | NeqOut
-  | LeqOut| GeqOut | LOut | GOut
+  | LeqOut| GeqOut | LsOut | GtOut
   deriving Show
 
 
