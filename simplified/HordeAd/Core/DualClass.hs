@@ -471,6 +471,10 @@ wrapDelta1 !d = unsafePerformIO $ do
 
 class VectorLike vector where
   llength :: vector -> NumOf vector
+  lminElement :: vector -> Element vector
+  lmaxElement :: vector -> Element vector
+  lminIndex :: vector -> NumOf vector
+  lmaxIndex :: vector -> NumOf vector
   lsumElements10 :: vector -> Element vector
   lindex10 :: vector -> NumOf vector -> Element vector
   lkonst1 :: Element vector -> NumOf vector -> vector
@@ -479,6 +483,10 @@ class VectorLike vector where
 
 instance Numeric r => VectorLike (Vector r) where
   llength = V.length
+  lminElement = LA.minElement
+  lmaxElement = LA.maxElement
+  lminIndex = LA.minIndex
+  lmaxIndex = LA.maxIndex
   lsumElements10 = LA.sumElements
   lindex10 = (V.!)
   lkonst1 = LA.konst
@@ -487,6 +495,10 @@ instance Numeric r => VectorLike (Vector r) where
 
 instance VectorLike (Ast r d (Vector r)) where
   llength = AstLength
+  lminElement = AstMinElement
+  lmaxElement = AstMaxElement
+  lminIndex = AstMinIndex
+  lmaxIndex = AstMaxIndex
   lsumElements10 = AstSumElements10
   lindex10 = AstIndex10
   lkonst1 = AstKonst1
@@ -507,6 +519,9 @@ data Ast :: Type -> ADMode -> Type -> Type where
 
   AstOMap1 :: (Ast r d r -> Ast r d r) -> Ast r d (Vector r)
            -> Ast r d (Vector r)  -- TODO: is the function OK? nope
+
+  AstMinElement :: Ast r d (Vector r) -> Ast r d r
+  AstMaxElement :: Ast r d (Vector r) -> Ast r d r
 
   AstSumElements10 :: Ast r d (Vector r) -> Ast r d r
   AstIndex10 :: Ast r d (Vector r) -> AstInt r d -> Ast r d r
@@ -535,7 +550,10 @@ data AstInt :: Type -> ADMode -> Type where
   AstIntCond :: AstBool r d -> AstInt r d -> AstInt r d -> AstInt r d
   AstIntConst :: Int -> AstInt r d
   AstIntVar :: AstVarName Int -> AstInt r d
+
   AstLength :: Ast r d (Vector r) -> AstInt r d
+  AstMinIndex :: Ast r d (Vector r) -> AstInt r d
+  AstMaxIndex :: Ast r d (Vector r) -> AstInt r d
 
 data AstBool :: Type -> ADMode -> Type where
   AstBoolOp :: CodeBoolOut -> [AstBool r d] -> AstBool r d

@@ -38,7 +38,9 @@ fooBuild1 :: forall r d. ADModeAndNum d r
 fooBuild1 v =
   let v' = liftToAst v :: ADVal d (Ast r d (Vector r))
       r' = sumElements10 v' :: ADVal d (Ast r d r)
-  in buildAst1 2 ("ix", r' * foo (3, 5 * r', r' * liftToAst (minimum0 v))
+  in buildAst1 2 ("ix", r' * foo ( 3
+                                 , 5 * r'
+                                 , r' * liftToAst (minimum0 v) * minimum0 v')
                         + bar (r', index10 v' (varInt "ix" + 1)))
        -- note how foo and bar are used in the Ast universe without lifting
        -- their result, just as sumElements10 and index10 is
@@ -92,7 +94,7 @@ testFooBuild =
        (\adinputs -> fooBuild1 (adinputs `at1` 0))
        (domainsFrom01 V.empty
                       (V.singleton (V.fromList [1.1 :: Double, 2.2, 3.3, 4]))))
-  @?~ V.singleton (V.fromList [-3020.5084001833748,-3450.748658164765,-3180.4186403350423,-3289.368401082208])
+  @?~ V.singleton (V.fromList [-3035.7732253313925,-3787.9098814036633,-3517.5798635739407,-3626.5296243211064])
 
 testFooMap :: Assertion
 testFooMap =
@@ -101,7 +103,7 @@ testFooMap =
        (LA.konst 1 2)  -- 1 wrong due to fragility of hmatrix optimization
        (\adinputs -> fooMap1 (adinputs `at0` 0))
        (domainsFrom01 (V.singleton (1.1 :: Double)) V.empty))
-  @?~ V.fromList [2.70437106657724e7]
+  @?~ V.fromList [2.958754515965999e7]
 
 testFooNoGo :: Assertion
 testFooNoGo =

@@ -208,13 +208,13 @@ sumElements10 (D u u') = dD (lsumElements10 u) (dSumElements10 u' (llength u))
 index10 :: IsVectorWithScalar d v r => ADVal d v -> NumOf v -> ADVal d r
 index10 (D u u') ix = dD (lindex10 u ix) (dIndex10 u' ix (llength u))
 
-minimum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
+minimum0 :: IsVectorWithScalar d v r => ADVal d v -> ADVal d r
 minimum0 (D u u') =
-  dD (LA.minElement u) (dIndex10 u' (LA.minIndex u) (V.length u))
+  dD (lminElement u) (dIndex10 u' (lminIndex u) (llength u))
 
-maximum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
+maximum0 :: IsVectorWithScalar d v r => ADVal d v -> ADVal d r
 maximum0 (D u u') =
-  dD (LA.maxElement u) (dIndex10 u' (LA.maxIndex u) (V.length u))
+  dD (lmaxElement u) (dIndex10 u' (lmaxIndex u) (llength u))
 
 foldl'0 :: ADModeAndNum d r
         => (ADVal d r -> ADVal d r -> ADVal d r)
@@ -476,6 +476,8 @@ interpretAst env = \case
     Just (AstVar0 d) -> d
     Just AstVarI{} -> error $ "interpretAst: type mismatch for " ++ var
     Nothing -> error $ "interpretAst: unknown variable " ++ var
+  AstMinElement v -> minimum0 $ interpretAst env v
+  AstMaxElement v -> maximum0 $ interpretAst env v
   AstSumElements10 v -> sumElements10 $ interpretAst env v
   AstIndex10 v i -> index10 (interpretAst env v) (interpretAstInt env i)
   AstKonst1 r n -> konst1 (interpretAst env r) (interpretAstInt env n)
@@ -509,6 +511,8 @@ interpretAstInt env = \case
     Just (AstVarI i) -> i
     Nothing -> error $ "interpretAstP: unknown variable " ++ var
   AstLength v -> V.length $ let D u _u' = interpretAst env v in u
+  AstMinIndex v -> LA.minIndex $ let D u _u' = interpretAst env v in u
+  AstMaxIndex v -> LA.maxIndex $ let D u _u' = interpretAst env v in u
 
 interpretAstBool :: (IsVectorWithScalar d (Vector r) r, Numeric r)
                  => M.Map String (AstVar r d) -> AstBool r d -> Bool
