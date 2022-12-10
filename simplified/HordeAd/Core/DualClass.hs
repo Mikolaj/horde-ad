@@ -503,8 +503,7 @@ data Ast :: Type -> ADMode -> Type -> Type where
   AstConst :: a -> Ast r d a
   AstD :: ADVal d a -> Ast r d a
 
-  AstVar0 :: String -> Ast r d r
-  AstVar1 :: String -> Ast r d (Vector r)
+  AstVar :: String -> Ast r d r
 
   AstOMap1 :: (Ast r d r -> Ast r d r) -> Ast r d (Vector r)
            -> Ast r d (Vector r)  -- TODO: is the function OK? nope
@@ -524,8 +523,7 @@ data Ast :: Type -> ADMode -> Type -> Type where
   AstMap1 :: (String, Ast r d r) -> Ast r d (Vector r) -> Ast r d (Vector r)
 
 data AstVar r d =
-    AstVarD0 (ADVal d r)
-  | AstVarD1 (ADVal d (Vector r))
+    AstVar0 (ADVal d r)
   | AstVarI Int
 
 data AstInt :: Type -> ADMode -> Type where

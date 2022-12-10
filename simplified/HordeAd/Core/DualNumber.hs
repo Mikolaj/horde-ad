@@ -200,7 +200,7 @@ gtIntAst i j = AstRelInt GtOut [i, j]
 -- * Operations resulting in a scalar
 
 varAst0 :: ADModeAndNumNew d (Ast r d r) => String -> ADVal d (Ast r d r)
-varAst0 s = dD (AstVar0 s) undefined
+varAst0 s = dD (AstVar s) undefined
 
 sumElements10 :: IsVectorWithScalar d v r => ADVal d v -> ADVal d r
 sumElements10 (D u u') = dD (lsumElements10 u) (dSumElements10 u' (llength u))
@@ -433,9 +433,8 @@ mapAst1Simplify (var, u) e@(D v _v') = case u of
 --   and recursively process vectorized b1 * x1 + b2 * x2.
   AstConst r -> AstConst (LA.konst r (V.length v))
   AstD d -> AstD (konst1 d (V.length v))
-  AstVar0 var2 | var2 == var -> AstD e  -- identity mapping
+  AstVar var2 | var2 == var -> AstD e  -- identity mapping
   -- AstVar0 _var2 -> TODO: a problem, nested map or build
-  -- inaccessible code: AstVar1{} -> error "mapAst1: type mismatch"
   _ -> AstMap1 (var, u) (AstD e)
     -- fallback to POPL (memory blowup, but avoids functions on tape)
 
@@ -444,14 +443,7 @@ interpretLambdaD0 :: ( IsVectorWithScalar d (Vector r) r, Numeric r
                   => M.Map String (AstVar r d) -> (String, Ast r d a)
                   -> ADVal d r -> ADVal d a
 interpretLambdaD0 env (var, ast) =
-  \d -> interpretAst (M.insert var (AstVarD0 d) env) ast
-
-interpretLambdaD1 :: ( IsVectorWithScalar d (Vector r) r, Numeric r
-                     , IsPrimalAndHasFeatures d a r )
-                  => M.Map String (AstVar r d) -> (String, Ast r d a)
-                  -> ADVal d (Vector r) -> ADVal d a
-interpretLambdaD1 env (var, ast) =
-  \d -> interpretAst (M.insert var (AstVarD1 d) env) ast
+  \d -> interpretAst (M.insert var (AstVar0 d) env) ast
 
 interpretLambdaI :: ( IsVectorWithScalar d (Vector r) r, Numeric r
                     , IsPrimalAndHasFeatures d a r )
@@ -472,14 +464,8 @@ interpretAst env = \case
                      else interpretAst env a2
   AstConst a -> constant a
   AstD d -> d
-  AstVar0 var -> case M.lookup var env of
-    Just (AstVarD0 d) -> d
-    Just AstVarD1{} -> error $ "interpretAst: type mismatch for " ++ var
-    Just AstVarI{} -> error $ "interpretAst: type mismatch for " ++ var
-    Nothing -> error $ "interpretAst: unknown variable " ++ var
-  AstVar1 var -> case M.lookup var env of
-    Just AstVarD0{} -> error $ "interpretAst: type mismatch for " ++ var
-    Just (AstVarD1 d) -> d
+  AstVar var -> case M.lookup var env of
+    Just (AstVar0 d) -> d
     Just AstVarI{} -> error $ "interpretAst: type mismatch for " ++ var
     Nothing -> error $ "interpretAst: unknown variable " ++ var
   AstSumElements10 v -> sumElements10 $ interpretAst env v
@@ -511,8 +497,7 @@ interpretAstInt env = \case
                         else interpretAstInt env a2
   AstIntConst a -> a
   AstIntVar var -> case M.lookup var env of
-    Just AstVarD0{} -> error $ "interpretAstP: type mismatch for " ++ var
-    Just AstVarD1{} -> error $ "interpretAstP: type mismatch for " ++ var
+    Just AstVar0{} -> error $ "interpretAstP: type mismatch for " ++ var
     Just (AstVarI i) -> i
     Nothing -> error $ "interpretAstP: unknown variable " ++ var
   AstLength v -> V.length $ let D u _u' = interpretAst env v in u
