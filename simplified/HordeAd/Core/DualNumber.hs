@@ -278,9 +278,9 @@ lossSoftMaxCrossEntropyV target (D u u') =
 -- * Operations resulting in a vector
 
 -- @1@ means rank one, so the dual component represents a vector.
-fromList1 :: ADModeAndNum d r
-          => [ADVal d r] -> ADVal d (Vector r)
-fromList1 l = dD (V.fromList $ map (\(D u _) -> u) l)  -- I hope this fuses
+fromList1 :: IsVectorWithScalar d v r
+          => [ADVal d r] -> ADVal d v
+fromList1 l = dD (lfromList1 $ map (\(D u _) -> u) l)  -- I hope this fuses
                  (dFromList1 $ map (\(D _ u') -> u') l)
 
 fromVector1 :: ADModeAndNum d r
@@ -288,17 +288,17 @@ fromVector1 :: ADModeAndNum d r
 fromVector1 v = dD (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
                    (dFromVector1 $ V.map (\(D _ u') -> u') v)
 
-konst1 :: ADModeAndNum d r => ADVal d r -> Int -> ADVal d (Vector r)
-konst1 (D u u') n = dD (LA.konst u n) (dKonst1 u' n)
+konst1 :: IsVectorWithScalar d v r => ADVal d r -> NumOf v -> ADVal d v
+konst1 (D u u') n = dD (lkonst1 u n) (dKonst1 u' n)
 
 append1 :: ADModeAndNum d r
         => ADVal d (Vector r) -> ADVal d (Vector r)
         -> ADVal d (Vector r)
 append1 (D u u') (D v v') = dD (u V.++ v) (dAppend1 u' (V.length u) v')
 
-slice1 :: ADModeAndNum d r
-       => Int -> Int -> ADVal d (Vector r) -> ADVal d (Vector r)
-slice1 i n (D u u') = dD (V.slice i n u) (dSlice1 i n u' (V.length u))
+slice1 :: IsVectorWithScalar d v r
+       => NumOf v -> NumOf v -> ADVal d v -> ADVal d v
+slice1 i n (D u u') = dD (lslice1 i n u) (dSlice1 i n u' (llength u))
 
 reverse1 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d (Vector r)
 reverse1 (D u u') = dD (V.reverse u) (dReverse1 u')
