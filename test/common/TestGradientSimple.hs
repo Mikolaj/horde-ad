@@ -361,13 +361,13 @@ oldReadmeTests = testGroup "Simple tests for README"
 -- vectors of primitive differentiable scalars.
 
 vatanOldReadme
-  :: ADModeAndNum d r
+  :: forall d r. ADModeAndNum d r
   => ADInputs d r -> ADVal d r
 vatanOldReadme inputs =
   let xyzVector = at1 inputs 0
       f = index10 xyzVector
       (x, y, z) = (f 0, f 1, f 2)
-      v = fromVector1 $ atanOldReadmeOriginal x y z
+      v = fromVector1 (atanOldReadmeOriginal x y z) :: ADVal d (Vector r)
   in sumElements10 v
 
 vatanOldReadmeDReverse :: HasDelta r

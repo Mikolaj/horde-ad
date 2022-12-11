@@ -480,9 +480,12 @@ class VectorLike vector where
   lindex10 :: vector -> NumOf vector -> Element vector
   ldot0 :: vector -> vector -> Element vector
 
-  lkonst1 :: Element vector -> NumOf vector -> vector
-  lslice1 :: NumOf vector -> NumOf vector -> vector -> vector
   lfromList1 :: [Element vector] -> vector
+  lfromVector1 :: Data.Vector.Vector (Element vector) -> vector
+  lkonst1 :: Element vector -> NumOf vector -> vector
+  lappend1 :: vector -> vector -> vector
+  lslice1 :: NumOf vector -> NumOf vector -> vector -> vector
+  lreverse1 :: vector -> vector
 
 instance Numeric r => VectorLike (Vector r) where
   llength = V.length
@@ -493,9 +496,12 @@ instance Numeric r => VectorLike (Vector r) where
   lsumElements10 = LA.sumElements
   lindex10 = (V.!)
   ldot0 = (LA.<.>)
-  lkonst1 = LA.konst
-  lslice1 = V.slice
   lfromList1 = V.fromList
+  lfromVector1 = V.convert
+  lkonst1 = LA.konst
+  lappend1 = (V.++)
+  lslice1 = V.slice
+  lreverse1 = V.reverse
 
 instance VectorLike (Ast r d (Vector r)) where
   llength = AstLength
@@ -506,9 +512,12 @@ instance VectorLike (Ast r d (Vector r)) where
   lsumElements10 = AstSumElements10
   lindex10 = AstIndex10
   ldot0 = AstDot0
-  lkonst1 = AstKonst1
-  lslice1 = AstSlice1
   lfromList1 = AstFromList1
+  lfromVector1 = AstFromVector1
+  lkonst1 = AstKonst1
+  lappend1 = AstAppend1
+  lslice1 = AstSlice1
+  lreverse1 = AstReverse1
 
 -- TODO: consider sharing Ast expressions, both within the primal part
 -- and between primal and dual
@@ -539,6 +548,7 @@ data Ast :: Type -> ADMode -> Type -> Type where
   AstSlice1 :: AstInt r d -> AstInt r d -> Ast r d (Vector r)
             -> Ast r d (Vector r)
   AstReverse1 :: Ast r d (Vector r) -> Ast r d (Vector r)
+
   AstBuild1 :: AstInt r d -> (AstVarName Int, Ast r d r) -> Ast r d (Vector r)
   AstMap1 :: (AstVarName (ADVal d r), Ast r d r) -> Ast r d (Vector r)
           -> Ast r d (Vector r)

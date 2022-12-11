@@ -188,14 +188,6 @@ condAst :: IsPrimal d (Ast r d a)
         -> ADVal d (Ast r d a)
 condAst b (D d _) (D e _) = dD (AstCond b d e) undefined
 
-leqAst :: ADVal d (Ast r d r) -> ADVal d (Ast r d r) -> AstBool r d
-leqAst (D d _) (D e _) = AstRel LeqOut [d, e]
-
-gtAst :: ADVal d (Ast r d r) -> ADVal d (Ast r d r) -> AstBool r d
-gtAst (D d _) (D e _) = AstRel GtOut [d, e]
-
-gtIntAst :: AstInt r d -> AstInt r d -> AstBool r d
-gtIntAst i j = AstRelInt GtOut [i, j]
 
 -- * Operations resulting in a scalar
 
@@ -297,25 +289,23 @@ fromList1 :: IsVectorWithScalar d v r
 fromList1 l = dD (lfromList1 $ map (\(D u _) -> u) l)  -- I hope this fuses
                  (dFromList1 $ map (\(D _ u') -> u') l)
 
-fromVector1 :: ADModeAndNum d r
-            => Data.Vector.Vector (ADVal d r) -> ADVal d (Vector r)
-fromVector1 v = dD (V.convert $ V.map (\(D u _) -> u) v)  -- I hope this fuses
+fromVector1 :: IsVectorWithScalar d v r
+            => Data.Vector.Vector (ADVal d r) -> ADVal d v
+fromVector1 v = dD (lfromVector1 $ V.map (\(D u _) -> u) v)  -- I hope it fuses
                    (dFromVector1 $ V.map (\(D _ u') -> u') v)
 
 konst1 :: IsVectorWithScalar d v r => ADVal d r -> NumOf v -> ADVal d v
 konst1 (D u u') n = dD (lkonst1 u n) (dKonst1 u' n)
 
-append1 :: ADModeAndNum d r
-        => ADVal d (Vector r) -> ADVal d (Vector r)
-        -> ADVal d (Vector r)
-append1 (D u u') (D v v') = dD (u V.++ v) (dAppend1 u' (V.length u) v')
+append1 :: IsVectorWithScalar d v r => ADVal d v -> ADVal d v -> ADVal d v
+append1 (D u u') (D v v') = dD (lappend1 u v) (dAppend1 u' (llength u) v')
 
 slice1 :: IsVectorWithScalar d v r
        => NumOf v -> NumOf v -> ADVal d v -> ADVal d v
 slice1 i n (D u u') = dD (lslice1 i n u) (dSlice1 i n u' (llength u))
 
-reverse1 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d (Vector r)
-reverse1 (D u u') = dD (V.reverse u) (dReverse1 u')
+reverse1 :: IsVectorWithScalar d v r => ADVal d v -> ADVal d v
+reverse1 (D u u') = dD (lreverse1 u) (dReverse1 u')
 
 -- Build variants
 
@@ -444,6 +434,15 @@ mapAst1Simplify (var, u) e@(D v _v') = case u of
 varInt :: String -> AstInt r d
 varInt = AstIntVar . AstVarName
 
+leqAst :: ADVal d (Ast r d r) -> ADVal d (Ast r d r) -> AstBool r d
+leqAst (D d _) (D e _) = AstRel LeqOut [d, e]
+
+gtAst :: ADVal d (Ast r d r) -> ADVal d (Ast r d r) -> AstBool r d
+gtAst (D d _) (D e _) = AstRel GtOut [d, e]
+
+gtIntAst :: AstInt r d -> AstInt r d -> AstBool r d
+gtIntAst i j = AstRelInt GtOut [i, j]
+
 interpretLambdaD0
   :: ( IsVectorWithScalar d (Vector r) r, Numeric r
      , IsPrimalAndHasFeatures d a r )
@@ -481,10 +480,14 @@ interpretAst env = \case
   AstSumElements10 v -> sumElements10 $ interpretAst env v
   AstIndex10 v i -> index10 (interpretAst env v) (interpretAstInt env i)
   AstDot0 u v -> interpretAst env u <.>! interpretAst env v
+  AstFromList1 l -> fromList1 $ map (interpretAst env) l
+  AstFromVector1 v -> fromVector1 $ V.map (interpretAst env) v
   AstKonst1 r n -> konst1 (interpretAst env r) (interpretAstInt env n)
+  AstAppend1 u v -> append1 (interpretAst env u) (interpretAst env v)
   AstSlice1 i n v -> slice1 (interpretAstInt env i)
                             (interpretAstInt env n)
                             (interpretAst env v)
+  AstReverse1 v -> reverse1 $ interpretAst env v
   AstBuild1 i (var, r) ->
     build1Elementwise (interpretAstInt env i) (interpretLambdaI env (var, r))
       -- fallback to POPL (memory blowup, but avoids functions on tape)
@@ -492,10 +495,6 @@ interpretAst env = \case
     map1Elementwise (interpretLambdaD0 env (var, r)) (interpretAst env e)
       -- fallback to POPL (memory blowup, but avoids functions on tape)
   AstOMap1{} -> error "TODO: AstOMap1"
-  AstFromList1{} -> error "TODO: AstFromList1"
-  AstFromVector1{} -> error "TODO: AstFromVector1"
-  AstAppend1{} -> error "TODO: AstAppend1"
-  AstReverse1{} -> error "TODO: AstReverse1"
 
 interpretAstInt :: (IsVectorWithScalar d (Vector r) r, Numeric r)
                 => M.Map String (AstVar r d) -> AstInt r d -> Int
@@ -599,6 +598,7 @@ interpretAstRel _ codeRelOut args =
   error $ "interpretAstRel: wrong number of arguments"
           ++ show (codeRelOut, length args)
 
+-- TODO: define Enum instance of (AstInt r d) to enable AST for this.
 -- No padding; remaining areas ignored.
 maxPool1 :: ADModeAndNum d r
          => Int -> Int -> ADVal d (Vector r) -> ADVal d (Vector r)
@@ -606,9 +606,9 @@ maxPool1 ksize stride v@(D u _) =
   let slices = [slice1 i ksize v | i <- [0, stride .. V.length u - ksize]]
   in fromList1 $ map maximum0 slices
 
-softMaxV :: ADModeAndNum d r
-         => ADVal d (Vector r) -> ADVal d (Vector r)
+softMaxV :: IsVectorWithScalar d v r
+         => ADVal d v -> ADVal d v
 softMaxV d@(D u _) =
   let expU = exp d  -- shared in 2 places, though cse may do this for us
       sumExpU = sumElements10 expU
-  in konst1 (recip sumExpU) (V.length u) * expU
+  in konst1 (recip sumExpU) (llength u) * expU
