@@ -379,21 +379,22 @@ map1Closure f d@(D v _) = build1Closure (V.length v) $ \i -> f (index10 d i)
 
 class AstVectorLike d r vector | vector -> r where
   lbuildAst1 :: (IsVectorWithScalar d (Vector r) r, Numeric r)
-             => NumOf vector -> (AstVarName Int, Ast r d r) -> ADVal d vector
+             => NumOf vector -> (AstVarName Int, Ast r d r)
+             -> ADVal d vector
   lmapAst1 :: (IsVectorWithScalar d (Vector r) r, Numeric r)
-           => (AstVarName (ADVal d r), Ast r d r) -> ADVal d (Vector r)
+           => (AstVarName (ADVal d r), Ast r d r) -> ADVal d vector
            -> ADVal d vector
 
 instance AstVectorLike d r (Vector r) where
   lbuildAst1 n (var, u) =
     interpretAst M.empty $ buildAst1Simplify (AstIntConst n) (var, u)
   lmapAst1 (var, u) e =
-    interpretAst M.empty $ mapAst1Simplify (var, u) e
+    interpretAst M.empty $ mapAst1Simplify (var, u) (AstD e)
 
 instance IsPrimal d (Ast r d (Vector r))
          => AstVectorLike d r (Ast r d (Vector r)) where
   lbuildAst1 n (var, u) = astToD (buildAst1Simplify n (var, u))
-  lmapAst1 (var, u) e = astToD (mapAst1Simplify (var, u) e)
+  lmapAst1 (var, u) (D w _) = astToD (mapAst1Simplify (var, u) w)
 
 buildAst1
   :: (AstVectorLike d r v, IsVectorWithScalar d (Vector r) r, Numeric r)
@@ -402,15 +403,15 @@ buildAst1 n (var, D u _) = lbuildAst1 n (AstVarName var, u)
 
 mapAst1
   :: (AstVectorLike d r v, IsVectorWithScalar d (Vector r) r, Numeric r)
-  => (String, ADVal d (Ast r d r)) -> ADVal d (Vector r)
-  -> ADVal d v
+  => (String, ADVal d (Ast r d r)) -> ADVal d v -> ADVal d v
 mapAst1 (var, D u _) e = lmapAst1 (AstVarName var, u) e
 
 -- TODO: question: now I simplify nested builds/maps when they are created;
 -- should I instead wait and simplify the whole term?
 buildAst1Simplify
   :: (IsVectorWithScalar d (Vector r) r, Numeric r)
-  => AstInt r d -> (AstVarName Int, Ast r d r) -> Ast r d (Vector r)
+  => AstInt r d -> (AstVarName Int, Ast r d r)
+  -> Ast r d (Vector r)
 buildAst1Simplify n (var, u) = case u of
   AstOp codeOut args ->  -- AstOp0
     AstOp codeOut $ map (\w -> buildAst1Simplify n (var, w)) args  -- AstOp1
@@ -445,22 +446,22 @@ buildAst1Simplify n (var, u) = case u of
 
 mapAst1Simplify
   :: (IsVectorWithScalar d (Vector r) r, Numeric r)
-  => (AstVarName (ADVal d r), Ast r d r) -> ADVal d (Vector r)
+  => (AstVarName (ADVal d r), Ast r d r) -> Ast r d (Vector r)
   -> Ast r d (Vector r)
-mapAst1Simplify (var, u) e@(D v _v') = case u of
+mapAst1Simplify (var, u) w = case u of
   AstOp codeOut args ->
-    AstOp codeOut $ map (\w -> mapAst1Simplify (var, w) e) args
-  AstCond _b _x1 _x2 -> AstMap1 (var, u) (AstD e)  -- TODO
-  AstConst r -> AstConst (LA.konst r (V.length v))
-  AstD d -> AstD (konst1 d (V.length v))
-  AstVar var2 | var2 == var -> AstD e  -- identity mapping
-  AstVar var2 -> AstKonst1 (AstVar var2) (AstIntConst $ V.length v)
-  AstMinElement _v -> AstMap1 (var, u) (AstD e)  -- TODO
-  AstMaxElement _v -> AstMap1 (var, u) (AstD e)  -- TODO
-  AstSumElements10 _v -> AstMap1 (var, u) (AstD e)  -- TODO
-  AstIndex10 _v _i -> AstMap1 (var, u) (AstD e)  -- TODO
+    AstOp codeOut $ map (\x -> mapAst1Simplify (var, x) w) args
+  AstCond _b _x1 _x2 -> AstMap1 (var, u) w  -- TODO
+  AstConst r -> AstKonst1 (AstConst r) (AstLength w)
+  AstD d -> AstKonst1 (AstD d) (AstLength w)
+  AstVar var2 | var2 == var -> w  -- identity mapping
+  AstVar var2 -> AstKonst1 (AstVar var2) (AstLength w)
+  AstMinElement _v -> AstMap1 (var, u) w  -- TODO
+  AstMaxElement _v -> AstMap1 (var, u) w  -- TODO
+  AstSumElements10 _v -> AstMap1 (var, u) w  -- TODO
+  AstIndex10 _v _i -> AstMap1 (var, u) w  -- TODO
     -- both _v and _i can depend on var, e.g., because of conditionals
-  AstDot0 _u _v -> AstMap1 (var, u) (AstD e)  -- TODO
+  AstDot0 _u _v -> AstMap1 (var, u) w  -- TODO
   -- All other patterns are redundant due to GADT typing.
 
 varInt :: String -> AstInt r d

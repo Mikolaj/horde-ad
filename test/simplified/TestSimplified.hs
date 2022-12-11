@@ -73,10 +73,10 @@ fooNoGo v =
 nestedBuildMap :: forall r d. ADModeAndNum d r
                => ADVal d r -> ADVal d (Vector r)
 nestedBuildMap r =
-  let v = konst1 r 4
+  let w = konst1 (varAst0 "x") (AstIntCond (varAst0 "x" `leqAst` 0) 3 4)
       v' = konst1 (liftToAst r) 7 :: ADVal d (Ast r d (Vector r))
       nestedMap :: ADVal d (Ast r d (Vector r))
-      nestedMap = mapAst1 ("y", varAst0 "x" / varAst0 "y") v
+      nestedMap = mapAst1 ("y", varAst0 "x" / varAst0 "y") w
       variableLengthBuild :: ADVal d (Ast r d (Vector r))
       variableLengthBuild = buildAst1 (varInt "iy" + 1) ("ix",
                               index10 v' (varInt "ix" + 1))
