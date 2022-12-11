@@ -54,7 +54,7 @@ fooMap1 r =
 
 -- A test that doesn't vectorize currently due to conditionals
 -- and so falls back to POPL.
-fooNoGo :: forall r d. (ADModeAndNum d r, AstVectorLike d r (Vector r))
+fooNoGo :: forall r d. ADModeAndNum d r
         => ADVal d (Vector r) -> ADVal d (Vector r)
 fooNoGo v =
   let v' = liftToAst v :: ADVal d (Ast r d (Vector r))
@@ -69,7 +69,7 @@ fooNoGo v =
                                          r' (varAst0 "x")) v)
      * buildAst1 3 ("ix", 1 :: ADVal d (Ast r d r))  -- TODO: @::@ required
 
--- TODO: Two obvious @::@ required.
+-- TODO: Some obvious @::@ required.
 nestedBuildMap :: forall r d. ADModeAndNum d r
                => ADVal d r -> ADVal d (Vector r)
 nestedBuildMap r =
@@ -77,12 +77,16 @@ nestedBuildMap r =
       v' = konst1 (liftToAst r) 7 :: ADVal d (Ast r d (Vector r))
       nestedMap :: ADVal d (Ast r d (Vector r))
       nestedMap = mapAst1 ("y", varAst0 "x" / varAst0 "y") v
+      variableLengthBuild :: ADVal d (Ast r d (Vector r))
+      variableLengthBuild = buildAst1 (varInt "iy" + 1) ("ix",
+                              index10 v' (varInt "ix" + 1))
+      doublyBuild = buildAst1 5 ("iy", minimum0 variableLengthBuild)
   in mapAst1 ("x", varAst0 "x"
                    * sumElements10
                        (buildAst1 4 ("ix", bar ( varAst0 "x"
                                                , index10 v' (varInt "ix")) )
                         + nestedMap)
-             ) (buildAst1 5 ("ix", index10 v' (varInt "ix" + 1)))
+             ) doublyBuild
 
 -- In simplified horde-ad we don't have access to the highest level API
 -- (adaptors), so the testing glue is tedious:

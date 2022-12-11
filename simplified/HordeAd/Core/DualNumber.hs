@@ -379,14 +379,16 @@ map1Closure f d@(D v _) = build1Closure (V.length v) $ \i -> f (index10 d i)
 
 class AstVectorLike d r vector | vector -> r where
   lbuildAst1 :: (IsVectorWithScalar d (Vector r) r, Numeric r)
-             => Int -> (AstVarName Int, Ast r d r) -> ADVal d vector
+             => NumOf vector -> (AstVarName Int, Ast r d r) -> ADVal d vector
   lmapAst1 :: (IsVectorWithScalar d (Vector r) r, Numeric r)
            => (AstVarName (ADVal d r), Ast r d r) -> ADVal d (Vector r)
            -> ADVal d vector
 
 instance AstVectorLike d r (Vector r) where
-  lbuildAst1 n (var, u) = interpretAst M.empty $ buildAst1Simplify n (var, u)
-  lmapAst1 (var, u) e = interpretAst M.empty $ mapAst1Simplify (var, u) e
+  lbuildAst1 n (var, u) =
+    interpretAst M.empty $ buildAst1Simplify (AstIntConst n) (var, u)
+  lmapAst1 (var, u) e =
+    interpretAst M.empty $ mapAst1Simplify (var, u) e
 
 instance IsPrimal d (Ast r d (Vector r))
          => AstVectorLike d r (Ast r d (Vector r)) where
@@ -395,7 +397,7 @@ instance IsPrimal d (Ast r d (Vector r))
 
 buildAst1
   :: (AstVectorLike d r v, IsVectorWithScalar d (Vector r) r, Numeric r)
-  => Int -> (String, ADVal d (Ast r d r)) -> ADVal d v
+  => NumOf v -> (String, ADVal d (Ast r d r)) -> ADVal d v
 buildAst1 n (var, D u _) = lbuildAst1 n (AstVarName var, u)
 
 mapAst1
@@ -408,7 +410,7 @@ mapAst1 (var, D u _) e = lmapAst1 (AstVarName var, u) e
 -- should I instead wait and simplify the whole term?
 buildAst1Simplify
   :: (IsVectorWithScalar d (Vector r) r, Numeric r)
-  => Int -> (AstVarName Int, Ast r d r) -> Ast r d (Vector r)
+  => AstInt r d -> (AstVarName Int, Ast r d r) -> Ast r d (Vector r)
 buildAst1Simplify n (var, u) = case u of
   AstOp codeOut args ->
     AstOp codeOut $ map (\w -> buildAst1Simplify n (var, w)) args
@@ -419,23 +421,23 @@ buildAst1Simplify n (var, u) = case u of
     --
     -- Perhaps partition indexes vs b resulting in bitmasks b1 and b2
     -- and recursively process vectorized b1 * x1 + b2 * x2.
-    AstBuild1 (AstIntConst n) (var, u)
+    AstBuild1 n (var, u)
       -- fallback to POPL (memory blowup, but avoids functions on tape)
       -- TODO: instead, save AST on tape and interpret the function at backprop;
       -- that would permit serialization to GPU, though serialization
       -- of Tree0 while preserving sharing is costly, but perhaps GPUs
       -- can generate deltas themselves now that closures are not needed?
-  AstConst r -> AstConst (LA.konst r n)
-  AstD d -> AstD (konst1 d n)
-  AstVar _var -> AstBuild1 (AstIntConst n) (var, u)  -- TODO
-  AstMinElement _v -> AstBuild1 (AstIntConst n) (var, u)  -- TODO
-  AstMaxElement _v -> AstBuild1 (AstIntConst n) (var, u)  -- TODO
-  AstSumElements10 _v -> AstBuild1 (AstIntConst n) (var, u)  -- TODO
-  AstIndex10 v (AstIntVar var2) | var2 == var -> AstSlice1 0 (AstIntConst n) v
-  AstIndex10 _v _i -> AstBuild1 (AstIntConst n) (var, u)  -- TODO
+  AstConst r -> AstKonst1 (AstConst r) n
+  AstD d -> AstKonst1 (AstD d) n
+  AstVar _var -> AstBuild1 n (var, u)  -- TODO
+  AstMinElement _v -> AstBuild1 n (var, u)  -- TODO
+  AstMaxElement _v -> AstBuild1 n (var, u)  -- TODO
+  AstSumElements10 _v -> AstBuild1 n (var, u)  -- TODO
+  AstIndex10 v (AstIntVar var2) | var2 == var -> AstSlice1 0 n v
+  AstIndex10 _v _i -> AstBuild1 n (var, u)  -- TODO
     -- add a new 'gather' operation somehow and if a more complex index
     -- expression, construct 'gather'
-  AstDot0 _u _v -> AstBuild1 (AstIntConst n) (var, u)  -- TODO
+  AstDot0 _u _v -> AstBuild1 n (var, u)  -- TODO
   -- All other patterns are redundant due to GADT typing.
 
 mapAst1Simplify
