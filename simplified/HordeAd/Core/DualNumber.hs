@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP, DataKinds, FlexibleInstances, FunctionalDependencies, GADTs,
              MultiParamTypeClasses, QuantifiedConstraints, RankNTypes,
-             TypeFamilies, UndecidableInstances #-}
+             TypeFamilies #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -378,25 +378,23 @@ map1Closure f d@(D v _) = build1Closure (V.length v) $ \i -> f (index10 d i)
 -- * AST-based build and map variants
 
 class AstVectorLike d r vector | vector -> r where
-  lbuildAst1 :: Int -> (AstVarName Int, Ast r d r) -> ADVal d vector
-  lmapAst1 :: (AstVarName (ADVal d r), Ast r d r) -> ADVal d (Vector r)
+  lbuildAst1 :: (IsVectorWithScalar d (Vector r) r, Numeric r)
+             => Int -> (AstVarName Int, Ast r d r) -> ADVal d vector
+  lmapAst1 :: (IsVectorWithScalar d (Vector r) r, Numeric r)
+           => (AstVarName (ADVal d r), Ast r d r) -> ADVal d (Vector r)
            -> ADVal d vector
 
--- UndecidableInstances needed due to this instance
-instance (IsVectorWithScalar d (Vector r) r, Numeric r)
-         => AstVectorLike d r (Vector r) where
+instance AstVectorLike d r (Vector r) where
   lbuildAst1 n (var, u) = interpretAst M.empty $ buildAst1Simplify n (var, u)
   lmapAst1 (var, u) e = interpretAst M.empty $ mapAst1Simplify (var, u) e
 
-instance ( IsVectorWithScalar d (Vector r) r
-         , Numeric r
-         , IsPrimal d (Ast r d (Vector r)) )
+instance IsPrimal d (Ast r d (Vector r))
          => AstVectorLike d r (Ast r d (Vector r)) where
   lbuildAst1 n (var, u) = astToD (buildAst1Simplify n (var, u))
   lmapAst1 (var, u) e = astToD (mapAst1Simplify (var, u) e)
 
 buildAst1
-  :: AstVectorLike d r v
+  :: (AstVectorLike d r v, IsVectorWithScalar d (Vector r) r, Numeric r)
   => Int -> (String, ADVal d (Ast r d r)) -> ADVal d v
 buildAst1 n (var, D u _) = lbuildAst1 n (AstVarName var, u)
 
@@ -425,7 +423,7 @@ buildAst1Simplify n (var, u) = case u of
     -- fallback to POPL (memory blowup, but avoids functions on tape)
 
 mapAst1
-  :: AstVectorLike d r v
+  :: (AstVectorLike d r v, IsVectorWithScalar d (Vector r) r, Numeric r)
   => (String, ADVal d (Ast r d r)) -> ADVal d (Vector r)
   -> ADVal d v
 mapAst1 (var, D u _) e = lmapAst1 (AstVarName var, u) e
