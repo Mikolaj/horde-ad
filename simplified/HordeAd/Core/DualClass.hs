@@ -531,9 +531,6 @@ data Ast :: Type -> ADMode -> Type -> Type where
 
   AstVar :: AstVarName (ADVal d r) -> Ast r d r
 
-  AstOMap1 :: (Ast r d r -> Ast r d r) -> Ast r d (Vector r)
-           -> Ast r d (Vector r)  -- TODO: is the function OK? nope
-
   AstMinElement :: Ast r d (Vector r) -> Ast r d r
   AstMaxElement :: Ast r d (Vector r) -> Ast r d r
 
@@ -552,6 +549,14 @@ data Ast :: Type -> ADMode -> Type -> Type where
   AstBuild1 :: AstInt r d -> (AstVarName Int, Ast r d r) -> Ast r d (Vector r)
   AstMap1 :: (AstVarName (ADVal d r), Ast r d r) -> Ast r d (Vector r)
           -> Ast r d (Vector r)
+
+  AstOMap1 :: (Ast r d r -> Ast r d r) -> Ast r d (Vector r)
+           -> Ast r d (Vector r)
+    -- TODO: this is necessary for MonoFunctor and so for a particularly
+    -- fast implementation of relu, but this introduces a closure on tape;
+    -- we may need to hack around this by substituting MonoFunctor
+    -- with something similar to AstVectorLike or by optimizing map1 enough
+    -- that it's as fast in such a simple case
 
 newtype AstVarName t = AstVarName String
   deriving (Show, Eq)
