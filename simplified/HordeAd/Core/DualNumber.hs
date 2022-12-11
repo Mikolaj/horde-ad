@@ -230,15 +230,15 @@ altSumElements10 = foldl'0 (+) 0
 
 -- | Dot product.
 infixr 8 <.>!
-(<.>!) :: ADModeAndNum d r
-       => ADVal d (Vector r) -> ADVal d (Vector r) -> ADVal d r
-(<.>!) (D u u') (D v v') = dD (u LA.<.> v) (dAdd (dDot0 v u') (dDot0 u v'))
+(<.>!) :: IsVectorWithScalar d v r
+       => ADVal d v -> ADVal d v -> ADVal d r
+(<.>!) (D u u') (D v v') = dD (ldot0 u v) (dAdd (dDot0 v u') (dDot0 u v'))
 
 -- | Dot product with a constant vector.
 infixr 8 <.>!!
-(<.>!!) :: ADModeAndNum d r
-        => ADVal d (Vector r) -> Vector r -> ADVal d r
-(<.>!!) (D u u') v = dD (u LA.<.> v) (dDot0 v u')
+(<.>!!) :: IsVectorWithScalar d v r
+        => ADVal d v -> v -> ADVal d r
+(<.>!!) (D u u') v = dD (ldot0 u v) (dDot0 v u')
 
 sumElementsVectorOfDual
   :: ADModeAndNum d r => Data.Vector.Vector (ADVal d r) -> ADVal d r
@@ -480,6 +480,7 @@ interpretAst env = \case
   AstMaxElement v -> maximum0 $ interpretAst env v
   AstSumElements10 v -> sumElements10 $ interpretAst env v
   AstIndex10 v i -> index10 (interpretAst env v) (interpretAstInt env i)
+  AstDot0 u v -> interpretAst env u <.>! interpretAst env v
   AstKonst1 r n -> konst1 (interpretAst env r) (interpretAstInt env n)
   AstSlice1 i n v -> slice1 (interpretAstInt env i)
                             (interpretAstInt env n)
@@ -491,7 +492,6 @@ interpretAst env = \case
     map1Elementwise (interpretLambdaD0 env (var, r)) (interpretAst env e)
       -- fallback to POPL (memory blowup, but avoids functions on tape)
   AstOMap1{} -> error "TODO: AstOMap1"
-  AstDot0{} -> error "TODO: AstDot0"
   AstFromList1{} -> error "TODO: AstFromList1"
   AstFromVector1{} -> error "TODO: AstFromVector1"
   AstAppend1{} -> error "TODO: AstAppend1"

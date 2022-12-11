@@ -475,8 +475,11 @@ class VectorLike vector where
   lmaxElement :: vector -> Element vector
   lminIndex :: vector -> NumOf vector
   lmaxIndex :: vector -> NumOf vector
+
   lsumElements10 :: vector -> Element vector
   lindex10 :: vector -> NumOf vector -> Element vector
+  ldot0 :: vector -> vector -> Element vector
+
   lkonst1 :: Element vector -> NumOf vector -> vector
   lslice1 :: NumOf vector -> NumOf vector -> vector -> vector
   lfromList1 :: [Element vector] -> vector
@@ -489,6 +492,7 @@ instance Numeric r => VectorLike (Vector r) where
   lmaxIndex = LA.maxIndex
   lsumElements10 = LA.sumElements
   lindex10 = (V.!)
+  ldot0 = (LA.<.>)
   lkonst1 = LA.konst
   lslice1 = V.slice
   lfromList1 = V.fromList
@@ -501,6 +505,7 @@ instance VectorLike (Ast r d (Vector r)) where
   lmaxIndex = AstMaxIndex
   lsumElements10 = AstSumElements10
   lindex10 = AstIndex10
+  ldot0 = AstDot0
   lkonst1 = AstKonst1
   lslice1 = AstSlice1
   lfromList1 = AstFromList1
