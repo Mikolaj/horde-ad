@@ -412,21 +412,31 @@ buildAst1Simplify
 buildAst1Simplify n (var, u) = case u of
   AstOp codeOut args ->
     AstOp codeOut $ map (\w -> buildAst1Simplify n (var, w)) args
--- TODO:
--- AstCond b x1 x2 -> ...
---   handle conditionals that depend on var, so that we produce conditional
---   delta expressions of size proportional to the exponent of conditional
---   nesting, instead of proportional to the number of elements of the tensor
---
---   Perhaps partition indexes vs b resulting in bitmasks b1 and b2
---   and recursively process vectorized b1 * x1 + b2 * x2.
+  AstCond _b _x1 _x2 ->  -- TODO
+    -- handle conditionals that depend on var, so that we produce conditional
+    -- delta expressions of size proportional to the exponent of conditional
+    -- nesting, instead of proportional to the number of elements of the tensor
+    --
+    -- Perhaps partition indexes vs b resulting in bitmasks b1 and b2
+    -- and recursively process vectorized b1 * x1 + b2 * x2.
+    AstBuild1 (AstIntConst n) (var, u)
+      -- fallback to POPL (memory blowup, but avoids functions on tape)
+      -- TODO: instead, save AST on tape and interpret the function at backprop;
+      -- that would permit serialization to GPU, though serialization
+      -- of Tree0 while preserving sharing is costly, but perhaps GPUs
+      -- can generate deltas themselves now that closures are not needed?
   AstConst r -> AstConst (LA.konst r n)
   AstD d -> AstD (konst1 d n)
+  AstVar _var -> AstBuild1 (AstIntConst n) (var, u)  -- TODO
+  AstMinElement _v -> AstBuild1 (AstIntConst n) (var, u)  -- TODO
+  AstMaxElement _v -> AstBuild1 (AstIntConst n) (var, u)  -- TODO
+  AstSumElements10 _v -> AstBuild1 (AstIntConst n) (var, u)  -- TODO
   AstIndex10 v (AstIntVar var2) | var2 == var -> AstSlice1 0 (AstIntConst n) v
-      -- TODO: add a new 'gather' operation somehow and if a more complex index
-      -- expression, construct 'gather'
-  _ -> AstBuild1 (AstIntConst n) (var, u)
-    -- fallback to POPL (memory blowup, but avoids functions on tape)
+  AstIndex10 _v _i -> AstBuild1 (AstIntConst n) (var, u)  -- TODO
+    -- add a new 'gather' operation somehow and if a more complex index
+    -- expression, construct 'gather'
+  AstDot0 _u _v -> AstBuild1 (AstIntConst n) (var, u)  -- TODO
+  -- All other patterns are redundant due to GADT typing.
 
 mapAst1Simplify
   :: (IsVectorWithScalar d (Vector r) r, Numeric r)
@@ -435,20 +445,27 @@ mapAst1Simplify
 mapAst1Simplify (var, u) e@(D v _v') = case u of
   AstOp codeOut args ->
     AstOp codeOut $ map (\w -> mapAst1Simplify (var, w) e) args
--- TODO:
--- AstCond b x1 x2 -> ...
---   handle conditionals that depend on var, so that we produce conditional
---   delta expressions of size proportional to the exponent of conditional
---   nesting, instead of proportional to the number of elements of the tensor
---
---   Perhaps partition indexes vs b resulting in bitmasks b1 and b2
---   and recursively process vectorized b1 * x1 + b2 * x2.
+  AstCond _b _x1 _x2 ->  -- TODO
+    -- handle conditionals that depend on var, so that we produce conditional
+    -- delta expressions of size proportional to the exponent of conditional
+    -- nesting, instead of proportional to the number of elements of the tensor
+    --
+    -- Perhaps partition indexes vs b resulting in bitmasks b1 and b2
+    -- and recursively process vectorized b1 * x1 + b2 * x2.
+    AstMap1 (var, u) (AstD e)
+      -- fallback to POPL (memory blowup, but avoids functions on tape)
   AstConst r -> AstConst (LA.konst r (V.length v))
   AstD d -> AstD (konst1 d (V.length v))
   AstVar var2 | var2 == var -> AstD e  -- identity mapping
-  -- AstVar0 _var2 -> TODO: a problem, nested map or build
-  _ -> AstMap1 (var, u) (AstD e)
-    -- fallback to POPL (memory blowup, but avoids functions on tape)
+  AstVar _var2 -> AstMap1 (var, u) (AstD e)  -- TODO
+  AstMinElement _v -> AstMap1 (var, u) (AstD e)  -- TODO
+  AstMaxElement _v -> AstMap1 (var, u) (AstD e)  -- TODO
+  AstSumElements10 _v -> AstMap1 (var, u) (AstD e)  -- TODO
+  AstIndex10 _v _i -> AstMap1 (var, u) (AstD e)  -- TODO
+    -- add a new 'gather' operation somehow and if a more complex index
+    -- expression, construct 'gather'
+  AstDot0 _u _v -> AstMap1 (var, u) (AstD e)  -- TODO
+  -- All other patterns are redundant due to GADT typing.
 
 varInt :: String -> AstInt r d
 varInt = AstIntVar . AstVarName
