@@ -310,7 +310,23 @@ slice1 i n (D u u') = dD (lslice1 i n u) (dSlice1 i n u' (llength u))
 reverse1 :: IsVectorWithScalar d v r => ADVal d v -> ADVal d v
 reverse1 (D u u') = dD (lreverse1 u) (dReverse1 u')
 
--- Build variants
+-- TODO: define Enum instance of (AstInt r d) to enable AST for this.
+-- No padding; remaining areas ignored.
+maxPool1 :: ADModeAndNum d r
+         => Int -> Int -> ADVal d (Vector r) -> ADVal d (Vector r)
+maxPool1 ksize stride v@(D u _) =
+  let slices = [slice1 i ksize v | i <- [0, stride .. V.length u - ksize]]
+  in fromList1 $ map maximum0 slices
+
+softMaxV :: IsVectorWithScalar d v r
+         => ADVal d v -> ADVal d v
+softMaxV d@(D u _) =
+  let expU = exp d  -- shared in 2 places, though cse may do this for us
+      sumExpU = sumElements10 expU
+  in konst1 (recip sumExpU) (llength u) * expU
+
+
+-- * Build and map variants
 
 build1POPL :: Int -> (Int -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
 build1POPL n f = V.fromList $ map f [0 .. n - 1]
@@ -337,13 +353,36 @@ build1
   => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
 build1 = build1Closure
 
--- UndecidableInstances needed due to instances below
+map1POPL :: (ADVal d r -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
+         -> Data.Vector.Vector (ADVal d r)
+map1POPL f vd = V.map f vd
+
+-- The list probably fuses away, which may make it a bit faster than
+-- if written using @build1Elementwise@.
+map1Elementwise, map1Closure
+  :: (IsVectorWithScalar d (Vector r) r, Numeric r)
+  => (ADVal d r -> ADVal d r) -> ADVal d (Vector r) -> ADVal d (Vector r)
+map1Elementwise f _d@(D v v') =
+  let k = V.length v
+      g ix p = f $ dD p (dIndex10 v' ix k)
+      ds = imap g $ V.toList v
+  in fromList1 ds
+    -- equivalent to @build1Elementwise (V.length v) $ \i -> f (index10 _d i)@
+    -- equivalent to
+    -- @fromVector1 . map1POPL f . rank1toVector
+    --   where rank1toVector d@(D v _v') = V.generate (V.length v) (index10 d)@
+
+map1Closure f d@(D v _) = build1Closure (V.length v) $ \i -> f (index10 d i)
+
+
+-- * AST-based build and map variants
 
 class AstVectorLike d r vector | vector -> r where
   lbuildAst1 :: Int -> (AstVarName Int, Ast r d r) -> ADVal d vector
   lmapAst1 :: (AstVarName (ADVal d r), Ast r d r) -> ADVal d (Vector r)
            -> ADVal d vector
 
+-- UndecidableInstances needed due to this instance
 instance (IsVectorWithScalar d (Vector r) r, Numeric r)
          => AstVectorLike d r (Vector r) where
   lbuildAst1 n (var, u) = interpretAst M.empty $ buildAst1Simplify n (var, u)
@@ -384,27 +423,6 @@ buildAst1Simplify n (var, u) = case u of
       -- expression, construct 'gather'
   _ -> AstBuild1 (AstIntConst n) (var, u)
     -- fallback to POPL (memory blowup, but avoids functions on tape)
-
-map1POPL :: (ADVal d r -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
-         -> Data.Vector.Vector (ADVal d r)
-map1POPL f vd = V.map f vd
-
--- The list probably fuses away, which may make it a bit faster than
--- if written using @build1Elementwise@.
-map1Elementwise, map1Closure
-  :: (IsVectorWithScalar d (Vector r) r, Numeric r)
-  => (ADVal d r -> ADVal d r) -> ADVal d (Vector r) -> ADVal d (Vector r)
-map1Elementwise f _d@(D v v') =
-  let k = V.length v
-      g ix p = f $ dD p (dIndex10 v' ix k)
-      ds = imap g $ V.toList v
-  in fromList1 ds
-    -- equivalent to @build1Elementwise (V.length v) $ \i -> f (index10 _d i)@
-    -- equivalent to
-    -- @fromVector1 . map1POPL f . rank1toVector
-    --   where rank1toVector d@(D v _v') = V.generate (V.length v) (index10 d)@
-
-map1Closure f d@(D v _) = build1Closure (V.length v) $ \i -> f (index10 d i)
 
 mapAst1
   :: AstVectorLike d r v
@@ -600,18 +618,3 @@ interpretAstRel f GtOut [u, v] = f u > f v
 interpretAstRel _ codeRelOut args =
   error $ "interpretAstRel: wrong number of arguments"
           ++ show (codeRelOut, length args)
-
--- TODO: define Enum instance of (AstInt r d) to enable AST for this.
--- No padding; remaining areas ignored.
-maxPool1 :: ADModeAndNum d r
-         => Int -> Int -> ADVal d (Vector r) -> ADVal d (Vector r)
-maxPool1 ksize stride v@(D u _) =
-  let slices = [slice1 i ksize v | i <- [0, stride .. V.length u - ksize]]
-  in fromList1 $ map maximum0 slices
-
-softMaxV :: IsVectorWithScalar d v r
-         => ADVal d v -> ADVal d v
-softMaxV d@(D u _) =
-  let expU = exp d  -- shared in 2 places, though cse may do this for us
-      sumExpU = sumElements10 expU
-  in konst1 (recip sumExpU) (llength u) * expU
