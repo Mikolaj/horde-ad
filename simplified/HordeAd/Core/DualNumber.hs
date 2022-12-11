@@ -22,9 +22,9 @@ module HordeAd.Core.DualNumber
 import Prelude
 
 import           Data.List.Index (imap)
-import qualified Data.Map.Strict as M
 import           Data.MonoTraversable (MonoFunctor (omap))
 import           Data.Proxy (Proxy (Proxy))
+import qualified Data.Strict.Map as M
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, natVal)
