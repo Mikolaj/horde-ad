@@ -412,15 +412,16 @@ buildAst1Simplify
   :: (IsVectorWithScalar d (Vector r) r, Numeric r)
   => AstInt r d -> (AstVarName Int, Ast r d r) -> Ast r d (Vector r)
 buildAst1Simplify n (var, u) = case u of
-  AstOp codeOut args ->
-    AstOp codeOut $ map (\w -> buildAst1Simplify n (var, w)) args
-  AstCond _b _x1 _x2 ->  -- TODO
-    -- handle conditionals that depend on var, so that we produce conditional
+  AstOp codeOut args ->  -- AstOp0
+    AstOp codeOut $ map (\w -> buildAst1Simplify n (var, w)) args  -- AstOp1
+  AstCond _b _x1 _x2 ->
+    -- TODO:
+    -- Handle conditionals that depend on var, so that we produce conditional
     -- delta expressions of size proportional to the exponent of conditional
-    -- nesting, instead of proportional to the number of elements of the tensor
+    -- nesting, instead of proportional to the number of elements of the tensor.
     --
     -- Perhaps partition indexes vs b resulting in bitmasks b1 and b2
-    -- and recursively process vectorized b1 * x1 + b2 * x2.
+    -- and recursively process vectorized b1 * x1 + b2 * x2?
     AstBuild1 n (var, u)
       -- fallback to POPL (memory blowup, but avoids functions on tape)
       -- TODO: instead, save AST on tape and interpret the function at backprop;
@@ -429,7 +430,7 @@ buildAst1Simplify n (var, u) = case u of
       -- can generate deltas themselves now that closures are not needed?
   AstConst r -> AstKonst1 (AstConst r) n
   AstD d -> AstKonst1 (AstD d) n
-  AstVar _var -> AstBuild1 n (var, u)  -- TODO
+  AstVar var2 -> AstKonst1 (AstVar var2) n
   AstMinElement _v -> AstBuild1 n (var, u)  -- TODO
   AstMaxElement _v -> AstBuild1 n (var, u)  -- TODO
   AstSumElements10 _v -> AstBuild1 n (var, u)  -- TODO
@@ -438,6 +439,8 @@ buildAst1Simplify n (var, u) = case u of
     -- add a new 'gather' operation somehow and if a more complex index
     -- expression, construct 'gather'
   AstDot0 _u _v -> AstBuild1 n (var, u)  -- TODO
+    -- equal to @buildAst1Simplify n (var, AstSumElements10 (u * v))@,
+    -- but how to simplify AstSumElements10?
   -- All other patterns are redundant due to GADT typing.
 
 mapAst1Simplify
@@ -447,25 +450,16 @@ mapAst1Simplify
 mapAst1Simplify (var, u) e@(D v _v') = case u of
   AstOp codeOut args ->
     AstOp codeOut $ map (\w -> mapAst1Simplify (var, w) e) args
-  AstCond _b _x1 _x2 ->  -- TODO
-    -- handle conditionals that depend on var, so that we produce conditional
-    -- delta expressions of size proportional to the exponent of conditional
-    -- nesting, instead of proportional to the number of elements of the tensor
-    --
-    -- Perhaps partition indexes vs b resulting in bitmasks b1 and b2
-    -- and recursively process vectorized b1 * x1 + b2 * x2.
-    AstMap1 (var, u) (AstD e)
-      -- fallback to POPL (memory blowup, but avoids functions on tape)
+  AstCond _b _x1 _x2 -> AstMap1 (var, u) (AstD e)  -- TODO
   AstConst r -> AstConst (LA.konst r (V.length v))
   AstD d -> AstD (konst1 d (V.length v))
   AstVar var2 | var2 == var -> AstD e  -- identity mapping
-  AstVar _var2 -> AstMap1 (var, u) (AstD e)  -- TODO
+  AstVar var2 -> AstKonst1 (AstVar var2) (AstIntConst $ V.length v)
   AstMinElement _v -> AstMap1 (var, u) (AstD e)  -- TODO
   AstMaxElement _v -> AstMap1 (var, u) (AstD e)  -- TODO
   AstSumElements10 _v -> AstMap1 (var, u) (AstD e)  -- TODO
   AstIndex10 _v _i -> AstMap1 (var, u) (AstD e)  -- TODO
-    -- add a new 'gather' operation somehow and if a more complex index
-    -- expression, construct 'gather'
+    -- both _v and _i can depend on var, e.g., because of conditionals
   AstDot0 _u _v -> AstMap1 (var, u) (AstD e)  -- TODO
   -- All other patterns are redundant due to GADT typing.
 
