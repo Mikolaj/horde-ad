@@ -13,9 +13,13 @@ module HordeAd.Core.DualNumber
   ( module HordeAd.Core.DualNumber
   , ADVal, dD, dDnotShared
   , ADMode(..), ADModeAndNum, ADModeAndNumNew, IsVectorWithScalar
+  , liftToAst0, liftToAst1
+  , NumOf, VectorOf
   , IsPrimal (..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
+  , Under, Element
   , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
-  , Ast(..), AstVar(..), AstInt(..), AstBool(..)
+  , -- temporarily re-exported, until these are wrapped in sugar
+    Ast(..), AstVarName(..), AstVar(..), AstInt(..), AstBool(..)
   , CodeOut(..), CodeIntOut(..), CodeBoolOut(..), RelOut(..)
   ) where
 
@@ -180,12 +184,6 @@ reluLeaky v@(D u _) =
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) u
   in scale oneIfGtZero v
 
-astToD :: IsPrimal d (Ast r d a) => Ast r d a -> ADVal d (Ast r d a)
-astToD ast = dD ast undefined
-
-liftToAst :: IsPrimal d (Ast r d a) => ADVal d a -> ADVal d (Ast r d a)
-liftToAst d = astToD (AstD d)
-
 condAst :: IsPrimal d (Ast r d a)
         => AstBool r d -> ADVal d (Ast r d a) -> ADVal d (Ast r d a)
         -> ADVal d (Ast r d a)
@@ -194,10 +192,12 @@ condAst b (D d _) (D e _) = astToD (AstCond b d e)
 
 -- * Operations resulting in a scalar
 
-varAst0 :: ADModeAndNumNew d (Ast r d r) => String -> ADVal d (Ast r d r)
+varAst0 :: IsPrimalAndHasFeatures d (Ast r d r) (Ast r d r)
+        => String -> ADVal d (Ast r d r)
 varAst0 s = astToD (AstVar $ AstVarName s)
 
-sumElements10 :: IsVectorWithScalar d v r => ADVal d v -> ADVal d r
+sumElements10 :: ADModeAndNumNew d r
+              => ADVal d (VectorOf r) -> ADVal d r
 sumElements10 (D u u') = dD (lsumElements10 u) (dSumElements10 u' (llength u))
 
 index10 :: IsVectorWithScalar d v r => ADVal d v -> NumOf v -> ADVal d r
@@ -377,39 +377,33 @@ map1Closure f d@(D v _) = build1Closure (V.length v) $ \i -> f (index10 d i)
 
 -- * AST-based build and map variants
 
-class AstVectorLike d r vector | vector -> r where
-  lbuildAst1 :: (IsVectorWithScalar d (Vector r) r, Numeric r)
-             => NumOf vector -> (AstVarName Int, Ast r d r)
-             -> ADVal d vector
-  lmapAst1 :: (IsVectorWithScalar d (Vector r) r, Numeric r)
-           => (AstVarName (ADVal d r), Ast r d r) -> ADVal d vector
-           -> ADVal d vector
-
-instance AstVectorLike d r (Vector r) where
+-- Orphan instances to split a module.
+instance (Under r ~ r, Numeric r)
+         => AstVectorLike d r (Vector r) r where
   lbuildAst1 n (var, u) =
     interpretAst M.empty $ buildAst1Simplify (AstIntConst n) (var, u)
   lmapAst1 (var, u) e =
     interpretAst M.empty $ mapAst1Simplify (var, u) (AstD e)
 
 instance IsPrimal d (Ast r d (Vector r))
-         => AstVectorLike d r (Ast r d (Vector r)) where
+         => AstVectorLike d r (Ast r d (Vector r)) (Ast r d r) where
   lbuildAst1 n (var, u) = astToD (buildAst1Simplify n (var, u))
   lmapAst1 (var, u) (D w _) = astToD (mapAst1Simplify (var, u) w)
 
 buildAst1
-  :: (AstVectorLike d r v, IsVectorWithScalar d (Vector r) r, Numeric r)
-  => NumOf v -> (String, ADVal d (Ast r d r)) -> ADVal d v
+  :: (AstVectorLike d u v r, ADModeAndNumNew d u)
+  => NumOf v -> (String, ADVal d (Ast u d u)) -> ADVal d v
 buildAst1 n (var, D u _) = lbuildAst1 n (AstVarName var, u)
 
 mapAst1
-  :: (AstVectorLike d r v, IsVectorWithScalar d (Vector r) r, Numeric r)
-  => (String, ADVal d (Ast r d r)) -> ADVal d v -> ADVal d v
+  :: (AstVectorLike d u v r, ADModeAndNumNew d u)
+  => (String, ADVal d (Ast u d u)) -> ADVal d v -> ADVal d v
 mapAst1 (var, D u _) e = lmapAst1 (AstVarName var, u) e
 
 -- TODO: question: now I simplify nested builds/maps when they are created;
 -- should I instead wait and simplify the whole term?
 buildAst1Simplify
-  :: (IsVectorWithScalar d (Vector r) r, Numeric r)
+  :: ADModeAndNumNew d r
   => AstInt r d -> (AstVarName Int, Ast r d r)
   -> Ast r d (Vector r)
 buildAst1Simplify n (var, u) = case u of
@@ -445,7 +439,7 @@ buildAst1Simplify n (var, u) = case u of
   -- All other patterns are redundant due to GADT typing.
 
 mapAst1Simplify
-  :: (IsVectorWithScalar d (Vector r) r, Numeric r)
+  :: ADModeAndNumNew d r
   => (AstVarName (ADVal d r), Ast r d r) -> Ast r d (Vector r)
   -> Ast r d (Vector r)
 mapAst1Simplify (var, u) w = case u of

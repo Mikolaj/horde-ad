@@ -1,6 +1,6 @@
-{-# LANGUAGE CPP, ConstraintKinds, DataKinds, FlexibleInstances, GADTs,
-             MultiParamTypeClasses, PolyKinds, QuantifiedConstraints,
-             StandaloneDeriving, TypeFamilyDependencies,
+{-# LANGUAGE CPP, ConstraintKinds, DataKinds, FlexibleInstances,
+             FunctionalDependencies, GADTs, MultiParamTypeClasses, PolyKinds,
+             QuantifiedConstraints, StandaloneDeriving, TypeFamilyDependencies,
              UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
@@ -30,16 +30,21 @@
 -- of the same shared terms is prohibitive expensive.
 module HordeAd.Core.DualClass
   ( -- * The most often used part of the mid-level API that gets re-exported in high-level API
-    ADVal, pattern D, dD, dDnotShared
+    ADVal, dD, dDnotShared
   , ADMode(..), ADModeAndNum, ADModeAndNumNew, IsVectorWithScalar
+  , liftToAst0, liftToAst1
+  , NumOf, VectorOf
   , -- * The less often used part of the mid-level API that gets re-exported in high-level API; it leaks implementation details
-    IsPrimal(..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
+    pattern D
+  , IsPrimal(..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
+  , Under, Element
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
-    Dual, HasRanks(..), HasInputs(..), NumOf, dummyDual
+    Dual, HasRanks(..), HasInputs(..), dummyDual, astToD
+  , VectorLike(..), AstVectorLike(..)
+  , Ast(..), AstVarName(..), AstVar(..), AstInt(..), AstBool(..)
+  , CodeOut(..), CodeIntOut(..), CodeBoolOut(..), RelOut(..)
   , -- * Internal operations, exposed for tests, debugging and experiments
     unsafeGetFreshId
-  , VectorLike(..), Ast(..), AstVarName(..), AstVar(..), AstInt(..), AstBool(..)
-  , CodeOut(..), CodeIntOut(..), CodeBoolOut(..), RelOut(..)
   ) where
 
 import Prelude
@@ -119,14 +124,35 @@ type ADModeAndNum (d :: ADMode) r =
   , IsPrimalAndHasFeatures d (Ast r d r) (Ast r d r)
   , IsPrimalAndHasFeatures d (Vector r) r
   , IsPrimalAndHasFeatures d (Ast r d (Vector r)) (Ast r d r)
+  , VectorOf r ~ Vector r
+  , Under r ~ r
+  , LiftToAst0 d r r
   )
 
-type ADModeAndNumNew (d :: ADMode) r = IsPrimalAndHasFeatures d r r
+type ADModeAndNumR (d :: ADMode) r =
+  ( HasRanks (VectorOf r) d r
+  , IsPrimalAndHasFeatures d r r
+  , IsPrimalAndHasFeatures d (VectorOf r) r
+  )
 
--- | A shorthand for a useful set of constraints.
+-- @r@ can only be @Double@, @Float@, @Ast Double d Double@
+-- or @Ast Float d Float@ and that's the domain of @VectorOf@ and @Under@.
+type ADModeAndNumNew (d :: ADMode) r =
+  ( Numeric (Under r)
+  , ADModeAndNumR d r  -- r is either of the two below, but we don't know which
+  , ADModeAndNumR d (Under r)
+  , ADModeAndNumR d (Ast (Under r) d (Under r))
+  , Num (NumOf (VectorOf r))  -- why only this one?
+  , VectorLike (VectorOf r) r
+  , AstVectorLike d (Under r) (VectorOf r) r
+  , LiftToAst0 d (Under r) (Under r)
+  , LiftToAst0 d (Under r) r
+  , LiftToAst1 d (Under r) (VectorOf r) r
+  , VectorOf (Under r) ~ Vector (Under r)
+  )
+
 type IsVectorWithScalar (d :: ADMode) v r =
-  ( IsPrimalAndHasFeatures d r r, IsPrimalAndHasFeatures d v r, HasRanks v d r
-  , VectorLike v )
+  (ADModeAndNumNew d r, v ~ VectorOf r)
 
 -- | Is a scalar and will be used to compute gradients via delta-expressions.
 type HasDelta r = ( ADModeAndNum 'ADModeGradient r
@@ -174,7 +200,7 @@ type family Dual (d :: ADMode) a = result | result -> d a where
 newtype DummyDual r (d :: ADMode) a = DummyDual ()
   deriving Show
 
-dummyDual :: DummyDual a d a
+dummyDual :: DummyDual r d a
 dummyDual = DummyDual ()
 
 type family NumOf a where
@@ -182,6 +208,16 @@ type family NumOf a where
   NumOf Float = Int
   NumOf (Vector r) = Int
   NumOf (Ast r d a) = AstInt r d
+
+type family VectorOf a where
+  VectorOf Double = Vector Double
+  VectorOf Float = Vector Float
+  VectorOf (Ast r d r) = Ast r d (Vector r)
+
+type family Under a where
+  Under Double = Double
+  Under Float = Float
+  Under (Ast r d r) = r
 
 -- | Second argument is the primal component of a dual number at some rank
 -- wrt the differentiation mode given in the first argument.
@@ -199,10 +235,12 @@ class HasInputs a where
   dInput :: InputId a -> Dual 'ADModeGradient a
   packDeltaDt :: a -> Dual 'ADModeGradient a -> DeltaDt (Element a)
 
+-- The constraint has Element, not VectorOf, because vector is more often
+-- determined, while r remains unknown.
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
 -- of various ranks wrt the differentation mode given in the first parameter.
-class Element vector ~ r => HasRanks vector (d :: ADMode) r where
+class Element vector ~ r => HasRanks vector (d :: ADMode) r | vector -> r where
   dSumElements10 :: Dual d vector -> NumOf vector -> Dual d r
   dIndex10 :: Dual d vector -> NumOf vector -> NumOf vector -> Dual d r
   dDot0 :: vector -> Dual d vector -> Dual d r
@@ -469,25 +507,54 @@ wrapDelta1 !d = unsafePerformIO $ do
 
 -- * Definitions for the Ast primal value wrapper
 
-class VectorLike vector where
+astToD :: IsPrimal d (Ast r d a) => Ast r d a -> ADVal d (Ast r d a)
+astToD ast = dD ast undefined
+
+class Under r ~ u
+      => LiftToAst0 d u r | r -> u where
+  liftToAst0 :: ADVal d r -> ADVal d (Ast u d u)
+
+instance IsPrimal d (Ast Double d Double)
+         => LiftToAst0 d Double Double where
+  liftToAst0 = astToD . AstD
+
+instance IsPrimal d (Ast Float d Float)
+         => LiftToAst0 d Float Float where
+  liftToAst0 = astToD . AstD
+
+instance LiftToAst0 d r (Ast r d r) where
+  liftToAst0 = id
+
+class (Element vector ~ r, Under r ~ u)
+      => LiftToAst1 d u vector r | vector -> u, vector -> r where
+  liftToAst1 :: ADVal d vector -> ADVal d (Ast u d (Vector u))
+
+instance (Under r ~ r, IsPrimal d (Ast r d (Vector r)))
+         => LiftToAst1 d r (Vector r) r where
+  liftToAst1 = astToD . AstD
+
+instance LiftToAst1 d r (Ast r d (Vector r)) (Ast r d r) where
+  liftToAst1 = id
+
+class Element vector ~ r => VectorLike vector r | vector -> r where
   llength :: vector -> NumOf vector
-  lminElement :: vector -> Element vector
-  lmaxElement :: vector -> Element vector
+  lminElement :: vector -> r
+  lmaxElement :: vector -> r
   lminIndex :: vector -> NumOf vector
   lmaxIndex :: vector -> NumOf vector
 
-  lsumElements10 :: vector -> Element vector
-  lindex10 :: vector -> NumOf vector -> Element vector
-  ldot0 :: vector -> vector -> Element vector
+  lsumElements10 :: vector -> r
+  lindex10 :: vector -> NumOf vector -> r
+  ldot0 :: vector -> vector -> r
 
-  lfromList1 :: [Element vector] -> vector
-  lfromVector1 :: Data.Vector.Vector (Element vector) -> vector
-  lkonst1 :: Element vector -> NumOf vector -> vector
+  lfromList1 :: [r] -> vector
+  lfromVector1 :: Data.Vector.Vector r -> vector
+  lkonst1 :: r -> NumOf vector -> vector
   lappend1 :: vector -> vector -> vector
   lslice1 :: NumOf vector -> NumOf vector -> vector -> vector
   lreverse1 :: vector -> vector
 
-instance Numeric r => VectorLike (Vector r) where
+instance Numeric r => VectorLike (Vector r) r where
   llength = V.length
   lminElement = LA.minElement
   lmaxElement = LA.maxElement
@@ -503,7 +570,7 @@ instance Numeric r => VectorLike (Vector r) where
   lslice1 = V.slice
   lreverse1 = V.reverse
 
-instance VectorLike (Ast r d (Vector r)) where
+instance VectorLike (Ast r d (Vector r)) (Ast r d r) where
   llength = AstLength
   lminElement = AstMinElement
   lmaxElement = AstMaxElement
@@ -518,6 +585,15 @@ instance VectorLike (Ast r d (Vector r)) where
   lappend1 = AstAppend1
   lslice1 = AstSlice1
   lreverse1 = AstReverse1
+
+class (Element vector ~ r, Under r ~ u)
+      => AstVectorLike d u vector r | vector -> u, vector -> r where
+  lbuildAst1 :: ADModeAndNumNew d u
+             => NumOf vector -> (AstVarName Int, Ast u d u)
+             -> ADVal d vector
+  lmapAst1 :: ADModeAndNumNew d u
+           => (AstVarName (ADVal d u), Ast u d u) -> ADVal d vector
+           -> ADVal d vector
 
 -- TODO: consider sharing Ast expressions, both within the primal part
 -- and between primal and dual
