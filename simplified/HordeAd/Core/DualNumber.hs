@@ -398,6 +398,12 @@ buildAst1
   => Int -> (String, ADVal d (Ast r d r)) -> ADVal d v
 buildAst1 n (var, D u _) = lbuildAst1 n (AstVarName var, u)
 
+mapAst1
+  :: (AstVectorLike d r v, IsVectorWithScalar d (Vector r) r, Numeric r)
+  => (String, ADVal d (Ast r d r)) -> ADVal d (Vector r)
+  -> ADVal d v
+mapAst1 (var, D u _) e = lmapAst1 (AstVarName var, u) e
+
 -- TODO: question: now I simplify nested builds/maps when they are created;
 -- should I instead wait and simplify the whole term?
 buildAst1Simplify
@@ -421,12 +427,6 @@ buildAst1Simplify n (var, u) = case u of
       -- expression, construct 'gather'
   _ -> AstBuild1 (AstIntConst n) (var, u)
     -- fallback to POPL (memory blowup, but avoids functions on tape)
-
-mapAst1
-  :: (AstVectorLike d r v, IsVectorWithScalar d (Vector r) r, Numeric r)
-  => (String, ADVal d (Ast r d r)) -> ADVal d (Vector r)
-  -> ADVal d v
-mapAst1 (var, D u _) e = lmapAst1 (AstVarName var, u) e
 
 mapAst1Simplify
   :: (IsVectorWithScalar d (Vector r) r, Numeric r)
