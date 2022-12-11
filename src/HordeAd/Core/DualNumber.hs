@@ -1153,9 +1153,7 @@ conv2d arrK arrA =
 --
 --   If the slice extends out side the source array then the corresponding
 --   elements are set to zero.
-slicezS :: forall shOut sh d r.
-           ( ADModeAndNum d r, OS.Shape sh, OS.Shape shOut
-           , OS.Rank sh ~ OS.Rank shOut )
+slicezS :: forall shOut sh d r. (ADModeAndNum d r, OS.Shape sh, OS.Shape shOut)
         => ADVal d (OS.Array sh r) -> [Int] -> ADVal d (OS.Array shOut r)
 slicezS d ixBase =
   buildS $ \ixResult -> indexzS0 d (zipWith (+) ixBase ixResult)

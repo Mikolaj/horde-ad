@@ -478,9 +478,7 @@ conv2d_dKrn arrA arrB =
 --
 --   If the slice extends out side the source array then the corresponding
 --   elements are set to zero.
-slicezOS :: forall shOut sh r.
-            ( Numeric r, OS.Shape sh, OS.Shape shOut
-            , OS.Rank sh ~ OS.Rank shOut )
+slicezOS :: forall shOut sh r. (Numeric r, OS.Shape sh, OS.Shape shOut)
          => OS.Array sh r -> [Int] -> OS.Array shOut r
 slicezOS arr ixBase =
   OS.generate $ \ixResult -> indexzOS arr (zipWith (+) ixBase ixResult)
