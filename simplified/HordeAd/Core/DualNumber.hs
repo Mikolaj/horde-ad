@@ -263,9 +263,9 @@ lossCrossEntropy targ res =
   in negate $ V.ifoldl' f 0 res
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropyV :: ADModeAndNum d r
-                  => Vector r
-                  -> ADVal d (Vector r)
+lossCrossEntropyV :: IsVectorWithScalar d v r
+                  => v
+                  -> ADVal d v
                   -> ADVal d r
 lossCrossEntropyV targ res = negate $ log res <.>!! targ
 
@@ -273,19 +273,19 @@ lossCrossEntropyV targ res = negate $ log res <.>!! targ
 -- only when @target@ is one-hot. Otherwise, results vary wildly. In our
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyV
-  :: ADModeAndNum d r
-  => Vector r -> ADVal d (Vector r) -> ADVal d r
+  :: IsVectorWithScalar d v r
+  => v -> ADVal d v -> ADVal d r
 lossSoftMaxCrossEntropyV target (D u u') =
   -- The following protects from underflows, overflows and exploding gradients
   -- and is required by the QuickCheck test in TestMnistCNN.
   -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106
   -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
-  let expU = exp (u - LA.scalar (LA.maxElement u))
-      sumExpU = LA.sumElements expU
+  let expU = exp (u - lkonst1 (lmaxElement u) (llength u))
+      sumExpU = lsumElements10 expU
       recipSum = recip sumExpU
 -- not exposed: softMaxU = LA.scaleRecip sumExpU expU
-      softMaxU = LA.scale recipSum expU
-  in dD (negate $ log softMaxU LA.<.> target)  -- TODO: avoid: log . exp
+      softMaxU = lkonst1 recipSum (llength expU) * expU
+  in dD (negate $ log softMaxU `ldot0` target)  -- TODO: avoid: log . exp
         (dDot0 (softMaxU - target) u')
 
 
