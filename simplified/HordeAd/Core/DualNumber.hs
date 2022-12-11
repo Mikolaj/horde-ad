@@ -180,19 +180,22 @@ reluLeaky v@(D u _) =
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) u
   in scale oneIfGtZero v
 
+astToD :: IsPrimal d (Ast r d a) => Ast r d a -> ADVal d (Ast r d a)
+astToD ast = dD ast undefined
+
 liftToAst :: IsPrimal d (Ast r d a) => ADVal d a -> ADVal d (Ast r d a)
-liftToAst d = dD (AstD d) undefined
+liftToAst d = astToD (AstD d)
 
 condAst :: IsPrimal d (Ast r d a)
         => AstBool r d -> ADVal d (Ast r d a) -> ADVal d (Ast r d a)
         -> ADVal d (Ast r d a)
-condAst b (D d _) (D e _) = dD (AstCond b d e) undefined
+condAst b (D d _) (D e _) = astToD (AstCond b d e)
 
 
 -- * Operations resulting in a scalar
 
 varAst0 :: ADModeAndNumNew d (Ast r d r) => String -> ADVal d (Ast r d r)
-varAst0 s = dD (AstVar $ AstVarName s) undefined
+varAst0 s = astToD (AstVar $ AstVarName s)
 
 sumElements10 :: IsVectorWithScalar d v r => ADVal d v -> ADVal d r
 sumElements10 (D u u') = dD (lsumElements10 u) (dSumElements10 u' (llength u))
@@ -350,8 +353,8 @@ instance ( IsVectorWithScalar d (Vector r) r
          , Numeric r
          , IsPrimal d (Ast r d (Vector r)) )
          => AstVectorLike d r (Ast r d (Vector r)) where
-  lbuildAst1 n (var, u) = dD (buildAst1Simplify n (var, u)) undefined
-  lmapAst1 (var, u) e = dD (mapAst1Simplify (var, u) e) undefined
+  lbuildAst1 n (var, u) = astToD (buildAst1Simplify n (var, u))
+  lmapAst1 (var, u) e = astToD (mapAst1Simplify (var, u) e)
 
 buildAst1
   :: AstVectorLike d r v
