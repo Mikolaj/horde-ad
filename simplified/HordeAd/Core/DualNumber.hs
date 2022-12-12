@@ -378,14 +378,14 @@ map1Closure f d@(D v _) = build1Closure (llength v) $ \i -> f (index10 d i)
 instance (VectorOf r ~ Vector r, Under r ~ r, Numeric r)
          => AstVectorLike d r (Vector r) r where
   lbuildAst1 n (var, u) =
-    interpretAst M.empty $ buildAst1Simplify (AstIntConst n) (var, u)
+    interpretAst M.empty $ build1Vectorize (AstIntConst n) (var, u)
   lmapAst1 (var, u) e =
-    interpretAst M.empty $ mapAst1Simplify (var, u) (AstD e)
+    interpretAst M.empty $ map1Vectorize (var, u) (AstD e)
 
 instance IsPrimal d (Ast r d (Vector r))
          => AstVectorLike d r (Ast r d (Vector r)) (Ast r d r) where
-  lbuildAst1 n (var, u) = astToD (buildAst1Simplify n (var, u))
-  lmapAst1 (var, u) (D w _) = astToD (mapAst1Simplify (var, u) w)
+  lbuildAst1 n (var, u) = astToD (build1Vectorize n (var, u))
+  lmapAst1 (var, u) (D w _) = astToD (map1Vectorize (var, u) w)
 
 buildAst1
   :: (AstVectorLike d u v r, ADModeAndNumNew d r)
@@ -397,15 +397,15 @@ mapAst1
   => (String, ADVal d (Ast u d u)) -> ADVal d v -> ADVal d v
 mapAst1 (var, D u _) e = lmapAst1 (AstVarName var, u) e
 
--- TODO: question: now I simplify nested builds/maps when they are created;
--- should I instead wait and simplify the whole term?
-buildAst1Simplify
+-- TODO: question: now I vectorize nested builds/maps when they are created;
+-- should I instead wait and vectorize the whole term?
+build1Vectorize
   :: ADModeAndNumNew d r
   => AstInt r d -> (AstVarName Int, Ast r d r)
   -> Ast r d (Vector r)
-buildAst1Simplify n (var, u) = case u of
+build1Vectorize n (var, u) = case u of
   AstOp codeOut args ->  -- AstOp0
-    AstOp codeOut $ map (\w -> buildAst1Simplify n (var, w)) args  -- AstOp1
+    AstOp codeOut $ map (\w -> build1Vectorize n (var, w)) args  -- AstOp1
   AstCond _b _x1 _x2 ->
     -- TODO:
     -- Handle conditionals that depend on var, so that we produce conditional
@@ -431,17 +431,17 @@ buildAst1Simplify n (var, u) = case u of
     -- add a new 'gather' operation somehow and if a more complex index
     -- expression, construct 'gather'
   AstDot0 _u _v -> AstBuild1 n (var, u)  -- TODO
-    -- equal to @buildAst1Simplify n (var, AstSumElements10 (u * v))@,
-    -- but how to simplify AstSumElements10?
+    -- equal to @build1Vectorize n (var, AstSumElements10 (u * v))@,
+    -- but how to vectorize AstSumElements10?
   -- All other patterns are redundant due to GADT typing.
 
-mapAst1Simplify
+map1Vectorize
   :: ADModeAndNumNew d r
   => (AstVarName (ADVal d r), Ast r d r) -> Ast r d (Vector r)
   -> Ast r d (Vector r)
-mapAst1Simplify (var, u) w = case u of
+map1Vectorize (var, u) w = case u of
   AstOp codeOut args ->
-    AstOp codeOut $ map (\x -> mapAst1Simplify (var, x) w) args
+    AstOp codeOut $ map (\x -> map1Vectorize (var, x) w) args
   AstCond _b _x1 _x2 -> AstMap1 (var, u) w  -- TODO
   AstConst r -> AstKonst1 (AstConst r) (AstLength w)
   AstD d -> AstKonst1 (AstD d) (AstLength w)
