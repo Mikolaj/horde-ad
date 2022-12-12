@@ -237,7 +237,8 @@ class HasInputs a where
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
 -- of various ranks wrt the differentation mode given in the first parameter.
-class Element vector ~ r => HasRanks vector (d :: ADMode) r | vector -> r where
+class (Element vector ~ r, VectorOf r ~ vector)
+      => HasRanks vector (d :: ADMode) r | vector -> r where
   dSumElements10 :: Dual d vector -> NumOf vector -> Dual d r
   dIndex10 :: Dual d vector -> NumOf vector -> NumOf vector -> Dual d r
   dDot0 :: vector -> Dual d vector -> Dual d r
@@ -338,7 +339,7 @@ instance HasInputs (Vector r) where
   packDeltaDt = DeltaDt1
 
 -- | This is an impure instance. See above.
-instance Dual 'ADModeGradient r ~ Delta0 r
+instance (Dual 'ADModeGradient r ~ Delta0 r, VectorOf r ~ Vector r)
          => HasRanks (Vector r) 'ADModeGradient r where
   dSumElements10 = SumElements10
   dIndex10 = Index10
@@ -392,7 +393,7 @@ instance Num (Vector r)
   dAdd d e = d + e
   recordSharing = id
 
-instance ( Numeric r
+instance ( Numeric r, VectorOf r ~ Vector r
          , Dual 'ADModeDerivative r ~ r )
          => HasRanks (Vector r) 'ADModeDerivative r where
   dSumElements10 vd _ = LA.sumElements vd
@@ -445,7 +446,8 @@ instance IsPrimal 'ADModeValue (Vector r) where
   dAdd _ _ = DummyDual ()
   recordSharing = id
 
-instance Element vector ~ r => HasRanks vector 'ADModeValue r where
+instance (Element vector ~ r, VectorOf r ~ vector)
+         => HasRanks vector 'ADModeValue r where
   dSumElements10 _ _ = DummyDual ()
   dIndex10 _ _ _ = DummyDual ()
   dDot0 _ _ = DummyDual ()
@@ -533,7 +535,8 @@ instance (Under r ~ r, IsPrimal d (Ast r d (Vector r)))
 instance LiftToAst1 d r (Ast r d (Vector r)) (Ast r d r) where
   liftToAst1 = id
 
-class Element vector ~ r => VectorLike vector r | vector -> r where
+class (Element vector ~ r, VectorOf r ~ vector)
+      => VectorLike vector r | vector -> r where
   llength :: vector -> NumOf vector
   lminElement :: vector -> r
   lmaxElement :: vector -> r
@@ -551,7 +554,7 @@ class Element vector ~ r => VectorLike vector r | vector -> r where
   lslice1 :: NumOf vector -> NumOf vector -> vector -> vector
   lreverse1 :: vector -> vector
 
-instance Numeric r => VectorLike (Vector r) r where
+instance (Numeric r, VectorOf r ~ Vector r) => VectorLike (Vector r) r where
   llength = V.length
   lminElement = LA.minElement
   lmaxElement = LA.maxElement
@@ -583,7 +586,7 @@ instance VectorLike (Ast r d (Vector r)) (Ast r d r) where
   lslice1 = AstSlice1
   lreverse1 = AstReverse1
 
-class (Element vector ~ r, Under r ~ u)
+class (Element vector ~ r, VectorOf r ~ vector, Under r ~ u)
       => AstVectorLike d u vector r | vector -> u, vector -> r where
   lbuildAst1 :: ADModeAndNumNew d u
              => NumOf vector -> (AstVarName Int, Ast u d u)

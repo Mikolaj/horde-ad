@@ -378,7 +378,7 @@ map1Closure f d@(D v _) = build1Closure (llength v) $ \i -> f (index10 d i)
 -- * AST-based build and map variants
 
 -- Orphan instances to split a module.
-instance (Under r ~ r, Numeric r)
+instance (VectorOf r ~ Vector r, Under r ~ r, Numeric r)
          => AstVectorLike d r (Vector r) r where
   lbuildAst1 n (var, u) =
     interpretAst M.empty $ buildAst1Simplify (AstIntConst n) (var, u)
