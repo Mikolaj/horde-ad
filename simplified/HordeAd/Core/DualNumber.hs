@@ -426,6 +426,13 @@ build1Vectorize n (var, u) = case u of
   AstMinElement _v -> AstBuild1 n (var, u)  -- TODO
   AstMaxElement _v -> AstBuild1 n (var, u)  -- TODO
   AstSumElements10 _v -> AstBuild1 n (var, u)  -- TODO
+  AstIndex10 (AstKonst1 r _) _ -> build1Vectorize n (var, r)
+  AstIndex10 (AstSlice1 i2 _ v) i ->
+    build1Vectorize n (var, AstIndex10 v (AstIntOp PlusIntOut [i2, i]))
+      -- TODO: or should we rewrite in the opposite direction?
+--  AstIndex10 (AstBuild1 _ (var2, u2)) i ->
+--    build1Vectorize n (var, substitute var2 i u2))
+        -- TODO: use environments instead
   AstIndex10 v (AstIntVar var2) | var2 == var ->
     let noThisVarInV v1 = case v1 of
           AstOp _ lv -> and $ map noThisVarInV lv
