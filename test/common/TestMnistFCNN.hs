@@ -406,7 +406,7 @@ mnistTestCase2F reallyWriteFile miniBatchSize decay
   in testCase name $ do
        hPutStrLn stderr $ printf "\n%s: Epochs to run/max batches per epoch: %d/%d"
               prefix epochs maxBatches
-       trainData0 :: [MnistData Float]
+       trainData0 :: [MnistData Double]
          <- loadMnistData trainGlyphsPath trainLabelsPath
        testData <- loadMnistData testGlyphsPath testLabelsPath
        let !trainData = coerce $ force $ shuffle (mkStdGen 6) trainData0
