@@ -171,13 +171,13 @@ squaredDifference :: (Num a, IsPrimal d a)
                   => a -> ADVal d a -> ADVal d a
 squaredDifference targ res = square $ res - constant targ
 
-relu :: (ADModeAndNum d r, IsPrimalAndHasFeatures d a r)
+relu :: (ADModeAndNumNew d r, IsPrimalAndHasFeatures d a r)
      => ADVal d a -> ADVal d a
 relu v@(D u _) =
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0) u
   in scale oneIfGtZero v
 
-reluLeaky :: (ADModeAndNum d r, IsPrimalAndHasFeatures d a r)
+reluLeaky :: (ADModeAndNumNew d r, IsPrimalAndHasFeatures d a r)
           => ADVal d a -> ADVal d a
 reluLeaky v@(D u _) =
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) u
@@ -235,10 +235,10 @@ infixr 8 <.>!!
 (<.>!!) (D u u') v = dD (ldot0 u v) (dDot0 v u')
 
 sumElementsVectorOfDual
-  :: ADModeAndNum d r => Data.Vector.Vector (ADVal d r) -> ADVal d r
+  :: ADModeAndNumNew d r => Data.Vector.Vector (ADVal d r) -> ADVal d r
 sumElementsVectorOfDual = V.foldl' (+) 0
 
-softMax :: ADModeAndNum d r
+softMax :: ADModeAndNumNew d r
         => Data.Vector.Vector (ADVal d r)
         -> Data.Vector.Vector (ADVal d r)
 softMax us =
