@@ -31,7 +31,7 @@
 module HordeAd.Core.DualClass
   ( -- * The most often used part of the mid-level API that gets re-exported in high-level API
     ADVal, dD, dDnotShared
-  , ADMode(..), ADModeAndNum, ADModeAndNumNew, IsVectorWithScalar
+  , ADMode(..), ADModeAndNum, ADModeAndNumNew
   , liftToAst0, liftToAst1
   , NumOf, VectorOf
   , -- * The less often used part of the mid-level API that gets re-exported in high-level API; it leaks implementation details
@@ -150,9 +150,6 @@ type ADModeAndNumNew (d :: ADMode) r =
   , LiftToAst1 d (Under r) (VectorOf r) r
   , VectorOf (Under r) ~ Vector (Under r)
   )
-
-type IsVectorWithScalar (d :: ADMode) v r =
-  (ADModeAndNumNew d r, v ~ VectorOf r)
 
 -- | Is a scalar and will be used to compute gradients via delta-expressions.
 type HasDelta r = ( ADModeAndNum 'ADModeGradient r
