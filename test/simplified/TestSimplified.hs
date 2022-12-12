@@ -32,14 +32,19 @@ bar (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2 x w + y * w
 
+-- Note how fooBuild1 is used below in contexts where r
+-- is values (testFooBuild), where r is ASTs (nestedBuildMap)
+-- and where it can be instantiated to either (fooMap1).
 fooBuild1 :: forall d r. ADModeAndNumNew d r
           => ADVal d (VectorOf r) -> ADVal d (VectorOf r)
 fooBuild1 v =
-  let v' = liftToAst1 v  -- we don't know if that's value or AST, so we lift
-      r' = sumElements10 v' :: ADVal d (Ast (Under r) d (Under r))
+  let v' = (liftToAst1 v  -- we don't know if @r@ is values or ASTs, so we lift
+            :: ADVal d (Ast1 d (Under r)))
+           :: ADVal d (VectorOf (Ast0 d (Under r)))
+      r' = sumElements10 v' :: ADVal d (Ast0 d (Under r))
   in buildAst1 3 ("ix", r' * foo ( 3
                                  , 5 * r'
-                                 , r' * liftToAst0 (minimum0 v) * minimum0 v')
+                                 , r' * minimum0 v' * liftToAst0 (minimum0 v))
                         + bar (r', index10 v' (varInt "ix" + 1)))
        -- note how foo and bar are used in the Ast universe without lifting
        -- their result, just as sumElements10 and index10 is
@@ -56,8 +61,8 @@ fooMap1 r =
 fooNoGo :: forall r d. ADModeAndNumNew d r
         => ADVal d (VectorOf r) -> ADVal d (VectorOf r)
 fooNoGo v =
-  let v' = liftToAst1 v :: ADVal d (VectorOf (Ast (Under r) d (Under r)))
-      r' = sumElements10 v' :: ADVal d (Ast (Under r) d (Under r))
+  let v' = liftToAst1 v :: ADVal d (Ast1 d (Under r))
+      r' = sumElements10 v' :: ADVal d (Ast0 d (Under r))
   in buildAst1 3 ("ix",
        index10 v' (varInt "ix")
        + condAst (AstBoolOp AndOut  -- TODO: overload &&, <=, >, etc.
@@ -66,17 +71,14 @@ fooNoGo v =
                  r' (5 * r'))
      / slice1 1 3 (mapAst1 ("x", condAst (varAst0 "x" `gtAst` r')
                                          r' (varAst0 "x")) v)
-     * buildAst1 3 ("ix", 1 :: ADVal d (Ast (Under r) d (Under r)))  -- TODO: @::@ required
+     * buildAst1 3 ("ix", 1)
 
--- TODO: Some obvious @::@ required.
 nestedBuildMap :: forall r d. ADModeAndNumNew d r
                => ADVal d r -> ADVal d (VectorOf r)
 nestedBuildMap r =
   let w = konst1 (varAst0 "x") (AstIntCond (varAst0 "x" `leqAst` 0) 3 4)
-      v' = konst1 (liftToAst0 r) 7 :: ADVal d (VectorOf (Ast (Under r) d (Under r)))
-      nestedMap :: ADVal d (VectorOf (Ast (Under r) d (Under r)))
+      v' = konst1 (liftToAst0 r) 7
       nestedMap = mapAst1 ("y", varAst0 "x" / varAst0 "y") w
-      variableLengthBuild :: ADVal d (VectorOf (Ast (Under r) d (Under r)))
       variableLengthBuild = buildAst1 (varInt "iy" + 1) ("ix",
                               index10 v' (varInt "ix" + 1))
       doublyBuild = buildAst1 5 ("iy", minimum0 variableLengthBuild)

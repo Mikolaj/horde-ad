@@ -19,7 +19,7 @@ module HordeAd.Core.DualNumber
   , Under, Element
   , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
   , -- temporarily re-exported, until these are wrapped in sugar
-    Ast(..), AstVarName(..), AstVar(..), AstInt(..), AstBool(..)
+    Ast(..), Ast0, Ast1, AstVarName(..), AstVar(..), AstInt(..), AstBool(..)
   , CodeOut(..), CodeIntOut(..), CodeBoolOut(..), RelOut(..)
   ) where
 

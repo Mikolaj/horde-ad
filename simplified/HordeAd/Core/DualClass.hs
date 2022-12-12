@@ -41,7 +41,7 @@ module HordeAd.Core.DualClass
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
     Dual, HasRanks(..), HasInputs(..), dummyDual, astToD
   , VectorLike(..), AstVectorLike(..)
-  , Ast(..), AstVarName(..), AstVar(..), AstInt(..), AstBool(..)
+  , Ast(..), Ast0, Ast1, AstVarName(..), AstVar(..), AstInt(..), AstBool(..)
   , CodeOut(..), CodeIntOut(..), CodeBoolOut(..), RelOut(..)
   , -- * Internal operations, exposed for tests, debugging and experiments
     unsafeGetFreshId
@@ -639,6 +639,10 @@ data Ast :: Type -> ADMode -> Type -> Type where
     -- we may need to hack around this by substituting MonoFunctor
     -- with something similar to AstVectorLike or by optimizing map1 enough
     -- that it's as fast in such a simple case
+
+type Ast0 d r = Ast r d r
+
+type Ast1 d r = Ast r d (Vector r)
 
 newtype AstVarName t = AstVarName String
   deriving (Show, Eq)
