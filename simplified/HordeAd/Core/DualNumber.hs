@@ -426,7 +426,33 @@ build1Vectorize n (var, u) = case u of
   AstMinElement _v -> AstBuild1 n (var, u)  -- TODO
   AstMaxElement _v -> AstBuild1 n (var, u)  -- TODO
   AstSumElements10 _v -> AstBuild1 n (var, u)  -- TODO
-  AstIndex10 v (AstIntVar var2) | var2 == var -> AstSlice1 0 n v
+  AstIndex10 v (AstIntVar var2) | var2 == var ->
+    let noThisVarInV v1 = case v1 of
+          AstOp _ lv -> and $ map noThisVarInV lv
+          AstConst{} -> True
+          AstD{} -> True
+          _ -> False  -- conservative
+    in if noThisVarInV v
+       then AstSlice1 0 n v
+       else AstBuild1 n (var, u)
+  AstIndex10 v (AstIntOp PlusIntOut [AstIntVar var2, i2]) | var2 == var ->
+    let noThisVarInV v1 = case v1 of
+          AstOp _ lv -> and $ map noThisVarInV lv
+          AstConst{} -> True
+          AstD{} -> True
+          _ -> False  -- conservative
+    in if noThisVarInV v
+       then AstSlice1 i2 n v
+       else AstBuild1 n (var, u)
+  AstIndex10 v (AstIntConst i) ->
+    let noThisVarInV v1 = case v1 of
+          AstOp _ lv -> and $ map noThisVarInV lv
+          AstConst{} -> True
+          AstD{} -> True
+          _ -> False  -- conservative
+    in if noThisVarInV v
+       then AstKonst1 (AstIndex10 v (AstIntConst i)) n
+       else AstBuild1 n (var, u)
   AstIndex10 _v _i -> AstBuild1 n (var, u)  -- TODO
     -- add a new 'gather' operation somehow and if a more complex index
     -- expression, construct 'gather'
