@@ -199,8 +199,7 @@ sumElements10 :: ADModeAndNumNew d r
               => ADVal d (VectorOf r) -> ADVal d r
 sumElements10 (D u u') = dD (lsumElements10 u) (dSumElements10 u' (llength u))
 
-index10 :: ADModeAndNumNew d r
-        => ADVal d (VectorOf r) -> NumOf (VectorOf r) -> ADVal d r
+index10 :: ADModeAndNumNew d r => ADVal d (VectorOf r) -> NumOf r -> ADVal d r
 index10 (D u u') ix = dD (lindex10 u ix) (dIndex10 u' ix (llength u))
 
 minimum0 :: ADModeAndNumNew d r => ADVal d (VectorOf r) -> ADVal d r
@@ -297,8 +296,7 @@ fromVector1 :: ADModeAndNumNew d r
 fromVector1 v = dD (lfromVector1 $ V.map (\(D u _) -> u) v)  -- I hope it fuses
                    (dFromVector1 $ V.map (\(D _ u') -> u') v)
 
-konst1 :: ADModeAndNumNew d r
-       => ADVal d r -> NumOf (VectorOf r) -> ADVal d (VectorOf r)
+konst1 :: ADModeAndNumNew d r => ADVal d r -> NumOf r -> ADVal d (VectorOf r)
 konst1 (D u u') n = dD (lkonst1 u n) (dKonst1 u' n)
 
 append1 :: ADModeAndNumNew d r
@@ -306,8 +304,7 @@ append1 :: ADModeAndNumNew d r
 append1 (D u u') (D v v') = dD (lappend1 u v) (dAppend1 u' (llength u) v')
 
 slice1 :: ADModeAndNumNew d r
-       => NumOf (VectorOf r) -> NumOf (VectorOf r) -> ADVal d (VectorOf r)
-       -> ADVal d (VectorOf r)
+       => NumOf r -> NumOf r -> ADVal d (VectorOf r) -> ADVal d (VectorOf r)
 slice1 i n (D u u') = dD (lslice1 i n u) (dSlice1 i n u' (llength u))
 
 reverse1 :: ADModeAndNumNew d r => ADVal d (VectorOf r) -> ADVal d (VectorOf r)
@@ -344,7 +341,7 @@ build1Elementwise n f = fromList1 $ map f [0 .. n - 1]
   -- equivalent to @fromVector1 $ build1POPL n f@
 
 build1Closure
-  :: (ADModeAndNumNew d r, NumOf (VectorOf r) ~ Int)
+  :: (ADModeAndNumNew d r, NumOf r ~ Int)
   => Int -> (Int -> ADVal d r) -> ADVal d (VectorOf r)
 build1Closure n f =
   let g i = let D u _ = f i in u
@@ -352,7 +349,7 @@ build1Closure n f =
   in dD (lfromList1 $ map g [0 .. n - 1]) (dBuild1 n h)
 
 build1
-  :: (ADModeAndNumNew d r, NumOf (VectorOf r) ~ Int)
+  :: (ADModeAndNumNew d r, NumOf r ~ Int)
   => Int -> (Int -> ADVal d r) -> ADVal d (VectorOf r)
 build1 = build1Closure
 
@@ -361,7 +358,7 @@ map1POPL :: (ADVal d r -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
 map1POPL f vd = V.map f vd
 
 map1Elementwise
-  :: (ADModeAndNumNew d r, NumOf (VectorOf r) ~ Int)
+  :: (ADModeAndNumNew d r, NumOf r ~ Int)
   => (ADVal d r -> ADVal d r) -> ADVal d (VectorOf r) -> ADVal d (VectorOf r)
 map1Elementwise f d@(D v _v') =
   build1Elementwise (llength v) $ \i -> f (index10 d i)
@@ -370,7 +367,7 @@ map1Elementwise f d@(D v _v') =
     --   where rank1toVector d@(D v _v') = V.generate (V.length v) (index10 d)@
 
 map1Closure
-  :: (ADModeAndNumNew d r, NumOf (VectorOf r) ~ Int)
+  :: (ADModeAndNumNew d r, NumOf r ~ Int)
   => (ADVal d r -> ADVal d r) -> ADVal d (VectorOf r) -> ADVal d (VectorOf r)
 map1Closure f d@(D v _) = build1Closure (llength v) $ \i -> f (index10 d i)
 
@@ -391,12 +388,12 @@ instance IsPrimal d (Ast r d (Vector r))
   lmapAst1 (var, u) (D w _) = astToD (mapAst1Simplify (var, u) w)
 
 buildAst1
-  :: (AstVectorLike d u v r, ADModeAndNumNew d u)
-  => NumOf v -> (String, ADVal d (Ast u d u)) -> ADVal d v
+  :: (AstVectorLike d u v r, ADModeAndNumNew d r)
+  => NumOf r -> (String, ADVal d (Ast u d u)) -> ADVal d v
 buildAst1 n (var, D u _) = lbuildAst1 n (AstVarName var, u)
 
 mapAst1
-  :: (AstVectorLike d u v r, ADModeAndNumNew d u)
+  :: (AstVectorLike d u v r, ADModeAndNumNew d r)
   => (String, ADVal d (Ast u d u)) -> ADVal d v -> ADVal d v
 mapAst1 (var, D u _) e = lmapAst1 (AstVarName var, u) e
 

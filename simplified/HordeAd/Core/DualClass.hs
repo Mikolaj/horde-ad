@@ -127,6 +127,7 @@ type ADModeAndNum (d :: ADMode) r =
   , VectorOf r ~ Vector r
   , Under r ~ r
   , LiftToAst0 d r r
+  , NumOf (VectorOf r) ~ NumOf r
   )
 
 type ADModeAndNumR (d :: ADMode) r =
@@ -142,13 +143,16 @@ type ADModeAndNumNew (d :: ADMode) r =
   , ADModeAndNumR d r  -- r is either of the two below, but we don't know which
   , ADModeAndNumR d (Under r)
   , ADModeAndNumR d (Ast (Under r) d (Under r))
-  , Num (NumOf (VectorOf r))  -- why only this one?
+  , Num (NumOf r)
   , VectorLike (VectorOf r) r
   , AstVectorLike d (Under r) (VectorOf r) r
   , LiftToAst0 d (Under r) (Under r)
   , LiftToAst0 d (Under r) r
   , LiftToAst1 d (Under r) (VectorOf r) r
-  , VectorOf (Under r) ~ Vector (Under r)
+  , -- and finally some laws of nature:
+    VectorOf (Under r) ~ Vector (Under r)
+  , NumOf (VectorOf r) ~ NumOf r
+  , NumOf (Under r) ~ Int
   )
 
 -- | Is a scalar and will be used to compute gradients via delta-expressions.
@@ -232,8 +236,9 @@ class HasInputs a where
   dInput :: InputId a -> Dual 'ADModeGradient a
   packDeltaDt :: a -> Dual 'ADModeGradient a -> DeltaDt (Element a)
 
--- The constraint has Element, not VectorOf, because vector is more often
--- determined, while r remains unknown.
+-- The constraint has Element in addition to VectorOf,
+-- because vector is more often determined, while r remains unknown.
+-- For the same reason, NumOf vector works, but NumOf r doesn't.
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
 -- of various ranks wrt the differentation mode given in the first parameter.
@@ -537,24 +542,25 @@ instance LiftToAst1 d r (Ast r d (Vector r)) (Ast r d r) where
 
 class (Element vector ~ r, VectorOf r ~ vector)
       => VectorLike vector r | vector -> r where
-  llength :: vector -> NumOf vector
+  llength :: vector -> NumOf r
   lminElement :: vector -> r
   lmaxElement :: vector -> r
-  lminIndex :: vector -> NumOf vector
-  lmaxIndex :: vector -> NumOf vector
+  lminIndex :: vector -> NumOf r
+  lmaxIndex :: vector -> NumOf r
 
   lsumElements10 :: vector -> r
-  lindex10 :: vector -> NumOf vector -> r
+  lindex10 :: vector -> NumOf r -> r
   ldot0 :: vector -> vector -> r
 
   lfromList1 :: [r] -> vector
   lfromVector1 :: Data.Vector.Vector r -> vector
-  lkonst1 :: r -> NumOf vector -> vector
+  lkonst1 :: r -> NumOf r -> vector
   lappend1 :: vector -> vector -> vector
-  lslice1 :: NumOf vector -> NumOf vector -> vector -> vector
+  lslice1 :: NumOf r -> NumOf r -> vector -> vector
   lreverse1 :: vector -> vector
 
-instance (Numeric r, VectorOf r ~ Vector r) => VectorLike (Vector r) r where
+instance (Numeric r, VectorOf r ~ Vector r, NumOf r ~ Int)
+         => VectorLike (Vector r) r where
   llength = V.length
   lminElement = LA.minElement
   lmaxElement = LA.maxElement
@@ -589,7 +595,7 @@ instance VectorLike (Ast r d (Vector r)) (Ast r d r) where
 class (Element vector ~ r, VectorOf r ~ vector, Under r ~ u)
       => AstVectorLike d u vector r | vector -> u, vector -> r where
   lbuildAst1 :: ADModeAndNumNew d u
-             => NumOf vector -> (AstVarName Int, Ast u d u)
+             => NumOf r -> (AstVarName Int, Ast u d u)
              -> ADVal d vector
   lmapAst1 :: ADModeAndNumNew d u
            => (AstVarName (ADVal d u), Ast u d u) -> ADVal d vector
