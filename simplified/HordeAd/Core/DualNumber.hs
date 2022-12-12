@@ -433,7 +433,7 @@ build1Vectorize n (var, u) = case u of
           AstD{} -> True
           _ -> False  -- conservative
     in if noThisVarInV v
-       then AstSlice1 0 n v
+       then AstSlice1 0 n v  -- simplified further elsewhere, if just identity
        else AstBuild1 n (var, u)
   AstIndex10 v (AstIntOp PlusIntOut [AstIntVar var2, i2]) | var2 == var ->
     let noThisVarInV v1 = case v1 of
@@ -461,6 +461,9 @@ build1Vectorize n (var, u) = case u of
     -- but how to vectorize AstSumElements10?
   -- All other patterns are redundant due to GADT typing.
 
+-- Shall this be represented and processed as just build?
+-- But doing this naively copies @w@ a lot, so we'd need to wait
+-- until AST handles sharing properly.
 map1Vectorize
   :: ADModeAndNumNew d r
   => (AstVarName (ADVal d r), Ast r d r) -> Ast r d (Vector r)
@@ -530,10 +533,21 @@ interpretAst env = \case
   AstFromList1 l -> fromList1 $ map (interpretAst env) l
   AstFromVector1 v -> fromVector1 $ V.map (interpretAst env) v
   AstKonst1 r n -> konst1 (interpretAst env r) (interpretAstInt env n)
-  AstAppend1 u v -> append1 (interpretAst env u) (interpretAst env v)
-  AstSlice1 i n v -> slice1 (interpretAstInt env i)
-                            (interpretAstInt env n)
-                            (interpretAst env v)
+  AstAppend1 u v ->
+    -- It's hard to simplify this already in build1Vectorize, because
+    -- we may not know the real sizes there, only symbolic ones.
+    let u'@(D pu _) = interpretAst env u
+        v'@(D pv _) = interpretAst env v
+    in if | V.null pu -> u'  -- perhaps common in code generated from AST
+          | V.null pv -> v'
+          | otherwise -> append1 u' v'
+  AstSlice1 i n v ->
+    let i' = interpretAstInt env i
+        n' = interpretAstInt env n
+        v'@(D pv _) = interpretAst env v
+    in if i' == 0 && n' == V.length pv
+       then v'  -- perhaps common in code generated from AST
+       else slice1 i' n' v'
   AstReverse1 v -> reverse1 $ interpretAst env v
   AstBuild1 i (var, r) ->
     build1Elementwise (interpretAstInt env i) (interpretLambdaI env (var, r))
