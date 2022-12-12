@@ -27,7 +27,7 @@ import MnistData
 convMnistLayerS
   :: forall kh kw h w c_in c_out batch_size d r.
      ( 1 <= kh
-     , 1 <= kw  -- wrongly reported as redundant
+     , 1 <= kw  -- wrongly reported as redundant due to plugins
      , ADModeAndNum d r )
   => StaticNat kh -> StaticNat kw
   -> StaticNat h -> StaticNat w

@@ -1059,7 +1059,7 @@ maxPool24
      ( KnownNat ksize_minus_1, KnownNat stride
      , KnownNat in_height, KnownNat in_width
      , KnownNat batch_size, KnownNat channels
-     , 1 <= stride
+     , 1 <= stride  -- wrongly reported as redundant due to plugins
      , ksize_minus_1 <= in_height
      , ksize_minus_1 <= in_width
      , 1 <= in_height - ksize_minus_1 + stride
