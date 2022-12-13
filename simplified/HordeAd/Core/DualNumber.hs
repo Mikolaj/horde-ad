@@ -398,7 +398,9 @@ mapAst1
 mapAst1 (var, D u _) e = lmapAst1 (AstVarName var, u) e
 
 -- TODO: question: now I vectorize nested builds/maps when they are created;
--- should I instead wait and vectorize the whole term?
+-- should I instead wait and vectorize the whole term? Probably
+-- no harm done, since the whole term is eventually vectorized anyway,
+-- with arbitrily deep traversals.
 build1Vectorize
   :: ADModeAndNumNew d r
   => AstInt r d -> (AstVarName Int, Ast r d r)
@@ -406,7 +408,7 @@ build1Vectorize
 build1Vectorize n (var, u) = case u of
   AstOp codeOut args ->  -- AstOp0
     AstOp codeOut $ map (\w -> build1Vectorize n (var, w)) args  -- AstOp1
-  AstCond _b _x1 _x2 ->
+  AstCond _b _x _y ->
     -- TODO:
     -- Handle conditionals that depend on var, so that we produce conditional
     -- delta expressions of size proportional to the exponent of conditional
@@ -426,49 +428,100 @@ build1Vectorize n (var, u) = case u of
   AstMinElement _v -> AstBuild1 n (var, u)  -- TODO
   AstMaxElement _v -> AstBuild1 n (var, u)  -- TODO
   AstSumElements10 _v -> AstBuild1 n (var, u)  -- TODO
-  AstIndex10 (AstKonst1 r _) _ -> build1Vectorize n (var, r)
-  AstIndex10 (AstSlice1 i2 _ v) i ->
-    build1Vectorize n (var, AstIndex10 v (AstIntOp PlusIntOut [i2, i]))
-      -- TODO: or should we rewrite in the opposite direction?
---  AstIndex10 (AstBuild1 _ (var2, u2)) i ->
---    build1Vectorize n (var, substitute var2 i u2))
-        -- TODO: use environments instead
-  AstIndex10 v (AstIntVar var2) | var2 == var ->
-    let noThisVarInV v1 = case v1 of
-          AstOp _ lv -> and $ map noThisVarInV lv
-          AstConst{} -> True
-          AstD{} -> True
-          _ -> False  -- conservative
-    in if noThisVarInV v
-       then AstSlice1 0 n v  -- simplified further elsewhere, if just identity
-       else AstBuild1 n (var, u)
-  AstIndex10 v (AstIntOp PlusIntOut [AstIntVar var2, i2]) | var2 == var ->
-    let noThisVarInV v1 = case v1 of
-          AstOp _ lv -> and $ map noThisVarInV lv
-          AstConst{} -> True
-          AstD{} -> True
-          _ -> False  -- conservative
-    in if noThisVarInV v
-       then AstSlice1 i2 n v
-       else AstBuild1 n (var, u)
-  AstIndex10 v (AstIntConst i) ->
-    let noThisVarInV v1 = case v1 of
-          AstOp _ lv -> and $ map noThisVarInV lv
-          AstConst{} -> True
-          AstD{} -> True
-          _ -> False  -- conservative
-    in if noThisVarInV v
-       then AstKonst1 (AstIndex10 v (AstIntConst i)) n
-       else AstBuild1 n (var, u)
-  AstIndex10 _v _i -> AstBuild1 n (var, u)  -- TODO
-    -- add a new 'gather' operation somehow and if a more complex index
-    -- expression, construct 'gather'
+  AstIndex10 v i -> index10Vectorize n var v i  -- TODO simplify i first
   AstDot0 _u _v -> AstBuild1 n (var, u)  -- TODO
     -- equal to @build1Vectorize n (var, AstSumElements10 (u * v))@,
     -- but how to vectorize AstSumElements10?
   -- All other patterns are redundant due to GADT typing.
 
--- Shall this be represented and processed as just build?
+index10Vectorize
+  :: ADModeAndNumNew d r
+  => AstInt r d -> AstVarName Int -> Ast r d (Vector r) -> AstInt r d
+  -> Ast r d (Vector r)
+index10Vectorize n var v i =
+  case v of
+    AstOp codeOut args ->  -- AstOp1
+      AstOp codeOut $ map (\w -> index10Vectorize n var w i) args  -- AstOp1
+    AstCond b x y ->
+      build1Vectorize n (var, AstCond b (AstIndex10 x i) (AstIndex10 y i))
+    AstConst _r -> index10VectorizeVarNotInV n var v i
+    AstD _d -> index10VectorizeVarNotInV n var v i
+    -- AstFromList1, AstFromVector1: see Note [AstFromList1 is hard]
+    AstFromList1 l | AstIntConst k <- i -> build1Vectorize n (var, l !! k)
+    -- TODO: AstAppend1 v1 v2 -> ... AstCond (i < AstLength v1) (...v1) (...v2)
+    AstKonst1 r _ -> build1Vectorize n (var, r)
+    AstSlice1 i2 _ u ->
+      build1Vectorize n (var, AstIndex10 u (AstIntOp PlusIntOut [i2, i]))
+        -- TODO: or should we rewrite in the opposite direction?
+    -- TODO: AstReverse1 easy
+    -- AstBuild1 _ (var2, u2) ->
+    --   build1Vectorize n (var, substitute var2 i u2))
+           -- TODO: use environments instead
+    _ ->
+      if intVarInAst var v
+      then -- can't do much, probably, since v different in each cell?
+        AstBuild1 n (var, AstIndex10 v i)
+      else
+        index10VectorizeVarNotInV n var v i
+
+-- The case where @var@ does not occur in @v@.
+index10VectorizeVarNotInV
+  :: AstInt r d -> AstVarName Int -> Ast r d (Vector r) -> AstInt r d
+  -> Ast r d (Vector r)
+index10VectorizeVarNotInV n var v i = case i of
+  AstIntOp PlusIntOut [AstIntVar var2, i2] | var2 == var ->
+    AstSlice1 i2 n v
+  AstIntConst _i2 ->
+    AstKonst1 (AstIndex10 v i) n  -- v and i the same in each cell, so legit
+  AstIntVar var2 | var2 == var ->
+    AstSlice1 0 n v  -- simplified further elsewhere, if just identity
+  AstIntVar _var2 ->
+    AstKonst1 (AstIndex10 v i) n  -- v and i the same in each cell, so legit
+  _ -> AstBuild1 n (var, AstIndex10 v i)
+    -- TODO:
+    -- add a new 'gather' operation somehow and, if a more complex index
+    -- expression, construct 'gather'
+
+intVarInAst :: AstVarName Int -> Ast r d a -> Bool
+intVarInAst var v = case v of
+  AstOp _ lv -> or $ map (intVarInAst var) lv  -- unused
+  AstCond _b x y -> intVarInAst var x || intVarInAst var y  -- TODO: check in b
+  AstConst{} -> False  -- unused
+  AstD{} -> False  -- unused
+  AstFromList1 l -> or $ map (intVarInAst var) l  -- down from rank 1 to 0
+  AstFromVector1 vl -> or $ map (intVarInAst var) $ V.toList vl
+  _ -> True  -- conservative, TODO
+
+{- Note [AstFromList1 is hard]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This is an example where simple but complete vectorization makes things worse.
+Any simple rule that would let us fully vectorize
+
+AstBuild1 N ("ix", AstIndex10
+                     (AstFromList1 [ AstIndex10 v (AstIntVar "ix")
+                                   , AstIndex10 v (1 + AstIntVar "ix") ])
+                     (AstIntVar "ix" `mod` 2))
+
+would be similar to the POPL implementation of build,
+which means constructing a collection of all build elements,
+substituting a known integer for "ix" in each and storing them all
+(eventually as delta-expressions on tape) until evaluation.
+
+While substituting a known integer for "ix" may simplify @v@
+and permit vectorization of builds nested inside @v@, this nevertheless
+turns a 2-element expression written by the user into a N-element
+monstrosity. With high enough N, evaluating the result takes much more
+memory than storing a non-vectorized closure on tape (the closure
+would be a serialized Ast expression, so possibly fine on GPUs).
+
+A non-simple rule that would handle this example would need a special
+build constructor variant that does not build from individual elements,
+but from vectors, distributing their elements in various patterns
+(in case of @mod@, concatenating their many "ix"-affected copies).
+-}
+
+-- TODO: Shall this be represented and processed as just build?
 -- But doing this naively copies @w@ a lot, so we'd need to wait
 -- until AST handles sharing properly.
 map1Vectorize
