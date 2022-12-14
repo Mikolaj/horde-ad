@@ -609,6 +609,8 @@ class u ~ Under (Element vector)
 data Ast :: Type -> ADMode -> Type -> Type where
   AstOp :: CodeOut -> [Ast r d a] -> Ast r d a
   AstCond :: AstBool r d -> Ast r d a -> Ast r d a -> Ast r d a
+  AstSelect :: AstInt r d -> (AstVarName Int, AstBool r d)
+            -> Ast r d (Vector r) -> Ast r d (Vector r) -> Ast r d (Vector r)
   AstConst :: a -> Ast r d a
   AstD :: ADVal d a -> Ast r d a
 

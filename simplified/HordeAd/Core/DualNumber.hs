@@ -399,52 +399,72 @@ mapAst1 (var, D u _) e = lmapAst1 (AstVarName var, u) e
 -- TODO: question: now I vectorize nested builds/maps when they are created;
 -- should I instead wait and vectorize the whole term? Probably
 -- no harm done, since the whole term is eventually vectorized anyway,
--- with arbitrily deep traversals.
+-- with arbitrarily deep traversals.
 build1Vectorize
   :: ADModeAndNumNew d r
   => AstInt r d -> (AstVarName Int, Ast r d r)
   -> Ast r d (Vector r)
-build1Vectorize n (var, u) = case u of
-  AstOp codeOut args ->  -- AstOp0
-    AstOp codeOut $ map (\w -> build1Vectorize n (var, w)) args  -- AstOp1
-  AstCond _b _x _y ->
-    -- TODO:
-    -- Handle conditionals that depend on var, so that we produce conditional
-    -- delta expressions of size proportional to the exponent of conditional
-    -- nesting, instead of proportional to the number of elements of the tensor.
-    --
-    -- Perhaps partition indexes vs b resulting in bitmasks b1 and b2
-    -- and recursively process vectorized b1 * x1 + b2 * x2?
-    AstBuild1 n (var, u)
-      -- fallback to POPL (memory blowup, but avoids functions on tape)
-      -- TODO: instead, save AST on tape and interpret the function at backprop;
-      -- that would permit serialization to GPU, though serialization
-      -- of Tree0 while preserving sharing is costly, but perhaps GPUs
-      -- can generate deltas themselves now that closures are not needed?
-  AstConst r -> AstKonst1 (AstConst r) n
-  AstD d -> AstKonst1 (AstD d) n
-  AstVar var2 -> AstKonst1 (AstVar var2) n
-  AstMinElement _v -> AstBuild1 n (var, u)  -- TODO
-  AstMaxElement _v -> AstBuild1 n (var, u)  -- TODO
-  AstSumElements10 _v -> AstBuild1 n (var, u)  -- TODO
-  AstIndex10 v i -> index10Vectorize n var v i  -- TODO simplify i first
-  AstDot0 _u _v -> AstBuild1 n (var, u)  -- TODO
-    -- equal to @build1Vectorize n (var, AstSumElements10 (u * v))@,
-    -- but how to vectorize AstSumElements10?
-  -- All other patterns are redundant due to GADT typing.
+build1Vectorize n (var, u) =
+  if not (intVarInAst var u)
+  then AstKonst1 u n
+  else case u of
+    AstOp codeOut args ->  -- AstOp0
+      AstOp codeOut $ map (\w -> build1Vectorize n (var, w)) args  -- AstOp1
+    AstCond b x y ->
+      -- TODO:
+      -- Handle conditionals that depend on var, so that we produce conditional
+      -- delta expressions of size proportional to the exponent of conditional
+      -- nesting, instead of proportional to the number of elements
+      -- of the tensor.
+      --
+      -- Perhaps partition indexes vs b resulting in bitmasks b1 and b2
+      -- and recursively process vectorized b1 * x1 + b2 * x2?
+      -- Instead I can recursively process x and y and worry about value of b
+      -- only when I'm able to determine it, which may not be right now.
+      AstSelect n (var, b)
+                (build1Vectorize n (var, x))
+                (build1Vectorize n (var, y))
+    AstConst _r -> error "build1Vectorize: can't have free variables"
+    AstD _d -> error "build1Vectorize: can't have free variables"
+    AstVar _var2 -> error "build1Vectorize: can't have free int variables"
+    AstMinElement _v ->
+      AstBuild1 n (var, u)
+        -- Vectors are assumed to be huge, so it's not possible
+        -- to build using each combination of elements and choose the right
+        -- one in the end. Therefore we need to fallback to something,
+        -- e.g., to POPL (memory blowup, but avoids functions on tape).
+        -- TODO: instead, save AST on tape and interpret the function
+        -- at backprop; that would permit serialization to GPU,
+        -- though serialization of Tree0 while preserving sharing is costly,
+        -- but perhaps GPUs can generate deltas themselves now that closures
+        -- are not needed?
+        -- Or should we ban such ops inside build?
+        -- Or should we find specialized cheap derivatives of
+        -- build(minElem), etc.? But there can be arbitrarily complex
+        -- terms inside minElem, not vectorized, because the build variable
+        -- was not eliminated
+    AstMaxElement _v -> AstBuild1 n (var, u)
+    AstSumElements10 _v -> AstBuild1 n (var, u)
+    AstIndex10 v i -> buildOfIndex10Vectorize n var v i
+                        -- TODO: simplify i first
+    AstDot0 _u _v -> AstBuild1 n (var, u)  -- TODO
+      -- equal to @build1Vectorize n (var, AstSumElements10 (u * v))@,
+      -- but how to vectorize AstSumElements10?
+    -- All other patterns are redundant due to GADT typing.
 
-index10Vectorize
+buildOfIndex10Vectorize
   :: ADModeAndNumNew d r
   => AstInt r d -> AstVarName Int -> Ast r d (Vector r) -> AstInt r d
   -> Ast r d (Vector r)
-index10Vectorize n var v i =
+buildOfIndex10Vectorize n var v i =
   case v of
-    AstOp codeOut args ->  -- AstOp1
-      AstOp codeOut $ map (\w -> index10Vectorize n var w i) args  -- AstOp1
+    AstOp codeOut args ->
+      AstOp codeOut $ map (\w -> build1Vectorize n (var, AstIndex10 w i)) args
     AstCond b x y ->
-      build1Vectorize n (var, AstCond b (AstIndex10 x i) (AstIndex10 y i))
-    AstConst _r -> index10VectorizeVarNotInV n var v i
-    AstD _d -> index10VectorizeVarNotInV n var v i
+      AstSelect n (var, b) (build1Vectorize n (var, AstIndex10 x i))
+                           (build1Vectorize n (var, AstIndex10 y i))
+    AstConst _r -> buildOfIndex10VectorizeVarNotInV n var v i
+    AstD _d -> buildOfIndex10VectorizeVarNotInV n var v i
     -- AstFromList1, AstFromVector1: see Note [AstFromList1 is hard]
     AstFromList1 l | AstIntConst k <- i -> build1Vectorize n (var, l !! k)
     -- TODO: AstAppend1 v1 v2 -> ... AstCond (i < AstLength v1) (...v1) (...v2)
@@ -461,13 +481,13 @@ index10Vectorize n var v i =
       then -- can't do much, probably, since v different in each cell?
         AstBuild1 n (var, AstIndex10 v i)
       else
-        index10VectorizeVarNotInV n var v i
+        buildOfIndex10VectorizeVarNotInV n var v i
 
 -- The case where @var@ does not occur in @v@.
-index10VectorizeVarNotInV
+buildOfIndex10VectorizeVarNotInV
   :: AstInt r d -> AstVarName Int -> Ast r d (Vector r) -> AstInt r d
   -> Ast r d (Vector r)
-index10VectorizeVarNotInV n var v i = case i of
+buildOfIndex10VectorizeVarNotInV n var v i = case i of
   AstIntOp PlusIntOut [AstIntVar var2, i2] | var2 == var ->
     AstSlice1 i2 n v
   AstIntConst _i2 ->
@@ -481,12 +501,17 @@ index10VectorizeVarNotInV n var v i = case i of
     -- add a new 'gather' operation somehow and, if a more complex index
     -- expression, construct 'gather'
 
+-- TODO: speed up keeping free vars in each node.
 intVarInAst :: AstVarName Int -> Ast r d a -> Bool
 intVarInAst var v = case v of
-  AstOp _ lv -> or $ map (intVarInAst var) lv  -- unused
+  AstOp _ lv -> or $ map (intVarInAst var) lv
   AstCond _b x y -> intVarInAst var x || intVarInAst var y  -- TODO: check in b
-  AstConst{} -> False  -- unused
-  AstD{} -> False  -- unused
+  AstSelect _n (var2, _b) x y ->
+    var == var2 || intVarInAst var x || intVarInAst var y
+      -- TODO: check in n and b
+  AstConst{} -> False
+  AstD{} -> False
+  AstVar{} -> False  -- not an int variable
   AstFromList1 l -> or $ map (intVarInAst var) l  -- down from rank 1 to 0
   AstFromVector1 vl -> or $ map (intVarInAst var) $ V.toList vl
   _ -> True  -- conservative, TODO
@@ -578,6 +603,13 @@ interpretAst env = \case
   AstCond b a1 a2 -> if interpretAstBool env b
                      then interpretAst env a1
                      else interpretAst env a2
+  AstSelect n (AstVarName var, b) a1 a2 ->
+    let k = interpretAstInt env n
+        f i = if interpretAstBool (M.insert var (AstVarI i) env) b then 1 else 0
+        bitmap = constant $ V.generate k f
+        v1 = interpretAst env a1
+        v2 = interpretAst env a2
+    in bitmap * v1 + v2 - bitmap * v2
   AstConst a -> constant a
   AstD d -> d
   AstVar (AstVarName var) -> case M.lookup var env of
