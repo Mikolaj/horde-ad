@@ -125,6 +125,7 @@ type ADModeAndNum (d :: ADMode) r =
   , IsPrimalAndHasFeatures d (Ast r d (Vector r)) (Ast r d r)
   , Under r ~ r
   , LiftToAst d r r
+  , LiftToAst d (Ast r d r) r
   , NumOf (VectorOf r) ~ NumOf r
   )
 
@@ -145,6 +146,7 @@ type ADModeAndNumNew (d :: ADMode) r =
   , VectorLike (VectorOf r) r
   , AstVectorLike d (Under r) (VectorOf r)
   , LiftToAst d (Under r) (Under r)
+  , LiftToAst d (Ast (Under r) d (Under r)) (Under r)
   , LiftToAst d r (Under r)
   , LiftToAst d (VectorOf r) (VectorOf (Under r))
   , -- and finally some laws of nature:
@@ -526,7 +528,10 @@ instance IsPrimal d (Ast Float d Float)
          => LiftToAst d Float Float where
   liftToAst = astToD . AstD
 
-instance LiftToAst d (Ast u d u) u where
+instance LiftToAst d (Ast Double d Double) Double where
+  liftToAst = id
+
+instance LiftToAst d (Ast Float d Float) Float where
   liftToAst = id
 
 instance IsPrimal d (Ast u d (Vector u))
