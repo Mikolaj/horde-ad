@@ -374,25 +374,25 @@ map1Closure f d@(D v _) = build1Closure (llength v) $ \i -> f (index10 d i)
 -- * AST-based build and map variants
 
 -- Orphan instances to split a module.
-instance (VectorOf r ~ Vector r, Under r ~ r, Numeric r)
-         => AstVectorLike d r (Vector r) r where
+instance Under r ~ r
+         => AstVectorLike d r (Vector r) where
   lbuildAst1 n (var, u) =
     interpretAst M.empty $ build1Vectorize (AstIntConst n) (var, u)
   lmapAst1 (var, u) e =
     interpretAst M.empty $ map1Vectorize (var, u) (AstD e)
 
 instance IsPrimal d (Ast r d (Vector r))
-         => AstVectorLike d r (Ast r d (Vector r)) (Ast r d r) where
+         => AstVectorLike d r (Ast r d (Vector r)) where
   lbuildAst1 n (var, u) = astToD (build1Vectorize n (var, u))
   lmapAst1 (var, u) (D w _) = astToD (map1Vectorize (var, u) w)
 
 buildAst1
-  :: (AstVectorLike d u v r, ADModeAndNumNew d r)
-  => NumOf r -> (String, ADVal d (Ast u d u)) -> ADVal d v
+  :: (AstVectorLike d u v, ADModeAndNumNew d u)
+  => NumOf v -> (String, ADVal d (Ast u d u)) -> ADVal d v
 buildAst1 n (var, D u _) = lbuildAst1 n (AstVarName var, u)
 
 mapAst1
-  :: (AstVectorLike d u v r, ADModeAndNumNew d r)
+  :: (AstVectorLike d u v, ADModeAndNumNew d u)
   => (String, ADVal d (Ast u d u)) -> ADVal d v -> ADVal d v
 mapAst1 (var, D u _) e = lmapAst1 (AstVarName var, u) e
 

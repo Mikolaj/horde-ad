@@ -143,7 +143,7 @@ type ADModeAndNumNew (d :: ADMode) r =
   , ADModeAndNumR d (Ast (Under r) d (Under r))
   , Num (NumOf r)
   , VectorLike (VectorOf r) r
-  , AstVectorLike d (Under r) (VectorOf r) r
+  , AstVectorLike d (Under r) (VectorOf r)
   , LiftToAst d (Under r) (Under r)
   , LiftToAst d r (Under r)
   , LiftToAst d (VectorOf r) (VectorOf (Under r))
@@ -588,10 +588,10 @@ instance VectorLike (Ast r d (Vector r)) (Ast r d r) where
   lslice1 = AstSlice1
   lreverse1 = AstReverse1
 
-class (Element vector ~ r, VectorOf r ~ vector, Under r ~ u)
-      => AstVectorLike d u vector r | vector -> u, vector -> r where
+class u ~ Under (Element vector)
+      => AstVectorLike d u vector | vector -> u where
   lbuildAst1 :: ADModeAndNumNew d u
-             => NumOf r -> (AstVarName Int, Ast u d u)
+             => NumOf vector -> (AstVarName Int, Ast u d u)
              -> ADVal d vector
   lmapAst1 :: ADModeAndNumNew d u
            => (AstVarName (ADVal d u), Ast u d u) -> ADVal d vector
