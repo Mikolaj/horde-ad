@@ -87,7 +87,7 @@ convMnistTwoS kh@MkSN kw@MkSN
               c_out@MkSN
               _n_hidden@MkSN batch_size@MkSN
               x ker1 bias1 ker2 bias2
-              weigthsDense biasesDense weigthsReadout biasesReadout =
+              weightsDense biasesDense weightsReadout biasesReadout =
   let t1 = convMnistLayerS kh kw
                            h w
                            (MkSN @c_in) c_out
@@ -100,9 +100,9 @@ convMnistTwoS kh@MkSN kw@MkSN
                            ker2 t1 bias2
       m1 = mapOuterS reshapeS t2
       m2 = transpose2S m1
-      denseLayer = weigthsDense <>$ m2 + asColumnS biasesDense
+      denseLayer = weightsDense <>$ m2 + asColumnS biasesDense
       denseRelu = relu denseLayer
-  in weigthsReadout <>$ denseRelu + asColumnS biasesReadout
+  in weightsReadout <>$ denseRelu + asColumnS biasesReadout
 
 convMnistLenS
   :: forall kh kw h w c_out n_hidden.
@@ -151,13 +151,13 @@ convMnistS kh@MkSN kw@MkSN
       bias1 = atS inputs 1
       ker2 = atS inputs 2
       bias2 = atS inputs 3
-      weigthsDense = atS inputs 4
+      weightsDense = atS inputs 4
       biasesDense = atS inputs 5
-      weigthsReadout = atS inputs 6
+      weightsReadout = atS inputs 6
       biasesReadout = atS inputs 7
   in convMnistTwoS kh kw h w c_out n_hidden batch_size
                    x ker1 bias1 ker2 bias2
-                   weigthsDense biasesDense weigthsReadout biasesReadout
+                   weightsDense biasesDense weightsReadout biasesReadout
 
 convMnistLossFusedO
   :: forall kh kw h w c_out n_hidden batch_size d r.

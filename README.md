@@ -87,10 +87,10 @@ convMnistTwoS
   input              -- input images, shape (batch_size, c_in, h, w)
   (ker1, bias1)      -- layer1 kernel, shape (c_out, c_in, kh+1, kw+1); and bias, shape (c_out)
   (ker2, bias2)      -- layer2 kernel, shape (c_out, c_out, kh+1, kw+1); and bias, shape (c_out)
-  ( weigthsDense     -- dense layer weights,
+  ( weightsDense     -- dense layer weights,
                      -- shape (n_hidden, c_out * ((h+kh)/2 + kh)/2, ((w+kw)/2 + kw)/2)
   , biasesDense )    -- dense layer biases, shape (n_hidden)
-  ( weigthsReadout   -- readout layer weights, shape (10, n_hidden)
+  ( weightsReadout   -- readout layer weights, shape (10, n_hidden)
   , biasesReadout )  -- readout layer biases (10)
   =                  -- -> output classification, shape (10, batch_size)
   let t1 = convMnistLayerS kh kw
@@ -103,9 +103,9 @@ convMnistTwoS
                            ker2 t1 bias2
       m1 = mapOuterS reshapeS t2
       m2 = transpose2S m1
-      denseLayer = weigthsDense <>$ m2 + asColumnS biasesDense
+      denseLayer = weightsDense <>$ m2 + asColumnS biasesDense
       denseRelu = relu denseLayer
-  in weigthsReadout <>$ denseRelu + asColumnS biasesReadout
+  in weightsReadout <>$ denseRelu + asColumnS biasesReadout
 ```
 But we don't just want the shapes in comments and in runtime expressions;
 we want them in the type system to be checked at compile time:

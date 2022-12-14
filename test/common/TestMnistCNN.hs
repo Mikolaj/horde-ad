@@ -47,7 +47,7 @@ shortTestForCITrees = [ mnistCNNTestsShort
 -- evolves differently (@conv2@ used instead of @convSame2@). Theirs is not
 -- real convolution but, most likely, correlation, and their padding
 -- only preserves size, while ours in @conv2@ increases it,
--- not to put less weigth onto information from the outer rows and columns.
+-- not to put less weight onto information from the outer rows and columns.
 
 patch_size, depth0, num_hidden0, final_image_size :: Int
 patch_size = 5
@@ -100,13 +100,13 @@ convMnistCNN depth x inputs =
       ms3 = map (convMiddleMnistCNN depth inputs ms1) [0 .. depth - 1]
       flattenAppend m = append1 (flatten1 m)
       v = foldr flattenAppend (fromVector1 V.empty) ms3
-      weigthsDense = at2 inputs (depth + depth * depth)
+      weightsDense = at2 inputs (depth + depth * depth)
       biasesDense = at1 inputs 0
-      denseLayer = weigthsDense #>! v + biasesDense
+      denseLayer = weightsDense #>! v + biasesDense
       denseRelu = relu denseLayer
-      weigthsReadout = at2 inputs (depth + depth * depth + 1)
+      weightsReadout = at2 inputs (depth + depth * depth + 1)
       biasesReadout = at1 inputs 1
-  in weigthsReadout #>! denseRelu + biasesReadout
+  in weightsReadout #>! denseRelu + biasesReadout
 
 convMnistLossCNN :: ADModeAndNum d r
                  => Int -> MnistData2 r
@@ -204,7 +204,7 @@ convMnistTestCaseCNN prefix epochs maxBatches trainWithLoss testLoss
 -- the picture size would evolve differently. Theirs is not
 -- real convolution but, most likely, correlation, and their padding
 -- only preserves size, while ours in @conv2@ increases it,
--- not to put less weigth onto information from the outer rows and columns.
+-- not to put less weight onto information from the outer rows and columns.
 
 final_image_sizeS :: Int
 final_image_sizeS = 7
@@ -244,13 +244,13 @@ convMnistCNNS depth x inputs =
       ms3 = map (convMiddleMnistCNNS depth inputs ms1) [0 .. depth - 1]
       flattenAppend m = append1 (flatten1 m)
       v = foldr flattenAppend (fromVector1 V.empty) ms3
-      weigthsDense = at2 inputs (depth + depth * depth)
+      weightsDense = at2 inputs (depth + depth * depth)
       biasesDense = at1 inputs 0
-      denseLayer = weigthsDense #>! v + biasesDense
+      denseLayer = weightsDense #>! v + biasesDense
       denseRelu = relu denseLayer
-      weigthsReadout = at2 inputs (depth + depth * depth + 1)
+      weightsReadout = at2 inputs (depth + depth * depth + 1)
       biasesReadout = at1 inputs 1
-  in weigthsReadout #>! denseRelu + biasesReadout
+  in weightsReadout #>! denseRelu + biasesReadout
 
 convMnistLossCNNS :: ADModeAndNum d r
                   => Int -> MnistData2 r
@@ -314,13 +314,13 @@ convMnistCNNP depth x inputs =
       ms3 = map (convMiddleMnistCNNP depth inputs ms1) [0 .. depth - 1]
       flattenAppend m = append1 (flatten1 m)
       v = foldr flattenAppend (fromVector1 V.empty) ms3
-      weigthsDense = at2 inputs (depth + depth * depth)
+      weightsDense = at2 inputs (depth + depth * depth)
       biasesDense = at1 inputs 0
-      denseLayer = weigthsDense #>! v + biasesDense
+      denseLayer = weightsDense #>! v + biasesDense
       denseRelu = relu denseLayer
-      weigthsReadout = at2 inputs (depth + depth * depth + 1)
+      weightsReadout = at2 inputs (depth + depth * depth + 1)
       biasesReadout = at1 inputs 1
-  in weigthsReadout #>! denseRelu + biasesReadout
+  in weightsReadout #>! denseRelu + biasesReadout
 
 convMnistLossCNNP :: ADModeAndNum d r
                   => Int -> MnistData2 r

@@ -91,7 +91,7 @@ convMnistTwoS kh@MkSN kw@MkSN
               _n_hidden@MkSN batch_size@MkSN
               input
               (ker1, bias1) (ker2, bias2)
-              (weigthsDense, biasesDense) (weigthsReadout, biasesReadout) =
+              (weightsDense, biasesDense) (weightsReadout, biasesReadout) =
   let t1 = convMnistLayerS kh kw
                            h w
                            c_in c_out
@@ -104,9 +104,9 @@ convMnistTwoS kh@MkSN kw@MkSN
                            ker2 t1 bias2
       m1 = mapOuterS reshapeS t2
       m2 = transpose2S m1
-      denseLayer = weigthsDense <>$ m2 + asColumnS biasesDense
+      denseLayer = weightsDense <>$ m2 + asColumnS biasesDense
       denseRelu = relu denseLayer
-  in weigthsReadout <>$ denseRelu + asColumnS biasesReadout
+  in weightsReadout <>$ denseRelu + asColumnS biasesReadout
 
 -- The differentiable type of all trainable parameters of this nn.
 type ADConvMnistParameters kh kw c_out n_hidden d r =
