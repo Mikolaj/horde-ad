@@ -79,7 +79,7 @@ TODO: show how the 2x3 Jacobian emerges from here
 
 # Forall shapes and sizes
 
-An additional feature of this library is a type system for tensor shape arithmetic.  Look at this beauty.
+An additional feature of this library is a type system for tensor shape arithmetic. The following code is a part of convolutional neural network definition, for which horde-ad computes the gradient of a shape determined by the shape of input data and initial parameters. The compiler is able to infer a lot of tensor shapes, deriving them both from dynamic dimension arguments (the first line of parameters to the function) and from static type-level hints. Look at this beauty.
 ```hs
 convMnistTwoS
   kh@MkSN kw@MkSN h@MkSN w@MkSN c_in@MkSN c_out@MkSN _n_hidden@MkSN batch_size@MkSN
@@ -107,8 +107,7 @@ convMnistTwoS
       denseRelu = relu denseLayer
   in weightsReadout <>$ denseRelu + asColumnS biasesReadout
 ```
-But we don't just want the shapes in comments and in runtime expressions;
-we want them in the type system to be checked at compile time:
+But we don't just want the shapes in comments and in runtime expressions; we want them as a compiler-verified documentation in the form of the type signature of the function:
 ```hs
 convMnistTwoS
   :: forall kh kw h w c_in c_out n_hidden batch_size d r.
