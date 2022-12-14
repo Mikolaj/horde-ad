@@ -13,8 +13,7 @@ module HordeAd.Core.DualNumber
   ( module HordeAd.Core.DualNumber
   , ADVal, dD, dDnotShared
   , ADMode(..), ADModeAndNum, ADModeAndNumNew
-  , liftToAst0, liftToAst1
-  , NumOf, VectorOf
+  , liftToAst, NumOf, VectorOf
   , IsPrimal (..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
   , Under, Element
   , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export

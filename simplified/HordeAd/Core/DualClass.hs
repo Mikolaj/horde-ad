@@ -32,8 +32,7 @@ module HordeAd.Core.DualClass
   ( -- * The most often used part of the mid-level API that gets re-exported in high-level API
     ADVal, dD, dDnotShared
   , ADMode(..), ADModeAndNum, ADModeAndNumNew
-  , liftToAst0, liftToAst1
-  , NumOf, VectorOf
+  , liftToAst, NumOf, VectorOf
   , -- * The less often used part of the mid-level API that gets re-exported in high-level API; it leaks implementation details
     pattern D
   , IsPrimal(..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
@@ -124,9 +123,8 @@ type ADModeAndNum (d :: ADMode) r =
   , IsPrimalAndHasFeatures d (Ast r d r) (Ast r d r)
   , IsPrimalAndHasFeatures d (Vector r) r
   , IsPrimalAndHasFeatures d (Ast r d (Vector r)) (Ast r d r)
-  , VectorOf r ~ Vector r
   , Under r ~ r
-  , LiftToAst0 d r r
+  , LiftToAst d r r
   , NumOf (VectorOf r) ~ NumOf r
   )
 
@@ -146,11 +144,13 @@ type ADModeAndNumNew (d :: ADMode) r =
   , Num (NumOf r)
   , VectorLike (VectorOf r) r
   , AstVectorLike d (Under r) (VectorOf r) r
-  , LiftToAst0 d (Under r) (Under r)
-  , LiftToAst0 d (Under r) r
-  , LiftToAst1 d (Under r) (VectorOf r) r
+  , LiftToAst d (Under r) (Under r)
+  , LiftToAst d r (Under r)
+  , LiftToAst d (VectorOf r) (VectorOf (Under r))
   , -- and finally some laws of nature:
-    VectorOf (Under r) ~ Vector (Under r)
+    Under (Under r) ~ Under r
+  , Under (VectorOf r) ~ Under r
+  , VectorOf (Under r) ~ Vector (Under r)
   , NumOf (VectorOf r) ~ NumOf r
   , NumOf (Under r) ~ Int
   )
@@ -218,7 +218,8 @@ type family VectorOf a where
 type family Under a where
   Under Double = Double
   Under Float = Float
-  Under (Ast r d r) = r
+  Under (Ast u d a) = u
+  Under (Vector u) = u
 
 -- | Second argument is the primal component of a dual number at some rank
 -- wrt the differentiation mode given in the first argument.
@@ -514,31 +515,26 @@ wrapDelta1 !d = unsafePerformIO $ do
 astToD :: IsPrimal d (Ast r d a) => Ast r d a -> ADVal d (Ast r d a)
 astToD ast = dD ast undefined
 
-class Under r ~ u
-      => LiftToAst0 d u r | r -> u where
-  liftToAst0 :: ADVal d r -> ADVal d (Ast u d u)
+class LiftToAst d r a where
+  liftToAst :: ADVal d r -> ADVal d (Ast (Under r) d a)
 
 instance IsPrimal d (Ast Double d Double)
-         => LiftToAst0 d Double Double where
-  liftToAst0 = astToD . AstD
+         => LiftToAst d Double Double where
+  liftToAst = astToD . AstD
 
 instance IsPrimal d (Ast Float d Float)
-         => LiftToAst0 d Float Float where
-  liftToAst0 = astToD . AstD
+         => LiftToAst d Float Float where
+  liftToAst = astToD . AstD
 
-instance LiftToAst0 d r (Ast r d r) where
-  liftToAst0 = id
+instance LiftToAst d (Ast u d u) u where
+  liftToAst = id
 
-class (Element vector ~ r, Under r ~ u)
-      => LiftToAst1 d u vector r | vector -> u, vector -> r where
-  liftToAst1 :: ADVal d vector -> ADVal d (Ast u d (Vector u))
+instance IsPrimal d (Ast u d (Vector u))
+         => LiftToAst d (Vector u) (Vector u) where
+  liftToAst = astToD . AstD
 
-instance (Under r ~ r, IsPrimal d (Ast r d (Vector r)))
-         => LiftToAst1 d r (Vector r) r where
-  liftToAst1 = astToD . AstD
-
-instance LiftToAst1 d r (Ast r d (Vector r)) (Ast r d r) where
-  liftToAst1 = id
+instance LiftToAst d (Ast u d (Vector u)) (Vector u) where
+  liftToAst = id
 
 class (Element vector ~ r, VectorOf r ~ vector)
       => VectorLike vector r | vector -> r where

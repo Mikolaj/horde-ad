@@ -38,13 +38,13 @@ bar (x, y) =
 fooBuild1 :: forall d r. ADModeAndNumNew d r
           => ADVal d (VectorOf r) -> ADVal d (VectorOf r)
 fooBuild1 v =
-  let v' = (liftToAst1 v  -- we don't know if @r@ is values or ASTs, so we lift
+  let v' = (liftToAst v  -- we don't know if @r@ is values or ASTs, so we lift
             :: ADVal d (Ast1 d (Under r)))
            :: ADVal d (VectorOf (Ast0 d (Under r)))
       r' = sumElements10 v' :: ADVal d (Ast0 d (Under r))
   in buildAst1 3 ("ix", r' * foo ( 3
                                  , 5 * r'
-                                 , r' * minimum0 v' * liftToAst0 (minimum0 v))
+                                 , r' * minimum0 v' * liftToAst (minimum0 v))
                         + bar (r', index10 v' (varInt "ix" + 1)))
        -- note how foo and bar are used in the Ast universe without lifting
        -- their result, just as sumElements10 and index10 is
@@ -53,7 +53,7 @@ fooMap1 :: ADModeAndNumNew d r
         => ADVal d r -> ADVal d (VectorOf r)
 fooMap1 r =
   let v = fooBuild1 $ konst1 r 130
-      r' = liftToAst0 r
+      r' = liftToAst r
   in mapAst1 ("x", varAst0 "x" * r' + 5) v
 
 -- A test that doesn't vectorize currently due to conditionals
@@ -61,7 +61,7 @@ fooMap1 r =
 fooNoGo :: forall r d. ADModeAndNumNew d r
         => ADVal d (VectorOf r) -> ADVal d (VectorOf r)
 fooNoGo v =
-  let v' = liftToAst1 v :: ADVal d (Ast1 d (Under r))
+  let v' = liftToAst v :: ADVal d (Ast1 d (Under r))
       r' = sumElements10 v' :: ADVal d (Ast0 d (Under r))
   in buildAst1 3 ("ix",
        index10 v' (varInt "ix")
@@ -77,7 +77,7 @@ nestedBuildMap :: forall r d. ADModeAndNumNew d r
                => ADVal d r -> ADVal d (VectorOf r)
 nestedBuildMap r =
   let w = konst1 (varAst0 "x") (AstIntCond (varAst0 "x" `leqAst` 0) 3 4)
-      v' = konst1 (liftToAst0 r) 7
+      v' = konst1 (liftToAst r) 7
       nestedMap = mapAst1 ("y", varAst0 "x" / varAst0 "y") w
       variableLengthBuild = buildAst1 (varInt "iy" + 1) ("ix",
                               index10 v' (varInt "ix" + 1))
