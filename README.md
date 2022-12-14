@@ -79,10 +79,11 @@ TODO: show how the 2x3 Jacobian emerges from here
 
 # Forall shapes and sizes
 
-An additional feature of this library is a type system for tensor shape arithmetic. The following code is a part of convolutional neural network definition, for which horde-ad computes the gradient of a shape determined by the shape of input data and initial parameters. The compiler is able to infer a lot of tensor shapes, deriving them both from dynamic dimension arguments (the first line of parameters to the function) and from static type-level hints. Look at this beauty.
+An additional feature of this library is a type system for tensor shape arithmetic. The following code is a part of convolutional neural network definition, for which horde-ad computes the gradient of a shape determined by the shape of input data and initial parameters. The compiler is able to infer a lot of tensor shapes, deriving them both from dynamic dimension arguments (the first two lines of parameters to the function) and from static type-level hints. Look at this beauty.
 ```hs
 convMnistTwoS
-  kh@MkSNat kw@MkSNat h@MkSNat w@MkSNat c_in@MkSNat c_out@MkSNat _n_hidden@MkSNat batch_size@MkSNat
+  kh@MkSNat kw@MkSNat h@MkSNat w@MkSNat
+  c_in@MkSNat c_out@MkSNat _n_hidden@MkSNat batch_size@MkSNat
     -- integer parameters denoting basic dimensions, with some notational noise
   input              -- input images, shape (batch_size, c_in, h, w)
   (ker1, bias1)      -- layer1 kernel, shape (c_out, c_in, kh+1, kw+1); and bias, shape (c_out)
