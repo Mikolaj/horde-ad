@@ -42,15 +42,15 @@ import HordeAd.Internal.Delta (Domain0, Domain1, Domains (..), nullDomains)
 -- with the common test code.
 -- | Sizes of tensor dimensions, of batches, etc., packed for passing
 -- between functions as witnesses of type variable values.
-data StaticNat (n :: Nat) where
-  MkSN :: KnownNat n => StaticNat n
+data SNat (n :: Nat) where
+  MkSNat :: KnownNat n => SNat n
 
-staticNatValue :: forall n i. (KnownNat n, Num i) => StaticNat n -> i
+staticNatValue :: forall n i. (KnownNat n, Num i) => SNat n -> i
 {-# INLINE staticNatValue #-}
 staticNatValue = fromInteger . natVal
 
-staticNatFromProxy :: KnownNat n => Proxy n -> StaticNat n
-staticNatFromProxy Proxy = MkSN
+staticNatFromProxy :: KnownNat n => Proxy n -> SNat n
+staticNatFromProxy Proxy = MkSNat
 
 -- | Add sharing information to the top level of a term, presumably
 -- constructed using multiple applications of the `dDnotShared` operation.

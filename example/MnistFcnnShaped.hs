@@ -23,7 +23,7 @@ import MnistData
 -- on the basis of the requested widths, see above.
 fcnnMnistLayersS
   :: forall widthHidden widthHidden2 d r. ADModeAndNum d r
-  => StaticNat widthHidden -> StaticNat widthHidden2
+  => SNat widthHidden -> SNat widthHidden2
   -> (forall sh. OS.Shape sh
       => ADVal d (OS.Array sh r) -> ADVal d (OS.Array sh r))
   -> OS.Array '[SizeMnistGlyph] r
@@ -31,7 +31,7 @@ fcnnMnistLayersS
   -- in the length function below and read from inputs further down.
   -> ADFcnnMnistParameters widthHidden widthHidden2 d r
   -> ADVal d (OS.Array '[SizeMnistLabel] r)
-fcnnMnistLayersS MkSN MkSN factivationHidden datum
+fcnnMnistLayersS MkSNat MkSNat factivationHidden datum
                  ( (weightsL0, biasesV0)
                  , (weightsL1, biasesV1)
                  , (weightsL2, biasesV2) ) =
@@ -58,7 +58,7 @@ type ADFcnnMnistParameters widthHidden widthHidden2 d r =
 -- softMax and cross entropy as the loss function.
 afcnnMnistLossFusedS
   :: forall widthHidden widthHidden2 d r. ADModeAndNum d r
-  => StaticNat widthHidden -> StaticNat widthHidden2
+  => SNat widthHidden -> SNat widthHidden2
   -> MnistData r
   -> ADFcnnMnistParameters widthHidden widthHidden2 d r
   -> ADVal d r
@@ -69,7 +69,7 @@ afcnnMnistLossFusedS widthHidden widthHidden2 (datum, target) adparameters =
 
 afcnnMnistLossFusedReluS
   :: forall widthHidden widthHidden2 d r. ADModeAndNum d r
-  => StaticNat widthHidden -> StaticNat widthHidden2
+  => SNat widthHidden -> SNat widthHidden2
   -> MnistData r
   -> ADFcnnMnistParameters widthHidden widthHidden2 d r
   -> ADVal d r
@@ -82,7 +82,7 @@ afcnnMnistLossFusedReluS widthHidden widthHidden2 (datum, target) adparameters =
 -- and the trained parameters.
 afcnnMnistTestS
   :: forall widthHidden widthHidden2 r. ADModeAndNum 'ADModeValue r
-  => StaticNat widthHidden -> StaticNat widthHidden2
+  => SNat widthHidden -> SNat widthHidden2
   -> [MnistData r]
   -> ((ADFcnnMnistParameters widthHidden widthHidden2 'ADModeValue r
        -> ADVal 'ADModeValue (OS.Array '[SizeMnistLabel] r))

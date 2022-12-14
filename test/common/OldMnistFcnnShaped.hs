@@ -29,7 +29,7 @@ import MnistData
 -- on the basis of the requested widths, see above.
 fcnnMnistLayersS
   :: forall widthHidden widthHidden2 d r. ADModeAndNum d r
-  => StaticNat widthHidden -> StaticNat widthHidden2
+  => SNat widthHidden -> SNat widthHidden2
   -> (forall sh. OS.Shape sh
       => ADVal d (OS.Array sh r) -> ADVal d (OS.Array sh r))
   -> OS.Array '[SizeMnistGlyph] r
@@ -42,7 +42,7 @@ fcnnMnistLayersS
   -> ADVal d (OS.Array '[SizeMnistLabel, widthHidden2] r)
   -> ADVal d (OS.Array '[SizeMnistLabel] r)
   -> ADVal d (OS.Array '[SizeMnistLabel] r)
-fcnnMnistLayersS MkSN MkSN factivationHidden datum
+fcnnMnistLayersS MkSNat MkSNat factivationHidden datum
                  weightsL0 biasesV0 weightsL1 biasesV1 weightsL2 biasesV2 =
   let !_A = assert (sizeMnistGlyphInt == OS.size datum) ()
       hiddenLayer1 = weightsL0 #>$ constant datum + biasesV0
@@ -56,9 +56,9 @@ fcnnMnistLayersS MkSN MkSN factivationHidden datum
 -- the six-element type list from signature of @nnMnistLayersS@.
 fcnnMnistLenS
   :: forall widthHidden widthHidden2.
-      StaticNat widthHidden -> StaticNat widthHidden2
+      SNat widthHidden -> SNat widthHidden2
   -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
-fcnnMnistLenS MkSN MkSN =
+fcnnMnistLenS MkSNat MkSNat =
   ( 0
   , []
   , []
@@ -73,14 +73,14 @@ fcnnMnistLenS MkSN MkSN =
 
 fcnnMnistS
   :: forall widthHidden widthHidden2 d r. ADModeAndNum d r
-  => StaticNat widthHidden -> StaticNat widthHidden2
+  => SNat widthHidden -> SNat widthHidden2
   -> (forall sh. OS.Shape sh
       => ADVal d (OS.Array sh r) -> ADVal d (OS.Array sh r))
   -> OS.Array '[SizeMnistGlyph] r
   -> ADInputs d r
   -> ADVal d (OS.Array '[SizeMnistLabel] r)
 {-# INLINE fcnnMnistS #-}
-fcnnMnistS widthHidden@MkSN widthHidden2@MkSN
+fcnnMnistS widthHidden@MkSNat widthHidden2@MkSNat
            factivationHidden datum inputs =
   let weightsL0 = atS inputs 0
       biasesV0 = atS inputs 1
@@ -97,7 +97,7 @@ fcnnMnistS widthHidden@MkSN widthHidden2@MkSN
 -- softMax and cross entropy as the loss function.
 fcnnMnistLossFusedS
   :: forall widthHidden widthHidden2 d r. ADModeAndNum d r
-  => StaticNat widthHidden -> StaticNat widthHidden2
+  => SNat widthHidden -> SNat widthHidden2
   -> MnistData r -> ADInputs d r -> ADVal d r
 fcnnMnistLossFusedS widthHidden widthHidden2 (datum, target) inputs =
   let result = fcnnMnistS widthHidden widthHidden2
@@ -106,7 +106,7 @@ fcnnMnistLossFusedS widthHidden widthHidden2 (datum, target) inputs =
 
 fcnnMnistLossFusedReluS
   :: forall widthHidden widthHidden2 d r. ADModeAndNum d r
-  => StaticNat widthHidden -> StaticNat widthHidden2
+  => SNat widthHidden -> SNat widthHidden2
   -> MnistData r -> ADInputs d r -> ADVal d r
 fcnnMnistLossFusedReluS widthHidden widthHidden2 (datum, target) inputs =
   let result = fcnnMnistS widthHidden widthHidden2
@@ -117,7 +117,7 @@ fcnnMnistLossFusedReluS widthHidden widthHidden2 (datum, target) inputs =
 -- and the trained parameters.
 fcnnMnistTestS
   :: forall widthHidden widthHidden2 r. ADModeAndNum 'ADModeValue r
-  => StaticNat widthHidden -> StaticNat widthHidden2
+  => SNat widthHidden -> SNat widthHidden2
   -> [MnistData r] -> Domains r -> r
 fcnnMnistTestS widthHidden widthHidden2 inputs parameters =
   let matchesLabels :: MnistData r -> Bool

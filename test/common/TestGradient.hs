@@ -175,18 +175,18 @@ testFooD =
 fooS :: forall r len1 l1 len2 l2 len3 l3 len4 l4 d.
         ( ADModeAndNum d r
         , len1 ~ (l1 + 1), len2 ~ (l2 + 2), len3 ~ (l3 + 3), len4 ~ (l4 + 4) )
-     => StaticNat len1 -> StaticNat len2 -> StaticNat len3 -> StaticNat len4
+     => SNat len1 -> SNat len2 -> SNat len3 -> SNat len4
      -> ( ADVal d (OS.Array '[len1] r)
         , ADVal d (OS.Array '[len2] r)
         , ADVal d (OS.Array '[len3] r)
         , ADVal d (OS.Array '[len4] r) ) -> ADVal d r
-fooS MkSN MkSN MkSN MkSN (x1, x2, x3, x4) =
+fooS MkSNat MkSNat MkSNat MkSNat (x1, x2, x3, x4) =
   fromS0 $ indexS @0 x1 * indexS @1 x2 * indexS @2 x3 * indexS @3 x4
 
 testFooS :: Assertion
 testFooS =
   assertEqualUpToEpsilon 1e-12
-    (rev (fooS (MkSN @1) (MkSN @5) (MkSN @3) (MkSN @4))
+    (rev (fooS (MkSNat @1) (MkSNat @5) (MkSNat @3) (MkSNat @4))
          ( OS.fromList [1.1 :: Double]
          , OS.fromList [2.2, 2.3, 7.2, 7.3, 7.4]
          , OS.fromList [3.3, 3.4, 3.5]
@@ -197,12 +197,12 @@ testFooS =
     , OS.fromList [0, 0, 0, 8.854999999999999] )
 
 barS :: (ADModeAndNum d r, OS.Shape sh)
-     => StaticNat n1 -> StaticNat n2
+     => SNat n1 -> SNat n2
      -> ( ADVal d r
         , ADVal d (OS.Array '[n1, n2] r)
         , [ADVal d (OS.Array (n2 ': sh) r)] )
      -> [ADVal d (OS.Array (n1 ': sh) r)]
-barS MkSN MkSN (s, w, xs) =
+barS MkSNat MkSNat (s, w, xs) =
   map (\x -> konstS s * dotGeneral w x) xs
     -- konstS is needed, after all, because @s@ is a differentiable unknown
     -- quantity with a given type, and not a constant that would be
@@ -224,7 +224,7 @@ bar_3_75
      , OS.Array '[3, 75] r
      , [OS.Array (75 ': sh) r] )
   -> OS.Array (k ': 3 ': sh) r
-bar_3_75 = value (ravelFromListS . barS (MkSN @3) (MkSN @75))
+bar_3_75 = value (ravelFromListS . barS (MkSNat @3) (MkSNat @75))
   -- @ravelFromListS@ is needed, because @valueOnDomains@ expects the objective
   -- function to have a dual number codomain and here we'd have a list
   -- of dual numbers. The same problem is worked around with @head@ below.
@@ -250,7 +250,7 @@ bar_jvp_3_75
      , OS.Array '[3, 75] r
      , [OS.Array (75 ': sh) r] )
   -> OS.Array (3 ': sh) r
-bar_jvp_3_75 = fwd (head . barS (MkSN @3) (MkSN @75))
+bar_jvp_3_75 = fwd (head . barS (MkSNat @3) (MkSNat @75))
   -- TODO: implement real jvp (forward) and vjp (back)
   -- TODO: @head@ is required, because our engine so far assumes
   -- objective functions have dual number codomains (though they may be
@@ -283,7 +283,7 @@ bar_rev_3_75
      , [OS.Array (75 ': sh) r] )
 bar_rev_3_75 = rev ((head :: [ADVal d (OS.Array (n1 ': sh) r)]
                           -> ADVal d (OS.Array (n1 ': sh) r))
-                    . barS (MkSN @3) (MkSN @75))
+                    . barS (MkSNat @3) (MkSNat @75))
   -- TODO: @head@ is required, because our engine so far assumes
   -- objective functions with dual number codomains (though they may be
   -- of arbitrary ranks)
@@ -371,14 +371,14 @@ static_conv2dNonDualNumber
      , shK ~ '[nCout, nCinp, nKh, nKw]
      , shA ~ '[nImgs, nCinp, nAh, nAw]
      , shB ~ '[nImgs, nCout, nAh, nAw] )
-  => StaticNat nImgs -> StaticNat nCinp -> StaticNat nCout
-  -> StaticNat nAh -> StaticNat nAw -> StaticNat nKh -> StaticNat nKw
+  => SNat nImgs -> SNat nCinp -> SNat nCout
+  -> SNat nAh -> SNat nAw -> SNat nKh -> SNat nKw
   -> OS.Array shK r
        -- ^ Filters of shape: num_filters x chas x kernel_height x kernel_width
   -> OS.Array shA r
        -- ^ Input of shape: batch x chas x height x width
   -> Bool
-static_conv2dNonDualNumber MkSN MkSN MkSN MkSN MkSN MkSN MkSN arrK arrA =
+static_conv2dNonDualNumber MkSNat MkSNat MkSNat MkSNat MkSNat MkSNat MkSNat arrK arrA =
   let -- Compare the value produced by the dual number version
       -- against the value from a normal version of the objective function.
       v = value (uncurry conv2d) (arrK, arrA) :: OS.Array shB r
@@ -397,13 +397,13 @@ quickcheck_conv2dNonDualNumber =
   forAll (choose (0, 10)) $ \nKw' ->
     -- The glue below is needed to bridge the dependently-typed
     -- vs normal world.
-    withStaticNat nImgs' $ \nImgs ->
-    withStaticNat nCinp' $ \nCinp ->
-    withStaticNat nCout' $ \nCout ->
-    withStaticNat nAh' $ \nAh ->
-    withStaticNat nAw' $ \nAw ->
-    withStaticNat nKh' $ \nKh ->
-    withStaticNat nKw' $ \nKw ->
+    withSNat nImgs' $ \nImgs ->
+    withSNat nCinp' $ \nCinp ->
+    withSNat nCout' $ \nCout ->
+    withSNat nAh' $ \nAh ->
+    withSNat nAw' $ \nAw ->
+    withSNat nKh' $ \nKh ->
+    withSNat nKw' $ \nKw ->
       property $ static_conv2dNonDualNumber @r nImgs nCinp nCout nAh nAw nKh nKw
 
 -- | Derivative of full convolution with respect to the input image,

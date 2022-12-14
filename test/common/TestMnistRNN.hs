@@ -671,17 +671,17 @@ mnistTestCaseRNNB prefix epochs maxBatches f ftest flen width nLayers
 
 mnistTestCaseRNNS
   :: forall out_width batch_size d r. (r ~ Double, d ~ 'ADModeGradient)
-  => StaticNat out_width -> StaticNat batch_size
+  => SNat out_width -> SNat batch_size
   -> String
   -> Int
   -> Int
   -> (forall out_width' batch_size'. ADModeAndNum d r
-      => StaticNat out_width' -> StaticNat batch_size'
+      => SNat out_width' -> SNat batch_size'
       -> MnistDataBatchS batch_size' r
       -> ADRnnMnistParameters SizeMnistHeight out_width' d r
       -> ADVal d r)
   -> (forall out_width' batch_size'. ADModeAndNum d r
-      => StaticNat out_width' -> StaticNat batch_size'
+      => SNat out_width' -> SNat batch_size'
       -> MnistDataBatchS batch_size' r
       -> ((ADRnnMnistParameters SizeMnistHeight out_width' 'ADModeValue r
            -> ADVal 'ADModeValue (OS.Array '[SizeMnistLabel, batch_size'] r))
@@ -689,7 +689,7 @@ mnistTestCaseRNNS
       -> r)
   -> Double
   -> TestTree
-mnistTestCaseRNNS out_width@MkSN batch_size@MkSN
+mnistTestCaseRNNS out_width@MkSNat batch_size@MkSNat
                   prefix epochs maxBatches trainWithLoss ftestWithParams
                   expected =
   let batchSize = staticNatValue batch_size :: Int
@@ -707,7 +707,7 @@ mnistTestCaseRNNS out_width@MkSN batch_size@MkSN
                         , show (nParams valsInit)
                         , show (nScalars valsInit)
                         , show range ]
-      ftest :: StaticNat batch_size'
+      ftest :: SNat batch_size'
             -> MnistDataBatchS batch_size' r
             -> Domains r
             -> r
@@ -735,10 +735,10 @@ mnistTestCaseRNNS out_width@MkSN batch_size@MkSN
                        $ chunksOf batchSize chunk
               res@(parameters2, _) = sgdAdam f chunkS parameters stateAdam
               !trainScore =
-                ftest (MkSN @(10 * batch_size))
+                ftest (MkSNat @(10 * batch_size))
                       (packBatch @(10 * batch_size) chunk)
                       parameters2
-              !testScore = ftest (MkSN @LengthTestData)
+              !testScore = ftest (MkSNat @LengthTestData)
                                  testDataS parameters2
               !lenChunk = length chunk
           hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
@@ -756,37 +756,37 @@ mnistTestCaseRNNS out_width@MkSN batch_size@MkSN
           !res <- foldM runBatch paramsStateAdam chunks
           runEpoch (succ n) res
     res <- runEpoch 1 (parametersInit, initialStateAdam parametersInit)
-    let testErrorFinal = 1 - ftest (MkSN @LengthTestData)
+    let testErrorFinal = 1 - ftest (MkSNat @LengthTestData)
                                    testDataS res
     testErrorFinal @?~ expected
 
 mnistTestCaseRNNO
   :: forall out_width batch_size d r. (r ~ Double, d ~ 'ADModeGradient)
-  => StaticNat out_width -> StaticNat batch_size
+  => SNat out_width -> SNat batch_size
   -> String
   -> Int
   -> Int
   -> (forall out_width' batch_size'. ADModeAndNum d r
-      => StaticNat out_width' -> StaticNat batch_size'
+      => SNat out_width' -> SNat batch_size'
       -> MnistDataBatchS batch_size' r
       -> ADInputs d r
       -> ADVal d r)
   -> (forall out_width' batch_size'. ADModeAndNum d r
-      => StaticNat out_width' -> StaticNat batch_size'
+      => SNat out_width' -> SNat batch_size'
       -> MnistDataBatchS batch_size' r
       -> Domains r
       -> r)
   -> (forall out_width' sizeMnistWidth'.
-         StaticNat out_width'
-      -> StaticNat sizeMnistWidth'
+         SNat out_width'
+      -> SNat sizeMnistWidth'
       -> (Int, [Int], [(Int, Int)], [OT.ShapeL]))
   -> Double
   -> TestTree
-mnistTestCaseRNNO out_width@MkSN batch_size@MkSN
+mnistTestCaseRNNO out_width@MkSNat batch_size@MkSNat
                   prefix epochs maxBatches trainWithLoss ftest flen expected =
   let batchSize = staticNatValue batch_size :: Int
       ((_, _, _, nParamsX), totalParams, range, parametersInit) =
-        initializerFixed 44 0.2 (flen out_width (MkSN @SizeMnistWidth))
+        initializerFixed 44 0.2 (flen out_width (MkSNat @SizeMnistWidth))
       name = prefix ++ ": "
              ++ unwords [ show epochs, show maxBatches
                         , show (staticNatValue out_width :: Int), show batchSize
@@ -810,10 +810,10 @@ mnistTestCaseRNNO out_width@MkSN batch_size@MkSN
                        $ chunksOf batchSize chunk
               res@(parameters2, _) = sgdAdam f chunkS parameters stateAdam
               !trainScore =
-                ftest out_width (MkSN @(10 * batch_size))
+                ftest out_width (MkSNat @(10 * batch_size))
                       (packBatch @(10 * batch_size) chunk)
                       parameters2
-              !testScore = ftest out_width (MkSN @LengthTestData)
+              !testScore = ftest out_width (MkSNat @LengthTestData)
                                  testDataS parameters2
               !lenChunk = length chunk
           hPutStrLn stderr $ printf "\n%s: (Batch %d with %d points)" prefix k lenChunk
@@ -831,7 +831,7 @@ mnistTestCaseRNNO out_width@MkSN batch_size@MkSN
           !res <- foldM runBatch paramsStateAdam chunks
           runEpoch (succ n) res
     res <- runEpoch 1 (parametersInit, initialStateAdam parametersInit)
-    let testErrorFinal = 1 - ftest out_width (MkSN @LengthTestData)
+    let testErrorFinal = 1 - ftest out_width (MkSNat @LengthTestData)
                                    testDataS res
     testErrorFinal @?~ expected
 
@@ -849,11 +849,11 @@ mnistRNNTestsLong = testGroup "MNIST RNN long tests"
   , mnistTestCaseRNNB "99BB2 1 epoch, all batches" 1 99
                       nnMnistRNNLossB2 testMnistRNNL2 lenMnistRNNL 128 2
                       6.259999999999999e-2
-  , mnistTestCaseRNNS (MkSN @128) (MkSN @150)
+  , mnistTestCaseRNNS (MkSNat @128) (MkSNat @150)
                       "1S 1 epoch, 1 batch" 1 1
                       arnnMnistLossFusedS arnnMnistTestS
                       0.5448999999999999
-  , mnistTestCaseRNNO (MkSN @128) (MkSN @150)
+  , mnistTestCaseRNNO (MkSNat @128) (MkSNat @150)
                       "1O 1 epoch, 1 batch" 1 1
                       rnnMnistLossFusedS rnnMnistTestS rnnMnistLenS
                       0.4375
@@ -907,11 +907,11 @@ mnistRNNTestsShort = testGroup "MNIST RNN short tests"
   , mnistTestCaseRNNB "1BB2 1 epoch, 1 batch" 1 1
                       nnMnistRNNLossB2 testMnistRNNL2 lenMnistRNNL 128 2
                       0.2945
-  , mnistTestCaseRNNS (MkSN @120) (MkSN @15)
+  , mnistTestCaseRNNS (MkSNat @120) (MkSNat @15)
                       "1S 1 epoch, 1 batch" 1 1
                       arnnMnistLossFusedS arnnMnistTestS
                       0.6793
-  , mnistTestCaseRNNO (MkSN @120) (MkSN @15)
+  , mnistTestCaseRNNO (MkSNat @120) (MkSNat @15)
                       "1O 1 epoch, 1 batch" 1 1
                       rnnMnistLossFusedS rnnMnistTestS rnnMnistLenS
                       0.8418

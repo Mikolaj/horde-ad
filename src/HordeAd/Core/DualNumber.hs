@@ -64,21 +64,21 @@ import HordeAd.Internal.Delta
 
 -- | Sizes of tensor dimensions, of batches, etc., packed for passing
 -- between functions as witnesses of type variable values.
-data StaticNat (n :: Nat) where
-  MkSN :: KnownNat n => StaticNat n
+data SNat (n :: Nat) where
+  MkSNat :: KnownNat n => SNat n
 
-staticNatValue :: forall n i. (KnownNat n, Num i) => StaticNat n -> i
+staticNatValue :: forall n i. (KnownNat n, Num i) => SNat n -> i
 {-# INLINE staticNatValue #-}
 staticNatValue = fromInteger . natVal
 
 -- | Warning: takes the absolute value of the argument.
-withStaticNat :: Int -> (forall n. KnownNat n => (StaticNat n -> r)) -> r
-withStaticNat i f = case someNatVal $ toInteger $ abs i of
-  Just (SomeNat (_ :: Proxy n)) -> f (MkSN :: StaticNat n)
-  Nothing -> error "impossible in mkStaticNat"
+withSNat :: Int -> (forall n. KnownNat n => (SNat n -> r)) -> r
+withSNat i f = case someNatVal $ toInteger $ abs i of
+  Just (SomeNat (_ :: Proxy n)) -> f (MkSNat :: SNat n)
+  Nothing -> error "impossible in mkSNat"
 
-staticNatFromProxy :: KnownNat n => Proxy n -> StaticNat n
-staticNatFromProxy Proxy = MkSN
+staticNatFromProxy :: KnownNat n => Proxy n -> SNat n
+staticNatFromProxy Proxy = MkSNat
 
 -- | Add sharing information to the top level of a term, presumably
 -- constructed using multiple applications of the `dDnotShared` operation.
@@ -901,8 +901,8 @@ appendS :: (KnownNat m, KnownNat n, ADModeAndNum d r, OS.Shape sh)
         -> ADVal d (OS.Array ((m + n) ': sh) r)
 appendS (D u u') (D v v') = dD (u `OS.append` v) (dAppendS u' v')
 
--- The API of this modules should not have proxies (but StaticNat instead).
--- However, lower level APIs are fine with Proxies. Not using StaticNat
+-- The API of this modules should not have proxies (but SNat instead).
+-- However, lower level APIs are fine with Proxies. Not using SNat
 -- there may even prevent mixing up high and mid or low APIs
 -- and accessing low level APIs directly instead of via higher levels.
 sliceS :: forall i n k rest d r.
@@ -1051,7 +1051,7 @@ conv24 ker = mapOuterS conv23 where
   sumOutermost = sum . unravelToListS
     -- slow; should go through Tensor2, or the Num instance when possible
 
--- No proxies or anything similar needed here, but we may introduce StaticNat
+-- No proxies or anything similar needed here, but we may introduce SNat
 -- regardless, if the implicitly passed tensor sizes become confusing
 -- or if they start being passes explicitly via type application too often.
 maxPool24

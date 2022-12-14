@@ -35,10 +35,10 @@ zeroStateS f = f (konstS 0)
 
 unrollLastS :: forall d state c w r k rest.
                (ADModeAndNum d r, OS.Shape rest)
-            => StaticNat k
+            => SNat k
             -> (state -> OS.Array rest r -> w -> (c, state))
             -> (state -> OS.Array (k : rest) r -> w -> (c, state))
-unrollLastS MkSN f s0 xs w =
+unrollLastS MkSNat f s0 xs w =
   let g :: (c, state) -> OS.Array rest r -> (c, state)
       g (_, s) x = f s x w
   in foldl' g (undefined, s0) $ OSB.toList $ OS.unravel xs
@@ -50,14 +50,14 @@ type LayerWeigthsRNN in_width out_width d r =
 
 rnnMnistLayerS
   :: forall in_width out_width batch_size d r. ADModeAndNum d r
-  => StaticNat in_width -> StaticNat out_width
-  -> StaticNat batch_size
+  => SNat in_width -> SNat out_width
+  -> SNat batch_size
   -> ADVal d (OS.Array '[out_width, batch_size] r)  -- in state
   -> ADVal d (OS.Array '[in_width, batch_size] r)  -- in
   -> LayerWeigthsRNN in_width out_width d r
   -> ( ADVal d (OS.Array '[out_width, batch_size] r)  -- out
      , ADVal d (OS.Array '[out_width, batch_size] r) ) -- out state
-rnnMnistLayerS MkSN MkSN MkSN
+rnnMnistLayerS MkSNat MkSNat MkSNat
                s x (wX, wS, b) =
   let y = wX <>$ x + wS <>$ s + asColumnS b
       yTanh = tanh y
@@ -65,9 +65,9 @@ rnnMnistLayerS MkSN MkSN MkSN
 
 rnnMnistTwoS
   :: forall out_width batch_size sizeMnistHeight d r. ADModeAndNum d r
-  => StaticNat out_width
-  -> StaticNat batch_size
-  -> StaticNat sizeMnistHeight
+  => SNat out_width
+  -> SNat batch_size
+  -> SNat sizeMnistHeight
   -> ADVal d (OS.Array '[2 * out_width, batch_size] r)
        -- initial state
   -> OS.Array '[sizeMnistHeight, batch_size] r
@@ -76,9 +76,9 @@ rnnMnistTwoS
   -> ( ADVal d (OS.Array '[out_width, batch_size] r)
      , ADVal d (OS.Array '[2 * out_width, batch_size] r) )
            -- final state
-rnnMnistTwoS out_width@MkSN
-             batch_size@MkSN
-             sizeMnistHeightHere@MkSN
+rnnMnistTwoS out_width@MkSNat
+             batch_size@MkSNat
+             sizeMnistHeightHere@MkSNat
              s x ((wX, wS, b), (wX2, wS2, b2)) =
   let s1 = sliceS @0 @out_width s
       s2 = sliceS @out_width @out_width s
@@ -96,9 +96,9 @@ rnnMnistTwoS out_width@MkSN
 rnnMnistZeroS
   :: forall out_width batch_size sizeMnistWidth sizeMnistHeight d r.
      ADModeAndNum d r
-  => StaticNat out_width
-  -> StaticNat batch_size
-  -> StaticNat sizeMnistWidth -> StaticNat sizeMnistHeight
+  => SNat out_width
+  -> SNat batch_size
+  -> SNat sizeMnistWidth -> SNat sizeMnistHeight
   -> OS.Array '[sizeMnistWidth, sizeMnistHeight, batch_size] r
   -- All below is the type of all parameters of this nn. The same is reflected
   -- in the length function below and read from inputs further down.
@@ -107,9 +107,9 @@ rnnMnistZeroS
   -> ADVal d (OS.Array '[SizeMnistLabel, out_width] r)
   -> ADVal d (OS.Array '[SizeMnistLabel] r)
   -> ADVal d (OS.Array '[SizeMnistLabel, batch_size] r)
-rnnMnistZeroS out_width@MkSN
-              batch_size@MkSN
-              sizeMnistWidthHere@MkSN sizeMnistHeightHere@MkSN
+rnnMnistZeroS out_width@MkSNat
+              batch_size@MkSNat
+              sizeMnistWidthHere@MkSNat sizeMnistHeightHere@MkSNat
               xs ((wX, wS, b), (wX2, wS2, b2)) w3 b3 =
   let rnnMnistTwo = rnnMnistTwoS out_width batch_size sizeMnistHeightHere
       (out, _s) = zeroStateS (unrollLastS @d sizeMnistWidthHere rnnMnistTwo) xs
@@ -118,9 +118,9 @@ rnnMnistZeroS out_width@MkSN
 
 rnnMnistLenS
   :: forall out_width sizeMnistWidth.
-     StaticNat out_width -> StaticNat sizeMnistWidth
+     SNat out_width -> SNat sizeMnistWidth
   -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
-rnnMnistLenS MkSN MkSN =
+rnnMnistLenS MkSNat MkSNat =
   ( 0
   , []
   , []
@@ -138,15 +138,15 @@ rnnMnistLenS MkSN MkSN =
 rnnMnistS
   :: forall out_width batch_size sizeMnistWidth sizeMnistHeight d r.
      ADModeAndNum d r
-  => StaticNat out_width
-  -> StaticNat batch_size
-  -> StaticNat sizeMnistWidth -> StaticNat sizeMnistHeight
+  => SNat out_width
+  -> SNat batch_size
+  -> SNat sizeMnistWidth -> SNat sizeMnistHeight
   -> OS.Array '[sizeMnistWidth, sizeMnistHeight, batch_size] r
   -> ADInputs d r
   -> ADVal d (OS.Array '[SizeMnistLabel, batch_size] r)
-rnnMnistS out_width@MkSN
-          batch_size@MkSN
-          sizeMnistWidthHere@MkSN sizeMnistHeightHere@MkSN
+rnnMnistS out_width@MkSNat
+          batch_size@MkSNat
+          sizeMnistWidthHere@MkSNat sizeMnistHeightHere@MkSNat
           xs inputs =
   let wX = atS inputs 0
       wS = atS inputs 1
@@ -163,13 +163,13 @@ rnnMnistS out_width@MkSN
 
 rnnMnistLossFusedS
   :: forall out_width batch_size d r. ADModeAndNum d r
-  => StaticNat out_width
-  -> StaticNat batch_size
+  => SNat out_width
+  -> SNat batch_size
   -> MnistDataBatchS batch_size r
   -> ADInputs d r
   -> ADVal d r
-rnnMnistLossFusedS out_width@MkSN
-                   batch_size@MkSN
+rnnMnistLossFusedS out_width@MkSNat
+                   batch_size@MkSNat
                    (glyphS, labelS) inputs =
   let xs = OS.transpose @'[2, 1, 0] glyphS
       result = rnnMnistS out_width
@@ -184,13 +184,13 @@ rnnMnistLossFusedS out_width@MkSN
 
 rnnMnistTestS
   :: forall out_width batch_size r. ADModeAndNum 'ADModeValue r
-  => StaticNat out_width
-  -> StaticNat batch_size
+  => SNat out_width
+  -> SNat batch_size
   -> MnistDataBatchS batch_size r
   -> Domains r
   -> r
-rnnMnistTestS out_width@MkSN
-              batch_size@MkSN
+rnnMnistTestS out_width@MkSNat
+              batch_size@MkSNat
               (glyphS, labelS) parameters =
   let xs = OS.transpose @'[2, 1, 0] glyphS
       outputS = valueOnDomains (rnnMnistS out_width

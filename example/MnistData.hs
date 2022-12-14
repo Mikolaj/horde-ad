@@ -26,16 +26,16 @@ import HordeAd.Core.DualNumber
 
 type SizeMnistWidth = 28 :: Nat
 
-sizeMnistWidth :: StaticNat SizeMnistWidth
-sizeMnistWidth = MkSN @SizeMnistWidth
+sizeMnistWidth :: SNat SizeMnistWidth
+sizeMnistWidth = MkSNat @SizeMnistWidth
 
 sizeMnistWidthInt :: Int
 sizeMnistWidthInt = staticNatValue sizeMnistWidth
 
 type SizeMnistHeight = SizeMnistWidth
 
-sizeMnistHeight :: StaticNat SizeMnistHeight
-sizeMnistHeight = MkSN @SizeMnistHeight
+sizeMnistHeight :: SNat SizeMnistHeight
+sizeMnistHeight = MkSNat @SizeMnistHeight
 
 type SizeMnistGlyph = SizeMnistWidth * SizeMnistHeight
 
@@ -44,8 +44,8 @@ sizeMnistGlyphInt = valueOf @SizeMnistGlyph
 
 type SizeMnistLabel = 10 :: Nat
 
-sizeMnistLabel :: StaticNat SizeMnistLabel
-sizeMnistLabel = MkSN @SizeMnistLabel
+sizeMnistLabel :: SNat SizeMnistLabel
+sizeMnistLabel = MkSNat @SizeMnistLabel
 
 sizeMnistLabelInt :: Int
 sizeMnistLabelInt = staticNatValue sizeMnistLabel
