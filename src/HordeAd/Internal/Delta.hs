@@ -656,7 +656,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
               VM.modify dm f i
                 -- This would be an asymptotic optimization compared to
                 -- the general case below, if not for the non-mutable update,
-                --  which implies copying the whole @v@ vector,
+                -- which implies copying the whole @v@ vector,
                 -- so it's only several times faster (same allocation,
                 -- but not adding to each cell of @v@).
                 -- TODO: test, benchmark, improve and extend to higher ranks
@@ -676,13 +676,16 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                 VM.write dm i v
             _ -> error "buildFinMaps: corrupted nMap"
         Index10 d ix k -> eval1 (LA.konst 0 k V.// [(ix, c)]) d
+          -- this general case can't occur, unless @Let1@ is optimized away,
+          -- so best if it's optimized away together with any enclosing
+          -- @Index10@ constructor
         Index20 d ix rowsCols -> do
           let mInit = LA.konst 0 rowsCols
               m = LA.accum mInit const [(ix, c)]  -- TODO: or flip const?
               mo = MO.MatrixOuter (Just m) Nothing Nothing
           eval2 mo d
         IndexX0 d ix sh -> evalX (OT.constant sh 0 `OT.update` [(ix, c)]) d
-          -- TODO: perhaps inline eval, just as for Index10
+          -- TODO: perhaps inline eval2 and evalX, just as for Index10
 
         Dot0 v vd -> eval1 (LA.scale c v) vd
 

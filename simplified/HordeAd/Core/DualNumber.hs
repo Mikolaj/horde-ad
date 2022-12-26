@@ -429,8 +429,8 @@ build1Vectorize n (var, u) =
     AstVar _var2 -> error "build1Vectorize: can't have free int variables"
     AstMinElement _v ->
       AstBuild1 n (var, u)
-        -- Vectors are assumed to be huge, so it's not possible
-        -- to build using each combination of elements and choose the right
+        -- Vectors are assumed to be huge, so it's not possible to perform
+        -- @build@ using each combination of elements and choose the right
         -- one in the end. Therefore we need to fallback to something,
         -- e.g., to POPL (memory blowup, but avoids functions on tape).
         -- TODO: instead, save AST on tape and interpret the function
