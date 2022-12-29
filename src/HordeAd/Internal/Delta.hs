@@ -75,11 +75,14 @@ import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Generic.Mutable as VM
 import qualified Data.Vector.Storable.Mutable
 import           GHC.Generics (Generic)
-import           GHC.TypeLits (KnownNat, Nat, natVal, type (+))
+import           GHC.TypeLits (KnownNat, Nat, natVal, type (+), type (*))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector, (<.>))
 import qualified Numeric.LinearAlgebra as LA
 import qualified Numeric.LinearAlgebra.Devel
 import           Text.Show.Functions ()
+
+
+
 
 import qualified HordeAd.Internal.MatrixOuter as MO
 import           HordeAd.Internal.OrthotopeOrphanInstances (liftVS2, liftVT2)
