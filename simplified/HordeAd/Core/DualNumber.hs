@@ -27,7 +27,7 @@ import Prelude
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.MonoTraversable (MonoFunctor (omap))
 import           Data.Proxy (Proxy (Proxy))
-import qualified Data.Strict.Map as M
+import qualified Data.Strict.IntMap as IM
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, natVal)
@@ -375,9 +375,9 @@ map1Closure f d@(D v _) = build1Closure (llength v) $ \i -> f (index10 d i)
 instance Under r ~ r
          => AstVectorLike d r (Vector r) where
   lbuildAst1 n (var, u) =
-    interpretAst M.empty $ build1Vectorize (AstIntConst n) (var, u)
+    interpretAst IM.empty $ build1Vectorize (AstIntConst n) (var, u)
   lmapAst1 (var, u) e =
-    interpretAst M.empty $ map1Vectorize (var, u) (AstD e)
+    interpretAst IM.empty $ map1Vectorize (var, u) (AstD e)
 
 instance IsPrimal d (Ast r d (Vector r))
          => AstVectorLike d r (Ast r d (Vector r)) where
@@ -602,21 +602,21 @@ gtIntAst i j = AstRelInt GtOut [i, j]
 
 interpretLambdaD0
   :: (ADModeAndNumNew d r, Under r ~ r, IsPrimalAndHasFeatures d a r)
-  => M.Map Int (AstVar r d) -> (AstVarName (ADVal d r), Ast r d a)
+  => IM.IntMap (AstVar r d) -> (AstVarName (ADVal d r), Ast r d a)
   -> ADVal d r -> ADVal d a
 interpretLambdaD0 env (AstVarName var, ast) =
-  \d -> interpretAst (M.insert var (AstVar0 d) env) ast
+  \d -> interpretAst (IM.insert var (AstVar0 d) env) ast
 
 interpretLambdaI
   :: (ADModeAndNumNew d r, Under r ~ r, IsPrimalAndHasFeatures d a r)
-  => M.Map Int (AstVar r d) -> (AstVarName Int, Ast r d a)
+  => IM.IntMap (AstVar r d) -> (AstVarName Int, Ast r d a)
   -> Int -> ADVal d a
 interpretLambdaI env (AstVarName var, ast) =
-  \i -> interpretAst (M.insert var (AstVarI i) env) ast
+  \i -> interpretAst (IM.insert var (AstVarI i) env) ast
 
 interpretAst
   :: (ADModeAndNumNew d r, Under r ~ r, IsPrimalAndHasFeatures d a r)
-  => M.Map Int (AstVar r d) -> Ast r d a -> ADVal d a
+  => IM.IntMap (AstVar r d) -> Ast r d a -> ADVal d a
 interpretAst env = \case
   AstOp codeOut args ->
     interpretAstOp (interpretAst env) codeOut args
@@ -625,14 +625,16 @@ interpretAst env = \case
                      else interpretAst env a2
   AstSelect n (AstVarName var, b) a1 a2 ->
     let k = interpretAstInt env n
-        f i = if interpretAstBool (M.insert var (AstVarI i) env) b then 1 else 0
+        f i = if interpretAstBool (IM.insert var (AstVarI i) env) b
+              then 1
+              else 0
         bitmap = constant $ V.generate k f
         v1 = interpretAst env a1
         v2 = interpretAst env a2
     in bitmap * v1 + v2 - bitmap * v2
   AstConst a -> constant a
   AstD d -> d
-  AstVar (AstVarName var) -> case M.lookup var env of
+  AstVar (AstVarName var) -> case IM.lookup var env of
     Just (AstVar0 d) -> d
     Just AstVarI{} -> error $ "interpretAst: type mismatch for var " ++ show var
     Nothing -> error $ "interpretAst: unknown variable var " ++ show var
@@ -669,7 +671,7 @@ interpretAst env = \case
   AstOMap1{} -> error "TODO: AstOMap1"
 
 interpretAstInt :: (ADModeAndNumNew d r, Under r ~ r)
-                => M.Map Int (AstVar r d) -> AstInt r d -> Int
+                => IM.IntMap (AstVar r d) -> AstInt r d -> Int
 interpretAstInt env = \case
   AstIntOp codeIntOut args ->
     interpretAstIntOp (interpretAstInt env) codeIntOut args
@@ -677,7 +679,7 @@ interpretAstInt env = \case
                         then interpretAstInt env a1
                         else interpretAstInt env a2
   AstIntConst a -> a
-  AstIntVar (AstVarName var) -> case M.lookup var env of
+  AstIntVar (AstVarName var) -> case IM.lookup var env of
     Just AstVar0{} ->
       error $ "interpretAstP: type mismatch for var " ++ show var
     Just (AstVarI i) -> i
@@ -687,7 +689,7 @@ interpretAstInt env = \case
   AstMaxIndex v -> LA.maxIndex $ let D u _u' = interpretAst env v in u
 
 interpretAstBool :: (ADModeAndNumNew d r, Under r ~ r)
-                 => M.Map Int (AstVar r d) -> AstBool r d -> Bool
+                 => IM.IntMap (AstVar r d) -> AstBool r d -> Bool
 interpretAstBool env = \case
   AstBoolOp codeBoolOut args ->
     interpretAstBoolOp (interpretAstBool env) codeBoolOut args
