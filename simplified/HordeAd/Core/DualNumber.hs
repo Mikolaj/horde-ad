@@ -24,6 +24,7 @@ module HordeAd.Core.DualNumber
 
 import Prelude
 
+import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.MonoTraversable (MonoFunctor (omap))
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Map as M
@@ -32,6 +33,7 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, natVal)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
+import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta (Domain0, Domain1, Domains (..), nullDomains)
@@ -189,10 +191,6 @@ condAst b (D d _) (D e _) = astToD (AstCond b d e)
 
 
 -- * Operations resulting in a scalar
-
-varAst0 :: (ADModeAndNumNew d r, Under r ~ r)
-        => String -> ADVal d (Ast r d r)
-varAst0 s = astToD (AstVar $ AstVarName s)
 
 sumElements10 :: ADModeAndNumNew d r
               => ADVal d (VectorOf r) -> ADVal d r
@@ -386,15 +384,40 @@ instance IsPrimal d (Ast r d (Vector r))
   lbuildAst1 n (var, u) = astToD (build1Vectorize n (var, u))
   lmapAst1 (var, u) (D w _) = astToD (map1Vectorize (var, u) w)
 
+-- Impure but in the most trivial way (only ever incremented counter).
+unsafeAstVarCounter :: Counter
+{-# NOINLINE unsafeAstVarCounter #-}
+unsafeAstVarCounter = unsafePerformIO (newCounter 0)
+
+unsafeGetFreshAstVar :: IO (AstVarName a)
+{-# INLINE unsafeGetFreshAstVar #-}
+unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
+
+buildPair1
+  :: (AstVectorLike d u v, ADModeAndNumNew d u)
+  => NumOf v -> (AstVarName Int, ADVal d (Ast u d u)) -> ADVal d v
+buildPair1 n (var, D u _) = lbuildAst1 n (var, u)
+
 buildAst1
   :: (AstVectorLike d u v, ADModeAndNumNew d u)
-  => NumOf v -> (String, ADVal d (Ast u d u)) -> ADVal d v
-buildAst1 n (var, D u _) = lbuildAst1 n (AstVarName var, u)
+  => NumOf v -> (NumOf (Ast u d u) -> ADVal d (Ast u d u)) -> ADVal d v
+{-# NOINLINE buildAst1 #-}
+buildAst1 n f = unsafePerformIO $ do
+  freshAstVar <- unsafeGetFreshAstVar
+  return $! buildPair1 n (freshAstVar, f (AstIntVar freshAstVar))
+
+mapPair1
+  :: (AstVectorLike d u v, ADModeAndNumNew d u)
+  => (AstVarName (ADVal d u), ADVal d (Ast u d u)) -> ADVal d v -> ADVal d v
+mapPair1 (var, D u _) = lmapAst1 (var, u)
 
 mapAst1
-  :: (AstVectorLike d u v, ADModeAndNumNew d u)
-  => (String, ADVal d (Ast u d u)) -> ADVal d v -> ADVal d v
-mapAst1 (var, D u _) e = lmapAst1 (AstVarName var, u) e
+  :: (AstVectorLike d u v, ADModeAndNumNew d u, IsPrimal d (Ast u d u))
+  => (ADVal d (Ast u d u) -> ADVal d (Ast u d u)) -> ADVal d v -> ADVal d v
+{-# NOINLINE mapAst1 #-}
+mapAst1 f e = unsafePerformIO $ do
+  freshAstVar <- unsafeGetFreshAstVar
+  return $! mapPair1 (freshAstVar, f (astToD $ AstVar freshAstVar)) e
 
 -- TODO: question: now I vectorize nested builds/maps when they are created;
 -- should I instead wait and vectorize the whole term? Probably
@@ -568,9 +591,6 @@ map1Vectorize (var, u) w = case u of
   AstDot0 _u _v -> AstMap1 (var, u) w  -- TODO
   -- All other patterns are redundant due to GADT typing.
 
-varInt :: String -> AstInt r d
-varInt = AstIntVar . AstVarName
-
 leqAst :: ADVal d (Ast r d r) -> ADVal d (Ast r d r) -> AstBool r d
 leqAst (D d _) (D e _) = AstRel LeqOut [d, e]
 
@@ -582,21 +602,21 @@ gtIntAst i j = AstRelInt GtOut [i, j]
 
 interpretLambdaD0
   :: (ADModeAndNumNew d r, Under r ~ r, IsPrimalAndHasFeatures d a r)
-  => M.Map String (AstVar r d) -> (AstVarName (ADVal d r), Ast r d a)
+  => M.Map Int (AstVar r d) -> (AstVarName (ADVal d r), Ast r d a)
   -> ADVal d r -> ADVal d a
 interpretLambdaD0 env (AstVarName var, ast) =
   \d -> interpretAst (M.insert var (AstVar0 d) env) ast
 
 interpretLambdaI
   :: (ADModeAndNumNew d r, Under r ~ r, IsPrimalAndHasFeatures d a r)
-  => M.Map String (AstVar r d) -> (AstVarName Int, Ast r d a)
+  => M.Map Int (AstVar r d) -> (AstVarName Int, Ast r d a)
   -> Int -> ADVal d a
 interpretLambdaI env (AstVarName var, ast) =
   \i -> interpretAst (M.insert var (AstVarI i) env) ast
 
 interpretAst
   :: (ADModeAndNumNew d r, Under r ~ r, IsPrimalAndHasFeatures d a r)
-  => M.Map String (AstVar r d) -> Ast r d a -> ADVal d a
+  => M.Map Int (AstVar r d) -> Ast r d a -> ADVal d a
 interpretAst env = \case
   AstOp codeOut args ->
     interpretAstOp (interpretAst env) codeOut args
@@ -614,8 +634,8 @@ interpretAst env = \case
   AstD d -> d
   AstVar (AstVarName var) -> case M.lookup var env of
     Just (AstVar0 d) -> d
-    Just AstVarI{} -> error $ "interpretAst: type mismatch for " ++ var
-    Nothing -> error $ "interpretAst: unknown variable " ++ var
+    Just AstVarI{} -> error $ "interpretAst: type mismatch for var " ++ show var
+    Nothing -> error $ "interpretAst: unknown variable var " ++ show var
   AstMinElement v -> minimum0 $ interpretAst env v
   AstMaxElement v -> maximum0 $ interpretAst env v
   AstSumElements10 v -> sumElements10 $ interpretAst env v
@@ -649,7 +669,7 @@ interpretAst env = \case
   AstOMap1{} -> error "TODO: AstOMap1"
 
 interpretAstInt :: (ADModeAndNumNew d r, Under r ~ r)
-                => M.Map String (AstVar r d) -> AstInt r d -> Int
+                => M.Map Int (AstVar r d) -> AstInt r d -> Int
 interpretAstInt env = \case
   AstIntOp codeIntOut args ->
     interpretAstIntOp (interpretAstInt env) codeIntOut args
@@ -658,15 +678,16 @@ interpretAstInt env = \case
                         else interpretAstInt env a2
   AstIntConst a -> a
   AstIntVar (AstVarName var) -> case M.lookup var env of
-    Just AstVar0{} -> error $ "interpretAstP: type mismatch for " ++ var
+    Just AstVar0{} ->
+      error $ "interpretAstP: type mismatch for var " ++ show var
     Just (AstVarI i) -> i
-    Nothing -> error $ "interpretAstP: unknown variable " ++ var
+    Nothing -> error $ "interpretAstP: unknown variable var " ++ show var
   AstLength v -> V.length $ let D u _u' = interpretAst env v in u
   AstMinIndex v -> LA.minIndex $ let D u _u' = interpretAst env v in u
   AstMaxIndex v -> LA.maxIndex $ let D u _u' = interpretAst env v in u
 
 interpretAstBool :: (ADModeAndNumNew d r, Under r ~ r)
-                 => M.Map String (AstVar r d) -> AstBool r d -> Bool
+                 => M.Map Int (AstVar r d) -> AstBool r d -> Bool
 interpretAstBool env = \case
   AstBoolOp codeBoolOut args ->
     interpretAstBoolOp (interpretAstBool env) codeBoolOut args

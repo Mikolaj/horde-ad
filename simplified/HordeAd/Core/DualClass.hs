@@ -647,7 +647,7 @@ type Ast0 d r = Ast r d r
 
 type Ast1 d r = Ast r d (Vector r)
 
-newtype AstVarName t = AstVarName String
+newtype AstVarName t = AstVarName Int
   deriving (Show, Eq)
 
 data AstVar r d =
