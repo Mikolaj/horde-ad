@@ -71,7 +71,7 @@ import HordeAd.Internal.Delta
 -- can be any containers of scalars. The primal component has the type
 -- given as the second type argument and the dual component (with the type
 -- determined by the type faimly @Dual@) is defined elsewhere.
---data ADVal (d :: ADMode) a = D a (Dual d a)
+data ADVal (d :: ADMode) a = D a (Dual d a)
 
 deriving instance (Show a, Show (Dual d a)) => Show (ADVal d a)
 
@@ -190,7 +190,7 @@ instance IsPrimal d (Ast u (Vector u))
 instance LiftToAst d (Ast u (Vector u)) (Vector u) where
   liftToAst = id
 
-{-
+
 -- | The enumeration of all available automatic differentiation computation
 -- modes.
 data ADMode =
@@ -226,7 +226,6 @@ type family Dual (d :: ADMode) a = result | result -> d a where
 -- A bit more verbose, but a bit faster than @data@, perhaps by chance.
 newtype DummyDual r (d :: ADMode) a = DummyDual ()
   deriving Show
--}
 
 dummyDual :: DummyDual r d a
 dummyDual = DummyDual ()
@@ -242,13 +241,11 @@ type family VectorOf a where
   VectorOf Float = Vector Float
   VectorOf (Ast r r) = Ast r (Vector r)
 
-{-
 type family Under a where
   Under Double = Double
   Under Float = Float
   Under (Ast u a) = u
   Under (Vector u) = u
--}
 
 -- We could accept any @RealFloat@ instead of @PrimalOf a@, but then
 -- we'd need to coerce, e.g., via realToFrac, which is risky and lossy.
@@ -319,7 +316,7 @@ class u ~ Under (Element vector)
   lmapPair1 :: ADModeAndNumNew d u
             => (AstVarName u, Ast u u) -> ADVal d vector
             -> ADVal d vector
-{-
+
 -- | Second argument is the primal component of a dual number at some rank
 -- wrt the differentiation mode given in the first argument.
 class IsPrimal d a where
@@ -327,7 +324,6 @@ class IsPrimal d a where
   dScale :: a -> Dual d a -> Dual d a
   dAdd :: Dual d a -> Dual d a -> Dual d a
   recordSharing :: Dual d a -> Dual d a
--}
 
 -- | Assuming that the type argument is the primal component of dual numbers
 -- with differentiation mode `ADModeGradient`, this class makes available

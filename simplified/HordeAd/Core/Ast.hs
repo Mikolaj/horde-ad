@@ -29,9 +29,7 @@
 -- sharing. This applies regardless of impurity, because repeated processing
 -- of the same shared terms is prohibitive expensive.
 module HordeAd.Core.Ast
-  ( -- * The most often used part of the mid-level API that gets re-exported in high-level API
-    ADVal(..), ADMode(..), Dual, DummyDual(..), Under, IsPrimal(..)  -- TODO
-  , Ast(..), Ast0, Ast1, AstVarName(..), AstVar(..), AstInt(..), AstBool(..)
+  ( Ast(..), Ast0, Ast1, AstVarName(..), AstVar(..), AstInt(..), AstBool(..)
   , CodeOut(..), CodeIntOut(..), CodeBoolOut(..), RelOut(..)
   ) where
 
@@ -42,38 +40,6 @@ import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import qualified Data.Strict.Vector as Data.Vector
 import           Numeric.LinearAlgebra (Vector)
 import           Text.Show.Functions ()
-
-import HordeAd.Internal.Delta
--- TODO
-data ADVal (d :: ADMode) a = D a (Dual d a)
-data ADMode =
-    ADModeGradient
-  | ADModeDerivative
-  | ADModeValue
-  deriving Show
-type family Dual (d :: ADMode) a = result | result -> d a where
-  Dual 'ADModeGradient Double = Delta0 Double
-  Dual 'ADModeGradient Float = Delta0 Float
-  Dual 'ADModeGradient (Ast r a) = DummyDual r 'ADModeGradient a
-  Dual 'ADModeGradient (Vector r) = Delta1 r
--- not injective:  Dual 'ADModeDerivative r = r
-  Dual 'ADModeDerivative Double = Double
-  Dual 'ADModeDerivative Float = Float
-  Dual 'ADModeDerivative (Ast r a) = DummyDual r 'ADModeDerivative a
-  Dual 'ADModeDerivative (Vector r) = Vector r
-  Dual 'ADModeValue a = DummyDual a 'ADModeValue a
-newtype DummyDual r (d :: ADMode) a = DummyDual ()
-  deriving Show
-class IsPrimal d a where
-  dZero :: Dual d a
-  dScale :: a -> Dual d a -> Dual d a
-  dAdd :: Dual d a -> Dual d a -> Dual d a
-  recordSharing :: Dual d a -> Dual d a
-type family Under a where
-  Under Double = Double
-  Under Float = Float
-  Under (Ast u a) = u
-  Under (Vector u) = u
 
 -- * Definitions
 
