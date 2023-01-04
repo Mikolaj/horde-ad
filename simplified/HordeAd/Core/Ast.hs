@@ -30,7 +30,7 @@
 -- of the same shared terms is prohibitive expensive.
 module HordeAd.Core.Ast
   ( -- * The most often used part of the mid-level API that gets re-exported in high-level API
-    ADVal(..), ADMode(..), Dual, DummyDual(..), Under, IsPrimal(..), astToD, LiftToAst(..)  -- TODO
+    ADVal(..), ADMode(..), Dual, DummyDual(..), Under, IsPrimal(..)  -- TODO
   , Ast(..), Ast0, Ast1, AstVarName(..), AstVar(..), AstInt(..), AstBool(..)
   , CodeOut(..), CodeIntOut(..), CodeBoolOut(..), RelOut(..)
   ) where
@@ -76,37 +76,8 @@ type family Under a where
   Under Float = Float
   Under (Ast u d a) = u
   Under (Vector u) = u
-dD :: IsPrimal d a => a -> Dual d a -> ADVal d a
-dD a dual = D a (recordSharing dual)
 
 -- * Definitions
-
-astToD :: IsPrimal d (Ast r d a) => Ast r d a -> ADVal d (Ast r d a)
-astToD ast = dD ast undefined
-
-class LiftToAst d r a where
-  liftToAst :: ADVal d r -> ADVal d (Ast (Under r) d a)
-
-instance IsPrimal d (Ast Double d Double)
-         => LiftToAst d Double Double where
-  liftToAst = astToD . undefined
-
-instance IsPrimal d (Ast Float d Float)
-         => LiftToAst d Float Float where
-  liftToAst = astToD . undefined
-
-instance LiftToAst d (Ast Double d Double) Double where
-  liftToAst = id
-
-instance LiftToAst d (Ast Float d Float) Float where
-  liftToAst = id
-
-instance IsPrimal d (Ast u d (Vector u))
-         => LiftToAst d (Vector u) (Vector u) where
-  liftToAst = astToD . undefined
-
-instance LiftToAst d (Ast u d (Vector u)) (Vector u) where
-  liftToAst = id
 
 -- TODO: consider sharing Ast expressions, both within the primal part
 -- and between primal and dual

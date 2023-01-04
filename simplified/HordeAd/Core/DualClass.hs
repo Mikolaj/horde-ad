@@ -163,6 +163,33 @@ type HasDelta r = ( ADModeAndNum 'ADModeGradient r
 
 -- * Class definitions
 
+astToD :: IsPrimal d (Ast r d a) => Ast r d a -> ADVal d (Ast r d a)
+astToD ast = dD ast undefined
+
+class LiftToAst d r a where
+  liftToAst :: ADVal d r -> ADVal d (Ast (Under r) d a)
+
+instance IsPrimal d (Ast Double d Double)
+         => LiftToAst d Double Double where
+  liftToAst = astToD . undefined
+
+instance IsPrimal d (Ast Float d Float)
+         => LiftToAst d Float Float where
+  liftToAst = astToD . undefined
+
+instance LiftToAst d (Ast Double d Double) Double where
+  liftToAst = id
+
+instance LiftToAst d (Ast Float d Float) Float where
+  liftToAst = id
+
+instance IsPrimal d (Ast u d (Vector u))
+         => LiftToAst d (Vector u) (Vector u) where
+  liftToAst = astToD . undefined
+
+instance LiftToAst d (Ast u d (Vector u)) (Vector u) where
+  liftToAst = id
+
 {-
 -- | The enumeration of all available automatic differentiation computation
 -- modes.
