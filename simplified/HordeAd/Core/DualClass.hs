@@ -32,7 +32,7 @@ module HordeAd.Core.DualClass
   ( -- * The most often used part of the mid-level API that gets re-exported in high-level API
     ADVal, dD, dDnotShared
   , ADMode(..), ADModeAndNum, ADModeAndNumNew
-  , liftToAst, NumOf, VectorOf
+  , liftToAst, IntOf, VectorOf
   , -- * The less often used part of the mid-level API that gets re-exported in high-level API; it leaks implementation details
     pattern D
   , IsPrimal(..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
@@ -126,7 +126,7 @@ type ADModeAndNum (d :: ADMode) r =
   , Under r ~ r
   , LiftToAst d r r
   , LiftToAst d (Ast r d r) r
-  , NumOf (VectorOf r) ~ NumOf r
+  , IntOf (VectorOf r) ~ IntOf r
   )
 
 type ADModeAndNumR (d :: ADMode) r =
@@ -142,7 +142,7 @@ type ADModeAndNumNew (d :: ADMode) r =
   , ADModeAndNumR d r  -- r is either of the two below, but we don't know which
   , ADModeAndNumR d (Under r)
   , ADModeAndNumR d (Ast (Under r) d (Under r))
-  , Num (NumOf r)
+  , Num (IntOf r)
   , VectorLike (VectorOf r) r
   , AstVectorLike d (Under r) (VectorOf r)
   , LiftToAst d (Under r) (Under r)
@@ -153,8 +153,8 @@ type ADModeAndNumNew (d :: ADMode) r =
     Under (Under r) ~ Under r
   , Under (VectorOf r) ~ Under r
   , VectorOf (Under r) ~ Vector (Under r)
-  , NumOf (VectorOf r) ~ NumOf r
-  , NumOf (Under r) ~ Int
+  , IntOf (VectorOf r) ~ IntOf r
+  , IntOf (Under r) ~ Int
   )
 
 -- | Is a scalar and will be used to compute gradients via delta-expressions.
@@ -206,11 +206,11 @@ newtype DummyDual r (d :: ADMode) a = DummyDual ()
 dummyDual :: DummyDual r d a
 dummyDual = DummyDual ()
 
-type family NumOf a where
-  NumOf Double = Int
-  NumOf Float = Int
-  NumOf (Vector r) = Int
-  NumOf (Ast r d a) = AstInt r d
+type family IntOf a where
+  IntOf Double = Int
+  IntOf Float = Int
+  IntOf (Vector r) = Int
+  IntOf (Ast r d a) = AstInt r d
 
 type family VectorOf a where
   VectorOf Double = Vector Double
@@ -241,24 +241,24 @@ class HasInputs a where
 
 -- The constraint has Element in addition to VectorOf,
 -- because vector is more often determined, while r remains unknown.
--- For the same reason, NumOf vector works, but NumOf r doesn't.
+-- For the same reason, IntOf vector works, but IntOf r doesn't.
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
 -- of various ranks wrt the differentation mode given in the first parameter.
 class (Element vector ~ r, VectorOf r ~ vector)
       => HasRanks vector (d :: ADMode) r | vector -> r where
-  dSumElements10 :: Dual d vector -> NumOf vector -> Dual d r
-  dIndex10 :: Dual d vector -> NumOf vector -> NumOf vector -> Dual d r
+  dSumElements10 :: Dual d vector -> IntOf vector -> Dual d r
+  dIndex10 :: Dual d vector -> IntOf vector -> IntOf vector -> Dual d r
   dDot0 :: vector -> Dual d vector -> Dual d r
 
   dFromList1 :: [Dual d r] -> Dual d vector
   dFromVector1 :: Data.Vector.Vector (Dual d r) -> Dual d vector
-  dKonst1 :: Dual d r -> NumOf vector -> Dual d vector
-  dAppend1 :: Dual d vector -> NumOf vector -> Dual d vector -> Dual d vector
-  dSlice1 :: NumOf vector -> NumOf vector -> Dual d vector -> NumOf vector
+  dKonst1 :: Dual d r -> IntOf vector -> Dual d vector
+  dAppend1 :: Dual d vector -> IntOf vector -> Dual d vector -> Dual d vector
+  dSlice1 :: IntOf vector -> IntOf vector -> Dual d vector -> IntOf vector
           -> Dual d vector
   dReverse1 :: Dual d vector -> Dual d vector
-  dBuild1 :: NumOf vector -> (NumOf vector -> Dual d r) -> Dual d vector
+  dBuild1 :: IntOf vector -> (IntOf vector -> Dual d r) -> Dual d vector
 
 
 -- * Backprop gradient method instances
@@ -543,24 +543,24 @@ instance LiftToAst d (Ast u d (Vector u)) (Vector u) where
 
 class (Element vector ~ r, VectorOf r ~ vector)
       => VectorLike vector r | vector -> r where
-  llength :: vector -> NumOf r
+  llength :: vector -> IntOf r
   lminElement :: vector -> r
   lmaxElement :: vector -> r
-  lminIndex :: vector -> NumOf r
-  lmaxIndex :: vector -> NumOf r
+  lminIndex :: vector -> IntOf r
+  lmaxIndex :: vector -> IntOf r
 
   lsumElements10 :: vector -> r
-  lindex10 :: vector -> NumOf r -> r
+  lindex10 :: vector -> IntOf r -> r
   ldot0 :: vector -> vector -> r
 
   lfromList1 :: [r] -> vector
   lfromVector1 :: Data.Vector.Vector r -> vector
-  lkonst1 :: r -> NumOf r -> vector
+  lkonst1 :: r -> IntOf r -> vector
   lappend1 :: vector -> vector -> vector
-  lslice1 :: NumOf r -> NumOf r -> vector -> vector
+  lslice1 :: IntOf r -> IntOf r -> vector -> vector
   lreverse1 :: vector -> vector
 
-instance (Numeric r, VectorOf r ~ Vector r, NumOf r ~ Int)
+instance (Numeric r, VectorOf r ~ Vector r, IntOf r ~ Int)
          => VectorLike (Vector r) r where
   llength = V.length
   lminElement = LA.minElement
@@ -596,7 +596,7 @@ instance VectorLike (Ast r d (Vector r)) (Ast r d r) where
 class u ~ Under (Element vector)
       => AstVectorLike d u vector | vector -> u where
   lbuildPair1 :: ADModeAndNumNew d u
-              => NumOf vector -> (AstVarName Int, Ast u d u)
+              => IntOf vector -> (AstVarName Int, Ast u d u)
               -> ADVal d vector
   lmapPair1 :: ADModeAndNumNew d u
             => (AstVarName (ADVal d u), Ast u d u) -> ADVal d vector

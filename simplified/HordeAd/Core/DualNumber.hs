@@ -13,7 +13,7 @@ module HordeAd.Core.DualNumber
   ( module HordeAd.Core.DualNumber
   , ADVal, dD, dDnotShared
   , ADMode(..), ADModeAndNum, ADModeAndNumNew
-  , liftToAst, NumOf, VectorOf
+  , liftToAst, IntOf, VectorOf
   , IsPrimal (..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
   , Under, Element
   , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
@@ -196,7 +196,7 @@ sumElements10 :: ADModeAndNumNew d r
               => ADVal d (VectorOf r) -> ADVal d r
 sumElements10 (D u u') = dD (lsumElements10 u) (dSumElements10 u' (llength u))
 
-index10 :: ADModeAndNumNew d r => ADVal d (VectorOf r) -> NumOf r -> ADVal d r
+index10 :: ADModeAndNumNew d r => ADVal d (VectorOf r) -> IntOf r -> ADVal d r
 index10 (D u u') ix = dD (lindex10 u ix) (dIndex10 u' ix (llength u))
 
 minimum0 :: ADModeAndNumNew d r => ADVal d (VectorOf r) -> ADVal d r
@@ -293,7 +293,7 @@ fromVector1 :: ADModeAndNumNew d r
 fromVector1 v = dD (lfromVector1 $ V.map (\(D u _) -> u) v)  -- I hope it fuses
                    (dFromVector1 $ V.map (\(D _ u') -> u') v)
 
-konst1 :: ADModeAndNumNew d r => ADVal d r -> NumOf r -> ADVal d (VectorOf r)
+konst1 :: ADModeAndNumNew d r => ADVal d r -> IntOf r -> ADVal d (VectorOf r)
 konst1 (D u u') n = dD (lkonst1 u n) (dKonst1 u' n)
 
 append1 :: ADModeAndNumNew d r
@@ -301,7 +301,7 @@ append1 :: ADModeAndNumNew d r
 append1 (D u u') (D v v') = dD (lappend1 u v) (dAppend1 u' (llength u) v')
 
 slice1 :: ADModeAndNumNew d r
-       => NumOf r -> NumOf r -> ADVal d (VectorOf r) -> ADVal d (VectorOf r)
+       => IntOf r -> IntOf r -> ADVal d (VectorOf r) -> ADVal d (VectorOf r)
 slice1 i n (D u u') = dD (lslice1 i n u) (dSlice1 i n u' (llength u))
 
 reverse1 :: ADModeAndNumNew d r => ADVal d (VectorOf r) -> ADVal d (VectorOf r)
@@ -338,7 +338,7 @@ build1Elementwise n f = fromList1 $ map f [0 .. n - 1]
   -- equivalent to @fromVector1 $ build1POPL n f@
 
 build1Closure
-  :: (ADModeAndNumNew d r, NumOf r ~ Int)
+  :: (ADModeAndNumNew d r, IntOf r ~ Int)
   => Int -> (Int -> ADVal d r) -> ADVal d (VectorOf r)
 build1Closure n f =
   let g i = let D u _ = f i in u
@@ -346,7 +346,7 @@ build1Closure n f =
   in dD (lfromList1 $ map g [0 .. n - 1]) (dBuild1 n h)
 
 build1
-  :: (ADModeAndNumNew d r, NumOf r ~ Int)
+  :: (ADModeAndNumNew d r, IntOf r ~ Int)
   => Int -> (Int -> ADVal d r) -> ADVal d (VectorOf r)
 build1 = build1Closure
 
@@ -355,7 +355,7 @@ map1POPL :: (ADVal d r -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
 map1POPL f vd = V.map f vd
 
 map1Elementwise
-  :: (ADModeAndNumNew d r, NumOf r ~ Int)
+  :: (ADModeAndNumNew d r, IntOf r ~ Int)
   => (ADVal d r -> ADVal d r) -> ADVal d (VectorOf r) -> ADVal d (VectorOf r)
 map1Elementwise f d@(D v _v') =
   build1Elementwise (llength v) $ \i -> f (index10 d i)
@@ -364,7 +364,7 @@ map1Elementwise f d@(D v _v') =
     --   where rank1toVector d@(D v _v') = V.generate (V.length v) (index10 d)@
 
 map1Closure
-  :: (ADModeAndNumNew d r, NumOf r ~ Int)
+  :: (ADModeAndNumNew d r, IntOf r ~ Int)
   => (ADVal d r -> ADVal d r) -> ADVal d (VectorOf r) -> ADVal d (VectorOf r)
 map1Closure f d@(D v _) = build1Closure (llength v) $ \i -> f (index10 d i)
 
@@ -395,12 +395,12 @@ unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
 
 buildPair1
   :: (AstVectorLike d u v, ADModeAndNumNew d u)
-  => NumOf v -> (AstVarName Int, ADVal d (Ast u d u)) -> ADVal d v
+  => IntOf v -> (AstVarName Int, ADVal d (Ast u d u)) -> ADVal d v
 buildPair1 n (var, D u _) = lbuildPair1 n (var, u)
 
 buildAst1
   :: (AstVectorLike d u v, ADModeAndNumNew d u)
-  => NumOf v -> (NumOf (Ast u d u) -> ADVal d (Ast u d u)) -> ADVal d v
+  => IntOf v -> (IntOf (Ast u d u) -> ADVal d (Ast u d u)) -> ADVal d v
 {-# NOINLINE buildAst1 #-}
 buildAst1 n f = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
