@@ -90,7 +90,7 @@ data Ast :: Type -> ADMode -> Type -> Type where
             -> Ast r d (Vector r) -> Ast r d (Vector r) -> Ast r d (Vector r)
   AstConst :: a -> Ast r d a
 
-  AstVar :: AstVarName (ADVal d r) -> Ast r d r
+  AstVar :: AstVarName r -> Ast r d r
 
   AstMinElement :: Ast r d (Vector r) -> Ast r d r
   AstMaxElement :: Ast r d (Vector r) -> Ast r d r
@@ -109,7 +109,7 @@ data Ast :: Type -> ADMode -> Type -> Type where
 
   AstBuildPair1 :: AstInt r d -> (AstVarName Int, Ast r d r)
                 -> Ast r d (Vector r)
-  AstMapPair1 :: (AstVarName (ADVal d r), Ast r d r) -> Ast r d (Vector r)
+  AstMapPair1 :: (AstVarName r, Ast r d r) -> Ast r d (Vector r)
               -> Ast r d (Vector r)
 
   AstOMap1 :: (Ast r d r -> Ast r d r) -> Ast r d (Vector r)

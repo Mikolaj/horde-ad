@@ -423,7 +423,7 @@ buildAst1 n f = unsafePerformIO $ do
 
 mapPair1
   :: (AstVectorLike d u v, ADModeAndNumNew d u)
-  => (AstVarName (ADVal d u), ADVal d (Ast u d u)) -> ADVal d v -> ADVal d v
+  => (AstVarName u, ADVal d (Ast u d u)) -> ADVal d v -> ADVal d v
 mapPair1 (var, D u _) = lmapPair1 (var, u)
 
 mapAst1
@@ -585,7 +585,7 @@ but from vectors, distributing their elements in various patterns
 -- until AST handles sharing properly.
 map1Vectorize
   :: ADModeAndNumNew d r
-  => (AstVarName (ADVal d r), Ast r d r) -> Ast r d (Vector r)
+  => (AstVarName r, Ast r d r) -> Ast r d (Vector r)
   -> Ast r d (Vector r)
 map1Vectorize (var, u) w = case u of
   AstOp codeOut args ->
@@ -613,7 +613,7 @@ gtIntAst i j = AstRelInt GtOut [i, j]
 
 interpretLambdaD0
   :: (ADModeAndNumNew d r, Under r ~ r, IsPrimalAndHasFeatures d a r)
-  => IM.IntMap (AstVar (ADVal d r)) -> (AstVarName (ADVal d r), Ast r d a)
+  => IM.IntMap (AstVar (ADVal d r)) -> (AstVarName r, Ast r d a)
   -> ADVal d r -> ADVal d a
 interpretLambdaD0 env (AstVarName var, ast) =
   \d -> interpretAst (IM.insert var (AstVar0 d) env) ast

@@ -319,7 +319,7 @@ class u ~ Under (Element vector)
               => IntOf vector -> (AstVarName Int, Ast u d u)
               -> ADVal d vector
   lmapPair1 :: ADModeAndNumNew d u
-            => (AstVarName (ADVal d u), Ast u d u) -> ADVal d vector
+            => (AstVarName u, Ast u d u) -> ADVal d vector
             -> ADVal d vector
 {-
 -- | Second argument is the primal component of a dual number at some rank
