@@ -631,9 +631,10 @@ data Ast :: Type -> ADMode -> Type -> Type where
             -> Ast r d (Vector r)
   AstReverse1 :: Ast r d (Vector r) -> Ast r d (Vector r)
 
-  AstBuild1 :: AstInt r d -> (AstVarName Int, Ast r d r) -> Ast r d (Vector r)
-  AstMap1 :: (AstVarName (ADVal d r), Ast r d r) -> Ast r d (Vector r)
-          -> Ast r d (Vector r)
+  AstBuildPair1 :: AstInt r d -> (AstVarName Int, Ast r d r)
+                -> Ast r d (Vector r)
+  AstMapPair1 :: (AstVarName (ADVal d r), Ast r d r) -> Ast r d (Vector r)
+              -> Ast r d (Vector r)
 
   AstOMap1 :: (Ast r d r -> Ast r d r) -> Ast r d (Vector r)
            -> Ast r d (Vector r)

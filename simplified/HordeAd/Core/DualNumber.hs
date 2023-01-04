@@ -451,7 +451,7 @@ build1Vectorize n (var, u) =
     AstD _d -> error "build1Vectorize: can't have free variables"
     AstVar _var2 -> error "build1Vectorize: can't have free int variables"
     AstMinElement _v ->
-      AstBuild1 n (var, u)
+      AstBuildPair1 n (var, u)
         -- Vectors are assumed to be huge, so it's not possible to perform
         -- @build@ using each combination of elements and choose the right
         -- one in the end. Therefore we need to fallback to something,
@@ -466,11 +466,11 @@ build1Vectorize n (var, u) =
         -- build(minElem), etc.? But there can be arbitrarily complex
         -- terms inside minElem, not vectorized, because the build variable
         -- was not eliminated
-    AstMaxElement _v -> AstBuild1 n (var, u)
-    AstSumElements10 _v -> AstBuild1 n (var, u)
+    AstMaxElement _v -> AstBuildPair1 n (var, u)
+    AstSumElements10 _v -> AstBuildPair1 n (var, u)
     AstIndex10 v i -> buildOfIndex10Vectorize n var v i
                         -- TODO: simplify i first
-    AstDot0 _u _v -> AstBuild1 n (var, u)  -- TODO
+    AstDot0 _u _v -> AstBuildPair1 n (var, u)  -- TODO
       -- equal to @build1Vectorize n (var, AstSumElements10 (u * v))@,
       -- but how to vectorize AstSumElements10?
     -- All other patterns are redundant due to GADT typing.
@@ -496,13 +496,13 @@ buildOfIndex10Vectorize n var v i =
       build1Vectorize n (var, AstIndex10 u (AstIntOp PlusIntOut [i2, i]))
         -- TODO: or should we rewrite in the opposite direction?
     -- TODO: AstReverse1 easy
-    -- AstBuild1 _ (var2, u2) ->
+    -- AstBuildPair1 _ (var2, u2) ->
     --   build1Vectorize n (var, substitute var2 i u2))
            -- TODO: use environments instead
     _ ->
       if intVarInAst var v
       then -- can't do much, probably, since v different in each cell?
-        AstBuild1 n (var, AstIndex10 v i)
+        AstBuildPair1 n (var, AstIndex10 v i)
       else
         buildOfIndex10VectorizeVarNotInV n var v i
 
@@ -519,7 +519,7 @@ buildOfIndex10VectorizeVarNotInV n var v i = case i of
     AstSlice1 0 n v  -- simplified further elsewhere, if just identity
   AstIntVar _var2 ->
     AstKonst1 (AstIndex10 v i) n  -- v and i the same in each cell, so legit
-  _ -> AstBuild1 n (var, AstIndex10 v i)
+  _ -> AstBuildPair1 n (var, AstIndex10 v i)
     -- TODO:
     -- add a new 'gather' operation somehow and, if a more complex index
     -- expression, construct 'gather'
@@ -545,10 +545,10 @@ intVarInAst var v = case v of
 This is an example where simple but complete vectorization makes things worse.
 Any simple rule that would let us fully vectorize
 
-AstBuild1 N ("ix", AstIndex10
-                     (AstFromList1 [ AstIndex10 v (AstIntVar "ix")
-                                   , AstIndex10 v (1 + AstIntVar "ix") ])
-                     (AstIntVar "ix" `mod` 2))
+AstBuildPair1 N ("ix", AstIndex10
+                         (AstFromList1 [ AstIndex10 v (AstIntVar "ix")
+                                       , AstIndex10 v (1 + AstIntVar "ix") ])
+                         (AstIntVar "ix" `mod` 2))
 
 would be similar to the POPL implementation of build,
 which means constructing a collection of all build elements,
@@ -578,17 +578,17 @@ map1Vectorize
 map1Vectorize (var, u) w = case u of
   AstOp codeOut args ->
     AstOp codeOut $ map (\x -> map1Vectorize (var, x) w) args
-  AstCond _b _x1 _x2 -> AstMap1 (var, u) w  -- TODO
+  AstCond _b _x1 _x2 -> AstMapPair1 (var, u) w  -- TODO
   AstConst r -> AstKonst1 (AstConst r) (AstLength w)
   AstD d -> AstKonst1 (AstD d) (AstLength w)
   AstVar var2 | var2 == var -> w  -- identity mapping
   AstVar var2 -> AstKonst1 (AstVar var2) (AstLength w)
-  AstMinElement _v -> AstMap1 (var, u) w  -- TODO
-  AstMaxElement _v -> AstMap1 (var, u) w  -- TODO
-  AstSumElements10 _v -> AstMap1 (var, u) w  -- TODO
-  AstIndex10 _v _i -> AstMap1 (var, u) w  -- TODO
+  AstMinElement _v -> AstMapPair1 (var, u) w  -- TODO
+  AstMaxElement _v -> AstMapPair1 (var, u) w  -- TODO
+  AstSumElements10 _v -> AstMapPair1 (var, u) w  -- TODO
+  AstIndex10 _v _i -> AstMapPair1 (var, u) w  -- TODO
     -- both _v and _i can depend on var, e.g., because of conditionals
-  AstDot0 _u _v -> AstMap1 (var, u) w  -- TODO
+  AstDot0 _u _v -> AstMapPair1 (var, u) w  -- TODO
   -- All other patterns are redundant due to GADT typing.
 
 leqAst :: ADVal d (Ast r d r) -> ADVal d (Ast r d r) -> AstBool r d
@@ -662,10 +662,10 @@ interpretAst env = \case
        then v'  -- perhaps common in code generated from AST
        else slice1 i' n' v'
   AstReverse1 v -> reverse1 $ interpretAst env v
-  AstBuild1 i (var, r) ->
+  AstBuildPair1 i (var, r) ->
     build1Elementwise (interpretAstInt env i) (interpretLambdaI env (var, r))
       -- fallback to POPL (memory blowup, but avoids functions on tape)
-  AstMap1 (var, r) e ->
+  AstMapPair1 (var, r) e ->
     map1Elementwise (interpretLambdaD0 env (var, r)) (interpretAst env e)
       -- fallback to POPL (memory blowup, but avoids functions on tape)
   AstOMap1{} -> error "TODO: AstOMap1"
