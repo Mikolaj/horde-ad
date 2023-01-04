@@ -374,15 +374,15 @@ map1Closure f d@(D v _) = build1Closure (llength v) $ \i -> f (index10 d i)
 -- Orphan instances to split a module.
 instance Under r ~ r
          => AstVectorLike d r (Vector r) where
-  lbuildAst1 n (var, u) =
+  lbuildPair1 n (var, u) =
     interpretAst IM.empty $ build1Vectorize (AstIntConst n) (var, u)
-  lmapAst1 (var, u) e =
+  lmapPair1 (var, u) e =
     interpretAst IM.empty $ map1Vectorize (var, u) (AstD e)
 
 instance IsPrimal d (Ast r d (Vector r))
          => AstVectorLike d r (Ast r d (Vector r)) where
-  lbuildAst1 n (var, u) = astToD (build1Vectorize n (var, u))
-  lmapAst1 (var, u) (D w _) = astToD (map1Vectorize (var, u) w)
+  lbuildPair1 n (var, u) = astToD (build1Vectorize n (var, u))
+  lmapPair1 (var, u) (D w _) = astToD (map1Vectorize (var, u) w)
 
 -- Impure but in the most trivial way (only ever incremented counter).
 unsafeAstVarCounter :: Counter
@@ -396,7 +396,7 @@ unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
 buildPair1
   :: (AstVectorLike d u v, ADModeAndNumNew d u)
   => NumOf v -> (AstVarName Int, ADVal d (Ast u d u)) -> ADVal d v
-buildPair1 n (var, D u _) = lbuildAst1 n (var, u)
+buildPair1 n (var, D u _) = lbuildPair1 n (var, u)
 
 buildAst1
   :: (AstVectorLike d u v, ADModeAndNumNew d u)
@@ -409,7 +409,7 @@ buildAst1 n f = unsafePerformIO $ do
 mapPair1
   :: (AstVectorLike d u v, ADModeAndNumNew d u)
   => (AstVarName (ADVal d u), ADVal d (Ast u d u)) -> ADVal d v -> ADVal d v
-mapPair1 (var, D u _) = lmapAst1 (var, u)
+mapPair1 (var, D u _) = lmapPair1 (var, u)
 
 mapAst1
   :: (AstVectorLike d u v, ADModeAndNumNew d u, IsPrimal d (Ast u d u))

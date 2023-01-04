@@ -595,12 +595,12 @@ instance VectorLike (Ast r d (Vector r)) (Ast r d r) where
 
 class u ~ Under (Element vector)
       => AstVectorLike d u vector | vector -> u where
-  lbuildAst1 :: ADModeAndNumNew d u
-             => NumOf vector -> (AstVarName Int, Ast u d u)
-             -> ADVal d vector
-  lmapAst1 :: ADModeAndNumNew d u
-           => (AstVarName (ADVal d u), Ast u d u) -> ADVal d vector
-           -> ADVal d vector
+  lbuildPair1 :: ADModeAndNumNew d u
+              => NumOf vector -> (AstVarName Int, Ast u d u)
+              -> ADVal d vector
+  lmapPair1 :: ADModeAndNumNew d u
+            => (AstVarName (ADVal d u), Ast u d u) -> ADVal d vector
+            -> ADVal d vector
 
 -- TODO: consider sharing Ast expressions, both within the primal part
 -- and between primal and dual
