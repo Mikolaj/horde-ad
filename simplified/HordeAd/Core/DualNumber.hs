@@ -199,9 +199,9 @@ reluLeaky v =
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) (primalPart v)
   in scale oneIfGtZero v
 
-condAst :: IsPrimal d (Ast r d a)
-        => AstBool r d -> ADVal d (Ast r d a) -> ADVal d (Ast r d a)
-        -> ADVal d (Ast r d a)
+condAst :: IsPrimal d (Ast r a)
+        => AstBool r -> ADVal d (Ast r a) -> ADVal d (Ast r a)
+        -> ADVal d (Ast r a)
 condAst b (D d _) (D e _) = astToD (AstCond b d e)
 
 
@@ -322,7 +322,7 @@ slice1 i n (D u u') = dD (lslice1 i n u) (dSlice1 i n u' (llength u))
 reverse1 :: ADModeAndNumNew d r => ADVal d (VectorOf r) -> ADVal d (VectorOf r)
 reverse1 (D u u') = dD (lreverse1 u) (dReverse1 u')
 
--- TODO: define Enum instance of (AstInt r d) to enable AST for this.
+-- TODO: define Enum instance of (AstInt r) to enable AST for this.
 -- No padding; remaining areas ignored.
 maxPool1 :: ADModeAndNum d r
          => Int -> Int -> ADVal d (Vector r) -> ADVal d (Vector r)
@@ -394,8 +394,8 @@ instance Under r ~ r
   lmapPair1 (var, u) e =
     interpretAst IM.empty $ map1Vectorize (var, u) (undefined e)
 
-instance IsPrimal d (Ast r d (Vector r))
-         => AstVectorLike d r (Ast r d (Vector r)) where
+instance IsPrimal d (Ast r (Vector r))
+         => AstVectorLike d r (Ast r (Vector r)) where
   lbuildPair1 n (var, u) = astToD (build1Vectorize n (var, u))
   lmapPair1 (var, u) (D w _) = astToD (map1Vectorize (var, u) w)
 
@@ -410,12 +410,12 @@ unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
 
 buildPair1
   :: (AstVectorLike d u v, ADModeAndNumNew d u)
-  => IntOf v -> (AstVarName Int, ADVal d (Ast u d u)) -> ADVal d v
+  => IntOf v -> (AstVarName Int, ADVal d (Ast u u)) -> ADVal d v
 buildPair1 n (var, D u _) = lbuildPair1 n (var, u)
 
 buildAst1
   :: (AstVectorLike d u v, ADModeAndNumNew d u)
-  => IntOf v -> (IntOf (Ast u d u) -> ADVal d (Ast u d u)) -> ADVal d v
+  => IntOf v -> (IntOf (Ast u u) -> ADVal d (Ast u u)) -> ADVal d v
 {-# NOINLINE buildAst1 #-}
 buildAst1 n f = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
@@ -423,12 +423,12 @@ buildAst1 n f = unsafePerformIO $ do
 
 mapPair1
   :: (AstVectorLike d u v, ADModeAndNumNew d u)
-  => (AstVarName u, ADVal d (Ast u d u)) -> ADVal d v -> ADVal d v
+  => (AstVarName u, ADVal d (Ast u u)) -> ADVal d v -> ADVal d v
 mapPair1 (var, D u _) = lmapPair1 (var, u)
 
 mapAst1
-  :: (AstVectorLike d u v, ADModeAndNumNew d u, IsPrimal d (Ast u d u))
-  => (ADVal d (Ast u d u) -> ADVal d (Ast u d u)) -> ADVal d v -> ADVal d v
+  :: (AstVectorLike d u v, ADModeAndNumNew d u, IsPrimal d (Ast u u))
+  => (ADVal d (Ast u u) -> ADVal d (Ast u u)) -> ADVal d v -> ADVal d v
 {-# NOINLINE mapAst1 #-}
 mapAst1 f e = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
@@ -439,9 +439,8 @@ mapAst1 f e = unsafePerformIO $ do
 -- no harm done, since the whole term is eventually vectorized anyway,
 -- with arbitrarily deep traversals.
 build1Vectorize
-  :: ADModeAndNumNew d r
-  => AstInt r d -> (AstVarName Int, Ast r d r)
-  -> Ast r d (Vector r)
+  :: AstInt r -> (AstVarName Int, Ast r r)
+  -> Ast r (Vector r)
 build1Vectorize n (var, u) =
   if not (intVarInAst var u)
   then AstKonst1 u n
@@ -490,9 +489,8 @@ build1Vectorize n (var, u) =
     -- All other patterns are redundant due to GADT typing.
 
 buildOfIndex10Vectorize
-  :: ADModeAndNumNew d r
-  => AstInt r d -> AstVarName Int -> Ast r d (Vector r) -> AstInt r d
-  -> Ast r d (Vector r)
+  :: AstInt r -> AstVarName Int -> Ast r (Vector r) -> AstInt r
+  -> Ast r (Vector r)
 buildOfIndex10Vectorize n var v i =
   case v of
     AstOp codeOut args ->
@@ -521,8 +519,8 @@ buildOfIndex10Vectorize n var v i =
 
 -- The case where @var@ does not occur in @v@.
 buildOfIndex10VectorizeVarNotInV
-  :: AstInt r d -> AstVarName Int -> Ast r d (Vector r) -> AstInt r d
-  -> Ast r d (Vector r)
+  :: AstInt r -> AstVarName Int -> Ast r (Vector r) -> AstInt r
+  -> Ast r (Vector r)
 buildOfIndex10VectorizeVarNotInV n var v i = case i of
   AstIntOp PlusIntOut [AstIntVar var2, i2] | var2 == var ->
     AstSlice1 i2 n v
@@ -538,7 +536,7 @@ buildOfIndex10VectorizeVarNotInV n var v i = case i of
     -- expression, construct 'gather'
 
 -- TODO: speed up keeping free vars in each node.
-intVarInAst :: AstVarName Int -> Ast r d a -> Bool
+intVarInAst :: AstVarName Int -> Ast r a -> Bool
 intVarInAst var v = case v of
   AstOp _ lv -> or $ map (intVarInAst var) lv
   AstCond _b x y -> intVarInAst var x || intVarInAst var y  -- TODO: check in b
@@ -584,9 +582,8 @@ but from vectors, distributing their elements in various patterns
 -- But doing this naively copies @w@ a lot, so we'd need to wait
 -- until AST handles sharing properly.
 map1Vectorize
-  :: ADModeAndNumNew d r
-  => (AstVarName r, Ast r d r) -> Ast r d (Vector r)
-  -> Ast r d (Vector r)
+  :: (AstVarName r, Ast r r) -> Ast r (Vector r)
+  -> Ast r (Vector r)
 map1Vectorize (var, u) w = case u of
   AstOp codeOut args ->
     AstOp codeOut $ map (\x -> map1Vectorize (var, x) w) args
@@ -602,32 +599,32 @@ map1Vectorize (var, u) w = case u of
   AstDot0 _u _v -> AstMapPair1 (var, u) w  -- TODO
   -- All other patterns are redundant due to GADT typing.
 
-leqAst :: ADVal d (Ast r d r) -> ADVal d (Ast r d r) -> AstBool r d
+leqAst :: ADVal d (Ast r r) -> ADVal d (Ast r r) -> AstBool r
 leqAst (D d _) (D e _) = AstRel LeqOut [d, e]
 
-gtAst :: ADVal d (Ast r d r) -> ADVal d (Ast r d r) -> AstBool r d
+gtAst :: ADVal d (Ast r r) -> ADVal d (Ast r r) -> AstBool r
 gtAst (D d _) (D e _) = AstRel GtOut [d, e]
 
-gtIntAst :: AstInt r d -> AstInt r d -> AstBool r d
+gtIntAst :: AstInt r -> AstInt r -> AstBool r
 gtIntAst i j = AstRelInt GtOut [i, j]
 
 interpretLambdaD0
   :: (ADModeAndNumNew d r, Under r ~ r, IsPrimalAndHasFeatures d a r)
-  => IM.IntMap (AstVar (ADVal d r)) -> (AstVarName r, Ast r d a)
+  => IM.IntMap (AstVar (ADVal d r)) -> (AstVarName r, Ast r a)
   -> ADVal d r -> ADVal d a
 interpretLambdaD0 env (AstVarName var, ast) =
   \d -> interpretAst (IM.insert var (AstVar0 d) env) ast
 
 interpretLambdaI
   :: (ADModeAndNumNew d r, Under r ~ r, IsPrimalAndHasFeatures d a r)
-  => IM.IntMap (AstVar (ADVal d r)) -> (AstVarName Int, Ast r d a)
+  => IM.IntMap (AstVar (ADVal d r)) -> (AstVarName Int, Ast r a)
   -> Int -> ADVal d a
 interpretLambdaI env (AstVarName var, ast) =
   \i -> interpretAst (IM.insert var (AstVarI i) env) ast
 
 interpretAst
   :: (ADModeAndNumNew d r, Under r ~ r, IsPrimalAndHasFeatures d a r)
-  => IM.IntMap (AstVar (ADVal d r)) -> Ast r d a -> ADVal d a
+  => IM.IntMap (AstVar (ADVal d r)) -> Ast r a -> ADVal d a
 interpretAst env = \case
   AstOp codeOut args ->
     interpretAstOp (interpretAst env) codeOut args
@@ -681,7 +678,7 @@ interpretAst env = \case
   AstOMap1{} -> error "TODO: AstOMap1"
 
 interpretAstInt :: (ADModeAndNumNew d r, Under r ~ r)
-                => IM.IntMap (AstVar (ADVal d r)) -> AstInt r d -> Int
+                => IM.IntMap (AstVar (ADVal d r)) -> AstInt r -> Int
 interpretAstInt env = \case
   AstIntOp codeIntOut args ->
     interpretAstIntOp (interpretAstInt env) codeIntOut args
@@ -699,7 +696,7 @@ interpretAstInt env = \case
   AstMaxIndex v -> LA.maxIndex $ let D u _u' = interpretAst env v in u
 
 interpretAstBool :: (ADModeAndNumNew d r, Under r ~ r)
-                 => IM.IntMap (AstVar (ADVal d r)) -> AstBool r d -> Bool
+                 => IM.IntMap (AstVar (ADVal d r)) -> AstBool r -> Bool
 interpretAstBool env = \case
   AstBoolOp codeBoolOut args ->
     interpretAstBoolOp (interpretAstBool env) codeBoolOut args
@@ -712,7 +709,7 @@ interpretAstBool env = \case
     in interpretAstRel f relOut args
 
 interpretAstOp :: RealFloat b
-               => (Ast r d a -> b) -> CodeOut -> [Ast r d a] -> b
+               => (Ast r a -> b) -> CodeOut -> [Ast r a] -> b
 {-# INLINE interpretAstOp #-}
 interpretAstOp f PlusOut [u, v] = f u + f v
 interpretAstOp f MinusOut [u, v] = f u - f v
@@ -746,7 +743,7 @@ interpretAstOp _ codeOut args =
   error $ "interpretAstOp: wrong number of arguments"
           ++ show (codeOut, length args)
 
-interpretAstIntOp :: (AstInt r d -> Int) -> CodeIntOut -> [AstInt r d] -> Int
+interpretAstIntOp :: (AstInt r -> Int) -> CodeIntOut -> [AstInt r] -> Int
 {-# INLINE interpretAstIntOp #-}
 interpretAstIntOp f PlusIntOut [u, v] = f u + f v
 interpretAstIntOp f MinusIntOut [u, v] = f u - f v
@@ -760,7 +757,7 @@ interpretAstIntOp _ codeIntOut args =
   error $ "interpretAstIntOp: wrong number of arguments"
           ++ show (codeIntOut, length args)
 
-interpretAstBoolOp :: (AstBool r d -> Bool) -> CodeBoolOut -> [AstBool r d]
+interpretAstBoolOp :: (AstBool r -> Bool) -> CodeBoolOut -> [AstBool r]
                    -> Bool
 {-# INLINE interpretAstBoolOp #-}
 interpretAstBoolOp f NotOut [u] = not $ f u

@@ -54,14 +54,12 @@ data ADMode =
 type family Dual (d :: ADMode) a = result | result -> d a where
   Dual 'ADModeGradient Double = Delta0 Double
   Dual 'ADModeGradient Float = Delta0 Float
-  Dual 'ADModeGradient (Ast r 'ADModeGradient a) =
-    DummyDual r 'ADModeGradient a
+  Dual 'ADModeGradient (Ast r a) = DummyDual r 'ADModeGradient a
   Dual 'ADModeGradient (Vector r) = Delta1 r
 -- not injective:  Dual 'ADModeDerivative r = r
   Dual 'ADModeDerivative Double = Double
   Dual 'ADModeDerivative Float = Float
-  Dual 'ADModeDerivative (Ast r 'ADModeDerivative a) =
-    DummyDual r 'ADModeDerivative a
+  Dual 'ADModeDerivative (Ast r a) = DummyDual r 'ADModeDerivative a
   Dual 'ADModeDerivative (Vector r) = Vector r
   Dual 'ADModeValue a = DummyDual a 'ADModeValue a
 newtype DummyDual r (d :: ADMode) a = DummyDual ()
@@ -74,7 +72,7 @@ class IsPrimal d a where
 type family Under a where
   Under Double = Double
   Under Float = Float
-  Under (Ast u d a) = u
+  Under (Ast u a) = u
   Under (Vector u) = u
 
 -- * Definitions
@@ -83,46 +81,46 @@ type family Under a where
 -- and between primal and dual
 -- | @Ast@ turns primal values and their operations into AST-building
 -- counterparts.
-data Ast :: Type -> ADMode -> Type -> Type where
-  AstOp :: CodeOut -> [Ast r d a] -> Ast r d a
-  AstCond :: AstBool r d -> Ast r d a -> Ast r d a -> Ast r d a
-  AstSelect :: AstInt r d -> (AstVarName Int, AstBool r d)
-            -> Ast r d (Vector r) -> Ast r d (Vector r) -> Ast r d (Vector r)
-  AstConst :: a -> Ast r d a
+data Ast :: Type -> Type -> Type where
+  AstOp :: CodeOut -> [Ast r a] -> Ast r a
+  AstCond :: AstBool r -> Ast r a -> Ast r a -> Ast r a
+  AstSelect :: AstInt r -> (AstVarName Int, AstBool r)
+            -> Ast r (Vector r) -> Ast r (Vector r) -> Ast r (Vector r)
+  AstConst :: a -> Ast r a
 
-  AstVar :: AstVarName r -> Ast r d r
+  AstVar :: AstVarName r -> Ast r r
 
-  AstMinElement :: Ast r d (Vector r) -> Ast r d r
-  AstMaxElement :: Ast r d (Vector r) -> Ast r d r
+  AstMinElement :: Ast r (Vector r) -> Ast r r
+  AstMaxElement :: Ast r (Vector r) -> Ast r r
 
-  AstSumElements10 :: Ast r d (Vector r) -> Ast r d r
-  AstIndex10 :: Ast r d (Vector r) -> AstInt r d -> Ast r d r
-  AstDot0 :: Ast r d (Vector r) -> Ast r d (Vector r) -> Ast r d r
+  AstSumElements10 :: Ast r (Vector r) -> Ast r r
+  AstIndex10 :: Ast r (Vector r) -> AstInt r -> Ast r r
+  AstDot0 :: Ast r (Vector r) -> Ast r (Vector r) -> Ast r r
 
-  AstFromList1 :: [Ast r d r] -> Ast r d (Vector r)
-  AstFromVector1 :: Data.Vector.Vector (Ast r d r) -> Ast r d (Vector r)
-  AstKonst1 :: Ast r d r -> AstInt r d -> Ast r d (Vector r)
-  AstAppend1 :: Ast r d (Vector r) -> Ast r d (Vector r) -> Ast r d (Vector r)
-  AstSlice1 :: AstInt r d -> AstInt r d -> Ast r d (Vector r)
-            -> Ast r d (Vector r)
-  AstReverse1 :: Ast r d (Vector r) -> Ast r d (Vector r)
+  AstFromList1 :: [Ast r r] -> Ast r (Vector r)
+  AstFromVector1 :: Data.Vector.Vector (Ast r r) -> Ast r (Vector r)
+  AstKonst1 :: Ast r r -> AstInt r -> Ast r (Vector r)
+  AstAppend1 :: Ast r (Vector r) -> Ast r (Vector r) -> Ast r (Vector r)
+  AstSlice1 :: AstInt r -> AstInt r -> Ast r (Vector r)
+            -> Ast r (Vector r)
+  AstReverse1 :: Ast r (Vector r) -> Ast r (Vector r)
 
-  AstBuildPair1 :: AstInt r d -> (AstVarName Int, Ast r d r)
-                -> Ast r d (Vector r)
-  AstMapPair1 :: (AstVarName r, Ast r d r) -> Ast r d (Vector r)
-              -> Ast r d (Vector r)
+  AstBuildPair1 :: AstInt r -> (AstVarName Int, Ast r r)
+                -> Ast r (Vector r)
+  AstMapPair1 :: (AstVarName r, Ast r r) -> Ast r (Vector r)
+              -> Ast r (Vector r)
 
-  AstOMap1 :: (Ast r d r -> Ast r d r) -> Ast r d (Vector r)
-           -> Ast r d (Vector r)
+  AstOMap1 :: (Ast r r -> Ast r r) -> Ast r (Vector r)
+           -> Ast r (Vector r)
     -- TODO: this is necessary for MonoFunctor and so for a particularly
     -- fast implementation of relu, but this introduces a closure on tape;
     -- we may need to hack around this by substituting MonoFunctor
     -- with something similar to AstVectorLike or by optimizing map1 enough
     -- that it's as fast in such a simple case
 
-type Ast0 d r = Ast r d r
+type Ast0 r = Ast r r
 
-type Ast1 d r = Ast r d (Vector r)
+type Ast1 r = Ast r (Vector r)
 
 newtype AstVarName t = AstVarName Int
   deriving (Show, Eq)
@@ -131,43 +129,43 @@ data AstVar a =
     AstVar0 a
   | AstVarI Int
 
-data AstInt :: Type -> ADMode -> Type where
-  AstIntOp :: CodeIntOut -> [AstInt r d] -> AstInt r d
-  AstIntCond :: AstBool r d -> AstInt r d -> AstInt r d -> AstInt r d
-  AstIntConst :: Int -> AstInt r d
-  AstIntVar :: AstVarName Int -> AstInt r d
+data AstInt :: Type -> Type where
+  AstIntOp :: CodeIntOut -> [AstInt r] -> AstInt r
+  AstIntCond :: AstBool r -> AstInt r -> AstInt r -> AstInt r
+  AstIntConst :: Int -> AstInt r
+  AstIntVar :: AstVarName Int -> AstInt r
 
-  AstLength :: Ast r d (Vector r) -> AstInt r d
-  AstMinIndex :: Ast r d (Vector r) -> AstInt r d
-  AstMaxIndex :: Ast r d (Vector r) -> AstInt r d
+  AstLength :: Ast r (Vector r) -> AstInt r
+  AstMinIndex :: Ast r (Vector r) -> AstInt r
+  AstMaxIndex :: Ast r (Vector r) -> AstInt r
 
-data AstBool :: Type -> ADMode -> Type where
-  AstBoolOp :: CodeBoolOut -> [AstBool r d] -> AstBool r d
-  AstBoolConst :: Bool -> AstBool r d
-  AstRel :: RelOut -> [Ast r d r] -> AstBool r d  -- TODO: Vector?
-  AstRelInt :: RelOut -> [AstInt r d] -> AstBool r d
+data AstBool :: Type -> Type where
+  AstBoolOp :: CodeBoolOut -> [AstBool r] -> AstBool r
+  AstBoolConst :: Bool -> AstBool r
+  AstRel :: RelOut -> [Ast r r] -> AstBool r  -- TODO: Vector?
+  AstRelInt :: RelOut -> [AstInt r] -> AstBool r
 
 {-
 deriving instance ( Show a, Show r, Numeric r
                   , Show (ADVal d a), Show (ADVal d r)
                   , Show (ADVal d (Vector r))
-                  , Show (AstInt r d), Show (AstBool r d) )
-                  => Show (Ast r d a)
+                  , Show (AstInt r), Show (AstBool r) )
+                  => Show (Ast r a)
 
 deriving instance (Show (ADVal d r), Show (ADVal d (Vector r)))
-                  => Show (AstVar r d)
+                  => Show (AstVar r)
 
 deriving instance ( Show r, Numeric r
                   , Show (ADVal d r)
                   , Show (ADVal d (Vector r))
-                  , Show (AstInt r d), Show (AstBool r d) )
-                  => Show (AstInt r d)
+                  , Show (AstInt r), Show (AstBool r) )
+                  => Show (AstInt r)
 
 deriving instance ( Show r, Numeric r
                   , Show (ADVal d r)
                   , Show (ADVal d (Vector r))
-                  , Show (AstInt r d), Show (AstBool r d) )
-                  => Show (AstBool r d)
+                  , Show (AstInt r), Show (AstBool r) )
+                  => Show (AstBool r)
 -}
 
 -- @Out@ is a leftover from the outlining mechanism deleted in
@@ -201,14 +199,14 @@ data RelOut =
 -- * Unlawful instances of AST types; they are lawful modulo evaluation
 
 -- See the comment about @Eq@ and @Ord@ in "DualNumber".
-instance Eq (Ast r d a) where
+instance Eq (Ast r a) where
 
-instance Ord a => Ord (Ast r d a) where
+instance Ord a => Ord (Ast r a) where
   max u v = AstOp MaxOut [u, v]
   min u v = AstOp MinOut [u, v]
     -- unfortunately, the others can't be made to return @AstBool@
 
-instance Num a => Num (Ast r d a) where
+instance Num a => Num (Ast r a) where
   u + v = AstOp PlusOut [u, v]
   u - v = AstOp MinusOut [u, v]
   u * v = AstOp TimesOut [u, v]
@@ -217,15 +215,15 @@ instance Num a => Num (Ast r d a) where
   signum v = AstOp SignumOut [v]
   fromInteger = AstConst . fromInteger
 
-instance Real a => Real (Ast r d a) where
+instance Real a => Real (Ast r a) where
   toRational = undefined  -- TODO?
 
-instance Fractional a => Fractional (Ast r d a) where
+instance Fractional a => Fractional (Ast r a) where
   u / v = AstOp DivideOut  [u, v]
   recip v = AstOp RecipOut [v]
   fromRational = AstConst . fromRational
 
-instance Floating a => Floating (Ast r d a) where
+instance Floating a => Floating (Ast r a) where
   pi = AstConst pi
   exp u = AstOp ExpOut [u]
   log u = AstOp LogOut [u]
@@ -245,23 +243,23 @@ instance Floating a => Floating (Ast r d a) where
   acosh u = AstOp AcoshOut [u]
   atanh u = AstOp AtanhOut [u]
 
-instance RealFrac a => RealFrac (Ast r d a) where
+instance RealFrac a => RealFrac (Ast r a) where
   properFraction = undefined
     -- TODO: others, but low priority, since these are extremely not continuous
 
-instance RealFloat a => RealFloat (Ast r d a) where
+instance RealFloat a => RealFloat (Ast r a) where
   atan2 u v = AstOp Atan2Out [u, v]
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a differentiable codomain
 
-instance Eq (AstInt r d) where
+instance Eq (AstInt r) where
 
-instance Ord (AstInt r d) where
+instance Ord (AstInt r) where
   max u v = AstIntOp MaxIntOut [u, v]
   min u v = AstIntOp MinIntOut [u, v]
     -- unfortunately, the others can't be made to return @AstBool@
 
-instance Num (AstInt r d) where
+instance Num (AstInt r) where
   u + v = AstIntOp PlusIntOut [u, v]
   u - v = AstIntOp MinusIntOut [u, v]
   u * v = AstIntOp TimesIntOut [u, v]
@@ -270,26 +268,26 @@ instance Num (AstInt r d) where
   signum v = AstIntOp SignumIntOut [v]
   fromInteger = AstIntConst . fromInteger
 
-instance Real (AstInt r d) where
+instance Real (AstInt r) where
   toRational = undefined  -- TODO
 
-instance Enum (AstInt r d) where
+instance Enum (AstInt r) where
   -- TODO
 
-instance Integral (AstInt r d) where
+instance Integral (AstInt r) where
   -- TODO
 
-type instance Element (Ast r d (Vector r)) = Ast r d r
+type instance Element (Ast r (Vector r)) = Ast r r
 
-type instance Element (Ast Double d Double) = Ast Double d Double
+type instance Element (Ast Double Double) = Ast Double Double
 
-type instance Element (Ast Float d Float) = Ast Float d Float
+type instance Element (Ast Float Float) = Ast Float Float
 
-instance MonoFunctor (Ast r d (Vector r)) where
+instance MonoFunctor (Ast r (Vector r)) where
   omap = AstOMap1
 
-instance MonoFunctor (Ast Double d Double) where
+instance MonoFunctor (Ast Double Double) where
   omap f = f
 
-instance MonoFunctor (Ast Float d Float) where
+instance MonoFunctor (Ast Float Float) where
   omap f = f

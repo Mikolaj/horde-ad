@@ -39,9 +39,9 @@ fooBuild1 :: forall d r. ADModeAndNumNew d r
           => ADVal d (VectorOf r) -> ADVal d (VectorOf r)
 fooBuild1 v =
   let v' = (liftToAst v  -- we don't know if @r@ is values or ASTs, so we lift
-            :: ADVal d (Ast1 d (Under r)))
-           :: ADVal d (VectorOf (Ast0 d (Under r)))
-      r' = sumElements10 v' :: ADVal d (Ast0 d (Under r))
+            :: ADVal d (Ast1 (Under r)))
+           :: ADVal d (VectorOf (Ast0 (Under r)))
+      r' = sumElements10 v' :: ADVal d (Ast0 (Under r))
   in buildAst1 3 $ \ix ->
        r' * foo ( 3
                 , 5 * r'
@@ -62,8 +62,8 @@ fooMap1 r =
 fooNoGo :: forall r d. ADModeAndNumNew d r
         => ADVal d (VectorOf r) -> ADVal d (VectorOf r)
 fooNoGo v =
-  let v' = liftToAst v :: ADVal d (Ast1 d (Under r))
-      r' = sumElements10 v' :: ADVal d (Ast0 d (Under r))
+  let v' = liftToAst v :: ADVal d (Ast1 (Under r))
+      r' = sumElements10 v' :: ADVal d (Ast0 (Under r))
   in buildAst1 3 (\ix ->
        index10 v' ix
        + condAst (AstBoolOp AndOut  -- TODO: overload &&, <=, >, etc.
