@@ -89,11 +89,11 @@ class LiftToAst d r a where
 
 instance IsPrimal d (Ast Double d Double)
          => LiftToAst d Double Double where
-  liftToAst = astToD . AstD
+  liftToAst = astToD . undefined
 
 instance IsPrimal d (Ast Float d Float)
          => LiftToAst d Float Float where
-  liftToAst = astToD . AstD
+  liftToAst = astToD . undefined
 
 instance LiftToAst d (Ast Double d Double) Double where
   liftToAst = id
@@ -103,7 +103,7 @@ instance LiftToAst d (Ast Float d Float) Float where
 
 instance IsPrimal d (Ast u d (Vector u))
          => LiftToAst d (Vector u) (Vector u) where
-  liftToAst = astToD . AstD
+  liftToAst = astToD . undefined
 
 instance LiftToAst d (Ast u d (Vector u)) (Vector u) where
   liftToAst = id
@@ -118,7 +118,6 @@ data Ast :: Type -> ADMode -> Type -> Type where
   AstSelect :: AstInt r d -> (AstVarName Int, AstBool r d)
             -> Ast r d (Vector r) -> Ast r d (Vector r) -> Ast r d (Vector r)
   AstConst :: a -> Ast r d a
-  AstD :: ADVal d a -> Ast r d a
 
   AstVar :: AstVarName (ADVal d r) -> Ast r d r
 

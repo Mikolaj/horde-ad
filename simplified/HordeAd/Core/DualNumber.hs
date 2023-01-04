@@ -392,7 +392,7 @@ instance Under r ~ r
   lbuildPair1 n (var, u) =
     interpretAst IM.empty $ build1Vectorize (AstIntConst n) (var, u)
   lmapPair1 (var, u) e =
-    interpretAst IM.empty $ map1Vectorize (var, u) (AstD e)
+    interpretAst IM.empty $ map1Vectorize (var, u) (undefined e)
 
 instance IsPrimal d (Ast r d (Vector r))
          => AstVectorLike d r (Ast r d (Vector r)) where
@@ -463,7 +463,6 @@ build1Vectorize n (var, u) =
                 (build1Vectorize n (var, x))
                 (build1Vectorize n (var, y))
     AstConst _r -> error "build1Vectorize: can't have free variables"
-    AstD _d -> error "build1Vectorize: can't have free variables"
     AstVar _var2 -> error "build1Vectorize: can't have free int variables"
     AstMinElement _v ->
       AstBuildPair1 n (var, u)
@@ -502,7 +501,6 @@ buildOfIndex10Vectorize n var v i =
       AstSelect n (var, b) (build1Vectorize n (var, AstIndex10 x i))
                            (build1Vectorize n (var, AstIndex10 y i))
     AstConst _r -> buildOfIndex10VectorizeVarNotInV n var v i
-    AstD _d -> buildOfIndex10VectorizeVarNotInV n var v i
     -- AstFromList1, AstFromVector1: see Note [AstFromList1 is hard]
     AstFromList1 l | AstIntConst k <- i -> build1Vectorize n (var, l !! k)
     -- TODO: AstAppend1 v1 v2 -> ... AstCond (i < AstLength v1) (...v1) (...v2)
@@ -548,7 +546,6 @@ intVarInAst var v = case v of
     var == var2 || intVarInAst var x || intVarInAst var y
       -- TODO: check in n and b
   AstConst{} -> False
-  AstD{} -> False
   AstVar{} -> False  -- not an int variable
   AstFromList1 l -> or $ map (intVarInAst var) l  -- down from rank 1 to 0
   AstFromVector1 vl -> or $ map (intVarInAst var) $ V.toList vl
@@ -595,7 +592,6 @@ map1Vectorize (var, u) w = case u of
     AstOp codeOut $ map (\x -> map1Vectorize (var, x) w) args
   AstCond _b _x1 _x2 -> AstMapPair1 (var, u) w  -- TODO
   AstConst r -> AstKonst1 (AstConst r) (AstLength w)
-  AstD d -> AstKonst1 (AstD d) (AstLength w)
   AstVar var2 | var2 == var -> w  -- identity mapping
   AstVar var2 -> AstKonst1 (AstVar var2) (AstLength w)
   AstMinElement _v -> AstMapPair1 (var, u) w  -- TODO
@@ -648,7 +644,6 @@ interpretAst env = \case
         v2 = interpretAst env a2
     in bitmap * v1 + v2 - bitmap * v2
   AstConst a -> constant a
-  AstD d -> d
   AstVar (AstVarName var) -> case IM.lookup var env of
     Just (AstVar0 d) -> d
     Just AstVarI{} -> error $ "interpretAst: type mismatch for var " ++ show var
