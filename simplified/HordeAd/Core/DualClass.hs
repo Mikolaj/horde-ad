@@ -792,6 +792,15 @@ instance Num (AstInt r d) where
   signum v = AstIntOp SignumIntOut [v]
   fromInteger = AstIntConst . fromInteger
 
+instance Real (AstInt r d) where
+  toRational = undefined  -- TODO
+
+instance Enum (AstInt r d) where
+  -- TODO
+
+instance Integral (AstInt r d) where
+  -- TODO
+
 type instance Element (Ast r d (Vector r)) = Ast r d r
 
 type instance Element (Ast Double d Double) = Ast Double d Double
