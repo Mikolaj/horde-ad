@@ -15,7 +15,7 @@ module HordeAd.Core.DualNumber
   , ADMode(..), ADModeAndNum, ADModeAndNumNew
   , liftToAst, IntOf, VectorOf
   , IsPrimal (..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
-  , Under, Element
+  , Under, Element, AD(..)
   , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
   , -- temporarily re-exported, until these are wrapped in sugar
     Ast(..), Ast0, Ast1, AstVarName(..), AstVar(..), AstInt(..), AstBool(..)
@@ -153,11 +153,25 @@ instance (RealFloat a, IsPrimal d a) => RealFloat (ADVal d a) where
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a differentiable codomain
 
-constant :: IsPrimal d a => a -> ADVal d a
-constant a = dD a dZero
+instance IsPrimal d a => AD (ADVal d a) where
+  type PrimalOf (ADVal d a) = a
+  constant a = dD a dZero
+  scale a (D u u') = dD (a * u) (dScale a u')
 
-scale :: (Num a, IsPrimal d a) => a -> ADVal d a -> ADVal d a
-scale a (D u u') = dD (a * u) (dScale a u')
+instance AD Float where
+  type PrimalOf Float = Float
+  constant = id
+  scale = (*)
+
+instance AD Double where
+  type PrimalOf Double = Double
+  constant = id
+  scale = (*)
+
+instance AD (Vector r) where
+  type PrimalOf (Vector r) = Vector r
+  constant = id
+  scale = (*)
 
 logistic :: (Floating a, IsPrimal d a) => ADVal d a -> ADVal d a
 logistic (D u u') =

@@ -36,7 +36,7 @@ module HordeAd.Core.DualClass
   , -- * The less often used part of the mid-level API that gets re-exported in high-level API; it leaks implementation details
     pattern D
   , IsPrimal(..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
-  , Under, Element
+  , Under, Element, AD(..)
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
     Dual, HasRanks(..), HasInputs(..), dummyDual, astToD
   , VectorLike(..), AstVectorLike(..)
@@ -222,6 +222,15 @@ type family Under a where
   Under Float = Float
   Under (Ast u d a) = u
   Under (Vector u) = u
+
+-- We could accept any @RealFloat@ instead of @PrimalOf a@, but then
+-- we'd need to coerce, e.g., via realToFrac, which is risky and lossy.
+-- Also, the stricter typing is likely to catch real errors most of the time,
+-- not just sloppy omission of explitic coercions.
+class AD a where
+  type PrimalOf a
+  constant :: PrimalOf a -> a
+  scale :: Num (PrimalOf a) => PrimalOf a -> a -> a
 
 -- | Second argument is the primal component of a dual number at some rank
 -- wrt the differentiation mode given in the first argument.
