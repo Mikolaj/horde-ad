@@ -541,8 +541,7 @@ instance IsPrimal d (Ast u d (Vector u))
 instance LiftToAst d (Ast u d (Vector u)) (Vector u) where
   liftToAst = id
 
-class (Element vector ~ r, VectorOf r ~ vector)
-      => VectorLike vector r | vector -> r where
+class VectorLike vector r | vector -> r where
   llength :: vector -> IntOf r
   lminElement :: vector -> r
   lmaxElement :: vector -> r
@@ -560,7 +559,7 @@ class (Element vector ~ r, VectorOf r ~ vector)
   lslice1 :: IntOf r -> IntOf r -> vector -> vector
   lreverse1 :: vector -> vector
 
-instance (Numeric r, VectorOf r ~ Vector r, IntOf r ~ Int)
+instance (Numeric r, IntOf r ~ Int)
          => VectorLike (Vector r) r where
   llength = V.length
   lminElement = LA.minElement
