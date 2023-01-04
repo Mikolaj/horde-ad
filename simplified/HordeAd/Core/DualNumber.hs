@@ -613,21 +613,21 @@ gtIntAst i j = AstRelInt GtOut [i, j]
 
 interpretLambdaD0
   :: (ADModeAndNumNew d r, Under r ~ r, IsPrimalAndHasFeatures d a r)
-  => IM.IntMap (AstVar r d) -> (AstVarName (ADVal d r), Ast r d a)
+  => IM.IntMap (AstVar (ADVal d r)) -> (AstVarName (ADVal d r), Ast r d a)
   -> ADVal d r -> ADVal d a
 interpretLambdaD0 env (AstVarName var, ast) =
   \d -> interpretAst (IM.insert var (AstVar0 d) env) ast
 
 interpretLambdaI
   :: (ADModeAndNumNew d r, Under r ~ r, IsPrimalAndHasFeatures d a r)
-  => IM.IntMap (AstVar r d) -> (AstVarName Int, Ast r d a)
+  => IM.IntMap (AstVar (ADVal d r)) -> (AstVarName Int, Ast r d a)
   -> Int -> ADVal d a
 interpretLambdaI env (AstVarName var, ast) =
   \i -> interpretAst (IM.insert var (AstVarI i) env) ast
 
 interpretAst
   :: (ADModeAndNumNew d r, Under r ~ r, IsPrimalAndHasFeatures d a r)
-  => IM.IntMap (AstVar r d) -> Ast r d a -> ADVal d a
+  => IM.IntMap (AstVar (ADVal d r)) -> Ast r d a -> ADVal d a
 interpretAst env = \case
   AstOp codeOut args ->
     interpretAstOp (interpretAst env) codeOut args
@@ -681,7 +681,7 @@ interpretAst env = \case
   AstOMap1{} -> error "TODO: AstOMap1"
 
 interpretAstInt :: (ADModeAndNumNew d r, Under r ~ r)
-                => IM.IntMap (AstVar r d) -> AstInt r d -> Int
+                => IM.IntMap (AstVar (ADVal d r)) -> AstInt r d -> Int
 interpretAstInt env = \case
   AstIntOp codeIntOut args ->
     interpretAstIntOp (interpretAstInt env) codeIntOut args
@@ -699,7 +699,7 @@ interpretAstInt env = \case
   AstMaxIndex v -> LA.maxIndex $ let D u _u' = interpretAst env v in u
 
 interpretAstBool :: (ADModeAndNumNew d r, Under r ~ r)
-                 => IM.IntMap (AstVar r d) -> AstBool r d -> Bool
+                 => IM.IntMap (AstVar (ADVal d r)) -> AstBool r d -> Bool
 interpretAstBool env = \case
   AstBoolOp codeBoolOut args ->
     interpretAstBoolOp (interpretAstBool env) codeBoolOut args

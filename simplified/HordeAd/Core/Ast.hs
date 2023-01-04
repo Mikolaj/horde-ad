@@ -40,7 +40,7 @@ import Prelude
 import           Data.Kind (Type)
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import qualified Data.Strict.Vector as Data.Vector
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Vector)
 import           Text.Show.Functions ()
 
 import HordeAd.Internal.Delta
@@ -127,8 +127,8 @@ type Ast1 d r = Ast r d (Vector r)
 newtype AstVarName t = AstVarName Int
   deriving (Show, Eq)
 
-data AstVar r d =
-    AstVar0 (ADVal d r)
+data AstVar a =
+    AstVar0 a
   | AstVarI Int
 
 data AstInt :: Type -> ADMode -> Type where
@@ -147,6 +147,7 @@ data AstBool :: Type -> ADMode -> Type where
   AstRel :: RelOut -> [Ast r d r] -> AstBool r d  -- TODO: Vector?
   AstRelInt :: RelOut -> [AstInt r d] -> AstBool r d
 
+{-
 deriving instance ( Show a, Show r, Numeric r
                   , Show (ADVal d a), Show (ADVal d r)
                   , Show (ADVal d (Vector r))
@@ -167,6 +168,7 @@ deriving instance ( Show r, Numeric r
                   , Show (ADVal d (Vector r))
                   , Show (AstInt r d), Show (AstBool r d) )
                   => Show (AstBool r d)
+-}
 
 -- @Out@ is a leftover from the outlining mechanism deleted in
 -- https://github.com/Mikolaj/horde-ad/commit/c59947e13082c319764ec35e54b8adf8bc01691f
