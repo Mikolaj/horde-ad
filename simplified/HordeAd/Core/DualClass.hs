@@ -231,6 +231,7 @@ class AD a where
   type PrimalOf a
   constant :: PrimalOf a -> a
   scale :: Num (PrimalOf a) => PrimalOf a -> a -> a
+  primalPart :: a -> PrimalOf a
 
 -- | Second argument is the primal component of a dual number at some rank
 -- wrt the differentiation mode given in the first argument.

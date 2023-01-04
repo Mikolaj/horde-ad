@@ -186,16 +186,16 @@ squaredDifference :: (Num a, IsPrimal d a)
                   => a -> ADVal d a -> ADVal d a
 squaredDifference targ res = square $ res - constant targ
 
-relu :: (ADModeAndNumNew d r, IsPrimalAndHasFeatures d a r)
-     => ADVal d a -> ADVal d a
-relu v@(D u _) =
-  let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0) u
+relu, reluLeaky
+  :: ( AD a, MonoFunctor (PrimalOf a), Ord (Element (PrimalOf a))
+     , Fractional (Element (PrimalOf a)), Num (PrimalOf a) )
+  => a -> a
+relu v =
+  let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0) (primalPart v)
   in scale oneIfGtZero v
 
-reluLeaky :: (ADModeAndNumNew d r, IsPrimalAndHasFeatures d a r)
-          => ADVal d a -> ADVal d a
-reluLeaky v@(D u _) =
-  let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) u
+reluLeaky v =
+  let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) (primalPart v)
   in scale oneIfGtZero v
 
 condAst :: IsPrimal d (Ast r d a)
