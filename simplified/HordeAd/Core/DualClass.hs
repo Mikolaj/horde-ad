@@ -32,14 +32,14 @@ module HordeAd.Core.DualClass
   ( -- * The most often used part of the mid-level API that gets re-exported in high-level API
     ADVal, dD, dDnotShared
   , ADMode(..), ADModeAndNum, ADModeAndNumNew
-  , liftToAst, IntOf, VectorOf
+  , IntOf, VectorOf
   , -- * The less often used part of the mid-level API that gets re-exported in high-level API; it leaks implementation details
     pattern D
   , IsPrimal(..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
   , Under, Element, HasPrimal(..)
   , VectorLike(..), ADReady
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
-    Dual, HasRanks(..), HasInputs(..), dummyDual, astToD
+    Dual, HasRanks(..), HasInputs(..), dummyDual
   , -- * Internal operations, exposed for tests, debugging and experiments
     unsafeGetFreshId
   ) where
@@ -122,8 +122,6 @@ type ADModeAndNum (d :: ADMode) r =
   , IsPrimalAndHasFeatures d (Vector r) r
   , IsPrimalAndHasFeatures d (Ast r (Vector r)) (Ast r r)
   , Under r ~ r
-  , LiftToAst d r r
-  , LiftToAst d (Ast r r) r
   , IntOf (VectorOf r) ~ IntOf r
   )
 
@@ -143,10 +141,6 @@ type ADModeAndNumNew (d :: ADMode) r =
   , ADModeAndNumR d (Ast (Under r) (Under r))
   , Num (IntOf r)
   , VectorLike (VectorOf r) r
-  , LiftToAst d (Under r) (Under r)
-  , LiftToAst d (Ast (Under r) (Under r)) (Under r)
-  , LiftToAst d r (Under r)
-  , LiftToAst d (VectorOf r) (VectorOf (Under r))
   , -- and finally some laws of nature:
     Under (Under r) ~ Under r
   , Under (VectorOf r) ~ Under r
@@ -162,34 +156,6 @@ type HasDelta r = ( ADModeAndNum 'ADModeGradient r
 
 
 -- * Class definitions
-
-astToD :: IsPrimal d (Ast r a) => Ast r a -> ADVal d (Ast r a)
-astToD ast = dD ast undefined
-
-class LiftToAst d r a where
-  liftToAst :: ADVal d r -> ADVal d (Ast (Under r) a)
-
-instance IsPrimal d (Ast Double Double)
-         => LiftToAst d Double Double where
-  liftToAst = astToD . undefined
-
-instance IsPrimal d (Ast Float Float)
-         => LiftToAst d Float Float where
-  liftToAst = astToD . undefined
-
-instance LiftToAst d (Ast Double Double) Double where
-  liftToAst = id
-
-instance LiftToAst d (Ast Float Float) Float where
-  liftToAst = id
-
-instance IsPrimal d (Ast u (Vector u))
-         => LiftToAst d (Vector u) (Vector u) where
-  liftToAst = astToD . undefined
-
-instance LiftToAst d (Ast u (Vector u)) (Vector u) where
-  liftToAst = id
-
 
 -- | The enumeration of all available automatic differentiation computation
 -- modes.

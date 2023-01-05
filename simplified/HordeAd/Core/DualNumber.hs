@@ -13,7 +13,7 @@ module HordeAd.Core.DualNumber
   ( module HordeAd.Core.DualNumber
   , ADVal, dD, dDnotShared
   , ADMode(..), ADModeAndNum, ADModeAndNumNew
-  , liftToAst, IntOf, VectorOf
+  , IntOf, VectorOf
   , IsPrimal (..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
   , Under, Element, HasPrimal(..)
   , VectorLike(..), ADReady
