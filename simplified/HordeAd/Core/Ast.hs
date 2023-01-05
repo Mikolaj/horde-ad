@@ -9,7 +9,7 @@
 -- for arbitrary code transformations at the cost of limiting
 -- expressiveness of transformed fragments to what AST captures.
 module HordeAd.Core.Ast
-  ( Ast(..), Ast0, Ast1, AstVarName(..), AstVar(..), AstInt(..), AstBool(..)
+  ( Ast(..), AstVarName(..), AstVar(..), AstInt(..), AstBool(..)
   , CodeOut(..), CodeIntOut(..), CodeBoolOut(..), RelOut(..)
   ) where
 
@@ -63,10 +63,6 @@ data Ast :: Type -> Type -> Type where
     -- we may need to hack around this by substituting MonoFunctor
     -- with something similar to AstVectorLike or by optimizing map1 enough
     -- that it's as fast in such a simple case
-
-type Ast0 r = Ast r r
-
-type Ast1 r = Ast r (Vector r)
 
 newtype AstVarName t = AstVarName Int
   deriving (Show, Eq)
