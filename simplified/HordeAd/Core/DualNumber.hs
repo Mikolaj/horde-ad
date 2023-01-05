@@ -15,7 +15,7 @@ module HordeAd.Core.DualNumber
   , ADMode(..), ADModeAndNum, ADModeAndNumNew
   , liftToAst, IntOf, VectorOf
   , IsPrimal (..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
-  , Under, Element, AD(..)
+  , Under, Element, HasPrimal(..)
   , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
   , -- temporarily re-exported, until these are wrapped in sugar
     Ast(..), Ast0, Ast1, AstVarName(..), AstVar(..), AstInt(..), AstBool(..)
@@ -154,22 +154,22 @@ instance (RealFloat a, IsPrimal d a) => RealFloat (ADVal d a) where
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a differentiable codomain
 
-instance IsPrimal d a => AD (ADVal d a) where
+instance IsPrimal d a => HasPrimal (ADVal d a) where
   type PrimalOf (ADVal d a) = a
   constant a = dD a dZero
   scale a (D u u') = dD (a * u) (dScale a u')
 
-instance AD Float where
+instance HasPrimal Float where
   type PrimalOf Float = Float
   constant = id
   scale = (*)
 
-instance AD Double where
+instance HasPrimal Double where
   type PrimalOf Double = Double
   constant = id
   scale = (*)
 
-instance AD (Vector r) where
+instance HasPrimal (Vector r) where
   type PrimalOf (Vector r) = Vector r
   constant = id
   scale = (*)
@@ -188,7 +188,7 @@ squaredDifference :: (Num a, IsPrimal d a)
 squaredDifference targ res = square $ res - constant targ
 
 relu, reluLeaky
-  :: ( AD a, MonoFunctor (PrimalOf a), Ord (Element (PrimalOf a))
+  :: ( HasPrimal a, MonoFunctor (PrimalOf a), Ord (Element (PrimalOf a))
      , Fractional (Element (PrimalOf a)), Num (PrimalOf a) )
   => a -> a
 relu v =

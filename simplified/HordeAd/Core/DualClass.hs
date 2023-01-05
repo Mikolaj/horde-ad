@@ -36,7 +36,7 @@ module HordeAd.Core.DualClass
   , -- * The less often used part of the mid-level API that gets re-exported in high-level API; it leaks implementation details
     pattern D
   , IsPrimal(..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
-  , Under, Element, AD(..)
+  , Under, Element, HasPrimal(..)
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
     Dual, HasRanks(..), HasInputs(..), dummyDual, astToD
   , VectorLike(..)
@@ -250,7 +250,7 @@ type family Under a where
 -- we'd need to coerce, e.g., via realToFrac, which is risky and lossy.
 -- Also, the stricter typing is likely to catch real errors most of the time,
 -- not just sloppy omission of explitic coercions.
-class AD a where
+class HasPrimal a where
   type PrimalOf a
   constant :: PrimalOf a -> a
   scale :: Num (PrimalOf a) => PrimalOf a -> a -> a
