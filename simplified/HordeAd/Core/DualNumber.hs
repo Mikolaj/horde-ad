@@ -402,6 +402,8 @@ instance (Numeric r, IntOf r ~ Int)
   lappend1 = (V.++)
   lslice1 = V.slice
   lreverse1 = V.reverse
+  lbuild1 = V.generate
+  lmap1 = V.map
 
 instance VectorLike (Ast r (Vector r)) (Ast r r) where
   llength = AstLength
@@ -418,21 +420,10 @@ instance VectorLike (Ast r (Vector r)) (Ast r r) where
   lappend1 = AstAppend1
   lslice1 = AstSlice1
   lreverse1 = AstReverse1
+  lbuild1 = astBuild1  -- TODO: this vectorizers depth-first, but is this
+  lmap1 = astMap1      -- needed? should we vectorize the whole program instead?
 
 -- * AST-based build and map variants
-
--- Orphan instances to split a module.
-instance Under r ~ r
-         => AstVectorLike d r (Vector r) where
-  lbuildPair1 n (var, u) =
-    interpretAst IM.empty $ build1Vectorize (AstIntConst n) (var, u)
-  lmapPair1 (var, u) e =
-    interpretAst IM.empty $ map1Vectorize (var, u) (undefined e)
-
-instance IsPrimal d (Ast r (Vector r))
-         => AstVectorLike d r (Ast r (Vector r)) where
-  lbuildPair1 n (var, u) = astToD (build1Vectorize n (var, u))
-  lmapPair1 (var, u) (D w _) = astToD (map1Vectorize (var, u) w)
 
 -- Impure but in the most trivial way (only ever incremented counter).
 unsafeAstVarCounter :: Counter
@@ -443,31 +434,17 @@ unsafeGetFreshAstVar :: IO (AstVarName a)
 {-# INLINE unsafeGetFreshAstVar #-}
 unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-buildPair1
-  :: (AstVectorLike d u v, ADModeAndNumNew d u)
-  => IntOf v -> (AstVarName Int, ADVal d (Ast u u)) -> ADVal d v
-buildPair1 n (var, D u _) = lbuildPair1 n (var, u)
-
-buildAst1
-  :: (AstVectorLike d u v, ADModeAndNumNew d u)
-  => IntOf v -> (IntOf (Ast u u) -> ADVal d (Ast u u)) -> ADVal d v
-{-# NOINLINE buildAst1 #-}
-buildAst1 n f = unsafePerformIO $ do
+astBuild1 :: AstInt r -> (AstInt r -> Ast r r) -> Ast r (Vector r)
+{-# NOINLINE astBuild1 #-}
+astBuild1 n f = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
-  return $! buildPair1 n (freshAstVar, f (AstIntVar freshAstVar))
+  return $! build1Vectorize n (freshAstVar, f (AstIntVar freshAstVar))
 
-mapPair1
-  :: (AstVectorLike d u v, ADModeAndNumNew d u)
-  => (AstVarName u, ADVal d (Ast u u)) -> ADVal d v -> ADVal d v
-mapPair1 (var, D u _) = lmapPair1 (var, u)
-
-mapAst1
-  :: (AstVectorLike d u v, ADModeAndNumNew d u, IsPrimal d (Ast u u))
-  => (ADVal d (Ast u u) -> ADVal d (Ast u u)) -> ADVal d v -> ADVal d v
-{-# NOINLINE mapAst1 #-}
-mapAst1 f e = unsafePerformIO $ do
+astMap1 :: (Ast r r -> Ast r r) -> Ast r (Vector r) -> Ast r (Vector r)
+{-# NOINLINE astMap1 #-}
+astMap1 f e = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
-  return $! mapPair1 (freshAstVar, f (astToD $ AstVar freshAstVar)) e
+  return $! map1Vectorize (freshAstVar, f (AstVar freshAstVar)) e
 
 -- TODO: question: now I vectorize nested builds/maps when they are created;
 -- should I instead wait and vectorize the whole term? Probably

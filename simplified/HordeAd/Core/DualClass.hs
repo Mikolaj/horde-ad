@@ -39,7 +39,7 @@ module HordeAd.Core.DualClass
   , Under, Element, AD(..)
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
     Dual, HasRanks(..), HasInputs(..), dummyDual, astToD
-  , VectorLike(..), AstVectorLike(..)
+  , VectorLike(..)
   , -- * Internal operations, exposed for tests, debugging and experiments
     unsafeGetFreshId
   ) where
@@ -142,7 +142,6 @@ type ADModeAndNumNew (d :: ADMode) r =
   , ADModeAndNumR d (Ast (Under r) (Under r))
   , Num (IntOf r)
   , VectorLike (VectorOf r) r
-  , AstVectorLike d (Under r) (VectorOf r)
   , LiftToAst d (Under r) (Under r)
   , LiftToAst d (Ast (Under r) (Under r)) (Under r)
   , LiftToAst d r (Under r)
@@ -274,15 +273,8 @@ class VectorLike vector r | vector -> r where
   lappend1 :: vector -> vector -> vector
   lslice1 :: IntOf r -> IntOf r -> vector -> vector
   lreverse1 :: vector -> vector
-
-class u ~ Under (Element vector)
-      => AstVectorLike d u vector | vector -> u where
-  lbuildPair1 :: ADModeAndNumNew d u
-              => IntOf vector -> (AstVarName Int, Ast u u)
-              -> ADVal d vector
-  lmapPair1 :: ADModeAndNumNew d u
-            => (AstVarName u, Ast u u) -> ADVal d vector
-            -> ADVal d vector
+  lbuild1 :: IntOf r -> (IntOf r -> r) -> vector
+  lmap1 :: (r -> r) -> vector -> vector
 
 -- | Second argument is the primal component of a dual number at some rank
 -- wrt the differentiation mode given in the first argument.
