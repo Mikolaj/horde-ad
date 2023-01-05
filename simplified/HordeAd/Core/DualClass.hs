@@ -116,11 +116,8 @@ type IsPrimalAndHasInputs (d :: ADMode) a r =
 type ADModeAndNum (d :: ADMode) r =
   ( Numeric r, Show r, HasPrimal r
   , HasRanks (Vector r) d r
-  , HasRanks (Ast r (Vector r)) d (Ast r r)
   , IsPrimalAndHasFeatures d r r
-  , IsPrimalAndHasFeatures d (Ast r r) (Ast r r)
   , IsPrimalAndHasFeatures d (Vector r) r
-  , IsPrimalAndHasFeatures d (Ast r (Vector r)) (Ast r r)
   , Under r ~ r
   , IntOf (VectorOf r) ~ IntOf r
   )
@@ -131,14 +128,11 @@ type ADModeAndNumR (d :: ADMode) r =
   , IsPrimalAndHasFeatures d (VectorOf r) r
   )
 
--- @r@ can only be @Double@, @Float@, @Ast Double Double@
--- or @Ast Float Float@ and that's the domain of @VectorOf@ and @Under@.
 type ADModeAndNumNew (d :: ADMode) r =
   ( Numeric (Under r)
   , HasPrimal r
   , ADModeAndNumR d r  -- r is either of the two below, but we don't know which
   , ADModeAndNumR d (Under r)
-  , ADModeAndNumR d (Ast (Under r) (Under r))
   , Num (IntOf r)
   , VectorLike (VectorOf r) r
   , -- and finally some laws of nature:
@@ -180,12 +174,10 @@ data ADMode =
 type family Dual (d :: ADMode) a = result | result -> d a where
   Dual 'ADModeGradient Double = Delta0 Double
   Dual 'ADModeGradient Float = Delta0 Float
-  Dual 'ADModeGradient (Ast r a) = DummyDual r 'ADModeGradient a
   Dual 'ADModeGradient (Vector r) = Delta1 r
 -- not injective:  Dual 'ADModeDerivative r = r
   Dual 'ADModeDerivative Double = Double
   Dual 'ADModeDerivative Float = Float
-  Dual 'ADModeDerivative (Ast r a) = DummyDual r 'ADModeDerivative a
   Dual 'ADModeDerivative (Vector r) = Vector r
   Dual 'ADModeValue a = DummyDual a 'ADModeValue a
 
@@ -341,12 +333,6 @@ instance IsPrimal 'ADModeGradient Float where
     Let0{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta0 d
 
-instance IsPrimal 'ADModeGradient (Ast r a) where
-  dZero = DummyDual ()
-  dScale _ _ = DummyDual ()
-  dAdd _ _ = DummyDual ()
-  recordSharing _ = DummyDual ()
-
 -- | This is an impure instance. See above.
 instance IsPrimal 'ADModeGradient (Vector r) where
   dZero = Zero1
@@ -384,18 +370,6 @@ instance (Dual 'ADModeGradient r ~ Delta0 r, VectorOf r ~ Vector r)
   dReverse1 = Reverse1
   dBuild1 = Build1
 
-instance HasRanks (Ast r (Vector r)) 'ADModeGradient (Ast r r) where
-  dSumElements10 _ _ = DummyDual ()
-  dIndex10 _ _ _ = DummyDual ()
-  dDot0 _ _ = DummyDual ()
-  dFromList1 _ = DummyDual ()
-  dFromVector1 _ = DummyDual ()
-  dKonst1 _ _ = DummyDual ()
-  dAppend1 _ _ _ = DummyDual ()
-  dSlice1 _ _ _ _ = DummyDual ()
-  dReverse1 _ = DummyDual ()
-  dBuild1 _ _ = DummyDual ()
-
 
 -- * Alternative instance: forward derivatives computed on the spot
 
@@ -410,12 +384,6 @@ instance IsPrimal 'ADModeDerivative Float where
   dScale k d = k * d
   dAdd d e = d + e
   recordSharing = id
-
-instance IsPrimal 'ADModeDerivative (Ast r a) where
-  dZero = DummyDual ()
-  dScale _ _ = DummyDual ()
-  dAdd _ _ = DummyDual ()
-  recordSharing _ = DummyDual ()
 
 instance Num (Vector r)
          => IsPrimal 'ADModeDerivative (Vector r) where
@@ -438,17 +406,6 @@ instance ( Numeric r, VectorOf r ~ Vector r
   dReverse1 = V.reverse
   dBuild1 n f = V.fromList $ map f [0 .. n - 1]
 
-instance HasRanks (Ast r (Vector r)) 'ADModeDerivative (Ast r r) where
-  dSumElements10 _ _ = DummyDual ()
-  dIndex10 _ _ _ = DummyDual ()
-  dDot0 _ _ = DummyDual ()
-  dFromList1 _ = DummyDual ()
-  dFromVector1 _ = DummyDual ()
-  dKonst1 _ _ = DummyDual ()
-  dAppend1 _ _ _ = DummyDual ()
-  dSlice1 _ _ _ _ = DummyDual ()
-  dReverse1 _ = DummyDual ()
-  dBuild1 _ _ = DummyDual ()
 
 -- * Another alternative instance: only the objective function's value computed
 
@@ -463,12 +420,6 @@ instance IsPrimal 'ADModeValue Float where
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()
   recordSharing = id
-
-instance IsPrimal 'ADModeValue (Ast r a) where
-  dZero = DummyDual ()
-  dScale _ _ = DummyDual ()
-  dAdd _ _ = DummyDual ()
-  recordSharing _ = DummyDual ()
 
 instance IsPrimal 'ADModeValue (Vector r) where
   dZero = DummyDual ()
