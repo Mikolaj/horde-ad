@@ -33,7 +33,8 @@ data Ast :: Type -> Type -> Type where
             -> Ast r (Vector r) -> Ast r (Vector r) -> Ast r (Vector r)
   AstConst :: a -> Ast r a
 
-  AstVar :: AstVarName r -> Ast r r
+  AstVar0 :: AstVarName r -> Ast r r
+  AstVar1 :: AstVarName (Vector r) -> Ast r (Vector r)
 
   AstMinElement :: Ast r (Vector r) -> Ast r r
   AstMaxElement :: Ast r (Vector r) -> Ast r r
@@ -70,8 +71,9 @@ type Ast1 r = Ast r (Vector r)
 newtype AstVarName t = AstVarName Int
   deriving (Show, Eq)
 
-data AstVar a =
-    AstVar0 a
+data AstVar a0 a1 =
+    AstVarR0 a0
+  | AstVarR1 a1
   | AstVarI Int
 
 data AstInt :: Type -> Type where

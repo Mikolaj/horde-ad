@@ -455,7 +455,7 @@ astMap1 :: (Ast r r -> Ast r r) -> Ast r (Vector r) -> Ast r (Vector r)
 {-# NOINLINE astMap1 #-}
 astMap1 f e = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
-  return $! map1Vectorize (freshAstVar, f (AstVar freshAstVar)) e
+  return $! map1Vectorize (freshAstVar, f (AstVar0 freshAstVar)) e
 
 -- TODO: question: now I vectorize nested builds/maps when they are created;
 -- should I instead wait and vectorize the whole term? Probably
@@ -484,8 +484,8 @@ build1Vectorize n (var, u) =
       AstSelect n (var, b)
                 (build1Vectorize n (var, x))
                 (build1Vectorize n (var, y))
-    AstConst _r -> error "build1Vectorize: can't have free variables"
-    AstVar _var2 -> error "build1Vectorize: can't have free int variables"
+    AstConst _r -> error "build1Vectorize: can't have free int variables"
+    AstVar0 _var2 -> error "build1Vectorize: can't have free int variables"
     AstMinElement _v ->
       AstBuildPair1 n (var, u)
         -- Vectors are assumed to be huge, so it's not possible to perform
@@ -567,7 +567,8 @@ intVarInAst var v = case v of
     var == var2 || intVarInAst var x || intVarInAst var y
       -- TODO: check in n and b
   AstConst{} -> False
-  AstVar{} -> False  -- not an int variable
+  AstVar0{} -> False  -- not an int variable
+  AstVar1{} -> False  -- not an int variable
   AstFromList1 l -> or $ map (intVarInAst var) l  -- down from rank 1 to 0
   AstFromVector1 vl -> or $ map (intVarInAst var) $ V.toList vl
   _ -> True  -- conservative, TODO
@@ -612,8 +613,8 @@ map1Vectorize (var, u) w = case u of
     AstOp codeOut $ map (\x -> map1Vectorize (var, x) w) args
   AstCond _b _x1 _x2 -> AstMapPair1 (var, u) w  -- TODO
   AstConst r -> AstKonst1 (AstConst r) (AstLength w)
-  AstVar var2 | var2 == var -> w  -- identity mapping
-  AstVar var2 -> AstKonst1 (AstVar var2) (AstLength w)
+  AstVar0 var2 | var2 == var -> w  -- identity mapping
+  AstVar0 var2 -> AstKonst1 (AstVar0 var2) (AstLength w)
   AstMinElement _v -> AstMapPair1 (var, u) w  -- TODO
   AstMaxElement _v -> AstMapPair1 (var, u) w  -- TODO
   AstSumElements10 _v -> AstMapPair1 (var, u) w  -- TODO
@@ -633,21 +634,24 @@ gtIntAst i j = AstRelInt GtOut [i, j]
 
 interpretLambdaD0
   :: (ADModeAndNumNew d r, Under r ~ r, IsPrimalAndHasFeatures d a r)
-  => IM.IntMap (AstVar (ADVal d r)) -> (AstVarName r, Ast r a)
+  => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vector r)))
+  -> (AstVarName r, Ast r a)
   -> ADVal d r -> ADVal d a
 interpretLambdaD0 env (AstVarName var, ast) =
-  \d -> interpretAst (IM.insert var (AstVar0 d) env) ast
+  \d -> interpretAst (IM.insert var (AstVarR0 d) env) ast
 
 interpretLambdaI
   :: (ADModeAndNumNew d r, Under r ~ r, IsPrimalAndHasFeatures d a r)
-  => IM.IntMap (AstVar (ADVal d r)) -> (AstVarName Int, Ast r a)
+  => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vector r)))
+  -> (AstVarName Int, Ast r a)
   -> Int -> ADVal d a
 interpretLambdaI env (AstVarName var, ast) =
   \i -> interpretAst (IM.insert var (AstVarI i) env) ast
 
 interpretAst
   :: (ADModeAndNumNew d r, Under r ~ r, IsPrimalAndHasFeatures d a r)
-  => IM.IntMap (AstVar (ADVal d r)) -> Ast r a -> ADVal d a
+  => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vector r)))
+  -> Ast r a -> ADVal d a
 interpretAst env = \case
   AstOp codeOut args ->
     interpretAstOp (interpretAst env) codeOut args
@@ -664,8 +668,16 @@ interpretAst env = \case
         v2 = interpretAst env a2
     in bitmap * v1 + v2 - bitmap * v2
   AstConst a -> constant a
-  AstVar (AstVarName var) -> case IM.lookup var env of
-    Just (AstVar0 d) -> d
+  AstVar0 (AstVarName var) -> case IM.lookup var env of
+    Just (AstVarR0 d) -> d
+    Just AstVarR1{} ->
+      error $ "interpretAst: type mismatch for var " ++ show var
+    Just AstVarI{} -> error $ "interpretAst: type mismatch for var " ++ show var
+    Nothing -> error $ "interpretAst: unknown variable var " ++ show var
+  AstVar1 (AstVarName var) -> case IM.lookup var env of
+    Just AstVarR0{} ->
+      error $ "interpretAst: type mismatch for var " ++ show var
+    Just (AstVarR1 d) -> d
     Just AstVarI{} -> error $ "interpretAst: type mismatch for var " ++ show var
     Nothing -> error $ "interpretAst: unknown variable var " ++ show var
   AstMinElement v -> minimum0 $ interpretAst env v
@@ -701,7 +713,8 @@ interpretAst env = \case
   AstOMap1{} -> error "TODO: AstOMap1"
 
 interpretAstInt :: (ADModeAndNumNew d r, Under r ~ r)
-                => IM.IntMap (AstVar (ADVal d r)) -> AstInt r -> Int
+                => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vector r)))
+                -> AstInt r -> Int
 interpretAstInt env = \case
   AstIntOp codeIntOut args ->
     interpretAstIntOp (interpretAstInt env) codeIntOut args
@@ -710,7 +723,9 @@ interpretAstInt env = \case
                         else interpretAstInt env a2
   AstIntConst a -> a
   AstIntVar (AstVarName var) -> case IM.lookup var env of
-    Just AstVar0{} ->
+    Just AstVarR0{} ->
+      error $ "interpretAstP: type mismatch for var " ++ show var
+    Just AstVarR1{} ->
       error $ "interpretAstP: type mismatch for var " ++ show var
     Just (AstVarI i) -> i
     Nothing -> error $ "interpretAstP: unknown variable var " ++ show var
@@ -719,7 +734,8 @@ interpretAstInt env = \case
   AstMaxIndex v -> LA.maxIndex $ let D u _u' = interpretAst env v in u
 
 interpretAstBool :: (ADModeAndNumNew d r, Under r ~ r)
-                 => IM.IntMap (AstVar (ADVal d r)) -> AstBool r -> Bool
+                 => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vector r)))
+                 -> AstBool r -> Bool
 interpretAstBool env = \case
   AstBoolOp codeBoolOut args ->
     interpretAstBoolOp (interpretAstBool env) codeBoolOut args
