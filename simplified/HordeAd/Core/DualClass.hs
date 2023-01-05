@@ -36,7 +36,7 @@ module HordeAd.Core.DualClass
   , -- * The less often used part of the mid-level API that gets re-exported in high-level API; it leaks implementation details
     pattern D
   , IsPrimal(..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
-  , Under, Element, HasPrimal(..)
+  , Element, HasPrimal(..)
   , VectorLike(..), ADReady
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
     Dual, HasRanks(..), HasInputs(..), dummyDual
@@ -118,7 +118,6 @@ type ADModeAndNum (d :: ADMode) r =
   , HasRanks (Vector r) d r
   , IsPrimalAndHasFeatures d r r
   , IsPrimalAndHasFeatures d (Vector r) r
-  , Under r ~ r
   , IntOf (VectorOf r) ~ IntOf r
   )
 
@@ -129,18 +128,14 @@ type ADModeAndNumR (d :: ADMode) r =
   )
 
 type ADModeAndNumNew (d :: ADMode) r =
-  ( Numeric (Under r)
+  ( Numeric r
   , HasPrimal r
   , ADModeAndNumR d r  -- r is either of the two below, but we don't know which
-  , ADModeAndNumR d (Under r)
+  , ADModeAndNumR d r
   , Num (IntOf r)
   , VectorLike (VectorOf r) r
   , -- and finally some laws of nature:
-    Under (Under r) ~ Under r
-  , Under (VectorOf r) ~ Under r
-  , VectorOf (Under r) ~ Vector (Under r)
-  , IntOf (VectorOf r) ~ IntOf r
-  , IntOf (Under r) ~ Int
+    IntOf (VectorOf r) ~ IntOf r
   )
 
 -- | Is a scalar and will be used to compute gradients via delta-expressions.
@@ -198,12 +193,6 @@ type family VectorOf a = result | result -> a where
   VectorOf Double = Vector Double
   VectorOf Float = Vector Float
   VectorOf (Ast r r) = Ast r (Vector r)
-
-type family Under a where
-  Under Double = Double
-  Under Float = Float
-  Under (Ast u a) = u
-  Under (Vector u) = u
 
 -- We could accept any @RealFloat@ instead of @PrimalOf a@, but then
 -- we'd need to coerce, e.g., via realToFrac, which is risky and lossy.

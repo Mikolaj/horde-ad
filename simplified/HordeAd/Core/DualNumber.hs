@@ -15,7 +15,7 @@ module HordeAd.Core.DualNumber
   , ADMode(..), ADModeAndNum, ADModeAndNumNew
   , IntOf, VectorOf
   , IsPrimal (..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
-  , Under, Element, HasPrimal(..)
+  , Element, HasPrimal(..)
   , VectorLike(..), ADReady
   , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
   , -- temporarily re-exported, until these are wrapped in sugar
@@ -628,7 +628,7 @@ gtIntAst :: AstInt r -> AstInt r -> AstBool r
 gtIntAst i j = AstRelInt GtOut [i, j]
 
 interpretLambdaD0
-  :: (ADModeAndNumNew d r, Under r ~ r, IsPrimalAndHasFeatures d a r)
+  :: (ADModeAndNumNew d r, VectorOf r ~ Vector r, IsPrimalAndHasFeatures d a r)
   => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vector r)))
   -> (AstVarName r, Ast r a)
   -> ADVal d r -> ADVal d a
@@ -636,7 +636,7 @@ interpretLambdaD0 env (AstVarName var, ast) =
   \d -> interpretAst (IM.insert var (AstVarR0 d) env) ast
 
 interpretLambdaI
-  :: (ADModeAndNumNew d r, Under r ~ r, IsPrimalAndHasFeatures d a r)
+  :: (ADModeAndNumNew d r, VectorOf r ~ Vector r, IsPrimalAndHasFeatures d a r)
   => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vector r)))
   -> (AstVarName Int, Ast r a)
   -> Int -> ADVal d a
@@ -644,7 +644,7 @@ interpretLambdaI env (AstVarName var, ast) =
   \i -> interpretAst (IM.insert var (AstVarI i) env) ast
 
 interpretAst
-  :: (ADModeAndNumNew d r, Under r ~ r, IsPrimalAndHasFeatures d a r)
+  :: (ADModeAndNumNew d r, VectorOf r ~ Vector r, IsPrimalAndHasFeatures d a r)
   => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vector r)))
   -> Ast r a -> ADVal d a
 interpretAst env = \case
@@ -707,7 +707,7 @@ interpretAst env = \case
       -- fallback to POPL (memory blowup, but avoids functions on tape)
   AstOMap1{} -> error "TODO: AstOMap1"
 
-interpretAstInt :: (ADModeAndNumNew d r, Under r ~ r)
+interpretAstInt :: (ADModeAndNumNew d r, VectorOf r ~ Vector r)
                 => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vector r)))
                 -> AstInt r -> Int
 interpretAstInt env = \case
@@ -728,7 +728,7 @@ interpretAstInt env = \case
   AstMinIndex v -> LA.minIndex $ let D u _u' = interpretAst env v in u
   AstMaxIndex v -> LA.maxIndex $ let D u _u' = interpretAst env v in u
 
-interpretAstBool :: (ADModeAndNumNew d r, Under r ~ r)
+interpretAstBool :: (ADModeAndNumNew d r, VectorOf r ~ Vector r)
                  => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vector r)))
                  -> AstBool r -> Bool
 interpretAstBool env = \case
