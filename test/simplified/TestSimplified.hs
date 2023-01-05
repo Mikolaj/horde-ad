@@ -33,6 +33,11 @@ bar (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2 x w + y * w
 
+barAst :: RealFloat r => (Ast r r, Ast r r) -> Ast r r
+barAst (x, y) =
+  let w = foo (x, y, x) * sin y
+  in atan2 x w + y * w
+
 fooBuild1 :: ADReady r => VectorOf r -> VectorOf r
 fooBuild1 v =
   let r = lsumElements10 v
@@ -52,12 +57,12 @@ fooMap1 r =
 -- and so falls back to POPL.
 -- Also, we haven't defined a class for conditionals so far,
 -- so this uses raw AST instead of sufficiently polymorphic code.
-fooNoGo :: (Numeric r, Fractional r, Num (Vector r))
+fooNoGo :: (Numeric r, RealFloat r, Num (Vector r))
         => Ast r (Vector r) -> Ast r (Vector r)
 fooNoGo v =
   let r = lsumElements10 v
   in lbuild1 3 (\ix ->
-       lindex10 v ix
+       barAst (3.14, bar (3.14, lindex10 v ix))
        + AstCond (AstBoolOp AndOut  -- TODO: overload &&, <=, >, etc.
                             [ lindex10 v (ix * 2) `leqAst` 0
                             , 6 `gtIntAst` abs ix ])
@@ -118,7 +123,7 @@ testFooNoGo =
        (domainsFrom01 V.empty
                       (V.singleton (V.fromList
                                       [1.1 :: Double, 2.2, 3.3, 4, 5]))))
-  @?~ V.singleton (V.fromList [5.492424242424241,-11.002066115702474,-2.0766758494031228,-4.33712121212122e-2,5.037878787878787])
+  @?~ V.singleton (V.fromList [344.3405885672822,-396.1811403813819,7.735358041386672,-0.8403418295960372,5.037878787878787])
 
 testNestedBuildMap :: Assertion
 testNestedBuildMap =
