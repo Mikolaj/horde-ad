@@ -384,6 +384,41 @@ map1Closure
 map1Closure f d@(D v _) = build1Closure (llength v) $ \i -> f (index10 d i)
 
 
+-- * Instances of VectorLike
+
+instance (Numeric r, IntOf r ~ Int)
+         => VectorLike (Vector r) r where
+  llength = V.length
+  lminElement = LA.minElement
+  lmaxElement = LA.maxElement
+  lminIndex = LA.minIndex
+  lmaxIndex = LA.maxIndex
+  lsumElements10 = LA.sumElements
+  lindex10 = (V.!)
+  ldot0 = (LA.<.>)
+  lfromList1 = V.fromList
+  lfromVector1 = V.convert
+  lkonst1 = LA.konst
+  lappend1 = (V.++)
+  lslice1 = V.slice
+  lreverse1 = V.reverse
+
+instance VectorLike (Ast r (Vector r)) (Ast r r) where
+  llength = AstLength
+  lminElement = AstMinElement
+  lmaxElement = AstMaxElement
+  lminIndex = AstMinIndex
+  lmaxIndex = AstMaxIndex
+  lsumElements10 = AstSumElements10
+  lindex10 = AstIndex10
+  ldot0 = AstDot0
+  lfromList1 = AstFromList1
+  lfromVector1 = AstFromVector1
+  lkonst1 = AstKonst1
+  lappend1 = AstAppend1
+  lslice1 = AstSlice1
+  lreverse1 = AstReverse1
+
 -- * AST-based build and map variants
 
 -- Orphan instances to split a module.
