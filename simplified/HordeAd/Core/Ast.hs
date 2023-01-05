@@ -4,30 +4,10 @@
              UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
--- | The class defining dual components of dual numbers and
--- the dual number type itself, hiding its constructor, but exposing
--- a couple of smart constructors.
---
--- This module defines the relevant classes, type families,
--- constraints and instances for the dual numbers data structure.
--- This is a mid-level API ("HordeAd.Internal.Delta" is low level)
--- used to define types and operations in "HordeAd.Core.DualNumber"
--- that is the foundation of the high-level API.
---
--- This module contains impurity, which produces pure data with a particular
--- property. The property is an order of per-node integer identifiers
--- that represents data dependencies and sharing. The low-level API
--- depends on this property, but is completely isolated from the impurity.
--- The high-level API invokes the impurity through smart constructors,
--- but can't observe any impure behaviour. Neither can any other module
--- in the package, except for the testing modules that import
--- testing-exclusive operations and instances.
---
--- @Show@ is such a testing-only instance and so should be used
--- only in debugging or testing. Similarly, instances such as @Eq@
--- or @Read@ should not be auto-derived, but carefully crafted to respect
--- sharing. This applies regardless of impurity, because repeated processing
--- of the same shared terms is prohibitive expensive.
+-- | AST of the code to be differentiated. It's needed mostly for handling
+-- higher order operations such as build and map, but can be used
+-- for arbitrary code transformations at the cost of limiting
+-- expressiveness of transformed fragments to what AST captures.
 module HordeAd.Core.Ast
   ( Ast(..), Ast0, Ast1, AstVarName(..), AstVar(..), AstInt(..), AstBool(..)
   , CodeOut(..), CodeIntOut(..), CodeBoolOut(..), RelOut(..)
@@ -45,8 +25,7 @@ import           Text.Show.Functions ()
 
 -- TODO: consider sharing Ast expressions, both within the primal part
 -- and between primal and dual
--- | @Ast@ turns primal values and their operations into AST-building
--- counterparts.
+-- | AST of the code to be differentiated.
 data Ast :: Type -> Type -> Type where
   AstOp :: CodeOut -> [Ast r a] -> Ast r a
   AstCond :: AstBool r -> Ast r a -> Ast r a -> Ast r a
