@@ -37,9 +37,9 @@ module HordeAd.Core.DualClass
     pattern D
   , IsPrimal(..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
   , Under, Element, HasPrimal(..)
+  , VectorLike(..), ADReady
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
     Dual, HasRanks(..), HasInputs(..), dummyDual, astToD
-  , VectorLike(..)
   , -- * Internal operations, exposed for tests, debugging and experiments
     unsafeGetFreshId
   ) where
@@ -114,7 +114,7 @@ type IsPrimalAndHasInputs (d :: ADMode) a r =
 -- scalar type of a well behaved (wrt the differentiation mode in the first
 -- argument) collection of primal and dual components of dual numbers.
 type ADModeAndNum (d :: ADMode) r =
-  ( Numeric r, Show r
+  ( Numeric r, Show r, HasPrimal r
   , HasRanks (Vector r) d r
   , HasRanks (Ast r (Vector r)) d (Ast r r)
   , IsPrimalAndHasFeatures d r r
@@ -137,6 +137,7 @@ type ADModeAndNumR (d :: ADMode) r =
 -- or @Ast Float Float@ and that's the domain of @VectorOf@ and @Under@.
 type ADModeAndNumNew (d :: ADMode) r =
   ( Numeric (Under r)
+  , HasPrimal r
   , ADModeAndNumR d r  -- r is either of the two below, but we don't know which
   , ADModeAndNumR d (Under r)
   , ADModeAndNumR d (Ast (Under r) (Under r))
@@ -235,7 +236,7 @@ type family IntOf a where
   IntOf (Vector r) = Int
   IntOf (Ast r a) = AstInt r
 
-type family VectorOf a where
+type family VectorOf a = result | result -> a where
   VectorOf Double = Vector Double
   VectorOf Float = Vector Float
   VectorOf (Ast r r) = Ast r (Vector r)
@@ -275,6 +276,9 @@ class VectorLike vector r | vector -> r where
   lreverse1 :: vector -> vector
   lbuild1 :: IntOf r -> (IntOf r -> r) -> vector
   lmap1 :: (r -> r) -> vector -> vector
+
+type ADReady r =
+  (RealFloat r, HasPrimal r, HasPrimal (VectorOf r), VectorLike (VectorOf r) r)
 
 -- | Second argument is the primal component of a dual number at some rank
 -- wrt the differentiation mode given in the first argument.

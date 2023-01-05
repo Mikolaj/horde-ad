@@ -16,6 +16,7 @@ module HordeAd.Core.DualNumber
   , liftToAst, IntOf, VectorOf
   , IsPrimal (..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
   , Under, Element, HasPrimal(..)
+  , VectorLike(..), ADReady
   , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
   , -- temporarily re-exported, until these are wrapped in sugar
     Ast(..), Ast0, Ast1, AstVarName(..), AstVar(..), AstInt(..), AstBool(..)
@@ -158,21 +159,31 @@ instance IsPrimal d a => HasPrimal (ADVal d a) where
   type PrimalOf (ADVal d a) = a
   constant a = dD a dZero
   scale a (D u u') = dD (a * u) (dScale a u')
+  primalPart (D u _) = u
 
 instance HasPrimal Float where
   type PrimalOf Float = Float
   constant = id
   scale = (*)
+  primalPart = id
 
 instance HasPrimal Double where
   type PrimalOf Double = Double
   constant = id
   scale = (*)
+  primalPart = id
 
 instance HasPrimal (Vector r) where
   type PrimalOf (Vector r) = Vector r
   constant = id
   scale = (*)
+  primalPart = id
+
+instance HasPrimal (Ast r a) where
+  type PrimalOf (Ast r a) = Ast r a
+  constant = id
+  scale a b = AstOp TimesOut [a, b]
+  primalPart = id
 
 logistic :: (Floating a, IsPrimal d a) => ADVal d a -> ADVal d a
 logistic (D u u') =
