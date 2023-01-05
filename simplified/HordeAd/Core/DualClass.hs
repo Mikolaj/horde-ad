@@ -114,24 +114,21 @@ type IsPrimalAndHasInputs (d :: ADMode) a r =
 -- scalar type of a well behaved (wrt the differentiation mode in the first
 -- argument) collection of primal and dual components of dual numbers.
 type ADModeAndNum (d :: ADMode) r =
-  ( Numeric r, Show r, HasPrimal r
+  ( Numeric r
+  , Show r
+  , HasPrimal r
   , HasRanks (Vector r) d r
   , IsPrimalAndHasFeatures d r r
   , IsPrimalAndHasFeatures d (Vector r) r
   , IntOf (VectorOf r) ~ IntOf r
   )
 
-type ADModeAndNumR (d :: ADMode) r =
-  ( HasRanks (VectorOf r) d r
-  , IsPrimalAndHasFeatures d r r
-  , IsPrimalAndHasFeatures d (VectorOf r) r
-  )
-
 type ADModeAndNumNew (d :: ADMode) r =
   ( Numeric r
   , HasPrimal r
-  , ADModeAndNumR d r  -- r is either of the two below, but we don't know which
-  , ADModeAndNumR d r
+  , HasRanks (VectorOf r) d r
+  , IsPrimalAndHasFeatures d r r
+  , IsPrimalAndHasFeatures d (VectorOf r) r
   , Num (IntOf r)
   , VectorLike (VectorOf r) r
   , -- and finally some laws of nature:
@@ -174,13 +171,13 @@ type family Dual (d :: ADMode) a = result | result -> d a where
   Dual 'ADModeDerivative Double = Double
   Dual 'ADModeDerivative Float = Float
   Dual 'ADModeDerivative (Vector r) = Vector r
-  Dual 'ADModeValue a = DummyDual a 'ADModeValue a
+  Dual 'ADModeValue a = DummyDual a 'ADModeValue
 
 -- A bit more verbose, but a bit faster than @data@, perhaps by chance.
-newtype DummyDual r (d :: ADMode) a = DummyDual ()
+newtype DummyDual r (d :: ADMode) = DummyDual ()
   deriving Show
 
-dummyDual :: DummyDual r d a
+dummyDual :: DummyDual r d
 dummyDual = DummyDual ()
 
 type family IntOf a where
