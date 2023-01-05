@@ -210,11 +210,6 @@ reluLeaky v =
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) (primalPart v)
   in scale oneIfGtZero v
 
-condAst :: IsPrimal d (Ast r a)
-        => AstBool r -> ADVal d (Ast r a) -> ADVal d (Ast r a)
-        -> ADVal d (Ast r a)
-condAst b (D d _) (D e _) = astToD (AstCond b d e)
-
 
 -- * Operations resulting in a scalar
 
@@ -623,11 +618,11 @@ map1Vectorize (var, u) w = case u of
   AstDot0 _u _v -> AstMapPair1 (var, u) w  -- TODO
   -- All other patterns are redundant due to GADT typing.
 
-leqAst :: ADVal d (Ast r r) -> ADVal d (Ast r r) -> AstBool r
-leqAst (D d _) (D e _) = AstRel LeqOut [d, e]
+leqAst :: Ast r r -> Ast r r -> AstBool r
+leqAst d e = AstRel LeqOut [d, e]
 
-gtAst :: ADVal d (Ast r r) -> ADVal d (Ast r r) -> AstBool r
-gtAst (D d _) (D e _) = AstRel GtOut [d, e]
+gtAst :: Ast r r -> Ast r r -> AstBool r
+gtAst d e = AstRel GtOut [d, e]
 
 gtIntAst :: AstInt r -> AstInt r -> AstBool r
 gtIntAst i j = AstRelInt GtOut [i, j]

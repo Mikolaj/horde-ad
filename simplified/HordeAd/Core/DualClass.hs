@@ -278,7 +278,8 @@ class VectorLike vector r | vector -> r where
   lmap1 :: (r -> r) -> vector -> vector
 
 type ADReady r =
-  (RealFloat r, HasPrimal r, HasPrimal (VectorOf r), VectorLike (VectorOf r) r)
+  ( RealFloat r, HasPrimal r, HasPrimal (VectorOf r), VectorLike (VectorOf r) r
+  , Integral (IntOf r), Fractional (VectorOf r) )
 
 -- | Second argument is the primal component of a dual number at some rank
 -- wrt the differentiation mode given in the first argument.
