@@ -328,16 +328,16 @@ reverse1 = lreverse1
 -- No padding; remaining areas ignored.
 maxPool1 :: ADModeAndNum d r
          => Int -> Int -> ADVal d (Vector r) -> ADVal d (Vector r)
-maxPool1 ksize stride v@(D u _) =
-  let slices = [slice1 i ksize v | i <- [0, stride .. V.length u - ksize]]
+maxPool1 ksize stride v =
+  let slices = [slice1 i ksize v | i <- [0, stride .. llength v - ksize]]
   in fromList1 $ map maximum0 slices
 
 softMaxV :: ADModeAndNum d r
          => ADVal d (Vector r) -> ADVal d (Vector r)
-softMaxV d@(D u _) =
+softMaxV d =
   let expU = exp d  -- shared in 2 places, though cse may do this for us
       sumExpU = sumElements10 expU
-  in konst1 (recip sumExpU) (llength u) * expU
+  in konst1 (recip sumExpU) (llength d) * expU
 
 
 -- * Build and map variants
@@ -374,16 +374,16 @@ map1POPL f vd = V.map f vd
 map1Elementwise
   :: ADModeAndNum d r
   => (ADVal d r -> ADVal d r) -> ADVal d (Vector r) -> ADVal d (Vector r)
-map1Elementwise f d@(D v _v') =
-  build1Elementwise (llength v) $ \i -> f (index10 d i)
+map1Elementwise f d =
+  build1Elementwise (llength d) $ \i -> f (index10 d i)
     -- equivalent to
     -- @fromVector1 . map1POPL f . rank1toVector
-    --   where rank1toVector d@(D v _v') = V.generate (V.length v) (index10 d)@
+    --   where rank1toVector d@(D v _v') = V.generate (llength d) (index10 d)@
 
 map1Closure
   :: ADModeAndNum d r
   => (ADVal d r -> ADVal d r) -> ADVal d (Vector r) -> ADVal d (Vector r)
-map1Closure f d@(D v _) = build1Closure (llength v) $ \i -> f (index10 d i)
+map1Closure f d = build1Closure (llength d) $ \i -> f (index10 d i)
 
 
 -- * Instances of VectorLike
