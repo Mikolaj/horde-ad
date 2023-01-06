@@ -17,10 +17,12 @@ module HordeAd.Core.Ast
 
 import Prelude
 
+import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Type)
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import qualified Data.Strict.Vector as Data.Vector
 import           Numeric.LinearAlgebra (Numeric, Vector, arctan2)
+import           System.IO.Unsafe (unsafePerformIO)
 import           Text.Show.Functions ()
 
 -- * Definitions
@@ -60,7 +62,7 @@ data Ast :: Type -> Type -> Type where
   AstMapPair1 :: (AstVarName r, Ast r r) -> Ast r (Vector r)
               -> Ast r (Vector r)
 
-  AstOMap1 :: (Ast r r -> Ast r r) -> Ast r (Vector r)
+  AstOMap1 :: (AstVarName r, Ast r r) -> Ast r (Vector r)
            -> Ast r (Vector r)
     -- TODO: this is necessary for MonoFunctor and so for a particularly
     -- fast implementation of relu, but this introduces a closure on tape;
@@ -243,11 +245,26 @@ deriving instance Fractional (Ast r a) => Fractional (AstPrimalPart r a)
 
 type instance Element (AstPrimalPart r a) = AstPrimalPart r (Element a)
 
+-- Impure but in the most trivial way (only ever incremented counter).
+unsafeAstVarCounter :: Counter
+{-# NOINLINE unsafeAstVarCounter #-}
+unsafeAstVarCounter = unsafePerformIO (newCounter 0)
+
+unsafeGetFreshAstVar :: IO (AstVarName a)
+{-# INLINE unsafeGetFreshAstVar #-}
+unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
+
+astOmap :: (Ast r r -> Ast r r) -> Ast r (Vector r) -> Ast r (Vector r)
+{-# NOINLINE astOmap #-}
+astOmap f e = unsafePerformIO $ do
+  freshAstVar <- unsafeGetFreshAstVar
+  return $! AstOMap1 (freshAstVar, f (AstVar0 freshAstVar)) e
+
 instance MonoFunctor (AstPrimalPart r (Vector r)) where
   omap f (AstPrimalPart x) =
     let g y = let AstPrimalPart z = f (AstPrimalPart y)
               in z
-    in AstPrimalPart (AstOMap1 g x)
+    in AstPrimalPart (astOmap g x)
 
 instance MonoFunctor (AstPrimalPart Double Double) where
   omap f = f
