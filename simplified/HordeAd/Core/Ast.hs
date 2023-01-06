@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP, ConstraintKinds, DataKinds, FlexibleInstances,
-             FunctionalDependencies, GADTs, MultiParamTypeClasses, PolyKinds,
-             QuantifiedConstraints, StandaloneDeriving, TypeFamilyDependencies,
+             FunctionalDependencies, GADTs, GeneralizedNewtypeDeriving,
+             MultiParamTypeClasses, PolyKinds, QuantifiedConstraints,
+             StandaloneDeriving, TypeFamilyDependencies,
              UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
@@ -9,7 +10,8 @@
 -- for arbitrary code transformations at the cost of limiting
 -- expressiveness of transformed fragments to what AST captures.
 module HordeAd.Core.Ast
-  ( Ast(..), AstVarName(..), AstVar(..), AstInt(..), AstBool(..)
+  ( Ast(..), AstPrimalPart(..), AstVarName(..), AstVar(..)
+  , AstInt(..), AstBool(..)
   , CodeOut(..), CodeIntOut(..), CodeBoolOut(..), RelOut(..)
   ) where
 
@@ -31,7 +33,9 @@ data Ast :: Type -> Type -> Type where
   AstCond :: AstBool r -> Ast r a -> Ast r a -> Ast r a
   AstSelect :: AstInt r -> (AstVarName Int, AstBool r)
             -> Ast r (Vector r) -> Ast r (Vector r) -> Ast r (Vector r)
-  AstConst :: a -> Ast r a
+  AstConst :: a -> Ast r a  -- sort of partially evaluated @AstConstant@
+  AstConstant :: AstPrimalPart r a -> Ast r a
+  AstScale :: AstPrimalPart r a -> Ast r a -> Ast r a
 
   AstVar0 :: AstVarName r -> Ast r r
   AstVar1 :: AstVarName (Vector r) -> Ast r (Vector r)
@@ -63,6 +67,22 @@ data Ast :: Type -> Type -> Type where
     -- we may need to hack around this by substituting MonoFunctor
     -- with something similar to AstVectorLike or by optimizing map1 enough
     -- that it's as fast in such a simple case
+    -- TODO: this is really only needed in AstPrimalPart, but making it
+    -- data instead of a newtype would complicate a lot
+
+newtype AstPrimalPart r a = AstPrimalPart (Ast r a)
+
+instance Eq (AstPrimalPart r a) where
+
+instance Ord a => Ord (AstPrimalPart r a) where
+  max (AstPrimalPart u) (AstPrimalPart v) = AstPrimalPart (AstOp MaxOut [u, v])
+  min (AstPrimalPart u) (AstPrimalPart v) = AstPrimalPart (AstOp MinOut [u, v])
+    -- unfortunately, the others can't be made to return @AstBool@
+
+deriving instance Num (Ast r a) => Num (AstPrimalPart r a)
+deriving instance (Real (Ast r a), Ord a) => Real (AstPrimalPart r a)
+deriving instance Fractional (Ast r a) => Fractional (AstPrimalPart r a)
+-- TODO: etc.
 
 newtype AstVarName t = AstVarName Int
   deriving (Show, Eq)
@@ -221,17 +241,23 @@ instance Enum (AstInt r) where
 instance Integral (AstInt r) where
   -- TODO
 
-type instance Element (Ast r (Vector r)) = Ast r r
+type instance Element (AstPrimalPart r (Vector r)) =
+  AstPrimalPart r r
 
-type instance Element (Ast Double Double) = Ast Double Double
+type instance Element (AstPrimalPart Double Double) =
+  AstPrimalPart Double Double
 
-type instance Element (Ast Float Float) = Ast Float Float
+type instance Element (AstPrimalPart Float Float) =
+  AstPrimalPart Float Float
 
-instance MonoFunctor (Ast r (Vector r)) where
-  omap = AstOMap1
+instance MonoFunctor (AstPrimalPart r (Vector r)) where
+  omap f (AstPrimalPart x) =
+    let g y = let AstPrimalPart z = f (AstPrimalPart y)
+              in z
+    in AstPrimalPart (AstOMap1 g x)
 
-instance MonoFunctor (Ast Double Double) where
+instance MonoFunctor (AstPrimalPart Double Double) where
   omap f = f
 
-instance MonoFunctor (Ast Float Float) where
+instance MonoFunctor (AstPrimalPart Float Float) where
   omap f = f

@@ -19,7 +19,8 @@ module HordeAd.Core.DualNumber
   , VectorLike(..), ADReady
   , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
   , -- temporarily re-exported, until these are wrapped in sugar
-    Ast(..), AstVarName(..), AstVar(..), AstInt(..), AstBool(..)
+    Ast(..), AstPrimalPart(..), AstVarName(..), AstVar(..)
+  , AstInt(..), AstBool(..)
   , CodeOut(..), CodeIntOut(..), CodeBoolOut(..), RelOut(..)
   ) where
 
@@ -192,13 +193,13 @@ instance HasPrimal (Vector r) where
   ddD u _ = u
 
 instance HasPrimal (Ast r a) where
-  type PrimalOf (Ast r a) = Ast r a  -- TODO: newtype AstPrimalPart
+  type PrimalOf (Ast r a) = AstPrimalPart r a
   type DualOf (Ast r a) = ()  -- TODO: data AstDualPart: dScale, dAdd, dkonst1
-  constant = id
-  scale a b = AstOp TimesOut [a, b]
-  primalPart = id
-  dualPart _ = ()
-  ddD u _ = u
+  constant = AstConstant
+  scale = AstScale
+  primalPart = AstPrimalPart
+  dualPart = error "TODO"
+  ddD = error "TODO"
 
 logistic :: (Floating a, IsPrimal d a) => ADVal d a -> ADVal d a
 logistic (D u u') =
@@ -214,8 +215,8 @@ squaredDifference :: (Num a, IsPrimal d a)
 squaredDifference targ res = square $ res - constant targ
 
 relu, reluLeaky
-  :: ( HasPrimal a, MonoFunctor (PrimalOf a), Ord (Element (PrimalOf a))
-     , Fractional (Element (PrimalOf a)), Num (PrimalOf a) )
+  :: ( HasPrimal a, MonoFunctor (PrimalOf a), Num (PrimalOf a)
+     , Ord (Element (PrimalOf a)), Fractional (Element (PrimalOf a)) )
   => a -> a
 relu v =
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0) (primalPart v)
@@ -519,7 +520,11 @@ build1Vectorize n (var, u) =
       AstSelect n (var, b)
                 (build1Vectorize n (var, x))
                 (build1Vectorize n (var, y))
-    AstConst _r -> error "build1Vectorize: can't have free int variables"
+    AstConst{} -> error "build1Vectorize: can't have free int variables"
+    AstConstant{} -> error "build1Vectorize: can't have free int variables"
+    AstScale (AstPrimalPart r) d ->
+      AstScale (AstPrimalPart $ build1Vectorize n (var, r))
+               (build1Vectorize n (var, d))
     AstVar0 _var2 -> error "build1Vectorize: can't have free int variables"
     AstSumElements10 _v -> AstBuildPair1 n (var, u)
     AstIndex10 v i -> buildOfIndex10Vectorize n var v i
@@ -648,6 +653,10 @@ map1Vectorize (var, u) w = case u of
     AstOp codeOut $ map (\x -> map1Vectorize (var, x) w) args
   AstCond _b _x1 _x2 -> AstMapPair1 (var, u) w  -- TODO
   AstConst r -> AstKonst1 (AstConst r) (AstLength w)
+  AstConstant r -> AstKonst1 (AstConstant r) (AstLength w)
+  AstScale (AstPrimalPart r) d ->
+    AstScale (AstPrimalPart $ map1Vectorize (var, r) w)
+             (map1Vectorize (var, d) w)
   AstVar0 var2 | var2 == var -> w  -- identity mapping
   AstVar0 var2 -> AstKonst1 (AstVar0 var2) (AstLength w)
   AstSumElements10 _v -> AstMapPair1 (var, u) w  -- TODO
@@ -703,6 +712,10 @@ interpretAst env = \case
         v2 = interpretAst env a2
     in bitmap * v1 + v2 - bitmap * v2
   AstConst a -> constant a
+  AstConstant (AstPrimalPart a) ->
+    constant $ let D u _ = interpretAst env a in u
+  AstScale (AstPrimalPart r) d ->
+    scale (let D u _ = interpretAst env r in u) (interpretAst env d)
   AstVar0 (AstVarName var) -> case IM.lookup var env of
     Just (AstVarR0 d) -> d
     Just AstVarR1{} ->

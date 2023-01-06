@@ -104,16 +104,17 @@ nestedBuildMapADVal = nestedBuildMap @(ADVal d r)
 
 barRelu
   :: ( RealFloat a
-     , HasPrimal a, MonoFunctor (PrimalOf a), Ord (Element (PrimalOf a))
-     , Fractional (Element (PrimalOf a)), Num (PrimalOf a) )
+     , HasPrimal a, MonoFunctor (PrimalOf a), Num (PrimalOf a)
+     , Ord (Element (PrimalOf a)), Fractional (Element (PrimalOf a)) )
   => a -> a
 barRelu x = relu $ bar (x, relu x)
 
 barReluAst
   :: forall r a.
      ( RealFloat a
-     , MonoFunctor (Ast r a), Ord (Element (Ast r a))
-     , Fractional (Element (Ast r a)) )
+     , MonoFunctor (AstPrimalPart r a), Num (AstPrimalPart r a)
+     , Ord (Element (AstPrimalPart r a))
+     , Fractional (Element (AstPrimalPart r a)) )
   => Ast r a -> Ast r a
 barReluAst = barRelu @(Ast r a)
 
