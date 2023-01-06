@@ -18,7 +18,8 @@ import Tool.EqEpsilon
 import Prelude ()
 
 testTrees :: [TestTree]
-testTrees = [ testCase "fooBuild1" testFooBuild
+testTrees = [ testCase "barADVal" testBarADVal
+            , testCase "fooBuild1" testFooBuild
             , testCase "fooMap1" testFooMap
             , testCase "fooNoGo" testFooNoGo
             , testCase "nestedBuildMap" testNestedBuildMap ]
@@ -28,7 +29,7 @@ foo (x,y,z) =
   let w = x * sin y
   in atan2 z w + z * w
 
-bar :: RealFloat a => (a, a) -> a
+bar :: forall a. RealFloat a => (a, a) -> a
 bar (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2 x w + y * w
@@ -37,6 +38,9 @@ barAst :: RealFloat r => (Ast r r, Ast r r) -> Ast r r
 barAst (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2 x w + y * w
+
+barADVal :: forall r d. ADModeAndNum d r => (ADVal d r, ADVal d r) -> ADVal d r
+barADVal = bar @(ADVal d r)
 
 fooBuild1 :: ADReady r => VectorOf r -> VectorOf r
 fooBuild1 v =
@@ -89,6 +93,17 @@ nestedBuildMap r =
 
 -- In simplified horde-ad we don't have access to the highest level API
 -- (adaptors), so the testing glue is tedious:
+testBarADVal :: Assertion
+testBarADVal =
+  (domains0 $ fst
+   $ revOnDomains
+       42.2
+       (\adinputs -> barADVal (adinputs `at0` 0, adinputs `at0` 1))
+       (domainsFrom01 (V.fromList [1.1 :: Double, 3]) V.empty))
+  @?~ V.fromList [11.49618087412679,-135.68959896367525]
+
+-- For sufficiently polymorphic code, we test vectorization with a fallback
+-- to other methods, so the test harness is even more complex.
 testFooBuild :: Assertion
 testFooBuild =
   (domains1 $ fst
