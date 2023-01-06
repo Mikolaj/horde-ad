@@ -222,11 +222,11 @@ index10 (D u u') ix = dD (lindex10 u ix) (dIndex10 u' ix (llength u))
 
 minimum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
 minimum0 (D u u') =
-  dD (lminElement u) (dIndex10 u' (lminIndex u) (llength u))
+  dD (lminimum0 u) (dIndex10 u' (lminIndex u) (llength u))
 
 maximum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
 maximum0 (D u u') =
-  dD (lmaxElement u) (dIndex10 u' (lmaxIndex u) (llength u))
+  dD (lmaximum0 u) (dIndex10 u' (lmaxIndex u) (llength u))
 
 foldl'0 :: ADModeAndNum d r
         => (ADVal d r -> ADVal d r -> ADVal d r)
@@ -292,7 +292,7 @@ lossSoftMaxCrossEntropyV target (D u u') =
   -- and is required by the QuickCheck test in TestMnistCNN.
   -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106
   -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
-  let expU = exp (u - lkonst1 (lmaxElement u) (llength u))
+  let expU = exp (u - lkonst1 (lmaximum0 u) (llength u))
       sumExpU = lsumElements10 expU
       recipSum = recip sumExpU
 -- not exposed: softMaxU = LA.scaleRecip sumExpU expU
@@ -395,8 +395,8 @@ map1Closure f d@(D v _) = build1Closure (llength v) $ \i -> f (index10 d i)
 instance (Numeric r, IntOf r ~ Int)
          => VectorLike (Vector r) r where
   llength = V.length
-  lminElement = LA.minElement
-  lmaxElement = LA.maxElement
+  lminimum0 = LA.minElement
+  lmaximum0 = LA.maxElement
   lminIndex = LA.minIndex
   lmaxIndex = LA.maxIndex
   lsumElements10 = LA.sumElements
@@ -413,8 +413,8 @@ instance (Numeric r, IntOf r ~ Int)
 
 instance VectorLike (Ast r (Vector r)) (Ast r r) where
   llength = AstLength
-  lminElement = AstMinElement
-  lmaxElement = AstMaxElement
+  lminimum0 = AstMinElement
+  lmaximum0 = AstMaxElement
   lminIndex = AstMinIndex
   lmaxIndex = AstMaxIndex
   lsumElements10 = AstSumElements10
@@ -436,10 +436,10 @@ instance VectorLike (Ast r (Vector r)) (Ast r r) where
 instance ADModeAndNum d r
          => VectorLike (ADVal d (Vector r)) (ADVal d r) where
   llength (D u _) = V.length u
-  lminElement (D u u') =
-    dD (lminElement u) (dIndex10 u' (lminIndex u) (llength u))
-  lmaxElement (D u u') =
-    dD (lmaxElement u) (dIndex10 u' (lmaxIndex u) (llength u))
+  lminimum0 (D u u') =
+    dD (lminimum0 u) (dIndex10 u' (lminIndex u) (llength u))
+  lmaximum0 (D u u') =
+    dD (lmaximum0 u) (dIndex10 u' (lmaxIndex u) (llength u))
   lminIndex (D u _) = lminIndex u
   lmaxIndex (D u _) = lmaxIndex u
   lsumElements10 (D u u') =
@@ -704,8 +704,8 @@ interpretAst env = \case
     Just (AstVarR1 d) -> d
     Just AstVarI{} -> error $ "interpretAst: type mismatch for var " ++ show var
     Nothing -> error $ "interpretAst: unknown variable var " ++ show var
-  AstMinElement v -> lminElement $ interpretAst env v
-  AstMaxElement v -> lmaxElement $ interpretAst env v
+  AstMinElement v -> lminimum0 $ interpretAst env v
+  AstMaxElement v -> lmaximum0 $ interpretAst env v
   AstSumElements10 v -> lsumElements10 $ interpretAst env v
   AstIndex10 v i -> lindex10 (interpretAst env v) (interpretAstInt env i)
   AstDot0 u v -> interpretAst env u `ldot0` interpretAst env v

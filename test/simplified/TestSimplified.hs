@@ -45,11 +45,11 @@ barADVal = bar @(ADVal d r)
 fooBuild1 :: ADReady r => VectorOf r -> VectorOf r
 fooBuild1 v =
   let r = lsumElements10 v
-      v' = lminElement v
+      v' = lminimum0 v
   in lbuild1 3 $ \ix ->
        r * foo ( 3
                , 5 * r
-               , r * lminElement v * v')
+               , r * lminimum0 v * v')
        + bar (r, lindex10 v (ix + 1))
 
 fooMap1 :: ADReady r => r -> VectorOf r
@@ -82,7 +82,7 @@ nestedBuildMap r =
       v' = lkonst1 r 7 :: VectorOf r
       nestedMap x = lmap1 (\y -> x / y) (w x)
       variableLengthBuild iy = lbuild1 (iy + 1) (\ix -> lindex10 v' (ix + 1)) :: VectorOf r
-      doublyBuild = lbuild1 5 (\iy -> lminElement (variableLengthBuild iy))
+      doublyBuild = lbuild1 5 (\iy -> lminimum0 (variableLengthBuild iy))
   in lmap1 (\x -> x
                   * lsumElements10
                       (lbuild1 3 (\ix -> bar ( x

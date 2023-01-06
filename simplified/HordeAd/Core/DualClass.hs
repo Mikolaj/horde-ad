@@ -192,8 +192,8 @@ class HasPrimal a where
 
 class VectorLike vector r | vector -> r where
   llength :: vector -> IntOf r
-  lminElement :: vector -> r
-  lmaxElement :: vector -> r
+  lminimum0 :: vector -> r
+  lmaximum0 :: vector -> r
   lminIndex :: vector -> IntOf r
   lmaxIndex :: vector -> IntOf r
 
