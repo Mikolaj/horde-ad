@@ -429,6 +429,10 @@ instance VectorLike (Ast r (Vector r)) (Ast r r) where
   lbuild1 = astBuild1  -- TODO: this vectorizers depth-first, but is this
   lmap1 = astMap1      -- needed? should we vectorize the whole program instead?
 
+-- Not that this instance doesn't do vectorization. To enable it,
+-- use the Ast instance, vectorize and finally interpret in ADVal.
+-- The interpretation step uses this instance, including lbuild1
+-- and lmap1, as a fallback for failed vectorization.
 instance ADModeAndNum d r
          => VectorLike (ADVal d (Vector r)) (ADVal d r) where
   llength (D u _) = V.length u
@@ -700,14 +704,14 @@ interpretAst env = \case
     Just (AstVarR1 d) -> d
     Just AstVarI{} -> error $ "interpretAst: type mismatch for var " ++ show var
     Nothing -> error $ "interpretAst: unknown variable var " ++ show var
-  AstMinElement v -> minimum0 $ interpretAst env v
-  AstMaxElement v -> maximum0 $ interpretAst env v
-  AstSumElements10 v -> sumElements10 $ interpretAst env v
-  AstIndex10 v i -> index10 (interpretAst env v) (interpretAstInt env i)
-  AstDot0 u v -> interpretAst env u <.>! interpretAst env v
-  AstFromList1 l -> fromList1 $ map (interpretAst env) l
-  AstFromVector1 v -> fromVector1 $ V.map (interpretAst env) v
-  AstKonst1 r n -> konst1 (interpretAst env r) (interpretAstInt env n)
+  AstMinElement v -> lminElement $ interpretAst env v
+  AstMaxElement v -> lmaxElement $ interpretAst env v
+  AstSumElements10 v -> lsumElements10 $ interpretAst env v
+  AstIndex10 v i -> lindex10 (interpretAst env v) (interpretAstInt env i)
+  AstDot0 u v -> interpretAst env u `ldot0` interpretAst env v
+  AstFromList1 l -> lfromList1 $ map (interpretAst env) l
+  AstFromVector1 v -> lfromVector1 $ V.map (interpretAst env) v
+  AstKonst1 r n -> lkonst1 (interpretAst env r) (interpretAstInt env n)
   AstAppend1 u v ->
     -- It's hard to simplify this already in build1Vectorize, because
     -- we may not know the real sizes there, only symbolic ones.
@@ -715,20 +719,20 @@ interpretAst env = \case
         v'@(D pv _) = interpretAst env v
     in if | V.null pu -> u'  -- perhaps common in code generated from AST
           | V.null pv -> v'
-          | otherwise -> append1 u' v'
+          | otherwise -> lappend1 u' v'
   AstSlice1 i n v ->
     let i' = interpretAstInt env i
         n' = interpretAstInt env n
         v'@(D pv _) = interpretAst env v
     in if i' == 0 && n' == V.length pv
        then v'  -- perhaps common in code generated from AST
-       else slice1 i' n' v'
-  AstReverse1 v -> reverse1 $ interpretAst env v
+       else lslice1 i' n' v'
+  AstReverse1 v -> lreverse1 $ interpretAst env v
   AstBuildPair1 i (var, r) ->
-    build1Elementwise (interpretAstInt env i) (interpretLambdaI env (var, r))
+    lbuild1 (interpretAstInt env i) (interpretLambdaI env (var, r))
       -- fallback to POPL (memory blowup, but avoids functions on tape)
   AstMapPair1 (var, r) e ->
-    map1Elementwise (interpretLambdaD0 env (var, r)) (interpretAst env e)
+    lmap1 (interpretLambdaD0 env (var, r)) (interpretAst env e)
       -- fallback to POPL (memory blowup, but avoids functions on tape)
   AstOMap1{} -> error "TODO: AstOMap1"
 
