@@ -36,11 +36,10 @@ data Ast :: Type -> Type -> Type where
   AstVar0 :: AstVarName r -> Ast r r
   AstVar1 :: AstVarName (Vector r) -> Ast r (Vector r)
 
-  AstMinElement :: Ast r (Vector r) -> Ast r r
-  AstMaxElement :: Ast r (Vector r) -> Ast r r
-
   AstSumElements10 :: Ast r (Vector r) -> Ast r r
   AstIndex10 :: Ast r (Vector r) -> AstInt r -> Ast r r
+  AstMinElement :: Ast r (Vector r) -> Ast r r
+  AstMaxElement :: Ast r (Vector r) -> Ast r r
   AstDot0 :: Ast r (Vector r) -> Ast r (Vector r) -> Ast r r
 
   AstFromList1 :: [Ast r r] -> Ast r (Vector r)

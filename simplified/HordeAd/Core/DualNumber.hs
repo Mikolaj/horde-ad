@@ -395,12 +395,12 @@ map1Closure f d@(D v _) = build1Closure (llength v) $ \i -> f (index10 d i)
 instance (Numeric r, IntOf r ~ Int)
          => VectorLike (Vector r) r where
   llength = V.length
-  lminimum0 = LA.minElement
-  lmaximum0 = LA.maxElement
   lminIndex = LA.minIndex
   lmaxIndex = LA.maxIndex
   lsumElements10 = LA.sumElements
   lindex10 = (V.!)
+  lminimum0 = LA.minElement
+  lmaximum0 = LA.maxElement
   ldot0 = (LA.<.>)
   lfromList1 = V.fromList
   lfromVector1 = V.convert
@@ -413,12 +413,12 @@ instance (Numeric r, IntOf r ~ Int)
 
 instance VectorLike (Ast r (Vector r)) (Ast r r) where
   llength = AstLength
-  lminimum0 = AstMinElement
-  lmaximum0 = AstMaxElement
   lminIndex = AstMinIndex
   lmaxIndex = AstMaxIndex
   lsumElements10 = AstSumElements10
   lindex10 = AstIndex10
+  lminimum0 = AstMinElement
+  lmaximum0 = AstMaxElement
   ldot0 = AstDot0
   lfromList1 = AstFromList1
   lfromVector1 = AstFromVector1
@@ -436,15 +436,15 @@ instance VectorLike (Ast r (Vector r)) (Ast r r) where
 instance ADModeAndNum d r
          => VectorLike (ADVal d (Vector r)) (ADVal d r) where
   llength (D u _) = V.length u
-  lminimum0 (D u u') =
-    dD (lminimum0 u) (dIndex10 u' (lminIndex u) (llength u))
-  lmaximum0 (D u u') =
-    dD (lmaximum0 u) (dIndex10 u' (lmaxIndex u) (llength u))
   lminIndex (D u _) = lminIndex u
   lmaxIndex (D u _) = lmaxIndex u
   lsumElements10 (D u u') =
     dD (lsumElements10 u) (dSumElements10 u' (llength u))
   lindex10 (D u u') ix = dD (lindex10 u ix) (dIndex10 u' ix (llength u))
+  lminimum0 (D u u') =
+    dD (lminimum0 u) (dIndex10 u' (lminIndex u) (llength u))
+  lmaximum0 (D u u') =
+    dD (lmaximum0 u) (dIndex10 u' (lmaxIndex u) (llength u))
   ldot0 (D u u') (D v v') = dD (ldot0 u v) (dAdd (dDot0 v u') (dDot0 u v'))
   lfromList1 l = dD (lfromList1 $ map (\(D u _) -> u) l)  -- I hope this fuses
                     (dFromList1 $ map (\(D _ u') -> u') l)
@@ -510,6 +510,9 @@ build1Vectorize n (var, u) =
                 (build1Vectorize n (var, y))
     AstConst _r -> error "build1Vectorize: can't have free int variables"
     AstVar0 _var2 -> error "build1Vectorize: can't have free int variables"
+    AstSumElements10 _v -> AstBuildPair1 n (var, u)
+    AstIndex10 v i -> buildOfIndex10Vectorize n var v i
+                        -- TODO: simplify i first
     AstMinElement _v ->
       AstBuildPair1 n (var, u)
         -- Vectors are assumed to be huge, so it's not possible to perform
@@ -527,9 +530,6 @@ build1Vectorize n (var, u) =
         -- terms inside minElem, not vectorized, because the build variable
         -- was not eliminated
     AstMaxElement _v -> AstBuildPair1 n (var, u)
-    AstSumElements10 _v -> AstBuildPair1 n (var, u)
-    AstIndex10 v i -> buildOfIndex10Vectorize n var v i
-                        -- TODO: simplify i first
     AstDot0 _u _v -> AstBuildPair1 n (var, u)  -- TODO
       -- equal to @build1Vectorize n (var, AstSumElements10 (u * v))@,
       -- but how to vectorize AstSumElements10?
@@ -639,11 +639,11 @@ map1Vectorize (var, u) w = case u of
   AstConst r -> AstKonst1 (AstConst r) (AstLength w)
   AstVar0 var2 | var2 == var -> w  -- identity mapping
   AstVar0 var2 -> AstKonst1 (AstVar0 var2) (AstLength w)
-  AstMinElement _v -> AstMapPair1 (var, u) w  -- TODO
-  AstMaxElement _v -> AstMapPair1 (var, u) w  -- TODO
   AstSumElements10 _v -> AstMapPair1 (var, u) w  -- TODO
   AstIndex10 _v _i -> AstMapPair1 (var, u) w  -- TODO
     -- both _v and _i can depend on var, e.g., because of conditionals
+  AstMinElement _v -> AstMapPair1 (var, u) w  -- TODO
+  AstMaxElement _v -> AstMapPair1 (var, u) w  -- TODO
   AstDot0 _u _v -> AstMapPair1 (var, u) w  -- TODO
   -- All other patterns are redundant due to GADT typing.
 
@@ -704,10 +704,10 @@ interpretAst env = \case
     Just (AstVarR1 d) -> d
     Just AstVarI{} -> error $ "interpretAst: type mismatch for var " ++ show var
     Nothing -> error $ "interpretAst: unknown variable var " ++ show var
-  AstMinElement v -> lminimum0 $ interpretAst env v
-  AstMaxElement v -> lmaximum0 $ interpretAst env v
   AstSumElements10 v -> lsumElements10 $ interpretAst env v
   AstIndex10 v i -> lindex10 (interpretAst env v) (interpretAstInt env i)
+  AstMinElement v -> lminimum0 $ interpretAst env v
+  AstMaxElement v -> lmaximum0 $ interpretAst env v
   AstDot0 u v -> interpretAst env u `ldot0` interpretAst env v
   AstFromList1 l -> lfromList1 $ map (interpretAst env) l
   AstFromVector1 v -> lfromVector1 $ V.map (interpretAst env) v
