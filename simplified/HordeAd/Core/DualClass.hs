@@ -173,6 +173,7 @@ type family IntOf a where
   IntOf Float = Int
   IntOf (Vector r) = Int
   IntOf (Ast r a) = AstInt r
+  IntOf (ADVal d r) = Int
 
 type family VectorOf a = result | result -> a where
   VectorOf Double = Vector Double

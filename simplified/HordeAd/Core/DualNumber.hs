@@ -429,6 +429,31 @@ instance VectorLike (Ast r (Vector r)) (Ast r r) where
   lbuild1 = astBuild1  -- TODO: this vectorizers depth-first, but is this
   lmap1 = astMap1      -- needed? should we vectorize the whole program instead?
 
+instance ADModeAndNum d r
+         => VectorLike (ADVal d (Vector r)) (ADVal d r) where
+  llength (D u _) = V.length u
+  lminElement (D u u') =
+    dD (lminElement u) (dIndex10 u' (lminIndex u) (llength u))
+  lmaxElement (D u u') =
+    dD (lmaxElement u) (dIndex10 u' (lmaxIndex u) (llength u))
+  lminIndex (D u _) = lminIndex u
+  lmaxIndex (D u _) = lmaxIndex u
+  lsumElements10 (D u u') =
+    dD (lsumElements10 u) (dSumElements10 u' (llength u))
+  lindex10 (D u u') ix = dD (lindex10 u ix) (dIndex10 u' ix (llength u))
+  ldot0 (D u u') (D v v') = dD (ldot0 u v) (dAdd (dDot0 v u') (dDot0 u v'))
+  lfromList1 l = dD (lfromList1 $ map (\(D u _) -> u) l)  -- I hope this fuses
+                    (dFromList1 $ map (\(D _ u') -> u') l)
+  lfromVector1 v = dD (lfromVector1 $ V.map (\(D u _) -> u) v)
+                        -- I hope it fuses
+                      (dFromVector1 $ V.map (\(D _ u') -> u') v)
+  lkonst1 (D u u') n = dD (lkonst1 u n) (dKonst1 u' n)
+  lappend1 (D u u') (D v v') = dD (lappend1 u v) (dAppend1 u' (llength u) v')
+  lslice1 i n (D u u') = dD (lslice1 i n u) (dSlice1 i n u' (llength u))
+  lreverse1 (D u u') = dD (lreverse1 u) (dReverse1 u')
+  lbuild1 = build1Elementwise
+  lmap1 = map1Elementwise
+
 -- * AST-based build and map variants
 
 -- Impure but in the most trivial way (only ever incremented counter).
