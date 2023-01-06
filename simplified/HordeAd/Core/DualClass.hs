@@ -196,7 +196,7 @@ class HasPrimal a where
   -- basically DualOf a needs to have IsPrimal and HasRanks instances
   -- (and HasInputs?)
 
-class VectorLike vector r | vector -> r where
+class VectorOf r ~ vector => VectorLike vector r | vector -> r where
   llength :: vector -> IntOf r
   lminIndex :: vector -> IntOf r
   lmaxIndex :: vector -> IntOf r

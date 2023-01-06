@@ -27,6 +27,8 @@ testTrees = [ testCase "barADVal" testBarADVal
             , testCase "nestedBuildMapADVal" testNestedBuildMapADVal
             , testCase "barReluADVal" testBarReluADVal
             , testCase "barReluAst" testBarReluAst
+            , testCase "barReluAst1" testBarReluAst1
+            , testCase "konstReluAst" testKonstReluAst
             ]
 
 foo :: RealFloat a => (a,a,a) -> a
@@ -110,8 +112,7 @@ barRelu
 barRelu x = relu $ bar (x, relu x)
 
 barReluAst
-  :: forall r a.
-     ( RealFloat a
+  :: ( RealFloat a
      , MonoFunctor (AstPrimalPart r a)
 --     , Num (AstPrimalPart r a)
 --     , Ord (Element (AstPrimalPart r a))
@@ -120,6 +121,11 @@ barReluAst
   => Ast r a -> Ast r a
 barReluAst x = reluAst $ bar (x, reluAst x)  -- TODO; fails: barRelu @(Ast r a)
 
+konstReluAst
+  :: forall r.
+     (Numeric r, RealFloat r, Num (Vector r))
+  => Ast r r -> Ast r r
+konstReluAst x = lsumElements10 $ reluAst $ lkonst1 x 7
 
 -- In simplified horde-ad we don't have access to the highest level API
 -- (adaptors), so the testing glue is tedious:
@@ -209,3 +215,27 @@ testBarReluAst =
                        (barReluAst (AstVar0 (AstVarName (-1)))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [191.20462646925841]
+
+testBarReluAst1 :: Assertion
+testBarReluAst1 =
+  (domains1 $ fst
+   $ revOnDomains
+       (LA.konst 1 5)  -- 1 wrong due to fragility of hmatrix optimization
+       (\adinputs ->
+          interpretAst (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
+                       (barReluAst (AstVar1 (AstVarName (-1)))))
+       (domainsFrom01 V.empty
+                      (V.singleton (V.fromList
+                                      [1.1 :: Double, 2.2, 3.3, 4, 5]))))
+  @?~ V.singleton (V.fromList [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])
+
+testKonstReluAst :: Assertion
+testKonstReluAst =
+  (domains0 $ fst
+   $ revOnDomains
+       42.2
+       (\adinputs ->
+          interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
+                       (konstReluAst (AstVar0 (AstVarName (-1)))))
+       (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
+  @?~ V.fromList [295.4]

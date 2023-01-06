@@ -414,7 +414,7 @@ map1Closure f d = build1Closure (llength d) $ \i -> f (index10 d i)
 
 -- * Instances of VectorLike
 
-instance (Numeric r, IntOf r ~ Int)
+instance (Numeric r, IntOf r ~ Int, VectorOf r ~ Vector r)
          => VectorLike (Vector r) r where
   llength = V.length
   lminIndex = LA.minIndex
@@ -768,7 +768,12 @@ interpretAst env = \case
   AstMapPair1 (var, r) e ->
     lmap1 (interpretLambdaD0 env (var, r)) (interpretAst env e)
       -- fallback to POPL (memory blowup, but avoids functions on tape)
-  AstOMap1{} -> error "TODO: AstOMap1"
+  AstOMap1 (var, r) e ->  -- this only works on the primal part hence @constant@
+    constant
+    $ omap (\x -> let D u _ = interpretLambdaD0 env (var, r) (constant x)
+                  in u)
+           (let D u _ = interpretAst env e
+            in u)
 
 interpretAstInt :: ADModeAndNum d r
                 => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vector r)))
