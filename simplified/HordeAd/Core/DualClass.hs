@@ -120,19 +120,17 @@ type ADModeAndNum (d :: ADMode) r =
   , HasRanks (Vector r) d r
   , IsPrimalAndHasFeatures d r r
   , IsPrimalAndHasFeatures d (Vector r) r
-  , IntOf (VectorOf r) ~ IntOf r
+  , IntOf r ~ Int
   )
 
 type ADModeAndNumNew (d :: ADMode) r =
   ( Numeric r
   , HasPrimal r
-  , HasRanks (VectorOf r) d r
+  , HasRanks (Vector r) d r
   , IsPrimalAndHasFeatures d r r
-  , IsPrimalAndHasFeatures d (VectorOf r) r
-  , Num (IntOf r)
-  , VectorLike (VectorOf r) r
-  , -- and finally some laws of nature:
-    IntOf (VectorOf r) ~ IntOf r
+  , IsPrimalAndHasFeatures d (Vector r) r
+  , VectorLike (Vector r) r
+  , IntOf r ~ Int
   )
 
 -- | Is a scalar and will be used to compute gradients via delta-expressions.

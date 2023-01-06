@@ -214,17 +214,17 @@ reluLeaky v =
 -- * Operations resulting in a scalar
 
 sumElements10 :: ADModeAndNumNew d r
-              => ADVal d (VectorOf r) -> ADVal d r
+              => ADVal d (Vector r) -> ADVal d r
 sumElements10 (D u u') = dD (lsumElements10 u) (dSumElements10 u' (llength u))
 
-index10 :: ADModeAndNumNew d r => ADVal d (VectorOf r) -> IntOf r -> ADVal d r
+index10 :: ADModeAndNumNew d r => ADVal d (Vector r) -> Int -> ADVal d r
 index10 (D u u') ix = dD (lindex10 u ix) (dIndex10 u' ix (llength u))
 
-minimum0 :: ADModeAndNumNew d r => ADVal d (VectorOf r) -> ADVal d r
+minimum0 :: ADModeAndNumNew d r => ADVal d (Vector r) -> ADVal d r
 minimum0 (D u u') =
   dD (lminElement u) (dIndex10 u' (lminIndex u) (llength u))
 
-maximum0 :: ADModeAndNumNew d r => ADVal d (VectorOf r) -> ADVal d r
+maximum0 :: ADModeAndNumNew d r => ADVal d (Vector r) -> ADVal d r
 maximum0 (D u u') =
   dD (lmaxElement u) (dIndex10 u' (lmaxIndex u) (llength u))
 
@@ -243,13 +243,13 @@ altSumElements10 = foldl'0 (+) 0
 -- | Dot product.
 infixr 8 <.>!
 (<.>!) :: ADModeAndNumNew d r
-       => ADVal d (VectorOf r) -> ADVal d (VectorOf r) -> ADVal d r
+       => ADVal d (Vector r) -> ADVal d (Vector r) -> ADVal d r
 (<.>!) (D u u') (D v v') = dD (ldot0 u v) (dAdd (dDot0 v u') (dDot0 u v'))
 
 -- | Dot product with a constant vector.
 infixr 8 <.>!!
 (<.>!!) :: ADModeAndNumNew d r
-        => ADVal d (VectorOf r) -> VectorOf r -> ADVal d r
+        => ADVal d (Vector r) -> Vector r -> ADVal d r
 (<.>!!) (D u u') v = dD (ldot0 u v) (dDot0 v u')
 
 sumElementsVectorOfDual
@@ -276,8 +276,8 @@ lossCrossEntropy targ res =
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
 lossCrossEntropyV :: ADModeAndNumNew d r
-                  => VectorOf r
-                  -> ADVal d (VectorOf r)
+                  => Vector r
+                  -> ADVal d (Vector r)
                   -> ADVal d r
 lossCrossEntropyV targ res = negate $ log res <.>!! targ
 
@@ -286,7 +286,7 @@ lossCrossEntropyV targ res = negate $ log res <.>!! targ
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyV
   :: ADModeAndNumNew d r
-  => VectorOf r -> ADVal d (VectorOf r) -> ADVal d r
+  => Vector r -> ADVal d (Vector r) -> ADVal d r
 lossSoftMaxCrossEntropyV target (D u u') =
   -- The following protects from underflows, overflows and exploding gradients
   -- and is required by the QuickCheck test in TestMnistCNN.
@@ -305,27 +305,27 @@ lossSoftMaxCrossEntropyV target (D u u') =
 
 -- @1@ means rank one, so the dual component represents a vector.
 fromList1 :: ADModeAndNumNew d r
-          => [ADVal d r] -> ADVal d (VectorOf r)
+          => [ADVal d r] -> ADVal d (Vector r)
 fromList1 l = dD (lfromList1 $ map (\(D u _) -> u) l)  -- I hope this fuses
                  (dFromList1 $ map (\(D _ u') -> u') l)
 
 fromVector1 :: ADModeAndNumNew d r
-            => Data.Vector.Vector (ADVal d r) -> ADVal d (VectorOf r)
+            => Data.Vector.Vector (ADVal d r) -> ADVal d (Vector r)
 fromVector1 v = dD (lfromVector1 $ V.map (\(D u _) -> u) v)  -- I hope it fuses
                    (dFromVector1 $ V.map (\(D _ u') -> u') v)
 
-konst1 :: ADModeAndNumNew d r => ADVal d r -> IntOf r -> ADVal d (VectorOf r)
+konst1 :: ADModeAndNumNew d r => ADVal d r -> Int -> ADVal d (Vector r)
 konst1 (D u u') n = dD (lkonst1 u n) (dKonst1 u' n)
 
 append1 :: ADModeAndNumNew d r
-        => ADVal d (VectorOf r) -> ADVal d (VectorOf r) -> ADVal d (VectorOf r)
+        => ADVal d (Vector r) -> ADVal d (Vector r) -> ADVal d (Vector r)
 append1 (D u u') (D v v') = dD (lappend1 u v) (dAppend1 u' (llength u) v')
 
 slice1 :: ADModeAndNumNew d r
-       => IntOf r -> IntOf r -> ADVal d (VectorOf r) -> ADVal d (VectorOf r)
+       => Int -> Int -> ADVal d (Vector r) -> ADVal d (Vector r)
 slice1 i n (D u u') = dD (lslice1 i n u) (dSlice1 i n u' (llength u))
 
-reverse1 :: ADModeAndNumNew d r => ADVal d (VectorOf r) -> ADVal d (VectorOf r)
+reverse1 :: ADModeAndNumNew d r => ADVal d (Vector r) -> ADVal d (Vector r)
 reverse1 (D u u') = dD (lreverse1 u) (dReverse1 u')
 
 -- TODO: define Enum instance of (AstInt r) to enable AST for this.
@@ -337,7 +337,7 @@ maxPool1 ksize stride v@(D u _) =
   in fromList1 $ map maximum0 slices
 
 softMaxV :: ADModeAndNumNew d r
-         => ADVal d (VectorOf r) -> ADVal d (VectorOf r)
+         => ADVal d (Vector r) -> ADVal d (Vector r)
 softMaxV d@(D u _) =
   let expU = exp d  -- shared in 2 places, though cse may do this for us
       sumExpU = sumElements10 expU
@@ -354,21 +354,21 @@ build1POPL n f = V.fromList $ map f [0 .. n - 1]
 -- We gain a little by storing the primal part in an unboxed vector.
 build1Elementwise
   :: ADModeAndNumNew d r
-  => Int -> (Int -> ADVal d r) -> ADVal d (VectorOf r)
+  => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
 build1Elementwise n f = fromList1 $ map f [0 .. n - 1]
   -- equivalent to @fromVector1 $ build1POPL n f@
 
 build1Closure
-  :: (ADModeAndNumNew d r, IntOf r ~ Int)
-  => Int -> (Int -> ADVal d r) -> ADVal d (VectorOf r)
+  :: ADModeAndNumNew d r
+  => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
 build1Closure n f =
   let g i = let D u _ = f i in u
       h i = let D _ u' = f i in u'
   in dD (lfromList1 $ map g [0 .. n - 1]) (dBuild1 n h)
 
 build1
-  :: (ADModeAndNumNew d r, IntOf r ~ Int)
-  => Int -> (Int -> ADVal d r) -> ADVal d (VectorOf r)
+  :: ADModeAndNumNew d r
+  => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
 build1 = build1Closure
 
 map1POPL :: (ADVal d r -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
@@ -376,8 +376,8 @@ map1POPL :: (ADVal d r -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
 map1POPL f vd = V.map f vd
 
 map1Elementwise
-  :: (ADModeAndNumNew d r, IntOf r ~ Int)
-  => (ADVal d r -> ADVal d r) -> ADVal d (VectorOf r) -> ADVal d (VectorOf r)
+  :: ADModeAndNumNew d r
+  => (ADVal d r -> ADVal d r) -> ADVal d (Vector r) -> ADVal d (Vector r)
 map1Elementwise f d@(D v _v') =
   build1Elementwise (llength v) $ \i -> f (index10 d i)
     -- equivalent to
@@ -385,8 +385,8 @@ map1Elementwise f d@(D v _v') =
     --   where rank1toVector d@(D v _v') = V.generate (V.length v) (index10 d)@
 
 map1Closure
-  :: (ADModeAndNumNew d r, IntOf r ~ Int)
-  => (ADVal d r -> ADVal d r) -> ADVal d (VectorOf r) -> ADVal d (VectorOf r)
+  :: ADModeAndNumNew d r
+  => (ADVal d r -> ADVal d r) -> ADVal d (Vector r) -> ADVal d (Vector r)
 map1Closure f d@(D v _) = build1Closure (llength v) $ \i -> f (index10 d i)
 
 
@@ -628,7 +628,7 @@ gtIntAst :: AstInt r -> AstInt r -> AstBool r
 gtIntAst i j = AstRelInt GtOut [i, j]
 
 interpretLambdaD0
-  :: (ADModeAndNumNew d r, VectorOf r ~ Vector r, IsPrimalAndHasFeatures d a r)
+  :: (ADModeAndNumNew d r, IsPrimalAndHasFeatures d a r)
   => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vector r)))
   -> (AstVarName r, Ast r a)
   -> ADVal d r -> ADVal d a
@@ -636,7 +636,7 @@ interpretLambdaD0 env (AstVarName var, ast) =
   \d -> interpretAst (IM.insert var (AstVarR0 d) env) ast
 
 interpretLambdaI
-  :: (ADModeAndNumNew d r, VectorOf r ~ Vector r, IsPrimalAndHasFeatures d a r)
+  :: (ADModeAndNumNew d r, IsPrimalAndHasFeatures d a r)
   => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vector r)))
   -> (AstVarName Int, Ast r a)
   -> Int -> ADVal d a
@@ -644,7 +644,7 @@ interpretLambdaI env (AstVarName var, ast) =
   \i -> interpretAst (IM.insert var (AstVarI i) env) ast
 
 interpretAst
-  :: (ADModeAndNumNew d r, VectorOf r ~ Vector r, IsPrimalAndHasFeatures d a r)
+  :: (ADModeAndNumNew d r, IsPrimalAndHasFeatures d a r)
   => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vector r)))
   -> Ast r a -> ADVal d a
 interpretAst env = \case
@@ -707,7 +707,7 @@ interpretAst env = \case
       -- fallback to POPL (memory blowup, but avoids functions on tape)
   AstOMap1{} -> error "TODO: AstOMap1"
 
-interpretAstInt :: (ADModeAndNumNew d r, VectorOf r ~ Vector r)
+interpretAstInt :: ADModeAndNumNew d r
                 => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vector r)))
                 -> AstInt r -> Int
 interpretAstInt env = \case
@@ -728,7 +728,7 @@ interpretAstInt env = \case
   AstMinIndex v -> LA.minIndex $ let D u _u' = interpretAst env v in u
   AstMaxIndex v -> LA.maxIndex $ let D u _u' = interpretAst env v in u
 
-interpretAstBool :: (ADModeAndNumNew d r, VectorOf r ~ Vector r)
+interpretAstBool :: ADModeAndNumNew d r
                  => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vector r)))
                  -> AstBool r -> Bool
 interpretAstBool env = \case
