@@ -157,33 +157,48 @@ instance (RealFloat a, IsPrimal d a) => RealFloat (ADVal d a) where
 
 instance IsPrimal d a => HasPrimal (ADVal d a) where
   type PrimalOf (ADVal d a) = a
+  type DualOf (ADVal d a) = Dual d a
   constant a = dD a dZero
   scale a (D u u') = dD (a * u) (dScale a u')
   primalPart (D u _) = u
+  dualPart (D _ u') = u'
+  ddD = dD
 
 instance HasPrimal Float where
   type PrimalOf Float = Float
+  type DualOf Float = ()
   constant = id
   scale = (*)
   primalPart = id
+  dualPart _ = ()
+  ddD u _ = u
 
 instance HasPrimal Double where
   type PrimalOf Double = Double
+  type DualOf Double = ()
   constant = id
   scale = (*)
   primalPart = id
+  dualPart _ = ()
+  ddD u _ = u
 
 instance HasPrimal (Vector r) where
   type PrimalOf (Vector r) = Vector r
+  type DualOf (Vector r) = ()
   constant = id
   scale = (*)
   primalPart = id
+  dualPart _ = ()
+  ddD u _ = u
 
 instance HasPrimal (Ast r a) where
-  type PrimalOf (Ast r a) = Ast r a
+  type PrimalOf (Ast r a) = Ast r a  -- TODO: newtype AstPrimalPart
+  type DualOf (Ast r a) = ()  -- TODO: data AstDualPart: dScale, dAdd, dkonst1
   constant = id
   scale a b = AstOp TimesOut [a, b]
   primalPart = id
+  dualPart _ = ()
+  ddD u _ = u
 
 logistic :: (Floating a, IsPrimal d a) => ADVal d a -> ADVal d a
 logistic (D u u') =

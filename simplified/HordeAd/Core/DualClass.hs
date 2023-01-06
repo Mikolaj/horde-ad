@@ -187,9 +187,15 @@ type family VectorOf a = result | result -> a where
 -- not just sloppy omission of explitic coercions.
 class HasPrimal a where
   type PrimalOf a
+  type DualOf a
   constant :: PrimalOf a -> a
   scale :: Num (PrimalOf a) => PrimalOf a -> a -> a
   primalPart :: a -> PrimalOf a
+  dualPart :: a -> DualOf a
+  ddD :: PrimalOf a -> DualOf a -> a
+  -- TODO: we'd probably also need dZero, dIndex10 and all others;
+  -- basically DualOf a needs to have IsPrimal and HasRanks instances
+  -- (and HasInputs?)
 
 class VectorLike vector r | vector -> r where
   llength :: vector -> IntOf r
