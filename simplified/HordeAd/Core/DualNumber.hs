@@ -215,18 +215,16 @@ reluLeaky v =
 
 sumElements10 :: ADModeAndNum d r
               => ADVal d (Vector r) -> ADVal d r
-sumElements10 (D u u') = dD (lsumElements10 u) (dSumElements10 u' (llength u))
+sumElements10 = lsumElements10
 
 index10 :: ADModeAndNum d r => ADVal d (Vector r) -> Int -> ADVal d r
-index10 (D u u') ix = dD (lindex10 u ix) (dIndex10 u' ix (llength u))
+index10 = lindex10
 
 minimum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
-minimum0 (D u u') =
-  dD (lminimum0 u) (dIndex10 u' (lminIndex u) (llength u))
+minimum0 = lminimum0
 
 maximum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
-maximum0 (D u u') =
-  dD (lmaximum0 u) (dIndex10 u' (lmaxIndex u) (llength u))
+maximum0 = lmaximum0
 
 foldl'0 :: ADModeAndNum d r
         => (ADVal d r -> ADVal d r -> ADVal d r)
@@ -244,7 +242,7 @@ altSumElements10 = foldl'0 (+) 0
 infixr 8 <.>!
 (<.>!) :: ADModeAndNum d r
        => ADVal d (Vector r) -> ADVal d (Vector r) -> ADVal d r
-(<.>!) (D u u') (D v v') = dD (ldot0 u v) (dAdd (dDot0 v u') (dDot0 u v'))
+(<.>!) = ldot0
 
 -- | Dot product with a constant vector.
 infixr 8 <.>!!
@@ -306,27 +304,25 @@ lossSoftMaxCrossEntropyV target (D u u') =
 -- @1@ means rank one, so the dual component represents a vector.
 fromList1 :: ADModeAndNum d r
           => [ADVal d r] -> ADVal d (Vector r)
-fromList1 l = dD (lfromList1 $ map (\(D u _) -> u) l)  -- I hope this fuses
-                 (dFromList1 $ map (\(D _ u') -> u') l)
+fromList1 = lfromList1
 
 fromVector1 :: ADModeAndNum d r
             => Data.Vector.Vector (ADVal d r) -> ADVal d (Vector r)
-fromVector1 v = dD (lfromVector1 $ V.map (\(D u _) -> u) v)  -- I hope it fuses
-                   (dFromVector1 $ V.map (\(D _ u') -> u') v)
+fromVector1 = lfromVector1
 
 konst1 :: ADModeAndNum d r => ADVal d r -> Int -> ADVal d (Vector r)
-konst1 (D u u') n = dD (lkonst1 u n) (dKonst1 u' n)
+konst1 = lkonst1
 
 append1 :: ADModeAndNum d r
         => ADVal d (Vector r) -> ADVal d (Vector r) -> ADVal d (Vector r)
-append1 (D u u') (D v v') = dD (lappend1 u v) (dAppend1 u' (llength u) v')
+append1 = lappend1
 
 slice1 :: ADModeAndNum d r
        => Int -> Int -> ADVal d (Vector r) -> ADVal d (Vector r)
-slice1 i n (D u u') = dD (lslice1 i n u) (dSlice1 i n u' (llength u))
+slice1 = lslice1
 
 reverse1 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d (Vector r)
-reverse1 (D u u') = dD (lreverse1 u) (dReverse1 u')
+reverse1 = lreverse1
 
 -- TODO: define Enum instance of (AstInt r) to enable AST for this.
 -- No padding; remaining areas ignored.
