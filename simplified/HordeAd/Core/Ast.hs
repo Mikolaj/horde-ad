@@ -20,7 +20,7 @@ import Prelude
 import           Data.Kind (Type)
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import qualified Data.Strict.Vector as Data.Vector
-import           Numeric.LinearAlgebra (Vector)
+import           Numeric.LinearAlgebra (Numeric, Vector, arctan2)
 import           Text.Show.Functions ()
 
 -- * Definitions
@@ -71,18 +71,6 @@ data Ast :: Type -> Type -> Type where
     -- data instead of a newtype would complicate a lot
 
 newtype AstPrimalPart r a = AstPrimalPart (Ast r a)
-
-instance Eq (AstPrimalPart r a) where
-
-instance Ord a => Ord (AstPrimalPart r a) where
-  max (AstPrimalPart u) (AstPrimalPart v) = AstPrimalPart (AstOp MaxOut [u, v])
-  min (AstPrimalPart u) (AstPrimalPart v) = AstPrimalPart (AstOp MinOut [u, v])
-    -- unfortunately, the others can't be made to return @AstBool@
-
-deriving instance Num (Ast r a) => Num (AstPrimalPart r a)
-deriving instance (Real (Ast r a), Ord a) => Real (AstPrimalPart r a)
-deriving instance Fractional (Ast r a) => Fractional (AstPrimalPart r a)
--- TODO: etc.
 
 newtype AstVarName t = AstVarName Int
   deriving (Show, Eq)
@@ -241,14 +229,19 @@ instance Enum (AstInt r) where
 instance Integral (AstInt r) where
   -- TODO
 
-type instance Element (AstPrimalPart r (Vector r)) =
-  AstPrimalPart r r
+instance Eq (AstPrimalPart r a) where
 
-type instance Element (AstPrimalPart Double Double) =
-  AstPrimalPart Double Double
+instance Ord a => Ord (AstPrimalPart r a) where
+  max (AstPrimalPart u) (AstPrimalPart v) = AstPrimalPart (AstOp MaxOut [u, v])
+  min (AstPrimalPart u) (AstPrimalPart v) = AstPrimalPart (AstOp MinOut [u, v])
+    -- unfortunately, the others can't be made to return @AstBool@
 
-type instance Element (AstPrimalPart Float Float) =
-  AstPrimalPart Float Float
+deriving instance Num (Ast r a) => Num (AstPrimalPart r a)
+deriving instance (Real (Ast r a), Ord a) => Real (AstPrimalPart r a)
+deriving instance Fractional (Ast r a) => Fractional (AstPrimalPart r a)
+-- TODO: etc.
+
+type instance Element (AstPrimalPart r a) = AstPrimalPart r (Element a)
 
 instance MonoFunctor (AstPrimalPart r (Vector r)) where
   omap f (AstPrimalPart x) =
@@ -260,4 +253,36 @@ instance MonoFunctor (AstPrimalPart Double Double) where
   omap f = f
 
 instance MonoFunctor (AstPrimalPart Float Float) where
+  omap f = f
+
+
+-- * Orphan instances
+
+-- TODO: move to separate orphan module(s) at some point
+-- This requires UndecidableInstances
+
+instance (Num (Vector r), Numeric r, Ord r)
+         => Real (Vector r) where
+  toRational = undefined
+    -- very low priority, since these are all extremely not continuous
+
+instance (Num (Vector r), Numeric r, Fractional r, Ord r)
+         => RealFrac (Vector r) where
+  properFraction = undefined
+    -- very low priority, since these are all extremely not continuous
+
+instance ( Floating (Vector r), Numeric r, RealFloat r )
+         => RealFloat (Vector r) where
+  atan2 = arctan2
+    -- we can be selective here and omit the other methods,
+    -- most of which don't even have a differentiable codomain
+
+type instance Element Double = Double
+
+type instance Element Float = Float
+
+instance MonoFunctor Double where
+  omap f = f
+
+instance MonoFunctor Float where
   omap f = f

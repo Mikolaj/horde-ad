@@ -226,6 +226,16 @@ reluLeaky v =
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) (primalPart v)
   in scale oneIfGtZero v
 
+reluAst
+  :: ( Fractional a, MonoFunctor (PrimalOf (Ast r a))
+     , r ~ Element a, Fractional r )
+  => Ast r a -> Ast r a
+reluAst v =
+  let oneIfGtZero = omap (\(AstPrimalPart x) ->
+                            AstPrimalPart $ AstCond (AstRel GtOut [x, 0]) 1 0)
+                         (primalPart v)
+  in scale oneIfGtZero v
+
 
 -- * Operations resulting in a scalar
 

@@ -47,12 +47,11 @@ module HordeAd.Core.DualClass
 import Prelude
 
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
-import           Data.MonoTraversable (Element, MonoFunctor (omap))
+import           Data.MonoTraversable (Element, MonoFunctor)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
-import           Numeric.LinearAlgebra.Data (arctan2)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Text.Show.Functions ()
 
@@ -465,35 +464,3 @@ wrapDelta1 :: Delta1 r -> Delta1 r
 wrapDelta1 !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! Let1 (NodeId n) d
-
-
--- * Orphan instances
-
--- TODO: move to separate orphan module(s) at some point
--- This requires UndecidableInstances
-
-instance (Num (Vector r), Numeric r, Ord r)
-         => Real (Vector r) where
-  toRational = undefined
-    -- very low priority, since these are all extremely not continuous
-
-instance (Num (Vector r), Numeric r, Fractional r, Ord r)
-         => RealFrac (Vector r) where
-  properFraction = undefined
-    -- very low priority, since these are all extremely not continuous
-
-instance ( Floating (Vector r), Numeric r, RealFloat r )
-         => RealFloat (Vector r) where
-  atan2 = arctan2
-    -- we can be selective here and omit the other methods,
-    -- most of which don't even have a differentiable codomain
-
-type instance Element Double = Double
-
-type instance Element Float = Float
-
-instance MonoFunctor Double where
-  omap f = f
-
-instance MonoFunctor Float where
-  omap f = f

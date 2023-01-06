@@ -26,7 +26,7 @@ testTrees = [ testCase "barADVal" testBarADVal
             , testCase "nestedBuildMap" testNestedBuildMap
             , testCase "nestedBuildMapADVal" testNestedBuildMapADVal
             , testCase "barReluADVal" testBarReluADVal
---            , testCase "barReluAst" testBarReluAst
+            , testCase "barReluAst" testBarReluAst
             ]
 
 foo :: RealFloat a => (a,a,a) -> a
@@ -112,11 +112,13 @@ barRelu x = relu $ bar (x, relu x)
 barReluAst
   :: forall r a.
      ( RealFloat a
-     , MonoFunctor (AstPrimalPart r a), Num (AstPrimalPart r a)
-     , Ord (Element (AstPrimalPart r a))
-     , Fractional (Element (AstPrimalPart r a)) )
+     , MonoFunctor (AstPrimalPart r a)
+--     , Num (AstPrimalPart r a)
+--     , Ord (Element (AstPrimalPart r a))
+--     , Fractional (Element (AstPrimalPart r a))
+     , r ~ Element a, Fractional r )  -- TODO: needed?
   => Ast r a -> Ast r a
-barReluAst = barRelu @(Ast r a)
+barReluAst x = reluAst $ bar (x, reluAst x)  -- TODO; fails: barRelu @(Ast r a)
 
 
 -- In simplified horde-ad we don't have access to the highest level API
