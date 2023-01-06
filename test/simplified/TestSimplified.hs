@@ -4,6 +4,7 @@ module TestSimplified (testTrees) where
 
 import Prelude
 
+import           Data.MonoTraversable (MonoFunctor)
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Numeric, Vector)
@@ -23,7 +24,10 @@ testTrees = [ testCase "barADVal" testBarADVal
             , testCase "fooMap1" testFooMap
             , testCase "fooNoGo" testFooNoGo
             , testCase "nestedBuildMap" testNestedBuildMap
-            , testCase "testNestedBuildMapADVal" testNestedBuildMapADVal ]
+            , testCase "nestedBuildMapADVal" testNestedBuildMapADVal
+            , testCase "barReluADVal" testBarReluADVal
+--            , testCase "barReluAst" testBarReluAst
+            ]
 
 foo :: RealFloat a => (a,a,a) -> a
 foo (x,y,z) =
@@ -98,6 +102,22 @@ nestedBuildMapADVal
   :: forall r d. ADModeAndNum d r => ADVal d r -> ADVal d (Vector r)
 nestedBuildMapADVal = nestedBuildMap @(ADVal d r)
 
+barRelu
+  :: ( RealFloat a
+     , HasPrimal a, MonoFunctor (PrimalOf a), Ord (Element (PrimalOf a))
+     , Fractional (Element (PrimalOf a)), Num (PrimalOf a) )
+  => a -> a
+barRelu x = relu $ bar (x, relu x)
+
+barReluAst
+  :: forall r a.
+     ( RealFloat a
+     , MonoFunctor (Ast r a), Ord (Element (Ast r a))
+     , Fractional (Element (Ast r a)) )
+  => Ast r a -> Ast r a
+barReluAst = barRelu @(Ast r a)
+
+
 -- In simplified horde-ad we don't have access to the highest level API
 -- (adaptors), so the testing glue is tedious:
 testBarADVal :: Assertion
@@ -166,3 +186,23 @@ testNestedBuildMapADVal =
        (\adinputs -> nestedBuildMapADVal (adinputs `at0` 0))
        (domainsFrom01 (V.singleton (1.1 :: Double)) V.empty))
   @?~ V.fromList [107.25984443006627]
+
+testBarReluADVal :: Assertion
+testBarReluADVal =
+  (domains0 $ fst
+   $ revOnDomains
+       42.2
+       (\adinputs -> barRelu (adinputs `at0` 0))
+       (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
+  @?~ V.fromList [191.20462646925841]
+
+testBarReluAst :: Assertion
+testBarReluAst =
+  (domains0 $ fst
+   $ revOnDomains
+       42.2
+       (\adinputs ->
+          interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
+                       (barReluAst (AstVar0 (AstVarName (-1)))))
+       (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
+  @?~ V.fromList [191.20462646925841]

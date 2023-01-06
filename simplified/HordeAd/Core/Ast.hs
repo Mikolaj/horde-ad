@@ -36,6 +36,7 @@ data Ast :: Type -> Type -> Type where
   AstVar0 :: AstVarName r -> Ast r r
   AstVar1 :: AstVarName (Vector r) -> Ast r (Vector r)
 
+  -- Taken from VectorLike:
   AstSumElements10 :: Ast r (Vector r) -> Ast r r
   AstIndex10 :: Ast r (Vector r) -> AstInt r -> Ast r r
   AstMinElement :: Ast r (Vector r) -> Ast r r
@@ -77,6 +78,7 @@ data AstInt :: Type -> Type where
   AstIntConst :: Int -> AstInt r
   AstIntVar :: AstVarName Int -> AstInt r
 
+  -- Taken from VectorLike:
   AstLength :: Ast r (Vector r) -> AstInt r
   AstMinIndex :: Ast r (Vector r) -> AstInt r
   AstMaxIndex :: Ast r (Vector r) -> AstInt r
