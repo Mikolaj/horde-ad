@@ -31,7 +31,7 @@
 module HordeAd.Core.DualClass
   ( -- * The most often used part of the mid-level API that gets re-exported in high-level API
     ADVal, dD, dDnotShared
-  , ADMode(..), ADModeAndNum, ADModeAndNumNew
+  , ADMode(..), ADModeAndNum
   , IntOf, VectorOf
   , -- * The less often used part of the mid-level API that gets re-exported in high-level API; it leaks implementation details
     pattern D
@@ -120,16 +120,6 @@ type ADModeAndNum (d :: ADMode) r =
   , HasRanks (Vector r) d r
   , IsPrimalAndHasFeatures d r r
   , IsPrimalAndHasFeatures d (Vector r) r
-  , IntOf r ~ Int
-  )
-
-type ADModeAndNumNew (d :: ADMode) r =
-  ( Numeric r
-  , HasPrimal r
-  , HasRanks (Vector r) d r
-  , IsPrimalAndHasFeatures d r r
-  , IsPrimalAndHasFeatures d (Vector r) r
-  , VectorLike (Vector r) r
   , IntOf r ~ Int
   )
 
