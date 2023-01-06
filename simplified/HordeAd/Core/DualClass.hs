@@ -179,6 +179,7 @@ type family VectorOf a = result | result -> a where
   VectorOf Double = Vector Double
   VectorOf Float = Vector Float
   VectorOf (Ast r r) = Ast r (Vector r)
+  VectorOf (ADVal d r) = ADVal d (Vector r)
 
 -- We could accept any @RealFloat@ instead of @PrimalOf a@, but then
 -- we'd need to coerce, e.g., via realToFrac, which is risky and lossy.

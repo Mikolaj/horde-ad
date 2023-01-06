@@ -22,7 +22,8 @@ testTrees = [ testCase "barADVal" testBarADVal
             , testCase "fooBuild1" testFooBuild
             , testCase "fooMap1" testFooMap
             , testCase "fooNoGo" testFooNoGo
-            , testCase "nestedBuildMap" testNestedBuildMap ]
+            , testCase "nestedBuildMap" testNestedBuildMap
+            , testCase "testNestedBuildMapADVal" testNestedBuildMapADVal ]
 
 foo :: RealFloat a => (a,a,a) -> a
 foo (x,y,z) =
@@ -91,6 +92,12 @@ nestedBuildMap r =
                        / fooMap1 x)
            ) doublyBuild
 
+-- A variant for a test without any attempt at vectorization.
+-- TODO: test each example in this file both with and without vectorization.
+nestedBuildMapADVal
+  :: forall r d. ADModeAndNum d r => ADVal d r -> ADVal d (Vector r)
+nestedBuildMapADVal = nestedBuildMap @(ADVal d r)
+
 -- In simplified horde-ad we don't have access to the highest level API
 -- (adaptors), so the testing glue is tedious:
 testBarADVal :: Assertion
@@ -148,5 +155,14 @@ testNestedBuildMap =
        (\adinputs ->
           interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
                        (nestedBuildMap (AstVar0 (AstVarName (-1)))))
+       (domainsFrom01 (V.singleton (1.1 :: Double)) V.empty))
+  @?~ V.fromList [107.25984443006627]
+
+testNestedBuildMapADVal :: Assertion
+testNestedBuildMapADVal =
+  (domains0 $ fst
+   $ revOnDomains
+       (LA.konst 1 5)  -- "1" wrong due to fragility of hmatrix optimization
+       (\adinputs -> nestedBuildMapADVal (adinputs `at0` 0))
        (domainsFrom01 (V.singleton (1.1 :: Double)) V.empty))
   @?~ V.fromList [107.25984443006627]
