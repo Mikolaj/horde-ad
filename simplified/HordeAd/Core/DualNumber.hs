@@ -654,7 +654,7 @@ but from vectors, distributing their elements in various patterns
 
 -- TODO: Shall this be represented and processed as just build?
 -- But doing this naively copies @w@ a lot, so we'd need to wait
--- until AST handles sharing properly.
+-- until AST handles sharing properly. Or make @w@ a variable.
 map1Vectorize
   :: (AstVarName r, Ast r r) -> Ast r (Vector r)
   -> Ast r (Vector r)

@@ -64,13 +64,10 @@ data Ast :: Type -> Type -> Type where
 
   AstOMap1 :: (AstVarName r, Ast r r) -> Ast r (Vector r)
            -> Ast r (Vector r)
-    -- TODO: this is necessary for MonoFunctor and so for a particularly
-    -- fast implementation of relu, but this introduces a closure on tape;
-    -- we may need to hack around this by substituting MonoFunctor
-    -- with something similar to AstVectorLike or by optimizing map1 enough
-    -- that it's as fast in such a simple case
-    -- TODO: this is really only needed in AstPrimalPart, but making it
-    -- data instead of a newtype would complicate a lot
+    -- this is necessary for MonoFunctor and so for a particularly
+    -- fast implementation of relu
+    -- TODO: this is really only needed in AstPrimalPart, but making
+    -- AstPrimalPart data instead of a newtype would complicate a lot of code
 
 newtype AstPrimalPart r a = AstPrimalPart (Ast r a)
 
