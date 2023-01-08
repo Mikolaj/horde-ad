@@ -26,6 +26,7 @@ module HordeAd.Core.DualNumber
 
 import Prelude
 
+import           Control.Exception (assert)
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.MonoTraversable (MonoFunctor (omap))
 import           Data.Proxy (Proxy (Proxy))
@@ -538,7 +539,7 @@ build1Vectorize n (var, u) =
     AstVar0 _var2 -> error "build1Vectorize: can't have free int variables"
     AstSumElements10 _v -> AstBuildPair1 n (var, u)
     AstIndex10 v i -> buildOfIndex10Vectorize n var v i
-                        -- TODO: simplify i first
+      -- @var@ is in @v@ or @i@; TODO: simplify i first
     AstMinElement _v ->
       AstBuildPair1 n (var, u)
         -- Vectors are assumed to be huge, so it's not possible to perform
@@ -561,6 +562,7 @@ build1Vectorize n (var, u) =
       -- but how to vectorize AstSumElements10?
     -- All other patterns are redundant due to GADT typing.
 
+-- @var@ is in @v@ or @i@.
 buildOfIndex10Vectorize
   :: AstInt r -> AstVarName Int -> Ast r (Vector r) -> AstInt r
   -> Ast r (Vector r)
@@ -590,19 +592,22 @@ buildOfIndex10Vectorize n var v i =
       else
         buildOfIndex10VectorizeVarNotInV n var v i
 
--- The case where @var@ does not occur in @v@.
+-- The case where @var@ does not occur in @v@, which implies it's in @i@.
 buildOfIndex10VectorizeVarNotInV
   :: AstInt r -> AstVarName Int -> Ast r (Vector r) -> AstInt r
   -> Ast r (Vector r)
 buildOfIndex10VectorizeVarNotInV n var v i = case i of
   AstIntOp PlusIntOut [AstIntVar var2, i2] | var2 == var ->
     AstSlice1 i2 n v
+  AstIntVar var2 -> assert (var2 == var) $
+    AstSlice1 0 n v  -- simplified further elsewhere, if just identity
+  {- TODO: these are impossible (they duplicate the first branch
+     of build1Vectorize), unless we start descending recursively:
   AstIntConst _i2 ->
     AstKonst1 (AstIndex10 v i) n  -- v and i the same in each cell, so legit
-  AstIntVar var2 | var2 == var ->
-    AstSlice1 0 n v  -- simplified further elsewhere, if just identity
   AstIntVar _var2 ->
     AstKonst1 (AstIndex10 v i) n  -- v and i the same in each cell, so legit
+  -}
   _ -> AstBuildPair1 n (var, AstIndex10 v i)
     -- TODO:
     -- add a new 'gather' operation somehow and, if a more complex index
