@@ -532,7 +532,10 @@ build1Vectorize n (var, u) =
                 (build1Vectorize n (var, x))
                 (build1Vectorize n (var, y))
     AstConst{} -> error "build1Vectorize: can't have free int variables"
-    AstConstant{} -> error "build1Vectorize: can't have free int variables"
+    AstConstant _r -> AstConstant $ AstPrimalPart $ AstBuildPair1 n (var, u)
+      -- this is very fast when interpreted in a smart way, but constant
+      -- character needs to be exposed for nested cases;
+      -- TODO: similarly propagate AstConstant upwards elsewhere
     AstScale (AstPrimalPart r) d ->
       AstScale (AstPrimalPart $ build1Vectorize n (var, r))
                (build1Vectorize n (var, d))
@@ -668,7 +671,7 @@ map1Vectorize (var, u) w = case u of
     AstOp codeOut $ map (\x -> map1Vectorize (var, x) w) args
   AstCond _b _x1 _x2 -> AstMapPair1 (var, u) w  -- TODO
   AstConst r -> AstKonst1 (AstConst r) (AstLength w)
-  AstConstant r -> AstKonst1 (AstConstant r) (AstLength w)
+  AstConstant _r -> AstMapPair1 (var, u) w  -- TODO
   AstScale (AstPrimalPart r) d ->
     AstScale (AstPrimalPart $ map1Vectorize (var, r) w)
              (map1Vectorize (var, d) w)
@@ -767,6 +770,11 @@ interpretAst env = \case
        then v'  -- perhaps common in code generated from AST
        else lslice1 i' n' v'
   AstReverse1 v -> lreverse1 $ interpretAst env v
+  AstBuildPair1 i (var, AstConstant r) ->  -- TODO: interpretAstConstant
+    constant
+    $ lbuild1 (interpretAstInt env i)
+              (\j -> let D v _ = interpretLambdaI env (var, AstConstant r) j
+                     in v)
   AstBuildPair1 i (var, r) ->
     lbuild1 (interpretAstInt env i) (interpretLambdaI env (var, r))
       -- fallback to POPL (memory blowup, but avoids functions on tape)
