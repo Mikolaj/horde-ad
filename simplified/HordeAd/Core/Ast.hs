@@ -29,7 +29,8 @@ import           Text.Show.Functions ()
 
 -- TODO: consider sharing Ast expressions, both within the primal part
 -- and between primal and dual
--- | AST of the code to be differentiated.
+-- | AST of the code to be differentiated. The first argument is the underlying
+-- scalar. It's necessary to type-check AstVar0. (TODO: try to remove it)
 data Ast :: Type -> Type -> Type where
   AstOp :: CodeOut -> [Ast r a] -> Ast r a
   AstCond :: AstBool r -> Ast r a -> Ast r a -> Ast r a
@@ -79,6 +80,9 @@ data AstVar a0 a1 =
   | AstVarR1 a1
   | AstVarI Int
 
+-- Like the first argument of @Ast@, the argument is the underlying scalar.
+-- TODO: change Ast below to AstPrimalPart in case AstPrimalPart get
+-- more constructors.
 data AstInt :: Type -> Type where
   AstIntOp :: CodeIntOut -> [AstInt r] -> AstInt r
   AstIntCond :: AstBool r -> AstInt r -> AstInt r -> AstInt r
@@ -90,6 +94,9 @@ data AstInt :: Type -> Type where
   AstMinIndex :: Ast r (Vector r) -> AstInt r
   AstMaxIndex :: Ast r (Vector r) -> AstInt r
 
+-- Like the first argument of @Ast@, the argument is the underlying scalar.
+-- TODO: change Ast below to AstPrimalPart in case AstPrimalPart get
+-- more constructors.
 data AstBool :: Type -> Type where
   AstBoolOp :: CodeBoolOut -> [AstBool r] -> AstBool r
   AstBoolConst :: Bool -> AstBool r
