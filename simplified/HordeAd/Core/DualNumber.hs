@@ -12,13 +12,15 @@
 module HordeAd.Core.DualNumber
   ( module HordeAd.Core.DualNumber
   , ADVal, dD, dDnotShared
-  , ADMode(..), ADModeAndNum, ADModeAndNumNew
-  , liftToAst, IntOf, VectorOf
+  , ADMode(..), ADModeAndNum
+  , IntOf, VectorOf
   , IsPrimal (..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
-  , Under, Element
+  , Element, HasPrimal(..)
+  , VectorLike(..), ADReady
   , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
   , -- temporarily re-exported, until these are wrapped in sugar
-    Ast(..), Ast0, Ast1, AstVarName(..), AstVar(..), AstInt(..), AstBool(..)
+    Ast(..), AstPrimalPart(..), AstVarName(..), AstVar(..)
+  , AstInt(..), AstBool(..)
   , CodeOut(..), CodeIntOut(..), CodeBoolOut(..), RelOut(..)
   ) where
 
@@ -35,6 +37,7 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe (unsafePerformIO)
 
+import HordeAd.Core.Ast
 import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta (Domain0, Domain1, Domains (..), nullDomains)
 
@@ -153,11 +156,50 @@ instance (RealFloat a, IsPrimal d a) => RealFloat (ADVal d a) where
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a differentiable codomain
 
-constant :: IsPrimal d a => a -> ADVal d a
-constant a = dD a dZero
+instance IsPrimal d a => HasPrimal (ADVal d a) where
+  type PrimalOf (ADVal d a) = a
+  type DualOf (ADVal d a) = Dual d a
+  constant a = dD a dZero
+  scale a (D u u') = dD (a * u) (dScale a u')
+  primalPart (D u _) = u
+  dualPart (D _ u') = u'
+  ddD = dD
 
-scale :: (Num a, IsPrimal d a) => a -> ADVal d a -> ADVal d a
-scale a (D u u') = dD (a * u) (dScale a u')
+instance HasPrimal Float where
+  type PrimalOf Float = Float
+  type DualOf Float = ()
+  constant = id
+  scale = (*)
+  primalPart = id
+  dualPart _ = ()
+  ddD u _ = u
+
+instance HasPrimal Double where
+  type PrimalOf Double = Double
+  type DualOf Double = ()
+  constant = id
+  scale = (*)
+  primalPart = id
+  dualPart _ = ()
+  ddD u _ = u
+
+instance HasPrimal (Vector r) where
+  type PrimalOf (Vector r) = Vector r
+  type DualOf (Vector r) = ()
+  constant = id
+  scale = (*)
+  primalPart = id
+  dualPart _ = ()
+  ddD u _ = u
+
+instance HasPrimal (Ast r a) where
+  type PrimalOf (Ast r a) = AstPrimalPart r a
+  type DualOf (Ast r a) = ()  -- TODO: data AstDualPart: dScale, dAdd, dkonst1
+  constant = AstConstant
+  scale = AstScale
+  primalPart = AstPrimalPart
+  dualPart = error "TODO"
+  ddD = error "TODO"
 
 logistic :: (Floating a, IsPrimal d a) => ADVal d a -> ADVal d a
 logistic (D u u') =
@@ -172,40 +214,43 @@ squaredDifference :: (Num a, IsPrimal d a)
                   => a -> ADVal d a -> ADVal d a
 squaredDifference targ res = square $ res - constant targ
 
-relu :: (ADModeAndNumNew d r, IsPrimalAndHasFeatures d a r)
-     => ADVal d a -> ADVal d a
-relu v@(D u _) =
-  let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0) u
+relu, reluLeaky
+  :: ( HasPrimal a, MonoFunctor (PrimalOf a), Num (PrimalOf a)
+     , Ord (Element (PrimalOf a)), Fractional (Element (PrimalOf a)) )
+  => a -> a
+relu v =
+  let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0) (primalPart v)
   in scale oneIfGtZero v
 
-reluLeaky :: (ADModeAndNumNew d r, IsPrimalAndHasFeatures d a r)
-          => ADVal d a -> ADVal d a
-reluLeaky v@(D u _) =
-  let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) u
+reluLeaky v =
+  let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) (primalPart v)
   in scale oneIfGtZero v
 
-condAst :: IsPrimal d (Ast r d a)
-        => AstBool r d -> ADVal d (Ast r d a) -> ADVal d (Ast r d a)
-        -> ADVal d (Ast r d a)
-condAst b (D d _) (D e _) = astToD (AstCond b d e)
+reluAst
+  :: ( Fractional a, MonoFunctor (PrimalOf (Ast r a))
+     , r ~ Element a, Fractional r )
+  => Ast r a -> Ast r a
+reluAst v =
+  let oneIfGtZero = omap (\(AstPrimalPart x) ->
+                            AstPrimalPart $ AstCond (AstRel GtOut [x, 0]) 1 0)
+                         (primalPart v)
+  in scale oneIfGtZero v
 
 
 -- * Operations resulting in a scalar
 
-sumElements10 :: ADModeAndNumNew d r
-              => ADVal d (VectorOf r) -> ADVal d r
-sumElements10 (D u u') = dD (lsumElements10 u) (dSumElements10 u' (llength u))
+sumElements10 :: ADModeAndNum d r
+              => ADVal d (Vector r) -> ADVal d r
+sumElements10 = lsumElements10
 
-index10 :: ADModeAndNumNew d r => ADVal d (VectorOf r) -> IntOf r -> ADVal d r
-index10 (D u u') ix = dD (lindex10 u ix) (dIndex10 u' ix (llength u))
+index10 :: ADModeAndNum d r => ADVal d (Vector r) -> Int -> ADVal d r
+index10 = lindex10
 
-minimum0 :: ADModeAndNumNew d r => ADVal d (VectorOf r) -> ADVal d r
-minimum0 (D u u') =
-  dD (lminElement u) (dIndex10 u' (lminIndex u) (llength u))
+minimum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
+minimum0 = lminimum0
 
-maximum0 :: ADModeAndNumNew d r => ADVal d (VectorOf r) -> ADVal d r
-maximum0 (D u u') =
-  dD (lmaxElement u) (dIndex10 u' (lmaxIndex u) (llength u))
+maximum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
+maximum0 = lmaximum0
 
 foldl'0 :: ADModeAndNum d r
         => (ADVal d r -> ADVal d r -> ADVal d r)
@@ -221,21 +266,21 @@ altSumElements10 = foldl'0 (+) 0
 
 -- | Dot product.
 infixr 8 <.>!
-(<.>!) :: ADModeAndNumNew d r
-       => ADVal d (VectorOf r) -> ADVal d (VectorOf r) -> ADVal d r
-(<.>!) (D u u') (D v v') = dD (ldot0 u v) (dAdd (dDot0 v u') (dDot0 u v'))
+(<.>!) :: ADModeAndNum d r
+       => ADVal d (Vector r) -> ADVal d (Vector r) -> ADVal d r
+(<.>!) = ldot0
 
 -- | Dot product with a constant vector.
 infixr 8 <.>!!
-(<.>!!) :: ADModeAndNumNew d r
-        => ADVal d (VectorOf r) -> VectorOf r -> ADVal d r
+(<.>!!) :: ADModeAndNum d r
+        => ADVal d (Vector r) -> Vector r -> ADVal d r
 (<.>!!) (D u u') v = dD (ldot0 u v) (dDot0 v u')
 
 sumElementsVectorOfDual
-  :: ADModeAndNumNew d r => Data.Vector.Vector (ADVal d r) -> ADVal d r
+  :: ADModeAndNum d r => Data.Vector.Vector (ADVal d r) -> ADVal d r
 sumElementsVectorOfDual = V.foldl' (+) 0
 
-softMax :: ADModeAndNumNew d r
+softMax :: ADModeAndNum d r
         => Data.Vector.Vector (ADVal d r)
         -> Data.Vector.Vector (ADVal d r)
 softMax us =
@@ -254,9 +299,9 @@ lossCrossEntropy targ res =
   in negate $ V.ifoldl' f 0 res
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropyV :: ADModeAndNumNew d r
-                  => VectorOf r
-                  -> ADVal d (VectorOf r)
+lossCrossEntropyV :: ADModeAndNum d r
+                  => Vector r
+                  -> ADVal d (Vector r)
                   -> ADVal d r
 lossCrossEntropyV targ res = negate $ log res <.>!! targ
 
@@ -264,14 +309,14 @@ lossCrossEntropyV targ res = negate $ log res <.>!! targ
 -- only when @target@ is one-hot. Otherwise, results vary wildly. In our
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyV
-  :: ADModeAndNumNew d r
-  => VectorOf r -> ADVal d (VectorOf r) -> ADVal d r
+  :: ADModeAndNum d r
+  => Vector r -> ADVal d (Vector r) -> ADVal d r
 lossSoftMaxCrossEntropyV target (D u u') =
   -- The following protects from underflows, overflows and exploding gradients
   -- and is required by the QuickCheck test in TestMnistCNN.
   -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106
   -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
-  let expU = exp (u - lkonst1 (lmaxElement u) (llength u))
+  let expU = exp (u - lkonst1 (lmaximum0 u) (llength u))
       sumExpU = lsumElements10 expU
       recipSum = recip sumExpU
 -- not exposed: softMaxU = LA.scaleRecip sumExpU expU
@@ -283,44 +328,42 @@ lossSoftMaxCrossEntropyV target (D u u') =
 -- * Operations resulting in a vector
 
 -- @1@ means rank one, so the dual component represents a vector.
-fromList1 :: ADModeAndNumNew d r
-          => [ADVal d r] -> ADVal d (VectorOf r)
-fromList1 l = dD (lfromList1 $ map (\(D u _) -> u) l)  -- I hope this fuses
-                 (dFromList1 $ map (\(D _ u') -> u') l)
+fromList1 :: ADModeAndNum d r
+          => [ADVal d r] -> ADVal d (Vector r)
+fromList1 = lfromList1
 
-fromVector1 :: ADModeAndNumNew d r
-            => Data.Vector.Vector (ADVal d r) -> ADVal d (VectorOf r)
-fromVector1 v = dD (lfromVector1 $ V.map (\(D u _) -> u) v)  -- I hope it fuses
-                   (dFromVector1 $ V.map (\(D _ u') -> u') v)
+fromVector1 :: ADModeAndNum d r
+            => Data.Vector.Vector (ADVal d r) -> ADVal d (Vector r)
+fromVector1 = lfromVector1
 
-konst1 :: ADModeAndNumNew d r => ADVal d r -> IntOf r -> ADVal d (VectorOf r)
-konst1 (D u u') n = dD (lkonst1 u n) (dKonst1 u' n)
+konst1 :: ADModeAndNum d r => ADVal d r -> Int -> ADVal d (Vector r)
+konst1 = lkonst1
 
-append1 :: ADModeAndNumNew d r
-        => ADVal d (VectorOf r) -> ADVal d (VectorOf r) -> ADVal d (VectorOf r)
-append1 (D u u') (D v v') = dD (lappend1 u v) (dAppend1 u' (llength u) v')
+append1 :: ADModeAndNum d r
+        => ADVal d (Vector r) -> ADVal d (Vector r) -> ADVal d (Vector r)
+append1 = lappend1
 
-slice1 :: ADModeAndNumNew d r
-       => IntOf r -> IntOf r -> ADVal d (VectorOf r) -> ADVal d (VectorOf r)
-slice1 i n (D u u') = dD (lslice1 i n u) (dSlice1 i n u' (llength u))
+slice1 :: ADModeAndNum d r
+       => Int -> Int -> ADVal d (Vector r) -> ADVal d (Vector r)
+slice1 = lslice1
 
-reverse1 :: ADModeAndNumNew d r => ADVal d (VectorOf r) -> ADVal d (VectorOf r)
-reverse1 (D u u') = dD (lreverse1 u) (dReverse1 u')
+reverse1 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d (Vector r)
+reverse1 = lreverse1
 
--- TODO: define Enum instance of (AstInt r d) to enable AST for this.
+-- TODO: define Enum instance of (AstInt r) to enable AST for this.
 -- No padding; remaining areas ignored.
 maxPool1 :: ADModeAndNum d r
          => Int -> Int -> ADVal d (Vector r) -> ADVal d (Vector r)
-maxPool1 ksize stride v@(D u _) =
-  let slices = [slice1 i ksize v | i <- [0, stride .. V.length u - ksize]]
+maxPool1 ksize stride v =
+  let slices = [slice1 i ksize v | i <- [0, stride .. llength v - ksize]]
   in fromList1 $ map maximum0 slices
 
-softMaxV :: ADModeAndNumNew d r
-         => ADVal d (VectorOf r) -> ADVal d (VectorOf r)
-softMaxV d@(D u _) =
+softMaxV :: ADModeAndNum d r
+         => ADVal d (Vector r) -> ADVal d (Vector r)
+softMaxV d =
   let expU = exp d  -- shared in 2 places, though cse may do this for us
       sumExpU = sumElements10 expU
-  in konst1 (recip sumExpU) (llength u) * expU
+  in konst1 (recip sumExpU) (llength d) * expU
 
 
 -- * Build and map variants
@@ -332,22 +375,22 @@ build1POPL n f = V.fromList $ map f [0 .. n - 1]
 -- instead of a single delta expression representing an array.
 -- We gain a little by storing the primal part in an unboxed vector.
 build1Elementwise
-  :: ADModeAndNumNew d r
-  => Int -> (Int -> ADVal d r) -> ADVal d (VectorOf r)
+  :: ADModeAndNum d r
+  => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
 build1Elementwise n f = fromList1 $ map f [0 .. n - 1]
   -- equivalent to @fromVector1 $ build1POPL n f@
 
 build1Closure
-  :: (ADModeAndNumNew d r, IntOf r ~ Int)
-  => Int -> (Int -> ADVal d r) -> ADVal d (VectorOf r)
+  :: ADModeAndNum d r
+  => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
 build1Closure n f =
   let g i = let D u _ = f i in u
       h i = let D _ u' = f i in u'
   in dD (lfromList1 $ map g [0 .. n - 1]) (dBuild1 n h)
 
 build1
-  :: (ADModeAndNumNew d r, IntOf r ~ Int)
-  => Int -> (Int -> ADVal d r) -> ADVal d (VectorOf r)
+  :: ADModeAndNum d r
+  => Int -> (Int -> ADVal d r) -> ADVal d (Vector r)
 build1 = build1Closure
 
 map1POPL :: (ADVal d r -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
@@ -355,34 +398,89 @@ map1POPL :: (ADVal d r -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
 map1POPL f vd = V.map f vd
 
 map1Elementwise
-  :: (ADModeAndNumNew d r, IntOf r ~ Int)
-  => (ADVal d r -> ADVal d r) -> ADVal d (VectorOf r) -> ADVal d (VectorOf r)
-map1Elementwise f d@(D v _v') =
-  build1Elementwise (llength v) $ \i -> f (index10 d i)
+  :: ADModeAndNum d r
+  => (ADVal d r -> ADVal d r) -> ADVal d (Vector r) -> ADVal d (Vector r)
+map1Elementwise f d =
+  build1Elementwise (llength d) $ \i -> f (index10 d i)
     -- equivalent to
     -- @fromVector1 . map1POPL f . rank1toVector
-    --   where rank1toVector d@(D v _v') = V.generate (V.length v) (index10 d)@
+    --   where rank1toVector d@(D v _v') = V.generate (llength d) (index10 d)@
 
 map1Closure
-  :: (ADModeAndNumNew d r, IntOf r ~ Int)
-  => (ADVal d r -> ADVal d r) -> ADVal d (VectorOf r) -> ADVal d (VectorOf r)
-map1Closure f d@(D v _) = build1Closure (llength v) $ \i -> f (index10 d i)
+  :: ADModeAndNum d r
+  => (ADVal d r -> ADVal d r) -> ADVal d (Vector r) -> ADVal d (Vector r)
+map1Closure f d = build1Closure (llength d) $ \i -> f (index10 d i)
 
+
+-- * Instances of VectorLike
+
+instance (Numeric r, IntOf r ~ Int, VectorOf r ~ Vector r)
+         => VectorLike (Vector r) r where
+  llength = V.length
+  lminIndex = LA.minIndex
+  lmaxIndex = LA.maxIndex
+  lsumElements10 = LA.sumElements
+  lindex10 = (V.!)
+  lminimum0 = LA.minElement
+  lmaximum0 = LA.maxElement
+  ldot0 = (LA.<.>)
+  lfromList1 = V.fromList
+  lfromVector1 = V.convert
+  lkonst1 = LA.konst
+  lappend1 = (V.++)
+  lslice1 = V.slice
+  lreverse1 = V.reverse
+  lbuild1 = V.generate
+  lmap1 = V.map
+
+instance VectorLike (Ast r (Vector r)) (Ast r r) where
+  llength = AstLength
+  lminIndex = AstMinIndex
+  lmaxIndex = AstMaxIndex
+  lsumElements10 = AstSumElements10
+  lindex10 = AstIndex10
+  lminimum0 = AstMinElement
+  lmaximum0 = AstMaxElement
+  ldot0 = AstDot0
+  lfromList1 = AstFromList1
+  lfromVector1 = AstFromVector1
+  lkonst1 = AstKonst1
+  lappend1 = AstAppend1
+  lslice1 = AstSlice1
+  lreverse1 = AstReverse1
+  lbuild1 = astBuild1  -- TODO: this vectorizers depth-first, but is this
+  lmap1 = astMap1      -- needed? should we vectorize the whole program instead?
+
+-- Not that this instance doesn't do vectorization. To enable it,
+-- use the Ast instance, vectorize and finally interpret in ADVal.
+-- The interpretation step uses this instance, including lbuild1
+-- and lmap1, as a fallback for failed vectorization.
+instance ADModeAndNum d r
+         => VectorLike (ADVal d (Vector r)) (ADVal d r) where
+  llength (D u _) = V.length u
+  lminIndex (D u _) = lminIndex u
+  lmaxIndex (D u _) = lmaxIndex u
+  lsumElements10 (D u u') =
+    dD (lsumElements10 u) (dSumElements10 u' (llength u))
+  lindex10 (D u u') ix = dD (lindex10 u ix) (dIndex10 u' ix (llength u))
+  lminimum0 (D u u') =
+    dD (lminimum0 u) (dIndex10 u' (lminIndex u) (llength u))
+  lmaximum0 (D u u') =
+    dD (lmaximum0 u) (dIndex10 u' (lmaxIndex u) (llength u))
+  ldot0 (D u u') (D v v') = dD (ldot0 u v) (dAdd (dDot0 v u') (dDot0 u v'))
+  lfromList1 l = dD (lfromList1 $ map (\(D u _) -> u) l)  -- I hope this fuses
+                    (dFromList1 $ map (\(D _ u') -> u') l)
+  lfromVector1 v = dD (lfromVector1 $ V.map (\(D u _) -> u) v)
+                        -- I hope it fuses
+                      (dFromVector1 $ V.map (\(D _ u') -> u') v)
+  lkonst1 (D u u') n = dD (lkonst1 u n) (dKonst1 u' n)
+  lappend1 (D u u') (D v v') = dD (lappend1 u v) (dAppend1 u' (llength u) v')
+  lslice1 i n (D u u') = dD (lslice1 i n u) (dSlice1 i n u' (llength u))
+  lreverse1 (D u u') = dD (lreverse1 u) (dReverse1 u')
+  lbuild1 = build1Elementwise
+  lmap1 = map1Elementwise
 
 -- * AST-based build and map variants
-
--- Orphan instances to split a module.
-instance Under r ~ r
-         => AstVectorLike d r (Vector r) where
-  lbuildPair1 n (var, u) =
-    interpretAst IM.empty $ build1Vectorize (AstIntConst n) (var, u)
-  lmapPair1 (var, u) e =
-    interpretAst IM.empty $ map1Vectorize (var, u) (AstD e)
-
-instance IsPrimal d (Ast r d (Vector r))
-         => AstVectorLike d r (Ast r d (Vector r)) where
-  lbuildPair1 n (var, u) = astToD (build1Vectorize n (var, u))
-  lmapPair1 (var, u) (D w _) = astToD (map1Vectorize (var, u) w)
 
 -- Impure but in the most trivial way (only ever incremented counter).
 unsafeAstVarCounter :: Counter
@@ -393,40 +491,25 @@ unsafeGetFreshAstVar :: IO (AstVarName a)
 {-# INLINE unsafeGetFreshAstVar #-}
 unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-buildPair1
-  :: (AstVectorLike d u v, ADModeAndNumNew d u)
-  => IntOf v -> (AstVarName Int, ADVal d (Ast u d u)) -> ADVal d v
-buildPair1 n (var, D u _) = lbuildPair1 n (var, u)
-
-buildAst1
-  :: (AstVectorLike d u v, ADModeAndNumNew d u)
-  => IntOf v -> (IntOf (Ast u d u) -> ADVal d (Ast u d u)) -> ADVal d v
-{-# NOINLINE buildAst1 #-}
-buildAst1 n f = unsafePerformIO $ do
+astBuild1 :: AstInt r -> (AstInt r -> Ast r r) -> Ast r (Vector r)
+{-# NOINLINE astBuild1 #-}
+astBuild1 n f = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
-  return $! buildPair1 n (freshAstVar, f (AstIntVar freshAstVar))
+  return $! build1Vectorize n (freshAstVar, f (AstIntVar freshAstVar))
 
-mapPair1
-  :: (AstVectorLike d u v, ADModeAndNumNew d u)
-  => (AstVarName (ADVal d u), ADVal d (Ast u d u)) -> ADVal d v -> ADVal d v
-mapPair1 (var, D u _) = lmapPair1 (var, u)
-
-mapAst1
-  :: (AstVectorLike d u v, ADModeAndNumNew d u, IsPrimal d (Ast u d u))
-  => (ADVal d (Ast u d u) -> ADVal d (Ast u d u)) -> ADVal d v -> ADVal d v
-{-# NOINLINE mapAst1 #-}
-mapAst1 f e = unsafePerformIO $ do
+astMap1 :: (Ast r r -> Ast r r) -> Ast r (Vector r) -> Ast r (Vector r)
+{-# NOINLINE astMap1 #-}
+astMap1 f e = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
-  return $! mapPair1 (freshAstVar, f (astToD $ AstVar freshAstVar)) e
+  return $! map1Vectorize (freshAstVar, f (AstVar0 freshAstVar)) e
 
 -- TODO: question: now I vectorize nested builds/maps when they are created;
 -- should I instead wait and vectorize the whole term? Probably
 -- no harm done, since the whole term is eventually vectorized anyway,
 -- with arbitrarily deep traversals.
 build1Vectorize
-  :: ADModeAndNumNew d r
-  => AstInt r d -> (AstVarName Int, Ast r d r)
-  -> Ast r d (Vector r)
+  :: AstInt r -> (AstVarName Int, Ast r r)
+  -> Ast r (Vector r)
 build1Vectorize n (var, u) =
   if not (intVarInAst var u)
   then AstKonst1 u n
@@ -447,9 +530,15 @@ build1Vectorize n (var, u) =
       AstSelect n (var, b)
                 (build1Vectorize n (var, x))
                 (build1Vectorize n (var, y))
-    AstConst _r -> error "build1Vectorize: can't have free variables"
-    AstD _d -> error "build1Vectorize: can't have free variables"
-    AstVar _var2 -> error "build1Vectorize: can't have free int variables"
+    AstConst{} -> error "build1Vectorize: can't have free int variables"
+    AstConstant{} -> error "build1Vectorize: can't have free int variables"
+    AstScale (AstPrimalPart r) d ->
+      AstScale (AstPrimalPart $ build1Vectorize n (var, r))
+               (build1Vectorize n (var, d))
+    AstVar0 _var2 -> error "build1Vectorize: can't have free int variables"
+    AstSumElements10 _v -> AstBuildPair1 n (var, u)
+    AstIndex10 v i -> buildOfIndex10Vectorize n var v i
+                        -- TODO: simplify i first
     AstMinElement _v ->
       AstBuildPair1 n (var, u)
         -- Vectors are assumed to be huge, so it's not possible to perform
@@ -467,18 +556,14 @@ build1Vectorize n (var, u) =
         -- terms inside minElem, not vectorized, because the build variable
         -- was not eliminated
     AstMaxElement _v -> AstBuildPair1 n (var, u)
-    AstSumElements10 _v -> AstBuildPair1 n (var, u)
-    AstIndex10 v i -> buildOfIndex10Vectorize n var v i
-                        -- TODO: simplify i first
     AstDot0 _u _v -> AstBuildPair1 n (var, u)  -- TODO
       -- equal to @build1Vectorize n (var, AstSumElements10 (u * v))@,
       -- but how to vectorize AstSumElements10?
     -- All other patterns are redundant due to GADT typing.
 
 buildOfIndex10Vectorize
-  :: ADModeAndNumNew d r
-  => AstInt r d -> AstVarName Int -> Ast r d (Vector r) -> AstInt r d
-  -> Ast r d (Vector r)
+  :: AstInt r -> AstVarName Int -> Ast r (Vector r) -> AstInt r
+  -> Ast r (Vector r)
 buildOfIndex10Vectorize n var v i =
   case v of
     AstOp codeOut args ->
@@ -487,7 +572,6 @@ buildOfIndex10Vectorize n var v i =
       AstSelect n (var, b) (build1Vectorize n (var, AstIndex10 x i))
                            (build1Vectorize n (var, AstIndex10 y i))
     AstConst _r -> buildOfIndex10VectorizeVarNotInV n var v i
-    AstD _d -> buildOfIndex10VectorizeVarNotInV n var v i
     -- AstFromList1, AstFromVector1: see Note [AstFromList1 is hard]
     AstFromList1 l | AstIntConst k <- i -> build1Vectorize n (var, l !! k)
     -- TODO: AstAppend1 v1 v2 -> ... AstCond (i < AstLength v1) (...v1) (...v2)
@@ -508,8 +592,8 @@ buildOfIndex10Vectorize n var v i =
 
 -- The case where @var@ does not occur in @v@.
 buildOfIndex10VectorizeVarNotInV
-  :: AstInt r d -> AstVarName Int -> Ast r d (Vector r) -> AstInt r d
-  -> Ast r d (Vector r)
+  :: AstInt r -> AstVarName Int -> Ast r (Vector r) -> AstInt r
+  -> Ast r (Vector r)
 buildOfIndex10VectorizeVarNotInV n var v i = case i of
   AstIntOp PlusIntOut [AstIntVar var2, i2] | var2 == var ->
     AstSlice1 i2 n v
@@ -525,7 +609,7 @@ buildOfIndex10VectorizeVarNotInV n var v i = case i of
     -- expression, construct 'gather'
 
 -- TODO: speed up keeping free vars in each node.
-intVarInAst :: AstVarName Int -> Ast r d a -> Bool
+intVarInAst :: AstVarName Int -> Ast r a -> Bool
 intVarInAst var v = case v of
   AstOp _ lv -> or $ map (intVarInAst var) lv
   AstCond _b x y -> intVarInAst var x || intVarInAst var y  -- TODO: check in b
@@ -533,8 +617,8 @@ intVarInAst var v = case v of
     var == var2 || intVarInAst var x || intVarInAst var y
       -- TODO: check in n and b
   AstConst{} -> False
-  AstD{} -> False
-  AstVar{} -> False  -- not an int variable
+  AstVar0{} -> False  -- not an int variable
+  AstVar1{} -> False  -- not an int variable
   AstFromList1 l -> or $ map (intVarInAst var) l  -- down from rank 1 to 0
   AstFromVector1 vl -> or $ map (intVarInAst var) $ V.toList vl
   _ -> True  -- conservative, TODO
@@ -570,53 +654,58 @@ but from vectors, distributing their elements in various patterns
 
 -- TODO: Shall this be represented and processed as just build?
 -- But doing this naively copies @w@ a lot, so we'd need to wait
--- until AST handles sharing properly.
+-- until AST handles sharing properly. Or make @w@ a variable.
 map1Vectorize
-  :: ADModeAndNumNew d r
-  => (AstVarName (ADVal d r), Ast r d r) -> Ast r d (Vector r)
-  -> Ast r d (Vector r)
+  :: (AstVarName r, Ast r r) -> Ast r (Vector r)
+  -> Ast r (Vector r)
 map1Vectorize (var, u) w = case u of
   AstOp codeOut args ->
     AstOp codeOut $ map (\x -> map1Vectorize (var, x) w) args
   AstCond _b _x1 _x2 -> AstMapPair1 (var, u) w  -- TODO
   AstConst r -> AstKonst1 (AstConst r) (AstLength w)
-  AstD d -> AstKonst1 (AstD d) (AstLength w)
-  AstVar var2 | var2 == var -> w  -- identity mapping
-  AstVar var2 -> AstKonst1 (AstVar var2) (AstLength w)
-  AstMinElement _v -> AstMapPair1 (var, u) w  -- TODO
-  AstMaxElement _v -> AstMapPair1 (var, u) w  -- TODO
+  AstConstant r -> AstKonst1 (AstConstant r) (AstLength w)
+  AstScale (AstPrimalPart r) d ->
+    AstScale (AstPrimalPart $ map1Vectorize (var, r) w)
+             (map1Vectorize (var, d) w)
+  AstVar0 var2 | var2 == var -> w  -- identity mapping
+  AstVar0 var2 -> AstKonst1 (AstVar0 var2) (AstLength w)
   AstSumElements10 _v -> AstMapPair1 (var, u) w  -- TODO
   AstIndex10 _v _i -> AstMapPair1 (var, u) w  -- TODO
     -- both _v and _i can depend on var, e.g., because of conditionals
+  AstMinElement _v -> AstMapPair1 (var, u) w  -- TODO
+  AstMaxElement _v -> AstMapPair1 (var, u) w  -- TODO
   AstDot0 _u _v -> AstMapPair1 (var, u) w  -- TODO
   -- All other patterns are redundant due to GADT typing.
 
-leqAst :: ADVal d (Ast r d r) -> ADVal d (Ast r d r) -> AstBool r d
-leqAst (D d _) (D e _) = AstRel LeqOut [d, e]
+leqAst :: Ast r r -> Ast r r -> AstBool r
+leqAst d e = AstRel LeqOut [d, e]
 
-gtAst :: ADVal d (Ast r d r) -> ADVal d (Ast r d r) -> AstBool r d
-gtAst (D d _) (D e _) = AstRel GtOut [d, e]
+gtAst :: Ast r r -> Ast r r -> AstBool r
+gtAst d e = AstRel GtOut [d, e]
 
-gtIntAst :: AstInt r d -> AstInt r d -> AstBool r d
+gtIntAst :: AstInt r -> AstInt r -> AstBool r
 gtIntAst i j = AstRelInt GtOut [i, j]
 
 interpretLambdaD0
-  :: (ADModeAndNumNew d r, Under r ~ r, IsPrimalAndHasFeatures d a r)
-  => IM.IntMap (AstVar r d) -> (AstVarName (ADVal d r), Ast r d a)
+  :: (ADModeAndNum d r, IsPrimalAndHasFeatures d a r)
+  => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vector r)))
+  -> (AstVarName r, Ast r a)
   -> ADVal d r -> ADVal d a
 interpretLambdaD0 env (AstVarName var, ast) =
-  \d -> interpretAst (IM.insert var (AstVar0 d) env) ast
+  \d -> interpretAst (IM.insert var (AstVarR0 d) env) ast
 
 interpretLambdaI
-  :: (ADModeAndNumNew d r, Under r ~ r, IsPrimalAndHasFeatures d a r)
-  => IM.IntMap (AstVar r d) -> (AstVarName Int, Ast r d a)
+  :: (ADModeAndNum d r, IsPrimalAndHasFeatures d a r)
+  => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vector r)))
+  -> (AstVarName Int, Ast r a)
   -> Int -> ADVal d a
 interpretLambdaI env (AstVarName var, ast) =
   \i -> interpretAst (IM.insert var (AstVarI i) env) ast
 
 interpretAst
-  :: (ADModeAndNumNew d r, Under r ~ r, IsPrimalAndHasFeatures d a r)
-  => IM.IntMap (AstVar r d) -> Ast r d a -> ADVal d a
+  :: (ADModeAndNum d r, IsPrimalAndHasFeatures d a r)
+  => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vector r)))
+  -> Ast r a -> ADVal d a
 interpretAst env = \case
   AstOp codeOut args ->
     interpretAstOp (interpretAst env) codeOut args
@@ -633,19 +722,30 @@ interpretAst env = \case
         v2 = interpretAst env a2
     in bitmap * v1 + v2 - bitmap * v2
   AstConst a -> constant a
-  AstD d -> d
-  AstVar (AstVarName var) -> case IM.lookup var env of
-    Just (AstVar0 d) -> d
+  AstConstant (AstPrimalPart a) ->
+    constant $ let D u _ = interpretAst env a in u
+  AstScale (AstPrimalPart r) d ->
+    scale (let D u _ = interpretAst env r in u) (interpretAst env d)
+  AstVar0 (AstVarName var) -> case IM.lookup var env of
+    Just (AstVarR0 d) -> d
+    Just AstVarR1{} ->
+      error $ "interpretAst: type mismatch for var " ++ show var
     Just AstVarI{} -> error $ "interpretAst: type mismatch for var " ++ show var
     Nothing -> error $ "interpretAst: unknown variable var " ++ show var
-  AstMinElement v -> minimum0 $ interpretAst env v
-  AstMaxElement v -> maximum0 $ interpretAst env v
-  AstSumElements10 v -> sumElements10 $ interpretAst env v
-  AstIndex10 v i -> index10 (interpretAst env v) (interpretAstInt env i)
-  AstDot0 u v -> interpretAst env u <.>! interpretAst env v
-  AstFromList1 l -> fromList1 $ map (interpretAst env) l
-  AstFromVector1 v -> fromVector1 $ V.map (interpretAst env) v
-  AstKonst1 r n -> konst1 (interpretAst env r) (interpretAstInt env n)
+  AstVar1 (AstVarName var) -> case IM.lookup var env of
+    Just AstVarR0{} ->
+      error $ "interpretAst: type mismatch for var " ++ show var
+    Just (AstVarR1 d) -> d
+    Just AstVarI{} -> error $ "interpretAst: type mismatch for var " ++ show var
+    Nothing -> error $ "interpretAst: unknown variable var " ++ show var
+  AstSumElements10 v -> lsumElements10 $ interpretAst env v
+  AstIndex10 v i -> lindex10 (interpretAst env v) (interpretAstInt env i)
+  AstMinElement v -> lminimum0 $ interpretAst env v
+  AstMaxElement v -> lmaximum0 $ interpretAst env v
+  AstDot0 u v -> interpretAst env u `ldot0` interpretAst env v
+  AstFromList1 l -> lfromList1 $ map (interpretAst env) l
+  AstFromVector1 v -> lfromVector1 $ V.map (interpretAst env) v
+  AstKonst1 r n -> lkonst1 (interpretAst env r) (interpretAstInt env n)
   AstAppend1 u v ->
     -- It's hard to simplify this already in build1Vectorize, because
     -- we may not know the real sizes there, only symbolic ones.
@@ -653,25 +753,31 @@ interpretAst env = \case
         v'@(D pv _) = interpretAst env v
     in if | V.null pu -> u'  -- perhaps common in code generated from AST
           | V.null pv -> v'
-          | otherwise -> append1 u' v'
+          | otherwise -> lappend1 u' v'
   AstSlice1 i n v ->
     let i' = interpretAstInt env i
         n' = interpretAstInt env n
         v'@(D pv _) = interpretAst env v
     in if i' == 0 && n' == V.length pv
        then v'  -- perhaps common in code generated from AST
-       else slice1 i' n' v'
-  AstReverse1 v -> reverse1 $ interpretAst env v
+       else lslice1 i' n' v'
+  AstReverse1 v -> lreverse1 $ interpretAst env v
   AstBuildPair1 i (var, r) ->
-    build1Elementwise (interpretAstInt env i) (interpretLambdaI env (var, r))
+    lbuild1 (interpretAstInt env i) (interpretLambdaI env (var, r))
       -- fallback to POPL (memory blowup, but avoids functions on tape)
   AstMapPair1 (var, r) e ->
-    map1Elementwise (interpretLambdaD0 env (var, r)) (interpretAst env e)
+    lmap1 (interpretLambdaD0 env (var, r)) (interpretAst env e)
       -- fallback to POPL (memory blowup, but avoids functions on tape)
-  AstOMap1{} -> error "TODO: AstOMap1"
+  AstOMap1 (var, r) e ->  -- this only works on the primal part hence @constant@
+    constant
+    $ omap (\x -> let D u _ = interpretLambdaD0 env (var, r) (constant x)
+                  in u)
+           (let D u _ = interpretAst env e
+            in u)
 
-interpretAstInt :: (ADModeAndNumNew d r, Under r ~ r)
-                => IM.IntMap (AstVar r d) -> AstInt r d -> Int
+interpretAstInt :: ADModeAndNum d r
+                => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vector r)))
+                -> AstInt r -> Int
 interpretAstInt env = \case
   AstIntOp codeIntOut args ->
     interpretAstIntOp (interpretAstInt env) codeIntOut args
@@ -680,7 +786,9 @@ interpretAstInt env = \case
                         else interpretAstInt env a2
   AstIntConst a -> a
   AstIntVar (AstVarName var) -> case IM.lookup var env of
-    Just AstVar0{} ->
+    Just AstVarR0{} ->
+      error $ "interpretAstP: type mismatch for var " ++ show var
+    Just AstVarR1{} ->
       error $ "interpretAstP: type mismatch for var " ++ show var
     Just (AstVarI i) -> i
     Nothing -> error $ "interpretAstP: unknown variable var " ++ show var
@@ -688,8 +796,9 @@ interpretAstInt env = \case
   AstMinIndex v -> LA.minIndex $ let D u _u' = interpretAst env v in u
   AstMaxIndex v -> LA.maxIndex $ let D u _u' = interpretAst env v in u
 
-interpretAstBool :: (ADModeAndNumNew d r, Under r ~ r)
-                 => IM.IntMap (AstVar r d) -> AstBool r d -> Bool
+interpretAstBool :: ADModeAndNum d r
+                 => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vector r)))
+                 -> AstBool r -> Bool
 interpretAstBool env = \case
   AstBoolOp codeBoolOut args ->
     interpretAstBoolOp (interpretAstBool env) codeBoolOut args
@@ -702,7 +811,7 @@ interpretAstBool env = \case
     in interpretAstRel f relOut args
 
 interpretAstOp :: RealFloat b
-               => (Ast r d a -> b) -> CodeOut -> [Ast r d a] -> b
+               => (Ast r a -> b) -> CodeOut -> [Ast r a] -> b
 {-# INLINE interpretAstOp #-}
 interpretAstOp f PlusOut [u, v] = f u + f v
 interpretAstOp f MinusOut [u, v] = f u - f v
@@ -736,7 +845,7 @@ interpretAstOp _ codeOut args =
   error $ "interpretAstOp: wrong number of arguments"
           ++ show (codeOut, length args)
 
-interpretAstIntOp :: (AstInt r d -> Int) -> CodeIntOut -> [AstInt r d] -> Int
+interpretAstIntOp :: (AstInt r -> Int) -> CodeIntOut -> [AstInt r] -> Int
 {-# INLINE interpretAstIntOp #-}
 interpretAstIntOp f PlusIntOut [u, v] = f u + f v
 interpretAstIntOp f MinusIntOut [u, v] = f u - f v
@@ -750,7 +859,7 @@ interpretAstIntOp _ codeIntOut args =
   error $ "interpretAstIntOp: wrong number of arguments"
           ++ show (codeIntOut, length args)
 
-interpretAstBoolOp :: (AstBool r d -> Bool) -> CodeBoolOut -> [AstBool r d]
+interpretAstBoolOp :: (AstBool r -> Bool) -> CodeBoolOut -> [AstBool r]
                    -> Bool
 {-# INLINE interpretAstBoolOp #-}
 interpretAstBoolOp f NotOut [u] = not $ f u

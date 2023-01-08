@@ -4,7 +4,10 @@ module TestSimplified (testTrees) where
 
 import Prelude
 
+import           Data.MonoTraversable (MonoFunctor)
+import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
+import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
@@ -16,88 +19,135 @@ import Tool.EqEpsilon
 import Prelude ()
 
 testTrees :: [TestTree]
-testTrees = [ testCase "fooBuild1" testFooBuild
+testTrees = [ testCase "barADVal" testBarADVal
+            , testCase "fooBuild1" testFooBuild
             , testCase "fooMap1" testFooMap
             , testCase "fooNoGo" testFooNoGo
-            , testCase "nestedBuildMap" testNestedBuildMap ]
+            , testCase "nestedBuildMap" testNestedBuildMap
+            , testCase "nestedBuildMapADVal" testNestedBuildMapADVal
+            , testCase "barReluADVal" testBarReluADVal
+            , testCase "barReluAst" testBarReluAst
+            , testCase "barReluAst1" testBarReluAst1
+            , testCase "konstReluAst" testKonstReluAst
+            ]
 
 foo :: RealFloat a => (a,a,a) -> a
 foo (x,y,z) =
   let w = x * sin y
   in atan2 z w + z * w
 
-bar :: ADModeAndNumNew d r
-    => (ADVal d r, ADVal d r) -> ADVal d r
+bar :: forall a. RealFloat a => (a, a) -> a
 bar (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2 x w + y * w
 
--- Note how fooBuild1 is used below in contexts where r
--- is values (testFooBuild), where r is ASTs (nestedBuildMap)
--- and where it can be instantiated to either (fooMap1).
-fooBuild1 :: forall d r. ADModeAndNumNew d r
-          => ADVal d (VectorOf r) -> ADVal d (VectorOf r)
-fooBuild1 v =
-  let v' = (liftToAst v  -- we don't know if @r@ is values or ASTs, so we lift
-            :: ADVal d (Ast1 d (Under r)))
-           :: ADVal d (VectorOf (Ast0 d (Under r)))
-      r' = sumElements10 v' :: ADVal d (Ast0 d (Under r))
-  in buildAst1 3 $ \ix ->
-       r' * foo ( 3
-                , 5 * r'
-                , r' * minimum0 v' * liftToAst (minimum0 v))
-       + bar (r', index10 v' (ix + 1))
-       -- note how foo and bar are used in the Ast universe without lifting
-       -- their result, just as sumElements10 and index10 is
+barAst :: RealFloat r => (Ast r r, Ast r r) -> Ast r r
+barAst (x, y) =
+  let w = foo (x, y, x) * sin y
+  in atan2 x w + y * w
 
-fooMap1 :: ADModeAndNumNew d r
-        => ADVal d r -> ADVal d (VectorOf r)
+barADVal :: forall r d. ADModeAndNum d r => (ADVal d r, ADVal d r) -> ADVal d r
+barADVal = bar @(ADVal d r)
+
+fooBuild1 :: ADReady r => VectorOf r -> VectorOf r
+fooBuild1 v =
+  let r = lsumElements10 v
+      v' = lminimum0 v
+  in lbuild1 3 $ \ix ->
+       r * foo ( 3
+               , 5 * r
+               , r * lminimum0 v * v')
+       + bar (r, lindex10 v (ix + 1))
+
+fooMap1 :: ADReady r => r -> VectorOf r
 fooMap1 r =
-  let v = fooBuild1 $ konst1 r 130
-      r' = liftToAst r
-  in mapAst1 (\x -> x * r' + 5) v
+  let v = fooBuild1 $ lkonst1 r 130
+  in lmap1 (\x -> x * r + 5) v
 
 -- A test that doesn't vectorize currently due to conditionals
 -- and so falls back to POPL.
-fooNoGo :: forall r d. ADModeAndNumNew d r
-        => ADVal d (VectorOf r) -> ADVal d (VectorOf r)
+-- Also, we haven't defined a class for conditionals so far,
+-- so this uses raw AST instead of sufficiently polymorphic code.
+fooNoGo :: (Numeric r, RealFloat r, Num (Vector r))
+        => Ast r (Vector r) -> Ast r (Vector r)
 fooNoGo v =
-  let v' = liftToAst v :: ADVal d (Ast1 d (Under r))
-      r' = sumElements10 v' :: ADVal d (Ast0 d (Under r))
-  in buildAst1 3 (\ix ->
-       index10 v' ix
-       + condAst (AstBoolOp AndOut  -- TODO: overload &&, <=, >, etc.
-                            [ index10 v' (ix * 2) `leqAst` 0
+  let r = lsumElements10 v
+  in lbuild1 3 (\ix ->
+       barAst (3.14, bar (3.14, lindex10 v ix))
+       + AstCond (AstBoolOp AndOut  -- TODO: overload &&, <=, >, etc.
+                            [ lindex10 v (ix * 2) `leqAst` 0
                             , 6 `gtIntAst` abs ix ])
-                 r' (5 * r'))
-     / slice1 1 3 (mapAst1 (\x -> condAst (x `gtAst` r')
-                                          r' x) v)
-     * buildAst1 3 (\ _ix -> 1)
+                 r (5 * r))
+     / lslice1 1 3 (lmap1 (\x -> AstCond (x `gtAst` r) r x) v)
+     * lbuild1 3 (\ _ix -> 1)
 
-nestedBuildMap :: forall r d. ADModeAndNumNew d r
-               => ADVal d r -> ADVal d (VectorOf r)
+-- TODO: remove the need for the 2 type hints; using VectorOf in the definition
+-- of VectorLike class may be enough
+nestedBuildMap :: forall r. ADReady r => r -> VectorOf r
 nestedBuildMap r =
-  let w x = konst1 x (AstIntCond (x `leqAst` 0) 3 4)
-      v' = konst1 (liftToAst r) 7
-      nestedMap x = mapAst1 (\y -> x / y) (w x)
-      variableLengthBuild iy = buildAst1 (iy + 1) (\ix -> index10 v' (ix + 1))
-      doublyBuild = buildAst1 5 (\iy -> minimum0 (variableLengthBuild iy))
-  in mapAst1 (\x -> x
-                    * sumElements10
-                        (buildAst1 3 (\ix -> bar ( x
-                                                 , index10 v' ix) )
-                         + fooBuild1 (nestedMap x)
-                         / fooMap1 x)
-             ) doublyBuild
+  let w x = lkonst1 x 4  -- (AstIntCond (x `leqAst` 0) 3 4)
+      v' = lkonst1 r 7 :: VectorOf r
+      nestedMap x = lmap1 (\y -> x / y) (w x)
+      variableLengthBuild iy = lbuild1 (iy + 1) (\ix -> lindex10 v' (ix + 1)) :: VectorOf r
+      doublyBuild = lbuild1 5 (\iy -> lminimum0 (variableLengthBuild iy))
+  in lmap1 (\x -> x
+                  * lsumElements10
+                      (lbuild1 3 (\ix -> bar ( x
+                                             , lindex10 v' ix) )
+                       + fooBuild1 (nestedMap x)
+                       / fooMap1 x)
+           ) doublyBuild
+
+-- A variant for a test without any attempt at vectorization.
+-- TODO: test each example in this file both with and without vectorization.
+nestedBuildMapADVal
+  :: forall r d. ADModeAndNum d r => ADVal d r -> ADVal d (Vector r)
+nestedBuildMapADVal = nestedBuildMap @(ADVal d r)
+
+barRelu
+  :: ( RealFloat a
+     , HasPrimal a, MonoFunctor (PrimalOf a), Num (PrimalOf a)
+     , Ord (Element (PrimalOf a)), Fractional (Element (PrimalOf a)) )
+  => a -> a
+barRelu x = relu $ bar (x, relu x)
+
+barReluAst
+  :: ( RealFloat a
+     , MonoFunctor (AstPrimalPart r a)
+--     , Num (AstPrimalPart r a)
+--     , Ord (Element (AstPrimalPart r a))
+--     , Fractional (Element (AstPrimalPart r a))
+     , r ~ Element a, Fractional r )  -- TODO: needed?
+  => Ast r a -> Ast r a
+barReluAst x = reluAst $ bar (x, reluAst x)  -- TODO; fails: barRelu @(Ast r a)
+
+konstReluAst
+  :: forall r.
+     (Numeric r, RealFloat r, Num (Vector r))
+  => Ast r r -> Ast r r
+konstReluAst x = lsumElements10 $ reluAst $ lkonst1 x 7
 
 -- In simplified horde-ad we don't have access to the highest level API
 -- (adaptors), so the testing glue is tedious:
+testBarADVal :: Assertion
+testBarADVal =
+  (domains0 $ fst
+   $ revOnDomains
+       42.2
+       (\adinputs -> barADVal (adinputs `at0` 0, adinputs `at0` 1))
+       (domainsFrom01 (V.fromList [1.1 :: Double, 3]) V.empty))
+  @?~ V.fromList [11.49618087412679,-135.68959896367525]
+
+-- For sufficiently polymorphic code, we test vectorization with a fallback
+-- to other methods, so the test harness is even more complex.
 testFooBuild :: Assertion
 testFooBuild =
   (domains1 $ fst
    $ revOnDomains
        (LA.konst 1 3)  -- 1 wrong due to fragility of hmatrix optimization
-       (\adinputs -> fooBuild1 (adinputs `at1` 0))
+       (\adinputs ->
+          interpretAst (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
+                       (fooBuild1 (AstVar1 (AstVarName (-1)))))
        (domainsFrom01 V.empty
                       (V.singleton (V.fromList [1.1 :: Double, 2.2, 3.3, 4]))))
   @?~ V.singleton (V.fromList [-4521.201512195087,-5568.7163677622175,-5298.386349932494,-4907.349735554627])
@@ -107,26 +157,85 @@ testFooMap =
   (domains0 $ fst
    $ revOnDomains
        (LA.konst 1 3)  -- 1 wrong due to fragility of hmatrix optimization
-       (\adinputs -> fooMap1 (adinputs `at0` 0))
+       (\adinputs ->
+          interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
+                       (fooMap1 (AstVar0 (AstVarName (-1)))))
        (domainsFrom01 (V.singleton (1.1 :: Double)) V.empty))
-  @?~ V.fromList [4.438131773948992e7]
+  @?~ V.fromList [4.438131773948809e7]
 
 testFooNoGo :: Assertion
 testFooNoGo =
   (domains1 $ fst
    $ revOnDomains
        (LA.konst 1 3)  -- 1 wrong due to fragility of hmatrix optimization
-       (\adinputs -> fooNoGo (adinputs `at1` 0))
+       (\adinputs ->
+          interpretAst (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
+                       (fooNoGo (AstVar1 (AstVarName (-1)))))
        (domainsFrom01 V.empty
                       (V.singleton (V.fromList
                                       [1.1 :: Double, 2.2, 3.3, 4, 5]))))
-  @?~ V.singleton (V.fromList [5.492424242424241,-11.002066115702474,-2.0766758494031228,-4.33712121212122e-2,5.037878787878787])
+  @?~ V.singleton (V.fromList [344.3405885672822,-396.1811403813819,7.735358041386672,-0.8403418295960372,5.037878787878787])
 
 testNestedBuildMap :: Assertion
 testNestedBuildMap =
   (domains0 $ fst
    $ revOnDomains
        (LA.konst 1 5)  -- "1" wrong due to fragility of hmatrix optimization
-       (\adinputs -> nestedBuildMap (adinputs `at0` 0))
+       (\adinputs ->
+          interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
+                       (nestedBuildMap (AstVar0 (AstVarName (-1)))))
        (domainsFrom01 (V.singleton (1.1 :: Double)) V.empty))
   @?~ V.fromList [107.25984443006627]
+
+testNestedBuildMapADVal :: Assertion
+testNestedBuildMapADVal =
+  (domains0 $ fst
+   $ revOnDomains
+       (LA.konst 1 5)  -- "1" wrong due to fragility of hmatrix optimization
+       (\adinputs -> nestedBuildMapADVal (adinputs `at0` 0))
+       (domainsFrom01 (V.singleton (1.1 :: Double)) V.empty))
+  @?~ V.fromList [107.25984443006627]
+
+testBarReluADVal :: Assertion
+testBarReluADVal =
+  (domains0 $ fst
+   $ revOnDomains
+       42.2
+       (\adinputs -> barRelu (adinputs `at0` 0))
+       (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
+  @?~ V.fromList [191.20462646925841]
+
+testBarReluAst :: Assertion
+testBarReluAst =
+  (domains0 $ fst
+   $ revOnDomains
+       42.2
+       (\adinputs ->
+          interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
+                       (barReluAst (AstVar0 (AstVarName (-1)))))
+       (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
+  @?~ V.fromList [191.20462646925841]
+
+testBarReluAst1 :: Assertion
+testBarReluAst1 =
+  (domains1 $ fst
+   $ revOnDomains
+       (LA.konst 1 5)  -- 1 wrong due to fragility of hmatrix optimization
+       (\adinputs ->
+          interpretAst (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
+                       (barReluAst (AstVar1 (AstVarName (-1)))))
+       (domainsFrom01 V.empty
+                      (V.singleton (V.fromList
+                                      [1.1 :: Double, 2.2, 3.3, 4, 5]))))
+  @?~ V.singleton (V.fromList [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])
+
+testKonstReluAst :: Assertion
+testKonstReluAst =
+  (domains0 $ fst
+   $ revOnDomains
+       42.2
+       (\adinputs ->
+          interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
+                       (konstReluAst (AstVar0 (AstVarName (-1)))))
+       (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
+  @?~ V.fromList [295.4]

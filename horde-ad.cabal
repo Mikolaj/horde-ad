@@ -133,12 +133,12 @@ library
 
     -- Modules exported by the library.
     exposed-modules:  HordeAd
+                      HordeAd.Core.DualClass
                       HordeAd.Core.DualNumber
                       HordeAd.Core.Engine
-                      HordeAd.Core.DualClass
+                      HordeAd.Core.PairOfVectors
                       HordeAd.External.Optimizer
                       HordeAd.External.OptimizerTools
-                      HordeAd.Core.PairOfVectors
                       HordeAd.Internal.Delta
                       HordeAd.Internal.MatrixOuter
                       HordeAd.Internal.OrthotopeOrphanInstances
@@ -507,12 +507,13 @@ library horde-ad-simplified
       buildable: True
 
     exposed-modules:  HordeAd
+                      HordeAd.Core.Ast
+                      HordeAd.Core.DualClass
                       HordeAd.Core.DualNumber
                       HordeAd.Core.Engine
-                      HordeAd.Core.DualClass
+                      HordeAd.Core.PairOfVectors
                       HordeAd.External.Optimizer
                       HordeAd.External.OptimizerTools
-                      HordeAd.Core.PairOfVectors
                       HordeAd.Internal.Delta
 
     build-depends:
@@ -659,6 +660,8 @@ test-suite simplifiedOnlyTest
 
       , base
       , hmatrix
+      , mono-traversable
+      , strict-containers
       , tasty >= 1.0
       , tasty-hunit
       , vector
