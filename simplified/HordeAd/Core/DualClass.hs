@@ -195,6 +195,8 @@ class HasPrimal a where
   -- TODO: we'd probably also need dZero, dIndex10 and all others;
   -- basically DualOf a needs to have IsPrimal and HasRanks instances
   -- (and HasInputs?)
+  -- TODO: if DualOf is supposed to be user-visible, we needed
+  -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
 
 class VectorOf r ~ vector => VectorLike vector r | vector -> r where
   llength :: vector -> IntOf r
