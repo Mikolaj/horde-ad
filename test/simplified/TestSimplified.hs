@@ -32,6 +32,8 @@ testTrees = [ testCase "barADVal" testBarADVal
             , -- tests by TomS:
               testCase "F1ADVal" testF1ADVal
             , testCase "F1Ast" testF1Ast
+            , testCase "F2ADVal" testF2ADVal
+            , testCase "F2Ast" testF2Ast
             ]
 
 foo :: RealFloat a => (a,a,a) -> a
@@ -135,6 +137,16 @@ konstReluAst x = lsumElements10 $ reluAst $ lkonst1 x 7
 
 f1 :: ADReady a => a -> a
 f1 = \arg -> lsumElements10 (lbuild1 10 (\i -> arg * fromIntOf i))
+
+f2 :: ADReady a => a -> a
+f2 = \arg ->
+  let fun1 i = arg * fromIntOf i
+      v1a = lsumElements10 (lbuild1 10 fun1)
+      v1b = lsumElements10 (lbuild1 20 fun1)
+      fun2 y i = y * fromIntOf i
+      v2a = lsumElements10 (lbuild1 10 (fun2 arg))
+      v2b = lsumElements10 (lbuild1 20 (fun2 (arg + 1)))
+  in v1a + v1b + v2a + v2b
 
 
 -- * Test harness glue code
@@ -271,3 +283,23 @@ testF1Ast =
                        (f1 (AstVar0 (AstVarName (-1)))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [1899.0000000000002]
+
+testF2ADVal :: Assertion
+testF2ADVal =
+  (domains0 $ fst
+   $ revOnDomains
+       42.2
+       (\adinputs -> f2 (adinputs `at0` 0))
+       (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
+  @?~ V.fromList [19834]
+
+testF2Ast :: Assertion
+testF2Ast =
+  (domains0 $ fst
+   $ revOnDomains
+       42.2
+       (\adinputs ->
+          interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
+                       (f2 (AstVar0 (AstVarName (-1)))))
+       (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
+  @?~ V.fromList [19834]
