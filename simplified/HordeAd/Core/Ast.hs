@@ -47,8 +47,8 @@ data Ast :: Type -> Type -> Type where
   -- Taken from VectorLike:
   AstSumElements10 :: Ast r (Vector r) -> Ast r r
   AstIndex10 :: Ast r (Vector r) -> AstInt r -> Ast r r
-  AstMinElement :: Ast r (Vector r) -> Ast r r
-  AstMaxElement :: Ast r (Vector r) -> Ast r r
+  AstMinimum0 :: Ast r (Vector r) -> Ast r r
+  AstMaximum0 :: Ast r (Vector r) -> Ast r r
   AstDot0 :: Ast r (Vector r) -> Ast r (Vector r) -> Ast r r
 
   AstFromList1 :: [Ast r r] -> Ast r (Vector r)

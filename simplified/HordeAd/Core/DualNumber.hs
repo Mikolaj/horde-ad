@@ -446,8 +446,8 @@ instance VectorLike (Ast r (Vector r)) (Ast r r) where
   lmaxIndex = AstMaxIndex
   lsumElements10 = AstSumElements10
   lindex10 = AstIndex10
-  lminimum0 = AstMinElement
-  lmaximum0 = AstMaxElement
+  lminimum0 = AstMinimum0
+  lmaximum0 = AstMaximum0
   ldot0 = AstDot0
   lfromList1 = AstFromList1
   lfromVector1 = AstFromVector1
@@ -550,7 +550,7 @@ build1Vectorize n (var, u) =
     AstSumElements10 _v -> AstBuildPair1 n (var, u)
     AstIndex10 v i -> buildOfIndex10Vectorize n var v i
       -- @var@ is in @v@ or @i@; TODO: simplify i first
-    AstMinElement _v ->
+    AstMinimum0 _v ->
       AstBuildPair1 n (var, u)
         -- Vectors are assumed to be huge, so it's not possible to perform
         -- @build@ using each combination of elements and choose the right
@@ -566,7 +566,7 @@ build1Vectorize n (var, u) =
         -- build(minElem), etc.? But there can be arbitrarily complex
         -- terms inside minElem, not vectorized, because the build variable
         -- was not eliminated
-    AstMaxElement _v -> AstBuildPair1 n (var, u)
+    AstMaximum0 _v -> AstBuildPair1 n (var, u)
     AstDot0 _u _v -> AstBuildPair1 n (var, u)  -- TODO
       -- equal to @build1Vectorize n (var, AstSumElements10 (u * v))@,
       -- but how to vectorize AstSumElements10?
@@ -688,8 +688,8 @@ map1Vectorize (var, u) w = case u of
   AstSumElements10 _v -> AstMapPair1 (var, u) w  -- TODO
   AstIndex10 _v _i -> AstMapPair1 (var, u) w  -- TODO
     -- both _v and _i can depend on var, e.g., because of conditionals
-  AstMinElement _v -> AstMapPair1 (var, u) w  -- TODO
-  AstMaxElement _v -> AstMapPair1 (var, u) w  -- TODO
+  AstMinimum0 _v -> AstMapPair1 (var, u) w  -- TODO
+  AstMaximum0 _v -> AstMapPair1 (var, u) w  -- TODO
   AstDot0 _u _v -> AstMapPair1 (var, u) w  -- TODO
   -- All other patterns are redundant due to GADT typing.
 
@@ -757,8 +757,8 @@ interpretAst env = \case
     Nothing -> error $ "interpretAst: unknown variable var " ++ show var
   AstSumElements10 v -> lsumElements10 $ interpretAst env v
   AstIndex10 v i -> lindex10 (interpretAst env v) (interpretAstInt env i)
-  AstMinElement v -> lminimum0 $ interpretAst env v
-  AstMaxElement v -> lmaximum0 $ interpretAst env v
+  AstMinimum0 v -> lminimum0 $ interpretAst env v
+  AstMaximum0 v -> lmaximum0 $ interpretAst env v
   AstDot0 u v -> interpretAst env u `ldot0` interpretAst env v
   AstFromList1 l -> lfromList1 $ map (interpretAst env) l
   AstFromVector1 v -> lfromVector1 $ V.map (interpretAst env) v
