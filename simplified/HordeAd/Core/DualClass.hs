@@ -197,6 +197,9 @@ class HasPrimal a where
   -- (and HasInputs?)
   -- TODO: if DualOf is supposed to be user-visible, we needed
   -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
+  --
+  -- Unrelated, but no better home ATM:
+  fromIntOf :: IntOf a -> a
 
 class VectorOf r ~ vector => VectorLike vector r | vector -> r where
   llength :: vector -> IntOf r
@@ -410,6 +413,7 @@ instance IsPrimal 'ADModeValue (Vector r) where
   dAdd _ _ = DummyDual ()
   recordSharing = id
 
+-- This requires UndecidableInstances.
 instance (Element vector ~ r, VectorOf r ~ vector)
          => HasRanks vector 'ADModeValue r where
   dSumElements10 _ _ = DummyDual ()

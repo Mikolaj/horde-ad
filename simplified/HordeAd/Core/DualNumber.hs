@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP, DataKinds, FlexibleInstances, FunctionalDependencies, GADTs,
              MultiParamTypeClasses, QuantifiedConstraints, RankNTypes,
-             TypeFamilies #-}
+             TypeFamilies, UndecidableInstances #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -157,7 +157,7 @@ instance (RealFloat a, IsPrimal d a) => RealFloat (ADVal d a) where
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a differentiable codomain
 
-instance IsPrimal d a => HasPrimal (ADVal d a) where
+instance (Num a, IsPrimal d a) => HasPrimal (ADVal d a) where
   type PrimalOf (ADVal d a) = a
   type DualOf (ADVal d a) = Dual d a
   constant a = dD a dZero
@@ -165,6 +165,7 @@ instance IsPrimal d a => HasPrimal (ADVal d a) where
   primalPart (D u _) = u
   dualPart (D _ u') = u'
   ddD = dD
+  fromIntOf = constant . fromInteger . fromIntegral
 
 instance HasPrimal Float where
   type PrimalOf Float = Float
@@ -174,6 +175,7 @@ instance HasPrimal Float where
   primalPart = id
   dualPart _ = ()
   ddD u _ = u
+  fromIntOf = fromInteger . fromIntegral
 
 instance HasPrimal Double where
   type PrimalOf Double = Double
@@ -183,8 +185,10 @@ instance HasPrimal Double where
   primalPart = id
   dualPart _ = ()
   ddD u _ = u
+  fromIntOf = fromInteger . fromIntegral
 
-instance HasPrimal (Vector r) where
+-- The constraint requires UndecidableInstances.
+instance Num (Vector r) => HasPrimal (Vector r) where
   type PrimalOf (Vector r) = Vector r
   type DualOf (Vector r) = ()
   constant = id
@@ -192,6 +196,7 @@ instance HasPrimal (Vector r) where
   primalPart = id
   dualPart _ = ()
   ddD u _ = u
+  fromIntOf = fromInteger . fromIntegral
 
 instance HasPrimal (Ast r a) where
   type PrimalOf (Ast r a) = AstPrimalPart r a
@@ -201,6 +206,7 @@ instance HasPrimal (Ast r a) where
   primalPart = AstPrimalPart
   dualPart = error "TODO"
   ddD = error "TODO"
+  fromIntOf = AstInt
 
 logistic :: (Floating a, IsPrimal d a) => ADVal d a -> ADVal d a
 logistic (D u u') =
@@ -531,6 +537,7 @@ build1Vectorize n (var, u) =
       AstSelect n (var, b)
                 (build1Vectorize n (var, x))
                 (build1Vectorize n (var, y))
+    AstInt _i -> AstConstant $ AstPrimalPart $ AstBuildPair1 n (var, u)
     AstConst{} -> error "build1Vectorize: can't have free int variables"
     AstConstant _r -> AstConstant $ AstPrimalPart $ AstBuildPair1 n (var, u)
       -- this is very fast when interpreted in a smart way, but constant
@@ -669,6 +676,7 @@ map1Vectorize
 map1Vectorize (var, u) w = case u of
   AstOp codeOut args ->
     AstOp codeOut $ map (\x -> map1Vectorize (var, x) w) args
+  AstInt _i -> AstMapPair1 (var, u) w  -- TODO
   AstCond _b _x1 _x2 -> AstMapPair1 (var, u) w  -- TODO
   AstConst r -> AstKonst1 (AstConst r) (AstLength w)
   AstConstant _r -> AstMapPair1 (var, u) w  -- TODO
@@ -729,6 +737,7 @@ interpretAst env = \case
         v1 = interpretAst env a1
         v2 = interpretAst env a2
     in bitmap * v1 + v2 - bitmap * v2
+  AstInt i -> fromInteger $ fromIntegral $ interpretAstInt env i
   AstConst a -> constant a
   AstConstant (AstPrimalPart a) ->
     constant $ let D u _ = interpretAst env a in u
@@ -770,7 +779,7 @@ interpretAst env = \case
        then v'  -- perhaps common in code generated from AST
        else lslice1 i' n' v'
   AstReverse1 v -> lreverse1 $ interpretAst env v
-  AstBuildPair1 i (var, AstConstant r) ->  -- TODO: interpretAstConstant
+  AstBuildPair1 i (var, AstConstant r) ->  -- TODO: interpretAstPrimalPart
     constant
     $ lbuild1 (interpretAstInt env i)
               (\j -> let D v _ = interpretLambdaI env (var, AstConstant r) j

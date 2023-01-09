@@ -36,6 +36,7 @@ data Ast :: Type -> Type -> Type where
   AstCond :: AstBool r -> Ast r a -> Ast r a -> Ast r a
   AstSelect :: AstInt r -> (AstVarName Int, AstBool r)
             -> Ast r (Vector r) -> Ast r (Vector r) -> Ast r (Vector r)
+  AstInt :: AstInt r -> Ast r a
   AstConst :: a -> Ast r a  -- sort of partially evaluated @AstConstant@
   AstConstant :: AstPrimalPart r a -> Ast r a
   AstScale :: AstPrimalPart r a -> Ast r a -> Ast r a

@@ -29,6 +29,9 @@ testTrees = [ testCase "barADVal" testBarADVal
             , testCase "barReluAst" testBarReluAst
             , testCase "barReluAst1" testBarReluAst1
             , testCase "konstReluAst" testKonstReluAst
+            , -- tests by TomS:
+              testCase "F1ADVal" testF1ADVal
+            , testCase "F1Ast" testF1Ast
             ]
 
 foo :: RealFloat a => (a,a,a) -> a
@@ -126,6 +129,15 @@ konstReluAst
      (Numeric r, RealFloat r, Num (Vector r))
   => Ast r r -> Ast r r
 konstReluAst x = lsumElements10 $ reluAst $ lkonst1 x 7
+
+
+-- * Tests by TomS
+
+f1 :: ADReady a => a -> a
+f1 = \arg -> lsumElements10 (lbuild1 10 (\i -> arg * fromIntOf i))
+
+
+-- * Test harness glue code
 
 -- In simplified horde-ad we don't have access to the highest level API
 -- (adaptors), so the testing glue is tedious:
@@ -239,3 +251,23 @@ testKonstReluAst =
                        (konstReluAst (AstVar0 (AstVarName (-1)))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [295.4]
+
+testF1ADVal :: Assertion
+testF1ADVal =
+  (domains0 $ fst
+   $ revOnDomains
+       42.2
+       (\adinputs -> f1 (adinputs `at0` 0))
+       (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
+  @?~ V.fromList [1899.0000000000002]
+
+testF1Ast :: Assertion
+testF1Ast =
+  (domains0 $ fst
+   $ revOnDomains
+       42.2
+       (\adinputs ->
+          interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
+                       (f1 (AstVar0 (AstVarName (-1)))))
+       (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
+  @?~ V.fromList [1899.0000000000002]
