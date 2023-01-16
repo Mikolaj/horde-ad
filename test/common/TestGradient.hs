@@ -18,7 +18,7 @@ import           Test.Tasty.HUnit hiding (assert)
 import           Test.Tasty.QuickCheck
   (Arbitrary, Property, choose, forAll, property, testProperty)
 
-import HordeAd hiding (sumElementsVectorOfDual)
+import HordeAd
 import HordeAd.Core.DualClass (Dual)
 import HordeAd.Internal.Delta (atIndexInTensor)
 

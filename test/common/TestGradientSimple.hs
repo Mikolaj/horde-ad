@@ -14,7 +14,7 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 import           Text.Printf
 
-import HordeAd hiding (sumElementsVectorOfDual)
+import HordeAd
 import HordeAd.Core.DualClass (unsafeGetFreshId)
 
 import Tool.EqEpsilon

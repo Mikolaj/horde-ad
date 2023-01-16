@@ -20,7 +20,7 @@ import qualified Numeric.LinearAlgebra as LA
 import           Test.Tasty
 import           Test.Tasty.QuickCheck
 
-import HordeAd hiding (sumElementsVectorOfDual)
+import HordeAd
 import HordeAd.Core.DualClass (Dual)
 
 lowercase :: String -> String
