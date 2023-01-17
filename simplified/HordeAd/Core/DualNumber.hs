@@ -510,10 +510,6 @@ astMap1 f e = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
   return $! map1Vectorize (freshAstVar, f (AstVar0 freshAstVar)) e
 
--- TODO: question: now I vectorize nested builds/maps when they are created;
--- should I instead wait and vectorize the whole term? Probably
--- no harm done, since the whole term is eventually vectorized anyway,
--- with arbitrarily deep traversals.
 build1Vectorize
   :: AstInt r -> (AstVarName Int, Ast r r)
   -> Ast r (Vector r)
@@ -524,16 +520,13 @@ build1Vectorize n (var, u) =
     AstOp codeOut args ->  -- AstOp0
       AstOp codeOut $ map (\w -> build1Vectorize n (var, w)) args  -- AstOp1
     AstCond b x y ->
-      -- TODO:
-      -- Handle conditionals that depend on var, so that we produce conditional
-      -- delta expressions of size proportional to the exponent of conditional
+      -- This handles conditionals that depend on var,
+      -- so that we produce conditional delta expressions
+      -- of size proportional to the exponent of conditional
       -- nesting, instead of proportional to the number of elements
       -- of the tensor.
       --
-      -- Perhaps partition indexes vs b resulting in bitmasks b1 and b2
-      -- and recursively process vectorized b1 * x1 + b2 * x2?
-      -- Instead I can recursively process x and y and worry about value of b
-      -- only when I'm able to determine it, which may not be right now.
+      -- TODO: actually check that var is in b and simplify if not.
       AstSelect n (var, b)
                 (build1Vectorize n (var, x))
                 (build1Vectorize n (var, y))
@@ -550,23 +543,8 @@ build1Vectorize n (var, u) =
     AstSumElements10 _v -> AstBuildPair1 n (var, u)
     AstIndex10 v i -> buildOfIndex10Vectorize n var v i
       -- @var@ is in @v@ or @i@; TODO: simplify i first
-    AstMinimum0 _v ->
-      AstBuildPair1 n (var, u)
-        -- Vectors are assumed to be huge, so it's not possible to perform
-        -- @build@ using each combination of elements and choose the right
-        -- one in the end. Therefore we need to fallback to something,
-        -- e.g., to POPL (memory blowup, but avoids functions on tape).
-        -- TODO: instead, save AST on tape and interpret the function
-        -- at backprop; that would permit serialization to GPU,
-        -- though serialization of Tree0 while preserving sharing is costly,
-        -- but perhaps GPUs can generate deltas themselves now that closures
-        -- are not needed?
-        -- Or should we ban such ops inside build?
-        -- Or should we find specialized cheap derivatives of
-        -- build(minElem), etc.? But there can be arbitrarily complex
-        -- terms inside minElem, not vectorized, because the build variable
-        -- was not eliminated
-    AstMaximum0 _v -> AstBuildPair1 n (var, u)
+    AstMinimum0 _v -> AstBuildPair1 n (var, u)  -- TODO
+    AstMaximum0 _v -> AstBuildPair1 n (var, u)  -- TODO
     AstDot0 _u _v -> AstBuildPair1 n (var, u)  -- TODO
       -- equal to @build1Vectorize n (var, AstSumElements10 (u * v))@,
       -- but how to vectorize AstSumElements10?
@@ -623,7 +601,7 @@ buildOfIndex10VectorizeVarNotInV n var v i = case i of
     -- add a new 'gather' operation somehow and, if a more complex index
     -- expression, construct 'gather'
 
--- TODO: speed up keeping free vars in each node.
+-- TODO: speed up by keeping free vars in each node.
 intVarInAst :: AstVarName Int -> Ast r a -> Bool
 intVarInAst var v = case v of
   AstOp _ lv -> or $ map (intVarInAst var) lv
