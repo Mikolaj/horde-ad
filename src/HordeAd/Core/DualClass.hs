@@ -185,13 +185,13 @@ class IsPrimal d a where
 -- | Part 1/2 of a hack to squeeze the shaped tensors rank,
 -- with its extra @sh@ parameter, into the 'IsPrimal' class.
 class IsPrimalS d r where
-  dZeroS :: forall sh. OS.Shape sh => Dual d (OS.Array sh r)
-  dScaleS :: forall sh. OS.Shape sh
+  dZeroS :: OS.Shape sh => Dual d (OS.Array sh r)
+  dScaleS :: OS.Shape sh
           => OS.Array sh r -> Dual d (OS.Array sh r) -> Dual d (OS.Array sh r)
-  dAddS :: forall sh. OS.Shape sh
+  dAddS :: OS.Shape sh
         => Dual d (OS.Array sh r) -> Dual d (OS.Array sh r)
         -> Dual d (OS.Array sh r)
-  recordSharingS :: forall sh. OS.Shape sh
+  recordSharingS :: OS.Shape sh
                  => Dual d (OS.Array sh r) -> Dual d (OS.Array sh r)
 
 -- | Part 2/2 of a hack to squeeze the shaped tensors rank,
