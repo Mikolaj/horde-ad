@@ -116,9 +116,10 @@ type ADModeAndNum (d :: ADMode) r =
   ( Numeric r
   , Show r
   , HasPrimal r
-  , HasRanks (Vector r) d r
+  , HasRanks d r
   , IsPrimalAndHasFeatures d r r
   , IsPrimalAndHasFeatures d (Vector r) r
+  , VectorOf r ~ Vector r
   , IntOf r ~ Int
   )
 
@@ -241,26 +242,22 @@ class HasInputs a where
   dInput :: InputId a -> Dual 'ADModeGradient a
   packDeltaDt :: a -> Dual 'ADModeGradient a -> DeltaDt (Element a)
 
--- The constraint has Element in addition to VectorOf,
--- because vector is more often determined, while r remains unknown.
--- For the same reason, IntOf vector works, but IntOf r doesn't.
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
 -- of various ranks wrt the differentation mode given in the first parameter.
-class (Element vector ~ r, VectorOf r ~ vector)
-      => HasRanks vector (d :: ADMode) r | vector -> r where
-  dSumElements10 :: Dual d vector -> IntOf vector -> Dual d r
-  dIndex10 :: Dual d vector -> IntOf vector -> IntOf vector -> Dual d r
-  dDot0 :: vector -> Dual d vector -> Dual d r
+class HasRanks (d :: ADMode) r where
+  dSumElements10 :: Dual d (Vector r) -> Int -> Dual d r
+  dIndex10 :: Dual d (Vector r) -> Int -> Int -> Dual d r
+  dDot0 :: Vector r -> Dual d (Vector r) -> Dual d r
 
-  dFromList1 :: [Dual d r] -> Dual d vector
-  dFromVector1 :: Data.Vector.Vector (Dual d r) -> Dual d vector
-  dKonst1 :: Dual d r -> IntOf vector -> Dual d vector
-  dAppend1 :: Dual d vector -> IntOf vector -> Dual d vector -> Dual d vector
-  dSlice1 :: IntOf vector -> IntOf vector -> Dual d vector -> IntOf vector
-          -> Dual d vector
-  dReverse1 :: Dual d vector -> Dual d vector
-  dBuild1 :: IntOf vector -> (IntOf vector -> Dual d r) -> Dual d vector
+  dFromList1 :: [Dual d r] -> Dual d (Vector r)
+  dFromVector1 :: Data.Vector.Vector (Dual d r) -> Dual d (Vector r)
+  dKonst1 :: Dual d r -> Int -> Dual d (Vector r)
+  dAppend1 :: Dual d (Vector r) -> Int -> Dual d (Vector r) -> Dual d (Vector r)
+  dSlice1 :: Int -> Int -> Dual d (Vector r) -> Int
+          -> Dual d (Vector r)
+  dReverse1 :: Dual d (Vector r) -> Dual d (Vector r)
+  dBuild1 :: Int -> (Int -> Dual d r) -> Dual d (Vector r)
 
 
 -- * Backprop gradient method instances
@@ -343,8 +340,8 @@ instance HasInputs (Vector r) where
   packDeltaDt = DeltaDt1
 
 -- | This is an impure instance. See above.
-instance (Dual 'ADModeGradient r ~ Delta0 r, VectorOf r ~ Vector r)
-         => HasRanks (Vector r) 'ADModeGradient r where
+instance Dual 'ADModeGradient r ~ Delta0 r
+         => HasRanks 'ADModeGradient r where
   dSumElements10 = SumElements10
   dIndex10 = Index10
   dDot0 = Dot0
@@ -378,9 +375,9 @@ instance Num (Vector r)
   dAdd d e = d + e
   recordSharing = id
 
-instance ( Numeric r, VectorOf r ~ Vector r
+instance ( Numeric r
          , Dual 'ADModeDerivative r ~ r )
-         => HasRanks (Vector r) 'ADModeDerivative r where
+         => HasRanks 'ADModeDerivative r where
   dSumElements10 vd _ = LA.sumElements vd
   dIndex10 d ix _ = d V.! ix
   dDot0 = (LA.<.>)
@@ -414,8 +411,7 @@ instance IsPrimal 'ADModeValue (Vector r) where
   recordSharing = id
 
 -- This requires UndecidableInstances.
-instance (Element vector ~ r, VectorOf r ~ vector)
-         => HasRanks vector 'ADModeValue r where
+instance HasRanks 'ADModeValue r where
   dSumElements10 _ _ = DummyDual ()
   dIndex10 _ _ _ = DummyDual ()
   dDot0 _ _ = DummyDual ()
