@@ -82,7 +82,7 @@ import qualified Numeric.LinearAlgebra.Devel
 import           Text.Show.Functions ()
 
 import qualified HordeAd.Internal.MatrixOuter as MO
-import           HordeAd.Internal.OrthotopeOrphanInstances (liftVS2, liftVT2)
+import           HordeAd.Internal.OrthotopeOrphanInstances ()
 
 -- * Abstract syntax trees of the delta expressions
 
@@ -144,10 +144,10 @@ data Delta0 r =
 
   | SumElements10 (Delta1 r) Int  -- ^ see Note [SumElements10]
   | SumElements20 (Delta2 r) (Int, Int)
-  | SumElementsX0 (DeltaX r) [Int]
+  | SumElementsX0 (DeltaX r) OT.ShapeL
   | Index10 (Delta1 r) Int Int  -- ^ second integer is the length of the vector
   | Index20 (Delta2 r) (Int, Int) (Int, Int)
-  | IndexX0 (DeltaX r) [Int] [Int]
+  | IndexX0 (DeltaX r) [Int] OT.ShapeL
 
   | Dot0 (Vector r) (Delta1 r)  -- ^ Dot0 v vd == SumElements10 (Scale1 v vd) n
 
@@ -561,12 +561,12 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
       addToMatrix :: Matrix r -> Matrix r -> Matrix r
       addToMatrix c = \v -> if LA.rows v <= 0 then c else v + c
       addToArray :: OT.Array r -> OT.Array r -> OT.Array r
-      addToArray c = \v -> if isTensorDummy v then c else liftVT2 (+) v c
+      addToArray c = \v -> if isTensorDummy v then c else v + c
       addToArrayS :: OS.Shape sh => OS.Array sh r -> OT.Array r -> OT.Array r
       addToArrayS c = \v -> let cs = Data.Array.Convert.convert c
                             in if isTensorDummy v
                                then cs
-                               else liftVT2 (+) v cs
+                               else v + cs
 
       -- This function modifies state comprising of vectors and a map.
       -- The first argument is the cotangent accumulator that will become
@@ -848,7 +848,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         ZeroX -> return ()
         InputX (InputId i) ->
           VM.modify iMapX (addToArray c) i
-        ScaleX k d -> evalX (liftVT2 (*) k c) d
+        ScaleX k d -> evalX (k * c) d
         AddX d e -> evalX c d >> evalX c e
         LetX n d -> assert (case d of
                       ZeroX -> False
@@ -860,7 +860,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
           case EM.lookup n nm of
             Just (DeltaBindingX (DeltaId i) _) -> do
               dm <- readSTRef dMapX
-              VM.modify dm (liftVT2 (+) c) i
+              VM.modify dm (+ c) i
             Nothing -> do
               did@(DeltaId i) <- readSTRefU didCurX
               writeSTRefU didCurX $ succDeltaId did
@@ -931,7 +931,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         ZeroS -> return ()
         InputS (InputId i) ->
          VM.modify iMapX (addToArrayS c) i
-        ScaleS k d -> evalS (liftVS2 (*) k c) d
+        ScaleS k d -> evalS (k * c) d
         AddS d e -> evalS c d >> evalS c e
         LetS n d -> assert (case d of
                       ZeroS -> False
@@ -944,7 +944,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
             Just (DeltaBindingS (DeltaId i) _) -> do
               dm <- readSTRef dMapX
               let cs = Data.Array.Convert.convert c
-              VM.modify dm (liftVT2 (+) cs) i
+              VM.modify dm (+ cs) i
             Nothing -> do
               did@(DeltaId i) <- readSTRefU didCurX
               writeSTRefU didCurX $ succDeltaId did

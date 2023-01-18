@@ -617,7 +617,7 @@ instance ( Numeric r, Num (Vector r)
   dReshape2 = LA.reshape
   dConv2 = LA.conv2
   dBuild2 n f = LA.build n (\i j -> f (floor i, floor j))
-  dFromListX sh = OT.fromList sh
+  dFromListX = OT.fromList
   dFromVectorX sh = OT.fromVector sh . V.convert
   dKonstX d sh = OT.constant sh d
   dAppendX d _k e = d `OT.append` e

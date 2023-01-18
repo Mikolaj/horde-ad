@@ -40,9 +40,6 @@ updateWithGradient gamma (Domains params0 params1 params2 paramsX)
       updateX i r = if isTensorDummy r  -- eval didn't update it, would crash
                     then i
                     else liftVT2 updateVector i r
-                      -- TODO: this is slow; add @liftArray2@ and use hmatrix,
-                      -- unless we move away from hmatrix;
-                      -- similarly other OT calls
       !paramsXNew = V.zipWith updateX paramsX gradientX
   in Domains params0New params1New params2New paramsXNew
 {-# SPECIALIZE updateWithGradient :: Double -> Domains Double -> Domains Double -> Domains Double #-}
