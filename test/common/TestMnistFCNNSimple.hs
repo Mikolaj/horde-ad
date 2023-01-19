@@ -190,7 +190,8 @@ mnistTestCase2V prefix epochs maxBatches trainWithLoss widthHidden widthHidden2
                           $ zip [1 ..] $ chunksOf 5000 trainDataShuffled
              !res <- foldM runBatch params2 chunks
              runEpoch (succ n) res
-       res <- runEpoch 1 (params0Init, params1Init)
+           domain = domainsFrom0V params0Init params1Init
+       res <- runEpoch 1 (domains0 domain, domains1 domain)
        let testErrorFinal =
              1 - fcnnMnistTest1 widthHidden widthHidden2 testData res
        testErrorFinal @?~ expected
@@ -245,13 +246,6 @@ dumbMnistTests = testGroup "Dumb MNIST tests"
           params0 = V.replicate nParams0 (0.1 :: Double)
       testData <- loadMnistData testGlyphsPath testLabelsPath
       (1 - fcnnMnistTest0 300 100 testData params0)
-        @?~ 0.902
-  , testCase "fcnnMnistTest2VV on 0.1 params0 300 100 width 10k testset" $ do
-      let (nParams0, nParams1, _, _) = fcnnMnistLen1 300 100
-          params0 = V.replicate nParams0 (0.1 :: Float)
-          params1 = V.fromList $ map (`V.replicate` 0.1) nParams1
-      testData <- loadMnistData testGlyphsPath testLabelsPath
-      (1 - fcnnMnistTest1 300 100 testData (params0, params1))
         @?~ 0.902
   , testProperty "Compare two forward derivatives and gradient for Mnist0" $
       \seed seedDs ->

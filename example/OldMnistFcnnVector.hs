@@ -23,15 +23,15 @@ import MnistData
 
 sumTrainableInputsV
   :: ADModeAndNum d r
-  => ADVal d (Vector r) -> Int -> ADInputs d r -> ADVal d r
+  => ADVal d (Vec r) -> Int -> ADInputs d r -> ADVal d r
 sumTrainableInputsV x offset inputs =
   let v = at1 inputs offset
   in v <.>! x
 
 sumTrainableInputsL
   :: forall d r. ADModeAndNum d r
-  => ADVal d (Vector r) -> Int -> ADInputs d r -> Int
-  -> ADVal d (Vector r)
+  => ADVal d (Vec r) -> Int -> ADInputs d r -> Int
+  -> ADVal d (Vec r)
 sumTrainableInputsL x offset inputs width =
   let f :: Int -> ADVal d r
       f i = sumTrainableInputsV x (offset + i) inputs
@@ -42,12 +42,12 @@ sumConstantDataV
   => Vector r -> Int -> ADInputs d r -> ADVal d r
 sumConstantDataV x offset inputs =
   let v = at1 inputs offset
-  in v <.>!! x
+  in v <.>!! vToVec x
 
 sumConstantDataL
   :: forall d r. ADModeAndNum d r
   => Vector r -> Int -> ADInputs d r -> Int
-  -> ADVal d (Vector r)
+  -> ADVal d (Vec r)
 sumConstantDataL x offset inputs width =
   let f :: Int -> ADVal d r
       f i = sumConstantDataV x (offset + i) inputs
@@ -71,13 +71,13 @@ fcnnMnistLen1 widthHidden widthHidden2 =
 -- of scalars (none in this case) and vectors of dual number parameters
 -- (inputs) to be given to the program.
 fcnnMnist1 :: forall d r. ADModeAndNum d r
-           => (ADVal d (Vector r) -> ADVal d (Vector r))
-           -> (ADVal d (Vector r) -> ADVal d (Vector r))
+           => (ADVal d (Vec r) -> ADVal d (Vec r))
+           -> (ADVal d (Vec r) -> ADVal d (Vec r))
            -> Int
            -> Int
            -> Vector r
            -> ADInputs d r
-           -> ADVal d (Vector r)
+           -> ADVal d (Vec r)
 fcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
           datum inputs =
   let !_A = assert (sizeMnistGlyphInt == V.length datum) ()
@@ -104,7 +104,7 @@ fcnnMnistLoss1
 fcnnMnistLoss1 widthHidden widthHidden2 (datum, target) inputs =
   let result = inline fcnnMnist1 logistic softMaxV
                                  widthHidden widthHidden2 datum inputs
-  in lossCrossEntropyV target result
+  in lossCrossEntropyV (vToVec target) result
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
@@ -117,6 +117,6 @@ fcnnMnistTest1 widthHidden widthHidden2 dataList (params0, params1) =
         let nn = inline fcnnMnist1 logistic softMaxV
                                    widthHidden widthHidden2 glyph
             v = valueOnDomains nn (domainsFrom01 params0 params1)
-        in V.maxIndex v == V.maxIndex label
+        in V.maxIndex (vecToV v) == V.maxIndex label
   in fromIntegral (length (filter matchesLabels dataList))
      / fromIntegral (length dataList)

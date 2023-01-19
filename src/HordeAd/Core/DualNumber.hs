@@ -62,6 +62,14 @@ import HordeAd.Internal.Delta
 
 -- * Auxiliary definitions
 
+type Vec r = Vector r
+
+vecToV :: Vec r -> Vector r
+vecToV = id
+
+vToVec :: Vector r  -> Vec r
+vToVec = id
+
 -- | Sizes of tensor dimensions, of batches, etc., packed for passing
 -- between functions as witnesses of type variable values.
 data SNat (n :: Nat) where

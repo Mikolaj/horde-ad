@@ -44,6 +44,14 @@ import HordeAd.Internal.Delta (Domain0, Domain1, Domains (..), nullDomains)
 
 -- * Auxiliary definitions
 
+type Vec r = Vector r
+
+vecToV :: Vec r -> Vector r
+vecToV = id
+
+vToVec :: Vector r  -> Vec r
+vToVec = id
+
 -- This is not needed in the simplified version, except for compilation
 -- with the common test code.
 -- | Sizes of tensor dimensions, of batches, etc., packed for passing

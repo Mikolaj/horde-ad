@@ -191,20 +191,21 @@ dReverse1
   :: (r ~ Float, d ~ 'ADModeGradient)
   => (ADInputs d r -> ADVal d r)
   -> [[r]]
-  -> ([[r]], r)
+  -> (Domain1 r, r)
 dReverse1 f deltaInput =
-  let (!results, !v) =
-        first domains1
-        $ revOnDomains 1 f
-            (domainsFrom01 V.empty (V.fromList (map V.fromList deltaInput)))
-  in (map V.toList $ V.toList results, v)
+  first domains1
+  $ revOnDomains 1 f
+      (domainsFrom0V V.empty (V.fromList (map V.fromList deltaInput)))
 
 testDReverse1 :: TestTree
 testDReverse1 = testGroup "Simple revOnDomains application to vectors tests" $
-  map (\(txt, f, v, expected) ->
+  map (\(txt, f, v, (expected, ev)) ->
         testCase txt $ do
           let res = dReverse1 f v
-          res @?~ expected)
+          res @?~ ( domains1 (domainsFrom0V
+                                V.empty
+                                (V.fromList (map V.fromList expected)))
+                  , ev ))
     [ ("sumElementsV", sumElementsV, [[1, 1, 3]], ([[1.0,1.0,1.0]],5.0))
     , ("altSumElementsV", altSumElementsV, [[1, 1, 3]], ([[1.0,1.0,1.0]],5.0))
     , ( "sinKonst", sinKonst, [[1, 3]]
@@ -214,7 +215,7 @@ testDReverse1 = testGroup "Simple revOnDomains application to vectors tests" $
     ]
 
 fooMap1 :: ADModeAndNum d r
-        => ADVal d r -> ADVal d (Vector r)
+        => ADVal d r -> ADVal d (Vec r)
 fooMap1 r =
   let v = konst1 r 130
   in map1Elementwise (\x -> x * r + 5) v
@@ -223,7 +224,8 @@ testMap1Elementwise :: Assertion
 testMap1Elementwise =
   (domains0 $ fst
    $ revOnDomains
-       (LA.konst 1 130)  -- 1 wrong due to fragility of hmatrix optimization
+       (vToVec $ LA.konst 1 130)
+         -- 1 wrong due to fragility of hmatrix optimization
        (\adinputs -> fooMap1 (adinputs `at0` 0))
        (domainsFrom01 (V.singleton (1.1 :: Double)) V.empty))
   @?~ V.fromList [285.9999999999997]
@@ -234,7 +236,7 @@ testPrintDf = testGroup "Pretty printing test" $
         testCase txt $ do
           let output =
                 prettyPrintDf f
-                  (domainsFrom01 V.empty (V.fromList (map V.fromList v)))
+                  (domainsFrom0V V.empty (V.fromList (map V.fromList v)))
           length output @?= expected)
     [ ( "sumElementsV", sumElementsV, [[1 :: Float, 1, 3]]
       , 53 )
@@ -367,15 +369,13 @@ vatanOldReadme inputs =
   let xyzVector = at1 inputs 0
       f = index10 xyzVector
       (x, y, z) = (f 0, f 1, f 2)
-      v = fromVector1 (atanOldReadmeOriginal x y z) :: ADVal d (Vector r)
+      v = fromVector1 (atanOldReadmeOriginal x y z) :: ADVal d (Vec r)
   in sumElements10 v
 
 vatanOldReadmeDReverse :: HasDelta r
-                       => Domain1 r -> (Domain1 r, r)
+                       => Data.Vector.Vector (Vector r) -> (Domains r, r)
 vatanOldReadmeDReverse dsV =
-  let (!result, !v) =
-        first domains1
-        $ revOnDomains 1 vatanOldReadme (domainsFrom01 V.empty dsV)
+  let (!result, !v) = revOnDomains 1 vatanOldReadme (domainsFrom0V V.empty dsV)
   in (result, v)
 
 oldReadmeTestsV :: TestTree
@@ -383,15 +383,21 @@ oldReadmeTestsV = testGroup "Simple tests of vector-based code for README"
   [ testCase "V Float (1.1, 2.2, 3.3)" $ do
       let res = vatanOldReadmeDReverse
                   (V.singleton $ V.fromList [1.1 :: Float, 2.2, 3.3])
-      res @?~ ( V.singleton $ V.fromList [3.0715904, 0.18288425, 1.1761366]
-              , 4.937552 )
+      first domains1 res
+        @?~ ( domains1 $ domainsFrom0V
+                V.empty
+                (V.singleton $ V.fromList [3.0715904, 0.18288425, 1.1761366])
+            , 4.937552 )
   , testCase "V Double (1.1, 2.2, 3.3)" $ do
       let res = vatanOldReadmeDReverse
                   (V.singleton $ V.fromList [1.1 :: Double, 2.2, 3.3])
-      res @?~ ( V.singleton $ V.fromList [ 3.071590389300859
-                                         , 0.18288422990948425
-                                         , 1.1761365368997136 ]
-              , 4.9375516951604155 )
+      first domains1 res
+        @?~ ( domains1 $ domainsFrom0V
+                V.empty
+                (V.singleton $ V.fromList [ 3.071590389300859
+                                          , 0.18288422990948425
+                                          , 1.1761365368997136 ])
+            , 4.9375516951604155 )
   ]
 
 

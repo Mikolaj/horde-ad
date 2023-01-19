@@ -13,8 +13,6 @@ import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Char
 import qualified Data.Foldable
-import qualified Data.Strict.Vector as Data.Vector
-import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable as VS
 import qualified Numeric.LinearAlgebra as LA
 import           Test.Tasty
@@ -50,21 +48,6 @@ fquad inputs =
   let x = at0 inputs 0
       y = at0 inputs 1
   in quad x y
-
-listsToParameters :: forall r. (OT.Storable r)
-                  => ([r], [r]) -> Domains r
-listsToParameters (a0, a1) =
-  domainsFrom01 (V.fromList a0) (V.singleton $ V.fromList a1)
-
-listsToParameters4 :: ([Double], [Double], [Double], [Double]) -> Domains Double
-listsToParameters4 (a0, a1, a2, aX) =
-  domainsFrom012X
-    (V.fromList a0)
-    (V.singleton $ V.fromList a1)
-    (if null a2 then Data.Vector.empty
-                else V.singleton $ LA.matrix 1 a2)
-    (if null aX then Data.Vector.empty
-                else V.singleton $ OT.fromList [length aX] aX)
 
 quickCheckTest0
   :: TestName

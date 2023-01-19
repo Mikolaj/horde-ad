@@ -19,20 +19,20 @@ import MnistData
 
 sumTrainableInputsL
   :: forall d r. ADModeAndNum d r
-  => ADVal d (Vector r) -> [ADVal d (Vector r)]
-  -> ADVal d (Vector r)
+  => ADVal d (Vec r) -> [ADVal d (Vec r)]
+  -> ADVal d (Vec r)
 sumTrainableInputsL x weights =
-  let f :: ADVal d (Vector r) -> ADVal d r
+  let f :: ADVal d (Vec r) -> ADVal d r
       f v = v <.>! x
   in fromList1 $ map f weights
 
 sumConstantDataL
   :: forall d r. ADModeAndNum d r
-  => Vector r -> [ADVal d (Vector r)]
-  -> ADVal d (Vector r)
+  => Vector r -> [ADVal d (Vec r)]
+  -> ADVal d (Vec r)
 sumConstantDataL x weights =
-  let f :: ADVal d (Vector r) -> ADVal d r
-      f v = v <.>!! x
+  let f :: ADVal d (Vec r) -> ADVal d r
+      f v = v <.>!! vToVec x
   in fromList1 $ map f weights
 
 afcnnMnistLen1 :: Int -> Int -> (Int, [Int], [(Int, Int)], [OT.ShapeL])
@@ -47,12 +47,12 @@ afcnnMnistLen1 widthHidden widthHidden2 =
 
 -- The differentiable type of all trainable parameters of this nn.
 type ADFcnnMnist1Parameters d r =
-  ( ( [ADVal d (Vector r)]  -- @widthHidden@ copies, length @sizeMnistGlyphInt@
-    , ADVal d (Vector r) )  -- length @widthHidden@
-  , ( [ADVal d (Vector r)]  -- @widthHidden2@ copies, length @widthHidden@
-    , ADVal d (Vector r) )  -- length @widthHidden2@
-  , ( [ADVal d (Vector r)]  -- @sizeMnistLabelInt@ copies, length @widthHidden2@
-    , ADVal d (Vector r) )  -- length @sizeMnistLabelInt@
+  ( ( [ADVal d (Vec r)]  -- @widthHidden@ copies, length @sizeMnistGlyphInt@
+    , ADVal d (Vec r) )  -- length @widthHidden@
+  , ( [ADVal d (Vec r)]  -- @widthHidden2@ copies, length @widthHidden@
+    , ADVal d (Vec r) )  -- length @widthHidden2@
+  , ( [ADVal d (Vec r)]  -- @sizeMnistLabelInt@ copies, length @widthHidden2@
+    , ADVal d (Vec r) )  -- length @sizeMnistLabelInt@
   )
 
 -- | Fully connected neural network for the MNIST digit classification task.
@@ -63,13 +63,13 @@ type ADFcnnMnist1Parameters d r =
 -- of scalars (none in this case) and vectors of dual number parameters
 -- (inputs) to be given to the program.
 afcnnMnist1 :: forall d r. ADModeAndNum d r
-            => (ADVal d (Vector r) -> ADVal d (Vector r))
-            -> (ADVal d (Vector r) -> ADVal d (Vector r))
+            => (ADVal d (Vec r) -> ADVal d (Vec r))
+            -> (ADVal d (Vec r) -> ADVal d (Vec r))
             -> Int
             -> Int
             -> Vector r
             -> ADFcnnMnist1Parameters d r
-            -> ADVal d (Vector r)
+            -> ADVal d (Vec r)
 afcnnMnist1 factivationHidden factivationOutput widthHidden widthHidden2
             datum ((hidden, bias), (hidden2, bias2), (readout, biasr)) =
   let !_A = assert (sizeMnistGlyphInt == V.length datum
@@ -92,7 +92,7 @@ afcnnMnistLoss1
 afcnnMnistLoss1 widthHidden widthHidden2 (datum, target) adparams =
   let result = inline afcnnMnist1 logistic softMaxV
                                   widthHidden widthHidden2 datum adparams
-  in lossCrossEntropyV target result
+  in lossCrossEntropyV (vToVec target) result
 
 -- | A function testing the neural network given testing set of inputs
 -- and the trained parameters.
@@ -100,14 +100,14 @@ afcnnMnistTest1
   :: forall r. ADModeAndNum 'ADModeValue r
   => Int -> Int -> [MnistData r]
   -> ((ADFcnnMnist1Parameters 'ADModeValue r
-       -> ADVal 'ADModeValue (Vector r))
+       -> ADVal 'ADModeValue (Vec r))
       -> Vector r)
   -> r
 afcnnMnistTest1 widthHidden widthHidden2 dataList evalAtTestParams =
   let matchesLabels :: MnistData r -> Bool
       matchesLabels (glyph, label) =
         let nn :: ADFcnnMnist1Parameters 'ADModeValue r
-               -> ADVal 'ADModeValue (Vector r)
+               -> ADVal 'ADModeValue (Vec r)
             nn = inline afcnnMnist1 logistic softMaxV
                                     widthHidden widthHidden2 glyph
             v = evalAtTestParams nn

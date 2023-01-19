@@ -56,22 +56,24 @@ lenSynthV width nSamples =
 -- parameters are trained or tested) using this code, divide the input
 -- and multiply result appropriately, see @synthLossSquared@.
 synthValue :: forall d r. ADModeAndNum d r
-           => (ADVal d (Vector r) -> ADVal d (Vector r))
+           => (ADVal d (Vec r) -> ADVal d (Vec r))
            -> r
-           -> ADVal d (Vector r)
-           -> ADVal d (Vector r)
-           -> ADVal d (Vector r)
+           -> ADVal d (Vec r)
+           -> ADVal d (Vec r)
+           -> ADVal d (Vec r)
            -> ADVal d r
 synthValue factivation x ps1@(D u _) ps2 ps3 =
-  let activated = factivation $ scale (LA.konst x (V.length u)) ps1 + ps2
+  let activated =
+        factivation
+        $ scale (vToVec $ LA.konst x (V.length (vecToV u))) ps1 + ps2
   in activated <.>! ps3
 
 synthLossSquared :: ADModeAndNum d r
-                 => (ADVal d (Vector r) -> ADVal d (Vector r))
+                 => (ADVal d (Vec r) -> ADVal d (Vec r))
                  -> r
-                 -> ADVal d (Vector r)
-                 -> ADVal d (Vector r)
-                 -> ADVal d (Vector r)
+                 -> ADVal d (Vec r)
+                 -> ADVal d (Vec r)
+                 -> ADVal d (Vec r)
                  -> r
                  -> ADVal d r
 synthLossSquared factivation x ps1 ps2 ps3 targ =
@@ -92,11 +94,11 @@ sumResultsDual f as =
 
 synthLossAll
   :: forall d r. ADModeAndNum d r
-  => (ADVal d (Vector r) -> ADVal d (Vector r))
+  => (ADVal d (Vec r) -> ADVal d (Vec r))
   -> Data.Vector.Storable.Vector (r, r)
-  -> ADVal d (Vector r)
-  -> ADVal d (Vector r)
-  -> ADVal d (Vector r)
+  -> ADVal d (Vec r)
+  -> ADVal d (Vec r)
+  -> ADVal d (Vec r)
   -> ADVal d r
 synthLossAll factivation samples ps1 ps2 ps3 =
   let f :: (r, r) -> ADVal d r
@@ -104,7 +106,7 @@ synthLossAll factivation samples ps1 ps2 ps3 =
   in sumResultsDual f samples
 
 sumTrainableInputsS :: forall d r. ADModeAndNum d r
-                    => ADVal d (Vector r)
+                    => ADVal d (Vec r)
                     -> Int
                     -> ADInputs d r
                     -> Int
@@ -115,18 +117,18 @@ sumTrainableInputsS x offset inputs width =
   in V.generate width f
 
 splitLayerV :: forall d r. ADModeAndNum d r
-            => (ADVal d (Vector r) -> ADVal d (Vector r))
-            -> ADVal d (Vector r)
+            => (ADVal d (Vec r) -> ADVal d (Vec r))
+            -> ADVal d (Vec r)
             -> Int
             -> ADInputs d r
             -> Int
-            -> ( ADVal d (Vector r)
-               , ADVal d (Vector r)
-               , ADVal d (Vector r) )
+            -> ( ADVal d (Vec r)
+               , ADVal d (Vec r)
+               , ADVal d (Vec r) )
 splitLayerV factivation hiddenVec offset inputs width =
   let multiplied = sumTrainableInputsS hiddenVec offset inputs width
       chunkWidth = width `div` 3
-      activate :: Int -> ADVal d (Vector r)
+      activate :: Int -> ADVal d (Vec r)
       activate n = do
         let v = V.slice (n * chunkWidth) chunkWidth multiplied
         factivation $ fromVector1 v + at1 inputs (offset + width + n)
@@ -137,9 +139,9 @@ splitLayerV factivation hiddenVec offset inputs width =
 
 synthLossBareTotal
   :: forall d r. ADModeAndNum d r
-  => (ADVal d (Vector r) -> ADVal d (Vector r))
-  -> (ADVal d (Vector r) -> ADVal d (Vector r))
-  -> (ADVal d (Vector r) -> ADVal d (Vector r))
+  => (ADVal d (Vec r) -> ADVal d (Vec r))
+  -> (ADVal d (Vec r) -> ADVal d (Vec r))
+  -> (ADVal d (Vec r) -> ADVal d (Vec r))
   -> Int
   -> Data.Vector.Storable.Vector (r, r)
   -> ADInputs d r
@@ -200,9 +202,9 @@ gradSmartTestCase prefix lossFunction seedSamples
       -- Values from -0.5 to 0.5. TODO: start biases at 1
       params1Init =
         V.imap (\i nPV -> LA.randomVector (33 + nPV + i) LA.Uniform nPV
-                          - LA.scalar 0.5)
+                            - LA.scalar 0.5)
                nParams1
-      parametersInit = domainsFrom01 V.empty params1Init
+      parametersInit = domainsFrom0V V.empty params1Init
       name = prefix ++ " "
              ++ unwords [ show seedSamples, show nSamples, show width
                         , show (V.length nParams1), show (V.sum nParams1) ]

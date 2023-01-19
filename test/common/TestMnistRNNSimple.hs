@@ -76,23 +76,23 @@ sgdTestCase prefix f nParameters trainDataIO expected =
 
 prime :: ADModeAndNum 'ADModeValue r
       => (r
-          -> ADVal 'ADModeValue (Vector r)
+          -> ADVal 'ADModeValue (Vec r)
           -> ADInputs 'ADModeValue r
-          -> (ADVal 'ADModeValue r, ADVal 'ADModeValue (Vector r)))
+          -> (ADVal 'ADModeValue r, ADVal 'ADModeValue (Vec r)))
       -> Domains r
-      -> Vector r
+      -> Vec r
       -> [r]
-      -> Vector r
+      -> Vec r
 prime f parameters =
   foldl' (\s x -> valueOnDomains (snd . f x (constant s)) parameters)
 
 feedback :: ADModeAndNum 'ADModeValue r
          => (r
-             -> ADVal 'ADModeValue (Vector r)
+             -> ADVal 'ADModeValue (Vec r)
              -> ADInputs 'ADModeValue r
-             -> (ADVal 'ADModeValue r, ADVal 'ADModeValue (Vector r)))
+             -> (ADVal 'ADModeValue r, ADVal 'ADModeValue (Vec r)))
          -> Domains r
-         -> Vector r
+         -> Vec r
          -> r
          -> [r]
 feedback f parameters s0 x0 =
@@ -103,10 +103,10 @@ feedback f parameters s0 x0 =
 
 feedbackTestCase :: String
                  -> (Double
-                     -> ADVal 'ADModeValue (Vector Double)
+                     -> ADVal 'ADModeValue (Vec Double)
                      -> ADInputs 'ADModeValue Double
                      -> ( ADVal 'ADModeValue Double
-                        , ADVal 'ADModeValue (Vector Double) ))
+                        , ADVal 'ADModeValue (Vec Double) ))
                  -> (a
                      -> ADInputs 'ADModeGradient Double
                      -> ADVal 'ADModeGradient Double)
@@ -122,36 +122,36 @@ feedbackTestCase prefix fp f nParameters trainData expected =
                         , show totalParams, show range ]
   in testCase name $ do
        let trained = fst $ sgd 0.1 f trainData parameters0
-           primed = prime fp trained (LA.konst 0 30) (take 19 series)
+           primed = prime fp trained (vToVec $ LA.konst 0 30) (take 19 series)
            output = feedback fp trained primed (series !! 19)
        take 30 output @?~ expected
 
 unrollLast' :: forall d r. ADModeAndNum d r
             => (r
-                -> ADVal d (Vector r)
+                -> ADVal d (Vec r)
                 -> ADInputs d r
-                -> (ADVal d r, ADVal d (Vector r)))
+                -> (ADVal d r, ADVal d (Vec r)))
             -> (Vector r
-                -> ADVal d (Vector r)
+                -> ADVal d (Vec r)
                 -> ADInputs d r
-                -> (ADVal d r, ADVal d (Vector r)))
+                -> (ADVal d r, ADVal d (Vec r)))
 unrollLast' f xs s0 inputs =
-  let g :: (ADVal d r, ADVal d (Vector r)) -> r
-        -> (ADVal d r, ADVal d (Vector r))
+  let g :: (ADVal d r, ADVal d (Vec r)) -> r
+        -> (ADVal d r, ADVal d (Vec r))
       g (_, s) x = f x s inputs
   in V.foldl' g (undefined, s0) xs
 
 zeroState :: ADModeAndNum d r
           => Int
           -> (a
-              -> ADVal d (Vector r)
+              -> ADVal d (Vec r)
               -> ADInputs d r
-              -> (ADVal d r2, ADVal d (Vector r)))
+              -> (ADVal d r2, ADVal d (Vec r)))
           -> (a
               -> ADInputs d r
               -> ADVal d r2)
 zeroState k f xs inputs =
-  fst $ f xs (constant $ LA.konst 0 k) inputs
+  fst $ f xs (constant $ vToVec $ LA.konst 0 k) inputs
 
 unrollLastG :: forall d a b c r.
                (a -> b -> ADInputs d r -> (c, b))
@@ -163,18 +163,19 @@ unrollLastG f xs s0 inputs =
 
 hiddenLayerSinRNNV :: ADModeAndNum d r
                    => r
-                   -> ADVal d (Vector r)
+                   -> ADVal d (Vec r)
                    -> ADInputs d r
-                   -> (ADVal d (Vector r), ADVal d (Vector r))
+                   -> (ADVal d (Vec r), ADVal d (Vec r))
 hiddenLayerSinRNNV x s inputs =
   let wX = at1 inputs 0
       b = at1 inputs 31
-      y = scale (LA.konst x 30) wX + sumTrainableInputsL s 1 inputs 30 + b
+      y = scale (vToVec $ LA.konst x 30) wX
+          + sumTrainableInputsL s 1 inputs 30 + b
       yLogistic = logistic y
   in (y, yLogistic)
 
 outputLayerSinRNNV :: ADModeAndNum d r
-                   => ADVal d (Vector r)
+                   => ADVal d (Vec r)
                    -> ADInputs d r
                    -> ADVal d r
 outputLayerSinRNNV vec inputs =
@@ -184,9 +185,9 @@ outputLayerSinRNNV vec inputs =
 
 fcfcrnnV :: ADModeAndNum d r
          => r
-         -> ADVal d (Vector r)
+         -> ADVal d (Vec r)
          -> ADInputs d r
-         -> (ADVal d r, ADVal d (Vector r))
+         -> (ADVal d r, ADVal d (Vec r))
 fcfcrnnV x s inputs =
   let (hiddenLayer, sHiddenLayer) = hiddenLayerSinRNNV x s inputs
       outputLayer = outputLayerSinRNNV hiddenLayer inputs
@@ -204,16 +205,16 @@ nnSinRNNLossV (xs, target) inputs =
 
 ar2Sin :: ADModeAndNum d r
        => r
-       -> ADVal d (Vector r)
+       -> ADVal d (Vec r)
        -> ADInputs d r
-       -> (ADVal d r, ADVal d (Vector r))
+       -> (ADVal d r, ADVal d (Vec r))
 ar2Sin yLast s inputs =
   let c = at0 inputs 0
       phi1 = at0 inputs 1
       phi2 = at0 inputs 2
       yLastLast = index10 s 0  -- dummy vector for compatibility
       y = c + scale yLast phi1 + phi2 * yLastLast
-  in (y, constant $ V.singleton yLast)
+  in (y, constant $ vToVec $ V.singleton yLast)
 
 ar2SinLoss :: ADModeAndNum d r
            => (Vector r, r)
@@ -258,9 +259,9 @@ sinRNNTests = testGroup "Sine RNN tests"
 hiddenLayerMnistRNNV :: ADModeAndNum d r
                      => Int
                      -> Vector r
-                     -> ADVal d (Vector r)
+                     -> ADVal d (Vec r)
                      -> ADInputs d r
-                     -> (ADVal d (Vector r), ADVal d (Vector r))
+                     -> (ADVal d (Vec r), ADVal d (Vec r))
 hiddenLayerMnistRNNV width x s inputs =
   let b = at1 inputs (width + width)  -- 128
       y = sumConstantDataL x 0 inputs width
@@ -271,9 +272,9 @@ hiddenLayerMnistRNNV width x s inputs =
 
 outputLayerMnistRNNV :: ADModeAndNum d r
                      => Int
-                     -> ADVal d (Vector r)
+                     -> ADVal d (Vec r)
                      -> ADInputs d r
-                     -> ADVal d (Vector r)
+                     -> ADVal d (Vec r)
 outputLayerMnistRNNV width vec inputs =
   let b = at1 inputs (width + width + 1 + 10)  -- 10
   in sumTrainableInputsL vec (width + width + 1) inputs 10 + b
@@ -281,16 +282,16 @@ outputLayerMnistRNNV width vec inputs =
 fcfcrnnMnistV :: ADModeAndNum d r
               => Int
               -> Vector r
-              -> ADVal d (Vector r)
+              -> ADVal d (Vec r)
               -> ADInputs d r
-              -> (ADVal d (Vector r), ADVal d (Vector r))
+              -> (ADVal d (Vec r), ADVal d (Vec r))
 fcfcrnnMnistV = hiddenLayerMnistRNNV
 
 nnMnistRNNV :: ADModeAndNum d r
             => Int
             -> [Vector r]
             -> ADInputs d r
-            -> ADVal d (Vector r)
+            -> ADVal d (Vec r)
 nnMnistRNNV width x inputs =
   let rnnLayer = zeroState width (unrollLastG $ fcfcrnnMnistV width) x inputs
   in outputLayerMnistRNNV width rnnLayer inputs
@@ -302,7 +303,7 @@ nnMnistRNNLossV :: ADModeAndNum d r
                 -> ADVal d r
 nnMnistRNNLossV width (xs, target) inputs =
   let result = nnMnistRNNV width xs inputs
-  in lossSoftMaxCrossEntropyV target result
+  in lossSoftMaxCrossEntropyV (vToVec target) result
 
 testMnistRNNV :: forall r. ADModeAndNum 'ADModeValue r
               => Int -> [([Vector r], Vector r)] -> Domains r -> r
@@ -311,7 +312,7 @@ testMnistRNNV width inputs parameters =
       matchesLabels (glyph, label) =
         let nn = nnMnistRNNV width glyph
             v = valueOnDomains nn parameters
-        in V.maxIndex v == V.maxIndex label
+        in V.maxIndex (vecToV v) == V.maxIndex label
   in fromIntegral (length (filter matchesLabels inputs))
      / fromIntegral (length inputs)
 

@@ -15,7 +15,8 @@ module HordeAd.Core.Engine
   , generateDeltaInputs, initializerFixed, initializerFixed01
   , -- * Internal operations, exposed, e.g., for tests
     slowFwdOnADInputs, slowFwdOnDomains
-  , prettyPrintDf, domainsFrom01, domainsFrom012X
+  , prettyPrintDf
+  , domainsFrom01, domainsFrom0V, listsToParameters, listsToParameters4
   ) where
 
 import Prelude
@@ -227,7 +228,18 @@ initializerFixed01 seed range (nParams0, lParams1) =
 -- * Simplified version compatibility shims
 
 domainsFrom01 :: Domain0 r -> Domain1 r -> Domains r
-domainsFrom01 params0 params1 = Domains params0 params1
+domainsFrom01 = Domains
 
-domainsFrom012X :: Domain0 r -> Domain1 r -> c -> d -> Domains r
-domainsFrom012X a b _ _ = Domains a b
+domainsFrom0V :: Numeric r
+              => Domain0 r -> Data.Vector.Vector (Vector r) -> Domains r
+domainsFrom0V rs vs = Domains rs vs
+
+listsToParameters :: Numeric r
+                  => ([r], [r]) -> Domains r
+listsToParameters (a0, a1) =
+  domainsFrom0V
+    (V.fromList a0)
+    (V.singleton $ (V.fromList a1))
+
+listsToParameters4 :: ([Double], [Double], [Double], [Double]) -> Domains Double
+listsToParameters4 (a0, a1, _a2, _aX) = listsToParameters (a0, a1)
