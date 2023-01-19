@@ -399,7 +399,7 @@ instance HasInputs Float where
   packDeltaDt = DeltaDt0
 
 instance KnownNat n => HasInputs (OR.Array n r) where
-  dInput =  undefined  -- not needed
+  dInput = undefined  -- not needed
   packDeltaDt = DeltaDt1
 
 instance HasInputs (OT.Array r) where

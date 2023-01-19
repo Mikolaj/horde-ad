@@ -168,8 +168,7 @@ testFooBuild :: Assertion
 testFooBuild =
   (domains1 $ fst
    $ revOnDomains
-       (vToVec $ LA.konst 1 3)
-         -- 1 wrong due to fragility of hmatrix optimization
+       1
        (\adinputs ->
           interpretAst (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
                        (fooBuild1 (AstVar1 (AstVarName (-1)))))
@@ -181,8 +180,7 @@ testFooMap :: Assertion
 testFooMap =
   (domains0 $ fst
    $ revOnDomains
-       (vToVec $ LA.konst 1 3)
-         -- 1 wrong due to fragility of hmatrix optimization
+       1
        (\adinputs ->
           interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
                        (fooMap1 (AstVar0 (AstVarName (-1)))))
@@ -193,8 +191,7 @@ testFooNoGo :: Assertion
 testFooNoGo =
   (domains1 $ fst
    $ revOnDomains
-       (vToVec $ LA.konst 1 3)
-         -- 1 wrong due to fragility of hmatrix optimization
+       1
        (\adinputs ->
           interpretAst (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
                        (fooNoGo (AstVar1 (AstVarName (-1)))))
@@ -207,8 +204,7 @@ testNestedBuildMap :: Assertion
 testNestedBuildMap =
   (domains0 $ fst
    $ revOnDomains
-       (vToVec $ LA.konst 1 5)
-         -- "1" wrong due to fragility of hmatrix optimization
+       1
        (\adinputs ->
           interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
                        (nestedBuildMap (AstVar0 (AstVarName (-1)))))
@@ -249,8 +245,7 @@ testBarReluAst1 :: Assertion
 testBarReluAst1 =
   (domains1 $ fst
    $ revOnDomains
-       (vToVec $ LA.konst 1 5)
-         -- 1 wrong due to fragility of hmatrix optimization
+       1
        (\adinputs ->
           interpretAst (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
                        (barReluAst (AstVar1 (AstVarName (-1)))))

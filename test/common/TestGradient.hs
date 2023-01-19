@@ -330,7 +330,7 @@ testFooNoGo :: Assertion
 testFooNoGo =
   (domains1 $ fst
    $ revOnDomains
-       (LA.konst 1 3)  -- 1 wrong due to fragility of hmatrix optimization
+       1
        (\adinputs -> fooNoGo (adinputs `at1` 0))
        (domainsFrom01 V.empty
                       (V.singleton (V.fromList
