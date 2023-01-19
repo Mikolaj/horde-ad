@@ -137,13 +137,13 @@ data Delta0 :: Type -> Type where
   Add0 :: Delta0 r -> Delta0 r -> Delta0 r
   Let0 :: NodeId -> Delta0 r -> Delta0 r
 
-  Sum10 :: KnownNat n
-        => OR.ShapeL -> Delta1 n r -> Delta0 r
   Index10 :: KnownNat n
           => Delta1 n r -> [Int] -> OR.ShapeL -> Delta0 r
-  From10 :: Delta1 0 r -> Delta0 r
+  Sum10 :: KnownNat n
+        => OR.ShapeL -> Delta1 n r -> Delta0 r
   Dot10 :: KnownNat n
         => OR.Array n r -> Delta1 n r -> Delta0 r
+  From10 :: Delta1 0 r -> Delta0 r
 
 deriving instance (Show r, Numeric r) => Show (Delta0 r)
 
@@ -155,6 +155,13 @@ data Delta1 :: Nat -> Type -> Type where
   Add1 :: Delta1 n r -> Delta1 n r -> Delta1 n r
   Let1 :: NodeId -> Delta1 n r -> Delta1 n r
 
+  Index1 :: (KnownNat n, KnownNat (1 + n))
+         => Delta1 (1 + n) r -> Int -> Int -> Delta1 n r
+    -- ^ The sub-tensors at the given index of the outermost dimension.
+    -- The second integer is the length of the dimension.
+  Sum1 :: (KnownNat n, KnownNat (1 + n), 1 <= (1 + n))
+       => Int -> Delta1 (1 + n) r -> Delta1 n r
+    -- ^ Add element tensors along the outermost dimension.
   FromList1 :: (KnownNat n, KnownNat (1 + n))
             => OR.ShapeL -> [Delta1 n r] -> Delta1 (1 + n) r
     -- ^ Create a tensor from a list treated as the outermost dimension.
@@ -166,9 +173,6 @@ data Delta1 :: Nat -> Type -> Type where
   Konst1 :: (KnownNat n, KnownNat (1 + n), 1 <= (1 + n))
          => Int -> Delta1 n r -> Delta1 (1 + n) r
     -- ^ Copy the given tensor along the new, outermost dimension.
-  Sum1 :: (KnownNat n, KnownNat (1 + n), 1 <= (1 + n))
-       => Int -> Delta1 (1 + n) r -> Delta1 n r
-    -- ^ Add element tensors along the outermost dimension.
   Append1 :: KnownNat n
           => Delta1 n r -> Int -> Delta1 n r -> Delta1 n r
     -- ^ Append two arrays along the outermost dimension.
@@ -182,23 +186,19 @@ data Delta1 :: Nat -> Type -> Type where
   Reverse1 :: KnownNat n
            => Delta1 n r -> Delta1 n r
     -- ^ Reverse elements of the outermost dimension.
-  Index1 :: (KnownNat n, KnownNat (1 + n))
-         => Delta1 (1 + n) r -> Int -> Int -> Delta1 n r
-    -- ^ The sub-tensors at the given index of the outermost dimension.
-    -- The second integer is the length of the dimension.
-  Reshape1 :: (KnownNat n, KnownNat m)
-           => OR.ShapeL -> OR.ShapeL -> Delta1 n r -> Delta1 m r
-    -- ^ Change the shape of the tensor from the first to the second.
   Build1 :: (KnownNat n, KnownNat (1 + n))
          => Int -> (Int -> Delta1 n r) -> Delta1 (1 + n) r
     -- ^ Build a tensor with the given size of the outermost dimension
     -- and using the given function to construct the element tensors.
+  Reshape1 :: (KnownNat n, KnownNat m)
+           => OR.ShapeL -> OR.ShapeL -> Delta1 n r -> Delta1 m r
+    -- ^ Change the shape of the tensor from the first to the second.
 
-  From01 :: Delta0 r -> Delta1 0 r
   FromList01 :: OR.ShapeL -> [Delta0 r] -> Delta1 n r
   FromVector01 :: OR.ShapeL -> Data.Vector.Vector (Delta0 r) -> Delta1 n r
   Konst01 :: OR.ShapeL -> Delta0 r -> Delta1 n r
   Build01 :: OR.ShapeL -> ([Int] -> Delta0 r) -> Delta1 n r
+  From01 :: Delta0 r -> Delta1 0 r
 
   FromX1 :: DeltaX r -> Delta1 n r
 
@@ -436,7 +436,6 @@ buildFinMaps s0 deltaDt =
                   , dMap0 = EM.insert n c $ dMap0 s }
               _ -> error "buildFinMaps: corrupted nMap"
 
-        Sum10 sh d -> eval1 s (OR.constant sh c) d
         -- The general case is given as the last one below,
         -- but for a few constructors it's faster to inline @eval1@ instead.
         -- BTW, such an optimization doesn't really belong in the simplified
@@ -463,8 +462,9 @@ buildFinMaps s0 deltaDt =
                    , dMap1 = EM.insert n v $ dMap1 s }
             _ -> error "buildFinMaps: corrupted nMap"
         Index10 d ixs sh -> eval1 s (OR.constant sh 0 `updateOR` [(ixs, c)]) d
-        From10 d -> eval1 s (OR.scalar c) d
+        Sum10 sh d -> eval1 s (OR.constant sh c) d
         Dot10 v vd -> eval1 s (OR.mapA (* c) v) vd
+        From10 d -> eval1 s (OR.scalar c) d
 
       addToArray :: OR.Array n r -> OT.Array r -> OT.Array r
       addToArray c = \v -> let cs = Data.Array.Convert.convert c
@@ -495,6 +495,14 @@ buildFinMaps s0 deltaDt =
                      , dMap1 = EM.insert n cs $ dMap1 s }
               _ -> error "buildFinMaps: corrupted nMap"
 
+        Index1 d ix len ->
+          let rest = OR.shapeL c
+          in eval1 s (OR.concatOuter [ OR.constant (ix : rest) 0
+                                     , OR.reshape (1 : rest) c
+                                     , OR.constant (len - ix - 1 : rest) 0 ])
+                     d  -- TODO: optimize for input case
+        Sum1 n d ->
+          eval1 s (OR.stretchOuter n $ OR.ravel (ORB.constant [1] c)) d
         FromList1 _ ld ->
           let lc = ORB.toList $ OR.unravel c
           in foldl' (\s2 (c2, d2) -> eval1 s2 c2 d2) s $ zip lc ld
@@ -503,8 +511,6 @@ buildFinMaps s0 deltaDt =
           in foldl' (\s2 (c2, d2) -> eval1 s2 c2 d2) s $ zip lc (V.toList ld)
         Konst1 _n d ->
           V.foldl' (\s2 c2 -> eval1 s2 c2 d) s $ ORB.toVector $ OR.unravel c
-        Sum1 n d ->
-          eval1 s (OR.stretchOuter n $ OR.ravel (ORB.constant [1] c)) d
         Append1 d k e -> case OR.shapeL c of
           n : _ -> let s2 = eval1 s (OR.slice [(0, k)] c) d
                    in eval1 s2 (OR.slice [(k, n - k)] c) e
@@ -518,17 +524,10 @@ buildFinMaps s0 deltaDt =
                     d
           [] -> error "eval1: slicing a 0-dimensional tensor"
         Reverse1 d -> eval1 s (OR.rev [0] c) d
-        Index1 d ix len ->
-          let rest = OR.shapeL c
-          in eval1 s (OR.concatOuter [ OR.constant (ix : rest) 0
-                                     , OR.reshape (1 : rest) c
-                                     , OR.constant (len - ix - 1 : rest) 0 ])
-                     d  -- TODO: optimize for input case
-        Reshape1 sh _sh' d -> eval1 s (OR.reshape sh c) d
         Build1 _n f -> V.ifoldl' (\s2 i c2 -> eval1 s2 c2 (f i))
                                  s (ORB.toVector $ OR.unravel c)
+        Reshape1 sh _sh' d -> eval1 s (OR.reshape sh c) d
 
-        From01 d -> eval0 s (OR.unScalar c) d
         FromList01 _sh lsd ->  -- lsd is a list of scalar delta expressions
           let cv = OR.toVector c
           in ifoldl' (\s2 i d -> eval0 s2 (cv V.! i) d) s lsd
@@ -543,6 +542,7 @@ buildFinMaps s0 deltaDt =
                 [] -> error "getStrides in buildFinMaps"
           in V.ifoldl' (\s2 i c0 -> eval0 s2 c0 (f $ toIx ss i))
                        s (OR.toVector c)
+        From01 d -> eval0 s (OR.unScalar c) d
 
       evalFromnMap :: EvalState r -> EvalState r
       evalFromnMap s@EvalState{nMap, dMap0, dMap1} =
@@ -623,10 +623,10 @@ buildDerivative dim0 dim1 deltaTopLevel
               return c
             _ -> error "buildDerivative: corrupted nMap"
 
-        Sum10 _ d -> OR.sumA <$> eval1 d
         Index10 d ixs _ -> (`atIndexInTensorR` ixs) <$> eval1 d
-        From10 d -> OR.unScalar <$> eval1 d
+        Sum10 _ d -> OR.sumA <$> eval1 d
         Dot10 v d -> (<.> OR.toVector v) . OR.toVector <$> eval1 d
+        From10 d -> OR.unScalar <$> eval1 d
 
       eval1 :: KnownNat n => Delta1 n r -> ST s (OR.Array n r)
       eval1 = \case
@@ -652,6 +652,8 @@ buildDerivative dim0 dim1 deltaTopLevel
               return c
             _ -> error "buildDerivative: corrupted nMap"
 
+        Index1 d ix _len -> flip OR.index ix <$> eval1 d
+        Sum1 _ d -> ORB.sumA . OR.unravel <$> eval1 d
         FromList1 sh lsd -> do
           l <- mapM eval1 lsd
           return $! OR.ravel $ ORB.fromList (tail sh) l
@@ -661,17 +663,14 @@ buildDerivative dim0 dim1 deltaTopLevel
         Konst1 n d -> do
           t <- eval1 d
           return $! OR.stretchOuter n $ OR.ravel (ORB.constant [1] t)
-        Sum1 _ d -> ORB.sumA . OR.unravel <$> eval1 d
         Append1 d _k e -> liftM2 OR.append (eval1 d) (eval1 e)
         Slice1 i n d _len -> OR.slice [(i, n)] <$> eval1 d
         Reverse1 d -> OR.rev [0] <$> eval1 d
-        Index1 d ix _len -> flip OR.index ix <$> eval1 d
-        Reshape1 _sh sh' d -> OR.reshape sh' <$> eval1 d
         Build1 n f -> do
           l <- mapM (eval1 . f) [0 .. n - 1]
           return $! OR.ravel $ ORB.fromList [n] l
+        Reshape1 _sh sh' d -> OR.reshape sh' <$> eval1 d
 
-        From01 d -> OR.scalar <$> eval0 d
         FromList01 sh lsd -> do
           l <- mapM eval0 lsd
           return $! OR.fromList sh l
@@ -687,6 +686,7 @@ buildDerivative dim0 dim1 deltaTopLevel
           l <- mapM (eval0 . f)
                $ [toIx ss i | i <- [0 .. s - 1]]
           return $! OR.fromList sh l
+        From01 d -> OR.scalar <$> eval0 d
 
   eval0 deltaTopLevel
 

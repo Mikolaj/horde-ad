@@ -48,11 +48,11 @@ data Ast :: Type -> Type -> Type where
   AstVar1 :: AstVarName (OR.Array 1 r) -> Ast r (OR.Array 1 r)
 
   -- Taken from VectorLike:
-  AstSumElements10 :: Ast r (OR.Array 1 r) -> Ast r r
   AstIndex10 :: Ast r (OR.Array 1 r) -> AstInt r -> Ast r r
+  AstSumElements10 :: Ast r (OR.Array 1 r) -> Ast r r
+  AstDot0 :: Ast r (OR.Array 1 r) -> Ast r (OR.Array 1 r) -> Ast r r
   AstMinimum0 :: Ast r (OR.Array 1 r) -> Ast r r
   AstMaximum0 :: Ast r (OR.Array 1 r) -> Ast r r
-  AstDot0 :: Ast r (OR.Array 1 r) -> Ast r (OR.Array 1 r) -> Ast r r
 
   AstFromList1 :: [Ast r r] -> Ast r (OR.Array 1 r)
   AstFromVector1 :: Data.Vector.Vector (Ast r r) -> Ast r (OR.Array 1 r)

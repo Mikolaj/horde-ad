@@ -216,11 +216,11 @@ class VectorOf r ~ vector => VectorLike vector r | vector -> r where
   lminIndex :: vector -> IntOf r
   lmaxIndex :: vector -> IntOf r
 
-  lsumElements10 :: vector -> r
   lindex10 :: vector -> IntOf r -> r
+  lsumElements10 :: vector -> r
+  ldot0 :: vector -> vector -> r
   lminimum0 :: vector -> r
   lmaximum0 :: vector -> r
-  ldot0 :: vector -> vector -> r
 
   lfromList1 :: [r] -> vector
   lfromVector1 :: Data.Vector.Vector r -> vector
@@ -275,14 +275,18 @@ class HasInputs a where
 -- to be the underlying scalar of a well behaved collection of dual numbers
 -- of various ranks wrt the differentation mode given in the first parameter.
 class HasRanks (d :: ADMode) r where
-  dSum10 :: KnownNat n
-         => OR.ShapeL -> Dual d (OR.Array n r) -> Dual d r
   dIndex10 :: KnownNat n
            => Dual d (OR.Array n r) -> [Int] -> OR.ShapeL -> Dual d r
-  dFrom10 :: Dual d (OR.Array 0 r) -> Dual d r
+  dSum10 :: KnownNat n
+         => OR.ShapeL -> Dual d (OR.Array n r) -> Dual d r
   dDot10 :: KnownNat n
          => OR.Array n r -> Dual d (OR.Array n r) -> Dual d r
+  dFrom10 :: Dual d (OR.Array 0 r) -> Dual d r
 
+  dIndex1 :: (KnownNat n, KnownNat (1 + n))
+          => Dual d (OR.Array (1 + n) r) -> Int -> Int -> Dual d (OR.Array n r)
+  dSum1 :: (KnownNat n, KnownNat (1 + n), 1 <= (1 + n))
+        => Int -> Dual d (OR.Array (1 + n) r) -> Dual d (OR.Array n r)
   dFromList1 :: (KnownNat n, KnownNat (1 + n))
              => OR.ShapeL -> [Dual d (OR.Array n r)]
              -> Dual d (OR.Array (1 + n) r)
@@ -291,8 +295,6 @@ class HasRanks (d :: ADMode) r where
                -> Dual d (OR.Array (1 + n) r)
   dKonst1 :: (KnownNat n, KnownNat (1 + n), 1 <= (1 + n))
           => Int -> Dual d (OR.Array n r) -> Dual d (OR.Array (1 + n) r)
-  dSum1 :: (KnownNat n, KnownNat (1 + n), 1 <= (1 + n))
-        => Int -> Dual d (OR.Array (1 + n) r) -> Dual d (OR.Array n r)
   dAppend1 :: KnownNat n
            => Dual d (OR.Array n r) -> Int -> Dual d (OR.Array n r)
            -> Dual d (OR.Array n r)
@@ -300,16 +302,13 @@ class HasRanks (d :: ADMode) r where
           => Int -> Int -> Dual d (OR.Array n r) -> Int -> Dual d (OR.Array n r)
   dReverse1 :: KnownNat n
             => Dual d (OR.Array n r) -> Dual d (OR.Array n r)
-  dIndex1 :: (KnownNat n, KnownNat (1 + n))
-          => Dual d (OR.Array (1 + n) r) -> Int -> Int -> Dual d (OR.Array n r)
-  dReshape1 :: (KnownNat n, KnownNat m)
-            => OR.ShapeL -> OR.ShapeL -> Dual d (OR.Array n r)
-            -> Dual d (OR.Array m r)
   dBuild1 :: (KnownNat n, KnownNat (1 + n))
           => Int -> (Int -> Dual d (OR.Array n r))
           -> Dual d (OR.Array (1 + n) r)
+  dReshape1 :: (KnownNat n, KnownNat m)
+            => OR.ShapeL -> OR.ShapeL -> Dual d (OR.Array n r)
+            -> Dual d (OR.Array m r)
 
-  dFrom01 :: Dual d r -> Dual d (OR.Array 0 r)
   dFromList01 :: KnownNat n
               => OR.ShapeL -> [Dual d r] -> Dual d (OR.Array n r)
   dFromVector01 :: KnownNat n
@@ -319,6 +318,7 @@ class HasRanks (d :: ADMode) r where
            => OR.ShapeL -> Dual d r -> Dual d (OR.Array n r)
   dBuild01 :: KnownNat n
            => OR.ShapeL -> ([Int] -> Dual d r) -> Dual d (OR.Array n r)
+  dFrom01 :: Dual d r -> Dual d (OR.Array 0 r)
 
   dFromX1 :: KnownNat n
           => Dual d (OT.Array r) -> Dual d (OR.Array n r)
@@ -409,27 +409,27 @@ instance HasInputs (OT.Array r) where
 -- | This is an impure instance. See above.
 instance Dual 'ADModeGradient r ~ Delta0 r
          => HasRanks 'ADModeGradient r where
-  dSum10 = Sum10
   dIndex10 = Index10
-  dFrom10 = From10
+  dSum10 = Sum10
   dDot10 = Dot10
+  dFrom10 = From10
 
+  dIndex1 = Index1
+  dSum1 = Sum1
   dFromList1 = FromList1
   dFromVector1 = FromVector1
   dKonst1 = Konst1
-  dSum1 = Sum1
   dAppend1 = Append1
   dSlice1 = Slice1
   dReverse1 = Reverse1
-  dIndex1 = Index1
-  dReshape1 = Reshape1
   dBuild1 = Build1
+  dReshape1 = Reshape1
 
-  dFrom01 = From01
   dFromList01 = FromList01
   dFromVector01 = FromVector01
   dKonst01 = Konst01
   dBuild01 = Build01
+  dFrom01 = From01
 
   dFromX1 = FromX1
 
@@ -457,27 +457,27 @@ instance (Numeric r, Num (Vector r))
 instance ( Numeric r, Num (Vector r)
          , Dual 'ADModeDerivative r ~ r )
          => HasRanks 'ADModeDerivative r where
-  dSum10 _ = OR.sumA
   dIndex10 d ixs _ = d `atIndexInTensorR` ixs
-  dFrom10 = OR.unScalar
+  dSum10 _ = OR.sumA
   dDot10 u v = OR.toVector u LA.<.> OR.toVector v
+  dFrom10 = OR.unScalar
 
+  dIndex1 d ix _len = OR.index d ix
+  dSum1 _ = ORB.sumA . OR.unravel
   dFromList1 sh = OR.ravel . ORB.fromList (tail sh)
   dFromVector1 sh = OR.ravel . ORB.fromVector (tail sh) . V.convert
   dKonst1 n d = OR.stretchOuter n $ OR.ravel (ORB.constant [1] d)
-  dSum1 _ = ORB.sumA . OR.unravel
   dAppend1 d _k e = d `OR.append` e
   dSlice1 i n d _len = OR.slice [(i, n)] d
   dReverse1 = OR.rev [0]
-  dIndex1 d ix _len = OR.index d ix
-  dReshape1 _sh = OR.reshape
   dBuild1 n f = OR.ravel $ ORB.fromVector [n] $ V.generate n f
+  dReshape1 _sh = OR.reshape
 
-  dFrom01 = OR.scalar
   dFromList01 = OR.fromList
   dFromVector01 sh = OR.fromVector sh . V.convert
   dKonst01 sh d = OR.constant sh d
   dBuild01 = OR.generate
+  dFrom01 = OR.scalar
 
   dFromX1 = Data.Array.Convert.convert
 
@@ -509,27 +509,27 @@ instance IsPrimalR 'ADModeValue r where
 
 -- This requires UndecidableInstances.
 instance HasRanks 'ADModeValue r where
-  dSum10 _ _ = DummyDual ()
   dIndex10 _ _ _ = DummyDual ()
-  dFrom10 _ = DummyDual ()
+  dSum10 _ _ = DummyDual ()
   dDot10 _ _ = DummyDual ()
+  dFrom10 _ = DummyDual ()
 
+  dIndex1 _ _ _ = DummyDual ()
+  dSum1 _ _ = DummyDual ()
   dFromList1 _ _ = DummyDual ()
   dFromVector1 _ _ = DummyDual ()
   dKonst1 _ _ = DummyDual ()
-  dSum1 _ _ = DummyDual ()
   dAppend1 _ _ _ = DummyDual ()
   dSlice1 _ _ _ _ = DummyDual ()
   dReverse1 _ = DummyDual ()
-  dIndex1 _ _ _ = DummyDual ()
-  dReshape1 _ _ _ = DummyDual ()
   dBuild1 _ _ = DummyDual ()
+  dReshape1 _ _ _ = DummyDual ()
 
-  dFrom01 _ = DummyDual ()
   dFromList01 _ _ = DummyDual ()
   dFromVector01 _ _ = DummyDual ()
   dKonst01 _ _ = DummyDual ()
   dBuild01 _ _ = DummyDual ()
+  dFrom01 _ = DummyDual ()
 
   dFromX1 _ = DummyDual ()
 
