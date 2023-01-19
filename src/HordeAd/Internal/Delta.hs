@@ -917,13 +917,9 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
 
         BuildX sh f -> do
           -- Copied from Data.Array.Internal.
-          let getStridesT :: OT.ShapeL -> [Int]
-              getStridesT = scanr (*) 1
-              ss = case getStridesT sh of
+          let ss = case getStrides sh of
                 _ : ss2 -> ss2
-                [] -> error "scanr in buildDerivative"
-              toIx [] _ = []
-              toIx (n:ns) i = q : toIx ns r where (q, r) = quotRem i n
+                [] -> error "getStrides in buildFinMaps"
           V.imapM_ (\i c0 -> eval0 c0 (f $ toIx ss i)) $ OT.toVector c
 
       evalS :: OS.Shape sh
@@ -999,13 +995,9 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
 
         BuildS f -> do
           -- Copied from Data.Array.Internal.
-          let getStridesT :: OS.ShapeL -> [Int]
-              getStridesT = scanr (*) 1
-              ss = case getStridesT sh of
+          let ss = case getStrides sh of
                 _ : ss2 -> ss2
-                [] -> error "scanr in buildDerivative"
-              toIx [] _ = []
-              toIx (n:ns) i = q : toIx ns r where (q, r) = quotRem i n
+                [] -> error "getStrides in buildFinMaps"
               sh = OS.shapeL c
           V.imapM_ (\i c0 -> eval0 c0 (f $ toIx ss i)) $ OS.toVector c
 #endif
@@ -1339,13 +1331,9 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
 
         BuildX sh f -> do
           -- Copied from Data.Array.Internal.
-          let getStridesT :: OT.ShapeL -> [Int]
-              getStridesT = scanr (*) 1
-              (s, ss) = case getStridesT sh of
+          let (s, ss) = case getStrides sh of
                 s2 : ss2 -> (s2, ss2)
-                [] -> error "scanr in buildDerivative"
-              toIx [] _ = []
-              toIx (n:ns) i = q : toIx ns r where (q, r) = quotRem i n
+                [] -> error "getStrides in buildDerivative"
           l <- mapM (eval0 . f)
                $ [toIx ss i | i <- [0 .. s - 1]]
           return $! OT.fromList sh l
@@ -1408,13 +1396,9 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
 
         BuildS f -> do
           -- Copied from Data.Array.Internal.
-          let getStridesT :: OS.ShapeL -> [Int]
-              getStridesT = scanr (*) 1
-              (s, ss) = case getStridesT sh of
+          let (s, ss) = case getStrides sh of
                 s2 : ss2 -> (s2, ss2)
-                [] -> error "scanr in buildDerivative"
-              toIx [] _ = []
-              toIx (n:ns) i = q : toIx ns r where (q, r) = quotRem i n
+                [] -> error "getStrides in buildDerivative"
               sh = OS.shapeP (Proxy :: Proxy sh)
           l <- mapM (eval0 . f)
                $ [toIx ss i | i <- [0 .. s - 1]]
@@ -1494,3 +1478,10 @@ atIndexInTensor (Data.Array.Internal.DynamicS.A
                       Data.Array.Internal.T{..})) is =
   values V.! (offset + sum (zipWith (*) is strides))
     -- TODO: tests are needed to verify if order of dimensions is right
+
+-- Copied from Data.Array.Internal.
+getStrides :: [Int] -> [Int]
+getStrides = scanr (*) 1
+toIx :: [Int] -> Int -> [Int]
+toIx [] _ = []
+toIx (n:ns) i = q : toIx ns r where (q, r) = quotRem i n
