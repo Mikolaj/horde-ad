@@ -60,10 +60,7 @@ inputsToDomains ADInputs{..} =
   Domains inputPrimal0 inputPrimal1 inputPrimal2 inputPrimalX
 
 nullADInputs :: Numeric r => ADInputs d r -> Bool
-nullADInputs adinputs@ADInputs{..} =
-  nullDomains (inputsToDomains adinputs)
-  && V.null inputDual0 && V.null inputDual1 && V.null inputDual2
-  && V.null inputDualX
+nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
 
 -- We could use @dDnotShared@ here and below, but the gains are negligible.
 at0 :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d r

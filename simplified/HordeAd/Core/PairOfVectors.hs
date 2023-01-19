@@ -51,9 +51,7 @@ inputsToDomains ADInputs{..} =
   Domains inputPrimal0 inputPrimal1
 
 nullADInputs :: Numeric r => ADInputs d r -> Bool
-nullADInputs adinputs@ADInputs{..} =
-  nullDomains (inputsToDomains adinputs)
-  && V.null inputDual0 && V.null inputDual1
+nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
 
 at0 :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d r
 {-# INLINE at0 #-}
