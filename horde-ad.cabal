@@ -516,6 +516,7 @@ library horde-ad-simplified
                       HordeAd.External.Optimizer
                       HordeAd.External.OptimizerTools
                       HordeAd.Internal.Delta
+                      HordeAd.Internal.OrthotopeOrphanInstances
 
     build-depends:
         base >= 4.14 && < 99
@@ -524,6 +525,7 @@ library horde-ad-simplified
       , hmatrix
       , ilist
       , mono-traversable
+      , orthotope
       , pretty-show
       , primitive
       , strict-containers
