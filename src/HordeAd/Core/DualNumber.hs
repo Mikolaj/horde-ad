@@ -786,13 +786,10 @@ indexX (D u u') ix = dD (OT.index u ix)
                         (dIndexX u' ix (head $ OT.shapeL u))
 
 ravelFromListX :: ADModeAndNum d r
-               => [ADVal d (OT.Array r)] -> ADVal d (OT.Array r)
-ravelFromListX ld =
+               => OT.ShapeL -> [ADVal d (OT.Array r)] -> ADVal d (OT.Array r)
+ravelFromListX sh ld =
   let (lu, lu') = unzip $ map (\(D u u') -> (u, u')) ld
-      sh = case lu of
-        u : _ -> length lu : OT.shapeL u
-        [] -> []
-  in dD (OT.ravel $ OTB.fromList sh lu) (dRavelFromListX lu')
+  in dD (OT.ravel $ OTB.fromList (tail sh) lu) (dRavelFromListX sh lu')
 
 unravelToListX :: ADModeAndNum d r
                => ADVal d (OT.Array r) -> [ADVal d (OT.Array r)]
@@ -805,15 +802,16 @@ mapOuterX :: ADModeAndNum d r
      => (ADVal d (OT.Array r) -> ADVal d (OT.Array r))
      -> ADVal d (OT.Array r)
      -> ADVal d (OT.Array r)
-mapOuterX f = ravelFromListX . map f . unravelToListX
+mapOuterX f d@(D u _) = ravelFromListX (OT.shapeL u) $ map f $ unravelToListX d
 
 zipWithOuterX :: ADModeAndNum d r
-         => (ADVal d (OT.Array r) -> ADVal d (OT.Array r)
+         => OT.ShapeL
+         -> (ADVal d (OT.Array r) -> ADVal d (OT.Array r)
              -> ADVal d (OT.Array r))
          -> ADVal d (OT.Array r) -> ADVal d (OT.Array r)
          -> ADVal d (OT.Array r)
-zipWithOuterX f d e =
-  ravelFromListX $ zipWith f (unravelToListX d) (unravelToListX e)
+zipWithOuterX sh f d e =  -- sh needed in case tensors empty
+  ravelFromListX sh $ zipWith f (unravelToListX d) (unravelToListX e)
 
 reshapeX :: ADModeAndNum d r
          => OT.ShapeL -> ADVal d (OT.Array r) -> ADVal d (OT.Array r)

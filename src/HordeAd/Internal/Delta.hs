@@ -257,8 +257,9 @@ data DeltaX r =
   | IndexX (DeltaX r) Int Int
       -- ^ The sub-tensors at the given index of the outermost dimension.
       -- The second integer is the length of the dimension.
-  | RavelFromListX [DeltaX r]
+  | RavelFromListX OT.ShapeL [DeltaX r]
       -- ^ Create a tensor from a list treated as the outermost dimension.
+      -- The shape argument is necessary in case the list is empty.
   | ReshapeX OT.ShapeL OT.ShapeL (DeltaX r)
       -- ^ Change the shape of the tensor from the first to the second.
 
@@ -901,7 +902,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                                    , OT.reshape (1 : rest) c
                                    , OT.constant (len - ix - 1 : rest) 0 ])
                    d  -- TODO: optimize for input case
-        RavelFromListX ld -> do
+        RavelFromListX _ ld -> do
           let lc = OTB.toList $ OT.unravel c
           mapM_ (uncurry evalX) (zip lc ld)
         ReshapeX sh _sh' d -> evalX (OT.reshape sh c) d
@@ -1322,12 +1323,9 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         AppendX d _k e -> liftM2 OT.append (evalX d) (evalX e)
         SliceX i n d _len -> OT.slice [(i, n)] <$> evalX d
         IndexX d ix _len -> flip OT.index ix <$> evalX d
-        RavelFromListX ld -> do
+        RavelFromListX sh ld -> do
           la <- mapM evalX ld
-          let sh = case la of
-                a : _ -> length la : OT.shapeL a
-                [] -> []
-          return $! OT.ravel $ OTB.fromList sh la
+          return $! OT.ravel $ OTB.fromList (tail sh) la
         ReshapeX _sh sh' d -> OT.reshape sh' <$> evalX d
 
         From0X d -> OT.scalar <$> eval0 d

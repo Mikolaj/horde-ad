@@ -279,7 +279,7 @@ class HasRanks (d :: ADMode) r where
            -> Dual d (OT.Array r)
   dSliceX :: Int -> Int -> Dual d (OT.Array r) -> Int -> Dual d (OT.Array r)
   dIndexX :: Dual d (OT.Array r) -> Int -> Int -> Dual d (OT.Array r)
-  dRavelFromListX :: [Dual d (OT.Array r)] -> Dual d (OT.Array r)
+  dRavelFromListX :: OT.ShapeL -> [Dual d (OT.Array r)] -> Dual d (OT.Array r)
   dReshapeX :: OT.ShapeL -> OT.ShapeL -> Dual d (OT.Array r)
             -> Dual d (OT.Array r)
   dFrom0X :: Dual d r -> Dual d (OT.Array r)
@@ -623,11 +623,7 @@ instance ( Numeric r, Num (Vector r)
   dAppendX d _k e = d `OT.append` e
   dSliceX i n d _len = OT.slice [(i, n)] d
   dIndexX d ix _len = OT.index d ix
-  dRavelFromListX ld =
-    let sh = case ld of
-          d : _ -> length ld : OT.shapeL d
-          [] -> []
-    in OT.ravel $ OTB.fromList sh ld
+  dRavelFromListX sh ld = OT.ravel $ OTB.fromList (tail sh) ld
   dReshapeX _sh = OT.reshape
   dFrom0X = OT.scalar
   dFrom1X d = OT.fromVector [V.length d] d
@@ -742,7 +738,7 @@ instance HasRanks 'ADModeValue r where
   dAppendX _ _ _ = DummyDual ()
   dSliceX _ _ _ _ = DummyDual ()
   dIndexX _ _ _ = DummyDual ()
-  dRavelFromListX _ = DummyDual ()
+  dRavelFromListX _ _ = DummyDual ()
   dReshapeX _ _ _ = DummyDual ()
   dFrom0X _ = DummyDual ()
   dFrom1X _ = DummyDual ()
