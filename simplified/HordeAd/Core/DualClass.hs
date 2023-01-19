@@ -4,6 +4,8 @@
              UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | The class defining dual components of dual numbers and
 -- the dual number type itself, hiding its constructor, but exposing
 -- a couple of smart constructors.
@@ -54,7 +56,7 @@ import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.MonoTraversable (Element, MonoFunctor)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, type (+), type (<=))
+import           GHC.TypeLits (KnownNat, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe (unsafePerformIO)
@@ -284,17 +286,17 @@ class HasRanks (d :: ADMode) r where
          => OR.Array n r -> Dual d (OR.Array n r) -> Dual d r
   dFrom10 :: Dual d (OR.Array 0 r) -> Dual d r
 
-  dIndex1 :: (KnownNat n, KnownNat (1 + n))
+  dIndex1 :: KnownNat n
           => Dual d (OR.Array (1 + n) r) -> Int -> Int -> Dual d (OR.Array n r)
-  dSum1 :: (KnownNat n, KnownNat (1 + n), 1 <= (1 + n))
+  dSum1 :: KnownNat n
         => Int -> Dual d (OR.Array (1 + n) r) -> Dual d (OR.Array n r)
-  dFromList1 :: (KnownNat n, KnownNat (1 + n))
+  dFromList1 :: KnownNat n
              => OR.ShapeL -> [Dual d (OR.Array n r)]
              -> Dual d (OR.Array (1 + n) r)
-  dFromVector1 :: (KnownNat n, KnownNat (1 + n))
+  dFromVector1 :: KnownNat n
                => OR.ShapeL -> Data.Vector.Vector (Dual d (OR.Array n r))
                -> Dual d (OR.Array (1 + n) r)
-  dKonst1 :: (KnownNat n, KnownNat (1 + n), 1 <= (1 + n))
+  dKonst1 :: KnownNat n
           => Int -> Dual d (OR.Array n r) -> Dual d (OR.Array (1 + n) r)
   dAppend1 :: KnownNat n
            => Dual d (OR.Array n r) -> Int -> Dual d (OR.Array n r)
@@ -303,7 +305,7 @@ class HasRanks (d :: ADMode) r where
           => Int -> Int -> Dual d (OR.Array n r) -> Int -> Dual d (OR.Array n r)
   dReverse1 :: KnownNat n
             => Dual d (OR.Array n r) -> Dual d (OR.Array n r)
-  dBuild1 :: (KnownNat n, KnownNat (1 + n))
+  dBuild1 :: KnownNat n
           => Int -> (Int -> Dual d (OR.Array n r))
           -> Dual d (OR.Array (1 + n) r)
   dReshape1 :: (KnownNat n, KnownNat m)

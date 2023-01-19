@@ -1,6 +1,8 @@
 {-# LANGUAGE CPP, DataKinds, DeriveAnyClass, DeriveGeneric, DerivingStrategies,
              GADTs, GeneralizedNewtypeDeriving, KindSignatures, RankNTypes,
              StandaloneDeriving, UnboxedTuples #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | The second component of our rendition of dual numbers:
 -- delta expressions, with their semantics.
 -- Neel Krishnaswami calls them \"sparse vector expressions\",
@@ -72,7 +74,7 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.Generics (Generic)
 import           GHC.Stack (HasCallStack)
-import           GHC.TypeLits (KnownNat, Nat, type (+), type (<=))
+import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector, (<.>))
 import           Text.Show.Functions ()
 
@@ -155,22 +157,22 @@ data Delta1 :: Nat -> Type -> Type where
   Add1 :: Delta1 n r -> Delta1 n r -> Delta1 n r
   Let1 :: NodeId -> Delta1 n r -> Delta1 n r
 
-  Index1 :: (KnownNat n, KnownNat (1 + n))
+  Index1 :: KnownNat n
          => Delta1 (1 + n) r -> Int -> Int -> Delta1 n r
     -- ^ The sub-tensors at the given index of the outermost dimension.
     -- The second integer is the length of the dimension.
-  Sum1 :: (KnownNat n, KnownNat (1 + n), 1 <= (1 + n))
+  Sum1 :: KnownNat n
        => Int -> Delta1 (1 + n) r -> Delta1 n r
     -- ^ Add element tensors along the outermost dimension.
-  FromList1 :: (KnownNat n, KnownNat (1 + n))
+  FromList1 :: KnownNat n
             => OR.ShapeL -> [Delta1 n r] -> Delta1 (1 + n) r
     -- ^ Create a tensor from a list treated as the outermost dimension.
     -- The shape argument is necessary in case the list is empty.
-  FromVector1 :: (KnownNat n, KnownNat (1 + n))
+  FromVector1 :: KnownNat n
               => OR.ShapeL -> Data.Vector.Vector (Delta1 n r)
               -> Delta1 (1 + n) r
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
-  Konst1 :: (KnownNat n, KnownNat (1 + n), 1 <= (1 + n))
+  Konst1 :: KnownNat n
          => Int -> Delta1 n r -> Delta1 (1 + n) r
     -- ^ Copy the given tensor along the new, outermost dimension.
   Append1 :: KnownNat n
@@ -186,7 +188,7 @@ data Delta1 :: Nat -> Type -> Type where
   Reverse1 :: KnownNat n
            => Delta1 n r -> Delta1 n r
     -- ^ Reverse elements of the outermost dimension.
-  Build1 :: (KnownNat n, KnownNat (1 + n))
+  Build1 :: KnownNat n
          => Int -> (Int -> Delta1 n r) -> Delta1 (1 + n) r
     -- ^ Build a tensor with the given size of the outermost dimension
     -- and using the given function to construct the element tensors.

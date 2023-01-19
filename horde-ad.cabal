@@ -234,20 +234,20 @@ library testCommonLibrary
     exposed-modules:  Tool.Shared
                       Tool.EqEpsilon
                       TestConditionalSynth
-                      TestMnistFCNNSimple
-                      TestMnistRNNSimple
                       TestDescentSimple
                       TestGradientSimple
+                      TestMnistFCNNSimple
+                      TestMnistRNNSimple
 
   if flag(use_typelits_plugins) {
     exposed-modules:  OldMnistCnnShaped
                       OldMnistFcnnShaped
                       OldMnistRnnShaped
+                      TestDescent
+                      TestGradient
                       TestMnistCNN
                       TestMnistFCNN
                       TestMnistRNN
-                      TestDescent
-                      TestGradient
   }
 
     -- Other library packages from which modules are imported.
@@ -378,8 +378,9 @@ library benchCommonLibrary
     else
       buildable: True
 
-    exposed-modules:  BenchProdTools
-                      BenchMnistTools
+    exposed-modules:  BenchMnistTools
+                      BenchProdTools
+
 
     build-depends:
       , exampleLibrary
@@ -522,6 +523,8 @@ library horde-ad-simplified
         base >= 4.14 && < 99
       , deepseq
       , enummapset
+      , ghc-typelits-knownnat
+      , ghc-typelits-natnormalise
       , hmatrix
       , ilist
       , mono-traversable
@@ -573,10 +576,10 @@ library testCommonLibrarySimplified
     exposed-modules:  Tool.Shared
                       Tool.EqEpsilon
                       TestConditionalSynth
-                      TestMnistFCNNSimple
-                      TestMnistRNNSimple
                       TestDescentSimple
                       TestGradientSimple
+                      TestMnistFCNNSimple
+                      TestMnistRNNSimple
 
     build-depends:
       , exampleLibrarySimplified
