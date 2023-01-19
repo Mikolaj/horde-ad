@@ -230,6 +230,7 @@ class VectorOf r ~ vector => VectorLike vector r | vector -> r where
   lreverse1 :: vector -> vector
   lbuild1 :: IntOf r -> (IntOf r -> r) -> vector
   lmap1 :: (r -> r) -> vector -> vector
+  lzipWith :: (r -> r -> r) -> vector -> vector -> vector
 
 type ADReady r =
   ( RealFloat r, HasPrimal r, HasPrimal (VectorOf r), VectorLike (VectorOf r) r

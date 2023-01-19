@@ -453,6 +453,7 @@ instance (Numeric r, IntOf r ~ Int, VectorOf r ~ Vec r)
   lreverse1 = OR.rev [0]
   lbuild1 n f = OR.generate [n] (\l -> f (head l))
   lmap1 = OR.mapA
+  lzipWith = OR.zipWithA
 
 instance VectorLike (Ast r (Vec r)) (Ast r r) where
   llength = AstLength
@@ -473,6 +474,7 @@ instance VectorLike (Ast r (Vec r)) (Ast r r) where
   lreverse1 = AstReverse1
   lbuild1 = astBuild1  -- TODO: this vectorizers depth-first, but is this
   lmap1 = astMap1      -- needed? should we vectorize the whole program instead?
+  lzipWith = undefined  -- TODO: express all with build instead?
 
 -- Not that this instance doesn't do vectorization. To enable it,
 -- use the Ast instance, vectorize and finally interpret in ADVal.
@@ -504,6 +506,7 @@ instance ADModeAndNum d r
   lreverse1 (D u u') = dD (lreverse1 u) (dReverse1 u')
   lbuild1 = build1Elementwise
   lmap1 = map1Elementwise
+  lzipWith = undefined
 
 -- * AST-based build and map variants
 
@@ -780,6 +783,8 @@ interpretAst env = \case
   AstMapPair1 (var, r) e ->
     lmap1 (interpretLambdaD0 env (var, r)) (interpretAst env e)
       -- fallback to POPL (memory blowup, but avoids functions on tape)
+  AstZipWithPair1 (_var1, _var2, _r) _e1 _e2 -> undefined
+    -- a 2-var interpretLambda would be needed; or express all with build
   AstOMap1 (var, r) e ->  -- this only works on the primal part hence @constant@
     constant
     $ omap (\x -> let D u _ = interpretLambdaD0 env (var, r) (constant x)

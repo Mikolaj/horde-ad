@@ -67,6 +67,9 @@ data Ast :: Type -> Type -> Type where
                 -> Ast r (OR.Array 1 r)
   AstMapPair1 :: (AstVarName r, Ast r r) -> Ast r (OR.Array 1 r)
               -> Ast r (OR.Array 1 r)
+  AstZipWithPair1 :: (AstVarName r, AstVarName r, Ast r r)
+                  -> Ast r (OR.Array 1 r) -> Ast r (OR.Array 1 r)
+                  -> Ast r (OR.Array 1 r)
 
   AstOMap1 :: (AstVarName r, Ast r r) -> Ast r (OR.Array 1 r)
            -> Ast r (OR.Array 1 r)
