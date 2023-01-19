@@ -66,7 +66,7 @@ fooBuild1 v =
 
 fooMap1 :: ADReady r => r -> VectorOf r
 fooMap1 r =
-  let v = fooBuild1 $ lkonst1 r 130
+  let v = fooBuild1 $ lkonst1 130 r
   in lmap1 (\x -> x * r + 5) v
 
 -- A test that doesn't vectorize currently due to conditionals
@@ -74,7 +74,7 @@ fooMap1 r =
 -- Also, we haven't defined a class for conditionals so far,
 -- so this uses raw AST instead of sufficiently polymorphic code.
 fooNoGo :: (Numeric r, RealFloat r, Num (Vector r))
-        => Ast r (Vector r) -> Ast r (Vector r)
+        => Ast r (Vec r) -> Ast r (Vec r)
 fooNoGo v =
   let r = lsumElements10 v
   in lbuild1 3 (\ix ->
@@ -90,8 +90,8 @@ fooNoGo v =
 -- of VectorLike class may be enough
 nestedBuildMap :: forall r. ADReady r => r -> VectorOf r
 nestedBuildMap r =
-  let w x = lkonst1 x 4  -- (AstIntCond (x `leqAst` 0) 3 4)
-      v' = lkonst1 r 7 :: VectorOf r
+  let w x = lkonst1 4 x  -- (AstIntCond (x `leqAst` 0) 3 4)
+      v' = lkonst1 7 r :: VectorOf r
       nestedMap x = lmap1 (\y -> x / y) (w x)
       variableLengthBuild iy = lbuild1 (iy + 1) (\ix -> lindex10 v' (ix + 1)) :: VectorOf r
       doublyBuild = lbuild1 5 (\iy -> lminimum0 (variableLengthBuild iy))
@@ -106,7 +106,7 @@ nestedBuildMap r =
 -- A variant for a test without any attempt at vectorization.
 -- TODO: test each example in this file both with and without vectorization.
 nestedBuildMapADVal
-  :: forall r d. ADModeAndNum d r => ADVal d r -> ADVal d (Vector r)
+  :: forall r d. ADModeAndNum d r => ADVal d r -> ADVal d (Vec r)
 nestedBuildMapADVal = nestedBuildMap @(ADVal d r)
 
 barRelu
@@ -130,7 +130,7 @@ konstReluAst
   :: forall r.
      (Numeric r, RealFloat r, Num (Vector r))
   => Ast r r -> Ast r r
-konstReluAst x = lsumElements10 $ reluAst $ lkonst1 x 7
+konstReluAst x = lsumElements10 $ reluAst $ lkonst1 7 x
 
 
 -- * Tests by TomS
@@ -168,19 +168,21 @@ testFooBuild :: Assertion
 testFooBuild =
   (domains1 $ fst
    $ revOnDomains
-       (LA.konst 1 3)  -- 1 wrong due to fragility of hmatrix optimization
+       (vToVec $ LA.konst 1 3)
+         -- 1 wrong due to fragility of hmatrix optimization
        (\adinputs ->
           interpretAst (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
                        (fooBuild1 (AstVar1 (AstVarName (-1)))))
-       (domainsFrom01 V.empty
+       (domainsFrom0V V.empty
                       (V.singleton (V.fromList [1.1 :: Double, 2.2, 3.3, 4]))))
-  @?~ V.singleton (V.fromList [-4521.201512195087,-5568.7163677622175,-5298.386349932494,-4907.349735554627])
+  @?~ domains1 (domainsFrom0V V.empty (V.singleton (V.fromList [-4521.201512195087,-5568.7163677622175,-5298.386349932494,-4907.349735554627])))
 
 testFooMap :: Assertion
 testFooMap =
   (domains0 $ fst
    $ revOnDomains
-       (LA.konst 1 3)  -- 1 wrong due to fragility of hmatrix optimization
+       (vToVec $ LA.konst 1 3)
+         -- 1 wrong due to fragility of hmatrix optimization
        (\adinputs ->
           interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
                        (fooMap1 (AstVar0 (AstVarName (-1)))))
@@ -191,20 +193,22 @@ testFooNoGo :: Assertion
 testFooNoGo =
   (domains1 $ fst
    $ revOnDomains
-       (LA.konst 1 3)  -- 1 wrong due to fragility of hmatrix optimization
+       (vToVec $ LA.konst 1 3)
+         -- 1 wrong due to fragility of hmatrix optimization
        (\adinputs ->
           interpretAst (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
                        (fooNoGo (AstVar1 (AstVarName (-1)))))
-       (domainsFrom01 V.empty
+       (domainsFrom0V V.empty
                       (V.singleton (V.fromList
                                       [1.1 :: Double, 2.2, 3.3, 4, 5]))))
-  @?~ V.singleton (V.fromList [344.3405885672822,-396.1811403813819,7.735358041386672,-0.8403418295960372,5.037878787878787])
+  @?~ domains1 (domainsFrom0V V.empty (V.singleton (V.fromList [344.3405885672822,-396.1811403813819,7.735358041386672,-0.8403418295960372,5.037878787878787])))
 
 testNestedBuildMap :: Assertion
 testNestedBuildMap =
   (domains0 $ fst
    $ revOnDomains
-       (LA.konst 1 5)  -- "1" wrong due to fragility of hmatrix optimization
+       (vToVec $ LA.konst 1 5)
+         -- "1" wrong due to fragility of hmatrix optimization
        (\adinputs ->
           interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
                        (nestedBuildMap (AstVar0 (AstVarName (-1)))))
@@ -215,7 +219,8 @@ testNestedBuildMapADVal :: Assertion
 testNestedBuildMapADVal =
   (domains0 $ fst
    $ revOnDomains
-       (LA.konst 1 5)  -- "1" wrong due to fragility of hmatrix optimization
+       (vToVec $ LA.konst 1 5)
+         -- "1" wrong due to fragility of hmatrix optimization
        (\adinputs -> nestedBuildMapADVal (adinputs `at0` 0))
        (domainsFrom01 (V.singleton (1.1 :: Double)) V.empty))
   @?~ V.fromList [107.25984443006627]
@@ -244,14 +249,15 @@ testBarReluAst1 :: Assertion
 testBarReluAst1 =
   (domains1 $ fst
    $ revOnDomains
-       (LA.konst 1 5)  -- 1 wrong due to fragility of hmatrix optimization
+       (vToVec $ LA.konst 1 5)
+         -- 1 wrong due to fragility of hmatrix optimization
        (\adinputs ->
           interpretAst (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
                        (barReluAst (AstVar1 (AstVarName (-1)))))
-       (domainsFrom01 V.empty
+       (domainsFrom0V V.empty
                       (V.singleton (V.fromList
                                       [1.1 :: Double, 2.2, 3.3, 4, 5]))))
-  @?~ V.singleton (V.fromList [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])
+  @?~ domains1 (domainsFrom0V V.empty (V.singleton (V.fromList [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])))
 
 testKonstReluAst :: Assertion
 testKonstReluAst =

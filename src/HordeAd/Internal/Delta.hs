@@ -355,6 +355,8 @@ type Domain1 r = Data.Vector.Vector (Vector r)
 
 type Domain2 r = Data.Vector.Vector (Matrix r)
 
+-- To store shaped tensor we use untyped tensors instead of vectors
+-- to prevent frequent linearization of tensors (e.g., after transpose).
 type DomainX r = Data.Vector.Vector (OT.Array r)
 
 data Domains r = Domains

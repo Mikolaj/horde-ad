@@ -1,6 +1,9 @@
 {-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances, RankNTypes,
              TypeFamilies, TypeOperators #-}
-module TestGradientSimple (testTrees, finalCounter) where
+module TestGradientSimple
+  ( testTrees, finalCounter
+  , sumElementsV, altSumElementsV, sinKonst, powKonst
+  ) where
 
 import Prelude
 
@@ -24,7 +27,6 @@ testTrees :: [TestTree]
 testTrees = [ testDReverse0
             , testDReverse1
             , testCase "map1Elementwise" testMap1Elementwise
-            , testPrintDf
             , testDForward
             , testDFastForward
             , quickCheckForwardAndBackward
@@ -229,24 +231,6 @@ testMap1Elementwise =
        (\adinputs -> fooMap1 (adinputs `at0` 0))
        (domainsFrom01 (V.singleton (1.1 :: Double)) V.empty))
   @?~ V.fromList [285.9999999999997]
-
-testPrintDf :: TestTree
-testPrintDf = testGroup "Pretty printing test" $
-  map (\(txt, f, v, expected) ->
-        testCase txt $ do
-          let output =
-                prettyPrintDf f
-                  (domainsFrom0V V.empty (V.fromList (map V.fromList v)))
-          length output @?= expected)
-    [ ( "sumElementsV", sumElementsV, [[1 :: Float, 1, 3]]
-      , 53 )
-    , ( "altSumElementsV", altSumElementsV, [[1, 1, 3]]
-      , 328 )
-    , ( "sinKonst", sinKonst, [[1, 3]]
-      , 230 )
-    , ( "powKonst", powKonst, [[1, 3]]
-      , 572 )
-    ]
 
 testDForward :: TestTree
 testDForward =

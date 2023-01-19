@@ -46,10 +46,15 @@ module HordeAd.Core.DualClass
 
 import Prelude
 
+import qualified Data.Array.Convert
+import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.Ranked as ORB
+import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.MonoTraversable (Element, MonoFunctor)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
+import           GHC.TypeLits (KnownNat, type (+), type (<=))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe (unsafePerformIO)
@@ -118,9 +123,11 @@ type ADModeAndNum (d :: ADMode) r =
   , HasPrimal r
   , HasRanks d r
   , IsPrimalAndHasFeatures d r r
-  , IsPrimalAndHasFeatures d (Vector r) r
-  , VectorOf r ~ Vector r
+  , IsPrimalAndHasFeatures d (OR.Array 1 r) r
+  , IsPrimalR d r
+  , VectorOf r ~ OR.Array 1 r
   , IntOf r ~ Int
+  , Floating (Vector r)
   )
 
 -- | Is a scalar and will be used to compute gradients via delta-expressions.
@@ -154,11 +161,13 @@ data ADMode =
 type family Dual (d :: ADMode) a = result | result -> d a where
   Dual 'ADModeGradient Double = Delta0 Double
   Dual 'ADModeGradient Float = Delta0 Float
-  Dual 'ADModeGradient (Vector r) = Delta1 r
+  Dual 'ADModeGradient (OT.Array r) = DeltaX r
+  Dual 'ADModeGradient (OR.Array n r) = Delta1 n r
 -- not injective:  Dual 'ADModeDerivative r = r
   Dual 'ADModeDerivative Double = Double
   Dual 'ADModeDerivative Float = Float
-  Dual 'ADModeDerivative (Vector r) = Vector r
+  Dual 'ADModeDerivative (OT.Array r) = OT.Array r
+  Dual 'ADModeDerivative (OR.Array n r) = OR.Array n r
   Dual 'ADModeValue a = DummyDual a 'ADModeValue
 
 -- A bit more verbose, but a bit faster than @data@, perhaps by chance.
@@ -171,15 +180,15 @@ dummyDual = DummyDual ()
 type family IntOf a where
   IntOf Double = Int
   IntOf Float = Int
-  IntOf (Vector r) = Int
+  IntOf (OR.Array n r) = Int
   IntOf (Ast r a) = AstInt r
   IntOf (ADVal d r) = Int
 
 type family VectorOf a = result | result -> a where
-  VectorOf Double = Vector Double
-  VectorOf Float = Vector Float
-  VectorOf (Ast r r) = Ast r (Vector r)
-  VectorOf (ADVal d r) = ADVal d (Vector r)
+  VectorOf Double = OR.Array 1 Double
+  VectorOf Float = OR.Array 1 Float
+  VectorOf (Ast r r) = Ast r (OR.Array 1 r)
+  VectorOf (ADVal d r) = ADVal d (OR.Array 1 r)
 
 -- We could accept any @RealFloat@ instead of @PrimalOf a@, but then
 -- we'd need to coerce, e.g., via realToFrac, which is risky and lossy.
@@ -215,7 +224,7 @@ class VectorOf r ~ vector => VectorLike vector r | vector -> r where
 
   lfromList1 :: [r] -> vector
   lfromVector1 :: Data.Vector.Vector r -> vector
-  lkonst1 :: r -> IntOf r -> vector
+  lkonst1 :: IntOf r -> r -> vector
   lappend1 :: vector -> vector -> vector
   lslice1 :: IntOf r -> IntOf r -> vector -> vector
   lreverse1 :: vector -> vector
@@ -234,6 +243,26 @@ class IsPrimal d a where
   dAdd :: Dual d a -> Dual d a -> Dual d a
   recordSharing :: Dual d a -> Dual d a
 
+-- | Part 1/2 of a hack to squeeze the ranked tensors rank,
+-- with its extra @n@ parameter, into the 'IsPrimal' class.
+class IsPrimalR d r where
+  dZeroR :: KnownNat n => Dual d (OR.Array n r)
+  dScaleR :: KnownNat n
+          => OR.Array n r -> Dual d (OR.Array n r) -> Dual d (OR.Array n r)
+  dAddR :: KnownNat n
+        => Dual d (OR.Array n r) -> Dual d (OR.Array n r)
+        -> Dual d (OR.Array n r)
+  recordSharingR :: KnownNat n
+                 => Dual d (OR.Array n r) -> Dual d (OR.Array n r)
+
+-- | Part 2/2 of a hack to squeeze the ranked tensors rank,
+-- with its extra @n@ parameter, into the 'IsPrimal' class.
+instance (IsPrimalR d r, KnownNat n) => IsPrimal d (OR.Array n r) where
+  dZero = dZeroR
+  dScale = dScaleR
+  dAdd = dAddR
+  recordSharing = recordSharingR
+
 -- | Assuming that the type argument is the primal component of dual numbers
 -- with differentiation mode `ADModeGradient`, this class makes available
 -- the additional operations of delta-input and of packing a delta expression
@@ -246,19 +275,53 @@ class HasInputs a where
 -- to be the underlying scalar of a well behaved collection of dual numbers
 -- of various ranks wrt the differentation mode given in the first parameter.
 class HasRanks (d :: ADMode) r where
-  dSumElements10 :: Dual d (Vector r) -> Int -> Dual d r
-  dIndex10 :: Dual d (Vector r) -> Int -> Int -> Dual d r
-  dDot0 :: Vector r -> Dual d (Vector r) -> Dual d r
+  dSum10 :: KnownNat n
+         => OR.ShapeL -> Dual d (OR.Array n r) -> Dual d r
+  dIndex10 :: KnownNat n
+           => Dual d (OR.Array n r) -> [Int] -> OR.ShapeL -> Dual d r
+  dFrom10 :: Dual d (OR.Array 0 r) -> Dual d r
+  dDot10 :: KnownNat n
+         => OR.Array n r -> Dual d (OR.Array n r) -> Dual d r
 
-  dFromList1 :: [Dual d r] -> Dual d (Vector r)
-  dFromVector1 :: Data.Vector.Vector (Dual d r) -> Dual d (Vector r)
-  dKonst1 :: Dual d r -> Int -> Dual d (Vector r)
-  dAppend1 :: Dual d (Vector r) -> Int -> Dual d (Vector r) -> Dual d (Vector r)
-  dSlice1 :: Int -> Int -> Dual d (Vector r) -> Int
-          -> Dual d (Vector r)
-  dReverse1 :: Dual d (Vector r) -> Dual d (Vector r)
-  dBuild1 :: Int -> (Int -> Dual d r) -> Dual d (Vector r)
+  dFromList1 :: (KnownNat n, KnownNat (1 + n))
+             => OR.ShapeL -> [Dual d (OR.Array n r)]
+             -> Dual d (OR.Array (1 + n) r)
+  dFromVector1 :: (KnownNat n, KnownNat (1 + n))
+               => OR.ShapeL -> Data.Vector.Vector (Dual d (OR.Array n r))
+               -> Dual d (OR.Array (1 + n) r)
+  dKonst1 :: (KnownNat n, KnownNat (1 + n), 1 <= (1 + n))
+          => Int -> Dual d (OR.Array n r) -> Dual d (OR.Array (1 + n) r)
+  dSum1 :: (KnownNat n, KnownNat (1 + n), 1 <= (1 + n))
+        => Int -> Dual d (OR.Array (1 + n) r) -> Dual d (OR.Array n r)
+  dAppend1 :: KnownNat n
+           => Dual d (OR.Array n r) -> Int -> Dual d (OR.Array n r)
+           -> Dual d (OR.Array n r)
+  dSlice1 :: KnownNat n
+          => Int -> Int -> Dual d (OR.Array n r) -> Int -> Dual d (OR.Array n r)
+  dReverse1 :: KnownNat n
+            => Dual d (OR.Array n r) -> Dual d (OR.Array n r)
+  dIndex1 :: (KnownNat n, KnownNat (1 + n))
+          => Dual d (OR.Array (1 + n) r) -> Int -> Int -> Dual d (OR.Array n r)
+  dReshape1 :: (KnownNat n, KnownNat m)
+            => OR.ShapeL -> OR.ShapeL -> Dual d (OR.Array n r)
+            -> Dual d (OR.Array m r)
+  dBuild1 :: (KnownNat n, KnownNat (1 + n))
+          => Int -> (Int -> Dual d (OR.Array n r))
+          -> Dual d (OR.Array (1 + n) r)
 
+  dFrom01 :: Dual d r -> Dual d (OR.Array 0 r)
+  dFromList01 :: KnownNat n
+              => OR.ShapeL -> [Dual d r] -> Dual d (OR.Array n r)
+  dFromVector01 :: KnownNat n
+                => OR.ShapeL -> Data.Vector.Vector (Dual d r)
+                -> Dual d (OR.Array n r)
+  dKonst01 :: KnownNat n
+           => OR.ShapeL -> Dual d r -> Dual d (OR.Array n r)
+  dBuild01 :: KnownNat n
+           => OR.ShapeL -> ([Int] -> Dual d r) -> Dual d (OR.Array n r)
+
+  dFromX1 :: KnownNat n
+          => Dual d (OT.Array r) -> Dual d (OR.Array n r)
 
 -- * Backprop gradient method instances
 
@@ -317,13 +380,13 @@ instance IsPrimal 'ADModeGradient Float where
     _ -> wrapDelta0 d
 
 -- | This is an impure instance. See above.
-instance IsPrimal 'ADModeGradient (Vector r) where
-  dZero = Zero1
-  dScale = Scale1
-  dAdd = Add1
-  recordSharing d = case d of
+instance IsPrimalR 'ADModeGradient r where
+  dZeroR = Zero1
+  dScaleR = Scale1
+  dAddR = Add1
+  recordSharingR d = case d of
     Zero1 -> d
-    Input1{} -> d
+    FromX1{} -> d
     Let1{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta1 d
 
@@ -335,24 +398,40 @@ instance HasInputs Float where
   dInput = Input0
   packDeltaDt = DeltaDt0
 
-instance HasInputs (Vector r) where
-  dInput = Input1
+instance KnownNat n => HasInputs (OR.Array n r) where
+  dInput =  undefined  -- not needed
   packDeltaDt = DeltaDt1
+
+instance HasInputs (OT.Array r) where
+  dInput = InputX
+  packDeltaDt = undefined  -- not needed
 
 -- | This is an impure instance. See above.
 instance Dual 'ADModeGradient r ~ Delta0 r
          => HasRanks 'ADModeGradient r where
-  dSumElements10 = SumElements10
+  dSum10 = Sum10
   dIndex10 = Index10
-  dDot0 = Dot0
+  dFrom10 = From10
+  dDot10 = Dot10
+
   dFromList1 = FromList1
   dFromVector1 = FromVector1
   dKonst1 = Konst1
+  dSum1 = Sum1
   dAppend1 = Append1
   dSlice1 = Slice1
   dReverse1 = Reverse1
+  dIndex1 = Index1
+  dReshape1 = Reshape1
   dBuild1 = Build1
 
+  dFrom01 = From01
+  dFromList01 = FromList01
+  dFromVector01 = FromVector01
+  dKonst01 = Konst01
+  dBuild01 = Build01
+
+  dFromX1 = FromX1
 
 -- * Alternative instance: forward derivatives computed on the spot
 
@@ -368,27 +447,39 @@ instance IsPrimal 'ADModeDerivative Float where
   dAdd d e = d + e
   recordSharing = id
 
-instance Num (Vector r)
-         => IsPrimal 'ADModeDerivative (Vector r) where
-  dZero = 0
-  dScale k d = k * d
-  dAdd d e = d + e
-  recordSharing = id
+instance (Numeric r, Num (Vector r))
+         => IsPrimalR 'ADModeDerivative r where
+  dZeroR = 0
+  dScaleR k d = k * d
+  dAddR d e = d + e
+  recordSharingR = id
 
-instance ( Numeric r
+instance ( Numeric r, Num (Vector r)
          , Dual 'ADModeDerivative r ~ r )
          => HasRanks 'ADModeDerivative r where
-  dSumElements10 vd _ = LA.sumElements vd
-  dIndex10 d ix _ = d V.! ix
-  dDot0 = (LA.<.>)
-  dFromList1 = V.fromList
-  dFromVector1 = V.convert
-  dKonst1 = LA.konst
-  dAppend1 d _k e = d V.++ e
-  dSlice1 i n d _len = V.slice i n d
-  dReverse1 = V.reverse
-  dBuild1 n f = V.fromList $ map f [0 .. n - 1]
+  dSum10 _ = OR.sumA
+  dIndex10 d ixs _ = d `atIndexInTensorR` ixs
+  dFrom10 = OR.unScalar
+  dDot10 u v = OR.toVector u LA.<.> OR.toVector v
 
+  dFromList1 sh = OR.ravel . ORB.fromList (tail sh)
+  dFromVector1 sh = OR.ravel . ORB.fromVector (tail sh) . V.convert
+  dKonst1 n d = OR.stretchOuter n $ OR.ravel (ORB.constant [1] d)
+  dSum1 _ = ORB.sumA . OR.unravel
+  dAppend1 d _k e = d `OR.append` e
+  dSlice1 i n d _len = OR.slice [(i, n)] d
+  dReverse1 = OR.rev [0]
+  dIndex1 d ix _len = OR.index d ix
+  dReshape1 _sh = OR.reshape
+  dBuild1 n f = OR.ravel $ ORB.fromVector [n] $ V.generate n f
+
+  dFrom01 = OR.scalar
+  dFromList01 = OR.fromList
+  dFromVector01 sh = OR.fromVector sh . V.convert
+  dKonst01 sh d = OR.constant sh d
+  dBuild01 = OR.generate
+
+  dFromX1 = Data.Array.Convert.convert
 
 -- * Another alternative instance: only the objective function's value computed
 
@@ -410,19 +501,37 @@ instance IsPrimal 'ADModeValue (Vector r) where
   dAdd _ _ = DummyDual ()
   recordSharing = id
 
+instance IsPrimalR 'ADModeValue r where
+  dZeroR = DummyDual ()
+  dScaleR _ _ = DummyDual ()
+  dAddR _ _ = DummyDual ()
+  recordSharingR = id
+
 -- This requires UndecidableInstances.
 instance HasRanks 'ADModeValue r where
-  dSumElements10 _ _ = DummyDual ()
+  dSum10 _ _ = DummyDual ()
   dIndex10 _ _ _ = DummyDual ()
-  dDot0 _ _ = DummyDual ()
-  dFromList1 _ = DummyDual ()
-  dFromVector1 _ = DummyDual ()
+  dFrom10 _ = DummyDual ()
+  dDot10 _ _ = DummyDual ()
+
+  dFromList1 _ _ = DummyDual ()
+  dFromVector1 _ _ = DummyDual ()
   dKonst1 _ _ = DummyDual ()
+  dSum1 _ _ = DummyDual ()
   dAppend1 _ _ _ = DummyDual ()
   dSlice1 _ _ _ _ = DummyDual ()
   dReverse1 _ = DummyDual ()
+  dIndex1 _ _ _ = DummyDual ()
+  dReshape1 _ _ _ = DummyDual ()
   dBuild1 _ _ = DummyDual ()
 
+  dFrom01 _ = DummyDual ()
+  dFromList01 _ _ = DummyDual ()
+  dFromVector01 _ _ = DummyDual ()
+  dKonst01 _ _ = DummyDual ()
+  dBuild01 _ _ = DummyDual ()
+
+  dFromX1 _ = DummyDual ()
 
 -- * Counter handling
 
@@ -461,7 +570,7 @@ wrapDelta0 !d = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! Let0 (NodeId n) d
 
-wrapDelta1 :: Delta1 r -> Delta1 r
+wrapDelta1 :: Delta1 n r -> Delta1 n r
 {-# NOINLINE wrapDelta1 #-}
 wrapDelta1 !d = unsafePerformIO $ do
   n <- unsafeGetFreshId

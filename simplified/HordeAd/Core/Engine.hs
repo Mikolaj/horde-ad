@@ -21,13 +21,15 @@ module HordeAd.Core.Engine
 
 import Prelude
 
+import qualified Data.Array.DynamicS as OT
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Text.Show.Pretty (ppShow)
 
-import HordeAd.Core.DualClass (Dual, dInput, dummyDual, packDeltaDt, pattern D)
+import HordeAd.Core.DualClass
+  (Dual, HasInputs (..), dInput, dummyDual, packDeltaDt, pattern D)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.PairOfVectors (ADInputs (..), makeADInputs)
 import HordeAd.Internal.Delta
@@ -179,10 +181,9 @@ generateDeltaInputs
   :: forall r. HasDelta r
   => Domains r
   -> ( Data.Vector.Vector (Dual 'ADModeGradient r)
-     , Data.Vector.Vector (Dual 'ADModeGradient (Vector r)) )
+     , Data.Vector.Vector (Dual 'ADModeGradient (OT.Array r)) )
 generateDeltaInputs Domains{..} =
-  let intToInput :: forall a v.
-                    (IsPrimalAndHasInputs 'ADModeGradient a r, V.Vector v a)
+  let intToInput :: forall a v. (HasInputs a, V.Vector v a)
                  => v a -> Data.Vector.Vector (Dual 'ADModeGradient a)
       intToInput p = V.generate (V.length p) (dInput . toInputId)
       !v0 = intToInput domains0
@@ -191,7 +192,7 @@ generateDeltaInputs Domains{..} =
 {-# SPECIALIZE generateDeltaInputs
   :: Domains Double
   -> ( Data.Vector.Vector (Dual 'ADModeGradient Double)
-     , Data.Vector.Vector (Dual 'ADModeGradient (Vector Double)) ) #-}
+     , Data.Vector.Vector (Dual 'ADModeGradient (OT.Array Double)) ) #-}
 
 -- | Initialize parameters using a uniform distribution with a fixed range
 -- taken from an argument.
@@ -212,7 +213,9 @@ initializerFixed seed range (nParams0, lParams1, _, _) =
         $ LA.randomVector seedV LA.Uniform n - LA.scalar 0.5
       domains0 = createRandomVector nParams0 seed
       domains1 =
-        V.imap (\i nPV -> createRandomVector nPV (seed + nPV + i)) vParams1
+        V.imap (\i sz ->
+                  OT.fromVector [sz]
+                  $ createRandomVector sz (seed + sz + i)) vParams1
       totalParams = nParams0
                     + V.sum vParams1
   in ( (nParams0, V.length vParams1)
@@ -232,7 +235,7 @@ domainsFrom01 = Domains
 
 domainsFrom0V :: Numeric r
               => Domain0 r -> Data.Vector.Vector (Vector r) -> Domains r
-domainsFrom0V rs vs = Domains rs vs
+domainsFrom0V rs vs = Domains rs (V.map (\v -> OT.fromVector [V.length v] v) vs)
 
 listsToParameters :: Numeric r
                   => ([r], [r]) -> Domains r

@@ -25,14 +25,35 @@ import HordeAd.Internal.Delta (atIndexInTensor)
 import Tool.EqEpsilon
 import Tool.Shared
 
+import TestGradientSimple (altSumElementsV, powKonst, sinKonst, sumElementsV)
+
 testTrees :: [TestTree]
-testTrees = [ quickCheckForwardAndBackward
+testTrees = [ testPrintDf
+            , quickCheckForwardAndBackward
             , readmeTests0
             , readmeTestsS
             , testCase "fooNoGo" testFooNoGo
             , testCase "fooNoGoAdaptor" testFooNoGoAdaptor
             , adoptTests
             ]
+
+testPrintDf :: TestTree
+testPrintDf = testGroup "Pretty printing test" $
+  map (\(txt, f, v, expected) ->
+        testCase txt $ do
+          let output =
+                prettyPrintDf f
+                  (domainsFrom0V V.empty (V.fromList (map V.fromList v)))
+          length output @?= expected)
+    [ ( "sumElementsV", sumElementsV, [[1 :: Float, 1, 3]]
+      , 53 )
+    , ( "altSumElementsV", altSumElementsV, [[1, 1, 3]]
+      , 328 )
+    , ( "sinKonst", sinKonst, [[1, 3]]
+      , 230 )
+    , ( "powKonst", powKonst, [[1, 3]]
+      , 572 )
+    ]
 
 -- hlint would complain about spurious @id@, so we need to define our own.
 id2 :: a -> a

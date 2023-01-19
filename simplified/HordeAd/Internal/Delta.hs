@@ -29,14 +29,22 @@
 -- of forward derivatives (because @derivativeFromDelta@ below,
 -- computing derivatives from delta-expressions, is slow once
 -- the expressions grow large enough to affect cache misses).
+--
+-- This simplified rendering of the library now contains two ranks:
+-- scalars and (ranked) tensors. However, most haddocks and code comments
+-- are unchanged since the times vectors were available instead of tensors.
+-- The newer setting is a straightforward generalization of the older one,
+-- so the rewritten comments would be very similar and slightly harder
+-- to understand.
 module HordeAd.Internal.Delta
   ( -- * Abstract syntax trees of the delta expressions
-    Delta0 (..), Delta1 (..)
+    Delta0 (..), Delta1 (..), DeltaX (..)
   , -- * Delta expression identifiers
     NodeId(..), InputId, toInputId
   , -- * Evaluation of the delta expressions
     DeltaDt (..), Domain0, Domain1, Domains(..), nullDomains
   , gradientFromDelta, derivativeFromDelta
+  , isTensorDummy, atIndexInTensorR
   ) where
 
 import Prelude
@@ -45,16 +53,30 @@ import           Control.DeepSeq (NFData)
 import           Control.Exception (assert)
 import           Control.Monad (liftM2)
 import           Control.Monad.ST.Strict (ST, runST)
+import qualified Data.Array.Convert
+import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.Internal
+import qualified Data.Array.Internal.DynamicG
+import qualified Data.Array.Internal.DynamicS
+import qualified Data.Array.Internal.RankedG
+import qualified Data.Array.Internal.RankedS
+import qualified Data.Array.Ranked as ORB
+import qualified Data.Array.RankedS as OR
 import qualified Data.EnumMap.Strict as EM
+import           Data.Kind (Type)
+import           Data.List (foldl')
 import           Data.List.Index (ifoldl')
 import           Data.Primitive (Prim)
 import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.Generics (Generic)
+import           GHC.Stack (HasCallStack)
+import           GHC.TypeLits (KnownNat, Nat, type (+), type (<=))
 import           Numeric.LinearAlgebra (Numeric, Vector, (<.>))
-import qualified Numeric.LinearAlgebra as LA
 import           Text.Show.Functions ()
+
+import HordeAd.Internal.OrthotopeOrphanInstances ()
 
 -- * Abstract syntax trees of the delta expressions
 
@@ -108,42 +130,83 @@ import           Text.Show.Functions ()
 -- with respect to the input parameter component at that index
 -- in the objective function domain. The collection of all such
 -- vectors of partial derivatives across all ranks is the gradient.
-data Delta0 r =
-    Zero0
-  | Input0 (InputId r)
-  | Scale0 r (Delta0 r)
-  | Add0 (Delta0 r) (Delta0 r)
-  | Let0 NodeId (Delta0 r)
+data Delta0 :: Type -> Type where
+  Zero0 :: Delta0 r
+  Input0 :: InputId r -> Delta0 r
+  Scale0 :: r -> Delta0 r -> Delta0 r
+  Add0 :: Delta0 r -> Delta0 r -> Delta0 r
+  Let0 :: NodeId -> Delta0 r -> Delta0 r
 
-  | SumElements10 (Delta1 r) Int  -- ^ see Note [SumElements10]
-  | Index10 (Delta1 r) Int Int  -- ^ second integer is the length of the vector
-
-  | Dot0 (Vector r) (Delta1 r)  -- ^ Dot0 v vd == SumElements10 (Scale1 v vd) n
+  Sum10 :: KnownNat n
+        => OR.ShapeL -> Delta1 n r -> Delta0 r
+  Index10 :: KnownNat n
+          => Delta1 n r -> [Int] -> OR.ShapeL -> Delta0 r
+  From10 :: Delta1 0 r -> Delta0 r
+  Dot10 :: KnownNat n
+        => OR.Array n r -> Delta1 n r -> Delta0 r
 
 deriving instance (Show r, Numeric r) => Show (Delta0 r)
 
--- | This is the grammar of delta-expressions at tensor rank 1, that is,
--- at vector level.
-data Delta1 r =
-    Zero1
-  | Input1 (InputId (Vector r))
-  | Scale1 (Vector r) (Delta1 r)
-  | Add1 (Delta1 r) (Delta1 r)
-  | Let1 NodeId (Delta1 r)
+-- | This is the grammar of delta-expressions at arbitrary tensor rank.
+data Delta1 :: Nat -> Type -> Type where
+  Zero1 :: Delta1 n r
+  -- Input1  -- never used
+  Scale1 :: OR.Array n r -> Delta1 n r -> Delta1 n r
+  Add1 :: Delta1 n r -> Delta1 n r -> Delta1 n r
+  Let1 :: NodeId -> Delta1 n r -> Delta1 n r
 
-  | FromList1 [Delta0 r]
-  | FromVector1 (Data.Vector.Vector (Delta0 r))  -- ^ "unboxing" conversion
-  | Konst1 (Delta0 r) Int  -- ^ length; needed only for forward derivative
-  | Append1 (Delta1 r) Int (Delta1 r)
-      -- ^ second argument is the length of the first argument
-  | Slice1 Int Int (Delta1 r) Int  -- ^ last integer is the length of argument
+  FromList1 :: (KnownNat n, KnownNat (1 + n))
+            => OR.ShapeL -> [Delta1 n r] -> Delta1 (1 + n) r
+    -- ^ Create a tensor from a list treated as the outermost dimension.
+    -- The shape argument is necessary in case the list is empty.
+  FromVector1 :: (KnownNat n, KnownNat (1 + n))
+              => OR.ShapeL -> Data.Vector.Vector (Delta1 n r)
+              -> Delta1 (1 + n) r
+    -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
+  Konst1 :: (KnownNat n, KnownNat (1 + n), 1 <= (1 + n))
+         => Int -> Delta1 n r -> Delta1 (1 + n) r
+    -- ^ Copy the given tensor along the new, outermost dimension.
+  Sum1 :: (KnownNat n, KnownNat (1 + n), 1 <= (1 + n))
+       => Int -> Delta1 (1 + n) r -> Delta1 n r
+    -- ^ Add element tensors along the outermost dimension.
+  Append1 :: KnownNat n
+          => Delta1 n r -> Int -> Delta1 n r -> Delta1 n r
+    -- ^ Append two arrays along the outermost dimension.
+    -- All dimensions, except the outermost, must be the same.
+    -- The integer argument is the outermost size of the first array.
+  Slice1 :: KnownNat n
+         => Int -> Int -> Delta1 n r -> Int -> Delta1 n r
+    -- ^ Extract a slice of an array along the outermost dimension.
+    -- The extracted slice must fall within the dimension.
+    -- The last argument is the outermost size of the argument array.
+  Reverse1 :: KnownNat n
+           => Delta1 n r -> Delta1 n r
+    -- ^ Reverse elements of the outermost dimension.
+  Index1 :: (KnownNat n, KnownNat (1 + n))
+         => Delta1 (1 + n) r -> Int -> Int -> Delta1 n r
+    -- ^ The sub-tensors at the given index of the outermost dimension.
+    -- The second integer is the length of the dimension.
+  Reshape1 :: (KnownNat n, KnownNat m)
+           => OR.ShapeL -> OR.ShapeL -> Delta1 n r -> Delta1 m r
+    -- ^ Change the shape of the tensor from the first to the second.
+  Build1 :: (KnownNat n, KnownNat (1 + n))
+         => Int -> (Int -> Delta1 n r) -> Delta1 (1 + n) r
+    -- ^ Build a tensor with the given size of the outermost dimension
+    -- and using the given function to construct the element tensors.
 
-    -- unsorted and undocumented yet
-  | Reverse1 (Delta1 r)
-  | Build1 Int (Int -> Delta0 r)
-      -- ^ the first argument is length; needed only for forward derivative
+  From01 :: Delta0 r -> Delta1 0 r
+  FromList01 :: OR.ShapeL -> [Delta0 r] -> Delta1 n r
+  FromVector01 :: OR.ShapeL -> Data.Vector.Vector (Delta0 r) -> Delta1 n r
+  Konst01 :: OR.ShapeL -> Delta0 r -> Delta1 n r
+  Build01 :: OR.ShapeL -> ([Int] -> Delta0 r) -> Delta1 n r
 
-deriving instance (Show r, Numeric r) => Show (Delta1 r)
+  FromX1 :: DeltaX r -> Delta1 n r
+
+deriving instance (Show r, Numeric r) => Show (Delta1 n r)
+
+newtype DeltaX r = InputX (InputId (OT.Array r))
+
+deriving instance (Show r, Numeric r) => Show (DeltaX r)
 
 -- * Delta expression identifiers
 
@@ -171,7 +234,9 @@ toInputId i = assert (i >= 0) $ InputId i
 -- roles, is the internal representation of domains of objective functions.
 type Domain0 r = Vector r
 
-type Domain1 r = Data.Vector.Vector (Vector r)
+-- To store shaped tensor we use untyped tensors instead of vectors
+-- to prevent frequent linearization of tensors (e.g., after transpose).
+type Domain1 r = Data.Vector.Vector (OT.Array r)
 
 data Domains r = Domains
   { domains0 :: Domain0 r
@@ -189,7 +254,8 @@ nullDomains Domains{..} =
 -- the gradient.
 data DeltaDt r =
     DeltaDt0 r (Delta0 r)
-  | DeltaDt1 (Vector r) (Delta1 r)
+  | forall n. KnownNat n
+    => DeltaDt1 (OR.Array n r) (Delta1 n r)
 
 -- | The state of evaluation. It consists of several maps.
 -- The maps indexed by input identifiers and node identifiers
@@ -208,7 +274,7 @@ data EvalState r = EvalState
       -- (finally copied to the vector representing the rank 0 portion
       -- of the gradient of the objective function);
       -- the identifiers need to be contiguous and start at 0
-  , iMap1 :: EM.EnumMap (InputId (Vector r)) (Vector r)
+  , iMap1 :: EM.EnumMap (InputId (OT.Array r)) (OT.Array r)
       -- ^ eventually, cotangents of objective function inputs of rank 1;
       -- (eventually copied to the vector representing the rank 1 portion
       -- of the gradient of the objective function);
@@ -216,7 +282,7 @@ data EvalState r = EvalState
   , dMap0 :: EM.EnumMap NodeId r
       -- ^ eventually, cotangents of non-input subterms of rank 0 indexed
       -- by their node identifiers
-  , dMap1 :: EM.EnumMap NodeId (Vector r)
+  , dMap1 :: EM.EnumMap NodeId (OT.Array r)
       -- ^ eventually, cotangents of non-input subterms of rank 1 indexed
       -- by their node identifiers
   , nMap  :: EM.EnumMap NodeId (DeltaBinding r)
@@ -229,7 +295,8 @@ data EvalState r = EvalState
 -- and not take into account the whole summed context when finally evaluating.
 data DeltaBinding r =
     DeltaBinding0 (Delta0 r)
-  | DeltaBinding1 (Delta1 r)
+  | forall n. KnownNat n
+    => DeltaBinding1 (Delta1 n r)
 
 -- | Delta expressions naturally denote forward derivatives, as encoded
 -- in function 'derivativeFromDelta'. However, we are usually more
@@ -298,7 +365,7 @@ gradientFromDelta dim0 dim1 deltaDt =
                       -- 0 is the correct value; below is a dummy value
             iMap1 = EM.fromDistinctAscList
                     $ zip [toInputId 0 ..]
-                          (replicate dim1 (V.empty :: Vector r))
+                          (replicate dim1 (dummyTensor :: OT.Array r))
             dMap0 = EM.empty
             dMap1 = EM.empty
             nMap = EM.empty
@@ -369,21 +436,21 @@ buildFinMaps s0 deltaDt =
                   , dMap0 = EM.insert n c $ dMap0 s }
               _ -> error "buildFinMaps: corrupted nMap"
 
-        SumElements10 vd n -> eval1 s (LA.konst c n) vd
+        Sum10 sh d -> eval1 s (OR.constant sh c) d
         -- The general case is given as the last one below,
         -- but for a few constructors it's faster to inline @eval1@ instead.
         -- BTW, such an optimization doesn't really belong in the simplified
         -- horde-ad and no consistent benefit should be expected here.
         Index10 Zero1 _ _ -> s  -- shortcut
-        Index10 (Input1 i) ix k ->
-          let f v = if V.null v
-                    then LA.konst 0 k V.// [(ix, c)]
-                    else v V.// [(ix, v V.! ix + c)]
+        Index10 (FromX1 (InputX i)) ixs sh ->
+          let f v = if isTensorDummy v
+                    then OT.constant sh 0 `OT.update` [(ixs, c)]
+                    else v `OT.update` [(ixs, v `atIndexInTensor` ixs + c)]
           in s {iMap1 = EM.adjust f i $ iMap1 s}
-        Index10 (Let1 n d) ix k ->
+        Index10 (Let1 n d) ixs sh ->
           case EM.lookup n $ nMap s of
             Just (DeltaBinding1 _) ->
-              let f v = v V.// [(ix, v V.! ix + c)]
+              let f v = v `OT.update` [(ixs, v `atIndexInTensor` ixs + c)]
               in s {dMap1 = EM.adjust f n $ dMap1 s}
                 -- This would be an asymptotic optimization compared to
                 -- the general case below, if not for the non-mutable update,
@@ -391,48 +458,91 @@ buildFinMaps s0 deltaDt =
                 -- so it's only several times faster (same allocation,
                 -- but not adding to each cell of @v@).
             Nothing ->
-              let v = LA.konst 0 k V.// [(ix, c)]
+              let v = OT.constant sh 0 `OT.update` [(ixs, c)]
               in s { nMap = EM.insert n (DeltaBinding1 d) $ nMap s
                    , dMap1 = EM.insert n v $ dMap1 s }
             _ -> error "buildFinMaps: corrupted nMap"
-        Index10 d ix k -> eval1 s (LA.konst 0 k V.// [(ix, c)]) d
+        Index10 d ixs sh -> eval1 s (OR.constant sh 0 `updateOR` [(ixs, c)]) d
+        From10 d -> eval1 s (OR.scalar c) d
+        Dot10 v vd -> eval1 s (OR.mapA (* c) v) vd
 
-        Dot0 v vd -> eval1 s (LA.scale c v) vd
-
-      addToVector :: Vector r -> Vector r -> Vector r
-      addToVector c = \v -> if V.null v then c else v + c
-      eval1 :: EvalState r -> Vector r -> Delta1 r -> EvalState r
+      addToArray :: OR.Array n r -> OT.Array r -> OT.Array r
+      addToArray c = \v -> let cs = Data.Array.Convert.convert c
+                           in if isTensorDummy v
+                              then cs
+                              else v + cs
+      eval1 :: KnownNat n
+            => EvalState r -> OR.Array n r -> Delta1 n r -> EvalState r
       eval1 s !c = \case
         Zero1 -> s
-        Input1 i -> s {iMap1 = EM.adjust (addToVector c) i $ iMap1 s}
+        FromX1 (InputX inputId) ->
+          s {iMap1 = EM.adjust (addToArray c) inputId $ iMap1 s}
         Scale1 k d -> eval1 s (k * c) d
         Add1 d e -> eval1 (eval1 s c d) c e
         Let1 n d ->
           assert (case d of
                     Zero1 -> False
-                    Input1{} -> False
+                    FromX1{} -> False
                     Let1{} -> False  -- wasteful and nonsensical
                     _ -> True)
           $ case EM.lookup n $ nMap s of
               Just (DeltaBinding1 _) ->
-                s {dMap1 = EM.adjust (+ c) n $ dMap1 s}
+                let cs = Data.Array.Convert.convert c
+                in s {dMap1 = EM.adjust (+ cs) n $ dMap1 s}
               Nothing ->
-                s { nMap = EM.insert n (DeltaBinding1 d) $ nMap s
-                  , dMap1 = EM.insert n c $ dMap1 s }
+                let cs = Data.Array.Convert.convert c
+                in s { nMap = EM.insert n (DeltaBinding1 d) $ nMap s
+                     , dMap1 = EM.insert n cs $ dMap1 s }
               _ -> error "buildFinMaps: corrupted nMap"
 
-        FromList1 lsd -> ifoldl' (\s2 i d -> eval0 s2 (c V.! i) d) s lsd
-          -- lsd is a list of scalar delta expressions
-        FromVector1 lsd -> V.ifoldl' (\s2 i d -> eval0 s2 (c V.! i) d) s lsd
-          -- lsd is a boxed vector of scalar delta expressions
-        Konst1 d _n -> V.foldl' (\s2 c2 -> eval0 s2 c2 d) s c
+        FromList1 _ ld ->
+          let lc = ORB.toList $ OR.unravel c
+          in foldl' (\s2 (c2, d2) -> eval1 s2 c2 d2) s $ zip lc ld
+        FromVector1 _ ld ->
+          let lc = ORB.toList $ OR.unravel c
+          in foldl' (\s2 (c2, d2) -> eval1 s2 c2 d2) s $ zip lc (V.toList ld)
+        Konst1 _n d ->
+          V.foldl' (\s2 c2 -> eval1 s2 c2 d) s $ ORB.toVector $ OR.unravel c
+        Sum1 n d ->
+          eval1 s (OR.stretchOuter n $ OR.ravel (ORB.constant [1] c)) d
+        Append1 d k e -> case OR.shapeL c of
+          n : _ -> let s2 = eval1 s (OR.slice [(0, k)] c) d
+                   in eval1 s2 (OR.slice [(k, n - k)] c) e
+          [] -> error "eval1: appending a 0-dimensional tensor"
+        Slice1 i n d len -> case OR.shapeL c of
+          n' : rest ->
+            assert (n' == n) $
+            eval1 s (OR.concatOuter [ OR.constant (i : rest) 0
+                                    , c
+                                    , OR.constant (len - i - n : rest) 0 ])
+                    d
+          [] -> error "eval1: slicing a 0-dimensional tensor"
+        Reverse1 d -> eval1 s (OR.rev [0] c) d
+        Index1 d ix len ->
+          let rest = OR.shapeL c
+          in eval1 s (OR.concatOuter [ OR.constant (ix : rest) 0
+                                     , OR.reshape (1 : rest) c
+                                     , OR.constant (len - ix - 1 : rest) 0 ])
+                     d  -- TODO: optimize for input case
+        Reshape1 sh _sh' d -> eval1 s (OR.reshape sh c) d
+        Build1 _n f -> V.ifoldl' (\s2 i c2 -> eval1 s2 c2 (f i))
+                                 s (ORB.toVector $ OR.unravel c)
 
-        Append1 d k e -> eval1 (eval1 s (V.take k c) d) (V.drop k c) e
-        Slice1 i n d len ->
-          eval1 s (LA.konst 0 i V.++ c V.++ LA.konst 0 (len - i - n)) d
-
-        Reverse1 d -> eval1 s (V.reverse c) d
-        Build1 _n f -> V.ifoldl' (\s2 i c0 -> eval0 s2 c0 (f i)) s c
+        From01 d -> eval0 s (OR.unScalar c) d
+        FromList01 _sh lsd ->  -- lsd is a list of scalar delta expressions
+          let cv = OR.toVector c
+          in ifoldl' (\s2 i d -> eval0 s2 (cv V.! i) d) s lsd
+        FromVector01 _sh lsd ->  -- lsd is a list of scalar delta expressions
+          let cv = OR.toVector c
+          in V.ifoldl' (\s2 i d -> eval0 s2 (cv V.! i) d) s lsd
+        Konst01 _ d ->
+          V.foldl' (\s2 c2 -> eval0 s2 c2 d) s (OR.toVector c)
+        Build01 sh f ->
+          let ss = case getStrides sh of
+                _ : ss2 -> ss2
+                [] -> error "getStrides in buildFinMaps"
+          in V.ifoldl' (\s2 i c0 -> eval0 s2 c0 (f $ toIx ss i))
+                       s (OR.toVector c)
 
       evalFromnMap :: EvalState r -> EvalState r
       evalFromnMap s@EvalState{nMap, dMap0, dMap1} =
@@ -442,7 +552,8 @@ buildFinMaps s0 deltaDt =
                 s3 = case b of
                   DeltaBinding0 d -> let c = dMap0 EM.! n
                                      in eval0 s2 c d
-                  DeltaBinding1 d -> let c = dMap1 EM.! n
+                  DeltaBinding1 d -> let c = Data.Array.Convert.convert
+                                             $ dMap1 EM.! n
                                      in eval1 s2 c d
             in evalFromnMap s3
           Nothing -> s  -- loop ends
@@ -512,17 +623,17 @@ buildDerivative dim0 dim1 deltaTopLevel
               return c
             _ -> error "buildDerivative: corrupted nMap"
 
-        SumElements10 vd _n -> LA.sumElements <$> eval1 vd
-        Index10 d ix _k -> flip (V.!) ix <$> eval1 d
+        Sum10 _ d -> OR.sumA <$> eval1 d
+        Index10 d ixs _ -> (`atIndexInTensorR` ixs) <$> eval1 d
+        From10 d -> OR.unScalar <$> eval1 d
+        Dot10 v d -> (<.> OR.toVector v) . OR.toVector <$> eval1 d
 
-        Dot0 vr vd -> (<.>) vr <$> eval1 vd
-
-      eval1 :: Delta1 r -> ST s (Vector r)
+      eval1 :: KnownNat n => Delta1 n r -> ST s (OR.Array n r)
       eval1 = \case
         Zero1 -> return 0
-        Input1 (InputId i) ->
+        FromX1 (InputX (InputId i)) ->
           if i < dim1
-          then return $! domains1 V.! i
+          then return $! Data.Array.Convert.convert $ domains1 V.! i
           else error "derivativeFromDelta.eval': wrong index for an input"
         Scale1 k d -> (k *) <$> eval1 d
         Add1 d e -> liftM2 (+) (eval1 d) (eval1 e)
@@ -531,58 +642,87 @@ buildDerivative dim0 dim1 deltaTopLevel
           case EM.lookup n nm of
             Just (DeltaBinding1 _) -> do
               dm <- readSTRef dMap1
-              return $! dm EM.! n
+              return $! Data.Array.Convert.convert (dm EM.! n :: OT.Array r)
             Nothing -> do
               c <- eval1 d
               nmNew <- readSTRef nMap
               dm <- readSTRef dMap1
               writeSTRef nMap $! EM.insert n (DeltaBinding1 d) nmNew
-              writeSTRef dMap1 $! EM.insert n c dm
+              writeSTRef dMap1 $! EM.insert n (Data.Array.Convert.convert c) dm
               return c
             _ -> error "buildDerivative: corrupted nMap"
 
-        FromList1 lsd -> do
-          l <- mapM eval0 lsd
-          return $! V.fromList l
-        FromVector1 lsd -> do
-          v <- V.mapM eval0 lsd
-          return $! V.convert v
-        Konst1 d n -> flip LA.konst n <$> eval0 d
-        Append1 d _k e -> liftM2 (V.++) (eval1 d) (eval1 e)
-        Slice1 i n d _len -> V.slice i n <$> eval1 d
-
-        Reverse1 d -> V.reverse <$> eval1 d
+        FromList1 sh lsd -> do
+          l <- mapM eval1 lsd
+          return $! OR.ravel $ ORB.fromList (tail sh) l
+        FromVector1 sh lsd -> do
+          v <- V.mapM eval1 lsd
+          return $! OR.ravel $ ORB.fromVector (tail sh) $ V.convert v
+        Konst1 n d -> do
+          t <- eval1 d
+          return $! OR.stretchOuter n $ OR.ravel (ORB.constant [1] t)
+        Sum1 _ d -> ORB.sumA . OR.unravel <$> eval1 d
+        Append1 d _k e -> liftM2 OR.append (eval1 d) (eval1 e)
+        Slice1 i n d _len -> OR.slice [(i, n)] <$> eval1 d
+        Reverse1 d -> OR.rev [0] <$> eval1 d
+        Index1 d ix _len -> flip OR.index ix <$> eval1 d
+        Reshape1 _sh sh' d -> OR.reshape sh' <$> eval1 d
         Build1 n f -> do
-          l <- mapM (eval0 . f) [0 .. n - 1]
-          return $! V.fromList l
+          l <- mapM (eval1 . f) [0 .. n - 1]
+          return $! OR.ravel $ ORB.fromList [n] l
+
+        From01 d -> OR.scalar <$> eval0 d
+        FromList01 sh lsd -> do
+          l <- mapM eval0 lsd
+          return $! OR.fromList sh l
+        FromVector01 sh lsd -> do
+          v <- V.mapM eval0 lsd
+          return $! OR.fromVector sh $ V.convert v
+        Konst01 sh d -> OR.constant sh <$> eval0 d
+        Build01 sh f -> do
+          -- Copied from Data.Array.Internal.
+          let (s, ss) = case getStrides sh of
+                s2 : ss2 -> (s2, ss2)
+                [] -> error "getStrides in buildDerivative"
+          l <- mapM (eval0 . f)
+               $ [toIx ss i | i <- [0 .. s - 1]]
+          return $! OR.fromList sh l
 
   eval0 deltaTopLevel
 
-{- Note [SumElements10]
-~~~~~~~~~~~~~~~~~~~~~~
+dummyTensor :: Numeric r => OT.Array r
+dummyTensor =  -- an inconsistent tensor array
+  Data.Array.Internal.DynamicS.A
+  $ Data.Array.Internal.DynamicG.A []
+  $ Data.Array.Internal.T [] (-1) V.empty
 
-The second argument of SumElements10 is the length of the vector
-to be summed. Given that we sum a delta-expression representing
-a vector, we can't call Vector.length on it, so the length needs
-to be recorded in the constructor. Alternatively, it could be
-recorded in the Delta1 argument to SumElements10. This is what
-shaped tensors do at the type level, so for DeltaS the argument
-would not be needed.
+isTensorDummy :: OT.Array r -> Bool
+isTensorDummy (Data.Array.Internal.DynamicS.A
+                 (Data.Array.Internal.DynamicG.A _
+                    (Data.Array.Internal.T _ (-1) _))) = True
+isTensorDummy _ = False
 
-Sum of vector elements can be implemented using a delta-expression
-primitive SumElements10 as well as without this primitive, referring
-only to the primitive Index10:
+atIndexInTensor :: Numeric r => OT.Array r -> [Int] -> r
+atIndexInTensor (Data.Array.Internal.DynamicS.A
+                   (Data.Array.Internal.DynamicG.A _
+                      Data.Array.Internal.T{..})) is =
+  values V.! (offset + sum (zipWith (*) is strides))
+    -- TODO: tests are needed to verify if order of dimensions is right
 
-https://github.com/Mikolaj/horde-ad/blob/d069a45773ed849913b5ebd0345153072f304fd9/src/HordeAd.Core.DualNumber.hs#L125-L143
+atIndexInTensorR :: Numeric r => OR.Array n r -> [Int] -> r
+atIndexInTensorR (Data.Array.Internal.RankedS.A
+                    (Data.Array.Internal.RankedG.A _
+                       Data.Array.Internal.T{..})) is =
+  values V.! (offset + sum (zipWith (*) is strides))
 
-which is confirmed by tests to be equivalent in three different
-implementations:
+updateOR :: (HasCallStack, OR.Unbox a, KnownNat n)
+         => OR.Array n a -> [([Int], a)] -> OR.Array n a
+updateOR arr upd = Data.Array.Convert.convert
+                   $ OT.update (Data.Array.Convert.convert arr) upd
 
-https://github.com/Mikolaj/horde-ad/blob/d069a45773ed849913b5ebd0345153072f304fd9/test/TestSingleGradient.hs#L116-L128
-
-and proved to be prohibitively slow in the two implementations
-that don't use the SumElements10 primitive in benchmarks (despite
-an ingenious optimization of the common case of Index10 applied to a input):
-
-https://github.com/Mikolaj/horde-ad/blob/d069a45773ed849913b5ebd0345153072f304fd9/bench/BenchProdTools.hs#L178-L193
--}
+-- Copied from Data.Array.Internal.
+getStrides :: [Int] -> [Int]
+getStrides = scanr (*) 1
+toIx :: [Int] -> Int -> [Int]
+toIx [] _ = []
+toIx (n:ns) i = q : toIx ns r where (q, r) = quotRem i n

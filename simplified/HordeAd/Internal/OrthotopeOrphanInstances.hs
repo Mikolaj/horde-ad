@@ -71,6 +71,7 @@ instance (Num (Vector r), KnownNat n, Numeric r) => Num (OR.Array n r) where
   abs = liftVR abs
   signum = liftVR signum
   fromInteger = OR.constant [] . fromInteger
+    -- fails for any rank other than 0 and there's no fix
 
 instance (Num (Vector r), OS.Shape sh, Numeric r) => Num (OS.Array sh r) where
   (+) = liftVS2 (+)

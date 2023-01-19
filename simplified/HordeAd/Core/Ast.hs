@@ -17,13 +17,15 @@ module HordeAd.Core.Ast
 
 import Prelude
 
+import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Type)
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import qualified Data.Strict.Vector as Data.Vector
-import           Numeric.LinearAlgebra (Numeric, Vector, arctan2)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Text.Show.Functions ()
+
+import HordeAd.Internal.OrthotopeOrphanInstances ()
 
 -- * Definitions
 
@@ -35,37 +37,39 @@ data Ast :: Type -> Type -> Type where
   AstOp :: CodeOut -> [Ast r a] -> Ast r a
   AstCond :: AstBool r -> Ast r a -> Ast r a -> Ast r a
   AstSelect :: AstInt r -> (AstVarName Int, AstBool r)
-            -> Ast r (Vector r) -> Ast r (Vector r) -> Ast r (Vector r)
+            -> Ast r (OR.Array 1 r) -> Ast r (OR.Array 1 r)
+            -> Ast r (OR.Array 1 r)
   AstInt :: AstInt r -> Ast r a
   AstConst :: a -> Ast r a  -- sort of partially evaluated @AstConstant@
   AstConstant :: AstPrimalPart r a -> Ast r a
   AstScale :: AstPrimalPart r a -> Ast r a -> Ast r a
 
   AstVar0 :: AstVarName r -> Ast r r
-  AstVar1 :: AstVarName (Vector r) -> Ast r (Vector r)
+  AstVar1 :: AstVarName (OR.Array 1 r) -> Ast r (OR.Array 1 r)
 
   -- Taken from VectorLike:
-  AstSumElements10 :: Ast r (Vector r) -> Ast r r
-  AstIndex10 :: Ast r (Vector r) -> AstInt r -> Ast r r
-  AstMinimum0 :: Ast r (Vector r) -> Ast r r
-  AstMaximum0 :: Ast r (Vector r) -> Ast r r
-  AstDot0 :: Ast r (Vector r) -> Ast r (Vector r) -> Ast r r
+  AstSumElements10 :: Ast r (OR.Array 1 r) -> Ast r r
+  AstIndex10 :: Ast r (OR.Array 1 r) -> AstInt r -> Ast r r
+  AstMinimum0 :: Ast r (OR.Array 1 r) -> Ast r r
+  AstMaximum0 :: Ast r (OR.Array 1 r) -> Ast r r
+  AstDot0 :: Ast r (OR.Array 1 r) -> Ast r (OR.Array 1 r) -> Ast r r
 
-  AstFromList1 :: [Ast r r] -> Ast r (Vector r)
-  AstFromVector1 :: Data.Vector.Vector (Ast r r) -> Ast r (Vector r)
-  AstKonst1 :: Ast r r -> AstInt r -> Ast r (Vector r)
-  AstAppend1 :: Ast r (Vector r) -> Ast r (Vector r) -> Ast r (Vector r)
-  AstSlice1 :: AstInt r -> AstInt r -> Ast r (Vector r)
-            -> Ast r (Vector r)
-  AstReverse1 :: Ast r (Vector r) -> Ast r (Vector r)
+  AstFromList1 :: [Ast r r] -> Ast r (OR.Array 1 r)
+  AstFromVector1 :: Data.Vector.Vector (Ast r r) -> Ast r (OR.Array 1 r)
+  AstKonst1 :: AstInt r -> Ast r r -> Ast r (OR.Array 1 r)
+  AstAppend1 :: Ast r (OR.Array 1 r) -> Ast r (OR.Array 1 r)
+             -> Ast r (OR.Array 1 r)
+  AstSlice1 :: AstInt r -> AstInt r -> Ast r (OR.Array 1 r)
+            -> Ast r (OR.Array 1 r)
+  AstReverse1 :: Ast r (OR.Array 1 r) -> Ast r (OR.Array 1 r)
 
   AstBuildPair1 :: AstInt r -> (AstVarName Int, Ast r r)
-                -> Ast r (Vector r)
-  AstMapPair1 :: (AstVarName r, Ast r r) -> Ast r (Vector r)
-              -> Ast r (Vector r)
+                -> Ast r (OR.Array 1 r)
+  AstMapPair1 :: (AstVarName r, Ast r r) -> Ast r (OR.Array 1 r)
+              -> Ast r (OR.Array 1 r)
 
-  AstOMap1 :: (AstVarName r, Ast r r) -> Ast r (Vector r)
-           -> Ast r (Vector r)
+  AstOMap1 :: (AstVarName r, Ast r r) -> Ast r (OR.Array 1 r)
+           -> Ast r (OR.Array 1 r)
     -- this is necessary for MonoFunctor and so for a particularly
     -- fast implementation of relu
     -- TODO: this is really only needed in AstPrimalPart, but making
@@ -91,9 +95,9 @@ data AstInt :: Type -> Type where
   AstIntVar :: AstVarName Int -> AstInt r
 
   -- Taken from VectorLike:
-  AstLength :: Ast r (Vector r) -> AstInt r
-  AstMinIndex :: Ast r (Vector r) -> AstInt r
-  AstMaxIndex :: Ast r (Vector r) -> AstInt r
+  AstLength :: Ast r (OR.Array 1 r) -> AstInt r
+  AstMinIndex :: Ast r (OR.Array 1 r) -> AstInt r
+  AstMaxIndex :: Ast r (OR.Array 1 r) -> AstInt r
 
 -- Like the first argument of @Ast@, the argument is the underlying scalar.
 -- TODO: change Ast below to AstPrimalPart in case AstPrimalPart get
@@ -107,22 +111,22 @@ data AstBool :: Type -> Type where
 {-
 deriving instance ( Show a, Show r, Numeric r
                   , Show (ADVal d a), Show (ADVal d r)
-                  , Show (ADVal d (Vector r))
+                  , Show (ADVal d (OR.Array 1 r))
                   , Show (AstInt r), Show (AstBool r) )
                   => Show (Ast r a)
 
-deriving instance (Show (ADVal d r), Show (ADVal d (Vector r)))
+deriving instance (Show (ADVal d r), Show (ADVal d (OR.Array 1 r)))
                   => Show (AstVar r)
 
 deriving instance ( Show r, Numeric r
                   , Show (ADVal d r)
-                  , Show (ADVal d (Vector r))
+                  , Show (ADVal d (OR.Array 1 r))
                   , Show (AstInt r), Show (AstBool r) )
                   => Show (AstInt r)
 
 deriving instance ( Show r, Numeric r
                   , Show (ADVal d r)
-                  , Show (ADVal d (Vector r))
+                  , Show (ADVal d (OR.Array 1 r))
                   , Show (AstInt r), Show (AstBool r) )
                   => Show (AstBool r)
 -}
@@ -259,13 +263,13 @@ unsafeGetFreshAstVar :: IO (AstVarName a)
 {-# INLINE unsafeGetFreshAstVar #-}
 unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-astOmap :: (Ast r r -> Ast r r) -> Ast r (Vector r) -> Ast r (Vector r)
+astOmap :: (Ast r r -> Ast r r) -> Ast r (OR.Array 1 r) -> Ast r (OR.Array 1 r)
 {-# NOINLINE astOmap #-}
 astOmap f e = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
   return $! AstOMap1 (freshAstVar, f (AstVar0 freshAstVar)) e
 
-instance MonoFunctor (AstPrimalPart r (Vector r)) where
+instance MonoFunctor (AstPrimalPart r (OR.Array 1 r)) where
   omap f (AstPrimalPart x) =
     let g y = let AstPrimalPart z = f (AstPrimalPart y)
               in z
@@ -275,36 +279,4 @@ instance MonoFunctor (AstPrimalPart Double Double) where
   omap f = f
 
 instance MonoFunctor (AstPrimalPart Float Float) where
-  omap f = f
-
-
--- * Orphan instances
-
--- TODO: move to separate orphan module(s) at some point
--- This requires UndecidableInstances
-
-instance (Num (Vector r), Numeric r, Ord r)
-         => Real (Vector r) where
-  toRational = undefined
-    -- very low priority, since these are all extremely not continuous
-
-instance (Num (Vector r), Numeric r, Fractional r, Ord r)
-         => RealFrac (Vector r) where
-  properFraction = undefined
-    -- very low priority, since these are all extremely not continuous
-
-instance ( Floating (Vector r), Numeric r, RealFloat r )
-         => RealFloat (Vector r) where
-  atan2 = arctan2
-    -- we can be selective here and omit the other methods,
-    -- most of which don't even have a differentiable codomain
-
-type instance Element Double = Double
-
-type instance Element Float = Float
-
-instance MonoFunctor Double where
-  omap f = f
-
-instance MonoFunctor Float where
   omap f = f
