@@ -23,7 +23,11 @@ liftVT op t = OT.fromVector (OT.shapeL t) $ op $ OT.toVector t
 liftVT2 :: Numeric r
         => (Vector r -> Vector r -> Vector r)
         -> OT.Array r -> OT.Array r -> OT.Array r
-liftVT2 op t u = OT.fromVector (OT.shapeL t) $ OT.toVector t `op` OT.toVector u
+liftVT2 op t u =
+  let sh = case OT.shapeL t of
+        [1] -> OT.shapeL u
+        sh' -> sh'
+  in OT.fromVector sh $ OT.toVector t `op` OT.toVector u
 
 liftVS :: (Numeric r, OS.Shape sh)
        => (Vector r -> Vector r)
@@ -43,7 +47,7 @@ instance (Num (Vector r), Numeric r) => Num (OT.Array r) where
   negate = liftVT negate
   abs = liftVT abs
   signum = liftVT signum
-  fromInteger = OT.constant [] . fromInteger
+  fromInteger = OT.constant [1] . fromInteger  -- often fails and there's no fix
 
 instance (Num (Vector r), OS.Shape sh, Numeric r) => Num (OS.Array sh r) where
   (+) = liftVS2 (+)
@@ -58,7 +62,7 @@ instance (Num (Vector r), Numeric r, Fractional r)
          => Fractional (OT.Array r) where
   (/) = liftVT2 (/)
   recip = liftVT recip
-  fromRational = OT.constant [] . fromRational
+  fromRational = OT.constant [1] . fromRational
 
 instance (Num (Vector r), OS.Shape sh, Numeric r, Fractional r)
          => Fractional (OS.Array sh r) where
@@ -68,7 +72,7 @@ instance (Num (Vector r), OS.Shape sh, Numeric r, Fractional r)
 
 instance (Floating (Vector r), Numeric r, Floating r)
          => Floating (OT.Array r) where
-  pi = OT.constant [] pi
+  pi = OT.constant [1] pi
   exp = liftVT exp
   log = liftVT log
   sqrt = liftVT sqrt
