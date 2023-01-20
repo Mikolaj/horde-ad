@@ -1319,7 +1319,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         IndexX d ix _len -> flip OT.index ix <$> evalX d
         RavelFromListX sh ld -> do
           la <- mapM evalX ld
-          return $! OT.ravel $ OTB.fromList (tail sh) la
+          return $! OT.ravel $ OTB.fromList [head sh] la
         ReshapeX _sh sh' d -> OT.reshape sh' <$> evalX d
 
         From0X d -> OT.scalar <$> eval0 d

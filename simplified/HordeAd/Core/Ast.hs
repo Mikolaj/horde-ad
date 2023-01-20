@@ -47,11 +47,15 @@ data Ast0 :: Type -> Type where
 
   AstIndex10 :: KnownNat n
              => Ast1 n r -> [AstInt r] -> Ast0 r
-  AstSum10 :: Ast1 n r -> Ast0 r
-  AstDot10 :: Ast1 n r -> Ast1 n r -> Ast0 r
+  AstSum10 :: KnownNat n
+           => Ast1 n r -> Ast0 r
+  AstDot10 :: KnownNat n
+           => Ast1 n r -> Ast1 n r -> Ast0 r
   AstFrom10 :: Ast1 0 r -> Ast0 r
-  AstMinimum10 :: Ast1 n r -> Ast0 r
-  AstMaximum10 :: Ast1 n r -> Ast0 r
+  AstMinimum10 ::KnownNat n
+               =>  Ast1 n r -> Ast0 r
+  AstMaximum10 :: KnownNat n
+               => Ast1 n r -> Ast0 r
 
   AstOMap0 :: (AstVarName r, Ast0 r) -> Ast0 r -> Ast0 r
     -- see AstOMap1; this is needed even at rank 0 to capture and interpret
@@ -72,16 +76,16 @@ data Ast1 :: Nat -> Type -> Type where
 
   AstVar1 :: AstVarName (OR.Array 1 r) -> Ast1 1 r
 
-  AstIndex1 :: Ast1 (n + 1) r -> AstInt r -> Ast1 n r
-  AstSum1 :: Ast1 (n + 1) r -> Ast1 n r
-  AstFromList1 :: OR.ShapeL -> [Ast1 n r] -> Ast1 (n + 1) r
+  AstIndex1 :: Ast1 (1 + n) r -> AstInt r -> Ast1 n r
+  AstSum1 :: Ast1 (1 + n) r -> Ast1 n r
+  AstFromList1 :: OR.ShapeL -> [Ast1 n r] -> Ast1 (1 + n) r
   AstFromVector1 :: OR.ShapeL -> Data.Vector.Vector (Ast1 n r)
-                 -> Ast1 (n + 1) r
-  AstKonst1 :: AstInt r -> Ast1 n r -> Ast1 (n + 1) r
+                 -> Ast1 (1 + n) r
+  AstKonst1 :: AstInt r -> Ast1 n r -> Ast1 (1 + n) r
   AstAppend1 :: Ast1 n r -> Ast1 n r -> Ast1 n r
   AstSlice1 :: AstInt r -> AstInt r -> Ast1 n r -> Ast1 n r
   AstReverse1 :: Ast1 n r -> Ast1 n r
-  AstBuildPair1 :: AstInt r -> (AstVarName Int, Ast1 n r) -> Ast1 (n + 1) r
+  AstBuildPair1 :: AstInt r -> (AstVarName Int, Ast1 n r) -> Ast1 (1 + n) r
   AstReshape1 :: OR.ShapeL -> Ast1 n r -> Ast1 m r
 
   -- Fixed rank 1 to avoid OR.ShapeL arguments:

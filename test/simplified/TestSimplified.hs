@@ -222,7 +222,7 @@ testNestedBuildMapADVal =
   (domains0 $ fst
    $ revOnDomains
        (vToVec $ LA.konst 1 5)
-         -- "1" wrong due to fragility of hmatrix optimization
+         -- "1" wrong due to fragility of hmatrix and tensor numeric instances
        (\adinputs -> nestedBuildMapADVal (adinputs `at0` 0))
        (domainsFrom01 (V.singleton (1.1 :: Double)) V.empty))
   @?~ V.fromList [107.25984443006627]

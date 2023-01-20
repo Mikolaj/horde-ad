@@ -797,7 +797,7 @@ ravelFromListX :: ADModeAndNum d r
                => OT.ShapeL -> [ADVal d (OT.Array r)] -> ADVal d (OT.Array r)
 ravelFromListX sh ld =
   let (lu, lu') = unzip $ map (\(D u u') -> (u, u')) ld
-  in dD (OT.ravel $ OTB.fromList (tail sh) lu) (dRavelFromListX sh lu')
+  in dD (OT.ravel $ OTB.fromList [head sh] lu) (dRavelFromListX sh lu')
 
 unravelToListX :: ADModeAndNum d r
                => ADVal d (OT.Array r) -> [ADVal d (OT.Array r)]

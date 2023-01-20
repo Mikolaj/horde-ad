@@ -623,7 +623,7 @@ instance ( Numeric r, Num (Vector r)
   dAppendX d _k e = d `OT.append` e
   dSliceX i n d _len = OT.slice [(i, n)] d
   dIndexX d ix _len = OT.index d ix
-  dRavelFromListX sh ld = OT.ravel $ OTB.fromList (tail sh) ld
+  dRavelFromListX sh ld = OT.ravel $ OTB.fromList [head sh] ld
   dReshapeX _sh = OT.reshape
   dFrom0X = OT.scalar
   dFrom1X d = OT.fromVector [V.length d] d

@@ -125,7 +125,6 @@ type ADModeAndNum (d :: ADMode) r =
   , HasPrimal r
   , HasRanks d r
   , IsPrimalAndHasFeatures d r r
-  , IsPrimalAndHasFeatures d (OR.Array 1 r) r
   , IsPrimalR d r
   , VectorOf r ~ OR.Array 1 r
   , IntOf r ~ Int
@@ -466,10 +465,10 @@ instance ( Numeric r, Num (Vector r)
   dDot10 u v = OR.toVector u LA.<.> OR.toVector v
   dFrom10 = OR.unScalar
 
-  dIndex1 d ix _len = OR.index d ix
+  dIndex1 d ix _ = OR.index d ix
   dSum1 _ = ORB.sumA . OR.unravel
-  dFromList1 sh = OR.ravel . ORB.fromList (tail sh)
-  dFromVector1 sh = OR.ravel . ORB.fromVector (tail sh) . V.convert
+  dFromList1 sh = OR.ravel . ORB.fromList [head sh]
+  dFromVector1 sh = OR.ravel . ORB.fromVector [head sh] . V.convert
   dKonst1 n d = OR.stretchOuter n $ OR.ravel (ORB.constant [1] d)
   dAppend1 d _k e = d `OR.append` e
   dSlice1 i n d _len = OR.slice [(i, n)] d

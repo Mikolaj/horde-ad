@@ -46,7 +46,7 @@ module HordeAd.Internal.Delta
   , -- * Evaluation of the delta expressions
     DeltaDt (..), Domain0, Domain1, Domains(..), nullDomains
   , gradientFromDelta, derivativeFromDelta
-  , isTensorDummy, atIndexInTensorR
+  , isTensorDummy, atIndexInTensorR, getStrides, toIx
   ) where
 
 import Prelude
@@ -658,10 +658,10 @@ buildDerivative dim0 dim1 deltaTopLevel
         Sum1 _ d -> ORB.sumA . OR.unravel <$> eval1 d
         FromList1 sh lsd -> do
           l <- mapM eval1 lsd
-          return $! OR.ravel $ ORB.fromList (tail sh) l
+          return $! OR.ravel $ ORB.fromList [head sh] l
         FromVector1 sh lsd -> do
           v <- V.mapM eval1 lsd
-          return $! OR.ravel $ ORB.fromVector (tail sh) $ V.convert v
+          return $! OR.ravel $ ORB.fromVector [head sh] $ V.convert v
         Konst1 n d -> do
           t <- eval1 d
           return $! OR.stretchOuter n $ OR.ravel (ORB.constant [1] t)
