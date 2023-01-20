@@ -779,7 +779,7 @@ map1Vectorize (var, u) w = case u of
   AstDot10 _u _v -> AstMapPair01 (var, u) w  -- TODO
   AstMinimum10 _v -> AstMapPair01 (var, u) w  -- TODO
   AstMaximum10 _v -> AstMapPair01 (var, u) w  -- TODO
-  _ -> undefined
+  _ -> AstMapPair01 (var, u) w  -- TODO
   -- TODO: -- All other patterns are redundant due to GADT typing.
 
 leqAst :: Ast0 r -> Ast0 r -> AstBool r
@@ -807,6 +807,12 @@ interpretLambdaI
 interpretLambdaI env (AstVarName var, ast) =
   \i -> interpretAst0 (IM.insert var (AstVarI i) env) ast
 
+interpretAst0Primal
+  :: ADModeAndNum d r
+  => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vec r)))
+  -> Ast0 r -> r
+interpretAst0Primal env r = let D u _ = interpretAst0 env r in u
+
 interpretAst0
   :: ADModeAndNum d r
   => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vec r)))
@@ -820,9 +826,9 @@ interpretAst0 env = \case
   AstInt0 i -> fromInteger $ fromIntegral $ interpretAstInt env i
   AstConst0 a -> constant a
   AstConstant0 (AstPrimalPart0 a) ->
-    constant $ let D u _ = interpretAst0 env a in u
+    constant $ interpretAst0Primal env a
   AstScale0 (AstPrimalPart0 r) d ->
-    scale (let D u _ = interpretAst0 env r in u) (interpretAst0 env d)
+    scale (interpretAst0Primal env r) (interpretAst0 env d)
 
   AstVar0 (AstVarName var) -> case IM.lookup var env of
     Just (AstVarR0 d) -> d
@@ -850,8 +856,13 @@ interpretAst0 env = \case
     constant
     $ omap (\x -> let D u _ = interpretLambdaD0 env (var, r) (constant x)
                   in u)
-           (let D u _ = interpretAst0 env e
-            in u)
+           (interpretAst0Primal env e)
+
+interpretAst1Primal
+  :: (ADModeAndNum d r, KnownNat n)
+  => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vec r)))
+  -> Ast1 n r -> OR.Array n r
+interpretAst1Primal env v = let D u _ = interpretAst1 env v in u
 
 interpretAst1
   :: (ADModeAndNum d r, KnownNat n)
@@ -876,9 +887,9 @@ interpretAst1 env = \case
   AstInt1 i -> fromInteger $ fromIntegral $ interpretAstInt env i
   AstConst1 a -> constant a
   AstConstant1 (AstPrimalPart1 a) ->
-    constant $ let D u _ = interpretAst1 env a in u
+    constant $ interpretAst1Primal env a
   AstScale1 (AstPrimalPart1 r) d ->
-    scale (let D u _ = interpretAst1 env r in u) (interpretAst1 env d)
+    scale (interpretAst1Primal env r) (interpretAst1 env d)
 
   AstVar1 (AstVarName var) -> case IM.lookup var env of
     Just AstVarR0{} ->
@@ -932,8 +943,7 @@ interpretAst1 env = \case
     constant
     $ omap (\x -> let D u _ = interpretLambdaD0 env (var, r) (constant x)
                   in u)
-           (let D u _ = interpretAst1 env e
-            in u)
+           (interpretAst1Primal env e)
 
 interpretAstInt :: ADModeAndNum d r
                 => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vec r)))
@@ -964,7 +974,7 @@ interpretAstBool env = \case
     interpretAstBoolOp (interpretAstBool env) codeBoolOut args
   AstBoolConst a -> a
   AstRel relOut args ->
-    let f x = let D u _u' = interpretAst0 env x in u
+    let f x = interpretAst0Primal env x
     in interpretAstRel f relOut args
   AstRelInt relOut args ->
     let f = interpretAstInt env
