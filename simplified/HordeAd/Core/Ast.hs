@@ -53,6 +53,10 @@ data Ast0 :: Type -> Type where
   AstMinimum10 :: Ast1 n r -> Ast0 r
   AstMaximum10 :: Ast1 n r -> Ast0 r
 
+  AstOMap0 :: (AstVarName r, Ast0 r) -> Ast0 r -> Ast0 r
+    -- see AstOMap1; this is needed even at rank 0 to capture and interpret
+    -- the function instead of evaluating it on terms (e.g., comparing them)
+
 newtype AstPrimalPart0 r = AstPrimalPart0 (Ast0 r)
 
 data Ast1 :: Nat -> Type -> Type where
@@ -94,8 +98,7 @@ data Ast1 :: Nat -> Type -> Type where
                    -> Ast1 1 r
   AstFrom01 :: Ast0 r -> Ast1 0 r
 
-  AstOMap1 :: (AstVarName r, Ast0 r) -> Ast1 1 r
-           -> Ast1 1 r
+  AstOMap1 :: (AstVarName r, Ast0 r) -> Ast1 1 r -> Ast1 1 r
     -- this is necessary for MonoFunctor and so for a particularly
     -- fast implementation of relu
     -- TODO: this is really only needed in AstPrimalPart, but making
@@ -360,9 +363,15 @@ unsafeGetFreshAstVar :: IO (AstVarName a)
 {-# INLINE unsafeGetFreshAstVar #-}
 unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-astOmap :: (Ast0 r -> Ast0 r) -> Ast1 1 r -> Ast1 1 r
-{-# NOINLINE astOmap #-}
-astOmap f e = unsafePerformIO $ do
+astOmap0 :: (Ast0 r -> Ast0 r) -> Ast0 r -> Ast0 r
+{-# NOINLINE astOmap0 #-}
+astOmap0 f e = unsafePerformIO $ do
+  freshAstVar <- unsafeGetFreshAstVar
+  return $! AstOMap0 (freshAstVar, f (AstVar0 freshAstVar)) e
+
+astOmap1 :: (Ast0 r -> Ast0 r) -> Ast1 1 r -> Ast1 1 r
+{-# NOINLINE astOmap1 #-}
+astOmap1 f e = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
   return $! AstOMap1 (freshAstVar, f (AstVar0 freshAstVar)) e
 
@@ -370,10 +379,16 @@ instance MonoFunctor (AstPrimalPart1 1 r) where
   omap f (AstPrimalPart1 x) =
     let g y = let AstPrimalPart0 z = f (AstPrimalPart0 y)
               in z
-    in AstPrimalPart1 (astOmap g x)
+    in AstPrimalPart1 (astOmap1 g x)
 
 instance MonoFunctor (AstPrimalPart0 Double) where
-  omap f = f
+  omap f (AstPrimalPart0 x) =
+    let g y = let AstPrimalPart0 z = f (AstPrimalPart0 y)
+              in z
+    in AstPrimalPart0 (astOmap0 g x)
 
 instance MonoFunctor (AstPrimalPart0 Float) where
-  omap f = f
+  omap f (AstPrimalPart0 x) =
+    let g y = let AstPrimalPart0 z = f (AstPrimalPart0 y)
+              in z
+    in AstPrimalPart0 (astOmap0 g x)

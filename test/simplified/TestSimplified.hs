@@ -120,7 +120,9 @@ barRelu x = relu $ bar (x, relu x)
 barReluAst
   :: (RealFloat r, MonoFunctor (AstPrimalPart0 r))
   => Ast0 r -> Ast0 r
-barReluAst x = reluAst0 $ bar (x, reluAst0 x)  -- TODO; fails: barRelu @(Ast0 r)
+barReluAst x = reluAst0 $ bar (x, reluAst0 x)
+  -- TODO; fails due to relu using conditionals and @>@ instead of
+  -- a generalization of those that have Ast instance: barRelu @(Ast0 r)
 
 -- TODO: merge with the above once rank-polymorphic relu is recovered
 barReluAst1

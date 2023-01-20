@@ -259,6 +259,10 @@ reluLeaky v =
   in scale oneIfGtZero v
 
 -- TODO: bring back rank-poly relu by adding a class with Ast0 and Ast1
+-- or even better generalize the function after omap above so that
+-- it has a sensible Ast instance and then kill reluAst0 and reluAst1;
+-- we'd need Conditional class that works with our AstBool type
+-- and some sugar to be able to use >, &&, etc.
 reluAst0
   :: (MonoFunctor (PrimalOf (Ast0 r)), Fractional r)
   => Ast0 r -> Ast0 r
@@ -696,6 +700,8 @@ buildOfFrom01Vectorize n (var, u) =
     AstMinimum10 _v -> AstBuildPair1 n (var, AstFrom01 u)  -- TODO
     AstMaximum10 _v -> AstBuildPair1 n (var, AstFrom01 u)  -- TODO
 
+    AstOMap0{} -> AstBuildPair1 n (var, AstFrom01 u)  -- TODO
+
 -- TODO: speed up by keeping free vars in each node.
 intVarInAst0 :: AstVarName Int -> Ast0 r -> Bool
 intVarInAst0 var v = case v of
@@ -839,6 +845,13 @@ interpretAst0 env = \case
     -- not general enough: lminimum0 $ interpretAst env v
   AstMaximum10 _v -> undefined  -- TODO
     -- not general enough: lmaximum0 $ interpretAst env v
+
+  AstOMap0 (var, r) e ->  -- this only works on the primal part hence @constant@
+    constant
+    $ omap (\x -> let D u _ = interpretLambdaD0 env (var, r) (constant x)
+                  in u)
+           (let D u _ = interpretAst0 env e
+            in u)
 
 interpretAst1
   :: (ADModeAndNum d r, KnownNat n)
