@@ -22,6 +22,7 @@ import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Type)
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import qualified Data.Strict.Vector as Data.Vector
+import           GHC.TypeLits (KnownNat, type (+))
 import           System.IO.Unsafe (unsafePerformIO)
 import           Text.Show.Functions ()
 
@@ -36,9 +37,10 @@ import HordeAd.Internal.OrthotopeOrphanInstances ()
 data Ast :: Type -> Type -> Type where
   AstOp :: CodeOut -> [Ast r a] -> Ast r a
   AstCond :: AstBool r -> Ast r a -> Ast r a -> Ast r a
-  AstSelect :: AstInt r -> (AstVarName Int, AstBool r)
-            -> Ast r (OR.Array 1 r) -> Ast r (OR.Array 1 r)
-            -> Ast r (OR.Array 1 r)
+  AstSelect :: KnownNat n
+            => AstInt r -> (AstVarName Int, AstBool r)
+            -> Ast r (OR.Array n r) -> Ast r (OR.Array n r)
+            -> Ast r (OR.Array n r)
   AstInt :: AstInt r -> Ast r a
   AstConst :: a -> Ast r a  -- sort of partially evaluated @AstConstant@
   AstConstant :: AstPrimalPart r a -> Ast r a
@@ -47,29 +49,45 @@ data Ast :: Type -> Type -> Type where
   AstVar0 :: AstVarName r -> Ast r r
   AstVar1 :: AstVarName (OR.Array 1 r) -> Ast r (OR.Array 1 r)
 
-  -- Taken from VectorLike:
-  AstIndex10 :: Ast r (OR.Array 1 r) -> AstInt r -> Ast r r
-  AstSumElements10 :: Ast r (OR.Array 1 r) -> Ast r r
-  AstDot0 :: Ast r (OR.Array 1 r) -> Ast r (OR.Array 1 r) -> Ast r r
-  AstMinimum0 :: Ast r (OR.Array 1 r) -> Ast r r
-  AstMaximum0 :: Ast r (OR.Array 1 r) -> Ast r r
+  AstIndex10 :: KnownNat n
+             => Ast r (OR.Array n r) -> [AstInt r] -> Ast r r
+  AstSum10 :: Ast r (OR.Array n r) -> Ast r r
+  AstDot10 :: Ast r (OR.Array n r) -> Ast r (OR.Array n r) -> Ast r r
+  AstFrom10 :: Ast r (OR.Array 0 r) -> Ast r r
+  AstMinimum10 :: Ast r (OR.Array n r) -> Ast r r
+  AstMaximum10 :: Ast r (OR.Array n r) -> Ast r r
 
-  AstFromList1 :: [Ast r r] -> Ast r (OR.Array 1 r)
-  AstFromVector1 :: Data.Vector.Vector (Ast r r) -> Ast r (OR.Array 1 r)
-  AstKonst1 :: AstInt r -> Ast r r -> Ast r (OR.Array 1 r)
-  AstAppend1 :: Ast r (OR.Array 1 r) -> Ast r (OR.Array 1 r)
-             -> Ast r (OR.Array 1 r)
-  AstSlice1 :: AstInt r -> AstInt r -> Ast r (OR.Array 1 r)
-            -> Ast r (OR.Array 1 r)
-  AstReverse1 :: Ast r (OR.Array 1 r) -> Ast r (OR.Array 1 r)
+  AstIndex1 :: Ast r (OR.Array (n + 1) r) -> AstInt r -> Ast r (OR.Array n r)
+  AstSum1 :: Ast r (OR.Array (n + 1) r) -> Ast r (OR.Array n r)
+  AstFromList1 :: KnownNat n
+               => OR.ShapeL -> [Ast r (OR.Array n r)]
+               -> Ast r (OR.Array (n + 1) r)
+  AstFromVector1 :: OR.ShapeL -> Data.Vector.Vector (Ast r (OR.Array n r))
+                 -> Ast r (OR.Array (n + 1) r)
+  AstKonst1 :: KnownNat n
+            => AstInt r -> Ast r (OR.Array n r) -> Ast r (OR.Array (n + 1) r)
+  AstAppend1 :: Ast r (OR.Array n r) -> Ast r (OR.Array n r)
+             -> Ast r (OR.Array n r)
+  AstSlice1 :: AstInt r -> AstInt r -> Ast r (OR.Array n r)
+            -> Ast r (OR.Array n r)
+  AstReverse1 :: Ast r (OR.Array n r) -> Ast r (OR.Array n r)
+  AstBuildPair1 :: AstInt r -> (AstVarName Int, Ast r (OR.Array n r))
+                -> Ast r (OR.Array (n + 1) r)
+  AstReshape1 :: OR.ShapeL -> Ast r (OR.Array n r) -> Ast r (OR.Array m r)
 
-  AstBuildPair1 :: AstInt r -> (AstVarName Int, Ast r r)
-                -> Ast r (OR.Array 1 r)
-  AstMapPair1 :: (AstVarName r, Ast r r) -> Ast r (OR.Array 1 r)
-              -> Ast r (OR.Array 1 r)
-  AstZipWithPair1 :: (AstVarName r, AstVarName r, Ast r r)
-                  -> Ast r (OR.Array 1 r) -> Ast r (OR.Array 1 r)
-                  -> Ast r (OR.Array 1 r)
+  -- Fixed rank 1 to avoid OR.ShapeL arguments:
+  AstFromList01 :: [Ast r r] -> Ast r (OR.Array 1 r)
+  AstFromVector01 :: Data.Vector.Vector (Ast r r) -> Ast r (OR.Array 1 r)
+  AstKonst01 :: AstInt r -> Ast r r -> Ast r (OR.Array 1 r)
+  -- We don't have AstVarName for list variables, so only rank 1 for now:
+  AstBuildPair01 :: AstInt r -> (AstVarName Int, Ast r r)
+                 -> Ast r (OR.Array 1 r)
+  AstMapPair01 :: (AstVarName r, Ast r r) -> Ast r (OR.Array 1 r)
+               -> Ast r (OR.Array 1 r)
+  AstZipWithPair01 :: (AstVarName r, AstVarName r, Ast r r)
+                   -> Ast r (OR.Array 1 r) -> Ast r (OR.Array 1 r)
+                   -> Ast r (OR.Array 1 r)
+  AstFrom01 :: Ast r r -> Ast r (OR.Array 0 r)
 
   AstOMap1 :: (AstVarName r, Ast r r) -> Ast r (OR.Array 1 r)
            -> Ast r (OR.Array 1 r)
