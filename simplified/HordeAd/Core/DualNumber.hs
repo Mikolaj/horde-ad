@@ -21,7 +21,8 @@ module HordeAd.Core.DualNumber
   , VectorLike(..), ADReady
   , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
   , -- temporarily re-exported, until these are wrapped in sugar
-    Ast(..), AstPrimalPart(..), AstVarName(..), AstVar(..)
+    Ast0(..), AstPrimalPart0(..), Ast1(..), AstPrimalPart1(..)
+  , AstVarName(..), AstVar(..)
   , AstInt(..), AstBool(..)
   , CodeOut(..), CodeIntOut(..), CodeBoolOut(..), RelOut(..)
   ) where
@@ -212,15 +213,25 @@ instance (KnownNat n, Numeric r, Num (Vector r))
   ddD u _ = u
   fromIntOf = fromInteger . fromIntegral
 
-instance HasPrimal (Ast r a) where
-  type PrimalOf (Ast r a) = AstPrimalPart r a
-  type DualOf (Ast r a) = ()  -- TODO: data AstDualPart: dScale, dAdd, dkonst1
-  constant = AstConstant
-  scale = AstScale
-  primalPart = AstPrimalPart
+instance HasPrimal (Ast0 r) where
+  type PrimalOf (Ast0 r) = AstPrimalPart0 r
+  type DualOf (Ast0 r) = ()  -- TODO: data AstDualPart: dScale, dAdd, dkonst1
+  constant = AstConstant0
+  scale = AstScale0
+  primalPart = AstPrimalPart0
   dualPart = error "TODO"
   ddD = error "TODO"
-  fromIntOf = AstInt
+  fromIntOf = AstInt0
+
+instance HasPrimal (Ast1 n r) where
+  type PrimalOf (Ast1 n r) = AstPrimalPart1 n r
+  type DualOf (Ast1 n r) = ()  -- TODO: data AstDualPart: dScale, dAdd, dkonst1
+  constant = AstConstant1
+  scale = AstScale1
+  primalPart = AstPrimalPart1
+  dualPart = error "TODO"
+  ddD = error "TODO"
+  fromIntOf = AstInt1
 
 logistic :: (Floating a, IsPrimal d a) => ADVal d a -> ADVal d a
 logistic (D u u') =
@@ -247,16 +258,25 @@ reluLeaky v =
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) (primalPart v)
   in scale oneIfGtZero v
 
-reluAst
-  :: ( Fractional a, MonoFunctor (PrimalOf (Ast r a))
-     , r ~ Element a, Fractional r )
-  => Ast r a -> Ast r a
-reluAst v =
-  let oneIfGtZero = omap (\(AstPrimalPart x) ->
-                            AstPrimalPart $ AstCond (AstRel GtOut [x, 0]) 1 0)
+-- TODO: bring back rank-poly relu by adding a class with Ast0 and Ast1
+reluAst0
+  :: (MonoFunctor (PrimalOf (Ast0 r)), Fractional r)
+  => Ast0 r -> Ast0 r
+reluAst0 v =
+  let oneIfGtZero = omap (\(AstPrimalPart0 x) ->
+                            AstPrimalPart0 $ AstCond0 (AstRel GtOut [x, 0]) 1 0)
                          (primalPart v)
   in scale oneIfGtZero v
 
+reluAst1
+  :: ( KnownNat n, Num (Vector r), MonoFunctor (PrimalOf (Ast1 n r))
+     , Fractional r, Numeric r )
+  => Ast1 n r -> Ast1 n r
+reluAst1 v =
+  let oneIfGtZero = omap (\(AstPrimalPart0 x) ->
+                            AstPrimalPart0 $ AstCond0 (AstRel GtOut [x, 0]) 1 0)
+                         (primalPart v)
+  in scale oneIfGtZero v
 
 -- * Operations resulting in a scalar
 
@@ -463,7 +483,7 @@ instance (Numeric r, IntOf r ~ Int, VectorOf r ~ Vec r)
   lmap1 = OR.mapA
   lzipWith = OR.zipWithA
 
-instance VectorLike (Ast r (Vec r)) (Ast r r) where
+instance VectorLike (Ast1 1 r) (Ast0 r) where
   llength = AstLength
   lminIndex = AstMinIndex
   lmaxIndex = AstMaxIndex
@@ -527,30 +547,29 @@ unsafeGetFreshAstVar :: IO (AstVarName a)
 {-# INLINE unsafeGetFreshAstVar #-}
 unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-astBuild1 :: AstInt r -> (AstInt r -> Ast r r) -> Ast r (OR.Array 1 r)
+astBuild1 :: AstInt r -> (AstInt r -> Ast0 r) -> Ast1 1 r
 {-# NOINLINE astBuild1 #-}
 astBuild1 n f = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
   return $! build1Vectorize n ( freshAstVar
                               , AstFrom01 (f (AstIntVar freshAstVar)) )
 
-astMap1 :: (Ast r r -> Ast r r) -> Ast r (OR.Array 1 r) -> Ast r (OR.Array 1 r)
+astMap1 :: (Ast0 r -> Ast0 r) -> Ast1 1 r -> Ast1 1 r
 {-# NOINLINE astMap1 #-}
 astMap1 f e = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
   return $! map1Vectorize (freshAstVar, f (AstVar0 freshAstVar)) e
 
 build1Vectorize
-  :: KnownNat n
-  => AstInt r -> (AstVarName Int, Ast r (OR.Array n r))
-  -> Ast r (OR.Array (n + 1) r)
+  :: AstInt r -> (AstVarName Int, Ast1 n r)
+  -> Ast1 (n + 1) r
 build1Vectorize n (var, u) =
-  if not (intVarInAst var u)
+  if not (intVarInAst1 var u)
   then AstKonst1 n u
   else case u of
-    AstOp codeOut args ->
-      AstOp codeOut $ map (\w -> build1Vectorize n (var, w)) args
-    AstCond b x y ->
+    AstOp1 codeOut args ->
+      AstOp1 codeOut $ map (\w -> build1Vectorize n (var, w)) args
+    AstCond1 b x y ->
       -- This handles conditionals that depend on var,
       -- so that we produce conditional delta expressions
       -- of size proportional to the exponent of conditional
@@ -558,18 +577,18 @@ build1Vectorize n (var, u) =
       -- of the tensor.
       --
       -- TODO: actually check that var is in b and simplify if not.
-      AstSelect n (var, b)
-                (build1Vectorize n (var, x))
-                (build1Vectorize n (var, y))
-    AstSelect _n2 (_var2, _b) _x _y -> AstBuildPair1 n (var, u)  -- TODO
-    AstInt{} -> error "build1Vectorize: can't have free int variables"
-    AstConst{} -> error "build1Vectorize: can't have free int variables"
-    AstConstant _r -> AstConstant $ AstPrimalPart $ AstBuildPair1 n (var, u)
+      AstSelect1 n (var, b)
+                 (build1Vectorize n (var, x))
+                 (build1Vectorize n (var, y))
+    AstSelect1 _n2 (_var2, _b) _x _y -> AstBuildPair1 n (var, u)  -- TODO
+    AstInt1{} -> error "build1Vectorize: can't have free int variables"
+    AstConst1{} -> error "build1Vectorize: can't have free int variables"
+    AstConstant1 _r -> AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, u)
       -- this is very fast when interpreted in a smart way, but constant
       -- character needs to be exposed for nested cases;
       -- TODO: similarly propagate AstConstant upwards elsewhere
-    AstScale (AstPrimalPart r) d ->
-      AstScale (AstPrimalPart $ build1Vectorize n (var, r))
+    AstScale1 (AstPrimalPart1 r) d ->
+      AstScale1 (AstPrimalPart1 $ build1Vectorize n (var, r))
                (build1Vectorize n (var, d))
 
     AstVar1{} -> error "build1Vectorize: can't have free int variables"
@@ -599,17 +618,16 @@ build1Vectorize n (var, u) =
 
 -- @var@ is in @v@ or @i@.
 buildOfIndex10Vectorize
-  :: KnownNat n
-  => AstInt r -> AstVarName Int -> Ast r (OR.Array (n + 1) r) -> AstInt r
-  -> Ast r (OR.Array (n + 1) r)
+  :: AstInt r -> AstVarName Int -> Ast1 (n + 1) r -> AstInt r
+  -> Ast1 (n + 1) r
 buildOfIndex10Vectorize n var v i =
   case v of
-    AstOp codeOut args ->
-      AstOp codeOut $ map (\w -> buildOfIndex10Vectorize n var w i) args
-    AstCond b x y ->
-      AstSelect n (var, b) (buildOfIndex10Vectorize n var x i)
-                           (buildOfIndex10Vectorize n var y i)
-    AstConst _r -> buildOfIndex10VectorizeVarNotInV n var v i
+    AstOp1 codeOut args ->
+      AstOp1 codeOut $ map (\w -> buildOfIndex10Vectorize n var w i) args
+    AstCond1 b x y ->
+      AstSelect1 n (var, b) (buildOfIndex10Vectorize n var x i)
+                            (buildOfIndex10Vectorize n var y i)
+    AstConst1 _r -> buildOfIndex10VectorizeVarNotInV n var v i
     -- AstFromList1, AstFromVector1: see Note [AstFromList1 is hard]
     AstFromList1 _ l | AstIntConst k <- i -> build1Vectorize n (var, l !! k)
     -- TODO: AstAppend1 v1 v2 -> ... AstCond (i < AstLength v1) (...v1) (...v2)
@@ -622,7 +640,7 @@ buildOfIndex10Vectorize n var v i =
     --   build1Vectorize n (var, substitute var2 i u2))
            -- TODO: use environments instead
     _ ->
-      if intVarInAst var v
+      if intVarInAst1 var v
       then -- can't do much, probably, since v different in each cell?
         AstBuildPair1 n (var, AstIndex1 v i)
       else
@@ -630,8 +648,8 @@ buildOfIndex10Vectorize n var v i =
 
 -- The case where @var@ does not occur in @v@, which implies it's in @i@.
 buildOfIndex10VectorizeVarNotInV
-  :: AstInt r -> AstVarName Int -> Ast r (OR.Array (n + 1) r) -> AstInt r
-  -> Ast r (OR.Array (n + 1) r)
+  :: AstInt r -> AstVarName Int -> Ast1 (n + 1) r -> AstInt r
+  -> Ast1 (n + 1) r
 buildOfIndex10VectorizeVarNotInV n var v i = case i of
   AstIntOp PlusIntOut [AstIntVar var2, i2] | var2 == var ->
     AstSlice1 i2 n v
@@ -650,25 +668,25 @@ buildOfIndex10VectorizeVarNotInV n var v i = case i of
     -- expression, construct 'gather'
 
 buildOfFrom01Vectorize
-  :: AstInt r -> (AstVarName Int, Ast r r) -> Ast r (OR.Array 1 r)
+  :: AstInt r -> (AstVarName Int, Ast0 r) -> Ast1 1 r
 buildOfFrom01Vectorize n (var, u) =
   case u of
-    AstOp codeOut args ->
-      AstOp codeOut
+    AstOp0 codeOut args ->
+      AstOp1 codeOut
       $ map (\w -> buildOfFrom01Vectorize n (var, w)) args
-    AstCond b x y ->
-      AstSelect n (var, b) (buildOfFrom01Vectorize n (var, x))
-                           (buildOfFrom01Vectorize n (var, y))
-    AstInt{} -> error "buildOfFrom01Vectorize: can't have free int variables"
-    AstConst{} -> error "buildOfFrom01Vectorize: can't have free int variables"
-    AstConstant _r ->
-      AstConstant $ AstPrimalPart $ AstBuildPair1 n (var, AstFrom01 u)
+    AstCond0 b x y ->
+      AstSelect1 n (var, b) (buildOfFrom01Vectorize n (var, x))
+                            (buildOfFrom01Vectorize n (var, y))
+    AstInt0{} -> error "buildOfFrom01Vectorize: can't have free int variables"
+    AstConst0{} -> error "buildOfFrom01Vectorize: can't have free int variables"
+    AstConstant0 _r ->
+      AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, AstFrom01 u)
       -- this is very fast when interpreted in a smart way, but constant
       -- character needs to be exposed for nested cases;
       -- TODO: similarly propagate AstConstant upwards elsewhere
-    AstScale (AstPrimalPart r) d ->
-      AstScale (AstPrimalPart $ buildOfFrom01Vectorize n (var, r))
-               (buildOfFrom01Vectorize n (var, d))
+    AstScale0 (AstPrimalPart0 r) d ->
+      AstScale1 (AstPrimalPart1 $ buildOfFrom01Vectorize n (var, r))
+                (buildOfFrom01Vectorize n (var, d))
     AstVar0{} ->
       error "buildOfFrom01Vectorize: can't have free int variables"
     AstIndex10 _v _is  -> AstBuildPair1 n (var, AstFrom01 u)  -- TODO
@@ -679,18 +697,27 @@ buildOfFrom01Vectorize n (var, u) =
     AstMaximum10 _v -> AstBuildPair1 n (var, AstFrom01 u)  -- TODO
 
 -- TODO: speed up by keeping free vars in each node.
-intVarInAst :: AstVarName Int -> Ast r a -> Bool
-intVarInAst var v = case v of
-  AstOp _ lv -> or $ map (intVarInAst var) lv
-  AstCond _b x y -> intVarInAst var x || intVarInAst var y  -- TODO: check in b
-  AstSelect _n (var2, _b) x y ->
-    var == var2 || intVarInAst var x || intVarInAst var y
-      -- TODO: check in n and b
-  AstConst{} -> False
+intVarInAst0 :: AstVarName Int -> Ast0 r -> Bool
+intVarInAst0 var v = case v of
+  AstOp0 _ lv -> or $ map (intVarInAst0 var) lv
+  AstCond0 _b x y -> intVarInAst0 var x || intVarInAst0 var y
+                       -- TODO: check in b
+  AstConst0{} -> False
   AstVar0{} -> False  -- not an int variable
+  _ -> True  -- conservative, TODO
+
+intVarInAst1 :: AstVarName Int -> Ast1 n r -> Bool
+intVarInAst1 var v = case v of
+  AstOp1 _ lv -> or $ map (intVarInAst1 var) lv
+  AstCond1 _b x y -> intVarInAst1 var x || intVarInAst1 var y
+                       -- TODO: check in b
+  AstSelect1 _n (var2, _b) x y ->
+    var == var2 || intVarInAst1 var x || intVarInAst1 var y
+      -- TODO: check in n and b
+  AstConst1{} -> False
   AstVar1{} -> False  -- not an int variable
-  AstFromList1 _ l -> or $ map (intVarInAst var) l  -- down from rank 1 to 0
-  AstFromVector1 _ vl -> or $ map (intVarInAst var) $ V.toList vl
+  AstFromList1 _ l -> or $ map (intVarInAst1 var) l  -- down from rank 1 to 0
+  AstFromVector1 _ vl -> or $ map (intVarInAst1 var) $ V.toList vl
   _ -> True  -- conservative, TODO
 
 {- Note [AstFromList1 is hard]
@@ -726,18 +753,18 @@ but from vectors, distributing their elements in various patterns
 -- But doing this naively copies @w@ a lot, so we'd need to wait
 -- until AST handles sharing properly. Or make @w@ a variable.
 map1Vectorize
-  :: (AstVarName r, Ast r r) -> Ast r (OR.Array 1 r)
-  -> Ast r (OR.Array 1 r)
+  :: (AstVarName r, Ast0 r) -> Ast1 1 r
+  -> Ast1 1 r
 map1Vectorize (var, u) w = case u of
-  AstOp codeOut args ->
-    AstOp codeOut $ map (\x -> map1Vectorize (var, x) w) args
-  AstInt _i -> AstMapPair01 (var, u) w  -- TODO
-  AstCond _b _x1 _x2 -> AstMapPair01 (var, u) w  -- TODO
-  AstConst r -> AstKonst01 (AstLength w) (AstConst r)
-  AstConstant _r -> AstMapPair01 (var, u) w  -- TODO
-  AstScale (AstPrimalPart r) d ->
-    AstScale (AstPrimalPart $ map1Vectorize (var, r) w)
-             (map1Vectorize (var, d) w)
+  AstOp0 codeOut args ->
+    AstOp1 codeOut $ map (\x -> map1Vectorize (var, x) w) args
+  AstInt0 _i -> AstMapPair01 (var, u) w  -- TODO
+  AstCond0 _b _x1 _x2 -> AstMapPair01 (var, u) w  -- TODO
+  AstConst0 r -> AstKonst01 (AstLength w) (AstConst0 r)
+  AstConstant0 _r -> AstMapPair01 (var, u) w  -- TODO
+  AstScale0 (AstPrimalPart0 r) d ->
+    AstScale1 (AstPrimalPart1 $ map1Vectorize (var, r) w)
+              (map1Vectorize (var, d) w)
   AstVar0 var2 | var2 == var -> w  -- identity mapping
   AstVar0 var2 -> AstKonst01 (AstLength w) (AstVar0 var2)
   AstIndex10 _v _i -> AstMapPair01 (var, u) w  -- TODO
@@ -749,57 +776,47 @@ map1Vectorize (var, u) w = case u of
   _ -> undefined
   -- TODO: -- All other patterns are redundant due to GADT typing.
 
-leqAst :: Ast r r -> Ast r r -> AstBool r
+leqAst :: Ast0 r -> Ast0 r -> AstBool r
 leqAst d e = AstRel LeqOut [d, e]
 
-gtAst :: Ast r r -> Ast r r -> AstBool r
+gtAst :: Ast0 r -> Ast0 r -> AstBool r
 gtAst d e = AstRel GtOut [d, e]
 
 gtIntAst :: AstInt r -> AstInt r -> AstBool r
 gtIntAst i j = AstRelInt GtOut [i, j]
 
 interpretLambdaD0
-  :: (ADModeAndNum d r, IsPrimalAndHasFeatures d a r)
+  :: ADModeAndNum d r
   => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vec r)))
-  -> (AstVarName r, Ast r a)
-  -> ADVal d r -> ADVal d a
+  -> (AstVarName r, Ast0 r)
+  -> ADVal d r -> ADVal d r
 interpretLambdaD0 env (AstVarName var, ast) =
-  \d -> interpretAst (IM.insert var (AstVarR0 d) env) ast
+  \d -> interpretAst0 (IM.insert var (AstVarR0 d) env) ast
 
 interpretLambdaI
-  :: (ADModeAndNum d r, IsPrimalAndHasFeatures d a r)
+  :: ADModeAndNum d r
   => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vec r)))
-  -> (AstVarName Int, Ast r a)
-  -> Int -> ADVal d a
+  -> (AstVarName Int, Ast0 r)
+  -> Int -> ADVal d r
 interpretLambdaI env (AstVarName var, ast) =
-  \i -> interpretAst (IM.insert var (AstVarI i) env) ast
+  \i -> interpretAst0 (IM.insert var (AstVarI i) env) ast
 
-interpretAst
-  :: (ADModeAndNum d r, IsPrimalAndHasFeatures d a r)
+interpretAst0
+  :: ADModeAndNum d r
   => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vec r)))
-  -> Ast r a -> ADVal d a
-interpretAst env = \case
-  AstOp codeOut args ->
-    interpretAstOp (interpretAst env) codeOut args
-  AstCond b a1 a2 -> if interpretAstBool env b
-                     then interpretAst env a1
-                     else interpretAst env a2
-  AstSelect n (AstVarName var, b) a1 a2 ->
-    let k = interpretAstInt env n
-        f [i] = if interpretAstBool (IM.insert var (AstVarI i) env) b
-                then 1
-                else 0
-        f _ = error "AstSelect: unexpected argument"
-        bitmap = constant $ OR.generate [k] f
-        v1 = interpretAst env a1
-        v2 = interpretAst env a2
-    in bitmap * v1 + v2 - bitmap * v2
-  AstInt i -> fromInteger $ fromIntegral $ interpretAstInt env i
-  AstConst a -> constant a
-  AstConstant (AstPrimalPart a) ->
-    constant $ let D u _ = interpretAst env a in u
-  AstScale (AstPrimalPart r) d ->
-    scale (let D u _ = interpretAst env r in u) (interpretAst env d)
+  -> Ast0 r -> ADVal d r
+interpretAst0 env = \case
+  AstOp0 codeOut args ->
+    interpretAstOp (interpretAst0 env) codeOut args
+  AstCond0 b a1 a2 -> if interpretAstBool env b
+                      then interpretAst0 env a1
+                      else interpretAst0 env a2
+  AstInt0 i -> fromInteger $ fromIntegral $ interpretAstInt env i
+  AstConst0 a -> constant a
+  AstConstant0 (AstPrimalPart0 a) ->
+    constant $ let D u _ = interpretAst0 env a in u
+  AstScale0 (AstPrimalPart0 r) d ->
+    scale (let D u _ = interpretAst0 env r in u) (interpretAst0 env d)
 
   AstVar0 (AstVarName var) -> case IM.lookup var env of
     Just (AstVarR0 d) -> d
@@ -807,15 +824,9 @@ interpretAst env = \case
       error $ "interpretAst: type mismatch for var " ++ show var
     Just AstVarI{} -> error $ "interpretAst: type mismatch for var " ++ show var
     Nothing -> error $ "interpretAst: unknown variable var " ++ show var
-  AstVar1 (AstVarName var) -> case IM.lookup var env of
-    Just AstVarR0{} ->
-      error $ "interpretAst: type mismatch for var " ++ show var
-    Just (AstVarR1 d) -> d
-    Just AstVarI{} -> error $ "interpretAst: type mismatch for var " ++ show var
-    Nothing -> error $ "interpretAst: unknown variable var " ++ show var
 
   AstIndex10 v is ->
-    let D u u' = interpretAst env v
+    let D u u' = interpretAst1 env v
         ixs = map (interpretAstInt env) is
     in dD (u `atIndexInTensorR` ixs) (dIndex10 u' ixs (OR.shapeL u))
     -- not general enough: lindex10 (interpretAst env v) (interpretAstInt env i)
@@ -823,11 +834,45 @@ interpretAst env = \case
     -- not general enough: lsumElements10 $ interpretAst env v
   AstDot10 _u _v -> undefined  -- TODO
     -- not general enough: interpretAst env u `ldot0` interpretAst env v
-  AstFrom10 u -> from10 $ interpretAst env u
+  AstFrom10 u -> from10 $ interpretAst1 env u
   AstMinimum10 _v -> undefined  -- TODO
     -- not general enough: lminimum0 $ interpretAst env v
   AstMaximum10 _v -> undefined  -- TODO
     -- not general enough: lmaximum0 $ interpretAst env v
+
+interpretAst1
+  :: (ADModeAndNum d r, KnownNat n)
+  => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vec r)))
+  -> Ast1 n r -> ADVal d (OR.Array n r)
+interpretAst1 env = \case
+  AstOp1 codeOut args ->
+    interpretAstOp (interpretAst1 env) codeOut args
+  AstCond1 b a1 a2 -> if interpretAstBool env b
+                      then interpretAst1 env a1
+                      else interpretAst1 env a2
+  AstSelect1 n (AstVarName var, b) a1 a2 ->
+    let k = interpretAstInt env n
+        f [i] = if interpretAstBool (IM.insert var (AstVarI i) env) b
+                then 1
+                else 0
+        f _ = error "AstSelect: unexpected argument"
+        bitmap = constant $ OR.generate [k] f
+        v1 = interpretAst1 env a1
+        v2 = interpretAst1 env a2
+    in bitmap * v1 + v2 - bitmap * v2
+  AstInt1 i -> fromInteger $ fromIntegral $ interpretAstInt env i
+  AstConst1 a -> constant a
+  AstConstant1 (AstPrimalPart1 a) ->
+    constant $ let D u _ = interpretAst1 env a in u
+  AstScale1 (AstPrimalPart1 r) d ->
+    scale (let D u _ = interpretAst1 env r in u) (interpretAst1 env d)
+
+  AstVar1 (AstVarName var) -> case IM.lookup var env of
+    Just AstVarR0{} ->
+      error $ "interpretAst: type mismatch for var " ++ show var
+    Just (AstVarR1 d) -> d
+    Just AstVarI{} -> error $ "interpretAst: type mismatch for var " ++ show var
+    Nothing -> error $ "interpretAst: unknown variable var " ++ show var
 
   AstIndex1 _v _i -> undefined  -- TODO
   AstSum1 _v -> undefined  -- TODO
@@ -852,29 +897,29 @@ interpretAst env = \case
       -- fallback to POPL (memory blowup, but avoids functions on tape)
   AstReshape1{} -> undefined  -- TODO
 
-  AstFromList01 l -> lfromList1 $ map (interpretAst env) l
-  AstFromVector01 v -> lfromVector1 $ V.map (interpretAst env) v
-  AstKonst01 n r -> lkonst1 (interpretAstInt env n) (interpretAst env r)
-  AstBuildPair01 i (var, AstConstant r) ->  -- TODO: interpretAstPrimalPart
+  AstFromList01 l -> lfromList1 $ map (interpretAst0 env) l
+  AstFromVector01 v -> lfromVector1 $ V.map (interpretAst0 env) v
+  AstKonst01 n r -> lkonst1 (interpretAstInt env n) (interpretAst0 env r)
+  AstBuildPair01 i (var, AstConstant0 r) ->  -- TODO: interpretAstPrimalPart
     constant
     $ lbuild1 (interpretAstInt env i)
-              (\j -> let D v _ = interpretLambdaI env (var, AstConstant r) j
+              (\j -> let D v _ = interpretLambdaI env (var, AstConstant0 r) j
                      in v)
   AstBuildPair01 i (var, r) ->
     lbuild1 (interpretAstInt env i) (interpretLambdaI env (var, r))
       -- fallback to POPL (memory blowup, but avoids functions on tape)
   AstMapPair01 (var, r) e ->
-    lmap1 (interpretLambdaD0 env (var, r)) (interpretAst env e)
+    lmap1 (interpretLambdaD0 env (var, r)) (interpretAst1 env e)
       -- fallback to POPL (memory blowup, but avoids functions on tape)
   AstZipWithPair01 (_var1, _var2, _r) _e1 _e2 -> undefined
     -- a 2-var interpretLambda would be needed; or express all with build
-  AstFrom01 u -> from01 $ interpretAst env u
+  AstFrom01 u -> from01 $ interpretAst0 env u
 
   AstOMap1 (var, r) e ->  -- this only works on the primal part hence @constant@
     constant
     $ omap (\x -> let D u _ = interpretLambdaD0 env (var, r) (constant x)
                   in u)
-           (let D u _ = interpretAst env e
+           (let D u _ = interpretAst1 env e
             in u)
 
 interpretAstInt :: ADModeAndNum d r
@@ -894,9 +939,9 @@ interpretAstInt env = \case
       error $ "interpretAstP: type mismatch for var " ++ show var
     Just (AstVarI i) -> i
     Nothing -> error $ "interpretAstP: unknown variable var " ++ show var
-  AstLength v -> llength $ interpretAst env v
-  AstMinIndex v -> lminIndex $ interpretAst env v
-  AstMaxIndex v -> lmaxIndex $ interpretAst env v
+  AstLength v -> llength $ interpretAst1 env v
+  AstMinIndex v -> lminIndex $ interpretAst1 env v
+  AstMaxIndex v -> lmaxIndex $ interpretAst1 env v
 
 interpretAstBool :: ADModeAndNum d r
                  => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vec r)))
@@ -906,14 +951,14 @@ interpretAstBool env = \case
     interpretAstBoolOp (interpretAstBool env) codeBoolOut args
   AstBoolConst a -> a
   AstRel relOut args ->
-    let f x = let D u _u' = interpretAst env x in u
+    let f x = let D u _u' = interpretAst0 env x in u
     in interpretAstRel f relOut args
   AstRelInt relOut args ->
     let f = interpretAstInt env
     in interpretAstRel f relOut args
 
 interpretAstOp :: RealFloat b
-               => (Ast r a -> b) -> CodeOut -> [Ast r a] -> b
+               => (c -> b) -> CodeOut -> [c] -> b
 {-# INLINE interpretAstOp #-}
 interpretAstOp f PlusOut [u, v] = f u + f v
 interpretAstOp f MinusOut [u, v] = f u - f v

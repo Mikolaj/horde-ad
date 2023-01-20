@@ -10,7 +10,8 @@
 -- for arbitrary code transformations at the cost of limiting
 -- expressiveness of transformed fragments to what AST captures.
 module HordeAd.Core.Ast
-  ( Ast(..), AstPrimalPart(..), AstVarName(..), AstVar(..)
+  ( Ast0(..), AstPrimalPart0(..), Ast1(..), AstPrimalPart1(..)
+  , AstVarName(..), AstVar(..)
   , AstInt(..), AstBool(..)
   , CodeOut(..), CodeIntOut(..), CodeBoolOut(..), RelOut(..)
   ) where
@@ -22,7 +23,7 @@ import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Type)
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import qualified Data.Strict.Vector as Data.Vector
-import           GHC.TypeLits (KnownNat, type (+))
+import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           System.IO.Unsafe (unsafePerformIO)
 import           Text.Show.Functions ()
 
@@ -32,71 +33,75 @@ import HordeAd.Internal.OrthotopeOrphanInstances ()
 
 -- TODO: consider sharing Ast expressions, both within the primal part
 -- and between primal and dual
--- | AST of the code to be differentiated. The first argument is the underlying
--- scalar. It's necessary to type-check AstVar0. (TODO: try to remove it)
-data Ast :: Type -> Type -> Type where
-  AstOp :: CodeOut -> [Ast r a] -> Ast r a
-  AstCond :: AstBool r -> Ast r a -> Ast r a -> Ast r a
-  AstSelect :: KnownNat n
-            => AstInt r -> (AstVarName Int, AstBool r)
-            -> Ast r (OR.Array n r) -> Ast r (OR.Array n r)
-            -> Ast r (OR.Array n r)
-  AstInt :: AstInt r -> Ast r a
-  AstConst :: a -> Ast r a  -- sort of partially evaluated @AstConstant@
-  AstConstant :: AstPrimalPart r a -> Ast r a
-  AstScale :: AstPrimalPart r a -> Ast r a -> Ast r a
+-- | AST of the code to be differentiated. The argument is the underlying
+-- scalar.
+data Ast0 :: Type -> Type where
+  AstOp0 :: CodeOut -> [Ast0 r] -> Ast0 r
+  AstCond0 :: AstBool r -> Ast0 r -> Ast0 r -> Ast0 r
+  AstInt0 :: AstInt r -> Ast0 r
+  AstConst0 :: r -> Ast0 r  -- sort of partially evaluated @AstConstant0@
+  AstConstant0 :: AstPrimalPart0 r -> Ast0 r
+  AstScale0 :: AstPrimalPart0 r -> Ast0 r -> Ast0 r
 
-  AstVar0 :: AstVarName r -> Ast r r
-  AstVar1 :: AstVarName (OR.Array 1 r) -> Ast r (OR.Array 1 r)
+  AstVar0 :: AstVarName r -> Ast0 r
 
   AstIndex10 :: KnownNat n
-             => Ast r (OR.Array n r) -> [AstInt r] -> Ast r r
-  AstSum10 :: Ast r (OR.Array n r) -> Ast r r
-  AstDot10 :: Ast r (OR.Array n r) -> Ast r (OR.Array n r) -> Ast r r
-  AstFrom10 :: Ast r (OR.Array 0 r) -> Ast r r
-  AstMinimum10 :: Ast r (OR.Array n r) -> Ast r r
-  AstMaximum10 :: Ast r (OR.Array n r) -> Ast r r
+             => Ast1 n r -> [AstInt r] -> Ast0 r
+  AstSum10 :: Ast1 n r -> Ast0 r
+  AstDot10 :: Ast1 n r -> Ast1 n r -> Ast0 r
+  AstFrom10 :: Ast1 0 r -> Ast0 r
+  AstMinimum10 :: Ast1 n r -> Ast0 r
+  AstMaximum10 :: Ast1 n r -> Ast0 r
 
-  AstIndex1 :: Ast r (OR.Array (n + 1) r) -> AstInt r -> Ast r (OR.Array n r)
-  AstSum1 :: Ast r (OR.Array (n + 1) r) -> Ast r (OR.Array n r)
-  AstFromList1 :: KnownNat n
-               => OR.ShapeL -> [Ast r (OR.Array n r)]
-               -> Ast r (OR.Array (n + 1) r)
-  AstFromVector1 :: OR.ShapeL -> Data.Vector.Vector (Ast r (OR.Array n r))
-                 -> Ast r (OR.Array (n + 1) r)
-  AstKonst1 :: KnownNat n
-            => AstInt r -> Ast r (OR.Array n r) -> Ast r (OR.Array (n + 1) r)
-  AstAppend1 :: Ast r (OR.Array n r) -> Ast r (OR.Array n r)
-             -> Ast r (OR.Array n r)
-  AstSlice1 :: AstInt r -> AstInt r -> Ast r (OR.Array n r)
-            -> Ast r (OR.Array n r)
-  AstReverse1 :: Ast r (OR.Array n r) -> Ast r (OR.Array n r)
-  AstBuildPair1 :: AstInt r -> (AstVarName Int, Ast r (OR.Array n r))
-                -> Ast r (OR.Array (n + 1) r)
-  AstReshape1 :: OR.ShapeL -> Ast r (OR.Array n r) -> Ast r (OR.Array m r)
+newtype AstPrimalPart0 r = AstPrimalPart0 (Ast0 r)
+
+data Ast1 :: Nat -> Type -> Type where
+  AstOp1 :: CodeOut -> [Ast1 n r] -> Ast1 n r
+  AstCond1 :: AstBool r -> Ast1 n r -> Ast1 n r -> Ast1 n r
+  AstSelect1 :: AstInt r -> (AstVarName Int, AstBool r) -> Ast1 n r -> Ast1 n r
+             -> Ast1 n r
+  AstInt1 :: AstInt r -> Ast1 n r
+  AstConst1 :: OR.Array n r -> Ast1 n r
+    -- sort of partially evaluated @AstConstant1@
+  AstConstant1 :: AstPrimalPart1 n r -> Ast1 n r
+  AstScale1 :: AstPrimalPart1 n r -> Ast1 n r -> Ast1 n r
+
+  AstVar1 :: AstVarName (OR.Array 1 r) -> Ast1 1 r
+
+  AstIndex1 :: Ast1 (n + 1) r -> AstInt r -> Ast1 n r
+  AstSum1 :: Ast1 (n + 1) r -> Ast1 n r
+  AstFromList1 :: OR.ShapeL -> [Ast1 n r] -> Ast1 (n + 1) r
+  AstFromVector1 :: OR.ShapeL -> Data.Vector.Vector (Ast1 n r)
+                 -> Ast1 (n + 1) r
+  AstKonst1 :: AstInt r -> Ast1 n r -> Ast1 (n + 1) r
+  AstAppend1 :: Ast1 n r -> Ast1 n r -> Ast1 n r
+  AstSlice1 :: AstInt r -> AstInt r -> Ast1 n r -> Ast1 n r
+  AstReverse1 :: Ast1 n r -> Ast1 n r
+  AstBuildPair1 :: AstInt r -> (AstVarName Int, Ast1 n r) -> Ast1 (n + 1) r
+  AstReshape1 :: OR.ShapeL -> Ast1 n r -> Ast1 m r
 
   -- Fixed rank 1 to avoid OR.ShapeL arguments:
-  AstFromList01 :: [Ast r r] -> Ast r (OR.Array 1 r)
-  AstFromVector01 :: Data.Vector.Vector (Ast r r) -> Ast r (OR.Array 1 r)
-  AstKonst01 :: AstInt r -> Ast r r -> Ast r (OR.Array 1 r)
+  AstFromList01 :: [Ast0 r] -> Ast1 1 r
+  AstFromVector01 :: Data.Vector.Vector (Ast0 r) -> Ast1 1 r
+  AstKonst01 :: AstInt r -> Ast0 r -> Ast1 1 r
   -- We don't have AstVarName for list variables, so only rank 1 for now:
-  AstBuildPair01 :: AstInt r -> (AstVarName Int, Ast r r)
-                 -> Ast r (OR.Array 1 r)
-  AstMapPair01 :: (AstVarName r, Ast r r) -> Ast r (OR.Array 1 r)
-               -> Ast r (OR.Array 1 r)
-  AstZipWithPair01 :: (AstVarName r, AstVarName r, Ast r r)
-                   -> Ast r (OR.Array 1 r) -> Ast r (OR.Array 1 r)
-                   -> Ast r (OR.Array 1 r)
-  AstFrom01 :: Ast r r -> Ast r (OR.Array 0 r)
+  AstBuildPair01 :: AstInt r -> (AstVarName Int, Ast0 r)
+                 -> Ast1 1 r
+  AstMapPair01 :: (AstVarName r, Ast0 r) -> Ast1 1 r
+               -> Ast1 1 r
+  AstZipWithPair01 :: (AstVarName r, AstVarName r, Ast0 r)
+                   -> Ast1 1 r -> Ast1 1 r
+                   -> Ast1 1 r
+  AstFrom01 :: Ast0 r -> Ast1 0 r
 
-  AstOMap1 :: (AstVarName r, Ast r r) -> Ast r (OR.Array 1 r)
-           -> Ast r (OR.Array 1 r)
+  AstOMap1 :: (AstVarName r, Ast0 r) -> Ast1 1 r
+           -> Ast1 1 r
     -- this is necessary for MonoFunctor and so for a particularly
     -- fast implementation of relu
     -- TODO: this is really only needed in AstPrimalPart, but making
     -- AstPrimalPart data instead of a newtype would complicate a lot of code
 
-newtype AstPrimalPart r a = AstPrimalPart (Ast r a)
+newtype AstPrimalPart1 n r = AstPrimalPart1 (Ast1 n r)
 
 newtype AstVarName t = AstVarName Int
   deriving (Show, Eq)
@@ -106,8 +111,8 @@ data AstVar a0 a1 =
   | AstVarR1 a1
   | AstVarI Int
 
--- Like the first argument of @Ast@, the argument is the underlying scalar.
--- TODO: change Ast below to AstPrimalPart in case AstPrimalPart get
+-- Like the argument to @Ast0@, the argument is the underlying scalar.
+-- TODO: change Ast below to AstPrimalPart as soon as AstPrimalPart get
 -- more constructors.
 data AstInt :: Type -> Type where
   AstIntOp :: CodeIntOut -> [AstInt r] -> AstInt r
@@ -115,18 +120,14 @@ data AstInt :: Type -> Type where
   AstIntConst :: Int -> AstInt r
   AstIntVar :: AstVarName Int -> AstInt r
 
-  -- Taken from VectorLike:
-  AstLength :: Ast r (OR.Array 1 r) -> AstInt r
-  AstMinIndex :: Ast r (OR.Array 1 r) -> AstInt r
-  AstMaxIndex :: Ast r (OR.Array 1 r) -> AstInt r
+  AstLength :: Ast1 1 r -> AstInt r
+  AstMinIndex :: Ast1 1 r -> AstInt r
+  AstMaxIndex :: Ast1 1 r -> AstInt r
 
--- Like the first argument of @Ast@, the argument is the underlying scalar.
--- TODO: change Ast below to AstPrimalPart in case AstPrimalPart get
--- more constructors.
 data AstBool :: Type -> Type where
   AstBoolOp :: CodeBoolOut -> [AstBool r] -> AstBool r
   AstBoolConst :: Bool -> AstBool r
-  AstRel :: RelOut -> [Ast r r] -> AstBool r  -- TODO: Vector?
+  AstRel :: RelOut -> [Ast0 r] -> AstBool r  -- TODO: Ast1, too?
   AstRelInt :: RelOut -> [AstInt r] -> AstBool r
 
 {-
@@ -134,7 +135,7 @@ deriving instance ( Show a, Show r, Numeric r
                   , Show (ADVal d a), Show (ADVal d r)
                   , Show (ADVal d (OR.Array 1 r))
                   , Show (AstInt r), Show (AstBool r) )
-                  => Show (Ast r a)
+                  => Show (Ast1 n r)
 
 deriving instance (Show (ADVal d r), Show (ADVal d (OR.Array 1 r)))
                   => Show (AstVar r)
@@ -183,58 +184,146 @@ data RelOut =
 -- * Unlawful instances of AST types; they are lawful modulo evaluation
 
 -- See the comment about @Eq@ and @Ord@ in "DualNumber".
-instance Eq (Ast r a) where
+instance Eq (Ast0 r) where
 
-instance Ord a => Ord (Ast r a) where
-  max u v = AstOp MaxOut [u, v]
-  min u v = AstOp MinOut [u, v]
+instance Ord r => Ord (Ast0 r) where
+  max u v = AstOp0 MaxOut [u, v]
+  min u v = AstOp0 MinOut [u, v]
     -- unfortunately, the others can't be made to return @AstBool@
 
-instance Num a => Num (Ast r a) where
-  u + v = AstOp PlusOut [u, v]
-  u - v = AstOp MinusOut [u, v]
-  u * v = AstOp TimesOut [u, v]
-  negate u = AstOp NegateOut [u]
-  abs v = AstOp AbsOut [v]
-  signum v = AstOp SignumOut [v]
-  fromInteger = AstConst . fromInteger
+instance Num r => Num (Ast0 r) where
+  u + v = AstOp0 PlusOut [u, v]
+  u - v = AstOp0 MinusOut [u, v]
+  u * v = AstOp0 TimesOut [u, v]
+  negate u = AstOp0 NegateOut [u]
+  abs v = AstOp0 AbsOut [v]
+  signum v = AstOp0 SignumOut [v]
+  fromInteger = AstConst0 . fromInteger
 
-instance Real a => Real (Ast r a) where
+instance Real r => Real (Ast0 r) where
   toRational = undefined  -- TODO?
 
-instance Fractional a => Fractional (Ast r a) where
-  u / v = AstOp DivideOut  [u, v]
-  recip v = AstOp RecipOut [v]
-  fromRational = AstConst . fromRational
+instance Fractional r => Fractional (Ast0 r) where
+  u / v = AstOp0 DivideOut  [u, v]
+  recip v = AstOp0 RecipOut [v]
+  fromRational = AstConst0 . fromRational
 
-instance Floating a => Floating (Ast r a) where
-  pi = AstConst pi
-  exp u = AstOp ExpOut [u]
-  log u = AstOp LogOut [u]
-  sqrt u = AstOp SqrtOut [u]
-  u ** v = AstOp PowerOut [u, v]
-  logBase u v = AstOp LogBaseOut [u, v]
-  sin u = AstOp SinOut [u]
-  cos u = AstOp CosOut [u]
-  tan u = AstOp TanOut [u]
-  asin u = AstOp AsinOut [u]
-  acos u = AstOp AcosOut [u]
-  atan u = AstOp AtanOut [u]
-  sinh u = AstOp SinhOut [u]
-  cosh u = AstOp CoshOut [u]
-  tanh u = AstOp TanhOut [u]
-  asinh u = AstOp AsinhOut [u]
-  acosh u = AstOp AcoshOut [u]
-  atanh u = AstOp AtanhOut [u]
+instance Floating r => Floating (Ast0 r) where
+  pi = AstConst0 pi
+  exp u = AstOp0 ExpOut [u]
+  log u = AstOp0 LogOut [u]
+  sqrt u = AstOp0 SqrtOut [u]
+  u ** v = AstOp0 PowerOut [u, v]
+  logBase u v = AstOp0 LogBaseOut [u, v]
+  sin u = AstOp0 SinOut [u]
+  cos u = AstOp0 CosOut [u]
+  tan u = AstOp0 TanOut [u]
+  asin u = AstOp0 AsinOut [u]
+  acos u = AstOp0 AcosOut [u]
+  atan u = AstOp0 AtanOut [u]
+  sinh u = AstOp0 SinhOut [u]
+  cosh u = AstOp0 CoshOut [u]
+  tanh u = AstOp0 TanhOut [u]
+  asinh u = AstOp0 AsinhOut [u]
+  acosh u = AstOp0 AcoshOut [u]
+  atanh u = AstOp0 AtanhOut [u]
 
-instance RealFrac a => RealFrac (Ast r a) where
+instance RealFrac r => RealFrac (Ast0 r) where
   properFraction = undefined
     -- TODO: others, but low priority, since these are extremely not continuous
 
-instance RealFloat a => RealFloat (Ast r a) where
-  atan2 u v = AstOp Atan2Out [u, v]
+instance RealFloat r => RealFloat (Ast0 r) where
+  atan2 u v = AstOp0 Atan2Out [u, v]
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a differentiable codomain
+
+instance Eq (AstPrimalPart0 r) where
+
+instance Ord r => Ord (AstPrimalPart0 r) where
+  max (AstPrimalPart0 u) (AstPrimalPart0 v) =
+    AstPrimalPart0 (AstOp0 MaxOut [u, v])
+  min (AstPrimalPart0 u) (AstPrimalPart0 v) =
+    AstPrimalPart0 (AstOp0 MinOut [u, v])
+    -- unfortunately, the others can't be made to return @AstBool@
+
+deriving instance Num (Ast0 r) => Num (AstPrimalPart0 r)
+deriving instance (Real (Ast0 r), Ord r) => Real (AstPrimalPart0 r)
+deriving instance Fractional (Ast0 r) => Fractional (AstPrimalPart0 r)
+-- TODO: etc.
+
+type instance Element (AstPrimalPart0 r) = AstPrimalPart0 r
+
+
+-- See the comment about @Eq@ and @Ord@ in "DualNumber".
+instance Eq (Ast1 n r) where
+
+instance Ord (OR.Array n r) => Ord (Ast1 n r) where
+  max u v = AstOp1 MaxOut [u, v]
+  min u v = AstOp1 MinOut [u, v]
+    -- unfortunately, the others can't be made to return @AstBool@
+
+instance Num (OR.Array n r) => Num (Ast1 n r) where
+  u + v = AstOp1 PlusOut [u, v]
+  u - v = AstOp1 MinusOut [u, v]
+  u * v = AstOp1 TimesOut [u, v]
+  negate u = AstOp1 NegateOut [u]
+  abs v = AstOp1 AbsOut [v]
+  signum v = AstOp1 SignumOut [v]
+  fromInteger = AstConst1 . fromInteger
+
+instance Real (OR.Array n r) => Real (Ast1 n r) where
+  toRational = undefined  -- TODO?
+
+instance Fractional (OR.Array n r) => Fractional (Ast1 n r) where
+  u / v = AstOp1 DivideOut  [u, v]
+  recip v = AstOp1 RecipOut [v]
+  fromRational = AstConst1 . fromRational
+
+instance Floating (OR.Array n r) => Floating (Ast1 n r) where
+  pi = AstConst1 pi
+  exp u = AstOp1 ExpOut [u]
+  log u = AstOp1 LogOut [u]
+  sqrt u = AstOp1 SqrtOut [u]
+  u ** v = AstOp1 PowerOut [u, v]
+  logBase u v = AstOp1 LogBaseOut [u, v]
+  sin u = AstOp1 SinOut [u]
+  cos u = AstOp1 CosOut [u]
+  tan u = AstOp1 TanOut [u]
+  asin u = AstOp1 AsinOut [u]
+  acos u = AstOp1 AcosOut [u]
+  atan u = AstOp1 AtanOut [u]
+  sinh u = AstOp1 SinhOut [u]
+  cosh u = AstOp1 CoshOut [u]
+  tanh u = AstOp1 TanhOut [u]
+  asinh u = AstOp1 AsinhOut [u]
+  acosh u = AstOp1 AcoshOut [u]
+  atanh u = AstOp1 AtanhOut [u]
+
+instance RealFrac (OR.Array n r) => RealFrac (Ast1 n r) where
+  properFraction = undefined
+    -- TODO: others, but low priority, since these are extremely not continuous
+
+instance RealFloat (OR.Array n r) => RealFloat (Ast1 n r) where
+  atan2 u v = AstOp1 Atan2Out [u, v]
+      -- we can be selective here and omit the other methods,
+      -- most of which don't even have a differentiable codomain
+
+instance Eq (AstPrimalPart1 n r) where
+
+instance Ord r => Ord (AstPrimalPart1 n r) where
+  max (AstPrimalPart1 u) (AstPrimalPart1 v) =
+    AstPrimalPart1 (AstOp1 MaxOut [u, v])
+  min (AstPrimalPart1 u) (AstPrimalPart1 v) =
+    AstPrimalPart1 (AstOp1 MinOut [u, v])
+    -- unfortunately, the others can't be made to return @AstBool@
+
+deriving instance Num (Ast1 n r) => Num (AstPrimalPart1 n r)
+deriving instance (Real (Ast1 n r), Ord r) => Real (AstPrimalPart1 n r)
+deriving instance Fractional (Ast1 n r) => Fractional (AstPrimalPart1 n r)
+-- TODO: etc.
+
+type instance Element (AstPrimalPart1 n r) = AstPrimalPart0 r
+
 
 instance Eq (AstInt r) where
 
@@ -261,19 +350,6 @@ instance Enum (AstInt r) where
 instance Integral (AstInt r) where
   -- TODO
 
-instance Eq (AstPrimalPart r a) where
-
-instance Ord a => Ord (AstPrimalPart r a) where
-  max (AstPrimalPart u) (AstPrimalPart v) = AstPrimalPart (AstOp MaxOut [u, v])
-  min (AstPrimalPart u) (AstPrimalPart v) = AstPrimalPart (AstOp MinOut [u, v])
-    -- unfortunately, the others can't be made to return @AstBool@
-
-deriving instance Num (Ast r a) => Num (AstPrimalPart r a)
-deriving instance (Real (Ast r a), Ord a) => Real (AstPrimalPart r a)
-deriving instance Fractional (Ast r a) => Fractional (AstPrimalPart r a)
--- TODO: etc.
-
-type instance Element (AstPrimalPart r a) = AstPrimalPart r (Element a)
 
 -- Impure but in the most trivial way (only ever incremented counter).
 unsafeAstVarCounter :: Counter
@@ -284,20 +360,20 @@ unsafeGetFreshAstVar :: IO (AstVarName a)
 {-# INLINE unsafeGetFreshAstVar #-}
 unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-astOmap :: (Ast r r -> Ast r r) -> Ast r (OR.Array 1 r) -> Ast r (OR.Array 1 r)
+astOmap :: (Ast0 r -> Ast0 r) -> Ast1 1 r -> Ast1 1 r
 {-# NOINLINE astOmap #-}
 astOmap f e = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
   return $! AstOMap1 (freshAstVar, f (AstVar0 freshAstVar)) e
 
-instance MonoFunctor (AstPrimalPart r (OR.Array 1 r)) where
-  omap f (AstPrimalPart x) =
-    let g y = let AstPrimalPart z = f (AstPrimalPart y)
+instance MonoFunctor (AstPrimalPart1 1 r) where
+  omap f (AstPrimalPart1 x) =
+    let g y = let AstPrimalPart0 z = f (AstPrimalPart0 y)
               in z
-    in AstPrimalPart (astOmap g x)
+    in AstPrimalPart1 (astOmap g x)
 
-instance MonoFunctor (AstPrimalPart Double Double) where
+instance MonoFunctor (AstPrimalPart0 Double) where
   omap f = f
 
-instance MonoFunctor (AstPrimalPart Float Float) where
+instance MonoFunctor (AstPrimalPart0 Float) where
   omap f = f

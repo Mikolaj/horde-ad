@@ -7,6 +7,7 @@ import Prelude
 import           Data.MonoTraversable (MonoFunctor)
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
+import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Test.Tasty
@@ -46,7 +47,7 @@ bar (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2 x w + y * w
 
-barAst :: RealFloat r => (Ast r r, Ast r r) -> Ast r r
+barAst :: RealFloat r => (Ast0 r, Ast0 r) -> Ast0 r
 barAst (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2 x w + y * w
@@ -74,16 +75,16 @@ fooMap1 r =
 -- Also, we haven't defined a class for conditionals so far,
 -- so this uses raw AST instead of sufficiently polymorphic code.
 fooNoGo :: (Numeric r, RealFloat r, Num (Vector r))
-        => Ast r (Vec r) -> Ast r (Vec r)
+        => Ast1 1 r -> Ast1 1 r
 fooNoGo v =
   let r = lsumElements10 v
   in lbuild1 3 (\ix ->
        barAst (3.14, bar (3.14, lindex10 v ix))
-       + AstCond (AstBoolOp AndOut  -- TODO: overload &&, <=, >, etc.
-                            [ lindex10 v (ix * 2) `leqAst` 0
-                            , 6 `gtIntAst` abs ix ])
+       + AstCond0 (AstBoolOp AndOut  -- TODO: overload &&, <=, >, etc.
+                             [ lindex10 v (ix * 2) `leqAst` 0
+                             , 6 `gtIntAst` abs ix ])
                  r (5 * r))
-     / lslice1 1 3 (lmap1 (\x -> AstCond (x `gtAst` r) r x) v)
+     / lslice1 1 3 (lmap1 (\x -> AstCond0 (x `gtAst` r) r x) v)
      * lbuild1 3 (\ _ix -> 1)
 
 -- TODO: remove the need for the 2 type hints; using VectorOf in the definition
@@ -117,20 +118,23 @@ barRelu
 barRelu x = relu $ bar (x, relu x)
 
 barReluAst
-  :: ( RealFloat a
-     , MonoFunctor (AstPrimalPart r a)
---     , Num (AstPrimalPart r a)
---     , Ord (Element (AstPrimalPart r a))
---     , Fractional (Element (AstPrimalPart r a))
-     , r ~ Element a, Fractional r )  -- TODO: needed?
-  => Ast r a -> Ast r a
-barReluAst x = reluAst $ bar (x, reluAst x)  -- TODO; fails: barRelu @(Ast r a)
+  :: (RealFloat r, MonoFunctor (AstPrimalPart0 r))
+  => Ast0 r -> Ast0 r
+barReluAst x = reluAst0 $ bar (x, reluAst0 x)  -- TODO; fails: barRelu @(Ast0 r)
+
+-- TODO: merge with the above once rank-polymorphic relu is recovered
+barReluAst1
+  :: ( KnownNat n, Numeric r, RealFloat r
+     , MonoFunctor (AstPrimalPart1 n r), Floating (Vector r) )
+  => Ast1 n r -> Ast1 n r
+barReluAst1 x = reluAst1 $ bar (x, reluAst1 x)
+                  -- TODO; fails: barRelu @(Ast1 n r)
 
 konstReluAst
   :: forall r.
      (Numeric r, RealFloat r, Num (Vector r))
-  => Ast r r -> Ast r r
-konstReluAst x = lsumElements10 $ reluAst $ lkonst1 7 x
+  => Ast0 r -> Ast0 r
+konstReluAst x = lsumElements10 $ reluAst1 $ lkonst1 7 x
 
 
 -- * Tests by TomS
@@ -170,8 +174,8 @@ testFooBuild =
    $ revOnDomains
        1
        (\adinputs ->
-          interpretAst (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
-                       (fooBuild1 (AstVar1 (AstVarName (-1)))))
+          interpretAst1 (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
+                        (fooBuild1 (AstVar1 (AstVarName (-1)))))
        (domainsFrom0V V.empty
                       (V.singleton (V.fromList [1.1 :: Double, 2.2, 3.3, 4]))))
   @?~ domains1 (domainsFrom0V V.empty (V.singleton (V.fromList [-4521.201512195087,-5568.7163677622175,-5298.386349932494,-4907.349735554627])))
@@ -182,8 +186,8 @@ testFooMap =
    $ revOnDomains
        1
        (\adinputs ->
-          interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
-                       (fooMap1 (AstVar0 (AstVarName (-1)))))
+          interpretAst1 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
+                        (fooMap1 (AstVar0 (AstVarName (-1)))))
        (domainsFrom01 (V.singleton (1.1 :: Double)) V.empty))
   @?~ V.fromList [4.438131773948809e7]
 
@@ -193,8 +197,8 @@ testFooNoGo =
    $ revOnDomains
        1
        (\adinputs ->
-          interpretAst (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
-                       (fooNoGo (AstVar1 (AstVarName (-1)))))
+          interpretAst1 (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
+                        (fooNoGo (AstVar1 (AstVarName (-1)))))
        (domainsFrom0V V.empty
                       (V.singleton (V.fromList
                                       [1.1 :: Double, 2.2, 3.3, 4, 5]))))
@@ -206,8 +210,8 @@ testNestedBuildMap =
    $ revOnDomains
        1
        (\adinputs ->
-          interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
-                       (nestedBuildMap (AstVar0 (AstVarName (-1)))))
+          interpretAst1 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
+                        (nestedBuildMap (AstVar0 (AstVarName (-1)))))
        (domainsFrom01 (V.singleton (1.1 :: Double)) V.empty))
   @?~ V.fromList [107.25984443006627]
 
@@ -236,8 +240,8 @@ testBarReluAst =
    $ revOnDomains
        42.2
        (\adinputs ->
-          interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
-                       (barReluAst (AstVar0 (AstVarName (-1)))))
+          interpretAst0 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
+                        (barReluAst (AstVar0 (AstVarName (-1)))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [191.20462646925841]
 
@@ -247,8 +251,8 @@ testBarReluAst1 =
    $ revOnDomains
        1
        (\adinputs ->
-          interpretAst (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
-                       (barReluAst (AstVar1 (AstVarName (-1)))))
+          interpretAst1 (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
+                        (barReluAst1 (AstVar1 (AstVarName (-1)))))
        (domainsFrom0V V.empty
                       (V.singleton (V.fromList
                                       [1.1 :: Double, 2.2, 3.3, 4, 5]))))
@@ -260,8 +264,8 @@ testKonstReluAst =
    $ revOnDomains
        42.2
        (\adinputs ->
-          interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
-                       (konstReluAst (AstVar0 (AstVarName (-1)))))
+          interpretAst0 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
+                        (konstReluAst (AstVar0 (AstVarName (-1)))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [295.4]
 
@@ -280,8 +284,8 @@ testF1Ast =
    $ revOnDomains
        42.2
        (\adinputs ->
-          interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
-                       (f1 (AstVar0 (AstVarName (-1)))))
+          interpretAst0 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
+                        (f1 (AstVar0 (AstVarName (-1)))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [1899.0000000000002]
 
@@ -300,7 +304,7 @@ testF2Ast =
    $ revOnDomains
        42.2
        (\adinputs ->
-          interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
-                       (f2 (AstVar0 (AstVarName (-1)))))
+          interpretAst0 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
+                        (f2 (AstVar0 (AstVarName (-1)))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [19834]

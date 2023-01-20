@@ -183,13 +183,14 @@ type family IntOf a where
   IntOf Double = Int
   IntOf Float = Int
   IntOf (OR.Array n r) = Int
-  IntOf (Ast r a) = AstInt r
+  IntOf (Ast0 r) = AstInt r
+  IntOf (Ast1 n r) = AstInt r
   IntOf (ADVal d r) = Int
 
 type family VectorOf a = result | result -> a where
   VectorOf Double = OR.Array 1 Double
   VectorOf Float = OR.Array 1 Float
-  VectorOf (Ast r r) = Ast r (OR.Array 1 r)
+  VectorOf (Ast0 r) = Ast1 1 r
   VectorOf (ADVal d r) = ADVal d (OR.Array 1 r)
 
 -- We could accept any @RealFloat@ instead of @PrimalOf a@, but then
