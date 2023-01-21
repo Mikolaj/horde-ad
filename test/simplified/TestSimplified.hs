@@ -25,8 +25,9 @@ testTrees = [ testCase "barADVal" testBarADVal
             , testCase "fooMap1" testFooMap
             , testCase "fooNoGoAst" testFooNoGoAst
             , testCase "nestedBuildMap" testNestedBuildMap
+            , testCase "nestedSumBuild" testNestedSumBuild
             , testCase "barReluADVal" testBarReluADVal
-            , testCase "barReluAst" testBarReluAst
+            , testCase "barReluAst0" testBarReluAst0
             , testCase "barReluAst1" testBarReluAst1
             , testCase "konstReluAst" testKonstReluAst
             , -- tests by TomS:
@@ -67,9 +68,7 @@ fooMap1 r =
   let v = fooBuild1 $ lkonst1 130 r
   in lmap1 (\x -> x * r + 5) v
 
--- A test that doesn't vectorize currently due to conditionals
--- and so falls back to POPL.
--- Also, we haven't defined a class for conditionals so far,
+-- A test with conditionals. We haven't defined a class for conditionals so far,
 -- so this uses raw AST instead of sufficiently polymorphic code.
 fooNoGoAst :: (Numeric r, RealFloat r, Num (Vector r))
            => Ast1 1 r -> Ast1 1 r
@@ -100,6 +99,22 @@ nestedBuildMap r =
                        + fooBuild1 (nestedMap x)
                        / fooMap1 x)
            ) doublyBuild
+
+nestedSumBuild :: ADReady r => VectorOf r -> VectorOf r
+nestedSumBuild v =
+  lbuild1 13 (\ix ->
+    lsumElements10 (lbuild1 4 (\ix2 ->
+      flip lindex10 ix2
+        (lbuild1 5 (\ _ -> lsumElements10 v)
+         * lfromList1
+             [ fromIntOf ix
+             , lsumElements10 (lbuild1 9 (\ix5 -> fromIntOf ix5))
+             , lsumElements10 (lbuild1 6 (\_ -> lsumElements10 v))
+             , lindex10 v ix2
+             , lsumElements10 (lbuild1 3 (\ix7 ->
+                 lsumElements10 (lkonst1 (ix2 + ix7) 2.4))) ]))))
+  + lbuild1 13 (\ix ->
+      nestedBuildMap (lsumElements10 v) `lindex10` min ix 4)
 
 barRelu
   :: ( RealFloat a
@@ -272,6 +287,12 @@ testNestedBuildMap =
     1.1
     107.25984443006627
 
+testNestedSumBuild :: Assertion
+testNestedSumBuild =
+  testPoly11 nestedSumBuild 13
+    [1.1, 2.2, 3.3, 4, -5.22]
+    [-14084.715065313612,-14084.715065313612,-14084.715065313612,-14014.775065313623,-14084.715065313612]
+
 testBarReluADVal :: Assertion
 testBarReluADVal =
   (domains0 $ fst
@@ -281,8 +302,8 @@ testBarReluADVal =
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [191.20462646925841]
 
-testBarReluAst :: Assertion
-testBarReluAst =
+testBarReluAst0 :: Assertion
+testBarReluAst0 =
   (domains0 $ fst
    $ revOnDomains
        42.2
