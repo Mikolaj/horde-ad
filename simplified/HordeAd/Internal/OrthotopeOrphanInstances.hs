@@ -11,6 +11,7 @@ import Prelude
 import           Data.Array.Convert (Convert)
 import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.Internal as OI
 import qualified Data.Array.Internal.DynamicG as DG
 import qualified Data.Array.Internal.DynamicS as DS
 import qualified Data.Array.Internal.RankedG as RG
@@ -46,9 +47,9 @@ liftVR2 :: (Numeric r, KnownNat n)
         => (Vector r -> Vector r -> Vector r)
         -> OR.Array n r -> OR.Array n r -> OR.Array n r
 liftVR2 op t u =
-  -- TODO: this hack doesn't help until OR.constant below is replaced
-  -- by convert . OT.constant and then hmatrix helps some more.
-  -- However, the removal of this check vs run-time type is risky.
+  -- This hack helps, because OR.constant in fromInteger below is replaced
+  -- by unsafe internal operations and then hmatrix helps some more.
+  -- However, the removal of the check vs run-time type is risky.
   let sh = case OR.shapeL t of
         [] -> OR.shapeL u
         sh' -> sh'
@@ -81,7 +82,8 @@ instance (Num (Vector r), KnownNat n, Numeric r) => Num (OR.Array n r) where
   negate = liftVR negate
   abs = liftVR abs
   signum = liftVR signum
-  fromInteger = OR.constant [] . fromInteger  -- often fails and there's no fix
+  fromInteger = RS.A . RG.A [] . OI.constantT [] . fromInteger
+    -- often fails and there's no fix
 
 instance (Num (Vector r), OS.Shape sh, Numeric r) => Num (OS.Array sh r) where
   (+) = liftVS2 (+)
