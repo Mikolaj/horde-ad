@@ -618,13 +618,17 @@ build1Vectorize n (var, u) =
     AstAppend1{} -> AstBuildPair1 n (var, u)  -- TODO
     AstSlice1{} -> AstBuildPair1 n (var, u)  -- TODO
     AstReverse1{} -> AstBuildPair1 n (var, u)  -- TODO
-    AstBuildPair1{} -> AstBuildPair1 n (var, u)  -- normal form?
+    AstBuildPair1{} -> AstBuildPair1 n (var, u)
+      -- normal form? or a previous failure of vectorization that should have
+      -- led to a shortcut instead of being encoutered now?
     AstReshape1{} -> AstBuildPair1 n (var, u)  -- TODO
 
-    AstFromList01{} -> AstBuildPair1 n (var, u)  -- TODO
-    AstFromVector01{} -> AstBuildPair1 n (var, u)  -- TODO
-    AstKonst01{} -> AstBuildPair1 n (var, u)  -- TODO
-    AstBuildPair01{} -> AstBuildPair1 n (var, u)  -- TODO
+    AstFromList01 l ->
+      build1Vectorize n (var, AstFromList1 [length l] (map AstFrom01 l))
+    AstFromVector01 l ->
+      build1Vectorize n (var, AstFromVector1 [V.length l] (V.map AstFrom01 l))
+    AstKonst01 k v -> build1Vectorize n (var, AstKonst1 k (AstFrom01 v))
+    AstBuildPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
     AstMapPair01{} -> AstBuildPair1 n (var, u)  -- TODO
     AstZipWithPair01{} -> AstBuildPair1 n (var, u)  -- TODO
     AstFrom01 v -> build1VectorizeFrom01 n (var, v)
