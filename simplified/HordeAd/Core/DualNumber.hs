@@ -621,6 +621,7 @@ build1Vectorize n (var, u) =
     AstBuildPair1{} -> AstBuildPair1 n (var, u)
       -- normal form? or a previous failure of vectorization that should have
       -- led to a shortcut instead of being encoutered now?
+    AstTranspose1{} -> AstBuildPair1 n (var, u)  -- TODO
     AstReshape1{} -> AstBuildPair1 n (var, u)  -- TODO
 
     AstFromList01 l ->
@@ -780,6 +781,7 @@ intVarInAst1 var = \case
                      || intVarInAst1 var v
   AstReverse1 v -> intVarInAst1 var v
   AstBuildPair1 n (_, v) -> intVarInAstInt var n || intVarInAst1 var v
+  AstTranspose1 v -> intVarInAst1 var v
   AstReshape1 _ v -> intVarInAst1 var v
 
   AstFromList01 l -> or $ map (intVarInAst0 var) l
@@ -1050,6 +1052,9 @@ interpretAst1 env = \case
     in build1' (interpretAstInt env i) (interpretLambdaI1 env (var, v))
       -- fallback to POPL (memory blowup, but avoids functions on tape);
       -- an alternative is to use dBuild1 and store function on tape
+  AstTranspose1 v ->
+    let transpose1 (D u u') = dD (OR.transpose [1, 0] u) (dTranspose1 u')
+    in transpose1 (interpretAst1 env v)
   AstReshape1{} -> undefined  -- TODO
 
   AstFromList01 l -> lfromList1 $ map (interpretAst0 env) l
