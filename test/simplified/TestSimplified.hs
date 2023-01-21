@@ -272,7 +272,8 @@ testFooNoGoAst :: Assertion
 testFooNoGoAst =
   (domains1 $ fst
    $ revOnDomains
-       1
+       (vToVec $ LA.konst 1 3)
+        -- "1" wrong due to fragility of hmatrix and tensor numeric instances
        (\adinputs ->
           interpretAst1 (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
                         (fooNoGoAst (AstVar1 (AstVarName (-1)))))
@@ -317,7 +318,8 @@ testBarReluAst1 :: Assertion
 testBarReluAst1 =
   (domains1 $ fst
    $ revOnDomains
-       1
+       (vToVec $ LA.konst 1 5)
+         -- "1" wrong due to fragility of hmatrix and tensor numeric instances
        (\adinputs ->
           interpretAst1 (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
                         (barReluAst1 (AstVar1 (AstVarName (-1)))))

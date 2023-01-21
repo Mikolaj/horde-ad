@@ -125,9 +125,13 @@ instance Ord (ADVal d a) where
 
 instance (Num a, IsPrimal d a) => Num (ADVal d a) where
   D u u' + D v v' = dD (u + v) (dAdd u' v')
-  D u u' - D v v' = dD (u - v) (dAdd u' (dScale (-1) v'))
+  D u u' - D v v' = dD (u - v) (dAdd u' (dScale (fromInteger (-1)) v'))
+    -- without @fromInteger@, this is interpreted as @negate 1@,
+    -- causing a crash for ranked tensors (can't guess the rank of @1@
+    -- and then no other argument to derive the rank of @negate@);
+    -- dynamic tensors dont check at all; shaped have all needed info in types
   D u u' * D v v' = dD (u * v) (dAdd (dScale v u') (dScale u v'))
-  negate (D v v') = dD (negate v) (dScale (-1) v')
+  negate (D v v') = dD (negate v) (dScale (fromInteger (-1)) v')
   abs (D v v') = dD (abs v) (dScale (signum v) v')
   signum (D v _) = dD (signum v) dZero
   fromInteger = constant . fromInteger
