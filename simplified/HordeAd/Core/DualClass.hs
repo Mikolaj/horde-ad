@@ -235,8 +235,9 @@ class VectorOf r ~ vector => VectorLike vector r | vector -> r where
   lzipWith :: (r -> r -> r) -> vector -> vector -> vector
 
 type ADReady r =
-  ( RealFloat r, HasPrimal r, HasPrimal (VectorOf r), VectorLike (VectorOf r) r
-  , Integral (IntOf r), Fractional (VectorOf r) )
+  ( RealFloat r, RealFloat (VectorOf r)
+  , HasPrimal r, HasPrimal (VectorOf r)
+  , VectorLike (VectorOf r) r, Integral (IntOf r) )
 
 -- | Second argument is the primal component of a dual number at some rank
 -- wrt the differentiation mode given in the first argument.
