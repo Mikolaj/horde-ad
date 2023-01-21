@@ -10,6 +10,7 @@ module Tool.EqEpsilon
 import Data.Typeable
 import Prelude
 
+import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.IORef
 import qualified Data.Vector.Storable as VS
@@ -278,6 +279,13 @@ instance (AssertEqualUpToEpsilon z a,
 
 instance (VS.Storable a, OS.Shape sh1, AssertEqualUpToEpsilon z a)
          => AssertEqualUpToEpsilon z (OS.Array sh1 a) where
+  assertEqualUpToEpsilonWithMsg msg eqEpsilon expected actual =
+    assert_list (assertEqualUpToEpsilonWithMsg msg eqEpsilon)
+                (linearize expected)
+                (linearize actual)
+
+instance (VS.Storable a, AssertEqualUpToEpsilon z a)
+         => AssertEqualUpToEpsilon z (OR.Array n a) where
   assertEqualUpToEpsilonWithMsg msg eqEpsilon expected actual =
     assert_list (assertEqualUpToEpsilonWithMsg msg eqEpsilon)
                 (linearize expected)

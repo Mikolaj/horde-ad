@@ -23,18 +23,15 @@ testTrees :: [TestTree]
 testTrees = [ testCase "barADVal" testBarADVal
             , testCase "fooBuild1" testFooBuild
             , testCase "fooMap1" testFooMap
-            , testCase "fooNoGo" testFooNoGo
+            , testCase "fooNoGoAst" testFooNoGoAst
             , testCase "nestedBuildMap" testNestedBuildMap
-            , testCase "nestedBuildMapADVal" testNestedBuildMapADVal
             , testCase "barReluADVal" testBarReluADVal
             , testCase "barReluAst" testBarReluAst
             , testCase "barReluAst1" testBarReluAst1
             , testCase "konstReluAst" testKonstReluAst
             , -- tests by TomS:
-              testCase "F1ADVal" testF1ADVal
-            , testCase "F1Ast" testF1Ast
-            , testCase "F2ADVal" testF2ADVal
-            , testCase "F2Ast" testF2Ast
+              testCase "F1" testF1
+            , testCase "F2" testF2
             ]
 
 foo :: RealFloat a => (a,a,a) -> a
@@ -74,9 +71,9 @@ fooMap1 r =
 -- and so falls back to POPL.
 -- Also, we haven't defined a class for conditionals so far,
 -- so this uses raw AST instead of sufficiently polymorphic code.
-fooNoGo :: (Numeric r, RealFloat r, Num (Vector r))
-        => Ast1 1 r -> Ast1 1 r
-fooNoGo v =
+fooNoGoAst :: (Numeric r, RealFloat r, Num (Vector r))
+           => Ast1 1 r -> Ast1 1 r
+fooNoGoAst v =
   let r = lsumElements10 v
   in lbuild1 3 (\ix ->
        barAst (3.14, bar (3.14, lindex10 v ix))
@@ -103,12 +100,6 @@ nestedBuildMap r =
                        + fooBuild1 (nestedMap x)
                        / fooMap1 x)
            ) doublyBuild
-
--- A variant for a test without any attempt at vectorization.
--- TODO: test each example in this file both with and without vectorization.
-nestedBuildMapADVal
-  :: forall r d. ADModeAndNum d r => ADVal d r -> ADVal d (Vec r)
-nestedBuildMapADVal = nestedBuildMap @(ADVal d r)
 
 barRelu
   :: ( RealFloat a
@@ -157,6 +148,86 @@ f2 = \arg ->
 
 -- * Test harness glue code
 
+-- The glue for sufficiently polymorphic code;
+testPoly00
+  :: (HasDelta r, r ~ Double)
+  => (forall x. ADReady x => x -> x) -> r -> r
+  -> Assertion
+testPoly00 f input expected = do
+  let domainsInput =
+        domainsFrom01 (V.singleton input) V.empty
+      domainsExpected =
+        domainsFrom01 (V.singleton expected) V.empty
+      (astGrad, astValue) =
+        revOnDomains 1
+          (\adinputs ->
+             interpretAst0 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
+                           (f (AstVar0 (AstVarName (-1)))))
+          domainsInput
+      (advalGrad, advalValue) =
+        revOnDomains 1
+          (\adinputs -> f $ adinputs `at0` 0)
+          domainsInput
+      value = f input
+  astValue @?~ value
+  advalValue @?~ value
+  domains0 astGrad @?~ domains0 domainsExpected
+  domains0 advalGrad @?~ domains0 domainsExpected
+
+testPoly01
+  :: (HasDelta r, r ~ Double)
+  => (forall x. ADReady x => x -> VectorOf x) -> Int -> r -> r
+  -> Assertion
+testPoly01 f outSize input expected = do
+  let domainsInput =
+        domainsFrom01 (V.singleton input) V.empty
+      domainsExpected =
+        domainsFrom01 (V.singleton expected) V.empty
+      dt = vToVec $ LA.konst 1 outSize
+        -- "1" wrong due to fragility of hmatrix and tensor numeric instances
+      (astGrad, astValue) =
+        revOnDomains dt
+          (\adinputs ->
+             interpretAst1 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
+                           (f (AstVar0 (AstVarName (-1)))))
+          domainsInput
+      (advalGrad, advalValue) =
+        revOnDomains dt
+          (\adinputs -> f $ adinputs `at0` 0)
+          domainsInput
+      value = f input
+  astValue @?~ value
+  advalValue @?~ value
+  domains0 astGrad @?~ domains0 domainsExpected
+  domains0 advalGrad @?~ domains0 domainsExpected
+
+testPoly11
+  :: (HasDelta r, r ~ Double)
+  => (forall x. ADReady x => VectorOf x -> VectorOf x) -> Int -> [r] -> [r]
+  -> Assertion
+testPoly11 f outSize input expected = do
+  let domainsInput =
+        domainsFrom0V V.empty (V.singleton (V.fromList input))
+      domainsExpected =
+        domainsFrom0V V.empty (V.singleton (V.fromList expected))
+      dt = vToVec $ LA.konst 1 outSize
+        -- "1" wrong due to fragility of hmatrix and tensor numeric instances
+      (astGrad, astValue) =
+        revOnDomains dt
+          (\adinputs ->
+             interpretAst1 (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
+                           (f (AstVar1 (AstVarName (-1)))))
+          domainsInput
+      (advalGrad, advalValue) =
+        revOnDomains dt
+          (\adinputs -> f $ adinputs `at1` 0)
+          domainsInput
+      value = f (vToVec $ V.fromList input)
+  astValue @?~ value
+  advalValue @?~ value
+  domains1 astGrad @?~ domains1 domainsExpected
+  domains1 advalGrad @?~ domains1 domainsExpected
+
 -- In simplified horde-ad we don't have access to the highest level API
 -- (adaptors), so the testing glue is tedious:
 testBarADVal :: Assertion
@@ -172,36 +243,24 @@ testBarADVal =
 -- to other methods, so the test harness is even more complex.
 testFooBuild :: Assertion
 testFooBuild =
-  (domains1 $ fst
-   $ revOnDomains
-       (vToVec $ LA.konst 1 3)
-         -- "1" wrong due to fragility of hmatrix and tensor numeric instances
-       (\adinputs ->
-          interpretAst1 (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
-                        (fooBuild1 (AstVar1 (AstVarName (-1)))))
-       (domainsFrom0V V.empty
-                      (V.singleton (V.fromList [1.1 :: Double, 2.2, 3.3, 4]))))
-  @?~ domains1 (domainsFrom0V V.empty (V.singleton (V.fromList [-4521.201512195087,-5568.7163677622175,-5298.386349932494,-4907.349735554627])))
+  testPoly11 fooBuild1 3
+    [1.1, 2.2, 3.3, 4]
+    [-4521.201512195087,-5568.7163677622175,-5298.386349932494,-4907.349735554627]
 
 testFooMap :: Assertion
 testFooMap =
-  (domains0 $ fst
-   $ revOnDomains
-       1
-       (\adinputs ->
-          interpretAst1 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
-                        (fooMap1 (AstVar0 (AstVarName (-1)))))
-       (domainsFrom01 (V.singleton (1.1 :: Double)) V.empty))
-  @?~ V.fromList [4.438131773948916e7]
+  testPoly01 fooMap1 3
+    1.1
+    4.438131773948916e7
 
-testFooNoGo :: Assertion
-testFooNoGo =
+testFooNoGoAst :: Assertion
+testFooNoGoAst =
   (domains1 $ fst
    $ revOnDomains
        1
        (\adinputs ->
           interpretAst1 (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
-                        (fooNoGo (AstVar1 (AstVarName (-1)))))
+                        (fooNoGoAst (AstVar1 (AstVarName (-1)))))
        (domainsFrom0V V.empty
                       (V.singleton (V.fromList
                                       [1.1 :: Double, 2.2, 3.3, 4, 5]))))
@@ -209,24 +268,9 @@ testFooNoGo =
 
 testNestedBuildMap :: Assertion
 testNestedBuildMap =
-  (domains0 $ fst
-   $ revOnDomains
-       1
-       (\adinputs ->
-          interpretAst1 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
-                        (nestedBuildMap (AstVar0 (AstVarName (-1)))))
-       (domainsFrom01 (V.singleton (1.1 :: Double)) V.empty))
-  @?~ V.fromList [107.25984443006627]
-
-testNestedBuildMapADVal :: Assertion
-testNestedBuildMapADVal =
-  (domains0 $ fst
-   $ revOnDomains
-       (vToVec $ LA.konst 1 5)
-         -- "1" wrong due to fragility of hmatrix and tensor numeric instances
-       (\adinputs -> nestedBuildMapADVal (adinputs `at0` 0))
-       (domainsFrom01 (V.singleton (1.1 :: Double)) V.empty))
-  @?~ V.fromList [107.25984443006627]
+  testPoly01 nestedBuildMap 5
+    1.1
+    107.25984443006627
 
 testBarReluADVal :: Assertion
 testBarReluADVal =
@@ -272,42 +316,14 @@ testKonstReluAst =
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [295.4]
 
-testF1ADVal :: Assertion
-testF1ADVal =
-  (domains0 $ fst
-   $ revOnDomains
-       42.2
-       (\adinputs -> f1 (adinputs `at0` 0))
-       (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
-  @?~ V.fromList [1899.0000000000002]
+testF1 :: Assertion
+testF1 =
+  testPoly00 f1
+    1.1
+    45.0
 
-testF1Ast :: Assertion
-testF1Ast =
-  (domains0 $ fst
-   $ revOnDomains
-       42.2
-       (\adinputs ->
-          interpretAst0 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
-                        (f1 (AstVar0 (AstVarName (-1)))))
-       (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
-  @?~ V.fromList [1899.0000000000002]
-
-testF2ADVal :: Assertion
-testF2ADVal =
-  (domains0 $ fst
-   $ revOnDomains
-       42.2
-       (\adinputs -> f2 (adinputs `at0` 0))
-       (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
-  @?~ V.fromList [19834]
-
-testF2Ast :: Assertion
-testF2Ast =
-  (domains0 $ fst
-   $ revOnDomains
-       42.2
-       (\adinputs ->
-          interpretAst0 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
-                        (f2 (AstVar0 (AstVarName (-1)))))
-       (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
-  @?~ V.fromList [19834]
+testF2 :: Assertion
+testF2 =
+  testPoly00 f2
+    1.1
+    470.0

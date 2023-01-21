@@ -10,6 +10,7 @@ module Tool.Shared (lowercase, listsToParameters,
 import Prelude
 
 import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Char
 import qualified Data.Foldable
@@ -184,6 +185,9 @@ instance (VS.Storable a) => Linearizable (OT.Array a) a where
 
 instance (VS.Storable a, OS.Shape sh) => Linearizable (OS.Array sh a) a where
   linearize = OS.toList
+
+instance (VS.Storable a) => Linearizable (OR.Array n a) a where
+  linearize = OR.toList
 
 instance (LA.Element a) => Linearizable (LA.Matrix a) a where
   linearize = LA.toList . LA.flatten
