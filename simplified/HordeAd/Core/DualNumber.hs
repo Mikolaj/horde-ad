@@ -1026,9 +1026,8 @@ interpretAst1 env = \case
              (dFromVector1 sh' $ V.map (\(D _ u') -> u') lu)
     in fromVector1' sh (V.map (interpretAst1 env) l)
   AstKonst1 n v ->
-    let konst1' n' (D u u') =
-          dD (OR.stretchOuter n' $ OR.ravel (ORB.constant [1] u))
-             (dKonst1 n' u')
+    let konst1' n' (D u u') = dD (OR.ravel (ORB.constant [n'] u))
+                                 (dKonst1 n' u')
     in konst1' (interpretAstInt env n) (interpretAst1 env v)
   AstAppend1 x y ->
     let append1' (D u u') (D v v') =

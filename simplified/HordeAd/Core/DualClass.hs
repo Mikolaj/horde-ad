@@ -473,7 +473,7 @@ instance ( Numeric r, Num (Vector r)
   dSum1 _ = ORB.sumA . OR.unravel
   dFromList1 sh = OR.ravel . ORB.fromList [head sh]
   dFromVector1 sh = OR.ravel . ORB.fromVector [head sh] . V.convert
-  dKonst1 n d = OR.stretchOuter n $ OR.ravel (ORB.constant [1] d)
+  dKonst1 n d = OR.ravel (ORB.constant [n] d)
   dAppend1 d _k e = d `OR.append` e
   dSlice1 i n d _len = OR.slice [(i, n)] d
   dReverse1 = OR.rev [0]

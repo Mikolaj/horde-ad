@@ -506,8 +506,7 @@ buildFinMaps s0 deltaDt =
                                      , OR.reshape (1 : rest) c
                                      , OR.constant (len - ix - 1 : rest) 0 ])
                      d  -- TODO: optimize for input case
-        Sum1 n d ->
-          eval1 s (OR.stretchOuter n $ OR.ravel (ORB.constant [1] c)) d
+        Sum1 n d -> eval1 s (OR.ravel (ORB.constant [n] c)) d
         FromList1 _ ld ->
           let lc = ORB.toList $ OR.unravel c
           in foldl' (\s2 (c2, d2) -> eval1 s2 c2 d2) s $ zip lc ld
@@ -668,7 +667,7 @@ buildDerivative dim0 dim1 deltaTopLevel
           return $! OR.ravel $ ORB.fromVector [head sh] $ V.convert v
         Konst1 n d -> do
           t <- eval1 d
-          return $! OR.stretchOuter n $ OR.ravel (ORB.constant [1] t)
+          return $! OR.ravel (ORB.constant [n] t)
         Append1 d _k e -> liftM2 OR.append (eval1 d) (eval1 e)
         Slice1 i n d _len -> OR.slice [(i, n)] <$> eval1 d
         Reverse1 d -> OR.rev [0] <$> eval1 d
