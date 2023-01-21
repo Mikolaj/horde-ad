@@ -33,7 +33,7 @@ liftVT2 :: Numeric r
         -> OT.Array r -> OT.Array r -> OT.Array r
 liftVT2 op t u =
   let sh = case OT.shapeL t of
-        [1] -> OT.shapeL u
+        [] -> OT.shapeL u
         sh' -> sh'
   in OT.fromVector sh $ OT.toVector t `op` OT.toVector u
 
@@ -46,8 +46,11 @@ liftVR2 :: (Numeric r, KnownNat n)
         => (Vector r -> Vector r -> Vector r)
         -> OR.Array n r -> OR.Array n r -> OR.Array n r
 liftVR2 op t u =
+  -- TODO: this hack doesn't help until OR.constant below is replaced
+  -- by convert . OT.constant and then hmatrix helps some more.
+  -- However, the removal of this check vs run-time type is risky.
   let sh = case OR.shapeL t of
-        [1] -> OR.shapeL u
+        [] -> OR.shapeL u
         sh' -> sh'
   in OR.fromVector sh $ OR.toVector t `op` OR.toVector u
 
@@ -69,8 +72,7 @@ instance (Num (Vector r), Numeric r) => Num (OT.Array r) where
   negate = liftVT negate
   abs = liftVT abs
   signum = liftVT signum
-  fromInteger = OT.constant [1] . fromInteger
-    -- fails for any rank other than 1 and there's no fix
+  fromInteger = OT.constant [] . fromInteger  -- often fails and there's no fix
 
 instance (Num (Vector r), KnownNat n, Numeric r) => Num (OR.Array n r) where
   (+) = liftVR2 (+)
@@ -79,7 +81,7 @@ instance (Num (Vector r), KnownNat n, Numeric r) => Num (OR.Array n r) where
   negate = liftVR negate
   abs = liftVR abs
   signum = liftVR signum
-  fromInteger = OR.constant [1] . fromInteger  -- often fails and there's no fix
+  fromInteger = OR.constant [] . fromInteger  -- often fails and there's no fix
 
 instance (Num (Vector r), OS.Shape sh, Numeric r) => Num (OS.Array sh r) where
   (+) = liftVS2 (+)
@@ -94,13 +96,13 @@ instance (Num (Vector r), Numeric r, Fractional r)
          => Fractional (OT.Array r) where
   (/) = liftVT2 (/)
   recip = liftVT recip
-  fromRational = OT.constant [1] . fromRational
+  fromRational = OT.constant [] . fromRational
 
 instance (Num (Vector r), KnownNat n, Numeric r, Fractional r)
          => Fractional (OR.Array n r) where
   (/) = liftVR2 (/)
   recip = liftVR recip
-  fromRational = OR.constant [1] . fromRational
+  fromRational = OR.constant [] . fromRational
 
 instance (Num (Vector r), OS.Shape sh, Numeric r, Fractional r)
          => Fractional (OS.Array sh r) where
@@ -110,7 +112,7 @@ instance (Num (Vector r), OS.Shape sh, Numeric r, Fractional r)
 
 instance (Floating (Vector r), Numeric r, Floating r)
          => Floating (OT.Array r) where
-  pi = OT.constant [1] pi
+  pi = OT.constant [] pi
   exp = liftVT exp
   log = liftVT log
   sqrt = liftVT sqrt
@@ -131,7 +133,7 @@ instance (Floating (Vector r), Numeric r, Floating r)
 
 instance (Floating (Vector r), KnownNat n, Numeric r, Floating r)
          => Floating (OR.Array n r) where
-  pi = OR.constant [1] pi
+  pi = OR.constant [] pi
   exp = liftVR exp
   log = liftVR log
   sqrt = liftVR sqrt
