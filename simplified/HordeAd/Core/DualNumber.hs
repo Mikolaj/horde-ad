@@ -604,8 +604,8 @@ build1Vectorize n (var, u) =
       -- character needs to be exposed for nested cases;
       -- TODO: similarly propagate AstConstant upwards elsewhere
     AstScale1 (AstPrimalPart1 r) d ->
-      AstScale1 (AstPrimalPart1 $ build1Vectorize n (var, r))
-               (build1Vectorize n (var, d))
+      AstScale1 (AstPrimalPart1 $ AstBuildPair1 n (var, r))  -- no need to vect
+                (build1Vectorize n (var, d))
 
     AstVar1{} -> error "build1Vectorize: AstVar1 can't have free int variables"
 
@@ -629,7 +629,7 @@ build1Vectorize n (var, u) =
     AstZipWithPair01{} -> AstBuildPair1 n (var, u)  -- TODO
     AstFrom01 v -> build1VectorizeFrom01 n (var, v)
 
-    AstOMap1{} -> AstBuildPair1 n (var, u)  -- TODO
+    AstOMap1{} -> AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, u)
     -- All other patterns are redundant due to GADT typing.
 
 -- @var@ is in @v@ or @i@.
@@ -715,7 +715,7 @@ build1VectorizeFrom01 n (var, u) =
       -- character needs to be exposed for nested cases;
       -- TODO: similarly propagate AstConstant upwards elsewhere
     AstScale0 (AstPrimalPart0 r) d ->
-      AstScale1 (AstPrimalPart1 $ build1Vectorize n (var, AstFrom01 r))
+      AstScale1 (AstPrimalPart1 $ AstBuildPair1 n (var, AstFrom01 r))
                 (build1Vectorize n (var, AstFrom01 d))
     AstVar0{} ->
       error "build1VectorizeFrom01: AstVar0 can't have free int variables"
@@ -726,7 +726,8 @@ build1VectorizeFrom01 n (var, u) =
     AstMinimum10 _v -> AstBuildPair1 n (var, AstFrom01 u)  -- TODO
     AstMaximum10 _v -> AstBuildPair1 n (var, AstFrom01 u)  -- TODO
 
-    AstOMap0{} -> AstBuildPair1 n (var, AstFrom01 u)  -- TODO
+    AstOMap0{} ->
+      AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, AstFrom01 u)
 
 -- TODO: speed up by keeping free vars in each node.
 intVarInAst0 :: AstVarName Int -> Ast0 r -> Bool
@@ -849,7 +850,7 @@ map1Vectorize (var, u) w = case u of
   AstConst0 r -> AstKonst01 (AstLength w) (AstConst0 r)
   AstConstant0 _r -> AstMapPair01 (var, u) w  -- TODO
   AstScale0 (AstPrimalPart0 r) d ->
-    AstScale1 (AstPrimalPart1 $ map1Vectorize (var, r) w)
+    AstScale1 (AstPrimalPart1 $ AstMapPair01 (var, r) w)
               (map1Vectorize (var, d) w)
   AstVar0 var2 | var2 == var -> w  -- identity mapping
   AstVar0 var2 -> AstKonst01 (AstLength w) (AstVar0 var2)
