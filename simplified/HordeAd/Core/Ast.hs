@@ -52,8 +52,8 @@ data Ast0 :: Type -> Type where
   AstDot10 :: KnownNat n
            => Ast1 n r -> Ast1 n r -> Ast0 r
   AstFrom10 :: Ast1 0 r -> Ast0 r
-  AstMinimum10 ::KnownNat n
-               =>  Ast1 n r -> Ast0 r
+  AstMinimum10 :: KnownNat n
+               => Ast1 n r -> Ast0 r
   AstMaximum10 :: KnownNat n
                => Ast1 n r -> Ast0 r
 
@@ -127,9 +127,9 @@ data AstInt :: Type -> Type where
   AstIntConst :: Int -> AstInt r
   AstIntVar :: AstVarName Int -> AstInt r
 
-  AstLength :: Ast1 1 r -> AstInt r
-  AstMinIndex :: Ast1 1 r -> AstInt r
-  AstMaxIndex :: Ast1 1 r -> AstInt r
+  AstLength :: Ast1 1 r -> AstInt r  -- makes no sense for n == 0
+  AstMinIndex :: Ast1 1 r -> AstInt r  -- list output needed for n /= 1
+  AstMaxIndex :: Ast1 1 r -> AstInt r  -- list output needed for n /= 1
 
 data AstBool :: Type -> Type where
   AstBoolOp :: CodeBoolOut -> [AstBool r] -> AstBool r
