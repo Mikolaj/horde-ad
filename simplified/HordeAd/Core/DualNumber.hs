@@ -596,7 +596,7 @@ build1Vectorize n (var, u) =
         AstCond1 b (build1Vectorize n (var, v))
                    (build1Vectorize n (var, w))
     AstSelect1 _n2 (_var2, _b) _v _w -> AstBuildPair1 n (var, u)  -- TODO
-    AstInt1{} -> AstBuildPair1 n (var, u)  -- TODO
+    AstInt1{} -> AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, u)
     AstConst1{} ->
       error "build1Vectorize: AstConst1 can't have free int variables"
     AstConstant1 _r -> AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, u)
@@ -705,7 +705,8 @@ build1VectorizeFrom01 n (var, u) =
       else
         AstCond1 b (build1Vectorize n (var, AstFrom01 v))
                    (build1Vectorize n (var, AstFrom01 w))
-    AstInt0{} -> AstBuildPair1 n (var, AstFrom01 u)  -- TODO
+    AstInt0{} ->
+      AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, AstFrom01 u)
     AstConst0{} ->
       error "build1VectorizeFrom01: AstConst0 can't have free int variables"
     AstConstant0 _r ->
@@ -1049,7 +1050,7 @@ interpretAst1 env = \case
   AstFromList01 l -> lfromList1 $ map (interpretAst0 env) l
   AstFromVector01 v -> lfromVector1 $ V.map (interpretAst0 env) v
   AstKonst01 n r -> lkonst1 (interpretAstInt env n) (interpretAst0 env r)
-  AstBuildPair01 i (var, AstConstant0 r) ->  -- TODO: interpretAstPrimalPart
+  AstBuildPair01 i (var, AstConstant0 r) ->
     constant
     $ lbuild1 (interpretAstInt env i)
               (\j -> let D v _ = interpretLambdaI0 env (var, AstConstant0 r) j

@@ -118,9 +118,12 @@ data AstVar a0 a1 =
   | AstVarR1 a1
   | AstVarI Int
 
+-- In AstInt and AstBool, the Ast0 and Ast1 terms are morally AstPrimalPart,
+-- since their derivative part is not used.
+-- TODO: introduce AstPrimalPart explicitly when convenient, e.g.,
+-- as soon as AstPrimalPart gets more constructors.
+
 -- Like the argument to @Ast0@, the argument is the underlying scalar.
--- TODO: change Ast below to AstPrimalPart as soon as AstPrimalPart get
--- more constructors.
 data AstInt :: Type -> Type where
   AstIntOp :: CodeIntOut -> [AstInt r] -> AstInt r
   AstIntCond :: AstBool r -> AstInt r -> AstInt r -> AstInt r
