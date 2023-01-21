@@ -611,7 +611,9 @@ build1Vectorize n (var, u) =
 
     AstIndex1 v i -> build1VectorizeIndex1 n var v i
       -- @var@ is in @v@ or @i@; TODO: simplify i first
-    AstSum1{} -> AstBuildPair1 n (var, u)  -- TODO
+    AstSum1 v -> AstSum1 $ AstTranspose1 $ build1Vectorize n (var, v)
+      -- that's because @build n (f . g) == map f (build n g)@
+      -- and @map sum1 == sum1 . transpose1@
     AstFromList1{} -> AstBuildPair1 n (var, u)  -- TODO
     AstFromVector1{} -> AstBuildPair1 n (var, u)  -- TODO
     AstKonst1{} -> AstBuildPair1 n (var, u)  -- TODO
