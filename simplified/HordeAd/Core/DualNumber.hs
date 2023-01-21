@@ -609,7 +609,7 @@ build1Vectorize n (var, u) =
 
     AstVar1{} -> error "build1Vectorize: AstVar1 can't have free int variables"
 
-    AstIndex1 v i -> buildOfIndex10Vectorize n var v i
+    AstIndex1 v i -> build1VectorizeIndex1 n var v i
       -- @var@ is in @v@ or @i@; TODO: simplify i first
     AstSum1{} -> AstBuildPair1 n (var, u)  -- TODO
     AstFromList1{} -> AstBuildPair1 n (var, u)  -- TODO
@@ -627,19 +627,19 @@ build1Vectorize n (var, u) =
     AstBuildPair01{} -> AstBuildPair1 n (var, u)  -- TODO
     AstMapPair01{} -> AstBuildPair1 n (var, u)  -- TODO
     AstZipWithPair01{} -> AstBuildPair1 n (var, u)  -- TODO
-    AstFrom01 v -> buildOfFrom01Vectorize n (var, v)
+    AstFrom01 v -> build1VectorizeFrom01 n (var, v)
 
     AstOMap1{} -> AstBuildPair1 n (var, u)  -- TODO
     -- All other patterns are redundant due to GADT typing.
 
 -- @var@ is in @v@ or @i@.
-buildOfIndex10Vectorize
+build1VectorizeIndex1
   :: AstInt r -> AstVarName Int -> Ast1 (1 + n) r -> AstInt r
   -> Ast1 (1 + n) r
-buildOfIndex10Vectorize n var v1 i =
+build1VectorizeIndex1 n var v1 i =
   case v1 of
     AstOp1 codeOut args ->
-      AstOp1 codeOut $ map (\w -> buildOfIndex10Vectorize n var w i) args
+      AstOp1 codeOut $ map (\w -> build1VectorizeIndex1 n var w i) args
     AstCond1 b v w ->
       if intVarInAstBool var b then
         AstSelect1 n (var, b)
@@ -648,7 +648,7 @@ buildOfIndex10Vectorize n var v1 i =
       else
         AstCond1 b (build1Vectorize n (var, AstIndex1 v i))
                    (build1Vectorize n (var, AstIndex1 w i))
-    AstConst1 _r -> buildOfIndex10VectorizeVarNotInV n var v1 i
+    AstConst1 _r -> build1VectorizeIndex1InI n var v1 i
     -- AstFromList1, AstFromVector1: see Note [AstFromList1 is hard]
     AstFromList1 _ l | AstIntConst k <- i -> build1Vectorize n (var, l !! k)
     -- TODO: AstAppend1 v1 v2 -> ... AstCond (i < AstLength v1) (...v1) (...v2)
@@ -665,13 +665,13 @@ buildOfIndex10Vectorize n var v1 i =
       then -- can't do much, probably, since v different in each cell?
         AstBuildPair1 n (var, AstIndex1 v1 i)
       else
-        buildOfIndex10VectorizeVarNotInV n var v1 i
+        build1VectorizeIndex1InI n var v1 i
 
 -- The case where @var@ does not occur in @v@, which implies it's in @i@.
-buildOfIndex10VectorizeVarNotInV
+build1VectorizeIndex1InI
   :: AstInt r -> AstVarName Int -> Ast1 (1 + n) r -> AstInt r
   -> Ast1 (1 + n) r
-buildOfIndex10VectorizeVarNotInV n var v i = case i of
+build1VectorizeIndex1InI n var v i = case i of
   AstIntOp PlusIntOut [AstIntVar var2, i2] | var2 == var ->
     AstSlice1 i2 n v
   AstIntVar var2 -> assert (var2 == var) $
@@ -688,14 +688,14 @@ buildOfIndex10VectorizeVarNotInV n var v i = case i of
     -- add a new 'gather' operation somehow and, if a more complex index
     -- expression, construct 'gather'
 
-buildOfFrom01Vectorize
+build1VectorizeFrom01
   :: AstInt r -> (AstVarName Int, Ast0 r) -> Ast1 1 r
-buildOfFrom01Vectorize n (var, u) =
+build1VectorizeFrom01 n (var, u) =
   case u of
     AstOp0 codeOut args ->
       AstOp1 codeOut
       $ map (\w -> build1Vectorize n (var, AstFrom01 w)) args
-        -- we can't call recursively buildOfFrom01Vectorize, because
+        -- we can't call recursively build1VectorizeFrom01, because
         -- some of the arguments may don't have the int variable
     AstCond0 b v w ->
       if intVarInAstBool var b then
@@ -707,7 +707,7 @@ buildOfFrom01Vectorize n (var, u) =
                    (build1Vectorize n (var, AstFrom01 w))
     AstInt0{} -> AstBuildPair1 n (var, AstFrom01 u)  -- TODO
     AstConst0{} ->
-      error "buildOfFrom01Vectorize: AstConst0 can't have free int variables"
+      error "build1VectorizeFrom01: AstConst0 can't have free int variables"
     AstConstant0 _r ->
       AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, AstFrom01 u)
       -- this is very fast when interpreted in a smart way, but constant
@@ -717,7 +717,7 @@ buildOfFrom01Vectorize n (var, u) =
       AstScale1 (AstPrimalPart1 $ build1Vectorize n (var, AstFrom01 r))
                 (build1Vectorize n (var, AstFrom01 d))
     AstVar0{} ->
-      error "buildOfFrom01Vectorize: AstVar0 can't have free int variables"
+      error "build1VectorizeFrom01: AstVar0 can't have free int variables"
     AstIndex10 _v _is  -> AstBuildPair1 n (var, AstFrom01 u)  -- TODO
     AstSum10 _v -> AstBuildPair1 n (var, AstFrom01 u)  -- TODO
     AstDot10 _u _v -> AstBuildPair1 n (var, AstFrom01 u)  -- TODO
