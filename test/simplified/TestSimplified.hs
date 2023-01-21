@@ -174,7 +174,8 @@ testFooBuild :: Assertion
 testFooBuild =
   (domains1 $ fst
    $ revOnDomains
-       1
+       (vToVec $ LA.konst 1 3)
+         -- "1" wrong due to fragility of hmatrix and tensor numeric instances
        (\adinputs ->
           interpretAst1 (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
                         (fooBuild1 (AstVar1 (AstVarName (-1)))))
@@ -191,7 +192,7 @@ testFooMap =
           interpretAst1 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
                         (fooMap1 (AstVar0 (AstVarName (-1)))))
        (domainsFrom01 (V.singleton (1.1 :: Double)) V.empty))
-  @?~ V.fromList [4.438131773948809e7]
+  @?~ V.fromList [4.438131773948916e7]
 
 testFooNoGo :: Assertion
 testFooNoGo =

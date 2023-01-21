@@ -735,27 +735,57 @@ intVarInAst0 var = \case
     intVarInAstBool var b || intVarInAst0 var x || intVarInAst0 var y
   AstInt0 n -> intVarInAstInt var n
   AstConst0{} -> False
+  AstConstant0 (AstPrimalPart0 v) -> intVarInAst0 var v
+  AstScale0 (AstPrimalPart0 v) u -> intVarInAst0 var v || intVarInAst0 var u
+
   AstVar0{} -> False  -- not an int variable
+
   AstIndex10 v ixs -> intVarInAst1 var v || or (map (intVarInAstInt var) ixs)
-  AstFrom10 u -> intVarInAst1 var u
-  _ -> True  -- TODO
+  AstSum10 v -> intVarInAst1 var v
+  AstDot10 v u -> intVarInAst1 var v || intVarInAst1 var u
+  AstFrom10 v -> intVarInAst1 var v
+  AstMinimum10 v -> intVarInAst1 var v
+  AstMaximum10 v -> intVarInAst1 var v
+  AstOMap0 (_, v) u -> intVarInAst0 var v || intVarInAst0 var u
+    -- the variable in binder position, so ignored (and should be distinct)
 
 intVarInAst1 :: AstVarName Int -> Ast1 n r -> Bool
 intVarInAst1 var = \case
   AstOp1 _ l -> or $ map (intVarInAst1 var) l
   AstCond1 b x y ->
     intVarInAstBool var b || intVarInAst1 var x || intVarInAst1 var y
-  AstSelect1 n (var2, b) x y ->
-    intVarInAstInt var n || intVarInAstBool var b || var == var2
+  AstSelect1 n (_, b) x y ->
+    intVarInAstInt var n || intVarInAstBool var b
     || intVarInAst1 var x || intVarInAst1 var y
   AstInt1 n -> intVarInAstInt var n
   AstConst1{} -> False
+  AstConstant1 (AstPrimalPart1 v) -> intVarInAst1 var v
+  AstScale1 (AstPrimalPart1 v) u -> intVarInAst1 var v || intVarInAst1 var u
+
   AstVar1{} -> False  -- not an int variable
+
+  AstIndex1 v ix -> intVarInAst1 var v || intVarInAstInt var ix
+  AstSum1 v -> intVarInAst1 var v
   AstFromList1 _ l -> or $ map (intVarInAst1 var) l  -- down from rank 1 to 0
   AstFromVector1 _ vl -> or $ map (intVarInAst1 var) $ V.toList vl
-  AstSlice1 _ _ v -> intVarInAst1 var v  -- TODO
+  AstKonst1 n v -> intVarInAstInt var n || intVarInAst1 var v
+  AstAppend1 v u -> intVarInAst1 var v || intVarInAst1 var u
+  AstSlice1 i k v -> intVarInAstInt var i || intVarInAstInt var k
+                     || intVarInAst1 var v
+  AstReverse1 v -> intVarInAst1 var v
+  AstBuildPair1 n (_, v) -> intVarInAstInt var n || intVarInAst1 var v
+  AstReshape1 _ v -> intVarInAst1 var v
+
+  AstFromList01 l -> or $ map (intVarInAst0 var) l
+  AstFromVector01 l -> V.or $ V.map (intVarInAst0 var) l
+  AstKonst01 n v -> intVarInAstInt var n || intVarInAst0 var v
+  AstBuildPair01 n (_, v) -> intVarInAstInt var n || intVarInAst0 var v
+  AstMapPair01 (_, v) u -> intVarInAst0 var v || intVarInAst1 var u
+  AstZipWithPair01 (_, _, v) u w ->
+    intVarInAst0 var v || intVarInAst1 var u || intVarInAst1 var w
   AstFrom01 u -> intVarInAst0 var u
-  _ -> True  -- TODO
+
+  AstOMap1 (_, v) u -> intVarInAst0 var v || intVarInAst1 var u
 
 intVarInAstInt :: AstVarName Int -> AstInt r -> Bool
 intVarInAstInt var = \case
@@ -763,7 +793,7 @@ intVarInAstInt var = \case
   AstIntCond b x y ->
     intVarInAstBool var b || intVarInAstInt var x || intVarInAstInt var y
   AstIntConst{} -> False
-  AstIntVar var2 -> var == var2
+  AstIntVar var2 -> var == var2  -- the only int variable not in binder position
   AstLength v -> intVarInAst1 var v
   AstMinIndex v -> intVarInAst1 var v
   AstMaxIndex v -> intVarInAst1 var v
