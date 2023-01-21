@@ -545,8 +545,8 @@ instance ADModeAndNum d r
   lappend1 (D u u') (D v v') = dD (lappend1 u v) (dAppend1 u' (llength u) v')
   lslice1 i n (D u u') = dD (lslice1 i n u) (dSlice1 i n u' (llength u))
   lreverse1 (D u u') = dD (lreverse1 u) (dReverse1 u')
-  lbuild1 = build1Elementwise
-  lmap1 = map1Elementwise
+  lbuild1 = build1Closure  -- to test against build1Elementwise from Ast
+  lmap1 = map1Closure  -- to test against map1Elementwise from Ast
   lzipWith = undefined
 
 -- * AST-based build and map variants
@@ -1064,14 +1064,15 @@ interpretAst1 env = \case
   AstKonst01 n r -> lkonst1 (interpretAstInt env n) (interpretAst0 env r)
   AstBuildPair01 i (var, AstConstant0 r) ->
     constant
-    $ lbuild1 (interpretAstInt env i)
-              (\j -> let D v _ = interpretLambdaI0 env (var, AstConstant0 r) j
-                     in v)
+    $ lbuild1  -- from OR.Array instance
+        (interpretAstInt env i)
+        (\j -> let D v _ = interpretLambdaI0 env (var, AstConstant0 r) j
+               in v)
   AstBuildPair01 i (var, r) ->
-    lbuild1 (interpretAstInt env i) (interpretLambdaI0 env (var, r))
+    build1Elementwise (interpretAstInt env i) (interpretLambdaI0 env (var, r))
       -- fallback to POPL (memory blowup, but avoids functions on tape)
   AstMapPair01 (var, r) e ->
-    lmap1 (interpretLambdaD0 env (var, r)) (interpretAst1 env e)
+    map1Elementwise (interpretLambdaD0 env (var, r)) (interpretAst1 env e)
       -- fallback to POPL (memory blowup, but avoids functions on tape)
   AstZipWithPair01 (_var1, _var2, _r) _e1 _e2 -> undefined
     -- a 2-var interpretLambda would be needed; or express all with build
