@@ -295,7 +295,7 @@ reluAst1 v =
 
 sumElements10 :: ADModeAndNum d r
               => ADVal d (Vec r) -> ADVal d r
-sumElements10 = lsumElements10
+sumElements10 = lsum10
 
 index10 :: ADModeAndNum d r => ADVal d (Vec r) -> Int -> ADVal d r
 index10 = lindex10
@@ -371,7 +371,7 @@ lossSoftMaxCrossEntropyV target (D u u') =
   -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106
   -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
   let expU = exp (u - lkonst1 (llength u) (lmaximum0 u))
-      sumExpU = lsumElements10 expU
+      sumExpU = lsum10 expU
       recipSum = recip sumExpU
 -- not exposed: softMaxU = LA.scaleRecip sumExpU expU
       softMaxU = lkonst1 (llength expU) recipSum * expU
@@ -481,7 +481,7 @@ instance (Numeric r, IntOf r ~ Int, VectorOf r ~ Vec r)
   lmaxIndex = LA.maxIndex . OR.toVector
 
   lindex10 v ix = (V.! ix) $ OR.toVector v
-  lsumElements10 = OR.sumA
+  lsum10 = OR.sumA
   ldot0 u v = OR.toVector u LA.<.> OR.toVector v
   lminimum0 = LA.minElement . OR.toVector
   lmaximum0 = LA.maxElement . OR.toVector
@@ -502,7 +502,7 @@ instance VectorLike (Ast1 1 r) (Ast0 r) where
   lmaxIndex = AstMaxIndex
 
   lindex10 v ix = AstIndex10 v [ix]
-  lsumElements10 = AstSum10
+  lsum10 = AstSum10
   ldot0 = AstDot10
   lminimum0 = AstMinimum10
   lmaximum0 = AstMaximum10
@@ -528,8 +528,7 @@ instance ADModeAndNum d r
   lmaxIndex (D u _) = lmaxIndex u
 
   lindex10 (D u u') ix = dD (lindex10 u ix) (dIndex10 u' [ix] [llength u])
-  lsumElements10 (D u u') =
-    dD (lsumElements10 u) (dSum10 [llength u] u')
+  lsum10 (D u u') = dD (lsum10 u) (dSum10 [llength u] u')
   ldot0 (D u u') (D v v') = dD (ldot0 u v) (dAdd (dDot10 v u') (dDot10 u v'))
   lminimum0 (D u u') =
     dD (lminimum0 u) (dIndex10 u' [lminIndex u] [llength u])
@@ -726,7 +725,7 @@ build1VectorizeFrom01 n (var, u) =
                 (build1Vectorize n (var, AstFrom01 d))
     AstVar0{} ->
       error "build1VectorizeFrom01: AstVar0 can't have free int variables"
-    AstIndex10 _v _is  -> AstBuildPair1 n (var, AstFrom01 u)  -- TODO
+    AstIndex10 _v _is -> AstBuildPair1 n (var, AstFrom01 u)  -- TODO
     AstSum10 _v -> AstBuildPair1 n (var, AstFrom01 u)  -- TODO
     AstDot10 _u _v -> AstBuildPair1 n (var, AstFrom01 u)  -- TODO
     AstFrom10 v -> build1Vectorize n (var, v)

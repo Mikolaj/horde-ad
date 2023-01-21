@@ -55,7 +55,7 @@ barADVal = bar @(ADVal d r)
 
 fooBuild1 :: ADReady r => VectorOf r -> VectorOf r
 fooBuild1 v =
-  let r = lsumElements10 v
+  let r = lsum10 v
       v' = lminimum0 v
   in lbuild1 3 $ \ix ->
        r * foo ( 3
@@ -73,7 +73,7 @@ fooMap1 r =
 fooNoGoAst :: (Numeric r, RealFloat r, Num (Vector r))
            => Ast1 1 r -> Ast1 1 r
 fooNoGoAst v =
-  let r = lsumElements10 v
+  let r = lsum10 v
   in lbuild1 3 (\ix ->
        barAst (3.14, bar (3.14, lindex10 v ix))
        + AstCond0 (AstBoolOp AndOut  -- TODO: overload &&, <=, >, etc.
@@ -93,7 +93,7 @@ nestedBuildMap r =
       variableLengthBuild iy = lbuild1 (iy + 1) (\ix -> lindex10 v' (ix + 1)) :: VectorOf r
       doublyBuild = lbuild1 5 (\iy -> lminimum0 (variableLengthBuild iy))
   in lmap1 (\x -> x
-                  * lsumElements10
+                  * lsum10
                       (lbuild1 3 (\ix -> bar ( x
                                              , lindex10 v' ix) )
                        + fooBuild1 (nestedMap x)
@@ -103,18 +103,18 @@ nestedBuildMap r =
 nestedSumBuild :: ADReady r => VectorOf r -> VectorOf r
 nestedSumBuild v =
   lbuild1 13 (\ix ->
-    lsumElements10 (lbuild1 4 (\ix2 ->
+    lsum10 (lbuild1 4 (\ix2 ->
       flip lindex10 ix2
-        (lbuild1 5 (\ _ -> lsumElements10 v)
+        (lbuild1 5 (\ _ -> lsum10 v)
          * lfromList1
              [ fromIntOf ix
-             , lsumElements10 (lbuild1 9 (\ix5 -> fromIntOf ix5))
-             , lsumElements10 (lbuild1 6 (\_ -> lsumElements10 v))
+             , lsum10 (lbuild1 9 (\ix5 -> fromIntOf ix5))
+             , lsum10 (lbuild1 6 (\_ -> lsum10 v))
              , lindex10 v ix2
-             , lsumElements10 (lbuild1 3 (\ix7 ->
-                 lsumElements10 (lkonst1 (ix2 + ix7) 2.4))) ]))))
+             , lsum10 (lbuild1 3 (\ix7 ->
+                 lsum10 (lkonst1 (ix2 + ix7) 2.4))) ]))))
   + lbuild1 13 (\ix ->
-      nestedBuildMap (lsumElements10 v) `lindex10` min ix 4)
+      nestedBuildMap (lsum10 v) `lindex10` min ix 4)
 
 barRelu
   :: ( RealFloat a
@@ -142,22 +142,22 @@ konstReluAst
   :: forall r.
      (Numeric r, RealFloat r, Num (Vector r))
   => Ast0 r -> Ast0 r
-konstReluAst x = lsumElements10 $ reluAst1 $ lkonst1 7 x
+konstReluAst x = lsum10 $ reluAst1 $ lkonst1 7 x
 
 
 -- * Tests by TomS
 
 f1 :: ADReady a => a -> a
-f1 = \arg -> lsumElements10 (lbuild1 10 (\i -> arg * fromIntOf i))
+f1 = \arg -> lsum10 (lbuild1 10 (\i -> arg * fromIntOf i))
 
 f2 :: ADReady a => a -> a
 f2 = \arg ->
   let fun1 i = arg * fromIntOf i
-      v1a = lsumElements10 (lbuild1 10 fun1)
-      v1b = lsumElements10 (lbuild1 20 fun1)
+      v1a = lsum10 (lbuild1 10 fun1)
+      v1b = lsum10 (lbuild1 20 fun1)
       fun2 y i = y * fromIntOf i
-      v2a = lsumElements10 (lbuild1 10 (fun2 arg))
-      v2b = lsumElements10 (lbuild1 20 (fun2 (arg + 1)))
+      v2a = lsum10 (lbuild1 10 (fun2 arg))
+      v2b = lsum10 (lbuild1 20 (fun2 (arg + 1)))
   in v1a + v1b + v2a + v2b
 
 

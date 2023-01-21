@@ -219,7 +219,7 @@ class VectorOf r ~ vector => VectorLike vector r | vector -> r where
   lmaxIndex :: vector -> IntOf r
 
   lindex10 :: vector -> IntOf r -> r
-  lsumElements10 :: vector -> r
+  lsum10 :: vector -> r
   ldot0 :: vector -> vector -> r
   lminimum0 :: vector -> r
   lmaximum0 :: vector -> r
