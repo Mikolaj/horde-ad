@@ -506,7 +506,8 @@ instance VectorLike (Ast1 1 r) (Ast0 r) where
   lmaxIndex = AstMaxIndex
 
   lindex10 v ix = AstIndex10 v [ix]
-  lsum10 = AstSum10
+--  lsum10 = AstSum10
+  lsum10 v = AstFrom10 $ AstSum1 v
   ldot0 = AstDot10
   lminimum0 = AstMinimum10
   lmaximum0 = AstMaximum10

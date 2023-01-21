@@ -112,7 +112,11 @@ nestedSumBuild v =
              , lsum10 (lbuild1 6 (\_ -> lsum10 v))
              , lindex10 v ix2
              , lsum10 (lbuild1 3 (\ix7 ->
-                 lsum10 (lkonst1 (ix2 + ix7) 2.4))) ]))))
+                 lsum10 (lkonst1 (ix2 + 1) (fromIntOf ix7))))
+-- irregular array:
+--             , lsum10 (lbuild1 3 (\ix7 ->
+--                 lsum10 (lkonst1 (ix2 + ix7 + 1) 2.4)))
+             ]))))
   + lbuild1 13 (\ix ->
       nestedBuildMap (lsum10 v) `lindex10` min ix 4)
 
