@@ -690,10 +690,7 @@ build1Vectorize n (var, u) =
     AstTranspose1 v -> AstTranspose1 $ AstTranspose1 $ AstTranspose1
                        $ build1Vectorize n (var, v)
        -- TODO: this is wrong; we also need the most general transpose
-       -- or the full-Ast AstReshape1
-    AstReshape1 sh v -> undefined
-      -- TODO: should be AstReshape1 (n : sh) $ build1Vectorize n (var, v),
-      -- but we can't have AstInt inside OR.ShapeL, which is [Int]
+    AstReshape1 ns v -> AstReshape1 (n : ns) $ build1Vectorize n (var, v)
 
     AstFromList01 l ->
       build1Vectorize n (var, AstFromList1 (map AstFrom01 l))
@@ -853,7 +850,7 @@ intVarInAst1 var = \case
   AstReverse1 v -> intVarInAst1 var v
   AstBuildPair1 n (_, v) -> intVarInAstInt var n || intVarInAst1 var v
   AstTranspose1 v -> intVarInAst1 var v
-  AstReshape1 _ v -> intVarInAst1 var v
+  AstReshape1 ns v -> or (map (intVarInAstInt var) ns) || intVarInAst1 var v
 
   AstFromList01 l -> or $ map (intVarInAst0 var) l
   AstFromVector01 l -> V.or $ V.map (intVarInAst0 var) l
@@ -1146,7 +1143,8 @@ interpretAst1 env = \case
   AstTranspose1 v ->
     let d@(D u _) = interpretAst1 env v
     in if OR.rank u <= 1 then d else transpose1' d
-  AstReshape1 sh v -> reshape1' sh $ interpretAst1 env v
+  AstReshape1 ns v -> reshape1' (map (interpretAstInt env) ns)
+                                (interpretAst1 env v)
 
   AstFromList01 l -> fromList01' [length l] $ map (interpretAst0 env) l
   AstFromVector01 l -> fromVector01' [V.length l] $ V.map (interpretAst0 env) l
