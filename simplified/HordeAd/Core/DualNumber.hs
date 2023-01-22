@@ -987,6 +987,10 @@ transpose1' :: (ADModeAndNum d r, KnownNat n)
             => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
 transpose1' (D u u') = dD (OR.transpose [1, 0] u) (dTranspose1 u')
 
+reshape1' :: (ADModeAndNum d r, KnownNat n, KnownNat m)
+          => OR.ShapeL -> ADVal d (OR.Array n r) -> ADVal d (OR.Array m r)
+reshape1' sh (D u u') = dD (OR.reshape sh u) (dReshape1 (OR.shapeL u) sh u')
+
 fromList01' :: (ADModeAndNum d r, KnownNat n)
             => OR.ShapeL -> [ADVal d r]
             -> ADVal d (OR.Array n r)
@@ -1126,7 +1130,7 @@ interpretAst1 env = \case
       -- fallback to POPL (memory blowup, but avoids functions on tape);
       -- an alternative is to use dBuild1 and store function on tape
   AstTranspose1 v -> transpose1' (interpretAst1 env v)
-  AstReshape1{} -> undefined  -- TODO
+  AstReshape1 sh v -> reshape1' sh $ interpretAst1 env v
 
   AstFromList01 l -> fromList01' [length l] $ map (interpretAst0 env) l
   AstFromVector01 l -> fromVector01' [V.length l] $ V.map (interpretAst0 env) l
