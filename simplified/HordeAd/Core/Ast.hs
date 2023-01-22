@@ -23,7 +23,7 @@ import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Type)
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import qualified Data.Strict.Vector as Data.Vector
-import           GHC.TypeLits (KnownNat, Nat, type (+))
+import           GHC.TypeLits (Nat, type (+))
 import           System.IO.Unsafe (unsafePerformIO)
 import           Text.Show.Functions ()
 
@@ -45,17 +45,13 @@ data Ast0 :: Type -> Type where
 
   AstVar0 :: AstVarName r -> Ast0 r
 
-  AstIndex10 :: KnownNat n
-             => Ast1 n r -> [AstInt r] -> Ast0 r
-  AstSum10 :: KnownNat n
-           => Ast1 n r -> Ast0 r
-  AstDot10 :: KnownNat n
-           => Ast1 n r -> Ast1 n r -> Ast0 r
+  -- Rank temporarily fixed ato 1, to avoid hard type-level programming.
+  AstIndex10 :: Ast1 1 r -> [AstInt r] -> Ast0 r
+  AstSum10 :: Ast1 1 r -> Ast0 r
+  AstDot10 :: Ast1 1 r -> Ast1 1 r -> Ast0 r
   AstFrom10 :: Ast1 0 r -> Ast0 r
-  AstMinimum10 :: KnownNat n
-               => Ast1 n r -> Ast0 r
-  AstMaximum10 :: KnownNat n
-               => Ast1 n r -> Ast0 r
+  AstMinimum10 :: Ast1 1 r -> Ast0 r
+  AstMaximum10 :: Ast1 1 r -> Ast0 r
 
   AstOMap0 :: (AstVarName r, Ast0 r) -> Ast0 r -> Ast0 r
     -- see AstOMap1; this is needed even at rank 0 to capture and interpret
@@ -95,7 +91,7 @@ data Ast1 :: Nat -> Type -> Type where
   -- TODO: how to handle the shape argument?
   AstReshape1 :: OR.ShapeL -> Ast1 n r -> Ast1 m r
 
-  -- Fixed rank 1 to avoid OR.ShapeL arguments:
+  -- Rank temporarily fixed ato 1, to avoid hard type-level programming.
   AstFromList01 :: [Ast0 r] -> Ast1 1 r
   AstFromVector01 :: Data.Vector.Vector (Ast0 r) -> Ast1 1 r
   AstKonst01 :: AstInt r -> Ast0 r -> Ast1 1 r

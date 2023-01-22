@@ -506,8 +506,7 @@ instance VectorLike (Ast1 1 r) (Ast0 r) where
   lmaxIndex = AstMaxIndex
 
   lindex10 v ix = AstIndex10 v [ix]
---  lsum10 = AstSum10
-  lsum10 v = AstFrom10 $ AstSum1 v
+  lsum10 = AstSum10
   ldot0 = AstDot10
   lminimum0 = AstMinimum10
   lmaximum0 = AstMaximum10
@@ -734,9 +733,14 @@ build1VectorizeFrom01 n (var, u) =
                 (build1Vectorize n (var, AstFrom01 d))
     AstVar0{} ->
       error "build1VectorizeFrom01: AstVar0 can't have free int variables"
-    AstIndex10 _v _is -> AstBuildPair1 n (var, AstFrom01 u)  -- TODO
-    AstSum10 _v -> AstBuildPair1 n (var, AstFrom01 u)  -- TODO
-    AstDot10 _u _v -> AstBuildPair1 n (var, AstFrom01 u)  -- TODO
+    AstIndex10 v [i] -> build1Vectorize n (var, AstIndex1 v i)
+    AstIndex10{} ->
+      error "build1VectorizeFrom01: wrong number of indexes for rank 1"
+    AstSum10 v -> build1Vectorize n (var, AstSum1 v)
+    AstDot10 v w -> build1Vectorize n (var, AstSum1 (AstOp1 TimesOut [v, w]))
+      -- AstDot1 is dubious, because dot product results in a scalar,
+      -- not in one rank less and also (some) fast implementations
+      -- depend on it resulting in a scalar.
     AstFrom10 v -> build1Vectorize n (var, v)
     AstMinimum10 _v -> AstBuildPair1 n (var, AstFrom01 u)  -- TODO
     AstMaximum10 _v -> AstBuildPair1 n (var, AstFrom01 u)  -- TODO
