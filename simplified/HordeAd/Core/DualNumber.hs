@@ -1158,6 +1158,12 @@ interpretAst1 env = \case
   AstSlice1 i k v -> slice1' (interpretAstInt env i) (interpretAstInt env k)
                (interpretAst1 env v)
   AstReverse1 v -> reverse1' (interpretAst1 env v)
+  AstBuildPair1 i (var, AstConstant1 r) ->
+    let n = interpretAstInt env i
+    in constant
+       $ OR.ravel . ORB.fromVector [n] . V.generate n
+       $ \j -> let D v _ = interpretLambdaI1 env (var, AstConstant1 r) j
+               in v
   AstBuildPair1 i (var, v) ->
     build1' (interpretAstInt env i) (interpretLambdaI1 env (var, v))
       -- fallback to POPL (memory blowup, but avoids functions on tape);
@@ -1174,15 +1180,8 @@ interpretAst1 env = \case
   AstFromList01 l -> fromList01' [length l] $ map (interpretAst0 env) l
   AstFromVector01 l -> fromVector01' [V.length l] $ V.map (interpretAst0 env) l
   AstKonst01 n r -> konst01' [interpretAstInt env n] (interpretAst0 env r)
-  AstBuildPair01 i (var, AstConstant0 r) ->
-    constant
-    $ lbuild1  -- from OR.Array instance
-        (interpretAstInt env i)
-        (\j -> let D v _ = interpretLambdaI0 env (var, AstConstant0 r) j
-               in v)
   AstBuildPair01 i (var, r) ->
-    build1Elementwise (interpretAstInt env i) (interpretLambdaI0 env (var, r))
-      -- fallback to POPL (memory blowup, but avoids functions on tape)
+    interpretAst1 env $ AstBuildPair1 i (var, AstFrom01 r)
   AstMapPair01 (var, r) e ->
     map1Elementwise (interpretLambdaD0 env (var, r)) (interpretAst1 env e)
       -- fallback to POPL (memory blowup, but avoids functions on tape)
