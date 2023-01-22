@@ -107,7 +107,7 @@ dotParameters (Domains a0 a1) (Domains b0 b1) =
       else OT.toVector v1 LA.<.> OT.toVector u1) a1 b1)
 
 
--- * General operations, for any tensor rank
+-- * Numeric instances for ADVal
 
 -- These instances are required by the @Real@ instance, which is required
 -- by @RealFloat@, which gives @atan2@. No idea what properties
@@ -177,6 +177,114 @@ instance (RealFloat a, IsPrimal d a) => RealFloat (ADVal d a) where
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a differentiable codomain
 
+-- * VectorLike instances for tensors, ADVal and Ast
+
+-- This instance is a faster way to get an objective function value.
+-- However, it doesn't do vectorization, so won't work on GPU, ArrayFire, etc.
+-- For vectorization, go through Ast and valueOnDomains.
+instance (Numeric r, IntOf r ~ Int, VectorOf r ~ Vec r)
+         => VectorLike (Vec r) r where
+  llength = OR.size
+  lminIndex = LA.minIndex . OR.toVector
+  lmaxIndex = LA.maxIndex . OR.toVector
+
+  lindex10 v ix = (V.! ix) $ OR.toVector v
+  lsum10 = OR.sumA
+  ldot0 u v = OR.toVector u LA.<.> OR.toVector v
+  lminimum0 = LA.minElement . OR.toVector
+  lmaximum0 = LA.maxElement . OR.toVector
+
+  lfromList1 l = OR.fromList [length l] l
+  lfromVector1 v = OR.fromVector [V.length v] $ V.convert v
+  lkonst1 n r = OR.constant [n] r
+  lappend1 = OR.append
+  lslice1 i k = OR.slice [(i, k)]
+  lreverse1 = OR.rev [0]
+  lbuild1 n f = OR.generate [n] (\l -> f (head l))
+  lmap1 = OR.mapA
+  lzipWith = OR.zipWithA
+
+-- Not that this instance doesn't do vectorization. To enable it,
+-- use the Ast instance, which vectorizes and finally interpret in ADVal.
+-- In principle, this instance is only useful for comparative tests,
+-- though for code without build/map/etc., it should be equivalent
+-- to going via Ast.
+instance ADModeAndNum d r
+         => VectorLike (ADVal d (Vec r)) (ADVal d r) where
+  llength (D u _) = llength u
+  lminIndex (D u _) = lminIndex u
+  lmaxIndex (D u _) = lmaxIndex u
+
+  lindex10 (D u u') ix = dD (lindex10 u ix) (dIndex10 u' [ix] [llength u])
+  lsum10 (D u u') = dD (lsum10 u) (dSum10 [llength u] u')
+  ldot0 (D u u') (D v v') = dD (ldot0 u v) (dAdd (dDot10 v u') (dDot10 u v'))
+  lminimum0 (D u u') =
+    dD (lminimum0 u) (dIndex10 u' [lminIndex u] [llength u])
+  lmaximum0 (D u u') =
+    dD (lmaximum0 u) (dIndex10 u' [lmaxIndex u] [llength u])
+
+  lfromList1 l = dD (lfromList1 $ map (\(D u _) -> u) l)  -- I hope this fuses
+                    (dFromList01 [length l] $ map (\(D _ u') -> u') l)
+  lfromVector1 v = dD (lfromVector1 $ V.map (\(D u _) -> u) v)
+                        -- I hope it fuses
+                      (dFromVector01 [V.length v] $ V.map (\(D _ u') -> u') v)
+  lkonst1 n (D u u') = dD (lkonst1 n u) (dKonst01 [n] u')
+  lappend1 (D u u') (D v v') = dD (lappend1 u v) (dAppend1 u' (llength u) v')
+  lslice1 i n (D u u') = dD (lslice1 i n u) (dSlice1 i n u' (llength u))
+  lreverse1 (D u u') = dD (lreverse1 u) (dReverse1 u')
+  lbuild1 = build1Closure  -- to test against build1Elementwise from Ast
+  lmap1 = map1Closure  -- to test against map1Elementwise from Ast
+  lzipWith = undefined
+
+instance VectorLike (Ast1 1 r) (Ast0 r) where
+  llength = AstLength
+  lminIndex = AstMinIndex
+  lmaxIndex = AstMaxIndex
+
+  lindex10 v ix = AstIndex10 v [ix]
+  lsum10 = AstSum10
+  ldot0 = AstDot10
+  lminimum0 v = AstIndex10 v [AstMinIndex v]
+  lmaximum0 v = AstIndex10 v [AstMaxIndex v]
+
+  lfromList1 = AstFromList01
+  lfromVector1 = AstFromVector01
+  lkonst1 = AstKonst01
+  lappend1 = AstAppend1
+  lslice1 = AstSlice1
+  lreverse1 = AstReverse1
+  lbuild1 = astBuild1
+  lmap1 = astMap1  -- TODO: express with build instead?
+  lzipWith = undefined  -- TODO: express with build instead?
+
+-- Impure but in the most trivial way (only ever incremented counter).
+unsafeAstVarCounter :: Counter
+{-# NOINLINE unsafeAstVarCounter #-}
+unsafeAstVarCounter = unsafePerformIO (newCounter 0)
+
+unsafeGetFreshAstVar :: IO (AstVarName a)
+{-# INLINE unsafeGetFreshAstVar #-}
+unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
+
+astBuild1 :: AstInt r -> (AstInt r -> Ast0 r) -> Ast1 1 r
+{-# NOINLINE astBuild1 #-}
+astBuild1 n f = unsafePerformIO $ do
+  freshAstVar <- unsafeGetFreshAstVar
+  return $! build1Vectorize n ( freshAstVar
+                              , AstFrom01 (f (AstIntVar freshAstVar)) )
+    -- TODO: this vectorizers depth-first, which is needed. But do we
+    -- also need a translation to non-vectorized terms for anything
+    -- (other than for comparative tests)?
+
+astMap1 :: (Ast0 r -> Ast0 r) -> Ast1 1 r -> Ast1 1 r
+{-# NOINLINE astMap1 #-}
+astMap1 f e = unsafePerformIO $ do
+  freshAstVar <- unsafeGetFreshAstVar
+  return $! map1Vectorize (freshAstVar, f (AstVar0 freshAstVar)) e
+
+
+-- * HasPrimal instances for all relevant types
+
 instance (Num a, IsPrimal d a) => HasPrimal (ADVal d a) where
   type PrimalOf (ADVal d a) = a
   type DualOf (ADVal d a) = Dual d a
@@ -239,6 +347,11 @@ instance HasPrimal (Ast1 n r) where
   ddD = error "TODO"
   fromIntOf = AstInt1
 
+
+-- * Legacy operations needed to re-use vector differentiation tests
+
+-- General operations, for any tensor rank
+
 logistic :: (Floating a, IsPrimal d a) => ADVal d a -> ADVal d a
 logistic (D u u') =
   let y = recip (1 + exp (- u))
@@ -288,7 +401,8 @@ reluAst1 v =
                          (primalPart v)
   in scale oneIfGtZero v
 
--- * Operations resulting in a scalar
+
+-- Operations resulting in a scalar
 
 sumElements10 :: ADModeAndNum d r
               => ADVal d (Vec r) -> ADVal d r
@@ -376,7 +490,7 @@ lossSoftMaxCrossEntropyV target (D u u') =
         (dDot10 (softMaxU - target) u')
 
 
--- * Operations resulting in a vector
+-- Operations resulting in a vector (really, a rank 1 OR.Array)
 
 -- @1@ means rank one, so the dual component represents a vector.
 fromList1 :: ADModeAndNum d r
@@ -423,7 +537,7 @@ from01 :: ADModeAndNum d r => ADVal d r -> ADVal d (OR.Array 0 r)
 from01 (D u u') = dD (OR.scalar u) (dFrom01 u')
 
 
--- * Build and map variants
+-- Build and map variants
 
 build1POPL :: Int -> (Int -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
 build1POPL n f = V.fromList $ map f [0 .. n - 1]
@@ -469,105 +583,7 @@ map1Closure
 map1Closure f d = build1Closure (llength d) $ \i -> f (index10 d i)
 
 
--- * Instances of VectorLike
-
-instance (Numeric r, IntOf r ~ Int, VectorOf r ~ Vec r)
-         => VectorLike (Vec r) r where
-  llength = OR.size
-  lminIndex = LA.minIndex . OR.toVector
-  lmaxIndex = LA.maxIndex . OR.toVector
-
-  lindex10 v ix = (V.! ix) $ OR.toVector v
-  lsum10 = OR.sumA
-  ldot0 u v = OR.toVector u LA.<.> OR.toVector v
-  lminimum0 = LA.minElement . OR.toVector
-  lmaximum0 = LA.maxElement . OR.toVector
-
-  lfromList1 l = OR.fromList [length l] l
-  lfromVector1 v = OR.fromVector [V.length v] $ V.convert v
-  lkonst1 n r = OR.constant [n] r
-  lappend1 = OR.append
-  lslice1 i k = OR.slice [(i, k)]
-  lreverse1 = OR.rev [0]
-  lbuild1 n f = OR.generate [n] (\l -> f (head l))
-  lmap1 = OR.mapA
-  lzipWith = OR.zipWithA
-
-instance VectorLike (Ast1 1 r) (Ast0 r) where
-  llength = AstLength
-  lminIndex = AstMinIndex
-  lmaxIndex = AstMaxIndex
-
-  lindex10 v ix = AstIndex10 v [ix]
-  lsum10 = AstSum10
-  ldot0 = AstDot10
-  lminimum0 v = AstIndex10 v [AstMinIndex v]
-  lmaximum0 v = AstIndex10 v [AstMaxIndex v]
-
-  lfromList1 = AstFromList01
-  lfromVector1 = AstFromVector01
-  lkonst1 = AstKonst01
-  lappend1 = AstAppend1
-  lslice1 = AstSlice1
-  lreverse1 = AstReverse1
-  lbuild1 = astBuild1  -- TODO: this vectorizers depth-first, but is this
-  lmap1 = astMap1      -- needed? should we vectorize the whole program instead?
-  lzipWith = undefined  -- TODO: express all with build instead?
-
--- Not that this instance doesn't do vectorization. To enable it,
--- use the Ast instance, vectorize and finally interpret in ADVal.
--- The interpretation step uses this instance, including lbuild1
--- and lmap1, as a fallback for failed vectorization.
-instance ADModeAndNum d r
-         => VectorLike (ADVal d (Vec r)) (ADVal d r) where
-  llength (D u _) = llength u
-  lminIndex (D u _) = lminIndex u
-  lmaxIndex (D u _) = lmaxIndex u
-
-  lindex10 (D u u') ix = dD (lindex10 u ix) (dIndex10 u' [ix] [llength u])
-  lsum10 (D u u') = dD (lsum10 u) (dSum10 [llength u] u')
-  ldot0 (D u u') (D v v') = dD (ldot0 u v) (dAdd (dDot10 v u') (dDot10 u v'))
-  lminimum0 (D u u') =
-    dD (lminimum0 u) (dIndex10 u' [lminIndex u] [llength u])
-  lmaximum0 (D u u') =
-    dD (lmaximum0 u) (dIndex10 u' [lmaxIndex u] [llength u])
-
-  lfromList1 l = dD (lfromList1 $ map (\(D u _) -> u) l)  -- I hope this fuses
-                    (dFromList01 [length l] $ map (\(D _ u') -> u') l)
-  lfromVector1 v = dD (lfromVector1 $ V.map (\(D u _) -> u) v)
-                        -- I hope it fuses
-                      (dFromVector01 [V.length v] $ V.map (\(D _ u') -> u') v)
-  lkonst1 n (D u u') = dD (lkonst1 n u) (dKonst01 [n] u')
-  lappend1 (D u u') (D v v') = dD (lappend1 u v) (dAppend1 u' (llength u) v')
-  lslice1 i n (D u u') = dD (lslice1 i n u) (dSlice1 i n u' (llength u))
-  lreverse1 (D u u') = dD (lreverse1 u) (dReverse1 u')
-  lbuild1 = build1Closure  -- to test against build1Elementwise from Ast
-  lmap1 = map1Closure  -- to test against map1Elementwise from Ast
-  lzipWith = undefined
-
--- * AST-based build and map variants
-
--- Impure but in the most trivial way (only ever incremented counter).
-unsafeAstVarCounter :: Counter
-{-# NOINLINE unsafeAstVarCounter #-}
-unsafeAstVarCounter = unsafePerformIO (newCounter 0)
-
-unsafeGetFreshAstVar :: IO (AstVarName a)
-{-# INLINE unsafeGetFreshAstVar #-}
-unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
-
-astBuild1 :: AstInt r -> (AstInt r -> Ast0 r) -> Ast1 1 r
-{-# NOINLINE astBuild1 #-}
-astBuild1 n f = unsafePerformIO $ do
-  freshAstVar <- unsafeGetFreshAstVar
-  return $! build1Vectorize n ( freshAstVar
-                              , AstFrom01 (f (AstIntVar freshAstVar)) )
-
-astMap1 :: (Ast0 r -> Ast0 r) -> Ast1 1 r -> Ast1 1 r
-{-# NOINLINE astMap1 #-}
-astMap1 f e = unsafePerformIO $ do
-  freshAstVar <- unsafeGetFreshAstVar
-  return $! map1Vectorize (freshAstVar, f (AstVar0 freshAstVar)) e
+-- * Vectorization of the build operation
 
 build1Vectorize
   :: AstInt r -> (AstVarName Int, Ast1 n r)
@@ -816,6 +832,9 @@ intVarInAstBool var = \case
   AstRel _ l -> or $ map (intVarInAst0 var) l
   AstRelInt _ l  -> or $ map (intVarInAstInt var) l
 
+
+-- * Odds and ends
+
 -- TODO: Shall this be represented and processed as just build?
 -- But doing this naively copies @w@ a lot, so we'd need to wait
 -- until AST handles sharing properly. Or make @w@ a variable.
@@ -849,6 +868,9 @@ gtAst d e = AstRel GtOut [d, e]
 
 gtIntAst :: AstInt r -> AstInt r -> AstBool r
 gtIntAst i j = AstRelInt GtOut [i, j]
+
+
+-- * Interpretation of Ast in ADVal
 
 interpretLambdaD0
   :: ADModeAndNum d r
