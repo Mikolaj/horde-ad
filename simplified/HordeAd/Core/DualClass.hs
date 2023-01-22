@@ -36,7 +36,7 @@ module HordeAd.Core.DualClass
   , -- * The less often used part of the mid-level API that gets re-exported in high-level API; it leaks implementation details
     pattern D
   , IsPrimal(..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
-  , Element, HasPrimal(..)
+  , Element
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
     Dual, HasRanks(..), HasInputs(..), dummyDual
   , -- * Internal operations, exposed for tests, debugging and experiments
@@ -119,7 +119,6 @@ type IsPrimalAndHasInputs (d :: ADMode) a r =
 type ADModeAndNum (d :: ADMode) r =
   ( Numeric r
   , Show r
-  , HasPrimal r
   , HasRanks d r
   , IsPrimalAndHasFeatures d r r
   , IsPrimalR d r
@@ -166,13 +165,13 @@ type family Dual (d :: ADMode) a = result | result -> d a where
   Dual 'ADModeDerivative Float = Float
   Dual 'ADModeDerivative (OT.Array r) = OT.Array r
   Dual 'ADModeDerivative (OR.Array n r) = OR.Array n r
-  Dual 'ADModeValue a = DummyDual a 'ADModeValue
+  Dual 'ADModeValue a = DummyDual a
 
 -- A bit more verbose, but a bit faster than @data@, perhaps by chance.
-newtype DummyDual r (d :: ADMode) = DummyDual ()
+newtype DummyDual r = DummyDual ()
   deriving Show
 
-dummyDual :: DummyDual r d
+dummyDual :: DummyDual r
 dummyDual = DummyDual ()
 
 type family IntOf a where
@@ -188,27 +187,6 @@ type family VectorOf a = result | result -> a where
   VectorOf Float = OR.Array 1 Float
   VectorOf (Ast0 r) = Ast1 1 r
   VectorOf (ADVal d r) = ADVal d (OR.Array 1 r)
-
--- We could accept any @RealFloat@ instead of @PrimalOf a@, but then
--- we'd need to coerce, e.g., via realToFrac, which is risky and lossy.
--- Also, the stricter typing is likely to catch real errors most of the time,
--- not just sloppy omission of explitic coercions.
-class HasPrimal a where
-  type PrimalOf a
-  type DualOf a
-  constant :: PrimalOf a -> a
-  scale :: Num (PrimalOf a) => PrimalOf a -> a -> a
-  primalPart :: a -> PrimalOf a
-  dualPart :: a -> DualOf a
-  ddD :: PrimalOf a -> DualOf a -> a
-  -- TODO: we'd probably also need dZero, dIndex10 and all others;
-  -- basically DualOf a needs to have IsPrimal and HasRanks instances
-  -- (and HasInputs?)
-  -- TODO: if DualOf is supposed to be user-visible, we needed
-  -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
-  --
-  -- Unrelated, but no better home ATM:
-  fromIntOf :: IntOf a -> a
 
 -- | Second argument is the primal component of a dual number at some rank
 -- wrt the differentiation mode given in the first argument.

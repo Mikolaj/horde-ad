@@ -311,6 +311,27 @@ astMap1 f e = unsafePerformIO $ do
 
 -- * HasPrimal instances for all relevant types
 
+-- We could accept any @RealFloat@ instead of @PrimalOf a@, but then
+-- we'd need to coerce, e.g., via realToFrac, which is risky and lossy.
+-- Also, the stricter typing is likely to catch real errors most of the time,
+-- not just sloppy omission of explitic coercions.
+class HasPrimal a where
+  type PrimalOf a
+  type DualOf a
+  constant :: PrimalOf a -> a
+  scale :: Num (PrimalOf a) => PrimalOf a -> a -> a
+  primalPart :: a -> PrimalOf a
+  dualPart :: a -> DualOf a
+  ddD :: PrimalOf a -> DualOf a -> a
+  -- TODO: we'd probably also need dZero, dIndex10 and all others;
+  -- basically DualOf a needs to have IsPrimal and HasRanks instances
+  -- (and HasInputs?)
+  -- TODO: if DualOf is supposed to be user-visible, we needed
+  -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
+  --
+  -- Unrelated, but no better home ATM:
+  fromIntOf :: IntOf a -> a
+
 instance (Num a, IsPrimal d a) => HasPrimal (ADVal d a) where
   type PrimalOf (ADVal d a) = a
   type DualOf (ADVal d a) = Dual d a
