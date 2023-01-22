@@ -191,9 +191,6 @@ data Delta1 :: Nat -> Type -> Type where
          => Int -> (Int -> Delta1 n r) -> Delta1 (1 + n) r
     -- ^ Build a tensor with the given size of the outermost dimension
     -- and using the given function to construct the element tensors.
-  Transpose1 :: KnownNat n
-             => Delta1 n r -> Delta1 n r
-    -- ^ Transpose the outermost dimension with the next dimension.
   TransposeGeneral1 :: KnownNat n
                     => [Int] -> Delta1 n r -> Delta1 n r
     -- ^ Transpose according to the permutation.
@@ -532,7 +529,6 @@ buildFinMaps s0 deltaDt =
         Reverse1 d -> eval1 s (OR.rev [0] c) d
         Build1 _n f -> V.ifoldl' (\s2 i c2 -> eval1 s2 c2 (f i))
                                  s (ORB.toVector $ OR.unravel c)
-        Transpose1 d -> eval1 s (OR.transpose [1, 0] c) d
         TransposeGeneral1 perm d ->
           let perm_reversed = map snd $ sort $ zip perm [0 .. length perm - 1]
           in eval1 s (OR.transpose perm_reversed c) d
@@ -679,7 +675,6 @@ buildDerivative dim0 dim1 deltaTopLevel
         Build1 n f -> do
           l <- mapM (eval1 . f) [0 .. n - 1]
           return $! OR.ravel $ ORB.fromList [n] l
-        Transpose1 d -> OR.transpose [1, 0] <$> eval1 d
         TransposeGeneral1 perm d -> OR.transpose perm <$> eval1 d
         Reshape1 _sh sh' d -> OR.reshape sh' <$> eval1 d
 

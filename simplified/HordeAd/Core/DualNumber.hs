@@ -1011,10 +1011,6 @@ build1' :: (ADModeAndNum d r, KnownNat n)
         -> ADVal d (OR.Array (1 + n) r)
 build1' n f = fromList1' $ map f [0 .. n - 1]
 
-transpose1' :: (ADModeAndNum d r, KnownNat n)
-            => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
-transpose1' (D u u') = dD (OR.transpose [1, 0] u) (dTranspose1 u')
-
 transposeGeneral1' :: (ADModeAndNum d r, KnownNat n)
                    => [Int] -> ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
 transposeGeneral1' perm (D u u') = dD (OR.transpose perm u)
@@ -1168,9 +1164,7 @@ interpretAst1 env = \case
     build1' (interpretAstInt env i) (interpretLambdaI1 env (var, v))
       -- fallback to POPL (memory blowup, but avoids functions on tape);
       -- an alternative is to use dBuild1 and store function on tape
-  AstTranspose1 v ->
-    let d@(D u _) = interpretAst1 env v
-    in if OR.rank u <= 1 then d else transpose1' d
+  AstTranspose1 v -> interpretAst1 env $ AstTransposeGeneral1 [1, 0] v
   AstTransposeGeneral1 perm v ->
     let d@(D u _) = interpretAst1 env v
     in if OR.rank u <= length perm - 1 then d else transposeGeneral1' perm d
