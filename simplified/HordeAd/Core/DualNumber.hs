@@ -186,7 +186,7 @@ class VectorOf r ~ vector => VectorLike vector r | vector -> r where
 
   lindex10 :: vector -> IntOf r -> r
   lsum10 :: vector -> r
-  ldot0 :: vector -> vector -> r
+  ldot10 :: vector -> vector -> r
   lminimum0 :: vector -> r
   lmaximum0 :: vector -> r
 
@@ -216,7 +216,7 @@ instance (Numeric r, IntOf r ~ Int, VectorOf r ~ Vec r)
 
   lindex10 v ix = (V.! ix) $ OR.toVector v
   lsum10 = OR.sumA
-  ldot0 u v = OR.toVector u LA.<.> OR.toVector v
+  ldot10 u v = OR.toVector u LA.<.> OR.toVector v
   lminimum0 = LA.minElement . OR.toVector
   lmaximum0 = LA.maxElement . OR.toVector
 
@@ -243,7 +243,7 @@ instance ADModeAndNum d r
 
   lindex10 (D u u') ix = dD (lindex10 u ix) (dIndex10 u' [ix] [llength u])
   lsum10 (D u u') = dD (lsum10 u) (dSum10 [llength u] u')
-  ldot0 (D u u') (D v v') = dD (ldot0 u v) (dAdd (dDot10 v u') (dDot10 u v'))
+  ldot10 (D u u') (D v v') = dD (ldot10 u v) (dAdd (dDot10 v u') (dDot10 u v'))
   lminimum0 (D u u') =
     dD (lminimum0 u) (dIndex10 u' [lminIndex u] [llength u])
   lmaximum0 (D u u') =
@@ -269,7 +269,7 @@ instance VectorLike (Ast1 1 r) (Ast0 r) where
 
   lindex10 v ix = AstIndex10 v [ix]
   lsum10 = AstSum10
-  ldot0 = AstDot10
+  ldot10 = AstDot10
   lminimum0 v = AstIndex10 v [AstMinIndex v]
   lmaximum0 v = AstIndex10 v [AstMaxIndex v]
 
@@ -480,13 +480,13 @@ altSumElements10 = foldl'0 (+) 0
 infixr 8 <.>!
 (<.>!) :: ADModeAndNum d r
        => ADVal d (Vec r) -> ADVal d (Vec r) -> ADVal d r
-(<.>!) = ldot0
+(<.>!) = ldot10
 
 -- | Dot product with a constant vector.
 infixr 8 <.>!!
 (<.>!!) :: ADModeAndNum d r
         => ADVal d (Vec r) -> Vec r -> ADVal d r
-(<.>!!) (D u u') v = dD (ldot0 u v) (dDot10 v u')
+(<.>!!) (D u u') v = dD (ldot10 u v) (dDot10 v u')
 
 sumElementsVectorOfDual
   :: ADModeAndNum d r => Data.Vector.Vector (ADVal d r) -> ADVal d r
@@ -533,7 +533,7 @@ lossSoftMaxCrossEntropyV target (D u u') =
       recipSum = recip sumExpU
 -- not exposed: softMaxU = LA.scaleRecip sumExpU expU
       softMaxU = lkonst1 (llength expU) recipSum * expU
-  in dD (negate $ log softMaxU `ldot0` target)  -- TODO: avoid: log . exp
+  in dD (negate $ log softMaxU `ldot10` target)  -- TODO: avoid: log . exp
         (dDot10 (softMaxU - target) u')
 
 
@@ -925,9 +925,9 @@ sum10' :: (ADModeAndNum d r, KnownNat n)
        => ADVal d (OR.Array n r) -> ADVal d r
 sum10' (D u u') = dD (OR.sumA u) (dSum10 (OR.shapeL u) u')
 
-dot0' :: (ADModeAndNum d r, KnownNat n)
-      => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r) -> ADVal d r
-dot0' (D u u') (D v v') = dD (OR.toVector u LA.<.> OR.toVector v)
+dot10' :: (ADModeAndNum d r, KnownNat n)
+       => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r) -> ADVal d r
+dot10' (D u u') (D v v') = dD (OR.toVector u LA.<.> OR.toVector v)
                              (dAdd (dDot10 v u') (dDot10 u v'))
 
 from10 :: ADModeAndNum d r => ADVal d (OR.Array 0 r) -> ADVal d r
@@ -1049,7 +1049,7 @@ interpretAst0 env = \case
   AstIndex10 v is ->
     index10' (interpretAst1 env v) (map (interpretAstInt env) is)
   AstSum10 v -> sum10' (interpretAst1 env v)
-  AstDot10 x y -> dot0' (interpretAst1 env x) (interpretAst1 env y)
+  AstDot10 x y -> dot10' (interpretAst1 env x) (interpretAst1 env y)
   AstFrom10 u -> from10 $ interpretAst1 env u
 
   AstOMap0 (var, r) e ->  -- this only works on the primal part hence @constant@
