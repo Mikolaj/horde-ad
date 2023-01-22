@@ -86,6 +86,7 @@ data Ast1 :: Nat -> Type -> Type where
   AstReverse1 :: Ast1 n r -> Ast1 n r
   AstBuildPair1 :: AstInt r -> (AstVarName Int, Ast1 n r) -> Ast1 (1 + n) r
   AstTranspose1 :: Ast1 n r -> Ast1 n r
+  AstTransposeGeneral1 :: [Int] -> Ast1 n r -> Ast1 n r
   -- TODO: how to handle the shape argument?
   AstReshape1 :: KnownNat n
               => [AstInt r] -> Ast1 n r -> Ast1 m r

@@ -66,7 +66,7 @@ import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
 import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Type)
-import           Data.List (foldl')
+import           Data.List (foldl', sort)
 import           Data.List.Index (ifoldl')
 import           Data.Primitive (Prim)
 import           Data.STRef (newSTRef, readSTRef, writeSTRef)
@@ -194,6 +194,9 @@ data Delta1 :: Nat -> Type -> Type where
   Transpose1 :: KnownNat n
              => Delta1 n r -> Delta1 n r
     -- ^ Transpose the outermost dimension with the next dimension.
+  TransposeGeneral1 :: KnownNat n
+                    => [Int] -> Delta1 n r -> Delta1 n r
+    -- ^ Transpose according to the permutation.
   Reshape1 :: (KnownNat n, KnownNat m)
            => OR.ShapeL -> OR.ShapeL -> Delta1 n r -> Delta1 m r
     -- ^ Change the shape of the tensor from the first to the second.
@@ -530,6 +533,9 @@ buildFinMaps s0 deltaDt =
         Build1 _n f -> V.ifoldl' (\s2 i c2 -> eval1 s2 c2 (f i))
                                  s (ORB.toVector $ OR.unravel c)
         Transpose1 d -> eval1 s (OR.transpose [1, 0] c) d
+        TransposeGeneral1 perm d ->
+          let perm_reversed = map snd $ sort $ zip perm [0 .. length perm - 1]
+          in eval1 s (OR.transpose perm_reversed c) d
         Reshape1 sh _sh' d -> eval1 s (OR.reshape sh c) d
 
         FromList01 _sh lsd ->  -- lsd is a list of scalar delta expressions
@@ -674,6 +680,7 @@ buildDerivative dim0 dim1 deltaTopLevel
           l <- mapM (eval1 . f) [0 .. n - 1]
           return $! OR.ravel $ ORB.fromList [n] l
         Transpose1 d -> OR.transpose [1, 0] <$> eval1 d
+        TransposeGeneral1 perm d -> OR.transpose perm <$> eval1 d
         Reshape1 _sh sh' d -> OR.reshape sh' <$> eval1 d
 
         FromList01 sh lsd -> do

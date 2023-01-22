@@ -260,6 +260,8 @@ class HasRanks (d :: ADMode) r where
           -> Dual d (OR.Array (1 + n) r)
   dTranspose1 :: KnownNat n
               => Dual d (OR.Array n r) -> Dual d (OR.Array n r)
+  dTransposeGeneral1 :: KnownNat n
+                     => [Int] -> Dual d (OR.Array n r) -> Dual d (OR.Array n r)
   dReshape1 :: (KnownNat n, KnownNat m)
             => OR.ShapeL -> OR.ShapeL -> Dual d (OR.Array n r)
             -> Dual d (OR.Array m r)
@@ -378,6 +380,7 @@ instance Dual 'ADModeGradient r ~ Delta0 r
   dSlice1 = Slice1
   dReverse1 = Reverse1
   dTranspose1 = Transpose1
+  dTransposeGeneral1 = TransposeGeneral1
   dBuild1 = Build1
   dReshape1 = Reshape1
 
@@ -427,6 +430,7 @@ instance ( Numeric r, Num (Vector r)
   dSlice1 i n d _len = OR.slice [(i, n)] d
   dReverse1 = OR.rev [0]
   dTranspose1 = OR.transpose [1, 0]
+  dTransposeGeneral1 = OR.transpose
   dBuild1 n f = OR.ravel $ ORB.fromVector [n] $ V.generate n f
   dReshape1 _sh = OR.reshape
 
@@ -480,6 +484,7 @@ instance HasRanks 'ADModeValue r where
   dSlice1 _ _ _ _ = DummyDual ()
   dReverse1 _ = DummyDual ()
   dTranspose1 _ = DummyDual ()
+  dTransposeGeneral1 _ _ = DummyDual ()
   dBuild1 _ _ = DummyDual ()
   dReshape1 _ _ _ = DummyDual ()
 

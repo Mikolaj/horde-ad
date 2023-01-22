@@ -687,9 +687,9 @@ build1Vectorize n (var, u) =
     AstBuildPair1{} -> AstBuildPair1 n (var, u)
       -- TODO: a previous failure of vectorization that should have
       -- led to an abort instead of showing up late
-    AstTranspose1 v -> AstTranspose1 $ AstTranspose1 $ AstTranspose1
-                       $ build1Vectorize n (var, v)
-       -- TODO: this is wrong; we also need the most general transpose
+    AstTranspose1 v -> build1Vectorize n (var, AstTransposeGeneral1 [1, 0] v)
+    AstTransposeGeneral1 perm v -> AstTransposeGeneral1 (0 : map succ perm)
+                                   $ build1Vectorize n (var, v)
     AstReshape1 ns v -> AstReshape1 (n : ns) $ build1Vectorize n (var, v)
 
     AstFromList01 l ->
@@ -850,6 +850,7 @@ intVarInAst1 var = \case
   AstReverse1 v -> intVarInAst1 var v
   AstBuildPair1 n (_, v) -> intVarInAstInt var n || intVarInAst1 var v
   AstTranspose1 v -> intVarInAst1 var v
+  AstTransposeGeneral1 _ v -> intVarInAst1 var v
   AstReshape1 ns v -> or (map (intVarInAstInt var) ns) || intVarInAst1 var v
 
   AstFromList01 l -> or $ map (intVarInAst0 var) l
@@ -998,6 +999,11 @@ transpose1' :: (ADModeAndNum d r, KnownNat n)
             => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
 transpose1' (D u u') = dD (OR.transpose [1, 0] u) (dTranspose1 u')
 
+transposeGeneral1' :: (ADModeAndNum d r, KnownNat n)
+                   => [Int] -> ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
+transposeGeneral1' perm (D u u') = dD (OR.transpose perm u)
+                                      (dTransposeGeneral1 perm u')
+
 reshape1' :: (ADModeAndNum d r, KnownNat n, KnownNat m)
           => OR.ShapeL -> ADVal d (OR.Array n r) -> ADVal d (OR.Array m r)
 reshape1' sh (D u u') = dD (OR.reshape sh u) (dReshape1 (OR.shapeL u) sh u')
@@ -1143,6 +1149,9 @@ interpretAst1 env = \case
   AstTranspose1 v ->
     let d@(D u _) = interpretAst1 env v
     in if OR.rank u <= 1 then d else transpose1' d
+  AstTransposeGeneral1 perm v ->
+    let d@(D u _) = interpretAst1 env v
+    in if OR.rank u <= length perm - 1 then d else transposeGeneral1' perm d
   AstReshape1 ns v -> reshape1' (map (interpretAstInt env) ns)
                                 (interpretAst1 env v)
 
