@@ -577,12 +577,6 @@ softMaxV d =
       sumExpU = sumElements10 expU
   in lkonst1 (llength d) (recip sumExpU) * expU
 
-from10 :: ADModeAndNum d r => ADVal d (OR.Array 0 r) -> ADVal d r
-from10 (D u u') = dD (OR.unScalar u) (dFrom10 u')
-
-from01 :: ADModeAndNum d r => ADVal d r -> ADVal d (OR.Array 0 r)
-from01 (D u u') = dD (OR.scalar u) (dFrom01 u')
-
 
 -- Build and map variants
 
@@ -919,6 +913,86 @@ gtIntAst i j = AstRelInt GtOut [i, j]
 
 -- * Interpretation of Ast in ADVal
 
+-- First come definition of some ADVal combinators to be used below.
+-- They are more general than their legacy versions for rank 1 above
+-- and sometimes more general than the Ast operations.
+index10' :: (ADModeAndNum d r, KnownNat n)
+         => ADVal d (OR.Array n r) -> [Int] -> ADVal d r
+index10' (D u u') ixs = dD (u `atIndexInTensorR` ixs)
+                           (dIndex10 u' ixs (OR.shapeL u))
+
+sum10' :: (ADModeAndNum d r, KnownNat n)
+       => ADVal d (OR.Array n r) -> ADVal d r
+sum10' (D u u') = dD (OR.sumA u) (dSum10 (OR.shapeL u) u')
+
+dot0' :: (ADModeAndNum d r, KnownNat n)
+      => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r) -> ADVal d r
+dot0' (D u u') (D v v') = dD (OR.toVector u LA.<.> OR.toVector v)
+                             (dAdd (dDot10 v u') (dDot10 u v'))
+
+from10 :: ADModeAndNum d r => ADVal d (OR.Array 0 r) -> ADVal d r
+from10 (D u u') = dD (OR.unScalar u) (dFrom10 u')
+
+index1' :: (ADModeAndNum d r, KnownNat n)
+        => ADVal d (OR.Array (1 + n) r) -> Int -> ADVal d (OR.Array n r)
+index1' (D u u') ix = dD (u `OR.index` ix)
+                         (dIndex1 u' ix (head $ OR.shapeL u))
+
+sum1' :: (ADModeAndNum d r, KnownNat n)
+      => ADVal d (OR.Array (1 + n) r) -> ADVal d (OR.Array n r)
+sum1' (D u u') = dD (ORB.sumA $ OR.unravel u)
+                    (dSum1 (head $ OR.shapeL u) u')
+
+fromList1' :: (ADModeAndNum d r, KnownNat n)
+           => [ADVal d (OR.Array n r)]
+           -> ADVal d (OR.Array (1 + n) r)
+fromList1' lu =
+  -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
+  dD (OR.ravel . ORB.fromList [length lu]
+      $ map (\(D u _) -> u) lu)
+     (dFromList1 $ map (\(D _ u') -> u') lu)
+
+fromVector1' :: (ADModeAndNum d r, KnownNat n)
+             => Data.Vector.Vector (ADVal d (OR.Array n r))
+             -> ADVal d (OR.Array (1 + n) r)
+fromVector1' lu =
+  dD (OR.ravel . ORB.fromVector [V.length lu] . V.convert
+      $ V.map (\(D u _) -> u) lu)
+     (dFromVector1 $ V.map (\(D _ u') -> u') lu)
+
+konst1' :: (ADModeAndNum d r, KnownNat n)
+        => Int -> ADVal d (OR.Array n r) -> ADVal d (OR.Array (1 + n) r)
+konst1' n (D u u') = dD (OR.ravel (ORB.constant [n] u))
+                         (dKonst1 n u')
+
+append1' :: (ADModeAndNum d r, KnownNat n)
+         => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
+         -> ADVal d (OR.Array n r)
+append1' (D u u') (D v v') = dD (OR.append u v)
+                                (dAppend1 u' (head $ OR.shapeL u) v')
+
+slice1' :: (ADModeAndNum d r, KnownNat n)
+        => Int -> Int -> ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
+slice1' i k (D u u') = dD (OR.slice [(i, k)] u)
+                          (dSlice1 i k u' (head $ OR.shapeL u))
+
+reverse1' :: (ADModeAndNum d r, KnownNat n)
+          => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
+reverse1' (D u u') = dD (OR.rev [0] u) (dReverse1 u')
+
+-- The element-wise (POPL) version, but only one rank at a time.
+build1' :: (ADModeAndNum d r, KnownNat n)
+        => Int -> (Int -> ADVal d (OR.Array n r))
+        -> ADVal d (OR.Array (1 + n) r)
+build1' n f = fromList1' $ map f [0 .. n - 1]
+
+transpose1' :: (ADModeAndNum d r, KnownNat n)
+            => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
+transpose1' (D u u') = dD (OR.transpose [1, 0] u) (dTranspose1 u')
+
+from01 :: ADModeAndNum d r => ADVal d r -> ADVal d (OR.Array 0 r)
+from01 (D u u') = dD (OR.scalar u) (dFrom01 u')
+
 interpretLambdaD0
   :: ADModeAndNum d r
   => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vec r)))
@@ -973,16 +1047,9 @@ interpretAst0 env = \case
     Nothing -> error $ "interpretAst: unknown variable var " ++ show var
 
   AstIndex10 v is ->
-    let index10' (D u u') ixs = dD (u `atIndexInTensorR` ixs)
-                                   (dIndex10 u' ixs (OR.shapeL u))
-    in index10' (interpretAst1 env v) (map (interpretAstInt env) is)
-  AstSum10 v ->
-    let sum10 (D u u') = dD (OR.sumA u) (dSum10 (OR.shapeL u) u')
-    in sum10 (interpretAst1 env v)
-  AstDot10 x y ->
-    let dot0 (D u u') (D v v') = dD (OR.toVector u LA.<.> OR.toVector v)
-                                    (dAdd (dDot10 v u') (dDot10 u v'))
-    in dot0 (interpretAst1 env x) (interpretAst1 env y)
+    index10' (interpretAst1 env v) (map (interpretAstInt env) is)
+  AstSum10 v -> sum10' (interpretAst1 env v)
+  AstDot10 x y -> dot0' (interpretAst1 env x) (interpretAst1 env y)
   AstFrom10 u -> from10 $ interpretAst1 env u
 
   AstOMap0 (var, r) e ->  -- this only works on the primal part hence @constant@
@@ -1030,45 +1097,20 @@ interpretAst1 env = \case
     Just AstVarI{} -> error $ "interpretAst: type mismatch for var " ++ show var
     Nothing -> error $ "interpretAst: unknown variable var " ++ show var
 
-  AstIndex1 v i ->
-    let index1' (D u u') ix = dD (u `OR.index` ix)
-                                 (dIndex1 u' ix (head $ OR.shapeL u))
-    in index1' (interpretAst1 env v) (interpretAstInt env i)
-  AstSum1 v ->
-    let sum1 (D u u') = dD (ORB.sumA $ OR.unravel u)
-                           (dSum1 (head $ OR.shapeL u) u')
-    in sum1 (interpretAst1 env v)
+  AstIndex1 v i -> index1' (interpretAst1 env v) (interpretAstInt env i)
+  AstSum1 v -> sum1' (interpretAst1 env v)
   AstFromList1 l -> fromList1' (map (interpretAst1 env) l)
-  AstFromVector1 l ->
-    let fromVector1' lu =
-          dD (OR.ravel . ORB.fromVector [V.length lu] . V.convert
-              $ V.map (\(D u _) -> u) lu)
-             (dFromVector1 $ V.map (\(D _ u') -> u') lu)
-    in fromVector1' (V.map (interpretAst1 env) l)
-  AstKonst1 n v ->
-    let konst1' n' (D u u') = dD (OR.ravel (ORB.constant [n'] u))
-                                 (dKonst1 n' u')
-    in konst1' (interpretAstInt env n) (interpretAst1 env v)
-  AstAppend1 x y ->
-    let append1' (D u u') (D v v') =
-          dD (OR.append u v) (dAppend1 u' (head $ OR.shapeL u) v')
-    in append1' (interpretAst1 env x) (interpretAst1 env y)
-  AstSlice1 i k v ->
-    let slice1' i' k' (D u u') = dD (OR.slice [(i', k')] u)
-                                    (dSlice1 i' k' u' (head $ OR.shapeL u))
-    in slice1' (interpretAstInt env i) (interpretAstInt env k)
+  AstFromVector1 l -> fromVector1' (V.map (interpretAst1 env) l)
+  AstKonst1 n v ->konst1' (interpretAstInt env n) (interpretAst1 env v)
+  AstAppend1 x y -> append1' (interpretAst1 env x) (interpretAst1 env y)
+  AstSlice1 i k v -> slice1' (interpretAstInt env i) (interpretAstInt env k)
                (interpretAst1 env v)
-  AstReverse1 v ->
-    let reverse1' (D u u') = dD (OR.rev [0] u) (dReverse1 u')
-    in reverse1' (interpretAst1 env v)
+  AstReverse1 v -> reverse1' (interpretAst1 env v)
   AstBuildPair1 i (var, v) ->
-    let build1' n f = fromList1' $ map f [0 .. n - 1]
-    in build1' (interpretAstInt env i) (interpretLambdaI1 env (var, v))
+    build1' (interpretAstInt env i) (interpretLambdaI1 env (var, v))
       -- fallback to POPL (memory blowup, but avoids functions on tape);
       -- an alternative is to use dBuild1 and store function on tape
-  AstTranspose1 v ->
-    let transpose1 (D u u') = dD (OR.transpose [1, 0] u) (dTranspose1 u')
-    in transpose1 (interpretAst1 env v)
+  AstTranspose1 v -> transpose1' (interpretAst1 env v)
   AstReshape1{} -> undefined  -- TODO
 
   AstFromList01 l -> lfromList1 $ map (interpretAst0 env) l
@@ -1095,15 +1137,6 @@ interpretAst1 env = \case
     $ omap (\x -> let D u _ = interpretLambdaD0 env (var, r) (constant x)
                   in u)
            (interpretAst1Primal env e)
-
-fromList1' :: (ADModeAndNum d r, KnownNat n)
-           => [ADVal d (OR.Array n r)]
-           -> ADVal d (OR.Array (1 + n) r)
-fromList1' lu =
-  -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
-  dD (OR.ravel . ORB.fromList [length lu]
-      $ map (\(D u _) -> u) lu)
-     (dFromList1 $ map (\(D _ u') -> u') lu)
 
 interpretAstInt :: ADModeAndNum d r
                 => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vec r)))
