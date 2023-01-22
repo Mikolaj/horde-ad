@@ -50,8 +50,6 @@ data Ast0 :: Type -> Type where
   AstSum10 :: Ast1 1 r -> Ast0 r
   AstDot10 :: Ast1 1 r -> Ast1 1 r -> Ast0 r
   AstFrom10 :: Ast1 0 r -> Ast0 r
-  AstMinimum10 :: Ast1 1 r -> Ast0 r
-  AstMaximum10 :: Ast1 1 r -> Ast0 r
 
   AstOMap0 :: (AstVarName r, Ast0 r) -> Ast0 r -> Ast0 r
     -- see AstOMap1; this is needed even at rank 0 to capture and interpret

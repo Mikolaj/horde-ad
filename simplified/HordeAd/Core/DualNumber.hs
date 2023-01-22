@@ -47,15 +47,7 @@ import           System.IO.Unsafe (unsafePerformIO)
 import HordeAd.Core.Ast
 import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta
-  ( Domain0
-  , Domain1
-  , Domains (..)
-  , atIndexInTensorR
-  , getStrides
-  , isTensorDummy
-  , nullDomains
-  , toIx
-  )
+  (Domain0, Domain1, Domains (..), atIndexInTensorR, isTensorDummy, nullDomains)
 
 -- * Auxiliary definitions
 
@@ -508,8 +500,8 @@ instance VectorLike (Ast1 1 r) (Ast0 r) where
   lindex10 v ix = AstIndex10 v [ix]
   lsum10 = AstSum10
   ldot0 = AstDot10
-  lminimum0 = AstMinimum10
-  lmaximum0 = AstMaximum10
+  lminimum0 v = AstIndex10 v [AstMinIndex v]
+  lmaximum0 v = AstIndex10 v [AstMaxIndex v]
 
   lfromList1 = AstFromList01
   lfromVector1 = AstFromVector01
@@ -742,8 +734,6 @@ build1VectorizeFrom01 n (var, u) =
       -- not in one rank less and also (some) fast implementations
       -- depend on it resulting in a scalar.
     AstFrom10 v -> build1Vectorize n (var, v)
-    AstMinimum10 _v -> AstBuildPair1 n (var, AstFrom01 u)  -- TODO
-    AstMaximum10 _v -> AstBuildPair1 n (var, AstFrom01 u)  -- TODO
 
     AstOMap0{} ->
       AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, AstFrom01 u)
@@ -765,8 +755,6 @@ intVarInAst0 var = \case
   AstSum10 v -> intVarInAst1 var v
   AstDot10 v u -> intVarInAst1 var v || intVarInAst1 var u
   AstFrom10 v -> intVarInAst1 var v
-  AstMinimum10 v -> intVarInAst1 var v
-  AstMaximum10 v -> intVarInAst1 var v
   AstOMap0 (_, v) u -> intVarInAst0 var v || intVarInAst0 var u
     -- the variable in binder position, so ignored (and should be distinct)
 
@@ -849,8 +837,6 @@ map1Vectorize (var, u) w = case u of
     -- both _v and _i can depend on var, e.g., because of conditionals
   AstSum10 _v -> AstMapPair01 (var, u) w  -- TODO
   AstDot10 _u _v -> AstMapPair01 (var, u) w  -- TODO
-  AstMinimum10 _v -> AstMapPair01 (var, u) w  -- TODO
-  AstMaximum10 _v -> AstMapPair01 (var, u) w  -- TODO
   _ -> AstMapPair01 (var, u) w  -- TODO
   -- TODO: -- All other patterns are redundant due to GADT typing.
 
@@ -928,26 +914,6 @@ interpretAst0 env = \case
                                     (dAdd (dDot10 v u') (dDot10 u v'))
     in dot0 (interpretAst1 env x) (interpretAst1 env y)
   AstFrom10 u -> from10 $ interpretAst1 env u
-  AstMinimum10 v ->
-    let minimum0' (D u u') =
-         let sh = OR.shapeL u
-             ss = case getStrides sh of
-               _ : ss2 -> ss2
-               [] -> error "getStrides in interpretAst0"
-             i = LA.minIndex $ OR.toVector u
-             ixs = toIx ss i
-         in dD (LA.minElement $ OR.toVector u) (dIndex10 u' ixs sh)
-    in minimum0' $ interpretAst1 env v
-  AstMaximum10 v ->
-    let maximum0' (D u u') =
-         let sh = OR.shapeL u
-             ss = case getStrides sh of
-               _ : ss2 -> ss2
-               [] -> error "getStrides in interpretAst0"
-             i = LA.maxIndex $ OR.toVector u
-             ixs = toIx ss i
-         in dD (LA.maxElement $ OR.toVector u) (dIndex10 u' ixs sh)
-    in maximum0' $ interpretAst1 env v
 
   AstOMap0 (var, r) e ->  -- this only works on the primal part hence @constant@
     constant
