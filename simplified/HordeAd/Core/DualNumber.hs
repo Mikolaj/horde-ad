@@ -618,8 +618,13 @@ build1Vectorize n (var, u) =
     AstSum1 v -> AstSum1 $ AstTranspose1 $ build1Vectorize n (var, v)
       -- that's because @build n (f . g) == map f (build n g)@
       -- and @map sum1 == sum1 . transpose1@
-    AstFromList1{} -> AstBuildPair1 n (var, u)  -- TODO
-    AstFromVector1{} -> AstBuildPair1 n (var, u)  -- TODO
+      -- TODO: though probably only for regular arrays
+    AstFromList1 l ->
+      AstTranspose1
+      $ AstFromList1 (map (\v -> build1Vectorize n (var, v)) l)
+    AstFromVector1 l ->
+      AstTranspose1
+      $ AstFromVector1 (V.map (\v -> build1Vectorize n (var, v)) l)
     AstKonst1{} -> AstBuildPair1 n (var, u)  -- TODO
     AstAppend1{} -> AstBuildPair1 n (var, u)  -- TODO
     AstSlice1{} -> AstBuildPair1 n (var, u)  -- TODO
@@ -631,9 +636,9 @@ build1Vectorize n (var, u) =
     AstReshape1{} -> AstBuildPair1 n (var, u)  -- TODO
 
     AstFromList01 l ->
-      build1Vectorize n (var, AstFromList1 [length l] (map AstFrom01 l))
+      build1Vectorize n (var, AstFromList1 (map AstFrom01 l))
     AstFromVector01 l ->
-      build1Vectorize n (var, AstFromVector1 [V.length l] (V.map AstFrom01 l))
+      build1Vectorize n (var, AstFromVector1 (V.map AstFrom01 l))
     AstKonst01 k v -> build1Vectorize n (var, AstKonst1 k (AstFrom01 v))
     AstBuildPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
     AstMapPair01{} -> AstBuildPair1 n (var, u)  -- TODO
@@ -660,8 +665,7 @@ build1VectorizeIndex1 n var v1 i =
         AstCond1 b (build1Vectorize n (var, AstIndex1 v i))
                    (build1Vectorize n (var, AstIndex1 w i))
     AstConst1 _r -> build1VectorizeIndex1InI n var v1 i
-    -- AstFromList1, AstFromVector1: see Note [AstFromList1 is hard]
-    AstFromList1 _ l | AstIntConst k <- i -> build1Vectorize n (var, l !! k)
+    AstFromList1 l | AstIntConst k <- i -> build1Vectorize n (var, l !! k)
     -- TODO: AstAppend1 v1 v2 -> ... AstCond (i < AstLength v1) (...v1) (...v2)
     AstKonst1 _ r -> build1Vectorize n (var, r)
     AstSlice1 i2 _ u ->
@@ -779,8 +783,8 @@ intVarInAst1 var = \case
 
   AstIndex1 v ix -> intVarInAst1 var v || intVarInAstInt var ix
   AstSum1 v -> intVarInAst1 var v
-  AstFromList1 _ l -> or $ map (intVarInAst1 var) l  -- down from rank 1 to 0
-  AstFromVector1 _ vl -> or $ map (intVarInAst1 var) $ V.toList vl
+  AstFromList1 l -> or $ map (intVarInAst1 var) l  -- down from rank 1 to 0
+  AstFromVector1 vl -> or $ map (intVarInAst1 var) $ V.toList vl
   AstKonst1 n v -> intVarInAstInt var n || intVarInAst1 var v
   AstAppend1 v u -> intVarInAst1 var v || intVarInAst1 var u
   AstSlice1 i k v -> intVarInAstInt var i || intVarInAstInt var k
@@ -818,35 +822,6 @@ intVarInAstBool var = \case
   AstBoolConst{} -> False
   AstRel _ l -> or $ map (intVarInAst0 var) l
   AstRelInt _ l  -> or $ map (intVarInAstInt var) l
-
-{- Note [AstFromList1 is hard]
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-This is an example where simple but complete vectorization makes things worse.
-Any simple rule that would let us fully vectorize
-
-AstBuildPair1 N ("ix", AstIndex10
-                         (AstFromList1 [ AstIndex10 v (AstIntVar "ix")
-                                       , AstIndex10 v (1 + AstIntVar "ix") ])
-                         (AstIntVar "ix" `mod` 2))
-
-would be similar to the POPL implementation of build,
-which means constructing a collection of all build elements,
-substituting a known integer for "ix" in each and storing them all
-(eventually as delta-expressions on tape) until evaluation.
-
-While substituting a known integer for "ix" may simplify @v@
-and permit vectorization of builds nested inside @v@, this nevertheless
-turns a 2-element expression written by the user into a N-element
-monstrosity. With high enough N, evaluating the result takes much more
-memory than storing a non-vectorized closure on tape (the closure
-would be a serialized Ast expression, so possibly fine on GPUs).
-
-A non-simple rule that would handle this example would need a special
-build constructor variant that does not build from individual elements,
-but from vectors, distributing their elements in various patterns
-(in case of @mod@, concatenating their many "ix"-affected copies).
--}
 
 -- TODO: Shall this be represented and processed as just build?
 -- But doing this naively copies @w@ a lot, so we'd need to wait
@@ -1023,13 +998,13 @@ interpretAst1 env = \case
     let sum1 (D u u') = dD (ORB.sumA $ OR.unravel u)
                            (dSum1 (head $ OR.shapeL u) u')
     in sum1 (interpretAst1 env v)
-  AstFromList1 sh l -> fromList1' sh (map (interpretAst1 env) l)
-  AstFromVector1 sh l ->
-    let fromVector1' sh' lu =
-          dD (OR.ravel . ORB.fromVector [head sh'] . V.convert
+  AstFromList1 l -> fromList1' (map (interpretAst1 env) l)
+  AstFromVector1 l ->
+    let fromVector1' lu =
+          dD (OR.ravel . ORB.fromVector [V.length lu] . V.convert
               $ V.map (\(D u _) -> u) lu)
-             (dFromVector1 sh' $ V.map (\(D _ u') -> u') lu)
-    in fromVector1' sh (V.map (interpretAst1 env) l)
+             (dFromVector1 $ V.map (\(D _ u') -> u') lu)
+    in fromVector1' (V.map (interpretAst1 env) l)
   AstKonst1 n v ->
     let konst1' n' (D u u') = dD (OR.ravel (ORB.constant [n'] u))
                                  (dKonst1 n' u')
@@ -1047,13 +1022,7 @@ interpretAst1 env = \case
     let reverse1' (D u u') = dD (OR.rev [0] u) (dReverse1 u')
     in reverse1' (interpretAst1 env v)
   AstBuildPair1 i (var, v) ->
-    let build1' n f =
-          let lu = map f [0 .. n - 1]
-              sh = case lu of
-                [] -> [0]  -- TODO: this may not be the type the user wanted
-                           -- but taking the sh argument would be very verbose
-                D u _ : _ -> n : OR.shapeL u
-          in fromList1' sh lu
+    let build1' n f = fromList1' $ map f [0 .. n - 1]
     in build1' (interpretAstInt env i) (interpretLambdaI1 env (var, v))
       -- fallback to POPL (memory blowup, but avoids functions on tape);
       -- an alternative is to use dBuild1 and store function on tape
@@ -1088,12 +1057,13 @@ interpretAst1 env = \case
            (interpretAst1Primal env e)
 
 fromList1' :: (ADModeAndNum d r, KnownNat n)
-           => OR.ShapeL -> [ADVal d (OR.Array n r)]
+           => [ADVal d (OR.Array n r)]
            -> ADVal d (OR.Array (1 + n) r)
-fromList1' sh lu =
-  dD (OR.ravel . ORB.fromList [head sh]
+fromList1' lu =
+  -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
+  dD (OR.ravel . ORB.fromList [length lu]
       $ map (\(D u _) -> u) lu)
-     (dFromList1 sh $ map (\(D _ u') -> u') lu)
+     (dFromList1 $ map (\(D _ u') -> u') lu)
 
 interpretAstInt :: ADModeAndNum d r
                 => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vec r)))

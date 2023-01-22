@@ -78,8 +78,13 @@ data Ast1 :: Nat -> Type -> Type where
 
   AstIndex1 :: Ast1 (1 + n) r -> AstInt r -> Ast1 n r
   AstSum1 :: Ast1 (1 + n) r -> Ast1 n r
-  AstFromList1 :: OR.ShapeL -> [Ast1 n r] -> Ast1 (1 + n) r
-  AstFromVector1 :: OR.ShapeL -> Data.Vector.Vector (Ast1 n r)
+  -- No shape argument, because we'd need [AstInt], because it changes
+  -- during vectorization. The trade-off is a crash when the argument is empty,
+  -- but the user wants n =\ 1. TODO: perhaps just use List.NonEmpty,
+  -- but is there Vector.NonEmpty and, in the future, Tensor.NonEmpty?
+  -- For now, it crashes for empty arguments always.
+  AstFromList1 :: [Ast1 n r] -> Ast1 (1 + n) r
+  AstFromVector1 :: Data.Vector.Vector (Ast1 n r)
                  -> Ast1 (1 + n) r
   AstKonst1 :: AstInt r -> Ast1 n r -> Ast1 (1 + n) r
   AstAppend1 :: Ast1 n r -> Ast1 n r -> Ast1 n r
@@ -87,6 +92,7 @@ data Ast1 :: Nat -> Type -> Type where
   AstReverse1 :: Ast1 n r -> Ast1 n r
   AstBuildPair1 :: AstInt r -> (AstVarName Int, Ast1 n r) -> Ast1 (1 + n) r
   AstTranspose1 :: Ast1 n r -> Ast1 n r
+  -- TODO: how to handle the shape argument?
   AstReshape1 :: OR.ShapeL -> Ast1 n r -> Ast1 m r
 
   -- Fixed rank 1 to avoid OR.ShapeL arguments:

@@ -292,10 +292,10 @@ class HasRanks (d :: ADMode) r where
   dSum1 :: KnownNat n
         => Int -> Dual d (OR.Array (1 + n) r) -> Dual d (OR.Array n r)
   dFromList1 :: KnownNat n
-             => OR.ShapeL -> [Dual d (OR.Array n r)]
+             => [Dual d (OR.Array n r)]
              -> Dual d (OR.Array (1 + n) r)
   dFromVector1 :: KnownNat n
-               => OR.ShapeL -> Data.Vector.Vector (Dual d (OR.Array n r))
+               => Data.Vector.Vector (Dual d (OR.Array n r))
                -> Dual d (OR.Array (1 + n) r)
   dKonst1 :: KnownNat n
           => Int -> Dual d (OR.Array n r) -> Dual d (OR.Array (1 + n) r)
@@ -471,8 +471,8 @@ instance ( Numeric r, Num (Vector r)
 
   dIndex1 d ix _ = OR.index d ix
   dSum1 _ = ORB.sumA . OR.unravel
-  dFromList1 sh = OR.ravel . ORB.fromList [head sh]
-  dFromVector1 sh = OR.ravel . ORB.fromVector [head sh] . V.convert
+  dFromList1 l = OR.ravel $ ORB.fromList [length l] l
+  dFromVector1 l = OR.ravel $ ORB.fromVector [V.length l] $ V.convert l
   dKonst1 n d = OR.ravel (ORB.constant [n] d)
   dAppend1 d _k e = d `OR.append` e
   dSlice1 i n d _len = OR.slice [(i, n)] d
@@ -524,8 +524,8 @@ instance HasRanks 'ADModeValue r where
 
   dIndex1 _ _ _ = DummyDual ()
   dSum1 _ _ = DummyDual ()
-  dFromList1 _ _ = DummyDual ()
-  dFromVector1 _ _ = DummyDual ()
+  dFromList1 _ = DummyDual ()
+  dFromVector1 _ = DummyDual ()
   dKonst1 _ _ = DummyDual ()
   dAppend1 _ _ _ = DummyDual ()
   dSlice1 _ _ _ _ = DummyDual ()

@@ -165,11 +165,10 @@ data Delta1 :: Nat -> Type -> Type where
        => Int -> Delta1 (1 + n) r -> Delta1 n r
     -- ^ Add element tensors along the outermost dimension.
   FromList1 :: KnownNat n
-            => OR.ShapeL -> [Delta1 n r] -> Delta1 (1 + n) r
+            => [Delta1 n r] -> Delta1 (1 + n) r
     -- ^ Create a tensor from a list treated as the outermost dimension.
-    -- The shape argument is necessary in case the list is empty.
   FromVector1 :: KnownNat n
-              => OR.ShapeL -> Data.Vector.Vector (Delta1 n r)
+              => Data.Vector.Vector (Delta1 n r)
               -> Delta1 (1 + n) r
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
   Konst1 :: KnownNat n
@@ -507,10 +506,10 @@ buildFinMaps s0 deltaDt =
                                      , OR.constant (len - ix - 1 : rest) 0 ])
                      d  -- TODO: optimize for input case
         Sum1 n d -> eval1 s (OR.ravel (ORB.constant [n] c)) d
-        FromList1 _ ld ->
+        FromList1 ld ->
           let lc = ORB.toList $ OR.unravel c
           in foldl' (\s2 (c2, d2) -> eval1 s2 c2 d2) s $ zip lc ld
-        FromVector1 _ ld ->
+        FromVector1 ld ->
           let lc = ORB.toList $ OR.unravel c
           in foldl' (\s2 (c2, d2) -> eval1 s2 c2 d2) s $ zip lc (V.toList ld)
         Konst1 _n d ->
@@ -659,12 +658,12 @@ buildDerivative dim0 dim1 deltaTopLevel
 
         Index1 d ix _len -> flip OR.index ix <$> eval1 d
         Sum1 _ d -> ORB.sumA . OR.unravel <$> eval1 d
-        FromList1 sh lsd -> do
+        FromList1 lsd -> do
           l <- mapM eval1 lsd
-          return $! OR.ravel $ ORB.fromList [head sh] l
-        FromVector1 sh lsd -> do
+          return $! OR.ravel $ ORB.fromList [length lsd] l
+        FromVector1 lsd -> do
           v <- V.mapM eval1 lsd
-          return $! OR.ravel $ ORB.fromVector [head sh] $ V.convert v
+          return $! OR.ravel $ ORB.fromVector [V.length lsd] $ V.convert v
         Konst1 n d -> do
           t <- eval1 d
           return $! OR.ravel (ORB.constant [n] t)
