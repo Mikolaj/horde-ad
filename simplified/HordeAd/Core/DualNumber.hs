@@ -626,9 +626,15 @@ map1Closure f d = build1Closure (llength d) $ \i -> f (index10 d i)
 build1Vectorize1
   :: AstInt r -> (AstVarName Int, Ast1 n r) -> Ast1 (1 + n) r
 build1Vectorize1 n (var, u) =
-  if not (intVarInAst1 var u)
-  then AstKonst1 n u
-  else case u of
+  if intVarInAst1 var u
+  then build1Vectorize1Var n (var, u)
+  else AstKonst1 n u
+
+-- | The variable is known to occur in the term.
+build1Vectorize1Var
+  :: AstInt r -> (AstVarName Int, Ast1 n r) -> Ast1 (1 + n) r
+build1Vectorize1Var n (var, u) =
+  case u of
     AstOp1 codeOut args ->
       AstOp1 codeOut $ map (\w -> build1Vectorize1 n (var, w)) args
     AstCond1 b v w ->
@@ -664,7 +670,7 @@ build1Vectorize1 n (var, u) =
     AstIndex1 v i -> build1VectorizeIndex1 n var v i
       -- @var@ is in @v@ or @i@; TODO: simplify i first
     AstSum1 v -> AstTranspose1 $ AstSum1 $ AstTranspose1
-                 $ build1Vectorize1 n (var, v)
+                 $ build1Vectorize1Var n (var, v)
       -- that's because @build n (f . g) == map f (build n g)@
       -- and @map f == transpose1 . f . transpose1@
       -- TODO: though only for some f; check and fail early
@@ -682,20 +688,21 @@ build1Vectorize1 n (var, u) =
     AstSlice1 i k v -> AstTranspose1 $ AstSlice1 i k $ AstTranspose1
                        $ build1Vectorize1 n (var, v)
     AstReverse1 v -> AstTranspose1 $ AstReverse1 $ AstTranspose1
-                     $ build1Vectorize1 n (var, v)
+                     $ build1Vectorize1Var n (var, v)
     AstBuildPair1{} -> AstBuildPair1 n (var, u)
       -- TODO: a previous failure of vectorization that should have
       -- led to an abort instead of showing up late
-    AstTranspose1 v -> build1Vectorize1 n (var, AstTransposeGeneral1 [1, 0] v)
+    AstTranspose1 v ->
+      build1Vectorize1Var n (var, AstTransposeGeneral1 [1, 0] v)
     AstTransposeGeneral1 perm v -> AstTransposeGeneral1 (0 : map succ perm)
-                                   $ build1Vectorize1 n (var, v)
+                                   $ build1Vectorize1Var n (var, v)
     AstReshape1 ns v -> AstReshape1 (n : ns) $ build1Vectorize1 n (var, v)
 
     AstFromList01 l ->
-      build1Vectorize1 n (var, AstFromList1 (map AstFrom01 l))
+      build1Vectorize1Var n (var, AstFromList1 (map AstFrom01 l))
     AstFromVector01 l ->
-      build1Vectorize1 n (var, AstFromVector1 (V.map AstFrom01 l))
-    AstKonst01 k v -> build1Vectorize1 n (var, AstKonst1 k (AstFrom01 v))
+      build1Vectorize1Var n (var, AstFromVector1 (V.map AstFrom01 l))
+    AstKonst01 k v -> build1Vectorize1Var n (var, AstKonst1 k (AstFrom01 v))
     AstBuildPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
     AstMapPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
     AstZipWithPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
