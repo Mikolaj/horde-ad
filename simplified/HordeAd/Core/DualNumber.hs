@@ -700,10 +700,54 @@ build1Vectorize n (var, u) =
     AstBuildPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
     AstMapPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
     AstZipWithPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
-    AstFrom01 v -> build1VectorizeFrom01 n (var, v)
+    AstFrom01 v -> build1Vectorize0 n (var, v)
 
     AstOMap1{} -> AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, u)
     -- All other patterns are redundant due to GADT typing.
+
+build1Vectorize0
+  :: AstInt r -> (AstVarName Int, Ast0 r) -> Ast1 1 r
+build1Vectorize0 n (var, u) =
+  case u of
+    AstOp0 codeOut args ->
+      AstOp1 codeOut
+      $ map (\w -> build1Vectorize n (var, AstFrom01 w)) args
+        -- we can't call recursively build1Vectorize0, because
+        -- some of the arguments may don't have the int variable
+    AstCond0 b v w ->
+      if intVarInAstBool var b then
+        AstSelect1 n (var, b)
+                   (build1Vectorize n (var, AstFrom01 v))
+                   (build1Vectorize n (var, AstFrom01 w))
+      else
+        AstCond1 b (build1Vectorize n (var, AstFrom01 v))
+                   (build1Vectorize n (var, AstFrom01 w))
+    AstInt0{} ->
+      AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, AstFrom01 u)
+    AstConst0{} ->
+      error "build1Vectorize0: AstConst0 can't have free int variables"
+    AstConstant0 _r ->
+      AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, AstFrom01 u)
+      -- this is very fast when interpreted in a smart way, but constant
+      -- character needs to be exposed for nested cases;
+      -- TODO: similarly propagate AstConstant upwards elsewhere
+    AstScale0 (AstPrimalPart0 r) d ->
+      AstScale1 (AstPrimalPart1 $ AstBuildPair1 n (var, AstFrom01 r))
+                (build1Vectorize n (var, AstFrom01 d))
+    AstVar0{} ->
+      error "build1Vectorize0: AstVar0 can't have free int variables"
+    AstIndex10 v [i] -> build1Vectorize n (var, AstIndex1 v i)
+    AstIndex10{} ->
+      error "build1Vectorize0: wrong number of indexes for rank 1"
+    AstSum10 v -> build1Vectorize n (var, AstSum1 v)
+    AstDot10 v w -> build1Vectorize n (var, AstSum1 (AstOp1 TimesOut [v, w]))
+      -- AstDot1 is dubious, because dot product results in a scalar,
+      -- not in one rank less and also (some) fast implementations
+      -- depend on it resulting in a scalar.
+    AstFrom10 v -> build1Vectorize n (var, v)
+
+    AstOMap0{} ->
+      AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, AstFrom01 u)
 
 -- @var@ is in @v@ or @i@.
 build1VectorizeIndex1
@@ -759,50 +803,6 @@ build1VectorizeIndex1InI n var v i = case i of
     -- TODO:
     -- add a new 'gather' operation somehow and, if a more complex index
     -- expression, construct 'gather'
-
-build1VectorizeFrom01
-  :: AstInt r -> (AstVarName Int, Ast0 r) -> Ast1 1 r
-build1VectorizeFrom01 n (var, u) =
-  case u of
-    AstOp0 codeOut args ->
-      AstOp1 codeOut
-      $ map (\w -> build1Vectorize n (var, AstFrom01 w)) args
-        -- we can't call recursively build1VectorizeFrom01, because
-        -- some of the arguments may don't have the int variable
-    AstCond0 b v w ->
-      if intVarInAstBool var b then
-        AstSelect1 n (var, b)
-                   (build1Vectorize n (var, AstFrom01 v))
-                   (build1Vectorize n (var, AstFrom01 w))
-      else
-        AstCond1 b (build1Vectorize n (var, AstFrom01 v))
-                   (build1Vectorize n (var, AstFrom01 w))
-    AstInt0{} ->
-      AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, AstFrom01 u)
-    AstConst0{} ->
-      error "build1VectorizeFrom01: AstConst0 can't have free int variables"
-    AstConstant0 _r ->
-      AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, AstFrom01 u)
-      -- this is very fast when interpreted in a smart way, but constant
-      -- character needs to be exposed for nested cases;
-      -- TODO: similarly propagate AstConstant upwards elsewhere
-    AstScale0 (AstPrimalPart0 r) d ->
-      AstScale1 (AstPrimalPart1 $ AstBuildPair1 n (var, AstFrom01 r))
-                (build1Vectorize n (var, AstFrom01 d))
-    AstVar0{} ->
-      error "build1VectorizeFrom01: AstVar0 can't have free int variables"
-    AstIndex10 v [i] -> build1Vectorize n (var, AstIndex1 v i)
-    AstIndex10{} ->
-      error "build1VectorizeFrom01: wrong number of indexes for rank 1"
-    AstSum10 v -> build1Vectorize n (var, AstSum1 v)
-    AstDot10 v w -> build1Vectorize n (var, AstSum1 (AstOp1 TimesOut [v, w]))
-      -- AstDot1 is dubious, because dot product results in a scalar,
-      -- not in one rank less and also (some) fast implementations
-      -- depend on it resulting in a scalar.
-    AstFrom10 v -> build1Vectorize n (var, v)
-
-    AstOMap0{} ->
-      AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, AstFrom01 u)
 
 -- TODO: speed up by keeping free vars in each node.
 intVarInAst0 :: AstVarName Int -> Ast0 r -> Bool
