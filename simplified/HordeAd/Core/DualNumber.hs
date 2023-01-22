@@ -293,8 +293,8 @@ astBuild1 :: AstInt r -> (AstInt r -> Ast0 r) -> Ast1 1 r
 {-# NOINLINE astBuild1 #-}
 astBuild1 n f = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
-  return $! build1Vectorize n ( freshAstVar
-                              , AstFrom01 (f (AstIntVar freshAstVar)) )
+  return $! build1Vectorize1 n ( freshAstVar
+                               , AstFrom01 (f (AstIntVar freshAstVar)) )
     -- TODO: this vectorizers depth-first, which is needed. But do we
     -- also need a translation to non-vectorized terms for anything
     -- (other than for comparative tests)?
@@ -623,15 +623,14 @@ map1Closure f d = build1Closure (llength d) $ \i -> f (index10 d i)
 
 -- * Vectorization of the build operation
 
-build1Vectorize
-  :: AstInt r -> (AstVarName Int, Ast1 n r)
-  -> Ast1 (1 + n) r
-build1Vectorize n (var, u) =
+build1Vectorize1
+  :: AstInt r -> (AstVarName Int, Ast1 n r) -> Ast1 (1 + n) r
+build1Vectorize1 n (var, u) =
   if not (intVarInAst1 var u)
   then AstKonst1 n u
   else case u of
     AstOp1 codeOut args ->
-      AstOp1 codeOut $ map (\w -> build1Vectorize n (var, w)) args
+      AstOp1 codeOut $ map (\w -> build1Vectorize1 n (var, w)) args
     AstCond1 b v w ->
       if intVarInAstBool var b then
         -- This handles conditionals that depend on var,
@@ -640,15 +639,15 @@ build1Vectorize n (var, u) =
         -- nesting, instead of proportional to the number of elements
         -- of the tensor.
         AstSelect1 n (var, b)
-                   (build1Vectorize n (var, v))
-                   (build1Vectorize n (var, w))
+                   (build1Vectorize1 n (var, v))
+                   (build1Vectorize1 n (var, w))
       else
-        AstCond1 b (build1Vectorize n (var, v))
-                   (build1Vectorize n (var, w))
+        AstCond1 b (build1Vectorize1 n (var, v))
+                   (build1Vectorize1 n (var, w))
     AstSelect1 n2 (var2, b) v w ->
       AstTranspose1 $ AstSelect1 n2 (var2, b)
-        (AstTranspose1 $ build1Vectorize n (var, v))
-        (AstTranspose1 $ build1Vectorize n (var, w))
+        (AstTranspose1 $ build1Vectorize1 n (var, v))
+        (AstTranspose1 $ build1Vectorize1 n (var, w))
     AstInt1{} -> AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, u)
     AstConst1{} ->
       error "build1Vectorize: AstConst1 can't have free int variables"
@@ -658,45 +657,45 @@ build1Vectorize n (var, u) =
       -- TODO: similarly propagate AstConstant upwards elsewhere
     AstScale1 (AstPrimalPart1 r) d ->
       AstScale1 (AstPrimalPart1 $ AstBuildPair1 n (var, r))  -- no need to vect
-                (build1Vectorize n (var, d))
+                (build1Vectorize1 n (var, d))
 
     AstVar1{} -> error "build1Vectorize: AstVar1 can't have free int variables"
 
     AstIndex1 v i -> build1VectorizeIndex1 n var v i
       -- @var@ is in @v@ or @i@; TODO: simplify i first
     AstSum1 v -> AstTranspose1 $ AstSum1 $ AstTranspose1
-                 $ build1Vectorize n (var, v)
+                 $ build1Vectorize1 n (var, v)
       -- that's because @build n (f . g) == map f (build n g)@
       -- and @map f == transpose1 . f . transpose1@
       -- TODO: though only for some f; check and fail early
     AstFromList1 l ->
       AstTranspose1
-      $ AstFromList1 (map (\v -> build1Vectorize n (var, v)) l)
+      $ AstFromList1 (map (\v -> build1Vectorize1 n (var, v)) l)
     AstFromVector1 l ->
       AstTranspose1
-      $ AstFromVector1 (V.map (\v -> build1Vectorize n (var, v)) l)
+      $ AstFromVector1 (V.map (\v -> build1Vectorize1 n (var, v)) l)
     AstKonst1 k v -> AstTranspose1 $ AstKonst1 k $ AstTranspose1
-                     $ build1Vectorize n (var, v)
+                     $ build1Vectorize1 n (var, v)
     AstAppend1 v w -> AstTranspose1 $ AstAppend1
-                        (AstTranspose1 $ build1Vectorize n (var, v))
-                        (AstTranspose1 $ build1Vectorize n (var, w))
+                        (AstTranspose1 $ build1Vectorize1 n (var, v))
+                        (AstTranspose1 $ build1Vectorize1 n (var, w))
     AstSlice1 i k v -> AstTranspose1 $ AstSlice1 i k $ AstTranspose1
-                       $ build1Vectorize n (var, v)
+                       $ build1Vectorize1 n (var, v)
     AstReverse1 v -> AstTranspose1 $ AstReverse1 $ AstTranspose1
-                     $ build1Vectorize n (var, v)
+                     $ build1Vectorize1 n (var, v)
     AstBuildPair1{} -> AstBuildPair1 n (var, u)
       -- TODO: a previous failure of vectorization that should have
       -- led to an abort instead of showing up late
-    AstTranspose1 v -> build1Vectorize n (var, AstTransposeGeneral1 [1, 0] v)
+    AstTranspose1 v -> build1Vectorize1 n (var, AstTransposeGeneral1 [1, 0] v)
     AstTransposeGeneral1 perm v -> AstTransposeGeneral1 (0 : map succ perm)
-                                   $ build1Vectorize n (var, v)
-    AstReshape1 ns v -> AstReshape1 (n : ns) $ build1Vectorize n (var, v)
+                                   $ build1Vectorize1 n (var, v)
+    AstReshape1 ns v -> AstReshape1 (n : ns) $ build1Vectorize1 n (var, v)
 
     AstFromList01 l ->
-      build1Vectorize n (var, AstFromList1 (map AstFrom01 l))
+      build1Vectorize1 n (var, AstFromList1 (map AstFrom01 l))
     AstFromVector01 l ->
-      build1Vectorize n (var, AstFromVector1 (V.map AstFrom01 l))
-    AstKonst01 k v -> build1Vectorize n (var, AstKonst1 k (AstFrom01 v))
+      build1Vectorize1 n (var, AstFromVector1 (V.map AstFrom01 l))
+    AstKonst01 k v -> build1Vectorize1 n (var, AstKonst1 k (AstFrom01 v))
     AstBuildPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
     AstMapPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
     AstZipWithPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
@@ -711,17 +710,17 @@ build1Vectorize0 n (var, u) =
   case u of
     AstOp0 codeOut args ->
       AstOp1 codeOut
-      $ map (\w -> build1Vectorize n (var, AstFrom01 w)) args
+      $ map (\w -> build1Vectorize1 n (var, AstFrom01 w)) args
         -- we can't call recursively build1Vectorize0, because
         -- some of the arguments may don't have the int variable
     AstCond0 b v w ->
       if intVarInAstBool var b then
         AstSelect1 n (var, b)
-                   (build1Vectorize n (var, AstFrom01 v))
-                   (build1Vectorize n (var, AstFrom01 w))
+                   (build1Vectorize1 n (var, AstFrom01 v))
+                   (build1Vectorize1 n (var, AstFrom01 w))
       else
-        AstCond1 b (build1Vectorize n (var, AstFrom01 v))
-                   (build1Vectorize n (var, AstFrom01 w))
+        AstCond1 b (build1Vectorize1 n (var, AstFrom01 v))
+                   (build1Vectorize1 n (var, AstFrom01 w))
     AstInt0{} ->
       AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, AstFrom01 u)
     AstConst0{} ->
@@ -733,18 +732,18 @@ build1Vectorize0 n (var, u) =
       -- TODO: similarly propagate AstConstant upwards elsewhere
     AstScale0 (AstPrimalPart0 r) d ->
       AstScale1 (AstPrimalPart1 $ AstBuildPair1 n (var, AstFrom01 r))
-                (build1Vectorize n (var, AstFrom01 d))
+                (build1Vectorize1 n (var, AstFrom01 d))
     AstVar0{} ->
       error "build1Vectorize0: AstVar0 can't have free int variables"
-    AstIndex10 v [i] -> build1Vectorize n (var, AstIndex1 v i)
+    AstIndex10 v [i] -> build1Vectorize1 n (var, AstIndex1 v i)
     AstIndex10{} ->
       error "build1Vectorize0: wrong number of indexes for rank 1"
-    AstSum10 v -> build1Vectorize n (var, AstSum1 v)
-    AstDot10 v w -> build1Vectorize n (var, AstSum1 (AstOp1 TimesOut [v, w]))
+    AstSum10 v -> build1Vectorize1 n (var, AstSum1 v)
+    AstDot10 v w -> build1Vectorize1 n (var, AstSum1 (AstOp1 TimesOut [v, w]))
       -- AstDot1 is dubious, because dot product results in a scalar,
       -- not in one rank less and also (some) fast implementations
       -- depend on it resulting in a scalar.
-    AstFrom10 v -> build1Vectorize n (var, v)
+    AstFrom10 v -> build1Vectorize1 n (var, v)
 
     AstOMap0{} ->
       AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, AstFrom01 u)
@@ -760,21 +759,21 @@ build1VectorizeIndex1 n var v1 i =
     AstCond1 b v w ->
       if intVarInAstBool var b then
         AstSelect1 n (var, b)
-                   (build1Vectorize n (var, AstIndex1 v i))
-                   (build1Vectorize n (var, AstIndex1 w i))
+                   (build1Vectorize1 n (var, AstIndex1 v i))
+                   (build1Vectorize1 n (var, AstIndex1 w i))
       else
-        AstCond1 b (build1Vectorize n (var, AstIndex1 v i))
-                   (build1Vectorize n (var, AstIndex1 w i))
+        AstCond1 b (build1Vectorize1 n (var, AstIndex1 v i))
+                   (build1Vectorize1 n (var, AstIndex1 w i))
     AstConst1 _r -> build1VectorizeIndex1InI n var v1 i
-    AstFromList1 l | AstIntConst k <- i -> build1Vectorize n (var, l !! k)
+    AstFromList1 l | AstIntConst k <- i -> build1Vectorize1 n (var, l !! k)
     -- TODO: AstAppend1 v1 v2 -> ... AstCond (i < AstLength v1) (...v1) (...v2)
-    AstKonst1 _ r -> build1Vectorize n (var, r)
+    AstKonst1 _ r -> build1Vectorize1 n (var, r)
     AstSlice1 i2 _ u ->
-      build1Vectorize n (var, AstIndex1 u (AstIntOp PlusIntOut [i2, i]))
+      build1Vectorize1 n (var, AstIndex1 u (AstIntOp PlusIntOut [i2, i]))
         -- TODO: or should we rewrite in the opposite direction?
     -- TODO: AstReverse1 easy
     -- AstBuildPair1 _ (var2, u2) ->
-    --   build1Vectorize n (var, substitute var2 i u2))
+    --   build1Vectorize1 n (var, substitute var2 i u2))
            -- TODO: use environments instead
     _ ->
       if intVarInAst1 var v1
