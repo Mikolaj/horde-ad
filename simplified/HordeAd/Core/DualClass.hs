@@ -1,9 +1,7 @@
-{-# LANGUAGE CPP, ConstraintKinds, DataKinds, FlexibleInstances,
-             FunctionalDependencies, GADTs, MultiParamTypeClasses, PolyKinds,
-             QuantifiedConstraints, StandaloneDeriving, TypeFamilyDependencies,
+{-# LANGUAGE CPP, ConstraintKinds, DataKinds, FlexibleInstances, GADTs,
+             MultiParamTypeClasses, PolyKinds, QuantifiedConstraints,
+             StandaloneDeriving, TypeFamilyDependencies,
              UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
-{-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | The class defining dual components of dual numbers and
@@ -39,7 +37,6 @@ module HordeAd.Core.DualClass
     pattern D
   , IsPrimal(..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
   , Element, HasPrimal(..)
-  , VectorLike(..), ADReady
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
     Dual, HasRanks(..), HasInputs(..), dummyDual
   , -- * Internal operations, exposed for tests, debugging and experiments
@@ -212,32 +209,6 @@ class HasPrimal a where
   --
   -- Unrelated, but no better home ATM:
   fromIntOf :: IntOf a -> a
-
-class VectorOf r ~ vector => VectorLike vector r | vector -> r where
-  llength :: vector -> IntOf r
-  lminIndex :: vector -> IntOf r
-  lmaxIndex :: vector -> IntOf r
-
-  lindex10 :: vector -> IntOf r -> r
-  lsum10 :: vector -> r
-  ldot0 :: vector -> vector -> r
-  lminimum0 :: vector -> r
-  lmaximum0 :: vector -> r
-
-  lfromList1 :: [r] -> vector
-  lfromVector1 :: Data.Vector.Vector r -> vector
-  lkonst1 :: IntOf r -> r -> vector
-  lappend1 :: vector -> vector -> vector
-  lslice1 :: IntOf r -> IntOf r -> vector -> vector
-  lreverse1 :: vector -> vector
-  lbuild1 :: IntOf r -> (IntOf r -> r) -> vector
-  lmap1 :: (r -> r) -> vector -> vector
-  lzipWith :: (r -> r -> r) -> vector -> vector -> vector
-
-type ADReady r =
-  ( RealFloat r, RealFloat (VectorOf r)
-  , HasPrimal r, HasPrimal (VectorOf r)
-  , VectorLike (VectorOf r) r, Integral (IntOf r) )
 
 -- | Second argument is the primal component of a dual number at some rank
 -- wrt the differentiation mode given in the first argument.

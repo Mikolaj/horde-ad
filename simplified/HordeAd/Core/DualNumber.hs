@@ -1,6 +1,7 @@
-{-# LANGUAGE CPP, DataKinds, FlexibleInstances, FunctionalDependencies, GADTs,
-             MultiParamTypeClasses, QuantifiedConstraints, RankNTypes,
-             TypeFamilies, UndecidableInstances #-}
+{-# LANGUAGE CPP, ConstraintKinds, DataKinds, FlexibleInstances,
+             FunctionalDependencies, GADTs, MultiParamTypeClasses,
+             QuantifiedConstraints, RankNTypes, TypeFamilies,
+             UndecidableInstances #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -18,7 +19,6 @@ module HordeAd.Core.DualNumber
   , IntOf, VectorOf
   , IsPrimal (..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
   , Element, HasPrimal(..)
-  , VectorLike(..), ADReady
   , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
   , -- temporarily re-exported, until these are wrapped in sugar
     Ast0(..), AstPrimalPart0(..), Ast1(..), AstPrimalPart1(..)
@@ -177,7 +177,33 @@ instance (RealFloat a, IsPrimal d a) => RealFloat (ADVal d a) where
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a differentiable codomain
 
--- * VectorLike instances for tensors, ADVal and Ast
+-- * VectorLike class definition and instances for tensors, ADVal and Ast
+
+class VectorOf r ~ vector => VectorLike vector r | vector -> r where
+  llength :: vector -> IntOf r
+  lminIndex :: vector -> IntOf r
+  lmaxIndex :: vector -> IntOf r
+
+  lindex10 :: vector -> IntOf r -> r
+  lsum10 :: vector -> r
+  ldot0 :: vector -> vector -> r
+  lminimum0 :: vector -> r
+  lmaximum0 :: vector -> r
+
+  lfromList1 :: [r] -> vector
+  lfromVector1 :: Data.Vector.Vector r -> vector
+  lkonst1 :: IntOf r -> r -> vector
+  lappend1 :: vector -> vector -> vector
+  lslice1 :: IntOf r -> IntOf r -> vector -> vector
+  lreverse1 :: vector -> vector
+  lbuild1 :: IntOf r -> (IntOf r -> r) -> vector
+  lmap1 :: (r -> r) -> vector -> vector
+  lzipWith :: (r -> r -> r) -> vector -> vector -> vector
+
+type ADReady r =
+  ( RealFloat r, RealFloat (VectorOf r)
+  , HasPrimal r, HasPrimal (VectorOf r)
+  , VectorLike (VectorOf r) r, Integral (IntOf r) )
 
 -- This instance is a faster way to get an objective function value.
 -- However, it doesn't do vectorization, so won't work on GPU, ArrayFire, etc.
