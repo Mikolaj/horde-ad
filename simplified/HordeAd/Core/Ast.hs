@@ -45,7 +45,7 @@ data Ast0 :: Type -> Type where
 
   AstVar0 :: AstVarName r -> Ast0 r
 
-  -- Rank temporarily fixed ato 1, to avoid hard type-level programming.
+  -- Rank temporarily fixed to 1, to avoid hard type-level programming.
   AstIndex10 :: Ast1 1 r -> [AstInt r] -> Ast0 r
   AstSum10 :: Ast1 1 r -> Ast0 r
   AstDot10 :: Ast1 1 r -> Ast1 1 r -> Ast0 r
@@ -90,7 +90,7 @@ data Ast1 :: Nat -> Type -> Type where
   AstReshape1 :: KnownNat n
               => OR.ShapeL -> Ast1 n r -> Ast1 m r
 
-  -- Rank temporarily fixed ato 1, to avoid hard type-level programming.
+  -- Rank temporarily fixed to 1, to avoid hard type-level programming.
   AstFromList01 :: [Ast0 r] -> Ast1 1 r
   AstFromVector01 :: Data.Vector.Vector (Ast0 r) -> Ast1 1 r
   AstKonst01 :: AstInt r -> Ast0 r -> Ast1 1 r

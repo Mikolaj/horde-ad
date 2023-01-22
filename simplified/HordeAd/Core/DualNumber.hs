@@ -645,7 +645,10 @@ build1Vectorize n (var, u) =
       else
         AstCond1 b (build1Vectorize n (var, v))
                    (build1Vectorize n (var, w))
-    AstSelect1 _n2 (_var2, _b) _v _w -> AstBuildPair1 n (var, u)  -- TODO
+    AstSelect1 n2 (var2, b) v w ->
+      AstTranspose1 $ AstSelect1 n2 (var2, b)
+        (AstTranspose1 $ build1Vectorize n (var, v))
+        (AstTranspose1 $ build1Vectorize n (var, w))
     AstInt1{} -> AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, u)
     AstConst1{} ->
       error "build1Vectorize: AstConst1 can't have free int variables"
@@ -661,25 +664,36 @@ build1Vectorize n (var, u) =
 
     AstIndex1 v i -> build1VectorizeIndex1 n var v i
       -- @var@ is in @v@ or @i@; TODO: simplify i first
-    AstSum1 v -> AstSum1 $ AstTranspose1 $ build1Vectorize n (var, v)
+    AstSum1 v -> AstTranspose1 $ AstSum1 $ AstTranspose1
+                 $ build1Vectorize n (var, v)
       -- that's because @build n (f . g) == map f (build n g)@
-      -- and @map sum1 == sum1 . transpose1@
-      -- TODO: though probably only for regular arrays
+      -- and @map f == transpose1 . f . transpose1@
+      -- TODO: though only for some f; check and fail early
     AstFromList1 l ->
       AstTranspose1
       $ AstFromList1 (map (\v -> build1Vectorize n (var, v)) l)
     AstFromVector1 l ->
       AstTranspose1
       $ AstFromVector1 (V.map (\v -> build1Vectorize n (var, v)) l)
-    AstKonst1{} -> AstBuildPair1 n (var, u)  -- TODO
-    AstAppend1{} -> AstBuildPair1 n (var, u)  -- TODO
-    AstSlice1{} -> AstBuildPair1 n (var, u)  -- TODO
-    AstReverse1{} -> AstBuildPair1 n (var, u)  -- TODO
+    AstKonst1 k v -> AstTranspose1 $ AstKonst1 k $ AstTranspose1
+                     $ build1Vectorize n (var, v)
+    AstAppend1 v w -> AstTranspose1 $ AstAppend1
+                        (AstTranspose1 $ build1Vectorize n (var, v))
+                        (AstTranspose1 $ build1Vectorize n (var, w))
+    AstSlice1 i k v -> AstTranspose1 $ AstSlice1 i k $ AstTranspose1
+                       $ build1Vectorize n (var, v)
+    AstReverse1 v -> AstTranspose1 $ AstReverse1 $ AstTranspose1
+                     $ build1Vectorize n (var, v)
     AstBuildPair1{} -> AstBuildPair1 n (var, u)
-      -- normal form? or a previous failure of vectorization that should have
-      -- led to a shortcut instead of being encoutered now?
-    AstTranspose1{} -> AstBuildPair1 n (var, u)  -- TODO
-    AstReshape1{} -> AstBuildPair1 n (var, u)  -- TODO
+      -- TODO: a previous failure of vectorization that should have
+      -- led to an abort instead of showing up late
+    AstTranspose1 v -> AstTranspose1 $ AstTranspose1 $ AstTranspose1
+                       $ build1Vectorize n (var, v)
+       -- TODO: this is wrong; we also need the most general transpose
+       -- or the full-Ast AstReshape1
+    AstReshape1 sh v -> undefined
+      -- TODO: should be AstReshape1 (n : sh) $ build1Vectorize n (var, v),
+      -- but we can't have AstInt inside OR.ShapeL, which is [Int]
 
     AstFromList01 l ->
       build1Vectorize n (var, AstFromList1 (map AstFrom01 l))
@@ -687,8 +701,8 @@ build1Vectorize n (var, u) =
       build1Vectorize n (var, AstFromVector1 (V.map AstFrom01 l))
     AstKonst01 k v -> build1Vectorize n (var, AstKonst1 k (AstFrom01 v))
     AstBuildPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
-    AstMapPair01{} -> AstBuildPair1 n (var, u)  -- TODO
-    AstZipWithPair01{} -> AstBuildPair1 n (var, u)  -- TODO
+    AstMapPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
+    AstZipWithPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
     AstFrom01 v -> build1VectorizeFrom01 n (var, v)
 
     AstOMap1{} -> AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, u)
@@ -1129,7 +1143,9 @@ interpretAst1 env = \case
     build1' (interpretAstInt env i) (interpretLambdaI1 env (var, v))
       -- fallback to POPL (memory blowup, but avoids functions on tape);
       -- an alternative is to use dBuild1 and store function on tape
-  AstTranspose1 v -> transpose1' (interpretAst1 env v)
+  AstTranspose1 v ->
+    let d@(D u _) = interpretAst1 env v
+    in if OR.rank u <= 1 then d else transpose1' d
   AstReshape1 sh v -> reshape1' sh $ interpretAst1 env v
 
   AstFromList01 l -> fromList01' [length l] $ map (interpretAst0 env) l
