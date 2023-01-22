@@ -241,23 +241,20 @@ instance ADModeAndNum d r
   lminIndex (D u _) = lminIndex u
   lmaxIndex (D u _) = lmaxIndex u
 
-  lindex10 (D u u') ix = dD (lindex10 u ix) (dIndex10 u' [ix] [llength u])
-  lsum10 (D u u') = dD (lsum10 u) (dSum10 [llength u] u')
-  ldot10 (D u u') (D v v') = dD (ldot10 u v) (dAdd (dDot10 v u') (dDot10 u v'))
+  lindex10 d ix = index10' d [ix]
+  lsum10 = sum10'
+  ldot10 = dot10'
   lminimum0 (D u u') =
     dD (lminimum0 u) (dIndex10 u' [lminIndex u] [llength u])
   lmaximum0 (D u u') =
     dD (lmaximum0 u) (dIndex10 u' [lmaxIndex u] [llength u])
 
-  lfromList1 l = dD (lfromList1 $ map (\(D u _) -> u) l)  -- I hope this fuses
-                    (dFromList01 [length l] $ map (\(D _ u') -> u') l)
-  lfromVector1 v = dD (lfromVector1 $ V.map (\(D u _) -> u) v)
-                        -- I hope it fuses
-                      (dFromVector01 [V.length v] $ V.map (\(D _ u') -> u') v)
-  lkonst1 n (D u u') = dD (lkonst1 n u) (dKonst01 [n] u')
-  lappend1 (D u u') (D v v') = dD (lappend1 u v) (dAppend1 u' (llength u) v')
-  lslice1 i n (D u u') = dD (lslice1 i n u) (dSlice1 i n u' (llength u))
-  lreverse1 (D u u') = dD (lreverse1 u) (dReverse1 u')
+  lfromList1 l = fromList01' [length l] l
+  lfromVector1 l = fromVector01' [V.length l] l
+  lkonst1 n = konst01' [n]
+  lappend1 = append1'
+  lslice1 = slice1'
+  lreverse1 = reverse1'
   lbuild1 = build1Closure  -- to test against build1Elementwise from Ast
   lmap1 = map1Closure  -- to test against map1Elementwise from Ast
   lzipWith = undefined
