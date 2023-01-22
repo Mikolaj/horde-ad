@@ -293,8 +293,8 @@ astBuild1 :: AstInt r -> (AstInt r -> Ast0 r) -> Ast1 1 r
 {-# NOINLINE astBuild1 #-}
 astBuild1 n f = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
-  return $! build1Vectorize1 n ( freshAstVar
-                               , AstFrom01 (f (AstIntVar freshAstVar)) )
+  return $! build1Vectorize0 n ( freshAstVar
+                               , (f (AstIntVar freshAstVar)) )
     -- TODO: this vectorizers depth-first, which is needed. But do we
     -- also need a translation to non-vectorized terms for anything
     -- (other than for comparative tests)?
@@ -706,54 +706,64 @@ build1Vectorize1Var n (var, u) =
     AstBuildPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
     AstMapPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
     AstZipWithPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
-    AstFrom01 v -> build1Vectorize0 n (var, v)
+    AstFrom01 v -> build1Vectorize0Var n (var, v)
 
     AstOMap1{} -> AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, u)
     -- All other patterns are redundant due to GADT typing.
 
+-- | Vectorize the build of @AstFrom01@ applied to the given term,
+-- that is, @AstBuildPair1 n (var, AstFrom01 u)@
+-- or, equivalently, @AstBuildPair01 n (var, u)@. It follows that
+-- > build1Vectorize0 n (var, u) == build1Vectorize1 n (var, AstFrom01 u)
 build1Vectorize0
   :: AstInt r -> (AstVarName Int, Ast0 r) -> Ast1 1 r
 build1Vectorize0 n (var, u) =
+  if intVarInAst0 var u
+  then build1Vectorize0Var n (var, u)
+  else AstKonst01 n u
+
+build1Vectorize0Var
+  :: AstInt r -> (AstVarName Int, Ast0 r) -> Ast1 1 r
+build1Vectorize0Var n (var, u) =
   case u of
     AstOp0 codeOut args ->
       AstOp1 codeOut
-      $ map (\w -> build1Vectorize1 n (var, AstFrom01 w)) args
-        -- we can't call recursively build1Vectorize0, because
-        -- some of the arguments may don't have the int variable
+      $ map (\w -> build1Vectorize0 n (var, w)) args
     AstCond0 b v w ->
       if intVarInAstBool var b then
         AstSelect1 n (var, b)
-                   (build1Vectorize1 n (var, AstFrom01 v))
-                   (build1Vectorize1 n (var, AstFrom01 w))
+                   (build1Vectorize0 n (var, v))
+                   (build1Vectorize0 n (var, w))
       else
-        AstCond1 b (build1Vectorize1 n (var, AstFrom01 v))
-                   (build1Vectorize1 n (var, AstFrom01 w))
+        AstCond1 b (build1Vectorize0 n (var, v))
+                   (build1Vectorize0 n (var, w))
     AstInt0{} ->
-      AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, AstFrom01 u)
+      AstConstant1 $ AstPrimalPart1 $ AstBuildPair01 n (var, u)
     AstConst0{} ->
       error "build1Vectorize0: AstConst0 can't have free int variables"
     AstConstant0 _r ->
-      AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, AstFrom01 u)
+      AstConstant1 $ AstPrimalPart1 $ AstBuildPair01 n (var, u)
       -- this is very fast when interpreted in a smart way, but constant
       -- character needs to be exposed for nested cases;
       -- TODO: similarly propagate AstConstant upwards elsewhere
     AstScale0 (AstPrimalPart0 r) d ->
-      AstScale1 (AstPrimalPart1 $ AstBuildPair1 n (var, AstFrom01 r))
-                (build1Vectorize1 n (var, AstFrom01 d))
+      AstScale1 (AstPrimalPart1 $ AstBuildPair01 n (var, r))
+                (build1Vectorize0 n (var, d))
     AstVar0{} ->
       error "build1Vectorize0: AstVar0 can't have free int variables"
-    AstIndex10 v [i] -> build1Vectorize1 n (var, AstIndex1 v i)
+    AstIndex10 v [i] -> build1Vectorize1Var n (var, AstIndex1 v i)
     AstIndex10{} ->
       error "build1Vectorize0: wrong number of indexes for rank 1"
-    AstSum10 v -> build1Vectorize1 n (var, AstSum1 v)
-    AstDot10 v w -> build1Vectorize1 n (var, AstSum1 (AstOp1 TimesOut [v, w]))
+    AstSum10 v -> build1Vectorize1Var n (var, AstSum1 v)
+    AstDot10 v w ->
+      build1Vectorize1Var n (var, AstSum1 (AstOp1 TimesOut [v, w]))
       -- AstDot1 is dubious, because dot product results in a scalar,
       -- not in one rank less and also (some) fast implementations
       -- depend on it resulting in a scalar.
     AstFrom10 v -> build1Vectorize1 n (var, v)
 
     AstOMap0{} ->
-      AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, AstFrom01 u)
+      AstConstant1 $ AstPrimalPart1 $ AstBuildPair01 n (var, u)
 
 -- @var@ is in @v@ or @i@.
 build1VectorizeIndex1
