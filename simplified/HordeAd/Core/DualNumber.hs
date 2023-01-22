@@ -51,6 +51,7 @@ import HordeAd.Internal.Delta
 
 -- * Auxiliary definitions
 
+-- Shims to reuse the tests for ordinary vectors.
 type Vec r = OR.Array 1 r
 
 vecToV :: Numeric r => Vec r -> Vector r
@@ -59,7 +60,7 @@ vecToV = OR.toVector
 vToVec :: Numeric r => Vector r  -> Vec r
 vToVec v = OR.fromVector [V.length v] v
 
--- This is not needed in the simplified version, except for compilation
+-- All this is not needed in the simplified version, except for compilation
 -- with the common test code.
 -- | Sizes of tensor dimensions, of batches, etc., packed for passing
 -- between functions as witnesses of type variable values.
