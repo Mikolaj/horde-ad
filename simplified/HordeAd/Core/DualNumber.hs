@@ -990,6 +990,24 @@ transpose1' :: (ADModeAndNum d r, KnownNat n)
             => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
 transpose1' (D u u') = dD (OR.transpose [1, 0] u) (dTranspose1 u')
 
+fromList01' :: (ADModeAndNum d r, KnownNat n)
+            => OR.ShapeL -> [ADVal d r]
+            -> ADVal d (OR.Array n r)
+fromList01' sh l =
+  dD (OR.fromList sh $ map (\(D u _) -> u) l)  -- I hope this fuses
+     (dFromList01 sh $ map (\(D _ u') -> u') l)
+
+fromVector01' :: (ADModeAndNum d r, KnownNat n)
+              => OR.ShapeL -> Data.Vector.Vector (ADVal d r)
+              -> ADVal d (OR.Array n r)
+fromVector01' sh l =
+  dD (OR.fromVector sh $ V.convert $ V.map (\(D u _) -> u) l)  -- hope it fuses
+     (dFromVector01 sh $ V.map (\(D _ u') -> u') l)
+
+konst01' :: (ADModeAndNum d r, KnownNat n)
+         => OR.ShapeL -> ADVal d r -> ADVal d (OR.Array n r)
+konst01' sh (D u u') = dD (OR.constant sh u) (dKonst01 sh u')
+
 from01 :: ADModeAndNum d r => ADVal d r -> ADVal d (OR.Array 0 r)
 from01 (D u u') = dD (OR.scalar u) (dFrom01 u')
 
@@ -1113,9 +1131,9 @@ interpretAst1 env = \case
   AstTranspose1 v -> transpose1' (interpretAst1 env v)
   AstReshape1{} -> undefined  -- TODO
 
-  AstFromList01 l -> lfromList1 $ map (interpretAst0 env) l
-  AstFromVector01 v -> lfromVector1 $ V.map (interpretAst0 env) v
-  AstKonst01 n r -> lkonst1 (interpretAstInt env n) (interpretAst0 env r)
+  AstFromList01 l -> fromList01' [length l] $ map (interpretAst0 env) l
+  AstFromVector01 l -> fromVector01' [V.length l] $ V.map (interpretAst0 env) l
+  AstKonst01 n r -> konst01' [interpretAstInt env n] (interpretAst0 env r)
   AstBuildPair01 i (var, AstConstant0 r) ->
     constant
     $ lbuild1  -- from OR.Array instance
