@@ -81,9 +81,11 @@ data Ast1 :: Nat -> Type -> Type where
   AstFromVector1 :: Data.Vector.Vector (Ast1 n r)
                  -> Ast1 (1 + n) r
   AstKonst1 :: AstInt r -> Ast1 n r -> Ast1 (1 + n) r
-  AstAppend1 :: Ast1 n r -> Ast1 n r -> Ast1 n r
+  AstAppend1 :: KnownNat n
+             => Ast1 n r -> Ast1 n r -> Ast1 n r
   AstSlice1 :: AstInt r -> AstInt r -> Ast1 n r -> Ast1 n r
-  AstReverse1 :: Ast1 n r -> Ast1 n r
+  AstReverse1 :: KnownNat n
+              => Ast1 n r -> Ast1 n r
   AstBuildPair1 :: AstInt r -> (AstVarName Int, Ast1 n r) -> Ast1 (1 + n) r
   AstTranspose1 :: Ast1 n r -> Ast1 n r
   AstTransposeGeneral1 :: [Int] -> Ast1 n r -> Ast1 n r
