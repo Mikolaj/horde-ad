@@ -1207,7 +1207,9 @@ interpretAstInt env = \case
       error $ "interpretAstP: type mismatch for var " ++ show var
     Just (AstVarI i) -> i
     Nothing -> error $ "interpretAstP: unknown variable var " ++ show var
-  AstLength v -> llength $ interpretAst1 env v
+  AstLength v -> case OR.shapeL $ interpretAst1Primal env v of
+    [] -> error "interpretAstInt: impossible shape for rank >= 1"
+    len_outermost : _ -> len_outermost
   AstMinIndex v -> lminIndex $ interpretAst1 env v
   AstMaxIndex v -> lmaxIndex $ interpretAst1 env v
 

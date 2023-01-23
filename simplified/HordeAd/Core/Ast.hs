@@ -133,7 +133,8 @@ data AstInt :: Type -> Type where
   AstIntConst :: Int -> AstInt r
   AstIntVar :: AstVarName Int -> AstInt r
 
-  AstLength :: Ast1 1 r -> AstInt r  -- makes no sense for n == 0
+  AstLength :: KnownNat n
+            => Ast1 (1 + n) r -> AstInt r  -- length of the outermost dimension
   AstMinIndex :: Ast1 1 r -> AstInt r  -- list output needed for n /= 1
   AstMaxIndex :: Ast1 1 r -> AstInt r  -- list output needed for n /= 1
 
