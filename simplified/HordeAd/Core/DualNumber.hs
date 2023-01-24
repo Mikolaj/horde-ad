@@ -264,20 +264,20 @@ instance ADModeAndNum d r
   lzipWith f v u =
     build1Closure (llength v) (\i -> f (v `lindex10` i) (u `lindex10` i))
 
-instance VectorLike1 (Ast1 1 r) (Ast0 r) where
+instance VectorLike1 (Ast1 1 r) (Ast1 0 r) where
   llength = AstLength
   lminIndex = AstMinIndex
   lmaxIndex = AstMaxIndex
 
-  lindex10 v ix = AstFrom10 $ AstIndex10 v [ix]
-  lsum10 = AstFrom10 . AstSum10
-  ldot10 u v = AstFrom10 $ AstDot10 u v
-  lminimum0 v = AstFrom10 $ AstIndex10 v [AstMinIndex v]
-  lmaximum0 v = AstFrom10 $ AstIndex10 v [AstMaxIndex v]
+  lindex10 v ix = AstIndex10 v [ix]
+  lsum10 = AstSum10
+  ldot10 u v = AstDot10 u v
+  lminimum0 v = AstIndex10 v [AstMinIndex v]
+  lmaximum0 v = AstIndex10 v [AstMaxIndex v]
 
-  lfromList1 l = AstFromList01 (map AstFrom01 l)
-  lfromVector1 l = AstFromVector01 (V.map AstFrom01 l)
-  lkonst1 n r = AstKonst01 n (AstFrom01 r)
+  lfromList1 l = AstFromList1 l
+  lfromVector1 l = AstFromVector1 l
+  lkonst1 n r = AstKonst1 n r
   lappend1 = AstAppend1
   lslice1 = AstSlice1
   lreverse1 = AstReverse1
@@ -295,11 +295,11 @@ unsafeGetFreshAstVar :: IO (AstVarName a)
 {-# INLINE unsafeGetFreshAstVar #-}
 unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-astBuild1 :: AstInt r -> (AstInt r -> Ast0 r) -> Ast1 1 r
+astBuild1 :: AstInt r -> (AstInt r -> Ast1 0 r) -> Ast1 1 r
 {-# NOINLINE astBuild1 #-}
 astBuild1 n f = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
-  return $! build1Vectorize0 n ( freshAstVar
+  return $! build1Vectorize1 n ( freshAstVar
                                , (f (AstIntVar freshAstVar)) )
     -- TODO: this vectorizers depth-first, which is needed. But do we
     -- also need a translation to non-vectorized terms for anything
@@ -371,16 +371,6 @@ instance (KnownNat n, Numeric r, Num (Vector r))
   ddD u _ = u
   fromIntOf = fromInteger . fromIntegral
 
-instance HasPrimal (Ast0 r) where
-  type PrimalOf (Ast0 r) = AstPrimalPart0 r
-  type DualOf (Ast0 r) = ()  -- TODO: data AstDualPart: dScale, dAdd, dkonst1
-  constant = AstConstant0
-  scale = AstScale0
-  primalPart = AstPrimalPart0
-  dualPart = error "TODO"
-  ddD = error "TODO"
-  fromIntOf = AstInt0
-
 instance HasPrimal (Ast1 n r) where
   type PrimalOf (Ast1 n r) = AstPrimalPart1 n r
   type DualOf (Ast1 n r) = ()  -- TODO: data AstDualPart: dScale, dAdd, dkonst1
@@ -421,7 +411,7 @@ reluLeaky v =
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) (primalPart v)
   in scale oneIfGtZero v
 
--- TODO: bring back rank-poly relu by adding a class with Ast0 and Ast1
+-- TODO: bring back rank-poly relu by adding a class with Ast1 0 and Ast1 1
 -- or even better generalize the function after omap above so that
 -- it has a sensible Ast instance and then kill reluAst0 and reluAst1;
 -- we'd need Conditional class that works with our AstBool type
@@ -978,11 +968,11 @@ intVarInAstBool var = \case
 
 -- * Odds and ends
 
-leqAst :: Ast0 r -> Ast0 r -> AstBool r
-leqAst d e = AstRel LeqOut [AstFrom01 d, AstFrom01 e]
+leqAst :: Ast1 0 r -> Ast1 0 r -> AstBool r
+leqAst d e = AstRel LeqOut [d, e]
 
-gtAst :: Ast0 r -> Ast0 r -> AstBool r
-gtAst d e = AstRel GtOut [AstFrom01 d, AstFrom01 e]
+gtAst :: Ast1 0 r -> Ast1 0 r -> AstBool r
+gtAst d e = AstRel GtOut [d, e]
 
 gtIntAst :: AstInt r -> AstInt r -> AstBool r
 gtIntAst i j = AstRelInt GtOut [i, j]

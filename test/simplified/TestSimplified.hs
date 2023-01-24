@@ -75,12 +75,12 @@ fooNoGoAst :: (Numeric r, RealFloat r, Floating (Vector r))
 fooNoGoAst v =
   let r = lsum10 v
   in lbuild1 3 (\ix ->
-       AstFrom10 (barAst (3.14, bar (3.14, AstFrom01 $ lindex10 v ix)))
-       + AstCond0 (AstBoolOp AndOut  -- TODO: overload &&, <=, >, etc.
+       (barAst (3.14, bar (3.14, lindex10 v ix)))
+       + AstCond1 (AstBoolOp AndOut  -- TODO: overload &&, <=, >, etc.
                              [ lindex10 v (ix * 2) `leqAst` 0
                              , 6 `gtIntAst` abs ix ])
                  r (5 * r))
-     / lslice1 1 3 (lmap1 (\x -> AstCond0 (x `gtAst` r) r x) v)
+     / lslice1 1 3 (lmap1 (\x -> AstCond1 (x `gtAst` r) r x) v)
      * lbuild1 3 (\ _ix -> 1)
 
 -- TODO: remove the need for the 2 type hints; using VectorOf in the definition
@@ -147,7 +147,7 @@ konstReluAst
   :: forall r.
      (Numeric r, Num (Vector r))
   => Ast1 0 r -> Ast1 0 r
-konstReluAst x = AstFrom01 $ lsum10 $ reluAst1 $ lkonst1 7 (AstFrom10 x)
+konstReluAst x = lsum10 $ reluAst1 $ lkonst1 7 x
 
 
 -- * Tests by TomS
@@ -182,7 +182,7 @@ testPoly00 f input expected = do
         revOnDomains 1
           (\adinputs -> from10 $
              interpretAst1 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
-                           (AstFrom01 $ f (AstFrom10 $ AstVar0 (AstVarName (-1)))))
+                           (f (AstVar0 (AstVarName (-1)))))
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains 1
@@ -209,7 +209,7 @@ testPoly01 f outSize input expected = do
         revOnDomains dt
           (\adinputs ->
              interpretAst1 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
-                           (f (AstFrom10 $ AstVar0 (AstVarName (-1)))))
+                           (f (AstVar0 (AstVarName (-1)))))
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains dt
