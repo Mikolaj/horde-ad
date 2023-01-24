@@ -178,37 +178,41 @@ instance (RealFloat a, IsPrimal d a) => RealFloat (ADVal d a) where
 
 -- * VectorLike class definition and instances for tensors, ADVal and Ast
 
-class VectorOf r ~ vector => VectorLike vector r | vector -> r where
-  llength :: vector -> IntOf r
-  lminIndex :: vector -> IntOf r
-  lmaxIndex :: vector -> IntOf r
+-- This setup hacks around the need to define separate instances for
+-- Double, Float, etc., instead of a single instance for @Numeric r@, as below.
+class VectorOf r ~ v => VectorLike1 v r where
+  llength :: VectorOf r -> IntOf r
+  lminIndex :: VectorOf r -> IntOf r
+  lmaxIndex :: VectorOf r -> IntOf r
 
-  lindex10 :: vector -> IntOf r -> r
-  lsum10 :: vector -> r
-  ldot10 :: vector -> vector -> r
-  lminimum0 :: vector -> r
-  lmaximum0 :: vector -> r
+  lindex10 :: VectorOf r -> IntOf r -> r
+  lsum10 :: VectorOf r -> r
+  ldot10 :: VectorOf r -> VectorOf r -> r
+  lminimum0 :: VectorOf r -> r
+  lmaximum0 :: VectorOf r -> r
 
-  lfromList1 :: [r] -> vector
-  lfromVector1 :: Data.Vector.Vector r -> vector
-  lkonst1 :: IntOf r -> r -> vector
-  lappend1 :: vector -> vector -> vector
-  lslice1 :: IntOf r -> IntOf r -> vector -> vector
-  lreverse1 :: vector -> vector
-  lbuild1 :: IntOf r -> (IntOf r -> r) -> vector
-  lmap1 :: (r -> r) -> vector -> vector
-  lzipWith :: (r -> r -> r) -> vector -> vector -> vector
+  lfromList1 :: [r] -> VectorOf r
+  lfromVector1 :: Data.Vector.Vector r -> VectorOf r
+  lkonst1 :: IntOf r -> r -> VectorOf r
+  lappend1 :: VectorOf r -> VectorOf r -> VectorOf r
+  lslice1 :: IntOf r -> IntOf r -> VectorOf r -> VectorOf r
+  lreverse1 :: VectorOf r -> VectorOf r
+  lbuild1 :: IntOf r -> (IntOf r -> r) -> VectorOf r
+  lmap1 :: (r -> r) -> VectorOf r -> VectorOf r
+  lzipWith :: (r -> r -> r) -> VectorOf r -> VectorOf r -> VectorOf r
+
+type VectorLike r = VectorLike1 (VectorOf r) r
 
 type ADReady r =
   ( RealFloat r, RealFloat (VectorOf r)
   , HasPrimal r, HasPrimal (VectorOf r)
-  , VectorLike (VectorOf r) r, Integral (IntOf r) )
+  , VectorLike r, Integral (IntOf r) )
 
 -- This instance is a faster way to get an objective function value.
 -- However, it doesn't do vectorization, so won't work on GPU, ArrayFire, etc.
 -- For vectorization, go through Ast and valueOnDomains.
-instance (Numeric r, IntOf r ~ Int, VectorOf r ~ Vec r)
-         => VectorLike (Vec r) r where
+instance (Numeric r, IntOf r ~ Int, VectorOf r ~ OR.Array 1 r)
+         => VectorLike1 (OR.Array 1 r) r where
   llength = OR.size
   lminIndex = LA.minIndex . OR.toVector
   lmaxIndex = LA.maxIndex . OR.toVector
@@ -235,7 +239,7 @@ instance (Numeric r, IntOf r ~ Int, VectorOf r ~ Vec r)
 -- though for code without build/map/etc., it should be equivalent
 -- to going via Ast.
 instance ADModeAndNum d r
-         => VectorLike (ADVal d (Vec r)) (ADVal d r) where
+         => VectorLike1 (ADVal d (OR.Array 1 r)) (ADVal d r) where
   llength (D u _) = llength u
   lminIndex (D u _) = lminIndex u
   lmaxIndex (D u _) = lmaxIndex u
@@ -258,7 +262,7 @@ instance ADModeAndNum d r
   lmap1 = map1Closure  -- to test against map1Elementwise from Ast
   lzipWith = undefined
 
-instance VectorLike (Ast1 1 r) (Ast0 r) where
+instance VectorLike1 (Ast1 1 r) (Ast0 r) where
   llength = AstLength
   lminIndex = AstMinIndex
   lmaxIndex = AstMaxIndex
