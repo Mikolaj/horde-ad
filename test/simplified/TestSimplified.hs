@@ -145,7 +145,7 @@ barReluAst1 x = reluAst1 $ bar (x, reluAst1 x)
 
 konstReluAst
   :: forall r.
-     (Numeric r, RealFloat r, Num (Vector r))
+     (Numeric r, Num (Vector r))
   => Ast0 r -> Ast0 r
 konstReluAst x = lsum10 $ reluAst1 $ lkonst1 7 x
 

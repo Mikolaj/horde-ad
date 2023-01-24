@@ -90,16 +90,16 @@ data Ast1 :: Nat -> Type -> Type where
               => [AstInt r] -> Ast1 n r -> Ast1 m r
 
   -- Rank temporarily fixed to 1, to avoid hard type-level programming.
-  AstFromList01 :: [Ast0 r] -> Ast1 1 r
-  AstFromVector01 :: Data.Vector.Vector (Ast0 r) -> Ast1 1 r
-  AstKonst01 :: AstInt r -> Ast0 r -> Ast1 1 r
+  AstFromList01 :: [Ast1 0 r] -> Ast1 1 r
+  AstFromVector01 :: Data.Vector.Vector (Ast1 0 r) -> Ast1 1 r
+  AstKonst01 :: AstInt r -> Ast1 0 r -> Ast1 1 r
   -- We don't have AstVarName for list variables, so only rank 1 for now:
-  AstBuildPair01 :: AstInt r -> (AstVarName Int, Ast0 r)
+  AstBuildPair01 :: AstInt r -> (AstVarName Int, Ast1 0 r)
                  -> Ast1 1 r
   AstFrom01 :: Ast0 r -> Ast1 0 r
 
-  AstOMap0 :: (AstVarName r, Ast0 r) -> Ast1 0 r -> Ast1 0 r
-  AstOMap1 :: (AstVarName r, Ast0 r) -> Ast1 1 r -> Ast1 1 r
+  AstOMap0 :: (AstVarName r, Ast1 0 r) -> Ast1 0 r -> Ast1 0 r
+  AstOMap1 :: (AstVarName r, Ast1 0 r) -> Ast1 1 r -> Ast1 1 r
     -- this is necessary for MonoFunctor and so for a particularly
     -- fast implementation of relu
     -- TODO: this is really only needed in AstPrimalPart, but making
@@ -135,7 +135,7 @@ data AstInt :: Type -> Type where
 data AstBool :: Type -> Type where
   AstBoolOp :: CodeBoolOut -> [AstBool r] -> AstBool r
   AstBoolConst :: Bool -> AstBool r
-  AstRel :: RelOut -> [Ast0 r] -> AstBool r  -- TODO: Ast1, too?
+  AstRel :: RelOut -> [Ast1 0 r] -> AstBool r  -- TODO: Ast1, too?
   AstRelInt :: RelOut -> [AstInt r] -> AstBool r
 
 {-
@@ -330,7 +330,7 @@ deriving instance (Real (Ast1 n r), Ord r) => Real (AstPrimalPart1 n r)
 deriving instance Fractional (Ast1 n r) => Fractional (AstPrimalPart1 n r)
 -- TODO: etc.
 
-type instance Element (AstPrimalPart1 n r) = AstPrimalPart0 r
+type instance Element (AstPrimalPart1 n r) = AstPrimalPart1 0 r
 
 
 instance Eq (AstInt r) where
@@ -368,32 +368,32 @@ unsafeGetFreshAstVar :: IO (AstVarName a)
 {-# INLINE unsafeGetFreshAstVar #-}
 unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-astOmap0 :: (Ast0 r -> Ast0 r) -> Ast1 0 r -> Ast1 0 r
+astOmap0 :: (Ast1 0 r -> Ast1 0 r) -> Ast1 0 r -> Ast1 0 r
 {-# NOINLINE astOmap0 #-}
 astOmap0 f e = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
-  return $! AstOMap0 (freshAstVar, f (AstFrom10 $ AstVar0 freshAstVar)) e
+  return $! AstOMap0 (freshAstVar, f (AstVar0 freshAstVar)) e
 
-astOmap1 :: (Ast0 r -> Ast0 r) -> Ast1 1 r -> Ast1 1 r
+astOmap1 :: (Ast1 0 r -> Ast1 0 r) -> Ast1 1 r -> Ast1 1 r
 {-# NOINLINE astOmap1 #-}
 astOmap1 f e = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
-  return $! AstOMap1 (freshAstVar, f (AstFrom10 $ AstVar0 freshAstVar)) e
+  return $! AstOMap1 (freshAstVar, f (AstVar0 freshAstVar)) e
 
 instance MonoFunctor (AstPrimalPart1 1 r) where
   omap f (AstPrimalPart1 x) =
-    let g y = let AstPrimalPart0 z = f (AstPrimalPart0 y)
+    let g y = let AstPrimalPart1 z = f (AstPrimalPart1 y)
               in z
     in AstPrimalPart1 (astOmap1 g x)
 
 instance MonoFunctor (AstPrimalPart1 0 Double) where
   omap f (AstPrimalPart1 x) =
-    let g y = let AstPrimalPart0 z = f (AstPrimalPart0 y)
+    let g y = let AstPrimalPart1 z = f (AstPrimalPart1 y)
               in z
     in AstPrimalPart1 (astOmap0 g x)
 
 instance MonoFunctor (AstPrimalPart1 0 Float) where
   omap f (AstPrimalPart1 x) =
-    let g y = let AstPrimalPart0 z = f (AstPrimalPart0 y)
+    let g y = let AstPrimalPart1 z = f (AstPrimalPart1 y)
               in z
     in AstPrimalPart1 (astOmap0 g x)

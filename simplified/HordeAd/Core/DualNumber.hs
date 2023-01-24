@@ -275,9 +275,9 @@ instance VectorLike1 (Ast1 1 r) (Ast0 r) where
   lminimum0 v = AstFrom10 $ AstIndex10 v [AstMinIndex v]
   lmaximum0 v = AstFrom10 $ AstIndex10 v [AstMaxIndex v]
 
-  lfromList1 = AstFromList01
-  lfromVector1 = AstFromVector01
-  lkonst1 = AstKonst01
+  lfromList1 l = AstFromList01 (map AstFrom01 l)
+  lfromVector1 l = AstFromVector01 (V.map AstFrom01 l)
+  lkonst1 n r = AstKonst01 n (AstFrom01 r)
   lappend1 = AstAppend1
   lslice1 = AstSlice1
   lreverse1 = AstReverse1
@@ -428,21 +428,21 @@ reluLeaky v =
 -- and some sugar to be able to use >, &&, etc.
 reluAst0
   :: ( Num (Vector r), MonoFunctor (PrimalOf (Ast1 0 r))
-     , Fractional r, Numeric r )
+     , Numeric r )
   => Ast1 0 r -> Ast1 0 r
 reluAst0 v =
-  let oneIfGtZero = omap (\(AstPrimalPart0 x) ->
-                            AstPrimalPart0 $ AstCond0 (AstRel GtOut [x, 0]) 1 0)
+  let oneIfGtZero = omap (\(AstPrimalPart1 x) ->
+                            AstPrimalPart1 $ AstCond1 (AstRel GtOut [x, 0]) 1 0)
                          (primalPart v)
   in scale oneIfGtZero v
 
 reluAst1
   :: ( KnownNat n, Num (Vector r), MonoFunctor (PrimalOf (Ast1 n r))
-     , Fractional r, Numeric r )
+     , Numeric r )
   => Ast1 n r -> Ast1 n r
 reluAst1 v =
-  let oneIfGtZero = omap (\(AstPrimalPart0 x) ->
-                            AstPrimalPart0 $ AstCond0 (AstRel GtOut [x, 0]) 1 0)
+  let oneIfGtZero = omap (\(AstPrimalPart1 x) ->
+                            AstPrimalPart1 $ AstCond1 (AstRel GtOut [x, 0]) 1 0)
                          (primalPart v)
   in scale oneIfGtZero v
 
@@ -628,7 +628,7 @@ build1Vectorize0
 build1Vectorize0 n (var, u) =
   if intVarInAst0 var u
   then build1Vectorize0Var n (var, u)
-  else AstKonst01 n u
+  else AstKonst01 n (AstFrom01 u)
 
 -- | The variable is known to occur in the term.
 build1Vectorize0Var
@@ -647,16 +647,16 @@ build1Vectorize0Var n (var, u) =
         AstCond1 b (build1Vectorize0 n (var, v))
                    (build1Vectorize0 n (var, w))
     AstInt0{} ->
-      AstConstant1 $ AstPrimalPart1 $ AstBuildPair01 n (var, u)
+      AstConstant1 $ AstPrimalPart1 $ AstBuildPair01 n (var, AstFrom01 u)
     AstConst0{} ->
       error "build1Vectorize0Var: AstConst0 can't have free int variables"
     AstConstant0{} ->
-      AstConstant1 $ AstPrimalPart1 $ AstBuildPair01 n (var, u)
+      AstConstant1 $ AstPrimalPart1 $ AstBuildPair01 n (var, AstFrom01 u)
       -- this is very fast when interpreted in a smart way, but constant
       -- character needs to be exposed for nested cases;
       -- TODO: similarly propagate AstConstant upwards elsewhere
     AstScale0 (AstPrimalPart0 r) d ->
-      AstScale1 (AstPrimalPart1 $ AstBuildPair01 n (var, r))
+      AstScale1 (AstPrimalPart1 $ AstBuildPair01 n (var, AstFrom01 r))
                 (build1Vectorize0 n (var, d))
 
     AstFrom10 v -> build1Vectorize1 n (var, v)
@@ -759,10 +759,10 @@ build1Vectorize1Var n (var, u) =
 
     -- Rewriting syntactic sugar:
     AstFromList01 l ->
-      build1Vectorize1Var n (var, AstFromList1 (map AstFrom01 l))
+      build1Vectorize1Var n (var, AstFromList1 l)
     AstFromVector01 l ->
-      build1Vectorize1Var n (var, AstFromVector1 (V.map AstFrom01 l))
-    AstKonst01 k v -> build1Vectorize1Var n (var, AstKonst1 k (AstFrom01 v))
+      build1Vectorize1Var n (var, AstFromVector1 l)
+    AstKonst01 k v -> build1Vectorize1Var n (var, AstKonst1 k v)
     AstBuildPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
     AstFrom01 v -> build1Vectorize0Var n (var, v)
 
@@ -870,11 +870,11 @@ build1VectorizeIndex1Var n var v1 i =
 
     -- Rewriting syntactic sugar:
     AstFromList01 l ->
-      build1VectorizeIndex1Var n var (AstFromList1 (map AstFrom01 l)) i
+      build1VectorizeIndex1Var n var (AstFromList1 l) i
     AstFromVector01 l ->
-      build1VectorizeIndex1Var n var (AstFromVector1 (V.map AstFrom01 l)) i
+      build1VectorizeIndex1Var n var (AstFromVector1 l) i
     AstKonst01 k v ->
-      build1VectorizeIndex1Var n var (AstKonst1 k (AstFrom01 v)) i
+      build1VectorizeIndex1Var n var (AstKonst1 k v) i
     AstBuildPair01{} ->
       AstBuildPair1 n (var, AstIndex1 v1 i)  -- see AstBuildPair1 above
     AstFrom01{} -> error "build1VectorizeIndex1Var: wrong rank"
@@ -947,15 +947,15 @@ intVarInAst1 var = \case
   AstTransposeGeneral1 _ v -> intVarInAst1 var v
   AstReshape1 ns v -> or (map (intVarInAstInt var) ns) || intVarInAst1 var v
 
-  AstFromList01 l -> or $ map (intVarInAst0 var) l
-  AstFromVector01 l -> V.or $ V.map (intVarInAst0 var) l
-  AstKonst01 n v -> intVarInAstInt var n || intVarInAst0 var v
-  AstBuildPair01 n (_, v) -> intVarInAstInt var n || intVarInAst0 var v
+  AstFromList01 l -> or $ map (intVarInAst1 var) l
+  AstFromVector01 l -> V.or $ V.map (intVarInAst1 var) l
+  AstKonst01 n v -> intVarInAstInt var n || intVarInAst1 var v
+  AstBuildPair01 n (_, v) -> intVarInAstInt var n || intVarInAst1 var v
   AstFrom01 u -> intVarInAst0 var u
 
-  AstOMap0 (_, v) u -> intVarInAst0 var v || intVarInAst1 var u
+  AstOMap0 (_, v) u -> intVarInAst1 var v || intVarInAst1 var u
     -- the variable in binder position, so ignored (and should be distinct)
-  AstOMap1 (_, v) u -> intVarInAst0 var v || intVarInAst1 var u
+  AstOMap1 (_, v) u -> intVarInAst1 var v || intVarInAst1 var u
 
 intVarInAstInt :: AstVarName Int -> AstInt r -> Bool
 intVarInAstInt var = \case
@@ -972,17 +972,17 @@ intVarInAstBool :: AstVarName Int -> AstBool r -> Bool
 intVarInAstBool var = \case
   AstBoolOp _ l -> or $ map (intVarInAstBool var) l
   AstBoolConst{} -> False
-  AstRel _ l -> or $ map (intVarInAst0 var) l
+  AstRel _ l -> or $ map (intVarInAst1 var) l
   AstRelInt _ l  -> or $ map (intVarInAstInt var) l
 
 
 -- * Odds and ends
 
 leqAst :: Ast0 r -> Ast0 r -> AstBool r
-leqAst d e = AstRel LeqOut [d, e]
+leqAst d e = AstRel LeqOut [AstFrom01 d, AstFrom01 e]
 
 gtAst :: Ast0 r -> Ast0 r -> AstBool r
-gtAst d e = AstRel GtOut [d, e]
+gtAst d e = AstRel GtOut [AstFrom01 d, AstFrom01 e]
 
 gtIntAst :: AstInt r -> AstInt r -> AstBool r
 gtIntAst i j = AstRelInt GtOut [i, j]
@@ -1093,13 +1093,13 @@ konst01' sh (D u u') = dD (OR.constant sh u) (dKonst01 sh u')
 from01 :: ADModeAndNum d r => ADVal d r -> ADVal d (OR.Array 0 r)
 from01 (D u u') = dD (OR.scalar u) (dFrom01 u')
 
-interpretLambdaD0
+interpretLambdaD1
   :: ADModeAndNum d r
   => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vec r)))
-  -> (AstVarName r, Ast0 r)
+  -> (AstVarName r, Ast1 0 r)
   -> ADVal d r -> ADVal d r
-interpretLambdaD0 env (AstVarName var, ast) =
-  \d -> interpretAst0 (IM.insert var (AstVarR0 d) env) ast
+interpretLambdaD1 env (AstVarName var, ast) =
+  \d -> from10 $ interpretAst1 (IM.insert var (AstVarR0 d) env) ast
 
 interpretLambdaI0
   :: ADModeAndNum d r
@@ -1218,21 +1218,20 @@ interpretAst1 env = \case
   AstReshape1 ns v -> reshape1' (map (interpretAstInt env) ns)
                                 (interpretAst1 env v)
 
-  AstFromList01 l -> fromList01' [length l] $ map (interpretAst0 env) l
-  AstFromVector01 l -> fromVector01' [V.length l] $ V.map (interpretAst0 env) l
-  AstKonst01 n r -> konst01' [interpretAstInt env n] (interpretAst0 env r)
-  AstBuildPair01 i (var, r) ->
-    interpretAst1 env $ AstBuildPair1 i (var, AstFrom01 r)
+  AstFromList01 l -> fromList01' [length l] $ map (from10 . interpretAst1 env) l
+  AstFromVector01 l -> fromVector01' [V.length l] $ V.map (from10 . interpretAst1 env) l
+  AstKonst01 n r -> konst01' [interpretAstInt env n] (from10 $ interpretAst1 env r)
+  AstBuildPair01 i (var, r) -> interpretAst1 env $ AstBuildPair1 i (var, r)
   AstFrom01 u -> from01 $ interpretAst0 env u
 
   AstOMap0 (var, r) e ->  -- this only works on the primal part hence @constant@
     constant
-    $ omap (\x -> let D u _ = interpretLambdaD0 env (var, r) (constant x)
+    $ omap (\x -> let D u _ = interpretLambdaD1 env (var, r) (constant x)
                   in u)
            (interpretAst1Primal env e)
   AstOMap1 (var, r) e ->  -- this only works on the primal part hence @constant@
     constant
-    $ omap (\x -> let D u _ = interpretLambdaD0 env (var, r) (constant x)
+    $ omap (\x -> let D u _ = interpretLambdaD1 env (var, r) (constant x)
                   in u)
            (interpretAst1Primal env e)
 
@@ -1267,7 +1266,7 @@ interpretAstBool env = \case
     interpretAstBoolOp (interpretAstBool env) codeBoolOut args
   AstBoolConst a -> a
   AstRel relOut args ->
-    let f x = interpretAst0Primal env x
+    let f x = interpretAst1Primal env x
     in interpretAstRel f relOut args
   AstRelInt relOut args ->
     let f = interpretAstInt env
