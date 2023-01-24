@@ -260,8 +260,9 @@ instance ADModeAndNum d r
   lslice1 = slice1'
   lreverse1 = reverse1'
   lbuild1 = build1Closure  -- to test against build1Elementwise from Ast
-  lmap1 = map1Closure  -- to test against map1Elementwise from Ast
-  lzipWith = undefined
+  lmap1 f v = build1Closure (llength v) (\i -> f (v `lindex10` i))
+  lzipWith f v u =
+    build1Closure (llength v) (\i -> f (v `lindex10` i) (u `lindex10` i))
 
 instance VectorLike1 (Ast1 1 r) (Ast0 r) where
   llength = AstLength
@@ -281,8 +282,9 @@ instance VectorLike1 (Ast1 1 r) (Ast0 r) where
   lslice1 = AstSlice1
   lreverse1 = AstReverse1
   lbuild1 = astBuild1
-  lmap1 = astMap1  -- TODO: express with build instead?
-  lzipWith = undefined  -- TODO: express with build instead?
+  lmap1 f v = astBuild1 (llength v) (\i -> f (v `lindex10` i))
+  lzipWith f v u =
+    astBuild1 (llength v) (\i -> f (v `lindex10` i) (u `lindex10` i))
 
 -- Impure but in the most trivial way (only ever incremented counter).
 unsafeAstVarCounter :: Counter
@@ -302,12 +304,6 @@ astBuild1 n f = unsafePerformIO $ do
     -- TODO: this vectorizers depth-first, which is needed. But do we
     -- also need a translation to non-vectorized terms for anything
     -- (other than for comparative tests)?
-
-astMap1 :: (Ast0 r -> Ast0 r) -> Ast1 1 r -> Ast1 1 r
-{-# NOINLINE astMap1 #-}
-astMap1 f e = unsafePerformIO $ do
-  freshAstVar <- unsafeGetFreshAstVar
-  return $! map1Vectorize (freshAstVar, f (AstVar0 freshAstVar)) e
 
 
 -- * HasPrimal instances for all relevant types
@@ -619,11 +615,6 @@ map1Elementwise f d =
     -- @fromVector1 . map1POPL f . rank1toVector
     --   where rank1toVector d@(D v _v') = V.generate (llength d) (index10 d)@
 
-map1Closure
-  :: ADModeAndNum d r
-  => (ADVal d r -> ADVal d r) -> ADVal d (Vec r) -> ADVal d (Vec r)
-map1Closure f d = build1Closure (llength d) $ \i -> f (index10 d i)
-
 
 -- * Vectorization of the build operation
 
@@ -775,8 +766,6 @@ build1Vectorize1Var n (var, u) =
       build1Vectorize1Var n (var, AstFromVector1 (V.map AstFrom01 l))
     AstKonst01 k v -> build1Vectorize1Var n (var, AstKonst1 k (AstFrom01 v))
     AstBuildPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
-    AstMapPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
-    AstZipWithPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
     AstFrom01 v -> build1Vectorize0Var n (var, v)
 
     AstOMap1{} -> AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, u)
@@ -884,10 +873,6 @@ build1VectorizeIndex1Var n var v1 i =
       build1VectorizeIndex1Var n var (AstKonst1 k (AstFrom01 v)) i
     AstBuildPair01{} ->
       AstBuildPair1 n (var, AstIndex1 v1 i)  -- see AstBuildPair1 above
-    AstMapPair01{} ->
-      AstBuildPair1 n (var, AstIndex1 v1 i)  -- see AstBuildPair1 above
-    AstZipWithPair01{} ->
-      AstBuildPair1 n (var, AstIndex1 v1 i)  -- see AstBuildPair1 above
     AstFrom01{} -> error "build1VectorizeIndex1Var: wrong rank"
       -- TODO: should be excluded by GADT, but is not (on GHC 9.0.1)
 
@@ -964,9 +949,6 @@ intVarInAst1 var = \case
   AstFromVector01 l -> V.or $ V.map (intVarInAst0 var) l
   AstKonst01 n v -> intVarInAstInt var n || intVarInAst0 var v
   AstBuildPair01 n (_, v) -> intVarInAstInt var n || intVarInAst0 var v
-  AstMapPair01 (_, v) u -> intVarInAst0 var v || intVarInAst1 var u
-  AstZipWithPair01 (_, _, v) u w ->
-    intVarInAst0 var v || intVarInAst1 var u || intVarInAst1 var w
   AstFrom01 u -> intVarInAst0 var u
 
   AstOMap1 (_, v) u -> intVarInAst0 var v || intVarInAst1 var u
@@ -991,31 +973,6 @@ intVarInAstBool var = \case
 
 
 -- * Odds and ends
-
--- TODO: Shall this be represented and processed as just build?
--- But doing this naively copies @w@ a lot, so we'd need to wait
--- until AST handles sharing properly. Or make @w@ a variable.
-map1Vectorize
-  :: (AstVarName r, Ast0 r) -> Ast1 1 r
-  -> Ast1 1 r
-map1Vectorize (var, u) w = case u of
-  AstOp0 codeOut args ->
-    AstOp1 codeOut $ map (\x -> map1Vectorize (var, x) w) args
-  AstInt0 _i -> AstMapPair01 (var, u) w  -- TODO
-  AstCond0 _b _x1 _x2 -> AstMapPair01 (var, u) w  -- TODO
-  AstConst0 r -> AstKonst01 (AstLength w) (AstConst0 r)
-  AstConstant0 _r -> AstMapPair01 (var, u) w  -- TODO
-  AstScale0 (AstPrimalPart0 r) d ->
-    AstScale1 (AstPrimalPart1 $ AstMapPair01 (var, r) w)
-              (map1Vectorize (var, d) w)
-  AstVar0 var2 | var2 == var -> w  -- identity mapping
-  AstVar0 var2 -> AstKonst01 (AstLength w) (AstVar0 var2)
-  AstIndex10 _v _i -> AstMapPair01 (var, u) w  -- TODO
-    -- both _v and _i can depend on var, e.g., because of conditionals
-  AstSum10 _v -> AstMapPair01 (var, u) w  -- TODO
-  AstDot10 _u _v -> AstMapPair01 (var, u) w  -- TODO
-  _ -> AstMapPair01 (var, u) w  -- TODO
-  -- TODO: -- All other patterns are redundant due to GADT typing.
 
 leqAst :: Ast0 r -> Ast0 r -> AstBool r
 leqAst d e = AstRel LeqOut [d, e]
@@ -1269,11 +1226,6 @@ interpretAst1 env = \case
   AstKonst01 n r -> konst01' [interpretAstInt env n] (interpretAst0 env r)
   AstBuildPair01 i (var, r) ->
     interpretAst1 env $ AstBuildPair1 i (var, AstFrom01 r)
-  AstMapPair01 (var, r) e ->
-    map1Elementwise (interpretLambdaD0 env (var, r)) (interpretAst1 env e)
-      -- fallback to POPL (memory blowup, but avoids functions on tape)
-  AstZipWithPair01 (_var1, _var2, _r) _e1 _e2 -> undefined
-    -- a 2-var interpretLambda would be needed; or express all with build
   AstFrom01 u -> from01 $ interpretAst0 env u
 
   AstOMap1 (var, r) e ->  -- this only works on the primal part hence @constant@

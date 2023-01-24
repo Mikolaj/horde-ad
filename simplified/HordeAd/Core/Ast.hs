@@ -100,11 +100,6 @@ data Ast1 :: Nat -> Type -> Type where
   -- We don't have AstVarName for list variables, so only rank 1 for now:
   AstBuildPair01 :: AstInt r -> (AstVarName Int, Ast0 r)
                  -> Ast1 1 r
-  AstMapPair01 :: (AstVarName r, Ast0 r) -> Ast1 1 r
-               -> Ast1 1 r
-  AstZipWithPair01 :: (AstVarName r, AstVarName r, Ast0 r)
-                   -> Ast1 1 r -> Ast1 1 r
-                   -> Ast1 1 r
   AstFrom01 :: Ast0 r -> Ast1 0 r
 
   AstOMap1 :: (AstVarName r, Ast0 r) -> Ast1 1 r -> Ast1 1 r
