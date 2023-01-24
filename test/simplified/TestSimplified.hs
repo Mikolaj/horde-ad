@@ -128,8 +128,9 @@ barRelu
 barRelu x = relu $ bar (x, relu x)
 
 barReluAst
-  :: (RealFloat r, MonoFunctor (AstPrimalPart0 r))
-  => Ast0 r -> Ast0 r
+  :: ( Numeric r, RealFloat r, MonoFunctor (AstPrimalPart1 0 r)
+     , Floating (Vector r) )
+  => Ast1 0 r -> Ast1 0 r
 barReluAst x = reluAst0 $ bar (x, reluAst0 x)
   -- TODO; fails due to relu using conditionals and @>@ instead of
   -- a generalization of those that have Ast instance: barRelu @(Ast0 r)
@@ -181,7 +182,7 @@ testPoly00 f input expected = do
         revOnDomains 1
           (\adinputs ->
              interpretAst0 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
-                           (f (AstVar0 (AstVarName (-1)))))
+                           (f (AstFrom10 $ AstVar0 (AstVarName (-1)))))
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains 1
@@ -208,7 +209,7 @@ testPoly01 f outSize input expected = do
         revOnDomains dt
           (\adinputs ->
              interpretAst1 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
-                           (f (AstVar0 (AstVarName (-1)))))
+                           (f (AstFrom10 $ AstVar0 (AstVarName (-1)))))
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains dt
@@ -314,7 +315,7 @@ testBarReluAst0 =
        42.2
        (\adinputs ->
           interpretAst0 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
-                        (barReluAst (AstVar0 (AstVarName (-1)))))
+                        (AstFrom10 $ barReluAst (AstVar0 (AstVarName (-1)))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [191.20462646925841]
 
@@ -339,7 +340,7 @@ testKonstReluAst =
        42.2
        (\adinputs ->
           interpretAst0 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
-                        (konstReluAst (AstVar0 (AstVarName (-1)))))
+                        (konstReluAst (AstFrom10 $ AstVar0 (AstVarName (-1)))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [295.4]
 

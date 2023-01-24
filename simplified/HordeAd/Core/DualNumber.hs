@@ -269,11 +269,11 @@ instance VectorLike1 (Ast1 1 r) (Ast0 r) where
   lminIndex = AstMinIndex
   lmaxIndex = AstMaxIndex
 
-  lindex10 v ix = AstIndex10 v [ix]
-  lsum10 = AstSum10
-  ldot10 = AstDot10
-  lminimum0 v = AstIndex10 v [AstMinIndex v]
-  lmaximum0 v = AstIndex10 v [AstMaxIndex v]
+  lindex10 v ix = AstFrom10 $ AstIndex10 v [ix]
+  lsum10 = AstFrom10 . AstSum10
+  ldot10 u v = AstFrom10 $ AstDot10 u v
+  lminimum0 v = AstFrom10 $ AstIndex10 v [AstMinIndex v]
+  lmaximum0 v = AstFrom10 $ AstIndex10 v [AstMaxIndex v]
 
   lfromList1 = AstFromList01
   lfromVector1 = AstFromVector01
@@ -427,8 +427,9 @@ reluLeaky v =
 -- we'd need Conditional class that works with our AstBool type
 -- and some sugar to be able to use >, &&, etc.
 reluAst0
-  :: (MonoFunctor (PrimalOf (Ast0 r)), Fractional r)
-  => Ast0 r -> Ast0 r
+  :: ( Num (Vector r), MonoFunctor (PrimalOf (Ast1 0 r))
+     , Fractional r, Numeric r )
+  => Ast1 0 r -> Ast1 0 r
 reluAst0 v =
   let oneIfGtZero = omap (\(AstPrimalPart0 x) ->
                             AstPrimalPart0 $ AstCond0 (AstRel GtOut [x, 0]) 1 0)
@@ -658,23 +659,7 @@ build1Vectorize0Var n (var, u) =
       AstScale1 (AstPrimalPart1 $ AstBuildPair01 n (var, r))
                 (build1Vectorize0 n (var, d))
 
-    AstVar0{} ->
-      error "build1Vectorize0Var: AstVar0 can't have free int variables"
-
-    -- Rewriting syntactic sugar:
-    AstIndex10 v [i] -> build1Vectorize1Var n (var, AstIndex1 v i)
-    AstIndex10{} ->
-      error "build1Vectorize0Var: wrong number of indexes for rank 1"
-    AstSum10 v -> build1Vectorize1Var n (var, AstSum1 v)
-    AstDot10 v w ->
-      build1Vectorize1Var n (var, AstSum1 (AstOp1 TimesOut [v, w]))
-      -- AstDot1 is dubious, because dot product results in a scalar,
-      -- not in one rank less and also (some) fast implementations
-      -- depend on it resulting in a scalar.
     AstFrom10 v -> build1Vectorize1 n (var, v)
-
-    AstOMap0{} ->
-      AstConstant1 $ AstPrimalPart1 $ AstBuildPair01 n (var, u)
 
 build1Vectorize1
   :: AstInt r -> (AstVarName Int, Ast1 n r) -> Ast1 (1 + n) r
@@ -718,8 +703,21 @@ build1Vectorize1Var n (var, u) =
       AstScale1 (AstPrimalPart1 $ AstBuildPair1 n (var, r))  -- no need to vect
                 (build1Vectorize1 n (var, d))
 
+    AstVar0{} ->
+      error "build1Vectorize1Var: AstVar0 can't have free int variables"
     AstVar1{} ->
       error "build1Vectorize1Var: AstVar1 can't have free int variables"
+
+    -- Rewriting syntactic sugar:
+    AstIndex10 v [i] -> build1Vectorize1Var n (var, AstIndex1 v i)
+    AstIndex10{} ->
+      error "build1Vectorize1Var: wrong number of indexes for rank 1"
+    AstSum10 v -> build1Vectorize1Var n (var, AstSum1 v)
+    AstDot10 v w ->
+      build1Vectorize1Var n (var, AstSum1 (AstOp1 TimesOut [v, w]))
+      -- AstDot1 is dubious, because dot product results in a scalar,
+      -- not in one rank less and also (some) fast implementations
+      -- depend on it resulting in a scalar.
 
     AstIndex1 v i -> build1VectorizeIndex1Var n var v i
       -- @var@ is in @v@ or @i@; TODO: simplify i first or even fully
@@ -768,6 +766,7 @@ build1Vectorize1Var n (var, u) =
     AstBuildPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
     AstFrom01 v -> build1Vectorize0Var n (var, v)
 
+    AstOMap0{} -> AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, u)
     AstOMap1{} -> AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, u)
     -- All other patterns are redundant due to GADT typing.
 
@@ -817,8 +816,13 @@ build1VectorizeIndex1Var n var v1 i =
       AstScale1 (AstPrimalPart1 $ AstBuildPair1 n (var, AstIndex1 r i))
                 (build1VectorizeIndex1 n var d i)
 
+    AstVar0{} -> error "build1VectorizeIndex1Var: wrong rank"
     AstVar1{} ->  -- var must be in i, so it's hard to simplify
       build1VectorizeIndex1Try n var v1 i
+
+    AstIndex10{} -> error "build1VectorizeIndex1Var: wrong rank"
+    AstSum10{} -> error "build1VectorizeIndex1Var: wrong rank"
+    AstDot10{} -> error "build1VectorizeIndex1Var: wrong rank"
 
     AstIndex1 _v _i -> undefined  -- TODO: a list of indexes needed?
     AstSum1 v ->
@@ -876,6 +880,7 @@ build1VectorizeIndex1Var n var v1 i =
     AstFrom01{} -> error "build1VectorizeIndex1Var: wrong rank"
       -- TODO: should be excluded by GADT, but is not (on GHC 9.0.1)
 
+    AstOMap0{} -> error "build1VectorizeIndex1Var: wrong rank"
     AstOMap1{} ->
       AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, AstIndex1 v1 i)
     -- All other patterns are redundant due to GADT typing.
@@ -906,15 +911,7 @@ intVarInAst0 var = \case
   AstConst0{} -> False
   AstConstant0 (AstPrimalPart0 v) -> intVarInAst0 var v
   AstScale0 (AstPrimalPart0 v) u -> intVarInAst0 var v || intVarInAst0 var u
-
-  AstVar0{} -> False  -- not an int variable
-
-  AstIndex10 v ixs -> intVarInAst1 var v || or (map (intVarInAstInt var) ixs)
-  AstSum10 v -> intVarInAst1 var v
-  AstDot10 v u -> intVarInAst1 var v || intVarInAst1 var u
   AstFrom10 v -> intVarInAst1 var v
-  AstOMap0 (_, v) u -> intVarInAst0 var v || intVarInAst0 var u
-    -- the variable in binder position, so ignored (and should be distinct)
 
 intVarInAst1 :: AstVarName Int -> Ast1 n r -> Bool
 intVarInAst1 var = \case
@@ -929,7 +926,12 @@ intVarInAst1 var = \case
   AstConstant1 (AstPrimalPart1 v) -> intVarInAst1 var v
   AstScale1 (AstPrimalPart1 v) u -> intVarInAst1 var v || intVarInAst1 var u
 
+  AstVar0{} -> False  -- not an int variable
   AstVar1{} -> False  -- not an int variable
+
+  AstIndex10 v ixs -> intVarInAst1 var v || or (map (intVarInAstInt var) ixs)
+  AstSum10 v -> intVarInAst1 var v
+  AstDot10 v u -> intVarInAst1 var v || intVarInAst1 var u
 
   AstIndex1 v ix -> intVarInAst1 var v || intVarInAstInt var ix
   AstSum1 v -> intVarInAst1 var v
@@ -951,6 +953,8 @@ intVarInAst1 var = \case
   AstBuildPair01 n (_, v) -> intVarInAstInt var n || intVarInAst0 var v
   AstFrom01 u -> intVarInAst0 var u
 
+  AstOMap0 (_, v) u -> intVarInAst0 var v || intVarInAst1 var u
+    -- the variable in binder position, so ignored (and should be distinct)
   AstOMap1 (_, v) u -> intVarInAst0 var v || intVarInAst1 var u
 
 intVarInAstInt :: AstVarName Int -> AstInt r -> Bool
@@ -1134,26 +1138,7 @@ interpretAst0 env = \case
   AstConstant0 (AstPrimalPart0 a) -> constant $ interpretAst0Primal env a
   AstScale0 (AstPrimalPart0 r) d ->
     scale (interpretAst0Primal env r) (interpretAst0 env d)
-
-  AstVar0 (AstVarName var) -> case IM.lookup var env of
-    Just (AstVarR0 d) -> d
-    Just AstVarR1{} ->
-      error $ "interpretAst0: type mismatch for var " ++ show var
-    Just AstVarI{} ->
-      error $ "interpretAst0: type mismatch for var " ++ show var
-    Nothing -> error $ "interpretAst0: unknown variable var " ++ show var
-
-  AstIndex10 v is ->
-    index10' (interpretAst1 env v) (map (interpretAstInt env) is)
-  AstSum10 v -> sum10' (interpretAst1 env v)
-  AstDot10 x y -> dot10' (interpretAst1 env x) (interpretAst1 env y)
   AstFrom10 u -> from10 $ interpretAst1 env u
-
-  AstOMap0 (var, r) e ->  -- this only works on the primal part hence @constant@
-    constant
-    $ omap (\x -> let D u _ = interpretLambdaD0 env (var, r) (constant x)
-                  in u)
-           (interpretAst0Primal env e)
 
 interpretAst1Primal
   :: (ADModeAndNum d r, KnownNat n)
@@ -1187,6 +1172,13 @@ interpretAst1 env = \case
   AstScale1 (AstPrimalPart1 r) d ->
     scale (interpretAst1Primal env r) (interpretAst1 env d)
 
+  AstVar0 (AstVarName var) -> case IM.lookup var env of
+    Just (AstVarR0 d) -> from01 d
+    Just AstVarR1{} ->
+      error $ "interpretAst0: type mismatch for var " ++ show var
+    Just AstVarI{} ->
+      error $ "interpretAst0: type mismatch for var " ++ show var
+    Nothing -> error $ "interpretAst0: unknown variable var " ++ show var
   AstVar1 (AstVarName var) -> case IM.lookup var env of
     Just AstVarR0{} ->
       error $ "interpretAst1: type mismatch for var " ++ show var
@@ -1194,6 +1186,11 @@ interpretAst1 env = \case
     Just AstVarI{} ->
       error $ "interpretAst1: type mismatch for var " ++ show var
     Nothing -> error $ "interpretAst1: unknown variable var " ++ show var
+
+  AstIndex10 v is ->
+    from01 $ index10' (interpretAst1 env v) (map (interpretAstInt env) is)
+  AstSum10 v -> from01 $ sum10' (interpretAst1 env v)
+  AstDot10 x y -> from01 $ dot10' (interpretAst1 env x) (interpretAst1 env y)
 
   AstIndex1 v i -> index1' (interpretAst1 env v) (interpretAstInt env i)
   AstSum1 v -> sum1' (interpretAst1 env v)
@@ -1228,6 +1225,11 @@ interpretAst1 env = \case
     interpretAst1 env $ AstBuildPair1 i (var, AstFrom01 r)
   AstFrom01 u -> from01 $ interpretAst0 env u
 
+  AstOMap0 (var, r) e ->  -- this only works on the primal part hence @constant@
+    constant
+    $ omap (\x -> let D u _ = interpretLambdaD0 env (var, r) (constant x)
+                  in u)
+           (interpretAst1Primal env e)
   AstOMap1 (var, r) e ->  -- this only works on the primal part hence @constant@
     constant
     $ omap (\x -> let D u _ = interpretLambdaD0 env (var, r) (constant x)
