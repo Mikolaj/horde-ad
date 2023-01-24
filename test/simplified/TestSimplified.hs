@@ -45,7 +45,7 @@ bar (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2 x w + y * w
 
-barAst :: (Numeric r, RealFloat r, RealFloat (Vector r)) => (Ast1 0 r, Ast1 0 r) -> Ast1 0 r
+barAst :: (Numeric r, RealFloat r, RealFloat (Vector r)) => (Ast 0 r, Ast 0 r) -> Ast 0 r
 barAst (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2 x w + y * w
@@ -71,7 +71,7 @@ fooMap1 r =
 -- A test with conditionals. We haven't defined a class for conditionals so far,
 -- so this uses raw AST instead of sufficiently polymorphic code.
 fooNoGoAst :: (Numeric r, RealFloat r, Floating (Vector r))
-           => Ast1 1 r -> Ast1 1 r
+           => Ast 1 r -> Ast 1 r
 fooNoGoAst v =
   let r = lsum10 v
   in lbuild1 3 (\ix ->
@@ -127,26 +127,26 @@ barRelu
   => a -> a
 barRelu x = relu $ bar (x, relu x)
 
-barReluAst
+barReluAst0
   :: ( Numeric r, RealFloat r, MonoFunctor (AstPrimalPart1 0 r)
      , Floating (Vector r) )
-  => Ast1 0 r -> Ast1 0 r
-barReluAst x = reluAst0 $ bar (x, reluAst0 x)
+  => Ast 0 r -> Ast 0 r
+barReluAst0 x = reluAst0 $ bar (x, reluAst0 x)
   -- TODO; fails due to relu using conditionals and @>@ instead of
-  -- a generalization of those that have Ast instance: barRelu @(Ast1 0 r)
+  -- a generalization of those that have Ast instance: barRelu @(Ast 0 r)
 
 -- TODO: merge with the above once rank-polymorphic relu is recovered
 barReluAst1
   :: ( KnownNat n, Numeric r, RealFloat r
      , MonoFunctor (AstPrimalPart1 n r), Floating (Vector r) )
-  => Ast1 n r -> Ast1 n r
+  => Ast n r -> Ast n r
 barReluAst1 x = reluAst1 $ bar (x, reluAst1 x)
-                  -- TODO; fails: barRelu @(Ast1 n r)
+                  -- TODO; fails: barRelu @(Ast n r)
 
 konstReluAst
   :: forall r.
      (Numeric r, Num (Vector r))
-  => Ast1 0 r -> Ast1 0 r
+  => Ast 0 r -> Ast 0 r
 konstReluAst x = lsum10 $ reluAst1 $ lkonst1 7 x
 
 
@@ -181,7 +181,7 @@ testPoly00 f input expected = do
       (astGrad, astValue) =
         revOnDomains 1
           (\adinputs -> from10 $
-             interpretAst1 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
+             interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
                            (f (AstVar0 (AstVarName (-1)))))
           domainsInput
       (advalGrad, advalValue) =
@@ -208,7 +208,7 @@ testPoly01 f outSize input expected = do
       (astGrad, astValue) =
         revOnDomains dt
           (\adinputs ->
-             interpretAst1 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
+             interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
                            (f (AstVar0 (AstVarName (-1)))))
           domainsInput
       (advalGrad, advalValue) =
@@ -235,7 +235,7 @@ testPoly11 f outSize input expected = do
       (astGrad, astValue) =
         revOnDomains dt
           (\adinputs ->
-             interpretAst1 (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
+             interpretAst (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
                            (f (AstVar1 (AstVarName (-1)))))
           domainsInput
       (advalGrad, advalValue) =
@@ -280,7 +280,7 @@ testFooNoGoAst =
        (vToVec $ LA.konst 1 3)
         -- "1" wrong due to fragility of hmatrix and tensor numeric instances
        (\adinputs ->
-          interpretAst1 (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
+          interpretAst (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
                         (fooNoGoAst (AstVar1 (AstVarName (-1)))))
        (domainsFrom0V V.empty
                       (V.singleton (V.fromList
@@ -314,8 +314,8 @@ testBarReluAst0 =
    $ revOnDomains
        42.2
        (\adinputs -> from10 $
-          interpretAst1 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
-                        (barReluAst (AstVar0 (AstVarName (-1)))))
+          interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
+                        (barReluAst0 (AstVar0 (AstVarName (-1)))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [191.20462646925841]
 
@@ -326,8 +326,8 @@ testBarReluAst1 =
        (vToVec $ LA.konst 1 5)
          -- "1" wrong due to fragility of hmatrix and tensor numeric instances
        (\adinputs ->
-          interpretAst1 (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
-                        (barReluAst1 (AstVar1 (AstVarName (-1)))))
+          interpretAst (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
+                       (barReluAst1 (AstVar1 (AstVarName (-1)))))
        (domainsFrom0V V.empty
                       (V.singleton (V.fromList
                                       [1.1 :: Double, 2.2, 3.3, 4, 5]))))
@@ -339,7 +339,7 @@ testKonstReluAst =
    $ revOnDomains
        42.2
        (\adinputs -> from10 $
-          interpretAst1 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
+          interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
                         (konstReluAst (AstVar0 (AstVarName (-1)))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [295.4]

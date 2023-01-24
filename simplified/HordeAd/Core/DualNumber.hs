@@ -21,7 +21,7 @@ module HordeAd.Core.DualNumber
   , Element, HasPrimal(..)
   , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
   , -- temporarily re-exported, until these are wrapped in sugar
-    Ast1(..), AstPrimalPart1(..)
+    Ast(..), AstPrimalPart1(..)
   , AstVarName(..), AstVar(..)
   , AstInt(..), AstBool(..)
   , CodeOut(..), CodeIntOut(..), CodeBoolOut(..), RelOut(..)
@@ -264,7 +264,7 @@ instance ADModeAndNum d r
   lzipWith f v u =
     build1Closure (llength v) (\i -> f (v `lindex10` i) (u `lindex10` i))
 
-instance VectorLike1 (Ast1 1 r) (Ast1 0 r) where
+instance VectorLike1 (Ast 1 r) (Ast 0 r) where
   llength = AstLength
   lminIndex = AstMinIndex
   lmaxIndex = AstMaxIndex
@@ -295,7 +295,7 @@ unsafeGetFreshAstVar :: IO (AstVarName a)
 {-# INLINE unsafeGetFreshAstVar #-}
 unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-astBuild1 :: AstInt r -> (AstInt r -> Ast1 0 r) -> Ast1 1 r
+astBuild1 :: AstInt r -> (AstInt r -> Ast 0 r) -> Ast 1 r
 {-# NOINLINE astBuild1 #-}
 astBuild1 n f = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
@@ -371,9 +371,9 @@ instance (KnownNat n, Numeric r, Num (Vector r))
   ddD u _ = u
   fromIntOf = fromInteger . fromIntegral
 
-instance HasPrimal (Ast1 n r) where
-  type PrimalOf (Ast1 n r) = AstPrimalPart1 n r
-  type DualOf (Ast1 n r) = ()  -- TODO: data AstDualPart: dScale, dAdd, dkonst1
+instance HasPrimal (Ast n r) where
+  type PrimalOf (Ast n r) = AstPrimalPart1 n r
+  type DualOf (Ast n r) = ()  -- TODO: data AstDualPart: dScale, dAdd, dkonst1
   constant = AstConstant1
   scale = AstScale1
   primalPart = AstPrimalPart1
@@ -411,15 +411,15 @@ reluLeaky v =
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) (primalPart v)
   in scale oneIfGtZero v
 
--- TODO: bring back rank-poly relu by adding a class with Ast1 0 and Ast1 1
+-- TODO: bring back rank-poly relu by adding a class with Ast 0 and Ast 1
 -- or even better generalize the function after omap above so that
 -- it has a sensible Ast instance and then kill reluAst0 and reluAst1;
 -- we'd need Conditional class that works with our AstBool type
 -- and some sugar to be able to use >, &&, etc.
 reluAst0
-  :: ( Num (Vector r), MonoFunctor (PrimalOf (Ast1 0 r))
+  :: ( Num (Vector r), MonoFunctor (PrimalOf (Ast 0 r))
      , Numeric r )
-  => Ast1 0 r -> Ast1 0 r
+  => Ast 0 r -> Ast 0 r
 reluAst0 v =
   let oneIfGtZero = omap (\(AstPrimalPart1 x) ->
                             AstPrimalPart1 $ AstCond1 (AstRel GtOut [x, 0]) 1 0)
@@ -427,9 +427,9 @@ reluAst0 v =
   in scale oneIfGtZero v
 
 reluAst1
-  :: ( KnownNat n, Num (Vector r), MonoFunctor (PrimalOf (Ast1 n r))
+  :: ( KnownNat n, Num (Vector r), MonoFunctor (PrimalOf (Ast n r))
      , Numeric r )
-  => Ast1 n r -> Ast1 n r
+  => Ast n r -> Ast n r
 reluAst1 v =
   let oneIfGtZero = omap (\(AstPrimalPart1 x) ->
                             AstPrimalPart1 $ AstCond1 (AstRel GtOut [x, 0]) 1 0)
@@ -610,15 +610,15 @@ map1Elementwise f d =
 -- * Vectorization of the build operation
 
 build1Vectorize1
-  :: AstInt r -> (AstVarName Int, Ast1 n r) -> Ast1 (1 + n) r
+  :: AstInt r -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
 build1Vectorize1 n (var, u) =
-  if intVarInAst1 var u
+  if intVarInAst var u
   then build1Vectorize1Var n (var, u)
   else AstKonst1 n u
 
 -- | The variable is known to occur in the term.
 build1Vectorize1Var
-  :: AstInt r -> (AstVarName Int, Ast1 n r) -> Ast1 (1 + n) r
+  :: AstInt r -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
 build1Vectorize1Var n (var, u) =
   case u of
     AstOp1 codeOut args ->
@@ -720,10 +720,10 @@ build1Vectorize1Var n (var, u) =
 -- The application @build1VectorizeIndex n var v i@
 -- vectorizes the term @AstBuildPair1 n (var, AstIndex1 v i)@.
 build1VectorizeIndex1
-  :: AstInt r -> AstVarName Int -> Ast1 (1 + n) r -> AstInt r
-  -> Ast1 (1 + n) r
+  :: AstInt r -> AstVarName Int -> Ast (1 + n) r -> AstInt r
+  -> Ast (1 + n) r
 build1VectorizeIndex1 n var v i =
-  if intVarInAst1 var v || intVarInAstInt var i
+  if intVarInAst var v || intVarInAstInt var i
   then build1VectorizeIndex1Var n var v i
   else AstKonst1 n (AstIndex1 v i)
 
@@ -734,8 +734,8 @@ build1VectorizeIndex1 n var v i =
 -- we are down to indexing of a base expression (e.g., raw input data)
 -- and then the only hope is in analyzing the index expression in turn.
 build1VectorizeIndex1Var
-  :: AstInt r -> AstVarName Int -> Ast1 (1 + n) r -> AstInt r
-  -> Ast1 (1 + n) r
+  :: AstInt r -> AstVarName Int -> Ast (1 + n) r -> AstInt r
+  -> Ast (1 + n) r
 build1VectorizeIndex1Var n var v1 i =
   case v1 of
     AstOp1 codeOut args ->
@@ -835,59 +835,59 @@ build1VectorizeIndex1Var n var v1 i =
 -- We can' push indexing down any more, so we analyze the index expression
 -- instead.
 build1VectorizeIndex1Try
-  :: AstInt r -> AstVarName Int -> Ast1 (1 + n) r -> AstInt r
-  -> Ast1 (1 + n) r
+  :: AstInt r -> AstVarName Int -> Ast (1 + n) r -> AstInt r
+  -> Ast (1 + n) r
 build1VectorizeIndex1Try n var v i = case i of
   AstIntOp PlusIntOut [AstIntVar var2, i2]
-    | var2 == var && not (intVarInAstInt var i2) && not (intVarInAst1 var v) ->
+    | var2 == var && not (intVarInAstInt var i2) && not (intVarInAst var v) ->
       AstSlice1 i2 n v
-  AstIntVar var2 | var2 == var && not (intVarInAst1 var v) ->
+  AstIntVar var2 | var2 == var && not (intVarInAst var v) ->
     AstSlice1 0 n v
   _ -> AstBuildPair1 n (var, AstIndex1 v i)
     -- TODO: many more cases; not sure how systematic it can be
 
-intVarInAst1 :: AstVarName Int -> Ast1 n r -> Bool
-intVarInAst1 var = \case
-  AstOp1 _ l -> or $ map (intVarInAst1 var) l
+intVarInAst :: AstVarName Int -> Ast n r -> Bool
+intVarInAst var = \case
+  AstOp1 _ l -> or $ map (intVarInAst var) l
   AstCond1 b x y ->
-    intVarInAstBool var b || intVarInAst1 var x || intVarInAst1 var y
+    intVarInAstBool var b || intVarInAst var x || intVarInAst var y
   AstSelect1 n (_, b) x y ->
     intVarInAstInt var n || intVarInAstBool var b
-    || intVarInAst1 var x || intVarInAst1 var y
+    || intVarInAst var x || intVarInAst var y
   AstInt1 n -> intVarInAstInt var n
   AstConst1{} -> False
-  AstConstant1 (AstPrimalPart1 v) -> intVarInAst1 var v
-  AstScale1 (AstPrimalPart1 v) u -> intVarInAst1 var v || intVarInAst1 var u
+  AstConstant1 (AstPrimalPart1 v) -> intVarInAst var v
+  AstScale1 (AstPrimalPart1 v) u -> intVarInAst var v || intVarInAst var u
 
   AstVar0{} -> False  -- not an int variable
   AstVar1{} -> False  -- not an int variable
 
-  AstIndex10 v ixs -> intVarInAst1 var v || or (map (intVarInAstInt var) ixs)
-  AstSum10 v -> intVarInAst1 var v
-  AstDot10 v u -> intVarInAst1 var v || intVarInAst1 var u
+  AstIndex10 v ixs -> intVarInAst var v || or (map (intVarInAstInt var) ixs)
+  AstSum10 v -> intVarInAst var v
+  AstDot10 v u -> intVarInAst var v || intVarInAst var u
 
-  AstIndex1 v ix -> intVarInAst1 var v || intVarInAstInt var ix
-  AstSum1 v -> intVarInAst1 var v
-  AstFromList1 l -> or $ map (intVarInAst1 var) l  -- down from rank 1 to 0
-  AstFromVector1 vl -> or $ map (intVarInAst1 var) $ V.toList vl
-  AstKonst1 n v -> intVarInAstInt var n || intVarInAst1 var v
-  AstAppend1 v u -> intVarInAst1 var v || intVarInAst1 var u
+  AstIndex1 v ix -> intVarInAst var v || intVarInAstInt var ix
+  AstSum1 v -> intVarInAst var v
+  AstFromList1 l -> or $ map (intVarInAst var) l  -- down from rank 1 to 0
+  AstFromVector1 vl -> or $ map (intVarInAst var) $ V.toList vl
+  AstKonst1 n v -> intVarInAstInt var n || intVarInAst var v
+  AstAppend1 v u -> intVarInAst var v || intVarInAst var u
   AstSlice1 i k v -> intVarInAstInt var i || intVarInAstInt var k
-                     || intVarInAst1 var v
-  AstReverse1 v -> intVarInAst1 var v
-  AstBuildPair1 n (_, v) -> intVarInAstInt var n || intVarInAst1 var v
-  AstTranspose1 v -> intVarInAst1 var v
-  AstTransposeGeneral1 _ v -> intVarInAst1 var v
-  AstReshape1 ns v -> or (map (intVarInAstInt var) ns) || intVarInAst1 var v
+                     || intVarInAst var v
+  AstReverse1 v -> intVarInAst var v
+  AstBuildPair1 n (_, v) -> intVarInAstInt var n || intVarInAst var v
+  AstTranspose1 v -> intVarInAst var v
+  AstTransposeGeneral1 _ v -> intVarInAst var v
+  AstReshape1 ns v -> or (map (intVarInAstInt var) ns) || intVarInAst var v
 
-  AstFromList01 l -> or $ map (intVarInAst1 var) l
-  AstFromVector01 l -> V.or $ V.map (intVarInAst1 var) l
-  AstKonst01 n v -> intVarInAstInt var n || intVarInAst1 var v
-  AstBuildPair01 n (_, v) -> intVarInAstInt var n || intVarInAst1 var v
+  AstFromList01 l -> or $ map (intVarInAst var) l
+  AstFromVector01 l -> V.or $ V.map (intVarInAst var) l
+  AstKonst01 n v -> intVarInAstInt var n || intVarInAst var v
+  AstBuildPair01 n (_, v) -> intVarInAstInt var n || intVarInAst var v
 
-  AstOMap0 (_, v) u -> intVarInAst1 var v || intVarInAst1 var u
+  AstOMap0 (_, v) u -> intVarInAst var v || intVarInAst var u
     -- the variable in binder position, so ignored (and should be distinct)
-  AstOMap1 (_, v) u -> intVarInAst1 var v || intVarInAst1 var u
+  AstOMap1 (_, v) u -> intVarInAst var v || intVarInAst var u
 
 intVarInAstInt :: AstVarName Int -> AstInt r -> Bool
 intVarInAstInt var = \case
@@ -896,24 +896,24 @@ intVarInAstInt var = \case
     intVarInAstBool var b || intVarInAstInt var x || intVarInAstInt var y
   AstIntConst{} -> False
   AstIntVar var2 -> var == var2  -- the only int variable not in binder position
-  AstLength v -> intVarInAst1 var v
-  AstMinIndex v -> intVarInAst1 var v
-  AstMaxIndex v -> intVarInAst1 var v
+  AstLength v -> intVarInAst var v
+  AstMinIndex v -> intVarInAst var v
+  AstMaxIndex v -> intVarInAst var v
 
 intVarInAstBool :: AstVarName Int -> AstBool r -> Bool
 intVarInAstBool var = \case
   AstBoolOp _ l -> or $ map (intVarInAstBool var) l
   AstBoolConst{} -> False
-  AstRel _ l -> or $ map (intVarInAst1 var) l
+  AstRel _ l -> or $ map (intVarInAst var) l
   AstRelInt _ l  -> or $ map (intVarInAstInt var) l
 
 
 -- * Odds and ends
 
-leqAst :: Ast1 0 r -> Ast1 0 r -> AstBool r
+leqAst :: Ast 0 r -> Ast 0 r -> AstBool r
 leqAst d e = AstRel LeqOut [d, e]
 
-gtAst :: Ast1 0 r -> Ast1 0 r -> AstBool r
+gtAst :: Ast 0 r -> Ast 0 r -> AstBool r
 gtAst d e = AstRel GtOut [d, e]
 
 gtIntAst :: AstInt r -> AstInt r -> AstBool r
@@ -1028,80 +1028,80 @@ from01 (D u u') = dD (OR.scalar u) (dFrom01 u')
 interpretLambdaD1
   :: ADModeAndNum d r
   => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vec r)))
-  -> (AstVarName r, Ast1 0 r)
+  -> (AstVarName r, Ast 0 r)
   -> ADVal d r -> ADVal d r
 interpretLambdaD1 env (AstVarName var, ast) =
-  \d -> from10 $ interpretAst1 (IM.insert var (AstVarR0 d) env) ast
+  \d -> from10 $ interpretAst (IM.insert var (AstVarR0 d) env) ast
 
 interpretLambdaI1
   :: (ADModeAndNum d r, KnownNat n)
   => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vec r)))
-  -> (AstVarName Int, Ast1 n r)
+  -> (AstVarName Int, Ast n r)
   -> Int -> ADVal d (OR.Array n r)
 interpretLambdaI1 env (AstVarName var, ast) =
-  \i -> interpretAst1 (IM.insert var (AstVarI i) env) ast
+  \i -> interpretAst (IM.insert var (AstVarI i) env) ast
 
-interpretAst1Primal
+interpretAstPrimal
   :: (ADModeAndNum d r, KnownNat n)
   => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vec r)))
-  -> Ast1 n r -> OR.Array n r
-interpretAst1Primal env v = let D u _ = interpretAst1 env v in u
+  -> Ast n r -> OR.Array n r
+interpretAstPrimal env v = let D u _ = interpretAst env v in u
 
-interpretAst1
+interpretAst
   :: (ADModeAndNum d r, KnownNat n)
   => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vec r)))
-  -> Ast1 n r -> ADVal d (OR.Array n r)
-interpretAst1 env = \case
+  -> Ast n r -> ADVal d (OR.Array n r)
+interpretAst env = \case
   AstOp1 codeOut args ->
-    interpretAstOp (interpretAst1 env) codeOut args
+    interpretAstOp (interpretAst env) codeOut args
   AstCond1 b a1 a2 -> if interpretAstBool env b
-                      then interpretAst1 env a1
-                      else interpretAst1 env a2
+                      then interpretAst env a1
+                      else interpretAst env a2
   AstSelect1 n (AstVarName var, b) a1 a2 ->
     let k = interpretAstInt env n
         f [i] = if interpretAstBool (IM.insert var (AstVarI i) env) b
                 then 1
                 else 0
-        f _ = error "interpretAst1: unexpected argument to AstSelect1"
+        f _ = error "interpretAst: unexpected argument to AstSelect1"
         bitmap = constant $ OR.generate [k] f
-        v1 = interpretAst1 env a1
-        v2 = interpretAst1 env a2
+        v1 = interpretAst env a1
+        v2 = interpretAst env a2
     in bitmap * v1 + v2 - bitmap * v2
   AstInt1 i -> fromInteger $ fromIntegral $ interpretAstInt env i
   AstConst1 a -> constant a
-  AstConstant1 (AstPrimalPart1 a) -> constant $ interpretAst1Primal env a
+  AstConstant1 (AstPrimalPart1 a) -> constant $ interpretAstPrimal env a
   AstScale1 (AstPrimalPart1 r) d ->
-    scale (interpretAst1Primal env r) (interpretAst1 env d)
+    scale (interpretAstPrimal env r) (interpretAst env d)
 
   AstVar0 (AstVarName var) -> case IM.lookup var env of
     Just (AstVarR0 d) -> from01 d
     Just AstVarR1{} ->
-      error $ "interpretAst1: type mismatch for var " ++ show var
+      error $ "interpretAst: type mismatch for var " ++ show var
     Just AstVarI{} ->
-      error $ "interpretAst1: type mismatch for var " ++ show var
-    Nothing -> error $ "interpretAst1: unknown variable var " ++ show var
+      error $ "interpretAst: type mismatch for var " ++ show var
+    Nothing -> error $ "interpretAst: unknown variable var " ++ show var
   AstVar1 (AstVarName var) -> case IM.lookup var env of
     Just AstVarR0{} ->
-      error $ "interpretAst1: type mismatch for var " ++ show var
+      error $ "interpretAst: type mismatch for var " ++ show var
     Just (AstVarR1 d) -> d
     Just AstVarI{} ->
-      error $ "interpretAst1: type mismatch for var " ++ show var
-    Nothing -> error $ "interpretAst1: unknown variable var " ++ show var
+      error $ "interpretAst: type mismatch for var " ++ show var
+    Nothing -> error $ "interpretAst: unknown variable var " ++ show var
 
   AstIndex10 v is ->
-    from01 $ index10' (interpretAst1 env v) (map (interpretAstInt env) is)
-  AstSum10 v -> from01 $ sum10' (interpretAst1 env v)
-  AstDot10 x y -> from01 $ dot10' (interpretAst1 env x) (interpretAst1 env y)
+    from01 $ index10' (interpretAst env v) (map (interpretAstInt env) is)
+  AstSum10 v -> from01 $ sum10' (interpretAst env v)
+  AstDot10 x y -> from01 $ dot10' (interpretAst env x) (interpretAst env y)
 
-  AstIndex1 v i -> index1' (interpretAst1 env v) (interpretAstInt env i)
-  AstSum1 v -> sum1' (interpretAst1 env v)
-  AstFromList1 l -> fromList1' (map (interpretAst1 env) l)
-  AstFromVector1 l -> fromVector1' (V.map (interpretAst1 env) l)
-  AstKonst1 n v ->konst1' (interpretAstInt env n) (interpretAst1 env v)
-  AstAppend1 x y -> append1' (interpretAst1 env x) (interpretAst1 env y)
+  AstIndex1 v i -> index1' (interpretAst env v) (interpretAstInt env i)
+  AstSum1 v -> sum1' (interpretAst env v)
+  AstFromList1 l -> fromList1' (map (interpretAst env) l)
+  AstFromVector1 l -> fromVector1' (V.map (interpretAst env) l)
+  AstKonst1 n v ->konst1' (interpretAstInt env n) (interpretAst env v)
+  AstAppend1 x y -> append1' (interpretAst env x) (interpretAst env y)
   AstSlice1 i k v -> slice1' (interpretAstInt env i) (interpretAstInt env k)
-               (interpretAst1 env v)
-  AstReverse1 v -> reverse1' (interpretAst1 env v)
+               (interpretAst env v)
+  AstReverse1 v -> reverse1' (interpretAst env v)
   AstBuildPair1 i (var, AstConstant1 r) ->
     let n = interpretAstInt env i
     in constant
@@ -1112,28 +1112,28 @@ interpretAst1 env = \case
     build1' (interpretAstInt env i) (interpretLambdaI1 env (var, v))
       -- fallback to POPL (memory blowup, but avoids functions on tape);
       -- an alternative is to use dBuild1 and store function on tape
-  AstTranspose1 v -> interpretAst1 env $ AstTransposeGeneral1 [1, 0] v
+  AstTranspose1 v -> interpretAst env $ AstTransposeGeneral1 [1, 0] v
   AstTransposeGeneral1 perm v ->
-    let d@(D u _) = interpretAst1 env v
+    let d@(D u _) = interpretAst env v
     in if OR.rank u <= length perm - 1 then d else transposeGeneral1' perm d
   AstReshape1 ns v -> reshape1' (map (interpretAstInt env) ns)
-                                (interpretAst1 env v)
+                                (interpretAst env v)
 
-  AstFromList01 l -> fromList01' [length l] $ map (from10 . interpretAst1 env) l
-  AstFromVector01 l -> fromVector01' [V.length l] $ V.map (from10 . interpretAst1 env) l
-  AstKonst01 n r -> konst01' [interpretAstInt env n] (from10 $ interpretAst1 env r)
-  AstBuildPair01 i (var, r) -> interpretAst1 env $ AstBuildPair1 i (var, r)
+  AstFromList01 l -> fromList01' [length l] $ map (from10 . interpretAst env) l
+  AstFromVector01 l -> fromVector01' [V.length l] $ V.map (from10 . interpretAst env) l
+  AstKonst01 n r -> konst01' [interpretAstInt env n] (from10 $ interpretAst env r)
+  AstBuildPair01 i (var, r) -> interpretAst env $ AstBuildPair1 i (var, r)
 
   AstOMap0 (var, r) e ->  -- this only works on the primal part hence @constant@
     constant
     $ omap (\x -> let D u _ = interpretLambdaD1 env (var, r) (constant x)
                   in u)
-           (interpretAst1Primal env e)
+           (interpretAstPrimal env e)
   AstOMap1 (var, r) e ->  -- this only works on the primal part hence @constant@
     constant
     $ omap (\x -> let D u _ = interpretLambdaD1 env (var, r) (constant x)
                   in u)
-           (interpretAst1Primal env e)
+           (interpretAstPrimal env e)
 
 interpretAstInt :: ADModeAndNum d r
                 => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vec r)))
@@ -1152,11 +1152,11 @@ interpretAstInt env = \case
       error $ "interpretAstInt: type mismatch for var " ++ show var
     Just (AstVarI i) -> i
     Nothing -> error $ "interpretAstInt: unknown variable var " ++ show var
-  AstLength v -> case OR.shapeL $ interpretAst1Primal env v of
+  AstLength v -> case OR.shapeL $ interpretAstPrimal env v of
     [] -> error "interpretAstInt: impossible shape for rank >= 1"
     len_outermost : _ -> len_outermost
-  AstMinIndex v -> lminIndex $ interpretAst1 env v
-  AstMaxIndex v -> lmaxIndex $ interpretAst1 env v
+  AstMinIndex v -> lminIndex $ interpretAst env v
+  AstMaxIndex v -> lmaxIndex $ interpretAst env v
 
 interpretAstBool :: ADModeAndNum d r
                  => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vec r)))
@@ -1166,7 +1166,7 @@ interpretAstBool env = \case
     interpretAstBoolOp (interpretAstBool env) codeBoolOut args
   AstBoolConst a -> a
   AstRel relOut args ->
-    let f x = interpretAst1Primal env x
+    let f x = interpretAstPrimal env x
     in interpretAstRel f relOut args
   AstRelInt relOut args ->
     let f = interpretAstInt env

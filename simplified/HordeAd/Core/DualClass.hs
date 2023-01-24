@@ -178,13 +178,13 @@ type family IntOf a where
   IntOf Double = Int
   IntOf Float = Int
   IntOf (OR.Array n r) = Int
-  IntOf (Ast1 n r) = AstInt r
+  IntOf (Ast n r) = AstInt r
   IntOf (ADVal d r) = Int
 
 type family VectorOf a = result | result -> a where
   VectorOf Double = OR.Array 1 Double
   VectorOf Float = OR.Array 1 Float
-  VectorOf (Ast1 0 r) = Ast1 1 r
+  VectorOf (Ast 0 r) = Ast 1 r
   VectorOf (ADVal d r) = ADVal d (OR.Array 1 r)
 
 -- | Second argument is the primal component of a dual number at some rank

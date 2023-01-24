@@ -10,7 +10,7 @@
 -- for arbitrary code transformations at the cost of limiting
 -- expressiveness of transformed fragments to what AST captures.
 module HordeAd.Core.Ast
-  ( Ast1(..), AstPrimalPart1(..)
+  ( Ast(..), AstPrimalPart1(..)
   , AstVarName(..), AstVar(..)
   , AstInt(..), AstBool(..)
   , CodeOut(..), CodeIntOut(..), CodeBoolOut(..), RelOut(..)
@@ -35,64 +35,64 @@ import HordeAd.Internal.OrthotopeOrphanInstances ()
 -- and between primal and dual
 -- | AST of the code to be differentiated. The argument is the underlying
 -- scalar.
-data Ast1 :: Nat -> Type -> Type where
-  AstOp1 :: CodeOut -> [Ast1 n r] -> Ast1 n r
-  AstCond1 :: AstBool r -> Ast1 n r -> Ast1 n r -> Ast1 n r
-  AstSelect1 :: AstInt r -> (AstVarName Int, AstBool r) -> Ast1 n r -> Ast1 n r
-             -> Ast1 n r
-  AstInt1 :: AstInt r -> Ast1 n r
-  AstConst1 :: OR.Array n r -> Ast1 n r
+data Ast :: Nat -> Type -> Type where
+  AstOp1 :: CodeOut -> [Ast n r] -> Ast n r
+  AstCond1 :: AstBool r -> Ast n r -> Ast n r -> Ast n r
+  AstSelect1 :: AstInt r -> (AstVarName Int, AstBool r) -> Ast n r -> Ast n r
+             -> Ast n r
+  AstInt1 :: AstInt r -> Ast n r
+  AstConst1 :: OR.Array n r -> Ast n r
     -- sort of partially evaluated @AstConstant1@
-  AstConstant1 :: AstPrimalPart1 n r -> Ast1 n r
-  AstScale1 :: AstPrimalPart1 n r -> Ast1 n r -> Ast1 n r
+  AstConstant1 :: AstPrimalPart1 n r -> Ast n r
+  AstScale1 :: AstPrimalPart1 n r -> Ast n r -> Ast n r
 
-  AstVar0 :: AstVarName r -> Ast1 0 r
-  AstVar1 :: AstVarName (OR.Array 1 r) -> Ast1 1 r
+  AstVar0 :: AstVarName r -> Ast 0 r
+  AstVar1 :: AstVarName (OR.Array 1 r) -> Ast 1 r
 
   -- Rank temporarily fixed to 1, to avoid hard type-level programming.
-  AstIndex10 :: Ast1 1 r -> [AstInt r] -> Ast1 0 r
-  AstSum10 :: Ast1 1 r -> Ast1 0 r
-  AstDot10 :: Ast1 1 r -> Ast1 1 r -> Ast1 0 r
+  AstIndex10 :: Ast 1 r -> [AstInt r] -> Ast 0 r
+  AstSum10 :: Ast 1 r -> Ast 0 r
+  AstDot10 :: Ast 1 r -> Ast 1 r -> Ast 0 r
 
-  AstIndex1 :: Ast1 (1 + n) r -> AstInt r -> Ast1 n r
-  AstSum1 :: Ast1 (1 + n) r -> Ast1 n r
+  AstIndex1 :: Ast (1 + n) r -> AstInt r -> Ast n r
+  AstSum1 :: Ast (1 + n) r -> Ast n r
   -- No shape argument, because we'd need [AstInt], because it changes
   -- during vectorization. The trade-off is a crash when the argument is empty,
   -- but the user wants n =\ 1. TODO: perhaps just use List.NonEmpty,
   -- but is there Vector.NonEmpty and, in the future, Tensor.NonEmpty?
   -- For now, it crashes for empty arguments always.
-  AstFromList1 :: [Ast1 n r] -> Ast1 (1 + n) r
-  AstFromVector1 :: Data.Vector.Vector (Ast1 n r)
-                 -> Ast1 (1 + n) r
-  AstKonst1 :: AstInt r -> Ast1 n r -> Ast1 (1 + n) r
+  AstFromList1 :: [Ast n r] -> Ast (1 + n) r
+  AstFromVector1 :: Data.Vector.Vector (Ast n r)
+                 -> Ast (1 + n) r
+  AstKonst1 :: AstInt r -> Ast n r -> Ast (1 + n) r
   AstAppend1 :: KnownNat n
-             => Ast1 n r -> Ast1 n r -> Ast1 n r
-  AstSlice1 :: AstInt r -> AstInt r -> Ast1 n r -> Ast1 n r
+             => Ast n r -> Ast n r -> Ast n r
+  AstSlice1 :: AstInt r -> AstInt r -> Ast n r -> Ast n r
   AstReverse1 :: KnownNat n
-              => Ast1 n r -> Ast1 n r
-  AstBuildPair1 :: AstInt r -> (AstVarName Int, Ast1 n r) -> Ast1 (1 + n) r
-  AstTranspose1 :: Ast1 n r -> Ast1 n r
-  AstTransposeGeneral1 :: [Int] -> Ast1 n r -> Ast1 n r
+              => Ast n r -> Ast n r
+  AstBuildPair1 :: AstInt r -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
+  AstTranspose1 :: Ast n r -> Ast n r
+  AstTransposeGeneral1 :: [Int] -> Ast n r -> Ast n r
   -- TODO: how to handle the shape argument?
   AstReshape1 :: KnownNat n
-              => [AstInt r] -> Ast1 n r -> Ast1 m r
+              => [AstInt r] -> Ast n r -> Ast m r
 
   -- Rank temporarily fixed to 1, to avoid hard type-level programming.
-  AstFromList01 :: [Ast1 0 r] -> Ast1 1 r
-  AstFromVector01 :: Data.Vector.Vector (Ast1 0 r) -> Ast1 1 r
-  AstKonst01 :: AstInt r -> Ast1 0 r -> Ast1 1 r
+  AstFromList01 :: [Ast 0 r] -> Ast 1 r
+  AstFromVector01 :: Data.Vector.Vector (Ast 0 r) -> Ast 1 r
+  AstKonst01 :: AstInt r -> Ast 0 r -> Ast 1 r
   -- We don't have AstVarName for list variables, so only rank 1 for now:
-  AstBuildPair01 :: AstInt r -> (AstVarName Int, Ast1 0 r)
-                 -> Ast1 1 r
+  AstBuildPair01 :: AstInt r -> (AstVarName Int, Ast 0 r)
+                 -> Ast 1 r
 
-  AstOMap0 :: (AstVarName r, Ast1 0 r) -> Ast1 0 r -> Ast1 0 r
-  AstOMap1 :: (AstVarName r, Ast1 0 r) -> Ast1 1 r -> Ast1 1 r
+  AstOMap0 :: (AstVarName r, Ast 0 r) -> Ast 0 r -> Ast 0 r
+  AstOMap1 :: (AstVarName r, Ast 0 r) -> Ast 1 r -> Ast 1 r
     -- this is necessary for MonoFunctor and so for a particularly
     -- fast implementation of relu
     -- TODO: this is really only needed in AstPrimalPart, but making
     -- AstPrimalPart data instead of a newtype would complicate a lot of code
 
-newtype AstPrimalPart1 n r = AstPrimalPart1 (Ast1 n r)
+newtype AstPrimalPart1 n r = AstPrimalPart1 (Ast n r)
 
 newtype AstVarName t = AstVarName Int
   deriving (Show, Eq)
@@ -102,7 +102,7 @@ data AstVar a0 a1 =
   | AstVarR1 a1
   | AstVarI Int
 
--- In AstInt and AstBool, the Ast1 terms are morally AstPrimalPart,
+-- In AstInt and AstBool, the Ast terms are morally AstPrimalPart,
 -- since their derivative part is not used.
 -- TODO: introduce AstPrimalPart explicitly when convenient, e.g.,
 -- as soon as AstPrimalPart gets more constructors.
@@ -115,14 +115,14 @@ data AstInt :: Type -> Type where
   AstIntVar :: AstVarName Int -> AstInt r
 
   AstLength :: KnownNat n
-            => Ast1 (1 + n) r -> AstInt r  -- length of the outermost dimension
-  AstMinIndex :: Ast1 1 r -> AstInt r  -- list output needed for n /= 1
-  AstMaxIndex :: Ast1 1 r -> AstInt r  -- list output needed for n /= 1
+            => Ast (1 + n) r -> AstInt r  -- length of the outermost dimension
+  AstMinIndex :: Ast 1 r -> AstInt r  -- list output needed for n /= 1
+  AstMaxIndex :: Ast 1 r -> AstInt r  -- list output needed for n /= 1
 
 data AstBool :: Type -> Type where
   AstBoolOp :: CodeBoolOut -> [AstBool r] -> AstBool r
   AstBoolConst :: Bool -> AstBool r
-  AstRel :: RelOut -> [Ast1 0 r] -> AstBool r  -- TODO: Ast1, too?
+  AstRel :: RelOut -> [Ast 0 r] -> AstBool r  -- TODO: Ast 1, too?
   AstRelInt :: RelOut -> [AstInt r] -> AstBool r
 
 {-
@@ -130,7 +130,7 @@ deriving instance ( Show a, Show r, Numeric r
                   , Show (ADVal d a), Show (ADVal d r)
                   , Show (ADVal d (OR.Array 1 r))
                   , Show (AstInt r), Show (AstBool r) )
-                  => Show (Ast1 n r)
+                  => Show (Ast n r)
 
 deriving instance (Show (ADVal d r), Show (ADVal d (OR.Array 1 r)))
                   => Show (AstVar r)
@@ -179,14 +179,14 @@ data RelOut =
 -- * Unlawful instances of AST types; they are lawful modulo evaluation
 
 -- See the comment about @Eq@ and @Ord@ in "DualNumber".
-instance Eq (Ast1 n r) where
+instance Eq (Ast n r) where
 
-instance Ord (OR.Array n r) => Ord (Ast1 n r) where
+instance Ord (OR.Array n r) => Ord (Ast n r) where
   max u v = AstOp1 MaxOut [u, v]
   min u v = AstOp1 MinOut [u, v]
     -- unfortunately, the others can't be made to return @AstBool@
 
-instance Num (OR.Array n r) => Num (Ast1 n r) where
+instance Num (OR.Array n r) => Num (Ast n r) where
   u + v = AstOp1 PlusOut [u, v]
   u - v = AstOp1 MinusOut [u, v]
   u * v = AstOp1 TimesOut [u, v]
@@ -195,15 +195,15 @@ instance Num (OR.Array n r) => Num (Ast1 n r) where
   signum v = AstOp1 SignumOut [v]
   fromInteger = AstConst1 . fromInteger
 
-instance Real (OR.Array n r) => Real (Ast1 n r) where
+instance Real (OR.Array n r) => Real (Ast n r) where
   toRational = undefined  -- TODO?
 
-instance Fractional (OR.Array n r) => Fractional (Ast1 n r) where
+instance Fractional (OR.Array n r) => Fractional (Ast n r) where
   u / v = AstOp1 DivideOut  [u, v]
   recip v = AstOp1 RecipOut [v]
   fromRational = AstConst1 . fromRational
 
-instance Floating (OR.Array n r) => Floating (Ast1 n r) where
+instance Floating (OR.Array n r) => Floating (Ast n r) where
   pi = AstConst1 pi
   exp u = AstOp1 ExpOut [u]
   log u = AstOp1 LogOut [u]
@@ -223,11 +223,11 @@ instance Floating (OR.Array n r) => Floating (Ast1 n r) where
   acosh u = AstOp1 AcoshOut [u]
   atanh u = AstOp1 AtanhOut [u]
 
-instance RealFrac (OR.Array n r) => RealFrac (Ast1 n r) where
+instance RealFrac (OR.Array n r) => RealFrac (Ast n r) where
   properFraction = undefined
     -- TODO: others, but low priority, since these are extremely not continuous
 
-instance RealFloat (OR.Array n r) => RealFloat (Ast1 n r) where
+instance RealFloat (OR.Array n r) => RealFloat (Ast n r) where
   atan2 u v = AstOp1 Atan2Out [u, v]
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a differentiable codomain
@@ -241,9 +241,9 @@ instance Ord r => Ord (AstPrimalPart1 n r) where
     AstPrimalPart1 (AstOp1 MinOut [u, v])
     -- unfortunately, the others can't be made to return @AstBool@
 
-deriving instance Num (Ast1 n r) => Num (AstPrimalPart1 n r)
-deriving instance (Real (Ast1 n r), Ord r) => Real (AstPrimalPart1 n r)
-deriving instance Fractional (Ast1 n r) => Fractional (AstPrimalPart1 n r)
+deriving instance Num (Ast n r) => Num (AstPrimalPart1 n r)
+deriving instance (Real (Ast n r), Ord r) => Real (AstPrimalPart1 n r)
+deriving instance Fractional (Ast n r) => Fractional (AstPrimalPart1 n r)
 -- TODO: etc.
 
 type instance Element (AstPrimalPart1 n r) = AstPrimalPart1 0 r
@@ -284,13 +284,13 @@ unsafeGetFreshAstVar :: IO (AstVarName a)
 {-# INLINE unsafeGetFreshAstVar #-}
 unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-astOmap0 :: (Ast1 0 r -> Ast1 0 r) -> Ast1 0 r -> Ast1 0 r
+astOmap0 :: (Ast 0 r -> Ast 0 r) -> Ast 0 r -> Ast 0 r
 {-# NOINLINE astOmap0 #-}
 astOmap0 f e = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
   return $! AstOMap0 (freshAstVar, f (AstVar0 freshAstVar)) e
 
-astOmap1 :: (Ast1 0 r -> Ast1 0 r) -> Ast1 1 r -> Ast1 1 r
+astOmap1 :: (Ast 0 r -> Ast 0 r) -> Ast 1 r -> Ast 1 r
 {-# NOINLINE astOmap1 #-}
 astOmap1 f e = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
