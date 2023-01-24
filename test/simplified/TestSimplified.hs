@@ -45,7 +45,7 @@ bar (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2 x w + y * w
 
-barAst :: RealFloat r => (Ast0 r, Ast0 r) -> Ast0 r
+barAst :: (Numeric r, RealFloat r, RealFloat (Vector r)) => (Ast1 0 r, Ast1 0 r) -> Ast1 0 r
 barAst (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2 x w + y * w
@@ -70,12 +70,12 @@ fooMap1 r =
 
 -- A test with conditionals. We haven't defined a class for conditionals so far,
 -- so this uses raw AST instead of sufficiently polymorphic code.
-fooNoGoAst :: (Numeric r, RealFloat r, Num (Vector r))
+fooNoGoAst :: (Numeric r, RealFloat r, Floating (Vector r))
            => Ast1 1 r -> Ast1 1 r
 fooNoGoAst v =
   let r = lsum10 v
   in lbuild1 3 (\ix ->
-       barAst (3.14, bar (3.14, lindex10 v ix))
+       AstFrom10 (barAst (3.14, bar (3.14, AstFrom01 $ lindex10 v ix)))
        + AstCond0 (AstBoolOp AndOut  -- TODO: overload &&, <=, >, etc.
                              [ lindex10 v (ix * 2) `leqAst` 0
                              , 6 `gtIntAst` abs ix ])
@@ -133,7 +133,7 @@ barReluAst
   => Ast1 0 r -> Ast1 0 r
 barReluAst x = reluAst0 $ bar (x, reluAst0 x)
   -- TODO; fails due to relu using conditionals and @>@ instead of
-  -- a generalization of those that have Ast instance: barRelu @(Ast0 r)
+  -- a generalization of those that have Ast instance: barRelu @(Ast1 0 r)
 
 -- TODO: merge with the above once rank-polymorphic relu is recovered
 barReluAst1
@@ -146,8 +146,8 @@ barReluAst1 x = reluAst1 $ bar (x, reluAst1 x)
 konstReluAst
   :: forall r.
      (Numeric r, Num (Vector r))
-  => Ast0 r -> Ast0 r
-konstReluAst x = lsum10 $ reluAst1 $ lkonst1 7 x
+  => Ast1 0 r -> Ast1 0 r
+konstReluAst x = AstFrom01 $ lsum10 $ reluAst1 $ lkonst1 7 (AstFrom10 x)
 
 
 -- * Tests by TomS
@@ -180,9 +180,9 @@ testPoly00 f input expected = do
         domainsFrom01 (V.singleton expected) V.empty
       (astGrad, astValue) =
         revOnDomains 1
-          (\adinputs ->
-             interpretAst0 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
-                           (f (AstFrom10 $ AstVar0 (AstVarName (-1)))))
+          (\adinputs -> from10 $
+             interpretAst1 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
+                           (AstFrom01 $ f (AstFrom10 $ AstVar0 (AstVarName (-1)))))
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains 1
@@ -313,9 +313,9 @@ testBarReluAst0 =
   (domains0 $ fst
    $ revOnDomains
        42.2
-       (\adinputs ->
-          interpretAst0 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
-                        (AstFrom10 $ barReluAst (AstVar0 (AstVarName (-1)))))
+       (\adinputs -> from10 $
+          interpretAst1 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
+                        (barReluAst (AstVar0 (AstVarName (-1)))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [191.20462646925841]
 
@@ -338,9 +338,9 @@ testKonstReluAst =
   (domains0 $ fst
    $ revOnDomains
        42.2
-       (\adinputs ->
-          interpretAst0 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
-                        (konstReluAst (AstFrom10 $ AstVar0 (AstVarName (-1)))))
+       (\adinputs -> from10 $
+          interpretAst1 (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
+                        (konstReluAst (AstVar0 (AstVarName (-1)))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [295.4]
 
