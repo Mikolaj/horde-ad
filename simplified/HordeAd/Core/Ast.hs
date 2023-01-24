@@ -10,7 +10,7 @@
 -- for arbitrary code transformations at the cost of limiting
 -- expressiveness of transformed fragments to what AST captures.
 module HordeAd.Core.Ast
-  ( Ast0(..), AstPrimalPart0(..), Ast1(..), AstPrimalPart1(..)
+  ( Ast1(..), AstPrimalPart1(..)
   , AstVarName(..), AstVar(..)
   , AstInt(..), AstBool(..)
   , CodeOut(..), CodeIntOut(..), CodeBoolOut(..), RelOut(..)
@@ -35,18 +35,6 @@ import HordeAd.Internal.OrthotopeOrphanInstances ()
 -- and between primal and dual
 -- | AST of the code to be differentiated. The argument is the underlying
 -- scalar.
-data Ast0 :: Type -> Type where
-  AstOp0 :: CodeOut -> [Ast0 r] -> Ast0 r
-  AstCond0 :: AstBool r -> Ast0 r -> Ast0 r -> Ast0 r
-  AstInt0 :: AstInt r -> Ast0 r
-  AstConst0 :: r -> Ast0 r  -- sort of partially evaluated @AstConstant0@
-  AstConstant0 :: AstPrimalPart0 r -> Ast0 r
-  AstScale0 :: AstPrimalPart0 r -> Ast0 r -> Ast0 r
-
-  AstFrom10 :: Ast1 0 r -> Ast0 r
-
-newtype AstPrimalPart0 r = AstPrimalPart0 (Ast0 r)
-
 data Ast1 :: Nat -> Type -> Type where
   AstOp1 :: CodeOut -> [Ast1 n r] -> Ast1 n r
   AstCond1 :: AstBool r -> Ast1 n r -> Ast1 n r -> Ast1 n r
@@ -96,7 +84,6 @@ data Ast1 :: Nat -> Type -> Type where
   -- We don't have AstVarName for list variables, so only rank 1 for now:
   AstBuildPair01 :: AstInt r -> (AstVarName Int, Ast1 0 r)
                  -> Ast1 1 r
-  AstFrom01 :: Ast0 r -> Ast1 0 r
 
   AstOMap0 :: (AstVarName r, Ast1 0 r) -> Ast1 0 r -> Ast1 0 r
   AstOMap1 :: (AstVarName r, Ast1 0 r) -> Ast1 1 r -> Ast1 1 r
@@ -115,12 +102,12 @@ data AstVar a0 a1 =
   | AstVarR1 a1
   | AstVarI Int
 
--- In AstInt and AstBool, the Ast0 and Ast1 terms are morally AstPrimalPart,
+-- In AstInt and AstBool, the Ast1 terms are morally AstPrimalPart,
 -- since their derivative part is not used.
 -- TODO: introduce AstPrimalPart explicitly when convenient, e.g.,
 -- as soon as AstPrimalPart gets more constructors.
 
--- Like the argument to @Ast0@, the argument is the underlying scalar.
+-- The argument is the underlying scalar.
 data AstInt :: Type -> Type where
   AstIntOp :: CodeIntOut -> [AstInt r] -> AstInt r
   AstIntCond :: AstBool r -> AstInt r -> AstInt r -> AstInt r
@@ -190,77 +177,6 @@ data RelOut =
 
 
 -- * Unlawful instances of AST types; they are lawful modulo evaluation
-
--- See the comment about @Eq@ and @Ord@ in "DualNumber".
-instance Eq (Ast0 r) where
-
-instance Ord r => Ord (Ast0 r) where
-  max u v = AstOp0 MaxOut [u, v]
-  min u v = AstOp0 MinOut [u, v]
-    -- unfortunately, the others can't be made to return @AstBool@
-
-instance Num r => Num (Ast0 r) where
-  u + v = AstOp0 PlusOut [u, v]
-  u - v = AstOp0 MinusOut [u, v]
-  u * v = AstOp0 TimesOut [u, v]
-  negate u = AstOp0 NegateOut [u]
-  abs v = AstOp0 AbsOut [v]
-  signum v = AstOp0 SignumOut [v]
-  fromInteger = AstConst0 . fromInteger
-
-instance Real r => Real (Ast0 r) where
-  toRational = undefined  -- TODO?
-
-instance Fractional r => Fractional (Ast0 r) where
-  u / v = AstOp0 DivideOut  [u, v]
-  recip v = AstOp0 RecipOut [v]
-  fromRational = AstConst0 . fromRational
-
-instance Floating r => Floating (Ast0 r) where
-  pi = AstConst0 pi
-  exp u = AstOp0 ExpOut [u]
-  log u = AstOp0 LogOut [u]
-  sqrt u = AstOp0 SqrtOut [u]
-  u ** v = AstOp0 PowerOut [u, v]
-  logBase u v = AstOp0 LogBaseOut [u, v]
-  sin u = AstOp0 SinOut [u]
-  cos u = AstOp0 CosOut [u]
-  tan u = AstOp0 TanOut [u]
-  asin u = AstOp0 AsinOut [u]
-  acos u = AstOp0 AcosOut [u]
-  atan u = AstOp0 AtanOut [u]
-  sinh u = AstOp0 SinhOut [u]
-  cosh u = AstOp0 CoshOut [u]
-  tanh u = AstOp0 TanhOut [u]
-  asinh u = AstOp0 AsinhOut [u]
-  acosh u = AstOp0 AcoshOut [u]
-  atanh u = AstOp0 AtanhOut [u]
-
-instance RealFrac r => RealFrac (Ast0 r) where
-  properFraction = undefined
-    -- TODO: others, but low priority, since these are extremely not continuous
-
-instance RealFloat r => RealFloat (Ast0 r) where
-  atan2 u v = AstOp0 Atan2Out [u, v]
-      -- we can be selective here and omit the other methods,
-      -- most of which don't even have a differentiable codomain
-
-instance Eq (AstPrimalPart0 r) where
-
-instance Ord r => Ord (AstPrimalPart0 r) where
-  max (AstPrimalPart0 u) (AstPrimalPart0 v) =
-    AstPrimalPart0 (AstOp0 MaxOut [u, v])
-  min (AstPrimalPart0 u) (AstPrimalPart0 v) =
-    AstPrimalPart0 (AstOp0 MinOut [u, v])
-    -- unfortunately, the others can't be made to return @AstBool@
-
-deriving instance Num (Ast0 r) => Num (AstPrimalPart0 r)
-deriving instance (Real (Ast0 r), Ord r) => Real (AstPrimalPart0 r)
-deriving instance Fractional (Ast0 r) => Fractional (AstPrimalPart0 r)
--- TODO: etc.
-
-type instance Element (AstPrimalPart0 r) = AstPrimalPart0 r
-
 
 -- See the comment about @Eq@ and @Ord@ in "DualNumber".
 instance Eq (Ast1 n r) where
