@@ -47,6 +47,7 @@ import HordeAd.Core.Ast
 import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta
   (Domain0, Domain1, Domains (..), atIndexInTensorR, isTensorDummy, nullDomains)
+import HordeAd.Internal.OrthotopeOrphanInstances (liftVR, liftVR2)
 
 -- * Auxiliary definitions
 
@@ -218,7 +219,7 @@ instance (Numeric r, IntOf r ~ Int, VectorOf r ~ OR.Array 1 r)
   lmaxIndex = LA.maxIndex . OR.toVector
 
   lindex10 v ix = (V.! ix) $ OR.toVector v
-  lsum10 = OR.sumA
+  lsum10 = LA.sumElements . OR.toVector
   ldot10 u v = OR.toVector u LA.<.> OR.toVector v
   lminimum0 = LA.minElement . OR.toVector
   lmaximum0 = LA.maxElement . OR.toVector
@@ -230,8 +231,8 @@ instance (Numeric r, IntOf r ~ Int, VectorOf r ~ OR.Array 1 r)
   lslice1 i k = OR.slice [(i, k)]
   lreverse1 = OR.rev [0]
   lbuild1 n f = OR.generate [n] (\l -> f (head l))
-  lmap1 = OR.mapA
-  lzipWith = OR.zipWithA
+  lmap1 = liftVR . V.map
+  lzipWith = liftVR2 . V.zipWith
 
 -- Not that this instance doesn't do vectorization. To enable it,
 -- use the Ast instance, which vectorizes and finally interpret in ADVal.
@@ -1038,12 +1039,12 @@ index10' (D u u') ixs = dD (u `atIndexInTensorR` ixs)
 
 sum10' :: (ADModeAndNum d r, KnownNat n)
        => ADVal d (OR.Array n r) -> ADVal d r
-sum10' (D u u') = dD (OR.sumA u) (dSum10 (OR.shapeL u) u')
+sum10' (D u u') = dD (LA.sumElements $ OR.toVector u) (dSum10 (OR.shapeL u) u')
 
 dot10' :: (ADModeAndNum d r, KnownNat n)
        => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r) -> ADVal d r
 dot10' (D u u') (D v v') = dD (OR.toVector u LA.<.> OR.toVector v)
-                             (dAdd (dDot10 v u') (dDot10 u v'))
+                              (dAdd (dDot10 v u') (dDot10 u v'))
 
 from10 :: ADModeAndNum d r => ADVal d (OR.Array 0 r) -> ADVal d r
 from10 (D u u') = dD (OR.unScalar u) (dFrom10 u')

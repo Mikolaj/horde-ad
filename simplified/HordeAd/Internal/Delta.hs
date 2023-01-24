@@ -75,10 +75,11 @@ import qualified Data.Vector.Generic as V
 import           GHC.Generics (Generic)
 import           GHC.Stack (HasCallStack)
 import           GHC.TypeLits (KnownNat, Nat, type (+))
-import           Numeric.LinearAlgebra (Numeric, Vector, (<.>))
+import           Numeric.LinearAlgebra (Numeric, Vector)
+import qualified Numeric.LinearAlgebra as LA
 import           Text.Show.Functions ()
 
-import HordeAd.Internal.OrthotopeOrphanInstances ()
+import HordeAd.Internal.OrthotopeOrphanInstances (liftVR)
 
 -- * Abstract syntax trees of the delta expressions
 
@@ -467,7 +468,7 @@ buildFinMaps s0 deltaDt =
             _ -> error "buildFinMaps: corrupted nMap"
         Index10 d ixs sh -> eval1 s (OR.constant sh 0 `updateOR` [(ixs, c)]) d
         Sum10 sh d -> eval1 s (OR.constant sh c) d
-        Dot10 v vd -> eval1 s (OR.mapA (* c) v) vd
+        Dot10 v vd -> eval1 s (liftVR (LA.scale c) v) vd
         From10 d -> eval1 s (OR.scalar c) d
 
       addToArray :: OR.Array n r -> OT.Array r -> OT.Array r
@@ -631,7 +632,7 @@ buildDerivative dim0 dim1 deltaTopLevel
 
         Index10 d ixs _ -> (`atIndexInTensorR` ixs) <$> eval1 d
         Sum10 _ d -> OR.sumA <$> eval1 d
-        Dot10 v d -> (<.> OR.toVector v) . OR.toVector <$> eval1 d
+        Dot10 v d -> (LA.<.> OR.toVector v) . OR.toVector <$> eval1 d
         From10 d -> OR.unScalar <$> eval1 d
 
       eval1 :: KnownNat n => Delta1 n r -> ST s (OR.Array n r)

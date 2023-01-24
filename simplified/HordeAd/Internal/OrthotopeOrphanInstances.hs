@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | Orphan instances for orthotope classes.
 module HordeAd.Internal.OrthotopeOrphanInstances
-  ( liftVT, liftVT2, liftVS, liftVS2
+  ( liftVT, liftVT2, liftVR, liftVR2, liftVS, liftVS2
   ) where
 
 import Prelude
