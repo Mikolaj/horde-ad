@@ -131,7 +131,7 @@ barReluAst0
   :: ( Numeric r, RealFloat r, MonoFunctor (AstPrimalPart1 0 r)
      , Floating (Vector r) )
   => Ast 0 r -> Ast 0 r
-barReluAst0 x = reluAst0 $ bar (x, reluAst0 x)
+barReluAst0 x = reluAst $ bar (x, reluAst x)
   -- TODO; fails due to relu using conditionals and @>@ instead of
   -- a generalization of those that have Ast instance: barRelu @(Ast 0 r)
 
@@ -140,14 +140,14 @@ barReluAst1
   :: ( KnownNat n, Numeric r, RealFloat r
      , MonoFunctor (AstPrimalPart1 n r), Floating (Vector r) )
   => Ast n r -> Ast n r
-barReluAst1 x = reluAst1 $ bar (x, reluAst1 x)
+barReluAst1 x = reluAst $ bar (x, reluAst x)
                   -- TODO; fails: barRelu @(Ast n r)
 
 konstReluAst
   :: forall r.
      (Numeric r, Num (Vector r))
   => Ast 0 r -> Ast 0 r
-konstReluAst x = lsum0 $ reluAst1 $ lkonst1 7 x
+konstReluAst x = lsum0 $ reluAst $ lkonst1 7 x
 
 
 -- * Tests by TomS

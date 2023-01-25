@@ -414,26 +414,15 @@ reluLeaky v =
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) (primalPart v)
   in scale oneIfGtZero v
 
--- TODO: bring back rank-poly relu by adding a class with Ast 0 and Ast 1
--- or even better generalize the function after omap above so that
--- it has a sensible Ast instance and then kill reluAst0 and reluAst1;
+-- TODO: generalize the function after omap above so that
+-- it has a sensible Ast instance and then kill reluAst;
 -- we'd need Conditional class that works with our AstBool type
 -- and some sugar to be able to use >, &&, etc.
-reluAst0
-  :: ( Num (Vector r), MonoFunctor (PrimalOf (Ast 0 r))
-     , Numeric r )
-  => Ast 0 r -> Ast 0 r
-reluAst0 v =
-  let oneIfGtZero = omap (\(AstPrimalPart1 x) ->
-                            AstPrimalPart1 $ AstCond (AstRel GtOp [x, 0]) 1 0)
-                         (primalPart v)
-  in scale oneIfGtZero v
-
-reluAst1
+reluAst
   :: ( KnownNat n, Num (Vector r), MonoFunctor (PrimalOf (Ast n r))
      , Numeric r )
   => Ast n r -> Ast n r
-reluAst1 v =
+reluAst v =
   let oneIfGtZero = omap (\(AstPrimalPart1 x) ->
                             AstPrimalPart1 $ AstCond (AstRel GtOp [x, 0]) 1 0)
                          (primalPart v)
@@ -751,11 +740,11 @@ build1VectorizeIndex1Var n var v1 i =
     AstCond b v w ->
       if intVarInAstBool var b then
         AstSelect n (var, b)
-                   (build1VectorizeIndex1 n var v i)
-                   (build1VectorizeIndex1 n var w i)
+                  (build1VectorizeIndex1 n var v i)
+                  (build1VectorizeIndex1 n var w i)
       else
         AstCond b (build1VectorizeIndex1 n var v i)
-                   (build1VectorizeIndex1 n var w i)
+                  (build1VectorizeIndex1 n var w i)
     AstSelect{} -> build1VectorizeIndex1Try n var v1 i
       -- can't push the indexing down, so try analyzing the index instead;
       -- we may want to add yet another constructor that says "pick the element
