@@ -13,7 +13,7 @@ module HordeAd.Core.Ast
   ( Ast(..), AstPrimalPart1(..)
   , AstVarName(..), AstVar(..)
   , AstInt(..), AstBool(..)
-  , CodeOut(..), CodeIntOut(..), CodeBoolOut(..), RelOut(..)
+  , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
   ) where
 
 import Prelude
@@ -36,7 +36,7 @@ import HordeAd.Internal.OrthotopeOrphanInstances ()
 -- | AST of the code to be differentiated. The argument is the underlying
 -- scalar.
 data Ast :: Nat -> Type -> Type where
-  AstOp1 :: CodeOut -> [Ast n r] -> Ast n r
+  AstOp1 :: OpCode -> [Ast n r] -> Ast n r
   AstCond1 :: AstBool r -> Ast n r -> Ast n r -> Ast n r
   AstSelect1 :: AstInt r -> (AstVarName Int, AstBool r) -> Ast n r -> Ast n r
              -> Ast n r
@@ -115,7 +115,7 @@ data AstVar a0 a1 =
 
 -- The argument is the underlying scalar.
 data AstInt :: Type -> Type where
-  AstIntOp :: CodeIntOut -> [AstInt r] -> AstInt r
+  AstIntOp :: OpCodeInt -> [AstInt r] -> AstInt r
   AstIntCond :: AstBool r -> AstInt r -> AstInt r -> AstInt r
   AstIntConst :: Int -> AstInt r
   AstIntVar :: AstVarName Int -> AstInt r
@@ -126,10 +126,10 @@ data AstInt :: Type -> Type where
   AstMaxIndex :: Ast 1 r -> AstInt r  -- list output needed for n /= 1
 
 data AstBool :: Type -> Type where
-  AstBoolOp :: CodeBoolOut -> [AstBool r] -> AstBool r
+  AstBoolOp :: OpCodeBool -> [AstBool r] -> AstBool r
   AstBoolConst :: Bool -> AstBool r
-  AstRel :: RelOut -> [Ast 0 r] -> AstBool r  -- TODO: Ast 1, too?
-  AstRelInt :: RelOut -> [AstInt r] -> AstBool r
+  AstRel :: OpCodeRel -> [Ast 0 r] -> AstBool r  -- TODO: Ast 1, too?
+  AstRelInt :: OpCodeRel -> [AstInt r] -> AstBool r
 
 {-
 deriving instance ( Show a, Show r, Numeric r
@@ -154,31 +154,31 @@ deriving instance ( Show r, Numeric r
                   => Show (AstBool r)
 -}
 
--- @Out@ is a leftover from the outlining mechanism deleted in
+-- Copied from the outlining mechanism deleted in
 -- https://github.com/Mikolaj/horde-ad/commit/c59947e13082c319764ec35e54b8adf8bc01691f
-data CodeOut =
-    PlusOut | MinusOut | TimesOut | NegateOut | AbsOut | SignumOut
-  | DivideOut | RecipOut
-  | ExpOut | LogOut | SqrtOut | PowerOut | LogBaseOut
-  | SinOut | CosOut | TanOut | AsinOut | AcosOut | AtanOut
-  | SinhOut | CoshOut | TanhOut | AsinhOut | AcoshOut | AtanhOut
-  | Atan2Out
-  | MaxOut | MinOut
+data OpCode =
+    PlusOp | MinusOp | TimesOp | NegateOp | AbsOp | SignumOp
+  | DivideOp | RecipOp
+  | ExpOp | LogOp | SqrtOp | PowerOp | LogBaseOp
+  | SinOp | CosOp | TanOp | AsinOp | AcosOp | AtanOp
+  | SinhOp | CoshOp | TanhOp | AsinhOp | AcoshOp | AtanhOp
+  | Atan2Op
+  | MaxOp | MinOp
   deriving Show
 
-data CodeIntOut =
-    PlusIntOut | MinusIntOut | TimesIntOut | NegateIntOut
-  | AbsIntOut | SignumIntOut
-  | MaxIntOut | MinIntOut
+data OpCodeInt =
+    PlusIntOp | MinusIntOp | TimesIntOp | NegateIntOp
+  | AbsIntOp | SignumIntOp
+  | MaxIntOp | MinIntOp
   deriving Show
 
-data CodeBoolOut =
-    NotOut | AndOut | OrOut | IffOut
+data OpCodeBool =
+    NotOp | AndOp | OrOp | IffOp
   deriving Show
 
-data RelOut =
-    EqOut | NeqOut
-  | LeqOut| GeqOut | LsOut | GtOut
+data OpCodeRel =
+    EqOp | NeqOp
+  | LeqOp| GeqOp | LsOp | GtOp
   deriving Show
 
 
@@ -188,53 +188,53 @@ data RelOut =
 instance Eq (Ast n r) where
 
 instance Ord (OR.Array n r) => Ord (Ast n r) where
-  max u v = AstOp1 MaxOut [u, v]
-  min u v = AstOp1 MinOut [u, v]
+  max u v = AstOp1 MaxOp [u, v]
+  min u v = AstOp1 MinOp [u, v]
     -- unfortunately, the others can't be made to return @AstBool@
 
 instance Num (OR.Array n r) => Num (Ast n r) where
-  u + v = AstOp1 PlusOut [u, v]
-  u - v = AstOp1 MinusOut [u, v]
-  u * v = AstOp1 TimesOut [u, v]
-  negate u = AstOp1 NegateOut [u]
-  abs v = AstOp1 AbsOut [v]
-  signum v = AstOp1 SignumOut [v]
+  u + v = AstOp1 PlusOp [u, v]
+  u - v = AstOp1 MinusOp [u, v]
+  u * v = AstOp1 TimesOp [u, v]
+  negate u = AstOp1 NegateOp [u]
+  abs v = AstOp1 AbsOp [v]
+  signum v = AstOp1 SignumOp [v]
   fromInteger = AstConst1 . fromInteger
 
 instance Real (OR.Array n r) => Real (Ast n r) where
   toRational = undefined  -- TODO?
 
 instance Fractional (OR.Array n r) => Fractional (Ast n r) where
-  u / v = AstOp1 DivideOut  [u, v]
-  recip v = AstOp1 RecipOut [v]
+  u / v = AstOp1 DivideOp  [u, v]
+  recip v = AstOp1 RecipOp [v]
   fromRational = AstConst1 . fromRational
 
 instance Floating (OR.Array n r) => Floating (Ast n r) where
   pi = AstConst1 pi
-  exp u = AstOp1 ExpOut [u]
-  log u = AstOp1 LogOut [u]
-  sqrt u = AstOp1 SqrtOut [u]
-  u ** v = AstOp1 PowerOut [u, v]
-  logBase u v = AstOp1 LogBaseOut [u, v]
-  sin u = AstOp1 SinOut [u]
-  cos u = AstOp1 CosOut [u]
-  tan u = AstOp1 TanOut [u]
-  asin u = AstOp1 AsinOut [u]
-  acos u = AstOp1 AcosOut [u]
-  atan u = AstOp1 AtanOut [u]
-  sinh u = AstOp1 SinhOut [u]
-  cosh u = AstOp1 CoshOut [u]
-  tanh u = AstOp1 TanhOut [u]
-  asinh u = AstOp1 AsinhOut [u]
-  acosh u = AstOp1 AcoshOut [u]
-  atanh u = AstOp1 AtanhOut [u]
+  exp u = AstOp1 ExpOp [u]
+  log u = AstOp1 LogOp [u]
+  sqrt u = AstOp1 SqrtOp [u]
+  u ** v = AstOp1 PowerOp [u, v]
+  logBase u v = AstOp1 LogBaseOp [u, v]
+  sin u = AstOp1 SinOp [u]
+  cos u = AstOp1 CosOp [u]
+  tan u = AstOp1 TanOp [u]
+  asin u = AstOp1 AsinOp [u]
+  acos u = AstOp1 AcosOp [u]
+  atan u = AstOp1 AtanOp [u]
+  sinh u = AstOp1 SinhOp [u]
+  cosh u = AstOp1 CoshOp [u]
+  tanh u = AstOp1 TanhOp [u]
+  asinh u = AstOp1 AsinhOp [u]
+  acosh u = AstOp1 AcoshOp [u]
+  atanh u = AstOp1 AtanhOp [u]
 
 instance RealFrac (OR.Array n r) => RealFrac (Ast n r) where
   properFraction = undefined
     -- TODO: others, but low priority, since these are extremely not continuous
 
 instance RealFloat (OR.Array n r) => RealFloat (Ast n r) where
-  atan2 u v = AstOp1 Atan2Out [u, v]
+  atan2 u v = AstOp1 Atan2Op [u, v]
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a differentiable codomain
 
@@ -242,9 +242,9 @@ instance Eq (AstPrimalPart1 n r) where
 
 instance Ord r => Ord (AstPrimalPart1 n r) where
   max (AstPrimalPart1 u) (AstPrimalPart1 v) =
-    AstPrimalPart1 (AstOp1 MaxOut [u, v])
+    AstPrimalPart1 (AstOp1 MaxOp [u, v])
   min (AstPrimalPart1 u) (AstPrimalPart1 v) =
-    AstPrimalPart1 (AstOp1 MinOut [u, v])
+    AstPrimalPart1 (AstOp1 MinOp [u, v])
     -- unfortunately, the others can't be made to return @AstBool@
 
 deriving instance Num (Ast n r) => Num (AstPrimalPart1 n r)
@@ -258,17 +258,17 @@ type instance Element (AstPrimalPart1 n r) = AstPrimalPart1 0 r
 instance Eq (AstInt r) where
 
 instance Ord (AstInt r) where
-  max u v = AstIntOp MaxIntOut [u, v]
-  min u v = AstIntOp MinIntOut [u, v]
+  max u v = AstIntOp MaxIntOp [u, v]
+  min u v = AstIntOp MinIntOp [u, v]
     -- unfortunately, the others can't be made to return @AstBool@
 
 instance Num (AstInt r) where
-  u + v = AstIntOp PlusIntOut [u, v]
-  u - v = AstIntOp MinusIntOut [u, v]
-  u * v = AstIntOp TimesIntOut [u, v]
-  negate u = AstIntOp NegateIntOut [u]
-  abs v = AstIntOp AbsIntOut [v]
-  signum v = AstIntOp SignumIntOut [v]
+  u + v = AstIntOp PlusIntOp [u, v]
+  u - v = AstIntOp MinusIntOp [u, v]
+  u * v = AstIntOp TimesIntOp [u, v]
+  negate u = AstIntOp NegateIntOp [u]
+  abs v = AstIntOp AbsIntOp [v]
+  signum v = AstIntOp SignumIntOp [v]
   fromInteger = AstIntConst . fromInteger
 
 instance Real (AstInt r) where

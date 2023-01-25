@@ -24,7 +24,7 @@ module HordeAd.Core.DualNumber
     Ast(..), AstPrimalPart1(..)
   , AstVarName(..), AstVar(..)
   , AstInt(..), AstBool(..)
-  , CodeOut(..), CodeIntOut(..), CodeBoolOut(..), RelOut(..)
+  , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
   ) where
 
 import Prelude
@@ -422,7 +422,7 @@ reluAst0
   => Ast 0 r -> Ast 0 r
 reluAst0 v =
   let oneIfGtZero = omap (\(AstPrimalPart1 x) ->
-                            AstPrimalPart1 $ AstCond1 (AstRel GtOut [x, 0]) 1 0)
+                            AstPrimalPart1 $ AstCond1 (AstRel GtOp [x, 0]) 1 0)
                          (primalPart v)
   in scale oneIfGtZero v
 
@@ -432,7 +432,7 @@ reluAst1
   => Ast n r -> Ast n r
 reluAst1 v =
   let oneIfGtZero = omap (\(AstPrimalPart1 x) ->
-                            AstPrimalPart1 $ AstCond1 (AstRel GtOut [x, 0]) 1 0)
+                            AstPrimalPart1 $ AstCond1 (AstRel GtOp [x, 0]) 1 0)
                          (primalPart v)
   in scale oneIfGtZero v
 
@@ -621,8 +621,8 @@ build1Vectorize1Var
   :: AstInt r -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
 build1Vectorize1Var n (var, u) =
   case u of
-    AstOp1 codeOut args ->
-      AstOp1 codeOut $ map (\w -> build1Vectorize1 n (var, w)) args
+    AstOp1 opCode args ->
+      AstOp1 opCode $ map (\w -> build1Vectorize1 n (var, w)) args
     AstCond1 b v w ->
       if intVarInAstBool var b then
         -- This handles conditionals that depend on var,
@@ -712,8 +712,8 @@ build1Vectorize1Var n (var, u) =
       error "build1Vectorize1Var: wrong number of indexes for rank 1"
     AstSum0 v -> build1Vectorize1Var n (var, AstSum1 $ AstFlatten v)
     AstDot0 v w ->
-      build1Vectorize1Var n (var, AstSum1 (AstOp1 TimesOut [ AstFlatten v
-                                                           , AstFlatten w ]))
+      build1Vectorize1Var n (var, AstSum1 (AstOp1 TimesOp [ AstFlatten v
+                                                          , AstFlatten w ]))
       -- AstDot1 is dubious, because dot product results in a scalar,
       -- not in one rank less and also (some) fast implementations
       -- depend on it resulting in a scalar.
@@ -744,8 +744,8 @@ build1VectorizeIndex1Var
   -> Ast (1 + n) r
 build1VectorizeIndex1Var n var v1 i =
   case v1 of
-    AstOp1 codeOut args ->
-      AstOp1 codeOut $ map (\w -> build1VectorizeIndex1 n var w i) args
+    AstOp1 opCode args ->
+      AstOp1 opCode $ map (\w -> build1VectorizeIndex1 n var w i) args
     AstCond1 b v w ->
       if intVarInAstBool var b then
         AstSelect1 n (var, b)
@@ -786,18 +786,18 @@ build1VectorizeIndex1Var n var v1 i =
     AstKonst1 _k v -> build1Vectorize1 n (var, v)
     AstAppend1 v w ->
       build1Vectorize1 n
-        (var, AstCond1 (AstRelInt LsOut [i, AstLength v])
+        (var, AstCond1 (AstRelInt LsOp [i, AstLength v])
                        (AstIndex1 v i)
-                       (AstIndex1 w (AstIntOp PlusIntOut [i, AstLength v])))
+                       (AstIndex1 w (AstIntOp PlusIntOp [i, AstLength v])))
           -- this is basically partial evaluation, but in constant time,
           -- as opposed to similarly evaluating AstFromList1, etc.;
           -- this may get stuck as AstSelect1 eventually, but pushing indexing
           -- down into both v and w would then get stuck as well (twice!)
     AstSlice1 i2 _k v ->
-      build1VectorizeIndex1 n var v (AstIntOp PlusIntOut [i, i2])
+      build1VectorizeIndex1 n var v (AstIntOp PlusIntOp [i, i2])
     AstReverse1 v ->
       build1VectorizeIndex1Var n var v
-        (AstIntOp MinusIntOut [AstIntOp MinusIntOut [AstLength v, 1], i])
+        (AstIntOp MinusIntOp [AstIntOp MinusIntOp [AstLength v, 1], i])
     AstBuildPair1{} -> AstBuildPair1 n (var, AstIndex1 v1 i)
       -- TODO: a previous failure of vectorization that should have
       -- led to an abort instead of showing up late
@@ -845,7 +845,7 @@ build1VectorizeIndex1Try
   :: AstInt r -> AstVarName Int -> Ast (1 + n) r -> AstInt r
   -> Ast (1 + n) r
 build1VectorizeIndex1Try n var v i = case i of
-  AstIntOp PlusIntOut [AstIntVar var2, i2]
+  AstIntOp PlusIntOp [AstIntVar var2, i2]
     | var2 == var && not (intVarInAstInt var i2) && not (intVarInAst var v) ->
       AstSlice1 i2 n v
   AstIntVar var2 | var2 == var && not (intVarInAst var v) ->
@@ -919,13 +919,13 @@ intVarInAstBool var = \case
 -- * Odds and ends
 
 leqAst :: Ast 0 r -> Ast 0 r -> AstBool r
-leqAst d e = AstRel LeqOut [d, e]
+leqAst d e = AstRel LeqOp [d, e]
 
 gtAst :: Ast 0 r -> Ast 0 r -> AstBool r
-gtAst d e = AstRel GtOut [d, e]
+gtAst d e = AstRel GtOp [d, e]
 
 gtIntAst :: AstInt r -> AstInt r -> AstBool r
-gtIntAst i j = AstRelInt GtOut [i, j]
+gtIntAst i j = AstRelInt GtOp [i, j]
 
 
 -- * Interpretation of Ast in ADVal
@@ -1060,8 +1060,8 @@ interpretAst
   => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vec r)))
   -> Ast n r -> ADVal d (OR.Array n r)
 interpretAst env = \case
-  AstOp1 codeOut args ->
-    interpretAstOp (interpretAst env) codeOut args
+  AstOp1 opCode args ->
+    interpretAstOp (interpretAst env) opCode args
   AstCond1 b a1 a2 -> if interpretAstBool env b
                       then interpretAst env a1
                       else interpretAst env a2
@@ -1149,8 +1149,8 @@ interpretAstInt :: ADModeAndNum d r
                 => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vec r)))
                 -> AstInt r -> Int
 interpretAstInt env = \case
-  AstIntOp codeIntOut args ->
-    interpretAstIntOp (interpretAstInt env) codeIntOut args
+  AstIntOp opCodeInt args ->
+    interpretAstIntOp (interpretAstInt env) opCodeInt args
   AstIntCond b a1 a2 -> if interpretAstBool env b
                         then interpretAstInt env a1
                         else interpretAstInt env a2
@@ -1172,84 +1172,84 @@ interpretAstBool :: ADModeAndNum d r
                  => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vec r)))
                  -> AstBool r -> Bool
 interpretAstBool env = \case
-  AstBoolOp codeBoolOut args ->
-    interpretAstBoolOp (interpretAstBool env) codeBoolOut args
+  AstBoolOp opCodeBool args ->
+    interpretAstBoolOp (interpretAstBool env) opCodeBool args
   AstBoolConst a -> a
-  AstRel relOut args ->
+  AstRel opCodeRel args ->
     let f x = interpretAstPrimal env x
-    in interpretAstRel f relOut args
-  AstRelInt relOut args ->
+    in interpretAstRel f opCodeRel args
+  AstRelInt opCodeRel args ->
     let f = interpretAstInt env
-    in interpretAstRel f relOut args
+    in interpretAstRel f opCodeRel args
 
 interpretAstOp :: RealFloat b
-               => (c -> b) -> CodeOut -> [c] -> b
+               => (c -> b) -> OpCode -> [c] -> b
 {-# INLINE interpretAstOp #-}
-interpretAstOp f PlusOut [u, v] = f u + f v
-interpretAstOp f MinusOut [u, v] = f u - f v
-interpretAstOp f TimesOut [u, v] = f u * f v
-interpretAstOp f NegateOut [u] = negate $ f u
-interpretAstOp f AbsOut [u] = abs $ f u
-interpretAstOp f SignumOut [u] = signum $ f u
-interpretAstOp f DivideOut [u, v] = f u / f v
-interpretAstOp f RecipOut [u] = recip $ f u
-interpretAstOp f ExpOut [u] = exp $ f u
-interpretAstOp f LogOut [u] = log $ f u
-interpretAstOp f SqrtOut [u] = sqrt $ f u
-interpretAstOp f PowerOut [u, v] = f u ** f v
-interpretAstOp f LogBaseOut [u, v] = logBase (f u) (f v)
-interpretAstOp f SinOut [u] = sin $ f u
-interpretAstOp f CosOut [u] = cos $ f u
-interpretAstOp f TanOut [u] = tan $ f u
-interpretAstOp f AsinOut [u] = asin $ f u
-interpretAstOp f AcosOut [u] = acos $ f u
-interpretAstOp f AtanOut [u] = atan $ f u
-interpretAstOp f SinhOut [u] = sinh $ f u
-interpretAstOp f CoshOut [u] = cosh $ f u
-interpretAstOp f TanhOut [u] = tanh $ f u
-interpretAstOp f AsinhOut [u] = asinh $ f u
-interpretAstOp f AcoshOut [u] = acosh $ f u
-interpretAstOp f AtanhOut [u] = atanh $ f u
-interpretAstOp f Atan2Out [u, v] = atan2 (f u) (f v)
-interpretAstOp f MaxOut [u, v] = max (f u) (f v)
-interpretAstOp f MinOut [u, v] = min (f u) (f v)
-interpretAstOp _ codeOut args =
+interpretAstOp f PlusOp [u, v] = f u + f v
+interpretAstOp f MinusOp [u, v] = f u - f v
+interpretAstOp f TimesOp [u, v] = f u * f v
+interpretAstOp f NegateOp [u] = negate $ f u
+interpretAstOp f AbsOp [u] = abs $ f u
+interpretAstOp f SignumOp [u] = signum $ f u
+interpretAstOp f DivideOp [u, v] = f u / f v
+interpretAstOp f RecipOp [u] = recip $ f u
+interpretAstOp f ExpOp [u] = exp $ f u
+interpretAstOp f LogOp [u] = log $ f u
+interpretAstOp f SqrtOp [u] = sqrt $ f u
+interpretAstOp f PowerOp [u, v] = f u ** f v
+interpretAstOp f LogBaseOp [u, v] = logBase (f u) (f v)
+interpretAstOp f SinOp [u] = sin $ f u
+interpretAstOp f CosOp [u] = cos $ f u
+interpretAstOp f TanOp [u] = tan $ f u
+interpretAstOp f AsinOp [u] = asin $ f u
+interpretAstOp f AcosOp [u] = acos $ f u
+interpretAstOp f AtanOp [u] = atan $ f u
+interpretAstOp f SinhOp [u] = sinh $ f u
+interpretAstOp f CoshOp [u] = cosh $ f u
+interpretAstOp f TanhOp [u] = tanh $ f u
+interpretAstOp f AsinhOp [u] = asinh $ f u
+interpretAstOp f AcoshOp [u] = acosh $ f u
+interpretAstOp f AtanhOp [u] = atanh $ f u
+interpretAstOp f Atan2Op [u, v] = atan2 (f u) (f v)
+interpretAstOp f MaxOp [u, v] = max (f u) (f v)
+interpretAstOp f MinOp [u, v] = min (f u) (f v)
+interpretAstOp _ opCode args =
   error $ "interpretAstOp: wrong number of arguments"
-          ++ show (codeOut, length args)
+          ++ show (opCode, length args)
 
-interpretAstIntOp :: (AstInt r -> Int) -> CodeIntOut -> [AstInt r] -> Int
+interpretAstIntOp :: (AstInt r -> Int) -> OpCodeInt -> [AstInt r] -> Int
 {-# INLINE interpretAstIntOp #-}
-interpretAstIntOp f PlusIntOut [u, v] = f u + f v
-interpretAstIntOp f MinusIntOut [u, v] = f u - f v
-interpretAstIntOp f TimesIntOut [u, v] = f u * f v
-interpretAstIntOp f NegateIntOut [u] = negate $ f u
-interpretAstIntOp f AbsIntOut [u] = abs $ f u
-interpretAstIntOp f SignumIntOut [u] = signum $ f u
-interpretAstIntOp f MaxIntOut [u, v] = max (f u) (f v)
-interpretAstIntOp f MinIntOut [u, v] = min (f u) (f v)
-interpretAstIntOp _ codeIntOut args =
+interpretAstIntOp f PlusIntOp [u, v] = f u + f v
+interpretAstIntOp f MinusIntOp [u, v] = f u - f v
+interpretAstIntOp f TimesIntOp [u, v] = f u * f v
+interpretAstIntOp f NegateIntOp [u] = negate $ f u
+interpretAstIntOp f AbsIntOp [u] = abs $ f u
+interpretAstIntOp f SignumIntOp [u] = signum $ f u
+interpretAstIntOp f MaxIntOp [u, v] = max (f u) (f v)
+interpretAstIntOp f MinIntOp [u, v] = min (f u) (f v)
+interpretAstIntOp _ opCodeInt args =
   error $ "interpretAstIntOp: wrong number of arguments"
-          ++ show (codeIntOut, length args)
+          ++ show (opCodeInt, length args)
 
-interpretAstBoolOp :: (AstBool r -> Bool) -> CodeBoolOut -> [AstBool r]
+interpretAstBoolOp :: (AstBool r -> Bool) -> OpCodeBool -> [AstBool r]
                    -> Bool
 {-# INLINE interpretAstBoolOp #-}
-interpretAstBoolOp f NotOut [u] = not $ f u
-interpretAstBoolOp f AndOut [u, v] = f u && f v
-interpretAstBoolOp f OrOut [u, v] = f u || f v
-interpretAstBoolOp f IffOut [u, v] = f u == f v
-interpretAstBoolOp _ codeBoolOut args =
+interpretAstBoolOp f NotOp [u] = not $ f u
+interpretAstBoolOp f AndOp [u, v] = f u && f v
+interpretAstBoolOp f OrOp [u, v] = f u || f v
+interpretAstBoolOp f IffOp [u, v] = f u == f v
+interpretAstBoolOp _ opCodeBool args =
   error $ "interpretAstBoolOp: wrong number of arguments"
-          ++ show (codeBoolOut, length args)
+          ++ show (opCodeBool, length args)
 
-interpretAstRel :: Ord b => (a -> b) -> RelOut -> [a] -> Bool
+interpretAstRel :: Ord b => (a -> b) -> OpCodeRel -> [a] -> Bool
 {-# INLINE interpretAstRel #-}
-interpretAstRel f EqOut [u, v] = f u == f v
-interpretAstRel f NeqOut [u, v] = f u /= f v
-interpretAstRel f LeqOut [u, v] = f u <= f v
-interpretAstRel f GeqOut [u, v] = f u >= f v
-interpretAstRel f LsOut [u, v] = f u < f v
-interpretAstRel f GtOut [u, v] = f u > f v
-interpretAstRel _ codeRelOut args =
+interpretAstRel f EqOp [u, v] = f u == f v
+interpretAstRel f NeqOp [u, v] = f u /= f v
+interpretAstRel f LeqOp [u, v] = f u <= f v
+interpretAstRel f GeqOp [u, v] = f u >= f v
+interpretAstRel f LsOp [u, v] = f u < f v
+interpretAstRel f GtOp [u, v] = f u > f v
+interpretAstRel _ opCodeRel args =
   error $ "interpretAstRel: wrong number of arguments"
-          ++ show (codeRelOut, length args)
+          ++ show (opCodeRel, length args)

@@ -76,7 +76,7 @@ fooNoGoAst v =
   let r = lsum10 v
   in lbuild1 3 (\ix ->
        (barAst (3.14, bar (3.14, lindex10 v ix)))
-       + AstCond1 (AstBoolOp AndOut  -- TODO: overload &&, <=, >, etc.
+       + AstCond1 (AstBoolOp AndOp  -- TODO: overload &&, <=, >, etc.
                              [ lindex10 v (ix * 2) `leqAst` 0
                              , 6 `gtIntAst` abs ix ])
                  r (5 * r))
