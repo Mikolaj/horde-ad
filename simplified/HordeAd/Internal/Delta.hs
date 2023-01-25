@@ -46,7 +46,7 @@ module HordeAd.Internal.Delta
   , -- * Evaluation of the delta expressions
     DeltaDt (..), Domain0, Domain1, Domains(..), nullDomains
   , gradientFromDelta, derivativeFromDelta
-  , isTensorDummy, atIndexInTensorR, getStrides, toIx
+  , isTensorDummy, atIndexInTensorR, atIndexInTensorNR, getStrides, toIx
   ) where
 
 import Prelude
@@ -162,6 +162,9 @@ data Delta1 :: Nat -> Type -> Type where
          => Delta1 (1 + n) r -> Int -> Int -> Delta1 n r
     -- ^ The sub-tensors at the given index of the outermost dimension.
     -- The second integer is the length of the dimension.
+  IndexN :: (KnownNat n, KnownNat m)
+         => Delta1 (1 + m) r -> [Int] -> OR.ShapeL -> Delta1 n r
+    -- ^ The sub-tensors at the given path.
   Sum1 :: KnownNat n
        => Int -> Delta1 (1 + n) r -> Delta1 n r
     -- ^ Add element tensors along the outermost dimension.
@@ -506,6 +509,7 @@ buildFinMaps s0 deltaDt =
                                      , OR.reshape (1 : rest) c
                                      , OR.constant (len - ix - 1 : rest) 0 ])
                      d  -- TODO: optimize for input case
+        IndexN{} -> error "TODO: define OR.updateN, similar to OT.update, but taking a single index list and an array A and substituting the array A at the path, by normalizing the vector of values and overriting a segment, starting from the path element, with the whole normalized value vector of A"
         Sum1 n d -> eval1 s (OR.ravel (ORB.constant [n] c)) d
         FromList1 ld ->
           let lc = ORB.toList $ OR.unravel c
@@ -660,6 +664,7 @@ buildDerivative dim0 dim1 deltaTopLevel
             _ -> error "buildDerivative: corrupted nMap"
 
         Index1 d ix _len -> flip OR.index ix <$> eval1 d
+        IndexN d ixs _len -> (`atIndexInTensorNR` ixs) <$> eval1 d
         Sum1 _ d -> ORB.sumA . OR.unravel <$> eval1 d
         FromList1 lsd -> do
           l <- mapM eval1 lsd
@@ -722,6 +727,14 @@ atIndexInTensorR (Data.Array.Internal.RankedS.A
                     (Data.Array.Internal.RankedG.A _
                        Data.Array.Internal.T{..})) is =
   values V.! (offset + sum (zipWith (*) is strides))
+
+atIndexInTensorNR :: (Numeric r, KnownNat n)
+                  => OR.Array (1 + m) r -> [Int] -> OR.Array n r
+atIndexInTensorNR v is =
+  -- This was too hard a type-level hacking for me, with ranked tensors.
+  -- OTOH, the untyped tensors have less runtime checks, so are minimally
+  -- faster.
+  Data.Array.Convert.convert $ foldl' OT.index (Data.Array.Convert.convert v) is
 
 updateOR :: (HasCallStack, OR.Unbox a, KnownNat n)
          => OR.Array n a -> [([Int], a)] -> OR.Array n a

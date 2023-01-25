@@ -42,11 +42,12 @@ import           GHC.TypeLits (KnownNat, Nat, natVal, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe (unsafePerformIO)
+import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta
-  (Domain0, Domain1, Domains (..), atIndexInTensorR, isTensorDummy, nullDomains)
+  (Domain0, Domain1, Domains (..), isTensorDummy, nullDomains)
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVR, liftVR2)
 
 -- * Auxiliary definitions
@@ -324,7 +325,7 @@ instance ADModeAndNum d r
   lminIndex (D u _) = lminIndex u
   lmaxIndex (D u _) = lmaxIndex u
 
-  lindex0 d ix = index0' d [ix]
+  lindex0 d ix = unScalar0 $ index1' d ix
   lsum0 = sum0'
   ldot0 = dot0'
   lminimum0 (D u u') =
@@ -647,6 +648,7 @@ build1Vectorize1Var n (var, u) =
       -- @var@ is in @v@ or @i@; TODO: simplify i first or even fully
       -- evaluate (may involve huge data processing) if contains no vars
       -- and then some things simplify a lot
+    AstIndexN{} -> undefined  -- TODO: a list of indexes needed
     AstSum v -> AstTranspose $ AstSum $ AstTranspose
                 $ build1Vectorize1Var n (var, v)
       -- that's because @build n (f . g) == map f (build n g)@
@@ -684,11 +686,6 @@ build1Vectorize1Var n (var, u) =
 
     -- Rewriting syntactic sugar in the simplest way (but much more efficient
     -- non-sugar implementations/vectorizations exist):
-    AstIndex0 v [i] -> build1Vectorize1Var n (var, AstIndex v i)
-      -- TODO: express with AstFlatten (costly, but simple), for which
-      -- we probably need AstShape AstInt constructor
-    AstIndex0{} ->
-      error "build1Vectorize1Var: wrong number of indexes for rank 1"
     AstSum0 v -> build1Vectorize1Var n (var, AstSum $ AstFlatten v)
     AstDot0 v w ->
       build1Vectorize1Var n (var, AstSum (AstOp TimesOp [ AstFlatten v
@@ -760,7 +757,8 @@ build1VectorizeIndex1Var n var v1 i =
       AstScale (AstPrimalPart1 $ AstBuildPair n (var, AstIndex r i))
                (build1VectorizeIndex1 n var d i)
 
-    AstIndex _v _i -> undefined  -- TODO: a list of indexes needed?
+    AstIndex _v _i -> undefined  -- TODO: a list of indexes needed
+    AstIndexN _v _is -> undefined  -- TODO: a list of indexes needed
     AstSum v ->
       build1Vectorize1Var n
         (var, AstSum (AstTranspose $ AstIndex (AstTranspose v) i))
@@ -804,7 +802,6 @@ build1VectorizeIndex1Var n var v1 i =
     AstReshape{} -> build1VectorizeIndex1Try n var v1 i
       -- an even more general indexing needed?
 
-    AstIndex0{} -> error "build1VectorizeIndex1Var: wrong rank"
     AstSum0{} -> error "build1VectorizeIndex1Var: wrong rank"
     AstDot0{} -> error "build1VectorizeIndex1Var: wrong rank"
     AstFromList01 sh l ->
@@ -855,6 +852,7 @@ intVarInAst var = \case
   AstScale (AstPrimalPart1 v) u -> intVarInAst var v || intVarInAst var u
 
   AstIndex v ix -> intVarInAst var v || intVarInAstInt var ix
+  AstIndexN v is -> intVarInAst var v || or (map (intVarInAstInt var) is)
   AstSum v -> intVarInAst var v
   AstFromList l -> or $ map (intVarInAst var) l  -- down from rank 1 to 0
   AstFromVector vl -> or $ map (intVarInAst var) $ V.toList vl
@@ -869,7 +867,6 @@ intVarInAst var = \case
   AstFlatten v -> intVarInAst var v
   AstReshape sh v -> or (map (intVarInAstInt var) sh) || intVarInAst var v
 
-  AstIndex0 v ixs -> intVarInAst var v || or (map (intVarInAstInt var) ixs)
   AstSum0 v -> intVarInAst var v
   AstDot0 v u -> intVarInAst var v || intVarInAst var u
   AstFromList01 sh l -> or (map (intVarInAstInt var) sh)
@@ -921,27 +918,24 @@ gtIntAst i j = AstRelInt GtOp [i, j]
 -- First come definition of some ADVal combinators to be used below.
 -- They are more general than their legacy versions for rank 1 above
 -- and sometimes more general than the Ast operations.
-index0' :: (ADModeAndNum d r, KnownNat n)
-        => ADVal d (OR.Array n r) -> [Int] -> ADVal d r
-index0' (D u u') ixs = dD (u `atIndexInTensorR` ixs)
-                          (dIndex0 u' ixs (OR.shapeL u))
-
-sum0' :: (ADModeAndNum d r, KnownNat n)
-      => ADVal d (OR.Array n r) -> ADVal d r
-sum0' (D u u') = dD (LA.sumElements $ OR.toVector u) (dSum0 (OR.shapeL u) u')
-
-dot0' :: (ADModeAndNum d r, KnownNat n)
-      => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r) -> ADVal d r
-dot0' (D u u') (D v v') = dD (OR.toVector u LA.<.> OR.toVector v)
-                              (dAdd (dDot0 v u') (dDot0 u v'))
-
-unScalar0 :: ADModeAndNum d r => ADVal d (OR.Array 0 r) -> ADVal d r
-unScalar0 (D u u') = dD (OR.unScalar u) (dUnScalar0 u')
-
 index1' :: (ADModeAndNum d r, KnownNat n)
         => ADVal d (OR.Array (1 + n) r) -> Int -> ADVal d (OR.Array n r)
 index1' (D u u') ix = dD (u `OR.index` ix)
                          (dIndex1 u' ix (head $ OR.shapeL u))
+
+-- | First index is for outermost dimension; @m@ is the length of the list;
+-- empty list means identity.
+-- TODO: speed up by using atIndexInTensorR and dIndex0 if the codomain is 0.
+indexN' :: forall m n d r. (ADModeAndNum d r, KnownNat n, KnownNat m)
+        => ADVal d (OR.Array (1 + m) r) -> [Int]
+        -> ADVal d (OR.Array n r)
+-- This is much faster, but gradient of dIndexN is not implemented yet:
+-- indexN' (D u u') ixs = dD (u `atIndexInTensorNR` ixs)
+--                           (dIndexN u' ixs (OR.shapeL u))
+indexN' d [] = unsafeCoerce d  -- TODO: can I be any more subtle? coerce fails
+indexN' d (ix : rest) =
+  indexN' (unsafeCoerce $ index1' d ix :: ADVal d (OR.Array (1 + m) r))
+          rest
 
 sum1' :: (ADModeAndNum d r, KnownNat n)
       => ADVal d (OR.Array (1 + n) r) -> ADVal d (OR.Array n r)
@@ -1000,6 +994,15 @@ reshape1' :: (ADModeAndNum d r, KnownNat n, KnownNat m)
           => OR.ShapeL -> ADVal d (OR.Array n r) -> ADVal d (OR.Array m r)
 reshape1' sh (D u u') = dD (OR.reshape sh u) (dReshape1 (OR.shapeL u) sh u')
 
+sum0' :: (ADModeAndNum d r, KnownNat n)
+      => ADVal d (OR.Array n r) -> ADVal d r
+sum0' (D u u') = dD (LA.sumElements $ OR.toVector u) (dSum0 (OR.shapeL u) u')
+
+dot0' :: (ADModeAndNum d r, KnownNat n)
+      => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r) -> ADVal d r
+dot0' (D u u') (D v v') = dD (OR.toVector u LA.<.> OR.toVector v)
+                              (dAdd (dDot0 v u') (dDot0 u v'))
+
 fromList01' :: (ADModeAndNum d r, KnownNat n)
             => OR.ShapeL -> [ADVal d r]
             -> ADVal d (OR.Array n r)
@@ -1020,6 +1023,9 @@ konst01' sh (D u u') = dD (OR.constant sh u) (dKonst01 sh u')
 
 scalar1 :: ADModeAndNum d r => ADVal d r -> ADVal d (OR.Array 0 r)
 scalar1 (D u u') = dD (OR.scalar u) (dScalar1 u')
+
+unScalar0 :: ADModeAndNum d r => ADVal d (OR.Array 0 r) -> ADVal d r
+unScalar0 (D u u') = dD (OR.unScalar u) (dUnScalar0 u')
 
 interpretLambdaD1
   :: ADModeAndNum d r
@@ -1070,6 +1076,7 @@ interpretAst env = \case
     scale (interpretAstPrimal env r) (interpretAst env d)
 
   AstIndex v i -> index1' (interpretAst env v) (interpretAstInt env i)
+  AstIndexN v is -> indexN' (interpretAst env v) (map (interpretAstInt env) is)
   AstSum v -> sum1' (interpretAst env v)
   AstFromList l -> fromList1' (map (interpretAst env) l)
   AstFromVector l -> fromVector1' (V.map (interpretAst env) l)
@@ -1097,8 +1104,6 @@ interpretAst env = \case
   AstReshape ns v -> reshape1' (map (interpretAstInt env) ns)
                                (interpretAst env v)
 
-  AstIndex0 v is ->
-    scalar1 $ index0' (interpretAst env v) (map (interpretAstInt env) is)
   AstSum0 v -> scalar1 $ sum0' (interpretAst env v)
   AstDot0 x y -> scalar1 $ dot0' (interpretAst env x) (interpretAst env y)
   AstFromList01 sh l -> fromList01' (map (interpretAstInt env) sh)

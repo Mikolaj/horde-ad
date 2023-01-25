@@ -237,6 +237,9 @@ class HasRanks (d :: ADMode) r where
 
   dIndex1 :: KnownNat n
           => Dual d (OR.Array (1 + n) r) -> Int -> Int -> Dual d (OR.Array n r)
+  dIndexN :: (KnownNat n, KnownNat m)
+          => Dual d (OR.Array (1 + m) r) -> [Int] -> OR.ShapeL
+          -> Dual d (OR.Array n r)
   dSum1 :: KnownNat n
         => Int -> Dual d (OR.Array (1 + n) r) -> Dual d (OR.Array n r)
   dFromList1 :: KnownNat n
@@ -369,6 +372,7 @@ instance Dual 'ADModeGradient r ~ Delta0 r
   dUnScalar0 = UnScalar0
 
   dIndex1 = Index1
+  dIndexN = IndexN
   dSum1 = Sum1
   dFromList1 = FromList1
   dFromVector1 = FromVector1
@@ -418,6 +422,7 @@ instance ( Numeric r, Num (Vector r)
   dUnScalar0 = OR.unScalar
 
   dIndex1 d ix _ = OR.index d ix
+  dIndexN d ixs _ = d `atIndexInTensorNR` ixs
   dSum1 _ = ORB.sumA . OR.unravel
   dFromList1 l = OR.ravel $ ORB.fromList [length l] l
   dFromVector1 l = OR.ravel $ ORB.fromVector [V.length l] $ V.convert l
@@ -471,6 +476,7 @@ instance HasRanks 'ADModeValue r where
   dUnScalar0 _ = DummyDual ()
 
   dIndex1 _ _ _ = DummyDual ()
+  dIndexN _ _ _ = DummyDual ()
   dSum1 _ _ = DummyDual ()
   dFromList1 _ = DummyDual ()
   dFromVector1 _ = DummyDual ()

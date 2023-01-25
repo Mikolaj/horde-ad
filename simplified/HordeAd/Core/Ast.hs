@@ -52,6 +52,11 @@ data Ast :: Nat -> Type -> Type where
 
   -- For VectorLike class and the future Tensor class:
   AstIndex :: Ast (1 + n) r -> AstInt r -> Ast n r
+  AstIndexN :: KnownNat m
+            => Ast (1 + m) r -> [AstInt r] -> Ast n r
+    -- emerges from vectorizing AstIndex
+    -- first ix is for outermost dimension; @m - n@ is the length of the list;
+    -- empty list means identity
   AstSum :: Ast (1 + n) r -> Ast n r
   -- No shape argument, because we'd need [AstInt], because it changes
   -- during vectorization. The trade-off is a crash when the argument is empty,
@@ -81,8 +86,6 @@ data Ast :: Nat -> Type -> Type where
   -- This is treated as syntactic sugar for now, but these have
   -- much more efficient non-sugar implementations
   -- (and possibly more efficient vectorizations).
-  AstIndex0 :: Ast 1 r -> [AstInt r] -> Ast 0 r  -- TODO: land on m instead?
-    -- rank temporarily fixed to 1, to avoid the AstShape constructor
   AstSum0 :: KnownNat n
           => Ast n r -> Ast 0 r
   AstDot0 :: KnownNat n
