@@ -716,7 +716,8 @@ build1Vectorize1Var n (var, u) =
       build1Vectorize1Var n (var, AstFromList1 l)
     AstFromVector01 l ->
       build1Vectorize1Var n (var, AstFromVector1 l)
-    AstKonst01 k v -> build1Vectorize1Var n (var, AstKonst1 k v)
+    AstKonst01 [k] v -> build1Vectorize1Var n (var, AstKonst1 k v)
+    AstKonst01{} -> error "build1Vectorize1Var: wrong shape for rank 1"
     AstBuildPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
 
     AstOMap0{} -> AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, u)
@@ -826,8 +827,9 @@ build1VectorizeIndex1Var n var v1 i =
       build1VectorizeIndex1Var n var (AstFromList1 l) i
     AstFromVector01 l ->
       build1VectorizeIndex1Var n var (AstFromVector1 l) i
-    AstKonst01 k v ->
+    AstKonst01 [k] v ->
       build1VectorizeIndex1Var n var (AstKonst1 k v) i
+    AstKonst01{} -> error "build1VectorizeIndex1Var: wrong shape for rank 1"
     AstBuildPair01{} ->
       AstBuildPair1 n (var, AstIndex1 v1 i)  -- see AstBuildPair1 above
 
@@ -881,7 +883,7 @@ intVarInAst var = \case
   AstTranspose1 v -> intVarInAst var v
   AstTransposeGeneral1 _ v -> intVarInAst var v
   AstFlatten v -> intVarInAst var v
-  AstReshape1 ns v -> or (map (intVarInAstInt var) ns) || intVarInAst var v
+  AstReshape1 sh v -> or (map (intVarInAstInt var) sh) || intVarInAst var v
 
   AstIndex0 v ixs -> intVarInAst var v || or (map (intVarInAstInt var) ixs)
   AstSum0 v -> intVarInAst var v
@@ -889,7 +891,7 @@ intVarInAst var = \case
 
   AstFromList01 l -> or $ map (intVarInAst var) l
   AstFromVector01 l -> V.or $ V.map (intVarInAst var) l
-  AstKonst01 n v -> intVarInAstInt var n || intVarInAst var v
+  AstKonst01 sh v -> or (map (intVarInAstInt var) sh) || intVarInAst var v
   AstBuildPair01 n (_, v) -> intVarInAstInt var n || intVarInAst var v
 
   AstOMap0 (_, v) u -> intVarInAst var v || intVarInAst var u
@@ -1130,7 +1132,7 @@ interpretAst env = \case
 
   AstFromList01 l -> fromList01' [length l] $ map (unScalar0 . interpretAst env) l
   AstFromVector01 l -> fromVector01' [V.length l] $ V.map (unScalar0 . interpretAst env) l
-  AstKonst01 n r -> konst01' [interpretAstInt env n] (unScalar0 $ interpretAst env r)
+  AstKonst01 sh r -> konst01' (map (interpretAstInt env) sh) (unScalar0 $ interpretAst env r)
   AstBuildPair01 i (var, r) -> interpretAst env $ AstBuildPair1 i (var, r)
 
   AstOMap0 (var, r) e ->  -- this only works on the primal part hence @constant@

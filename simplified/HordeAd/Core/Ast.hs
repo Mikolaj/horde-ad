@@ -88,7 +88,7 @@ data Ast :: Nat -> Type -> Type where
   -- Rank temporarily fixed to 1, to avoid hard type-level programming.
   AstFromList01 :: [Ast 0 r] -> Ast 1 r
   AstFromVector01 :: Data.Vector.Vector (Ast 0 r) -> Ast 1 r
-  AstKonst01 :: AstInt r -> Ast 0 r -> Ast 1 r
+  AstKonst01 :: [AstInt r] -> Ast 0 r -> Ast 1 r
   -- We don't have AstVarName for list variables, so only rank 1 for now:
   AstBuildPair01 :: AstInt r -> (AstVarName Int, Ast 0 r)
                  -> Ast 1 r
