@@ -186,9 +186,9 @@ class VectorOf r ~ v => VectorLike1 v r where
   lminIndex :: VectorOf r -> IntOf r
   lmaxIndex :: VectorOf r -> IntOf r
 
-  lindex10 :: VectorOf r -> IntOf r -> r
-  lsum10 :: VectorOf r -> r
-  ldot10 :: VectorOf r -> VectorOf r -> r
+  lindex0 :: VectorOf r -> IntOf r -> r
+  lsum0 :: VectorOf r -> r
+  ldot0 :: VectorOf r -> VectorOf r -> r
   lminimum0 :: VectorOf r -> r
   lmaximum0 :: VectorOf r -> r
 
@@ -218,9 +218,9 @@ instance (Numeric r, IntOf r ~ Int, VectorOf r ~ OR.Array 1 r)
   lminIndex = LA.minIndex . OR.toVector
   lmaxIndex = LA.maxIndex . OR.toVector
 
-  lindex10 v ix = (V.! ix) $ OR.toVector v
-  lsum10 = LA.sumElements . OR.toVector
-  ldot10 u v = OR.toVector u LA.<.> OR.toVector v
+  lindex0 v ix = (V.! ix) $ OR.toVector v
+  lsum0 = LA.sumElements . OR.toVector
+  ldot0 u v = OR.toVector u LA.<.> OR.toVector v
   lminimum0 = LA.minElement . OR.toVector
   lmaximum0 = LA.maxElement . OR.toVector
 
@@ -245,13 +245,13 @@ instance ADModeAndNum d r
   lminIndex (D u _) = lminIndex u
   lmaxIndex (D u _) = lmaxIndex u
 
-  lindex10 d ix = index0' d [ix]
-  lsum10 = sum0'
-  ldot10 = dot0'
+  lindex0 d ix = index0' d [ix]
+  lsum0 = sum0'
+  ldot0 = dot0'
   lminimum0 (D u u') =
-    dD (lminimum0 u) (dIndex10 u' [lminIndex u] [llength u])
+    dD (lminimum0 u) (dIndex0 u' [lminIndex u] [llength u])
   lmaximum0 (D u u') =
-    dD (lmaximum0 u) (dIndex10 u' [lmaxIndex u] [llength u])
+    dD (lmaximum0 u) (dIndex0 u' [lmaxIndex u] [llength u])
 
   lfromList1 l = fromList01' [length l] l
   lfromVector1 l = fromVector01' [V.length l] l
@@ -260,18 +260,18 @@ instance ADModeAndNum d r
   lslice1 = slice1'
   lreverse1 = reverse1'
   lbuild1 = build1Closure  -- to test against build1Elementwise from Ast
-  lmap1 f v = build1Closure (llength v) (\i -> f (v `lindex10` i))
+  lmap1 f v = build1Closure (llength v) (\i -> f (v `lindex0` i))
   lzipWith f v u =
-    build1Closure (llength v) (\i -> f (v `lindex10` i) (u `lindex10` i))
+    build1Closure (llength v) (\i -> f (v `lindex0` i) (u `lindex0` i))
 
 instance VectorLike1 (Ast 1 r) (Ast 0 r) where
   llength = AstLength
   lminIndex = AstMinIndex
   lmaxIndex = AstMaxIndex
 
-  lindex10 v ix = AstIndex1 v ix
-  lsum10 = AstSum1
-  ldot10 u v = AstDot0 u v
+  lindex0 v ix = AstIndex1 v ix
+  lsum0 = AstSum1
+  ldot0 u v = AstDot0 u v
   lminimum0 v = AstIndex1 v (AstMinIndex v)
   lmaximum0 v = AstIndex1 v (AstMaxIndex v)
 
@@ -282,9 +282,9 @@ instance VectorLike1 (Ast 1 r) (Ast 0 r) where
   lslice1 = AstSlice1
   lreverse1 = AstReverse1
   lbuild1 = astBuild1
-  lmap1 f v = astBuild1 (llength v) (\i -> f (v `lindex10` i))
+  lmap1 f v = astBuild1 (llength v) (\i -> f (v `lindex0` i))
   lzipWith f v u =
-    astBuild1 (llength v) (\i -> f (v `lindex10` i) (u `lindex10` i))
+    astBuild1 (llength v) (\i -> f (v `lindex0` i) (u `lindex0` i))
 
 -- Impure but in the most trivial way (only ever incremented counter).
 unsafeAstVarCounter :: Counter
@@ -320,7 +320,7 @@ class HasPrimal a where
   primalPart :: a -> PrimalOf a
   dualPart :: a -> DualOf a
   ddD :: PrimalOf a -> DualOf a -> a
-  -- TODO: we'd probably also need dZero, dIndex10 and all others;
+  -- TODO: we'd probably also need dZero, dIndex0 and all others;
   -- basically DualOf a needs to have IsPrimal and HasRanks instances
   -- (and HasInputs?)
   -- TODO: if DualOf is supposed to be user-visible, we needed
@@ -441,10 +441,10 @@ reluAst1 v =
 
 sumElements10 :: ADModeAndNum d r
               => ADVal d (Vec r) -> ADVal d r
-sumElements10 = lsum10
+sumElements10 = lsum0
 
 index10 :: ADModeAndNum d r => ADVal d (Vec r) -> Int -> ADVal d r
-index10 = lindex10
+index10 = lindex0
 
 minimum0 :: ADModeAndNum d r => ADVal d (Vec r) -> ADVal d r
 minimum0 = lminimum0
@@ -458,7 +458,7 @@ foldl'0 :: ADModeAndNum d r
         -> ADVal d r
 foldl'0 f uu' (D v v') =
   let k = llength v
-      g !acc ix p = f (dD p (dIndex10 v' [ix] [k])) acc
+      g !acc ix p = f (dD p (dIndex0 v' [ix] [k])) acc
   in V.ifoldl' g uu' (OR.toVector v)
 
 altSumElements10 :: ADModeAndNum d r => ADVal d (Vec r) -> ADVal d r
@@ -468,13 +468,13 @@ altSumElements10 = foldl'0 (+) 0
 infixr 8 <.>!
 (<.>!) :: ADModeAndNum d r
        => ADVal d (Vec r) -> ADVal d (Vec r) -> ADVal d r
-(<.>!) = ldot10
+(<.>!) = ldot0
 
 -- | Dot product with a constant vector.
 infixr 8 <.>!!
 (<.>!!) :: ADModeAndNum d r
         => ADVal d (Vec r) -> Vec r -> ADVal d r
-(<.>!!) (D u u') v = dD (ldot10 u v) (dDot10 v u')
+(<.>!!) (D u u') v = dD (ldot0 u v) (dDot0 v u')
 
 sumElementsVectorOfDual
   :: ADModeAndNum d r => Data.Vector.Vector (ADVal d r) -> ADVal d r
@@ -517,12 +517,12 @@ lossSoftMaxCrossEntropyV target (D u u') =
   -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106
   -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
   let expU = exp (u - lkonst1 (llength u) (lmaximum0 u))
-      sumExpU = lsum10 expU
+      sumExpU = lsum0 expU
       recipSum = recip sumExpU
 -- not exposed: softMaxU = LA.scaleRecip sumExpU expU
       softMaxU = lkonst1 (llength expU) recipSum * expU
-  in dD (negate $ log softMaxU `ldot10` target)  -- TODO: avoid: log . exp
-        (dDot10 (softMaxU - target) u')
+  in dD (negate $ log softMaxU `ldot0` target)  -- TODO: avoid: log . exp
+        (dDot0 (softMaxU - target) u')
 
 
 -- Operations resulting in a vector (really, a rank 1 OR.Array)
@@ -601,10 +601,10 @@ map1Elementwise
   :: ADModeAndNum d r
   => (ADVal d r -> ADVal d r) -> ADVal d (Vec r) -> ADVal d (Vec r)
 map1Elementwise f d =
-  build1Elementwise (llength d) $ \i -> f (index10 d i)
+  build1Elementwise (llength d) $ \i -> f (lindex0 d i)
     -- equivalent to
     -- @fromVector1 . map1POPL f . rank1toVector
-    --   where rank1toVector d@(D v _v') = V.generate (llength d) (index10 d)@
+    --   where rank1toVector d@(D v _v') = V.generate (llength d) (lindex0 d)@
 
 
 -- * Vectorization of the build operation
@@ -936,16 +936,16 @@ gtIntAst i j = AstRelInt GtOp [i, j]
 index0' :: (ADModeAndNum d r, KnownNat n)
         => ADVal d (OR.Array n r) -> [Int] -> ADVal d r
 index0' (D u u') ixs = dD (u `atIndexInTensorR` ixs)
-                          (dIndex10 u' ixs (OR.shapeL u))
+                          (dIndex0 u' ixs (OR.shapeL u))
 
 sum0' :: (ADModeAndNum d r, KnownNat n)
       => ADVal d (OR.Array n r) -> ADVal d r
-sum0' (D u u') = dD (LA.sumElements $ OR.toVector u) (dSum10 (OR.shapeL u) u')
+sum0' (D u u') = dD (LA.sumElements $ OR.toVector u) (dSum0 (OR.shapeL u) u')
 
 dot0' :: (ADModeAndNum d r, KnownNat n)
       => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r) -> ADVal d r
 dot0' (D u u') (D v v') = dD (OR.toVector u LA.<.> OR.toVector v)
-                              (dAdd (dDot10 v u') (dDot10 u v'))
+                              (dAdd (dDot0 v u') (dDot0 u v'))
 
 from10 :: ADModeAndNum d r => ADVal d (OR.Array 0 r) -> ADVal d r
 from10 (D u u') = dD (OR.unScalar u) (dFrom10 u')

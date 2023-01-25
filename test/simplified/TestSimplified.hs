@@ -55,13 +55,13 @@ barADVal = bar @(ADVal d r)
 
 fooBuild1 :: ADReady r => VectorOf r -> VectorOf r
 fooBuild1 v =
-  let r = lsum10 v
+  let r = lsum0 v
       v' = lminimum0 v
   in lbuild1 3 $ \ix ->
        r * foo ( 3
                , 5 * r
                , r * lminimum0 v * v')
-       + bar (r, lindex10 v (ix + 1))
+       + bar (r, lindex0 v (ix + 1))
 
 fooMap1 :: ADReady r => r -> VectorOf r
 fooMap1 r =
@@ -73,11 +73,11 @@ fooMap1 r =
 fooNoGoAst :: (Numeric r, RealFloat r, Floating (Vector r))
            => Ast 1 r -> Ast 1 r
 fooNoGoAst v =
-  let r = lsum10 v
+  let r = lsum0 v
   in lbuild1 3 (\ix ->
-       (barAst (3.14, bar (3.14, lindex10 v ix)))
+       (barAst (3.14, bar (3.14, lindex0 v ix)))
        + AstCond1 (AstBoolOp AndOp  -- TODO: overload &&, <=, >, etc.
-                             [ lindex10 v (ix * 2) `leqAst` 0
+                             [ lindex0 v (ix * 2) `leqAst` 0
                              , 6 `gtIntAst` abs ix ])
                  r (5 * r))
      / lslice1 1 3 (lmap1 (\x -> AstCond1 (x `gtAst` r) r x) v)
@@ -90,12 +90,12 @@ nestedBuildMap r =
   let w x = lkonst1 4 x  -- (AstIntCond (x `leqAst` 0) 3 4)
       v' = lkonst1 7 r :: VectorOf r
       nestedMap x = lmap1 (\y -> x / y) (w x)
-      variableLengthBuild iy = lbuild1 (iy + 1) (\ix -> lindex10 v' (ix + 1)) :: VectorOf r
+      variableLengthBuild iy = lbuild1 (iy + 1) (\ix -> lindex0 v' (ix + 1)) :: VectorOf r
       doublyBuild = lbuild1 5 (\iy -> lminimum0 (variableLengthBuild iy))
   in lmap1 (\x -> x
-                  * lsum10
+                  * lsum0
                       (lbuild1 3 (\ix -> bar ( x
-                                             , lindex10 v' ix) )
+                                             , lindex0 v' ix) )
                        + fooBuild1 (nestedMap x)
                        / fooMap1 x)
            ) doublyBuild
@@ -103,22 +103,22 @@ nestedBuildMap r =
 nestedSumBuild :: ADReady r => VectorOf r -> VectorOf r
 nestedSumBuild v =
   lbuild1 13 (\ix ->
-    lsum10 (lbuild1 4 (\ix2 ->
-      flip lindex10 ix2
-        (lbuild1 5 (\ _ -> lsum10 v)
+    lsum0 (lbuild1 4 (\ix2 ->
+      flip lindex0 ix2
+        (lbuild1 5 (\ _ -> lsum0 v)
          * lfromList1
              [ fromIntOf ix
-             , lsum10 (lbuild1 9 (\ix5 -> fromIntOf ix5))
-             , lsum10 (lbuild1 6 (\_ -> lsum10 v))
-             , lindex10 v ix2
-             , lsum10 (lbuild1 3 (\ix7 ->
-                 lsum10 (lkonst1 (ix2 + 1) (fromIntOf ix7))))
+             , lsum0 (lbuild1 9 (\ix5 -> fromIntOf ix5))
+             , lsum0 (lbuild1 6 (\_ -> lsum0 v))
+             , lindex0 v ix2
+             , lsum0 (lbuild1 3 (\ix7 ->
+                 lsum0 (lkonst1 (ix2 + 1) (fromIntOf ix7))))
 -- irregular array:
---             , lsum10 (lbuild1 3 (\ix7 ->
---                 lsum10 (lkonst1 (ix2 + ix7 + 1) 2.4)))
+--             , lsum0 (lbuild1 3 (\ix7 ->
+--                 lsum0 (lkonst1 (ix2 + ix7 + 1) 2.4)))
              ]))))
   + lbuild1 13 (\ix ->
-      nestedBuildMap (lsum10 v) `lindex10` min ix 4)
+      nestedBuildMap (lsum0 v) `lindex0` min ix 4)
 
 barRelu
   :: ( RealFloat a
@@ -147,22 +147,22 @@ konstReluAst
   :: forall r.
      (Numeric r, Num (Vector r))
   => Ast 0 r -> Ast 0 r
-konstReluAst x = lsum10 $ reluAst1 $ lkonst1 7 x
+konstReluAst x = lsum0 $ reluAst1 $ lkonst1 7 x
 
 
 -- * Tests by TomS
 
 f1 :: ADReady a => a -> a
-f1 = \arg -> lsum10 (lbuild1 10 (\i -> arg * fromIntOf i))
+f1 = \arg -> lsum0 (lbuild1 10 (\i -> arg * fromIntOf i))
 
 f2 :: ADReady a => a -> a
 f2 = \arg ->
   let fun1 i = arg * fromIntOf i
-      v1a = lsum10 (lbuild1 10 fun1)
-      v1b = lsum10 (lbuild1 20 fun1)
+      v1a = lsum0 (lbuild1 10 fun1)
+      v1b = lsum0 (lbuild1 20 fun1)
       fun2 y i = y * fromIntOf i
-      v2a = lsum10 (lbuild1 10 (fun2 arg))
-      v2b = lsum10 (lbuild1 20 (fun2 (arg + 1)))
+      v2a = lsum0 (lbuild1 10 (fun2 arg))
+      v2b = lsum0 (lbuild1 20 (fun2 (arg + 1)))
   in v1a + v1b + v2a + v2b
 
 

@@ -140,12 +140,12 @@ data Delta0 :: Type -> Type where
   Add0 :: Delta0 r -> Delta0 r -> Delta0 r
   Let0 :: NodeId -> Delta0 r -> Delta0 r
 
-  Index10 :: KnownNat n
-          => Delta1 n r -> [Int] -> OR.ShapeL -> Delta0 r
-  Sum10 :: KnownNat n
-        => OR.ShapeL -> Delta1 n r -> Delta0 r
-  Dot10 :: KnownNat n
-        => OR.Array n r -> Delta1 n r -> Delta0 r
+  Index0 :: KnownNat n
+         => Delta1 n r -> [Int] -> OR.ShapeL -> Delta0 r
+  Sum0 :: KnownNat n
+       => OR.ShapeL -> Delta1 n r -> Delta0 r
+  Dot0 :: KnownNat n
+       => OR.Array n r -> Delta1 n r -> Delta0 r
   From10 :: Delta1 0 r -> Delta0 r
 
 deriving instance (Show r, Numeric r) => Show (Delta0 r)
@@ -445,13 +445,13 @@ buildFinMaps s0 deltaDt =
         -- but for a few constructors it's faster to inline @eval1@ instead.
         -- BTW, such an optimization doesn't really belong in the simplified
         -- horde-ad and no consistent benefit should be expected here.
-        Index10 Zero1 _ _ -> s  -- shortcut
-        Index10 (FromX1 (InputX i)) ixs sh ->
+        Index0 Zero1 _ _ -> s  -- shortcut
+        Index0 (FromX1 (InputX i)) ixs sh ->
           let f v = if isTensorDummy v
                     then OT.constant sh 0 `OT.update` [(ixs, c)]
                     else v `OT.update` [(ixs, v `atIndexInTensor` ixs + c)]
           in s {iMap1 = EM.adjust f i $ iMap1 s}
-        Index10 (Let1 n d) ixs sh ->
+        Index0 (Let1 n d) ixs sh ->
           case EM.lookup n $ nMap s of
             Just (DeltaBinding1 _) ->
               let f v = v `OT.update` [(ixs, v `atIndexInTensor` ixs + c)]
@@ -466,9 +466,9 @@ buildFinMaps s0 deltaDt =
               in s { nMap = EM.insert n (DeltaBinding1 d) $ nMap s
                    , dMap1 = EM.insert n v $ dMap1 s }
             _ -> error "buildFinMaps: corrupted nMap"
-        Index10 d ixs sh -> eval1 s (OR.constant sh 0 `updateOR` [(ixs, c)]) d
-        Sum10 sh d -> eval1 s (OR.constant sh c) d
-        Dot10 v vd -> eval1 s (liftVR (LA.scale c) v) vd
+        Index0 d ixs sh -> eval1 s (OR.constant sh 0 `updateOR` [(ixs, c)]) d
+        Sum0 sh d -> eval1 s (OR.constant sh c) d
+        Dot0 v vd -> eval1 s (liftVR (LA.scale c) v) vd
         From10 d -> eval1 s (OR.scalar c) d
 
       addToArray :: OR.Array n r -> OT.Array r -> OT.Array r
@@ -630,9 +630,9 @@ buildDerivative dim0 dim1 deltaTopLevel
               return c
             _ -> error "buildDerivative: corrupted nMap"
 
-        Index10 d ixs _ -> (`atIndexInTensorR` ixs) <$> eval1 d
-        Sum10 _ d -> OR.sumA <$> eval1 d
-        Dot10 v d -> (LA.<.> OR.toVector v) . OR.toVector <$> eval1 d
+        Index0 d ixs _ -> (`atIndexInTensorR` ixs) <$> eval1 d
+        Sum0 _ d -> OR.sumA <$> eval1 d
+        Dot0 v d -> (LA.<.> OR.toVector v) . OR.toVector <$> eval1 d
         From10 d -> OR.unScalar <$> eval1 d
 
       eval1 :: KnownNat n => Delta1 n r -> ST s (OR.Array n r)

@@ -227,12 +227,12 @@ class HasInputs a where
 -- to be the underlying scalar of a well behaved collection of dual numbers
 -- of various ranks wrt the differentation mode given in the first parameter.
 class HasRanks (d :: ADMode) r where
-  dIndex10 :: KnownNat n
-           => Dual d (OR.Array n r) -> [Int] -> OR.ShapeL -> Dual d r
-  dSum10 :: KnownNat n
-         => OR.ShapeL -> Dual d (OR.Array n r) -> Dual d r
-  dDot10 :: KnownNat n
-         => OR.Array n r -> Dual d (OR.Array n r) -> Dual d r
+  dIndex0 :: KnownNat n
+          => Dual d (OR.Array n r) -> [Int] -> OR.ShapeL -> Dual d r
+  dSum0 :: KnownNat n
+        => OR.ShapeL -> Dual d (OR.Array n r) -> Dual d r
+  dDot0 :: KnownNat n
+        => OR.Array n r -> Dual d (OR.Array n r) -> Dual d r
   dFrom10 :: Dual d (OR.Array 0 r) -> Dual d r
 
   dIndex1 :: KnownNat n
@@ -363,9 +363,9 @@ instance HasInputs (OT.Array r) where
 -- | This is an impure instance. See above.
 instance Dual 'ADModeGradient r ~ Delta0 r
          => HasRanks 'ADModeGradient r where
-  dIndex10 = Index10
-  dSum10 = Sum10
-  dDot10 = Dot10
+  dIndex0 = Index0
+  dSum0 = Sum0
+  dDot0 = Dot0
   dFrom10 = From10
 
   dIndex1 = Index1
@@ -412,9 +412,9 @@ instance (Numeric r, Num (Vector r))
 instance ( Numeric r, Num (Vector r)
          , Dual 'ADModeDerivative r ~ r )
          => HasRanks 'ADModeDerivative r where
-  dIndex10 d ixs _ = d `atIndexInTensorR` ixs
-  dSum10 _ = OR.sumA
-  dDot10 u v = OR.toVector u LA.<.> OR.toVector v
+  dIndex0 d ixs _ = d `atIndexInTensorR` ixs
+  dSum0 _ = OR.sumA
+  dDot0 u v = OR.toVector u LA.<.> OR.toVector v
   dFrom10 = OR.unScalar
 
   dIndex1 d ix _ = OR.index d ix
@@ -465,9 +465,9 @@ instance IsPrimalR 'ADModeValue r where
 
 -- This requires UndecidableInstances.
 instance HasRanks 'ADModeValue r where
-  dIndex10 _ _ _ = DummyDual ()
-  dSum10 _ _ = DummyDual ()
-  dDot10 _ _ = DummyDual ()
+  dIndex0 _ _ _ = DummyDual ()
+  dSum0 _ _ = DummyDual ()
+  dDot0 _ _ = DummyDual ()
   dFrom10 _ = DummyDual ()
 
   dIndex1 _ _ _ = DummyDual ()
