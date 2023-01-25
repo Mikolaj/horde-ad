@@ -712,10 +712,10 @@ build1Vectorize1Var n (var, u) =
       -- AstOp1 does not require Numeric constraint, so better than @*@.
 
     -- Rewriting syntactic sugar:
-    AstFromList01 _sh l ->
-      build1Vectorize1Var n (var, AstFromList1 l)
-    AstFromVector01 _sh l ->
-      build1Vectorize1Var n (var, AstFromVector1 l)
+    AstFromList01 sh l ->
+      build1Vectorize1Var n (var, AstReshape1 sh $ AstFromList1 l)
+    AstFromVector01 sh l ->
+      build1Vectorize1Var n (var, AstReshape1 sh $ AstFromVector1 l)
     AstKonst01 [k] v -> build1Vectorize1Var n (var, AstKonst1 k v)
     AstKonst01{} -> error "build1Vectorize1Var: wrong shape for rank 1"
     AstBuildPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
@@ -823,10 +823,10 @@ build1VectorizeIndex1Var n var v1 i =
     AstDot0{} -> error "build1VectorizeIndex1Var: wrong rank"
 
     -- Rewriting syntactic sugar:
-    AstFromList01 _sh l ->
-      build1VectorizeIndex1Var n var (AstFromList1 l) i
-    AstFromVector01 _sh l ->
-      build1VectorizeIndex1Var n var (AstFromVector1 l) i
+    AstFromList01 sh l ->
+      build1VectorizeIndex1Var n var (AstReshape1 sh $ AstFromList1 l) i
+    AstFromVector01 sh l ->
+      build1VectorizeIndex1Var n var (AstReshape1 sh $ AstFromVector1 l) i
     AstKonst01 [k] v ->
       build1VectorizeIndex1Var n var (AstKonst1 k v) i
     AstKonst01{} -> error "build1VectorizeIndex1Var: wrong shape for rank 1"

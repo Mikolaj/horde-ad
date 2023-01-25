@@ -85,10 +85,10 @@ data Ast :: Nat -> Type -> Type where
 
   -- If we give the user access to tensors, not just vectors, these
   -- operations will be necessary.
+  AstFromList01 :: [AstInt r] -> [Ast 0 r] -> Ast n r
+  AstFromVector01 :: [AstInt r] -> Data.Vector.Vector (Ast 0 r) -> Ast n r
   -- Rank temporarily fixed to 1, to avoid hard type-level programming
   -- and/or the AstShape constructor.
-  AstFromList01 :: [AstInt r] -> [Ast 0 r] -> Ast 1 r
-  AstFromVector01 :: [AstInt r] -> Data.Vector.Vector (Ast 0 r) -> Ast 1 r
   AstKonst01 :: [AstInt r] -> Ast 0 r -> Ast 1 r
   -- We don't have AstVarName for list variables, so only rank 1 for now:
   AstBuildPair01 :: AstInt r -> (AstVarName Int, Ast 0 r)
