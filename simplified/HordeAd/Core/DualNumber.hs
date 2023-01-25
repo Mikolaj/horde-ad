@@ -107,6 +107,85 @@ dotParameters (Domains a0 a1) (Domains b0 b1) =
       else OT.toVector v1 LA.<.> OT.toVector u1) a1 b1)
 
 
+-- * HasPrimal instances for all relevant types
+
+-- We could accept any @RealFloat@ instead of @PrimalOf a@, but then
+-- we'd need to coerce, e.g., via realToFrac, which is risky and lossy.
+-- Also, the stricter typing is likely to catch real errors most of the time,
+-- not just sloppy omission of explitic coercions.
+class HasPrimal a where
+  type PrimalOf a
+  type DualOf a
+  constant :: PrimalOf a -> a
+  scale :: Num (PrimalOf a) => PrimalOf a -> a -> a
+    -- expressible with @constant@ and multiplication, but we want the same
+    -- name in each class instance, so it needs to be included in the class
+  primalPart :: a -> PrimalOf a
+  dualPart :: a -> DualOf a
+  ddD :: PrimalOf a -> DualOf a -> a
+  -- TODO: we'd probably also need dZero, dIndex0 and all others;
+  -- basically DualOf a needs to have IsPrimal and HasRanks instances
+  -- (and HasInputs?)
+  -- TODO: if DualOf is supposed to be user-visible, we needed
+  -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
+  --
+  -- Unrelated, but no better home ATM:
+  fromIntOf :: IntOf a -> a
+  -- TODO: also put conditionals with AstBool condition here, at least initially
+
+instance (Num a, IsPrimal d a) => HasPrimal (ADVal d a) where
+  type PrimalOf (ADVal d a) = a
+  type DualOf (ADVal d a) = Dual d a
+  constant a = dD a dZero
+  scale a (D u u') = dD (a * u) (dScale a u')
+  primalPart (D u _) = u
+  dualPart (D _ u') = u'
+  ddD = dD
+  fromIntOf = constant . fromInteger . fromIntegral
+
+instance HasPrimal Float where
+  type PrimalOf Float = Float
+  type DualOf Float = ()
+  constant = id
+  scale = (*)
+  primalPart = id
+  dualPart _ = ()
+  ddD u _ = u
+  fromIntOf = fromInteger . fromIntegral
+
+instance HasPrimal Double where
+  type PrimalOf Double = Double
+  type DualOf Double = ()
+  constant = id
+  scale = (*)
+  primalPart = id
+  dualPart _ = ()
+  ddD u _ = u
+  fromIntOf = fromInteger . fromIntegral
+
+-- The constraint requires UndecidableInstances.
+instance (KnownNat n, Numeric r, Num (Vector r))
+         => HasPrimal (OR.Array n r) where
+  type PrimalOf (OR.Array n r) = OR.Array n r
+  type DualOf (OR.Array n r) = ()
+  constant = id
+  scale = (*)
+  primalPart = id
+  dualPart _ = ()
+  ddD u _ = u
+  fromIntOf = fromInteger . fromIntegral
+
+instance HasPrimal (Ast n r) where
+  type PrimalOf (Ast n r) = AstPrimalPart1 n r
+  type DualOf (Ast n r) = ()  -- TODO: data AstDualPart: dScale, dAdd, dkonst1
+  constant = AstConstant
+  scale = AstScale
+  primalPart = AstPrimalPart1
+  dualPart = error "TODO"
+  ddD = error "TODO"
+  fromIntOf = AstConstInt
+
+
 -- * Numeric instances for ADVal
 
 -- These instances are required by the @Real@ instance, which is required
@@ -304,85 +383,6 @@ astBuild1 n f = unsafePerformIO $ do
     -- TODO: this vectorizers depth-first, which is needed. But do we
     -- also need a translation to non-vectorized terms for anything
     -- (other than for comparative tests)?
-
-
--- * HasPrimal instances for all relevant types
-
--- We could accept any @RealFloat@ instead of @PrimalOf a@, but then
--- we'd need to coerce, e.g., via realToFrac, which is risky and lossy.
--- Also, the stricter typing is likely to catch real errors most of the time,
--- not just sloppy omission of explitic coercions.
-class HasPrimal a where
-  type PrimalOf a
-  type DualOf a
-  constant :: PrimalOf a -> a
-  scale :: Num (PrimalOf a) => PrimalOf a -> a -> a
-    -- expressible with @constant@ and multiplication, but we want the same
-    -- name in each class instance, so it needs to be included in the class
-  primalPart :: a -> PrimalOf a
-  dualPart :: a -> DualOf a
-  ddD :: PrimalOf a -> DualOf a -> a
-  -- TODO: we'd probably also need dZero, dIndex0 and all others;
-  -- basically DualOf a needs to have IsPrimal and HasRanks instances
-  -- (and HasInputs?)
-  -- TODO: if DualOf is supposed to be user-visible, we needed
-  -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
-  --
-  -- Unrelated, but no better home ATM:
-  fromIntOf :: IntOf a -> a
-  -- TODO: also put conditionals with AstBool condition here, at least initially
-
-instance (Num a, IsPrimal d a) => HasPrimal (ADVal d a) where
-  type PrimalOf (ADVal d a) = a
-  type DualOf (ADVal d a) = Dual d a
-  constant a = dD a dZero
-  scale a (D u u') = dD (a * u) (dScale a u')
-  primalPart (D u _) = u
-  dualPart (D _ u') = u'
-  ddD = dD
-  fromIntOf = constant . fromInteger . fromIntegral
-
-instance HasPrimal Float where
-  type PrimalOf Float = Float
-  type DualOf Float = ()
-  constant = id
-  scale = (*)
-  primalPart = id
-  dualPart _ = ()
-  ddD u _ = u
-  fromIntOf = fromInteger . fromIntegral
-
-instance HasPrimal Double where
-  type PrimalOf Double = Double
-  type DualOf Double = ()
-  constant = id
-  scale = (*)
-  primalPart = id
-  dualPart _ = ()
-  ddD u _ = u
-  fromIntOf = fromInteger . fromIntegral
-
--- The constraint requires UndecidableInstances.
-instance (KnownNat n, Numeric r, Num (Vector r))
-         => HasPrimal (OR.Array n r) where
-  type PrimalOf (OR.Array n r) = OR.Array n r
-  type DualOf (OR.Array n r) = ()
-  constant = id
-  scale = (*)
-  primalPart = id
-  dualPart _ = ()
-  ddD u _ = u
-  fromIntOf = fromInteger . fromIntegral
-
-instance HasPrimal (Ast n r) where
-  type PrimalOf (Ast n r) = AstPrimalPart1 n r
-  type DualOf (Ast n r) = ()  -- TODO: data AstDualPart: dScale, dAdd, dkonst1
-  constant = AstConstant
-  scale = AstScale
-  primalPart = AstPrimalPart1
-  dualPart = error "TODO"
-  ddD = error "TODO"
-  fromIntOf = AstConstInt
 
 
 -- * Legacy operations needed to re-use vector differentiation tests
