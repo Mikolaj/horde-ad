@@ -737,7 +737,7 @@ build1VectorizeIndex1 n var v i =
 -- (it doesn't matter much which, because other variables may occur, too).
 -- We try to push the indexing down the term tree and partially
 -- evalute/simplify the term, if possible in constant time. Eventually,
--- we are down to indexing of a base expression (e.g., raw input data)
+-- we are down to indexing of a too simple but non-constant expression,
 -- and then the only hope is in analyzing the index expression in turn.
 build1VectorizeIndex1Var
   :: AstInt r -> AstVarName Int -> Ast (1 + n) r -> AstInt r
@@ -778,8 +778,7 @@ build1VectorizeIndex1Var n var v1 i =
       build1Vectorize1Var n
         (var, AstSum1 (AstTranspose1 $ AstIndex1 (AstTranspose1 v) i))
           -- that's because @index (sum v) i == sum (map (index i) v)@
-    -- Can't push indexing down, we may be at the raw input data level,
-    -- so try analyzing the index instead:
+    -- Can't push indexing down, so try analyzing the index instead:
     AstFromList1{} -> build1VectorizeIndex1Try n var v1 i
     AstFromVector1{} -> build1VectorizeIndex1Try n var v1 i
     -- Partially evaluate in constant time:
