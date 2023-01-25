@@ -317,6 +317,8 @@ class HasPrimal a where
   type DualOf a
   constant :: PrimalOf a -> a
   scale :: Num (PrimalOf a) => PrimalOf a -> a -> a
+    -- expressible with @constant@ and multiplication, but we want the same
+    -- name in each class instance, so it needs to be included in the class
   primalPart :: a -> PrimalOf a
   dualPart :: a -> DualOf a
   ddD :: PrimalOf a -> DualOf a -> a
@@ -328,6 +330,7 @@ class HasPrimal a where
   --
   -- Unrelated, but no better home ATM:
   fromIntOf :: IntOf a -> a
+  -- TODO: also put conditionals with AstBool condition here, at least initially
 
 instance (Num a, IsPrimal d a) => HasPrimal (ADVal d a) where
   type PrimalOf (ADVal d a) = a

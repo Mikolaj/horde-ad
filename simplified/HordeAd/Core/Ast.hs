@@ -36,16 +36,21 @@ import HordeAd.Internal.OrthotopeOrphanInstances ()
 -- | AST for a tensor of rank n and elements r that is meant
 -- to be differentiated.
 data Ast :: Nat -> Type -> Type where
+  -- For the numeric classes:
   AstOp :: OpCode -> [Ast n r] -> Ast n r
+
+  -- For HasPrimal class and the future Conditional/Boolean/Eq'/Ord' classes:
   AstCond :: AstBool r -> Ast n r -> Ast n r -> Ast n r
   AstSelect :: AstInt r -> (AstVarName Int, AstBool r) -> Ast n r -> Ast n r
             -> Ast n r
+    -- emerges from vectorizing AstCond
   AstConstInt :: AstInt r -> Ast n r
   AstConst :: OR.Array n r -> Ast n r
     -- sort of partially evaluated @AstConstant@
   AstConstant :: AstPrimalPart1 n r -> Ast n r
   AstScale :: AstPrimalPart1 n r -> Ast n r -> Ast n r
 
+  -- For VectorLike class and the future Tensor class:
   AstIndex :: Ast (1 + n) r -> AstInt r -> Ast n r
   AstSum :: Ast (1 + n) r -> Ast n r
   -- No shape argument, because we'd need [AstInt], because it changes
@@ -64,10 +69,12 @@ data Ast :: Nat -> Type -> Type where
   AstBuildPair :: AstInt r -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
   AstTranspose :: Ast n r -> Ast n r
   AstTransposeGeneral :: [Int] -> Ast n r -> Ast n r
+    -- emerges from vectorizing AstTranspose
   AstFlatten :: KnownNat n
              => Ast n r -> Ast 1 r
   AstReshape :: KnownNat n
              => [AstInt r] -> Ast n r -> Ast m r
+    -- emerges from vectorizing AstFlatten
 
   -- If we give the user access to tensors, not just vectors, these
   -- operations will be necessary.
@@ -87,8 +94,8 @@ data Ast :: Nat -> Type -> Type where
                  -> Ast 1 r
     -- we don't have AstVarName for list variables, so only rank 1 for now
 
-  -- This is necessary for MonoFunctor and so for a particularly
-  -- fast implementation of relu.
+  -- For MonoFunctor class, which is needed for a particularly
+  -- fast implementation of relu and offer fast, primal-part only, mapping.
   -- TODO: this is really only needed in AstPrimalPart, but making
   -- AstPrimalPart data instead of a newtype would complicate a lot of code.
   AstOMap0 :: (AstVarName r, Ast 0 r) -> Ast 0 r -> Ast 0 r
