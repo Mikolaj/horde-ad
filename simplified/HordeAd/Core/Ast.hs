@@ -33,45 +33,44 @@ import HordeAd.Internal.OrthotopeOrphanInstances ()
 
 -- TODO: consider sharing Ast expressions, both within the primal part
 -- and between primal and dual
--- | AST of the code to be differentiated. The argument is the underlying
--- scalar.
+-- | AST for a tensor of rank n and elements r that is meant
+-- to be differentiated.
 data Ast :: Nat -> Type -> Type where
-  AstOp1 :: OpCode -> [Ast n r] -> Ast n r
-  AstCond1 :: AstBool r -> Ast n r -> Ast n r -> Ast n r
-  AstSelect1 :: AstInt r -> (AstVarName Int, AstBool r) -> Ast n r -> Ast n r
-             -> Ast n r
-  AstInt1 :: AstInt r -> Ast n r
-  AstConst1 :: OR.Array n r -> Ast n r
-    -- sort of partially evaluated @AstConstant1@
-  AstConstant1 :: AstPrimalPart1 n r -> Ast n r
-  AstScale1 :: AstPrimalPart1 n r -> Ast n r -> Ast n r
+  AstOp :: OpCode -> [Ast n r] -> Ast n r
+  AstCond :: AstBool r -> Ast n r -> Ast n r -> Ast n r
+  AstSelect :: AstInt r -> (AstVarName Int, AstBool r) -> Ast n r -> Ast n r
+            -> Ast n r
+  AstInt :: AstInt r -> Ast n r
+  AstConst :: OR.Array n r -> Ast n r
+    -- sort of partially evaluated @AstConstant@
+  AstConstant :: AstPrimalPart1 n r -> Ast n r
+  AstScale :: AstPrimalPart1 n r -> Ast n r -> Ast n r
 
   AstVar0 :: AstVarName r -> Ast 0 r
   AstVar1 :: AstVarName (OR.Array 1 r) -> Ast 1 r
 
-  AstIndex1 :: Ast (1 + n) r -> AstInt r -> Ast n r
-  AstSum1 :: Ast (1 + n) r -> Ast n r
+  AstIndex :: Ast (1 + n) r -> AstInt r -> Ast n r
+  AstSum :: Ast (1 + n) r -> Ast n r
   -- No shape argument, because we'd need [AstInt], because it changes
   -- during vectorization. The trade-off is a crash when the argument is empty,
   -- but the user wants n =\ 1. TODO: perhaps just use List.NonEmpty,
   -- but is there Vector.NonEmpty and, in the future, Tensor.NonEmpty?
   -- For now, it crashes for empty arguments always.
-  AstFromList1 :: [Ast n r] -> Ast (1 + n) r
-  AstFromVector1 :: Data.Vector.Vector (Ast n r)
-                 -> Ast (1 + n) r
-  AstKonst1 :: AstInt r -> Ast n r -> Ast (1 + n) r
-  AstAppend1 :: KnownNat n
-             => Ast n r -> Ast n r -> Ast n r
-  AstSlice1 :: AstInt r -> AstInt r -> Ast n r -> Ast n r
-  AstReverse1 :: KnownNat n
-              => Ast n r -> Ast n r
-  AstBuildPair1 :: AstInt r -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
-  AstTranspose1 :: Ast n r -> Ast n r
-  AstTransposeGeneral1 :: [Int] -> Ast n r -> Ast n r
+  AstFromList :: [Ast n r] -> Ast (1 + n) r
+  AstFromVector :: Data.Vector.Vector (Ast n r) -> Ast (1 + n) r
+  AstKonst :: AstInt r -> Ast n r -> Ast (1 + n) r
+  AstAppend :: KnownNat n
+            => Ast n r -> Ast n r -> Ast n r
+  AstSlice :: AstInt r -> AstInt r -> Ast n r -> Ast n r
+  AstReverse :: KnownNat n
+             => Ast n r -> Ast n r
+  AstBuildPair :: AstInt r -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
+  AstTranspose :: Ast n r -> Ast n r
+  AstTransposeGeneral :: [Int] -> Ast n r -> Ast n r
   AstFlatten :: KnownNat n
              => Ast n r -> Ast 1 r
-  AstReshape1 :: KnownNat n
-              => [AstInt r] -> Ast n r -> Ast m r
+  AstReshape :: KnownNat n
+             => [AstInt r] -> Ast n r -> Ast m r
 
   -- If we give the user access to tensors, not just vectors, these
   -- operations will be necessary.
@@ -188,53 +187,53 @@ data OpCodeRel =
 instance Eq (Ast n r) where
 
 instance Ord (OR.Array n r) => Ord (Ast n r) where
-  max u v = AstOp1 MaxOp [u, v]
-  min u v = AstOp1 MinOp [u, v]
+  max u v = AstOp MaxOp [u, v]
+  min u v = AstOp MinOp [u, v]
     -- unfortunately, the others can't be made to return @AstBool@
 
 instance Num (OR.Array n r) => Num (Ast n r) where
-  u + v = AstOp1 PlusOp [u, v]
-  u - v = AstOp1 MinusOp [u, v]
-  u * v = AstOp1 TimesOp [u, v]
-  negate u = AstOp1 NegateOp [u]
-  abs v = AstOp1 AbsOp [v]
-  signum v = AstOp1 SignumOp [v]
-  fromInteger = AstConst1 . fromInteger
+  u + v = AstOp PlusOp [u, v]
+  u - v = AstOp MinusOp [u, v]
+  u * v = AstOp TimesOp [u, v]
+  negate u = AstOp NegateOp [u]
+  abs v = AstOp AbsOp [v]
+  signum v = AstOp SignumOp [v]
+  fromInteger = AstConst . fromInteger
 
 instance Real (OR.Array n r) => Real (Ast n r) where
   toRational = undefined  -- TODO?
 
 instance Fractional (OR.Array n r) => Fractional (Ast n r) where
-  u / v = AstOp1 DivideOp  [u, v]
-  recip v = AstOp1 RecipOp [v]
-  fromRational = AstConst1 . fromRational
+  u / v = AstOp DivideOp  [u, v]
+  recip v = AstOp RecipOp [v]
+  fromRational = AstConst . fromRational
 
 instance Floating (OR.Array n r) => Floating (Ast n r) where
-  pi = AstConst1 pi
-  exp u = AstOp1 ExpOp [u]
-  log u = AstOp1 LogOp [u]
-  sqrt u = AstOp1 SqrtOp [u]
-  u ** v = AstOp1 PowerOp [u, v]
-  logBase u v = AstOp1 LogBaseOp [u, v]
-  sin u = AstOp1 SinOp [u]
-  cos u = AstOp1 CosOp [u]
-  tan u = AstOp1 TanOp [u]
-  asin u = AstOp1 AsinOp [u]
-  acos u = AstOp1 AcosOp [u]
-  atan u = AstOp1 AtanOp [u]
-  sinh u = AstOp1 SinhOp [u]
-  cosh u = AstOp1 CoshOp [u]
-  tanh u = AstOp1 TanhOp [u]
-  asinh u = AstOp1 AsinhOp [u]
-  acosh u = AstOp1 AcoshOp [u]
-  atanh u = AstOp1 AtanhOp [u]
+  pi = AstConst pi
+  exp u = AstOp ExpOp [u]
+  log u = AstOp LogOp [u]
+  sqrt u = AstOp SqrtOp [u]
+  u ** v = AstOp PowerOp [u, v]
+  logBase u v = AstOp LogBaseOp [u, v]
+  sin u = AstOp SinOp [u]
+  cos u = AstOp CosOp [u]
+  tan u = AstOp TanOp [u]
+  asin u = AstOp AsinOp [u]
+  acos u = AstOp AcosOp [u]
+  atan u = AstOp AtanOp [u]
+  sinh u = AstOp SinhOp [u]
+  cosh u = AstOp CoshOp [u]
+  tanh u = AstOp TanhOp [u]
+  asinh u = AstOp AsinhOp [u]
+  acosh u = AstOp AcoshOp [u]
+  atanh u = AstOp AtanhOp [u]
 
 instance RealFrac (OR.Array n r) => RealFrac (Ast n r) where
   properFraction = undefined
     -- TODO: others, but low priority, since these are extremely not continuous
 
 instance RealFloat (OR.Array n r) => RealFloat (Ast n r) where
-  atan2 u v = AstOp1 Atan2Op [u, v]
+  atan2 u v = AstOp Atan2Op [u, v]
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a differentiable codomain
 
@@ -242,9 +241,9 @@ instance Eq (AstPrimalPart1 n r) where
 
 instance Ord r => Ord (AstPrimalPart1 n r) where
   max (AstPrimalPart1 u) (AstPrimalPart1 v) =
-    AstPrimalPart1 (AstOp1 MaxOp [u, v])
+    AstPrimalPart1 (AstOp MaxOp [u, v])
   min (AstPrimalPart1 u) (AstPrimalPart1 v) =
-    AstPrimalPart1 (AstOp1 MinOp [u, v])
+    AstPrimalPart1 (AstOp MinOp [u, v])
     -- unfortunately, the others can't be made to return @AstBool@
 
 deriving instance Num (Ast n r) => Num (AstPrimalPart1 n r)

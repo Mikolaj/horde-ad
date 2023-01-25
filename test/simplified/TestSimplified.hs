@@ -76,11 +76,11 @@ fooNoGoAst v =
   let r = lsum0 v
   in lbuild1 3 (\ix ->
        (barAst (3.14, bar (3.14, lindex0 v ix)))
-       + AstCond1 (AstBoolOp AndOp  -- TODO: overload &&, <=, >, etc.
+       + AstCond (AstBoolOp AndOp  -- TODO: overload &&, <=, >, etc.
                              [ lindex0 v (ix * 2) `leqAst` 0
                              , 6 `gtIntAst` abs ix ])
                  r (5 * r))
-     / lslice1 1 3 (lmap1 (\x -> AstCond1 (x `gtAst` r) r x) v)
+     / lslice1 1 3 (lmap1 (\x -> AstCond (x `gtAst` r) r x) v)
      * lbuild1 3 (\ _ix -> 1)
 
 -- TODO: remove the need for the 2 type hints; using VectorOf in the definition
