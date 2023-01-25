@@ -695,14 +695,6 @@ build1Vectorize1Var n (var, u) =
       AstBuildPair1 n (var, u)  -- TODO
     AstReshape1 ns v -> AstReshape1 (n : ns) $ build1Vectorize1 n (var, v)
 
-    -- Rewriting syntactic sugar:
-    AstFromList01 l ->
-      build1Vectorize1Var n (var, AstFromList1 l)
-    AstFromVector01 l ->
-      build1Vectorize1Var n (var, AstFromVector1 l)
-    AstKonst01 k v -> build1Vectorize1Var n (var, AstKonst1 k v)
-    AstBuildPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
-
     -- Rewriting syntactic sugar in the simplest way (but much more efficient
     -- non-sugar implementations exist):
     AstIndex0 v [i] -> build1Vectorize1Var n (var, AstIndex1 v i)
@@ -718,6 +710,14 @@ build1Vectorize1Var n (var, u) =
       -- not in one rank less and also (some) fast implementations
       -- depend on it resulting in a scalar.
       -- AstOp1 does not require Numeric constraint, so better than @*@.
+
+    -- Rewriting syntactic sugar:
+    AstFromList01 l ->
+      build1Vectorize1Var n (var, AstFromList1 l)
+    AstFromVector01 l ->
+      build1Vectorize1Var n (var, AstFromVector1 l)
+    AstKonst01 k v -> build1Vectorize1Var n (var, AstKonst1 k v)
+    AstBuildPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
 
     AstOMap0{} -> AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, u)
     AstOMap1{} -> AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, u)
@@ -817,6 +817,10 @@ build1VectorizeIndex1Var n var v1 i =
     AstReshape1{} -> build1VectorizeIndex1Try n var v1 i
       -- an even more general indexing needed?
 
+    AstIndex0{} -> error "build1VectorizeIndex1Var: wrong rank"
+    AstSum0{} -> error "build1VectorizeIndex1Var: wrong rank"
+    AstDot0{} -> error "build1VectorizeIndex1Var: wrong rank"
+
     -- Rewriting syntactic sugar:
     AstFromList01 l ->
       build1VectorizeIndex1Var n var (AstFromList1 l) i
@@ -826,10 +830,6 @@ build1VectorizeIndex1Var n var v1 i =
       build1VectorizeIndex1Var n var (AstKonst1 k v) i
     AstBuildPair01{} ->
       AstBuildPair1 n (var, AstIndex1 v1 i)  -- see AstBuildPair1 above
-
-    AstIndex0{} -> error "build1VectorizeIndex1Var: wrong rank"
-    AstSum0{} -> error "build1VectorizeIndex1Var: wrong rank"
-    AstDot0{} -> error "build1VectorizeIndex1Var: wrong rank"
 
     AstOMap0{} -> error "build1VectorizeIndex1Var: wrong rank"
     AstOMap1{} ->
@@ -883,14 +883,14 @@ intVarInAst var = \case
   AstFlatten v -> intVarInAst var v
   AstReshape1 ns v -> or (map (intVarInAstInt var) ns) || intVarInAst var v
 
+  AstIndex0 v ixs -> intVarInAst var v || or (map (intVarInAstInt var) ixs)
+  AstSum0 v -> intVarInAst var v
+  AstDot0 v u -> intVarInAst var v || intVarInAst var u
+
   AstFromList01 l -> or $ map (intVarInAst var) l
   AstFromVector01 l -> V.or $ V.map (intVarInAst var) l
   AstKonst01 n v -> intVarInAstInt var n || intVarInAst var v
   AstBuildPair01 n (_, v) -> intVarInAstInt var n || intVarInAst var v
-
-  AstIndex0 v ixs -> intVarInAst var v || or (map (intVarInAstInt var) ixs)
-  AstSum0 v -> intVarInAst var v
-  AstDot0 v u -> intVarInAst var v || intVarInAst var u
 
   AstOMap0 (_, v) u -> intVarInAst var v || intVarInAst var u
     -- the variable in binder position, so ignored (and should be distinct)
@@ -1123,15 +1123,15 @@ interpretAst env = \case
   AstReshape1 ns v -> reshape1' (map (interpretAstInt env) ns)
                                 (interpretAst env v)
 
-  AstFromList01 l -> fromList01' [length l] $ map (unScalar0 . interpretAst env) l
-  AstFromVector01 l -> fromVector01' [V.length l] $ V.map (unScalar0 . interpretAst env) l
-  AstKonst01 n r -> konst01' [interpretAstInt env n] (unScalar0 $ interpretAst env r)
-  AstBuildPair01 i (var, r) -> interpretAst env $ AstBuildPair1 i (var, r)
-
   AstIndex0 v is ->
     scalar1 $ index0' (interpretAst env v) (map (interpretAstInt env) is)
   AstSum0 v -> scalar1 $ sum0' (interpretAst env v)
   AstDot0 x y -> scalar1 $ dot0' (interpretAst env x) (interpretAst env y)
+
+  AstFromList01 l -> fromList01' [length l] $ map (unScalar0 . interpretAst env) l
+  AstFromVector01 l -> fromVector01' [V.length l] $ V.map (unScalar0 . interpretAst env) l
+  AstKonst01 n r -> konst01' [interpretAstInt env n] (unScalar0 $ interpretAst env r)
+  AstBuildPair01 i (var, r) -> interpretAst env $ AstBuildPair1 i (var, r)
 
   AstOMap0 (var, r) e ->  -- this only works on the primal part hence @constant@
     constant
