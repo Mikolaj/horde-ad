@@ -200,7 +200,7 @@ class VectorOf r ~ v => VectorLike1 v r where
   lreverse1 :: VectorOf r -> VectorOf r
   lbuild1 :: IntOf r -> (IntOf r -> r) -> VectorOf r
   lmap1 :: (r -> r) -> VectorOf r -> VectorOf r
-  lzipWith :: (r -> r -> r) -> VectorOf r -> VectorOf r -> VectorOf r
+  lzipWith1 :: (r -> r -> r) -> VectorOf r -> VectorOf r -> VectorOf r
 
 type VectorLike r = VectorLike1 (VectorOf r) r
 
@@ -232,7 +232,7 @@ instance (Numeric r, IntOf r ~ Int, VectorOf r ~ OR.Array 1 r)
   lreverse1 = OR.rev [0]
   lbuild1 n f = OR.generate [n] (\l -> f (head l))
   lmap1 = liftVR . V.map
-  lzipWith = liftVR2 . V.zipWith
+  lzipWith1 = liftVR2 . V.zipWith
 
 -- Not that this instance doesn't do vectorization. To enable it,
 -- use the Ast instance, which vectorizes and finally interpret in ADVal.
@@ -261,7 +261,7 @@ instance ADModeAndNum d r
   lreverse1 = reverse1'
   lbuild1 = build1Closure  -- to test against build1Elementwise from Ast
   lmap1 f v = build1Closure (llength v) (\i -> f (v `lindex0` i))
-  lzipWith f v u =
+  lzipWith1 f v u =
     build1Closure (llength v) (\i -> f (v `lindex0` i) (u `lindex0` i))
 
 instance VectorLike1 (Ast 1 r) (Ast 0 r) where
@@ -283,7 +283,7 @@ instance VectorLike1 (Ast 1 r) (Ast 0 r) where
   lreverse1 = AstReverse
   lbuild1 = astBuild1
   lmap1 f v = astBuild1 (llength v) (\i -> f (v `lindex0` i))
-  lzipWith f v u =
+  lzipWith1 f v u =
     astBuild1 (llength v) (\i -> f (v `lindex0` i) (u `lindex0` i))
 
 -- Impure but in the most trivial way (only ever incremented counter).
