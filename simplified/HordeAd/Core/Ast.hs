@@ -46,9 +46,6 @@ data Ast :: Nat -> Type -> Type where
   AstConstant :: AstPrimalPart1 n r -> Ast n r
   AstScale :: AstPrimalPart1 n r -> Ast n r -> Ast n r
 
-  AstVar0 :: AstVarName r -> Ast 0 r
-  AstVar1 :: AstVarName (OR.Array 1 r) -> Ast 1 r
-
   AstIndex :: Ast (1 + n) r -> AstInt r -> Ast n r
   AstSum :: Ast (1 + n) r -> Ast n r
   -- No shape argument, because we'd need [AstInt], because it changes
@@ -90,12 +87,16 @@ data Ast :: Nat -> Type -> Type where
                  -> Ast 1 r
     -- we don't have AstVarName for list variables, so only rank 1 for now
 
+  -- Variables are only needed for AstOMap. They are also used in test glue
+  -- code and may be used for sharing in the future.
+  AstVar0 :: AstVarName r -> Ast 0 r
+  AstVar1 :: AstVarName (OR.Array 1 r) -> Ast 1 r
+  -- This is necessary for MonoFunctor and so for a particularly
+  -- fast implementation of relu.
+  -- TODO: this is really only needed in AstPrimalPart, but making
+  -- AstPrimalPart data instead of a newtype would complicate a lot of code.
   AstOMap0 :: (AstVarName r, Ast 0 r) -> Ast 0 r -> Ast 0 r
   AstOMap1 :: (AstVarName r, Ast 0 r) -> Ast 1 r -> Ast 1 r
-    -- this is necessary for MonoFunctor and so for a particularly
-    -- fast implementation of relu
-    -- TODO: this is really only needed in AstPrimalPart, but making
-    -- AstPrimalPart data instead of a newtype would complicate a lot of code
 
 newtype AstPrimalPart1 n r = AstPrimalPart1 (Ast n r)
 

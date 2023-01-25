@@ -651,11 +651,6 @@ build1Vectorize1Var n (var, u) =
       AstScale (AstPrimalPart1 $ AstBuildPair n (var, r))  -- no need to vect
                (build1Vectorize1 n (var, d))
 
-    AstVar0{} ->
-      error "build1Vectorize1Var: AstVar0 can't have free int variables"
-    AstVar1{} ->
-      error "build1Vectorize1Var: AstVar1 can't have free int variables"
-
     AstIndex v i -> build1VectorizeIndex1Var n var v i
       -- @var@ is in @v@ or @i@; TODO: simplify i first or even fully
       -- evaluate (may involve huge data processing) if contains no vars
@@ -719,6 +714,10 @@ build1Vectorize1Var n (var, u) =
       in build1Vectorize1Var n (var, AstReshape sh $ AstKonst k v)
     AstBuildPair01{} -> AstBuildPair n (var, u)  -- see AstBuildPair above
 
+    AstVar0{} ->
+      error "build1Vectorize1Var: AstVar0 can't have free int variables"
+    AstVar1{} ->
+      error "build1Vectorize1Var: AstVar1 can't have free int variables"
     AstOMap0{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, u)
     AstOMap1{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, u)
     -- All other patterns are redundant due to GADT typing.
@@ -768,10 +767,6 @@ build1VectorizeIndex1Var n var v1 i =
     AstScale (AstPrimalPart1 r) d ->
       AstScale (AstPrimalPart1 $ AstBuildPair n (var, AstIndex r i))
                (build1VectorizeIndex1 n var d i)
-
-    AstVar0{} -> error "build1VectorizeIndex1Var: wrong rank"
-    AstVar1{} ->  -- var must be in i, so it's hard to simplify
-      build1VectorizeIndex1Try n var v1 i
 
     AstIndex _v _i -> undefined  -- TODO: a list of indexes needed?
     AstSum v ->
@@ -830,6 +825,9 @@ build1VectorizeIndex1Var n var v1 i =
     AstBuildPair01{} ->
       AstBuildPair n (var, AstIndex v1 i)  -- see AstBuildPair above
 
+    AstVar0{} -> error "build1VectorizeIndex1Var: wrong rank"
+    AstVar1{} ->  -- var must be in i, so it's hard to simplify
+      build1VectorizeIndex1Try n var v1 i
     AstOMap0{} -> error "build1VectorizeIndex1Var: wrong rank"
     AstOMap1{} ->
       AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, AstIndex v1 i)
@@ -864,9 +862,6 @@ intVarInAst var = \case
   AstConstant (AstPrimalPart1 v) -> intVarInAst var v
   AstScale (AstPrimalPart1 v) u -> intVarInAst var v || intVarInAst var u
 
-  AstVar0{} -> False  -- not an int variable
-  AstVar1{} -> False  -- not an int variable
-
   AstIndex v ix -> intVarInAst var v || intVarInAstInt var ix
   AstSum v -> intVarInAst var v
   AstFromList l -> or $ map (intVarInAst var) l  -- down from rank 1 to 0
@@ -892,6 +887,8 @@ intVarInAst var = \case
   AstKonst01 sh v -> or (map (intVarInAstInt var) sh) || intVarInAst var v
   AstBuildPair01 n (_, v) -> intVarInAstInt var n || intVarInAst var v
 
+  AstVar0{} -> False  -- not an int variable
+  AstVar1{} -> False  -- not an int variable
   AstOMap0 (_, v) u -> intVarInAst var v || intVarInAst var u
     -- the variable in binder position, so ignored (and should be distinct)
   AstOMap1 (_, v) u -> intVarInAst var v || intVarInAst var u
@@ -1080,21 +1077,6 @@ interpretAst env = \case
   AstScale (AstPrimalPart1 r) d ->
     scale (interpretAstPrimal env r) (interpretAst env d)
 
-  AstVar0 (AstVarName var) -> case IM.lookup var env of
-    Just (AstVarR0 d) -> scalar1 d
-    Just AstVarR1{} ->
-      error $ "interpretAst: type mismatch for var " ++ show var
-    Just AstVarI{} ->
-      error $ "interpretAst: type mismatch for var " ++ show var
-    Nothing -> error $ "interpretAst: unknown variable var " ++ show var
-  AstVar1 (AstVarName var) -> case IM.lookup var env of
-    Just AstVarR0{} ->
-      error $ "interpretAst: type mismatch for var " ++ show var
-    Just (AstVarR1 d) -> d
-    Just AstVarI{} ->
-      error $ "interpretAst: type mismatch for var " ++ show var
-    Nothing -> error $ "interpretAst: unknown variable var " ++ show var
-
   AstIndex v i -> index1' (interpretAst env v) (interpretAstInt env i)
   AstSum v -> sum1' (interpretAst env v)
   AstFromList l -> fromList1' (map (interpretAst env) l)
@@ -1135,6 +1117,20 @@ interpretAst env = \case
                               (unScalar0 $ interpretAst env r)
   AstBuildPair01 i (var, r) -> interpretAst env $ AstBuildPair i (var, r)
 
+  AstVar0 (AstVarName var) -> case IM.lookup var env of
+    Just (AstVarR0 d) -> scalar1 d
+    Just AstVarR1{} ->
+      error $ "interpretAst: type mismatch for var " ++ show var
+    Just AstVarI{} ->
+      error $ "interpretAst: type mismatch for var " ++ show var
+    Nothing -> error $ "interpretAst: unknown variable var " ++ show var
+  AstVar1 (AstVarName var) -> case IM.lookup var env of
+    Just AstVarR0{} ->
+      error $ "interpretAst: type mismatch for var " ++ show var
+    Just (AstVarR1 d) -> d
+    Just AstVarI{} ->
+      error $ "interpretAst: type mismatch for var " ++ show var
+    Nothing -> error $ "interpretAst: unknown variable var " ++ show var
   AstOMap0 (var, r) e ->  -- this only works on the primal part hence @constant@
     constant
     $ omap (\x -> let D u _ = interpretLambdaD1 env (var, r) (constant x)
