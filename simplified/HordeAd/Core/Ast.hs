@@ -76,7 +76,7 @@ data Ast :: Nat -> Type -> Type where
   -- Syntactic sugar with much more efficient non-sugar implementations.
   -- If we give the user access to tensors, not just vectors, these
   -- operations will be necessary.
-  -- Rank temporarily fixed to 1, to avoid hard type-level programming.
+  -- Rank temporarily fixed to 1, to avoid the AstShape constructor.
   AstIndex0 :: Ast 1 r -> [AstInt r] -> Ast 0 r  -- TODO: land on m?
   AstSum0 :: KnownNat n
           => Ast n r -> Ast 0 r
@@ -85,9 +85,10 @@ data Ast :: Nat -> Type -> Type where
 
   -- If we give the user access to tensors, not just vectors, these
   -- operations will be necessary.
-  -- Rank temporarily fixed to 1, to avoid hard type-level programming.
-  AstFromList01 :: [Ast 0 r] -> Ast 1 r
-  AstFromVector01 :: Data.Vector.Vector (Ast 0 r) -> Ast 1 r
+  -- Rank temporarily fixed to 1, to avoid hard type-level programming
+  -- and/or the AstShape constructor.
+  AstFromList01 :: [AstInt r] -> [Ast 0 r] -> Ast 1 r
+  AstFromVector01 :: [AstInt r] -> Data.Vector.Vector (Ast 0 r) -> Ast 1 r
   AstKonst01 :: [AstInt r] -> Ast 0 r -> Ast 1 r
   -- We don't have AstVarName for list variables, so only rank 1 for now:
   AstBuildPair01 :: AstInt r -> (AstVarName Int, Ast 0 r)

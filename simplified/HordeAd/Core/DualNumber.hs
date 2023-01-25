@@ -712,9 +712,9 @@ build1Vectorize1Var n (var, u) =
       -- AstOp1 does not require Numeric constraint, so better than @*@.
 
     -- Rewriting syntactic sugar:
-    AstFromList01 l ->
+    AstFromList01 _sh l ->
       build1Vectorize1Var n (var, AstFromList1 l)
-    AstFromVector01 l ->
+    AstFromVector01 _sh l ->
       build1Vectorize1Var n (var, AstFromVector1 l)
     AstKonst01 [k] v -> build1Vectorize1Var n (var, AstKonst1 k v)
     AstKonst01{} -> error "build1Vectorize1Var: wrong shape for rank 1"
@@ -823,9 +823,9 @@ build1VectorizeIndex1Var n var v1 i =
     AstDot0{} -> error "build1VectorizeIndex1Var: wrong rank"
 
     -- Rewriting syntactic sugar:
-    AstFromList01 l ->
+    AstFromList01 _sh l ->
       build1VectorizeIndex1Var n var (AstFromList1 l) i
-    AstFromVector01 l ->
+    AstFromVector01 _sh l ->
       build1VectorizeIndex1Var n var (AstFromVector1 l) i
     AstKonst01 [k] v ->
       build1VectorizeIndex1Var n var (AstKonst1 k v) i
@@ -889,8 +889,10 @@ intVarInAst var = \case
   AstSum0 v -> intVarInAst var v
   AstDot0 v u -> intVarInAst var v || intVarInAst var u
 
-  AstFromList01 l -> or $ map (intVarInAst var) l
-  AstFromVector01 l -> V.or $ V.map (intVarInAst var) l
+  AstFromList01 sh l -> or (map (intVarInAstInt var) sh)
+                        || or (map (intVarInAst var) l)
+  AstFromVector01 sh l -> or (map (intVarInAstInt var) sh)
+                          || V.or (V.map (intVarInAst var) l)
   AstKonst01 sh v -> or (map (intVarInAstInt var) sh) || intVarInAst var v
   AstBuildPair01 n (_, v) -> intVarInAstInt var n || intVarInAst var v
 
@@ -1130,8 +1132,10 @@ interpretAst env = \case
   AstSum0 v -> scalar1 $ sum0' (interpretAst env v)
   AstDot0 x y -> scalar1 $ dot0' (interpretAst env x) (interpretAst env y)
 
-  AstFromList01 l -> fromList01' [length l] $ map (unScalar0 . interpretAst env) l
-  AstFromVector01 l -> fromVector01' [V.length l] $ V.map (unScalar0 . interpretAst env) l
+  AstFromList01 sh l -> fromList01' (map (interpretAstInt env) sh)
+                        $ map (unScalar0 . interpretAst env) l
+  AstFromVector01 sh l -> fromVector01' (map (interpretAstInt env) sh)
+                       $ V.map (unScalar0 . interpretAst env) l
   AstKonst01 sh r -> konst01' (map (interpretAstInt env) sh) (unScalar0 $ interpretAst env r)
   AstBuildPair01 i (var, r) -> interpretAst env $ AstBuildPair1 i (var, r)
 
