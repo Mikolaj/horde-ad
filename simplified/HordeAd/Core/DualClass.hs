@@ -238,7 +238,7 @@ class HasRanks (d :: ADMode) r where
   dIndex1 :: KnownNat n
           => Dual d (OR.Array (1 + n) r) -> Int -> Int -> Dual d (OR.Array n r)
   dIndexN :: (KnownNat n, KnownNat m)
-          => Dual d (OR.Array (1 + m) r) -> [Int] -> OR.ShapeL
+          => Dual d (OR.Array (1 + m + n) r) -> [Int] -> OR.ShapeL
           -> Dual d (OR.Array n r)
   dSum1 :: KnownNat n
         => Int -> Dual d (OR.Array (1 + n) r) -> Dual d (OR.Array n r)

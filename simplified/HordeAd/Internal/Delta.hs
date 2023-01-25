@@ -163,7 +163,7 @@ data Delta1 :: Nat -> Type -> Type where
     -- ^ The sub-tensors at the given index of the outermost dimension.
     -- The second integer is the length of the dimension.
   IndexN :: (KnownNat n, KnownNat m)
-         => Delta1 (1 + m) r -> [Int] -> OR.ShapeL -> Delta1 n r
+         => Delta1 (1 + m + n) r -> [Int] -> OR.ShapeL -> Delta1 n r
     -- ^ The sub-tensors at the given path.
   Sum1 :: KnownNat n
        => Int -> Delta1 (1 + n) r -> Delta1 n r
@@ -729,7 +729,7 @@ atIndexInTensorR (Data.Array.Internal.RankedS.A
   values V.! (offset + sum (zipWith (*) is strides))
 
 atIndexInTensorNR :: (Numeric r, KnownNat n)
-                  => OR.Array (1 + m) r -> [Int] -> OR.Array n r
+                  => OR.Array (1 + m + n) r -> [Int] -> OR.Array n r
 atIndexInTensorNR v is =
   -- This was too hard a type-level hacking for me, with ranked tensors.
   -- OTOH, the untyped tensors have less runtime checks, so are minimally

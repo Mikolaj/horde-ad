@@ -53,9 +53,9 @@ data Ast :: Nat -> Type -> Type where
   -- For VectorLike class and the future Tensor class:
   AstIndex :: Ast (1 + n) r -> AstInt r -> Ast n r
   AstIndexN :: KnownNat m
-            => Ast (1 + m) r -> [AstInt r] -> Ast n r
+            => Ast (1 + m + n) r -> [AstInt r] -> Ast n r
     -- emerges from vectorizing AstIndex
-    -- first ix is for outermost dimension; @m - n@ is the length of the list;
+    -- first ix is for outermost dimension; @1 + m@ is the length of the list;
     -- empty list means identity
   AstSum :: Ast (1 + n) r -> Ast n r
   -- No shape argument, because we'd need [AstInt], because it changes

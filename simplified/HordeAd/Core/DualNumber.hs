@@ -923,19 +923,25 @@ index1' :: (ADModeAndNum d r, KnownNat n)
 index1' (D u u') ix = dD (u `OR.index` ix)
                          (dIndex1 u' ix (head $ OR.shapeL u))
 
--- | First index is for outermost dimension; @m@ is the length of the list;
+-- | First index is for outermost dimension; @1 + m@ is the length of the list;
 -- empty list means identity.
 -- TODO: speed up by using atIndexInTensorR and dIndex0 if the codomain is 0.
 indexN' :: forall m n d r. (ADModeAndNum d r, KnownNat n, KnownNat m)
-        => ADVal d (OR.Array (1 + m) r) -> [Int]
+        => ADVal d (OR.Array (1 + m + n) r) -> [Int]
         -> ADVal d (OR.Array n r)
--- This is much faster, but gradient of dIndexN is not implemented yet:
+-- TODO: This is much faster, but gradient of dIndexN is not implemented yet:
 -- indexN' (D u u') ixs = dD (u `atIndexInTensorNR` ixs)
 --                           (dIndexN u' ixs (OR.shapeL u))
-indexN' d [] = unsafeCoerce d  -- TODO: can I be any more subtle? coerce fails
+indexN' d [] = (unsafeCoerce :: ADVal d (OR.Array (1 + m + n) r)
+                             -> ADVal d (OR.Array n r)) d
 indexN' d (ix : rest) =
-  indexN' (unsafeCoerce $ index1' d ix :: ADVal d (OR.Array (1 + m) r))
-          rest
+  (unsafeCoerce
+     :: (ADVal d (OR.Array (1 + m + n) r) -> [Int]
+         -> ADVal d (OR.Array n r))
+     -> (ADVal d (OR.Array (m + n) r) -> [Int]
+         -> ADVal d (OR.Array n r)))
+    indexN'
+      (index1' d ix) rest
 
 sum1' :: (ADModeAndNum d r, KnownNat n)
       => ADVal d (OR.Array (1 + n) r) -> ADVal d (OR.Array n r)
