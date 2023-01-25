@@ -379,7 +379,7 @@ instance HasPrimal (Ast n r) where
   primalPart = AstPrimalPart1
   dualPart = error "TODO"
   ddD = error "TODO"
-  fromIntOf = AstInt
+  fromIntOf = AstConstInt
 
 
 -- * Legacy operations needed to re-use vector differentiation tests
@@ -640,7 +640,7 @@ build1Vectorize1Var n (var, u) =
       AstTranspose $ AstSelect n2 (var2, b)
         (AstTranspose $ build1Vectorize1 n (var, v))
         (AstTranspose $ build1Vectorize1 n (var, w))
-    AstInt{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, u)
+    AstConstInt{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, u)
     AstConst{} ->
       error "build1Vectorize1Var: AstConst can't have free int variables"
     AstConstant{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, u)
@@ -759,7 +759,7 @@ build1VectorizeIndex1Var n var v1 i =
       -- we may want to add yet another constructor that says "pick the element
       -- on this path out of this select" and hope it reduces fine elsewhere
       -- or we may partially evaluate @i@ and try to reduce on the spot
-    AstInt{} ->
+    AstConstInt{} ->
       AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, AstIndex v1 i)
     AstConst{} ->  -- var must be in i
       AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, AstIndex v1 i)
@@ -859,7 +859,7 @@ intVarInAst var = \case
   AstSelect n (_, b) x y ->
     intVarInAstInt var n || intVarInAstBool var b
     || intVarInAst var x || intVarInAst var y
-  AstInt n -> intVarInAstInt var n
+  AstConstInt n -> intVarInAstInt var n
   AstConst{} -> False
   AstConstant (AstPrimalPart1 v) -> intVarInAst var v
   AstScale (AstPrimalPart1 v) u -> intVarInAst var v || intVarInAst var u
@@ -1074,7 +1074,7 @@ interpretAst env = \case
         v1 = interpretAst env a1
         v2 = interpretAst env a2
     in bitmap * v1 + v2 - bitmap * v2
-  AstInt i -> fromInteger $ fromIntegral $ interpretAstInt env i
+  AstConstInt i -> fromInteger $ fromIntegral $ interpretAstInt env i
   AstConst a -> constant a
   AstConstant (AstPrimalPart1 a) -> constant $ interpretAstPrimal env a
   AstScale (AstPrimalPart1 r) d ->

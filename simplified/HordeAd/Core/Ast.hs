@@ -40,7 +40,7 @@ data Ast :: Nat -> Type -> Type where
   AstCond :: AstBool r -> Ast n r -> Ast n r -> Ast n r
   AstSelect :: AstInt r -> (AstVarName Int, AstBool r) -> Ast n r -> Ast n r
             -> Ast n r
-  AstInt :: AstInt r -> Ast n r
+  AstConstInt :: AstInt r -> Ast n r
   AstConst :: OR.Array n r -> Ast n r
     -- sort of partially evaluated @AstConstant@
   AstConstant :: AstPrimalPart1 n r -> Ast n r
@@ -278,7 +278,7 @@ instance Enum (AstInt r) where
   -- TODO
 
 -- Warning: this class lacks toInteger, which also makes it impossible
--- to include AstInt in Ast via fromInteger, hence AstInt.
+-- to include AstInt in Ast via fromInteger nor fromIntegral, hence AstInt.
 instance Integral (AstInt r) where
   quot u v = AstIntOp QuotIntOp [u, v]
   rem u v = AstIntOp RemIntOp [u, v]
