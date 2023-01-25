@@ -1228,6 +1228,10 @@ interpretAstIntOp f AbsIntOp [u] = abs $ f u
 interpretAstIntOp f SignumIntOp [u] = signum $ f u
 interpretAstIntOp f MaxIntOp [u, v] = max (f u) (f v)
 interpretAstIntOp f MinIntOp [u, v] = min (f u) (f v)
+interpretAstIntOp f QuotIntOp [u, v] = quot (f u) (f v)
+interpretAstIntOp f RemIntOp [u, v] = rem (f u) (f v)
+interpretAstIntOp f DivIntOp [u, v] = div (f u) (f v)
+interpretAstIntOp f ModIntOp [u, v] = mod (f u) (f v)
 interpretAstIntOp _ opCodeInt args =
   error $ "interpretAstIntOp: wrong number of arguments"
           ++ show (opCodeInt, length args)

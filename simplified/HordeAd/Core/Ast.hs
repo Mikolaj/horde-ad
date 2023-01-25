@@ -169,6 +169,7 @@ data OpCodeInt =
     PlusIntOp | MinusIntOp | TimesIntOp | NegateIntOp
   | AbsIntOp | SignumIntOp
   | MaxIntOp | MinIntOp
+  | QuotIntOp | RemIntOp | DivIntOp | ModIntOp
   deriving Show
 
 data OpCodeBool =
@@ -276,9 +277,16 @@ instance Real (AstInt r) where
 instance Enum (AstInt r) where
   -- TODO
 
+-- Warning: this class lacks toInteger, which also makes it impossible
+-- to include AstInt in Ast via fromInteger, hence AstInt.
 instance Integral (AstInt r) where
-  -- TODO
-
+  quot u v = AstIntOp QuotIntOp [u, v]
+  rem u v = AstIntOp RemIntOp [u, v]
+  div u v = AstIntOp DivIntOp [u, v]
+  mod u v = AstIntOp ModIntOp [u, v]
+  quotRem u v = (AstIntOp QuotIntOp [u, v], AstIntOp RemIntOp [u, v])
+  divMod u v = (AstIntOp DivIntOp [u, v], AstIntOp ModIntOp [u, v])
+  toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.
 
 -- Impure but in the most trivial way (only ever incremented counter).
 unsafeAstVarCounter :: Counter
