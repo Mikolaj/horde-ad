@@ -701,6 +701,7 @@ build1Vectorize1Var n (var, u) =
       build1Vectorize1Var n (var, AstTransposeGeneral1 [1, 0] v)
     AstTransposeGeneral1 perm v -> AstTransposeGeneral1 (0 : map succ perm)
                                    $ build1Vectorize1Var n (var, v)
+    AstFlatten v -> build1Vectorize1 n (var, AstReshape1 [AstLength u] v)
     AstReshape1 ns _v | or $ map (intVarInAstInt var) ns ->
       AstBuildPair1 n (var, u)  -- TODO
     AstReshape1 ns v -> AstReshape1 (n : ns) $ build1Vectorize1 n (var, v)
@@ -812,6 +813,7 @@ build1VectorizeIndex1Var n var v1 i =
       -- or operating on the underlying vector of elements instead?
     AstTransposeGeneral1{} -> build1VectorizeIndex1Try n var v1 i
       -- an even more general indexing needed?
+    AstFlatten{} -> build1VectorizeIndex1Try n var v1 i
     AstReshape1{} -> build1VectorizeIndex1Try n var v1 i
       -- an even more general indexing needed?
 
@@ -878,6 +880,7 @@ intVarInAst var = \case
   AstBuildPair1 n (_, v) -> intVarInAstInt var n || intVarInAst var v
   AstTranspose1 v -> intVarInAst var v
   AstTransposeGeneral1 _ v -> intVarInAst var v
+  AstFlatten v -> intVarInAst var v
   AstReshape1 ns v -> or (map (intVarInAstInt var) ns) || intVarInAst var v
 
   AstFromList01 l -> or $ map (intVarInAst var) l
@@ -1116,6 +1119,8 @@ interpretAst env = \case
   AstTransposeGeneral1 perm v ->
     let d@(D u _) = interpretAst env v
     in if OR.rank u <= length perm - 1 then d else transposeGeneral1' perm d
+  AstFlatten v -> let d@(D u _) = interpretAst env v
+                  in reshape1' [OR.size u] d
   AstReshape1 ns v -> reshape1' (map (interpretAstInt env) ns)
                                 (interpretAst env v)
 
