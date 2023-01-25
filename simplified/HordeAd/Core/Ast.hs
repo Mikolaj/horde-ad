@@ -49,11 +49,6 @@ data Ast :: Nat -> Type -> Type where
   AstVar0 :: AstVarName r -> Ast 0 r
   AstVar1 :: AstVarName (OR.Array 1 r) -> Ast 1 r
 
-  -- Rank temporarily fixed to 1, to avoid hard type-level programming.
-  AstIndex10 :: Ast 1 r -> [AstInt r] -> Ast 0 r
-  AstSum10 :: Ast 1 r -> Ast 0 r
-  AstDot10 :: Ast 1 r -> Ast 1 r -> Ast 0 r
-
   AstIndex1 :: Ast (1 + n) r -> AstInt r -> Ast n r
   AstSum1 :: Ast (1 + n) r -> Ast n r
   -- No shape argument, because we'd need [AstInt], because it changes
@@ -85,6 +80,16 @@ data Ast :: Nat -> Type -> Type where
   -- We don't have AstVarName for list variables, so only rank 1 for now:
   AstBuildPair01 :: AstInt r -> (AstVarName Int, Ast 0 r)
                  -> Ast 1 r
+
+  -- Syntactic sugar with much more efficient non-sugar implementations.
+  -- If we give the user access to tensors, not just vectors, this will
+  -- be necessary (and changing some ranks above from 1 to n).
+  -- Rank temporarily fixed to 1, to avoid hard type-level programming.
+  AstIndex0 :: Ast 1 r -> [AstInt r] -> Ast 0 r  -- TODO: land on m?
+  AstSum0 :: KnownNat n
+          => Ast n r -> Ast 0 r
+  AstDot0 :: KnownNat n
+          => Ast n r -> Ast n r -> Ast 0 r
 
   AstOMap0 :: (AstVarName r, Ast 0 r) -> Ast 0 r -> Ast 0 r
   AstOMap1 :: (AstVarName r, Ast 0 r) -> Ast 1 r -> Ast 1 r

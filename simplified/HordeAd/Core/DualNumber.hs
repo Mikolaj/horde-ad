@@ -245,9 +245,9 @@ instance ADModeAndNum d r
   lminIndex (D u _) = lminIndex u
   lmaxIndex (D u _) = lmaxIndex u
 
-  lindex10 d ix = index10' d [ix]
-  lsum10 = sum10'
-  ldot10 = dot10'
+  lindex10 d ix = index0' d [ix]
+  lsum10 = sum0'
+  ldot10 = dot0'
   lminimum0 (D u u') =
     dD (lminimum0 u) (dIndex10 u' [lminIndex u] [llength u])
   lmaximum0 (D u u') =
@@ -269,11 +269,11 @@ instance VectorLike1 (Ast 1 r) (Ast 0 r) where
   lminIndex = AstMinIndex
   lmaxIndex = AstMaxIndex
 
-  lindex10 v ix = AstIndex10 v [ix]
-  lsum10 = AstSum10
-  ldot10 u v = AstDot10 u v
-  lminimum0 v = AstIndex10 v [AstMinIndex v]
-  lmaximum0 v = AstIndex10 v [AstMaxIndex v]
+  lindex10 v ix = AstIndex1 v ix
+  lsum10 = AstSum1
+  ldot10 u v = AstDot0 u v
+  lminimum0 v = AstIndex1 v (AstMinIndex v)
+  lmaximum0 v = AstIndex1 v (AstMaxIndex v)
 
   lfromList1 l = AstFromList1 l
   lfromVector1 l = AstFromVector1 l
@@ -656,17 +656,6 @@ build1Vectorize1Var n (var, u) =
     AstVar1{} ->
       error "build1Vectorize1Var: AstVar1 can't have free int variables"
 
-    -- Rewriting syntactic sugar:
-    AstIndex10 v [i] -> build1Vectorize1Var n (var, AstIndex1 v i)
-    AstIndex10{} ->
-      error "build1Vectorize1Var: wrong number of indexes for rank 1"
-    AstSum10 v -> build1Vectorize1Var n (var, AstSum1 v)
-    AstDot10 v w ->
-      build1Vectorize1Var n (var, AstSum1 (AstOp1 TimesOut [v, w]))
-      -- AstDot1 is dubious, because dot product results in a scalar,
-      -- not in one rank less and also (some) fast implementations
-      -- depend on it resulting in a scalar.
-
     AstIndex1 v i -> build1VectorizeIndex1Var n var v i
       -- @var@ is in @v@ or @i@; TODO: simplify i first or even fully
       -- evaluate (may involve huge data processing) if contains no vars
@@ -713,6 +702,22 @@ build1Vectorize1Var n (var, u) =
       build1Vectorize1Var n (var, AstFromVector1 l)
     AstKonst01 k v -> build1Vectorize1Var n (var, AstKonst1 k v)
     AstBuildPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
+
+    -- Rewriting syntactic sugar in the simplest way (but much more efficient
+    -- non-sugar implementations exist):
+    AstIndex0 v [i] -> build1Vectorize1Var n (var, AstIndex1 v i)
+      -- TODO: express with AstFlatten (costly, but simple), for which
+      -- we probably need AstShape AstInt constructor
+    AstIndex0{} ->
+      error "build1Vectorize1Var: wrong number of indexes for rank 1"
+    AstSum0 v -> build1Vectorize1Var n (var, AstSum1 $ AstFlatten v)
+    AstDot0 v w ->
+      build1Vectorize1Var n (var, AstSum1 (AstOp1 TimesOut [ AstFlatten v
+                                                           , AstFlatten w ]))
+      -- AstDot1 is dubious, because dot product results in a scalar,
+      -- not in one rank less and also (some) fast implementations
+      -- depend on it resulting in a scalar.
+      -- AstOp1 does not require Numeric constraint, so better than @*@.
 
     AstOMap0{} -> AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, u)
     AstOMap1{} -> AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, u)
@@ -767,10 +772,6 @@ build1VectorizeIndex1Var n var v1 i =
     AstVar0{} -> error "build1VectorizeIndex1Var: wrong rank"
     AstVar1{} ->  -- var must be in i, so it's hard to simplify
       build1VectorizeIndex1Try n var v1 i
-
-    AstIndex10{} -> error "build1VectorizeIndex1Var: wrong rank"
-    AstSum10{} -> error "build1VectorizeIndex1Var: wrong rank"
-    AstDot10{} -> error "build1VectorizeIndex1Var: wrong rank"
 
     AstIndex1 _v _i -> undefined  -- TODO: a list of indexes needed?
     AstSum1 v ->
@@ -827,6 +828,10 @@ build1VectorizeIndex1Var n var v1 i =
     AstBuildPair01{} ->
       AstBuildPair1 n (var, AstIndex1 v1 i)  -- see AstBuildPair1 above
 
+    AstIndex0{} -> error "build1VectorizeIndex1Var: wrong rank"
+    AstSum0{} -> error "build1VectorizeIndex1Var: wrong rank"
+    AstDot0{} -> error "build1VectorizeIndex1Var: wrong rank"
+
     AstOMap0{} -> error "build1VectorizeIndex1Var: wrong rank"
     AstOMap1{} ->
       AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, AstIndex1 v1 i)
@@ -864,10 +869,6 @@ intVarInAst var = \case
   AstVar0{} -> False  -- not an int variable
   AstVar1{} -> False  -- not an int variable
 
-  AstIndex10 v ixs -> intVarInAst var v || or (map (intVarInAstInt var) ixs)
-  AstSum10 v -> intVarInAst var v
-  AstDot10 v u -> intVarInAst var v || intVarInAst var u
-
   AstIndex1 v ix -> intVarInAst var v || intVarInAstInt var ix
   AstSum1 v -> intVarInAst var v
   AstFromList1 l -> or $ map (intVarInAst var) l  -- down from rank 1 to 0
@@ -887,6 +888,10 @@ intVarInAst var = \case
   AstFromVector01 l -> V.or $ V.map (intVarInAst var) l
   AstKonst01 n v -> intVarInAstInt var n || intVarInAst var v
   AstBuildPair01 n (_, v) -> intVarInAstInt var n || intVarInAst var v
+
+  AstIndex0 v ixs -> intVarInAst var v || or (map (intVarInAstInt var) ixs)
+  AstSum0 v -> intVarInAst var v
+  AstDot0 v u -> intVarInAst var v || intVarInAst var u
 
   AstOMap0 (_, v) u -> intVarInAst var v || intVarInAst var u
     -- the variable in binder position, so ignored (and should be distinct)
@@ -928,18 +933,18 @@ gtIntAst i j = AstRelInt GtOut [i, j]
 -- First come definition of some ADVal combinators to be used below.
 -- They are more general than their legacy versions for rank 1 above
 -- and sometimes more general than the Ast operations.
-index10' :: (ADModeAndNum d r, KnownNat n)
-         => ADVal d (OR.Array n r) -> [Int] -> ADVal d r
-index10' (D u u') ixs = dD (u `atIndexInTensorR` ixs)
-                           (dIndex10 u' ixs (OR.shapeL u))
+index0' :: (ADModeAndNum d r, KnownNat n)
+        => ADVal d (OR.Array n r) -> [Int] -> ADVal d r
+index0' (D u u') ixs = dD (u `atIndexInTensorR` ixs)
+                          (dIndex10 u' ixs (OR.shapeL u))
 
-sum10' :: (ADModeAndNum d r, KnownNat n)
-       => ADVal d (OR.Array n r) -> ADVal d r
-sum10' (D u u') = dD (LA.sumElements $ OR.toVector u) (dSum10 (OR.shapeL u) u')
+sum0' :: (ADModeAndNum d r, KnownNat n)
+      => ADVal d (OR.Array n r) -> ADVal d r
+sum0' (D u u') = dD (LA.sumElements $ OR.toVector u) (dSum10 (OR.shapeL u) u')
 
-dot10' :: (ADModeAndNum d r, KnownNat n)
-       => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r) -> ADVal d r
-dot10' (D u u') (D v v') = dD (OR.toVector u LA.<.> OR.toVector v)
+dot0' :: (ADModeAndNum d r, KnownNat n)
+      => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r) -> ADVal d r
+dot0' (D u u') (D v v') = dD (OR.toVector u LA.<.> OR.toVector v)
                               (dAdd (dDot10 v u') (dDot10 u v'))
 
 from10 :: ADModeAndNum d r => ADVal d (OR.Array 0 r) -> ADVal d r
@@ -1091,16 +1096,11 @@ interpretAst env = \case
       error $ "interpretAst: type mismatch for var " ++ show var
     Nothing -> error $ "interpretAst: unknown variable var " ++ show var
 
-  AstIndex10 v is ->
-    from01 $ index10' (interpretAst env v) (map (interpretAstInt env) is)
-  AstSum10 v -> from01 $ sum10' (interpretAst env v)
-  AstDot10 x y -> from01 $ dot10' (interpretAst env x) (interpretAst env y)
-
   AstIndex1 v i -> index1' (interpretAst env v) (interpretAstInt env i)
   AstSum1 v -> sum1' (interpretAst env v)
   AstFromList1 l -> fromList1' (map (interpretAst env) l)
   AstFromVector1 l -> fromVector1' (V.map (interpretAst env) l)
-  AstKonst1 n v ->konst1' (interpretAstInt env n) (interpretAst env v)
+  AstKonst1 n v -> konst1' (interpretAstInt env n) (interpretAst env v)
   AstAppend1 x y -> append1' (interpretAst env x) (interpretAst env y)
   AstSlice1 i k v -> slice1' (interpretAstInt env i) (interpretAstInt env k)
                (interpretAst env v)
@@ -1128,6 +1128,11 @@ interpretAst env = \case
   AstFromVector01 l -> fromVector01' [V.length l] $ V.map (from10 . interpretAst env) l
   AstKonst01 n r -> konst01' [interpretAstInt env n] (from10 $ interpretAst env r)
   AstBuildPair01 i (var, r) -> interpretAst env $ AstBuildPair1 i (var, r)
+
+  AstIndex0 v is ->
+    from01 $ index0' (interpretAst env v) (map (interpretAstInt env) is)
+  AstSum0 v -> from01 $ sum0' (interpretAst env v)
+  AstDot0 x y -> from01 $ dot0' (interpretAst env x) (interpretAst env y)
 
   AstOMap0 (var, r) e ->  -- this only works on the primal part hence @constant@
     constant
