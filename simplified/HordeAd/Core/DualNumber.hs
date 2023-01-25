@@ -714,12 +714,12 @@ build1Vectorize1Var n (var, u) =
       in build1Vectorize1Var n (var, AstReshape sh $ AstKonst k v)
     AstBuildPair01{} -> AstBuildPair n (var, u)  -- see AstBuildPair above
 
+    AstOMap0{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, u)
+    AstOMap1{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, u)
     AstVar0{} ->
       error "build1Vectorize1Var: AstVar0 can't have free int variables"
     AstVar1{} ->
       error "build1Vectorize1Var: AstVar1 can't have free int variables"
-    AstOMap0{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, u)
-    AstOMap1{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, u)
     -- All other patterns are redundant due to GADT typing.
 
 -- The application @build1VectorizeIndex n var v i@
@@ -825,12 +825,12 @@ build1VectorizeIndex1Var n var v1 i =
     AstBuildPair01{} ->
       AstBuildPair n (var, AstIndex v1 i)  -- see AstBuildPair above
 
-    AstVar0{} -> error "build1VectorizeIndex1Var: wrong rank"
-    AstVar1{} ->  -- var must be in i, so it's hard to simplify
-      build1VectorizeIndex1Try n var v1 i
     AstOMap0{} -> error "build1VectorizeIndex1Var: wrong rank"
     AstOMap1{} ->
       AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, AstIndex v1 i)
+    AstVar0{} -> error "build1VectorizeIndex1Var: wrong rank"
+    AstVar1{} ->  -- var must be in i, so it's hard to simplify
+      build1VectorizeIndex1Try n var v1 i
     -- All other patterns are redundant due to GADT typing.
 
 -- | The variable is known to occur in the term or in the index
@@ -887,11 +887,11 @@ intVarInAst var = \case
   AstKonst01 sh v -> or (map (intVarInAstInt var) sh) || intVarInAst var v
   AstBuildPair01 n (_, v) -> intVarInAstInt var n || intVarInAst var v
 
-  AstVar0{} -> False  -- not an int variable
-  AstVar1{} -> False  -- not an int variable
   AstOMap0 (_, v) u -> intVarInAst var v || intVarInAst var u
     -- the variable in binder position, so ignored (and should be distinct)
   AstOMap1 (_, v) u -> intVarInAst var v || intVarInAst var u
+  AstVar0{} -> False  -- not an int variable
+  AstVar1{} -> False  -- not an int variable
 
 intVarInAstInt :: AstVarName Int -> AstInt r -> Bool
 intVarInAstInt var = \case
@@ -1117,6 +1117,16 @@ interpretAst env = \case
                               (unScalar0 $ interpretAst env r)
   AstBuildPair01 i (var, r) -> interpretAst env $ AstBuildPair i (var, r)
 
+  AstOMap0 (var, r) e ->  -- this only works on the primal part hence @constant@
+    constant
+    $ omap (\x -> let D u _ = interpretLambdaD1 env (var, r) (constant x)
+                  in u)
+           (interpretAstPrimal env e)
+  AstOMap1 (var, r) e ->  -- this only works on the primal part hence @constant@
+    constant
+    $ omap (\x -> let D u _ = interpretLambdaD1 env (var, r) (constant x)
+                  in u)
+           (interpretAstPrimal env e)
   AstVar0 (AstVarName var) -> case IM.lookup var env of
     Just (AstVarR0 d) -> scalar1 d
     Just AstVarR1{} ->
@@ -1131,16 +1141,6 @@ interpretAst env = \case
     Just AstVarI{} ->
       error $ "interpretAst: type mismatch for var " ++ show var
     Nothing -> error $ "interpretAst: unknown variable var " ++ show var
-  AstOMap0 (var, r) e ->  -- this only works on the primal part hence @constant@
-    constant
-    $ omap (\x -> let D u _ = interpretLambdaD1 env (var, r) (constant x)
-                  in u)
-           (interpretAstPrimal env e)
-  AstOMap1 (var, r) e ->  -- this only works on the primal part hence @constant@
-    constant
-    $ omap (\x -> let D u _ = interpretLambdaD1 env (var, r) (constant x)
-                  in u)
-           (interpretAstPrimal env e)
 
 interpretAstInt :: ADModeAndNum d r
                 => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vec r)))
