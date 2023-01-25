@@ -233,7 +233,7 @@ class HasRanks (d :: ADMode) r where
         => OR.ShapeL -> Dual d (OR.Array n r) -> Dual d r
   dDot0 :: KnownNat n
         => OR.Array n r -> Dual d (OR.Array n r) -> Dual d r
-  dFrom10 :: Dual d (OR.Array 0 r) -> Dual d r
+  dUnScalar0 :: Dual d (OR.Array 0 r) -> Dual d r
 
   dIndex1 :: KnownNat n
           => Dual d (OR.Array (1 + n) r) -> Int -> Int -> Dual d (OR.Array n r)
@@ -272,7 +272,7 @@ class HasRanks (d :: ADMode) r where
            => OR.ShapeL -> Dual d r -> Dual d (OR.Array n r)
   dBuild01 :: KnownNat n
            => OR.ShapeL -> ([Int] -> Dual d r) -> Dual d (OR.Array n r)
-  dFrom01 :: Dual d r -> Dual d (OR.Array 0 r)
+  dScalar1 :: Dual d r -> Dual d (OR.Array 0 r)
 
   dFromX1 :: KnownNat n
           => Dual d (OT.Array r) -> Dual d (OR.Array n r)
@@ -366,7 +366,7 @@ instance Dual 'ADModeGradient r ~ Delta0 r
   dIndex0 = Index0
   dSum0 = Sum0
   dDot0 = Dot0
-  dFrom10 = From10
+  dUnScalar0 = UnScalar0
 
   dIndex1 = Index1
   dSum1 = Sum1
@@ -384,7 +384,7 @@ instance Dual 'ADModeGradient r ~ Delta0 r
   dFromVector01 = FromVector01
   dKonst01 = Konst01
   dBuild01 = Build01
-  dFrom01 = From01
+  dScalar1 = Scalar1
 
   dFromX1 = FromX1
 
@@ -415,7 +415,7 @@ instance ( Numeric r, Num (Vector r)
   dIndex0 d ixs _ = d `atIndexInTensorR` ixs
   dSum0 _ = OR.sumA
   dDot0 u v = OR.toVector u LA.<.> OR.toVector v
-  dFrom10 = OR.unScalar
+  dUnScalar0 = OR.unScalar
 
   dIndex1 d ix _ = OR.index d ix
   dSum1 _ = ORB.sumA . OR.unravel
@@ -433,7 +433,7 @@ instance ( Numeric r, Num (Vector r)
   dFromVector01 sh = OR.fromVector sh . V.convert
   dKonst01 sh d = OR.constant sh d
   dBuild01 = OR.generate
-  dFrom01 = OR.scalar
+  dScalar1 = OR.scalar
 
   dFromX1 = Data.Array.Convert.convert
 
@@ -468,7 +468,7 @@ instance HasRanks 'ADModeValue r where
   dIndex0 _ _ _ = DummyDual ()
   dSum0 _ _ = DummyDual ()
   dDot0 _ _ = DummyDual ()
-  dFrom10 _ = DummyDual ()
+  dUnScalar0 _ = DummyDual ()
 
   dIndex1 _ _ _ = DummyDual ()
   dSum1 _ _ = DummyDual ()
@@ -486,7 +486,7 @@ instance HasRanks 'ADModeValue r where
   dFromVector01 _ _ = DummyDual ()
   dKonst01 _ _ = DummyDual ()
   dBuild01 _ _ = DummyDual ()
-  dFrom01 _ = DummyDual ()
+  dScalar1 _ = DummyDual ()
 
   dFromX1 _ = DummyDual ()
 

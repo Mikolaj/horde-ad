@@ -146,7 +146,7 @@ data Delta0 :: Type -> Type where
        => OR.ShapeL -> Delta1 n r -> Delta0 r
   Dot0 :: KnownNat n
        => OR.Array n r -> Delta1 n r -> Delta0 r
-  From10 :: Delta1 0 r -> Delta0 r
+  UnScalar0 :: Delta1 0 r -> Delta0 r
 
 deriving instance (Show r, Numeric r) => Show (Delta0 r)
 
@@ -203,7 +203,7 @@ data Delta1 :: Nat -> Type -> Type where
   FromVector01 :: OR.ShapeL -> Data.Vector.Vector (Delta0 r) -> Delta1 n r
   Konst01 :: OR.ShapeL -> Delta0 r -> Delta1 n r
   Build01 :: OR.ShapeL -> ([Int] -> Delta0 r) -> Delta1 n r
-  From01 :: Delta0 r -> Delta1 0 r
+  Scalar1 :: Delta0 r -> Delta1 0 r
 
   FromX1 :: DeltaX r -> Delta1 n r
 
@@ -469,7 +469,7 @@ buildFinMaps s0 deltaDt =
         Index0 d ixs sh -> eval1 s (OR.constant sh 0 `updateOR` [(ixs, c)]) d
         Sum0 sh d -> eval1 s (OR.constant sh c) d
         Dot0 v vd -> eval1 s (liftVR (LA.scale c) v) vd
-        From10 d -> eval1 s (OR.scalar c) d
+        UnScalar0 d -> eval1 s (OR.scalar c) d
 
       addToArray :: OR.Array n r -> OT.Array r -> OT.Array r
       addToArray c = \v -> let cs = Data.Array.Convert.convert c
@@ -549,7 +549,7 @@ buildFinMaps s0 deltaDt =
                 [] -> error "getStrides in buildFinMaps"
           in V.ifoldl' (\s2 i c0 -> eval0 s2 c0 (f $ toIx ss i))
                        s (OR.toVector c)
-        From01 d -> eval0 s (OR.unScalar c) d
+        Scalar1 d -> eval0 s (OR.unScalar c) d
 
       evalFromnMap :: EvalState r -> EvalState r
       evalFromnMap s@EvalState{nMap, dMap0, dMap1} =
@@ -633,7 +633,7 @@ buildDerivative dim0 dim1 deltaTopLevel
         Index0 d ixs _ -> (`atIndexInTensorR` ixs) <$> eval1 d
         Sum0 _ d -> OR.sumA <$> eval1 d
         Dot0 v d -> (LA.<.> OR.toVector v) . OR.toVector <$> eval1 d
-        From10 d -> OR.unScalar <$> eval1 d
+        UnScalar0 d -> OR.unScalar <$> eval1 d
 
       eval1 :: KnownNat n => Delta1 n r -> ST s (OR.Array n r)
       eval1 = \case
@@ -694,7 +694,7 @@ buildDerivative dim0 dim1 deltaTopLevel
           l <- mapM (eval0 . f)
                $ [toIx ss i | i <- [0 .. s - 1]]
           return $! OR.fromList sh l
-        From01 d -> OR.scalar <$> eval0 d
+        Scalar1 d -> OR.scalar <$> eval0 d
 
   eval0 deltaTopLevel
 

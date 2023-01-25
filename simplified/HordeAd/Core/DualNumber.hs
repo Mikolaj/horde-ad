@@ -947,8 +947,8 @@ dot0' :: (ADModeAndNum d r, KnownNat n)
 dot0' (D u u') (D v v') = dD (OR.toVector u LA.<.> OR.toVector v)
                               (dAdd (dDot0 v u') (dDot0 u v'))
 
-from10 :: ADModeAndNum d r => ADVal d (OR.Array 0 r) -> ADVal d r
-from10 (D u u') = dD (OR.unScalar u) (dFrom10 u')
+unScalar0 :: ADModeAndNum d r => ADVal d (OR.Array 0 r) -> ADVal d r
+unScalar0 (D u u') = dD (OR.unScalar u) (dUnScalar0 u')
 
 index1' :: (ADModeAndNum d r, KnownNat n)
         => ADVal d (OR.Array (1 + n) r) -> Int -> ADVal d (OR.Array n r)
@@ -1030,8 +1030,8 @@ konst01' :: (ADModeAndNum d r, KnownNat n)
          => OR.ShapeL -> ADVal d r -> ADVal d (OR.Array n r)
 konst01' sh (D u u') = dD (OR.constant sh u) (dKonst01 sh u')
 
-from01 :: ADModeAndNum d r => ADVal d r -> ADVal d (OR.Array 0 r)
-from01 (D u u') = dD (OR.scalar u) (dFrom01 u')
+scalar1 :: ADModeAndNum d r => ADVal d r -> ADVal d (OR.Array 0 r)
+scalar1 (D u u') = dD (OR.scalar u) (dScalar1 u')
 
 interpretLambdaD1
   :: ADModeAndNum d r
@@ -1039,7 +1039,7 @@ interpretLambdaD1
   -> (AstVarName r, Ast 0 r)
   -> ADVal d r -> ADVal d r
 interpretLambdaD1 env (AstVarName var, ast) =
-  \d -> from10 $ interpretAst (IM.insert var (AstVarR0 d) env) ast
+  \d -> unScalar0 $ interpretAst (IM.insert var (AstVarR0 d) env) ast
 
 interpretLambdaI1
   :: (ADModeAndNum d r, KnownNat n)
@@ -1082,7 +1082,7 @@ interpretAst env = \case
     scale (interpretAstPrimal env r) (interpretAst env d)
 
   AstVar0 (AstVarName var) -> case IM.lookup var env of
-    Just (AstVarR0 d) -> from01 d
+    Just (AstVarR0 d) -> scalar1 d
     Just AstVarR1{} ->
       error $ "interpretAst: type mismatch for var " ++ show var
     Just AstVarI{} ->
@@ -1124,15 +1124,15 @@ interpretAst env = \case
   AstReshape1 ns v -> reshape1' (map (interpretAstInt env) ns)
                                 (interpretAst env v)
 
-  AstFromList01 l -> fromList01' [length l] $ map (from10 . interpretAst env) l
-  AstFromVector01 l -> fromVector01' [V.length l] $ V.map (from10 . interpretAst env) l
-  AstKonst01 n r -> konst01' [interpretAstInt env n] (from10 $ interpretAst env r)
+  AstFromList01 l -> fromList01' [length l] $ map (unScalar0 . interpretAst env) l
+  AstFromVector01 l -> fromVector01' [V.length l] $ V.map (unScalar0 . interpretAst env) l
+  AstKonst01 n r -> konst01' [interpretAstInt env n] (unScalar0 $ interpretAst env r)
   AstBuildPair01 i (var, r) -> interpretAst env $ AstBuildPair1 i (var, r)
 
   AstIndex0 v is ->
-    from01 $ index0' (interpretAst env v) (map (interpretAstInt env) is)
-  AstSum0 v -> from01 $ sum0' (interpretAst env v)
-  AstDot0 x y -> from01 $ dot0' (interpretAst env x) (interpretAst env y)
+    scalar1 $ index0' (interpretAst env v) (map (interpretAstInt env) is)
+  AstSum0 v -> scalar1 $ sum0' (interpretAst env v)
+  AstDot0 x y -> scalar1 $ dot0' (interpretAst env x) (interpretAst env y)
 
   AstOMap0 (var, r) e ->  -- this only works on the primal part hence @constant@
     constant
