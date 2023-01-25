@@ -714,8 +714,9 @@ build1Vectorize1Var n (var, u) =
       build1Vectorize1Var n (var, AstReshape1 sh $ AstFromList1 l)
     AstFromVector01 sh l ->
       build1Vectorize1Var n (var, AstReshape1 sh $ AstFromVector1 l)
-    AstKonst01 [k] v -> build1Vectorize1Var n (var, AstKonst1 k v)
-    AstKonst01{} -> error "build1Vectorize1Var: wrong shape for rank 1"
+    AstKonst01 sh v ->
+      let k = product sh
+      in build1Vectorize1Var n (var, AstReshape1 sh $ AstKonst1 k v)
     AstBuildPair01{} -> AstBuildPair1 n (var, u)  -- see AstBuildPair1 above
 
     AstOMap0{} -> AstConstant1 $ AstPrimalPart1 $ AstBuildPair1 n (var, u)
@@ -823,9 +824,9 @@ build1VectorizeIndex1Var n var v1 i =
       build1VectorizeIndex1Var n var (AstReshape1 sh $ AstFromList1 l) i
     AstFromVector01 sh l ->
       build1VectorizeIndex1Var n var (AstReshape1 sh $ AstFromVector1 l) i
-    AstKonst01 [k] v ->
-      build1VectorizeIndex1Var n var (AstKonst1 k v) i
-    AstKonst01{} -> error "build1VectorizeIndex1Var: wrong shape for rank 1"
+    AstKonst01 sh v ->
+      let k = product sh
+      in build1VectorizeIndex1Var n var (AstReshape1 sh $ AstKonst1 k v) i
     AstBuildPair01{} ->
       AstBuildPair1 n (var, AstIndex1 v1 i)  -- see AstBuildPair1 above
 

@@ -77,8 +77,8 @@ data Ast :: Nat -> Type -> Type where
   -- operations will be necessary.
   -- This is treated as syntactic sugar for now, but these have
   -- much more efficient non-sugar implementations
-  -- (and possibly more efficient vectorization).
-  AstIndex0 :: Ast 1 r -> [AstInt r] -> Ast 0 r  -- TODO: land on m?
+  -- (and possibly more efficient vectorizations).
+  AstIndex0 :: Ast 1 r -> [AstInt r] -> Ast 0 r  -- TODO: land on m instead?
     -- rank temporarily fixed to 1, to avoid the AstShape constructor
   AstSum0 :: KnownNat n
           => Ast n r -> Ast 0 r
@@ -86,9 +86,7 @@ data Ast :: Nat -> Type -> Type where
           => Ast n r -> Ast n r -> Ast 0 r
   AstFromList01 :: [AstInt r] -> [Ast 0 r] -> Ast n r
   AstFromVector01 :: [AstInt r] -> Data.Vector.Vector (Ast 0 r) -> Ast n r
-  AstKonst01 :: [AstInt r] -> Ast 0 r -> Ast 1 r
-    -- rank temporarily fixed to 1, to avoid hard type-level programming
-    -- and/or the AstShape constructor
+  AstKonst01 :: [AstInt r] -> Ast 0 r -> Ast (1 + n) r
   AstBuildPair01 :: AstInt r -> (AstVarName Int, Ast 0 r)
                  -> Ast 1 r
     -- we don't have AstVarName for list variables, so only rank 1 for now
@@ -130,7 +128,7 @@ data AstInt :: Type -> Type where
 data AstBool :: Type -> Type where
   AstBoolOp :: OpCodeBool -> [AstBool r] -> AstBool r
   AstBoolConst :: Bool -> AstBool r
-  AstRel :: OpCodeRel -> [Ast 0 r] -> AstBool r  -- TODO: Ast 1, too?
+  AstRel :: OpCodeRel -> [Ast 0 r] -> AstBool r
   AstRelInt :: OpCodeRel -> [AstInt r] -> AstBool r
 
 {-
