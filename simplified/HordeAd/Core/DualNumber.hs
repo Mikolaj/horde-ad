@@ -326,9 +326,9 @@ instance ADModeAndNum d r
   lminIndex (D u _) = lminIndex u
   lmaxIndex (D u _) = lmaxIndex u
 
-  lindex0 d ix = unScalar0 $ index1' d ix
-  lsum0 = sum0'
-  ldot0 = dot0'
+  lindex0 d ix = unScalar $ index d ix
+  lsum0 = sum0
+  ldot0 = dot0
   lminimum0 (D u u') =
     dD (lminimum0 u) (dIndex0 u' [lminIndex u] [llength u])
   lmaximum0 (D u u') =
@@ -337,9 +337,9 @@ instance ADModeAndNum d r
   lfromList1 l = fromList0N [length l] l
   lfromVector1 l = fromVector0N [V.length l] l
   lkonst1 n = konst0N [n]
-  lappend1 = append1'
-  lslice1 = slice1'
-  lreverse1 = reverse1'
+  lappend1 = append
+  lslice1 = slice
+  lreverse1 = reverse'
   lbuild1 = build1Closure  -- to test against build1Elementwise from Ast
   lmap1 f v = build1Closure (llength v) (\i -> f (v `lindex0` i))
   lzipWith1 f v u =
@@ -962,96 +962,96 @@ gtIntAst i j = AstRelInt GtOp [i, j]
 -- First come definition of some ADVal combinators to be used below.
 -- They are more general than their legacy versions for rank 1 above
 -- and sometimes more general than the Ast operations.
-index1' :: (ADModeAndNum d r, KnownNat n)
-        => ADVal d (OR.Array (1 + n) r) -> Int -> ADVal d (OR.Array n r)
-index1' (D u u') ix = dD (u `OR.index` ix)
-                         (dIndex1 u' ix (head $ OR.shapeL u))
+index :: (ADModeAndNum d r, KnownNat n)
+      => ADVal d (OR.Array (1 + n) r) -> Int -> ADVal d (OR.Array n r)
+index (D u u') ix = dD (u `OR.index` ix)
+                       (dIndex1 u' ix (head $ OR.shapeL u))
 
 -- | First index is for outermost dimension; @1 + m@ is the length of the list;
 -- empty list means identity.
 -- TODO: speed up by using atIndexInTensorR and dIndex0 if the codomain is 0.
-indexN' :: forall m n d r. (ADModeAndNum d r, KnownNat n, KnownNat m)
+indexN :: forall m n d r. (ADModeAndNum d r, KnownNat n, KnownNat m)
         => ADVal d (OR.Array (1 + m + n) r) -> [Int]
         -> ADVal d (OR.Array n r)
 -- TODO: This is much faster, but gradient of dIndexN is not implemented yet:
--- indexN' (D u u') ixs = dD (u `atIndexInTensorNR` ixs)
+-- indexN (D u u') ixs = dD (u `atIndexInTensorNR` ixs)
 --                           (dIndexN u' ixs (OR.shapeL u))
-indexN' d [] = (unsafeCoerce :: ADVal d (OR.Array (1 + m + n) r)
+indexN d [] = (unsafeCoerce :: ADVal d (OR.Array (1 + m + n) r)
                              -> ADVal d (OR.Array n r)) d  -- m is -1
-indexN' d (ix : rest) =
+indexN d (ix : rest) =
   (unsafeCoerce  -- m is (1 + m2)
      :: (ADVal d (OR.Array (1 + m + n) r) -> [Int]
          -> ADVal d (OR.Array n r))
      -> (ADVal d (OR.Array (m + n) r) -> [Int]
          -> ADVal d (OR.Array n r)))
-    indexN'
-      (index1' d ix) rest
+    indexN
+      (index d ix) rest
 
-sum1' :: (ADModeAndNum d r, KnownNat n)
-      => ADVal d (OR.Array (1 + n) r) -> ADVal d (OR.Array n r)
-sum1' (D u u') = dD (ORB.sumA $ OR.unravel u)
-                    (dSum1 (head $ OR.shapeL u) u')
+sum' :: (ADModeAndNum d r, KnownNat n)
+     => ADVal d (OR.Array (1 + n) r) -> ADVal d (OR.Array n r)
+sum' (D u u') = dD (ORB.sumA $ OR.unravel u)
+                   (dSum1 (head $ OR.shapeL u) u')
 
-fromList1' :: (ADModeAndNum d r, KnownNat n)
-           => [ADVal d (OR.Array n r)]
-           -> ADVal d (OR.Array (1 + n) r)
-fromList1' lu =
+fromList :: (ADModeAndNum d r, KnownNat n)
+         => [ADVal d (OR.Array n r)]
+         -> ADVal d (OR.Array (1 + n) r)
+fromList lu =
   -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
   dD (OR.ravel . ORB.fromList [length lu]
       $ map (\(D u _) -> u) lu)
      (dFromList1 $ map (\(D _ u') -> u') lu)
 
-fromVector1' :: (ADModeAndNum d r, KnownNat n)
-             => Data.Vector.Vector (ADVal d (OR.Array n r))
-             -> ADVal d (OR.Array (1 + n) r)
-fromVector1' lu =
+fromVector :: (ADModeAndNum d r, KnownNat n)
+           => Data.Vector.Vector (ADVal d (OR.Array n r))
+           -> ADVal d (OR.Array (1 + n) r)
+fromVector lu =
   dD (OR.ravel . ORB.fromVector [V.length lu] . V.convert
       $ V.map (\(D u _) -> u) lu)
      (dFromVector1 $ V.map (\(D _ u') -> u') lu)
 
-konst1' :: (ADModeAndNum d r, KnownNat n)
-        => Int -> ADVal d (OR.Array n r) -> ADVal d (OR.Array (1 + n) r)
-konst1' n (D u u') = dD (OR.ravel (ORB.constant [n] u))
-                         (dKonst1 n u')
+konst :: (ADModeAndNum d r, KnownNat n)
+      => Int -> ADVal d (OR.Array n r) -> ADVal d (OR.Array (1 + n) r)
+konst n (D u u') = dD (OR.ravel (ORB.constant [n] u))
+                      (dKonst1 n u')
 
-append1' :: (ADModeAndNum d r, KnownNat n)
+append :: (ADModeAndNum d r, KnownNat n)
+       => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
+       -> ADVal d (OR.Array n r)
+append (D u u') (D v v') = dD (OR.append u v)
+                              (dAppend1 u' (head $ OR.shapeL u) v')
+
+slice :: (ADModeAndNum d r, KnownNat n)
+      => Int -> Int -> ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
+slice i k (D u u') = dD (OR.slice [(i, k)] u)
+                        (dSlice1 i k u' (head $ OR.shapeL u))
+
+reverse' :: (ADModeAndNum d r, KnownNat n)
          => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
-         -> ADVal d (OR.Array n r)
-append1' (D u u') (D v v') = dD (OR.append u v)
-                                (dAppend1 u' (head $ OR.shapeL u) v')
-
-slice1' :: (ADModeAndNum d r, KnownNat n)
-        => Int -> Int -> ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
-slice1' i k (D u u') = dD (OR.slice [(i, k)] u)
-                          (dSlice1 i k u' (head $ OR.shapeL u))
-
-reverse1' :: (ADModeAndNum d r, KnownNat n)
-          => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
-reverse1' (D u u') = dD (OR.rev [0] u) (dReverse1 u')
+reverse' (D u u') = dD (OR.rev [0] u) (dReverse1 u')
 
 -- The element-wise (POPL) version, but only one rank at a time.
-build1' :: (ADModeAndNum d r, KnownNat n)
-        => Int -> (Int -> ADVal d (OR.Array n r))
-        -> ADVal d (OR.Array (1 + n) r)
-build1' n f = fromList1' $ map f [0 .. n - 1]
+build :: (ADModeAndNum d r, KnownNat n)
+      => Int -> (Int -> ADVal d (OR.Array n r))
+      -> ADVal d (OR.Array (1 + n) r)
+build n f = fromList $ map f [0 .. n - 1]
 
-transposeGeneral1' :: (ADModeAndNum d r, KnownNat n)
-                   => [Int] -> ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
-transposeGeneral1' perm (D u u') = dD (OR.transpose perm u)
-                                      (dTransposeGeneral1 perm u')
+transposeGeneral :: (ADModeAndNum d r, KnownNat n)
+                 => [Int] -> ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
+transposeGeneral perm (D u u') = dD (OR.transpose perm u)
+                                    (dTransposeGeneral1 perm u')
 
-reshape1' :: (ADModeAndNum d r, KnownNat n, KnownNat m)
-          => OR.ShapeL -> ADVal d (OR.Array n r) -> ADVal d (OR.Array m r)
-reshape1' sh (D u u') = dD (OR.reshape sh u) (dReshape1 (OR.shapeL u) sh u')
+reshape :: (ADModeAndNum d r, KnownNat n, KnownNat m)
+        => OR.ShapeL -> ADVal d (OR.Array n r) -> ADVal d (OR.Array m r)
+reshape sh (D u u') = dD (OR.reshape sh u) (dReshape1 (OR.shapeL u) sh u')
 
-sum0' :: (ADModeAndNum d r, KnownNat n)
-      => ADVal d (OR.Array n r) -> ADVal d r
-sum0' (D u u') = dD (LA.sumElements $ OR.toVector u) (dSum0 (OR.shapeL u) u')
+sum0 :: (ADModeAndNum d r, KnownNat n)
+     => ADVal d (OR.Array n r) -> ADVal d r
+sum0 (D u u') = dD (LA.sumElements $ OR.toVector u) (dSum0 (OR.shapeL u) u')
 
-dot0' :: (ADModeAndNum d r, KnownNat n)
-      => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r) -> ADVal d r
-dot0' (D u u') (D v v') = dD (OR.toVector u LA.<.> OR.toVector v)
-                              (dAdd (dDot0 v u') (dDot0 u v'))
+dot0 :: (ADModeAndNum d r, KnownNat n)
+     => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r) -> ADVal d r
+dot0 (D u u') (D v v') = dD (OR.toVector u LA.<.> OR.toVector v)
+                            (dAdd (dDot0 v u') (dDot0 u v'))
 
 fromList0N :: (ADModeAndNum d r, KnownNat n)
            => OR.ShapeL -> [ADVal d r]
@@ -1071,11 +1071,11 @@ konst0N :: (ADModeAndNum d r, KnownNat n)
         => OR.ShapeL -> ADVal d r -> ADVal d (OR.Array n r)
 konst0N sh (D u u') = dD (OR.constant sh u) (dKonst01 sh u')
 
-scalar1 :: ADModeAndNum d r => ADVal d r -> ADVal d (OR.Array 0 r)
-scalar1 (D u u') = dD (OR.scalar u) (dScalar1 u')
+scalar :: ADModeAndNum d r => ADVal d r -> ADVal d (OR.Array 0 r)
+scalar (D u u') = dD (OR.scalar u) (dScalar1 u')
 
-unScalar0 :: ADModeAndNum d r => ADVal d (OR.Array 0 r) -> ADVal d r
-unScalar0 (D u u') = dD (OR.unScalar u) (dUnScalar0 u')
+unScalar :: ADModeAndNum d r => ADVal d (OR.Array 0 r) -> ADVal d r
+unScalar (D u u') = dD (OR.unScalar u) (dUnScalar0 u')
 
 interpretLambdaD1
   :: ADModeAndNum d r
@@ -1083,7 +1083,7 @@ interpretLambdaD1
   -> (AstVarName r, Ast 0 r)
   -> ADVal d r -> ADVal d r
 interpretLambdaD1 env (AstVarName var, ast) =
-  \d -> unScalar0 $ interpretAst (IM.insert var (AstVarR0 d) env) ast
+  \d -> unScalar $ interpretAst (IM.insert var (AstVarR0 d) env) ast
 
 interpretLambdaI1
   :: (ADModeAndNum d r, KnownNat n)
@@ -1125,16 +1125,16 @@ interpretAst env = \case
   AstScale (AstPrimalPart1 r) d ->
     scale (interpretAstPrimal env r) (interpretAst env d)
 
-  AstIndex v i -> index1' (interpretAst env v) (interpretAstInt env i)
-  AstIndexN v is -> indexN' (interpretAst env v) (map (interpretAstInt env) is)
-  AstSum v -> sum1' (interpretAst env v)
-  AstFromList l -> fromList1' (map (interpretAst env) l)
-  AstFromVector l -> fromVector1' (V.map (interpretAst env) l)
-  AstKonst n v -> konst1' (interpretAstInt env n) (interpretAst env v)
-  AstAppend x y -> append1' (interpretAst env x) (interpretAst env y)
-  AstSlice i k v -> slice1' (interpretAstInt env i) (interpretAstInt env k)
-                            (interpretAst env v)
-  AstReverse v -> reverse1' (interpretAst env v)
+  AstIndex v i -> index (interpretAst env v) (interpretAstInt env i)
+  AstIndexN v is -> indexN (interpretAst env v) (map (interpretAstInt env) is)
+  AstSum v -> sum' (interpretAst env v)
+  AstFromList l -> fromList (map (interpretAst env) l)
+  AstFromVector l -> fromVector (V.map (interpretAst env) l)
+  AstKonst n v -> konst (interpretAstInt env n) (interpretAst env v)
+  AstAppend x y -> append (interpretAst env x) (interpretAst env y)
+  AstSlice i k v -> slice (interpretAstInt env i) (interpretAstInt env k)
+                          (interpretAst env v)
+  AstReverse v -> reverse' (interpretAst env v)
   AstBuildPair i (var, AstConstant r) ->
     let n = interpretAstInt env i
     in constant
@@ -1142,26 +1142,26 @@ interpretAst env = \case
        $ \j -> let D v _ = interpretLambdaI1 env (var, AstConstant r) j
                in v
   AstBuildPair i (var, v) ->
-    build1' (interpretAstInt env i) (interpretLambdaI1 env (var, v))
+    build (interpretAstInt env i) (interpretLambdaI1 env (var, v))
       -- fallback to POPL (memory blowup, but avoids functions on tape);
       -- an alternative is to use dBuild1 and store function on tape
   AstTranspose v -> interpretAst env $ AstTransposeGeneral [1, 0] v
   AstTransposeGeneral perm v ->
     let d@(D u _) = interpretAst env v
-    in if OR.rank u <= length perm - 1 then d else transposeGeneral1' perm d
+    in if OR.rank u <= length perm - 1 then d else transposeGeneral perm d
   AstFlatten v -> let d@(D u _) = interpretAst env v
-                  in reshape1' [OR.size u] d
-  AstReshape ns v -> reshape1' (map (interpretAstInt env) ns)
-                               (interpretAst env v)
+                  in reshape [OR.size u] d
+  AstReshape ns v -> reshape (map (interpretAstInt env) ns)
+                             (interpretAst env v)
 
-  AstSum0 v -> scalar1 $ sum0' (interpretAst env v)
-  AstDot0 x y -> scalar1 $ dot0' (interpretAst env x) (interpretAst env y)
+  AstSum0 v -> scalar $ sum0 (interpretAst env v)
+  AstDot0 x y -> scalar $ dot0 (interpretAst env x) (interpretAst env y)
   AstFromList0N sh l -> fromList0N (map (interpretAstInt env) sh)
-                        $ map (unScalar0 . interpretAst env) l
+                        $ map (unScalar . interpretAst env) l
   AstFromVector0N sh l -> fromVector0N (map (interpretAstInt env) sh)
-                          $ V.map (unScalar0 . interpretAst env) l
+                          $ V.map (unScalar . interpretAst env) l
   AstKonst0N sh r -> konst0N (map (interpretAstInt env) sh)
-                             (unScalar0 $ interpretAst env r)
+                             (unScalar $ interpretAst env r)
   AstBuildPair0N _sh (_vars, _r) -> undefined  -- TODO: type-level woes
     -- TODO: wait if vectorization forces us to generalize this to accept
     -- any rank and build it up according to @sh@ (which will then be
@@ -1178,7 +1178,7 @@ interpretAst env = \case
                   in u)
            (interpretAstPrimal env e)
   AstVar0 (AstVarName var) -> case IM.lookup var env of
-    Just (AstVarR0 d) -> scalar1 d
+    Just (AstVarR0 d) -> scalar d
     Just AstVarR1{} ->
       error $ "interpretAst: type mismatch for var " ++ show var
     Just AstVarI{} ->

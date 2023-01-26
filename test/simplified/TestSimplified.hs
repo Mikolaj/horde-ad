@@ -185,7 +185,7 @@ testPoly00 f input expected = do
         domainsFrom01 (V.singleton expected) V.empty
       (astGrad, astValue) =
         revOnDomains 1
-          (\adinputs -> unScalar0 $
+          (\adinputs -> unScalar $
              interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
                            (f (AstVar0 (AstVarName (-1)))))
           domainsInput
@@ -324,7 +324,7 @@ testBarReluAst0 =
   (domains0 $ fst
    $ revOnDomains
        42.2
-       (\adinputs -> unScalar0 $
+       (\adinputs -> unScalar $
           interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
                         (barReluAst0 (AstVar0 (AstVarName (-1)))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
@@ -349,7 +349,7 @@ testKonstReluAst =
   (domains0 $ fst
    $ revOnDomains
        42.2
-       (\adinputs -> unScalar0 $
+       (\adinputs -> unScalar $
           interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
                         (konstReluAst (AstVar0 (AstVarName (-1)))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
