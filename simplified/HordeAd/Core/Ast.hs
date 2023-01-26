@@ -24,6 +24,7 @@ import           Data.Kind (Type)
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import qualified Data.Strict.Vector as Data.Vector
 import           GHC.TypeLits (KnownNat, Nat, type (+))
+import           Numeric.LinearAlgebra (Numeric)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Text.Show.Functions ()
 
@@ -105,16 +106,19 @@ data Ast :: Nat -> Type -> Type where
   -- code and may be used for sharing in the future.
   AstVar0 :: AstVarName r -> Ast 0 r
   AstVar1 :: AstVarName (OR.Array 1 r) -> Ast 1 r
+deriving instance (Show r, Numeric r) => Show (Ast n r)
 
 newtype AstPrimalPart1 n r = AstPrimalPart1 (Ast n r)
+ deriving Show
 
 newtype AstVarName t = AstVarName Int
-  deriving (Show, Eq)
+ deriving (Show, Eq)
 
 data AstVar a0 a1 =
     AstVarR0 a0
   | AstVarR1 a1
   | AstVarI Int
+ deriving Show
 
 -- In AstInt and AstBool, the Ast terms are morally AstPrimalPart,
 -- since their derivative part is not used.
@@ -132,35 +136,14 @@ data AstInt :: Type -> Type where
             => Ast (1 + n) r -> AstInt r  -- length of the outermost dimension
   AstMinIndex :: Ast 1 r -> AstInt r
   AstMaxIndex :: Ast 1 r -> AstInt r
+deriving instance (Show r, Numeric r) => Show (AstInt r)
 
 data AstBool :: Type -> Type where
   AstBoolOp :: OpCodeBool -> [AstBool r] -> AstBool r
   AstBoolConst :: Bool -> AstBool r
   AstRel :: OpCodeRel -> [Ast 0 r] -> AstBool r
   AstRelInt :: OpCodeRel -> [AstInt r] -> AstBool r
-
-{-
-deriving instance ( Show a, Show r, Numeric r
-                  , Show (ADVal d a), Show (ADVal d r)
-                  , Show (ADVal d (OR.Array 1 r))
-                  , Show (AstInt r), Show (AstBool r) )
-                  => Show (Ast n r)
-
-deriving instance (Show (ADVal d r), Show (ADVal d (OR.Array 1 r)))
-                  => Show (AstVar r)
-
-deriving instance ( Show r, Numeric r
-                  , Show (ADVal d r)
-                  , Show (ADVal d (OR.Array 1 r))
-                  , Show (AstInt r), Show (AstBool r) )
-                  => Show (AstInt r)
-
-deriving instance ( Show r, Numeric r
-                  , Show (ADVal d r)
-                  , Show (ADVal d (OR.Array 1 r))
-                  , Show (AstInt r), Show (AstBool r) )
-                  => Show (AstBool r)
--}
+ deriving Show
 
 -- Copied from the outlining mechanism deleted in
 -- https://github.com/Mikolaj/horde-ad/commit/c59947e13082c319764ec35e54b8adf8bc01691f
@@ -172,23 +155,23 @@ data OpCode =
   | SinhOp | CoshOp | TanhOp | AsinhOp | AcoshOp | AtanhOp
   | Atan2Op
   | MaxOp | MinOp
-  deriving Show
+ deriving Show
 
 data OpCodeInt =
     PlusIntOp | MinusIntOp | TimesIntOp | NegateIntOp
   | AbsIntOp | SignumIntOp
   | MaxIntOp | MinIntOp
   | QuotIntOp | RemIntOp | DivIntOp | ModIntOp
-  deriving Show
+ deriving Show
 
 data OpCodeBool =
     NotOp | AndOp | OrOp | IffOp
-  deriving Show
+ deriving Show
 
 data OpCodeRel =
     EqOp | NeqOp
   | LeqOp| GeqOp | LsOp | GtOp
-  deriving Show
+ deriving Show
 
 
 -- * Unlawful instances of AST types; they are lawful modulo evaluation
