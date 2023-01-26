@@ -309,6 +309,78 @@ class (RealFloat r, RealFloat (VectorOf r), Integral (IntOf r))
     -- we verify if the variant from HasPrimal, working for all ranks,
     -- can be recovered in the final formulation
 
+  -- Default methods for Float, Double and all future scalars users will need.
+  default llength
+    :: (VectorOf r ~ OR.Array 1 r, IntOf r ~ Int)
+    => VectorOf r -> IntOf r
+  llength = OR.size
+  default lminIndex
+    :: (Numeric r, VectorOf r ~ OR.Array 1 r, IntOf r ~ Int)
+    => VectorOf r -> IntOf r
+  lminIndex = LA.minIndex . OR.toVector
+  default lmaxIndex
+    :: (Numeric r, VectorOf r ~ OR.Array 1 r, IntOf r ~ Int)
+    => VectorOf r -> IntOf r
+  lmaxIndex = LA.maxIndex . OR.toVector
+
+  default lindex0
+    :: (Numeric r, VectorOf r ~ OR.Array 1 r, IntOf r ~ Int)
+    => VectorOf r -> IntOf r -> r
+  lindex0 v ix = (V.! ix) $ OR.toVector v
+  default lsum0
+    :: (Numeric r, VectorOf r ~ OR.Array 1 r)
+    => VectorOf r -> r
+  lsum0 = LA.sumElements . OR.toVector
+  default ldot0
+    :: (Numeric r, VectorOf r ~ OR.Array 1 r)
+    => VectorOf r -> VectorOf r -> r
+  ldot0 u v = OR.toVector u LA.<.> OR.toVector v
+  default lminimum0
+    :: (Numeric r, VectorOf r ~ OR.Array 1 r)
+    => VectorOf r -> r
+  lminimum0 = LA.minElement . OR.toVector
+  default lmaximum0
+    :: (Numeric r, VectorOf r ~ OR.Array 1 r)
+    => VectorOf r -> r
+  lmaximum0 = LA.maxElement . OR.toVector
+
+  default lfromList1
+    :: (Numeric r, VectorOf r ~ OR.Array 1 r)
+    => [r] -> VectorOf r
+  lfromList1 l = OR.fromList [length l] l
+  default lfromVector1
+    :: (Numeric r, VectorOf r ~ OR.Array 1 r)
+    => Data.Vector.Vector r -> VectorOf r
+  lfromVector1 v = OR.fromVector [V.length v] $ V.convert v
+  default lkonst1
+    :: (Numeric r, VectorOf r ~ OR.Array 1 r, IntOf r ~ Int)
+    => IntOf r -> r -> VectorOf r
+  lkonst1 n r = OR.constant [n] r
+  default lappend1
+    :: (Numeric r, VectorOf r ~ OR.Array 1 r)
+    => VectorOf r -> VectorOf r -> VectorOf r
+  lappend1 = OR.append
+  default lslice1
+    :: (VectorOf r ~ OR.Array 1 r, IntOf r ~ Int)
+    => IntOf r -> IntOf r -> VectorOf r -> VectorOf r
+  lslice1 i k = OR.slice [(i, k)]
+  default lreverse1
+    :: (VectorOf r ~ OR.Array 1 r)
+    => VectorOf r -> VectorOf r
+  lreverse1 = OR.rev [0]
+  default lbuild1
+    :: (Numeric r, VectorOf r ~ OR.Array 1 r, IntOf r ~ Int)
+    => IntOf r -> (IntOf r -> r) -> VectorOf r
+  lbuild1 n f = OR.generate [n] (\l -> f (head l))
+  default lmap1
+    :: (Numeric r, VectorOf r ~ OR.Array 1 r)
+    => (r -> r) -> VectorOf r -> VectorOf r
+  lmap1 = liftVR . V.map
+  default lzipWith1
+    :: (Numeric r, VectorOf r ~ OR.Array 1 r)
+    => (r -> r -> r) -> VectorOf r -> VectorOf r -> VectorOf r
+  lzipWith1 = liftVR2 . V.zipWith
+
 type ADReady r = (VectorNumeric r, HasPrimal r, HasPrimal (VectorOf r))
 
 -- These instances are a faster way to get an objective function value.
@@ -318,50 +390,9 @@ instance VectorNumeric Double where
   type VectorOf Double = OR.Array 1 Double
   type IntOf Double = Int
 
-  llength = OR.size
-  lminIndex = LA.minIndex . OR.toVector
-  lmaxIndex = LA.maxIndex . OR.toVector
-
-  lindex0 v ix = (V.! ix) $ OR.toVector v
-  lsum0 = LA.sumElements . OR.toVector
-  ldot0 u v = OR.toVector u LA.<.> OR.toVector v
-  lminimum0 = LA.minElement . OR.toVector
-  lmaximum0 = LA.maxElement . OR.toVector
-
-  lfromList1 l = OR.fromList [length l] l
-  lfromVector1 v = OR.fromVector [V.length v] $ V.convert v
-  lkonst1 n r = OR.constant [n] r
-  lappend1 = OR.append
-  lslice1 i k = OR.slice [(i, k)]
-  lreverse1 = OR.rev [0]
-  lbuild1 n f = OR.generate [n] (\l -> f (head l))
-  lmap1 = liftVR . V.map
-  lzipWith1 = liftVR2 . V.zipWith
-
--- This is exactly repreated from above past the first three lines.
 instance VectorNumeric Float where
   type VectorOf Float = OR.Array 1 Float
   type IntOf Float = Int
-
-  llength = OR.size
-  lminIndex = LA.minIndex . OR.toVector
-  lmaxIndex = LA.maxIndex . OR.toVector
-
-  lindex0 v ix = (V.! ix) $ OR.toVector v
-  lsum0 = LA.sumElements . OR.toVector
-  ldot0 u v = OR.toVector u LA.<.> OR.toVector v
-  lminimum0 = LA.minElement . OR.toVector
-  lmaximum0 = LA.maxElement . OR.toVector
-
-  lfromList1 l = OR.fromList [length l] l
-  lfromVector1 v = OR.fromVector [V.length v] $ V.convert v
-  lkonst1 n r = OR.constant [n] r
-  lappend1 = OR.append
-  lslice1 i k = OR.slice [(i, k)]
-  lreverse1 = OR.rev [0]
-  lbuild1 n f = OR.generate [n] (\l -> f (head l))
-  lmap1 = liftVR . V.map
-  lzipWith1 = liftVR2 . V.zipWith
 
 -- Not that this instance doesn't do vectorization. To enable it,
 -- use the Ast instance, which vectorizes and finally interpret in ADVal.
