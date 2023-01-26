@@ -130,8 +130,6 @@ class HasPrimal a where
   -- TODO: if DualOf is supposed to be user-visible, we needed
   -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
   --
-  -- Unrelated, but no better home ATM:
-  fromIntOf :: IntOf a -> a
   -- TODO: also put conditionals with AstBool condition here, at least initially
 
 instance (Num a, IsPrimal d a) => HasPrimal (ADVal d a) where
@@ -142,7 +140,6 @@ instance (Num a, IsPrimal d a) => HasPrimal (ADVal d a) where
   primalPart (D u _) = u
   dualPart (D _ u') = u'
   ddD = dD
-  fromIntOf = constant . fromInteger . fromIntegral
 
 instance HasPrimal Float where
   type PrimalOf Float = Float
@@ -152,7 +149,6 @@ instance HasPrimal Float where
   primalPart = id
   dualPart _ = ()
   ddD u _ = u
-  fromIntOf = fromInteger . fromIntegral
 
 instance HasPrimal Double where
   type PrimalOf Double = Double
@@ -162,10 +158,9 @@ instance HasPrimal Double where
   primalPart = id
   dualPart _ = ()
   ddD u _ = u
-  fromIntOf = fromInteger . fromIntegral
 
 -- The constraint requires UndecidableInstances.
-instance (KnownNat n, Numeric r, Num (Vector r))
+instance Numeric r
          => HasPrimal (OR.Array n r) where
   type PrimalOf (OR.Array n r) = OR.Array n r
   type DualOf (OR.Array n r) = ()
@@ -174,7 +169,6 @@ instance (KnownNat n, Numeric r, Num (Vector r))
   primalPart = id
   dualPart _ = ()
   ddD u _ = u
-  fromIntOf = fromInteger . fromIntegral
 
 instance HasPrimal (Ast n r) where
   type PrimalOf (Ast n r) = AstPrimalPart1 n r
@@ -184,8 +178,6 @@ instance HasPrimal (Ast n r) where
   primalPart = AstPrimalPart1
   dualPart = error "TODO"
   ddD = error "TODO"
-  fromIntOf = AstConstInt
-
 
 -- * Numeric instances for ADVal
 
@@ -275,6 +267,8 @@ class VectorOf r ~ v => VectorNumeric1 v r where
   ldot0 :: VectorOf r -> VectorOf r -> r
   lminimum0 :: VectorOf r -> r
   lmaximum0 :: VectorOf r -> r
+  fromIntOf0 :: (Num r, Integral (IntOf r)) => IntOf r -> r
+  fromIntOf0 = fromInteger . fromIntegral
 
   lfromList1 :: [r] -> VectorOf r
   lfromVector1 :: Data.Vector.Vector r -> VectorOf r
@@ -285,6 +279,11 @@ class VectorOf r ~ v => VectorNumeric1 v r where
   lbuild1 :: IntOf r -> (IntOf r -> r) -> VectorOf r
   lmap1 :: (r -> r) -> VectorOf r -> VectorOf r
   lzipWith1 :: (r -> r -> r) -> VectorOf r -> VectorOf r -> VectorOf r
+  fromIntOf1 :: (Num v, Integral (IntOf r)) => IntOf r -> VectorOf r
+  fromIntOf1 = fromInteger . fromIntegral
+    -- TODO: this one is proably spurious, but let's keep it until
+    -- we verify if the variant from HasPrimal, working for all ranks,
+    -- can be recovered in the final formulation
 
 type VectorNumeric r = VectorNumeric1 (VectorOf r) r
 
@@ -358,6 +357,8 @@ instance VectorNumeric1 (Ast 1 r) (Ast 0 r) where
   ldot0 u v = AstDot0 u v
   lminimum0 v = AstIndex v (AstMinIndex v)
   lmaximum0 v = AstIndex v (AstMaxIndex v)
+  fromIntOf0 = AstConstInt
+    -- toInteger is undefined for Ast, hence a special implementation
 
   lfromList1 l = AstFromList l
   lfromVector1 l = AstFromVector l
@@ -369,6 +370,7 @@ instance VectorNumeric1 (Ast 1 r) (Ast 0 r) where
   lmap1 f v = astBuild1 (llength v) (\i -> f (v `lindex0` i))
   lzipWith1 f v u =
     astBuild1 (llength v) (\i -> f (v `lindex0` i) (u `lindex0` i))
+  fromIntOf1 = AstConstInt
 
 -- Impure but in the most trivial way (only ever incremented counter).
 unsafeAstVarCounter :: Counter

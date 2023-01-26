@@ -108,12 +108,12 @@ nestedSumBuild v =
       flip lindex0 ix2
         (lbuild1 5 (\ _ -> lsum0 v)
          * lfromList1
-             [ fromIntOf ix
-             , lsum0 (lbuild1 9 (\ix5 -> fromIntOf ix5))
+             [ fromIntOf0 ix
+             , lsum0 (lbuild1 9 (\ix5 -> fromIntOf0 ix5))
              , lsum0 (lbuild1 6 (\_ -> lsum0 v))
              , lindex0 v ix2
              , lsum0 (lbuild1 3 (\ix7 ->
-                 lsum0 (lkonst1 (ix2 + 1) (fromIntOf ix7))))
+                 lsum0 (lkonst1 (ix2 + 1) (fromIntOf0 ix7))))
 -- irregular array:
 --             , lsum0 (lbuild1 3 (\ix7 ->
 --                 lsum0 (lkonst1 (ix2 + ix7 + 1) 2.4)))
@@ -158,14 +158,14 @@ konstReluAst x = lsum0 $ reluAst $ lkonst1 7 x
 -- * Tests by TomS
 
 f1 :: ADReady a => a -> a
-f1 = \arg -> lsum0 (lbuild1 10 (\i -> arg * fromIntOf i))
+f1 = \arg -> lsum0 (lbuild1 10 (\i -> arg * fromIntOf0 i))
 
 f2 :: ADReady a => a -> a
 f2 = \arg ->
-  let fun1 i = arg * fromIntOf i
+  let fun1 i = arg * fromIntOf0 i
       v1a = lsum0 (lbuild1 10 fun1)
       v1b = lsum0 (lbuild1 20 fun1)
-      fun2 y i = y * fromIntOf i
+      fun2 y i = y * fromIntOf0 i
       v2a = lsum0 (lbuild1 10 (fun2 arg))
       v2b = lsum0 (lbuild1 20 (fun2 (arg + 1)))
   in v1a + v1b + v2a + v2b
