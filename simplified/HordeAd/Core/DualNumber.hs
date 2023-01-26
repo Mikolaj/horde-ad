@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP, ConstraintKinds, DataKinds, FlexibleInstances,
              FunctionalDependencies, GADTs, MultiParamTypeClasses,
              QuantifiedConstraints, RankNTypes, TypeFamilies,
-             TypeFamilyDependencies, UndecidableInstances #-}
+             TypeFamilyDependencies #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -133,7 +133,7 @@ dotParameters (Domains a0 a1) (Domains b0 b1) =
 -- We could accept any @RealFloat@ instead of @PrimalOf a@, but then
 -- we'd need to coerce, e.g., via realToFrac, which is risky and lossy.
 -- Also, the stricter typing is likely to catch real errors most of the time,
--- not just sloppy omission of explitic coercions.
+-- not just sloppy omission ofs explicit coercions.
 class HasPrimal a where
   type PrimalOf a
   type DualOf a
@@ -270,13 +270,14 @@ instance (RealFloat a, IsPrimal d a) => RealFloat (ADVal d a) where
       -- most of which don't even have a differentiable codomain
 
 
--- * VectorNumeric class definition and instances for tensors, ADVal and Ast
+-- * VectorNumeric class definition and instances for arrays, ADVal and Ast
 
--- The superclasses indicate that it's not only a container vector,
+-- TODO: when we have several times more operations, split into
+-- VectorContainer and VectorNumeric, with the latter containing the few
+-- Ord and Num operations and the superclasses below, extended with
+-- VectorContainer.
+-- | The superclasses indicate that it's not only a container vector,
 -- but also a mathematical vector, sporting numeric operations.
---
--- This setup hacks around the need to define separate instances for
--- Double, Float, etc., instead of a single instance for @Numeric r@, as below.
 class (RealFloat r, RealFloat (VectorOf r), Integral (IntOf r))
       => VectorNumeric r where
   type VectorOf r = result | result -> r
@@ -305,11 +306,11 @@ class (RealFloat r, RealFloat (VectorOf r), Integral (IntOf r))
   lzipWith1 :: (r -> r -> r) -> VectorOf r -> VectorOf r -> VectorOf r
   fromIntOf1 :: IntOf r -> VectorOf r
   fromIntOf1 = fromInteger . fromIntegral
-    -- TODO: this one is proably spurious, but let's keep it until
+    -- TODO: this one is probably spurious, but let's keep it until
     -- we verify if the variant from HasPrimal, working for all ranks,
     -- can be recovered in the final formulation
 
-  -- Default methods for Float, Double and all future scalars users will need.
+  -- Default methods for Float, Double and all future scalars users will add.
   default llength
     :: (VectorOf r ~ OR.Array 1 r, IntOf r ~ Int)
     => VectorOf r -> IntOf r
@@ -384,7 +385,7 @@ class (RealFloat r, RealFloat (VectorOf r), Integral (IntOf r))
 type ADReady r = (VectorNumeric r, HasPrimal r, HasPrimal (VectorOf r))
 
 -- These instances are a faster way to get an objective function value.
--- However, it doesn't do vectorization, so won't work on GPU, ArrayFire, etc.
+-- However, they don't do vectorization, so won't work on GPU, ArrayFire, etc.
 -- For vectorization, go through Ast and valueOnDomains.
 instance VectorNumeric Double where
   type VectorOf Double = OR.Array 1 Double
