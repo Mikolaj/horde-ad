@@ -258,11 +258,14 @@ instance (RealFloat a, IsPrimal d a) => RealFloat (ADVal d a) where
       -- most of which don't even have a differentiable codomain
 
 
--- * VectorLike class definition and instances for tensors, ADVal and Ast
+-- * VectorNumeric class definition and instances for tensors, ADVal and Ast
 
+-- The superclasses indicate that it's not only a container vector,
+-- but also a mathematical vector, sporting numeric operations.
+--
 -- This setup hacks around the need to define separate instances for
 -- Double, Float, etc., instead of a single instance for @Numeric r@, as below.
-class VectorOf r ~ v => VectorLike1 v r where
+class VectorOf r ~ v => VectorNumeric1 v r where
   llength :: VectorOf r -> IntOf r
   lminIndex :: VectorOf r -> IntOf r
   lmaxIndex :: VectorOf r -> IntOf r
@@ -283,18 +286,18 @@ class VectorOf r ~ v => VectorLike1 v r where
   lmap1 :: (r -> r) -> VectorOf r -> VectorOf r
   lzipWith1 :: (r -> r -> r) -> VectorOf r -> VectorOf r -> VectorOf r
 
-type VectorLike r = VectorLike1 (VectorOf r) r
+type VectorNumeric r = VectorNumeric1 (VectorOf r) r
 
 type ADReady r =
   ( RealFloat r, RealFloat (VectorOf r)
   , HasPrimal r, HasPrimal (VectorOf r)
-  , VectorLike r, Integral (IntOf r) )
+  , VectorNumeric r, Integral (IntOf r) )
 
 -- This instance is a faster way to get an objective function value.
 -- However, it doesn't do vectorization, so won't work on GPU, ArrayFire, etc.
 -- For vectorization, go through Ast and valueOnDomains.
 instance (Numeric r, IntOf r ~ Int, VectorOf r ~ OR.Array 1 r)
-         => VectorLike1 (OR.Array 1 r) r where
+         => VectorNumeric1 (OR.Array 1 r) r where
   llength = OR.size
   lminIndex = LA.minIndex . OR.toVector
   lmaxIndex = LA.maxIndex . OR.toVector
@@ -321,7 +324,7 @@ instance (Numeric r, IntOf r ~ Int, VectorOf r ~ OR.Array 1 r)
 -- though for code without build/map/etc., it should be equivalent
 -- to going via Ast.
 instance ADModeAndNum d r
-         => VectorLike1 (ADVal d (OR.Array 1 r)) (ADVal d r) where
+         => VectorNumeric1 (ADVal d (OR.Array 1 r)) (ADVal d r) where
   llength (D u _) = llength u
   lminIndex (D u _) = lminIndex u
   lmaxIndex (D u _) = lmaxIndex u
@@ -345,7 +348,7 @@ instance ADModeAndNum d r
   lzipWith1 f v u =
     build1Closure (llength v) (\i -> f (v `lindex0` i) (u `lindex0` i))
 
-instance VectorLike1 (Ast 1 r) (Ast 0 r) where
+instance VectorNumeric1 (Ast 1 r) (Ast 0 r) where
   llength = AstLength
   lminIndex = AstMinIndex
   lmaxIndex = AstMaxIndex
@@ -1224,10 +1227,10 @@ interpretAstBool env = \case
   AstBoolConst a -> a
   AstRel opCodeRel args ->
     let f x = interpretAstPrimal env x
-    in interpretAstRel f opCodeRel args
+    in interpretAstRelOp f opCodeRel args
   AstRelInt opCodeRel args ->
     let f = interpretAstInt env
-    in interpretAstRel f opCodeRel args
+    in interpretAstRelOp f opCodeRel args
 
 interpretAstOp :: RealFloat b
                => (c -> b) -> OpCode -> [c] -> b
@@ -1293,14 +1296,14 @@ interpretAstBoolOp _ opCodeBool args =
   error $ "interpretAstBoolOp: wrong number of arguments"
           ++ show (opCodeBool, length args)
 
-interpretAstRel :: Ord b => (a -> b) -> OpCodeRel -> [a] -> Bool
-{-# INLINE interpretAstRel #-}
-interpretAstRel f EqOp [u, v] = f u == f v
-interpretAstRel f NeqOp [u, v] = f u /= f v
-interpretAstRel f LeqOp [u, v] = f u <= f v
-interpretAstRel f GeqOp [u, v] = f u >= f v
-interpretAstRel f LsOp [u, v] = f u < f v
-interpretAstRel f GtOp [u, v] = f u > f v
-interpretAstRel _ opCodeRel args =
-  error $ "interpretAstRel: wrong number of arguments"
+interpretAstRelOp :: Ord b => (a -> b) -> OpCodeRel -> [a] -> Bool
+{-# INLINE interpretAstRelOp #-}
+interpretAstRelOp f EqOp [u, v] = f u == f v
+interpretAstRelOp f NeqOp [u, v] = f u /= f v
+interpretAstRelOp f LeqOp [u, v] = f u <= f v
+interpretAstRelOp f GeqOp [u, v] = f u >= f v
+interpretAstRelOp f LsOp [u, v] = f u < f v
+interpretAstRelOp f GtOp [u, v] = f u > f v
+interpretAstRelOp _ opCodeRel args =
+  error $ "interpretAstRelOp: wrong number of arguments"
           ++ show (opCodeRel, length args)
