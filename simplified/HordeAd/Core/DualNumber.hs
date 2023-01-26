@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP, ConstraintKinds, DataKinds, FlexibleInstances,
              FunctionalDependencies, GADTs, MultiParamTypeClasses,
              QuantifiedConstraints, RankNTypes, TypeFamilies,
-             UndecidableInstances #-}
+             TypeFamilyDependencies, UndecidableInstances #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -15,9 +15,8 @@
 module HordeAd.Core.DualNumber
   ( module HordeAd.Core.DualNumber
   , ADVal, dD, dDnotShared
-  , ADMode(..), ADModeAndNum
-  , IntOf, VectorOf
-  , IsPrimal (..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
+  , ADMode(..)
+  , IsPrimal (..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs
   , Element, HasPrimal(..)
   , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
   , -- temporarily re-exported, until these are wrapped in sugar
@@ -47,10 +46,31 @@ import           Unsafe.Coerce (unsafeCoerce)
 import HordeAd.Core.Ast
 import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta
-  (Domain0, Domain1, Domains (..), isTensorDummy, nullDomains)
+  (Delta0, Domain0, Domain1, Domains (..), isTensorDummy, nullDomains)
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVR, liftVR2)
 
 -- * Auxiliary definitions
+
+-- | A mega-shorthand for a bundle of connected type constraints.
+-- The @Scalar@ in the name means that the second argument is the underlying
+-- scalar type of a well behaved (wrt the differentiation mode in the first
+-- argument) collection of primal and dual components of dual numbers.
+type ADModeAndNum (d :: ADMode) r =
+  ( Numeric r
+  , Show r
+  , HasRanks d r
+  , IsPrimalAndHasFeatures d r r
+  , IsPrimalR d r
+  , VectorOf r ~ OR.Array 1 r
+  , VectorNumeric r
+  , IntOf r ~ Int
+  , Floating (Vector r)
+  )
+
+-- | Is a scalar and will be used to compute gradients via delta-expressions.
+type HasDelta r = ( ADModeAndNum 'ADModeGradient r
+                  , HasInputs r
+                  , Dual 'ADModeGradient r ~ Delta0 r )
 
 -- Shims to reuse the tests for ordinary vectors.
 type Vec r = OR.Array 1 r
@@ -257,7 +277,11 @@ instance (RealFloat a, IsPrimal d a) => RealFloat (ADVal d a) where
 --
 -- This setup hacks around the need to define separate instances for
 -- Double, Float, etc., instead of a single instance for @Numeric r@, as below.
-class VectorOf r ~ v => VectorNumeric1 v r where
+class (RealFloat r, RealFloat (VectorOf r), Integral (IntOf r))
+      => VectorNumeric r where
+  type VectorOf r = result | result -> r
+  type IntOf r
+
   llength :: VectorOf r -> IntOf r
   lminIndex :: VectorOf r -> IntOf r
   lmaxIndex :: VectorOf r -> IntOf r
@@ -267,7 +291,7 @@ class VectorOf r ~ v => VectorNumeric1 v r where
   ldot0 :: VectorOf r -> VectorOf r -> r
   lminimum0 :: VectorOf r -> r
   lmaximum0 :: VectorOf r -> r
-  fromIntOf0 :: (Num r, Integral (IntOf r)) => IntOf r -> r
+  fromIntOf0 :: IntOf r -> r
   fromIntOf0 = fromInteger . fromIntegral
 
   lfromList1 :: [r] -> VectorOf r
@@ -279,24 +303,46 @@ class VectorOf r ~ v => VectorNumeric1 v r where
   lbuild1 :: IntOf r -> (IntOf r -> r) -> VectorOf r
   lmap1 :: (r -> r) -> VectorOf r -> VectorOf r
   lzipWith1 :: (r -> r -> r) -> VectorOf r -> VectorOf r -> VectorOf r
-  fromIntOf1 :: (Num v, Integral (IntOf r)) => IntOf r -> VectorOf r
+  fromIntOf1 :: IntOf r -> VectorOf r
   fromIntOf1 = fromInteger . fromIntegral
     -- TODO: this one is proably spurious, but let's keep it until
     -- we verify if the variant from HasPrimal, working for all ranks,
     -- can be recovered in the final formulation
 
-type VectorNumeric r = VectorNumeric1 (VectorOf r) r
+type ADReady r = (VectorNumeric r, HasPrimal r, HasPrimal (VectorOf r))
 
-type ADReady r =
-  ( RealFloat r, RealFloat (VectorOf r)
-  , HasPrimal r, HasPrimal (VectorOf r)
-  , VectorNumeric r, Integral (IntOf r) )
-
--- This instance is a faster way to get an objective function value.
+-- These instances are a faster way to get an objective function value.
 -- However, it doesn't do vectorization, so won't work on GPU, ArrayFire, etc.
 -- For vectorization, go through Ast and valueOnDomains.
-instance (Numeric r, IntOf r ~ Int, VectorOf r ~ OR.Array 1 r)
-         => VectorNumeric1 (OR.Array 1 r) r where
+instance VectorNumeric Double where
+  type VectorOf Double = OR.Array 1 Double
+  type IntOf Double = Int
+
+  llength = OR.size
+  lminIndex = LA.minIndex . OR.toVector
+  lmaxIndex = LA.maxIndex . OR.toVector
+
+  lindex0 v ix = (V.! ix) $ OR.toVector v
+  lsum0 = LA.sumElements . OR.toVector
+  ldot0 u v = OR.toVector u LA.<.> OR.toVector v
+  lminimum0 = LA.minElement . OR.toVector
+  lmaximum0 = LA.maxElement . OR.toVector
+
+  lfromList1 l = OR.fromList [length l] l
+  lfromVector1 v = OR.fromVector [V.length v] $ V.convert v
+  lkonst1 n r = OR.constant [n] r
+  lappend1 = OR.append
+  lslice1 i k = OR.slice [(i, k)]
+  lreverse1 = OR.rev [0]
+  lbuild1 n f = OR.generate [n] (\l -> f (head l))
+  lmap1 = liftVR . V.map
+  lzipWith1 = liftVR2 . V.zipWith
+
+-- This is exactly repreated from above past the first three lines.
+instance VectorNumeric Float where
+  type VectorOf Float = OR.Array 1 Float
+  type IntOf Float = Int
+
   llength = OR.size
   lminIndex = LA.minIndex . OR.toVector
   lmaxIndex = LA.maxIndex . OR.toVector
@@ -323,7 +369,10 @@ instance (Numeric r, IntOf r ~ Int, VectorOf r ~ OR.Array 1 r)
 -- though for code without build/map/etc., it should be equivalent
 -- to going via Ast.
 instance ADModeAndNum d r
-         => VectorNumeric1 (ADVal d (OR.Array 1 r)) (ADVal d r) where
+         => VectorNumeric (ADVal d r) where
+  type VectorOf (ADVal d r) = ADVal d (OR.Array 1 r)
+  type IntOf (ADVal d r) = Int
+
   llength (D u _) = llength u
   lminIndex (D u _) = lminIndex u
   lmaxIndex (D u _) = lmaxIndex u
@@ -347,7 +396,11 @@ instance ADModeAndNum d r
   lzipWith1 f v u =
     build1Closure (llength v) (\i -> f (v `lindex0` i) (u `lindex0` i))
 
-instance VectorNumeric1 (Ast 1 r) (Ast 0 r) where
+instance (Numeric r, RealFloat r, RealFloat (Vector r))
+         => VectorNumeric (Ast 0 r) where
+  type VectorOf (Ast 0 r) = Ast 1 r
+  type IntOf (Ast 0 r) = AstInt r
+
   llength = AstLength
   lminIndex = AstMinIndex
   lmaxIndex = AstMaxIndex

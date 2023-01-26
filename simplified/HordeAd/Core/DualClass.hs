@@ -31,11 +31,10 @@
 module HordeAd.Core.DualClass
   ( -- * The most often used part of the mid-level API that gets re-exported in high-level API
     ADVal, dD, dDnotShared
-  , ADMode(..), ADModeAndNum
-  , IntOf, VectorOf
+  , ADMode(..)
   , -- * The less often used part of the mid-level API that gets re-exported in high-level API; it leaks implementation details
     pattern D
-  , IsPrimal(..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
+  , IsPrimal(..), IsPrimalR(..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs
   , Element
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
     Dual, HasRanks(..), HasInputs(..), dummyDual
@@ -59,7 +58,6 @@ import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe (unsafePerformIO)
 import           Text.Show.Functions ()
 
-import HordeAd.Core.Ast
 import HordeAd.Internal.Delta
 
 -- * The main dual number type
@@ -112,26 +110,6 @@ type IsPrimalAndHasFeatures (d :: ADMode) a r =
 type IsPrimalAndHasInputs (d :: ADMode) a r =
   (IsPrimalAndHasFeatures d a r, HasInputs a)
 
--- | A mega-shorthand for a bundle of connected type constraints.
--- The @Scalar@ in the name means that the second argument is the underlying
--- scalar type of a well behaved (wrt the differentiation mode in the first
--- argument) collection of primal and dual components of dual numbers.
-type ADModeAndNum (d :: ADMode) r =
-  ( Numeric r
-  , Show r
-  , HasRanks d r
-  , IsPrimalAndHasFeatures d r r
-  , IsPrimalR d r
-  , VectorOf r ~ OR.Array 1 r
-  , IntOf r ~ Int
-  , Floating (Vector r)
-  )
-
--- | Is a scalar and will be used to compute gradients via delta-expressions.
-type HasDelta r = ( ADModeAndNum 'ADModeGradient r
-                  , HasInputs r
-                  , Dual 'ADModeGradient r ~ Delta0 r )
-
 
 -- * Class definitions
 
@@ -173,19 +151,6 @@ newtype DummyDual r = DummyDual ()
 
 dummyDual :: DummyDual r
 dummyDual = DummyDual ()
-
-type family IntOf a where
-  IntOf Double = Int
-  IntOf Float = Int
-  IntOf (OR.Array n r) = Int
-  IntOf (Ast n r) = AstInt r
-  IntOf (ADVal d r) = Int
-
-type family VectorOf a = result | result -> a where
-  VectorOf Double = OR.Array 1 Double
-  VectorOf Float = OR.Array 1 Float
-  VectorOf (Ast 0 r) = Ast 1 r
-  VectorOf (ADVal d r) = ADVal d (OR.Array 1 r)
 
 -- | Second argument is the primal component of a dual number at some rank
 -- wrt the differentiation mode given in the first argument.

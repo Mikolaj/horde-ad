@@ -149,8 +149,7 @@ barReluAst1 x = reluAst $ bar (x, reluAst x)
                   -- TODO; fails: barRelu @(Ast n r)
 
 konstReluAst
-  :: forall r.
-     (Numeric r, Num (Vector r))
+  :: forall r. (Numeric r, RealFloat r, RealFloat (Vector r))
   => Ast 0 r -> Ast 0 r
 konstReluAst x = lsum0 $ reluAst $ lkonst1 7 x
 
