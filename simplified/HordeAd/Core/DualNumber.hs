@@ -334,9 +334,9 @@ instance ADModeAndNum d r
   lmaximum0 (D u u') =
     dD (lmaximum0 u) (dIndex0 u' [lmaxIndex u] [llength u])
 
-  lfromList1 l = fromList01' [length l] l
-  lfromVector1 l = fromVector01' [V.length l] l
-  lkonst1 n = konst01' [n]
+  lfromList1 l = fromList0N [length l] l
+  lfromVector1 l = fromVector0N [V.length l] l
+  lkonst1 n = konst0N [n]
   lappend1 = append1'
   lslice1 = slice1'
   lreverse1 = reverse1'
@@ -695,14 +695,14 @@ build1VectorizeVar n (var, u) =
       -- not in one rank less and also (some) fast implementations
       -- depend on it resulting in a scalar.
       -- AstOp does not require Numeric constraint, so better than @*@.
-    AstFromList01 sh l ->
+    AstFromList0N sh l ->
       build1VectorizeVar n (var, AstReshape sh $ AstFromList l)
-    AstFromVector01 sh l ->
+    AstFromVector0N sh l ->
       build1VectorizeVar n (var, AstReshape sh $ AstFromVector l)
-    AstKonst01 sh v ->
+    AstKonst0N sh v ->
       let k = product sh
       in build1VectorizeVar n (var, AstReshape sh $ AstKonst k v)
-    AstBuildPair01{} -> AstBuildPair n (var, u)  -- see AstBuildPair above
+    AstBuildPair0N{} -> AstBuildPair n (var, u)  -- see AstBuildPair above
 
     AstOMap0{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, u)
     AstOMap1{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, u)
@@ -823,14 +823,14 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
 
     AstSum0{} -> error "build1VectorizeIndexVar: wrong rank"
     AstDot0{} -> error "build1VectorizeIndexVar: wrong rank"
-    AstFromList01 sh l ->
+    AstFromList0N sh l ->
       build1VectorizeIndexVar @m n var (AstReshape sh $ AstFromList l) is
-    AstFromVector01 sh l ->
+    AstFromVector0N sh l ->
       build1VectorizeIndexVar @m n var (AstReshape sh $ AstFromVector l) is
-    AstKonst01 sh v ->
+    AstKonst0N sh v ->
       let k = product sh
       in build1VectorizeIndexVar @m n var (AstReshape sh $ AstKonst k v) is
-    AstBuildPair01{} ->
+    AstBuildPair0N{} ->
       AstBuildPair n (var, AstIndexN v1 is)  -- see AstBuildPair above
 
     AstOMap0{} -> error "build1VectorizeIndexVar: wrong rank"
@@ -912,12 +912,12 @@ intVarInAst var = \case
 
   AstSum0 v -> intVarInAst var v
   AstDot0 v u -> intVarInAst var v || intVarInAst var u
-  AstFromList01 sh l -> or (map (intVarInAstInt var) sh)
+  AstFromList0N sh l -> or (map (intVarInAstInt var) sh)
                         || or (map (intVarInAst var) l)
-  AstFromVector01 sh l -> or (map (intVarInAstInt var) sh)
+  AstFromVector0N sh l -> or (map (intVarInAstInt var) sh)
                           || V.or (V.map (intVarInAst var) l)
-  AstKonst01 sh v -> or (map (intVarInAstInt var) sh) || intVarInAst var v
-  AstBuildPair01 sh (_, v) -> or (map (intVarInAstInt var) sh)
+  AstKonst0N sh v -> or (map (intVarInAstInt var) sh) || intVarInAst var v
+  AstBuildPair0N sh (_, v) -> or (map (intVarInAstInt var) sh)
                               || intVarInAst var v
 
   AstOMap0 (_, v) u -> intVarInAst var v || intVarInAst var u
@@ -1053,23 +1053,23 @@ dot0' :: (ADModeAndNum d r, KnownNat n)
 dot0' (D u u') (D v v') = dD (OR.toVector u LA.<.> OR.toVector v)
                               (dAdd (dDot0 v u') (dDot0 u v'))
 
-fromList01' :: (ADModeAndNum d r, KnownNat n)
-            => OR.ShapeL -> [ADVal d r]
-            -> ADVal d (OR.Array n r)
-fromList01' sh l =
+fromList0N :: (ADModeAndNum d r, KnownNat n)
+           => OR.ShapeL -> [ADVal d r]
+           -> ADVal d (OR.Array n r)
+fromList0N sh l =
   dD (OR.fromList sh $ map (\(D u _) -> u) l)  -- I hope this fuses
      (dFromList01 sh $ map (\(D _ u') -> u') l)
 
-fromVector01' :: (ADModeAndNum d r, KnownNat n)
-              => OR.ShapeL -> Data.Vector.Vector (ADVal d r)
-              -> ADVal d (OR.Array n r)
-fromVector01' sh l =
+fromVector0N :: (ADModeAndNum d r, KnownNat n)
+             => OR.ShapeL -> Data.Vector.Vector (ADVal d r)
+             -> ADVal d (OR.Array n r)
+fromVector0N sh l =
   dD (OR.fromVector sh $ V.convert $ V.map (\(D u _) -> u) l)  -- hope it fuses
      (dFromVector01 sh $ V.map (\(D _ u') -> u') l)
 
-konst01' :: (ADModeAndNum d r, KnownNat n)
-         => OR.ShapeL -> ADVal d r -> ADVal d (OR.Array n r)
-konst01' sh (D u u') = dD (OR.constant sh u) (dKonst01 sh u')
+konst0N :: (ADModeAndNum d r, KnownNat n)
+        => OR.ShapeL -> ADVal d r -> ADVal d (OR.Array n r)
+konst0N sh (D u u') = dD (OR.constant sh u) (dKonst01 sh u')
 
 scalar1 :: ADModeAndNum d r => ADVal d r -> ADVal d (OR.Array 0 r)
 scalar1 (D u u') = dD (OR.scalar u) (dScalar1 u')
@@ -1156,13 +1156,13 @@ interpretAst env = \case
 
   AstSum0 v -> scalar1 $ sum0' (interpretAst env v)
   AstDot0 x y -> scalar1 $ dot0' (interpretAst env x) (interpretAst env y)
-  AstFromList01 sh l -> fromList01' (map (interpretAstInt env) sh)
+  AstFromList0N sh l -> fromList0N (map (interpretAstInt env) sh)
                         $ map (unScalar0 . interpretAst env) l
-  AstFromVector01 sh l -> fromVector01' (map (interpretAstInt env) sh)
+  AstFromVector0N sh l -> fromVector0N (map (interpretAstInt env) sh)
                           $ V.map (unScalar0 . interpretAst env) l
-  AstKonst01 sh r -> konst01' (map (interpretAstInt env) sh)
-                              (unScalar0 $ interpretAst env r)
-  AstBuildPair01 _sh (_vars, _r) -> undefined  -- TODO: type-level woes
+  AstKonst0N sh r -> konst0N (map (interpretAstInt env) sh)
+                             (unScalar0 $ interpretAst env r)
+  AstBuildPair0N _sh (_vars, _r) -> undefined  -- TODO: type-level woes
     -- TODO: wait if vectorization forces us to generalize this to accept
     -- any rank and build it up according to @sh@ (which will then be
     -- only a partial shape, so should change its name)

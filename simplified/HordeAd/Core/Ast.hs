@@ -90,10 +90,10 @@ data Ast :: Nat -> Type -> Type where
           => Ast n r -> Ast 0 r
   AstDot0 :: KnownNat n
           => Ast n r -> Ast n r -> Ast 0 r
-  AstFromList01 :: [AstInt r] -> [Ast 0 r] -> Ast n r
-  AstFromVector01 :: [AstInt r] -> Data.Vector.Vector (Ast 0 r) -> Ast n r
-  AstKonst01 :: [AstInt r] -> Ast 0 r -> Ast (1 + n) r
-  AstBuildPair01 :: [AstInt r] -> ([AstVarName Int], Ast 0 r) -> Ast n r
+  AstFromList0N :: [AstInt r] -> [Ast 0 r] -> Ast n r
+  AstFromVector0N :: [AstInt r] -> Data.Vector.Vector (Ast 0 r) -> Ast n r
+  AstKonst0N :: [AstInt r] -> Ast 0 r -> Ast (1 + n) r
+  AstBuildPair0N :: [AstInt r] -> ([AstVarName Int], Ast 0 r) -> Ast n r
 
   -- For MonoFunctor class, which is needed for a particularly
   -- fast implementation of relu and offer fast, primal-part only, mapping.
@@ -130,8 +130,8 @@ data AstInt :: Type -> Type where
 
   AstLength :: KnownNat n
             => Ast (1 + n) r -> AstInt r  -- length of the outermost dimension
-  AstMinIndex :: Ast 1 r -> AstInt r  -- list output needed for n /= 1
-  AstMaxIndex :: Ast 1 r -> AstInt r  -- list output needed for n /= 1
+  AstMinIndex :: Ast 1 r -> AstInt r
+  AstMaxIndex :: Ast 1 r -> AstInt r
 
 data AstBool :: Type -> Type where
   AstBoolOp :: OpCodeBool -> [AstBool r] -> AstBool r
