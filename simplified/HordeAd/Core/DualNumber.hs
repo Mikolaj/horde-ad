@@ -257,6 +257,7 @@ instance (RealFloat a, IsPrimal d a) => RealFloat (ADVal d a) where
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a differentiable codomain
 
+
 -- * VectorLike class definition and instances for tensors, ADVal and Ast
 
 -- This setup hacks around the need to define separate instances for
@@ -379,7 +380,7 @@ astBuild1 :: AstInt r -> (AstInt r -> Ast 0 r) -> Ast 1 r
 {-# NOINLINE astBuild1 #-}
 astBuild1 n f = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
-  return $! build1Vectorize1 n ( freshAstVar
+  return $! build1Vectorize n ( freshAstVar
                                , (f (AstIntVar freshAstVar)) )
     -- TODO: this vectorizers depth-first, which is needed. But do we
     -- also need a translation to non-vectorized terms for anything
@@ -602,20 +603,20 @@ map1Elementwise f d =
 
 -- * Vectorization of the build operation
 
-build1Vectorize1
+build1Vectorize
   :: AstInt r -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
-build1Vectorize1 n (var, u) =
+build1Vectorize n (var, u) =
   if intVarInAst var u
-  then build1Vectorize1Var n (var, u)
+  then build1VectorizeVar n (var, u)
   else AstKonst n u
 
 -- | The variable is known to occur in the term.
-build1Vectorize1Var
+build1VectorizeVar
   :: AstInt r -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
-build1Vectorize1Var n (var, u) =
+build1VectorizeVar n (var, u) =
   case u of
     AstOp opCode args ->
-      AstOp opCode $ map (\w -> build1Vectorize1 n (var, w)) args
+      AstOp opCode $ map (\w -> build1Vectorize n (var, w)) args
     AstCond b v w ->
       if intVarInAstBool var b then
         -- This handles conditionals that depend on var,
@@ -624,91 +625,91 @@ build1Vectorize1Var n (var, u) =
         -- nesting, instead of proportional to the number of elements
         -- of the tensor.
         AstSelect n (var, b)
-                  (build1Vectorize1 n (var, v))
-                  (build1Vectorize1 n (var, w))
+                  (build1Vectorize n (var, v))
+                  (build1Vectorize n (var, w))
       else
-        AstCond b (build1Vectorize1 n (var, v))
-                  (build1Vectorize1 n (var, w))
+        AstCond b (build1Vectorize n (var, v))
+                  (build1Vectorize n (var, w))
     AstSelect n2 (var2, b) v w ->
       AstTranspose $ AstSelect n2 (var2, b)
-        (AstTranspose $ build1Vectorize1 n (var, v))
-        (AstTranspose $ build1Vectorize1 n (var, w))
+        (AstTranspose $ build1Vectorize n (var, v))
+        (AstTranspose $ build1Vectorize n (var, w))
     AstConstInt{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, u)
     AstConst{} ->
-      error "build1Vectorize1Var: AstConst can't have free int variables"
+      error "build1VectorizeVar: AstConst can't have free int variables"
     AstConstant{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, u)
       -- this is very fast when interpreted in a smart way, but constant
       -- character needs to be exposed for nested cases;
       -- TODO: similarly propagate AstConstant upwards elsewhere
     AstScale (AstPrimalPart1 r) d ->
       AstScale (AstPrimalPart1 $ AstBuildPair n (var, r))  -- no need to vect
-               (build1Vectorize1 n (var, d))
+               (build1Vectorize n (var, d))
 
-    AstIndex v i -> build1VectorizeIndex1Var n var v [i]
+    AstIndex v i -> build1VectorizeIndexVar n var v [i]
       -- @var@ is in @v@ or @i@; TODO: simplify i first or even fully
       -- evaluate (may involve huge data processing) if contains no vars
       -- and then some things simplify a lot
-    AstIndexN v is -> build1VectorizeIndex1Var n var v is
+    AstIndexN v is -> build1VectorizeIndexVar n var v is
     AstSum v -> AstTranspose $ AstSum $ AstTranspose
-                $ build1Vectorize1Var n (var, v)
+                $ build1VectorizeVar n (var, v)
       -- that's because @build n (f . g) == map f (build n g)@
       -- and @map f == transpose1 . f . transpose1@
       -- TODO: though only for some f; check and fail early
     AstFromList l ->
       AstTranspose
-      $ AstFromList (map (\v -> build1Vectorize1 n (var, v)) l)
+      $ AstFromList (map (\v -> build1Vectorize n (var, v)) l)
     AstFromVector l ->
       AstTranspose
-      $ AstFromVector (V.map (\v -> build1Vectorize1 n (var, v)) l)
+      $ AstFromVector (V.map (\v -> build1Vectorize n (var, v)) l)
     AstKonst k _v | intVarInAstInt var k -> AstBuildPair n (var, u)  -- TODO
     AstKonst k v -> AstTranspose $ AstKonst k $ AstTranspose
-                    $ build1Vectorize1 n (var, v)
+                    $ build1Vectorize n (var, v)
     AstAppend v w -> AstTranspose $ AstAppend
-                       (AstTranspose $ build1Vectorize1 n (var, v))
-                       (AstTranspose $ build1Vectorize1 n (var, w))
+                       (AstTranspose $ build1Vectorize n (var, v))
+                       (AstTranspose $ build1Vectorize n (var, w))
     AstSlice i k _v | intVarInAstInt var i || intVarInAstInt var k ->
       AstBuildPair n (var, u)  -- TODO
     AstSlice i k v -> AstTranspose $ AstSlice i k $ AstTranspose
-                      $ build1Vectorize1 n (var, v)
+                      $ build1Vectorize n (var, v)
     AstReverse v -> AstTranspose $ AstReverse $ AstTranspose
-                    $ build1Vectorize1Var n (var, v)
+                    $ build1VectorizeVar n (var, v)
     AstBuildPair{} -> AstBuildPair n (var, u)
       -- TODO: a previous failure of vectorization that should have
       -- led to an abort instead of showing up late
     AstTranspose v ->
-      build1Vectorize1Var n (var, AstTransposeGeneral [1, 0] v)
+      build1VectorizeVar n (var, AstTransposeGeneral [1, 0] v)
     AstTransposeGeneral perm v -> AstTransposeGeneral (0 : map succ perm)
-                                  $ build1Vectorize1Var n (var, v)
-    AstFlatten v -> build1Vectorize1 n (var, AstReshape [AstLength u] v)
+                                  $ build1VectorizeVar n (var, v)
+    AstFlatten v -> build1Vectorize n (var, AstReshape [AstLength u] v)
     AstReshape ns _v | or $ map (intVarInAstInt var) ns ->
       AstBuildPair n (var, u)  -- TODO
-    AstReshape ns v -> AstReshape (n : ns) $ build1Vectorize1 n (var, v)
+    AstReshape ns v -> AstReshape (n : ns) $ build1Vectorize n (var, v)
 
     -- Rewriting syntactic sugar in the simplest way (but much more efficient
     -- non-sugar implementations/vectorizations exist):
-    AstSum0 v -> build1Vectorize1Var n (var, AstSum $ AstFlatten v)
+    AstSum0 v -> build1VectorizeVar n (var, AstSum $ AstFlatten v)
     AstDot0 v w ->
-      build1Vectorize1Var n (var, AstSum (AstOp TimesOp [ AstFlatten v
+      build1VectorizeVar n (var, AstSum (AstOp TimesOp [ AstFlatten v
                                                           , AstFlatten w ]))
       -- AstDot1 is dubious, because dot product results in a scalar,
       -- not in one rank less and also (some) fast implementations
       -- depend on it resulting in a scalar.
       -- AstOp does not require Numeric constraint, so better than @*@.
     AstFromList01 sh l ->
-      build1Vectorize1Var n (var, AstReshape sh $ AstFromList l)
+      build1VectorizeVar n (var, AstReshape sh $ AstFromList l)
     AstFromVector01 sh l ->
-      build1Vectorize1Var n (var, AstReshape sh $ AstFromVector l)
+      build1VectorizeVar n (var, AstReshape sh $ AstFromVector l)
     AstKonst01 sh v ->
       let k = product sh
-      in build1Vectorize1Var n (var, AstReshape sh $ AstKonst k v)
+      in build1VectorizeVar n (var, AstReshape sh $ AstKonst k v)
     AstBuildPair01{} -> AstBuildPair n (var, u)  -- see AstBuildPair above
 
     AstOMap0{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, u)
     AstOMap1{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, u)
     AstVar0{} ->
-      error "build1Vectorize1Var: AstVar0 can't have free int variables"
+      error "build1VectorizeVar: AstVar0 can't have free int variables"
     AstVar1{} ->
-      error "build1Vectorize1Var: AstVar1 can't have free int variables"
+      error "build1VectorizeVar: AstVar1 can't have free int variables"
     -- All other patterns are redundant due to GADT typing.
 
 -- | The application @build1VectorizeIndex n var v is@
@@ -717,15 +718,15 @@ build1Vectorize1Var n (var, u) =
 -- a proper sized list of indexes of exactly length @m@.
 -- The hack causes @m@ to, morally, have value -1 when the list is empty,
 -- but it reduces the use of @unsafeCoerce@.
-build1VectorizeIndex1
+build1VectorizeIndex
   :: forall m n r. KnownNat m
   => AstInt r -> AstVarName Int -> Ast (1 + m + n) r -> [AstInt r]
   -> Ast (1 + n) r
-build1VectorizeIndex1 n var v [] =
-  unsafeCoerce $ build1Vectorize1 n (var, v)  -- m is -1
-build1VectorizeIndex1 n var v is =
+build1VectorizeIndex n var v [] =
+  unsafeCoerce $ build1Vectorize n (var, v)  -- m is -1
+build1VectorizeIndex n var v is =
   if intVarInAst var v || or (map (intVarInAstInt var) is)
-  then build1VectorizeIndex1Var n var v is
+  then build1VectorizeIndexVar n var v is
   else AstKonst n (AstIndexN v is)
 
 -- | The variable is known to occur in the term or in the index
@@ -734,25 +735,25 @@ build1VectorizeIndex1 n var v is =
 -- evalute/simplify the term, if possible in constant time. Eventually,
 -- we are down to indexing of a too simple but non-constant expression,
 -- and then the only hope is in analyzing the index expression in turn.
-build1VectorizeIndex1Var
+build1VectorizeIndexVar
   :: forall m n r. KnownNat m
   => AstInt r -> AstVarName Int -> Ast (1 + m + n) r -> [AstInt r]
   -> Ast (1 + n) r
-build1VectorizeIndex1Var n var v1 [] =
-  unsafeCoerce $ build1Vectorize1Var n (var, v1)  -- m is -1
-build1VectorizeIndex1Var n var v1 is@(i1 : rest1) =
+build1VectorizeIndexVar n var v1 [] =
+  unsafeCoerce $ build1VectorizeVar n (var, v1)  -- m is -1
+build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
   case v1 of
     AstOp opCode args ->
-      AstOp opCode $ map (\w -> build1VectorizeIndex1 n var w is) args
+      AstOp opCode $ map (\w -> build1VectorizeIndex n var w is) args
     AstCond b v w ->
       if intVarInAstBool var b then
         AstSelect n (var, b)
-                  (build1VectorizeIndex1 n var v is)
-                  (build1VectorizeIndex1 n var w is)
+                  (build1VectorizeIndex n var v is)
+                  (build1VectorizeIndex n var w is)
       else
-        AstCond b (build1VectorizeIndex1 n var v is)
-                  (build1VectorizeIndex1 n var w is)
-    AstSelect{} -> build1VectorizeIndex1Try n var v1 is
+        AstCond b (build1VectorizeIndex n var v is)
+                  (build1VectorizeIndex n var w is)
+    AstSelect{} -> build1VectorizeIndexTry n var v1 is
       -- can't push the indexing down, so try analyzing the index instead;
       -- we may want to add yet another constructor that says "pick the element
       -- on this path out of this select" and hope it reduces fine elsewhere
@@ -765,27 +766,28 @@ build1VectorizeIndex1Var n var v1 is@(i1 : rest1) =
       AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, AstIndexN v1 is)
     AstScale (AstPrimalPart1 r) d ->
       AstScale (AstPrimalPart1 $ AstBuildPair n (var, AstIndexN r is))
-               (build1VectorizeIndex1 n var d is)
+               (build1VectorizeIndex n var d is)
 
-    AstIndex v i -> build1VectorizeIndex1Var n var v (i : is)
-    AstIndexN v is2 -> build1VectorizeIndex1Var n var v (is2 ++ is)
+    AstIndex v i -> build1VectorizeIndexVar n var v (i : is)
+    AstIndexN v is2 -> build1VectorizeIndexVar n var v (is2 ++ is)
     AstSum v ->
-      build1Vectorize1Var n
+      build1VectorizeVar n
         (var, AstSum (AstTranspose $ AstIndexN (AstTranspose v) is))
           -- that's because @index (sum v) i == sum (map (index i) v)@
     -- Can't push indexing down, so try analyzing the index instead:
-    AstFromList{} -> build1VectorizeIndex1Try n var v1 is
-    AstFromVector{} -> build1VectorizeIndex1Try n var v1 is
+    AstFromList{} -> build1VectorizeIndexTry n var v1 is
+    AstFromVector{} -> build1VectorizeIndexTry n var v1 is
     -- Partially evaluate in constant time:
     AstKonst _k (v :: Ast n1 r) -> case rest1 of
       [] -> let v2 = (unsafeCoerce :: Ast n1 r -> Ast n r) v  -- m is -1
-            in build1Vectorize1 n (var, v2)
-              -- type of build1VectorizeIndex1 prevents rank 0
+            in build1Vectorize n (var, v2)
+              -- type of build1VectorizeIndex prevents rank 0
+              -- TODO: simplify when/if it doesn't
       _ -> let v2 = (unsafeCoerce :: Ast n1 r -> Ast (1 + m + n) r) v
-           in build1VectorizeIndex1 n var v2 rest1
+           in build1VectorizeIndex n var v2 rest1
     AstAppend v w ->
       let is2 = map (\i -> AstIntOp PlusIntOp [i, AstLength v]) is
-      in build1Vectorize1 n
+      in build1Vectorize n
            (var, AstCond (AstRelInt LsOp [i1, AstLength v])
                          (AstIndexN v is)
                          (AstIndexN w is2))
@@ -794,11 +796,11 @@ build1VectorizeIndex1Var n var v1 is@(i1 : rest1) =
           -- this may get stuck as AstSelect eventually, but pushing indexing
           -- down into both v and w would then get stuck as well (twice!)
     AstSlice i2 _k v ->
-      build1VectorizeIndex1 n var v (map (\i -> AstIntOp PlusIntOp [i, i2]) is)
+      build1VectorizeIndex n var v (map (\i -> AstIntOp PlusIntOp [i, i2]) is)
     AstReverse v ->
       let revIs = AstIntOp MinusIntOp [AstIntOp MinusIntOp [AstLength v, 1], i1]
                   : rest1
-      in build1VectorizeIndex1Var n var v revIs
+      in build1VectorizeIndexVar n var v revIs
     AstBuildPair{} -> AstBuildPair n (var, AstIndexN v1 is)
       -- TODO: a previous failure of vectorization that should have
       -- led to an abort instead of showing up late
@@ -807,44 +809,44 @@ build1VectorizeIndex1Var n var v1 is@(i1 : rest1) =
       -- vectorization not abort, after all? and only check at whole program
       -- vectorization end that no build has been left unvectorized?
       -- the code would be
-      -- build1Vectorize1 n (var, substitute var2 i u2))
+      -- build1Vectorize n (var, substitute var2 i u2))
       -- or we'd use environments instead of the substitution
     -- Can't push indexing down, so try analyzing the index instead:
-    AstTranspose{} -> build1VectorizeIndex1Try n var v1 is
+    AstTranspose{} -> build1VectorizeIndexTry n var v1 is
       -- a more general indexing needed, one intespersed with transpose
       -- or operating on the underlying vector of elements instead?
-    AstTransposeGeneral{} -> build1VectorizeIndex1Try n var v1 is
+    AstTransposeGeneral{} -> build1VectorizeIndexTry n var v1 is
       -- an even more general indexing needed?
-    AstFlatten{} -> build1VectorizeIndex1Try n var v1 is
-    AstReshape{} -> build1VectorizeIndex1Try n var v1 is
+    AstFlatten{} -> build1VectorizeIndexTry n var v1 is
+    AstReshape{} -> build1VectorizeIndexTry n var v1 is
       -- an even more general indexing needed?
 
-    AstSum0{} -> error "build1VectorizeIndex1Var: wrong rank"
-    AstDot0{} -> error "build1VectorizeIndex1Var: wrong rank"
+    AstSum0{} -> error "build1VectorizeIndexVar: wrong rank"
+    AstDot0{} -> error "build1VectorizeIndexVar: wrong rank"
     AstFromList01 sh l ->
-      build1VectorizeIndex1Var @m n var (AstReshape sh $ AstFromList l) is
+      build1VectorizeIndexVar @m n var (AstReshape sh $ AstFromList l) is
     AstFromVector01 sh l ->
-      build1VectorizeIndex1Var @m n var (AstReshape sh $ AstFromVector l) is
+      build1VectorizeIndexVar @m n var (AstReshape sh $ AstFromVector l) is
     AstKonst01 sh v ->
       let k = product sh
-      in build1VectorizeIndex1Var @m n var (AstReshape sh $ AstKonst k v) is
+      in build1VectorizeIndexVar @m n var (AstReshape sh $ AstKonst k v) is
     AstBuildPair01{} ->
       AstBuildPair n (var, AstIndexN v1 is)  -- see AstBuildPair above
 
-    AstOMap0{} -> error "build1VectorizeIndex1Var: wrong rank"
+    AstOMap0{} -> error "build1VectorizeIndexVar: wrong rank"
     AstOMap1{} ->
       AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, AstIndexN v1 is)
-    AstVar0{} -> error "build1VectorizeIndex1Var: wrong rank"
+    AstVar0{} -> error "build1VectorizeIndexVar: wrong rank"
     AstVar1{} ->  -- var must be in i, so it's hard to simplify
-      build1VectorizeIndex1Try n var v1 is
+      build1VectorizeIndexTry n var v1 is
     -- All other patterns are redundant due to GADT typing.
 
-build1VectorizeIndex1Try
+build1VectorizeIndexTry
   :: forall m n r. KnownNat m
   => AstInt r -> AstVarName Int -> Ast (1 + m + n) r -> [AstInt r]
   -> Ast (1 + n) r
-build1VectorizeIndex1Try n var v is = case reverse is of
-  [] -> unsafeCoerce $ build1Vectorize1 n (var, v)  -- m is -1
+build1VectorizeIndexTry n var v is = case reverse is of
+  [] -> unsafeCoerce $ build1Vectorize n (var, v)  -- m is -1
   iN : restRev ->
     let w =
           if null restRev  -- this check is only needed due to the 1 + m hack
@@ -852,23 +854,32 @@ build1VectorizeIndex1Try n var v is = case reverse is of
           then (unsafeCoerce :: Ast (1 + m + n) r -> Ast (1 + n) r) v
           else (unsafeCoerce :: Ast n r -> Ast (1 + n) r)  -- indexing one less
               (AstIndexN v (reverse restRev))
-    in if intVarInAst var w
+    in if intVarInAst var v || or (map (intVarInAstInt var) restRev)
        then AstBuildPair n (var, AstIndexN v is)
-       else build1VectorizeIndex1Outermost n var w iN
+       else build1VectorizeIndexAnalyze n var w iN
 
--- TODO: or try this before pushing indexing down?
-build1VectorizeIndex1Outermost
+-- This has to be done after indexing is pushed down as much as possible,
+-- because it may eliminate some occurences of @var@ and so make this
+-- analysis applicable. The downside is that we'd vectorize terms
+-- we don't have to, but if we are nested in outer build1, the vectorization
+-- would be needed anyway, so this hurts only at top-level.
+build1VectorizeIndexAnalyze
   :: forall n r.
      AstInt r -> AstVarName Int -> Ast (1 + n) r -> AstInt r
   -> Ast (1 + n) r
-build1VectorizeIndex1Outermost n var v iN = case iN of
+build1VectorizeIndexAnalyze n var v iN = case iN of
   AstIntVar var2 | var2 == var ->
-     AstSlice 0 n v
+    AstSlice 0 n v
   AstIntOp PlusIntOp [AstIntVar var2, i2]
     | var2 == var && not (intVarInAstInt var i2) ->
       AstSlice i2 n v
   _ -> AstBuildPair n (var, AstIndex v iN)
-    -- TODO: many more cases; not sure how systematic it can be
+    -- TODO: many more cases; not sure how systematic it can be;
+    -- is this where the new 'gather' operation comes in?
+    -- TODO: also generalize `gather` to take a function from build1 index
+    -- to an arbitrary list of index1 indexes
+    -- TODO: and then from a list of build1 indexes, too, if we have
+    -- nested consecutive build1
 
 intVarInAst :: AstVarName Int -> Ast n r -> Bool
 intVarInAst var = \case

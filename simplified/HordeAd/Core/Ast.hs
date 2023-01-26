@@ -93,8 +93,7 @@ data Ast :: Nat -> Type -> Type where
   AstFromList01 :: [AstInt r] -> [Ast 0 r] -> Ast n r
   AstFromVector01 :: [AstInt r] -> Data.Vector.Vector (Ast 0 r) -> Ast n r
   AstKonst01 :: [AstInt r] -> Ast 0 r -> Ast (1 + n) r
-  AstBuildPair01 :: AstInt r -> (AstVarName Int, Ast 0 r)
-                 -> Ast 1 r
+  AstBuildPair01 :: AstInt r -> (AstVarName Int, Ast 0 r) -> Ast 1 r
     -- we don't have AstVarName for list variables, so only rank 1 for now
 
   -- For MonoFunctor class, which is needed for a particularly
