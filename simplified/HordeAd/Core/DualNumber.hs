@@ -917,7 +917,8 @@ intVarInAst var = \case
   AstFromVector01 sh l -> or (map (intVarInAstInt var) sh)
                           || V.or (V.map (intVarInAst var) l)
   AstKonst01 sh v -> or (map (intVarInAstInt var) sh) || intVarInAst var v
-  AstBuildPair01 n (_, v) -> intVarInAstInt var n || intVarInAst var v
+  AstBuildPair01 sh (_, v) -> or (map (intVarInAstInt var) sh)
+                              || intVarInAst var v
 
   AstOMap0 (_, v) u -> intVarInAst var v || intVarInAst var u
     -- the variable in binder position, so ignored (and should be distinct)
@@ -1161,7 +1162,10 @@ interpretAst env = \case
                           $ V.map (unScalar0 . interpretAst env) l
   AstKonst01 sh r -> konst01' (map (interpretAstInt env) sh)
                               (unScalar0 $ interpretAst env r)
-  AstBuildPair01 i (var, r) -> interpretAst env $ AstBuildPair i (var, r)
+  AstBuildPair01 _sh (_vars, _r) -> undefined  -- TODO: type-level woes
+    -- TODO: wait if vectorization forces us to generalize this to accept
+    -- any rank and build it up according to @sh@ (which will then be
+    -- only a partial shape, so should change its name)
 
   AstOMap0 (var, r) e ->  -- this only works on the primal part hence @constant@
     constant
