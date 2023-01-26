@@ -46,7 +46,15 @@ import           Unsafe.Coerce (unsafeCoerce)
 import HordeAd.Core.Ast
 import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta
-  (Delta0, Domain0, Domain1, Domains (..), isTensorDummy, nullDomains)
+  ( Delta0
+  , Domain0
+  , Domain1
+  , Domains (..)
+  , atIndexInTensorNR
+  , atIndexInTensorR
+  , isTensorDummy
+  , nullDomains
+  )
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVR, liftVR2)
 
 -- * Auxiliary definitions
@@ -63,8 +71,9 @@ type ADModeAndNum (d :: ADMode) r =
   , IsPrimalR d r
   , VectorOf r ~ OR.Array 1 r
   , VectorNumeric r
+  , Tensor r
   , IntOf r ~ Int
-  , Floating (Vector r)
+  , RealFloat (Vector r)
   )
 
 -- | Is a scalar and will be used to compute gradients via delta-expressions.
@@ -276,6 +285,7 @@ instance (RealFloat a, IsPrimal d a) => RealFloat (ADVal d a) where
 -- VectorContainer and VectorNumeric, with the latter containing the few
 -- Ord and Num operations and the superclasses below, extended with
 -- VectorContainer.
+-- TODO: change the method prefix ("l") now that the name is changed.
 -- | The superclasses indicate that it's not only a container vector,
 -- but also a mathematical vector, sporting numeric operations.
 class (RealFloat r, RealFloat (VectorOf r), Integral (IntOf r))
@@ -423,7 +433,9 @@ instance ADModeAndNum d r
   lappend1 = append
   lslice1 = slice
   lreverse1 = reverse'
-  lbuild1 = build1Closure  -- to test against build1Elementwise from Ast
+  lbuild1 = build1Closure
+    -- uses the implementation that stores closures on tape to test against
+    -- the elementwise implementation used by the fallback from vectorizing Ast
   lmap1 f v = build1Closure (llength v) (\i -> f (v `lindex0` i))
   lzipWith1 f v u =
     build1Closure (llength v) (\i -> f (v `lindex0` i) (u `lindex0` i))
@@ -437,17 +449,17 @@ instance (Numeric r, RealFloat r, RealFloat (Vector r))
   lminIndex = AstMinIndex
   lmaxIndex = AstMaxIndex
 
-  lindex0 v ix = AstIndex v ix
+  lindex0 = AstIndex
   lsum0 = AstSum
-  ldot0 u v = AstDot0 u v
+  ldot0 = AstDot0
   lminimum0 v = AstIndex v (AstMinIndex v)
   lmaximum0 v = AstIndex v (AstMaxIndex v)
   fromIntOf0 = AstConstInt
-    -- toInteger is undefined for Ast, hence a special implementation
+    -- toInteger is not defined for Ast, hence a special implementation
 
-  lfromList1 l = AstFromList l
-  lfromVector1 l = AstFromVector l
-  lkonst1 n r = AstKonst n r
+  lfromList1 = AstFromList
+  lfromVector1 = AstFromVector
+  lkonst1 = AstKonst
   lappend1 = AstAppend
   lslice1 = AstSlice
   lreverse1 = AstReverse
@@ -469,6 +481,301 @@ unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
 astBuild1 :: AstInt r -> (AstInt r -> Ast 0 r) -> Ast 1 r
 {-# NOINLINE astBuild1 #-}
 astBuild1 n f = unsafePerformIO $ do
+  freshAstVar <- unsafeGetFreshAstVar
+  return $! build1Vectorize n ( freshAstVar
+                               , (f (AstIntVar freshAstVar)) )
+    -- TODO: this vectorizers depth-first, which is needed. But do we
+    -- also need a translation to non-vectorized terms for anything
+    -- (other than for comparative tests)?
+
+
+-- * Tensor class definition and instances for arrays, ADVal and Ast
+
+-- TODO: when we have several times more operations, split into
+-- Array (Container) and Tensor (Numeric), with the latter containing the few
+-- Ord and Num operations and the superclasses below, extended with
+-- VectorContainer.
+-- | The transitive superclasses indicate that it's not only a container array,
+-- but also a mathematical tensor, sporting numeric operations.
+-- The @VectorNumeric@ superclass is for the associated types and convenience
+-- (TODO: add coversions between VectorOf and TensorOf to facilitate it)
+-- but all operations have straightforwardly generalized analogues below.
+class VectorNumeric r
+      => Tensor r where
+  type TensorOf (n :: Nat) r = result | result -> n r
+
+  tlength :: KnownNat n => TensorOf (1 + n) r -> IntOf r
+  tsize :: KnownNat n => TensorOf n r -> IntOf r
+  -- tshape :: TensorOf n r -> [IntOf r]  -- TODO: new Ast type needed
+  tminIndex :: TensorOf 1 r -> IntOf r
+  tmaxIndex :: TensorOf 1 r -> IntOf r
+
+  tindex :: KnownNat n => TensorOf (1 + n) r -> IntOf r -> TensorOf n r
+  tindex0 :: KnownNat n => TensorOf (1 + n) r -> [IntOf r] -> r
+  tindexN :: (KnownNat n, KnownNat m)
+          => TensorOf (1 + m + n) r -> [IntOf r] -> TensorOf n r
+  tsum :: KnownNat n => TensorOf (1 + n) r -> TensorOf n r
+  tsum0 :: KnownNat n => TensorOf n r -> r
+  tdot0 :: KnownNat n => TensorOf n r -> TensorOf n r -> r
+  tminimum0 :: TensorOf 1 r -> r
+  tmaximum0 :: TensorOf 1 r -> r
+  tfromIntOf0 :: IntOf r -> r
+  tfromIntOf0 = fromInteger . fromIntegral
+
+  tfromList :: KnownNat n => [TensorOf n r] -> TensorOf (1 + n) r
+  tfromList0N :: KnownNat n => [IntOf r] -> [r] -> TensorOf n r
+  tfromVector :: KnownNat n
+              => Data.Vector.Vector (TensorOf n r) -> TensorOf (1 + n) r
+  tfromVector0N :: KnownNat n
+                => [IntOf r] -> Data.Vector.Vector r -> TensorOf n r
+  tkonst :: KnownNat n => IntOf r -> TensorOf n r -> TensorOf (1 + n) r
+  tkonst0N :: KnownNat n => [IntOf r] -> r -> TensorOf (1 + n) r
+  tappend :: KnownNat n => TensorOf n r -> TensorOf n r -> TensorOf n r
+  tslice :: KnownNat n => IntOf r -> IntOf r -> TensorOf n r -> TensorOf n r
+  treverse :: KnownNat n => TensorOf n r -> TensorOf n r
+  ttranspose :: KnownNat n => TensorOf n r -> TensorOf n r
+  ttranspose = ttransposeGeneral [1, 0]
+  ttransposeGeneral :: KnownNat n => [Int] -> TensorOf n r -> TensorOf n r
+  tflatten :: KnownNat n => TensorOf n r -> TensorOf 1 r
+  tflatten u = treshape [tsize u] u
+  treshape :: (KnownNat n, KnownNat m)
+           => [IntOf r] -> TensorOf n r -> TensorOf m r
+  tbuild :: KnownNat n
+         => IntOf r -> (IntOf r -> TensorOf n r) -> TensorOf (1 + n) r
+  tbuild0N :: KnownNat n => [IntOf r] -> ([IntOf r] -> r) -> TensorOf n r
+  tmap :: KnownNat n => (TensorOf n r -> TensorOf n r)
+       -> TensorOf (1 + n) r -> TensorOf (1 + n) r
+  tmap f u = tbuild (tlength u) (\i -> f (u `tindex` i))
+  tzipWith :: KnownNat n
+           => (TensorOf n r -> TensorOf n r -> TensorOf n r)
+           -> TensorOf (1 + n) r -> TensorOf (1 + n) r -> TensorOf (1 + n) r
+  tzipWith f u v = tbuild (tlength u) (\i -> f (u `tindex` i) (v `tindex` i))
+
+  -- Default methods for Float, Double and all future scalars users will add.
+  default tlength
+    :: (TensorOf (1 + n) r ~ OR.Array (1 + n) r, IntOf r ~ Int)
+    => TensorOf (1 + n) r -> IntOf r
+  tlength u = case OR.shapeL u of
+    [] -> error "tlength: missing dimensions"
+    k : _ -> k
+  default tsize
+    :: (TensorOf n r ~ OR.Array n r, IntOf r ~ Int)
+    => TensorOf n r -> IntOf r
+  tsize = OR.size
+  default tminIndex
+    :: (Numeric r, TensorOf 1 r ~ OR.Array 1 r, IntOf r ~ Int)
+    => TensorOf 1 r -> IntOf r
+  tminIndex = LA.minIndex . OR.toVector
+  default tmaxIndex
+    :: (Numeric r, TensorOf 1 r ~ OR.Array 1 r, IntOf r ~ Int)
+    => TensorOf 1 r -> IntOf r
+  tmaxIndex = LA.maxIndex . OR.toVector
+
+  default tindex
+    :: ( Numeric r, TensorOf n r ~ OR.Array n r
+       , TensorOf (1 + n) r ~ OR.Array (1 + n) r, IntOf r ~ Int )
+    => TensorOf (1 + n) r -> IntOf r -> TensorOf n r
+  tindex = OR.index
+  default tindex0
+    :: (Numeric r, TensorOf (1 + n) r ~ OR.Array (1 + n) r, IntOf r ~ Int)
+    => TensorOf (1 + n) r -> [IntOf r] -> r
+  tindex0 = atIndexInTensorR
+  default tindexN
+    :: ( KnownNat n, Numeric r, TensorOf n r ~ OR.Array n r
+       , TensorOf (1 + m + n) r ~ OR.Array (1 + m + n) r, IntOf r ~ Int )
+    => TensorOf (1 + m + n) r -> [IntOf r] -> TensorOf n r
+  tindexN = atIndexInTensorNR
+  default tsum
+    :: ( KnownNat n, Numeric r, TensorOf n r ~ OR.Array n r
+       , TensorOf (1 + n) r ~ OR.Array (1 + n) r, Num (Vector r))
+    => TensorOf (1 + n) r -> TensorOf n r
+  tsum = ORB.sumA . OR.unravel
+  default tsum0
+    :: (Numeric r, TensorOf n r ~ OR.Array n r)
+    => TensorOf n r -> r
+  tsum0 = LA.sumElements . OR.toVector
+  default tdot0
+    :: (Numeric r, TensorOf n r ~ OR.Array n r)
+    => TensorOf n r -> TensorOf n r -> r
+  tdot0 u v = OR.toVector u LA.<.> OR.toVector v
+  default tminimum0
+    :: (Numeric r, TensorOf 1 r ~ OR.Array 1 r)
+    => TensorOf 1 r -> r
+  tminimum0 = LA.minElement . OR.toVector
+  default tmaximum0
+    :: (Numeric r, TensorOf 1 r ~ OR.Array 1 r)
+    => TensorOf 1 r -> r
+  tmaximum0 = LA.maxElement . OR.toVector
+
+  default tfromList
+    :: ( KnownNat n, Numeric r, TensorOf n r ~ OR.Array n r
+       , TensorOf (1 + n) r ~ OR.Array (1 + n) r )
+    => [TensorOf n r] -> TensorOf (1 + n) r
+  tfromList l = OR.ravel $ ORB.fromList [length l] l
+  default tfromList0N
+    :: (KnownNat n, Numeric r, TensorOf n r ~ OR.Array n r, IntOf r ~ Int)
+    => [IntOf r] -> [r] -> TensorOf n r
+  tfromList0N = OR.fromList
+  default tfromVector
+    :: ( KnownNat n, Numeric r, TensorOf n r ~ OR.Array n r
+       , TensorOf (1 + n) r ~ OR.Array (1 + n) r )
+    => Data.Vector.Vector (TensorOf n r) -> TensorOf (1 + n) r
+  tfromVector l = OR.ravel $ ORB.fromVector [V.length l] $ V.convert l
+  default tfromVector0N
+    :: (KnownNat n, Numeric r, TensorOf n r ~ OR.Array n r, IntOf r ~ Int)
+    => [IntOf r] -> Data.Vector.Vector r -> TensorOf n r
+  tfromVector0N sh l = OR.fromVector sh $ V.convert l
+  default tkonst
+    :: ( KnownNat n, Numeric r, TensorOf n r ~ OR.Array n r
+       , TensorOf (1 + n) r ~ OR.Array (1 + n) r, IntOf r ~ Int )
+    =>  IntOf r -> TensorOf n r -> TensorOf (1 + n) r
+  tkonst n u = OR.ravel $ ORB.constant [n] u
+  default tkonst0N
+    :: ( KnownNat n, Numeric r, TensorOf (1 + n) r ~ OR.Array (1 + n) r
+       , IntOf r ~ Int )
+    => [IntOf r] -> r -> TensorOf (1 + n) r
+  tkonst0N sh r = OR.constant sh r
+  default tappend
+    :: (KnownNat n, Numeric r, TensorOf n r ~ OR.Array n r)
+    => TensorOf n r -> TensorOf n r -> TensorOf n r
+  tappend = OR.append
+  default tslice
+    :: (TensorOf n r ~ OR.Array n r, IntOf r ~ Int)
+    => IntOf r -> IntOf r -> TensorOf n r -> TensorOf n r
+  tslice i k = OR.slice [(i, k)]
+  default treverse
+    :: (TensorOf n r ~ OR.Array n r)
+    => TensorOf n r -> TensorOf n r
+  treverse = OR.rev [0]
+  default ttransposeGeneral
+    :: (KnownNat n, TensorOf n r ~ OR.Array n r)
+    => [Int] -> TensorOf n r -> TensorOf n r
+  ttransposeGeneral = OR.transpose
+  default treshape
+    :: ( KnownNat n, KnownNat m, Numeric r, TensorOf n r ~ OR.Array n r
+       , TensorOf m r ~ OR.Array m r, IntOf r ~ Int )
+    => [IntOf r] -> TensorOf n r -> TensorOf m r
+  treshape = OR.reshape
+  default tbuild
+    :: (KnownNat n, TensorOf n r ~ OR.Array n r, IntOf r ~ Int)
+    => IntOf r -> (IntOf r -> TensorOf n r) -> TensorOf (1 + n) r
+  tbuild n f = tfromList $ map f [0 .. n - 1]
+  default tbuild0N
+    :: (KnownNat n, Numeric r, TensorOf n r ~ OR.Array n r, IntOf r ~ Int)
+    => [IntOf r] -> ([IntOf r] -> r) -> TensorOf n r
+  tbuild0N = OR.generate
+
+type ADReady' r = (Tensor r, HasPrimal r, HasPrimal (TensorOf 17 r))  -- TODO
+
+-- These instances are a faster way to get an objective function value.
+-- However, they don't do vectorization, so won't work on GPU, ArrayFire, etc.
+-- For vectorization, go through Ast and valueOnDomains.
+instance Tensor Double where
+  type TensorOf n Double = OR.Array n Double
+
+instance Tensor Float where
+  type TensorOf n Float = OR.Array n Float
+
+-- Not that this instance doesn't do vectorization. To enable it,
+-- use the Ast instance, which vectorizes and finally interpret in ADVal.
+-- In principle, this instance is only useful for comparative tests,
+-- though for code without build/map/etc., it should be equivalent
+-- to going via Ast.
+instance (ADModeAndNum d r, TensorOf 1 r ~ OR.Array 1 r)
+         => Tensor (ADVal d r) where
+  type TensorOf n (ADVal d r) = ADVal d (OR.Array n r)
+
+  -- TODO: here and elsewhere I can't use methods of Tensor implemented as
+  -- OR.Array n r, or any functions that use them, unless Tensor class takes
+  -- 2 parameters, which Simon doesn't like. Therefore, I inline them manually.
+  tlength (D u _) = -- tlength u
+    case OR.shapeL u of
+      [] -> error "tlength: missing dimensions"
+      k : _ -> k
+  tsize (D u _) = -- tsize u
+    OR.size u
+  tminIndex (D u _) = -- tminIndex u
+    LA.minIndex . OR.toVector $ u
+  tmaxIndex (D u _) = -- tmaxIndex u
+    LA.maxIndex . OR.toVector $ u
+
+  -- In most of the operations below the methods of Tensor(OR.Array n r)
+  -- are inlined and can't be replaced by method calls, see above.
+  -- However, they are small, so far.
+  tindex = index
+  tindex0 d ix = unScalar $ indexN d ix
+  tindexN = indexN
+  tsum = sum'
+  tsum0 = sum0
+  tdot0 = dot0
+  tminimum0 (D u u') =
+    dD (tminimum0 u) (dIndex0 u' [tminIndex u] [tlength u])
+  tmaximum0 (D u u') =
+    dD (tmaximum0 u) (dIndex0 u' [tmaxIndex u] [tlength u])
+
+  tfromList = fromList
+  tfromList0N = fromList0N
+  tfromVector = fromVector
+  tfromVector0N = fromVector0N
+  tkonst = konst
+  tkonst0N = konst0N
+  tappend = append
+  tslice = slice
+  treverse = reverse'
+  ttransposeGeneral = transposeGeneral
+  treshape = reshape
+  tbuild n f =
+    let g i = let D u _ = f i in u
+        h i = let D _ u' = f i in u'
+        tbuild_n_g = -- tbuild n g  -- has to be inlined, see above
+          OR.ravel $ ORB.fromList [n] $ map g [0 .. n - 1]
+    in dD tbuild_n_g (dBuild1 n h)
+      -- uses the implementation that stores closures on tape to test against
+      -- the elementwise implementation used by fallback from vectorizing Ast
+  tbuild0N sh f =
+    let g ixs = let D u _ = f ixs in u
+        h ixs = let D _ u' = f ixs in u'
+        tbuild0N_sh_g = -- tbuild0N sh g
+          OR.generate sh g
+    in dD tbuild0N_sh_g (dBuild01 sh h)
+
+instance (Numeric r, RealFloat r, RealFloat (Vector r))
+         => Tensor (Ast 0 r) where
+  type TensorOf n (Ast 0 r) = Ast n r
+
+  tlength = AstLength
+  tsize = AstSize
+  tminIndex = AstMinIndex
+  tmaxIndex = AstMaxIndex
+
+  tindex = AstIndex
+  tindex0 = AstIndexN
+  tindexN = AstIndexN
+  tsum = AstSum
+  tsum0 = AstSum0
+  tdot0 = AstDot0
+  tminimum0 v = AstIndex v (AstMinIndex v)
+  tmaximum0 v = AstIndex v (AstMaxIndex v)
+  tfromIntOf0 = AstConstInt
+    -- toInteger is not defined for Ast, hence a special implementation
+
+  tfromList = AstFromList
+  tfromList0N = AstFromList0N
+  tfromVector = AstFromVector
+  tfromVector0N = AstFromVector0N
+  tkonst = AstKonst
+  tkonst0N = AstKonst0N
+  tappend = AstAppend
+  tslice = AstSlice
+  treverse = AstReverse
+  ttransposeGeneral = AstTransposeGeneral
+  treshape = AstReshape
+  tbuild = astBuild
+  tbuild0N = undefined  -- TODO: type-level woes
+
+astBuild :: AstInt r -> (AstInt r -> Ast n r) -> Ast (n + 1) r
+{-# NOINLINE astBuild #-}
+astBuild n f = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
   return $! build1Vectorize n ( freshAstVar
                                , (f (AstIntVar freshAstVar)) )
@@ -763,9 +1070,6 @@ build1VectorizeVar n (var, u) =
                       $ build1Vectorize n (var, v)
     AstReverse v -> AstTranspose $ AstReverse $ AstTranspose
                     $ build1VectorizeVar n (var, v)
-    AstBuildPair{} -> AstBuildPair n (var, u)
-      -- TODO: a previous failure of vectorization that should have
-      -- led to an abort instead of showing up late
     AstTranspose v ->
       build1VectorizeVar n (var, AstTransposeGeneral [1, 0] v)
     AstTransposeGeneral perm v -> AstTransposeGeneral (0 : map succ perm)
@@ -774,6 +1078,9 @@ build1VectorizeVar n (var, u) =
     AstReshape ns _v | or $ map (intVarInAstInt var) ns ->
       AstBuildPair n (var, u)  -- TODO
     AstReshape ns v -> AstReshape (n : ns) $ build1Vectorize n (var, v)
+    AstBuildPair{} -> AstBuildPair n (var, u)
+      -- TODO: a previous failure of vectorization that should have
+      -- led to an abort instead of showing up late
 
     -- Rewriting syntactic sugar in the simplest way (but much more efficient
     -- non-sugar implementations/vectorizations exist):
@@ -891,6 +1198,15 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
       let revIs = AstIntOp MinusIntOp [AstIntOp MinusIntOp [AstLength v, 1], i1]
                   : rest1
       in build1VectorizeIndexVar n var v revIs
+    -- Can't push indexing down, so try analyzing the index instead:
+    AstTranspose{} -> build1VectorizeIndexTry n var v1 is
+      -- a more general indexing needed, one intespersed with transpose
+      -- or operating on the underlying vector of elements instead?
+    AstTransposeGeneral{} -> build1VectorizeIndexTry n var v1 is
+      -- an even more general indexing needed?
+    AstFlatten{} -> build1VectorizeIndexTry n var v1 is
+    AstReshape{} -> build1VectorizeIndexTry n var v1 is
+      -- an even more general indexing needed?
     AstBuildPair{} -> AstBuildPair n (var, AstIndexN v1 is)
       -- TODO: a previous failure of vectorization that should have
       -- led to an abort instead of showing up late
@@ -901,15 +1217,6 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
       -- the code would be
       -- build1Vectorize n (var, substitute var2 i u2))
       -- or we'd use environments instead of the substitution
-    -- Can't push indexing down, so try analyzing the index instead:
-    AstTranspose{} -> build1VectorizeIndexTry n var v1 is
-      -- a more general indexing needed, one intespersed with transpose
-      -- or operating on the underlying vector of elements instead?
-    AstTransposeGeneral{} -> build1VectorizeIndexTry n var v1 is
-      -- an even more general indexing needed?
-    AstFlatten{} -> build1VectorizeIndexTry n var v1 is
-    AstReshape{} -> build1VectorizeIndexTry n var v1 is
-      -- an even more general indexing needed?
 
     AstSum0{} -> error "build1VectorizeIndexVar: wrong rank"
     AstDot0{} -> error "build1VectorizeIndexVar: wrong rank"
@@ -994,11 +1301,11 @@ intVarInAst var = \case
   AstSlice i k v -> intVarInAstInt var i || intVarInAstInt var k
                     || intVarInAst var v
   AstReverse v -> intVarInAst var v
-  AstBuildPair n (_, v) -> intVarInAstInt var n || intVarInAst var v
   AstTranspose v -> intVarInAst var v
   AstTransposeGeneral _ v -> intVarInAst var v
   AstFlatten v -> intVarInAst var v
   AstReshape sh v -> or (map (intVarInAstInt var) sh) || intVarInAst var v
+  AstBuildPair n (_, v) -> intVarInAstInt var n || intVarInAst var v
 
   AstSum0 v -> intVarInAst var v
   AstDot0 v u -> intVarInAst var v || intVarInAst var u
@@ -1024,6 +1331,7 @@ intVarInAstInt var = \case
   AstIntConst{} -> False
   AstIntVar var2 -> var == var2  -- the only int variable not in binder position
   AstLength v -> intVarInAst var v
+  AstSize v -> intVarInAst var v
   AstMinIndex v -> intVarInAst var v
   AstMaxIndex v -> intVarInAst var v
 
@@ -1225,6 +1533,14 @@ interpretAst env = \case
   AstSlice i k v -> slice (interpretAstInt env i) (interpretAstInt env k)
                           (interpretAst env v)
   AstReverse v -> reverse' (interpretAst env v)
+  AstTranspose v -> interpretAst env $ AstTransposeGeneral [1, 0] v
+  AstTransposeGeneral perm v ->
+    let d@(D u _) = interpretAst env v
+    in if OR.rank u <= length perm - 1 then d else transposeGeneral perm d
+  AstFlatten v -> let d@(D u _) = interpretAst env v
+                  in reshape [OR.size u] d
+  AstReshape ns v -> reshape (map (interpretAstInt env) ns)
+                             (interpretAst env v)
   AstBuildPair i (var, AstConstant r) ->
     let n = interpretAstInt env i
     in constant
@@ -1235,14 +1551,6 @@ interpretAst env = \case
     build (interpretAstInt env i) (interpretLambdaI1 env (var, v))
       -- fallback to POPL (memory blowup, but avoids functions on tape);
       -- an alternative is to use dBuild1 and store function on tape
-  AstTranspose v -> interpretAst env $ AstTransposeGeneral [1, 0] v
-  AstTransposeGeneral perm v ->
-    let d@(D u _) = interpretAst env v
-    in if OR.rank u <= length perm - 1 then d else transposeGeneral perm d
-  AstFlatten v -> let d@(D u _) = interpretAst env v
-                  in reshape [OR.size u] d
-  AstReshape ns v -> reshape (map (interpretAstInt env) ns)
-                             (interpretAst env v)
 
   AstSum0 v -> scalar $ sum0 (interpretAst env v)
   AstDot0 x y -> scalar $ dot0 (interpretAst env x) (interpretAst env y)
@@ -1302,6 +1610,7 @@ interpretAstInt env = \case
   AstLength v -> case OR.shapeL $ interpretAstPrimal env v of
     [] -> error "interpretAstInt: impossible shape for rank >= 1"
     len_outermost : _ -> len_outermost
+  AstSize v -> product $ OR.shapeL $ interpretAstPrimal env v
   AstMinIndex v -> lminIndex $ interpretAst env v
   AstMaxIndex v -> lmaxIndex $ interpretAst env v
 

@@ -72,7 +72,6 @@ data Ast :: Nat -> Type -> Type where
   AstSlice :: AstInt r -> AstInt r -> Ast n r -> Ast n r
   AstReverse :: KnownNat n
              => Ast n r -> Ast n r
-  AstBuildPair :: AstInt r -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
   AstTranspose :: Ast n r -> Ast n r
   AstTransposeGeneral :: [Int] -> Ast n r -> Ast n r
     -- emerges from vectorizing AstTranspose
@@ -81,6 +80,7 @@ data Ast :: Nat -> Type -> Type where
   AstReshape :: KnownNat n
              => [AstInt r] -> Ast n r -> Ast m r
     -- emerges from vectorizing AstFlatten
+  AstBuildPair :: AstInt r -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
 
   -- If we give the user access to tensors, not just vectors, these
   -- operations will be necessary.
@@ -134,6 +134,8 @@ data AstInt :: Type -> Type where
 
   AstLength :: KnownNat n
             => Ast (1 + n) r -> AstInt r  -- length of the outermost dimension
+  AstSize :: KnownNat n
+          => Ast n r -> AstInt r  -- product of all dimensions
   AstMinIndex :: Ast 1 r -> AstInt r
   AstMaxIndex :: Ast 1 r -> AstInt r
 deriving instance (Show r, Numeric r) => Show (AstInt r)
