@@ -520,7 +520,8 @@ library horde-ad-simplified
                       HordeAd.Internal.OrthotopeOrphanInstances
 
     build-depends:
-        base >= 4.14 && < 99
+        assert-failure
+      , base >= 4.14 && < 99
       , deepseq
       , enummapset
       , ghc-typelits-knownnat

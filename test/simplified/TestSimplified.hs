@@ -26,6 +26,7 @@ testTrees = [ testCase "barADVal" testBarADVal
             , testCase "fooNoGoAst" testFooNoGoAst
             , testCase "nestedBuildMap" testNestedBuildMap
             , testCase "nestedSumBuild" testNestedSumBuild
+            , testCase "nestedBuildIndex" testNestedBuildIndex
             , testCase "barReluADVal" testBarReluADVal
             , testCase "barReluAst0" testBarReluAst0
             , testCase "barReluAst1" testBarReluAst1
@@ -119,6 +120,10 @@ nestedSumBuild v =
              ]))))
   + lbuild1 13 (\ix ->
       nestedBuildMap (lsum0 v) `lindex0` min ix 4)
+
+nestedBuildIndex :: ADReady r => VectorOf r -> VectorOf r
+nestedBuildIndex v =
+  lbuild1 2 $ \ix2 -> lindex0 (lbuild1 3 $ \ix3 -> lindex0 (lbuild1 4 $ \ix4 -> lindex0 v ix4) ix3) ix2
 
 barRelu
   :: ( RealFloat a
@@ -298,6 +303,12 @@ testNestedSumBuild =
   testPoly11 nestedSumBuild 13
     [1.1, 2.2, 3.3, 4, -5.22]
     [-14084.715065313612,-14084.715065313612,-14084.715065313612,-14014.775065313623,-14084.715065313612]
+
+testNestedBuildIndex :: Assertion
+testNestedBuildIndex =
+  testPoly11 nestedBuildIndex 2
+    [1.1, 2.2, 3.3, 4, -5.22]
+    [1,1,0,0,0]
 
 testBarReluADVal :: Assertion
 testBarReluADVal =

@@ -54,7 +54,7 @@ data Ast :: Nat -> Type -> Type where
   AstIndex :: Ast (1 + n) r -> AstInt r -> Ast n r
   AstIndexN :: KnownNat m
             => Ast (1 + m + n) r -> [AstInt r] -> Ast n r
-    -- emerges from vectorizing AstIndex
+    -- emerges from vectorizing AstIndex;
     -- first ix is for outermost dimension; @1 + m@ is the length of the list;
     -- empty list means identity
   AstSum :: Ast (1 + n) r -> Ast n r

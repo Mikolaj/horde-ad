@@ -52,7 +52,7 @@ module HordeAd.Internal.Delta
 import Prelude
 
 import           Control.DeepSeq (NFData)
-import           Control.Exception (assert)
+import           Control.Exception.Assert.Sugar
 import           Control.Monad (liftM2)
 import           Control.Monad.ST.Strict (ST, runST)
 import qualified Data.Array.Convert
@@ -525,7 +525,7 @@ buildFinMaps s0 deltaDt =
           [] -> error "eval1: appending a 0-dimensional tensor"
         Slice1 i n d len -> case OR.shapeL c of
           n' : rest ->
-            assert (n' == n) $
+            assert (n' == n `blame` (n', n)) $
             eval1 s (OR.concatOuter [ OR.constant (i : rest) 0
                                     , c
                                     , OR.constant (len - i - n : rest) 0 ])
