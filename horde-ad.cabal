@@ -178,7 +178,7 @@ library
   }
 
     -- Directories containing source files.
-    hs-source-dirs:   src
+    hs-source-dirs:   src src/common
 
 library exampleLibrary
     -- Import common warning flags.
@@ -536,7 +536,7 @@ library horde-ad-simplified
       , unboxed-ref
       , vector
 
-    hs-source-dirs:   simplified
+    hs-source-dirs:   simplified src/common
 
 library exampleLibrarySimplified
     import:           options
