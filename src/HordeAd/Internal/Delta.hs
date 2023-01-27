@@ -732,7 +732,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
           -- lsd is a list (boxed vector) of scalar delta expressions
         FromVector1 lsd -> V.imapM_ (\i d -> eval0 (c V.! i) d) lsd
           -- lsd is a boxed vector of scalar delta expressions
-        Konst1 d _n -> V.mapM_ (`eval0` d) c
+        Konst1 d _n -> eval0 (LA.sumElements c) d
         Append1 d k e -> eval1 (V.take k c) d >> eval1 (V.drop k c) e
         Slice1 i n d len ->
           eval1 (LA.konst 0 i V.++ c V.++ LA.konst 0 (len - i - n)) d
@@ -799,7 +799,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
           V.imapM_ (\i d -> eval0 (vc V.! i) d) lsd
         FromRows2 lvd -> zipWithM_ eval1 (MO.toRows c) (V.toList lvd)
         FromColumns2 lvd -> zipWithM_ eval1 (MO.toColumns c) (V.toList lvd)
-        Konst2 d _sz -> mapM_ (V.mapM_ (`eval0` d)) $ MO.toRows c
+        Konst2 d _sz -> eval0 (LA.sumElements $ MO.convertMatrixOuter c) d
         Transpose2 md -> eval2 (MO.transpose c) md  -- TODO: test!
         M_MD2 m md ->
           let mo = MO.MatrixOuter (Just $ LA.tr' m) Nothing Nothing
@@ -826,8 +826,8 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                     `MO.columnAppend` MO.konst 0 rows (cols - i - n))
                    d
 
-        AsRow2 dRow -> mapM_ (`eval1` dRow) (MO.toRows c)
-        AsColumn2 dCol -> mapM_ (`eval1` dCol) (MO.toColumns c)
+        AsRow2 dRow -> eval1 (sum $ MO.toRows c) dRow
+        AsColumn2 dCol -> eval1 (sum $ MO.toColumns c) dCol
 
         FromX2 d -> evalX (OT.fromVector [MO.rows c, MO.cols c]
                                          (V.concat $ MO.toRows c)) d
@@ -885,7 +885,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         FromVectorX _sh lsd -> do
           let vc = OT.toVector c
           V.imapM_ (\i d -> eval0 (vc V.! i) d) lsd
-        KonstX d _sh -> mapM_ (`eval0` d) $ OT.toList c
+        KonstX d _sh -> eval0 (OT.sumA c) d
         AppendX d k e -> case OT.shapeL c of
           n : _ -> evalX (OT.slice [(0, k)] c) d
                    >> evalX (OT.slice [(k, n - k)] c) e
@@ -966,7 +966,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         FromVectorS lsd -> do
           let vc = OS.toVector c
           V.imapM_ (\i d -> eval0 (vc V.! i) d) lsd
-        KonstS d -> mapM_ (`eval0` d) $ OS.toList c
+        KonstS d -> eval0 (OS.sumA c) d
         AppendS (d :: DeltaS (k ': rest) c) (e :: DeltaS (l ': rest) c) ->
           evalS (OS.slice @'[ '(0, k) ] c) d
           >> evalS (OS.slice @'[ '(k, l) ] c) e

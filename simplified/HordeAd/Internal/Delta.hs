@@ -538,7 +538,9 @@ buildFinMaps s0 deltaDt =
           let lc = ORB.toList $ OR.unravel c
           in foldl' (\s2 (c2, d2) -> eval1 s2 c2 d2) s $ zip lc (V.toList ld)
         Konst1 _n d ->
-          V.foldl' (\s2 c2 -> eval1 s2 c2 d) s $ ORB.toVector $ OR.unravel c
+          let c2 = V.sum $ ORB.toVector $ OR.unravel c
+                -- simplified version of: scatter (const []) c (tail $ shapeL c)
+          in eval1 s c2 d
         Append1 d k e -> case OR.shapeL c of
           n : _ -> let s2 = eval1 s (OR.slice [(0, k)] c) d
                    in eval1 s2 (OR.slice [(k, n - k)] c) e
@@ -567,8 +569,7 @@ buildFinMaps s0 deltaDt =
         FromVector01 _sh lsd ->  -- lsd is a list of scalar delta expressions
           let cv = OR.toVector c
           in V.ifoldl' (\s2 i d -> eval0 s2 (cv V.! i) d) s lsd
-        Konst01 _ d ->
-          V.foldl' (\s2 c2 -> eval0 s2 c2 d) s (OR.toVector c)
+        Konst01 _ d -> eval0 s (OR.sumA c) d
         Build01 sh f ->
           let ss = case getStrides sh of
                 _ : ss2 -> ss2
