@@ -51,6 +51,7 @@ import HordeAd.Internal.Delta
   , Domains (..)
   , atIndexInTensorNR
   , atIndexInTensorR
+  , gather
   , isTensorDummy
   , nullDomains
   )
@@ -1090,6 +1091,11 @@ build1VectorizeVar n (var, u) =
     AstBuildPair{} -> AstBuildPair n (var, u)
       -- TODO: a previous failure of vectorization that should have
       -- led to an abort instead of showing up late
+    AstGatherPair _n (_var2, _ixs2) _v -> AstBuildPair n (var, u)
+      -- TODO: if var not in _v, then create a generalized gather
+      -- that builds more than one rank using var and var2 together
+    -- AstScatterPair (var2, ixs2) v sh -> ...
+    -- no idea how to vectorize AstScatterPair, so let's not add it prematurely
 
     -- Rewriting syntactic sugar in the simplest way (but much more efficient
     -- non-sugar implementations/vectorizations exist):
@@ -1226,6 +1232,8 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
       -- the code would be
       -- build1Vectorize n (var, substitute var2 i u2))
       -- or we'd use environments instead of the substitution
+    AstGatherPair _n (_var2, _ixs2) _v -> undefined
+      -- TODO: simplify to build (indexN v (subst i1 for var2 in ixs2 ++ rest1))
 
     AstSum0{} -> error "build1VectorizeIndexVar: wrong rank"
     AstDot0{} -> error "build1VectorizeIndexVar: wrong rank"
@@ -1247,6 +1255,14 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
       build1VectorizeIndexTry n var v1 is
     -- All other patterns are redundant due to GADT typing.
 
+-- This has to be done after indexing is pushed down as much as possible,
+-- because it may eliminate some occurences of @var@ and so make this
+-- analysis applicable. The downside is that we'd vectorize terms
+-- we don't have to, but if we are nested in outer build1, the vectorization
+-- would be needed anyway, so this hurts only at top-level.
+-- TODO: a more nuanced approach would be to push indexing down
+-- only as far as needed to eliminate the build variable from the term.
+-- Not sure about nested builds and so multiple variables.
 build1VectorizeIndexTry
   :: forall m n r. KnownNat m
   => AstInt r -> AstVarName Int -> Ast (1 + m + n) r -> [AstInt r]
@@ -1264,11 +1280,6 @@ build1VectorizeIndexTry n var v is = case reverse is of
        then AstBuildPair n (var, AstIndexN v is)
        else build1VectorizeIndexAnalyze n var w iN
 
--- This has to be done after indexing is pushed down as much as possible,
--- because it may eliminate some occurences of @var@ and so make this
--- analysis applicable. The downside is that we'd vectorize terms
--- we don't have to, but if we are nested in outer build1, the vectorization
--- would be needed anyway, so this hurts only at top-level.
 build1VectorizeIndexAnalyze
   :: forall n r.
      AstInt r -> AstVarName Int -> Ast (1 + n) r -> AstInt r
@@ -1318,6 +1329,9 @@ intVarInAst var = \case
   AstFlatten v -> intVarInAst var v
   AstReshape sh v -> or (map (intVarInAstInt var) sh) || intVarInAst var v
   AstBuildPair n (_, v) -> intVarInAstInt var n || intVarInAst var v
+  AstGatherPair n (_, is) v ->
+    intVarInAstInt var n || or (map (intVarInAstInt var) is)
+    || intVarInAst var v
 
   AstSum0 v -> intVarInAst var v
   AstDot0 v u -> intVarInAst var v || intVarInAst var u
@@ -1439,12 +1453,6 @@ reverse' :: (ADModeAndNum d r, KnownNat n)
          => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
 reverse' (D u u') = dD (OR.rev [0] u) (dReverse1 u')
 
--- The element-wise (POPL) version, but only one rank at a time.
-build :: (ADModeAndNum d r, KnownNat n)
-      => Int -> (Int -> ADVal d (OR.Array n r))
-      -> ADVal d (OR.Array (1 + n) r)
-build n f = fromList $ map f [0 .. n - 1]
-
 transposeGeneral :: (ADModeAndNum d r, KnownNat n)
                  => [Int] -> ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
 transposeGeneral perm (D u u') = dD (OR.transpose perm u)
@@ -1453,6 +1461,17 @@ transposeGeneral perm (D u u') = dD (OR.transpose perm u)
 reshape :: (ADModeAndNum d r, KnownNat n, KnownNat m)
         => OR.ShapeL -> ADVal d (OR.Array n r) -> ADVal d (OR.Array m r)
 reshape sh (D u u') = dD (OR.reshape sh u) (dReshape1 (OR.shapeL u) sh u')
+
+-- The element-wise (POPL) version, but only one rank at a time.
+build :: (ADModeAndNum d r, KnownNat n)
+      => Int -> (Int -> ADVal d (OR.Array n r))
+      -> ADVal d (OR.Array (1 + n) r)
+build n f = fromList $ map f [0 .. n - 1]
+
+gatherClosure :: (ADModeAndNum d r, KnownNat n, KnownNat m)
+              => Int -> (Int -> [Int])
+              -> ADVal d (OR.Array (m + n) r) -> ADVal d (OR.Array (1 + n) r)
+gatherClosure n f (D u u') = dD (gather n f u) (dGather1 n f (OR.shapeL u) u')
 
 sum0 :: (ADModeAndNum d r, KnownNat n)
      => ADVal d (OR.Array n r) -> ADVal d r
@@ -1502,6 +1521,14 @@ interpretLambdaI1
   -> Int -> ADVal d (OR.Array n r)
 interpretLambdaI1 env (AstVarName var, ast) =
   \i -> interpretAst (IM.insert var (AstVarI i) env) ast
+
+interpretLambdaPath
+  :: ADModeAndNum d r
+  => IM.IntMap (AstVar (ADVal d r) (ADVal d (Vec r)))
+  -> (AstVarName Int, [AstInt r])
+  -> Int -> [Int]
+interpretLambdaPath env (AstVarName var, asts) =
+  \i -> map (interpretAstInt (IM.insert var (AstVarI i) env)) asts
 
 interpretAstPrimal
   :: (ADModeAndNum d r, KnownNat n)
@@ -1563,6 +1590,17 @@ interpretAst env = \case
     build (interpretAstInt env i) (interpretLambdaI1 env (var, v))
       -- fallback to POPL (memory blowup, but avoids functions on tape);
       -- an alternative is to use dBuild1 and store function on tape
+  AstGatherPair i (var, is) v ->
+    gatherClosure (interpretAstInt env i) (interpretLambdaPath env (var, is))
+                  (interpretAst env v)
+    -- TODO: currently we store the function on tape, because it doesn't
+    -- cause recomputation of the gradient per-cell, unlike storing the build
+    -- function on tape; for GPUs and libraries that don't understand Haskell
+    -- closures, we cneck if the expressions involve tensor operations
+    -- too hard for GPUs and, if not, we can store the AST expression
+    -- on tape and translate it to whatever backend sooner or later;
+    -- and if yes, fall back to POPL pre-computation that, unfortunately,
+    -- leads to a tensor of deltas
 
   AstSum0 v -> scalar $ sum0 (interpretAst env v)
   AstDot0 x y -> scalar $ dot0 (interpretAst env x) (interpretAst env y)

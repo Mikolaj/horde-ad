@@ -79,6 +79,10 @@ data Ast :: Nat -> Type -> Type where
              => [AstInt r] -> Ast n r -> Ast m r
     -- emerges from vectorizing AstFlatten
   AstBuildPair :: AstInt r -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
+  AstGatherPair :: KnownNat m
+                => AstInt r -> (AstVarName Int, [AstInt r]) -> Ast (m + n) r
+                -> Ast (1 + n) r
+    -- emerges from vectorizing AstIndexN applied to term with no build variable
 
   -- If we give the user access to tensors, not just vectors, these
   -- operations will be necessary.
