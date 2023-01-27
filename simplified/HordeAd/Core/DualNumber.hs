@@ -1,6 +1,5 @@
-{-# LANGUAGE CPP, ConstraintKinds, DataKinds, FlexibleInstances,
-             FunctionalDependencies, GADTs, MultiParamTypeClasses,
-             QuantifiedConstraints, RankNTypes, TypeFamilies,
+{-# LANGUAGE CPP, ConstraintKinds, DataKinds, FlexibleInstances, GADTs,
+             MultiParamTypeClasses, QuantifiedConstraints, RankNTypes,
              TypeFamilyDependencies #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=16 #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}

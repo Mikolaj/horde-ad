@@ -1,9 +1,7 @@
-{-# LANGUAGE CPP, ConstraintKinds, DataKinds, FlexibleInstances,
-             FunctionalDependencies, GADTs, GeneralizedNewtypeDeriving,
-             MultiParamTypeClasses, PolyKinds, QuantifiedConstraints,
-             StandaloneDeriving, TypeFamilyDependencies,
+{-# LANGUAGE CPP, ConstraintKinds, DataKinds, FlexibleInstances, GADTs,
+             GeneralizedNewtypeDeriving, MultiParamTypeClasses, PolyKinds,
+             QuantifiedConstraints, StandaloneDeriving, TypeFamilyDependencies,
              UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 -- | AST of the code to be differentiated. It's needed mostly for handling
 -- higher order operations such as build and map, but can be used
