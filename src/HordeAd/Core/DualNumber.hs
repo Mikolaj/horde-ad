@@ -55,7 +55,7 @@ import HordeAd.Internal.Delta
   , Domain2
   , DomainX
   , Domains (..)
-  , atIndexInTensor
+  , atPathInTensor
   , isTensorDummy
   , nullDomains
   )
@@ -257,7 +257,7 @@ index20 :: ADModeAndNum d r => ADVal d (Matrix r) -> (Int, Int) -> ADVal d r
 index20 (D u u') ix = dD (u `LA.atIndex` ix) (dIndex20 u' ix (LA.size u))
 
 indexX0 :: ADModeAndNum d r => ADVal d (OT.Array r) -> [Int] -> ADVal d r
-indexX0 (D u u') ix = dD (u `atIndexInTensor` ix) (dIndexX0 u' ix (OT.shapeL u))
+indexX0 (D u u') ix = dD (u `atPathInTensor` ix) (dIndexX0 u' ix (OT.shapeL u))
 
 -- Passing the index via type application, as in @indexS@,
 -- would guarantee it's in bounds, but would require it to be statically

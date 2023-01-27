@@ -572,7 +572,7 @@ instance ( Numeric r, Num (Vector r)
   dSumElementsX0 d _ = OT.sumA d
   dIndex10 d ix _ = d V.! ix
   dIndex20 d ix _ = d `LA.atIndex` ix
-  dIndexX0 d ix _ = d `atIndexInTensor` ix
+  dIndexX0 d ix _ = d `atPathInTensor` ix
   dDot0 = (LA.<.>)
   dFromX0 = OT.unScalar
   dFromS0 = OS.unScalar

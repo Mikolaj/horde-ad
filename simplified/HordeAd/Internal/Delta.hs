@@ -46,7 +46,7 @@ module HordeAd.Internal.Delta
   , -- * Evaluation of the delta expressions
     DeltaDt (..), Domain0, Domain1, Domains(..), nullDomains
   , gradientFromDelta, derivativeFromDelta
-  , isTensorDummy, atIndexInTensorR, atIndexInTensorNR, gather, scatter
+  , isTensorDummy, atPathInTensorOR, atPathInTensorORN, gather, scatter
   , getStrides, toIx
   ) where
 
@@ -472,12 +472,12 @@ buildFinMaps s0 deltaDt =
         Index0 (FromX1 (InputX i)) ixs sh ->
           let f v = if isTensorDummy v
                     then OT.constant sh 0 `OT.update` [(ixs, c)]
-                    else v `OT.update` [(ixs, v `atIndexInTensor` ixs + c)]
+                    else v `OT.update` [(ixs, v `atPathInTensor` ixs + c)]
           in s {iMap1 = EM.adjust f i $ iMap1 s}
         Index0 (Let1 n d) ixs sh ->
           case EM.lookup n $ nMap s of
             Just (DeltaBinding1 _) ->
-              let f v = v `OT.update` [(ixs, v `atIndexInTensor` ixs + c)]
+              let f v = v `OT.update` [(ixs, v `atPathInTensor` ixs + c)]
               in s {dMap1 = EM.adjust f n $ dMap1 s}
                 -- This would be an asymptotic optimization compared to
                 -- the general case below, if not for the non-mutable update,
@@ -656,7 +656,7 @@ buildDerivative dim0 dim1 deltaTopLevel
               return c
             _ -> error "buildDerivative: corrupted nMap"
 
-        Index0 d ixs _ -> (`atIndexInTensorR` ixs) <$> eval1 d
+        Index0 d ixs _ -> (`atPathInTensorOR` ixs) <$> eval1 d
         Sum0 _ d -> OR.sumA <$> eval1 d
         Dot0 v d -> (LA.<.> OR.toVector v) . OR.toVector <$> eval1 d
         UnScalar0 d -> OR.unScalar <$> eval1 d
@@ -686,7 +686,7 @@ buildDerivative dim0 dim1 deltaTopLevel
             _ -> error "buildDerivative: corrupted nMap"
 
         Index1 d ix _len -> flip OR.index ix <$> eval1 d
-        IndexN d ixs _len -> (`atIndexInTensorNR` ixs) <$> eval1 d
+        IndexN d ixs _len -> (`atPathInTensorORN` ixs) <$> eval1 d
         Sum1 _ d -> ORB.sumA . OR.unravel <$> eval1 d
         FromList1 lsd -> do
           l <- mapM eval1 lsd
@@ -743,22 +743,22 @@ isTensorDummy (Data.Array.Internal.DynamicS.A
                     (Data.Array.Internal.T _ (-1) _))) = True
 isTensorDummy _ = False
 
-atIndexInTensor :: Numeric r => OT.Array r -> [Int] -> r
-atIndexInTensor (Data.Array.Internal.DynamicS.A
+atPathInTensor :: Numeric r => OT.Array r -> [Int] -> r
+atPathInTensor (Data.Array.Internal.DynamicS.A
                    (Data.Array.Internal.DynamicG.A _
                       Data.Array.Internal.T{..})) is =
   values V.! (offset + sum (zipWith (*) is strides))
     -- TODO: tests are needed to verify if order of dimensions is right
 
-atIndexInTensorR :: Numeric r => OR.Array n r -> [Int] -> r
-atIndexInTensorR (Data.Array.Internal.RankedS.A
+atPathInTensorOR :: Numeric r => OR.Array n r -> [Int] -> r
+atPathInTensorOR (Data.Array.Internal.RankedS.A
                     (Data.Array.Internal.RankedG.A _
                        Data.Array.Internal.T{..})) is =
   values V.! (offset + sum (zipWith (*) is strides))
 
-atIndexInTensorNR :: (Numeric r, KnownNat n)
+atPathInTensorORN :: (Numeric r, KnownNat n)
                   => OR.Array (1 + m + n) r -> [Int] -> OR.Array n r
-atIndexInTensorNR arr ixs =
+atPathInTensorORN arr ixs =
   let Data.Array.Internal.DynamicS.A
         (Data.Array.Internal.DynamicG.A sh
            Data.Array.Internal.T{..}) =
@@ -800,7 +800,7 @@ gather :: (Numeric r, KnownNat n)
        => Int -> (Int -> [Int])
        -> OR.Array (m + n) r -> OR.Array (1 + n) r
 gather n f t =
-  let l = map (\i -> unsafeCoerce t `atIndexInTensorNR` f i) [0 .. n - 1]
+  let l = map (\i -> unsafeCoerce t `atPathInTensorORN` f i) [0 .. n - 1]
   in OR.ravel $ ORB.fromList [n] l
 
 -- TODO: update in place in ST or with a vector builder, but that requires

@@ -49,8 +49,8 @@ import HordeAd.Internal.Delta
   , Domain0
   , Domain1
   , Domains (..)
-  , atIndexInTensorNR
-  , atIndexInTensorR
+  , atPathInTensorORN
+  , atPathInTensorOR
   , gather
   , isTensorDummy
   , nullDomains
@@ -578,12 +578,12 @@ class VectorNumeric r
   default tindex0
     :: (Numeric r, TensorOf (1 + n) r ~ OR.Array (1 + n) r, IntOf r ~ Int)
     => TensorOf (1 + n) r -> [IntOf r] -> r
-  tindex0 = atIndexInTensorR
+  tindex0 = atPathInTensorOR
   default tindexN
     :: ( KnownNat n, Numeric r, TensorOf n r ~ OR.Array n r
        , TensorOf (1 + m + n) r ~ OR.Array (1 + m + n) r, IntOf r ~ Int )
     => TensorOf (1 + m + n) r -> [IntOf r] -> TensorOf n r
-  tindexN = atIndexInTensorNR
+  tindexN = atPathInTensorORN
   default tsum
     :: ( KnownNat n, Numeric r, TensorOf n r ~ OR.Array n r
        , TensorOf (1 + n) r ~ OR.Array (1 + n) r, Num (Vector r))
@@ -1403,12 +1403,12 @@ index (D u u') ix = dD (u `OR.index` ix)
 
 -- | First index is for outermost dimension; @1 + m@ is the length of the path;
 -- empty path means identity.
--- TODO: speed up by using atIndexInTensorR and dIndex0 if the codomain is 0.
+-- TODO: speed up by using atPathInTensorOR and dIndex0 if the codomain is 0.
 indexN :: forall m n d r. (ADModeAndNum d r, KnownNat n, KnownNat m)
         => ADVal d (OR.Array (1 + m + n) r) -> [Int]
         -> ADVal d (OR.Array n r)
 -- TODO: This is much faster, but gradient of dIndexN is not implemented yet:
--- indexN (D u u') ixs = dD (u `atIndexInTensorNR` ixs)
+-- indexN (D u u') ixs = dD (u `atPathInTensorORN` ixs)
 --                           (dIndexN u' ixs (OR.shapeL u))
 indexN d [] = (unsafeCoerce :: ADVal d (OR.Array (1 + m + n) r)
                              -> ADVal d (OR.Array n r)) d  -- m is -1

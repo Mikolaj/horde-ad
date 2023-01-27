@@ -45,7 +45,7 @@ module HordeAd.Internal.Delta
     DeltaDt (..), Domain0, Domain1, Domain2, DomainX, Domains(..), nullDomains
   , gradientFromDelta, derivativeFromDelta
   , isTensorDummy, toVectorOrDummy, toMatrixOrDummy
-  , toShapedOrDummy, toDynamicOrDummy, atIndexInTensor
+  , toShapedOrDummy, toDynamicOrDummy, atPathInTensor
   ) where
 
 import Prelude
@@ -1127,7 +1127,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         SumElementsX0 d _ -> OT.sumA <$> evalX d
         Index10 d ix _k -> flip (V.!) ix <$> eval1 d
         Index20 d ix _rowsCols -> flip LA.atIndex ix <$> eval2 d
-        IndexX0 d ix _sh -> flip atIndexInTensor ix <$> evalX d
+        IndexX0 d ix _sh -> flip atPathInTensor ix <$> evalX d
 
         Dot0 vc vd -> (<.>) vc <$> eval1 vd
 
@@ -1474,8 +1474,8 @@ toDynamicOrDummy sh x = if isTensorDummy x
                         then OT.constant sh 0
                         else x
 
-atIndexInTensor :: Numeric r => OT.Array r -> [Int] -> r
-atIndexInTensor (Data.Array.Internal.DynamicS.A
+atPathInTensor :: Numeric r => OT.Array r -> [Int] -> r
+atPathInTensor (Data.Array.Internal.DynamicS.A
                    (Data.Array.Internal.DynamicG.A _
                       Data.Array.Internal.T{..})) is =
   values V.! (offset + sum (zipWith (*) is strides))

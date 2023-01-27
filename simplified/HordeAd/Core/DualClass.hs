@@ -391,13 +391,13 @@ instance (Numeric r, Num (Vector r))
 instance ( Numeric r, Num (Vector r)
          , Dual 'ADModeDerivative r ~ r )
          => HasRanks 'ADModeDerivative r where
-  dIndex0 d ixs _ = d `atIndexInTensorR` ixs
+  dIndex0 d ixs _ = d `atPathInTensorOR` ixs
   dSum0 _ = OR.sumA
   dDot0 u v = OR.toVector u LA.<.> OR.toVector v
   dUnScalar0 = OR.unScalar
 
   dIndex1 d ix _ = OR.index d ix
-  dIndexN d ixs _ = d `atIndexInTensorNR` ixs
+  dIndexN d ixs _ = d `atPathInTensorORN` ixs
   dSum1 _ = ORB.sumA . OR.unravel
   dFromList1 l = OR.ravel $ ORB.fromList [length l] l
   dFromVector1 l = OR.ravel $ ORB.fromVector [V.length l] $ V.convert l

@@ -20,7 +20,7 @@ import           Test.Tasty.QuickCheck
 
 import HordeAd
 import HordeAd.Core.DualClass (Dual)
-import HordeAd.Internal.Delta (atIndexInTensor)
+import HordeAd.Internal.Delta (atPathInTensor)
 
 import Tool.EqEpsilon
 import Tool.Shared
@@ -509,7 +509,7 @@ slicezOS arr ixBase =
 indexzOS :: forall sh r. (Numeric r, OS.Shape sh)
          => OS.Array sh r -> [Int] -> r
 indexzOS arr ix = if withinOS @sh ix
-                  then atIndexInTensor (Data.Array.Convert.convert arr) ix
+                  then atPathInTensor (Data.Array.Convert.convert arr) ix
                   else 0
 
 -- | Compute the dot product of elements in two arrays.
