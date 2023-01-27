@@ -73,11 +73,11 @@ import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.Generics (Generic)
-import           GHC.Stack (HasCallStack)
 import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Text.Show.Functions ()
+import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVR)
 
@@ -164,7 +164,8 @@ data Delta1 :: Nat -> Type -> Type where
     -- The second integer is the length of the dimension.
   IndexN :: (KnownNat n, KnownNat m)
          => Delta1 (1 + m + n) r -> [Int] -> OR.ShapeL -> Delta1 n r
-    -- ^ The sub-tensors at the given path.
+    -- ^ The sub-tensor at the given path. The given shape is of the
+    -- large tensor.
   Sum1 :: KnownNat n
        => Int -> Delta1 (1 + n) r -> Delta1 n r
     -- ^ Add element tensors along the outermost dimension.
@@ -195,6 +196,24 @@ data Delta1 :: Nat -> Type -> Type where
          => Int -> (Int -> Delta1 n r) -> Delta1 (1 + n) r
     -- ^ Build a tensor with the given size of the outermost dimension
     -- and using the given function to construct the element tensors.
+  Gather1 :: (KnownNat n, KnownNat m)
+          => Int -> (Int -> [Int])
+          -> OR.ShapeL -> Delta1 (m + n) r -> Delta1 (1 + n) r
+    -- ^ Build a tensor by picking tensors of rank @n@ at the given paths.
+    -- The paths (in the codomain of the function) are of length @m@.
+    -- Shape of the tensor in the fourth argument is given in the third.
+    -- Paths of length 0 result in identities, so that,
+    -- e.g, @Gather1 n (const []) [0] (Scalar1 d)@ is equivalent
+    -- to @Konst01 [n] d@.
+  Scatter1 :: (KnownNat n, KnownNat m)
+           => Int -> (Int -> [Int])
+           -> Delta1 (1 + n) r -> OR.ShapeL -> Delta1 (m + n) r
+    -- ^ Build a tensor by adding up tensors of rank @n@ taken from
+    -- the third argument and inserted in a zero tensor at the given paths.
+    -- The shape of the zero tensor is given as the fourth argument.
+    -- Paths of length 0 insert tensors trivially, so that,
+    -- e.g, @Scatter1 (const []) (Konst01 [5] d) []@ is equivalent
+    -- to @Scalar1 (5 * d)@.
   TransposeGeneral1 :: KnownNat n
                     => [Int] -> Delta1 n r -> Delta1 n r
     -- ^ Transpose according to the permutation.
@@ -509,7 +528,7 @@ buildFinMaps s0 deltaDt =
                                      , OR.reshape (1 : rest) c
                                      , OR.constant (len - ix - 1 : rest) 0 ])
                      d  -- TODO: optimize for input case
-        IndexN{} -> error "TODO: define OR.updateN, similar to OT.update, but taking a single index list and an array A and substituting the array A at the path, by normalizing the vector of values and overriting a segment, starting from the path element, with the whole normalized value vector of A"
+        IndexN d ixs sh -> eval1 s (updateORN (OR.constant sh 0) [(ixs, c)]) d
         Sum1 n d -> eval1 s (OR.ravel (ORB.constant [n] c)) d
         FromList1 ld ->
           let lc = ORB.toList $ OR.unravel c
@@ -532,8 +551,10 @@ buildFinMaps s0 deltaDt =
                     d
           [] -> error "eval1: slicing a 0-dimensional tensor"
         Reverse1 d -> eval1 s (OR.rev [0] c) d
-        Build1 _n f -> V.ifoldl' (\s2 i c2 -> eval1 s2 c2 (f i))
+        Build1 _n f -> V.ifoldl' (\s2 i ci -> eval1 s2 ci (f i))
                                  s (ORB.toVector $ OR.unravel c)
+        Gather1 _n f sh d -> eval1 s (scatter f c sh) d
+        Scatter1 n f d _sh -> eval1 s (gather n f c) d
         TransposeGeneral1 perm d ->
           let perm_reversed = map snd $ sort $ zip perm [0 .. length perm - 1]
           in eval1 s (OR.transpose perm_reversed c) d
@@ -551,7 +572,7 @@ buildFinMaps s0 deltaDt =
           let ss = case getStrides sh of
                 _ : ss2 -> ss2
                 [] -> error "getStrides in buildFinMaps"
-          in V.ifoldl' (\s2 i c0 -> eval0 s2 c0 (f $ toIx ss i))
+          in V.ifoldl' (\s2 i ci -> eval0 s2 ci (f $ toIx ss i))
                        s (OR.toVector c)
         Scalar1 d -> eval0 s (OR.unScalar c) d
 
@@ -681,6 +702,12 @@ buildDerivative dim0 dim1 deltaTopLevel
         Build1 n f -> do
           l <- mapM (eval1 . f) [0 .. n - 1]
           return $! OR.ravel $ ORB.fromList [n] l
+        Gather1 n f _sh d -> do
+          t <- unsafeCoerce $ eval1 d
+          return $! gather n f t
+        Scatter1 _n f d sh -> do
+          t <- eval1 d
+          return $! scatter f t sh
         TransposeGeneral1 perm d -> OR.transpose perm <$> eval1 d
         Reshape1 _sh sh' d -> OR.reshape sh' <$> eval1 d
 
@@ -736,10 +763,33 @@ atIndexInTensorNR v is =
   -- faster.
   Data.Array.Convert.convert $ foldl' OT.index (Data.Array.Convert.convert v) is
 
-updateOR :: (HasCallStack, OR.Unbox a, KnownNat n)
+updateOR :: (Numeric a, KnownNat n)
          => OR.Array n a -> [([Int], a)] -> OR.Array n a
 updateOR arr upd = Data.Array.Convert.convert
                    $ OT.update (Data.Array.Convert.convert arr) upd
+
+-- The lists are of length @m@.
+updateORN :: -- (Numeric a, KnownNat n)
+             OR.Array (m + n) a -> [([Int], OR.Array n a)]
+          -> OR.Array (m + n) a
+updateORN _arr _upd = undefined  -- TODO: it should be substituting the arrays at the paths, by normalizing the vector of values and overriting a segment, starting from the path element, with the whole normalized value vector of A
+
+gather :: (Numeric r, KnownNat n)
+       => Int -> (Int -> [Int])
+       -> OR.Array (m + n) r -> OR.Array (1 + n) r
+gather n f t =
+  let l = map (\i -> unsafeCoerce t `atIndexInTensorNR` f i) [0 .. n - 1]
+  in OR.ravel $ ORB.fromList [n] l
+
+-- TODO: update in place in ST or with a vector builder, but that requires
+-- building the underlying value vector with crafty index computations
+-- and then freezing it and calling OR.fromVector
+scatter :: (Numeric r, Num (Vector r), KnownNat n, KnownNat m)
+        => (Int -> [Int])
+        -> OR.Array (1 + n) r -> OR.ShapeL -> OR.Array (m + n) r
+scatter f t sh =
+  V.sum $ V.imap (\i ti -> updateORN (OR.constant sh 0) [(f i, ti)])
+        $ ORB.toVector $ OR.unravel t
 
 -- Copied from Data.Array.Internal.
 getStrides :: [Int] -> [Int]
