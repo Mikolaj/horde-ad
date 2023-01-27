@@ -46,7 +46,8 @@ module HordeAd.Internal.Delta
   , -- * Evaluation of the delta expressions
     DeltaDt (..), Domain0, Domain1, Domains(..), nullDomains
   , gradientFromDelta, derivativeFromDelta
-  , isTensorDummy, atIndexInTensorR, atIndexInTensorNR, getStrides, toIx
+  , isTensorDummy, atIndexInTensorR, atIndexInTensorNR, gather, scatter
+  , getStrides, toIx
   ) where
 
 import Prelude

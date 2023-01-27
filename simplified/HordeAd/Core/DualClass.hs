@@ -225,6 +225,14 @@ class HasRanks (d :: ADMode) r where
   dBuild1 :: KnownNat n
           => Int -> (Int -> Dual d (OR.Array n r))
           -> Dual d (OR.Array (1 + n) r)
+  dGather1 :: (KnownNat n, KnownNat m)
+           => Int -> (Int -> [Int])
+           -> OR.ShapeL -> Dual d (OR.Array (m + n) r)
+           -> Dual d (OR.Array (1 + n) r)
+  dScatter1 :: (KnownNat n, KnownNat m)
+            => Int -> (Int -> [Int])
+            -> Dual d (OR.Array (1 + n) r) -> OR.ShapeL
+            -> Dual d (OR.Array (m + n) r)
   dTransposeGeneral1 :: KnownNat n
                      => [Int] -> Dual d (OR.Array n r) -> Dual d (OR.Array n r)
   dReshape1 :: (KnownNat n, KnownNat m)
@@ -347,6 +355,8 @@ instance Dual 'ADModeGradient r ~ Delta0 r
   dReverse1 = Reverse1
   dTransposeGeneral1 = TransposeGeneral1
   dBuild1 = Build1
+  dGather1 = Gather1
+  dScatter1 = Scatter1
   dReshape1 = Reshape1
 
   dFromList01 = FromList01
@@ -397,6 +407,8 @@ instance ( Numeric r, Num (Vector r)
   dReverse1 = OR.rev [0]
   dTransposeGeneral1 = OR.transpose
   dBuild1 n f = OR.ravel $ ORB.fromVector [n] $ V.generate n f
+  dGather1 n f _sh d = gather n f d
+  dScatter1 _n f d sh = scatter f d sh
   dReshape1 _sh = OR.reshape
 
   dFromList01 = OR.fromList
@@ -451,6 +463,8 @@ instance HasRanks 'ADModeValue r where
   dReverse1 _ = DummyDual ()
   dTransposeGeneral1 _ _ = DummyDual ()
   dBuild1 _ _ = DummyDual ()
+  dGather1 _ _ _ _ = DummyDual ()
+  dScatter1 _ _ _ _ = DummyDual ()
   dReshape1 _ _ _ = DummyDual ()
 
   dFromList01 _ _ = DummyDual ()
