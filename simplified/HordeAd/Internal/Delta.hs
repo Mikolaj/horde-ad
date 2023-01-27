@@ -758,11 +758,22 @@ atIndexInTensorR (Data.Array.Internal.RankedS.A
 
 atIndexInTensorNR :: (Numeric r, KnownNat n)
                   => OR.Array (1 + m + n) r -> [Int] -> OR.Array n r
-atIndexInTensorNR v is =
-  -- This was too hard a type-level hacking for me, with ranked tensors.
-  -- OTOH, the untyped tensors have less runtime checks, so are minimally
-  -- faster.
-  Data.Array.Convert.convert $ foldl' OT.index (Data.Array.Convert.convert v) is
+atIndexInTensorNR arr ixs =
+  let Data.Array.Internal.DynamicS.A
+        (Data.Array.Internal.DynamicG.A sh
+           Data.Array.Internal.T{..}) =
+             OT.normalize $ Data.Array.Convert.convert arr
+               -- OT to avoid KnownNat m, which breaks typing of other code
+               -- due to no sized lists
+      !_A = assert (offset == 0) ()
+  in let pathToIx is = sum (zipWith (*) is strides)
+         ix = pathToIx ixs
+         shN = drop (length ixs) sh
+         len = product shN
+     in OR.fromVector shN $ V.slice ix len values
+  -- Old implementation:
+  -- Data.Array.Convert.convert
+  -- $ foldl' OT.index (Data.Array.Convert.convert v) is
 
 updateOR :: (Numeric a, KnownNat n)
          => OR.Array n a -> [([Int], a)] -> OR.Array n a
