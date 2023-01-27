@@ -484,7 +484,7 @@ astBuild1 n f = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
   return $! build1Vectorize n ( freshAstVar
                                , (f (AstIntVar freshAstVar)) )
-    -- TODO: this vectorizers depth-first, which is needed. But do we
+    -- TODO: this vectorizes depth-first, which is needed. But do we
     -- also need a translation to non-vectorized terms for anything
     -- (other than for comparative tests)?
 
@@ -493,20 +493,19 @@ astBuild1 n f = unsafePerformIO $ do
 
 -- TODO: when we have several times more operations, split into
 -- Array (Container) and Tensor (Numeric), with the latter containing the few
--- Ord and Num operations and the superclasses below, extended with
--- VectorContainer.
+-- Ord and Num operations and numeric superclasses.
 -- | The transitive superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
--- The @VectorNumeric@ superclass is for the associated types and convenience
--- (TODO: add coversions between VectorOf and TensorOf to facilitate it)
--- but all operations have straightforwardly generalized analogues below.
+-- The @VectorNumeric@ superclass is for @IntOf@ and potential interoperability
+-- (TODO: add coversions between VectorOf and TensorOf to facilitate this)
+-- but all its operations have straightforwardly generalized analogues below.
 class VectorNumeric r
       => Tensor r where
   type TensorOf (n :: Nat) r = result | result -> n r
 
   tlength :: KnownNat n => TensorOf (1 + n) r -> IntOf r
   tsize :: KnownNat n => TensorOf n r -> IntOf r
-  -- tshape :: TensorOf n r -> [IntOf r]  -- TODO: new Ast type needed
+  -- tshape :: TensorOf n r -> [IntOf r]  -- TODO: a new Ast type needed
   tminIndex :: TensorOf 1 r -> IntOf r
   tmaxIndex :: TensorOf 1 r -> IntOf r
 
@@ -665,7 +664,12 @@ class VectorNumeric r
     => [IntOf r] -> ([IntOf r] -> r) -> TensorOf n r
   tbuild0N = OR.generate
 
-type ADReady' r = (Tensor r, HasPrimal r, HasPrimal (TensorOf 17 r))  -- TODO
+type ADReady' r = (Tensor r, HasPrimal r)
+  -- TODO: there is probably no way to also specify
+  -- HasPrimal (TensorOf 17 r))
+  -- for all n, not just 17. That means the user needs add such
+  -- constraints for all n relevant to the defined function (usually
+  -- just an unspecified n and sometimes also n+1).
 
 -- These instances are a faster way to get an objective function value.
 -- However, they don't do vectorization, so won't work on GPU, ArrayFire, etc.
@@ -686,8 +690,14 @@ instance (ADModeAndNum d r, TensorOf 1 r ~ OR.Array 1 r)
   type TensorOf n (ADVal d r) = ADVal d (OR.Array n r)
 
   -- TODO: here and elsewhere I can't use methods of Tensor implemented as
-  -- OR.Array n r, or any functions that use them, unless Tensor class takes
-  -- 2 parameters, which Simon doesn't like. Therefore, I inline them manually.
+  -- OR.Array n r, or any functions that use them. Therefore, I inline them
+  -- manually. There is probably no solution (2 parameters to Tensor
+  -- would solve this, but we'd need infinitely many instances
+  -- for ADVal d (OR.Array n r) and OR.Array n r). A workaround might be
+  -- the numericLlength method proposed by Simon, that is, defining
+  -- the Float/Double methods as ordinary functions and calling them
+  -- in each primitive scalar instance *and* using them instead of method
+  -- calls here.
   tlength (D u _) = -- tlength u
     case OR.shapeL u of
       [] -> error "tlength: missing dimensions"
@@ -779,7 +789,7 @@ astBuild n f = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
   return $! build1Vectorize n ( freshAstVar
                                , (f (AstIntVar freshAstVar)) )
-    -- TODO: this vectorizers depth-first, which is needed. But do we
+    -- TODO: this vectorizes depth-first, which is needed. But do we
     -- also need a translation to non-vectorized terms for anything
     -- (other than for comparative tests)?
 
@@ -813,7 +823,7 @@ reluLeaky v =
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) (primalPart v)
   in scale oneIfGtZero v
 
--- TODO: generalize the function after omap above so that
+-- TODO: generalize the function @relu@ above so that
 -- it has a sensible Ast instance and then kill reluAst;
 -- we'd need Conditional class that works with our AstBool type
 -- and some sugar to be able to use >, &&, etc.
@@ -1275,8 +1285,11 @@ build1VectorizeIndexAnalyze n var v iN = case iN of
     -- is this where the new 'gather' operation comes in?
     -- TODO: also generalize `gather` to take a function from build1 index
     -- to an arbitrary list of index1 indexes
-    -- TODO: and then from a list of build1 indexes, too, if we have
-    -- nested consecutive build1
+    -- TODO: and then from a list of build1 indexes, too, if we find
+    -- nested consecutive builds, but for this I *really* need
+    -- a Nat-sized list --- I will need to vectorize buildN and so all
+    -- vectorization function signatures will contain complex type-level
+    -- arithmetic
 
 intVarInAst :: AstVarName Int -> Ast n r -> Bool
 intVarInAst var = \case
