@@ -769,11 +769,21 @@ updateOR :: (Numeric a, KnownNat n)
 updateOR arr upd = Data.Array.Convert.convert
                    $ OT.update (Data.Array.Convert.convert arr) upd
 
--- The lists are of length @m@.
-updateORN :: -- (Numeric a, KnownNat n)
-             OR.Array (m + n) a -> [([Int], OR.Array n a)]
+-- The paths (lists of indexes) are of length @m@.
+updateORN :: (Numeric a, KnownNat n, KnownNat m)
+          => OR.Array (m + n) a -> [([Int], OR.Array n a)]
           -> OR.Array (m + n) a
-updateORN _arr _upd = undefined  -- TODO: it should be substituting the arrays at the paths, by normalizing the vector of values and overriting a segment, starting from the path element, with the whole normalized value vector of A
+updateORN arr upd =
+  let Data.Array.Internal.RankedS.A
+        (Data.Array.Internal.RankedG.A sh
+           Data.Array.Internal.T{..}) = OR.normalize arr
+      !_A = assert (offset == 0) ()
+  in let pathToIx is = sum (zipWith (*) is strides)
+         f t (ixs, u) =
+           let v = OR.toVector u
+               ix = pathToIx ixs
+           in LA.vjoin [V.take ix t, v, V.drop (ix + V.length v) t]
+     in OR.fromVector sh (foldl' f values upd)
 
 gather :: (Numeric r, KnownNat n)
        => Int -> (Int -> [Int])
