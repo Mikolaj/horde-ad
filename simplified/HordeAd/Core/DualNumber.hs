@@ -1093,7 +1093,11 @@ build1VectorizeVar n (var, u) =
       -- led to an abort instead of showing up late
     AstGatherPair _n (_var2, _ixs2) _v -> AstBuildPair n (var, u)
       -- TODO: if var not in _v, then create a generalized gather
-      -- that builds more than one rank using var and var2 together
+      -- that builds more than one rank using var and var2 together;
+      -- then the function would be from a list of build1 indexes,
+      -- but for this I *really* need a Nat-sized list, becuause I will
+      -- then need to vectorize buildN and so all vectorization function
+      -- signatures will contain complex type-level arithmetic
     -- AstScatterPair (var2, ixs2) v sh -> ...
     -- no idea how to vectorize AstScatterPair, so let's not add it prematurely
 
@@ -1126,9 +1130,9 @@ build1VectorizeVar n (var, u) =
 
 -- | The application @build1VectorizeIndex n var v is@
 -- vectorizes the term @AstBuildPair n (var, AstIndexN v is@.
--- The length of the index list is @1 + m@, which is a hack until we can have
--- a proper sized list of indexes of exactly length @m@.
--- The hack causes @m@ to, morally, have value -1 when the list is empty,
+-- The length of the path (the index list) is @1 + m@, which is
+-- a hack until we can have proper sized lists of exactly length @m@.
+-- The hack causes @m@ to, morally, have value -1 when the path is empty,
 -- but it reduces the use of @unsafeCoerce@.
 build1VectorizeIndex
   :: forall m n r. KnownNat m
@@ -1267,39 +1271,45 @@ build1VectorizeIndexTry
   :: forall m n r. KnownNat m
   => AstInt r -> AstVarName Int -> Ast (1 + m + n) r -> [AstInt r]
   -> Ast (1 + n) r
+build1VectorizeIndexTry n var v [] =
+  unsafeCoerce $ build1Vectorize n (var, v)  -- m is -1
 build1VectorizeIndexTry n var v is = case reverse is of
-  [] -> unsafeCoerce $ build1Vectorize n (var, v)  -- m is -1
+  [] -> error "build1VectorizeIndexTry: impossible empty path"
   iN : restRev ->
-    let w =
-          if null restRev  -- this check is only needed due to the 1 + m hack
-                           -- and will vanish when we have sized index lists
-          then (unsafeCoerce :: Ast (1 + m + n) r -> Ast (1 + n) r) v
-          else (unsafeCoerce :: Ast n r -> Ast (1 + n) r)  -- indexing one less
-              (AstIndexN v (reverse restRev))
-    in if intVarInAst var v || or (map (intVarInAstInt var) restRev)
-       then AstBuildPair n (var, AstIndexN v is)
-       else build1VectorizeIndexAnalyze n var w iN
+    if | intVarInAst var v -> AstBuildPair n (var, AstIndexN v is)  -- fail
+       | or (map (intVarInAstInt var) restRev) -> AstGatherPair n (var, is) v
+       | otherwise ->
+         let w =
+               -- this check is only needed due to the 1 + m hack
+               -- and will vanish when we have sized index lists
+               if null restRev
+               then (unsafeCoerce :: Ast (1 + m + n) r -> Ast (1 + n) r) v
+               else (unsafeCoerce :: Ast n r -> Ast (1 + n) r)
+                       -- indexing one less
+                      (AstIndexN v (reverse restRev))
+         in case build1VectorizeIndexAnalyze n var w iN of
+              Just u -> u  -- an extremely simple form found
+              Nothing -> AstGatherPair n (var, is) v
+                -- we didn't really need it anyway
 
+-- TODO: we probably need to simplify to some normal form, but possibly
+-- this would be even better to do and take advantage of earlier,
+-- perhaps even avoiding pushing all the other indexing down
 build1VectorizeIndexAnalyze
   :: forall n r.
      AstInt r -> AstVarName Int -> Ast (1 + n) r -> AstInt r
-  -> Ast (1 + n) r
+  -> Maybe (Ast (1 + n) r)
 build1VectorizeIndexAnalyze n var v iN = case iN of
   AstIntVar var2 | var2 == var ->
-    AstSlice 0 n v
+    Just $ AstSlice 0 n v
   AstIntOp PlusIntOp [AstIntVar var2, i2]
     | var2 == var && not (intVarInAstInt var i2) ->
-      AstSlice i2 n v
-  _ -> AstBuildPair n (var, AstIndex v iN)
-    -- TODO: many more cases; not sure how systematic it can be;
-    -- is this where the new 'gather' operation comes in?
-    -- TODO: also generalize `gather` to take a function from build1 index
-    -- to an arbitrary list of index1 indexes
-    -- TODO: and then from a list of build1 indexes, too, if we find
-    -- nested consecutive builds, but for this I *really* need
-    -- a Nat-sized list --- I will need to vectorize buildN and so all
-    -- vectorization function signatures will contain complex type-level
-    -- arithmetic
+      Just $ AstSlice i2 n v
+  AstIntOp PlusIntOp [i2, AstIntVar var2]
+    | var2 == var && not (intVarInAstInt var i2) ->
+      Just $ AstSlice i2 n v
+  _ -> Nothing
+    -- TODO: many more cases; not sure how systematic it can be
 
 intVarInAst :: AstVarName Int -> Ast n r -> Bool
 intVarInAst var = \case
@@ -1391,8 +1401,8 @@ index :: (ADModeAndNum d r, KnownNat n)
 index (D u u') ix = dD (u `OR.index` ix)
                        (dIndex1 u' ix (head $ OR.shapeL u))
 
--- | First index is for outermost dimension; @1 + m@ is the length of the list;
--- empty list means identity.
+-- | First index is for outermost dimension; @1 + m@ is the length of the path;
+-- empty path means identity.
 -- TODO: speed up by using atIndexInTensorR and dIndex0 if the codomain is 0.
 indexN :: forall m n d r. (ADModeAndNum d r, KnownNat n, KnownNat m)
         => ADVal d (OR.Array (1 + m + n) r) -> [Int]
