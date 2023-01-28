@@ -182,11 +182,13 @@ data OpCodeRel =
 
 -- See the comment about @Eq@ and @Ord@ in "DualNumber".
 instance Eq (Ast n r) where
+  _ == _ = error "Ast: can't evaluate terms for Eq"
 
 instance Ord (OR.Array n r) => Ord (Ast n r) where
   max u v = AstOp MaxOp [u, v]
   min u v = AstOp MinOp [u, v]
-    -- unfortunately, the others can't be made to return @AstBool@
+  -- Unfortunately, the others can't be made to return @AstBool@.
+  _ <= _ = error "Ast: can't evaluate terms for Ord"
 
 instance Num (OR.Array n r) => Num (Ast n r) where
   u + v = AstOp PlusOp [u, v]
@@ -235,13 +237,14 @@ instance RealFloat (OR.Array n r) => RealFloat (Ast n r) where
       -- most of which don't even have a differentiable codomain
 
 instance Eq (AstPrimalPart1 n r) where
+  _ == _ = error "AstPrimalPart1: can't evaluate terms for Eq"
 
 instance Ord r => Ord (AstPrimalPart1 n r) where
   max (AstPrimalPart1 u) (AstPrimalPart1 v) =
     AstPrimalPart1 (AstOp MaxOp [u, v])
   min (AstPrimalPart1 u) (AstPrimalPart1 v) =
     AstPrimalPart1 (AstOp MinOp [u, v])
-    -- unfortunately, the others can't be made to return @AstBool@
+  _ <= _ = error "AstPrimalPart1: can't evaluate terms for Ord"
 
 deriving instance Num (Ast n r) => Num (AstPrimalPart1 n r)
 deriving instance (Real (Ast n r), Ord r) => Real (AstPrimalPart1 n r)
@@ -252,11 +255,12 @@ type instance Element (AstPrimalPart1 n r) = AstPrimalPart1 0 r
 
 
 instance Eq (AstInt r) where
+  _ == _ = error "AstInt: can't evaluate terms for Eq"
 
 instance Ord (AstInt r) where
   max u v = AstIntOp MaxIntOp [u, v]
   min u v = AstIntOp MinIntOp [u, v]
-    -- unfortunately, the others can't be made to return @AstBool@
+  _ <= _ = error "AstInt: can't evaluate terms for Ord"
 
 instance Num (AstInt r) where
   u + v = AstIntOp PlusIntOp [u, v]

@@ -36,7 +36,11 @@ testTrees = [ -- vector tests
             , -- tests by TomS:
               testCase "F1" testF1
             , testCase "F2" testF2
-             -- tensor tests
+            , -- tensor tests
+              testCase "braidedBuilds" testBraidedBuilds
+--            , testCase "recycled" testRecycled
+            , testCase "concatBuild" testConcatBuild
+            , testCase "concatBuild2" testConcatBuild2
             ]
 
 
@@ -176,6 +180,38 @@ f2 = \arg ->
   in v1a + v1b + v2a + v2b
 
 
+-- * Vector tests (many by TomS as well)
+
+braidedBuilds :: ADReady' r => r -> TensorOf 2 r
+braidedBuilds r =
+  tbuild 3 (\ix1 ->
+    tbuild 4 (\ix2 -> tindex (tfromList0N [4]
+                                [tfromIntOf0 ix2, 7, r, -0.2]) ix1))
+
+-- TODO: can't be tested yet
+_recycled :: (ADReady' r, ADReady r, VectorOf r ~ TensorOf 1 r)
+         => r -> TensorOf 5 r
+_recycled r = tbuild 3 $ \_ -> tbuild 4 $ \_ -> tbuild 2 $ \_ -> tbuild 6 $ \_ ->
+               nestedSumBuild (tkonst0N [7] r)
+
+concatBuild :: ADReady' r => r -> TensorOf 2 r
+concatBuild r =
+  tbuild 7 (\i ->
+    tappend (tappend (tbuild 5 (\_j -> tscalar r))  -- TODO: i should work
+                     (tkonst0N [1] (tfromIntOf0 i)))
+            (tbuild 13 (\_k -> tscalar r)))
+-- TODO: reject via types or accept with type obligations:
+--    tappend (tappend (tbuild (1 + i) (\_j -> tscalar r))  -- TODO: i should work
+--                     (tkonst0N [1] (tfromIntOf0 i)))
+--            (tbuild (13 - i) (\_k -> tscalar r)))
+
+concatBuild2 :: ADReady' r => r -> TensorOf 2 r
+concatBuild2 _r =
+-- TODO: tbuild0N (7, 14) (\ (i,j)
+  tbuild 7 $ \i -> tbuild 14 $ \_j ->
+    -- TODO: use classes Cond and Bool: tscalar $ if i == j then tfromIntOf0 i else r
+    tscalar $ tfromIntOf0 i
+      -- need to prove that i + 1 + (13 - i) = 14
 
 -- * Test harness glue code
 
@@ -260,8 +296,9 @@ testPoly11 f outSize input expected = do
   domains1 advalGrad @?~ domains1 domainsExpected
 
 testPolyn
-  :: (KnownNat n, HasDelta r, r ~ Double, VectorOf r ~ TensorOf 1 r)
-  => (forall x. ADReady' x => x -> TensorOf n x)
+  :: (KnownNat n, HasDelta r, r ~ Double)
+  => (forall x. ADReady' x  -- TODO: doesn't help with recycled: ADReady x, VectorOf x ~ TensorOf 1 x)
+      => x -> TensorOf n x)
   -> OR.ShapeL -> r -> r
   -> Assertion
 testPolyn f sh input expected = do
@@ -400,3 +437,27 @@ testF2 =
   testPoly00 f2
     1.1
     470.0
+
+testBraidedBuilds :: Assertion
+testBraidedBuilds =
+  testPolyn braidedBuilds [3, 4]
+  3.4
+  4.0
+
+--testRecycled :: Assertion
+--testRecycled =
+--  testPolyn undefined recycled [3, 4, 2, 6, 13]
+--  3.4
+--  4.0
+
+testConcatBuild :: Assertion
+testConcatBuild =
+  testPolyn concatBuild [7, 14]
+  3.4
+  91
+
+testConcatBuild2 :: Assertion
+testConcatBuild2 =
+  testPolyn concatBuild2 [7, 14]
+  3.4
+  0
