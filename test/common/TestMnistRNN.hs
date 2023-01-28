@@ -20,7 +20,6 @@ import           Test.Tasty.HUnit hiding (assert)
 import           Text.Printf
 
 import HordeAd
-import HordeAd.Core.DualClass (pattern D)
 import HordeAd.External.OptimizerTools
 import MnistData
 import MnistRnnShaped

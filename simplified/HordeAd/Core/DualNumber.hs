@@ -1,6 +1,6 @@
-{-# LANGUAGE ConstraintKinds, DataKinds, GADTs, TypeFamilyDependencies #-}
+{-# LANGUAGE ConstraintKinds, DataKinds, GADTs, StandaloneDeriving,
+             TypeFamilyDependencies, UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Dual numbers and various operations on them, arithmetic and related
@@ -9,9 +9,21 @@
 -- (and safely impure) API in "HordeAd.Core.DualClass". The other part
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.DualNumber
-  ( module HordeAd.Core.DualNumber
-  , ADVal, dD, dDnotShared
-  , ADMode(..)
+  ( ADVal, dD, pattern D
+  , ADModeAndNum, HasDelta
+  , Vec, vecToV, vToVec
+  , SNat(..), staticNatValue, staticNatFromProxy
+  , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
+  , addParameters, dotParameters
+  , logistic, square, squaredDifference
+  , sumElements10, index10, minimum0, maximum0, altSumElements10
+  , (<.>!), (<.>!!)
+  , softMax, lossCrossEntropy, lossCrossEntropyV, lossSoftMaxCrossEntropyV
+  , fromList1, fromVector1, konst1, append1, slice1, reverse1, maxPool1
+  , softMaxV, build1POPL, build1Elementwise, build1Closure, build1
+  , map1POPL, map1Elementwise
+  , -- * Re-exports
+    ADMode(..)
   , IsPrimal (..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs
   , Element
   , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
@@ -38,6 +50,39 @@ import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta
   (Delta0, Domain0, Domain1, Domains (..), nullDomains)
 import HordeAd.Internal.TensorOps
+
+-- * The main dual number type
+
+-- | Values the objective functions operate on. The first type argument
+-- is the automatic differentiation mode and the second is the underlying
+-- basic values (scalars, vectors, matrices, tensors and any other
+-- supported containers of scalars).
+--
+-- Here, the datatype is implemented as dual numbers (hence @D@),
+-- where the primal component, the basic value, the \"number\"
+-- can be any containers of scalars. The primal component has the type
+-- given as the second type argument and the dual component (with the type
+-- determined by the type faimly @Dual@) is defined elsewhere.
+data ADVal (d :: ADMode) a = D a (Dual d a)
+
+deriving instance (Show a, Show (Dual d a)) => Show (ADVal d a)
+
+-- | Smart constructor for 'D' of 'ADVal' that additionally records sharing
+-- information, if applicable for the differentiation mode in question.
+-- The bare constructor should not be used directly (which is not enforced
+-- by the types yet), except when deconstructing via pattern-matching.
+dD :: IsPrimal d a => a -> Dual d a -> ADVal d a
+dD a dual = D a (recordSharing dual)
+
+-- | This a not so smart constructor for 'D' of 'ADVal' that does not record
+-- sharing information. If used in contexts where sharing may occur,
+-- it may cause exponential blowup when evaluating the term
+-- in backpropagation phase. In contexts without sharing, it saves
+-- some evaluation time and memory (in term structure, but even more
+-- in the per-node data stored while evaluating).
+dDnotShared :: a -> Dual d a -> ADVal d a
+dDnotShared = D
+
 
 -- * Auxiliary definitions
 

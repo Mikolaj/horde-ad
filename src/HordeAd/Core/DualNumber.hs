@@ -14,7 +14,7 @@
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.DualNumber
   ( module HordeAd.Core.DualNumber
-  , ADVal, dD, dDnotShared
+  , ADVal, dD, pattern D
   , ADMode(..), ADModeAndNum
   , IsPrimal (..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs, HasDelta
   , Domain0, Domain1, Domain2, DomainX, Domains(..), nullDomains

@@ -1,6 +1,5 @@
-{-# LANGUAGE CPP, ConstraintKinds, DataKinds, FlexibleInstances, GADTs,
-             MultiParamTypeClasses, PolyKinds, QuantifiedConstraints,
-             StandaloneDeriving, TypeFamilyDependencies,
+{-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances,
+             MultiParamTypeClasses, TypeFamilyDependencies,
              UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
@@ -30,11 +29,9 @@
 -- of the same shared terms is prohibitive expensive.
 module HordeAd.Core.DualClass
   ( -- * The most often used part of the mid-level API that gets re-exported in high-level API
-    ADVal, dD, dDnotShared
-  , ADMode(..)
+    ADMode(..)
   , -- * The less often used part of the mid-level API that gets re-exported in high-level API; it leaks implementation details
-    pattern D
-  , IsPrimal(..), IsPrimalR(..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs
+    IsPrimal(..), IsPrimalR(..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs
   , Element
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
     Dual, HasRanks(..), HasInputs(..), dummyDual
@@ -57,39 +54,6 @@ import           Text.Show.Functions ()
 
 import HordeAd.Internal.Delta
 import HordeAd.Internal.TensorOps
-
--- * The main dual number type
-
--- | Values the objective functions operate on. The first type argument
--- is the automatic differentiation mode and the second is the underlying
--- basic values (scalars, vectors, matrices, tensors and any other
--- supported containers of scalars).
---
--- Here, the datatype is implemented as dual numbers (hence @D@),
--- where the primal component, the basic value, the \"number\"
--- can be any containers of scalars. The primal component has the type
--- given as the second type argument and the dual component (with the type
--- determined by the type faimly @Dual@) is defined elsewhere.
-data ADVal (d :: ADMode) a = D a (Dual d a)
-
-deriving instance (Show a, Show (Dual d a)) => Show (ADVal d a)
-
--- | Smart constructor for 'D' of 'ADVal' that additionally records sharing
--- information, if applicable for the differentiation mode in question.
--- The bare constructor should not be used directly (which is not enforced
--- by the types yet), except when deconstructing via pattern-matching.
-dD :: IsPrimal d a => a -> Dual d a -> ADVal d a
-dD a dual = D a (recordSharing dual)
-
--- | This a not so smart constructor for 'D' of 'ADVal' that does not record
--- sharing information. If used in contexts where sharing may occur,
--- it may cause exponential blowup when evaluating the term
--- in backpropagation phase. In contexts without sharing, it saves
--- some evaluation time and memory (in term structure, but even more
--- in the per-node data stored while evaluating).
-dDnotShared :: a -> Dual d a -> ADVal d a
-dDnotShared = D
-
 
 -- * Abbreviations to export (not used anywhere below)
 

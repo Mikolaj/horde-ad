@@ -23,7 +23,7 @@ import           Test.Tasty.QuickCheck hiding (label, scale, shuffle)
 import           Text.Printf
 
 import HordeAd
-import HordeAd.Core.DualClass (HasRanks (dKonst2), pattern D)
+import HordeAd.Core.DualClass (HasRanks (dKonst2))
 import MnistCnnShaped
 import MnistData
 import OldMnistCnnShaped

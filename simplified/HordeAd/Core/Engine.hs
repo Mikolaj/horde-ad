@@ -29,7 +29,7 @@ import qualified Numeric.LinearAlgebra as LA
 import           Text.Show.Pretty (ppShow)
 
 import HordeAd.Core.DualClass
-  (Dual, HasInputs (..), dInput, dummyDual, packDeltaDt, pattern D)
+  (Dual, HasInputs (..), dInput, dummyDual, packDeltaDt)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.PairOfVectors (ADInputs (..), makeADInputs)
 import HordeAd.Internal.Delta
