@@ -1,6 +1,4 @@
-{-# LANGUAGE CPP, DataKinds, DeriveAnyClass, DeriveGeneric, DerivingStrategies,
-             GADTs, GeneralizedNewtypeDeriving, KindSignatures, RankNTypes,
-             StandaloneDeriving, UnboxedTuples #-}
+{-# LANGUAGE DataKinds #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Miscellaneous more or less general purpose tensor operations.

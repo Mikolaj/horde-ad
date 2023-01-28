@@ -515,6 +515,7 @@ library horde-ad-simplified
                       HordeAd.Core.DualNumber
                       HordeAd.Core.Engine
                       HordeAd.Core.PairOfVectors
+                      HordeAd.Core.TensorClass
                       HordeAd.External.Optimizer
                       HordeAd.External.OptimizerTools
                       HordeAd.Internal.Delta

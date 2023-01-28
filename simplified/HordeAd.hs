@@ -6,6 +6,7 @@ module HordeAd
   ( module HordeAd.Core.DualNumber
   , module HordeAd.Core.Engine
   , module HordeAd.Core.PairOfVectors
+  , module HordeAd.Core.TensorClass
   , module HordeAd.External.Optimizer
   ) where
 
@@ -14,4 +15,5 @@ import Prelude ()
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors
+import HordeAd.Core.TensorClass
 import HordeAd.External.Optimizer
