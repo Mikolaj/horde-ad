@@ -542,120 +542,6 @@ class VectorNumeric r
            -> TensorOf (1 + n) r -> TensorOf (1 + n) r -> TensorOf (1 + n) r
   tzipWith f u v = tbuild (tlength u) (\i -> f (u `tindex` i) (v `tindex` i))
 
-  -- Default methods for Float, Double and all future scalars users will add.
-  default tlength
-    :: (TensorOf (1 + n) r ~ OR.Array (1 + n) r, IntOf r ~ Int)
-    => TensorOf (1 + n) r -> IntOf r
-  tlength u = case OR.shapeL u of
-    [] -> error "tlength: missing dimensions"
-    k : _ -> k
-  default tsize
-    :: (TensorOf n r ~ OR.Array n r, IntOf r ~ Int)
-    => TensorOf n r -> IntOf r
-  tsize = OR.size
-  default tminIndex
-    :: (Numeric r, TensorOf 1 r ~ OR.Array 1 r, IntOf r ~ Int)
-    => TensorOf 1 r -> IntOf r
-  tminIndex = LA.minIndex . OR.toVector
-  default tmaxIndex
-    :: (Numeric r, TensorOf 1 r ~ OR.Array 1 r, IntOf r ~ Int)
-    => TensorOf 1 r -> IntOf r
-  tmaxIndex = LA.maxIndex . OR.toVector
-
-  default tindex
-    :: ( Numeric r, TensorOf n r ~ OR.Array n r
-       , TensorOf (1 + n) r ~ OR.Array (1 + n) r, IntOf r ~ Int )
-    => TensorOf (1 + n) r -> IntOf r -> TensorOf n r
-  tindex = OR.index
-  default tindex0
-    :: (Numeric r, TensorOf (1 + n) r ~ OR.Array (1 + n) r, IntOf r ~ Int)
-    => TensorOf (1 + n) r -> [IntOf r] -> r
-  tindex0 = atPathInTensorOR
-  default tindexN
-    :: ( KnownNat n, Numeric r, TensorOf n r ~ OR.Array n r
-       , TensorOf (1 + m + n) r ~ OR.Array (1 + m + n) r, IntOf r ~ Int )
-    => TensorOf (1 + m + n) r -> [IntOf r] -> TensorOf n r
-  tindexN = atPathInTensorORN
-  default tsum
-    :: ( KnownNat n, Numeric r, TensorOf n r ~ OR.Array n r
-       , TensorOf (1 + n) r ~ OR.Array (1 + n) r, Num (Vector r))
-    => TensorOf (1 + n) r -> TensorOf n r
-  tsum = ORB.sumA . OR.unravel
-  default tsum0
-    :: (Numeric r, TensorOf n r ~ OR.Array n r)
-    => TensorOf n r -> r
-  tsum0 = LA.sumElements . OR.toVector
-  default tdot0
-    :: (Numeric r, TensorOf n r ~ OR.Array n r)
-    => TensorOf n r -> TensorOf n r -> r
-  tdot0 u v = OR.toVector u LA.<.> OR.toVector v
-  default tminimum0
-    :: (Numeric r, TensorOf 1 r ~ OR.Array 1 r)
-    => TensorOf 1 r -> r
-  tminimum0 = LA.minElement . OR.toVector
-  default tmaximum0
-    :: (Numeric r, TensorOf 1 r ~ OR.Array 1 r)
-    => TensorOf 1 r -> r
-  tmaximum0 = LA.maxElement . OR.toVector
-
-  default tfromList
-    :: ( KnownNat n, Numeric r, TensorOf n r ~ OR.Array n r
-       , TensorOf (1 + n) r ~ OR.Array (1 + n) r )
-    => [TensorOf n r] -> TensorOf (1 + n) r
-  tfromList l = OR.ravel $ ORB.fromList [length l] l
-  default tfromList0N
-    :: (KnownNat n, Numeric r, TensorOf n r ~ OR.Array n r, IntOf r ~ Int)
-    => [IntOf r] -> [r] -> TensorOf n r
-  tfromList0N = OR.fromList
-  default tfromVector
-    :: ( KnownNat n, Numeric r, TensorOf n r ~ OR.Array n r
-       , TensorOf (1 + n) r ~ OR.Array (1 + n) r )
-    => Data.Vector.Vector (TensorOf n r) -> TensorOf (1 + n) r
-  tfromVector l = OR.ravel $ ORB.fromVector [V.length l] $ V.convert l
-  default tfromVector0N
-    :: (KnownNat n, Numeric r, TensorOf n r ~ OR.Array n r, IntOf r ~ Int)
-    => [IntOf r] -> Data.Vector.Vector r -> TensorOf n r
-  tfromVector0N sh l = OR.fromVector sh $ V.convert l
-  default tkonst
-    :: ( KnownNat n, Numeric r, TensorOf n r ~ OR.Array n r
-       , TensorOf (1 + n) r ~ OR.Array (1 + n) r, IntOf r ~ Int )
-    =>  IntOf r -> TensorOf n r -> TensorOf (1 + n) r
-  tkonst n u = OR.ravel $ ORB.constant [n] u
-  default tkonst0N
-    :: ( KnownNat n, Numeric r, TensorOf (1 + n) r ~ OR.Array (1 + n) r
-       , IntOf r ~ Int )
-    => [IntOf r] -> r -> TensorOf (1 + n) r
-  tkonst0N sh r = OR.constant sh r
-  default tappend
-    :: (KnownNat n, Numeric r, TensorOf n r ~ OR.Array n r)
-    => TensorOf n r -> TensorOf n r -> TensorOf n r
-  tappend = OR.append
-  default tslice
-    :: (TensorOf n r ~ OR.Array n r, IntOf r ~ Int)
-    => IntOf r -> IntOf r -> TensorOf n r -> TensorOf n r
-  tslice i k = OR.slice [(i, k)]
-  default treverse
-    :: (TensorOf n r ~ OR.Array n r)
-    => TensorOf n r -> TensorOf n r
-  treverse = OR.rev [0]
-  default ttransposeGeneral
-    :: (KnownNat n, TensorOf n r ~ OR.Array n r)
-    => [Int] -> TensorOf n r -> TensorOf n r
-  ttransposeGeneral = OR.transpose
-  default treshape
-    :: ( KnownNat n, KnownNat m, Numeric r, TensorOf n r ~ OR.Array n r
-       , TensorOf m r ~ OR.Array m r, IntOf r ~ Int )
-    => [IntOf r] -> TensorOf n r -> TensorOf m r
-  treshape = OR.reshape
-  default tbuild
-    :: (KnownNat n, TensorOf n r ~ OR.Array n r, IntOf r ~ Int)
-    => IntOf r -> (IntOf r -> TensorOf n r) -> TensorOf (1 + n) r
-  tbuild n f = tfromList $ map f [0 .. n - 1]
-  default tbuild0N
-    :: (KnownNat n, Numeric r, TensorOf n r ~ OR.Array n r, IntOf r ~ Int)
-    => [IntOf r] -> ([IntOf r] -> r) -> TensorOf n r
-  tbuild0N = OR.generate
-
 type ADReady' r = (Tensor r, HasPrimal r)
   -- TODO: there is probably no way to also specify
   -- HasPrimal (TensorOf 17 r))
@@ -668,9 +554,59 @@ type ADReady' r = (Tensor r, HasPrimal r)
 -- For vectorization, go through Ast and valueOnDomains.
 instance Tensor Double where
   type TensorOf n Double = OR.Array n Double
+  tlength = rtlength
+  tsize = rtsize
+  tminIndex = rtminIndex
+  tmaxIndex = rtmaxIndex
+  tindex = rtindex
+  tindex0 = rtindex0
+  tindexN = rtindexN
+  tsum = rtsum
+  tsum0 = rtsum0
+  tdot0 = rtdot0
+  tminimum0 = rtminimum0
+  tmaximum0 = rtmaximum0
+  tfromList = rtfromList
+  tfromList0N = rtfromList0N
+  tfromVector = rtfromVector
+  tfromVector0N = rtfromVector0N
+  tkonst = rtkonst
+  tkonst0N = rtkonst0N
+  tappend = rtappend
+  tslice = rtslice
+  treverse = rtreverse
+  ttransposeGeneral = rttransposeGeneral
+  treshape = rtreshape
+  tbuild = rtbuild
+  tbuild0N = rtbuild0N
 
 instance Tensor Float where
   type TensorOf n Float = OR.Array n Float
+  tlength = rtlength
+  tsize = rtsize
+  tminIndex = rtminIndex
+  tmaxIndex = rtmaxIndex
+  tindex = rtindex
+  tindex0 = rtindex0
+  tindexN = rtindexN
+  tsum = rtsum
+  tsum0 = rtsum0
+  tdot0 = rtdot0
+  tminimum0 = rtminimum0
+  tmaximum0 = rtmaximum0
+  tfromList = rtfromList
+  tfromList0N = rtfromList0N
+  tfromVector = rtfromVector
+  tfromVector0N = rtfromVector0N
+  tkonst = rtkonst
+  tkonst0N = rtkonst0N
+  tappend = rtappend
+  tslice = rtslice
+  treverse = rtreverse
+  ttransposeGeneral = rttransposeGeneral
+  treshape = rtreshape
+  tbuild = rtbuild
+  tbuild0N = rtbuild0N
 
 -- Not that this instance doesn't do vectorization. To enable it,
 -- use the Ast instance, which vectorizes and finally interpret in ADVal.
@@ -1473,7 +1409,7 @@ build n f = fromList $ map f [0 .. n - 1]
 gatherClosure :: (ADModeAndNum d r, KnownNat n, KnownNat m)
               => Int -> (Int -> [Int])
               -> ADVal d (OR.Array (m + n) r) -> ADVal d (OR.Array (1 + n) r)
-gatherClosure n f (D u u') = dD (gather n f u) (dGather1 n f (OR.shapeL u) u')
+gatherClosure n f (D u u') = dD (rtgather n f u) (dGather1 n f (OR.shapeL u) u')
 
 sum0 :: (ADModeAndNum d r, KnownNat n)
      => ADVal d (OR.Array n r) -> ADVal d r

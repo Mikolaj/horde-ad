@@ -408,8 +408,8 @@ instance ( Numeric r, Num (Vector r)
   dReverse1 = OR.rev [0]
   dTransposeGeneral1 = OR.transpose
   dBuild1 n f = OR.ravel $ ORB.fromVector [n] $ V.generate n f
-  dGather1 n f _sh d = gather n f d
-  dScatter1 _n f d sh = scatter f d sh
+  dGather1 n f _sh d = rtgather n f d
+  dScatter1 _n f d sh = rtscatter f d sh
   dReshape1 _sh = OR.reshape
 
   dFromList01 = OR.fromList

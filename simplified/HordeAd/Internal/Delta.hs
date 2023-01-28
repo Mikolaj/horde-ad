@@ -533,7 +533,7 @@ buildFinMaps s0 deltaDt =
           in foldl' (\s2 (c2, d2) -> eval1 s2 c2 d2) s $ zip lc (V.toList ld)
         Konst1 _n d ->
           let c2 = V.sum $ ORB.toVector $ OR.unravel c
-                -- simplified version of: scatter (const []) c (tail $ shapeL c)
+              -- simplified version of: rtscatter (const []) c (tail $ shapeL c)
           in eval1 s c2 d
         Append1 d k e -> case OR.shapeL c of
           n : _ -> let s2 = eval1 s (OR.slice [(0, k)] c) d
@@ -550,8 +550,8 @@ buildFinMaps s0 deltaDt =
         Reverse1 d -> eval1 s (OR.rev [0] c) d
         Build1 _n f -> V.ifoldl' (\s2 i ci -> eval1 s2 ci (f i))
                                  s (ORB.toVector $ OR.unravel c)
-        Gather1 _n f sh d -> eval1 s (scatter f c sh) d
-        Scatter1 n f d _sh -> eval1 s (gather n f c) d
+        Gather1 _n f sh d -> eval1 s (rtscatter f c sh) d
+        Scatter1 n f d _sh -> eval1 s (rtgather n f c) d
         TransposeGeneral1 perm d ->
           let perm_reversed = map snd $ sort $ zip perm [0 .. length perm - 1]
           in eval1 s (OR.transpose perm_reversed c) d
@@ -700,10 +700,10 @@ buildDerivative dim0 dim1 deltaTopLevel
           return $! OR.ravel $ ORB.fromList [n] l
         Gather1 n f _sh d -> do
           t <- unsafeCoerce $ eval1 d
-          return $! gather n f t
+          return $! rtgather n f t
         Scatter1 _n f d sh -> do
           t <- eval1 d
-          return $! scatter f t sh
+          return $! rtscatter f t sh
         TransposeGeneral1 perm d -> OR.transpose perm <$> eval1 d
         Reshape1 _sh sh' d -> OR.reshape sh' <$> eval1 d
 
