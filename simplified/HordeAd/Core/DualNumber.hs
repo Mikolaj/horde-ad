@@ -46,7 +46,6 @@ import HordeAd.Core.Ast
 import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta
   (Delta0, Domain0, Domain1, Domains (..), nullDomains)
-import HordeAd.Internal.OrthotopeOrphanInstances (liftVR, liftVR2)
 import HordeAd.Internal.TensorOps
 
 -- * Auxiliary definitions
@@ -378,11 +377,11 @@ class (RealFloat r, RealFloat (VectorOf r), Integral (IntOf r))
   default lmap1
     :: (Numeric r, VectorOf r ~ OR.Array 1 r)
     => (r -> r) -> VectorOf r -> VectorOf r
-  lmap1 = liftVR . V.map
+  lmap1 = tmap0NR
   default lzipWith1
     :: (Numeric r, VectorOf r ~ OR.Array 1 r)
     => (r -> r -> r) -> VectorOf r -> VectorOf r -> VectorOf r
-  lzipWith1 = liftVR2 . V.zipWith
+  lzipWith1 = tzipWith0NR
 
 type ADReady r = (VectorNumeric r, HasPrimal r, HasPrimal (VectorOf r))
 
@@ -534,13 +533,17 @@ class VectorNumeric r
   tbuild :: KnownNat n
          => IntOf r -> (IntOf r -> TensorOf n r) -> TensorOf (1 + n) r
   tbuild0N :: KnownNat n => [IntOf r] -> ([IntOf r] -> r) -> TensorOf n r
-  tmap :: KnownNat n => (TensorOf n r -> TensorOf n r)
+  tmap :: KnownNat n
+       => (TensorOf n r -> TensorOf n r)
        -> TensorOf (1 + n) r -> TensorOf (1 + n) r
   tmap f u = tbuild (tlength u) (\i -> f (u `tindex` i))
+  tmap0N :: KnownNat n => (r -> r) -> TensorOf n r -> TensorOf n r
   tzipWith :: KnownNat n
            => (TensorOf n r -> TensorOf n r -> TensorOf n r)
            -> TensorOf (1 + n) r -> TensorOf (1 + n) r -> TensorOf (1 + n) r
   tzipWith f u v = tbuild (tlength u) (\i -> f (u `tindex` i) (v `tindex` i))
+  tzipWith0N :: KnownNat n
+             => (r -> r-> r) -> TensorOf n r -> TensorOf n r -> TensorOf n r
 
 type ADReady' r = (Tensor r, HasPrimal r)
   -- TODO: there is probably no way to also specify
@@ -579,6 +582,8 @@ instance Tensor Double where
   treshape = treshapeR
   tbuild = tbuildR
   tbuild0N = tbuild0NR
+  tmap0N = tmap0NR
+  tzipWith0N = tzipWith0NR
 
 instance Tensor Float where
   type TensorOf n Float = OR.Array n Float
@@ -607,6 +612,8 @@ instance Tensor Float where
   treshape = treshapeR
   tbuild = tbuildR
   tbuild0N = tbuild0NR
+  tmap0N = tmap0NR
+  tzipWith0N = tzipWith0NR
 
 -- Not that this instance doesn't do vectorization. To enable it,
 -- use the Ast instance, which vectorizes and finally interpret in ADVal.
@@ -676,6 +683,8 @@ instance (ADModeAndNum d r, TensorOf 1 r ~ OR.Array 1 r)
         tbuild0N_sh_g = -- tbuild0N sh g
           OR.generate sh g
     in dD tbuild0N_sh_g (dBuild01 sh h)
+  tmap0N = undefined  -- TODO
+  tzipWith0N = undefined  -- TODO
 
 instance (Numeric r, RealFloat r, RealFloat (Vector r))
          => Tensor (Ast 0 r) where
@@ -710,6 +719,8 @@ instance (Numeric r, RealFloat r, RealFloat (Vector r))
   treshape = AstReshape
   tbuild = astBuild
   tbuild0N = undefined  -- TODO: type-level woes
+  tmap0N = undefined  -- TODO
+  tzipWith0N = undefined  -- TODO
 
 astBuild :: AstInt r -> (AstInt r -> Ast n r) -> Ast (n + 1) r
 {-# NOINLINE astBuild #-}

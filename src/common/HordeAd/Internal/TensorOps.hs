@@ -29,10 +29,11 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
+import qualified Numeric.LinearAlgebra.Devel
 import           Text.Show.Functions ()
 import           Unsafe.Coerce (unsafeCoerce)
 
-import HordeAd.Internal.OrthotopeOrphanInstances ()
+import HordeAd.Internal.OrthotopeOrphanInstances (liftVR, liftVR2)
 
 dummyTensor :: Numeric r => OT.Array r
 dummyTensor =  -- an inconsistent tensor array
@@ -252,6 +253,16 @@ tbuild0NR
   :: (KnownNat n, Numeric r)
   => [Int] -> ([Int] -> r) -> OR.Array n r
 tbuild0NR = OR.generate
+
+tmap0NR
+  :: (KnownNat n, Numeric r)
+  => (r -> r) -> OR.Array n r -> OR.Array n r
+tmap0NR = liftVR . LA.cmap
+
+tzipWith0NR
+  :: (KnownNat n, Numeric r)
+  => (r -> r -> r) -> OR.Array n r -> OR.Array n r -> OR.Array n r
+tzipWith0NR = liftVR2 . Numeric.LinearAlgebra.Devel.zipVectorWith
 
 tgatherR :: (Numeric r, KnownNat n)
          => Int -> (Int -> [Int])
