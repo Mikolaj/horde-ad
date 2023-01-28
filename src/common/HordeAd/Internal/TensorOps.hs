@@ -153,8 +153,8 @@ tindexNR arr ixs =
          len = product shN
      in OR.fromVector shN $ V.slice ix len values
   -- Old implementation:
-  -- Data.Array.Convert.convert
-  -- $ foldl' OT.index (Data.Array.Convert.convert v) is
+  -- @Data.Array.Convert.convert
+  --  $ foldl' OT.index (Data.Array.Convert.convert v) is@
 
 tsumR
   :: (KnownNat n, Numeric r, Num (Vector r))
