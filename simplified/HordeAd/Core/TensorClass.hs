@@ -9,10 +9,9 @@
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.TensorClass
   ( HasPrimal(..), VectorNumeric(..), Tensor(..)
-  , unScalar
   , interpretAst
   , ADReady, ADReady'
-  , leqAst, gtAst, gtIntAst, relu, reluLeaky, reluAst
+  , unScalar, leqAst, gtAst, gtIntAst, relu, reluLeaky, reluAst
   ) where
 
 import Prelude
@@ -395,7 +394,9 @@ class VectorNumeric r
   tmaximum0 :: TensorOf 1 r -> r
   tfromIntOf0 :: IntOf r -> r
   tfromIntOf0 = fromInteger . fromIntegral
+  tunScalar :: TensorOf 0 r -> r
 
+  tscalar :: r -> TensorOf 0 r
   tfromList :: KnownNat n => [TensorOf n r] -> TensorOf (1 + n) r
   tfromList0N :: KnownNat n => [IntOf r] -> [r] -> TensorOf n r
   tfromVector :: KnownNat n
@@ -429,7 +430,8 @@ class VectorNumeric r
   tzipWith0N :: KnownNat n
              => (r -> r -> r) -> TensorOf n r -> TensorOf n r -> TensorOf n r
 
-type ADReady' r = (Tensor r, HasPrimal r)
+type ADReady' r = ( Tensor r, HasPrimal r
+                  , RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r) )
   -- TODO: there is probably no way to also specify
   -- HasPrimal (TensorOf 17 r))
   -- for all n, not just 17. That means the user needs add such
@@ -453,6 +455,8 @@ instance Tensor Double where
   tdot0 = tdot0R
   tminimum0 = tminimum0R
   tmaximum0 = tmaximum0R
+  tunScalar = tunScalarR
+  tscalar = tscalarR
   tfromList = tfromListR
   tfromList0N = tfromList0NR
   tfromVector = tfromVectorR
@@ -483,6 +487,8 @@ instance Tensor Float where
   tdot0 = tdot0R
   tminimum0 = tminimum0R
   tmaximum0 = tmaximum0R
+  tunScalar = tunScalarR
+  tscalar = tscalarR
   tfromList = tfromListR
   tfromList0N = tfromList0NR
   tfromVector = tfromVectorR
@@ -535,7 +541,9 @@ instance (ADModeAndNumTensor d r, TensorOf 1 r ~ OR.Array 1 r)
   tmaximum0 (D u u') =
     let ix = tmaxIndex u
     in dD (OR.unScalar $ tindexR u ix) (dIndex0 u' [ix] [tlength u])
+  tunScalar = unScalar
 
+  tscalar = scalar
   tfromList = fromList
   tfromList0N = fromList0N
   tfromVector = fromVector
@@ -579,7 +587,9 @@ instance (Numeric r, RealFloat r, RealFloat (Vector r))
   tmaximum0 v = AstIndex v (AstMaxIndex v)
   tfromIntOf0 = AstConstInt
     -- toInteger is not defined for Ast, hence a special implementation
+  tunScalar = id  -- Ast confuses the two ranks
 
+  tscalar = id
   tfromList = AstFromList
   tfromList0N = AstFromList0N
   tfromVector = AstFromVector
@@ -1065,6 +1075,12 @@ dot0 :: (ADModeAndNumTensor d r, KnownNat n)
 dot0 (D u u') (D v v') = dD (tdot0R u v)
                             (dAdd (dDot0 v u') (dDot0 u v'))
 
+unScalar :: ADModeAndNumTensor d r => ADVal d (OR.Array 0 r) -> ADVal d r
+unScalar (D u u') = dD (OR.unScalar u) (dUnScalar0 u')
+
+scalar :: ADModeAndNumTensor d r => ADVal d r -> ADVal d (OR.Array 0 r)
+scalar (D u u') = dD (OR.scalar u) (dScalar1 u')
+
 fromList0N :: (ADModeAndNumTensor d r, KnownNat n)
            => OR.ShapeL -> [ADVal d r]
            -> ADVal d (OR.Array n r)
@@ -1082,12 +1098,6 @@ fromVector0N sh l =
 konst0N :: (ADModeAndNumTensor d r, KnownNat n)
         => OR.ShapeL -> ADVal d r -> ADVal d (OR.Array (1 + n) r)
 konst0N sh (D u u') = dD (tkonst0NR sh u) (dKonst01 sh u')
-
-scalar :: ADModeAndNumTensor d r => ADVal d r -> ADVal d (OR.Array 0 r)
-scalar (D u u') = dD (OR.scalar u) (dScalar1 u')
-
-unScalar :: ADModeAndNumTensor d r => ADVal d (OR.Array 0 r) -> ADVal d r
-unScalar (D u u') = dD (OR.unScalar u) (dUnScalar0 u')
 
 
 -- * Interpretation of Ast in ADVal

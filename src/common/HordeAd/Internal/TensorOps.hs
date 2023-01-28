@@ -182,6 +182,16 @@ tmaximum0R
   => OR.Array 1 r -> r
 tmaximum0R = LA.maxElement . OR.toVector
 
+tunScalarR
+  :: Numeric r
+  => OR.Array 0 r -> r
+tunScalarR = OR.unScalar
+
+tscalarR
+  :: Numeric r
+  => r -> OR.Array 0 r
+tscalarR = OR.scalar
+
 tfromListR
   :: (KnownNat n, Numeric r)
   => [OR.Array n r] -> OR.Array (1 + n) r
