@@ -1333,19 +1333,8 @@ index (D u u') ix = dD (u `tindexR` ix)
 indexN :: forall m n d r. (ADModeAndNum d r, KnownNat n, KnownNat m)
         => ADVal d (OR.Array (1 + m + n) r) -> [Int]
         -> ADVal d (OR.Array n r)
--- TODO: This is much faster, but gradient of dIndexN is not implemented yet:
--- indexN (D u u') ixs = dD (u `atPathInTensorNR` ixs)
---                          (dIndexN u' ixs (OR.shapeL u))
-indexN d [] = (unsafeCoerce :: ADVal d (OR.Array (1 + m + n) r)
-                             -> ADVal d (OR.Array n r)) d  -- m is -1
-indexN d (ix : rest) =
-  (unsafeCoerce  -- m is (1 + m2)
-     :: (ADVal d (OR.Array (1 + m + n) r) -> [Int]
-         -> ADVal d (OR.Array n r))
-     -> (ADVal d (OR.Array (m + n) r) -> [Int]
-         -> ADVal d (OR.Array n r)))
-    indexN
-      (index d ix) rest
+indexN (D u u') ixs = dD (tindexNR u ixs)
+                         (dIndexN u' ixs (OR.shapeL u))
 
 sum' :: (ADModeAndNum d r, KnownNat n)
      => ADVal d (OR.Array (1 + n) r) -> ADVal d (OR.Array n r)
