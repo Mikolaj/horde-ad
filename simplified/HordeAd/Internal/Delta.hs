@@ -164,6 +164,8 @@ data Delta1 :: Nat -> Type -> Type where
   Sum1 :: KnownNat n
        => Int -> Delta1 (1 + n) r -> Delta1 n r
     -- ^ Add element tensors along the outermost dimension.
+  Scalar1 :: Delta0 r -> Delta1 0 r
+    -- ^ Conversion between rank 0 and 1 (ranked tensors).
   FromList1 :: KnownNat n
             => [Delta1 n r] -> Delta1 (1 + n) r
     -- ^ Create a tensor from a list treated as the outermost dimension.
@@ -171,9 +173,12 @@ data Delta1 :: Nat -> Type -> Type where
               => Data.Vector.Vector (Delta1 n r)
               -> Delta1 (1 + n) r
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
+  FromList01 :: OR.ShapeL -> [Delta0 r] -> Delta1 n r
+  FromVector01 :: OR.ShapeL -> Data.Vector.Vector (Delta0 r) -> Delta1 n r
   Konst1 :: KnownNat n
          => Int -> Delta1 n r -> Delta1 (1 + n) r
     -- ^ Copy the given tensor along the new, outermost dimension.
+  Konst01 :: OR.ShapeL -> Delta0 r -> Delta1 (1 + n) r
   Append1 :: KnownNat n
           => Delta1 n r -> Int -> Delta1 n r -> Delta1 n r
     -- ^ Append two arrays along the outermost dimension.
@@ -197,6 +202,7 @@ data Delta1 :: Nat -> Type -> Type where
          => Int -> (Int -> Delta1 n r) -> Delta1 (1 + n) r
     -- ^ Build a tensor with the given size of the outermost dimension
     -- and using the given function to construct the element tensors.
+  Build01 :: OR.ShapeL -> ([Int] -> Delta0 r) -> Delta1 n r
   Gather1 :: (KnownNat n, KnownNat m)
           => Int -> (Int -> [Int])
           -> OR.ShapeL -> Delta1 (m + n) r -> Delta1 (1 + n) r
@@ -215,12 +221,6 @@ data Delta1 :: Nat -> Type -> Type where
     -- Paths of length 0 insert tensors trivially, so that,
     -- e.g, @Scatter1 (const []) (Konst01 [5] d) []@ is equivalent
     -- to @Scalar1 (5 * d)@.
-
-  FromList01 :: OR.ShapeL -> [Delta0 r] -> Delta1 n r
-  FromVector01 :: OR.ShapeL -> Data.Vector.Vector (Delta0 r) -> Delta1 n r
-  Konst01 :: OR.ShapeL -> Delta0 r -> Delta1 (1 + n) r
-  Build01 :: OR.ShapeL -> ([Int] -> Delta0 r) -> Delta1 n r
-  Scalar1 :: Delta0 r -> Delta1 0 r
 
   FromX1 :: DeltaX r -> Delta1 n r
 
@@ -497,8 +497,6 @@ buildFinMaps s0 deltaDt =
             => EvalState r -> OR.Array n r -> Delta1 n r -> EvalState r
       eval1 s !c = \case
         Zero1 -> s
-        FromX1 (InputX inputId) ->
-          s {iMap1 = EM.adjust (addToArray c) inputId $ iMap1 s}
         Scale1 k d -> eval1 s (k * c) d
         Add1 d e -> eval1 (eval1 s c d) c e
         Let1 n d ->
@@ -525,16 +523,24 @@ buildFinMaps s0 deltaDt =
                      d  -- TODO: optimize for input case
         IndexN d ixs sh -> eval1 s (updateNR (OR.constant sh 0) [(ixs, c)]) d
         Sum1 n d -> eval1 s (OR.ravel (ORB.constant [n] c)) d
+        Scalar1 d -> eval0 s (OR.unScalar c) d
         FromList1 ld ->
           let lc = ORB.toList $ OR.unravel c
           in foldl' (\s2 (c2, d2) -> eval1 s2 c2 d2) s $ zip lc ld
         FromVector1 ld ->
           let lc = ORB.toList $ OR.unravel c
           in foldl' (\s2 (c2, d2) -> eval1 s2 c2 d2) s $ zip lc (V.toList ld)
+        FromList01 _sh lsd ->  -- lsd is a list of scalar delta expressions
+          let cv = OR.toVector c
+          in ifoldl' (\s2 i d -> eval0 s2 (cv V.! i) d) s lsd
+        FromVector01 _sh lsd ->  -- lsd is a list of scalar delta expressions
+          let cv = OR.toVector c
+          in V.ifoldl' (\s2 i d -> eval0 s2 (cv V.! i) d) s lsd
         Konst1 _n d ->
           let c2 = V.sum $ ORB.toVector $ OR.unravel c
               -- simplified version of: tscatterR (const []) c (tail $ shapeL c)
           in eval1 s c2 d
+        Konst01 _ d -> eval0 s (tsum0R c) d
         Append1 d k e -> case OR.shapeL c of
           n : _ -> let s2 = eval1 s (OR.slice [(0, k)] c) d
                    in eval1 s2 (OR.slice [(k, n - k)] c) e
@@ -554,23 +560,17 @@ buildFinMaps s0 deltaDt =
         Reshape1 sh _sh' d -> eval1 s (treshapeR sh c) d
         Build1 _n f -> V.ifoldl' (\s2 i ci -> eval1 s2 ci (f i))
                                  s (ORB.toVector $ OR.unravel c)
-        Gather1 _n f sh d -> eval1 s (tscatterR f c sh) d
-        Scatter1 n f d _sh -> eval1 s (tgatherR n f c) d
-
-        FromList01 _sh lsd ->  -- lsd is a list of scalar delta expressions
-          let cv = OR.toVector c
-          in ifoldl' (\s2 i d -> eval0 s2 (cv V.! i) d) s lsd
-        FromVector01 _sh lsd ->  -- lsd is a list of scalar delta expressions
-          let cv = OR.toVector c
-          in V.ifoldl' (\s2 i d -> eval0 s2 (cv V.! i) d) s lsd
-        Konst01 _ d -> eval0 s (tsum0R c) d
         Build01 sh f ->
           let ss = case getStrides sh of
                 _ : ss2 -> ss2
                 [] -> error "getStrides in buildFinMaps"
           in V.ifoldl' (\s2 i ci -> eval0 s2 ci (f $ toIx ss i))
                        s (OR.toVector c)
-        Scalar1 d -> eval0 s (OR.unScalar c) d
+        Gather1 _n f sh d -> eval1 s (tscatterR f c sh) d
+        Scatter1 n f d _sh -> eval1 s (tgatherR n f c) d
+
+        FromX1 (InputX inputId) ->
+          s {iMap1 = EM.adjust (addToArray c) inputId $ iMap1 s}
 
       evalFromnMap :: EvalState r -> EvalState r
       evalFromnMap s@EvalState{nMap, dMap0, dMap1} =
@@ -659,10 +659,6 @@ buildDerivative dim0 dim1 deltaTopLevel
       eval1 :: KnownNat n => Delta1 n r -> ST s (OR.Array n r)
       eval1 = \case
         Zero1 -> return 0
-        FromX1 (InputX (InputId i)) ->
-          if i < dim1
-          then return $! Data.Array.Convert.convert $ domains1 V.! i
-          else error "derivativeFromDelta.eval': wrong index for an input"
         Scale1 k d -> (k *) <$> eval1 d
         Add1 d e -> liftM2 (+) (eval1 d) (eval1 e)
         Let1 n d -> do
@@ -683,15 +679,23 @@ buildDerivative dim0 dim1 deltaTopLevel
         Index1 d ix _len -> (`tindexR` ix) <$> eval1 d
         IndexN d ixs _len -> (`tindexNR` ixs) <$> eval1 d
         Sum1 _ d -> tsumR <$> eval1 d
+        Scalar1 d -> OR.scalar <$> eval0 d
         FromList1 lsd -> do
           l <- mapM eval1 lsd
           return $! tfromListR l
         FromVector1 lsd -> do
           l <- V.mapM eval1 lsd
           return $! tfromVectorR l
+        FromList01 sh lsd -> do
+          l <- mapM eval0 lsd
+          return $! tfromList0NR sh l
+        FromVector01 sh lsd -> do
+          l <- V.mapM eval0 lsd
+          return $! tfromVector0NR sh l
         Konst1 n d -> do
           t <- eval1 d
           return $! tkonstR n t
+        Konst01 sh d -> tkonst0NR sh <$> eval0 d
         Append1 d _k e -> liftM2 tappendR (eval1 d) (eval1 e)
         Slice1 i n d _len -> tsliceR i n <$> eval1 d
         Reverse1 d -> treverseR <$> eval1 d
@@ -700,20 +704,6 @@ buildDerivative dim0 dim1 deltaTopLevel
         Build1 n f -> do
           l <- mapM (eval1 . f) [0 .. n - 1]
           return $! OR.ravel $ ORB.fromList [n] l
-        Gather1 n f _sh d -> do
-          t <- unsafeCoerce $ eval1 d
-          return $! tgatherR n f t
-        Scatter1 _n f d sh -> do
-          t <- eval1 d
-          return $! tscatterR f t sh
-
-        FromList01 sh lsd -> do
-          l <- mapM eval0 lsd
-          return $! tfromList0NR sh l
-        FromVector01 sh lsd -> do
-          l <- V.mapM eval0 lsd
-          return $! tfromVector0NR sh l
-        Konst01 sh d -> tkonst0NR sh <$> eval0 d
         Build01 sh f -> do
           -- Copied from Data.Array.Internal.
           let (s, ss) = case getStrides sh of
@@ -722,6 +712,16 @@ buildDerivative dim0 dim1 deltaTopLevel
           l <- mapM (eval0 . f)
                $ [toIx ss i | i <- [0 .. s - 1]]
           return $! OR.fromList sh l
-        Scalar1 d -> OR.scalar <$> eval0 d
+        Gather1 n f _sh d -> do
+          t <- unsafeCoerce $ eval1 d
+          return $! tgatherR n f t
+        Scatter1 _n f d sh -> do
+          t <- eval1 d
+          return $! tscatterR f t sh
+
+        FromX1 (InputX (InputId i)) ->
+          if i < dim1
+          then return $! Data.Array.Convert.convert $ domains1 V.! i
+          else error "derivativeFromDelta.eval': wrong index for an input"
 
   eval0 deltaTopLevel

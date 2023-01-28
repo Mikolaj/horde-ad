@@ -1012,6 +1012,21 @@ sum' :: (ADModeAndNumTensor d r, KnownNat n)
 sum' (D u u') = dD (tsumR u)
                    (dSum1 (head $ OR.shapeL u) u')
 
+sum0 :: (ADModeAndNumTensor d r, KnownNat n)
+     => ADVal d (OR.Array n r) -> ADVal d r
+sum0 (D u u') = dD (tsum0R u) (dSum0 (OR.shapeL u) u')
+
+dot0 :: (ADModeAndNumTensor d r, KnownNat n)
+     => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r) -> ADVal d r
+dot0 (D u u') (D v v') = dD (tdot0R u v)
+                            (dAdd (dDot0 v u') (dDot0 u v'))
+
+unScalar :: ADModeAndNumTensor d r => ADVal d (OR.Array 0 r) -> ADVal d r
+unScalar (D u u') = dD (OR.unScalar u) (dUnScalar0 u')
+
+scalar :: ADModeAndNumTensor d r => ADVal d r -> ADVal d (OR.Array 0 r)
+scalar (D u u') = dD (OR.scalar u) (dScalar1 u')
+
 fromList :: (ADModeAndNumTensor d r, KnownNat n)
          => [ADVal d (OR.Array n r)]
          -> ADVal d (OR.Array (1 + n) r)
@@ -1027,9 +1042,27 @@ fromVector lu =
   dD (tfromVectorR $ V.map (\(D u _) -> u) lu)
      (dFromVector1 $ V.map (\(D _ u') -> u') lu)
 
+fromList0N :: (ADModeAndNumTensor d r, KnownNat n)
+           => OR.ShapeL -> [ADVal d r]
+           -> ADVal d (OR.Array n r)
+fromList0N sh l =
+  dD (tfromList0NR sh $ map (\(D u _) -> u) l)  -- I hope this fuses
+     (dFromList01 sh $ map (\(D _ u') -> u') l)
+
+fromVector0N :: (ADModeAndNumTensor d r, KnownNat n)
+             => OR.ShapeL -> Data.Vector.Vector (ADVal d r)
+             -> ADVal d (OR.Array n r)
+fromVector0N sh l =
+  dD (tfromVector0NR sh $ V.convert $ V.map (\(D u _) -> u) l)  -- hope it fuses
+     (dFromVector01 sh $ V.map (\(D _ u') -> u') l)
+
 konst :: (ADModeAndNumTensor d r, KnownNat n)
       => Int -> ADVal d (OR.Array n r) -> ADVal d (OR.Array (1 + n) r)
 konst n (D u u') = dD (tkonstR n u) (dKonst1 n u')
+
+konst0N :: (ADModeAndNumTensor d r, KnownNat n)
+        => OR.ShapeL -> ADVal d r -> ADVal d (OR.Array (1 + n) r)
+konst0N sh (D u u') = dD (tkonst0NR sh u) (dKonst01 sh u')
 
 append :: (ADModeAndNumTensor d r, KnownNat n)
        => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
@@ -1065,39 +1098,6 @@ gatherClosure :: (ADModeAndNumTensor d r, KnownNat n, KnownNat m)
               => Int -> (Int -> [Int])
               -> ADVal d (OR.Array (m + n) r) -> ADVal d (OR.Array (1 + n) r)
 gatherClosure n f (D u u') = dD (tgatherR n f u) (dGather1 n f (OR.shapeL u) u')
-
-sum0 :: (ADModeAndNumTensor d r, KnownNat n)
-     => ADVal d (OR.Array n r) -> ADVal d r
-sum0 (D u u') = dD (tsum0R u) (dSum0 (OR.shapeL u) u')
-
-dot0 :: (ADModeAndNumTensor d r, KnownNat n)
-     => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r) -> ADVal d r
-dot0 (D u u') (D v v') = dD (tdot0R u v)
-                            (dAdd (dDot0 v u') (dDot0 u v'))
-
-unScalar :: ADModeAndNumTensor d r => ADVal d (OR.Array 0 r) -> ADVal d r
-unScalar (D u u') = dD (OR.unScalar u) (dUnScalar0 u')
-
-scalar :: ADModeAndNumTensor d r => ADVal d r -> ADVal d (OR.Array 0 r)
-scalar (D u u') = dD (OR.scalar u) (dScalar1 u')
-
-fromList0N :: (ADModeAndNumTensor d r, KnownNat n)
-           => OR.ShapeL -> [ADVal d r]
-           -> ADVal d (OR.Array n r)
-fromList0N sh l =
-  dD (tfromList0NR sh $ map (\(D u _) -> u) l)  -- I hope this fuses
-     (dFromList01 sh $ map (\(D _ u') -> u') l)
-
-fromVector0N :: (ADModeAndNumTensor d r, KnownNat n)
-             => OR.ShapeL -> Data.Vector.Vector (ADVal d r)
-             -> ADVal d (OR.Array n r)
-fromVector0N sh l =
-  dD (tfromVector0NR sh $ V.convert $ V.map (\(D u _) -> u) l)  -- hope it fuses
-     (dFromVector01 sh $ V.map (\(D _ u') -> u') l)
-
-konst0N :: (ADModeAndNumTensor d r, KnownNat n)
-        => OR.ShapeL -> ADVal d r -> ADVal d (OR.Array (1 + n) r)
-konst0N sh (D u u') = dD (tkonst0NR sh u) (dKonst01 sh u')
 
 
 -- * Interpretation of Ast in ADVal

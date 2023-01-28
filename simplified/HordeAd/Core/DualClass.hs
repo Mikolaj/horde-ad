@@ -169,14 +169,22 @@ class HasRanks (d :: ADMode) r where
           -> Dual d (OR.Array n r)
   dSum1 :: KnownNat n
         => Int -> Dual d (OR.Array (1 + n) r) -> Dual d (OR.Array n r)
+  dScalar1 :: Dual d r -> Dual d (OR.Array 0 r)
   dFromList1 :: KnownNat n
              => [Dual d (OR.Array n r)]
              -> Dual d (OR.Array (1 + n) r)
   dFromVector1 :: KnownNat n
                => Data.Vector.Vector (Dual d (OR.Array n r))
                -> Dual d (OR.Array (1 + n) r)
+  dFromList01 :: KnownNat n
+              => OR.ShapeL -> [Dual d r] -> Dual d (OR.Array n r)
+  dFromVector01 :: KnownNat n
+                => OR.ShapeL -> Data.Vector.Vector (Dual d r)
+                -> Dual d (OR.Array n r)
   dKonst1 :: KnownNat n
           => Int -> Dual d (OR.Array n r) -> Dual d (OR.Array (1 + n) r)
+  dKonst01 :: KnownNat n
+           => OR.ShapeL -> Dual d r -> Dual d (OR.Array (1 + n) r)
   dAppend1 :: KnownNat n
            => Dual d (OR.Array n r) -> Int -> Dual d (OR.Array n r)
            -> Dual d (OR.Array n r)
@@ -192,6 +200,8 @@ class HasRanks (d :: ADMode) r where
   dBuild1 :: KnownNat n
           => Int -> (Int -> Dual d (OR.Array n r))
           -> Dual d (OR.Array (1 + n) r)
+  dBuild01 :: KnownNat n
+           => OR.ShapeL -> ([Int] -> Dual d r) -> Dual d (OR.Array n r)
   dGather1 :: (KnownNat n, KnownNat m)
            => Int -> (Int -> [Int])
            -> OR.ShapeL -> Dual d (OR.Array (m + n) r)
@@ -200,17 +210,6 @@ class HasRanks (d :: ADMode) r where
             => Int -> (Int -> [Int])
             -> Dual d (OR.Array (1 + n) r) -> OR.ShapeL
             -> Dual d (OR.Array (m + n) r)
-
-  dFromList01 :: KnownNat n
-              => OR.ShapeL -> [Dual d r] -> Dual d (OR.Array n r)
-  dFromVector01 :: KnownNat n
-                => OR.ShapeL -> Data.Vector.Vector (Dual d r)
-                -> Dual d (OR.Array n r)
-  dKonst01 :: KnownNat n
-           => OR.ShapeL -> Dual d r -> Dual d (OR.Array (1 + n) r)
-  dBuild01 :: KnownNat n
-           => OR.ShapeL -> ([Int] -> Dual d r) -> Dual d (OR.Array n r)
-  dScalar1 :: Dual d r -> Dual d (OR.Array 0 r)
 
   dFromX1 :: KnownNat n
           => Dual d (OT.Array r) -> Dual d (OR.Array n r)
@@ -309,23 +308,22 @@ instance Dual 'ADModeGradient r ~ Delta0 r
   dIndex1 = Index1
   dIndexN = IndexN
   dSum1 = Sum1
+  dScalar1 = Scalar1
   dFromList1 = FromList1
   dFromVector1 = FromVector1
+  dFromList01 = FromList01
+  dFromVector01 = FromVector01
   dKonst1 = Konst1
+  dKonst01 = Konst01
   dAppend1 = Append1
   dSlice1 = Slice1
   dReverse1 = Reverse1
   dTransposeGeneral1 = TransposeGeneral1
   dReshape1 = Reshape1
   dBuild1 = Build1
+  dBuild01 = Build01
   dGather1 = Gather1
   dScatter1 = Scatter1
-
-  dFromList01 = FromList01
-  dFromVector01 = FromVector01
-  dKonst01 = Konst01
-  dBuild01 = Build01
-  dScalar1 = Scalar1
 
   dFromX1 = FromX1
 
@@ -361,23 +359,22 @@ instance ( Numeric r, Num (Vector r)
   dIndex1 d ix _ = tindexR d ix
   dIndexN d ixs _ = tindexNR d ixs
   dSum1 _ = tsumR
+  dScalar1 = OR.scalar
   dFromList1 = tfromListR
   dFromVector1 = tfromVectorR
+  dFromList01 = tfromList0NR
+  dFromVector01 = tfromVector0NR
   dKonst1 = tkonstR
+  dKonst01 = tkonst0NR
   dAppend1 d _k e = tappendR d e
   dSlice1 i n d _len = tsliceR i n d
   dReverse1 = treverseR
   dTransposeGeneral1 = ttransposeGeneralR
   dReshape1 _sh = treshapeR
   dBuild1 = tbuildR
+  dBuild01 = tbuild0NR
   dGather1 n f _sh d = tgatherR n f d
   dScatter1 _n f d sh = tscatterR f d sh
-
-  dFromList01 = tfromList0NR
-  dFromVector01 = tfromVector0NR
-  dKonst01 = tkonst0NR
-  dBuild01 = tbuild0NR
-  dScalar1 = OR.scalar
 
   dFromX1 = Data.Array.Convert.convert
 
@@ -417,23 +414,22 @@ instance HasRanks 'ADModeValue r where
   dIndex1 _ _ _ = DummyDual ()
   dIndexN _ _ _ = DummyDual ()
   dSum1 _ _ = DummyDual ()
+  dScalar1 _ = DummyDual ()
   dFromList1 _ = DummyDual ()
   dFromVector1 _ = DummyDual ()
+  dFromList01 _ _ = DummyDual ()
+  dFromVector01 _ _ = DummyDual ()
   dKonst1 _ _ = DummyDual ()
+  dKonst01 _ _ = DummyDual ()
   dAppend1 _ _ _ = DummyDual ()
   dSlice1 _ _ _ _ = DummyDual ()
   dReverse1 _ = DummyDual ()
   dTransposeGeneral1 _ _ = DummyDual ()
   dReshape1 _ _ _ = DummyDual ()
   dBuild1 _ _ = DummyDual ()
+  dBuild01 _ _ = DummyDual ()
   dGather1 _ _ _ _ = DummyDual ()
   dScatter1 _ _ _ _ = DummyDual ()
-
-  dFromList01 _ _ = DummyDual ()
-  dFromVector01 _ _ = DummyDual ()
-  dKonst01 _ _ = DummyDual ()
-  dBuild01 _ _ = DummyDual ()
-  dScalar1 _ = DummyDual ()
 
   dFromX1 _ = DummyDual ()
 
