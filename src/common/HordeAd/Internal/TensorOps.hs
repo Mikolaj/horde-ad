@@ -78,31 +78,6 @@ atPathInTensorD (Data.Array.Internal.DynamicS.A
   values V.! (offset + sum (zipWith (*) is strides))
     -- TODO: tests are needed to verify if order of dimensions is right
 
-atPathInTensorR :: Numeric r => OR.Array n r -> [Int] -> r
-atPathInTensorR (Data.Array.Internal.RankedS.A
-                   (Data.Array.Internal.RankedG.A _
-                      Data.Array.Internal.T{..})) is =
-  values V.! (offset + sum (zipWith (*) is strides))
-
-atPathInTensorNR :: (Numeric r, KnownNat n)
-                 => OR.Array (1 + m + n) r -> [Int] -> OR.Array n r
-atPathInTensorNR arr ixs =
-  let Data.Array.Internal.DynamicS.A
-        (Data.Array.Internal.DynamicG.A sh
-           Data.Array.Internal.T{..}) =
-             OT.normalize $ Data.Array.Convert.convert arr
-               -- OT to avoid KnownNat m, which breaks typing of other code
-               -- due to no sized lists
-      !_A = assert (offset == 0) ()
-  in let pathToIx is = sum (zipWith (*) is strides)
-         ix = pathToIx ixs
-         shN = drop (length ixs) sh
-         len = product shN
-     in OR.fromVector shN $ V.slice ix len values
-  -- Old implementation:
-  -- Data.Array.Convert.convert
-  -- $ foldl' OT.index (Data.Array.Convert.convert v) is
-
 updateR :: (Numeric a, KnownNat n)
         => OR.Array n a -> [([Int], a)] -> OR.Array n a
 updateR arr upd = Data.Array.Convert.convert
@@ -158,12 +133,30 @@ tindexR = OR.index
 tindex0R
   :: Numeric r
   => OR.Array n r -> [Int] -> r
-tindex0R = atPathInTensorR
+tindex0R (Data.Array.Internal.RankedS.A
+            (Data.Array.Internal.RankedG.A _
+               Data.Array.Internal.T{..})) is =
+  values V.! (offset + sum (zipWith (*) is strides))
 
 tindexNR
   :: (KnownNat n, Numeric r)
   => OR.Array (1 + m + n) r -> [Int] -> OR.Array n r
-tindexNR = atPathInTensorNR
+tindexNR arr ixs =
+  let Data.Array.Internal.DynamicS.A
+        (Data.Array.Internal.DynamicG.A sh
+           Data.Array.Internal.T{..}) =
+             OT.normalize $ Data.Array.Convert.convert arr
+               -- OT to avoid KnownNat m, which breaks typing of other code
+               -- due to no sized lists
+      !_A = assert (offset == 0) ()
+  in let pathToIx is = sum (zipWith (*) is strides)
+         ix = pathToIx ixs
+         shN = drop (length ixs) sh
+         len = product shN
+     in OR.fromVector shN $ V.slice ix len values
+  -- Old implementation:
+  -- Data.Array.Convert.convert
+  -- $ foldl' OT.index (Data.Array.Convert.convert v) is
 
 tsumR
   :: (KnownNat n, Numeric r, Num (Vector r))
@@ -269,7 +262,7 @@ tgatherR :: (Numeric r, KnownNat n)
          => Int -> (Int -> [Int])
          -> OR.Array (m + n) r -> OR.Array (1 + n) r
 tgatherR n f t =
-  let l = map (\i -> unsafeCoerce t `atPathInTensorNR` f i) [0 .. n - 1]
+  let l = map (\i -> unsafeCoerce t `tindexNR` f i) [0 .. n - 1]
   in OR.ravel $ ORB.fromList [n] l
 
 -- TODO: update in place in ST or with a vector builder, but that requires
