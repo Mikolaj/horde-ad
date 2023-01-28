@@ -157,7 +157,7 @@ tindexR = OR.index
 
 tindex0R
   :: Numeric r
-  => OR.Array (1 + n) r -> [Int] -> r
+  => OR.Array n r -> [Int] -> r
 tindex0R = atPathInTensorR
 
 tindexNR
@@ -247,7 +247,8 @@ treshapeR = OR.reshape
 tbuildR
   :: (KnownNat n, Numeric r)
   => Int -> (Int -> OR.Array n r) -> OR.Array (1 + n) r
-tbuildR n f = tfromListR $ map f [0 .. n - 1]
+tbuildR n f = OR.ravel $ ORB.fromList [n]
+              $ map f [0 .. n - 1]  -- hope this fuses
 
 tbuild0NR
   :: (KnownNat n, Numeric r)

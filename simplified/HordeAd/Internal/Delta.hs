@@ -218,7 +218,7 @@ data Delta1 :: Nat -> Type -> Type where
 
   FromList01 :: OR.ShapeL -> [Delta0 r] -> Delta1 n r
   FromVector01 :: OR.ShapeL -> Data.Vector.Vector (Delta0 r) -> Delta1 n r
-  Konst01 :: OR.ShapeL -> Delta0 r -> Delta1 n r
+  Konst01 :: OR.ShapeL -> Delta0 r -> Delta1 (1 + n) r
   Build01 :: OR.ShapeL -> ([Int] -> Delta0 r) -> Delta1 n r
   Scalar1 :: Delta0 r -> Delta1 0 r
 
@@ -547,15 +547,15 @@ buildFinMaps s0 deltaDt =
                                     , OR.constant (len - i - n : rest) 0 ])
                     d
           [] -> error "eval1: slicing a 0-dimensional tensor"
-        Reverse1 d -> eval1 s (OR.rev [0] c) d
+        Reverse1 d -> eval1 s (treverseR c) d
         Build1 _n f -> V.ifoldl' (\s2 i ci -> eval1 s2 ci (f i))
                                  s (ORB.toVector $ OR.unravel c)
         Gather1 _n f sh d -> eval1 s (tscatterR f c sh) d
         Scatter1 n f d _sh -> eval1 s (tgatherR n f c) d
         TransposeGeneral1 perm d ->
           let perm_reversed = map snd $ sort $ zip perm [0 .. length perm - 1]
-          in eval1 s (OR.transpose perm_reversed c) d
-        Reshape1 sh _sh' d -> eval1 s (OR.reshape sh c) d
+          in eval1 s (ttransposeGeneralR perm_reversed c) d
+        Reshape1 sh _sh' d -> eval1 s (treshapeR sh c) d
 
         FromList01 _sh lsd ->  -- lsd is a list of scalar delta expressions
           let cv = OR.toVector c
@@ -651,9 +651,9 @@ buildDerivative dim0 dim1 deltaTopLevel
               return c
             _ -> error "buildDerivative: corrupted nMap"
 
-        Index0 d ixs _ -> (`atPathInTensorR` ixs) <$> eval1 d
+        Index0 d ixs _ -> (`tindex0R` ixs) <$> eval1 d
         Sum0 _ d -> tsum0R <$> eval1 d
-        Dot0 v d -> (LA.<.> OR.toVector v) . OR.toVector <$> eval1 d
+        Dot0 v d -> tdot0R v <$> eval1 d
         UnScalar0 d -> OR.unScalar <$> eval1 d
 
       eval1 :: KnownNat n => Delta1 n r -> ST s (OR.Array n r)
@@ -680,21 +680,21 @@ buildDerivative dim0 dim1 deltaTopLevel
               return c
             _ -> error "buildDerivative: corrupted nMap"
 
-        Index1 d ix _len -> flip OR.index ix <$> eval1 d
-        IndexN d ixs _len -> (`atPathInTensorNR` ixs) <$> eval1 d
-        Sum1 _ d -> ORB.sumA . OR.unravel <$> eval1 d
+        Index1 d ix _len -> (`tindexR` ix) <$> eval1 d
+        IndexN d ixs _len -> (`tindexNR` ixs) <$> eval1 d
+        Sum1 _ d -> tsumR <$> eval1 d
         FromList1 lsd -> do
           l <- mapM eval1 lsd
-          return $! OR.ravel $ ORB.fromList [length lsd] l
+          return $! tfromListR l
         FromVector1 lsd -> do
-          v <- V.mapM eval1 lsd
-          return $! OR.ravel $ ORB.fromVector [V.length lsd] $ V.convert v
+          l <- V.mapM eval1 lsd
+          return $! tfromVectorR l
         Konst1 n d -> do
           t <- eval1 d
-          return $! OR.ravel (ORB.constant [n] t)
-        Append1 d _k e -> liftM2 OR.append (eval1 d) (eval1 e)
-        Slice1 i n d _len -> OR.slice [(i, n)] <$> eval1 d
-        Reverse1 d -> OR.rev [0] <$> eval1 d
+          return $! tkonstR n t
+        Append1 d _k e -> liftM2 tappendR (eval1 d) (eval1 e)
+        Slice1 i n d _len -> tsliceR i n <$> eval1 d
+        Reverse1 d -> treverseR <$> eval1 d
         Build1 n f -> do
           l <- mapM (eval1 . f) [0 .. n - 1]
           return $! OR.ravel $ ORB.fromList [n] l
@@ -704,16 +704,16 @@ buildDerivative dim0 dim1 deltaTopLevel
         Scatter1 _n f d sh -> do
           t <- eval1 d
           return $! tscatterR f t sh
-        TransposeGeneral1 perm d -> OR.transpose perm <$> eval1 d
-        Reshape1 _sh sh' d -> OR.reshape sh' <$> eval1 d
+        TransposeGeneral1 perm d -> ttransposeGeneralR perm <$> eval1 d
+        Reshape1 _sh sh' d -> treshapeR sh' <$> eval1 d
 
         FromList01 sh lsd -> do
           l <- mapM eval0 lsd
-          return $! OR.fromList sh l
+          return $! tfromList0NR sh l
         FromVector01 sh lsd -> do
-          v <- V.mapM eval0 lsd
-          return $! OR.fromVector sh $ V.convert v
-        Konst01 sh d -> OR.constant sh <$> eval0 d
+          l <- V.mapM eval0 lsd
+          return $! tfromVector0NR sh l
+        Konst01 sh d -> tkonst0NR sh <$> eval0 d
         Build01 sh f -> do
           -- Copied from Data.Array.Internal.
           let (s, ss) = case getStrides sh of

@@ -649,6 +649,8 @@ instance (ADModeAndNum d r, TensorOf 1 r ~ OR.Array 1 r)
   -- However, they are small, so far.
   tindex = index
   tindex0 d ix = unScalar $ indexN d ix
+    -- TODO: due to this definition and the lack of sized lists,
+    -- tindex0 currently does not accept empty paths, etc.
   tindexN = indexN
   tsum = sum'
   tsum0 = sum0
@@ -1404,12 +1406,12 @@ reverse' (D u u') = dD (OR.rev [0] u) (dReverse1 u')
 
 transposeGeneral :: (ADModeAndNum d r, KnownNat n)
                  => [Int] -> ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
-transposeGeneral perm (D u u') = dD (OR.transpose perm u)
+transposeGeneral perm (D u u') = dD (ttransposeGeneralR perm u)
                                     (dTransposeGeneral1 perm u')
 
 reshape :: (ADModeAndNum d r, KnownNat n, KnownNat m)
         => OR.ShapeL -> ADVal d (OR.Array n r) -> ADVal d (OR.Array m r)
-reshape sh (D u u') = dD (OR.reshape sh u) (dReshape1 (OR.shapeL u) sh u')
+reshape sh (D u u') = dD (treshapeR sh u) (dReshape1 (OR.shapeL u) sh u')
 
 -- The element-wise (POPL) version, but only one rank at a time.
 build :: (ADModeAndNum d r, KnownNat n)
@@ -1446,7 +1448,7 @@ fromVector0N sh l =
      (dFromVector01 sh $ V.map (\(D _ u') -> u') l)
 
 konst0N :: (ADModeAndNum d r, KnownNat n)
-        => OR.ShapeL -> ADVal d r -> ADVal d (OR.Array n r)
+        => OR.ShapeL -> ADVal d r -> ADVal d (OR.Array (1 + n) r)
 konst0N sh (D u u') = dD (OR.constant sh u) (dKonst01 sh u')
 
 scalar :: ADModeAndNum d r => ADVal d r -> ADVal d (OR.Array 0 r)

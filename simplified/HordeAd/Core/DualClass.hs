@@ -46,15 +46,12 @@ import Prelude
 
 import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OT
-import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.MonoTraversable (Element, MonoFunctor)
 import qualified Data.Strict.Vector as Data.Vector
-import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
-import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe (unsafePerformIO)
 import           Text.Show.Functions ()
 
@@ -223,6 +220,11 @@ class HasRanks (d :: ADMode) r where
           => Int -> Int -> Dual d (OR.Array n r) -> Int -> Dual d (OR.Array n r)
   dReverse1 :: KnownNat n
             => Dual d (OR.Array n r) -> Dual d (OR.Array n r)
+  dTransposeGeneral1 :: KnownNat n
+                     => [Int] -> Dual d (OR.Array n r) -> Dual d (OR.Array n r)
+  dReshape1 :: (KnownNat n, KnownNat m)
+            => OR.ShapeL -> OR.ShapeL -> Dual d (OR.Array n r)
+            -> Dual d (OR.Array m r)
   dBuild1 :: KnownNat n
           => Int -> (Int -> Dual d (OR.Array n r))
           -> Dual d (OR.Array (1 + n) r)
@@ -234,11 +236,6 @@ class HasRanks (d :: ADMode) r where
             => Int -> (Int -> [Int])
             -> Dual d (OR.Array (1 + n) r) -> OR.ShapeL
             -> Dual d (OR.Array (m + n) r)
-  dTransposeGeneral1 :: KnownNat n
-                     => [Int] -> Dual d (OR.Array n r) -> Dual d (OR.Array n r)
-  dReshape1 :: (KnownNat n, KnownNat m)
-            => OR.ShapeL -> OR.ShapeL -> Dual d (OR.Array n r)
-            -> Dual d (OR.Array m r)
 
   dFromList01 :: KnownNat n
               => OR.ShapeL -> [Dual d r] -> Dual d (OR.Array n r)
@@ -246,7 +243,7 @@ class HasRanks (d :: ADMode) r where
                 => OR.ShapeL -> Data.Vector.Vector (Dual d r)
                 -> Dual d (OR.Array n r)
   dKonst01 :: KnownNat n
-           => OR.ShapeL -> Dual d r -> Dual d (OR.Array n r)
+           => OR.ShapeL -> Dual d r -> Dual d (OR.Array (1 + n) r)
   dBuild01 :: KnownNat n
            => OR.ShapeL -> ([Int] -> Dual d r) -> Dual d (OR.Array n r)
   dScalar1 :: Dual d r -> Dual d (OR.Array 0 r)
@@ -355,10 +352,10 @@ instance Dual 'ADModeGradient r ~ Delta0 r
   dSlice1 = Slice1
   dReverse1 = Reverse1
   dTransposeGeneral1 = TransposeGeneral1
+  dReshape1 = Reshape1
   dBuild1 = Build1
   dGather1 = Gather1
   dScatter1 = Scatter1
-  dReshape1 = Reshape1
 
   dFromList01 = FromList01
   dFromVector01 = FromVector01
@@ -392,30 +389,30 @@ instance (Numeric r, Num (Vector r))
 instance ( Numeric r, Num (Vector r)
          , Dual 'ADModeDerivative r ~ r )
          => HasRanks 'ADModeDerivative r where
-  dIndex0 d ixs _ = d `atPathInTensorR` ixs
+  dIndex0 d ixs _ = tindex0R d ixs
   dSum0 _ = tsum0R
-  dDot0 u v = OR.toVector u LA.<.> OR.toVector v
+  dDot0 = tdot0R
   dUnScalar0 = OR.unScalar
 
-  dIndex1 d ix _ = OR.index d ix
-  dIndexN d ixs _ = d `atPathInTensorNR` ixs
-  dSum1 _ = ORB.sumA . OR.unravel
-  dFromList1 l = OR.ravel $ ORB.fromList [length l] l
-  dFromVector1 l = OR.ravel $ ORB.fromVector [V.length l] $ V.convert l
-  dKonst1 n d = OR.ravel (ORB.constant [n] d)
-  dAppend1 d _k e = d `OR.append` e
-  dSlice1 i n d _len = OR.slice [(i, n)] d
-  dReverse1 = OR.rev [0]
-  dTransposeGeneral1 = OR.transpose
-  dBuild1 n f = OR.ravel $ ORB.fromVector [n] $ V.generate n f
+  dIndex1 d ix _ = tindexR d ix
+  dIndexN d ixs _ = tindexNR d ixs
+  dSum1 _ = tsumR
+  dFromList1 = tfromListR
+  dFromVector1 = tfromVectorR
+  dKonst1 = tkonstR
+  dAppend1 d _k e = tappendR d e
+  dSlice1 i n d _len = tsliceR i n d
+  dReverse1 = treverseR
+  dTransposeGeneral1 = ttransposeGeneralR
+  dReshape1 _sh = treshapeR
+  dBuild1 = tbuildR
   dGather1 n f _sh d = tgatherR n f d
   dScatter1 _n f d sh = tscatterR f d sh
-  dReshape1 _sh = OR.reshape
 
-  dFromList01 = OR.fromList
-  dFromVector01 sh = OR.fromVector sh . V.convert
-  dKonst01 sh d = OR.constant sh d
-  dBuild01 = OR.generate
+  dFromList01 = tfromList0NR
+  dFromVector01 = tfromVector0NR
+  dKonst01 = tkonst0NR
+  dBuild01 = tbuild0NR
   dScalar1 = OR.scalar
 
   dFromX1 = Data.Array.Convert.convert
@@ -463,10 +460,10 @@ instance HasRanks 'ADModeValue r where
   dSlice1 _ _ _ _ = DummyDual ()
   dReverse1 _ = DummyDual ()
   dTransposeGeneral1 _ _ = DummyDual ()
+  dReshape1 _ _ _ = DummyDual ()
   dBuild1 _ _ = DummyDual ()
   dGather1 _ _ _ _ = DummyDual ()
   dScatter1 _ _ _ _ = DummyDual ()
-  dReshape1 _ _ _ = DummyDual ()
 
   dFromList01 _ _ = DummyDual ()
   dFromVector01 _ _ = DummyDual ()
