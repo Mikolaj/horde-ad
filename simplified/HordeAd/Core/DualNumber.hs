@@ -315,15 +315,15 @@ class (RealFloat r, RealFloat (VectorOf r), Integral (IntOf r))
   default llength
     :: (VectorOf r ~ OR.Array 1 r, IntOf r ~ Int)
     => VectorOf r -> IntOf r
-  llength = OR.size
+  llength = tsizeR
   default lminIndex
     :: (Numeric r, VectorOf r ~ OR.Array 1 r, IntOf r ~ Int)
     => VectorOf r -> IntOf r
-  lminIndex = LA.minIndex . OR.toVector
+  lminIndex = tminIndexR
   default lmaxIndex
     :: (Numeric r, VectorOf r ~ OR.Array 1 r, IntOf r ~ Int)
     => VectorOf r -> IntOf r
-  lmaxIndex = LA.maxIndex . OR.toVector
+  lmaxIndex = tmaxIndexR
 
   default lindex0
     :: (Numeric r, VectorOf r ~ OR.Array 1 r, IntOf r ~ Int)
@@ -336,15 +336,15 @@ class (RealFloat r, RealFloat (VectorOf r), Integral (IntOf r))
   default ldot0
     :: (Numeric r, VectorOf r ~ OR.Array 1 r)
     => VectorOf r -> VectorOf r -> r
-  ldot0 u v = OR.toVector u LA.<.> OR.toVector v
+  ldot0 = tdot0R
   default lminimum0
     :: (Numeric r, VectorOf r ~ OR.Array 1 r)
     => VectorOf r -> r
-  lminimum0 = LA.minElement . OR.toVector
+  lminimum0 = tminimum0R
   default lmaximum0
     :: (Numeric r, VectorOf r ~ OR.Array 1 r)
     => VectorOf r -> r
-  lmaximum0 = LA.maxElement . OR.toVector
+  lmaximum0 = tmaximum0R
 
   default lfromList1
     :: (Numeric r, VectorOf r ~ OR.Array 1 r)
@@ -361,15 +361,15 @@ class (RealFloat r, RealFloat (VectorOf r), Integral (IntOf r))
   default lappend1
     :: (Numeric r, VectorOf r ~ OR.Array 1 r)
     => VectorOf r -> VectorOf r -> VectorOf r
-  lappend1 = OR.append
+  lappend1 = tappendR
   default lslice1
     :: (VectorOf r ~ OR.Array 1 r, IntOf r ~ Int)
     => IntOf r -> IntOf r -> VectorOf r -> VectorOf r
-  lslice1 i k = OR.slice [(i, k)]
+  lslice1 = tsliceR
   default lreverse1
     :: (VectorOf r ~ OR.Array 1 r)
     => VectorOf r -> VectorOf r
-  lreverse1 = OR.rev [0]
+  lreverse1 = treverseR
   default lbuild1
     :: (Numeric r, VectorOf r ~ OR.Array 1 r, IntOf r ~ Int)
     => IntOf r -> (IntOf r -> r) -> VectorOf r
@@ -543,7 +543,7 @@ class VectorNumeric r
            -> TensorOf (1 + n) r -> TensorOf (1 + n) r -> TensorOf (1 + n) r
   tzipWith f u v = tbuild (tlength u) (\i -> f (u `tindex` i) (v `tindex` i))
   tzipWith0N :: KnownNat n
-             => (r -> r-> r) -> TensorOf n r -> TensorOf n r -> TensorOf n r
+             => (r -> r -> r) -> TensorOf n r -> TensorOf n r -> TensorOf n r
 
 type ADReady' r = (Tensor r, HasPrimal r)
   -- TODO: there is probably no way to also specify
