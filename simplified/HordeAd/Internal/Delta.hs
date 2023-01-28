@@ -187,6 +187,12 @@ data Delta1 :: Nat -> Type -> Type where
   Reverse1 :: KnownNat n
            => Delta1 n r -> Delta1 n r
     -- ^ Reverse elements of the outermost dimension.
+  TransposeGeneral1 :: KnownNat n
+                    => [Int] -> Delta1 n r -> Delta1 n r
+    -- ^ Transpose according to the permutation.
+  Reshape1 :: (KnownNat n, KnownNat m)
+           => OR.ShapeL -> OR.ShapeL -> Delta1 n r -> Delta1 m r
+    -- ^ Change the shape of the tensor from the first to the second.
   Build1 :: KnownNat n
          => Int -> (Int -> Delta1 n r) -> Delta1 (1 + n) r
     -- ^ Build a tensor with the given size of the outermost dimension
@@ -209,12 +215,6 @@ data Delta1 :: Nat -> Type -> Type where
     -- Paths of length 0 insert tensors trivially, so that,
     -- e.g, @Scatter1 (const []) (Konst01 [5] d) []@ is equivalent
     -- to @Scalar1 (5 * d)@.
-  TransposeGeneral1 :: KnownNat n
-                    => [Int] -> Delta1 n r -> Delta1 n r
-    -- ^ Transpose according to the permutation.
-  Reshape1 :: (KnownNat n, KnownNat m)
-           => OR.ShapeL -> OR.ShapeL -> Delta1 n r -> Delta1 m r
-    -- ^ Change the shape of the tensor from the first to the second.
 
   FromList01 :: OR.ShapeL -> [Delta0 r] -> Delta1 n r
   FromVector01 :: OR.ShapeL -> Data.Vector.Vector (Delta0 r) -> Delta1 n r
@@ -548,14 +548,14 @@ buildFinMaps s0 deltaDt =
                     d
           [] -> error "eval1: slicing a 0-dimensional tensor"
         Reverse1 d -> eval1 s (treverseR c) d
-        Build1 _n f -> V.ifoldl' (\s2 i ci -> eval1 s2 ci (f i))
-                                 s (ORB.toVector $ OR.unravel c)
-        Gather1 _n f sh d -> eval1 s (tscatterR f c sh) d
-        Scatter1 n f d _sh -> eval1 s (tgatherR n f c) d
         TransposeGeneral1 perm d ->
           let perm_reversed = map snd $ sort $ zip perm [0 .. length perm - 1]
           in eval1 s (ttransposeGeneralR perm_reversed c) d
         Reshape1 sh _sh' d -> eval1 s (treshapeR sh c) d
+        Build1 _n f -> V.ifoldl' (\s2 i ci -> eval1 s2 ci (f i))
+                                 s (ORB.toVector $ OR.unravel c)
+        Gather1 _n f sh d -> eval1 s (tscatterR f c sh) d
+        Scatter1 n f d _sh -> eval1 s (tgatherR n f c) d
 
         FromList01 _sh lsd ->  -- lsd is a list of scalar delta expressions
           let cv = OR.toVector c
@@ -695,6 +695,8 @@ buildDerivative dim0 dim1 deltaTopLevel
         Append1 d _k e -> liftM2 tappendR (eval1 d) (eval1 e)
         Slice1 i n d _len -> tsliceR i n <$> eval1 d
         Reverse1 d -> treverseR <$> eval1 d
+        TransposeGeneral1 perm d -> ttransposeGeneralR perm <$> eval1 d
+        Reshape1 _sh sh' d -> treshapeR sh' <$> eval1 d
         Build1 n f -> do
           l <- mapM (eval1 . f) [0 .. n - 1]
           return $! OR.ravel $ ORB.fromList [n] l
@@ -704,8 +706,6 @@ buildDerivative dim0 dim1 deltaTopLevel
         Scatter1 _n f d sh -> do
           t <- eval1 d
           return $! tscatterR f t sh
-        TransposeGeneral1 perm d -> ttransposeGeneralR perm <$> eval1 d
-        Reshape1 _sh sh' d -> treshapeR sh' <$> eval1 d
 
         FromList01 sh lsd -> do
           l <- mapM eval0 lsd
