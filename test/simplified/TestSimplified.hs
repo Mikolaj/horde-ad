@@ -4,6 +4,7 @@ module TestSimplified (testTrees) where
 
 import Prelude
 
+import qualified Data.Array.RankedS as OR
 import           Data.MonoTraversable (MonoFunctor)
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
@@ -20,7 +21,8 @@ import Tool.EqEpsilon
 import Prelude ()
 
 testTrees :: [TestTree]
-testTrees = [ testCase "barADVal" testBarADVal
+testTrees = [ -- vector tests
+              testCase "barADVal" testBarADVal
             , testCase "fooBuild1" testFooBuild
             , testCase "fooMap1" testFooMap
             , testCase "fooNoGoAst" testFooNoGoAst
@@ -34,7 +36,11 @@ testTrees = [ testCase "barADVal" testBarADVal
             , -- tests by TomS:
               testCase "F1" testF1
             , testCase "F2" testF2
+             -- tensor tests
             ]
+
+
+-- * Vector tests
 
 foo :: RealFloat a => (a,a,a) -> a
 foo (x,y,z) =
@@ -170,6 +176,7 @@ f2 = \arg ->
   in v1a + v1b + v2a + v2b
 
 
+
 -- * Test harness glue code
 
 -- The glue for sufficiently polymorphic code;
@@ -186,7 +193,7 @@ testPoly00 f input expected = do
         revOnDomains 1
           (\adinputs -> unScalar $
              interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
-                           (f (AstVar0 (AstVarName (-1)))))
+                          (f (AstVar0 (AstVarName (-1)))))
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains 1
@@ -213,7 +220,7 @@ testPoly01 f outSize input expected = do
         revOnDomains dt
           (\adinputs ->
              interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
-                           (f (AstVar0 (AstVarName (-1)))))
+                          (f (AstVar0 (AstVarName (-1)))))
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains dt
@@ -240,7 +247,7 @@ testPoly11 f outSize input expected = do
         revOnDomains dt
           (\adinputs ->
              interpretAst (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
-                           (f (AstVar1 (AstVarName (-1)))))
+                          (f (AstVar1 (AstVarName (-1)))))
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains dt
@@ -251,6 +258,34 @@ testPoly11 f outSize input expected = do
   advalValue @?~ value
   domains1 astGrad @?~ domains1 domainsExpected
   domains1 advalGrad @?~ domains1 domainsExpected
+
+testPolyn
+  :: (KnownNat n, HasDelta r, r ~ Double, VectorOf r ~ TensorOf 1 r)
+  => (forall x. ADReady' x => x -> TensorOf n x)
+  -> OR.ShapeL -> r -> r
+  -> Assertion
+testPolyn f sh input expected = do
+  let domainsInput =
+        domainsFrom01 (V.singleton input) V.empty
+      domainsExpected =
+        domainsFrom01 (V.singleton expected) V.empty
+      dt = OR.fromVector sh $ LA.konst 1 $ product sh
+        -- "1" wrong due to fragility of hmatrix and tensor numeric instances
+      (astGrad, astValue) =
+        revOnDomains dt
+          (\adinputs ->
+             interpretAst (IM.singleton (-1) (AstVarR0 $ adinputs `at0` 0))
+                          (f (AstVar0 (AstVarName (-1)))))
+          domainsInput
+      (advalGrad, advalValue) =
+        revOnDomains dt
+          (\adinputs -> f $ adinputs `at0` 0)
+          domainsInput
+      value = f input
+  astValue @?~ value
+  advalValue @?~ value
+  domains0 astGrad @?~ domains0 domainsExpected
+  domains0 advalGrad @?~ domains0 domainsExpected
 
 -- In simplified horde-ad we don't have access to the highest level API
 -- (adaptors), so the testing glue is tedious:
