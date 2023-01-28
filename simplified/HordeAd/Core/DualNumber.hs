@@ -773,23 +773,28 @@ reluAst v =
 
 sumElements10 :: ADModeAndNum d r
               => ADVal d (Vec r) -> ADVal d r
-sumElements10 = lsum0
+sumElements10 (D u u') = dD (tsum0R u) (dSum0 (OR.shapeL u) u')
 
 index10 :: ADModeAndNum d r => ADVal d (Vec r) -> Int -> ADVal d r
-index10 = lindex0
+index10 (D u u') ix = unScalar $ dD (u `tindexR` ix)
+                                    (dIndex1 u' ix (head $ OR.shapeL u))
 
 minimum0 :: ADModeAndNum d r => ADVal d (Vec r) -> ADVal d r
-minimum0 = lminimum0
+minimum0 (D u u') =
+  let ix = tminIndexR u
+  in dD (OR.unScalar $ tindexR u ix) (dIndex0 u' [ix] [llength u])
 
 maximum0 :: ADModeAndNum d r => ADVal d (Vec r) -> ADVal d r
-maximum0 = lmaximum0
+maximum0 (D u u') =
+  let ix = tmaxIndexR u
+  in dD (OR.unScalar $ tindexR u ix) (dIndex0 u' [ix] [llength u])
 
 foldl'0 :: ADModeAndNum d r
         => (ADVal d r -> ADVal d r -> ADVal d r)
         -> ADVal d r -> ADVal d (Vec r)
         -> ADVal d r
 foldl'0 f uu' (D v v') =
-  let k = llength v
+  let k = tsizeR v
       g !acc ix p = f (dD p (dIndex0 v' [ix] [k])) acc
   in V.ifoldl' g uu' (OR.toVector v)
 
@@ -800,13 +805,14 @@ altSumElements10 = foldl'0 (+) 0
 infixr 8 <.>!
 (<.>!) :: ADModeAndNum d r
        => ADVal d (Vec r) -> ADVal d (Vec r) -> ADVal d r
-(<.>!) = ldot0
+(<.>!) (D u u') (D v v') = dD (tdot0R u v)
+                              (dAdd (dDot0 v u') (dDot0 u v'))
 
 -- | Dot product with a constant vector.
 infixr 8 <.>!!
 (<.>!!) :: ADModeAndNum d r
         => ADVal d (Vec r) -> Vec r -> ADVal d r
-(<.>!!) (D u u') v = dD (ldot0 u v) (dDot0 v u')
+(<.>!!) (D u u') v = dD (tdot0R u v) (dDot0 v u')
 
 sumElementsVectorOfDual
   :: ADModeAndNum d r => Data.Vector.Vector (ADVal d r) -> ADVal d r
@@ -848,11 +854,11 @@ lossSoftMaxCrossEntropyV target (D u u') =
   -- and is required by the QuickCheck test in TestMnistCNN.
   -- See https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/sparse_softmax_op.cc#L106
   -- and https://github.com/tensorflow/tensorflow/blob/5a566a7701381a5cf7f70fce397759483764e482/tensorflow/core/kernels/xent_op.h
-  let expU = exp (u - lkonst1 (llength u) (lmaximum0 u))
-      sumExpU = lsum0 expU
+  let expU = exp (u - OR.constant [tsizeR u] (tminimum0R u))
+      sumExpU = tsum0R expU
       recipSum = recip sumExpU
 -- not exposed: softMaxU = LA.scaleRecip sumExpU expU
-      softMaxU = lkonst1 (llength expU) recipSum * expU
+      softMaxU =  OR.constant [tsizeR expU] recipSum * expU
   in dD (negate $ log softMaxU `ldot0` target)  -- TODO: avoid: log . exp
         (dDot0 (softMaxU - target) u')
 
@@ -862,25 +868,33 @@ lossSoftMaxCrossEntropyV target (D u u') =
 -- @1@ means rank one, so the dual component represents a vector.
 fromList1 :: ADModeAndNum d r
           => [ADVal d r] -> ADVal d (Vec r)
-fromList1 = lfromList1
+fromList1 l =
+  dD (tfromList0NR [length l] $ map (\(D u _) -> u) l)
+     (dFromList01 [length l] $ map (\(D _ u') -> u') l)
 
 fromVector1 :: ADModeAndNum d r
             => Data.Vector.Vector (ADVal d r) -> ADVal d (Vec r)
-fromVector1 = lfromVector1
+fromVector1 l =
+  dD (tfromVector0NR [V.length l]
+      $ V.convert $ V.map (\(D u _) -> u) l)  -- hope it fuses
+     (dFromVector01 [V.length l]
+      $ V.map (\(D _ u') -> u') l)
 
 konst1 :: ADModeAndNum d r => ADVal d r -> Int -> ADVal d (Vec r)
-konst1 d n = lkonst1 n d
+konst1 (D u u') n = dD (tkonst0NR [n] u) (dKonst01 [n] u')
 
 append1 :: ADModeAndNum d r
         => ADVal d (Vec r) -> ADVal d (Vec r) -> ADVal d (Vec r)
-append1 = lappend1
+append1 (D u u') (D v v') = dD (tappendR u v)
+                               (dAppend1 u' (head $ OR.shapeL u) v')
 
 slice1 :: ADModeAndNum d r
        => Int -> Int -> ADVal d (Vec r) -> ADVal d (Vec r)
-slice1 = lslice1
+slice1 i k (D u u') = dD (tsliceR i k u)
+                         (dSlice1 i k u' (head $ OR.shapeL u))
 
 reverse1 :: ADModeAndNum d r => ADVal d (Vec r) -> ADVal d (Vec r)
-reverse1 = lreverse1
+reverse1 (D u u') = dD (treverseR u) (dReverse1 u')
 
 -- TODO: define Enum instance of (AstInt r) to enable AST for this.
 -- No padding; remaining areas ignored.
@@ -892,10 +906,10 @@ maxPool1 ksize stride v =
 
 softMaxV :: ADModeAndNum d r
          => ADVal d (Vec r) -> ADVal d (Vec r)
-softMaxV d =
+softMaxV d@(D u _) =
   let expU = exp d  -- shared in 2 places, though cse may do this for us
       sumExpU = sumElements10 expU
-  in lkonst1 (llength d) (recip sumExpU) * expU
+  in konst1 (recip sumExpU) (tsizeR u) * expU
 
 
 -- Build and map variants
@@ -918,7 +932,7 @@ build1Closure
 build1Closure n f =
   let g i = let D u _ = f i in u
       h i = let D _ u' = f i in u'
-  in dD (lfromList1 $ map g [0 .. n - 1]) (dBuild01 [n] (\l -> h (head l)))
+  in dD (OR.fromList [n] $ map g [0 .. n - 1]) (dBuild01 [n] (\l -> h (head l)))
 
 build1
   :: ADModeAndNum d r
@@ -932,8 +946,8 @@ map1POPL f vd = V.map f vd
 map1Elementwise
   :: ADModeAndNum d r
   => (ADVal d r -> ADVal d r) -> ADVal d (Vec r) -> ADVal d (Vec r)
-map1Elementwise f d =
-  build1Elementwise (llength d) $ \i -> f (lindex0 d i)
+map1Elementwise f d@(D u _) =
+  build1Elementwise (tsizeR u) $ \i -> f (index10 d i)
     -- equivalent to
     -- @fromVector1 . map1POPL f . rank1toVector
     --   where rank1toVector d@(D v _v') = V.generate (llength d) (lindex0 d)@
