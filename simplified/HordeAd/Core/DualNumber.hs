@@ -624,29 +624,18 @@ instance (ADModeAndNum d r, TensorOf 1 r ~ OR.Array 1 r)
          => Tensor (ADVal d r) where
   type TensorOf n (ADVal d r) = ADVal d (OR.Array n r)
 
-  -- TODO: here and elsewhere I can't use methods of Tensor implemented as
-  -- OR.Array n r, or any functions that use them. Therefore, I inline them
-  -- manually. There is probably no solution (2 parameters to Tensor
+  -- Here and elsewhere I can't use methods of the @r@ instance of @Tensor@
+  -- (the one implemented as @OR.Array n r@). Therefore, I inline them
+  -- manually. There is probably no solution to that (2 parameters to Tensor
   -- would solve this, but we'd need infinitely many instances
-  -- for ADVal d (OR.Array n r) and OR.Array n r). A workaround might be
-  -- the numericLlength method proposed by Simon, that is, defining
-  -- the Float/Double methods as ordinary functions and calling them
-  -- in each primitive scalar instance *and* using them instead of method
-  -- calls here.
-  tlength (D u _) = -- tlength u
-    case OR.shapeL u of
-      [] -> error "tlength: missing dimensions"
-      k : _ -> k
-  tsize (D u _) = -- tsize u
-    OR.size u
-  tminIndex (D u _) = -- tminIndex u
-    LA.minIndex . OR.toVector $ u
-  tmaxIndex (D u _) = -- tmaxIndex u
-    LA.maxIndex . OR.toVector $ u
+  -- for @ADVal d (OR.Array n r)@ and @OR.Array n r@). As a workaround,
+  -- the methods are defined as calls to tensor functions provided elsewhere,
+  -- so there is no code duplication.
+  tlength (D u _) = tlengthR u
+  tsize (D u _) = tsizeR u
+  tminIndex (D u _) = tminIndexR u
+  tmaxIndex (D u _) = tmaxIndexR u
 
-  -- In most of the operations below the methods of Tensor(OR.Array n r)
-  -- are inlined and can't be replaced by method calls, see above.
-  -- However, they are small, so far.
   tindex = index
   tindex0 d ix = unScalar $ indexN d ix
     -- TODO: due to this definition and the lack of sized lists,
@@ -674,17 +663,13 @@ instance (ADModeAndNum d r, TensorOf 1 r ~ OR.Array 1 r)
   tbuild n f =
     let g i = let D u _ = f i in u
         h i = let D _ u' = f i in u'
-        tbuild_n_g = -- tbuild n g  -- has to be inlined, see above
-          OR.ravel $ ORB.fromList [n] $ map g [0 .. n - 1]
-    in dD tbuild_n_g (dBuild1 n h)
+    in dD (tbuildR n g) (dBuild1 n h)
       -- uses the implementation that stores closures on tape to test against
       -- the elementwise implementation used by fallback from vectorizing Ast
   tbuild0N sh f =
     let g ixs = let D u _ = f ixs in u
         h ixs = let D _ u' = f ixs in u'
-        tbuild0N_sh_g = -- tbuild0N sh g
-          OR.generate sh g
-    in dD tbuild0N_sh_g (dBuild01 sh h)
+    in dD (tbuild0NR sh g) (dBuild01 sh h)
   tmap0N = undefined  -- TODO
   tzipWith0N = undefined  -- TODO
 
@@ -729,7 +714,7 @@ astBuild :: AstInt r -> (AstInt r -> Ast n r) -> Ast (n + 1) r
 astBuild n f = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
   return $! build1Vectorize n ( freshAstVar
-                               , (f (AstIntVar freshAstVar)) )
+                              , (f (AstIntVar freshAstVar)) )
     -- TODO: this vectorizes depth-first, which is needed. But do we
     -- also need a translation to non-vectorized terms for anything
     -- (other than for comparative tests)?
@@ -1339,7 +1324,7 @@ gtIntAst i j = AstRelInt GtOp [i, j]
 -- and sometimes more general than the Ast operations.
 index :: (ADModeAndNum d r, KnownNat n)
       => ADVal d (OR.Array (1 + n) r) -> Int -> ADVal d (OR.Array n r)
-index (D u u') ix = dD (u `OR.index` ix)
+index (D u u') ix = dD (u `tindexR` ix)
                        (dIndex1 u' ix (head $ OR.shapeL u))
 
 -- | First index is for outermost dimension; @1 + m@ is the length of the path;
@@ -1364,7 +1349,7 @@ indexN d (ix : rest) =
 
 sum' :: (ADModeAndNum d r, KnownNat n)
      => ADVal d (OR.Array (1 + n) r) -> ADVal d (OR.Array n r)
-sum' (D u u') = dD (ORB.sumA $ OR.unravel u)
+sum' (D u u') = dD (tsumR u)
                    (dSum1 (head $ OR.shapeL u) u')
 
 fromList :: (ADModeAndNum d r, KnownNat n)
@@ -1372,37 +1357,34 @@ fromList :: (ADModeAndNum d r, KnownNat n)
          -> ADVal d (OR.Array (1 + n) r)
 fromList lu =
   -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
-  dD (OR.ravel . ORB.fromList [length lu]
-      $ map (\(D u _) -> u) lu)
+  dD (tfromListR $ map (\(D u _) -> u) lu)
      (dFromList1 $ map (\(D _ u') -> u') lu)
 
 fromVector :: (ADModeAndNum d r, KnownNat n)
            => Data.Vector.Vector (ADVal d (OR.Array n r))
            -> ADVal d (OR.Array (1 + n) r)
 fromVector lu =
-  dD (OR.ravel . ORB.fromVector [V.length lu] . V.convert
-      $ V.map (\(D u _) -> u) lu)
+  dD (tfromVectorR $ V.map (\(D u _) -> u) lu)
      (dFromVector1 $ V.map (\(D _ u') -> u') lu)
 
 konst :: (ADModeAndNum d r, KnownNat n)
       => Int -> ADVal d (OR.Array n r) -> ADVal d (OR.Array (1 + n) r)
-konst n (D u u') = dD (OR.ravel (ORB.constant [n] u))
-                      (dKonst1 n u')
+konst n (D u u') = dD (tkonstR n u) (dKonst1 n u')
 
 append :: (ADModeAndNum d r, KnownNat n)
        => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
        -> ADVal d (OR.Array n r)
-append (D u u') (D v v') = dD (OR.append u v)
+append (D u u') (D v v') = dD (tappendR u v)
                               (dAppend1 u' (head $ OR.shapeL u) v')
 
 slice :: (ADModeAndNum d r, KnownNat n)
       => Int -> Int -> ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
-slice i k (D u u') = dD (OR.slice [(i, k)] u)
+slice i k (D u u') = dD (tsliceR i k u)
                         (dSlice1 i k u' (head $ OR.shapeL u))
 
 reverse' :: (ADModeAndNum d r, KnownNat n)
          => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
-reverse' (D u u') = dD (OR.rev [0] u) (dReverse1 u')
+reverse' (D u u') = dD (treverseR u) (dReverse1 u')
 
 transposeGeneral :: (ADModeAndNum d r, KnownNat n)
                  => [Int] -> ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
@@ -1430,26 +1412,26 @@ sum0 (D u u') = dD (tsum0R u) (dSum0 (OR.shapeL u) u')
 
 dot0 :: (ADModeAndNum d r, KnownNat n)
      => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r) -> ADVal d r
-dot0 (D u u') (D v v') = dD (OR.toVector u LA.<.> OR.toVector v)
+dot0 (D u u') (D v v') = dD (tdot0R u v)
                             (dAdd (dDot0 v u') (dDot0 u v'))
 
 fromList0N :: (ADModeAndNum d r, KnownNat n)
            => OR.ShapeL -> [ADVal d r]
            -> ADVal d (OR.Array n r)
 fromList0N sh l =
-  dD (OR.fromList sh $ map (\(D u _) -> u) l)  -- I hope this fuses
+  dD (tfromList0NR sh $ map (\(D u _) -> u) l)  -- I hope this fuses
      (dFromList01 sh $ map (\(D _ u') -> u') l)
 
 fromVector0N :: (ADModeAndNum d r, KnownNat n)
              => OR.ShapeL -> Data.Vector.Vector (ADVal d r)
              -> ADVal d (OR.Array n r)
 fromVector0N sh l =
-  dD (OR.fromVector sh $ V.convert $ V.map (\(D u _) -> u) l)  -- hope it fuses
+  dD (tfromVector0NR sh $ V.convert $ V.map (\(D u _) -> u) l)  -- hope it fuses
      (dFromVector01 sh $ V.map (\(D _ u') -> u') l)
 
 konst0N :: (ADModeAndNum d r, KnownNat n)
         => OR.ShapeL -> ADVal d r -> ADVal d (OR.Array (1 + n) r)
-konst0N sh (D u u') = dD (OR.constant sh u) (dKonst01 sh u')
+konst0N sh (D u u') = dD (tkonst0NR sh u) (dKonst01 sh u')
 
 scalar :: ADModeAndNum d r => ADVal d r -> ADVal d (OR.Array 0 r)
 scalar (D u u') = dD (OR.scalar u) (dScalar1 u')

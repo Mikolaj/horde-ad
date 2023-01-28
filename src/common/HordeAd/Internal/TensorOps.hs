@@ -219,7 +219,7 @@ tkonstR n u = OR.ravel $ ORB.constant [n] u
 tkonst0NR
   :: (KnownNat n, Numeric r)
   => [Int] -> r -> OR.Array (1 + n) r
-tkonst0NR sh r = OR.constant sh r
+tkonst0NR = OR.constant
 
 tappendR
   :: (KnownNat n, Numeric r)
