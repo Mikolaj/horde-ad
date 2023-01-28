@@ -414,9 +414,11 @@ instance ADModeAndNum d r
   lsum0 = sum0
   ldot0 = dot0
   lminimum0 (D u u') =
-    dD (lminimum0 u) (dIndex0 u' [lminIndex u] [llength u])
+    let ix = lminIndex u
+    in dD (OR.unScalar $ tindexR u ix) (dIndex0 u' [ix] [llength u])
   lmaximum0 (D u u') =
-    dD (lmaximum0 u) (dIndex0 u' [lmaxIndex u] [llength u])
+    let ix = lmaxIndex u
+    in dD (OR.unScalar $ tindexR u ix) (dIndex0 u' [ix] [llength u])
 
   lfromList1 l = fromList0N [length l] l
   lfromVector1 l = fromVector0N [V.length l] l
@@ -645,9 +647,12 @@ instance (ADModeAndNum d r, TensorOf 1 r ~ OR.Array 1 r)
   tsum0 = sum0
   tdot0 = dot0
   tminimum0 (D u u') =
-    dD (tminimum0 u) (dIndex0 u' [tminIndex u] [tlength u])
+    let ix = tminIndex u
+    in dD (OR.unScalar $ tindexR u ix) (dIndex0 u' [ix] [llength u])
+      -- no default methods for these two, because of the speedups like this
   tmaximum0 (D u u') =
-    dD (tmaximum0 u) (dIndex0 u' [tmaxIndex u] [tlength u])
+    let ix = tmaxIndex u
+    in dD (OR.unScalar $ tindexR u ix) (dIndex0 u' [ix] [llength u])
 
   tfromList = fromList
   tfromList0N = fromList0N
