@@ -570,7 +570,7 @@ instance ( Numeric r, Num (Vector r)
          => HasRanks 'ADModeDerivative r where
   dSumElements10 d _ = LA.sumElements d
   dSumElements20 d _ = LA.sumElements d
-  dSumElementsX0 d _ = OT.sumA d
+  dSumElementsX0 d _ = ttsum0 d
   dIndex10 d ix _ = d V.! ix
   dIndex20 d ix _ = d `LA.atIndex` ix
   dIndexX0 d ix _ = d `atPathInTensor` ix

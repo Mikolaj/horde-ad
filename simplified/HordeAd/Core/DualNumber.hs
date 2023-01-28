@@ -333,7 +333,7 @@ class (RealFloat r, RealFloat (VectorOf r), Integral (IntOf r))
   default lsum0
     :: (Numeric r, VectorOf r ~ OR.Array 1 r)
     => VectorOf r -> r
-  lsum0 = LA.sumElements . OR.toVector
+  lsum0 = rtsum0
   default ldot0
     :: (Numeric r, VectorOf r ~ OR.Array 1 r)
     => VectorOf r -> VectorOf r -> r
@@ -1413,7 +1413,7 @@ gatherClosure n f (D u u') = dD (rtgather n f u) (dGather1 n f (OR.shapeL u) u')
 
 sum0 :: (ADModeAndNum d r, KnownNat n)
      => ADVal d (OR.Array n r) -> ADVal d r
-sum0 (D u u') = dD (LA.sumElements $ OR.toVector u) (dSum0 (OR.shapeL u) u')
+sum0 (D u u') = dD (rtsum0 u) (dSum0 (OR.shapeL u) u')
 
 dot0 :: (ADModeAndNum d r, KnownNat n)
      => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r) -> ADVal d r

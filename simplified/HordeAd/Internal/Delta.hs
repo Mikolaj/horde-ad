@@ -563,7 +563,7 @@ buildFinMaps s0 deltaDt =
         FromVector01 _sh lsd ->  -- lsd is a list of scalar delta expressions
           let cv = OR.toVector c
           in V.ifoldl' (\s2 i d -> eval0 s2 (cv V.! i) d) s lsd
-        Konst01 _ d -> eval0 s (OR.sumA c) d
+        Konst01 _ d -> eval0 s (rtsum0 c) d
         Build01 sh f ->
           let ss = case getStrides sh of
                 _ : ss2 -> ss2
@@ -652,7 +652,7 @@ buildDerivative dim0 dim1 deltaTopLevel
             _ -> error "buildDerivative: corrupted nMap"
 
         Index0 d ixs _ -> (`atPathInTensorOR` ixs) <$> eval1 d
-        Sum0 _ d -> OR.sumA <$> eval1 d
+        Sum0 _ d -> rtsum0 <$> eval1 d
         Dot0 v d -> (LA.<.> OR.toVector v) . OR.toVector <$> eval1 d
         UnScalar0 d -> OR.unScalar <$> eval1 d
 

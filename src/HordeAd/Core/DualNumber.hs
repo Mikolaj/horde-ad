@@ -51,7 +51,7 @@ import qualified Numeric.LinearAlgebra as LA
 import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta
   (Domain0, Domain1, Domain2, DomainX, Domains (..), nullDomains)
-import HordeAd.Internal.TensorOps (atPathInTensor, isTensorDummy)
+import HordeAd.Internal.TensorOps (atPathInTensor, isTensorDummy, ttsum0)
 
 -- * Auxiliary definitions
 
@@ -236,7 +236,7 @@ sumElements20 :: ADModeAndNum d r => ADVal d (Matrix r) -> ADVal d r
 sumElements20 (D u u') = dD (LA.sumElements u) (dSumElements20 u' (LA.size u))
 
 sumElementsX0 :: ADModeAndNum d r => ADVal d (OT.Array r) -> ADVal d r
-sumElementsX0 (D u u') = dD (OT.sumA u) (dSumElementsX0 u' (OT.shapeL u))
+sumElementsX0 (D u u') = dD (ttsum0 u) (dSumElementsX0 u' (OT.shapeL u))
 
 sumElementsS0 :: (ADModeAndNum d r, OS.Shape sh)
               => ADVal d (OS.Array sh r) -> ADVal d r

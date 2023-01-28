@@ -881,7 +881,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         FromVectorX _sh lsd -> do
           let vc = OT.toVector c
           V.imapM_ (\i d -> eval0 (vc V.! i) d) lsd
-        KonstX d _sh -> eval0 (OT.sumA c) d
+        KonstX d _sh -> eval0 (ttsum0 c) d
         AppendX d k e -> case OT.shapeL c of
           n : _ -> evalX (OT.slice [(0, k)] c) d
                    >> evalX (OT.slice [(k, n - k)] c) e
@@ -962,7 +962,7 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         FromVectorS lsd -> do
           let vc = OS.toVector c
           V.imapM_ (\i d -> eval0 (vc V.! i) d) lsd
-        KonstS d -> eval0 (OS.sumA c) d
+        KonstS d -> eval0 (stsum0 c) d
         AppendS (d :: DeltaS (k ': rest) c) (e :: DeltaS (l ': rest) c) ->
           evalS (OS.slice @'[ '(0, k) ] c) d
           >> evalS (OS.slice @'[ '(k, l) ] c) e
@@ -1120,7 +1120,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
 
         SumElements10 d _ -> LA.sumElements <$> eval1 d
         SumElements20 d _ -> LA.sumElements <$> eval2 d
-        SumElementsX0 d _ -> OT.sumA <$> evalX d
+        SumElementsX0 d _ -> ttsum0 <$> evalX d
         Index10 d ix _k -> flip (V.!) ix <$> eval1 d
         Index20 d ix _rowsCols -> flip LA.atIndex ix <$> eval2 d
         IndexX0 d ix _sh -> flip atPathInTensor ix <$> evalX d

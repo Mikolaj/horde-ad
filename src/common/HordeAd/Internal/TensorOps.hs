@@ -18,6 +18,8 @@ import qualified Data.Array.Internal.DynamicG
 import qualified Data.Array.Internal.DynamicS
 import qualified Data.Array.Internal.RankedG
 import qualified Data.Array.Internal.RankedS
+import qualified Data.Array.Internal.ShapedG
+import qualified Data.Array.Internal.ShapedS
 import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
@@ -121,6 +123,12 @@ updateORN arr upd =
            in LA.vjoin [V.take ix t, v, V.drop (ix + V.length v) t]
      in OR.fromVector sh (foldl' f values upd)
 
+ttsum0
+  :: Numeric r
+  => OT.Array r -> r
+ttsum0 (Data.Array.Internal.DynamicS.A (Data.Array.Internal.DynamicG.A sh t)) =
+  LA.sumElements $ Data.Array.Internal.toUnorderedVectorT sh t
+
 rtlength
   :: OR.Array (1 + n) r -> Int
 rtlength u = case OR.shapeL u of
@@ -164,7 +172,8 @@ rtsum = ORB.sumA . OR.unravel
 rtsum0
   :: Numeric r
   => OR.Array n r -> r
-rtsum0 = LA.sumElements . OR.toVector
+rtsum0 (Data.Array.Internal.RankedS.A (Data.Array.Internal.RankedG.A sh t)) =
+  LA.sumElements $ Data.Array.Internal.toUnorderedVectorT sh t
 
 rtdot0
   :: Numeric r
@@ -260,6 +269,11 @@ rtscatter :: (Numeric r, Num (Vector r), KnownNat n, KnownNat m)
 rtscatter f t sh =
   V.sum $ V.imap (\i ti -> updateORN (OR.constant sh 0) [(f i, ti)])
         $ ORB.toVector $ OR.unravel t
+stsum0
+  :: (Numeric r, OS.Shape sh)
+  => OS.Array sh r -> r
+stsum0 arr@(Data.Array.Internal.ShapedS.A (Data.Array.Internal.ShapedG.A t)) =
+  LA.sumElements $ Data.Array.Internal.toUnorderedVectorT (OS.shapeL arr) t
 
 -- The two below copied from Data.Array.Internal.
 getStrides :: [Int] -> [Int]

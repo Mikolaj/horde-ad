@@ -393,7 +393,7 @@ instance ( Numeric r, Num (Vector r)
          , Dual 'ADModeDerivative r ~ r )
          => HasRanks 'ADModeDerivative r where
   dIndex0 d ixs _ = d `atPathInTensorOR` ixs
-  dSum0 _ = OR.sumA
+  dSum0 _ = rtsum0
   dDot0 u v = OR.toVector u LA.<.> OR.toVector v
   dUnScalar0 = OR.unScalar
 
