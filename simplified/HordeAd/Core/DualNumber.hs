@@ -45,17 +45,9 @@ import           Unsafe.Coerce (unsafeCoerce)
 import HordeAd.Core.Ast
 import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta
-  ( Delta0
-  , Domain0
-  , Domain1
-  , Domains (..)
-  , atPathInTensorORN
-  , atPathInTensorOR
-  , gather
-  , isTensorDummy
-  , nullDomains
-  )
+  (Delta0, Domain0, Domain1, Domains (..), nullDomains)
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVR, liftVR2)
+import HordeAd.Internal.TensorOps
 
 -- * Auxiliary definitions
 

@@ -59,6 +59,7 @@ import           System.IO.Unsafe (unsafePerformIO)
 import           Text.Show.Functions ()
 
 import HordeAd.Internal.Delta
+import HordeAd.Internal.TensorOps
 
 -- * The main dual number type
 

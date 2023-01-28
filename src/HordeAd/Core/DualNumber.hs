@@ -50,15 +50,8 @@ import qualified Numeric.LinearAlgebra as LA
 
 import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta
-  ( Domain0
-  , Domain1
-  , Domain2
-  , DomainX
-  , Domains (..)
-  , atPathInTensor
-  , isTensorDummy
-  , nullDomains
-  )
+  (Domain0, Domain1, Domain2, DomainX, Domains (..), nullDomains)
+import HordeAd.Internal.TensorOps (atPathInTensor, isTensorDummy)
 
 -- * Auxiliary definitions
 

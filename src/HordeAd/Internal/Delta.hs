@@ -44,8 +44,6 @@ module HordeAd.Internal.Delta
   , -- * Evaluation of the delta expressions
     DeltaDt (..), Domain0, Domain1, Domain2, DomainX, Domains(..), nullDomains
   , gradientFromDelta, derivativeFromDelta
-  , isTensorDummy, toVectorOrDummy, toMatrixOrDummy
-  , toShapedOrDummy, toDynamicOrDummy, atPathInTensor
   ) where
 
 import Prelude
@@ -57,9 +55,6 @@ import           Control.Monad.ST.Strict (ST, runST)
 import qualified Data.Array.Convert
 import qualified Data.Array.Dynamic as OTB
 import qualified Data.Array.DynamicS as OT
-import qualified Data.Array.Internal
-import qualified Data.Array.Internal.DynamicG
-import qualified Data.Array.Internal.DynamicS
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import qualified Data.EnumMap.Strict as EM
@@ -83,6 +78,7 @@ import           Text.Show.Functions ()
 
 import qualified HordeAd.Internal.MatrixOuter as MO
 import           HordeAd.Internal.OrthotopeOrphanInstances ()
+import           HordeAd.Internal.TensorOps
 
 -- * Abstract syntax trees of the delta expressions
 
@@ -1437,53 +1433,3 @@ an ingenious optimization of the common case of Index10 applied to a input):
 
 https://github.com/Mikolaj/horde-ad/blob/d069a45773ed849913b5ebd0345153072f304fd9/bench/BenchProdTools.hs#L178-L193
 -}
-
-dummyTensor :: Numeric r => OT.Array r
-dummyTensor =  -- an inconsistent tensor array
-  Data.Array.Internal.DynamicS.A
-  $ Data.Array.Internal.DynamicG.A []
-  $ Data.Array.Internal.T [] (-1) V.empty
-
-isTensorDummy :: OT.Array r -> Bool
-isTensorDummy (Data.Array.Internal.DynamicS.A
-                 (Data.Array.Internal.DynamicG.A _
-                    (Data.Array.Internal.T _ (-1) _))) = True
-isTensorDummy _ = False
-
-toVectorOrDummy :: Numeric r
-                => Int -> Vector r -> Vector r
-toVectorOrDummy size x = if V.null x
-                         then LA.konst 0 size
-                         else x
-
-toMatrixOrDummy :: Numeric r
-                => (Int, Int) -> Matrix r -> Matrix r
-toMatrixOrDummy size x = if LA.size x == (0, 0)
-                         then LA.konst 0 size
-                         else x
-
-toShapedOrDummy :: (Numeric r, OS.Shape sh)
-                => OT.Array r -> OS.Array sh r
-toShapedOrDummy x = if isTensorDummy x
-                    then OS.constant 0
-                    else Data.Array.Convert.convert x
-
-toDynamicOrDummy :: Numeric r
-                 => OT.ShapeL -> OT.Array r -> OT.Array r
-toDynamicOrDummy sh x = if isTensorDummy x
-                        then OT.constant sh 0
-                        else x
-
-atPathInTensor :: Numeric r => OT.Array r -> [Int] -> r
-atPathInTensor (Data.Array.Internal.DynamicS.A
-                   (Data.Array.Internal.DynamicG.A _
-                      Data.Array.Internal.T{..})) is =
-  values V.! (offset + sum (zipWith (*) is strides))
-    -- TODO: tests are needed to verify if order of dimensions is right
-
--- Copied from Data.Array.Internal.
-getStrides :: [Int] -> [Int]
-getStrides = scanr (*) 1
-toIx :: [Int] -> Int -> [Int]
-toIx [] _ = []
-toIx (n:ns) i = q : toIx ns r where (q, r) = quotRem i n

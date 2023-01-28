@@ -61,6 +61,7 @@ import qualified Numeric.LinearAlgebra as LA
 import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Internal.Delta
+import HordeAd.Internal.TensorOps
 
 -- * The main dual number type
 

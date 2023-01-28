@@ -20,8 +20,9 @@ import           Numeric.LinearAlgebra.Data (flatten)
 import           Numeric.LinearAlgebra.Devel
   (MatrixOrder (..), liftMatrix, liftMatrix2, matrixFromVector, orderOf)
 
-import HordeAd.Internal.Delta (Domains (..), isTensorDummy)
+import HordeAd.Internal.Delta (Domains (..))
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVT2)
+import HordeAd.Internal.TensorOps (isTensorDummy)
 
 updateWithGradient :: (Numeric r, Floating (Vector r))
                    => r -> Domains r -> Domains r -> Domains r

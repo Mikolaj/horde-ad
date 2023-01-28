@@ -17,8 +17,9 @@ import qualified Data.Vector.Generic.Mutable as VM
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 
-import HordeAd.Internal.Delta (Domains (..), isTensorDummy)
+import HordeAd.Internal.Delta (Domains (..))
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVT2)
+import HordeAd.Internal.TensorOps (isTensorDummy)
 
 updateWithGradient :: (Numeric r, Floating (Vector r))
                    => r -> Domains r -> Domains r -> Domains r

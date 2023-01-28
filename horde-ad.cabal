@@ -143,6 +143,7 @@ library
                       HordeAd.Internal.Delta
                       HordeAd.Internal.MatrixOuter
                       HordeAd.Internal.OrthotopeOrphanInstances
+                      HordeAd.Internal.TensorOps
 
   if flag(use_typelits_plugins) {
     exposed-modules:  HordeAd.External.Adaptor
@@ -518,6 +519,7 @@ library horde-ad-simplified
                       HordeAd.External.OptimizerTools
                       HordeAd.Internal.Delta
                       HordeAd.Internal.OrthotopeOrphanInstances
+                      HordeAd.Internal.TensorOps
 
     build-depends:
         assert-failure

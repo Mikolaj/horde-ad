@@ -20,7 +20,7 @@ import           Test.Tasty.QuickCheck
 
 import HordeAd
 import HordeAd.Core.DualClass (Dual)
-import HordeAd.Internal.Delta (atPathInTensor)
+import HordeAd.Internal.TensorOps (atPathInTensor)
 
 import Tool.EqEpsilon
 import Tool.Shared
