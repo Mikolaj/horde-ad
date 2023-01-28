@@ -392,13 +392,13 @@ instance (Numeric r, Num (Vector r))
 instance ( Numeric r, Num (Vector r)
          , Dual 'ADModeDerivative r ~ r )
          => HasRanks 'ADModeDerivative r where
-  dIndex0 d ixs _ = d `atPathInTensorOR` ixs
-  dSum0 _ = rtsum0
+  dIndex0 d ixs _ = d `atPathInTensorR` ixs
+  dSum0 _ = tsum0R
   dDot0 u v = OR.toVector u LA.<.> OR.toVector v
   dUnScalar0 = OR.unScalar
 
   dIndex1 d ix _ = OR.index d ix
-  dIndexN d ixs _ = d `atPathInTensorORN` ixs
+  dIndexN d ixs _ = d `atPathInTensorNR` ixs
   dSum1 _ = ORB.sumA . OR.unravel
   dFromList1 l = OR.ravel $ ORB.fromList [length l] l
   dFromVector1 l = OR.ravel $ ORB.fromVector [V.length l] $ V.convert l
@@ -408,8 +408,8 @@ instance ( Numeric r, Num (Vector r)
   dReverse1 = OR.rev [0]
   dTransposeGeneral1 = OR.transpose
   dBuild1 n f = OR.ravel $ ORB.fromVector [n] $ V.generate n f
-  dGather1 n f _sh d = rtgather n f d
-  dScatter1 _n f d sh = rtscatter f d sh
+  dGather1 n f _sh d = tgatherR n f d
+  dScatter1 _n f d sh = tscatterR f d sh
   dReshape1 _sh = OR.reshape
 
   dFromList01 = OR.fromList

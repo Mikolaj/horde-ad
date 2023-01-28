@@ -466,12 +466,12 @@ buildFinMaps s0 deltaDt =
         Index0 (FromX1 (InputX i)) ixs sh ->
           let f v = if isTensorDummy v
                     then OT.constant sh 0 `OT.update` [(ixs, c)]
-                    else v `OT.update` [(ixs, v `atPathInTensor` ixs + c)]
+                    else v `OT.update` [(ixs, v `atPathInTensorD` ixs + c)]
           in s {iMap1 = EM.adjust f i $ iMap1 s}
         Index0 (Let1 n d) ixs sh ->
           case EM.lookup n $ nMap s of
             Just (DeltaBinding1 _) ->
-              let f v = v `OT.update` [(ixs, v `atPathInTensor` ixs + c)]
+              let f v = v `OT.update` [(ixs, v `atPathInTensorD` ixs + c)]
               in s {dMap1 = EM.adjust f n $ dMap1 s}
                 -- This would be an asymptotic optimization compared to
                 -- the general case below, if not for the non-mutable update,
@@ -483,7 +483,7 @@ buildFinMaps s0 deltaDt =
               in s { nMap = EM.insert n (DeltaBinding1 d) $ nMap s
                    , dMap1 = EM.insert n v $ dMap1 s }
             _ -> error "buildFinMaps: corrupted nMap"
-        Index0 d ixs sh -> eval1 s (OR.constant sh 0 `updateOR` [(ixs, c)]) d
+        Index0 d ixs sh -> eval1 s (OR.constant sh 0 `updateR` [(ixs, c)]) d
         Sum0 sh d -> eval1 s (OR.constant sh c) d
         Dot0 v vd -> eval1 s (liftVR (LA.scale c) v) vd
         UnScalar0 d -> eval1 s (OR.scalar c) d
@@ -523,7 +523,7 @@ buildFinMaps s0 deltaDt =
                                      , OR.reshape (1 : rest) c
                                      , OR.constant (len - ix - 1 : rest) 0 ])
                      d  -- TODO: optimize for input case
-        IndexN d ixs sh -> eval1 s (updateORN (OR.constant sh 0) [(ixs, c)]) d
+        IndexN d ixs sh -> eval1 s (updateNR (OR.constant sh 0) [(ixs, c)]) d
         Sum1 n d -> eval1 s (OR.ravel (ORB.constant [n] c)) d
         FromList1 ld ->
           let lc = ORB.toList $ OR.unravel c
@@ -533,7 +533,7 @@ buildFinMaps s0 deltaDt =
           in foldl' (\s2 (c2, d2) -> eval1 s2 c2 d2) s $ zip lc (V.toList ld)
         Konst1 _n d ->
           let c2 = V.sum $ ORB.toVector $ OR.unravel c
-              -- simplified version of: rtscatter (const []) c (tail $ shapeL c)
+              -- simplified version of: tscatterR (const []) c (tail $ shapeL c)
           in eval1 s c2 d
         Append1 d k e -> case OR.shapeL c of
           n : _ -> let s2 = eval1 s (OR.slice [(0, k)] c) d
@@ -550,8 +550,8 @@ buildFinMaps s0 deltaDt =
         Reverse1 d -> eval1 s (OR.rev [0] c) d
         Build1 _n f -> V.ifoldl' (\s2 i ci -> eval1 s2 ci (f i))
                                  s (ORB.toVector $ OR.unravel c)
-        Gather1 _n f sh d -> eval1 s (rtscatter f c sh) d
-        Scatter1 n f d _sh -> eval1 s (rtgather n f c) d
+        Gather1 _n f sh d -> eval1 s (tscatterR f c sh) d
+        Scatter1 n f d _sh -> eval1 s (tgatherR n f c) d
         TransposeGeneral1 perm d ->
           let perm_reversed = map snd $ sort $ zip perm [0 .. length perm - 1]
           in eval1 s (OR.transpose perm_reversed c) d
@@ -563,7 +563,7 @@ buildFinMaps s0 deltaDt =
         FromVector01 _sh lsd ->  -- lsd is a list of scalar delta expressions
           let cv = OR.toVector c
           in V.ifoldl' (\s2 i d -> eval0 s2 (cv V.! i) d) s lsd
-        Konst01 _ d -> eval0 s (rtsum0 c) d
+        Konst01 _ d -> eval0 s (tsum0R c) d
         Build01 sh f ->
           let ss = case getStrides sh of
                 _ : ss2 -> ss2
@@ -651,8 +651,8 @@ buildDerivative dim0 dim1 deltaTopLevel
               return c
             _ -> error "buildDerivative: corrupted nMap"
 
-        Index0 d ixs _ -> (`atPathInTensorOR` ixs) <$> eval1 d
-        Sum0 _ d -> rtsum0 <$> eval1 d
+        Index0 d ixs _ -> (`atPathInTensorR` ixs) <$> eval1 d
+        Sum0 _ d -> tsum0R <$> eval1 d
         Dot0 v d -> (LA.<.> OR.toVector v) . OR.toVector <$> eval1 d
         UnScalar0 d -> OR.unScalar <$> eval1 d
 
@@ -681,7 +681,7 @@ buildDerivative dim0 dim1 deltaTopLevel
             _ -> error "buildDerivative: corrupted nMap"
 
         Index1 d ix _len -> flip OR.index ix <$> eval1 d
-        IndexN d ixs _len -> (`atPathInTensorORN` ixs) <$> eval1 d
+        IndexN d ixs _len -> (`atPathInTensorNR` ixs) <$> eval1 d
         Sum1 _ d -> ORB.sumA . OR.unravel <$> eval1 d
         FromList1 lsd -> do
           l <- mapM eval1 lsd
@@ -700,10 +700,10 @@ buildDerivative dim0 dim1 deltaTopLevel
           return $! OR.ravel $ ORB.fromList [n] l
         Gather1 n f _sh d -> do
           t <- unsafeCoerce $ eval1 d
-          return $! rtgather n f t
+          return $! tgatherR n f t
         Scatter1 _n f d sh -> do
           t <- eval1 d
-          return $! rtscatter f t sh
+          return $! tscatterR f t sh
         TransposeGeneral1 perm d -> OR.transpose perm <$> eval1 d
         Reshape1 _sh sh' d -> OR.reshape sh' <$> eval1 d
 

@@ -51,7 +51,7 @@ import qualified Numeric.LinearAlgebra as LA
 import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta
   (Domain0, Domain1, Domain2, DomainX, Domains (..), nullDomains)
-import HordeAd.Internal.TensorOps (atPathInTensor, isTensorDummy, ttsum0)
+import HordeAd.Internal.TensorOps (atPathInTensorD, isTensorDummy, tsum0D)
 
 -- * Auxiliary definitions
 
@@ -236,7 +236,7 @@ sumElements20 :: ADModeAndNum d r => ADVal d (Matrix r) -> ADVal d r
 sumElements20 (D u u') = dD (LA.sumElements u) (dSumElements20 u' (LA.size u))
 
 sumElementsX0 :: ADModeAndNum d r => ADVal d (OT.Array r) -> ADVal d r
-sumElementsX0 (D u u') = dD (ttsum0 u) (dSumElementsX0 u' (OT.shapeL u))
+sumElementsX0 (D u u') = dD (tsum0D u) (dSumElementsX0 u' (OT.shapeL u))
 
 sumElementsS0 :: (ADModeAndNum d r, OS.Shape sh)
               => ADVal d (OS.Array sh r) -> ADVal d r
@@ -250,7 +250,7 @@ index20 :: ADModeAndNum d r => ADVal d (Matrix r) -> (Int, Int) -> ADVal d r
 index20 (D u u') ix = dD (u `LA.atIndex` ix) (dIndex20 u' ix (LA.size u))
 
 indexX0 :: ADModeAndNum d r => ADVal d (OT.Array r) -> [Int] -> ADVal d r
-indexX0 (D u u') ix = dD (u `atPathInTensor` ix) (dIndexX0 u' ix (OT.shapeL u))
+indexX0 (D u u') ix = dD (u `atPathInTensorD` ix) (dIndexX0 u' ix (OT.shapeL u))
 
 -- Passing the index via type application, as in @indexS@,
 -- would guarantee it's in bounds, but would require it to be statically

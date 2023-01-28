@@ -70,22 +70,22 @@ toDynamicOrDummy sh x = if isTensorDummy x
                         then OT.constant sh 0
                         else x
 
-atPathInTensor :: Numeric r => OT.Array r -> [Int] -> r
-atPathInTensor (Data.Array.Internal.DynamicS.A
+atPathInTensorD :: Numeric r => OT.Array r -> [Int] -> r
+atPathInTensorD (Data.Array.Internal.DynamicS.A
                    (Data.Array.Internal.DynamicG.A _
                       Data.Array.Internal.T{..})) is =
   values V.! (offset + sum (zipWith (*) is strides))
     -- TODO: tests are needed to verify if order of dimensions is right
 
-atPathInTensorOR :: Numeric r => OR.Array n r -> [Int] -> r
-atPathInTensorOR (Data.Array.Internal.RankedS.A
-                    (Data.Array.Internal.RankedG.A _
-                       Data.Array.Internal.T{..})) is =
+atPathInTensorR :: Numeric r => OR.Array n r -> [Int] -> r
+atPathInTensorR (Data.Array.Internal.RankedS.A
+                   (Data.Array.Internal.RankedG.A _
+                      Data.Array.Internal.T{..})) is =
   values V.! (offset + sum (zipWith (*) is strides))
 
-atPathInTensorORN :: (Numeric r, KnownNat n)
-                  => OR.Array (1 + m + n) r -> [Int] -> OR.Array n r
-atPathInTensorORN arr ixs =
+atPathInTensorNR :: (Numeric r, KnownNat n)
+                 => OR.Array (1 + m + n) r -> [Int] -> OR.Array n r
+atPathInTensorNR arr ixs =
   let Data.Array.Internal.DynamicS.A
         (Data.Array.Internal.DynamicG.A sh
            Data.Array.Internal.T{..}) =
@@ -102,16 +102,16 @@ atPathInTensorORN arr ixs =
   -- Data.Array.Convert.convert
   -- $ foldl' OT.index (Data.Array.Convert.convert v) is
 
-updateOR :: (Numeric a, KnownNat n)
-         => OR.Array n a -> [([Int], a)] -> OR.Array n a
-updateOR arr upd = Data.Array.Convert.convert
+updateR :: (Numeric a, KnownNat n)
+        => OR.Array n a -> [([Int], a)] -> OR.Array n a
+updateR arr upd = Data.Array.Convert.convert
                    $ OT.update (Data.Array.Convert.convert arr) upd
 
 -- The paths (lists of indexes) are of length @m@.
-updateORN :: (Numeric a, KnownNat n, KnownNat m)
-          => OR.Array (m + n) a -> [([Int], OR.Array n a)]
-          -> OR.Array (m + n) a
-updateORN arr upd =
+updateNR :: (Numeric a, KnownNat n, KnownNat m)
+         => OR.Array (m + n) a -> [([Int], OR.Array n a)]
+         -> OR.Array (m + n) a
+updateNR arr upd =
   let Data.Array.Internal.RankedS.A
         (Data.Array.Internal.RankedG.A sh
            Data.Array.Internal.T{..}) = OR.normalize arr
@@ -123,156 +123,156 @@ updateORN arr upd =
            in LA.vjoin [V.take ix t, v, V.drop (ix + V.length v) t]
      in OR.fromVector sh (foldl' f values upd)
 
-ttsum0
+tsum0D
   :: Numeric r
   => OT.Array r -> r
-ttsum0 (Data.Array.Internal.DynamicS.A (Data.Array.Internal.DynamicG.A sh t)) =
+tsum0D (Data.Array.Internal.DynamicS.A (Data.Array.Internal.DynamicG.A sh t)) =
   LA.sumElements $ Data.Array.Internal.toUnorderedVectorT sh t
 
-rtlength
+tlengthR
   :: OR.Array (1 + n) r -> Int
-rtlength u = case OR.shapeL u of
+tlengthR u = case OR.shapeL u of
   [] -> error "tlength: missing dimensions"
   k : _ -> k
 
-rtsize
+tsizeR
   :: OR.Array n r -> Int
-rtsize = OR.size
+tsizeR = OR.size
 
-rtminIndex
+tminIndexR
   :: Numeric r
   => OR.Array 1 r -> Int
-rtminIndex = LA.minIndex . OR.toVector
+tminIndexR = LA.minIndex . OR.toVector
 
-rtmaxIndex
+tmaxIndexR
   :: Numeric r
   => OR.Array 1 r -> Int
-rtmaxIndex = LA.maxIndex . OR.toVector
+tmaxIndexR = LA.maxIndex . OR.toVector
 
-rtindex
+tindexR
   :: Numeric r
   => OR.Array (1 + n) r -> Int -> OR.Array n r
-rtindex = OR.index
+tindexR = OR.index
 
-rtindex0
+tindex0R
   :: Numeric r
   => OR.Array (1 + n) r -> [Int] -> r
-rtindex0 = atPathInTensorOR
+tindex0R = atPathInTensorR
 
-rtindexN
+tindexNR
   :: (KnownNat n, Numeric r)
   => OR.Array (1 + m + n) r -> [Int] -> OR.Array n r
-rtindexN = atPathInTensorORN
+tindexNR = atPathInTensorNR
 
-rtsum
+tsumR
   :: (KnownNat n, Numeric r, Num (Vector r))
   => OR.Array (1 + n) r -> OR.Array n r
-rtsum = ORB.sumA . OR.unravel
+tsumR = ORB.sumA . OR.unravel
 
-rtsum0
+tsum0R
   :: Numeric r
   => OR.Array n r -> r
-rtsum0 (Data.Array.Internal.RankedS.A (Data.Array.Internal.RankedG.A sh t)) =
+tsum0R (Data.Array.Internal.RankedS.A (Data.Array.Internal.RankedG.A sh t)) =
   LA.sumElements $ Data.Array.Internal.toUnorderedVectorT sh t
 
-rtdot0
+tdot0R
   :: Numeric r
   => OR.Array n r -> OR.Array n r -> r
-rtdot0 u v = OR.toVector u LA.<.> OR.toVector v
+tdot0R u v = OR.toVector u LA.<.> OR.toVector v
 
-rtminimum0
+tminimum0R
   :: Numeric r
   => OR.Array 1 r -> r
-rtminimum0 = LA.minElement . OR.toVector
+tminimum0R = LA.minElement . OR.toVector
 
-rtmaximum0
+tmaximum0R
   :: Numeric r
   => OR.Array 1 r -> r
-rtmaximum0 = LA.maxElement . OR.toVector
+tmaximum0R = LA.maxElement . OR.toVector
 
-rtfromList
+tfromListR
   :: (KnownNat n, Numeric r)
   => [OR.Array n r] -> OR.Array (1 + n) r
-rtfromList l = OR.ravel $ ORB.fromList [length l] l
+tfromListR l = OR.ravel $ ORB.fromList [length l] l
 
-rtfromList0N
+tfromList0NR
   :: (KnownNat n, Numeric r)
   => [Int] -> [r] -> OR.Array n r
-rtfromList0N = OR.fromList
+tfromList0NR = OR.fromList
 
-rtfromVector
+tfromVectorR
   :: (KnownNat n, Numeric r)
   => Data.Vector.Vector (OR.Array n r) -> OR.Array (1 + n) r
-rtfromVector l = OR.ravel $ ORB.fromVector [V.length l] $ V.convert l
+tfromVectorR l = OR.ravel $ ORB.fromVector [V.length l] $ V.convert l
 
-rtfromVector0N
+tfromVector0NR
   :: (KnownNat n, Numeric r)
   => [Int] -> Data.Vector.Vector r -> OR.Array n r
-rtfromVector0N sh l = OR.fromVector sh $ V.convert l
+tfromVector0NR sh l = OR.fromVector sh $ V.convert l
 
-rtkonst
+tkonstR
   :: (KnownNat n, Numeric r)
   =>  Int -> OR.Array n r -> OR.Array (1 + n) r
-rtkonst n u = OR.ravel $ ORB.constant [n] u
+tkonstR n u = OR.ravel $ ORB.constant [n] u
 
-rtkonst0N
+tkonst0NR
   :: (KnownNat n, Numeric r)
   => [Int] -> r -> OR.Array (1 + n) r
-rtkonst0N sh r = OR.constant sh r
+tkonst0NR sh r = OR.constant sh r
 
-rtappend
+tappendR
   :: (KnownNat n, Numeric r)
   => OR.Array n r -> OR.Array n r -> OR.Array n r
-rtappend = OR.append
+tappendR = OR.append
 
-rtslice
+tsliceR
   :: Int -> Int -> OR.Array n r -> OR.Array n r
-rtslice i k = OR.slice [(i, k)]
+tsliceR i k = OR.slice [(i, k)]
 
-rtreverse
+treverseR
   :: OR.Array n r -> OR.Array n r
-rtreverse = OR.rev [0]
+treverseR = OR.rev [0]
 
-rttransposeGeneral
+ttransposeGeneralR
   :: KnownNat n
   => [Int] -> OR.Array n r -> OR.Array n r
-rttransposeGeneral = OR.transpose
+ttransposeGeneralR = OR.transpose
 
-rtreshape
+treshapeR
   :: (KnownNat n, KnownNat m, Numeric r)
   => [Int] -> OR.Array n r -> OR.Array m r
-rtreshape = OR.reshape
+treshapeR = OR.reshape
 
-rtbuild
+tbuildR
   :: (KnownNat n, Numeric r)
   => Int -> (Int -> OR.Array n r) -> OR.Array (1 + n) r
-rtbuild n f = rtfromList $ map f [0 .. n - 1]
+tbuildR n f = tfromListR $ map f [0 .. n - 1]
 
-rtbuild0N
+tbuild0NR
   :: (KnownNat n, Numeric r)
   => [Int] -> ([Int] -> r) -> OR.Array n r
-rtbuild0N = OR.generate
+tbuild0NR = OR.generate
 
-rtgather :: (Numeric r, KnownNat n)
+tgatherR :: (Numeric r, KnownNat n)
          => Int -> (Int -> [Int])
          -> OR.Array (m + n) r -> OR.Array (1 + n) r
-rtgather n f t =
-  let l = map (\i -> unsafeCoerce t `atPathInTensorORN` f i) [0 .. n - 1]
+tgatherR n f t =
+  let l = map (\i -> unsafeCoerce t `atPathInTensorNR` f i) [0 .. n - 1]
   in OR.ravel $ ORB.fromList [n] l
 
 -- TODO: update in place in ST or with a vector builder, but that requires
 -- building the underlying value vector with crafty index computations
 -- and then freezing it and calling OR.fromVector
-rtscatter :: (Numeric r, Num (Vector r), KnownNat n, KnownNat m)
+tscatterR :: (Numeric r, Num (Vector r), KnownNat n, KnownNat m)
           => (Int -> [Int])
           -> OR.Array (1 + n) r -> OR.ShapeL -> OR.Array (m + n) r
-rtscatter f t sh =
-  V.sum $ V.imap (\i ti -> updateORN (OR.constant sh 0) [(f i, ti)])
+tscatterR f t sh =
+  V.sum $ V.imap (\i ti -> updateNR (OR.constant sh 0) [(f i, ti)])
         $ ORB.toVector $ OR.unravel t
-stsum0
+tsum0S
   :: (Numeric r, OS.Shape sh)
   => OS.Array sh r -> r
-stsum0 arr@(Data.Array.Internal.ShapedS.A (Data.Array.Internal.ShapedG.A t)) =
+tsum0S arr@(Data.Array.Internal.ShapedS.A (Data.Array.Internal.ShapedG.A t)) =
   LA.sumElements $ Data.Array.Internal.toUnorderedVectorT (OS.shapeL arr) t
 
 -- The two below copied from Data.Array.Internal.

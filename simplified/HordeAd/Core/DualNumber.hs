@@ -333,7 +333,7 @@ class (RealFloat r, RealFloat (VectorOf r), Integral (IntOf r))
   default lsum0
     :: (Numeric r, VectorOf r ~ OR.Array 1 r)
     => VectorOf r -> r
-  lsum0 = rtsum0
+  lsum0 = tsum0R
   default ldot0
     :: (Numeric r, VectorOf r ~ OR.Array 1 r)
     => VectorOf r -> VectorOf r -> r
@@ -554,59 +554,59 @@ type ADReady' r = (Tensor r, HasPrimal r)
 -- For vectorization, go through Ast and valueOnDomains.
 instance Tensor Double where
   type TensorOf n Double = OR.Array n Double
-  tlength = rtlength
-  tsize = rtsize
-  tminIndex = rtminIndex
-  tmaxIndex = rtmaxIndex
-  tindex = rtindex
-  tindex0 = rtindex0
-  tindexN = rtindexN
-  tsum = rtsum
-  tsum0 = rtsum0
-  tdot0 = rtdot0
-  tminimum0 = rtminimum0
-  tmaximum0 = rtmaximum0
-  tfromList = rtfromList
-  tfromList0N = rtfromList0N
-  tfromVector = rtfromVector
-  tfromVector0N = rtfromVector0N
-  tkonst = rtkonst
-  tkonst0N = rtkonst0N
-  tappend = rtappend
-  tslice = rtslice
-  treverse = rtreverse
-  ttransposeGeneral = rttransposeGeneral
-  treshape = rtreshape
-  tbuild = rtbuild
-  tbuild0N = rtbuild0N
+  tlength = tlengthR
+  tsize = tsizeR
+  tminIndex = tminIndexR
+  tmaxIndex = tmaxIndexR
+  tindex = tindexR
+  tindex0 = tindex0R
+  tindexN = tindexNR
+  tsum = tsumR
+  tsum0 = tsum0R
+  tdot0 = tdot0R
+  tminimum0 = tminimum0R
+  tmaximum0 = tmaximum0R
+  tfromList = tfromListR
+  tfromList0N = tfromList0NR
+  tfromVector = tfromVectorR
+  tfromVector0N = tfromVector0NR
+  tkonst = tkonstR
+  tkonst0N = tkonst0NR
+  tappend = tappendR
+  tslice = tsliceR
+  treverse = treverseR
+  ttransposeGeneral = ttransposeGeneralR
+  treshape = treshapeR
+  tbuild = tbuildR
+  tbuild0N = tbuild0NR
 
 instance Tensor Float where
   type TensorOf n Float = OR.Array n Float
-  tlength = rtlength
-  tsize = rtsize
-  tminIndex = rtminIndex
-  tmaxIndex = rtmaxIndex
-  tindex = rtindex
-  tindex0 = rtindex0
-  tindexN = rtindexN
-  tsum = rtsum
-  tsum0 = rtsum0
-  tdot0 = rtdot0
-  tminimum0 = rtminimum0
-  tmaximum0 = rtmaximum0
-  tfromList = rtfromList
-  tfromList0N = rtfromList0N
-  tfromVector = rtfromVector
-  tfromVector0N = rtfromVector0N
-  tkonst = rtkonst
-  tkonst0N = rtkonst0N
-  tappend = rtappend
-  tslice = rtslice
-  treverse = rtreverse
-  ttransposeGeneral = rttransposeGeneral
-  treshape = rtreshape
-  tbuild = rtbuild
-  tbuild0N = rtbuild0N
+  tlength = tlengthR
+  tsize = tsizeR
+  tminIndex = tminIndexR
+  tmaxIndex = tmaxIndexR
+  tindex = tindexR
+  tindex0 = tindex0R
+  tindexN = tindexNR
+  tsum = tsumR
+  tsum0 = tsum0R
+  tdot0 = tdot0R
+  tminimum0 = tminimum0R
+  tmaximum0 = tmaximum0R
+  tfromList = tfromListR
+  tfromList0N = tfromList0NR
+  tfromVector = tfromVectorR
+  tfromVector0N = tfromVector0NR
+  tkonst = tkonstR
+  tkonst0N = tkonst0NR
+  tappend = tappendR
+  tslice = tsliceR
+  treverse = treverseR
+  ttransposeGeneral = ttransposeGeneralR
+  treshape = treshapeR
+  tbuild = tbuildR
+  tbuild0N = tbuild0NR
 
 -- Not that this instance doesn't do vectorization. To enable it,
 -- use the Ast instance, which vectorizes and finally interpret in ADVal.
@@ -1331,13 +1331,13 @@ index (D u u') ix = dD (u `OR.index` ix)
 
 -- | First index is for outermost dimension; @1 + m@ is the length of the path;
 -- empty path means identity.
--- TODO: speed up by using atPathInTensorOR and dIndex0 if the codomain is 0.
+-- TODO: speed up by using atPathInTensorR and dIndex0 if the codomain is 0.
 indexN :: forall m n d r. (ADModeAndNum d r, KnownNat n, KnownNat m)
         => ADVal d (OR.Array (1 + m + n) r) -> [Int]
         -> ADVal d (OR.Array n r)
 -- TODO: This is much faster, but gradient of dIndexN is not implemented yet:
--- indexN (D u u') ixs = dD (u `atPathInTensorORN` ixs)
---                           (dIndexN u' ixs (OR.shapeL u))
+-- indexN (D u u') ixs = dD (u `atPathInTensorNR` ixs)
+--                          (dIndexN u' ixs (OR.shapeL u))
 indexN d [] = (unsafeCoerce :: ADVal d (OR.Array (1 + m + n) r)
                              -> ADVal d (OR.Array n r)) d  -- m is -1
 indexN d (ix : rest) =
@@ -1409,11 +1409,11 @@ build n f = fromList $ map f [0 .. n - 1]
 gatherClosure :: (ADModeAndNum d r, KnownNat n, KnownNat m)
               => Int -> (Int -> [Int])
               -> ADVal d (OR.Array (m + n) r) -> ADVal d (OR.Array (1 + n) r)
-gatherClosure n f (D u u') = dD (rtgather n f u) (dGather1 n f (OR.shapeL u) u')
+gatherClosure n f (D u u') = dD (tgatherR n f u) (dGather1 n f (OR.shapeL u) u')
 
 sum0 :: (ADModeAndNum d r, KnownNat n)
      => ADVal d (OR.Array n r) -> ADVal d r
-sum0 (D u u') = dD (rtsum0 u) (dSum0 (OR.shapeL u) u')
+sum0 (D u u') = dD (tsum0R u) (dSum0 (OR.shapeL u) u')
 
 dot0 :: (ADModeAndNum d r, KnownNat n)
      => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r) -> ADVal d r
