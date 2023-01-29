@@ -713,7 +713,7 @@ build1VectorizeVar n (var, u) =
     AstReshape sh v -> AstReshape (n : sh) $ build1Vectorize n (var, v)
     AstBuildPair{} -> AstBuildPair n (var, u)
       -- TODO: a previous failure of vectorization that should have
-      -- led to an abort instead of showing up late
+      -- led to an abort instead of showing up late; or not, see below
     AstGatherPair _n (_var2, _ixs2) _v -> AstBuildPair n (var, u)
       -- TODO: if var not in _v, then create a generalized gather
       -- that builds more than one rank using var and var2 together;
@@ -852,18 +852,18 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
     AstFlatten{} -> build1VectorizeIndexTry n var v1 is
     AstReshape{} -> build1VectorizeIndexTry n var v1 is
       -- an even more general indexing needed?
-    AstBuildPair{} -> AstBuildPair n (var, AstIndexN v1 is)
+    AstBuildPair _n2 (var2, v) ->
       -- TODO: a previous failure of vectorization that should have
       -- led to an abort instead of showing up late
       -- TODO: or a wonderful chance to recover failed vectorization,
       -- by taking only an element of this build! so shall failed
       -- vectorization not abort, after all? and only check at whole program
       -- vectorization end that no build has been left unvectorized?
-      -- the code would be
-      -- build1Vectorize n (var, substitute var2 i u2))
-      -- or we'd use environments instead of the substitution
-    AstGatherPair _n (_var2, _ixs2) _v -> undefined
-      -- TODO: simplify to build (indexN v (subst i1 for var2 in ixs2 ++ rest1))
+      build1VectorizeIndexVar
+        @m n var (substituteAst i1 var2 (unsafeCoerce v)) rest1
+    AstGatherPair _n2 (var2, ixs2) v ->
+      let ixs3 = map (substituteAstInt i1 var2) ixs2
+      in build1VectorizeIndexVar @m n var (unsafeCoerce v) (ixs3 ++ rest1)
 
     AstSum0{} -> error "build1VectorizeIndexVar: wrong rank"
     AstDot0{} -> error "build1VectorizeIndexVar: wrong rank"
@@ -874,8 +874,11 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
     AstKonst0N sh v ->
       let k = product sh
       in build1VectorizeIndexVar @m n var (AstReshape sh $ AstKonst k v) is
-    AstBuildPair0N{} ->
-      AstBuildPair n (var, AstIndexN v1 is)  -- see AstBuildPair above
+    AstBuildPair0N _sh ([], _r) ->
+      error "build1VectorizeIndexVar: impossible case; is would have to be []"
+    AstBuildPair0N sh (var2 : vars, r) ->
+      build1VectorizeIndexVar
+        @m n var (AstBuildPair0N sh (vars, substituteAst i1 var2 r)) rest1
 
     AstOMap0{} -> error "build1VectorizeIndexVar: wrong rank"
     AstOMap1{} ->

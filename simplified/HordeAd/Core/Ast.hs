@@ -406,7 +406,7 @@ lenghtAst v1 = case shapeAst v1 of
   n : _ -> n
 
 substituteAst :: (Show r, Numeric r)
-             => AstInt r -> AstVarName Int -> Ast n r -> Ast n r
+              => AstInt r -> AstVarName Int -> Ast n r -> Ast n r
 substituteAst i var v1 = case v1 of
   AstOp opCode args -> AstOp opCode $ map (substituteAst i var) args
   AstCond b a1 a2 -> AstCond (substituteAstBool i var b)
@@ -453,7 +453,7 @@ substituteAst i var v1 = case v1 of
   AstVar1 _n _var -> v1
 
 substituteAstInt :: (Show r, Numeric r)
-                => AstInt r -> AstVarName Int -> AstInt r -> AstInt r
+                 => AstInt r -> AstVarName Int -> AstInt r -> AstInt r
 substituteAstInt i var i2 = case i2 of
   AstIntOp opCodeInt args ->
     AstIntOp opCodeInt $ map (substituteAstInt i var) args
@@ -466,7 +466,7 @@ substituteAstInt i var i2 = case i2 of
   AstMaxIndex v -> AstMaxIndex (substituteAst i var v)
 
 substituteAstBool :: (Show r, Numeric r)
-                 => AstInt r -> AstVarName Int -> AstBool r -> AstBool r
+                  => AstInt r -> AstVarName Int -> AstBool r -> AstBool r
 substituteAstBool i var b1 = case b1 of
   AstBoolOp opCodeBool args ->
     AstBoolOp opCodeBool $ map (substituteAstBool i var) args
