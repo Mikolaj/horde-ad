@@ -143,10 +143,6 @@ data AstInt :: Type -> Type where
   AstIntConst :: Int -> AstInt r
   AstIntVar :: AstVarName Int -> AstInt r
 
-  AstLength :: KnownNat n  -- TODO: Int
-            => Ast (1 + n) r -> AstInt r  -- length of the outermost dimension
-  AstSize :: KnownNat n  -- TODO: Int
-          => Ast n r -> AstInt r  -- product of all dimensions
   AstMinIndex :: Ast 1 r -> AstInt r
   AstMaxIndex :: Ast 1 r -> AstInt r
 deriving instance (Show r, Numeric r) => Show (AstInt r)

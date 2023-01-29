@@ -817,9 +817,9 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
       _ -> let v2 = (unsafeCoerce :: Ast n1 r -> Ast (1 + m + n) r) v
            in build1VectorizeIndex n var v2 rest1
     AstAppend v w ->
-      let is2 = map (\i -> AstIntOp PlusIntOp [i, AstLength v]) is
+      let is2 = map (\i -> AstIntOp PlusIntOp [i, undefined {-AstLength v-}]) is
       in build1Vectorize n
-           (var, AstCond (AstRelInt LsOp [i1, AstLength v])
+           (var, AstCond (AstRelInt LsOp [i1, undefined {-AstLength v-}])
                          (AstIndexN v is)
                          (AstIndexN w is2))
           -- this is basically partial evaluation, but in constant
@@ -978,8 +978,6 @@ intVarInAstInt var = \case
     intVarInAstBool var b || intVarInAstInt var x || intVarInAstInt var y
   AstIntConst{} -> False
   AstIntVar var2 -> var == var2  -- the only int variable not in binder position
-  AstLength v -> intVarInAst var v
-  AstSize v -> intVarInAst var v
   AstMinIndex v -> intVarInAst var v
   AstMaxIndex v -> intVarInAst var v
 
@@ -1249,10 +1247,6 @@ interpretAstInt env = \case
       error $ "interpretAstInt: type mismatch for var " ++ show var
     Just (AstVarI i) -> i
     Nothing -> error $ "interpretAstInt: unknown variable var " ++ show var
-  AstLength v -> case OR.shapeL $ interpretAstPrimal env v of
-    [] -> error "interpretAstInt: impossible shape for rank >= 1"
-    len_outermost : _ -> len_outermost
-  AstSize v -> product $ OR.shapeL $ interpretAstPrimal env v
   AstMinIndex v -> lminIndex $ interpretAst env v
   AstMaxIndex v -> lmaxIndex $ interpretAst env v
 
