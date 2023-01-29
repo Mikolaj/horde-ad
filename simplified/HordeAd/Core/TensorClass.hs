@@ -697,20 +697,20 @@ build1VectorizeVar n (var, u) =
       AstTranspose
       $ AstFromVector (V.map (\v -> build1Vectorize n (var, v)) l)
     AstKonst k v -> AstTranspose $ AstKonst k $ AstTranspose
-                    $ build1Vectorize n (var, v)
+                    $ build1VectorizeVar n (var, v)
     AstAppend v w -> AstTranspose $ AstAppend
                        (AstTranspose $ build1Vectorize n (var, v))
                        (AstTranspose $ build1Vectorize n (var, w))
     AstSlice i k v -> AstTranspose $ AstSlice i k $ AstTranspose
-                      $ build1Vectorize n (var, v)
+                      $ build1VectorizeVar n (var, v)
     AstReverse v -> AstTranspose $ AstReverse $ AstTranspose
                     $ build1VectorizeVar n (var, v)
     AstTranspose v ->
       build1VectorizeVar n (var, AstTransposeGeneral [1, 0] v)
     AstTransposeGeneral perm v -> AstTransposeGeneral (0 : map succ perm)
                                   $ build1VectorizeVar n (var, v)
-    AstFlatten v -> build1Vectorize n (var, AstReshape [lenghtAst u] v)
-    AstReshape sh v -> AstReshape (n : sh) $ build1Vectorize n (var, v)
+    AstFlatten v -> build1VectorizeVar n (var, AstReshape [lenghtAst u] v)
+    AstReshape sh v -> AstReshape (n : sh) $ build1VectorizeVar n (var, v)
     AstBuildPair{} -> AstBuildPair n (var, u)
       -- TODO: a previous failure of vectorization that should have
       -- led to an abort instead of showing up late; or not, see below
@@ -863,7 +863,7 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
         @m n var (substituteAst i1 var2 (unsafeCoerce v)) rest1
     AstGatherPair _n2 (var2, ixs2) v ->
       let ixs3 = map (substituteAstInt i1 var2) ixs2
-      in build1VectorizeIndexVar @m n var (unsafeCoerce v) (ixs3 ++ rest1)
+      in build1VectorizeIndex @m n var (unsafeCoerce v) (ixs3 ++ rest1)
 
     AstSum0{} -> error "build1VectorizeIndexVar: wrong rank"
     AstDot0{} -> error "build1VectorizeIndexVar: wrong rank"
