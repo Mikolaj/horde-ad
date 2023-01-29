@@ -8,7 +8,8 @@
 -- for arbitrary code transformations at the cost of limiting
 -- expressiveness of transformed fragments to what AST captures.
 module HordeAd.Core.Ast
-  ( Ast(..), AstPrimalPart1(..)
+  ( AstShape, AstPath, AstPermutation
+  , Ast(..), AstPrimalPart1(..)
   , AstVarName(..), AstVar(..)
   , AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
@@ -29,6 +30,12 @@ import           Text.Show.Functions ()
 import HordeAd.Internal.OrthotopeOrphanInstances ()
 
 -- * Definitions
+
+type AstShape r = [AstInt r]  -- TODO: change to [Int] for static shapes
+
+type AstPath r = [AstInt r]
+
+type AstPermutation = [Int]
 
 -- TODO: consider sharing Ast expressions, both within the primal part
 -- and between primal and dual
@@ -52,16 +59,11 @@ data Ast :: Nat -> Type -> Type where
   -- For VectorLike class and the future Tensor class:
   AstIndex :: Ast (1 + n) r -> AstInt r -> Ast n r
   AstIndexN :: KnownNat m
-            => Ast (1 + m + n) r -> [AstInt r] -> Ast n r
+            => Ast (1 + m + n) r -> AstPath r -> Ast n r
     -- emerges from vectorizing AstIndex;
     -- first ix is for outermost dimension; @1 + m@ is the length of the list;
     -- empty list means identity
   AstSum :: Ast (1 + n) r -> Ast n r
-  -- No shape argument, because we'd need [AstInt], because it changes
-  -- during vectorization. The trade-off is a crash when the argument is empty,
-  -- but the user wants n =\ 1. TODO: perhaps just use List.NonEmpty,
-  -- but is there Vector.NonEmpty and, in the future, Tensor.NonEmpty?
-  -- For now, it crashes for empty arguments always.
   AstFromList :: [Ast n r] -> Ast (1 + n) r
   AstFromVector :: Data.Vector.Vector (Ast n r) -> Ast (1 + n) r
   AstKonst :: AstInt r -> Ast n r -> Ast (1 + n) r
@@ -71,16 +73,16 @@ data Ast :: Nat -> Type -> Type where
   AstReverse :: KnownNat n
              => Ast n r -> Ast n r
   AstTranspose :: Ast n r -> Ast n r
-  AstTransposeGeneral :: [Int] -> Ast n r -> Ast n r
+  AstTransposeGeneral :: AstPermutation -> Ast n r -> Ast n r
     -- emerges from vectorizing AstTranspose
   AstFlatten :: KnownNat n
              => Ast n r -> Ast 1 r
   AstReshape :: KnownNat n
-             => [AstInt r] -> Ast n r -> Ast m r
+             => AstShape r -> Ast n r -> Ast m r
     -- emerges from vectorizing AstFlatten
   AstBuildPair :: AstInt r -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
   AstGatherPair :: KnownNat m
-                => AstInt r -> (AstVarName Int, [AstInt r]) -> Ast (m + n) r
+                => AstInt r -> (AstVarName Int, AstPath r) -> Ast (m + n) r
                 -> Ast (1 + n) r
     -- emerges from vectorizing AstIndexN applied to term with no build variable
 
@@ -93,10 +95,10 @@ data Ast :: Nat -> Type -> Type where
           => Ast n r -> Ast 0 r
   AstDot0 :: KnownNat n
           => Ast n r -> Ast n r -> Ast 0 r
-  AstFromList0N :: [AstInt r] -> [Ast 0 r] -> Ast n r
-  AstFromVector0N :: [AstInt r] -> Data.Vector.Vector (Ast 0 r) -> Ast n r
-  AstKonst0N :: [AstInt r] -> Ast 0 r -> Ast (1 + n) r
-  AstBuildPair0N :: [AstInt r] -> ([AstVarName Int], Ast 0 r) -> Ast n r
+  AstFromList0N :: AstShape r -> [Ast 0 r] -> Ast n r
+  AstFromVector0N :: AstShape r -> Data.Vector.Vector (Ast 0 r) -> Ast n r
+  AstKonst0N :: AstShape r -> Ast 0 r -> Ast (1 + n) r
+  AstBuildPair0N :: AstShape r -> ([AstVarName Int], Ast 0 r) -> Ast n r
 
   -- For MonoFunctor class, which is needed for a particularly
   -- fast implementation of relu and offer fast, primal-part only, mapping.

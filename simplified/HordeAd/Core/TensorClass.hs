@@ -365,6 +365,12 @@ astBuild1 n f = unsafePerformIO $ do
 
 -- * Tensor class definition and instances for arrays, ADVal and Ast
 
+type ShapeOf r = [IntOf r]  -- TODO: change to [Int] for static shapes
+
+type PathOf r = [IntOf r]
+
+type Permutation = [Int]
+
 -- TODO: when we have several times more operations, split into
 -- Array (Container) and Tensor (Numeric), with the latter containing the few
 -- Ord and Num operations and numeric superclasses.
@@ -379,14 +385,14 @@ class VectorNumeric r
 
   tlength :: KnownNat n => TensorOf (1 + n) r -> IntOf r
   tsize :: KnownNat n => TensorOf n r -> IntOf r
-  -- tshape :: TensorOf n r -> [IntOf r]  -- TODO: a new Ast type needed
+  -- tshape :: TensorOf n r -> ShapeOf r  -- TODO: a new Ast type needed
   tminIndex :: TensorOf 1 r -> IntOf r
   tmaxIndex :: TensorOf 1 r -> IntOf r
 
   tindex :: KnownNat n => TensorOf (1 + n) r -> IntOf r -> TensorOf n r
-  tindex0 :: KnownNat n => TensorOf (1 + n) r -> [IntOf r] -> r
+  tindex0 :: KnownNat n => TensorOf (1 + n) r -> PathOf r -> r
   tindexN :: (KnownNat n, KnownNat m)
-          => TensorOf (1 + m + n) r -> [IntOf r] -> TensorOf n r
+          => TensorOf (1 + m + n) r -> PathOf r -> TensorOf n r
   tsum :: KnownNat n => TensorOf (1 + n) r -> TensorOf n r
   tsum0 :: KnownNat n => TensorOf n r -> r
   tdot0 :: KnownNat n => TensorOf n r -> TensorOf n r -> r
@@ -398,26 +404,26 @@ class VectorNumeric r
 
   tscalar :: r -> TensorOf 0 r
   tfromList :: KnownNat n => [TensorOf n r] -> TensorOf (1 + n) r
-  tfromList0N :: KnownNat n => [IntOf r] -> [r] -> TensorOf n r
+  tfromList0N :: KnownNat n => ShapeOf r -> [r] -> TensorOf n r
   tfromVector :: KnownNat n
               => Data.Vector.Vector (TensorOf n r) -> TensorOf (1 + n) r
   tfromVector0N :: KnownNat n
-                => [IntOf r] -> Data.Vector.Vector r -> TensorOf n r
+                => ShapeOf r -> Data.Vector.Vector r -> TensorOf n r
   tkonst :: KnownNat n => IntOf r -> TensorOf n r -> TensorOf (1 + n) r
-  tkonst0N :: KnownNat n => [IntOf r] -> r -> TensorOf (1 + n) r
+  tkonst0N :: KnownNat n => ShapeOf r -> r -> TensorOf (1 + n) r
   tappend :: KnownNat n => TensorOf n r -> TensorOf n r -> TensorOf n r
   tslice :: KnownNat n => IntOf r -> IntOf r -> TensorOf n r -> TensorOf n r
   treverse :: KnownNat n => TensorOf n r -> TensorOf n r
   ttranspose :: KnownNat n => TensorOf n r -> TensorOf n r
   ttranspose = ttransposeGeneral [1, 0]
-  ttransposeGeneral :: KnownNat n => [Int] -> TensorOf n r -> TensorOf n r
+  ttransposeGeneral :: KnownNat n => Permutation -> TensorOf n r -> TensorOf n r
   tflatten :: KnownNat n => TensorOf n r -> TensorOf 1 r
   tflatten u = treshape [tsize u] u
   treshape :: (KnownNat n, KnownNat m)
-           => [IntOf r] -> TensorOf n r -> TensorOf m r
+           => ShapeOf r -> TensorOf n r -> TensorOf m r
   tbuild :: KnownNat n
          => IntOf r -> (IntOf r -> TensorOf n r) -> TensorOf (1 + n) r
-  tbuild0N :: KnownNat n => [IntOf r] -> ([IntOf r] -> r) -> TensorOf n r
+  tbuild0N :: KnownNat n => ShapeOf r -> (PathOf r -> r) -> TensorOf n r
   tmap :: KnownNat n
        => (TensorOf n r -> TensorOf n r)
        -> TensorOf (1 + n) r -> TensorOf (1 + n) r
@@ -745,7 +751,7 @@ build1VectorizeVar n (var, u) =
 -- but it reduces the use of @unsafeCoerce@.
 build1VectorizeIndex
   :: forall m n r. KnownNat m
-  => AstInt r -> AstVarName Int -> Ast (1 + m + n) r -> [AstInt r]
+  => AstInt r -> AstVarName Int -> Ast (1 + m + n) r -> AstPath r
   -> Ast (1 + n) r
 build1VectorizeIndex n var v [] =
   unsafeCoerce $ build1Vectorize n (var, v)  -- m is -1
@@ -762,7 +768,7 @@ build1VectorizeIndex n var v is =
 -- and then the only hope is in analyzing the index expression in turn.
 build1VectorizeIndexVar
   :: forall m n r. KnownNat m
-  => AstInt r -> AstVarName Int -> Ast (1 + m + n) r -> [AstInt r]
+  => AstInt r -> AstVarName Int -> Ast (1 + m + n) r -> AstPath r
   -> Ast (1 + n) r
 build1VectorizeIndexVar n var v1 [] =
   unsafeCoerce $ build1VectorizeVar n (var, v1)  -- m is -1
@@ -878,7 +884,7 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
 -- Not sure about nested builds and so multiple variables.
 build1VectorizeIndexTry
   :: forall m n r. KnownNat m
-  => AstInt r -> AstVarName Int -> Ast (1 + m + n) r -> [AstInt r]
+  => AstInt r -> AstVarName Int -> Ast (1 + m + n) r -> AstPath r
   -> Ast (1 + n) r
 build1VectorizeIndexTry n var v [] =
   unsafeCoerce $ build1Vectorize n (var, v)  -- m is -1
@@ -1121,7 +1127,7 @@ interpretLambdaI1 env (AstVarName var, ast) =
 interpretLambdaPath
   :: ADModeAndNumTensor d r
   => IM.IntMap (AstVar (ADVal d r) (ADVal d (OR.Array 1 r)))
-  -> (AstVarName Int, [AstInt r])
+  -> (AstVarName Int, AstPath r)
   -> Int -> [Int]
 interpretLambdaPath env (AstVarName var, asts) =
   \i -> map (interpretAstInt (IM.insert var (AstVarI i) env)) asts
