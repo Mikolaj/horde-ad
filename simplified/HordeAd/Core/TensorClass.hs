@@ -165,9 +165,9 @@ class (RealFloat r, RealFloat (VectorOf r), Integral (IntOf r))
   type VectorOf r = result | result -> r
   type IntOf r
 
-  llength :: VectorOf r -> IntOf r  -- TODO: Int
-  lminIndex :: VectorOf r -> IntOf r  -- TODO: Int
-  lmaxIndex :: VectorOf r -> IntOf r  -- TODO: Int
+  llength :: VectorOf r -> Int
+  lminIndex :: VectorOf r -> IntOf r
+  lmaxIndex :: VectorOf r -> IntOf r
 
   lindex0 :: VectorOf r -> IntOf r -> r
   lsum0 :: VectorOf r -> r
@@ -194,8 +194,8 @@ class (RealFloat r, RealFloat (VectorOf r), Integral (IntOf r))
 
   -- Default methods for Float, Double and all future scalars users will add.
   default llength
-    :: (VectorOf r ~ OR.Array 1 r, IntOf r ~ Int)
-    => VectorOf r -> IntOf r
+    :: (VectorOf r ~ OR.Array 1 r)
+    => VectorOf r -> Int
   llength = tsizeR
   default lminIndex
     :: (Numeric r, VectorOf r ~ OR.Array 1 r, IntOf r ~ Int)
@@ -319,7 +319,7 @@ instance (Numeric r, RealFloat r, RealFloat (Vector r))
   type VectorOf (Ast 0 r) = Ast 1 r
   type IntOf (Ast 0 r) = AstInt r
 
-  llength = AstLength
+  llength = undefined  -- AstLength
   lminIndex = AstMinIndex
   lmaxIndex = AstMaxIndex
 
@@ -338,9 +338,9 @@ instance (Numeric r, RealFloat r, RealFloat (Vector r))
   lslice1 = AstSlice
   lreverse1 = AstReverse
   lbuild1 = astBuild1
-  lmap1 f v = astBuild1 (undefined {-llength v-}) (\i -> f (v `lindex0` i))
+  lmap1 f v = astBuild1 (llength v) (\i -> f (v `lindex0` i))
   lzipWith1 f v u =
-    astBuild1 (undefined {-llength v-}) (\i -> f (v `lindex0` i) (u `lindex0` i))
+    astBuild1 (llength v) (\i -> f (v `lindex0` i) (u `lindex0` i))
   fromIntOf1 = AstConstInt
 
 -- Impure but in the most trivial way (only ever incremented counter).
@@ -388,8 +388,8 @@ class VectorNumeric r
       => Tensor r where
   type TensorOf (n :: Nat) r = result | result -> n r
 
-  tlength :: KnownNat n => TensorOf (1 + n) r -> IntOf r  -- TODO: Int
-  tsize :: KnownNat n => TensorOf n r -> IntOf r  -- TODO: Int
+  tlength :: KnownNat n => TensorOf (1 + n) r -> Int
+  tsize :: KnownNat n => TensorOf n r -> Int
   -- tshape :: TensorOf n r -> [Int]
   tminIndex :: TensorOf 1 r -> IntOf r
   tmaxIndex :: TensorOf 1 r -> IntOf r
@@ -423,7 +423,7 @@ class VectorNumeric r
   ttranspose = ttransposeGeneral [1, 0]
   ttransposeGeneral :: KnownNat n => Permutation -> TensorOf n r -> TensorOf n r
   tflatten :: KnownNat n => TensorOf n r -> TensorOf 1 r
-  tflatten u = treshape [undefined {-tsize u-}] u
+  tflatten u = treshape [tsize u] u
   treshape :: (KnownNat n, KnownNat m)
            => [Int] -> TensorOf n r -> TensorOf m r
   tbuild :: KnownNat n
@@ -432,12 +432,12 @@ class VectorNumeric r
   tmap :: KnownNat n
        => (TensorOf n r -> TensorOf n r)
        -> TensorOf (1 + n) r -> TensorOf (1 + n) r
-  tmap f u = tbuild (undefined {-tlength u-}) (\i -> f (u `tindex` i))
+  tmap f u = tbuild (tlength u) (\i -> f (u `tindex` i))
   tmap0N :: KnownNat n => (r -> r) -> TensorOf n r -> TensorOf n r
   tzipWith :: KnownNat n
            => (TensorOf n r -> TensorOf n r -> TensorOf n r)
            -> TensorOf (1 + n) r -> TensorOf (1 + n) r -> TensorOf (1 + n) r
-  tzipWith f u v = tbuild (undefined {-tlength u-}) (\i -> f (u `tindex` i) (v `tindex` i))
+  tzipWith f u v = tbuild (tlength u) (\i -> f (u `tindex` i) (v `tindex` i))
   tzipWith0N :: KnownNat n
              => (r -> r -> r) -> TensorOf n r -> TensorOf n r -> TensorOf n r
 
@@ -583,8 +583,8 @@ instance (Numeric r, RealFloat r, RealFloat (Vector r))
          => Tensor (Ast 0 r) where
   type TensorOf n (Ast 0 r) = Ast n r
 
-  tlength = AstLength
-  tsize = AstSize
+  tlength = undefined  -- AstLength
+  tsize = undefined  -- AstSize
   tminIndex = AstMinIndex
   tmaxIndex = AstMaxIndex
 
