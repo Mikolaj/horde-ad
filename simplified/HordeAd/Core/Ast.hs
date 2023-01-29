@@ -79,8 +79,8 @@ data Ast :: Nat -> Type -> Type where
   AstFromVector :: Data.Vector.Vector (Ast n r) -> Ast (1 + n) r
   AstKonst :: Int -> Ast n r -> Ast (1 + n) r
   AstAppend :: KnownNat n
-            => Ast n r -> Ast n r -> Ast n r
-  AstSlice :: Int -> Int -> Ast n r -> Ast n r
+            => Ast (1 + n) r -> Ast (1 + n) r -> Ast (1 + n) r
+  AstSlice :: Int -> Int -> Ast (1 + n) r -> Ast (1 + n) r
   AstReverse :: KnownNat n
              => Ast n r -> Ast n r
   AstTranspose :: Ast n r -> Ast n r
@@ -367,9 +367,9 @@ shapeAst v1 = case v1 of
     t : _ -> V.length l : shapeAst t
   AstKonst n v -> n : shapeAst v
   AstAppend x y -> case shapeAst x of
-    [] -> shapeAst y
+    [] -> error "shapeAst: AstAppend applied to scalars"
     xi : xsh -> case shapeAst y of
-      [] -> xi : xsh
+      [] -> error "shapeAst: AstAppend applied to scalars"
       yi : _ -> xi + yi : xsh
   AstSlice _i k v -> k : tail (shapeAst v)
   AstReverse v -> shapeAst v

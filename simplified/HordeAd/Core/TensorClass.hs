@@ -423,8 +423,9 @@ class VectorNumeric r
                 => [Int] -> Data.Vector.Vector r -> TensorOf n r
   tkonst :: KnownNat n => Int -> TensorOf n r -> TensorOf (1 + n) r
   tkonst0N :: KnownNat n => [Int] -> r -> TensorOf (1 + n) r
-  tappend :: KnownNat n => TensorOf n r -> TensorOf n r -> TensorOf n r
-  tslice :: KnownNat n => Int -> Int -> TensorOf n r -> TensorOf n r
+  tappend :: KnownNat n
+          => TensorOf (1 + n) r -> TensorOf (1 + n) r -> TensorOf (1 + n) r
+  tslice :: KnownNat n => Int -> Int -> TensorOf (1 + n) r -> TensorOf (1 + n) r
   treverse :: KnownNat n => TensorOf n r -> TensorOf n r
   ttranspose :: KnownNat n => TensorOf n r -> TensorOf n r
   ttranspose = ttransposeGeneral [1, 0]
@@ -621,7 +622,7 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   tmap0N = undefined  -- TODO
   tzipWith0N = undefined  -- TODO
 
-astBuild :: (Show r, Numeric r)
+astBuild :: (KnownNat n, Show r, Numeric r)
          => Int -> (AstInt r -> Ast n r) -> Ast (n + 1) r
 {-# NOINLINE astBuild #-}
 astBuild n f = unsafePerformIO $ do
@@ -636,7 +637,7 @@ astBuild n f = unsafePerformIO $ do
 -- * Vectorization of the build operation
 
 build1Vectorize
-  :: (Show r, Numeric r)
+  :: (KnownNat n, Show r, Numeric r)
   => Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
 build1Vectorize n (var, u) =
   if intVarInAst var u
@@ -645,7 +646,7 @@ build1Vectorize n (var, u) =
 
 -- | The variable is known to occur in the term.
 build1VectorizeVar
-  :: (Show r, Numeric r)
+  :: (KnownNat n, Show r, Numeric r)
   => Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
 build1VectorizeVar n (var, u) =
   case u of
@@ -757,7 +758,7 @@ build1VectorizeVar n (var, u) =
 -- The hack causes @m@ to, morally, have value -1 when the path is empty,
 -- but it reduces the use of @unsafeCoerce@.
 build1VectorizeIndex
-  :: forall m n r. (KnownNat m, Show r, Numeric r)
+  :: forall m n r. (KnownNat n, KnownNat m, Show r, Numeric r)
   => Int -> AstVarName Int -> Ast (1 + m + n) r -> AstPath r
   -> Ast (1 + n) r
 build1VectorizeIndex n var v [] =
@@ -774,7 +775,7 @@ build1VectorizeIndex n var v is =
 -- we are down to indexing of a too simple but non-constant expression,
 -- and then the only hope is in analyzing the index expression in turn.
 build1VectorizeIndexVar
-  :: forall m n r. (KnownNat m, Show r, Numeric r)
+  :: forall m n r. (KnownNat n, KnownNat m, Show r, Numeric r)
   => Int -> AstVarName Int -> Ast (1 + m + n) r -> AstPath r
   -> Ast (1 + n) r
 build1VectorizeIndexVar n var v1 [] =
@@ -893,7 +894,7 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
 -- only as far as needed to eliminate the build variable from the term.
 -- Not sure about nested builds and so multiple variables.
 build1VectorizeIndexTry
-  :: forall m n r. (KnownNat m, Show r, Numeric r)
+  :: forall m n r. (KnownNat n, KnownNat m, Show r, Numeric r)
   => Int -> AstVarName Int -> Ast (1 + m + n) r -> AstPath r
   -> Ast (1 + n) r
 build1VectorizeIndexTry n var v [] =
@@ -1005,8 +1006,7 @@ intVarInAstBool var = \case
 -- and sometimes more general than the Ast operations.
 index :: (ADModeAndNumTensor d r, KnownNat n)
       => ADVal d (OR.Array (1 + n) r) -> Int -> ADVal d (OR.Array n r)
-index (D u u') ix = dD (u `tindexR` ix)
-                       (dIndex1 u' ix (head $ OR.shapeL u))
+index (D u u') ix = dD (u `tindexR` ix) (dIndex1 u' ix (tlengthR u))
 
 -- | First index is for outermost dimension; @1 + m@ is the length of the path;
 -- empty path means identity.
@@ -1019,8 +1019,7 @@ indexN (D u u') ixs = dD (tindexNR u ixs)
 
 sum' :: (ADModeAndNumTensor d r, KnownNat n)
      => ADVal d (OR.Array (1 + n) r) -> ADVal d (OR.Array n r)
-sum' (D u u') = dD (tsumR u)
-                   (dSum1 (head $ OR.shapeL u) u')
+sum' (D u u') = dD (tsumR u) (dSum1 (tlengthR u) u')
 
 sum0 :: (ADModeAndNumTensor d r, KnownNat n)
      => ADVal d (OR.Array n r) -> ADVal d r
@@ -1075,15 +1074,14 @@ konst0N :: (ADModeAndNumTensor d r, KnownNat n)
 konst0N sh (D u u') = dD (tkonst0NR sh u) (dKonst01 sh u')
 
 append :: (ADModeAndNumTensor d r, KnownNat n)
-       => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
-       -> ADVal d (OR.Array n r)
-append (D u u') (D v v') = dD (tappendR u v)
-                              (dAppend1 u' (head $ OR.shapeL u) v')
+       => ADVal d (OR.Array (1 + n) r) -> ADVal d (OR.Array (1 + n) r)
+       -> ADVal d (OR.Array (1 + n) r)
+append (D u u') (D v v') = dD (tappendR u v) (dAppend1 u' (tlengthR u) v')
 
 slice :: (ADModeAndNumTensor d r, KnownNat n)
-      => Int -> Int -> ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
-slice i k (D u u') = dD (tsliceR i k u)
-                        (dSlice1 i k u' (head $ OR.shapeL u))
+      => Int -> Int -> ADVal d (OR.Array (1 + n) r)
+      -> ADVal d (OR.Array (1 + n) r)
+slice i k (D u u') = dD (tsliceR i k u) (dSlice1 i k u' (tlengthR u))
 
 reverse' :: (ADModeAndNumTensor d r, KnownNat n)
          => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
