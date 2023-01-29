@@ -386,13 +386,18 @@ type Permutation = [Int]
 -- The @VectorNumeric@ superclass is for @IntOf@ and potential interoperability
 -- (TODO: add coversions between VectorOf and TensorOf to facilitate this)
 -- but all its operations have straightforwardly generalized analogues below.
+-- Eventually, we'll remove @VectorNumeric@ or define it in terms of @Tensor@.
 class VectorNumeric r
       => Tensor r where
   type TensorOf (n :: Nat) r = result | result -> n r
 
-  tlength :: KnownNat n => TensorOf (1 + n) r -> Int
+  tshape :: TensorOf n r -> [Int]
   tsize :: KnownNat n => TensorOf n r -> Int
-  -- tshape :: TensorOf n r -> [Int]
+  tsize = product . tshape
+  tlength :: KnownNat n => TensorOf (1 + n) r -> Int
+  tlength v = case tshape v of
+    [] -> error "tlength: impossible rank 0 found"
+    n : _ -> n
   tminIndex :: TensorOf 1 r -> IntOf r
   tmaxIndex :: TensorOf 1 r -> IntOf r
 
@@ -456,8 +461,7 @@ type ADReady' r = ( Tensor r, HasPrimal r
 -- For vectorization, go through Ast and valueOnDomains.
 instance Tensor Double where
   type TensorOf n Double = OR.Array n Double
-  tlength = tlengthR
-  tsize = tsizeR
+  tshape = OR.shapeL
   tminIndex = tminIndexR
   tmaxIndex = tmaxIndexR
   tindex = tindexR
@@ -488,8 +492,7 @@ instance Tensor Double where
 
 instance Tensor Float where
   type TensorOf n Float = OR.Array n Float
-  tlength = tlengthR
-  tsize = tsizeR
+  tshape = OR.shapeL
   tminIndex = tminIndexR
   tmaxIndex = tmaxIndexR
   tindex = tindexR
@@ -534,8 +537,7 @@ instance (ADModeAndNumTensor d r, TensorOf 1 r ~ OR.Array 1 r)
   -- for @ADVal d (OR.Array n r)@ and @OR.Array n r@). As a workaround,
   -- the methods are defined as calls to tensor functions provided elsewhere,
   -- so there is no code duplication.
-  tlength (D u _) = tlengthR u
-  tsize (D u _) = tsizeR u
+  tshape (D u _) = OR.shapeL u
   tminIndex (D u _) = tminIndexR u
   tmaxIndex (D u _) = tmaxIndexR u
 
@@ -586,8 +588,7 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
          => Tensor (Ast 0 r) where
   type TensorOf n (Ast 0 r) = Ast n r
 
-  tlength = lenghtAst
-  tsize = product . shapeAst
+  tshape = shapeAst
   tminIndex = AstMinIndex
   tmaxIndex = AstMaxIndex
 

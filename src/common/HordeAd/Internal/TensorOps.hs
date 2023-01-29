@@ -103,15 +103,15 @@ tsum0D
 tsum0D (Data.Array.Internal.DynamicS.A (Data.Array.Internal.DynamicG.A sh t)) =
   LA.sumElements $ Data.Array.Internal.toUnorderedVectorT sh t
 
+tsizeR
+  :: OR.Array n r -> Int
+tsizeR = OR.size
+
 tlengthR
   :: OR.Array (1 + n) r -> Int
 tlengthR u = case OR.shapeL u of
   [] -> error "tlength: missing dimensions"
   k : _ -> k
-
-tsizeR
-  :: OR.Array n r -> Int
-tsizeR = OR.size
 
 tminIndexR
   :: Numeric r

@@ -400,5 +400,5 @@ shapeAst v1 = case v1 of
 
 lenghtAst :: (Show r, Numeric r) => Ast (1 + n) r -> Int
 lenghtAst v1 = case shapeAst v1 of
+  [] -> error "lenghtAst: impossible rank 0 found"
   n : _ -> n
-  _ -> error "lenghtAst: impossible rank 0 found"
