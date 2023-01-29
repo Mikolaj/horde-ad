@@ -370,7 +370,7 @@ astBuild1 n f = unsafePerformIO $ do
 -- However, if we switched to @Data.Array.Shaped@ and moved most of the shapes
 -- to the type level, we'd recover some of the expressiveness, while retaining
 -- statically known (type-parameterized) shapes.
-type ShapeOf r = OR.ShapeL  -- = [Int]
+-- type ShapeOf r = OR.ShapeL = [Int]  -- now replaced by [Int] below
 
 type PathOf r = [IntOf r]
 
@@ -390,7 +390,7 @@ class VectorNumeric r
 
   tlength :: KnownNat n => TensorOf (1 + n) r -> IntOf r  -- TODO: Int
   tsize :: KnownNat n => TensorOf n r -> IntOf r  -- TODO: Int
-  -- tshape :: TensorOf n r -> ShapeOf r  -- TODO: a new Ast type needed
+  -- tshape :: TensorOf n r -> [Int]
   tminIndex :: TensorOf 1 r -> IntOf r
   tmaxIndex :: TensorOf 1 r -> IntOf r
 
@@ -409,13 +409,13 @@ class VectorNumeric r
 
   tscalar :: r -> TensorOf 0 r
   tfromList :: KnownNat n => [TensorOf n r] -> TensorOf (1 + n) r
-  tfromList0N :: KnownNat n => ShapeOf r -> [r] -> TensorOf n r
+  tfromList0N :: KnownNat n => [Int] -> [r] -> TensorOf n r
   tfromVector :: KnownNat n
               => Data.Vector.Vector (TensorOf n r) -> TensorOf (1 + n) r
   tfromVector0N :: KnownNat n
-                => ShapeOf r -> Data.Vector.Vector r -> TensorOf n r
+                => [Int] -> Data.Vector.Vector r -> TensorOf n r
   tkonst :: KnownNat n => Int -> TensorOf n r -> TensorOf (1 + n) r
-  tkonst0N :: KnownNat n => ShapeOf r -> r -> TensorOf (1 + n) r
+  tkonst0N :: KnownNat n => [Int] -> r -> TensorOf (1 + n) r
   tappend :: KnownNat n => TensorOf n r -> TensorOf n r -> TensorOf n r
   tslice :: KnownNat n => Int -> Int -> TensorOf n r -> TensorOf n r
   treverse :: KnownNat n => TensorOf n r -> TensorOf n r
@@ -425,10 +425,10 @@ class VectorNumeric r
   tflatten :: KnownNat n => TensorOf n r -> TensorOf 1 r
   tflatten u = treshape [undefined {-tsize u-}] u
   treshape :: (KnownNat n, KnownNat m)
-           => ShapeOf r -> TensorOf n r -> TensorOf m r
+           => [Int] -> TensorOf n r -> TensorOf m r
   tbuild :: KnownNat n
          => Int -> (IntOf r -> TensorOf n r) -> TensorOf (1 + n) r
-  tbuild0N :: KnownNat n => ShapeOf r -> (PathOf r -> r) -> TensorOf n r
+  tbuild0N :: KnownNat n => [Int] -> (PathOf r -> r) -> TensorOf n r
   tmap :: KnownNat n
        => (TensorOf n r -> TensorOf n r)
        -> TensorOf (1 + n) r -> TensorOf (1 + n) r
