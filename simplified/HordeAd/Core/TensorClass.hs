@@ -1230,7 +1230,7 @@ interpretAst env = \case
     Just AstVarI{} ->
       error $ "interpretAst: type mismatch for var " ++ show var
     Nothing -> error $ "interpretAst: unknown variable var " ++ show var
-  AstVar1 (AstVarName var) -> case IM.lookup var env of
+  AstVar1 _n (AstVarName var) -> case IM.lookup var env of
     Just AstVarR0{} ->
       error $ "interpretAst: type mismatch for var " ++ show var
     Just (AstVarR1 d) -> d

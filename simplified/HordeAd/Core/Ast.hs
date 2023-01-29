@@ -120,7 +120,7 @@ data Ast :: Nat -> Type -> Type where
   -- Variables are only needed for AstOMap. They are also used in test glue
   -- code and may be used for sharing in the future.
   AstVar0 :: AstVarName r -> Ast 0 r
-  AstVar1 :: AstVarName (OR.Array 1 r) -> Ast 1 r
+  AstVar1 :: Int -> AstVarName (OR.Array 1 r) -> Ast 1 r
 deriving instance (Show r, Numeric r) => Show (Ast n r)
 
 newtype AstPrimalPart1 n r = AstPrimalPart1 (Ast n r)
@@ -396,7 +396,7 @@ shapeAst v1 = case v1 of
   AstOMap0 (_var, _r) _e -> []
   AstOMap1 (_var, _r) e -> shapeAst e
   AstVar0 (AstVarName _var) -> []
-  AstVar1 (AstVarName _var) -> [undefined]  -- TODO
+  AstVar1 n (AstVarName _var) -> [n]
 
 lenghtAst :: (Show r, Numeric r) => Ast (1 + n) r -> Int
 lenghtAst v1 = case shapeAst v1 of

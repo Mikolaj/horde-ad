@@ -286,7 +286,7 @@ testPoly11 f outSize input expected = do
         revOnDomains dt
           (\adinputs ->
              interpretAst (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
-                          (f (AstVar1 (AstVarName (-1)))))
+                          (f (AstVar1 (length input) (AstVarName (-1)))))
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains dt
@@ -360,7 +360,7 @@ testFooNoGoAst =
         -- "1" wrong due to fragility of hmatrix and tensor numeric instances
        (\adinputs ->
           interpretAst (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
-                        (fooNoGoAst (AstVar1 (AstVarName (-1)))))
+                        (fooNoGoAst (AstVar1 5 (AstVarName (-1)))))
        (domainsFrom0V V.empty
                       (V.singleton (V.fromList
                                       [1.1 :: Double, 2.2, 3.3, 4, 5]))))
@@ -412,7 +412,7 @@ testBarReluAst1 =
          -- "1" wrong due to fragility of hmatrix and tensor numeric instances
        (\adinputs ->
           interpretAst (IM.singleton (-1) (AstVarR1 $ adinputs `at1` 0))
-                       (barReluAst1 (AstVar1 (AstVarName (-1)))))
+                       (barReluAst1 (AstVar1 5 (AstVarName (-1)))))
        (domainsFrom0V V.empty
                       (V.singleton (V.fromList
                                       [1.1 :: Double, 2.2, 3.3, 4, 5]))))
