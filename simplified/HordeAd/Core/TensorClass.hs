@@ -809,15 +809,13 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
       else
         AstCond b (build1VectorizeIndex n var v is)
                   (build1VectorizeIndex n var w is)
-    AstSelect{} -> AstBuildPair n (var, AstIndexN v1 is)  -- we give up
-      -- TODO: can't push the indexing down;
-      -- we may want to add yet another constructor that says "pick the element
-      -- on this path out of this select" and hope it reduces fine elsewhere
-      -- or we may partially evaluate @i@ and try to reduce on the spot
+    AstSelect _n2 (var2, b) v w ->
+      build1VectorizeIndexVar
+        n var (substituteAst i1 var2 (AstCond b v w)) rest1
     AstConstInt{} ->
       AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, AstIndexN v1 is)
-    AstConst{} ->  -- var must be in i
-      AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, AstIndexN v1 is)
+    AstConst{} ->
+      error "build1VectorizeIndexVar: AstConst can't have free int variables"
     AstConstant{} ->
       AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, AstIndexN v1 is)
     AstScale (AstPrimalPart1 r) d ->
@@ -861,12 +859,26 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
                   : rest1
       in build1VectorizeIndexVar n var v revIs
     -- Can't push indexing down, so try analyzing the index instead:
-    AstTranspose{} -> AstBuildPair n (var, AstIndexN v1 is)  -- we give up
-      -- TODO: a more general indexing needed, one intespersed with transpose
-      -- or operating on the underlying vector of elements instead?
-    AstTransposeGeneral{} -> AstBuildPair n (var, AstIndexN v1 is)  -- give up
-      -- TODO: an even more general indexing needed?
-      -- or just traspose the path?
+    AstTranspose v -> case rest1 of
+      [] | length (shapeAst v) < 2 ->
+        build1VectorizeIndexVar n var v is  -- if rank too low, it's id
+      [] -> AstBuildPair n (var, AstIndexN v1 is)  -- we give up
+      i2 : rest2 -> build1VectorizeIndexVar n var v (i2 : i1 : rest2)
+    AstTransposeGeneral perm v ->
+      let permutePrefix :: AstPermutation -> AstPath r -> AstPath r
+          permutePrefix p l = V.toList $ Data.Vector.fromList l V.// zip p l
+          lenp = length perm
+          is2 = permutePrefix perm is
+      in if | length (shapeAst v) < lenp ->
+                build1VectorizeIndexVar n var v is
+                  -- the operation is an identity if rank too small
+            | length is < lenp ->
+                AstBuildPair n (var, AstIndexN v1 is)  -- we give up
+                  -- TODO: for this we really need generalized paths that
+                  -- first project, then transpose and generalized gather;
+                  -- or instead push down transpose, but it may be expensive
+                  -- or get stuck as well
+            | otherwise -> build1VectorizeIndexVar n var v is2
     AstFlatten{} -> AstBuildPair n (var, AstIndexN v1 is)  -- we give up
       -- TODO: build path from index
     AstReshape{} -> AstBuildPair n (var, AstIndexN v1 is)  -- we give up
