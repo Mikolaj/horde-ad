@@ -81,7 +81,7 @@ fooMap1 r =
 
 -- A test with conditionals. We haven't defined a class for conditionals so far,
 -- so this uses raw AST instead of sufficiently polymorphic code.
-fooNoGoAst :: (Numeric r, RealFloat r, Floating (Vector r))
+fooNoGoAst :: (Show r, Numeric r, RealFloat r, Floating (Vector r))
            => Ast 1 r -> Ast 1 r
 fooNoGoAst v =
   let r = lsum0 v
@@ -162,7 +162,7 @@ barReluAst1 x = reluAst $ bar (x, reluAst x)
                   -- TODO; fails: barRelu @(Ast n r)
 
 konstReluAst
-  :: forall r. (Numeric r, RealFloat r, RealFloat (Vector r))
+  :: forall r. (Show r, Numeric r, RealFloat r, RealFloat (Vector r))
   => Ast 0 r -> Ast 0 r
 konstReluAst x = lsum0 $ reluAst $ lkonst1 7 x
 

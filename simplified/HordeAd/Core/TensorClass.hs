@@ -314,12 +314,13 @@ instance ADModeAndNumTensor d r
   lzipWith1 f v u =
     build1Closure (llength v) (\i -> f (v `lindex0` i) (u `lindex0` i))
 
-instance (Numeric r, RealFloat r, RealFloat (Vector r))
+instance ( Numeric r, RealFloat r, RealFloat (Vector r)
+         , Show r, Numeric r )  -- needed only to display errors properly
          => VectorNumeric (Ast 0 r) where
   type VectorOf (Ast 0 r) = Ast 1 r
   type IntOf (Ast 0 r) = AstInt r
 
-  llength = undefined  -- AstLength
+  llength = lenghtAst
   lminIndex = AstMinIndex
   lmaxIndex = AstMaxIndex
 
@@ -352,7 +353,8 @@ unsafeGetFreshAstVar :: IO (AstVarName a)
 {-# INLINE unsafeGetFreshAstVar #-}
 unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-astBuild1 :: Int -> (AstInt r -> Ast 0 r) -> Ast 1 r
+astBuild1 :: (Show r, Numeric r)
+          => Int -> (AstInt r -> Ast 0 r) -> Ast 1 r
 {-# NOINLINE astBuild1 #-}
 astBuild1 n f = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
@@ -579,12 +581,13 @@ instance (ADModeAndNumTensor d r, TensorOf 1 r ~ OR.Array 1 r)
   tmap0N = undefined  -- TODO
   tzipWith0N = undefined  -- TODO
 
-instance (Numeric r, RealFloat r, RealFloat (Vector r))
+instance ( Numeric r, RealFloat r, RealFloat (Vector r)
+         , Show r, Numeric r )  -- needed only to display errors properly
          => Tensor (Ast 0 r) where
   type TensorOf n (Ast 0 r) = Ast n r
 
-  tlength = undefined  -- AstLength
-  tsize = undefined  -- AstSize
+  tlength = lenghtAst
+  tsize = product . shapeAst
   tminIndex = AstMinIndex
   tmaxIndex = AstMaxIndex
 
@@ -617,7 +620,8 @@ instance (Numeric r, RealFloat r, RealFloat (Vector r))
   tmap0N = undefined  -- TODO
   tzipWith0N = undefined  -- TODO
 
-astBuild :: Int -> (AstInt r -> Ast n r) -> Ast (n + 1) r
+astBuild :: (Show r, Numeric r)
+         => Int -> (AstInt r -> Ast n r) -> Ast (n + 1) r
 {-# NOINLINE astBuild #-}
 astBuild n f = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
@@ -631,7 +635,8 @@ astBuild n f = unsafePerformIO $ do
 -- * Vectorization of the build operation
 
 build1Vectorize
-  :: Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
+  :: (Show r, Numeric r)
+  => Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
 build1Vectorize n (var, u) =
   if intVarInAst var u
   then build1VectorizeVar n (var, u)
@@ -639,7 +644,8 @@ build1Vectorize n (var, u) =
 
 -- | The variable is known to occur in the term.
 build1VectorizeVar
-  :: Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
+  :: (Show r, Numeric r)
+  => Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
 build1VectorizeVar n (var, u) =
   case u of
     AstOp opCode args ->
@@ -701,7 +707,7 @@ build1VectorizeVar n (var, u) =
       build1VectorizeVar n (var, AstTransposeGeneral [1, 0] v)
     AstTransposeGeneral perm v -> AstTransposeGeneral (0 : map succ perm)
                                   $ build1VectorizeVar n (var, v)
-    AstFlatten v -> build1Vectorize n (var, AstReshape [undefined {-AstLength u-}] v)
+    AstFlatten v -> build1Vectorize n (var, AstReshape [lenghtAst u] v)
     AstReshape sh v -> AstReshape (n : sh) $ build1Vectorize n (var, v)
     AstBuildPair{} -> AstBuildPair n (var, u)
       -- TODO: a previous failure of vectorization that should have
@@ -750,7 +756,7 @@ build1VectorizeVar n (var, u) =
 -- The hack causes @m@ to, morally, have value -1 when the path is empty,
 -- but it reduces the use of @unsafeCoerce@.
 build1VectorizeIndex
-  :: forall m n r. KnownNat m
+  :: forall m n r. (KnownNat m, Show r, Numeric r)
   => Int -> AstVarName Int -> Ast (1 + m + n) r -> AstPath r
   -> Ast (1 + n) r
 build1VectorizeIndex n var v [] =
@@ -767,7 +773,7 @@ build1VectorizeIndex n var v is =
 -- we are down to indexing of a too simple but non-constant expression,
 -- and then the only hope is in analyzing the index expression in turn.
 build1VectorizeIndexVar
-  :: forall m n r. KnownNat m
+  :: forall m n r. (KnownNat m, Show r, Numeric r)
   => Int -> AstVarName Int -> Ast (1 + m + n) r -> AstPath r
   -> Ast (1 + n) r
 build1VectorizeIndexVar n var v1 [] =
@@ -817,9 +823,9 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
       _ -> let v2 = (unsafeCoerce :: Ast n1 r -> Ast (1 + m + n) r) v
            in build1VectorizeIndex n var v2 rest1
     AstAppend v w ->
-      let is2 = map (\i -> AstIntOp PlusIntOp [i, undefined {-AstLength v-}]) is
+      let is2 = map (\i -> AstIntOp PlusIntOp [i, AstIntConst (lenghtAst v)]) is
       in build1Vectorize n
-           (var, AstCond (AstRelInt LsOp [i1, undefined {-AstLength v-}])
+           (var, AstCond (AstRelInt LsOp [i1, AstIntConst (lenghtAst v)])
                          (AstIndexN v is)
                          (AstIndexN w is2))
           -- this is basically partial evaluation, but in constant
@@ -830,7 +836,9 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
       build1VectorizeIndex n var v (map (\i ->
         AstIntOp PlusIntOp [i, AstIntConst i2]) is)
     AstReverse v ->
-      let revIs = AstIntOp MinusIntOp [AstIntOp MinusIntOp [undefined {-AstLength v-}, 1], i1]
+      let revIs = AstIntOp MinusIntOp
+                           [AstIntOp MinusIntOp
+                                     [AstIntConst (lenghtAst v), 1], i1]
                   : rest1
       in build1VectorizeIndexVar n var v revIs
     -- Can't push indexing down, so try analyzing the index instead:
@@ -884,7 +892,7 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
 -- only as far as needed to eliminate the build variable from the term.
 -- Not sure about nested builds and so multiple variables.
 build1VectorizeIndexTry
-  :: forall m n r. KnownNat m
+  :: forall m n r. (KnownNat m, Show r, Numeric r)
   => Int -> AstVarName Int -> Ast (1 + m + n) r -> AstPath r
   -> Ast (1 + n) r
 build1VectorizeIndexTry n var v [] =

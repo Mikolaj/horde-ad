@@ -13,15 +13,19 @@ module HordeAd.Core.Ast
   , AstVarName(..), AstVar(..)
   , AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
+  , shapeAst, lenghtAst
   ) where
 
 import Prelude
 
+import           Control.Exception.Assert.Sugar
 import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Type)
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import qualified Data.Strict.Vector as Data.Vector
+import qualified Data.Vector.Generic as V
+import qualified Data.Vector.Storable as VS
 import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Numeric)
 import           System.IO.Unsafe (unsafePerformIO)
@@ -331,3 +335,70 @@ instance MonoFunctor (AstPrimalPart1 0 Float) where
     let g y = let AstPrimalPart1 z = f (AstPrimalPart1 y)
               in z
     in AstPrimalPart1 (astOmap0 g x)
+
+-- This is cheap and dirty. We don't shape-check the terms and we don't
+-- unify or produce (partial) results with variables. Instead, we investigate
+-- only one path and fail if it doesn't contain enough information
+-- to determine shape. If we don't switch to @Data.Array.Shaped@
+-- or revert to fully dynamic shapes,we need to redo this with more rigour.
+shapeAst :: (Show r, Numeric r) => Ast n r -> AstShape r
+shapeAst v1 = case v1 of
+  AstOp _opCode args -> case args of
+    [] -> error "shapeAst: AstOp with no arguments"
+    t : _ -> shapeAst t
+  AstCond _b a1 _a2 -> shapeAst a1
+  AstSelect n (AstVarName _var, _b) a1 _a2 ->
+    n : shapeAst a1
+  AstConstInt _i -> []
+  AstConst a -> OR.shapeL a
+  AstConstant (AstPrimalPart1 a) -> shapeAst a
+  AstScale (AstPrimalPart1 r) _d -> shapeAst r
+  AstIndex v _i -> tail $ shapeAst v  -- types ensure this @tail@ is total
+  AstIndexN v is ->
+    let sh = shapeAst v
+    in assert (length sh >= length is `blame` v1)
+       $ drop (length is) sh
+  AstSum v -> tail $ shapeAst v
+  AstFromList l -> case l of
+    [] -> error "shapeAst: AstFromList with no arguments"
+    t : _ -> length l : shapeAst t
+  AstFromVector l -> case V.toList l of
+    [] -> error "shapeAst: AstFromVector with no arguments"
+    t : _ -> V.length l : shapeAst t
+  AstKonst n v -> n : shapeAst v
+  AstAppend x y -> case shapeAst x of
+    [] -> shapeAst y
+    xi : xsh -> case shapeAst y of
+      [] -> xi : xsh
+      yi : _ -> xi + yi : xsh
+  AstSlice _i k v -> k : tail (shapeAst v)
+  AstReverse v -> shapeAst v
+  AstTranspose v -> case shapeAst v of
+    i : k : sh -> k : i : sh
+    _ -> error "shapeAst: shape too short for AstTranspose"
+  AstTransposeGeneral perm v ->
+    let permute :: AstPermutation -> AstShape r -> AstShape r
+        permute p l = V.toList $ VS.replicate (length p) 0 V.// zip p l
+    in permute perm $ shapeAst v
+  AstFlatten v -> [product $ shapeAst v]
+  AstReshape sh _v -> sh
+  AstBuildPair n (_var, v) -> n : shapeAst v
+  AstGatherPair n (_var, is) v ->
+    let sh = shapeAst v
+    in assert (length sh >= length is `blame` v1)
+       $ n : drop (length is) sh
+  AstSum0 _v -> []
+  AstDot0 _x _y -> []
+  AstFromList0N sh _l -> sh
+  AstFromVector0N sh _l -> sh
+  AstKonst0N sh _r -> sh
+  AstBuildPair0N sh (_vars, _r) -> sh
+  AstOMap0 (_var, _r) _e -> []
+  AstOMap1 (_var, _r) e -> shapeAst e
+  AstVar0 (AstVarName _var) -> []
+  AstVar1 (AstVarName _var) -> [undefined]  -- TODO
+
+lenghtAst :: (Show r, Numeric r) => Ast (1 + n) r -> Int
+lenghtAst v1 = case shapeAst v1 of
+  n : _ -> n
+  _ -> error "lenghtAst: impossible rank 0 found"
