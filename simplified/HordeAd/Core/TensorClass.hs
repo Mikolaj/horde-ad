@@ -1179,7 +1179,7 @@ interpretAst env = \case
   AstTranspose v -> interpretAst env $ AstTransposeGeneral [1, 0] v
   AstTransposeGeneral perm v ->
     let d@(D u _) = interpretAst env v
-    in if OR.rank u <= length perm - 1 then d else transposeGeneral perm d
+    in if OR.rank u < length perm then d else transposeGeneral perm d
   AstFlatten v -> let d@(D u _) = interpretAst env v
                   in reshape [OR.size u] d
   AstReshape sh v -> reshape sh (interpretAst env v)

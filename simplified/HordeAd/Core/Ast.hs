@@ -375,11 +375,14 @@ shapeAst v1 = case v1 of
   AstReverse v -> shapeAst v
   AstTranspose v -> case shapeAst v of
     i : k : sh -> k : i : sh
-    _ -> error "shapeAst: shape too short for AstTranspose"
+    sh -> sh  -- the operation is an identity if rank too small
   AstTransposeGeneral perm v ->
-    let permute :: AstPermutation -> AstShape r -> AstShape r
-        permute p l = V.toList $ VS.replicate (length p) 0 V.// zip p l
-    in permute perm $ shapeAst v
+    let permutePrefix :: AstPermutation -> AstShape r -> AstShape r
+        permutePrefix p l = V.toList $ VS.fromList l V.// zip p l
+        sh = shapeAst v
+    in if length sh < length perm
+       then sh  -- the operation is an identity if rank too small
+       else permutePrefix perm sh
   AstFlatten v -> [product $ shapeAst v]
   AstReshape sh _v -> sh
   AstBuildPair n (_var, v) -> n : shapeAst v
