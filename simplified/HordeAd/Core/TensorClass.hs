@@ -683,7 +683,8 @@ build1VectorizeVar n (var, u) =
     AstIndex v i -> build1VectorizeIndex n var v [i]
       -- @var@ is in @v@ or @i@; TODO: simplify i first or even fully
       -- evaluate (may involve huge data processing) if contains no vars
-      -- and then some things simplify a lot
+      -- and then some things simplify a lot, e.g., if constant index,
+      -- we may just pick the right element of a AstFromList
     AstIndexN v is -> build1VectorizeIndex n var v is
     AstSum v -> AstTranspose $ AstSum $ AstTranspose
                 $ build1VectorizeVar n (var, v)
@@ -828,9 +829,18 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
       build1VectorizeVar n
         (var, AstSum (AstTranspose $ AstIndexN (AstTranspose v) is))
           -- that's because @index (sum v) i == sum (map (index i) v)@
-    -- Can't push indexing down, so try analyzing the index instead:
-    AstFromList{} -> AstBuildPair n (var, AstIndexN v1 is)  -- we give up
-    AstFromVector{} -> AstBuildPair n (var, AstIndexN v1 is)  -- we give up
+    AstFromList{} | intVarInAstInt var i1 ->
+      AstBuildPair n (var, AstIndexN v1 is)  -- we give up
+    AstFromList l ->
+      AstIndex (AstFromList $ map (\(v :: Ast n1 r) ->
+        let v2 = (unsafeCoerce :: Ast n1 r -> Ast (1 + m + n) r) v
+        in build1Vectorize n (var, AstIndexN v2 rest1)) l) i1
+    AstFromVector{} | intVarInAstInt var i1 ->
+      AstBuildPair n (var, AstIndexN v1 is)  -- we give up
+    AstFromVector l ->
+      AstIndex (AstFromVector $ V.map (\v ->
+        let v2 = (unsafeCoerce :: Ast n1 r -> Ast (1 + m + n) r) v
+        in build1Vectorize n (var, AstIndexN v2 rest1)) l) i1
     -- Partially evaluate in constant time:
     AstKonst _k (v :: Ast n1 r) -> case rest1 of
       [] -> let v2 = (unsafeCoerce :: Ast n1 r -> Ast n r) v  -- m is -1
@@ -846,9 +856,7 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
                          (AstIndexN v is)
                          (AstIndexN w is2))
           -- this is basically partial evaluation, but in constant
-          -- time unlike evaluating AstFromList, etc.;
-          -- this may get stuck as AstSelect eventually, but pushing indexing
-          -- down into both v and w would then get stuck as well (twice!)
+          -- time unlike evaluating AstFromList, etc.
     AstSlice i2 _k v ->
       build1VectorizeIndexVar n var v (map (\i ->
         AstIntOp PlusIntOp [i, AstIntConst i2]) is)
@@ -858,7 +866,6 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
                                      [AstIntConst (lenghtAst v), 1], i1]
                   : rest1
       in build1VectorizeIndexVar n var v revIs
-    -- Can't push indexing down, so try analyzing the index instead:
     AstTranspose v -> case rest1 of
       [] | length (shapeAst v) < 2 ->
         build1VectorizeIndexVar n var v is  -- if rank too low, it's id

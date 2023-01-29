@@ -67,7 +67,7 @@ data Ast :: Nat -> Type -> Type where
   AstConstant :: AstPrimalPart1 n r -> Ast n r
   AstScale :: AstPrimalPart1 n r -> Ast n r -> Ast n r
 
-  -- For VectorLike class and the future Tensor class:
+  -- For VectorLike and Tensor class:
   AstIndex :: Ast (1 + n) r -> AstInt r -> Ast n r
   AstIndexN :: KnownNat m
             => Ast (1 + m + n) r -> AstPath r -> Ast n r
