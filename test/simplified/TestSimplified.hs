@@ -99,9 +99,9 @@ fooNoGoAst v =
 nestedBuildMap :: forall r. ADReady r => r -> VectorOf r
 nestedBuildMap r =
   let w x = lkonst1 4 x  -- (AstIntCond (x `leqAst` 0) 3 4)
-      v' = lkonst1 7 r :: VectorOf r
+      v' = lkonst1 177 r :: VectorOf r
       nestedMap x = lmap1 (\y -> x / y) (w x)
-      variableLengthBuild iy = lbuild1 (iy + 1) (\ix -> lindex0 v' (ix + 1)) :: VectorOf r
+      variableLengthBuild iy = lbuild1 7 (\ix -> lindex0 v' (ix + iy)) :: VectorOf r
       doublyBuild = lbuild1 5 (\iy -> lminimum0 (variableLengthBuild iy))
   in lmap1 (\x -> x
                   * lsum0
@@ -123,7 +123,10 @@ nestedSumBuild v =
              , lsum0 (lbuild1 6 (\_ -> lsum0 v))
              , lindex0 v ix2
              , lsum0 (lbuild1 3 (\ix7 ->
-                 lsum0 (lkonst1 (ix2 + 1) (fromIntOf0 ix7))))
+                 lsum0 (lkonst1 5 (fromIntOf0 ix7))))
+-- dynamic shapes:
+--             , lsum0 (lbuild1 3 (\ix7 ->
+--                 lsum0 (lkonst1 (ix2 + 1) (fromIntOf0 ix7))))
 -- irregular array:
 --             , lsum0 (lbuild1 3 (\ix7 ->
 --                 lsum0 (lkonst1 (ix2 + ix7 + 1) 2.4)))

@@ -31,7 +31,12 @@ import HordeAd.Internal.OrthotopeOrphanInstances ()
 
 -- * Definitions
 
-type AstShape r = [AstInt r]  -- TODO: change to [Int] for static shapes
+-- @[AstInt r]@ gives more expressiveness, but leads to irregular tensors,
+-- especially after vectorization, and prevents statically known shapes.
+-- However, if we switched to @Data.Array.Shaped@ and moved most of the shapes
+-- to the type level, we'd recover some of the expressiveness, while retaining
+-- statically known (type-parameterized) shapes.
+type AstShape r = [Int]
 
 type AstPath r = [AstInt r]
 
@@ -39,6 +44,8 @@ type AstPermutation = [Int]
 
 -- TODO: consider sharing Ast expressions, both within the primal part
 -- and between primal and dual
+
+
 -- | AST for a tensor of rank n and elements r that is meant
 -- to be differentiated.
 data Ast :: Nat -> Type -> Type where
@@ -47,7 +54,7 @@ data Ast :: Nat -> Type -> Type where
 
   -- For HasPrimal class and the future Conditional/Boolean/Eq'/Ord' classes:
   AstCond :: AstBool r -> Ast n r -> Ast n r -> Ast n r
-  AstSelect :: AstInt r -> (AstVarName Int, AstBool r) -> Ast n r -> Ast n r
+  AstSelect :: Int -> (AstVarName Int, AstBool r) -> Ast n r -> Ast n r
             -> Ast n r
     -- emerges from vectorizing AstCond
   AstConstInt :: AstInt r -> Ast n r
@@ -66,10 +73,10 @@ data Ast :: Nat -> Type -> Type where
   AstSum :: Ast (1 + n) r -> Ast n r
   AstFromList :: [Ast n r] -> Ast (1 + n) r
   AstFromVector :: Data.Vector.Vector (Ast n r) -> Ast (1 + n) r
-  AstKonst :: AstInt r -> Ast n r -> Ast (1 + n) r
+  AstKonst :: Int -> Ast n r -> Ast (1 + n) r
   AstAppend :: KnownNat n
             => Ast n r -> Ast n r -> Ast n r
-  AstSlice :: AstInt r -> AstInt r -> Ast n r -> Ast n r
+  AstSlice :: Int -> Int -> Ast n r -> Ast n r
   AstReverse :: KnownNat n
              => Ast n r -> Ast n r
   AstTranspose :: Ast n r -> Ast n r
@@ -80,9 +87,9 @@ data Ast :: Nat -> Type -> Type where
   AstReshape :: KnownNat n
              => AstShape r -> Ast n r -> Ast m r
     -- emerges from vectorizing AstFlatten
-  AstBuildPair :: AstInt r -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
+  AstBuildPair :: Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
   AstGatherPair :: KnownNat m
-                => AstInt r -> (AstVarName Int, AstPath r) -> Ast (m + n) r
+                => Int -> (AstVarName Int, AstPath r) -> Ast (m + n) r
                 -> Ast (1 + n) r
     -- emerges from vectorizing AstIndexN applied to term with no build variable
 
@@ -136,9 +143,9 @@ data AstInt :: Type -> Type where
   AstIntConst :: Int -> AstInt r
   AstIntVar :: AstVarName Int -> AstInt r
 
-  AstLength :: KnownNat n
+  AstLength :: KnownNat n  -- TODO: Int
             => Ast (1 + n) r -> AstInt r  -- length of the outermost dimension
-  AstSize :: KnownNat n
+  AstSize :: KnownNat n  -- TODO: Int
           => Ast n r -> AstInt r  -- product of all dimensions
   AstMinIndex :: Ast 1 r -> AstInt r
   AstMaxIndex :: Ast 1 r -> AstInt r
