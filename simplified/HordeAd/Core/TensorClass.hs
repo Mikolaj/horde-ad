@@ -320,7 +320,7 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   type VectorOf (Ast 0 r) = Ast 1 r
   type IntOf (Ast 0 r) = AstInt r
 
-  llength = lenghtAst
+  llength = lengthAst
   lminIndex = AstMinIndex
   lmaxIndex = AstMaxIndex
 
@@ -710,7 +710,7 @@ build1VectorizeVar n (var, u) =
       build1VectorizeVar n (var, AstTransposeGeneral [1, 0] v)
     AstTransposeGeneral perm v -> AstTransposeGeneral (0 : map succ perm)
                                   $ build1VectorizeVar n (var, v)
-    AstFlatten v -> build1VectorizeVar n (var, AstReshape [lenghtAst u] v)
+    AstFlatten v -> build1VectorizeVar n (var, AstReshape [lengthAst u] v)
     AstReshape sh v -> AstReshape (n : sh) $ build1VectorizeVar n (var, v)
     AstBuildPair{} -> AstBuildPair n (var, u)
       -- TODO: a previous failure of vectorization that should have
@@ -850,9 +850,9 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
       _ -> let v2 = (unsafeCoerce :: Ast n1 r -> Ast (1 + m + n) r) v
            in build1VectorizeIndexVar n var v2 rest1
     AstAppend v w ->
-      let is2 = map (\i -> AstIntOp PlusIntOp [i, AstIntConst (lenghtAst v)]) is
+      let is2 = map (\i -> AstIntOp PlusIntOp [i, AstIntConst (lengthAst v)]) is
       in build1Vectorize n
-           (var, AstCond (AstRelInt LsOp [i1, AstIntConst (lenghtAst v)])
+           (var, AstCond (AstRelInt LsOp [i1, AstIntConst (lengthAst v)])
                          (AstIndexN v is)
                          (AstIndexN w is2))
           -- this is basically partial evaluation, but in constant
@@ -863,7 +863,7 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
     AstReverse v ->
       let revIs = AstIntOp MinusIntOp
                            [AstIntOp MinusIntOp
-                                     [AstIntConst (lenghtAst v), 1], i1]
+                                     [AstIntConst (lengthAst v), 1], i1]
                   : rest1
       in build1VectorizeIndexVar n var v revIs
     AstTranspose v -> case rest1 of

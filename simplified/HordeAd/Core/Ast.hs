@@ -13,7 +13,7 @@ module HordeAd.Core.Ast
   , AstVarName(..), AstVar(..)
   , AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
-  , shapeAst, lenghtAst, substituteAst, substituteAstInt, substituteAstBool
+  , shapeAst, lengthAst, substituteAst, substituteAstInt, substituteAstBool
   ) where
 
 import Prelude
@@ -400,9 +400,9 @@ shapeAst v1 = case v1 of
   AstVar0 _var -> []
   AstVar1 n _var -> [n]
 
-lenghtAst :: (Show r, Numeric r) => Ast (1 + n) r -> Int
-lenghtAst v1 = case shapeAst v1 of
-  [] -> error "lenghtAst: impossible rank 0 found"
+lengthAst :: (Show r, Numeric r) => Ast (1 + n) r -> Int
+lengthAst v1 = case shapeAst v1 of
+  [] -> error "lengthAst: impossible rank 0 found"
   n : _ -> n
 
 substituteAst :: (Show r, Numeric r)
