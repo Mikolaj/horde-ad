@@ -114,11 +114,10 @@ data Ast :: Nat -> Type -> Type where
   AstBuildPair0N :: AstShape r -> ([AstVarName Int], Ast 0 r) -> Ast n r
 
   -- For MonoFunctor class, which is needed for a particularly
-  -- fast implementation of relu and offer fast, primal-part only, mapping.
+  -- fast implementation of relu and offers fast, primal-part only, mapping.
   -- TODO: this is really only needed in AstPrimalPart, but making
   -- AstPrimalPart data instead of a newtype would complicate a lot of code.
-  AstOMap0 :: (AstVarName (OR.Array 0 r), Ast 0 r) -> Ast 0 r -> Ast 0 r
-  AstOMap1 :: (AstVarName (OR.Array 0 r), Ast 0 r) -> Ast 1 r -> Ast 1 r
+  AstOMap :: (AstVarName (OR.Array 0 r), Ast 0 r) -> Ast n r -> Ast n r
 deriving instance (Show r, Numeric r) => Show (Ast n r)
 
 newtype AstPrimalPart1 n r = AstPrimalPart1 (Ast n r)
@@ -303,35 +302,17 @@ unsafeGetFreshAstVar :: IO (AstVarName a)
 {-# INLINE unsafeGetFreshAstVar #-}
 unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-astOmap0 :: (Ast 0 r -> Ast 0 r) -> Ast 0 r -> Ast 0 r
-{-# NOINLINE astOmap0 #-}
-astOmap0 f e = unsafePerformIO $ do
+astOmap :: (Ast 0 r -> Ast 0 r) -> Ast n r -> Ast n r
+{-# NOINLINE astOmap #-}
+astOmap f e = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
-  return $! AstOMap0 (freshAstVar, f (AstVar [] freshAstVar)) e
+  return $! AstOMap (freshAstVar, f (AstVar [] freshAstVar)) e
 
-astOmap1 :: (Ast 0 r -> Ast 0 r) -> Ast 1 r -> Ast 1 r
-{-# NOINLINE astOmap1 #-}
-astOmap1 f e = unsafePerformIO $ do
-  freshAstVar <- unsafeGetFreshAstVar
-  return $! AstOMap1 (freshAstVar, f (AstVar [] freshAstVar)) e
-
-instance MonoFunctor (AstPrimalPart1 1 r) where
+instance MonoFunctor (AstPrimalPart1 n r) where
   omap f (AstPrimalPart1 x) =
     let g y = let AstPrimalPart1 z = f (AstPrimalPart1 y)
               in z
-    in AstPrimalPart1 (astOmap1 g x)
-
-instance MonoFunctor (AstPrimalPart1 0 Double) where
-  omap f (AstPrimalPart1 x) =
-    let g y = let AstPrimalPart1 z = f (AstPrimalPart1 y)
-              in z
-    in AstPrimalPart1 (astOmap0 g x)
-
-instance MonoFunctor (AstPrimalPart1 0 Float) where
-  omap f (AstPrimalPart1 x) =
-    let g y = let AstPrimalPart1 z = f (AstPrimalPart1 y)
-              in z
-    in AstPrimalPart1 (astOmap0 g x)
+    in AstPrimalPart1 (astOmap g x)
 
 -- This is cheap and dirty. We don't shape-check the terms and we don't
 -- unify or produce (partial) results with variables. Instead, we investigate
@@ -393,8 +374,7 @@ shapeAst v1 = case v1 of
   AstFromVector0N sh _l -> sh
   AstKonst0N sh _r -> sh
   AstBuildPair0N sh (_vars, _r) -> sh
-  AstOMap0 (_var, _r) _e -> []
-  AstOMap1 (_var, _r) e -> shapeAst e
+  AstOMap (_var, _r) e -> shapeAst e
 
 lengthAst :: (Show r, Numeric r) => Ast (1 + n) r -> Int
 lengthAst v1 = case shapeAst v1 of
@@ -442,10 +422,8 @@ substituteAst i var v1 = case v1 of
   AstFromVector0N sh l -> AstFromVector0N sh $ V.map (substituteAst i var) l
   AstKonst0N sh r -> AstKonst0N sh (substituteAst i var r)
   AstBuildPair0N sh (vars, r) -> AstBuildPair0N sh (vars, substituteAst i var r)
-  AstOMap0 (var2, r) e ->
-    AstOMap0 (var2, substituteAst i var r) (substituteAst i var e)
-  AstOMap1 (var2, r) e ->
-    AstOMap1 (var2, substituteAst i var r) (substituteAst i var e)
+  AstOMap (var2, r) e ->
+    AstOMap (var2, substituteAst i var r) (substituteAst i var e)
 
 substituteAstInt :: (Show r, Numeric r)
                  => AstInt r -> AstVarName Int -> AstInt r -> AstInt r

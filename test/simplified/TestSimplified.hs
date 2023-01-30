@@ -145,21 +145,14 @@ barRelu
   => a -> a
 barRelu x = relu $ bar (x, relu x)
 
-barReluAst0
-  :: ( Numeric r, RealFloat r, MonoFunctor (AstPrimalPart1 0 r)
-     , Floating (Vector r) )
-  => Ast 0 r -> Ast 0 r
-barReluAst0 x = reluAst $ bar (x, reluAst x)
-  -- TODO; fails due to relu using conditionals and @>@ instead of
-  -- a generalization of those that have Ast instance: barRelu @(Ast 0 r)
-
 -- TODO: merge with the above once rank-polymorphic relu is recovered
-barReluAst1
-  :: ( KnownNat n, Numeric r, RealFloat r
-     , MonoFunctor (AstPrimalPart1 n r), Floating (Vector r) )
+barReluAst
+  :: (KnownNat n, Numeric r, RealFloat r, Floating (Vector r))
   => Ast n r -> Ast n r
-barReluAst1 x = reluAst $ bar (x, reluAst x)
-                  -- TODO; fails: barRelu @(Ast n r)
+barReluAst x = reluAst $ bar (x, reluAst x)
+  -- TODO; barRelu @(Ast 0 r) fails
+  -- due to relu using conditionals and @>@ instead of
+  -- a generalization of those that have Ast instance:
 
 konstReluAst
   :: forall r. (Show r, Numeric r, RealFloat r, RealFloat (Vector r))
@@ -406,7 +399,7 @@ testBarReluAst0 =
        (\adinputs -> unScalar $
           interpretAst (IM.singleton (-1)
                           (AstVarR $ from1X $ scalar $ adinputs `at0` 0))
-                        (barReluAst0 (AstVar [] (AstVarName (-1)))))
+                        (barReluAst (AstVar [] (AstVarName (-1)))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [191.20462646925841]
 
@@ -419,7 +412,7 @@ testBarReluAst1 =
        (\adinputs ->
           interpretAst (IM.singleton (-1)
                           (AstVarR $ from1X $ at1 @1 adinputs 0))
-                       (barReluAst1 (AstVar [5] (AstVarName (-1)))))
+                       (barReluAst (AstVar [5] (AstVarName (-1)))))
        (domainsFrom0V V.empty
                       (V.singleton (V.fromList
                                       [1.1 :: Double, 2.2, 3.3, 4, 5]))))

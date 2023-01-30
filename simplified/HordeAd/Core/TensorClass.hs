@@ -71,8 +71,7 @@ reluLeaky v =
 -- we'd need Conditional class that works with our AstBool type
 -- and some sugar to be able to use >, &&, etc.
 reluAst
-  :: ( KnownNat n, Num (Vector r), MonoFunctor (PrimalOf (Ast n r))
-     , Numeric r )
+  :: (KnownNat n, Num (Vector r), Numeric r)
   => Ast n r -> Ast n r
 reluAst v =
   let oneIfGtZero = omap (\(AstPrimalPart1 x) ->
@@ -748,8 +747,7 @@ build1VectorizeVar n (var, u) =
       in build1VectorizeVar n (var, AstReshape sh $ AstKonst k v)
     AstBuildPair0N{} -> AstBuildPair n (var, u)  -- see AstBuildPair above
 
-    AstOMap0{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, u)
-    AstOMap1{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, u)
+    AstOMap{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, u)
     -- All other patterns are redundant due to GADT typing.
 
 -- | The application @build1VectorizeIndex n var v is@
@@ -942,8 +940,7 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
       build1VectorizeIndexVar
         @m n var (AstBuildPair0N sh (vars, substituteAst i1 var2 r)) rest1
 
-    AstOMap0{} -> error "build1VectorizeIndexVar: wrong rank"
-    AstOMap1{} ->
+    AstOMap{} ->
       AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, AstIndexN v1 is)
     -- All other patterns are redundant due to GADT typing.
 
@@ -1005,9 +1002,8 @@ intVarInAst var = \case
   AstKonst0N _ v -> intVarInAst var v
   AstBuildPair0N _ (_, v) -> intVarInAst var v
 
-  AstOMap0 (_, v) u -> intVarInAst var v || intVarInAst var u
+  AstOMap (_, v) u -> intVarInAst var v || intVarInAst var u
     -- the variable in binder position, so ignored (and should be distinct)
-  AstOMap1 (_, v) u -> intVarInAst var v || intVarInAst var u
 
 intVarInAstInt :: AstVarName Int -> AstInt r -> Bool
 intVarInAstInt var = \case
@@ -1140,21 +1136,21 @@ gatherClosure n f (D u u') = dD (tgatherR n f u) (dGather1 n f (OR.shapeL u) u')
 
 type AstEnv (d :: ADMode) r = IM.IntMap (AstVar (ADVal d (OT.Array r)))
 
-interpretLambdaD1
+interpretLambdaR
   :: ADModeAndNumTensor d r
   => AstEnv d r
   -> (AstVarName (OR.Array 0 r), Ast 0 r)
   -> ADVal d r -> ADVal d r
-interpretLambdaD1 env (AstVarName var, ast) =
+interpretLambdaR env (AstVarName var, ast) =
   \d -> let dT = from1X (scalar d)
         in unScalar $ interpretAst (IM.insert var (AstVarR dT) env) ast
 
-interpretLambdaI1
+interpretLambdaI
   :: (ADModeAndNumTensor d r, KnownNat n)
   => AstEnv d r
   -> (AstVarName Int, Ast n r)
   -> Int -> ADVal d (OR.Array n r)
-interpretLambdaI1 env (AstVarName var, ast) =
+interpretLambdaI env (AstVarName var, ast) =
   \i -> interpretAst (IM.insert var (AstVarI i) env) ast
 
 interpretLambdaPath
@@ -1220,9 +1216,9 @@ interpretAst env = \case
   AstBuildPair n (var, AstConstant r) ->
     constant
     $ OR.ravel . ORB.fromVector [n] . V.generate n
-    $ \j -> let D v _ = interpretLambdaI1 env (var, AstConstant r) j
+    $ \j -> let D v _ = interpretLambdaI env (var, AstConstant r) j
             in v
-  AstBuildPair n (var, v) -> build n (interpretLambdaI1 env (var, v))
+  AstBuildPair n (var, v) -> build n (interpretLambdaI env (var, v))
       -- fallback to POPL (memory blowup, but avoids functions on tape);
       -- an alternative is to use dBuild1 and store function on tape
   AstGatherPair n (var, is) v ->
@@ -1248,14 +1244,9 @@ interpretAst env = \case
     -- any rank and build it up according to @sh@ (which will then be
     -- only a partial shape, so should change its name)
 
-  AstOMap0 (var, r) e ->  -- this only works on the primal part hence @constant@
+  AstOMap (var, r) e ->  -- this only works on the primal part hence @constant@
     constant
-    $ omap (\x -> let D u _ = interpretLambdaD1 env (var, r) (constant x)
-                  in u)
-           (interpretAstPrimal env e)
-  AstOMap1 (var, r) e ->  -- this only works on the primal part hence @constant@
-    constant
-    $ omap (\x -> let D u _ = interpretLambdaD1 env (var, r) (constant x)
+    $ omap (\x -> let D u _ = interpretLambdaR env (var, r) (constant x)
                   in u)
            (interpretAstPrimal env e)
 
