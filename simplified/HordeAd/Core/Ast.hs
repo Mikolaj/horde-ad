@@ -68,7 +68,7 @@ data Ast :: Nat -> Type -> Type where
 
   -- For VectorLike and Tensor class:
   AstIndex :: Ast (1 + n) r -> AstInt r -> Ast n r
-  AstIndexN :: KnownNat m
+  AstIndexN :: forall m n r. KnownNat m
             => Ast (1 + m + n) r -> AstPath r -> Ast n r
     -- emerges from vectorizing AstIndex;
     -- first ix is for outermost dimension; @1 + m@ is the length of the list;

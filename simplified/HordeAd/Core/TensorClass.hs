@@ -804,17 +804,36 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
       build1VectorizeVar n
         (var, AstSum (AstTranspose $ AstIndexN (AstTranspose v) is))
           -- that's because @index (sum v) i == sum (map (index i) v)@
-    AstFromList{} | intVarInAstInt var i1 ->
-      AstBuildPair n (var, AstIndexN v1 is)  -- we give up
+    AstFromList l | intVarInAstInt var i1 ->
+      -- This is pure desperation. I build separately for each list element,
+      -- instead of picking the right element for each build iteration.
+      -- Also, I have to commit early either to simplifying a lot using
+      -- build1VectorizeIndexAnalyze or constructing a AstGatherPair.
+      -- I can't wait, because there's no other reduction left to perform.
+      let t = AstFromList $ map (\v ->
+            let v2 = (unsafeCoerce :: Ast (m + n) r -> Ast (1 + m + n) r) v
+            in (unsafeCoerce :: Ast (1 + n) r -> Ast n r)
+               $ build1Vectorize n (var, AstIndexN @m @n v2 rest1)) l
+      in case build1VectorizeIndexAnalyze n var t i1 of
+              Just u -> u  -- an extremely simple form found
+              Nothing -> AstGatherPair n (var, [i1, AstIntVar var]) t
+                -- no more rewriting possible in the root
     AstFromList l ->
-      AstIndex (AstFromList $ map (\(v :: Ast n1 r) ->
-        let v2 = (unsafeCoerce :: Ast n1 r -> Ast (1 + m + n) r) v
+      AstIndex (AstFromList $ map (\v ->
+        let v2 = (unsafeCoerce :: Ast (m + n) r -> Ast (1 + m + n) r) v
         in build1Vectorize n (var, AstIndexN v2 rest1)) l) i1
-    AstFromVector{} | intVarInAstInt var i1 ->
-      AstBuildPair n (var, AstIndexN v1 is)  -- we give up
+    AstFromVector l | intVarInAstInt var i1 ->
+      let t = AstFromVector $ V.map (\v ->
+            let v2 = (unsafeCoerce :: Ast (m + n) r -> Ast (1 + m + n) r) v
+            in (unsafeCoerce :: Ast (1 + n) r -> Ast n r)
+               $ build1Vectorize n (var, AstIndexN @m @n v2 rest1)) l
+      in case build1VectorizeIndexAnalyze n var t i1 of
+              Just u -> u  -- an extremely simple form found
+              Nothing -> AstGatherPair n (var, [i1, AstIntVar var]) t
+                -- no more rewriting possible in the root
     AstFromVector l ->
       AstIndex (AstFromVector $ V.map (\v ->
-        let v2 = (unsafeCoerce :: Ast n1 r -> Ast (1 + m + n) r) v
+        let v2 = (unsafeCoerce :: Ast (m + n) r -> Ast (1 + m + n) r) v
         in build1Vectorize n (var, AstIndexN v2 rest1)) l) i1
     -- Partially evaluate in constant time:
     AstKonst _k (v :: Ast n1 r) -> case rest1 of
