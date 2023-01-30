@@ -850,9 +850,10 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
       _ -> let v2 = (unsafeCoerce :: Ast n1 r -> Ast (1 + m + n) r) v
            in build1VectorizeIndexVar n var v2 rest1
     AstAppend v w ->
-      let is2 = map (\i -> AstIntOp PlusIntOp [i, AstIntConst (lengthAst v)]) is
+      let vlen = AstIntConst $ lengthAst v
+          is2 = map (\i -> AstIntOp PlusIntOp [i, vlen]) is
       in build1Vectorize n
-           (var, AstCond (AstRelInt LsOp [i1, AstIntConst (lengthAst v)])
+           (var, AstCond (AstRelInt LsOp [i1, vlen])
                          (AstIndexN v is)
                          (AstIndexN w is2))
           -- this is basically partial evaluation, but in constant
@@ -861,9 +862,7 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
       build1VectorizeIndexVar n var v (map (\i ->
         AstIntOp PlusIntOp [i, AstIntConst i2]) is)
     AstReverse v ->
-      let revIs = AstIntOp MinusIntOp
-                           [AstIntOp MinusIntOp
-                                     [AstIntConst (lengthAst v), 1], i1]
+      let revIs = AstIntOp MinusIntOp [AstIntConst (lengthAst v - 1), i1]
                   : rest1
       in build1VectorizeIndexVar n var v revIs
     AstTranspose v -> case rest1 of
