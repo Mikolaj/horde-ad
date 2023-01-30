@@ -11,6 +11,7 @@
 module HordeAd.Core.DualNumber
   ( ADVal, dD, pattern D
   , ADModeAndNum, HasDelta
+  , fromX1, from1X
   , Vec, vecToV, vToVec
   , SNat(..), staticNatValue, staticNatFromProxy
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
@@ -36,6 +37,7 @@ module HordeAd.Core.DualNumber
 
 import Prelude
 
+import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.RankedS as OR
 import           Data.Proxy (Proxy (Proxy))
@@ -103,6 +105,14 @@ type ADModeAndNum (d :: ADMode) r =
 type HasDelta r = ( ADModeAndNum 'ADModeGradient r
                   , HasInputs r
                   , Dual 'ADModeGradient r ~ Delta0 r )
+
+fromX1 :: (ADModeAndNum d r, KnownNat n)
+       => ADVal d (OT.Array r) -> ADVal d (OR.Array n r)
+fromX1 (D u u') = dDnotShared (Data.Array.Convert.convert u) (dFromX1 u')
+
+from1X :: ADModeAndNum d r
+       => ADVal d (OR.Array n r) -> ADVal d (OT.Array r)
+from1X (D u u') = dDnotShared (Data.Array.Convert.convert u) (dFrom1X u')
 
 -- Shims to reuse the tests for ordinary vectors.
 type Vec r = OR.Array 1 r

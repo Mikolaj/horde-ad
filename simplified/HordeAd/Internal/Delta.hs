@@ -226,7 +226,9 @@ data Delta1 :: Nat -> Type -> Type where
 
 deriving instance (Show r, Numeric r) => Show (Delta1 n r)
 
-newtype DeltaX r = InputX (InputId (OT.Array r))
+data DeltaX :: Type -> Type where
+  InputX :: InputId (OT.Array r) -> DeltaX r
+  From1X :: Delta1 n r -> DeltaX r
 
 deriving instance (Show r, Numeric r) => Show (DeltaX r)
 
@@ -571,6 +573,8 @@ buildFinMaps s0 deltaDt =
 
         FromX1 (InputX inputId) ->
           s {iMap1 = EM.adjust (addToArray c) inputId $ iMap1 s}
+        FromX1 (From1X d) -> eval1 s c (unsafeCoerce d)
+          -- TODO: add a runtime check
 
       evalFromnMap :: EvalState r -> EvalState r
       evalFromnMap s@EvalState{nMap, dMap0, dMap1} =
@@ -723,5 +727,7 @@ buildDerivative dim0 dim1 deltaTopLevel
           if i < dim1
           then return $! Data.Array.Convert.convert $ domains1 V.! i
           else error "derivativeFromDelta.eval': wrong index for an input"
+        FromX1 (From1X d) -> eval1 (unsafeCoerce d)
+          -- TODO: add a runtime check
 
   eval0 deltaTopLevel

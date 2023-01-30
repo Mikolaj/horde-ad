@@ -131,8 +131,7 @@ class IsPrimalR d r where
   dAddR :: KnownNat n
         => Dual d (OR.Array n r) -> Dual d (OR.Array n r)
         -> Dual d (OR.Array n r)
-  recordSharingR :: KnownNat n
-                 => Dual d (OR.Array n r) -> Dual d (OR.Array n r)
+  recordSharingR :: Dual d (OR.Array n r) -> Dual d (OR.Array n r)
 
 -- | Part 2/2 of a hack to squeeze the ranked tensors rank,
 -- with its extra @n@ parameter, into the 'IsPrimal' class.
@@ -213,6 +212,8 @@ class HasRanks (d :: ADMode) r where
 
   dFromX1 :: KnownNat n
           => Dual d (OT.Array r) -> Dual d (OR.Array n r)
+
+  dFrom1X :: Dual d (OR.Array n r) -> Dual d (OT.Array r)
 
 -- * Backprop gradient method instances
 
@@ -327,6 +328,8 @@ instance Dual 'ADModeGradient r ~ Delta0 r
 
   dFromX1 = FromX1
 
+  dFrom1X = From1X
+
 -- * Alternative instance: forward derivatives computed on the spot
 
 instance IsPrimal 'ADModeDerivative Double where
@@ -377,6 +380,8 @@ instance ( Numeric r, Num (Vector r)
   dScatter1 _n f d sh = tscatterR f d sh
 
   dFromX1 = Data.Array.Convert.convert
+
+  dFrom1X = Data.Array.Convert.convert
 
 -- * Another alternative instance: only the objective function's value computed
 
@@ -432,6 +437,8 @@ instance HasRanks 'ADModeValue r where
   dScatter1 _ _ _ _ = DummyDual ()
 
   dFromX1 _ = DummyDual ()
+
+  dFrom1X _ = DummyDual ()
 
 -- * Counter handling
 
