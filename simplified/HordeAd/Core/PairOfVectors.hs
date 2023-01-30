@@ -61,8 +61,8 @@ at0 :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d r
 {-# INLINE at0 #-}
 at0 ADInputs{..} i = dD (inputPrimal0 V.! i) (inputDual0 V.! i)
 
-at1 :: (KnownNat n, ADModeAndNum d r)
-    => ADInputs d r -> Int -> ADVal d (OR.Array n r)
+at1 :: forall n r d.(KnownNat n, ADModeAndNum d r)
+    =>  ADInputs d r -> Int -> ADVal d (OR.Array n r)
 {-# INLINE at1 #-}
 at1 ADInputs{..} i = dD (Data.Array.Convert.convert $ inputPrimal1 V.! i)
                         (dFromX1 $ inputDual1 V.! i)

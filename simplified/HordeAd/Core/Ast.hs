@@ -67,6 +67,7 @@ data Ast :: Nat -> Type -> Type where
     -- sort of partially evaluated @AstConstant@
   AstConstant :: AstPrimalPart1 n r -> Ast n r
   AstScale :: AstPrimalPart1 n r -> Ast n r -> Ast n r
+  AstVar :: [Int] -> AstVarName (OR.Array n r) -> Ast n r
 
   -- For VectorLike and Tensor class:
   AstIndex :: Ast (1 + n) r -> AstInt r -> Ast n r
@@ -116,12 +117,8 @@ data Ast :: Nat -> Type -> Type where
   -- fast implementation of relu and offer fast, primal-part only, mapping.
   -- TODO: this is really only needed in AstPrimalPart, but making
   -- AstPrimalPart data instead of a newtype would complicate a lot of code.
-  AstOMap0 :: (AstVarName r, Ast 0 r) -> Ast 0 r -> Ast 0 r
-  AstOMap1 :: (AstVarName r, Ast 0 r) -> Ast 1 r -> Ast 1 r
-  -- Variables are only needed for AstOMap. They are also used in test glue
-  -- code and may be used for sharing in the future.
-  AstVar0 :: AstVarName r -> Ast 0 r
-  AstVar1 :: Int -> AstVarName (OR.Array 1 r) -> Ast 1 r
+  AstOMap0 :: (AstVarName (OR.Array 0 r), Ast 0 r) -> Ast 0 r -> Ast 0 r
+  AstOMap1 :: (AstVarName (OR.Array 0 r), Ast 0 r) -> Ast 1 r -> Ast 1 r
 deriving instance (Show r, Numeric r) => Show (Ast n r)
 
 newtype AstPrimalPart1 n r = AstPrimalPart1 (Ast n r)
@@ -130,9 +127,8 @@ newtype AstPrimalPart1 n r = AstPrimalPart1 (Ast n r)
 newtype AstVarName t = AstVarName Int
  deriving (Show, Eq)
 
-data AstVar a0 a1 =
-    AstVarR0 a0
-  | AstVarR1 a1
+data AstVar a =
+    AstVarR a
   | AstVarI Int
  deriving Show
 
@@ -311,13 +307,13 @@ astOmap0 :: (Ast 0 r -> Ast 0 r) -> Ast 0 r -> Ast 0 r
 {-# NOINLINE astOmap0 #-}
 astOmap0 f e = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
-  return $! AstOMap0 (freshAstVar, f (AstVar0 freshAstVar)) e
+  return $! AstOMap0 (freshAstVar, f (AstVar [] freshAstVar)) e
 
 astOmap1 :: (Ast 0 r -> Ast 0 r) -> Ast 1 r -> Ast 1 r
 {-# NOINLINE astOmap1 #-}
 astOmap1 f e = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
-  return $! AstOMap1 (freshAstVar, f (AstVar0 freshAstVar)) e
+  return $! AstOMap1 (freshAstVar, f (AstVar [] freshAstVar)) e
 
 instance MonoFunctor (AstPrimalPart1 1 r) where
   omap f (AstPrimalPart1 x) =
@@ -353,6 +349,7 @@ shapeAst v1 = case v1 of
   AstConst a -> OR.shapeL a
   AstConstant (AstPrimalPart1 a) -> shapeAst a
   AstScale (AstPrimalPart1 r) _d -> shapeAst r
+  AstVar sh _var -> sh
   AstIndex v _i -> tail $ shapeAst v  -- types ensure this @tail@ is total
   AstIndexN v is ->
     let sh = shapeAst v
@@ -398,8 +395,6 @@ shapeAst v1 = case v1 of
   AstBuildPair0N sh (_vars, _r) -> sh
   AstOMap0 (_var, _r) _e -> []
   AstOMap1 (_var, _r) e -> shapeAst e
-  AstVar0 _var -> []
-  AstVar1 n _var -> [n]
 
 lengthAst :: (Show r, Numeric r) => Ast (1 + n) r -> Int
 lengthAst v1 = case shapeAst v1 of
@@ -421,6 +416,7 @@ substituteAst i var v1 = case v1 of
     AstConstant (AstPrimalPart1 $ substituteAst i var a)
   AstScale (AstPrimalPart1 r) d ->
     AstScale (AstPrimalPart1 $ substituteAst i var r) (substituteAst i var d)
+  AstVar _sh _var -> v1
   AstIndex v i2 -> AstIndex (substituteAst i var v) (substituteAstInt i var i2)
   AstIndexN v is ->
     AstIndexN (substituteAst i var v) (map (substituteAstInt i var) is)
@@ -450,8 +446,6 @@ substituteAst i var v1 = case v1 of
     AstOMap0 (var2, substituteAst i var r) (substituteAst i var e)
   AstOMap1 (var2, r) e ->
     AstOMap1 (var2, substituteAst i var r) (substituteAst i var e)
-  AstVar0 _var -> v1
-  AstVar1 _n _var -> v1
 
 substituteAstInt :: (Show r, Numeric r)
                  => AstInt r -> AstVarName Int -> AstInt r -> AstInt r

@@ -11,12 +11,13 @@ module HordeAd.Core.TensorClass
   ( HasPrimal(..), VectorNumeric(..), Tensor(..)
   , interpretAst
   , ADReady, ADReady'
-  , unScalar, leqAst, gtAst, gtIntAst, relu, reluLeaky, reluAst
+  , scalar, unScalar, leqAst, gtAst, gtIntAst, relu, reluLeaky, reluAst
   ) where
 
 import Prelude
 
 import           Control.Exception.Assert.Sugar
+import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
@@ -680,6 +681,8 @@ build1VectorizeVar n (var, u) =
     AstScale (AstPrimalPart1 r) d ->
       AstScale (AstPrimalPart1 $ AstBuildPair n (var, r))  -- no need to vect
                (build1Vectorize n (var, d))
+    AstVar{} ->
+      error "build1VectorizeVar: AstVar can't have free int variables"
 
     AstIndex v i -> build1VectorizeIndex n var v [i]
       -- @var@ is in @v@ or @i@; TODO: simplify i first or even fully
@@ -747,10 +750,6 @@ build1VectorizeVar n (var, u) =
 
     AstOMap0{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, u)
     AstOMap1{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, u)
-    AstVar0{} ->
-      error "build1VectorizeVar: AstVar0 can't have free int variables"
-    AstVar1{} ->
-      error "build1VectorizeVar: AstVar1 can't have free int variables"
     -- All other patterns are redundant due to GADT typing.
 
 -- | The application @build1VectorizeIndex n var v is@
@@ -823,6 +822,8 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
     AstScale (AstPrimalPart1 r) d ->
       AstScale (AstPrimalPart1 $ AstBuildPair n (var, AstIndexN r is))
                (build1VectorizeIndex n var d is)
+    AstVar{} ->
+      error "build1VectorizeIndexVar: AstVar can't have free int variables"
 
     AstIndex v i -> build1VectorizeIndex n var v (i : is)
     AstIndexN v is2 -> build1VectorizeIndex n var v (is2 ++ is)
@@ -944,9 +945,6 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
     AstOMap0{} -> error "build1VectorizeIndexVar: wrong rank"
     AstOMap1{} ->
       AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, AstIndexN v1 is)
-    AstVar0{} -> error "build1VectorizeIndexVar: wrong rank"
-    AstVar1{} ->
-      error "build1VectorizeIndexVar: AstVar1 can't have free int variables"
     -- All other patterns are redundant due to GADT typing.
 
 -- TODO: we probably need to simplify to some normal form, but possibly
@@ -981,6 +979,7 @@ intVarInAst var = \case
   AstConst{} -> False
   AstConstant (AstPrimalPart1 v) -> intVarInAst var v
   AstScale (AstPrimalPart1 v) u -> intVarInAst var v || intVarInAst var u
+  AstVar{} -> False  -- not an int variable
 
   AstIndex v ix -> intVarInAst var v || intVarInAstInt var ix
   AstIndexN v is -> intVarInAst var v || or (map (intVarInAstInt var) is)
@@ -1009,8 +1008,6 @@ intVarInAst var = \case
   AstOMap0 (_, v) u -> intVarInAst var v || intVarInAst var u
     -- the variable in binder position, so ignored (and should be distinct)
   AstOMap1 (_, v) u -> intVarInAst var v || intVarInAst var u
-  AstVar0{} -> False  -- not an int variable
-  AstVar1{} -> False  -- not an int variable
 
 intVarInAstInt :: AstVarName Int -> AstInt r -> Bool
 intVarInAstInt var = \case
@@ -1141,15 +1138,16 @@ gatherClosure n f (D u u') = dD (tgatherR n f u) (dGather1 n f (OR.shapeL u) u')
 
 -- * Interpretation of Ast in ADVal
 
-type AstEnv d r = IM.IntMap (AstVar (ADVal d r) (ADVal d (OR.Array 1 r)))
+type AstEnv (d :: ADMode) r = IM.IntMap (AstVar (ADVal d (OT.Array r)))
 
 interpretLambdaD1
   :: ADModeAndNumTensor d r
   => AstEnv d r
-  -> (AstVarName r, Ast 0 r)
+  -> (AstVarName (OR.Array 0 r), Ast 0 r)
   -> ADVal d r -> ADVal d r
 interpretLambdaD1 env (AstVarName var, ast) =
-  \d -> unScalar $ interpretAst (IM.insert var (AstVarR0 d) env) ast
+  \d -> let dT = from1X (scalar d)
+        in unScalar $ interpretAst (IM.insert var (AstVarR dT) env) ast
 
 interpretLambdaI1
   :: (ADModeAndNumTensor d r, KnownNat n)
@@ -1197,6 +1195,11 @@ interpretAst env = \case
   AstConstant (AstPrimalPart1 a) -> constant $ interpretAstPrimal env a
   AstScale (AstPrimalPart1 r) d ->
     scale (interpretAstPrimal env r) (interpretAst env d)
+  AstVar _sh (AstVarName var) -> case IM.lookup var env of
+    Just (AstVarR d) -> fromX1 d
+    Just AstVarI{} ->
+      error $ "interpretAst: type mismatch for var " ++ show var
+    Nothing -> error $ "interpretAst: unknown variable var " ++ show var
 
   AstIndex v i -> index (interpretAst env v) (interpretAstInt env i)
   AstIndexN v is -> indexN (interpretAst env v) (map (interpretAstInt env) is)
@@ -1255,20 +1258,6 @@ interpretAst env = \case
     $ omap (\x -> let D u _ = interpretLambdaD1 env (var, r) (constant x)
                   in u)
            (interpretAstPrimal env e)
-  AstVar0 (AstVarName var) -> case IM.lookup var env of
-    Just (AstVarR0 d) -> scalar d
-    Just AstVarR1{} ->
-      error $ "interpretAst: type mismatch for var " ++ show var
-    Just AstVarI{} ->
-      error $ "interpretAst: type mismatch for var " ++ show var
-    Nothing -> error $ "interpretAst: unknown variable var " ++ show var
-  AstVar1 _n (AstVarName var) -> case IM.lookup var env of
-    Just AstVarR0{} ->
-      error $ "interpretAst: type mismatch for var " ++ show var
-    Just (AstVarR1 d) -> d
-    Just AstVarI{} ->
-      error $ "interpretAst: type mismatch for var " ++ show var
-    Nothing -> error $ "interpretAst: unknown variable var " ++ show var
 
 interpretAstInt :: ADModeAndNumTensor d r
                 => AstEnv d r
@@ -1281,9 +1270,7 @@ interpretAstInt env = \case
                         else interpretAstInt env a2
   AstIntConst a -> a
   AstIntVar (AstVarName var) -> case IM.lookup var env of
-    Just AstVarR0{} ->
-      error $ "interpretAstInt: type mismatch for var " ++ show var
-    Just AstVarR1{} ->
+    Just AstVarR{} ->
       error $ "interpretAstInt: type mismatch for var " ++ show var
     Just (AstVarI i) -> i
     Nothing -> error $ "interpretAstInt: unknown variable var " ++ show var
