@@ -59,9 +59,6 @@ data Ast :: Nat -> Type -> Type where
 
   -- For HasPrimal class and the future Conditional/Boolean/Eq'/Ord' classes:
   AstCond :: AstBool r -> Ast n r -> Ast n r -> Ast n r
-  AstSelect :: Int -> (AstVarName Int, AstBool r) -> Ast n r -> Ast n r
-            -> Ast n r
-    -- emerges from vectorizing AstCond
   AstConstInt :: AstInt r -> Ast n r
   AstConst :: OR.Array n r -> Ast n r
     -- sort of partially evaluated @AstConstant@
@@ -325,7 +322,6 @@ shapeAst v1 = case v1 of
     [] -> error "shapeAst: AstOp with no arguments"
     t : _ -> shapeAst t
   AstCond _b a1 _a2 -> shapeAst a1
-  AstSelect n (_var, _b) a1 _a2 -> n : shapeAst a1
   AstConstInt _i -> []
   AstConst a -> OR.shapeL a
   AstConstant (AstPrimalPart1 a) -> shapeAst a
@@ -387,9 +383,6 @@ substituteAst i var v1 = case v1 of
   AstOp opCode args -> AstOp opCode $ map (substituteAst i var) args
   AstCond b a1 a2 -> AstCond (substituteAstBool i var b)
                              (substituteAst i var a1) (substituteAst i var a2)
-  AstSelect n (_var, b) a1 a2 ->
-    AstSelect n (_var, substituteAstBool i var b)
-              (substituteAst i var a1) (substituteAst i var a2)
   AstConstInt i2 -> AstConstInt $ substituteAstInt i var i2
   AstConst _a -> v1
   AstConstant (AstPrimalPart1 a) ->

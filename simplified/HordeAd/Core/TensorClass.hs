@@ -654,22 +654,8 @@ build1VectorizeVar n (var, u) =
     AstOp opCode args ->
       AstOp opCode $ map (\w -> build1Vectorize n (var, w)) args
     AstCond b v w ->
-      if intVarInAstBool var b then
-        -- This handles conditionals that depend on var,
-        -- so that we produce conditional delta expressions
-        -- of size proportional to the exponent of conditional
-        -- nesting, instead of proportional to the number of elements
-        -- of the tensor.
-        AstSelect n (var, b)
-                  (build1Vectorize n (var, v))
-                  (build1Vectorize n (var, w))
-      else
-        AstCond b (build1Vectorize n (var, v))
-                  (build1Vectorize n (var, w))
-    AstSelect n2 (var2, b) v w ->
-      AstTranspose $ AstSelect n2 (var2, b)
-        (AstTranspose $ build1Vectorize n (var, v))
-        (AstTranspose $ build1Vectorize n (var, w))
+      build1VectorizeVar
+        n (var, AstIndex (AstFromList [v, w]) (AstIntCond b 0 1))
     AstConstInt{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, u)
     AstConst{} ->
       error "build1VectorizeVar: AstConst can't have free int variables"
@@ -787,9 +773,7 @@ build1VectorizeIndex n var v is = case reverse is of
 
 -- | The variable is known to occur in the main vectorized term.
 -- We try to push the indexing down the term tree and partially
--- evaluate/simplify the term, if possible in constant time. Eventually,
--- we are down to indexing of a too simple but non-constant expression
--- with an occurence of the variable, at which point we have to give up.
+-- evaluate/simplify the term, if only possible in constant time.
 build1VectorizeIndexVar
   :: forall m n r. (KnownNat n, KnownNat m, Show r, Numeric r)
   => Int -> AstVarName Int -> Ast (1 + m + n) r -> AstPath r
@@ -801,16 +785,7 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
     AstOp opCode args ->
       AstOp opCode $ map (\w -> build1VectorizeIndex n var w is) args
     AstCond b v w ->
-      if intVarInAstBool var b then
-        AstSelect n (var, b)
-                  (build1VectorizeIndex n var v is)
-                  (build1VectorizeIndex n var w is)
-      else
-        AstCond b (build1VectorizeIndex n var v is)
-                  (build1VectorizeIndex n var w is)
-    AstSelect _n2 (var2, b) v w ->
-      build1VectorizeIndexVar
-        n var (substituteAst i1 var2 (AstCond b v w)) rest1
+      build1VectorizeIndex n var (AstFromList [v, w]) (AstIntCond b 0 1 : is)
     AstConstInt{} ->
       AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, AstIndexN v1 is)
     AstConst{} ->
@@ -969,8 +944,6 @@ intVarInAst :: AstVarName Int -> Ast n r -> Bool
 intVarInAst var = \case
   AstOp _ l -> or $ map (intVarInAst var) l
   AstCond b x y ->
-    intVarInAstBool var b || intVarInAst var x || intVarInAst var y
-  AstSelect _ (_, b) x y ->
     intVarInAstBool var b || intVarInAst var x || intVarInAst var y
   AstConstInt n -> intVarInAstInt var n
   AstConst{} -> False
@@ -1177,15 +1150,6 @@ interpretAst env = \case
   AstCond b a1 a2 -> if interpretAstBool env b
                      then interpretAst env a1
                      else interpretAst env a2
-  AstSelect n (AstVarName var, b) a1 a2 ->
-    let f [i] = if interpretAstBool (IM.insert var (AstVarI i) env) b
-                then 1
-                else 0
-        f _ = error "interpretAst: unexpected argument to AstSelect"
-        bitmap = constant $ OR.generate [n] f
-        v1 = interpretAst env a1
-        v2 = interpretAst env a2
-    in bitmap * v1 + v2 - bitmap * v2
   AstConstInt i -> fromInteger $ fromIntegral $ interpretAstInt env i
   AstConst a -> constant a
   AstConstant (AstPrimalPart1 a) -> constant $ interpretAstPrimal env a
