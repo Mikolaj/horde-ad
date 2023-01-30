@@ -14,6 +14,7 @@ module HordeAd.Core.Ast
   , AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
   , shapeAst, lengthAst, substituteAst, substituteAstInt, substituteAstBool
+  , toIxAst
   ) where
 
 import Prelude
@@ -475,3 +476,8 @@ substituteAstBool i var b1 = case b1 of
     AstRel opCodeRel $ map (substituteAst i var) args
   AstRelInt opCodeRel args ->
     AstRelInt opCodeRel $ map (substituteAstInt i var) args
+
+-- This is toIx generalized to AstInt.
+toIxAst :: [Int] -> AstInt r -> AstPath r
+toIxAst [] _ = []
+toIxAst (n : ns) i = q : toIxAst ns r where (q, r) = quotRem i (AstIntConst n)

@@ -16,6 +16,7 @@ module HordeAd.Core.TensorClass
 
 import Prelude
 
+import           Control.Exception.Assert.Sugar
 import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
@@ -885,10 +886,33 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
                   -- or instead push down transpose, but it may be expensive
                   -- or get stuck as well
             | otherwise -> build1VectorizeIndexVar n var v is2
-    AstFlatten{} -> AstBuildPair n (var, AstIndexN v1 is)  -- we give up
-      -- TODO: build path from index
+    AstFlatten v -> assert (null rest1) $
+      let sh = shapeAst v
+          ss = case getStrides sh of
+            _ : ss2 -> ss2
+            [] -> error "getStrides in build1VectorizeIndexVar"
+          ixs2 = toIxAst ss i1
+          v2 = (unsafeCoerce :: Ast n1 r -> Ast (1 + m + n) r) v
+       in build1VectorizeIndexVar n var v2 ixs2
     AstReshape{} -> AstBuildPair n (var, AstIndexN v1 is)  -- we give up
-      -- TODO: an even more general indexing needed?
+      {- TODO: This angle of attack fails, because AstSlice with variable
+         first argument doesn't vectorize in build1Vectorize. For it
+         to vectorize, we'd need a new operation, akin to gather,
+         with the semantics of build (slice), a gradient, a way to vectorize
+         it, in turn, normally and with indexing applied, etc.
+      let ss = case getStrides sh of
+            _ : ss2 -> ss2
+            [] -> error "getStrides in build1VectorizeIndexVar"
+          i = sum $ zipWith (*) is (map AstIntConst ss)
+          -- This converts indexing into a slice and flatten, which in general
+          -- is avoided, because it causes costly linearlization, but here
+          -- we are going to reshape outside, anyway, and also we are desperate.
+          -- BTW, slice has to accept variable first argument precisely
+          -- to be usable for convering indexing into. Note that this argument
+          -- does not affect shape, so shapes remain static.
+          v2 = AstSlice i (product $ drop (length is) sh) $ AstFlatten v
+      in AstReshape (n : sh) $ build1VectorizeVar n (var, v2)
+      -}
     AstBuildPair _n2 (var2, v) ->
       -- TODO: a previous failure of vectorization that should have
       -- led to an abort instead of showing up late
