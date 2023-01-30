@@ -1141,9 +1141,11 @@ gatherClosure n f (D u u') = dD (tgatherR n f u) (dGather1 n f (OR.shapeL u) u')
 
 -- * Interpretation of Ast in ADVal
 
+type AstEnv d r = IM.IntMap (AstVar (ADVal d r) (ADVal d (OR.Array 1 r)))
+
 interpretLambdaD1
   :: ADModeAndNumTensor d r
-  => IM.IntMap (AstVar (ADVal d r) (ADVal d (OR.Array 1 r)))
+  => AstEnv d r
   -> (AstVarName r, Ast 0 r)
   -> ADVal d r -> ADVal d r
 interpretLambdaD1 env (AstVarName var, ast) =
@@ -1151,7 +1153,7 @@ interpretLambdaD1 env (AstVarName var, ast) =
 
 interpretLambdaI1
   :: (ADModeAndNumTensor d r, KnownNat n)
-  => IM.IntMap (AstVar (ADVal d r) (ADVal d (OR.Array 1 r)))
+  => AstEnv d r
   -> (AstVarName Int, Ast n r)
   -> Int -> ADVal d (OR.Array n r)
 interpretLambdaI1 env (AstVarName var, ast) =
@@ -1159,7 +1161,7 @@ interpretLambdaI1 env (AstVarName var, ast) =
 
 interpretLambdaPath
   :: ADModeAndNumTensor d r
-  => IM.IntMap (AstVar (ADVal d r) (ADVal d (OR.Array 1 r)))
+  => AstEnv d r
   -> (AstVarName Int, AstPath r)
   -> Int -> [Int]
 interpretLambdaPath env (AstVarName var, asts) =
@@ -1167,13 +1169,13 @@ interpretLambdaPath env (AstVarName var, asts) =
 
 interpretAstPrimal
   :: (ADModeAndNumTensor d r, KnownNat n)
-  => IM.IntMap (AstVar (ADVal d r) (ADVal d (OR.Array 1 r)))
+  => AstEnv d r
   -> Ast n r -> OR.Array n r
 interpretAstPrimal env v = let D u _ = interpretAst env v in u
 
 interpretAst
   :: (ADModeAndNumTensor d r, KnownNat n)
-  => IM.IntMap (AstVar (ADVal d r) (ADVal d (OR.Array 1 r)))
+  => AstEnv d r
   -> Ast n r -> ADVal d (OR.Array n r)
 interpretAst env = \case
   AstOp opCode args ->
@@ -1269,7 +1271,7 @@ interpretAst env = \case
     Nothing -> error $ "interpretAst: unknown variable var " ++ show var
 
 interpretAstInt :: ADModeAndNumTensor d r
-                => IM.IntMap (AstVar (ADVal d r) (ADVal d (OR.Array 1 r)))
+                => AstEnv d r
                 -> AstInt r -> Int
 interpretAstInt env = \case
   AstIntOp opCodeInt args ->
@@ -1289,7 +1291,7 @@ interpretAstInt env = \case
   AstMaxIndex v -> lmaxIndex $ interpretAst env v
 
 interpretAstBool :: ADModeAndNumTensor d r
-                 => IM.IntMap (AstVar (ADVal d r) (ADVal d (OR.Array 1 r)))
+                 => AstEnv d r
                  -> AstBool r -> Bool
 interpretAstBool env = \case
   AstBoolOp opCodeBool args ->
