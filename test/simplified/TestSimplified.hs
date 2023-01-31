@@ -38,7 +38,7 @@ testTrees = [ -- vector tests
             , testCase "F2" testF2
             , -- tensor tests
               testCase "braidedBuilds" testBraidedBuilds
---            , testCase "recycled" testRecycled
+            , testCase "recycled" testRecycled
             , testCase "concatBuild" testConcatBuild
             , testCase "concatBuild2" testConcatBuild2
             ]
@@ -184,10 +184,9 @@ braidedBuilds r =
     tbuild 4 (\ix2 -> tindex (tfromList0N [4]
                                 [tfromIntOf0 ix2, 7, r, -0.2]) ix1))
 
--- TODO: can't be tested yet
-_recycled :: ADReady r
+recycled :: ADReady r
          => r -> TensorOf 5 r
-_recycled r = tbuild 3 $ \_ -> tbuild 4 $ \_ -> tbuild 2 $ \_ -> tbuild 6 $ \_ ->
+recycled r = tbuild 3 $ \_ -> tbuild 4 $ \_ -> tbuild 2 $ \_ -> tbuild 6 $ \_ ->
                nestedSumBuild (tkonst0N [7] r)
 
 concatBuild :: ADReady r => r -> TensorOf 2 r
@@ -296,8 +295,7 @@ testPoly11 f outSize input expected = do
 
 testPolyn
   :: (KnownNat n, HasDelta r, r ~ Double)
-  => (forall x. ADReady x  -- TODO: doesn't help with recycled: ADReady x, TensorOf 1 x ~ TensorOf 1 x)
-      => x -> TensorOf n x)
+  => (forall x. ADReady x => x -> TensorOf n x)
   -> OR.ShapeL -> r -> r
   -> Assertion
 testPolyn f sh input expected = do
@@ -448,11 +446,11 @@ testBraidedBuilds =
   3.4
   4.0
 
---testRecycled :: Assertion
---testRecycled =
---  testPolyn undefined recycled [3, 4, 2, 6, 13]
---  3.4
---  4.0
+testRecycled :: Assertion
+testRecycled =
+  testPolyn recycled [3, 4, 2, 6, 13]
+  3.4
+  4.0
 
 testConcatBuild :: Assertion
 testConcatBuild =
