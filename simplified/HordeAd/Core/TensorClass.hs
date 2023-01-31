@@ -176,7 +176,7 @@ class (RealFloat r, RealFloat (VectorOf r), Integral (IntOf r))
   lminimum0 :: VectorOf r -> r
   lmaximum0 :: VectorOf r -> r
   fromIntOf0 :: IntOf r -> r
-  fromIntOf0 = fromInteger . fromIntegral
+  fromIntOf0 = fromIntegral
 
   lfromList1 :: [r] -> VectorOf r
   lfromVector1 :: Data.Vector.Vector r -> VectorOf r
@@ -188,7 +188,7 @@ class (RealFloat r, RealFloat (VectorOf r), Integral (IntOf r))
   lmap1 :: (r -> r) -> VectorOf r -> VectorOf r
   lzipWith1 :: (r -> r -> r) -> VectorOf r -> VectorOf r -> VectorOf r
   fromIntOf1 :: IntOf r -> VectorOf r
-  fromIntOf1 = fromInteger . fromIntegral
+  fromIntOf1 = fromIntegral
     -- TODO: this one is probably spurious, but let's keep it until
     -- we verify if the variant from HasPrimal, working for all ranks,
     -- can be recovered in the final formulation
@@ -412,7 +412,7 @@ class VectorNumeric r
   tminimum0 :: TensorOf 1 r -> r
   tmaximum0 :: TensorOf 1 r -> r
   tfromIntOf0 :: IntOf r -> r
-  tfromIntOf0 = fromInteger . fromIntegral
+  tfromIntOf0 = fromIntegral
   tunScalar :: TensorOf 0 r -> r
 
   tscalar :: r -> TensorOf 0 r
@@ -1169,7 +1169,7 @@ interpretAst env = \case
   AstCond b a1 a2 -> if interpretAstBool env b
                      then interpretAst env a1
                      else interpretAst env a2
-  AstConstInt i -> fromInteger $ fromIntegral $ interpretAstInt env i
+  AstConstInt i -> fromIntegral $ interpretAstInt env i
   AstConst a -> constant a
   AstConstant (AstPrimalPart1 a) -> constant $ interpretAstPrimal env a
   AstScale (AstPrimalPart1 r) d ->

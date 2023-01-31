@@ -280,7 +280,7 @@ instance Enum (AstInt r) where
   -- TODO
 
 -- Warning: this class lacks toInteger, which also makes it impossible
--- to include AstInt in Ast via fromInteger nor fromIntegral, hence AstInt.
+-- to include AstInt in Ast via fromIntegral, hence AstConstInt.
 instance Integral (AstInt r) where
   quot u v = AstIntOp QuotIntOp [u, v]
   rem u v = AstIntOp RemIntOp [u, v]
