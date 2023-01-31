@@ -8,9 +8,9 @@
 -- (and safely impure) API in "HordeAd.Core.DualClass". The other part
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.TensorClass
-  ( HasPrimal(..), VectorNumeric(..), Tensor(..)
+  ( HasPrimal(..), Tensor(..)
   , interpretAst
-  , ADReady, ADReady'
+  , ADReady
   , scalar, unScalar, leqAst, gtAst, gtIntAst, relu, reluLeaky, reluAst
   ) where
 
@@ -39,9 +39,8 @@ import HordeAd.Internal.TensorOps
 
 type ADModeAndNumTensor (d :: ADMode) r =
   ( ADModeAndNum d r
-  , VectorOf r ~ OR.Array 1 r
-  , VectorNumeric r
   , Tensor r
+  , TensorOf 1 r ~ OR.Array 1 r
   , IntOf r ~ Int
   )
 
@@ -71,7 +70,7 @@ reluLeaky v =
 -- we'd need Conditional class that works with our AstBool type
 -- and some sugar to be able to use >, &&, etc.
 reluAst
-  :: (KnownNat n, Num (Vector r), Numeric r)
+  :: forall n r. (KnownNat n, Num (Vector r), Numeric r)
   => Ast n r -> Ast n r
 reluAst v =
   let oneIfGtZero = omap (\(AstPrimalPart1 x) ->
@@ -152,220 +151,6 @@ instance HasPrimal (Ast n r) where
   ddD = error "TODO"
 
 
--- * VectorNumeric class definition and instances for arrays, ADVal and Ast
-
--- TODO: when we have several times more operations, split into
--- VectorContainer and VectorNumeric, with the latter containing the few
--- Ord and Num operations and the superclasses below, extended with
--- VectorContainer.
--- TODO: change the method prefix ("l") now that the name is changed.
--- | The superclasses indicate that it's not only a container vector,
--- but also a mathematical vector, sporting numeric operations.
-class (RealFloat r, RealFloat (VectorOf r), Integral (IntOf r))
-      => VectorNumeric r where
-  type VectorOf r = result | result -> r
-  type IntOf r
-
-  llength :: VectorOf r -> Int
-  lminIndex :: VectorOf r -> IntOf r
-  lmaxIndex :: VectorOf r -> IntOf r
-
-  lindex0 :: VectorOf r -> IntOf r -> r
-  lsum0 :: VectorOf r -> r
-  ldot0 :: VectorOf r -> VectorOf r -> r
-  lminimum0 :: VectorOf r -> r
-  lmaximum0 :: VectorOf r -> r
-  fromIntOf0 :: IntOf r -> r
-  fromIntOf0 = fromIntegral
-
-  lfromList1 :: [r] -> VectorOf r
-  lfromVector1 :: Data.Vector.Vector r -> VectorOf r
-  lkonst1 :: Int -> r -> VectorOf r
-  lappend1 :: VectorOf r -> VectorOf r -> VectorOf r
-  lslice1 :: Int -> Int -> VectorOf r -> VectorOf r
-  lreverse1 :: VectorOf r -> VectorOf r
-  lbuild1 :: Int -> (IntOf r -> r) -> VectorOf r
-  lmap1 :: (r -> r) -> VectorOf r -> VectorOf r
-  lzipWith1 :: (r -> r -> r) -> VectorOf r -> VectorOf r -> VectorOf r
-  fromIntOf1 :: IntOf r -> VectorOf r
-  fromIntOf1 = fromIntegral
-    -- TODO: this one is probably spurious, but let's keep it until
-    -- we verify if the variant from HasPrimal, working for all ranks,
-    -- can be recovered in the final formulation
-
-  -- Default methods for Float, Double and all future scalars users will add.
-  default llength
-    :: (VectorOf r ~ OR.Array 1 r)
-    => VectorOf r -> Int
-  llength = tsizeR
-  default lminIndex
-    :: (Numeric r, VectorOf r ~ OR.Array 1 r, IntOf r ~ Int)
-    => VectorOf r -> IntOf r
-  lminIndex = tminIndexR
-  default lmaxIndex
-    :: (Numeric r, VectorOf r ~ OR.Array 1 r, IntOf r ~ Int)
-    => VectorOf r -> IntOf r
-  lmaxIndex = tmaxIndexR
-
-  default lindex0
-    :: (Numeric r, VectorOf r ~ OR.Array 1 r, IntOf r ~ Int)
-    => VectorOf r -> IntOf r -> r
-  lindex0 v ix = (V.! ix) $ OR.toVector v
-  default lsum0
-    :: (Numeric r, VectorOf r ~ OR.Array 1 r)
-    => VectorOf r -> r
-  lsum0 = tsum0R
-  default ldot0
-    :: (Numeric r, VectorOf r ~ OR.Array 1 r)
-    => VectorOf r -> VectorOf r -> r
-  ldot0 = tdot0R
-  default lminimum0
-    :: (Numeric r, VectorOf r ~ OR.Array 1 r)
-    => VectorOf r -> r
-  lminimum0 = tminimum0R
-  default lmaximum0
-    :: (Numeric r, VectorOf r ~ OR.Array 1 r)
-    => VectorOf r -> r
-  lmaximum0 = tmaximum0R
-
-  default lfromList1
-    :: (Numeric r, VectorOf r ~ OR.Array 1 r)
-    => [r] -> VectorOf r
-  lfromList1 l = OR.fromList [length l] l
-  default lfromVector1
-    :: (Numeric r, VectorOf r ~ OR.Array 1 r)
-    => Data.Vector.Vector r -> VectorOf r
-  lfromVector1 v = OR.fromVector [V.length v] $ V.convert v
-  default lkonst1
-    :: (Numeric r, VectorOf r ~ OR.Array 1 r)
-    => Int -> r -> VectorOf r
-  lkonst1 n r = OR.constant [n] r
-  default lappend1
-    :: (Numeric r, VectorOf r ~ OR.Array 1 r)
-    => VectorOf r -> VectorOf r -> VectorOf r
-  lappend1 = tappendR
-  default lslice1
-    :: (VectorOf r ~ OR.Array 1 r)
-    => Int -> Int -> VectorOf r -> VectorOf r
-  lslice1 = tsliceR
-  default lreverse1
-    :: (VectorOf r ~ OR.Array 1 r)
-    => VectorOf r -> VectorOf r
-  lreverse1 = treverseR
-  default lbuild1
-    :: (Numeric r, VectorOf r ~ OR.Array 1 r, IntOf r ~ Int)
-    => Int -> (IntOf r -> r) -> VectorOf r
-  lbuild1 n f = OR.generate [n] (\l -> f (head l))
-  default lmap1
-    :: (Numeric r, VectorOf r ~ OR.Array 1 r)
-    => (r -> r) -> VectorOf r -> VectorOf r
-  lmap1 = tmap0NR
-  default lzipWith1
-    :: (Numeric r, VectorOf r ~ OR.Array 1 r)
-    => (r -> r -> r) -> VectorOf r -> VectorOf r -> VectorOf r
-  lzipWith1 = tzipWith0NR
-
-type ADReady r = (VectorNumeric r, HasPrimal r, HasPrimal (VectorOf r))
-
--- These instances are a faster way to get an objective function value.
--- However, they don't do vectorization, so won't work on GPU, ArrayFire, etc.
--- For vectorization, go through Ast and valueOnDomains.
-instance VectorNumeric Double where
-  type VectorOf Double = OR.Array 1 Double
-  type IntOf Double = Int
-
-instance VectorNumeric Float where
-  type VectorOf Float = OR.Array 1 Float
-  type IntOf Float = Int
-
--- Not that this instance doesn't do vectorization. To enable it,
--- use the Ast instance, which vectorizes and finally interpret in ADVal.
--- In principle, this instance is only useful for comparative tests,
--- though for code without build/map/etc., it should be equivalent
--- to going via Ast.
-instance ADModeAndNumTensor d r
-         => VectorNumeric (ADVal d r) where
-  type VectorOf (ADVal d r) = ADVal d (OR.Array 1 r)
-  type IntOf (ADVal d r) = Int
-
-  llength (D u _) = llength u
-  lminIndex (D u _) = lminIndex u
-  lmaxIndex (D u _) = lmaxIndex u
-
-  lindex0 d ix = unScalar $ index d ix
-  lsum0 = sum0
-  ldot0 = dot0
-  lminimum0 (D u u') =
-    let ix = lminIndex u
-    in dD (OR.unScalar $ tindexR u ix) (dIndex0 u' [ix] [llength u])
-  lmaximum0 (D u u') =
-    let ix = lmaxIndex u
-    in dD (OR.unScalar $ tindexR u ix) (dIndex0 u' [ix] [llength u])
-
-  lfromList1 l = fromList0N [length l] l
-  lfromVector1 l = fromVector0N [V.length l] l
-  lkonst1 n = konst0N [n]
-  lappend1 = append
-  lslice1 = slice
-  lreverse1 = reverse'
-  lbuild1 = build1Closure
-    -- uses the implementation that stores closures on tape to test against
-    -- the elementwise implementation used by the fallback from vectorizing Ast
-  lmap1 f v = build1Closure (llength v) (\i -> f (v `lindex0` i))
-  lzipWith1 f v u =
-    build1Closure (llength v) (\i -> f (v `lindex0` i) (u `lindex0` i))
-
-instance ( Numeric r, RealFloat r, RealFloat (Vector r)
-         , Show r, Numeric r )  -- needed only to display errors properly
-         => VectorNumeric (Ast 0 r) where
-  type VectorOf (Ast 0 r) = Ast 1 r
-  type IntOf (Ast 0 r) = AstInt r
-
-  llength = lengthAst
-  lminIndex = AstMinIndex
-  lmaxIndex = AstMaxIndex
-
-  lindex0 = AstIndex
-  lsum0 = AstSum
-  ldot0 = AstDot0
-  lminimum0 v = AstIndex v (AstMinIndex v)
-  lmaximum0 v = AstIndex v (AstMaxIndex v)
-  fromIntOf0 = AstConstInt
-    -- toInteger is not defined for Ast, hence a special implementation
-
-  lfromList1 = AstFromList
-  lfromVector1 = AstFromVector
-  lkonst1 = AstKonst
-  lappend1 = AstAppend
-  lslice1 = AstSlice
-  lreverse1 = AstReverse
-  lbuild1 = astBuild1
-  lmap1 f v = astBuild1 (llength v) (\i -> f (v `lindex0` i))
-  lzipWith1 f v u =
-    astBuild1 (llength v) (\i -> f (v `lindex0` i) (u `lindex0` i))
-  fromIntOf1 = AstConstInt
-
--- Impure but in the most trivial way (only ever incremented counter).
-unsafeAstVarCounter :: Counter
-{-# NOINLINE unsafeAstVarCounter #-}
-unsafeAstVarCounter = unsafePerformIO (newCounter 0)
-
-unsafeGetFreshAstVar :: IO (AstVarName a)
-{-# INLINE unsafeGetFreshAstVar #-}
-unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
-
-astBuild1 :: (Show r, Numeric r)
-          => Int -> (AstInt r -> Ast 0 r) -> Ast 1 r
-{-# NOINLINE astBuild1 #-}
-astBuild1 n f = unsafePerformIO $ do
-  freshAstVar <- unsafeGetFreshAstVar
-  return $! build1Vectorize n ( freshAstVar
-                               , (f (AstIntVar freshAstVar)) )
-    -- TODO: this vectorizes depth-first, which is needed. But do we
-    -- also need a translation to non-vectorized terms for anything
-    -- (other than for comparative tests)?
-
-
 -- * Tensor class definition and instances for arrays, ADVal and Ast
 
 -- @IntOf r@ gives more expressiveness, but leads to irregular tensors,
@@ -382,15 +167,16 @@ type Permutation = [Int]
 -- TODO: when we have several times more operations, split into
 -- Array (Container) and Tensor (Numeric), with the latter containing the few
 -- Ord and Num operations and numeric superclasses.
--- | The transitive superclasses indicate that it's not only a container array,
+-- | The superclasses indicate that it's not only a container array,
 -- but also a mathematical tensor, sporting numeric operations.
 -- The @VectorNumeric@ superclass is for @IntOf@ and potential interoperability
 -- (TODO: add coversions between VectorOf and TensorOf to facilitate this)
 -- but all its operations have straightforwardly generalized analogues below.
 -- Eventually, we'll remove @VectorNumeric@ or define it in terms of @Tensor@.
-class VectorNumeric r
+class (RealFloat r, RealFloat (TensorOf 1 r), Integral (IntOf r))
       => Tensor r where
   type TensorOf (n :: Nat) r = result | result -> n r
+  type IntOf r
 
   tshape :: TensorOf n r -> [Int]
   tsize :: KnownNat n => TensorOf n r -> Int
@@ -442,7 +228,7 @@ class VectorNumeric r
        => (TensorOf n r -> TensorOf n r)
        -> TensorOf (1 + n) r -> TensorOf (1 + n) r
   tmap f u = tbuild (tlength u) (\i -> f (u `tindex` i))
-  tmap0N :: KnownNat n => (r -> r) -> TensorOf n r -> TensorOf n r
+  tmap0N :: (r -> r) -> TensorOf 1 r -> TensorOf 1 r  -- TODO: less general type until sized lists let us type build0N sanely
   tzipWith :: KnownNat n
            => (TensorOf n r -> TensorOf n r -> TensorOf n r)
            -> TensorOf (1 + n) r -> TensorOf (1 + n) r -> TensorOf (1 + n) r
@@ -450,8 +236,8 @@ class VectorNumeric r
   tzipWith0N :: KnownNat n
              => (r -> r -> r) -> TensorOf n r -> TensorOf n r -> TensorOf n r
 
-type ADReady' r = ( Tensor r, HasPrimal r
-                  , RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r) )
+type ADReady r = ( Tensor r, HasPrimal r
+                 , RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r) )
   -- TODO: there is probably no way to also specify
   -- HasPrimal (TensorOf 17 r))
   -- for all n, not just 17. That means the user needs add such
@@ -463,6 +249,7 @@ type ADReady' r = ( Tensor r, HasPrimal r
 -- For vectorization, go through Ast and valueOnDomains.
 instance Tensor Double where
   type TensorOf n Double = OR.Array n Double
+  type IntOf Double = Int
   tshape = OR.shapeL
   tminIndex = tminIndexR
   tmaxIndex = tmaxIndexR
@@ -494,6 +281,7 @@ instance Tensor Double where
 
 instance Tensor Float where
   type TensorOf n Float = OR.Array n Float
+  type IntOf Float = Int
   tshape = OR.shapeL
   tminIndex = tminIndexR
   tmaxIndex = tmaxIndexR
@@ -531,6 +319,7 @@ instance Tensor Float where
 instance (ADModeAndNumTensor d r, TensorOf 1 r ~ OR.Array 1 r)
          => Tensor (ADVal d r) where
   type TensorOf n (ADVal d r) = ADVal d (OR.Array n r)
+  type IntOf (ADVal d r) = Int
 
   -- Here and elsewhere I can't use methods of the @r@ instance of @Tensor@
   -- (the one implemented as @OR.Array n r@). Therefore, I inline them
@@ -582,13 +371,14 @@ instance (ADModeAndNumTensor d r, TensorOf 1 r ~ OR.Array 1 r)
     let g ixs = let D u _ = f ixs in u
         h ixs = let D _ u' = f ixs in u'
     in dD (tbuild0NR sh g) (dBuild01 sh h)
-  tmap0N = undefined  -- TODO
+  tmap0N f v = tbuild (tlength v) (\i -> scalar $ f (unScalar $ v `tindex` i))
   tzipWith0N = undefined  -- TODO
 
 instance ( Numeric r, RealFloat r, RealFloat (Vector r)
          , Show r, Numeric r )  -- needed only to display errors properly
          => Tensor (Ast 0 r) where
   type TensorOf n (Ast 0 r) = Ast n r
+  type IntOf (Ast 0 r) = AstInt r
 
   tshape = shapeAst
   tminIndex = AstMinIndex
@@ -620,8 +410,18 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   treshape = AstReshape
   tbuild = astBuild
   tbuild0N = undefined  -- TODO: type-level woes
-  tmap0N = undefined  -- TODO
+  tmap0N f v = astBuild (tlength v) (\i -> f (v `tindex` i))
+    -- TODO: without sharing v gets duplicated a lot
   tzipWith0N = undefined  -- TODO
+
+-- Impure but in the most trivial way (only ever incremented counter).
+unsafeAstVarCounter :: Counter
+{-# NOINLINE unsafeAstVarCounter #-}
+unsafeAstVarCounter = unsafePerformIO (newCounter 0)
+
+unsafeGetFreshAstVar :: IO (AstVarName a)
+{-# INLINE unsafeGetFreshAstVar #-}
+unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
 
 astBuild :: (KnownNat n, Show r, Numeric r)
          => Int -> (AstInt r -> Ast n r) -> Ast (n + 1) r
@@ -1248,8 +1048,8 @@ interpretAstInt env = \case
       error $ "interpretAstInt: type mismatch for var " ++ show var
     Just (AstVarI i) -> i
     Nothing -> error $ "interpretAstInt: unknown variable var " ++ show var
-  AstMinIndex v -> lminIndex $ interpretAst env v
-  AstMaxIndex v -> lmaxIndex $ interpretAst env v
+  AstMinIndex v -> tminIndex $ interpretAst env v
+  AstMaxIndex v -> tmaxIndex $ interpretAst env v
 
 interpretAstBool :: ADModeAndNumTensor d r
                  => AstEnv d r

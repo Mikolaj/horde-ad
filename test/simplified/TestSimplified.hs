@@ -64,79 +64,79 @@ barAst (x, y) =
 barADVal :: forall r d. ADModeAndNum d r => (ADVal d r, ADVal d r) -> ADVal d r
 barADVal = bar @(ADVal d r)
 
-fooBuild1 :: ADReady r => VectorOf r -> VectorOf r
+fooBuild1 :: ADReady r => TensorOf 1 r -> TensorOf 1 r
 fooBuild1 v =
-  let r = lsum0 v
-      v' = lminimum0 v
-  in lbuild1 3 $ \ix ->
+  let r = tsum0 v
+      v' = tminimum0 v
+  in tbuild 3 $ \ix -> tscalar $
        r * foo ( 3
                , 5 * r
-               , r * lminimum0 v * v')
-       + bar (r, lindex0 v (ix + 1))
+               , r * tminimum0 v * v')
+       + bar (r, tunScalar $ tindex v (ix + 1))
 
-fooMap1 :: ADReady r => r -> VectorOf r
+fooMap1 :: ADReady r => r -> TensorOf 1 r
 fooMap1 r =
-  let v = fooBuild1 $ lkonst1 130 r
-  in lmap1 (\x -> x * r + 5) v
+  let v = fooBuild1 $ tkonst0N [130] r
+  in tmap0N (\x -> x * r + 5) v
 
 -- A test with conditionals. We haven't defined a class for conditionals so far,
 -- so this uses raw AST instead of sufficiently polymorphic code.
 fooNoGoAst :: (Show r, Numeric r, RealFloat r, Floating (Vector r))
            => Ast 1 r -> Ast 1 r
 fooNoGoAst v =
-  let r = lsum0 v
-  in lbuild1 3 (\ix ->
-       (barAst (3.14, bar (3.14, lindex0 v ix)))
+  let r = tsum0 v
+  in tbuild 3 (\ix ->
+       (barAst (3.14, bar (3.14, tindex v ix)))
        + AstCond (AstBoolOp AndOp  -- TODO: overload &&, <=, >, etc.
-                             [ lindex0 v (ix * 2) `leqAst` 0
+                             [ tindex v (ix * 2) `leqAst` 0
                              , 6 `gtIntAst` abs ix ])
                  r (5 * r))
-     / lslice1 1 3 (lmap1 (\x -> AstCond (x `gtAst` r) r x) v)
-     * lbuild1 3 (\ _ix -> 1)
+     / tslice 1 3 (tmap0N (\x -> AstCond (x `gtAst` r) r x) v)
+     * tbuild 3 (\ _ix -> 1)
 
--- TODO: remove the need for the 2 type hints; using VectorOf in the definition
+-- TODO: remove the need for the 2 type hints; using TensorOf 1 in the definition
 -- of VectorLike class may be enough
-nestedBuildMap :: forall r. ADReady r => r -> VectorOf r
+nestedBuildMap :: forall r. ADReady r => r -> TensorOf 1 r
 nestedBuildMap r =
-  let w x = lkonst1 4 x  -- (AstIntCond (x `leqAst` 0) 3 4)
-      v' = lkonst1 177 r :: VectorOf r
-      nestedMap x = lmap1 (\y -> x / y) (w x)
-      variableLengthBuild iy = lbuild1 7 (\ix -> lindex0 v' (ix + iy)) :: VectorOf r
-      doublyBuild = lbuild1 5 (\iy -> lminimum0 (variableLengthBuild iy))
-  in lmap1 (\x -> x
-                  * lsum0
-                      (lbuild1 3 (\ix -> bar ( x
-                                             , lindex0 v' ix) )
+  let w x = tkonst0N [4] x  -- (AstIntCond (x `leqAst` 0) 3 4)
+      v' = tkonst0N [177] r :: TensorOf 1 r
+      nestedMap x = tmap0N (\y -> x / y) (w x)
+      variableLengthBuild iy = tbuild 7 (\ix -> tindex v' (ix + iy)) :: TensorOf 1 r
+      doublyBuild = tbuild 5 (\iy -> tscalar $ tminimum0 (variableLengthBuild iy))
+  in tmap0N (\x -> x
+                  * tsum0
+                      (tbuild 3 (\ix -> tscalar $ bar ( x
+                                             , tunScalar $ tindex v' ix) )
                        + fooBuild1 (nestedMap x)
                        / fooMap1 x)
            ) doublyBuild
 
-nestedSumBuild :: ADReady r => VectorOf r -> VectorOf r
+nestedSumBuild :: ADReady r => TensorOf 1 r -> TensorOf 1 r
 nestedSumBuild v =
-  lbuild1 13 (\ix ->
-    lsum0 (lbuild1 4 (\ix2 ->
-      flip lindex0 ix2
-        (lbuild1 5 (\ _ -> lsum0 v)
-         * lfromList1
-             [ fromIntOf0 ix
-             , lsum0 (lbuild1 9 (\ix5 -> fromIntOf0 ix5))
-             , lsum0 (lbuild1 6 (\_ -> lsum0 v))
-             , lindex0 v ix2
-             , lsum0 (lbuild1 3 (\ix7 ->
-                 lsum0 (lkonst1 5 (fromIntOf0 ix7))))
+  tbuild 13 (\ix ->
+    tsum (tbuild 4 (\ix2 ->
+      flip tindex ix2
+        (tbuild 5 (\ _ -> tsum v)
+         * tfromList
+             [ tscalar $ tfromIntOf0 ix
+             , tsum (tbuild 9 (\ix5 -> tscalar $ tfromIntOf0 ix5))
+             , tsum (tbuild 6 (\_ -> tsum v))
+             , tindex v ix2
+             , tsum (tbuild 3 (\ix7 ->
+                 tsum (tkonst0N [5] (tfromIntOf0 ix7))))
 -- dynamic shapes:
---             , lsum0 (lbuild1 3 (\ix7 ->
---                 lsum0 (lkonst1 (ix2 + 1) (fromIntOf0 ix7))))
+--             , tsum (tbuild 3 (\ix7 ->
+--                 tsum (tkonst0N [ix2 + 1] (tfromIntOf0 ix7))))
 -- irregular array:
---             , lsum0 (lbuild1 3 (\ix7 ->
---                 lsum0 (lkonst1 (ix2 + ix7 + 1) 2.4)))
+--             , tsum (tbuild 3 (\ix7 ->
+--                 tsum (tkonst0N [ix2 + ix7 + 1] 2.4)))
              ]))))
-  + lbuild1 13 (\ix ->
-      nestedBuildMap (lsum0 v) `lindex0` min ix 4)
+  + tbuild 13 (\ix ->
+      nestedBuildMap (tsum0 v) `tindex` min ix 4)
 
-nestedBuildIndex :: ADReady r => VectorOf r -> VectorOf r
+nestedBuildIndex :: ADReady r => TensorOf 1 r -> TensorOf 1 r
 nestedBuildIndex v =
-  lbuild1 2 $ \ix2 -> lindex0 (lbuild1 3 $ \ix3 -> lindex0 (lbuild1 4 $ \ix4 -> lindex0 v ix4) ix3) ix2
+  tbuild 2 $ \ix2 -> tindex (tbuild 3 $ \ix3 -> tindex (tbuild 4 $ \ix4 -> tindex v ix4) ix3) ix2
 
 barRelu
   :: ( RealFloat a
@@ -157,40 +157,40 @@ barReluAst x = reluAst $ bar (x, reluAst x)
 konstReluAst
   :: forall r. (Show r, Numeric r, RealFloat r, RealFloat (Vector r))
   => Ast 0 r -> Ast 0 r
-konstReluAst x = lsum0 $ reluAst $ lkonst1 7 x
+konstReluAst x = tsum0 $ reluAst @1 $ tkonst0N [7] x
 
 
 -- * Tests by TomS
 
 f1 :: ADReady a => a -> a
-f1 = \arg -> lsum0 (lbuild1 10 (\i -> arg * fromIntOf0 i))
+f1 = \arg -> tsum0 (tbuild 10 (\i -> tscalar $ arg * tfromIntOf0 i))
 
 f2 :: ADReady a => a -> a
 f2 = \arg ->
-  let fun1 i = arg * fromIntOf0 i
-      v1a = lsum0 (lbuild1 10 fun1)
-      v1b = lsum0 (lbuild1 20 fun1)
-      fun2 y i = y * fromIntOf0 i
-      v2a = lsum0 (lbuild1 10 (fun2 arg))
-      v2b = lsum0 (lbuild1 20 (fun2 (arg + 1)))
+  let fun1 i = tscalar $ arg * tfromIntOf0 i
+      v1a = tsum0 (tbuild 10 fun1)
+      v1b = tsum0 (tbuild 20 fun1)
+      fun2 y i = tscalar $ y * tfromIntOf0 i
+      v2a = tsum0 (tbuild 10 (fun2 arg))
+      v2b = tsum0 (tbuild 20 (fun2 (arg + 1)))
   in v1a + v1b + v2a + v2b
 
 
 -- * Vector tests (many by TomS as well)
 
-braidedBuilds :: ADReady' r => r -> TensorOf 2 r
+braidedBuilds :: ADReady r => r -> TensorOf 2 r
 braidedBuilds r =
   tbuild 3 (\ix1 ->
     tbuild 4 (\ix2 -> tindex (tfromList0N [4]
                                 [tfromIntOf0 ix2, 7, r, -0.2]) ix1))
 
 -- TODO: can't be tested yet
-_recycled :: (ADReady' r, ADReady r, VectorOf r ~ TensorOf 1 r)
+_recycled :: ADReady r
          => r -> TensorOf 5 r
 _recycled r = tbuild 3 $ \_ -> tbuild 4 $ \_ -> tbuild 2 $ \_ -> tbuild 6 $ \_ ->
                nestedSumBuild (tkonst0N [7] r)
 
-concatBuild :: ADReady' r => r -> TensorOf 2 r
+concatBuild :: ADReady r => r -> TensorOf 2 r
 concatBuild r =
   tbuild 7 (\i ->
     tappend (tappend (tbuild 5 (\_j -> tscalar r))  -- TODO: i should work
@@ -201,7 +201,7 @@ concatBuild r =
 --                     (tkonst0N [1] (tfromIntOf0 i)))
 --            (tbuild (13 - i) (\_k -> tscalar r)))
 
-concatBuild2 :: ADReady' r => r -> TensorOf 2 r
+concatBuild2 :: ADReady r => r -> TensorOf 2 r
 concatBuild2 _r =
 -- TODO: tbuild0N (7, 14) (\ (i,j)
   tbuild 7 $ \i -> tbuild 14 $ \_j ->
@@ -240,7 +240,7 @@ testPoly00 f input expected = do
 
 testPoly01
   :: (HasDelta r, r ~ Double)
-  => (forall x. ADReady x => x -> VectorOf x) -> Int -> r -> r
+  => (forall x. ADReady x => x -> TensorOf 1 x) -> Int -> r -> r
   -> Assertion
 testPoly01 f outSize input expected = do
   let domainsInput =
@@ -268,7 +268,7 @@ testPoly01 f outSize input expected = do
 
 testPoly11
   :: (HasDelta r, r ~ Double)
-  => (forall x. ADReady x => VectorOf x -> VectorOf x) -> Int -> [r] -> [r]
+  => (forall x. ADReady x => TensorOf 1 x -> TensorOf 1 x) -> Int -> [r] -> [r]
   -> Assertion
 testPoly11 f outSize input expected = do
   let domainsInput =
@@ -296,7 +296,7 @@ testPoly11 f outSize input expected = do
 
 testPolyn
   :: (KnownNat n, HasDelta r, r ~ Double)
-  => (forall x. ADReady' x  -- TODO: doesn't help with recycled: ADReady x, VectorOf x ~ TensorOf 1 x)
+  => (forall x. ADReady x  -- TODO: doesn't help with recycled: ADReady x, TensorOf 1 x ~ TensorOf 1 x)
       => x -> TensorOf n x)
   -> OR.ShapeL -> r -> r
   -> Assertion
