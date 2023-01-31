@@ -34,6 +34,7 @@ import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Text.Show.Functions ()
+import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Internal.OrthotopeOrphanInstances ()
 
@@ -47,7 +48,7 @@ import HordeAd.Internal.OrthotopeOrphanInstances ()
 -- traditional C notation.
 data Index (n :: Nat) i where
   Z :: Index 0 i
-  (:.) :: Index n i  -> i -> Index (n + 1) i
+  (:.) :: Index n i -> i -> Index (n + 1) i
 infixl 3 :.
 -- This fixity is stolen from Accelerate:
 --   https://hackage.haskell.org/package/accelerate-1.3.0.0/docs/Data-Array-Accelerate.html#t::.
@@ -74,12 +75,12 @@ toLinearIdx (Shape (sh :. n)) (idx :. i) = n * toLinearIdx (Shape sh) idx + i
 
 -- | Given a linear index into the buffer, get the corresponding
 -- multidimensional index
-fromLinearIdx :: Shape n Int -> Int -> Index n Int
+fromLinearIdx :: Integral i => Shape n i -> i -> Index n i
 fromLinearIdx (Shape Z) 0 = Z
 fromLinearIdx (Shape Z) _ = error "Index out of range"
 fromLinearIdx (Shape (sh :. n)) idx =
   let (idx', i) = idx `quotRem` n
-  in fromLinearIdx (Shape sh) idx' :. i
+  in fromLinearIdx (Shape sh) idx' :. i  -- idx' and i should be reversed, right?
 
 -- | The zero index in this shape (not dependent on the actual integers)
 zeroOf :: Num i => Shape n i -> Index n i
@@ -91,6 +92,10 @@ zeroOf (Shape (sh :. _)) = zeroOf (Shape sh) :. 0
 idxCompare :: Monoid m => (Int -> Int -> m) -> Index n Int -> Index n Int -> m
 idxCompare _ Z Z = mempty
 idxCompare f (idx :. i) (idx' :. j) = f i j <> idxCompare f idx idx'
+
+listToIndex :: [i] -> Index n i
+listToIndex [] = unsafeCoerce Z
+listToIndex (ix : rest) = unsafeCoerce $ listToIndex rest :. ix
 
 -- | A multidimensional array of rank @n@ containing elements of type @a@
 data Array n a = Array (Shape n Int) (Vector a)
@@ -130,9 +135,9 @@ main = do
 -- However, if we switched to @Data.Array.Shaped@ and moved most of the shapes
 -- to the type level, we'd recover some of the expressiveness, while retaining
 -- statically known (type-parameterized) shapes.
-type AstShape r = [Int]
+type AstShape n r = Index n Int
 
-type AstPath r = [AstInt r]
+type AstPath n r = Index n (AstInt r)
 
 type AstPermutation = [Int]
 
@@ -153,15 +158,14 @@ data Ast :: Nat -> Type -> Type where
     -- sort of partially evaluated @AstConstant@
   AstConstant :: AstPrimalPart1 n r -> Ast n r
   AstScale :: AstPrimalPart1 n r -> Ast n r -> Ast n r
-  AstVar :: [Int] -> AstVarName (OR.Array n r) -> Ast n r
+  AstVar :: AstShape n r -> AstVarName (OR.Array n r) -> Ast n r
 
   -- For VectorLike and Tensor class:
   AstIndex :: Ast (1 + n) r -> AstInt r -> Ast n r
   AstIndexN :: forall m n r. KnownNat m
-            => Ast (1 + m + n) r -> AstPath r -> Ast n r
+            => Ast (m + n) r -> AstPath m r -> Ast n r
     -- emerges from vectorizing AstIndex;
-    -- first ix is for outermost dimension; @1 + m@ is the length of the list;
-    -- empty list means identity
+    -- first ix is for outermost dimension; empty path means identity
   AstSum :: Ast (1 + n) r -> Ast n r
   AstFromList :: [Ast n r] -> Ast (1 + n) r
   AstFromVector :: Data.Vector.Vector (Ast n r) -> Ast (1 + n) r
@@ -177,11 +181,11 @@ data Ast :: Nat -> Type -> Type where
   AstFlatten :: KnownNat n
              => Ast n r -> Ast 1 r
   AstReshape :: KnownNat n
-             => AstShape r -> Ast n r -> Ast m r
+             => AstShape m r -> Ast n r -> Ast m r
     -- emerges from vectorizing AstFlatten
   AstBuildPair :: Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
   AstGatherPair :: KnownNat m
-                => Int -> (AstVarName Int, AstPath r) -> Ast (m + n) r
+                => Int -> (AstVarName Int, AstPath m r) -> Ast (m + n) r
                 -> Ast (1 + n) r
     -- emerges from vectorizing AstIndexN applied to term with no build variable
 
@@ -194,10 +198,10 @@ data Ast :: Nat -> Type -> Type where
           => Ast n r -> Ast 0 r
   AstDot0 :: KnownNat n
           => Ast n r -> Ast n r -> Ast 0 r
-  AstFromList0N :: AstShape r -> [Ast 0 r] -> Ast n r
-  AstFromVector0N :: AstShape r -> Data.Vector.Vector (Ast 0 r) -> Ast n r
-  AstKonst0N :: AstShape r -> Ast 0 r -> Ast (1 + n) r
-  AstBuildPair0N :: AstShape r -> ([AstVarName Int], Ast 0 r) -> Ast n r
+  AstFromList0N :: AstShape n r -> [Ast 0 r] -> Ast n r
+  AstFromVector0N :: AstShape n r -> Data.Vector.Vector (Ast 0 r) -> Ast n r
+  AstKonst0N :: AstShape n r -> Ast 0 r -> Ast (1 + n) r
+  AstBuildPair0N :: AstShape n r -> ([AstVarName Int], Ast 0 r) -> Ast n r
 
   -- For MonoFunctor class, which is needed for a particularly
   -- fast implementation of relu and offers fast, primal-part only, mapping.
@@ -392,7 +396,7 @@ astOmap :: (Ast 0 r -> Ast 0 r) -> Ast n r -> Ast n r
 {-# NOINLINE astOmap #-}
 astOmap f e = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
-  return $! AstOMap (freshAstVar, f (AstVar [] freshAstVar)) e
+  return $! AstOMap (freshAstVar, f (AstVar Z freshAstVar)) e
 
 instance MonoFunctor (AstPrimalPart1 n r) where
   omap f (AstPrimalPart1 x) =
@@ -405,13 +409,13 @@ instance MonoFunctor (AstPrimalPart1 n r) where
 -- only one path and fail if it doesn't contain enough information
 -- to determine shape. If we don't switch to @Data.Array.Shaped@
 -- or revert to fully dynamic shapes, we need to redo this with more rigour.
-shapeAst :: (Show r, Numeric r) => Ast n r -> AstShape r
+shapeAst :: (Show r, Numeric r) => Ast n r -> AstShape n r
 shapeAst v1 = case v1 of
   AstOp _opCode args -> case args of
     [] -> error "shapeAst: AstOp with no arguments"
     t : _ -> shapeAst t
   AstCond _b a1 _a2 -> shapeAst a1
-  AstConstInt _i -> []
+  AstConstInt _i -> Z
   AstConst a -> OR.shapeL a
   AstConstant (AstPrimalPart1 a) -> shapeAst a
   AstScale (AstPrimalPart1 r) _d -> shapeAst r
@@ -430,17 +434,17 @@ shapeAst v1 = case v1 of
     t : _ -> V.length l : shapeAst t
   AstKonst n v -> n : shapeAst v
   AstAppend x y -> case shapeAst x of
-    [] -> error "shapeAst: AstAppend applied to scalars"
-    xi : xsh -> case shapeAst y of
-      [] -> error "shapeAst: AstAppend applied to scalars"
-      yi : _ -> xi + yi : xsh
+    Z -> error "shapeAst: AstAppend applied to scalars"
+    xsh :. xi -> case shapeAst y of
+      Z -> error "shapeAst: AstAppend applied to scalars"
+      _ :. yi -> xi + yi : xsh
   AstSlice _n k v -> k : tail (shapeAst v)
   AstReverse v -> shapeAst v
   AstTranspose v -> case shapeAst v of
-    i : k : sh -> k : i : sh
+    sh :. k :. i -> k : i : sh
     sh -> sh  -- the operation is an identity if rank too small
   AstTransposeGeneral perm v ->
-    let permutePrefix :: AstPermutation -> AstShape r -> AstShape r
+    let permutePrefix :: AstPermutation -> AstShape n r -> AstShape n r
         permutePrefix p l = V.toList $ VS.fromList l V.// zip p l
         sh = shapeAst v
     in if length sh < length perm
@@ -453,8 +457,8 @@ shapeAst v1 = case v1 of
     let sh = shapeAst v
     in assert (length sh >= length is `blame` v1)
        $ n : drop (length is) sh
-  AstSum0 _v -> []
-  AstDot0 _x _y -> []
+  AstSum0 _v -> Z
+  AstDot0 _x _y -> Z
   AstFromList0N sh _l -> sh
   AstFromVector0N sh _l -> sh
   AstKonst0N sh _r -> sh
@@ -463,8 +467,8 @@ shapeAst v1 = case v1 of
 
 lengthAst :: (Show r, Numeric r) => Ast (1 + n) r -> Int
 lengthAst v1 = case shapeAst v1 of
-  [] -> error "lengthAst: impossible rank 0 found"
-  n : _ -> n
+  Z -> error "lengthAst: impossible rank 0 found"
+  _ :. n -> n
 
 substituteAst :: (Show r, Numeric r)
               => AstInt r -> AstVarName Int -> Ast n r -> Ast n r
@@ -532,6 +536,5 @@ substituteAstBool i var b1 = case b1 of
     AstRelInt opCodeRel $ map (substituteAstInt i var) args
 
 -- This is toIx generalized to AstInt.
-toIxAst :: [Int] -> AstInt r -> AstPath r
-toIxAst [] _ = []
-toIxAst (n : ns) i = q : toIxAst ns r where (q, r) = quotRem i (AstIntConst n)
+toIxAst :: [Int] -> AstInt r -> AstPath n r
+toIxAst shInt = fromLinearIdx (Shape $ listToIndex $ map AstIntConst shInt)
