@@ -1,5 +1,5 @@
 {-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances, RankNTypes,
-             TypeFamilies, TypeOperators #-}
+             TypeFamilies #-}
 module TestGradientSimple
   ( testTrees, finalCounter
   , sumElementsV, altSumElementsV, sinKonst, powKonst

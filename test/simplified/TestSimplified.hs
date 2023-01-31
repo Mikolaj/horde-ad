@@ -1,5 +1,5 @@
 {-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances, RankNTypes,
-             TypeFamilies, TypeOperators #-}
+             TypeFamilies #-}
 module TestSimplified (testTrees) where
 
 import Prelude
