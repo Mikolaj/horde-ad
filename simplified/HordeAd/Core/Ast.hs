@@ -1,6 +1,7 @@
-{-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances, GADTs,
-             GeneralizedNewtypeDeriving, KindSignatures, MultiParamTypeClasses,
-             PolyKinds, QuantifiedConstraints, RankNTypes, StandaloneDeriving,
+{-# LANGUAGE ConstraintKinds, DataKinds, DeriveFunctor, DerivingStrategies,
+             FlexibleInstances, GADTs, GeneralizedNewtypeDeriving,
+             KindSignatures, MultiParamTypeClasses, PolyKinds,
+             QuantifiedConstraints, RankNTypes, StandaloneDeriving,
              TypeFamilyDependencies, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
@@ -49,21 +50,64 @@ import HordeAd.Internal.OrthotopeOrphanInstances ()
 -- traditional C notation.
 data Index (n :: Nat) i where
   Z :: Index 0 i
-  (:.) :: Index n i -> i -> Index (n + 1) i
-infixl 3 :.
--- This fixity is stolen from Accelerate:
---   https://hackage.haskell.org/package/accelerate-1.3.0.0/docs/Data-Array-Accelerate.html#t::.
+  S :: i -> Index n i -> Index (n + 1) i
+
+deriving stock instance Functor (Index n)
 
 instance Show i => Show (Index n i) where
   showsPrec _ Z = showString "Z"
   showsPrec d (idx :. i) = showParen (d > 3) $
     showsPrec 3 idx . showString " :. " . showsPrec 4 i
 
+-- I'm afraid, I can't do the unsafeCoerces below with this order
+-- of argument in :., can I? So I need this instead:
+pattern (:.) is i = S i is
+infixl 3 :.
+-- This fixity is stolen from Accelerate:
+--   https://hackage.haskell.org/package/accelerate-1.3.0.0/docs/Data-Array-Accelerate.html#t::.
+
+tailIndex :: Index (1 + n) i -> Index n i
+tailIndex (is :. i) = is
+
+takeIndex :: forall len n i. KnownNat len
+          => Index (len + n) i -> Index n i
+takeIndex ix = unsafeCoerce $ take (valueOf @len) $ unsafeCoerce ix
+
+dropIndex :: forall len n i. KnownNat len
+          => Index (len + n) i -> Index n i
+dropIndex ix = unsafeCoerce $ drop (valueOf @len) $ unsafeCoerce ix
+
+permutePrefixIndex :: [Int] -> Index n i -> Index n i
+permutePrefixIndex p ix =
+  let l = unsafeCoerce l
+  in unsafeCoerce $ V.toList $ VS.fromList l V.// zip p l
+
 -- | The shape of an n-dimensional array. Represented by an index to not
 -- duplicate representations and convert easily between each. It seems unlikely
 -- enough to make mistakes even with this dumb wrapper, so it might be fine.
 newtype Shape n i = Shape (Index n i)
-  deriving (Show)
+  deriving Show
+
+-- It seems that function names can't start with colon. That's too bad.
+-- Also, I can't make pattern synonym of out that because newtype is in the way.
+-- Or can I if I defined two pattern synonyms?
+infixl 3 @$
+(@$) :: Shape n i -> i -> Shape (1 + n) i
+Shape sh @$ s = Shape (sh :. s)
+
+tailShape :: Shape (1 + n) i -> Shape n i
+tailShape (Shape ix) = Shape $ tailIndex ix
+
+takeShape :: forall len n i. KnownNat len
+          => Shape (len + n) i -> Shape n i
+takeShape (Shape ix) = Shape $ takeIndex ix
+
+dropShape :: forall len n i. KnownNat len
+          => Shape (len + n) i -> Shape n i
+dropShape (Shape ix) = Shape $ dropIndex ix
+
+permutePrefixShape :: [Int] -> Shape n i -> Shape n i
+permutePrefixShape p (Shape ix) = Shape $ permutePrefixIndex p ix
 
 -- | The number of elements in an array of this shape
 shapeSize :: Shape n Int -> Int
@@ -144,7 +188,7 @@ main = do
 -- However, if we switched to @Data.Array.Shaped@ and moved most of the shapes
 -- to the type level, we'd recover some of the expressiveness, while retaining
 -- statically known (type-parameterized) shapes.
-type AstShape n r = Index n Int
+type AstShape n r = Shape n Int
 
 type AstPath n r = Index n (AstInt r)
 
@@ -209,7 +253,7 @@ data Ast :: Nat -> Type -> Type where
           => Ast n r -> Ast n r -> Ast 0 r
   AstFromList0N :: AstShape n r -> [Ast 0 r] -> Ast n r
   AstFromVector0N :: AstShape n r -> Data.Vector.Vector (Ast 0 r) -> Ast n r
-  AstKonst0N :: AstShape n r -> Ast 0 r -> Ast (1 + n) r
+  AstKonst0N :: AstShape n r -> Ast 0 r -> Ast n r
   AstBuildPair0N :: AstShape n r -> ([AstVarName Int], Ast 0 r) -> Ast n r
 
   -- For MonoFunctor class, which is needed for a particularly
@@ -418,13 +462,14 @@ instance MonoFunctor (AstPrimalPart1 n r) where
 -- only one path and fail if it doesn't contain enough information
 -- to determine shape. If we don't switch to @Data.Array.Shaped@
 -- or revert to fully dynamic shapes, we need to redo this with more rigour.
-shapeAst :: (Show r, Numeric r) => Ast n r -> AstShape n r
+shapeAst :: forall n r. (Show r, Numeric r)
+         => Ast n r -> AstShape n r
 shapeAst v1 = case v1 of
   AstOp _opCode args -> case args of
     [] -> error "shapeAst: AstOp with no arguments"
     t : _ -> shapeAst t
   AstCond _b a1 _a2 -> shapeAst a1
-  AstConstInt _i -> Z
+  AstConstInt _i -> Shape Z
   AstConst a -> OR.shapeL a
   AstConstant (AstPrimalPart1 a) -> shapeAst a
   AstScale (AstPrimalPart1 r) _d -> shapeAst r
@@ -443,41 +488,39 @@ shapeAst v1 = case v1 of
     t : _ -> V.length l : shapeAst t
   AstKonst n v -> n : shapeAst v
   AstAppend x y -> case shapeAst x of
-    Z -> error "shapeAst: AstAppend applied to scalars"
-    xsh :. xi -> case shapeAst y of
-      Z -> error "shapeAst: AstAppend applied to scalars"
-      _ :. yi -> xi + yi : xsh
-  AstSlice _n k v -> k : tail (shapeAst v)
+    Shape Z -> error "shapeAst: AstAppend applied to scalars"
+    Shape (xsh :. xi) -> case shapeAst y of
+      Shape Z -> error "shapeAst: AstAppend applied to scalars"
+      Shape (_ :. yi) -> xi + yi : xsh
+  AstSlice _n k v -> tailShape (shapeAst v) @$ k
   AstReverse v -> shapeAst v
   AstTranspose v -> case shapeAst v of
-    sh :. k :. i -> k : i : sh
+    Shape (sh :. k :. i) -> Shape (sh :. i :. k)
     sh -> sh  -- the operation is an identity if rank too small
   AstTransposeGeneral perm v ->
-    let permutePrefix :: AstPermutation -> AstShape n r -> AstShape n r
-        permutePrefix p l = V.toList $ VS.fromList l V.// zip p l
-        sh = shapeAst v
-    in if length sh < length perm
-       then sh  -- the operation is an identity if rank too small
-       else permutePrefix perm sh
-  AstFlatten v -> [product $ shapeAst v]
+    if valueOf @n < length perm
+    then shapeAst v  -- the operation is an identity if rank too small
+    else permutePrefixShape perm (shapeAst v)
+  AstFlatten v -> Shape (Z :. shapeSize (shapeAst v))
   AstReshape sh _v -> sh
-  AstBuildPair n (_var, v) -> n : shapeAst v
-  AstGatherPair n (_var, is) v ->
-    let sh = shapeAst v
-    in assert (length sh >= length is `blame` v1)
-       $ n : drop (length is) sh
-  AstSum0 _v -> Z
-  AstDot0 _x _y -> Z
+  AstBuildPair n (_var, v) -> shapeAst v @$ n
+  AstGatherPair n (_var, is :: Index len (AstInt r)) v ->
+    dropShape @len (shapeAst v) @$ n
+  AstSum0 _v -> Shape Z
+  AstDot0 _x _y -> Shape Z
   AstFromList0N sh _l -> sh
   AstFromVector0N sh _l -> sh
   AstKonst0N sh _r -> sh
   AstBuildPair0N sh (_vars, _r) -> sh
   AstOMap (_var, _r) e -> shapeAst e
 
+-- Length of the outermost dimension.
 lengthAst :: (Show r, Numeric r) => Ast (1 + n) r -> Int
 lengthAst v1 = case shapeAst v1 of
-  Z -> error "lengthAst: impossible rank 0 found"
-  _ :. n -> n
+  Shape Z -> error "lengthAst: impossible rank 0 found"
+  Shape (_ :. n) -> n
+
+{-
 
 substituteAst :: (Show r, Numeric r)
               => AstInt r -> AstVarName Int -> Ast n r -> Ast n r
@@ -494,7 +537,7 @@ substituteAst i var v1 = case v1 of
   AstVar _sh _var -> v1
   AstIndex v i2 -> AstIndex (substituteAst i var v) (substituteAstInt i var i2)
   AstIndexN v is ->
-    AstIndexN (substituteAst i var v) (map (substituteAstInt i var) is)
+    AstIndexN (substituteAst i var v) (fmap (substituteAstInt i var) is)
   AstSum v -> AstSum (substituteAst i var v)
   AstFromList l -> AstFromList $ map (substituteAst i var) l
   AstFromVector l -> AstFromVector $ V.map (substituteAst i var) l
@@ -509,7 +552,7 @@ substituteAst i var v1 = case v1 of
   AstBuildPair n (var2, v) ->
     AstBuildPair n (var2, substituteAst i var v)
   AstGatherPair n (var2, is) v ->
-    AstGatherPair n (var2, map (substituteAstInt i var) is)
+    AstGatherPair n (var2, fmap (substituteAstInt i var) is)
                   (substituteAst i var v)
   AstSum0 v -> AstSum0 (substituteAst i var v)
   AstDot0 x y -> AstDot0 (substituteAst i var x) (substituteAst i var y)
@@ -554,3 +597,4 @@ toIxAst shInt = fromLinearIdx (Shape $ listToIndex $ map AstIntConst shInt)
 listToIndex :: [i] -> Index n i
 listToIndex [] = unsafeCoerce Z
 listToIndex (ix : rest) = unsafeCoerce $ listToIndex rest :. ix
+-}
