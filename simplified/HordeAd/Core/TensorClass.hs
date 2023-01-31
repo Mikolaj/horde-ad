@@ -189,7 +189,6 @@ class (RealFloat r, RealFloat (TensorOf 1 r), Integral (IntOf r))
   tmaxIndex :: TensorOf 1 r -> IntOf r
 
   tindex :: KnownNat n => TensorOf (1 + n) r -> IntOf r -> TensorOf n r
-  tindex0 :: KnownNat n => TensorOf (1 + n) r -> PathOf r -> r
   tindexN :: (KnownNat n, KnownNat m)
           => TensorOf (1 + m + n) r -> PathOf r -> TensorOf n r
   tsum :: KnownNat n => TensorOf (1 + n) r -> TensorOf n r
@@ -199,9 +198,7 @@ class (RealFloat r, RealFloat (TensorOf 1 r), Integral (IntOf r))
   tmaximum0 :: TensorOf 1 r -> r
   tfromIntOf0 :: IntOf r -> r
   tfromIntOf0 = fromIntegral
-  tunScalar :: TensorOf 0 r -> r
 
-  tscalar :: r -> TensorOf 0 r
   tfromList :: KnownNat n => [TensorOf n r] -> TensorOf (1 + n) r
   tfromList0N :: KnownNat n => [Int] -> [r] -> TensorOf n r
   tfromVector :: KnownNat n
@@ -236,6 +233,9 @@ class (RealFloat r, RealFloat (TensorOf 1 r), Integral (IntOf r))
   tzipWith0N :: KnownNat n
              => (r -> r -> r) -> TensorOf n r -> TensorOf n r -> TensorOf n r
 
+  tscalar :: r -> TensorOf 0 r
+  tunScalar :: TensorOf 0 r -> r
+
 type ADReady r = ( Tensor r, HasPrimal r
                  , RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r) )
   -- TODO: there is probably no way to also specify
@@ -254,15 +254,12 @@ instance Tensor Double where
   tminIndex = tminIndexR
   tmaxIndex = tmaxIndexR
   tindex = tindexR
-  tindex0 = tindex0R
   tindexN = tindexNR
   tsum = tsumR
   tsum0 = tsum0R
   tdot0 = tdot0R
   tminimum0 = tminimum0R
   tmaximum0 = tmaximum0R
-  tunScalar = tunScalarR
-  tscalar = tscalarR
   tfromList = tfromListR
   tfromList0N = tfromList0NR
   tfromVector = tfromVectorR
@@ -278,6 +275,8 @@ instance Tensor Double where
   tbuild0N = tbuild0NR
   tmap0N = tmap0NR
   tzipWith0N = tzipWith0NR
+  tscalar = tscalarR
+  tunScalar = tunScalarR
 
 instance Tensor Float where
   type TensorOf n Float = OR.Array n Float
@@ -286,15 +285,12 @@ instance Tensor Float where
   tminIndex = tminIndexR
   tmaxIndex = tmaxIndexR
   tindex = tindexR
-  tindex0 = tindex0R
   tindexN = tindexNR
   tsum = tsumR
   tsum0 = tsum0R
   tdot0 = tdot0R
   tminimum0 = tminimum0R
   tmaximum0 = tmaximum0R
-  tunScalar = tunScalarR
-  tscalar = tscalarR
   tfromList = tfromListR
   tfromList0N = tfromList0NR
   tfromVector = tfromVectorR
@@ -310,6 +306,8 @@ instance Tensor Float where
   tbuild0N = tbuild0NR
   tmap0N = tmap0NR
   tzipWith0N = tzipWith0NR
+  tscalar = tscalarR
+  tunScalar = tunScalarR
 
 -- Not that this instance doesn't do vectorization. To enable it,
 -- use the Ast instance, which vectorizes and finally interpret in ADVal.
@@ -333,9 +331,6 @@ instance (ADModeAndNumTensor d r, TensorOf 1 r ~ OR.Array 1 r)
   tmaxIndex (D u _) = tmaxIndexR u
 
   tindex = index
-  tindex0 d ix = unScalar $ indexN d ix
-    -- TODO: due to this definition and the lack of sized lists,
-    -- tindex0 currently does not accept empty paths, etc.
   tindexN = indexN
   tsum = sum'
   tsum0 = sum0
@@ -347,9 +342,7 @@ instance (ADModeAndNumTensor d r, TensorOf 1 r ~ OR.Array 1 r)
   tmaximum0 (D u u') =
     let ix = tmaxIndex u
     in dD (OR.unScalar $ tindexR u ix) (dIndex0 u' [ix] [tlength u])
-  tunScalar = unScalar
 
-  tscalar = scalar
   tfromList = fromList
   tfromList0N = fromList0N
   tfromVector = fromVector
@@ -374,6 +367,9 @@ instance (ADModeAndNumTensor d r, TensorOf 1 r ~ OR.Array 1 r)
   tmap0N f v = tbuild (tlength v) (\i -> scalar $ f (unScalar $ v `tindex` i))
   tzipWith0N = undefined  -- TODO
 
+  tscalar = scalar
+  tunScalar = unScalar
+
 instance ( Numeric r, RealFloat r, RealFloat (Vector r)
          , Show r, Numeric r )  -- needed only to display errors properly
          => Tensor (Ast 0 r) where
@@ -385,7 +381,6 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   tmaxIndex = AstMaxIndex
 
   tindex = AstIndex
-  tindex0 = AstIndexN
   tindexN = AstIndexN
   tsum = AstSum
   tsum0 = AstSum0
@@ -394,9 +389,7 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   tmaximum0 v = AstIndex v (AstMaxIndex v)
   tfromIntOf0 = AstConstInt
     -- toInteger is not defined for Ast, hence a special implementation
-  tunScalar = id  -- Ast confuses the two ranks
 
-  tscalar = id
   tfromList = AstFromList
   tfromList0N = AstFromList0N
   tfromVector = AstFromVector
@@ -413,6 +406,9 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   tmap0N f v = astBuild (tlength v) (\i -> f (v `tindex` i))
     -- TODO: without sharing v gets duplicated a lot
   tzipWith0N = undefined  -- TODO
+
+  tscalar = id  -- Ast confuses the two ranks
+  tunScalar = id
 
 -- Impure but in the most trivial way (only ever incremented counter).
 unsafeAstVarCounter :: Counter

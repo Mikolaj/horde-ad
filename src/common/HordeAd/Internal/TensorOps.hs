@@ -136,6 +136,7 @@ tindex0R (Data.Array.Internal.RankedS.A
                Data.Array.Internal.T{..})) is =
   values V.! (offset + sum (zipWith (*) is strides))
 
+-- TODO: optimize to tindex0R for n == 0
 tindexNR
   :: (KnownNat n, Numeric r)
   => OR.Array (1 + m + n) r -> [Int] -> OR.Array n r
