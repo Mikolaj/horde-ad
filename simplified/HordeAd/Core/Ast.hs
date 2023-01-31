@@ -1,6 +1,6 @@
-{-# LANGUAGE CPP, ConstraintKinds, DataKinds, FlexibleInstances, GADTs,
+{-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances, GADTs,
              GeneralizedNewtypeDeriving, KindSignatures, MultiParamTypeClasses,
-             PolyKinds, QuantifiedConstraints, StandaloneDeriving,
+             PolyKinds, QuantifiedConstraints, RankNTypes, StandaloneDeriving,
              TypeFamilyDependencies, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
@@ -22,6 +22,7 @@ module HordeAd.Core.Ast
 import Prelude
 
 import           Control.Exception.Assert.Sugar
+import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Type)
@@ -80,7 +81,7 @@ fromLinearIdx (Shape Z) 0 = Z
 fromLinearIdx (Shape Z) _ = error "Index out of range"
 fromLinearIdx (Shape (sh :. n)) idx =
   let (idx', i) = idx `quotRem` n
-  in fromLinearIdx (Shape sh) idx' :. i  -- idx' and i should be reversed, right?
+  in fromLinearIdx (Shape sh) idx' :. i
 
 -- | The zero index in this shape (not dependent on the actual integers)
 zeroOf :: Num i => Shape n i -> Index n i
@@ -93,9 +94,17 @@ idxCompare :: Monoid m => (Int -> Int -> m) -> Index n Int -> Index n Int -> m
 idxCompare _ Z Z = mempty
 idxCompare f (idx :. i) (idx' :. j) = f i j <> idxCompare f idx idx'
 
-listToIndex :: [i] -> Index n i
-listToIndex [] = unsafeCoerce Z
-listToIndex (ix : rest) = unsafeCoerce $ listToIndex rest :. ix
+-- Warning: do not pass a list of strides to this function.
+listShapeToIndex :: forall n i. KnownNat n => [i] -> Shape n i
+listShapeToIndex list
+  | length list == valueOf @n
+  = go list (Shape . unsafeCoerce)
+  | otherwise
+  = error "listShapeToIndex: list length disagrees with context"
+  where
+    go :: [i] -> (forall m. Index m i -> r) -> r
+    go [] k = k Z
+    go (i : rest) k = go rest (\rest' -> k (rest' :. i))
 
 -- | A multidimensional array of rank @n@ containing elements of type @a@
 data Array n a = Array (Shape n Int) (Vector a)
@@ -538,3 +547,10 @@ substituteAstBool i var b1 = case b1 of
 -- This is toIx generalized to AstInt.
 toIxAst :: [Int] -> AstInt r -> AstPath n r
 toIxAst shInt = fromLinearIdx (Shape $ listToIndex $ map AstIntConst shInt)
+-- TODO: this is borked; try to use listShapeToIndex instead
+-- and/or write a different fromLinearIdx
+-- but first understand why orthotope doesn't use shapes but strides
+-- despite both being available
+listToIndex :: [i] -> Index n i
+listToIndex [] = unsafeCoerce Z
+listToIndex (ix : rest) = unsafeCoerce $ listToIndex rest :. ix
