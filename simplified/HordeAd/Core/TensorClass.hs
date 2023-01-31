@@ -192,12 +192,12 @@ class (RealFloat r, RealFloat (TensorOf 1 r), Integral (IntOf r))
   tindexN :: (KnownNat n, KnownNat m)
           => TensorOf (1 + m + n) r -> PathOf r -> TensorOf n r
   tsum :: KnownNat n => TensorOf (1 + n) r -> TensorOf n r
-  tsum0 :: KnownNat n => TensorOf n r -> r
-  tdot0 :: KnownNat n => TensorOf n r -> TensorOf n r -> r
-  tminimum0 :: TensorOf 1 r -> r
-  tmaximum0 :: TensorOf 1 r -> r
-  tfromIntOf0 :: IntOf r -> r
-  tfromIntOf0 = fromIntegral
+  tsum0 :: KnownNat n => TensorOf n r -> TensorOf 0 r
+  tdot0 :: KnownNat n => TensorOf n r -> TensorOf n r -> TensorOf 0 r
+  tminimum0 :: TensorOf 1 r -> TensorOf 0 r
+  tmaximum0 :: TensorOf 1 r -> TensorOf 0 r
+  tfromIntOf0 :: IntOf r -> TensorOf 0 r
+  tfromIntOf0 = tscalar . fromIntegral
 
   tfromList :: KnownNat n => [TensorOf n r] -> TensorOf (1 + n) r
   tfromList0N :: KnownNat n => [Int] -> [r] -> TensorOf n r
@@ -256,10 +256,10 @@ instance Tensor Double where
   tindex = tindexR
   tindexN = tindexNR
   tsum = tsumR
-  tsum0 = tsum0R
-  tdot0 = tdot0R
-  tminimum0 = tminimum0R
-  tmaximum0 = tmaximum0R
+  tsum0 = tscalar . tsum0R
+  tdot0 u v = tscalar $ tdot0R u v
+  tminimum0 = tscalar . tminimum0R
+  tmaximum0 = tscalar . tmaximum0R
   tfromList = tfromListR
   tfromList0N = tfromList0NR
   tfromVector = tfromVectorR
@@ -287,10 +287,10 @@ instance Tensor Float where
   tindex = tindexR
   tindexN = tindexNR
   tsum = tsumR
-  tsum0 = tsum0R
-  tdot0 = tdot0R
-  tminimum0 = tminimum0R
-  tmaximum0 = tmaximum0R
+  tsum0 = tscalar . tsum0R
+  tdot0 u v = tscalar $ tdot0R u v
+  tminimum0 = tscalar . tminimum0R
+  tmaximum0 = tscalar . tmaximum0R
   tfromList = tfromListR
   tfromList0N = tfromList0NR
   tfromVector = tfromVectorR
@@ -333,15 +333,15 @@ instance (ADModeAndNumTensor d r, TensorOf 1 r ~ OR.Array 1 r)
   tindex = index
   tindexN = indexN
   tsum = sum'
-  tsum0 = sum0
-  tdot0 = dot0
+  tsum0 = tscalar . sum0
+  tdot0 u v = tscalar $ dot0 u v
   tminimum0 (D u u') =
     let ix = tminIndex u
-    in dD (OR.unScalar $ tindexR u ix) (dIndex0 u' [ix] [tlength u])
+    in dD (tindexR u ix) (dIndex1 u' ix (tlength u))
       -- no default methods for these two, because of the speedups like this
   tmaximum0 (D u u') =
     let ix = tmaxIndex u
-    in dD (OR.unScalar $ tindexR u ix) (dIndex0 u' [ix] [tlength u])
+    in dD (tindexR u ix) (dIndex1 u' ix (tlength u))
 
   tfromList = fromList
   tfromList0N = fromList0N

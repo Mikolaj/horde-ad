@@ -68,11 +68,11 @@ fooBuild1 :: ADReady r => TensorOf 1 r -> TensorOf 1 r
 fooBuild1 v =
   let r = tsum0 v
       v' = tminimum0 v
-  in tbuild 3 $ \ix -> tscalar $
+  in tbuild 3 $ \ix ->
        r * foo ( 3
                , 5 * r
                , r * tminimum0 v * v')
-       + bar (r, tunScalar $ tindex v (ix + 1))
+       + bar (r, tindex v (ix + 1))
 
 fooMap1 :: ADReady r => r -> TensorOf 1 r
 fooMap1 r =
@@ -102,13 +102,13 @@ nestedBuildMap r =
       v' = tkonst0N [177] r :: TensorOf 1 r
       nestedMap x = tmap0N (\y -> x / y) (w x)
       variableLengthBuild iy = tbuild 7 (\ix -> tindex v' (ix + iy)) :: TensorOf 1 r
-      doublyBuild = tbuild 5 (\iy -> tscalar $ tminimum0 (variableLengthBuild iy))
+      doublyBuild = tbuild 5 (\iy -> tminimum0 (variableLengthBuild iy))
   in tmap0N (\x -> x
-                  * tsum0
-                      (tbuild 3 (\ix -> tscalar $ bar ( x
-                                             , tunScalar $ tindex v' ix) )
+                  * tunScalar (tsum0
+                      (tbuild 3 (\ix -> bar ( tscalar x
+                                            , tindex v' ix) )
                        + fooBuild1 (nestedMap x)
-                       / fooMap1 x)
+                       / fooMap1 x))
            ) doublyBuild
 
 nestedSumBuild :: ADReady r => TensorOf 1 r -> TensorOf 1 r
@@ -118,12 +118,12 @@ nestedSumBuild v =
       flip tindex ix2
         (tbuild 5 (\ _ -> tsum v)
          * tfromList
-             [ tscalar $ tfromIntOf0 ix
-             , tsum (tbuild 9 (\ix5 -> tscalar $ tfromIntOf0 ix5))
+             [ tfromIntOf0 ix
+             , tsum (tbuild 9 (\ix5 -> tfromIntOf0 ix5))
              , tsum (tbuild 6 (\_ -> tsum v))
              , tindex v ix2
              , tsum (tbuild 3 (\ix7 ->
-                 tsum (tkonst0N [5] (tfromIntOf0 ix7))))
+                 tsum (tkonst 5 (tfromIntOf0 ix7))))
 -- dynamic shapes:
 --             , tsum (tbuild 3 (\ix7 ->
 --                 tsum (tkonst0N [ix2 + 1] (tfromIntOf0 ix7))))
@@ -132,7 +132,7 @@ nestedSumBuild v =
 --                 tsum (tkonst0N [ix2 + ix7 + 1] 2.4)))
              ]))))
   + tbuild 13 (\ix ->
-      nestedBuildMap (tsum0 v) `tindex` min ix 4)
+      nestedBuildMap (tunScalar $ tsum0 v) `tindex` min ix 4)
 
 nestedBuildIndex :: ADReady r => TensorOf 1 r -> TensorOf 1 r
 nestedBuildIndex v =
@@ -163,17 +163,17 @@ konstReluAst x = tsum0 $ reluAst @1 $ tkonst0N [7] x
 -- * Tests by TomS
 
 f1 :: ADReady a => a -> a
-f1 = \arg -> tsum0 (tbuild 10 (\i -> tscalar $ arg * tfromIntOf0 i))
+f1 = \arg -> tunScalar $ tsum0 (tbuild 10 (\i -> tscalar arg * tfromIntOf0 i))
 
 f2 :: ADReady a => a -> a
 f2 = \arg ->
-  let fun1 i = tscalar $ arg * tfromIntOf0 i
+  let fun1 i = tscalar arg * tfromIntOf0 i
       v1a = tsum0 (tbuild 10 fun1)
       v1b = tsum0 (tbuild 20 fun1)
-      fun2 y i = tscalar $ y * tfromIntOf0 i
+      fun2 y i = tscalar y * tfromIntOf0 i
       v2a = tsum0 (tbuild 10 (fun2 arg))
       v2b = tsum0 (tbuild 20 (fun2 (arg + 1)))
-  in v1a + v1b + v2a + v2b
+  in tunScalar $ v1a + v1b + v2a + v2b
 
 
 -- * Vector tests (many by TomS as well)
@@ -182,7 +182,7 @@ braidedBuilds :: ADReady r => r -> TensorOf 2 r
 braidedBuilds r =
   tbuild 3 (\ix1 ->
     tbuild 4 (\ix2 -> tindex (tfromList0N [4]
-                                [tfromIntOf0 ix2, 7, r, -0.2]) ix1))
+                                [tunScalar $ tfromIntOf0 ix2, 7, r, -0.2]) ix1))
 
 recycled :: ADReady r
          => r -> TensorOf 5 r
@@ -193,7 +193,7 @@ concatBuild :: ADReady r => r -> TensorOf 2 r
 concatBuild r =
   tbuild 7 (\i ->
     tappend (tappend (tbuild 5 (\_j -> tscalar r))  -- TODO: i should work
-                     (tkonst0N [1] (tfromIntOf0 i)))
+                     (tkonst 1 (tfromIntOf0 i)))
             (tbuild 13 (\_k -> tscalar r)))
 -- TODO: reject via types or accept with type obligations:
 --    tappend (tappend (tbuild (1 + i) (\_j -> tscalar r))  -- TODO: i should work
@@ -204,8 +204,8 @@ concatBuild2 :: ADReady r => r -> TensorOf 2 r
 concatBuild2 _r =
 -- TODO: tbuild0N (7, 14) (\ (i,j)
   tbuild 7 $ \i -> tbuild 14 $ \_j ->
-    -- TODO: use classes Cond and Bool: tscalar $ if i == j then tfromIntOf0 i else r
-    tscalar $ tfromIntOf0 i
+    -- TODO: use classes Cond and Bool: if i == j then tfromIntOf0 i else r
+   tfromIntOf0 i
       -- need to prove that i + 1 + (13 - i) = 14
 
 -- * Test harness glue code
