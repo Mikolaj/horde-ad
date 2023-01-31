@@ -1,7 +1,9 @@
 {-# LANGUAGE CPP, ConstraintKinds, DataKinds, FlexibleInstances, GADTs,
-             GeneralizedNewtypeDeriving, MultiParamTypeClasses, PolyKinds,
-             QuantifiedConstraints, StandaloneDeriving, TypeFamilyDependencies,
-             UndecidableInstances #-}
+             GeneralizedNewtypeDeriving, KindSignatures, MultiParamTypeClasses,
+             PolyKinds, QuantifiedConstraints, StandaloneDeriving,
+             TypeFamilyDependencies, UndecidableInstances #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 -- | AST of the code to be differentiated. It's needed mostly for handling
 -- higher order operations such as build and map, but can be used
@@ -23,18 +25,105 @@ import           Control.Exception.Assert.Sugar
 import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Type)
+import           Data.Monoid (All (..))
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable as VS
 import           GHC.TypeLits (KnownNat, Nat, type (+))
-import           Numeric.LinearAlgebra (Numeric)
+import           Numeric.LinearAlgebra (Numeric, Vector)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Text.Show.Functions ()
 
 import HordeAd.Internal.OrthotopeOrphanInstances ()
 
--- * Definitions
+-- * GHC.Nat-indexed lists, originally by Tom Smeding
+
+-- This needs to be moved to a better place, probably its own module,
+-- once its clear which other modules depend on it.
+
+-- | An index in an n-dimensional array. The fastest-moving index is at the
+-- last position; thus the index 'Z :. i :. j' represents 'a[i][j]' in
+-- traditional C notation.
+data Index (n :: Nat) i where
+  Z :: Index 0 i
+  (:.) :: Index n i  -> i -> Index (n + 1) i
+infixl 3 :.
+-- This fixity is stolen from Accelerate:
+--   https://hackage.haskell.org/package/accelerate-1.3.0.0/docs/Data-Array-Accelerate.html#t::.
+
+instance Show i => Show (Index n i) where
+  showsPrec _ Z = showString "Z"
+  showsPrec d (idx :. i) = showParen (d > 3) $
+    showsPrec 3 idx . showString " :. " . showsPrec 4 i
+
+-- | The shape of an n-dimensional array. Represented by an index to not
+-- duplicate representations and convert easily between each. It seems unlikely
+-- enough to make mistakes even with this dumb wrapper, so it might be fine.
+newtype Shape n i = Shape (Index n i)
+  deriving (Show)
+
+-- | The number of elements in an array of this shape
+shapeSize :: Shape n Int -> Int
+shapeSize (Shape Z) = 1
+shapeSize (Shape (sh :. i)) = shapeSize (Shape sh) * i
+
+toLinearIdx :: Shape n Int -> Index n Int -> Int
+toLinearIdx (Shape Z) Z = 0
+toLinearIdx (Shape (sh :. n)) (idx :. i) = n * toLinearIdx (Shape sh) idx + i
+
+-- | Given a linear index into the buffer, get the corresponding
+-- multidimensional index
+fromLinearIdx :: Shape n Int -> Int -> Index n Int
+fromLinearIdx (Shape Z) 0 = Z
+fromLinearIdx (Shape Z) _ = error "Index out of range"
+fromLinearIdx (Shape (sh :. n)) idx =
+  let (idx', i) = idx `quotRem` n
+  in fromLinearIdx (Shape sh) idx' :. i
+
+-- | The zero index in this shape (not dependent on the actual integers)
+zeroOf :: Num i => Shape n i -> Index n i
+zeroOf (Shape Z) = Z
+zeroOf (Shape (sh :. _)) = zeroOf (Shape sh) :. 0
+
+-- | Pairwise comparison of two index values. The comparison function is invoked
+-- once for each rank on the corresponding pair of indices.
+idxCompare :: Monoid m => (Int -> Int -> m) -> Index n Int -> Index n Int -> m
+idxCompare _ Z Z = mempty
+idxCompare f (idx :. i) (idx' :. j) = f i j <> idxCompare f idx idx'
+
+-- | A multidimensional array of rank @n@ containing elements of type @a@
+data Array n a = Array (Shape n Int) (Vector a)
+  deriving (Show)
+
+-- | Generate an array by specifying the element that goes at each index
+build ::  Numeric a => Shape n Int -> (Index n Int -> a) -> Array n a
+build sh f = Array sh (V.generate (shapeSize sh) (\i -> f (fromLinearIdx sh i)))
+
+-- | Index into an array
+(!) :: Numeric a => Array n a -> Index n Int -> a
+(!) (Array sh@(Shape shIdx) vec) idx
+  -- just some bounds checks
+  | getAll $ idxCompare ((All .) . (>=)) idx (zeroOf sh)
+  , getAll $ idxCompare ((All .) . (<)) idx shIdx
+  -- the actual indexing operation
+  = vec V.! toLinearIdx sh idx
+  | otherwise
+  = error "Index out of bounds in (!)"
+
+-- | Sum along the inner, fastest-moving dimension
+sum' :: Numeric a => Array (n + 1) a -> Array n a
+sum' arr@(Array (Shape (sh :. n)) _) =
+  build (Shape sh) (\idx -> sum [arr ! (idx :. i) | i <- [0 .. n-1]])
+
+main :: IO ()
+main = do
+  let b :: Array 2 Double
+      b = build (Shape (Z :. 3 :. 2)) (\(Z :. i :. j) -> fromIntegral i + fromIntegral j)
+  print (sum' b)
+
+
+-- * Ast definitions
 
 -- @[AstInt r]@ gives more expressiveness, but leads to irregular tensors,
 -- especially after vectorization, and prevents statically known shapes.
