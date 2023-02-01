@@ -51,7 +51,7 @@ import qualified Numeric.LinearAlgebra as LA
 import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta
   (Domain0, Domain1, Domain2, DomainX, Domains (..), nullDomains)
-import HordeAd.Internal.TensorOps (atPathInTensorD, isTensorDummy, tsum0D)
+import HordeAd.Internal.TensorOps
 
 -- * Auxiliary definitions
 
@@ -841,31 +841,15 @@ buildXElementwise, buildXClosure, buildX
   :: ADModeAndNum d r
   => OT.ShapeL -> ([Int] -> ADVal d r) -> ADVal d (OT.Array r)
 buildXElementwise sh f =
-  -- Copied from Data.Array.Internal.
-  let getStridesT :: OT.ShapeL -> [Int]
-      getStridesT = scanr (*) 1
-      (s, ss) = case getStridesT sh of
-        s2 : ss2 -> (s2, ss2)
-        [] -> error "scanr in buildXElementwise"
-      toIx [] _ = []
-      toIx (n:ns) i = q : toIx ns r where (q, r) = quotRem i n
-      ixs = [toIx ss i | i <- [0 .. s - 1]]
+  let s = product sh
+      ixs = [fromLinearIdx2 sh i | i <- [0 .. s - 1]]
   in fromListX sh $ map f ixs
 
 buildXClosure sh f =
   let g i = let D u _ = f i in u
       h i = let D _ u' = f i in u'
-      -- Copied from Data.Array.Internal.
-      -- This could be replaced by Data.Array.DynamicS.generate,
-      -- but it would obfuscate the connection with other similar code.
-      getStridesT :: OT.ShapeL -> [Int]
-      getStridesT = scanr (*) 1
-      (s, ss) = case getStridesT sh of
-        s2 : ss2 -> (s2, ss2)
-        [] -> error "scanr in buildXClosure"
-      toIx [] _ = []
-      toIx (n:ns) i = q : toIx ns r where (q, r) = quotRem i n
-      ixs = [toIx ss i | i <- [0 .. s - 1]]
+      s = product sh
+      ixs = [fromLinearIdx2 sh i | i <- [0 .. s - 1]]
   in dD (OT.fromList sh $ map g ixs) (dBuildX sh h)
 
 buildX = buildXClosure
@@ -1085,33 +1069,17 @@ buildSElementwise, buildSClosure, buildS
   :: forall sh r d. (ADModeAndNum d r, OS.Shape sh)
   => ([Int] -> ADVal d r) -> ADVal d (OS.Array sh r)
 buildSElementwise f =
-  -- Copied from Data.Array.Internal.
-  let getStridesT :: OS.ShapeL -> [Int]
-      getStridesT = scanr (*) 1
-      (s, ss) = case getStridesT sh of
-        s2 : ss2 -> (s2, ss2)
-        [] -> error "scanr in buildSElementwise"
-      toIx [] _ = []
-      toIx (n:ns) i = q : toIx ns r where (q, r) = quotRem i n
+  let s = product sh
       sh = OS.shapeP (Proxy :: Proxy sh)
-      ixs = [toIx ss i | i <- [0 .. s - 1]]
+      ixs = [fromLinearIdx2 sh i | i <- [0 .. s - 1]]
   in fromListS $ map f ixs
 
 buildSClosure f =
   let g i = let D u _ = f i in u
       h i = let D _ u' = f i in u'
-      -- Copied from Data.Array.Internal.
-      -- This could be replaced by Data.Array.ShapedS.generate,
-      -- but it would obfuscate the connection with other similar code.
-      getStridesT :: OS.ShapeL -> [Int]
-      getStridesT = scanr (*) 1
-      (s, ss) = case getStridesT sh of
-        s2 : ss2 -> (s2, ss2)
-        [] -> error "scanr in buildSClosure"
-      toIx [] _ = []
-      toIx (n:ns) i = q : toIx ns r where (q, r) = quotRem i n
+      s = product sh
       sh = OS.shapeP (Proxy :: Proxy sh)
-      ixs = [toIx ss i | i <- [0 .. s - 1]]
+      ixs = [fromLinearIdx2 sh i | i <- [0 .. s - 1]]
   in dD (OS.fromList $ map g ixs) (dBuildS h)
 
 buildS = buildSClosure

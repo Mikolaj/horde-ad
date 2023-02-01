@@ -563,11 +563,8 @@ buildFinMaps s0 deltaDt =
         Build1 _n f -> V.ifoldl' (\s2 i ci -> eval1 s2 ci (f i))
                                  s (ORB.toVector $ OR.unravel c)
         Build01 sh f ->
-          let ss = case getStrides sh of
-                _ : ss2 -> ss2
-                [] -> error "getStrides in buildFinMaps"
-          in V.ifoldl' (\s2 i ci -> eval0 s2 ci (f $ toIx ss i))
-                       s (OR.toVector c)
+          V.ifoldl' (\s2 i ci -> eval0 s2 ci (f $ fromLinearIdx2 sh i))
+                    s (OR.toVector c)
         Gather1 _n f sh d -> eval1 s (tscatterR f c sh) d
         Scatter1 n f d _sh -> eval1 s (tgatherR n f c) d
 
@@ -710,11 +707,9 @@ buildDerivative dim0 dim1 deltaTopLevel
           return $! OR.ravel $ ORB.fromList [n] l
         Build01 sh f -> do
           -- Copied from Data.Array.Internal.
-          let (s, ss) = case getStrides sh of
-                s2 : ss2 -> (s2, ss2)
-                [] -> error "getStrides in buildDerivative"
+          let s = product sh
           l <- mapM (eval0 . f)
-               $ [toIx ss i | i <- [0 .. s - 1]]
+               $ [fromLinearIdx2 sh i | i <- [0 .. s - 1]]
           return $! OR.fromList sh l
         Gather1 n f _sh d -> do
           t <- unsafeCoerce $ eval1 d

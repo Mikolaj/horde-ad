@@ -913,12 +913,8 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
                 d
         FromSX d -> evalS (Data.Array.Convert.convert c) d
 
-        BuildX sh f -> do
-          -- Copied from Data.Array.Internal.
-          let ss = case getStrides sh of
-                _ : ss2 -> ss2
-                [] -> error "getStrides in buildFinMaps"
-          V.imapM_ (\i c0 -> eval0 c0 (f $ toIx ss i)) $ OT.toVector c
+        BuildX sh f ->
+          V.imapM_ (\i c0 -> eval0 c0 (f $ fromLinearIdx2 sh i)) $ OT.toVector c
 
       evalS :: OS.Shape sh
             => OS.Array sh r -> DeltaS sh r -> ST s ()
@@ -992,12 +988,8 @@ buildFinMaps dim0 dim1 dim2 dimX deltaDt = do
         FromXS d -> evalX (Data.Array.Convert.convert c) d
 
         BuildS f -> do
-          -- Copied from Data.Array.Internal.
-          let ss = case getStrides sh of
-                _ : ss2 -> ss2
-                [] -> error "getStrides in buildFinMaps"
-              sh = OS.shapeL c
-          V.imapM_ (\i c0 -> eval0 c0 (f $ toIx ss i)) $ OS.toVector c
+          let sh = OS.shapeL c
+          V.imapM_ (\i c0 -> eval0 c0 (f $ fromLinearIdx2 sh i)) $ OS.toVector c
 #endif
 
   case deltaDt of
@@ -1328,12 +1320,9 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         FromSX d -> Data.Array.Convert.convert <$> evalS d
 
         BuildX sh f -> do
-          -- Copied from Data.Array.Internal.
-          let (s, ss) = case getStrides sh of
-                s2 : ss2 -> (s2, ss2)
-                [] -> error "getStrides in buildDerivative"
+          let s = product sh
           l <- mapM (eval0 . f)
-               $ [toIx ss i | i <- [0 .. s - 1]]
+               $ [fromLinearIdx2 sh i | i <- [0 .. s - 1]]
           return $! OT.fromList sh l
 
       evalS :: forall sh. OS.Shape sh => DeltaS sh r -> ST s (OS.Array sh r)
@@ -1393,13 +1382,10 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         FromXS d -> Data.Array.Convert.convert <$> evalX d
 
         BuildS f -> do
-          -- Copied from Data.Array.Internal.
-          let (s, ss) = case getStrides sh of
-                s2 : ss2 -> (s2, ss2)
-                [] -> error "getStrides in buildDerivative"
+          let s = product sh
               sh = OS.shapeP (Proxy :: Proxy sh)
           l <- mapM (eval0 . f)
-               $ [toIx ss i | i <- [0 .. s - 1]]
+               $ [fromLinearIdx2 sh i | i <- [0 .. s - 1]]
           return $! OS.fromList l
 #endif
 

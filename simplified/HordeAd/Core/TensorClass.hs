@@ -677,10 +677,7 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
             | otherwise -> build1VectorizeIndexVar n var v is2
     AstFlatten v -> assert (null rest1) $
       let sh = shapeAst v
-          ss = case getStrides sh of
-            _ : ss2 -> ss2
-            [] -> error "getStrides in build1VectorizeIndexVar"
-          ixs2 = toIxAst ss i1
+          ixs2 = fromLinearIdx2 (map AstIntConst sh) i1
           v2 = (unsafeCoerce :: Ast n1 r -> Ast (1 + m + n) r) v
        in build1VectorizeIndexVar n var v2 ixs2
     AstReshape{} -> AstBuildPair n (var, AstIndexN v1 is)  -- we give up
@@ -689,10 +686,7 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
          to vectorize, we'd need a new operation, akin to gather,
          with the semantics of build (slice), a gradient, a way to vectorize
          it, in turn, normally and with indexing applied, etc.
-      let ss = case getStrides sh of
-            _ : ss2 -> ss2
-            [] -> error "getStrides in build1VectorizeIndexVar"
-          i = sum $ zipWith (*) is (map AstIntConst ss)
+      let i = toLinearIdx2 (map AstIntConst sh) is
           -- This converts indexing into a slice and flatten, which in general
           -- is avoided, because it causes costly linearlization, but here
           -- we are going to reshape outside, anyway, and also we are desperate.

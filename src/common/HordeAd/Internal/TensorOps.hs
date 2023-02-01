@@ -289,13 +289,11 @@ tsum0S
 tsum0S arr@(Data.Array.Internal.ShapedS.A (Data.Array.Internal.ShapedG.A t)) =
   LA.sumElements $ Data.Array.Internal.toUnorderedVectorT (OS.shapeL arr) t
 
--- The two below copied from Data.Array.Internal.
--- TODO: make sure these are the same strides as inside tensor records
--- and, if so, change some calls of getStrides (shapeL t) to
--- stridesOfR t = strides (unA (unA t))
-getStrides :: [Int] -> [Int]
-getStrides = scanr (*) 1
-
-toIx :: [Int] -> Int -> [Int]
-toIx [] _ = []
-toIx (n:ns) i = q : toIx ns r where (q, r) = quotRem i n
+fromLinearIdx2 :: Integral i => [i] -> i -> [i]
+fromLinearIdx2 = \sh lin -> snd (go sh lin)
+  where
+    go [] n = (n, [])
+    go (n : sh) lin =
+      let (tensLin, idxInTens) = go sh lin
+          (tensLin', i) = tensLin `quotRem` n
+      in (tensLin', i : idxInTens)
