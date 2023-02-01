@@ -421,7 +421,7 @@ unsafeGetFreshAstVar :: IO (AstVarName a)
 unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
 
 astBuild :: (KnownNat n, Show r, Numeric r)
-         => Int -> (AstInt r -> Ast n r) -> Ast (n + 1) r
+         => Int -> (AstInt r -> Ast n r) -> Ast (1 + n) r
 {-# NOINLINE astBuild #-}
 astBuild n f = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar

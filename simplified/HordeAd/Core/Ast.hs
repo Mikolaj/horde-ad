@@ -52,7 +52,7 @@ import HordeAd.Internal.OrthotopeOrphanInstances ()
 -- traditional C notation.
 data Index (n :: Nat) i where
   Z :: Index 0 i
-  S :: i -> Index n i -> Index (n + 1) i
+  S :: i -> Index n i -> Index (1 + n) i
 
 deriving stock instance Functor (Index n)
 
@@ -63,7 +63,7 @@ instance Show i => Show (Index n i) where
 
 -- I'm afraid, I can't do the unsafeCoerces below with this order
 -- of argument in :., can I? So I need this instead:
-pattern (:.) :: forall n1 i. forall n. n1 ~ (n + 1)
+pattern (:.) :: forall n1 i. forall n. n1 ~ (1 + n)
              => Index n i -> i -> Index n1 i
 pattern (:.) is i = S i is
 {-# COMPLETE Z, (:.) #-}
