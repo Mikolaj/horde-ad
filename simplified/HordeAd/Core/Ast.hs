@@ -17,22 +17,25 @@ module HordeAd.Core.Ast
   , AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
   , shapeAst, lengthAst, substituteAst, substituteAstInt, substituteAstBool
+  , Index(Z), pattern (:.)
+  , tailIndex, takeIndex, dropIndex
+  , Shape(..)
+  , (@$), tailShape, takeShape, dropShape
+  , toLinearIdx, fromLinearIdx, zeroOf, idxCompare
   ) where
 
 import Prelude
 
-import           Control.Exception.Assert.Sugar
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Type)
-import           Data.Monoid (All (..))
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable as VS
 import           GHC.TypeLits (KnownNat, Nat, type (+))
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Numeric)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Text.Show.Functions ()
 import           Unsafe.Coerce (unsafeCoerce)
@@ -60,13 +63,17 @@ instance Show i => Show (Index n i) where
 
 -- I'm afraid, I can't do the unsafeCoerces below with this order
 -- of argument in :., can I? So I need this instead:
+pattern (:.) :: forall n1 i. forall n. n1 ~ (n + 1)
+             => Index n i -> i -> Index n1 i
 pattern (:.) is i = S i is
+{-# COMPLETE Z, (:.) #-}
 infixl 3 :.
 -- This fixity is stolen from Accelerate:
 --   https://hackage.haskell.org/package/accelerate-1.3.0.0/docs/Data-Array-Accelerate.html#t::.
 
 tailIndex :: Index (1 + n) i -> Index n i
-tailIndex (is :. i) = is
+tailIndex Z = error "tailIndex: impossible pattern needlessly required"
+tailIndex (is :. _i) = is
 
 takeIndex :: forall len n i. KnownNat len
           => Index (len + n) i -> Index n i
@@ -78,7 +85,7 @@ dropIndex ix = unsafeCoerce $ drop (valueOf @len) $ unsafeCoerce ix
 
 permutePrefixIndex :: [Int] -> Index n Int -> Index n Int
 permutePrefixIndex p ix =
-  let l = unsafeCoerce l
+  let l = unsafeCoerce ix
   in (unsafeCoerce :: [Int] -> Index n Int)
      $ V.toList $ VS.fromList l V.// zip p l
 
@@ -117,6 +124,7 @@ shapeSize (Shape (sh :. i)) = shapeSize (Shape sh) * i
 toLinearIdx :: Shape n Int -> Index n Int -> Int
 toLinearIdx (Shape Z) Z = 0
 toLinearIdx (Shape (sh :. n)) (idx :. i) = n * toLinearIdx (Shape sh) idx + i
+toLinearIdx _ _ = error "toLinearIdx: impossible pattern needlessly required"
 
 -- | Given a linear index into the buffer, get the corresponding
 -- multidimensional index
@@ -137,6 +145,7 @@ zeroOf (Shape (sh :. _)) = zeroOf (Shape sh) :. 0
 idxCompare :: Monoid m => (Int -> Int -> m) -> Index n Int -> Index n Int -> m
 idxCompare _ Z Z = mempty
 idxCompare f (idx :. i) (idx' :. j) = f i j <> idxCompare f idx idx'
+idxCompare _ _ _ = error "idxCompare: impossible pattern needlessly required"
 
 -- Warning: do not pass a list of strides to this function.
 listShapeToIndex :: forall n i. KnownNat n => [i] -> Shape n i
@@ -149,36 +158,6 @@ listShapeToIndex list
     go :: [i] -> (forall m. Index m i -> r) -> r
     go [] k = k Z
     go (i : rest) k = go rest (\rest' -> k (rest' :. i))
-
--- | A multidimensional array of rank @n@ containing elements of type @a@
-data Array n a = Array (Shape n Int) (Vector a)
-  deriving (Show)
-
--- | Generate an array by specifying the element that goes at each index
-build ::  Numeric a => Shape n Int -> (Index n Int -> a) -> Array n a
-build sh f = Array sh (V.generate (shapeSize sh) (\i -> f (fromLinearIdx sh i)))
-
--- | Index into an array
-(!) :: Numeric a => Array n a -> Index n Int -> a
-(!) (Array sh@(Shape shIdx) vec) idx
-  -- just some bounds checks
-  | getAll $ idxCompare ((All .) . (>=)) idx (zeroOf sh)
-  , getAll $ idxCompare ((All .) . (<)) idx shIdx
-  -- the actual indexing operation
-  = vec V.! toLinearIdx sh idx
-  | otherwise
-  = error "Index out of bounds in (!)"
-
--- | Sum along the inner, fastest-moving dimension
-sum' :: Numeric a => Array (n + 1) a -> Array n a
-sum' arr@(Array (Shape (sh :. n)) _) =
-  build (Shape sh) (\idx -> sum [arr ! (idx :. i) | i <- [0 .. n-1]])
-
-main :: IO ()
-main = do
-  let b :: Array 2 Double
-      b = build (Shape (Z :. 3 :. 2)) (\(Z :. i :. j) -> fromIntegral i + fromIntegral j)
-  print (sum' b)
 
 
 -- * Ast definitions
@@ -475,7 +454,7 @@ shapeAst v1 = case v1 of
   AstScale (AstPrimalPart1 r) _d -> shapeAst r
   AstVar sh _var -> sh
   AstIndex v _i -> tailShape $ shapeAst v
-  AstIndexN v (is :: Index len (AstInt r)) ->
+  AstIndexN v (_is :: Index len (AstInt r)) ->
     dropShape @len (shapeAst v)
   AstSum v -> tailShape $ shapeAst v
   AstFromList l -> case l of
@@ -502,7 +481,7 @@ shapeAst v1 = case v1 of
   AstFlatten v -> Shape (Z :. shapeSize (shapeAst v))
   AstReshape sh _v -> sh
   AstBuildPair n (_var, v) -> shapeAst v @$ n
-  AstGatherPair n (_var, is :: Index len (AstInt r)) v ->
+  AstGatherPair n (_var, _is :: Index len (AstInt r)) v ->
     dropShape @len (shapeAst v) @$ n
   AstSum0 _v -> Shape Z
   AstDot0 _x _y -> Shape Z
@@ -517,8 +496,6 @@ lengthAst :: (KnownNat n, Show r, Numeric r) => Ast (1 + n) r -> Int
 lengthAst v1 = case shapeAst v1 of
   Shape Z -> error "lengthAst: impossible rank 0 found"
   Shape (_ :. n) -> n
-
-{-
 
 substituteAst :: (Show r, Numeric r)
               => AstInt r -> AstVarName Int -> Ast n r -> Ast n r
@@ -584,5 +561,3 @@ substituteAstBool i var b1 = case b1 of
     AstRel opCodeRel $ map (substituteAst i var) args
   AstRelInt opCodeRel args ->
     AstRelInt opCodeRel $ map (substituteAstInt i var) args
-
--}
