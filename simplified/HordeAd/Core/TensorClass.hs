@@ -33,6 +33,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 import HordeAd.Core.Ast
 import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
+import HordeAd.Internal.SizedIndex
 import HordeAd.Internal.TensorOps
 
 -- * Odds and ends
@@ -161,8 +162,6 @@ instance HasPrimal (Ast n r) where
 -- statically known (type-parameterized) shapes.
 
 type IndexOf n r = Index n (IntOf r)
-
-type IndexInt n = Index n Int
 
 -- TODO: when we have several times more operations, split into
 -- Array (Container) and Tensor (Numeric), with the latter containing the few
