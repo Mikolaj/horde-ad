@@ -153,14 +153,16 @@ instance HasPrimal (Ast n r) where
 
 -- * Tensor class definition and instances for arrays, ADVal and Ast
 
--- @IntOf r@ gives more expressiveness, but leads to irregular tensors,
--- especially after vectorization, and prevents statically known shapes.
+-- @IntOf r@ as size or shape gives more expressiveness,
+-- but leads to irregular tensors, especially after vectorization,
+-- and prevents statically known shapes.
 -- However, if we switched to @Data.Array.Shaped@ and moved most of the shapes
 -- to the type level, we'd recover some of the expressiveness, while retaining
 -- statically known (type-parameterized) shapes.
--- type ShapeOf r = OR.ShapeL = [Int]  -- now replaced by [Int] below
 
-type PathOf r = [IntOf r]
+type IndexOf n r = Index n (IntOf r)
+
+type IndexInt n = Index n Int
 
 -- TODO: when we have several times more operations, split into
 -- Array (Container) and Tensor (Numeric), with the latter containing the few
@@ -176,19 +178,19 @@ class (RealFloat r, RealFloat (TensorOf 1 r), Integral (IntOf r))
   type TensorOf (n :: Nat) r = result | result -> n r
   type IntOf r
 
-  tshape :: TensorOf n r -> [Int]
+  tshape :: TensorOf n r -> ShapeInt n
   tsize :: KnownNat n => TensorOf n r -> Int
-  tsize = product . tshape
+  tsize = shapeSize . tshape
   tlength :: KnownNat n => TensorOf (1 + n) r -> Int
   tlength v = case tshape v of
-    [] -> error "tlength: impossible rank 0 found"
-    n : _ -> n
+    Shape Z -> error "tlength:  impossible pattern needlessly required"
+    Shape (_ :. n) -> n
   tminIndex :: TensorOf 1 r -> IntOf r
   tmaxIndex :: TensorOf 1 r -> IntOf r
 
   tindex :: KnownNat n => TensorOf (1 + n) r -> IntOf r -> TensorOf n r
   tindexN :: (KnownNat n, KnownNat m)
-          => TensorOf (1 + m + n) r -> PathOf r -> TensorOf n r
+          => TensorOf (m + n) r -> IndexOf m r -> TensorOf n r
   tsum :: KnownNat n => TensorOf (1 + n) r -> TensorOf n r
   tsum0 :: KnownNat n => TensorOf n r -> TensorOf 0 r
   tdot0 :: KnownNat n => TensorOf n r -> TensorOf n r -> TensorOf 0 r
@@ -198,13 +200,13 @@ class (RealFloat r, RealFloat (TensorOf 1 r), Integral (IntOf r))
   tfromIntOf0 = tscalar . fromIntegral
 
   tfromList :: KnownNat n => [TensorOf n r] -> TensorOf (1 + n) r
-  tfromList0N :: KnownNat n => [Int] -> [r] -> TensorOf n r
+  tfromList0N :: KnownNat n => ShapeInt n -> [r] -> TensorOf n r
   tfromVector :: KnownNat n
               => Data.Vector.Vector (TensorOf n r) -> TensorOf (1 + n) r
   tfromVector0N :: KnownNat n
-                => [Int] -> Data.Vector.Vector r -> TensorOf n r
+                => ShapeInt n -> Data.Vector.Vector r -> TensorOf n r
   tkonst :: KnownNat n => Int -> TensorOf n r -> TensorOf (1 + n) r
-  tkonst0N :: KnownNat n => [Int] -> r -> TensorOf (1 + n) r
+  tkonst0N :: KnownNat n => ShapeInt n -> r -> TensorOf (1 + n) r
   tappend :: KnownNat n
           => TensorOf (1 + n) r -> TensorOf (1 + n) r -> TensorOf (1 + n) r
   tslice :: KnownNat n => Int -> Int -> TensorOf (1 + n) r -> TensorOf (1 + n) r
@@ -213,12 +215,12 @@ class (RealFloat r, RealFloat (TensorOf 1 r), Integral (IntOf r))
   ttranspose = ttransposeGeneral [1, 0]
   ttransposeGeneral :: KnownNat n => Permutation -> TensorOf n r -> TensorOf n r
   tflatten :: KnownNat n => TensorOf n r -> TensorOf 1 r
-  tflatten u = treshape [tsize u] u
+  tflatten u = treshape (singletonShape $ tsize u) u
   treshape :: (KnownNat n, KnownNat m)
-           => [Int] -> TensorOf n r -> TensorOf m r
+           => ShapeInt m -> TensorOf n r -> TensorOf m r
   tbuild :: KnownNat n
          => Int -> (IntOf r -> TensorOf n r) -> TensorOf (1 + n) r
-  tbuild0N :: KnownNat n => [Int] -> (PathOf r -> r) -> TensorOf n r
+  tbuild0N :: KnownNat n => ShapeInt n -> (IndexOf n r -> r) -> TensorOf n r
   tmap :: KnownNat n
        => (TensorOf n r -> TensorOf n r)
        -> TensorOf (1 + n) r -> TensorOf (1 + n) r
@@ -233,6 +235,7 @@ class (RealFloat r, RealFloat (TensorOf 1 r), Integral (IntOf r))
 
   tscalar :: r -> TensorOf 0 r
   tunScalar :: TensorOf 0 r -> r
+{-
 
 type ADReady r = ( Tensor r, HasPrimal r
                  , RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r) )
@@ -541,7 +544,7 @@ build1VectorizeVar n (var, u) =
 -- of @var@ from @v@ (but not necessarily from @is@).
 build1VectorizeIndex
   :: forall m n r. (KnownNat n, KnownNat m, Show r, Numeric r)
-  => Int -> AstVarName Int -> Ast (1 + m + n) r -> AstIndex r
+  => Int -> AstVarName Int -> Ast (m + n) r -> AstIndex m r
   -> Ast (1 + n) r
 build1VectorizeIndex n var v [] =
   unsafeCoerce $ build1Vectorize n (var, v)  -- m is -1
@@ -570,7 +573,7 @@ build1VectorizeIndex n var v is = case reverse is of
 -- evaluate/simplify the term, if only possible in constant time.
 build1VectorizeIndexVar
   :: forall m n r. (KnownNat n, KnownNat m, Show r, Numeric r)
-  => Int -> AstVarName Int -> Ast (1 + m + n) r -> AstIndex r
+  => Int -> AstVarName Int -> Ast (m + n) r -> AstIndex m r
   -> Ast (1 + n) r
 build1VectorizeIndexVar n var v1 [] =
   unsafeCoerce $ build1VectorizeVar n (var, v1)  -- m is -1
@@ -815,7 +818,7 @@ index (D u u') ix = dD (u `tindexR` ix) (dIndex1 u' ix (tlengthR u))
 -- empty path means identity.
 -- TODO: speed up by using atPathInTensorR and dIndex0 if the codomain is 0.
 indexN :: forall m n d r. (ADModeAndNumTensor d r, KnownNat n, KnownNat m)
-        => ADVal d (OR.Array (1 + m + n) r) -> [Int]
+        => ADVal d (OR.Array (m + n) r) -> IndexInt m
         -> ADVal d (OR.Array n r)
 indexN (D u u') ixs = dD (tindexNR u ixs)
                          (dIndexN u' ixs (OR.shapeL u))
@@ -907,7 +910,7 @@ build :: (ADModeAndNumTensor d r, KnownNat n)
 build n f = fromList $ map f [0 .. n - 1]
 
 gatherClosure :: (ADModeAndNumTensor d r, KnownNat n, KnownNat m)
-              => Int -> (Int -> [Int])
+              => Int -> (Int -> IndexInt m)
               -> ADVal d (OR.Array (m + n) r) -> ADVal d (OR.Array (1 + n) r)
 gatherClosure n f (D u u') = dD (tgatherR n f u) (dGather1 n f (OR.shapeL u) u')
 
@@ -936,8 +939,8 @@ interpretLambdaI env (AstVarName var, ast) =
 interpretLambdaPath
   :: ADModeAndNumTensor d r
   => AstEnv d r
-  -> (AstVarName Int, AstIndex r)
-  -> Int -> [Int]
+  -> (AstVarName Int, AstIndex n r)
+  -> Int -> IndexInt n
 interpretLambdaPath env (AstVarName var, asts) =
   \i -> map (interpretAstInt (IM.insert var (AstVarI i) env)) asts
 
@@ -1128,3 +1131,4 @@ interpretAstRelOp f GtOp [u, v] = f u > f v
 interpretAstRelOp _ opCodeRel args =
   error $ "interpretAstRelOp: wrong number of arguments"
           ++ show (opCodeRel, length args)
+-}

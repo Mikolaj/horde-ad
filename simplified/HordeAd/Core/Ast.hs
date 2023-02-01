@@ -20,8 +20,8 @@ module HordeAd.Core.Ast
   , Index(Z), pattern (:.)
   , tailIndex, takeIndex, dropIndex
   , Shape(..)
-  , (@$), tailShape, takeShape, dropShape
-  , toLinearIdx, fromLinearIdx, zeroOf, idxCompare
+  , singletonShape, (@$), tailShape, takeShape, dropShape
+  , shapeSize, toLinearIdx, fromLinearIdx, zeroOf, idxCompare
   ) where
 
 import Prelude
@@ -101,6 +101,9 @@ newtype Shape n i = Shape (Index n i)
 infixl 3 @$
 (@$) :: Shape n i -> i -> Shape (1 + n) i
 Shape sh @$ s = Shape (sh :. s)
+
+singletonShape :: i -> Shape 1 i
+singletonShape i = Shape $ Z :. i
 
 tailShape :: Shape (1 + n) i -> Shape n i
 tailShape (Shape ix) = Shape $ tailIndex ix
@@ -478,7 +481,7 @@ shapeAst v1 = case v1 of
     if valueOf @n < length perm
     then shapeAst v  -- the operation is an identity if rank too small
     else permutePrefixShape perm (shapeAst v)
-  AstFlatten v -> Shape (Z :. shapeSize (shapeAst v))
+  AstFlatten v -> singletonShape $ shapeSize (shapeAst v)
   AstReshape sh _v -> sh
   AstBuildPair n (_var, v) -> shapeAst v @$ n
   AstGatherPair n (_var, _is :: Index len (AstInt r)) v ->
