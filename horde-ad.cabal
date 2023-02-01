@@ -529,7 +529,6 @@ library horde-ad-simplified
       , enummapset
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
-      , ghc-typelits-presburger
       , hmatrix
       , ilist
       , mono-traversable

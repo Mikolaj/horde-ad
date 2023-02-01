@@ -5,7 +5,6 @@
              TypeFamilyDependencies, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
-{-# OPTIONS_GHC -fplugin GHC.TypeLits.Presburger #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 -- | AST of the code to be differentiated. It's needed mostly for handling
 -- higher order operations such as build and map, but can be used
@@ -35,7 +34,7 @@ import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Storable as VS
-import           GHC.TypeLits (KnownNat, Nat, type (+), type (<=))
+import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Numeric)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Text.Show.Functions ()
@@ -64,7 +63,7 @@ instance Show i => Show (Index n i) where
 
 -- I'm afraid, I can't do the unsafeCoerces below with this order
 -- of argument in :., can I? So I need this instead:
-pattern (:.) :: forall n1 i. forall n. (n1 ~ (n + 1), 0 <= n, 0 <= n1)
+pattern (:.) :: forall n1 i. forall n. n1 ~ (n + 1)
              => Index n i -> i -> Index n1 i
 pattern (:.) is i = S i is
 {-# COMPLETE Z, (:.) #-}
@@ -73,7 +72,7 @@ infixl 3 :.
 --   https://hackage.haskell.org/package/accelerate-1.3.0.0/docs/Data-Array-Accelerate.html#t::.
 
 tailIndex :: Index (1 + n) i -> Index n i
--- tailIndex Z = error "tailIndex: impossible pattern needlessly required"
+tailIndex Z = error "tailIndex: impossible pattern needlessly required"
 tailIndex (is :. _i) = is
 
 takeIndex :: forall len n i. KnownNat len
