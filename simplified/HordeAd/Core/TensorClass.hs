@@ -162,8 +162,6 @@ instance HasPrimal (Ast n r) where
 
 type PathOf r = [IntOf r]
 
-type Permutation = [Int]
-
 -- TODO: when we have several times more operations, split into
 -- Array (Container) and Tensor (Numeric), with the latter containing the few
 -- Ord and Num operations and numeric superclasses.
@@ -661,7 +659,7 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
       [] -> AstBuildPair n (var, AstIndexN v1 is)  -- we give up
       i2 : rest2 -> build1VectorizeIndexVar n var v (i2 : i1 : rest2)
     AstTransposeGeneral perm v ->
-      let permutePrefix :: AstPermutation -> AstIndex r -> AstIndex r
+      let permutePrefix :: Permutation -> AstIndex r -> AstIndex r
           permutePrefix p l = V.toList $ Data.Vector.fromList l V.// zip p l
           lenp = length perm
           is2 = permutePrefix perm is
@@ -893,7 +891,8 @@ reverse' :: (ADModeAndNumTensor d r, KnownNat n)
 reverse' (D u u') = dD (treverseR u) (dReverse1 u')
 
 transposeGeneral :: (ADModeAndNumTensor d r, KnownNat n)
-                 => [Int] -> ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
+                 => Permutation
+                 -> ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
 transposeGeneral perm (D u u') = dD (ttransposeGeneralR perm u)
                                     (dTransposeGeneral1 perm u')
 

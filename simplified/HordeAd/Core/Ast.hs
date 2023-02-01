@@ -11,7 +11,7 @@
 -- for arbitrary code transformations at the cost of limiting
 -- expressiveness of transformed fragments to what AST captures.
 module HordeAd.Core.Ast
-  ( AstShape, AstIndex, AstPermutation
+  ( ShapeInt, AstIndex, Permutation
   , Ast(..), AstPrimalPart1(..)
   , AstVarName(..), AstVar(..)
   , AstInt(..), AstBool(..)
@@ -83,7 +83,7 @@ dropIndex :: forall len n i. KnownNat len
           => Index (len + n) i -> Index n i
 dropIndex ix = unsafeCoerce $ drop (valueOf @len) $ unsafeCoerce ix
 
-permutePrefixIndex :: [Int] -> Index n Int -> Index n Int
+permutePrefixIndex :: Permutation -> Index n Int -> Index n Int
 permutePrefixIndex p ix =
   let l = unsafeCoerce ix
   in (unsafeCoerce :: [Int] -> Index n Int)
@@ -113,7 +113,7 @@ dropShape :: forall len n i. KnownNat len
           => Shape (len + n) i -> Shape n i
 dropShape (Shape ix) = Shape $ dropIndex ix
 
-permutePrefixShape :: [Int] -> Shape n Int -> Shape n Int
+permutePrefixShape :: Permutation -> Shape n Int -> Shape n Int
 permutePrefixShape p (Shape ix) = Shape $ permutePrefixIndex p ix
 
 -- | The number of elements in an array of this shape
@@ -167,11 +167,11 @@ listShapeToIndex list
 -- However, if we switched to @Data.Array.Shaped@ and moved most of the shapes
 -- to the type level, we'd recover some of the expressiveness, while retaining
 -- statically known (type-parameterized) shapes.
-type AstShape n r = Shape n Int
+type ShapeInt n = Shape n Int
 
 type AstIndex n r = Index n (AstInt r)
 
-type AstPermutation = [Int]
+type Permutation = [Int]
 
 -- TODO: consider sharing Ast expressions, both within the primal part
 -- and between primal and dual
@@ -190,7 +190,7 @@ data Ast :: Nat -> Type -> Type where
     -- sort of partially evaluated @AstConstant@
   AstConstant :: AstPrimalPart1 n r -> Ast n r
   AstScale :: AstPrimalPart1 n r -> Ast n r -> Ast n r
-  AstVar :: AstShape n r -> AstVarName (OR.Array n r) -> Ast n r
+  AstVar :: ShapeInt n -> AstVarName (OR.Array n r) -> Ast n r
 
   -- For VectorLike and Tensor class:
   AstIndex :: Ast (1 + n) r -> AstInt r -> Ast n r
@@ -208,12 +208,12 @@ data Ast :: Nat -> Type -> Type where
   AstReverse :: KnownNat n
              => Ast n r -> Ast n r
   AstTranspose :: Ast n r -> Ast n r
-  AstTransposeGeneral :: AstPermutation -> Ast n r -> Ast n r
+  AstTransposeGeneral :: Permutation -> Ast n r -> Ast n r
     -- emerges from vectorizing AstTranspose
   AstFlatten :: KnownNat n
              => Ast n r -> Ast 1 r
   AstReshape :: KnownNat n
-             => AstShape m r -> Ast n r -> Ast m r
+             => ShapeInt m -> Ast n r -> Ast m r
     -- emerges from vectorizing AstFlatten
   AstBuildPair :: Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
   AstGatherPair :: KnownNat m
@@ -230,10 +230,10 @@ data Ast :: Nat -> Type -> Type where
           => Ast n r -> Ast 0 r
   AstDot0 :: KnownNat n
           => Ast n r -> Ast n r -> Ast 0 r
-  AstFromList0N :: AstShape n r -> [Ast 0 r] -> Ast n r
-  AstFromVector0N :: AstShape n r -> Data.Vector.Vector (Ast 0 r) -> Ast n r
-  AstKonst0N :: AstShape n r -> Ast 0 r -> Ast n r
-  AstBuildPair0N :: AstShape n r -> ([AstVarName Int], Ast 0 r) -> Ast n r
+  AstFromList0N :: ShapeInt n -> [Ast 0 r] -> Ast n r
+  AstFromVector0N :: ShapeInt n -> Data.Vector.Vector (Ast 0 r) -> Ast n r
+  AstKonst0N :: ShapeInt n -> Ast 0 r -> Ast n r
+  AstBuildPair0N :: ShapeInt n -> ([AstVarName Int], Ast 0 r) -> Ast n r
 
   -- For MonoFunctor class, which is needed for a particularly
   -- fast implementation of relu and offers fast, primal-part only, mapping.
@@ -442,7 +442,7 @@ instance MonoFunctor (AstPrimalPart1 n r) where
 -- to determine shape. If we don't switch to @Data.Array.Shaped@
 -- or revert to fully dynamic shapes, we need to redo this with more rigour.
 shapeAst :: forall n r. (KnownNat n, Show r, Numeric r)
-         => Ast n r -> AstShape n r
+         => Ast n r -> ShapeInt n
 shapeAst v1 = case v1 of
   AstOp _opCode args -> case args of
     [] -> error "shapeAst: AstOp with no arguments"
