@@ -11,7 +11,7 @@
 -- for arbitrary code transformations at the cost of limiting
 -- expressiveness of transformed fragments to what AST captures.
 module HordeAd.Core.Ast
-  ( AstShape, AstPath, AstPermutation
+  ( AstShape, AstIndex, AstPermutation
   , Ast(..), AstPrimalPart1(..)
   , AstVarName(..), AstVar(..)
   , AstInt(..), AstBool(..)
@@ -77,10 +77,11 @@ dropIndex :: forall len n i. KnownNat len
           => Index (len + n) i -> Index n i
 dropIndex ix = unsafeCoerce $ drop (valueOf @len) $ unsafeCoerce ix
 
-permutePrefixIndex :: [Int] -> Index n i -> Index n i
+permutePrefixIndex :: [Int] -> Index n Int -> Index n Int
 permutePrefixIndex p ix =
   let l = unsafeCoerce l
-  in unsafeCoerce $ V.toList $ VS.fromList l V.// zip p l
+  in (unsafeCoerce :: [Int] -> Index n Int)
+     $ V.toList $ VS.fromList l V.// zip p l
 
 -- | The shape of an n-dimensional array. Represented by an index to not
 -- duplicate representations and convert easily between each. It seems unlikely
@@ -106,7 +107,7 @@ dropShape :: forall len n i. KnownNat len
           => Shape (len + n) i -> Shape n i
 dropShape (Shape ix) = Shape $ dropIndex ix
 
-permutePrefixShape :: [Int] -> Shape n i -> Shape n i
+permutePrefixShape :: [Int] -> Shape n Int -> Shape n Int
 permutePrefixShape p (Shape ix) = Shape $ permutePrefixIndex p ix
 
 -- | The number of elements in an array of this shape
@@ -190,7 +191,7 @@ main = do
 -- statically known (type-parameterized) shapes.
 type AstShape n r = Shape n Int
 
-type AstPath n r = Index n (AstInt r)
+type AstIndex n r = Index n (AstInt r)
 
 type AstPermutation = [Int]
 
@@ -206,7 +207,7 @@ data Ast :: Nat -> Type -> Type where
 
   -- For HasPrimal class and the future Conditional/Boolean/Eq'/Ord' classes:
   AstCond :: AstBool r -> Ast n r -> Ast n r -> Ast n r
-  AstConstInt :: AstInt r -> Ast n r
+  AstConstInt :: AstInt r -> Ast 0 r
   AstConst :: OR.Array n r -> Ast n r
     -- sort of partially evaluated @AstConstant@
   AstConstant :: AstPrimalPart1 n r -> Ast n r
@@ -216,7 +217,7 @@ data Ast :: Nat -> Type -> Type where
   -- For VectorLike and Tensor class:
   AstIndex :: Ast (1 + n) r -> AstInt r -> Ast n r
   AstIndexN :: forall m n r. KnownNat m
-            => Ast (m + n) r -> AstPath m r -> Ast n r
+            => Ast (m + n) r -> AstIndex m r -> Ast n r
     -- emerges from vectorizing AstIndex;
     -- first ix is for outermost dimension; empty path means identity
   AstSum :: Ast (1 + n) r -> Ast n r
@@ -238,7 +239,7 @@ data Ast :: Nat -> Type -> Type where
     -- emerges from vectorizing AstFlatten
   AstBuildPair :: Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
   AstGatherPair :: KnownNat m
-                => Int -> (AstVarName Int, AstPath m r) -> Ast (m + n) r
+                => Int -> (AstVarName Int, AstIndex m r) -> Ast (m + n) r
                 -> Ast (1 + n) r
     -- emerges from vectorizing AstIndexN applied to term with no build variable
 
@@ -449,7 +450,7 @@ astOmap :: (Ast 0 r -> Ast 0 r) -> Ast n r -> Ast n r
 {-# NOINLINE astOmap #-}
 astOmap f e = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
-  return $! AstOMap (freshAstVar, f (AstVar Z freshAstVar)) e
+  return $! AstOMap (freshAstVar, f (AstVar (Shape Z) freshAstVar)) e
 
 instance MonoFunctor (AstPrimalPart1 n r) where
   omap f (AstPrimalPart1 x) =
@@ -462,7 +463,7 @@ instance MonoFunctor (AstPrimalPart1 n r) where
 -- only one path and fail if it doesn't contain enough information
 -- to determine shape. If we don't switch to @Data.Array.Shaped@
 -- or revert to fully dynamic shapes, we need to redo this with more rigour.
-shapeAst :: forall n r. (Show r, Numeric r)
+shapeAst :: forall n r. (KnownNat n, Show r, Numeric r)
          => Ast n r -> AstShape n r
 shapeAst v1 = case v1 of
   AstOp _opCode args -> case args of
@@ -470,28 +471,26 @@ shapeAst v1 = case v1 of
     t : _ -> shapeAst t
   AstCond _b a1 _a2 -> shapeAst a1
   AstConstInt _i -> Shape Z
-  AstConst a -> OR.shapeL a
+  AstConst a -> listShapeToIndex $ OR.shapeL a
   AstConstant (AstPrimalPart1 a) -> shapeAst a
   AstScale (AstPrimalPart1 r) _d -> shapeAst r
   AstVar sh _var -> sh
-  AstIndex v _i -> tail $ shapeAst v  -- types ensure this @tail@ is total
-  AstIndexN v is ->
-    let sh = shapeAst v
-    in assert (length sh >= length is `blame` v1)
-       $ drop (length is) sh
-  AstSum v -> tail $ shapeAst v
+  AstIndex v _i -> tailShape $ shapeAst v
+  AstIndexN v (is :: Index len (AstInt r)) ->
+    dropShape @len (shapeAst v)
+  AstSum v -> tailShape $ shapeAst v
   AstFromList l -> case l of
     [] -> error "shapeAst: AstFromList with no arguments"
-    t : _ -> length l : shapeAst t
+    t : _ -> shapeAst t @$ length l
   AstFromVector l -> case V.toList l of
     [] -> error "shapeAst: AstFromVector with no arguments"
-    t : _ -> V.length l : shapeAst t
-  AstKonst n v -> n : shapeAst v
+    t : _ -> shapeAst t @$ V.length l
+  AstKonst n v -> shapeAst v @$ n
   AstAppend x y -> case shapeAst x of
     Shape Z -> error "shapeAst: AstAppend applied to scalars"
     Shape (xsh :. xi) -> case shapeAst y of
       Shape Z -> error "shapeAst: AstAppend applied to scalars"
-      Shape (_ :. yi) -> xi + yi : xsh
+      Shape (_ :. yi) -> Shape xsh @$ xi + yi
   AstSlice _n k v -> tailShape (shapeAst v) @$ k
   AstReverse v -> shapeAst v
   AstTranspose v -> case shapeAst v of
@@ -515,7 +514,7 @@ shapeAst v1 = case v1 of
   AstOMap (_var, _r) e -> shapeAst e
 
 -- Length of the outermost dimension.
-lengthAst :: (Show r, Numeric r) => Ast (1 + n) r -> Int
+lengthAst :: (KnownNat n, Show r, Numeric r) => Ast (1 + n) r -> Int
 lengthAst v1 = case shapeAst v1 of
   Shape Z -> error "lengthAst: impossible rank 0 found"
   Shape (_ :. n) -> n
@@ -588,7 +587,7 @@ substituteAstBool i var b1 = case b1 of
     AstRelInt opCodeRel $ map (substituteAstInt i var) args
 
 -- This is toIx generalized to AstInt.
-toIxAst :: [Int] -> AstInt r -> AstPath n r
+toIxAst :: [Int] -> AstInt r -> AstIndex n r
 toIxAst shInt = fromLinearIdx (Shape $ listToIndex $ map AstIntConst shInt)
 -- TODO: this is borked; try to use listShapeToIndex instead
 -- and/or write a different fromLinearIdx

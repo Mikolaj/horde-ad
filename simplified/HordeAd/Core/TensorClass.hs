@@ -543,7 +543,7 @@ build1VectorizeVar n (var, u) =
 -- of @var@ from @v@ (but not necessarily from @is@).
 build1VectorizeIndex
   :: forall m n r. (KnownNat n, KnownNat m, Show r, Numeric r)
-  => Int -> AstVarName Int -> Ast (1 + m + n) r -> AstPath r
+  => Int -> AstVarName Int -> Ast (1 + m + n) r -> AstIndex r
   -> Ast (1 + n) r
 build1VectorizeIndex n var v [] =
   unsafeCoerce $ build1Vectorize n (var, v)  -- m is -1
@@ -572,7 +572,7 @@ build1VectorizeIndex n var v is = case reverse is of
 -- evaluate/simplify the term, if only possible in constant time.
 build1VectorizeIndexVar
   :: forall m n r. (KnownNat n, KnownNat m, Show r, Numeric r)
-  => Int -> AstVarName Int -> Ast (1 + m + n) r -> AstPath r
+  => Int -> AstVarName Int -> Ast (1 + m + n) r -> AstIndex r
   -> Ast (1 + n) r
 build1VectorizeIndexVar n var v1 [] =
   unsafeCoerce $ build1VectorizeVar n (var, v1)  -- m is -1
@@ -661,7 +661,7 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
       [] -> AstBuildPair n (var, AstIndexN v1 is)  -- we give up
       i2 : rest2 -> build1VectorizeIndexVar n var v (i2 : i1 : rest2)
     AstTransposeGeneral perm v ->
-      let permutePrefix :: AstPermutation -> AstPath r -> AstPath r
+      let permutePrefix :: AstPermutation -> AstIndex r -> AstIndex r
           permutePrefix p l = V.toList $ Data.Vector.fromList l V.// zip p l
           lenp = length perm
           is2 = permutePrefix perm is
@@ -938,7 +938,7 @@ interpretLambdaI env (AstVarName var, ast) =
 interpretLambdaPath
   :: ADModeAndNumTensor d r
   => AstEnv d r
-  -> (AstVarName Int, AstPath r)
+  -> (AstVarName Int, AstIndex r)
   -> Int -> [Int]
 interpretLambdaPath env (AstVarName var, asts) =
   \i -> map (interpretAstInt (IM.insert var (AstVarI i) env)) asts
