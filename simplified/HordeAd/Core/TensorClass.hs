@@ -676,8 +676,7 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
                   -- or get stuck as well
             | otherwise -> build1VectorizeIndexVar n var v is2
     AstFlatten v -> assert (null rest1) $
-      let sh = shapeAst v
-          ixs2 = fromLinearIdx2 (map AstIntConst sh) i1
+      let ixs2 = fromLinearIdx (shapeAst v) i1
           v2 = (unsafeCoerce :: Ast n1 r -> Ast (1 + m + n) r) v
        in build1VectorizeIndexVar n var v2 ixs2
     AstReshape{} -> AstBuildPair n (var, AstIndexN v1 is)  -- we give up

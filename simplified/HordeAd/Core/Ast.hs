@@ -17,7 +17,6 @@ module HordeAd.Core.Ast
   , AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
   , shapeAst, lengthAst, substituteAst, substituteAstInt, substituteAstBool
-  , toIxAst
   ) where
 
 import Prelude
@@ -586,14 +585,4 @@ substituteAstBool i var b1 = case b1 of
   AstRelInt opCodeRel args ->
     AstRelInt opCodeRel $ map (substituteAstInt i var) args
 
--- This is toIx generalized to AstInt.
-toIxAst :: [Int] -> AstInt r -> AstIndex n r
-toIxAst shInt = fromLinearIdx (Shape $ listToIndex $ map AstIntConst shInt)
--- TODO: this is borked; try to use listShapeToIndex instead
--- and/or write a different fromLinearIdx
--- but first understand why orthotope doesn't use shapes but strides
--- despite both being available
-listToIndex :: [i] -> Index n i
-listToIndex [] = unsafeCoerce Z
-listToIndex (ix : rest) = unsafeCoerce $ listToIndex rest :. ix
 -}
