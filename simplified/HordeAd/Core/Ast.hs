@@ -83,11 +83,16 @@ dropIndex :: forall len n i. KnownNat len
           => Index (len + n) i -> Index n i
 dropIndex ix = unsafeCoerce $ drop (valueOf @len) $ unsafeCoerce ix
 
-permutePrefixIndex :: Permutation -> Index n Int -> Index n Int
+-- This permutes a prefix of the index of the length of the permutation.
+-- The rest of the index is left intact.
+permutePrefixIndex :: forall n. KnownNat n
+                   => Permutation -> Index n Int -> Index n Int
 permutePrefixIndex p ix =
-  let l = unsafeCoerce ix
-  in (unsafeCoerce :: [Int] -> Index n Int)
-     $ V.toList $ VS.fromList l V.// zip p l
+  if valueOf @n < length p
+  then error "permutePrefixIndex: cannot permute index, because it's too short"
+  else let l = unsafeCoerce ix
+       in (unsafeCoerce :: [Int] -> Index n Int)
+          $ V.toList $ VS.fromList l V.// zip p l
 
 -- | The shape of an n-dimensional array. Represented by an index to not
 -- duplicate representations and convert easily between each. It seems unlikely
@@ -116,7 +121,7 @@ dropShape :: forall len n i. KnownNat len
           => Shape (len + n) i -> Shape n i
 dropShape (Shape ix) = Shape $ dropIndex ix
 
-permutePrefixShape :: Permutation -> Shape n Int -> Shape n Int
+permutePrefixShape :: KnownNat n => Permutation -> Shape n Int -> Shape n Int
 permutePrefixShape p (Shape ix) = Shape $ permutePrefixIndex p ix
 
 -- | The number of elements in an array of this shape
