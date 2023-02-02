@@ -53,6 +53,7 @@ import           System.IO.Unsafe (unsafePerformIO)
 import           Text.Show.Functions ()
 
 import HordeAd.Internal.Delta
+import HordeAd.Internal.SizedIndex
 import HordeAd.Internal.TensorOps
 
 -- * Abbreviations to export (not used anywhere below)
@@ -154,9 +155,9 @@ class HasInputs a where
 -- of various ranks wrt the differentation mode given in the first parameter.
 class HasRanks (d :: ADMode) r where
   dIndex0 :: KnownNat n
-          => Dual d (OR.Array n r) -> [Int] -> OR.ShapeL -> Dual d r
+          => Dual d (OR.Array n r) -> IndexInt n -> ShapeInt n -> Dual d r
   dSum0 :: KnownNat n
-        => OR.ShapeL -> Dual d (OR.Array n r) -> Dual d r
+        => ShapeInt n -> Dual d (OR.Array n r) -> Dual d r
   dDot0 :: KnownNat n
         => OR.Array n r -> Dual d (OR.Array n r) -> Dual d r
   dUnScalar0 :: Dual d (OR.Array 0 r) -> Dual d r
@@ -164,7 +165,7 @@ class HasRanks (d :: ADMode) r where
   dIndex1 :: KnownNat n
           => Dual d (OR.Array (1 + n) r) -> Int -> Int -> Dual d (OR.Array n r)
   dIndexN :: (KnownNat n, KnownNat m)
-          => Dual d (OR.Array (1 + m + n) r) -> [Int] -> OR.ShapeL
+          => Dual d (OR.Array (m + n) r) -> IndexInt m -> ShapeInt (m + n)
           -> Dual d (OR.Array n r)
   dSum1 :: KnownNat n
         => Int -> Dual d (OR.Array (1 + n) r) -> Dual d (OR.Array n r)
@@ -176,14 +177,14 @@ class HasRanks (d :: ADMode) r where
                => Data.Vector.Vector (Dual d (OR.Array n r))
                -> Dual d (OR.Array (1 + n) r)
   dFromList01 :: KnownNat n
-              => OR.ShapeL -> [Dual d r] -> Dual d (OR.Array n r)
+              => ShapeInt n -> [Dual d r] -> Dual d (OR.Array n r)
   dFromVector01 :: KnownNat n
-                => OR.ShapeL -> Data.Vector.Vector (Dual d r)
+                => ShapeInt n -> Data.Vector.Vector (Dual d r)
                 -> Dual d (OR.Array n r)
   dKonst1 :: KnownNat n
           => Int -> Dual d (OR.Array n r) -> Dual d (OR.Array (1 + n) r)
   dKonst01 :: KnownNat n
-           => OR.ShapeL -> Dual d r -> Dual d (OR.Array (1 + n) r)
+           => ShapeInt n -> Dual d r -> Dual d (OR.Array n r)
   dAppend1 :: KnownNat n
            => Dual d (OR.Array n r) -> Int -> Dual d (OR.Array n r)
            -> Dual d (OR.Array n r)
@@ -192,22 +193,23 @@ class HasRanks (d :: ADMode) r where
   dReverse1 :: KnownNat n
             => Dual d (OR.Array n r) -> Dual d (OR.Array n r)
   dTransposeGeneral1 :: KnownNat n
-                     => [Int] -> Dual d (OR.Array n r) -> Dual d (OR.Array n r)
+                     => Permutation -> Dual d (OR.Array n r)
+                     -> Dual d (OR.Array n r)
   dReshape1 :: (KnownNat n, KnownNat m)
-            => OR.ShapeL -> OR.ShapeL -> Dual d (OR.Array n r)
+            => ShapeInt n -> ShapeInt m -> Dual d (OR.Array n r)
             -> Dual d (OR.Array m r)
   dBuild1 :: KnownNat n
           => Int -> (Int -> Dual d (OR.Array n r))
           -> Dual d (OR.Array (1 + n) r)
   dBuild01 :: KnownNat n
-           => OR.ShapeL -> ([Int] -> Dual d r) -> Dual d (OR.Array n r)
+           => ShapeInt n -> (IndexInt n -> Dual d r) -> Dual d (OR.Array n r)
   dGather1 :: (KnownNat n, KnownNat m)
-           => Int -> (Int -> [Int])
-           -> OR.ShapeL -> Dual d (OR.Array (m + n) r)
+           => Int -> (Int -> IndexInt m)
+           -> ShapeInt (m + n) -> Dual d (OR.Array (m + n) r)
            -> Dual d (OR.Array (1 + n) r)
   dScatter1 :: (KnownNat n, KnownNat m)
-            => Int -> (Int -> [Int])
-            -> Dual d (OR.Array (1 + n) r) -> OR.ShapeL
+            => Int -> (Int -> IndexInt m)
+            -> Dual d (OR.Array (1 + n) r) -> ShapeInt (m + n)
             -> Dual d (OR.Array (m + n) r)
 
   dFromX1 :: KnownNat n

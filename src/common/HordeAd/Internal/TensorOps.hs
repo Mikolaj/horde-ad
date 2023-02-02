@@ -8,6 +8,7 @@ module HordeAd.Internal.TensorOps
 
 import Prelude
 
+import           Control.Arrow (first)
 import           Control.Exception.Assert.Sugar
 import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OT
@@ -79,9 +80,10 @@ atPathInTensorD (Data.Array.Internal.DynamicS.A
 
 -- There is no OR.update, so we convert.
 updateR :: (Numeric a, KnownNat n)
-        => OR.Array n a -> [([Int], a)] -> OR.Array n a
+        => OR.Array n a -> [(IndexInt n, a)] -> OR.Array n a
 updateR arr upd = Data.Array.Convert.convert
-                   $ OT.update (Data.Array.Convert.convert arr) upd
+                  $ OT.update (Data.Array.Convert.convert arr)
+                  $ map (first indexToList) upd
 
 updateNR :: (Numeric a, KnownNat n, KnownNat m)
          => OR.Array (m + n) a -> [(IndexInt m, OR.Array n a)]
