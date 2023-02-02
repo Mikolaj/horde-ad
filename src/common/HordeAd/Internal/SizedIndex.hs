@@ -240,20 +240,21 @@ shapeToList (Shape l) = indexToList l
 -- * Operations involving both indexes and shapes
 
 -- | Given a multidimensional index, get the corresponding linear
--- index into the buffer
-toLinearIdx :: Num i => Shape n i -> Index n i -> i
+-- index into the buffer. Note that the index doesn't need to be pointing
+-- at a scalar. It may point at the start of a larger tensor instead.
+toLinearIdx :: forall m n i. Num i => Shape (m + n) i -> Index m i -> i
 toLinearIdx = \sh idx -> snd (go sh idx)
   where
     -- Returns (shape size, linear index)
-    go :: Num i => Shape n i -> Index n i -> (i, i)
-    go (Shape Z) Z = (1, 0)
+    go :: forall m1 n1. Shape (m1 + n1) i -> Index m1 i -> (i, i)
+    go sh Z = (shapeSize sh, 0)
     go (Shape (n :. sh)) (i :. idx) =
       let (restsize, lin) = go (Shape sh) idx
       in (n * restsize, i * restsize + lin)
     go _ _ = error "toLinearIdx: impossible pattern needlessly required"
 
 -- | Given a linear index into the buffer, get the corresponding
--- multidimensional index
+-- multidimensional index. Here we require an index pointing at a scalar.
 fromLinearIdx :: Integral i => Shape n i -> i -> Index n i
 fromLinearIdx = \sh lin -> snd (go sh lin)
   where

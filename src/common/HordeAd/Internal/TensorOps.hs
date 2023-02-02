@@ -85,7 +85,7 @@ updateR arr upd = Data.Array.Convert.convert
                   $ OT.update (Data.Array.Convert.convert arr)
                   $ map (first indexToList) upd
 
-updateNR :: (Numeric a, KnownNat n, KnownNat m)
+updateNR :: forall m n a. (Numeric a, KnownNat m, KnownNat n)
          => OR.Array (m + n) a -> [(IndexInt m, OR.Array n a)]
          -> OR.Array (m + n) a
 updateNR arr upd =
@@ -96,7 +96,7 @@ updateNR arr upd =
   in let sh = listShapeToShape shRaw
          f t (ix, u) =
            let v = OR.toVector u
-               i = toLinearIdx sh ix
+               i = toLinearIdx @m @n sh ix
            in LA.vjoin [V.take i t, v, V.drop (i + V.length v) t]
      in OR.fromVector shRaw (foldl' f values upd)
 
@@ -154,7 +154,7 @@ tindexNR arr ix =
         (Data.Array.Internal.RankedG.A sh
            Data.Array.Internal.T{offset, values}) = OR.normalize arr
       !_A = assert (offset == 0) ()
-  in let i = toLinearIdx (listShapeToShape sh) ix
+  in let i = toLinearIdx @m @n (listShapeToShape sh) ix
          shN = drop (valueOf @m) sh
          len = product shN
      in OR.fromVector shN $ V.slice i len values

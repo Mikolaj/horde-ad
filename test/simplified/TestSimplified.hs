@@ -450,7 +450,7 @@ testRecycled :: Assertion
 testRecycled =
   testPolyn recycled [3, 4, 2, 6, 13]
   3.4
-  4.0
+  (-3.763967532612046e9)
 
 testConcatBuild :: Assertion
 testConcatBuild =
