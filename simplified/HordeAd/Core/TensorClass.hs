@@ -532,8 +532,6 @@ build1VectorizeVar n (var, u) =
     AstOMap{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, u)
     -- All other patterns are redundant due to GADT typing.
 
-build1VectorizeIndexVar = undefined
-
 -- | The application @build1VectorizeIndex n var v is@
 -- vectorizes the term @AstBuildPair n (var, AstIndexN v is@.
 -- The length of the index is @m@
@@ -556,7 +554,6 @@ build1VectorizeIndex n var v is@(iN :. restRev) =
             Nothing -> AstGatherPair n (var, is) v
               -- we didn't really need it anyway
      | otherwise -> AstKonst n (AstIndexN v is)
-{-
 
 -- | The variable is known to occur in the main vectorized term.
 -- We try to push the indexing down the term tree and partially
@@ -717,7 +714,6 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
     AstOMap{} ->
       AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, AstIndexN v1 is)
     -- All other patterns are redundant due to GADT typing.
--}
 
 -- TODO: we probably need to simplify to some normal form, but possibly
 -- this would be even better to do and take advantage of earlier,
