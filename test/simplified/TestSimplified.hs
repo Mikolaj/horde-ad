@@ -186,7 +186,7 @@ braidedBuilds r =
 
 recycled :: ADReady r
          => r -> TensorOf 5 r
-recycled r = tbuild 3 $ \_ -> tbuild 4 $ \_ -> tbuild 2 $ \_ -> tbuild 6 $ \_ ->
+recycled r = tbuild 2 $ \_ -> tbuild 4 $ \_ -> tbuild 2 $ \_ -> tbuild 3 $ \_ ->
                nestedSumBuild (tkonst0N (singletonShape 7) r)
 
 concatBuild :: ADReady r => r -> TensorOf 2 r
@@ -212,7 +212,7 @@ concatBuild2 _r =
 
 -- The glue for sufficiently polymorphic code;
 testPoly00
-  :: (HasDelta r, r ~ Double)
+  :: r ~ Double
   => (forall x. ADReady x => x -> x) -> r -> r
   -> Assertion
 testPoly00 f input expected = do
@@ -238,7 +238,7 @@ testPoly00 f input expected = do
   domains0 advalGrad @?~ domains0 domainsExpected
 
 testPoly01
-  :: (HasDelta r, r ~ Double)
+  :: r ~ Double
   => (forall x. ADReady x => x -> TensorOf 1 x) -> Int -> r -> r
   -> Assertion
 testPoly01 f outSize input expected = do
@@ -266,7 +266,7 @@ testPoly01 f outSize input expected = do
   domains0 advalGrad @?~ domains0 domainsExpected
 
 testPoly11
-  :: (HasDelta r, r ~ Double)
+  :: r ~ Double
   => (forall x. ADReady x => TensorOf 1 x -> TensorOf 1 x) -> Int -> [r] -> [r]
   -> Assertion
 testPoly11 f outSize input expected = do
@@ -294,7 +294,7 @@ testPoly11 f outSize input expected = do
   domains1 advalGrad @?~ domains1 domainsExpected
 
 testPolyn
-  :: (KnownNat n, HasDelta r, r ~ Double)
+  :: (KnownNat n, r ~ Double)
   => (forall x. ADReady x => x -> TensorOf n x)
   -> OR.ShapeL -> r -> r
   -> Assertion
@@ -448,9 +448,9 @@ testBraidedBuilds =
 
 testRecycled :: Assertion
 testRecycled =
-  testPolyn recycled [3, 4, 2, 6, 13]
-  3.4
-  (-3.763967532612046e9)
+  testPolyn recycled [2, 4, 2, 3, 13]
+  1.0001
+  (3.983629038066359e7)
 
 testConcatBuild :: Assertion
 testConcatBuild =
