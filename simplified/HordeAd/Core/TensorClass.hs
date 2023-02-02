@@ -16,8 +16,8 @@ module HordeAd.Core.TensorClass
 
 import Prelude
 
-import           Control.Exception.Assert.Sugar
 import qualified Data.Array.DynamicS as OT
+import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
@@ -562,16 +562,18 @@ build1VectorizeIndexVar
   :: forall m n r. (KnownNat n, KnownNat m, Show r, Numeric r)
   => Int -> AstVarName Int -> Ast (m + n) r -> AstIndex m r
   -> Ast (1 + n) r
-build1VectorizeIndexVar n var v1 [] =
+build1VectorizeIndexVar n var v1 Z =
   unsafeCoerce $ build1VectorizeVar n (var, v1)
-build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
-  case v1 of
+build1VectorizeIndexVar n var v1 is@(_ :. _) =
+  let (rest1, i1) = unsnocIndex is  -- TODO: rename to (init1, last1)?
+  in case v1 of
     AstOp opCode args ->
       AstOp opCode $ map (\w -> build1VectorizeIndex n var w is) args
     AstCond b v w ->
-      build1VectorizeIndex n var (AstFromList [v, w]) (AstIntCond b 0 1 : is)
+      build1VectorizeIndex n var (AstFromList [v, w])
+                           (snocIndex is (AstIntCond b 0 1))
     AstConstInt{} ->
-      AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, AstIndexN v1 is)
+      AstConstant $ AstPrimalPart1 $ AstBuildPair @n n (var, AstIndexN v1 is)
     AstConst{} ->
       error "build1VectorizeIndexVar: AstConst can't have free int variables"
     AstConstant{} ->
@@ -582,54 +584,37 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
     AstVar{} ->
       error "build1VectorizeIndexVar: AstVar can't have free int variables"
 
-    AstIndex v i -> build1VectorizeIndex n var v (i : is)
-    AstIndexN v is2 -> build1VectorizeIndex n var v (is2 ++ is)
+    AstIndex v i -> build1VectorizeIndex n var v (snocIndex is i)
+    AstIndexN v is2 -> build1VectorizeIndex n var v (appendIndex is is2)
     AstSum v ->
       build1VectorizeVar n
         (var, AstSum (AstTranspose $ AstIndexN (AstTranspose v) is))
           -- that's because @index (sum v) i == sum (map (index i) v)@
     AstFromList l | intVarInAstInt var i1 ->
       -- This is pure desperation. I build separately for each list element,
-      -- instead of picking the right element for each build iteration.
-      -- Also, I have to commit early either to simplifying a lot using
-      -- build1VectorizeIndexAnalyze or constructing a AstGatherPair.
-      -- I can't wait, because there's no other reduction left to perform.
+      -- instead of picking the right element for each build iteration
+      -- (which to pick depends on the build variable).
+      -- @build1VectorizeIndexAnalyze@ is not applicable, because var is in v1.
+      -- The only thing to do is constructing a AstGatherPair via a trick.
+      -- There's no other reduction left to perform and hope the build vanishes.
       let t = AstFromList $ map (\v ->
-            let v2 = (unsafeCoerce :: Ast (m + n) r -> Ast (m + n) r) v
-            in (unsafeCoerce :: Ast (1 + n) r -> Ast n r)
-               $ build1Vectorize n (var, AstIndexN @m @n v2 rest1)) l
-      in case build1VectorizeIndexAnalyze n var t i1 of
-              Just u -> u  -- an extremely simple form found
-              Nothing -> AstGatherPair n (var, [i1, AstIntVar var]) t
-                -- no more rewriting possible in the root
+            build1Vectorize n (var, AstIndexN v rest1)) l
+      in AstGatherPair n (var, AstIntVar var :. i1 :. Z) t
     AstFromList l ->
       AstIndex (AstFromList $ map (\v ->
-        let v2 = (unsafeCoerce :: Ast (m + n) r -> Ast (m + n) r) v
-        in build1Vectorize n (var, AstIndexN v2 rest1)) l) i1
+        build1Vectorize n (var, AstIndexN v rest1)) l) i1
     AstFromVector l | intVarInAstInt var i1 ->
       let t = AstFromVector $ V.map (\v ->
-            let v2 = (unsafeCoerce :: Ast (m + n) r -> Ast (m + n) r) v
-            in (unsafeCoerce :: Ast (1 + n) r -> Ast n r)
-               $ build1Vectorize n (var, AstIndexN @m @n v2 rest1)) l
-      in case build1VectorizeIndexAnalyze n var t i1 of
-              Just u -> u  -- an extremely simple form found
-              Nothing -> AstGatherPair n (var, [i1, AstIntVar var]) t
-                -- no more rewriting possible in the root
+            build1Vectorize n (var, AstIndexN v rest1)) l
+      in AstGatherPair n (var, AstIntVar var :. i1 :. Z) t
     AstFromVector l ->
       AstIndex (AstFromVector $ V.map (\v ->
-        let v2 = (unsafeCoerce :: Ast (m + n) r -> Ast (m + n) r) v
-        in build1Vectorize n (var, AstIndexN v2 rest1)) l) i1
+        build1Vectorize n (var, AstIndexN v rest1)) l) i1
     -- Partially evaluate in constant time:
-    AstKonst _k (v :: Ast n1 r) -> case rest1 of
-      [] -> let v2 = (unsafeCoerce :: Ast n1 r -> Ast n r) v
-            in build1VectorizeVar n (var, v2)
-              -- type of build1VectorizeIndexVar prevents rank 0
-              -- TODO: simplify when/if it doesn't
-      _ -> let v2 = (unsafeCoerce :: Ast n1 r -> Ast (m + n) r) v
-           in build1VectorizeIndexVar n var v2 rest1
+    AstKonst _k v -> build1VectorizeIndexVar n var v rest1
     AstAppend v w ->
       let vlen = AstIntConst $ lengthAst v
-          is2 = map (\i -> AstIntOp PlusIntOp [i, vlen]) is
+          is2 = fmap (\i -> AstIntOp PlusIntOp [i, vlen]) is
       in build1Vectorize n
            (var, AstCond (AstRelInt LsOp [i1, vlen])
                          (AstIndexN v is)
@@ -637,43 +622,44 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
           -- this is basically partial evaluation, but in constant
           -- time unlike evaluating AstFromList, etc.
     AstSlice i2 _k v ->
-      build1VectorizeIndexVar n var v (map (\i ->
+      build1VectorizeIndexVar n var v (fmap (\i ->
         AstIntOp PlusIntOp [i, AstIntConst i2]) is)
     AstReverse v ->
       let revIs = AstIntOp MinusIntOp [AstIntConst (lengthAst v - 1), i1]
-                  : rest1
+                  :. rest1
       in build1VectorizeIndexVar n var v revIs
-    AstTranspose v -> case rest1 of
-      [] | length (shapeAst v) < 2 ->
+    AstTranspose v -> case (rest1, shapeAst v) of
+      (Z, ZS) ->
+        build1VectorizeIndexVar @m @n n var v is  -- if rank too low, it's id
+      (Z, _ :$ ZS) ->
         build1VectorizeIndexVar n var v is  -- if rank too low, it's id
-      [] -> AstBuildPair n (var, AstIndexN v1 is)  -- we give up
-      i2 : rest2 -> build1VectorizeIndexVar n var v (i2 : i1 : rest2)
+      (Z, _) -> AstBuildPair n (var, AstIndexN v1 is)  -- we give up
+      (i2 :. rest2, _) -> build1VectorizeIndexVar n var v (i2 :. i1 :. rest2)
     AstTransposeGeneral perm v ->
-      let permutePrefix :: Permutation -> AstIndex r -> AstIndex r
-          permutePrefix p l = V.toList $ Data.Vector.fromList l V.// zip p l
-          lenp = length perm
-          is2 = permutePrefix perm is
-      in if | length (shapeAst v) < lenp ->
+      let lenp = length perm
+          is2 = permutePrefixIndex perm is
+      in if | valueOf @(m + n) < lenp ->
                 build1VectorizeIndexVar n var v is
                   -- the operation is an identity if rank too small
-            | length is < lenp ->
+            | valueOf @m < lenp ->
                 AstBuildPair n (var, AstIndexN v1 is)  -- we give up
                   -- TODO: for this we really need generalized paths that
                   -- first project, then transpose and generalized gather;
                   -- or instead push down transpose, but it may be expensive
                   -- or get stuck as well
             | otherwise -> build1VectorizeIndexVar n var v is2
-    AstFlatten v -> assert (null rest1) $
-      let ixs2 = fromLinearIdx (shapeAst v) i1
-          v2 = (unsafeCoerce :: Ast n1 r -> Ast (m + n) r) v
-       in build1VectorizeIndexVar n var v2 ixs2
+    AstFlatten v -> case rest1 of
+      Z ->
+        let ixs2 = fromLinearIdx (fmap AstIntConst (shapeAst v)) i1
+        in build1VectorizeIndexVar n var v ixs2
+      _ -> error "build1VectorizeIndexVar: AstFlatten: impossible pattern needlessly required"
     AstReshape{} -> AstBuildPair n (var, AstIndexN v1 is)  -- we give up
       {- TODO: This angle of attack fails, because AstSlice with variable
          first argument doesn't vectorize in build1Vectorize. For it
          to vectorize, we'd need a new operation, akin to gather,
          with the semantics of build (slice), a gradient, a way to vectorize
          it, in turn, normally and with indexing applied, etc.
-      let i = toLinearIdx2 (map AstIntConst sh) is
+      let i = toLinearIdx2 (fmap AstIntConst sh) is
           -- This converts indexing into a slice and flatten, which in general
           -- is avoided, because it causes costly linearlization, but here
           -- we are going to reshape outside, anyway, and also we are desperate.
@@ -690,26 +676,27 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
       -- by taking only an element of this build! so shall failed
       -- vectorization not abort, after all? and only check at whole program
       -- vectorization end that no build has been left unvectorized?
-      build1VectorizeIndexVar
-        @m n var (substituteAst i1 var2 (unsafeCoerce v)) rest1
+      build1VectorizeIndexVar n var (substituteAst i1 var2 v) rest1
     AstGatherPair _n2 (var2, ixs2) v ->
-      let ixs3 = map (substituteAstInt i1 var2) ixs2
-      in build1VectorizeIndex @m n var (unsafeCoerce v) (ixs3 ++ rest1)
+      let ixs3 = fmap (substituteAstInt i1 var2) ixs2
+      in build1VectorizeIndex n var v (appendIndex rest1 ixs3)
 
     AstSum0{} -> error "build1VectorizeIndexVar: wrong rank"
     AstDot0{} -> error "build1VectorizeIndexVar: wrong rank"
     AstFromList0N sh l ->
-      build1VectorizeIndexVar @m n var (AstReshape sh $ AstFromList l) is
+      build1VectorizeIndexVar n var (AstReshape sh $ AstFromList l) is
     AstFromVector0N sh l ->
-      build1VectorizeIndexVar @m n var (AstReshape sh $ AstFromVector l) is
+      build1VectorizeIndexVar n var (AstReshape sh $ AstFromVector l) is
     AstKonst0N sh v ->
-      let k = product sh
-      in build1VectorizeIndexVar @m n var (AstReshape sh $ AstKonst k v) is
+      let k = shapeSize sh
+      in build1VectorizeIndexVar n var (AstReshape sh $ AstKonst k v) is
     AstBuildPair0N _sh ([], _r) ->
       error "build1VectorizeIndexVar: impossible case; is would have to be []"
+    -- TODO: too hard until we have a sized list of variables names
+    -- so we coerce for now:
     AstBuildPair0N sh (var2 : vars, r) ->
       build1VectorizeIndexVar
-        @m n var (AstBuildPair0N sh (vars, substituteAst i1 var2 r)) rest1
+        n var (unsafeCoerce $ AstBuildPair0N sh (vars, substituteAst i1 var2 r)) rest1
 
     AstOMap{} ->
       AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, AstIndexN v1 is)

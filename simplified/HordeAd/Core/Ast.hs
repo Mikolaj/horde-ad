@@ -87,7 +87,7 @@ data Ast :: Nat -> Type -> Type where
              => ShapeInt m -> Ast n r -> Ast m r
     -- emerges from vectorizing AstFlatten
   AstBuildPair :: Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
-  AstGatherPair :: KnownNat m
+  AstGatherPair :: forall m n r. KnownNat m
                 => Int -> (AstVarName Int, AstIndex m r) -> Ast (m + n) r
                 -> Ast (1 + n) r
     -- emerges from vectorizing AstIndexN applied to term with no build variable

@@ -13,7 +13,9 @@ module HordeAd.Internal.SizedIndex
     IndexInt, ShapeInt,  Permutation
     -- * GHC.Nat-indexed lists as array indexes, with operations
   , Index(..)
-  , singletonIndex, headIndex, tailIndex, takeIndex, dropIndex
+  , singletonIndex, snocIndex, appendIndex
+  , headIndex, tailIndex, takeIndex, dropIndex, permutePrefixIndex
+  , unsnocIndex, lastIndex, initIndex
   , idxCompare , listToIndex, indexToList
     -- * Shapes as fully encapsulated indexes, with operations
   , Shape, pattern (:$), pattern ZS
@@ -27,8 +29,8 @@ module HordeAd.Internal.SizedIndex
 import Prelude
 
 import           Data.Array.Internal (valueOf)
+import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Storable as VS
 import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Text.Show.Functions ()
 import           Unsafe.Coerce (unsafeCoerce)
@@ -76,6 +78,14 @@ instance KnownNat n => Foldable (Index n) where
 singletonIndex :: i -> Index 1 i
 singletonIndex i = i :. Z
 
+snocIndex :: Index n i -> i -> Index (1 + n) i
+snocIndex Z last1 = last1 :. Z
+snocIndex (i :. ix) last1 = i :. snocIndex ix last1
+
+appendIndex :: Index m i -> Index n i -> Index (m + n) i
+appendIndex Z ix2 = ix2
+appendIndex (i1 :. ix1) ix2 = i1 :.  appendIndex ix1 ix2
+
 headIndex :: Index (1 + n) i -> i
 headIndex Z = error "headIndex: impossible pattern needlessly required"
 headIndex (i :. _ix) = i
@@ -92,16 +102,35 @@ dropIndex :: forall len n i. KnownNat len
           => Index (len + n) i -> Index n i
 dropIndex ix = unsafeCoerce $ drop (valueOf @len) $ unsafeCoerce ix
 
+unsnocIndex :: Index (1 + n) i -> (Index n i, i)
+unsnocIndex Z = error "unsnocIndex: impossible pattern needlessly required"
+unsnocIndex (i :. ix) = case ix of
+  Z -> (Z, i)
+  _ :. _ -> let (init1, last1) = unsnocIndex ix
+            in (i :. init1, last1)
+
+lastIndex :: Index (1 + n) i -> i
+lastIndex Z = error "lastIndex: impossible pattern needlessly required"
+lastIndex (i :. Z) = i
+lastIndex (_i :. ix@(_ :. _)) = lastIndex ix
+
+initIndex :: Index (1 + n) i -> Index n i
+initIndex Z = error "initIndex: impossible pattern needlessly required"
+initIndex (_i :. Z) = Z
+initIndex (i :. ix@(_ :. _)) = i :. initIndex ix
+
 -- This permutes a prefix of the index of the length of the permutation.
 -- The rest of the index is left intact.
-permutePrefixIndex :: forall n. KnownNat n
-                   => Permutation -> Index n Int -> Index n Int
+-- Boxed vector is not that bad, because we move pointers around,
+-- but don't follow them. Storable vectors wouldn't work for Ast.
+permutePrefixIndex :: forall n i. KnownNat n
+                   => Permutation -> Index n i -> Index n i
 permutePrefixIndex p ix =
   if valueOf @n < length p
   then error "permutePrefixIndex: cannot permute index, because it's too short"
   else let l = unsafeCoerce ix
-       in (unsafeCoerce :: [Int] -> Index n Int)
-          $ V.toList $ VS.fromList l V.// zip p l
+       in (unsafeCoerce :: [i] -> Index n i)
+          $ V.toList $ Data.Vector.fromList l V.// zip p l
 
 -- | Pairwise comparison of two index values. The comparison function is invoked
 -- once for each rank on the corresponding pair of indices.
@@ -172,6 +201,8 @@ unconsShape (Shape sh) = case sh of
   i :. sh' -> Just (UnconsShapeRes (Shape sh') i Dict)
   Z -> Nothing
 
+deriving stock instance Functor (Shape n)
+
 singletonShape :: i -> Shape 1 i
 singletonShape = Shape . singletonIndex
 
@@ -186,7 +217,8 @@ dropShape :: forall len n i. KnownNat len
           => Shape (len + n) i -> Shape n i
 dropShape (Shape ix) = Shape $ dropIndex ix
 
-permutePrefixShape :: KnownNat n => Permutation -> Shape n Int -> Shape n Int
+permutePrefixShape :: forall n i. KnownNat n
+                   => Permutation -> Shape n i -> Shape n i
 permutePrefixShape p (Shape ix) = Shape $ permutePrefixIndex p ix
 
 -- | The number of elements in an array of this shape
