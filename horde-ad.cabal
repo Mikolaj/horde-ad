@@ -143,6 +143,7 @@ library
                       HordeAd.Internal.Delta
                       HordeAd.Internal.MatrixOuter
                       HordeAd.Internal.OrthotopeOrphanInstances
+                      HordeAd.Internal.SizedIndex
                       HordeAd.Internal.TensorOps
 
   if flag(use_typelits_plugins) {

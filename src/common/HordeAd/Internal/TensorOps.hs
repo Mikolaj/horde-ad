@@ -11,6 +11,7 @@ import Prelude
 import           Control.Exception.Assert.Sugar
 import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OT
+import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Internal
 import qualified Data.Array.Internal.DynamicG
 import qualified Data.Array.Internal.DynamicS
@@ -29,9 +30,9 @@ import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import qualified Numeric.LinearAlgebra.Devel
 import           Text.Show.Functions ()
-import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVR, liftVR2)
+import HordeAd.Internal.SizedIndex
 
 dummyTensor :: Numeric r => OT.Array r
 dummyTensor =  -- an inconsistent tensor array
@@ -76,26 +77,26 @@ atPathInTensorD (Data.Array.Internal.DynamicS.A
   values V.! (offset + sum (zipWith (*) is strides))
     -- TODO: tests are needed to verify if order of dimensions is right
 
+-- There is no OR.update, so we convert.
 updateR :: (Numeric a, KnownNat n)
         => OR.Array n a -> [([Int], a)] -> OR.Array n a
 updateR arr upd = Data.Array.Convert.convert
                    $ OT.update (Data.Array.Convert.convert arr) upd
 
--- The paths (lists of indexes) are of length @m@.
 updateNR :: (Numeric a, KnownNat n, KnownNat m)
-         => OR.Array (m + n) a -> [([Int], OR.Array n a)]
+         => OR.Array (m + n) a -> [(IndexInt m, OR.Array n a)]
          -> OR.Array (m + n) a
 updateNR arr upd =
   let Data.Array.Internal.RankedS.A
-        (Data.Array.Internal.RankedG.A sh
-           Data.Array.Internal.T{..}) = OR.normalize arr
+        (Data.Array.Internal.RankedG.A shRaw
+           Data.Array.Internal.T{offset, values}) = OR.normalize arr
       !_A = assert (offset == 0) ()
-  in let pathToIx is = sum (zipWith (*) is strides)
-         f t (ixs, u) =
+  in let sh = listShapeToShape shRaw
+         f t (ix, u) =
            let v = OR.toVector u
-               ix = pathToIx ixs
-           in LA.vjoin [V.take ix t, v, V.drop (ix + V.length v) t]
-     in OR.fromVector sh (foldl' f values upd)
+               i = toLinearIdx sh ix
+           in LA.vjoin [V.take i t, v, V.drop (i + V.length v) t]
+     in OR.fromVector shRaw (foldl' f values upd)
 
 tsum0D
   :: Numeric r
@@ -130,29 +131,26 @@ tindexR = OR.index
 
 tindex0R
   :: Numeric r
-  => OR.Array n r -> [Int] -> r
+  => OR.Array n r -> IndexInt n -> r
 tindex0R (Data.Array.Internal.RankedS.A
             (Data.Array.Internal.RankedG.A _
                Data.Array.Internal.T{..})) is =
-  values V.! (offset + sum (zipWith (*) is strides))
+  values V.! (offset + sum (zipWith (*) (indexToList is) strides))
+    -- to avoid linearizing @values@, we do everything in unsized way
 
 -- TODO: optimize to tindex0R for n == 0
 tindexNR
-  :: (KnownNat n, Numeric r)
-  => OR.Array (1 + m + n) r -> [Int] -> OR.Array n r
-tindexNR arr ixs =
-  let Data.Array.Internal.DynamicS.A
-        (Data.Array.Internal.DynamicG.A sh
-           Data.Array.Internal.T{..}) =
-             OT.normalize $ Data.Array.Convert.convert arr
-               -- OT to avoid KnownNat m, which breaks typing of other code
-               -- due to no sized lists
+  :: forall m n r. (KnownNat m, KnownNat n, Numeric r)
+  => OR.Array (m + n) r -> IndexInt m -> OR.Array n r
+tindexNR arr ix =
+  let Data.Array.Internal.RankedS.A
+        (Data.Array.Internal.RankedG.A sh
+           Data.Array.Internal.T{offset, values}) = OR.normalize arr
       !_A = assert (offset == 0) ()
-  in let pathToIx is = sum (zipWith (*) is strides)
-         ix = pathToIx ixs
-         shN = drop (length ixs) sh
+  in let i = toLinearIdx (listShapeToShape sh) ix
+         shN = drop (valueOf @m) sh
          len = product shN
-     in OR.fromVector shN $ V.slice ix len values
+     in OR.fromVector shN $ V.slice i len values
   -- Old implementation:
   -- @Data.Array.Convert.convert
   --  $ foldl' OT.index (Data.Array.Convert.convert v) is@
@@ -200,8 +198,8 @@ tfromListR l = OR.ravel $ ORB.fromList [length l] l
 
 tfromList0NR
   :: (KnownNat n, Numeric r)
-  => [Int] -> [r] -> OR.Array n r
-tfromList0NR = OR.fromList
+  => ShapeInt n -> [r] -> OR.Array n r
+tfromList0NR sh = OR.fromList (shapeToList sh)
 
 tfromVectorR
   :: (KnownNat n, Numeric r)
@@ -210,8 +208,8 @@ tfromVectorR l = OR.ravel $ ORB.fromVector [V.length l] $ V.convert l
 
 tfromVector0NR
   :: (KnownNat n, Numeric r)
-  => [Int] -> Data.Vector.Vector r -> OR.Array n r
-tfromVector0NR sh l = OR.fromVector sh $ V.convert l
+  => ShapeInt n -> Data.Vector.Vector r -> OR.Array n r
+tfromVector0NR sh l = OR.fromVector (shapeToList sh) $ V.convert l
 
 tkonstR
   :: (KnownNat n, Numeric r)
@@ -220,8 +218,8 @@ tkonstR n u = OR.ravel $ ORB.constant [n] u
 
 tkonst0NR
   :: (KnownNat n, Numeric r)
-  => [Int] -> r -> OR.Array (1 + n) r
-tkonst0NR = OR.constant
+  => ShapeInt n -> r -> OR.Array n r
+tkonst0NR sh = OR.constant (shapeToList sh)
 
 tappendR
   :: (KnownNat n, Numeric r)
@@ -238,13 +236,13 @@ treverseR = OR.rev [0]
 
 ttransposeGeneralR
   :: KnownNat n
-  => [Int] -> OR.Array n r -> OR.Array n r
+  => Permutation -> OR.Array n r -> OR.Array n r
 ttransposeGeneralR = OR.transpose
 
 treshapeR
   :: (KnownNat n, KnownNat m, Numeric r)
-  => [Int] -> OR.Array n r -> OR.Array m r
-treshapeR = OR.reshape
+  => ShapeInt m -> OR.Array n r -> OR.Array m r
+treshapeR sh = OR.reshape (shapeToList sh)
 
 tbuildR
   :: (KnownNat n, Numeric r)
@@ -254,8 +252,8 @@ tbuildR n f = OR.ravel $ ORB.fromList [n]
 
 tbuild0NR
   :: (KnownNat n, Numeric r)
-  => [Int] -> ([Int] -> r) -> OR.Array n r
-tbuild0NR = OR.generate
+  => ShapeInt n -> (IndexInt n -> r) -> OR.Array n r
+tbuild0NR sh f = OR.generate (shapeToList sh) (f . listToIndex)
 
 tmap0NR
   :: (KnownNat n, Numeric r)
@@ -267,21 +265,21 @@ tzipWith0NR
   => (r -> r -> r) -> OR.Array n r -> OR.Array n r -> OR.Array n r
 tzipWith0NR = liftVR2 . Numeric.LinearAlgebra.Devel.zipVectorWith
 
-tgatherR :: (Numeric r, KnownNat n)
-         => Int -> (Int -> [Int])
+tgatherR :: (Numeric r, KnownNat m, KnownNat n)
+         => Int -> (Int -> IndexInt m)
          -> OR.Array (m + n) r -> OR.Array (1 + n) r
-tgatherR n f t =
-  let l = map (\i -> unsafeCoerce t `tindexNR` f i) [0 .. n - 1]
-  in OR.ravel $ ORB.fromList [n] l
+tgatherR k f t =
+  let l = map (\i -> t `tindexNR` f i) [0 .. k - 1]
+  in OR.ravel $ ORB.fromList [k] l
 
 -- TODO: update in place in ST or with a vector builder, but that requires
 -- building the underlying value vector with crafty index computations
 -- and then freezing it and calling OR.fromVector
 tscatterR :: (Numeric r, Num (Vector r), KnownNat n, KnownNat m)
-          => (Int -> [Int])
-          -> OR.Array (1 + n) r -> OR.ShapeL -> OR.Array (m + n) r
+          => (Int -> IndexInt m)
+          -> OR.Array (1 + n) r -> ShapeInt (m + n) -> OR.Array (m + n) r
 tscatterR f t sh =
-  V.sum $ V.imap (\i ti -> updateNR (OR.constant sh 0) [(f i, ti)])
+  V.sum $ V.imap (\i ti -> updateNR (tkonst0NR sh 0) [(f i, ti)])
         $ ORB.toVector $ OR.unravel t
 tsum0S
   :: (Numeric r, OS.Shape sh)
@@ -289,6 +287,7 @@ tsum0S
 tsum0S arr@(Data.Array.Internal.ShapedS.A (Data.Array.Internal.ShapedG.A t)) =
   LA.sumElements $ Data.Array.Internal.toUnorderedVectorT (OS.shapeL arr) t
 
+-- Takes a shape.
 fromLinearIdx2 :: Integral i => [i] -> i -> [i]
 fromLinearIdx2 = \sh lin -> snd (go sh lin)
   where

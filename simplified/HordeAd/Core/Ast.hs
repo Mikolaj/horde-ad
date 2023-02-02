@@ -320,7 +320,7 @@ shapeAst v1 = case v1 of
     t : _ -> shapeAst t
   AstCond _b a1 _a2 -> shapeAst a1
   AstConstInt _i -> ZS
-  AstConst a -> listShapeToIndex $ OR.shapeL a
+  AstConst a -> listShapeToShape $ OR.shapeL a
   AstConstant (AstPrimalPart1 a) -> shapeAst a
   AstScale (AstPrimalPart1 r) _d -> shapeAst r
   AstVar sh _var -> sh

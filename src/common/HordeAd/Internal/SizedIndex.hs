@@ -15,7 +15,7 @@ module HordeAd.Internal.SizedIndex
   , {-Shape,-} pattern (:$), pattern ZS
   , singletonShape, tailShape, takeShape, dropShape, permutePrefixShape
   , shapeSize, toLinearIdx, fromLinearIdx, zeroOf, idxCompare
-  , listShapeToIndex
+  , listToIndex, listShapeToShape, indexToList, shapeToList
   , Shape(..)  -- TODO: remove once Ast type-checks fine
   ) where
 
@@ -179,14 +179,23 @@ listShapeToIndex (i : is)
       error "listShapeToIndex: list too long"
 -}
 
--- Warning: do not pass a list of strides to this function.
-listShapeToIndex :: forall n i. KnownNat n => [i] -> Shape n i
-listShapeToIndex list
+listToIndex :: forall n i. KnownNat n => [i] -> Index n i
+listToIndex list
   | length list == valueOf @n
-  = go list (Shape . unsafeCoerce)
+  = go list unsafeCoerce
   | otherwise
-  = error "listShapeToIndex: list length disagrees with context"
+  = error "listToIndex: list length disagrees with context"
   where
     go :: [i] -> (forall m. Index m i -> r) -> r
     go [] k = k Z
     go (i : rest) k = go rest (\rest' -> k (i :. rest'))
+
+-- Warning: do not pass a list of strides to this function.
+listShapeToShape :: forall n i. KnownNat n => [i] -> Shape n i
+listShapeToShape = Shape . listToIndex
+
+indexToList :: Index n i -> [i]
+indexToList = unsafeCoerce
+
+shapeToList :: Shape n i -> [i]
+shapeToList (Shape l) = indexToList l

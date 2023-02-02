@@ -234,7 +234,6 @@ class (RealFloat r, RealFloat (TensorOf 1 r), Integral (IntOf r))
 
   tscalar :: r -> TensorOf 0 r
   tunScalar :: TensorOf 0 r -> r
-{-
 
 type ADReady r = ( Tensor r, HasPrimal r
                  , RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r) )
@@ -308,6 +307,7 @@ instance Tensor Float where
   tzipWith0N = tzipWith0NR
   tscalar = tscalarR
   tunScalar = tunScalarR
+{-
 
 -- Not that this instance doesn't do vectorization. To enable it,
 -- use the Ast instance, which vectorizes and finally interpret in ADVal.
