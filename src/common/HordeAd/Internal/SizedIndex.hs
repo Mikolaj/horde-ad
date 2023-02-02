@@ -30,7 +30,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Internal.OrthotopeOrphanInstances ()
 
--- Concrete type synonyms to be used in many other modules
+-- * Concrete type synonyms to be used in many other modules
 
 type IndexInt n = Index n Int
 
@@ -39,7 +39,7 @@ type ShapeInt n = Shape n Int
 type Permutation = [Int]
 
 
--- * GHC.Nat-indexed lists as indexes and shapes, originally by Tom Smeding
+-- * GHC.Nat-indexed lists as array indexes, with operations
 
 -- | An index in an n-dimensional array. The slowest-moving index is at the
 -- head position; thus the index 'i :. j :. Z' represents 'a[i][j]' in
@@ -87,6 +87,49 @@ permutePrefixIndex p ix =
   else let l = unsafeCoerce ix
        in (unsafeCoerce :: [Int] -> Index n Int)
           $ V.toList $ VS.fromList l V.// zip p l
+
+-- | Pairwise comparison of two index values. The comparison function is invoked
+-- once for each rank on the corresponding pair of indices.
+idxCompare :: Monoid m => (i -> i -> m) -> Index n i -> Index n i -> m
+idxCompare _ Z Z = mempty
+idxCompare f (i :. idx) (j :. idx') = f i j <> idxCompare f idx idx'
+idxCompare _ _ _ = error "idxCompare: impossible pattern needlessly required"
+
+{-
+-- Look Ma, no unsafeCoerce! But it compiles only with GHC >= 9.2,
+-- so let's switch to it once we stop using 8.10 and 9.0.
+listToIndex :: forall n. KnownNat n => [Int] -> Index n Int
+listToIndex []
+  | Just Refl <- sameNat (Proxy @n) (Proxy @0) = Z
+  | otherwise = error "listToIndex: list too short"
+listToIndex (i : is)
+  -- What we really need here to make the types check out is a <= check.
+  | EQI <- cmpNat (Proxy @1) (Proxy @n) =
+      let sh = listToIndex @(n - 1) is
+      in i :. sh
+  | LTI <- cmpNat (Proxy @1) (Proxy @n) =
+      let sh = listToIndexProxy @(n - 1) is
+      in i :. sh
+  | otherwise =
+      error "listToIndex: list too long"
+-}
+
+listToIndex :: forall n i. KnownNat n => [i] -> Index n i
+listToIndex list
+  | length list == valueOf @n
+  = go list unsafeCoerce
+  | otherwise
+  = error "listToIndex: list length disagrees with context"
+  where
+    go :: [i] -> (forall m. Index m i -> r) -> r
+    go [] k = k Z
+    go (i : rest) k = go rest (\rest' -> k (i :. rest'))
+
+indexToList :: Index n i -> [i]
+indexToList = unsafeCoerce
+
+
+-- * Shapes as fully encapsulated indexes, with operations
 
 -- | The shape of an n-dimensional array. Represented by an index to not
 -- duplicate representations and convert easily between each. It seems unlikely
@@ -136,6 +179,16 @@ shapeSize :: Shape n Int -> Int
 shapeSize (Shape Z) = 1
 shapeSize (Shape (n :. sh)) = n * shapeSize (Shape sh)
 
+-- Warning: do not pass a list of strides to this function.
+listShapeToShape :: forall n i. KnownNat n => [i] -> Shape n i
+listShapeToShape = Shape . listToIndex
+
+shapeToList :: Shape n i -> [i]
+shapeToList (Shape l) = indexToList l
+
+
+-- * Operations involving both indexes and shapes
+
 -- | Given a multidimensional index, get the corresponding linear
 -- index into the buffer
 toLinearIdx :: Num i => Shape n i -> Index n i -> i
@@ -167,51 +220,3 @@ fromLinearIdx = \sh lin -> snd (go sh lin)
 zeroOf :: Num i => Shape n i -> Index n i
 zeroOf (Shape Z) = Z
 zeroOf (Shape (_ :. sh)) = 0 :. zeroOf (Shape sh)
-
--- | Pairwise comparison of two index values. The comparison function is invoked
--- once for each rank on the corresponding pair of indices.
-idxCompare :: Monoid m => (i -> i -> m) -> Index n i -> Index n i -> m
-idxCompare _ Z Z = mempty
-idxCompare f (i :. idx) (j :. idx') = f i j <> idxCompare f idx idx'
-idxCompare _ _ _ = error "idxCompare: impossible pattern needlessly required"
-
-{-
--- Look Ma, no unsafeCoerce! But it compiles only with GHC >= 9.2,
--- so let's switch to it once we stop using 8.10 and 9.0.
--- Warning: do not pass a list of strides to this function.
-listShapeToIndex :: forall n. KnownNat n => [Int] -> Shape n Int
-listShapeToIndex []
-  | Just Refl <- sameNat (Proxy @n) (Proxy @0) = Shape Z
-  | otherwise = error "listShapeToIndex: list too short"
-listShapeToIndex (i : is)
-  -- What we really need here to make the types check out is a <= check.
-  | EQI <- cmpNat (Proxy @1) (Proxy @n) =
-      let Shape sh = listShapeToIndex @(n - 1) is
-      in Shape (i :. sh)
-  | LTI <- cmpNat (Proxy @1) (Proxy @n) =
-      let Shape sh = listShapeToIndex @(n - 1) is
-      in Shape (i :. sh)
-  | otherwise =
-      error "listShapeToIndex: list too long"
--}
-
-listToIndex :: forall n i. KnownNat n => [i] -> Index n i
-listToIndex list
-  | length list == valueOf @n
-  = go list unsafeCoerce
-  | otherwise
-  = error "listToIndex: list length disagrees with context"
-  where
-    go :: [i] -> (forall m. Index m i -> r) -> r
-    go [] k = k Z
-    go (i : rest) k = go rest (\rest' -> k (i :. rest'))
-
--- Warning: do not pass a list of strides to this function.
-listShapeToShape :: forall n i. KnownNat n => [i] -> Shape n i
-listShapeToShape = Shape . listToIndex
-
-indexToList :: Index n i -> [i]
-indexToList = unsafeCoerce
-
-shapeToList :: Shape n i -> [i]
-shapeToList (Shape l) = indexToList l
