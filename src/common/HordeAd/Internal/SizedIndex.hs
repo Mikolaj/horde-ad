@@ -9,14 +9,19 @@
 -- for arbitrary code transformations at the cost of limiting
 -- expressiveness of transformed fragments to what AST captures.
 module HordeAd.Internal.SizedIndex
-  ( IndexInt, ShapeInt,  Permutation
+  ( -- * Concrete type synonyms to be used in many other modules
+    IndexInt, ShapeInt,  Permutation
+    -- * GHC.Nat-indexed lists as array indexes, with operations
   , Index(..)
   , tailIndex, takeIndex, dropIndex
-  , {-Shape,-} pattern (:$), pattern ZS
+  , idxCompare , listToIndex, indexToList
+    -- * Shapes as fully encapsulated indexes, with operations
+  , Shape, pattern (:$), pattern ZS
   , singletonShape, tailShape, takeShape, dropShape, permutePrefixShape
-  , shapeSize, toLinearIdx, fromLinearIdx, zeroOf, idxCompare
-  , listToIndex, listShapeToShape, indexToList, shapeToList
-  , Shape(..)  -- TODO: remove once Ast type-checks fine
+  , shapeSize
+  , listShapeToShape, shapeToList
+    -- * Operations involving both indexes and shapes
+  , toLinearIdx, fromLinearIdx, zeroOf
   ) where
 
 import Prelude
