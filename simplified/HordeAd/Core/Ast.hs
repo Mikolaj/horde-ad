@@ -330,20 +330,20 @@ shapeAst v1 = case v1 of
   AstSum v -> tailShape $ shapeAst v
   AstFromList l -> case l of
     [] -> error "shapeAst: AstFromList with no arguments"
-    t : _ -> shapeAst t @$ length l
+    t : _ -> length l @$ shapeAst t
   AstFromVector l -> case V.toList l of
     [] -> error "shapeAst: AstFromVector with no arguments"
-    t : _ -> shapeAst t @$ V.length l
-  AstKonst n v -> shapeAst v @$ n
+    t : _ -> V.length l @$ shapeAst t
+  AstKonst n v -> n @$ shapeAst v
   AstAppend x y -> case shapeAst x of
     Shape Z -> error "shapeAst: AstAppend applied to scalars"
-    Shape (xsh :. xi) -> case shapeAst y of
+    Shape (xi :. xsh) -> case shapeAst y of
       Shape Z -> error "shapeAst: AstAppend applied to scalars"
-      Shape (_ :. yi) -> Shape xsh @$ xi + yi
-  AstSlice _n k v -> tailShape (shapeAst v) @$ k
+      Shape (yi :. _) ->  xi + yi @$ Shape xsh
+  AstSlice _n k v -> k @$ tailShape (shapeAst v)
   AstReverse v -> shapeAst v
   AstTranspose v -> case shapeAst v of
-    Shape (sh :. k :. i) -> Shape (sh :. i :. k)
+    Shape (i :. k :. sh) -> Shape (k :. i :. sh)
     sh -> sh  -- the operation is an identity if rank too small
   AstTransposeGeneral perm v ->
     if valueOf @n < length perm
@@ -351,9 +351,9 @@ shapeAst v1 = case v1 of
     else permutePrefixShape perm (shapeAst v)
   AstFlatten v -> singletonShape $ shapeSize (shapeAst v)
   AstReshape sh _v -> sh
-  AstBuildPair n (_var, v) -> shapeAst v @$ n
+  AstBuildPair n (_var, v) -> n @$ shapeAst v
   AstGatherPair n (_var, _is :: Index len (AstInt r)) v ->
-    dropShape @len (shapeAst v) @$ n
+    n @$ dropShape @len (shapeAst v)
   AstSum0 _v -> Shape Z
   AstDot0 _x _y -> Shape Z
   AstFromList0N sh _l -> sh
@@ -366,7 +366,7 @@ shapeAst v1 = case v1 of
 lengthAst :: (KnownNat n, Show r, Numeric r) => Ast (1 + n) r -> Int
 lengthAst v1 = case shapeAst v1 of
   Shape Z -> error "lengthAst: impossible rank 0 found"
-  Shape (_ :. n) -> n
+  Shape (n :. _) -> n
 
 substituteAst :: (Show r, Numeric r)
               => AstInt r -> AstVarName Int -> Ast n r -> Ast n r

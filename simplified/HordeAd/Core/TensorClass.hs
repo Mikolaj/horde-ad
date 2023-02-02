@@ -183,7 +183,7 @@ class (RealFloat r, RealFloat (TensorOf 1 r), Integral (IntOf r))
   tlength :: KnownNat n => TensorOf (1 + n) r -> Int
   tlength v = case tshape v of
     Shape Z -> error "tlength:  impossible pattern needlessly required"
-    Shape (_ :. n) -> n
+    Shape (n :. _) -> n
   tminIndex :: TensorOf 1 r -> IntOf r
   tmaxIndex :: TensorOf 1 r -> IntOf r
 
