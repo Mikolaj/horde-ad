@@ -281,22 +281,21 @@ minimum0 :: ADModeAndNum d r => ADVal d (Vec r) -> ADVal d r
 minimum0 (D u u') =
   let ix = tminIndexR u
   in dD (OR.unScalar $ tindexR u ix)
-        (dIndex0 u' (singletonIndex ix) (singletonShape (tsizeR u)))
+        (dIndex0 u' (singletonIndex ix) (flattenShape (tshapeR u)))
 
 maximum0 :: ADModeAndNum d r => ADVal d (Vec r) -> ADVal d r
 maximum0 (D u u') =
   let ix = tmaxIndexR u
   in dD (OR.unScalar $ tindexR u ix)
-        (dIndex0 u' (singletonIndex ix) (singletonShape (tsizeR u)))
+        (dIndex0 u' (singletonIndex ix) (flattenShape (tshapeR u)))
 
 foldl'0 :: ADModeAndNum d r
         => (ADVal d r -> ADVal d r -> ADVal d r)
         -> ADVal d r -> ADVal d (Vec r)
         -> ADVal d r
 foldl'0 f uu' (D v v') =
-  let k = tsizeR v
-      g !acc ix p =
-        f (dD p (dIndex0 v' (singletonIndex ix) (singletonShape k))) acc
+  let g !acc ix p =
+        f (dD p (dIndex0 v' (singletonIndex ix) (flattenShape (tshapeR v)))) acc
   in V.ifoldl' g uu' (OR.toVector v)
 
 altSumElements10 :: ADModeAndNum d r => ADVal d (Vec r) -> ADVal d r

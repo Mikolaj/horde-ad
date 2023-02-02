@@ -349,7 +349,7 @@ shapeAst v1 = case v1 of
     if valueOf @n < length perm
     then shapeAst v  -- the operation is identity if rank too small
     else permutePrefixShape perm (shapeAst v)
-  AstFlatten v -> singletonShape $ shapeSize (shapeAst v)
+  AstFlatten v -> flattenShape (shapeAst v)
   AstReshape sh _v -> sh
   AstBuildPair n (_var, v) -> n :$ shapeAst v
   AstGatherPair n (_var, _is :: Index len (AstInt r)) v ->

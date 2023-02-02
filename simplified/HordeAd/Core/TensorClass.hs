@@ -214,7 +214,7 @@ class (RealFloat r, RealFloat (TensorOf 1 r), Integral (IntOf r))
   ttranspose = ttransposeGeneral [1, 0]
   ttransposeGeneral :: KnownNat n => Permutation -> TensorOf n r -> TensorOf n r
   tflatten :: KnownNat n => TensorOf n r -> TensorOf 1 r
-  tflatten u = treshape (singletonShape $ tsize u) u
+  tflatten u = treshape (flattenShape $ tshape u) u
   treshape :: (KnownNat n, KnownNat m)
            => ShapeInt m -> TensorOf n r -> TensorOf m r
   tbuild :: KnownNat n
@@ -325,7 +325,7 @@ instance (ADModeAndNumTensor d r, TensorOf 1 r ~ OR.Array 1 r)
   -- for @ADVal d (OR.Array n r)@ and @OR.Array n r@). As a workaround,
   -- the methods are defined as calls to tensor functions provided elsewhere,
   -- so there is no code duplication.
-  tshape (D u _) = tshapeR u
+  tshape = shape
   tminIndex (D u _) = tminIndexR u
   tmaxIndex (D u _) = tmaxIndexR u
 
@@ -495,7 +495,7 @@ build1VectorizeVar n (var, u) =
     AstTransposeGeneral perm v -> AstTransposeGeneral (0 : map succ perm)
                                   $ build1VectorizeVar n (var, v)
     AstFlatten v ->
-      build1VectorizeVar n (var, AstReshape (singletonShape $ lengthAst u) v)
+      build1VectorizeVar n (var, AstReshape (flattenShape $ shapeAst u) v)
     AstReshape sh v -> AstReshape (n :$ sh) $ build1VectorizeVar n (var, v)
     AstBuildPair{} -> AstBuildPair n (var, u)
       -- TODO: a previous failure of vectorization that should have
@@ -525,7 +525,7 @@ build1VectorizeVar n (var, u) =
     AstFromVector0N sh l ->
       build1VectorizeVar n (var, AstReshape sh $ AstFromVector l)
     AstKonst0N sh v ->
-      let k = product sh
+      let k = shapeSize sh
       in build1VectorizeVar n (var, AstReshape sh $ AstKonst k v)
     AstBuildPair0N{} -> AstBuildPair n (var, u)  -- see AstBuildPair above
 
@@ -803,6 +803,9 @@ intVarInAstBool var = \case
 
 -- * ADVal combinators generalizing ranked tensor operations
 
+shape :: KnownNat n => ADVal d (OR.Array n r) -> ShapeInt n
+shape (D u _) = tshapeR u
+
 -- First come definition of some ADVal combinators to be used below.
 -- They are more general than their legacy versions for rank 1 above
 -- and sometimes more general than the Ast operations.
@@ -979,8 +982,8 @@ interpretAst env = \case
   AstTransposeGeneral perm v ->
     let d@(D u _) = interpretAst env v
     in if OR.rank u < length perm then d else transposeGeneral perm d
-  AstFlatten v -> let d@(D u _) = interpretAst env v
-                  in reshape (singletonShape $ OR.size u) d
+  AstFlatten v -> let d = interpretAst env v
+                  in reshape (flattenShape $ shape d) d
   AstReshape sh v -> reshape sh (interpretAst env v)
   AstBuildPair n (var, AstConstant r) ->
     constant

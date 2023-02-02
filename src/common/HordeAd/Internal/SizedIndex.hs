@@ -18,7 +18,7 @@ module HordeAd.Internal.SizedIndex
     -- * Shapes as fully encapsulated indexes, with operations
   , Shape, pattern (:$), pattern ZS
   , singletonShape, tailShape, takeShape, dropShape, permutePrefixShape
-  , shapeSize
+  , shapeSize, flattenShape
   , listShapeToShape, shapeToList
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx, zeroOf
@@ -187,9 +187,12 @@ permutePrefixShape :: KnownNat n => Permutation -> Shape n Int -> Shape n Int
 permutePrefixShape p (Shape ix) = Shape $ permutePrefixIndex p ix
 
 -- | The number of elements in an array of this shape
-shapeSize :: Shape n Int -> Int
+shapeSize :: Num i => Shape n i -> i
 shapeSize ZS = 1
 shapeSize (n :$ sh) = n * shapeSize sh
+
+flattenShape :: Num i => Shape n i -> Shape 1 i
+flattenShape = singletonShape . shapeSize
 
 -- Warning: do not pass a list of strides to this function.
 listShapeToShape :: forall n i. KnownNat n => [i] -> Shape n i
