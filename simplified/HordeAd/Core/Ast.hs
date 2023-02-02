@@ -343,22 +343,8 @@ shapeAst v1 = case v1 of
   AstSlice _n k v -> k :$ tailShape (shapeAst v)
   AstReverse v -> shapeAst v
   AstTranspose v -> case shapeAst v of
-    Shape (i :. k :. sh) -> k :$ i :$ Shape sh
+    i :$ k :$ sh -> k :$ i :$ sh
     sh -> sh  -- the operation is identity if rank too small
-
--- even this fails (probably the type of (:$) is not hairy enough):
---    ZS -> ZS
---    a :$ bs -> a :$ bs
-
--- this is how it should look:
---    i :$ k :$ sh -> k :$ i :$ sh
---    sh -> sh  -- the operation is identity if rank too small
-
-
--- these fail as well:
---    sh@(_ :$ _) -> sh
---    sh@ZS -> sh
---    sh@(_ :$ ZS) -> sh
   AstTransposeGeneral perm v ->
     if valueOf @n < length perm
     then shapeAst v  -- the operation is identity if rank too small

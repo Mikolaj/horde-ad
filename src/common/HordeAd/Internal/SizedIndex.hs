@@ -99,13 +99,20 @@ pattern ZS :: forall n i. () => n ~ 0 => Shape n i
 pattern ZS = Shape Z
 
 infixr 3 :$
-pattern (:$) :: forall n i. i -> Shape n i -> Shape (1 + n) i
--- this doesn't type-check, but it's blind guess at fixing Ast, anyway:
--- pattern (:$) :: forall n1 i. forall n. n1 ~ (1 + n)
---              => i -> Shape n i -> Shape n1 i
-pattern i :$ sh <- ((\(Shape sh) -> case sh of i :. sh' -> Just (Shape sh', i) ; Z -> Nothing) -> Just (sh, i))
+pattern (:$) :: forall n1 i. forall n. (1 + n) ~ n1
+             => i -> Shape n i -> Shape n1 i
+pattern i :$ sh <- (unconsShape -> Just (UnconsShapeRes sh i Dict))
   where i :$ (Shape sh) = Shape (i :. sh)
 {-# COMPLETE ZS, (:$) #-}
+
+data Dict c where
+  Dict :: c => Dict c
+data UnconsShapeRes i n1 =
+  forall n. UnconsShapeRes (Shape n i) i (Dict (n1 ~ (1 + n)))
+unconsShape :: Shape n1 i -> Maybe (UnconsShapeRes i n1)
+unconsShape (Shape sh) = case sh of
+  i :. sh' -> Just (UnconsShapeRes (Shape sh') i Dict)
+  Z -> Nothing
 
 singletonShape :: i -> Shape 1 i
 singletonShape i = Shape $ i :. Z
