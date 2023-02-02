@@ -63,12 +63,15 @@ data Index (n :: Nat) i where
   Z :: Index 0 i
   (:.) :: i -> Index n i -> Index (1 + n) i
 
-deriving stock instance Functor (Index n)
-
 instance Show i => Show (Index n i) where
   showsPrec _ Z = showString "Z"
   showsPrec d (i :. ix) = showParen (d > 3) $
     showsPrec 4 i . showString " :. " . showsPrec 3 ix
+
+deriving stock instance Functor (Index n)
+
+instance KnownNat n => Foldable (Index n) where
+  foldr f z l = foldr f z (indexToList l)
 
 singletonIndex :: i -> Index 1 i
 singletonIndex i = i :. Z

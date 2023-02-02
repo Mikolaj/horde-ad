@@ -464,7 +464,7 @@ build1VectorizeVar n (var, u) =
     AstVar{} ->
       error "build1VectorizeVar: AstVar can't have free int variables"
 
-    AstIndex v i -> build1VectorizeIndex n var v [i]
+    AstIndex v i -> build1VectorizeIndex n var v (singletonIndex i)
       -- @var@ is in @v@ or @i@; TODO: simplify i first or even fully
       -- evaluate (may involve huge data processing) if contains no vars
       -- and then some things simplify a lot, e.g., if constant index,
@@ -532,9 +532,7 @@ build1VectorizeVar n (var, u) =
     AstOMap{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, u)
     -- All other patterns are redundant due to GADT typing.
 
-build1VectorizeIndex = undefined
 build1VectorizeIndexVar = undefined
-{-
 
 -- | The application @build1VectorizeIndex n var v is@
 -- vectorizes the term @AstBuildPair n (var, AstIndexN v is@.
@@ -546,23 +544,19 @@ build1VectorizeIndex
   :: forall m n r. (KnownNat n, KnownNat m, Show r, Numeric r)
   => Int -> AstVarName Int -> Ast (m + n) r -> AstIndex m r
   -> Ast (1 + n) r
-build1VectorizeIndex n var v [] =
-  unsafeCoerce $ build1Vectorize n (var, v)  -- m is -1
-build1VectorizeIndex n var v is = case reverse is of
-  [] -> error "build1VectorizeIndex: impossible empty path"
-  iN : restRev ->
-    if | intVarInAst var v -> build1VectorizeIndexVar n var v is  -- push deeper
-       | or (fmap (intVarInAstInt var) restRev) -> AstGatherPair n (var, is) v
-       | intVarInAstInt var iN ->
-         let w =
-               (unsafeCoerce :: Ast n r -> Ast (1 + n) r)
-                       -- indexing one less
-                      (AstIndexN v (reverse restRev))
-         in case build1VectorizeIndexAnalyze n var w iN of
-              Just u -> u  -- an extremely simple form found
-              Nothing -> AstGatherPair n (var, is) v
-                -- we didn't really need it anyway
-       | otherwise -> AstKonst n (AstIndexN v is)
+build1VectorizeIndex n var v Z =
+  unsafeCoerce $ build1Vectorize n (var, v)
+build1VectorizeIndex n var v is@(iN :. restRev) =
+  if | intVarInAst var v -> build1VectorizeIndexVar n var v is  -- push deeper
+     | or (fmap (intVarInAstInt var) restRev) -> AstGatherPair n (var, is) v
+     | intVarInAstInt var iN ->
+       let w = AstIndexN v restRev
+       in case build1VectorizeIndexAnalyze n var w iN of
+            Just u -> u  -- an extremely simple form found
+            Nothing -> AstGatherPair n (var, is) v
+              -- we didn't really need it anyway
+     | otherwise -> AstKonst n (AstIndexN v is)
+{-
 
 -- | The variable is known to occur in the main vectorized term.
 -- We try to push the indexing down the term tree and partially
@@ -572,7 +566,7 @@ build1VectorizeIndexVar
   => Int -> AstVarName Int -> Ast (m + n) r -> AstIndex m r
   -> Ast (1 + n) r
 build1VectorizeIndexVar n var v1 [] =
-  unsafeCoerce $ build1VectorizeVar n (var, v1)  -- m is -1
+  unsafeCoerce $ build1VectorizeVar n (var, v1)
 build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
   case v1 of
     AstOp opCode args ->
@@ -630,7 +624,7 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
         in build1Vectorize n (var, AstIndexN v2 rest1)) l) i1
     -- Partially evaluate in constant time:
     AstKonst _k (v :: Ast n1 r) -> case rest1 of
-      [] -> let v2 = (unsafeCoerce :: Ast n1 r -> Ast n r) v  -- m is -1
+      [] -> let v2 = (unsafeCoerce :: Ast n1 r -> Ast n r) v
             in build1VectorizeVar n (var, v2)
               -- type of build1VectorizeIndexVar prevents rank 0
               -- TODO: simplify when/if it doesn't
@@ -723,6 +717,7 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
     AstOMap{} ->
       AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, AstIndexN v1 is)
     -- All other patterns are redundant due to GADT typing.
+-}
 
 -- TODO: we probably need to simplify to some normal form, but possibly
 -- this would be even better to do and take advantage of earlier,
@@ -744,7 +739,7 @@ build1VectorizeIndexAnalyze n var v iN = case iN of
     -- @Data.Array.Shaped@ doesn't help in this case;
     -- however, AstGatherPair covers all this, at the cost of relatively
     -- simple expressions on tape
--}
+
 intVarInAst :: AstVarName Int -> Ast n r -> Bool
 intVarInAst var = \case
   AstOp _ l -> or $ map (intVarInAst var) l
