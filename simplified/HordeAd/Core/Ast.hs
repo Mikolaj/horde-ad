@@ -299,7 +299,7 @@ astOmap :: (Ast 0 r -> Ast 0 r) -> Ast n r -> Ast n r
 {-# NOINLINE astOmap #-}
 astOmap f e = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
-  return $! AstOMap (freshAstVar, f (AstVar (Shape Z) freshAstVar)) e
+  return $! AstOMap (freshAstVar, f (AstVar ZS freshAstVar)) e
 
 instance MonoFunctor (AstPrimalPart1 n r) where
   omap f (AstPrimalPart1 x) =
@@ -319,7 +319,7 @@ shapeAst v1 = case v1 of
     [] -> error "shapeAst: AstOp with no arguments"
     t : _ -> shapeAst t
   AstCond _b a1 _a2 -> shapeAst a1
-  AstConstInt _i -> Shape Z
+  AstConstInt _i -> ZS
   AstConst a -> listShapeToIndex $ OR.shapeL a
   AstConstant (AstPrimalPart1 a) -> shapeAst a
   AstScale (AstPrimalPart1 r) _d -> shapeAst r
@@ -330,32 +330,46 @@ shapeAst v1 = case v1 of
   AstSum v -> tailShape $ shapeAst v
   AstFromList l -> case l of
     [] -> error "shapeAst: AstFromList with no arguments"
-    t : _ -> length l @$ shapeAst t
+    t : _ -> length l :$ shapeAst t
   AstFromVector l -> case V.toList l of
     [] -> error "shapeAst: AstFromVector with no arguments"
-    t : _ -> V.length l @$ shapeAst t
-  AstKonst n v -> n @$ shapeAst v
+    t : _ -> V.length l :$ shapeAst t
+  AstKonst n v -> n :$ shapeAst v
   AstAppend x y -> case shapeAst x of
-    Shape Z -> error "shapeAst: AstAppend applied to scalars"
-    Shape (xi :. xsh) -> case shapeAst y of
-      Shape Z -> error "shapeAst: AstAppend applied to scalars"
-      Shape (yi :. _) ->  xi + yi @$ Shape xsh
-  AstSlice _n k v -> k @$ tailShape (shapeAst v)
+    ZS -> error "shapeAst: impossible pattern needlessly required"
+    xi :$ xsh -> case shapeAst y of
+      ZS -> error "shapeAst: impossible pattern needlessly required"
+      yi :$ _ -> xi + yi :$ xsh
+  AstSlice _n k v -> k :$ tailShape (shapeAst v)
   AstReverse v -> shapeAst v
   AstTranspose v -> case shapeAst v of
-    Shape (i :. k :. sh) -> Shape (k :. i :. sh)
-    sh -> sh  -- the operation is an identity if rank too small
+    Shape (i :. k :. sh) -> k :$ i :$ Shape sh
+    sh -> sh  -- the operation is identity if rank too small
+
+-- even this fails (probably the type of (:$) is not hairy enough):
+--    ZS -> ZS
+--    a :$ bs -> a :$ bs
+
+-- this is how it should look:
+--    i :$ k :$ sh -> k :$ i :$ sh
+--    sh -> sh  -- the operation is identity if rank too small
+
+
+-- these fail as well:
+--    sh@(_ :$ _) -> sh
+--    sh@ZS -> sh
+--    sh@(_ :$ ZS) -> sh
   AstTransposeGeneral perm v ->
     if valueOf @n < length perm
-    then shapeAst v  -- the operation is an identity if rank too small
+    then shapeAst v  -- the operation is identity if rank too small
     else permutePrefixShape perm (shapeAst v)
   AstFlatten v -> singletonShape $ shapeSize (shapeAst v)
   AstReshape sh _v -> sh
-  AstBuildPair n (_var, v) -> n @$ shapeAst v
+  AstBuildPair n (_var, v) -> n :$ shapeAst v
   AstGatherPair n (_var, _is :: Index len (AstInt r)) v ->
-    n @$ dropShape @len (shapeAst v)
-  AstSum0 _v -> Shape Z
-  AstDot0 _x _y -> Shape Z
+    n :$ dropShape @len (shapeAst v)
+  AstSum0 _v -> ZS
+  AstDot0 _x _y -> ZS
   AstFromList0N sh _l -> sh
   AstFromVector0N sh _l -> sh
   AstKonst0N sh _r -> sh
@@ -365,8 +379,8 @@ shapeAst v1 = case v1 of
 -- Length of the outermost dimension.
 lengthAst :: (KnownNat n, Show r, Numeric r) => Ast (1 + n) r -> Int
 lengthAst v1 = case shapeAst v1 of
-  Shape Z -> error "lengthAst: impossible rank 0 found"
-  Shape (n :. _) -> n
+  ZS -> error "lengthAst: impossible pattern needlessly required"
+  n :$ _ -> n
 
 substituteAst :: (Show r, Numeric r)
               => AstInt r -> AstVarName Int -> Ast n r -> Ast n r

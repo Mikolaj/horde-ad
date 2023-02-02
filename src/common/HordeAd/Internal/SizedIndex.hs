@@ -1,7 +1,7 @@
 {-# LANGUAGE ConstraintKinds, DataKinds, DeriveFunctor, DerivingStrategies,
              FlexibleInstances, GADTs, MultiParamTypeClasses, PolyKinds,
              QuantifiedConstraints, RankNTypes, StandaloneDeriving,
-             TypeFamilyDependencies, UndecidableInstances #-}
+             TypeFamilyDependencies, UndecidableInstances, ViewPatterns #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | AST of the code to be differentiated. It's needed mostly for handling
@@ -12,10 +12,11 @@ module HordeAd.Internal.SizedIndex
   ( IndexInt, ShapeInt,  Permutation
   , Index(..)
   , tailIndex, takeIndex, dropIndex
-  , Shape(..)
-  , singletonShape, (@$), tailShape, takeShape, dropShape, permutePrefixShape
+  , {-Shape,-} pattern (:$), pattern ZS
+  , singletonShape, tailShape, takeShape, dropShape, permutePrefixShape
   , shapeSize, toLinearIdx, fromLinearIdx, zeroOf, idxCompare
   , listShapeToIndex
+  , Shape(..)  -- TODO: remove once Ast type-checks fine
   ) where
 
 import Prelude
@@ -84,12 +85,18 @@ permutePrefixIndex p ix =
 newtype Shape n i = Shape (Index n i)
   deriving (Show)
 
--- It seems that function names can't start with colon. That's too bad.
--- Also, I can't make pattern synonym of out that because newtype is in the way.
--- Or can I if I defined two pattern synonyms?
-infixl 3 @$
-(@$) :: i -> Shape n i -> Shape (1 + n) i
-s @$ Shape sh = Shape (s :. sh)
+-- NO IDEA why @() =>@ is required, but typing of Ast fails without it.
+pattern ZS :: forall n i. () => n ~ 0 => Shape n i
+pattern ZS = Shape Z
+
+infixr 3 :$
+pattern (:$) :: forall n i. i -> Shape n i -> Shape (1 + n) i
+-- this doesn't type-check, but it's blind guess at fixing Ast, anyway:
+-- pattern (:$) :: forall n1 i. forall n. n1 ~ (1 + n)
+--              => i -> Shape n i -> Shape n1 i
+pattern i :$ sh <- ((\(Shape sh) -> case sh of i :. sh' -> Just (Shape sh', i) ; Z -> Nothing) -> Just (sh, i))
+  where i :$ (Shape sh) = Shape (i :. sh)
+{-# COMPLETE ZS, (:$) #-}
 
 singletonShape :: i -> Shape 1 i
 singletonShape i = Shape $ i :. Z
