@@ -270,8 +270,7 @@ unScalarADVal (D u u') = dD (OR.unScalar u) (dUnScalar0 u')
 
 sumElements10 :: ADModeAndNum d r
               => ADVal d (Vec r) -> ADVal d r
-sumElements10 (D u u') =
-  dD (tsum0R u) (dSum0 (listShapeToShape $ OR.shapeL u) u')
+sumElements10 (D u u') = dD (tsum0R u) (dSum0 (tshapeR u) u')
 
 index10 :: ADModeAndNum d r => ADVal d (Vec r) -> Int -> ADVal d r
 index10 (D u u') ix =

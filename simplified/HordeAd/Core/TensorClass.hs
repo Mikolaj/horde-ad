@@ -177,13 +177,13 @@ class (RealFloat r, RealFloat (TensorOf 1 r), Integral (IntOf r))
   type TensorOf (n :: Nat) r = result | result -> n r
   type IntOf r
 
-  tshape :: TensorOf n r -> ShapeInt n
+  tshape :: KnownNat n => TensorOf n r -> ShapeInt n
   tsize :: KnownNat n => TensorOf n r -> Int
   tsize = shapeSize . tshape
   tlength :: KnownNat n => TensorOf (1 + n) r -> Int
   tlength v = case tshape v of
-    Shape Z -> error "tlength:  impossible pattern needlessly required"
-    Shape (n :. _) -> n
+    ZS -> error "tlength:  impossible pattern needlessly required"
+    n :$ _ -> n
   tminIndex :: TensorOf 1 r -> IntOf r
   tmaxIndex :: TensorOf 1 r -> IntOf r
 
@@ -249,7 +249,7 @@ type ADReady r = ( Tensor r, HasPrimal r
 instance Tensor Double where
   type TensorOf n Double = OR.Array n Double
   type IntOf Double = Int
-  tshape = OR.shapeL
+  tshape = tshapeR
   tminIndex = tminIndexR
   tmaxIndex = tmaxIndexR
   tindex = tindexR
@@ -280,7 +280,7 @@ instance Tensor Double where
 instance Tensor Float where
   type TensorOf n Float = OR.Array n Float
   type IntOf Float = Int
-  tshape = OR.shapeL
+  tshape = tshapeR
   tminIndex = tminIndexR
   tmaxIndex = tmaxIndexR
   tindex = tindexR
@@ -307,7 +307,6 @@ instance Tensor Float where
   tzipWith0N = tzipWith0NR
   tscalar = tscalarR
   tunScalar = tunScalarR
-{-
 
 -- Not that this instance doesn't do vectorization. To enable it,
 -- use the Ast instance, which vectorizes and finally interpret in ADVal.
@@ -326,7 +325,7 @@ instance (ADModeAndNumTensor d r, TensorOf 1 r ~ OR.Array 1 r)
   -- for @ADVal d (OR.Array n r)@ and @OR.Array n r@). As a workaround,
   -- the methods are defined as calls to tensor functions provided elsewhere,
   -- so there is no code duplication.
-  tshape (D u _) = OR.shapeL u
+  tshape (D u _) = tshapeR u
   tminIndex (D u _) = tminIndexR u
   tmaxIndex (D u _) = tmaxIndexR u
 
@@ -495,8 +494,9 @@ build1VectorizeVar n (var, u) =
       build1VectorizeVar n (var, AstTransposeGeneral [1, 0] v)
     AstTransposeGeneral perm v -> AstTransposeGeneral (0 : map succ perm)
                                   $ build1VectorizeVar n (var, v)
-    AstFlatten v -> build1VectorizeVar n (var, AstReshape [lengthAst u] v)
-    AstReshape sh v -> AstReshape (n : sh) $ build1VectorizeVar n (var, v)
+    AstFlatten v ->
+      build1VectorizeVar n (var, AstReshape (singletonShape $ lengthAst u) v)
+    AstReshape sh v -> AstReshape (n :$ sh) $ build1VectorizeVar n (var, v)
     AstBuildPair{} -> AstBuildPair n (var, u)
       -- TODO: a previous failure of vectorization that should have
       -- led to an abort instead of showing up late; or not, see below
@@ -532,12 +532,13 @@ build1VectorizeVar n (var, u) =
     AstOMap{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair n (var, u)
     -- All other patterns are redundant due to GADT typing.
 
+build1VectorizeIndex = undefined
+build1VectorizeIndexVar = undefined
+{-
+
 -- | The application @build1VectorizeIndex n var v is@
 -- vectorizes the term @AstBuildPair n (var, AstIndexN v is@.
--- The length of the path (the index list) is @1 + m@, which is
--- a hack until we can have proper sized lists of exactly length @m@.
--- The hack causes @m@ to, morally, have value -1 when the path is empty,
--- but it reduces the use of @unsafeCoerce@.
+-- The length of the index is @m@
 --
 -- We try to push indexing down as far as needed to eliminated the occurence
 -- of @var@ from @v@ (but not necessarily from @is@).
@@ -551,14 +552,10 @@ build1VectorizeIndex n var v is = case reverse is of
   [] -> error "build1VectorizeIndex: impossible empty path"
   iN : restRev ->
     if | intVarInAst var v -> build1VectorizeIndexVar n var v is  -- push deeper
-       | or (map (intVarInAstInt var) restRev) -> AstGatherPair n (var, is) v
+       | or (fmap (intVarInAstInt var) restRev) -> AstGatherPair n (var, is) v
        | intVarInAstInt var iN ->
          let w =
-               -- this check is only needed due to the 1 + m hack
-               -- and will vanish when we have sized index lists
-               if null restRev
-               then (unsafeCoerce :: Ast (1 + m + n) r -> Ast (1 + n) r) v
-               else (unsafeCoerce :: Ast n r -> Ast (1 + n) r)
+               (unsafeCoerce :: Ast n r -> Ast (1 + n) r)
                        -- indexing one less
                       (AstIndexN v (reverse restRev))
          in case build1VectorizeIndexAnalyze n var w iN of
@@ -607,7 +604,7 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
       -- build1VectorizeIndexAnalyze or constructing a AstGatherPair.
       -- I can't wait, because there's no other reduction left to perform.
       let t = AstFromList $ map (\v ->
-            let v2 = (unsafeCoerce :: Ast (m + n) r -> Ast (1 + m + n) r) v
+            let v2 = (unsafeCoerce :: Ast (m + n) r -> Ast (m + n) r) v
             in (unsafeCoerce :: Ast (1 + n) r -> Ast n r)
                $ build1Vectorize n (var, AstIndexN @m @n v2 rest1)) l
       in case build1VectorizeIndexAnalyze n var t i1 of
@@ -616,11 +613,11 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
                 -- no more rewriting possible in the root
     AstFromList l ->
       AstIndex (AstFromList $ map (\v ->
-        let v2 = (unsafeCoerce :: Ast (m + n) r -> Ast (1 + m + n) r) v
+        let v2 = (unsafeCoerce :: Ast (m + n) r -> Ast (m + n) r) v
         in build1Vectorize n (var, AstIndexN v2 rest1)) l) i1
     AstFromVector l | intVarInAstInt var i1 ->
       let t = AstFromVector $ V.map (\v ->
-            let v2 = (unsafeCoerce :: Ast (m + n) r -> Ast (1 + m + n) r) v
+            let v2 = (unsafeCoerce :: Ast (m + n) r -> Ast (m + n) r) v
             in (unsafeCoerce :: Ast (1 + n) r -> Ast n r)
                $ build1Vectorize n (var, AstIndexN @m @n v2 rest1)) l
       in case build1VectorizeIndexAnalyze n var t i1 of
@@ -629,7 +626,7 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
                 -- no more rewriting possible in the root
     AstFromVector l ->
       AstIndex (AstFromVector $ V.map (\v ->
-        let v2 = (unsafeCoerce :: Ast (m + n) r -> Ast (1 + m + n) r) v
+        let v2 = (unsafeCoerce :: Ast (m + n) r -> Ast (m + n) r) v
         in build1Vectorize n (var, AstIndexN v2 rest1)) l) i1
     -- Partially evaluate in constant time:
     AstKonst _k (v :: Ast n1 r) -> case rest1 of
@@ -637,7 +634,7 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
             in build1VectorizeVar n (var, v2)
               -- type of build1VectorizeIndexVar prevents rank 0
               -- TODO: simplify when/if it doesn't
-      _ -> let v2 = (unsafeCoerce :: Ast n1 r -> Ast (1 + m + n) r) v
+      _ -> let v2 = (unsafeCoerce :: Ast n1 r -> Ast (m + n) r) v
            in build1VectorizeIndexVar n var v2 rest1
     AstAppend v w ->
       let vlen = AstIntConst $ lengthAst v
@@ -677,7 +674,7 @@ build1VectorizeIndexVar n var v1 is@(i1 : rest1) =
             | otherwise -> build1VectorizeIndexVar n var v is2
     AstFlatten v -> assert (null rest1) $
       let ixs2 = fromLinearIdx (shapeAst v) i1
-          v2 = (unsafeCoerce :: Ast n1 r -> Ast (1 + m + n) r) v
+          v2 = (unsafeCoerce :: Ast n1 r -> Ast (m + n) r) v
        in build1VectorizeIndexVar n var v2 ixs2
     AstReshape{} -> AstBuildPair n (var, AstIndexN v1 is)  -- we give up
       {- TODO: This angle of attack fails, because AstSlice with variable
@@ -747,7 +744,7 @@ build1VectorizeIndexAnalyze n var v iN = case iN of
     -- @Data.Array.Shaped@ doesn't help in this case;
     -- however, AstGatherPair covers all this, at the cost of relatively
     -- simple expressions on tape
-
+-}
 intVarInAst :: AstVarName Int -> Ast n r -> Bool
 intVarInAst var = \case
   AstOp _ l -> or $ map (intVarInAst var) l
@@ -760,7 +757,7 @@ intVarInAst var = \case
   AstVar{} -> False  -- not an int variable
 
   AstIndex v ix -> intVarInAst var v || intVarInAstInt var ix
-  AstIndexN v is -> intVarInAst var v || or (map (intVarInAstInt var) is)
+  AstIndexN v is -> intVarInAst var v || or (fmap (intVarInAstInt var) is)
   AstSum v -> intVarInAst var v
   AstFromList l -> or $ map (intVarInAst var) l  -- down from rank 1 to 0
   AstFromVector vl -> or $ map (intVarInAst var) $ V.toList vl
@@ -773,7 +770,7 @@ intVarInAst var = \case
   AstFlatten v -> intVarInAst var v
   AstReshape _ v -> intVarInAst var v
   AstBuildPair _ (_, v) -> intVarInAst var v
-  AstGatherPair _ (_, is) v -> or (map (intVarInAstInt var) is)
+  AstGatherPair _ (_, is) v -> or (fmap (intVarInAstInt var) is)
                                || intVarInAst var v
 
   AstSum0 v -> intVarInAst var v
@@ -788,7 +785,7 @@ intVarInAst var = \case
 
 intVarInAstInt :: AstVarName Int -> AstInt r -> Bool
 intVarInAstInt var = \case
-  AstIntOp _ l -> or $ map (intVarInAstInt var) l
+  AstIntOp _ l -> or $ fmap (intVarInAstInt var) l
   AstIntCond b x y ->
     intVarInAstBool var b || intVarInAstInt var x || intVarInAstInt var y
   AstIntConst{} -> False
@@ -801,7 +798,7 @@ intVarInAstBool var = \case
   AstBoolOp _ l -> or $ map (intVarInAstBool var) l
   AstBoolConst{} -> False
   AstRel _ l -> or $ map (intVarInAst var) l
-  AstRelInt _ l  -> or $ map (intVarInAstInt var) l
+  AstRelInt _ l  -> or $ fmap (intVarInAstInt var) l
 
 
 -- * ADVal combinators generalizing ranked tensor operations
@@ -813,14 +810,13 @@ index :: (ADModeAndNumTensor d r, KnownNat n)
       => ADVal d (OR.Array (1 + n) r) -> Int -> ADVal d (OR.Array n r)
 index (D u u') ix = dD (u `tindexR` ix) (dIndex1 u' ix (tlengthR u))
 
--- | First index is for outermost dimension; @1 + m@ is the length of the path;
--- empty path means identity.
+-- | First index is for outermost dimension; empty index means identity.
 -- TODO: speed up by using atPathInTensorR and dIndex0 if the codomain is 0.
 indexN :: forall m n d r. (ADModeAndNumTensor d r, KnownNat n, KnownNat m)
         => ADVal d (OR.Array (m + n) r) -> IndexInt m
         -> ADVal d (OR.Array n r)
 indexN (D u u') ixs = dD (tindexNR u ixs)
-                         (dIndexN u' ixs (OR.shapeL u))
+                         (dIndexN u' ixs (tshapeR u))
 
 sum' :: (ADModeAndNumTensor d r, KnownNat n)
      => ADVal d (OR.Array (1 + n) r) -> ADVal d (OR.Array n r)
@@ -828,7 +824,7 @@ sum' (D u u') = dD (tsumR u) (dSum1 (tlengthR u) u')
 
 sum0 :: (ADModeAndNumTensor d r, KnownNat n)
      => ADVal d (OR.Array n r) -> ADVal d r
-sum0 (D u u') = dD (tsum0R u) (dSum0 (OR.shapeL u) u')
+sum0 (D u u') = dD (tsum0R u) (dSum0 (tshapeR u) u')
 
 dot0 :: (ADModeAndNumTensor d r, KnownNat n)
      => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r) -> ADVal d r
@@ -857,14 +853,14 @@ fromVector lu =
      (dFromVector1 $ V.map (\(D _ u') -> u') lu)
 
 fromList0N :: (ADModeAndNumTensor d r, KnownNat n)
-           => OR.ShapeL -> [ADVal d r]
+           => ShapeInt n -> [ADVal d r]
            -> ADVal d (OR.Array n r)
 fromList0N sh l =
   dD (tfromList0NR sh $ map (\(D u _) -> u) l)  -- I hope this fuses
      (dFromList01 sh $ map (\(D _ u') -> u') l)
 
 fromVector0N :: (ADModeAndNumTensor d r, KnownNat n)
-             => OR.ShapeL -> Data.Vector.Vector (ADVal d r)
+             => ShapeInt n -> Data.Vector.Vector (ADVal d r)
              -> ADVal d (OR.Array n r)
 fromVector0N sh l =
   dD (tfromVector0NR sh $ V.convert $ V.map (\(D u _) -> u) l)  -- hope it fuses
@@ -875,7 +871,7 @@ konst :: (ADModeAndNumTensor d r, KnownNat n)
 konst n (D u u') = dD (tkonstR n u) (dKonst1 n u')
 
 konst0N :: (ADModeAndNumTensor d r, KnownNat n)
-        => OR.ShapeL -> ADVal d r -> ADVal d (OR.Array (1 + n) r)
+        => ShapeInt n -> ADVal d r -> ADVal d (OR.Array n r)
 konst0N sh (D u u') = dD (tkonst0NR sh u) (dKonst01 sh u')
 
 append :: (ADModeAndNumTensor d r, KnownNat n)
@@ -899,8 +895,8 @@ transposeGeneral perm (D u u') = dD (ttransposeGeneralR perm u)
                                     (dTransposeGeneral1 perm u')
 
 reshape :: (ADModeAndNumTensor d r, KnownNat n, KnownNat m)
-        => OR.ShapeL -> ADVal d (OR.Array n r) -> ADVal d (OR.Array m r)
-reshape sh (D u u') = dD (treshapeR sh u) (dReshape1 (OR.shapeL u) sh u')
+        => ShapeInt m -> ADVal d (OR.Array n r) -> ADVal d (OR.Array m r)
+reshape sh (D u u') = dD (treshapeR sh u) (dReshape1 (tshapeR u) sh u')
 
 -- The element-wise (POPL) version, but only one rank at a time.
 build :: (ADModeAndNumTensor d r, KnownNat n)
@@ -911,7 +907,7 @@ build n f = fromList $ map f [0 .. n - 1]
 gatherClosure :: (ADModeAndNumTensor d r, KnownNat n, KnownNat m)
               => Int -> (Int -> IndexInt m)
               -> ADVal d (OR.Array (m + n) r) -> ADVal d (OR.Array (1 + n) r)
-gatherClosure n f (D u u') = dD (tgatherR n f u) (dGather1 n f (OR.shapeL u) u')
+gatherClosure n f (D u u') = dD (tgatherR n f u) (dGather1 n f (tshapeR u) u')
 
 
 -- * Interpretation of Ast in ADVal
@@ -941,7 +937,7 @@ interpretLambdaPath
   -> (AstVarName Int, AstIndex n r)
   -> Int -> IndexInt n
 interpretLambdaPath env (AstVarName var, asts) =
-  \i -> map (interpretAstInt (IM.insert var (AstVarI i) env)) asts
+  \i -> fmap (interpretAstInt (IM.insert var (AstVarI i) env)) asts
 
 interpretAstPrimal
   :: (ADModeAndNumTensor d r, KnownNat n)
@@ -971,7 +967,7 @@ interpretAst env = \case
     Nothing -> error $ "interpretAst: unknown variable var " ++ show var
 
   AstIndex v i -> index (interpretAst env v) (interpretAstInt env i)
-  AstIndexN v is -> indexN (interpretAst env v) (map (interpretAstInt env) is)
+  AstIndexN v is -> indexN (interpretAst env v) (fmap (interpretAstInt env) is)
   AstSum v -> sum' (interpretAst env v)
   AstFromList l -> fromList (map (interpretAst env) l)
   AstFromVector l -> fromVector (V.map (interpretAst env) l)
@@ -984,7 +980,7 @@ interpretAst env = \case
     let d@(D u _) = interpretAst env v
     in if OR.rank u < length perm then d else transposeGeneral perm d
   AstFlatten v -> let d@(D u _) = interpretAst env v
-                  in reshape [OR.size u] d
+                  in reshape (singletonShape $ OR.size u) d
   AstReshape sh v -> reshape sh (interpretAst env v)
   AstBuildPair n (var, AstConstant r) ->
     constant
@@ -1130,4 +1126,3 @@ interpretAstRelOp f GtOp [u, v] = f u > f v
 interpretAstRelOp _ opCodeRel args =
   error $ "interpretAstRelOp: wrong number of arguments"
           ++ show (opCodeRel, length args)
--}

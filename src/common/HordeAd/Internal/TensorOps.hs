@@ -106,6 +106,11 @@ tsum0D
 tsum0D (Data.Array.Internal.DynamicS.A (Data.Array.Internal.DynamicG.A sh t)) =
   LA.sumElements $ Data.Array.Internal.toUnorderedVectorT sh t
 
+tshapeR
+  :: KnownNat n
+  => OR.Array n r -> ShapeInt n
+tshapeR = listShapeToShape . OR.shapeL
+
 tsizeR
   :: OR.Array n r -> Int
 tsizeR = OR.size
