@@ -76,7 +76,7 @@ fooBuild1 v =
 
 fooMap1 :: ADReady r => r -> TensorOf 1 r
 fooMap1 r =
-  let v = fooBuild1 $ tkonst0N [130] r
+  let v = fooBuild1 $ tkonst0N (singletonShape 130) r
   in tmap0N (\x -> x * r + 5) v
 
 -- A test with conditionals. We haven't defined a class for conditionals so far,
@@ -98,8 +98,8 @@ fooNoGoAst v =
 -- of VectorLike class may be enough
 nestedBuildMap :: forall r. ADReady r => r -> TensorOf 1 r
 nestedBuildMap r =
-  let w x = tkonst0N [4] x  -- (AstIntCond (x `leqAst` 0) 3 4)
-      v' = tkonst0N [177] r :: TensorOf 1 r
+  let w x = tkonst0N (singletonShape 4) x  -- (AstIntCond (x `leqAst` 0) 3 4)
+      v' = tkonst0N (singletonShape 177) r :: TensorOf 1 r
       nestedMap x = tmap0N (\y -> x / y) (w x)
       variableLengthBuild iy = tbuild 7 (\ix -> tindex v' (ix + iy)) :: TensorOf 1 r
       doublyBuild = tbuild 5 (\iy -> tminimum0 (variableLengthBuild iy))
@@ -157,7 +157,7 @@ barReluAst x = reluAst $ bar (x, reluAst x)
 konstReluAst
   :: forall r. (Show r, Numeric r, RealFloat r, RealFloat (Vector r))
   => Ast 0 r -> Ast 0 r
-konstReluAst x = tsum0 $ reluAst @1 $ tkonst0N [7] x
+konstReluAst x = tsum0 $ reluAst @1 $ tkonst0N (singletonShape 7) x
 
 
 -- * Tests by TomS
@@ -181,13 +181,13 @@ f2 = \arg ->
 braidedBuilds :: ADReady r => r -> TensorOf 2 r
 braidedBuilds r =
   tbuild 3 (\ix1 ->
-    tbuild 4 (\ix2 -> tindex (tfromList0N [4]
+    tbuild 4 (\ix2 -> tindex (tfromList0N (singletonShape 4)
                                 [tunScalar $ tfromIntOf0 ix2, 7, r, -0.2]) ix1))
 
 recycled :: ADReady r
          => r -> TensorOf 5 r
 recycled r = tbuild 3 $ \_ -> tbuild 4 $ \_ -> tbuild 2 $ \_ -> tbuild 6 $ \_ ->
-               nestedSumBuild (tkonst0N [7] r)
+               nestedSumBuild (tkonst0N (singletonShape 7) r)
 
 concatBuild :: ADReady r => r -> TensorOf 2 r
 concatBuild r =
@@ -225,7 +225,7 @@ testPoly00 f input expected = do
           (\adinputs -> unScalar $
              interpretAst (IM.singleton (-1)
                              (AstVarR $ from1X $ scalar $ adinputs `at0` 0))
-                          (f (AstVar [] (AstVarName (-1)))))
+                          (f (AstVar ZS (AstVarName (-1)))))
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains 1
@@ -253,7 +253,7 @@ testPoly01 f outSize input expected = do
           (\adinputs ->
              interpretAst (IM.singleton (-1)
                              (AstVarR $ from1X $ scalar $ adinputs `at0` 0))
-                          (f (AstVar [] (AstVarName (-1)))))
+                          (f (AstVar ZS (AstVarName (-1)))))
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains dt
@@ -281,7 +281,7 @@ testPoly11 f outSize input expected = do
           (\adinputs ->
              interpretAst (IM.singleton (-1)
                              (AstVarR $ from1X $ at1 @1 adinputs 0))
-                          (f (AstVar [length input] (AstVarName (-1)))))
+                          (f (AstVar (singletonShape (length input)) (AstVarName (-1)))))
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains dt
@@ -310,7 +310,7 @@ testPolyn f sh input expected = do
           (\adinputs ->
              interpretAst (IM.singleton (-1)
                              (AstVarR $ from1X $ scalar $ adinputs `at0` 0))
-                          (f (AstVar [] (AstVarName (-1)))))
+                          (f (AstVar ZS (AstVarName (-1)))))
           domainsInput
       (advalGrad, advalValue) =
         revOnDomains dt
@@ -356,7 +356,7 @@ testFooNoGoAst =
        (\adinputs ->
           interpretAst (IM.singleton (-1)
                           (AstVarR $ from1X $ at1 @1 adinputs 0))
-                        (fooNoGoAst (AstVar [5] (AstVarName (-1)))))
+                        (fooNoGoAst (AstVar (singletonShape 5) (AstVarName (-1)))))
        (domainsFrom0V V.empty
                       (V.singleton (V.fromList
                                       [1.1 :: Double, 2.2, 3.3, 4, 5]))))
@@ -397,7 +397,7 @@ testBarReluAst0 =
        (\adinputs -> unScalar $
           interpretAst (IM.singleton (-1)
                           (AstVarR $ from1X $ scalar $ adinputs `at0` 0))
-                        (barReluAst (AstVar [] (AstVarName (-1)))))
+                        (barReluAst (AstVar ZS (AstVarName (-1)))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [191.20462646925841]
 
@@ -410,7 +410,7 @@ testBarReluAst1 =
        (\adinputs ->
           interpretAst (IM.singleton (-1)
                           (AstVarR $ from1X $ at1 @1 adinputs 0))
-                       (barReluAst (AstVar [5] (AstVarName (-1)))))
+                       (barReluAst (AstVar (singletonShape 5) (AstVarName (-1)))))
        (domainsFrom0V V.empty
                       (V.singleton (V.fromList
                                       [1.1 :: Double, 2.2, 3.3, 4, 5]))))
@@ -424,7 +424,7 @@ testKonstReluAst =
        (\adinputs -> unScalar $
           interpretAst (IM.singleton (-1)
                           (AstVarR $ from1X $ scalar $ adinputs `at0` 0))
-                        (konstReluAst (AstVar [] (AstVarName (-1)))))
+                        (konstReluAst (AstVar ZS (AstVarName (-1)))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [295.4]
 

@@ -8,6 +8,7 @@ module HordeAd
   , module HordeAd.Core.PairOfVectors
   , module HordeAd.Core.TensorClass
   , module HordeAd.External.Optimizer
+  , module HordeAd.Internal.SizedIndex  -- TODO: limit what is exported
   ) where
 
 import Prelude ()
@@ -17,3 +18,4 @@ import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors
 import HordeAd.Core.TensorClass
 import HordeAd.External.Optimizer
+import HordeAd.Internal.SizedIndex
