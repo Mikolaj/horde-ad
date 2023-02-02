@@ -44,6 +44,15 @@ type Permutation = [Int]
 -- | An index in an n-dimensional array. The slowest-moving index is at the
 -- head position; thus the index 'i :. j :. Z' represents 'a[i][j]' in
 -- traditional C notation.
+--
+-- Strongly Worded Warning: the implementation of this datatype should never
+-- be changed, even by adding a constraint or making a field strict or packed.
+-- Otherwise the multiple @unsafeCoerce@ below won't work any more,
+-- because they depend on the runtime representation of the datatype
+-- being identical to the representation of ordinary lists.
+-- Note that changes in GHC or base library may similarly break this code,
+-- though there should be ample advance warning, given that many
+-- programs depend on this coincidence.
 infixr 3 :.
 data Index (n :: Nat) i where
   Z :: Index 0 i
