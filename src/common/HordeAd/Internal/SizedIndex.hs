@@ -13,7 +13,7 @@ module HordeAd.Internal.SizedIndex
     IndexInt, ShapeInt,  Permutation
     -- * GHC.Nat-indexed lists as array indexes, with operations
   , Index(..)
-  , tailIndex, takeIndex, dropIndex
+  , singletonIndex, headIndex, tailIndex, takeIndex, dropIndex
   , idxCompare , listToIndex, indexToList
     -- * Shapes as fully encapsulated indexes, with operations
   , Shape, pattern (:$), pattern ZS
@@ -69,6 +69,13 @@ instance Show i => Show (Index n i) where
   showsPrec _ Z = showString "Z"
   showsPrec d (i :. ix) = showParen (d > 3) $
     showsPrec 4 i . showString " :. " . showsPrec 3 ix
+
+singletonIndex :: i -> Index 1 i
+singletonIndex i = i :. Z
+
+headIndex :: Index (1 + n) i -> i
+headIndex Z = error "headIndex: impossible pattern needlessly required"
+headIndex (i :. _ix) = i
 
 tailIndex :: Index (1 + n) i -> Index n i
 tailIndex Z = error "tailIndex: impossible pattern needlessly required"
@@ -163,7 +170,7 @@ unconsShape (Shape sh) = case sh of
   Z -> Nothing
 
 singletonShape :: i -> Shape 1 i
-singletonShape i = Shape $ i :. Z
+singletonShape = Shape . singletonIndex
 
 tailShape :: Shape (1 + n) i -> Shape n i
 tailShape (Shape ix) = Shape $ tailIndex ix
@@ -181,8 +188,8 @@ permutePrefixShape p (Shape ix) = Shape $ permutePrefixIndex p ix
 
 -- | The number of elements in an array of this shape
 shapeSize :: Shape n Int -> Int
-shapeSize (Shape Z) = 1
-shapeSize (Shape (n :. sh)) = n * shapeSize (Shape sh)
+shapeSize ZS = 1
+shapeSize (n :$ sh) = n * shapeSize sh
 
 -- Warning: do not pass a list of strides to this function.
 listShapeToShape :: forall n i. KnownNat n => [i] -> Shape n i

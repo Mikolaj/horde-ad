@@ -51,6 +51,7 @@ import HordeAd.Core.Ast
 import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta
   (Delta0, Domain0, Domain1, Domains (..), nullDomains)
+import HordeAd.Internal.SizedIndex
 import HordeAd.Internal.TensorOps
 
 -- * The main dual number type
@@ -269,21 +270,25 @@ unScalarADVal (D u u') = dD (OR.unScalar u) (dUnScalar0 u')
 
 sumElements10 :: ADModeAndNum d r
               => ADVal d (Vec r) -> ADVal d r
-sumElements10 (D u u') = dD (tsum0R u) (dSum0 (OR.shapeL u) u')
+sumElements10 (D u u') =
+  dD (tsum0R u) (dSum0 (listShapeToShape $ OR.shapeL u) u')
 
 index10 :: ADModeAndNum d r => ADVal d (Vec r) -> Int -> ADVal d r
-index10 (D u u') ix = unScalarADVal $ dD (u `tindexR` ix)
-                                    (dIndex1 u' ix (head $ OR.shapeL u))
+index10 (D u u') ix =
+  unScalarADVal $ dD (u `tindexR` ix)
+                     (dIndex1 u' ix (head $ OR.shapeL u))
 
 minimum0 :: ADModeAndNum d r => ADVal d (Vec r) -> ADVal d r
 minimum0 (D u u') =
   let ix = tminIndexR u
-  in dD (OR.unScalar $ tindexR u ix) (dIndex0 u' [ix] [tsizeR u])
+  in dD (OR.unScalar $ tindexR u ix)
+        (dIndex0 u' (singletonIndex ix) (singletonShape (tsizeR u)))
 
 maximum0 :: ADModeAndNum d r => ADVal d (Vec r) -> ADVal d r
 maximum0 (D u u') =
   let ix = tmaxIndexR u
-  in dD (OR.unScalar $ tindexR u ix) (dIndex0 u' [ix] [tsizeR u])
+  in dD (OR.unScalar $ tindexR u ix)
+        (dIndex0 u' (singletonIndex ix) (singletonShape (tsizeR u)))
 
 foldl'0 :: ADModeAndNum d r
         => (ADVal d r -> ADVal d r -> ADVal d r)
@@ -291,7 +296,8 @@ foldl'0 :: ADModeAndNum d r
         -> ADVal d r
 foldl'0 f uu' (D v v') =
   let k = tsizeR v
-      g !acc ix p = f (dD p (dIndex0 v' [ix] [k])) acc
+      g !acc ix p =
+        f (dD p (dIndex0 v' (singletonIndex ix) (singletonShape k))) acc
   in V.ifoldl' g uu' (OR.toVector v)
 
 altSumElements10 :: ADModeAndNum d r => ADVal d (Vec r) -> ADVal d r
@@ -368,19 +374,20 @@ lossSoftMaxCrossEntropyV target (D u u') =
 fromList1 :: ADModeAndNum d r
           => [ADVal d r] -> ADVal d (Vec r)
 fromList1 l =
-  dD (tfromList0NR [length l] $ map (\(D u _) -> u) l)
-     (dFromList01 [length l] $ map (\(D _ u') -> u') l)
+  dD (tfromList0NR (singletonShape (length l)) $ map (\(D u _) -> u) l)
+     (dFromList01 (singletonShape (length l)) $ map (\(D _ u') -> u') l)
 
 fromVector1 :: ADModeAndNum d r
             => Data.Vector.Vector (ADVal d r) -> ADVal d (Vec r)
 fromVector1 l =
-  dD (tfromVector0NR [V.length l]
+  dD (tfromVector0NR (singletonShape (V.length l))
       $ V.convert $ V.map (\(D u _) -> u) l)  -- hope it fuses
-     (dFromVector01 [V.length l]
+     (dFromVector01 (singletonShape (V.length l))
       $ V.map (\(D _ u') -> u') l)
 
 konst1 :: ADModeAndNum d r => ADVal d r -> Int -> ADVal d (Vec r)
-konst1 (D u u') n = dD (tkonst0NR [n] u) (dKonst01 [n] u')
+konst1 (D u u') n =
+  dD (tkonst0NR (singletonShape n) u) (dKonst01 (singletonShape n) u')
 
 append1 :: ADModeAndNum d r
         => ADVal d (Vec r) -> ADVal d (Vec r) -> ADVal d (Vec r)
@@ -431,7 +438,8 @@ build1Closure
 build1Closure n f =
   let g i = let D u _ = f i in u
       h i = let D _ u' = f i in u'
-  in dD (OR.fromList [n] $ map g [0 .. n - 1]) (dBuild01 [n] (\l -> h (head l)))
+  in dD (OR.fromList [n] $ map g [0 .. n - 1])
+        (dBuild01 (singletonShape n) (\l -> h (headIndex l)))
 
 build1
   :: ADModeAndNum d r

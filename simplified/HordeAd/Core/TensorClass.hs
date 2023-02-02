@@ -205,7 +205,7 @@ class (RealFloat r, RealFloat (TensorOf 1 r), Integral (IntOf r))
   tfromVector0N :: KnownNat n
                 => ShapeInt n -> Data.Vector.Vector r -> TensorOf n r
   tkonst :: KnownNat n => Int -> TensorOf n r -> TensorOf (1 + n) r
-  tkonst0N :: KnownNat n => ShapeInt n -> r -> TensorOf (1 + n) r
+  tkonst0N :: KnownNat n => ShapeInt n -> r -> TensorOf n r
   tappend :: KnownNat n
           => TensorOf (1 + n) r -> TensorOf (1 + n) r -> TensorOf (1 + n) r
   tslice :: KnownNat n => Int -> Int -> TensorOf (1 + n) r -> TensorOf (1 + n) r
