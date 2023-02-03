@@ -542,8 +542,7 @@ build1VectorizeIndex
   :: forall m n r. (KnownNat n, KnownNat m, Show r, Numeric r)
   => Int -> AstVarName Int -> Ast (m + n) r -> AstIndex m r
   -> Ast (1 + n) r
-build1VectorizeIndex n var v Z =
-  unsafeCoerce $ build1Vectorize n (var, v)
+build1VectorizeIndex n var v Z = build1Vectorize n (var, v)
 build1VectorizeIndex n var v is@(iN :. restN) =
   if | intVarInAst var v -> build1VectorizeIndexVar n var v is  -- push deeper
      | or (fmap (intVarInAstInt var) restN) -> AstGatherPair n (var, is) v
@@ -562,8 +561,7 @@ build1VectorizeIndexVar
   :: forall m n r. (KnownNat n, KnownNat m, Show r, Numeric r)
   => Int -> AstVarName Int -> Ast (m + n) r -> AstIndex m r
   -> Ast (1 + n) r
-build1VectorizeIndexVar n var v1 Z =
-  unsafeCoerce $ build1VectorizeVar n (var, v1)
+build1VectorizeIndexVar n var v1 Z = build1VectorizeVar n (var, v1)
 build1VectorizeIndexVar n var v1 is@(_ :. _) =
   let (rest1, i1) = unsnocIndex is  -- TODO: rename to (init1, last1)?
   in case v1 of

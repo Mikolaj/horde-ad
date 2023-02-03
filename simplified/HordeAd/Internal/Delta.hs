@@ -716,7 +716,7 @@ buildDerivative dim0 dim1 deltaTopLevel
                $ [fromLinearIdx sh' i | i <- [0 .. s - 1]]
           return $! OR.fromList sh l
         Gather1 n f _sh d -> do
-          t <- unsafeCoerce $ eval1 d
+          t <- eval1 d
           return $! tgatherR n f t
         Scatter1 _n f d sh -> do
           t <- eval1 d
