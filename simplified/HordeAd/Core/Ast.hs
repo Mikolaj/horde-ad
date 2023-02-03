@@ -34,12 +34,13 @@ import           Text.Show.Functions ()
 
 import HordeAd.Core.SizedIndex
 import HordeAd.Internal.OrthotopeOrphanInstances ()
+import HordeAd.Internal.SizedList
 
 -- * Ast definitions
 
 type AstIndex n r = Index n (AstInt r)
 
-type AstVarList n = Index n (AstVarName Int)
+type AstVarList n = SizedList n (AstVarName Int)
 
 -- We use here @ShapeInt@ for simplicity. @Shape n (AstInt r)@ gives
 -- more expressiveness, but leads to irregular tensors,

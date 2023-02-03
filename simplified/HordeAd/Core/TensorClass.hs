@@ -33,6 +33,7 @@ import HordeAd.Core.Ast
 import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
 import HordeAd.Core.SizedIndex
+import HordeAd.Internal.SizedList
 import HordeAd.Internal.TensorOps
 
 -- * Odds and ends
@@ -670,11 +671,11 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
     AstKonst0N sh v ->
       let s = shapeSize sh
       in build1VectorizeIndexVar k var (AstReshape sh $ AstKonst s v) is
-    AstBuildPair0N _sh (ZI, _r) ->
+    AstBuildPair0N _sh (Z, _r) ->
       error "build1VectorizeIndexVar: impossible case; is would have to be []"
     -- TODO: too hard until we have a sized list of variables names
     -- so we coerce for now:
-    AstBuildPair0N sh (var2 :. vars, r) ->
+    AstBuildPair0N sh (var2 ::: vars, r) ->
       build1VectorizeIndexVar
         k var (AstBuildPair0N (tailShape sh) (vars, substituteAst i1 var2 r))
         rest1
