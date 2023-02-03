@@ -4,13 +4,10 @@
              TypeFamilyDependencies, UndecidableInstances, ViewPatterns #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | AST of the code to be differentiated. It's needed mostly for handling
--- higher order operations such as build and map, but can be used
--- for arbitrary code transformations at the cost of limiting
--- expressiveness of transformed fragments to what AST captures.
+-- | Sized indexes and shapes for tensors.
 module HordeAd.Core.SizedIndex
   ( -- * Concrete type synonyms to be used in many other modules
-    IndexInt, ShapeInt,  Permutation
+    IndexInt, ShapeInt, Permutation
     -- * GHC.Nat-indexed lists as array indexes, with operations
   , Index(..)
   , singletonIndex, snocIndex, appendIndex
@@ -37,14 +34,13 @@ import           Text.Show.Functions ()
 import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Internal.OrthotopeOrphanInstances ()
+import HordeAd.Internal.SizedList
 
 -- * Concrete type synonyms to be used in many other modules
 
 type IndexInt n = Index n Int
 
 type ShapeInt n = Shape n Int
-
-type Permutation = [Int]
 
 
 -- * GHC.Nat-indexed lists as array indexes, with operations
@@ -63,11 +59,11 @@ type Permutation = [Int]
 -- programs depend on this coincidence.
 infixr 3 :.
 data Index (n :: Nat) i where
-  Z :: Index 0 i
+  ZI :: Index 0 i
   (:.) :: i -> Index n i -> Index (1 + n) i
 
 instance Show i => Show (Index n i) where
-  showsPrec _ Z = showString "Z"
+  showsPrec _ ZI = showString "Z"
   showsPrec d (i :. ix) = showParen (d > 3) $
     showsPrec 4 i . showString " :. " . showsPrec 3 ix
 
@@ -82,22 +78,22 @@ instance KnownNat n => IsList (Index n i) where
   toList = indexToList
 
 singletonIndex :: i -> Index 1 i
-singletonIndex i = i :. Z
+singletonIndex i = i :. ZI
 
 snocIndex :: Index n i -> i -> Index (1 + n) i
-snocIndex Z last1 = last1 :. Z
+snocIndex ZI last1 = last1 :. ZI
 snocIndex (i :. ix) last1 = i :. snocIndex ix last1
 
 appendIndex :: Index m i -> Index n i -> Index (m + n) i
-appendIndex Z ix2 = ix2
+appendIndex ZI ix2 = ix2
 appendIndex (i1 :. ix1) ix2 = i1 :.  appendIndex ix1 ix2
 
 headIndex :: Index (1 + n) i -> i
-headIndex Z = error "headIndex: impossible pattern needlessly required"
+headIndex ZI = error "headIndex: impossible pattern needlessly required"
 headIndex (i :. _ix) = i
 
 tailIndex :: Index (1 + n) i -> Index n i
-tailIndex Z = error "tailIndex: impossible pattern needlessly required"
+tailIndex ZI = error "tailIndex: impossible pattern needlessly required"
 tailIndex (_i :. ix) = ix
 
 takeIndex :: forall len n i. KnownNat len
@@ -109,20 +105,20 @@ dropIndex :: forall len n i. KnownNat len
 dropIndex ix = unsafeCoerce $ drop (valueOf @len) $ unsafeCoerce ix
 
 unsnocIndex :: Index (1 + n) i -> (Index n i, i)
-unsnocIndex Z = error "unsnocIndex: impossible pattern needlessly required"
+unsnocIndex ZI = error "unsnocIndex: impossible pattern needlessly required"
 unsnocIndex (i :. ix) = case ix of
-  Z -> (Z, i)
+  ZI -> (ZI, i)
   _ :. _ -> let (init1, last1) = unsnocIndex ix
             in (i :. init1, last1)
 
 lastIndex :: Index (1 + n) i -> i
-lastIndex Z = error "lastIndex: impossible pattern needlessly required"
-lastIndex (i :. Z) = i
+lastIndex ZI = error "lastIndex: impossible pattern needlessly required"
+lastIndex (i :. ZI) = i
 lastIndex (_i :. ix@(_ :. _)) = lastIndex ix
 
 initIndex :: Index (1 + n) i -> Index n i
-initIndex Z = error "initIndex: impossible pattern needlessly required"
-initIndex (_i :. Z) = Z
+initIndex ZI = error "initIndex: impossible pattern needlessly required"
+initIndex (_i :. ZI) = ZI
 initIndex (i :. ix@(_ :. _)) = i :. initIndex ix
 
 -- This permutes a prefix of the index of the length of the permutation.
@@ -141,7 +137,7 @@ permutePrefixIndex p ix =
 -- | Pairwise comparison of two index values. The comparison function is invoked
 -- once for each rank on the corresponding pair of indices.
 idxCompare :: Monoid m => (i -> i -> m) -> Index n i -> Index n i -> m
-idxCompare _ Z Z = mempty
+idxCompare _ ZI ZI = mempty
 idxCompare f (i :. idx) (j :. idx') = f i j <> idxCompare f idx idx'
 idxCompare _ _ _ = error "idxCompare: impossible pattern needlessly required"
 
@@ -150,7 +146,7 @@ idxCompare _ _ _ = error "idxCompare: impossible pattern needlessly required"
 -- so let's switch to it once we stop using 8.10 and 9.0.
 listToIndex :: forall n. KnownNat n => [Int] -> Index n Int
 listToIndex []
-  | Just Refl <- sameNat (Proxy @n) (Proxy @0) = Z
+  | Just Refl <- sameNat (Proxy @n) (Proxy @0) = ZI
   | otherwise = error "listToIndex: list too short"
 listToIndex (i : is)
   -- What we really need here to make the types check out is a <= check.
@@ -172,7 +168,7 @@ listToIndex list
   = error "listToIndex: list length disagrees with context"
   where
     go :: [i] -> (forall m. Index m i -> r) -> r
-    go [] k = k Z
+    go [] k = k ZI
     go (i : rest) k = go rest (\rest' -> k (i :. rest'))
 
 indexToList :: Index n i -> [i]
@@ -189,7 +185,7 @@ newtype Shape n i = Shape (Index n i)
 
 -- NO IDEA why @() =>@ is required, but typing of Ast fails without it.
 pattern ZS :: forall n i. () => n ~ 0 => Shape n i
-pattern ZS = Shape Z
+pattern ZS = Shape ZI
 
 infixr 3 :$
 pattern (:$) :: forall n1 i. forall n. (1 + n) ~ n1
@@ -205,7 +201,7 @@ data UnconsShapeRes i n1 =
 unconsShape :: Shape n1 i -> Maybe (UnconsShapeRes i n1)
 unconsShape (Shape sh) = case sh of
   i :. sh' -> Just (UnconsShapeRes (Shape sh') i Dict)
-  Z -> Nothing
+  ZI -> Nothing
 
 deriving stock instance Functor (Shape n)
 
@@ -261,7 +257,7 @@ toLinearIdx = \sh idx -> snd (go sh idx)
   where
     -- Returns (shape size, linear index)
     go :: forall m1 n1. Shape (m1 + n1) i -> Index m1 i -> (i, i)
-    go sh Z = (shapeSize sh, 0)
+    go sh ZI = (shapeSize sh, 0)
     go (n :$ sh) (i :. idx) =
       let (restsize, lin) = go sh idx
       in (n * restsize, i * restsize + lin)
@@ -275,7 +271,7 @@ fromLinearIdx = \sh lin -> snd (go sh lin)
     -- Returns (linear index into array of sub-tensors,
     -- multi-index within sub-tensor).
     go :: Integral i => Shape n i -> i -> (i, Index n i)
-    go ZS n = (n, Z)
+    go ZS n = (n, ZI)
     go (n :$ sh) lin =
       let (tensLin, idxInTens) = go sh lin
           (tensLin', i) = tensLin `quotRem` n
@@ -283,5 +279,5 @@ fromLinearIdx = \sh lin -> snd (go sh lin)
 
 -- | The zero index in this shape (not dependent on the actual integers)
 zeroOf :: Num i => Shape n i -> Index n i
-zeroOf ZS = Z
+zeroOf ZS = ZI
 zeroOf (_ :$ sh) = 0 :. zeroOf sh

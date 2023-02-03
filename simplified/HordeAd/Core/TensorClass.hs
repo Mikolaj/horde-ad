@@ -527,7 +527,7 @@ build1VectorizeIndex
   :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
   => Int -> AstVarName Int -> Ast (m + n) r -> AstIndex m r
   -> Ast (1 + n) r
-build1VectorizeIndex k var v Z = build1Vectorize k (var, v)
+build1VectorizeIndex k var v ZI = build1Vectorize k (var, v)
 build1VectorizeIndex k var v is@(iN :. restN) =
   if | intVarInAst var v -> build1VectorizeIndexVar k var v is  -- push deeper
      | any (intVarInAstInt var) restN -> AstGatherPair k (var, is) v
@@ -546,7 +546,7 @@ build1VectorizeIndexVar
   :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
   => Int -> AstVarName Int -> Ast (m + n) r -> AstIndex m r
   -> Ast (1 + n) r
-build1VectorizeIndexVar k var v1 Z = build1VectorizeVar k (var, v1)
+build1VectorizeIndexVar k var v1 ZI = build1VectorizeVar k (var, v1)
 build1VectorizeIndexVar k var v1 is@(_ :. _) =
   let (rest1, i1) = unsnocIndex is  -- TODO: rename to (init1, last1)?
   in case v1 of
@@ -581,14 +581,14 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
       -- There's no other reduction left to perform and hope the build vanishes.
       let t = AstFromList $ map (\v ->
             build1Vectorize k (var, AstIndexN v rest1)) l
-      in AstGatherPair k (var, i1 :. AstIntVar var :. Z) t
+      in AstGatherPair k (var, i1 :. AstIntVar var :. ZI) t
     AstFromList l ->
       AstIndexN (AstFromList $ map (\v ->
         build1Vectorize k (var, AstIndexN v rest1)) l) (singletonIndex i1)
     AstFromVector l | intVarInAstInt var i1 ->
       let t = AstFromVector $ V.map (\v ->
             build1Vectorize k (var, AstIndexN v rest1)) l
-      in AstGatherPair k (var, i1 :. AstIntVar var :. Z) t
+      in AstGatherPair k (var, i1 :. AstIntVar var :. ZI) t
     AstFromVector l ->
       AstIndexN (AstFromVector $ V.map (\v ->
         build1Vectorize k (var, AstIndexN v rest1)) l) (singletonIndex i1)
@@ -611,11 +611,11 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
                   :. rest1
       in build1VectorizeIndexVar k var v revIs
     AstTranspose v -> case (rest1, shapeAst v) of
-      (Z, ZS) ->
+      (ZI, ZS) ->
         build1VectorizeIndexVar @m @n k var v is  -- if rank too low, it's id
-      (Z, _ :$ ZS) ->
+      (ZI, _ :$ ZS) ->
         build1VectorizeIndexVar k var v is  -- if rank too low, it's id
-      (Z, _) -> AstBuildPair k (var, AstIndexN v1 is)  -- we give up
+      (ZI, _) -> AstBuildPair k (var, AstIndexN v1 is)  -- we give up
       (i2 :. rest2, _) -> build1VectorizeIndexVar k var v (i2 :. i1 :. rest2)
     AstTransposeGeneral perm v ->
       let lenp = length perm
@@ -631,7 +631,7 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
                   -- or get stuck as well
             | otherwise -> build1VectorizeIndexVar k var v is2
     AstFlatten v -> case rest1 of
-      Z ->
+      ZI ->
         let ixs2 = fromLinearIdx (fmap AstIntConst (shapeAst v)) i1
         in build1VectorizeIndexVar k var v ixs2
       _ -> error "build1VectorizeIndexVar: AstFlatten: impossible pattern needlessly required"
@@ -670,7 +670,7 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
     AstKonst0N sh v ->
       let s = shapeSize sh
       in build1VectorizeIndexVar k var (AstReshape sh $ AstKonst s v) is
-    AstBuildPair0N _sh (Z, _r) ->
+    AstBuildPair0N _sh (ZI, _r) ->
       error "build1VectorizeIndexVar: impossible case; is would have to be []"
     -- TODO: too hard until we have a sized list of variables names
     -- so we coerce for now:
