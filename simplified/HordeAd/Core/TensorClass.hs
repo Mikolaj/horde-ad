@@ -195,7 +195,10 @@ class (RealFloat r, RealFloat (TensorOf 1 r), Integral (IntOf r))
   tdot0 :: KnownNat n => TensorOf n r -> TensorOf n r -> TensorOf 0 r
   tdot0 t u = tsum (tflatten t * tflatten u)
   tminimum0 :: TensorOf 1 r -> TensorOf 0 r
+  tminimum0 t = tindex t (singletonIndex $ tminIndex t)
   tmaximum0 :: TensorOf 1 r -> TensorOf 0 r
+  tmaximum0 t =  tindex t (singletonIndex $ tmaxIndex t)
+
   tfromIntOf0 :: IntOf r -> TensorOf 0 r
   tfromIntOf0 = tscalar . fromIntegral
 
@@ -336,7 +339,6 @@ instance (ADModeAndNumTensor d r, TensorOf 1 r ~ OR.Array 1 r)
   tminimum0 (D u u') =
     let ix = tminIndex u
     in dD (tindexR u ix) (dIndex1 u' ix (tlength u))
-      -- no default methods for these two, because of the speedups like this
   tmaximum0 (D u u') =
     let ix = tmaxIndex u
     in dD (tindexR u ix) (dIndex1 u' ix (tlength u))
@@ -380,8 +382,6 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
 
   tindex = AstIndexN
   tsum = AstSum
-  tminimum0 v = AstIndexN v (singletonIndex $ AstMinIndex v)
-  tmaximum0 v = AstIndexN v (singletonIndex $ AstMaxIndex v)
   tfromIntOf0 = AstConstInt
     -- toInteger is not defined for Ast, hence a special implementation
 
