@@ -39,6 +39,8 @@ import HordeAd.Internal.OrthotopeOrphanInstances ()
 
 type AstIndex n r = Index n (AstInt r)
 
+type AstVarList n = Index n (AstVarName Int)
+
 -- We use here @ShapeInt@ for simplicity. @Shape n (AstInt r)@ gives
 -- more expressiveness, but leads to irregular tensors,
 -- especially after vectorization, and prevents statically known shapes.
@@ -98,7 +100,7 @@ data Ast :: Nat -> Type -> Type where
   AstFromList0N :: ShapeInt n -> [Ast 0 r] -> Ast n r
   AstFromVector0N :: ShapeInt n -> Data.Vector.Vector (Ast 0 r) -> Ast n r
   AstKonst0N :: ShapeInt n -> Ast 0 r -> Ast n r
-  AstBuildPair0N :: ShapeInt n -> ([AstVarName Int], Ast 0 r) -> Ast n r
+  AstBuildPair0N :: ShapeInt n -> (AstVarList n, Ast 0 r) -> Ast n r
 
   -- For MonoFunctor class, which is needed for a particularly
   -- fast implementation of relu and offers fast, primal-part only, mapping.
