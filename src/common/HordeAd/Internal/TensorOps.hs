@@ -221,7 +221,7 @@ tfromVector0NR sh l = OR.fromVector (shapeToList sh) $ V.convert l
 tkonstR
   :: (KnownNat n, Numeric r)
   =>  Int -> OR.Array n r -> OR.Array (1 + n) r
-tkonstR n u = OR.ravel $ ORB.constant [n] u
+tkonstR s u = OR.ravel $ ORB.constant [s] u
 
 tkonst0NR
   :: (KnownNat n, Numeric r)
@@ -254,8 +254,8 @@ treshapeR sh = OR.reshape (shapeToList sh)
 tbuildR
   :: (KnownNat n, Numeric r)
   => Int -> (Int -> OR.Array n r) -> OR.Array (1 + n) r
-tbuildR n f = OR.ravel $ ORB.fromList [n]
-              $ map f [0 .. n - 1]  -- hope this fuses
+tbuildR k f = OR.ravel $ ORB.fromList [k]
+              $ map f [0 .. k - 1]  -- hope this fuses
 
 tbuild0NR
   :: (KnownNat n, Numeric r)

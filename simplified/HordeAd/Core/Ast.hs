@@ -334,7 +334,7 @@ shapeAst v1 = case v1 of
   AstFromVector l -> case V.toList l of
     [] -> error "shapeAst: AstFromVector with no arguments"
     t : _ -> V.length l :$ shapeAst t
-  AstKonst n v -> n :$ shapeAst v
+  AstKonst s v -> s :$ shapeAst v
   AstAppend x y -> case shapeAst x of
     ZS -> error "shapeAst: impossible pattern needlessly required"
     xi :$ xsh -> case shapeAst y of
@@ -351,9 +351,9 @@ shapeAst v1 = case v1 of
     else permutePrefixShape perm (shapeAst v)
   AstFlatten v -> flattenShape (shapeAst v)
   AstReshape sh _v -> sh
-  AstBuildPair n (_var, v) -> n :$ shapeAst v
-  AstGatherPair n (_var, _is :: Index len (AstInt r)) v ->
-    n :$ dropShape @len (shapeAst v)
+  AstBuildPair k (_var, v) -> k :$ shapeAst v
+  AstGatherPair k (_var, _is :: Index len (AstInt r)) v ->
+    k :$ dropShape @len (shapeAst v)
   AstSum0 _v -> ZS
   AstDot0 _x _y -> ZS
   AstFromList0N sh _l -> sh
@@ -366,7 +366,7 @@ shapeAst v1 = case v1 of
 lengthAst :: (KnownNat n, Show r, Numeric r) => Ast (1 + n) r -> Int
 lengthAst v1 = case shapeAst v1 of
   ZS -> error "lengthAst: impossible pattern needlessly required"
-  n :$ _ -> n
+  k :$ _ -> k
 
 substituteAst :: (Show r, Numeric r)
               => AstInt r -> AstVarName Int -> Ast n r -> Ast n r
@@ -387,18 +387,18 @@ substituteAst i var v1 = case v1 of
   AstSum v -> AstSum (substituteAst i var v)
   AstFromList l -> AstFromList $ map (substituteAst i var) l
   AstFromVector l -> AstFromVector $ V.map (substituteAst i var) l
-  AstKonst n v -> AstKonst n (substituteAst i var v)
+  AstKonst s v -> AstKonst s (substituteAst i var v)
   AstAppend x y -> AstAppend (substituteAst i var x) (substituteAst i var y)
-  AstSlice n k v -> AstSlice n k (substituteAst i var v)
+  AstSlice k s v -> AstSlice k s (substituteAst i var v)
   AstReverse v -> AstReverse (substituteAst i var v)
   AstTranspose v -> AstTranspose (substituteAst i var v)
   AstTransposeGeneral perm v -> AstTransposeGeneral perm (substituteAst i var v)
   AstFlatten v -> AstFlatten (substituteAst i var v)
   AstReshape sh v -> AstReshape sh (substituteAst i var v)
-  AstBuildPair n (var2, v) ->
-    AstBuildPair n (var2, substituteAst i var v)
-  AstGatherPair n (var2, is) v ->
-    AstGatherPair n (var2, fmap (substituteAstInt i var) is)
+  AstBuildPair k (var2, v) ->
+    AstBuildPair k (var2, substituteAst i var v)
+  AstGatherPair k (var2, is) v ->
+    AstGatherPair k (var2, fmap (substituteAstInt i var) is)
                   (substituteAst i var v)
   AstSum0 v -> AstSum0 (substituteAst i var v)
   AstDot0 x y -> AstDot0 (substituteAst i var x) (substituteAst i var y)
