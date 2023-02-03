@@ -95,8 +95,6 @@ data Ast :: Nat -> Type -> Type where
   -- This is treated as syntactic sugar for now, but these have
   -- much more efficient non-sugar implementations
   -- (and possibly more efficient vectorizations).
-  AstDot0 :: KnownNat n
-          => Ast n r -> Ast n r -> Ast 0 r
   AstFromList0N :: ShapeInt n -> [Ast 0 r] -> Ast n r
   AstFromVector0N :: ShapeInt n -> Data.Vector.Vector (Ast 0 r) -> Ast n r
   AstKonst0N :: ShapeInt n -> Ast 0 r -> Ast n r
@@ -348,7 +346,6 @@ shapeAst v1 = case v1 of
   AstBuildPair k (_var, v) -> k :$ shapeAst v
   AstGatherPair k (_var, _is :: Index len (AstInt r)) v ->
     k :$ dropShape @len (shapeAst v)
-  AstDot0 _x _y -> ZS
   AstFromList0N sh _l -> sh
   AstFromVector0N sh _l -> sh
   AstKonst0N sh _r -> sh
@@ -392,7 +389,6 @@ substituteAst i var v1 = case v1 of
   AstGatherPair k (var2, is) v ->
     AstGatherPair k (var2, fmap (substituteAstInt i var) is)
                   (substituteAst i var v)
-  AstDot0 x y -> AstDot0 (substituteAst i var x) (substituteAst i var y)
   AstFromList0N sh l -> AstFromList0N sh $ map (substituteAst i var) l
   AstFromVector0N sh l -> AstFromVector0N sh $ V.map (substituteAst i var) l
   AstKonst0N sh r -> AstKonst0N sh (substituteAst i var r)

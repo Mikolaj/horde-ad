@@ -178,6 +178,7 @@ tdot0R
   :: Numeric r
   => OR.Array n r -> OR.Array n r -> r
 tdot0R u v = OR.toVector u LA.<.> OR.toVector v
+  -- TODO: if offset 0 and same strides, use toUnorderedVectorT
 
 tminimum0R
   :: Numeric r
