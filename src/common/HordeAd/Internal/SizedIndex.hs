@@ -248,8 +248,8 @@ toLinearIdx = \sh idx -> snd (go sh idx)
     -- Returns (shape size, linear index)
     go :: forall m1 n1. Shape (m1 + n1) i -> Index m1 i -> (i, i)
     go sh Z = (shapeSize sh, 0)
-    go (Shape (n :. sh)) (i :. idx) =
-      let (restsize, lin) = go (Shape sh) idx
+    go (n :$ sh) (i :. idx) =
+      let (restsize, lin) = go sh idx
       in (n * restsize, i * restsize + lin)
     go _ _ = error "toLinearIdx: impossible pattern needlessly required"
 
@@ -261,13 +261,13 @@ fromLinearIdx = \sh lin -> snd (go sh lin)
     -- Returns (linear index into array of sub-tensors,
     -- multi-index within sub-tensor).
     go :: Integral i => Shape n i -> i -> (i, Index n i)
-    go (Shape Z) n = (n, Z)
-    go (Shape (n :. sh)) lin =
-      let (tensLin, idxInTens) = go (Shape sh) lin
+    go ZS n = (n, Z)
+    go (n :$ sh) lin =
+      let (tensLin, idxInTens) = go sh lin
           (tensLin', i) = tensLin `quotRem` n
       in (tensLin', i :. idxInTens)
 
 -- | The zero index in this shape (not dependent on the actual integers)
 zeroOf :: Num i => Shape n i -> Index n i
-zeroOf (Shape Z) = Z
-zeroOf (Shape (_ :. sh)) = 0 :. zeroOf (Shape sh)
+zeroOf ZS = Z
+zeroOf (_ :$ sh) = 0 :. zeroOf sh
