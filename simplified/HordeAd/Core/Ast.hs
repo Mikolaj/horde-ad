@@ -32,8 +32,8 @@ import           Numeric.LinearAlgebra (Numeric)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Text.Show.Functions ()
 
-import HordeAd.Internal.OrthotopeOrphanInstances ()
 import HordeAd.Core.SizedIndex
+import HordeAd.Internal.OrthotopeOrphanInstances ()
 
 -- * Ast definitions
 
@@ -64,10 +64,8 @@ data Ast :: Nat -> Type -> Type where
   AstVar :: ShapeInt n -> AstVarName (OR.Array n r) -> Ast n r
 
   -- For VectorLike and Tensor class:
-  AstIndex :: Ast (1 + n) r -> AstInt r -> Ast n r
   AstIndexN :: forall m n r. KnownNat m
             => Ast (m + n) r -> AstIndex m r -> Ast n r
-    -- emerges from vectorizing AstIndex;
     -- first ix is for outermost dimension; empty index means identity
   AstSum :: Ast (1 + n) r -> Ast n r
   AstFromList :: [Ast n r] -> Ast (1 + n) r
@@ -324,9 +322,7 @@ shapeAst v1 = case v1 of
   AstConstant (AstPrimalPart1 a) -> shapeAst a
   AstScale (AstPrimalPart1 r) _d -> shapeAst r
   AstVar sh _var -> sh
-  AstIndex v _i -> tailShape $ shapeAst v
-  AstIndexN v (_is :: Index len (AstInt r)) ->
-    dropShape @len (shapeAst v)
+  AstIndexN v (_is :: Index m (AstInt r)) -> dropShape @m (shapeAst v)
   AstSum v -> tailShape $ shapeAst v
   AstFromList l -> case l of
     [] -> error "shapeAst: AstFromList with no arguments"
@@ -381,7 +377,6 @@ substituteAst i var v1 = case v1 of
   AstScale (AstPrimalPart1 r) d ->
     AstScale (AstPrimalPart1 $ substituteAst i var r) (substituteAst i var d)
   AstVar _sh _var -> v1
-  AstIndex v i2 -> AstIndex (substituteAst i var v) (substituteAstInt i var i2)
   AstIndexN v is ->
     AstIndexN (substituteAst i var v) (fmap (substituteAstInt i var) is)
   AstSum v -> AstSum (substituteAst i var v)

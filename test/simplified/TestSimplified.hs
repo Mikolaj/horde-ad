@@ -70,7 +70,7 @@ fooBuild1 v =
        r * foo ( 3
                , 5 * r
                , r * tminimum0 v * v')
-       + bar (r, tindex v (ix + 1))
+       + bar (r, tindex v [ix + 1])
 
 fooMap1 :: ADReady r => r -> TensorOf 1 r
 fooMap1 r =
@@ -84,9 +84,9 @@ fooNoGoAst :: (Show r, Numeric r, RealFloat r, Floating (Vector r))
 fooNoGoAst v =
   let r = tsum0 v
   in tbuild 3 (\ix ->
-       barAst (3.14, bar (3.14, tindex v ix))
+       barAst (3.14, bar (3.14, tindex v [ix]))
        + AstCond (AstBoolOp AndOp  -- TODO: overload &&, <=, >, etc.
-                             [ tindex v (ix * 2) `leqAst` 0
+                             [ tindex v [ix * 2] `leqAst` 0
                              , 6 `gtIntAst` abs ix ])
                  r (5 * r))
      / tslice 1 3 (tmap0N (\x -> AstCond (x `gtAst` r) r x) v)
@@ -99,12 +99,12 @@ nestedBuildMap r =
   let w = tkonst0N [4]  -- (AstIntCond (x `leqAst` 0) 3 4)
       v' = tkonst0N [177] r :: TensorOf 1 r
       nestedMap x = tmap0N (x /) (w x)
-      variableLengthBuild iy = tbuild 7 (\ix -> tindex v' (ix + iy)) :: TensorOf 1 r
+      variableLengthBuild iy = tbuild 7 (\ix -> tindex v' [ix + iy]) :: TensorOf 1 r
       doublyBuild = tbuild 5 (tminimum0 . variableLengthBuild)
   in tmap0N (\x -> x
                   * tunScalar (tsum0
                       (tbuild 3 (\ix -> bar ( tscalar x
-                                            , tindex v' ix) )
+                                            , tindex v' [ix]) )
                        + fooBuild1 (nestedMap x)
                        / fooMap1 x))
            ) doublyBuild
@@ -113,13 +113,13 @@ nestedSumBuild :: ADReady r => TensorOf 1 r -> TensorOf 1 r
 nestedSumBuild v =
   tbuild 13 (\ix ->
     tsum (tbuild 4 (\ix2 ->
-      flip tindex ix2
+      flip tindex [ix2]
         (tbuild 5 (\ _ -> tsum v)
          * tfromList
              [ tfromIntOf0 ix
              , tsum (tbuild 9 tfromIntOf0)
              , tsum (tbuild 6 (\_ -> tsum v))
-             , tindex v ix2
+             , tindex v [ix2]
              , tsum (tbuild 3 (\ix7 ->
                  tsum (tkonst 5 (tfromIntOf0 ix7))))
 -- dynamic shapes:
@@ -130,11 +130,11 @@ nestedSumBuild v =
 --                 tsum (tkonst0N [ix2 + ix7 + 1] 2.4)))
              ]))))
   + tbuild 13 (\ix ->
-      nestedBuildMap (tunScalar $ tsum0 v) `tindex` min ix 4)
+      nestedBuildMap (tunScalar $ tsum0 v) `tindex` [min ix 4])
 
-nestedBuildIndex :: ADReady r => TensorOf 1 r -> TensorOf 1 r
+nestedBuildIndex :: forall r. ADReady r => TensorOf 1 r -> TensorOf 1 r
 nestedBuildIndex v =
-  tbuild 2 $ \ix2 -> tindex (tbuild 3 $ \ix3 -> tindex (tbuild 4 $ \ix4 -> tindex v ix4) ix3) ix2
+  tbuild 2 $ \ix2 -> tindex @r @1 (tbuild 3 $ \ix3 -> tindex (tbuild 4 $ \ix4 -> tindex @r @1 v [ix4]) [ix3]) [ix2]
 
 barRelu
   :: ( RealFloat a
@@ -176,11 +176,11 @@ f2 = \arg ->
 
 -- * Vector tests (many by TomS as well)
 
-braidedBuilds :: ADReady r => r -> TensorOf 2 r
+braidedBuilds :: forall r. ADReady r => r -> TensorOf 2 r
 braidedBuilds r =
   tbuild 3 (\ix1 ->
-    tbuild 4 (\ix2 -> tindex (tfromList0N [4]
-                                [tunScalar $ tfromIntOf0 ix2, 7, r, -0.2]) ix1))
+    tbuild 4 (\ix2 -> tindex @r @1 (tfromList0N [4]
+                                      [tunScalar $ tfromIntOf0 ix2, 7, r, -0.2]) [ix1]))
 
 recycled :: ADReady r
          => r -> TensorOf 5 r

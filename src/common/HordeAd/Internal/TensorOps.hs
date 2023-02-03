@@ -32,8 +32,8 @@ import qualified Numeric.LinearAlgebra as LA
 import qualified Numeric.LinearAlgebra.Devel
 import           Text.Show.Functions ()
 
-import HordeAd.Internal.OrthotopeOrphanInstances (liftVR, liftVR2)
 import HordeAd.Core.SizedIndex
+import HordeAd.Internal.OrthotopeOrphanInstances (liftVR, liftVR2)
 
 dummyTensor :: Numeric r => OT.Array r
 dummyTensor =  -- an inconsistent tensor array
@@ -136,6 +136,7 @@ tindexR
   => OR.Array (1 + n) r -> Int -> OR.Array n r
 tindexR = OR.index
 
+-- TODO: optimize to tindexR for n == 0
 tindex0R
   :: Numeric r
   => OR.Array n r -> IndexInt n -> r
