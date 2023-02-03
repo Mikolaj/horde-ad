@@ -1,10 +1,10 @@
 {-# LANGUAGE ConstraintKinds, DataKinds, DeriveFunctor, DerivingStrategies,
              FlexibleInstances, GADTs, MultiParamTypeClasses, PolyKinds,
              QuantifiedConstraints, RankNTypes, StandaloneDeriving,
-             TypeFamilyDependencies, UndecidableInstances #-}
+             TypeFamilyDependencies #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
--- | @Nat@-indexed sized lists.
+-- | @GHC.Nat@-indexed lists.
 module HordeAd.Internal.SizedList
   ( SizedList(..)
   , singletonSized, snocSized, appendSized
@@ -24,7 +24,7 @@ import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Text.Show.Functions ()
 import           Unsafe.Coerce (unsafeCoerce)
 
--- | Standard sized lists indexed by the built-in @Nat@ type.
+-- | Standard sized lists indexed by the GHC @Nat@ type.
 --
 -- Strongly Worded Warning: the implementation of this datatype should never
 -- be changed, even by adding a constraint or making a field strict or packed.
@@ -63,7 +63,7 @@ snocSized (i ::: ix) last1 = i ::: snocSized ix last1
 
 appendSized :: SizedList m i -> SizedList n i -> SizedList (m + n) i
 appendSized Z ix2 = ix2
-appendSized (i1 ::: ix1) ix2 = i1 :::  appendSized ix1 ix2
+appendSized (i1 ::: ix1) ix2 = i1 ::: appendSized ix1 ix2
 
 headSized :: SizedList (1 + n) i -> i
 headSized Z = error "headSized: impossible pattern needlessly required"

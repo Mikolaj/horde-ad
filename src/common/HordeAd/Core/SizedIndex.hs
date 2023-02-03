@@ -1,20 +1,20 @@
 {-# LANGUAGE ConstraintKinds, DataKinds, DeriveFunctor, DerivingStrategies,
              FlexibleInstances, GADTs, MultiParamTypeClasses, PolyKinds,
              QuantifiedConstraints, RankNTypes, StandaloneDeriving,
-             TypeFamilyDependencies, UndecidableInstances, ViewPatterns #-}
+             TypeFamilyDependencies, ViewPatterns #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Sized indexes and shapes for tensors.
 module HordeAd.Core.SizedIndex
   ( -- * Concrete type synonyms to be used in many other modules
     IndexInt, ShapeInt, Permutation
-    -- * GHC.Nat-indexed lists as array indexes, with operations
-  , Index(..)
+    -- * Tensor indexes as fully encapsulated sized lists, with operations
+  , Index, pattern (:.), pattern ZI
   , singletonIndex, snocIndex, appendIndex
   , headIndex, tailIndex, takeIndex, dropIndex, permutePrefixIndex
   , unsnocIndex, lastIndex, initIndex
-  , idxCompare , listToIndex, indexToList
-    -- * Shapes as fully encapsulated indexes, with operations
+  , listToIndex, indexToList
+    -- * Tensor shapes as fully encapsulated sized lists, with operations
   , Shape, pattern (:$), pattern ZS
   , singletonShape, tailShape, takeShape, dropShape, permutePrefixShape
   , shapeSize, flattenShape
@@ -25,13 +25,10 @@ module HordeAd.Core.SizedIndex
 
 import Prelude
 
-import           Data.Array.Internal (valueOf)
-import qualified Data.Strict.Vector as Data.Vector
-import qualified Data.Vector.Generic as V
-import           GHC.Exts (IsList (..))
-import           GHC.TypeLits (KnownNat, Nat, type (+))
-import           Text.Show.Functions ()
-import           Unsafe.Coerce (unsafeCoerce)
+import Control.Arrow (first)
+import GHC.Exts (IsList (..))
+import GHC.TypeLits (KnownNat, type (+))
+import Text.Show.Functions ()
 
 import HordeAd.Internal.OrthotopeOrphanInstances ()
 import HordeAd.Internal.SizedList
@@ -43,29 +40,32 @@ type IndexInt n = Index n Int
 type ShapeInt n = Shape n Int
 
 
--- * GHC.Nat-indexed lists as array indexes, with operations
+-- * Tensor indexes as fully encapsulated sized lists, with operations
 
--- | An index in an n-dimensional array. The slowest-moving index is at the
--- head position; thus the index 'i :. j :. Z' represents 'a[i][j]' in
--- traditional C notation.
---
--- Strongly Worded Warning: the implementation of this datatype should never
--- be changed, even by adding a constraint or making a field strict or packed.
--- Otherwise the multiple @unsafeCoerce@ below won't work any more,
--- because they depend on the runtime representation of the datatype
--- being identical to the representation of ordinary lists.
--- Note that changes in GHC or base library may similarly break this code,
--- though there should be ample advance warning, given that many
--- programs depend on this coincidence.
+-- | An index in an n-dimensional array represented as a sized list.
+-- The slowest-moving index is at the head position;
+-- thus the index 'i :. j :. Z' represents 'a[i][j]' in traditional C notation.
+newtype Index n i = Index (SizedList n i)
+  deriving Show
+
+pattern ZI :: forall n i. () => n ~ 0 => Index n i
+pattern ZI = Index Z
+
 infixr 3 :.
-data Index (n :: Nat) i where
-  ZI :: Index 0 i
-  (:.) :: i -> Index n i -> Index (1 + n) i
+pattern (:.) :: forall n1 i. forall n. (1 + n) ~ n1
+             => i -> Index n i -> Index n1 i
+pattern i :. sh <- (unconsIndex -> Just (UnconsIndexRes sh i Dict))
+  where i :. (Index sh) = Index (i ::: sh)
+{-# COMPLETE ZI, (:.) #-}
 
-instance Show i => Show (Index n i) where
-  showsPrec _ ZI = showString "Z"
-  showsPrec d (i :. ix) = showParen (d > 3) $
-    showsPrec 4 i . showString " :. " . showsPrec 3 ix
+data Dict c where
+  Dict :: c => Dict c
+data UnconsIndexRes i n1 =
+  forall n. UnconsIndexRes (Index n i) i (Dict (n1 ~ (1 + n)))
+unconsIndex :: Index n1 i -> Maybe (UnconsIndexRes i n1)
+unconsIndex (Index sh) = case sh of
+  i ::: sh' -> Just (UnconsIndexRes (Index sh') i Dict)
+  Z -> Nothing
 
 deriving stock instance Functor (Index n)
 
@@ -78,68 +78,40 @@ instance KnownNat n => IsList (Index n i) where
   toList = indexToList
 
 singletonIndex :: i -> Index 1 i
-singletonIndex i = i :. ZI
+singletonIndex = Index . singletonSized
 
 snocIndex :: Index n i -> i -> Index (1 + n) i
-snocIndex ZI last1 = last1 :. ZI
-snocIndex (i :. ix) last1 = i :. snocIndex ix last1
+snocIndex (Index ix) i = Index $ snocSized ix i
 
 appendIndex :: Index m i -> Index n i -> Index (m + n) i
-appendIndex ZI ix2 = ix2
-appendIndex (i1 :. ix1) ix2 = i1 :.  appendIndex ix1 ix2
+appendIndex (Index ix1) (Index ix2) = Index $ appendSized ix1 ix2
 
 headIndex :: Index (1 + n) i -> i
-headIndex ZI = error "headIndex: impossible pattern needlessly required"
-headIndex (i :. _ix) = i
+headIndex (Index ix) = headSized ix
 
 tailIndex :: Index (1 + n) i -> Index n i
-tailIndex ZI = error "tailIndex: impossible pattern needlessly required"
-tailIndex (_i :. ix) = ix
+tailIndex (Index ix) = Index $ tailSized ix
 
 takeIndex :: forall len n i. KnownNat len
           => Index (len + n) i -> Index n i
-takeIndex ix = unsafeCoerce $ take (valueOf @len) $ unsafeCoerce ix
+takeIndex (Index ix) = Index $ takeSized ix
 
 dropIndex :: forall len n i. KnownNat len
           => Index (len + n) i -> Index n i
-dropIndex ix = unsafeCoerce $ drop (valueOf @len) $ unsafeCoerce ix
+dropIndex (Index ix) = Index $ dropSized ix
 
 unsnocIndex :: Index (1 + n) i -> (Index n i, i)
-unsnocIndex ZI = error "unsnocIndex: impossible pattern needlessly required"
-unsnocIndex (i :. ix) = case ix of
-  ZI -> (ZI, i)
-  _ :. _ -> let (init1, last1) = unsnocIndex ix
-            in (i :. init1, last1)
+unsnocIndex (Index ix) = first Index $ unsnocSized ix
 
 lastIndex :: Index (1 + n) i -> i
-lastIndex ZI = error "lastIndex: impossible pattern needlessly required"
-lastIndex (i :. ZI) = i
-lastIndex (_i :. ix@(_ :. _)) = lastIndex ix
+lastIndex (Index ix) = lastSized ix
 
 initIndex :: Index (1 + n) i -> Index n i
-initIndex ZI = error "initIndex: impossible pattern needlessly required"
-initIndex (_i :. ZI) = ZI
-initIndex (i :. ix@(_ :. _)) = i :. initIndex ix
+initIndex (Index ix) = Index $ initSized ix
 
--- This permutes a prefix of the index of the length of the permutation.
--- The rest of the index is left intact.
--- Boxed vector is not that bad, because we move pointers around,
--- but don't follow them. Storable vectors wouldn't work for Ast.
 permutePrefixIndex :: forall n i. KnownNat n
                    => Permutation -> Index n i -> Index n i
-permutePrefixIndex p ix =
-  if valueOf @n < length p
-  then error "permutePrefixIndex: cannot permute index, because it's too short"
-  else let l = unsafeCoerce ix
-       in (unsafeCoerce :: [i] -> Index n i)
-          $ V.toList $ Data.Vector.fromList l V.// zip p l
-
--- | Pairwise comparison of two index values. The comparison function is invoked
--- once for each rank on the corresponding pair of indices.
-idxCompare :: Monoid m => (i -> i -> m) -> Index n i -> Index n i -> m
-idxCompare _ ZI ZI = mempty
-idxCompare f (i :. idx) (j :. idx') = f i j <> idxCompare f idx idx'
-idxCompare _ _ _ = error "idxCompare: impossible pattern needlessly required"
+permutePrefixIndex p (Index ix) = Index $ permutePrefixSized p ix
 
 {-
 -- Look Ma, no unsafeCoerce! But it compiles only with GHC >= 9.2,
@@ -161,47 +133,35 @@ listToIndex (i : is)
 -}
 
 listToIndex :: forall n i. KnownNat n => [i] -> Index n i
-listToIndex list
-  | length list == valueOf @n
-  = go list unsafeCoerce
-  | otherwise
-  = error "listToIndex: list length disagrees with context"
-  where
-    go :: [i] -> (forall m. Index m i -> r) -> r
-    go [] k = k ZI
-    go (i : rest) k = go rest (\rest' -> k (i :. rest'))
+listToIndex = Index . listToSized
 
 indexToList :: Index n i -> [i]
-indexToList = unsafeCoerce
+indexToList (Index l) = sizedListToList l
 
 
--- * Shapes as fully encapsulated indexes, with operations
+-- * Tensor shapes as fully encapsulated sized lists, with operations
 
--- | The shape of an n-dimensional array. Represented by an index to not
--- duplicate representations and convert easily between each. It seems unlikely
--- enough to make mistakes even with this dumb wrapper, so it might be fine.
-newtype Shape n i = Shape (Index n i)
-  deriving (Show)
+-- | The shape of an n-dimensional array represented as a sized list.
+-- The order of dimensions corresponds to that in @Index@.
+newtype Shape n i = Shape (SizedList n i)
+  deriving Show
 
--- NO IDEA why @() =>@ is required, but typing of Ast fails without it.
 pattern ZS :: forall n i. () => n ~ 0 => Shape n i
-pattern ZS = Shape ZI
+pattern ZS = Shape Z
 
 infixr 3 :$
 pattern (:$) :: forall n1 i. forall n. (1 + n) ~ n1
              => i -> Shape n i -> Shape n1 i
 pattern i :$ sh <- (unconsShape -> Just (UnconsShapeRes sh i Dict))
-  where i :$ (Shape sh) = Shape (i :. sh)
+  where i :$ (Shape sh) = Shape (i ::: sh)
 {-# COMPLETE ZS, (:$) #-}
 
-data Dict c where
-  Dict :: c => Dict c
 data UnconsShapeRes i n1 =
   forall n. UnconsShapeRes (Shape n i) i (Dict (n1 ~ (1 + n)))
 unconsShape :: Shape n1 i -> Maybe (UnconsShapeRes i n1)
 unconsShape (Shape sh) = case sh of
-  i :. sh' -> Just (UnconsShapeRes (Shape sh') i Dict)
-  ZI -> Nothing
+  i ::: sh' -> Just (UnconsShapeRes (Shape sh') i Dict)
+  Z -> Nothing
 
 deriving stock instance Functor (Shape n)
 
@@ -214,22 +174,22 @@ instance KnownNat n => IsList (Shape n i) where
   toList = shapeToList
 
 singletonShape :: i -> Shape 1 i
-singletonShape = Shape . singletonIndex
+singletonShape = Shape . singletonSized
 
 tailShape :: Shape (1 + n) i -> Shape n i
-tailShape (Shape ix) = Shape $ tailIndex ix
+tailShape (Shape ix) = Shape $ tailSized ix
 
 takeShape :: forall len n i. KnownNat len
           => Shape (len + n) i -> Shape n i
-takeShape (Shape ix) = Shape $ takeIndex ix
+takeShape (Shape ix) = Shape $ takeSized ix
 
 dropShape :: forall len n i. KnownNat len
           => Shape (len + n) i -> Shape n i
-dropShape (Shape ix) = Shape $ dropIndex ix
+dropShape (Shape ix) = Shape $ dropSized ix
 
 permutePrefixShape :: forall n i. KnownNat n
                    => Permutation -> Shape n i -> Shape n i
-permutePrefixShape p (Shape ix) = Shape $ permutePrefixIndex p ix
+permutePrefixShape p (Shape ix) = Shape $ permutePrefixSized p ix
 
 -- | The number of elements in an array of this shape
 shapeSize :: Num i => Shape n i -> i
@@ -241,10 +201,10 @@ flattenShape = singletonShape . shapeSize
 
 -- Warning: do not pass a list of strides to this function.
 listShapeToShape :: forall n i. KnownNat n => [i] -> Shape n i
-listShapeToShape = Shape . listToIndex
+listShapeToShape = Shape . listToSized
 
 shapeToList :: Shape n i -> [i]
-shapeToList (Shape l) = indexToList l
+shapeToList (Shape l) = sizedListToList l
 
 
 -- * Operations involving both indexes and shapes
