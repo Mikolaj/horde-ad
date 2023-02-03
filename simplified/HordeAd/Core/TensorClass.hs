@@ -229,7 +229,9 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
        => (TensorOf n r -> TensorOf n r)
        -> TensorOf (1 + n) r -> TensorOf (1 + n) r
   tmap f u = tbuild (tlength u) (\i -> f (u `tindex` (singletonIndex i)))
-  tmap0N :: (r -> r) -> TensorOf 1 r -> TensorOf 1 r  -- TODO: less general type until sized lists let us type build0N sanely
+  tmap0N :: KnownNat n
+         => (r -> r) -> TensorOf n r -> TensorOf n r
+  tmap0N f v = tbuild0N (tshape v) (\ix -> f (tunScalar $ v `tindex` ix))
   tzipWith :: KnownNat n
            => (TensorOf n r -> TensorOf n r -> TensorOf n r)
            -> TensorOf (1 + n) r -> TensorOf (1 + n) r -> TensorOf (1 + n) r
@@ -237,6 +239,8 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
                                                (v `tindex` (singletonIndex i)))
   tzipWith0N :: KnownNat n
              => (r -> r -> r) -> TensorOf n r -> TensorOf n r -> TensorOf n r
+  tzipWith0N f u v = tbuild0N (tshape v) (\ix -> f (tunScalar $ u `tindex` ix)
+                                                   (tunScalar $ v `tindex` ix))
 
   tscalar :: r -> TensorOf 0 r
   tunScalar :: TensorOf 0 r -> r
@@ -364,8 +368,6 @@ instance (ADModeAndNumTensor d r, TensorOf 1 r ~ OR.Array 1 r)
     let g ixs = let D u _ = f ixs in u
         h ixs = let D _ u' = f ixs in u'
     in dD (tbuild0NR sh g) (dBuild01 sh h)
-  tmap0N f v = tbuild (tlength v) (\i -> scalar $ f (unScalar $ v `tindex` (singletonIndex i)))
-  tzipWith0N = undefined  -- TODO
 
   tscalar = scalar
   tunScalar = unScalar
@@ -398,9 +400,6 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   treshape = AstReshape
   tbuild = astBuild
   tbuild0N = undefined  -- TODO: type-level woes
-  tmap0N f v = astBuild (tlength v) (\i -> f (v `tindex` (singletonIndex i)))
-    -- TODO: without sharing v gets duplicated a lot
-  tzipWith0N = undefined  -- TODO
 
   tscalar = id  -- Ast confuses the two ranks
   tunScalar = id
