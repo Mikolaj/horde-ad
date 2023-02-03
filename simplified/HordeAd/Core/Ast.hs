@@ -68,7 +68,7 @@ data Ast :: Nat -> Type -> Type where
   AstIndexN :: forall m n r. KnownNat m
             => Ast (m + n) r -> AstIndex m r -> Ast n r
     -- emerges from vectorizing AstIndex;
-    -- first ix is for outermost dimension; empty path means identity
+    -- first ix is for outermost dimension; empty index means identity
   AstSum :: Ast (1 + n) r -> Ast n r
   AstFromList :: [Ast n r] -> Ast (1 + n) r
   AstFromVector :: Data.Vector.Vector (Ast n r) -> Ast (1 + n) r

@@ -163,7 +163,7 @@ data Delta1 :: Nat -> Type -> Type where
     -- The second integer is the length of the dimension.
   IndexN :: (KnownNat n, KnownNat m)
          => Delta1 (m + n) r -> IndexInt m -> ShapeInt (m + n) -> Delta1 n r
-    -- ^ The sub-tensor at the given path. The given shape is of the
+    -- ^ The sub-tensor at the given index. The given shape is of the
     -- large tensor.
   Sum1 :: KnownNat n
        => Int -> Delta1 (1 + n) r -> Delta1 n r
@@ -211,7 +211,7 @@ data Delta1 :: Nat -> Type -> Type where
           => Int -> (Int -> IndexInt m)
           -> ShapeInt (m + n) -> Delta1 (m + n) r -> Delta1 (1 + n) r
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
-    -- of length @m@. Paths of length 0 result in identities, so that,
+    -- of length @m@. Indexes of length 0 result in identities, so that,
     -- e.g, @Gather1 k (const Z) [] (Scalar1 d)@ is equivalent
     -- to @Konst01 [k] d@.
   Scatter1 :: (KnownNat n, KnownNat m)
@@ -219,7 +219,7 @@ data Delta1 :: Nat -> Type -> Type where
            -> Delta1 (1 + n) r -> ShapeInt (m + n) -> Delta1 (m + n) r
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
     -- the third argument and inserted in a zero tensor
-    -- at indexes of length @m@. Paths of length 0 insert tensors trivially,
+    -- at indexes of length @m@. Indexes of length 0 insert tensors trivially,
     -- so that, e.g, @Scatter1 5 (const Z) (Konst01 [5] d) []@ is equivalent
     -- to @5 * d@.
 
@@ -470,13 +470,13 @@ buildFinMaps s0 deltaDt =
           let ixs = indexToList ixs'
               f v = if isTensorDummy v
                     then OT.constant (shapeToList sh) 0 `OT.update` [(ixs, c)]
-                    else v `OT.update` [(ixs, v `atPathInTensorD` ixs + c)]
+                    else v `OT.update` [(ixs, v `tindex0D` ixs + c)]
           in s {iMap1 = EM.adjust f i $ iMap1 s}
         Index0 (Let1 n d) ixs' sh ->
           let ixs = indexToList ixs'
           in case EM.lookup n $ nMap s of
             Just (DeltaBinding1 _) ->
-              let f v = v `OT.update` [(ixs, v `atPathInTensorD` ixs + c)]
+              let f v = v `OT.update` [(ixs, v `tindex0D` ixs + c)]
               in s {dMap1 = EM.adjust f n $ dMap1 s}
                 -- This would be an asymptotic optimization compared to
                 -- the general case below, if not for the non-mutable update,

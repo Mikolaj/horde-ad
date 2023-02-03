@@ -71,10 +71,10 @@ toDynamicOrDummy sh x = if isTensorDummy x
                         then OT.constant sh 0
                         else x
 
-atPathInTensorD :: Numeric r => OT.Array r -> [Int] -> r
-atPathInTensorD (Data.Array.Internal.DynamicS.A
-                   (Data.Array.Internal.DynamicG.A _
-                      Data.Array.Internal.T{..})) is =
+tindex0D :: Numeric r => OT.Array r -> [Int] -> r
+tindex0D (Data.Array.Internal.DynamicS.A
+            (Data.Array.Internal.DynamicG.A _
+               Data.Array.Internal.T{..})) is =
   values V.! (offset + sum (zipWith (*) is strides))
     -- TODO: tests are needed to verify if order of dimensions is right
 

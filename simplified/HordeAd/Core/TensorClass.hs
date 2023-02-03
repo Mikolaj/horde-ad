@@ -641,7 +641,7 @@ build1VectorizeIndexVar n var v1 is@(_ :. _) =
                   -- the operation is an identity if rank too small
             | valueOf @m < lenp ->
                 AstBuildPair n (var, AstIndexN v1 is)  -- we give up
-                  -- TODO: for this we really need generalized paths that
+                  -- TODO: for this we really need generalized indexes that
                   -- first project, then transpose and generalized gather;
                   -- or instead push down transpose, but it may be expensive
                   -- or get stuck as well
@@ -790,7 +790,7 @@ index :: (ADModeAndNumTensor d r, KnownNat n)
 index (D u u') ix = dD (u `tindexR` ix) (dIndex1 u' ix (tlengthR u))
 
 -- | First index is for outermost dimension; empty index means identity.
--- TODO: speed up by using atPathInTensorR and dIndex0 if the codomain is 0.
+-- TODO: speed up by using tindex0R and dIndex0 if the codomain is 0.
 indexN :: forall m n d r. (ADModeAndNumTensor d r, KnownNat n, KnownNat m)
         => ADVal d (OR.Array (m + n) r) -> IndexInt m
         -> ADVal d (OR.Array n r)
@@ -910,12 +910,12 @@ interpretLambdaI
 interpretLambdaI env (AstVarName var, ast) =
   \i -> interpretAst (IM.insert var (AstVarI i) env) ast
 
-interpretLambdaPath
+interpretLambdaIndex
   :: ADModeAndNumTensor d r
   => AstEnv d r
   -> (AstVarName Int, AstIndex n r)
   -> Int -> IndexInt n
-interpretLambdaPath env (AstVarName var, asts) =
+interpretLambdaIndex env (AstVarName var, asts) =
   \i -> fmap (interpretAstInt (IM.insert var (AstVarI i) env)) asts
 
 interpretAstPrimal
@@ -970,7 +970,7 @@ interpretAst env = \case
       -- fallback to POPL (memory blowup, but avoids functions on tape);
       -- an alternative is to use dBuild1 and store function on tape
   AstGatherPair n (var, is) v ->
-    gatherClosure n (interpretLambdaPath env (var, is)) (interpretAst env v)
+    gatherClosure n (interpretLambdaIndex env (var, is)) (interpretAst env v)
     -- TODO: currently we store the function on tape, because it doesn't
     -- cause recomputation of the gradient per-cell, unlike storing the build
     -- function on tape; for GPUs and libraries that don't understand Haskell
