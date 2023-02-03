@@ -544,11 +544,11 @@ build1VectorizeIndex
   -> Ast (1 + n) r
 build1VectorizeIndex n var v Z =
   unsafeCoerce $ build1Vectorize n (var, v)
-build1VectorizeIndex n var v is@(iN :. restRev) =
+build1VectorizeIndex n var v is@(iN :. restN) =
   if | intVarInAst var v -> build1VectorizeIndexVar n var v is  -- push deeper
-     | or (fmap (intVarInAstInt var) restRev) -> AstGatherPair n (var, is) v
+     | or (fmap (intVarInAstInt var) restN) -> AstGatherPair n (var, is) v
      | intVarInAstInt var iN ->
-       let w = AstIndexN v restRev
+       let w = AstIndexN v restN
        in case build1VectorizeIndexAnalyze n var w iN of
             Just u -> u  -- an extremely simple form found
             Nothing -> AstGatherPair n (var, is) v
