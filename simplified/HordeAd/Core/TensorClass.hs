@@ -172,7 +172,8 @@ type IndexOf n r = Index n (IntOf r)
 -- (TODO: add coversions between VectorOf and TensorOf to facilitate this)
 -- but all its operations have straightforwardly generalized analogues below.
 -- Eventually, we'll remove @VectorNumeric@ or define it in terms of @Tensor@.
-class (RealFloat r, RealFloat (TensorOf 1 r), Integral (IntOf r))
+class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
+      , Integral (IntOf r) )
       => Tensor r where
   type TensorOf (n :: Nat) r = result | result -> n r
   type IntOf r
@@ -197,7 +198,7 @@ class (RealFloat r, RealFloat (TensorOf 1 r), Integral (IntOf r))
   tminimum0 :: TensorOf 1 r -> TensorOf 0 r
   tminimum0 t = tindex t (singletonIndex $ tminIndex t)
   tmaximum0 :: TensorOf 1 r -> TensorOf 0 r
-  tmaximum0 t =  tindex t (singletonIndex $ tmaxIndex t)
+  tmaximum0 t = tindex t (singletonIndex $ tmaxIndex t)
 
   tfromIntOf0 :: IntOf r -> TensorOf 0 r
   tfromIntOf0 = tscalar . fromIntegral
@@ -240,8 +241,7 @@ class (RealFloat r, RealFloat (TensorOf 1 r), Integral (IntOf r))
   tscalar :: r -> TensorOf 0 r
   tunScalar :: TensorOf 0 r -> r
 
-type ADReady r = ( Tensor r, HasPrimal r
-                 , RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r) )
+type ADReady r = (Tensor r, HasPrimal r)
   -- TODO: there is probably no way to also specify
   -- HasPrimal (TensorOf 17 r))
   -- for all n, not just 17. That means the user needs add such

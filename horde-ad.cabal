@@ -199,13 +199,6 @@ library exampleLibrary
                       MnistRnnShaped
   }
 
-    -- Modules included in this library but not exported.
-    -- other-modules:
-
-    -- LANGUAGE extensions used by modules in this package.
-    -- other-extensions:
-
-    -- Other library packages from which modules are imported.
     build-depends:
       , horde-ad
 
@@ -409,7 +402,6 @@ benchmark longProdBench
     type:             exitcode-stdio-1.0
     hs-source-dirs:   bench
     main-is:          LongProdBench.hs
-    other-modules:
     build-depends:
       , benchCommonLibrary
 
