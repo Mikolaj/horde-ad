@@ -33,7 +33,7 @@ import           Unsafe.Coerce (unsafeCoerce)
 import HordeAd.Core.Ast
 import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
-import HordeAd.Internal.SizedIndex
+import HordeAd.Core.SizedIndex
 import HordeAd.Internal.TensorOps
 
 -- * Odds and ends

@@ -74,7 +74,7 @@ import           Text.Show.Functions ()
 import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVR)
-import HordeAd.Internal.SizedIndex
+import HordeAd.Core.SizedIndex
 import HordeAd.Internal.TensorOps
 
 -- * Abstract syntax trees of the delta expressions

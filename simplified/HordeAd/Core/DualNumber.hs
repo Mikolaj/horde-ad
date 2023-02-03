@@ -51,7 +51,7 @@ import HordeAd.Core.Ast
 import HordeAd.Core.DualClass
 import HordeAd.Internal.Delta
   (Delta0, Domain0, Domain1, Domains (..), nullDomains)
-import HordeAd.Internal.SizedIndex
+import HordeAd.Core.SizedIndex
 import HordeAd.Internal.TensorOps
 
 -- * The main dual number type

@@ -33,7 +33,7 @@ import qualified Numeric.LinearAlgebra.Devel
 import           Text.Show.Functions ()
 
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVR, liftVR2)
-import HordeAd.Internal.SizedIndex
+import HordeAd.Core.SizedIndex
 
 dummyTensor :: Numeric r => OT.Array r
 dummyTensor =  -- an inconsistent tensor array

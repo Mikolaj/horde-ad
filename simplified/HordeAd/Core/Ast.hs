@@ -33,7 +33,7 @@ import           System.IO.Unsafe (unsafePerformIO)
 import           Text.Show.Functions ()
 
 import HordeAd.Internal.OrthotopeOrphanInstances ()
-import HordeAd.Internal.SizedIndex
+import HordeAd.Core.SizedIndex
 
 -- * Ast definitions
 

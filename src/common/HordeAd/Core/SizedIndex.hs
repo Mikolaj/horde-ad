@@ -8,7 +8,7 @@
 -- higher order operations such as build and map, but can be used
 -- for arbitrary code transformations at the cost of limiting
 -- expressiveness of transformed fragments to what AST captures.
-module HordeAd.Internal.SizedIndex
+module HordeAd.Core.SizedIndex
   ( -- * Concrete type synonyms to be used in many other modules
     IndexInt, ShapeInt,  Permutation
     -- * GHC.Nat-indexed lists as array indexes, with operations

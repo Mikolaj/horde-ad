@@ -138,12 +138,12 @@ library
                       HordeAd.Core.DualNumber
                       HordeAd.Core.Engine
                       HordeAd.Core.PairOfVectors
+                      HordeAd.Core.SizedIndex
                       HordeAd.External.Optimizer
                       HordeAd.External.OptimizerTools
                       HordeAd.Internal.Delta
                       HordeAd.Internal.MatrixOuter
                       HordeAd.Internal.OrthotopeOrphanInstances
-                      HordeAd.Internal.SizedIndex
                       HordeAd.Internal.TensorOps
 
   if flag(use_typelits_plugins) {
@@ -516,12 +516,12 @@ library horde-ad-simplified
                       HordeAd.Core.DualNumber
                       HordeAd.Core.Engine
                       HordeAd.Core.PairOfVectors
+                      HordeAd.Core.SizedIndex
                       HordeAd.Core.TensorClass
                       HordeAd.External.Optimizer
                       HordeAd.External.OptimizerTools
                       HordeAd.Internal.Delta
                       HordeAd.Internal.OrthotopeOrphanInstances
-                      HordeAd.Internal.SizedIndex
                       HordeAd.Internal.TensorOps
 
     build-depends:
