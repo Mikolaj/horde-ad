@@ -31,6 +31,7 @@ import Prelude
 import           Data.Array.Internal (valueOf)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
+import           GHC.Exts (IsList (..))
 import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Text.Show.Functions ()
 import           Unsafe.Coerce (unsafeCoerce)
@@ -74,6 +75,11 @@ deriving stock instance Functor (Index n)
 
 instance KnownNat n => Foldable (Index n) where
   foldr f z l = foldr f z (indexToList l)
+
+instance KnownNat n => IsList (Index n i) where
+  type Item (Index n i) = i
+  fromList = listToIndex
+  toList = indexToList
 
 singletonIndex :: i -> Index 1 i
 singletonIndex i = i :. Z
@@ -202,6 +208,14 @@ unconsShape (Shape sh) = case sh of
   Z -> Nothing
 
 deriving stock instance Functor (Shape n)
+
+instance KnownNat n => Foldable (Shape n) where
+  foldr f z l = foldr f z (shapeToList l)
+
+instance KnownNat n => IsList (Shape n i) where
+  type Item (Shape n i) = i
+  fromList = listShapeToShape
+  toList = shapeToList
 
 singletonShape :: i -> Shape 1 i
 singletonShape = Shape . singletonIndex
