@@ -101,7 +101,7 @@ data Ast :: Nat -> Type -> Type where
   AstFromList0N :: ShapeInt n -> [Ast 0 r] -> Ast n r
   AstFromVector0N :: ShapeInt n -> Data.Vector.Vector (Ast 0 r) -> Ast n r
   AstKonst0N :: ShapeInt n -> Ast 0 r -> Ast n r
-  AstBuildPair0N :: ShapeInt n -> (AstVarList n, Ast 0 r) -> Ast n r
+  AstBuildPairN :: ShapeInt n -> (AstVarList n, Ast 0 r) -> Ast n r
 
   -- For MonoFunctor class, which is needed for a particularly
   -- fast implementation of relu and offers fast, primal-part only, mapping.
@@ -352,7 +352,7 @@ shapeAst v1 = case v1 of
   AstFromList0N sh _l -> sh
   AstFromVector0N sh _l -> sh
   AstKonst0N sh _r -> sh
-  AstBuildPair0N sh (_vars, _r) -> sh
+  AstBuildPairN sh (_vars, _r) -> sh
   AstOMap (_var, _r) e -> shapeAst e
 
 -- Length of the outermost dimension.
@@ -395,7 +395,7 @@ substituteAst i var v1 = case v1 of
   AstFromList0N sh l -> AstFromList0N sh $ map (substituteAst i var) l
   AstFromVector0N sh l -> AstFromVector0N sh $ V.map (substituteAst i var) l
   AstKonst0N sh r -> AstKonst0N sh (substituteAst i var r)
-  AstBuildPair0N sh (vars, r) -> AstBuildPair0N sh (vars, substituteAst i var r)
+  AstBuildPairN sh (vars, r) -> AstBuildPairN sh (vars, substituteAst i var r)
   AstOMap (var2, r) e ->
     AstOMap (var2, substituteAst i var r) (substituteAst i var e)
 

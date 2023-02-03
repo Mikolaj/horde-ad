@@ -224,14 +224,28 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
            => ShapeInt m -> TensorOf n r -> TensorOf m r
   tbuild :: KnownNat n
          => Int -> (IntOf r -> TensorOf n r) -> TensorOf (1 + n) r
-  tbuild0N :: KnownNat n => ShapeInt n -> (IndexOf n r -> r) -> TensorOf n r
+  tbuildN :: forall m n. (KnownNat m, KnownNat n)
+          => ShapeInt (m + n) -> (IndexOf m r -> TensorOf n r)
+          -> TensorOf (m + n) r
+  tbuildN sh0 f0 =
+    let buildSh :: KnownNat m1
+                => ShapeInt m1 -> (IndexOf m1 r -> TensorOf n r)
+                -> TensorOf (m1 + n) r
+        buildSh ZS f = f ZI
+        buildSh (k :$ sh) f = tbuild k (\i -> buildSh sh (\ix -> f (i :. ix)))
+    in buildSh (takeShape @m @n sh0) f0
   tmap :: KnownNat n
        => (TensorOf n r -> TensorOf n r)
        -> TensorOf (1 + n) r -> TensorOf (1 + n) r
   tmap f u = tbuild (tlength u) (\i -> f (u `tindex` (singletonIndex i)))
   tmap0N :: KnownNat n
-         => (r -> r) -> TensorOf n r -> TensorOf n r
-  tmap0N f v = tbuild0N (tshape v) (\ix -> f (tunScalar $ v `tindex` ix))
+        => (r -> r) -> TensorOf n r -> TensorOf n r
+  tmap0N f v = tbuildN (tshape v)
+                       (\ix -> tscalar $ f $ tunScalar $ v `tindex` ix)
+  tmapN :: (KnownNat m, KnownNat n)
+        => (TensorOf n r -> TensorOf n r)
+        -> TensorOf (m + n) r -> TensorOf (m + n) r
+  tmapN f v = tbuildN (tshape v) (\ix -> f (v `tindex` ix))
   tzipWith :: KnownNat n
            => (TensorOf n r -> TensorOf n r -> TensorOf n r)
            -> TensorOf (1 + n) r -> TensorOf (1 + n) r -> TensorOf (1 + n) r
@@ -239,8 +253,14 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
                                                (v `tindex` (singletonIndex i)))
   tzipWith0N :: KnownNat n
              => (r -> r -> r) -> TensorOf n r -> TensorOf n r -> TensorOf n r
-  tzipWith0N f u v = tbuild0N (tshape v) (\ix -> f (tunScalar $ u `tindex` ix)
-                                                   (tunScalar $ v `tindex` ix))
+  tzipWith0N f u v = tbuildN (tshape v)
+                             (\ix -> tscalar $ f (tunScalar $ u `tindex` ix)
+                                                 (tunScalar $ v `tindex` ix))
+  tzipWithN :: (KnownNat m, KnownNat n)
+            => (TensorOf n r -> TensorOf n r -> TensorOf n r)
+            -> TensorOf (m + n) r -> TensorOf (m + n) r -> TensorOf (m + n) r
+  tzipWithN f u v = tbuildN (tshape v) (\ix -> f (u `tindex` ix)
+                                                 (v `tindex` ix))
 
   tscalar :: r -> TensorOf 0 r
   tunScalar :: TensorOf 0 r -> r
@@ -279,9 +299,7 @@ instance Tensor Double where
   ttransposeGeneral = ttransposeGeneralR
   treshape = treshapeR
   tbuild = tbuildR
-  tbuild0N = tbuild0NR
-  tmap0N = tmap0NR
-  tzipWith0N = tzipWith0NR
+  tbuildN = tbuildNR
   tscalar = tscalarR
   tunScalar = tunScalarR
 
@@ -309,9 +327,12 @@ instance Tensor Float where
   ttransposeGeneral = ttransposeGeneralR
   treshape = treshapeR
   tbuild = tbuildR
-  tbuild0N = tbuild0NR
-  tmap0N = tmap0NR
-  tzipWith0N = tzipWith0NR
+  tbuildN = tbuildNR
+  -- TODO: low priority: implement for speed and use for ADVal, too
+  -- tmap0N = tmap0NR
+  -- tmapN = tmapNR
+  -- tzipWith0N = tzipWith0NR
+  -- tzipWithN = tzipWithNR
   tscalar = tscalarR
   tunScalar = tunScalarR
 
@@ -364,10 +385,6 @@ instance (ADModeAndNumTensor d r, TensorOf 1 r ~ OR.Array 1 r)
     in dD (tbuildR k g) (dBuild1 k h)
       -- uses the implementation that stores closures on tape to test against
       -- the elementwise implementation used by fallback from vectorizing Ast
-  tbuild0N sh f =
-    let g ixs = let D u _ = f ixs in u
-        h ixs = let D _ u' = f ixs in u'
-    in dD (tbuild0NR sh g) (dBuild01 sh h)
 
   tscalar = scalar
   tunScalar = unScalar
@@ -399,8 +416,6 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   ttransposeGeneral = AstTransposeGeneral
   treshape = AstReshape
   tbuild = astBuild
-  tbuild0N ZS f = f ZI
-  tbuild0N (k :$ sh) f = astBuild k (\i -> tbuild0N sh (\ix -> f (i :. ix)))
 
   tscalar = id  -- Ast confuses the two ranks
   tunScalar = id
@@ -514,7 +529,7 @@ build1VectorizeVar k (var, u) =
     AstKonst0N sh v ->
       let s = shapeSize sh
       in build1VectorizeVar k (var, AstReshape sh $ AstKonst s v)
-    AstBuildPair0N{} -> AstBuildPair k (var, u)  -- see AstBuildPair above
+    AstBuildPairN{} -> AstBuildPair k (var, u)  -- see AstBuildPair above
 
     AstOMap{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair k (var, u)
     -- All other patterns are redundant due to GADT typing.
@@ -672,11 +687,11 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
     AstKonst0N sh v ->
       let s = shapeSize sh
       in build1VectorizeIndexVar k var (AstReshape sh $ AstKonst s v) is
-    AstBuildPair0N _sh (Z, _r) ->
+    AstBuildPairN _sh (Z, _r) ->
       error "build1VectorizeIndexVar: impossible case; is would have to be []"
-    AstBuildPair0N sh (var2 ::: vars, r) ->
+    AstBuildPairN sh (var2 ::: vars, r) ->
       build1VectorizeIndexVar
-        k var (AstBuildPair0N (tailShape sh) (vars, substituteAst i1 var2 r))
+        k var (AstBuildPairN (tailShape sh) (vars, substituteAst i1 var2 r))
         rest1
 
     AstOMap{} ->
@@ -733,7 +748,7 @@ intVarInAst var = \case
   AstFromList0N _ l -> any (intVarInAst var) l
   AstFromVector0N _ l -> V.any (intVarInAst var) l
   AstKonst0N _ v -> intVarInAst var v
-  AstBuildPair0N _ (_, v) -> intVarInAst var v
+  AstBuildPairN _ (_, v) -> intVarInAst var v
 
   AstOMap (_, v) u -> intVarInAst var v || intVarInAst var u
     -- the variable in binder position, so ignored (and should be distinct)
@@ -961,10 +976,10 @@ interpretAst env = \case
   AstFromVector0N sh l ->
     fromVector0N sh $ V.map (unScalar . interpretAst env) l
   AstKonst0N sh r -> konst0N sh (unScalar $ interpretAst env r)
-  AstBuildPair0N ZS (Z, r) -> interpretAst env r
-  AstBuildPair0N (k :$ sh) (var ::: vars, r) ->
-    interpretAst env $ AstBuildPair k (var, AstBuildPair0N sh (vars, r))
-  AstBuildPair0N{} ->
+  AstBuildPairN ZS (Z, r) -> interpretAst env r
+  AstBuildPairN (k :$ sh) (var ::: vars, r) ->
+    interpretAst env $ AstBuildPair k (var, AstBuildPairN sh (vars, r))
+  AstBuildPairN{} ->
     error "interpretAst: impossible pattern needlessly required"
 
   AstOMap (var, r) e ->  -- this only works on the primal part hence @constant@

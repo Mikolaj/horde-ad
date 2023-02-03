@@ -92,12 +92,12 @@ headIndex (Index ix) = headSized ix
 tailIndex :: Index (1 + n) i -> Index n i
 tailIndex (Index ix) = Index $ tailSized ix
 
-takeIndex :: forall len n i. KnownNat len
-          => Index (len + n) i -> Index n i
+takeIndex :: forall m n i. KnownNat m
+          => Index (m + n) i -> Index m i
 takeIndex (Index ix) = Index $ takeSized ix
 
-dropIndex :: forall len n i. KnownNat len
-          => Index (len + n) i -> Index n i
+dropIndex :: forall m n i. KnownNat m
+          => Index (m + n) i -> Index n i
 dropIndex (Index ix) = Index $ dropSized ix
 
 unsnocIndex :: Index (1 + n) i -> (Index n i, i)
@@ -179,12 +179,12 @@ singletonShape = Shape . singletonSized
 tailShape :: Shape (1 + n) i -> Shape n i
 tailShape (Shape ix) = Shape $ tailSized ix
 
-takeShape :: forall len n i. KnownNat len
-          => Shape (len + n) i -> Shape n i
+takeShape :: forall m n i. KnownNat m
+          => Shape (m + n) i -> Shape m i
 takeShape (Shape ix) = Shape $ takeSized ix
 
-dropShape :: forall len n i. KnownNat len
-          => Shape (len + n) i -> Shape n i
+dropShape :: forall m n i. KnownNat m
+          => Shape (m + n) i -> Shape n i
 dropShape (Shape ix) = Shape $ dropSized ix
 
 permutePrefixShape :: forall n i. KnownNat n

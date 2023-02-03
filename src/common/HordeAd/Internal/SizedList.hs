@@ -74,7 +74,7 @@ tailSized Z = error "tailSized: impossible pattern needlessly required"
 tailSized (_i ::: ix) = ix
 
 takeSized :: forall len n i. KnownNat len
-          => SizedList (len + n) i -> SizedList n i
+          => SizedList (len + n) i -> SizedList len i
 takeSized ix = unsafeCoerce $ take (valueOf @len) $ unsafeCoerce ix
 
 dropSized :: forall len n i. KnownNat len

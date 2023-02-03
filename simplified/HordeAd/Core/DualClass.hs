@@ -52,8 +52,8 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Text.Show.Functions ()
 
-import HordeAd.Internal.Delta
 import HordeAd.Core.SizedIndex
+import HordeAd.Internal.Delta
 import HordeAd.Internal.TensorOps
 
 -- * Abbreviations to export (not used anywhere below)

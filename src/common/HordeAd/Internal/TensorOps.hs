@@ -264,6 +264,24 @@ tbuild0NR
   => ShapeInt n -> (IndexInt n -> r) -> OR.Array n r
 tbuild0NR sh f = OR.generate (shapeToList sh) (f . listToIndex)
 
+-- TODO: use tbuild0R and tbuildR whenever faster and possible;
+-- also consider generating a flat vector and reshaping at the end
+-- to save on creating the intermediate tensors, though that's
+-- a negligible cost if the tensors of rank n don't have a small size
+tbuildNR
+  :: forall m n r. (KnownNat m, KnownNat n, Numeric r)
+  => ShapeInt (m + n) -> (IndexInt m -> OR.Array n r) -> OR.Array (m + n) r
+tbuildNR sh0 f0 =
+  let buildSh :: KnownNat m1
+              => ShapeInt m1 -> (IndexInt m1 -> OR.Array n r)
+              -> OR.Array (m1 + n) r
+      buildSh ZS f = f ZI
+      buildSh (k :$ sh) f =
+        let g i = buildSh sh (\ix -> f (i :. ix))
+        in OR.ravel $ ORB.fromList [k]
+           $ map g [0 .. k - 1]
+  in buildSh (takeShape @m @n sh0) f0
+
 tmap0NR
   :: (KnownNat n, Numeric r)
   => (r -> r) -> OR.Array n r -> OR.Array n r
