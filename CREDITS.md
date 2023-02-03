@@ -14,7 +14,7 @@ Edward Kmett, author of the archetype Haskell https://github.com/ekmett/ad libra
 
 Justin Le, author of the https://github.com/mstksg/backprop library and the amazing articles at https://blog.jle.im
 
-Tom Smeding, who influenced the major implementation decisions of horde-ad
+Tom Smeding, who influenced the major implementation decisions of horde-ad and solved the hardest technical problems
 
 
 
