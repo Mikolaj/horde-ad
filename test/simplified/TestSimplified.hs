@@ -18,8 +18,6 @@ import HordeAd
 
 import Tool.EqEpsilon
 
-import Prelude ()
-
 testTrees :: [TestTree]
 testTrees = [ -- vector tests
               testCase "barADVal" testBarADVal
@@ -86,23 +84,23 @@ fooNoGoAst :: (Show r, Numeric r, RealFloat r, Floating (Vector r))
 fooNoGoAst v =
   let r = tsum0 v
   in tbuild 3 (\ix ->
-       (barAst (3.14, bar (3.14, tindex v ix)))
+       barAst (3.14, bar (3.14, tindex v ix))
        + AstCond (AstBoolOp AndOp  -- TODO: overload &&, <=, >, etc.
                              [ tindex v (ix * 2) `leqAst` 0
                              , 6 `gtIntAst` abs ix ])
                  r (5 * r))
      / tslice 1 3 (tmap0N (\x -> AstCond (x `gtAst` r) r x) v)
-     * tbuild 3 (\ _ix -> 1)
+     * tbuild 3 (const 1)
 
 -- TODO: remove the need for the 2 type hints; using TensorOf 1 in the definition
 -- of VectorLike class may be enough
 nestedBuildMap :: forall r. ADReady r => r -> TensorOf 1 r
 nestedBuildMap r =
-  let w x = tkonst0N (singletonShape 4) x  -- (AstIntCond (x `leqAst` 0) 3 4)
+  let w = tkonst0N (singletonShape 4)  -- (AstIntCond (x `leqAst` 0) 3 4)
       v' = tkonst0N (singletonShape 177) r :: TensorOf 1 r
-      nestedMap x = tmap0N (\y -> x / y) (w x)
+      nestedMap x = tmap0N (x /) (w x)
       variableLengthBuild iy = tbuild 7 (\ix -> tindex v' (ix + iy)) :: TensorOf 1 r
-      doublyBuild = tbuild 5 (\iy -> tminimum0 (variableLengthBuild iy))
+      doublyBuild = tbuild 5 (tminimum0 . variableLengthBuild)
   in tmap0N (\x -> x
                   * tunScalar (tsum0
                       (tbuild 3 (\ix -> bar ( tscalar x
@@ -119,7 +117,7 @@ nestedSumBuild v =
         (tbuild 5 (\ _ -> tsum v)
          * tfromList
              [ tfromIntOf0 ix
-             , tsum (tbuild 9 (\ix5 -> tfromIntOf0 ix5))
+             , tsum (tbuild 9 tfromIntOf0)
              , tsum (tbuild 6 (\_ -> tsum v))
              , tindex v ix2
              , tsum (tbuild 3 (\ix7 ->
@@ -450,7 +448,7 @@ testRecycled :: Assertion
 testRecycled =
   testPolyn recycled [2, 4, 2, 3, 13]
   1.0001
-  (3.983629038066359e7)
+  3.983629038066359e7
 
 testConcatBuild :: Assertion
 testConcatBuild =

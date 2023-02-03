@@ -405,7 +405,7 @@ reverse1 (D u u') = dD (treverseR u) (dReverse1 u')
 maxPool1 :: ADModeAndNum d r
          => Int -> Int -> ADVal d (Vec r) -> ADVal d (Vec r)
 maxPool1 ksize stride v@(D u _) =
-  let slices = [slice1 i ksize v | i <- [0, stride .. (tsizeR u) - ksize]]
+  let slices = [slice1 i ksize v | i <- [0, stride .. tsizeR u - ksize]]
   in fromList1 $ map maximum0 slices
 
 softMaxV :: ADModeAndNum d r
@@ -437,7 +437,7 @@ build1Closure n f =
   let g i = let D u _ = f i in u
       h i = let D _ u' = f i in u'
   in dD (OR.fromList [n] $ map g [0 .. n - 1])
-        (dBuild01 (singletonShape n) (\l -> h (headIndex l)))
+        (dBuild01 (singletonShape n) (h . headIndex))
 
 build1
   :: ADModeAndNum d r
@@ -446,7 +446,7 @@ build1 = build1Closure
 
 map1POPL :: (ADVal d r -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
          -> Data.Vector.Vector (ADVal d r)
-map1POPL f vd = V.map f vd
+map1POPL = V.map
 
 map1Elementwise
   :: ADModeAndNum d r

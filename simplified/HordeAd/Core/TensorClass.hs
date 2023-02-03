@@ -423,8 +423,7 @@ astBuild :: (KnownNat n, Show r, Numeric r)
 {-# NOINLINE astBuild #-}
 astBuild k f = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
-  return $! build1Vectorize k ( freshAstVar
-                              , (f (AstIntVar freshAstVar)) )
+  return $! build1Vectorize k (freshAstVar, f (AstIntVar freshAstVar))
     -- TODO: this vectorizes depth-first, which is needed. But do we
     -- also need a translation to non-vectorized terms for anything
     -- (other than for comparative tests)?
@@ -545,7 +544,7 @@ build1VectorizeIndex
 build1VectorizeIndex k var v Z = build1Vectorize k (var, v)
 build1VectorizeIndex k var v is@(iN :. restN) =
   if | intVarInAst var v -> build1VectorizeIndexVar k var v is  -- push deeper
-     | or (fmap (intVarInAstInt var) restN) -> AstGatherPair k (var, is) v
+     | any (intVarInAstInt var) restN -> AstGatherPair k (var, is) v
      | intVarInAstInt var iN ->
        let w = AstIndexN v restN
        in case build1VectorizeIndexAnalyze k var w iN of
@@ -723,7 +722,7 @@ build1VectorizeIndexAnalyze k var v iN = case iN of
 
 intVarInAst :: AstVarName Int -> Ast n r -> Bool
 intVarInAst var = \case
-  AstOp _ l -> or $ map (intVarInAst var) l
+  AstOp _ l -> any (intVarInAst var) l
   AstCond b x y ->
     intVarInAstBool var b || intVarInAst var x || intVarInAst var y
   AstConstInt k -> intVarInAstInt var k
@@ -733,10 +732,10 @@ intVarInAst var = \case
   AstVar{} -> False  -- not an int variable
 
   AstIndex v ix -> intVarInAst var v || intVarInAstInt var ix
-  AstIndexN v is -> intVarInAst var v || or (fmap (intVarInAstInt var) is)
+  AstIndexN v is -> intVarInAst var v || any (intVarInAstInt var) is
   AstSum v -> intVarInAst var v
-  AstFromList l -> or $ map (intVarInAst var) l  -- down from rank 1 to 0
-  AstFromVector vl -> or $ map (intVarInAst var) $ V.toList vl
+  AstFromList l -> any (intVarInAst var) l  -- down from rank 1 to 0
+  AstFromVector vl -> any (intVarInAst var) $ V.toList vl
   AstKonst _ v -> intVarInAst var v
   AstAppend v u -> intVarInAst var v || intVarInAst var u
   AstSlice _ _ v -> intVarInAst var v
@@ -746,13 +745,12 @@ intVarInAst var = \case
   AstFlatten v -> intVarInAst var v
   AstReshape _ v -> intVarInAst var v
   AstBuildPair _ (_, v) -> intVarInAst var v
-  AstGatherPair _ (_, is) v -> or (fmap (intVarInAstInt var) is)
-                               || intVarInAst var v
+  AstGatherPair _ (_, is) v -> any (intVarInAstInt var) is || intVarInAst var v
 
   AstSum0 v -> intVarInAst var v
   AstDot0 v u -> intVarInAst var v || intVarInAst var u
-  AstFromList0N _ l -> or (map (intVarInAst var) l)
-  AstFromVector0N _ l -> V.or (V.map (intVarInAst var) l)
+  AstFromList0N _ l -> any (intVarInAst var) l
+  AstFromVector0N _ l -> V.any (intVarInAst var) l
   AstKonst0N _ v -> intVarInAst var v
   AstBuildPair0N _ (_, v) -> intVarInAst var v
 
@@ -761,7 +759,7 @@ intVarInAst var = \case
 
 intVarInAstInt :: AstVarName Int -> AstInt r -> Bool
 intVarInAstInt var = \case
-  AstIntOp _ l -> or $ fmap (intVarInAstInt var) l
+  AstIntOp _ l -> any (intVarInAstInt var) l
   AstIntCond b x y ->
     intVarInAstBool var b || intVarInAstInt var x || intVarInAstInt var y
   AstIntConst{} -> False
@@ -771,10 +769,10 @@ intVarInAstInt var = \case
 
 intVarInAstBool :: AstVarName Int -> AstBool r -> Bool
 intVarInAstBool var = \case
-  AstBoolOp _ l -> or $ map (intVarInAstBool var) l
+  AstBoolOp _ l -> any (intVarInAstBool var) l
   AstBoolConst{} -> False
-  AstRel _ l -> or $ map (intVarInAst var) l
-  AstRelInt _ l  -> or $ fmap (intVarInAstInt var) l
+  AstRel _ l -> any (intVarInAst var) l
+  AstRelInt _ l  -> any (intVarInAstInt var) l
 
 
 -- * ADVal combinators generalizing ranked tensor operations
@@ -1024,7 +1022,7 @@ interpretAstBool env = \case
     interpretAstBoolOp (interpretAstBool env) opCodeBool args
   AstBoolConst a -> a
   AstRel opCodeRel args ->
-    let f x = interpretAstPrimal env x
+    let f = interpretAstPrimal env
     in interpretAstRelOp f opCodeRel args
   AstRelInt opCodeRel args ->
     let f = interpretAstInt env

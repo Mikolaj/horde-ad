@@ -371,15 +371,15 @@ instance ( Numeric r, Num (Vector r)
   dFromVector01 = tfromVector0NR
   dKonst1 = tkonstR
   dKonst01 = tkonst0NR
-  dAppend1 d _k e = tappendR d e
+  dAppend1 d _k = tappendR d
   dSlice1 i n d _len = tsliceR i n d
   dReverse1 = treverseR
   dTransposeGeneral1 = ttransposeGeneralR
   dReshape1 _sh = treshapeR
   dBuild1 = tbuildR
   dBuild01 = tbuild0NR
-  dGather1 n f _sh d = tgatherR n f d
-  dScatter1 _n f d sh = tscatterR f d sh
+  dGather1 n f _sh = tgatherR n f
+  dScatter1 _n = tscatterR
 
   dFromX1 = Data.Array.Convert.convert
 

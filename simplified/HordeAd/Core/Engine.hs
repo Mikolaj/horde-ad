@@ -242,7 +242,7 @@ listsToParameters :: Numeric r
 listsToParameters (a0, a1) =
   domainsFrom0V
     (V.fromList a0)
-    (V.singleton $ (V.fromList a1))
+    (V.singleton (V.fromList a1))
 
 listsToParameters4 :: ([Double], [Double], [Double], [Double]) -> Domains Double
 listsToParameters4 (a0, a1, _a2, _aX) = listsToParameters (a0, a1)

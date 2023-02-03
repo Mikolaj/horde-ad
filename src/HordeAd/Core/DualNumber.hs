@@ -259,7 +259,7 @@ indexX0 (D u u') ix = dD (u `tindex0D` ix) (dIndexX0 u' ix (OT.shapeL u))
 -- Conversion in @fromSX@ is O(1).
 indexS0 :: (ADModeAndNum d r, OS.Shape sh)
         => ADVal d (OS.Array sh r) -> [Int] -> ADVal d r
-indexS0 d ix = indexX0 (fromSX d) ix
+indexS0 d = indexX0 (fromSX d)
 
 minimum0 :: ADModeAndNum d r => ADVal d (Vector r) -> ADVal d r
 minimum0 (D u u') =
@@ -503,7 +503,7 @@ build1 = build1Closure
 
 map1POPL :: (ADVal d r -> ADVal d r) -> Data.Vector.Vector (ADVal d r)
          -> Data.Vector.Vector (ADVal d r)
-map1POPL f vd = V.map f vd
+map1POPL = V.map
 
 -- The list probably fuses away, which may make it a bit faster than
 -- if written using @build1Elementwise@.

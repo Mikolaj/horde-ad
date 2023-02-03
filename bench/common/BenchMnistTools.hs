@@ -34,7 +34,7 @@ mnistTrainBench2 extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
       f = fcnnMnistLoss0 widthHidden widthHidden2
       chunk = take chunkLength xs
       grad c = fst $ sgd gamma f c (Domains params0Init V.empty V.empty V.empty)
-      name = "" ++ extraPrefix
+      name = extraPrefix
              ++ unwords [ "s" ++ show nParams0, "v0"
                         , "m0" ++ "=" ++ show nParams0 ]
   bench name $ nfIO $ do
@@ -110,7 +110,7 @@ mnistTrainBench2V extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
       grad c =
         fst $ sgd gamma f c (Domains params0Init params1Init V.empty V.empty)
       totalParams = nParams0 + sum nParams1
-      name = "" ++ extraPrefix
+      name = extraPrefix
              ++ unwords [ "s" ++ show nParams0, "v" ++ show (length nParams1)
                         , "m0" ++ "=" ++ show totalParams ]
   bench name $ nf grad chunk
@@ -178,7 +178,7 @@ mnistTrainBench2VA extraPrefix chunkLength xs widthHidden widthHidden2
       grad c =
         fst $ sgd gamma f c (Domains params0Init params1Init V.empty V.empty)
       totalParams = nParams0 + sum nParams1
-      name = "" ++ extraPrefix
+      name = extraPrefix
              ++ unwords [ "s" ++ show nParams0, "v" ++ show (length nParams1)
                         , "m0" ++ "=" ++ show totalParams ]
   bench name $ nf grad chunk
@@ -244,7 +244,7 @@ mnistTrainBench2L extraPrefix chunkLength xs widthHidden widthHidden2 gamma = do
       f = fcnnMnistLossFused2
       chunk = take chunkLength xs
       grad c = fst $ sgd gamma f c parameters0
-      name = "" ++ extraPrefix
+      name = extraPrefix
              ++ unwords [ "s" ++ show nParams0, "v" ++ show nParams1
                         , "m" ++ show nParams2
                           ++ "=" ++ show totalParams ]

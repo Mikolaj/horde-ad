@@ -335,8 +335,8 @@ testFooNoGo =
        (domainsFrom01 V.empty
                       (V.singleton (V.fromList
                                       [1.1 :: Double, 2.2, 3.3, 4, 5]))))
-  @?~ V.singleton (V.empty)  -- without an adaptor, ignored vector results
-                             -- in an empty gradient instead of zero gradient
+  @?~ V.singleton V.empty  -- without an adaptor, ignored vector results
+                           -- in an empty gradient instead of zero gradient
 
 testFooNoGoAdaptor :: Assertion
 testFooNoGoAdaptor =
@@ -541,5 +541,5 @@ test_conv2d_dKrn =
       arrB = 1 :: OS.Array '[5, 7, 4, 8] Double
       -- Compare the ad version against the manual derivative.
       dKrn = conv2d_dKrn arrA arrB
-      vjp  = revDt (flip conv2d (constant arrA)) arrK arrB
+      vjp  = revDt (`conv2d` constant arrA) arrK arrB
   in assertEqualUpToEpsilon 1e-7 vjp dKrn

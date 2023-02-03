@@ -60,7 +60,7 @@ adaptGdSimpleRecord
       => ARecordDD sh d r -> ADVal d r)
   -> Int
   -> ARecordAA sh r
-  -> (ARecordAA sh r)
+  -> ARecordAA sh r
 adaptGdSimpleRecord gamma f n0 (ARecord a b) =
   let initVec = V.fromList $ map Data.Array.Convert.convert [a, b]
       g = adaptFunctionRecord f
