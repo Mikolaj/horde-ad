@@ -191,6 +191,7 @@ class (RealFloat r, RealFloat (TensorOf 1 r), Integral (IntOf r))
          => TensorOf (m + n) r -> IndexOf m r -> TensorOf n r
   tsum :: KnownNat n => TensorOf (1 + n) r -> TensorOf n r
   tsum0 :: KnownNat n => TensorOf n r -> TensorOf 0 r
+  tsum0 = tsum . tflatten
   tdot0 :: KnownNat n => TensorOf n r -> TensorOf n r -> TensorOf 0 r
   tminimum0 :: TensorOf 1 r -> TensorOf 0 r
   tmaximum0 :: TensorOf 1 r -> TensorOf 0 r
@@ -378,7 +379,6 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
 
   tindex = AstIndexN
   tsum = AstSum
-  tsum0 = AstSum0
   tdot0 = AstDot0
   tminimum0 v = AstIndexN v (singletonIndex $ AstMinIndex v)
   tmaximum0 v = AstIndexN v (singletonIndex $ AstMaxIndex v)
@@ -507,7 +507,6 @@ build1VectorizeVar k (var, u) =
 
     -- Rewriting syntactic sugar in the simplest way (but much more efficient
     -- non-sugar implementations/vectorizations exist):
-    AstSum0 v -> build1VectorizeVar k (var, AstSum $ AstFlatten v)
     AstDot0 v w ->
       build1VectorizeVar k (var, AstSum (AstOp TimesOp [ AstFlatten v
                                                           , AstFlatten w ]))
@@ -673,7 +672,6 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
       let ixs3 = fmap (substituteAstInt i1 var2) ixs2
       in build1VectorizeIndex k var v (appendIndex rest1 ixs3)
 
-    AstSum0{} -> error "build1VectorizeIndexVar: wrong rank"
     AstDot0{} -> error "build1VectorizeIndexVar: wrong rank"
     AstFromList0N sh l ->
       build1VectorizeIndexVar k var (AstReshape sh $ AstFromList l) is
@@ -741,7 +739,6 @@ intVarInAst var = \case
   AstBuildPair _ (_, v) -> intVarInAst var v
   AstGatherPair _ (_, is) v -> any (intVarInAstInt var) is || intVarInAst var v
 
-  AstSum0 v -> intVarInAst var v
   AstDot0 v u -> intVarInAst var v || intVarInAst var u
   AstFromList0N _ l -> any (intVarInAst var) l
   AstFromVector0N _ l -> V.any (intVarInAst var) l
@@ -934,6 +931,8 @@ interpretAst env = \case
 
   AstIndexN v is -> indexN (interpretAst env v) (fmap (interpretAstInt env) is)
   AstSum v -> sum' (interpretAst env v)
+    -- TODO: recognize when sum0 may be used instead, which is much cheaper
+    -- or should I do that in Delta instead? no, because tsum0R is cheaper, too
   AstFromList l -> fromList (map (interpretAst env) l)
   AstFromVector l -> fromVector (V.map (interpretAst env) l)
   AstKonst k v -> konst k (interpretAst env v)
@@ -966,7 +965,6 @@ interpretAst env = \case
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
 
-  AstSum0 v -> scalar $ sum0 (interpretAst env v)
   AstDot0 x y -> scalar $ dot0 (interpretAst env x) (interpretAst env y)
   AstFromList0N sh l ->
     fromList0N sh $ map (unScalar . interpretAst env) l
