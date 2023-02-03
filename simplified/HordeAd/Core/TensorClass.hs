@@ -599,14 +599,14 @@ build1VectorizeIndexVar n var v1 is@(_ :. _) =
       -- There's no other reduction left to perform and hope the build vanishes.
       let t = AstFromList $ map (\v ->
             build1Vectorize n (var, AstIndexN v rest1)) l
-      in AstGatherPair n (var, AstIntVar var :. i1 :. Z) t
+      in AstGatherPair n (var, i1 :. AstIntVar var :. Z) t
     AstFromList l ->
       AstIndex (AstFromList $ map (\v ->
         build1Vectorize n (var, AstIndexN v rest1)) l) i1
     AstFromVector l | intVarInAstInt var i1 ->
       let t = AstFromVector $ V.map (\v ->
             build1Vectorize n (var, AstIndexN v rest1)) l
-      in AstGatherPair n (var, AstIntVar var :. i1 :. Z) t
+      in AstGatherPair n (var, i1 :. AstIntVar var :. Z) t
     AstFromVector l ->
       AstIndex (AstFromVector $ V.map (\v ->
         build1Vectorize n (var, AstIndexN v rest1)) l) i1
