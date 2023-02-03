@@ -74,7 +74,7 @@ fooBuild1 v =
 
 fooMap1 :: ADReady r => r -> TensorOf 1 r
 fooMap1 r =
-  let v = fooBuild1 $ tkonst0N [130] r
+  let v = fooBuild1 $ tkonst0N [130] (tscalar r)
   in tmap0N (\x -> x * r + 5) v
 
 -- A test with conditionals. We haven't defined a class for conditionals so far,
@@ -97,8 +97,8 @@ fooNoGoAst v =
 nestedBuildMap :: forall r. ADReady r => r -> TensorOf 1 r
 nestedBuildMap r =
   let w = tkonst0N [4]  -- (AstIntCond (x `leqAst` 0) 3 4)
-      v' = tkonst0N [177] r :: TensorOf 1 r
-      nestedMap x = tmap0N (x /) (w x)
+      v' = tkonst0N [177] (tscalar r) :: TensorOf 1 r
+      nestedMap x = tmap0N (x /) (w (tscalar x))
       variableLengthBuild iy = tbuild 7 (\ix -> tindex v' [ix + iy]) :: TensorOf 1 r
       doublyBuild = tbuild 5 (tminimum0 . variableLengthBuild)
   in tmap0N (\x -> x
@@ -185,7 +185,7 @@ braidedBuilds r =
 recycled :: ADReady r
          => r -> TensorOf 5 r
 recycled r = tbuild 2 $ \_ -> tbuild 4 $ \_ -> tbuild 2 $ \_ -> tbuild 3 $ \_ ->
-               nestedSumBuild (tkonst0N [7] r)
+               nestedSumBuild (tkonst0N [7] (tscalar r))
 
 concatBuild :: ADReady r => r -> TensorOf 2 r
 concatBuild r =

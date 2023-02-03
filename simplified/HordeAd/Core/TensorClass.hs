@@ -210,7 +210,7 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tfromVector0N :: KnownNat n
                 => ShapeInt n -> Data.Vector.Vector r -> TensorOf n r
   tkonst :: KnownNat n => Int -> TensorOf n r -> TensorOf (1 + n) r
-  tkonst0N :: KnownNat n => ShapeInt n -> r -> TensorOf n r
+  tkonst0N :: KnownNat n => ShapeInt n -> TensorOf 0 r -> TensorOf n r
   tappend :: KnownNat n
           => TensorOf (1 + n) r -> TensorOf (1 + n) r -> TensorOf (1 + n) r
   tslice :: KnownNat n => Int -> Int -> TensorOf (1 + n) r -> TensorOf (1 + n) r
@@ -272,7 +272,7 @@ instance Tensor Double where
   tfromVector = tfromVectorR
   tfromVector0N = tfromVector0NR
   tkonst = tkonstR
-  tkonst0N = tkonst0NR
+  tkonst0N sh = tkonst0NR sh . tunScalar
   tappend = tappendR
   tslice = tsliceR
   treverse = treverseR
@@ -302,7 +302,7 @@ instance Tensor Float where
   tfromVector = tfromVectorR
   tfromVector0N = tfromVector0NR
   tkonst = tkonstR
-  tkonst0N = tkonst0NR
+  tkonst0N sh = tkonst0NR sh . tunScalar
   tappend = tappendR
   tslice = tsliceR
   treverse = treverseR
@@ -352,7 +352,7 @@ instance (ADModeAndNumTensor d r, TensorOf 1 r ~ OR.Array 1 r)
   tfromVector = fromVector
   tfromVector0N = fromVector0N
   tkonst = konst
-  tkonst0N = konst0N
+  tkonst0N sh = konst0N sh . unScalar
   tappend = append
   tslice = slice
   treverse = reverse'
