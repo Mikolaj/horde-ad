@@ -399,7 +399,8 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   ttransposeGeneral = AstTransposeGeneral
   treshape = AstReshape
   tbuild = astBuild
-  tbuild0N = undefined  -- TODO: type-level woes
+  tbuild0N ZS f = f ZI
+  tbuild0N (k :$ sh) f = astBuild k (\i -> tbuild0N sh (\ix -> f (i :. ix)))
 
   tscalar = id  -- Ast confuses the two ranks
   tunScalar = id
@@ -673,8 +674,6 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
       in build1VectorizeIndexVar k var (AstReshape sh $ AstKonst s v) is
     AstBuildPair0N _sh (Z, _r) ->
       error "build1VectorizeIndexVar: impossible case; is would have to be []"
-    -- TODO: too hard until we have a sized list of variables names
-    -- so we coerce for now:
     AstBuildPair0N sh (var2 ::: vars, r) ->
       build1VectorizeIndexVar
         k var (AstBuildPair0N (tailShape sh) (vars, substituteAst i1 var2 r))
@@ -962,10 +961,11 @@ interpretAst env = \case
   AstFromVector0N sh l ->
     fromVector0N sh $ V.map (unScalar . interpretAst env) l
   AstKonst0N sh r -> konst0N sh (unScalar $ interpretAst env r)
-  AstBuildPair0N _sh (_vars, _r) -> undefined  -- TODO: type-level woes
-    -- TODO: wait if vectorization forces us to generalize this to accept
-    -- any rank and build it up according to @sh@ (which will then be
-    -- only a partial shape, so should change its name)
+  AstBuildPair0N ZS (Z, r) -> interpretAst env r
+  AstBuildPair0N (k :$ sh) (var ::: vars, r) ->
+    interpretAst env $ AstBuildPair k (var, AstBuildPair0N sh (vars, r))
+  AstBuildPair0N{} ->
+    error "interpretAst: impossible pattern needlessly required"
 
   AstOMap (var, r) e ->  -- this only works on the primal part hence @constant@
     constant
