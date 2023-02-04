@@ -73,8 +73,8 @@ import qualified Numeric.LinearAlgebra as LA
 import           Text.Show.Functions ()
 import           Unsafe.Coerce (unsafeCoerce)
 
-import HordeAd.Internal.OrthotopeOrphanInstances (liftVR)
 import HordeAd.Core.SizedIndex
+import HordeAd.Internal.OrthotopeOrphanInstances (liftVR)
 import HordeAd.Internal.TensorOps
 
 -- * Abstract syntax trees of the delta expressions
@@ -214,6 +214,10 @@ data Delta1 :: Nat -> Type -> Type where
     -- of length @m@. Indexes of length 0 result in identities, so that,
     -- e.g, @Gather1 k (const Z) [] (Scalar1 d)@ is equivalent
     -- to @Konst01 [k] d@.
+  GatherN1 :: (KnownNat m, KnownNat p, KnownNat n)
+           => (IndexInt m -> IndexInt p)
+           -> ShapeInt (p + n) -> Delta1 (p + n) r
+           -> ShapeInt (m + n) -> Delta1 (m + n) r
   Scatter1 :: (KnownNat n, KnownNat m)
            => Int -> (Int -> IndexInt m)
            -> Delta1 (1 + n) r -> ShapeInt (m + n) -> Delta1 (m + n) r
@@ -222,6 +226,10 @@ data Delta1 :: Nat -> Type -> Type where
     -- at indexes of length @m@. Indexes of length 0 insert tensors trivially,
     -- so that, e.g, @Scatter1 5 (const Z) (Konst01 [5] d) []@ is equivalent
     -- to @5 * d@.
+  ScatterN1 :: (KnownNat m, KnownNat p, KnownNat n)
+            => (IndexInt m -> IndexInt p)
+            -> ShapeInt (m + n) -> Delta1 (m + n) r
+            -> ShapeInt (p + n) -> Delta1 (p + n) r
 
   FromX1 :: DeltaX r -> Delta1 n r
 
@@ -569,7 +577,9 @@ buildFinMaps s0 deltaDt =
           V.ifoldl' (\s2 i ci -> eval0 s2 ci (f $ fromLinearIdx sh i))
                     s (OR.toVector c)
         Gather1 _n f sh d -> eval1 s (tscatterR f c sh) d
+        GatherN1 f shd d _sh -> eval1 s (tscatterNR f c shd) d
         Scatter1 n f d _sh -> eval1 s (tgatherR n f c) d
+        ScatterN1 f shd d _sh -> eval1 s (tgatherNR f c shd) d
 
         FromX1 (InputX inputId) ->
           s {iMap1 = EM.adjust (addToArray c) inputId $ iMap1 s}
@@ -709,18 +719,23 @@ buildDerivative dim0 dim1 deltaTopLevel
           l <- mapM (eval1 . f) [0 .. n - 1]
           return $! OR.ravel $ ORB.fromList [n] l
         Build01 sh' f -> do
-          -- Copied from Data.Array.Internal.
           let sh = shapeToList sh'
               s = product sh
           l <- mapM (eval0 . f)
-               $ [fromLinearIdx sh' i | i <- [0 .. s - 1]]
+                    [fromLinearIdx sh' i | i <- [0 .. s - 1]]
           return $! OR.fromList sh l
         Gather1 n f _sh d -> do
           t <- eval1 d
           return $! tgatherR n f t
+        GatherN1 f _shd d sh -> do
+          t <- eval1 d
+          return $! tgatherNR f t sh
         Scatter1 _n f d sh -> do
           t <- eval1 d
           return $! tscatterR f t sh
+        ScatterN1 f _shd d sh ->  do
+          t <- eval1 d
+          return $! tscatterNR f t sh
 
         FromX1 (InputX (InputId i)) ->
           if i < dim1

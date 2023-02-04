@@ -207,10 +207,18 @@ class HasRanks (d :: ADMode) r where
            => Int -> (Int -> IndexInt m)
            -> ShapeInt (m + n) -> Dual d (OR.Array (m + n) r)
            -> Dual d (OR.Array (1 + n) r)
+  dGatherN1 :: (KnownNat m, KnownNat p, KnownNat n)
+            => (IndexInt m -> IndexInt p)
+            -> ShapeInt (p + n) -> Dual d (OR.Array (p + n) r)
+            -> ShapeInt (m + n) -> Dual d (OR.Array (m + n) r)
   dScatter1 :: (KnownNat n, KnownNat m)
             => Int -> (Int -> IndexInt m)
             -> Dual d (OR.Array (1 + n) r) -> ShapeInt (m + n)
             -> Dual d (OR.Array (m + n) r)
+  dScatterN1 :: (KnownNat m, KnownNat p, KnownNat n)
+             => (IndexInt m -> IndexInt p)
+             -> ShapeInt (m + n) -> Dual d (OR.Array (m + n) r)
+             -> ShapeInt (p + n) -> Dual d (OR.Array (p + n) r)
 
   dFromX1 :: KnownNat n
           => Dual d (OT.Array r) -> Dual d (OR.Array n r)
@@ -326,7 +334,9 @@ instance Dual 'ADModeGradient r ~ Delta0 r
   dBuild1 = Build1
   dBuild01 = Build01
   dGather1 = Gather1
+  dGatherN1 = GatherN1
   dScatter1 = Scatter1
+  dScatterN1 = ScatterN1
 
   dFromX1 = FromX1
 
@@ -379,7 +389,9 @@ instance ( Numeric r, Num (Vector r)
   dBuild1 = tbuildR
   dBuild01 = tbuild0NR
   dGather1 n f _sh = tgatherR n f
+  dGatherN1 f _shd d sh = tgatherNR f d sh
   dScatter1 _n = tscatterR
+  dScatterN1 f _shd d sh = tscatterNR f d sh
 
   dFromX1 = Data.Array.Convert.convert
 
@@ -436,7 +448,9 @@ instance HasRanks 'ADModeValue r where
   dBuild1 _ _ = DummyDual ()
   dBuild01 _ _ = DummyDual ()
   dGather1 _ _ _ _ = DummyDual ()
+  dGatherN1 _ _ _ _ = DummyDual ()
   dScatter1 _ _ _ _ = DummyDual ()
+  dScatterN1 _ _ _ _ = DummyDual ()
 
   dFromX1 _ = DummyDual ()
 
