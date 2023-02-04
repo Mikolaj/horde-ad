@@ -28,6 +28,7 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           System.IO.Unsafe (unsafePerformIO)
+import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.DualClass
@@ -689,10 +690,14 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
       in build1VectorizeIndexVar k var (AstReshape sh $ AstKonst s v) is
     AstBuildPairN _sh (Z, _r) ->
       error "build1VectorizeIndexVar: impossible case; is would have to be []"
-    AstBuildPairN sh (var2 ::: vars, r) ->
+    AstBuildPairN (_ :$ sh') (var2 ::: vars, r) ->
       build1VectorizeIndexVar
-        k var (AstBuildPairN (tailShape sh) (vars, substituteAst i1 var2 r))
+        k var (unsafeCoerce $ AstBuildPairN sh' (vars, substituteAst i1 var2 r))
         rest1
+          -- GHC with the plugin doesn't cope with this
+          -- (https://github.com/clash-lang/ghc-typelits-natnormalise/issues/71)
+          -- so unsafeCoerce is back
+    AstBuildPairN{} -> error "build1VectorizeIndexVar: AstBuildPairN: impossible pattern needlessly required"
 
     AstOMap{} ->
       AstConstant $ AstPrimalPart1 $ AstBuildPair k (var, AstIndexN v1 is)

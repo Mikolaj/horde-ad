@@ -10,7 +10,7 @@
 -- for arbitrary code transformations at the cost of limiting
 -- expressiveness of transformed fragments to what AST captures.
 module HordeAd.Core.Ast
-  ( AstIndex
+  ( AstIndex, AstVarList
   , Ast(..), AstPrimalPart1(..)
   , AstVarName(..), AstVar(..)
   , AstInt(..), AstBool(..)
@@ -101,7 +101,8 @@ data Ast :: Nat -> Type -> Type where
   AstFromList0N :: ShapeInt n -> [Ast 0 r] -> Ast n r
   AstFromVector0N :: ShapeInt n -> Data.Vector.Vector (Ast 0 r) -> Ast n r
   AstKonst0N :: ShapeInt n -> Ast 0 r -> Ast n r
-  AstBuildPairN :: ShapeInt n -> (AstVarList n, Ast 0 r) -> Ast n r
+  AstBuildPairN :: forall m n r.
+                   ShapeInt (m + n) -> (AstVarList m, Ast n r) -> Ast (m + n) r
 
   -- For MonoFunctor class, which is needed for a particularly
   -- fast implementation of relu and offers fast, primal-part only, mapping.
