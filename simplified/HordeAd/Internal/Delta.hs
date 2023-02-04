@@ -74,6 +74,7 @@ import           Text.Show.Functions ()
 import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVR)
+import HordeAd.Core.SizedIndex
 import HordeAd.Internal.TensorOps
 
 -- * Abstract syntax trees of the delta expressions
@@ -136,9 +137,9 @@ data Delta0 :: Type -> Type where
   Let0 :: NodeId -> Delta0 r -> Delta0 r
 
   Index0 :: KnownNat n
-         => Delta1 n r -> [Int] -> OR.ShapeL -> Delta0 r
+         => Delta1 n r -> IndexInt n -> ShapeInt n -> Delta0 r
   Sum0 :: KnownNat n
-       => OR.ShapeL -> Delta1 n r -> Delta0 r
+       => ShapeInt n -> Delta1 n r -> Delta0 r
   Dot0 :: KnownNat n
        => OR.Array n r -> Delta1 n r -> Delta0 r
   UnScalar0 :: Delta1 0 r -> Delta0 r
@@ -146,6 +147,9 @@ data Delta0 :: Type -> Type where
 deriving instance (Show r, Numeric r) => Show (Delta0 r)
 
 -- | This is the grammar of delta-expressions at arbitrary tensor rank.
+-- The comments refer to the ordinary (forward) semantics of the terms,
+-- as given in @buildDerivative@. Evaluating the terms backwards
+-- (transposing) to compute gradients provides a different semantics.
 data Delta1 :: Nat -> Type -> Type where
   Zero1 :: Delta1 n r
   -- Input1  -- never used
@@ -158,8 +162,8 @@ data Delta1 :: Nat -> Type -> Type where
     -- ^ The sub-tensors at the given index of the outermost dimension.
     -- The second integer is the length of the dimension.
   IndexN :: (KnownNat n, KnownNat m)
-         => Delta1 (1 + m + n) r -> [Int] -> OR.ShapeL -> Delta1 n r
-    -- ^ The sub-tensor at the given path. The given shape is of the
+         => Delta1 (m + n) r -> IndexInt m -> ShapeInt (m + n) -> Delta1 n r
+    -- ^ The sub-tensor at the given index. The given shape is of the
     -- large tensor.
   Sum1 :: KnownNat n
        => Int -> Delta1 (1 + n) r -> Delta1 n r
@@ -173,12 +177,12 @@ data Delta1 :: Nat -> Type -> Type where
               => Data.Vector.Vector (Delta1 n r)
               -> Delta1 (1 + n) r
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
-  FromList01 :: OR.ShapeL -> [Delta0 r] -> Delta1 n r
-  FromVector01 :: OR.ShapeL -> Data.Vector.Vector (Delta0 r) -> Delta1 n r
+  FromList01 :: ShapeInt n -> [Delta0 r] -> Delta1 n r
+  FromVector01 :: ShapeInt n -> Data.Vector.Vector (Delta0 r) -> Delta1 n r
   Konst1 :: KnownNat n
          => Int -> Delta1 n r -> Delta1 (1 + n) r
     -- ^ Copy the given tensor along the new, outermost dimension.
-  Konst01 :: OR.ShapeL -> Delta0 r -> Delta1 (1 + n) r
+  Konst01 :: ShapeInt n -> Delta0 r -> Delta1 n r
   Append1 :: KnownNat n
           => Delta1 n r -> Int -> Delta1 n r -> Delta1 n r
     -- ^ Append two arrays along the outermost dimension.
@@ -193,34 +197,31 @@ data Delta1 :: Nat -> Type -> Type where
            => Delta1 n r -> Delta1 n r
     -- ^ Reverse elements of the outermost dimension.
   TransposeGeneral1 :: KnownNat n
-                    => [Int] -> Delta1 n r -> Delta1 n r
+                    => Permutation -> Delta1 n r -> Delta1 n r
     -- ^ Transpose according to the permutation.
   Reshape1 :: (KnownNat n, KnownNat m)
-           => OR.ShapeL -> OR.ShapeL -> Delta1 n r -> Delta1 m r
+           => ShapeInt n -> ShapeInt m -> Delta1 n r -> Delta1 m r
     -- ^ Change the shape of the tensor from the first to the second.
   Build1 :: KnownNat n
          => Int -> (Int -> Delta1 n r) -> Delta1 (1 + n) r
     -- ^ Build a tensor with the given size of the outermost dimension
     -- and using the given function to construct the element tensors.
-  Build01 :: OR.ShapeL -> ([Int] -> Delta0 r) -> Delta1 n r
+  Build01 :: ShapeInt n -> (IndexInt n -> Delta0 r) -> Delta1 n r
   Gather1 :: (KnownNat n, KnownNat m)
-          => Int -> (Int -> [Int])
-          -> OR.ShapeL -> Delta1 (m + n) r -> Delta1 (1 + n) r
-    -- ^ Build a tensor by picking tensors of rank @n@ at the given paths.
-    -- The paths (in the codomain of the function) are of length @m@.
-    -- Shape of the tensor in the fourth argument is given in the third.
-    -- Paths of length 0 result in identities, so that,
-    -- e.g, @Gather1 n (const []) [0] (Scalar1 d)@ is equivalent
-    -- to @Konst01 [n] d@.
+          => Int -> (Int -> IndexInt m)
+          -> ShapeInt (m + n) -> Delta1 (m + n) r -> Delta1 (1 + n) r
+    -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
+    -- of length @m@. Indexes of length 0 result in identities, so that,
+    -- e.g, @Gather1 k (const Z) [] (Scalar1 d)@ is equivalent
+    -- to @Konst01 [k] d@.
   Scatter1 :: (KnownNat n, KnownNat m)
-           => Int -> (Int -> [Int])
-           -> Delta1 (1 + n) r -> OR.ShapeL -> Delta1 (m + n) r
+           => Int -> (Int -> IndexInt m)
+           -> Delta1 (1 + n) r -> ShapeInt (m + n) -> Delta1 (m + n) r
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
-    -- the third argument and inserted in a zero tensor at the given paths.
-    -- The shape of the zero tensor is given as the fourth argument.
-    -- Paths of length 0 insert tensors trivially, so that,
-    -- e.g, @Scatter1 (const []) (Konst01 [5] d) []@ is equivalent
-    -- to @Scalar1 (5 * d)@.
+    -- the third argument and inserted in a zero tensor
+    -- at indexes of length @m@. Indexes of length 0 insert tensors trivially,
+    -- so that, e.g, @Scatter1 5 (const Z) (Konst01 [5] d) []@ is equivalent
+    -- to @5 * d@.
 
   FromX1 :: DeltaX r -> Delta1 n r
 
@@ -465,15 +466,17 @@ buildFinMaps s0 deltaDt =
         -- BTW, such an optimization doesn't really belong in the simplified
         -- horde-ad and no consistent benefit should be expected here.
         Index0 Zero1 _ _ -> s  -- shortcut
-        Index0 (FromX1 (InputX i)) ixs sh ->
-          let f v = if isTensorDummy v
-                    then OT.constant sh 0 `OT.update` [(ixs, c)]
-                    else v `OT.update` [(ixs, v `atPathInTensorD` ixs + c)]
+        Index0 (FromX1 (InputX i)) ixs' sh ->
+          let ixs = indexToList ixs'
+              f v = if isTensorDummy v
+                    then OT.constant (shapeToList sh) 0 `OT.update` [(ixs, c)]
+                    else v `OT.update` [(ixs, v `tindex0D` ixs + c)]
           in s {iMap1 = EM.adjust f i $ iMap1 s}
-        Index0 (Let1 n d) ixs sh ->
-          case EM.lookup n $ nMap s of
+        Index0 (Let1 n d) ixs' sh ->
+          let ixs = indexToList ixs'
+          in case EM.lookup n $ nMap s of
             Just (DeltaBinding1 _) ->
-              let f v = v `OT.update` [(ixs, v `atPathInTensorD` ixs + c)]
+              let f v = v `OT.update` [(ixs, v `tindex0D` ixs + c)]
               in s {dMap1 = EM.adjust f n $ dMap1 s}
                 -- This would be an asymptotic optimization compared to
                 -- the general case below, if not for the non-mutable update,
@@ -481,12 +484,12 @@ buildFinMaps s0 deltaDt =
                 -- so it's only several times faster (same allocation,
                 -- but not adding to each cell of @v@).
             Nothing ->
-              let v = OT.constant sh 0 `OT.update` [(ixs, c)]
+              let v = OT.constant (shapeToList sh) 0 `OT.update` [(ixs, c)]
               in s { nMap = EM.insert n (DeltaBinding1 d) $ nMap s
                    , dMap1 = EM.insert n v $ dMap1 s }
             _ -> error "buildFinMaps: corrupted nMap"
-        Index0 d ixs sh -> eval1 s (OR.constant sh 0 `updateR` [(ixs, c)]) d
-        Sum0 sh d -> eval1 s (OR.constant sh c) d
+        Index0 d ixs sh -> eval1 s (tkonst0NR sh 0 `updateR` [(ixs, c)]) d
+        Sum0 sh d -> eval1 s (tkonst0NR sh c) d
         Dot0 v vd -> eval1 s (liftVR (LA.scale c) v) vd
         UnScalar0 d -> eval1 s (OR.scalar c) d
 
@@ -523,7 +526,7 @@ buildFinMaps s0 deltaDt =
                                      , OR.reshape (1 : rest) c
                                      , OR.constant (len - ix - 1 : rest) 0 ])
                      d  -- TODO: optimize for input case
-        IndexN d ixs sh -> eval1 s (updateNR (OR.constant sh 0) [(ixs, c)]) d
+        IndexN d ixs sh -> eval1 s (updateNR (tkonst0NR sh 0) [(ixs, c)]) d
         Sum1 n d -> eval1 s (OR.ravel (ORB.constant [n] c)) d
         Scalar1 d -> eval0 s (OR.unScalar c) d
         FromList1 ld ->
@@ -563,7 +566,7 @@ buildFinMaps s0 deltaDt =
         Build1 _n f -> V.ifoldl' (\s2 i ci -> eval1 s2 ci (f i))
                                  s (ORB.toVector $ OR.unravel c)
         Build01 sh f ->
-          V.ifoldl' (\s2 i ci -> eval0 s2 ci (f $ fromLinearIdx2 sh i))
+          V.ifoldl' (\s2 i ci -> eval0 s2 ci (f $ fromLinearIdx sh i))
                     s (OR.toVector c)
         Gather1 _n f sh d -> eval1 s (tscatterR f c sh) d
         Scatter1 n f d _sh -> eval1 s (tgatherR n f c) d
@@ -705,14 +708,15 @@ buildDerivative dim0 dim1 deltaTopLevel
         Build1 n f -> do
           l <- mapM (eval1 . f) [0 .. n - 1]
           return $! OR.ravel $ ORB.fromList [n] l
-        Build01 sh f -> do
+        Build01 sh' f -> do
           -- Copied from Data.Array.Internal.
-          let s = product sh
+          let sh = shapeToList sh'
+              s = product sh
           l <- mapM (eval0 . f)
-               $ [fromLinearIdx2 sh i | i <- [0 .. s - 1]]
+               $ [fromLinearIdx sh' i | i <- [0 .. s - 1]]
           return $! OR.fromList sh l
         Gather1 n f _sh d -> do
-          t <- unsafeCoerce $ eval1 d
+          t <- eval1 d
           return $! tgatherR n f t
         Scatter1 _n f d sh -> do
           t <- eval1 d

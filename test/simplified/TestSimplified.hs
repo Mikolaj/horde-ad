@@ -1,5 +1,5 @@
-{-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances, RankNTypes,
-             TypeFamilies #-}
+{-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances, OverloadedLists,
+             RankNTypes, TypeFamilies #-}
 module TestSimplified (testTrees) where
 
 import Prelude
@@ -17,8 +17,6 @@ import           Test.Tasty.HUnit hiding (assert)
 import HordeAd
 
 import Tool.EqEpsilon
-
-import Prelude ()
 
 testTrees :: [TestTree]
 testTrees = [ -- vector tests
@@ -72,11 +70,11 @@ fooBuild1 v =
        r * foo ( 3
                , 5 * r
                , r * tminimum0 v * v')
-       + bar (r, tindex v (ix + 1))
+       + bar (r, tindex v [ix + 1])
 
 fooMap1 :: ADReady r => r -> TensorOf 1 r
 fooMap1 r =
-  let v = fooBuild1 $ tkonst0N [130] r
+  let v = fooBuild1 $ tkonst0N [130] (tscalar r)
   in tmap0N (\x -> x * r + 5) v
 
 -- A test with conditionals. We haven't defined a class for conditionals so far,
@@ -86,27 +84,27 @@ fooNoGoAst :: (Show r, Numeric r, RealFloat r, Floating (Vector r))
 fooNoGoAst v =
   let r = tsum0 v
   in tbuild 3 (\ix ->
-       (barAst (3.14, bar (3.14, tindex v ix)))
+       barAst (3.14, bar (3.14, tindex v [ix]))
        + AstCond (AstBoolOp AndOp  -- TODO: overload &&, <=, >, etc.
-                             [ tindex v (ix * 2) `leqAst` 0
+                             [ tindex v [ix * 2] `leqAst` 0
                              , 6 `gtIntAst` abs ix ])
                  r (5 * r))
      / tslice 1 3 (tmap0N (\x -> AstCond (x `gtAst` r) r x) v)
-     * tbuild 3 (\ _ix -> 1)
+     * tbuild 3 (const 1)
 
 -- TODO: remove the need for the 2 type hints; using TensorOf 1 in the definition
 -- of VectorLike class may be enough
 nestedBuildMap :: forall r. ADReady r => r -> TensorOf 1 r
 nestedBuildMap r =
-  let w x = tkonst0N [4] x  -- (AstIntCond (x `leqAst` 0) 3 4)
-      v' = tkonst0N [177] r :: TensorOf 1 r
-      nestedMap x = tmap0N (\y -> x / y) (w x)
-      variableLengthBuild iy = tbuild 7 (\ix -> tindex v' (ix + iy)) :: TensorOf 1 r
-      doublyBuild = tbuild 5 (\iy -> tminimum0 (variableLengthBuild iy))
+  let w = tkonst0N [4]  -- (AstIntCond (x `leqAst` 0) 3 4)
+      v' = tkonst0N [177] (tscalar r) :: TensorOf 1 r
+      nestedMap x = tmap0N (x /) (w (tscalar x))
+      variableLengthBuild iy = tbuild 7 (\ix -> tindex v' [ix + iy]) :: TensorOf 1 r
+      doublyBuild = tbuild 5 (tminimum0 . variableLengthBuild)
   in tmap0N (\x -> x
                   * tunScalar (tsum0
                       (tbuild 3 (\ix -> bar ( tscalar x
-                                            , tindex v' ix) )
+                                            , tindex v' [ix]) )
                        + fooBuild1 (nestedMap x)
                        / fooMap1 x))
            ) doublyBuild
@@ -115,13 +113,13 @@ nestedSumBuild :: ADReady r => TensorOf 1 r -> TensorOf 1 r
 nestedSumBuild v =
   tbuild 13 (\ix ->
     tsum (tbuild 4 (\ix2 ->
-      flip tindex ix2
+      flip tindex [ix2]
         (tbuild 5 (\ _ -> tsum v)
          * tfromList
              [ tfromIntOf0 ix
-             , tsum (tbuild 9 (\ix5 -> tfromIntOf0 ix5))
+             , tsum (tbuild 9 tfromIntOf0)
              , tsum (tbuild 6 (\_ -> tsum v))
-             , tindex v ix2
+             , tindex v [ix2]
              , tsum (tbuild 3 (\ix7 ->
                  tsum (tkonst 5 (tfromIntOf0 ix7))))
 -- dynamic shapes:
@@ -132,11 +130,11 @@ nestedSumBuild v =
 --                 tsum (tkonst0N [ix2 + ix7 + 1] 2.4)))
              ]))))
   + tbuild 13 (\ix ->
-      nestedBuildMap (tunScalar $ tsum0 v) `tindex` min ix 4)
+      nestedBuildMap (tunScalar $ tsum0 v) `tindex` [min ix 4])
 
-nestedBuildIndex :: ADReady r => TensorOf 1 r -> TensorOf 1 r
+nestedBuildIndex :: forall r. ADReady r => TensorOf 1 r -> TensorOf 1 r
 nestedBuildIndex v =
-  tbuild 2 $ \ix2 -> tindex (tbuild 3 $ \ix3 -> tindex (tbuild 4 $ \ix4 -> tindex v ix4) ix3) ix2
+  tbuild 2 $ \ix2 -> tindex @r @1 (tbuild 3 $ \ix3 -> tindex (tbuild 4 $ \ix4 -> tindex @r @1 v [ix4]) [ix3]) [ix2]
 
 barRelu
   :: ( RealFloat a
@@ -178,16 +176,16 @@ f2 = \arg ->
 
 -- * Vector tests (many by TomS as well)
 
-braidedBuilds :: ADReady r => r -> TensorOf 2 r
+braidedBuilds :: forall r. ADReady r => r -> TensorOf 2 r
 braidedBuilds r =
   tbuild 3 (\ix1 ->
-    tbuild 4 (\ix2 -> tindex (tfromList0N [4]
-                                [tunScalar $ tfromIntOf0 ix2, 7, r, -0.2]) ix1))
+    tbuild 4 (\ix2 -> tindex @r @1 (tfromList0N [4]
+                                      [tunScalar $ tfromIntOf0 ix2, 7, r, -0.2]) [ix1]))
 
 recycled :: ADReady r
          => r -> TensorOf 5 r
-recycled r = tbuild 3 $ \_ -> tbuild 4 $ \_ -> tbuild 2 $ \_ -> tbuild 6 $ \_ ->
-               nestedSumBuild (tkonst0N [7] r)
+recycled r = tbuild 2 $ \_ -> tbuild 4 $ \_ -> tbuild 2 $ \_ -> tbuild 3 $ \_ ->
+               nestedSumBuild (tkonst0N [7] (tscalar r))
 
 concatBuild :: ADReady r => r -> TensorOf 2 r
 concatBuild r =
@@ -212,7 +210,7 @@ concatBuild2 _r =
 
 -- The glue for sufficiently polymorphic code;
 testPoly00
-  :: (HasDelta r, r ~ Double)
+  :: r ~ Double
   => (forall x. ADReady x => x -> x) -> r -> r
   -> Assertion
 testPoly00 f input expected = do
@@ -238,7 +236,7 @@ testPoly00 f input expected = do
   domains0 advalGrad @?~ domains0 domainsExpected
 
 testPoly01
-  :: (HasDelta r, r ~ Double)
+  :: r ~ Double
   => (forall x. ADReady x => x -> TensorOf 1 x) -> Int -> r -> r
   -> Assertion
 testPoly01 f outSize input expected = do
@@ -266,7 +264,7 @@ testPoly01 f outSize input expected = do
   domains0 advalGrad @?~ domains0 domainsExpected
 
 testPoly11
-  :: (HasDelta r, r ~ Double)
+  :: r ~ Double
   => (forall x. ADReady x => TensorOf 1 x -> TensorOf 1 x) -> Int -> [r] -> [r]
   -> Assertion
 testPoly11 f outSize input expected = do
@@ -294,7 +292,7 @@ testPoly11 f outSize input expected = do
   domains1 advalGrad @?~ domains1 domainsExpected
 
 testPolyn
-  :: (KnownNat n, HasDelta r, r ~ Double)
+  :: (KnownNat n, r ~ Double)
   => (forall x. ADReady x => x -> TensorOf n x)
   -> OR.ShapeL -> r -> r
   -> Assertion
@@ -448,9 +446,9 @@ testBraidedBuilds =
 
 testRecycled :: Assertion
 testRecycled =
-  testPolyn recycled [3, 4, 2, 6, 13]
-  3.4
-  4.0
+  testPolyn recycled [2, 4, 2, 3, 13]
+  1.0001
+  3.983629038066359e7
 
 testConcatBuild :: Assertion
 testConcatBuild =

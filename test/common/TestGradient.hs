@@ -20,7 +20,7 @@ import           Test.Tasty.QuickCheck
 
 import HordeAd
 import HordeAd.Core.DualClass (Dual)
-import HordeAd.Internal.TensorOps (atPathInTensorD)
+import HordeAd.Internal.TensorOps (tindex0D)
 
 import Tool.EqEpsilon
 import Tool.Shared
@@ -335,8 +335,8 @@ testFooNoGo =
        (domainsFrom01 V.empty
                       (V.singleton (V.fromList
                                       [1.1 :: Double, 2.2, 3.3, 4, 5]))))
-  @?~ V.singleton (V.empty)  -- without an adaptor, ignored vector results
-                             -- in an empty gradient instead of zero gradient
+  @?~ V.singleton V.empty  -- without an adaptor, ignored vector results
+                           -- in an empty gradient instead of zero gradient
 
 testFooNoGoAdaptor :: Assertion
 testFooNoGoAdaptor =
@@ -509,7 +509,7 @@ slicezOS arr ixBase =
 indexzOS :: forall sh r. (Numeric r, OS.Shape sh)
          => OS.Array sh r -> [Int] -> r
 indexzOS arr ix = if withinOS @sh ix
-                  then atPathInTensorD (Data.Array.Convert.convert arr) ix
+                  then tindex0D (Data.Array.Convert.convert arr) ix
                   else 0
 
 -- | Compute the dot product of elements in two arrays.
@@ -541,5 +541,5 @@ test_conv2d_dKrn =
       arrB = 1 :: OS.Array '[5, 7, 4, 8] Double
       -- Compare the ad version against the manual derivative.
       dKrn = conv2d_dKrn arrA arrB
-      vjp  = revDt (flip conv2d (constant arrA)) arrK arrB
+      vjp  = revDt (`conv2d` constant arrA) arrK arrB
   in assertEqualUpToEpsilon 1e-7 vjp dKrn

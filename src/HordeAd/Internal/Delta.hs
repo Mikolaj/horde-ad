@@ -1115,7 +1115,7 @@ buildDerivative dim0 dim1 dim2 dimX deltaTopLevel
         SumElementsX0 d _ -> tsum0D <$> evalX d
         Index10 d ix _k -> flip (V.!) ix <$> eval1 d
         Index20 d ix _rowsCols -> flip LA.atIndex ix <$> eval2 d
-        IndexX0 d ix _sh -> flip atPathInTensorD ix <$> evalX d
+        IndexX0 d ix _sh -> flip tindex0D ix <$> evalX d
 
         Dot0 vc vd -> (<.>) vc <$> eval1 vd
 

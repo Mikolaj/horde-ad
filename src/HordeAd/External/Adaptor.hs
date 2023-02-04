@@ -138,7 +138,7 @@ instance AdaptableDomains Double where
   nScalars _ = 1
 
 instance RandomDomains Double where
-  randomVals range g = randomR (- range, range) g
+  randomVals range = randomR (- range, range)
     -- note that unlike in hmatrix the range is closed from the top
 
 instance ADModeAndNum d Double
@@ -163,7 +163,7 @@ instance AdaptableDomains Float where
   nScalars _ = 1
 
 instance RandomDomains Float where
-  randomVals range g = randomR (- range, range) g
+  randomVals range = randomR (- range, range)
 
 instance ADModeAndNum d Float
          => AdaptableInputs Float (ADVal d Float) where

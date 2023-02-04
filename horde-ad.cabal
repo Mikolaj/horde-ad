@@ -138,11 +138,13 @@ library
                       HordeAd.Core.DualNumber
                       HordeAd.Core.Engine
                       HordeAd.Core.PairOfVectors
+                      HordeAd.Core.SizedIndex
                       HordeAd.External.Optimizer
                       HordeAd.External.OptimizerTools
                       HordeAd.Internal.Delta
                       HordeAd.Internal.MatrixOuter
                       HordeAd.Internal.OrthotopeOrphanInstances
+                      HordeAd.Internal.SizedList
                       HordeAd.Internal.TensorOps
 
   if flag(use_typelits_plugins) {
@@ -198,13 +200,6 @@ library exampleLibrary
                       MnistRnnShaped
   }
 
-    -- Modules included in this library but not exported.
-    -- other-modules:
-
-    -- LANGUAGE extensions used by modules in this package.
-    -- other-extensions:
-
-    -- Other library packages from which modules are imported.
     build-depends:
       , horde-ad
 
@@ -408,7 +403,6 @@ benchmark longProdBench
     type:             exitcode-stdio-1.0
     hs-source-dirs:   bench
     main-is:          LongProdBench.hs
-    other-modules:
     build-depends:
       , benchCommonLibrary
 
@@ -515,11 +509,13 @@ library horde-ad-simplified
                       HordeAd.Core.DualNumber
                       HordeAd.Core.Engine
                       HordeAd.Core.PairOfVectors
+                      HordeAd.Core.SizedIndex
                       HordeAd.Core.TensorClass
                       HordeAd.External.Optimizer
                       HordeAd.External.OptimizerTools
                       HordeAd.Internal.Delta
                       HordeAd.Internal.OrthotopeOrphanInstances
+                      HordeAd.Internal.SizedList
                       HordeAd.Internal.TensorOps
 
     build-depends:

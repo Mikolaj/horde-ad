@@ -1,56 +1,56 @@
-{-# LANGUAGE CPP, ConstraintKinds, DataKinds, FlexibleInstances, GADTs,
-             GeneralizedNewtypeDeriving, MultiParamTypeClasses, PolyKinds,
-             QuantifiedConstraints, StandaloneDeriving, TypeFamilyDependencies,
-             UndecidableInstances #-}
+{-# LANGUAGE ConstraintKinds, DataKinds, DerivingStrategies, FlexibleInstances,
+             GADTs, GeneralizedNewtypeDeriving, MultiParamTypeClasses,
+             PolyKinds, QuantifiedConstraints, RankNTypes, StandaloneDeriving,
+             TypeFamilyDependencies, UndecidableInstances #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 -- | AST of the code to be differentiated. It's needed mostly for handling
 -- higher order operations such as build and map, but can be used
 -- for arbitrary code transformations at the cost of limiting
 -- expressiveness of transformed fragments to what AST captures.
 module HordeAd.Core.Ast
-  ( AstShape, AstPath, AstPermutation
+  ( AstIndex
   , Ast(..), AstPrimalPart1(..)
   , AstVarName(..), AstVar(..)
   , AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
   , shapeAst, lengthAst, substituteAst, substituteAstInt, substituteAstBool
-  , toIxAst
   ) where
 
 import Prelude
 
-import           Control.Exception.Assert.Sugar
+import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Type)
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
-import qualified Data.Vector.Storable as VS
 import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Numeric)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Text.Show.Functions ()
 
+import HordeAd.Core.SizedIndex
 import HordeAd.Internal.OrthotopeOrphanInstances ()
+import HordeAd.Internal.SizedList
 
--- * Definitions
+-- * Ast definitions
 
--- @[AstInt r]@ gives more expressiveness, but leads to irregular tensors,
+type AstIndex n r = Index n (AstInt r)
+
+type AstVarList n = SizedList n (AstVarName Int)
+
+-- We use here @ShapeInt@ for simplicity. @Shape n (AstInt r)@ gives
+-- more expressiveness, but leads to irregular tensors,
 -- especially after vectorization, and prevents statically known shapes.
 -- However, if we switched to @Data.Array.Shaped@ and moved most of the shapes
 -- to the type level, we'd recover some of the expressiveness, while retaining
 -- statically known (type-parameterized) shapes.
-type AstShape r = [Int]
-
-type AstPath r = [AstInt r]
-
-type AstPermutation = [Int]
 
 -- TODO: consider sharing Ast expressions, both within the primal part
 -- and between primal and dual
-
-
 -- | AST for a tensor of rank n and elements r that is meant
 -- to be differentiated.
 data Ast :: Nat -> Type -> Type where
@@ -59,20 +59,17 @@ data Ast :: Nat -> Type -> Type where
 
   -- For HasPrimal class and the future Conditional/Boolean/Eq'/Ord' classes:
   AstCond :: AstBool r -> Ast n r -> Ast n r -> Ast n r
-  AstConstInt :: AstInt r -> Ast n r
+  AstConstInt :: AstInt r -> Ast 0 r
   AstConst :: OR.Array n r -> Ast n r
     -- sort of partially evaluated @AstConstant@
   AstConstant :: AstPrimalPart1 n r -> Ast n r
   AstScale :: AstPrimalPart1 n r -> Ast n r -> Ast n r
-  AstVar :: [Int] -> AstVarName (OR.Array n r) -> Ast n r
+  AstVar :: ShapeInt n -> AstVarName (OR.Array n r) -> Ast n r
 
   -- For VectorLike and Tensor class:
-  AstIndex :: Ast (1 + n) r -> AstInt r -> Ast n r
   AstIndexN :: forall m n r. KnownNat m
-            => Ast (1 + m + n) r -> AstPath r -> Ast n r
-    -- emerges from vectorizing AstIndex;
-    -- first ix is for outermost dimension; @1 + m@ is the length of the list;
-    -- empty list means identity
+            => Ast (m + n) r -> AstIndex m r -> Ast n r
+    -- first ix is for outermost dimension; empty index means identity
   AstSum :: Ast (1 + n) r -> Ast n r
   AstFromList :: [Ast n r] -> Ast (1 + n) r
   AstFromVector :: Data.Vector.Vector (Ast n r) -> Ast (1 + n) r
@@ -83,16 +80,16 @@ data Ast :: Nat -> Type -> Type where
   AstReverse :: KnownNat n
              => Ast n r -> Ast n r
   AstTranspose :: Ast n r -> Ast n r
-  AstTransposeGeneral :: AstPermutation -> Ast n r -> Ast n r
+  AstTransposeGeneral :: Permutation -> Ast n r -> Ast n r
     -- emerges from vectorizing AstTranspose
   AstFlatten :: KnownNat n
              => Ast n r -> Ast 1 r
   AstReshape :: KnownNat n
-             => AstShape r -> Ast n r -> Ast m r
+             => ShapeInt m -> Ast n r -> Ast m r
     -- emerges from vectorizing AstFlatten
   AstBuildPair :: Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
-  AstGatherPair :: KnownNat m
-                => Int -> (AstVarName Int, AstPath r) -> Ast (m + n) r
+  AstGatherPair :: forall m n r. KnownNat m
+                => Int -> (AstVarName Int, AstIndex m r) -> Ast (m + n) r
                 -> Ast (1 + n) r
     -- emerges from vectorizing AstIndexN applied to term with no build variable
 
@@ -101,14 +98,10 @@ data Ast :: Nat -> Type -> Type where
   -- This is treated as syntactic sugar for now, but these have
   -- much more efficient non-sugar implementations
   -- (and possibly more efficient vectorizations).
-  AstSum0 :: KnownNat n
-          => Ast n r -> Ast 0 r
-  AstDot0 :: KnownNat n
-          => Ast n r -> Ast n r -> Ast 0 r
-  AstFromList0N :: AstShape r -> [Ast 0 r] -> Ast n r
-  AstFromVector0N :: AstShape r -> Data.Vector.Vector (Ast 0 r) -> Ast n r
-  AstKonst0N :: AstShape r -> Ast 0 r -> Ast (1 + n) r
-  AstBuildPair0N :: AstShape r -> ([AstVarName Int], Ast 0 r) -> Ast n r
+  AstFromList0N :: ShapeInt n -> [Ast 0 r] -> Ast n r
+  AstFromVector0N :: ShapeInt n -> Data.Vector.Vector (Ast 0 r) -> Ast n r
+  AstKonst0N :: ShapeInt n -> Ast 0 r -> Ast n r
+  AstBuildPairN :: ShapeInt n -> (AstVarList n, Ast 0 r) -> Ast n r
 
   -- For MonoFunctor class, which is needed for a particularly
   -- fast implementation of relu and offers fast, primal-part only, mapping.
@@ -303,7 +296,7 @@ astOmap :: (Ast 0 r -> Ast 0 r) -> Ast n r -> Ast n r
 {-# NOINLINE astOmap #-}
 astOmap f e = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
-  return $! AstOMap (freshAstVar, f (AstVar [] freshAstVar)) e
+  return $! AstOMap (freshAstVar, f (AstVar ZS freshAstVar)) e
 
 instance MonoFunctor (AstPrimalPart1 n r) where
   omap f (AstPrimalPart1 x) =
@@ -316,66 +309,57 @@ instance MonoFunctor (AstPrimalPart1 n r) where
 -- only one path and fail if it doesn't contain enough information
 -- to determine shape. If we don't switch to @Data.Array.Shaped@
 -- or revert to fully dynamic shapes, we need to redo this with more rigour.
-shapeAst :: (Show r, Numeric r) => Ast n r -> AstShape r
+shapeAst :: forall n r. (KnownNat n, Show r, Numeric r)
+         => Ast n r -> ShapeInt n
 shapeAst v1 = case v1 of
   AstOp _opCode args -> case args of
     [] -> error "shapeAst: AstOp with no arguments"
     t : _ -> shapeAst t
   AstCond _b a1 _a2 -> shapeAst a1
-  AstConstInt _i -> []
-  AstConst a -> OR.shapeL a
+  AstConstInt _i -> ZS
+  AstConst a -> listShapeToShape $ OR.shapeL a
   AstConstant (AstPrimalPart1 a) -> shapeAst a
   AstScale (AstPrimalPart1 r) _d -> shapeAst r
   AstVar sh _var -> sh
-  AstIndex v _i -> tail $ shapeAst v  -- types ensure this @tail@ is total
-  AstIndexN v is ->
-    let sh = shapeAst v
-    in assert (length sh >= length is `blame` v1)
-       $ drop (length is) sh
-  AstSum v -> tail $ shapeAst v
+  AstIndexN v (_is :: Index m (AstInt r)) -> dropShape @m (shapeAst v)
+  AstSum v -> tailShape $ shapeAst v
   AstFromList l -> case l of
     [] -> error "shapeAst: AstFromList with no arguments"
-    t : _ -> length l : shapeAst t
+    t : _ -> length l :$ shapeAst t
   AstFromVector l -> case V.toList l of
     [] -> error "shapeAst: AstFromVector with no arguments"
-    t : _ -> V.length l : shapeAst t
-  AstKonst n v -> n : shapeAst v
+    t : _ -> V.length l :$ shapeAst t
+  AstKonst s v -> s :$ shapeAst v
   AstAppend x y -> case shapeAst x of
-    [] -> error "shapeAst: AstAppend applied to scalars"
-    xi : xsh -> case shapeAst y of
-      [] -> error "shapeAst: AstAppend applied to scalars"
-      yi : _ -> xi + yi : xsh
-  AstSlice _n k v -> k : tail (shapeAst v)
+    ZS -> error "shapeAst: impossible pattern needlessly required"
+    xi :$ xsh -> case shapeAst y of
+      ZS -> error "shapeAst: impossible pattern needlessly required"
+      yi :$ _ -> xi + yi :$ xsh
+  AstSlice _n k v -> k :$ tailShape (shapeAst v)
   AstReverse v -> shapeAst v
   AstTranspose v -> case shapeAst v of
-    i : k : sh -> k : i : sh
-    sh -> sh  -- the operation is an identity if rank too small
+    i :$ k :$ sh -> k :$ i :$ sh
+    sh -> sh  -- the operation is identity if rank too small
   AstTransposeGeneral perm v ->
-    let permutePrefix :: AstPermutation -> AstShape r -> AstShape r
-        permutePrefix p l = V.toList $ VS.fromList l V.// zip p l
-        sh = shapeAst v
-    in if length sh < length perm
-       then sh  -- the operation is an identity if rank too small
-       else permutePrefix perm sh
-  AstFlatten v -> [product $ shapeAst v]
+    if valueOf @n < length perm
+    then shapeAst v  -- the operation is identity if rank too small
+    else permutePrefixShape perm (shapeAst v)
+  AstFlatten v -> flattenShape (shapeAst v)
   AstReshape sh _v -> sh
-  AstBuildPair n (_var, v) -> n : shapeAst v
-  AstGatherPair n (_var, is) v ->
-    let sh = shapeAst v
-    in assert (length sh >= length is `blame` v1)
-       $ n : drop (length is) sh
-  AstSum0 _v -> []
-  AstDot0 _x _y -> []
+  AstBuildPair k (_var, v) -> k :$ shapeAst v
+  AstGatherPair k (_var, _is :: Index len (AstInt r)) v ->
+    k :$ dropShape @len (shapeAst v)
   AstFromList0N sh _l -> sh
   AstFromVector0N sh _l -> sh
   AstKonst0N sh _r -> sh
-  AstBuildPair0N sh (_vars, _r) -> sh
+  AstBuildPairN sh (_vars, _r) -> sh
   AstOMap (_var, _r) e -> shapeAst e
 
-lengthAst :: (Show r, Numeric r) => Ast (1 + n) r -> Int
+-- Length of the outermost dimension.
+lengthAst :: (KnownNat n, Show r, Numeric r) => Ast (1 + n) r -> Int
 lengthAst v1 = case shapeAst v1 of
-  [] -> error "lengthAst: impossible rank 0 found"
-  n : _ -> n
+  ZS -> error "lengthAst: impossible pattern needlessly required"
+  k :$ _ -> k
 
 substituteAst :: (Show r, Numeric r)
               => AstInt r -> AstVarName Int -> Ast n r -> Ast n r
@@ -390,31 +374,28 @@ substituteAst i var v1 = case v1 of
   AstScale (AstPrimalPart1 r) d ->
     AstScale (AstPrimalPart1 $ substituteAst i var r) (substituteAst i var d)
   AstVar _sh _var -> v1
-  AstIndex v i2 -> AstIndex (substituteAst i var v) (substituteAstInt i var i2)
   AstIndexN v is ->
-    AstIndexN (substituteAst i var v) (map (substituteAstInt i var) is)
+    AstIndexN (substituteAst i var v) (fmap (substituteAstInt i var) is)
   AstSum v -> AstSum (substituteAst i var v)
   AstFromList l -> AstFromList $ map (substituteAst i var) l
   AstFromVector l -> AstFromVector $ V.map (substituteAst i var) l
-  AstKonst n v -> AstKonst n (substituteAst i var v)
+  AstKonst s v -> AstKonst s (substituteAst i var v)
   AstAppend x y -> AstAppend (substituteAst i var x) (substituteAst i var y)
-  AstSlice n k v -> AstSlice n k (substituteAst i var v)
+  AstSlice k s v -> AstSlice k s (substituteAst i var v)
   AstReverse v -> AstReverse (substituteAst i var v)
   AstTranspose v -> AstTranspose (substituteAst i var v)
   AstTransposeGeneral perm v -> AstTransposeGeneral perm (substituteAst i var v)
   AstFlatten v -> AstFlatten (substituteAst i var v)
   AstReshape sh v -> AstReshape sh (substituteAst i var v)
-  AstBuildPair n (var2, v) ->
-    AstBuildPair n (var2, substituteAst i var v)
-  AstGatherPair n (var2, is) v ->
-    AstGatherPair n (var2, map (substituteAstInt i var) is)
+  AstBuildPair k (var2, v) ->
+    AstBuildPair k (var2, substituteAst i var v)
+  AstGatherPair k (var2, is) v ->
+    AstGatherPair k (var2, fmap (substituteAstInt i var) is)
                   (substituteAst i var v)
-  AstSum0 v -> AstSum0 (substituteAst i var v)
-  AstDot0 x y -> AstDot0 (substituteAst i var x) (substituteAst i var y)
   AstFromList0N sh l -> AstFromList0N sh $ map (substituteAst i var) l
   AstFromVector0N sh l -> AstFromVector0N sh $ V.map (substituteAst i var) l
   AstKonst0N sh r -> AstKonst0N sh (substituteAst i var r)
-  AstBuildPair0N sh (vars, r) -> AstBuildPair0N sh (vars, substituteAst i var r)
+  AstBuildPairN sh (vars, r) -> AstBuildPairN sh (vars, substituteAst i var r)
   AstOMap (var2, r) e ->
     AstOMap (var2, substituteAst i var r) (substituteAst i var e)
 
@@ -441,8 +422,3 @@ substituteAstBool i var b1 = case b1 of
     AstRel opCodeRel $ map (substituteAst i var) args
   AstRelInt opCodeRel args ->
     AstRelInt opCodeRel $ map (substituteAstInt i var) args
-
--- This is toIx generalized to AstInt.
-toIxAst :: [Int] -> AstInt r -> AstPath r
-toIxAst [] _ = []
-toIxAst (n : ns) i = q : toIxAst ns r where (q, r) = quotRem i (AstIntConst n)
