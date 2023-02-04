@@ -85,6 +85,7 @@ updateR arr upd = Data.Array.Convert.convert
                   $ OT.update (Data.Array.Convert.convert arr)
                   $ map (first indexToList) upd
 
+-- TODO: try to weave a similar magic as in tindex0R
 updateNR :: forall m n a. (Numeric a, KnownNat m, KnownNat n)
          => OR.Array (m + n) a -> [(IndexInt m, OR.Array n a)]
          -> OR.Array (m + n) a
@@ -142,26 +143,22 @@ tindex0R
   => OR.Array n r -> IndexInt n -> r
 tindex0R (Data.Array.Internal.RankedS.A
             (Data.Array.Internal.RankedG.A _
-               Data.Array.Internal.T{..})) is =
-  values V.! (offset + sum (zipWith (*) (indexToList is) strides))
+               Data.Array.Internal.T{..})) ix =
+  values V.! (offset + sum (zipWith (*) (indexToList ix) strides))
     -- to avoid linearizing @values@, we do everything in unsized way
 
--- TODO: optimize to tindex0R for n == 0
 tindexNR
-  :: forall m n r. (KnownNat m, KnownNat n, Numeric r)
+  :: forall m n r. KnownNat m
   => OR.Array (m + n) r -> IndexInt m -> OR.Array n r
-tindexNR arr ix =
-  let Data.Array.Internal.RankedS.A
-        (Data.Array.Internal.RankedG.A sh
-           Data.Array.Internal.T{offset, values}) = OR.normalize arr
-      !_A = assert (offset == 0) ()
-  in let i = toLinearIdx @m @n (listShapeToShape sh) ix
-         shN = drop (valueOf @m) sh
-         len = product shN
-     in OR.fromVector shN $ V.slice i len values
-  -- Old implementation:
-  -- @Data.Array.Convert.convert
-  --  $ foldl' OT.index (Data.Array.Convert.convert v) is@
+tindexNR (Data.Array.Internal.RankedS.A
+            (Data.Array.Internal.RankedG.A sh
+               Data.Array.Internal.T{strides, offset, values})) ix =
+  let i = offset + sum (zipWith (*) (indexToList ix) strides)
+      plen = valueOf @m  -- length of prefix being indexed out of
+  in
+    Data.Array.Internal.RankedS.A
+      (Data.Array.Internal.RankedG.A (drop plen sh)
+         Data.Array.Internal.T{strides = drop plen strides, offset = i, values})
 
 tsumR
   :: (KnownNat n, Numeric r, Num (Vector r))
