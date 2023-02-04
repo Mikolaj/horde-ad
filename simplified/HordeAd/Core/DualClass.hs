@@ -363,8 +363,8 @@ instance (Numeric r, Num (Vector r))
   dAddR d e = d + e
   recordSharingR = id
 
-instance ( Numeric r, Num (Vector r)
-         , Dual 'ADModeDerivative r ~ r )
+instance ( Numeric r, Show r, Num (Vector r)
+         , Dual 'ADModeDerivative r ~ r)
          => HasRanks 'ADModeDerivative r where
   dIndex0 d ixs _ = tindex0R d ixs
   dSum0 _ = tsum0R

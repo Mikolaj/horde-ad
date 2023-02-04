@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE ConstraintKinds, DataKinds #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Miscellaneous more or less general purpose tensor operations.
@@ -330,7 +330,8 @@ tscatterR f t sh =
 -- TODO: optimize updateNR and make it consume and forget arguments
 -- one by one to make the above true
 tscatterNR :: forall m p n r.
-              (KnownNat m, KnownNat p, KnownNat n, Numeric r, Num (Vector r))
+              ( KnownNat m, KnownNat p, KnownNat n, NumAndDebug r
+              , Num (Vector r) )
            => (IndexInt m -> IndexInt p)
            -> OR.Array (m + n) r
            -> ShapeInt (p + n) -> OR.Array (p + n) r
@@ -342,6 +343,10 @@ tscatterNR f t sh =
       ivs = foldr g M.empty [fromLinearIdx shm i | i <- [0 .. s - 1]]
   in updateNR (tkonst0NR sh 0) $ map (second $ OR.fromVector shn . sum)
                                $ M.assocs ivs
+
+-- We often debug around here, so let's add Show and obfuscate it
+-- to avoid warnings that it's unused. The addition silences warnings upstream.
+type NumAndDebug r = (Numeric r, Show r)
 
 tsum0S
   :: (Numeric r, OS.Shape sh)
