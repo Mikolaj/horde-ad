@@ -688,8 +688,7 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
     AstKonst0N sh v ->
       let s = shapeSize sh
       in build1VectorizeIndexVar k var (AstReshape sh $ AstKonst s v) is
-    AstBuildPairN _sh (Z, _r) ->
-      error "build1VectorizeIndexVar: impossible case; is would have to be []"
+    AstBuildPairN _sh (Z, r) -> build1VectorizeIndexVar k var r is
     AstBuildPairN (_ :$ sh') (var2 ::: vars, r) ->
       build1VectorizeIndexVar
         k var (unsafeCoerce $ AstBuildPairN sh' (vars, substituteAst i1 var2 r))
