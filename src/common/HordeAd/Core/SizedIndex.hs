@@ -54,22 +54,20 @@ pattern ZI = Index Z
 infixr 3 :.
 pattern (:.) :: forall n1 i. forall n. (1 + n) ~ n1
              => i -> Index n i -> Index n1 i
-pattern i :. sh <- (unconsIndex -> Just (UnconsIndexRes sh i Dict))
+pattern i :. sh <- (unconsIndex -> Just (UnconsIndexRes sh i))
   where i :. (Index sh) = Index (i ::: sh)
 {-# COMPLETE ZI, (:.) #-}
 
-data Dict c where
-  Dict :: c => Dict c
 data UnconsIndexRes i n1 =
-  forall n. UnconsIndexRes (Index n i) i (Dict (n1 ~ (1 + n)))
+  forall n. n1 ~ (1 + n) => UnconsIndexRes (Index n i) i
 unconsIndex :: Index n1 i -> Maybe (UnconsIndexRes i n1)
 unconsIndex (Index sh) = case sh of
-  i ::: sh' -> Just (UnconsIndexRes (Index sh') i Dict)
+  i ::: sh' -> Just (UnconsIndexRes (Index sh') i)
   Z -> Nothing
 
 deriving stock instance Functor (Index n)
 
-instance KnownNat n => Foldable (Index n) where
+instance Foldable (Index n) where
   foldr f z l = foldr f z (indexToList l)
 
 instance KnownNat n => IsList (Index n i) where
@@ -132,7 +130,7 @@ listToIndex (i : is)
       error "listToIndex: list too long"
 -}
 
-listToIndex :: forall n i. KnownNat n => [i] -> Index n i
+listToIndex :: KnownNat n => [i] -> Index n i
 listToIndex = Index . listToSized
 
 indexToList :: Index n i -> [i]
@@ -152,20 +150,20 @@ pattern ZS = Shape Z
 infixr 3 :$
 pattern (:$) :: forall n1 i. forall n. (1 + n) ~ n1
              => i -> Shape n i -> Shape n1 i
-pattern i :$ sh <- (unconsShape -> Just (UnconsShapeRes sh i Dict))
+pattern i :$ sh <- (unconsShape -> Just (UnconsShapeRes sh i))
   where i :$ (Shape sh) = Shape (i ::: sh)
 {-# COMPLETE ZS, (:$) #-}
 
 data UnconsShapeRes i n1 =
-  forall n. UnconsShapeRes (Shape n i) i (Dict (n1 ~ (1 + n)))
+  forall n. n1 ~ (1 + n) => UnconsShapeRes (Shape n i) i
 unconsShape :: Shape n1 i -> Maybe (UnconsShapeRes i n1)
 unconsShape (Shape sh) = case sh of
-  i ::: sh' -> Just (UnconsShapeRes (Shape sh') i Dict)
+  i ::: sh' -> Just (UnconsShapeRes (Shape sh') i)
   Z -> Nothing
 
 deriving stock instance Functor (Shape n)
 
-instance KnownNat n => Foldable (Shape n) where
+instance Foldable (Shape n) where
   foldr f z l = foldr f z (shapeToList l)
 
 instance KnownNat n => IsList (Shape n i) where
@@ -200,7 +198,7 @@ flattenShape :: Num i => Shape n i -> Shape 1 i
 flattenShape = singletonShape . shapeSize
 
 -- Warning: do not pass a list of strides to this function.
-listShapeToShape :: forall n i. KnownNat n => [i] -> Shape n i
+listShapeToShape :: KnownNat n => [i] -> Shape n i
 listShapeToShape = Shape . listToSized
 
 shapeToList :: Shape n i -> [i]

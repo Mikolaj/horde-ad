@@ -46,7 +46,7 @@ instance Show i => Show (SizedList n i) where
 
 deriving stock instance Functor (SizedList n)
 
-instance KnownNat n => Foldable (SizedList n) where
+instance Foldable (SizedList n) where
   foldr f z l = foldr f z (sizedListToList l)
 
 instance KnownNat n => IsList (SizedList n i) where
@@ -86,7 +86,7 @@ unsnocSized Z = error "unsnocSized: impossible pattern needlessly required"
 unsnocSized (i ::: ix) = case ix of
   Z -> (Z, i)
   _ ::: _ -> let (init1, last1) = unsnocSized ix
-            in (i ::: init1, last1)
+             in (i ::: init1, last1)
 
 lastSized :: SizedList (1 + n) i -> i
 lastSized Z = error "lastSized: impossible pattern needlessly required"
