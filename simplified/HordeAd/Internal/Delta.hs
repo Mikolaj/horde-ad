@@ -207,20 +207,22 @@ data Delta1 :: Nat -> Type -> Type where
     -- ^ Build a tensor with the given size of the outermost dimension
     -- and using the given function to construct the element tensors.
   Build01 :: ShapeInt n -> (IndexInt n -> Delta0 r) -> Delta1 n r
-  Gather1 :: (KnownNat n, KnownNat m)
-          => Int -> (Int -> IndexInt m)
-          -> ShapeInt (m + n) -> Delta1 (m + n) r -> Delta1 (1 + n) r
+  Gather1 :: (KnownNat p, KnownNat n)
+          => (Int -> IndexInt p)
+          -> ShapeInt (p + n) -> Delta1 (p + n) r
+          -> Int -> Delta1 (1 + n) r
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
     -- of length @m@. Indexes of length 0 result in identities, so that,
-    -- e.g, @Gather1 k (const Z) [] (Scalar1 d)@ is equivalent
+    -- e.g, @Gather1 (const Z) [] (Scalar1 d) k@ is equivalent
     -- to @Konst01 [k] d@.
   GatherN1 :: (KnownNat m, KnownNat p, KnownNat n)
            => (IndexInt m -> IndexInt p)
            -> ShapeInt (p + n) -> Delta1 (p + n) r
            -> ShapeInt (m + n) -> Delta1 (m + n) r
-  Scatter1 :: (KnownNat n, KnownNat m)
-           => Int -> (Int -> IndexInt m)
-           -> Delta1 (1 + n) r -> ShapeInt (m + n) -> Delta1 (m + n) r
+  Scatter1 :: (KnownNat p, KnownNat n)
+           => (Int -> IndexInt p)
+           -> Int -> Delta1 (1 + n) r
+           -> ShapeInt (p + n) -> Delta1 (p + n) r
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
     -- the third argument and inserted in a zero tensor
     -- at indexes of length @m@. Indexes of length 0 insert tensors trivially,
@@ -576,9 +578,9 @@ buildFinMaps s0 deltaDt =
         Build01 sh f ->
           V.ifoldl' (\s2 i ci -> eval0 s2 ci (f $ fromLinearIdx sh i))
                     s (OR.toVector c)
-        Gather1 _n f sh d -> eval1 s (tscatterR f c sh) d
+        Gather1 f sh d _n -> eval1 s (tscatterR f c sh) d
         GatherN1 f shd d _sh -> eval1 s (tscatterNR f c shd) d
-        Scatter1 n f d _sh -> eval1 s (tgatherR n f c) d
+        Scatter1 f n d _sh -> eval1 s (tgatherR f c n) d
         ScatterN1 f shd d _sh -> eval1 s (tgatherNR f c shd) d
 
         FromX1 (InputX inputId) ->
@@ -724,13 +726,13 @@ buildDerivative dim0 dim1 deltaTopLevel
           l <- mapM (eval0 . f)
                     [fromLinearIdx sh' i | i <- [0 .. s - 1]]
           return $! OR.fromList sh l
-        Gather1 n f _sh d -> do
+        Gather1 f _sh d k -> do
           t <- eval1 d
-          return $! tgatherR n f t
+          return $! tgatherR f t k
         GatherN1 f _shd d sh -> do
           t <- eval1 d
           return $! tgatherNR f t sh
-        Scatter1 _n f d sh -> do
+        Scatter1 f _k d sh -> do
           t <- eval1 d
           return $! tscatterR f t sh
         ScatterN1 f _shd d sh ->  do

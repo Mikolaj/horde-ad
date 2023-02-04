@@ -203,18 +203,18 @@ class HasRanks (d :: ADMode) r where
           -> Dual d (OR.Array (1 + n) r)
   dBuild01 :: KnownNat n
            => ShapeInt n -> (IndexInt n -> Dual d r) -> Dual d (OR.Array n r)
-  dGather1 :: (KnownNat n, KnownNat m)
-           => Int -> (Int -> IndexInt m)
-           -> ShapeInt (m + n) -> Dual d (OR.Array (m + n) r)
-           -> Dual d (OR.Array (1 + n) r)
+  dGather1 :: (KnownNat p, KnownNat n)
+           => (Int -> IndexInt p)
+           -> ShapeInt (p + n) -> Dual d (OR.Array (p + n) r)
+           -> Int -> Dual d (OR.Array (1 + n) r)
   dGatherN1 :: (KnownNat m, KnownNat p, KnownNat n)
             => (IndexInt m -> IndexInt p)
             -> ShapeInt (p + n) -> Dual d (OR.Array (p + n) r)
             -> ShapeInt (m + n) -> Dual d (OR.Array (m + n) r)
-  dScatter1 :: (KnownNat n, KnownNat m)
-            => Int -> (Int -> IndexInt m)
-            -> Dual d (OR.Array (1 + n) r) -> ShapeInt (m + n)
-            -> Dual d (OR.Array (m + n) r)
+  dScatter1 :: (KnownNat p, KnownNat n)
+            => (Int -> IndexInt p)
+            -> Int -> Dual d (OR.Array (1 + n) r)
+            -> ShapeInt (p + n) -> Dual d (OR.Array (p + n) r)
   dScatterN1 :: (KnownNat m, KnownNat p, KnownNat n)
              => (IndexInt m -> IndexInt p)
              -> ShapeInt (m + n) -> Dual d (OR.Array (m + n) r)
@@ -388,10 +388,10 @@ instance ( Numeric r, Num (Vector r)
   dReshape1 _sh = treshapeR
   dBuild1 = tbuildR
   dBuild01 = tbuild0NR
-  dGather1 n f _sh = tgatherR n f
-  dGatherN1 f _shd d sh = tgatherNR f d sh
-  dScatter1 _n = tscatterR
-  dScatterN1 f _shd d sh = tscatterNR f d sh
+  dGather1 f _sh = tgatherR f
+  dGatherN1 f _shd = tgatherNR f
+  dScatter1 f _n = tscatterR f
+  dScatterN1 f _shd = tscatterNR f
 
   dFromX1 = Data.Array.Convert.convert
 

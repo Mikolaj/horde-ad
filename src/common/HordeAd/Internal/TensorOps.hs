@@ -293,9 +293,9 @@ tzipWith0NR
 tzipWith0NR = liftVR2 . Numeric.LinearAlgebra.Devel.zipVectorWith
 
 tgatherR :: (Numeric r, KnownNat p, KnownNat n)
-         => Int -> (Int -> IndexInt p)
-         -> OR.Array (p + n) r -> OR.Array (1 + n) r
-tgatherR k f t =
+         => (Int -> IndexInt p)
+         -> OR.Array (p + n) r -> Int -> OR.Array (1 + n) r
+tgatherR f t k =
   let l = map (\i -> t `tindexNR` f i) [0 .. k - 1]
   in OR.ravel $ ORB.fromList [k] l
 
@@ -316,9 +316,9 @@ tgatherNR f t sh =
 -- building the underlying value vector with crafty index computations
 -- and then freezing it and calling OR.fromVector
 -- or optimize tscatterNR and instantiate it instead
-tscatterR :: (Numeric r, Num (Vector r), KnownNat n, KnownNat m)
-          => (Int -> IndexInt m)
-          -> OR.Array (1 + n) r -> ShapeInt (m + n) -> OR.Array (m + n) r
+tscatterR :: (Numeric r, Num (Vector r), KnownNat p, KnownNat n)
+          => (Int -> IndexInt p)
+          -> OR.Array (1 + n) r -> ShapeInt (p + n) -> OR.Array (p + n) r
 tscatterR f t sh =
   V.sum $ V.imap (\i ti -> updateNR (tkonst0NR sh 0) [(f i, ti)])
         $ ORB.toVector $ OR.unravel t

@@ -513,7 +513,7 @@ build1VectorizeVar k (var, u) =
       -- inside projections. So we add to the term and wait for rescue.
       -- It probably speeds up vectorization a tiny bit if we nest
       -- AstBuildPair instead of rewriting into AstBuildPairN.
-    AstGatherPair _n (_var2, _ixs2) _v -> AstBuildPair k (var, u)
+    AstGatherPair (_var2, _ixs2) _v _n -> AstBuildPair k (var, u)
       -- TODO: if var not in _v, then create a generalized gather
       -- that builds more than one rank using var and var2 together;
       -- then the function would be from a list of build1 indexes,
@@ -551,12 +551,12 @@ build1VectorizeIndex
 build1VectorizeIndex k var v ZI = build1Vectorize k (var, v)
 build1VectorizeIndex k var v is@(iN :. restN) =
   if | intVarInAst var v -> build1VectorizeIndexVar k var v is  -- push deeper
-     | any (intVarInAstInt var) restN -> AstGatherPair k (var, is) v
+     | any (intVarInAstInt var) restN -> AstGatherPair (var, is) v k
      | intVarInAstInt var iN ->
        let w = AstIndexN v restN
        in case build1VectorizeIndexAnalyze k var w iN of
             Just u -> u  -- an extremely simple form found
-            Nothing -> AstGatherPair k (var, is) v
+            Nothing -> AstGatherPair (var, is) v k
               -- we didn't really need it anyway
      | otherwise -> AstKonst k (AstIndexN v is)
 
@@ -602,14 +602,14 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
       -- There's no other reduction left to perform and hope the build vanishes.
       let t = AstFromList $ map (\v ->
             build1Vectorize k (var, AstIndexN v rest1)) l
-      in AstGatherPair k (var, i1 :. AstIntVar var :. ZI) t
+      in AstGatherPair (var, i1 :. AstIntVar var :. ZI) t k
     AstFromList l ->
       AstIndexN (AstFromList $ map (\v ->
         build1Vectorize k (var, AstIndexN v rest1)) l) (singletonIndex i1)
     AstFromVector l | intVarInAstInt var i1 ->
       let t = AstFromVector $ V.map (\v ->
             build1Vectorize k (var, AstIndexN v rest1)) l
-      in AstGatherPair k (var, i1 :. AstIntVar var :. ZI) t
+      in AstGatherPair (var, i1 :. AstIntVar var :. ZI) t k
     AstFromVector l ->
       AstIndexN (AstFromVector $ V.map (\v ->
         build1Vectorize k (var, AstIndexN v rest1)) l) (singletonIndex i1)
@@ -680,7 +680,7 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
       -- vectorization not abort, after all? and only check at whole program
       -- vectorization end that no build has been left unvectorized?
       build1VectorizeIndexVar k var (substituteAst i1 var2 v) rest1
-    AstGatherPair _n2 (var2, ix2) v ->
+    AstGatherPair (var2, ix2) v _n2 ->
       let ix3 = fmap (substituteAstInt i1 var2) ix2
       in build1VectorizeIndex k var v (appendIndex rest1 ix3)
 
@@ -758,7 +758,7 @@ intVarInAst var = \case
   AstFlatten v -> intVarInAst var v
   AstReshape _ v -> intVarInAst var v
   AstBuildPair _ (_, v) -> intVarInAst var v
-  AstGatherPair _ (_, is) v -> any (intVarInAstInt var) is || intVarInAst var v
+  AstGatherPair (_, is) v _ -> any (intVarInAstInt var) is || intVarInAst var v
 
   AstFromList0N _ l -> any (intVarInAst var) l
   AstFromVector0N _ l -> V.any (intVarInAst var) l
@@ -888,10 +888,11 @@ build :: (ADModeAndNumTensor d r, KnownNat n)
       -> ADVal d (OR.Array (1 + n) r)
 build k f = fromList $ map f [0 .. k - 1]
 
-gatherClosure :: (ADModeAndNumTensor d r, KnownNat m, KnownNat n)
-              => Int -> (Int -> IndexInt m)
-              -> ADVal d (OR.Array (m + n) r) -> ADVal d (OR.Array (1 + n) r)
-gatherClosure k f (D u u') = dD (tgatherR k f u) (dGather1 k f (tshapeR u) u')
+gatherClosure :: (ADModeAndNumTensor d r, KnownNat p, KnownNat n)
+              => (Int -> IndexInt p)
+              -> ADVal d (OR.Array (p + n) r)
+              -> Int -> ADVal d (OR.Array (1 + n) r)
+gatherClosure f (D u u') k = dD (tgatherR f u k) (dGather1 f (tshapeR u) u' k)
 
 gatherNClosure :: (ADModeAndNumTensor d r, KnownNat m, KnownNat p, KnownNat n)
                => (IndexInt m -> IndexInt p)
@@ -994,8 +995,8 @@ interpretAst env = \case
   AstBuildPair k (var, v) -> build k (interpretLambdaI env (var, v))
       -- fallback to POPL (memory blowup, but avoids functions on tape);
       -- an alternative is to use dBuild1 and store function on tape
-  AstGatherPair k (var, ix) v ->
-    gatherClosure k (interpretLambdaIndex env (var, ix)) (interpretAst env v)
+  AstGatherPair (var, ix) v k ->
+    gatherClosure (interpretLambdaIndex env (var, ix)) (interpretAst env v) k
     -- TODO: currently we store the function on tape, because it doesn't
     -- cause recomputation of the gradient per-cell, unlike storing the build
     -- function on tape; for GPUs and libraries that don't understand Haskell

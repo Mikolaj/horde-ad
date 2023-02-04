@@ -88,9 +88,9 @@ data Ast :: Nat -> Type -> Type where
              => ShapeInt m -> Ast n r -> Ast m r
     -- emerges from vectorizing AstFlatten
   AstBuildPair :: Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
-  AstGatherPair :: forall m n r. KnownNat m
-                => Int -> (AstVarName Int, AstIndex m r) -> Ast (m + n) r
-                -> Ast (1 + n) r
+  AstGatherPair :: forall p n r. KnownNat p
+                => (AstVarName Int, AstIndex p r) -> Ast (p + n) r
+                -> Int -> Ast (1 + n) r
     -- emerges from vectorizing AstIndexN applied to term with no build variable
 
   -- If we give the user access to tensors, not just vectors, these
@@ -351,7 +351,7 @@ shapeAst v1 = case v1 of
   AstFlatten v -> flattenShape (shapeAst v)
   AstReshape sh _v -> sh
   AstBuildPair k (_var, v) -> k :$ shapeAst v
-  AstGatherPair k (_var, _is :: Index len (AstInt r)) v ->
+  AstGatherPair (_var, _is :: Index len (AstInt r)) v k ->
     k :$ dropShape @len (shapeAst v)
   AstFromList0N sh _l -> sh
   AstFromVector0N sh _l -> sh
@@ -394,9 +394,9 @@ substituteAst i var v1 = case v1 of
   AstReshape sh v -> AstReshape sh (substituteAst i var v)
   AstBuildPair k (var2, v) ->
     AstBuildPair k (var2, substituteAst i var v)
-  AstGatherPair k (var2, is) v ->
-    AstGatherPair k (var2, fmap (substituteAstInt i var) is)
-                  (substituteAst i var v)
+  AstGatherPair (var2, is) v k ->
+    AstGatherPair (var2, fmap (substituteAstInt i var) is)
+                  (substituteAst i var v) k
   AstFromList0N sh l -> AstFromList0N sh $ map (substituteAst i var) l
   AstFromVector0N sh l -> AstFromVector0N sh $ V.map (substituteAst i var) l
   AstKonst0N sh r -> AstKonst0N sh (substituteAst i var r)
