@@ -211,15 +211,15 @@ shapeToList (Shape l) = sizedListToList l
 -- index into the buffer. Note that the index doesn't need to be pointing
 -- at a scalar. It may point at the start of a larger tensor instead.
 toLinearIdx :: forall m n i. Num i => Shape (m + n) i -> Index m i -> i
-toLinearIdx = \sh idx -> snd (go sh idx)
+toLinearIdx = \sh idx -> go sh idx 0
   where
-    -- Returns (shape size, linear index)
-    go :: forall m1 n1. Shape (m1 + n1) i -> Index m1 i -> (i, i)
-    go sh ZI = (shapeSize sh, 0)
-    go (n :$ sh) (i :. idx) =
-      let (restsize, lin) = go sh idx
-      in (n * restsize, i * restsize + lin)
-    go _ _ = error "toLinearIdx: impossible pattern needlessly required"
+    -- Additional argument: index, in the @m - m1@ dimensional array so far,
+    -- of the @m - m1 + n@ dimensional tensor pointed to by the current
+    -- @m - m1@ dimensional index prefix.
+    go :: forall m1 n1. Shape (m1 + n1) i -> Index m1 i -> i -> i
+    go sh ZI tensidx = shapeSize sh * tensidx
+    go (n :$ sh) (i :. idx) tensidx = go sh idx (n * tensidx + i)
+    go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
 
 -- | Given a linear index into the buffer, get the corresponding
 -- multidimensional index. Here we require an index pointing at a scalar.
