@@ -513,14 +513,11 @@ build1VectorizeVar k (var, u) =
       -- inside projections. So we add to the term and wait for rescue.
       -- It probably speeds up vectorization a tiny bit if we nest
       -- AstBuildPair instead of rewriting into AstBuildPairN.
-    AstGatherPair (_var2, _ixs2) _v _n -> AstBuildPair k (var, u)
-      -- TODO: if var not in _v, then create a generalized gather
-      -- that builds more than one rank using var and var2 together;
-      -- then the function would be from a list of build1 indexes,
-      -- but for this I *really* need a Nat-sized list, becuause I will
-      -- then need to vectorize buildN and so all vectorization function
-      -- signatures will contain complex type-level arithmetic
-    -- AstScatterPair (var2, ixs2) v sh -> ...
+    AstGatherPair (var2, ix2 :: Index p (AstInt r)) v k2 ->
+      AstGatherPairN (var ::: var2 ::: Z, AstIntVar var :. ix2)
+                     (build1Vectorize k (var, v))
+                     (k :$ k2 :$ dropShape @p (shapeAst v))
+    -- AstScatterPair (var2, ix2) v sh -> ...
     -- no idea how to vectorize AstScatterPair, so let's not add it prematurely
 
     -- Rewriting syntactic sugar in the simplest way (but much more efficient
@@ -533,7 +530,10 @@ build1VectorizeVar k (var, u) =
       let s = shapeSize sh
       in build1VectorizeVar k (var, AstReshape sh $ AstKonst s v)
     AstBuildPairN{} -> AstBuildPair k (var, u)  -- see AstBuildPair above
-    AstGatherPairN{} -> AstBuildPair k (var, u)
+    AstGatherPairN (vars, ix2) v sh ->
+      AstGatherPairN (var ::: vars, AstIntVar var :. ix2)
+                     (build1Vectorize k (var, v))
+                     (k :$ sh)
 
     AstOMap{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair k (var, u)
     -- All other patterns are redundant due to GADT typing.
@@ -574,8 +574,7 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
     AstOp opCode args ->
       AstOp opCode $ map (\w -> build1VectorizeIndex k var w is) args
     AstCond b v w ->
-      build1VectorizeIndex k var (AstFromList [v, w])
-                           (snocIndex is (AstIntCond b 0 1))
+      build1VectorizeIndex k var (AstFromList [v, w]) (AstIntCond b 0 1 :. is)
     AstConstInt{} ->
       AstConstant $ AstPrimalPart1 $ AstBuildPair @n k (var, AstIndexN v1 is)
     AstConst{} ->
@@ -673,12 +672,8 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
       in AstReshape (n : sh) $ build1VectorizeVar k (var, v2)
       -}
     AstBuildPair _n2 (var2, v) ->
-      -- TODO: a previous failure of vectorization that should have
-      -- led to an abort instead of showing up late
-      -- TODO: or a wonderful chance to recover failed vectorization,
-      -- by taking only an element of this build! so shall failed
-      -- vectorization not abort, after all? and only check at whole program
-      -- vectorization end that no build has been left unvectorized?
+      -- Here we seize the chance to recover earlier failed vectorization,
+      -- by choosing only one element of this whole build, eliminating it.
       build1VectorizeIndexVar k var (substituteAst i1 var2 v) rest1
     AstGatherPair (var2, ix2) v _n2 ->
       let ix3 = fmap (substituteAstInt i1 var2) ix2
@@ -713,7 +708,7 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
       AstConstant $ AstPrimalPart1 $ AstBuildPair k (var, AstIndexN v1 is)
     -- All other patterns are redundant due to GADT typing.
 
--- TODO: we probably need to simplify to some normal form, but possibly
+-- TODO: we probably need to simplify iN to some normal form, but possibly
 -- this would be even better to do and take advantage of earlier,
 -- perhaps even avoiding pushing all the other indexing down
 build1VectorizeIndexAnalyze
@@ -729,10 +724,10 @@ build1VectorizeIndexAnalyze k var v iN = case iN of
       Just $ AstSlice i2 k v
   _ -> Nothing
     -- TODO: many more cases; not sure how systematic it can be;
-    -- more cases are possible if shapes can contain Ast variables;
-    -- @Data.Array.Shaped@ doesn't help in this case;
-    -- however, AstGatherPair covers all this, at the cost of relatively
-    -- simple expressions on tape
+    -- more cases arise if shapes can contain Ast variables;
+    -- @Data.Array.Shaped@ doesn't help in these extra cases;
+    -- however, AstGatherPair(N) covers all this, at the cost of (relatively
+    -- simple) expressions on tape
 
 intVarInAst :: AstVarName Int -> Ast n r -> Bool
 intVarInAst var = \case

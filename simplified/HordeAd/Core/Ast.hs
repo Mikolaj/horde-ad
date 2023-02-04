@@ -93,8 +93,6 @@ data Ast :: Nat -> Type -> Type where
                 -> Int -> Ast (1 + n) r
     -- emerges from vectorizing AstIndexN applied to term with no build variable
 
-  -- If we give the user access to tensors, not just vectors, these
-  -- operations will be necessary.
   -- This is treated as syntactic sugar for now, but these have
   -- much more efficient non-sugar implementations
   -- (and possibly more efficient vectorizations).
@@ -103,9 +101,12 @@ data Ast :: Nat -> Type -> Type where
   AstKonst0N :: ShapeInt n -> Ast 0 r -> Ast n r
   AstBuildPairN :: forall m n r.
                    ShapeInt (m + n) -> (AstVarList m, Ast n r) -> Ast (m + n) r
+    -- not needed for anythihg, but an extra pass may join nested AstBuildPair
+    -- into these for better performance on some hardware
   AstGatherPairN :: forall m p n r. (KnownNat m, KnownNat p, KnownNat n)
                  => (AstVarList m, AstIndex p r) -> Ast (p + n) r
                  -> ShapeInt (m + n) -> Ast (m + n) r
+    -- emerges from vectorizing AstGatherPair
 
   -- For MonoFunctor class, which is needed for a particularly
   -- fast implementation of relu and offers fast, primal-part only, mapping.
@@ -351,8 +352,8 @@ shapeAst v1 = case v1 of
   AstFlatten v -> flattenShape (shapeAst v)
   AstReshape sh _v -> sh
   AstBuildPair k (_var, v) -> k :$ shapeAst v
-  AstGatherPair (_var, _is :: Index len (AstInt r)) v k ->
-    k :$ dropShape @len (shapeAst v)
+  AstGatherPair (_var, _is :: Index p (AstInt r)) v k ->
+    k :$ dropShape @p (shapeAst v)
   AstFromList0N sh _l -> sh
   AstFromVector0N sh _l -> sh
   AstKonst0N sh _r -> sh
