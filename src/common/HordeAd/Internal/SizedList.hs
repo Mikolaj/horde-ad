@@ -39,6 +39,10 @@ data SizedList (n :: Nat) i where
   Z :: SizedList 0 i
   (:::) :: i -> SizedList n i -> SizedList (1 + n) i
 
+deriving instance Eq i => Eq (SizedList n i)
+
+deriving instance Ord i => Ord (SizedList n i)
+
 instance Show i => Show (SizedList n i) where
   showsPrec _ Z = showString "Z"
   showsPrec d (i ::: ix) = showParen (d > 3) $

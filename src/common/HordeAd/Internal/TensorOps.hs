@@ -8,7 +8,7 @@ module HordeAd.Internal.TensorOps
 
 import Prelude
 
-import           Control.Arrow (first)
+import           Control.Arrow (first, second)
 import           Control.Exception.Assert.Sugar
 import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OT
@@ -24,6 +24,7 @@ import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.List (foldl')
+import qualified Data.Strict.Map as M
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
@@ -86,6 +87,8 @@ updateR arr upd = Data.Array.Convert.convert
                   $ map (first indexToList) upd
 
 -- TODO: try to weave a similar magic as in tindex0R
+-- TODO: for the non-singleton case see
+-- https://github.com/Mikolaj/horde-ad/pull/81#discussion_r1096532164
 updateNR :: forall m n a. (Numeric a, KnownNat m, KnownNat n)
          => OR.Array (m + n) a -> [(IndexInt m, OR.Array n a)]
          -> OR.Array (m + n) a
@@ -289,22 +292,57 @@ tzipWith0NR
   => (r -> r -> r) -> OR.Array n r -> OR.Array n r -> OR.Array n r
 tzipWith0NR = liftVR2 . Numeric.LinearAlgebra.Devel.zipVectorWith
 
-tgatherR :: (Numeric r, KnownNat m, KnownNat n)
-         => Int -> (Int -> IndexInt m)
-         -> OR.Array (m + n) r -> OR.Array (1 + n) r
+tgatherR :: (Numeric r, KnownNat p, KnownNat n)
+         => Int -> (Int -> IndexInt p)
+         -> OR.Array (p + n) r -> OR.Array (1 + n) r
 tgatherR k f t =
   let l = map (\i -> t `tindexNR` f i) [0 .. k - 1]
   in OR.ravel $ ORB.fromList [k] l
 
+-- TODO: this can be slightly optimized by normalizing t first (?)
+-- and then inlining toVector and tindexNR
+tgatherNR :: forall m p n r. (KnownNat m, KnownNat p, KnownNat n, Numeric r)
+          => (IndexInt m -> IndexInt p)
+          -> OR.Array (p + n) r
+          -> ShapeInt (m + n) -> OR.Array (m + n) r
+tgatherNR f t sh =
+  let shm = takeShape @m sh
+      s = shapeSize shm
+      l = map (\ix -> OR.toVector $ t `tindexNR` f ix)
+              [fromLinearIdx shm i | i <- [0 .. s - 1]]
+  in OR.fromVector (shapeToList sh) $ LA.vjoin l
+
 -- TODO: update in place in ST or with a vector builder, but that requires
 -- building the underlying value vector with crafty index computations
 -- and then freezing it and calling OR.fromVector
+-- or optimize tscatterNR and instantiate it instead
 tscatterR :: (Numeric r, Num (Vector r), KnownNat n, KnownNat m)
           => (Int -> IndexInt m)
           -> OR.Array (1 + n) r -> ShapeInt (m + n) -> OR.Array (m + n) r
 tscatterR f t sh =
   V.sum $ V.imap (\i ti -> updateNR (tkonst0NR sh 0) [(f i, ti)])
         $ ORB.toVector $ OR.unravel t
+
+-- Performance depends a lot on the number and size of tensors.
+-- If tensors are not tiny, memory taken by underlying vectors matters most
+-- and this implementation is probbaly optimal in this respect
+-- (the only new vectors are created by LA.vjoin, but this is done on demand).
+-- TODO: optimize updateNR and make it consume and forget arguments
+-- one by one to make the above true
+tscatterNR :: forall m p n r.
+              (KnownNat m, KnownNat p, KnownNat n, Numeric r, Num (Vector r))
+           => (IndexInt m -> IndexInt p)
+           -> OR.Array (m + n) r
+           -> ShapeInt (p + n) -> OR.Array (p + n) r
+tscatterNR f t sh =
+  let (shm', shn) = splitAt (valueOf @m) $ OR.shapeL t
+      s = product shm'
+      shm = listShapeToShape shm'
+      g ix = M.insertWith (++) (f ix) [OR.toVector $ t `tindexNR` ix]
+      ivs = foldr g M.empty [fromLinearIdx shm i | i <- [0 .. s - 1]]
+  in updateNR (tkonst0NR sh 0) $ map (second $ OR.fromVector shn . sum)
+                               $ M.assocs ivs
+
 tsum0S
   :: (Numeric r, OS.Shape sh)
   => OS.Array sh r -> r

@@ -46,7 +46,7 @@ type ShapeInt n = Shape n Int
 -- The slowest-moving index is at the head position;
 -- thus the index 'i :. j :. Z' represents 'a[i][j]' in traditional C notation.
 newtype Index n i = Index (SizedList n i)
-  deriving Show
+  deriving (Show, Eq, Ord)
 
 pattern ZI :: forall n i. () => n ~ 0 => Index n i
 pattern ZI = Index Z
