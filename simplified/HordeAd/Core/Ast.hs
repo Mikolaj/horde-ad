@@ -103,6 +103,9 @@ data Ast :: Nat -> Type -> Type where
   AstKonst0N :: ShapeInt n -> Ast 0 r -> Ast n r
   AstBuildPairN :: forall m n r.
                    ShapeInt (m + n) -> (AstVarList m, Ast n r) -> Ast (m + n) r
+  AstGatherPairN :: forall m p n r. (KnownNat m, KnownNat p, KnownNat n)
+                 => (AstVarList m, AstIndex p r) -> Ast (p + n) r
+                 -> ShapeInt (m + n) -> Ast (m + n) r
 
   -- For MonoFunctor class, which is needed for a particularly
   -- fast implementation of relu and offers fast, primal-part only, mapping.
@@ -354,6 +357,7 @@ shapeAst v1 = case v1 of
   AstFromVector0N sh _l -> sh
   AstKonst0N sh _r -> sh
   AstBuildPairN sh (_vars, _r) -> sh
+  AstGatherPairN (_var, _is) _v sh -> sh
   AstOMap (_var, _r) e -> shapeAst e
 
 -- Length of the outermost dimension.
@@ -397,6 +401,9 @@ substituteAst i var v1 = case v1 of
   AstFromVector0N sh l -> AstFromVector0N sh $ V.map (substituteAst i var) l
   AstKonst0N sh r -> AstKonst0N sh (substituteAst i var r)
   AstBuildPairN sh (vars, r) -> AstBuildPairN sh (vars, substituteAst i var r)
+  AstGatherPairN (vars, is) v sh ->
+    AstGatherPairN (vars, fmap (substituteAstInt i var) is)
+                   (substituteAst i var v) sh
   AstOMap (var2, r) e ->
     AstOMap (var2, substituteAst i var r) (substituteAst i var e)
 

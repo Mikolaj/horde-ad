@@ -10,7 +10,7 @@ module HordeAd.Internal.SizedList
   , singletonSized, snocSized, appendSized
   , headSized, tailSized, takeSized, dropSized, permutePrefixSized
   , unsnocSized, lastSized, initSized
-  , sizedListCompare , listToSized, sizedListToList
+  , sizedListCompare, listToSized, sizedListToList
   , Permutation
   ) where
 

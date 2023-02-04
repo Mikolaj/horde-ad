@@ -509,8 +509,10 @@ build1VectorizeVar k (var, u) =
       build1VectorizeVar k (var, AstReshape (flattenShape $ shapeAst u) v)
     AstReshape sh v -> AstReshape (k :$ sh) $ build1VectorizeVar k (var, v)
     AstBuildPair{} -> AstBuildPair k (var, u)
-      -- TODO: a previous failure of vectorization that should have
-      -- led to an abort instead of showing up late; or not, see below
+      -- This is a recoverable problem because, e.g., this may be nested
+      -- inside projections. So we add to the term and wait for rescue.
+      -- It probably speeds up vectorization a tiny bit if we nest
+      -- AstBuildPair instead of rewriting into AstBuildPairN.
     AstGatherPair _n (_var2, _ixs2) _v -> AstBuildPair k (var, u)
       -- TODO: if var not in _v, then create a generalized gather
       -- that builds more than one rank using var and var2 together;
@@ -531,6 +533,7 @@ build1VectorizeVar k (var, u) =
       let s = shapeSize sh
       in build1VectorizeVar k (var, AstReshape sh $ AstKonst s v)
     AstBuildPairN{} -> AstBuildPair k (var, u)  -- see AstBuildPair above
+    AstGatherPairN{} -> AstBuildPair k (var, u)
 
     AstOMap{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair k (var, u)
     -- All other patterns are redundant due to GADT typing.
@@ -677,9 +680,9 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
       -- vectorization not abort, after all? and only check at whole program
       -- vectorization end that no build has been left unvectorized?
       build1VectorizeIndexVar k var (substituteAst i1 var2 v) rest1
-    AstGatherPair _n2 (var2, ixs2) v ->
-      let ixs3 = fmap (substituteAstInt i1 var2) ixs2
-      in build1VectorizeIndex k var v (appendIndex rest1 ixs3)
+    AstGatherPair _n2 (var2, ix2) v ->
+      let ix3 = fmap (substituteAstInt i1 var2) ix2
+      in build1VectorizeIndex k var v (appendIndex rest1 ix3)
 
     AstFromList0N sh l ->
       build1VectorizeIndexVar k var (AstReshape sh $ AstFromList l) is
@@ -693,10 +696,18 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
       build1VectorizeIndexVar
         k var (unsafeCoerce $ AstBuildPairN sh' (vars, substituteAst i1 var2 r))
         rest1
-          -- GHC with the plugin doesn't cope with this
+          -- GHC with the plugin doesn't cope with this and AstGatherPairN
           -- (https://github.com/clash-lang/ghc-typelits-natnormalise/issues/71)
           -- so unsafeCoerce is back
     AstBuildPairN{} -> error "build1VectorizeIndexVar: AstBuildPairN: impossible pattern needlessly required"
+    AstGatherPairN (Z, ix2) v _sh ->
+      build1VectorizeIndexVar k var (AstIndexN v ix2) is
+    AstGatherPairN (var2 ::: vars, ix2) v (_ :$ sh') ->
+      let ix3 = fmap (substituteAstInt i1 var2) ix2
+      in build1VectorizeIndexVar
+           k var (unsafeCoerce $ AstGatherPairN (vars, ix3) v sh')
+           rest1
+    AstGatherPairN{} -> error "build1VectorizeIndexVar: AstGatherPairN: impossible pattern needlessly required"
 
     AstOMap{} ->
       AstConstant $ AstPrimalPart1 $ AstBuildPair k (var, AstIndexN v1 is)
@@ -753,6 +764,7 @@ intVarInAst var = \case
   AstFromVector0N _ l -> V.any (intVarInAst var) l
   AstKonst0N _ v -> intVarInAst var v
   AstBuildPairN _ (_, v) -> intVarInAst var v
+  AstGatherPairN (_, is) v _ -> any (intVarInAstInt var) is || intVarInAst var v
 
   AstOMap (_, v) u -> intVarInAst var v || intVarInAst var u
     -- the variable in binder position, so ignored (and should be distinct)
@@ -881,6 +893,13 @@ gatherClosure :: (ADModeAndNumTensor d r, KnownNat m, KnownNat n)
               -> ADVal d (OR.Array (m + n) r) -> ADVal d (OR.Array (1 + n) r)
 gatherClosure k f (D u u') = dD (tgatherR k f u) (dGather1 k f (tshapeR u) u')
 
+gatherNClosure :: (ADModeAndNumTensor d r, KnownNat m, KnownNat p, KnownNat n)
+               => (IndexInt m -> IndexInt p)
+               -> ADVal d (OR.Array (p + n) r)
+               -> ShapeInt (m + n) -> ADVal d (OR.Array (m + n) r)
+gatherNClosure f (D u u') sh =
+  dD (tgatherNR f u sh) (dGatherN1 f (tshapeR u) u' sh)
+
 
 -- * Interpretation of Ast in ADVal
 
@@ -910,6 +929,17 @@ interpretLambdaIndex
   -> Int -> IndexInt n
 interpretLambdaIndex env (AstVarName var, asts) =
   \i -> fmap (interpretAstInt (IM.insert var (AstVarI i) env)) asts
+
+interpretLambdaIndexToIndex
+  :: ADModeAndNumTensor d r
+  => AstEnv d r
+  -> (AstVarList m, AstIndex p r)
+  -> IndexInt m -> IndexInt p
+interpretLambdaIndexToIndex env (vars, asts) =
+  \ix -> let f (AstVarName var) i = (var, AstVarI i)
+             assocs = zipWith f (sizedListToList vars) (indexToList ix)
+             env2 = env `IM.union` IM.fromList assocs
+         in fmap (interpretAstInt env2) asts
 
 interpretAstPrimal
   :: (ADModeAndNumTensor d r, KnownNat n)
@@ -964,8 +994,8 @@ interpretAst env = \case
   AstBuildPair k (var, v) -> build k (interpretLambdaI env (var, v))
       -- fallback to POPL (memory blowup, but avoids functions on tape);
       -- an alternative is to use dBuild1 and store function on tape
-  AstGatherPair k (var, is) v ->
-    gatherClosure k (interpretLambdaIndex env (var, is)) (interpretAst env v)
+  AstGatherPair k (var, ix) v ->
+    gatherClosure k (interpretLambdaIndex env (var, ix)) (interpretAst env v)
     -- TODO: currently we store the function on tape, because it doesn't
     -- cause recomputation of the gradient per-cell, unlike storing the build
     -- function on tape; for GPUs and libraries that don't understand Haskell
@@ -985,6 +1015,9 @@ interpretAst env = \case
     interpretAst env $ AstBuildPair k (var, AstBuildPairN sh (vars, r))
   AstBuildPairN{} ->
     error "interpretAst: impossible pattern needlessly required"
+  AstGatherPairN (vars, ix) v sh ->
+    gatherNClosure (interpretLambdaIndexToIndex env (vars, ix))
+                   (interpretAst env v) sh
 
   AstOMap (var, r) e ->  -- this only works on the primal part hence @constant@
     constant
