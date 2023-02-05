@@ -29,7 +29,6 @@ import Control.Arrow (first)
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, type (+))
 
-import HordeAd.Internal.OrthotopeOrphanInstances ()
 import HordeAd.Internal.SizedList
 
 -- * Concrete type synonyms to be used in many other modules
