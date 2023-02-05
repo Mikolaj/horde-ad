@@ -28,7 +28,6 @@ import Prelude
 import Control.Arrow (first)
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, type (+))
-import Text.Show.Functions ()
 
 import HordeAd.Internal.OrthotopeOrphanInstances ()
 import HordeAd.Internal.SizedList

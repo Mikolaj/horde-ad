@@ -31,7 +31,6 @@ import           GHC.TypeLits (KnownNat, type (+))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import qualified Numeric.LinearAlgebra.Devel
-import           Text.Show.Functions ()
 
 import HordeAd.Core.SizedIndex
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVR, liftVR2)

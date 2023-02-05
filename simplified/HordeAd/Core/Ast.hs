@@ -30,7 +30,6 @@ import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Numeric)
 import           System.IO.Unsafe (unsafePerformIO)
-import           Text.Show.Functions ()
 
 import HordeAd.Core.SizedIndex
 import HordeAd.Internal.OrthotopeOrphanInstances ()

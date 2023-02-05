@@ -50,7 +50,6 @@ import qualified Data.Strict.Vector as Data.Vector
 import           GHC.TypeLits (KnownNat, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           System.IO.Unsafe (unsafePerformIO)
-import           Text.Show.Functions ()
 
 import HordeAd.Core.SizedIndex
 import HordeAd.Internal.Delta

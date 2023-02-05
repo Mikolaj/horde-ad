@@ -21,7 +21,6 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.Exts (IsList (..))
 import           GHC.TypeLits (KnownNat, Nat, type (+))
-import           Text.Show.Functions ()
 import           Unsafe.Coerce (unsafeCoerce)
 
 -- | Standard sized lists indexed by the GHC @Nat@ type.
