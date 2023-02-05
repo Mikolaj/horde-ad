@@ -191,8 +191,10 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tmaxIndex :: TensorOf 1 r -> IntOf r
 
   -- Typically scalar codomain, often tensor reduction
-  tindex :: (KnownNat m, KnownNat n)
-         => TensorOf (m + n) r -> IndexOf m r -> TensorOf n r
+  tindex, (!) :: (KnownNat m, KnownNat n)
+              => TensorOf (m + n) r -> IndexOf m r -> TensorOf n r
+  infixl 9 !
+  (!) = tindex
   tsum :: KnownNat n => TensorOf (1 + n) r -> TensorOf n r
   tsum0 :: KnownNat n => TensorOf n r -> TensorOf 0 r
   tsum0 = tsum . tflatten
