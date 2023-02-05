@@ -530,7 +530,6 @@ build1VectorizeVar k (var, u) =
 
     -- Rewriting syntactic sugar in the simplest way (but much more efficient
     -- non-sugar implementations/vectorizations exist):
-    AstBuildPair{} -> AstBuildPair1 k (var, u)  -- see AstBuildPair1 above
     AstGatherPair (vars, ix2) v sh ->
       AstGatherPair (var ::: vars, AstIntVar var :. ix2)
                     (build1Vectorize k (var, v))
@@ -690,15 +689,6 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
       let ix3 = fmap (substituteAstInt i1 var2) ix2
       in build1VectorizeIndex k var v (appendIndex rest1 ix3)
 
-    AstBuildPair _sh (Z, r) -> build1VectorizeIndexVar k var r is
-    AstBuildPair (_ :$ sh') (var2 ::: vars, r) ->
-      build1VectorizeIndexVar
-        k var (unsafeCoerce $ AstBuildPair sh' (vars, substituteAst i1 var2 r))
-        rest1
-          -- GHC with the plugin doesn't cope with this and AstGatherPair
-          -- (https://github.com/clash-lang/ghc-typelits-natnormalise/issues/71)
-          -- so unsafeCoerce is back
-    AstBuildPair{} -> error "build1VectorizeIndexVar: AstBuildPair: impossible pattern needlessly required"
     AstGatherPair (Z, ix2) v _sh ->
       build1VectorizeIndexVar k var (AstIndexN v ix2) is
     AstGatherPair (var2 ::: vars, ix2) v (_ :$ sh') ->
@@ -706,6 +696,9 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
       in build1VectorizeIndexVar
            k var (unsafeCoerce $ AstGatherPair (vars, ix3) v sh')
            rest1
+          -- GHC with the plugin doesn't cope with this
+          -- (https://github.com/clash-lang/ghc-typelits-natnormalise/issues/71)
+          -- so unsafeCoerce is back
     AstGatherPair{} -> error "build1VectorizeIndexVar: AstGatherPair: impossible pattern needlessly required"
 
     AstOMap{} ->
@@ -759,7 +752,6 @@ intVarInAst var = \case
   AstBuildPair1 _ (_, v) -> intVarInAst var v
   AstGatherPair1 (_, is) v _ -> any (intVarInAstInt var) is || intVarInAst var v
 
-  AstBuildPair _ (_, v) -> intVarInAst var v
   AstGatherPair (_, is) v _ -> any (intVarInAstInt var) is || intVarInAst var v
 
   AstOMap (_, v) u -> intVarInAst var v || intVarInAst var u
@@ -1002,11 +994,6 @@ interpretAst env = \case
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
 
-  AstBuildPair ZS (Z, r) -> interpretAst env r
-  AstBuildPair (k :$ sh) (var ::: vars, r) ->
-    interpretAst env $ AstBuildPair1 k (var, AstBuildPair sh (vars, r))
-  AstBuildPair{} ->
-    error "interpretAst: impossible pattern needlessly required"
   AstGatherPair (vars, ix) v sh ->
     gatherClosure (interpretLambdaIndexToIndex env (vars, ix))
                   (interpretAst env v) sh

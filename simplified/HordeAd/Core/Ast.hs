@@ -90,10 +90,6 @@ data Ast :: Nat -> Type -> Type where
              => ShapeInt m -> Ast n r -> Ast m r
     -- emerges from vectorizing AstFlatten
   AstBuildPair1 :: Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
-  AstBuildPair :: forall m n r.
-                  ShapeInt (m + n) -> (AstVarList m, Ast n r) -> Ast (m + n) r
-    -- not needed for anythihg, but an extra pass may join nested AstBuildPair
-    -- into these for better performance on some hardware
   AstGatherPair1 :: forall p n r. KnownNat p
                  => (AstVarName Int, AstIndex p r) -> Ast (p + n) r
                  -> Int -> Ast (1 + n) r
@@ -108,6 +104,13 @@ data Ast :: Nat -> Type -> Type where
   -- TODO: this is really only needed in AstPrimalPart, but making
   -- AstPrimalPart data instead of a newtype would complicate a lot of code.
   AstOMap :: (AstVarName (OR.Array 0 r), Ast 0 r) -> Ast n r -> Ast n r
+
+  -- Spurious, but can be re-enabled at any time:
+--  AstBuildPair :: forall m n r.
+--                  ShapeInt (m + n) -> (AstVarList m, Ast n r) -> Ast (m + n) r
+    -- not needed for anythihg, but an extra pass may join nested AstBuildPair1
+    -- into these for better performance on some hardware
+
 deriving instance (Show r, Numeric r) => Show (Ast n r)
 
 newtype AstPrimalPart1 n r = AstPrimalPart1 (Ast n r)
@@ -349,7 +352,6 @@ shapeAst v1 = case v1 of
   AstBuildPair1 k (_var, v) -> k :$ shapeAst v
   AstGatherPair1 (_var, _is :: Index p (AstInt r)) v k ->
     k :$ dropShape @p (shapeAst v)
-  AstBuildPair sh (_vars, _r) -> sh
   AstGatherPair (_var, _is) _v sh -> sh
   AstOMap (_var, _r) e -> shapeAst e
 
@@ -390,7 +392,6 @@ substituteAst i var v1 = case v1 of
   AstGatherPair1 (var2, is) v k ->
     AstGatherPair1 (var2, fmap (substituteAstInt i var) is)
                    (substituteAst i var v) k
-  AstBuildPair sh (vars, r) -> AstBuildPair sh (vars, substituteAst i var r)
   AstGatherPair (vars, is) v sh ->
     AstGatherPair (vars, fmap (substituteAstInt i var) is)
                   (substituteAst i var v) sh
