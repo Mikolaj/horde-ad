@@ -202,7 +202,7 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tmaximum0 t = tindex t (singletonIndex $ tmaxIndex t)
 
   tfromIntOf0 :: IntOf r -> TensorOf 0 r
-  tfromIntOf0 = tscalar . fromIntegral
+  tfromIntOf0 = tscalar . fromIntegral  -- fails for the Ast instance
 
   tfromList :: KnownNat n => [TensorOf n r] -> TensorOf (1 + n) r
   tfromList0N :: KnownNat n => ShapeInt n -> [r] -> TensorOf n r
@@ -540,7 +540,7 @@ build1VectorizeVar k (var, u) =
 
 -- | The application @build1VectorizeIndex k var v is@
 -- vectorizes the term @AstBuildPair k (var, AstIndexN v is@.
--- The length of the index is @m@
+-- The length of the index is @m@.
 --
 -- We try to push indexing down as far as needed to eliminated the occurence
 -- of @var@ from @v@ (but not necessarily from @is@).
