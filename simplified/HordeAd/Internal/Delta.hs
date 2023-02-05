@@ -553,7 +553,7 @@ buildFinMaps s0 deltaDt =
           in V.ifoldl' (\s2 i d -> eval0 s2 (cv V.! i) d) s lsd
         Konst1 _n d ->
           let c2 = V.sum $ ORB.toVector $ OR.unravel c
-              -- simplified version of: tscatterR (const []) c (tail $ shapeL c)
+              -- simplified version of: tscatter1R (const []) c (tail $ shapeL c)
           in eval1 s c2 d
         Konst01 _ d -> eval0 s (tsum0R c) d
         Append1 d k e -> case OR.shapeL c of
@@ -578,10 +578,10 @@ buildFinMaps s0 deltaDt =
         Build01 sh f ->
           V.ifoldl' (\s2 i ci -> eval0 s2 ci (f $ fromLinearIdx sh i))
                     s (OR.toVector c)
-        Gather1 f sh d _n -> eval1 s (tscatterR f c sh) d
-        GatherN1 f shd d _sh -> eval1 s (tscatterNR f c shd) d
-        Scatter1 f n d _sh -> eval1 s (tgatherR f c n) d
-        ScatterN1 f shd d _sh -> eval1 s (tgatherNR f c shd) d
+        Gather1 f sh d _n -> eval1 s (tscatter1R f c sh) d
+        GatherN1 f shd d _sh -> eval1 s (tscatterR f c shd) d
+        Scatter1 f n d _sh -> eval1 s (tgather1R f c n) d
+        ScatterN1 f shd d _sh -> eval1 s (tgatherR f c shd) d
 
         FromX1 (InputX inputId) ->
           s {iMap1 = EM.adjust (addToArray c) inputId $ iMap1 s}
@@ -692,7 +692,7 @@ buildDerivative dim0 dim1 deltaTopLevel
               return c
             _ -> error "buildDerivative: corrupted nMap"
 
-        Index1 d ix _len -> (`tindexR` ix) <$> eval1 d
+        Index1 d ix _len -> (`tindex1R` ix) <$> eval1 d
         IndexN d ixs _len -> (`tindexNR` ixs) <$> eval1 d
         Sum1 _ d -> tsumR <$> eval1 d
         Scalar1 d -> OR.scalar <$> eval0 d
@@ -728,16 +728,16 @@ buildDerivative dim0 dim1 deltaTopLevel
           return $! OR.fromList sh l
         Gather1 f _sh d k -> do
           t <- eval1 d
-          return $! tgatherR f t k
+          return $! tgather1R f t k
         GatherN1 f _shd d sh -> do
           t <- eval1 d
-          return $! tgatherNR f t sh
+          return $! tgatherR f t sh
         Scatter1 f _k d sh -> do
           t <- eval1 d
-          return $! tscatterR f t sh
+          return $! tscatter1R f t sh
         ScatterN1 f _shd d sh ->  do
           t <- eval1 d
-          return $! tscatterNR f t sh
+          return $! tscatterR f t sh
 
         FromX1 (InputX (InputId i)) ->
           if i < dim1

@@ -370,7 +370,7 @@ instance ( Numeric r, Show r, Num (Vector r)
   dDot0 = tdot0R
   dUnScalar0 = OR.unScalar
 
-  dIndex1 d ix _ = tindexR d ix
+  dIndex1 d ix _ = tindex1R d ix
   dIndexN d ixs _ = tindexNR d ixs
   dSum1 _ = tsumR
   dScalar1 = OR.scalar
@@ -385,12 +385,12 @@ instance ( Numeric r, Show r, Num (Vector r)
   dReverse1 = treverseR
   dTransposeGeneral1 = ttransposeGeneralR
   dReshape1 _sh = treshapeR
-  dBuild1 = tbuildR
+  dBuild1 = tbuild1R
   dBuild01 = tbuild0NR
-  dGather1 f _sh = tgatherR f
-  dGatherN1 f _shd = tgatherNR f
-  dScatter1 f _n = tscatterR f
-  dScatterN1 f _shd = tscatterNR f
+  dGather1 f _sh = tgather1R f
+  dGatherN1 f _shd = tgatherR f
+  dScatter1 f _n = tscatter1R f
+  dScatterN1 f _shd = tscatterR f
 
   dFromX1 = Data.Array.Convert.convert
 

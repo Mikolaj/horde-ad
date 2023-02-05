@@ -274,19 +274,19 @@ sumElements10 (D u u') = dD (tsum0R u) (dSum0 (tshapeR u) u')
 
 index10 :: ADModeAndNum d r => ADVal d (Vec r) -> Int -> ADVal d r
 index10 (D u u') ix =
-  unScalarADVal $ dD (u `tindexR` ix)
+  unScalarADVal $ dD (u `tindex1R` ix)
                      (dIndex1 u' ix (head $ OR.shapeL u))
 
 minimum0 :: ADModeAndNum d r => ADVal d (Vec r) -> ADVal d r
 minimum0 (D u u') =
   let ix = tminIndexR u
-  in dD (OR.unScalar $ tindexR u ix)
+  in dD (OR.unScalar $ tindex1R u ix)
         (dIndex0 u' (singletonIndex ix) (flattenShape (tshapeR u)))
 
 maximum0 :: ADModeAndNum d r => ADVal d (Vec r) -> ADVal d r
 maximum0 (D u u') =
   let ix = tmaxIndexR u
-  in dD (OR.unScalar $ tindexR u ix)
+  in dD (OR.unScalar $ tindex1R u ix)
         (dIndex0 u' (singletonIndex ix) (flattenShape (tshapeR u)))
 
 foldl'0 :: ADModeAndNum d r

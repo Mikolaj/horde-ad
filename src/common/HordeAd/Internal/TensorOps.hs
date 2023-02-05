@@ -134,12 +134,12 @@ tmaxIndexR
   => OR.Array 1 r -> Int
 tmaxIndexR = LA.maxIndex . OR.toVector
 
-tindexR
+tindex1R
   :: Numeric r
   => OR.Array (1 + n) r -> Int -> OR.Array n r
-tindexR = OR.index
+tindex1R = OR.index
 
--- TODO: optimize to tindexR for n == 0
+-- TODO: optimize to tindex1R for n == 0
 tindex0R
   :: Numeric r
   => OR.Array n r -> IndexInt n -> r
@@ -252,10 +252,10 @@ treshapeR
   => ShapeInt m -> OR.Array n r -> OR.Array m r
 treshapeR sh = OR.reshape (shapeToList sh)
 
-tbuildR
+tbuild1R
   :: (KnownNat n, Numeric r)
   => Int -> (Int -> OR.Array n r) -> OR.Array (1 + n) r
-tbuildR k f = OR.ravel $ ORB.fromList [k]
+tbuild1R k f = OR.ravel $ ORB.fromList [k]
               $ map f [0 .. k - 1]  -- hope this fuses
 
 tbuild0NR
@@ -263,14 +263,14 @@ tbuild0NR
   => ShapeInt n -> (IndexInt n -> r) -> OR.Array n r
 tbuild0NR sh f = OR.generate (shapeToList sh) (f . listToIndex)
 
--- TODO: use tbuild0R and tbuildR whenever faster and possible;
+-- TODO: use tbuild0R and tbuild1R whenever faster and possible;
 -- also consider generating a flat vector and reshaping at the end
 -- to save on creating the intermediate tensors, though that's
 -- a negligible cost if the tensors of rank n don't have a small size
-tbuildNR
+tbuildR
   :: forall m n r. (KnownNat m, KnownNat n, Numeric r)
   => ShapeInt (m + n) -> (IndexInt m -> OR.Array n r) -> OR.Array (m + n) r
-tbuildNR sh0 f0 =
+tbuildR sh0 f0 =
   let buildSh :: KnownNat m1
               => ShapeInt m1 -> (IndexInt m1 -> OR.Array n r)
               -> OR.Array (m1 + n) r
@@ -291,20 +291,20 @@ tzipWith0NR
   => (r -> r -> r) -> OR.Array n r -> OR.Array n r -> OR.Array n r
 tzipWith0NR = liftVR2 . Numeric.LinearAlgebra.Devel.zipVectorWith
 
-tgatherR :: (Numeric r, KnownNat p, KnownNat n)
-         => (Int -> IndexInt p)
-         -> OR.Array (p + n) r -> Int -> OR.Array (1 + n) r
-tgatherR f t k =
+tgather1R :: (Numeric r, KnownNat p, KnownNat n)
+          => (Int -> IndexInt p)
+          -> OR.Array (p + n) r -> Int -> OR.Array (1 + n) r
+tgather1R f t k =
   let l = map (\i -> t `tindexNR` f i) [0 .. k - 1]
   in OR.ravel $ ORB.fromList [k] l
 
 -- TODO: this can be slightly optimized by normalizing t first (?)
 -- and then inlining toVector and tindexNR
-tgatherNR :: forall m p n r. (KnownNat m, KnownNat p, KnownNat n, Numeric r)
-          => (IndexInt m -> IndexInt p)
-          -> OR.Array (p + n) r
-          -> ShapeInt (m + n) -> OR.Array (m + n) r
-tgatherNR f t sh =
+tgatherR :: forall m p n r. (KnownNat m, KnownNat p, KnownNat n, Numeric r)
+         => (IndexInt m -> IndexInt p)
+         -> OR.Array (p + n) r
+         -> ShapeInt (m + n) -> OR.Array (m + n) r
+tgatherR f t sh =
   let shm = takeShape @m sh
       s = shapeSize shm
       l = map (\ix -> OR.toVector $ t `tindexNR` f ix)
@@ -314,11 +314,11 @@ tgatherNR f t sh =
 -- TODO: update in place in ST or with a vector builder, but that requires
 -- building the underlying value vector with crafty index computations
 -- and then freezing it and calling OR.fromVector
--- or optimize tscatterNR and instantiate it instead
-tscatterR :: (Numeric r, Num (Vector r), KnownNat p, KnownNat n)
-          => (Int -> IndexInt p)
-          -> OR.Array (1 + n) r -> ShapeInt (p + n) -> OR.Array (p + n) r
-tscatterR f t sh =
+-- or optimize tscatterR and instantiate it instead
+tscatter1R :: (Numeric r, Num (Vector r), KnownNat p, KnownNat n)
+           => (Int -> IndexInt p)
+           -> OR.Array (1 + n) r -> ShapeInt (p + n) -> OR.Array (p + n) r
+tscatter1R f t sh =
   V.sum $ V.imap (\i ti -> updateNR (tkonst0NR sh 0) [(f i, ti)])
         $ ORB.toVector $ OR.unravel t
 
@@ -328,13 +328,13 @@ tscatterR f t sh =
 -- (the only new vectors are created by LA.vjoin, but this is done on demand).
 -- TODO: optimize updateNR and make it consume and forget arguments
 -- one by one to make the above true
-tscatterNR :: forall m p n r.
-              ( KnownNat m, KnownNat p, KnownNat n, NumAndDebug r
-              , Num (Vector r) )
-           => (IndexInt m -> IndexInt p)
-           -> OR.Array (m + n) r
-           -> ShapeInt (p + n) -> OR.Array (p + n) r
-tscatterNR f t sh =
+tscatterR :: forall m p n r.
+             ( KnownNat m, KnownNat p, KnownNat n, NumAndDebug r
+             , Num (Vector r) )
+          => (IndexInt m -> IndexInt p)
+          -> OR.Array (m + n) r
+          -> ShapeInt (p + n) -> OR.Array (p + n) r
+tscatterR f t sh =
   let (shm', shn) = splitAt (valueOf @m) $ OR.shapeL t
       s = product shm'
       shm = listShapeToShape shm'
