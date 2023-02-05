@@ -569,7 +569,7 @@ build1VectorizeIndexVar
   -> Ast (1 + n) r
 build1VectorizeIndexVar k var v1 ZI = build1VectorizeVar k (var, v1)
 build1VectorizeIndexVar k var v1 is@(_ :. _) =
-  let (rest1, i1) = unsnocIndex is  -- TODO: rename to (init1, last1)?
+  let (rest1, i1) = unsnocIndex1 is  -- TODO: rename to (init1, last1)?
   in case v1 of
     AstOp opCode args ->
       AstOp opCode $ map (\w -> build1VectorizeIndex k var w is) args

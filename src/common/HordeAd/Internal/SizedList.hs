@@ -9,7 +9,7 @@ module HordeAd.Internal.SizedList
   ( SizedList(..)
   , singletonSized, snocSized, appendSized
   , headSized, tailSized, takeSized, dropSized, permutePrefixSized
-  , unsnocSized, lastSized, initSized
+  , unsnocSized1, lastSized, initSized
   , sizedListCompare, listToSized, sizedListToList
   , Permutation
   ) where
@@ -85,11 +85,11 @@ dropSized :: forall len n i. KnownNat len
           => SizedList (len + n) i -> SizedList n i
 dropSized ix = unsafeCoerce $ drop (valueOf @len) $ unsafeCoerce ix
 
-unsnocSized :: SizedList (1 + n) i -> (SizedList n i, i)
-unsnocSized Z = error "unsnocSized: impossible pattern needlessly required"
-unsnocSized (i ::: ix) = case ix of
+unsnocSized1 :: SizedList (1 + n) i -> (SizedList n i, i)
+unsnocSized1 Z = error "unsnocSized1: impossible pattern needlessly required"
+unsnocSized1 (i ::: ix) = case ix of
   Z -> (Z, i)
-  _ ::: _ -> let (init1, last1) = unsnocSized ix
+  _ ::: _ -> let (init1, last1) = unsnocSized1 ix
              in (i ::: init1, last1)
 
 lastSized :: SizedList (1 + n) i -> i

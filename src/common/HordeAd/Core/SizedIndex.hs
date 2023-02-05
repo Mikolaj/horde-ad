@@ -12,7 +12,7 @@ module HordeAd.Core.SizedIndex
   , Index, pattern (:.), pattern ZI
   , singletonIndex, snocIndex, appendIndex
   , headIndex, tailIndex, takeIndex, dropIndex, permutePrefixIndex
-  , unsnocIndex, lastIndex, initIndex
+  , unsnocIndex1, lastIndex, initIndex
   , listToIndex, indexToList
     -- * Tensor shapes as fully encapsulated sized lists, with operations
   , Shape, pattern (:$), pattern ZS
@@ -98,8 +98,8 @@ dropIndex :: forall m n i. KnownNat m
           => Index (m + n) i -> Index n i
 dropIndex (Index ix) = Index $ dropSized ix
 
-unsnocIndex :: Index (1 + n) i -> (Index n i, i)
-unsnocIndex (Index ix) = first Index $ unsnocSized ix
+unsnocIndex1 :: Index (1 + n) i -> (Index n i, i)
+unsnocIndex1 (Index ix) = first Index $ unsnocSized1 ix
 
 lastIndex :: Index (1 + n) i -> i
 lastIndex (Index ix) = lastSized ix
