@@ -1,5 +1,5 @@
 {-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances,
-             MultiParamTypeClasses, TypeFamilyDependencies #-}
+             MultiParamTypeClasses, OverloadedLists, TypeFamilyDependencies #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Dual numbers and various operations on them, arithmetic and related
@@ -197,9 +197,9 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tdot0 :: KnownNat n => TensorOf n r -> TensorOf n r -> TensorOf 0 r
   tdot0 t u = tsum (tflatten t * tflatten u)
   tminimum0 :: TensorOf 1 r -> TensorOf 0 r
-  tminimum0 t = tindex t (singletonIndex $ tminIndex t)
+  tminimum0 t = tindex t [tminIndex t]
   tmaximum0 :: TensorOf 1 r -> TensorOf 0 r
-  tmaximum0 t = tindex t (singletonIndex $ tmaxIndex t)
+  tmaximum0 t = tindex t [tmaxIndex t]
 
   tfromIntOf0 :: IntOf r -> TensorOf 0 r
   tfromIntOf0 = tscalar . fromIntegral  -- fails for the Ast instance
@@ -238,7 +238,7 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tmap :: KnownNat n
        => (TensorOf n r -> TensorOf n r)
        -> TensorOf (1 + n) r -> TensorOf (1 + n) r
-  tmap f u = tbuild (tlength u) (\i -> f (u `tindex` (singletonIndex i)))
+  tmap f u = tbuild (tlength u) (\i -> f (u `tindex` [i]))
   tmap0N :: KnownNat n
         => (r -> r) -> TensorOf n r -> TensorOf n r
   tmap0N f v = tbuildN (tshape v)
@@ -250,8 +250,8 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tzipWith :: KnownNat n
            => (TensorOf n r -> TensorOf n r -> TensorOf n r)
            -> TensorOf (1 + n) r -> TensorOf (1 + n) r -> TensorOf (1 + n) r
-  tzipWith f u v = tbuild (tlength u) (\i -> f (u `tindex` (singletonIndex i))
-                                               (v `tindex` (singletonIndex i)))
+  tzipWith f u v = tbuild (tlength u) (\i -> f (u `tindex` [i])
+                                               (v `tindex` [i]))
   tzipWith0N :: KnownNat n
              => (r -> r -> r) -> TensorOf n r -> TensorOf n r -> TensorOf n r
   tzipWith0N f u v = tbuildN (tshape v)
