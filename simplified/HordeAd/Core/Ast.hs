@@ -52,19 +52,22 @@ type AstVarList n = SizedList n (AstVarName Int)
 -- | AST for a tensor of rank n and elements r that is meant
 -- to be differentiated.
 data Ast :: Nat -> Type -> Type where
+  -- To permit defining objective functions in Ast, not just constants:
+  AstVar :: ShapeInt n -> AstVarName (OR.Array n r) -> Ast n r
+
   -- For the numeric classes:
   AstOp :: OpCode -> [Ast n r] -> Ast n r
 
   -- For HasPrimal class and the future Conditional/Boolean/Eq'/Ord' classes:
-  AstCond :: AstBool r -> Ast n r -> Ast n r -> Ast n r
-  AstConstInt :: AstInt r -> Ast 0 r
   AstConst :: OR.Array n r -> Ast n r
-    -- sort of partially evaluated @AstConstant@
   AstConstant :: AstPrimalPart1 n r -> Ast n r
+  -- syntactic sugar:
   AstScale :: AstPrimalPart1 n r -> Ast n r -> Ast n r
-  AstVar :: ShapeInt n -> AstVarName (OR.Array n r) -> Ast n r
+  AstCond :: AstBool r -> Ast n r -> Ast n r -> Ast n r
 
   -- For VectorLike and Tensor class:
+  AstConstInt :: AstInt r -> Ast 0 r
+    -- needed, because toInteger and so fromIntegral is not defined for Ast
   AstIndexN :: forall m n r. KnownNat m
             => Ast (m + n) r -> AstIndex m r -> Ast n r
     -- first ix is for outermost dimension; empty index means identity
@@ -94,9 +97,6 @@ data Ast :: Nat -> Type -> Type where
   -- This is treated as syntactic sugar for now, but these have
   -- much more efficient non-sugar implementations
   -- (and possibly more efficient vectorizations).
-  AstFromList0N :: ShapeInt n -> [Ast 0 r] -> Ast n r
-  AstFromVector0N :: ShapeInt n -> Data.Vector.Vector (Ast 0 r) -> Ast n r
-  AstKonst0N :: ShapeInt n -> Ast 0 r -> Ast n r
   AstBuildPairN :: forall m n r.
                    ShapeInt (m + n) -> (AstVarList m, Ast n r) -> Ast (m + n) r
     -- not needed for anythihg, but an extra pass may join nested AstBuildPair
@@ -352,9 +352,6 @@ shapeAst v1 = case v1 of
   AstBuildPair k (_var, v) -> k :$ shapeAst v
   AstGatherPair (_var, _is :: Index p (AstInt r)) v k ->
     k :$ dropShape @p (shapeAst v)
-  AstFromList0N sh _l -> sh
-  AstFromVector0N sh _l -> sh
-  AstKonst0N sh _r -> sh
   AstBuildPairN sh (_vars, _r) -> sh
   AstGatherPairN (_var, _is) _v sh -> sh
   AstOMap (_var, _r) e -> shapeAst e
@@ -396,9 +393,6 @@ substituteAst i var v1 = case v1 of
   AstGatherPair (var2, is) v k ->
     AstGatherPair (var2, fmap (substituteAstInt i var) is)
                   (substituteAst i var v) k
-  AstFromList0N sh l -> AstFromList0N sh $ map (substituteAst i var) l
-  AstFromVector0N sh l -> AstFromVector0N sh $ V.map (substituteAst i var) l
-  AstKonst0N sh r -> AstKonst0N sh (substituteAst i var r)
   AstBuildPairN sh (vars, r) -> AstBuildPairN sh (vars, substituteAst i var r)
   AstGatherPairN (vars, is) v sh ->
     AstGatherPairN (vars, fmap (substituteAstInt i var) is)

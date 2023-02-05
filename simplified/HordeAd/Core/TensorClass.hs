@@ -179,6 +179,7 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   type TensorOf (n :: Nat) r = result | result -> n r
   type IntOf r
 
+  -- Integer codomain
   tshape :: KnownNat n => TensorOf n r -> ShapeInt n
   tsize :: KnownNat n => TensorOf n r -> Int
   tsize = shapeSize . tshape
@@ -189,6 +190,7 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tminIndex :: TensorOf 1 r -> IntOf r
   tmaxIndex :: TensorOf 1 r -> IntOf r
 
+  -- Typically scalar codomain, often tensor reduction
   tindex :: (KnownNat m, KnownNat n)
          => TensorOf (m + n) r -> IndexOf m r -> TensorOf n r
   tsum :: KnownNat n => TensorOf (1 + n) r -> TensorOf n r
@@ -197,21 +199,25 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tdot0 :: KnownNat n => TensorOf n r -> TensorOf n r -> TensorOf 0 r
   tdot0 t u = tsum (tflatten t * tflatten u)
   tminimum0 :: TensorOf 1 r -> TensorOf 0 r
-  tminimum0 t = tindex t [tminIndex t]
+  tminimum0 t = t `tindex` [tminIndex t]
   tmaximum0 :: TensorOf 1 r -> TensorOf 0 r
-  tmaximum0 t = tindex t [tmaxIndex t]
-
+  tmaximum0 t = t `tindex` [tmaxIndex t]
   tfromIntOf0 :: IntOf r -> TensorOf 0 r
   tfromIntOf0 = tscalar . fromIntegral  -- fails for the Ast instance
 
+  -- Tensor codomain, often tensor construction, sometimes transformation
   tfromList :: KnownNat n => [TensorOf n r] -> TensorOf (1 + n) r
   tfromList0N :: KnownNat n => ShapeInt n -> [r] -> TensorOf n r
+  tfromList0N sh = treshape sh . tfromList . map tscalar
   tfromVector :: KnownNat n
               => Data.Vector.Vector (TensorOf n r) -> TensorOf (1 + n) r
   tfromVector0N :: KnownNat n
                 => ShapeInt n -> Data.Vector.Vector r -> TensorOf n r
+  tfromVector0N sh = treshape sh . tfromVector . V.map tscalar
   tkonst :: KnownNat n => Int -> TensorOf n r -> TensorOf (1 + n) r
   tkonst0N :: KnownNat n => ShapeInt n -> TensorOf 0 r -> TensorOf n r
+  tkonst0N ZS = id
+  tkonst0N sh@(k :$ _) = treshape sh . tkonst k
   tappend :: KnownNat n
           => TensorOf (1 + n) r -> TensorOf (1 + n) r -> TensorOf (1 + n) r
   tslice :: KnownNat n => Int -> Int -> TensorOf (1 + n) r -> TensorOf (1 + n) r
@@ -406,11 +412,10 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
     -- toInteger is not defined for Ast, hence a special implementation
 
   tfromList = AstFromList
-  tfromList0N = AstFromList0N
+  tfromList0N sh = AstReshape sh . AstFromList
   tfromVector = AstFromVector
-  tfromVector0N = AstFromVector0N
+  tfromVector0N sh = AstReshape sh . AstFromVector
   tkonst = AstKonst
-  tkonst0N = AstKonst0N
   tappend = AstAppend
   tslice = AstSlice
   treverse = AstReverse
@@ -525,13 +530,6 @@ build1VectorizeVar k (var, u) =
 
     -- Rewriting syntactic sugar in the simplest way (but much more efficient
     -- non-sugar implementations/vectorizations exist):
-    AstFromList0N sh l ->
-      build1VectorizeVar k (var, AstReshape sh $ AstFromList l)
-    AstFromVector0N sh l ->
-      build1VectorizeVar k (var, AstReshape sh $ AstFromVector l)
-    AstKonst0N sh v ->
-      let s = shapeSize sh
-      in build1VectorizeVar k (var, AstReshape sh $ AstKonst s v)
     AstBuildPairN{} -> AstBuildPair k (var, u)  -- see AstBuildPair above
     AstGatherPairN (vars, ix2) v sh ->
       AstGatherPairN (var ::: vars, AstIntVar var :. ix2)
@@ -542,7 +540,7 @@ build1VectorizeVar k (var, u) =
     -- All other patterns are redundant due to GADT typing.
 
 -- | The application @build1VectorizeIndex k var v is@
--- vectorizes the term @AstBuildPair k (var, AstIndexN v is@.
+-- vectorizes the term @AstBuildPair k (var, AstIndexN v is)@.
 -- The length of the index is @m@.
 --
 -- We try to push indexing down as far as needed to eliminated the occurence
@@ -692,13 +690,6 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
       let ix3 = fmap (substituteAstInt i1 var2) ix2
       in build1VectorizeIndex k var v (appendIndex rest1 ix3)
 
-    AstFromList0N sh l ->
-      build1VectorizeIndexVar k var (AstReshape sh $ AstFromList l) is
-    AstFromVector0N sh l ->
-      build1VectorizeIndexVar k var (AstReshape sh $ AstFromVector l) is
-    AstKonst0N sh v ->
-      let s = shapeSize sh
-      in build1VectorizeIndexVar k var (AstReshape sh $ AstKonst s v) is
     AstBuildPairN _sh (Z, r) -> build1VectorizeIndexVar k var r is
     AstBuildPairN (_ :$ sh') (var2 ::: vars, r) ->
       build1VectorizeIndexVar
@@ -768,9 +759,6 @@ intVarInAst var = \case
   AstBuildPair _ (_, v) -> intVarInAst var v
   AstGatherPair (_, is) v _ -> any (intVarInAstInt var) is || intVarInAst var v
 
-  AstFromList0N _ l -> any (intVarInAst var) l
-  AstFromVector0N _ l -> V.any (intVarInAst var) l
-  AstKonst0N _ v -> intVarInAst var v
   AstBuildPairN _ (_, v) -> intVarInAst var v
   AstGatherPairN (_, is) v _ -> any (intVarInAstInt var) is || intVarInAst var v
 
@@ -1014,11 +1002,6 @@ interpretAst env = \case
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
 
-  AstFromList0N sh l ->
-    fromList0N sh $ map (unScalar . interpretAst env) l
-  AstFromVector0N sh l ->
-    fromVector0N sh $ V.map (unScalar . interpretAst env) l
-  AstKonst0N sh r -> konst0N sh (unScalar $ interpretAst env r)
   AstBuildPairN ZS (Z, r) -> interpretAst env r
   AstBuildPairN (k :$ sh) (var ::: vars, r) ->
     interpretAst env $ AstBuildPair k (var, AstBuildPairN sh (vars, r))
