@@ -90,6 +90,7 @@ data Ast :: Nat -> Type -> Type where
              => ShapeInt m -> Ast n r -> Ast m r
     -- emerges from vectorizing AstFlatten
   AstBuildPair1 :: Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
+    -- indicates a failure in vectorization, but may be recoverable later on
   AstGatherPair1 :: forall p n r. KnownNat p
                  => (AstVarName Int, AstIndex p r) -> Ast (p + n) r
                  -> Int -> Ast (1 + n) r
@@ -131,11 +132,10 @@ data AstVar a =
 
 -- The argument is the underlying scalar.
 data AstInt :: Type -> Type where
-  AstIntOp :: OpCodeInt -> [AstInt r] -> AstInt r
-  AstIntCond :: AstBool r -> AstInt r -> AstInt r -> AstInt r
-  AstIntConst :: Int -> AstInt r
   AstIntVar :: AstVarName Int -> AstInt r
-
+  AstIntOp :: OpCodeInt -> [AstInt r] -> AstInt r
+  AstIntConst :: Int -> AstInt r
+  AstIntCond :: AstBool r -> AstInt r -> AstInt r -> AstInt r
   AstMinIndex :: Ast 1 r -> AstInt r
   AstMaxIndex :: Ast 1 r -> AstInt r
 deriving instance (Show r, Numeric r) => Show (AstInt r)
@@ -315,15 +315,15 @@ instance MonoFunctor (AstPrimalPart1 n r) where
 shapeAst :: forall n r. (KnownNat n, Show r, Numeric r)
          => Ast n r -> ShapeInt n
 shapeAst v1 = case v1 of
+  AstVar sh _var -> sh
   AstOp _opCode args -> case args of
     [] -> error "shapeAst: AstOp with no arguments"
     t : _ -> shapeAst t
-  AstCond _b a1 _a2 -> shapeAst a1
-  AstConstInt _i -> ZS
   AstConst a -> listShapeToShape $ OR.shapeL a
   AstConstant (AstPrimalPart1 a) -> shapeAst a
   AstScale (AstPrimalPart1 r) _d -> shapeAst r
-  AstVar sh _var -> sh
+  AstCond _b a1 _a2 -> shapeAst a1
+  AstConstInt _i -> ZS
   AstIndexN v (_is :: Index m (AstInt r)) -> dropShape @m (shapeAst v)
   AstSum v -> tailShape $ shapeAst v
   AstFromList l -> case l of
@@ -364,16 +364,16 @@ lengthAst v1 = case shapeAst v1 of
 substituteAst :: (Show r, Numeric r)
               => AstInt r -> AstVarName Int -> Ast n r -> Ast n r
 substituteAst i var v1 = case v1 of
+  AstVar _sh _var -> v1
   AstOp opCode args -> AstOp opCode $ map (substituteAst i var) args
-  AstCond b a1 a2 -> AstCond (substituteAstBool i var b)
-                             (substituteAst i var a1) (substituteAst i var a2)
-  AstConstInt i2 -> AstConstInt $ substituteAstInt i var i2
   AstConst _a -> v1
   AstConstant (AstPrimalPart1 a) ->
     AstConstant (AstPrimalPart1 $ substituteAst i var a)
   AstScale (AstPrimalPart1 r) d ->
     AstScale (AstPrimalPart1 $ substituteAst i var r) (substituteAst i var d)
-  AstVar _sh _var -> v1
+  AstCond b a1 a2 -> AstCond (substituteAstBool i var b)
+                             (substituteAst i var a1) (substituteAst i var a2)
+  AstConstInt i2 -> AstConstInt $ substituteAstInt i var i2
   AstIndexN v is ->
     AstIndexN (substituteAst i var v) (fmap (substituteAstInt i var) is)
   AstSum v -> AstSum (substituteAst i var v)
@@ -401,13 +401,13 @@ substituteAst i var v1 = case v1 of
 substituteAstInt :: (Show r, Numeric r)
                  => AstInt r -> AstVarName Int -> AstInt r -> AstInt r
 substituteAstInt i var i2 = case i2 of
+  AstIntVar var2 -> if var == var2 then i else i2
   AstIntOp opCodeInt args ->
     AstIntOp opCodeInt $ map (substituteAstInt i var) args
+  AstIntConst _a -> i2
   AstIntCond b a1 a2 ->
     AstIntCond (substituteAstBool i var b)
                (substituteAstInt i var a1) (substituteAstInt i var a2)
-  AstIntConst _a -> i2
-  AstIntVar var2 -> if var == var2 then i else i2
   AstMinIndex v -> AstMinIndex (substituteAst i var v)
   AstMaxIndex v -> AstMaxIndex (substituteAst i var v)
 

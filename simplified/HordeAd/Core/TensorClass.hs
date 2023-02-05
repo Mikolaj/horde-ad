@@ -462,13 +462,12 @@ build1VectorizeVar
   => Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
 build1VectorizeVar k (var, u) =
   case u of
+    AstVar{} ->
+      error "build1VectorizeVar: AstVar can't have free int variables"
+
     AstOp opCode args ->
       AstOp opCode $ map (\w -> build1Vectorize k (var, w)) args
-    AstCond b v w ->
-      build1VectorizeVar
-        k (var, AstIndexN (AstFromList [v, w])
-                          (singletonIndex $ AstIntCond b 0 1))
-    AstConstInt{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair1 k (var, u)
+
     AstConst{} ->
       error "build1VectorizeVar: AstConst can't have free int variables"
     AstConstant{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair1 k (var, u)
@@ -478,9 +477,12 @@ build1VectorizeVar k (var, u) =
     AstScale (AstPrimalPart1 r) d ->
       AstScale (AstPrimalPart1 $ AstBuildPair1 k (var, r))  -- no need to vect
                (build1Vectorize k (var, d))
-    AstVar{} ->
-      error "build1VectorizeVar: AstVar can't have free int variables"
+    AstCond b v w ->
+      build1VectorizeVar
+        k (var, AstIndexN (AstFromList [v, w])
+                          (singletonIndex $ AstIntCond b 0 1))
 
+    AstConstInt{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair1 k (var, u)
     AstIndexN v is -> build1VectorizeIndex k var v is
       -- @var@ is in @v@ or @is@; TODO: simplify is first or even fully
       -- evaluate (may involve huge data processing) if contains no vars
@@ -525,11 +527,8 @@ build1VectorizeVar k (var, u) =
       AstGatherPair (var ::: var2 ::: Z, AstIntVar var :. ix2)
                     (build1Vectorize k (var, v))
                     (k :$ k2 :$ dropShape @p (shapeAst v))
-    -- AstScatterPair (var2, ix2) v sh -> ...
-    -- no idea how to vectorize AstScatterPair, so let's not add it prematurely
-
-    -- Rewriting syntactic sugar in the simplest way (but much more efficient
-    -- non-sugar implementations/vectorizations exist):
+      -- AstScatterPair (var2, ix2) v sh -> ...
+      -- no idea how to vectorize AstScatterPair, so let's not add prematurely
     AstGatherPair (vars, ix2) v sh ->
       AstGatherPair (var ::: vars, AstIntVar var :. ix2)
                     (build1Vectorize k (var, v))
@@ -571,12 +570,12 @@ build1VectorizeIndexVar k var v1 ZI = build1VectorizeVar k (var, v1)
 build1VectorizeIndexVar k var v1 is@(_ :. _) =
   let (rest1, i1) = unsnocIndex1 is  -- TODO: rename to (init1, last1)?
   in case v1 of
+    AstVar{} ->
+      error "build1VectorizeIndexVar: AstVar can't have free int variables"
+
     AstOp opCode args ->
       AstOp opCode $ map (\w -> build1VectorizeIndex k var w is) args
-    AstCond b v w ->
-      build1VectorizeIndex k var (AstFromList [v, w]) (AstIntCond b 0 1 :. is)
-    AstConstInt{} ->
-      AstConstant $ AstPrimalPart1 $ AstBuildPair1 @n k (var, AstIndexN v1 is)
+
     AstConst{} ->
       error "build1VectorizeIndexVar: AstConst can't have free int variables"
     AstConstant{} ->
@@ -584,8 +583,11 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
     AstScale (AstPrimalPart1 r) d ->
       AstScale (AstPrimalPart1 $ AstBuildPair1 k (var, AstIndexN r is))
                (build1VectorizeIndex k var d is)
-    AstVar{} ->
-      error "build1VectorizeIndexVar: AstVar can't have free int variables"
+    AstCond b v w ->
+      build1VectorizeIndex k var (AstFromList [v, w]) (AstIntCond b 0 1 :. is)
+
+    AstConstInt{} ->
+      AstConstant $ AstPrimalPart1 $ AstBuildPair1 @n k (var, AstIndexN v1 is)
 
     AstIndexN v is2 -> build1VectorizeIndex k var v (appendIndex is is2)
     AstSum v ->
@@ -688,7 +690,6 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
     AstGatherPair1 (var2, ix2) v _n2 ->
       let ix3 = fmap (substituteAstInt i1 var2) ix2
       in build1VectorizeIndex k var v (appendIndex rest1 ix3)
-
     AstGatherPair (Z, ix2) v _sh ->
       build1VectorizeIndexVar k var (AstIndexN v ix2) is
     AstGatherPair (var2 ::: vars, ix2) v (_ :$ sh') ->
@@ -728,15 +729,14 @@ build1VectorizeIndexAnalyze k var v iN = case iN of
 
 intVarInAst :: AstVarName Int -> Ast n r -> Bool
 intVarInAst var = \case
+  AstVar{} -> False  -- not an int variable
   AstOp _ l -> any (intVarInAst var) l
-  AstCond b x y ->
-    intVarInAstBool var b || intVarInAst var x || intVarInAst var y
-  AstConstInt k -> intVarInAstInt var k
   AstConst{} -> False
   AstConstant (AstPrimalPart1 v) -> intVarInAst var v
   AstScale (AstPrimalPart1 v) u -> intVarInAst var v || intVarInAst var u
-  AstVar{} -> False  -- not an int variable
-
+  AstCond b x y ->
+    intVarInAstBool var b || intVarInAst var x || intVarInAst var y
+  AstConstInt k -> intVarInAstInt var k
   AstIndexN v is -> intVarInAst var v || any (intVarInAstInt var) is
   AstSum v -> intVarInAst var v
   AstFromList l -> any (intVarInAst var) l  -- down from rank 1 to 0
@@ -751,19 +751,17 @@ intVarInAst var = \case
   AstReshape _ v -> intVarInAst var v
   AstBuildPair1 _ (_, v) -> intVarInAst var v
   AstGatherPair1 (_, is) v _ -> any (intVarInAstInt var) is || intVarInAst var v
-
   AstGatherPair (_, is) v _ -> any (intVarInAstInt var) is || intVarInAst var v
-
   AstOMap (_, v) u -> intVarInAst var v || intVarInAst var u
     -- the variable in binder position, so ignored (and should be distinct)
 
 intVarInAstInt :: AstVarName Int -> AstInt r -> Bool
 intVarInAstInt var = \case
+  AstIntVar var2 -> var == var2  -- the only int variable not in binder position
   AstIntOp _ l -> any (intVarInAstInt var) l
+  AstIntConst{} -> False
   AstIntCond b x y ->
     intVarInAstBool var b || intVarInAstInt var x || intVarInAstInt var y
-  AstIntConst{} -> False
-  AstIntVar var2 -> var == var2  -- the only int variable not in binder position
   AstMinIndex v -> intVarInAst var v
   AstMaxIndex v -> intVarInAst var v
 
@@ -941,22 +939,21 @@ interpretAst
   => AstEnv d r
   -> Ast n r -> ADVal d (OR.Array n r)
 interpretAst env = \case
-  AstOp opCode args ->
-    interpretAstOp (interpretAst env) opCode args
-  AstCond b a1 a2 -> if interpretAstBool env b
-                     then interpretAst env a1
-                     else interpretAst env a2
-  AstConstInt i -> fromIntegral $ interpretAstInt env i
-  AstConst a -> constant a
-  AstConstant (AstPrimalPart1 a) -> constant $ interpretAstPrimal env a
-  AstScale (AstPrimalPart1 r) d ->
-    scale (interpretAstPrimal env r) (interpretAst env d)
   AstVar _sh (AstVarName var) -> case IM.lookup var env of
     Just (AstVarR d) -> fromX1 d
     Just AstVarI{} ->
       error $ "interpretAst: type mismatch for var " ++ show var
     Nothing -> error $ "interpretAst: unknown variable var " ++ show var
-
+  AstOp opCode args ->
+    interpretAstOp (interpretAst env) opCode args
+  AstConst a -> constant a
+  AstConstant (AstPrimalPart1 a) -> constant $ interpretAstPrimal env a
+  AstScale (AstPrimalPart1 r) d ->
+    scale (interpretAstPrimal env r) (interpretAst env d)
+  AstCond b a1 a2 -> if interpretAstBool env b
+                     then interpretAst env a1
+                     else interpretAst env a2
+  AstConstInt i -> fromIntegral $ interpretAstInt env i
   AstIndexN v is -> indexN (interpretAst env v) (fmap (interpretAstInt env) is)
   AstSum v -> sum' (interpretAst env v)
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
@@ -993,11 +990,9 @@ interpretAst env = \case
     -- on tape and translate it to whatever backend sooner or later;
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
-
   AstGatherPair (vars, ix) v sh ->
     gatherClosure (interpretLambdaIndexToIndex env (vars, ix))
                   (interpretAst env v) sh
-
   AstOMap (var, r) e ->  -- this only works on the primal part hence @constant@
     constant
     $ omap (\x -> let D u _ = interpretLambdaR env (var, r) (constant x)
@@ -1008,17 +1003,17 @@ interpretAstInt :: ADModeAndNumTensor d r
                 => AstEnv d r
                 -> AstInt r -> Int
 interpretAstInt env = \case
-  AstIntOp opCodeInt args ->
-    interpretAstIntOp (interpretAstInt env) opCodeInt args
-  AstIntCond b a1 a2 -> if interpretAstBool env b
-                        then interpretAstInt env a1
-                        else interpretAstInt env a2
-  AstIntConst a -> a
   AstIntVar (AstVarName var) -> case IM.lookup var env of
     Just AstVarR{} ->
       error $ "interpretAstInt: type mismatch for var " ++ show var
     Just (AstVarI i) -> i
     Nothing -> error $ "interpretAstInt: unknown variable var " ++ show var
+  AstIntOp opCodeInt args ->
+    interpretAstIntOp (interpretAstInt env) opCodeInt args
+  AstIntConst a -> a
+  AstIntCond b a1 a2 -> if interpretAstBool env b
+                        then interpretAstInt env a1
+                        else interpretAstInt env a2
   AstMinIndex v -> tminIndex $ interpretAst env v
   AstMaxIndex v -> tmaxIndex $ interpretAst env v
 
