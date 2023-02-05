@@ -507,6 +507,9 @@ build1VectorizeVar k (var, u) =
                                   $ build1VectorizeVar k (var, v)
     AstFlatten v ->
       build1VectorizeVar k (var, AstReshape (flattenShape $ shapeAst u) v)
+        -- TODO: alternatively we could introduce a subtler operation than
+        -- AstReshape that just flattens n levels down; it probably
+        -- vectorizes to itself just fine; however AstReshape is too useful
     AstReshape sh v -> AstReshape (k :$ sh) $ build1VectorizeVar k (var, v)
     AstBuildPair{} -> AstBuildPair k (var, u)
       -- This is a recoverable problem because, e.g., this may be nested
@@ -632,10 +635,10 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
       in build1VectorizeIndexVar k var v revIs
     AstTranspose v -> case (rest1, shapeAst v) of
       (ZI, ZS) ->
-        build1VectorizeIndexVar @m @n k var v is  -- if rank too low, it's id
-      (ZI, _ :$ ZS) ->
-        build1VectorizeIndexVar k var v is  -- if rank too low, it's id
-      (ZI, _) -> AstBuildPair k (var, AstIndexN v1 is)  -- we give up
+        error "build1VectorizeIndexVar: AstTranspose: impossible pattern needlessly required"
+      (ZI, _ :$ ZS) -> build1VectorizeIndexVar k var v is
+        -- if rank too low, the operation is set to be identity
+      (ZI, _) -> AstBuildPair k (var, AstIndexN v1 is)  -- we give up, see below
       (i2 :. rest2, _) -> build1VectorizeIndexVar k var v (i2 :. i1 :. rest2)
     AstTransposeGeneral perm v ->
       let lenp = length perm
@@ -646,9 +649,13 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
             | valueOf @m < lenp ->
                 AstBuildPair k (var, AstIndexN v1 is)  -- we give up
                   -- TODO: for this we really need generalized indexes that
-                  -- first project, then transpose and generalized gather;
+                  -- first project, then transpose and so generalized gather;
                   -- or instead push down transpose, but it may be expensive
-                  -- or get stuck as well
+                  -- or get stuck as well (transpose of a list of lists
+                  -- would need to shuffle all the individual elements);
+                  -- or perhaps it's enough to pass a permutation
+                  -- in build1VectorizeIndexVar and wrap the argument
+                  -- to gather in AstTransposeGeneral with the permutation
             | otherwise -> build1VectorizeIndexVar k var v is2
     AstFlatten v -> case rest1 of
       ZI ->
@@ -660,7 +667,13 @@ build1VectorizeIndexVar k var v1 is@(_ :. _) =
          first argument doesn't vectorize in build1Vectorize. For it
          to vectorize, we'd need a new operation, akin to gather,
          with the semantics of build (slice), a gradient, a way to vectorize
-         it, in turn, normally and with indexing applied, etc.
+         it, in turn, normally and with indexing applied, etc.;
+         vectorizing this operation would probably force a generalization
+         that acts like gatherN, but produces not a 1-element from the spot
+         an index points at, but some fixed k elements and then, unlike gatherN,
+         does not flatten the segments, but makes a tensor out of them intact;
+         or, if that helps, the operation may just drop a variable
+         initial segment of subtensors (of different length in each)
       let i = toLinearIdx2 (fmap AstIntConst sh) is
           -- This converts indexing into a slice and flatten, which in general
           -- is avoided, because it causes costly linearlization, but here
