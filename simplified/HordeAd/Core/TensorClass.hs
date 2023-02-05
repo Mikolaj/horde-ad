@@ -231,8 +231,6 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tflatten u = treshape (flattenShape $ tshape u) u
   treshape :: (KnownNat m, KnownNat n)
            => ShapeInt m -> TensorOf n r -> TensorOf m r
-  tbuild1 :: KnownNat n  -- this form requires less type applications
-          => Int -> (IntOf r -> TensorOf n r) -> TensorOf (1 + n) r
   tbuild :: forall m n. (KnownNat m, KnownNat n)
          => ShapeInt (m + n) -> (IndexOf m r -> TensorOf n r)
          -> TensorOf (m + n) r
@@ -243,6 +241,12 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
         buildSh ZS f = f ZI
         buildSh (k :$ sh) f = tbuild1 k (\i -> buildSh sh (\ix -> f (i :. ix)))
     in buildSh (takeShape @m @n sh0) f0
+  tbuild1 :: KnownNat n  -- this form requires less type applications
+          => Int -> (IntOf r -> TensorOf n r) -> TensorOf (1 + n) r
+  tmap :: (KnownNat m, KnownNat n)
+       => (TensorOf n r -> TensorOf n r)
+       -> TensorOf (m + n) r -> TensorOf (m + n) r
+  tmap f v = tbuild (tshape v) (\ix -> f (v ! ix))
   tmap1 :: KnownNat n
         => (TensorOf n r -> TensorOf n r)
         -> TensorOf (1 + n) r -> TensorOf (1 + n) r
@@ -251,10 +255,10 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
          => (r -> r) -> TensorOf n r -> TensorOf n r
   tmap0N f v = tbuild (tshape v)
                       (\ix -> tscalar $ f $ tunScalar $ v ! ix)
-  tmap :: (KnownNat m, KnownNat n)
-       => (TensorOf n r -> TensorOf n r)
-       -> TensorOf (m + n) r -> TensorOf (m + n) r
-  tmap f v = tbuild (tshape v) (\ix -> f (v ! ix))
+  tzipWith :: (KnownNat m, KnownNat n)
+           => (TensorOf n r -> TensorOf n r -> TensorOf n r)
+           -> TensorOf (m + n) r -> TensorOf (m + n) r -> TensorOf (m + n) r
+  tzipWith f u v = tbuild (tshape v) (\ix -> f (u ! ix) (v ! ix))
   tzipWith1 :: KnownNat n
             => (TensorOf n r -> TensorOf n r -> TensorOf n r)
             -> TensorOf (1 + n) r -> TensorOf (1 + n) r -> TensorOf (1 + n) r
@@ -264,10 +268,6 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tzipWith0N f u v = tbuild (tshape v)
                             (\ix -> tscalar $ f (tunScalar $ u ! ix)
                                                 (tunScalar $ v ! ix))
-  tzipWith :: (KnownNat m, KnownNat n)
-           => (TensorOf n r -> TensorOf n r -> TensorOf n r)
-           -> TensorOf (m + n) r -> TensorOf (m + n) r -> TensorOf (m + n) r
-  tzipWith f u v = tbuild (tshape v) (\ix -> f (u ! ix) (v ! ix))
 
   tscalar :: r -> TensorOf 0 r
   tunScalar :: TensorOf 0 r -> r
@@ -305,8 +305,8 @@ instance Tensor Double where
   treverse = treverseR
   ttransposeGeneral = ttransposeGeneralR
   treshape = treshapeR
-  tbuild1 = tbuild1R
   tbuild = tbuildR
+  tbuild1 = tbuild1R
   tscalar = tscalarR
   tunScalar = tunScalarR
 
@@ -333,13 +333,13 @@ instance Tensor Float where
   treverse = treverseR
   ttransposeGeneral = ttransposeGeneralR
   treshape = treshapeR
-  tbuild1 = tbuild1R
   tbuild = tbuildR
+  tbuild1 = tbuild1R
   -- TODO: low priority: implement for speed and use for ADVal, too
-  -- tmap0N = tmap0NR
   -- tmap = tmapR
-  -- tzipWith0N = tzipWith0NR
+  -- tmap0N = tmap0NR
   -- tzipWith = tzipWithR
+  -- tzipWith0N = tzipWith0NR
   tscalar = tscalarR
   tunScalar = tunScalarR
 
@@ -730,7 +730,7 @@ build1VectorizeIndexAnalyze k var v iN = case iN of
     -- TODO: many more cases; not sure how systematic it can be;
     -- more cases arise if shapes can contain Ast variables;
     -- @Data.Array.Shaped@ doesn't help in these extra cases;
-    -- however, AstGatherPair(N) covers all this, at the cost of (relatively
+    -- however, AstGatherPair(1) covers all this, at the cost of (relatively
     -- simple) expressions on tape
 
 intVarInAst :: AstVarName Int -> Ast n r -> Bool
@@ -811,12 +811,6 @@ dot0 :: (ADModeAndNumTensor d r, KnownNat n)
 dot0 (D u u') (D v v') = dD (tdot0R u v)
                             (dAdd (dDot0 v u') (dDot0 u v'))
 
-unScalar :: ADModeAndNumTensor d r => ADVal d (OR.Array 0 r) -> ADVal d r
-unScalar (D u u') = dD (OR.unScalar u) (dUnScalar0 u')
-
-scalar :: ADModeAndNumTensor d r => ADVal d r -> ADVal d (OR.Array 0 r)
-scalar (D u u') = dD (OR.scalar u) (dScalar1 u')
-
 fromList :: (ADModeAndNumTensor d r, KnownNat n)
          => [ADVal d (OR.Array n r)]
          -> ADVal d (OR.Array (1 + n) r)
@@ -825,19 +819,19 @@ fromList lu =
   dD (tfromListR $ map (\(D u _) -> u) lu)
      (dFromList1 $ map (\(D _ u') -> u') lu)
 
-fromVector :: (ADModeAndNumTensor d r, KnownNat n)
-           => Data.Vector.Vector (ADVal d (OR.Array n r))
-           -> ADVal d (OR.Array (1 + n) r)
-fromVector lu =
-  dD (tfromVectorR $ V.map (\(D u _) -> u) lu)
-     (dFromVector1 $ V.map (\(D _ u') -> u') lu)
-
 fromList0N :: (ADModeAndNumTensor d r, KnownNat n)
            => ShapeInt n -> [ADVal d r]
            -> ADVal d (OR.Array n r)
 fromList0N sh l =
   dD (tfromList0NR sh $ map (\(D u _) -> u) l)  -- I hope this fuses
      (dFromList01 sh $ map (\(D _ u') -> u') l)
+
+fromVector :: (ADModeAndNumTensor d r, KnownNat n)
+           => Data.Vector.Vector (ADVal d (OR.Array n r))
+           -> ADVal d (OR.Array (1 + n) r)
+fromVector lu =
+  dD (tfromVectorR $ V.map (\(D u _) -> u) lu)
+     (dFromVector1 $ V.map (\(D _ u') -> u') lu)
 
 fromVector0N :: (ADModeAndNumTensor d r, KnownNat n)
              => ShapeInt n -> Data.Vector.Vector (ADVal d r)
@@ -884,18 +878,24 @@ build1 :: (ADModeAndNumTensor d r, KnownNat n)
        -> ADVal d (OR.Array (1 + n) r)
 build1 k f = fromList $ map f [0 .. k - 1]
 
-gather1Closure :: (ADModeAndNumTensor d r, KnownNat p, KnownNat n)
-               => (Int -> IndexInt p)
-               -> ADVal d (OR.Array (p + n) r)
-               -> Int -> ADVal d (OR.Array (1 + n) r)
-gather1Closure f (D u u') k = dD (tgather1R f u k) (dGather1 f (tshapeR u) u' k)
-
 gatherClosure :: (ADModeAndNumTensor d r, KnownNat m, KnownNat p, KnownNat n)
               => (IndexInt m -> IndexInt p)
               -> ADVal d (OR.Array (p + n) r)
               -> ShapeInt (m + n) -> ADVal d (OR.Array (m + n) r)
 gatherClosure f (D u u') sh =
   dD (tgatherR f u sh) (dGatherN1 f (tshapeR u) u' sh)
+
+gather1Closure :: (ADModeAndNumTensor d r, KnownNat p, KnownNat n)
+               => (Int -> IndexInt p)
+               -> ADVal d (OR.Array (p + n) r)
+               -> Int -> ADVal d (OR.Array (1 + n) r)
+gather1Closure f (D u u') k = dD (tgather1R f u k) (dGather1 f (tshapeR u) u' k)
+
+scalar :: ADModeAndNumTensor d r => ADVal d r -> ADVal d (OR.Array 0 r)
+scalar (D u u') = dD (OR.scalar u) (dScalar1 u')
+
+unScalar :: ADModeAndNumTensor d r => ADVal d (OR.Array 0 r) -> ADVal d r
+unScalar (D u u') = dD (OR.unScalar u) (dUnScalar0 u')
 
 
 -- * Interpretation of Ast in ADVal

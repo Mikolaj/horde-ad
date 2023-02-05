@@ -90,22 +90,18 @@ data Ast :: Nat -> Type -> Type where
              => ShapeInt m -> Ast n r -> Ast m r
     -- emerges from vectorizing AstFlatten
   AstBuildPair1 :: Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
-  AstGatherPair1 :: forall p n r. KnownNat p
-                 => (AstVarName Int, AstIndex p r) -> Ast (p + n) r
-                 -> Int -> Ast (1 + n) r
-    -- emerges from vectorizing AstIndexN applied to term with no build variable
-
-  -- This is treated as syntactic sugar for now, but these have
-  -- much more efficient non-sugar implementations
-  -- (and possibly more efficient vectorizations).
   AstBuildPair :: forall m n r.
                   ShapeInt (m + n) -> (AstVarList m, Ast n r) -> Ast (m + n) r
     -- not needed for anythihg, but an extra pass may join nested AstBuildPair
     -- into these for better performance on some hardware
+  AstGatherPair1 :: forall p n r. KnownNat p
+                 => (AstVarName Int, AstIndex p r) -> Ast (p + n) r
+                 -> Int -> Ast (1 + n) r
+    -- emerges from vectorizing AstIndexN applied to term with no build variable
   AstGatherPair :: forall m p n r. (KnownNat m, KnownNat p, KnownNat n)
                 => (AstVarList m, AstIndex p r) -> Ast (p + n) r
                 -> ShapeInt (m + n) -> Ast (m + n) r
-    -- emerges from vectorizing AstGatherPair
+    -- emerges from vectorizing AstGatherPair1
 
   -- For MonoFunctor class, which is needed for a particularly
   -- fast implementation of relu and offers fast, primal-part only, mapping.
