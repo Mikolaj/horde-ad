@@ -172,6 +172,15 @@ f2 = \arg ->
       v2b = tsum0 (tbuild1 20 (fun2 (arg + 1)))
   in tunScalar $ v1a + v1b + v2a + v2b
 
+{-
+-- Lots of type errors:
+f3 :: ADReady r => TensorOf 0 r -> TensorOf 0 r
+f3 arg =
+  let arr1 = tbuild 10 (\i -> \x -> x + tfromIntOf0 (headIndex i))
+      arr2 = tbuild 10 (\i -> \f -> (arr1 ! i) . f)
+      arr3 = tbuild 10 (\i -> (arr2 ! i) (arr1 ! i) arg)
+  in tsum arr3
+-}
 
 -- * Vector tests (many by TomS as well)
 
