@@ -16,6 +16,7 @@ module HordeAd.Core.Ast
   , shapeAst, lengthAst
   , intVarInAst, intVarInAstInt, intVarInAstBool
   , substituteAst, substituteAstInt, substituteAstBool
+  , unsafeGetFreshAstVar
   ) where
 
 import Prelude

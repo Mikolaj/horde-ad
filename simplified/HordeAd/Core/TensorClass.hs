@@ -19,7 +19,6 @@ import Prelude
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
-import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.MonoTraversable (MonoFunctor (omap))
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Strict.Vector as Data.Vector
@@ -424,15 +423,6 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
 
   tscalar = id  -- Ast confuses the two ranks
   tunScalar = id
-
--- Impure but in the most trivial way (only ever incremented counter).
-unsafeAstVarCounter :: Counter
-{-# NOINLINE unsafeAstVarCounter #-}
-unsafeAstVarCounter = unsafePerformIO (newCounter 1)
-
-unsafeGetFreshAstVar :: IO (AstVarName a)
-{-# INLINE unsafeGetFreshAstVar #-}
-unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
 
 astBuild1 :: (KnownNat n, Show r, Numeric r)
           => Int -> (AstInt r -> Ast n r) -> Ast (1 + n) r
