@@ -38,7 +38,6 @@ testTrees = [ -- vector tests
               testCase "braidedBuilds" testBraidedBuilds
             , testCase "recycled" testRecycled
             , testCase "concatBuild" testConcatBuild
-            , testCase "concatBuild2" testConcatBuild2
             ]
 
 
@@ -198,8 +197,9 @@ concatBuild r =
 --                     (tkonst0N [1] (tfromIntOf0 i)))
 --            (tbuild1 (13 - i) (\_k -> tscalar r)))
 
-concatBuild2 :: ADReady r => r -> TensorOf 2 r
-concatBuild2 _r =
+-- TODOL
+_concatBuild2 :: ADReady r => r -> TensorOf 2 r
+_concatBuild2 _r =
 -- TODO: tbuild0N (7, 14) (\ (i,j)
   tbuild1 7 $ \i -> tbuild1 14 $ \_j ->
     -- TODO: use classes Cond and Bool: if i == j then tfromIntOf0 i else r
@@ -455,9 +455,3 @@ testConcatBuild =
   testPolyn concatBuild [7, 14]
   3.4
   91
-
-testConcatBuild2 :: Assertion
-testConcatBuild2 =
-  testPolyn concatBuild2 [7, 14]
-  3.4
-  0

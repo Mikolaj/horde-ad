@@ -27,25 +27,29 @@ traceRuleEnabled :: IORef Bool
 {-# NOINLINE traceRuleEnabled #-}
 traceRuleEnabled = unsafePerformIO $ newIORef False
 
+traceWidth :: Int
+traceWidth = 80
+
+padString :: Int -> String -> String
+padString width full = let cropped = take width full
+                       in if length full <= width
+                          then take width $ cropped ++ repeat ' '
+                          else take (width - 3) cropped ++ "..."
+
 mkTraceRule :: (Show from, Show ca, Show to)
             => String -> from -> ca -> Int -> to -> to
 mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabled
-  let width = 80
+  let width = traceWidth
       constructorName =
         unwords $ take nwords $ words $ take 20 $ show caseAnalysed
       ruleName = prefix ++ "." ++ constructorName
       ruleNamePadded = take 20 $ ruleName ++ repeat ' '
-      padTerm :: Show t => t -> String
-      padTerm t = let full = show t
-                      s = take width full
-                  in if length full <= width
-                     then take width $ s ++ repeat ' '
-                     else take (width - 3) s ++ "..."
   when enabled $
-    hPutStrLn stderr $ "rule " ++ ruleNamePadded ++ " sends "
-                       ++ padTerm from ++ " to " ++ padTerm to
-  return to
+    hPutStrLn stderr $ "rule " ++ ruleNamePadded
+                       ++ " sends " ++ padString width (show from)
+                       ++ " to " ++ padString width (show to)
+  return $! to
 
 -- TODO: due to 2 missing cases, it still sometimes fails, that is, produces
 -- the outermost @AstBuild1@ on top of potentially enlarging the terms inside.
@@ -57,7 +61,18 @@ mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
 build1Vectorize
   :: (KnownNat n, Show r, Numeric r)
   => Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
-build1Vectorize k (var, v0) = build1VOccurenceUnknown k (var, v0)
+build1Vectorize k (var, v0) = unsafePerformIO $ do
+  enabled <- readIORef traceRuleEnabled
+  let width = 2 * traceWidth
+  when enabled $
+    hPutStrLn stderr $ "Vectorization started for term "
+                       ++ padString width (show (AstBuild1 k (var, v0)))
+  let res = build1VOccurenceUnknown k (var, v0)
+  when enabled $
+    hPutStrLn stderr $ "Vectorization ended with "
+                       ++ padString width (show res)
+                       ++ "\n"
+  return $! res
 
 -- | The application @build1VOccurenceUnknown k (var, v)@ vectorizes
 -- the term @AstBuild1 k (var, v)@, where it's unknown whether
