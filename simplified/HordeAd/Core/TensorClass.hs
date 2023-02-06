@@ -439,7 +439,7 @@ astBuild1 :: (KnownNat n, Show r, Numeric r)
 {-# NOINLINE astBuild1 #-}
 astBuild1 k f = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
-  return $! build1VOccurenceUnknown k (freshAstVar, f (AstIntVar freshAstVar))
+  return $! build1Vectorize k (freshAstVar, f (AstIntVar freshAstVar))
     -- TODO: this vectorizes depth-first, which is needed. But do we
     -- also need a translation to non-vectorized terms for anything
     -- (other than for comparative tests)?

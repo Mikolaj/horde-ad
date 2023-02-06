@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Vectorization of the build operation in Ast.
 module HordeAd.Core.AstVectorize
-  ( build1VOccurenceUnknown
+  ( build1Vectorize
   ) where
 
 import Prelude
@@ -46,6 +46,18 @@ mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
     hPutStrLn stderr $ "rule " ++ ruleNamePadded ++ " sends "
                        ++ padTerm from ++ " to " ++ padTerm to
   return to
+
+-- TODO: due to 2 missing cases, it still sometimes fails, that is, produces
+-- the outermost @AstBuild1@ on top of potentially enlarging the terms inside.
+-- | The application @build1Vectorize k (var, v)@ vectorizes
+-- the term @AstBuild1 k (var, v)@, that is, rewrites it to a term
+-- with the same value, but not containing the outermost @AstBuild1@
+-- constructor and not increasing (and potentially decreasing)
+-- the total number of @AstBuild1@ occuring in the term.
+build1Vectorize
+  :: (KnownNat n, Show r, Numeric r)
+  => Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
+build1Vectorize k (var, v0) = build1VOccurenceUnknown k (var, v0)
 
 -- | The application @build1VOccurenceUnknown k (var, v)@ vectorizes
 -- the term @AstBuild1 k (var, v)@, where it's unknown whether
