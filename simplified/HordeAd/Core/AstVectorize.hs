@@ -4,6 +4,8 @@
 -- | Vectorization of the build operation in Ast.
 module HordeAd.Core.AstVectorize
   ( build1Vectorize
+    -- * Rule tracing machinery
+  , traceRuleEnabledRef
   ) where
 
 import Prelude
@@ -22,37 +24,10 @@ import HordeAd.Core.Ast
 import HordeAd.Core.SizedIndex
 import HordeAd.Internal.SizedList
 
--- TODO: set from the testing commandline, just as eqEpsilonRef in EqEpsilon.hs
-traceRuleEnabled :: IORef Bool
-{-# NOINLINE traceRuleEnabled #-}
-traceRuleEnabled = unsafePerformIO $ newIORef False
-
-traceWidth :: Int
-traceWidth = 80
-
-padString :: Int -> String -> String
-padString width full = let cropped = take width full
-                       in if length full <= width
-                          then take width $ cropped ++ repeat ' '
-                          else take (width - 3) cropped ++ "..."
-
-mkTraceRule :: (Show from, Show ca, Show to)
-            => String -> from -> ca -> Int -> to -> to
-mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
-  enabled <- readIORef traceRuleEnabled
-  let width = traceWidth
-      constructorName =
-        unwords $ take nwords $ words $ take 20 $ show caseAnalysed
-      ruleName = prefix ++ "." ++ constructorName
-      ruleNamePadded = take 20 $ ruleName ++ repeat ' '
-  when enabled $
-    hPutStrLn stderr $ "rule " ++ ruleNamePadded
-                       ++ " sends " ++ padString width (show from)
-                       ++ " to " ++ padString width (show to)
-  return $! to
-
 -- TODO: due to 2 missing cases, it still sometimes fails, that is, produces
 -- the outermost @AstBuild1@ on top of potentially enlarging the terms inside.
+-- But there is hope it can always succeed for terms that shaped tensors
+-- would type-check (ranked tensors are not fussy enough).
 -- | The application @build1Vectorize k (var, v)@ vectorizes
 -- the term @AstBuild1 k (var, v)@, that is, rewrites it to a term
 -- with the same value, but not containing the outermost @AstBuild1@
@@ -62,7 +37,7 @@ build1Vectorize
   :: (KnownNat n, Show r, Numeric r)
   => Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
 build1Vectorize k (var, v0) = unsafePerformIO $ do
-  enabled <- readIORef traceRuleEnabled
+  enabled <- readIORef traceRuleEnabledRef
   let width = 2 * traceWidth
   when enabled $
     hPutStrLn stderr $ "Vectorization started for term "
@@ -410,3 +385,35 @@ build1VSimplify k var v0 iN =
       -- @Data.Array.Shaped@ doesn't help in these extra cases;
       -- however, AstGather(1) covers all this, at the cost of (relatively
       -- simple) expressions on tape
+
+
+-- * Rule tracing machinery
+
+-- TODO: set from the testing commandline, just as eqEpsilonRef in EqEpsilon.hs
+traceRuleEnabledRef :: IORef Bool
+{-# NOINLINE traceRuleEnabledRef #-}
+traceRuleEnabledRef = unsafePerformIO $ newIORef False
+
+traceWidth :: Int
+traceWidth = 80
+
+padString :: Int -> String -> String
+padString width full = let cropped = take width full
+                       in if length full <= width
+                          then take width $ cropped ++ repeat ' '
+                          else take (width - 3) cropped ++ "..."
+
+mkTraceRule :: (Show from, Show ca, Show to)
+            => String -> from -> ca -> Int -> to -> to
+mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
+  enabled <- readIORef traceRuleEnabledRef
+  let width = traceWidth
+      constructorName =
+        unwords $ take nwords $ words $ take 20 $ show caseAnalysed
+      ruleName = prefix ++ "." ++ constructorName
+      ruleNamePadded = take 20 $ ruleName ++ repeat ' '
+  when enabled $
+    hPutStrLn stderr $ "rule " ++ ruleNamePadded
+                       ++ " sends " ++ padString width (show from)
+                       ++ " to " ++ padString width (show to)
+  return $! to
