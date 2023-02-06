@@ -428,7 +428,7 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
 -- Impure but in the most trivial way (only ever incremented counter).
 unsafeAstVarCounter :: Counter
 {-# NOINLINE unsafeAstVarCounter #-}
-unsafeAstVarCounter = unsafePerformIO (newCounter 0)
+unsafeAstVarCounter = unsafePerformIO (newCounter 1)
 
 unsafeGetFreshAstVar :: IO (AstVarName a)
 {-# INLINE unsafeGetFreshAstVar #-}
