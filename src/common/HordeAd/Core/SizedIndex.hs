@@ -44,7 +44,12 @@ type ShapeInt n = Shape n Int
 -- The slowest-moving index is at the head position;
 -- thus the index 'i :. j :. Z' represents 'a[i][j]' in traditional C notation.
 newtype Index n i = Index (SizedList n i)
-  deriving (Show, Eq, Ord)
+  deriving (Eq, Ord)
+
+-- This is pretty controversion and only lawful when OverloadedLists
+-- is enabled. However, it's much more readable when tracing and debugging.
+instance Show i => Show (Index n i) where
+  showsPrec d l = showsPrec d (indexToList l)
 
 pattern ZI :: forall n i. () => n ~ 0 => Index n i
 pattern ZI = Index Z
@@ -140,7 +145,11 @@ indexToList (Index l) = sizedListToList l
 -- | The shape of an n-dimensional array represented as a sized list.
 -- The order of dimensions corresponds to that in @Index@.
 newtype Shape n i = Shape (SizedList n i)
-  deriving Show
+
+-- This is pretty controversion and only lawful when OverloadedLists
+-- is enabled. However, it's much more readable when tracing and debugging.
+instance Show i => Show (Shape n i) where
+  showsPrec d l = showsPrec d (shapeToList l)
 
 pattern ZS :: forall n i. () => n ~ 0 => Shape n i
 pattern ZS = Shape Z

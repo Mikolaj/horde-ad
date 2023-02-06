@@ -42,10 +42,10 @@ deriving instance Eq i => Eq (SizedList n i)
 
 deriving instance Ord i => Ord (SizedList n i)
 
+-- This is pretty controversion and only lawful when OverloadedLists
+-- is enabled. However, it's much more readable when tracing and debugging.
 instance Show i => Show (SizedList n i) where
-  showsPrec _ Z = showString "Z"
-  showsPrec d (i ::: ix) = showParen (d > 3) $
-    showsPrec 4 i . showString " ::: " . showsPrec 3 ix
+  showsPrec d l = showsPrec d (sizedListToList l)
 
 deriving stock instance Functor (SizedList n)
 
