@@ -16,7 +16,7 @@ import           Data.IORef
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
 import           Numeric.LinearAlgebra (Numeric)
-import           System.IO (hPutStrLn, stderr)
+import           System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
@@ -40,13 +40,13 @@ build1Vectorize k (var, v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
   let width = 2 * traceWidth
   when enabled $
-    hPutStrLn stderr $ "Vectorization started for term "
-                       ++ padString width (show (AstBuild1 k (var, v0)))
+    hPutStrLnFlush stderr $ "Vectorization started for term "
+                            ++ padString width (show (AstBuild1 k (var, v0)))
   let res = build1VOccurenceUnknown k (var, v0)
   when enabled $
-    hPutStrLn stderr $ "Vectorization ended with "
-                       ++ padString width (show res)
-                       ++ "\n"
+    hPutStrLnFlush stderr $ "Vectorization ended with "
+                            ++ padString width (show res)
+                            ++ "\n"
   return $! res
 
 -- | The application @build1VOccurenceUnknown k (var, v)@ vectorizes
@@ -413,7 +413,13 @@ mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
       ruleName = prefix ++ "." ++ constructorName
       ruleNamePadded = take 20 $ ruleName ++ repeat ' '
   when enabled $
-    hPutStrLn stderr $ "rule " ++ ruleNamePadded
-                       ++ " sends " ++ padString width (show from)
-                       ++ " to " ++ padString width (show to)
+    hPutStrLnFlush stderr $ "rule " ++ ruleNamePadded
+                            ++ " sends " ++ padString width (show from)
+                            ++ " to " ++ padString width (show to)
   return $! to
+
+hPutStrLnFlush :: Handle -> String -> IO ()
+hPutStrLnFlush target s = do
+  hFlush stdout >> hFlush stderr
+  hPutStrLn target s
+  hFlush stdout >> hFlush stderr
