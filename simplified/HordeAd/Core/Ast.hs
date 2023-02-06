@@ -89,16 +89,16 @@ data Ast :: Nat -> Type -> Type where
   AstReshape :: KnownNat n
              => ShapeInt m -> Ast n r -> Ast m r
     -- emerges from vectorizing AstFlatten
-  AstBuildPair1 :: Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
+  AstBuild1 :: Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
     -- indicates a failure in vectorization, but may be recoverable later on
-  AstGatherPair1 :: forall p n r. KnownNat p
-                 => (AstVarName Int, AstIndex p r) -> Ast (p + n) r
-                 -> Int -> Ast (1 + n) r
+  AstGather1 :: forall p n r. KnownNat p
+             => (AstVarName Int, AstIndex p r) -> Ast (p + n) r
+             -> Int -> Ast (1 + n) r
     -- emerges from vectorizing AstIndexN applied to term with no build variable
-  AstGatherPair :: forall m p n r. (KnownNat m, KnownNat p, KnownNat n)
-                => (AstVarList m, AstIndex p r) -> Ast (p + n) r
-                -> ShapeInt (m + n) -> Ast (m + n) r
-    -- emerges from vectorizing AstGatherPair1
+  AstGather :: forall m p n r. (KnownNat m, KnownNat p, KnownNat n)
+            => (AstVarList m, AstIndex p r) -> Ast (p + n) r
+            -> ShapeInt (m + n) -> Ast (m + n) r
+    -- emerges from vectorizing AstGather1
 
   -- For MonoFunctor class, which is needed for a particularly
   -- fast implementation of relu and offers fast, primal-part only, mapping.
@@ -107,9 +107,9 @@ data Ast :: Nat -> Type -> Type where
   AstOMap :: (AstVarName (OR.Array 0 r), Ast 0 r) -> Ast n r -> Ast n r
 
   -- Spurious, but can be re-enabled at any time:
---  AstBuildPair :: forall m n r.
---                  ShapeInt (m + n) -> (AstVarList m, Ast n r) -> Ast (m + n) r
-    -- not needed for anythihg, but an extra pass may join nested AstBuildPair1
+--  AstBuild :: forall m n r.
+--              ShapeInt (m + n) -> (AstVarList m, Ast n r) -> Ast (m + n) r
+    -- not needed for anythihg, but an extra pass may join nested AstBuild1
     -- into these for better performance on some hardware
 
 deriving instance (Show r, Numeric r) => Show (Ast n r)
@@ -118,7 +118,11 @@ newtype AstPrimalPart1 n r = AstPrimalPart1 (Ast n r)
  deriving Show
 
 newtype AstVarName t = AstVarName Int
- deriving (Show, Eq)
+ deriving Eq
+
+-- An unlawful instance to prevent spam when tracing and debugging.
+instance Show (AstVarName t) where
+  show (AstVarName n) = "Var" ++ show n
 
 data AstVar a =
     AstVarR a
@@ -349,10 +353,10 @@ shapeAst v1 = case v1 of
     else permutePrefixShape perm (shapeAst v)
   AstFlatten v -> flattenShape (shapeAst v)
   AstReshape sh _v -> sh
-  AstBuildPair1 k (_var, v) -> k :$ shapeAst v
-  AstGatherPair1 (_var, _is :: Index p (AstInt r)) v k ->
+  AstBuild1 k (_var, v) -> k :$ shapeAst v
+  AstGather1 (_var, _is :: Index p (AstInt r)) v k ->
     k :$ dropShape @p (shapeAst v)
-  AstGatherPair (_var, _is) _v sh -> sh
+  AstGather (_var, _is) _v sh -> sh
   AstOMap (_var, _r) e -> shapeAst e
 
 -- Length of the outermost dimension.
@@ -383,9 +387,9 @@ intVarInAst var = \case
   AstTransposeGeneral _ v -> intVarInAst var v
   AstFlatten v -> intVarInAst var v
   AstReshape _ v -> intVarInAst var v
-  AstBuildPair1 _ (_, v) -> intVarInAst var v
-  AstGatherPair1 (_, is) v _ -> any (intVarInAstInt var) is || intVarInAst var v
-  AstGatherPair (_, is) v _ -> any (intVarInAstInt var) is || intVarInAst var v
+  AstBuild1 _ (_, v) -> intVarInAst var v
+  AstGather1 (_, is) v _ -> any (intVarInAstInt var) is || intVarInAst var v
+  AstGather (_, is) v _ -> any (intVarInAstInt var) is || intVarInAst var v
   AstOMap (_, v) u -> intVarInAst var v || intVarInAst var u
     -- the variable in binder position, so ignored (and should be distinct)
 
@@ -432,14 +436,14 @@ substituteAst i var v1 = case v1 of
   AstTransposeGeneral perm v -> AstTransposeGeneral perm (substituteAst i var v)
   AstFlatten v -> AstFlatten (substituteAst i var v)
   AstReshape sh v -> AstReshape sh (substituteAst i var v)
-  AstBuildPair1 k (var2, v) ->
-    AstBuildPair1 k (var2, substituteAst i var v)
-  AstGatherPair1 (var2, is) v k ->
-    AstGatherPair1 (var2, fmap (substituteAstInt i var) is)
-                   (substituteAst i var v) k
-  AstGatherPair (vars, is) v sh ->
-    AstGatherPair (vars, fmap (substituteAstInt i var) is)
-                  (substituteAst i var v) sh
+  AstBuild1 k (var2, v) ->
+    AstBuild1 k (var2, substituteAst i var v)
+  AstGather1 (var2, is) v k ->
+    AstGather1 (var2, fmap (substituteAstInt i var) is)
+               (substituteAst i var v) k
+  AstGather (vars, is) v sh ->
+    AstGather (vars, fmap (substituteAstInt i var) is)
+              (substituteAst i var v) sh
   AstOMap (var2, r) e ->
     AstOMap (var2, substituteAst i var r) (substituteAst i var e)
 

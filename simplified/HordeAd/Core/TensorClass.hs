@@ -644,15 +644,15 @@ interpretAst env = \case
   AstFlatten v -> let d = interpretAst env v
                   in reshape (flattenShape $ shape d) d
   AstReshape sh v -> reshape sh (interpretAst env v)
-  AstBuildPair1 k (var, AstConstant r) ->
+  AstBuild1 k (var, AstConstant r) ->
     constant
     $ OR.ravel . ORB.fromVector [k] . V.generate k
     $ \j -> let D v _ = interpretLambdaI env (var, AstConstant r) j
             in v
-  AstBuildPair1 k (var, v) -> build1 k (interpretLambdaI env (var, v))
+  AstBuild1 k (var, v) -> build1 k (interpretLambdaI env (var, v))
       -- fallback to POPL (memory blowup, but avoids functions on tape);
       -- an alternative is to use dBuild1 and store function on tape
-  AstGatherPair1 (var, ix) v k ->
+  AstGather1 (var, ix) v k ->
     gather1Closure (interpretLambdaIndex env (var, ix)) (interpretAst env v) k
     -- TODO: currently we store the function on tape, because it doesn't
     -- cause recomputation of the gradient per-cell, unlike storing the build
@@ -662,7 +662,7 @@ interpretAst env = \case
     -- on tape and translate it to whatever backend sooner or later;
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
-  AstGatherPair (vars, ix) v sh ->
+  AstGather (vars, ix) v sh ->
     gatherClosure (interpretLambdaIndexToIndex env (vars, ix))
                   (interpretAst env v) sh
   AstOMap (var, r) e ->  -- this only works on the primal part hence @constant@
