@@ -303,7 +303,7 @@ instance Tensor Double where
   treverse = treverseR
   ttransposeGeneral = ttransposeGeneralR
   treshape = treshapeR
-  tbuild = tbuildR
+  tbuild = tbuildNR
   tbuild1 = tbuild1R
   tscalar = tscalarR
   tunScalar = tunScalarR
@@ -331,7 +331,7 @@ instance Tensor Float where
   treverse = treverseR
   ttransposeGeneral = ttransposeGeneralR
   treshape = treshapeR
-  tbuild = tbuildR
+  tbuild = tbuildNR
   tbuild1 = tbuild1R
   -- TODO: low priority: implement for speed and use for ADVal, too
   -- tmap = tmapR
@@ -530,12 +530,12 @@ build1 :: (ADModeAndNumTensor d r, KnownNat n)
        -> ADVal d (OR.Array (1 + n) r)
 build1 k f = fromList $ map f [0 .. k - 1]
 
-gatherClosure :: (ADModeAndNumTensor d r, KnownNat m, KnownNat p, KnownNat n)
-              => (IndexInt m -> IndexInt p)
-              -> ADVal d (OR.Array (p + n) r)
-              -> ShapeInt (m + n) -> ADVal d (OR.Array (m + n) r)
-gatherClosure f (D u u') sh =
-  dD (tgatherR f u sh) (dGatherN1 f (tshapeR u) u' sh)
+gatherNClosure :: (ADModeAndNumTensor d r, KnownNat m, KnownNat p, KnownNat n)
+               => (IndexInt m -> IndexInt p)
+               -> ADVal d (OR.Array (p + n) r)
+               -> ShapeInt (m + n) -> ADVal d (OR.Array (m + n) r)
+gatherNClosure f (D u u') sh =
+  dD (tgatherNR f u sh) (dGatherN f (tshapeR u) u' sh)
 
 gather1Closure :: (ADModeAndNumTensor d r, KnownNat p, KnownNat n)
                => (Int -> IndexInt p)
@@ -652,9 +652,9 @@ interpretAst env = \case
     -- on tape and translate it to whatever backend sooner or later;
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
-  AstGather (vars, ix) v sh ->
-    gatherClosure (interpretLambdaIndexToIndex env (vars, ix))
-                  (interpretAst env v) sh
+  AstGatherN (vars, ix) v sh ->
+    gatherNClosure (interpretLambdaIndexToIndex env (vars, ix))
+                   (interpretAst env v) sh
   AstOMap (var, r) e ->  -- this only works on the primal part hence @constant@
     constant
     $ omap (\x -> let D u _ = interpretLambdaR env (var, r) (constant x)

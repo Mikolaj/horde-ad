@@ -215,10 +215,10 @@ data Delta1 :: Nat -> Type -> Type where
     -- of length @m@. Indexes of length 0 result in identities, so that,
     -- e.g, @Gather1 (const Z) [] (Scalar1 d) k@ is equivalent
     -- to @Konst01 [k] d@.
-  GatherN1 :: (KnownNat m, KnownNat p, KnownNat n)
-           => (IndexInt m -> IndexInt p)
-           -> ShapeInt (p + n) -> Delta1 (p + n) r
-           -> ShapeInt (m + n) -> Delta1 (m + n) r
+  GatherN :: (KnownNat m, KnownNat p, KnownNat n)
+          => (IndexInt m -> IndexInt p)
+          -> ShapeInt (p + n) -> Delta1 (p + n) r
+          -> ShapeInt (m + n) -> Delta1 (m + n) r
   Scatter1 :: (KnownNat p, KnownNat n)
            => (Int -> IndexInt p)
            -> Int -> Delta1 (1 + n) r
@@ -228,10 +228,10 @@ data Delta1 :: Nat -> Type -> Type where
     -- at indexes of length @m@. Indexes of length 0 insert tensors trivially,
     -- so that, e.g, @Scatter1 5 (const Z) (Konst01 [5] d) []@ is equivalent
     -- to @5 * d@.
-  ScatterN1 :: (KnownNat m, KnownNat p, KnownNat n)
-            => (IndexInt m -> IndexInt p)
-            -> ShapeInt (m + n) -> Delta1 (m + n) r
-            -> ShapeInt (p + n) -> Delta1 (p + n) r
+  ScatterN :: (KnownNat m, KnownNat p, KnownNat n)
+           => (IndexInt m -> IndexInt p)
+           -> ShapeInt (m + n) -> Delta1 (m + n) r
+           -> ShapeInt (p + n) -> Delta1 (p + n) r
 
   FromX1 :: DeltaX r -> Delta1 n r
 
@@ -579,9 +579,9 @@ buildFinMaps s0 deltaDt =
           V.ifoldl' (\s2 i ci -> eval0 s2 ci (f $ fromLinearIdx sh i))
                     s (OR.toVector c)
         Gather1 f sh d _n -> eval1 s (tscatter1R f c sh) d
-        GatherN1 f shd d _sh -> eval1 s (tscatterR f c shd) d
+        GatherN f shd d _sh -> eval1 s (tscatterNR f c shd) d
         Scatter1 f n d _sh -> eval1 s (tgather1R f c n) d
-        ScatterN1 f shd d _sh -> eval1 s (tgatherR f c shd) d
+        ScatterN f shd d _sh -> eval1 s (tgatherNR f c shd) d
 
         FromX1 (InputX inputId) ->
           s {iMap1 = EM.adjust (addToArray c) inputId $ iMap1 s}
@@ -729,15 +729,15 @@ buildDerivative dim0 dim1 deltaTopLevel
         Gather1 f _sh d k -> do
           t <- eval1 d
           return $! tgather1R f t k
-        GatherN1 f _shd d sh -> do
+        GatherN f _shd d sh -> do
           t <- eval1 d
-          return $! tgatherR f t sh
+          return $! tgatherNR f t sh
         Scatter1 f _k d sh -> do
           t <- eval1 d
           return $! tscatter1R f t sh
-        ScatterN1 f _shd d sh ->  do
+        ScatterN f _shd d sh ->  do
           t <- eval1 d
-          return $! tscatterR f t sh
+          return $! tscatterNR f t sh
 
         FromX1 (InputX (InputId i)) ->
           if i < dim1

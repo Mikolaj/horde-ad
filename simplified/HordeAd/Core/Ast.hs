@@ -71,8 +71,7 @@ data Ast :: Nat -> Type -> Type where
     -- needed, because toInteger and so fromIntegral is not defined for Ast
   AstIndexN :: forall m n r. KnownNat m
             => Ast (m + n) r -> AstIndex m r -> Ast n r
-    -- first ix is for outermost dimension; empty index means identity;
-    -- the name keeps the N to less confusion with AstIndex type
+    -- first ix is for outermost dimension; empty index means identity
   AstSum :: Ast (1 + n) r -> Ast n r
   AstFromList :: [Ast n r] -> Ast (1 + n) r
   AstFromVector :: Data.Vector.Vector (Ast n r) -> Ast (1 + n) r
@@ -96,9 +95,9 @@ data Ast :: Nat -> Type -> Type where
              => (AstVarName Int, AstIndex p r) -> Ast (p + n) r
              -> Int -> Ast (1 + n) r
     -- emerges from vectorizing AstIndexN applied to term with no build variable
-  AstGather :: forall m p n r. (KnownNat m, KnownNat p, KnownNat n)
-            => (AstVarList m, AstIndex p r) -> Ast (p + n) r
-            -> ShapeInt (m + n) -> Ast (m + n) r
+  AstGatherN :: forall m p n r. (KnownNat m, KnownNat p, KnownNat n)
+             => (AstVarList m, AstIndex p r) -> Ast (p + n) r
+             -> ShapeInt (m + n) -> Ast (m + n) r
     -- emerges from vectorizing AstGather1
 
   -- For MonoFunctor class, which is needed for a particularly
@@ -108,8 +107,8 @@ data Ast :: Nat -> Type -> Type where
   AstOMap :: (AstVarName (OR.Array 0 r), Ast 0 r) -> Ast n r -> Ast n r
 
   -- Spurious, but can be re-enabled at any time:
---  AstBuild :: forall m n r.
---              ShapeInt (m + n) -> (AstVarList m, Ast n r) -> Ast (m + n) r
+--  AstBuildN :: forall m n r.
+--               ShapeInt (m + n) -> (AstVarList m, Ast n r) -> Ast (m + n) r
     -- not needed for anythihg, but an extra pass may join nested AstBuild1
     -- into these for better performance on some hardware
 
@@ -357,7 +356,7 @@ shapeAst v1 = case v1 of
   AstBuild1 k (_var, v) -> k :$ shapeAst v
   AstGather1 (_var, _is :: Index p (AstInt r)) v k ->
     k :$ dropShape @p (shapeAst v)
-  AstGather (_var, _is) _v sh -> sh
+  AstGatherN (_var, _is) _v sh -> sh
   AstOMap (_var, _r) e -> shapeAst e
 
 -- Length of the outermost dimension.
@@ -390,7 +389,7 @@ intVarInAst var = \case
   AstReshape _ v -> intVarInAst var v
   AstBuild1 _ (_, v) -> intVarInAst var v
   AstGather1 (_, is) v _ -> any (intVarInAstInt var) is || intVarInAst var v
-  AstGather (_, is) v _ -> any (intVarInAstInt var) is || intVarInAst var v
+  AstGatherN (_, is) v _ -> any (intVarInAstInt var) is || intVarInAst var v
   AstOMap (_, v) u -> intVarInAst var v || intVarInAst var u
     -- the variable in binder position, so ignored (and should be distinct)
 
@@ -442,9 +441,9 @@ substituteAst i var v1 = case v1 of
   AstGather1 (var2, is) v k ->
     AstGather1 (var2, fmap (substituteAstInt i var) is)
                (substituteAst i var v) k
-  AstGather (vars, is) v sh ->
-    AstGather (vars, fmap (substituteAstInt i var) is)
-              (substituteAst i var v) sh
+  AstGatherN (vars, is) v sh ->
+    AstGatherN (vars, fmap (substituteAstInt i var) is)
+               (substituteAst i var v) sh
   AstOMap (var2, r) e ->
     AstOMap (var2, substituteAst i var r) (substituteAst i var e)
 

@@ -25,7 +25,7 @@ import HordeAd.Core.SizedIndex
 import HordeAd.Internal.SizedList
 
 -- TODO: due to 2 missing cases, it still sometimes fails, that is, produces
--- the outermost @AstBuild1@ on top of potentially enlarging the terms inside.
+-- the main @AstBuild1@, perhaps in many copies nested in other terms.
 -- But there is hope it can always succeed for terms that shaped tensors
 -- would type-check (ranked tensors are not fussy enough).
 -- | The application @build1Vectorize k (var, v)@ vectorizes
@@ -139,15 +139,15 @@ build1V k (var, v0) =
       -- It probably speeds up vectorization a tiny bit if we nest
       -- AstBuild1 instead of rewriting into AstBuild.
     AstGather1 (var2, ix2 :: Index p (AstInt r)) v k2 -> traceRule $
-      AstGather (var ::: var2 ::: Z, AstIntVar var :. ix2)
-                (build1VOccurenceUnknown k (var, v))
-                (k :$ k2 :$ dropShape @p (shapeAst v))
+      AstGatherN (var ::: var2 ::: Z, AstIntVar var :. ix2)
+                 (build1VOccurenceUnknown k (var, v))
+                 (k :$ k2 :$ dropShape @p (shapeAst v))
       -- AstScatter (var2, ix2) v sh -> ...
       -- no idea how to vectorize AstScatter, so let's not add prematurely
-    AstGather (vars, ix2) v sh -> traceRule $
-      AstGather (var ::: vars, AstIntVar var :. ix2)
-                (build1VOccurenceUnknown k (var, v))
-                (k :$ sh)
+    AstGatherN (vars, ix2) v sh -> traceRule $
+      AstGatherN (var ::: vars, AstIntVar var :. ix2)
+                 (build1VOccurenceUnknown k (var, v))
+                 (k :$ sh)
 
     AstOMap{} -> traceRule $
       AstConstant $ AstPrimalPart1 $ AstBuild1 k (var, v0)
@@ -334,17 +334,17 @@ build1VIx k (var, v0, is@(_ :. _)) =
       let ix3 = fmap (substituteAstInt i1 var2) ix2
       in build1VIxOccurenceUnknown k (var, v, appendIndex rest1 ix3)
            -- we don't know if var occurs in v; it could have been in ix2
-    AstGather (Z, ix2) v _sh -> traceRule $
+    AstGatherN (Z, ix2) v _sh -> traceRule $
       build1VIx k (var, AstIndexN v ix2, is)
-    AstGather (var2 ::: vars, ix2) v (_ :$ sh') -> traceRule $
+    AstGatherN (var2 ::: vars, ix2) v (_ :$ sh') -> traceRule $
       let ix3 = fmap (substituteAstInt i1 var2) ix2
       in build1VIx
-           k (var, unsafeCoerce $ AstGather (vars, ix3) v sh', rest1)
+           k (var, unsafeCoerce $ AstGatherN (vars, ix3) v sh', rest1)
           -- GHC with the plugin doesn't cope with this
           -- (https://github.com/clash-lang/ghc-typelits-natnormalise/issues/71)
           -- so unsafeCoerce is back
-    AstGather{} -> traceRule $
-      error "build1VIx: AstGather: impossible pattern needlessly required"
+    AstGatherN{} -> traceRule $
+      error "build1VIx: AstGatherN: impossible pattern needlessly required"
 
     AstOMap{} -> traceRule $
       AstConstant $ AstPrimalPart1 $ AstBuild1 k (var, AstIndexN v0 is)
@@ -383,7 +383,7 @@ build1VSimplify k var v0 iN =
       -- TODO: many more cases; not sure how systematic it can be;
       -- more cases arise if shapes can contain Ast variables;
       -- @Data.Array.Shaped@ doesn't help in these extra cases;
-      -- however, AstGather(1) covers all this, at the cost of (relatively
+      -- however, AstGather* covers all this, at the cost of (relatively
       -- simple) expressions on tape
 
 

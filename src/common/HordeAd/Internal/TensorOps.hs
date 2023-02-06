@@ -246,10 +246,10 @@ treshapeR sh = OR.reshape (shapeToList sh)
 -- also consider generating a flat vector and reshaping at the end
 -- to save on creating the intermediate tensors, though that's
 -- a negligible cost if the tensors of rank n don't have a small size
-tbuildR
+tbuildNR
   :: forall m n r. (KnownNat m, KnownNat n, Numeric r)
   => ShapeInt (m + n) -> (IndexInt m -> OR.Array n r) -> OR.Array (m + n) r
-tbuildR sh0 f0 =
+tbuildNR sh0 f0 =
   let buildSh :: KnownNat m1
               => ShapeInt m1 -> (IndexInt m1 -> OR.Array n r)
               -> OR.Array (m1 + n) r
@@ -283,11 +283,11 @@ tzipWith0NR = liftVR2 . Numeric.LinearAlgebra.Devel.zipVectorWith
 
 -- TODO: this can be slightly optimized by normalizing t first (?)
 -- and then inlining toVector and tindexNR
-tgatherR :: forall m p n r. (KnownNat m, KnownNat p, KnownNat n, Numeric r)
+tgatherNR :: forall m p n r. (KnownNat m, KnownNat p, KnownNat n, Numeric r)
          => (IndexInt m -> IndexInt p)
          -> OR.Array (p + n) r
          -> ShapeInt (m + n) -> OR.Array (m + n) r
-tgatherR f t sh =
+tgatherNR f t sh =
   let shm = takeShape @m sh
       s = shapeSize shm
       l = map (\ix -> OR.toVector $ t `tindexNR` f ix)
@@ -307,13 +307,13 @@ tgather1R f t k =
 -- (the only new vectors are created by LA.vjoin, but this is done on demand).
 -- TODO: optimize updateNR and make it consume and forget arguments
 -- one by one to make the above true
-tscatterR :: forall m p n r.
+tscatterNR :: forall m p n r.
              ( KnownNat m, KnownNat p, KnownNat n, NumAndDebug r
              , Num (Vector r) )
           => (IndexInt m -> IndexInt p)
           -> OR.Array (m + n) r
           -> ShapeInt (p + n) -> OR.Array (p + n) r
-tscatterR f t sh =
+tscatterNR f t sh =
   let (shm', shn) = splitAt (valueOf @m) $ OR.shapeL t
       s = product shm'
       shm = listShapeToShape shm'
@@ -325,7 +325,7 @@ tscatterR f t sh =
 -- TODO: update in place in ST or with a vector builder, but that requires
 -- building the underlying value vector with crafty index computations
 -- and then freezing it and calling OR.fromVector
--- or optimize tscatterR and instantiate it instead
+-- or optimize tscatterNR and instantiate it instead
 tscatter1R :: (Numeric r, Num (Vector r), KnownNat p, KnownNat n)
            => (Int -> IndexInt p)
            -> OR.Array (1 + n) r -> ShapeInt (p + n) -> OR.Array (p + n) r
