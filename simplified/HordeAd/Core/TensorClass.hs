@@ -488,7 +488,7 @@ build1V k (var, u) =
                           (singletonIndex $ AstIntCond b 0 1))
 
     AstConstInt{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair1 k (var, u)
-    AstIndexN v is -> build1VIxOccurenceUnknown k var v is
+    AstIndexN v is -> build1VIxOccurenceUnknown k (var, v, is)
       -- @var@ is in @v@ or @is@; TODO: simplify is first or even fully
       -- evaluate (may involve huge data processing) if contains no vars
       -- and then some things simplify a lot, e.g., if constant index,
@@ -542,7 +542,7 @@ build1V k (var, u) =
     AstOMap{} -> AstConstant $ AstPrimalPart1 $ AstBuildPair1 k (var, u)
     -- All other patterns are redundant due to GADT typing.
 
--- | The application @build1VIxOccurenceUnknown k var v is@ vectorizes
+-- | The application @build1VIxOccurenceUnknown k (var, v, is)@ vectorizes
 -- the term @AstBuildPair1 k (var, AstIndexN v is)@, where it's unknown whether
 -- @var@ occurs in any of @v@, @is@.
 --
@@ -553,11 +553,11 @@ build1V k (var, u) =
 -- element of @is@, we attempt to simplify the term even more than that.
 build1VIxOccurenceUnknown
   :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
-  => Int -> AstVarName Int -> Ast (m + n) r -> AstIndex m r
+  => Int -> (AstVarName Int, Ast (m + n) r, AstIndex m r)
   -> Ast (1 + n) r
-build1VIxOccurenceUnknown k var v ZI = build1VOccurenceUnknown k (var, v)
-build1VIxOccurenceUnknown k var v is@(iN :. restN) =
-  if | intVarInAst var v -> build1VIx k var v is  -- push deeper
+build1VIxOccurenceUnknown k (var, v, ZI) = build1VOccurenceUnknown k (var, v)
+build1VIxOccurenceUnknown k (var, v, is@(iN :. restN)) =
+  if | intVarInAst var v -> build1VIx k (var, v, is)  -- push deeper
      | any (intVarInAstInt var) restN -> AstGatherPair1 (var, is) v k
      | intVarInAstInt var iN ->
        let w = AstIndexN v restN
@@ -567,7 +567,7 @@ build1VIxOccurenceUnknown k var v is@(iN :. restN) =
               -- we didn't really need it anyway
      | otherwise -> AstKonst k (AstIndexN v is)
 
--- | The application @build1VIx k var v is@ vectorizes
+-- | The application @build1VIx k (var, v, is)@ vectorizes
 -- the term @AstBuildPair1 k (var, AstIndexN v is)@, where it's known that
 -- @var@ occurs in @v@. It may or may not additionally occur in @is@.
 --
@@ -578,17 +578,17 @@ build1VIxOccurenceUnknown k var v is@(iN :. restN) =
 -- if possible in constant time.
 build1VIx
   :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
-  => Int -> AstVarName Int -> Ast (m + n) r -> AstIndex m r
+  => Int -> (AstVarName Int, Ast (m + n) r, AstIndex m r)
   -> Ast (1 + n) r
-build1VIx k var v1 ZI = build1V k (var, v1)
-build1VIx k var v1 is@(_ :. _) =
+build1VIx k (var, v1, ZI) = build1V k (var, v1)
+build1VIx k (var, v1, is@(_ :. _)) =
   let (rest1, i1) = unsnocIndex1 is  -- TODO: rename to (init1, last1)?
   in case v1 of
     AstVar{} ->
       error "build1VIx: AstVar can't have free int variables"
 
     AstOp opCode args ->
-      AstOp opCode $ map (\w -> build1VIxOccurenceUnknown k var w is) args
+      AstOp opCode $ map (\w -> build1VIxOccurenceUnknown k (var, w, is)) args
 
     AstConst{} ->
       error "build1VIx: AstConst can't have free int variables"
@@ -596,15 +596,16 @@ build1VIx k var v1 is@(_ :. _) =
       AstConstant $ AstPrimalPart1 $ AstBuildPair1 k (var, AstIndexN v1 is)
     AstScale (AstPrimalPart1 r) d ->
       AstScale (AstPrimalPart1 $ AstBuildPair1 k (var, AstIndexN r is))
-               (build1VIxOccurenceUnknown k var d is)
+               (build1VIxOccurenceUnknown k (var, d, is))
     AstCond b v w ->
-      build1VIxOccurenceUnknown k var (AstFromList [v, w])
-                                      (AstIntCond b 0 1 :. is)
+      build1VIxOccurenceUnknown k ( var
+                                  , AstFromList [v, w]
+                                  , AstIntCond b 0 1 :. is )
 
     AstConstInt{} ->
       AstConstant $ AstPrimalPart1 $ AstBuildPair1 @n k (var, AstIndexN v1 is)
 
-    AstIndexN v is2 -> build1VIxOccurenceUnknown k var v (appendIndex is is2)
+    AstIndexN v is2 -> build1VIxOccurenceUnknown k (var, v, appendIndex is is2)
     AstSum v ->
       build1V k
         (var, AstSum (AstTranspose $ AstIndexN (AstTranspose v) is))
@@ -632,7 +633,7 @@ build1VIx k var v1 is@(_ :. _) =
         build1VOccurenceUnknown k (var, AstIndexN v rest1)) l)
                                   (singletonIndex i1)
     -- Partially evaluate in constant time:
-    AstKonst _k v -> build1VIx k var v rest1
+    AstKonst _k v -> build1VIx k (var, v, rest1)
     AstAppend v w ->
       let vlen = AstIntConst $ lengthAst v
           is2 = fmap (\i -> AstIntOp PlusIntOp [i, vlen]) is
@@ -643,24 +644,24 @@ build1VIx k var v1 is@(_ :. _) =
           -- this is basically partial evaluation, but in constant
           -- time unlike evaluating AstFromList, etc.
     AstSlice i2 _k v ->
-      build1VIx k var v (fmap (\i ->
+      build1VIx k (var, v, fmap (\i ->
         AstIntOp PlusIntOp [i, AstIntConst i2]) is)
     AstReverse v ->
       let revIs = AstIntOp MinusIntOp [AstIntConst (lengthAst v - 1), i1]
                   :. rest1
-      in build1VIx k var v revIs
+      in build1VIx k (var, v, revIs)
     AstTranspose v -> case (rest1, shapeAst v) of
       (ZI, ZS) ->
         error "build1VIx: AstTranspose: impossible pattern needlessly required"
-      (ZI, _ :$ ZS) -> build1VIx k var v is
+      (ZI, _ :$ ZS) -> build1VIx k (var, v, is)
         -- if rank too low, the operation is set to be identity
       (ZI, _) -> AstBuildPair1 k (var, AstIndexN v1 is)  -- we give up see below
-      (i2 :. rest2, _) -> build1VIx k var v (i2 :. i1 :. rest2)
+      (i2 :. rest2, _) -> build1VIx k (var, v, i2 :. i1 :. rest2)
     AstTransposeGeneral perm v ->
       let lenp = length perm
           is2 = permutePrefixIndex perm is
       in if | valueOf @(m + n) < lenp ->
-                build1VIx k var v is
+                build1VIx k (var, v, is)
                   -- the operation is an identity if rank too small
             | valueOf @m < lenp ->
                 AstBuildPair1 k (var, AstIndexN v1 is)  -- we give up
@@ -672,11 +673,11 @@ build1VIx k var v1 is@(_ :. _) =
                   -- or perhaps it's enough to pass a permutation
                   -- in build1VIx and wrap the argument
                   -- to gather in AstTransposeGeneral with the permutation
-            | otherwise -> build1VIx k var v is2
+            | otherwise -> build1VIx k (var, v, is2)
     AstFlatten v -> case rest1 of
       ZI ->
         let ixs2 = fromLinearIdx (fmap AstIntConst (shapeAst v)) i1
-        in build1VIx k var v ixs2
+        in build1VIx k (var, v, ixs2)
       _ -> error "build1VIx: AstFlatten: impossible pattern needlessly required"
     AstReshape{} -> AstBuildPair1 k (var, AstIndexN v1 is)  -- we give up
       {- TODO: This angle of attack fails, because AstSlice with variable
@@ -703,17 +704,16 @@ build1VIx k var v1 is@(_ :. _) =
     AstBuildPair1 _n2 (var2, v) ->
       -- Here we seize the chance to recover earlier failed vectorization,
       -- by choosing only one element of this whole build, eliminating it.
-      build1VIx k var (substituteAst i1 var2 v) rest1
+      build1VIx k (var, substituteAst i1 var2 v, rest1)
     AstGatherPair1 (var2, ix2) v _n2 ->
       let ix3 = fmap (substituteAstInt i1 var2) ix2
-      in build1VIxOccurenceUnknown k var v (appendIndex rest1 ix3)
+      in build1VIxOccurenceUnknown k (var, v, appendIndex rest1 ix3)
     AstGatherPair (Z, ix2) v _sh ->
-      build1VIx k var (AstIndexN v ix2) is
+      build1VIx k (var, AstIndexN v ix2, is)
     AstGatherPair (var2 ::: vars, ix2) v (_ :$ sh') ->
       let ix3 = fmap (substituteAstInt i1 var2) ix2
       in build1VIx
-           k var (unsafeCoerce $ AstGatherPair (vars, ix3) v sh')
-           rest1
+           k (var, unsafeCoerce $ AstGatherPair (vars, ix3) v sh', rest1)
           -- GHC with the plugin doesn't cope with this
           -- (https://github.com/clash-lang/ghc-typelits-natnormalise/issues/71)
           -- so unsafeCoerce is back
