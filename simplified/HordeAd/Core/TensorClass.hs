@@ -598,9 +598,7 @@ build1VIx k (var, v1, is@(_ :. _)) =
       AstScale (AstPrimalPart1 $ AstBuildPair1 k (var, AstIndexN r is))
                (build1VIxOccurenceUnknown k (var, d, is))
     AstCond b v w ->
-      build1VIxOccurenceUnknown k ( var
-                                  , AstFromList [v, w]
-                                  , AstIntCond b 0 1 :. is )
+      build1VIx k (var, AstFromList [v, w], AstIntCond b 0 1 :. is)
 
     AstConstInt{} ->
       AstConstant $ AstPrimalPart1 $ AstBuildPair1 @n k (var, AstIndexN v1 is)
@@ -637,12 +635,11 @@ build1VIx k (var, v1, is@(_ :. _)) =
     AstAppend v w ->
       let vlen = AstIntConst $ lengthAst v
           is2 = fmap (\i -> AstIntOp PlusIntOp [i, vlen]) is
-      in build1VOccurenceUnknown k
-           (var, AstCond (AstRelInt LsOp [i1, vlen])
-                         (AstIndexN v is)
-                         (AstIndexN w is2))
-          -- this is basically partial evaluation, but in constant
-          -- time unlike evaluating AstFromList, etc.
+      in build1V k (var, AstCond (AstRelInt LsOp [i1, vlen])
+                                 (AstIndexN v is)
+                                 (AstIndexN w is2))
+           -- this is basically partial evaluation, but in constant
+           -- time unlike evaluating AstFromList, etc.
     AstSlice i2 _k v ->
       build1VIx k (var, v, fmap (\i ->
         AstIntOp PlusIntOp [i, AstIntConst i2]) is)
@@ -708,6 +705,7 @@ build1VIx k (var, v1, is@(_ :. _)) =
     AstGatherPair1 (var2, ix2) v _n2 ->
       let ix3 = fmap (substituteAstInt i1 var2) ix2
       in build1VIxOccurenceUnknown k (var, v, appendIndex rest1 ix3)
+           -- we don't know if var occurs in v; it could have been in ix2
     AstGatherPair (Z, ix2) v _sh ->
       build1VIx k (var, AstIndexN v ix2, is)
     AstGatherPair (var2 ::: vars, ix2) v (_ :$ sh') ->
