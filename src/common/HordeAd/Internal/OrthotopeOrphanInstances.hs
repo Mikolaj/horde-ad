@@ -88,9 +88,13 @@ instance (Num (Vector r), KnownNat n, Numeric r) => Num (OR.Array n r) where
 
 -- A stub just to type-check and rewrite away before any computation
 -- takes place. Also many others below.
+instance Eq r => Eq (a -> r) where  -- embarrassing
+
+instance Ord r => Ord (a -> r) where
+
 instance Num r => Num (a -> r) where
 
-instance (Num (Vector r), KnownNat n) => Num (ORB.Array n r) where
+instance (KnownNat n, Num r) => Num (ORB.Array n r) where
 
 instance (Num (Vector r), OS.Shape sh, Numeric r) => Num (OS.Array sh r) where
   (+) = liftVS2 (+)
@@ -115,7 +119,7 @@ instance (Num (Vector r), KnownNat n, Numeric r, Fractional r)
 
 instance Fractional r => Fractional (a -> r) where
 
-instance (Num (Vector r), KnownNat n, Fractional r)
+instance (KnownNat n, Fractional r)
          => Fractional (ORB.Array n r) where
 
 instance (Num (Vector r), OS.Shape sh, Numeric r, Fractional r)
@@ -168,7 +172,7 @@ instance (Floating (Vector r), KnownNat n, Numeric r, Floating r)
 
 instance Floating r => Floating (a -> r) where
 
-instance (Floating (Vector r), KnownNat n, Floating r)
+instance (KnownNat n, Floating r)
          => Floating (ORB.Array n r) where
 
 instance (Floating (Vector r), OS.Shape sh, Numeric r, Floating r)
@@ -202,9 +206,9 @@ instance (Real (Vector r), KnownNat n, Numeric r, Ord r)
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance (Real r, Ord (a -> r)) => Real (a -> r) where
+instance Real r => Real (a -> r) where
 
-instance (Real (Vector r), KnownNat n, Ord r)
+instance (KnownNat n, Real r)
          => Real (ORB.Array n r) where
 
 instance (Real (Vector r), OS.Shape sh, Numeric r, Ord r)
@@ -222,9 +226,9 @@ instance (RealFrac (Vector r), KnownNat n, Numeric r, Fractional r, Ord r)
   properFraction = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance (RealFrac r, Ord (a -> r)) => RealFrac (a -> r) where
+instance RealFrac r => RealFrac (a -> r) where
 
-instance (RealFrac (Vector r), KnownNat n, Fractional r, Ord r)
+instance (KnownNat n, RealFrac r)
          => RealFrac (ORB.Array n r) where
 
 instance (RealFrac (Vector r), OS.Shape sh, Numeric r, Fractional r, Ord r)
@@ -244,9 +248,9 @@ instance (RealFloat (Vector r), KnownNat n, Numeric r, Floating r, Ord r)
     -- we can be selective here and omit the other methods,
     -- most of which don't even have a differentiable codomain
 
-instance (RealFloat r, Ord (a -> r)) => RealFloat (a -> r) where
+instance RealFloat r => RealFloat (a -> r) where
 
-instance (RealFloat (Vector r), KnownNat n, Floating r, Ord r)
+instance (KnownNat n, RealFloat r)
          => RealFloat (ORB.Array n r) where
 
 instance (RealFloat (Vector r), OS.Shape sh, Numeric r, Floating r, Ord r)
