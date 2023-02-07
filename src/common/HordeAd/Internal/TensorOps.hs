@@ -289,7 +289,7 @@ tgatherNR :: forall m p n r. (KnownNat m, KnownNat p, KnownNat n, Numeric r)
          -> ShapeInt (m + n) -> OR.Array (m + n) r
 tgatherNR f t sh =
   let shm = takeShape @m sh
-      s = shapeSize shm
+      s = sizeShape shm
       l = map (\ix -> OR.toVector $ t `tindexNR` f ix)
               [fromLinearIdx shm i | i <- [0 .. s - 1]]
   in OR.fromVector (shapeToList sh) $ LA.vjoin l

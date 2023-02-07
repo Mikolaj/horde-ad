@@ -17,7 +17,7 @@ module HordeAd.Core.SizedIndex
     -- * Tensor shapes as fully encapsulated sized lists, with operations
   , Shape, pattern (:$), pattern ZS
   , singletonShape, tailShape, takeShape, dropShape, permutePrefixShape
-  , shapeSize, flattenShape
+  , lengthShape, sizeShape, flattenShape
   , listShapeToShape, shapeToList
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx, zeroOf
@@ -26,6 +26,7 @@ module HordeAd.Core.SizedIndex
 import Prelude
 
 import Control.Arrow (first)
+import Data.Array.Internal (valueOf)
 import GHC.Exts (IsList (..))
 import GHC.TypeLits (KnownNat, type (+))
 
@@ -196,13 +197,16 @@ permutePrefixShape :: forall n i. KnownNat n
                    => Permutation -> Shape n i -> Shape n i
 permutePrefixShape p (Shape ix) = Shape $ permutePrefixSized p ix
 
+lengthShape :: forall n i. KnownNat n => Shape n i -> Int
+lengthShape _ = valueOf @n
+
 -- | The number of elements in an array of this shape
-shapeSize :: Num i => Shape n i -> i
-shapeSize ZS = 1
-shapeSize (n :$ sh) = n * shapeSize sh
+sizeShape :: Num i => Shape n i -> i
+sizeShape ZS = 1
+sizeShape (n :$ sh) = n * sizeShape sh
 
 flattenShape :: Num i => Shape n i -> Shape 1 i
-flattenShape = singletonShape . shapeSize
+flattenShape = singletonShape . sizeShape
 
 -- Warning: do not pass a list of strides to this function.
 listShapeToShape :: KnownNat n => [i] -> Shape n i
@@ -224,7 +228,7 @@ toLinearIdx = \sh idx -> go sh idx 0
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
     -- @m - m1@ dimensional index prefix.
     go :: forall m1 n1. Shape (m1 + n1) i -> Index m1 i -> i -> i
-    go sh ZI tensidx = shapeSize sh * tensidx
+    go sh ZI tensidx = sizeShape sh * tensidx
     go (n :$ sh) (i :. idx) tensidx = go sh idx (n * tensidx + i)
     go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
 

@@ -181,7 +181,7 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   -- Integer codomain
   tshape :: KnownNat n => TensorOf n r -> ShapeInt n
   tsize :: KnownNat n => TensorOf n r -> Int
-  tsize = shapeSize . tshape
+  tsize = sizeShape . tshape
   tlength :: KnownNat n => TensorOf (1 + n) r -> Int
   tlength v = case tshape v of
     ZS -> error "tlength:  impossible pattern needlessly required"
