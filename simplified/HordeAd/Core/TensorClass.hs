@@ -434,6 +434,12 @@ astBuild1 k f = unsafePerformIO $ do
     -- also need a translation to non-vectorized terms for anything
     -- (other than for comparative tests)?
 
+-- A stub instance for experiments with stored functions
+instance Tensor r
+         => Tensor (a -> r) where
+  type TensorOf n (a -> r) = ORB.Array n (a -> r)
+  type IntOf (a -> r) = IntOf r
+
 
 -- * ADVal combinators generalizing ranked tensor operations
 

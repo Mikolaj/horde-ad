@@ -16,6 +16,7 @@ import qualified Data.Array.Internal.DynamicG as DG
 import qualified Data.Array.Internal.DynamicS as DS
 import qualified Data.Array.Internal.RankedG as RG
 import qualified Data.Array.Internal.RankedS as RS
+import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
 import qualified Data.Array.ShapedS as OS
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
@@ -85,6 +86,12 @@ instance (Num (Vector r), KnownNat n, Numeric r) => Num (OR.Array n r) where
   fromInteger = RS.A . RG.A [] . OI.constantT [] . fromInteger
     -- often fails and there's no fix
 
+-- A stub just to type-check and rewrite away before any computation
+-- takes place. Also many others below.
+instance Num r => Num (a -> r) where
+
+instance (Num (Vector r), KnownNat n) => Num (ORB.Array n r) where
+
 instance (Num (Vector r), OS.Shape sh, Numeric r) => Num (OS.Array sh r) where
   (+) = liftVS2 (+)
   (-) = liftVS2 (-)
@@ -105,6 +112,11 @@ instance (Num (Vector r), KnownNat n, Numeric r, Fractional r)
   (/) = liftVR2 (/)
   recip = liftVR recip
   fromRational = OR.constant [] . fromRational
+
+instance Fractional r => Fractional (a -> r) where
+
+instance (Num (Vector r), KnownNat n, Fractional r)
+         => Fractional (ORB.Array n r) where
 
 instance (Num (Vector r), OS.Shape sh, Numeric r, Fractional r)
          => Fractional (OS.Array sh r) where
@@ -154,6 +166,11 @@ instance (Floating (Vector r), KnownNat n, Numeric r, Floating r)
   acosh = liftVR acosh
   atanh = liftVR atanh
 
+instance Floating r => Floating (a -> r) where
+
+instance (Floating (Vector r), KnownNat n, Floating r)
+         => Floating (ORB.Array n r) where
+
 instance (Floating (Vector r), OS.Shape sh, Numeric r, Floating r)
          => Floating (OS.Array sh r) where
   pi = OS.constant pi
@@ -185,6 +202,11 @@ instance (Real (Vector r), KnownNat n, Numeric r, Ord r)
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
+instance (Real r, Ord (a -> r)) => Real (a -> r) where
+
+instance (Real (Vector r), KnownNat n, Ord r)
+         => Real (ORB.Array n r) where
+
 instance (Real (Vector r), OS.Shape sh, Numeric r, Ord r)
          => Real (OS.Array sh r) where
   toRational = undefined
@@ -199,6 +221,11 @@ instance (RealFrac (Vector r), KnownNat n, Numeric r, Fractional r, Ord r)
          => RealFrac (OR.Array n r) where
   properFraction = undefined
     -- very low priority, since these are all extremely not continuous
+
+instance (RealFrac r, Ord (a -> r)) => RealFrac (a -> r) where
+
+instance (RealFrac (Vector r), KnownNat n, Fractional r, Ord r)
+         => RealFrac (ORB.Array n r) where
 
 instance (RealFrac (Vector r), OS.Shape sh, Numeric r, Fractional r, Ord r)
          => RealFrac (OS.Array sh r) where
@@ -216,6 +243,11 @@ instance (RealFloat (Vector r), KnownNat n, Numeric r, Floating r, Ord r)
   atan2 = liftVR2 atan2
     -- we can be selective here and omit the other methods,
     -- most of which don't even have a differentiable codomain
+
+instance (RealFloat r, Ord (a -> r)) => RealFloat (a -> r) where
+
+instance (RealFloat (Vector r), KnownNat n, Floating r, Ord r)
+         => RealFloat (ORB.Array n r) where
 
 instance (RealFloat (Vector r), OS.Shape sh, Numeric r, Floating r, Ord r)
          => RealFloat (OS.Array sh r) where
