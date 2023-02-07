@@ -113,7 +113,7 @@ data Ast :: Nat -> Type -> Type where
 
 deriving instance (Show r, Numeric r) => Show (Ast n r)
 
-newtype AstPrimalPart1 n r = AstPrimalPart1 (Ast n r)
+newtype AstPrimalPart1 n r = AstPrimalPart1 { unAstPrimalPart :: Ast n r }
  deriving Show
 
 newtype AstVarName t = AstVarName Int
@@ -236,7 +236,7 @@ instance RealFloat (OR.Array n r) => RealFloat (Ast n r) where
 instance Eq (AstPrimalPart1 n r) where
   _ == _ = error "AstPrimalPart1: can't evaluate terms for Eq"
 
-instance Ord r => Ord (AstPrimalPart1 n r) where
+instance Ord (Ast n r) => Ord (AstPrimalPart1 n r) where
   max (AstPrimalPart1 u) (AstPrimalPart1 v) =
     AstPrimalPart1 (AstOp MaxOp [u, v])
   min (AstPrimalPart1 u) (AstPrimalPart1 v) =
@@ -244,9 +244,11 @@ instance Ord r => Ord (AstPrimalPart1 n r) where
   _ <= _ = error "AstPrimalPart1: can't evaluate terms for Ord"
 
 deriving instance Num (Ast n r) => Num (AstPrimalPart1 n r)
-deriving instance (Real (Ast n r), Ord r) => Real (AstPrimalPart1 n r)
+deriving instance Real (Ast n r) => Real (AstPrimalPart1 n r)
 deriving instance Fractional (Ast n r) => Fractional (AstPrimalPart1 n r)
--- TODO: etc.
+deriving instance Floating (Ast n r) => Floating (AstPrimalPart1 n r)
+deriving instance RealFrac (Ast n r) => RealFrac (AstPrimalPart1 n r)
+deriving instance RealFloat (Ast n r) => RealFloat (AstPrimalPart1 n r)
 
 type instance Element (AstPrimalPart1 n r) = AstPrimalPart1 0 r
 

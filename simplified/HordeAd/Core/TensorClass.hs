@@ -425,6 +425,40 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   tscalar = id  -- Ast confuses the two ranks
   tunScalar = id
 
+instance ( Numeric r, RealFloat r, RealFloat (Vector r)
+         , Show r, Numeric r )
+         => Tensor (AstPrimalPart1 0 r) where
+  type TensorOf n (AstPrimalPart1 0 r) = AstPrimalPart1 n r
+  type IntOf (AstPrimalPart1 0 r) = AstInt r
+
+  tshape = shapeAst . unAstPrimalPart
+  tminIndex = AstMinIndex . unAstPrimalPart
+  tmaxIndex = AstMaxIndex . unAstPrimalPart
+
+  tindex v ix = AstPrimalPart1 $ AstIndexN (unAstPrimalPart v) ix
+  tsum = AstPrimalPart1 . AstSum . unAstPrimalPart
+  tfromIntOf0 = AstPrimalPart1 . AstConstInt
+    -- toInteger is not defined for Ast, hence a special implementation
+
+  tfromList = AstPrimalPart1 . AstFromList . map unAstPrimalPart
+  tfromList0N sh =
+    AstPrimalPart1 . AstReshape sh . AstFromList . map unAstPrimalPart
+  tfromVector = AstPrimalPart1 . AstFromVector . V.map unAstPrimalPart
+  tfromVector0N sh =
+    AstPrimalPart1 . AstReshape sh . AstFromVector . V.map unAstPrimalPart
+  tkonst k = AstPrimalPart1 . AstKonst k . unAstPrimalPart
+  tappend u v =
+    AstPrimalPart1 $ AstAppend (unAstPrimalPart u) (unAstPrimalPart v)
+  tslice i k = AstPrimalPart1 . AstSlice i k  . unAstPrimalPart
+  treverse = AstPrimalPart1 . AstReverse . unAstPrimalPart
+  ttransposeGeneral perm =
+    AstPrimalPart1 . AstTransposeGeneral perm . unAstPrimalPart
+  treshape sh = AstPrimalPart1 . AstReshape sh  . unAstPrimalPart
+  tbuild1 k f = AstPrimalPart1 $ astBuild1 k $ \ix -> unAstPrimalPart $ f ix
+
+  tscalar = id
+  tunScalar = id
+
 astBuild1 :: (KnownNat n, Show r, Numeric r)
           => Int -> (AstInt r -> Ast n r) -> Ast (1 + n) r
 {-# NOINLINE astBuild1 #-}
