@@ -139,6 +139,7 @@ data AstInt :: Type -> Type where
   AstIntVar :: AstVarName Int -> AstInt r
   AstIntOp :: OpCodeInt -> [AstInt r] -> AstInt r
   AstIntConst :: Int -> AstInt r
+  AstIntFloor :: Ast 0 r -> AstInt r
   AstIntCond :: AstBool r -> AstInt r -> AstInt r -> AstInt r
   AstMinIndex :: Ast 1 r -> AstInt r
   AstMaxIndex :: Ast 1 r -> AstInt r
@@ -398,6 +399,7 @@ intVarInAstInt var = \case
   AstIntVar var2 -> var == var2  -- the only int variable not in binder position
   AstIntOp _ l -> any (intVarInAstInt var) l
   AstIntConst{} -> False
+  AstIntFloor v -> intVarInAst var v
   AstIntCond b x y ->
     intVarInAstBool var b || intVarInAstInt var x || intVarInAstInt var y
   AstMinIndex v -> intVarInAst var v
@@ -454,6 +456,7 @@ substituteAstInt i var i2 = case i2 of
   AstIntOp opCodeInt args ->
     AstIntOp opCodeInt $ map (substituteAstInt i var) args
   AstIntConst _a -> i2
+  AstIntFloor v -> AstIntFloor $ substituteAst i var v
   AstIntCond b a1 a2 ->
     AstIntCond (substituteAstBool i var b)
                (substituteAstInt i var a1) (substituteAstInt i var a2)
