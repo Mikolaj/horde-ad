@@ -3,7 +3,8 @@
 -- applications, such as fully connect neural networks operating on MNIST
 -- data, some extra imports may be needed not covered here.
 module HordeAd
-  ( module HordeAd.Core.DualNumber
+  ( module HordeAd.Core.Ast
+  , module HordeAd.Core.DualNumber
   , module HordeAd.Core.Engine
   , module HordeAd.Core.PairOfVectors
   , module HordeAd.Core.TensorClass
@@ -13,6 +14,7 @@ module HordeAd
 
 import Prelude ()
 
+import HordeAd.Core.Ast
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors
