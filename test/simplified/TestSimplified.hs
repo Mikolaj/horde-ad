@@ -451,16 +451,15 @@ testF2 =
 
 testF3 :: Assertion
 testF3 = do
-  let f = f3 @Double
-      input = 1.1
+  let input = 1.1
       expected = 470.0
---      fAst = unScalar $
---        interpretAst (IM.singleton 0 (AstVarR input))
---                     (f (AstVar [] (AstVarName 0)))
----      valueViaAst = fAst input
-      value = f input
+      fAst = -- unScalar $
+-- TODO:        interpretAst (IM.singleton 0 (AstVarR input))
+                     (f3 @(Ast 0 Double) (AstVar [] (AstVarName 0)))
+      valueViaAst = fAst  -- TODO: input
+      value = f3 @Double input
   let _res = value @?~ expected in return ()  -- stubs would fail
---  valueViaAst @?~ expected
+  let _res2 = valueViaAst {-TODO: @?~ expected-} in return ()  -- stubs would fail
 
 testBraidedBuilds :: Assertion
 testBraidedBuilds =
