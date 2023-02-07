@@ -9,9 +9,8 @@
 -- expressiveness of transformed fragments to what AST captures.
 module HordeAd.Core.Ast
   ( AstIndex, AstVarList
-  , Ast(..), AstPrimalPart1(..)
-  , AstVarName(..), AstVar(..)
-  , AstInt(..), AstBool(..)
+  , AstVarName(..)
+  , Ast(..), AstPrimalPart1(..), AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
   , shapeAst, lengthAst
   , intVarInAst, intVarInAstInt, intVarInAstBool
@@ -66,7 +65,7 @@ data Ast :: Nat -> Type -> Type where
   AstScale :: AstPrimalPart1 n r -> Ast n r -> Ast n r
   AstCond :: AstBool r -> Ast n r -> Ast n r -> Ast n r
 
-  -- For VectorLike and Tensor class:
+  -- For Tensor class:
   AstConstInt :: AstInt r -> Ast 0 r
     -- needed, because toInteger and so fromIntegral is not defined for Ast
   AstIndexN :: forall m n r. KnownNat m
@@ -123,11 +122,6 @@ newtype AstVarName t = AstVarName Int
 -- An unlawful instance to prevent spam when tracing and debugging.
 instance Show (AstVarName t) where
   show (AstVarName n) = "Var" ++ show n
-
-data AstVar a =
-    AstVarR a
-  | AstVarI Int
- deriving Show
 
 -- In AstInt and AstBool, the Ast terms are morally AstPrimalPart,
 -- since their derivative part is not used.

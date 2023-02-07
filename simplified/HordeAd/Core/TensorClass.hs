@@ -10,7 +10,7 @@
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.TensorClass
   ( HasPrimal(..), Tensor(..)
-  , interpretAst
+  , interpretAst, AstVar(..)
   , ADReady
   , scalar, unScalar, leqAst, gtAst, gtIntAst, relu, reluLeaky, reluAst
   ) where
@@ -560,6 +560,11 @@ unScalar (D u u') = dD (OR.unScalar u) (dUnScalar0 u')
 -- * Interpretation of Ast in ADVal
 
 type AstEnv (d :: ADMode) r = IM.IntMap (AstVar (ADVal d (OT.Array r)))
+
+data AstVar a =
+    AstVarR a
+  | AstVarI Int
+ deriving Show
 
 interpretLambdaR
   :: ADModeAndNumTensor d r
