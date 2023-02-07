@@ -16,7 +16,7 @@ module HordeAd.Core.DualNumber
   , SNat(..), staticNatValue, staticNatFromProxy
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
   , addParameters, dotParameters
-  , logistic, square, squaredDifference
+  , logistic, square, squaredDifference, relu
   , sumElements10, index10, minimum0, maximum0, altSumElements10
   , (<.>!), (<.>!!)
   , softMax, lossCrossEntropy, lossCrossEntropyV, lossSoftMaxCrossEntropyV
@@ -35,6 +35,7 @@ import Prelude
 import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.RankedS as OR
+import           Data.MonoTraversable (MonoFunctor (omap))
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -255,6 +256,13 @@ square (D u u') = dD (u * u) (dScale (2 * u) u')
 squaredDifference :: (Num a, IsPrimal d a)
                   => a -> ADVal d a -> ADVal d a
 squaredDifference targ res = square $ res - constantADVal targ
+
+relu
+  :: (ADModeAndNum d r, IsPrimalAndHasFeatures d a r)
+  => ADVal d a -> ADVal d a
+relu v@(D u _) =
+  let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0) u
+  in (D oneIfGtZero dZero) * v
 
 
 -- Operations resulting in a scalar

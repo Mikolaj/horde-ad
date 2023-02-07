@@ -137,17 +137,18 @@ nestedBuildIndex v =
   tbuild1 2 $ \ix2 -> tindex @r @1 (tbuild1 3 $ \ix3 -> tindex (tbuild1 4 $ \ix4 -> tindex @r @1 v [ix4]) [ix3]) [ix2]
 
 barRelu
-  :: ( RealFloat a
-     , HasPrimal a, MonoFunctor (PrimalOf a), Num (PrimalOf a)
-     , Ord (Element (PrimalOf a)), Fractional (Element (PrimalOf a)) )
-  => a -> a
-barRelu x = relu $ bar (x, relu x)
+  :: ( RealFloat (TensorOf n r), HasPrimal (TensorOf n r)
+     , MonoFunctor (PrimalOf (TensorOf n r))
+     , Ord (Element (PrimalOf (TensorOf n r)))
+     , Fractional (Element (PrimalOf (TensorOf n r))) )
+  => TensorOf n r -> TensorOf n r
+barRelu x = relu1 $ bar (x, relu1 x)
 
 -- TODO: merge with the above once rank-polymorphic relu is recovered
 barReluAst
   :: (KnownNat n, Numeric r, RealFloat r, Floating (Vector r))
   => Ast n r -> Ast n r
-barReluAst x = reluAst $ bar (x, reluAst x)
+barReluAst x = reluAst1 $ bar (x, reluAst1 x)
   -- TODO; barRelu @(Ast 0 r) fails
   -- due to relu using conditionals and @>@ instead of
   -- a generalization of those that have Ast instance:
@@ -155,7 +156,7 @@ barReluAst x = reluAst $ bar (x, reluAst x)
 konstReluAst
   :: forall r. (Show r, Numeric r, RealFloat r, RealFloat (Vector r))
   => Ast 0 r -> Ast 0 r
-konstReluAst x = tsum0 $ reluAst @1 $ tkonst0N [7] x
+konstReluAst x = tsum0 $ reluAst1 @1 $ tkonst0N [7] x
 
 
 -- * Tests by TomS
@@ -394,7 +395,7 @@ testBarReluADVal =
   (domains0 $ fst
    $ revOnDomains
        42.2
-       (\adinputs -> barRelu (adinputs `at0` 0))
+       (\adinputs -> unScalar $ barRelu (scalar $ adinputs `at0` 0))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [191.20462646925841]
 

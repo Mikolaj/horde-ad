@@ -12,7 +12,7 @@ module HordeAd.Core.TensorClass
   ( HasPrimal(..), Tensor(..)
   , interpretAst, AstVar(..)
   , ADReady
-  , scalar, unScalar, leqAst, gtAst, gtIntAst, relu, reluLeaky, reluAst
+  , scalar, unScalar, leqAst, gtAst, gtIntAst, relu1, reluLeaky1, reluAst1
   ) where
 
 import Prelude
@@ -54,26 +54,32 @@ gtAst d e = AstRel GtOp [d, e]
 gtIntAst :: AstInt r -> AstInt r -> AstBool r
 gtIntAst i j = AstRelInt GtOp [i, j]
 
-relu, reluLeaky
-  :: ( HasPrimal a, MonoFunctor (PrimalOf a), Num (PrimalOf a)
-     , Ord (Element (PrimalOf a)), Fractional (Element (PrimalOf a)) )
-  => a -> a
-relu v =
-  let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0) (primalPart v)
-  in scale oneIfGtZero v
+scale1 :: (HasPrimal (TensorOf n r), Num (TensorOf n r))
+       => PrimalOf (TensorOf n r) -> TensorOf n r -> TensorOf n r
+scale1 a d = constant a * d
 
-reluLeaky v =
+relu1, reluLeaky1
+  :: ( HasPrimal (TensorOf n r), Num (TensorOf n r)
+     , MonoFunctor (PrimalOf (TensorOf n r))
+     , Ord (Element (PrimalOf (TensorOf n r)))
+     , Fractional (Element (PrimalOf (TensorOf n r))) )
+  => TensorOf n r -> TensorOf n r
+relu1 v =
+  let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0) (primalPart v)
+  in scale1 oneIfGtZero v
+
+reluLeaky1 v =
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) (primalPart v)
-  in scale oneIfGtZero v
+  in scale1 oneIfGtZero v
 
 -- TODO: generalize the function @relu@ above so that
 -- it has a sensible Ast instance and then kill reluAst;
 -- we'd need Conditional class that works with our AstBool type
 -- and some sugar to be able to use >, &&, etc.
-reluAst
+reluAst1
   :: forall n r. (KnownNat n, Num (Vector r), Numeric r)
   => Ast n r -> Ast n r
-reluAst v =
+reluAst1 v =
   let oneIfGtZero = omap (\(AstPrimalPart1 x) ->
                             AstPrimalPart1 $ AstCond (AstRel GtOp [x, 0]) 1 0)
                          (primalPart v)
