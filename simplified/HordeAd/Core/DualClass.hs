@@ -32,7 +32,6 @@ module HordeAd.Core.DualClass
     ADMode(..)
   , -- * The less often used part of the mid-level API that gets re-exported in high-level API; it leaks implementation details
     IsPrimal(..), IsPrimalR(..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs
-  , Element
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
     Dual, HasRanks(..), HasInputs(..), dummyDual
   , -- * Internal operations, exposed for tests, debugging and experiments

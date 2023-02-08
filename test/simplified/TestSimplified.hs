@@ -5,6 +5,7 @@ module TestSimplified (testTrees) where
 import Prelude
 
 import qualified Data.Array.RankedS as OR
+import           Data.MonoTraversable (Element)
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)

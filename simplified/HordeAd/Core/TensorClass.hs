@@ -21,7 +21,7 @@ import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
-import           Data.MonoTraversable (MonoFunctor (omap))
+import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V

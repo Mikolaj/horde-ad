@@ -26,7 +26,6 @@ module HordeAd.Core.DualNumber
   , -- * Re-exports
     ADMode(..)
   , IsPrimal (..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs
-  , Element
   , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
   ) where
 
