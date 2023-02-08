@@ -115,14 +115,14 @@ class HasPrimal a where
   omapPrimal :: (Element (PrimalOf a) -> Element (PrimalOf a))
              -> PrimalOf a -> PrimalOf a
 
-instance (IsPrimal d a, MonoFunctor a) => HasPrimal (ADVal d a) where
-  type PrimalOf (ADVal d a) = a
-  type DualOf (ADVal d a) = Dual d a
-  constant a = dD a dZero
-  primalPart (D u _) = u
-  dualPart (D _ u') = u'
-  ddD = dD
-  omapPrimal = omap
+instance HasPrimal Double where
+  type PrimalOf Double = Double
+  type DualOf Double = ()
+  constant = id
+  primalPart = id
+  dualPart _ = ()
+  ddD u _ = u
+  omapPrimal = id
 
 instance HasPrimal Float where
   type PrimalOf Float = Float
@@ -133,14 +133,14 @@ instance HasPrimal Float where
   ddD u _ = u
   omapPrimal = id
 
-instance HasPrimal Double where
-  type PrimalOf Double = Double
-  type DualOf Double = ()
-  constant = id
-  primalPart = id
-  dualPart _ = ()
-  ddD u _ = u
-  omapPrimal = id
+instance (IsPrimal d a, MonoFunctor a) => HasPrimal (ADVal d a) where
+  type PrimalOf (ADVal d a) = a
+  type DualOf (ADVal d a) = Dual d a
+  constant a = dD a dZero
+  primalPart (D u _) = u
+  dualPart (D _ u') = u'
+  ddD = dD
+  omapPrimal = omap
 
 instance Numeric r
          => HasPrimal (OR.Array n r) where
