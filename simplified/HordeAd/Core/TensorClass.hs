@@ -599,6 +599,19 @@ unScalar (D u u') = dD (OR.unScalar u) (dUnScalar0 u')
 
 -- * Interpretation of Ast in ADVal
 
+-- We are very close to being able to interpret Ast in any Tensor
+-- and HasPrimal instance.
+-- However, this proves impossible, because we'd need to adorn interpretAst
+-- with constraints like RealFloat (Tensor n r) for all @n@ in use,
+-- which includes, e.g., @m + p@, where @m@ and @p@ are not mentioned
+-- nor can be deduced from the signature of interpretAst.
+-- I don't know if we could hack around by creating and explicitly
+-- passing the relevant dictionaries. Users of the library may find
+-- similar problems in large enough programs, so developing a technique
+-- for that would be useful.
+-- For now, we interpret only in the concrete ADVal instance,
+-- which is the only interpretation needed for anything apart from tests.
+
 type AstEnv (d :: ADMode) r = IM.IntMap (AstVar (ADVal d (OT.Array r)))
 
 data AstVar a =
@@ -610,10 +623,10 @@ interpretLambdaR
   :: ADModeAndNumTensor d r
   => AstEnv d r
   -> (AstVarName (OR.Array 0 r), Ast 0 r)
-  -> ADVal d r -> ADVal d r
+  -> ADVal d r -> r
 interpretLambdaR env (AstVarName var, ast) =
   \d -> let dT = from1X (scalar d)
-        in unScalar $ interpretAst (IM.insert var (AstVarR dT) env) ast
+        in tunScalarR $ interpretAstPrimal (IM.insert var (AstVarR dT) env) ast
 
 interpretLambdaI
   :: (ADModeAndNumTensor d r, KnownNat n)
@@ -681,8 +694,10 @@ interpretAst env = \case
   AstReverse v -> reverse' (interpretAst env v)
   AstTranspose v -> interpretAst env $ AstTransposeGeneral [1, 0] v
   AstTransposeGeneral perm v ->
-    let d@(D u _) = interpretAst env v
-    in if OR.rank u < length perm then d else transposeGeneral perm d
+    let d = interpretAst env v
+    in if lengthShape (shape d) < length perm
+       then d
+       else transposeGeneral perm d
   AstFlatten v -> let d = interpretAst env v
                   in reshape (flattenShape $ shape d) d
   AstReshape sh v -> reshape sh (interpretAst env v)
@@ -709,8 +724,7 @@ interpretAst env = \case
                    (interpretAst env v) sh
   AstOMap (var, r) e ->  -- this only works on the primal part hence @constant@
     constant
-    $ omap (\x -> let D u _ = interpretLambdaR env (var, r) (constant x)
-                  in u)
+    $ omap (\x -> interpretLambdaR env (var, r) (constant x))
            (interpretAstPrimal env e)
 
 interpretAstInt :: ADModeAndNumTensor d r

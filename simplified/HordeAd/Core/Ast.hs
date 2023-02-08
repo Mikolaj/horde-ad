@@ -113,7 +113,7 @@ data Ast :: Nat -> Type -> Type where
 
 deriving instance (Show r, Numeric r) => Show (Ast n r)
 
-newtype AstPrimalPart1 n r = AstPrimalPart1 { unAstPrimalPart :: Ast n r }
+newtype AstPrimalPart1 n r = AstPrimalPart1 {unAstPrimalPart :: Ast n r}
  deriving Show
 
 newtype AstVarName t = AstVarName Int
