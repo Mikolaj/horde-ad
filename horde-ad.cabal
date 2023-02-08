@@ -312,16 +312,12 @@ test-suite shortTestForCI
     else
       buildable: True
 
-    -- The interface type and version of the test suite.
     type:             exitcode-stdio-1.0
 
-    -- Directories containing source files.
     hs-source-dirs:   test
 
-    -- The entrypoint to the test suite.
     main-is:          ShortTestForCI.hs
 
-    -- Test dependencies.
     build-depends:
       , testCommonLibrary
 
@@ -616,7 +612,7 @@ test-suite shortTestForCISimplified
 
     hs-source-dirs:   test
 
-    main-is:          ShortTestForCI.hs
+    main-is:          ShortTestForCISimplified.hs
 
     build-depends:
       , testCommonLibrarySimplified
@@ -638,7 +634,7 @@ test-suite extremelyLongTestSimplified
 
     hs-source-dirs:   test
 
-    main-is:          ExtremelyLongTest.hs
+    main-is:          ExtremelyLongTestSimplified.hs
 
     build-depends:
       , testCommonLibrarySimplified
