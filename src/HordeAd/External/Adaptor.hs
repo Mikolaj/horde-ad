@@ -23,11 +23,11 @@ import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.Random
 
-import HordeAd.Core.DualClass
-  (Dual, toDynamicOrDummy, toMatrixOrDummy, toShapedOrDummy, toVectorOrDummy)
+import HordeAd.Core.DualClass (Dual)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors
+import HordeAd.Internal.TensorOps
 
 value :: forall a vals r advals d.
          ( r ~ Scalar vals, vals ~ Value advals
