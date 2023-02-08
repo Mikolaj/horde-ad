@@ -98,8 +98,10 @@ data Ast :: Nat -> Type -> Type where
   -- For HasPrimal.omapPrimal. This is needed for a particularly
   -- fast implementation of relu and offers fast, primal-part only, mapping.
   -- TODO: this is really only needed in AstPrimalPart, but making
-  -- AstPrimalPart data instead of a newtype would complicate a lot of code.
-  AstOMap :: (AstVarName (OR.Array 0 r), Ast 0 r) -> Ast n r -> Ast n r
+  -- AstPrimalPart data instead of a newtype would complicate a lot of code,
+  -- hence the artificial codomain.
+  AstOMap :: (AstVarName (OR.Array 0 r), AstPrimalPart 0 r)
+          -> AstPrimalPart n r -> Ast n r
 
   -- Spurious, but can be re-enabled at any time:
 --  AstBuildN :: forall m n r.
@@ -328,7 +330,7 @@ shapeAst v1 = case v1 of
   AstGather1 (_var, _is :: Index p (AstInt r)) v k ->
     k :$ dropShape @p (shapeAst v)
   AstGatherN (_var, _is) _v sh -> sh
-  AstOMap (_var, _r) e -> shapeAst e
+  AstOMap (_var, _r) (AstPrimalPart e) -> shapeAst e
 
 -- Length of the outermost dimension.
 lengthAst :: (KnownNat n, Show r, Numeric r) => Ast (1 + n) r -> Int
@@ -360,8 +362,9 @@ intVarInAst var = \case
   AstBuild1 _ (_, v) -> intVarInAst var v
   AstGather1 (_, is) v _ -> any (intVarInAstInt var) is || intVarInAst var v
   AstGatherN (_, is) v _ -> any (intVarInAstInt var) is || intVarInAst var v
-  AstOMap (_, v) u -> intVarInAst var v || intVarInAst var u
-    -- the variable in binder position, so ignored (and should be distinct)
+  AstOMap (_, AstPrimalPart v) (AstPrimalPart u) ->
+    intVarInAst var v || intVarInAst var u
+      -- the variable in binder position, so ignored (and should be distinct)
 
 intVarInAstInt :: AstVarName Int -> AstInt r -> Bool
 intVarInAstInt var = \case
@@ -413,8 +416,9 @@ substituteAst i var v1 = case v1 of
   AstGatherN (vars, is) v sh ->
     AstGatherN (vars, fmap (substituteAstInt i var) is)
                (substituteAst i var v) sh
-  AstOMap (var2, r) e ->
-    AstOMap (var2, substituteAst i var r) (substituteAst i var e)
+  AstOMap (var2, AstPrimalPart r) (AstPrimalPart e) ->
+    AstOMap (var2, AstPrimalPart $ substituteAst i var r)
+            (AstPrimalPart $ substituteAst i var e)
 
 substituteAstInt :: (Show r, Numeric r)
                  => AstInt r -> AstVarName Int -> AstInt r -> AstInt r

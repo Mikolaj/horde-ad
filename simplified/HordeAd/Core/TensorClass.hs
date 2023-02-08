@@ -179,18 +179,13 @@ unsafeGetFreshAstVar :: IO (AstVarName a)
 {-# INLINE unsafeGetFreshAstVar #-}
 unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
 
-astOmap :: (Ast 0 r -> Ast 0 r) -> Ast n r -> Ast n r
-{-# NOINLINE astOmap #-}
-astOmap f e = unsafePerformIO $ do
-  freshAstVar <- unsafeGetFreshAstVar
-  return $! AstOMap (freshAstVar, f (AstVar ZS freshAstVar)) e
-
 omapAst :: (AstPrimalPart 0 r -> AstPrimalPart 0 r)
         -> AstPrimalPart n r -> AstPrimalPart n r
-omapAst f (AstPrimalPart x) =
-  let g y = let AstPrimalPart z = f (AstPrimalPart y)
-            in z
-  in AstPrimalPart (astOmap g x)
+{-# NOINLINE omapAst #-}
+omapAst f e = unsafePerformIO $ do
+  freshAstVar <- unsafeGetFreshAstVar
+  return $! AstPrimalPart
+         $ AstOMap (freshAstVar, f (AstPrimalPart $ AstVar ZS freshAstVar)) e
 
 
 -- * Tensor class definition and instances for arrays, ADVal and Ast
@@ -657,7 +652,7 @@ data AstVar a =
 interpretLambdaR
   :: ADModeAndNumTensor d r
   => AstEnv d r
-  -> (AstVarName (OR.Array 0 r), Ast 0 r)
+  -> (AstVarName (OR.Array 0 r), AstPrimalPart 0 r)
   -> ADVal d r -> r
 interpretLambdaR env (AstVarName var, ast) =
   \d -> let dT = from1X (scalar d)
@@ -690,11 +685,22 @@ interpretLambdaIndexToIndex env (vars, asts) =
              env2 = env `IM.union` IM.fromList assocs
          in fmap (interpretAstInt env2) asts
 
+-- We could duplicate interpretAst to save some time (sadly, we can't
+-- interpret Ast uniformly in any Tensor and HasPrimal instance due to typing,
+-- so we can't just use an instance of interpretation to OR.Array for that),
+-- but it's not a huge saving, because all dual parts are gone before
+-- we do any differentiation and they are mostly symbolic, so don't even
+-- double the amount of tensor computation performed. The biggest problem is
+-- allocation of tensors, but they are mostly shared with the primal part.
+--
+-- A more interesting case is if we want to use Ast for something else,
+-- e.g., to differentiate directly, and so we'd first interpret it in itself,
+-- simplifying, and its primal part in OR.Array.
 interpretAstPrimal
   :: (ADModeAndNumTensor d r, KnownNat n)
   => AstEnv d r
-  -> Ast n r -> OR.Array n r
-interpretAstPrimal env v = let D u _ = interpretAst env v in u
+  -> AstPrimalPart n r -> OR.Array n r
+interpretAstPrimal env (AstPrimalPart v) = let D u _ = interpretAst env v in u
 
 interpretAst
   :: forall n r d. (ADModeAndNumTensor d r, KnownNat n)
@@ -709,7 +715,7 @@ interpretAst env = \case
   AstOp opCode args ->
     interpretAstOp (interpretAst env) opCode args
   AstConst a -> constant a
-  AstConstant (AstPrimalPart a) -> constant $ interpretAstPrimal env a
+  AstConstant a -> constant $ interpretAstPrimal env a
   AstCond b a1 a2 -> if interpretAstBool env b
                      then interpretAst env a1
                      else interpretAst env a2
@@ -755,7 +761,7 @@ interpretAst env = \case
   AstGatherN (vars, ix) v sh ->
     gatherNClosure (interpretLambdaIndexToIndex env (vars, ix))
                    (interpretAst env v) sh
-  AstOMap (var, r) e ->  -- this only works on the primal part hence @constant@
+  AstOMap (var, r) e ->
     constant
     $ omap (\x -> interpretLambdaR env (var, r) (constant x))
            (interpretAstPrimal env e)
@@ -787,7 +793,7 @@ interpretAstBool env = \case
     interpretAstBoolOp (interpretAstBool env) opCodeBool args
   AstBoolConst a -> a
   AstRel opCodeRel args ->
-    let f = interpretAstPrimal env
+    let f v = interpretAstPrimal env (AstPrimalPart v)
     in interpretAstRelOp f opCodeRel args
   AstRelInt opCodeRel args ->
     let f = interpretAstInt env
