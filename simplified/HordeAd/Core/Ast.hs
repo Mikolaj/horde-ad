@@ -10,7 +10,7 @@
 module HordeAd.Core.Ast
   ( AstIndex, AstVarList
   , AstVarName(..)
-  , Ast(..), AstPrimalPart1(..), AstInt(..), AstBool(..)
+  , Ast(..), AstPrimalPart(..), AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
   , shapeAst, lengthAst
   , intVarInAst, intVarInAstInt, intVarInAstBool
@@ -60,7 +60,7 @@ data Ast :: Nat -> Type -> Type where
 
   -- For HasPrimal class and the future Conditional/Boolean/Eq'/Ord' classes:
   AstConst :: OR.Array n r -> Ast n r
-  AstConstant :: AstPrimalPart1 n r -> Ast n r
+  AstConstant :: AstPrimalPart n r -> Ast n r
   -- syntactic sugar:
   AstCond :: AstBool r -> Ast n r -> Ast n r -> Ast n r
 
@@ -112,7 +112,7 @@ data Ast :: Nat -> Type -> Type where
 
 deriving instance (Show r, Numeric r) => Show (Ast n r)
 
-newtype AstPrimalPart1 n r = AstPrimalPart1 {unAstPrimalPart :: Ast n r}
+newtype AstPrimalPart n r = AstPrimalPart {unAstPrimalPart :: Ast n r}
  deriving Show
 
 newtype AstVarName t = AstVarName Int
@@ -232,24 +232,24 @@ instance RealFloat (OR.Array n r) => RealFloat (Ast n r) where
       -- we can be selective here and omit the other methods,
       -- most of which don't even have a differentiable codomain
 
-instance Eq (AstPrimalPart1 n r) where
-  _ == _ = error "AstPrimalPart1: can't evaluate terms for Eq"
+instance Eq (AstPrimalPart n r) where
+  _ == _ = error "AstPrimalPart: can't evaluate terms for Eq"
 
-instance Ord (Ast n r) => Ord (AstPrimalPart1 n r) where
-  max (AstPrimalPart1 u) (AstPrimalPart1 v) =
-    AstPrimalPart1 (AstOp MaxOp [u, v])
-  min (AstPrimalPart1 u) (AstPrimalPart1 v) =
-    AstPrimalPart1 (AstOp MinOp [u, v])
-  _ <= _ = error "AstPrimalPart1: can't evaluate terms for Ord"
+instance Ord (Ast n r) => Ord (AstPrimalPart n r) where
+  max (AstPrimalPart u) (AstPrimalPart v) =
+    AstPrimalPart (AstOp MaxOp [u, v])
+  min (AstPrimalPart u) (AstPrimalPart v) =
+    AstPrimalPart (AstOp MinOp [u, v])
+  _ <= _ = error "AstPrimalPart: can't evaluate terms for Ord"
 
-deriving instance Num (Ast n r) => Num (AstPrimalPart1 n r)
-deriving instance Real (Ast n r) => Real (AstPrimalPart1 n r)
-deriving instance Fractional (Ast n r) => Fractional (AstPrimalPart1 n r)
-deriving instance Floating (Ast n r) => Floating (AstPrimalPart1 n r)
-deriving instance RealFrac (Ast n r) => RealFrac (AstPrimalPart1 n r)
-deriving instance RealFloat (Ast n r) => RealFloat (AstPrimalPart1 n r)
+deriving instance Num (Ast n r) => Num (AstPrimalPart n r)
+deriving instance Real (Ast n r) => Real (AstPrimalPart n r)
+deriving instance Fractional (Ast n r) => Fractional (AstPrimalPart n r)
+deriving instance Floating (Ast n r) => Floating (AstPrimalPart n r)
+deriving instance RealFrac (Ast n r) => RealFrac (AstPrimalPart n r)
+deriving instance RealFloat (Ast n r) => RealFloat (AstPrimalPart n r)
 
-type instance Element (AstPrimalPart1 n r) = AstPrimalPart1 0 r
+type instance Element (AstPrimalPart n r) = AstPrimalPart 0 r
 
 
 instance Eq (AstInt r) where
@@ -301,11 +301,11 @@ astOmap f e = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
   return $! AstOMap (freshAstVar, f (AstVar ZS freshAstVar)) e
 
-instance MonoFunctor (AstPrimalPart1 n r) where
-  omap f (AstPrimalPart1 x) =
-    let g y = let AstPrimalPart1 z = f (AstPrimalPart1 y)
+instance MonoFunctor (AstPrimalPart n r) where
+  omap f (AstPrimalPart x) =
+    let g y = let AstPrimalPart z = f (AstPrimalPart y)
               in z
-    in AstPrimalPart1 (astOmap g x)
+    in AstPrimalPart (astOmap g x)
 
 -- This is cheap and dirty. We don't shape-check the terms and we don't
 -- unify or produce (partial) results with variables. Instead, we investigate
@@ -320,7 +320,7 @@ shapeAst v1 = case v1 of
     [] -> error "shapeAst: AstOp with no arguments"
     t : _ -> shapeAst t
   AstConst a -> listShapeToShape $ OR.shapeL a
-  AstConstant (AstPrimalPart1 a) -> shapeAst a
+  AstConstant (AstPrimalPart a) -> shapeAst a
   AstCond _b a1 _a2 -> shapeAst a1
   AstConstInt _i -> ZS
   AstIndexN v (_is :: Index m (AstInt r)) -> dropShape @m (shapeAst v)
@@ -365,7 +365,7 @@ intVarInAst var = \case
   AstVar{} -> False  -- not an int variable
   AstOp _ l -> any (intVarInAst var) l
   AstConst{} -> False
-  AstConstant (AstPrimalPart1 v) -> intVarInAst var v
+  AstConstant (AstPrimalPart v) -> intVarInAst var v
   AstCond b x y ->
     intVarInAstBool var b || intVarInAst var x || intVarInAst var y
   AstConstInt k -> intVarInAstInt var k
@@ -411,8 +411,8 @@ substituteAst i var v1 = case v1 of
   AstVar _sh _var -> v1
   AstOp opCode args -> AstOp opCode $ map (substituteAst i var) args
   AstConst _a -> v1
-  AstConstant (AstPrimalPart1 a) ->
-    AstConstant (AstPrimalPart1 $ substituteAst i var a)
+  AstConstant (AstPrimalPart a) ->
+    AstConstant (AstPrimalPart $ substituteAst i var a)
   AstCond b a1 a2 -> AstCond (substituteAstBool i var b)
                              (substituteAst i var a1) (substituteAst i var a2)
   AstConstInt i2 -> AstConstInt $ substituteAstInt i var i2

@@ -80,8 +80,8 @@ reluAst1
   :: forall n r. (KnownNat n, Num (Vector r), Numeric r)
   => Ast n r -> Ast n r
 reluAst1 v =
-  let oneIfGtZero = omap (\(AstPrimalPart1 x) ->
-                            AstPrimalPart1 $ AstCond (AstRel GtOp [x, 0]) 1 0)
+  let oneIfGtZero = omap (\(AstPrimalPart x) ->
+                            AstPrimalPart $ AstCond (AstRel GtOp [x, 0]) 1 0)
                          (primalPart v)
   in scale1 oneIfGtZero v
 
@@ -142,10 +142,10 @@ instance Numeric r
   ddD u _ = u
 
 instance HasPrimal (Ast n r) where
-  type PrimalOf (Ast n r) = AstPrimalPart1 n r
+  type PrimalOf (Ast n r) = AstPrimalPart n r
   type DualOf (Ast n r) = ()  -- TODO: data AstDualPart: dScale, dAdd, dkonst1
   constant = AstConstant
-  primalPart = AstPrimalPart1
+  primalPart = AstPrimalPart
   dualPart = error "TODO"
   ddD = error "TODO"
 
@@ -425,34 +425,34 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
 
 instance ( Numeric r, RealFloat r, RealFloat (Vector r)
          , Show r, Numeric r )
-         => Tensor (AstPrimalPart1 0 r) where
-  type TensorOf n (AstPrimalPart1 0 r) = AstPrimalPart1 n r
-  type IntOf (AstPrimalPart1 0 r) = AstInt r
+         => Tensor (AstPrimalPart 0 r) where
+  type TensorOf n (AstPrimalPart 0 r) = AstPrimalPart n r
+  type IntOf (AstPrimalPart 0 r) = AstInt r
 
   tshape = shapeAst . unAstPrimalPart
   tminIndex = AstMinIndex . unAstPrimalPart
   tmaxIndex = AstMaxIndex . unAstPrimalPart
 
-  tindex v ix = AstPrimalPart1 $ AstIndexN (unAstPrimalPart v) ix
-  tsum = AstPrimalPart1 . AstSum . unAstPrimalPart
-  tfromIntOf0 = AstPrimalPart1 . AstConstInt
+  tindex v ix = AstPrimalPart $ AstIndexN (unAstPrimalPart v) ix
+  tsum = AstPrimalPart . AstSum . unAstPrimalPart
+  tfromIntOf0 = AstPrimalPart . AstConstInt
     -- toInteger is not defined for Ast, hence a special implementation
 
-  tfromList = AstPrimalPart1 . AstFromList . map unAstPrimalPart
+  tfromList = AstPrimalPart . AstFromList . map unAstPrimalPart
   tfromList0N sh =
-    AstPrimalPart1 . AstReshape sh . AstFromList . map unAstPrimalPart
-  tfromVector = AstPrimalPart1 . AstFromVector . V.map unAstPrimalPart
+    AstPrimalPart . AstReshape sh . AstFromList . map unAstPrimalPart
+  tfromVector = AstPrimalPart . AstFromVector . V.map unAstPrimalPart
   tfromVector0N sh =
-    AstPrimalPart1 . AstReshape sh . AstFromVector . V.map unAstPrimalPart
-  tkonst k = AstPrimalPart1 . AstKonst k . unAstPrimalPart
+    AstPrimalPart . AstReshape sh . AstFromVector . V.map unAstPrimalPart
+  tkonst k = AstPrimalPart . AstKonst k . unAstPrimalPart
   tappend u v =
-    AstPrimalPart1 $ AstAppend (unAstPrimalPart u) (unAstPrimalPart v)
-  tslice i k = AstPrimalPart1 . AstSlice i k  . unAstPrimalPart
-  treverse = AstPrimalPart1 . AstReverse . unAstPrimalPart
+    AstPrimalPart $ AstAppend (unAstPrimalPart u) (unAstPrimalPart v)
+  tslice i k = AstPrimalPart . AstSlice i k  . unAstPrimalPart
+  treverse = AstPrimalPart . AstReverse . unAstPrimalPart
   ttransposeGeneral perm =
-    AstPrimalPart1 . AstTransposeGeneral perm . unAstPrimalPart
-  treshape sh = AstPrimalPart1 . AstReshape sh  . unAstPrimalPart
-  tbuild1 k f = AstPrimalPart1 $ astBuild1 k $ \ix -> unAstPrimalPart $ f ix
+    AstPrimalPart . AstTransposeGeneral perm . unAstPrimalPart
+  treshape sh = AstPrimalPart . AstReshape sh  . unAstPrimalPart
+  tbuild1 k f = AstPrimalPart $ astBuild1 k $ \ix -> unAstPrimalPart $ f ix
 
   tscalar = id
   tunScalar = id
@@ -666,7 +666,7 @@ interpretAst env = \case
   AstOp opCode args ->
     interpretAstOp (interpretAst env) opCode args
   AstConst a -> constant a
-  AstConstant (AstPrimalPart1 a) -> constant $ interpretAstPrimal env a
+  AstConstant (AstPrimalPart a) -> constant $ interpretAstPrimal env a
   AstCond b a1 a2 -> if interpretAstBool env b
                      then interpretAst env a1
                      else interpretAst env a2

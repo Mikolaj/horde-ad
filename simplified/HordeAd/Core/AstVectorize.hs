@@ -80,7 +80,7 @@ build1V k (var, v0) =
     AstConst{} ->
       error "build1V: AstConst can't have free int variables"
     AstConstant{} -> traceRule $
-      AstConstant $ AstPrimalPart1 $ AstBuild1 k (var, v0)
+      AstConstant $ AstPrimalPart $ AstBuild1 k (var, v0)
       -- this is very fast when interpreted in a smart way, but constant
       -- character needs to be exposed for nested cases;
       -- TODO: similarly propagate AstConstant upwards elsewhere
@@ -90,7 +90,7 @@ build1V k (var, v0) =
                           (singletonIndex $ AstIntCond b 0 1))
 
     AstConstInt{} -> traceRule $
-      AstConstant $ AstPrimalPart1 $ AstBuild1 k (var, v0)
+      AstConstant $ AstPrimalPart $ AstBuild1 k (var, v0)
     AstIndexN v is -> traceRule $
       build1VIxOccurenceUnknown k (var, v, is)
       -- @var@ is in @v@ or @is@; TODO: simplify is first or even fully
@@ -147,7 +147,7 @@ build1V k (var, v0) =
                  (k :$ sh)
 
     AstOMap{} -> traceRule $
-      AstConstant $ AstPrimalPart1 $ AstBuild1 k (var, v0)
+      AstConstant $ AstPrimalPart $ AstBuild1 k (var, v0)
     -- All other patterns are redundant due to GADT typing.
 
 -- | The application @build1VIxOccurenceUnknown k (var, v, is)@ vectorizes
@@ -210,12 +210,12 @@ build1VIx k (var, v0, is@(_ :. _)) =
     AstConst{} ->
       error "build1VIx: AstConst can't have free int variables"
     AstConstant{} -> traceRule $
-      AstConstant $ AstPrimalPart1 $ AstBuild1 k (var, AstIndexN v0 is)
+      AstConstant $ AstPrimalPart $ AstBuild1 k (var, AstIndexN v0 is)
     AstCond b v w -> traceRule $
       build1VIx k (var, AstFromList [v, w], AstIntCond b 0 1 :. is)
 
     AstConstInt{} -> traceRule $
-      AstConstant $ AstPrimalPart1 $ AstBuild1 @n k (var, AstIndexN v0 is)
+      AstConstant $ AstPrimalPart $ AstBuild1 @n k (var, AstIndexN v0 is)
 
     AstIndexN v is2 -> traceRule $
       build1VIxOccurenceUnknown k (var, v, appendIndex is is2)
@@ -341,7 +341,7 @@ build1VIx k (var, v0, is@(_ :. _)) =
       error "build1VIx: AstGatherN: impossible pattern needlessly required"
 
     AstOMap{} -> traceRule $
-      AstConstant $ AstPrimalPart1 $ AstBuild1 k (var, AstIndexN v0 is)
+      AstConstant $ AstPrimalPart $ AstBuild1 k (var, AstIndexN v0 is)
     -- All other patterns are redundant due to GADT typing.
 
 -- TODO: we probably need to simplify iN to some normal form, but possibly
