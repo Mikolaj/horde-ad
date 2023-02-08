@@ -7,9 +7,10 @@ module HordeAd
   , module HordeAd.Core.DualNumber
   , module HordeAd.Core.Engine
   , module HordeAd.Core.PairOfVectors
-  , module HordeAd.Core.TensorClass
-  , module HordeAd.External.Optimizer
   , module HordeAd.Core.SizedIndex
+  , module HordeAd.Core.TensorClass
+  , module HordeAd.External.Adaptor
+  , module HordeAd.External.Optimizer
   ) where
 
 import Prelude ()
@@ -20,4 +21,5 @@ import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
+import HordeAd.External.Adaptor
 import HordeAd.External.Optimizer

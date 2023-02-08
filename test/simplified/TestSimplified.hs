@@ -240,9 +240,9 @@ testPoly00 f input expected = do
         revOnDomains 1
           (\adinputs -> f $ adinputs `at0` 0)
           domainsInput
-      value = f input
-  astValue @?~ value
-  advalValue @?~ value
+      val = f input
+  astValue @?~ val
+  advalValue @?~ val
   domains0 astGrad @?~ domains0 domainsExpected
   domains0 advalGrad @?~ domains0 domainsExpected
 
@@ -268,9 +268,9 @@ testPoly01 f outSize input expected = do
         revOnDomains dt
           (\adinputs -> f $ adinputs `at0` 0)
           domainsInput
-      value = f input
-  astValue @?~ value
-  advalValue @?~ value
+      val = f input
+  astValue @?~ val
+  advalValue @?~ val
   domains0 astGrad @?~ domains0 domainsExpected
   domains0 advalGrad @?~ domains0 domainsExpected
 
@@ -296,9 +296,9 @@ testPoly11 f outSize input expected = do
         revOnDomains dt
           (\adinputs -> f $ adinputs `at1` 0)
           domainsInput
-      value = f (vToVec $ V.fromList input)
-  astValue @?~ value
-  advalValue @?~ value
+      val = f (vToVec $ V.fromList input)
+  astValue @?~ val
+  advalValue @?~ val
   domains1 astGrad @?~ domains1 domainsExpected
   domains1 advalGrad @?~ domains1 domainsExpected
 
@@ -325,9 +325,9 @@ testPolyn f sh input expected = do
         revOnDomains dt
           (\adinputs -> f $ adinputs `at0` 0)
           domainsInput
-      value = f input
-  astValue @?~ value
-  advalValue @?~ value
+      val = f input
+  astValue @?~ val
+  advalValue @?~ val
   domains0 astGrad @?~ domains0 domainsExpected
   domains0 advalGrad @?~ domains0 domainsExpected
 
@@ -456,10 +456,10 @@ testF3 = do
       fAst = -- unScalar $
 -- TODO:        interpretAst (IM.singleton 0 (AstVarR input))
                      (f3 @(Ast 0 Double) (AstVar [] (AstVarName 0)))
-      valueViaAst = fAst  -- TODO: input
-      value = f3 @Double input
-  let _res = value @?~ expected in return ()  -- stubs would fail
-  let _res2 = valueViaAst {-TODO: @?~ expected-} in return ()  -- stubs would fail
+      valViaAst = fAst  -- TODO: input
+      val = f3 @Double input
+  let _res = val @?~ expected in return ()  -- stubs would fail
+  let _res2 = valViaAst {-TODO: @?~ expected-} in return ()  -- stubs would fail
 
 testBraidedBuilds :: Assertion
 testBraidedBuilds =
