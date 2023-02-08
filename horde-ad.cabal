@@ -512,6 +512,7 @@ library horde-ad-simplified
                       HordeAd.Core.PairOfVectors
                       HordeAd.Core.SizedIndex
                       HordeAd.Core.TensorClass
+                      HordeAd.External.Adaptor
                       HordeAd.External.Optimizer
                       HordeAd.External.OptimizerTools
                       HordeAd.Internal.Delta
@@ -532,6 +533,7 @@ library horde-ad-simplified
       , orthotope
       , pretty-show
       , primitive
+      , random
       , strict-containers
       , unboxed-ref
       , vector

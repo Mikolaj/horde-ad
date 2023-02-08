@@ -59,17 +59,23 @@ toMatrixOrDummy size x = if LA.size x == (0, 0)
                          then LA.konst 0 size
                          else x
 
-toShapedOrDummy :: (Numeric r, OS.Shape sh)
-                => OT.Array r -> OS.Array sh r
-toShapedOrDummy x = if isTensorDummy x
-                    then OS.constant 0
-                    else Data.Array.Convert.convert x
-
 toDynamicOrDummy :: Numeric r
                  => OT.ShapeL -> OT.Array r -> OT.Array r
 toDynamicOrDummy sh x = if isTensorDummy x
                         then OT.constant sh 0
                         else x
+
+toRankedOrDummy :: (Numeric r, KnownNat n)
+                => OT.ShapeL -> OT.Array r -> OR.Array n r
+toRankedOrDummy sh x = if isTensorDummy x
+                       then OR.constant sh 0
+                       else Data.Array.Convert.convert x
+
+toShapedOrDummy :: (Numeric r, OS.Shape sh)
+                => OT.Array r -> OS.Array sh r
+toShapedOrDummy x = if isTensorDummy x
+                    then OS.constant 0
+                    else Data.Array.Convert.convert x
 
 tindex0D :: Numeric r => OT.Array r -> [Int] -> r
 tindex0D (Data.Array.Internal.DynamicS.A
