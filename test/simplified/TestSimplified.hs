@@ -5,7 +5,6 @@ module TestSimplified (testTrees) where
 import Prelude
 
 import qualified Data.Array.RankedS as OR
-import           Data.MonoTraversable (MonoFunctor)
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
@@ -138,7 +137,6 @@ nestedBuildIndex v =
 
 barRelu
   :: ( RealFloat (TensorOf n r), HasPrimal (TensorOf n r)
-     , MonoFunctor (PrimalOf (TensorOf n r))
      , Ord (Element (PrimalOf (TensorOf n r)))
      , Fractional (Element (PrimalOf (TensorOf n r))) )
   => TensorOf n r -> TensorOf n r

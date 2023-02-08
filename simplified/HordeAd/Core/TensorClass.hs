@@ -1,4 +1,4 @@
-{-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances,
+{-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, DataKinds, FlexibleInstances,
              MultiParamTypeClasses, OverloadedLists, TypeFamilyDependencies #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
@@ -59,17 +59,21 @@ scale1 :: (HasPrimal (TensorOf n r), Num (TensorOf n r))
 scale1 a d = constant a * d
 
 relu1, reluLeaky1
-  :: ( HasPrimal (TensorOf n r), Num (TensorOf n r)
-     , MonoFunctor (PrimalOf (TensorOf n r))
+  :: forall n r.
+     ( HasPrimal (TensorOf n r), Num (TensorOf n r)
      , Ord (Element (PrimalOf (TensorOf n r)))
      , Fractional (Element (PrimalOf (TensorOf n r))) )
   => TensorOf n r -> TensorOf n r
 relu1 v =
-  let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0) (primalPart v)
+  let oneIfGtZero = omapPrimal @(TensorOf n r)
+                               (\x -> if x > 0 then 1 else 0)
+                               (primalPart v)
   in scale1 oneIfGtZero v
 
 reluLeaky1 v =
-  let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0.01) (primalPart v)
+  let oneIfGtZero = omapPrimal @(TensorOf n r)
+                               (\x -> if x > 0 then 1 else 0.01)
+                               (primalPart v)
   in scale1 oneIfGtZero v
 
 -- TODO: generalize the function @relu@ above so that
@@ -80,9 +84,11 @@ reluAst1
   :: forall n r. (KnownNat n, Num (Vector r), Numeric r)
   => Ast n r -> Ast n r
 reluAst1 v =
-  let oneIfGtZero = omap (\(AstPrimalPart x) ->
-                            AstPrimalPart $ AstCond (AstRel GtOp [x, 0]) 1 0)
-                         (primalPart v)
+  let oneIfGtZero =
+        omapPrimal @(Ast n r )
+                   (\(AstPrimalPart x) ->
+                      AstPrimalPart $ AstCond (AstRel GtOp [x, 0]) 1 0)
+                   (primalPart v)
   in scale1 oneIfGtZero v
 
 
@@ -104,16 +110,18 @@ class HasPrimal a where
   -- (and HasInputs?)
   -- TODO: if DualOf is supposed to be user-visible, we needed
   -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
-  --
   -- TODO: also put conditionals with AstBool condition here, at least initially
+  omapPrimal :: (Element (PrimalOf a) -> Element (PrimalOf a))
+             -> PrimalOf a -> PrimalOf a
 
-instance IsPrimal d a => HasPrimal (ADVal d a) where
+instance (IsPrimal d a, MonoFunctor a) => HasPrimal (ADVal d a) where
   type PrimalOf (ADVal d a) = a
   type DualOf (ADVal d a) = Dual d a
   constant a = dD a dZero
   primalPart (D u _) = u
   dualPart (D _ u') = u'
   ddD = dD
+  omapPrimal = omap
 
 instance HasPrimal Float where
   type PrimalOf Float = Float
@@ -122,6 +130,7 @@ instance HasPrimal Float where
   primalPart = id
   dualPart _ = ()
   ddD u _ = u
+  omapPrimal = omap
 
 instance HasPrimal Double where
   type PrimalOf Double = Double
@@ -130,8 +139,8 @@ instance HasPrimal Double where
   primalPart = id
   dualPart _ = ()
   ddD u _ = u
+  omapPrimal = omap
 
--- The constraint requires UndecidableInstances.
 instance Numeric r
          => HasPrimal (OR.Array n r) where
   type PrimalOf (OR.Array n r) = OR.Array n r
@@ -140,6 +149,7 @@ instance Numeric r
   primalPart = id
   dualPart _ = ()
   ddD u _ = u
+  omapPrimal = omap
 
 instance HasPrimal (Ast n r) where
   type PrimalOf (Ast n r) = AstPrimalPart n r
@@ -148,7 +158,16 @@ instance HasPrimal (Ast n r) where
   primalPart = AstPrimalPart
   dualPart = error "TODO"
   ddD = error "TODO"
+  omapPrimal = omap
 
+instance HasPrimal (AstPrimalPart n r) where
+  type PrimalOf (AstPrimalPart n r) = AstPrimalPart n r
+  type DualOf (AstPrimalPart n r) = ()
+  constant = id
+  primalPart = id
+  dualPart = error "TODO"
+  ddD = error "TODO"
+  omapPrimal = omap
 
 -- * Tensor class definition and instances for arrays, ADVal and Ast
 
@@ -654,7 +673,7 @@ interpretAstPrimal
 interpretAstPrimal env v = let D u _ = interpretAst env v in u
 
 interpretAst
-  :: (ADModeAndNumTensor d r, KnownNat n)
+  :: forall n r d. (ADModeAndNumTensor d r, KnownNat n)
   => AstEnv d r
   -> Ast n r -> ADVal d (OR.Array n r)
 interpretAst env = \case
@@ -714,8 +733,9 @@ interpretAst env = \case
                    (interpretAst env v) sh
   AstOMap (var, r) e ->  -- this only works on the primal part hence @constant@
     constant
-    $ omap (\x -> interpretLambdaR env (var, r) (constant x))
-           (interpretAstPrimal env e)
+    $ omapPrimal @(ADVal d (OR.Array n r))
+                 (\x -> interpretLambdaR env (var, r) (constant x))
+                 (interpretAstPrimal env e)
 
 interpretAstInt :: ADModeAndNumTensor d r
                 => AstEnv d r

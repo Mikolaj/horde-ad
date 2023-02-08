@@ -667,7 +667,6 @@ test-suite simplifiedOnlyTest
 
       , base
       , hmatrix
-      , mono-traversable
       , orthotope
       , strict-containers
       , tasty >= 1.0
