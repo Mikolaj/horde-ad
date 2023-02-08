@@ -279,6 +279,13 @@ instance IsPrimal 'ADModeGradient Float where
     Let0{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta0 d
 
+-- | This is a trivial and so a pure instance.
+instance IsPrimal 'ADModeGradient (OT.Array r) where
+  dZero = undefined
+  dScale = undefined
+  dAdd = undefined
+  recordSharing = id
+
 -- | This is an impure instance. See above.
 instance IsPrimalR 'ADModeGradient r where
   dZeroR = Zero1
@@ -354,6 +361,13 @@ instance IsPrimal 'ADModeDerivative Float where
   dAdd d e = d + e
   recordSharing = id
 
+instance Num (OT.Array r)
+         => IsPrimal 'ADModeDerivative (OT.Array r) where
+  dZero = 0
+  dScale k d = k * d
+  dAdd d e = d + e
+  recordSharing = id
+
 instance (Numeric r, Num (Vector r))
          => IsPrimalR 'ADModeDerivative r where
   dZeroR = 0
@@ -410,6 +424,12 @@ instance IsPrimal 'ADModeValue Float where
   recordSharing = id
 
 instance IsPrimal 'ADModeValue (Vector r) where
+  dZero = DummyDual ()
+  dScale _ _ = DummyDual ()
+  dAdd _ _ = DummyDual ()
+  recordSharing = id
+
+instance IsPrimal 'ADModeValue (OT.Array r) where
   dZero = DummyDual ()
   dScale _ _ = DummyDual ()
   dAdd _ _ = DummyDual ()

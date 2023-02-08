@@ -92,6 +92,7 @@ type ADModeAndNum (d :: ADMode) r =
   , Show r
   , HasRanks d r
   , IsPrimalAndHasFeatures d r r
+  , IsPrimalAndHasFeatures d (OT.Array r) r
   , IsPrimalR d r
   , RealFloat (Vector r)
   )

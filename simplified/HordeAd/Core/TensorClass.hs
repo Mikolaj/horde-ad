@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, DataKinds, FlexibleInstances,
-             MultiParamTypeClasses, OverloadedLists, TypeFamilyDependencies #-}
+             MultiParamTypeClasses, OverloadedLists, TypeFamilyDependencies,
+             UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
