@@ -15,21 +15,18 @@ module HordeAd.Core.Ast
   , shapeAst, lengthAst
   , intVarInAst, intVarInAstInt, intVarInAstBool
   , substituteAst, substituteAstInt, substituteAstBool
-  , unsafeGetFreshAstVar
   ) where
 
 import Prelude
 
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
-import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Type)
-import           Data.MonoTraversable (Element, MonoFunctor (omap))
+import           Data.MonoTraversable (Element)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Numeric)
-import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.SizedIndex
 import HordeAd.Internal.SizedList
@@ -98,7 +95,7 @@ data Ast :: Nat -> Type -> Type where
              -> ShapeInt (m + n) -> Ast (m + n) r
     -- emerges from vectorizing AstGather1
 
-  -- For MonoFunctor class, which is needed for a particularly
+  -- For HasPrimal.omapPrimal. This is needed for a particularly
   -- fast implementation of relu and offers fast, primal-part only, mapping.
   -- TODO: this is really only needed in AstPrimalPart, but making
   -- AstPrimalPart data instead of a newtype would complicate a lot of code.
@@ -285,27 +282,6 @@ instance Integral (AstInt r) where
   quotRem u v = (AstIntOp QuotIntOp [u, v], AstIntOp RemIntOp [u, v])
   divMod u v = (AstIntOp DivIntOp [u, v], AstIntOp ModIntOp [u, v])
   toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.
-
--- Impure but in the most trivial way (only ever incremented counter).
-unsafeAstVarCounter :: Counter
-{-# NOINLINE unsafeAstVarCounter #-}
-unsafeAstVarCounter = unsafePerformIO (newCounter 1)
-
-unsafeGetFreshAstVar :: IO (AstVarName a)
-{-# INLINE unsafeGetFreshAstVar #-}
-unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
-
-astOmap :: (Ast 0 r -> Ast 0 r) -> Ast n r -> Ast n r
-{-# NOINLINE astOmap #-}
-astOmap f e = unsafePerformIO $ do
-  freshAstVar <- unsafeGetFreshAstVar
-  return $! AstOMap (freshAstVar, f (AstVar ZS freshAstVar)) e
-
-instance MonoFunctor (AstPrimalPart n r) where
-  omap f (AstPrimalPart x) =
-    let g y = let AstPrimalPart z = f (AstPrimalPart y)
-              in z
-    in AstPrimalPart (astOmap g x)
 
 -- This is cheap and dirty. We don't shape-check the terms and we don't
 -- unify or produce (partial) results with variables. Instead, we investigate

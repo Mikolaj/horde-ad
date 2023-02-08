@@ -20,6 +20,7 @@ import Prelude
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
+import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.MonoTraversable (MonoFunctor (omap))
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Strict.Vector as Data.Vector
@@ -130,7 +131,7 @@ instance HasPrimal Float where
   primalPart = id
   dualPart _ = ()
   ddD u _ = u
-  omapPrimal = omap
+  omapPrimal = id
 
 instance HasPrimal Double where
   type PrimalOf Double = Double
@@ -139,7 +140,7 @@ instance HasPrimal Double where
   primalPart = id
   dualPart _ = ()
   ddD u _ = u
-  omapPrimal = omap
+  omapPrimal = id
 
 instance Numeric r
          => HasPrimal (OR.Array n r) where
@@ -149,7 +150,7 @@ instance Numeric r
   primalPart = id
   dualPart _ = ()
   ddD u _ = u
-  omapPrimal = omap
+  omapPrimal = OR.mapA
 
 instance HasPrimal (Ast n r) where
   type PrimalOf (Ast n r) = AstPrimalPart n r
@@ -158,7 +159,7 @@ instance HasPrimal (Ast n r) where
   primalPart = AstPrimalPart
   dualPart = error "TODO"
   ddD = error "TODO"
-  omapPrimal = omap
+  omapPrimal = omapAst
 
 instance HasPrimal (AstPrimalPart n r) where
   type PrimalOf (AstPrimalPart n r) = AstPrimalPart n r
@@ -167,7 +168,30 @@ instance HasPrimal (AstPrimalPart n r) where
   primalPart = id
   dualPart = error "TODO"
   ddD = error "TODO"
-  omapPrimal = omap
+  omapPrimal = omapAst
+
+-- Impure but in the most trivial way (only ever incremented counter).
+unsafeAstVarCounter :: Counter
+{-# NOINLINE unsafeAstVarCounter #-}
+unsafeAstVarCounter = unsafePerformIO (newCounter 1)
+
+unsafeGetFreshAstVar :: IO (AstVarName a)
+{-# INLINE unsafeGetFreshAstVar #-}
+unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
+
+astOmap :: (Ast 0 r -> Ast 0 r) -> Ast n r -> Ast n r
+{-# NOINLINE astOmap #-}
+astOmap f e = unsafePerformIO $ do
+  freshAstVar <- unsafeGetFreshAstVar
+  return $! AstOMap (freshAstVar, f (AstVar ZS freshAstVar)) e
+
+omapAst :: (AstPrimalPart 0 r -> AstPrimalPart 0 r)
+        -> AstPrimalPart n r -> AstPrimalPart n r
+omapAst f (AstPrimalPart x) =
+  let g y = let AstPrimalPart z = f (AstPrimalPart y)
+            in z
+  in AstPrimalPart (astOmap g x)
+
 
 -- * Tensor class definition and instances for arrays, ADVal and Ast
 
@@ -733,9 +757,8 @@ interpretAst env = \case
                    (interpretAst env v) sh
   AstOMap (var, r) e ->  -- this only works on the primal part hence @constant@
     constant
-    $ omapPrimal @(ADVal d (OR.Array n r))
-                 (\x -> interpretLambdaR env (var, r) (constant x))
-                 (interpretAstPrimal env e)
+    $ omap (\x -> interpretLambdaR env (var, r) (constant x))
+           (interpretAstPrimal env e)
 
 interpretAstInt :: ADModeAndNumTensor d r
                 => AstEnv d r
