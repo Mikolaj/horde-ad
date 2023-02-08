@@ -83,7 +83,7 @@ reluAst1 v =
   let oneIfGtZero = omap (\(AstPrimalPart1 x) ->
                             AstPrimalPart1 $ AstCond (AstRel GtOp [x, 0]) 1 0)
                          (primalPart v)
-  in scale oneIfGtZero v
+  in scale1 oneIfGtZero v
 
 
 -- * HasPrimal class and instances for all relevant types
@@ -96,9 +96,6 @@ class HasPrimal a where
   type PrimalOf a
   type DualOf a
   constant :: PrimalOf a -> a
-  scale :: Num (PrimalOf a) => PrimalOf a -> a -> a
-    -- expressible with @constant@ and multiplication, but we want the same
-    -- name in each class instance, so it needs to be included in the class
   primalPart :: a -> PrimalOf a
   dualPart :: a -> DualOf a
   ddD :: PrimalOf a -> DualOf a -> a
@@ -110,11 +107,10 @@ class HasPrimal a where
   --
   -- TODO: also put conditionals with AstBool condition here, at least initially
 
-instance (Num a, IsPrimal d a) => HasPrimal (ADVal d a) where
+instance IsPrimal d a => HasPrimal (ADVal d a) where
   type PrimalOf (ADVal d a) = a
   type DualOf (ADVal d a) = Dual d a
   constant a = dD a dZero
-  scale a (D u u') = dD (a * u) (dScale a u')
   primalPart (D u _) = u
   dualPart (D _ u') = u'
   ddD = dD
@@ -123,7 +119,6 @@ instance HasPrimal Float where
   type PrimalOf Float = Float
   type DualOf Float = ()
   constant = id
-  scale = (*)
   primalPart = id
   dualPart _ = ()
   ddD u _ = u
@@ -132,7 +127,6 @@ instance HasPrimal Double where
   type PrimalOf Double = Double
   type DualOf Double = ()
   constant = id
-  scale = (*)
   primalPart = id
   dualPart _ = ()
   ddD u _ = u
@@ -143,7 +137,6 @@ instance Numeric r
   type PrimalOf (OR.Array n r) = OR.Array n r
   type DualOf (OR.Array n r) = ()
   constant = id
-  scale = (*)
   primalPart = id
   dualPart _ = ()
   ddD u _ = u
@@ -152,7 +145,6 @@ instance HasPrimal (Ast n r) where
   type PrimalOf (Ast n r) = AstPrimalPart1 n r
   type DualOf (Ast n r) = ()  -- TODO: data AstDualPart: dScale, dAdd, dkonst1
   constant = AstConstant
-  scale = AstScale
   primalPart = AstPrimalPart1
   dualPart = error "TODO"
   ddD = error "TODO"
@@ -675,8 +667,6 @@ interpretAst env = \case
     interpretAstOp (interpretAst env) opCode args
   AstConst a -> constant a
   AstConstant (AstPrimalPart1 a) -> constant $ interpretAstPrimal env a
-  AstScale (AstPrimalPart1 r) d ->
-    scale (interpretAstPrimal env r) (interpretAst env d)
   AstCond b a1 a2 -> if interpretAstBool env b
                      then interpretAst env a1
                      else interpretAst env a2

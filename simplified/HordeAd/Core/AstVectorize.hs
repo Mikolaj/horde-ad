@@ -84,9 +84,6 @@ build1V k (var, v0) =
       -- this is very fast when interpreted in a smart way, but constant
       -- character needs to be exposed for nested cases;
       -- TODO: similarly propagate AstConstant upwards elsewhere
-    AstScale (AstPrimalPart1 r) d -> traceRule $
-      AstScale (AstPrimalPart1 $ AstBuild1 k (var, r))  -- no need to vect
-               (build1VOccurenceUnknown k (var, d))
     AstCond b v w -> traceRule $
       build1V
         k (var, AstIndexN (AstFromList [v, w])
@@ -214,9 +211,6 @@ build1VIx k (var, v0, is@(_ :. _)) =
       error "build1VIx: AstConst can't have free int variables"
     AstConstant{} -> traceRule $
       AstConstant $ AstPrimalPart1 $ AstBuild1 k (var, AstIndexN v0 is)
-    AstScale (AstPrimalPart1 r) d -> traceRule $
-      AstScale (AstPrimalPart1 $ AstBuild1 k (var, AstIndexN r is))
-               (build1VIxOccurenceUnknown k (var, d, is))
     AstCond b v w -> traceRule $
       build1VIx k (var, AstFromList [v, w], AstIntCond b 0 1 :. is)
 

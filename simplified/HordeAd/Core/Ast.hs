@@ -62,7 +62,6 @@ data Ast :: Nat -> Type -> Type where
   AstConst :: OR.Array n r -> Ast n r
   AstConstant :: AstPrimalPart1 n r -> Ast n r
   -- syntactic sugar:
-  AstScale :: AstPrimalPart1 n r -> Ast n r -> Ast n r
   AstCond :: AstBool r -> Ast n r -> Ast n r -> Ast n r
 
   -- For Tensor class:
@@ -322,7 +321,6 @@ shapeAst v1 = case v1 of
     t : _ -> shapeAst t
   AstConst a -> listShapeToShape $ OR.shapeL a
   AstConstant (AstPrimalPart1 a) -> shapeAst a
-  AstScale (AstPrimalPart1 r) _d -> shapeAst r
   AstCond _b a1 _a2 -> shapeAst a1
   AstConstInt _i -> ZS
   AstIndexN v (_is :: Index m (AstInt r)) -> dropShape @m (shapeAst v)
@@ -368,7 +366,6 @@ intVarInAst var = \case
   AstOp _ l -> any (intVarInAst var) l
   AstConst{} -> False
   AstConstant (AstPrimalPart1 v) -> intVarInAst var v
-  AstScale (AstPrimalPart1 v) u -> intVarInAst var v || intVarInAst var u
   AstCond b x y ->
     intVarInAstBool var b || intVarInAst var x || intVarInAst var y
   AstConstInt k -> intVarInAstInt var k
@@ -416,8 +413,6 @@ substituteAst i var v1 = case v1 of
   AstConst _a -> v1
   AstConstant (AstPrimalPart1 a) ->
     AstConstant (AstPrimalPart1 $ substituteAst i var a)
-  AstScale (AstPrimalPart1 r) d ->
-    AstScale (AstPrimalPart1 $ substituteAst i var r) (substituteAst i var d)
   AstCond b a1 a2 -> AstCond (substituteAstBool i var b)
                              (substituteAst i var a1) (substituteAst i var a2)
   AstConstInt i2 -> AstConstInt $ substituteAstInt i var i2
