@@ -7,10 +7,8 @@ import Prelude
 import qualified Data.Array.RankedS as OR
 import           Data.MonoTraversable (Element)
 import qualified Data.Strict.IntMap as IM
-import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
-import qualified Numeric.LinearAlgebra as LA
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
@@ -26,15 +24,10 @@ testTrees =
   , testCase "2barADVal" testBarADVal
   , testCase "2baz old to force fooConstant" testBaz
   , testCase "2baz new to check if mere repetition breaks things" testBaz
-  , testCase "2baz again to use fooConstant with renumbered terms" testBazRenumbered
+  , testCase "2baz again with renumbered terms" testBazRenumbered
   , testCase "2fooD T Double [1.1, 2.2, 3.3]" testFooD
   , testCase "2fooBuildDt" testFooBuildDt
   , testCase "2fooBuild" testFooBuild
-
-
-
-
-
   , testCase "2fooMap" testFooMap
   , testCase "2fooNoGoAst" testFooNoGoAst
   , testCase "2nestedBuildMap" testNestedBuildMap
@@ -175,30 +168,16 @@ testFooBuild =
     (OR.fromList [4] [-4521.201512195087,-5568.7163677622175,-5298.386349932494,-4907.349735554627])
     (rev @(OR.Array 1 Double) fooBuild1 (OR.fromList [4] [1.1, 2.2, 3.3, 4]))
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 fooMap1 :: ADReady r => r -> TensorOf 1 r
 fooMap1 r =
   let v = fooBuild1 $ tkonst0N [130] (tscalar r)
   in tmap0N (\x -> x * r + 5) v
+
+testFooMap :: Assertion
+testFooMap =
+  assertEqualUpToEpsilon 1e-6
+    4.438131773948916e7
+    (rev @(OR.Array 1 Double) fooMap1 1.1)
 
 barAst :: (Numeric r, RealFloat r, RealFloat (Vector r))
        => (Ast 0 r, Ast 0 r) -> Ast 0 r
@@ -221,14 +200,23 @@ fooNoGoAst v =
      / tslice 1 3 (tmap0N (\x -> AstCond (x `gtAst` r) r x) v)
      * tbuild1 3 (const 1)
 
--- TODO: remove the need for the 2 type hints; using TensorOf 1 in the definition
--- of VectorLike class may be enough
+testFooNoGoAst :: Assertion
+testFooNoGoAst =
+  let f :: ADModeAndNumTensor d r
+        => ADVal d (OR.Array 1 r) -> ADVal d (OR.Array 1 r)
+      f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
+                         (fooNoGoAst (AstVar [5] (AstVarName 0)))
+  in assertEqualUpToEpsilon 1e-6
+       (OR.fromList [5] [344.3405885672822,-396.1811403813819,7.735358041386672,-0.8403418295960372,5.037878787878787])
+       (rev @(OR.Array 1 Double) f
+             (OR.fromList [5] [1.1 :: Double, 2.2, 3.3, 4, 5]))
+
 nestedBuildMap :: forall r. ADReady r => r -> TensorOf 1 r
 nestedBuildMap r =
   let w = tkonst0N [4]  -- (AstIntCond (x `leqAst` 0) 3 4)
       v' = tkonst0N [177] (tscalar r) :: TensorOf 1 r
       nestedMap x = tmap0N (x /) (w (tscalar x))
-      variableLengthBuild iy = tbuild1 7 (\ix -> tindex v' [ix + iy]) :: TensorOf 1 r
+      variableLengthBuild iy = tbuild1 7 (\ix -> tindex v' [ix + iy])
       doublyBuild = tbuild1 5 (tminimum0 . variableLengthBuild)
   in tmap0N (\x -> x
                   * tunScalar (tsum0
@@ -237,6 +225,12 @@ nestedBuildMap r =
                        + fooBuild1 (nestedMap x)
                        / fooMap1 x))
            ) doublyBuild
+
+testNestedBuildMap :: Assertion
+testNestedBuildMap =
+  assertEqualUpToEpsilon 1e-10
+    107.25984443006627
+    (rev @(OR.Array 1 Double) nestedBuildMap 1.1)
 
 nestedSumBuild :: ADReady r => TensorOf 1 r -> TensorOf 1 r
 nestedSumBuild v =
@@ -261,9 +255,21 @@ nestedSumBuild v =
   + tbuild1 13 (\ix ->
       nestedBuildMap (tunScalar $ tsum0 v) `tindex` [min ix 4])
 
+testNestedSumBuild :: Assertion
+testNestedSumBuild =
+  assertEqualUpToEpsilon 1e-8
+    (OR.fromList [5] [-14084.715065313612,-14084.715065313612,-14084.715065313612,-14014.775065313623,-14084.715065313612])
+    (rev @(OR.Array 1 Double) nestedSumBuild (OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
+
 nestedBuildIndex :: forall r. ADReady r => TensorOf 1 r -> TensorOf 1 r
 nestedBuildIndex v =
   tbuild1 2 $ \ix2 -> tindex @r @1 (tbuild1 3 $ \ix3 -> tindex (tbuild1 4 $ \ix4 -> tindex @r @1 v [ix4]) [ix3]) [ix2]
+
+testNestedBuildIndex :: Assertion
+testNestedBuildIndex =
+  assertEqualUpToEpsilon 1e-10
+    (OR.fromList [5]  [1,1,0,0,0])
+    (rev @(OR.Array 1 Double) nestedBuildIndex (OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
 
 barRelu
   :: ( RealFloat (TensorOf n r), HasPrimal (TensorOf n r)
@@ -272,7 +278,12 @@ barRelu
   => TensorOf n r -> TensorOf n r
 barRelu x = relu1 $ bar (x, relu1 x)
 
--- TODO: merge with the above once rank-polymorphic relu is recovered
+testBarReluADVal :: Assertion
+testBarReluADVal =
+  assertEqualUpToEpsilon 1e-10
+    (OR.fromList [] [191.20462646925841])
+    (revDt @(OR.Array 0 Double) barRelu (OR.fromList [] [1.1]) 42.2)
+
 barReluAst
   :: (KnownNat n, Numeric r, RealFloat r, Floating (Vector r))
   => Ast n r -> Ast n r
@@ -281,16 +292,52 @@ barReluAst x = reluAst1 $ bar (x, reluAst1 x)
   -- due to relu using conditionals and @>@ instead of
   -- a generalization of those that have Ast instance:
 
+testBarReluAst0 :: Assertion
+testBarReluAst0 =
+  let f :: ADModeAndNumTensor d r
+        => ADVal d (OR.Array 0 r) -> ADVal d (OR.Array 0 r)
+      f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
+                         (barReluAst (AstVar [] (AstVarName 0)))
+  in assertEqualUpToEpsilon 1e-10
+       (OR.fromList [] [191.20462646925841])
+       (revDt @(OR.Array 0 Double) f (OR.fromList [] [1.1]) 42.2)
+
+testBarReluAst1 :: Assertion
+testBarReluAst1 =
+  let f :: ADModeAndNumTensor d r
+        => ADVal d (OR.Array 1 r) -> ADVal d (OR.Array 1 r)
+      f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
+                         (barReluAst (AstVar [5] (AstVarName 0)))
+  in assertEqualUpToEpsilon 1e-10
+       (OR.fromList [5] [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])
+       (rev @(OR.Array 1 Double) f (OR.fromList [5] [1.1, 2.2, 3.3, 4, 5]))
+
 konstReluAst
   :: forall r. (Show r, Numeric r, RealFloat r, RealFloat (Vector r))
   => Ast 0 r -> Ast 0 r
 konstReluAst x = tsum0 $ reluAst1 @1 $ tkonst0N [7] x
+
+testKonstReluAst :: Assertion
+testKonstReluAst =
+  let f :: ADModeAndNumTensor d r
+        => ADVal d (OR.Array 0 r) -> ADVal d (OR.Array 0 r)
+      f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
+                         (konstReluAst (AstVar [] (AstVarName 0)))
+  in assertEqualUpToEpsilon 1e-10
+       (OR.fromList [] [295.4])
+       (revDt @(OR.Array 0 Double) f (OR.fromList [] [1.1]) 42.2)
 
 
 -- * Tests by TomS
 
 f1 :: ADReady a => a -> a
 f1 = \arg -> tunScalar $ tsum0 (tbuild1 10 (\i -> tscalar arg * tfromIntOf0 i))
+
+testF1 :: Assertion
+testF1 =
+  assertEqualUpToEpsilon 1e-10
+    45.0
+    (rev @Double f1 1.1)
 
 f2 :: ADReady a => a -> a
 f2 = \arg ->
@@ -301,6 +348,12 @@ f2 = \arg ->
       v2a = tsum0 (tbuild1 10 (fun2 arg))
       v2b = tsum0 (tbuild1 20 (fun2 (arg + 1)))
   in tunScalar $ v1a + v1b + v2a + v2b
+
+testF2 :: Assertion
+testF2 =
+  assertEqualUpToEpsilon 1e-10
+    470
+    (rev @Double f2 1.1)
 
 f3 :: (ADReady r, Tensor (r -> r), Tensor ((r -> r) -> (r -> r)))
    => TensorOf 0 r -> TensorOf 0 r
@@ -313,6 +366,13 @@ f3 arg =
                                               (tunScalar arg))
   in tsum arr3
 
+testF3 :: Assertion
+testF3 =
+  let _ = assertEqualUpToEpsilon 1e-10
+            470
+            (rev @(OR.Array 0 Double) f3 1.1)
+  in return ()  -- dummy instance for -> and Ast rewrites don't remove -> yet
+
 -- * Hairy tests (many by TomS as well)
 
 braidedBuilds :: forall r. ADReady r => r -> TensorOf 2 r
@@ -321,10 +381,23 @@ braidedBuilds r =
     tbuild1 4 (\ix2 -> tindex @r @1 (tfromList0N [4]
                                       [tunScalar $ tfromIntOf0 ix2, 7, r, -0.2]) [ix1]))
 
+testBraidedBuilds :: Assertion
+testBraidedBuilds =
+  assertEqualUpToEpsilon 1e-10
+    4.0
+    (rev @(OR.Array 2 Double) braidedBuilds 3.4)
+
 recycled :: ADReady r
          => r -> TensorOf 5 r
-recycled r = tbuild1 2 $ \_ -> tbuild1 4 $ \_ -> tbuild1 2 $ \_ -> tbuild1 3 $ \_ ->
-               nestedSumBuild (tkonst0N [7] (tscalar r))
+recycled r =
+  tbuild1 2 $ \_ -> tbuild1 4 $ \_ -> tbuild1 2 $ \_ -> tbuild1 3 $ \_ ->
+    nestedSumBuild (tkonst0N [7] (tscalar r))
+
+testRecycled :: Assertion
+testRecycled =
+  assertEqualUpToEpsilon 1e-6
+    3.983629038066359e7
+    (rev @(OR.Array 5 Double) recycled 1.0001)
 
 concatBuild :: ADReady r => r -> TensorOf 2 r
 concatBuild r =
@@ -337,7 +410,13 @@ concatBuild r =
 --                     (tkonst0N [1] (tfromIntOf0 i)))
 --            (tbuild1 (13 - i) (\_k -> tscalar r)))
 
--- TODOL
+testConcatBuild :: Assertion
+testConcatBuild =
+  assertEqualUpToEpsilon 1e-10
+    126.0
+    (rev @(OR.Array 2 Double) concatBuild 3.4)
+
+-- TODO:
 _concatBuild2 :: ADReady r => r -> TensorOf 2 r
 _concatBuild2 _r =
 -- TODO: tbuild0N (7, 14) (\ (i,j)
@@ -345,253 +424,3 @@ _concatBuild2 _r =
     -- TODO: use classes Cond and Bool: if i == j then tfromIntOf0 i else r
    tfromIntOf0 i
       -- need to prove that i + 1 + (13 - i) = 14
-
--- * Test harness glue code
-
--- The glue for sufficiently polymorphic code;
-testPoly00
-  :: r ~ Double
-  => (forall x. ADReady x => x -> x) -> r -> r
-  -> Assertion
-testPoly00 f input expected = do
-  let domainsInput =
-        domainsFrom01 (V.singleton input) V.empty
-      domainsExpected =
-        domainsFrom01 (V.singleton expected) V.empty
-      (astGrad, astValue) =
-        revOnDomains 1
-          (\adinputs -> unScalar $
-             interpretAst (IM.singleton 0
-                             (AstVarR $ from1X $ scalar $ adinputs `at0` 0))
-                          (f (AstVar [] (AstVarName 0))))
-          domainsInput
-      (advalGrad, advalValue) =
-        revOnDomains 1
-          (\adinputs -> f $ adinputs `at0` 0)
-          domainsInput
-      val = f input
-  astValue @?~ val
-  advalValue @?~ val
-  domains0 astGrad @?~ domains0 domainsExpected
-  domains0 advalGrad @?~ domains0 domainsExpected
-
-testPoly01
-  :: r ~ Double
-  => (forall x. ADReady x => x -> TensorOf 1 x) -> Int -> r -> r
-  -> Assertion
-testPoly01 f outSize input expected = do
-  let domainsInput =
-        domainsFrom01 (V.singleton input) V.empty
-      domainsExpected =
-        domainsFrom01 (V.singleton expected) V.empty
-      dt = vToVec $ LA.konst 1 outSize
-        -- "1" wrong due to fragility of hmatrix and tensor numeric instances
-      (astGrad, astValue) =
-        revOnDomains dt
-          (\adinputs ->
-             interpretAst (IM.singleton 0
-                             (AstVarR $ from1X $ scalar $ adinputs `at0` 0))
-                          (f (AstVar [] (AstVarName 0))))
-          domainsInput
-      (advalGrad, advalValue) =
-        revOnDomains dt
-          (\adinputs -> f $ adinputs `at0` 0)
-          domainsInput
-      val = f input
-  astValue @?~ val
-  advalValue @?~ val
-  domains0 astGrad @?~ domains0 domainsExpected
-  domains0 advalGrad @?~ domains0 domainsExpected
-
-testPoly11
-  :: r ~ Double
-  => (forall x. ADReady x => TensorOf 1 x -> TensorOf 1 x) -> Int -> [r] -> [r]
-  -> Assertion
-testPoly11 f outSize input expected = do
-  let domainsInput =
-        domainsFrom0V V.empty (V.singleton (V.fromList input))
-      domainsExpected =
-        domainsFrom0V V.empty (V.singleton (V.fromList expected))
-      dt = vToVec $ LA.konst 1 outSize
-        -- "1" wrong due to fragility of hmatrix and tensor numeric instances
-      (astGrad, astValue) =
-        revOnDomains dt
-          (\adinputs ->
-             interpretAst (IM.singleton 0
-                             (AstVarR $ from1X $ at1 @1 adinputs 0))
-                          (f (AstVar [length input] (AstVarName 0))))
-          domainsInput
-      (advalGrad, advalValue) =
-        revOnDomains dt
-          (\adinputs -> f $ adinputs `at1` 0)
-          domainsInput
-      val = f (vToVec $ V.fromList input)
-  astValue @?~ val
-  advalValue @?~ val
-  domains1 astGrad @?~ domains1 domainsExpected
-  domains1 advalGrad @?~ domains1 domainsExpected
-
-testPolyn
-  :: (KnownNat n, r ~ Double)
-  => (forall x. ADReady x => x -> TensorOf n x)
-  -> OR.ShapeL -> r -> r
-  -> Assertion
-testPolyn f sh input expected = do
-  let domainsInput =
-        domainsFrom01 (V.singleton input) V.empty
-      domainsExpected =
-        domainsFrom01 (V.singleton expected) V.empty
-      dt = OR.fromVector sh $ LA.konst 1 $ product sh
-        -- "1" wrong due to fragility of hmatrix and tensor numeric instances
-      (astGrad, astValue) =
-        revOnDomains dt
-          (\adinputs ->
-             interpretAst (IM.singleton 0
-                             (AstVarR $ from1X $ scalar $ adinputs `at0` 0))
-                          (f (AstVar [] (AstVarName 0))))
-          domainsInput
-      (advalGrad, advalValue) =
-        revOnDomains dt
-          (\adinputs -> f $ adinputs `at0` 0)
-          domainsInput
-      val = f input
-  astValue @?~ val
-  advalValue @?~ val
-  domains0 astGrad @?~ domains0 domainsExpected
-  domains0 advalGrad @?~ domains0 domainsExpected
-
-
-
-
-
-
-
-
-testFooMap :: Assertion
-testFooMap =
-  testPoly01 fooMap1 3
-    1.1
-    4.438131773948916e7
-
-testFooNoGoAst :: Assertion
-testFooNoGoAst =
-  (domains1 $ fst
-   $ revOnDomains
-       (vToVec $ LA.konst 1 3)
-        -- "1" wrong due to fragility of hmatrix and tensor numeric instances
-       (\adinputs ->
-          interpretAst (IM.singleton 0
-                          (AstVarR $ from1X $ at1 @1 adinputs 0))
-                        (fooNoGoAst (AstVar [5] (AstVarName 0))))
-       (domainsFrom0V V.empty
-                      (V.singleton (V.fromList
-                                      [1.1 :: Double, 2.2, 3.3, 4, 5]))))
-  @?~ domains1 (domainsFrom0V V.empty (V.singleton (V.fromList [344.3405885672822,-396.1811403813819,7.735358041386672,-0.8403418295960372,5.037878787878787])))
-
-testNestedBuildMap :: Assertion
-testNestedBuildMap =
-  testPoly01 nestedBuildMap 5
-    1.1
-    107.25984443006627
-
-testNestedSumBuild :: Assertion
-testNestedSumBuild =
-  testPoly11 nestedSumBuild 13
-    [1.1, 2.2, 3.3, 4, -5.22]
-    [-14084.715065313612,-14084.715065313612,-14084.715065313612,-14014.775065313623,-14084.715065313612]
-
-testNestedBuildIndex :: Assertion
-testNestedBuildIndex =
-  testPoly11 nestedBuildIndex 2
-    [1.1, 2.2, 3.3, 4, -5.22]
-    [1,1,0,0,0]
-
-testBarReluADVal :: Assertion
-testBarReluADVal =
-  (domains0 $ fst
-   $ revOnDomains
-       42.2
-       (\adinputs -> unScalar $ barRelu (scalar $ adinputs `at0` 0))
-       (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
-  @?~ V.fromList [191.20462646925841]
-
-testBarReluAst0 :: Assertion
-testBarReluAst0 =
-  (domains0 $ fst
-   $ revOnDomains
-       42.2
-       (\adinputs -> unScalar $
-          interpretAst (IM.singleton 0
-                          (AstVarR $ from1X $ scalar $ adinputs `at0` 0))
-                        (barReluAst (AstVar [] (AstVarName 0))))
-       (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
-  @?~ V.fromList [191.20462646925841]
-
-testBarReluAst1 :: Assertion
-testBarReluAst1 =
-  (domains1 $ fst
-   $ revOnDomains
-       (vToVec $ LA.konst 1 5)
-         -- "1" wrong due to fragility of hmatrix and tensor numeric instances
-       (\adinputs ->
-          interpretAst (IM.singleton 0
-                          (AstVarR $ from1X $ at1 @1 adinputs 0))
-                       (barReluAst (AstVar [5] (AstVarName 0))))
-       (domainsFrom0V V.empty
-                      (V.singleton (V.fromList
-                                      [1.1 :: Double, 2.2, 3.3, 4, 5]))))
-  @?~ domains1 (domainsFrom0V V.empty (V.singleton (V.fromList [4.530915319176739,-2.9573428114591314e-2,5.091137576320349,81.14126788127645,2.828924924816215])))
-
-testKonstReluAst :: Assertion
-testKonstReluAst =
-  (domains0 $ fst
-   $ revOnDomains
-       42.2
-       (\adinputs -> unScalar $
-          interpretAst (IM.singleton 0
-                          (AstVarR $ from1X $ scalar $ adinputs `at0` 0))
-                        (konstReluAst (AstVar [] (AstVarName 0))))
-       (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
-  @?~ V.fromList [295.4]
-
-testF1 :: Assertion
-testF1 =
-  testPoly00 f1
-    1.1
-    45.0
-
-testF2 :: Assertion
-testF2 =
-  testPoly00 f2
-    1.1
-    470.0
-
-testF3 :: Assertion
-testF3 = do
-  let input = 1.1
-      expected = 470.0
-      fAst = -- unScalar $
--- TODO:        interpretAst (IM.singleton 0 (AstVarR input))
-                     (f3 @(Ast 0 Double) (AstVar [] (AstVarName 0)))
-      valViaAst = fAst  -- TODO: input
-      val = f3 @Double input
-  let _res = val @?~ expected in return ()  -- stubs would fail
-  let _res2 = valViaAst {-TODO: @?~ expected-} in return ()  -- stubs would fail
-
-testBraidedBuilds :: Assertion
-testBraidedBuilds =
-  testPolyn braidedBuilds [3, 4]
-  3.4
-  4.0
-
-testRecycled :: Assertion
-testRecycled =
-  testPolyn recycled [2, 4, 2, 3, 13]
-  1.0001
-  3.983629038066359e7
-
-testConcatBuild :: Assertion
-testConcatBuild =
-  testPolyn concatBuild [7, 14]
-  3.4
-  91

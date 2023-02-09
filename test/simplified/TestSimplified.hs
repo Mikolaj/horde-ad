@@ -93,14 +93,12 @@ fooNoGoAst v =
      / tslice 1 3 (tmap0N (\x -> AstCond (x `gtAst` r) r x) v)
      * tbuild1 3 (const 1)
 
--- TODO: remove the need for the 2 type hints; using TensorOf 1 in the definition
--- of VectorLike class may be enough
 nestedBuildMap :: forall r. ADReady r => r -> TensorOf 1 r
 nestedBuildMap r =
   let w = tkonst0N [4]  -- (AstIntCond (x `leqAst` 0) 3 4)
       v' = tkonst0N [177] (tscalar r) :: TensorOf 1 r
       nestedMap x = tmap0N (x /) (w (tscalar x))
-      variableLengthBuild iy = tbuild1 7 (\ix -> tindex v' [ix + iy]) :: TensorOf 1 r
+      variableLengthBuild iy = tbuild1 7 (\ix -> tindex v' [ix + iy])
       doublyBuild = tbuild1 5 (tminimum0 . variableLengthBuild)
   in tmap0N (\x -> x
                   * tunScalar (tsum0
@@ -144,7 +142,6 @@ barRelu
   => TensorOf n r -> TensorOf n r
 barRelu x = relu1 $ bar (x, relu1 x)
 
--- TODO: merge with the above once rank-polymorphic relu is recovered
 barReluAst
   :: (KnownNat n, Numeric r, RealFloat r, Floating (Vector r))
   => Ast n r -> Ast n r
@@ -195,8 +192,9 @@ braidedBuilds r =
 
 recycled :: ADReady r
          => r -> TensorOf 5 r
-recycled r = tbuild1 2 $ \_ -> tbuild1 4 $ \_ -> tbuild1 2 $ \_ -> tbuild1 3 $ \_ ->
-               nestedSumBuild (tkonst0N [7] (tscalar r))
+recycled r =
+  tbuild1 2 $ \_ -> tbuild1 4 $ \_ -> tbuild1 2 $ \_ -> tbuild1 3 $ \_ ->
+    nestedSumBuild (tkonst0N [7] (tscalar r))
 
 concatBuild :: ADReady r => r -> TensorOf 2 r
 concatBuild r =
@@ -209,7 +207,7 @@ concatBuild r =
 --                     (tkonst0N [1] (tfromIntOf0 i)))
 --            (tbuild1 (13 - i) (\_k -> tscalar r)))
 
--- TODOL
+-- TODO:
 _concatBuild2 :: ADReady r => r -> TensorOf 2 r
 _concatBuild2 _r =
 -- TODO: tbuild0N (7, 14) (\ (i,j)
@@ -452,15 +450,24 @@ testF2 =
 
 testF3 :: Assertion
 testF3 = do
-  let input = 1.1
-      expected = 470.0
-      fAst = -- unScalar $
--- TODO:        interpretAst (IM.singleton 0 (AstVarR input))
-                     (f3 @(Ast 0 Double) (AstVar [] (AstVarName 0)))
-      valViaAst = fAst  -- TODO: input
-      val = f3 @Double input
-  let _res = val @?~ expected in return ()  -- stubs would fail
-  let _res2 = valViaAst {-TODO: @?~ expected-} in return ()  -- stubs would fail
+  let input = [1.1 :: Double]
+      expected = [470.0]
+      domainsInput =
+        domainsFrom0V V.empty (V.singleton (V.fromList input))
+      domainsExpected =
+        domainsFrom0V V.empty (V.singleton (V.fromList expected))
+      dt = tscalar 1
+      (astGrad, astValue) =
+        revOnDomains dt
+          (\adinputs ->
+             interpretAst (IM.singleton 0
+                             (AstVarR $ from1X $ at1 @1 adinputs 0))
+                          (f3 (AstVar [] (AstVarName 0))))
+          domainsInput
+      val = f3 $ OR.fromList [] input
+  let _ = astValue @?~ val
+  let _ = domains1 astGrad @?~ domains1 domainsExpected
+  return ()  -- dummy instance for -> and Ast rewrites don't remove -> yet
 
 testBraidedBuilds :: Assertion
 testBraidedBuilds =
@@ -476,6 +483,6 @@ testRecycled =
 
 testConcatBuild :: Assertion
 testConcatBuild =
-  testPolyn concatBuild [7, 14]
+  testPolyn concatBuild [7, 19]
   3.4
-  91
+  126.0

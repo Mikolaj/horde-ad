@@ -10,7 +10,7 @@
 -- (and safely impure) API in "HordeAd.Core.DualClass". The other part
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.TensorClass
-  ( HasPrimal(..), Tensor(..)
+  ( ADModeAndNumTensor, HasPrimal(..), Tensor(..)
   , interpretAst, AstVar(..)
   , ADReady
   , scalar, unScalar, leqAst, gtAst, gtIntAst, relu1, reluLeaky1, reluAst1
@@ -511,6 +511,8 @@ instance Tensor r
          => Tensor (a -> r) where
   type TensorOf n (a -> r) = ORB.Array n (a -> r)
   type IntOf (a -> r) = IntOf r
+  tscalar = ORB.scalar
+  tunScalar = ORB.unScalar
 
 
 -- * ADVal combinators generalizing ranked tensor operations
