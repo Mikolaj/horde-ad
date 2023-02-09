@@ -173,7 +173,7 @@ testFooBuild :: Assertion
 testFooBuild =
   assertEqualUpToEpsilon 1e-10
     (OR.fromList [4] [-4521.201512195087,-5568.7163677622175,-5298.386349932494,-4907.349735554627])
-    (revDt @(OR.Array 1 Double) fooBuild1 (OR.fromList [4] [1.1, 2.2, 3.3, 4]) (OR.constant [3] 1))
+    (rev @(OR.Array 1 Double) fooBuild1 (OR.fromList [4] [1.1, 2.2, 3.3, 4]))
 
 
 

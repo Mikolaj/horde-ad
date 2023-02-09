@@ -22,7 +22,7 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.Random
 
-import HordeAd.Core.DualClass (Dual)
+import HordeAd.Core.DualClass (Dual, inputConstant)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors
@@ -51,7 +51,7 @@ rev :: forall a vals r advals d.
        , Adaptable advals )
     => (advals -> ADVal d a) -> vals
     -> vals
-rev f vals = revDt f vals 1
+rev f vals = revDtFun f vals (inputConstant 1)
 
 -- This version additionally takes the sensitivity parameter.
 revDt :: forall a vals r advals d.
@@ -61,9 +61,19 @@ revDt :: forall a vals r advals d.
          , Adaptable advals )
       => (advals -> ADVal d a) -> vals -> a
       -> vals
-revDt f vals dt =
+revDt f vals dt = revDtFun f vals (const dt)
+
+-- This version additionally takes a function producing sensitivity parameter.
+revDtFun :: forall a vals r advals d.
+            ( r ~ Scalar vals, vals ~ Value advals
+            , d ~ Mode advals, d ~ 'ADModeGradient
+            , HasDelta r, IsPrimalAndHasInputs d a r
+            , Adaptable advals )
+         => (advals -> ADVal d a) -> vals -> (a -> a)
+         -> vals
+revDtFun f vals dt =
   let g inputs = f $ parseADInputs vals inputs
-  in parseDomains vals $ fst $ revOnDomains dt g (toDomains vals)
+  in parseDomains vals $ fst $ revOnDomainsFun dt g (toDomains vals)
 
 -- This takes the sensitivity parameter, by convention.
 fwd :: forall a vals r advals d.

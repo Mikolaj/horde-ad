@@ -147,6 +147,7 @@ instance (IsPrimalR d r, KnownNat n) => IsPrimal d (OR.Array n r) where
 class HasInputs a where
   dInput :: InputId a -> Dual 'ADModeGradient a
   packDeltaDt :: a -> Dual 'ADModeGradient a -> DeltaDt (Element a)
+  inputConstant :: Element a -> a -> a
 
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
@@ -300,18 +301,22 @@ instance IsPrimalR 'ADModeGradient r where
 instance HasInputs Double where
   dInput = Input0
   packDeltaDt = DeltaDt0
+  inputConstant r _tsh = r
 
 instance HasInputs Float where
   dInput = Input0
   packDeltaDt = DeltaDt0
+  inputConstant r _tsh = r
 
-instance KnownNat n => HasInputs (OR.Array n r) where
+instance (Numeric r, KnownNat n) => HasInputs (OR.Array n r) where
   dInput = undefined  -- not needed
   packDeltaDt = DeltaDt1
+  inputConstant r tsh = OR.constant (OR.shapeL tsh) r
 
 instance HasInputs (OT.Array r) where
   dInput = InputX
   packDeltaDt = undefined  -- not needed
+  inputConstant = undefined  -- not needed
 
 -- | This is an impure instance. See above.
 instance Dual 'ADModeGradient r ~ Delta0 r

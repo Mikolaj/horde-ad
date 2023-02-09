@@ -7,7 +7,7 @@
 -- are add-ons.
 module HordeAd.Core.Engine
   ( -- * The most often used part of the high-level API
-    revOnDomains, fwdOnDomains, valueOnDomains
+    revOnDomainsFun, revOnDomains, fwdOnDomains, valueOnDomains
   , -- * The less often used part of the high-level API
     valueGeneral
   , -- * Operations exposed not for the library users but add-on makers
@@ -69,7 +69,7 @@ valueOnDomains f parameters =
 
 revOnADInputs
   :: (HasDelta r, IsPrimalAndHasInputs 'ADModeGradient a r)
-  => a
+  => (a -> a)
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
   -> ADInputs 'ADModeGradient r
   -> (Domains r, a)
@@ -82,7 +82,7 @@ revOnADInputs dt f inputs@ADInputs{..} =
       -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started
       !(D v deltaTopLevel) = f inputs
-      deltaDt = packDeltaDt dt deltaTopLevel
+      deltaDt = packDeltaDt (dt v) deltaTopLevel
   in let gradient = gradientFromDelta dim0 dim1 deltaDt
      in (gradient, v)
 
@@ -90,16 +90,24 @@ revOnADInputs dt f inputs@ADInputs{..} =
 -- names, but newbies may have trouble understanding it.
 -- Also, as of now, @revOnDomains@ is restricted to objective functions with scalar
 -- codomains, while VJP is fully general.
+revOnDomainsFun
+  :: (HasDelta r, IsPrimalAndHasInputs 'ADModeGradient a r)
+  => (a -> a)
+  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
+  -> Domains r
+  -> (Domains r, a)
+revOnDomainsFun dt f parameters =
+  let deltaInputs = generateDeltaInputs parameters
+      inputs = makeADInputs parameters deltaInputs
+  in revOnADInputs dt f inputs
+
 revOnDomains
   :: (HasDelta r, IsPrimalAndHasInputs 'ADModeGradient a r)
   => a
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
   -> Domains r
   -> (Domains r, a)
-revOnDomains dt f parameters =
-  let deltaInputs = generateDeltaInputs parameters
-      inputs = makeADInputs parameters deltaInputs
-  in revOnADInputs dt f inputs
+revOnDomains dt = revOnDomainsFun (const dt)
 
 
 -- * The slow evaluation for derivatives that uses the same
