@@ -112,8 +112,8 @@ grad_foo = rev @r foo
 testFoo :: Assertion
 testFoo =
   assertEqualUpToEpsilon 1e-10
-    (grad_foo (1.1 :: Double, 2.2, 3.3))
     (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
+    (grad_foo (1.1 :: Double, 2.2, 3.3))
 
 -- End of current README
 
@@ -125,8 +125,8 @@ bar (x,y,z) =
 testBar :: Assertion
 testBar =
   assertEqualUpToEpsilon 1e-9
-    (rev (bar @(ADVal 'ADModeGradient Double)) (1.1, 2.2, 3.3))
     (6.221706565357043, -12.856908977773593, 6.043601532156671)
+    (rev (bar @(ADVal 'ADModeGradient Double)) (1.1, 2.2, 3.3))
 
 -- A check if gradient computation is re-entrant.
 -- This test fails (not on first run, but on repetition) if old terms,
@@ -154,8 +154,8 @@ fooConstant = foo (7, 8, 9)
 testBaz :: Assertion
 testBaz =
   assertEqualUpToEpsilon 1e-9
-    (rev baz (1.1, 2.2, 3.3))
     (0, -5219.20995030263, 2782.276274462047)
+    (rev baz (1.1, 2.2, 3.3))
 
 -- If terms are numbered and @z@ is, wrongly, decorated with number 0,
 -- here @fooConstant@ is likely to clash with @z@, since it was numbered
@@ -170,8 +170,8 @@ testBaz =
 testBazRenumbered :: Assertion
 testBazRenumbered =
   assertEqualUpToEpsilon 1e-9
-    (rev (\(x,y,z) -> z + baz (x,y,z)) (1.1, 2.2, 3.3))
     (0, -5219.20995030263, 2783.276274462047)
+    (rev (\(x,y,z) -> z + baz (x,y,z)) (1.1, 2.2, 3.3))
 
 -- A dual-number and list-based version of a function that goes
 -- from `R^3` to `R`.
@@ -184,8 +184,8 @@ fooD _ = error "wrong number of arguments"
 testFooD :: Assertion
 testFooD =
   assertEqualUpToEpsilon 1e-10
-    (rev fooD [1.1 :: Double, 2.2, 3.3])
     [2.4396285219055063, -1.953374825727421, 0.9654825811012627]
+    (rev fooD [1.1 :: Double, 2.2, 3.3])
 
 -- A dual-number version of a function that goes from three rank one
 -- (vector-like) tensors to `R`. It multiplies first elements
@@ -207,15 +207,15 @@ fooS MkSNat MkSNat MkSNat MkSNat (x1, x2, x3, x4) =
 testFooS :: Assertion
 testFooS =
   assertEqualUpToEpsilon 1e-12
+    ( OS.fromList [37.834999999999994]
+    , OS.fromList [0, 18.095000000000002, 0, 0, 0]
+    , OS.fromList [0, 0, 11.891]
+    , OS.fromList [0, 0, 0, 8.854999999999999] )
     (rev (fooS (MkSNat @1) (MkSNat @5) (MkSNat @3) (MkSNat @4))
          ( OS.fromList [1.1 :: Double]
          , OS.fromList [2.2, 2.3, 7.2, 7.3, 7.4]
          , OS.fromList [3.3, 3.4, 3.5]
          , OS.fromList [4.4, 4.5, 4.6, 4.7]) )
-    ( OS.fromList [37.834999999999994]
-    , OS.fromList [0, 18.095000000000002, 0, 0, 0]
-    , OS.fromList [0, 0, 11.891]
-    , OS.fromList [0, 0, 0, 8.854999999999999] )
 
 barS :: (ADModeAndNum d r, OS.Shape sh)
      => SNat n1 -> SNat n2
@@ -253,12 +253,12 @@ bar_3_75 = value (ravelFromListS . barS (MkSNat @3) (MkSNat @75))
 testBarV :: Assertion
 testBarV =
   assertEqualUpToEpsilon 1e-12
+    (OS.constant 46.2)
     (bar_3_75 @Double @2 @'[3, 337]
        ( 1.1
        , OS.constant 17.3  -- TODO: create more interesting test data
        , [ OS.constant 2.4
          , OS.constant 3.6 ] ))
-    (OS.constant 46.2)
 
 bar_jvp_3_75
   :: forall r sh d.
@@ -281,6 +281,7 @@ bar_jvp_3_75 = fwd (head . barS (MkSNat @3) (MkSNat @75))
 testBarF :: Assertion
 testBarF =
   assertEqualUpToEpsilon 1e-7
+    (OS.constant 88.2)
     (bar_jvp_3_75 @Double @'[12, 2, 5, 2]
        ( 1.1
        , OS.constant 17.3  -- TODO: create more interesting test data
@@ -290,7 +291,6 @@ testBarF =
        , OS.constant 18.3
        , [ OS.constant 3.4
          , OS.constant 4.6 ] ))  -- ds
-    (OS.constant 88.2)
 
 bar_rev_3_75
   :: forall r sh d.
@@ -312,15 +312,15 @@ bar_rev_3_75 = rev ((head :: [ADVal d (OS.Array (n1 ': sh) r)]
 testBarR :: Assertion
 testBarR =
   assertEqualUpToEpsilon 1e-7
+    ( 1288980.0
+    , OS.constant 0
+    , [ OS.constant 0
+      , OS.constant 0 ] )
     (bar_rev_3_75 @Double @'[2, 3, 341, 1, 5]
        ( 1.1
        , OS.constant 17.3  -- TODO: create more interesting test data
        , [ OS.constant 2.4
          , OS.constant 3.6 ] ))  -- input
-    ( 1288980.0
-    , OS.constant 0
-    , [ OS.constant 0
-      , OS.constant 0 ] )
 
 fooNoGo :: forall r d. ADModeAndNum d r
         => ADVal d (Vector r) -> ADVal d (Vector r)
@@ -341,8 +341,8 @@ testFooNoGo =
 testFooNoGoAdaptor :: Assertion
 testFooNoGoAdaptor =
   assertEqualUpToEpsilon 1e-7
-    (rev fooNoGo (V.fromList [1.1 :: Double, 2.2, 3.3, 4, 5]))
     (V.fromList [0,0,0,0,0])  -- correct gradient despite ignored input
+    (rev fooNoGo (V.fromList [1.1 :: Double, 2.2, 3.3, 4, 5]))
 
 
 -- Most of the following is borrowed from https://github.com/benl23x5/adops.
@@ -531,7 +531,7 @@ test_conv2d_dInp =
       -- Compare the ad version against the manual derivative.
       dInp = conv2d_dInp arrK arrB
       vjp  = revDt (conv2d (constant arrK)) arrA arrB
-  in assertEqualUpToEpsilon 1e-7 vjp dInp
+  in assertEqualUpToEpsilon 1e-7 dInp vjp
 
 test_conv2d_dKrn :: Assertion
 test_conv2d_dKrn =
@@ -544,7 +544,7 @@ test_conv2d_dKrn =
       -- Compare the ad version against the manual derivative.
       dKrn = conv2d_dKrn arrA arrB
       vjp  = revDt (`conv2d` constant arrA) arrK arrB
-  in assertEqualUpToEpsilon 1e-7 vjp dKrn
+  in assertEqualUpToEpsilon 1e-7 dKrn vjp
 
 static_conv2d
   :: forall r nImgs nCinp nCout nAh nAw nKh nKw

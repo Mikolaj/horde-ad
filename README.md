@@ -51,8 +51,8 @@ As a side note, `w` is processed only once during gradient computation and this 
 Do we want yet another example here, before we reach Jacobians or shaped tensors? Perhaps one with the testing infrastructure, e.g., generating a single set of random tensors, or a full QuickCheck example or just a simple
 ```hs
   assertEqualUpToEpsilon 1e-9
-    (rev bar (1.1, 2.2, 3.3))
     (6.221706565357043, -12.856908977773593, 6.043601532156671)
+    (rev bar (1.1, 2.2, 3.3))
 ```
 ? Or is there a risk the reader won't make it to the shaped example below if we tarry here? Or perhaps finish the shaped tensor example below with an invocation of `assertEqualUpToEpsilon`?
 -->

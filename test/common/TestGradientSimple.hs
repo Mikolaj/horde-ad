@@ -393,8 +393,8 @@ baseline1 x = 6 * x
 testBaseline1 :: Assertion
 testBaseline1 =
   assertEqualUpToEpsilon 1e-7
-    (dRev0 baseline1 1.5)
     (6, 9)
+    (dRev0 baseline1 1.5)
 
 build1ElementwiseSimple1
   :: ADModeAndNum d r
@@ -405,8 +405,8 @@ build1ElementwiseSimple1 x =
 testBuild1ElementwiseSimple1 :: Assertion
 testBuild1ElementwiseSimple1 =
   assertEqualUpToEpsilon 1e-7
-    (dRev0 build1ElementwiseSimple1 1.5)
     (6, 9)
+    (dRev0 build1ElementwiseSimple1 1.5)
 
 build1ClosureSimple1
   :: ADModeAndNum d r
@@ -417,8 +417,8 @@ build1ClosureSimple1 x =
 testBuild1ClosureSimple1 :: Assertion
 testBuild1ClosureSimple1 =
   assertEqualUpToEpsilon 1e-7
-    (dRev0 build1ClosureSimple1 1.5)
     (6, 9)
+    (dRev0 build1ClosureSimple1 1.5)
 
 
 baseline2
@@ -429,8 +429,8 @@ baseline2 x = x * x + x + 6 * x * x + 4 * x
 testBaseline2 :: Assertion
 testBaseline2 =
   assertEqualUpToEpsilon 1e-7
-    (dRev0 baseline2 1.5)
     (26.0,23.25)
+    (dRev0 baseline2 1.5)
 
 build1ElementwiseSimple2
   :: ADModeAndNum d r
@@ -444,8 +444,8 @@ build1ElementwiseSimple2 x =
 testBuild1ElementwiseSimple2 :: Assertion
 testBuild1ElementwiseSimple2 =
   assertEqualUpToEpsilon 1e-7
-    (dRev0 build1ElementwiseSimple2 1.5)
     (26.0,23.25)
+    (dRev0 build1ElementwiseSimple2 1.5)
 
 build1ClosureSimple2
   :: ADModeAndNum d r
@@ -458,8 +458,8 @@ build1ClosureSimple2 x =
 testBuild1ClosureSimple2 :: Assertion
 testBuild1ClosureSimple2 =
   assertEqualUpToEpsilon 1e-7
-    (dRev0 build1ClosureSimple2 1.5)
     (26.0,23.25)
+    (dRev0 build1ClosureSimple2 1.5)
 
 
 baseline3
@@ -470,8 +470,8 @@ baseline3 x = 5 * (x * x + x)
 testBaseline3 :: Assertion
 testBaseline3 =
   assertEqualUpToEpsilon 1e-7
-    (dRev0 baseline3 1.5)
     (20.0,18.75)
+    (dRev0 baseline3 1.5)
 
 build1ElementwiseSimple3
   :: ADModeAndNum d r
@@ -493,8 +493,8 @@ build1ElementwiseSimple3 x =
 testBuild1ElementwiseSimple3 :: Assertion
 testBuild1ElementwiseSimple3 =
   assertEqualUpToEpsilon 1e-7
-    (dRev0 build1ElementwiseSimple3 1.5)
     (20.0,18.75)
+    (dRev0 build1ElementwiseSimple3 1.5)
 
 build1ClosureSimple3
   :: ADModeAndNum d r
@@ -514,8 +514,8 @@ build1ClosureSimple3 x =
 testBuild1ClosureSimple3 :: Assertion
 testBuild1ClosureSimple3 =
   assertEqualUpToEpsilon 1e-7
-    (dRev0 build1ClosureSimple3 1.5)
     (20.0,18.75)
+    (dRev0 build1ClosureSimple3 1.5)
 
 simple0Tests :: TestTree
 simple0Tests = testGroup "Simple0Tests of build1"
