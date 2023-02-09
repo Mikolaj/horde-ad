@@ -1,6 +1,6 @@
 {-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances, OverloadedLists,
              RankNTypes, TypeFamilies #-}
-module TestSimplified (testTrees) where
+module TestAdaptorSimplified (testTrees) where
 
 import Prelude
 
@@ -19,27 +19,40 @@ import HordeAd
 import Tool.EqEpsilon
 
 testTrees :: [TestTree]
-testTrees = [ -- Tensor tests
-              testCase "barADVal" testBarADVal
-            , testCase "fooBuild" testFooBuild
-            , testCase "fooMap" testFooMap
-            , testCase "fooNoGoAst" testFooNoGoAst
-            , testCase "nestedBuildMap" testNestedBuildMap
-            , testCase "nestedSumBuild" testNestedSumBuild
-            , testCase "nestedBuildIndex" testNestedBuildIndex
-            , testCase "barReluADVal" testBarReluADVal
-            , testCase "barReluAst0" testBarReluAst0
-            , testCase "barReluAst1" testBarReluAst1
-            , testCase "konstReluAst" testKonstReluAst
-            , -- Tests by TomS:
-              testCase "F1" testF1
-            , testCase "F2" testF2
-            , testCase "F3" testF3
-            , -- Hairy tests
-              testCase "braidedBuilds" testBraidedBuilds
-            , testCase "recycled" testRecycled
-            , testCase "concatBuild" testConcatBuild
-            ]
+testTrees =
+  [ -- Tensor tests
+    testCase "2foo" testFoo
+  , testCase "2bar" testBar
+  , testCase "2barADVal" testBarADVal
+  , testCase "2baz old to force fooConstant" testBaz
+  , testCase "2baz new to check if mere repetition breaks things" testBaz
+  , testCase "2baz again to use fooConstant with renumbered terms" testBazRenumbered
+  , testCase "2fooD T Double [1.1, 2.2, 3.3]" testFooD
+  , testCase "2fooBuildDt" testFooBuildDt
+  , testCase "2fooBuild" testFooBuild
+
+
+
+
+
+  , testCase "2fooMap" testFooMap
+  , testCase "2fooNoGoAst" testFooNoGoAst
+  , testCase "2nestedBuildMap" testNestedBuildMap
+  , testCase "2nestedSumBuild" testNestedSumBuild
+  , testCase "2nestedBuildIndex" testNestedBuildIndex
+  , testCase "2barReluADVal" testBarReluADVal
+  , testCase "2barReluAst0" testBarReluAst0
+  , testCase "2barReluAst1" testBarReluAst1
+  , testCase "2konstReluAst" testKonstReluAst
+  , -- Tests by TomS:
+    testCase "2F1" testF1
+  , testCase "2F2" testF2
+  , testCase "2F3" testF3
+  , -- Hairy tests
+    testCase "2braidedBuilds" testBraidedBuilds
+  , testCase "2recycled" testRecycled
+  , testCase "2concatBuild" testConcatBuild
+  ]
 
 
 -- * Tensor tests
@@ -49,19 +62,96 @@ foo (x,y,z) =
   let w = x * sin y
   in atan2 z w + z * w
 
+testFoo :: Assertion
+testFoo =
+  assertEqualUpToEpsilon 1e-10
+    (2.4396285219055063, -1.953374825727421, 0.9654825811012627)
+    (rev @Double foo (1.1, 2.2, 3.3))
+
 bar :: forall a. RealFloat a => (a, a) -> a
 bar (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2 x w + y * w
 
-barAst :: (Numeric r, RealFloat r, RealFloat (Vector r))
-       => (Ast 0 r, Ast 0 r) -> Ast 0 r
-barAst (x, y) =
-  let w = foo (x, y, x) * sin y
-  in atan2 x w + y * w
+testBar :: Assertion
+testBar =
+  assertEqualUpToEpsilon 1e-9
+    (3.1435239435581166,-1.1053869545195814)
+    (rev (bar @(ADVal 'ADModeGradient Double)) (1.1, 2.2))
 
 barADVal :: forall r d. ADModeAndNum d r => (ADVal d r, ADVal d r) -> ADVal d r
 barADVal = bar @(ADVal d r)
+
+testBarADVal :: Assertion
+testBarADVal =
+  assertEqualUpToEpsilon 1e-9
+    (11.49618087412679,-135.68959896367525)
+    (revDt (barADVal @Double @'ADModeGradient) (1.1, 3) 42.2)
+
+barADVal2 :: forall r a. (a ~ ADVal 'ADModeGradient r, r ~ Double)
+          => (a, a, a) -> a
+barADVal2 (x,y,z) =
+  let w = foo (x,y,z) * sin y
+  in atan2 z w + z * w
+
+-- A check if gradient computation is re-entrant.
+-- This test fails (not on first run, but on repetition) if old terms,
+-- from before current iteration of gradient descent, are not soundly
+-- handled in new computations (due to naive impurity, TH, plugins,
+-- or just following the papers that assume a single isolated run).
+-- This example requires monomorphic types and is contrived,
+-- but GHC does optimize and factor out some accidentally constant
+-- subterms in real examples (presumably after it monomorphizes them)
+-- causing exactly the same danger.
+-- This example also tests unused parameters (x), another common cause
+-- of crashes in naive gradient computing code.
+baz :: ( ADVal 'ADModeGradient Double
+       , ADVal 'ADModeGradient Double
+       , ADVal 'ADModeGradient Double )
+    -> ADVal 'ADModeGradient Double
+baz (_x,y,z) =
+  let w = fooConstant * barADVal2 (y,y,z) * sin y
+  in atan2 z w + z * w
+
+-- An "old term", computed once, stored at top level.
+fooConstant :: ADVal 'ADModeGradient Double
+fooConstant = foo (7, 8, 9)
+
+testBaz :: Assertion
+testBaz =
+  assertEqualUpToEpsilon 1e-9
+    (0, -5219.20995030263, 2782.276274462047)
+    (rev baz (1.1, 2.2, 3.3))
+
+-- If terms are numbered and @z@ is, wrongly, decorated with number 0,
+-- here @fooConstant@ is likely to clash with @z@, since it was numbered
+-- starting from 0, too.
+-- The test fails if term numbering is reset to 0 between gradient computation
+-- runs (verified) as well as when delta-expression evaluation assumes
+-- it can only encounter terms numbered in the current run and,
+-- e.g., allocates an array with only that much space (not verified).
+-- Actually, with term counter zeroed just before @rev@ application,
+-- even a single @testBaz@ execution produces wrong results, but this test
+-- is likely to fail in less naive implementations, as well.
+testBazRenumbered :: Assertion
+testBazRenumbered =
+  assertEqualUpToEpsilon 1e-9
+    (0, -5219.20995030263, 2783.276274462047)
+    (rev (\(x,y,z) -> z + baz (x,y,z)) (1.1, 2.2, 3.3))
+
+-- A dual-number and list-based version of a function that goes
+-- from `R^3` to `R`.
+fooD :: forall r d. ADModeAndNum d r => [ADVal d r] -> ADVal d r
+fooD [x, y, z] =
+  let w = x * sin y
+  in atan2 z w + z * w
+fooD _ = error "wrong number of arguments"
+
+testFooD :: Assertion
+testFooD =
+  assertEqualUpToEpsilon 1e-10
+    [2.4396285219055063, -1.953374825727421, 0.9654825811012627]
+    (rev fooD [1.1 :: Double, 2.2, 3.3])
 
 fooBuild1 :: ADReady r => TensorOf 1 r -> TensorOf 1 r
 fooBuild1 v =
@@ -73,10 +163,48 @@ fooBuild1 v =
                , r * tminimum0 v * v')
        + bar (r, tindex v [ix + 1])
 
+testFooBuildDt :: Assertion
+testFooBuildDt =
+  assertEqualUpToEpsilon 1e-10
+    (OR.fromList [4] [-189890.46351219364,-233886.08744601303,-222532.22669716467,-206108.68889329425])
+    (revDt @(OR.Array 1 Double) fooBuild1 (OR.fromList [4] [1.1, 2.2, 3.3, 4]) (OR.constant [3] 42))
+
+testFooBuild :: Assertion
+testFooBuild =
+  assertEqualUpToEpsilon 1e-10
+    (OR.fromList [4] [-4521.201512195087,-5568.7163677622175,-5298.386349932494,-4907.349735554627])
+    (revDt @(OR.Array 1 Double) fooBuild1 (OR.fromList [4] [1.1, 2.2, 3.3, 4]) (OR.constant [3] 1))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 fooMap1 :: ADReady r => r -> TensorOf 1 r
 fooMap1 r =
   let v = fooBuild1 $ tkonst0N [130] (tscalar r)
   in tmap0N (\x -> x * r + 5) v
+
+barAst :: (Numeric r, RealFloat r, RealFloat (Vector r))
+       => (Ast 0 r, Ast 0 r) -> Ast 0 r
+barAst (x, y) =
+  let w = foo (x, y, x) * sin y
+  in atan2 x w + y * w
 
 -- A test with conditionals. We haven't defined a class for conditionals so far,
 -- so this uses raw AST instead of sufficiently polymorphic code.
@@ -332,24 +460,12 @@ testPolyn f sh input expected = do
   domains0 astGrad @?~ domains0 domainsExpected
   domains0 advalGrad @?~ domains0 domainsExpected
 
--- In these tests we refrain from using the highest level API
--- (adaptors), so the testing glue is tedious:
-testBarADVal :: Assertion
-testBarADVal =
-  (domains0 $ fst
-   $ revOnDomains
-       42.2
-       (\adinputs -> barADVal (adinputs `at0` 0, adinputs `at0` 1))
-       (domainsFrom01 (V.fromList [1.1 :: Double, 3]) V.empty))
-  @?~ V.fromList [11.49618087412679,-135.68959896367525]
 
--- For sufficiently polymorphic code, we test vectorization with a fallback
--- to other methods, so the test harness is even more complex.
-testFooBuild :: Assertion
-testFooBuild =
-  testPoly11 fooBuild1 3
-    [1.1, 2.2, 3.3, 4]
-    [-4521.201512195087,-5568.7163677622175,-5298.386349932494,-4907.349735554627]
+
+
+
+
+
 
 testFooMap :: Assertion
 testFooMap =

@@ -657,7 +657,8 @@ test-suite simplifiedOnlyTest
 
     main-is:          SimplifiedOnlyTest.hs
 
-    other-modules:    TestSimplified
+    other-modules:    TestAdaptorSimplified
+                      TestSimplified
 
     build-depends:
       , horde-ad-simplified
