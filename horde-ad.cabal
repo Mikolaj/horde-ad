@@ -658,6 +658,7 @@ test-suite simplifiedOnlyTest
     main-is:          SimplifiedOnlyTest.hs
 
     other-modules:    TestAdaptorSimplified
+                      TestBuildSimplified
                       TestSimplified
 
     build-depends:

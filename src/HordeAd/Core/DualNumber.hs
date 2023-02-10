@@ -1132,7 +1132,8 @@ slicezS d ixBase =
     -- TODO: check at least at runtime that ixBase has the right length;
     -- my version is less precisely typed than the adops original;
     -- to improve, I'd need sized lists, but probably orthotope
-    -- doesn't use them (e.g., in @generate@) for a good reason
+    -- doesn't use them (e.g., in @generate@) for a good reason;
+    -- TODO: now that we have sized lists, we can improve
 
 -- | Retrieve the element at the given index,
 --   returning zero for out of range indices.

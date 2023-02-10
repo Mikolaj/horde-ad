@@ -1,6 +1,6 @@
 {-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances, OverloadedLists,
              RankNTypes, TypeFamilies #-}
-module TestAdaptorSimplified (testTrees) where
+module TestAdaptorSimplified (testTrees, rev', assertEqualUpToEpsilon') where
 
 import Prelude
 
