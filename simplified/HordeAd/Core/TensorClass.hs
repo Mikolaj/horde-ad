@@ -773,7 +773,6 @@ interpretAst env = \case
   AstAppend x y -> append (interpretAst env x) (interpretAst env y)
   AstSlice i k v -> slice i k (interpretAst env v)
   AstReverse v -> reverse' (interpretAst env v)
-  AstTranspose v -> interpretAst env $ AstTransposeGeneral [1, 0] v
   AstTransposeGeneral perm v ->
     let d = interpretAst env v
     in if lengthShape (shape d) < length perm

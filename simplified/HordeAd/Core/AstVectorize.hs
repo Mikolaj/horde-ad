@@ -104,30 +104,28 @@ build1V k (var, v0) =
       -- and then some things simplify a lot, e.g., if constant index,
       -- we may just pick the right element of a AstFromList
     AstSum v -> traceRule $
-      AstTranspose $ AstSum $ AstTranspose $ build1V k (var, v)
+      astTranspose $ AstSum $ astTranspose $ build1V k (var, v)
       -- that's because @build1 k (f . g) == map1 f (build1 k g)@
       -- and @map1 f == transpose . f . transpose@
       -- TODO: though only for some f; check and fail early
     AstFromList l -> traceRule $
-      AstTranspose
+      astTranspose
       $ AstFromList (map (\v -> build1VOccurenceUnknown k (var, v)) l)
     AstFromVector l -> traceRule $
-      AstTranspose
+      astTranspose
       $ AstFromVector (V.map (\v -> build1VOccurenceUnknown k (var, v)) l)
     AstKonst s v -> traceRule $
-      AstTranspose $ AstKonst s $ AstTranspose $ build1V k (var, v)
+      astTranspose $ AstKonst s $ astTranspose $ build1V k (var, v)
     AstAppend v w -> traceRule $
-      AstTranspose $ AstAppend
-                       (AstTranspose $ build1VOccurenceUnknown k (var, v))
-                       (AstTranspose $ build1VOccurenceUnknown k (var, w))
+      astTranspose $ AstAppend
+                       (astTranspose $ build1VOccurenceUnknown k (var, v))
+                       (astTranspose $ build1VOccurenceUnknown k (var, w))
     AstSlice i s v -> traceRule $
-      AstTranspose $ AstSlice i s $ AstTranspose $ build1V k (var, v)
+      astTranspose $ AstSlice i s $ astTranspose $ build1V k (var, v)
     AstReverse v -> traceRule $
-      AstTranspose $ AstReverse $ AstTranspose $ build1V k (var, v)
-    AstTranspose v -> traceRule $
-      build1V k (var, AstTransposeGeneral [1, 0] v)
+      astTranspose $ AstReverse $ astTranspose $ build1V k (var, v)
     AstTransposeGeneral perm v -> traceRule $
-      AstTransposeGeneral (0 : map succ perm) $ build1V k (var, v)
+      astTransposeGeneral (0 : map succ perm) $ build1V k (var, v)
     AstFlatten v -> traceRule $
       build1V k (var, AstReshape (flattenShape $ shapeAst v0) v)
         -- TODO: alternatively we could introduce a subtler operation than
@@ -227,7 +225,7 @@ build1VIx k (var, v0, is@(_ :. _)) =
       build1VIxOccurenceUnknown k (var, v, appendIndex is is2)
     AstSum v -> traceRule $
       build1V k
-        (var, AstSum (AstTranspose $ AstIndexN (AstTranspose v) is))
+        (var, AstSum (astTranspose $ AstIndexN (astTranspose v) is))
           -- that's because @index (sum v) i == sum (map (index i) v)@
     AstFromList l | intVarInAstInt var i1 -> traceRule $
       -- This is pure desperation. I build separately for each list element,
@@ -269,16 +267,6 @@ build1VIx k (var, v0, is@(_ :. _)) =
       let revIs = AstIntOp MinusIntOp [AstIntConst (lengthAst v - 1), i1]
                   :. rest1
       in build1VIx k (var, v, revIs)
-    AstTranspose v -> traceRule $
-      case (rest1, shapeAst v) of
-        (ZI, ZS) ->
-          error
-            "build1VIx: AstTranspose: impossible pattern needlessly required"
-        (ZI, _ :$ ZS) -> build1VIx k (var, v, is)
-          -- if rank too low, the operation is set to be identity
-        (ZI, _) ->
-          AstBuild1 k (var, AstIndexN v0 is)  -- we give up see below
-        (i2 :. rest2, _) -> build1VIx k (var, v, i2 :. i1 :. rest2)
     AstTransposeGeneral perm v -> traceRule $
       let lenp = length perm
           is2 = permutePrefixIndex perm is

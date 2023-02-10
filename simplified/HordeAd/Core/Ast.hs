@@ -15,6 +15,7 @@ module HordeAd.Core.Ast
   , shapeAst, lengthAst
   , intVarInAst, intVarInAstInt, intVarInAstBool
   , substituteAst, substituteAstInt, substituteAstBool
+  , astTranspose, astTransposeGeneral
   ) where
 
 import Prelude
@@ -76,7 +77,6 @@ data Ast :: Nat -> Type -> Type where
   AstSlice :: Int -> Int -> Ast (1 + n) r -> Ast (1 + n) r
   AstReverse :: KnownNat n
              => Ast n r -> Ast n r
-  AstTranspose :: Ast n r -> Ast n r
   AstTransposeGeneral :: Permutation -> Ast n r -> Ast n r
     -- emerges from vectorizing AstTranspose
   AstFlatten :: KnownNat n
@@ -110,6 +110,27 @@ data Ast :: Nat -> Type -> Type where
     -- into these for better performance on some hardware
 
 deriving instance (Show r, Numeric r) => Show (Ast n r)
+
+-- Combinators are provided instead of some constructors in order
+-- to lower the number of constructors and/or simplify terms
+
+astTranspose :: KnownNat n => Ast n r -> Ast n r
+astTranspose v = astTransposeGeneral [1, 0] v
+
+astTransposeGeneral :: forall n r. KnownNat n
+                    => Permutation -> Ast n r -> Ast n r
+astTransposeGeneral perm t | valueOf @n < length perm = t
+  -- the operation is an identity if rank too small
+astTransposeGeneral perm t | isIdentityPerm perm = t
+astTransposeGeneral perm1 (AstTransposeGeneral perm2 t) =
+  let perm2Matched =
+        perm2 ++ take (length perm1 - length perm2) (drop (length perm2) [0 ..])
+      perm = permutePrefixList perm1 perm2Matched
+  in astTransposeGeneral perm t
+astTransposeGeneral perm u = AstTransposeGeneral perm u
+
+isIdentityPerm :: Permutation -> Bool
+isIdentityPerm = and . zipWith (==) [0 ..]
 
 newtype AstPrimalPart n r = AstPrimalPart {unAstPrimalPart :: Ast n r}
  deriving Show
@@ -317,9 +338,6 @@ shapeAst v1 = case v1 of
       yi :$ _ -> xi + yi :$ xsh
   AstSlice _n k v -> k :$ tailShape (shapeAst v)
   AstReverse v -> shapeAst v
-  AstTranspose v -> case shapeAst v of
-    i :$ k :$ sh -> k :$ i :$ sh
-    sh -> sh  -- the operation is identity if rank too small
   AstTransposeGeneral perm v ->
     if valueOf @n < length perm
     then shapeAst v  -- the operation is identity if rank too small
@@ -355,7 +373,6 @@ intVarInAst var = \case
   AstAppend v u -> intVarInAst var v || intVarInAst var u
   AstSlice _ _ v -> intVarInAst var v
   AstReverse v -> intVarInAst var v
-  AstTranspose v -> intVarInAst var v
   AstTransposeGeneral _ v -> intVarInAst var v
   AstFlatten v -> intVarInAst var v
   AstReshape _ v -> intVarInAst var v
@@ -404,7 +421,6 @@ substituteAst i var v1 = case v1 of
   AstAppend x y -> AstAppend (substituteAst i var x) (substituteAst i var y)
   AstSlice k s v -> AstSlice k s (substituteAst i var v)
   AstReverse v -> AstReverse (substituteAst i var v)
-  AstTranspose v -> AstTranspose (substituteAst i var v)
   AstTransposeGeneral perm v -> AstTransposeGeneral perm (substituteAst i var v)
   AstFlatten v -> AstFlatten (substituteAst i var v)
   AstReshape sh v -> AstReshape sh (substituteAst i var v)
