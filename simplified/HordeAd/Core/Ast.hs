@@ -112,7 +112,7 @@ data Ast :: Nat -> Type -> Type where
 deriving instance (Show r, Numeric r) => Show (Ast n r)
 
 -- Combinators are provided instead of some constructors in order
--- to lower the number of constructors and/or simplify terms
+-- to lower the number of constructors and/or simplify terms.
 
 astTranspose :: KnownNat n => Ast n r -> Ast n r
 astTranspose v = astTransposeGeneral [1, 0] v

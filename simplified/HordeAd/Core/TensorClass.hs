@@ -207,7 +207,7 @@ type IndexOf n r = Index n (IntOf r)
 -- but all its operations have straightforwardly generalized analogues below.
 -- Eventually, we'll remove @VectorNumeric@ or define it in terms of @Tensor@.
 class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
-      , Integral (IntOf r) )
+      , Integral (IntOf r), Numeric (ScalarOf r), RealFloat (ScalarOf r) )
       => Tensor r where
   type TensorOf (n :: Nat) r = result | result -> n r
   type IntOf r
@@ -318,6 +318,10 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tscalar :: r -> TensorOf 0 r
   tunScalar :: TensorOf 0 r -> r
 
+  type ScalarOf r
+  tconst :: KnownNat n
+         => OR.Array n (ScalarOf r) -> TensorOf n r
+
 type ADReady r = (Tensor r, HasPrimal r)
   -- TODO: there is probably no way to also specify
   -- HasPrimal (TensorOf 17 r))
@@ -359,6 +363,8 @@ instance Tensor Double where
   tbuild1 = tbuild1R
   tscalar = tscalarR
   tunScalar = tunScalarR
+  type ScalarOf Double = Double
+  tconst = id
 
 instance Tensor Float where
   type TensorOf n Float = OR.Array n Float
@@ -396,6 +402,8 @@ instance Tensor Float where
   -- tzipWith0N = tzipWith0NR
   tscalar = tscalarR
   tunScalar = tunScalarR
+  type ScalarOf Float = Float
+  tconst = id
 
 -- Not that this instance doesn't do vectorization. To enable it,
 -- use the Ast instance, which vectorizes and finally interpret in ADVal.
@@ -454,6 +462,9 @@ instance ADModeAndNumTensor d r
   tscalar = scalar
   tunScalar = unScalar
 
+  type ScalarOf (ADVal d r) = r
+  tconst t = dD t dZero
+
 instance ( Numeric r, RealFloat r, RealFloat (Vector r)
          , Show r, Numeric r )  -- needed only to display errors properly
          => Tensor (Ast 0 r) where
@@ -490,6 +501,9 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
 
   tscalar = id  -- Ast confuses the two ranks
   tunScalar = id
+
+  type ScalarOf (Ast 0 r) = r
+  tconst = AstConst
 
 instance ( Numeric r, RealFloat r, RealFloat (Vector r)
          , Show r, Numeric r )
@@ -532,6 +546,9 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   tscalar = id
   tunScalar = id
 
+  type ScalarOf (AstPrimalPart 0 r) = r
+  tconst = AstPrimalPart . AstConst
+
 astBuild1 :: (KnownNat n, Show r, Numeric r)
           => Int -> (AstInt r -> Ast n r) -> Ast (1 + n) r
 {-# NOINLINE astBuild1 #-}
@@ -552,6 +569,7 @@ instance Tensor r
   type BoolOf (a -> r) = BoolOf r
   tscalar = ORB.scalar
   tunScalar = ORB.unScalar
+  type ScalarOf (a -> r) = ScalarOf r
 
 
 -- * ADVal combinators generalizing ranked tensor operations
