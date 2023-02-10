@@ -12,7 +12,7 @@ module HordeAd.Core.SizedIndex
   , Index, pattern (:.), pattern ZI
   , singletonIndex, snocIndex, appendIndex
   , headIndex, tailIndex, takeIndex, dropIndex, permutePrefixIndex
-  , unsnocIndex1, lastIndex, initIndex
+  , unsnocIndex1, lastIndex, initIndex, zipIndex, zipWith_Index
   , listToIndex, indexToList
     -- * Tensor shapes as fully encapsulated sized lists, with operations
   , Shape, pattern (:$), pattern ZS
@@ -110,6 +110,17 @@ lastIndex (Index ix) = lastSized ix
 
 initIndex :: Index (1 + n) i -> Index n i
 initIndex (Index ix) = Index $ initSized ix
+
+zipIndex :: Index n i -> Index n j -> Index n (i, j)
+zipIndex ZI ZI = ZI
+zipIndex (i :. irest) (j :. jrest) = (i, j) :. zipIndex irest jrest
+zipIndex _ _ = error "zipIndex: impossible pattern needlessly required"
+
+zipWith_Index :: (i -> j -> k) -> Index n i -> Index n j -> Index n k
+zipWith_Index _ ZI ZI = ZI
+zipWith_Index f (i :. irest) (j :. jrest) = f i j :. zipWith_Index f irest jrest
+zipWith_Index _ _ _ =
+  error "zipWith_Index: impossible pattern needlessly required"
 
 permutePrefixIndex :: forall n i. KnownNat n
                    => Permutation -> Index n i -> Index n i
