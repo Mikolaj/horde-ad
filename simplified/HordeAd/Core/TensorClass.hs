@@ -10,10 +10,10 @@
 -- (and safely impure) API in "HordeAd.Core.DualClass". The other part
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.TensorClass
-  ( ADModeAndNumTensor, HasPrimal(..), Tensor(..)
+  ( ADModeAndNumTensor, HasPrimal(..), Tensor(..), IndexOf
   , interpretAst, AstVar(..)
   , ADReady
-  , scalar, unScalar, leqAst, gtAst, gtIntAst, relu1, reluLeaky1, reluAst1
+  , scalar, unScalar, leqAst, gtAst, relu1, reluLeaky1, reluAst1
   ) where
 
 import Prelude
@@ -52,9 +52,6 @@ leqAst d e = AstRel LeqOp [d, e]
 
 gtAst :: Ast 0 r -> Ast 0 r -> AstBool r
 gtAst d e = AstRel GtOp [d, e]
-
-gtIntAst :: AstInt r -> AstInt r -> AstBool r
-gtIntAst i j = AstRelInt GtOp [i, j]
 
 scale1 :: (HasPrimal (TensorOf n r), Num (TensorOf n r))
        => PrimalOf (TensorOf n r) -> TensorOf n r -> TensorOf n r
@@ -214,6 +211,19 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
       => Tensor r where
   type TensorOf (n :: Nat) r = result | result -> n r
   type IntOf r
+  leqInt :: IntOf r -> IntOf r -> BoolOf r
+  default leqInt
+    :: (IntOf r ~ Int, BoolOf r ~ Bool) => IntOf r -> IntOf r -> BoolOf r
+  leqInt = (<=)  -- not for Ast
+  gtInt :: IntOf r -> IntOf r -> BoolOf r
+  default gtInt
+    :: (IntOf r ~ Int, BoolOf r ~ Bool) => IntOf r -> IntOf r -> BoolOf r
+  gtInt = (>)  -- not for Ast
+
+  type BoolOf r
+  fromBool :: Bool -> BoolOf r
+  andBool :: BoolOf r -> BoolOf r -> BoolOf r
+  tcond :: BoolOf r -> TensorOf n r -> TensorOf n r -> TensorOf n r
 
   -- Integer codomain
   tshape :: KnownNat n => TensorOf n r -> ShapeInt n
@@ -221,7 +231,7 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tsize = sizeShape . tshape
   tlength :: KnownNat n => TensorOf (1 + n) r -> Int
   tlength v = case tshape v of
-    ZS -> error "tlength:  impossible pattern needlessly required"
+    ZS -> error "tlength: impossible pattern needlessly required"
     k :$ _ -> k
   tminIndex :: TensorOf 1 r -> IntOf r
   tmaxIndex :: TensorOf 1 r -> IntOf r
@@ -321,6 +331,10 @@ type ADReady r = (Tensor r, HasPrimal r)
 instance Tensor Double where
   type TensorOf n Double = OR.Array n Double
   type IntOf Double = Int
+  type BoolOf Double = Bool
+  fromBool = id
+  andBool = (&&)
+  tcond b t u = if b then t else u
   tshape = tshapeR
   tminIndex = tminIndexR
   tmaxIndex = tmaxIndexR
@@ -349,6 +363,10 @@ instance Tensor Double where
 instance Tensor Float where
   type TensorOf n Float = OR.Array n Float
   type IntOf Float = Int
+  type BoolOf Float = Bool
+  fromBool = id
+  andBool = (&&)
+  tcond b t u = if b then t else u
   tshape = tshapeR
   tminIndex = tminIndexR
   tmaxIndex = tmaxIndexR
@@ -388,6 +406,10 @@ instance ADModeAndNumTensor d r
          => Tensor (ADVal d r) where
   type TensorOf n (ADVal d r) = ADVal d (OR.Array n r)
   type IntOf (ADVal d r) = Int
+  type BoolOf (ADVal d r) = Bool
+  fromBool = id
+  andBool = (&&)
+  tcond b t u = if b then t else u
 
   -- Here and elsewhere I can't use methods of the @r@ instance of @Tensor@
   -- (the one implemented as @OR.Array n r@). Therefore, I inline them
@@ -437,6 +459,13 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
          => Tensor (Ast 0 r) where
   type TensorOf n (Ast 0 r) = Ast n r
   type IntOf (Ast 0 r) = AstInt r
+  leqInt i j = AstRelInt LeqOp [i, j]
+  gtInt i j = AstRelInt GtOp [i, j]
+
+  type BoolOf (Ast 0 r) = AstBool r
+  fromBool = AstBoolConst
+  andBool b c = AstBoolOp AndOp [b, c]
+  tcond = AstCond
 
   tshape = shapeAst
   tminIndex = AstMinIndex
@@ -467,6 +496,13 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
          => Tensor (AstPrimalPart 0 r) where
   type TensorOf n (AstPrimalPart 0 r) = AstPrimalPart n r
   type IntOf (AstPrimalPart 0 r) = AstInt r
+  leqInt i j = AstRelInt LeqOp [i, j]
+  gtInt i j = AstRelInt GtOp [i, j]
+
+  type BoolOf (AstPrimalPart 0 r) = AstBool r
+  fromBool = AstBoolConst
+  andBool b c = AstBoolOp AndOp [b, c]
+  tcond b (AstPrimalPart t) (AstPrimalPart u) = AstPrimalPart $ AstCond b t u
 
   tshape = shapeAst . unAstPrimalPart
   tminIndex = AstMinIndex . unAstPrimalPart
@@ -511,6 +547,9 @@ instance Tensor r
          => Tensor (a -> r) where
   type TensorOf n (a -> r) = ORB.Array n (a -> r)
   type IntOf (a -> r) = IntOf r
+  leqInt = undefined
+  gtInt = undefined
+  type BoolOf (a -> r) = BoolOf r
   tscalar = ORB.scalar
   tunScalar = ORB.unScalar
 

@@ -235,7 +235,7 @@ barAst (x, y) =
 
 -- A test with conditionals. We haven't defined a class for conditionals so far,
 -- so this uses raw AST instead of sufficiently polymorphic code.
-fooNoGoAst :: (Show r, Numeric r, RealFloat r, Floating (Vector r))
+fooNoGoAst :: forall r. (Show r, Numeric r, RealFloat r, Floating (Vector r))
            => Ast 1 r -> Ast 1 r
 fooNoGoAst v =
   let r = tsum0 v
@@ -243,7 +243,7 @@ fooNoGoAst v =
        barAst (3.14, bar (3.14, tindex v [ix]))
        + AstCond (AstBoolOp AndOp  -- TODO: overload &&, <=, >, etc.
                              [ tindex v [ix * 2] `leqAst` 0
-                             , 6 `gtIntAst` abs ix ])
+                             , gtInt @(Ast 0 r) 6 (abs ix) ])
                  r (5 * r))
      / tslice 1 3 (tmap0N (\x -> AstCond (x `gtAst` r) r x) v)
      * tbuild1 3 (const 1)
