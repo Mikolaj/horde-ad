@@ -30,22 +30,31 @@ testTrees =
   , testCase "2fooBuildDt" testFooBuildDt
   , testCase "2fooBuild" testFooBuild
   , testCase "2fooMap" testFooMap
+  , testCase "2fooMap1" testFooMap1
   , testCase "2fooNoGoAst" testFooNoGoAst
   , testCase "2nestedBuildMap" testNestedBuildMap
+  , testCase "2nestedBuildMap1" testNestedBuildMap1
   , testCase "2nestedSumBuild" testNestedSumBuild
   , testCase "2nestedBuildIndex" testNestedBuildIndex
+  , testCase "2barReluADValDt" testBarReluADValDt
   , testCase "2barReluADVal" testBarReluADVal
+  , testCase "2barReluADVal3" testBarReluADVal3
   , testCase "2barReluAst0" testBarReluAst0
   , testCase "2barReluAst1" testBarReluAst1
   , testCase "2konstReluAst" testKonstReluAst
   , -- Tests by TomS:
     testCase "2F1" testF1
+  , testCase "2F11" testF11
   , testCase "2F2" testF2
+  , testCase "2F21" testF21
   , testCase "2F3" testF3
   , -- Hairy tests
     testCase "2braidedBuilds" testBraidedBuilds
+  , testCase "2braidedBuilds1" testBraidedBuilds1
   , testCase "2recycled" testRecycled
+  , testCase "2recycled1" testRecycled1
   , testCase "2concatBuild" testConcatBuild
+  , testCase "2concatBuild1" testConcatBuild1
   ]
 
 rev' :: forall a r n m.
@@ -212,6 +221,12 @@ testFooMap =
     4.438131773948916e7
     (rev @(OR.Array 1 Double) fooMap1 1.1)
 
+testFooMap1 :: Assertion
+testFooMap1 =
+  assertEqualUpToEpsilon' 1e-6
+    4.438131773948916e7
+    (rev' @(OR.Array 1 Double) (fooMap1 . tunScalar) 1.1)
+
 barAst :: (Numeric r, RealFloat r, RealFloat (Vector r))
        => (Ast 0 r, Ast 0 r) -> Ast 0 r
 barAst (x, y) =
@@ -265,6 +280,12 @@ testNestedBuildMap =
     107.25984443006627
     (rev @(OR.Array 1 Double) nestedBuildMap 1.1)
 
+testNestedBuildMap1 :: Assertion
+testNestedBuildMap1 =
+  assertEqualUpToEpsilon' 1e-10
+    107.25984443006627
+    (rev' @(OR.Array 1 Double) (nestedBuildMap . tunScalar) 1.1)
+
 nestedSumBuild :: ADReady r => TensorOf 1 r -> TensorOf 1 r
 nestedSumBuild v =
   tbuild1 13 (\ix ->
@@ -290,9 +311,9 @@ nestedSumBuild v =
 
 testNestedSumBuild :: Assertion
 testNestedSumBuild =
-  assertEqualUpToEpsilon 1e-8
+  assertEqualUpToEpsilon' 1e-8
     (OR.fromList [5] [-14084.715065313612,-14084.715065313612,-14084.715065313612,-14014.775065313623,-14084.715065313612])
-    (rev @(OR.Array 1 Double) nestedSumBuild (OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
+    (rev' @(OR.Array 1 Double) nestedSumBuild (OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
 
 nestedBuildIndex :: forall r. ADReady r => TensorOf 1 r -> TensorOf 1 r
 nestedBuildIndex v =
@@ -300,9 +321,9 @@ nestedBuildIndex v =
 
 testNestedBuildIndex :: Assertion
 testNestedBuildIndex =
-  assertEqualUpToEpsilon 1e-10
+  assertEqualUpToEpsilon' 1e-10
     (OR.fromList [5]  [1,1,0,0,0])
-    (rev @(OR.Array 1 Double) nestedBuildIndex (OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
+    (rev' @(OR.Array 1 Double) nestedBuildIndex (OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
 
 barRelu
   :: ( RealFloat (TensorOf n r), HasPrimal (TensorOf n r)
@@ -311,11 +332,23 @@ barRelu
   => TensorOf n r -> TensorOf n r
 barRelu x = relu1 $ bar (x, relu1 x)
 
-testBarReluADVal :: Assertion
-testBarReluADVal =
+testBarReluADValDt :: Assertion
+testBarReluADValDt =
   assertEqualUpToEpsilon 1e-10
     (OR.fromList [] [191.20462646925841])
     (revDt @(OR.Array 0 Double) barRelu (OR.fromList [] [1.1]) 42.2)
+
+testBarReluADVal :: Assertion
+testBarReluADVal =
+  assertEqualUpToEpsilon 1e-10
+    (OR.fromList [] [4.5309153191767395])
+    (rev @(OR.Array 0 Double) barRelu (OR.fromList [] [1.1]))
+
+testBarReluADVal3 :: Assertion
+testBarReluADVal3 =
+  assertEqualUpToEpsilon 1e-10
+    (OR.fromList [2, 1, 2] [4.5309153191767395,4.5302138998556,-9.39547533946234,95.29759282497125])
+    (rev @(OR.Array 3 Double) barRelu (OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2]))
 
 barReluAst
   :: (KnownNat n, Numeric r, RealFloat r, Floating (Vector r))
@@ -372,6 +405,12 @@ testF1 =
     45.0
     (rev @Double f1 1.1)
 
+testF11 :: Assertion
+testF11 =
+  assertEqualUpToEpsilon' 1e-10
+    45.0
+    (rev' @(OR.Array 0 Double) (tscalar . f1 . tunScalar) 1.1)
+
 f2 :: ADReady a => a -> a
 f2 = \arg ->
   let fun1 i = tscalar arg * tfromIntOf0 i
@@ -388,6 +427,12 @@ testF2 =
     470
     (rev @Double f2 1.1)
 
+testF21 :: Assertion
+testF21 =
+  assertEqualUpToEpsilon' 1e-10
+    470
+    (rev' @(OR.Array 0 Double) (tscalar . f2 . tunScalar) 1.1)
+
 f3 :: (ADReady r, Tensor (r -> r), Tensor ((r -> r) -> (r -> r)))
    => TensorOf 0 r -> TensorOf 0 r
 f3 arg =
@@ -401,9 +446,9 @@ f3 arg =
 
 testF3 :: Assertion
 testF3 =
-  let _ = assertEqualUpToEpsilon 1e-10
+  let _ = assertEqualUpToEpsilon' 1e-10
             470
-            (rev @(OR.Array 0 Double) f3 1.1)
+            (rev' @(OR.Array 0 Double) f3 1.1)
   in return ()  -- dummy instance for -> and Ast rewrites don't remove -> yet
 
 -- * Hairy tests (many by TomS as well)
@@ -420,6 +465,12 @@ testBraidedBuilds =
     4.0
     (rev @(OR.Array 2 Double) braidedBuilds 3.4)
 
+testBraidedBuilds1 :: Assertion
+testBraidedBuilds1 =
+  assertEqualUpToEpsilon' 1e-10
+    4.0
+    (rev' @(OR.Array 2 Double) (braidedBuilds . tunScalar) 3.4)
+
 recycled :: ADReady r
          => r -> TensorOf 5 r
 recycled r =
@@ -431,6 +482,12 @@ testRecycled =
   assertEqualUpToEpsilon 1e-6
     3.983629038066359e7
     (rev @(OR.Array 5 Double) recycled 1.0001)
+
+testRecycled1 :: Assertion
+testRecycled1 =
+  assertEqualUpToEpsilon' 1e-6
+    3.983629038066359e7
+    (rev' @(OR.Array 5 Double) (recycled . tunScalar)  1.0001)
 
 concatBuild :: ADReady r => r -> TensorOf 2 r
 concatBuild r =
@@ -448,6 +505,12 @@ testConcatBuild =
   assertEqualUpToEpsilon 1e-10
     126.0
     (rev @(OR.Array 2 Double) concatBuild 3.4)
+
+testConcatBuild1 :: Assertion
+testConcatBuild1 =
+  assertEqualUpToEpsilon' 1e-10
+    126.0
+    (rev' @(OR.Array 2 Double) (concatBuild . tunScalar) 3.4)
 
 -- TODO:
 _concatBuild2 :: ADReady r => r -> TensorOf 2 r
