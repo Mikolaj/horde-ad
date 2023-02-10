@@ -38,16 +38,22 @@ build1Vectorize
   => Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
 build1Vectorize k (var, v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
-  let width = 2 * traceWidth
+  let width = 1000 * traceWidth
+  when enabled $ do
+    writeIORef traceNestingLevel 0
+    hPutStrLnFlush stderr $
+      "\n"
+      ++ "START of vectorization for term "
+      ++ ellipsisString width (show (AstBuild1 k (var, v0)))
+      ++ "\n"
+  let !res = build1VOccurenceUnknown k (var, v0)
   when enabled $
-    hPutStrLnFlush stderr $ "Vectorization started for term "
-                            ++ padString width (show (AstBuild1 k (var, v0)))
-  let res = build1VOccurenceUnknown k (var, v0)
-  when enabled $
-    hPutStrLnFlush stderr $ "Vectorization ended with "
-                            ++ padString width (show res)
-                            ++ "\n"
-  return $! res
+    hPutStrLnFlush stderr $
+      "\n"
+      ++ "END of vectorization yields "
+      ++ ellipsisString width (show res)
+      ++ "\n"
+  return res
 
 -- | The application @build1VOccurenceUnknown k (var, v)@ vectorizes
 -- the term @AstBuild1 k (var, v)@, where it's unknown whether
@@ -388,6 +394,10 @@ traceRuleEnabledRef :: IORef Bool
 {-# NOINLINE traceRuleEnabledRef #-}
 traceRuleEnabledRef = unsafePerformIO $ newIORef False
 
+traceNestingLevel :: IORef Int
+{-# NOINLINE traceNestingLevel #-}
+traceNestingLevel = unsafePerformIO $ newIORef 0
+
 traceWidth :: Int
 traceWidth = 80
 
@@ -396,6 +406,12 @@ padString width full = let cropped = take width full
                        in if length full <= width
                           then take width $ cropped ++ repeat ' '
                           else take (width - 3) cropped ++ "..."
+
+ellipsisString :: Int -> String -> String
+ellipsisString width full = let cropped = take width full
+                            in if length full <= width
+                               then cropped
+                               else take (width - 3) cropped ++ "..."
 
 mkTraceRule :: (Show from, Show ca, Show to)
             => String -> from -> ca -> Int -> to -> to
@@ -406,10 +422,14 @@ mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
         unwords $ take nwords $ words $ take 20 $ show caseAnalysed
       ruleName = prefix ++ "." ++ constructorName
       ruleNamePadded = take 20 $ ruleName ++ repeat ' '
-  when enabled $
-    hPutStrLnFlush stderr $ "rule " ++ ruleNamePadded
+  when enabled $ do
+    nestingLevel <- readIORef traceNestingLevel
+    modifyIORef' traceNestingLevel succ
+    let paddedNesting = take 3 $ show nestingLevel ++ repeat ' '
+    hPutStrLnFlush stderr $ paddedNesting ++ "rule " ++ ruleNamePadded
                             ++ " sends " ++ padString width (show from)
                             ++ " to " ++ padString width (show to)
+    modifyIORef' traceNestingLevel pred
   return $! to
 
 hPutStrLnFlush :: Handle -> String -> IO ()
