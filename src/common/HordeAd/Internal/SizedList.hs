@@ -8,7 +8,8 @@
 module HordeAd.Internal.SizedList
   ( SizedList(..)
   , singletonSized, snocSized, appendSized
-  , headSized, tailSized, takeSized, dropSized, permutePrefixSized
+  , headSized, tailSized, takeSized, dropSized
+  , permutePrefixSized, permutePrefixList
   , unsnocSized1, lastSized, initSized
   , sizedListCompare, listToSized, sizedListToList
   , Permutation
@@ -16,12 +17,10 @@ module HordeAd.Internal.SizedList
 
 import Prelude
 
-import           Data.Array.Internal (valueOf)
-import qualified Data.Strict.Vector as Data.Vector
-import qualified Data.Vector.Generic as V
-import           GHC.Exts (IsList (..))
-import           GHC.TypeLits (KnownNat, Nat, type (+))
-import           Unsafe.Coerce (unsafeCoerce)
+import Data.Array.Internal (valueOf)
+import GHC.Exts (IsList (..))
+import GHC.TypeLits (KnownNat, Nat, type (+))
+import Unsafe.Coerce (unsafeCoerce)
 
 -- | Standard sized lists indexed by the GHC @Nat@ type.
 --
@@ -101,6 +100,7 @@ initSized Z = error "initSized: impossible pattern needlessly required"
 initSized (_i ::: Z) = Z
 initSized (i ::: ix@(_ ::: _)) = i ::: initSized ix
 
+-- As in orthotope, a permutation lists indices into the list to permute.
 type Permutation = [Int]
 
 -- This permutes a prefix of the sized list of the length of the permutation.
@@ -111,10 +111,14 @@ permutePrefixSized :: forall n i. KnownNat n
                    => Permutation -> SizedList n i -> SizedList n i
 permutePrefixSized p ix =
   if valueOf @n < length p
-  then error "permutePrefixSized: cannot permute the sized list, because it's too short"
-  else let l = unsafeCoerce ix
-       in (unsafeCoerce :: [i] -> SizedList n i)
-          $ V.toList $ Data.Vector.fromList l V.// zip p l
+  then
+    error "permutePrefixSized: cannot permute a list shorter than permutation"
+  else (unsafeCoerce :: [i] -> SizedList n i)
+       $ permutePrefixList p
+       $ unsafeCoerce ix
+
+permutePrefixList :: Permutation -> [i] -> [i]
+permutePrefixList p l = map (l !!) p ++ drop (length p) l
 
 -- | Pairwise comparison of two sized list values.
 -- The comparison function is invoked once for each rank
