@@ -54,7 +54,7 @@ assert_list make_assert expected actual =
   if lenE == lenA then
     go_assert_list expected actual
   else
-    assertFailure $ "List too " ++ (if lenE < lenA then "long" else "short") ++ ": expected " ++ show lenE ++ "elements, but got: " ++ show lenA
+    assertFailure $ "List too " ++ (if lenE < lenA then "long" else "short") ++ ": expected " ++ show lenE ++ " elements, but got: " ++ show lenA
   where
     lenE :: Int = length expected
     lenA :: Int = length actual
