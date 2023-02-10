@@ -13,6 +13,7 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
+import HordeAd.Core.DualClass (inputConstant)
 
 import Tool.EqEpsilon
 
@@ -46,6 +47,38 @@ testTrees =
   , testCase "2recycled" testRecycled
   , testCase "2concatBuild" testConcatBuild
   ]
+
+rev' :: forall a r n m.
+        ( KnownNat n, KnownNat m
+        , ADModeAndNumTensor 'ADModeGradient r, HasDelta r, ADReady r
+        , a ~ OR.Array m r, TensorOf n r ~ OR.Array n r )
+     => (forall x. ADReady x => TensorOf n x -> TensorOf m x) -> OR.Array n r
+     -> (a, TensorOf m r, a, OR.Array n r, OR.Array n r)
+rev' f vals =
+  let dt = inputConstant @a 1
+      g inputs = f $ parseADInputs vals inputs
+      (advalGrad, value1) = revOnDomainsFun dt g (toDomains vals)
+      gradient1 = parseDomains vals advalGrad
+      value2 = f vals
+      env inputs = IM.singleton 0 (AstVarR $ from1X $ parseADInputs vals inputs)
+      h inputs =
+        interpretAst (env inputs) (f (AstVar (tshape vals) (AstVarName 0)))
+      (astGrad, value3) = revOnDomainsFun dt h (toDomains vals)
+      gradient2 = parseDomains vals astGrad
+  in (value1, value2, value3, gradient1, gradient2)
+
+assertEqualUpToEpsilon'
+    :: (AssertEqualUpToEpsilon z a, AssertEqualUpToEpsilon z b)
+    => z  -- ^ error margin (i.e., the epsilon)
+    -> a  -- ^ expected value
+    -> (b, b, b, a, a)   -- ^ actual values
+    -> Assertion
+assertEqualUpToEpsilon' error_margin expected
+                        (value1, value2, value3, gradient1, gradient2) = do
+  value1 @?~ value2
+  value3 @?~ value2
+  assertEqualUpToEpsilon error_margin expected gradient1
+  assertEqualUpToEpsilon error_margin expected gradient2
 
 
 -- * Tensor tests
@@ -164,9 +197,9 @@ testFooBuildDt =
 
 testFooBuild :: Assertion
 testFooBuild =
-  assertEqualUpToEpsilon 1e-10
+  assertEqualUpToEpsilon' 1e-10
     (OR.fromList [4] [-4521.201512195087,-5568.7163677622175,-5298.386349932494,-4907.349735554627])
-    (rev @(OR.Array 1 Double) fooBuild1 (OR.fromList [4] [1.1, 2.2, 3.3, 4]))
+    (rev' @(OR.Array 1 Double) fooBuild1 (OR.fromList [4] [1.1, 2.2, 3.3, 4]))
 
 fooMap1 :: ADReady r => r -> TensorOf 1 r
 fooMap1 r =

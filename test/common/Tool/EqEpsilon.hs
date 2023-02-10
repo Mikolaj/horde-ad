@@ -318,7 +318,7 @@ assertCloseElem preface expected actual = do
     go_assert eqEps (h:t) =
       if abs (h-actual) <= fromRational eqEps then assert_close_eps msg "" (fromRational eqEps) h actual else go_assert eqEps t
 
-assertClose :: (AssertEqualUpToEpsilon z a)
+assertClose :: AssertEqualUpToEpsilon z a
       => a -- ^ The expected value
       -> a -- ^ The actual value
       -> Assertion
@@ -327,7 +327,7 @@ assertClose expected actual = do
   assertEqualUpToEpsilon (fromRational eqEpsilon) expected actual
 
 infix 1 @?~
-(@?~) :: (AssertEqualUpToEpsilon z a)
+(@?~) :: AssertEqualUpToEpsilon z a
       => a -- ^ The actual value
       -> a -- ^ The expected value
       -> Assertion

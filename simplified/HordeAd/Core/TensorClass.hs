@@ -384,7 +384,7 @@ instance Tensor Float where
 -- In principle, this instance is only useful for comparative tests,
 -- though for code without build/map/etc., it should be equivalent
 -- to going via Ast.
-instance (ADModeAndNumTensor d r, TensorOf 1 r ~ OR.Array 1 r)
+instance ADModeAndNumTensor d r
          => Tensor (ADVal d r) where
   type TensorOf n (ADVal d r) = ADVal d (OR.Array n r)
   type IntOf (ADVal d r) = Int
