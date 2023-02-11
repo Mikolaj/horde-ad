@@ -201,9 +201,8 @@ build1VIx
   => Int -> (AstVarName Int, Ast (m + n) r, AstIndex m r)
   -> Ast (1 + n) r
 build1VIx k (var, v0, ZI) = build1V k (var, v0)
-build1VIx k (var, v0, is@(_ :. _)) =
-  let (rest1, i1) = unsnocIndex1 is  -- TODO: rename to (init1, last1)?
-      traceRule = mkTraceRule "build1VIx"
+build1VIx k (var, v0, is@(i1 :. rest1)) =
+  let traceRule = mkTraceRule "build1VIx"
                               (AstBuild1 k (var, AstIndexZ v0 is))
                               v0 1
   in case v0 of
