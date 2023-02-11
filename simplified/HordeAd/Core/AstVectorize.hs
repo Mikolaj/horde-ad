@@ -109,10 +109,7 @@ build1V k (var, v0) =
       -- and then some things simplify a lot, e.g., if constant index,
       -- we may just pick the right element of a AstFromList
     AstSum v -> traceRule $
-      astTranspose $ AstSum $ astTranspose $ build1V k (var, v)
-      -- that's because @build1 k (f . g) == map1 f (build1 k g)@
-      -- and @map1 f == transpose . f . transpose@
-      -- TODO: though only for some f; check and fail early
+      AstSum $ astTranspose $ build1V k (var, v)
     AstFromList l -> traceRule $
       astTranspose
       $ AstFromList (map (\v -> build1VOccurenceUnknown k (var, v)) l)
@@ -120,7 +117,7 @@ build1V k (var, v0) =
       astTranspose
       $ AstFromVector (V.map (\v -> build1VOccurenceUnknown k (var, v)) l)
     AstKonst s v -> traceRule $
-      astTranspose $ AstKonst s $ astTranspose $ build1V k (var, v)
+      astTranspose $ AstKonst s $ build1V k (var, v)
     AstAppend v w -> traceRule $
       astTranspose $ AstAppend
                        (astTranspose $ build1VOccurenceUnknown k (var, v))
@@ -129,6 +126,10 @@ build1V k (var, v0) =
       astTranspose $ AstSlice i s $ astTranspose $ build1V k (var, v)
     AstReverse v -> traceRule $
       astTranspose $ AstReverse $ astTranspose $ build1V k (var, v)
+      -- that's because @build1 k (f . g) == map1 f (build1 k g)@
+      -- and @map1 f == transpose . f . transpose@
+      -- TODO: though only for some f; check and fail early;
+      -- probably only f that don't change shapes or ranks at least
     AstTransposeGeneral perm v -> traceRule $
       astTransposeGeneral (0 : map succ perm) $ build1V k (var, v)
     AstFlatten v -> traceRule $
