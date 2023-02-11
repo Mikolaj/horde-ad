@@ -141,17 +141,22 @@ tmaxIndexR
 tmaxIndexR = LA.maxIndex . OR.toVector
 
 tindexNR
-  :: forall m n r. KnownNat m
+  :: forall m n r. (KnownNat m, Show r, Numeric r)
   => OR.Array (m + n) r -> IndexInt m -> OR.Array n r
-tindexNR (Data.Array.Internal.RankedS.A
-            (Data.Array.Internal.RankedG.A sh
-               Data.Array.Internal.T{strides, offset, values})) ix =
-  let i = offset + sum (zipWith (*) (indexToList ix) strides)
+tindexNR v@(Data.Array.Internal.RankedS.A
+              (Data.Array.Internal.RankedG.A sh
+                 Data.Array.Internal.T{strides, offset, values})) ix =
+  let l = indexToList ix
+      linear = offset + sum (zipWith (*) l strides)
       plen = valueOf @m  -- length of prefix being indexed out of
+      !_A = assert (and (zipWith (\i dim -> 0 <= i && i < dim) l sh)
+                    `blame` (ix, sh, v)) ()
   in
     Data.Array.Internal.RankedS.A
       (Data.Array.Internal.RankedG.A (drop plen sh)
-         Data.Array.Internal.T{strides = drop plen strides, offset = i, values})
+         Data.Array.Internal.T{ strides = drop plen strides
+                              , offset = linear
+                              , values })
 
 tindex1R
   :: Numeric r
@@ -289,7 +294,8 @@ tzipWith0NR = liftVR2 . Numeric.LinearAlgebra.Devel.zipVectorWith
 
 -- TODO: this can be slightly optimized by normalizing t first (?)
 -- and then inlining toVector and tindexNR
-tgatherNR :: forall m p n r. (KnownNat m, KnownNat p, KnownNat n, Numeric r)
+tgatherNR :: forall m p n r.
+             (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r)
          => (IndexInt m -> IndexInt p)
          -> OR.Array (p + n) r
          -> ShapeInt (m + n) -> OR.Array (m + n) r
@@ -300,7 +306,7 @@ tgatherNR f t sh =
               [fromLinearIdx shm i | i <- [0 .. s - 1]]
   in OR.fromVector (shapeToList sh) $ LA.vjoin l
 
-tgather1R :: (Numeric r, KnownNat p, KnownNat n)
+tgather1R :: (KnownNat p, KnownNat n, Show r, Numeric r)
           => (Int -> IndexInt p)
           -> OR.Array (p + n) r -> Int -> OR.Array (1 + n) r
 tgather1R f t k =
