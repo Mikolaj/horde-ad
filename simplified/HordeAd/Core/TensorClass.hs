@@ -211,6 +211,11 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
       => Tensor r where
   type TensorOf (n :: Nat) r = result | result -> n r
   type IntOf r
+  type BoolOf r
+
+  -- Boolean codomain
+  fromBool :: Bool -> BoolOf r
+  andBool :: BoolOf r -> BoolOf r -> BoolOf r
   leqInt :: IntOf r -> IntOf r -> BoolOf r
   default leqInt
     :: (IntOf r ~ Int, BoolOf r ~ Bool) => IntOf r -> IntOf r -> BoolOf r
@@ -219,11 +224,6 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   default gtInt
     :: (IntOf r ~ Int, BoolOf r ~ Bool) => IntOf r -> IntOf r -> BoolOf r
   gtInt = (>)  -- not for Ast
-
-  type BoolOf r
-  fromBool :: Bool -> BoolOf r
-  andBool :: BoolOf r -> BoolOf r -> BoolOf r
-  tcond :: BoolOf r -> TensorOf n r -> TensorOf n r -> TensorOf n r
 
   -- Integer codomain
   tshape :: KnownNat n => TensorOf n r -> ShapeInt n
@@ -235,6 +235,7 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
     k :$ _ -> k
   tminIndex :: TensorOf 1 r -> IntOf r
   tmaxIndex :: TensorOf 1 r -> IntOf r
+  tfloor :: TensorOf 0 r -> IntOf r
 
   -- Typically scalar codomain, often tensor reduction
   tindex, (!) :: (KnownNat m, KnownNat n)
@@ -255,6 +256,7 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tfromIntOf0 = tscalar . fromIntegral  -- fails for the Ast instance
 
   -- Tensor codomain, often tensor construction, sometimes transformation
+  tcond :: BoolOf r -> TensorOf n r -> TensorOf n r -> TensorOf n r
   tfromList :: KnownNat n => [TensorOf n r] -> TensorOf (1 + n) r
   tfromList0N :: KnownNat n => ShapeInt n -> [r] -> TensorOf n r
   tfromList0N sh = treshape sh . tfromList . map tscalar
@@ -339,16 +341,17 @@ instance Tensor Double where
   type BoolOf Double = Bool
   fromBool = id
   andBool = (&&)
-  tcond b t u = if b then t else u
   tshape = tshapeR
   tminIndex = tminIndexR
   tmaxIndex = tmaxIndexR
+  tfloor = floor . tunScalar
   tindex = tindexZR
   tsum = tsumR
   tsum0 = tscalar . tsum0R
   tdot0 u v = tscalar $ tdot0R u v
   tminimum0 = tscalar . tminimum0R
   tmaximum0 = tscalar . tmaximum0R
+  tcond b t u = if b then t else u
   tfromList = tfromListR
   tfromList0N = tfromList0NR
   tfromVector = tfromVectorR
@@ -373,16 +376,17 @@ instance Tensor Float where
   type BoolOf Float = Bool
   fromBool = id
   andBool = (&&)
-  tcond b t u = if b then t else u
   tshape = tshapeR
   tminIndex = tminIndexR
   tmaxIndex = tmaxIndexR
+  tfloor = floor . tunScalar
   tindex = tindexZR
   tsum = tsumR
   tsum0 = tscalar . tsum0R
   tdot0 u v = tscalar $ tdot0R u v
   tminimum0 = tscalar . tminimum0R
   tmaximum0 = tscalar . tmaximum0R
+  tcond b t u = if b then t else u
   tfromList = tfromListR
   tfromList0N = tfromList0NR
   tfromVector = tfromVectorR
@@ -416,9 +420,9 @@ instance ADModeAndNumTensor d r
   type TensorOf n (ADVal d r) = ADVal d (OR.Array n r)
   type IntOf (ADVal d r) = Int
   type BoolOf (ADVal d r) = Bool
+
   fromBool = id
   andBool = (&&)
-  tcond b t u = if b then t else u
 
   -- Here and elsewhere I can't use methods of the @r@ instance of @Tensor@
   -- (the one implemented as @OR.Array n r@). Therefore, I inline them
@@ -430,6 +434,7 @@ instance ADModeAndNumTensor d r
   tshape = shape
   tminIndex (D u _) = tminIndexR u
   tmaxIndex (D u _) = tmaxIndexR u
+  tfloor (D u _) = floor $ tunScalarR u
 
   tindex = indexZ
   tsum = sum'
@@ -442,6 +447,7 @@ instance ADModeAndNumTensor d r
     let ix = tmaxIndex u
     in dD (tindex1R u ix) (dIndex1 u' ix (tlength u))
 
+  tcond b t u = if b then t else u
   tfromList = fromList
   tfromList0N = fromList0N
   tfromVector = fromVector
@@ -471,23 +477,24 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
          => Tensor (Ast 0 r) where
   type TensorOf n (Ast 0 r) = Ast n r
   type IntOf (Ast 0 r) = AstInt r
-  leqInt i j = AstRelInt LeqOp [i, j]
-  gtInt i j = AstRelInt GtOp [i, j]
-
   type BoolOf (Ast 0 r) = AstBool r
+
   fromBool = AstBoolConst
   andBool b c = AstBoolOp AndOp [b, c]
-  tcond = AstCond
+  leqInt i j = AstRelInt LeqOp [i, j]
+  gtInt i j = AstRelInt GtOp [i, j]
 
   tshape = shapeAst
   tminIndex = AstMinIndex
   tmaxIndex = AstMaxIndex
+  tfloor = AstIntFloor
 
   tindex = AstIndexZ
   tsum = AstSum
   tfromIntOf0 = AstConstInt
     -- toInteger is not defined for Ast, hence a special implementation
 
+  tcond = AstCond
   tfromList = AstFromList
   tfromList0N sh = AstReshape sh . AstFromList
   tfromVector = AstFromVector
@@ -511,23 +518,23 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
          => Tensor (AstPrimalPart 0 r) where
   type TensorOf n (AstPrimalPart 0 r) = AstPrimalPart n r
   type IntOf (AstPrimalPart 0 r) = AstInt r
-  leqInt i j = AstRelInt LeqOp [i, j]
-  gtInt i j = AstRelInt GtOp [i, j]
-
   type BoolOf (AstPrimalPart 0 r) = AstBool r
   fromBool = AstBoolConst
   andBool b c = AstBoolOp AndOp [b, c]
-  tcond b (AstPrimalPart t) (AstPrimalPart u) = AstPrimalPart $ AstCond b t u
+  leqInt i j = AstRelInt LeqOp [i, j]
+  gtInt i j = AstRelInt GtOp [i, j]
 
   tshape = shapeAst . unAstPrimalPart
   tminIndex = AstMinIndex . unAstPrimalPart
   tmaxIndex = AstMaxIndex . unAstPrimalPart
+  tfloor = AstIntFloor . unAstPrimalPart
 
   tindex v ix = AstPrimalPart $ AstIndexZ (unAstPrimalPart v) ix
   tsum = AstPrimalPart . AstSum . unAstPrimalPart
   tfromIntOf0 = AstPrimalPart . AstConstInt
     -- toInteger is not defined for Ast, hence a special implementation
 
+  tcond b (AstPrimalPart t) (AstPrimalPart u) = AstPrimalPart $ AstCond b t u
   tfromList = AstPrimalPart . AstFromList . map unAstPrimalPart
   tfromList0N sh =
     AstPrimalPart . AstReshape sh . AstFromList . map unAstPrimalPart
