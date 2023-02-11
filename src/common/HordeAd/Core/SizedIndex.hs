@@ -157,6 +157,7 @@ indexToList (Index l) = sizedListToList l
 -- | The shape of an n-dimensional array represented as a sized list.
 -- The order of dimensions corresponds to that in @Index@.
 newtype Shape n i = Shape (SizedList n i)
+  deriving Eq
 
 -- This is pretty controversion and only lawful when OverloadedLists
 -- is enabled. However, it's much more readable when tracing and debugging.
