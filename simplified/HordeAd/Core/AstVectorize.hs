@@ -351,7 +351,7 @@ build1VIx k (var, v0, is@(_ :. _)) =
 -- @var@ does not occur in @v@ but occurs in @iN@. This is done by pattern
 -- matching on @iN@ as opposed to on @v@.
 build1VSimplify
-  :: forall n r. (Show r, Numeric r)
+  :: forall n r. (Show r, Numeric r, KnownNat n)
   => Int -> AstVarName Int -> Ast (1 + n) r -> AstInt r
   -> Maybe (Ast (1 + n) r)
 build1VSimplify k var v0 iN =
@@ -406,8 +406,8 @@ ellipsisString width full = let cropped = take width full
                                then cropped
                                else take (width - 3) cropped ++ "..."
 
-mkTraceRule :: (Show from, Show ca, Show to)
-            => String -> from -> ca -> Int -> to -> to
+mkTraceRule :: (KnownNat n, Show r, Numeric r, Show ca)
+            => String -> Ast n r -> ca -> Int -> Ast n r -> Ast n r
 mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
   let width = traceWidth
@@ -419,9 +419,15 @@ mkTraceRule prefix from caseAnalysed nwords to = unsafePerformIO $ do
     nestingLevel <- readIORef traceNestingLevel
     modifyIORef' traceNestingLevel succ
     let paddedNesting = take 3 $ show nestingLevel ++ repeat ' '
+    -- Force in the correct order:
+    let !stringFrom = show from
+    let !stringTo = show to
     hPutStrLnFlush stderr $ paddedNesting ++ "rule " ++ ruleNamePadded
-                            ++ " sends " ++ padString width (show from)
-                            ++ " to " ++ padString width (show to)
+                            ++ " sends " ++ padString width stringFrom
+                            ++ " to " ++ padString width stringTo
+    let !_A = assert (shapeAst from == shapeAst to
+                     `blame` "mkTraceRule: term shape changed"
+                     `swith`(shapeAst from, shapeAst to, from, to)) ()
     modifyIORef' traceNestingLevel pred
   return $! to
 
