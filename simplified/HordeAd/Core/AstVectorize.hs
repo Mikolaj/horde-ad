@@ -156,36 +156,41 @@ build1V k (var, v0) =
       AstConstant $ AstPrimalPart $ AstBuild1 k (var, v0)
     -- All other patterns are redundant due to GADT typing.
 
--- | The application @build1VIxOccurenceUnknown k (var, v, is)@ vectorizes
--- the term @AstBuild1 k (var, AstIndexZ v is)@, where it's unknown whether
--- @var@ occurs in any of @v@, @is@.
+-- | The application @build1VIxOccurenceUnknown k (var, v, ix)@ vectorizes
+-- the term @AstBuild1 k (var, AstIndexZ v ix)@, where it's unknown whether
+-- @var@ occurs in any of @v@, @ix@.
 --
 -- We try to push indexing down as far as needed to eliminate any occurences
--- of @var@ from @v@ (but not necessarily from @is@), which is enough
+-- of @var@ from @v@ (but not necessarily from @ix@), which is enough
 -- to replace @AstBuild1@ with @AstGather1@ and so complete
 -- the vectorization. If @var@ occurs only in the first (outermost)
--- element of @is@, we attempt to simplify the term even more than that.
+-- element of @ix@, we attempt to simplify the term even more than that.
 build1VIxOccurenceUnknown
   :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
   => Int -> (AstVarName Int, Ast (m + n) r, AstIndex m r)
   -> Ast (1 + n) r
 build1VIxOccurenceUnknown k (var, v0, ZI) = build1VOccurenceUnknown k (var, v0)
-build1VIxOccurenceUnknown k (var, v0, is@(iN :. restN)) =
+build1VIxOccurenceUnknown k (var, v0, ix@(_ :. _)) =
   let traceRule = mkTraceRule "build1VIxOcc"
-                              (AstBuild1 k (var, AstIndexZ v0 is))
+                              (AstBuild1 k (var, AstIndexZ v0 ix))
                               v0 1
-  in if | intVarInAst var v0 -> build1VIx k (var, v0, is)  -- push deeper
-        | any (intVarInAstInt var) restN -> traceRule $
-            AstGather1 (var, is) v0 k
-        | intVarInAstInt var iN ->
-          let w = AstIndexZ v0 restN
-          in case build1VSimplify k var w iN of
-               Just u -> u  -- an extremely simple form found
-               Nothing -> traceRule $
-                 AstGather1 (var, is) v0 k
-                 -- we didn't really need it anyway
-        | otherwise -> traceRule $
-            astKonst k (AstIndexZ v0 is)
+  in if intVarInAst var v0
+     then build1VIx k (var, v0, ix)  -- push deeper
+     else case astIndexZ v0 ix of
+       AstIndexZ v2 ix2@(iN :. restN) ->
+         if | any (intVarInAstInt var) restN -> traceRule $
+              AstGather1 (var, ix2) v2 k
+            | intVarInAstInt var iN ->
+              let w = AstIndexZ v2 restN
+              in case build1VSimplify k var w iN of
+                   Just u -> u  -- an extremely simple form found
+                   Nothing -> traceRule $
+                     AstGather1 (var, ix2) v2 k
+                       -- we didn't really need it anyway
+            | otherwise -> traceRule $
+              astKonst k (AstIndexZ v2 ix2)
+       v3 -> traceRule $
+         astKonst k v3
 
 -- | The application @build1VIx k (var, v, is)@ vectorizes
 -- the term @AstBuild1 k (var, AstIndexZ v is)@, where it's known that

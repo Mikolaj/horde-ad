@@ -15,7 +15,7 @@ module HordeAd.Core.Ast
   , shapeAst, lengthAst
   , intVarInAst, intVarInAstInt, intVarInAstBool
   , substituteAst, substituteAstInt, substituteAstBool
-  , astCond, astKonst, astTranspose, astTransposeGeneral
+  , astCond, astIndexZ, astKonst, astTranspose, astTransposeGeneral
   ) where
 
 import Prelude
@@ -28,6 +28,7 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Numeric)
+import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.SizedIndex
 import HordeAd.Internal.SizedList
@@ -116,6 +117,21 @@ deriving instance (Show r, Numeric r) => Show (Ast n r)
 astCond :: AstBool r -> Ast n r -> Ast n r -> Ast n r
 astCond b v w = AstIndexZ (AstFromList [v, w])
                           (singletonIndex $ AstIntCond b 0 1)
+
+astIndexZ :: forall m n r. (KnownNat m, Show r, Numeric r)
+          => Ast (m + n) r -> AstIndex m r -> Ast n r
+astIndexZ v0 ZI = v0
+astIndexZ v0 ix@(i1 :. rest1) = case v0 of
+  AstKonst _k v -> astIndexZ v rest1
+  AstGather1 (var2, ix2) v _n2 ->
+    let ix3 = fmap (substituteAstInt i1 var2) ix2
+    in astIndexZ v (appendIndex rest1 ix3)
+  AstGatherN (Z, ix2) v _sh -> astIndexZ v (appendIndex ix ix2)
+  AstGatherN (var2 ::: vars, ix2) v (_ :$ sh') ->
+    let ix3 = fmap (substituteAstInt i1 var2) ix2
+    in astIndexZ (unsafeCoerce $ AstGatherN (vars, ix3) v sh') rest1
+  _ -> AstIndexZ v0 ix
+    -- a lot more can be added, but how not to duplicate build1VIx?
 
 astKonst :: KnownNat n => Int -> Ast n r -> Ast (1 + n) r
 astKonst k = \case
