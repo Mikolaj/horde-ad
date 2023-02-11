@@ -71,7 +71,7 @@ build1VOccurenceUnknown k (var, v0) =
   in if intVarInAst var v0
      then build1V k (var, v0)
      else traceRule $
-       AstKonst k v0
+       astKonst k v0
 
 -- | The application @build1V k (var, v)@ vectorizes
 -- the term @AstBuild1 k (var, v)@, where it's known that
@@ -117,7 +117,7 @@ build1V k (var, v0) =
       astTranspose
       $ AstFromVector (V.map (\v -> build1VOccurenceUnknown k (var, v)) l)
     AstKonst s v -> traceRule $
-      astTranspose $ AstKonst s $ build1V k (var, v)
+      astTranspose $ astKonst s $ build1V k (var, v)
     AstAppend v w -> traceRule $
       astTranspose $ AstAppend
                        (astTranspose $ build1VOccurenceUnknown k (var, v))
@@ -189,7 +189,7 @@ build1VIxOccurenceUnknown k (var, v0, is@(iN :. restN)) =
                  AstGather1 (var, is) v0 k
                  -- we didn't really need it anyway
         | otherwise -> traceRule $
-            AstKonst k (AstIndexZ v0 is)
+            astKonst k (AstIndexZ v0 is)
 
 -- | The application @build1VIx k (var, v, is)@ vectorizes
 -- the term @AstBuild1 k (var, AstIndexZ v is)@, where it's known that

@@ -15,7 +15,7 @@ module HordeAd.Core.Ast
   , shapeAst, lengthAst
   , intVarInAst, intVarInAstInt, intVarInAstBool
   , substituteAst, substituteAstInt, substituteAstBool
-  , astTranspose, astTransposeGeneral
+  , astKonst, astTranspose, astTransposeGeneral
   ) where
 
 import Prelude
@@ -114,6 +114,14 @@ deriving instance (Show r, Numeric r) => Show (Ast n r)
 
 -- Combinators are provided instead of some constructors in order
 -- to lower the number of constructors and/or simplify terms.
+
+astKonst :: KnownNat n => Int -> Ast n r -> Ast (1 + n) r
+astKonst k = \case
+  AstTransposeGeneral perm v ->
+    astTransposeGeneral (0 : map succ perm) $ astKonst k v
+  AstReshape sh v ->
+    AstReshape (k :$ sh) $ astKonst k v
+  v -> AstKonst k v
 
 astTranspose :: KnownNat n => Ast n r -> Ast n r
 astTranspose v = astTransposeGeneral [1, 0] v
