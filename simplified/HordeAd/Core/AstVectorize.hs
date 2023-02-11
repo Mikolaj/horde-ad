@@ -95,10 +95,6 @@ build1V k (var, v0) =
       -- this is very fast when interpreted in a smart way, but constant
       -- character needs to be exposed for nested cases;
       -- TODO: similarly propagate AstConstant upwards elsewhere
-    AstCond b v w -> traceRule $
-      build1V
-        k (var, AstIndexZ (AstFromList [v, w])
-                          (singletonIndex $ AstIntCond b 0 1))
 
     AstConstInt{} -> traceRule $
       AstConstant $ AstPrimalPart $ AstBuild1 k (var, v0)
@@ -221,8 +217,6 @@ build1VIx k (var, v0, is@(_ :. _)) =
       error "build1VIx: AstConst can't have free int variables"
     AstConstant{} -> traceRule $
       AstConstant $ AstPrimalPart $ AstBuild1 k (var, AstIndexZ v0 is)
-    AstCond b v w -> traceRule $
-      build1VIx k (var, AstFromList [v, w], AstIntCond b 0 1 :. is)
 
     AstConstInt{} -> traceRule $
       AstConstant $ AstPrimalPart $ AstBuild1 @n k (var, AstIndexZ v0 is)
@@ -261,7 +255,7 @@ build1VIx k (var, v0, is@(_ :. _)) =
     AstAppend v w -> traceRule $
       let vlen = AstIntConst $ lengthAst v
           is2 = fmap (\i -> AstIntOp PlusIntOp [i, vlen]) is
-      in build1V k (var, AstCond (AstRelInt LsOp [i1, vlen])
+      in build1V k (var, astCond (AstRelInt LsOp [i1, vlen])
                                  (AstIndexZ v is)
                                  (AstIndexZ w is2))
            -- this is basically partial evaluation, but in constant

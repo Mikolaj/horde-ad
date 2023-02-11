@@ -86,7 +86,7 @@ reluAst1 v =
   let oneIfGtZero =
         omapPrimal @(Ast n r )
                    (\(AstPrimalPart x) ->
-                      AstPrimalPart $ AstCond (AstRel GtOp [x, 0]) 1 0)
+                      AstPrimalPart $ astCond (AstRel GtOp [x, 0]) 1 0)
                    (primalPart v)
   in scale1 oneIfGtZero v
 
@@ -236,6 +236,7 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tminIndex :: TensorOf 1 r -> IntOf r
   tmaxIndex :: TensorOf 1 r -> IntOf r
   tfloor :: TensorOf 0 r -> IntOf r
+  tcondInt :: BoolOf r -> IntOf r -> IntOf r -> IntOf r
 
   -- Typically scalar codomain, often tensor reduction
   tindex, (!) :: (KnownNat m, KnownNat n)
@@ -256,7 +257,9 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tfromIntOf0 = tscalar . fromIntegral  -- fails for the Ast instance
 
   -- Tensor codomain, often tensor construction, sometimes transformation
-  tcond :: BoolOf r -> TensorOf n r -> TensorOf n r -> TensorOf n r
+  tcond :: KnownNat n
+        => BoolOf r -> TensorOf n r -> TensorOf n r -> TensorOf n r
+  tcond b v w = tfromList [v, w] ! [tcondInt @r b 0 1]
   tfromList :: KnownNat n => [TensorOf n r] -> TensorOf (1 + n) r
   tfromList0N :: KnownNat n => ShapeInt n -> [r] -> TensorOf n r
   tfromList0N sh = treshape sh . tfromList . map tscalar
@@ -345,6 +348,7 @@ instance Tensor Double where
   tminIndex = tminIndexR
   tmaxIndex = tmaxIndexR
   tfloor = floor . tunScalar
+  tcondInt b i j = if b then i else j
   tindex = tindexZR
   tsum = tsumR
   tsum0 = tscalar . tsum0R
@@ -380,6 +384,7 @@ instance Tensor Float where
   tminIndex = tminIndexR
   tmaxIndex = tmaxIndexR
   tfloor = floor . tunScalar
+  tcondInt b i j = if b then i else j
   tindex = tindexZR
   tsum = tsumR
   tsum0 = tscalar . tsum0R
@@ -435,6 +440,7 @@ instance ADModeAndNumTensor d r
   tminIndex (D u _) = tminIndexR u
   tmaxIndex (D u _) = tmaxIndexR u
   tfloor (D u _) = floor $ tunScalarR u
+  tcondInt b i j = if b then i else j
 
   tindex = indexZ
   tsum = sum'
@@ -488,13 +494,13 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   tminIndex = AstMinIndex
   tmaxIndex = AstMaxIndex
   tfloor = AstIntFloor
+  tcondInt = AstIntCond
 
   tindex = AstIndexZ
   tsum = AstSum
   tfromIntOf0 = AstConstInt
     -- toInteger is not defined for Ast, hence a special implementation
 
-  tcond = AstCond
   tfromList = AstFromList
   tfromList0N sh = AstReshape sh . AstFromList
   tfromVector = AstFromVector
@@ -534,7 +540,6 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   tfromIntOf0 = AstPrimalPart . AstConstInt
     -- toInteger is not defined for Ast, hence a special implementation
 
-  tcond b (AstPrimalPart t) (AstPrimalPart u) = AstPrimalPart $ AstCond b t u
   tfromList = AstPrimalPart . AstFromList . map unAstPrimalPart
   tfromList0N sh =
     AstPrimalPart . AstReshape sh . AstFromList . map unAstPrimalPart
@@ -789,9 +794,6 @@ interpretAst env = \case
     interpretAstOp (interpretAst env) opCode args
   AstConst a -> constant a
   AstConstant a -> constant $ interpretAstPrimal env a
-  AstCond b a1 a2 -> if interpretAstBool env b
-                     then interpretAst env a1
-                     else interpretAst env a2
   AstConstInt i -> fromIntegral $ interpretAstInt env i
   AstIndexZ v is -> indexZ (interpretAst env v) (fmap (interpretAstInt env) is)
   AstSum v -> sum' (interpretAst env v)

@@ -15,7 +15,7 @@ module HordeAd.Core.Ast
   , shapeAst, lengthAst
   , intVarInAst, intVarInAstInt, intVarInAstBool
   , substituteAst, substituteAstInt, substituteAstBool
-  , astKonst, astTranspose, astTransposeGeneral
+  , astCond, astKonst, astTranspose, astTransposeGeneral
   ) where
 
 import Prelude
@@ -59,8 +59,6 @@ data Ast :: Nat -> Type -> Type where
   -- For HasPrimal class and the future Conditional/Boolean/Eq'/Ord' classes:
   AstConst :: OR.Array n r -> Ast n r
   AstConstant :: AstPrimalPart n r -> Ast n r
-  -- syntactic sugar:
-  AstCond :: AstBool r -> Ast n r -> Ast n r -> Ast n r
 
   -- For Tensor class:
   AstConstInt :: AstInt r -> Ast 0 r
@@ -114,6 +112,10 @@ deriving instance (Show r, Numeric r) => Show (Ast n r)
 
 -- Combinators are provided instead of some constructors in order
 -- to lower the number of constructors and/or simplify terms.
+
+astCond :: AstBool r -> Ast n r -> Ast n r -> Ast n r
+astCond b v w = AstIndexZ (AstFromList [v, w])
+                          (singletonIndex $ AstIntCond b 0 1)
 
 astKonst :: KnownNat n => Int -> Ast n r -> Ast (1 + n) r
 astKonst k = \case
@@ -329,7 +331,6 @@ shapeAst v1 = case v1 of
     t : _ -> shapeAst t
   AstConst a -> listShapeToShape $ OR.shapeL a
   AstConstant (AstPrimalPart a) -> shapeAst a
-  AstCond _b a1 _a2 -> shapeAst a1
   AstConstInt _i -> ZS
   AstIndexZ v (_is :: Index m (AstInt r)) -> dropShape @m (shapeAst v)
   AstSum v -> tailShape $ shapeAst v
@@ -371,8 +372,6 @@ intVarInAst var = \case
   AstOp _ l -> any (intVarInAst var) l
   AstConst{} -> False
   AstConstant (AstPrimalPart v) -> intVarInAst var v
-  AstCond b x y ->
-    intVarInAstBool var b || intVarInAst var x || intVarInAst var y
   AstConstInt k -> intVarInAstInt var k
   AstIndexZ v is -> intVarInAst var v || any (intVarInAstInt var) is
   AstSum v -> intVarInAst var v
@@ -418,8 +417,6 @@ substituteAst i var v1 = case v1 of
   AstConst _a -> v1
   AstConstant (AstPrimalPart a) ->
     AstConstant (AstPrimalPart $ substituteAst i var a)
-  AstCond b a1 a2 -> AstCond (substituteAstBool i var b)
-                             (substituteAst i var a1) (substituteAst i var a2)
   AstConstInt i2 -> AstConstInt $ substituteAstInt i var i2
   AstIndexZ v is ->
     AstIndexZ (substituteAst i var v) (fmap (substituteAstInt i var) is)
