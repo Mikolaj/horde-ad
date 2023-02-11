@@ -164,7 +164,7 @@ data Delta1 :: Nat -> Type -> Type where
   IndexN :: (KnownNat n, KnownNat m)
          => Delta1 (m + n) r -> IndexInt m -> ShapeInt (m + n) -> Delta1 n r
     -- ^ The sub-tensor at the given index. The given shape is of the
-    -- large tensor.
+    -- large tensor. The operation fails if index out of bounds.
   Sum1 :: KnownNat n
        => Int -> Delta1 (1 + n) r -> Delta1 n r
     -- ^ Add element tensors along the outermost dimension.
@@ -212,9 +212,10 @@ data Delta1 :: Nat -> Type -> Type where
           -> ShapeInt (p + n) -> Delta1 (p + n) r
           -> Int -> Delta1 (1 + n) r
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
-    -- of length @m@. Indexes of length 0 result in identities, so that,
+    -- of length @p@. Index of length 0 results in identity, so that,
     -- e.g, @Gather1 (const Z) [] (Scalar1 d) k@ is equivalent
-    -- to @Konst01 [k] d@.
+    -- to @Konst01 [k] d@. If an index of length @p@ is out of bounds,
+    -- tensor 0 is chosen instead or projecting.
   GatherN :: (KnownNat m, KnownNat p, KnownNat n)
           => (IndexInt m -> IndexInt p)
           -> ShapeInt (p + n) -> Delta1 (p + n) r
@@ -225,9 +226,10 @@ data Delta1 :: Nat -> Type -> Type where
            -> ShapeInt (p + n) -> Delta1 (p + n) r
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
     -- the third argument and inserted in a zero tensor
-    -- at indexes of length @m@. Indexes of length 0 insert tensors trivially,
+    -- at indexes of length @p@. Indexes of length 0 insert tensors trivially,
     -- so that, e.g, @Scatter1 5 (const Z) (Konst01 [5] d) []@ is equivalent
-    -- to @5 * d@.
+    -- to @5 * d@. If an index of length @p@ is out of bounds, no tensor
+    -- is added at such an index (and similarly in @ScatterN@).
   ScatterN :: (KnownNat m, KnownNat p, KnownNat n)
            => (IndexInt m -> IndexInt p)
            -> ShapeInt (m + n) -> Delta1 (m + n) r

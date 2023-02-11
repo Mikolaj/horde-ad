@@ -97,12 +97,12 @@ build1V k (var, v0) =
       -- TODO: similarly propagate AstConstant upwards elsewhere
     AstCond b v w -> traceRule $
       build1V
-        k (var, AstIndexN (AstFromList [v, w])
+        k (var, AstIndexZ (AstFromList [v, w])
                           (singletonIndex $ AstIntCond b 0 1))
 
     AstConstInt{} -> traceRule $
       AstConstant $ AstPrimalPart $ AstBuild1 k (var, v0)
-    AstIndexN v is -> traceRule $
+    AstIndexZ v is -> traceRule $
       build1VIxOccurenceUnknown k (var, v, is)
       -- @var@ is in @v@ or @is@; TODO: simplify is first or even fully
       -- evaluate (may involve huge data processing) if contains no vars
@@ -161,7 +161,7 @@ build1V k (var, v0) =
     -- All other patterns are redundant due to GADT typing.
 
 -- | The application @build1VIxOccurenceUnknown k (var, v, is)@ vectorizes
--- the term @AstBuild1 k (var, AstIndexN v is)@, where it's unknown whether
+-- the term @AstBuild1 k (var, AstIndexZ v is)@, where it's unknown whether
 -- @var@ occurs in any of @v@, @is@.
 --
 -- We try to push indexing down as far as needed to eliminate any occurences
@@ -176,23 +176,23 @@ build1VIxOccurenceUnknown
 build1VIxOccurenceUnknown k (var, v0, ZI) = build1VOccurenceUnknown k (var, v0)
 build1VIxOccurenceUnknown k (var, v0, is@(iN :. restN)) =
   let traceRule = mkTraceRule "build1VIxOcc"
-                              (AstBuild1 k (var, AstIndexN v0 is))
+                              (AstBuild1 k (var, AstIndexZ v0 is))
                               v0 1
   in if | intVarInAst var v0 -> build1VIx k (var, v0, is)  -- push deeper
         | any (intVarInAstInt var) restN -> traceRule $
             AstGather1 (var, is) v0 k
         | intVarInAstInt var iN ->
-          let w = AstIndexN v0 restN
+          let w = AstIndexZ v0 restN
           in case build1VSimplify k var w iN of
                Just u -> u  -- an extremely simple form found
                Nothing -> traceRule $
                  AstGather1 (var, is) v0 k
                  -- we didn't really need it anyway
         | otherwise -> traceRule $
-            AstKonst k (AstIndexN v0 is)
+            AstKonst k (AstIndexZ v0 is)
 
 -- | The application @build1VIx k (var, v, is)@ vectorizes
--- the term @AstBuild1 k (var, AstIndexN v is)@, where it's known that
+-- the term @AstBuild1 k (var, AstIndexZ v is)@, where it's known that
 -- @var@ occurs in @v@. It may or may not additionally occur in @is@.
 --
 -- We try to push indexing down as far as needed to eliminate any occurences
@@ -208,7 +208,7 @@ build1VIx k (var, v0, ZI) = build1V k (var, v0)
 build1VIx k (var, v0, is@(_ :. _)) =
   let (rest1, i1) = unsnocIndex1 is  -- TODO: rename to (init1, last1)?
       traceRule = mkTraceRule "build1VIx"
-                              (AstBuild1 k (var, AstIndexN v0 is))
+                              (AstBuild1 k (var, AstIndexZ v0 is))
                               v0 1
   in case v0 of
     AstVar{} ->
@@ -220,18 +220,18 @@ build1VIx k (var, v0, is@(_ :. _)) =
     AstConst{} ->
       error "build1VIx: AstConst can't have free int variables"
     AstConstant{} -> traceRule $
-      AstConstant $ AstPrimalPart $ AstBuild1 k (var, AstIndexN v0 is)
+      AstConstant $ AstPrimalPart $ AstBuild1 k (var, AstIndexZ v0 is)
     AstCond b v w -> traceRule $
       build1VIx k (var, AstFromList [v, w], AstIntCond b 0 1 :. is)
 
     AstConstInt{} -> traceRule $
-      AstConstant $ AstPrimalPart $ AstBuild1 @n k (var, AstIndexN v0 is)
+      AstConstant $ AstPrimalPart $ AstBuild1 @n k (var, AstIndexZ v0 is)
 
-    AstIndexN v is2 -> traceRule $
+    AstIndexZ v is2 -> traceRule $
       build1VIxOccurenceUnknown k (var, v, appendIndex is is2)
     AstSum v -> traceRule $
       build1V k
-        (var, AstSum (astTranspose $ AstIndexN (astTranspose v) is))
+        (var, AstSum (astTranspose $ AstIndexZ (astTranspose v) is))
           -- that's because @index (sum v) i == sum (map (index i) v)@
     AstFromList l | intVarInAstInt var i1 -> traceRule $
       -- This is pure desperation. I build separately for each list element,
@@ -241,19 +241,19 @@ build1VIx k (var, v0, is@(_ :. _)) =
       -- The only thing to do is constructing a AstGather1 via a trick.
       -- There's no other reduction left to perform and hope the build vanishes.
       let t = AstFromList $ map (\v ->
-            build1VOccurenceUnknown k (var, AstIndexN v rest1)) l
+            build1VOccurenceUnknown k (var, AstIndexZ v rest1)) l
       in AstGather1 (var, i1 :. AstIntVar var :. ZI) t k
     AstFromList l -> traceRule $
-      AstIndexN (AstFromList $ map (\v ->
-        build1VOccurenceUnknown k (var, AstIndexN v rest1)) l)
+      AstIndexZ (AstFromList $ map (\v ->
+        build1VOccurenceUnknown k (var, AstIndexZ v rest1)) l)
                                   (singletonIndex i1)
     AstFromVector l | intVarInAstInt var i1 -> traceRule $
       let t = AstFromVector $ V.map (\v ->
-            build1VOccurenceUnknown k (var, AstIndexN v rest1)) l
+            build1VOccurenceUnknown k (var, AstIndexZ v rest1)) l
       in AstGather1 (var, i1 :. AstIntVar var :. ZI) t k
     AstFromVector l -> traceRule $
-      AstIndexN (AstFromVector $ V.map (\v ->
-        build1VOccurenceUnknown k (var, AstIndexN v rest1)) l)
+      AstIndexZ (AstFromVector $ V.map (\v ->
+        build1VOccurenceUnknown k (var, AstIndexZ v rest1)) l)
                                   (singletonIndex i1)
     -- Partially evaluate in constant time:
     AstKonst _k v -> traceRule $
@@ -262,8 +262,8 @@ build1VIx k (var, v0, is@(_ :. _)) =
       let vlen = AstIntConst $ lengthAst v
           is2 = fmap (\i -> AstIntOp PlusIntOp [i, vlen]) is
       in build1V k (var, AstCond (AstRelInt LsOp [i1, vlen])
-                                 (AstIndexN v is)
-                                 (AstIndexN w is2))
+                                 (AstIndexZ v is)
+                                 (AstIndexZ w is2))
            -- this is basically partial evaluation, but in constant
            -- time unlike evaluating AstFromList, etc.
     AstSlice i2 _k v -> traceRule $
@@ -280,7 +280,7 @@ build1VIx k (var, v0, is@(_ :. _)) =
                 build1VIx k (var, v, is)
                   -- the operation is an identity if rank too small
             | valueOf @m < lenp ->
-                AstBuild1 k (var, AstIndexN v0 is)  -- we give up
+                AstBuild1 k (var, AstIndexZ v0 is)  -- we give up
                   -- TODO: for this we really need generalized indexes that
                   -- first project, then transpose and so generalized gather;
                   -- or instead push down transpose, but it may be expensive
@@ -298,7 +298,7 @@ build1VIx k (var, v0, is@(_ :. _)) =
         _ ->
           error "build1VIx: AstFlatten: impossible pattern needlessly required"
     AstReshape{} -> traceRule $
-      AstBuild1 k (var, AstIndexN v0 is)  -- we give up
+      AstBuild1 k (var, AstIndexZ v0 is)  -- we give up
       {- TODO: This angle of attack fails, because AstSlice with variable
          first argument doesn't vectorize in build1VOccurenceUnknown. For it
          to vectorize, we'd need a new operation, akin to gather,
@@ -329,7 +329,7 @@ build1VIx k (var, v0, is@(_ :. _)) =
       in build1VIxOccurenceUnknown k (var, v, appendIndex rest1 ix3)
            -- we don't know if var occurs in v; it could have been in ix2
     AstGatherN (Z, ix2) v _sh -> traceRule $
-      build1VIx k (var, AstIndexN v ix2, is)
+      build1VIx k (var, AstIndexZ v ix2, is)
     AstGatherN (var2 ::: vars, ix2) v (_ :$ sh') -> traceRule $
       let ix3 = fmap (substituteAstInt i1 var2) ix2
       in build1VIx
@@ -341,14 +341,14 @@ build1VIx k (var, v0, is@(_ :. _)) =
       error "build1VIx: AstGatherN: impossible pattern needlessly required"
 
     AstOMap{} -> traceRule $
-      AstConstant $ AstPrimalPart $ AstBuild1 k (var, AstIndexN v0 is)
+      AstConstant $ AstPrimalPart $ AstBuild1 k (var, AstIndexZ v0 is)
     -- All other patterns are redundant due to GADT typing.
 
 -- TODO: we probably need to simplify iN to some normal form, but possibly
 -- this would be even better to do and take advantage of earlier,
 -- perhaps even avoiding pushing all the other indexing down
 -- | The application @build1VSimplify k var v iN@ vectorizes and simplifies
--- the term @AstBuild1 k (var, AstIndexN v [iN])@, where it's known that
+-- the term @AstBuild1 k (var, AstIndexZ v [iN])@, where it's known that
 -- @var@ does not occur in @v@ but occurs in @iN@. This is done by pattern
 -- matching on @iN@ as opposed to on @v@.
 build1VSimplify
@@ -360,7 +360,7 @@ build1VSimplify k var v0 iN =
         Nothing -> res
         Just u -> mkTraceRule
                     "build1VS"
-                    (AstBuild1 k (var, AstIndexN v0 (singletonIndex iN)))
+                    (AstBuild1 k (var, AstIndexZ v0 (singletonIndex iN)))
                     iN 1  -- not enough space for more
                     u
                   `seq` res

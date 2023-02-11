@@ -65,9 +65,10 @@ data Ast :: Nat -> Type -> Type where
   -- For Tensor class:
   AstConstInt :: AstInt r -> Ast 0 r
     -- needed, because toInteger and so fromIntegral is not defined for Ast
-  AstIndexN :: forall m n r. KnownNat m
+  AstIndexZ :: forall m n r. KnownNat m
             => Ast (m + n) r -> AstIndex m r -> Ast n r
-    -- first ix is for outermost dimension; empty index means identity
+    -- first ix is for outermost dimension; empty index means identity,
+    -- if index is out of bounds, the result is defined and is 0
   AstSum :: Ast (1 + n) r -> Ast n r
   AstFromList :: [Ast n r] -> Ast (1 + n) r
   AstFromVector :: Data.Vector.Vector (Ast n r) -> Ast (1 + n) r
@@ -89,7 +90,7 @@ data Ast :: Nat -> Type -> Type where
   AstGather1 :: forall p n r. KnownNat p
              => (AstVarName Int, AstIndex p r) -> Ast (p + n) r
              -> Int -> Ast (1 + n) r
-    -- emerges from vectorizing AstIndexN applied to term with no build variable
+    -- emerges from vectorizing AstIndexZ applied to term with no build variable
   AstGatherN :: forall m p n r. (KnownNat m, KnownNat p, KnownNat n)
              => (AstVarList m, AstIndex p r) -> Ast (p + n) r
              -> ShapeInt (m + n) -> Ast (m + n) r
@@ -322,7 +323,7 @@ shapeAst v1 = case v1 of
   AstConstant (AstPrimalPart a) -> shapeAst a
   AstCond _b a1 _a2 -> shapeAst a1
   AstConstInt _i -> ZS
-  AstIndexN v (_is :: Index m (AstInt r)) -> dropShape @m (shapeAst v)
+  AstIndexZ v (_is :: Index m (AstInt r)) -> dropShape @m (shapeAst v)
   AstSum v -> tailShape $ shapeAst v
   AstFromList l -> case l of
     [] -> error "shapeAst: AstFromList with no arguments"
@@ -365,7 +366,7 @@ intVarInAst var = \case
   AstCond b x y ->
     intVarInAstBool var b || intVarInAst var x || intVarInAst var y
   AstConstInt k -> intVarInAstInt var k
-  AstIndexN v is -> intVarInAst var v || any (intVarInAstInt var) is
+  AstIndexZ v is -> intVarInAst var v || any (intVarInAstInt var) is
   AstSum v -> intVarInAst var v
   AstFromList l -> any (intVarInAst var) l  -- down from rank 1 to 0
   AstFromVector vl -> any (intVarInAst var) $ V.toList vl
@@ -412,8 +413,8 @@ substituteAst i var v1 = case v1 of
   AstCond b a1 a2 -> AstCond (substituteAstBool i var b)
                              (substituteAst i var a1) (substituteAst i var a2)
   AstConstInt i2 -> AstConstInt $ substituteAstInt i var i2
-  AstIndexN v is ->
-    AstIndexN (substituteAst i var v) (fmap (substituteAstInt i var) is)
+  AstIndexZ v is ->
+    AstIndexZ (substituteAst i var v) (fmap (substituteAstInt i var) is)
   AstSum v -> AstSum (substituteAst i var v)
   AstFromList l -> AstFromList $ map (substituteAst i var) l
   AstFromVector l -> AstFromVector $ V.map (substituteAst i var) l

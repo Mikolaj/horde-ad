@@ -140,6 +140,9 @@ tmaxIndexR
   => OR.Array 1 r -> Int
 tmaxIndexR = LA.maxIndex . OR.toVector
 
+ixInBounds :: [Int] -> [Int] -> Bool
+ixInBounds ix sh = and $ zipWith (\i dim -> 0 <= i && i < dim) ix sh
+
 tindexNR
   :: forall m n r. (KnownNat m, Show r, Numeric r)
   => OR.Array (m + n) r -> IndexInt m -> OR.Array n r
@@ -149,14 +152,22 @@ tindexNR v@(Data.Array.Internal.RankedS.A
   let l = indexToList ix
       linear = offset + sum (zipWith (*) l strides)
       plen = valueOf @m  -- length of prefix being indexed out of
-      !_A = assert (and (zipWith (\i dim -> 0 <= i && i < dim) l sh)
-                    `blame` (ix, sh, v)) ()
+      !_A = assert (ixInBounds l sh `blame` (ix, sh, v)) ()
   in
     Data.Array.Internal.RankedS.A
       (Data.Array.Internal.RankedG.A (drop plen sh)
          Data.Array.Internal.T{ strides = drop plen strides
                               , offset = linear
                               , values })
+
+tindexZR
+  :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
+  => OR.Array (m + n) r -> IndexInt m -> OR.Array n r
+tindexZR v ix =
+  let sh = OR.shapeL v
+  in if ixInBounds (indexToList ix) sh
+     then tindexNR v ix
+     else OR.constant (drop (valueOf @m) sh) 0
 
 tindex1R
   :: Numeric r
@@ -293,7 +304,10 @@ tzipWith0NR
 tzipWith0NR = liftVR2 . Numeric.LinearAlgebra.Devel.zipVectorWith
 
 -- TODO: this can be slightly optimized by normalizing t first (?)
--- and then inlining toVector and tindexNR
+-- and then inlining toVector and tindexZR
+--
+-- Note how tindexZR is used. The semantics of the operation
+-- permits index out of bounds and the result of such indexing is zero.
 tgatherNR :: forall m p n r.
              (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r)
          => (IndexInt m -> IndexInt p)
@@ -302,7 +316,7 @@ tgatherNR :: forall m p n r.
 tgatherNR f t sh =
   let shm = takeShape @m sh
       s = sizeShape shm
-      l = map (\ix -> OR.toVector $ t `tindexNR` f ix)
+      l = map (\ix -> OR.toVector $ t `tindexZR` f ix)
               [fromLinearIdx shm i | i <- [0 .. s - 1]]
   in OR.fromVector (shapeToList sh) $ LA.vjoin l
 
@@ -310,7 +324,7 @@ tgather1R :: (KnownNat p, KnownNat n, Show r, Numeric r)
           => (Int -> IndexInt p)
           -> OR.Array (p + n) r -> Int -> OR.Array (1 + n) r
 tgather1R f t k =
-  let l = map (\i -> t `tindexNR` f i) [0 .. k - 1]
+  let l = map (\i -> t `tindexZR` f i) [0 .. k - 1]
   in OR.ravel $ ORB.fromList [k] l
 
 -- Performance depends a lot on the number and size of tensors.
@@ -319,6 +333,9 @@ tgather1R f t k =
 -- (the only new vectors are created by LA.vjoin, but this is done on demand).
 -- TODO: optimize updateNR and make it consume and forget arguments
 -- one by one to make the above true
+--
+-- Note how ix being in bounds is checked. The semantics of the operation
+-- permits index out of bounds and then no tensors is added at such an index.
 tscatterNR :: forall m p n r.
              ( KnownNat m, KnownNat p, KnownNat n, NumAndDebug r
              , Num (Vector r) )
@@ -329,7 +346,11 @@ tscatterNR f t sh =
   let (shm', shn) = splitAt (valueOf @m) $ OR.shapeL t
       s = product shm'
       shm = listShapeToShape shm'
-      g ix = M.insertWith (++) (f ix) [OR.toVector $ t `tindexNR` ix]
+      g ix =
+        let ix2 = f ix
+        in if ixInBounds (indexToList ix2) (shapeToList sh)
+           then M.insertWith (++) ix2 [OR.toVector $ t `tindexNR` ix]
+           else id
       ivs = foldr g M.empty [fromLinearIdx shm i | i <- [0 .. s - 1]]
   in updateNR (tkonst0NR sh 0) $ map (second $ OR.fromVector shn . sum)
                                $ M.assocs ivs

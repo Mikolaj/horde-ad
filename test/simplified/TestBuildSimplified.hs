@@ -20,12 +20,12 @@ import Tool.EqEpsilon
 
 testTrees :: [TestTree]
 testTrees =
-  [ --testCase "Konst0Rev" testKonst0Rev
-  --, testCase "Konst0TinyA" testKonst0TinyA
---  , testCase "Konst0LittleA" testKonst0LittleA
---  , testCase "Konst0LittleB" testKonst0LittleB
---  , testCase "Konst0p" testKonst0p
-   testCase "Konst0RevFailed" testKonst0RevFailed
+  [ testCase "Konst0Rev" testKonst0Rev
+  , testCase "Konst0TinyA" testKonst0TinyA
+  , testCase "Konst0LittleA" testKonst0LittleA
+  , testCase "Konst0LittleB" testKonst0LittleB
+  , testCase "Konst0p" testKonst0p
+  , testCase "Konst0RevFailed" testKonst0RevFailed
   , testCase "Konst0TinyAFailed" testKonst0TinyAFailed
   , testCase "Konst0TinyBFailed" testKonst0TinyBFailed
   ]
@@ -36,7 +36,7 @@ testTrees =
 
 t16 :: (Numeric r, Fractional r) => OR.Array 4 r
 t16 = OR.fromList [2, 2, 2, 2] [5, 2, 6, 1, -2, 0, 0.1, -0.2, 13.1, 9, 8, -4, 582934, 2.99432, -335, 26]
-{-
+
 -- | Unpadded full convolution,
 --   where the output size is the same as the input size.
 conv2d
@@ -96,21 +96,21 @@ testKonst0TinyA =
 testKonst0LittleA :: Assertion
 testKonst0LittleA =
   assertEqualUpToEpsilon' 1e-10
-    (OR.fromList [1, 2, 1, 1] [18.1,29.1])
+    (OR.fromList [1, 2, 1, 1] [-0.2,0.0])
     (rev' @(OR.Array 4 Double) conv2dA (tkonst0N [1, 2, 1, 1] 0))
 
 testKonst0LittleB :: Assertion
 testKonst0LittleB =
   assertEqualUpToEpsilon' 1e-10
-    (OR.fromList [1, 2, 1, 1] [18.1,29.1])
+    (OR.fromList [1, 2, 1, 1] [18.1,582932.0])
     (rev' @(OR.Array 4 Double) conv2dB (tkonst0N [1, 2, 1, 1] 0))
 
 testKonst0p :: Assertion
 testKonst0p =
   assertEqualUpToEpsilon' 1e-10
-    (OR.fromList [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
+    (OR.fromList [2, 2, 2, 2] [-0.2,-0.2,-0.2,-0.2,0.0,0.0,0.0,0.0,-0.2,-0.2,-0.2,-0.2,0.0,0.0,0.0,0.0])
     (rev' @(OR.Array 4 Double) conv2dA (tkonst0N [2, 2, 2, 2] 0))
--}
+
 
 
 

@@ -239,6 +239,7 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   -- Typically scalar codomain, often tensor reduction
   tindex, (!) :: (KnownNat m, KnownNat n)
               => TensorOf (m + n) r -> IndexOf m r -> TensorOf n r
+    -- note that if index out of bounds, the result is defined and is 0
   infixl 9 !
   (!) = tindex  -- prefix form better when type applications are necessary
   tsum :: KnownNat n => TensorOf (1 + n) r -> TensorOf n r
@@ -342,7 +343,7 @@ instance Tensor Double where
   tshape = tshapeR
   tminIndex = tminIndexR
   tmaxIndex = tmaxIndexR
-  tindex = tindexNR
+  tindex = tindexZR
   tsum = tsumR
   tsum0 = tscalar . tsum0R
   tdot0 u v = tscalar $ tdot0R u v
@@ -376,7 +377,7 @@ instance Tensor Float where
   tshape = tshapeR
   tminIndex = tminIndexR
   tmaxIndex = tmaxIndexR
-  tindex = tindexNR
+  tindex = tindexZR
   tsum = tsumR
   tsum0 = tscalar . tsum0R
   tdot0 u v = tscalar $ tdot0R u v
@@ -430,7 +431,7 @@ instance ADModeAndNumTensor d r
   tminIndex (D u _) = tminIndexR u
   tmaxIndex (D u _) = tmaxIndexR u
 
-  tindex = indexN
+  tindex = indexZ
   tsum = sum'
   tsum0 = tscalar . sum0
   tdot0 u v = tscalar $ dot0 u v
@@ -482,7 +483,7 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   tminIndex = AstMinIndex
   tmaxIndex = AstMaxIndex
 
-  tindex = AstIndexN
+  tindex = AstIndexZ
   tsum = AstSum
   tfromIntOf0 = AstConstInt
     -- toInteger is not defined for Ast, hence a special implementation
@@ -522,7 +523,7 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   tminIndex = AstMinIndex . unAstPrimalPart
   tmaxIndex = AstMaxIndex . unAstPrimalPart
 
-  tindex v ix = AstPrimalPart $ AstIndexN (unAstPrimalPart v) ix
+  tindex v ix = AstPrimalPart $ AstIndexZ (unAstPrimalPart v) ix
   tsum = AstPrimalPart . AstSum . unAstPrimalPart
   tfromIntOf0 = AstPrimalPart . AstConstInt
     -- toInteger is not defined for Ast, hence a special implementation
@@ -581,11 +582,14 @@ shape (D u _) = tshapeR u
 -- TODO: speed up by using tindex0R and dIndex0 if the codomain is 0
 -- and dD (u `tindex1R` ix) (dIndex1 u' ix (tlengthR u)) if only outermost
 -- dimension affected.
-indexN :: forall m n d r. (ADModeAndNumTensor d r, KnownNat m, KnownNat n)
+indexZ :: forall m n d r. (ADModeAndNumTensor d r, KnownNat m, KnownNat n)
        => ADVal d (OR.Array (m + n) r) -> IndexInt m
        -> ADVal d (OR.Array n r)
-indexN (D u u') ixs = dD (tindexNR u ixs)
-                         (dIndexN u' ixs (tshapeR u))
+indexZ (D u u') ix =
+  let sh = tshapeR u
+  in if ixInBounds (indexToList ix) (shapeToList sh)
+     then dD (tindexNR u ix) (dIndexN u' ix sh)
+     else dD (tkonst0NR (dropShape @m sh) 0) dZero
 
 sum' :: (ADModeAndNumTensor d r, KnownNat n)
      => ADVal d (OR.Array (1 + n) r) -> ADVal d (OR.Array n r)
@@ -667,6 +671,8 @@ build1 :: (ADModeAndNumTensor d r, KnownNat n)
        -> ADVal d (OR.Array (1 + n) r)
 build1 k f = fromList $ map f [0 .. k - 1]
 
+-- Note that if any index is out of bounds, the result of that projection
+-- is defined and is 0.
 gatherNClosure :: (ADModeAndNumTensor d r, KnownNat m, KnownNat p, KnownNat n)
                => (IndexInt m -> IndexInt p)
                -> ADVal d (OR.Array (p + n) r)
@@ -780,7 +786,7 @@ interpretAst env = \case
                      then interpretAst env a1
                      else interpretAst env a2
   AstConstInt i -> fromIntegral $ interpretAstInt env i
-  AstIndexN v is -> indexN (interpretAst env v) (fmap (interpretAstInt env) is)
+  AstIndexZ v is -> indexZ (interpretAst env v) (fmap (interpretAstInt env) is)
   AstSum v -> sum' (interpretAst env v)
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
     -- or should I do that in Delta instead? no, because tsum0R is cheaper, too
