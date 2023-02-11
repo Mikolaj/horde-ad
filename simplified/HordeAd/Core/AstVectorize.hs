@@ -10,6 +10,7 @@ module HordeAd.Core.AstVectorize
 
 import Prelude
 
+import           Control.Exception.Assert.Sugar
 import           Control.Monad (when)
 import           Data.Array.Internal (valueOf)
 import           Data.IORef
@@ -39,21 +40,25 @@ build1Vectorize
 build1Vectorize k (var, v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
   let width = 1000 * traceWidth
+      startTerm = AstBuild1 k (var, v0)
   when enabled $ do
     writeIORef traceNestingLevel 0
     hPutStrLnFlush stderr $
       "\n"
       ++ "START of vectorization for term "
-      ++ ellipsisString width (show (AstBuild1 k (var, v0)))
+      ++ ellipsisString width (show startTerm)
       ++ "\n"
-  let !res = build1VOccurenceUnknown k (var, v0)
-  when enabled $
+  let !endTerm = build1VOccurenceUnknown k (var, v0)
+  when enabled $ do
     hPutStrLnFlush stderr $
       "\n"
       ++ "END of vectorization yields "
-      ++ ellipsisString width (show res)
+      ++ ellipsisString width (show endTerm)
       ++ "\n"
-  return res
+  let !_A = assert (shapeAst startTerm == shapeAst endTerm
+                   `blame` "build1Vectorize: term shape changed"
+                   `swith`(shapeAst startTerm, shapeAst endTerm)) ()
+  return endTerm
 
 -- | The application @build1VOccurenceUnknown k (var, v)@ vectorizes
 -- the term @AstBuild1 k (var, v)@, where it's unknown whether
