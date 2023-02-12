@@ -270,8 +270,7 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tfromVector0N sh = treshape sh . tfromVector . V.map tscalar
   tkonst :: KnownNat n => Int -> TensorOf n r -> TensorOf (1 + n) r
   tkonst0N :: KnownNat n => ShapeInt n -> TensorOf 0 r -> TensorOf n r
-  tkonst0N ZS = id
-  tkonst0N sh@(k :$ _) = treshape sh . tkonst k
+  tkonst0N sh = treshape sh . tkonst (sizeShape sh)
   tappend :: KnownNat n
           => TensorOf (1 + n) r -> TensorOf (1 + n) r -> TensorOf (1 + n) r
   tslice :: KnownNat n => Int -> Int -> TensorOf (1 + n) r -> TensorOf (1 + n) r
