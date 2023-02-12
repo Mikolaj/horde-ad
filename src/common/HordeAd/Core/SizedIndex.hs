@@ -168,7 +168,7 @@ pattern ZS :: forall n i. () => n ~ 0 => Shape n i
 pattern ZS = Shape Z
 
 infixr 3 :$
-pattern (:$) :: forall n1 i. forall n. (1 + n) ~ n1
+pattern (:$) :: forall n1 i. KnownNat n1 => forall n. (KnownNat n, (1 + n) ~ n1)
              => i -> Shape n i -> Shape n1 i
 pattern i :$ sh <- (unconsShape -> Just (UnconsShapeRes sh i))
   where i :$ (Shape sh) = Shape (i ::: sh)
@@ -213,11 +213,11 @@ lengthShape :: forall n i. KnownNat n => Shape n i -> Int
 lengthShape _ = valueOf @n
 
 -- | The number of elements in an array of this shape
-sizeShape :: Num i => Shape n i -> i
+sizeShape :: (Num i, KnownNat n) => Shape n i -> i
 sizeShape ZS = 1
 sizeShape (n :$ sh) = n * sizeShape sh
 
-flattenShape :: Num i => Shape n i -> Shape 1 i
+flattenShape :: (Num i, KnownNat n) => Shape n i -> Shape 1 i
 flattenShape = singletonShape . sizeShape
 
 -- Warning: do not pass a list of strides to this function.
@@ -233,25 +233,27 @@ shapeToList (Shape l) = sizedListToList l
 -- | Given a multidimensional index, get the corresponding linear
 -- index into the buffer. Note that the index doesn't need to be pointing
 -- at a scalar. It may point at the start of a larger tensor instead.
-toLinearIdx :: forall m n i. Num i => Shape (m + n) i -> Index m i -> i
+toLinearIdx :: forall m n i. (Num i, KnownNat m, KnownNat n)
+            => Shape (m + n) i -> Index m i -> i
 toLinearIdx = \sh idx -> go sh idx 0
   where
     -- Additional argument: index, in the @m - m1@ dimensional array so far,
     -- of the @m - m1 + n@ dimensional tensor pointed to by the current
     -- @m - m1@ dimensional index prefix.
-    go :: forall m1 n1. Shape (m1 + n1) i -> Index m1 i -> i -> i
+    go :: forall m1 n1. (KnownNat m1, KnownNat n1)
+       => Shape (m1 + n1) i -> Index m1 i -> i -> i
     go sh ZI tensidx = sizeShape sh * tensidx
     go (n :$ sh) (i :. idx) tensidx = go sh idx (n * tensidx + i)
     go _ _ _ = error "toLinearIdx: impossible pattern needlessly required"
 
 -- | Given a linear index into the buffer, get the corresponding
 -- multidimensional index. Here we require an index pointing at a scalar.
-fromLinearIdx :: Integral i => Shape n i -> i -> Index n i
+fromLinearIdx :: (Integral i, KnownNat n) => Shape n i -> i -> Index n i
 fromLinearIdx = \sh lin -> snd (go sh lin)
   where
     -- Returns (linear index into array of sub-tensors,
     -- multi-index within sub-tensor).
-    go :: Integral i => Shape n i -> i -> (i, Index n i)
+    go :: (Integral i, KnownNat n) => Shape n i -> i -> (i, Index n i)
     go ZS n = (n, ZI)
     go (n :$ sh) lin =
       let (tensLin, idxInTens) = go sh lin
@@ -259,6 +261,6 @@ fromLinearIdx = \sh lin -> snd (go sh lin)
       in (tensLin', i :. idxInTens)
 
 -- | The zero index in this shape (not dependent on the actual integers)
-zeroOf :: Num i => Shape n i -> Index n i
+zeroOf :: (Num i, KnownNat n) => Shape n i -> Index n i
 zeroOf ZS = ZI
 zeroOf (_ :$ sh) = 0 :. zeroOf sh
