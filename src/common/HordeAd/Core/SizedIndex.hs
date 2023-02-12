@@ -36,6 +36,13 @@ import HordeAd.Internal.SizedList
 
 type IndexInt n = Index n Int
 
+-- This type is user facing so we warn similarly as for IndexOf.
+-- | Thanks to the OverloadedLists mechanism, values of this type can be
+-- written using the normal list notation. However, such values, if not
+-- explicitly typed, do not inform the compiler about the length
+-- of the list until runtime. That means that some errors are hidden
+-- and also extra type applications may be needed to satisfy the compiler.
+-- Therefore, there is a real trade-off between @[4]@ and @(4 :$ ZI).
 type ShapeInt n = Shape n Int
 
 

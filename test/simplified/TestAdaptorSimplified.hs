@@ -240,9 +240,10 @@ fooNoGoAst v =
   let r = tsum0 v
   in tbuild1 3 (\ix ->
        barAst (3.14, bar (3.14, tindex v [ix]))
-       + astCond (AstBoolOp AndOp  -- TODO: overload &&, <=, >, etc.
-                             [ tindex @(Ast 0 r) @1 v [ix * 2] `tleq` 0
-                             , gtInt @(Ast 0 r) 6 (abs ix) ])
+       + astCond (AstBoolOp AndOp
+                    [ tindex v (ix * 2 :. ZI) `tleq` 0
+                        -- @1 not required thanks to :.; see below for @ and []
+                    , gtInt @(Ast 0 r) 6 (abs ix) ])
                  r (5 * r))
      / tslice 1 3 (tmap0N (\x -> astCond (x `tgt` r) r x) v)
      * tbuild1 3 (const 1)
@@ -336,7 +337,7 @@ testNestedSumBuild =
 
 nestedBuildIndex :: forall r. ADReady r => TensorOf 1 r -> TensorOf 1 r
 nestedBuildIndex v =
-  tbuild1 2 $ \ix2 -> tindex @r @1 (tbuild1 3 $ \ix3 -> tindex (tbuild1 4 $ \ix4 -> tindex @r @1 v [ix4]) [ix3]) [ix2]
+  tbuild1 2 $ \ix2 -> tindex (tbuild1 3 $ \ix3 -> tindex (tbuild1 4 $ \ix4 -> tindex v (ix4 :. ZI)) [ix3]) (ix2 :. ZI)
 
 testNestedBuildIndex :: Assertion
 testNestedBuildIndex =
@@ -400,7 +401,7 @@ testBarReluAst1 =
 konstReluAst
   :: forall r. (Show r, Numeric r, RealFloat r, RealFloat (Vector r))
   => Ast 0 r -> Ast 0 r
-konstReluAst x = tsum0 $ reluAst1 @1 $ tkonst0N [7] x
+konstReluAst x = tsum0 $ reluAst1 $ tkonst0N (7 :$ ZS) x
 
 testKonstReluAst :: Assertion
 testKonstReluAst =
@@ -475,8 +476,8 @@ testF3 =
 braidedBuilds :: forall r. ADReady r => r -> TensorOf 2 r
 braidedBuilds r =
   tbuild1 3 (\ix1 ->
-    tbuild1 4 (\ix2 -> tindex @r @1 (tfromList0N [4]
-                                      [tunScalar $ tfromIntOf0 ix2, 7, r, -0.2]) [ix1]))
+    tbuild1 4 (\ix2 -> tindex (tfromList0N [4]
+                                      [tunScalar $ tfromIntOf0 ix2, 7, r, -0.2]) (ix1 :. ZI)))
 
 testBraidedBuilds :: Assertion
 testBraidedBuilds =

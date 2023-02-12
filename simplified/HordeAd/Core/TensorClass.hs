@@ -9,7 +9,7 @@
 -- (and safely impure) API in "HordeAd.Core.DualClass". The other part
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.TensorClass
-  ( ADModeAndNumTensor, HasPrimal(..), Tensor(..), IndexOf
+  ( ADModeAndNumTensor, HasPrimal(..), Tensor(..), IndexOf, ShapeInt
   , interpretAst, AstVar(..)
   , ADReady
   , scalar, unScalar, relu1, reluLeaky1, reluAst1
@@ -189,6 +189,12 @@ omapAst f e = unsafePerformIO $ do
 -- to the type level, we'd recover some of the expressiveness, while retaining
 -- statically known (type-parameterized) shapes.
 
+-- | Thanks to the OverloadedLists mechanism, values of this type can be
+-- written using the normal list notation. However, such values, if not
+-- explicitly typed, do not inform the compiler about the length
+-- of the list until runtime. That means that some errors are hidden
+-- and also extra type applications may be needed to satisfy the compiler.
+-- Therefore, there is a real trade-off between @[2]@ and @(2 :. ZI).
 type IndexOf n r = Index n (IntOf r)
 
 -- TODO: when we have several times more operations, split into
