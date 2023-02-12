@@ -155,7 +155,8 @@ listToSized list
   | length list == valueOf @n
   = go list unsafeCoerce
   | otherwise
-  = error "listToSized: list length disagrees with context"
+  = error $ "listToSized: list length disagrees with context "
+            ++ show (length list, valueOf @n :: Int)
   where
     go :: [i] -> (forall m. SizedList m i -> r) -> r
     go [] k = k Z
