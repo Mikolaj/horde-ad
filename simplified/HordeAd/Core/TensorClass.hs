@@ -19,6 +19,7 @@ module HordeAd.Core.TensorClass
 import Prelude
 
 import qualified Data.Array.DynamicS as OT
+import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
@@ -227,6 +228,8 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
 
   -- Integer codomain
   tshape :: KnownNat n => TensorOf n r -> ShapeInt n
+  trank :: forall n. KnownNat n => TensorOf n r -> Int
+  trank = valueOf @n
   tsize :: KnownNat n => TensorOf n r -> Int
   tsize = sizeShape . tshape
   tlength :: KnownNat n => TensorOf (1 + n) r -> Int
@@ -278,8 +281,8 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
           => TensorOf (1 + n) r -> TensorOf (1 + n) r -> TensorOf (1 + n) r
   tslice :: KnownNat n => Int -> Int -> TensorOf (1 + n) r -> TensorOf (1 + n) r
   treverse :: KnownNat n => TensorOf n r -> TensorOf n r
-  ttranspose :: KnownNat n => TensorOf n r -> TensorOf n r
-  ttranspose = ttransposeGeneral [1, 0]
+  ttranspose :: forall n. KnownNat n => TensorOf n r -> TensorOf n r
+  ttranspose v = if trank v <= 1 then v else ttransposeGeneral [1, 0] v
   ttransposeGeneral :: KnownNat n => Permutation -> TensorOf n r -> TensorOf n r
   tflatten :: KnownNat n => TensorOf n r -> TensorOf 1 r
   tflatten u = treshape (flattenShape $ tshape u) u
@@ -813,11 +816,7 @@ interpretAst env = \case
   AstAppend x y -> append (interpretAst env x) (interpretAst env y)
   AstSlice i k v -> slice i k (interpretAst env v)
   AstReverse v -> reverse' (interpretAst env v)
-  AstTransposeGeneral perm v ->
-    let d = interpretAst env v
-    in if lengthShape (shape d) < length perm
-       then d
-       else transposeGeneral perm d
+  AstTransposeGeneral perm v -> transposeGeneral perm $ interpretAst env v
   AstFlatten v -> let d = interpretAst env v
                   in reshape (flattenShape $ shape d) d
   AstReshape sh v -> reshape sh (interpretAst env v)

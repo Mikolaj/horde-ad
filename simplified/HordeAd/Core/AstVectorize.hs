@@ -264,22 +264,17 @@ build1VIx k (var, v0, is@(i1 :. rest1)) =
                   :. rest1
       in build1VIx k (var, v, revIs)
     AstTransposeGeneral perm v -> traceRule $
-      let lenp = length perm
-          is2 = permutePrefixIndex perm is
-      in if | valueOf @(m + n) < lenp ->
-                build1VIx k (var, v, is)
-                  -- the operation is an identity if rank too small
-            | valueOf @m < lenp ->
-                AstBuild1 k (var, AstIndexZ v0 is)  -- we give up
-                  -- TODO: for this we really need generalized indexes that
-                  -- first project, then transpose and so generalized gather;
-                  -- or instead push down transpose, but it may be expensive
-                  -- or get stuck as well (transpose of a list of lists
-                  -- would need to shuffle all the individual elements);
-                  -- or perhaps it's enough to pass a permutation
-                  -- in build1VIx and wrap the argument
-                  -- to gather in AstTransposeGeneral with the permutation
-            | otherwise -> build1VIx k (var, v, is2)
+      if valueOf @m < length perm
+      then AstBuild1 k (var, AstIndexZ v0 is)  -- we give up
+             -- TODO: for this we really need generalized indexes that
+             -- first project, then transpose and so generalized gather;
+             -- or instead push down transpose, but it may be expensive
+             -- or get stuck as well (transpose of a list of lists
+             -- would need to shuffle all the individual elements);
+             -- or perhaps it's enough to pass a permutation
+             -- in build1VIx and wrap the argument
+             -- to gather in AstTransposeGeneral with the permutation
+      else build1VIx k (var, v, permutePrefixIndex perm is)
     AstFlatten v -> traceRule $
       case rest1 of
         ZI ->

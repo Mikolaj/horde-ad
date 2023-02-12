@@ -54,6 +54,10 @@ testTrees =
 t16 :: (Numeric r, Fractional r) => OR.Array 4 r
 t16 = OR.fromList [2, 2, 2, 2] [5, 2, 6, 1, -2, 0, 0.1, -0.2, 13.1, 9, 8, -4, 582934, 2.99432, -335, 26]
 
+-- Test comments are currently outdated. The first implementation
+-- is currently correct only by chance (and this may change).
+-- The "laborious" implementation is the solid one.
+
 -- | Unpadded full convolution,
 --   where the output size is the same as the input size.
 conv2d

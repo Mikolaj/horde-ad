@@ -126,6 +126,8 @@ astIndexZ :: forall m n r. (KnownNat m, Show r, Numeric r)
 astIndexZ v0 ZI = v0
 astIndexZ v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) = case v0 of
   AstKonst _k v -> astIndexZ v rest1
+  AstTransposeGeneral perm v | valueOf @m >= length perm ->
+    astIndexZ v (permutePrefixIndex perm ix)
   AstGather1 (var2, ix2) v _n2 ->
     let ix3 = fmap (substituteAstInt i1 var2) ix2
     in astIndexZ v (appendIndex rest1 ix3)
@@ -146,13 +148,13 @@ astKonst k = \case
     AstReshape (k :$ sh) $ astKonst k v
   v -> AstKonst k v
 
-astTranspose :: KnownNat n => Ast n r -> Ast n r
+astTranspose :: forall n r. KnownNat n => Ast n r -> Ast n r
+astTranspose v | valueOf @n <= (1 :: Int) = v
+  -- the operation is an identity if rank too small
 astTranspose v = astTransposeGeneral [1, 0] v
 
 astTransposeGeneral :: forall n r. KnownNat n
                     => Permutation -> Ast n r -> Ast n r
-astTransposeGeneral perm t | valueOf @n < length perm = t
-  -- the operation is an identity if rank too small
 astTransposeGeneral perm t | isIdentityPerm perm = t
 astTransposeGeneral perm1 (AstTransposeGeneral perm2 t) =
   let perm2Matched =
@@ -194,6 +196,9 @@ astGatherN (var ::: vars, ix@(_ :. _)) v0
     if any (intVarInAstInt var) ix2 then AstGatherN (var ::: vars, ix2) v2 sh
     else astKonst k (astGatherN (vars, ix2) v2 sh')
       -- a generalization of build1VSimplify needed to simplify more
+      -- or we could run astGather1 repeatedly, but even then we can't
+      -- get into fromList, which may simplify or complicate a term,
+      -- and sometimes is not possible without leaving a small gather outside
   v3 -> astGatherN (var ::: vars, ZI) v3 sh
 astGatherN _ _ _ =
   error "astGatherN: AstGatherN: impossible pattern needlessly required"
@@ -430,10 +435,7 @@ shapeAst v1 = case v1 of
       yi :$ _ -> xi + yi :$ xsh
   AstSlice _n k v -> k :$ tailShape (shapeAst v)
   AstReverse v -> shapeAst v
-  AstTransposeGeneral perm v ->
-    if valueOf @n < length perm
-    then shapeAst v  -- the operation is identity if rank too small
-    else permutePrefixShape perm (shapeAst v)
+  AstTransposeGeneral perm v -> permutePrefixShape perm (shapeAst v)
   AstFlatten v -> flattenShape (shapeAst v)
   AstReshape sh _v -> sh
   AstBuild1 k (_var, v) -> k :$ shapeAst v
