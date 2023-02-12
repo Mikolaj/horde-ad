@@ -659,6 +659,7 @@ test-suite simplifiedOnlyTest
 
     other-modules:    TestAdaptorSimplified
                       TestBuildSimplified
+                      TestHighRankSimplified
                       TestSimplified
 
     build-depends:
@@ -666,6 +667,8 @@ test-suite simplifiedOnlyTest
       , testCommonLibrarySimplified
 
       , base
+      , ghc-typelits-knownnat
+      , ghc-typelits-natnormalise
       , hmatrix
       , mono-traversable
       , orthotope
