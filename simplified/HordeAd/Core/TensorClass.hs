@@ -217,13 +217,13 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   fromBool :: Bool -> BoolOf r
   andBool :: BoolOf r -> BoolOf r -> BoolOf r
   leqInt :: IntOf r -> IntOf r -> BoolOf r
-  default leqInt
+  default leqInt  -- the more narrow type rules out Ast
     :: (IntOf r ~ Int, BoolOf r ~ Bool) => IntOf r -> IntOf r -> BoolOf r
-  leqInt = (<=)  -- not for Ast
+  leqInt = (<=)
   gtInt :: IntOf r -> IntOf r -> BoolOf r
   default gtInt
     :: (IntOf r ~ Int, BoolOf r ~ Bool) => IntOf r -> IntOf r -> BoolOf r
-  gtInt = (>)  -- not for Ast
+  gtInt = (>)
 
   -- Integer codomain
   tshape :: KnownNat n => TensorOf n r -> ShapeInt n
@@ -255,7 +255,9 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tmaximum0 :: TensorOf 1 r -> TensorOf 0 r
   tmaximum0 t = t ! [tmaxIndex t]
   tfromIntOf0 :: IntOf r -> TensorOf 0 r
-  tfromIntOf0 = tscalar . fromIntegral  -- fails for the Ast instance
+  default tfromIntOf0  -- the more narrow type rules out Ast
+    :: IntOf r ~ Int => IntOf r -> TensorOf 0 r
+  tfromIntOf0 = tscalar . fromIntegral
 
   -- Tensor codomain, often tensor construction, sometimes transformation
   tcond :: KnownNat n
@@ -577,9 +579,10 @@ instance Tensor r
          => Tensor (a -> r) where
   type TensorOf n (a -> r) = ORB.Array n (a -> r)
   type IntOf (a -> r) = IntOf r
+  type BoolOf (a -> r) = BoolOf r
   leqInt = undefined
   gtInt = undefined
-  type BoolOf (a -> r) = BoolOf r
+  tfromIntOf0 = undefined
   tscalar = ORB.scalar
   tunScalar = ORB.unScalar
   type ScalarOf (a -> r) = ScalarOf r
