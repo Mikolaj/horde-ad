@@ -16,6 +16,7 @@ module HordeAd.Core.Ast
   , intVarInAst, intVarInAstInt, intVarInAstBool
   , substituteAst, substituteAstInt, substituteAstBool
   , astCond, astIndexZ, astKonst, astTranspose, astTransposeGeneral
+  , astGather1, astGatherN
   ) where
 
 import Prelude
@@ -121,7 +122,7 @@ astCond b v w = AstIndexZ (AstFromList [v, w])
 astIndexZ :: forall m n r. (KnownNat m, Show r, Numeric r)
           => Ast (m + n) r -> AstIndex m r -> Ast n r
 astIndexZ v0 ZI = v0
-astIndexZ v0 ix@(i1 :. rest1) = case v0 of
+astIndexZ v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) = case v0 of
   AstKonst _k v -> astIndexZ v rest1
   AstGather1 (var2, ix2) v _n2 ->
     let ix3 = fmap (substituteAstInt i1 var2) ix2
@@ -129,7 +130,9 @@ astIndexZ v0 ix@(i1 :. rest1) = case v0 of
   AstGatherN (Z, ix2) v _sh -> astIndexZ v (appendIndex ix ix2)
   AstGatherN (var2 ::: vars, ix2) v (_ :$ sh') ->
     let ix3 = fmap (substituteAstInt i1 var2) ix2
-    in astIndexZ (unsafeCoerce $ AstGatherN (vars, ix3) v sh') rest1
+        w :: Ast (m1 + n) r
+        w = unsafeCoerce $ astGatherN (vars, ix3) v sh'
+    in astIndexZ @m1 @n w rest1
   _ -> AstIndexZ v0 ix
     -- a lot more can be added, but how not to duplicate build1VIx?
 
@@ -158,6 +161,67 @@ astTransposeGeneral perm u = AstTransposeGeneral perm u
 
 isIdentityPerm :: Permutation -> Bool
 isIdentityPerm = and . zipWith (==) [0 ..]
+
+-- Assumption: var does not occur in v0.
+astGather1 :: forall p n r. (KnownNat p, KnownNat n, Show r, Numeric r)
+           => (AstVarName Int, AstIndex p r) -> Ast (p + n) r
+           -> Int -> Ast (1 + n) r
+astGather1 (var, ix) v0 k = case astIndexZ v0 ix of
+  AstIndexZ v2 ix2@(iN :. restN) ->
+    if | any (intVarInAstInt var) restN -> AstGather1 (var, ix2) v2 k
+       | intVarInAstInt var iN ->
+         let w :: Ast (1 + n) r
+             w = AstIndexZ v2 restN
+         in case build1VSimplify k var w iN of
+              Just u -> u  -- an extremely simple form found
+              Nothing -> AstGather1 (var, ix2) v2 k
+                -- we didn't really need it anyway
+       | otherwise -> astKonst k (AstIndexZ v2 ix2)
+  v3 -> astKonst k v3
+
+astGatherN :: forall m p n r.
+              (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r)
+           => (AstVarList m, AstIndex p r) -> Ast (p + n) r
+           -> ShapeInt (m + n) -> Ast (m + n) r
+astGatherN (Z, ix) v0 _sh = astIndexZ v0 ix
+astGatherN (_ ::: vars, ZI) v0 (k :$ sh') =
+  astKonst k (astGatherN (vars, ZI) v0 sh')  -- a shortcut
+astGatherN (var ::: vars, ix@(_ :. _)) v0
+           sh@(k :$ sh') = case astIndexZ @p @n v0 ix of
+  AstIndexZ v2 ix2 ->
+    if any (intVarInAstInt var) ix2 then AstGatherN (var ::: vars, ix2) v2 sh
+    else astKonst k (astGatherN (vars, ix2) v2 sh')
+      -- a generalization of build1VSimplify needed to simplify more
+  v3 -> astGatherN (var ::: vars, ZI) v3 sh
+astGatherN _ _ _ =
+  error "astGatherN: AstGatherN: impossible pattern needlessly required"
+
+-- TODO: we probably need to simplify iN to some normal form, but possibly
+-- this would be even better to do and take advantage of earlier,
+-- perhaps even avoiding pushing all the other indexing down
+-- | The application @build1VSimplify k var v iN@ vectorizes and simplifies
+-- the term @AstBuild1 k (var, AstIndexZ v [iN])@, where it's known that
+-- @var@ does not occur in @v@ but occurs in @iN@. This is done by pattern
+-- matching on @iN@ as opposed to on @v@.
+build1VSimplify
+  :: Int -> AstVarName Int -> Ast (1 + n) r -> AstInt r
+  -> Maybe (Ast (1 + n) r)
+build1VSimplify k var v0 iN =
+  case iN of
+    AstIntVar var2 | var2 == var ->
+      Just $ AstSlice 0 k v0
+    AstIntOp PlusIntOp [AstIntVar var2, AstIntConst i2]
+      | var2 == var ->
+        Just $ AstSlice i2 k v0
+    AstIntOp PlusIntOp [AstIntConst i2, AstIntVar var2]
+      | var2 == var ->
+        Just $ AstSlice i2 k v0
+    _ -> Nothing
+      -- TODO: many more cases; not sure how systematic it can be;
+      -- more cases arise if shapes can contain Ast variables;
+      -- @Data.Array.Shaped@ doesn't help in these extra cases;
+      -- however, AstGather* covers all this, at the cost of (relatively
+      -- simple) expressions on tape
 
 newtype AstPrimalPart n r = AstPrimalPart {unAstPrimalPart :: Ast n r}
  deriving Show

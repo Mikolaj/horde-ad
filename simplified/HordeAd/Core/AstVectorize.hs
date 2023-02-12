@@ -142,13 +142,13 @@ build1V k (var, v0) =
       -- It probably speeds up vectorization a tiny bit if we nest
       -- AstBuild1 instead of rewriting into AstBuild.
     AstGather1 (var2, ix2 :: Index p (AstInt r)) v k2 -> traceRule $
-      AstGatherN (var ::: var2 ::: Z, AstIntVar var :. ix2)
+      astGatherN (var ::: var2 ::: Z, AstIntVar var :. ix2)
                  (build1VOccurenceUnknown k (var, v))
                  (k :$ k2 :$ dropShape @p (shapeAst v))
       -- AstScatter (var2, ix2) v sh -> ...
       -- no idea how to vectorize AstScatter, so let's not add prematurely
     AstGatherN (vars, ix2) v sh -> traceRule $
-      AstGatherN (var ::: vars, AstIntVar var :. ix2)
+      astGatherN (var ::: vars, AstIntVar var :. ix2)
                  (build1VOccurenceUnknown k (var, v))
                  (k :$ sh)
 
@@ -176,21 +176,8 @@ build1VIxOccurenceUnknown k (var, v0, ix@(_ :. _)) =
                               v0 1
   in if intVarInAst var v0
      then build1VIx k (var, v0, ix)  -- push deeper
-     else case astIndexZ v0 ix of
-       AstIndexZ v2 ix2@(iN :. restN) ->
-         if | any (intVarInAstInt var) restN -> traceRule $
-              AstGather1 (var, ix2) v2 k
-            | intVarInAstInt var iN ->
-              let w = AstIndexZ v2 restN
-              in case build1VSimplify k var w iN of
-                   Just u -> u  -- an extremely simple form found
-                   Nothing -> traceRule $
-                     AstGather1 (var, ix2) v2 k
-                       -- we didn't really need it anyway
-            | otherwise -> traceRule $
-              astKonst k (AstIndexZ v2 ix2)
-       v3 -> traceRule $
-         astKonst k v3
+     else traceRule $
+            astGather1 (var, ix) v0 k
 
 -- | The application @build1VIx k (var, v, is)@ vectorizes
 -- the term @AstBuild1 k (var, AstIndexZ v is)@, where it's known that
@@ -240,7 +227,7 @@ build1VIx k (var, v0, is@(i1 :. rest1)) =
       -- There's no other reduction left to perform and hope the build vanishes.
       let t = AstFromList $ map (\v ->
             build1VOccurenceUnknown k (var, AstIndexZ v rest1)) l
-      in AstGather1 (var, i1 :. AstIntVar var :. ZI) t k
+      in astGather1 (var, i1 :. AstIntVar var :. ZI) t k
     AstFromList l -> traceRule $
       AstIndexZ (AstFromList $ map (\v ->
         build1VOccurenceUnknown k (var, AstIndexZ v rest1)) l)
@@ -248,7 +235,7 @@ build1VIx k (var, v0, is@(i1 :. rest1)) =
     AstFromVector l | intVarInAstInt var i1 -> traceRule $
       let t = AstFromVector $ V.map (\v ->
             build1VOccurenceUnknown k (var, AstIndexZ v rest1)) l
-      in AstGather1 (var, i1 :. AstIntVar var :. ZI) t k
+      in astGather1 (var, i1 :. AstIntVar var :. ZI) t k
     AstFromVector l -> traceRule $
       AstIndexZ (AstFromVector $ V.map (\v ->
         build1VOccurenceUnknown k (var, AstIndexZ v rest1)) l)
@@ -331,52 +318,16 @@ build1VIx k (var, v0, is@(i1 :. rest1)) =
     AstGatherN (var2 ::: vars, ix2) v (_ :$ sh') -> traceRule $
       let ix3 = fmap (substituteAstInt i1 var2) ix2
       in build1VIx
-           k (var, unsafeCoerce $ AstGatherN (vars, ix3) v sh', rest1)
+           k (var, unsafeCoerce $ astGatherN (vars, ix3) v sh', rest1)
           -- GHC with the plugin doesn't cope with this
           -- (https://github.com/clash-lang/ghc-typelits-natnormalise/issues/71)
           -- so unsafeCoerce is back
-    AstGatherN{} -> traceRule $
+    AstGatherN{} ->
       error "build1VIx: AstGatherN: impossible pattern needlessly required"
 
     AstOMap{} -> traceRule $
       AstConstant $ AstPrimalPart $ AstBuild1 k (var, AstIndexZ v0 is)
     -- All other patterns are redundant due to GADT typing.
-
--- TODO: we probably need to simplify iN to some normal form, but possibly
--- this would be even better to do and take advantage of earlier,
--- perhaps even avoiding pushing all the other indexing down
--- | The application @build1VSimplify k var v iN@ vectorizes and simplifies
--- the term @AstBuild1 k (var, AstIndexZ v [iN])@, where it's known that
--- @var@ does not occur in @v@ but occurs in @iN@. This is done by pattern
--- matching on @iN@ as opposed to on @v@.
-build1VSimplify
-  :: forall n r. (Show r, Numeric r, KnownNat n)
-  => Int -> AstVarName Int -> Ast (1 + n) r -> AstInt r
-  -> Maybe (Ast (1 + n) r)
-build1VSimplify k var v0 iN =
-  let traceRule res = case res of
-        Nothing -> res
-        Just u -> mkTraceRule
-                    "build1VS"
-                    (AstBuild1 k (var, AstIndexZ v0 (singletonIndex iN)))
-                    iN 1  -- not enough space for more
-                    u
-                  `seq` res
-  in case iN of
-    AstIntVar var2 | var2 == var -> traceRule $
-      Just $ AstSlice 0 k v0
-    AstIntOp PlusIntOp [AstIntVar var2, AstIntConst i2]
-      | var2 == var -> traceRule $
-        Just $ AstSlice i2 k v0
-    AstIntOp PlusIntOp [AstIntConst i2, AstIntVar var2]
-      | var2 == var -> traceRule $
-        Just $ AstSlice i2 k v0
-    _ -> Nothing
-      -- TODO: many more cases; not sure how systematic it can be;
-      -- more cases arise if shapes can contain Ast variables;
-      -- @Data.Array.Shaped@ doesn't help in these extra cases;
-      -- however, AstGather* covers all this, at the cost of (relatively
-      -- simple) expressions on tape
 
 
 -- * Rule tracing machinery
