@@ -1,6 +1,5 @@
 {-# LANGUAGE ConstraintKinds, DataKinds, GADTs, StandaloneDeriving,
              TypeFamilyDependencies, UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Dual numbers and various operations on them, arithmetic and related
@@ -168,12 +167,17 @@ dotParameters (Domains a0 a1) (Domains b0 b1) =
 
 -- * Numeric instances for ADVal
 
--- These instances are required for the Tensor instance.
+-- These two instances are now required for the Tensor instance.
 instance Eq a => Eq (ADVal d a) where
   D u _ == D v _ = u == v
+  D u _ /= D v _ = u /= v
 
 instance Ord a => Ord (ADVal d a) where
+  compare (D u _) (D v _) = compare u v
+  D u _ < D v _ = u < v
   D u _ <= D v _ = u <= v
+  D u _ > D v _ = u > v
+  D u _ >= D v _ = u >= v
 
 instance (Num a, IsPrimal d a) => Num (ADVal d a) where
   D u u' + D v v' = dD (u + v) (dAdd u' v')
@@ -233,8 +237,16 @@ instance (RealFloat a, IsPrimal d a) => RealFloat (ADVal d a) where
   atan2 (D u u') (D v v') =
     let t = 1 / (u * u + v * v)
     in dD (atan2 u v) (dAdd (dScale (- u * t) v') (dScale (v * t) u'))
-      -- we can be selective here and omit the other methods,
-      -- most of which don't even have a differentiable codomain
+  floatRadix (D u _) = floatRadix u
+  floatDigits (D u _) = floatDigits u
+  floatRange (D u _) = floatRange u
+  decodeFloat (D u _) = decodeFloat u
+  encodeFloat i j = D (encodeFloat i j) dZero
+  isNaN (D u _) = isNaN u
+  isInfinite (D u _) = isInfinite u
+  isDenormalized (D u _) = isDenormalized u
+  isNegativeZero (D u _) = isNegativeZero u
+  isIEEE (D u _) = isIEEE u
 
 
 -- * Legacy operations needed to re-use vector differentiation tests

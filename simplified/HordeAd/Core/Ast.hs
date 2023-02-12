@@ -2,7 +2,6 @@
              TypeFamilies, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
-{-# OPTIONS_GHC -Wno-missing-methods #-}
 -- | AST of the code to be differentiated. It's needed mostly for handling
 -- higher order operations such as build and map, but can be used
 -- for arbitrary code transformations at the cost of limiting
@@ -345,8 +344,18 @@ instance RealFrac (OR.Array n r) => RealFrac (Ast n r) where
 
 instance RealFloat (OR.Array n r) => RealFloat (Ast n r) where
   atan2 u v = AstOp Atan2Op [u, v]
-      -- we can be selective here and omit the other methods,
-      -- most of which don't even have a differentiable codomain
+  -- We can be selective here and omit the other methods,
+  -- most of which don't even have a differentiable codomain.
+  floatRadix = undefined
+  floatDigits = undefined
+  floatRange = undefined
+  decodeFloat = undefined
+  encodeFloat = undefined
+  isNaN = undefined
+  isInfinite = undefined
+  isDenormalized = undefined
+  isNegativeZero = undefined
+  isIEEE = undefined
 
 instance Eq (AstPrimalPart n r) where
   _ == _ = error "AstPrimalPart: can't evaluate terms for Eq"
@@ -389,7 +398,8 @@ instance Real (AstInt r) where
   toRational = undefined  -- TODO
 
 instance Enum (AstInt r) where
-  -- TODO
+  toEnum = AstIntConst
+  fromEnum = undefined  -- do we need to define out own Enum for this?
 
 -- Warning: this class lacks toInteger, which also makes it impossible
 -- to include AstInt in Ast via fromIntegral, hence AstConstInt.

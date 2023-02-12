@@ -1,7 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, DataKinds, FlexibleInstances,
              MultiParamTypeClasses, OverloadedLists, TypeFamilyDependencies,
              UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Dual numbers and various operations on them, arithmetic and related
@@ -545,6 +544,7 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   tminIndex = AstMinIndex . unAstPrimalPart
   tmaxIndex = AstMaxIndex . unAstPrimalPart
   tfloor = AstIntFloor . unAstPrimalPart
+  tcondInt = AstIntCond
 
   tindex v ix = AstPrimalPart $ AstIndexZ (unAstPrimalPart v) ix
   tsum = AstPrimalPart . AstSum . unAstPrimalPart
@@ -589,14 +589,34 @@ instance Tensor r
   type TensorOf n (a -> r) = ORB.Array n (a -> r)
   type IntOf (a -> r) = IntOf r
   type BoolOf (a -> r) = BoolOf r
+  fromBool = undefined
+  andBool = undefined
   leqInt = undefined
   gtInt = undefined
   tleq = undefined
   tgt = undefined
+  tshape = undefined
+  tminIndex = undefined
+  tmaxIndex = undefined
+  tfloor = undefined
+  tcondInt = undefined
+  tindex = undefined
+  tsum = undefined
   tfromIntOf0 = undefined
+  tcond = undefined
+  tfromList = undefined
+  tfromVector = undefined
+  tkonst = undefined
+  tappend = undefined
+  tslice = undefined
+  treverse = undefined
+  ttransposeGeneral = undefined
+  treshape = undefined
+  tbuild1 = undefined
   tscalar = ORB.scalar
   tunScalar = ORB.unScalar
   type ScalarOf (a -> r) = ScalarOf r
+  tconst = tconst
 
 
 -- * ADVal combinators generalizing ranked tensor operations
