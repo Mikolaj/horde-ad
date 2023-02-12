@@ -13,7 +13,7 @@ module HordeAd.Core.TensorClass
   ( ADModeAndNumTensor, HasPrimal(..), Tensor(..), IndexOf
   , interpretAst, AstVar(..)
   , ADReady
-  , scalar, unScalar, leqAst, gtAst, relu1, reluLeaky1, reluAst1
+  , scalar, unScalar, relu1, reluLeaky1, reluAst1
   ) where
 
 import Prelude
@@ -47,12 +47,6 @@ type ADModeAndNumTensor (d :: ADMode) r =
   , TensorOf 1 r ~ OR.Array 1 r
   , IntOf r ~ Int
   )
-
-leqAst :: Ast 0 r -> Ast 0 r -> AstBool r
-leqAst d e = AstRel LeqOp [d, e]
-
-gtAst :: Ast 0 r -> Ast 0 r -> AstBool r
-gtAst d e = AstRel GtOp [d, e]
 
 scale1 :: (HasPrimal (TensorOf n r), Num (TensorOf n r))
        => PrimalOf (TensorOf n r) -> TensorOf n r -> TensorOf n r
@@ -225,6 +219,14 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   default gtInt
     :: (IntOf r ~ Int, BoolOf r ~ Bool) => IntOf r -> IntOf r -> BoolOf r
   gtInt = (>)
+  tleq :: TensorOf 0 r -> TensorOf 0 r -> BoolOf r
+  default tleq
+    :: BoolOf r ~ Bool => TensorOf 0 r -> TensorOf 0 r -> BoolOf r
+  tleq = (<=)
+  tgt :: TensorOf 0 r -> TensorOf 0 r -> BoolOf r
+  default tgt
+    :: BoolOf r ~ Bool => TensorOf 0 r -> TensorOf 0 r -> BoolOf r
+  tgt = (>)
 
   -- Integer codomain
   tshape :: KnownNat n => TensorOf n r -> ShapeInt n
@@ -494,6 +496,8 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   andBool b c = AstBoolOp AndOp [b, c]
   leqInt i j = AstRelInt LeqOp [i, j]
   gtInt i j = AstRelInt GtOp [i, j]
+  tgt v u = AstRel GtOp [v, u]
+  tleq v u = AstRel LeqOp [v, u]
 
   tshape = shapeAst
   tminIndex = AstMinIndex
@@ -534,6 +538,8 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   andBool b c = AstBoolOp AndOp [b, c]
   leqInt i j = AstRelInt LeqOp [i, j]
   gtInt i j = AstRelInt GtOp [i, j]
+  tgt v u = AstRel GtOp [unAstPrimalPart v, unAstPrimalPart u]
+  tleq v u = AstRel LeqOp [unAstPrimalPart v, unAstPrimalPart u]
 
   tshape = shapeAst . unAstPrimalPart
   tminIndex = AstMinIndex . unAstPrimalPart
@@ -585,6 +591,8 @@ instance Tensor r
   type BoolOf (a -> r) = BoolOf r
   leqInt = undefined
   gtInt = undefined
+  tleq = undefined
+  tgt = undefined
   tfromIntOf0 = undefined
   tscalar = ORB.scalar
   tunScalar = ORB.unScalar

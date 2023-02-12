@@ -87,10 +87,10 @@ fooNoGoAst v =
   in tbuild1 3 (\ix ->
        barAst (3.14, bar (3.14, tindex v [ix]))
        + astCond (AstBoolOp AndOp  -- TODO: overload &&, <=, >, etc.
-                             [ tindex v [ix * 2] `leqAst` 0
+                             [ tindex v [ix * 2] `tleq` 0
                              , gtInt @(Ast 0 r) 6 (abs ix) ])
                  r (5 * r))
-     / tslice 1 3 (tmap0N (\x -> astCond (x `gtAst` r) r x) v)
+     / tslice 1 3 (tmap0N (\x -> astCond (x `tgt` r) r x) v)
      * tbuild1 3 (const 1)
 
 nestedBuildMap :: forall r. ADReady r => r -> TensorOf 1 r
