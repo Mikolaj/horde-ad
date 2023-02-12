@@ -216,7 +216,7 @@ build1VIx k (var, v0, is@(i1 :. rest1)) =
       build1VIxOccurenceUnknown k (var, v, appendIndex is is2)
     AstSum v -> traceRule $
       build1V k
-        (var, AstSum (astTranspose $ AstIndexZ (astTranspose v) is))
+        (var, AstSum (AstIndexZ (astTranspose v) is))
           -- that's because @index (sum v) i == sum (map (index i) v)@
     AstFromList l | intVarInAstInt var i1 -> traceRule $
       -- This is pure desperation. I build separately for each list element,
