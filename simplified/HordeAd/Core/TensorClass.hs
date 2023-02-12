@@ -218,13 +218,15 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   default gtInt
     :: (IntOf r ~ Int, BoolOf r ~ Bool) => IntOf r -> IntOf r -> BoolOf r
   gtInt = (>)
-  tleq :: TensorOf 0 r -> TensorOf 0 r -> BoolOf r
+  tleq :: KnownNat n => TensorOf n r -> TensorOf n r -> BoolOf r
   default tleq
-    :: BoolOf r ~ Bool => TensorOf 0 r -> TensorOf 0 r -> BoolOf r
+    :: (BoolOf r ~ Bool, Ord (TensorOf n r))
+    => TensorOf n r -> TensorOf n r -> BoolOf r
   tleq = (<=)
-  tgt :: TensorOf 0 r -> TensorOf 0 r -> BoolOf r
+  tgt :: KnownNat n => TensorOf n r -> TensorOf n r -> BoolOf r
   default tgt
-    :: BoolOf r ~ Bool => TensorOf 0 r -> TensorOf 0 r -> BoolOf r
+    :: (BoolOf r ~ Bool, Ord (TensorOf n r))
+    => TensorOf n r -> TensorOf n r -> BoolOf r
   tgt = (>)
 
   -- Integer codomain

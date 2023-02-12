@@ -256,9 +256,10 @@ deriving instance (Show r, Numeric r) => Show (AstInt r)
 data AstBool :: Type -> Type where
   AstBoolOp :: OpCodeBool -> [AstBool r] -> AstBool r
   AstBoolConst :: Bool -> AstBool r
-  AstRel :: OpCodeRel -> [Ast 0 r] -> AstBool r
+  AstRel :: KnownNat n
+         => OpCodeRel -> [Ast n r] -> AstBool r
   AstRelInt :: OpCodeRel -> [AstInt r] -> AstBool r
- deriving Show
+deriving instance (Show r, Numeric r) => Show (AstBool r)
 
 -- Copied from the outlining mechanism deleted in
 -- https://github.com/Mikolaj/horde-ad/commit/c59947e13082c319764ec35e54b8adf8bc01691f
