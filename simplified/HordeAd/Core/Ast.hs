@@ -78,7 +78,7 @@ data Ast :: Nat -> Type -> Type where
             => Ast (1 + n) r -> Ast (1 + n) r -> Ast (1 + n) r
   AstSlice :: Int -> Int -> Ast (1 + n) r -> Ast (1 + n) r
   AstReverse :: KnownNat n
-             => Ast n r -> Ast n r
+             => Ast (1 + n) r -> Ast (1 + n) r
   AstTransposeGeneral :: Permutation -> Ast n r -> Ast n r
     -- emerges from vectorizing AstTranspose
   AstFlatten :: KnownNat n
@@ -148,9 +148,7 @@ astKonst k = \case
     AstReshape (k :$ sh) $ astKonst k v
   v -> AstKonst k v
 
-astTranspose :: forall n r. KnownNat n => Ast n r -> Ast n r
-astTranspose v | valueOf @n <= (1 :: Int) = v
-  -- the operation is an identity if rank too small
+astTranspose :: forall n r. KnownNat n => Ast (2 + n) r -> Ast (2 + n) r
 astTranspose v = astTransposeGeneral [1, 0] v
 
 astTransposeGeneral :: forall n r. KnownNat n

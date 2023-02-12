@@ -282,9 +282,9 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tappend :: KnownNat n
           => TensorOf (1 + n) r -> TensorOf (1 + n) r -> TensorOf (1 + n) r
   tslice :: KnownNat n => Int -> Int -> TensorOf (1 + n) r -> TensorOf (1 + n) r
-  treverse :: KnownNat n => TensorOf n r -> TensorOf n r
-  ttranspose :: forall n. KnownNat n => TensorOf n r -> TensorOf n r
-  ttranspose v = if trank v <= 1 then v else ttransposeGeneral [1, 0] v
+  treverse :: KnownNat n => TensorOf (1 + n) r -> TensorOf (1 + n) r
+  ttranspose :: KnownNat n => TensorOf (2 + n) r -> TensorOf (2 + n) r
+  ttranspose = ttransposeGeneral [1, 0]
   ttransposeGeneral :: KnownNat n => Permutation -> TensorOf n r -> TensorOf n r
   tflatten :: KnownNat n => TensorOf n r -> TensorOf 1 r
   tflatten u = treshape (flattenShape $ tshape u) u
@@ -680,7 +680,7 @@ slice :: (ADModeAndNumTensor d r, KnownNat n)
 slice i k (D u u') = dD (tsliceR i k u) (dSlice1 i k u' (tlengthR u))
 
 reverse' :: (ADModeAndNumTensor d r, KnownNat n)
-         => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
+         => ADVal d (OR.Array (1 + n) r) -> ADVal d (OR.Array (1 + n) r)
 reverse' (D u u') = dD (treverseR u) (dReverse1 u')
 
 transposeGeneral :: (ADModeAndNumTensor d r, KnownNat n)

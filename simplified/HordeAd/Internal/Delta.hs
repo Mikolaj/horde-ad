@@ -194,7 +194,7 @@ data Delta1 :: Nat -> Type -> Type where
     -- The extracted slice must fall within the dimension.
     -- The last argument is the outermost size of the argument array.
   Reverse1 :: KnownNat n
-           => Delta1 n r -> Delta1 n r
+           => Delta1 (1 + n) r -> Delta1 (1 + n) r
     -- ^ Reverse elements of the outermost dimension.
   TransposeGeneral1 :: KnownNat n
                     => Permutation -> Delta1 n r -> Delta1 n r

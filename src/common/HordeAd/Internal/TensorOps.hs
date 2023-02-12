@@ -251,7 +251,7 @@ tsliceR
 tsliceR i k = OR.slice [(i, k)]
 
 treverseR
-  :: OR.Array n r -> OR.Array n r
+  :: OR.Array (1 + n) r -> OR.Array (1 + n) r
 treverseR = OR.rev [0]
 
 ttransposeGeneralR

@@ -190,7 +190,7 @@ class HasRanks (d :: ADMode) r where
   dSlice1 :: KnownNat n
           => Int -> Int -> Dual d (OR.Array n r) -> Int -> Dual d (OR.Array n r)
   dReverse1 :: KnownNat n
-            => Dual d (OR.Array n r) -> Dual d (OR.Array n r)
+            => Dual d (OR.Array (1 + n) r) -> Dual d (OR.Array (1 + n) r)
   dTransposeGeneral1 :: KnownNat n
                      => Permutation -> Dual d (OR.Array n r)
                      -> Dual d (OR.Array n r)
