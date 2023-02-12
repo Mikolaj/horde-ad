@@ -243,6 +243,11 @@ build1VIx k (var, v0, is@(i1 :. rest1)) =
     -- Partially evaluate in constant time:
     AstKonst _k v -> traceRule $
       build1VIx k (var, v, rest1)
+        -- this is an example term for which vectorization changes
+        -- the value of index out of bounds (from 0 to v in this case));
+        -- fixing this would complicate terms greatly at no value
+        -- for the common case where out of bound does not appear,
+        -- as well as for the case where value other than 0 is desired
     AstAppend v w -> traceRule $
       let vlen = AstIntConst $ lengthAst v
           is2 = fmap (\i -> AstIntOp PlusIntOp [i, vlen]) is

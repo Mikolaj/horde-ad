@@ -241,7 +241,8 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   -- Typically scalar codomain, often tensor reduction
   tindex, (!) :: (KnownNat m, KnownNat n)
               => TensorOf (m + n) r -> IndexOf m r -> TensorOf n r
-    -- note that if index out of bounds, the result is defined and is 0
+    -- if index is out of bounds, the operations returns with an undefined
+    -- value of the correct rank and shape
   infixl 9 !
   (!) = tindex  -- prefix form better when type applications are necessary
   tsum :: KnownNat n => TensorOf (1 + n) r -> TensorOf n r
@@ -589,10 +590,12 @@ instance Tensor r
 shape :: KnownNat n => ADVal d (OR.Array n r) -> ShapeInt n
 shape (D u _) = tshapeR u
 
--- | First index is for outermost dimension; empty index means identity.
 -- TODO: speed up by using tindex0R and dIndex0 if the codomain is 0
 -- and dD (u `tindex1R` ix) (dIndex1 u' ix (tlengthR u)) if only outermost
 -- dimension affected.
+--
+-- First index is for outermost dimension; empty index means identity,
+-- index ouf of bounds produces zero (but beware of vectorization).
 indexZ :: forall m n d r. (ADModeAndNumTensor d r, KnownNat m, KnownNat n)
        => ADVal d (OR.Array (m + n) r) -> IndexInt m
        -> ADVal d (OR.Array n r)
@@ -682,8 +685,8 @@ build1 :: (ADModeAndNumTensor d r, KnownNat n)
        -> ADVal d (OR.Array (1 + n) r)
 build1 k f = fromList $ map f [0 .. k - 1]
 
--- Note that if any index is out of bounds, the result of that projection
--- is defined and is 0.
+-- Note that if any index is out of bounds, the result of that particular
+-- projection is defined and is 0 (but beware of vectorization).
 gatherNClosure :: (ADModeAndNumTensor d r, KnownNat m, KnownNat p, KnownNat n)
                => (IndexInt m -> IndexInt p)
                -> ADVal d (OR.Array (p + n) r)
@@ -691,6 +694,8 @@ gatherNClosure :: (ADModeAndNumTensor d r, KnownNat m, KnownNat p, KnownNat n)
 gatherNClosure f (D u u') sh =
   dD (tgatherNR f u sh) (dGatherN f (tshapeR u) u' sh)
 
+-- Note that if any index is out of bounds, the result of that particular
+-- projection is defined and is 0 (but beware of vectorization).
 gather1Closure :: (ADModeAndNumTensor d r, KnownNat p, KnownNat n)
                => (Int -> IndexInt p)
                -> ADVal d (OR.Array (p + n) r)

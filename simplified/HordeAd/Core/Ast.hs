@@ -68,7 +68,8 @@ data Ast :: Nat -> Type -> Type where
   AstIndexZ :: forall m n r. KnownNat m
             => Ast (m + n) r -> AstIndex m r -> Ast n r
     -- first ix is for outermost dimension; empty index means identity,
-    -- if index is out of bounds, the result is defined and is 0
+    -- if index is out of bounds, the result is defined and is 0;
+    -- however, vectorization is permitted to change the value
   AstSum :: Ast (1 + n) r -> Ast n r
   AstFromList :: [Ast n r] -> Ast (1 + n) r
   AstFromVector :: Data.Vector.Vector (Ast n r) -> Ast (1 + n) r
@@ -90,11 +91,12 @@ data Ast :: Nat -> Type -> Type where
   AstGather1 :: forall p n r. KnownNat p
              => (AstVarName Int, AstIndex p r) -> Ast (p + n) r
              -> Int -> Ast (1 + n) r
-    -- emerges from vectorizing AstIndexZ applied to term with no build variable
+    -- emerges from vectorizing AstIndexZ applied to a term with no build
+    -- variable; out of bounds indexing is permitted
   AstGatherN :: forall m p n r. (KnownNat m, KnownNat p, KnownNat n)
              => (AstVarList m, AstIndex p r) -> Ast (p + n) r
              -> ShapeInt (m + n) -> Ast (m + n) r
-    -- emerges from vectorizing AstGather1
+    -- emerges from vectorizing AstGather1; out of bounds indexing is permitted
 
   -- For HasPrimal.omapPrimal. This is needed for a particularly
   -- fast implementation of relu and offers fast, primal-part only, mapping.

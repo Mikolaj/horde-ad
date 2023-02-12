@@ -164,7 +164,7 @@ data Delta1 :: Nat -> Type -> Type where
   IndexN :: (KnownNat n, KnownNat m)
          => Delta1 (m + n) r -> IndexInt m -> ShapeInt (m + n) -> Delta1 n r
     -- ^ The sub-tensor at the given index. The given shape is of the
-    -- large tensor. The operation fails if index out of bounds.
+    -- large tensor. The operation fails if index is out of bounds.
   Sum1 :: KnownNat n
        => Int -> Delta1 (1 + n) r -> Delta1 n r
     -- ^ Add element tensors along the outermost dimension.
@@ -215,7 +215,7 @@ data Delta1 :: Nat -> Type -> Type where
     -- of length @p@. Index of length 0 results in identity, so that,
     -- e.g, @Gather1 (const Z) [] (Scalar1 d) k@ is equivalent
     -- to @Konst01 [k] d@. If an index of length @p@ is out of bounds,
-    -- tensor 0 is chosen instead or projecting.
+    -- tensor 0 is chosen instead or projecting (and similarly in @GatherN@).
   GatherN :: (KnownNat m, KnownNat p, KnownNat n)
           => (IndexInt m -> IndexInt p)
           -> ShapeInt (p + n) -> Delta1 (p + n) r
