@@ -168,12 +168,12 @@ dotParameters (Domains a0 a1) (Domains b0 b1) =
 
 -- * Numeric instances for ADVal
 
--- These instances are required by the @Real@ instance, which is required
--- by @RealFloat@, which gives @atan2@. No idea what properties
--- @Real@ requires here, so let it crash if it's really needed.
-instance Eq (ADVal d a) where
+-- These instances are required for the Tensor instance.
+instance Eq a => Eq (ADVal d a) where
+  D u _ == D v _ = u == v
 
-instance Ord (ADVal d a) where
+instance Ord a => Ord (ADVal d a) where
+  D u _ <= D v _ = u <= v
 
 instance (Num a, IsPrimal d a) => Num (ADVal d a) where
   D u u' + D v v' = dD (u + v) (dAdd u' v')

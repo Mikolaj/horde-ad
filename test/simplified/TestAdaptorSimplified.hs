@@ -32,6 +32,7 @@ testTrees =
   , testCase "2fooMap" testFooMap
   , testCase "2fooMap1" testFooMap1
   , testCase "2fooNoGoAst" testFooNoGoAst
+  , testCase "2fooNoGo" testFooNoGo
   , testCase "2nestedBuildMap" testNestedBuildMap
   , testCase "2nestedBuildMap1" testNestedBuildMap1
   , testCase "2nestedSumBuild" testNestedSumBuild
@@ -233,8 +234,6 @@ barAst (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2 x w + y * w
 
--- A test with conditionals. We haven't defined a class for conditionals so far,
--- so this uses raw AST instead of sufficiently polymorphic code.
 fooNoGoAst :: forall r. (Show r, Numeric r, RealFloat r, Floating (Vector r))
            => Ast 1 r -> Ast 1 r
 fooNoGoAst v =
@@ -258,6 +257,26 @@ testFooNoGoAst =
        (OR.fromList [5] [344.3405885672822,-396.1811403813819,7.735358041386672,-0.8403418295960372,5.037878787878787])
        (rev @(OR.Array 1 Double) f
              (OR.fromList [5] [1.1 :: Double, 2.2, 3.3, 4, 5]))
+
+fooNoGo :: forall r. ADReady r
+        => TensorOf 1 r -> TensorOf 1 r
+fooNoGo v =
+  let r = tsum0 v
+  in tbuild1 3 (\ix ->
+       bar (3.14, bar (3.14, tindex v [ix]))
+       + tcond (andBool @r (tindex v [ix * 2] `tleq` 0)
+                           (gtInt @r 6 (abs ix)))
+               r (5 * r))
+     / tslice 1 3 (tmap0N (\x ->
+         tunScalar $ tcond (tscalar x `tgt` r) r (tscalar x)) v)
+     * tbuild1 3 (const 1)
+
+testFooNoGo :: Assertion
+testFooNoGo =
+  assertEqualUpToEpsilon' 1e-6
+   (OR.fromList [5] [344.3405885672822,-396.1811403813819,7.735358041386672,-0.8403418295960372,5.037878787878787])
+   (rev' @(OR.Array 1 Double) fooNoGo
+         (OR.fromList [5] [1.1 :: Double, 2.2, 3.3, 4, 5]))
 
 nestedBuildMap :: forall r. ADReady r => r -> TensorOf 1 r
 nestedBuildMap r =

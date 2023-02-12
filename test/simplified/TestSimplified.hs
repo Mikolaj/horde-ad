@@ -78,8 +78,7 @@ fooMap1 r =
   let v = fooBuild1 $ tkonst0N [130] (tscalar r)
   in tmap0N (\x -> x * r + 5) v
 
--- A test with conditionals. We haven't defined a class for conditionals so far,
--- so this uses raw AST instead of sufficiently polymorphic code.
+-- This uses raw AST instead of sufficiently polymorphic code.
 fooNoGoAst :: forall r. (Show r, Numeric r, RealFloat r, Floating (Vector r))
            => Ast 1 r -> Ast 1 r
 fooNoGoAst v =
