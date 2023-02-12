@@ -342,7 +342,12 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tconst :: KnownNat n
          => OR.Array n (ScalarOf r) -> TensorOf n r
 
-type ADReady r = (Tensor r, HasPrimal r)
+type ADReady r =
+  ( Tensor r, HasPrimal r, RealFloat (TensorOf 2 r), RealFloat (TensorOf 3 r)
+  , RealFloat (TensorOf 4 r), RealFloat (TensorOf 5 r), RealFloat (TensorOf 6 r)
+  , RealFloat (TensorOf 7 r), RealFloat (TensorOf 8 r), RealFloat (TensorOf 9 r)
+  , RealFloat (TensorOf 10 r), RealFloat (TensorOf 11 r)
+  , RealFloat (TensorOf 12 r) )
   -- TODO: there is probably no way to also specify
   -- HasPrimal (TensorOf 17 r))
   -- for all n, not just 17. That means the user needs add such

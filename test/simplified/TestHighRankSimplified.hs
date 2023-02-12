@@ -26,9 +26,13 @@ testTrees =
   , testCase "3bar" testBar
   , testCase "3fooD T Double [1.1, 2.2, 3.3]" testFooD
   , testCase "3fooBuild0" testFooBuild0
+--  , testCase "3fooBuildOut" testFooBuildOut
+--  , testCase "3fooBuild2" testFooBuild2
+  , testCase "3fooBuild3" testFooBuild3
   , testCase "3fooBuildDt" testFooBuildDt
+  , testCase "3fooBuild5" testFooBuild5
+  , testCase "3fooBuild1" testFooBuild1
     {-
-  , testCase "3fooBuild" testFooBuild
   , testCase "3fooMap" testFooMap
   , testCase "3fooMap1" testFooMap1
   , testCase "3fooNoGoAst" testFooNoGoAst
@@ -145,7 +149,7 @@ fooBuild0 :: forall r n. (ADReady r, KnownNat n)
           => TensorOf (1 + n) r -> TensorOf (1 + n) r
 fooBuild0 v =
   let r = tsum v
-  in tbuild1 @r @n 2 $ \ix -> r
+  in tbuild1 2 $ \ix -> r
 
 testFooBuild0 :: Assertion
 testFooBuild0 =
@@ -153,30 +157,86 @@ testFooBuild0 =
     (OR.fromList [2,2,1,2,2] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])
     (rev' @(OR.Array 5 Double) fooBuild0 t16)
 
+{-
+fooBuildOut :: forall r n. (ADReady r, KnownNat n)
+            => TensorOf (1 + n) r -> TensorOf (1 + n) r
+fooBuildOut v =
+  tbuild1 2 $ \ix -> tindex v [ix + 1]  -- index out of bounds; fine
+
+testFooBuildOut :: Assertion
+testFooBuildOut =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [2,2,1,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
+    (rev' @(OR.Array 5 Double) fooBuildOut t16)
+
+fooBuild2 :: forall r n.
+             ( ADReady r, KnownNat n, RealFloat (TensorOf n r) )
+          => TensorOf (1 + n) r -> TensorOf (1 + n) r
+fooBuild2 v =
+  tbuild1 2 $ \ix -> tindex v [max 1 (ix + 1)]  -- index out of bounds; fine
+
+testFooBuild2 :: Assertion
+testFooBuild2 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [2] [0.0,0.0])
+    (rev' @(OR.Array 1 Double) fooBuild2 (OR.fromList [2] [3.0,2.0]))
+-}
+fooBuild3 :: forall r n.
+             ( ADReady r, KnownNat n, RealFloat (TensorOf n r) )
+          => TensorOf (1 + n) r -> TensorOf (1 + n) r
+fooBuild3 v =
+  tbuild1 22 $ \ix ->
+    bar ( tkonst0N (tailShape $ tshape v) 1
+        , tindex v [min 1 (ix + 1)] )  -- index not out of bounds
+
+testFooBuild3 :: Assertion
+testFooBuild3 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [2,2,1,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,423.72976235076516,-260.41676627885636,-17.60047532855961,151.18955028869385,-1059.9668424433578,-65.00898015327623,-21.49245448729951,743.7622427949768])
+    (rev' @(OR.Array 5 Double) fooBuild3 t16)
+
+fooBuild5 :: forall r n.
+             ( ADReady r, KnownNat n, RealFloat (TensorOf n r) )
+          => TensorOf (1 + n) r -> TensorOf (1 + n) r
+fooBuild5 v =
+  let r = tsum v
+      v' = tkonst0N (tailShape $ tshape v) $ tminimum0 $ tflatten v
+  in tbuild1 2 $ \ix ->
+       r * foo ( 3
+               , 5 * r
+               , r * v')
+       + bar (r, tindex v [min 1 (ix + 1)])  -- index not out of bounds
+
+testFooBuildDt :: Assertion
+testFooBuildDt =
+  assertEqualUpToEpsilon 1e-8
+    (OR.fromList [2,2,1,2,2] [1.1033568028244503e7,74274.22833989389,-5323238.2765011545,253074.03394016018,4.14744804041263e7,242643.98750578283,-1.922371592087736e7,2.730274503834733e7,1.135709425204681e7,6924.195066252549,-5345004.080027547,255679.51406100337,3.8870981856703006e7,241810.92121468345,-1.9380955730171032e7,2.877024321777493e7])
+    (revDt @(OR.Array 5 Double) fooBuild5 t16 (OR.constant [2, 2, 1, 2, 2] 42))
+
+testFooBuild5 :: Assertion
+testFooBuild5 =
+  assertEqualUpToEpsilon' 1e-8
+    (OR.fromList [3,1,2,2,1,2,2] [-613291.6547530327,571164.2201603781,-1338602.6247083102,528876.2566682736,1699442.2143691683,2874891.369778316,-3456754.605470273,3239487.8744244366,554916.1344235454,-775449.1803684114,3072.200583200206,1165767.8436804386,-1.0686356667942494e7,-6606976.194539241,-6457671.748790982,4791868.42112978,-615556.7946425928,569660.3506343022,-1348678.1169100606,534886.9366492515,1696036.143341285,2883992.9672165257,-3456212.5353846983,3240296.690514803,629047.8398075115,-794389.5797803313,-1143.8025173051583,1177448.8083517442,-1.15145721735623e7,-6618648.839812404,-6462386.031613377,5358224.852822481,-613291.6547530327,571164.2201603781,-1338602.6247083102,528876.2566682736,1699442.2143691683,2874891.369778316,-3456754.605470273,3239487.8744244366,554916.1344235454,-775449.1803684114,3072.200583200206,1165767.8436804386,-1.0686356667942494e7,-6606976.194539241,-6457671.748790982,4791868.42112978])
+    (rev' @(OR.Array 7 Double) fooBuild5 t48)
+
 fooBuild1 :: forall r n.
              ( ADReady r, KnownNat n, RealFloat (TensorOf n r) )
           => TensorOf (1 + n) r -> TensorOf (1 + n) r
 fooBuild1 v =
   let r = tsum v
-      v' = tkonst0N [2, 1, 2, 2] $ tminimum0 $ tflatten v
-  in tbuild1 @r @n 2 $ \ix ->
+      v' = tkonst0N (tailShape $ tshape v) $ tminimum0 $ tflatten v
+  in tbuild1 3 $ \ix ->
        r * foo ( 3
                , 5 * r
                , r * v')
-       + bar (r, tindex v [ix + 1])
+       + bar (r, tindex v [min 1 (ix + 1)])
 
-testFooBuildDt :: Assertion
-testFooBuildDt =
-  assertEqualUpToEpsilon 1e-10
-    (OR.fromList [2,2,1,2,2] [1.1028415176432706e7,72863.3205526256,-5332446.891572612,252510.31746544206,4.1448897323541686e7,242627.69634422744,-1.93148986063919e7,2.7269979508730527e7,1.119017828833386e7,39188.303915804936,-5343329.793335808,253813.05752586367,4.014714804983004e7,242211.16319867776,-1.9477786809863117e7,2.8003728598444328e7])
-    (revDt @(OR.Array 5 Double) fooBuild1 t16 (OR.constant [2, 2, 1, 2, 2] 42))
-{-
-
-testFooBuild :: Assertion
-testFooBuild =
-  assertEqualUpToEpsilon' 1e-10
-    (OR.fromList [2,2,1,2,2] [1.1028415176432706e7,72863.3205526256,-5332446.891572612,252510.31746544206,4.1448897323541686e7,242627.69634422744,-1.93148986063919e7,2.7269979508730527e7,1.119017828833386e7,39188.303915804936,-5343329.793335808,253813.05752586367,4.014714804983004e7,242211.16319867776,-1.9477786809863117e7,2.8003728598444328e7])
+testFooBuild1 :: Assertion
+testFooBuild1 =
+  assertEqualUpToEpsilon' 1e-8
+    (OR.fromList [2,2,1,2,2] [394056.00100873224,2652.651012139068,-190115.65273218407,9038.358355005721,1481231.4430045108,8665.8566966351,-686561.2828884773,975098.0370838332,405610.50900167174,247.29268093759174,-190893.00285812665,9131.411216464405,1388249.3520251075,8636.104329095837,-692176.9903632513,1027508.6863491047])
     (rev' @(OR.Array 5 Double) fooBuild1 t16)
+{-
 
 fooMap1 :: ADReady r => r -> TensorOf 1 r
 fooMap1 r =
