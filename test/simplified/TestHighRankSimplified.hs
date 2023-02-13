@@ -26,8 +26,9 @@ testTrees =
   , testCase "3bar" testBar
   , testCase "3fooD T Double [1.1, 2.2, 3.3]" testFooD
   , testCase "3fooBuild0" testFooBuild0
---  , testCase "3fooBuildOut" testFooBuildOut
---  , testCase "3fooBuild2" testFooBuild2
+  , testCase "3fooBuildOut" testFooBuildOut
+--  , testCase "3fooBuild21" testFooBuild21
+--  , testCase "3fooBuild25" testFooBuild25
   , testCase "3fooBuild3" testFooBuild3
   , testCase "3fooBuildDt" testFooBuildDt
   , testCase "3fooBuild5" testFooBuild5
@@ -157,7 +158,6 @@ testFooBuild0 =
     (OR.fromList [2,2,1,2,2] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])
     (rev' @(OR.Array 5 Double) fooBuild0 t16)
 
-{-
 fooBuildOut :: forall r n. (ADReady r, KnownNat n)
             => TensorOf (1 + n) r -> TensorOf (1 + n) r
 fooBuildOut v =
@@ -175,12 +175,18 @@ fooBuild2 :: forall r n.
 fooBuild2 v =
   tbuild1 2 $ \ix -> tindex v [max 1 (ix + 1)]  -- index out of bounds; fine
 
-testFooBuild2 :: Assertion
-testFooBuild2 =
+testFooBuild21 :: Assertion
+testFooBuild21 =
   assertEqualUpToEpsilon' 1e-10
-    (OR.fromList [2] [0.0,0.0])
+    (OR.fromList [2] [0.0,1.0])
     (rev' @(OR.Array 1 Double) fooBuild2 (OR.fromList [2] [3.0,2.0]))
--}
+
+testFooBuild25 :: Assertion
+testFooBuild25 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [2,2,1,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
+    (rev' @(OR.Array 5 Double) fooBuild2 t16)
+
 fooBuild3 :: forall r n.
              ( ADReady r, KnownNat n, RealFloat (TensorOf n r) )
           => TensorOf (1 + n) r -> TensorOf (1 + n) r

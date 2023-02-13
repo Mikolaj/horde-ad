@@ -20,6 +20,7 @@ module HordeAd.Core.Ast
 
 import Prelude
 
+import           Control.Exception.Assert.Sugar
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import           Data.Kind (Type)
@@ -208,24 +209,44 @@ astGatherN _ _ _ =
 -- @var@ does not occur in @v@ but occurs in @iN@. This is done by pattern
 -- matching on @iN@ as opposed to on @v@.
 build1VSimplify
-  :: Int -> AstVarName Int -> Ast (1 + n) r -> AstInt r
+  :: (KnownNat n, Show r, Numeric r)
+  => Int -> AstVarName Int -> Ast (1 + n) r -> AstInt r
   -> Maybe (Ast (1 + n) r)
 build1VSimplify k var v0 iN =
   case iN of
     AstIntVar var2 | var2 == var ->
-      Just $ AstSlice 0 k v0
+      Just $ astSliceLax 0 k v0
     AstIntOp PlusIntOp [AstIntVar var2, AstIntConst i2]
       | var2 == var ->
-        Just $ AstSlice i2 k v0
+        Just $ astSliceLax i2 k v0
     AstIntOp PlusIntOp [AstIntConst i2, AstIntVar var2]
       | var2 == var ->
-        Just $ AstSlice i2 k v0
+        Just $ astSliceLax i2 k v0
     _ -> Nothing
       -- TODO: many more cases; not sure how systematic it can be;
       -- more cases arise if shapes can contain Ast variables;
       -- @Data.Array.Shaped@ doesn't help in these extra cases;
       -- however, AstGather* covers all this, at the cost of (relatively
       -- simple) expressions on tape
+
+-- This is to be used only in build1VSimplify. The normal slice
+-- still crashes with illegal parameters.
+-- This function is so complex in order to guarantee that even though
+-- vectorization changes tensor values, it doesn't change their shapes.
+astSliceLax :: (KnownNat n, Show r, Numeric r)
+            => Int -> Int -> Ast (1 + n) r -> Ast (1 + n) r
+astSliceLax i k v =
+  let len = lengthAst v
+      kMax = len - i
+      sh = shapeToList $ shapeAst v
+      v2 = AstConst $ OR.constant (k - kMax : tail sh) 0
+      !_A = assert (i < len
+                    `blame` "astSlice: offset not smaller than tensor length"
+                    `swith` (i, len)) ()
+  in if | i == 0 && k == len -> v
+        | k <= kMax -> AstSlice i k v
+        | i == 0 -> AstAppend v v2
+        | otherwise -> AstAppend (AstSlice i kMax v) v2
 
 newtype AstPrimalPart n r = AstPrimalPart {unAstPrimalPart :: Ast n r}
  deriving Show
