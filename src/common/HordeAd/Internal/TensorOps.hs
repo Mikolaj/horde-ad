@@ -363,7 +363,11 @@ tscatter1R :: (Numeric r, Num (Vector r), KnownNat p, KnownNat n)
            => (Int -> IndexInt p)
            -> OR.Array (1 + n) r -> ShapeInt (p + n) -> OR.Array (p + n) r
 tscatter1R f t sh =
-  V.sum $ V.imap (\i ti -> updateNR (tkonst0NR sh 0) [(f i, ti)])
+  V.sum $ V.imap (\i ti ->
+                   let ix2 = f i
+                   in if ixInBounds (indexToList ix2) (shapeToList sh)
+                      then updateNR (tkonst0NR sh 0) [(ix2, ti)]
+                      else tkonst0NR sh 0)
         $ ORB.toVector $ OR.unravel t
 
 tscalarR

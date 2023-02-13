@@ -335,7 +335,7 @@ build1VIx k (var, v0, is@(i1 :. rest1)) =
 -- TODO: set from the testing commandline, just as eqEpsilonRef in EqEpsilon.hs
 traceRuleEnabledRef :: IORef Bool
 {-# NOINLINE traceRuleEnabledRef #-}
-traceRuleEnabledRef = unsafePerformIO $ newIORef True
+traceRuleEnabledRef = unsafePerformIO $ newIORef False
 
 traceNestingLevel :: IORef Int
 {-# NOINLINE traceNestingLevel #-}

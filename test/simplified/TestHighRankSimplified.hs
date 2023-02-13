@@ -27,8 +27,8 @@ testTrees =
   , testCase "3fooD T Double [1.1, 2.2, 3.3]" testFooD
   , testCase "3fooBuild0" testFooBuild0
   , testCase "3fooBuildOut" testFooBuildOut
---  , testCase "3fooBuild21" testFooBuild21
---  , testCase "3fooBuild25" testFooBuild25
+  , testCase "3fooBuild21" testFooBuild21
+  , testCase "3fooBuild25" testFooBuild25
   , testCase "3fooBuild3" testFooBuild3
   , testCase "3fooBuildDt" testFooBuildDt
   , testCase "3fooBuild5" testFooBuild5
