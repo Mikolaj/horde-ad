@@ -123,6 +123,11 @@ class IsPrimal d a where
 
 -- | Part 1/2 of a hack to squeeze the ranked tensors rank,
 -- with its extra @n@ parameter, into the 'IsPrimal' class.
+-- This hack is untimately needed because we have 3 instances
+-- for @OR.Array@, one for each @d@, and the compiler can't see that
+-- it exhausts all possible forms of @d@ and so constraints expressed with
+-- a variable @d@ are satisfied. A similar hack for instances of @TensorOf@
+-- woudln't work, because instances of type families are illegal.
 class IsPrimalR d r where
   dZeroR :: KnownNat n => Dual d (OR.Array n r)
   dScaleR :: KnownNat n

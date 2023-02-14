@@ -331,78 +331,33 @@ instance OrdB (AstInt r) where
 
 type instance BooleanOf (Ast n r) = AstBool r
 
+instance IfB (Ast n r) where
+  ifB = astCond
+
+instance KnownNat n => EqB (Ast n r) where
+  v ==* u = AstRel EqOp [v, u]
+  v /=* u = AstRel NeqOp [v, u]
+
+instance KnownNat n => OrdB (Ast n r) where
+  v <* u = AstRel LsOp [v, u]
+  v <=* u = AstRel LeqOp [v, u]
+  v >* u = AstRel GtOp [v, u]
+  v >=* u = AstRel GeqOp [v, u]
+
 type instance BooleanOf (AstPrimalPart n r) = AstBool r
 
--- A hack to squeeze the ranked tensors rank into the instances. See DualClass.
-class IfR r where
-  ifBR :: (KnownNat n, bool ~ BooleanOf (Ast n r))
-       => bool -> (Ast n r) -> (Ast n r) -> (Ast n r)
-class EqR r where
-  (==*%), (/=*%) :: (KnownNat n, bool ~ BooleanOf (Ast n r))
-                 => (Ast n r) -> (Ast n r) -> bool
-class OrdR r where
-  (<*%), (<=*%), (>*%), (>=*%)
-    :: (KnownNat n, bool ~ BooleanOf (Ast n r))
-    => (Ast n r) -> (Ast n r) -> bool
-instance (IfR r, KnownNat n) => IfB (Ast n r) where
-  ifB = ifBR
-instance (EqR r, KnownNat n) => EqB (Ast n r) where
-  (==*) = (==*%)
-  (/=*) = (/=*%)
-instance (OrdR r, KnownNat n) => OrdB (Ast n r) where
-  (<*) = (<*%)
-  (<=*) = (<=*%)
-  (>*) = (>*%)
-  (>=*) = (>=*%)
-class IfP r where
-  ifBP :: (KnownNat n, bool ~ BooleanOf (AstPrimalPart n r))
-       => bool -> (AstPrimalPart n r) -> (AstPrimalPart n r)
-       -> (AstPrimalPart n r)
-class EqP r where
-  (==*^), (/=*^) :: (KnownNat n, bool ~ BooleanOf (AstPrimalPart n r))
-                 => (AstPrimalPart n r) -> (AstPrimalPart n r) -> bool
-class OrdP r where
-  (<*^), (<=*^), (>*^), (>=*^)
-    :: (KnownNat n, bool ~ BooleanOf (AstPrimalPart n r))
-    => (AstPrimalPart n r) -> (AstPrimalPart n r) -> bool
-instance (IfP r, KnownNat n) => IfB (AstPrimalPart n r) where
-  ifB = ifBP
-instance (EqP r, KnownNat n) => EqB (AstPrimalPart n r) where
-  (==*) = (==*^)
-  (/=*) = (/=*^)
-instance (OrdP r, KnownNat n) => OrdB (AstPrimalPart n r) where
-  (<*) = (<*^)
-  (<=*) = (<=*^)
-  (>*) = (>*^)
-  (>=*) = (>=*^)
+instance IfB (AstPrimalPart n r) where
+  ifB b v w = AstPrimalPart $ astCond b (unAstPrimalPart v) (unAstPrimalPart w)
 
--- Hack application begins here.
-instance IfR r where
-  ifBR = astCond
+instance KnownNat n => EqB (AstPrimalPart n r) where
+  v ==* u = AstRel EqOp [unAstPrimalPart v, unAstPrimalPart u]
+  v /=* u = AstRel NeqOp [unAstPrimalPart v, unAstPrimalPart u]
 
-instance EqR r where
-  v ==*% u = AstRel EqOp [v, u]
-  v /=*% u = AstRel NeqOp [v, u]
-
-instance OrdR r where
-  v <*% u = AstRel LsOp [v, u]
-  v <=*% u = AstRel LeqOp [v, u]
-  v >*% u = AstRel GtOp [v, u]
-  v >=*% u = AstRel GeqOp [v, u]
-
-instance IfP r where
-  ifBP b v w = AstPrimalPart $ astCond b (unAstPrimalPart v) (unAstPrimalPart w)
-
-instance EqP r where
-  v ==*^ u = AstRel EqOp [unAstPrimalPart v, unAstPrimalPart u]
-  v /=*^ u = AstRel NeqOp [unAstPrimalPart v, unAstPrimalPart u]
-
-instance OrdP r where
-  v <*^ u = AstRel LsOp [unAstPrimalPart v, unAstPrimalPart u]
-  v <=*^ u = AstRel LeqOp [unAstPrimalPart v, unAstPrimalPart u]
-  v >*^ u = AstRel GtOp [unAstPrimalPart v, unAstPrimalPart u]
-  v >=*^ u = AstRel GeqOp [unAstPrimalPart v, unAstPrimalPart u]
--- End of hack.
+instance KnownNat n => OrdB (AstPrimalPart n r) where
+  v <* u = AstRel LsOp [unAstPrimalPart v, unAstPrimalPart u]
+  v <=* u = AstRel LeqOp [unAstPrimalPart v, unAstPrimalPart u]
+  v >* u = AstRel GtOp [unAstPrimalPart v, unAstPrimalPart u]
+  v >=* u = AstRel GeqOp [unAstPrimalPart v, unAstPrimalPart u]
 
 -- See the comment about @Eq@ and @Ord@ in "DualNumber".
 instance Eq (Ast n r) where
