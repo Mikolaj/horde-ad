@@ -11,7 +11,7 @@ module HordeAd.Core.Engine
   , -- * The less often used part of the high-level API
     valueGeneral
   , -- * Operations exposed not for the library users but add-on makers
-    revOnADInputs, fwdOnADInputs
+    revOnADInputsFun, revOnADInputs, fwdOnADInputs
   , generateDeltaInputs, initializerFixed, initializerFixed01
   , -- * Internal operations, exposed, e.g., for tests
     slowFwdOnADInputs, slowFwdOnDomains
@@ -67,7 +67,7 @@ valueOnDomains f parameters =
 
 -- * Evaluation that computes gradients.
 
-revOnADInputs
+revOnADInputsFun
   :: (HasDelta r, IsPrimalAndHasInputs 'ADModeGradient a r)
   => (a -> a)
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
@@ -75,8 +75,8 @@ revOnADInputs
   -> (Domains r, a)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
-{-# INLINE revOnADInputs #-}
-revOnADInputs dt f inputs@ADInputs{..} =
+{-# INLINE revOnADInputsFun #-}
+revOnADInputsFun dt f inputs@ADInputs{..} =
   let dim0 = V.length inputPrimal0
       dim1 = V.length inputPrimal1
       -- Evaluate completely after terms constructed, to free memory
@@ -85,6 +85,15 @@ revOnADInputs dt f inputs@ADInputs{..} =
       deltaDt = packDeltaDt (dt v) deltaTopLevel
   in let gradient = gradientFromDelta dim0 dim1 deltaDt
      in (gradient, v)
+
+revOnADInputs
+  :: (HasDelta r, IsPrimalAndHasInputs 'ADModeGradient a r)
+  => a
+  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
+  -> ADInputs 'ADModeGradient r
+  -> (Domains r, a)
+{-# INLINE revOnADInputs #-}
+revOnADInputs dt f inputs = revOnADInputsFun (const dt) f inputs
 
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newbies may have trouble understanding it.
@@ -99,7 +108,7 @@ revOnDomainsFun
 revOnDomainsFun dt f parameters =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
-  in revOnADInputs dt f inputs
+  in revOnADInputsFun dt f inputs
 
 revOnDomains
   :: (HasDelta r, IsPrimalAndHasInputs 'ADModeGradient a r)

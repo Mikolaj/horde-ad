@@ -238,7 +238,7 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   -- Integer codomain
   tshape :: KnownNat n => TensorOf n r -> ShapeInt n
   trank :: forall n. KnownNat n => TensorOf n r -> Int
-  trank = valueOf @n
+  trank _ = valueOf @n
   tsize :: KnownNat n => TensorOf n r -> Int
   tsize = sizeShape . tshape
   tlength :: KnownNat n => TensorOf (1 + n) r -> Int
@@ -596,27 +596,44 @@ astBuild1 k f = unsafePerformIO $ do
     -- also need a translation to non-vectorized terms for anything
     -- (other than for comparative tests)?
 
+{- These instances are increasingly breaking stuff, so disabled:
+
+-- A stub just to type-check and rewrite away before any computation
+-- takes place. Also many others below.
+instance Eq r => Eq (a -> r) where  -- embarrassing
+
+instance Ord r => Ord (a -> r) where
+
+instance Num r => Num (a -> r) where
+
+instance Enum (a -> r) where
+
+instance (Enum (a -> r), Real r) => Integral (a -> r) where
+
+instance Fractional r => Fractional (a -> r) where
+
+instance Floating r => Floating (a -> r) where
+
+instance Real r => Real (a -> r) where
+
+instance RealFrac r => RealFrac (a -> r) where
+
+instance RealFloat r => RealFloat (a -> r) where
+
+type instance BooleanOf (ORB.Array n (z -> a)) = z -> BooleanOf a
+
 -- A stub instance for experiments with stored functions
 instance Tensor r
          => Tensor (a -> r) where
   type TensorOf n (a -> r) = ORB.Array n (a -> r)
-  type IntOf (a -> r) = IntOf r
-  type BoolOf (a -> r) = BoolOf r
-  fromBool = undefined
-  andBool = undefined
-  leqInt = undefined
-  gtInt = undefined
-  tleq = undefined
-  tgt = undefined
+  type IntOf (a -> r) = a -> IntOf r
   tshape = undefined
   tminIndex = undefined
   tmaxIndex = undefined
   tfloor = undefined
-  tcondInt = undefined
   tindex = undefined
   tsum = undefined
   tfromIntOf0 = undefined
-  tcond = undefined
   tfromList = undefined
   tfromVector = undefined
   tkonst = undefined
@@ -630,6 +647,7 @@ instance Tensor r
   tunScalar = ORB.unScalar
   type ScalarOf (a -> r) = ScalarOf r
   tconst = tconst
+-}
 
 
 -- * ADVal combinators generalizing ranked tensor operations

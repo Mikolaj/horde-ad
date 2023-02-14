@@ -34,7 +34,7 @@ testTrees = [ -- Tensor tests
             , -- Tests by TomS:
               testCase "F1" testF1
             , testCase "F2" testF2
-            , testCase "F3" testF3
+--            , testCase "F3" testF3
             , -- Hairy tests
               testCase "braidedBuilds" testBraidedBuilds
             , testCase "recycled" testRecycled
@@ -170,6 +170,7 @@ f2 = \arg ->
       v2b = tsum0 (tbuild1 20 (fun2 (arg + 1)))
   in tunScalar $ v1a + v1b + v2a + v2b
 
+{- TODO: disabled, because the a -> r instances are disabled
 f3 :: (ADReady r, Tensor (r -> r), Tensor ((r -> r) -> (r -> r)))
    => TensorOf 0 r -> TensorOf 0 r
 f3 arg =
@@ -180,6 +181,7 @@ f3 arg =
                                             (tunScalar $ arr1 ! i)
                                               (tunScalar arg))
   in tsum arr3
+-}
 
 -- * Hairy tests (many by TomS as well)
 
@@ -447,6 +449,7 @@ testF2 =
     1.1
     470.0
 
+{- TODO: disabled, because the a -> r instances are disabled
 testF3 :: Assertion
 testF3 = do
   let input = [1.1 :: Double]
@@ -467,6 +470,7 @@ testF3 = do
   let _ = astValue @?~ val
   let _ = domains1 astGrad @?~ domains1 domainsExpected
   return ()  -- dummy instance for -> and Ast rewrites don't remove -> yet
+-}
 
 testBraidedBuilds :: Assertion
 testBraidedBuilds =

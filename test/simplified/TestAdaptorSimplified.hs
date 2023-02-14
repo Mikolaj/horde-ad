@@ -48,7 +48,7 @@ testTrees =
   , testCase "2F11" testF11
   , testCase "2F2" testF2
   , testCase "2F21" testF21
-  , testCase "2F3" testF3
+--  , testCase "2F3" testF3
   , -- Hairy tests
     testCase "2braidedBuilds" testBraidedBuilds
   , testCase "2braidedBuilds1" testBraidedBuilds1
@@ -453,6 +453,7 @@ testF21 =
     470
     (rev' @(OR.Array 0 Double) (tscalar . f2 . tunScalar) 1.1)
 
+{- TODO: disabled, because the a -> r instances are disabled
 f3 :: (ADReady r, Tensor (r -> r), Tensor ((r -> r) -> (r -> r)))
    => TensorOf 0 r -> TensorOf 0 r
 f3 arg =
@@ -470,6 +471,7 @@ testF3 =
             470
             (rev' @(OR.Array 0 Double) f3 1.1)
   in return ()  -- dummy instance for -> and Ast rewrites don't remove -> yet
+-}
 
 -- * Hairy tests (many by TomS as well)
 

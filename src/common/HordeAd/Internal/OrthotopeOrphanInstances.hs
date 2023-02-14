@@ -86,14 +86,6 @@ instance (Num (Vector r), KnownNat n, Numeric r) => Num (OR.Array n r) where
   fromInteger = RS.A . RG.A [] . OI.constantT [] . fromInteger
     -- often fails and there's no fix
 
--- A stub just to type-check and rewrite away before any computation
--- takes place. Also many others below.
-instance Eq r => Eq (a -> r) where  -- embarrassing
-
-instance Ord r => Ord (a -> r) where
-
-instance Num r => Num (a -> r) where
-
 instance (KnownNat n, Num r) => Num (ORB.Array n r) where
 
 instance (Num (Vector r), OS.Shape sh, Numeric r) => Num (OS.Array sh r) where
@@ -116,8 +108,6 @@ instance (Num (Vector r), KnownNat n, Numeric r, Fractional r)
   (/) = liftVR2 (/)
   recip = liftVR recip
   fromRational = OR.constant [] . fromRational
-
-instance Fractional r => Fractional (a -> r) where
 
 instance (KnownNat n, Fractional r)
          => Fractional (ORB.Array n r) where
@@ -170,8 +160,6 @@ instance (Floating (Vector r), KnownNat n, Numeric r, Floating r)
   acosh = liftVR acosh
   atanh = liftVR atanh
 
-instance Floating r => Floating (a -> r) where
-
 instance (KnownNat n, Floating r)
          => Floating (ORB.Array n r) where
 
@@ -206,8 +194,6 @@ instance (Real (Vector r), KnownNat n, Numeric r, Ord r)
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance Real r => Real (a -> r) where
-
 instance (KnownNat n, Real r)
          => Real (ORB.Array n r) where
 
@@ -225,8 +211,6 @@ instance (RealFrac (Vector r), KnownNat n, Numeric r, Fractional r, Ord r)
          => RealFrac (OR.Array n r) where
   properFraction = undefined
     -- very low priority, since these are all extremely not continuous
-
-instance RealFrac r => RealFrac (a -> r) where
 
 instance (KnownNat n, RealFrac r)
          => RealFrac (ORB.Array n r) where
@@ -247,8 +231,6 @@ instance (RealFloat (Vector r), KnownNat n, Numeric r, Floating r, Ord r)
   atan2 = liftVR2 atan2
     -- we can be selective here and omit the other methods,
     -- most of which don't even have a differentiable codomain
-
-instance RealFloat r => RealFloat (a -> r) where
 
 instance (KnownNat n, RealFloat r)
          => RealFloat (ORB.Array n r) where
