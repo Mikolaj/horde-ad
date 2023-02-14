@@ -161,6 +161,7 @@ library
     build-depends:
         assert-failure
       , base >= 4.14 && < 99
+      , Boolean
       , deepseq
       , enummapset
       , hmatrix
@@ -519,6 +520,7 @@ library horde-ad-simplified
     build-depends:
         assert-failure
       , base >= 4.14 && < 99
+      , Boolean
       , deepseq
       , enummapset
       , ghc-typelits-knownnat
@@ -667,6 +669,7 @@ test-suite simplifiedOnlyTest
       , testCommonLibrarySimplified
 
       , base
+      , Boolean
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
       , hmatrix

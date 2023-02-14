@@ -1,5 +1,5 @@
-{-# LANGUAGE DataKinds, GADTs, GeneralizedNewtypeDeriving, StandaloneDeriving,
-             TypeFamilies, UndecidableInstances #-}
+{-# LANGUAGE DataKinds, FlexibleInstances, GADTs, GeneralizedNewtypeDeriving,
+             StandaloneDeriving, TypeFamilies, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | AST of the code to be differentiated. It's needed mostly for handling
@@ -23,6 +23,7 @@ import Prelude
 import           Control.Exception.Assert.Sugar
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
+import           Data.Boolean
 import           Data.Kind (Type)
 import           Data.MonoTraversable (Element)
 import qualified Data.Strict.Vector as Data.Vector
@@ -302,7 +303,7 @@ data OpCodeInt =
  deriving Show
 
 data OpCodeBool =
-    NotOp | AndOp | OrOp | IffOp
+    NotOp | AndOp | OrOp
  deriving Show
 
 data OpCodeRel =
@@ -312,6 +313,96 @@ data OpCodeRel =
 
 
 -- * Unlawful instances of AST types; they are lawful modulo evaluation
+
+type instance BooleanOf (AstInt r) = AstBool r
+
+instance IfB (AstInt r) where
+  ifB = AstIntCond
+
+instance EqB (AstInt r) where
+  v ==* u = AstRelInt EqOp [v, u]
+  v /=* u = AstRelInt NeqOp [v, u]
+
+instance OrdB (AstInt r) where
+  v <* u = AstRelInt LsOp [v, u]
+  v <=* u = AstRelInt LeqOp [v, u]
+  v >* u = AstRelInt GtOp [v, u]
+  v >=* u = AstRelInt GeqOp [v, u]
+
+type instance BooleanOf (Ast n r) = AstBool r
+
+type instance BooleanOf (AstPrimalPart n r) = AstBool r
+
+-- A hack to squeeze the ranked tensors rank into the instances. See DualClass.
+class IfR r where
+  ifBR :: (KnownNat n, bool ~ BooleanOf (Ast n r))
+       => bool -> (Ast n r) -> (Ast n r) -> (Ast n r)
+class EqR r where
+  (==*%), (/=*%) :: (KnownNat n, bool ~ BooleanOf (Ast n r))
+                 => (Ast n r) -> (Ast n r) -> bool
+class OrdR r where
+  (<*%), (<=*%), (>*%), (>=*%)
+    :: (KnownNat n, bool ~ BooleanOf (Ast n r))
+    => (Ast n r) -> (Ast n r) -> bool
+instance (IfR r, KnownNat n) => IfB (Ast n r) where
+  ifB = ifBR
+instance (EqR r, KnownNat n) => EqB (Ast n r) where
+  (==*) = (==*%)
+  (/=*) = (/=*%)
+instance (OrdR r, KnownNat n) => OrdB (Ast n r) where
+  (<*) = (<*%)
+  (<=*) = (<=*%)
+  (>*) = (>*%)
+  (>=*) = (>=*%)
+class IfP r where
+  ifBP :: (KnownNat n, bool ~ BooleanOf (AstPrimalPart n r))
+       => bool -> (AstPrimalPart n r) -> (AstPrimalPart n r)
+       -> (AstPrimalPart n r)
+class EqP r where
+  (==*^), (/=*^) :: (KnownNat n, bool ~ BooleanOf (AstPrimalPart n r))
+                 => (AstPrimalPart n r) -> (AstPrimalPart n r) -> bool
+class OrdP r where
+  (<*^), (<=*^), (>*^), (>=*^)
+    :: (KnownNat n, bool ~ BooleanOf (AstPrimalPart n r))
+    => (AstPrimalPart n r) -> (AstPrimalPart n r) -> bool
+instance (IfP r, KnownNat n) => IfB (AstPrimalPart n r) where
+  ifB = ifBP
+instance (EqP r, KnownNat n) => EqB (AstPrimalPart n r) where
+  (==*) = (==*^)
+  (/=*) = (/=*^)
+instance (OrdP r, KnownNat n) => OrdB (AstPrimalPart n r) where
+  (<*) = (<*^)
+  (<=*) = (<=*^)
+  (>*) = (>*^)
+  (>=*) = (>=*^)
+
+-- Hack application begins here.
+instance IfR r where
+  ifBR = astCond
+
+instance EqR r where
+  v ==*% u = AstRel EqOp [v, u]
+  v /=*% u = AstRel NeqOp [v, u]
+
+instance OrdR r where
+  v <*% u = AstRel LsOp [v, u]
+  v <=*% u = AstRel LeqOp [v, u]
+  v >*% u = AstRel GtOp [v, u]
+  v >=*% u = AstRel GeqOp [v, u]
+
+instance IfP r where
+  ifBP b v w = AstPrimalPart $ astCond b (unAstPrimalPart v) (unAstPrimalPart w)
+
+instance EqP r where
+  v ==*^ u = AstRel EqOp [unAstPrimalPart v, unAstPrimalPart u]
+  v /=*^ u = AstRel NeqOp [unAstPrimalPart v, unAstPrimalPart u]
+
+instance OrdP r where
+  v <*^ u = AstRel LsOp [unAstPrimalPart v, unAstPrimalPart u]
+  v <=*^ u = AstRel LeqOp [unAstPrimalPart v, unAstPrimalPart u]
+  v >*^ u = AstRel GtOp [unAstPrimalPart v, unAstPrimalPart u]
+  v >=*^ u = AstRel GeqOp [unAstPrimalPart v, unAstPrimalPart u]
+-- End of hack.
 
 -- See the comment about @Eq@ and @Ord@ in "DualNumber".
 instance Eq (Ast n r) where
@@ -433,6 +524,13 @@ instance Integral (AstInt r) where
   quotRem u v = (AstIntOp QuotIntOp [u, v], AstIntOp RemIntOp [u, v])
   divMod u v = (AstIntOp DivIntOp [u, v], AstIntOp ModIntOp [u, v])
   toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.
+
+instance Boolean (AstBool r) where
+  true = AstBoolConst True
+  false = AstBoolConst False
+  notB b = AstBoolOp NotOp [b]
+  b &&* c = AstBoolOp AndOp [b, c]
+  b ||* c = AstBoolOp OrOp [b, c]
 
 -- This is cheap and dirty. We don't shape-check the terms and we don't
 -- unify or produce (partial) results with variables. Instead, we investigate

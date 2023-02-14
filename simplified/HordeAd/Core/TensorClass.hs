@@ -21,6 +21,7 @@ import qualified Data.Array.DynamicS as OT
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
+import           Data.Boolean
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import qualified Data.Strict.IntMap as IM
@@ -211,29 +212,6 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
       => Tensor r where
   type TensorOf (n :: Nat) r = result | result -> n r
   type IntOf r
-  type BoolOf r
-
-  -- Boolean codomain
-  fromBool :: Bool -> BoolOf r
-  andBool :: BoolOf r -> BoolOf r -> BoolOf r
-  leqInt :: IntOf r -> IntOf r -> BoolOf r
-  default leqInt  -- the more narrow type rules out Ast
-    :: (IntOf r ~ Int, BoolOf r ~ Bool) => IntOf r -> IntOf r -> BoolOf r
-  leqInt = (<=)
-  gtInt :: IntOf r -> IntOf r -> BoolOf r
-  default gtInt
-    :: (IntOf r ~ Int, BoolOf r ~ Bool) => IntOf r -> IntOf r -> BoolOf r
-  gtInt = (>)
-  tleq :: KnownNat n => TensorOf n r -> TensorOf n r -> BoolOf r
-  default tleq
-    :: (BoolOf r ~ Bool, Ord (TensorOf n r))
-    => TensorOf n r -> TensorOf n r -> BoolOf r
-  tleq = (<=)
-  tgt :: KnownNat n => TensorOf n r -> TensorOf n r -> BoolOf r
-  default tgt
-    :: (BoolOf r ~ Bool, Ord (TensorOf n r))
-    => TensorOf n r -> TensorOf n r -> BoolOf r
-  tgt = (>)
 
   -- Integer codomain
   tshape :: KnownNat n => TensorOf n r -> ShapeInt n
@@ -248,7 +226,6 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tminIndex :: TensorOf 1 r -> IntOf r
   tmaxIndex :: TensorOf 1 r -> IntOf r
   tfloor :: TensorOf 0 r -> IntOf r
-  tcondInt :: BoolOf r -> IntOf r -> IntOf r -> IntOf r
 
   -- Typically scalar codomain, often tensor reduction
   tindex, (!) :: (KnownNat m, KnownNat n)
@@ -272,9 +249,6 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tfromIntOf0 = tscalar . fromIntegral
 
   -- Tensor codomain, often tensor construction, sometimes transformation
-  tcond :: KnownNat n
-        => BoolOf r -> TensorOf n r -> TensorOf n r -> TensorOf n r
-  tcond b v w = tfromList [v, w] ! [tcondInt @r b 0 1]
   tfromList :: KnownNat n => [TensorOf n r] -> TensorOf (1 + n) r
   tfromList0N :: KnownNat n => ShapeInt n -> [r] -> TensorOf n r
   tfromList0N sh = treshape sh . tfromList . map tscalar
@@ -343,16 +317,48 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
          => OR.Array n (ScalarOf r) -> TensorOf n r
 
 type ADReady r =
-  ( Tensor r, HasPrimal r, RealFloat (TensorOf 2 r), RealFloat (TensorOf 3 r)
-  , RealFloat (TensorOf 4 r), RealFloat (TensorOf 5 r), RealFloat (TensorOf 6 r)
-  , RealFloat (TensorOf 7 r), RealFloat (TensorOf 8 r), RealFloat (TensorOf 9 r)
-  , RealFloat (TensorOf 10 r), RealFloat (TensorOf 11 r)
-  , RealFloat (TensorOf 12 r) )
-  -- TODO: there is probably no way to also specify
-  -- HasPrimal (TensorOf 17 r))
-  -- for all n, not just 17. That means the user needs add such
-  -- constraints for all n relevant to the defined function (usually
-  -- just an unspecified n and sometimes also n+1).
+  ( Tensor r, HasPrimal r
+  , ( RealFloat (TensorOf 2 r), RealFloat (TensorOf 3 r)
+    , RealFloat (TensorOf 4 r), RealFloat (TensorOf 5 r)
+    , RealFloat (TensorOf 6 r), RealFloat (TensorOf 7 r)
+    , RealFloat (TensorOf 8 r), RealFloat (TensorOf 9 r)
+    , RealFloat (TensorOf 10 r), RealFloat (TensorOf 11 r)
+    , RealFloat (TensorOf 12 r) )
+  , Boolean (BooleanOf r)
+  , BooleanOf r ~ BooleanOf (IntOf r)
+  , ( BooleanOf r ~ BooleanOf (TensorOf 0 r)
+    , BooleanOf r ~ BooleanOf (TensorOf 1 r)
+    , BooleanOf r ~ BooleanOf (TensorOf 2 r)
+    , BooleanOf r ~ BooleanOf (TensorOf 3 r)
+    , BooleanOf r ~ BooleanOf (TensorOf 4 r)
+    , BooleanOf r ~ BooleanOf (TensorOf 5 r)
+    , BooleanOf r ~ BooleanOf (TensorOf 6 r)
+    , BooleanOf r ~ BooleanOf (TensorOf 7 r)
+    , BooleanOf r ~ BooleanOf (TensorOf 8 r)
+    , BooleanOf r ~ BooleanOf (TensorOf 9 r)
+    , BooleanOf r ~ BooleanOf (TensorOf 10 r)
+    , BooleanOf r ~ BooleanOf (TensorOf 11 r)
+    , BooleanOf r ~ BooleanOf (TensorOf 12 r) )
+  , IfB r, IfB (IntOf r)
+  , ( IfB (TensorOf 0 r), IfB (TensorOf 1 r), IfB (TensorOf 2 r)
+    , IfB (TensorOf 3 r), IfB (TensorOf 4 r), IfB (TensorOf 5 r)
+    , IfB (TensorOf 6 r), IfB (TensorOf 7 r), IfB (TensorOf 8 r)
+    , IfB (TensorOf 9 r), IfB (TensorOf 10 r), IfB (TensorOf 11 r)
+    , IfB (TensorOf 12 r) )
+  , EqB r, EqB (IntOf r)
+  , ( EqB (TensorOf 0 r), EqB (TensorOf 1 r), EqB (TensorOf 2 r)
+    , EqB (TensorOf 3 r), EqB (TensorOf 4 r), EqB (TensorOf 5 r)
+    , EqB (TensorOf 6 r), EqB (TensorOf 7 r), EqB (TensorOf 8 r)
+    , EqB (TensorOf 9 r), EqB (TensorOf 10 r), EqB (TensorOf 11 r)
+    , EqB (TensorOf 12 r) )
+  , OrdB r, OrdB (IntOf r)
+  , ( OrdB (TensorOf 0 r), OrdB (TensorOf 1 r), OrdB (TensorOf 2 r)
+    , OrdB (TensorOf 3 r), OrdB (TensorOf 4 r), OrdB (TensorOf 5 r)
+    , OrdB (TensorOf 6 r), OrdB (TensorOf 7 r), OrdB (TensorOf 8 r)
+    , OrdB (TensorOf 9 r), OrdB (TensorOf 10 r), OrdB (TensorOf 11 r)
+    , OrdB (TensorOf 12 r) )
+  )
+  -- any of the @BooleanOf r ~ ...@ lines above breaks GHC <= 9.0.2
 
 -- These instances are a faster way to get an objective function value.
 -- However, they don't do vectorization, so won't work on GPU, ArrayFire, etc.
@@ -360,21 +366,16 @@ type ADReady r =
 instance Tensor Double where
   type TensorOf n Double = OR.Array n Double
   type IntOf Double = Int
-  type BoolOf Double = Bool
-  fromBool = id
-  andBool = (&&)
   tshape = tshapeR
   tminIndex = tminIndexR
   tmaxIndex = tmaxIndexR
   tfloor = floor . tunScalar
-  tcondInt b i j = if b then i else j
   tindex = tindexZR
   tsum = tsumR
   tsum0 = tscalar . tsum0R
   tdot0 u v = tscalar $ tdot0R u v
   tminimum0 = tscalar . tminimum0R
   tmaximum0 = tscalar . tmaximum0R
-  tcond b t u = if b then t else u
   tfromList = tfromListR
   tfromList0N = tfromList0NR
   tfromVector = tfromVectorR
@@ -396,21 +397,16 @@ instance Tensor Double where
 instance Tensor Float where
   type TensorOf n Float = OR.Array n Float
   type IntOf Float = Int
-  type BoolOf Float = Bool
-  fromBool = id
-  andBool = (&&)
   tshape = tshapeR
   tminIndex = tminIndexR
   tmaxIndex = tmaxIndexR
   tfloor = floor . tunScalar
-  tcondInt b i j = if b then i else j
   tindex = tindexZR
   tsum = tsumR
   tsum0 = tscalar . tsum0R
   tdot0 u v = tscalar $ tdot0R u v
   tminimum0 = tscalar . tminimum0R
   tmaximum0 = tscalar . tmaximum0R
-  tcond b t u = if b then t else u
   tfromList = tfromListR
   tfromList0N = tfromList0NR
   tfromVector = tfromVectorR
@@ -439,14 +435,9 @@ instance Tensor Float where
 -- In principle, this instance is only useful for comparative tests,
 -- though for code without build/map/etc., it should be equivalent
 -- to going via Ast.
-instance ADModeAndNumTensor d r
-         => Tensor (ADVal d r) where
+instance ADModeAndNumTensor d r => Tensor (ADVal d r) where
   type TensorOf n (ADVal d r) = ADVal d (OR.Array n r)
   type IntOf (ADVal d r) = Int
-  type BoolOf (ADVal d r) = Bool
-
-  fromBool = id
-  andBool = (&&)
 
   -- Here and elsewhere I can't use methods of the @r@ instance of @Tensor@
   -- (the one implemented as @OR.Array n r@). Therefore, I inline them
@@ -459,7 +450,6 @@ instance ADModeAndNumTensor d r
   tminIndex (D u _) = tminIndexR u
   tmaxIndex (D u _) = tmaxIndexR u
   tfloor (D u _) = floor $ tunScalarR u
-  tcondInt b i j = if b then i else j
 
   tindex = indexZ
   tsum = sum'
@@ -472,7 +462,6 @@ instance ADModeAndNumTensor d r
     let ix = tmaxIndex u
     in dD (tindex1R u ix) (dIndex1 u' ix (tlength u))
 
-  tcond b t u = if b then t else u
   tfromList = fromList
   tfromList0N = fromList0N
   tfromVector = fromVector
@@ -502,20 +491,11 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
          => Tensor (Ast 0 r) where
   type TensorOf n (Ast 0 r) = Ast n r
   type IntOf (Ast 0 r) = AstInt r
-  type BoolOf (Ast 0 r) = AstBool r
-
-  fromBool = AstBoolConst
-  andBool b c = AstBoolOp AndOp [b, c]
-  leqInt i j = AstRelInt LeqOp [i, j]
-  gtInt i j = AstRelInt GtOp [i, j]
-  tgt v u = AstRel GtOp [v, u]
-  tleq v u = AstRel LeqOp [v, u]
 
   tshape = shapeAst
   tminIndex = AstMinIndex
   tmaxIndex = AstMaxIndex
   tfloor = AstIntFloor
-  tcondInt = AstIntCond
 
   tindex = AstIndexZ
   tsum = AstSum
@@ -545,19 +525,11 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
          => Tensor (AstPrimalPart 0 r) where
   type TensorOf n (AstPrimalPart 0 r) = AstPrimalPart n r
   type IntOf (AstPrimalPart 0 r) = AstInt r
-  type BoolOf (AstPrimalPart 0 r) = AstBool r
-  fromBool = AstBoolConst
-  andBool b c = AstBoolOp AndOp [b, c]
-  leqInt i j = AstRelInt LeqOp [i, j]
-  gtInt i j = AstRelInt GtOp [i, j]
-  tgt v u = AstRel GtOp [unAstPrimalPart v, unAstPrimalPart u]
-  tleq v u = AstRel LeqOp [unAstPrimalPart v, unAstPrimalPart u]
 
   tshape = shapeAst . unAstPrimalPart
   tminIndex = AstMinIndex . unAstPrimalPart
   tmaxIndex = AstMaxIndex . unAstPrimalPart
   tfloor = AstIntFloor . unAstPrimalPart
-  tcondInt = AstIntCond
 
   tindex v ix = AstPrimalPart $ AstIndexZ (unAstPrimalPart v) ix
   tsum = AstPrimalPart . AstSum . unAstPrimalPart
@@ -997,7 +969,6 @@ interpretAstBoolOp :: (AstBool r -> Bool) -> OpCodeBool -> [AstBool r]
 interpretAstBoolOp f NotOp [u] = not $ f u
 interpretAstBoolOp f AndOp [u, v] = f u && f v
 interpretAstBoolOp f OrOp [u, v] = f u || f v
-interpretAstBoolOp f IffOp [u, v] = f u == f v
 interpretAstBoolOp _ opCodeBool args =
   error $ "interpretAstBoolOp: wrong number of arguments"
           ++ show (opCodeBool, length args)

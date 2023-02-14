@@ -5,6 +5,7 @@ module TestAdaptorSimplified (testTrees, rev', assertEqualUpToEpsilon') where
 import Prelude
 
 import qualified Data.Array.RankedS as OR
+import           Data.Boolean
 import           Data.MonoTraversable (Element)
 import qualified Data.Strict.IntMap as IM
 import           GHC.TypeLits (KnownNat)
@@ -241,11 +242,11 @@ fooNoGoAst v =
   in tbuild1 3 (\ix ->
        barAst (3.14, bar (3.14, tindex v [ix]))
        + astCond (AstBoolOp AndOp
-                    [ tindex v (ix * 2 :. ZI) `tleq` 0
+                    [ tindex v (ix * 2 :. ZI) <=* 0
                         -- @1 not required thanks to :.; see below for @ and []
-                    , gtInt @(Ast 0 r) 6 (abs ix) ])
+                    , (>*) @(AstInt r) 6 (abs ix) ])
                  r (5 * r))
-     / tslice 1 3 (tmap0N (\x -> astCond (x `tgt` r) r x) v)
+     / tslice 1 3 (tmap0N (\x -> astCond (x >* r) r x) v)
      * tbuild1 3 (const 1)
 
 testFooNoGoAst :: Assertion
@@ -265,11 +266,11 @@ fooNoGo v =
   let r = tsum0 v
   in tbuild1 3 (\ix ->
        bar (3.14, bar (3.14, tindex v [ix]))
-       + tcond (andBool @r (tindex @r @1 v [ix * 2] `tleq` 0)
-                           (gtInt @r 6 (abs ix)))
+       + ifB ((&&*) (tindex @r @1 v [ix * 2] <=* 0)
+                    ((>*) 6 (abs ix)))
                r (5 * r))
      / tslice 1 3 (tmap0N (\x ->
-         tunScalar $ tcond (tscalar x `tgt` r) r (tscalar x)) v)
+         tunScalar $ ifB (tscalar x >* r) r (tscalar x)) v)
      * tbuild1 3 (const 1)
 
 testFooNoGo :: Assertion

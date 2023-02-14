@@ -7,6 +7,7 @@ module TestHighRankSimplified (testTrees) where
 import Prelude
 
 import qualified Data.Array.RankedS as OR
+import           Data.Boolean
 import           Data.MonoTraversable (Element)
 import qualified Data.Strict.IntMap as IM
 import           GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
@@ -150,7 +151,7 @@ fooBuild0 :: forall r n. (ADReady r, KnownNat n)
           => TensorOf (1 + n) r -> TensorOf (1 + n) r
 fooBuild0 v =
   let r = tsum v
-  in tbuild1 2 $ \ix -> r
+  in tbuild1 2 $ \_ix -> r
 
 testFooBuild0 :: Assertion
 testFooBuild0 =
@@ -261,8 +262,11 @@ testFooMap1 =
     3901.312463734578
     (rev' @(OR.Array 7 Double) (fooMap1 [4, 3, 2, 3, 4, 5, 3]) 0.1)
 
-fooNoGo :: forall r n. ( ADReady r, KnownNat n, RealFloat (TensorOf n r)
-                       , RealFloat (TensorOf (1 + n) r) )
+fooNoGo :: forall r n.
+           ( ADReady r, KnownNat n, RealFloat (TensorOf n r)
+           , RealFloat (TensorOf (1 + n) r)
+           , BooleanOf r ~ BooleanOf (TensorOf n r), OrdB (TensorOf n r)
+           , IfB (TensorOf n r) )
         => TensorOf (1 + n) r -> TensorOf (1 + n) r
 fooNoGo v =
   let r = tsum v
@@ -270,11 +274,11 @@ fooNoGo v =
       shTail = tailShape (tshape v)
   in tbuild1 3 (\ix ->
        bar (tkonst0N shTail 3.14, bar (tkonst0N shTail 3.14, tindex v [ix]))
-       + tcond (andBool @r (tindex v (ix * 2 :. ZI) `tleq` 0)
-                           (gtInt @r 6 (abs ix)))
+       + ifB ((&&*) @(BooleanOf r) (tindex v (ix * 2 :. ZI) <=* 0)
+                       ((>*) @(IntOf r) 6 (abs ix)))
                r (5 * r))
      / tslice 1 3 (tmap0N (\x ->
-         tunScalar $ tcond (tscalar x `tgt` r0) r0 (tscalar x)) v)
+         tunScalar $ ifB (tscalar x >* r0) r0 (tscalar x)) v)
      * tbuild1 3 (const $ tconst $ OR.constant (shapeToList shTail) 1)
 
 testFooNoGo :: Assertion
@@ -291,7 +295,7 @@ testFooNoGo10 =
    (rev' @(OR.Array 11 Double) fooNoGo (tkonst 5 t128))
 
 nestedBuildMap :: forall r n.
-                  (ADReady r, n <= 6, KnownNat n, RealFloat (TensorOf n r))
+                  (ADReady r, n <= 6, KnownNat n)
                => TensorOf 0 r -> TensorOf (1 + n) r
 nestedBuildMap r =
   let w = tkonst0N [4]

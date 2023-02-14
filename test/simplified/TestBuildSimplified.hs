@@ -7,6 +7,7 @@ import Prelude
 
 import           Control.Exception (assert)
 import qualified Data.Array.RankedS as OR
+import           Data.Boolean
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric)
 import           Test.Tasty
@@ -233,17 +234,19 @@ slicezLaborious shOut d ixBase =
 indexz0Laborious
   :: forall r n. (ADReady r, KnownNat n)
   => TensorOf n r -> IndexOf n r -> TensorOf 0 r
-indexz0Laborious d ix = tcond (within0 @r (tshape d) ix) (d ! ix) 0
+indexz0Laborious d ix = ifB (within0 @r (tshape d) ix) (d ! ix) 0
 
 -- | Given an index and shape, check if the index is fully within the shape.
 within0 :: forall r n. ADReady r
-        => ShapeInt n -> IndexOf n r -> BoolOf r
+        => ShapeInt n -> IndexOf n r -> BooleanOf r
 within0 sh ix =
-  let within :: IntOf r -> IntOf r -> BoolOf r
-      within i dim = andBool @r (leqInt @r 0 i) (gtInt @r dim i)
+  let within :: IntOf r -> IntOf r -> BooleanOf r
+      within i dim = (&&*) @(BooleanOf r)
+                           ((<=*) @(IntOf r) 0 i)
+                           ((>*) @(IntOf r)dim i)
         -- TODO: why is each @r needed? (with GHC 9.0.2 at least);
         -- this prevents infix use and so harms readability
-  in foldr (andBool @r) (fromBool @r True)
+  in foldr (&&*) true
      $ zipWith within (indexToList ix) (map fromIntegral $ shapeToList sh)
 
 conv2d1Laborious
@@ -389,7 +392,7 @@ slicezFailed shOut d ixBase =
 indexz0Failed
   :: forall r n. (ADReady r, KnownNat n)
   => TensorOf n r -> IndexOf n r -> TensorOf 0 r
-indexz0Failed d ix = tcond (within0 @r (tshape d) ix) (d ! ix) 0
+indexz0Failed d ix = ifB (within0 @r (tshape d) ix) (d ! ix) 0
 
 conv2d1Failed
   :: ADReady r

@@ -5,6 +5,7 @@ module TestSimplified (testTrees) where
 import Prelude
 
 import qualified Data.Array.RankedS as OR
+import           Data.Boolean
 import           Data.MonoTraversable (Element)
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
@@ -86,10 +87,10 @@ fooNoGoAst v =
   in tbuild1 3 (\ix ->
        barAst (3.14, bar (3.14, tindex v [ix]))
        + astCond (AstBoolOp AndOp  -- TODO: overload &&, <=, >, etc.
-                             [ tindex @(Ast 0 r) @1 v [ix * 2] `tleq` 0
-                             , gtInt @(Ast 0 r) 6 (abs ix) ])
+                             [ tindex @(Ast 0 r) @1 v [ix * 2] <=* 0
+                             , (>*) @(AstInt r) 6 (abs ix) ])
                  r (5 * r))
-     / tslice 1 3 (tmap0N (\x -> astCond (x `tgt` r) r x) v)
+     / tslice 1 3 (tmap0N (\x -> astCond (x >* r) r x) v)
      * tbuild1 3 (const 1)
 
 nestedBuildMap :: forall r. ADReady r => r -> TensorOf 1 r

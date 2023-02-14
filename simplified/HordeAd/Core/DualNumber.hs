@@ -33,6 +33,7 @@ import Prelude
 import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.RankedS as OR
+import           Data.Boolean
 import           Data.MonoTraversable (MonoFunctor (omap))
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
@@ -62,6 +63,21 @@ import HordeAd.Internal.TensorOps
 data ADVal (d :: ADMode) a = D a (Dual d a)
 
 deriving instance (Show a, Show (Dual d a)) => Show (ADVal d a)
+
+type instance BooleanOf (ADVal d a) = Bool
+
+instance IfB (ADVal d a) where
+  ifB b v w = if b then v else w
+
+instance Eq a => EqB (ADVal d a) where
+  (==*) = (==)
+  (/=*) = (/=)
+
+instance Ord a => OrdB (ADVal d a) where
+  (<*) = (<)
+  (<=*) = (<=)
+  (>*) = (>)
+  (>=*) = (>=)
 
 -- | Smart constructor for 'D' of 'ADVal' that additionally records sharing
 -- information, if applicable for the differentiation mode in question.
