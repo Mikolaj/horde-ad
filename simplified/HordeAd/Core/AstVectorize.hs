@@ -213,7 +213,7 @@ build1VIx k (var, v0, is@(i1 :. rest1)) =
       AstConstant $ AstPrimalPart $ AstBuild1 @n k (var, AstIndexZ v0 is)
 
     AstIndexZ v is2 -> traceRule $
-      build1VIxOccurenceUnknown k (var, v, appendIndex is is2)
+      build1VIxOccurenceUnknown k (var, v, appendIndex is2 is)
     AstSum v -> traceRule $
       build1V k
         (var, AstSum (AstIndexZ (astTranspose v) is))
@@ -311,7 +311,7 @@ build1VIx k (var, v0, is@(i1 :. rest1)) =
       build1VIx k (var, substituteAst i1 var2 v, rest1)
     AstGather1 (var2, ix2) v _n2 -> traceRule $
       let ix3 = fmap (substituteAstInt i1 var2) ix2
-      in build1VIxOccurenceUnknown k (var, v, appendIndex rest1 ix3)
+      in build1VIxOccurenceUnknown k (var, v, appendIndex ix3 rest1)
            -- we don't know if var occurs in v; it could have been in ix2
     AstGatherN (Z, ix2) v _sh -> traceRule $
       build1VIx k (var, AstIndexZ v ix2, is)

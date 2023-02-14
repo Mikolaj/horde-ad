@@ -130,7 +130,7 @@ astIndexZ v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) = case v0 of
     astIndexZ v (permutePrefixIndex perm ix)
   AstGather1 (var2, ix2) v _n2 ->
     let ix3 = fmap (substituteAstInt i1 var2) ix2
-    in astIndexZ v (appendIndex rest1 ix3)
+    in astIndexZ v (appendIndex ix3 rest1)
   AstGatherN (Z, ix2) v _sh -> astIndexZ v (appendIndex ix ix2)
   AstGatherN (var2 ::: vars, ix2) v (_ :$ sh') ->
     let ix3 = fmap (substituteAstInt i1 var2) ix2
