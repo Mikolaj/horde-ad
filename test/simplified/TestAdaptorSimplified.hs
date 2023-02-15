@@ -60,7 +60,8 @@ rev' :: forall a r n m.
         ( KnownNat n, KnownNat m
         , ADModeAndNumTensor 'ADModeGradient r, HasDelta r, ADReady r
         , a ~ OR.Array m r, TensorOf n r ~ OR.Array n r )
-     => (forall x. ADReady x => TensorOf n x -> TensorOf m x) -> OR.Array n r
+     => (forall x. ADReady x => TensorOf n x -> TensorOf m x)
+     -> OR.Array n r
      -> (a, TensorOf m r, a, OR.Array n r, OR.Array n r)
 rev' f vals =
   let dt = inputConstant @a 1
@@ -68,9 +69,10 @@ rev' f vals =
       (advalGrad, value1) = revOnDomainsFun dt g (toDomains vals)
       gradient1 = parseDomains vals advalGrad
       value2 = f vals
-      env inputs = IM.singleton 0 (AstVarR $ from1X $ parseADInputs vals inputs)
       h inputs =
-        interpretAst (env inputs) (f (AstVar (tshape vals) (AstVarName 0)))
+        let (var, ast) = funToAstR (tshape vals) f
+            env = extendEnvR var (parseADInputs vals inputs) IM.empty
+        in interpretAst env ast
       (astGrad, value3) = revOnDomainsFun dt h (toDomains vals)
       gradient2 = parseDomains vals astGrad
   in (value1, value2, value3, gradient1, gradient2)

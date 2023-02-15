@@ -8,16 +8,15 @@ import Prelude
 
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
-import qualified Data.Strict.IntMap as IM
 import           GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
-import HordeAd.Core.DualClass (inputConstant)
 
 import Tool.EqEpsilon
+import TestAdaptorSimplified (rev', assertEqualUpToEpsilon')
 
 testTrees :: [TestTree]
 testTrees =
@@ -62,39 +61,6 @@ testTrees =
   , testCase "3concatBuild" testConcatBuild
   , testCase "3concatBuild1" testConcatBuild1 -}
   ]
-
-rev' :: forall a r n m.
-        ( KnownNat n, KnownNat m
-        , ADModeAndNumTensor 'ADModeGradient r, HasDelta r, ADReady r
-        , a ~ OR.Array m r, TensorOf n r ~ OR.Array n r )
-     => (forall x. ADReady x => TensorOf n x -> TensorOf m x)
-     -> OR.Array n r
-     -> (a, TensorOf m r, a, OR.Array n r, OR.Array n r)
-rev' f vals =
-  let dt = inputConstant @a 1
-      g inputs = f $ parseADInputs vals inputs
-      (advalGrad, value1) = revOnDomainsFun dt g (toDomains vals)
-      gradient1 = parseDomains vals advalGrad
-      value2 = f vals
-      env inputs = IM.singleton 0 (AstVarR $ from1X $ parseADInputs vals inputs)
-      h inputs =
-        interpretAst (env inputs) (f (AstVar (tshape vals) (AstVarName 0)))
-      (astGrad, value3) = revOnDomainsFun dt h (toDomains vals)
-      gradient2 = parseDomains vals astGrad
-  in (value1, value2, value3, gradient1, gradient2)
-
-assertEqualUpToEpsilon'
-    :: (AssertEqualUpToEpsilon z a, AssertEqualUpToEpsilon z b)
-    => z  -- ^ error margin (i.e., the epsilon)
-    -> a  -- ^ expected value
-    -> (b, b, b, a, a)   -- ^ actual values
-    -> Assertion
-assertEqualUpToEpsilon' error_margin expected
-                        (value1, value2, value3, gradient1, gradient2) = do
-  value1 @?~ value2
-  value3 @?~ value2
-  assertEqualUpToEpsilon error_margin expected gradient1
-  assertEqualUpToEpsilon error_margin expected gradient2
 
 
 -- * Tensor tests

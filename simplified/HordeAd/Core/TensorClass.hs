@@ -10,7 +10,7 @@
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.TensorClass
   ( IndexOf, ShapeInt, Tensor(..), HasPrimal(..), ADReady
-  , interpretAst, AstVar(..)
+  , interpretAst, AstVar(..), funToAstR, extendEnvR
   , ADModeAndNumTensor, scale1, relu1, reluLeaky1
   ) where
 
@@ -440,12 +440,22 @@ unsafeGetFreshAstVar :: IO (AstVarName a)
 {-# INLINE unsafeGetFreshAstVar #-}
 unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
 
+funToAstR :: ShapeInt n -> (Ast n r -> Ast m r)
+          -> (AstVarName (OR.Array n r), Ast m r)
+{-# NOINLINE funToAstR #-}
+funToAstR sh f = unsafePerformIO $ do
+  freshAstVar <- unsafeGetFreshAstVar
+  return (freshAstVar, f (AstVar sh freshAstVar))
+
+funToAstI :: (AstInt r -> Ast m r) -> (AstVarName Int, Ast m r)
+{-# NOINLINE funToAstI #-}
+funToAstI f = unsafePerformIO $ do
+  freshAstVar <- unsafeGetFreshAstVar
+  return (freshAstVar, f (AstIntVar freshAstVar))
+
 astBuild1 :: (KnownNat n, Show r, Numeric r)
           => Int -> (AstInt r -> Ast n r) -> Ast (1 + n) r
-{-# NOINLINE astBuild1 #-}
-astBuild1 k f = unsafePerformIO $ do
-  freshAstVar <- unsafeGetFreshAstVar
-  return $! build1Vectorize k (freshAstVar, f (AstIntVar freshAstVar))
+astBuild1 k f = build1Vectorize k $ funToAstI f
     -- TODO: this vectorizes depth-first, which is needed. But do we
     -- also need a translation to non-vectorized terms for anything
     -- (other than for comparative tests)?
@@ -761,21 +771,34 @@ data AstVar a =
   | AstVarI Int
  deriving Show
 
+extendEnvR :: ADModeAndNumTensor d r
+           => AstVarName (OR.Array n r) -> ADVal d (OR.Array n r)
+           -> AstEnv d r -> AstEnv d r
+extendEnvR (AstVarName var) d =
+  IM.insertWithKey (\v _ _ -> error $ "extendEnvR: duplicate " ++ show v)
+                   var (AstVarR $ from1X d)
+
+extendEnvI :: AstVarName Int -> Int
+           -> AstEnv d r -> AstEnv d r
+extendEnvI (AstVarName var) i =
+  IM.insertWithKey (\v _ _ -> error $ "extendEnvI: duplicate " ++ show v)
+                   var (AstVarI i)
+
 interpretLambdaI
   :: (ADModeAndNumTensor d r, KnownNat n)
   => AstEnv d r
   -> (AstVarName Int, Ast n r)
   -> Int -> ADVal d (OR.Array n r)
-interpretLambdaI env (AstVarName var, ast) =
-  \i -> interpretAst (IM.insert var (AstVarI i) env) ast
+interpretLambdaI env (var, ast) =
+  \i -> interpretAst (extendEnvI var i env) ast
 
 interpretLambdaIndex
   :: ADModeAndNumTensor d r
   => AstEnv d r
   -> (AstVarName Int, AstIndex n r)
   -> Int -> IndexInt n
-interpretLambdaIndex env (AstVarName var, asts) =
-  \i -> fmap (interpretAstInt (IM.insert var (AstVarI i) env)) asts
+interpretLambdaIndex env (var, asts) =
+  \i -> fmap (interpretAstInt (extendEnvI var i env)) asts
 
 interpretLambdaIndexToIndex
   :: ADModeAndNumTensor d r
@@ -783,9 +806,8 @@ interpretLambdaIndexToIndex
   -> (AstVarList m, AstIndex p r)
   -> IndexInt m -> IndexInt p
 interpretLambdaIndexToIndex env (vars, asts) =
-  \ix -> let f (AstVarName var) i = (var, AstVarI i)
-             assocs = zipWith f (sizedListToList vars) (indexToList ix)
-             env2 = env `IM.union` IM.fromList assocs
+  \ix -> let assocs = zip (sizedListToList vars) (indexToList ix)
+             env2 = foldr (uncurry extendEnvI) env assocs
          in fmap (interpretAstInt env2) asts
 
 -- We could duplicate interpretAst to save some time (sadly, we can't
