@@ -76,7 +76,7 @@ fooBuild1 v =
 fooMap1 :: ADReady r => r -> TensorOf 1 r
 fooMap1 r =
   let v = fooBuild1 $ tkonst0N [130] (tscalar r)
-  in tmap0N (\x -> x * r + 5) v
+  in tmap0N (\x -> x * tscalar r + 5) v
 
 -- This uses raw AST instead of sufficiently polymorphic code.
 fooNoGoAst :: forall r. (Show r, Numeric r, RealFloat r, Floating (Vector r))
@@ -96,15 +96,15 @@ nestedBuildMap :: forall r. ADReady r => r -> TensorOf 1 r
 nestedBuildMap r =
   let w = tkonst0N [4]  -- (AstIntCond (x `leqAst` 0) 3 4)
       v' = tkonst0N [177] (tscalar r) :: TensorOf 1 r
-      nestedMap x = tmap0N (x /) (w (tscalar x))
+      nestedMap x = tmap0N (tscalar x /) (w (tscalar x))
       variableLengthBuild iy = tbuild1 7 (\ix -> tindex v' [ix + iy])
       doublyBuild = tbuild1 5 (tminimum0 . variableLengthBuild)
   in tmap0N (\x -> x
-                  * tunScalar (tsum0
-                      (tbuild1 3 (\ix -> bar ( tscalar x
+                  * (tsum0
+                      (tbuild1 3 (\ix -> bar (x
                                             , tindex v' [ix]) )
-                       + fooBuild1 (nestedMap x)
-                       / fooMap1 x))
+                       + fooBuild1 (nestedMap (tunScalar x))
+                       / fooMap1 (tunScalar x)))
            ) doublyBuild
 
 nestedSumBuild :: ADReady r => TensorOf 1 r -> TensorOf 1 r
@@ -156,7 +156,7 @@ reluAst1
   => Ast n r -> Ast n r
 reluAst1 v =
   let oneIfGtZero =
-        tmapPrimal @(Ast 0 r)
+        tmap0N @(AstPrimalPart 0 r)
                    (\(AstPrimalPart x) ->
                       AstPrimalPart $ astCond (AstRel GtOp [x, 0]) 1 0)
                    (tprimalPart v)

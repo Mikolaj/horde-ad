@@ -29,11 +29,9 @@ testTrees =
   , testCase "2fooD T Double [1.1, 2.2, 3.3]" testFooD
   , testCase "2fooBuildDt" testFooBuildDt
   , testCase "2fooBuild" testFooBuild
-  , testCase "2fooMap" testFooMap
   , testCase "2fooMap1" testFooMap1
   , testCase "2fooNoGoAst" testFooNoGoAst
   , testCase "2fooNoGo" testFooNoGo
-  , testCase "2nestedBuildMap" testNestedBuildMap
   , testCase "2nestedBuildMap1" testNestedBuildMap1
   , testCase "2nestedSumBuild" testNestedSumBuild
   , testCase "2nestedBuildIndex" testNestedBuildIndex
@@ -211,22 +209,16 @@ testFooBuild =
     (OR.fromList [4] [-4521.201512195087,-5568.7163677622175,-5298.386349932494,-4907.349735554627])
     (rev' @(OR.Array 1 Double) fooBuild1 (OR.fromList [4] [1.1, 2.2, 3.3, 4]))
 
-fooMap1 :: ADReady r => r -> TensorOf 1 r
+fooMap1 :: ADReady r => TensorOf 0 r -> TensorOf 1 r
 fooMap1 r =
-  let v = fooBuild1 $ tkonst0N [130] (tscalar r)
+  let v = fooBuild1 $ tkonst0N [130] r
   in tmap0N (\x -> x * r + 5) v
-
-testFooMap :: Assertion
-testFooMap =
-  assertEqualUpToEpsilon 1e-6
-    4.438131773948916e7
-    (rev @(OR.Array 1 Double) fooMap1 1.1)
 
 testFooMap1 :: Assertion
 testFooMap1 =
   assertEqualUpToEpsilon' 1e-6
     4.438131773948916e7
-    (rev' @(OR.Array 1 Double) (fooMap1 . tunScalar) 1.1)
+    (rev' @(OR.Array 1 Double) fooMap1 1.1)
 
 barAst :: (Numeric r, RealFloat r, RealFloat (Vector r))
        => (Ast 0 r, Ast 0 r) -> Ast 0 r
@@ -268,8 +260,7 @@ fooNoGo v =
        + ifB ((&&*) (tindex @r @1 v [ix * 2] <=* 0)
                     ((>*) 6 (abs ix)))
                r (5 * r))
-     / tslice 1 3 (tmap0N (\x ->
-         tunScalar $ ifB (tscalar x >* r) r (tscalar x)) v)
+     / tslice 1 3 (tmap0N (\x -> ifB (x >* r) r x) v)
      * tbuild1 3 (const 1)
 
 testFooNoGo :: Assertion
@@ -279,32 +270,24 @@ testFooNoGo =
    (rev' @(OR.Array 1 Double) fooNoGo
          (OR.fromList [5] [1.1 :: Double, 2.2, 3.3, 4, 5]))
 
-nestedBuildMap :: forall r. ADReady r => r -> TensorOf 1 r
+nestedBuildMap :: forall r. ADReady r => TensorOf 0 r -> TensorOf 1 r
 nestedBuildMap r =
   let w = tkonst0N [4]  -- (AstIntCond (x `leqAst` 0) 3 4)
-      v' = tkonst0N [177] (tscalar r) :: TensorOf 1 r
-      nestedMap x = tmap0N (x /) (w (tscalar x))
+      v' = tkonst0N [177] r :: TensorOf 1 r
+      nestedMap x = tmap0N (x /) (w x)
       variableLengthBuild iy = tbuild1 7 (\ix -> tindex v' [ix + iy])
       doublyBuild = tbuild1 5 (tminimum0 . variableLengthBuild)
-  in tmap0N (\x -> x
-                  * tunScalar (tsum0
-                      (tbuild1 3 (\ix -> bar ( tscalar x
-                                            , tindex v' [ix]) )
-                       + fooBuild1 (nestedMap x)
-                       / fooMap1 x))
-           ) doublyBuild
-
-testNestedBuildMap :: Assertion
-testNestedBuildMap =
-  assertEqualUpToEpsilon 1e-10
-    107.25984443006627
-    (rev @(OR.Array 1 Double) nestedBuildMap 1.1)
+  in tmap0N (\x -> x * (tsum0
+                         (tbuild1 3 (\ix -> bar (x, tindex v' [ix]))
+                          + fooBuild1 (nestedMap x)
+                          / fooMap1 x))
+            ) doublyBuild
 
 testNestedBuildMap1 :: Assertion
 testNestedBuildMap1 =
   assertEqualUpToEpsilon' 1e-10
     107.25984443006627
-    (rev' @(OR.Array 1 Double) (nestedBuildMap . tunScalar) 1.1)
+    (rev' @(OR.Array 1 Double) nestedBuildMap 1.1)
 
 nestedSumBuild :: ADReady r => TensorOf 1 r -> TensorOf 1 r
 nestedSumBuild v =
@@ -327,7 +310,7 @@ nestedSumBuild v =
 --                 tsum (tkonst0N [ix2 + ix7 + 1] 2.4)))
              ]))))
   + tbuild1 13 (\ix ->
-      nestedBuildMap (tunScalar $ tsum0 v) `tindex` [min ix 4])
+      nestedBuildMap (tsum0 v) `tindex` [min ix 4])
 
 testNestedSumBuild :: Assertion
 testNestedSumBuild =
@@ -475,7 +458,7 @@ braidedBuilds :: forall r. ADReady r => r -> TensorOf 2 r
 braidedBuilds r =
   tbuild1 3 (\ix1 ->
     tbuild1 4 (\ix2 -> tindex (tfromList0N [4]
-                                      [tunScalar $ tfromIntOf0 ix2, 7, r, -0.2]) (ix1 :. ZI)))
+                                 [tunScalar $ tfromIntOf0 ix2, 7, r, -0.2]) (ix1 :. ZI)))
 
 testBraidedBuilds :: Assertion
 testBraidedBuilds =

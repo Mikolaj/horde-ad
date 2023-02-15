@@ -246,7 +246,7 @@ fooMap1 :: (ADReady r, KnownNat n, RealFloat (TensorOf n r))
         => ShapeInt (1 + n) -> TensorOf 0 r -> TensorOf (1 + n) r
 fooMap1 sh r =
   let v = fooBuild1 $ tkonst0N sh (r * r)
-  in tmap0N (\x -> x * tunScalar r + 5) v
+  in tmap0N (\x -> x * r + 5) v
 
 testFooMap :: Assertion
 testFooMap =
@@ -274,8 +274,7 @@ fooNoGo v =
        bar (tkonst0N shTail 3.14, bar (tkonst0N shTail 3.14, tindex v [ix]))
        + ifB (tindex v (ix * 2 :. ZI) <=* 0 &&* 6 >* abs ix)
                r (5 * r))
-     / tslice 1 3 (tmap0N (\x ->
-         tunScalar $ ifB (tscalar x >* r0) r0 (tscalar x)) v)
+     / tslice 1 3 (tmap0N (\x -> ifB (x >* r0) r0 x) v)
      * tbuild1 3 (const $ tconst $ OR.constant (shapeToList shTail) 1)
 
 testFooNoGo :: Assertion
@@ -297,19 +296,17 @@ nestedBuildMap :: forall r n.
 nestedBuildMap r =
   let w = tkonst0N [4]
       v' = tkonst0N [177] r :: TensorOf 1 r
-      nestedMap x = tmap0N (x /) (w (tscalar x))
+      nestedMap x = tmap0N (x /) (w x)
       variableLengthBuild iy = tbuild1 7 (\ix ->
         tindex v' [ix + iy])
       doublyBuild =
         tbuild1 3 (tkonst0N (takeShape @n @(6 - n)
                              $ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ ZS)
                    . tminimum0 . variableLengthBuild)
-  in tmap0N (\x -> x
-                   * tunScalar (tsum0
-                       (tbuild1 3 (\ix -> bar ( tscalar x
-                                              , tindex v' [ix]) )
-                        + fooBuild1 (nestedMap x)
-                        / fooMap1 [3] (tscalar x)))
+  in tmap0N (\x -> x * (tsum0
+                          (tbuild1 3 (\ix -> bar (x, tindex v' [ix]))
+                           + fooBuild1 (nestedMap x)
+                           / fooMap1 [3] x))
             ) doublyBuild
 
 testNestedBuildMap1 :: Assertion
@@ -347,7 +344,7 @@ nestedSumBuild v =
 --                 tsum (tkonst0N [ix2 + ix7 + 1] 2.4)))
              ]))))
   + tbuild1 13 (\ix ->
-      nestedBuildMap (tunScalar $ tsum0 v) `tindex` [min ix 4])
+      nestedBuildMap (tsum0 v) `tindex` [min ix 4])
 
 testNestedSumBuild :: Assertion
 testNestedSumBuild =
@@ -495,7 +492,7 @@ braidedBuilds :: forall r. ADReady r => r -> TensorOf 2 r
 braidedBuilds r =
   tbuild1 3 (\ix1 ->
     tbuild1 4 (\ix2 -> tindex (tfromList0N [4]
-                                      [tunScalar $ tfromIntOf0 ix2, 7, r, -0.2]) (ix1 :. ZI)))
+                                 [tunScalar $ tfromIntOf0 ix2, 7, r, -0.2]) (ix1 :. ZI)))
 
 testBraidedBuilds :: Assertion
 testBraidedBuilds =

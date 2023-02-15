@@ -11,7 +11,7 @@
 module HordeAd.Core.TensorClass
   ( IndexOf, ShapeInt, Tensor(..), HasPrimal(..), ADReady
   , interpretAst, AstVar(..)
-  , ADModeAndNumTensor, scale1, relu1, reluLeaky1, tmapPrimal
+  , ADModeAndNumTensor, scale1, relu1, reluLeaky1
   ) where
 
 import Prelude
@@ -148,9 +148,8 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
         -> TensorOf (1 + n) r -> TensorOf (1 + n) r
   tmap1 f u = tbuild1 (tlength u) (\i -> f (u ! [i]))
   tmap0N :: KnownNat n
-         => (r -> r) -> TensorOf n r -> TensorOf n r
-  tmap0N f v = tbuild (tshape v)
-                      (\ix -> tscalar $ f $ tunScalar $ v ! ix)
+         => (TensorOf 0 r -> TensorOf 0 r) -> TensorOf n r -> TensorOf n r
+  tmap0N f v = tbuild (tshape v) (\ix -> f $ v ! ix)
   tzipWith :: (KnownNat m, KnownNat n)
            => (TensorOf n r -> TensorOf n r -> TensorOf n r)
            -> TensorOf (m + n) r -> TensorOf (m + n) r -> TensorOf (m + n) r
@@ -160,10 +159,9 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
             -> TensorOf (1 + n) r -> TensorOf (1 + n) r -> TensorOf (1 + n) r
   tzipWith1 f u v = tbuild1 (tlength u) (\i -> f (u ! [i]) (v ! [i]))
   tzipWith0N :: KnownNat n
-             => (r -> r -> r) -> TensorOf n r -> TensorOf n r -> TensorOf n r
-  tzipWith0N f u v = tbuild (tshape v)
-                            (\ix -> tscalar $ f (tunScalar $ u ! ix)
-                                                (tunScalar $ v ! ix))
+             => (TensorOf 0 r -> TensorOf 0 r -> TensorOf 0 r)
+             -> TensorOf n r -> TensorOf n r -> TensorOf n r
+  tzipWith0N f u v = tbuild (tshape v) (\ix -> f (u ! ix) (v ! ix))
 
   tscalar :: r -> TensorOf 0 r
   tunScalar :: TensorOf 0 r -> r
@@ -507,11 +505,6 @@ instance Tensor r
 
 -- * HasPrimal class and instances for all relevant types
 
-tmapPrimal :: (ADReady r, KnownNat n)
-           => (TensorOf 0 (Primal r) -> TensorOf 0 (Primal r))
-           -> TensorOf n (Primal r) -> TensorOf n (Primal r)
-tmapPrimal f = tmap0N (tunScalar . f . tscalar)
-
 -- We could accept any @RealFloat@ instead of @Primal a@, but then
 -- we'd need to coerce, e.g., via realToFrac, which is risky and lossy.
 -- Also, the stricter typing is likely to catch real errors most of the time,
@@ -612,13 +605,13 @@ relu1, reluLeaky1
   :: forall n r. (ADReady r, KnownNat n, Num (TensorOf n r))
   => TensorOf n r -> TensorOf n r
 relu1 v =
-  let oneIfGtZero = tmapPrimal @r (\x -> ifB (x >* 0) 1 0)
-                                  (tprimalPart v)
+  let oneIfGtZero = tmap0N (\x -> ifB (x >* 0) 1 0)
+                           (tprimalPart v)
   in scale1 oneIfGtZero v
 
 reluLeaky1 v =
-  let oneIfGtZero = tmapPrimal @r (\x -> ifB (x >* 0) 1 0.01)
-                                  (tprimalPart v)
+  let oneIfGtZero = tmap0N (\x -> ifB (x >* 0) 1 0.01)
+                           (tprimalPart v)
   in scale1 oneIfGtZero v
 
 
