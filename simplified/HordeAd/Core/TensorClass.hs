@@ -38,130 +38,6 @@ import HordeAd.Core.SizedIndex
 import HordeAd.Internal.SizedList
 import HordeAd.Internal.TensorOps
 
--- * Odds and ends
-
-type ADModeAndNumTensor (d :: ADMode) r =
-  ( ADModeAndNum d r
-  , Tensor r
-  , TensorOf 1 r ~ OR.Array 1 r
-  , IntOf r ~ Int
-  )
-
-scale1 :: (ADReady r, KnownNat n, Num (TensorOf n r))
-       => PrimalOf n r -> TensorOf n r -> TensorOf n r
-scale1 a d = tconstant a * d
-
-relu1, reluLeaky1
-  :: forall n r. (ADReady r, KnownNat n, Num (TensorOf n r))
-  => TensorOf n r -> TensorOf n r
-relu1 v =
-  let oneIfGtZero = tmapPrimal @r
-                               (\x -> ifB (x >* 0) 1 0)
-                               (tprimalPart v)
-  in scale1 oneIfGtZero v
-
-reluLeaky1 v =
-  let oneIfGtZero = tmapPrimal @r
-                               (\x -> ifB (x >* 0) 1 0.01)
-                               (tprimalPart v)
-  in scale1 oneIfGtZero v
-
-
--- * HasPrimal class and instances for all relevant types
-
--- We could accept any @RealFloat@ instead of @PrimalOf a@, but then
--- we'd need to coerce, e.g., via realToFrac, which is risky and lossy.
--- Also, the stricter typing is likely to catch real errors most of the time,
--- not just sloppy omission ofs explicit coercions.
-class HasPrimal r where
-  type ScalarOf r
-  type PrimalOf (n :: Nat) r
-  type DualOf (n :: Nat) r
-  tconst :: KnownNat n => OR.Array n (ScalarOf r) -> TensorOf n r
-  tconstant :: KnownNat n => PrimalOf n r -> TensorOf n r
-  tprimalPart :: TensorOf n r -> PrimalOf n r
-  tdualPart :: TensorOf n r -> DualOf n r
-  tD :: KnownNat n => PrimalOf n r -> DualOf n r -> TensorOf n r
-  -- TODO: we'd probably also need dZero, dIndex0 and all others;
-  -- basically DualOf a needs to have IsPrimal and HasRanks instances
-  -- (and HasInputs?)
-  -- TODO: if DualOf is supposed to be user-visible, we needed
-  -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
-  tmapPrimal :: (PrimalOf 0 r -> PrimalOf 0 r) -> PrimalOf n r -> PrimalOf n r
-
-instance HasPrimal Double where
-  type ScalarOf Double = Double
-  type PrimalOf n Double = OR.Array n Double
-  type DualOf n Double = ()
-  tconst = id
-  tconstant = id
-  tprimalPart = id
-  tdualPart _ = ()
-  tD u _ = u
-  tmapPrimal f = OR.mapA (OR.unScalar . f . OR.scalar)
-
-instance HasPrimal Float where
-  type ScalarOf Float = Float
-  type PrimalOf n Float = OR.Array n Float
-  type DualOf n Float = ()
-  tconst = id
-  tconstant = id
-  tprimalPart = id
-  tdualPart _ = ()
-  tD u _ = u
-  tmapPrimal f = OR.mapA (OR.unScalar . f . OR.scalar)
-
-instance ADModeAndNumTensor d r => HasPrimal (ADVal d r) where
-  type ScalarOf (ADVal d r) = r
-  type PrimalOf n (ADVal d r) = OR.Array n r
-  type DualOf n (ADVal d r) = Dual d (OR.Array n r)
-  tconst t = dD t dZero
-  tconstant t = dD t dZero
-  tprimalPart (D u _) = u
-  tdualPart (D _ u') = u'
-  tD = dD
-  tmapPrimal f = OR.mapA (OR.unScalar . f . OR.scalar)
-
-instance HasPrimal (Ast 0 r) where
-  type ScalarOf (Ast 0 r) = r
-  type PrimalOf n (Ast 0 r) = AstPrimalPart n r
-  type DualOf n (Ast 0 r) = ()  -- TODO: data AstDualPart: dScale, dAdd, dkonst1
-  tconst = AstConst
-  tconstant = AstConstant
-  tprimalPart = AstPrimalPart
-  tdualPart = error "TODO"
-  tD = error "TODO"
-  tmapPrimal = omapAst
-
-instance HasPrimal (AstPrimalPart 0 r) where
-  type ScalarOf (AstPrimalPart 0 r) = r
-  type PrimalOf n (AstPrimalPart 0 r) = AstPrimalPart n r
-  type DualOf n (AstPrimalPart 0 r) = ()
-  tconst = AstPrimalPart . AstConst
-  tconstant = id
-  tprimalPart = id
-  tdualPart = error "TODO"
-  tD = error "TODO"
-  tmapPrimal = omapAst
-
--- Impure but in the most trivial way (only ever incremented counter).
-unsafeAstVarCounter :: Counter
-{-# NOINLINE unsafeAstVarCounter #-}
-unsafeAstVarCounter = unsafePerformIO (newCounter 1)
-
-unsafeGetFreshAstVar :: IO (AstVarName a)
-{-# INLINE unsafeGetFreshAstVar #-}
-unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
-
-omapAst :: (AstPrimalPart 0 r -> AstPrimalPart 0 r)
-        -> AstPrimalPart n r -> AstPrimalPart n r
-{-# NOINLINE omapAst #-}
-omapAst f e = unsafePerformIO $ do
-  freshAstVar <- unsafeGetFreshAstVar
-  return $! AstPrimalPart
-         $ AstOMap (freshAstVar, f (AstPrimalPart $ AstVar ZS freshAstVar)) e
-
-
 -- * Tensor class definition and instances for arrays, ADVal and Ast
 
 -- @IntOf r@ as size or shape gives more expressiveness,
@@ -558,6 +434,15 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   tscalar = id
   tunScalar = id
 
+-- Impure but in the most trivial way (only ever incremented counter).
+unsafeAstVarCounter :: Counter
+{-# NOINLINE unsafeAstVarCounter #-}
+unsafeAstVarCounter = unsafePerformIO (newCounter 1)
+
+unsafeGetFreshAstVar :: IO (AstVarName a)
+{-# INLINE unsafeGetFreshAstVar #-}
+unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
+
 astBuild1 :: (KnownNat n, Show r, Numeric r)
           => Int -> (AstInt r -> Ast n r) -> Ast (1 + n) r
 {-# NOINLINE astBuild1 #-}
@@ -620,6 +505,120 @@ instance Tensor r
   type ScalarOf (a -> r) = ScalarOf r
   tconst = tconst
 -}
+
+-- * HasPrimal class and instances for all relevant types
+
+-- We could accept any @RealFloat@ instead of @PrimalOf a@, but then
+-- we'd need to coerce, e.g., via realToFrac, which is risky and lossy.
+-- Also, the stricter typing is likely to catch real errors most of the time,
+-- not just sloppy omission ofs explicit coercions.
+class HasPrimal r where
+  type ScalarOf r
+  type PrimalOf (n :: Nat) r
+  type DualOf (n :: Nat) r
+  tconst :: KnownNat n => OR.Array n (ScalarOf r) -> TensorOf n r
+  tconstant :: KnownNat n => PrimalOf n r -> TensorOf n r
+  tprimalPart :: TensorOf n r -> PrimalOf n r
+  tdualPart :: TensorOf n r -> DualOf n r
+  tD :: KnownNat n => PrimalOf n r -> DualOf n r -> TensorOf n r
+  -- TODO: we'd probably also need dZero, dIndex0 and all others;
+  -- basically DualOf a needs to have IsPrimal and HasRanks instances
+  -- (and HasInputs?)
+  -- TODO: if DualOf is supposed to be user-visible, we needed
+  -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
+  tmapPrimal :: (PrimalOf 0 r -> PrimalOf 0 r) -> PrimalOf n r -> PrimalOf n r
+
+instance HasPrimal Double where
+  type ScalarOf Double = Double
+  type PrimalOf n Double = OR.Array n Double
+  type DualOf n Double = ()
+  tconst = id
+  tconstant = id
+  tprimalPart = id
+  tdualPart _ = ()
+  tD u _ = u
+  tmapPrimal f = OR.mapA (OR.unScalar . f . OR.scalar)
+
+instance HasPrimal Float where
+  type ScalarOf Float = Float
+  type PrimalOf n Float = OR.Array n Float
+  type DualOf n Float = ()
+  tconst = id
+  tconstant = id
+  tprimalPart = id
+  tdualPart _ = ()
+  tD u _ = u
+  tmapPrimal f = OR.mapA (OR.unScalar . f . OR.scalar)
+
+instance ADModeAndNumTensor d r => HasPrimal (ADVal d r) where
+  type ScalarOf (ADVal d r) = r
+  type PrimalOf n (ADVal d r) = OR.Array n r
+  type DualOf n (ADVal d r) = Dual d (OR.Array n r)
+  tconst t = dD t dZero
+  tconstant t = dD t dZero
+  tprimalPart (D u _) = u
+  tdualPart (D _ u') = u'
+  tD = dD
+  tmapPrimal f = OR.mapA (OR.unScalar . f . OR.scalar)
+
+type ADModeAndNumTensor (d :: ADMode) r =
+  ( ADModeAndNum d r
+  , Tensor r
+  , TensorOf 1 r ~ OR.Array 1 r
+  , IntOf r ~ Int
+  )
+
+instance HasPrimal (Ast 0 r) where
+  type ScalarOf (Ast 0 r) = r
+  type PrimalOf n (Ast 0 r) = AstPrimalPart n r
+  type DualOf n (Ast 0 r) = ()  -- TODO: data AstDualPart: dScale, dAdd, dkonst1
+  tconst = AstConst
+  tconstant = AstConstant
+  tprimalPart = AstPrimalPart
+  tdualPart = error "TODO"
+  tD = error "TODO"
+  tmapPrimal = omapAst
+
+instance HasPrimal (AstPrimalPart 0 r) where
+  type ScalarOf (AstPrimalPart 0 r) = r
+  type PrimalOf n (AstPrimalPart 0 r) = AstPrimalPart n r
+  type DualOf n (AstPrimalPart 0 r) = ()
+  tconst = AstPrimalPart . AstConst
+  tconstant = id
+  tprimalPart = id
+  tdualPart = error "TODO"
+  tD = error "TODO"
+  tmapPrimal = omapAst
+
+omapAst :: (AstPrimalPart 0 r -> AstPrimalPart 0 r)
+        -> AstPrimalPart n r -> AstPrimalPart n r
+{-# NOINLINE omapAst #-}
+omapAst f e = unsafePerformIO $ do
+  freshAstVar <- unsafeGetFreshAstVar
+  return $! AstPrimalPart
+         $ AstOMap (freshAstVar, f (AstPrimalPart $ AstVar ZS freshAstVar)) e
+
+
+-- * Odds and ends
+
+scale1 :: (ADReady r, KnownNat n, Num (TensorOf n r))
+       => PrimalOf n r -> TensorOf n r -> TensorOf n r
+scale1 a d = tconstant a * d
+
+relu1, reluLeaky1
+  :: forall n r. (ADReady r, KnownNat n, Num (TensorOf n r))
+  => TensorOf n r -> TensorOf n r
+relu1 v =
+  let oneIfGtZero = tmapPrimal @r
+                               (\x -> ifB (x >* 0) 1 0)
+                               (tprimalPart v)
+  in scale1 oneIfGtZero v
+
+reluLeaky1 v =
+  let oneIfGtZero = tmapPrimal @r
+                               (\x -> ifB (x >* 0) 1 0.01)
+                               (tprimalPart v)
+  in scale1 oneIfGtZero v
 
 
 -- * ADVal combinators generalizing ranked tensor operations
