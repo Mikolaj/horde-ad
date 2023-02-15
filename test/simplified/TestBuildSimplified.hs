@@ -241,11 +241,7 @@ within0 :: forall r n. ADReady r
         => ShapeInt n -> IndexOf n r -> BooleanOf r
 within0 sh ix =
   let within :: IntOf r -> IntOf r -> BooleanOf r
-      within i dim = (&&*) @(BooleanOf r)
-                           ((<=*) @(IntOf r) 0 i)
-                           ((>*) @(IntOf r)dim i)
-        -- TODO: why is each @r needed? (with GHC 9.0.2 at least);
-        -- this prevents infix use and so harms readability
+      within i dim = 0 <=* i &&* dim >* i
   in foldr (&&*) true
      $ zipWith within (indexToList ix) (map fromIntegral $ shapeToList sh)
 

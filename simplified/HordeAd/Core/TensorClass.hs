@@ -71,9 +71,7 @@ reluLeaky1 v =
   in scale1 oneIfGtZero v
 
 -- TODO: generalize the function @relu@ above so that
--- it has a sensible Ast instance and then kill reluAst;
--- we'd need Conditional class that works with our AstBool type
--- and some sugar to be able to use >, &&, etc.
+-- it has a sensible Ast instance and then kill reluAst
 reluAst1
   :: forall n r. (KnownNat n, Num (Vector r), Numeric r)
   => Ast n r -> Ast n r
@@ -104,7 +102,6 @@ class HasPrimal a where
   -- (and HasInputs?)
   -- TODO: if DualOf is supposed to be user-visible, we needed
   -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
-  -- TODO: also put conditionals with AstBool condition here, at least initially
   omapPrimal :: (Element (PrimalOf a) -> Element (PrimalOf a))
              -> PrimalOf a -> PrimalOf a
 

@@ -244,7 +244,7 @@ fooNoGoAst v =
        + astCond (AstBoolOp AndOp
                     [ tindex v (ix * 2 :. ZI) <=* 0
                         -- @1 not required thanks to :.; see below for @ and []
-                    , (>*) @(AstInt r) 6 (abs ix) ])
+                    , 6 >* abs ix ])
                  r (5 * r))
      / tslice 1 3 (tmap0N (\x -> astCond (x >* r) r x) v)
      * tbuild1 3 (const 1)

@@ -86,7 +86,7 @@ fooNoGoAst v =
   let r = tsum0 v
   in tbuild1 3 (\ix ->
        barAst (3.14, bar (3.14, tindex v [ix]))
-       + astCond (AstBoolOp AndOp  -- TODO: overload &&, <=, >, etc.
+       + astCond (AstBoolOp AndOp  -- now much simplier, but kept for testing
                              [ tindex @(Ast 0 r) @1 v [ix * 2] <=* 0
                              , (>*) @(AstInt r) 6 (abs ix) ])
                  r (5 * r))

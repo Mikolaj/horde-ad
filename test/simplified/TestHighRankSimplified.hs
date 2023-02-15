@@ -274,8 +274,7 @@ fooNoGo v =
       shTail = tailShape (tshape v)
   in tbuild1 3 (\ix ->
        bar (tkonst0N shTail 3.14, bar (tkonst0N shTail 3.14, tindex v [ix]))
-       + ifB ((&&*) @(BooleanOf r) (tindex v (ix * 2 :. ZI) <=* 0)
-                       ((>*) @(IntOf r) 6 (abs ix)))
+       + ifB (tindex v (ix * 2 :. ZI) <=* 0 &&* 6 >* abs ix)
                r (5 * r))
      / tslice 1 3 (tmap0N (\x ->
          tunScalar $ ifB (tscalar x >* r0) r0 (tscalar x)) v)
@@ -328,6 +327,7 @@ testNestedBuildMap7 =
     (rev' @(OR.Array 7 Double) nestedBuildMap 0.6)
 
 {-
+
 nestedSumBuild :: ADReady r => TensorOf 1 r -> TensorOf 1 r
 nestedSumBuild v =
   tbuild1 13 (\ix ->
@@ -359,7 +359,7 @@ testNestedSumBuild =
 
 nestedBuildIndex :: forall r. ADReady r => TensorOf 1 r -> TensorOf 1 r
 nestedBuildIndex v =
-  tbuild1 2 $ \ix2 -> tindex @r @1 (tbuild1 3 $ \ix3 -> tindex (tbuild1 4 $ \ix4 -> tindex @r @1 v [ix4]) [ix3]) [ix2]
+  tbuild1 2 $ \ix2 -> tindex (tbuild1 3 $ \ix3 -> tindex (tbuild1 4 $ \ix4 -> tindex v (ix4 :. ZI)) [ix3]) (ix2 :. ZI)
 
 testNestedBuildIndex :: Assertion
 testNestedBuildIndex =
@@ -423,7 +423,7 @@ testBarReluAst1 =
 konstReluAst
   :: forall r. (Show r, Numeric r, RealFloat r, RealFloat (Vector r))
   => Ast 0 r -> Ast 0 r
-konstReluAst x = tsum0 $ reluAst1 @1 $ tkonst0N [7] x
+konstReluAst x = tsum0 $ reluAst1 $ tkonst0N (7 :$ ZS) x
 
 testKonstReluAst :: Assertion
 testKonstReluAst =
@@ -475,6 +475,7 @@ testF21 =
     470
     (rev' @(OR.Array 0 Double) (tscalar . f2 . tunScalar) 1.1)
 
+{- TODO: disabled, because the a -> r instances are disabled
 f3 :: (ADReady r, Tensor (r -> r), Tensor ((r -> r) -> (r -> r)))
    => TensorOf 0 r -> TensorOf 0 r
 f3 arg =
@@ -492,14 +493,15 @@ testF3 =
             470
             (rev' @(OR.Array 0 Double) f3 1.1)
   in return ()  -- dummy instance for -> and Ast rewrites don't remove -> yet
+-}
 
 -- * Hairy tests (many by TomS as well)
 
 braidedBuilds :: forall r. ADReady r => r -> TensorOf 2 r
 braidedBuilds r =
   tbuild1 3 (\ix1 ->
-    tbuild1 4 (\ix2 -> tindex @r @1 (tfromList0N [4]
-                                      [tunScalar $ tfromIntOf0 ix2, 7, r, -0.2]) [ix1]))
+    tbuild1 4 (\ix2 -> tindex (tfromList0N [4]
+                                      [tunScalar $ tfromIntOf0 ix2, 7, r, -0.2]) (ix1 :. ZI)))
 
 testBraidedBuilds :: Assertion
 testBraidedBuilds =
@@ -554,12 +556,4 @@ testConcatBuild1 =
     126.0
     (rev' @(OR.Array 2 Double) (concatBuild . tunScalar) 3.4)
 
--- TODO:
-_concatBuild2 :: ADReady r => r -> TensorOf 2 r
-_concatBuild2 _r =
--- TODO: tbuild0N (7, 14) (\ (i,j)
-  tbuild1 7 $ \i -> tbuild1 14 $ \_j ->
-    -- TODO: use classes Cond and Bool: if i == j then tfromIntOf0 i else r
-   tfromIntOf0 i
-      -- need to prove that i + 1 + (13 - i) = 14
 -}
