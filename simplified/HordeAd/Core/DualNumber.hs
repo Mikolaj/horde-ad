@@ -209,7 +209,8 @@ instance (Num a, IsPrimal d a) => Num (ADVal d a) where
   fromInteger = constantADVal . fromInteger
 
 instance (Real a, IsPrimal d a) => Real (ADVal d a) where
-  toRational = undefined  -- TODO?
+  toRational = undefined
+    -- very low priority, since these are all extremely not continuous
 
 instance (Fractional a, IsPrimal d a) => Fractional (ADVal d a) where
   D u u' / D v v' =
@@ -247,7 +248,7 @@ instance (Floating a, IsPrimal d a) => Floating (ADVal d a) where
 
 instance (RealFrac a, IsPrimal d a) => RealFrac (ADVal d a) where
   properFraction = undefined
-    -- TODO: others, but low priority, since these are extremely not continuous
+    -- very low priority, since these are all extremely not continuous
 
 instance (RealFloat a, IsPrimal d a) => RealFloat (ADVal d a) where
   atan2 (D u u') (D v v') =

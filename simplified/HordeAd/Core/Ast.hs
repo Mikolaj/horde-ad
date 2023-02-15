@@ -379,7 +379,8 @@ instance Num (OR.Array n r) => Num (Ast n r) where
   fromInteger = AstConst . fromInteger
 
 instance Real (OR.Array n r) => Real (Ast n r) where
-  toRational = undefined  -- TODO?
+  toRational = undefined
+    -- very low priority, since these are all extremely not continuous
 
 instance Fractional (OR.Array n r) => Fractional (Ast n r) where
   u / v = AstOp DivideOp  [u, v]
@@ -408,7 +409,7 @@ instance Floating (OR.Array n r) => Floating (Ast n r) where
 
 instance RealFrac (OR.Array n r) => RealFrac (Ast n r) where
   properFraction = undefined
-    -- TODO: others, but low priority, since these are extremely not continuous
+    -- very low priority, since these are all extremely not continuous
 
 instance RealFloat (OR.Array n r) => RealFloat (Ast n r) where
   atan2 u v = AstOp Atan2Op [u, v]
@@ -463,7 +464,8 @@ instance Num (AstInt r) where
   fromInteger = AstIntConst . fromInteger
 
 instance Real (AstInt r) where
-  toRational = undefined  -- TODO
+  toRational = undefined
+    -- very low priority, since these are all extremely not continuous
 
 instance Enum (AstInt r) where
   toEnum = AstIntConst
