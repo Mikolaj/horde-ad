@@ -9,10 +9,9 @@
 -- (and safely impure) API in "HordeAd.Core.DualClass". The other part
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.TensorClass
-  ( ADModeAndNumTensor, HasPrimal(..), Tensor(..), IndexOf, ShapeInt
+  ( IndexOf, ShapeInt, Tensor(..), HasPrimal(..), ADReady
   , interpretAst, AstVar(..)
-  , ADReady
-  , scalar, unScalar, scale1, relu1, reluLeaky1
+  , ADModeAndNumTensor, scale1, relu1, reluLeaky1, tmapPrimal
   ) where
 
 import Prelude
@@ -170,7 +169,7 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tunScalar :: TensorOf 0 r -> r
 
 type ADReady r =
-  ( Tensor r, HasPrimal r, Show r
+  ( Tensor r, HasPrimal r, Tensor (Primal r), Show r
   , Numeric (ScalarOf r), RealFloat (ScalarOf r)
   , ( RealFloat (TensorOf 2 r), RealFloat (TensorOf 3 r)
     , RealFloat (TensorOf 4 r), RealFloat (TensorOf 5 r)
@@ -178,13 +177,13 @@ type ADReady r =
     , RealFloat (TensorOf 8 r), RealFloat (TensorOf 9 r)
     , RealFloat (TensorOf 10 r), RealFloat (TensorOf 11 r)
     , RealFloat (TensorOf 12 r) )
-  , ( RealFloat (PrimalOf 0 r), RealFloat (PrimalOf 1 r)
-    , RealFloat (PrimalOf 2 r), RealFloat (PrimalOf 3 r)
-    , RealFloat (PrimalOf 4 r), RealFloat (PrimalOf 5 r)
-    , RealFloat (PrimalOf 6 r), RealFloat (PrimalOf 7 r)
-    , RealFloat (PrimalOf 8 r), RealFloat (PrimalOf 9 r)
-    , RealFloat (PrimalOf 10 r), RealFloat (PrimalOf 11 r)
-    , RealFloat (PrimalOf 12 r) )
+  , ( RealFloat (TensorOf 0 (Primal r)), RealFloat (TensorOf 1 (Primal r))
+    , RealFloat (TensorOf 2 (Primal r)), RealFloat (TensorOf 3 (Primal r))
+    , RealFloat (TensorOf 4 (Primal r)), RealFloat (TensorOf 5 (Primal r))
+    , RealFloat (TensorOf 6 (Primal r)), RealFloat (TensorOf 7 (Primal r))
+    , RealFloat (TensorOf 8 (Primal r)), RealFloat (TensorOf 9 (Primal r))
+    , RealFloat (TensorOf 10 (Primal r)), RealFloat (TensorOf 11 (Primal r))
+    , RealFloat (TensorOf 12 (Primal r)) )
   , Boolean (BooleanOf r)
   , BooleanOf r ~ BooleanOf (IntOf r)
   , ( BooleanOf r ~ BooleanOf (TensorOf 0 r)
@@ -200,52 +199,52 @@ type ADReady r =
     , BooleanOf r ~ BooleanOf (TensorOf 10 r)
     , BooleanOf r ~ BooleanOf (TensorOf 11 r)
     , BooleanOf r ~ BooleanOf (TensorOf 12 r) )
-  , ( BooleanOf r ~ BooleanOf (PrimalOf 0 r)
-    , BooleanOf r ~ BooleanOf (PrimalOf 1 r)
-    , BooleanOf r ~ BooleanOf (PrimalOf 2 r)
-    , BooleanOf r ~ BooleanOf (PrimalOf 3 r)
-    , BooleanOf r ~ BooleanOf (PrimalOf 4 r)
-    , BooleanOf r ~ BooleanOf (PrimalOf 5 r)
-    , BooleanOf r ~ BooleanOf (PrimalOf 6 r)
-    , BooleanOf r ~ BooleanOf (PrimalOf 7 r)
-    , BooleanOf r ~ BooleanOf (PrimalOf 8 r)
-    , BooleanOf r ~ BooleanOf (PrimalOf 9 r)
-    , BooleanOf r ~ BooleanOf (PrimalOf 10 r)
-    , BooleanOf r ~ BooleanOf (PrimalOf 11 r)
-    , BooleanOf r ~ BooleanOf (PrimalOf 12 r) )
+  , ( BooleanOf r ~ BooleanOf (TensorOf 0 (Primal r))
+    , BooleanOf r ~ BooleanOf (TensorOf 1 (Primal r))
+    , BooleanOf r ~ BooleanOf (TensorOf 2 (Primal r))
+    , BooleanOf r ~ BooleanOf (TensorOf 3 (Primal r))
+    , BooleanOf r ~ BooleanOf (TensorOf 4 (Primal r))
+    , BooleanOf r ~ BooleanOf (TensorOf 5 (Primal r))
+    , BooleanOf r ~ BooleanOf (TensorOf 6 (Primal r))
+    , BooleanOf r ~ BooleanOf (TensorOf 7 (Primal r))
+    , BooleanOf r ~ BooleanOf (TensorOf 8 (Primal r))
+    , BooleanOf r ~ BooleanOf (TensorOf 9 (Primal r))
+    , BooleanOf r ~ BooleanOf (TensorOf 10 (Primal r))
+    , BooleanOf r ~ BooleanOf (TensorOf 11 (Primal r))
+    , BooleanOf r ~ BooleanOf (TensorOf 12 (Primal r)) )
   , IfB r, IfB (IntOf r)
   , ( IfB (TensorOf 0 r), IfB (TensorOf 1 r), IfB (TensorOf 2 r)
     , IfB (TensorOf 3 r), IfB (TensorOf 4 r), IfB (TensorOf 5 r)
     , IfB (TensorOf 6 r), IfB (TensorOf 7 r), IfB (TensorOf 8 r)
     , IfB (TensorOf 9 r), IfB (TensorOf 10 r), IfB (TensorOf 11 r)
     , IfB (TensorOf 12 r) )
-  , ( IfB (PrimalOf 0 r), IfB (PrimalOf 1 r), IfB (PrimalOf 2 r)
-    , IfB (PrimalOf 3 r), IfB (PrimalOf 4 r), IfB (PrimalOf 5 r)
-    , IfB (PrimalOf 6 r), IfB (PrimalOf 7 r), IfB (PrimalOf 8 r)
-    , IfB (PrimalOf 9 r), IfB (PrimalOf 10 r), IfB (PrimalOf 11 r)
-    , IfB (PrimalOf 12 r) )
+  , ( IfB (TensorOf 0 (Primal r)), IfB (TensorOf 1 (Primal r)), IfB (TensorOf 2 (Primal r))
+    , IfB (TensorOf 3 (Primal r)), IfB (TensorOf 4 (Primal r)), IfB (TensorOf 5 (Primal r))
+    , IfB (TensorOf 6 (Primal r)), IfB (TensorOf 7 (Primal r)), IfB (TensorOf 8 (Primal r))
+    , IfB (TensorOf 9 (Primal r)), IfB (TensorOf 10 (Primal r)), IfB (TensorOf 11 (Primal r))
+    , IfB (TensorOf 12 (Primal r)) )
   , EqB r, EqB (IntOf r)
   , ( EqB (TensorOf 0 r), EqB (TensorOf 1 r), EqB (TensorOf 2 r)
     , EqB (TensorOf 3 r), EqB (TensorOf 4 r), EqB (TensorOf 5 r)
     , EqB (TensorOf 6 r), EqB (TensorOf 7 r), EqB (TensorOf 8 r)
     , EqB (TensorOf 9 r), EqB (TensorOf 10 r), EqB (TensorOf 11 r)
     , EqB (TensorOf 12 r) )
-  , ( EqB (PrimalOf 0 r), EqB (PrimalOf 1 r), EqB (PrimalOf 2 r)
-    , EqB (PrimalOf 3 r), EqB (PrimalOf 4 r), EqB (PrimalOf 5 r)
-    , EqB (PrimalOf 6 r), EqB (PrimalOf 7 r), EqB (PrimalOf 8 r)
-    , EqB (PrimalOf 9 r), EqB (PrimalOf 10 r), EqB (PrimalOf 11 r)
-    , EqB (PrimalOf 12 r) )
+  , ( EqB (TensorOf 0 (Primal r)), EqB (TensorOf 1 (Primal r)), EqB (TensorOf 2 (Primal r))
+    , EqB (TensorOf 3 (Primal r)), EqB (TensorOf 4 (Primal r)), EqB (TensorOf 5 (Primal r))
+    , EqB (TensorOf 6 (Primal r)), EqB (TensorOf 7 (Primal r)), EqB (TensorOf 8 (Primal r))
+    , EqB (TensorOf 9 (Primal r)), EqB (TensorOf 10 (Primal r)), EqB (TensorOf 11 (Primal r))
+    , EqB (TensorOf 12 (Primal r)) )
   , OrdB r, OrdB (IntOf r)
   , ( OrdB (TensorOf 0 r), OrdB (TensorOf 1 r), OrdB (TensorOf 2 r)
     , OrdB (TensorOf 3 r), OrdB (TensorOf 4 r), OrdB (TensorOf 5 r)
     , OrdB (TensorOf 6 r), OrdB (TensorOf 7 r), OrdB (TensorOf 8 r)
     , OrdB (TensorOf 9 r), OrdB (TensorOf 10 r), OrdB (TensorOf 11 r)
     , OrdB (TensorOf 12 r) )
-  , ( OrdB (PrimalOf 0 r), OrdB (PrimalOf 1 r), OrdB (PrimalOf 2 r)
-    , OrdB (PrimalOf 3 r), OrdB (PrimalOf 4 r), OrdB (PrimalOf 5 r)
-    , OrdB (PrimalOf 6 r), OrdB (PrimalOf 7 r), OrdB (PrimalOf 8 r)
-    , OrdB (PrimalOf 9 r), OrdB (PrimalOf 10 r), OrdB (PrimalOf 11 r)
-    , OrdB (PrimalOf 12 r) )
+  , ( OrdB (TensorOf 0 (Primal r)), OrdB (TensorOf 1 (Primal r)), OrdB (TensorOf 2 (Primal r))
+    , OrdB (TensorOf 3 (Primal r)), OrdB (TensorOf 4 (Primal r)), OrdB (TensorOf 5 (Primal r))
+    , OrdB (TensorOf 6 (Primal r)), OrdB (TensorOf 7 (Primal r)), OrdB (TensorOf 8 (Primal r))
+    , OrdB (TensorOf 9 (Primal r)), OrdB (TensorOf 10 (Primal r)), OrdB (TensorOf 11 (Primal r))
+    , OrdB (TensorOf 12 (Primal r)) )
   )
   -- any of the @BooleanOf r ~ ...@ lines above breaks GHC <= 9.0.2
 
@@ -508,116 +507,118 @@ instance Tensor r
 
 -- * HasPrimal class and instances for all relevant types
 
--- We could accept any @RealFloat@ instead of @PrimalOf a@, but then
+tmapPrimal :: (ADReady r, KnownNat n)
+           => (TensorOf 0 (Primal r) -> TensorOf 0 (Primal r))
+           -> TensorOf n (Primal r) -> TensorOf n (Primal r)
+tmapPrimal f = tmap0N (tunScalar . f . tscalar)
+
+-- We could accept any @RealFloat@ instead of @Primal a@, but then
 -- we'd need to coerce, e.g., via realToFrac, which is risky and lossy.
 -- Also, the stricter typing is likely to catch real errors most of the time,
 -- not just sloppy omission ofs explicit coercions.
 class HasPrimal r where
   type ScalarOf r
-  type PrimalOf (n :: Nat) r
+  type Primal r
   type DualOf (n :: Nat) r
   tconst :: KnownNat n => OR.Array n (ScalarOf r) -> TensorOf n r
-  tconstant :: KnownNat n => PrimalOf n r -> TensorOf n r
-  tprimalPart :: TensorOf n r -> PrimalOf n r
+  tconstant :: KnownNat n => TensorOf n (Primal r) -> TensorOf n r
+  tprimalPart :: TensorOf n r -> TensorOf n (Primal r)
   tdualPart :: TensorOf n r -> DualOf n r
-  tD :: KnownNat n => PrimalOf n r -> DualOf n r -> TensorOf n r
+  tD :: KnownNat n => TensorOf n (Primal r) -> DualOf n r -> TensorOf n r
   -- TODO: we'd probably also need dZero, dIndex0 and all others;
   -- basically DualOf a needs to have IsPrimal and HasRanks instances
   -- (and HasInputs?)
   -- TODO: if DualOf is supposed to be user-visible, we needed
   -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
-  tmapPrimal :: (PrimalOf 0 r -> PrimalOf 0 r) -> PrimalOf n r -> PrimalOf n r
 
 instance HasPrimal Double where
   type ScalarOf Double = Double
-  type PrimalOf n Double = OR.Array n Double
+  type Primal Double = Double
   type DualOf n Double = ()
   tconst = id
   tconstant = id
   tprimalPart = id
   tdualPart _ = ()
   tD u _ = u
-  tmapPrimal f = OR.mapA (OR.unScalar . f . OR.scalar)
 
 instance HasPrimal Float where
   type ScalarOf Float = Float
-  type PrimalOf n Float = OR.Array n Float
+  type Primal Float = Float
   type DualOf n Float = ()
   tconst = id
   tconstant = id
   tprimalPart = id
   tdualPart _ = ()
   tD u _ = u
-  tmapPrimal f = OR.mapA (OR.unScalar . f . OR.scalar)
 
 instance ADModeAndNumTensor d r => HasPrimal (ADVal d r) where
   type ScalarOf (ADVal d r) = r
-  type PrimalOf n (ADVal d r) = OR.Array n r
+  type Primal (ADVal d r) = r
   type DualOf n (ADVal d r) = Dual d (OR.Array n r)
   tconst t = dD t dZero
-  tconstant t = dD t dZero
-  tprimalPart (D u _) = u
+  tconstant t = dD (toArray t) dZero
+  tprimalPart (D u _) = fromArray u
   tdualPart (D _ u') = u'
-  tD = dD
-  tmapPrimal f = OR.mapA (OR.unScalar . f . OR.scalar)
+  tD u u' = dD (toArray u) u'
 
 type ADModeAndNumTensor (d :: ADMode) r =
   ( ADModeAndNum d r
   , Tensor r
   , TensorOf 1 r ~ OR.Array 1 r
   , IntOf r ~ Int
+  , TensorIsArray r
   )
+
+class TensorIsArray r where
+  toArray :: TensorOf n r -> OR.Array n r
+  fromArray :: OR.Array n r -> TensorOf n r
+
+instance TensorIsArray Double where
+  toArray = id
+  fromArray = id
+
+instance TensorIsArray Float where
+  toArray = id
+  fromArray = id
 
 instance HasPrimal (Ast 0 r) where
   type ScalarOf (Ast 0 r) = r
-  type PrimalOf n (Ast 0 r) = AstPrimalPart n r
+  type Primal (Ast 0 r) = AstPrimalPart 0 r
   type DualOf n (Ast 0 r) = ()  -- TODO: data AstDualPart: dScale, dAdd, dkonst1
   tconst = AstConst
   tconstant = AstConstant
   tprimalPart = AstPrimalPart
   tdualPart = error "TODO"
   tD = error "TODO"
-  tmapPrimal = omapAst
 
 instance HasPrimal (AstPrimalPart 0 r) where
   type ScalarOf (AstPrimalPart 0 r) = r
-  type PrimalOf n (AstPrimalPart 0 r) = AstPrimalPart n r
+  type Primal (AstPrimalPart 0 r) = AstPrimalPart 0 r
   type DualOf n (AstPrimalPart 0 r) = ()
   tconst = AstPrimalPart . AstConst
   tconstant = id
   tprimalPart = id
   tdualPart = error "TODO"
   tD = error "TODO"
-  tmapPrimal = omapAst
-
-omapAst :: (AstPrimalPart 0 r -> AstPrimalPart 0 r)
-        -> AstPrimalPart n r -> AstPrimalPart n r
-{-# NOINLINE omapAst #-}
-omapAst f e = unsafePerformIO $ do
-  freshAstVar <- unsafeGetFreshAstVar
-  return $! AstPrimalPart
-         $ AstOMap (freshAstVar, f (AstPrimalPart $ AstVar ZS freshAstVar)) e
 
 
 -- * Odds and ends
 
 scale1 :: (ADReady r, KnownNat n, Num (TensorOf n r))
-       => PrimalOf n r -> TensorOf n r -> TensorOf n r
+       => TensorOf n (Primal r) -> TensorOf n r -> TensorOf n r
 scale1 a d = tconstant a * d
 
 relu1, reluLeaky1
   :: forall n r. (ADReady r, KnownNat n, Num (TensorOf n r))
   => TensorOf n r -> TensorOf n r
 relu1 v =
-  let oneIfGtZero = tmapPrimal @r
-                               (\x -> ifB (x >* 0) 1 0)
-                               (tprimalPart v)
+  let oneIfGtZero = tmapPrimal @r (\x -> ifB (x >* 0) 1 0)
+                                  (tprimalPart v)
   in scale1 oneIfGtZero v
 
 reluLeaky1 v =
-  let oneIfGtZero = tmapPrimal @r
-                               (\x -> ifB (x >* 0) 1 0.01)
-                               (tprimalPart v)
+  let oneIfGtZero = tmapPrimal @r (\x -> ifB (x >* 0) 1 0.01)
+                                  (tprimalPart v)
   in scale1 oneIfGtZero v
 
 
@@ -767,15 +768,6 @@ data AstVar a =
   | AstVarI Int
  deriving Show
 
-interpretLambdaR
-  :: ADModeAndNumTensor d r
-  => AstEnv d r
-  -> (AstVarName (OR.Array 0 r), AstPrimalPart 0 r)
-  -> ADVal d (OR.Array 0 r) -> OR.Array 0 r
-interpretLambdaR env (AstVarName var, ast) =
-  \d -> let dT = from1X d
-        in interpretAstPrimal (IM.insert var (AstVarR dT) env) ast
-
 interpretLambdaI
   :: (ADModeAndNumTensor d r, KnownNat n)
   => AstEnv d r
@@ -818,7 +810,8 @@ interpretAstPrimal
   :: (ADModeAndNumTensor d r, KnownNat n)
   => AstEnv d r
   -> AstPrimalPart n r -> OR.Array n r
-interpretAstPrimal env (AstPrimalPart v) = let D u _ = interpretAst env v in u
+interpretAstPrimal env (AstPrimalPart v) =
+  toArray $ tprimalPart $ interpretAst env v
 
 interpretAst
   :: forall n r d. (ADModeAndNumTensor d r, KnownNat n)
@@ -833,7 +826,7 @@ interpretAst env = \case
   AstOp opCode args ->
     interpretAstOp (interpretAst env) opCode args
   AstConst a -> tconst a
-  AstConstant a -> tconstant $ interpretAstPrimal env a
+  AstConstant a -> tconst $ interpretAstPrimal env a
   AstConstInt i -> fromIntegral $ interpretAstInt env i
   AstIndexZ v is -> indexZ (interpretAst env v) (fmap (interpretAstInt env) is)
   AstSum v -> sum' (interpretAst env v)
@@ -851,10 +844,9 @@ interpretAst env = \case
                   in reshape (flattenShape $ shape d) d
   AstReshape sh v -> reshape sh (interpretAst env v)
   AstBuild1 k (var, AstConstant r) ->
-    tconstant
+    tconstant $ fromArray
     $ OR.ravel . ORB.fromVector [k] . V.generate k
-    $ \j -> let D v _ = interpretLambdaI env (var, AstConstant r) j
-            in v
+    $ \j -> toArray $ tprimalPart $ interpretLambdaI env (var, AstConstant r) j
   AstBuild1 k (var, v) -> build1 k (interpretLambdaI env (var, v))
       -- fallback to POPL (memory blowup, but avoids functions on tape);
       -- an alternative is to use dBuild1 and store function on tape
@@ -871,11 +863,6 @@ interpretAst env = \case
   AstGatherN (vars, ix) v sh ->
     gatherNClosure (interpretLambdaIndexToIndex env (vars, ix))
                    (interpretAst env v) sh
-  AstOMap (var, r) e ->
-    tconstant
-    $ tmapPrimal @(ADVal d r)
-                 (\x -> interpretLambdaR env (var, r) (tconstant x))
-                 (interpretAstPrimal env e)
 
 interpretAstInt :: ADModeAndNumTensor d r
                 => AstEnv d r

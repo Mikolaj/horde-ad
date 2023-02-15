@@ -239,9 +239,9 @@ testPoly00 f input expected = do
         domainsFrom01 (V.singleton expected) V.empty
       (astGrad, astValue) =
         revOnDomains 1
-          (\adinputs -> unScalar $
+          (\adinputs -> tunScalar $
              interpretAst (IM.singleton 0
-                             (AstVarR $ from1X $ scalar $ adinputs `at0` 0))
+                             (AstVarR $ from1X $ tscalar $ adinputs `at0` 0))
                           (f (AstVar [] (AstVarName 0))))
           domainsInput
       (advalGrad, advalValue) =
@@ -269,7 +269,7 @@ testPoly01 f outSize input expected = do
         revOnDomains dt
           (\adinputs ->
              interpretAst (IM.singleton 0
-                             (AstVarR $ from1X $ scalar $ adinputs `at0` 0))
+                             (AstVarR $ from1X $ tscalar $ adinputs `at0` 0))
                           (f (AstVar [] (AstVarName 0))))
           domainsInput
       (advalGrad, advalValue) =
@@ -326,7 +326,7 @@ testPolyn f sh input expected = do
         revOnDomains dt
           (\adinputs ->
              interpretAst (IM.singleton 0
-                             (AstVarR $ from1X $ scalar $ adinputs `at0` 0))
+                             (AstVarR $ from1X $ tscalar $ adinputs `at0` 0))
                           (f (AstVar [] (AstVarName 0))))
           domainsInput
       (advalGrad, advalValue) =
@@ -402,7 +402,7 @@ testBarReluADVal =
   (domains0 $ fst
    $ revOnDomains
        42.2
-       (\adinputs -> unScalar $ barRelu (scalar $ adinputs `at0` 0))
+       (\adinputs -> tunScalar $ barRelu (tscalar $ adinputs `at0` 0))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [191.20462646925841]
 
@@ -411,9 +411,9 @@ testBarReluAst0 =
   (domains0 $ fst
    $ revOnDomains
        42.2
-       (\adinputs -> unScalar $
+       (\adinputs -> tunScalar $
           interpretAst (IM.singleton 0
-                          (AstVarR $ from1X $ scalar $ adinputs `at0` 0))
+                          (AstVarR $ from1X $ tscalar $ adinputs `at0` 0))
                         (barReluAst (AstVar [] (AstVarName 0))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [191.20462646925841]
@@ -438,9 +438,9 @@ testKonstReluAst =
   (domains0 $ fst
    $ revOnDomains
        42.2
-       (\adinputs -> unScalar $
+       (\adinputs -> tunScalar $
           interpretAst (IM.singleton 0
-                          (AstVarR $ from1X $ scalar $ adinputs `at0` 0))
+                          (AstVarR $ from1X $ tscalar $ adinputs `at0` 0))
                         (konstReluAst (AstVar [] (AstVarName 0))))
        (domainsFrom01 (V.fromList [1.1 :: Double]) V.empty))
   @?~ V.fromList [295.4]

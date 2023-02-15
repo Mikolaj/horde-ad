@@ -151,9 +151,6 @@ build1V k (var, v0) =
       astGatherN (var ::: vars, AstIntVar var :. ix2)
                  (build1VOccurenceUnknown k (var, v))
                  (k :$ sh)
-
-    AstOMap{} -> traceRule $
-      AstConstant $ AstPrimalPart $ AstBuild1 k (var, v0)
     -- All other patterns are redundant due to GADT typing.
 
 -- | The application @build1VIxOccurenceUnknown k (var, v, ix)@ vectorizes
@@ -324,9 +321,6 @@ build1VIx k (var, v0, is@(i1 :. rest1)) =
           -- so unsafeCoerce is back
     AstGatherN{} ->
       error "build1VIx: AstGatherN: impossible pattern needlessly required"
-
-    AstOMap{} -> traceRule $
-      AstConstant $ AstPrimalPart $ AstBuild1 k (var, AstIndexZ v0 is)
     -- All other patterns are redundant due to GADT typing.
 
 
