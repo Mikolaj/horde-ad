@@ -343,15 +343,15 @@ testBarReluADValDt =
 
 testBarReluADVal :: Assertion
 testBarReluADVal =
-  assertEqualUpToEpsilon 1e-10
+  assertEqualUpToEpsilon' 1e-10
     (OR.fromList [] [4.5309153191767395])
-    (rev @(OR.Array 0 Double) barRelu (OR.fromList [] [1.1]))
+    (rev' @(OR.Array 0 Double) barRelu (OR.fromList [] [1.1]))
 
 testBarReluADVal3 :: Assertion
 testBarReluADVal3 =
-  assertEqualUpToEpsilon 1e-10
+  assertEqualUpToEpsilon' 1e-10
     (OR.fromList [2, 1, 2] [4.5309153191767395,4.5302138998556,-9.39547533946234,95.29759282497125])
-    (rev @(OR.Array 3 Double) barRelu (OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2]))
+    (rev' @(OR.Array 3 Double) barRelu (OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2]))
 
 barReluAst
   :: forall n r.

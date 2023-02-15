@@ -183,7 +183,6 @@ type ADReady r =
     , RealFloat (TensorOf 10 (Primal r)), RealFloat (TensorOf 11 (Primal r))
     , RealFloat (TensorOf 12 (Primal r)) )
   , Boolean (BooleanOf r)
-  , BooleanOf r ~ BooleanOf (IntOf r)
   , ( BooleanOf r ~ BooleanOf (TensorOf 0 r)
     , BooleanOf r ~ BooleanOf (TensorOf 1 r)
     , BooleanOf r ~ BooleanOf (TensorOf 2 r)
@@ -210,6 +209,7 @@ type ADReady r =
     , BooleanOf r ~ BooleanOf (TensorOf 10 (Primal r))
     , BooleanOf r ~ BooleanOf (TensorOf 11 (Primal r))
     , BooleanOf r ~ BooleanOf (TensorOf 12 (Primal r)) )
+  , BooleanOf r ~ BooleanOf (IntOf r)  -- placing this last gives better errors
   , IfB r, IfB (IntOf r)
   , ( IfB (TensorOf 0 r), IfB (TensorOf 1 r), IfB (TensorOf 2 r)
     , IfB (TensorOf 3 r), IfB (TensorOf 4 r), IfB (TensorOf 5 r)
