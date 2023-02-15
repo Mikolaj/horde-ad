@@ -346,8 +346,7 @@ testNestedBuildIndex =
     (rev' @(OR.Array 1 Double) nestedBuildIndex (OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
 
 barRelu
-  :: ( ADReady r, KnownNat n, Fractional (PrimalOf 0 r), IfB (PrimalOf 0 r)
-     , OrdB (PrimalOf 0 r), RealFloat (TensorOf n r) )
+  :: ( ADReady r, KnownNat n, RealFloat (TensorOf n r) )
   => TensorOf n r -> TensorOf n r
 barRelu x = relu1 $ bar (x, relu1 x)
 
@@ -370,12 +369,10 @@ testBarReluADVal3 =
     (rev @(OR.Array 3 Double) barRelu (OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2]))
 
 barReluAst
-  :: (KnownNat n, Numeric r, RealFloat r, Floating (Vector r), Show r)
+  :: forall n r.
+     (KnownNat n, Numeric r, RealFloat r, Floating (Vector r), Show r)
   => Ast n r -> Ast n r
-barReluAst x = reluAst1 $ bar (x, reluAst1 x)
-  -- TODO; barRelu @(Ast 0 r) fails
-  -- due to relu using conditionals and @>@ instead of
-  -- a generalization of those that have Ast instance:
+barReluAst x = relu1 @n @(Ast 0 r) $ bar (x, relu1 x)
 
 testBarReluAst0 :: Assertion
 testBarReluAst0 =
@@ -400,7 +397,7 @@ testBarReluAst1 =
 konstReluAst
   :: forall r. (Show r, Numeric r, RealFloat r, RealFloat (Vector r))
   => Ast 0 r -> Ast 0 r
-konstReluAst x = tsum0 $ reluAst1 $ tkonst0N (7 :$ ZS) x
+konstReluAst x = tsum0 $ relu1 $ tkonst0N (7 :$ ZS) x
 
 testKonstReluAst :: Assertion
 testKonstReluAst =

@@ -12,7 +12,7 @@ module HordeAd.Core.TensorClass
   ( ADModeAndNumTensor, HasPrimal(..), Tensor(..), IndexOf, ShapeInt
   , interpretAst, AstVar(..)
   , ADReady
-  , scalar, unScalar, relu1, reluLeaky1, reluAst1
+  , scalar, unScalar, scale1, relu1, reluLeaky1
   ) where
 
 import Prelude
@@ -47,14 +47,12 @@ type ADModeAndNumTensor (d :: ADMode) r =
   , IntOf r ~ Int
   )
 
-scale1 :: (ADReady r, Num (TensorOf n r), KnownNat n)
+scale1 :: (ADReady r, KnownNat n, Num (TensorOf n r))
        => PrimalOf n r -> TensorOf n r -> TensorOf n r
 scale1 a d = tconstant a * d
 
 relu1, reluLeaky1
-  :: forall n r.
-     ( ADReady r, KnownNat n, Fractional (PrimalOf 0 r), IfB (PrimalOf 0 r)
-     , OrdB (PrimalOf 0 r), Num (TensorOf n r) )
+  :: forall n r. (ADReady r, KnownNat n, Num (TensorOf n r))
   => TensorOf n r -> TensorOf n r
 relu1 v =
   let oneIfGtZero = tmapPrimal @r
@@ -66,21 +64,6 @@ reluLeaky1 v =
   let oneIfGtZero = tmapPrimal @r
                                (\x -> ifB (x >* 0) 1 0.01)
                                (tprimalPart v)
-  in scale1 oneIfGtZero v
-
--- TODO: generalize the function @relu@ above so that
--- it has a sensible Ast instance and then kill reluAst
-reluAst1
-  :: forall n r.
-     ( KnownNat n, Numeric r, RealFloat r, Floating (Vector r)
-     , Show r )
-  => Ast n r -> Ast n r
-reluAst1 v =
-  let oneIfGtZero =
-        tmapPrimal @(Ast 0 r)
-                   (\(AstPrimalPart x) ->
-                      AstPrimalPart $ astCond (AstRel GtOp [x, 0]) 1 0)
-                   (tprimalPart v)
   in scale1 oneIfGtZero v
 
 
@@ -206,7 +189,7 @@ type IndexOf n r = Index n (IntOf r)
 -- but all its operations have straightforwardly generalized analogues below.
 -- Eventually, we'll remove @VectorNumeric@ or define it in terms of @Tensor@.
 class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
-      , Integral (IntOf r), Numeric (ScalarOf r), RealFloat (ScalarOf r) )
+      , Integral (IntOf r) )
       => Tensor r where
   type TensorOf (n :: Nat) r = result | result -> n r
   type IntOf r
@@ -311,13 +294,21 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tunScalar :: TensorOf 0 r -> r
 
 type ADReady r =
-  ( Tensor r, HasPrimal r
+  ( Tensor r, HasPrimal r, Show r
+  , Numeric (ScalarOf r), RealFloat (ScalarOf r)
   , ( RealFloat (TensorOf 2 r), RealFloat (TensorOf 3 r)
     , RealFloat (TensorOf 4 r), RealFloat (TensorOf 5 r)
     , RealFloat (TensorOf 6 r), RealFloat (TensorOf 7 r)
     , RealFloat (TensorOf 8 r), RealFloat (TensorOf 9 r)
     , RealFloat (TensorOf 10 r), RealFloat (TensorOf 11 r)
     , RealFloat (TensorOf 12 r) )
+  , ( RealFloat (PrimalOf 0 r), RealFloat (PrimalOf 1 r)
+    , RealFloat (PrimalOf 2 r), RealFloat (PrimalOf 3 r)
+    , RealFloat (PrimalOf 4 r), RealFloat (PrimalOf 5 r)
+    , RealFloat (PrimalOf 6 r), RealFloat (PrimalOf 7 r)
+    , RealFloat (PrimalOf 8 r), RealFloat (PrimalOf 9 r)
+    , RealFloat (PrimalOf 10 r), RealFloat (PrimalOf 11 r)
+    , RealFloat (PrimalOf 12 r) )
   , Boolean (BooleanOf r)
   , BooleanOf r ~ BooleanOf (IntOf r)
   , ( BooleanOf r ~ BooleanOf (TensorOf 0 r)
@@ -333,24 +324,52 @@ type ADReady r =
     , BooleanOf r ~ BooleanOf (TensorOf 10 r)
     , BooleanOf r ~ BooleanOf (TensorOf 11 r)
     , BooleanOf r ~ BooleanOf (TensorOf 12 r) )
+  , ( BooleanOf r ~ BooleanOf (PrimalOf 0 r)
+    , BooleanOf r ~ BooleanOf (PrimalOf 1 r)
+    , BooleanOf r ~ BooleanOf (PrimalOf 2 r)
+    , BooleanOf r ~ BooleanOf (PrimalOf 3 r)
+    , BooleanOf r ~ BooleanOf (PrimalOf 4 r)
+    , BooleanOf r ~ BooleanOf (PrimalOf 5 r)
+    , BooleanOf r ~ BooleanOf (PrimalOf 6 r)
+    , BooleanOf r ~ BooleanOf (PrimalOf 7 r)
+    , BooleanOf r ~ BooleanOf (PrimalOf 8 r)
+    , BooleanOf r ~ BooleanOf (PrimalOf 9 r)
+    , BooleanOf r ~ BooleanOf (PrimalOf 10 r)
+    , BooleanOf r ~ BooleanOf (PrimalOf 11 r)
+    , BooleanOf r ~ BooleanOf (PrimalOf 12 r) )
   , IfB r, IfB (IntOf r)
   , ( IfB (TensorOf 0 r), IfB (TensorOf 1 r), IfB (TensorOf 2 r)
     , IfB (TensorOf 3 r), IfB (TensorOf 4 r), IfB (TensorOf 5 r)
     , IfB (TensorOf 6 r), IfB (TensorOf 7 r), IfB (TensorOf 8 r)
     , IfB (TensorOf 9 r), IfB (TensorOf 10 r), IfB (TensorOf 11 r)
     , IfB (TensorOf 12 r) )
+  , ( IfB (PrimalOf 0 r), IfB (PrimalOf 1 r), IfB (PrimalOf 2 r)
+    , IfB (PrimalOf 3 r), IfB (PrimalOf 4 r), IfB (PrimalOf 5 r)
+    , IfB (PrimalOf 6 r), IfB (PrimalOf 7 r), IfB (PrimalOf 8 r)
+    , IfB (PrimalOf 9 r), IfB (PrimalOf 10 r), IfB (PrimalOf 11 r)
+    , IfB (PrimalOf 12 r) )
   , EqB r, EqB (IntOf r)
   , ( EqB (TensorOf 0 r), EqB (TensorOf 1 r), EqB (TensorOf 2 r)
     , EqB (TensorOf 3 r), EqB (TensorOf 4 r), EqB (TensorOf 5 r)
     , EqB (TensorOf 6 r), EqB (TensorOf 7 r), EqB (TensorOf 8 r)
     , EqB (TensorOf 9 r), EqB (TensorOf 10 r), EqB (TensorOf 11 r)
     , EqB (TensorOf 12 r) )
+  , ( EqB (PrimalOf 0 r), EqB (PrimalOf 1 r), EqB (PrimalOf 2 r)
+    , EqB (PrimalOf 3 r), EqB (PrimalOf 4 r), EqB (PrimalOf 5 r)
+    , EqB (PrimalOf 6 r), EqB (PrimalOf 7 r), EqB (PrimalOf 8 r)
+    , EqB (PrimalOf 9 r), EqB (PrimalOf 10 r), EqB (PrimalOf 11 r)
+    , EqB (PrimalOf 12 r) )
   , OrdB r, OrdB (IntOf r)
   , ( OrdB (TensorOf 0 r), OrdB (TensorOf 1 r), OrdB (TensorOf 2 r)
     , OrdB (TensorOf 3 r), OrdB (TensorOf 4 r), OrdB (TensorOf 5 r)
     , OrdB (TensorOf 6 r), OrdB (TensorOf 7 r), OrdB (TensorOf 8 r)
     , OrdB (TensorOf 9 r), OrdB (TensorOf 10 r), OrdB (TensorOf 11 r)
     , OrdB (TensorOf 12 r) )
+  , ( OrdB (PrimalOf 0 r), OrdB (PrimalOf 1 r), OrdB (PrimalOf 2 r)
+    , OrdB (PrimalOf 3 r), OrdB (PrimalOf 4 r), OrdB (PrimalOf 5 r)
+    , OrdB (PrimalOf 6 r), OrdB (PrimalOf 7 r), OrdB (PrimalOf 8 r)
+    , OrdB (PrimalOf 9 r), OrdB (PrimalOf 10 r), OrdB (PrimalOf 11 r)
+    , OrdB (PrimalOf 12 r) )
   )
   -- any of the @BooleanOf r ~ ...@ lines above breaks GHC <= 9.0.2
 

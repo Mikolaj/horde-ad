@@ -135,23 +135,32 @@ nestedBuildIndex v =
   tbuild1 2 $ \ix2 -> tindex @r @1 (tbuild1 3 $ \ix3 -> tindex (tbuild1 4 $ \ix4 -> tindex @r @1 v [ix4]) [ix3]) [ix2]
 
 barRelu
-  :: ( ADReady r, KnownNat n, Fractional (PrimalOf 0 r), IfB (PrimalOf 0 r)
-     , OrdB (PrimalOf 0 r), RealFloat (TensorOf n r) )
+  :: ( ADReady r, KnownNat n, RealFloat (TensorOf n r) )
   => TensorOf n r -> TensorOf n r
 barRelu x = relu1 $ bar (x, relu1 x)
 
 barReluAst
   :: (KnownNat n, Numeric r, RealFloat r, Floating (Vector r), Show r)
   => Ast n r -> Ast n r
-barReluAst x = reluAst1 $ bar (x, reluAst1 x)
-  -- TODO; barRelu @(Ast 0 r) fails
-  -- due to relu using conditionals and @>@ instead of
-  -- a generalization of those that have Ast instance:
+barReluAst x = relu1 $ bar (x, reluAst1 x)
 
 konstReluAst
   :: forall r. (Show r, Numeric r, RealFloat r, RealFloat (Vector r))
   => Ast 0 r -> Ast 0 r
 konstReluAst x = tsum0 $ reluAst1 @1 $ tkonst0N [7] x
+
+reluAst1
+  :: forall n r.
+     ( KnownNat n, Numeric r, RealFloat r, Floating (Vector r)
+     , Show r )
+  => Ast n r -> Ast n r
+reluAst1 v =
+  let oneIfGtZero =
+        tmapPrimal @(Ast 0 r)
+                   (\(AstPrimalPart x) ->
+                      AstPrimalPart $ astCond (AstRel GtOp [x, 0]) 1 0)
+                   (tprimalPart v)
+  in scale1 oneIfGtZero v
 
 
 -- * Tests by TomS
