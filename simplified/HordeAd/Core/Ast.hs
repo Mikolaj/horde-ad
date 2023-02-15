@@ -25,7 +25,6 @@ import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
 import           Data.Kind (Type)
-import           Data.MonoTraversable (Element)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, type (+))
@@ -442,8 +441,6 @@ deriving instance Fractional (Ast n r) => Fractional (AstPrimalPart n r)
 deriving instance Floating (Ast n r) => Floating (AstPrimalPart n r)
 deriving instance RealFrac (Ast n r) => RealFrac (AstPrimalPart n r)
 deriving instance RealFloat (Ast n r) => RealFloat (AstPrimalPart n r)
-
-type instance Element (AstPrimalPart n r) = AstPrimalPart 0 r
 
 
 instance Eq (AstInt r) where

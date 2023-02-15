@@ -8,7 +8,6 @@ import Prelude
 
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
-import           Data.MonoTraversable (Element)
 import qualified Data.Strict.IntMap as IM
 import           GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
 import           Numeric.LinearAlgebra (Numeric, Vector)
@@ -170,8 +169,7 @@ testFooBuildOut =
     (OR.fromList [2,2,1,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
     (rev' @(OR.Array 5 Double) fooBuildOut t16)
 
-fooBuild2 :: forall r n.
-             ( ADReady r, KnownNat n, RealFloat (TensorOf n r) )
+fooBuild2 :: forall r n. (ADReady r, KnownNat n)
           => TensorOf (1 + n) r -> TensorOf (1 + n) r
 fooBuild2 v =
   tbuild1 2 $ \ix -> tindex v [max 1 (ix + 1)]  -- index out of bounds; fine

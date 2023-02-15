@@ -6,7 +6,6 @@ import Prelude
 
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
-import           Data.MonoTraversable (Element)
 import qualified Data.Strict.IntMap as IM
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
@@ -347,9 +346,8 @@ testNestedBuildIndex =
     (rev' @(OR.Array 1 Double) nestedBuildIndex (OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
 
 barRelu
-  :: ( RealFloat (TensorOf n r), HasPrimal (TensorOf n r)
-     , Ord (Element (PrimalOf (TensorOf n r)))
-     , Fractional (Element (PrimalOf (TensorOf n r))) )
+  :: ( ADReady r, KnownNat n, Fractional (PrimalOf 0 r), IfB (PrimalOf 0 r)
+     , OrdB (PrimalOf 0 r), RealFloat (TensorOf n r) )
   => TensorOf n r -> TensorOf n r
 barRelu x = relu1 $ bar (x, relu1 x)
 
@@ -372,7 +370,7 @@ testBarReluADVal3 =
     (rev @(OR.Array 3 Double) barRelu (OR.fromList [2, 1, 2] [1.1, 2, 3, 4.2]))
 
 barReluAst
-  :: (KnownNat n, Numeric r, RealFloat r, Floating (Vector r))
+  :: (KnownNat n, Numeric r, RealFloat r, Floating (Vector r), Show r)
   => Ast n r -> Ast n r
 barReluAst x = reluAst1 $ bar (x, reluAst1 x)
   -- TODO; barRelu @(Ast 0 r) fails

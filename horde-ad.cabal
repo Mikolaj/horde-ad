@@ -673,7 +673,6 @@ test-suite simplifiedOnlyTest
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
       , hmatrix
-      , mono-traversable
       , orthotope
       , strict-containers
       , tasty >= 1.0

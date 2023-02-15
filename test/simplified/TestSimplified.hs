@@ -6,7 +6,6 @@ import Prelude
 
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
-import           Data.MonoTraversable (Element)
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
@@ -136,14 +135,13 @@ nestedBuildIndex v =
   tbuild1 2 $ \ix2 -> tindex @r @1 (tbuild1 3 $ \ix3 -> tindex (tbuild1 4 $ \ix4 -> tindex @r @1 v [ix4]) [ix3]) [ix2]
 
 barRelu
-  :: ( RealFloat (TensorOf n r), HasPrimal (TensorOf n r)
-     , Ord (Element (PrimalOf (TensorOf n r)))
-     , Fractional (Element (PrimalOf (TensorOf n r))) )
+  :: ( ADReady r, KnownNat n, Fractional (PrimalOf 0 r), IfB (PrimalOf 0 r)
+     , OrdB (PrimalOf 0 r), RealFloat (TensorOf n r) )
   => TensorOf n r -> TensorOf n r
 barRelu x = relu1 $ bar (x, relu1 x)
 
 barReluAst
-  :: (KnownNat n, Numeric r, RealFloat r, Floating (Vector r))
+  :: (KnownNat n, Numeric r, RealFloat r, Floating (Vector r), Show r)
   => Ast n r -> Ast n r
 barReluAst x = reluAst1 $ bar (x, reluAst1 x)
   -- TODO; barRelu @(Ast 0 r) fails

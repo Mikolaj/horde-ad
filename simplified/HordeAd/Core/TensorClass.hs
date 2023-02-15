@@ -23,7 +23,6 @@ import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
-import           Data.MonoTraversable (Element, MonoFunctor (omap))
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -48,39 +47,40 @@ type ADModeAndNumTensor (d :: ADMode) r =
   , IntOf r ~ Int
   )
 
-scale1 :: (HasPrimal (TensorOf n r), Num (TensorOf n r))
-       => PrimalOf (TensorOf n r) -> TensorOf n r -> TensorOf n r
-scale1 a d = constant a * d
+scale1 :: (ADReady r, Num (TensorOf n r), KnownNat n)
+       => PrimalOf n r -> TensorOf n r -> TensorOf n r
+scale1 a d = tconstant a * d
 
 relu1, reluLeaky1
   :: forall n r.
-     ( HasPrimal (TensorOf n r), Num (TensorOf n r)
-     , Ord (Element (PrimalOf (TensorOf n r)))
-     , Fractional (Element (PrimalOf (TensorOf n r))) )
+     ( ADReady r, KnownNat n, Fractional (PrimalOf 0 r), IfB (PrimalOf 0 r)
+     , OrdB (PrimalOf 0 r), Num (TensorOf n r) )
   => TensorOf n r -> TensorOf n r
 relu1 v =
-  let oneIfGtZero = omapPrimal @(TensorOf n r)
-                               (\x -> if x > 0 then 1 else 0)
-                               (primalPart v)
+  let oneIfGtZero = tmapPrimal @r
+                               (\x -> ifB (x >* 0) 1 0)
+                               (tprimalPart v)
   in scale1 oneIfGtZero v
 
 reluLeaky1 v =
-  let oneIfGtZero = omapPrimal @(TensorOf n r)
-                               (\x -> if x > 0 then 1 else 0.01)
-                               (primalPart v)
+  let oneIfGtZero = tmapPrimal @r
+                               (\x -> ifB (x >* 0) 1 0.01)
+                               (tprimalPart v)
   in scale1 oneIfGtZero v
 
 -- TODO: generalize the function @relu@ above so that
 -- it has a sensible Ast instance and then kill reluAst
 reluAst1
-  :: forall n r. (KnownNat n, Num (Vector r), Numeric r)
+  :: forall n r.
+     ( KnownNat n, Numeric r, RealFloat r, Floating (Vector r)
+     , Show r )
   => Ast n r -> Ast n r
 reluAst1 v =
   let oneIfGtZero =
-        omapPrimal @(Ast n r )
+        tmapPrimal @(Ast 0 r)
                    (\(AstPrimalPart x) ->
                       AstPrimalPart $ astCond (AstRel GtOp [x, 0]) 1 0)
-                   (primalPart v)
+                   (tprimalPart v)
   in scale1 oneIfGtZero v
 
 
@@ -90,75 +90,76 @@ reluAst1 v =
 -- we'd need to coerce, e.g., via realToFrac, which is risky and lossy.
 -- Also, the stricter typing is likely to catch real errors most of the time,
 -- not just sloppy omission ofs explicit coercions.
-class HasPrimal a where
-  type PrimalOf a
-  type DualOf a
-  constant :: PrimalOf a -> a
-  primalPart :: a -> PrimalOf a
-  dualPart :: a -> DualOf a
-  ddD :: PrimalOf a -> DualOf a -> a
+class HasPrimal r where
+  type ScalarOf r
+  type PrimalOf (n :: Nat) r
+  type DualOf (n :: Nat) r
+  tconst :: KnownNat n => OR.Array n (ScalarOf r) -> TensorOf n r
+  tconstant :: KnownNat n => PrimalOf n r -> TensorOf n r
+  tprimalPart :: TensorOf n r -> PrimalOf n r
+  tdualPart :: TensorOf n r -> DualOf n r
+  tD :: KnownNat n => PrimalOf n r -> DualOf n r -> TensorOf n r
   -- TODO: we'd probably also need dZero, dIndex0 and all others;
   -- basically DualOf a needs to have IsPrimal and HasRanks instances
   -- (and HasInputs?)
   -- TODO: if DualOf is supposed to be user-visible, we needed
   -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
-  omapPrimal :: (Element (PrimalOf a) -> Element (PrimalOf a))
-             -> PrimalOf a -> PrimalOf a
+  tmapPrimal :: (PrimalOf 0 r -> PrimalOf 0 r) -> PrimalOf n r -> PrimalOf n r
 
 instance HasPrimal Double where
-  type PrimalOf Double = Double
-  type DualOf Double = ()
-  constant = id
-  primalPart = id
-  dualPart _ = ()
-  ddD u _ = u
-  omapPrimal = id
+  type ScalarOf Double = Double
+  type PrimalOf n Double = OR.Array n Double
+  type DualOf n Double = ()
+  tconst = id
+  tconstant = id
+  tprimalPart = id
+  tdualPart _ = ()
+  tD u _ = u
+  tmapPrimal f = OR.mapA (OR.unScalar . f . OR.scalar)
 
 instance HasPrimal Float where
-  type PrimalOf Float = Float
-  type DualOf Float = ()
-  constant = id
-  primalPart = id
-  dualPart _ = ()
-  ddD u _ = u
-  omapPrimal = id
+  type ScalarOf Float = Float
+  type PrimalOf n Float = OR.Array n Float
+  type DualOf n Float = ()
+  tconst = id
+  tconstant = id
+  tprimalPart = id
+  tdualPart _ = ()
+  tD u _ = u
+  tmapPrimal f = OR.mapA (OR.unScalar . f . OR.scalar)
 
-instance (IsPrimal d a, MonoFunctor a) => HasPrimal (ADVal d a) where
-  type PrimalOf (ADVal d a) = a
-  type DualOf (ADVal d a) = Dual d a
-  constant a = dD a dZero
-  primalPart (D u _) = u
-  dualPart (D _ u') = u'
-  ddD = dD
-  omapPrimal = omap
+instance ADModeAndNumTensor d r => HasPrimal (ADVal d r) where
+  type ScalarOf (ADVal d r) = r
+  type PrimalOf n (ADVal d r) = OR.Array n r
+  type DualOf n (ADVal d r) = Dual d (OR.Array n r)
+  tconst t = dD t dZero
+  tconstant t = dD t dZero
+  tprimalPart (D u _) = u
+  tdualPart (D _ u') = u'
+  tD = dD
+  tmapPrimal f = OR.mapA (OR.unScalar . f . OR.scalar)
 
-instance Numeric r
-         => HasPrimal (OR.Array n r) where
-  type PrimalOf (OR.Array n r) = OR.Array n r
-  type DualOf (OR.Array n r) = ()
-  constant = id
-  primalPart = id
-  dualPart _ = ()
-  ddD u _ = u
-  omapPrimal = OR.mapA
+instance HasPrimal (Ast 0 r) where
+  type ScalarOf (Ast 0 r) = r
+  type PrimalOf n (Ast 0 r) = AstPrimalPart n r
+  type DualOf n (Ast 0 r) = ()  -- TODO: data AstDualPart: dScale, dAdd, dkonst1
+  tconst = AstConst
+  tconstant = AstConstant
+  tprimalPart = AstPrimalPart
+  tdualPart = error "TODO"
+  tD = error "TODO"
+  tmapPrimal = omapAst
 
-instance HasPrimal (Ast n r) where
-  type PrimalOf (Ast n r) = AstPrimalPart n r
-  type DualOf (Ast n r) = ()  -- TODO: data AstDualPart: dScale, dAdd, dkonst1
-  constant = AstConstant
-  primalPart = AstPrimalPart
-  dualPart = error "TODO"
-  ddD = error "TODO"
-  omapPrimal = omapAst
-
-instance HasPrimal (AstPrimalPart n r) where
-  type PrimalOf (AstPrimalPart n r) = AstPrimalPart n r
-  type DualOf (AstPrimalPart n r) = ()
-  constant = id
-  primalPart = id
-  dualPart = error "TODO"
-  ddD = error "TODO"
-  omapPrimal = omapAst
+instance HasPrimal (AstPrimalPart 0 r) where
+  type ScalarOf (AstPrimalPart 0 r) = r
+  type PrimalOf n (AstPrimalPart 0 r) = AstPrimalPart n r
+  type DualOf n (AstPrimalPart 0 r) = ()
+  tconst = AstPrimalPart . AstConst
+  tconstant = id
+  tprimalPart = id
+  tdualPart = error "TODO"
+  tD = error "TODO"
+  tmapPrimal = omapAst
 
 -- Impure but in the most trivial way (only ever incremented counter).
 unsafeAstVarCounter :: Counter
@@ -309,10 +310,6 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tscalar :: r -> TensorOf 0 r
   tunScalar :: TensorOf 0 r -> r
 
-  type ScalarOf r
-  tconst :: KnownNat n
-         => OR.Array n (ScalarOf r) -> TensorOf n r
-
 type ADReady r =
   ( Tensor r, HasPrimal r
   , ( RealFloat (TensorOf 2 r), RealFloat (TensorOf 3 r)
@@ -388,8 +385,6 @@ instance Tensor Double where
   tbuild1 = tbuild1R
   tscalar = tscalarR
   tunScalar = tunScalarR
-  type ScalarOf Double = Double
-  tconst = id
 
 instance Tensor Float where
   type TensorOf n Float = OR.Array n Float
@@ -424,8 +419,6 @@ instance Tensor Float where
   -- tzipWith0N = tzipWith0NR
   tscalar = tscalarR
   tunScalar = tunScalarR
-  type ScalarOf Float = Float
-  tconst = id
 
 -- Not that this instance doesn't do vectorization. To enable it,
 -- use the Ast instance, which vectorizes and finally interpret in ADVal.
@@ -480,9 +473,6 @@ instance ADModeAndNumTensor d r => Tensor (ADVal d r) where
   tscalar = scalar
   tunScalar = unScalar
 
-  type ScalarOf (ADVal d r) = r
-  tconst t = dD t dZero
-
 instance ( Numeric r, RealFloat r, RealFloat (Vector r)
          , Show r, Numeric r )  -- needed only to display errors properly
          => Tensor (Ast 0 r) where
@@ -513,9 +503,6 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
 
   tscalar = id  -- Ast confuses the two ranks
   tunScalar = id
-
-  type ScalarOf (Ast 0 r) = r
-  tconst = AstConst
 
 instance ( Numeric r, RealFloat r, RealFloat (Vector r)
          , Show r, Numeric r )
@@ -551,9 +538,6 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
 
   tscalar = id
   tunScalar = id
-
-  type ScalarOf (AstPrimalPart 0 r) = r
-  tconst = AstPrimalPart . AstConst
 
 astBuild1 :: (KnownNat n, Show r, Numeric r)
           => Int -> (AstInt r -> Ast n r) -> Ast (1 + n) r
@@ -769,10 +753,10 @@ interpretLambdaR
   :: ADModeAndNumTensor d r
   => AstEnv d r
   -> (AstVarName (OR.Array 0 r), AstPrimalPart 0 r)
-  -> ADVal d r -> r
+  -> ADVal d (OR.Array 0 r) -> OR.Array 0 r
 interpretLambdaR env (AstVarName var, ast) =
-  \d -> let dT = from1X (scalar d)
-        in tunScalarR $ interpretAstPrimal (IM.insert var (AstVarR dT) env) ast
+  \d -> let dT = from1X d
+        in interpretAstPrimal (IM.insert var (AstVarR dT) env) ast
 
 interpretLambdaI
   :: (ADModeAndNumTensor d r, KnownNat n)
@@ -830,8 +814,8 @@ interpretAst env = \case
     Nothing -> error $ "interpretAst: unknown variable var " ++ show var
   AstOp opCode args ->
     interpretAstOp (interpretAst env) opCode args
-  AstConst a -> constant a
-  AstConstant a -> constant $ interpretAstPrimal env a
+  AstConst a -> tconst a
+  AstConstant a -> tconstant $ interpretAstPrimal env a
   AstConstInt i -> fromIntegral $ interpretAstInt env i
   AstIndexZ v is -> indexZ (interpretAst env v) (fmap (interpretAstInt env) is)
   AstSum v -> sum' (interpretAst env v)
@@ -849,7 +833,7 @@ interpretAst env = \case
                   in reshape (flattenShape $ shape d) d
   AstReshape sh v -> reshape sh (interpretAst env v)
   AstBuild1 k (var, AstConstant r) ->
-    constant
+    tconstant
     $ OR.ravel . ORB.fromVector [k] . V.generate k
     $ \j -> let D v _ = interpretLambdaI env (var, AstConstant r) j
             in v
@@ -870,9 +854,10 @@ interpretAst env = \case
     gatherNClosure (interpretLambdaIndexToIndex env (vars, ix))
                    (interpretAst env v) sh
   AstOMap (var, r) e ->
-    constant
-    $ omap (\x -> interpretLambdaR env (var, r) (constant x))
-           (interpretAstPrimal env e)
+    tconstant
+    $ tmapPrimal @(ADVal d r)
+                 (\x -> interpretLambdaR env (var, r) (tconstant x))
+                 (interpretAstPrimal env e)
 
 interpretAstInt :: ADModeAndNumTensor d r
                 => AstEnv d r

@@ -15,7 +15,7 @@ module HordeAd.Core.DualNumber
   , SNat(..), staticNatValue, staticNatFromProxy
   , ensureToplevelSharing, scaleNotShared, addNotShared, multNotShared
   , addParameters, dotParameters
-  , logistic, square, squaredDifference, scale, relu
+  , logistic, square, squaredDifference, scale, constant, relu
   , sumElements10, index10, minimum0, maximum0, altSumElements10
   , (<.>!), (<.>!!)
   , softMax, lossCrossEntropy, lossCrossEntropyV, lossSoftMaxCrossEntropyV
@@ -288,6 +288,9 @@ squaredDifference targ res = square $ res - constantADVal targ
 
 scale :: (Num a, IsPrimal d a) => a -> ADVal d a -> ADVal d a
 scale a (D u u') = dD (a * u) (dScale a u')
+
+constant :: IsPrimal d a => a -> ADVal d a
+constant a = dD a dZero
 
 relu
   :: (ADModeAndNum d r, IsPrimalAndHasFeatures d a r)
