@@ -147,6 +147,10 @@ jobs:
           echo "packages: ${PKGDIR_horde_ad}" >> cabal.project
           echo "package horde-ad" >> cabal.project
           echo "    ghc-options: -Werror=missing-methods" >> cabal.project
+          echo "source-repository-package" >> cabal.project
+          echo "    type: git" >> cabal.project
+          echo "    location: https://github.com/Mikolaj/mnist-idx.git" >> cabal.project
+          echo "    tag: 9ad0eab55ce2312cdaaaebaef1b88646d7e76b7c" >> cabal.project
           cat >> cabal.project <<EOF
           EOF
           $HCPKG list --simple-output --names-only | perl -ne 'for (split /\s+/) { print "constraints: $_ installed\n" unless /^(horde-ad)$/; }' >> cabal.project.local
