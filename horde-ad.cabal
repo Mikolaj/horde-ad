@@ -53,7 +53,7 @@ extra-doc-files:    README.md,
 -- Extra source files to be distributed with the package, such as examples, or a tutorial module.
 -- extra-source-files:
 
-tested-with:        GHC ==8.10.7 || ==9.0.2 || ==9.2.4
+tested-with:        GHC ==9.2.6 || ==9.4.4
 
 bug-reports:        https://github.com/Mikolaj/horde-ad/issues
 
@@ -160,7 +160,7 @@ library
     -- Other library packages from which modules are imported.
     build-depends:
         assert-failure
-      , base >= 4.14 && < 99
+      , base >= 4.16 && < 99
       , Boolean
       , deepseq
       , enummapset

@@ -1,5 +1,10 @@
 packages: ./
 
+source-repository-package
+    type: git
+    location: https://github.com/Mikolaj/mnist-idx.git
+    tag: 9ad0eab55ce2312cdaaaebaef1b88646d7e76b7c
+
 -- needed for profiling build:
 package statistics
   ghc-options: -fsimpl-tick-factor=10000
