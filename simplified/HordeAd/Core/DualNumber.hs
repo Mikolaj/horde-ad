@@ -248,7 +248,8 @@ instance (Floating a, IsPrimal d a) => Floating (ADVal d a) where
 
 instance (RealFrac a, IsPrimal d a) => RealFrac (ADVal d a) where
   properFraction = undefined
-    -- very low priority, since these are all extremely not continuous
+    -- The integral type doesn't have a Storable constraint,
+    -- so we can't implement this (nor RealFracB from Boolean package).
 
 instance (RealFloat a, IsPrimal d a) => RealFloat (ADVal d a) where
   atan2 (D u u') (D v v') =

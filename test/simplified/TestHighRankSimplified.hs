@@ -9,14 +9,14 @@ import Prelude
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
 import           GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Numeric)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 
+import TestAdaptorSimplified (assertEqualUpToEpsilon', rev')
 import Tool.EqEpsilon
-import TestAdaptorSimplified (rev', assertEqualUpToEpsilon')
 
 testTrees :: [TestTree]
 testTrees =
@@ -129,18 +129,20 @@ testFooBuildOut =
 fooBuild2 :: forall r n. (ADReady r, KnownNat n)
           => TensorOf (1 + n) r -> TensorOf (1 + n) r
 fooBuild2 v =
-  tbuild1 2 $ \ix -> tindex v [max 1 (ix + 1)]  -- index out of bounds; fine
+  tbuild1 2 $ \ix ->
+    tindex v [min 0 $ max 1 (ix + tfloor (tsum0 v))]
+    -- index out of bounds; also fine
 
 testFooBuild21 :: Assertion
 testFooBuild21 =
   assertEqualUpToEpsilon' 1e-10
-    (OR.fromList [2] [0.0,1.0])
+    (OR.fromList [2] [2.0,0.0])
     (rev' @(OR.Array 1 Double) fooBuild2 (OR.fromList [2] [3.0,2.0]))
 
 testFooBuild25 :: Assertion
 testFooBuild25 =
   assertEqualUpToEpsilon' 1e-10
-    (OR.fromList [2,2,1,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
+    (OR.fromList [2,2,1,2,2] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @(OR.Array 5 Double) fooBuild2 t16)
 
 fooBuild3 :: forall r n.

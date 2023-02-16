@@ -233,7 +233,7 @@ fooNoGoAst :: forall r. (Show r, Numeric r, RealFloat r, Floating (Vector r))
 fooNoGoAst v =
   let r = tsum0 v
   in tbuild1 3 (\ix ->
-       barAst (3.14, bar (3.14, tindex v [ix]))
+       barAst (3.14, bar (3.14, tindex v [(ix + tfloor r) `min` 2 `max` 0]))
        + astCond (AstBoolOp AndOp
                     [ tindex v (ix * 2 :. ZI) <=* 0
                         -- @1 not required thanks to :.; see below for @ and []
@@ -249,7 +249,7 @@ testFooNoGoAst =
       f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
                          (fooNoGoAst (AstVar [5] (AstVarName 0)))
   in assertEqualUpToEpsilon 1e-6
-       (OR.fromList [5] [344.3405885672822,-396.1811403813819,7.735358041386672,-0.8403418295960372,5.037878787878787])
+       (OR.fromList [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
        (rev @(OR.Array 1 Double) f
              (OR.fromList [5] [1.1 :: Double, 2.2, 3.3, 4, 5]))
 
@@ -258,7 +258,7 @@ fooNoGo :: forall r. ADReady r
 fooNoGo v =
   let r = tsum0 v
   in tbuild1 3 (\ix ->
-       bar (3.14, bar (3.14, tindex v [ix]))
+       bar (3.14, bar (3.14, tindex v [(ix + tfloor r) `min` 2 `max` 0]))
        + ifB ((&&*) (tindex @r @0 v [ix * 2] <=* 0)
                     ((>*) 6 (abs ix)))
                r (5 * r))
@@ -268,7 +268,7 @@ fooNoGo v =
 testFooNoGo :: Assertion
 testFooNoGo =
   assertEqualUpToEpsilon' 1e-6
-   (OR.fromList [5] [344.3405885672822,-396.1811403813819,7.735358041386672,-0.8403418295960372,5.037878787878787])
+   (OR.fromList [5] [5.037878787878788,-14.394255484765257,43.23648655081373,-0.8403418295960368,5.037878787878788])
    (rev' @(OR.Array 1 Double) fooNoGo
          (OR.fromList [5] [1.1 :: Double, 2.2, 3.3, 4, 5]))
 
@@ -460,7 +460,7 @@ braidedBuilds :: forall r. ADReady r => r -> TensorOf 2 r
 braidedBuilds r =
   tbuild1 3 (\ix1 ->
     tbuild1 4 (\ix2 -> tindex (tfromList0N [4]
-                                 [tunScalar $ tfromIntOf0 ix2, 7, r, -0.2]) (ix1 :. ZI)))
+      [tunScalar $ tfromIntOf0 ix2, 7, r, -0.2]) (ix1 :. ZI)))
 
 testBraidedBuilds :: Assertion
 testBraidedBuilds =

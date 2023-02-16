@@ -881,7 +881,8 @@ interpretAstInt env = \case
   AstIntOp opCodeInt args ->
     interpretAstIntOp (interpretAstInt env) opCodeInt args
   AstIntConst a -> a
-  AstIntFloor v -> floor $ interpretAst env v
+  AstIntFloor v -> let D u _ = interpretAst env v
+                   in floor $ tunScalarR u
   AstIntCond b a1 a2 -> if interpretAstBool env b
                         then interpretAstInt env a1
                         else interpretAstInt env a2

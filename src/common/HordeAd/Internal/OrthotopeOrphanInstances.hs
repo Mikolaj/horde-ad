@@ -221,20 +221,20 @@ instance (Real (Vector r), OS.Shape sh, Numeric r, Ord r)
 instance (RealFrac (Vector r), Numeric r, Fractional r, Ord r)
          => RealFrac (OT.Array r) where
   properFraction = undefined
-    -- very low priority, since these are all extremely not continuous
+    -- The integral type doesn't have a Storable constraint,
+    -- so we can't implement this (nor RealFracB from Boolean package).
 
 instance (RealFrac (Vector r), KnownNat n, Numeric r, Fractional r, Ord r)
          => RealFrac (OR.Array n r) where
   properFraction = undefined
-    -- very low priority, since these are all extremely not continuous
 
 instance (KnownNat n, RealFrac r)
          => RealFrac (ORB.Array n r) where
+  properFraction = undefined
 
 instance (RealFrac (Vector r), OS.Shape sh, Numeric r, Fractional r, Ord r)
          => RealFrac (OS.Array sh r) where
   properFraction = undefined
-    -- very low priority, since these are all extremely not continuous
 
 instance (RealFloat (Vector r), Numeric r, Floating r, Ord r)
          => RealFloat (OT.Array r) where
@@ -286,7 +286,6 @@ instance (Num (Vector r), Numeric r, Ord r)
 instance (Num (Vector r), Numeric r, Fractional r, Ord r)
          => RealFrac (Vector r) where
   properFraction = undefined
-    -- very low priority, since these are all extremely not continuous
 
 instance ( Floating (Vector r), Numeric r, RealFloat r )
          => RealFloat (Vector r) where
@@ -307,7 +306,6 @@ instance (Num (Vector r), Numeric r, Ord (Matrix r))
 instance (Num (Vector r), Numeric r, Fractional r, Ord r, Ord (Matrix r))
          => RealFrac (Matrix r) where
   properFraction = undefined
-    -- very low priority, since these are all extremely not continuous
 
 instance ( Floating (Vector r), Numeric r, RealFloat r, Ord (Matrix r) )
          => RealFloat (Matrix r) where

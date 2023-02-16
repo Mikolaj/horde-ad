@@ -431,7 +431,8 @@ instance Floating (OR.Array n r) => Floating (Ast n r) where
 
 instance RealFrac (OR.Array n r) => RealFrac (Ast n r) where
   properFraction = undefined
-    -- very low priority, since these are all extremely not continuous
+    -- The integral type doesn't have a Storable constraint,
+    -- so we can't implement this (nor RealFracB from Boolean package).
 
 instance RealFloat (OR.Array n r) => RealFloat (Ast n r) where
   atan2 u v = AstOp Atan2Op [u, v]
