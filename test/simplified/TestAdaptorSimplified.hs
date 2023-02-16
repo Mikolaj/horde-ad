@@ -259,7 +259,7 @@ fooNoGo v =
   let r = tsum0 v
   in tbuild1 3 (\ix ->
        bar (3.14, bar (3.14, tindex v [ix]))
-       + ifB ((&&*) (tindex @r @1 v [ix * 2] <=* 0)
+       + ifB ((&&*) (tindex @r @0 v [ix * 2] <=* 0)
                     ((>*) 6 (abs ix)))
                r (5 * r))
      / tslice 1 3 (tmap0N (\x -> ifB (x >* r) r x) v)

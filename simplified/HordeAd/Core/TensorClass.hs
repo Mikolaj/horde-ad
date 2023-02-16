@@ -84,7 +84,7 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tfloor :: TensorOf 0 r -> IntOf r
 
   -- Typically scalar codomain, often tensor reduction
-  tindex, (!) :: (KnownNat m, KnownNat n)
+  tindex, (!) :: (KnownNat n, KnownNat m)
               => TensorOf (m + n) r -> IndexOf m r -> TensorOf n r
     -- if index is out of bounds, the operations returns with an undefined
     -- value of the correct rank and shape
@@ -127,7 +127,7 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tflatten u = treshape (flattenShape $ tshape u) u
   treshape :: (KnownNat m, KnownNat n)
            => ShapeInt m -> TensorOf n r -> TensorOf m r
-  tbuild :: forall m n. (KnownNat m, KnownNat n)
+  tbuild :: forall n m. (KnownNat n, KnownNat m)
          => ShapeInt (m + n) -> (IndexOf m r -> TensorOf n r)
          -> TensorOf (m + n) r
   tbuild sh0 f0 =

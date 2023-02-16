@@ -86,7 +86,7 @@ slicez :: forall n r. (ADReady r, KnownNat n)
        => ShapeInt n -> TensorOf n r -> IndexOf n r -> TensorOf n r
 slicez shOut d ixBase =
   tbuild shOut $ \ixResult ->
-    tindex @r @n @0 d (zipWith_Index (+) ixBase ixResult)
+    tindex @r @0 d (zipWith_Index (+) ixBase ixResult)
       -- tindex0 would not require a single type application here
 
 conv2d1

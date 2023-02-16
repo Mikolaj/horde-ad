@@ -86,7 +86,7 @@ fooNoGoAst v =
   in tbuild1 3 (\ix ->
        barAst (3.14, bar (3.14, tindex v [ix]))
        + astCond (AstBoolOp AndOp  -- now much simplier, but kept for testing
-                             [ tindex @(Ast 0 r) @1 v [ix * 2] <=* 0
+                             [ tindex @(Ast 0 r) @0 v [ix * 2] <=* 0
                              , (>*) @(AstInt r) 6 (abs ix) ])
                  r (5 * r))
      / tslice 1 3 (tmap0N (\x -> astCond (x >* r) r x) v)
@@ -132,7 +132,7 @@ nestedSumBuild v =
 
 nestedBuildIndex :: forall r. ADReady r => TensorOf 1 r -> TensorOf 1 r
 nestedBuildIndex v =
-  tbuild1 2 $ \ix2 -> tindex @r @1 (tbuild1 3 $ \ix3 -> tindex (tbuild1 4 $ \ix4 -> tindex @r @1 v [ix4]) [ix3]) [ix2]
+  tbuild1 2 $ \ix2 -> tindex @r @0 @1 (tbuild1 3 $ \ix3 -> tindex (tbuild1 4 $ \ix4 -> tindex @r @0 v [ix4]) [ix3]) [ix2]
 
 barRelu
   :: ( ADReady r, KnownNat n, RealFloat (TensorOf n r) )
@@ -196,8 +196,8 @@ f3 arg =
 braidedBuilds :: forall r. ADReady r => r -> TensorOf 2 r
 braidedBuilds r =
   tbuild1 3 (\ix1 ->
-    tbuild1 4 (\ix2 -> tindex @r @1 (tfromList0N [4]
-                                      [tunScalar $ tfromIntOf0 ix2, 7, r, -0.2]) [ix1]))
+    tbuild1 4 (\ix2 -> tindex @r @0 @1 (tfromList0N [4]
+                              [tunScalar $ tfromIntOf0 ix2, 7, r, -0.2]) [ix1]))
 
 recycled :: ADReady r
          => r -> TensorOf 5 r
