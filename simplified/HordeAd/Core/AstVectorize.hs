@@ -279,29 +279,15 @@ build1VIx k (var, v0, is@(i1 :. rest1)) =
           in build1VIx k (var, v, ixs2)
         _ ->
           error "build1VIx: AstFlatten: impossible pattern needlessly required"
-    AstReshape{} -> traceRule $
-      AstBuild1 k (var, AstIndexZ v0 is)  -- we give up
-      {- TODO: This angle of attack fails, because AstSlice with variable
-         first argument doesn't vectorize in build1VOccurenceUnknown. For it
-         to vectorize, we'd need a new operation, akin to gather,
-         with the semantics of build (slice), a gradient, a way to vectorize
-         it, in turn, normally and with indexing applied, etc.;
-         vectorizing this operation would probably force a generalization
-         that acts like gatherN, but produces not a 1-element from the spot
-         an index points at, but some fixed k elements and then, unlike gatherN,
-         does not flatten the segments, but makes a tensor out of them intact;
-         or, if that helps, the operation may just drop a variable
-         initial segment of subtensors (of different length in each)
-      let i = toLinearIdx2 (fmap AstIntConst sh) is
-          -- This converts indexing into a slice and flatten, which in general
-          -- is avoided, because it causes costly linearlization, but here
-          -- we are going to reshape outside, anyway, and also we are desperate.
-          -- BTW, slice has to accept variable first argument precisely
-          -- to be usable for convering indexing into. Note that this argument
-          -- does not affect shape, so shapes remain static.
-          u = AstSlice i (product $ drop (length is) sh) $ AstFlatten v
-      in AstReshape (n : sh) $ build1V k (var, u)
-      -}
+    AstReshape sh v -> traceRule $
+      -- TODO: As soon as we have AstSlice with variable offset argument
+      -- (the first argument), this can be expressed using it, perhaps
+      -- gaining performance. The outcome would containt something like
+      -- > let i = toLinearIdx (fmap AstIntConst sh) is
+      -- >     u = AstSlice i (product $ drop (length is) sh) $ AstFlatten v
+      -- > in AstReshape (k : sh) $ build1V k (var, u)
+      -- Instead, we express the reshape using gather and process that.
+      build1VIx k (var, reshapeAsGather v sh, is)
     AstBuild1 _n2 (var2, v) -> traceRule $
       -- Here we seize the chance to recover earlier failed vectorization,
       -- by choosing only one element of this whole build, eliminating it.

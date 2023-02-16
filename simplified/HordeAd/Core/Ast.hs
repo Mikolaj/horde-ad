@@ -11,6 +11,7 @@ module HordeAd.Core.Ast
   , AstVarName(..)
   , Ast(..), AstPrimalPart(..), AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
+  , unsafeGetFreshAstVar, reshapeAsGather
   , shapeAst, lengthAst
   , intVarInAst, intVarInAstInt, intVarInAstBool
   , substituteAst, substituteAstInt, substituteAstBool
@@ -21,14 +22,17 @@ module HordeAd.Core.Ast
 import Prelude
 
 import           Control.Exception.Assert.Sugar
+import           Control.Monad (replicateM)
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
+import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Type)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Numeric)
+import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.SizedIndex
@@ -301,6 +305,33 @@ data OpCodeRel =
     EqOp | NeqOp
   | LeqOp| GeqOp | LsOp | GtOp
  deriving Show
+
+
+-- * Generating variables
+
+-- Impure but in the most trivial way (only ever incremented counter).
+unsafeAstVarCounter :: Counter
+{-# NOINLINE unsafeAstVarCounter #-}
+unsafeAstVarCounter = unsafePerformIO (newCounter 1)
+
+unsafeGetFreshAstVar :: IO (AstVarName a)
+{-# INLINE unsafeGetFreshAstVar #-}
+unsafeGetFreshAstVar = AstVarName <$> atomicAddCounter_ unsafeAstVarCounter 1
+
+reshapeAsGather :: forall p m r. (KnownNat p, KnownNat m, Show r, Numeric r)
+                => Ast p r -> ShapeInt m -> Ast m r
+{-# NOINLINE reshapeAsGather #-}
+reshapeAsGather v shOut = unsafePerformIO $ do
+  varList <- replicateM (lengthShape shOut) unsafeGetFreshAstVar
+  let vars :: AstVarList m
+      vars = listToSized varList
+      ix :: AstIndex m r
+      ix = listToIndex $ map AstIntVar varList
+      shIn = shapeAst v
+      asts :: AstIndex p r
+      asts = let i = toLinearIdx @m @0 (fmap AstIntConst shOut) ix
+             in fromLinearIdx (fmap AstIntConst shIn) i
+  return $! AstGatherN @m @p @0 (vars, asts) v shOut
 
 
 -- * Unlawful instances of AST types; they are lawful modulo evaluation
