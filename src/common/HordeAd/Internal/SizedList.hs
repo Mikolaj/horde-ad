@@ -15,6 +15,7 @@ module HordeAd.Internal.SizedList
   , Permutation
   ) where
 
+import Debug.Trace
 import Prelude
 
 import Data.Array.Internal (valueOf)
@@ -75,13 +76,13 @@ tailSized :: SizedList (1 + n) i -> SizedList n i
 tailSized Z = error "tailSized: impossible pattern needlessly required"
 tailSized (_i ::: ix) = ix
 
-takeSized :: forall len n i. KnownNat len
+takeSized :: forall len n i. (KnownNat len, KnownNat n)
           => SizedList (len + n) i -> SizedList len i
-takeSized ix = listToSized $ take (valueOf @len) $ unsafeCoerce ix
+takeSized ix = traceShow ("take", (valueOf @len), valueOf @n, length ((unsafeCoerce ix) :: [i])) $ listToSized $ take (valueOf @len) $ unsafeCoerce ix
 
-dropSized :: forall len n i. KnownNat len
+dropSized :: forall len n i. (KnownNat len, KnownNat n)
           => SizedList (len + n) i -> SizedList n i
-dropSized ix = unsafeCoerce $ drop (valueOf @len) $ unsafeCoerce ix
+dropSized ix = traceShow ("drop", (valueOf @len), valueOf @n, length ((unsafeCoerce ix) :: [i])) $ unsafeCoerce $ drop (valueOf @len) $ unsafeCoerce ix
 
 unsnocSized1 :: SizedList (1 + n) i -> (SizedList n i, i)
 unsnocSized1 Z = error "unsnocSized1: impossible pattern needlessly required"

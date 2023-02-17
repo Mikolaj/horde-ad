@@ -101,11 +101,11 @@ headIndex (Index ix) = headSized ix
 tailIndex :: Index (1 + n) i -> Index n i
 tailIndex (Index ix) = Index $ tailSized ix
 
-takeIndex :: forall m n i. KnownNat m
+takeIndex :: forall m n i. (KnownNat m, KnownNat n)
           => Index (m + n) i -> Index m i
 takeIndex (Index ix) = Index $ takeSized ix
 
-dropIndex :: forall m n i. KnownNat m
+dropIndex :: forall m n i. (KnownNat m, KnownNat n)
           => Index (m + n) i -> Index n i
 dropIndex (Index ix) = Index $ dropSized ix
 
@@ -204,11 +204,11 @@ singletonShape = Shape . singletonSized
 tailShape :: Shape (1 + n) i -> Shape n i
 tailShape (Shape ix) = Shape $ tailSized ix
 
-takeShape :: forall m n i. KnownNat m
+takeShape :: forall m n i. (KnownNat m, KnownNat n)
           => Shape (m + n) i -> Shape m i
 takeShape (Shape ix) = Shape $ takeSized ix
 
-dropShape :: forall m n i. KnownNat m
+dropShape :: forall m n i. (KnownNat m, KnownNat n)
           => Shape (m + n) i -> Shape n i
 dropShape (Shape ix) = Shape $ dropSized ix
 
