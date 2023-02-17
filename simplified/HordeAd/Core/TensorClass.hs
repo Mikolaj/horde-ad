@@ -119,9 +119,9 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
           => TensorOf (1 + n) r -> TensorOf (1 + n) r -> TensorOf (1 + n) r
   tslice :: KnownNat n => Int -> Int -> TensorOf (1 + n) r -> TensorOf (1 + n) r
   treverse :: KnownNat n => TensorOf (1 + n) r -> TensorOf (1 + n) r
-  ttranspose :: KnownNat n => TensorOf (2 + n) r -> TensorOf (2 + n) r
-  ttranspose = ttransposeGeneral [1, 0]
-  ttransposeGeneral :: KnownNat n => Permutation -> TensorOf n r -> TensorOf n r
+  ttr :: KnownNat n => TensorOf (2 + n) r -> TensorOf (2 + n) r
+  ttr = ttranspose [1, 0]
+  ttranspose :: KnownNat n => Permutation -> TensorOf n r -> TensorOf n r
   tflatten :: KnownNat n => TensorOf n r -> TensorOf 1 r
   tflatten u = treshape (flattenShape $ tshape u) u
   treshape :: (KnownNat m, KnownNat n)
@@ -270,7 +270,7 @@ instance Tensor Double where
   tappend = tappendR
   tslice = tsliceR
   treverse = treverseR
-  ttransposeGeneral = ttransposeGeneralR
+  ttranspose = ttransposeR
   treshape = treshapeR
   tbuild = tbuildNR
   tbuild1 = tbuild1R
@@ -299,7 +299,7 @@ instance Tensor Float where
   tappend = tappendR
   tslice = tsliceR
   treverse = treverseR
-  ttransposeGeneral = ttransposeGeneralR
+  ttranspose = ttransposeR
   treshape = treshapeR
   tbuild = tbuildNR
   tbuild1 = tbuild1R
@@ -352,7 +352,7 @@ instance ADModeAndNumTensor d r => Tensor (ADVal d r) where
   tappend = append
   tslice = slice
   treverse = reverse'
-  ttransposeGeneral = transposeGeneral
+  ttranspose = transpose
   treshape = reshape
   tbuild1 k f =
     let g i = let D u _ = f i in u
@@ -388,7 +388,7 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   tappend = AstAppend
   tslice = AstSlice
   treverse = AstReverse
-  ttransposeGeneral = astTransposeGeneral
+  ttranspose = astTranspose
   treshape = AstReshape
   tbuild1 = astBuild1
 
@@ -422,8 +422,7 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
     AstPrimalPart $ AstAppend (unAstPrimalPart u) (unAstPrimalPart v)
   tslice i k = AstPrimalPart . AstSlice i k  . unAstPrimalPart
   treverse = AstPrimalPart . AstReverse . unAstPrimalPart
-  ttransposeGeneral perm =
-    AstPrimalPart . AstTransposeGeneral perm . unAstPrimalPart
+  ttranspose perm = AstPrimalPart . AstTranspose perm . unAstPrimalPart
   treshape sh = AstPrimalPart . AstReshape sh  . unAstPrimalPart
   tbuild1 k f = AstPrimalPart $ astBuild1 k $ \ix -> unAstPrimalPart $ f ix
 
@@ -494,7 +493,7 @@ instance Tensor r
   tappend = undefined
   tslice = undefined
   treverse = undefined
-  ttransposeGeneral = undefined
+  ttranspose = undefined
   treshape = undefined
   tbuild1 = undefined
   tscalar = ORB.scalar
@@ -699,11 +698,9 @@ reverse' :: (ADModeAndNumTensor d r, KnownNat n)
          => ADVal d (OR.Array (1 + n) r) -> ADVal d (OR.Array (1 + n) r)
 reverse' (D u u') = dD (treverseR u) (dReverse1 u')
 
-transposeGeneral :: (ADModeAndNumTensor d r, KnownNat n)
-                 => Permutation
-                 -> ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
-transposeGeneral perm (D u u') = dD (ttransposeGeneralR perm u)
-                                    (dTransposeGeneral1 perm u')
+transpose :: (ADModeAndNumTensor d r, KnownNat n)
+          => Permutation -> ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
+transpose perm (D u u') = dD (ttransposeR perm u) (dTranspose1 perm u')
 
 reshape :: (ADModeAndNumTensor d r, KnownNat m, KnownNat n)
         => ShapeInt m -> ADVal d (OR.Array n r) -> ADVal d (OR.Array m r)
@@ -844,7 +841,7 @@ interpretAst env = \case
   AstAppend x y -> append (interpretAst env x) (interpretAst env y)
   AstSlice i k v -> slice i k (interpretAst env v)
   AstReverse v -> reverse' (interpretAst env v)
-  AstTransposeGeneral perm v -> transposeGeneral perm $ interpretAst env v
+  AstTranspose perm v -> transpose perm $ interpretAst env v
   AstFlatten v -> let d = interpretAst env v
                   in reshape (flattenShape $ shape d) d
   AstReshape sh v -> reshape sh (interpretAst env v)

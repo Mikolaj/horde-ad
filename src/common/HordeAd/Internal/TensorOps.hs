@@ -254,10 +254,10 @@ treverseR
   :: OR.Array (1 + n) r -> OR.Array (1 + n) r
 treverseR = OR.rev [0]
 
-ttransposeGeneralR
+ttransposeR
   :: KnownNat n
   => Permutation -> OR.Array n r -> OR.Array n r
-ttransposeGeneralR = OR.transpose
+ttransposeR = OR.transpose
 
 treshapeR
   :: (KnownNat n, KnownNat m, Numeric r)

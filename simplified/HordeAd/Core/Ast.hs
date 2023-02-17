@@ -15,7 +15,7 @@ module HordeAd.Core.Ast
   , shapeAst, lengthAst
   , intVarInAst, intVarInAstInt, intVarInAstBool
   , substituteAst, substituteAstInt, substituteAstBool
-  , astCond, astIndexZ, astKonst, astTranspose, astTransposeGeneral
+  , astCond, astIndexZ, astKonst, astTr, astTranspose
   , astGather1, astGatherN
   ) where
 
@@ -83,8 +83,8 @@ data Ast :: Nat -> Type -> Type where
   AstSlice :: Int -> Int -> Ast (1 + n) r -> Ast (1 + n) r
   AstReverse :: KnownNat n
              => Ast (1 + n) r -> Ast (1 + n) r
-  AstTransposeGeneral :: Permutation -> Ast n r -> Ast n r
-    -- emerges from vectorizing AstTranspose
+  AstTranspose :: Permutation -> Ast n r -> Ast n r
+    -- emerges from vectorizing AstTr
   AstFlatten :: KnownNat n
              => Ast n r -> Ast 1 r
   AstReshape :: KnownNat n
@@ -122,7 +122,7 @@ astIndexZ :: forall m n r. (KnownNat m, Show r, Numeric r)
 astIndexZ v0 ZI = v0
 astIndexZ v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) = case v0 of
   AstKonst _k v -> astIndexZ v rest1
-  AstTransposeGeneral perm v | valueOf @m >= length perm ->
+  AstTranspose perm v | valueOf @m >= length perm ->
     astIndexZ v (permutePrefixIndex perm ix)
   AstGather1 (var2, ix2) v _n2 ->
     let ix3 = fmap (substituteAstInt i1 var2) ix2
@@ -138,24 +138,24 @@ astIndexZ v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) = case v0 of
 
 astKonst :: KnownNat n => Int -> Ast n r -> Ast (1 + n) r
 astKonst k = \case
-  AstTransposeGeneral perm v ->
-    astTransposeGeneral (0 : map succ perm) $ astKonst k v
+  AstTranspose perm v ->
+    astTranspose (0 : map succ perm) $ astKonst k v
   AstReshape sh v ->
     AstReshape (k :$ sh) $ astKonst k v
   v -> AstKonst k v
 
-astTranspose :: forall n r. KnownNat n => Ast (2 + n) r -> Ast (2 + n) r
-astTranspose v = astTransposeGeneral [1, 0] v
+astTr :: forall n r. KnownNat n => Ast (2 + n) r -> Ast (2 + n) r
+astTr v = astTranspose [1, 0] v
 
-astTransposeGeneral :: forall n r. KnownNat n
-                    => Permutation -> Ast n r -> Ast n r
-astTransposeGeneral perm t | isIdentityPerm perm = t
-astTransposeGeneral perm1 (AstTransposeGeneral perm2 t) =
+astTranspose :: forall n r. KnownNat n
+             => Permutation -> Ast n r -> Ast n r
+astTranspose perm t | isIdentityPerm perm = t
+astTranspose perm1 (AstTranspose perm2 t) =
   let perm2Matched =
         perm2 ++ take (length perm1 - length perm2) (drop (length perm2) [0 ..])
       perm = permutePrefixList perm1 perm2Matched
-  in astTransposeGeneral perm t
-astTransposeGeneral perm u = AstTransposeGeneral perm u
+  in astTranspose perm t
+astTranspose perm u = AstTranspose perm u
 
 isIdentityPerm :: Permutation -> Bool
 isIdentityPerm = and . zipWith (==) [0 ..]
@@ -541,7 +541,7 @@ shapeAst v1 = case v1 of
       yi :$ _ -> xi + yi :$ xsh
   AstSlice _n k v -> k :$ tailShape (shapeAst v)
   AstReverse v -> shapeAst v
-  AstTransposeGeneral perm v -> permutePrefixShape perm (shapeAst v)
+  AstTranspose perm v -> permutePrefixShape perm (shapeAst v)
   AstFlatten v -> flattenShape (shapeAst v)
   AstReshape sh _v -> sh
   AstBuild1 k (_var, v) -> k :$ shapeAst v
@@ -570,7 +570,7 @@ intVarInAst var = \case
   AstAppend v u -> intVarInAst var v || intVarInAst var u
   AstSlice _ _ v -> intVarInAst var v
   AstReverse v -> intVarInAst var v
-  AstTransposeGeneral _ v -> intVarInAst var v
+  AstTranspose _ v -> intVarInAst var v
   AstFlatten v -> intVarInAst var v
   AstReshape _ v -> intVarInAst var v
   AstBuild1 _ (_, v) -> intVarInAst var v
@@ -613,7 +613,7 @@ substituteAst i var v1 = case v1 of
   AstAppend x y -> AstAppend (substituteAst i var x) (substituteAst i var y)
   AstSlice k s v -> AstSlice k s (substituteAst i var v)
   AstReverse v -> AstReverse (substituteAst i var v)
-  AstTransposeGeneral perm v -> AstTransposeGeneral perm (substituteAst i var v)
+  AstTranspose perm v -> AstTranspose perm (substituteAst i var v)
   AstFlatten v -> AstFlatten (substituteAst i var v)
   AstReshape sh v -> AstReshape sh (substituteAst i var v)
   AstBuild1 k (var2, v) ->

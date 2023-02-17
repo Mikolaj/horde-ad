@@ -196,9 +196,8 @@ class HasRanks (d :: ADMode) r where
           => Int -> Int -> Dual d (OR.Array n r) -> Int -> Dual d (OR.Array n r)
   dReverse1 :: KnownNat n
             => Dual d (OR.Array (1 + n) r) -> Dual d (OR.Array (1 + n) r)
-  dTransposeGeneral1 :: KnownNat n
-                     => Permutation -> Dual d (OR.Array n r)
-                     -> Dual d (OR.Array n r)
+  dTranspose1 :: KnownNat n
+              => Permutation -> Dual d (OR.Array n r) -> Dual d (OR.Array n r)
   dReshape1 :: (KnownNat n, KnownNat m)
             => ShapeInt n -> ShapeInt m -> Dual d (OR.Array n r)
             -> Dual d (OR.Array m r)
@@ -344,7 +343,7 @@ instance Dual 'ADModeGradient r ~ Delta0 r
   dAppend1 = Append1
   dSlice1 = Slice1
   dReverse1 = Reverse1
-  dTransposeGeneral1 = TransposeGeneral1
+  dTranspose1 = Transpose1
   dReshape1 = Reshape1
   dBuild1 = Build1
   dBuild01 = Build01
@@ -406,7 +405,7 @@ instance ( Numeric r, Show r, Num (Vector r)
   dAppend1 d _k = tappendR d
   dSlice1 i n d _len = tsliceR i n d
   dReverse1 = treverseR
-  dTransposeGeneral1 = ttransposeGeneralR
+  dTranspose1 = ttransposeR
   dReshape1 _sh = treshapeR
   dBuild1 = tbuild1R
   dBuild01 = tbuild0NR
@@ -471,7 +470,7 @@ instance HasRanks 'ADModeValue r where
   dAppend1 _ _ _ = DummyDual ()
   dSlice1 _ _ _ _ = DummyDual ()
   dReverse1 _ = DummyDual ()
-  dTransposeGeneral1 _ _ = DummyDual ()
+  dTranspose1 _ _ = DummyDual ()
   dReshape1 _ _ _ = DummyDual ()
   dBuild1 _ _ = DummyDual ()
   dBuild01 _ _ = DummyDual ()
