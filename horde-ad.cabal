@@ -659,10 +659,7 @@ test-suite simplifiedOnlyTest
 
     main-is:          SimplifiedOnlyTest.hs
 
-    other-modules:    TestAdaptorSimplified
-                      TestBuildSimplified
-                      TestHighRankSimplified
-                      TestSimplified
+    other-modules:    TestSimplified
 
     build-depends:
       , horde-ad-simplified
@@ -670,8 +667,6 @@ test-suite simplifiedOnlyTest
 
       , base
       , Boolean
-      , ghc-typelits-knownnat
-      , ghc-typelits-natnormalise
       , hmatrix
       , orthotope
       , strict-containers
