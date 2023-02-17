@@ -18,9 +18,11 @@ module HordeAd.Internal.SizedList
 import Prelude
 
 import Data.Array.Internal (valueOf)
+import Data.Proxy (Proxy (Proxy))
+import Data.Type.Equality ((:~:) (Refl))
 import GHC.Exts (IsList (..))
-import GHC.TypeLits (KnownNat, Nat, type (+))
-import Unsafe.Coerce (unsafeCoerce)
+import GHC.TypeLits
+  (KnownNat, Nat, OrderingI (..), cmpNat, sameNat, type (+), type (-))
 
 -- | Standard sized lists indexed by the GHC @Nat@ type.
 --
@@ -126,36 +128,25 @@ sizedListCompare f (i ::: idx) (j ::: idx') =
 sizedListCompare _ _ _ =
   error "sizedListCompare: impossible pattern needlessly required"
 
-{-
--- Look Ma, no unsafeCoerce! But it compiles only with GHC >= 9.2,
--- so let's switch to it once we stop using 8.10 and 9.0.
-listToSized :: forall n. KnownNat n => [Int] -> SizedList n Int
+-- Look Ma, no unsafeCoerce! This compiles only with GHC >= 9.2,
+-- but the rest of our code caught up and fails with GHC 9.0 as well.
+listToSized :: forall n i. KnownNat n => [i] -> SizedList n i
 listToSized []
   | Just Refl <- sameNat (Proxy @n) (Proxy @0) = Z
-  | otherwise = error "listToSized: list too short"
+  | otherwise = error $ "listToSized: list too short; missing "
+                        ++ show (valueOf @n :: Int)
 listToSized (i : is)
   -- What we really need here to make the types check out is a <= check.
   | EQI <- cmpNat (Proxy @1) (Proxy @n) =
       let sh = listToSized @(n - 1) is
       in i ::: sh
   | LTI <- cmpNat (Proxy @1) (Proxy @n) =
-      let sh = listToSizedProxy @(n - 1) is
+      let sh = listToSized @(n - 1) is
       in i ::: sh
   | otherwise =
-      error "listToSized: list too long"
--}
-
-listToSized :: forall n i. KnownNat n => [i] -> SizedList n i
-listToSized list
-  | length list == valueOf @n
-  = go list unsafeCoerce
-  | otherwise
-  = error $ "listToSized: list length disagrees with context "
-            ++ show (length list, valueOf @n :: Int)
-  where
-    go :: [i] -> (forall m. SizedList m i -> r) -> r
-    go [] k = k Z
-    go (i : rest) k = go rest (\rest' -> k (i ::: rest'))
+      error $ "listToSized: list too long: "
+              ++ show (length (i : is), valueOf @n :: Int)
 
 sizedListToList :: SizedList n i -> [i]
-sizedListToList = unsafeCoerce
+sizedListToList Z = []
+sizedListToList (i ::: is) = i : sizedListToList is
