@@ -24,16 +24,20 @@ import GHC.Exts (IsList (..))
 import GHC.TypeLits
   (KnownNat, Nat, OrderingI (..), cmpNat, sameNat, type (+), type (-))
 
--- | Standard sized lists indexed by the GHC @Nat@ type.
+-- | Standard strict sized lists indexed by the GHC @Nat@ type.
 --
--- Note that in GHC 9.4, @[a]@ and @SizedList@ no longer have
+-- Note that in GHC 9.4, @[a]@ and our strict @SizedList@ no longer have
 -- the same representation in some corner cases, so we can't
 -- @unsafeCoerce@ between the two.
--- Wise men say it's because '"coercing @data T = MkT a@ to @data T2 a= MkT2 !a@
+-- Wise men say it's because \"coercing @data T = MkT a@ to @data T2 a= MkT2 !a@
 -- is no longer working in 9.4\" and we have @StrictData@ set in .cabal file.
 -- We could unset @StrictData@ for this file and recover the shared
 -- representation, but for as long as we don't have performance problems,
--- let's avoid @unsafeCoerce@ anyway.
+-- let's avoid @unsafeCoerce@ anyway. The list being strict should be
+-- more performant, too, given that it's always short (the size of
+-- tensor rank) and usually eventually needed. We could still (in GHC 9.4
+-- at least) coerce the strict @SizedList@ to @[i]@, but not the other
+-- way around.
 infixr 3 :::
 data SizedList (n :: Nat) i where
   Z :: SizedList 0 i
