@@ -24,14 +24,9 @@ import Unsafe.Coerce (unsafeCoerce)
 
 -- | Standard sized lists indexed by the GHC @Nat@ type.
 --
--- Strongly Worded Warning: the implementation of this datatype should never
--- be changed, even by adding a constraint or making a field strict or packed.
--- Otherwise the multiple @unsafeCoerce@ below won't work any more,
--- because they depend on the runtime representation of the datatype
--- being identical to the representation of ordinary lists.
--- Note that changes in GHC or base library may similarly break this code,
--- though there should be ample advance warning, given that many
--- programs depend on this coincidence.
+-- Note that in GHC 9.4, @[a]@ and @SizedList@ no longer have
+-- the same representation in some corner cases, so we can't
+-- @unsafeCoerce@ between the two.
 infixr 3 :::
 data SizedList (n :: Nat) i where
   Z :: SizedList 0 i
@@ -77,11 +72,11 @@ tailSized (_i ::: ix) = ix
 
 takeSized :: forall len n i. KnownNat len
           => SizedList (len + n) i -> SizedList len i
-takeSized ix = unsafeCoerce $ take (valueOf @len) $ unsafeCoerce ix
+takeSized ix = listToSized $ take (valueOf @len) $ sizedListToList ix
 
-dropSized :: forall len n i. KnownNat len
+dropSized :: forall len n i. (KnownNat len, KnownNat n)
           => SizedList (len + n) i -> SizedList n i
-dropSized ix = unsafeCoerce $ drop (valueOf @len) $ unsafeCoerce ix
+dropSized ix = listToSized $ drop (valueOf @len) $ sizedListToList ix
 
 unsnocSized1 :: SizedList (1 + n) i -> (SizedList n i, i)
 unsnocSized1 Z = error "unsnocSized1: impossible pattern needlessly required"
@@ -113,9 +108,9 @@ permutePrefixSized p ix =
   if valueOf @n < length p
   then
     error "permutePrefixSized: cannot permute a list shorter than permutation"
-  else (unsafeCoerce :: [i] -> SizedList n i)
+  else (listToSized :: [i] -> SizedList n i)
        $ permutePrefixList p
-       $ unsafeCoerce ix
+       $ sizedListToList ix
 
 permutePrefixList :: Permutation -> [i] -> [i]
 permutePrefixList p l = map (l !!) p ++ drop (length p) l

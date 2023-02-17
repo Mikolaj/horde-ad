@@ -105,7 +105,7 @@ takeIndex :: forall m n i. KnownNat m
           => Index (m + n) i -> Index m i
 takeIndex (Index ix) = Index $ takeSized ix
 
-dropIndex :: forall m n i. KnownNat m
+dropIndex :: forall m n i. (KnownNat m, KnownNat n)
           => Index (m + n) i -> Index n i
 dropIndex (Index ix) = Index $ dropSized ix
 
@@ -132,25 +132,6 @@ zipWith_Index _ _ _ =
 permutePrefixIndex :: forall n i. KnownNat n
                    => Permutation -> Index n i -> Index n i
 permutePrefixIndex p (Index ix) = Index $ permutePrefixSized p ix
-
-{-
--- Look Ma, no unsafeCoerce! But it compiles only with GHC >= 9.2,
--- so let's switch to it once we stop using 8.10 and 9.0.
-listToIndex :: forall n. KnownNat n => [Int] -> Index n Int
-listToIndex []
-  | Just Refl <- sameNat (Proxy @n) (Proxy @0) = ZI
-  | otherwise = error "listToIndex: list too short"
-listToIndex (i : is)
-  -- What we really need here to make the types check out is a <= check.
-  | EQI <- cmpNat (Proxy @1) (Proxy @n) =
-      let sh = listToIndex @(n - 1) is
-      in i :. sh
-  | LTI <- cmpNat (Proxy @1) (Proxy @n) =
-      let sh = listToIndexProxy @(n - 1) is
-      in i :. sh
-  | otherwise =
-      error "listToIndex: list too long"
--}
 
 listToIndex :: KnownNat n => [i] -> Index n i
 listToIndex = Index . listToSized
@@ -208,7 +189,7 @@ takeShape :: forall m n i. KnownNat m
           => Shape (m + n) i -> Shape m i
 takeShape (Shape ix) = Shape $ takeSized ix
 
-dropShape :: forall m n i. KnownNat m
+dropShape :: forall m n i. (KnownNat m, KnownNat n)
           => Shape (m + n) i -> Shape n i
 dropShape (Shape ix) = Shape $ dropSized ix
 
