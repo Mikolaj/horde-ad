@@ -78,8 +78,14 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tlength v = case tshape v of
     ZS -> error "tlength: impossible pattern needlessly required"
     k :$ _ -> k
-  tminIndex :: TensorOf 1 r -> IntOf r
-  tmaxIndex :: TensorOf 1 r -> IntOf r
+  tminIndex1 :: TensorOf 1 r -> IntOf r
+  tminIndex :: KnownNat n => TensorOf n r -> IndexOf n r
+  tminIndex t = fromLinearIdx (fmap fromIntegral $ tshape t)
+                              (tminIndex1 (tflatten t))
+  tmaxIndex1 :: TensorOf 1 r -> IntOf r
+  tmaxIndex :: KnownNat n => TensorOf n r -> IndexOf n r
+  tmaxIndex t = fromLinearIdx (fmap fromIntegral $ tshape t)
+                              (tmaxIndex1 (tflatten t))
   tfloor :: TensorOf 0 r -> IntOf r
 
   -- Typically scalar codomain, often tensor reduction
@@ -94,10 +100,10 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tsum0 = tsum . tflatten
   tdot0 :: KnownNat n => TensorOf n r -> TensorOf n r -> TensorOf 0 r
   tdot0 t u = tsum (tflatten t * tflatten u)
-  tminimum0 :: TensorOf 1 r -> TensorOf 0 r
-  tminimum0 t = t ! [tminIndex t]
-  tmaximum0 :: TensorOf 1 r -> TensorOf 0 r
-  tmaximum0 t = t ! [tmaxIndex t]
+  tminimum :: KnownNat n => TensorOf n r -> TensorOf 0 r
+  tminimum t = t ! tminIndex t
+  tmaximum :: KnownNat n => TensorOf n r -> TensorOf 0 r
+  tmaximum t = t ! tmaxIndex t
   tfromIntOf0 :: IntOf r -> TensorOf 0 r
   default tfromIntOf0  -- the more narrow type rules out Ast
     :: IntOf r ~ Int => IntOf r -> TensorOf 0 r
@@ -252,15 +258,13 @@ instance Tensor Double where
   type TensorOf n Double = OR.Array n Double
   type IntOf Double = Int
   tshape = tshapeR
-  tminIndex = tminIndexR
-  tmaxIndex = tmaxIndexR
+  tminIndex1 = tminIndexR
+  tmaxIndex1 = tmaxIndexR
   tfloor = floor . tunScalar
   tindex = tindexZR
   tsum = tsumR
   tsum0 = tscalar . tsum0R
   tdot0 u v = tscalar $ tdot0R u v
-  tminimum0 = tscalar . tminimum0R
-  tmaximum0 = tscalar . tmaximum0R
   tfromList = tfromListR
   tfromList0N = tfromList0NR
   tfromVector = tfromVectorR
@@ -281,15 +285,13 @@ instance Tensor Float where
   type TensorOf n Float = OR.Array n Float
   type IntOf Float = Int
   tshape = tshapeR
-  tminIndex = tminIndexR
-  tmaxIndex = tmaxIndexR
+  tminIndex1 = tminIndexR
+  tmaxIndex1 = tmaxIndexR
   tfloor = floor . tunScalar
   tindex = tindexZR
   tsum = tsumR
   tsum0 = tscalar . tsum0R
   tdot0 u v = tscalar $ tdot0R u v
-  tminimum0 = tscalar . tminimum0R
-  tmaximum0 = tscalar . tmaximum0R
   tfromList = tfromListR
   tfromList0N = tfromList0NR
   tfromVector = tfromVectorR
@@ -328,20 +330,14 @@ instance ADModeAndNumTensor d r => Tensor (ADVal d r) where
   -- the methods are defined as calls to tensor functions provided elsewhere,
   -- so there is no code duplication.
   tshape = shape
-  tminIndex (D u _) = tminIndexR u
-  tmaxIndex (D u _) = tmaxIndexR u
+  tminIndex1 (D u _) = tminIndexR u
+  tmaxIndex1 (D u _) = tmaxIndexR u
   tfloor (D u _) = floor $ tunScalarR u
 
   tindex = indexZ
   tsum = sum'
   tsum0 = tscalar . sum0
   tdot0 u v = tscalar $ dot0 u v
-  tminimum0 (D u u') =
-    let ix = tminIndex u
-    in dD (tindex1R u ix) (dIndex1 u' ix (tlength u))
-  tmaximum0 (D u u') =
-    let ix = tmaxIndex u
-    in dD (tindex1R u ix) (dIndex1 u' ix (tlength u))
 
   tfromList = fromList
   tfromList0N = fromList0N
@@ -371,8 +367,8 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   type IntOf (Ast 0 r) = AstInt r
 
   tshape = shapeAst
-  tminIndex = AstMinIndex
-  tmaxIndex = AstMaxIndex
+  tminIndex1 = AstMinIndex1
+  tmaxIndex1 = AstMaxIndex1
   tfloor = AstIntFloor
 
   tindex = AstIndexZ
@@ -402,8 +398,8 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   type IntOf (AstPrimalPart 0 r) = AstInt r
 
   tshape = shapeAst . unAstPrimalPart
-  tminIndex = AstMinIndex . unAstPrimalPart
-  tmaxIndex = AstMaxIndex . unAstPrimalPart
+  tminIndex1 = AstMinIndex1 . unAstPrimalPart
+  tmaxIndex1 = AstMaxIndex1 . unAstPrimalPart
   tfloor = AstIntFloor . unAstPrimalPart
 
   tindex v ix = AstPrimalPart $ AstIndexZ (unAstPrimalPart v) ix
@@ -883,8 +879,8 @@ interpretAstInt env = \case
   AstIntCond b a1 a2 -> if interpretAstBool env b
                         then interpretAstInt env a1
                         else interpretAstInt env a2
-  AstMinIndex v -> tminIndex $ interpretAst env v
-  AstMaxIndex v -> tmaxIndex $ interpretAst env v
+  AstMinIndex1 v -> tminIndex1 $ interpretAst env v
+  AstMaxIndex1 v -> tmaxIndex1 $ interpretAst env v
 
 interpretAstBool :: ADModeAndNumTensor d r
                  => AstEnv d r

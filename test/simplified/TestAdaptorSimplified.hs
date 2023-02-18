@@ -192,11 +192,11 @@ testFooD =
 fooBuild1 :: ADReady r => TensorOf 1 r -> TensorOf 1 r
 fooBuild1 v =
   let r = tsum0 v
-      v' = tminimum0 v
+      v' = tminimum v
   in tbuild1 3 $ \ix ->
        r * foo ( 3
                , 5 * r
-               , r * tminimum0 v * v')
+               , r * tminimum v * v')
        + bar (r, tindex v [ix + 1])
 
 testFooBuildDt :: Assertion
@@ -277,8 +277,8 @@ nestedBuildMap r =
   let w = tkonst0N [4]  -- (AstIntCond (x `leqAst` 0) 3 4)
       v' = tkonst0N [177] r :: TensorOf 1 r
       nestedMap x = tmap0N (x /) (w x)
-      variableLengthBuild iy = tbuild1 7 (\ix -> tindex v' [ix + iy])
-      doublyBuild = tbuild1 5 (tminimum0 . variableLengthBuild)
+      variableLengthBuild iy = tbuild1 7 (\ix -> tindex v' (ix + iy :. ZI))
+      doublyBuild = tbuild1 5 (tminimum . variableLengthBuild)
   in tmap0N (\x -> x * (tsum0
                          (tbuild1 3 (\ix -> bar (x, tindex v' [ix]))
                           + fooBuild1 (nestedMap x)

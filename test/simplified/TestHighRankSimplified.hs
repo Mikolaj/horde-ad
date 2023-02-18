@@ -164,7 +164,7 @@ fooBuild5 :: forall r n.
           => TensorOf (1 + n) r -> TensorOf (1 + n) r
 fooBuild5 v =
   let r = tsum v
-      v' = tkonst0N (tailShape $ tshape v) $ tminimum0 $ tflatten v
+      v' = tkonst0N (tailShape $ tshape v) $ tminimum $ tflatten v
   in tbuild1 2 $ \ix ->
        r * foo ( 3
                , 5 * r
@@ -188,7 +188,7 @@ fooBuild1 :: forall r n.
           => TensorOf (1 + n) r -> TensorOf (1 + n) r
 fooBuild1 v =
   let r = tsum v
-      v' = tkonst0N (tailShape $ tshape v) $ tminimum0 $ tflatten v
+      v' = tkonst0N (tailShape $ tshape v) $ tminimum $ tflatten v
   in tbuild1 3 $ \ix ->
        r * foo ( 3
                , 5 * r
@@ -254,14 +254,14 @@ nestedBuildMap :: forall n r.
                => TensorOf 0 r -> TensorOf (1 + n) r
 nestedBuildMap r =
   let w = tkonst0N [4]
-      v' = tkonst0N [177] r :: TensorOf 1 r
+      v' = tkonst0N (177 :$ ZS) r
       nestedMap x = tmap0N (x /) (w x)
       variableLengthBuild iy = tbuild1 7 (\ix ->
-        tindex v' [ix + iy])
+        tindex v' (ix + iy :. ZI))
       doublyBuild =
         tbuild1 3 (tkonst0N (takeShape @n @(6 - n)
                              $ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ ZS)
-                   . tminimum0 . variableLengthBuild)
+                   . tminimum . variableLengthBuild)
   in tmap0N (\x -> x * (tsum0
                           (tbuild1 3 (\ix -> bar (x, tindex v' [ix]))
                            + fooBuild1 (nestedMap x)

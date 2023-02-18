@@ -271,8 +271,8 @@ data AstInt :: Type -> Type where
   AstIntConst :: Int -> AstInt r
   AstIntFloor :: Ast 0 r -> AstInt r
   AstIntCond :: AstBool r -> AstInt r -> AstInt r -> AstInt r
-  AstMinIndex :: Ast 1 r -> AstInt r
-  AstMaxIndex :: Ast 1 r -> AstInt r
+  AstMinIndex1 :: Ast 1 r -> AstInt r
+  AstMaxIndex1 :: Ast 1 r -> AstInt r
 deriving instance (Show r, Numeric r) => Show (AstInt r)
 
 data AstBool :: Type -> Type where
@@ -590,8 +590,8 @@ intVarInAstInt var = \case
   AstIntFloor v -> intVarInAst var v
   AstIntCond b x y ->
     intVarInAstBool var b || intVarInAstInt var x || intVarInAstInt var y
-  AstMinIndex v -> intVarInAst var v
-  AstMaxIndex v -> intVarInAst var v
+  AstMinIndex1 v -> intVarInAst var v
+  AstMaxIndex1 v -> intVarInAst var v
 
 intVarInAstBool :: AstVarName Int -> AstBool r -> Bool
 intVarInAstBool var = \case
@@ -641,8 +641,8 @@ substituteAstInt i var i2 = case i2 of
   AstIntCond b a1 a2 ->
     AstIntCond (substituteAstBool i var b)
                (substituteAstInt i var a1) (substituteAstInt i var a2)
-  AstMinIndex v -> AstMinIndex (substituteAst i var v)
-  AstMaxIndex v -> AstMaxIndex (substituteAst i var v)
+  AstMinIndex1 v -> AstMinIndex1 (substituteAst i var v)
+  AstMaxIndex1 v -> AstMaxIndex1 (substituteAst i var v)
 
 substituteAstBool :: (Show r, Numeric r)
                   => AstInt r -> AstVarName Int -> AstBool r -> AstBool r
