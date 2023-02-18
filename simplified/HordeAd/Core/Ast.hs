@@ -175,7 +175,7 @@ astGather1 (var, ix) v0 k = case astIndexZ v0 ix of
        | intVarInAstInt var iN ->
          let w :: Ast (1 + n) r
              w = AstIndexZ v2 restN
-         in case build1VSimplify k var w iN of
+         in case gatherSimplify k var w iN of
               Just u -> u  -- an extremely simple form found
               Nothing -> AstGather1 (var, ix2) v2 k
                 -- we didn't really need it anyway
@@ -194,7 +194,7 @@ astGatherN (var ::: vars, ix@(_ :. _)) v0
   AstIndexZ v2 ix2 ->
     if any (intVarInAstInt var) ix2 then AstGatherN (var ::: vars, ix2) v2 sh
     else astKonst k (astGatherN (vars, ix2) v2 sh')
-      -- a generalization of build1VSimplify needed to simplify more
+      -- a generalization of gatherSimplify needed to simplify more
       -- or we could run astGather1 repeatedly, but even then we can't
       -- get into fromList, which may simplify or complicate a term,
       -- and sometimes is not possible without leaving a small gather outside
@@ -205,15 +205,15 @@ astGatherN _ _ _ =
 -- TODO: we probably need to simplify iN to some normal form, but possibly
 -- this would be even better to do and take advantage of earlier,
 -- perhaps even avoiding pushing all the other indexing down
--- | The application @build1VSimplify k var v iN@ vectorizes and simplifies
+-- | The application @gatherSimplify k var v iN@ vectorizes and simplifies
 -- the term @AstBuild1 k (var, AstIndexZ v [iN])@, where it's known that
 -- @var@ does not occur in @v@ but occurs in @iN@. This is done by pattern
 -- matching on @iN@ as opposed to on @v@.
-build1VSimplify
+gatherSimplify
   :: (KnownNat n, Show r, Numeric r)
   => Int -> AstVarName Int -> Ast (1 + n) r -> AstInt r
   -> Maybe (Ast (1 + n) r)
-build1VSimplify k var v0 iN =
+gatherSimplify k var v0 iN =
   case iN of
     AstIntVar var2 | var2 == var ->
       Just $ astSliceLax 0 k v0
@@ -230,7 +230,7 @@ build1VSimplify k var v0 iN =
       -- however, AstGather* covers all this, at the cost of (relatively
       -- simple) expressions on tape
 
--- This is to be used only in build1VSimplify. The normal slice
+-- This is to be used only in gatherSimplify. The normal slice
 -- still crashes with illegal parameters.
 -- This function is so complex in order to guarantee that even though
 -- vectorization changes tensor values, it doesn't change their shapes.
