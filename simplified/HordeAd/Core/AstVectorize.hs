@@ -80,7 +80,8 @@ build1V
   :: (KnownNat n, Show r, Numeric r)
   => Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
 build1V k (var, v0) =
-  let traceRule = mkTraceRule "build1V" (AstBuild1 k (var, v0)) v0 1
+  let bv = AstBuild1 k (var, v0)
+      traceRule = mkTraceRule "build1V" bv v0 1
   in case v0 of
     AstVar{} ->
       error "build1V: AstVar can't have free int variables"
@@ -91,13 +92,13 @@ build1V k (var, v0) =
     AstConst{} ->
       error "build1V: AstConst can't have free int variables"
     AstConstant{} -> traceRule $
-      AstConstant $ AstPrimalPart $ AstBuild1 k (var, v0)
+      AstConstant $ AstPrimalPart bv
       -- this is very fast when interpreted in a smart way, but constant
       -- character needs to be exposed for nested cases;
       -- TODO: similarly propagate AstConstant upwards elsewhere
 
     AstConstInt{} -> traceRule $
-      AstConstant $ AstPrimalPart $ AstBuild1 k (var, v0)
+      AstConstant $ AstPrimalPart bv
     AstIndexZ v is -> traceRule $
       build1VIxOccurenceUnknown k (var, v, is)
       -- @var@ is in @v@ or @is@; TODO: simplify is first or even fully
@@ -133,7 +134,7 @@ build1V k (var, v0) =
     AstReshape sh v -> traceRule $
       AstReshape (k :$ sh) $ build1V k (var, v)
     AstBuild1{} -> traceRule $
-      AstBuild1 k (var, v0)
+      bv
       -- This is a recoverable problem because, e.g., this may be nested
       -- inside projections. So we add to the term and wait for rescue.
       -- It probably speeds up vectorization a tiny bit if we nest
@@ -188,9 +189,8 @@ build1VIx
   -> Ast (1 + n) r
 build1VIx k (var, v0, ZI) = build1V k (var, v0)
 build1VIx k (var, v0, is@(i1 :. rest1)) =
-  let traceRule = mkTraceRule "build1VIx"
-                              (AstBuild1 k (var, AstIndexZ v0 is))
-                              v0 1
+  let bv = AstBuild1 k (var, AstIndexZ v0 is)
+      traceRule = mkTraceRule "build1VIx" bv v0 1
   in case v0 of
     AstVar{} ->
       error "build1VIx: AstVar can't have free int variables"
@@ -201,10 +201,10 @@ build1VIx k (var, v0, is@(i1 :. rest1)) =
     AstConst{} ->
       error "build1VIx: AstConst can't have free int variables"
     AstConstant{} -> traceRule $
-      AstConstant $ AstPrimalPart $ AstBuild1 k (var, AstIndexZ v0 is)
+      AstConstant $ AstPrimalPart bv
 
     AstConstInt{} -> traceRule $
-      AstConstant $ AstPrimalPart $ AstBuild1 @n k (var, AstIndexZ v0 is)
+      AstConstant $ AstPrimalPart bv
 
     AstIndexZ v is2 -> traceRule $
       build1VIxOccurenceUnknown k (var, v, appendIndex is2 is)
@@ -258,7 +258,7 @@ build1VIx k (var, v0, is@(i1 :. rest1)) =
       in build1VIx k (var, v, revIs)
     AstTranspose perm v -> traceRule $
       if valueOf @m < length perm
-      then AstBuild1 k (var, AstIndexZ v0 is)  -- we give up
+      then bv  -- we give up
              -- TODO: for this we really need generalized indexes that
              -- first project, then transpose and so generalized gather;
              -- or instead push down transpose, but it may be expensive

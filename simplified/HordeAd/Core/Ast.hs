@@ -15,7 +15,7 @@ module HordeAd.Core.Ast
   , shapeAst, lengthAst
   , intVarInAst, intVarInAstInt, intVarInAstBool
   , substituteAst, substituteAstInt, substituteAstBool
-  , astCond, astIndexZ, astKonst, astTr, astTranspose
+  , astCond, astIndexZ, astKonst, astTr, astTranspose, permCycle
   , astGather1, astGatherN
   ) where
 
@@ -159,6 +159,11 @@ astTranspose perm u = AstTranspose perm u
 
 isIdentityPerm :: Permutation -> Bool
 isIdentityPerm = and . zipWith (==) [0 ..]
+
+permCycle :: Int -> Permutation
+permCycle 0 = []
+permCycle 1 = []
+permCycle n = [k `mod` n | k <- [1 .. n]]
 
 -- Assumption: var does not occur in v0.
 astGather1 :: forall p n r. (KnownNat p, KnownNat n, Show r, Numeric r)
