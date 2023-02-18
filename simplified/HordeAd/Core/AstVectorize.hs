@@ -209,8 +209,9 @@ build1VIx k (var, v0, is@(i1 :. rest1)) =
     AstIndexZ v is2 -> traceRule $
       build1VIxOccurenceUnknown k (var, v, appendIndex is2 is)
     AstSum v -> traceRule $
-      build1V k (var, AstSum (AstIndexZ (astTr v) is))
-          -- that's because @index (sum v) i == sum (map (index i) v)@
+      let perm2 = permCycle $ valueOf @m + 1
+      in build1V k (var, AstSum (AstIndexZ (astTranspose perm2 v) is))
+           -- that's because @index (sum v) i == sum (map (index i) v)@
     AstFromList l | intVarInAstInt var i1 -> traceRule $
       -- This is pure desperation. I build separately for each list element,
       -- instead of picking the right element for each build iteration
