@@ -12,7 +12,7 @@ import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits
+import           GHC.TypeLits (type (*), type (<=))
 import           Numeric.LinearAlgebra (Matrix, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.IO (hPutStrLn, stderr)

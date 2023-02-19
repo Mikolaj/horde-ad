@@ -10,7 +10,7 @@ import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.ShapedS as OS
 import           Data.List (foldl', unfoldr)
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits
+import           GHC.TypeLits (type (*))
 import           Numeric.LinearAlgebra (Matrix, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.IO (hPutStrLn, stderr)

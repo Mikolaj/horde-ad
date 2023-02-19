@@ -14,7 +14,7 @@ import           Data.Array.Internal (valueOf)
 import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits
+import           GHC.TypeLits (type (*), type (+), type (<=), type Div)
 import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as LA
 

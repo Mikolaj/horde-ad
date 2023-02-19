@@ -13,7 +13,7 @@ import qualified Data.Array.Shaped as OSB
 import qualified Data.Array.ShapedS as OS
 import           Data.List (foldl')
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits
+import           GHC.TypeLits (type (*))
 import           Numeric.LinearAlgebra (Vector)
 import qualified Numeric.LinearAlgebra as LA
 

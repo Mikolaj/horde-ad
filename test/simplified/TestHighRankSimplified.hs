@@ -284,7 +284,7 @@ testNestedBuildMap7 =
 -- to nestedBuildMap doesn't help.
 nestedSumBuild
   :: forall n r.
-     ( ADReady r, n <= 4, KnownNat n, RealFloat (TensorOf n r)
+     ( ADReady r, n <= 4, KnownNat n
      , BooleanOf (TensorOf n r) ~ BooleanOf (IntOf r), IfB (TensorOf n r) )
   => TensorOf n r -> TensorOf (2 + n) r
 nestedSumBuild v =

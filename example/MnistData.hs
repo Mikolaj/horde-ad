@@ -16,7 +16,7 @@ import           Data.List (sortOn)
 import           Data.Maybe (fromMaybe)
 import qualified Data.Vector.Generic as V
 import qualified Data.Vector.Unboxed
-import           GHC.TypeLits
+import           GHC.TypeLits (KnownNat, Nat, type (*))
 import           Numeric.LinearAlgebra (Matrix, Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.IO (IOMode (ReadMode), withBinaryFile)
