@@ -851,9 +851,9 @@ interpretAst env = \case
     tconstant $ fromArray
     $ OR.ravel . ORB.fromVector [k] . V.generate k
     $ \j -> toArray $ tprimalPart $ interpretLambdaI env (var, AstConstant r) j
-  AstBuild1 k (var, v) -> build1 k (interpretLambdaI env (var, v))
-      -- fallback to POPL (memory blowup, but avoids functions on tape);
-      -- an alternative is to use dBuild1 and store function on tape
+  AstBuild1 k (var, v) ->
+    -- This is morally the correct term here (vectorization eliminates others):
+    interpretAst env $ AstBuild1 k (var, AstConstant $ AstPrimalPart v)
   AstGather1 (var, ix) v k ->
     gather1Closure (interpretLambdaIndex env (var, ix)) (interpretAst env v) k
     -- TODO: currently we store the function on tape, because it doesn't

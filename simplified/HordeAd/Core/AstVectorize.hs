@@ -100,7 +100,7 @@ build1V k (var, v0) =
     AstConstInt{} -> traceRule $
       AstConstant $ AstPrimalPart bv
     AstIndexZ v is -> traceRule $
-      build1VIxOccurenceUnknown k (var, v, is)
+      build1VIxOccurenceUnknown k [] (var, v, is)
       -- @var@ is in @v@ or @is@; TODO: simplify is first or even fully
       -- evaluate (may involve huge data processing) if contains no vars
       -- and then some things simplify a lot, e.g., if constant index,
@@ -133,12 +133,7 @@ build1V k (var, v0) =
         -- vectorizes to itself just fine; however AstReshape is too useful
     AstReshape sh v -> traceRule $
       AstReshape (k :$ sh) $ build1V k (var, v)
-    AstBuild1{} -> traceRule $
-      bv
-      -- This is a recoverable problem because, e.g., this may be nested
-      -- inside projections. So we add to the term and wait for rescue.
-      -- It probably speeds up vectorization a tiny bit if we nest
-      -- AstBuild1 instead of rewriting into AstBuild.
+    AstBuild1{} -> error "build1V: impossible case of AstBuild1"
     AstGather1 (var2, ix2 :: Index p (AstInt r)) v k2 -> traceRule $
       astGatherN (var ::: var2 ::: Z, AstIntVar var :. ix2)
                  (build1VOccurenceUnknown k (var, v))
@@ -151,52 +146,60 @@ build1V k (var, v0) =
                  (k :$ sh)
     -- All other patterns are redundant due to GADT typing.
 
--- | The application @build1VIxOccurenceUnknown k (var, v, ix)@ vectorizes
--- the term @AstBuild1 k (var, AstIndexZ v ix)@, where it's unknown whether
--- @var@ occurs in any of @v@, @ix@.
+-- | The application @build1VIxOccurenceUnknown k perm (var, v, ix)@ vectorizes
+-- the term @AstBuild1 k (var, AstIndexZ (AstTranspose perm v) ix)@,
+-- where it's unknown whether @var@ occurs in any of @v@, @ix@.
+-- Always @perm@ is empty or longer than @ix@.
 --
--- We try to push indexing down as far as needed to eliminate any occurences
--- of @var@ from @v@ (but not necessarily from @ix@), which is enough
--- to replace @AstBuild1@ with @AstGather1@ and so complete
--- the vectorization. If @var@ occurs only in the first (outermost)
--- element of @ix@, we attempt to simplify the term even more than that.
+-- We try to push indexing (and transposing) down as far as needed
+-- to eliminate any occurences of @var@ from @v@ (but not necessarily
+-- from @ix@), which is enough to replace @AstBuild1@ with @AstGather1@
+-- and so complete the vectorization. If @var@ occurs only in the first
+-- (outermost) element of @ix@, we attempt to simplify the term even more
+-- than that.
 build1VIxOccurenceUnknown
   :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
-  => Int -> (AstVarName Int, Ast (m + n) r, AstIndex m r)
+  => Int -> Permutation -> (AstVarName Int, Ast (m + n) r, AstIndex m r)
   -> Ast (1 + n) r
-build1VIxOccurenceUnknown k (var, v0, ZI) = build1VOccurenceUnknown k (var, v0)
-build1VIxOccurenceUnknown k (var, v0, ix@(_ :. _)) =
+build1VIxOccurenceUnknown k perm0 (var, v0, ZI) =
+  build1VOccurenceUnknown k (var, AstTranspose perm0 v0)
+build1VIxOccurenceUnknown k perm0 (var, v0, ix@(_ :. _)) =
+ assert (null perm0 || length perm0 > valueOf @m) $
   let traceRule = mkTraceRule "build1VIxOcc"
-                              (AstBuild1 k (var, AstIndexZ v0 ix))
-                              v0 1
+                    (AstBuild1 k (var, AstIndexZ (AstTranspose perm0 v0) ix))
+                    v0 1
   in if intVarInAst var v0
-     then build1VIx k (var, v0, ix)  -- push deeper
+     then build1VIx k perm0 (var, v0, ix)  -- push deeper
      else traceRule $
-            astGather1 (var, ix) v0 k
+            astGather1 (var, ix) (AstTranspose perm0 v0) k
 
--- | The application @build1VIx k (var, v, is)@ vectorizes
--- the term @AstBuild1 k (var, AstIndexZ v is)@, where it's known that
--- @var@ occurs in @v@. It may or may not additionally occur in @is@.
+-- | The application @build1VIx k perm (var, v, ix)@ vectorizes
+-- the term @AstBuild1 k (var, AstIndexZ (AstTranspose perm v) ix)@,
+-- where it's known that @var@ occurs in @v@. It may or may not
+-- additionally occur in @ix@.
+-- Always @perm@ is empty or longer than @ix@.
 --
--- We try to push indexing down as far as needed to eliminate any occurences
--- of @var@ from @v@ (but not necessarily from @is@), which is enough
--- to replace @AstBuild1@ with @AstGather1@ and so complete
--- the vectorization. We also partially evaluate/simplify the terms,
--- if possible in constant time.
+-- We try to push indexing (and transposing) down as far as needed
+-- to eliminate any occurences of @var@ from @v@ (but not necessarily
+-- from @ix@), which is enough to replace @AstBuild1@ with @AstGather1@
+-- and so complete the vectorization. We also partially evaluate/simplify
+-- the terms, if possible in constant time.
 build1VIx
   :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
-  => Int -> (AstVarName Int, Ast (m + n) r, AstIndex m r)
+  => Int -> Permutation -> (AstVarName Int, Ast (m + n) r, AstIndex m r)
   -> Ast (1 + n) r
-build1VIx k (var, v0, ZI) = build1V k (var, v0)
-build1VIx k (var, v0, is@(i1 :. rest1)) =
-  let bv = AstBuild1 k (var, AstIndexZ v0 is)
+build1VIx k perm0 (var, v0, ZI) = build1V k (var, AstTranspose perm0 v0)
+build1VIx k perm0 (var, v0, is@(i1 :. rest1)) =
+ assert (null perm0 || length perm0 > valueOf @m) $
+  let bv = AstBuild1 k (var, AstIndexZ (AstTranspose perm0 v0) is)
       traceRule = mkTraceRule "build1VIx" bv v0 1
   in case v0 of
     AstVar{} ->
       error "build1VIx: AstVar can't have free int variables"
 
     AstOp opCode args -> traceRule $
-      AstOp opCode $ map (\v -> build1VIxOccurenceUnknown k (var, v, is)) args
+      AstOp opCode $ map (\v ->
+        build1VIxOccurenceUnknown k perm0 (var, v, is)) args
 
     AstConst{} ->
       error "build1VIx: AstConst can't have free int variables"
@@ -206,73 +209,153 @@ build1VIx k (var, v0, is@(i1 :. rest1)) =
     AstConstInt{} -> traceRule $
       AstConstant $ AstPrimalPart bv
 
-    AstIndexZ v is2 -> traceRule $
-      build1VIxOccurenceUnknown k (var, v, appendIndex is2 is)
+    AstIndexZ v (ix2 :: AstIndex p r) -> traceRule $
+      let p = valueOf @p
+          perm2 = [0 .. p - 1] ++ map (+ p) perm0
+      in build1VIxOccurenceUnknown
+           k [] (var, astTranspose perm2 v, appendIndex ix2 is)
     AstSum v -> traceRule $
-      let perm2 = permCycle $ valueOf @m + 1
-      in build1V k (var, AstSum (AstIndexZ (astTranspose perm2 v) is))
-           -- that's because @index (sum v) i == sum (map (index i) v)@
-    AstFromList l | intVarInAstInt var i1 -> traceRule $
-      -- This is pure desperation. I build separately for each list element,
-      -- instead of picking the right element for each build iteration
-      -- (which to pick depends on the build variable).
-      -- @build1VSimplify@ is not applicable, because var is in v0.
+      let perm2 = 0 : map succ perm0
+          perm3 = permCycle $ valueOf @m + 1
+          tv = astTranspose perm3 $ astTranspose perm2 v
+      in build1V k (var, AstSum (AstIndexZ tv is))
+    AstFromList l -> traceRule $
+      -- The first case is pure desperation. I build separately for each list
+      -- element instead of picking the right element for each build function
+      -- application (which to pick depends on the build variable).
+      -- @gatherSimplify@ is not applicable, because var is in v0.
       -- The only thing to do is constructing a AstGather1 via a trick.
       -- There's no other reduction left to perform and hope the build vanishes.
-      let t = AstFromList $ map (\v ->
-            build1VOccurenceUnknown k (var, AstIndexZ v rest1)) l
-      in astGather1 (var, i1 :. AstIntVar var :. ZI) t k
-    AstFromList l -> traceRule $
-      AstIndexZ (AstFromList $ map (\v ->
-        build1VOccurenceUnknown k (var, AstIndexZ v rest1)) l)
-                                  (singletonIndex i1)
-    AstFromVector l | intVarInAstInt var i1 -> traceRule $
-      let t = AstFromVector $ V.map (\v ->
-            build1VOccurenceUnknown k (var, AstIndexZ v rest1)) l
-      in astGather1 (var, i1 :. AstIntVar var :. ZI) t k
-    AstFromVector l -> traceRule $
-      AstIndexZ (AstFromVector $ V.map (\v ->
-        build1VOccurenceUnknown k (var, AstIndexZ v rest1)) l)
-                                  (singletonIndex i1)
-    -- Partially evaluate in constant time:
-    AstKonst _k v -> traceRule $
-      build1VIx k (var, v, rest1)
-        -- this is an example term for which vectorization changes
-        -- the value of index out of bounds (from 0 to v in this case));
-        -- fixing this would complicate terms greatly at no value
-        -- for the common case where out of bound does not appear,
-        -- as well as for the case where value other than 0 is desired
+      case permSwapSplit perm0 of
+        Nothing ->
+          if intVarInAstInt var i1
+          then let t = AstFromList $ map (\v ->
+                     build1VOccurenceUnknown
+                       k (var, AstIndexZ v rest1)) l
+               in astGather1 (var, i1 :. AstIntVar var :. ZI) t k
+          else AstIndexZ (AstFromList $ map (\v ->
+                 build1VOccurenceUnknown
+                   k (var, AstIndexZ v rest1)) l) (singletonIndex i1)
+        Just (j, permRest) ->
+          build1V k (var, t)
+         where
+          t = case splitAtInt_Index j is of
+            (_, ZI) ->
+              let j1 = j - valueOf @m
+              in astTranspose ([j1] ++ [1 .. j1 - 1] ++ [0])  -- the swap
+                 $ AstFromList $ map (\v ->
+                     AstIndexZ (astTranspose permRest v) is) l
+            (ix2, i :. ixRest2) ->
+              -- The swap consumed in getting index i to the first position.
+              AstIndexZ (AstFromList $ map (\v ->
+                AstIndexZ (astTranspose permRest v)
+                          (appendIndex ix2 ixRest2)) l)
+                (singletonIndex i)
+    AstFromVector l -> undefined  -- TODO
+    AstKonst k2 v -> traceRule $
+      -- this is an example term for which vectorization changes
+      -- the value of index out of bounds (from 0 to v in this case));
+      -- fixing this would complicate terms greatly at no value
+      -- for the common case where out of bound does not appear,
+      -- as well as for the case where value other than 0 is desired
+      case permSwapSplit perm0 of
+        Nothing -> build1VIx k [] (var, v, rest1)
+        Just (j, permRest) ->
+          build1V k (var, t)
+         where
+          t = case splitAtInt_Index j is of
+            (_, ZI) ->
+              let j1 = j - valueOf @m
+              in astTranspose ([j1] ++ [1 .. j1 - 1] ++ [0])  -- the swap
+                 $ AstKonst k2 (AstIndexZ (astTranspose permRest v) is)
+            (ix2, _ :. ixRest2) ->  -- the _ index beta-reduced the konst
+              AstIndexZ (astTranspose permRest v) (appendIndex ix2 ixRest2)
+                -- this is basically partial evaluation, but in constant
+                -- time, unlike evaluating AstFromList, etc.
     AstAppend v w -> traceRule $
-      let vlen = AstIntConst $ lengthAst v
-          is2 = AstIntOp MinusIntOp [i1, vlen] :. rest1
-      in build1V k (var, astCond (AstRelInt LsOp [i1, vlen])
-                                 (AstIndexZ v is)
-                                 (AstIndexZ w is2))
-           -- this is basically partial evaluation, but in constant
-           -- time unlike evaluating AstFromList, etc.
-    AstSlice i _k v -> traceRule $
-      build1VIx k (var, v, AstIntOp PlusIntOp [i1, AstIntConst i] :. rest1)
+      case permSwapSplit perm0 of
+        Nothing ->
+          let vlen = AstIntConst $ lengthAst v
+              is2 = AstIntOp MinusIntOp [i1, vlen] :. rest1
+          in build1V k (var, astCond (AstRelInt LsOp [i1, vlen])
+                                     (AstIndexZ v is)
+                                     (AstIndexZ w is2))
+        Just (j, permRest) ->
+          build1V k (var, t)
+         where
+          t = case splitAtInt_Index j is of
+            (_, ZI) ->
+              let j1 = j - valueOf @m
+              in astTranspose ([j1] ++ [1 .. j1 - 1] ++ [0])  -- the swap
+                 $ AstAppend
+                     (AstIndexZ (astTranspose permRest v) is)
+                     (AstIndexZ (astTranspose permRest w) is)
+            (ix2, i :. ixRest2) ->
+              -- The swap consumed in getting index i to the first position.
+              AstIndexZ
+                (AstAppend
+                   (AstIndexZ (astTranspose permRest v)
+                              (appendIndex ix2 ixRest2))
+                   (AstIndexZ (astTranspose permRest w)
+                              (appendIndex ix2 ixRest2)))
+                (singletonIndex i)
+    AstSlice i2 k2 v -> traceRule $
+      case permSwapSplit perm0 of
+        Nothing ->
+          build1VIx
+            k [] (var, v, AstIntOp PlusIntOp [i1, AstIntConst i2] :. rest1)
+        Just (j, permRest) ->
+          build1V k (var, t)
+         where
+          t = case splitAtInt_Index j is of
+            (_, ZI) ->
+              let j1 = j - valueOf @m
+              in astTranspose ([j1] ++ [1 .. j1 - 1] ++ [0])  -- the swap
+                 $ AstSlice i2 k2
+                     (AstIndexZ (astTranspose permRest v) is)
+            (ix2, i :. ixRest2) ->
+              -- The swap consumed in getting index i to the first position.
+              AstIndexZ
+                (AstSlice i2 k2
+                   (AstIndexZ (astTranspose permRest v)
+                              (appendIndex ix2 ixRest2)))
+                (singletonIndex i)
     AstReverse v -> traceRule $
-      let revIs = AstIntOp MinusIntOp [AstIntConst (lengthAst v - 1), i1]
-                  :. rest1
-      in build1VIx k (var, v, revIs)
-    AstTranspose perm v -> traceRule $
-      if valueOf @m < length perm
-      then bv  -- we give up
-             -- TODO: for this we really need generalized indexes that
-             -- first project, then transpose and so generalized gather;
-             -- or instead push down transpose, but it may be expensive
-             -- or get stuck as well (transpose of a list of lists
-             -- would need to shuffle all the individual elements);
-             -- or perhaps it's enough to pass a permutation
-             -- in build1VIx and wrap the argument
-             -- to gather in AstTranspose with the permutation
-      else build1VIx k (var, v, permutePrefixIndex perm is)
+      case permSwapSplit perm0 of
+        Nothing ->
+          let revIs = AstIntOp MinusIntOp [AstIntConst (lengthAst v - 1), i1]
+                      :. rest1
+          in build1VIx k [] (var, v, revIs)
+        Just (j, permRest) ->
+          build1V k (var, t)
+         where
+          t = case splitAtInt_Index j is of
+            (_, ZI) ->
+              let j1 = j - valueOf @m
+              in astTranspose ([j1] ++ [1 .. j1 - 1] ++ [0])  -- the swap
+                 $ AstReverse
+                     (AstIndexZ (astTranspose permRest v) is)
+            (ix2, i :. ixRest2) ->
+              -- The swap consumed in getting index i to the first position.
+              AstIndexZ
+                (AstReverse
+                   (AstIndexZ (astTranspose permRest v)
+                              (appendIndex ix2 ixRest2)))
+                (singletonIndex i)
+    AstTranspose{} -> traceRule $
+      case astTranspose perm0 v0 of
+        AstTranspose perm v ->
+          if length perm > valueOf @m
+          then build1VIx k perm (var, v, is)
+          else let ix2 = permutePrefixIndex perm is
+               in build1VIx k [] (var, v, ix2)
+        v -> build1VIx k [] (var, v, is)
     AstFlatten v -> traceRule $
-      case rest1 of
+      assert (isIdentityPerm perm0)
+      $ case rest1 of
         ZI ->
           let ixs2 = fromLinearIdx (fmap AstIntConst (shapeAst v)) i1
-          in build1VIx k (var, v, ixs2)
+          in build1VIx k [] (var, v, ixs2)
         _ ->
           error "build1VIx: AstFlatten: impossible pattern needlessly required"
     AstReshape sh v -> traceRule $
@@ -283,24 +366,73 @@ build1VIx k (var, v0, is@(i1 :. rest1)) =
       -- >     u = AstSlice i (product $ drop (length is) sh) $ AstFlatten v
       -- > in AstReshape (k : sh) $ build1V k (var, u)
       -- Instead, we express the reshape using gather and process that.
-      build1VIx k (var, reshapeAsGather v sh, is)
-    AstBuild1 _n2 (var2, v) -> traceRule $
-      -- Here we seize the chance to recover earlier failed vectorization,
-      -- by choosing only one element of this whole build, eliminating it.
-      build1VIx k (var, substituteAst i1 var2 v, rest1)
-    AstGather1 (var2, ix2) v _n2 -> traceRule $
-      let ix3 = fmap (substituteAstInt i1 var2) ix2
-      in build1VIxOccurenceUnknown k (var, v, appendIndex ix3 rest1)
-           -- we don't know if var occurs in v; it could have been in ix2
-    AstGatherN (Z, ix2) v _sh -> traceRule $
-      build1VIx k (var, AstIndexZ v ix2, is)
-    AstGatherN (var2 ::: vars, ix2) v (_ :$ sh') -> traceRule $
-      let ix3 = fmap (substituteAstInt i1 var2) ix2
-      in build1VIx
-           k (var, unsafeCoerce $ astGatherN (vars, ix3) v sh', rest1)
+      build1VIx k perm0 (var, reshapeAsGather v sh, is)
+    AstBuild1{} -> error "build1VIx: impossible case of AstBuild1"
+    AstGather1 (var2, (ix4 :: AstIndex p r)) v n2 -> traceRule $
+      case permSwapSplit perm0 of
+        Nothing ->
+          let ix3 = fmap (substituteAstInt i1 var2) ix4
+          in build1VIxOccurenceUnknown k [] (var, v, appendIndex ix3 rest1)
+            -- we don't know if var occurs in v; it could have been in ix4
+        Just (j, permRest) ->
+          build1V k (var, t)
+         where
+          p = valueOf @p
+          permRest2 = [0 .. p - 1] ++ map (+ p) permRest
+          t = case splitAtInt_Index j is of
+            (_, ZI) ->
+              let j1 = j - valueOf @m
+              in astTranspose ([j1] ++ [1 .. j1 - 1] ++ [0])  -- the swap
+                 $ AstGather1 (var2, appendIndex ix4 is)
+                              (astTranspose permRest2 v) n2
+            (ix2, i :. ixRest2) ->
+              -- The swap consumed in getting index i to the first position.
+              AstIndexZ
+                (AstGather1 (var2, appendIndex ix4 (appendIndex ix2 ixRest2))
+                            (astTranspose permRest2 v) n2)
+                (singletonIndex i)
+    AstGatherN (Z, ix4) v _sh -> traceRule $
+      build1VIx k perm0 (var, AstIndexZ v ix4, is)
+    AstGatherN (((var2 ::: vars) :: AstVarList m1), (ix4 :: AstIndex p r))
+               v sh@(_ :$ sh') -> traceRule $
+      case permSwapSplit perm0 of
+        Nothing ->
+          let ix3 = fmap (substituteAstInt i1 var2) ix4
+          in build1VIx
+               k [] (var, unsafeCoerce $ astGatherN (vars, ix3) v sh', rest1)
           -- GHC with the plugin doesn't cope with this
           -- (https://github.com/clash-lang/ghc-typelits-natnormalise/issues/71)
           -- so unsafeCoerce is back
+        Just (j, permRest) ->
+          build1V k (var, t)
+
+-- !!! This whole Just case is wrong, because we need to get to the front
+-- not only the first index, if it's present, but also all the others
+-- up to m1. However, some of them may be absent, which probably means
+-- we'd need Tom's generalized indexes to express the mix, at least
+-- in the nearest recursive call to build1VIx that is supposed to reach
+-- the Nothing case and really reduce the gather somewhat.
+
+         where
+          p = valueOf @p
+          permRest2 = [0 .. p - 1] ++ map (+ p) permRest
+          t = case splitAtInt_Index j is of
+            (_, ZI) ->
+              let j1 = j - valueOf @m
+                  sh2 = appendShape (takeShape @m1 sh) (dropShape @mm sh)
+                    -- this is wrong
+              in astTranspose ([j1] ++ [1 .. j1 - 1] ++ [0])  -- the swap
+                 $ AstGatherN (var2 ::: vars, appendIndex ix4 is)
+                              (astTranspose permRest2 v) sh2
+            (ix2, i :. ixRest2) ->
+              -- The swap consumed in getting index i to the first position.
+              let sh2 = dropShape @mm sh
+                    -- this is wrong
+              in AstIndexZ
+                   (AstGatherN ( var2 ::: vars
+                               , appendIndex ix4 (appendIndex ix2 ixRest2) )
+                               (astTranspose permRest2 v) sh2
+                   (singletonIndex i)
     AstGatherN{} ->
       error "build1VIx: AstGatherN: impossible pattern needlessly required"
     -- All other patterns are redundant due to GADT typing.
