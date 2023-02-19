@@ -244,15 +244,14 @@ build1VIx k (var, v0, is@(i1 :. rest1)) =
         -- as well as for the case where value other than 0 is desired
     AstAppend v w -> traceRule $
       let vlen = AstIntConst $ lengthAst v
-          is2 = fmap (\i -> AstIntOp PlusIntOp [i, vlen]) is
+          is2 = AstIntOp MinusIntOp [i1, vlen] :. rest1
       in build1V k (var, astCond (AstRelInt LsOp [i1, vlen])
                                  (AstIndexZ v is)
                                  (AstIndexZ w is2))
            -- this is basically partial evaluation, but in constant
            -- time unlike evaluating AstFromList, etc.
-    AstSlice i2 _k v -> traceRule $
-      build1VIx k (var, v, fmap (\i ->
-        AstIntOp PlusIntOp [i, AstIntConst i2]) is)
+    AstSlice i _k v -> traceRule $
+      build1VIx k (var, v, AstIntOp PlusIntOp [i1, AstIntConst i] :. rest1)
     AstReverse v -> traceRule $
       let revIs = AstIntOp MinusIntOp [AstIntConst (lengthAst v - 1), i1]
                   :. rest1
