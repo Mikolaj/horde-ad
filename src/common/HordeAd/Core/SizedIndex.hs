@@ -11,13 +11,15 @@ module HordeAd.Core.SizedIndex
     -- * Tensor indexes as fully encapsulated sized lists, with operations
   , Index, pattern (:.), pattern ZI
   , singletonIndex, snocIndex, appendIndex
-  , headIndex, tailIndex, takeIndex, dropIndex, permutePrefixIndex
+  , headIndex, tailIndex, takeIndex, dropIndex, splitAt_Index, splitAtInt_Index
   , unsnocIndex1, lastIndex, initIndex, zipIndex, zipWith_Index
+  , permutePrefixIndex
   , listToIndex, indexToList
     -- * Tensor shapes as fully encapsulated sized lists, with operations
   , Shape, pattern (:$), pattern ZS
-  , singletonShape, tailShape, takeShape, dropShape, permutePrefixShape
+  , singletonShape, tailShape, takeShape, dropShape
   , lengthShape, sizeShape, flattenShape
+  , permutePrefixShape
   , listShapeToShape, shapeToList
     -- * Operations involving both indexes and shapes
   , toLinearIdx, fromLinearIdx, zeroOf
@@ -27,8 +29,10 @@ import Prelude
 
 import Control.Arrow (first)
 import Data.Array.Internal (valueOf)
+import Data.Proxy (Proxy (Proxy))
+import Data.Type.Equality ((:~:) (Refl))
 import GHC.Exts (IsList (..))
-import GHC.TypeLits (KnownNat, type (+))
+import GHC.TypeLits (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 
 import HordeAd.Internal.SizedList
 
@@ -108,6 +112,22 @@ takeIndex (Index ix) = Index $ takeSized ix
 dropIndex :: forall m n i. (KnownNat m, KnownNat n)
           => Index (m + n) i -> Index n i
 dropIndex (Index ix) = Index $ dropSized ix
+
+splitAt_Index :: (KnownNat m, KnownNat n)
+              => Index (m + n) i -> (Index m i, Index n i)
+splitAt_Index ix = (takeIndex ix, dropIndex ix)
+
+-- TODO: simplify the type machinery; e.g., would p ~ m + n help?
+splitAtInt_Index :: forall m n i. (KnownNat m, KnownNat n)
+                 => Int -> Index (m + n) i -> (Index m i, Index n i)
+splitAtInt_Index j ix =
+  if j < 0
+  then error "splitAtInt_Index: negative index"
+  else case someNatVal $ toInteger j of
+    Just (SomeNat proxy) -> case sameNat (Proxy @m) proxy of
+      Just Refl -> splitAt_Index ix
+      _ -> error "splitAtInt_Index: index differs to what expected from context"
+    Nothing -> error "splitAtInt_Index: impossible someNatVal error"
 
 unsnocIndex1 :: Index (1 + n) i -> (Index n i, i)
 unsnocIndex1 (Index ix) = first Index $ unsnocSized1 ix
@@ -193,10 +213,6 @@ dropShape :: forall m n i. (KnownNat m, KnownNat n)
           => Shape (m + n) i -> Shape n i
 dropShape (Shape ix) = Shape $ dropSized ix
 
-permutePrefixShape :: forall n i. KnownNat n
-                   => Permutation -> Shape n i -> Shape n i
-permutePrefixShape p (Shape ix) = Shape $ permutePrefixSized p ix
-
 lengthShape :: forall n i. KnownNat n => Shape n i -> Int
 lengthShape _ = valueOf @n
 
@@ -207,6 +223,10 @@ sizeShape (n :$ sh) = n * sizeShape sh
 
 flattenShape :: (Num i, KnownNat n) => Shape n i -> Shape 1 i
 flattenShape = singletonShape . sizeShape
+
+permutePrefixShape :: forall n i. KnownNat n
+                   => Permutation -> Shape n i -> Shape n i
+permutePrefixShape p (Shape ix) = Shape $ permutePrefixSized p ix
 
 -- Warning: do not pass a list of strides to this function.
 listShapeToShape :: KnownNat n => [i] -> Shape n i

@@ -15,7 +15,8 @@ module HordeAd.Core.Ast
   , shapeAst, lengthAst
   , intVarInAst, intVarInAstInt, intVarInAstBool
   , substituteAst, substituteAstInt, substituteAstBool
-  , astCond, astIndexZ, astKonst, astTr, astTranspose, permCycle
+  , astCond, astIndexZ, astKonst, astTr, astTranspose
+  , isIdentityPerm, permCycle, permSwapSplit
   , astGather1, astGatherN
   ) where
 
@@ -28,6 +29,7 @@ import qualified Data.Array.RankedS as OR
 import           Data.Boolean
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.Kind (Type)
+import           Data.List (elemIndex)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, type (+))
@@ -164,6 +166,20 @@ permCycle :: Int -> Permutation
 permCycle 0 = []
 permCycle 1 = []
 permCycle n = [k `mod` n | k <- [1 .. n]]
+
+-- | Produces a two-element swap involving the first element
+-- and the permutation that needs to applied first, before the swap,
+-- to produce the same result as the original permutation.
+-- Addtionally, the latter permutation is represented as operating
+-- on all but the first element of a list (the first element is fixed)
+-- and so is one element shorter than the original permutation.
+permSwapSplit :: Permutation -> Maybe (Int, Permutation)
+permSwapSplit = \case
+  [] -> Nothing
+  i : rest -> case elemIndex 0 rest of
+    Nothing -> assert (i == 0) Nothing
+    Just j -> let f k = if k == 0 then i - 1 else k - 1
+              in Just (j, map f rest)
 
 -- Assumption: var does not occur in v0.
 astGather1 :: forall p n r. (KnownNat p, KnownNat n, Show r, Numeric r)
