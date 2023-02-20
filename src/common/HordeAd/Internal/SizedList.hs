@@ -10,7 +10,7 @@ module HordeAd.Internal.SizedList
   , singletonSized, snocSized, appendSized
   , headSized, tailSized, takeSized, dropSized
   , permutePrefixSized, permutePrefixList
-  , unsnocSized1, lastSized, initSized
+  , unsnocSized1, lastSized, initSized, reverseSized
   , sizedListCompare, listToSized, sizedListToList
   , Permutation
   ) where
@@ -41,7 +41,8 @@ import GHC.TypeLits
 infixr 3 :::
 data SizedList (n :: Nat) i where
   Z :: SizedList 0 i
-  (:::) :: i -> SizedList n i -> SizedList (1 + n) i
+  (:::) :: KnownNat n
+        => i -> SizedList n i -> SizedList (1 + n) i
 
 deriving instance Eq i => Eq (SizedList n i)
 
@@ -65,11 +66,12 @@ instance KnownNat n => IsList (SizedList n i) where
 singletonSized :: i -> SizedList 1 i
 singletonSized i = i ::: Z
 
-snocSized :: SizedList n i -> i -> SizedList (1 + n) i
+snocSized :: KnownNat n => SizedList n i -> i -> SizedList (1 + n) i
 snocSized Z last1 = last1 ::: Z
 snocSized (i ::: ix) last1 = i ::: snocSized ix last1
 
-appendSized :: SizedList m i -> SizedList n i -> SizedList (m + n) i
+appendSized :: KnownNat n
+            => SizedList m i -> SizedList n i -> SizedList (m + n) i
 appendSized Z ix2 = ix2
 appendSized (i1 ::: ix1) ix2 = i1 ::: appendSized ix1 ix2
 
@@ -105,6 +107,14 @@ initSized :: SizedList (1 + n) i -> SizedList n i
 initSized Z = error "initSized: impossible pattern needlessly required"
 initSized (_i ::: Z) = Z
 initSized (i ::: ix@(_ ::: _)) = i ::: initSized ix
+
+reverseSized :: KnownNat n => SizedList n i -> SizedList n i
+reverseSized l = go l Z
+ where
+  -- This constraint is mistakenly reported by GHC 9.4 as redundant:
+  go :: KnownNat n => SizedList m i -> SizedList n i -> SizedList (m + n) i
+  go Z acc = acc
+  go (x ::: xs) acc = go xs (x ::: acc)
 
 -- As in orthotope, a permutation lists indices into the list to permute.
 type Permutation = [Int]

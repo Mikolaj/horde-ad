@@ -167,8 +167,8 @@ permCycle 0 = []
 permCycle 1 = []
 permCycle n = [k `mod` n | k <- [1 .. n]]
 
--- | Produces a two-element swap involving the first element
--- and the permutation that needs to applied first, before the swap,
+-- | Produces a (possibly trival) two-element swap involving the first element
+-- and the permutation that needs to be applied first, before the swap,
 -- to produce the same result as the original permutation.
 -- Addtionally, the latter permutation is represented as operating
 -- on all but the first element of a list (the first element is fixed)
@@ -176,8 +176,9 @@ permCycle n = [k `mod` n | k <- [1 .. n]]
 permSwapSplit :: Permutation -> Maybe (Int, Permutation)
 permSwapSplit = \case
   [] -> Nothing
+  perm | isIdentityPerm perm -> Nothing
   i : rest -> case elemIndex 0 rest of
-    Nothing -> assert (i == 0) Nothing
+    Nothing -> assert (i == 0) $ Just (0, map ((-) 1) rest)
     Just j -> let f k = if k == 0 then i - 1 else k - 1
               in Just (j, map f rest)
 

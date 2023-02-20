@@ -1,4 +1,5 @@
-{-# LANGUAGE DataKinds, GADTs #-}
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, GADTs #-}
+{-# OPTIONS_GHC -fconstraint-solver-iterations=10 #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Vectorization of the build operation in Ast.
@@ -14,8 +15,9 @@ import           Control.Exception.Assert.Sugar
 import           Control.Monad (when)
 import           Data.Array.Internal (valueOf)
 import           Data.IORef
+import           Data.List (foldl')
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, type (+))
+import           GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
 import           Numeric.LinearAlgebra (Numeric)
 import           System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import           System.IO.Unsafe (unsafePerformIO)
@@ -377,65 +379,77 @@ build1VIx k perm0 (var, v0, is@(i1 :. rest1)) =
         Just (j, permRest) ->
           build1V k (var, t)
          where
-          p = valueOf @p
-          permRest2 = [0 .. p - 1] ++ map (+ p) permRest
           t = case splitAtInt_Index j is of
             (_, ZI) ->
               let j1 = j - valueOf @m
+                  p = valueOf @p
+                  permRest2 = [0 .. p - 1] ++ map (+ p) permRest
               in astTranspose ([j1] ++ [1 .. j1 - 1] ++ [0])  -- the swap
                  $ AstGather1 (var2, appendIndex ix4 is)
                               (astTranspose permRest2 v) n2
             (ix2, i :. ixRest2) ->
               -- The swap consumed in getting index i to the first position.
-              AstIndexZ
-                (AstGather1 (var2, appendIndex ix4 (appendIndex ix2 ixRest2))
-                            (astTranspose permRest2 v) n2)
-                (singletonIndex i)
+              -- The index is beta-reduced with the gather's variable.
+              let ix3 = fmap (substituteAstInt i var2) ix4
+                  v2 = AstIndexZ v ix3
+              in AstIndexZ (astTranspose permRest v2)
+                           (appendIndex ix2 ixRest2)
     AstGatherN (Z, ix4) v _sh -> traceRule $
       build1VIx k perm0 (var, AstIndexZ v ix4, is)
-    AstGatherN (((var2 ::: vars) :: AstVarList m1), (ix4 :: AstIndex p r))
-               v sh@(_ :$ sh') -> traceRule $
-      case permSwapSplit perm0 of
-        Nothing ->
-          let ix3 = fmap (substituteAstInt i1 var2) ix4
-          in build1VIx
-               k [] (var, unsafeCoerce $ astGatherN (vars, ix3) v sh', rest1)
-          -- GHC with the plugin doesn't cope with this
-          -- (https://github.com/clash-lang/ghc-typelits-natnormalise/issues/71)
-          -- so unsafeCoerce is back
-        Just (j, permRest) ->
-          build1V k (var, t)
-
--- !!! This whole Just case is wrong, because we need to get to the front
--- not only the first index, if it's present, but also all the others
--- up to m1. However, some of them may be absent, which probably means
--- we'd need Tom's generalized indexes to express the mix, at least
--- in the nearest recursive call to build1VIx that is supposed to reach
--- the Nothing case and really reduce the gather somewhat.
-
-         where
-          p = valueOf @p
-          permRest2 = [0 .. p - 1] ++ map (+ p) permRest
-          t = case splitAtInt_Index j is of
-            (_, ZI) ->
-              let j1 = j - valueOf @m
-                  sh2 = appendShape (takeShape @m1 sh) (dropShape @mm sh)
-                    -- this is wrong
-              in astTranspose ([j1] ++ [1 .. j1 - 1] ++ [0])  -- the swap
-                 $ AstGatherN (var2 ::: vars, appendIndex ix4 is)
-                              (astTranspose permRest2 v) sh2
-            (ix2, i :. ixRest2) ->
-              -- The swap consumed in getting index i to the first position.
-              let sh2 = dropShape @mm sh
-                    -- this is wrong
-              in AstIndexZ
-                   (AstGatherN ( var2 ::: vars
-                               , appendIndex ix4 (appendIndex ix2 ixRest2) )
-                               (astTranspose permRest2 v) sh2
-                   (singletonIndex i)
-    AstGatherN{} ->
-      error "build1VIx: AstGatherN: impossible pattern needlessly required"
+    AstGatherN (vars, ix4) v sh -> traceRule $
+      let v2 = projectGatherN perm0 is (Z, vars, ix4) v sh []
+      in build1V k (var, v2)
     -- All other patterns are redundant due to GADT typing.
+
+projectGatherN
+  :: forall k1 k2 k3 m1 m2 p n r.
+     ( Show r, Numeric r
+     , KnownNat k1, KnownNat k2, KnownNat k3
+     , KnownNat m1, KnownNat m2, KnownNat p, KnownNat n )
+  => Permutation -> AstIndex (k1 + k2 + k3) r
+  -> (AstVarList (m1 + k1), AstVarList (m2 + k2), AstIndex p r)
+  -> Ast (p + n + k3) r -> ShapeInt (m1 + k1 + m2 + k2 + n + k3)
+  -> [Permutation]
+  -> Ast (m1 + m2 + n) r
+{-projectGatherN perm0 ZI (varsRev, vars, ix4) v sh permsOuter =
+  let vars3 = reverseSized varsRev `appendSized` vars
+      v2 = astGatherN (vars3, ix4) v sh
+  in foldl' (flip astTranspose) v2 (perm0 : permsOuter)
+projectGatherN perm0 ix@(_ :. _) (varsRev, Z, ix4) v sh permsOuter =
+  let p = valueOf @p
+      permRest2 = [0 .. p - 1] ++ map (+ p) perm0
+      v2 = astGatherN (reverseSized varsRev, ix4)
+                      (astTranspose permRest2 v) sh
+      v3 = AstIndexZ v2 ix  -- this will get recursively reduced elsewhere
+  in foldl' (flip astTranspose) v3 permsOuter -}
+projectGatherN perm0 ix@(i1 :. rest1)
+               (varsRev, var2 ::: (vars :: AstVarList m3), ix4)
+               v sh@(_ :$ (sh' :: ShapeInt (m1 + k1 + m3 + n + k3))) permsOuter =
+  case permSwapSplit perm0 of
+    Nothing ->
+      let ix3 = fmap (substituteAstInt i1 var2) ix4
+          vars3 = reverseSized varsRev `appendSized` vars
+          -- The plugin can't deduce ((k2 + m7) - 1) ~ n14
+          -- from (m7 + k2) ~ (1 + n14), needed for sh'.
+          v2 = astGatherN @(m1 + k1 + m3) @p @(n + k3)
+                          (vars3, ix3) v sh'
+          v3 = AstIndexZ v2 rest1  -- this will get recursively reduced outside
+      in foldl' (flip astTranspose) v3 permsOuter
+    Just (j, permRest) -> undefined {-case splitAtInt_Index j ix of
+      (_, ZI) ->
+        let j1 = j - valueOf @(k1 + k2 + k3)
+            swap = [j1] ++ [1 .. j1 - 1] ++ [0]
+        in projectGatherN permRest ix
+                          (var2 ::: varsRev, vars, ix4) v sh (swap : permsOuter)
+      (ix2, i :. ixRest2) ->
+        -- The swap consumed in getting index i to the first position.
+        -- The index is beta-reduced with the first of gather's variables.
+        let ix3 = fmap (substituteAstInt i var2) ix4
+            ix5 :: AstIndex (k1 + k2 + k3 - 1) r
+            ix5 = appendIndex ix2 ixRest2
+        in projectGatherN permRest ix5 (varsRev, vars, ix3) v sh' permsOuter -}
+projectGatherN _ _ _ _ _ _ =
+  error "projectGatherN: impossible pattern needlessly required"
 
 
 -- * Rule tracing machinery
