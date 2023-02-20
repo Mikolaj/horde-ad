@@ -104,7 +104,7 @@ build1V k (var, v0) =
     AstConstInt{} -> traceRule $
       AstConstant $ AstPrimalPart bv
     AstIndexZ v is -> traceRule $
-      build1VIxOccurenceUnknown k [] (var, v, is)
+      build1VIxOccurenceUnknown k (var, v, is) []
       -- @var@ is in @v@ or @is@; TODO: simplify is first or even fully
       -- evaluate (may involve huge data processing) if contains no vars
       -- and then some things simplify a lot, e.g., if constant index,
@@ -150,7 +150,7 @@ build1V k (var, v0) =
                  (k :$ sh)
     -- All other patterns are redundant due to GADT typing.
 
--- | The application @build1VIxOccurenceUnknown k perm (var, v, ix)@ vectorizes
+-- | The application @build1VIxOccurenceUnknown k (var, v, ix) perm@ vectorizes
 -- the term @AstBuild1 k (var, AstIndexZ (AstTranspose perm v) ix)@,
 -- where it's unknown whether @var@ occurs in any of @v@, @ix@.
 -- Always @perm@ is empty or longer than @ix@.
@@ -163,21 +163,21 @@ build1V k (var, v0) =
 -- than that.
 build1VIxOccurenceUnknown
   :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
-  => Int -> Permutation -> (AstVarName Int, Ast (m + n) r, AstIndex m r)
+  => Int -> (AstVarName Int, Ast (m + n) r, AstIndex m r) -> Permutation
   -> Ast (1 + n) r
-build1VIxOccurenceUnknown k perm0 (var, v0, ZI) =
+build1VIxOccurenceUnknown k (var, v0, ZI) perm0 =
   build1VOccurenceUnknown k (var, AstTranspose perm0 v0)
-build1VIxOccurenceUnknown k perm0 (var, v0, ix@(_ :. _)) =
+build1VIxOccurenceUnknown k (var, v0, ix@(_ :. _)) perm0 =
  assert (null perm0 || length perm0 > valueOf @m) $
   let traceRule = mkTraceRule "build1VIxOcc"
                     (AstBuild1 k (var, AstIndexZ (AstTranspose perm0 v0) ix))
                     v0 1
   in if intVarInAst var v0
-     then build1VIx k perm0 (var, v0, ix)  -- push deeper
+     then build1VIx k (var, v0, ix) perm0  -- push deeper
      else traceRule $
             astGather1 (var, ix) (AstTranspose perm0 v0) k
 
--- | The application @build1VIx k perm (var, v, ix)@ vectorizes
+-- | The application @build1VIx k (var, v, ix) perm@ vectorizes
 -- the term @AstBuild1 k (var, AstIndexZ (AstTranspose perm v) ix)@,
 -- where it's known that @var@ occurs in @v@. It may or may not
 -- additionally occur in @ix@.
@@ -190,10 +190,10 @@ build1VIxOccurenceUnknown k perm0 (var, v0, ix@(_ :. _)) =
 -- the terms, if possible in constant time.
 build1VIx
   :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
-  => Int -> Permutation -> (AstVarName Int, Ast (m + n) r, AstIndex m r)
+  => Int -> (AstVarName Int, Ast (m + n) r, AstIndex m r) -> Permutation
   -> Ast (1 + n) r
-build1VIx k perm0 (var, v0, ZI) = build1V k (var, AstTranspose perm0 v0)
-build1VIx k perm0 (var, v0, is@(i1 :. rest1)) =
+build1VIx k (var, v0, ZI) perm0 = build1V k (var, AstTranspose perm0 v0)
+build1VIx k (var, v0, is@(i1 :. rest1)) perm0 =
  assert (null perm0 || length perm0 > valueOf @m) $
   let bv = AstBuild1 k (var, AstIndexZ (AstTranspose perm0 v0) is)
       traceRule = mkTraceRule "build1VIx" bv v0 1
@@ -203,7 +203,7 @@ build1VIx k perm0 (var, v0, is@(i1 :. rest1)) =
 
     AstOp opCode args -> traceRule $
       AstOp opCode $ map (\v ->
-        build1VIxOccurenceUnknown k perm0 (var, v, is)) args
+        build1VIxOccurenceUnknown k (var, v, is) perm0) args
 
     AstConst{} ->
       error "build1VIx: AstConst can't have free int variables"
@@ -217,7 +217,7 @@ build1VIx k perm0 (var, v0, is@(i1 :. rest1)) =
       let p = valueOf @p
           perm2 = [0 .. p - 1] ++ map (+ p) perm0
       in build1VIxOccurenceUnknown
-           k [] (var, astTranspose perm2 v, appendIndex ix2 is)
+           k (var, astTranspose perm2 v, appendIndex ix2 is) []
     AstSum v -> traceRule $
       let perm2 = 0 : map succ perm0
           perm3 = permCycle $ valueOf @m + 1
@@ -296,7 +296,7 @@ build1VIx k perm0 (var, v0, is@(i1 :. rest1)) =
       -- for the common case where out of bound does not appear,
       -- as well as for the case where value other than 0 is desired
       case permSwapSplit perm0 of
-        Nothing -> build1VIx k [] (var, v, rest1)
+        Nothing -> build1VIx k (var, v, rest1) []
         Just (j, permRest) ->
           build1V k (var, t)
          where
@@ -350,7 +350,7 @@ build1VIx k perm0 (var, v0, is@(i1 :. rest1)) =
       case permSwapSplit perm0 of
         Nothing ->
           build1VIx
-            k [] (var, v, AstIntOp PlusIntOp [i1, AstIntConst i2] :. rest1)
+            k (var, v, AstIntOp PlusIntOp [i1, AstIntConst i2] :. rest1) []
         Just (j, permRest) ->
           build1V k (var, t)
          where
@@ -376,7 +376,7 @@ build1VIx k perm0 (var, v0, is@(i1 :. rest1)) =
         Nothing ->
           let revIs = AstIntOp MinusIntOp [AstIntConst (lengthAst v - 1), i1]
                       :. rest1
-          in build1VIx k [] (var, v, revIs)
+          in build1VIx k (var, v, revIs) []
         Just (j, permRest) ->
           build1V k (var, t)
          where
@@ -401,16 +401,16 @@ build1VIx k perm0 (var, v0, is@(i1 :. rest1)) =
       case astTranspose perm0 v0 of
         AstTranspose perm v ->
           if length perm > valueOf @m
-          then build1VIx k perm (var, v, is)
+          then build1VIx k (var, v, is) perm
           else let ix2 = permutePrefixIndex perm is
-               in build1VIx k [] (var, v, ix2)
-        v -> build1VIx k [] (var, v, is)
+               in build1VIx k (var, v, ix2) []
+        v -> build1VIx k (var, v, is) []
     AstFlatten v -> traceRule $
       assert (isIdentityPerm perm0)
       $ case rest1 of
         ZI ->
           let ixs2 = fromLinearIdx (fmap AstIntConst (shapeAst v)) i1
-          in build1VIx k [] (var, v, ixs2)
+          in build1VIx k (var, v, ixs2) []
         _ ->
           error "build1VIx: AstFlatten: impossible pattern needlessly required"
     AstReshape sh v -> traceRule $
@@ -421,13 +421,13 @@ build1VIx k perm0 (var, v0, is@(i1 :. rest1)) =
       -- >     u = AstSlice i (product $ drop (length is) sh) $ AstFlatten v
       -- > in AstReshape (k : sh) $ build1V k (var, u)
       -- Instead, we express the reshape using gather and process that.
-      build1VIx k perm0 (var, reshapeAsGather v sh, is)
-    AstBuild1{} -> error "build1VIx: impossible case of AstBuild1"
+      build1VIx k (var, reshapeAsGather v sh, is) perm0
+    AstBuild1{} -> error "build1VIx: impossible case: AstBuild1"
     AstGather1 @p7 (var2, ix4) v n2 -> traceRule $
       case permSwapSplit perm0 of
         Nothing ->
           let ix3 = fmap (substituteAstInt i1 var2) ix4
-          in build1VIxOccurenceUnknown k [] (var, v, appendIndex ix3 rest1)
+          in build1VIxOccurenceUnknown k (var, v, appendIndex ix3 rest1) []
             -- we don't know if var occurs in v; it could have been in ix4
         Just (j, permRest) ->
           build1V k (var, t)
@@ -454,7 +454,7 @@ build1VIx k perm0 (var, v0, is@(i1 :. rest1)) =
               in AstIndexZ (astTranspose permRest v2)
                            (appendIndex ix2 ixRest2)
     AstGatherN (Z, ix4) v _sh -> traceRule $
-      build1VIx k perm0 (var, AstIndexZ v ix4, is)
+      build1VIx k (var, AstIndexZ v ix4, is) perm0
     AstGatherN @m7 @_p7 @n7 (vars, ix4) v sh -> traceRule $
       let v2 = case cmpNat (Proxy @m) (Proxy @(m7 + n7)) of
             EQI ->
