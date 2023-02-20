@@ -77,12 +77,16 @@ data Ast :: Nat -> Type -> Type where
     -- if index is out of bounds, the result is defined and is 0;
     -- however, vectorization is permitted to change the value
   AstSum :: Ast (1 + n) r -> Ast n r
-  AstFromList :: [Ast n r] -> Ast (1 + n) r
-  AstFromVector :: Data.Vector.Vector (Ast n r) -> Ast (1 + n) r
-  AstKonst :: Int -> Ast n r -> Ast (1 + n) r
+  AstFromList :: KnownNat n
+              => [Ast n r] -> Ast (1 + n) r
+  AstFromVector :: KnownNat n
+                => Data.Vector.Vector (Ast n r) -> Ast (1 + n) r
+  AstKonst :: KnownNat n
+           => Int -> Ast n r -> Ast (1 + n) r
   AstAppend :: KnownNat n
             => Ast (1 + n) r -> Ast (1 + n) r -> Ast (1 + n) r
-  AstSlice :: Int -> Int -> Ast (1 + n) r -> Ast (1 + n) r
+  AstSlice :: KnownNat n
+           => Int -> Int -> Ast (1 + n) r -> Ast (1 + n) r
   AstReverse :: KnownNat n
              => Ast (1 + n) r -> Ast (1 + n) r
   AstTranspose :: Permutation -> Ast n r -> Ast n r
@@ -94,7 +98,7 @@ data Ast :: Nat -> Type -> Type where
     -- emerges from vectorizing AstFlatten
   AstBuild1 :: Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
     -- indicates a failure in vectorization, but may be recoverable later on
-  AstGather1 :: forall p n r. KnownNat p
+  AstGather1 :: forall p n r. (KnownNat p, KnownNat n)
              => (AstVarName Int, AstIndex p r) -> Ast (p + n) r
              -> Int -> Ast (1 + n) r
     -- emerges from vectorizing AstIndexZ applied to a term with no build
@@ -115,7 +119,8 @@ deriving instance (Show r, Numeric r) => Show (Ast n r)
 -- Combinators are provided instead of some constructors in order
 -- to lower the number of constructors and/or simplify terms.
 
-astCond :: AstBool r -> Ast n r -> Ast n r -> Ast n r
+astCond :: KnownNat n
+        => AstBool r -> Ast n r -> Ast n r -> Ast n r
 astCond b v w = AstIndexZ (AstFromList [v, w])
                           (singletonIndex $ AstIntCond b 0 1)
 
@@ -167,8 +172,8 @@ permCycle 0 = []
 permCycle 1 = []
 permCycle n = [k `mod` n | k <- [1 .. n]]
 
--- | Produces a two-element swap involving the first element
--- and the permutation that needs to applied first, before the swap,
+-- | Produces a (possibly trival) two-element swap involving the first element
+-- and the permutation that needs to be applied first, before the swap,
 -- to produce the same result as the original permutation.
 -- Addtionally, the latter permutation is represented as operating
 -- on all but the first element of a list (the first element is fixed)
@@ -176,8 +181,9 @@ permCycle n = [k `mod` n | k <- [1 .. n]]
 permSwapSplit :: Permutation -> Maybe (Int, Permutation)
 permSwapSplit = \case
   [] -> Nothing
+  perm | isIdentityPerm perm -> Nothing
   i : rest -> case elemIndex 0 rest of
-    Nothing -> assert (i == 0) Nothing
+    Nothing -> assert (i == 0) $ Just (0, map ((-) 1) rest)
     Just j -> let f k = if k == 0 then i - 1 else k - 1
               in Just (j, map f rest)
 
@@ -374,7 +380,7 @@ instance OrdB (AstInt r) where
 
 type instance BooleanOf (Ast n r) = AstBool r
 
-instance IfB (Ast n r) where
+instance KnownNat n => IfB (Ast n r) where
   ifB = astCond
 
 instance KnownNat n => EqB (Ast n r) where
@@ -389,7 +395,7 @@ instance KnownNat n => OrdB (Ast n r) where
 
 type instance BooleanOf (AstPrimalPart n r) = AstBool r
 
-instance IfB (AstPrimalPart n r) where
+instance KnownNat n => IfB (AstPrimalPart n r) where
   ifB b v w = AstPrimalPart $ astCond b (unAstPrimalPart v) (unAstPrimalPart w)
 
 instance KnownNat n => EqB (AstPrimalPart n r) where
