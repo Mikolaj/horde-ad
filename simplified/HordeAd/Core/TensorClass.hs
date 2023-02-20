@@ -708,12 +708,6 @@ reshape :: (ADModeAndNumTensor d r, KnownNat m, KnownNat n)
         => ShapeInt m -> ADVal d (OR.Array n r) -> ADVal d (OR.Array m r)
 reshape sh (D u u') = dD (treshapeR sh u) (dReshape1 (tshapeR u) sh u')
 
--- The element-wise (POPL) version, but only one rank at a time.
-build1 :: (ADModeAndNumTensor d r, KnownNat n)
-       => Int -> (Int -> ADVal d (OR.Array n r))
-       -> ADVal d (OR.Array (1 + n) r)
-build1 k f = fromList $ map f [0 .. k - 1]
-
 -- Note that if any index is out of bounds, the result of that particular
 -- projection is defined and is 0 (but beware of vectorization).
 gatherNClosure :: (ADModeAndNumTensor d r, KnownNat m, KnownNat p, KnownNat n)
@@ -851,9 +845,9 @@ interpretAst env = \case
     tconstant $ fromArray
     $ OR.ravel . ORB.fromVector [k] . V.generate k
     $ \j -> toArray $ tprimalPart $ interpretLambdaI env (var, AstConstant r) j
-  AstBuild1 k (var, v) -> build1 k (interpretLambdaI env (var, v))
-      -- fallback to POPL (memory blowup, but avoids functions on tape);
-      -- an alternative is to use dBuild1 and store function on tape
+  AstBuild1 k (var, v) ->
+    -- This is morally the correct term here (vectorization eliminates others):
+    interpretAst env $ AstBuild1 k (var, AstConstant $ AstPrimalPart v)
   AstGather1 (var, ix) v k ->
     gather1Closure (interpretLambdaIndex env (var, ix)) (interpretAst env v) k
     -- TODO: currently we store the function on tape, because it doesn't
