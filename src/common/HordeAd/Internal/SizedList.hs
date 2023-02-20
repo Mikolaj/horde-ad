@@ -41,7 +41,8 @@ import GHC.TypeLits
 infixr 3 :::
 data SizedList (n :: Nat) i where
   Z :: SizedList 0 i
-  (:::) :: i -> SizedList n i -> SizedList (1 + n) i
+  (:::) :: KnownNat n
+        => i -> SizedList n i -> SizedList (1 + n) i
 
 deriving instance Eq i => Eq (SizedList n i)
 
@@ -65,11 +66,12 @@ instance KnownNat n => IsList (SizedList n i) where
 singletonSized :: i -> SizedList 1 i
 singletonSized i = i ::: Z
 
-snocSized :: SizedList n i -> i -> SizedList (1 + n) i
+snocSized :: KnownNat n => SizedList n i -> i -> SizedList (1 + n) i
 snocSized Z last1 = last1 ::: Z
 snocSized (i ::: ix) last1 = i ::: snocSized ix last1
 
-appendSized :: SizedList m i -> SizedList n i -> SizedList (m + n) i
+appendSized :: KnownNat n
+            => SizedList m i -> SizedList n i -> SizedList (m + n) i
 appendSized Z ix2 = ix2
 appendSized (i1 ::: ix1) ix2 = i1 ::: appendSized ix1 ix2
 

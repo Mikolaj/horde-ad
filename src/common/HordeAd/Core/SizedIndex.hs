@@ -67,7 +67,7 @@ pattern ZI :: forall n i. () => n ~ 0 => Index n i
 pattern ZI = Index Z
 
 infixr 3 :.
-pattern (:.) :: forall n1 i. forall n. (1 + n) ~ n1
+pattern (:.) :: forall n1 i. KnownNat n1 => forall n. (KnownNat n, (1 + n) ~ n1)
              => i -> Index n i -> Index n1 i
 pattern i :. sh <- (unconsIndex -> Just (UnconsIndexRes sh i))
   where i :. (Index sh) = Index (i ::: sh)
@@ -93,10 +93,10 @@ instance KnownNat n => IsList (Index n i) where
 singletonIndex :: i -> Index 1 i
 singletonIndex = Index . singletonSized
 
-snocIndex :: Index n i -> i -> Index (1 + n) i
+snocIndex :: KnownNat n => Index n i -> i -> Index (1 + n) i
 snocIndex (Index ix) i = Index $ snocSized ix i
 
-appendIndex :: Index m i -> Index n i -> Index (m + n) i
+appendIndex :: KnownNat n => Index m i -> Index n i -> Index (m + n) i
 appendIndex (Index ix1) (Index ix2) = Index $ appendSized ix1 ix2
 
 headIndex :: Index (1 + n) i -> i
@@ -138,12 +138,13 @@ lastIndex (Index ix) = lastSized ix
 initIndex :: Index (1 + n) i -> Index n i
 initIndex (Index ix) = Index $ initSized ix
 
-zipIndex :: Index n i -> Index n j -> Index n (i, j)
+zipIndex :: KnownNat n => Index n i -> Index n j -> Index n (i, j)
 zipIndex ZI ZI = ZI
 zipIndex (i :. irest) (j :. jrest) = (i, j) :. zipIndex irest jrest
 zipIndex _ _ = error "zipIndex: impossible pattern needlessly required"
 
-zipWith_Index :: (i -> j -> k) -> Index n i -> Index n j -> Index n k
+zipWith_Index :: KnownNat n
+              => (i -> j -> k) -> Index n i -> Index n j -> Index n k
 zipWith_Index _ ZI ZI = ZI
 zipWith_Index f (i :. irest) (j :. jrest) = f i j :. zipWith_Index f irest jrest
 zipWith_Index _ _ _ =
