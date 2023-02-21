@@ -427,7 +427,9 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   treverse = AstPrimalPart . AstReverse . unAstPrimalPart
   ttranspose perm = AstPrimalPart . AstTranspose perm . unAstPrimalPart
   treshape sh = AstPrimalPart . AstReshape sh  . unAstPrimalPart
-  tbuild1 k f = AstPrimalPart $ astBuild1 k $ \ix -> unAstPrimalPart $ f ix
+  tbuild1 k f = AstPrimalPart $ AstBuild1 k
+                $ funToAstI  -- this introduces new variable names
+                $ unAstPrimalPart . f
 
   tscalar = id
   tunScalar = id
