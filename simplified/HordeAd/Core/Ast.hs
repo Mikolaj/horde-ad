@@ -152,7 +152,7 @@ astKonst k = \case
   v -> AstKonst k v
 
 astTr :: forall n r. KnownNat n => Ast (2 + n) r -> Ast (2 + n) r
-astTr v = astTranspose [1, 0] v
+astTr = astTranspose [1, 0]
 
 astTranspose :: forall n r. KnownNat n
              => Permutation -> Ast n r -> Ast n r
@@ -183,7 +183,7 @@ permSwapSplit = \case
   [] -> Nothing
   perm | isIdentityPerm perm -> Nothing
   i : rest -> case elemIndex 0 rest of
-    Nothing -> assert (i == 0) $ Just (0, map ((-) 1) rest)
+    Nothing -> assert (i == 0) $ Just (0, map (\k -> k - 1) rest)
     Just j -> let f k = if k == 0 then i - 1 else k - 1
               in Just (j, map f rest)
 
