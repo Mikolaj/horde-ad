@@ -100,11 +100,10 @@ nestedBuildMap r =
       variableLengthBuild iy = tbuild1 7 (\ix -> tindex v' [ix + iy])
       doublyBuild = tbuild1 5 (tminimum @r @1. variableLengthBuild)
   in tmap0N (\x -> x
-                  * (tsum0
-                      (tbuild1 3 (\ix -> bar (x
-                                            , tindex v' [ix]) )
+                  * tsum0
+                      (tbuild1 3 (\ix -> bar (x, tindex v' [ix]))
                        + fooBuild1 (nestedMap (tunScalar x))
-                       / fooMap1 (tunScalar x)))
+                       / fooMap1 (tunScalar x))
            ) doublyBuild
 
 nestedSumBuild :: ADReady r => TensorOf 1 r -> TensorOf 1 r

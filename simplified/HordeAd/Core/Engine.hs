@@ -93,7 +93,7 @@ revOnADInputs
   -> ADInputs 'ADModeGradient r
   -> (Domains r, a)
 {-# INLINE revOnADInputs #-}
-revOnADInputs dt f inputs = revOnADInputsFun (const dt) f inputs
+revOnADInputs = revOnADInputsFun . const
 
 -- VJP (vector-jacobian product) or Lop (left operations) are alternative
 -- names, but newbies may have trouble understanding it.
@@ -116,7 +116,7 @@ revOnDomains
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
   -> Domains r
   -> (Domains r, a)
-revOnDomains dt = revOnDomainsFun (const dt)
+revOnDomains = revOnDomainsFun . const
 
 
 -- * The slow evaluation for derivatives that uses the same

@@ -107,7 +107,7 @@ fooBuild0 :: forall r n. (ADReady r, KnownNat n)
           => TensorOf (1 + n) r -> TensorOf (1 + n) r
 fooBuild0 v =
   let r = tsum v
-  in tbuild1 2 $ \_ix -> r
+  in tbuild1 2 $ const r
 
 testFooBuild0 :: Assertion
 testFooBuild0 =
@@ -262,10 +262,10 @@ nestedBuildMap r =
         tbuild1 3 (tkonst0N (takeShape @n @(6 - n)
                              $ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ ZS)
                    . tminimum . variableLengthBuild)
-  in tmap0N (\x -> x * (tsum0
-                          (tbuild1 3 (\ix -> bar (x, tindex v' [ix]))
-                           + fooBuild1 (nestedMap x)
-                           / fooMap1 [3] x))
+  in tmap0N (\x -> x * tsum0
+                         (tbuild1 3 (\ix -> bar (x, tindex v' [ix]))
+                          + fooBuild1 (nestedMap x)
+                          / fooMap1 [3] x)
             ) doublyBuild
 
 testNestedBuildMap1 :: Assertion
@@ -315,7 +315,7 @@ nestedSumBuildB v =
     [ix, ix2] ->
       flip tindex [ix2]
         (tfromList
-             [ tbuild1 2 $ tfromIntOf0
+             [ tbuild1 2 tfromIntOf0
              , tsum $ tbuild [9, 2] $ const $ tfromIntOf0 ix
              , tindex v (listToIndex @n
                          $ replicate (trank v - 1)
@@ -345,7 +345,7 @@ testNestedBuildIndex =
 barRelu
   :: ( ADReady r, KnownNat n, RealFloat (TensorOf n r) )
   => TensorOf n r -> TensorOf n r
-barRelu x = let t = (tkonst0N (tshape x) 0.001) * x
+barRelu x = let t = tkonst0N (tshape x) 0.001 * x
             -- TODO: the following is 20 times slower
             -- let t = tmap0N (* 0.001) x
             in relu1 $ bar (t, relu1 t)
@@ -409,7 +409,7 @@ concatBuild :: (ADReady r, KnownNat n)
             => TensorOf (1 + n) r -> TensorOf (3 + n) r
 concatBuild r =
   tbuild1 7 (\i ->
-    tappend (tappend (tbuild1 5 (\_j -> r))  -- TODO: i should work
+    tappend (tappend (tbuild1 5 (const r))  -- TODO: i should work
                      (tbuild1 1 (\j -> tmap0N (* tfromIntOf0 (j - i)) r)))
             (tbuild1 13 (\_k ->
                tsum $ ttr $ tkonst (tlength r) (tslice 0 1 r))))

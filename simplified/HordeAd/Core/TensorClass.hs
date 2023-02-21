@@ -554,7 +554,7 @@ instance ADModeAndNumTensor d r => HasPrimal (ADVal d r) where
   tconstant t = dD (toArray t) dZero
   tprimalPart (D u _) = fromArray u
   tdualPart (D _ u') = u'
-  tD u u' = dD (toArray u) u'
+  tD u = dD (toArray u)
 
 type ADModeAndNumTensor (d :: ADMode) r =
   ( ADModeAndNum d r

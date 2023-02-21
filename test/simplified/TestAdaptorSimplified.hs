@@ -279,10 +279,10 @@ nestedBuildMap r =
       nestedMap x = tmap0N (x /) (w x)
       variableLengthBuild iy = tbuild1 7 (\ix -> tindex v' (ix + iy :. ZI))
       doublyBuild = tbuild1 5 (tminimum . variableLengthBuild)
-  in tmap0N (\x -> x * (tsum0
+  in tmap0N (\x -> x * tsum0
                          (tbuild1 3 (\ix -> bar (x, tindex v' [ix]))
                           + fooBuild1 (nestedMap x)
-                          / fooMap1 x))
+                          / fooMap1 x)
             ) doublyBuild
 
 testNestedBuildMap1 :: Assertion

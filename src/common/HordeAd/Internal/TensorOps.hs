@@ -316,8 +316,8 @@ tgatherNR :: forall m p n r.
 tgatherNR f t sh =
   let shm = takeShape @m sh
       s = sizeShape shm
-      l = map (\ix -> OR.toVector $ t `tindexZR` f ix)
-              [fromLinearIdx shm i | i <- [0 .. s - 1]]
+      l = [ OR.toVector $ t `tindexZR` f (fromLinearIdx shm i)
+          | i <- [0 .. s - 1] ]
   in OR.fromVector (shapeToList sh) $ LA.vjoin l
 
 tgather1R :: (KnownNat p, KnownNat n, Show r, Numeric r)
