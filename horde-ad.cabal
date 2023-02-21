@@ -502,6 +502,7 @@ library horde-ad-simplified
 
     exposed-modules:  HordeAd
                       HordeAd.Core.Ast
+                      HordeAd.Core.AstSimplify
                       HordeAd.Core.AstVectorize
                       HordeAd.Core.DualClass
                       HordeAd.Core.DualNumber

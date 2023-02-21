@@ -26,6 +26,7 @@ import           System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Ast
+import HordeAd.Core.AstSimplify
 import HordeAd.Core.SizedIndex
 import HordeAd.Internal.SizedList
 

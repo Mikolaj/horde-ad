@@ -26,9 +26,9 @@ import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
-import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Ast
+import HordeAd.Core.AstSimplify
 import HordeAd.Core.AstVectorize
 import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber hiding (build1)
@@ -398,6 +398,16 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   tscalar = id  -- Ast confuses the two ranks
   tunScalar = id
 
+-- This is a vectorizing combinator that also simplifies
+-- the terms touched during vectorization, but not any others.
+-- Due to how the Ast instance of Tensor is defined above, vectorization
+-- works bottom-up, which removes the need to backtrack in the vectorization
+-- pass or repeat until a fixed point is reached.
+-- This combinator also introduces new variable names.
+astBuild1 :: (KnownNat n, Show r, Numeric r)
+          => Int -> (AstInt r -> Ast n r) -> Ast (1 + n) r
+astBuild1 k f = build1Vectorize k $ funToAstI f
+
 instance ( Numeric r, RealFloat r, RealFloat (Vector r)
          , Show r, Numeric r )
          => Tensor (AstPrimalPart 0 r) where
@@ -433,26 +443,6 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
 
   tscalar = id
   tunScalar = id
-
-funToAstR :: ShapeInt n -> (Ast n r -> Ast m r)
-          -> (AstVarName (OR.Array n r), Ast m r)
-{-# NOINLINE funToAstR #-}
-funToAstR sh f = unsafePerformIO $ do
-  freshAstVar <- unsafeGetFreshAstVar
-  return (freshAstVar, f (AstVar sh freshAstVar))
-
-funToAstI :: (AstInt r -> Ast m r) -> (AstVarName Int, Ast m r)
-{-# NOINLINE funToAstI #-}
-funToAstI f = unsafePerformIO $ do
-  freshAstVar <- unsafeGetFreshAstVar
-  return (freshAstVar, f (AstIntVar freshAstVar))
-
-astBuild1 :: (KnownNat n, Show r, Numeric r)
-          => Int -> (AstInt r -> Ast n r) -> Ast (1 + n) r
-astBuild1 k f = build1Vectorize k $ funToAstI f
-    -- TODO: this vectorizes depth-first, which is needed. But do we
-    -- also need a translation to non-vectorized terms for anything
-    -- (other than for comparative tests)?
 
 {- These instances are increasingly breaking stuff, so disabled:
 
