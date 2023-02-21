@@ -65,6 +65,10 @@ build1Vectorize k (var, v0) = unsafePerformIO $ do
                    `swith`(shapeAst startTerm, shapeAst endTerm)) ()
   return endTerm
 
+-- This abbreviation is used a lot below.
+astTr :: forall n r. KnownNat n => Ast (2 + n) r -> Ast (2 + n) r
+astTr = astTranspose [1, 0]
+
 -- | The application @build1VOccurenceUnknown k (var, v)@ vectorizes
 -- the term @AstBuild1 k (var, v)@, where it's unknown whether
 -- @var@ occurs in @v@.
@@ -422,7 +426,7 @@ build1VIx k (var, v0, is@(i1 :. rest1)) perm0 =
       -- >     u = AstSlice i (product $ drop (length is) sh) $ AstFlatten v
       -- > in AstReshape (k : sh) $ build1V k (var, u)
       -- Instead, we express the reshape using gather and process that.
-      build1VIx k (var, reshapeAsGather v sh, is) perm0
+      build1VIx k (var, astReshape sh v, is) perm0
     AstBuild1{} -> error "build1VIx: impossible case: AstBuild1"
     AstGather1 @p7 (var2, ix4) v n2 -> traceRule $
       case permSwapSplit perm0 of

@@ -17,9 +17,12 @@
 module HordeAd.Core.AstSimplify
   ( isIdentityPerm, permCycle, permSwapSplit
   , unsafeGetFreshAstVar, funToAstR, funToAstI
-  , reshapeAsGather
-  , astIndexZ, astKonst, astTr, astTranspose
+  , astReshape
+  , astIndexZ, astSum, astFromList, astFromVector, astKonst
+  , astAppend, astSlice, astReverse, astTranspose, astFlatten
   , astGather1, astGatherN
+  , astIntCond
+  , simplifyAst
   ) where
 
 import Prelude
@@ -30,6 +33,8 @@ import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.List (elemIndex)
+import qualified Data.Strict.Vector as Data.Vector
+import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+))
 import           Numeric.LinearAlgebra (Numeric)
 import           System.IO.Unsafe (unsafePerformIO)
@@ -94,10 +99,10 @@ funToAstI f = unsafePerformIO $ do
 
 -- TODO: decide whether to use always and perhaps remove AstFlatten
 -- or not to use for Flatten, but fuse with Flatten, etc.
-reshapeAsGather :: forall p m r. (KnownNat p, KnownNat m, Show r, Numeric r)
-                => Ast p r -> ShapeInt m -> Ast m r
-{-# NOINLINE reshapeAsGather #-}
-reshapeAsGather v shOut = unsafePerformIO $ do
+astReshape :: forall p m r. (KnownNat p, KnownNat m, Show r, Numeric r)
+           => ShapeInt m -> Ast p r -> Ast m r
+{-# NOINLINE astReshape #-}
+astReshape shOut v = unsafePerformIO $ do
   varList <- replicateM (lengthShape shOut) unsafeGetFreshAstVar
   let vars :: AstVarList m
       vars = listToSized varList
@@ -131,6 +136,17 @@ astIndexZ v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) = case v0 of
   _ -> AstIndexZ v0 ix
     -- a lot more can be added, but how not to duplicate build1VIx?
 
+astSum :: Ast (1 + n) r -> Ast n r
+astSum = AstSum
+
+astFromList :: KnownNat n
+            => [Ast n r] -> Ast (1 + n) r
+astFromList = AstFromList
+
+astFromVector :: KnownNat n
+              => Data.Vector.Vector (Ast n r) -> Ast (1 + n) r
+astFromVector = AstFromVector
+
 astKonst :: KnownNat n => Int -> Ast n r -> Ast (1 + n) r
 astKonst k = \case
   AstTranspose perm v ->
@@ -139,8 +155,17 @@ astKonst k = \case
     AstReshape (k :$ sh) $ astKonst k v
   v -> AstKonst k v
 
-astTr :: forall n r. KnownNat n => Ast (2 + n) r -> Ast (2 + n) r
-astTr = astTranspose [1, 0]
+astAppend :: KnownNat n
+          => Ast (1 + n) r -> Ast (1 + n) r -> Ast (1 + n) r
+astAppend = AstAppend
+
+astSlice :: KnownNat n
+         => Int -> Int -> Ast (1 + n) r -> Ast (1 + n) r
+astSlice = AstSlice
+
+astReverse :: KnownNat n
+           => Ast (1 + n) r -> Ast (1 + n) r
+astReverse = AstReverse
 
 astTranspose :: forall n r. KnownNat n
              => Permutation -> Ast n r -> Ast n r
@@ -151,6 +176,10 @@ astTranspose perm1 (AstTranspose perm2 t) =
       perm = permutePrefixList perm1 perm2Matched
   in astTranspose perm t
 astTranspose perm u = AstTranspose perm u
+
+astFlatten :: KnownNat n
+           => Ast n r -> Ast 1 r
+astFlatten = AstFlatten
 
 -- Assumption: var does not occur in v0.
 astGather1 :: forall p n r. (KnownNat p, KnownNat n, Show r, Numeric r)
@@ -236,7 +265,86 @@ astSliceLax i k v =
         | i == 0 -> AstAppend v v2
         | otherwise -> AstAppend (AstSlice i kMax v) v2
 
+astIntCond :: AstBool r -> AstInt r -> AstInt r -> AstInt r
+astIntCond = AstIntCond
+
+astMinIndex1 :: Ast 1 r -> AstInt r
+astMinIndex1 = AstMinIndex1
+
+astMaxIndex1 :: Ast 1 r -> AstInt r
+astMaxIndex1 = AstMaxIndex1
+
 
 -- * The simplifying bottom-up pass
 
--- TODO
+-- The constant, primal-part only terms are not vectorized, never
+-- introduced by vectorization (let's keep checking it's true)
+-- and so don't need to be simplified.
+simplifyAstPrimal :: AstPrimalPart n r -> AstPrimalPart n r
+simplifyAstPrimal (AstPrimalPart t) = AstPrimalPart t
+
+simplifyAst
+  :: (KnownNat n, Show r, Numeric r)
+  => Ast n r -> Ast n r
+simplifyAst t = case t of
+  AstVar{} -> t
+  AstOp opCode args -> AstOp opCode (map simplifyAst args)
+    -- We do not simplify, e.g., addition or multiplication by zero.
+    -- There are too many cases and values are often unknown.
+  AstConst{} -> t
+  AstConstant a -> AstConstant $ simplifyAstPrimal a
+  AstConstInt i -> AstConstInt $ simplifyAstInt i
+  AstIndexZ v ix -> astIndexZ (simplifyAst v) (fmap (simplifyAstInt) ix)
+  AstSum v -> astSum (simplifyAst v)
+  AstFromList l -> astFromList (map (simplifyAst) l)
+  AstFromVector l -> astFromVector (V.map (simplifyAst) l)
+  AstKonst k v -> astKonst k (simplifyAst v)
+  AstAppend x y -> astAppend (simplifyAst x) (simplifyAst y)
+  AstSlice i k v -> astSlice i k (simplifyAst v)
+  AstReverse v -> astReverse (simplifyAst v)
+  AstTranspose perm v -> astTranspose perm $ simplifyAst v
+  AstFlatten v -> astFlatten $ simplifyAst v
+  AstReshape sh v -> astReshape sh (simplifyAst v)
+  AstBuild1{} -> t  -- should never appear outside test runs
+  AstGather1 (var, ix) v k ->
+    astGather1 (var, fmap (simplifyAstInt) ix) (simplifyAst v) k
+  AstGatherN (vars, ix) v sh ->
+    astGatherN (vars, fmap (simplifyAstInt) ix) (simplifyAst v) sh
+
+-- Integer terms need to be simplified, because they are sometimes
+-- created by vectorization and can be a deciding factor in whether
+-- dual terms can be simplified in turn.
+simplifyAstInt :: (Show r, Numeric r)
+               => AstInt r -> AstInt r
+simplifyAstInt t = case t of
+  AstIntVar{} -> t
+  AstIntOp opCodeInt args -> AstIntOp opCodeInt (map simplifyAstInt args)
+    -- We do not simplify, e.g., addition or multiplication by zero.
+    -- Arriving at some normal form is worth considering for the sake
+    -- of gatherSimplify.
+  AstIntConst{} -> t
+  AstIntFloor v -> AstIntFloor $ simplifyAst v
+    -- Equality of floats is suspect, so no attempt to simplify.
+  AstIntCond b a1 a2 -> astIntCond (simplifyAstBool b)
+                                   (simplifyAstInt a1)
+                                   (simplifyAstInt a2)
+  AstMinIndex1 v -> astMinIndex1 $ simplifyAst v
+  AstMaxIndex1 v -> astMaxIndex1 $ simplifyAst v
+
+simplifyAstBool :: (Show r, Numeric r)
+                => AstBool r -> AstBool r
+simplifyAstBool t = case t of
+  AstBoolOp opCodeBool args -> AstBoolOp opCodeBool (map simplifyAstBool args)
+    -- We do not simplify, e.g., conjunction with False. Worth considering.
+  AstBoolConst{} -> t
+  AstRel{} -> t
+    -- these are primal part expressions, so never vectorized but potentially
+    -- large, so we ignore them, even if rarely they could contribute
+    -- to simplifying the dual expressions affected by vectorization
+    -- in which they are nested; if we ever notice such large expressions
+    -- that are actually *introduced* into AstRel by vectorization,
+    -- we are going to need to start simplifyign them as well
+    -- even just to try to reduce their size
+  AstRelInt opCodeRel args -> AstRelInt opCodeRel (map simplifyAstInt args)
+    -- We do not simplify, e.g., equality of syntactically equal terms.
+    -- There are too many cases and values are often unknown.
