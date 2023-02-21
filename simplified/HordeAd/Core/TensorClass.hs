@@ -100,7 +100,10 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tsum0 = tsum . tflatten
   tdot0 :: KnownNat n => TensorOf n r -> TensorOf n r -> TensorOf 0 r
   tdot0 t u = tsum (tflatten t * tflatten u)
-  tmatmul :: TensorOf 2 r -> TensorOf 2 r -> TensorOf 1 r
+  tmatmul1 :: TensorOf 2 r -> TensorOf 1 r -> TensorOf 1 r
+  tmatmul1 m v = tbuild1 (tlength m) (\i -> tdot0 v (m ! [i]))
+  tmatmul2 :: TensorOf 2 r -> TensorOf 2 r -> TensorOf 2 r
+  tmatmul2 m1 m2 = tmap1 (tmatmul1 m2) m1
   tminimum :: KnownNat n => TensorOf n r -> TensorOf 0 r
   tminimum t = t ! tminIndex t
   tmaximum :: KnownNat n => TensorOf n r -> TensorOf 0 r
@@ -266,7 +269,6 @@ instance Tensor Double where
   tsum = tsumR
   tsum0 = tscalar . tsum0R
   tdot0 u v = tscalar $ tdot0R u v
-  tmatmul = undefined
   tfromList = tfromListR
   tfromList0N = tfromList0NR
   tfromVector = tfromVectorR
@@ -294,7 +296,6 @@ instance Tensor Float where
   tsum = tsumR
   tsum0 = tscalar . tsum0R
   tdot0 u v = tscalar $ tdot0R u v
-  tmatmul = undefined
   tfromList = tfromListR
   tfromList0N = tfromList0NR
   tfromVector = tfromVectorR
@@ -341,7 +342,6 @@ instance ADModeAndNumTensor d r => Tensor (ADVal d r) where
   tsum = sum'
   tsum0 = tscalar . sum0
   tdot0 u v = tscalar $ dot0 u v
-  tmatmul = undefined
 
   tfromList = fromList
   tfromList0N = fromList0N
@@ -377,7 +377,6 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
 
   tindex = AstIndexZ
   tsum = AstSum
-  tmatmul = undefined
   tfromIntOf0 = AstConstInt
     -- toInteger is not defined for Ast, hence a special implementation
 
@@ -409,7 +408,6 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
 
   tindex v ix = AstPrimalPart $ AstIndexZ (unAstPrimalPart v) ix
   tsum = AstPrimalPart . AstSum . unAstPrimalPart
-  tmatmul = undefined
   tfromIntOf0 = AstPrimalPart . AstConstInt
     -- toInteger is not defined for Ast, hence a special implementation
 
