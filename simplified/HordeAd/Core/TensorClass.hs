@@ -387,11 +387,11 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   tfromList0N sh = AstReshape sh . AstFromList
   tfromVector = AstFromVector
   tfromVector0N sh = AstReshape sh . AstFromVector
-  tkonst = astKonst
+  tkonst = AstKonst
   tappend = AstAppend
   tslice = AstSlice
   treverse = AstReverse
-  ttranspose = astTranspose
+  ttranspose = AstTranspose
   treshape = AstReshape
   tbuild1 = astBuild1
 
