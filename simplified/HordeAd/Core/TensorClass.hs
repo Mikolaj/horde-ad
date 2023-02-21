@@ -583,7 +583,7 @@ instance HasPrimal (AstPrimalPart 0 r) where
   type Primal (AstPrimalPart 0 r) = AstPrimalPart 0 r
   type DualOf n (AstPrimalPart 0 r) = ()
   tconst = AstPrimalPart . AstConst
-  tconstant = id
+  tconstant = AstPrimalPart . AstConstant
   tprimalPart = id
   tdualPart = error "TODO"
   tD = error "TODO"
