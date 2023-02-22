@@ -3,7 +3,8 @@
              UndecidableInstances #-}
 module Tool.EqEpsilon
   ( EqEpsilon, setEpsilonEq
-  , AssertEqualUpToEpsilon(..), assertEqualUpToEpsilon
+  , AssertEqualUpToEpsilon(..)
+  , assertEqualUpToEpsilonWithMark, assertEqualUpToEpsilon
   , assertCloseElem, assertClose, (@?~)
   ) where
 
@@ -125,17 +126,28 @@ class (Fractional z, Show a) => AssertEqualUpToEpsilon z a | a -> z where
     -> a       -- ^ actual value
     -> Assertion
 
+assertEqualUpToEpsilonWithMark
+  :: AssertEqualUpToEpsilon z a
+  => String  -- ^ message suffix's prefix
+  -> z  -- ^ error margin (i.e., the epsilon)
+  -> a  -- ^ expected value
+  -> a  -- ^ actual value
+  -> Assertion
+assertEqualUpToEpsilonWithMark mark error_margin expected actual =
+  let prefix = if null mark then "" else "*In " ++ mark ++ "*\n"
+  in assertEqualUpToEpsilonWithMsg
+       (prefix ++ "Expected: " ++ show expected
+               ++ "\n but got: " ++ show actual)
+       error_margin
+       expected actual
+
 assertEqualUpToEpsilon
   :: AssertEqualUpToEpsilon z a
   => z  -- ^ error margin (i.e., the epsilon)
   -> a  -- ^ expected value
   -> a  -- ^ actual value
   -> Assertion
-assertEqualUpToEpsilon error_margin expected actual =
-  assertEqualUpToEpsilonWithMsg
-    ("Expected: " ++ show expected ++ "\n but got: " ++ show actual)
-    error_margin
-    expected actual
+assertEqualUpToEpsilon = assertEqualUpToEpsilonWithMark ""
 
 instance AssertEqualUpToEpsilon Double Double where
   assertEqualUpToEpsilonWithMsg = assert_close_eps ""
