@@ -818,8 +818,8 @@ interpretAst env = \case
   AstVar _sh (AstVarName var) -> case IM.lookup var env of
     Just (AstVarR d) -> fromX1 d
     Just AstVarI{} ->
-      error $ "interpretAst: type mismatch for var " ++ show var
-    Nothing -> error $ "interpretAst: unknown variable var " ++ show var
+      error $ "interpretAst: type mismatch for Var" ++ show var
+    Nothing -> error $ "interpretAst: unknown variable Var" ++ show var
   AstOp opCode args ->
     interpretAstOp (interpretAst env) opCode args
   AstConst a -> tconst a
@@ -868,9 +868,9 @@ interpretAstInt :: ADModeAndNumTensor d r
 interpretAstInt env = \case
   AstIntVar (AstVarName var) -> case IM.lookup var env of
     Just AstVarR{} ->
-      error $ "interpretAstInt: type mismatch for var " ++ show var
+      error $ "interpretAstInt: type mismatch for Var" ++ show var
     Just (AstVarI i) -> i
-    Nothing -> error $ "interpretAstInt: unknown variable var " ++ show var
+    Nothing -> error $ "interpretAstInt: unknown variable Var" ++ show var
   AstIntOp opCodeInt args ->
     interpretAstIntOp (interpretAstInt env) opCodeInt args
   AstIntConst a -> a
