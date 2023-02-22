@@ -127,7 +127,7 @@ astIndexZ v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) = case v0 of
   AstGather1 (var2, ix2) v _n2 ->
     let ix3 = fmap (substituteAstInt i1 var2) ix2
     in astIndexZ v (appendIndex ix3 rest1)
-  AstGatherN (Z, ix2) v _sh -> astIndexZ v (appendIndex ix ix2)
+  AstGatherN (Z, ix2) v _sh -> astIndexZ v (appendIndex ix2 ix)
   AstGatherN (var2 ::: vars, ix2) v (_ :$ sh') ->
     let ix3 = fmap (substituteAstInt i1 var2) ix2
         w :: Ast (m1 + n) r
