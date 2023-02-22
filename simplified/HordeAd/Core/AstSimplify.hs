@@ -185,18 +185,25 @@ astFlatten = AstFlatten
 astGather1 :: forall p n r. (KnownNat p, KnownNat n, Show r, Numeric r)
            => (AstVarName Int, AstIndex p r) -> Ast (p + n) r
            -> Int -> Ast (1 + n) r
-astGather1 (var, ix) v0 k = case astIndexZ v0 ix of
-  AstIndexZ v2 ix2@(iN :. restN) ->
-    if | any (intVarInAstInt var) restN -> AstGather1 (var, ix2) v2 k
-       | intVarInAstInt var iN ->
-         let w :: Ast (1 + n) r
-             w = AstIndexZ v2 restN
-         in case gatherSimplify k var w iN of
-              Just u -> u  -- an extremely simple form found
-              Nothing -> AstGather1 (var, ix2) v2 k
-                -- we didn't really need it anyway
-       | otherwise -> astKonst k (AstIndexZ v2 ix2)
-  v3 -> astKonst k v3
+astGather1 (var, ix) v0 k =
+  let v3 = astIndexZ v0 ix
+  in if intVarInAst var v3
+     then case v3 of
+       AstIndexZ v2 ix2@(iN :. restN) ->
+         if | intVarInAst var v2 ->  -- can this happen?
+              AstGather1 (var, ix) v0 k
+            | any (intVarInAstInt var) restN ->
+              AstGather1 (var, ix2) v2 k
+            | intVarInAstInt var iN ->
+                let w :: Ast (1 + n) r
+                    w = AstIndexZ v2 restN
+                in case gatherSimplify k var w iN of
+                  Just u -> u  -- an extremely simple form found
+                  Nothing -> AstGather1 (var, ix2) v2 k
+                    -- we didn't really need it anyway
+            | otherwise -> astKonst k (AstIndexZ v2 ix2)
+       _ -> AstGather1 (var, ix) v0 k -- can this happen?
+     else astKonst k v3
 
 astGatherN :: forall m p n r.
               (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r)
@@ -205,16 +212,23 @@ astGatherN :: forall m p n r.
 astGatherN (Z, ix) v0 _sh = astIndexZ v0 ix
 astGatherN (_ ::: vars, ZI) v0 (k :$ sh') =
   astKonst k (astGatherN (vars, ZI) v0 sh')  -- a shortcut
-astGatherN (var ::: vars, ix@(_ :. _)) v0
-           sh@(k :$ sh') = case astIndexZ @p @n v0 ix of
-  AstIndexZ v2 ix2 ->
-    if any (intVarInAstInt var) ix2 then AstGatherN (var ::: vars, ix2) v2 sh
-    else astKonst k (astGatherN (vars, ix2) v2 sh')
-      -- a generalization of gatherSimplify needed to simplify more
-      -- or we could run astGather1 repeatedly, but even then we can't
-      -- get into fromList, which may simplify or complicate a term,
-      -- and sometimes is not possible without leaving a small gather outside
-  v3 -> astGatherN (var ::: vars, ZI) v3 sh
+astGatherN (var ::: vars, ix@(_ :. _)) v0 sh@(k :$ sh') =
+  let v3 = astIndexZ @p @n v0 ix
+  in if any (flip intVarInAst v3) (var ::: vars)
+     then case v3 of
+       AstIndexZ v2 ix2 ->
+         if | any (flip intVarInAst v2) (var ::: vars) ->  -- can this happen?
+              AstGatherN (var ::: vars, ix) v0 sh
+            | any (intVarInAstInt var) ix2 ->
+              AstGatherN (var ::: vars, ix2) v2 sh
+            | otherwise -> astKonst k (astGatherN (vars, ix2) v2 sh')
+              -- a generalization of gatherSimplify needed to simplify more
+              -- or we could run astGather1 repeatedly, but even then we can't
+              -- get into fromList, which may simplify or complicate a term,
+              -- and sometimes is not possible without leaving a small
+              -- gather outside
+       _ -> AstGatherN (var ::: vars, ix) v0 sh  -- can this happen?
+     else astGatherN (var ::: vars, ZI) v3 sh
 astGatherN _ _ _ =
   error "astGatherN: AstGatherN: impossible pattern needlessly required"
 
@@ -308,9 +322,8 @@ simplifyAst t = case t of
   AstBuild1{} -> t  -- should never appear outside test runs
   AstGather1 (var, ix) v k ->
     astGather1 (var, fmap (simplifyAstInt) ix) (simplifyAst v) k
-  AstGatherN (vars, ix) v sh -> AstGatherN (vars, ix) v sh
-    -- TODO: astGatherN (vars, fmap (simplifyAstInt) ix) (simplifyAst v) sh
-    -- this breaks 3nestedBuildMap7, so is probably incorrect
+  AstGatherN (vars, ix) v sh ->
+    astGatherN (vars, fmap (simplifyAstInt) ix) (simplifyAst v) sh
 
 -- Integer terms need to be simplified, because they are sometimes
 -- created by vectorization and can be a deciding factor in whether
