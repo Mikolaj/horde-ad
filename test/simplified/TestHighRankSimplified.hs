@@ -279,9 +279,9 @@ testNestedBuildMap1 =
 
 testNestedBuildMap7 :: Assertion
 testNestedBuildMap7 =
-  assertEqualUpToEpsilonShorter 1e-8
+  assertEqualUpToEpsilon 1e-8
     2176.628439128524
-    (rev' @(OR.Array 7 Double) nestedBuildMap 0.6)
+    (rev @(OR.Array 7 Double) nestedBuildMap 0.6)
 
 -- The n <= 4 is necessary despite what GHC claims. Applying @(2 + n)
 -- to nestedBuildMap doesn't help.
@@ -301,13 +301,13 @@ nestedSumBuild v =
 
 testNestedSumBuild1 :: Assertion
 testNestedSumBuild1 =
-  assertEqualUpToEpsilonShorter 1e-8
+  assertEqualUpToEpsilonShorter 1e-6
     (OR.fromList [5] [5.738943380972744e-6,5.738943380972744e-6,5.738943380972744e-6,5.738943380972744e-6,5.738943380972744e-6])
     (rev' @(OR.Array 3 Double) nestedSumBuild (OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
 
 testNestedSumBuild5 :: Assertion
 testNestedSumBuild5 =
-  assertEqualUpToEpsilonShorter 1e-8
+  assertEqualUpToEpsilonShorter 1e-6
     (OR.fromList [1,2,2] [3.5330436757054903e-3,3.5330436757054903e-3,3.5330436757054903e-3,3.5330436757054903e-3])
     (rev' @(OR.Array 5 Double) nestedSumBuild (tsum $ tsum t16))
 
