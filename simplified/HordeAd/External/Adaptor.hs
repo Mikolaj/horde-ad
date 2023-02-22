@@ -1,5 +1,6 @@
 {-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances,
-             MultiParamTypeClasses, RankNTypes, TypeFamilies #-}
+             MultiParamTypeClasses, RankNTypes, TypeFamilies,
+             UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module HordeAd.External.Adaptor

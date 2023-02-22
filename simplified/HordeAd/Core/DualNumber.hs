@@ -105,6 +105,7 @@ dDnotShared = D
 type ADModeAndNum (d :: ADMode) r =
   ( Numeric r
   , Show r
+  , Show (Dual d (OT.Array r))
   , HasRanks d r
   , IsPrimalAndHasFeatures d r r
   , IsPrimalAndHasFeatures d (OT.Array r) r
