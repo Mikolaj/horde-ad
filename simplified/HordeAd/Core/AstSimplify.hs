@@ -308,8 +308,9 @@ simplifyAst t = case t of
   AstBuild1{} -> t  -- should never appear outside test runs
   AstGather1 (var, ix) v k ->
     astGather1 (var, fmap (simplifyAstInt) ix) (simplifyAst v) k
-  AstGatherN (vars, ix) v sh ->
-    astGatherN (vars, fmap (simplifyAstInt) ix) (simplifyAst v) sh
+  AstGatherN (vars, ix) v sh -> AstGatherN (vars, ix) v sh
+    -- TODO: astGatherN (vars, fmap (simplifyAstInt) ix) (simplifyAst v) sh
+    -- this breaks 3nestedBuildMap7, so is probably incorrect
 
 -- Integer terms need to be simplified, because they are sometimes
 -- created by vectorization and can be a deciding factor in whether

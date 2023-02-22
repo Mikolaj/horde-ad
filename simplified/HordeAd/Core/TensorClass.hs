@@ -10,7 +10,7 @@
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.TensorClass
   ( IndexOf, ShapeInt, Tensor(..), HasPrimal(..), ADReady
-  , interpretAst, AstVar(..), funToAstR, extendEnvR
+  , simplifyAst, interpretAst, AstVar(..), funToAstR, extendEnvR
   , ADModeAndNumTensor, scale1, relu1, reluLeaky1
   ) where
 

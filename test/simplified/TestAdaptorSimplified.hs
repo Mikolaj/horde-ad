@@ -1,6 +1,8 @@
 {-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances, OverloadedLists,
              RankNTypes, TypeFamilies #-}
-module TestAdaptorSimplified (testTrees, rev', assertEqualUpToEpsilon') where
+module TestAdaptorSimplified
+  (testTrees, rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShorter
+  ) where
 
 import Prelude
 
@@ -62,33 +64,77 @@ rev' :: forall a r n m.
         , a ~ OR.Array m r, TensorOf n r ~ OR.Array n r )
      => (forall x. ADReady x => TensorOf n x -> TensorOf m x)
      -> OR.Array n r
-     -> (a, TensorOf m r, a, OR.Array n r, OR.Array n r)
+     -> ( TensorOf m r, a, a, a, a, a
+        , OR.Array n r, OR.Array n r, OR.Array n r, OR.Array n r, OR.Array n r )
 rev' f vals =
-  let dt = inputConstant @a 1
+  let value0 = f vals
+      dt = inputConstant @a 1
       g inputs = f $ parseADInputs vals inputs
       (advalGrad, value1) = revOnDomainsFun dt g (toDomains vals)
       gradient1 = parseDomains vals advalGrad
-      value2 = f vals
-      h inputs =
-        let (var, ast) = funToAstR (tshape vals) f
+      h :: ADReady x
+        => (TensorOf m x -> Ast m r) -> (Ast n r -> TensorOf n x)
+        -> (Ast m r -> Ast m r) -> ADInputs 'ADModeGradient r
+        -> ADVal 'ADModeGradient (OR.Array m r)
+      h fx1 fx2 gx inputs =
+        let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
             env = extendEnvR var (parseADInputs vals inputs) IM.empty
-        in interpretAst env ast
-      (astGrad, value3) = revOnDomainsFun dt h (toDomains vals)
+        in interpretAst env (gx ast)
+      (astGrad, value2) = revOnDomainsFun dt (h id id id) (toDomains vals)
       gradient2 = parseDomains vals astGrad
-  in (value1, value2, value3, gradient1, gradient2)
+      (astSimple, value3) =
+        revOnDomainsFun dt (h id id simplifyAst) (toDomains vals)
+      gradient3 = parseDomains vals astSimple
+      (astPrimal, value4) =
+        revOnDomainsFun dt (h unAstPrimalPart AstPrimalPart id)
+                           (toDomains vals)
+          -- use the AstPrimalPart instance that does no vectorization
+          -- and then interpret the results as the Ast instance
+      gradient4 = parseDomains vals astPrimal
+      (astPSimple, value5) =
+        revOnDomainsFun dt (h unAstPrimalPart AstPrimalPart simplifyAst)
+                           (toDomains vals)
+      gradient5 = parseDomains vals astPSimple
+  in ( value0, value1, value2, value3, value4, value5
+     , gradient1, gradient2, gradient3, gradient4, gradient5 )
 
 assertEqualUpToEpsilon'
     :: (AssertEqualUpToEpsilon z a, AssertEqualUpToEpsilon z b)
     => z  -- ^ error margin (i.e., the epsilon)
     -> a  -- ^ expected value
-    -> (b, b, b, a, a)   -- ^ actual values
+    -> (b, b, b, b, b, b, a, a, a, a, a)   -- ^ actual values
     -> Assertion
-assertEqualUpToEpsilon' error_margin expected
-                        (value1, value2, value3, gradient1, gradient2) = do
-  value1 @?~ value2
-  value3 @?~ value2
-  assertEqualUpToEpsilon error_margin expected gradient1
-  assertEqualUpToEpsilon error_margin expected gradient2
+assertEqualUpToEpsilon'
+    errMargin expected
+    ( value0, value1, value2, value3, value4, value5
+    , gradient1, gradient2, gradient3, gradient4, gradient5 ) = do
+  assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
+  assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
+  assertEqualUpToEpsilonWithMark "Val Vect+Simp" errMargin value0 value3
+  assertEqualUpToEpsilonWithMark "Val NotVect" errMargin value0 value4
+  assertEqualUpToEpsilonWithMark "Val Simplified" errMargin value0 value5
+  assertEqualUpToEpsilonWithMark "Grad ADVal" errMargin expected gradient1
+  assertEqualUpToEpsilonWithMark "Grad Vectorized" errMargin expected gradient2
+  assertEqualUpToEpsilonWithMark "Grad Vect+Simp" errMargin expected gradient3
+  assertEqualUpToEpsilonWithMark "Grad NotVect" errMargin expected gradient4
+  assertEqualUpToEpsilonWithMark "Grad Simplified" errMargin expected gradient5
+
+assertEqualUpToEpsilonShorter
+    :: (AssertEqualUpToEpsilon z a, AssertEqualUpToEpsilon z b)
+    => z  -- ^ error margin (i.e., the epsilon)
+    -> a  -- ^ expected value
+    -> (b, b, b, b, b, b, a, a, a, a, a)   -- ^ actual values
+    -> Assertion
+assertEqualUpToEpsilonShorter
+    errMargin expected
+    ( value0, value1, value2, value3, _value4, _value5
+    , gradient1, gradient2, gradient3, _gradient4, _gradient5 ) = do
+  assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
+  assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
+  assertEqualUpToEpsilonWithMark "Val Vect+Simp" errMargin value0 value3
+  assertEqualUpToEpsilonWithMark "Grad ADVal" errMargin expected gradient1
+  assertEqualUpToEpsilonWithMark "Grad Vectorized" errMargin expected gradient2
+  assertEqualUpToEpsilonWithMark "Grad Vect+Simp" errMargin expected gradient3
 
 
 -- * Tensor tests
@@ -316,7 +362,7 @@ nestedSumBuild v =
 
 testNestedSumBuild :: Assertion
 testNestedSumBuild =
-  assertEqualUpToEpsilon' 1e-8
+  assertEqualUpToEpsilonShorter 1e-8
     (OR.fromList [5] [-14084.715065313612,-14084.715065313612,-14084.715065313612,-14014.775065313623,-14084.715065313612])
     (rev' @(OR.Array 1 Double) nestedSumBuild (OR.fromList [5] [1.1, 2.2, 3.3, 4, -5.22]))
 
@@ -488,7 +534,7 @@ testRecycled =
 
 testRecycled1 :: Assertion
 testRecycled1 =
-  assertEqualUpToEpsilon' 1e-6
+  assertEqualUpToEpsilonShorter 1e-6
     3.983629038066359e7
     (rev' @(OR.Array 5 Double) (recycled . tunScalar)  1.0001)
 
