@@ -3,7 +3,7 @@
              UndecidableInstances #-}
 module Tool.EqEpsilon
   ( EqEpsilon, setEpsilonEq
-  , AssertEqualUpToEpsilon, assertEqualUpToEpsilon
+  , AssertEqualUpToEpsilon(..), assertEqualUpToEpsilon
   , assertCloseElem, assertClose, (@?~)
   ) where
 
@@ -125,16 +125,17 @@ class (Fractional z, Show a) => AssertEqualUpToEpsilon z a | a -> z where
     -> a       -- ^ actual value
     -> Assertion
 
-  assertEqualUpToEpsilon
-    :: z  -- ^ error margin (i.e., the epsilon)
-    -> a  -- ^ expected value
-    -> a  -- ^ actual value
-    -> Assertion
-  assertEqualUpToEpsilon error_margin expected actual =
-    assertEqualUpToEpsilonWithMsg
-      ("Expected: " ++ show expected ++ "\n but got: " ++ show actual)
-      error_margin
-      expected actual
+assertEqualUpToEpsilon
+  :: AssertEqualUpToEpsilon z a
+  => z  -- ^ error margin (i.e., the epsilon)
+  -> a  -- ^ expected value
+  -> a  -- ^ actual value
+  -> Assertion
+assertEqualUpToEpsilon error_margin expected actual =
+  assertEqualUpToEpsilonWithMsg
+    ("Expected: " ++ show expected ++ "\n but got: " ++ show actual)
+    error_margin
+    expected actual
 
 instance AssertEqualUpToEpsilon Double Double where
   assertEqualUpToEpsilonWithMsg = assert_close_eps ""
