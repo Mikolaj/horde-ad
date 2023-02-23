@@ -89,6 +89,7 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tfloor :: TensorOf 0 r -> IntOf r
 
   -- Typically scalar codomain, often tensor reduction
+  -- (a number suffix in the name indicates the rank of codomain)
   tindex, (!) :: (KnownNat n, KnownNat m)
               => TensorOf (m + n) r -> IndexOf m r -> TensorOf n r
     -- if index is out of bounds, the operations returns with an undefined
@@ -119,6 +120,8 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tfromIndex1 = tfromList . map tfromIndex0 . indexToList
 
   -- Tensor codomain, often tensor construction, sometimes transformation
+  -- (for these, suffix 1 doesn't mean codomain rank 1, but building up
+  -- by one rank, and is omitted if a more general variant is not defined)
   tfromList :: KnownNat n => [TensorOf n r] -> TensorOf (1 + n) r
   tfromList0N :: KnownNat n => ShapeInt n -> [r] -> TensorOf n r
   tfromList0N sh = treshape sh . tfromList . map tscalar
