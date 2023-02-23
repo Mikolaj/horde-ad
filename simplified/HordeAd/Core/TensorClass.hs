@@ -115,6 +115,8 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   default tfromIndex0  -- the more narrow type rules out Ast
     :: IntOf r ~ Int => IntOf r -> TensorOf 0 r
   tfromIndex0 = tscalar . fromIntegral
+  tfromIndex1 :: IndexOf n r -> TensorOf 1 r
+  tfromIndex1 = tfromList . map tfromIndex0 . indexToList
 
   -- Tensor codomain, often tensor construction, sometimes transformation
   tfromList :: KnownNat n => [TensorOf n r] -> TensorOf (1 + n) r
