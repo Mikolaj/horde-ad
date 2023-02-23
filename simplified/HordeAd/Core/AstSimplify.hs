@@ -112,7 +112,7 @@ astReshape shOut v = unsafePerformIO $ do
       asts :: AstIndex p r
       asts = let i = toLinearIdx @m @0 (fmap AstIntConst shOut) ix
              in fromLinearIdx (fmap AstIntConst shIn) i
-  return $! AstGatherN @m @p @0 (vars, asts) v shOut
+  return $! AstGatherN @m @p @0 shOut v (vars, asts)
 
 
 -- * The simplifying combinators
@@ -124,14 +124,14 @@ astIndexZ v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) = case v0 of
   AstKonst _k v -> astIndexZ v rest1
   AstTranspose perm v | valueOf @m >= length perm ->
     astIndexZ v (permutePrefixIndex perm ix)
-  AstGather1 (var2, ix2) v _n2 ->
+  AstGather1 _n2 v (var2, ix2) ->
     let ix3 = fmap (substituteAstInt i1 var2) ix2
     in astIndexZ v (appendIndex ix3 rest1)
-  AstGatherN (Z, ix2) v _sh -> astIndexZ v (appendIndex ix2 ix)
-  AstGatherN (var2 ::: vars, ix2) v (_ :$ sh') ->
+  AstGatherN _sh v (Z, ix2) -> astIndexZ v (appendIndex ix2 ix)
+  AstGatherN (_ :$ sh') v (var2 ::: vars, ix2) ->
     let ix3 = fmap (substituteAstInt i1 var2) ix2
         w :: Ast (m1 + n) r
-        w = unsafeCoerce $ astGatherN (vars, ix3) v sh'
+        w = unsafeCoerce $ astGatherN sh' v (vars, ix3)
     in astIndexZ @m1 @n w rest1
   _ -> AstIndexZ v0 ix
     -- a lot more can be added, but how not to duplicate build1VIx?
@@ -183,52 +183,52 @@ astFlatten = AstFlatten
 
 -- Assumption: var does not occur in v0.
 astGather1 :: forall p n r. (KnownNat p, KnownNat n, Show r, Numeric r)
-           => (AstVarName Int, AstIndex p r) -> Ast (p + n) r
-           -> Int -> Ast (1 + n) r
-astGather1 (var, ix) v0 k =
+           => Int -> Ast (p + n) r -> (AstVarName Int, AstIndex p r)
+           -> Ast (1 + n) r
+astGather1 k v0 (var, ix) =
   let v3 = astIndexZ v0 ix
   in if intVarInAst var v3
      then case v3 of
        AstIndexZ v2 ix2@(iN :. restN) ->
          if | intVarInAst var v2 ->  -- can this happen?
-              AstGather1 (var, ix) v0 k
+              AstGather1 k v0 (var, ix)
             | any (intVarInAstInt var) restN ->
-              AstGather1 (var, ix2) v2 k
+              AstGather1 k v2 (var, ix2)
             | intVarInAstInt var iN ->
                 let w :: Ast (1 + n) r
                     w = AstIndexZ v2 restN
                 in case gatherSimplify k var w iN of
                   Just u -> u  -- an extremely simple form found
-                  Nothing -> AstGather1 (var, ix2) v2 k
+                  Nothing -> AstGather1 k v2 (var, ix2)
                     -- we didn't really need it anyway
             | otherwise -> astKonst k (AstIndexZ v2 ix2)
-       _ -> AstGather1 (var, ix) v0 k -- can this happen?
+       _ -> AstGather1 k v0 (var, ix)  -- can this happen?
      else astKonst k v3
 
 astGatherN :: forall m p n r.
               (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r)
-           => (AstVarList m, AstIndex p r) -> Ast (p + n) r
-           -> ShapeInt (m + n) -> Ast (m + n) r
-astGatherN (Z, ix) v0 _sh = astIndexZ v0 ix
-astGatherN (_ ::: vars, ZI) v0 (k :$ sh') =
-  astKonst k (astGatherN (vars, ZI) v0 sh')  -- a shortcut
-astGatherN (var ::: vars, ix@(_ :. _)) v0 sh@(k :$ sh') =
+           => ShapeInt (m + n) -> Ast (p + n) r -> (AstVarList m, AstIndex p r)
+           -> Ast (m + n) r
+astGatherN _sh v0 (Z, ix) = astIndexZ v0 ix
+astGatherN (k :$ sh') v0 (_ ::: vars, ZI) =
+  astKonst k (astGatherN sh' v0 (vars, ZI))  -- a shortcut
+astGatherN sh@(k :$ sh') v0 (var ::: vars, ix@(_ :. _)) =
   let v3 = astIndexZ @p @n v0 ix
   in if any (flip intVarInAst v3) (var ::: vars)
      then case v3 of
        AstIndexZ v2 ix2 ->
          if | any (flip intVarInAst v2) (var ::: vars) ->  -- can this happen?
-              AstGatherN (var ::: vars, ix) v0 sh
+              AstGatherN sh v0 (var ::: vars, ix)
             | any (intVarInAstInt var) ix2 ->
-              AstGatherN (var ::: vars, ix2) v2 sh
-            | otherwise -> astKonst k (astGatherN (vars, ix2) v2 sh')
+              AstGatherN sh v2 (var ::: vars, ix2)
+            | otherwise -> astKonst k (astGatherN sh' v2 (vars, ix2))
               -- a generalization of gatherSimplify needed to simplify more
               -- or we could run astGather1 repeatedly, but even then we can't
               -- get into fromList, which may simplify or complicate a term,
               -- and sometimes is not possible without leaving a small
               -- gather outside
-       _ -> AstGatherN (var ::: vars, ix) v0 sh  -- can this happen?
-     else astGatherN (var ::: vars, ZI) v3 sh
+       _ -> AstGatherN sh v0 (var ::: vars, ix)  -- can this happen?
+     else astGatherN sh v3 (var ::: vars, ZI)
 astGatherN _ _ _ =
   error "astGatherN: AstGatherN: impossible pattern needlessly required"
 
@@ -320,10 +320,10 @@ simplifyAst t = case t of
   AstFlatten v -> astFlatten $ simplifyAst v
   AstReshape sh v -> astReshape sh (simplifyAst v)
   AstBuild1{} -> t  -- should never appear outside test runs
-  AstGather1 (var, ix) v k ->
-    astGather1 (var, fmap (simplifyAstInt) ix) (simplifyAst v) k
-  AstGatherN (vars, ix) v sh ->
-    astGatherN (vars, fmap (simplifyAstInt) ix) (simplifyAst v) sh
+  AstGather1 k v (var, ix) ->
+    astGather1 k (simplifyAst v) (var, fmap (simplifyAstInt) ix)
+  AstGatherN sh  v (vars, ix)->
+    astGatherN sh (simplifyAst v) (vars, fmap (simplifyAstInt) ix)
 
 -- Integer terms need to be simplified, because they are sometimes
 -- created by vectorization and can be a deciding factor in whether

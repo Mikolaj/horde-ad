@@ -89,13 +89,15 @@ data Ast :: Nat -> Type -> Type where
   AstBuild1 :: Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
     -- indicates a failure in vectorization, but may be recoverable later on
   AstGather1 :: forall p n r. (KnownNat p, KnownNat n)
-             => (AstVarName Int, AstIndex p r) -> Ast (p + n) r
-             -> Int -> Ast (1 + n) r
+             => Int -> Ast (p + n) r
+             -> (AstVarName Int, AstIndex p r)
+             -> Ast (1 + n) r
     -- emerges from vectorizing AstIndexZ applied to a term with no build
     -- variable; out of bounds indexing is permitted
   AstGatherN :: forall m p n r. (KnownNat m, KnownNat p, KnownNat n)
-             => (AstVarList m, AstIndex p r) -> Ast (p + n) r
-             -> ShapeInt (m + n) -> Ast (m + n) r
+             => ShapeInt (m + n) -> Ast (p + n) r
+             -> (AstVarList m, AstIndex p r)
+             -> Ast (m + n) r
     -- emerges from vectorizing AstGather1; out of bounds indexing is permitted
 
   -- Spurious, but can be re-enabled at any time:
@@ -387,9 +389,9 @@ shapeAst v1 = case v1 of
   AstFlatten v -> flattenShape (shapeAst v)
   AstReshape sh _v -> sh
   AstBuild1 k (_var, v) -> k :$ shapeAst v
-  AstGather1 (_var, _is :: Index p (AstInt r)) v k ->
+  AstGather1 k v (_var, _is :: Index p (AstInt r)) ->
     k :$ dropShape @p (shapeAst v)
-  AstGatherN (_var, _is) _v sh -> sh
+  AstGatherN sh _v (_var, _is) -> sh
 
 -- Length of the outermost dimension.
 lengthAst :: (KnownNat n, Show r, Numeric r) => Ast (1 + n) r -> Int
@@ -419,8 +421,8 @@ intVarInAst var = \case
   AstFlatten v -> intVarInAst var v
   AstReshape _ v -> intVarInAst var v
   AstBuild1 _ (_, v) -> intVarInAst var v
-  AstGather1 (_, is) v _ -> any (intVarInAstInt var) is || intVarInAst var v
-  AstGatherN (_, is) v _ -> any (intVarInAstInt var) is || intVarInAst var v
+  AstGather1 _ v (_, is) -> any (intVarInAstInt var) is || intVarInAst var v
+  AstGatherN _ v (_, is) -> any (intVarInAstInt var) is || intVarInAst var v
 
 intVarInAstInt :: AstVarName Int -> AstInt r -> Bool
 intVarInAstInt var = \case
@@ -466,12 +468,13 @@ substituteAst i var v1 = case v1 of
   AstReshape sh v -> AstReshape sh (substituteAst i var v)
   AstBuild1 k (var2, v) ->
     AstBuild1 k (var2, substituteAst i var v)
-  AstGather1 (var2, is) v k ->
-    AstGather1 (var2, fmap (substituteAstInt i var) is)
-               (substituteAst i var v) k
-  AstGatherN (vars, is) v sh ->
-    AstGatherN (vars, fmap (substituteAstInt i var) is)
-               (substituteAst i var v) sh
+  AstGather1 k v (var2, is) ->
+    AstGather1 k (substituteAst i var v)
+                 (var2, fmap (substituteAstInt i var) is)
+  AstGatherN sh v (vars, is) ->
+    AstGatherN sh (substituteAst i var v)
+                  (vars, fmap (substituteAstInt i var) is)
+
 
 substituteAstInt :: (Show r, Numeric r)
                  => AstInt r -> AstVarName Int -> AstInt r -> AstInt r

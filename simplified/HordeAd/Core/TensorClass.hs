@@ -853,7 +853,7 @@ interpretAst env = \case
     -- to be used only in tests; this is the POPL implementation of build
     -- (memory blowup, but avoids functions on tape), to test against
     -- the closure version that the direct ADVal Tensor instance uses
-  AstGather1 (var, ix) v k ->
+  AstGather1 k v (var, ix) ->
     gather1Closure (interpretLambdaIndex env (var, ix)) (interpretAst env v) k
     -- TODO: currently we store the function on tape, because it doesn't
     -- cause recomputation of the gradient per-cell, unlike storing the build
@@ -863,7 +863,7 @@ interpretAst env = \case
     -- on tape and translate it to whatever backend sooner or later;
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
-  AstGatherN (vars, ix) v sh ->
+  AstGatherN sh v (vars, ix) ->
     gatherNClosure (interpretLambdaIndexToIndex env (vars, ix))
                    (interpretAst env v) sh
 

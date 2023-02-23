@@ -143,17 +143,16 @@ build1V k (var, v0) =
     AstReshape sh v -> traceRule $
       AstReshape (k :$ sh) $ build1V k (var, v)
     AstBuild1{} -> error "build1V: impossible case of AstBuild1"
-    AstGather1 (var2, ix2 :: Index p (AstInt r)) v k2 -> traceRule $
-      astGatherN (var ::: var2 ::: Z, AstIntVar var :. ix2)
+    AstGather1 k2 v (var2, ix2 :: Index p (AstInt r)) -> traceRule $
+      astGatherN (k :$ k2 :$ dropShape @p (shapeAst v))
                  (build1VOccurenceUnknown k (var, v))
-                 (k :$ k2 :$ dropShape @p (shapeAst v))
+                 (var ::: var2 ::: Z, AstIntVar var :. ix2)
       -- AstScatter (var2, ix2) v sh -> ...
       -- no idea how to vectorize AstScatter, so let's not add prematurely
-    AstGatherN (vars, ix2) v sh -> traceRule $
-      astGatherN (var ::: vars, AstIntVar var :. ix2)
+    AstGatherN sh v (vars, ix2) -> traceRule $
+      astGatherN (k :$ sh)
                  (build1VOccurenceUnknown k (var, v))
-                 (k :$ sh)
-    -- All other patterns are redundant due to GADT typing.
+                 (var ::: vars, AstIntVar var :. ix2)
 
 -- | The application @build1VIxOccurenceUnknown k (var, v, ix) perm@ vectorizes
 -- the term @AstBuild1 k (var, AstIndexZ (AstTranspose perm v) ix)@,
@@ -180,7 +179,7 @@ build1VIxOccurenceUnknown k (var, v0, ix@(_ :. _)) perm0 =
   in if intVarInAst var v0
      then build1VIx k (var, v0, ix) perm0  -- push deeper
      else traceRule $
-            astGather1 (var, ix) (AstTranspose perm0 v0) k
+            astGather1 k (AstTranspose perm0 v0) (var, ix)
 
 -- | The application @build1VIx k (var, v, ix) perm@ vectorizes
 -- the term @AstBuild1 k (var, AstIndexZ (AstTranspose perm v) ix)@,
@@ -241,7 +240,7 @@ build1VIx k (var, v0, is@(i1 :. rest1)) perm0 =
           then let t = AstFromList $ map (\v ->
                      build1VOccurenceUnknown
                        k (var, AstIndexZ v rest1)) l
-               in astGather1 (var, i1 :. AstIntVar var :. ZI) t k
+               in astGather1 k t (var, i1 :. AstIntVar var :. ZI)
           else AstIndexZ (AstFromList $ map (\v ->
                  build1VOccurenceUnknown
                    k (var, AstIndexZ v rest1)) l) (singletonIndex i1)
@@ -271,7 +270,7 @@ build1VIx k (var, v0, is@(i1 :. rest1)) perm0 =
           then let t = AstFromVector $ V.map (\v ->
                      build1VOccurenceUnknown
                        k (var, AstIndexZ v rest1)) l
-               in astGather1 (var, i1 :. AstIntVar var :. ZI) t k
+               in astGather1 k t (var, i1 :. AstIntVar var :. ZI)
           else AstIndexZ (AstFromVector $ V.map (\v ->
                  build1VOccurenceUnknown
                    k (var, AstIndexZ v rest1)) l) (singletonIndex i1)
@@ -428,7 +427,7 @@ build1VIx k (var, v0, is@(i1 :. rest1)) perm0 =
       -- Instead, we express the reshape using gather and process that.
       build1VIx k (var, astReshape sh v, is) perm0
     AstBuild1{} -> error "build1VIx: impossible case: AstBuild1"
-    AstGather1 @p7 (var2, ix4) v n2 -> traceRule $
+    AstGather1 @p7 n2  v (var2, ix4) -> traceRule $
       case permSwapSplit perm0 of
         Nothing ->
           let ix3 = fmap (substituteAstInt i1 var2) ix4
@@ -445,11 +444,11 @@ build1VIx k (var, v0, is@(i1 :. rest1)) perm0 =
               in astTranspose ([j1] ++ [1 .. j1 - 1] ++ [0])  -- the swap
                  $ case cmpNat (Proxy @1) (Proxy @n) of
                      EQI -> AstGather1 @(p7 + m) @(n - 1)
+                                        n2 (astTranspose permRest2 v)
                                        (var2, appendIndex ix4 is)
-                                       (astTranspose permRest2 v) n2
                      LTI -> AstGather1 @(p7 + m) @(n - 1)
+                                       n2 (astTranspose permRest2 v)
                                        (var2, appendIndex ix4 is)
-                                       (astTranspose permRest2 v) n2
                      _ -> error "build1VIx: violattion of an assumption about rank deduced from transposition that deflects a projection"
             (ix2, i :. ixRest2) ->
               -- The swap consumed in getting index i to the first position.
@@ -458,9 +457,9 @@ build1VIx k (var, v0, is@(i1 :. rest1)) perm0 =
                   v2 = AstIndexZ v ix3
               in AstIndexZ (astTranspose permRest v2)
                            (appendIndex ix2 ixRest2)
-    AstGatherN (Z, ix4) v _sh -> traceRule $
+    AstGatherN _sh v (Z, ix4) -> traceRule $
       build1VIx k (var, AstIndexZ v ix4, is) perm0
-    AstGatherN @m7 @_p7 @n7 (vars, ix4) v sh -> traceRule $
+    AstGatherN @m7 @_p7 @n7 sh v (vars, ix4) -> traceRule $
       let v2 = case cmpNat (Proxy @m) (Proxy @(m7 + n7)) of
             EQI ->
               projectGatherN perm0 is (Z, vars, ix4) v sh []
@@ -472,7 +471,6 @@ build1VIx k (var, v0, is@(i1 :. rest1)) perm0 =
               error "build1VIx: AstGatherN: impossible inequality"
 
       in build1V k (var, v2)
-    -- All other patterns are redundant due to GADT typing.
 
 projectGatherN
   :: forall k m1 m2 p n r.
@@ -485,13 +483,13 @@ projectGatherN
   -> Ast (m1 + m2 + n - k) r
 projectGatherN perm0 ZI (varsRev, vars, ix4) v sh permsOuter =
   let vars3 = reverseSized varsRev `appendSized` vars
-      v2 = astGatherN (vars3, ix4) v sh
+      v2 = astGatherN sh v (vars3, ix4)
   in foldl' (flip astTranspose) v2 (perm0 : permsOuter)
 projectGatherN perm0 ix@(_ :. _) (varsRev, Z, ix4) v sh permsOuter =
   let p = valueOf @p
       permRest2 = [0 .. p - 1] ++ map (+ p) perm0
-      v2 = astGatherN (reverseSized varsRev, ix4)
-                      (astTranspose permRest2 v) sh
+      v2 = astGatherN sh (astTranspose permRest2 v)
+                      (reverseSized varsRev, ix4)
       v3 = AstIndexZ v2 ix  -- this will get recursively reduced elsewhere
   in foldl' (flip astTranspose) v3 permsOuter
 projectGatherN perm0 ix@(i1 :. rest1)
@@ -501,7 +499,7 @@ projectGatherN perm0 ix@(i1 :. rest1)
     Nothing ->
       let ix3 = fmap (substituteAstInt i1 var2) ix4
           vars3 = reverseSized varsRev `appendSized` vars
-          v2 = astGatherN (vars3, ix3) v sh'
+          v2 = astGatherN sh' v (vars3, ix3)
           v3 = AstIndexZ v2 rest1
                  -- this will get recursively reduced elsewhere
       in foldl' (flip astTranspose) v3 permsOuter
