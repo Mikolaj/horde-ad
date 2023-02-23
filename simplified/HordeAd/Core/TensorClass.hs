@@ -111,10 +111,10 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tminimum t = t ! tminIndex t
   tmaximum :: KnownNat n => TensorOf n r -> TensorOf 0 r
   tmaximum t = t ! tmaxIndex t
-  tfromIntOf0 :: IntOf r -> TensorOf 0 r
-  default tfromIntOf0  -- the more narrow type rules out Ast
+  tfromIndex0 :: IntOf r -> TensorOf 0 r
+  default tfromIndex0  -- the more narrow type rules out Ast
     :: IntOf r ~ Int => IntOf r -> TensorOf 0 r
-  tfromIntOf0 = tscalar . fromIntegral
+  tfromIndex0 = tscalar . fromIntegral
 
   -- Tensor codomain, often tensor construction, sometimes transformation
   tfromList :: KnownNat n => [TensorOf n r] -> TensorOf (1 + n) r
@@ -380,7 +380,7 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
 
   tindex = AstIndexZ
   tsum = AstSum
-  tfromIntOf0 = AstConstInt
+  tfromIndex0 = AstConstInt
     -- toInteger is not defined for Ast, hence a special implementation
 
   tfromList = AstFromList
@@ -421,7 +421,7 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
 
   tindex v ix = AstPrimalPart $ AstIndexZ (unAstPrimalPart v) ix
   tsum = AstPrimalPart . AstSum . unAstPrimalPart
-  tfromIntOf0 = AstPrimalPart . AstConstInt
+  tfromIndex0 = AstPrimalPart . AstConstInt
     -- toInteger is not defined for Ast, hence a special implementation
 
   tfromList = AstPrimalPart . AstFromList . map unAstPrimalPart
@@ -481,7 +481,7 @@ instance Tensor r
   tfloor = undefined
   tindex = undefined
   tsum = undefined
-  tfromIntOf0 = undefined
+  tfromIndex0 = undefined
   tfromList = undefined
   tfromVector = undefined
   tkonst = undefined

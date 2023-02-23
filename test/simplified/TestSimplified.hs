@@ -113,15 +113,15 @@ nestedSumBuild v =
       flip tindex [ix2]
         (tbuild1 5 (\ _ -> tsum v)
          * tfromList
-             [ tfromIntOf0 ix
-             , tsum (tbuild1 9 tfromIntOf0)
+             [ tfromIndex0 ix
+             , tsum (tbuild1 9 tfromIndex0)
              , tsum (tbuild1 6 (\_ -> tsum v))
              , tindex v [ix2]
              , tsum (tbuild1 3 (\ix7 ->
-                 tsum (tkonst 5 (tfromIntOf0 ix7))))
+                 tsum (tkonst 5 (tfromIndex0 ix7))))
 -- dynamic shapes:
 --             , tsum (tbuild1 3 (\ix7 ->
---                 tsum (tkonst0N [ix2 + 1] (tfromIntOf0 ix7))))
+--                 tsum (tkonst0N [ix2 + 1] (tfromIndex0 ix7))))
 -- irregular array:
 --             , tsum (tbuild1 3 (\ix7 ->
 --                 tsum (tkonst0N [ix2 + ix7 + 1] 2.4)))
@@ -165,14 +165,14 @@ reluAst1 v =
 -- * Tests by TomS
 
 f1 :: ADReady a => a -> a
-f1 = \arg -> tunScalar $ tsum0 (tbuild1 10 (\i -> tscalar arg * tfromIntOf0 i))
+f1 = \arg -> tunScalar $ tsum0 (tbuild1 10 (\i -> tscalar arg * tfromIndex0 i))
 
 f2 :: ADReady a => a -> a
 f2 = \arg ->
-  let fun1 i = tscalar arg * tfromIntOf0 i
+  let fun1 i = tscalar arg * tfromIndex0 i
       v1a = tsum0 (tbuild1 10 fun1)
       v1b = tsum0 (tbuild1 20 fun1)
-      fun2 y i = tscalar y * tfromIntOf0 i
+      fun2 y i = tscalar y * tfromIndex0 i
       v2a = tsum0 (tbuild1 10 (fun2 arg))
       v2b = tsum0 (tbuild1 20 (fun2 (arg + 1)))
   in tunScalar $ v1a + v1b + v2a + v2b
@@ -182,7 +182,7 @@ f3 :: (ADReady r, Tensor (r -> r), Tensor ((r -> r) -> (r -> r)))
    => TensorOf 0 r -> TensorOf 0 r
 f3 arg =
   let arr1 = tbuild [10] (\i -> tscalar $ \x ->
-                            x + tunScalar (tfromIntOf0 (headIndex i)))
+                            x + tunScalar (tfromIndex0 (headIndex i)))
       arr2 = tbuild [10] (\i -> tscalar $ \f -> (tunScalar $ arr1 ! i) . f)
       arr3 = tbuild [10] (\i -> tscalar $ (tunScalar $ arr2 ! i)
                                             (tunScalar $ arr1 ! i)
@@ -196,7 +196,7 @@ braidedBuilds :: forall r. ADReady r => r -> TensorOf 2 r
 braidedBuilds r =
   tbuild1 3 (\ix1 ->
     tbuild1 4 (\ix2 -> tindex @r @0 @1 (tfromList0N [4]
-                              [tunScalar $ tfromIntOf0 ix2, 7, r, -0.2]) [ix1]))
+                              [tunScalar $ tfromIndex0 ix2, 7, r, -0.2]) [ix1]))
 
 recycled :: ADReady r
          => r -> TensorOf 5 r
@@ -208,11 +208,11 @@ concatBuild :: ADReady r => r -> TensorOf 2 r
 concatBuild r =
   tbuild1 7 (\i ->
     tappend (tappend (tbuild1 5 (\_j -> tscalar r))  -- TODO: i should work
-                     (tkonst 1 (tfromIntOf0 i)))
+                     (tkonst 1 (tfromIndex0 i)))
             (tbuild1 13 (\_k -> tscalar r)))
 -- TODO: reject via types or accept with type obligations:
 --    tappend (tappend (tbuild1 (1 + i) (\_j -> tscalar r))  -- TODO: i should work
---                     (tkonst0N [1] (tfromIntOf0 i)))
+--                     (tkonst0N [1] (tfromIndex0 i)))
 --            (tbuild1 (13 - i) (\_k -> tscalar r)))
 
 -- TODO:
@@ -220,8 +220,8 @@ _concatBuild2 :: ADReady r => r -> TensorOf 2 r
 _concatBuild2 _r =
 -- TODO: tbuild0N (7, 14) (\ (i,j)
   tbuild1 7 $ \i -> tbuild1 14 $ \_j ->
-    -- TODO: use classes Cond and Bool: if i == j then tfromIntOf0 i else r
-   tfromIntOf0 i
+    -- TODO: use classes Cond and Bool: if i == j then tfromIndex0 i else r
+   tfromIndex0 i
       -- need to prove that i + 1 + (13 - i) = 14
 
 -- * Test harness glue code

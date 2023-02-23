@@ -318,14 +318,14 @@ nestedSumBuildB v =
     [ix, ix2] ->
       flip tindex [ix2]
         (tfromList
-             [ tbuild1 2 tfromIntOf0
-             , tsum $ tbuild [9, 2] $ const $ tfromIntOf0 ix
+             [ tbuild1 2 tfromIndex0
+             , tsum $ tbuild [9, 2] $ const $ tfromIndex0 ix
              , tindex v (listToIndex @n
                          $ replicate (trank v - 1)
                                      (ix2 `div` 2 + ix `div` 4 - 1))
              , tbuild1 2 (\_ -> tsum0 v)
              , tsum (tbuild1 7 (\ix7 ->
-                 tkonst 2 (tfromIntOf0 ix7)))
+                 tkonst 2 (tfromIndex0 ix7)))
              ])
     _ -> error "nestedSumBuildB: impossible pattern needlessly required"
 
@@ -376,7 +376,7 @@ braidedBuilds :: forall n r. (ADReady r, KnownNat n)
 braidedBuilds r =
   tbuild1 3 (\ix1 ->
     tbuild1 4 (\ix2 -> tindex (tfromList
-      [tfromIntOf0 ix2, 7, tsum0 (tslice 1 1 r), -0.2]) (ix1 :. ZI)))
+      [tfromIndex0 ix2, 7, tsum0 (tslice 1 1 r), -0.2]) (ix1 :. ZI)))
 
 testBraidedBuilds :: Assertion
 testBraidedBuilds =
@@ -413,12 +413,12 @@ concatBuild :: (ADReady r, KnownNat n)
 concatBuild r =
   tbuild1 7 (\i ->
     tappend (tappend (tbuild1 5 (const r))  -- TODO: i should work
-                     (tbuild1 1 (\j -> tmap0N (* tfromIntOf0 (j - i)) r)))
+                     (tbuild1 1 (\j -> tmap0N (* tfromIndex0 (j - i)) r)))
             (tbuild1 13 (\_k ->
                tsum $ ttr $ tkonst (tlength r) (tslice 0 1 r))))
 -- TODO: reject via types or accept with type obligations:
 --    tappend (tappend (tbuild1 (1 + i) (\_j -> tscalar r))  -- TODO: i should work
---                     (tkonst0N [1] (tfromIntOf0 i)))
+--                     (tkonst0N [1] (tfromIndex0 i)))
 --            (tbuild1 (13 - i) (\_k -> tscalar r)))
 
 testConcatBuild :: Assertion
