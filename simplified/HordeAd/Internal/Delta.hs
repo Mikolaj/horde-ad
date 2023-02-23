@@ -582,8 +582,8 @@ buildFinMaps s0 deltaDt =
                     s (OR.toVector c)
         Gather1 f sh d _n -> eval1 s (tscatter1R f c sh) d
         GatherN f shd d _sh -> eval1 s (tscatterNR f c shd) d
-        Scatter1 f n d _sh -> eval1 s (tgather1R f c n) d
-        ScatterN f shd d _sh -> eval1 s (tgatherNR f c shd) d
+        Scatter1 f n d _sh -> eval1 s (tgather1R n c f) d
+        ScatterN f shd d _sh -> eval1 s (tgatherNR shd c f) d
 
         FromX1 (InputX inputId) ->
           s {iMap1 = EM.adjust (addToArray c) inputId $ iMap1 s}
@@ -730,10 +730,10 @@ buildDerivative dim0 dim1 deltaTopLevel
           return $! OR.fromList sh l
         Gather1 f _sh d k -> do
           t <- eval1 d
-          return $! tgather1R f t k
+          return $! tgather1R k t f
         GatherN f _shd d sh -> do
           t <- eval1 d
-          return $! tgatherNR f t sh
+          return $! tgatherNR sh t f
         Scatter1 f _k d sh -> do
           t <- eval1 d
           return $! tscatter1R f t sh

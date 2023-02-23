@@ -715,19 +715,19 @@ build1 k f = fromList $ map f [0 .. k - 1]
 -- Note that if any index is out of bounds, the result of that particular
 -- projection is defined and is 0 (but beware of vectorization).
 gatherNClosure :: (ADModeAndNumTensor d r, KnownNat m, KnownNat p, KnownNat n)
-               => (IndexInt m -> IndexInt p)
-               -> ADVal d (OR.Array (p + n) r)
-               -> ShapeInt (m + n) -> ADVal d (OR.Array (m + n) r)
-gatherNClosure f (D u u') sh =
-  dD (tgatherNR f u sh) (dGatherN f (tshapeR u) u' sh)
+               => ShapeInt (m + n) -> ADVal d (OR.Array (p + n) r)
+               -> (IndexInt m -> IndexInt p)
+               -> ADVal d (OR.Array (m + n) r)
+gatherNClosure sh (D u u') f =
+  dD (tgatherNR sh u f) (dGatherN f (tshapeR u) u' sh)
 
 -- Note that if any index is out of bounds, the result of that particular
 -- projection is defined and is 0 (but beware of vectorization).
 gather1Closure :: (ADModeAndNumTensor d r, KnownNat p, KnownNat n)
-               => (Int -> IndexInt p)
-               -> ADVal d (OR.Array (p + n) r)
-               -> Int -> ADVal d (OR.Array (1 + n) r)
-gather1Closure f (D u u') k = dD (tgather1R f u k) (dGather1 f (tshapeR u) u' k)
+               => Int -> ADVal d (OR.Array (p + n) r)
+               -> (Int -> IndexInt p)
+               -> ADVal d (OR.Array (1 + n) r)
+gather1Closure k (D u u') f = dD (tgather1R k u f) (dGather1 f (tshapeR u) u' k)
 
 scalar :: ADModeAndNumTensor d r => ADVal d r -> ADVal d (OR.Array 0 r)
 scalar (D u u') = dD (OR.scalar u) (dScalar1 u')
@@ -854,7 +854,7 @@ interpretAst env = \case
     -- (memory blowup, but avoids functions on tape), to test against
     -- the closure version that the direct ADVal Tensor instance uses
   AstGather1 k v (var, ix) ->
-    gather1Closure (interpretLambdaIndex env (var, ix)) (interpretAst env v) k
+    gather1Closure k (interpretAst env v) (interpretLambdaIndex env (var, ix))
     -- TODO: currently we store the function on tape, because it doesn't
     -- cause recomputation of the gradient per-cell, unlike storing the build
     -- function on tape; for GPUs and libraries that don't understand Haskell
@@ -864,8 +864,9 @@ interpretAst env = \case
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
   AstGatherN sh v (vars, ix) ->
-    gatherNClosure (interpretLambdaIndexToIndex env (vars, ix))
-                   (interpretAst env v) sh
+    gatherNClosure sh (interpretAst env v)
+                   (interpretLambdaIndexToIndex env (vars, ix))
+
 
 interpretAstInt :: ADModeAndNumTensor d r
                 => AstEnv d r

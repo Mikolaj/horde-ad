@@ -409,8 +409,8 @@ instance ( Numeric r, Show r, Num (Vector r)
   dReshape1 _sh = treshapeR
   dBuild1 = tbuild1R
   dBuild01 = tbuild0NR
-  dGather1 f _sh = tgather1R f
-  dGatherN f _shd = tgatherNR f
+  dGather1 f _sh u k = tgather1R k u f
+  dGatherN f _shd u sh = tgatherNR sh u f
   dScatter1 f _n = tscatter1R f
   dScatterN f _shd = tscatterNR f
 

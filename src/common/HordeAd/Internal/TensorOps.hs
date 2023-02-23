@@ -310,10 +310,10 @@ tzipWith0NR = liftVR2 . Numeric.LinearAlgebra.Devel.zipVectorWith
 -- permits index out of bounds and the result of such indexing is zero.
 tgatherNR :: forall m p n r.
              (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r)
-         => (IndexInt m -> IndexInt p)
-         -> OR.Array (p + n) r
-         -> ShapeInt (m + n) -> OR.Array (m + n) r
-tgatherNR f t sh =
+          => ShapeInt (m + n) -> OR.Array (p + n) r
+          -> (IndexInt m -> IndexInt p)
+          -> OR.Array (m + n) r
+tgatherNR sh t f =
   let shm = takeShape @m sh
       s = sizeShape shm
       l = [ OR.toVector $ t `tindexZR` f (fromLinearIdx shm i)
@@ -321,9 +321,9 @@ tgatherNR f t sh =
   in OR.fromVector (shapeToList sh) $ LA.vjoin l
 
 tgather1R :: (KnownNat p, KnownNat n, Show r, Numeric r)
-          => (Int -> IndexInt p)
-          -> OR.Array (p + n) r -> Int -> OR.Array (1 + n) r
-tgather1R f t k =
+          => Int -> OR.Array (p + n) r -> (Int -> IndexInt p)
+          -> OR.Array (1 + n) r
+tgather1R k t f =
   let l = map (\i -> t `tindexZR` f i) [0 .. k - 1]
   in OR.ravel $ ORB.fromList [k] l
 
