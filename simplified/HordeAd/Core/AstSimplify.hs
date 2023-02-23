@@ -119,7 +119,7 @@ astReshape shOut v = unsafePerformIO $ do
       asts :: AstIndex p r
       asts = let i = toLinearIdx @m @0 (fmap AstIntConst shOut) ix
              in fromLinearIdx (fmap AstIntConst shIn) i
-  return $! AstGatherN @m @p @0 shOut v (vars, asts)
+  return $! astGatherN @m @p @0 shOut v (vars, asts)
 
 
 -- * The simplifying combinators
@@ -325,11 +325,12 @@ simplifyAst t = case t of
   AstReverse v -> astReverse (simplifyAst v)
   AstTranspose perm v -> astTranspose perm $ simplifyAst v
   AstFlatten v -> astFlatten $ simplifyAst v
-  AstReshape sh v -> astReshape sh (simplifyAst v)
-  AstBuild1{} -> t  -- should never appear outside test runs
+  AstReshape sh v -> AstReshape sh (simplifyAst v)  -- TODO: astReshape sh (simplifyAst v)
+  AstBuild1 k (var, v) -> AstBuild1 k (var, simplifyAst v)
+    -- should never appear outside test runs, but let's test the inside, too
   AstGather1 k v (var, ix) ->
     astGather1 k (simplifyAst v) (var, fmap (simplifyAstInt) ix)
-  AstGatherN sh  v (vars, ix)->
+  AstGatherN sh v (vars, ix) ->
     astGatherN sh (simplifyAst v) (vars, fmap (simplifyAstInt) ix)
 
 -- Integer terms need to be simplified, because they are sometimes

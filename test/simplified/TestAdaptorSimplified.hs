@@ -64,9 +64,9 @@ rev' :: forall a r n m.
         , a ~ OR.Array m r, TensorOf n r ~ OR.Array n r )
      => (forall x. ADReady x => TensorOf n x -> TensorOf m x)
      -> OR.Array n r
-     -> ( TensorOf m r, a, a, a, a, a, a, a
-        , OR.Array n r, OR.Array n r, OR.Array n r, OR.Array n r
-        , OR.Array n r, OR.Array n r, OR.Array n r )
+     -> ( TensorOf m r, a, a, a, a, a
+        , OR.Array n r, OR.Array n r, OR.Array n r, OR.Array n r, OR.Array n r
+        , Ast m r, Ast m r )
 rev' f vals =
   let value0 = f vals
       dt = inputConstant @a 1
@@ -86,10 +86,7 @@ rev' f vals =
       (astSimple, value3) =
         revOnDomainsFun dt (h id id simplifyAst) (toDomains vals)
       gradient3 = parseDomains vals astSimple
-      (astSimple2, value32) =
-        revOnDomainsFun dt (h id id (simplifyAst . simplifyAst))
-                           (toDomains vals)
-      gradient32 = parseDomains vals astSimple2
+      astVectSimp = simplifyAst $ snd $ funToAstR (tshape vals) f
       (astPrimal, value4) =
         revOnDomainsFun dt (h unAstPrimalPart AstPrimalPart id)
                            (toDomains vals)
@@ -100,61 +97,60 @@ rev' f vals =
         revOnDomainsFun dt (h unAstPrimalPart AstPrimalPart simplifyAst)
                            (toDomains vals)
       gradient5 = parseDomains vals astPSimple
-      (astPSimple2, value52) =
-        revOnDomainsFun dt (h unAstPrimalPart AstPrimalPart
-                              (simplifyAst . simplifyAst))
-                           (toDomains vals)
-      gradient52 = parseDomains vals astPSimple2
-  in ( value0, value1, value2, value3, value32, value4, value5, value52
-     , gradient1, gradient2, gradient3, gradient32
-     , gradient4, gradient5, gradient52 )
+      astSimp =
+        simplifyAst $ snd
+        $ funToAstR (tshape vals) (unAstPrimalPart . f . AstPrimalPart)
+  in ( value0, value1, value2, value3, value4, value5
+     , gradient1, gradient2, gradient3, gradient4, gradient5
+     , astVectSimp, astSimp )
 
 assertEqualUpToEpsilon'
-    :: (AssertEqualUpToEpsilon z a, AssertEqualUpToEpsilon z b)
+    :: ( AssertEqualUpToEpsilon z a, AssertEqualUpToEpsilon z b
+       , KnownNat m, Show r, Numeric r )
     => z  -- ^ error margin (i.e., the epsilon)
     -> a  -- ^ expected value
-    -> (b, b, b, b, b, b, b, b, a, a, a, a, a, a, a)   -- ^ actual values
+    -> (b, b, b, b, b, b, a, a, a, a, a, Ast m r, Ast m r)
+         -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilon'
     errMargin expected
-    ( value0, value1, value2, value3, value32, value4, value5, value52
-    , gradient1, gradient2, gradient3, gradient32
-    , gradient4, gradient5, gradient52 ) = do
+    ( value0, value1, value2, value3, value4, value5
+    , gradient1, gradient2, gradient3, gradient4, gradient5
+    , astVectSimp, astSimp ) = do
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
   assertEqualUpToEpsilonWithMark "Val Vect+Simp" errMargin value0 value3
-  assertEqualUpToEpsilonWithMark "Val Vect+Simp2" errMargin value0 value32
   assertEqualUpToEpsilonWithMark "Val NotVect" errMargin value0 value4
   assertEqualUpToEpsilonWithMark "Val Simplified" errMargin value0 value5
-  assertEqualUpToEpsilonWithMark "Val Simplified2" errMargin value0 value52
   assertEqualUpToEpsilonWithMark "Grad ADVal" errMargin expected gradient1
   assertEqualUpToEpsilonWithMark "Grad Vectorized" errMargin expected gradient2
   assertEqualUpToEpsilonWithMark "Grad Vect+Simp" errMargin expected gradient3
-  assertEqualUpToEpsilonWithMark "Grad Vect+Simp2" errMargin expected gradient32
   assertEqualUpToEpsilonWithMark "Grad NotVect" errMargin expected gradient4
   assertEqualUpToEpsilonWithMark "Grad Simplified" errMargin expected gradient5
-  assertEqualUpToEpsilonWithMark "Grad Simplified2"
-                                 errMargin expected gradient52
+  -- No Eq instance, so let's compare the text.
+  show (simplifyAst astVectSimp) @?= show astVectSimp
+  show (simplifyAst astSimp) @?= show astSimp
 
 assertEqualUpToEpsilonShorter
-    :: (AssertEqualUpToEpsilon z a, AssertEqualUpToEpsilon z b)
+    :: ( AssertEqualUpToEpsilon z a, AssertEqualUpToEpsilon z b
+       , KnownNat m, Show r, Numeric r )
     => z  -- ^ error margin (i.e., the epsilon)
     -> a  -- ^ expected value
-    -> (b, b, b, b, b, b, b, b, a, a, a, a, a, a, a)   -- ^ actual values
+    -> (b, b, b, b, b, b, a, a, a, a, a, Ast m r, Ast m r)   -- ^ actual values
     -> Assertion
 assertEqualUpToEpsilonShorter
     errMargin expected
-    ( value0, value1, value2, value3, value32, _value4, _value5, _value52
-    , gradient1, gradient2, gradient3, gradient32
-    , _gradient4, _gradient5, _gradient52 ) = do
+    ( value0, value1, value2, value3, _value4, _value5
+    , gradient1, gradient2, gradient3, _gradient4, _gradient5
+    , astVectSimp, astSimp ) = do
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
   assertEqualUpToEpsilonWithMark "Val Vect+Simp" errMargin value0 value3
-  assertEqualUpToEpsilonWithMark "Val Vect+Simp2" errMargin value0 value32
   assertEqualUpToEpsilonWithMark "Grad ADVal" errMargin expected gradient1
   assertEqualUpToEpsilonWithMark "Grad Vectorized" errMargin expected gradient2
   assertEqualUpToEpsilonWithMark "Grad Vect+Simp" errMargin expected gradient3
-  assertEqualUpToEpsilonWithMark "Grad Vect+Simp2" errMargin expected gradient32
+  show (simplifyAst astVectSimp) @?= show astVectSimp
+  show (simplifyAst astSimp) @?= show astSimp
 
 
 -- * Tensor tests
