@@ -16,7 +16,7 @@
 -- The combinator can also be used to simplify a whole term, bottom-up.
 module HordeAd.Core.AstSimplify
   ( isIdentityPerm, permCycle, permSwapSplit
-  , unsafeGetFreshAstVar, funToAstR, funToAstI
+  , funToAstR, funToAstI, funToAstIndex
   , astReshape
   , astIndexZ, astSum, astFromList, astFromVector, astKonst
   , astAppend, astSlice, astReverse, astTranspose, astFlatten
@@ -88,11 +88,18 @@ funToAstR sh f = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
   return (freshAstVar, f (AstVar sh freshAstVar))
 
-funToAstI :: (AstInt r -> Ast m r) -> (AstVarName Int, Ast m r)
+funToAstI :: (AstInt r -> t) -> (AstVarName Int, t)
 {-# NOINLINE funToAstI #-}
 funToAstI f = unsafePerformIO $ do
   freshAstVar <- unsafeGetFreshAstVar
   return (freshAstVar, f (AstIntVar freshAstVar))
+
+funToAstIndex :: forall m p r. KnownNat m
+              => (AstIndex m r -> AstIndex p r) -> (AstVarList m, AstIndex p r)
+{-# NOINLINE funToAstIndex #-}
+funToAstIndex f = unsafePerformIO $ do
+  varList <- replicateM (valueOf @m) unsafeGetFreshAstVar
+  return (listToSized varList, f (listToIndex $ map AstIntVar varList))
 
 
 -- * Combinators that simplify but introduce new variable names

@@ -179,6 +179,14 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
              => (TensorOf 0 r -> TensorOf 0 r -> TensorOf 0 r)
              -> TensorOf n r -> TensorOf n r -> TensorOf n r
   tzipWith0N f u v = tbuild (tshape v) (\ix -> f (u ! ix) (v ! ix))
+  tgather :: (KnownNat m, KnownNat n, KnownNat p)
+          => ShapeInt (m + n) -> TensorOf (p + n) r
+          -> (IndexOf m r -> IndexOf p r)
+          -> TensorOf (m + n) r
+  tgather1 :: (KnownNat p, KnownNat n)
+           => Int -> TensorOf (p + n) r
+           -> (IntOf r -> IndexOf p r)
+           -> TensorOf (1 + n) r
 
   tscalar :: r -> TensorOf 0 r
   tunScalar :: TensorOf 0 r -> r
@@ -290,6 +298,8 @@ instance Tensor Double where
   treshape = treshapeR
   tbuild = tbuildNR
   tbuild1 = tbuild1R
+  tgather = tgatherNR
+  tgather1 = tgather1R
   tscalar = tscalarR
   tunScalar = tunScalarR
 
@@ -322,6 +332,8 @@ instance Tensor Float where
   -- tmap0N = tmap0NR
   -- tzipWith = tzipWithR
   -- tzipWith0N = tzipWith0NR
+  tgather = tgatherNR
+  tgather1 = tgather1R
   tscalar = tscalarR
   tunScalar = tunScalarR
 
@@ -368,6 +380,8 @@ instance ADModeAndNumTensor d r => Tensor (ADVal d r) where
     in dD (tbuild1R k g) (dBuild1 k h)
       -- uses the implementation that stores closures on tape to test against
       -- the elementwise implementation used by fallback from vectorizing Ast
+  tgather = gatherNClosure
+  tgather1 = gather1Closure
 
   tscalar = scalar
   tunScalar = unScalar
@@ -399,6 +413,8 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   ttranspose = AstTranspose
   treshape = AstReshape
   tbuild1 = astBuild1
+  tgather sh t f = AstGatherN sh t (funToAstIndex f)  -- introduces new vars
+  tgather1 k t f = AstGather1 k t (funToAstI f)  -- introduces new vars
 
   tscalar = id  -- Ast confuses the two ranks
   tunScalar = id
@@ -445,6 +461,10 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   tbuild1 k f = AstPrimalPart $ AstBuild1 k
                 $ funToAstI  -- this introduces new variable names
                 $ unAstPrimalPart . f
+  tgather sh t f = AstPrimalPart $ AstGatherN sh (unAstPrimalPart t)
+                   $ funToAstIndex f  -- this introduces new variable names
+  tgather1 k t f = AstPrimalPart $ AstGather1 k (unAstPrimalPart t)
+                   $ funToAstI f  -- this introduces new variable names
 
   tscalar = id
   tunScalar = id
