@@ -26,12 +26,6 @@ testTrees =
   , testCase "KonstG0TinyS" testKonstG0TinyS
   , testCase "KonstG0TinyA" testKonstG0TinyA
   , testCase "KonstG0LittleA" testKonstG0LittleA
-  , testCase "KonstG5LittleB" testKonstG5LittleB
-  , testCase "KonstG5LittleC" testKonstG5LittleC
-  , testCase "KonstG5BigB" testKonstG5BigB
-  , testCase "KonstGNotBigB" testKonstGNotBigB
-  , testCase "KonstG5BigC" testKonstG5BigC
-  , testCase "KonstGNotBigC" testKonstGNotBigC
   , testCase "Konst0RevLaborious" testKonst0RevLaborious
   , testCase "Konst0Tiny1Laborious" testKonst0Tiny1Laborious
   , testCase "Konst0TinySLaborious" testKonst0TinySLaborious
@@ -104,11 +98,6 @@ conv2dB
   => TensorOf 4 r -> TensorOf 4 r
 conv2dB = conv2d $ tconst t16
 
-conv2dC
-  :: ADReady r
-  => TensorOf 4 r -> TensorOf 4 r
-conv2dC = flip conv2d $ tconst t16
-
 testKonstG0Rev :: Assertion
 testKonstG0Rev =
   assertEqualUpToEpsilon 1e-10
@@ -141,60 +130,17 @@ testKonstG0LittleA =
     (OR.fromList [2, 2, 2, 2] [-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003,-0.2,-0.2,-0.2,-0.2,25.0003,25.0003,25.0003,25.0003])
     (rev' @(OR.Array 4 Double) conv2dA (tkonst0N [2, 2, 2, 2] 0))
 
-testKonstG5LittleB :: Assertion
-testKonstG5LittleB =
-  assertEqualUpToEpsilon' 1e-8
-    (OR.fromList [2, 2, 2, 2] [18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001])
-    (rev' @(OR.Array 4 Double) conv2dB (tkonst0N [2, 2, 2, 2] 5))
-
-testKonstG5LittleC :: Assertion
-testKonstG5LittleC =
-  assertEqualUpToEpsilon' 1e-8
-    (OR.fromList [2, 2, 2, 2] [40.1,8.0,11.0,-3.0,582625.89432,28.79432,-309.09999999999997,25.8,40.1,8.0,11.0,-3.0,582625.89432,28.79432,-309.09999999999997,25.8])
-    (rev' @(OR.Array 4 Double) conv2dC (tkonst0N [2, 2, 2, 2] 5))
-
-testKonstG5BigB :: Assertion
-testKonstG5BigB =
-  assertEqualUpToEpsilon' 1e-8
-    (OR.fromList [3, 2, 4, 2] [18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,582597.1,582625.8943200001,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,582597.1,582625.8943200001,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,582597.1,582625.8943200001,582597.1,582625.8943200001])
-    (rev' @(OR.Array 4 Double) conv2dB (tkonst0N [3, 2, 4, 2] 5))
-
--- The gradient is the same as above, because one argument is the same
--- and convolution is linear.
-testKonstGNotBigB :: Assertion
-testKonstGNotBigB =
-  assertEqualUpToEpsilon' 1e-8
-    (OR.fromList [3, 2, 4, 2] [18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,582597.1,582625.8943200001,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,582597.1,582625.8943200001,582597.1,582625.8943200001,18.1,29.1,32.1,40.1,32.1,40.1,32.1,40.1,582932.0,582934.99432,582597.1,582625.8943200001,582597.1,582625.8943200001,582597.1,582625.8943200001])
-    (rev' @(OR.Array 4 Double) conv2dB
-          (tfromList0N [3, 2, 4, 2] [37, 36 .. -10]))
-
-testKonstG5BigC :: Assertion
-testKonstG5BigC =
-  assertEqualUpToEpsilon' 1e-8
-    (OR.fromList [3, 2, 4, 2] [40.1,8.0,11.0,-3.0,0.0,0.0,0.0,0.0,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,0.0,0.0,0.0,0.0,40.1,8.0,11.0,-3.0,0.0,0.0,0.0,0.0,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,0.0,0.0,0.0,0.0,40.1,8.0,11.0,-3.0,0.0,0.0,0.0,0.0,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,0.0,0.0,0.0,0.0])
-    (rev' @(OR.Array 4 Double) conv2dC (tkonst0N [3, 2, 4, 2] 5))
-
--- The gradient is the same as above, because one argument is the same
--- and convolution is linear.
-testKonstGNotBigC :: Assertion
-testKonstGNotBigC =
-  assertEqualUpToEpsilon' 1e-8
-    (OR.fromList [3, 2, 4, 2] [40.1,8.0,11.0,-3.0,0.0,0.0,0.0,0.0,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,0.0,0.0,0.0,0.0,40.1,8.0,11.0,-3.0,0.0,0.0,0.0,0.0,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,0.0,0.0,0.0,0.0,40.1,8.0,11.0,-3.0,0.0,0.0,0.0,0.0,582625.8943200001,28.794320000000003,-309.09999999999997,25.8,0.0,0.0,0.0,0.0])
-    (rev' @(OR.Array 4 Double) conv2dC
-          (tfromList0N [3, 2, 4, 2] [37, 36 .. -10]))
-
 
 -- * A laborious version
 
--- It needlessly gates the indexing behind a conditional, despite
--- the current indexing giving 0 when out of bounds.
--- However, if another value than 0 was needed, the conditional
--- would be necessary and, in the presense of vectorization,
--- which prevents conditional from being lazy, permissing indexing
--- would still be neeeded.
-
--- The tests are copied from above and the required test results are
--- the same in order to verify that the conditional is indeed spurious.
+-- It giards the out of bounds indexing behind a conditional
+-- to prevent changed values after vectorization,
+-- despite the indexing giving 0 when out of bounds.
+-- If another value than 0 was needed, the conditional
+-- would be necessary even without vectorization.
+--
+-- Some tests are copied from above and the required test results are
+-- the same.
 
 -- | Unpadded full convolution,
 --   where the output size is the same as the input size.

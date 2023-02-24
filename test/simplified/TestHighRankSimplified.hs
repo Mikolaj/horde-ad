@@ -116,34 +116,45 @@ testFooBuild0 =
     (OR.fromList [2,2,1,2,2] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])
     (rev' @(OR.Array 5 Double) fooBuild0 t16)
 
-fooBuildOut :: forall r n. (ADReady r, KnownNat n)
-            => TensorOf (1 + n) r -> TensorOf (1 + n) r
+fooBuildOut
+  :: forall r n.
+     ( ADReady r, KnownNat n
+     , IfB (TensorOf n r), BooleanOf (IntOf r) ~ BooleanOf (TensorOf n r) )
+  => TensorOf (1 + n) r -> TensorOf (1 + n) r
 fooBuildOut v =
-  tbuild1 2 $ \ix -> tindex v [ix + 1]  -- index out of bounds; fine
+  tbuild1 2 $ \ix -> ifB (ix ==* 0)
+                         (tindex v [ix + 1])  -- index out of bounds; guarded
+                         (tsum v)
 
 testFooBuildOut :: Assertion
 testFooBuildOut =
   assertEqualUpToEpsilon' 1e-10
-    (OR.fromList [2,2,1,2,2] [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
+    (OR.fromList [2,2,1,2,2] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0])
     (rev' @(OR.Array 5 Double) fooBuildOut t16)
 
-fooBuild2 :: forall r n. (ADReady r, KnownNat n)
-          => TensorOf (1 + n) r -> TensorOf (1 + n) r
+fooBuild2
+  :: forall r n.
+     ( ADReady r, KnownNat n, Floating (TensorOf n r)
+     , IfB (TensorOf n r), BooleanOf (IntOf r) ~ BooleanOf (TensorOf n r) )
+  => TensorOf (1 + n) r -> TensorOf (1 + n) r
 fooBuild2 v =
   tbuild1 2 $ \ix ->
-    tindex v [min 0 $ max 1 (ix + tfloor (tsum0 v))]
-    -- index out of bounds; also fine
+    ifB (ix - tfloor (tsum0 v) - 10001 >=* 0
+         &&* ix - tfloor (tsum0 v) - 10001 <=* 1)
+        (tindex v [ix - tfloor (tsum0 v) - 10001])
+           -- index out of bounds; also fine
+        (sqrt $ abs $ tindex v [(ix - tfloor (tsum0 v) - 10001) `mod` 2])
 
 testFooBuild21 :: Assertion
 testFooBuild21 =
   assertEqualUpToEpsilon' 1e-10
-    (OR.fromList [2] [2.0,0.0])
+    (OR.fromList [2] [0.2886751345948129,0.35355339059327373])
     (rev' @(OR.Array 1 Double) fooBuild2 (OR.fromList [2] [3.0,2.0]))
 
 testFooBuild25 :: Assertion
 testFooBuild25 =
   assertEqualUpToEpsilon' 1e-10
-    (OR.fromList [2,2,1,2,2] [2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+    (OR.fromList [2,2,1,2,2] [0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5,-0.35355339059327373,500.0,1.5811388300841895,-1.118033988749895,0.1381447409988844,0.16666666666666666,0.17677669529663687,-0.25,8.574929257125441e-2,0.288948802391873,-8.703882797784893e-2,9.805806756909202e-2])
     (rev' @(OR.Array 5 Double) fooBuild2 t16)
 
 fooBuild3 :: forall r n.
@@ -322,7 +333,7 @@ nestedSumBuildB v =
              , tsum $ tbuild [9, 2] $ const $ tfromIndex0 ix
              , tindex v (listToIndex @n
                          $ replicate (trank v - 1)
-                                     (ix2 `div` 2 + ix `div` 4 - 1))
+                             (max 0 $ min 1 $ ix2 `div` 2 + ix `div` 4 - 1))
              , tbuild1 2 (\_ -> tsum0 v)
              , tsum (tbuild1 7 (\ix7 ->
                  tkonst 2 (tfromIndex0 ix7)))
@@ -332,12 +343,12 @@ nestedSumBuildB v =
 testNestedSumBuildB :: Assertion
 testNestedSumBuildB =
   assertEqualUpToEpsilon' 1e-8
-    (OR.fromList [3,1,2,2,1,2,2] [30.0,30.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0])
-    (rev' @(OR.Array 3 Double) nestedSumBuildB t48)
+    (OR.fromList [2,3,2,2,2] [30.0,30.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,35.0,35.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0,26.0])
+    (rev' @(OR.Array 3 Double) nestedSumBuildB (tsum $ tsum $ ttranspose [1, 4, 2, 0, 3] t48))
 
 nestedBuildIndex :: forall r. ADReady r => TensorOf 5 r -> TensorOf 3 r
 nestedBuildIndex v =
-  tbuild1 2 $ \ix2 -> tindex (tbuild1 3 $ \ix3 -> tindex (tbuild1 2 $ \ix4 -> tindex v (ix4 :. ix4 :. 0 :. ZI)) [ix3]) (ix2 :. ZI)
+  tbuild1 2 $ \ix2 -> tindex (tbuild1 3 $ \ix3 -> tindex (tbuild1 3 $ \ix4 -> tindex v (ix4 `mod` 2:. ix2 :. 0 :. ZI)) [ix3]) (ix2 :. ZI)
 
 testNestedBuildIndex :: Assertion
 testNestedBuildIndex =
@@ -394,19 +405,19 @@ recycled :: (ADReady r, KnownNat n)
          => TensorOf n r -> TensorOf 7 r
 recycled r =
   tbuild1 2 $ \_ -> tbuild1 4 $ \_ -> tbuild1 2 $ \_ -> tbuild1 3 $ \_ ->
-    nestedSumBuildB (tkonst 2 r)
+    nestedSumBuildB (tkonst 4 r)
 
 testRecycled :: Assertion
 testRecycled =
   assertEqualUpToEpsilon' 1e-6
-    (tscalar 3744.0)
-    (rev' @(OR.Array 7 Double) recycled (tkonst0N [] 1.0001))
+    (tkonst0N (2 :$ ZS) 5616)
+    (rev' @(OR.Array 7 Double) recycled (tkonst0N [2] 1.0001))
 
 testRecycled1 :: Assertion
 testRecycled1 =
   assertEqualUpToEpsilon' 1e-6
-    (OR.fromList [2,2,1,2,2] [2688.0,2688.0,2496.0,2496.0,2496.0,2496.0,2496.0,2496.0,2496.0,2496.0,2496.0,2496.0,2496.0,2496.0,2496.0,2496.0])
-    (rev' @(OR.Array 7 Double) recycled t16)
+    (tfromList0N (5 :$ 4 :$ 2 :$ ZS) [5184.0,5184.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,5424.0,5424.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0,4992.0])
+    (rev' @(OR.Array 7 Double) recycled (tkonst0N [5, 4, 2] 0.0002))
 
 concatBuild :: (ADReady r, KnownNat n)
             => TensorOf (1 + n) r -> TensorOf (3 + n) r

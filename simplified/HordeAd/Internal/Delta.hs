@@ -582,8 +582,8 @@ buildFinMaps s0 deltaDt =
                     s (OR.toVector c)
         Gather1 f sh d _n -> eval1 s (tscatter1R f c sh) d
         GatherN f shd d _sh -> eval1 s (tscatterNR f c shd) d
-        Scatter1 f n d _sh -> eval1 s (tgather1R n c f) d
-        ScatterN f shd d _sh -> eval1 s (tgatherNR shd c f) d
+        Scatter1 f n d _sh -> eval1 s (tgatherZ1R n c f) d
+        ScatterN f shd d _sh -> eval1 s (tgatherZR shd c f) d
 
         FromX1 (InputX inputId) ->
           s {iMap1 = EM.adjust (addToArray c) inputId $ iMap1 s}

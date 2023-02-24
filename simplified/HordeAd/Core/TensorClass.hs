@@ -92,8 +92,6 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   -- (a number suffix in the name indicates the rank of codomain)
   tindex, (!) :: (KnownNat n, KnownNat m)
               => TensorOf (m + n) r -> IndexOf m r -> TensorOf n r
-    -- if index is out of bounds, the operations returns with an undefined
-    -- value of the correct rank and shape
   infixl 9 !
   (!) = tindex  -- prefix form better when type applications are necessary
   tsum :: KnownNat n => TensorOf (1 + n) r -> TensorOf n r
@@ -281,7 +279,7 @@ instance Tensor Double where
   tminIndex0 = tminIndexR
   tmaxIndex0 = tmaxIndexR
   tfloor = floor . tunScalar
-  tindex = tindexZR
+  tindex = tindexNR
   tsum = tsumR
   tsum0 = tscalar . tsum0R
   tdot0 u v = tscalar $ tdot0R u v
@@ -310,7 +308,7 @@ instance Tensor Float where
   tminIndex0 = tminIndexR
   tmaxIndex0 = tmaxIndexR
   tfloor = floor . tunScalar
-  tindex = tindexZR
+  tindex = tindexNR
   tsum = tsumR
   tsum0 = tscalar . tsum0R
   tdot0 u v = tscalar $ tdot0R u v
@@ -358,7 +356,7 @@ instance ADModeAndNumTensor d r => Tensor (ADVal d r) where
   tmaxIndex0 (D u _) = tmaxIndexR u
   tfloor (D u _) = floor $ tunScalarR u
 
-  tindex = indexZ
+  tindex = indexZ  -- for simplicity, out of bounds indexing permitted
   tsum = sum'
   tsum0 = tscalar . sum0
   tdot0 u v = tscalar $ dot0 u v
@@ -380,7 +378,7 @@ instance ADModeAndNumTensor d r => Tensor (ADVal d r) where
     in dD (tbuild1R k g) (dBuild1 k h)
       -- uses the implementation that stores closures on tape to test against
       -- the elementwise implementation used by fallback from vectorizing Ast
-  tgather = gatherNClosure
+  tgather = gatherNClosure  -- for simplicity, out of bounds indexing permitted
   tgather1 = gather1Closure
 
   tscalar = scalar
@@ -739,7 +737,7 @@ gatherNClosure :: (ADModeAndNumTensor d r, KnownNat m, KnownNat p, KnownNat n)
                -> (IndexInt m -> IndexInt p)
                -> ADVal d (OR.Array (m + n) r)
 gatherNClosure sh (D u u') f =
-  dD (tgatherNR sh u f) (dGatherN f (tshapeR u) u' sh)
+  dD (tgatherZR sh u f) (dGatherN f (tshapeR u) u' sh)
 
 -- Note that if any index is out of bounds, the result of that particular
 -- projection is defined and is 0 (but beware of vectorization).
@@ -747,7 +745,7 @@ gather1Closure :: (ADModeAndNumTensor d r, KnownNat p, KnownNat n)
                => Int -> ADVal d (OR.Array (p + n) r)
                -> (Int -> IndexInt p)
                -> ADVal d (OR.Array (1 + n) r)
-gather1Closure k (D u u') f = dD (tgather1R k u f) (dGather1 f (tshapeR u) u' k)
+gather1Closure k (D u u') f = dD (tgatherZ1R k u f) (dGather1 f (tshapeR u) u' k)
 
 scalar :: ADModeAndNumTensor d r => ADVal d r -> ADVal d (OR.Array 0 r)
 scalar (D u u') = dD (OR.scalar u) (dScalar1 u')
@@ -851,6 +849,10 @@ interpretAst env = \case
   AstConstant a -> tconst $ interpretAstPrimal env a
   AstConstInt i -> fromIntegral $ interpretAstInt env i
   AstIndexZ v is -> indexZ (interpretAst env v) (fmap (interpretAstInt env) is)
+    -- if index is out of bounds, the operations returns with an undefined
+    -- value of the correct rank and shape; this is needed, because
+    -- vectorization can produce out of bound indexing from code where
+    -- the indexing is guarded by conditionals
   AstSum v -> sum' (interpretAst env v)
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
     -- or should I do that in Delta instead? no, because tsum0R is cheaper, too
@@ -886,6 +888,8 @@ interpretAst env = \case
   AstGatherN sh v (vars, ix) ->
     gatherNClosure sh (interpretAst env v)
                    (interpretLambdaIndexToIndex env (vars, ix))
+    -- both gather operations accept out of bounds indexes,
+    -- for the same reason ordinary indexing does, see above
 
 
 interpretAstInt :: ADModeAndNumTensor d r

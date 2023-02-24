@@ -303,11 +303,6 @@ tzipWith0NR
   => (r -> r -> r) -> OR.Array n r -> OR.Array n r -> OR.Array n r
 tzipWith0NR = liftVR2 . Numeric.LinearAlgebra.Devel.zipVectorWith
 
--- TODO: this can be slightly optimized by normalizing t first (?)
--- and then inlining toVector and tindexZR
---
--- Note how tindexZR is used. The semantics of the operation
--- permits index out of bounds and the result of such indexing is zero.
 tgatherNR :: forall m p n r.
              (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r)
           => ShapeInt (m + n) -> OR.Array (p + n) r
@@ -316,7 +311,7 @@ tgatherNR :: forall m p n r.
 tgatherNR sh t f =
   let shm = takeShape @m sh
       s = sizeShape shm
-      l = [ OR.toVector $ t `tindexZR` f (fromLinearIdx shm i)
+      l = [ OR.toVector $ t `tindexNR` f (fromLinearIdx shm i)
           | i <- [0 .. s - 1] ]
   in OR.fromVector (shapeToList sh) $ LA.vjoin l
 
@@ -324,6 +319,30 @@ tgather1R :: (KnownNat p, KnownNat n, Show r, Numeric r)
           => Int -> OR.Array (p + n) r -> (Int -> IndexInt p)
           -> OR.Array (1 + n) r
 tgather1R k t f =
+  let l = map (\i -> t `tindexNR` f i) [0 .. k - 1]
+  in OR.ravel $ ORB.fromList [k] l
+
+-- TODO: this can be slightly optimized by normalizing t first (?)
+-- and then inlining toVector and tindexZR
+--
+-- Note how tindexZR is used. The semantics of the operation
+-- permits index out of bounds and the result of such indexing is zero.
+tgatherZR :: forall m p n r.
+             (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r)
+          => ShapeInt (m + n) -> OR.Array (p + n) r
+          -> (IndexInt m -> IndexInt p)
+          -> OR.Array (m + n) r
+tgatherZR sh t f =
+  let shm = takeShape @m sh
+      s = sizeShape shm
+      l = [ OR.toVector $ t `tindexZR` f (fromLinearIdx shm i)
+          | i <- [0 .. s - 1] ]
+  in OR.fromVector (shapeToList sh) $ LA.vjoin l
+
+tgatherZ1R :: (KnownNat p, KnownNat n, Show r, Numeric r)
+           => Int -> OR.Array (p + n) r -> (Int -> IndexInt p)
+           -> OR.Array (1 + n) r
+tgatherZ1R k t f =
   let l = map (\i -> t `tindexZR` f i) [0 .. k - 1]
   in OR.ravel $ ORB.fromList [k] l
 
