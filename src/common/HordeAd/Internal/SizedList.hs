@@ -121,8 +121,6 @@ type Permutation = [Int]
 
 -- This permutes a prefix of the sized list of the length of the permutation.
 -- The rest of the sized list is left intact.
--- Boxed vector is not that bad, because we move pointers around,
--- but don't follow them. Storable vectors wouldn't work for Ast.
 permutePrefixSized :: forall n i. KnownNat n
                    => Permutation -> SizedList n i -> SizedList n i
 permutePrefixSized p ix =
