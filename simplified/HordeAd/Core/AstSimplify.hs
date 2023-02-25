@@ -23,6 +23,7 @@ module HordeAd.Core.AstSimplify
   , astGather1, astGatherN
   , astIntCond
   , simplifyAst
+  , substituteAst, substituteAstInt, substituteAstBool
   ) where
 
 import Prelude
@@ -385,3 +386,16 @@ simplifyAstBool t = case t of
   AstRelInt opCodeRel args -> AstRelInt opCodeRel (map simplifyAstInt args)
     -- We do not simplify, e.g., equality of syntactically equal terms.
     -- There are too many cases and values are often unknown.
+
+-- We have to simplify after substitution or simplifying is not idempotent.
+substituteAst :: (Show r, Numeric r, KnownNat n)
+              => AstInt r -> AstVarName Int -> Ast n r -> Ast n r
+substituteAst i var v1 = simplifyAst $ substitute1Ast i var v1
+
+substituteAstInt :: (Show r, Numeric r)
+                 => AstInt r -> AstVarName Int -> AstInt r -> AstInt r
+substituteAstInt i var i2 = simplifyAstInt $ substitute1AstInt i var i2
+
+substituteAstBool :: (Show r, Numeric r)
+                  => AstInt r -> AstVarName Int -> AstBool r -> AstBool r
+substituteAstBool i var b1 = simplifyAstBool $ substitute1AstBool i var b1

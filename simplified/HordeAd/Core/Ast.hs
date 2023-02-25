@@ -14,7 +14,7 @@ module HordeAd.Core.Ast
   , astCond
   , shapeAst, lengthAst
   , intVarInAst, intVarInAstInt, intVarInAstBool
-  , substituteAst, substituteAstInt, substituteAstBool
+  , substitute1Ast, substitute1AstInt, substitute1AstBool
   ) where
 
 import Prelude
@@ -445,58 +445,57 @@ intVarInAstBool var = \case
 
 -- * Substitution
 
-substituteAst :: (Show r, Numeric r)
-              => AstInt r -> AstVarName Int -> Ast n r -> Ast n r
-substituteAst i var v1 = case v1 of
+substitute1Ast :: (Show r, Numeric r)
+               => AstInt r -> AstVarName Int -> Ast n r -> Ast n r
+substitute1Ast i var v1 = case v1 of
   AstVar _sh _var -> v1
-  AstOp opCode args -> AstOp opCode $ map (substituteAst i var) args
+  AstOp opCode args -> AstOp opCode $ map (substitute1Ast i var) args
   AstConst _a -> v1
   AstConstant (AstPrimalPart a) ->
-    AstConstant (AstPrimalPart $ substituteAst i var a)
-  AstConstInt i2 -> AstConstInt $ substituteAstInt i var i2
+    AstConstant (AstPrimalPart $ substitute1Ast i var a)
+  AstConstInt i2 -> AstConstInt $ substitute1AstInt i var i2
   AstIndexZ v is ->
-    AstIndexZ (substituteAst i var v) (fmap (substituteAstInt i var) is)
-  AstSum v -> AstSum (substituteAst i var v)
-  AstFromList l -> AstFromList $ map (substituteAst i var) l
-  AstFromVector l -> AstFromVector $ V.map (substituteAst i var) l
-  AstKonst s v -> AstKonst s (substituteAst i var v)
-  AstAppend x y -> AstAppend (substituteAst i var x) (substituteAst i var y)
-  AstSlice k s v -> AstSlice k s (substituteAst i var v)
-  AstReverse v -> AstReverse (substituteAst i var v)
-  AstTranspose perm v -> AstTranspose perm (substituteAst i var v)
-  AstFlatten v -> AstFlatten (substituteAst i var v)
-  AstReshape sh v -> AstReshape sh (substituteAst i var v)
+    AstIndexZ (substitute1Ast i var v) (fmap (substitute1AstInt i var) is)
+  AstSum v -> AstSum (substitute1Ast i var v)
+  AstFromList l -> AstFromList $ map (substitute1Ast i var) l
+  AstFromVector l -> AstFromVector $ V.map (substitute1Ast i var) l
+  AstKonst s v -> AstKonst s (substitute1Ast i var v)
+  AstAppend x y -> AstAppend (substitute1Ast i var x) (substitute1Ast i var y)
+  AstSlice k s v -> AstSlice k s (substitute1Ast i var v)
+  AstReverse v -> AstReverse (substitute1Ast i var v)
+  AstTranspose perm v -> AstTranspose perm (substitute1Ast i var v)
+  AstFlatten v -> AstFlatten (substitute1Ast i var v)
+  AstReshape sh v -> AstReshape sh (substitute1Ast i var v)
   AstBuild1 k (var2, v) ->
-    AstBuild1 k (var2, substituteAst i var v)
+    AstBuild1 k (var2, substitute1Ast i var v)
   AstGather1 k v (var2, is) ->
-    AstGather1 k (substituteAst i var v)
-                 (var2, fmap (substituteAstInt i var) is)
+    AstGather1 k (substitute1Ast i var v)
+                 (var2, fmap (substitute1AstInt i var) is)
   AstGatherN sh v (vars, is) ->
-    AstGatherN sh (substituteAst i var v)
-                  (vars, fmap (substituteAstInt i var) is)
+    AstGatherN sh (substitute1Ast i var v)
+                  (vars, fmap (substitute1AstInt i var) is)
 
-
-substituteAstInt :: (Show r, Numeric r)
-                 => AstInt r -> AstVarName Int -> AstInt r -> AstInt r
-substituteAstInt i var i2 = case i2 of
+substitute1AstInt :: (Show r, Numeric r)
+                  => AstInt r -> AstVarName Int -> AstInt r -> AstInt r
+substitute1AstInt i var i2 = case i2 of
   AstIntVar var2 -> if var == var2 then i else i2
   AstIntOp opCodeInt args ->
-    AstIntOp opCodeInt $ map (substituteAstInt i var) args
+    AstIntOp opCodeInt $ map (substitute1AstInt i var) args
   AstIntConst _a -> i2
-  AstIntFloor v -> AstIntFloor $ substituteAst i var v
+  AstIntFloor v -> AstIntFloor $ substitute1Ast i var v
   AstIntCond b a1 a2 ->
-    AstIntCond (substituteAstBool i var b)
-               (substituteAstInt i var a1) (substituteAstInt i var a2)
-  AstMinIndex1 v -> AstMinIndex1 (substituteAst i var v)
-  AstMaxIndex1 v -> AstMaxIndex1 (substituteAst i var v)
+    AstIntCond (substitute1AstBool i var b)
+               (substitute1AstInt i var a1) (substitute1AstInt i var a2)
+  AstMinIndex1 v -> AstMinIndex1 (substitute1Ast i var v)
+  AstMaxIndex1 v -> AstMaxIndex1 (substitute1Ast i var v)
 
-substituteAstBool :: (Show r, Numeric r)
-                  => AstInt r -> AstVarName Int -> AstBool r -> AstBool r
-substituteAstBool i var b1 = case b1 of
+substitute1AstBool :: (Show r, Numeric r)
+                   => AstInt r -> AstVarName Int -> AstBool r -> AstBool r
+substitute1AstBool i var b1 = case b1 of
   AstBoolOp opCodeBool args ->
-    AstBoolOp opCodeBool $ map (substituteAstBool i var) args
+    AstBoolOp opCodeBool $ map (substitute1AstBool i var) args
   AstBoolConst _a -> b1
   AstRel opCodeRel args ->
-    AstRel opCodeRel $ map (substituteAst i var) args
+    AstRel opCodeRel $ map (substitute1Ast i var) args
   AstRelInt opCodeRel args ->
-    AstRelInt opCodeRel $ map (substituteAstInt i var) args
+    AstRelInt opCodeRel $ map (substitute1AstInt i var) args
