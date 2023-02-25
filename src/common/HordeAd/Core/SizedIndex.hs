@@ -150,9 +150,11 @@ zipWith_Index f (i :. irest) (j :. jrest) = f i j :. zipWith_Index f irest jrest
 zipWith_Index _ _ _ =
   error "zipWith_Index: impossible pattern needlessly required"
 
+-- Inverse permutation of indexes corresponds to normal permutation
+-- of the shape of the projected tensor.
 permutePrefixIndex :: forall n i. KnownNat n
                    => Permutation -> Index n i -> Index n i
-permutePrefixIndex p (Index ix) = Index $ permutePrefixSized p ix
+permutePrefixIndex p (Index ix) = Index $ backPermutePrefixSized p ix
 
 listToIndex :: KnownNat n => [i] -> Index n i
 listToIndex = Index . listToSized

@@ -9,7 +9,7 @@ module HordeAd.Internal.SizedList
   ( SizedList(..)
   , singletonSized, snocSized, appendSized
   , headSized, tailSized, takeSized, dropSized
-  , permutePrefixSized, permutePrefixList
+  , permutePrefixSized, backPermutePrefixSized, permutePrefixList
   , unsnocSized1, lastSized, initSized, reverseSized
   , sizedListCompare, listToSized, sizedListToList
   , Permutation
@@ -17,11 +17,13 @@ module HordeAd.Internal.SizedList
 
 import Prelude
 
-import Data.Array.Internal (valueOf)
-import Data.Proxy (Proxy (Proxy))
-import Data.Type.Equality ((:~:) (Refl))
-import GHC.Exts (IsList (..))
-import GHC.TypeLits
+import           Data.Array.Internal (valueOf)
+import           Data.Proxy (Proxy (Proxy))
+import qualified Data.Strict.Vector as Data.Vector
+import           Data.Type.Equality ((:~:) (Refl))
+import qualified Data.Vector.Generic as V
+import           GHC.Exts (IsList (..))
+import           GHC.TypeLits
   (KnownNat, Nat, OrderingI (..), cmpNat, sameNat, type (+), type (-))
 
 -- | Standard strict sized lists indexed by the GHC @Nat@ type.
@@ -133,6 +135,23 @@ permutePrefixSized p ix =
 
 permutePrefixList :: Permutation -> [i] -> [i]
 permutePrefixList p l = map (l !!) p ++ drop (length p) l
+
+-- The permutes in inverse.
+backPermutePrefixSized :: forall n i. KnownNat n
+                       => Permutation -> SizedList n i -> SizedList n i
+backPermutePrefixSized p ix =
+  if valueOf @n < length p
+  then
+    error
+      "backPermutePrefixSized: cannot permute a list shorter than permutation"
+  else (listToSized :: [i] -> SizedList n i)
+       $ backPermutePrefixList p
+       $ sizedListToList ix
+
+-- Boxed vector is not that bad, because we move pointers around,
+-- but don't follow them. Storable vectors wouldn't work for Ast.
+backPermutePrefixList :: Permutation -> [i] -> [i]
+backPermutePrefixList p l = V.toList $ Data.Vector.fromList l V.// zip p l
 
 -- | Pairwise comparison of two sized list values.
 -- The comparison function is invoked once for each rank
