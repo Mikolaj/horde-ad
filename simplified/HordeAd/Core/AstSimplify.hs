@@ -136,6 +136,7 @@ astIndexZ :: forall m n r. (KnownNat m, Show r, Numeric r)
           => Ast (m + n) r -> AstIndex m r -> Ast n r
 astIndexZ v0 ZI = v0
 astIndexZ v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) = case v0 of
+  AstIndexZ v ix2 -> astIndexZ v (appendIndex ix2 ix)
   AstKonst _k v -> astIndexZ v rest1
   AstTranspose perm v | valueOf @m >= length perm ->
     astIndexZ v (permutePrefixIndex perm ix)
@@ -313,7 +314,7 @@ simplifyAstPrimal :: AstPrimalPart n r -> AstPrimalPart n r
 simplifyAstPrimal (AstPrimalPart t) = AstPrimalPart t
 
 simplifyAst
-  :: (KnownNat n, Show r, Numeric r)
+  :: (Show r, Numeric r, KnownNat n)
   => Ast n r -> Ast n r
 simplifyAst t = case t of
   AstVar{} -> t

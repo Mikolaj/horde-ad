@@ -21,8 +21,7 @@ import Tool.EqEpsilon
 
 testTrees :: [TestTree]
 testTrees =
-  [ -- Tensor tests
-    testCase "3foo" testFoo
+  [ testCase "3foo" testFoo
   , testCase "3bar" testBar
   , testCase "3fooD T Double [1.1, 2.2, 3.3]" testFooD
   , testCase "3fooBuild0" testFooBuild0
@@ -53,9 +52,6 @@ testTrees =
   , testCase "3concatBuild" testConcatBuild
   , testCase "3concatBuild1" testConcatBuild1
   ]
-
-
--- * Tensor tests
 
 t16 :: (Numeric r, Fractional r) => OR.Array 5 r
 t16 = OR.fromList [2, 2, 1, 2, 2] [5, 2, 6, 1, -2, 0.000001, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26]

@@ -662,6 +662,7 @@ test-suite simplifiedOnlyTest
 
     other-modules:    TestAdaptorSimplified
                       TestBuildSimplified
+                      TestGatherSimplified
                       TestHighRankSimplified
                       TestSimplified
 
