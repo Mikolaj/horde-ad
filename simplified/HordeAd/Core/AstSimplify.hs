@@ -33,9 +33,11 @@ import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.List (elemIndex)
+import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
+import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, type (+))
+import           GHC.TypeLits (KnownNat, sameNat, type (+))
 import           Numeric.LinearAlgebra (Numeric)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
@@ -110,16 +112,22 @@ astReshape :: forall p m r. (KnownNat p, KnownNat m, Show r, Numeric r)
            => ShapeInt m -> Ast p r -> Ast m r
 {-# NOINLINE astReshape #-}
 astReshape shOut v = unsafePerformIO $ do
-  varList <- replicateM (lengthShape shOut) unsafeGetFreshAstVar
-  let vars :: AstVarList m
-      vars = listToSized varList
-      ix :: AstIndex m r
-      ix = listToIndex $ map AstIntVar varList
-      shIn = shapeAst v
-      asts :: AstIndex p r
-      asts = let i = toLinearIdx @m @0 (fmap AstIntConst shOut) ix
-             in fromLinearIdx (fmap AstIntConst shIn) i
-  return $! astGatherN @m @p @0 shOut v (vars, asts)
+  let shIn = shapeAst v
+      asGather = do
+        varList <- replicateM (lengthShape shOut) unsafeGetFreshAstVar
+        let vars :: AstVarList m
+            vars = listToSized varList
+            ix :: AstIndex m r
+            ix = listToIndex $ map AstIntVar varList
+            asts :: AstIndex p r
+            asts = let i = toLinearIdx @m @0 (fmap AstIntConst shOut) ix
+                   in fromLinearIdx (fmap AstIntConst shIn) i
+        return $! astGatherN @m @p @0 shOut v (vars, asts)
+  case sameNat (Proxy @p) (Proxy @m) of
+    Just Refl -> if shIn == shOut
+                 then return v
+                 else asGather
+    _ -> asGather
 
 
 -- * The simplifying combinators
@@ -325,7 +333,7 @@ simplifyAst t = case t of
   AstReverse v -> astReverse (simplifyAst v)
   AstTranspose perm v -> astTranspose perm $ simplifyAst v
   AstFlatten v -> astFlatten $ simplifyAst v
-  AstReshape sh v -> AstReshape sh (simplifyAst v)  -- TODO: astReshape sh (simplifyAst v)
+  AstReshape sh v -> astReshape sh (simplifyAst v)
   AstBuild1 k (var, v) -> AstBuild1 k (var, simplifyAst v)
     -- should never appear outside test runs, but let's test the inside, too
   AstGather1 k v (var, ix) ->
