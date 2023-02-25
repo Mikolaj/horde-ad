@@ -17,7 +17,7 @@ module HordeAd.Core.SizedIndex
   , listToIndex, indexToList
     -- * Tensor shapes as fully encapsulated sized lists, with operations
   , Shape, pattern (:$), pattern ZS
-  , singletonShape, tailShape, takeShape, dropShape
+  , singletonShape, appendShape, tailShape, takeShape, dropShape
   , lengthShape, sizeShape, flattenShape
   , permutePrefixShape
   , listShapeToShape, shapeToList
@@ -204,6 +204,9 @@ instance KnownNat n => IsList (Shape n i) where
 
 singletonShape :: i -> Shape 1 i
 singletonShape = Shape . singletonSized
+
+appendShape :: KnownNat n => Shape m i -> Shape n i -> Shape (m + n) i
+appendShape (Shape ix1) (Shape ix2) = Shape $ appendSized ix1 ix2
 
 tailShape :: Shape (1 + n) i -> Shape n i
 tailShape (Shape ix) = Shape $ tailSized ix

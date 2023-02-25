@@ -243,6 +243,12 @@ astGatherN sh@(k :$ sh') v0 (var ::: vars, ix@(_ :. _)) =
               -- get into fromList, which may simplify or complicate a term,
               -- and sometimes is not possible without leaving a small
               -- gather outside
+       AstGatherN sh2 v2 (vars2, ix2) ->
+         if | any (flip intVarInAst v2) (var ::: vars) ->  -- can this happen?
+              AstGatherN sh v0 (var ::: vars, ix)
+            | otherwise ->
+              AstGatherN (appendShape (takeShape @m sh) sh2)
+                         v2 (appendSized (var ::: vars) vars2, ix2)
        _ -> AstGatherN sh v0 (var ::: vars, ix)  -- can this happen?
      else astGatherN sh v3 (var ::: vars, ZI)
 astGatherN _ _ _ =

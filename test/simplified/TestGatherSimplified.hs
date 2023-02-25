@@ -27,6 +27,9 @@ testTrees =
   , testCase "gatherNested2" testGatherNested2
   , testCase "gather2" testGather2
   , testCase "gatherSimp2" testGatherSimp2
+  , testCase "gatherNested12" testGatherNested12
+  , testCase "gather12" testGather12
+  , testCase "gatherSimp12" testGatherSimp12
   ]
 
 gatherNested1 :: forall r. ADReady r
@@ -110,3 +113,44 @@ testGatherSimp2 = do
                 $ gatherNested2 $ AstVar [7, 2] (AstVarName 0)))
     @?= length (show (simplifyAst @Float
                       $ gather2 $ AstVar [7, 2] (AstVarName 0)))
+
+gatherNested12 :: forall r. ADReady r
+               => TensorOf 2 r -> TensorOf 2 r
+gatherNested12 t =
+  tgather @r @1
+          (2 :$ 4 :$ ZS)
+          (tgather @r @3
+                   (2 :$ 3 :$ 4 :$ ZS) t
+                   (\(k1 :. k2 :. k3 :. ZI) -> k1 + k2 + k3 :. k1 :. ZI))
+          (\(i1 :. ZI) -> i1 :. i1 + i1 :. ZI)
+
+testGatherNested12 :: Assertion
+testGatherNested12 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [7,2]
+                 [1.0,0.0,1.0,0.0,1.0,0.0,1.0,1.0,0.0,1.0,0.0,1.0,0.0,1.0])
+    (rev' @(OR.Array 2 Double) gatherNested12
+                               (tkonst 7 $ tfromList [0, 1]))
+
+gather12 :: forall r. ADReady r
+         => TensorOf 2 r -> TensorOf 2 r
+gather12 t =
+  tgather @r @2
+          (2 :$ 4 :$ ZS)
+          t
+          (\(i1 :. k3 :. ZI) -> i1 + i1 + i1 + k3 :. i1 :. ZI)
+
+testGather12 :: Assertion
+testGather12 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [7,2]
+                 [1.0,0.0,1.0,0.0,1.0,0.0,1.0,1.0,0.0,1.0,0.0,1.0,0.0,1.0])
+    (rev' @(OR.Array 2 Double) gather12
+                               (tkonst 7 $ tfromList [0, 1]))
+
+testGatherSimp12 :: Assertion
+testGatherSimp12 = do
+  length (show (simplifyAst @Float
+                $ gatherNested12 $ AstVar [7, 2] (AstVarName 0)))
+    @?= length (show (simplifyAst @Float
+                      $ gather12 $ AstVar [7, 2] (AstVarName 0)))
