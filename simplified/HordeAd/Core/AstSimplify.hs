@@ -122,7 +122,9 @@ astReshape shOut v = unsafePerformIO $ do
             ix = listToIndex $ map AstIntVar varList
             asts :: AstIndex p r
             asts = let i = toLinearIdx @m @0 (fmap AstIntConst shOut) ix
-                   in fromLinearIdx (fmap AstIntConst shIn) i
+                   in fmap simplifyAstInt
+                      $ fromLinearIdx (fmap AstIntConst shIn) i
+                        -- we generate these, so we simplify
         return $! astGatherN @m @p @0 shOut v (vars, asts)
   case sameNat (Proxy @p) (Proxy @m) of
     Just Refl -> if shIn == shOut
@@ -356,10 +358,8 @@ simplifyAstInt :: (Show r, Numeric r)
                => AstInt r -> AstInt r
 simplifyAstInt t = case t of
   AstIntVar{} -> t
-  AstIntOp opCodeInt args -> AstIntOp opCodeInt (map simplifyAstInt args)
-    -- We do not simplify, e.g., addition or multiplication by zero.
-    -- Arriving at some normal form is worth considering for the sake
-    -- of gatherSimplify.
+  AstIntOp opCodeInt args ->
+    simplifyAstIntOp opCodeInt (map simplifyAstInt args)
   AstIntConst{} -> t
   AstIntFloor v -> AstIntFloor $ simplifyAst v
     -- Equality of floats is suspect, so no attempt to simplify.
@@ -386,6 +386,56 @@ simplifyAstBool t = case t of
   AstRelInt opCodeRel args -> AstRelInt opCodeRel (map simplifyAstInt args)
     -- We do not simplify, e.g., equality of syntactically equal terms.
     -- There are too many cases and values are often unknown.
+
+-- TODO: let's aim at SOP (Sum-of-Products) form, just as
+-- ghc-typelits-natnormalise does. Also, let's associate to the right.
+simplifyAstIntOp :: OpCodeInt -> [AstInt r] -> AstInt r
+simplifyAstIntOp PlusIntOp [AstIntConst u, AstIntConst v] = AstIntConst $ u + v
+simplifyAstIntOp PlusIntOp [AstIntConst 0, v] = v
+simplifyAstIntOp PlusIntOp [u, AstIntConst 0] = u
+simplifyAstIntOp PlusIntOp [AstIntOp PlusIntOp [u, v], w] =
+  simplifyAstIntOp PlusIntOp [u, simplifyAstIntOp PlusIntOp [v, w]]
+simplifyAstIntOp MinusIntOp [AstIntConst u, AstIntConst v] = AstIntConst $ u - v
+simplifyAstIntOp MinusIntOp [AstIntConst 0, v] =
+  simplifyAstIntOp NegateIntOp [v]
+simplifyAstIntOp MinusIntOp [u, AstIntConst 0] = u
+simplifyAstIntOp TimesIntOp [AstIntConst u, AstIntConst v] = AstIntConst $ u * v
+simplifyAstIntOp TimesIntOp [AstIntConst 0, _v] = AstIntConst 0
+simplifyAstIntOp TimesIntOp [_u, AstIntConst 0] = AstIntConst 0
+simplifyAstIntOp TimesIntOp [AstIntConst 1, v] = v
+simplifyAstIntOp TimesIntOp [u, AstIntConst 1] = u
+simplifyAstIntOp TimesIntOp [AstIntOp TimesIntOp [u, v], w] =
+  simplifyAstIntOp TimesIntOp [u, simplifyAstIntOp TimesIntOp [v, w]]
+simplifyAstIntOp TimesIntOp [AstIntOp PlusIntOp [u, v], w] =
+  simplifyAstIntOp PlusIntOp [ simplifyAstIntOp TimesIntOp [u, w]
+                             , simplifyAstIntOp TimesIntOp [v, w] ]
+simplifyAstIntOp TimesIntOp [u, AstIntOp PlusIntOp [v, w]] =
+  simplifyAstIntOp PlusIntOp [ simplifyAstIntOp TimesIntOp [u, v]
+                             , simplifyAstIntOp TimesIntOp [u, w] ]
+simplifyAstIntOp NegateIntOp [AstIntConst u] = AstIntConst $ negate u
+simplifyAstIntOp AbsIntOp [AstIntConst u] = AstIntConst $ abs u
+simplifyAstIntOp SignumIntOp [AstIntConst u] = AstIntConst $ signum u
+simplifyAstIntOp MaxIntOp [AstIntConst u, AstIntConst v] =
+  AstIntConst $ max u v
+simplifyAstIntOp MinIntOp [AstIntConst u, AstIntConst v] =
+  AstIntConst $ min u v
+simplifyAstIntOp QuotIntOp [AstIntConst u, AstIntConst v] =
+  AstIntConst $ quot u v
+simplifyAstIntOp QuotIntOp [AstIntConst 0, _v] = AstIntConst 0
+simplifyAstIntOp QuotIntOp [u, AstIntConst 1] = u
+simplifyAstIntOp RemIntOp [AstIntConst u, AstIntConst v] =
+  AstIntConst $ rem u v
+simplifyAstIntOp RemIntOp [AstIntConst 0, _v] = 0
+simplifyAstIntOp RemIntOp [_u, AstIntConst 1] = 0
+simplifyAstIntOp DivIntOp [AstIntConst u, AstIntConst v] =
+  AstIntConst $ div u v
+simplifyAstIntOp DivIntOp [AstIntConst 0, _v] = AstIntConst 0
+simplifyAstIntOp DivIntOp [u, AstIntConst 1] = u
+simplifyAstIntOp ModIntOp [AstIntConst u, AstIntConst v] =
+  AstIntConst $ mod u v
+simplifyAstIntOp ModIntOp [AstIntConst 0, _v] = 0
+simplifyAstIntOp ModIntOp [_u, AstIntConst 1] = 0
+simplifyAstIntOp opCodeInt arg = AstIntOp opCodeInt arg
 
 -- We have to simplify after substitution or simplifying is not idempotent.
 substituteAst :: (Show r, Numeric r, KnownNat n)

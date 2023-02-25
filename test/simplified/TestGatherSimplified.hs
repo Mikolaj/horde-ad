@@ -7,17 +7,12 @@ module TestGatherSimplified (testTrees) where
 import Prelude
 
 import qualified Data.Array.RankedS as OR
-import           Data.Boolean
-import           GHC.TypeLits (KnownNat, type (+), type (-), type (<=))
-import           Numeric.LinearAlgebra (Numeric)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 
-import TestAdaptorSimplified
-  (assertEqualUpToEpsilon', assertEqualUpToEpsilonShorter, rev')
-import Tool.EqEpsilon
+import TestAdaptorSimplified (assertEqualUpToEpsilon', rev')
 
 testTrees :: [TestTree]
 testTrees =
@@ -30,6 +25,8 @@ testTrees =
   , testCase "gatherNested12" testGatherNested12
   , testCase "gather12" testGather12
   , testCase "gatherSimp12" testGatherSimp12
+  , testCase "gatherReshape22" testGatherReshape22
+  , testCase "gatherSimp22" testGatherSimp22
   ]
 
 gatherNested1 :: forall r. ADReady r
@@ -154,3 +151,30 @@ testGatherSimp12 = do
                 $ gatherNested12 $ AstVar [7, 2] (AstVarName 0)))
     @?= length (show (simplifyAst @Float
                       $ gather12 $ AstVar [7, 2] (AstVarName 0)))
+
+gatherReshape22 :: forall r. ADReady r
+                => TensorOf 2 r -> TensorOf 2 r
+gatherReshape22 t =
+  treshape @r @2 [2, 6]
+  $ treshape @r @6 [3, 1, 2, 1, 1, 2]
+  $ treshape (1 :$ 12 :$ 1 :$ ZS)
+  $ treshape @r @4 [3, 1, 1, 4]
+  $ treshape @r @3 [2, 2, 3] t
+
+testGatherReshape22 :: Assertion
+testGatherReshape22 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [6,2]
+                 [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
+    (rev' @(OR.Array 2 Double) gatherReshape22
+                               (tkonst 6 $ tfromList [0, 1]))
+
+-- TODO: try to get this down to equality by simplifying better
+testGatherSimp22 :: Assertion
+testGatherSimp22 = do
+  assertBool "reshape as gather is not simplified" $
+    length (show (simplifyAst @Float
+                  $ gatherReshape22 $ AstVar [6, 2] (AstVarName 0)))
+      >= length (show (simplifyAst @Float
+                       $ treshape @(Ast 0 Float) @2 @2 [2, 6]
+                       $ AstVar [6, 2] (AstVarName 0)))

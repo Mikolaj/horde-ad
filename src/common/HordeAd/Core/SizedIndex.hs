@@ -1,6 +1,6 @@
-{-# LANGUAGE ConstraintKinds, DataKinds, DeriveFunctor, DerivingStrategies,
-             FlexibleInstances, GADTs, MultiParamTypeClasses, PolyKinds,
-             QuantifiedConstraints, RankNTypes, StandaloneDeriving,
+{-# LANGUAGE ConstraintKinds, DataKinds, DerivingStrategies, FlexibleInstances,
+             GADTs, GeneralizedNewtypeDeriving, MultiParamTypeClasses,
+             PolyKinds, QuantifiedConstraints, RankNTypes, StandaloneDeriving,
              TypeFamilyDependencies, ViewPatterns #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
@@ -80,7 +80,7 @@ unconsIndex (Index sh) = case sh of
   i ::: sh' -> Just (UnconsIndexRes (Index sh') i)
   Z -> Nothing
 
-deriving stock instance Functor (Index n)
+deriving newtype instance Functor (Index n)
 
 instance Foldable (Index n) where
   foldr f z l = foldr f z (indexToList l)
@@ -192,7 +192,7 @@ unconsShape (Shape sh) = case sh of
   i ::: sh' -> Just (UnconsShapeRes (Shape sh') i)
   Z -> Nothing
 
-deriving stock instance Functor (Shape n)
+deriving newtype instance Functor (Shape n)
 
 instance Foldable (Shape n) where
   foldr f z l = foldr f z (shapeToList l)
