@@ -12,7 +12,7 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 
-import TestAdaptorSimplified (assertEqualUpToEpsilon', rev')
+import TestAdaptorSimplified (assertEqualUpToEpsilon', rev', t128, t48)
 
 testTrees :: [TestTree]
 testTrees =
@@ -27,6 +27,8 @@ testTrees =
   , testCase "gatherSimp12" testGatherSimp12
   , testCase "gatherReshape22" testGatherReshape22
   , testCase "gatherSimp22" testGatherSimp22
+  , testCase "gatherTranspose33" testGatherTranspose33
+  , testCase "gatherSimp33" testGatherSimp33
   ]
 
 gatherNested1 :: forall r. ADReady r
@@ -169,12 +171,65 @@ testGatherReshape22 =
     (rev' @(OR.Array 2 Double) gatherReshape22
                                (tkonst 6 $ tfromList [0, 1]))
 
--- TODO: try to get this down to equality by simplifying better
+-- TODO: try to lower the gap down to zero
 testGatherSimp22 :: Assertion
 testGatherSimp22 = do
-  assertBool "reshape as gather is not simplified" $
-    length (show (simplifyAst @Float
-                  $ gatherReshape22 $ AstVar [6, 2] (AstVarName 0)))
-      >= length (show (simplifyAst @Float
-                       $ treshape @(Ast 0 Float) @2 @2 [2, 6]
-                       $ AstVar [6, 2] (AstVarName 0)))
+  (length (show (simplifyAst @Float
+                 $ gatherReshape22 $ AstVar [6, 2] (AstVarName 0)))
+   - length (show (simplifyAst @Float
+                   $ treshape @(Ast 0 Float) @2 @2 [2, 6]
+                   $ AstVar [6, 2] (AstVarName 0))))
+    @?= 8268
+
+-- Depending on if and how transpose it desugared, this may or may not result
+-- in dozens of nested gathers that should vanish after simplification.
+gatherTranspose33 :: forall r. ADReady r
+                  => TensorOf 10 r -> TensorOf 2 r
+gatherTranspose33 t =
+  tmatmul2 (treshape [6, 8] (tconst t48))
+    (ttr
+     $ treshape @r @2 @4 [16, 8]
+     $ ttranspose [0, 1, 2]
+     $ ttranspose [2, 0, 1]
+     $ ttranspose [1, 2, 0]
+     $ ttranspose [1, 0, 2]
+     $ ttranspose [1, 0]
+     $ ttranspose [0, 1, 2, 3]
+     $ ttranspose [1, 2, 3, 0]
+     $ ttranspose [3, 0, 2, 1]
+     $ treshape [2, 2, 8, 4]
+     $ ttranspose [0, 1, 2, 3]
+     $ ttranspose [1, 2, 3, 0]
+     $ ttranspose [1, 0, 3, 2]
+     $ ttranspose [0, 1, 2, 3, 4, 5, 6, 7, 9, 8]
+     $ ttranspose [0, 1, 2, 3, 7, 5, 6, 4]
+     $ ttranspose [0, 1, 2, 3, 4, 5, 6]
+     $ ttranspose [5, 0, 1, 2, 3, 4]
+     $ ttranspose [0, 1, 2, 4, 3, 5, 6, 7, 9, 8]
+     $ ttranspose []
+     $ ttranspose [0]
+     $ ttranspose [0, 1]
+     $ ttranspose [1, 0]
+     $ ttranspose [0, 1, 7, 4, 5, 3, 6, 2, 8]
+     $ t)
+
+testGatherTranspose33 :: Assertion
+testGatherTranspose33 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [1,2,2,1,2,2,2,2,2,1] [81.3003,71.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,80.0,79.0,80.0,79.0,80.0,79.0,80.0,79.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,80.0,79.0,80.0,79.0,80.0,79.0,80.0,79.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,80.0,79.0,80.0,79.0,80.0,79.0,80.0,79.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,80.0,79.0,80.0,79.0,80.0,79.0,80.0,79.0,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002])
+    (rev' @(OR.Array 2 Double) gatherTranspose33 t128)
+
+-- These are different terms, but they should have similar lengths,
+-- because they differ only by single transpose and reshape, most probably,
+-- and all the rest of the element reordering should cancel out.
+-- Still, probably impossible to lower the gap to zero.
+testGatherSimp33 :: Assertion
+testGatherSimp33 = do
+  (length (show (simplifyAst @Float
+                 $ gatherTranspose33
+                 $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)))
+   - length (show (simplifyAst @Float
+                   $ (\t -> tmatmul2 (treshape [6, 8] (tconst t48))
+                              (treshape @(Ast 0 Float) @2 @10 [8, 16] t))
+                   $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0))))
+    @?= 4786

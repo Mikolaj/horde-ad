@@ -105,7 +105,7 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
 -- tmatmul1 m v = tbuild1 (tlength m) (\i -> tsum (v * m ! [i]))
 -- tmatmul1 m v = tflatten $ tmap1 (tkonst 1 . tdot0 v) m
   tmatmul2 :: TensorOf 2 r -> TensorOf 2 r -> TensorOf 2 r
-  tmatmul2 m1 m2 = tmap1 (tmatmul1 m2) m1
+  tmatmul2 m1 m2 = tmap1 (tmatmul1 (ttr m2)) m1
   tminimum :: KnownNat n => TensorOf n r -> TensorOf 0 r
   tminimum t = t ! tminIndex t
   tmaximum :: KnownNat n => TensorOf n r -> TensorOf 0 r
