@@ -12,6 +12,7 @@ module HordeAd.Core.TensorClass
   ( IndexOf, ShapeInt, Tensor(..), HasPrimal(..), ADReady
   , simplifyAst, interpretAst, AstVar(..), funToAstR, extendEnvR
   , ADModeAndNumTensor, scale1, relu1, reluLeaky1
+  , resetVarCOunter
   ) where
 
 import Prelude

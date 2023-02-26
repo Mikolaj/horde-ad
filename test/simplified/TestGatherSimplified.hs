@@ -67,10 +67,13 @@ testGather1 =
 
 testGatherSimp1 :: Assertion
 testGatherSimp1 = do
-  length (show (simplifyAst @Float
-                $ gatherNested1 $ AstVar [7, 2] (AstVarName 0)))
-    @?= length (show (simplifyAst @Float
-                      $ gather1 $ AstVar [7, 2] (AstVarName 0)))
+  resetVarCOunter
+  let !t1 = simplifyAst @Float
+            $ gatherNested1 $ AstVar [7, 2] (AstVarName 0)
+  resetVarCOunter
+  let !t2 = simplifyAst @Float
+            $ gather1 $ AstVar [7, 2] (AstVarName 0)
+  length (show t1) @?= length (show t2)
 
 gatherNested2 :: forall r. ADReady r
               => TensorOf 2 r -> TensorOf 2 r
@@ -108,10 +111,13 @@ testGather2 =
 
 testGatherSimp2 :: Assertion
 testGatherSimp2 = do
-  length (show (simplifyAst @Float
-                $ gatherNested2 $ AstVar [7, 2] (AstVarName 0)))
-    @?= length (show (simplifyAst @Float
-                      $ gather2 $ AstVar [7, 2] (AstVarName 0)))
+  resetVarCOunter
+  let !t1 = simplifyAst @Float
+                $ gatherNested2 $ AstVar [7, 2] (AstVarName 0)
+  resetVarCOunter
+  let !t2 = simplifyAst @Float
+                      $ gather2 $ AstVar [7, 2] (AstVarName 0)
+  length (show t1) @?= length (show t2)
 
 gatherNested12 :: forall r. ADReady r
                => TensorOf 2 r -> TensorOf 2 r
@@ -149,10 +155,13 @@ testGather12 =
 
 testGatherSimp12 :: Assertion
 testGatherSimp12 = do
-  length (show (simplifyAst @Float
-                $ gatherNested12 $ AstVar [7, 2] (AstVarName 0)))
-    @?= length (show (simplifyAst @Float
-                      $ gather12 $ AstVar [7, 2] (AstVarName 0)))
+  resetVarCOunter
+  let !t1 = simplifyAst @Float
+                $ gatherNested12 $ AstVar [7, 2] (AstVarName 0)
+  resetVarCOunter
+  let !t2 = simplifyAst @Float
+            $ gather12 $ AstVar [7, 2] (AstVarName 0)
+  length (show t1) @?= length (show t2)
 
 gatherReshape22 :: forall r. ADReady r
                 => TensorOf 2 r -> TensorOf 2 r
@@ -174,12 +183,14 @@ testGatherReshape22 =
 -- TODO: try to lower the gap down to zero
 testGatherSimp22 :: Assertion
 testGatherSimp22 = do
-  (length (show (simplifyAst @Float
-                 $ gatherReshape22 $ AstVar [6, 2] (AstVarName 0)))
-   - length (show (simplifyAst @Float
-                   $ treshape @(Ast 0 Float) @2 @2 [2, 6]
-                   $ AstVar [6, 2] (AstVarName 0))))
-    @?= 8268
+  resetVarCOunter
+  let !t1 = simplifyAst @Float
+            $ gatherReshape22 $ AstVar [6, 2] (AstVarName 0)
+  resetVarCOunter
+  let !t2 = simplifyAst @Float
+            $ treshape @(Ast 0 Float) @2 @2 [2, 6]
+            $ AstVar [6, 2] (AstVarName 0)
+  (length (show t1) - length (show t2)) @?= 8126
 
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
@@ -225,11 +236,13 @@ testGatherTranspose33 =
 -- Still, probably impossible to lower the gap to zero.
 testGatherSimp33 :: Assertion
 testGatherSimp33 = do
-  (length (show (simplifyAst @Float
+  resetVarCOunter
+  let !t1 = simplifyAst @Float
                  $ gatherTranspose33
-                 $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)))
-   - length (show (simplifyAst @Float
+                 $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)
+  resetVarCOunter
+  let !t2 = simplifyAst @Float
                    $ (\t -> tmatmul2 (treshape [6, 8] (tconst t48))
                               (treshape @(Ast 0 Float) @10 [8, 16] t))
-                   $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0))))
-    @?= 4786
+                   $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)
+  (length (show t1) - length (show t2)) @?= 4674

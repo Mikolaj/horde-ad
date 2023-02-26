@@ -87,7 +87,6 @@ rev' f vals =
       (astSimple, value3) =
         revOnDomainsFun dt (h id id simplifyAst) (toDomains vals)
       gradient3 = parseDomains vals astSimple
-      astVectSimp = simplifyAst $ snd $ funToAstR (tshape vals) f
       (astPrimal, value4) =
         revOnDomainsFun dt (h unAstPrimalPart AstPrimalPart id)
                            (toDomains vals)
@@ -98,6 +97,7 @@ rev' f vals =
         revOnDomainsFun dt (h unAstPrimalPart AstPrimalPart simplifyAst)
                            (toDomains vals)
       gradient5 = parseDomains vals astPSimple
+      astVectSimp = simplifyAst $ snd $ funToAstR (tshape vals) f
       astSimp =
         simplifyAst $ snd
         $ funToAstR (tshape vals) (unAstPrimalPart . f . AstPrimalPart)

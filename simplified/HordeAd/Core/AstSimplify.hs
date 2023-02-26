@@ -24,6 +24,7 @@ module HordeAd.Core.AstSimplify
   , astIntCond
   , simplifyAst
   , substituteAst, substituteAstInt, substituteAstBool
+  , resetVarCOunter
   ) where
 
 import Prelude
@@ -32,7 +33,8 @@ import           Control.Exception.Assert.Sugar
 import           Control.Monad (replicateM)
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
-import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
+import           Data.IORef.Unboxed
+  (Counter, atomicAddCounter_, newCounter, writeIORefU)
 import           Data.List (elemIndex)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
@@ -79,6 +81,10 @@ permSwapSplit = \case
 unsafeAstVarCounter :: Counter
 {-# NOINLINE unsafeAstVarCounter #-}
 unsafeAstVarCounter = unsafePerformIO (newCounter 1)
+
+-- Only for tests.
+resetVarCOunter :: IO ()
+resetVarCOunter = writeIORefU unsafeAstVarCounter 1
 
 unsafeGetFreshAstVar :: IO (AstVarName a)
 {-# INLINE unsafeGetFreshAstVar #-}
