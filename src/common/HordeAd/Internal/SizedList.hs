@@ -180,8 +180,7 @@ listToSized (i : is)
       let sh = listToSized @(n - 1) is
       in i ::: sh
   | otherwise =
-      error $ "listToSized: list too long: "
-              ++ show (length (i : is), valueOf @n :: Int)
+      error $ "listToSized: list too long; spurious " ++ show (length (i : is))
 
 sizedListToList :: SizedList n i -> [i]
 sizedListToList Z = []

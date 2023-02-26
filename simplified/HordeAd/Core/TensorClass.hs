@@ -90,7 +90,7 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
 
   -- Typically scalar codomain, often tensor reduction
   -- (a number suffix in the name indicates the rank of codomain)
-  tindex, (!) :: (KnownNat n, KnownNat m)
+  tindex, (!) :: (KnownNat m, KnownNat n)
               => TensorOf (m + n) r -> IndexOf m r -> TensorOf n r
   infixl 9 !
   (!) = tindex  -- prefix form better when type applications are necessary
@@ -140,9 +140,9 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   ttranspose :: KnownNat n => Permutation -> TensorOf n r -> TensorOf n r
   tflatten :: KnownNat n => TensorOf n r -> TensorOf 1 r
   tflatten u = treshape (flattenShape $ tshape u) u
-  treshape :: (KnownNat m, KnownNat n)
+  treshape :: (KnownNat n, KnownNat m)
            => ShapeInt m -> TensorOf n r -> TensorOf m r
-  tbuild :: forall n m. (KnownNat n, KnownNat m)
+  tbuild :: forall m n. (KnownNat m, KnownNat n)
          => ShapeInt (m + n) -> (IndexOf m r -> TensorOf n r)
          -> TensorOf (m + n) r
   tbuild sh0 f0 =

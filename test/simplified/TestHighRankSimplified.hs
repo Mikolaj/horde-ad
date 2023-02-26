@@ -311,7 +311,7 @@ testNestedSumBuild5 =
 nestedSumBuildB :: forall n r. (ADReady r, KnownNat n)
                 => TensorOf (1 + n) r -> TensorOf 3 r
 nestedSumBuildB v =
-  tbuild @r @1 [13, 4, 2] $ \case
+  tbuild @r @2 [13, 4, 2] $ \case
     [ix, ix2] ->
       flip tindex [ix2]
         (tfromList

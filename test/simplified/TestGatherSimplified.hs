@@ -157,11 +157,11 @@ testGatherSimp12 = do
 gatherReshape22 :: forall r. ADReady r
                 => TensorOf 2 r -> TensorOf 2 r
 gatherReshape22 t =
-  treshape @r @2 [2, 6]
-  $ treshape @r @6 [3, 1, 2, 1, 1, 2]
-  $ treshape (1 :$ 12 :$ 1 :$ ZS)
-  $ treshape @r @4 [3, 1, 1, 4]
-  $ treshape @r @3 [2, 2, 3] t
+  treshape @r @6 [2, 6]
+  $ treshape [3, 1, 2, 1, 1, 2]
+  $ treshape @r @4 (1 :$ 12 :$ 1 :$ ZS)
+  $ treshape @r @3 [3, 1, 1, 4]
+  $ treshape [2, 2, 3] t
 
 testGatherReshape22 :: Assertion
 testGatherReshape22 =
@@ -188,7 +188,7 @@ gatherTranspose33 :: forall r. ADReady r
 gatherTranspose33 t =
   tmatmul2 (treshape [6, 8] (tconst t48))
     (ttr
-     $ treshape @r @2 @4 [16, 8]
+     $ treshape @r @4 [16, 8]
      $ ttranspose [0, 1, 2]
      $ ttranspose [2, 0, 1]
      $ ttranspose [1, 2, 0]
@@ -230,6 +230,6 @@ testGatherSimp33 = do
                  $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)))
    - length (show (simplifyAst @Float
                    $ (\t -> tmatmul2 (treshape [6, 8] (tconst t48))
-                              (treshape @(Ast 0 Float) @2 @10 [8, 16] t))
+                              (treshape @(Ast 0 Float) @10 [8, 16] t))
                    $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0))))
     @?= 4786
