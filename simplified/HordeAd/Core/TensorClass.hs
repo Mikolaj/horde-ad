@@ -865,8 +865,6 @@ interpretAst env = \case
   AstSlice i k v -> slice i k (interpretAst env v)
   AstReverse v -> reverse' (interpretAst env v)
   AstTranspose perm v -> transpose perm $ interpretAst env v
-  AstFlatten v -> let d = interpretAst env v
-                  in reshape (flattenShape $ shape d) d
   AstReshape sh v -> reshape sh (interpretAst env v)
   AstBuild1 k (var, AstConstant r) ->
     tconstant $ fromArray

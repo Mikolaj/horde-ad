@@ -17,10 +17,9 @@
 module HordeAd.Core.AstSimplify
   ( isIdentityPerm, permCycle, permSwapSplit
   , funToAstR, funToAstI, funToAstIndex
-  , astReshape
+  , astReshape, astTranspose
   , astIndexZ, astSum, astFromList, astFromVector, astKonst
-  , astAppend, astSlice, astReverse, astTranspose, astFlatten
-  , astGather1, astGatherN
+  , astAppend, astSlice, astReverse, astGather1, astGatherN
   , astIntCond
   , simplifyAst
   , substituteAst, substituteAstInt, substituteAstBool
@@ -122,7 +121,7 @@ funToAstIndex f = unsafePerformIO $ do
 
 -- * Combinators that simplify but introduce new variable names
 
--- TODO: decide whether to use always and perhaps remove AstFlatten
+-- TODO: decide whether to use always
 -- or not to use for Flatten, but fuse with Flatten, etc.
 astReshape :: forall p m r. (KnownNat p, KnownNat m, Show r, Numeric r)
            => ShapeInt m -> Ast p r -> Ast m r
@@ -232,14 +231,6 @@ astIndexZ v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) = case v0 of
     astIndexZ v (permutePrefixIndex perm ix)
   AstTranspose perm v ->
     astIndexZ (astTransposeAsGather perm v) ix
-  AstFlatten v ->
-    case rest1 of
-      ZI ->
-        let ixs2 = fmap simplifyAstInt
-                   $ fromLinearIdx (fmap AstIntConst (shapeAst v)) i1
-        in astIndexZ v ixs2
-      _ ->
-        error "astIndexZ: AstFlatten: impossible pattern needlessly required"
   AstReshape sh v ->
     astIndexZ (astReshape sh v) ix
   AstBuild1 _n2 (var2, v) ->  -- only possible tests
@@ -288,10 +279,6 @@ astSlice = AstSlice
 astReverse :: KnownNat n
            => Ast (1 + n) r -> Ast (1 + n) r
 astReverse = AstReverse
-
-astFlatten :: KnownNat n
-           => Ast n r -> Ast 1 r
-astFlatten = AstFlatten
 
 -- Assumption: var does not occur in v0.
 astGather1 :: forall p n r. (KnownNat p, KnownNat n, Show r, Numeric r)
@@ -435,7 +422,6 @@ simplifyAst t = case t of
   AstSlice i k v -> astSlice i k (simplifyAst v)
   AstReverse v -> astReverse (simplifyAst v)
   AstTranspose perm v -> astTranspose perm $ simplifyAst v
-  AstFlatten v -> astFlatten $ simplifyAst v
   AstReshape sh v -> astReshape sh (simplifyAst v)
   AstBuild1 k (var, v) -> AstBuild1 k (var, simplifyAst v)
     -- should never appear outside test runs, but let's test the inside, too

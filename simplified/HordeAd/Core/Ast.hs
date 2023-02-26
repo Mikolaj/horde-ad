@@ -81,8 +81,6 @@ data Ast :: Nat -> Type -> Type where
              => Ast (1 + n) r -> Ast (1 + n) r
   AstTranspose :: Permutation -> Ast n r -> Ast n r
     -- emerges from vectorizing AstTr
-  AstFlatten :: KnownNat n
-             => Ast n r -> Ast 1 r
   AstReshape :: KnownNat n
              => ShapeInt m -> Ast n r -> Ast m r
     -- emerges from vectorizing AstFlatten
@@ -387,7 +385,6 @@ shapeAst v1 = case v1 of
   AstSlice _n k v -> k :$ tailShape (shapeAst v)
   AstReverse v -> shapeAst v
   AstTranspose perm v -> permutePrefixShape perm (shapeAst v)
-  AstFlatten v -> flattenShape (shapeAst v)
   AstReshape sh _v -> sh
   AstBuild1 k (_var, v) -> k :$ shapeAst v
   AstGather1 k v (_var, _is :: Index p (AstInt r)) ->
@@ -419,7 +416,6 @@ intVarInAst var = \case
   AstSlice _ _ v -> intVarInAst var v
   AstReverse v -> intVarInAst var v
   AstTranspose _ v -> intVarInAst var v
-  AstFlatten v -> intVarInAst var v
   AstReshape _ v -> intVarInAst var v
   AstBuild1 _ (_, v) -> intVarInAst var v
   AstGather1 _ v (_, is) -> any (intVarInAstInt var) is || intVarInAst var v
@@ -465,7 +461,6 @@ substitute1Ast i var v1 = case v1 of
   AstSlice k s v -> AstSlice k s (substitute1Ast i var v)
   AstReverse v -> AstReverse (substitute1Ast i var v)
   AstTranspose perm v -> AstTranspose perm (substitute1Ast i var v)
-  AstFlatten v -> AstFlatten (substitute1Ast i var v)
   AstReshape sh v -> AstReshape sh (substitute1Ast i var v)
   AstBuild1 k (var2, v) ->
     AstBuild1 k (var2, substitute1Ast i var v)

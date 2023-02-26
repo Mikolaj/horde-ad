@@ -135,11 +135,6 @@ build1V k (var, v0) =
       -- probably only f that don't change shapes or ranks at least
     AstTranspose perm v -> traceRule $
       astTranspose (0 : map succ perm) $ build1V k (var, v)
-    AstFlatten v -> traceRule $
-      build1V k (var, AstReshape (flattenShape $ shapeAst v0) v)
-        -- TODO: alternatively we could introduce a subtler operation than
-        -- AstReshape that just flattens n levels down; it probably
-        -- vectorizes to itself just fine; however AstReshape is too useful
     AstReshape sh v -> traceRule $
       AstReshape (k :$ sh) $ build1V k (var, v)
     AstBuild1{} -> error "build1V: impossible case of AstBuild1"
@@ -409,22 +404,7 @@ build1VIx k (var, v0, is@(i1 :. rest1)) perm0 =
           else let ix2 = permutePrefixIndex perm is
                in build1VIx k (var, v, ix2) []
         v -> build1VIx k (var, v, is) []
-    AstFlatten v -> traceRule $
-      assert (isIdentityPerm perm0)
-      $ case rest1 of
-        ZI ->
-          let ixs2 = fromLinearIdx (fmap AstIntConst (shapeAst v)) i1
-          in build1VIx k (var, v, ixs2) []
-        _ ->
-          error "build1VIx: AstFlatten: impossible pattern needlessly required"
     AstReshape sh v -> traceRule $
-      -- TODO: As soon as we have AstSlice with variable offset argument
-      -- (the first argument), this can be expressed using it, perhaps
-      -- gaining performance. The outcome would containt something like
-      -- > let i = toLinearIdx (fmap AstIntConst sh) is
-      -- >     u = AstSlice i (product $ drop (length is) sh) $ AstFlatten v
-      -- > in AstReshape (k : sh) $ build1V k (var, u)
-      -- Instead, we express the reshape using gather and process that.
       build1VIx k (var, astReshape sh v, is) perm0
     AstBuild1{} -> error "build1VIx: impossible case: AstBuild1"
     AstGather1 @p7 n2  v (var2, ix4) -> traceRule $
