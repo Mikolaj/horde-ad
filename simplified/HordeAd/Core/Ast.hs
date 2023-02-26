@@ -86,7 +86,8 @@ data Ast :: Nat -> Type -> Type where
   AstReshape :: KnownNat n
              => ShapeInt m -> Ast n r -> Ast m r
     -- emerges from vectorizing AstFlatten
-  AstBuild1 :: Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
+  AstBuild1 :: KnownNat n
+            => Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
     -- indicates a failure in vectorization, but may be recoverable later on
   AstGather1 :: forall p n r. (KnownNat p, KnownNat n)
              => Int -> Ast (p + n) r
@@ -391,7 +392,7 @@ shapeAst v1 = case v1 of
   AstBuild1 k (_var, v) -> k :$ shapeAst v
   AstGather1 k v (_var, _is :: Index p (AstInt r)) ->
     k :$ dropShape @p (shapeAst v)
-  AstGatherN sh _v (_var, _is) -> sh
+  AstGatherN sh _v (_vars, _ix) -> sh
 
 -- Length of the outermost dimension.
 lengthAst :: (KnownNat n, Show r, Numeric r) => Ast (1 + n) r -> Int

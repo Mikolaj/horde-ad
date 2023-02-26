@@ -40,7 +40,16 @@ import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
-import           GHC.TypeLits (KnownNat, sameNat, type (+))
+import           GHC.TypeLits
+  ( KnownNat
+  , OrderingI (..)
+  , SomeNat (..)
+  , cmpNat
+  , sameNat
+  , someNatVal
+  , type (+)
+  , type (-)
+  )
 import           Numeric.LinearAlgebra (Numeric)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
@@ -138,17 +147,103 @@ astReshape shOut v = unsafePerformIO $ do
                  else asGather
     _ -> asGather
 
+astTranspose :: forall n r. KnownNat n
+             => Permutation -> Ast n r -> Ast n r
+astTranspose perm t | isIdentityPerm perm = t
+astTranspose perm1 (AstTranspose perm2 t) =
+  let perm2Matched =
+        perm2 ++ take (length perm1 - length perm2) (drop (length perm2) [0 ..])
+      perm = permutePrefixList perm1 perm2Matched
+  in astTranspose perm t
+astTranspose perm u = AstTranspose perm u
+
+-- TODO: perhaps merge with above
+astTransposeAsGather :: forall n r. (KnownNat n, Show r, Numeric r)
+                     => Permutation -> Ast n r -> Ast n r
+{-# NOINLINE astTransposeAsGather #-}
+astTransposeAsGather perm v = unsafePerformIO $ do
+  let p = length perm
+  varList <- replicateM p unsafeGetFreshAstVar
+  return $! case someNatVal $ toInteger p of
+    Just (SomeNat (_proxy :: Proxy p)) ->
+      let vars :: AstVarList p
+          vars = listToSized varList
+          asts :: AstIndex p r
+          asts = listToIndex $ map (\i -> AstIntVar $ varList !! i) perm
+      in case cmpNat (Proxy @p) (Proxy @n) of
+           EQI -> astGatherN @p @(n - p)
+                             (permutePrefixShape perm (shapeAst v)) v
+                             (vars, asts)
+           LTI -> astGatherN @p @(n - p)
+                             (permutePrefixShape perm (shapeAst v)) v
+                             (vars, asts)
+           _ -> error "astTransposeAsGather: permutation longer than rank"
+    Nothing -> error "astTransposeAsGather: impossible someNatVal error"
 
 -- * The simplifying combinators
 
-astIndexZ :: forall m n r. (KnownNat m, Show r, Numeric r)
+astIndexZ :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
           => Ast (m + n) r -> AstIndex m r -> Ast n r
 astIndexZ v0 ZI = v0
 astIndexZ v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) = case v0 of
-  AstIndexZ v ix2 -> astIndexZ v (appendIndex ix2 ix)
-  AstKonst _k v -> astIndexZ v rest1
+  AstVar{} -> AstIndexZ v0 ix
+  AstOp opCode args -> -- AstIndexZ v0 ix
+    AstOp opCode (map (`astIndexZ` ix) args)
+    -- we can't have a normal form that does not have the capacity
+    -- to hide redexes arbitrarily deep inside AstOp,
+    -- so we push indexing down AstOp as much as possible; fortunately,
+    -- as long as redexes get reduced, this is beneficial;
+    -- the worst case is variables in projection or the projected term
+    -- preventing reduction and so the projection getting duplicated for nought;
+    -- TODO: test often if this is not disastrous
+  AstConst{} -> AstIndexZ v0 ix
+  AstConstant{} -> AstIndexZ v0 ix
+  AstConstInt{} -> AstIndexZ v0 ix
+  AstIndexZ v ix2 ->
+    astIndexZ v (appendIndex ix2 ix)
+  AstSum v ->
+    let perm3 = permCycle $ valueOf @m + 1
+    in astSum $ astIndexZ (astTranspose perm3 v) ix
+  AstFromList l | AstIntConst i <- i1 ->
+    astIndexZ (l !! i) rest1
+  AstFromList l ->
+    AstIndexZ (astFromList $ map (`astIndexZ` rest1) l) (singletonIndex i1)
+  AstFromVector l | AstIntConst i <- i1 ->
+    astIndexZ (l V.! i) rest1
+  AstFromVector l ->
+    AstIndexZ (astFromVector $ V.map (`astIndexZ` rest1) l) (singletonIndex i1)
+  AstKonst _k v ->
+    astIndexZ v rest1
+  AstAppend v w ->
+    let vlen = AstIntConst $ lengthAst v
+        ix2 = simplifyAstInt (AstIntOp MinusIntOp [i1, vlen]) :. rest1
+    in astCond (simplifyAstBool $ AstRelInt LsOp [i1, vlen])
+               (astIndexZ v ix)
+               (astIndexZ w ix2)
+  AstSlice i _k v ->
+    astIndexZ v (simplifyAstInt (AstIntOp PlusIntOp [i1, AstIntConst i])
+                 :. rest1)
+  AstReverse v ->
+    let revIs = simplifyAstInt (AstIntOp MinusIntOp
+                                         [AstIntConst (lengthAst v - 1), i1])
+                :. rest1
+    in astIndexZ v revIs
   AstTranspose perm v | valueOf @m >= length perm ->
     astIndexZ v (permutePrefixIndex perm ix)
+  AstTranspose perm v ->
+    astIndexZ (astTransposeAsGather perm v) ix
+  AstFlatten v ->
+    case rest1 of
+      ZI ->
+        let ixs2 = fmap simplifyAstInt
+                   $ fromLinearIdx (fmap AstIntConst (shapeAst v)) i1
+        in astIndexZ v ixs2
+      _ ->
+        error "astIndexZ: AstFlatten: impossible pattern needlessly required"
+  AstReshape sh v ->
+    astIndexZ (astReshape sh v) ix
+  AstBuild1 _n2 (var2, v) ->  -- only possible tests
+    astIndexZ (substituteAst i1 var2 v) rest1
   AstGather1 _n2 v (var2, ix2) ->
     let ix3 = fmap (substituteAstInt i1 var2) ix2
     in astIndexZ v (appendIndex ix3 rest1)
@@ -158,19 +253,21 @@ astIndexZ v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) = case v0 of
         w :: Ast (m1 + n) r
         w = unsafeCoerce $ astGatherN sh' v (vars, ix3)
     in astIndexZ @m1 @n w rest1
-  _ -> AstIndexZ v0 ix
-    -- a lot more can be added, but how not to duplicate build1VIx?
+  AstGatherN{} ->
+    error "astIndexZ: AstGatherN: impossible pattern needlessly required"
 
 astSum :: Ast (1 + n) r -> Ast n r
 astSum = AstSum
 
 astFromList :: KnownNat n
             => [Ast n r] -> Ast (1 + n) r
-astFromList = AstFromList
+astFromList [a] = astKonst 1 a
+astFromList l = AstFromList l
 
 astFromVector :: KnownNat n
               => Data.Vector.Vector (Ast n r) -> Ast (1 + n) r
-astFromVector = AstFromVector
+astFromVector v | V.length v == 1 = astKonst 1 (v V.! 1)
+astFromVector l = AstFromVector l
 
 astKonst :: KnownNat n => Int -> Ast n r -> Ast (1 + n) r
 astKonst k = \case
@@ -192,16 +289,6 @@ astReverse :: KnownNat n
            => Ast (1 + n) r -> Ast (1 + n) r
 astReverse = AstReverse
 
-astTranspose :: forall n r. KnownNat n
-             => Permutation -> Ast n r -> Ast n r
-astTranspose perm t | isIdentityPerm perm = t
-astTranspose perm1 (AstTranspose perm2 t) =
-  let perm2Matched =
-        perm2 ++ take (length perm1 - length perm2) (drop (length perm2) [0 ..])
-      perm = permutePrefixList perm1 perm2Matched
-  in astTranspose perm t
-astTranspose perm u = AstTranspose perm u
-
 astFlatten :: KnownNat n
            => Ast n r -> Ast 1 r
 astFlatten = AstFlatten
@@ -221,7 +308,7 @@ astGather1 k v0 (var, ix) =
               AstGather1 k v2 (var, ix2)
             | intVarInAstInt var iN ->
                 let w :: Ast (1 + n) r
-                    w = AstIndexZ v2 restN
+                    w = astIndexZ v2 restN
                 in case gatherSimplify k var w iN of
                   Just u -> u  -- an extremely simple form found
                   Nothing -> AstGather1 k v2 (var, ix2)
