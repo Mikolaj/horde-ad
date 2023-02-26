@@ -9,7 +9,7 @@ import           Test.Tasty.Options
 import           Test.Tasty.Runners
 
 import qualified TestAdaptorSimplified
-import qualified TestBuildSimplified
+import qualified TestConvSimplified
 import qualified TestGatherSimplified
 import qualified TestGradientSimple
 import qualified TestHighRankSimplified
@@ -31,7 +31,7 @@ tests :: TestTree
 tests = testGroup "Only special tests for simplified horde-ad" $
   TestGatherSimplified.testTrees
   ++ TestHighRankSimplified.testTrees
-  ++ TestBuildSimplified.testTrees
+  ++ TestConvSimplified.testTrees
   ++ TestAdaptorSimplified.testTrees
   ++ TestSimplified.testTrees
   ++ [TestGradientSimple.finalCounter]

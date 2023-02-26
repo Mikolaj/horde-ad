@@ -1,7 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, DataKinds, FlexibleInstances,
              OverloadedLists, RankNTypes, TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-module TestBuildSimplified (testTrees) where
+module TestConvSimplified (testTrees) where
 
 import Prelude
 

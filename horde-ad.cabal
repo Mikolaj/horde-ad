@@ -661,7 +661,7 @@ test-suite simplifiedOnlyTest
     main-is:          SimplifiedOnlyTest.hs
 
     other-modules:    TestAdaptorSimplified
-                      TestBuildSimplified
+                      TestConvSimplified
                       TestGatherSimplified
                       TestHighRankSimplified
                       TestSimplified
