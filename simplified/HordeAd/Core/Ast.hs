@@ -94,7 +94,7 @@ data Ast :: Nat -> Type -> Type where
              -> Ast (1 + n) r
     -- emerges from vectorizing AstIndexZ applied to a term with no build
     -- variable; out of bounds indexing is permitted
-  AstGatherN :: forall m p n r. (KnownNat m, KnownNat p, KnownNat n)
+  AstGatherN :: forall m n p r. (KnownNat m, KnownNat p, KnownNat n)
              => ShapeInt (m + n) -> Ast (p + n) r
              -> (AstVarList m, AstIndex p r)
              -> Ast (m + n) r

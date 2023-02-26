@@ -459,7 +459,7 @@ build1VIx k (var, v0, is@(i1 :. rest1)) perm0 =
                            (appendIndex ix2 ixRest2)
     AstGatherN _sh v (Z, ix4) -> traceRule $
       build1VIx k (var, AstIndexZ v ix4, is) perm0
-    AstGatherN @m7 @_p7 @n7 sh v (vars, ix4) -> traceRule $
+    AstGatherN @m7 @n7 sh v (vars, ix4) -> traceRule $
       let v2 = case cmpNat (Proxy @m) (Proxy @(m7 + n7)) of
             EQI ->
               projectGatherN perm0 is (Z, vars, ix4) v sh []

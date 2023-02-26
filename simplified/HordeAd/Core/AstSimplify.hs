@@ -131,7 +131,7 @@ astReshape shOut v = unsafePerformIO $ do
                    in fmap simplifyAstInt
                       $ fromLinearIdx (fmap AstIntConst shIn) i
                         -- we generate these, so we simplify
-        return $! astGatherN @m @p @0 shOut v (vars, asts)
+        return $! astGatherN @m @0 shOut v (vars, asts)
   case sameNat (Proxy @p) (Proxy @m) of
     Just Refl -> if shIn == shOut
                  then return v
@@ -230,7 +230,7 @@ astGather1 k v0 (var, ix) =
        _ -> AstGather1 k v0 (var, ix)  -- can this happen?
      else astKonst k v3
 
-astGatherN :: forall m p n r.
+astGatherN :: forall m n p r.
               (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r)
            => ShapeInt (m + n) -> Ast (p + n) r -> (AstVarList m, AstIndex p r)
            -> Ast (m + n) r
