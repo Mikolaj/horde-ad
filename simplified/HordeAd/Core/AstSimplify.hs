@@ -391,6 +391,9 @@ simplifyAstBool t = case t of
 -- ghc-typelits-natnormalise does. Also, let's associate to the right.
 simplifyAstIntOp :: OpCodeInt -> [AstInt r] -> AstInt r
 simplifyAstIntOp PlusIntOp [AstIntConst u, AstIntConst v] = AstIntConst $ u + v
+simplifyAstIntOp PlusIntOp [ AstIntConst u
+                           , AstIntOp PlusIntOp [AstIntConst v, w] ] =
+  simplifyAstIntOp PlusIntOp [AstIntConst $ u + v, w]
 simplifyAstIntOp PlusIntOp [AstIntConst 0, v] = v
 simplifyAstIntOp PlusIntOp [u, AstIntConst 0] = u
 simplifyAstIntOp PlusIntOp [AstIntOp PlusIntOp [u, v], w] =
@@ -400,6 +403,9 @@ simplifyAstIntOp MinusIntOp [AstIntConst 0, v] =
   simplifyAstIntOp NegateIntOp [v]
 simplifyAstIntOp MinusIntOp [u, AstIntConst 0] = u
 simplifyAstIntOp TimesIntOp [AstIntConst u, AstIntConst v] = AstIntConst $ u * v
+simplifyAstIntOp TimesIntOp [ AstIntConst u
+                            , AstIntOp TimesIntOp [AstIntConst v, w] ] =
+  simplifyAstIntOp TimesIntOp [AstIntConst $ u * v, w]
 simplifyAstIntOp TimesIntOp [AstIntConst 0, _v] = AstIntConst 0
 simplifyAstIntOp TimesIntOp [_u, AstIntConst 0] = AstIntConst 0
 simplifyAstIntOp TimesIntOp [AstIntConst 1, v] = v
@@ -423,18 +429,36 @@ simplifyAstIntOp QuotIntOp [AstIntConst u, AstIntConst v] =
   AstIntConst $ quot u v
 simplifyAstIntOp QuotIntOp [AstIntConst 0, _v] = AstIntConst 0
 simplifyAstIntOp QuotIntOp [u, AstIntConst 1] = u
+simplifyAstIntOp QuotIntOp [ AstIntOp RemIntOp [_u, AstIntConst v]
+                           , AstIntConst v' ]
+  | v' >= v && v >= 0 = 0
+simplifyAstIntOp QuotIntOp [AstIntOp QuotIntOp [u, v], w] =
+  simplifyAstIntOp QuotIntOp [u, simplifyAstIntOp TimesIntOp [v, w]]
 simplifyAstIntOp RemIntOp [AstIntConst u, AstIntConst v] =
   AstIntConst $ rem u v
 simplifyAstIntOp RemIntOp [AstIntConst 0, _v] = 0
 simplifyAstIntOp RemIntOp [_u, AstIntConst 1] = 0
+simplifyAstIntOp RemIntOp [AstIntOp RemIntOp [u, AstIntConst v], AstIntConst v']
+  | v' >= v && v >= 0 = AstIntOp RemIntOp [u, AstIntConst v]
+simplifyAstIntOp RemIntOp [AstIntOp RemIntOp [u, AstIntConst v], AstIntConst v']
+  | rem v v' == 0 && v > 0 = simplifyAstIntOp RemIntOp [u, AstIntConst v']
 simplifyAstIntOp DivIntOp [AstIntConst u, AstIntConst v] =
   AstIntConst $ div u v
 simplifyAstIntOp DivIntOp [AstIntConst 0, _v] = AstIntConst 0
 simplifyAstIntOp DivIntOp [u, AstIntConst 1] = u
+simplifyAstIntOp DivIntOp [ AstIntOp ModIntOp [_u, AstIntConst v]
+                          , AstIntConst v' ]
+  | v' >= v && v >= 0 = 0
+simplifyAstIntOp DivIntOp [AstIntOp QuotIntOp [u, v], w] =
+  simplifyAstIntOp DivIntOp [u, simplifyAstIntOp TimesIntOp [v, w]]
 simplifyAstIntOp ModIntOp [AstIntConst u, AstIntConst v] =
   AstIntConst $ mod u v
 simplifyAstIntOp ModIntOp [AstIntConst 0, _v] = 0
 simplifyAstIntOp ModIntOp [_u, AstIntConst 1] = 0
+simplifyAstIntOp ModIntOp [AstIntOp ModIntOp [u, AstIntConst v], AstIntConst v']
+  | v' >= v && v >= 0 = AstIntOp ModIntOp [u, AstIntConst v]
+simplifyAstIntOp ModIntOp [AstIntOp ModIntOp [u, AstIntConst v], AstIntConst v']
+  | mod v v' == 0 && v > 0 = simplifyAstIntOp ModIntOp [u, AstIntConst v']
 simplifyAstIntOp opCodeInt arg = AstIntOp opCodeInt arg
 
 -- We have to simplify after substitution or simplifying is not idempotent.
