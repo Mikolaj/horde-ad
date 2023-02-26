@@ -477,7 +477,8 @@ simplifyAstBool t = case t of
     -- TODO: evaluate if arguments are constants
 
 -- TODO: let's aim at SOP (Sum-of-Products) form, just as
--- ghc-typelits-natnormalise does. Also, let's associate to the right.
+-- ghc-typelits-natnormalise does. Also, let's associate to the right
+-- and let's push negation down.
 simplifyAstIntOp :: OpCodeInt -> [AstInt r] -> AstInt r
 simplifyAstIntOp PlusIntOp [AstIntConst u, AstIntConst v] = AstIntConst $ u + v
 simplifyAstIntOp PlusIntOp [ AstIntConst u
@@ -487,10 +488,10 @@ simplifyAstIntOp PlusIntOp [AstIntConst 0, v] = v
 simplifyAstIntOp PlusIntOp [u, AstIntConst 0] = u
 simplifyAstIntOp PlusIntOp [AstIntOp PlusIntOp [u, v], w] =
   simplifyAstIntOp PlusIntOp [u, simplifyAstIntOp PlusIntOp [v, w]]
-simplifyAstIntOp MinusIntOp [AstIntConst u, AstIntConst v] = AstIntConst $ u - v
-simplifyAstIntOp MinusIntOp [AstIntConst 0, v] =
-  simplifyAstIntOp NegateIntOp [v]
-simplifyAstIntOp MinusIntOp [u, AstIntConst 0] = u
+
+simplifyAstIntOp MinusIntOp [u, v] =
+  simplifyAstIntOp PlusIntOp [u, simplifyAstIntOp NegateIntOp [v]]
+
 simplifyAstIntOp TimesIntOp [AstIntConst u, AstIntConst v] = AstIntConst $ u * v
 simplifyAstIntOp TimesIntOp [ AstIntConst u
                             , AstIntOp TimesIntOp [AstIntConst v, w] ] =
@@ -507,13 +508,39 @@ simplifyAstIntOp TimesIntOp [AstIntOp PlusIntOp [u, v], w] =
 simplifyAstIntOp TimesIntOp [u, AstIntOp PlusIntOp [v, w]] =
   simplifyAstIntOp PlusIntOp [ simplifyAstIntOp TimesIntOp [u, v]
                              , simplifyAstIntOp TimesIntOp [u, w] ]
+
+-- Almost complete. TODO: given choice, prefer to negate a constant.
 simplifyAstIntOp NegateIntOp [AstIntConst u] = AstIntConst $ negate u
+simplifyAstIntOp NegateIntOp [AstIntOp PlusIntOp [u, v]] =
+  simplifyAstIntOp PlusIntOp [ simplifyAstIntOp NegateIntOp [u]
+                             , simplifyAstIntOp NegateIntOp [v] ]
+simplifyAstIntOp NegateIntOp [AstIntOp TimesIntOp [u, v]] =
+  simplifyAstIntOp TimesIntOp [u, simplifyAstIntOp NegateIntOp [v]]
+simplifyAstIntOp NegateIntOp [AstIntOp NegateIntOp [u]] = u
+simplifyAstIntOp NegateIntOp [AstIntOp SignumIntOp [u]] =
+  simplifyAstIntOp SignumIntOp [simplifyAstIntOp NegateIntOp [u]]
+simplifyAstIntOp NegateIntOp [AstIntOp MaxIntOp [u, v]] =
+  simplifyAstIntOp MinIntOp [ simplifyAstIntOp NegateIntOp [u]
+                            , simplifyAstIntOp NegateIntOp [v] ]
+simplifyAstIntOp NegateIntOp [AstIntOp MinIntOp [u, v]] =
+  simplifyAstIntOp MaxIntOp [ simplifyAstIntOp NegateIntOp [u]
+                            , simplifyAstIntOp NegateIntOp [v] ]
+simplifyAstIntOp NegateIntOp [AstIntOp QuotIntOp [u, v]] =
+  simplifyAstIntOp QuotIntOp [u, simplifyAstIntOp NegateIntOp [v]]
+simplifyAstIntOp NegateIntOp [AstIntOp RemIntOp [u, v]] =
+  simplifyAstIntOp RemIntOp [u, simplifyAstIntOp NegateIntOp [v]]
+-- TODO: div and mod require a conditional, etc.
+
 simplifyAstIntOp AbsIntOp [AstIntConst u] = AstIntConst $ abs u
+simplifyAstIntOp AbsIntOp [AstIntOp AbsIntOp [u]] = AstIntOp AbsIntOp [u]
+simplifyAstIntOp AbsIntOp [AstIntOp NegateIntOp [u]] =
+  simplifyAstIntOp AbsIntOp [u]
 simplifyAstIntOp SignumIntOp [AstIntConst u] = AstIntConst $ signum u
 simplifyAstIntOp MaxIntOp [AstIntConst u, AstIntConst v] =
   AstIntConst $ max u v
 simplifyAstIntOp MinIntOp [AstIntConst u, AstIntConst v] =
   AstIntConst $ min u v
+
 simplifyAstIntOp QuotIntOp [AstIntConst u, AstIntConst v] =
   AstIntConst $ quot u v
 simplifyAstIntOp QuotIntOp [AstIntConst 0, _v] = AstIntConst 0
@@ -523,6 +550,7 @@ simplifyAstIntOp QuotIntOp [ AstIntOp RemIntOp [_u, AstIntConst v]
   | v' >= v && v >= 0 = 0
 simplifyAstIntOp QuotIntOp [AstIntOp QuotIntOp [u, v], w] =
   simplifyAstIntOp QuotIntOp [u, simplifyAstIntOp TimesIntOp [v, w]]
+
 simplifyAstIntOp RemIntOp [AstIntConst u, AstIntConst v] =
   AstIntConst $ rem u v
 simplifyAstIntOp RemIntOp [AstIntConst 0, _v] = 0
@@ -531,6 +559,7 @@ simplifyAstIntOp RemIntOp [AstIntOp RemIntOp [u, AstIntConst v], AstIntConst v']
   | v' >= v && v >= 0 = AstIntOp RemIntOp [u, AstIntConst v]
 simplifyAstIntOp RemIntOp [AstIntOp RemIntOp [u, AstIntConst v], AstIntConst v']
   | rem v v' == 0 && v > 0 = simplifyAstIntOp RemIntOp [u, AstIntConst v']
+
 simplifyAstIntOp DivIntOp [AstIntConst u, AstIntConst v] =
   AstIntConst $ div u v
 simplifyAstIntOp DivIntOp [AstIntConst 0, _v] = AstIntConst 0
@@ -540,6 +569,7 @@ simplifyAstIntOp DivIntOp [ AstIntOp ModIntOp [_u, AstIntConst v]
   | v' >= v && v >= 0 = 0
 simplifyAstIntOp DivIntOp [AstIntOp QuotIntOp [u, v], w] =
   simplifyAstIntOp DivIntOp [u, simplifyAstIntOp TimesIntOp [v, w]]
+
 simplifyAstIntOp ModIntOp [AstIntConst u, AstIntConst v] =
   AstIntConst $ mod u v
 simplifyAstIntOp ModIntOp [AstIntConst 0, _v] = 0
@@ -548,6 +578,7 @@ simplifyAstIntOp ModIntOp [AstIntOp ModIntOp [u, AstIntConst v], AstIntConst v']
   | v' >= v && v >= 0 = AstIntOp ModIntOp [u, AstIntConst v]
 simplifyAstIntOp ModIntOp [AstIntOp ModIntOp [u, AstIntConst v], AstIntConst v']
   | mod v v' == 0 && v > 0 = simplifyAstIntOp ModIntOp [u, AstIntConst v']
+
 simplifyAstIntOp opCodeInt arg = AstIntOp opCodeInt arg
 
 -- TODO: let's aim at SOP (Sum-of-Products) form, just as

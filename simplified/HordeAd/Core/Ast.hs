@@ -337,6 +337,8 @@ instance Enum (AstInt r) where
 
 -- Warning: this class lacks toInteger, which also makes it impossible
 -- to include AstInt in Ast via fromIntegral, hence AstConstInt.
+-- Warning: div and mod operations are very costly (simplifying them
+-- requires constructing conditionals, etc).
 instance Integral (AstInt r) where
   quot u v = AstIntOp QuotIntOp [u, v]
   rem u v = AstIntOp RemIntOp [u, v]
