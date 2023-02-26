@@ -9,14 +9,13 @@ import           Control.Exception (assert)
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
 import           GHC.TypeLits (KnownNat)
-import           Numeric.LinearAlgebra (Numeric)
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 
 import HordeAd.Internal.TensorOps
-import TestAdaptorSimplified (assertEqualUpToEpsilon', rev')
+import TestAdaptorSimplified (assertEqualUpToEpsilon', rev', t16b)
 import Tool.EqEpsilon
 
 testTrees :: [TestTree]
@@ -45,9 +44,6 @@ testTrees =
 -- The examples reproduce and transformed in this file are borrowed
 -- from https://github.com/benl23x5/adops.
 -- Here it's defined using ranked tensors with sized indexes.
-
-t16 :: (Numeric r, Fractional r) => OR.Array 4 r
-t16 = OR.fromList [2, 2, 2, 2] [5, 2, 6, 1, -2, 0, 0.1, -0.2, 13.1, 9, 8, -4, 582934, 2.99432, -335, 26]
 
 -- Test comments are currently outdated. The first implementation
 -- is currently correct only by chance (and this may change).
@@ -96,7 +92,7 @@ conv2dA = conv2d $ tconst $ OR.fromList [1, 2, 1, 1] [-0.2, 25.0003]
 conv2dB
   :: ADReady r
   => TensorOf 4 r -> TensorOf 4 r
-conv2dB = conv2d $ tconst t16
+conv2dB = conv2d $ tconst t16b
 
 testKonstG0Rev :: Assertion
 testKonstG0Rev =
@@ -115,7 +111,7 @@ testKonstG0TinyS =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1, 1, 1, 1] [582665.99432])
     (rev' @(OR.Array 4 Double)
-          (conv2d $ tconst $ tkonst0NR [1, 1, 1, 1] (tsum0R t16))
+          (conv2d $ tconst $ tkonst0NR [1, 1, 1, 1] (tsum0R t16b))
           (OR.fromList [1, 1, 1, 1] [0]))
 
 testKonstG0TinyA :: Assertion
@@ -204,12 +200,12 @@ conv2dALaborious = conv2dLaborious $ tconst $ OR.fromList [1, 2, 1, 1] [-0.2, 25
 conv2dBLaborious
   :: ADReady r
   => TensorOf 4 r -> TensorOf 4 r
-conv2dBLaborious = conv2dLaborious $ tconst t16
+conv2dBLaborious = conv2dLaborious $ tconst t16b
 
 conv2dCLaborious
   :: ADReady r
   => TensorOf 4 r -> TensorOf 4 r
-conv2dCLaborious = flip conv2dLaborious $ tconst t16
+conv2dCLaborious = flip conv2dLaborious $ tconst t16b
 
 testKonst0RevLaborious :: Assertion
 testKonst0RevLaborious =
@@ -228,7 +224,7 @@ testKonst0TinySLaborious =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1, 1, 1, 1] [582665.99432])
     (rev' @(OR.Array 4 Double)
-          (conv2dLaborious $ tconst $ tkonst0NR [1, 1, 1, 1] (tsum0R t16))
+          (conv2dLaborious $ tconst $ tkonst0NR [1, 1, 1, 1] (tsum0R t16b))
           (OR.fromList [1, 1, 1, 1] [0]))
 
 testKonst0TinyALaborious :: Assertion
@@ -344,7 +340,7 @@ conv2d1Failed = conv2dFailed $ tconst $ OR.fromList [1, 1, 1, 1] [-0.2]
 conv2dBFailed
   :: ADReady r
   => TensorOf 4 r -> TensorOf 4 r
-conv2dBFailed = conv2dFailed $ tconst t16
+conv2dBFailed = conv2dFailed $ tconst t16b
 
 testKonst0RevFailed :: Assertion
 testKonst0RevFailed =
@@ -363,5 +359,5 @@ testKonst0TinySFailed =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1, 1, 1, 1] [582665.99432])
     (rev' @(OR.Array 4 Double)
-          (conv2dFailed $ tconst $ tkonst0NR [1, 1, 1, 1] (tsum0R t16))
+          (conv2dFailed $ tconst $ tkonst0NR [1, 1, 1, 1] (tsum0R t16b))
           (OR.fromList [1, 1, 1, 1] [0]))
