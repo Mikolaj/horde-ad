@@ -192,8 +192,11 @@ type instance BooleanOf (Ast n r) = AstBool r
 instance KnownNat n => IfB (Ast n r) where
   ifB = astCond
 
+-- No simplification at this point, so constant boolean unlikely,
+-- but it's a constant time simplification, so no harm done.
 astCond :: KnownNat n
         => AstBool r -> Ast n r -> Ast n r -> Ast n r
+astCond (AstBoolConst b) v w = if b then v else w
 astCond b v w = AstIndexZ (AstFromList [v, w])
                           (singletonIndex $ AstIntCond b 0 1)
 

@@ -121,6 +121,16 @@ funToAstIndex f = unsafePerformIO $ do
 
 -- * Combinators that simplify but introduce new variable names
 
+-- No correspoding Ast term, but a very important construction
+-- that simplifies a lot in some cases.
+-- This differs from Ast.astCond in the it recursively simplifies
+-- any uncovered redexes, just as all combinators in AstSimplify do.
+astCondRec :: (KnownNat n, Show r, Numeric r)
+           => AstBool r -> Ast n r -> Ast n r -> Ast n r
+astCondRec (AstBoolConst b) v w = if b then v else w
+astCondRec b v w = astIndexZ (astFromList [v, w])
+                             (singletonIndex $ astIntCond b 0 1)
+
 -- TODO: decide whether to use always
 -- or not to use for Flatten, but fuse with Flatten, etc.
 astReshape :: forall p m r. (KnownNat p, KnownNat m, Show r, Numeric r)
@@ -216,9 +226,9 @@ astIndexZ v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) = case v0 of
   AstAppend v w ->
     let vlen = AstIntConst $ lengthAst v
         ix2 = simplifyAstInt (AstIntOp MinusIntOp [i1, vlen]) :. rest1
-    in astCond (simplifyAstBool $ AstRelInt LsOp [i1, vlen])
-               (astIndexZ v ix)
-               (astIndexZ w ix2)
+    in astCondRec (simplifyAstBool $ AstRelInt LsOp [i1, vlen])
+                  (astIndexZ v ix)
+                  (astIndexZ w ix2)
   AstSlice i _k v ->
     astIndexZ v (simplifyAstInt (AstIntOp PlusIntOp [i1, AstIntConst i])
                  :. rest1)
@@ -385,7 +395,8 @@ astSliceLax i k v =
         | otherwise -> AstAppend (AstSlice i kMax v) v2
 
 astIntCond :: AstBool r -> AstInt r -> AstInt r -> AstInt r
-astIntCond = AstIntCond
+astIntCond (AstBoolConst b) v w = if b then v else w
+astIntCond b v w = AstIntCond b v w
 
 astMinIndex1 :: Ast 1 r -> AstInt r
 astMinIndex1 = AstMinIndex1
@@ -451,8 +462,8 @@ simplifyAstInt t = case t of
 simplifyAstBool :: (Show r, Numeric r)
                 => AstBool r -> AstBool r
 simplifyAstBool t = case t of
-  AstBoolOp opCodeBool args -> AstBoolOp opCodeBool (map simplifyAstBool args)
-    -- We do not simplify, e.g., conjunction with False. Worth considering.
+  AstBoolOp opCodeBool args ->
+    simplifyAstBoolOp opCodeBool (map simplifyAstBool args)
   AstBoolConst{} -> t
   AstRel{} -> t
     -- these are primal part expressions, so never vectorized but potentially
@@ -463,8 +474,7 @@ simplifyAstBool t = case t of
     -- we are going to need to start simplifyign them as well
     -- even just to try to reduce their size
   AstRelInt opCodeRel args -> AstRelInt opCodeRel (map simplifyAstInt args)
-    -- We do not simplify, e.g., equality of syntactically equal terms.
-    -- There are too many cases and values are often unknown.
+    -- TODO: evaluate if arguments are constants
 
 -- TODO: let's aim at SOP (Sum-of-Products) form, just as
 -- ghc-typelits-natnormalise does. Also, let's associate to the right.
@@ -539,6 +549,20 @@ simplifyAstIntOp ModIntOp [AstIntOp ModIntOp [u, AstIntConst v], AstIntConst v']
 simplifyAstIntOp ModIntOp [AstIntOp ModIntOp [u, AstIntConst v], AstIntConst v']
   | mod v v' == 0 && v > 0 = simplifyAstIntOp ModIntOp [u, AstIntConst v']
 simplifyAstIntOp opCodeInt arg = AstIntOp opCodeInt arg
+
+-- TODO: let's aim at SOP (Sum-of-Products) form, just as
+-- ghc-typelits-natnormalise does. Also, let's associate to the right.
+simplifyAstBoolOp :: OpCodeBool -> [AstBool r] -> AstBool r
+simplifyAstBoolOp NotOp [AstBoolConst b] = AstBoolConst $ not b
+simplifyAstBoolOp AndOp [AstBoolConst True, b] = b
+simplifyAstBoolOp AndOp [AstBoolConst False, _b] = AstBoolConst False
+simplifyAstBoolOp AndOp [b, AstBoolConst True] = b
+simplifyAstBoolOp AndOp [_b, AstBoolConst False] = AstBoolConst False
+simplifyAstBoolOp OrOp [AstBoolConst True, _b] = AstBoolConst True
+simplifyAstBoolOp OrOp [AstBoolConst False, b] = b
+simplifyAstBoolOp OrOp [_b, AstBoolConst True] = AstBoolConst True
+simplifyAstBoolOp OrOp [b, AstBoolConst False] = b
+simplifyAstBoolOp opCodeBool arg = AstBoolOp opCodeBool arg
 
 -- We have to simplify after substitution or simplifying is not idempotent.
 substituteAst :: (Show r, Numeric r, KnownNat n)
