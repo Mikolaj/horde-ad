@@ -122,16 +122,6 @@ funToAstIndex f = unsafePerformIO $ do
 
 -- * Combinators that simplify but introduce new variable names
 
--- No correspoding Ast term, but a very important construction
--- that simplifies a lot in some cases.
--- This differs from Ast.astCond in the it recursively simplifies
--- any uncovered redexes, just as all combinators in AstSimplify do.
-astCondRec :: (KnownNat n, Show r, Numeric r)
-           => AstBool r -> Ast n r -> Ast n r -> Ast n r
-astCondRec (AstBoolConst b) v w = if b then v else w
-astCondRec b v w = astIndexZ (astFromList [v, w])
-                             (singletonIndex $ astIntCond b 0 1)
-
 -- TODO: decide whether to use always
 -- or not to use for Flatten, but fuse with Flatten, etc.
 astReshape :: forall p m r. (KnownNat p, KnownNat m, Show r, Numeric r)
@@ -259,9 +249,9 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
     let vlen = AstIntConst $ lengthAst v
         ix2 = simplifyAstInt (AstIntOp MinusIntOp [i1, vlen]) :. rest1
         project = if stepOnly then AstIndexZ else astIndex
-    in astCondRec (simplifyAstBool $ AstRelInt LsOp [i1, vlen])
-                  (project v ix)
-                  (project w ix2)
+    in case simplifyAstBool $ AstRelInt LsOp [i1, vlen] of
+      AstBoolConst b -> if b then astIndex v ix else astIndex w ix2
+      bExpr -> astCond bExpr (project v ix) (project w ix2)
   AstSlice i _k v ->
     astIndex v (simplifyAstInt (AstIntOp PlusIntOp [i1, AstIntConst i])
                  :. rest1)
