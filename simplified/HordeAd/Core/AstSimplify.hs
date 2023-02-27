@@ -120,44 +120,31 @@ funToAstIndex f = unsafePerformIO $ do
   return (listToSized varList, f (listToIndex $ map AstIntVar varList))
 
 
--- * Combinators that simplify but introduce new variable names
+-- * Expressing operations as Gather; introduces new variable names
 
--- TODO: decide whether to use always
--- or not to use for Flatten, but fuse with Flatten, etc.
-astReshape :: forall p m r. (KnownNat p, KnownNat m, Show r, Numeric r)
-           => ShapeInt m -> Ast p r -> Ast m r
-{-# NOINLINE astReshape #-}
-astReshape shOut v = unsafePerformIO $ do
+-- This generates big terms that don't simplify well,
+-- so we keep the AstReshape form until simplification gets stuck.
+astReshapeAsGather :: forall p m r. (KnownNat p, KnownNat m, Show r, Numeric r)
+                   => ShapeInt m -> Ast p r -> Ast m r
+{-# NOINLINE astReshapeAsGather #-}
+astReshapeAsGather shOut v = unsafePerformIO $ do
+  varList <- replicateM (lengthShape shOut) unsafeGetFreshAstVar
   let shIn = shapeAst v
-      asGather = do
-        varList <- replicateM (lengthShape shOut) unsafeGetFreshAstVar
-        let vars :: AstVarList m
-            vars = listToSized varList
-            ix :: AstIndex m r
-            ix = listToIndex $ map AstIntVar varList
-            asts :: AstIndex p r
-            asts = let i = toLinearIdx @m @0 (fmap AstIntConst shOut) ix
-                   in fmap simplifyAstInt
-                      $ fromLinearIdx (fmap AstIntConst shIn) i
-                        -- we generate these, so we simplify
-        return $! astGatherN @m @0 shOut v (vars, asts)
-  case sameNat (Proxy @p) (Proxy @m) of
-    Just Refl -> if shIn == shOut
-                 then return v
-                 else asGather
-    _ -> asGather
+      vars :: AstVarList m
+      vars = listToSized varList
+      ix :: AstIndex m r
+      ix = listToIndex $ map AstIntVar varList
+      asts :: AstIndex p r
+      asts = let i = toLinearIdx @m @0 (fmap AstIntConst shOut) ix
+             in fmap simplifyAstInt
+                $ fromLinearIdx (fmap AstIntConst shIn) i
+                  -- we generate these, so we simplify
+  return $! astGatherN @m @0 shOut v (vars, asts)
 
-astTranspose :: forall n r. KnownNat n
-             => Permutation -> Ast n r -> Ast n r
-astTranspose perm t | isIdentityPerm perm = t
-astTranspose perm1 (AstTranspose perm2 t) =
-  let perm2Matched =
-        perm2 ++ take (length perm1 - length perm2) (drop (length perm2) [0 ..])
-      perm = permutePrefixList perm1 perm2Matched
-  in astTranspose perm t
-astTranspose perm u = AstTranspose perm u
-
--- TODO: perhaps merge with above
+-- We keep AstTranspose terms for as long as possible, because
+-- they are small and fuse nicely in many cases. For some forms of indexing
+-- and nesting with reshape and gather they don't fuse, which is when
+-- this function is invoked.
 astTransposeAsGather :: forall n r. (KnownNat n, Show r, Numeric r)
                      => Permutation -> Ast n r -> Ast n r
 {-# NOINLINE astTransposeAsGather #-}
@@ -168,8 +155,9 @@ astTransposeAsGather perm v = unsafePerformIO $ do
     Just (SomeNat (_proxy :: Proxy p)) ->
       let vars :: AstVarList p
           vars = listToSized varList
+          intVars = listToIndex $ map AstIntVar varList
           asts :: AstIndex p r
-          asts = listToIndex $ map (\i -> AstIntVar $ varList !! i) perm
+          asts = permutePrefixIndex perm intVars
       in case cmpNat (Proxy @p) (Proxy @n) of
            EQI -> astGatherN @p @(n - p)
                              (permutePrefixShape perm (shapeAst v)) v
@@ -265,7 +253,12 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
   AstTranspose perm v ->
     astIndex (astTransposeAsGather perm v) ix
   AstReshape sh v ->
-    astIndex (astReshape sh v) ix
+    if stepOnly
+    then case astReshape sh v of
+      AstReshape sh2 v2 -> astIndex (astReshapeAsGather sh2 v2) ix
+      v3 -> astIndex v3 ix
+    else  -- we assume the term is already simplified
+      astIndex (astReshapeAsGather sh v) ix
   AstBuild1 _n2 (var2, v) ->  -- only possible tests
     astIndex (substituteAst i1 var2 v) rest1
   AstGather1 _n2 v (var2, ix2) ->
@@ -313,6 +306,35 @@ astSlice = AstSlice
 astReverse :: KnownNat n
            => Ast (1 + n) r -> Ast (1 + n) r
 astReverse = AstReverse
+
+astTranspose :: forall n r. KnownNat n
+             => Permutation -> Ast n r -> Ast n r
+astTranspose perm t | isIdentityPerm perm = t
+astTranspose perm1 (AstTranspose perm2 t) =
+  let perm2Matched =
+        perm2 ++ take (length perm1 - length perm2) (drop (length perm2) [0 ..])
+      perm = permutePrefixList perm1 perm2Matched
+  in astTranspose perm t
+    -- this rules can be disabled to test fusion of gathers.
+astTranspose perm u = AstTranspose perm u
+
+-- Beware, this does not do full simplification, which often requires
+-- the gather form, so astReshapeAsGather needs to be called in addition
+-- if full simplification is required.
+astReshape :: forall p m r. (KnownNat p, KnownNat m, Show r, Numeric r)
+           => ShapeInt m -> Ast p r -> Ast m r
+astReshape shOut (AstConst t) = AstConst $ OR.reshape (shapeToList shOut) t
+astReshape shOut (AstConstant (AstPrimalPart v)) =
+  AstConstant $ AstPrimalPart $ AstReshape shOut v
+astReshape shOut (AstReshape _ v) = astReshape shOut v
+  -- this rules can be disabled to test fusion of gathers.
+astReshape shOut v =
+  let shIn = shapeAst v
+  in case sameNat (Proxy @p) (Proxy @m) of
+    Just Refl -> if shIn == shOut
+                 then v
+                 else AstReshape shOut v
+    _ -> AstReshape shOut v
 
 -- Assumption: var does not occur in v0.
 astGather1 :: forall p n r. (KnownNat p, KnownNat n, Show r, Numeric r)
@@ -437,6 +459,9 @@ astMaxIndex1 = AstMaxIndex1
 simplifyAstPrimal :: AstPrimalPart n r -> AstPrimalPart n r
 simplifyAstPrimal (AstPrimalPart t) = AstPrimalPart t
 
+-- This function guarantees full simplification: every redex
+-- is visited and each combinator applied. The most exhaustive and costly
+-- variants of each combinator are used, e.g., astIndexZ.
 simplifyAst
   :: (Show r, Numeric r, KnownNat n)
   => Ast n r -> Ast n r
@@ -456,8 +481,14 @@ simplifyAst t = case t of
   AstAppend x y -> astAppend (simplifyAst x) (simplifyAst y)
   AstSlice i k v -> astSlice i k (simplifyAst v)
   AstReverse v -> astReverse (simplifyAst v)
-  AstTranspose perm v -> astTranspose perm $ simplifyAst v
-  AstReshape sh v -> astReshape sh (simplifyAst v)
+  AstTranspose perm v -> case astTranspose perm $ simplifyAst v of
+    AstTranspose perm2 v2 -> astTransposeAsGather perm2 v2
+      -- this is expensive, but the only way to guarantee full simplification
+    u -> u
+  AstReshape sh v -> case astReshape sh (simplifyAst v) of
+    AstReshape sh2 v2 -> astReshapeAsGather sh2 v2
+      -- this is terribly expensive, but the only way to fully simplify
+    u -> u
   AstBuild1 k (var, v) -> AstBuild1 k (var, simplifyAst v)
     -- should never appear outside test runs, but let's test the inside, too
   AstGather1 k v (var, ix) ->

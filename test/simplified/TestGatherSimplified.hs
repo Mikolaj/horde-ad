@@ -190,7 +190,7 @@ testGatherSimp22 = do
   let !t2 = simplifyAst @Float
             $ treshape @(Ast 0 Float) @2 @2 [2, 6]
             $ AstVar [6, 2] (AstVarName 0)
-  (length (show t1) - length (show t2)) @?= 8126
+  (length (show t1) - length (show t2)) @?= 8200
 
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
@@ -245,4 +245,4 @@ testGatherSimp33 = do
                    $ (\t -> tmatmul2 (treshape [6, 8] (tconst t48))
                               (treshape @(Ast 0 Float) @10 [8, 16] t))
                    $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)
-  (length (show t1) - length (show t2)) @?= 4730
+  (length (show t1) - length (show t2)) @?= 4729
