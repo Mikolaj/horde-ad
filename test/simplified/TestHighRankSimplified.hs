@@ -131,7 +131,10 @@ fooBuild2 v =
          &&* ix - tfloor (tsum0 v) - 10001 <=* 1)
         (tindex v [ix - tfloor (tsum0 v) - 10001])
            -- index out of bounds; also fine
-        (sqrt $ abs $ tindex v [(ix - tfloor (tsum0 v) - 10001) `mod` 2])
+        (sqrt $ abs $ tindex v [let rr = (ix - tfloor (tsum0 v) - 10001) `rem` 2
+                                in ifB (signum rr ==* negate (signum 2))
+                                   (rr + 2)
+                                   rr])
 
 testFooBuild21 :: Assertion
 testFooBuild21 =
@@ -294,9 +297,9 @@ nestedSumBuild v =
     ifB (ix2 >* ix1)
         (tmap0N ((* (-0.00000003)) . sqrt . abs)
          $ nestedBuildMap (tsum0 v)
-           `tindex` (ix2 `mod` 3 :. min 1 ix1 :. min ix1 3 :. ZI))
+           `tindex` (ix2 `rem` 3 :. min 1 ix1 :. min ix1 3 :. ZI))
         (nestedBuildMap 0.00042
-         `tindex` (ix2 `mod` 3 :. min 1 ix1 :. min ix1 3 :. ZI))
+         `tindex` (ix2 `rem` 3 :. min 1 ix1 :. min ix1 3 :. ZI))
 
 testNestedSumBuild1 :: Assertion
 testNestedSumBuild1 =
@@ -321,7 +324,7 @@ nestedSumBuildB v =
              , tsum $ tbuild [9, 2] $ const $ tfromIndex0 ix
              , tindex v (listToIndex @n
                          $ replicate (trank v - 1)
-                             (max 0 $ min 1 $ ix2 `div` 2 + ix `div` 4 - 1))
+                             (max 0 $ min 1 $ ix2 `quot` 2 + ix `quot` 4 - 1))
              , tbuild1 2 (\_ -> tsum0 v)
              , tsum (tbuild1 7 (\ix7 ->
                  tkonst 2 (tfromIndex0 ix7)))
@@ -336,7 +339,7 @@ testNestedSumBuildB =
 
 nestedBuildIndex :: forall r. ADReady r => TensorOf 5 r -> TensorOf 3 r
 nestedBuildIndex v =
-  tbuild1 2 $ \ix2 -> tindex (tbuild1 3 $ \ix3 -> tindex (tbuild1 3 $ \ix4 -> tindex v (ix4 `mod` 2:. ix2 :. 0 :. ZI)) [ix3]) (ix2 :. ZI)
+  tbuild1 2 $ \ix2 -> tindex (tbuild1 3 $ \ix3 -> tindex (tbuild1 3 $ \ix4 -> tindex v (ix4 `rem` 2:. ix2 :. 0 :. ZI)) [ix3]) (ix2 :. ZI)
 
 testNestedBuildIndex :: Assertion
 testNestedBuildIndex =

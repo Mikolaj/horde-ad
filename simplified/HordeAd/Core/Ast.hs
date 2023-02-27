@@ -157,7 +157,7 @@ data OpCodeInt =
     PlusIntOp | MinusIntOp | TimesIntOp | NegateIntOp
   | AbsIntOp | SignumIntOp
   | MaxIntOp | MinIntOp
-  | QuotIntOp | RemIntOp | DivIntOp | ModIntOp
+  | QuotIntOp | RemIntOp
  deriving Show
 
 data OpCodeBool =
@@ -338,14 +338,13 @@ instance Enum (AstInt r) where
 -- Warning: this class lacks toInteger, which also makes it impossible
 -- to include AstInt in Ast via fromIntegral, hence AstConstInt.
 -- Warning: div and mod operations are very costly (simplifying them
--- requires constructing conditionals, etc).
+-- requires constructing conditionals, etc). If this error is removed,
+-- they are going to work, but slowly.
 instance Integral (AstInt r) where
   quot u v = AstIntOp QuotIntOp [u, v]
   rem u v = AstIntOp RemIntOp [u, v]
-  div u v = AstIntOp DivIntOp [u, v]
-  mod u v = AstIntOp ModIntOp [u, v]
   quotRem u v = (AstIntOp QuotIntOp [u, v], AstIntOp RemIntOp [u, v])
-  divMod u v = (AstIntOp DivIntOp [u, v], AstIntOp ModIntOp [u, v])
+  divMod _ _ = error "divMod: disabled; much less efficient than quot and rem"
   toInteger = undefined  -- we can't evaluate uninstantiated variables, etc.
 
 instance Boolean (AstBool r) where

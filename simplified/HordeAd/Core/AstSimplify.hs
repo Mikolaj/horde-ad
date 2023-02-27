@@ -529,7 +529,6 @@ simplifyAstIntOp NegateIntOp [AstIntOp QuotIntOp [u, v]] =
   simplifyAstIntOp QuotIntOp [u, simplifyAstIntOp NegateIntOp [v]]
 simplifyAstIntOp NegateIntOp [AstIntOp RemIntOp [u, v]] =
   simplifyAstIntOp RemIntOp [u, simplifyAstIntOp NegateIntOp [v]]
--- TODO: div and mod require a conditional, etc.
 
 simplifyAstIntOp AbsIntOp [AstIntConst u] = AstIntConst $ abs u
 simplifyAstIntOp AbsIntOp [AstIntOp AbsIntOp [u]] = AstIntOp AbsIntOp [u]
@@ -559,25 +558,6 @@ simplifyAstIntOp RemIntOp [AstIntOp RemIntOp [u, AstIntConst v], AstIntConst v']
   | v' >= v && v >= 0 = AstIntOp RemIntOp [u, AstIntConst v]
 simplifyAstIntOp RemIntOp [AstIntOp RemIntOp [u, AstIntConst v], AstIntConst v']
   | rem v v' == 0 && v > 0 = simplifyAstIntOp RemIntOp [u, AstIntConst v']
-
-simplifyAstIntOp DivIntOp [AstIntConst u, AstIntConst v] =
-  AstIntConst $ div u v
-simplifyAstIntOp DivIntOp [AstIntConst 0, _v] = AstIntConst 0
-simplifyAstIntOp DivIntOp [u, AstIntConst 1] = u
-simplifyAstIntOp DivIntOp [ AstIntOp ModIntOp [_u, AstIntConst v]
-                          , AstIntConst v' ]
-  | v' >= v && v >= 0 = 0
-simplifyAstIntOp DivIntOp [AstIntOp QuotIntOp [u, v], w] =
-  simplifyAstIntOp DivIntOp [u, simplifyAstIntOp TimesIntOp [v, w]]
-
-simplifyAstIntOp ModIntOp [AstIntConst u, AstIntConst v] =
-  AstIntConst $ mod u v
-simplifyAstIntOp ModIntOp [AstIntConst 0, _v] = 0
-simplifyAstIntOp ModIntOp [_u, AstIntConst 1] = 0
-simplifyAstIntOp ModIntOp [AstIntOp ModIntOp [u, AstIntConst v], AstIntConst v']
-  | v' >= v && v >= 0 = AstIntOp ModIntOp [u, AstIntConst v]
-simplifyAstIntOp ModIntOp [AstIntOp ModIntOp [u, AstIntConst v], AstIntConst v']
-  | mod v v' == 0 && v > 0 = simplifyAstIntOp ModIntOp [u, AstIntConst v']
 
 simplifyAstIntOp opCodeInt arg = AstIntOp opCodeInt arg
 
