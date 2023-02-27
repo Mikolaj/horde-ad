@@ -312,8 +312,13 @@ astSlice i k (AstFromList l) = astFromList $ take k (drop i l)
 astSlice i k (AstFromVector l) = astFromVector $ V.take k (V.drop i l)
 astSlice _i k (AstKonst _k2 v) = astKonst k v
 astSlice i k w@(AstAppend (u :: Ast (1 + n) r) (v :: Ast (1 + n) r)) =
-  -- GHC 9.4.4 with the plugins demans so much verbiage ^^^
-  -- TODO: test with other GHCs ASAP.
+  -- GHC 9.4.4 and 9.2.6 with the plugins demans so much verbiage ^^^
+  -- TODO: test with 9.6 ASAP.
+  -- It seems this is caused by only having (1 + n) in the type
+  -- signature and + not being injective. Quite hopless in cases
+  -- where swithing to n -> n is not an option. Perhaps it fixes itself
+  -- whenever n -> n is wrong, because a function that requires 1 + n
+  -- is used.
   let ulen = lengthAst u
   in if | i + k <= ulen -> astSlice @n i k u
         | i >= ulen -> astSlice @n (i - ulen) k v

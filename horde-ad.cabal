@@ -160,7 +160,7 @@ library
     -- Other library packages from which modules are imported.
     build-depends:
         assert-failure
-      , base >= 4.17 && < 99
+      , base >= 4.16 && < 99
       , Boolean
       , deepseq
       , enummapset
