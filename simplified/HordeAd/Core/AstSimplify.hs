@@ -17,6 +17,7 @@
 module HordeAd.Core.AstSimplify
   ( isIdentityPerm, permCycle, permSwapSplit
   , funToAstR, funToAstI, funToAstIndex
+  , astIndexStep
   , astReshape, astTranspose
   , astIndexZ, astSum, astFromList, astFromVector, astKonst
   , astAppend, astSlice, astReverse, astGather1, astGatherN
@@ -193,69 +194,102 @@ astTransposeAsGather perm v = unsafePerformIO $ do
 
 astIndexZ :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
           => Ast (m + n) r -> AstIndex m r -> Ast n r
-astIndexZ v0 ZI = v0
-astIndexZ v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) = case v0 of
+astIndexZ = astIndexZOrStepOnly False
+
+astIndexStep :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
+          => Ast (m + n) r -> AstIndex m r -> Ast n r
+astIndexStep = astIndexZOrStepOnly True
+
+-- None of the cases duplicate terms or enlarge them a lot, except AstOp,
+-- AstFromList AstFromVector and AstAppend. However, we can't refuse to simplify
+-- those. The best we can do is, if the stepOnly flag is set, to refuse
+-- to outright recursively apply the procedure when we know the application
+-- would be to many copies. We push down indexing on demand instead.
+astIndexZOrStepOnly :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
+                    => Bool -> Ast (m + n) r -> AstIndex m r -> Ast n r
+astIndexZOrStepOnly _ v0 ZI = v0
+astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
+ let astIndex :: forall m' n'. (KnownNat m', KnownNat n')
+              => Ast (m' + n') r -> AstIndex m' r -> Ast n' r
+     astIndex = astIndexZOrStepOnly stepOnly
+ in case v0 of
   AstVar{} -> AstIndexZ v0 ix
-  AstOp opCode args -> -- AstIndexZ v0 ix
-    AstOp opCode (map (`astIndexZ` ix) args)
-    -- we can't have a normal form that does not have the capacity
-    -- to hide redexes arbitrarily deep inside AstOp,
-    -- so we push indexing down AstOp as much as possible; fortunately,
-    -- as long as redexes get reduced, this is beneficial;
-    -- the worst case is variables in projection or the projected term
-    -- preventing reduction and so the projection getting duplicated for nought;
-    -- TODO: test often if this is not disastrous
+  AstOp opCode args ->
+    -- For operations with more than argument, this bloats the term,
+    -- duplicating the projection, potentially recursively.
+    -- Therefore, if the goal is to uncover the constructor under projection,
+    -- we do this by one step only.
+    -- However, to guarantee all redexes involving this projection are reduced
+    -- (e.g., because the projection is created during the vectorization
+    -- and we want to simplify all that we introduce), we need to push
+    -- the indexing arbitrarily deep. This is because we can't have
+    -- a normal form that does not have the capacity to hide redexes
+    -- arbitrarily deep inside AstOp. Fortunately, as long as redexes get
+    -- reduced, pushing down is beneficial. The worst case is variables
+    -- in the index expression or the projected term that prevent reduction.
+    -- This leads to a bloated term and to performing the indexing many times
+    -- once the value of the variables is know. The latter is beneficial
+    -- as long as the tensors are large enough and the dimension at which
+    -- we index has more than one element. But the bloated term is bad for AD,
+    -- regardless of the likely speedup of the forward computation.
+    -- This is a complex trade-off, so we need to benchmarked often.
+    let project = if stepOnly && length args > 1 then AstIndexZ else astIndex
+    in AstOp opCode (map (`project` ix) args)
   AstConst{} -> AstIndexZ v0 ix
   AstConstant{} -> AstIndexZ v0 ix
   AstConstInt{} -> AstIndexZ v0 ix
   AstIndexZ v ix2 ->
-    astIndexZ v (appendIndex ix2 ix)
-  AstSum v ->
+    astIndex v (appendIndex ix2 ix)
+  AstSum v ->  -- almost neutral; transposition is likely to fuse away
     let perm3 = permCycle $ valueOf @m + 1
-    in astSum $ astIndexZ (astTranspose perm3 v) ix
+    in astSum $ astIndex (astTranspose perm3 v) ix
   AstFromList l | AstIntConst i <- i1 ->
-    astIndexZ (l !! i) rest1
+    astIndex (l !! i) rest1
   AstFromList l ->
-    AstIndexZ (astFromList $ map (`astIndexZ` rest1) l) (singletonIndex i1)
+    let project = if stepOnly && length l > 1 then AstIndexZ else astIndex
+    in AstIndexZ (astFromList $ map (`project` rest1) l) (singletonIndex i1)
   AstFromVector l | AstIntConst i <- i1 ->
-    astIndexZ (l V.! i) rest1
+    astIndex (l V.! i) rest1
   AstFromVector l ->
-    AstIndexZ (astFromVector $ V.map (`astIndexZ` rest1) l) (singletonIndex i1)
+    let project = if stepOnly && length l > 1 then AstIndexZ else astIndex
+    in AstIndexZ (astFromVector $ V.map (`project` rest1) l) (singletonIndex i1)
   AstKonst _k v ->
-    astIndexZ v rest1
+    astIndex v rest1
   AstAppend v w ->
     let vlen = AstIntConst $ lengthAst v
         ix2 = simplifyAstInt (AstIntOp MinusIntOp [i1, vlen]) :. rest1
+        project = if stepOnly then AstIndexZ else astIndex
     in astCondRec (simplifyAstBool $ AstRelInt LsOp [i1, vlen])
-                  (astIndexZ v ix)
-                  (astIndexZ w ix2)
+                  (project v ix)
+                  (project w ix2)
   AstSlice i _k v ->
-    astIndexZ v (simplifyAstInt (AstIntOp PlusIntOp [i1, AstIntConst i])
+    astIndex v (simplifyAstInt (AstIntOp PlusIntOp [i1, AstIntConst i])
                  :. rest1)
   AstReverse v ->
     let revIs = simplifyAstInt (AstIntOp MinusIntOp
                                          [AstIntConst (lengthAst v - 1), i1])
                 :. rest1
-    in astIndexZ v revIs
+    in astIndex v revIs
   AstTranspose perm v | valueOf @m >= length perm ->
-    astIndexZ v (permutePrefixIndex perm ix)
+    astIndex v (permutePrefixIndex perm ix)
   AstTranspose perm v ->
-    astIndexZ (astTransposeAsGather perm v) ix
+    astIndex (astTransposeAsGather perm v) ix
   AstReshape sh v ->
-    astIndexZ (astReshape sh v) ix
+    astIndex (astReshape sh v) ix
   AstBuild1 _n2 (var2, v) ->  -- only possible tests
-    astIndexZ (substituteAst i1 var2 v) rest1
+    astIndex (substituteAst i1 var2 v) rest1
   AstGather1 _n2 v (var2, ix2) ->
     let ix3 = fmap (substituteAstInt i1 var2) ix2
-    in astIndexZ v (appendIndex ix3 rest1)
-  AstGatherN _sh v (Z, ix2) -> astIndexZ v (appendIndex ix2 ix)
+    in astIndex v (appendIndex ix3 rest1)
+  AstGatherN _sh v (Z, ix2) -> astIndex v (appendIndex ix2 ix)
   AstGatherN (_ :$ sh') v (var2 ::: vars, ix2) ->
+    -- TODO: does astGatherN need the stepOnly parameter?
     let ix3 = fmap (substituteAstInt i1 var2) ix2
         w :: Ast (m1 + n) r
         w = unsafeCoerce $ astGatherN sh' v (vars, ix3)
-    in astIndexZ @m1 @n w rest1
+    in astIndex @m1 @n w rest1
   AstGatherN{} ->
-    error "astIndexZ: AstGatherN: impossible pattern needlessly required"
+    error "astIndex: AstGatherN: impossible pattern needlessly required"
 
 astSum :: Ast (1 + n) r -> Ast n r
 astSum = AstSum
