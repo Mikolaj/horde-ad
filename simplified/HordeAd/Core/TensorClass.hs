@@ -1,4 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, DataKinds, FlexibleInstances,
+{-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances,
              MultiParamTypeClasses, OverloadedLists, TypeFamilyDependencies,
              UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}

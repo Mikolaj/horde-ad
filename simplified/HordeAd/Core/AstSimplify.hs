@@ -1,5 +1,5 @@
-{-# LANGUAGE DataKinds, FlexibleInstances, GADTs, GeneralizedNewtypeDeriving,
-             StandaloneDeriving, TypeFamilies, UndecidableInstances #-}
+{-# LANGUAGE DataKinds, GADTs #-}
+{-# OPTIONS_GHC -freduction-depth=10000 #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Term-simplifying combinators corresponding to the Ast constructors.
@@ -175,7 +175,7 @@ astIndexZ :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
 astIndexZ = astIndexZOrStepOnly False
 
 astIndexStep :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
-          => Ast (m + n) r -> AstIndex m r -> Ast n r
+             => Ast (m + n) r -> AstIndex m r -> Ast n r
 astIndexStep = astIndexZOrStepOnly True
 
 -- None of the cases duplicate terms or enlarge them a lot, except AstOp,
@@ -214,8 +214,9 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
     let project = if stepOnly && length args > 1 then AstIndexZ else astIndex
     in AstOp opCode (map (`project` ix) args)
   AstConst{} -> AstIndexZ v0 ix
-  AstConstant{} -> AstIndexZ v0 ix
-  AstConstInt{} -> AstIndexZ v0 ix
+  AstConstant (AstPrimalPart v) -> AstConstant $ AstPrimalPart $ AstIndexZ v ix
+  AstConstInt{} ->
+    error "astIndexZOrStepOnly: impossible pattern needlessly required"
   AstIndexZ v ix2 ->
     astIndex v (appendIndex ix2 ix)
   AstSum v ->  -- almost neutral; transposition is likely to fuse away
@@ -275,7 +276,8 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
     error "astIndex: AstGatherN: impossible pattern needlessly required"
 
 astSum :: Ast (1 + n) r -> Ast n r
-astSum = AstSum
+astSum (AstReverse v) = AstSum v
+astSum v = AstSum v
 
 astFromList :: KnownNat n
             => [Ast n r] -> Ast (1 + n) r
@@ -297,15 +299,34 @@ astKonst k = \case
 
 astAppend :: KnownNat n
           => Ast (1 + n) r -> Ast (1 + n) r -> Ast (1 + n) r
-astAppend = AstAppend
+astAppend (AstFromList l1) (AstFromList l2) = AstFromList $ l1 ++ l2
+astAppend (AstFromList l1) (AstFromVector l2) = AstFromList $ l1 ++ V.toList l2
+astAppend (AstFromVector l1) (AstFromList l2) = AstFromList $ V.toList l1 ++ l2
+astAppend (AstFromVector l1) (AstFromVector l2) = AstFromVector $ l1 V.++ l2
+astAppend u v = AstAppend u v
 
-astSlice :: KnownNat n
+astSlice :: forall n r. (KnownNat n, Show r, Numeric r)
          => Int -> Int -> Ast (1 + n) r -> Ast (1 + n) r
-astSlice = AstSlice
+astSlice 0 k v | k == lengthAst v = v
+astSlice i k (AstFromList l) = astFromList $ take k (drop i l)
+astSlice i k (AstFromVector l) = astFromVector $ V.take k (V.drop i l)
+astSlice _i k (AstKonst _k2 v) = astKonst k v
+astSlice i k w@(AstAppend (u :: Ast (1 + n) r) (v :: Ast (1 + n) r)) =
+  -- GHC 9.4.4 with the plugins demans so much verbiage ^^^
+  -- TODO: test with other GHCs ASAP.
+  let ulen = lengthAst u
+  in if | i + k <= ulen -> astSlice @n i k u
+        | i >= ulen -> astSlice @n (i - ulen) k v
+        | otherwise -> AstSlice @n i k w  -- cheap iff fits in one
+astSlice i k v = AstSlice i k v
 
-astReverse :: KnownNat n
+astReverse :: forall n r. KnownNat n
            => Ast (1 + n) r -> Ast (1 + n) r
-astReverse = AstReverse
+astReverse (AstFromList l) = AstReverse @n $ AstFromList $ reverse l
+astReverse (AstFromVector l) = AstReverse @n $ AstFromVector $ V.reverse l
+astReverse (AstKonst k v) = AstKonst k v
+astReverse (AstReverse v) = AstReverse @n v
+astReverse v = AstReverse v
 
 astTranspose :: forall n r. KnownNat n
              => Permutation -> Ast n r -> Ast n r
@@ -315,7 +336,7 @@ astTranspose perm1 (AstTranspose perm2 t) =
         perm2 ++ take (length perm1 - length perm2) (drop (length perm2) [0 ..])
       perm = permutePrefixList perm1 perm2Matched
   in astTranspose perm t
-    -- this rules can be disabled to test fusion of gathers.
+    -- this rule can be disabled to test fusion of gathers.
 astTranspose perm u = AstTranspose perm u
 
 -- Beware, this does not do full simplification, which often requires
@@ -327,7 +348,7 @@ astReshape shOut (AstConst t) = AstConst $ OR.reshape (shapeToList shOut) t
 astReshape shOut (AstConstant (AstPrimalPart v)) =
   AstConstant $ AstPrimalPart $ AstReshape shOut v
 astReshape shOut (AstReshape _ v) = astReshape shOut v
-  -- this rules can be disabled to test fusion of gathers.
+  -- this rule can be disabled to test fusion of gathers.
 astReshape shOut v =
   let shIn = shapeAst v
   in case sameNat (Proxy @p) (Proxy @m) of
