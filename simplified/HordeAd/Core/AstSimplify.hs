@@ -384,11 +384,12 @@ astGather1 k v0 (var, ix) =
             | intVarInIndex var rest1 ->
               AstGather1 k v2 (var, ix2)
             | intVarInAstInt var i1 ->
-                let w :: Ast (1 + n) r
-                    w = astIndexZ v2 rest1
-                in case gatherSimplify k var w i1 of
-                  Just u -> u  -- an extremely simple form found
-                  Nothing -> AstGather1 k v2 (var, ix2)
+--                let w :: Ast (1 + n) r
+--                    w = astIndexZ v2 rest1
+--                in case gatherSimplify k var w i1 of
+--                  Just u -> u  -- an extremely simple form found
+--                  Nothing ->
+                    AstGather1 k v2 (var, ix2)
                     -- we didn't really need it anyway
             | otherwise -> astKonst k (AstIndexZ v2 ix2)
        _ -> AstGather1 k v0 (var, ix)  -- e.g., AstSum
@@ -429,6 +430,27 @@ astGatherN sh@(k :$ sh') v0 (var ::: vars, ix@(_ :. _)) =
 astGatherN _ _ _ =
   error "astGatherN: AstGatherN: impossible pattern needlessly required"
 
+-- To apply this to astGatherN. we'd need to take the last variable
+-- and the first index element in place of var and i1.
+-- If var does not occur in the remaining index elements,
+-- this simplification is valid.
+{-
+            | intVarInAstInt var i1 ->
+                let w :: Ast (1 + n) r
+                    w = astIndexZ v2 rest1
+                in case gatherSimplify k var w i1 of
+                  Just u -> u  -- an extremely simple form found
+                    -- for AstGatherN instead:
+                    -- AstGatherN ... u (initN, rest1)
+                  Nothing ->
+                    AstGather1 k v2 (var, ix2)
+                    -- we didn't really need it anyway
+            | otherwise -> astKonst k (AstIndexZ v2 ix2)
+-}
+-- Let's instead wait and see if we can come up with more general
+-- simplifications, involving all variables. Especially that
+-- astSliceLax is so complex. Perhaps instead of recovering slices
+-- and the identity, transpositions and the identity would be better.
 -- | The application @gatherSimplify k var v i1@ vectorizes and simplifies
 -- the term @AstBuild1 k (var, AstIndexZ v [i1])@, where it's known that
 -- @var@ does not occur in @v@ but occurs in @i1@. This is done by pattern
