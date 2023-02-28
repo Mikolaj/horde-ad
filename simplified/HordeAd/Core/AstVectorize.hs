@@ -106,7 +106,7 @@ build1V k (var, v0) =
       AstConstant $ AstPrimalPart bv
 
     AstIndexZ v is -> traceRule $
-      build1VIxOccurenceUnknown k (var, v, is)
+      build1VIndex k (var, v, is)
       -- @var@ is in @v@ or @is@; TODO: simplify is first or even fully
       -- evaluate (may involve huge data processing) if contains no vars
       -- and then some things simplify a lot, e.g., if constant index,
@@ -146,7 +146,7 @@ build1V k (var, v0) =
                  (build1VOccurenceUnknown k (var, v))
                  (var ::: vars, AstIntVar var :. ix2)
 
--- | The application @build1VIxOccurenceUnknown k (var, v, ix)@ vectorizes
+-- | The application @build1VIndex k (var, v, ix)@ vectorizes
 -- the term @AstBuild1 k (var, AstIndexZ v ix)@, where it's unknown whether
 -- @var@ occurs in any of @v@, @ix@.
 --
@@ -155,12 +155,20 @@ build1V k (var, v0) =
 -- to replace @AstBuild1@ with @AstGather1@ and so complete
 -- the vectorization. If @var@ occurs only in the first (outermost)
 -- element of @ix@, we attempt to simplify the term even more than that.
-build1VIxOccurenceUnknown
+--
+-- This pushing down is performed by alternating steps of simplification,
+-- in @astIndexStep@, that eliminated indexing from the top of a term
+-- position (except two permissible normal forms) and vectorization,
+-- @build1VOccurenceUnknown@, that recursively goes down under constructors
+-- until it encounter indexing again.
+-- We have to do this in lockstep so that we simplify terms only as much
+-- as needed to vectorize.
+build1VIndex
   :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
   => Int -> (AstVarName Int, Ast (m + n) r, AstIndex m r)
   -> Ast (1 + n) r
-build1VIxOccurenceUnknown k (var, v0, ZI) = build1VOccurenceUnknown k (var, v0)
-build1VIxOccurenceUnknown k (var, v0, ix@(_ :. _)) =
+build1VIndex k (var, v0, ZI) = build1VOccurenceUnknown k (var, v0)
+build1VIndex k (var, v0, ix@(_ :. _)) =
   let traceRule = mkTraceRule "build1VIndex"
                               (AstBuild1 k (var, AstIndexZ v0 ix))
                               v0 1
