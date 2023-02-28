@@ -15,8 +15,7 @@
 --
 -- The combinator can also be used to simplify a whole term, bottom-up.
 module HordeAd.Core.AstSimplify
-  ( isIdentityPerm, permCycle, permSwapSplit
-  , funToAstR, funToAstI, funToAstIndex
+  ( funToAstR, funToAstI, funToAstIndex
   , astIndexStep
   , astReshape, astTranspose
   , astIndexZ, astSum, astFromList, astFromVector, astKonst
@@ -35,7 +34,7 @@ import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed
   (Counter, atomicAddCounter_, newCounter, writeIORefU)
-import           Data.List (elemIndex)
+import           Data.List (dropWhileEnd)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
 import           Data.Type.Equality ((:~:) (Refl))
@@ -60,28 +59,14 @@ import HordeAd.Internal.SizedList
 
 -- * Permutation operations
 
-isIdentityPerm :: Permutation -> Bool
-isIdentityPerm = and . zipWith (==) [0 ..]
+simplifyPermutation :: Permutation -> Permutation
+simplifyPermutation perm =
+  map fst $ dropWhileEnd (uncurry (==)) $ zip perm [0 ..]
 
 permCycle :: Int -> Permutation
 permCycle 0 = []
 permCycle 1 = []
 permCycle n = [k `mod` n | k <- [1 .. n]]
-
--- | Produces a (possibly trival) two-element swap involving the first element
--- and the permutation that needs to be applied first, before the swap,
--- to produce the same result as the original permutation.
--- Addtionally, the latter permutation is represented as operating
--- on all but the first element of a list (the first element is fixed)
--- and so is one element shorter than the original permutation.
-permSwapSplit :: Permutation -> Maybe (Int, Permutation)
-permSwapSplit = \case
-  [] -> Nothing
-  perm | isIdentityPerm perm -> Nothing
-  i : rest -> case elemIndex 0 rest of
-    Nothing -> assert (i == 0) $ Just (0, map (\k -> k - 1) rest)
-    Just j -> let f k = if k == 0 then i - 1 else k - 1
-              in Just (j, map f rest)
 
 
 -- * Generating variables names
@@ -341,16 +326,22 @@ astReverse (AstKonst k v) = AstKonst k v
 astReverse (AstReverse v) = AstReverse @n v
 astReverse v = AstReverse v
 
+-- To limit notational noise, tnstead of simplifying the permutation
+-- at most calls, we do it here. It's cheap enough.
 astTranspose :: forall n r. KnownNat n
              => Permutation -> Ast n r -> Ast n r
-astTranspose perm t | isIdentityPerm perm = t
-astTranspose perm1 (AstTranspose perm2 t) =
-  let perm2Matched =
-        perm2 ++ take (length perm1 - length perm2) (drop (length perm2) [0 ..])
-      perm = permutePrefixList perm1 perm2Matched
-  in astTranspose perm t
-    -- this rule can be disabled to test fusion of gathers.
-astTranspose perm u = AstTranspose perm u
+astTranspose perm0 t0 = case (simplifyPermutation perm0, t0) of
+  ([], t) -> t
+  (perm1, AstTranspose permT t) -> case simplifyPermutation permT of
+    [] -> AstTranspose perm1 t
+    perm2 ->
+      let perm2Matched =
+            perm2
+            ++ take (length perm1 - length perm2) (drop (length perm2) [0 ..])
+          perm = permutePrefixList perm1 perm2Matched
+      in astTranspose perm t
+        -- this rule can be disabled to test fusion of gathers.
+  (perm, u) -> AstTranspose perm u
 
 -- Beware, this does not do full simplification, which often requires
 -- the gather form, so astReshapeAsGather needs to be called in addition
