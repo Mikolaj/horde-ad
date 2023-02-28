@@ -176,7 +176,7 @@ astIndexZ = astIndexZOrStepOnly False
 
 astIndexStep :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
              => Ast (m + n) r -> AstIndex m r -> Ast n r
-astIndexStep = astIndexZOrStepOnly True
+astIndexStep v ix = astIndexZOrStepOnly True v (fmap (simplifyAstInt) ix)
 
 -- None of the cases duplicate terms or enlarge them a lot, except AstOp,
 -- AstFromList AstFromVector and AstAppend. However, we can't refuse to simplify
