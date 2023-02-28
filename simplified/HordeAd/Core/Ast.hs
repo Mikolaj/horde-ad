@@ -87,17 +87,14 @@ data Ast :: Nat -> Type -> Type where
   AstBuild1 :: KnownNat n
             => Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
     -- indicates a failure in vectorization, but may be recoverable later on
-  AstGather1 :: forall p n r. (KnownNat p, KnownNat n)
-             => Int -> Ast (p + n) r
-             -> (AstVarName Int, AstIndex p r)
-             -> Ast (1 + n) r
-    -- emerges from vectorizing AstIndexZ applied to a term with no build
-    -- variable; out of bounds indexing is permitted
   AstGatherN :: forall m n p r. (KnownNat m, KnownNat p, KnownNat n)
              => ShapeInt (m + n) -> Ast (p + n) r
              -> (AstVarList m, AstIndex p r)
              -> Ast (m + n) r
-    -- emerges from vectorizing AstGather1; out of bounds indexing is permitted
+    -- emerges from vectorizing AstIndexZ applied to a term with no build
+    -- variable; out of bounds indexing is permitted
+    -- the case with many variables emerges from vectorizing the simpler case;
+    -- out of bounds indexing is permitted
 
   -- Spurious, but can be re-enabled at any time:
 --  AstBuildN :: forall m n r.
@@ -391,8 +388,6 @@ shapeAst v1 = case v1 of
   AstTranspose perm v -> permutePrefixShape perm (shapeAst v)
   AstReshape sh _v -> sh
   AstBuild1 k (_var, v) -> k :$ shapeAst v
-  AstGather1 k v (_var, _is :: Index p (AstInt r)) ->
-    k :$ dropShape @p (shapeAst v)
   AstGatherN sh _v (_vars, _ix) -> sh
 
 -- Length of the outermost dimension.
@@ -422,7 +417,6 @@ intVarInAst var = \case
   AstTranspose _ v -> intVarInAst var v
   AstReshape _ v -> intVarInAst var v
   AstBuild1 _ (_, v) -> intVarInAst var v
-  AstGather1 _ v (_, ix) -> intVarInIndex var ix || intVarInAst var v
   AstGatherN _ v (_, ix) -> intVarInIndex var ix || intVarInAst var v
 
 intVarInAstInt :: AstVarName Int -> AstInt r -> Bool
@@ -471,9 +465,6 @@ substitute1Ast i var v1 = case v1 of
   AstReshape sh v -> AstReshape sh (substitute1Ast i var v)
   AstBuild1 k (var2, v) ->
     AstBuild1 k (var2, substitute1Ast i var v)
-  AstGather1 k v (var2, is) ->
-    AstGather1 k (substitute1Ast i var v)
-                 (var2, fmap (substitute1AstInt i var) is)
   AstGatherN sh v (vars, is) ->
     AstGatherN sh (substitute1Ast i var v)
                   (vars, fmap (substitute1AstInt i var) is)

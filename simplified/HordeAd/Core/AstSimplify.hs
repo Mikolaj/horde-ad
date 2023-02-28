@@ -19,7 +19,7 @@ module HordeAd.Core.AstSimplify
   , astIndexStep
   , astReshape, astTranspose
   , astIndexZ, astSum, astFromList, astFromVector, astKonst
-  , astAppend, astSlice, astReverse, astGather1, astGatherN
+  , astAppend, astSlice, astReverse, astGatherN
   , astIntCond
   , simplifyAst
   , substituteAst, substituteAstInt, substituteAstBool
@@ -28,7 +28,6 @@ module HordeAd.Core.AstSimplify
 
 import Prelude
 
-import           Control.Exception.Assert.Sugar
 import           Control.Monad (replicateM)
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
@@ -247,9 +246,6 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
       astIndex (astReshapeAsGather sh v) ix
   AstBuild1 _n2 (var2, v) ->  -- only possible tests
     astIndex (substituteAst i1 var2 v) rest1
-  AstGather1 _n2 v (var2, ix2) ->
-    let ix3 = fmap (substituteAstInt i1 var2) ix2
-    in astIndex v (appendIndex ix3 rest1)
   AstGatherN _sh v (Z, ix2) -> astIndex v (appendIndex ix2 ix)
   AstGatherN (_ :$ sh') v (var2 ::: vars, ix2) ->
     -- TODO: does astGatherN need the stepOnly parameter?
@@ -361,31 +357,6 @@ astReshape shOut v =
                  else AstReshape shOut v
     _ -> AstReshape shOut v
 
--- Assumption: var does not occur in v0.
-astGather1 :: forall p n r. (KnownNat p, KnownNat n, Show r, Numeric r)
-           => Int -> Ast (p + n) r -> (AstVarName Int, AstIndex p r)
-           -> Ast (1 + n) r
-astGather1 k v0 (var, ix) =
-  let v3 = astIndexZ v0 ix
-  in if intVarInAst var v3
-     then case v3 of
-       AstIndexZ v2 ix2@(i1 :. rest1) ->
-         if | intVarInAst var v2 ->
-              AstGather1 k v0 (var, ix)
-            | intVarInIndex var rest1 ->
-              AstGather1 k v2 (var, ix2)
-            | intVarInAstInt var i1 ->
---                let w :: Ast (1 + n) r
---                    w = astIndexZ v2 rest1
---                in case gatherSimplify k var w i1 of
---                  Just u -> u  -- an extremely simple form found
---                  Nothing ->
-                    AstGather1 k v2 (var, ix2)
-                    -- we didn't really need it anyway
-            | otherwise -> astKonst k (AstIndexZ v2 ix2)
-       _ -> AstGather1 k v0 (var, ix)  -- e.g., AstSum
-     else astKonst k v3
-
 -- Assumption: (var ::: vars) don't not occur in v0.
 astGatherN :: forall m n p r.
               (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r)
@@ -421,7 +392,8 @@ astGatherN sh@(k :$ sh') v0 (var ::: vars, ix@(_ :. _)) =
 astGatherN _ _ _ =
   error "astGatherN: AstGatherN: impossible pattern needlessly required"
 
--- To apply this to astGatherN. we'd need to take the last variable
+{-
+-- TODO: To apply this to astGatherN. we'd need to take the last variable
 -- and the first index element in place of var and i1.
 -- If var does not occur in the remaining index elements,
 -- this simplification is valid.
@@ -485,6 +457,7 @@ astSliceLax i k v =
         | k <= kMax -> AstSlice i k v
         | i == 0 -> AstAppend v v2
         | otherwise -> AstAppend (AstSlice i kMax v) v2
+-}
 
 astIntCond :: AstBool r -> AstInt r -> AstInt r -> AstInt r
 astIntCond (AstBoolConst b) v w = if b then v else w
@@ -537,8 +510,6 @@ simplifyAst t = case t of
     u -> u
   AstBuild1 k (var, v) -> AstBuild1 k (var, simplifyAst v)
     -- should never appear outside test runs, but let's test the inside, too
-  AstGather1 k v (var, ix) ->
-    astGather1 k (simplifyAst v) (var, fmap (simplifyAstInt) ix)
   AstGatherN sh v (vars, ix) ->
     astGatherN sh (simplifyAst v) (vars, fmap (simplifyAstInt) ix)
 

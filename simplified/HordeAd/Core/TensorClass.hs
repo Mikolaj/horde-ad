@@ -182,10 +182,12 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
           => ShapeInt (m + n) -> TensorOf (p + n) r
           -> (IndexOf m r -> IndexOf p r)
           -> TensorOf (m + n) r
-  tgather1 :: (KnownNat p, KnownNat n)
+  tgather1 :: (KnownNat n, KnownNat p)
            => Int -> TensorOf (p + n) r
            -> (IntOf r -> IndexOf p r)
            -> TensorOf (1 + n) r
+  tgather1 k v f = tgather @r @1 (k :$ dropShape (tshape v)) v
+                                 (\(i :. ZI) -> f i)
 
   tscalar :: r -> TensorOf 0 r
   tunScalar :: TensorOf 0 r -> r
@@ -380,7 +382,6 @@ instance ADModeAndNumTensor d r => Tensor (ADVal d r) where
       -- uses the implementation that stores closures on tape to test against
       -- the elementwise implementation used by fallback from vectorizing Ast
   tgather = gatherNClosure  -- for simplicity, out of bounds indexing permitted
-  tgather1 = gather1Closure
 
   tscalar = scalar
   tunScalar = unScalar
@@ -413,7 +414,6 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   treshape = AstReshape
   tbuild1 = astBuild1
   tgather sh t f = AstGatherN sh t (funToAstIndex f)  -- introduces new vars
-  tgather1 k t f = AstGather1 k t (funToAstI f)  -- introduces new vars
 
   tscalar = id  -- Ast confuses the two ranks
   tunScalar = id
@@ -462,8 +462,6 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
                 $ unAstPrimalPart . f
   tgather sh t f = AstPrimalPart $ AstGatherN sh (unAstPrimalPart t)
                    $ funToAstIndex f  -- this introduces new variable names
-  tgather1 k t f = AstPrimalPart $ AstGather1 k (unAstPrimalPart t)
-                   $ funToAstI f  -- this introduces new variable names
 
   tscalar = id
   tunScalar = id
@@ -740,14 +738,6 @@ gatherNClosure :: (ADModeAndNumTensor d r, KnownNat m, KnownNat p, KnownNat n)
 gatherNClosure sh (D u u') f =
   dD (tgatherZR sh u f) (dGatherN f (tshapeR u) u' sh)
 
--- Note that if any index is out of bounds, the result of that particular
--- projection is defined and is 0 (but beware of vectorization).
-gather1Closure :: (ADModeAndNumTensor d r, KnownNat p, KnownNat n)
-               => Int -> ADVal d (OR.Array (p + n) r)
-               -> (Int -> IndexInt p)
-               -> ADVal d (OR.Array (1 + n) r)
-gather1Closure k (D u u') f = dD (tgatherZ1R k u f) (dGather1 f (tshapeR u) u' k)
-
 scalar :: ADModeAndNumTensor d r => ADVal d r -> ADVal d (OR.Array 0 r)
 scalar (D u u') = dD (OR.scalar u) (dScalar1 u')
 
@@ -797,14 +787,6 @@ interpretLambdaI
   -> Int -> ADVal d (OR.Array n r)
 interpretLambdaI env (var, ast) =
   \i -> interpretAst (extendEnvI var i env) ast
-
-interpretLambdaIndex
-  :: ADModeAndNumTensor d r
-  => AstEnv d r
-  -> (AstVarName Int, AstIndex n r)
-  -> Int -> IndexInt n
-interpretLambdaIndex env (var, asts) =
-  \i -> fmap (interpretAstInt (extendEnvI var i env)) asts
 
 interpretLambdaIndexToIndex
   :: ADModeAndNumTensor d r
@@ -874,8 +856,11 @@ interpretAst env = \case
     -- to be used only in tests; this is the POPL implementation of build
     -- (memory blowup, but avoids functions on tape), to test against
     -- the closure version that the direct ADVal Tensor instance uses
-  AstGather1 k v (var, ix) ->
-    gather1Closure k (interpretAst env v) (interpretLambdaIndex env (var, ix))
+  AstGatherN sh v (vars, ix) ->
+    gatherNClosure sh (interpretAst env v)
+                   (interpretLambdaIndexToIndex env (vars, ix))
+    -- the operation accept out of bounds indexes,
+    -- for the same reason ordinary indexing does, see above
     -- TODO: currently we store the function on tape, because it doesn't
     -- cause recomputation of the gradient per-cell, unlike storing the build
     -- function on tape; for GPUs and libraries that don't understand Haskell
@@ -884,12 +869,6 @@ interpretAst env = \case
     -- on tape and translate it to whatever backend sooner or later;
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
-  AstGatherN sh v (vars, ix) ->
-    gatherNClosure sh (interpretAst env v)
-                   (interpretLambdaIndexToIndex env (vars, ix))
-    -- both gather operations accept out of bounds indexes,
-    -- for the same reason ordinary indexing does, see above
-
 
 interpretAstInt :: ADModeAndNumTensor d r
                 => AstEnv d r

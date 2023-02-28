@@ -135,10 +135,6 @@ build1V k (var, v0) =
     AstReshape sh v -> traceRule $
       AstReshape (k :$ sh) $ build1V k (var, v)
     AstBuild1{} -> error "build1V: impossible case of AstBuild1"
-    AstGather1 k2 v (var2, ix2 :: Index p (AstInt r)) -> traceRule $
-      astGatherN (k :$ k2 :$ dropShape @p (shapeAst v))
-                 (build1VOccurenceUnknown k (var, v))
-                 (var ::: var2 ::: Z, AstIntVar var :. ix2)
       -- AstScatter (var2, ix2) v sh -> ...
       -- no idea how to vectorize AstScatter, so let's not add prematurely
     AstGatherN sh v (vars, ix2) -> traceRule $
@@ -152,7 +148,7 @@ build1V k (var, v0) =
 --
 -- We try to push indexing down as far as needed to eliminate any occurences
 -- of @var@ from @v@ (but not necessarily from @ix@), which is enough
--- to replace @AstBuild1@ with @AstGather1@ and so complete
+-- to replace @AstBuild1@ with @AstGatherN@ and so complete
 -- the vectorization. If @var@ occurs only in the first (outermost)
 -- element of @ix@, we attempt to simplify the term even more than that.
 --
@@ -179,7 +175,7 @@ build1VIndex k (var, v0, ix@(_ :. _)) =
        v -> traceRule $
          build1VOccurenceUnknown k (var, v)  -- peel off yet another constructor
      else traceRule $
-            astGather1 k v0 (var, ix)
+            astGatherN (k :$ dropShape (shapeAst v0)) v0 (var ::: Z, ix)
 
 -- I analyze here all the possible normal forms with indexing on top
 -- in the hard case where the build variable appears in v1
@@ -195,7 +191,7 @@ build1VIndexNormalForm k (var, v1, i1) = case v1 of
          -- instead of picking the right element for each build iteration
          -- (which to pick depends on the build variable).
          -- There's no other reduction left to perform and hope the build
-         -- vanishes. The AstGather1 is applicable via a trick based
+         -- vanishes. The astGatherN is applicable via a trick based
          -- on making the variable not occur freely in its argument term
          -- by binding the variable in nested gathers (or by reducing it away).
          -- By the inductive invariant, this succeeds.
@@ -203,7 +199,8 @@ build1VIndexNormalForm k (var, v1, i1) = case v1 of
              f v = build1VOccurenceUnknown k (var, v)
              t :: Ast (1 + n) r
              t = astFromList $ map f l
-         in astGather1 k t (var, i1 :. AstIntVar var :. ZI)
+         in astGatherN (k :$ dropShape (shapeAst t)) t
+                       (var ::: Z, i1 :. AstIntVar var :. ZI)
     else
       AstIndexZ (astFromList $ map (\v ->
         build1VOccurenceUnknown k (var, v)) l) (singletonIndex i1)
@@ -213,7 +210,8 @@ build1VIndexNormalForm k (var, v1, i1) = case v1 of
              f v = build1VOccurenceUnknown k (var, v)
              t :: Ast (1 + n) r
              t = astFromVector $ V.map f l
-         in astGather1 k t (var, i1 :. AstIntVar var :. ZI)
+         in astGatherN (k :$ dropShape (shapeAst t)) t
+                       (var ::: Z, i1 :. AstIntVar var :. ZI)
     else
       AstIndexZ (astFromVector $ V.map (\v ->
         build1VOccurenceUnknown k (var, v)) l) (singletonIndex i1)
