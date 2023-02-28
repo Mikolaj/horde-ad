@@ -16,10 +16,10 @@
 -- The combinator can also be used to simplify a whole term, bottom-up.
 module HordeAd.Core.AstSimplify
   ( funToAstR, funToAstI, funToAstIndex
-  , astIndexStep
+  , astIndexStep, astGatherStep
   , astReshape, astTranspose
-  , astIndexZ, astSum, astFromList, astFromVector, astKonst
-  , astAppend, astSlice, astReverse, astGatherZ
+  , astSum, astFromList, astFromVector, astKonst
+  , astAppend, astSlice, astReverse
   , astIntCond
   , simplifyAst
   , substituteAst, substituteAstInt, substituteAstBool
@@ -251,7 +251,7 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
     -- TODO: does astGatherZ need the stepOnly parameter?
     let ix3 = fmap (substituteAstInt i1 var2) ix2
         w :: Ast (m1 + n) r
-        w = unsafeCoerce $ astGatherZ sh' v (vars, ix3)
+        w = unsafeCoerce $ astGatherZOrStepOnly stepOnly sh' v (vars, ix3)
     in astIndex @m1 @n w rest1
   AstGatherZ{} ->
     error "astIndex: AstGatherZ: impossible pattern needlessly required"
@@ -357,15 +357,32 @@ astReshape shOut v =
                  else AstReshape shOut v
     _ -> AstReshape shOut v
 
+astGatherZ
+  :: forall m n p r.
+     (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r)
+  => ShapeInt (m + n) -> Ast (p + n) r -> (AstVarList m, AstIndex p r)
+  -> Ast (m + n) r
+astGatherZ = astGatherZOrStepOnly False
+
+astGatherStep
+  :: forall m n p r.
+     (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r)
+  => ShapeInt (m + n) -> Ast (p + n) r -> (AstVarList m, AstIndex p r)
+  -> Ast (m + n) r
+astGatherStep sh v (vars, ix) =
+  astGatherZOrStepOnly True sh v (vars, fmap (simplifyAstInt) ix)
+
 -- Assumption: (var ::: vars) don't not occur in v0.
-astGatherZ :: forall m n p r.
-              (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r)
-           => ShapeInt (m + n) -> Ast (p + n) r -> (AstVarList m, AstIndex p r)
-           -> Ast (m + n) r
-astGatherZ _sh v0 (Z, ix) = astIndexZ v0 ix
-astGatherZ sh@(_ :$ _) v0 (_ ::: _, ZI) = astKonstN sh v0
-astGatherZ sh@(k :$ sh') v0 (var ::: vars, ix@(_ :. _)) =
-  let v3 = astIndexZ @p @n v0 ix
+astGatherZOrStepOnly
+  :: forall m n p r.
+     (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r)
+  => Bool -> ShapeInt (m + n) -> Ast (p + n) r -> (AstVarList m, AstIndex p r)
+  -> Ast (m + n) r
+astGatherZOrStepOnly stepOnly _sh v0 (Z, ix) =
+  astIndexZOrStepOnly stepOnly v0 ix
+astGatherZOrStepOnly _ sh@(_ :$ _) v0 (_ ::: _, ZI) = astKonstN sh v0
+astGatherZOrStepOnly stepOnly sh@(k :$ sh') v0 (var ::: vars, ix@(_ :. _)) =
+  let v3 = astIndexZOrStepOnly @p @n stepOnly v0 ix
   in if any (flip intVarInAst v3) (var ::: vars)
      then case v3 of
        AstIndexZ v2 ix2 ->
@@ -374,7 +391,7 @@ astGatherZ sh@(k :$ sh') v0 (var ::: vars, ix@(_ :. _)) =
             | intVarInIndex var ix2 ->
               AstGatherZ sh v2 (var ::: vars, ix2)
             | any (flip intVarInIndex ix2) vars ->
-              astKonst k (astGatherZ sh' v2 (vars, ix2))
+              astKonst k (astGatherZOrStepOnly stepOnly sh' v2 (vars, ix2))
             | otherwise -> astKonstN sh (AstIndexZ v2 ix2)
               -- a generalization of gatherSimplify needed to simplify more
               -- or we could run astGather1 repeatedly, but even then we can't
@@ -389,8 +406,8 @@ astGatherZ sh@(k :$ sh') v0 (var ::: vars, ix@(_ :. _)) =
                          v2 (appendSized (var ::: vars) vars2, ix2)
        _ -> AstGatherZ sh v0 (var ::: vars, ix)  -- e.g., AstSum
      else astKonstN sh v3
-astGatherZ _ _ _ =
-  error "astGatherZ: AstGatherZ: impossible pattern needlessly required"
+astGatherZOrStepOnly _ _ _ _ =
+  error "astGatherZOrStepOnly: AstGatherZ: impossible pattern needlessly required"
 
 {-
 -- TODO: To apply this to astGatherZ. we'd need to take the last variable

@@ -138,9 +138,9 @@ build1V k (var, v0) =
       -- AstScatter (var2, ix2) v sh -> ...
       -- no idea how to vectorize AstScatter, so let's not add prematurely
     AstGatherZ sh v (vars, ix2) -> traceRule $
-      astGatherZ (k :$ sh)
-                 (build1VOccurenceUnknown k (var, v))
-                 (var ::: vars, AstIntVar var :. ix2)
+      astGatherStep (k :$ sh)
+                    (build1VOccurenceUnknown k (var, v))
+                    (var ::: vars, AstIntVar var :. ix2)
 
 -- | The application @build1VIndex k (var, v, ix)@ vectorizes
 -- the term @AstBuild1 k (var, AstIndexZ v ix)@, where it's unknown whether
@@ -175,7 +175,7 @@ build1VIndex k (var, v0, ix@(_ :. _)) =
        v -> traceRule $
          build1VOccurenceUnknown k (var, v)  -- peel off yet another constructor
      else traceRule $
-            astGatherZ (k :$ dropShape (shapeAst v0)) v0 (var ::: Z, ix)
+            astGatherStep (k :$ dropShape (shapeAst v0)) v0 (var ::: Z, ix)
 
 -- I analyze here all the possible normal forms with indexing on top
 -- in the hard case where the build variable appears in v1
@@ -191,7 +191,7 @@ build1VIndexNormalForm k (var, v1, i1) = case v1 of
          -- instead of picking the right element for each build iteration
          -- (which to pick depends on the build variable).
          -- There's no other reduction left to perform and hope the build
-         -- vanishes. The astGatherZ is applicable via a trick based
+         -- vanishes. The astGatherStep is applicable via a trick based
          -- on making the variable not occur freely in its argument term
          -- by binding the variable in nested gathers (or by reducing it away).
          -- By the inductive invariant, this succeeds.
@@ -199,8 +199,8 @@ build1VIndexNormalForm k (var, v1, i1) = case v1 of
              f v = build1VOccurenceUnknown k (var, v)
              t :: Ast (1 + n) r
              t = astFromList $ map f l
-         in astGatherZ (k :$ dropShape (shapeAst t)) t
-                       (var ::: Z, i1 :. AstIntVar var :. ZI)
+         in astGatherStep (k :$ dropShape (shapeAst t)) t
+                          (var ::: Z, i1 :. AstIntVar var :. ZI)
     else
       AstIndexZ (astFromList $ map (\v ->
         build1VOccurenceUnknown k (var, v)) l) (singletonIndex i1)
@@ -210,8 +210,8 @@ build1VIndexNormalForm k (var, v1, i1) = case v1 of
              f v = build1VOccurenceUnknown k (var, v)
              t :: Ast (1 + n) r
              t = astFromVector $ V.map f l
-         in astGatherZ (k :$ dropShape (shapeAst t)) t
-                       (var ::: Z, i1 :. AstIntVar var :. ZI)
+         in astGatherStep (k :$ dropShape (shapeAst t)) t
+                          (var ::: Z, i1 :. AstIntVar var :. ZI)
     else
       AstIndexZ (astFromVector $ V.map (\v ->
         build1VOccurenceUnknown k (var, v)) l) (singletonIndex i1)

@@ -245,4 +245,4 @@ testGatherSimp33 = do
                    $ (\t -> tmatmul2 (treshape [6, 8] (tconst t48))
                               (treshape @(Ast 0 Float) @10 [8, 16] t))
                    $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)
-  (length (show t1) - length (show t2)) @?= 4723
+  (length (show t1) - length (show t2)) @?= 4729
