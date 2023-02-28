@@ -373,7 +373,7 @@ astGather1 k v0 (var, ix) =
        AstIndexZ v2 ix2@(iN :. restN) ->
          if | intVarInAst var v2 ->  -- can this happen?
               AstGather1 k v0 (var, ix)
-            | any (intVarInAstInt var) restN ->
+            | intVarInIndex var restN ->
               AstGather1 k v2 (var, ix2)
             | intVarInAstInt var iN ->
                 let w :: Ast (1 + n) r
@@ -400,7 +400,7 @@ astGatherN sh@(k :$ sh') v0 (var ::: vars, ix@(_ :. _)) =
        AstIndexZ v2 ix2 ->
          if | any (flip intVarInAst v2) (var ::: vars) ->  -- can this happen?
               AstGatherN sh v0 (var ::: vars, ix)
-            | any (intVarInAstInt var) ix2 ->
+            | intVarInIndex var ix2 ->
               AstGatherN sh v2 (var ::: vars, ix2)
             | otherwise -> astKonst k (astGatherN sh' v2 (vars, ix2))
               -- a generalization of gatherSimplify needed to simplify more

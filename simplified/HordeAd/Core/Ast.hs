@@ -13,7 +13,7 @@ module HordeAd.Core.Ast
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
   , astCond
   , shapeAst, lengthAst
-  , intVarInAst, intVarInAstInt, intVarInAstBool
+  , intVarInAst, intVarInAstInt, intVarInAstBool, intVarInIndex
   , substitute1Ast, substitute1AstInt, substitute1AstBool
   ) where
 
@@ -411,7 +411,7 @@ intVarInAst var = \case
   AstConst{} -> False
   AstConstant (AstPrimalPart v) -> intVarInAst var v
   AstConstInt k -> intVarInAstInt var k
-  AstIndexZ v is -> intVarInAst var v || any (intVarInAstInt var) is
+  AstIndexZ v ix -> intVarInAst var v || intVarInIndex var ix
   AstSum v -> intVarInAst var v
   AstFromList l -> any (intVarInAst var) l  -- down from rank 1 to 0
   AstFromVector vl -> any (intVarInAst var) $ V.toList vl
@@ -422,8 +422,8 @@ intVarInAst var = \case
   AstTranspose _ v -> intVarInAst var v
   AstReshape _ v -> intVarInAst var v
   AstBuild1 _ (_, v) -> intVarInAst var v
-  AstGather1 _ v (_, is) -> any (intVarInAstInt var) is || intVarInAst var v
-  AstGatherN _ v (_, is) -> any (intVarInAstInt var) is || intVarInAst var v
+  AstGather1 _ v (_, ix) -> intVarInIndex var ix || intVarInAst var v
+  AstGatherN _ v (_, ix) -> intVarInIndex var ix || intVarInAst var v
 
 intVarInAstInt :: AstVarName Int -> AstInt r -> Bool
 intVarInAstInt var = \case
@@ -442,6 +442,9 @@ intVarInAstBool var = \case
   AstBoolConst{} -> False
   AstRel _ l -> any (intVarInAst var) l
   AstRelInt _ l  -> any (intVarInAstInt var) l
+
+intVarInIndex :: AstVarName Int -> AstIndex n r -> Bool
+intVarInIndex var = any (intVarInAstInt var)
 
 
 -- * Substitution
