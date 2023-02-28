@@ -27,7 +27,7 @@ testTrees =
   , testCase "2bar" testBar
   , testCase "2barADVal" testBarADVal
   , testCase "2baz old to force fooConstant" testBaz
-  , testCase "2baz new to check if mere repetition breaks things" testBaz
+  , testCase "2baz if repetition breaks things" testBaz
   , testCase "2baz again with renumbered terms" testBazRenumbered
   , testCase "2fooD T Double [1.1, 2.2, 3.3]" testFooD
   , testCase "2fooBuildDt" testFooBuildDt

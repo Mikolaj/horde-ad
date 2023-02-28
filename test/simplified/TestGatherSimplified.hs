@@ -7,6 +7,7 @@ module TestGatherSimplified (testTrees) where
 import Prelude
 
 import qualified Data.Array.RankedS as OR
+import           Data.Boolean
 import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
@@ -17,17 +18,25 @@ import TestAdaptorSimplified (assertEqualUpToEpsilon', rev', t128, t48)
 testTrees :: [TestTree]
 testTrees =
   [ testCase "gatherNested1" testGatherNested1
+  , testCase "gatherNestedBuild1" testGatherNestedBuild1
   , testCase "gather1" testGather1
+  , testCase "gatherBuild1" testGatherBuild1
   , testCase "gatherSimp1" testGatherSimp1
   , testCase "gatherNested2" testGatherNested2
+  , testCase "gatherNestedBuild2" testGatherNestedBuild2
   , testCase "gather2" testGather2
+  , testCase "gatherBuild2" testGatherBuild2
   , testCase "gatherSimp2" testGatherSimp2
   , testCase "gatherNested12" testGatherNested12
+  , testCase "gatherNestedBuild12" testGatherNestedBuild12
   , testCase "gather12" testGather12
+  , testCase "gatherBuild12" testGatherBuild12
   , testCase "gatherSimp12" testGatherSimp12
   , testCase "gatherReshape22" testGatherReshape22
+  , testCase "gatherReshapeBuild22" testGatherReshapeBuild22
   , testCase "gatherSimp22" testGatherSimp22
   , testCase "gatherTranspose33" testGatherTranspose33
+  , testCase "gatherTransposeBuild33" testGatherTransposeBuild33
   , testCase "gatherSimp33" testGatherSimp33
   ]
 
@@ -49,6 +58,16 @@ testGatherNested1 =
     (rev' @(OR.Array 1 Double) gatherNested1
                                (tkonst 7 $ tfromList [0, 1]))
 
+testGatherNestedBuild1 :: Assertion
+testGatherNestedBuild1 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [7,2]
+                 [3.0,1.0,1.0,1.0,1.0,3.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+    (rev' @(OR.Array 2 Double)
+          (\t -> tbuild1 5 (\i ->
+             ifB (i >* 2) (gatherNested1 t) (t ! [i])))
+          (tkonst 7 $ tfromList [0, 1]))
+
 gather1 :: forall r. ADReady r
         => TensorOf 2 r -> TensorOf 1 r
 gather1 t =
@@ -64,6 +83,16 @@ testGather1 =
                  [1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
     (rev' @(OR.Array 1 Double) gather1
                                (tkonst 7 $ tfromList [0, 1]))
+
+testGatherBuild1 :: Assertion
+testGatherBuild1 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [7,2]
+                 [3.0,1.0,1.0,1.0,1.0,3.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+    (rev' @(OR.Array 2 Double)
+          (\t -> tbuild1 5 (\i ->
+             ifB (i >* 2) (gather1 t) (t ! [i])))
+          (tkonst 7 $ tfromList [0, 1]))
 
 testGatherSimp1 :: Assertion
 testGatherSimp1 = do
@@ -93,6 +122,16 @@ testGatherNested2 =
     (rev' @(OR.Array 2 Double) gatherNested2
                                (tkonst 7 $ tfromList [0, 1]))
 
+testGatherNestedBuild2 :: Assertion
+testGatherNestedBuild2 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [7,2]
+                 [6.0,0.0,0.0,0.0,6.0,6.0,0.0,0.0,6.0,6.0,0.0,0.0,0.0,6.0])
+    (rev' @(OR.Array 3 Double)
+          (\t -> tbuild1 4 (\i ->
+             gatherNested2 (t * tkonst0N [7, 2] (tfromIndex0 i))))
+          (tkonst 7 $ tfromList [0, 1]))
+
 gather2 :: forall r. ADReady r
         => TensorOf 2 r -> TensorOf 2 r
 gather2 t =
@@ -108,6 +147,16 @@ testGather2 =
                  [1.0,0.0,0.0,0.0,1.0,1.0,0.0,0.0,1.0,1.0,0.0,0.0,0.0,1.0])
     (rev' @(OR.Array 2 Double) gather2
                                (tkonst 7 $ tfromList [0, 1]))
+
+testGatherBuild2 :: Assertion
+testGatherBuild2 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [7,2]
+                 [6.0,0.0,0.0,0.0,6.0,6.0,0.0,0.0,6.0,6.0,0.0,0.0,0.0,6.0])
+    (rev' @(OR.Array 3 Double)
+          (\t -> tbuild1 4 (\i ->
+             gather2 (t * tkonst0N [7, 2] (tfromIndex0 i))))
+          (tkonst 7 $ tfromList [0, 1]))
 
 testGatherSimp2 :: Assertion
 testGatherSimp2 = do
@@ -137,6 +186,17 @@ testGatherNested12 =
     (rev' @(OR.Array 2 Double) gatherNested12
                                (tkonst 7 $ tfromList [0, 1]))
 
+testGatherNestedBuild12 :: Assertion
+testGatherNestedBuild12 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [7,2]
+                 [0.0,0.0,4.0,4.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+    (rev' @(OR.Array 2 Double)
+          (\t -> tindex (tbuild1 5 (\i ->
+             ifB (i >* 2) (gatherNested12 t)
+                          (ttranspose [1, 0] $ tkonst 4 $ t ! [i]))) [1])
+          (tkonst 7 $ tfromList [0, 1]))
+
 gather12 :: forall r. ADReady r
          => TensorOf 2 r -> TensorOf 2 r
 gather12 t =
@@ -152,6 +212,17 @@ testGather12 =
                  [1.0,0.0,1.0,0.0,1.0,0.0,1.0,1.0,0.0,1.0,0.0,1.0,0.0,1.0])
     (rev' @(OR.Array 2 Double) gather12
                                (tkonst 7 $ tfromList [0, 1]))
+
+testGatherBuild12 :: Assertion
+testGatherBuild12 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [7,2]
+                 [0.0,0.0,4.0,4.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+    (rev' @(OR.Array 2 Double)
+          (\t -> tindex (tbuild1 5 (\i ->
+             ifB (i >* 2) (gather12 t)
+                          (ttranspose [1, 0] $ tkonst 4 $ t ! [i]))) [1])
+          (tkonst 7 $ tfromList [0, 1]))
 
 testGatherSimp12 :: Assertion
 testGatherSimp12 = do
@@ -179,6 +250,16 @@ testGatherReshape22 =
                  [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0])
     (rev' @(OR.Array 2 Double) gatherReshape22
                                (tkonst 6 $ tfromList [0, 1]))
+
+testGatherReshapeBuild22 :: Assertion
+testGatherReshapeBuild22 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [6,2]
+                 [6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0,6.0])
+    (rev' @(OR.Array 3 Double)
+          (\t -> tbuild1 4 (\i ->
+             gatherReshape22 (t * tkonst0N [6, 2] (tfromIndex0 i))))
+          (tkonst 6 $ tfromList [0, 1]))
 
 -- TODO: try to lower the gap down to zero
 testGatherSimp22 :: Assertion
@@ -229,6 +310,15 @@ testGatherTranspose33 =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [1,2,2,1,2,2,2,2,2,1] [81.3003,71.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,80.0,79.0,80.0,79.0,80.0,79.0,80.0,79.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,80.0,79.0,80.0,79.0,80.0,79.0,80.0,79.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,80.0,79.0,80.0,79.0,80.0,79.0,80.0,79.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,81.3003,71.0,80.0,79.0,80.0,79.0,80.0,79.0,80.0,79.0,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,166.8003,137.70326,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002,186.1003,162.3889400002])
     (rev' @(OR.Array 2 Double) gatherTranspose33 t128)
+
+testGatherTransposeBuild33 :: Assertion
+testGatherTransposeBuild33 =
+  assertEqualUpToEpsilon' 1e-10
+    (OR.fromList [1,2,2,1,2,2,2,2,2,1] [487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,480.0,474.0,480.0,474.0,480.0,474.0,480.0,474.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,480.0,474.0,480.0,474.0,480.0,474.0,480.0,474.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,480.0,474.0,480.0,474.0,480.0,474.0,480.0,474.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,487.80179999999996,426.0,480.0,474.0,480.0,474.0,480.0,474.0,480.0,474.0,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1000.8018,826.21956,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012,1116.6018,974.3336400012])
+    (rev' @(OR.Array 3 Double)
+          (\t -> tbuild1 4 (\i ->
+             gatherTranspose33 (t * tkonst0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
+          t128)
 
 -- These are different terms, but they should have similar lengths,
 -- because they differ only by single transpose and reshape, most probably,
