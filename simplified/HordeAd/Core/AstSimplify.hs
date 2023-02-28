@@ -252,10 +252,15 @@ astFromVector l = AstFromVector l
 
 astKonst :: KnownNat n => Int -> Ast n r -> Ast (1 + n) r
 astKonst k = \case
+{- TODO: these may be counterproductive with many gathers and their fusion
+         thout these let transpose cancel out with each other somethings
+         (instead we should try to cancel out inside konst and only move
+          if they don't)
   AstTranspose perm v ->
     astTranspose (0 : map succ perm) $ astKonst k v
   AstReshape sh v ->
     AstReshape (k :$ sh) $ astKonst k v
+-}
   v -> AstKonst k v
 
 astKonstN :: forall n p r. (KnownNat n, KnownNat p)
