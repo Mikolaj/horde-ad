@@ -19,7 +19,7 @@ module HordeAd.Core.AstSimplify
   , astIndexStep
   , astReshape, astTranspose
   , astIndexZ, astSum, astFromList, astFromVector, astKonst
-  , astAppend, astSlice, astReverse, astGatherN
+  , astAppend, astSlice, astReverse, astGatherZ
   , astIntCond
   , simplifyAst
   , substituteAst, substituteAstInt, substituteAstBool
@@ -123,7 +123,7 @@ astReshapeAsGather shOut v = unsafePerformIO $ do
              in fmap simplifyAstInt
                 $ fromLinearIdx (fmap AstIntConst shIn) i
                   -- we generate these, so we simplify
-  return $! astGatherN @m @0 shOut v (vars, asts)
+  return $! astGatherZ @m @0 shOut v (vars, asts)
 
 -- We keep AstTranspose terms for as long as possible, because
 -- they are small and fuse nicely in many cases. For some forms of indexing
@@ -143,10 +143,10 @@ astTransposeAsGather perm v = unsafePerformIO $ do
           asts :: AstIndex p r
           asts = permutePrefixIndex perm intVars
       in case cmpNat (Proxy @p) (Proxy @n) of
-           EQI -> astGatherN @p @(n - p)
+           EQI -> astGatherZ @p @(n - p)
                              (permutePrefixShape perm (shapeAst v)) v
                              (vars, asts)
-           LTI -> astGatherN @p @(n - p)
+           LTI -> astGatherZ @p @(n - p)
                              (permutePrefixShape perm (shapeAst v)) v
                              (vars, asts)
            _ -> error "astTransposeAsGather: permutation longer than rank"
@@ -246,15 +246,15 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
       astIndex (astReshapeAsGather sh v) ix
   AstBuild1 _n2 (var2, v) ->  -- only possible tests
     astIndex (substituteAst i1 var2 v) rest1
-  AstGatherN _sh v (Z, ix2) -> astIndex v (appendIndex ix2 ix)
-  AstGatherN (_ :$ sh') v (var2 ::: vars, ix2) ->
-    -- TODO: does astGatherN need the stepOnly parameter?
+  AstGatherZ _sh v (Z, ix2) -> astIndex v (appendIndex ix2 ix)
+  AstGatherZ (_ :$ sh') v (var2 ::: vars, ix2) ->
+    -- TODO: does astGatherZ need the stepOnly parameter?
     let ix3 = fmap (substituteAstInt i1 var2) ix2
         w :: Ast (m1 + n) r
-        w = unsafeCoerce $ astGatherN sh' v (vars, ix3)
+        w = unsafeCoerce $ astGatherZ sh' v (vars, ix3)
     in astIndex @m1 @n w rest1
-  AstGatherN{} ->
-    error "astIndex: AstGatherN: impossible pattern needlessly required"
+  AstGatherZ{} ->
+    error "astIndex: AstGatherZ: impossible pattern needlessly required"
 
 astSum :: Ast (1 + n) r -> Ast n r
 astSum (AstReverse v) = AstSum v
@@ -358,42 +358,42 @@ astReshape shOut v =
     _ -> AstReshape shOut v
 
 -- Assumption: (var ::: vars) don't not occur in v0.
-astGatherN :: forall m n p r.
+astGatherZ :: forall m n p r.
               (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r)
            => ShapeInt (m + n) -> Ast (p + n) r -> (AstVarList m, AstIndex p r)
            -> Ast (m + n) r
-astGatherN _sh v0 (Z, ix) = astIndexZ v0 ix
-astGatherN sh@(_ :$ _) v0 (_ ::: _, ZI) = astKonstN sh v0
-astGatherN sh@(k :$ sh') v0 (var ::: vars, ix@(_ :. _)) =
+astGatherZ _sh v0 (Z, ix) = astIndexZ v0 ix
+astGatherZ sh@(_ :$ _) v0 (_ ::: _, ZI) = astKonstN sh v0
+astGatherZ sh@(k :$ sh') v0 (var ::: vars, ix@(_ :. _)) =
   let v3 = astIndexZ @p @n v0 ix
   in if any (flip intVarInAst v3) (var ::: vars)
      then case v3 of
        AstIndexZ v2 ix2 ->
          if | any (flip intVarInAst v2) (var ::: vars) ->
-              AstGatherN sh v0 (var ::: vars, ix)
+              AstGatherZ sh v0 (var ::: vars, ix)
             | intVarInIndex var ix2 ->
-              AstGatherN sh v2 (var ::: vars, ix2)
+              AstGatherZ sh v2 (var ::: vars, ix2)
             | any (flip intVarInIndex ix2) vars ->
-              astKonst k (astGatherN sh' v2 (vars, ix2))
+              astKonst k (astGatherZ sh' v2 (vars, ix2))
             | otherwise -> astKonstN sh (AstIndexZ v2 ix2)
               -- a generalization of gatherSimplify needed to simplify more
               -- or we could run astGather1 repeatedly, but even then we can't
               -- get into fromList, which may simplify or complicate a term,
               -- and sometimes is not possible without leaving a small
               -- gather outside
-       AstGatherN sh2 v2 (vars2, ix2) ->
+       AstGatherZ sh2 v2 (vars2, ix2) ->
          if | any (flip intVarInAst v2) (var ::: vars) ->  -- can this happen?
-              AstGatherN sh v0 (var ::: vars, ix)
+              AstGatherZ sh v0 (var ::: vars, ix)
             | otherwise ->
-              AstGatherN (appendShape (takeShape @m sh) sh2)
+              AstGatherZ (appendShape (takeShape @m sh) sh2)
                          v2 (appendSized (var ::: vars) vars2, ix2)
-       _ -> AstGatherN sh v0 (var ::: vars, ix)  -- e.g., AstSum
+       _ -> AstGatherZ sh v0 (var ::: vars, ix)  -- e.g., AstSum
      else astKonstN sh v3
-astGatherN _ _ _ =
-  error "astGatherN: AstGatherN: impossible pattern needlessly required"
+astGatherZ _ _ _ =
+  error "astGatherZ: AstGatherZ: impossible pattern needlessly required"
 
 {-
--- TODO: To apply this to astGatherN. we'd need to take the last variable
+-- TODO: To apply this to astGatherZ. we'd need to take the last variable
 -- and the first index element in place of var and i1.
 -- If var does not occur in the remaining index elements,
 -- this simplification is valid.
@@ -403,8 +403,8 @@ astGatherN _ _ _ =
                     w = astIndexZ v2 rest1
                 in case gatherSimplify k var w i1 of
                   Just u -> u  -- an extremely simple form found
-                    -- for AstGatherN instead:
-                    -- AstGatherN ... u (initN, rest1)
+                    -- for AstGatherZ instead:
+                    -- AstGatherZ ... u (initN, rest1)
                   Nothing ->
                     AstGather1 k v2 (var, ix2)
                     -- we didn't really need it anyway
@@ -510,8 +510,8 @@ simplifyAst t = case t of
     u -> u
   AstBuild1 k (var, v) -> AstBuild1 k (var, simplifyAst v)
     -- should never appear outside test runs, but let's test the inside, too
-  AstGatherN sh v (vars, ix) ->
-    astGatherN sh (simplifyAst v) (vars, fmap (simplifyAstInt) ix)
+  AstGatherZ sh v (vars, ix) ->
+    astGatherZ sh (simplifyAst v) (vars, fmap (simplifyAstInt) ix)
 
 -- Integer terms need to be simplified, because they are sometimes
 -- created by vectorization and can be a deciding factor in whether

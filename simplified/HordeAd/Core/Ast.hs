@@ -87,7 +87,7 @@ data Ast :: Nat -> Type -> Type where
   AstBuild1 :: KnownNat n
             => Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
     -- indicates a failure in vectorization, but may be recoverable later on
-  AstGatherN :: forall m n p r. (KnownNat m, KnownNat p, KnownNat n)
+  AstGatherZ :: forall m n p r. (KnownNat m, KnownNat p, KnownNat n)
              => ShapeInt (m + n) -> Ast (p + n) r
              -> (AstVarList m, AstIndex p r)
              -> Ast (m + n) r
@@ -388,7 +388,7 @@ shapeAst v1 = case v1 of
   AstTranspose perm v -> permutePrefixShape perm (shapeAst v)
   AstReshape sh _v -> sh
   AstBuild1 k (_var, v) -> k :$ shapeAst v
-  AstGatherN sh _v (_vars, _ix) -> sh
+  AstGatherZ sh _v (_vars, _ix) -> sh
 
 -- Length of the outermost dimension.
 lengthAst :: (KnownNat n, Show r, Numeric r) => Ast (1 + n) r -> Int
@@ -417,7 +417,7 @@ intVarInAst var = \case
   AstTranspose _ v -> intVarInAst var v
   AstReshape _ v -> intVarInAst var v
   AstBuild1 _ (_, v) -> intVarInAst var v
-  AstGatherN _ v (_, ix) -> intVarInIndex var ix || intVarInAst var v
+  AstGatherZ _ v (_, ix) -> intVarInIndex var ix || intVarInAst var v
 
 intVarInAstInt :: AstVarName Int -> AstInt r -> Bool
 intVarInAstInt var = \case
@@ -465,8 +465,8 @@ substitute1Ast i var v1 = case v1 of
   AstReshape sh v -> AstReshape sh (substitute1Ast i var v)
   AstBuild1 k (var2, v) ->
     AstBuild1 k (var2, substitute1Ast i var v)
-  AstGatherN sh v (vars, is) ->
-    AstGatherN sh (substitute1Ast i var v)
+  AstGatherZ sh v (vars, is) ->
+    AstGatherZ sh (substitute1Ast i var v)
                   (vars, fmap (substitute1AstInt i var) is)
 
 substitute1AstInt :: (Show r, Numeric r)

@@ -413,7 +413,7 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   ttranspose = AstTranspose
   treshape = AstReshape
   tbuild1 = astBuild1
-  tgather sh t f = AstGatherN sh t (funToAstIndex f)  -- introduces new vars
+  tgather sh t f = AstGatherZ sh t (funToAstIndex f)  -- introduces new vars
 
   tscalar = id  -- Ast confuses the two ranks
   tunScalar = id
@@ -460,7 +460,7 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   tbuild1 k f = AstPrimalPart $ AstBuild1 k
                 $ funToAstI  -- this introduces new variable names
                 $ unAstPrimalPart . f
-  tgather sh t f = AstPrimalPart $ AstGatherN sh (unAstPrimalPart t)
+  tgather sh t f = AstPrimalPart $ AstGatherZ sh (unAstPrimalPart t)
                    $ funToAstIndex f  -- this introduces new variable names
 
   tscalar = id
@@ -856,7 +856,7 @@ interpretAst env = \case
     -- to be used only in tests; this is the POPL implementation of build
     -- (memory blowup, but avoids functions on tape), to test against
     -- the closure version that the direct ADVal Tensor instance uses
-  AstGatherN sh v (vars, ix) ->
+  AstGatherZ sh v (vars, ix) ->
     gatherNClosure sh (interpretAst env v)
                    (interpretLambdaIndexToIndex env (vars, ix))
     -- the operation accept out of bounds indexes,
