@@ -84,9 +84,12 @@ build1VOccurenceUnknown k (var, v0) =
 build1V
   :: (KnownNat n, Show r, Numeric r)
   => Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
-build1V k (var, v0) =
-  let bv = AstBuild1 k (var, v0)
+build1V k (var, v00) =
+  let v0 = simplifyStepNonIndex v00
+      bv = AstBuild1 k (var, v0)
       traceRule = mkTraceRule "build1V" bv v0 1
+  -- Almost surely the term will be transformed, so it can just as well
+  -- we one-step simplified first (many steps if guaranteed net beneficial).
   in case v0 of
     AstVar{} ->
       error "build1V: AstVar can't have free int variables"

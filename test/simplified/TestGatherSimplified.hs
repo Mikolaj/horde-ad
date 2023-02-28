@@ -113,10 +113,10 @@ testGatherSimp2 :: Assertion
 testGatherSimp2 = do
   resetVarCOunter
   let !t1 = simplifyAst @Float
-                $ gatherNested2 $ AstVar [7, 2] (AstVarName 0)
+            $ gatherNested2 $ AstVar [7, 2] (AstVarName 0)
   resetVarCOunter
   let !t2 = simplifyAst @Float
-                      $ gather2 $ AstVar [7, 2] (AstVarName 0)
+            $ gather2 $ AstVar [7, 2] (AstVarName 0)
   length (show t1) @?= length (show t2)
 
 gatherNested12 :: forall r. ADReady r
@@ -157,7 +157,7 @@ testGatherSimp12 :: Assertion
 testGatherSimp12 = do
   resetVarCOunter
   let !t1 = simplifyAst @Float
-                $ gatherNested12 $ AstVar [7, 2] (AstVarName 0)
+            $ gatherNested12 $ AstVar [7, 2] (AstVarName 0)
   resetVarCOunter
   let !t2 = simplifyAst @Float
             $ gather12 $ AstVar [7, 2] (AstVarName 0)
@@ -238,11 +238,11 @@ testGatherSimp33 :: Assertion
 testGatherSimp33 = do
   resetVarCOunter
   let !t1 = simplifyAst @Float
-                 $ gatherTranspose33
-                 $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)
+            $ gatherTranspose33
+            $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)
   resetVarCOunter
   let !t2 = simplifyAst @Float
-                   $ (\t -> tmatmul2 (treshape [6, 8] (tconst t48))
+            $ (\t -> tmatmul2 (treshape [6, 8] (tconst t48))
                               (treshape @(Ast 0 Float) @10 [8, 16] t))
-                   $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)
+            $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)
   (length (show t1) - length (show t2)) @?= 4729
