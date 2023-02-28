@@ -15,8 +15,9 @@
 --
 -- The combinator can also be used to simplify a whole term, bottom-up.
 module HordeAd.Core.AstSimplify
-  ( funToAstR, funToAstI, funToAstIndex
-  , astIndexStep, astGatherStep
+  ( simplifyPermutation
+  , funToAstR, funToAstI, funToAstIndex
+  , simplifyStepNonIndex, astIndexStep, astGatherStep
   , astReshape, astTranspose
   , astSum, astFromList, astFromVector, astKonst
   , astAppend, astSlice, astReverse
@@ -152,7 +153,36 @@ astTransposeAsGather perm v = unsafePerformIO $ do
            _ -> error "astTransposeAsGather: permutation longer than rank"
     Nothing -> error "astTransposeAsGather: impossible someNatVal error"
 
+
 -- * The simplifying combinators
+
+-- This does a single step of simplification of any non-indexing term
+-- (many steps if guaranteed net beneficial).
+-- AstInt and AstBool terms are simplified fully.
+simplifyStepNonIndex
+  :: (Show r, Numeric r, KnownNat n)
+  => Ast n r -> Ast n r
+simplifyStepNonIndex t = case t of
+  AstVar{} -> t
+  AstOp{} -> t
+  AstConst{} -> t
+  AstConstant (AstPrimalPart v) ->
+    AstConstant $ AstPrimalPart $ simplifyStepNonIndex v
+  AstConstInt i -> AstConstInt $ simplifyAstInt i
+  AstIndexZ{} -> t
+  AstSum v -> astSum v
+  AstFromList l -> astFromList l
+  AstFromVector l -> astFromVector l
+  AstKonst k v -> astKonst k v
+  AstAppend x y -> astAppend x y
+  AstSlice i k v -> astSlice i k v
+  AstReverse v -> astReverse v
+  AstTranspose perm v -> astTranspose perm v
+  AstReshape sh v -> astReshape sh v
+  AstBuild1{} -> t
+  AstGatherZ _ v0 (Z, ix) -> AstIndexZ v0 ix
+  AstGatherZ sh v0 (_, ZI) -> astKonstN sh v0
+  AstGatherZ {} -> t
 
 astIndexZ :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
           => Ast (m + n) r -> AstIndex m r -> Ast n r
@@ -160,20 +190,36 @@ astIndexZ = astIndexZOrStepOnly False
 
 astIndexStep :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
              => Ast (m + n) r -> AstIndex m r -> Ast n r
-astIndexStep v ix = astIndexZOrStepOnly True v (fmap (simplifyAstInt) ix)
+astIndexStep v ix = astIndexZOrStepOnly True (simplifyStepNonIndex v)
+                                             (fmap simplifyAstInt ix)
 
 -- If stepOnly is set, we reduce only as long as needed to reveal
 -- a non-indexing constructor or one of the normal forms (one-element
--- indexing applied to AstFromList or AstFromVector). Otherwise,
+-- indexing applied to AstFromList or AstFromVector or indexing
+-- of a term with no possible occurences of Int variables). Otherwise,
 -- we simplify exhaustively.
+--
+-- The v0 term is already at least one step simplified,
+-- either from full recursive simplification or from astIndexStep.
 astIndexZOrStepOnly :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
                     => Bool -> Ast (m + n) r -> AstIndex m r -> Ast n r
+astIndexZOrStepOnly stepOnly (AstIndexZ v ix) ZI =
+  astIndexZOrStepOnly stepOnly v ix  -- no non-indexing constructor yet revealed
 astIndexZOrStepOnly _ v0 ZI = v0
 astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
  let astIndexRec, astIndex :: forall m' n'. (KnownNat m', KnownNat n')
                            => Ast (m' + n') r -> AstIndex m' r -> Ast n' r
-     astIndexRec = if stepOnly then AstIndexZ else astIndexZOrStepOnly stepOnly
-     astIndex = astIndexZOrStepOnly stepOnly
+     astIndexRec vRec ZI = vRec
+     astIndexRec vRec ixRec =
+       if stepOnly then AstIndexZ vRec ixRec else astIndexZ vRec ixRec
+     astIndex = if stepOnly then astIndexStep else astIndexZ
+     astGather
+       :: forall m' n' p'.
+          (KnownNat m', KnownNat p', KnownNat n')
+       => ShapeInt (m' + n') -> Ast (p' + n') r
+       -> (AstVarList m', AstIndex p' r)
+       -> Ast (m' + n') r
+     astGather = if stepOnly then astGatherStep else astGatherZ
  in case v0 of
   AstVar{} -> AstIndexZ v0 ix
   AstOp opCode args ->
@@ -218,20 +264,14 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
   AstTranspose perm v ->
     astIndex (astTransposeAsGather perm v) ix
   AstReshape sh v ->
-    if stepOnly
-    then case astReshape sh v of
-      AstReshape sh2 v2 -> astIndex (astReshapeAsGather sh2 v2) ix
-      v3 -> astIndex v3 ix
-    else  -- we assume the term is already simplified
-      astIndex (astReshapeAsGather sh v) ix
+    astIndex (astReshapeAsGather sh v) ix
   AstBuild1 _n2 (var2, v) ->  -- only possible tests
     astIndex (substituteAst i1 var2 v) rest1
   AstGatherZ _sh v (Z, ix2) -> astIndex v (appendIndex ix2 ix)
   AstGatherZ (_ :$ sh') v (var2 ::: vars, ix2) ->
-    -- TODO: does astGatherZ need the stepOnly parameter?
     let ix3 = fmap (substituteAstInt i1 var2) ix2
         w :: Ast (m1 + n) r
-        w = unsafeCoerce $ astGatherZOrStepOnly stepOnly sh' v (vars, ix3)
+        w = unsafeCoerce $ astGather sh' v (vars, ix3)
     in astIndex @m1 @n w rest1
   AstGatherZ{} ->
     error "astIndex: AstGatherZ: impossible pattern needlessly required"
@@ -307,11 +347,9 @@ astReverse (AstKonst k v) = AstKonst k v
 astReverse (AstReverse v) = AstReverse @n v
 astReverse v = AstReverse v
 
--- To limit notational noise, tnstead of simplifying the permutation
--- at most calls, we do it here. It's cheap enough.
 astTranspose :: forall n r. KnownNat n
              => Permutation -> Ast n r -> Ast n r
-astTranspose perm0 t0 = case (simplifyPermutation perm0, t0) of
+astTranspose perm0 t0 = case (perm0, t0) of
   ([], t) -> t
   (perm1, AstTranspose permT t) -> case simplifyPermutation permT of
     [] -> AstTranspose perm1 t
@@ -355,44 +393,60 @@ astGatherStep
   => ShapeInt (m + n) -> Ast (p + n) r -> (AstVarList m, AstIndex p r)
   -> Ast (m + n) r
 astGatherStep sh v (vars, ix) =
-  astGatherZOrStepOnly True sh v (vars, fmap (simplifyAstInt) ix)
+  astGatherZOrStepOnly True sh (simplifyStepNonIndex v)
+                            (vars, fmap (simplifyAstInt) ix)
 
 -- Assumption: (var ::: vars) don't not occur in v0.
+-- The v0 term is already at least one step simplified,
+-- either from full recursive simplification or from astGatherStep.
 astGatherZOrStepOnly
   :: forall m n p r.
      (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r)
   => Bool -> ShapeInt (m + n) -> Ast (p + n) r -> (AstVarList m, AstIndex p r)
   -> Ast (m + n) r
-astGatherZOrStepOnly stepOnly _sh v0 (Z, ix) =
-  astIndexZOrStepOnly stepOnly v0 ix
-astGatherZOrStepOnly _ sh@(_ :$ _) v0 (_ ::: _, ZI) = astKonstN sh v0
-astGatherZOrStepOnly stepOnly sh@(k :$ sh') v0 (var ::: vars, ix@(_ :. _)) =
-  let v3 = astIndexZOrStepOnly @p @n stepOnly v0 ix
-  in if any (flip intVarInAst v3) (var ::: vars)
-     then case v3 of
-       AstIndexZ v2 ix2 ->
-         if | any (flip intVarInAst v2) (var ::: vars) ->
-              AstGatherZ sh v0 (var ::: vars, ix)
-            | intVarInIndex var ix2 ->
-              AstGatherZ sh v2 (var ::: vars, ix2)
-            | any (flip intVarInIndex ix2) vars ->
-              astKonst k (astGatherZOrStepOnly stepOnly sh' v2 (vars, ix2))
-            | otherwise -> astKonstN sh (AstIndexZ v2 ix2)
-              -- a generalization of gatherSimplify needed to simplify more
-              -- or we could run astGather1 repeatedly, but even then we can't
-              -- get into fromList, which may simplify or complicate a term,
-              -- and sometimes is not possible without leaving a small
-              -- gather outside
-       AstGatherZ sh2 v2 (vars2, ix2) ->
-         if | any (flip intVarInAst v2) (var ::: vars) ->  -- can this happen?
-              AstGatherZ sh v0 (var ::: vars, ix)
-            | otherwise ->
-              AstGatherZ (appendShape (takeShape @m sh) sh2)
-                         v2 (appendSized (var ::: vars) vars2, ix2)
-       _ -> AstGatherZ sh v0 (var ::: vars, ix)  -- e.g., AstSum
-     else astKonstN sh v3
-astGatherZOrStepOnly _ _ _ _ =
-  error "astGatherZOrStepOnly: AstGatherZ: impossible pattern needlessly required"
+astGatherZOrStepOnly stepOnly sh0 v00 (vars0, ix0) =
+ let astIndex :: forall m' n'. (KnownNat m', KnownNat n')
+              => Ast (m' + n') r -> AstIndex m' r -> Ast n' r
+     astIndex = if stepOnly then astIndexStep else astIndexZ
+     astGather
+       :: forall m' n' p'.
+          (KnownNat m', KnownNat p', KnownNat n')
+       => ShapeInt (m' + n') -> Ast (p' + n') r
+       -> (AstVarList m', AstIndex p' r)
+       -> Ast (m' + n') r
+     astGather = if stepOnly then astGatherStep else astGatherZ
+  in case (sh0, v00, (vars0, ix0)) of
+    (_sh, v0, (Z, ix)) -> astIndex v0 ix
+    (sh@(_ :$ _), v0, (_ ::: _, ZI)) -> astKonstN sh v0
+    (sh@(k :$ sh'), v0, (var ::: vars, ix@(_ :. _))) ->
+      let v3 = astIndex @p @n v0 ix
+      in if any (flip intVarInAst v3) (var ::: vars)
+         then case v3 of
+           AstIndexZ v2 ix2 ->
+             if | any (flip intVarInAst v2) (var ::: vars) ->
+                  AstGatherZ sh v0 (var ::: vars, ix)
+                | intVarInIndex var ix2 ->
+                  AstGatherZ sh v2 (var ::: vars, ix2)
+                | any (flip intVarInIndex ix2) vars ->
+                  astKonst k (astGather sh' v2 (vars, ix2))
+                | otherwise -> astKonstN sh (AstIndexZ v2 ix2)
+                  -- a generalization of gatherSimplify needed to simplify more
+                  -- or we could run astGather1 repeatedly,
+                  -- but even then we can't
+                  -- get into fromList, which may simplify or complicate a term,
+                  -- and sometimes is not possible without leaving a small
+                  -- gather outside
+           AstGatherZ sh2 v2 (vars2, ix2) ->
+             if | any (flip intVarInAst v2) (var ::: vars) ->
+                    -- can this happen?
+                  AstGatherZ sh v0 (var ::: vars, ix)
+                | otherwise ->
+                  AstGatherZ (appendShape (takeShape @m sh) sh2)
+                             v2 (appendSized (var ::: vars) vars2, ix2)
+           _ -> AstGatherZ sh v0 (var ::: vars, ix)  -- e.g., AstSum
+         else astKonstN sh v3
+    _ ->
+      error "astGatherZOrStepOnly: impossible pattern needlessly required"
 
 {-
 -- TODO: To apply this to astGatherZ. we'd need to take the last variable
@@ -502,10 +556,11 @@ simplifyAst t = case t of
   AstAppend x y -> astAppend (simplifyAst x) (simplifyAst y)
   AstSlice i k v -> astSlice i k (simplifyAst v)
   AstReverse v -> astReverse (simplifyAst v)
-  AstTranspose perm v -> case astTranspose perm $ simplifyAst v of
-    AstTranspose perm2 v2 -> astTransposeAsGather perm2 v2
-      -- this is expensive, but the only way to guarantee full simplification
-    u -> u
+  AstTranspose perm v ->
+    case astTranspose (simplifyPermutation perm) (simplifyAst v) of
+      AstTranspose perm2 v2 -> astTransposeAsGather perm2 v2
+        -- this is expensive, but the only way to guarantee full simplification
+      u -> u
   AstReshape sh v -> case astReshape sh (simplifyAst v) of
     AstReshape sh2 v2 -> astReshapeAsGather sh2 v2
       -- this is terribly expensive, but the only way to fully simplify

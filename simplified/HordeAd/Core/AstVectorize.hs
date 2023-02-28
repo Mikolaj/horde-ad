@@ -131,7 +131,8 @@ build1V k (var, v0) =
       -- TODO: though only for some f; check and fail early;
       -- probably only f that don't change shapes or ranks at least
     AstTranspose perm v -> traceRule $
-      astTranspose (0 : map succ perm) $ build1V k (var, v)
+      astTranspose (simplifyPermutation $ 0 : map succ perm)
+                   (build1V k (var, v))
     AstReshape sh v -> traceRule $
       AstReshape (k :$ sh) $ build1V k (var, v)
     AstBuild1{} -> error "build1V: impossible case of AstBuild1"
