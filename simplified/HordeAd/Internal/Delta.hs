@@ -11,6 +11,15 @@
 -- gradients from such delta expressions is a set of vectors, because
 -- the gradient of an @R^n@ to @R@ function is an @R^n@ vector.
 --
+-- A delta expression can also be viewed as a concise representation
+-- of a linear map (which is the derivative of the objective function)
+-- and its evaluation on a given argument as an adjoint (in the algebraic
+-- sense) of the linear map applied to that argument. Since linear maps
+-- can be represented as matrices, this operation corresponds
+-- to a transposition of the matrix. However, the matrix is not constructed,
+-- but is represented and transposed preserving the sparsity
+-- of the representation.
+--
 -- The \'sparsity\' is less obvious when the domain of the function consists
 -- of multiple vectors, matrices and tensors and when the expressions themselves
 -- contain vectors, matrices and tensors. However, a single tiny delta
@@ -149,7 +158,8 @@ deriving instance (Show r, Numeric r) => Show (Delta0 r)
 -- | This is the grammar of delta-expressions at arbitrary tensor rank.
 -- The comments refer to the ordinary (forward) semantics of the terms,
 -- as given in @buildDerivative@. Evaluating the terms backwards
--- (transposing) to compute gradients provides a different semantics.
+-- (transposing the represented linear map) in order to compute gradients
+-- provides a different semantics.
 data Delta1 :: Nat -> Type -> Type where
   Zero1 :: Delta1 n r
   -- Input1  -- never used
@@ -377,6 +387,13 @@ data DeltaBinding r =
 -- The value of @vi@ at index @k@ is the partial derivative
 -- of function @f@ at @P@ with respect to its parameter of type @ai@
 -- residing at index @k@.
+--
+-- Consequently, obtaining the gradient amounts to transposing the linear map
+-- that is straightforwardly represented by a delta expression. The @eval@
+-- functions in @buildFinMaps@ below transpose a linear map and,
+-- at the same time, evalute the transposed map, producing its value
+-- when applied to afixed argument (contained in the second
+-- parameter of @buildFinMaps@).
 --
 -- Function @gradientFromDelta@ computes the four vectors described above.
 -- Requested lengths of the vectors are given in the first few arguments.
