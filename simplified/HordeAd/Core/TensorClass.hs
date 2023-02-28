@@ -424,7 +424,7 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
 -- works bottom-up, which removes the need to backtrack in the vectorization
 -- pass or repeat until a fixed point is reached.
 -- This combinator also introduces new variable names.
-astBuild1 :: (KnownNat n, Show r, Numeric r)
+astBuild1 :: (KnownNat n, Show r, Numeric r, Num (Vector r))
           => Int -> (AstInt r -> Ast n r) -> Ast (1 + n) r
 astBuild1 k f = build1Vectorize k $ funToAstI f
 

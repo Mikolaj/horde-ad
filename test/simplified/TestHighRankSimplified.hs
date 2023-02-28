@@ -387,7 +387,7 @@ testReluSimp = do
   let !t2 = simplifyAst @Float @10
             $ barRelu
             $ AstVar [1,2,2,1,2,2,2,2,2,1] (AstVarName 0)
-  (length (show t1) - length (show t2)) @?= 13578
+  (length (show t1) - length (show t2)) @?= 36918
 
 _testBarReluADVal320 :: Assertion
 _testBarReluADVal320 =

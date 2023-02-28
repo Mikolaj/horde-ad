@@ -49,13 +49,14 @@ import           GHC.TypeLits
   , type (+)
   , type (-)
   )
-import           Numeric.LinearAlgebra (Numeric)
+import           Numeric.LinearAlgebra (Numeric, Vector)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.Ast
 import HordeAd.Core.SizedIndex
 import HordeAd.Internal.SizedList
+import HordeAd.Internal.TensorOps
 
 -- * Permutation operations
 
@@ -109,8 +110,9 @@ funToAstIndex f = unsafePerformIO $ do
 
 -- This generates big terms that don't simplify well,
 -- so we keep the AstReshape form until simplification gets stuck.
-astReshapeAsGather :: forall p m r. (KnownNat p, KnownNat m, Show r, Numeric r)
-                   => ShapeInt m -> Ast p r -> Ast m r
+astReshapeAsGather
+  :: forall p m r. (KnownNat p, KnownNat m, Show r, Numeric r, Num (Vector r))
+  => ShapeInt m -> Ast p r -> Ast m r
 {-# NOINLINE astReshapeAsGather #-}
 astReshapeAsGather shOut v = unsafePerformIO $ do
   varList <- replicateM (lengthShape shOut) unsafeGetFreshAstVar
@@ -130,8 +132,9 @@ astReshapeAsGather shOut v = unsafePerformIO $ do
 -- they are small and fuse nicely in many cases. For some forms of indexing
 -- and nesting with reshape and gather they don't fuse, which is when
 -- this function is invoked.
-astTransposeAsGather :: forall n r. (KnownNat n, Show r, Numeric r)
-                     => Permutation -> Ast n r -> Ast n r
+astTransposeAsGather
+  :: forall n r. (KnownNat n, Show r, Numeric r, Num (Vector r))
+  => Permutation -> Ast n r -> Ast n r
 {-# NOINLINE astTransposeAsGather #-}
 astTransposeAsGather perm v = unsafePerformIO $ do
   let p = length perm
@@ -160,7 +163,7 @@ astTransposeAsGather perm v = unsafePerformIO $ do
 -- (many steps if guaranteed net beneficial).
 -- AstInt and AstBool terms are simplified fully.
 simplifyStepNonIndex
-  :: (Show r, Numeric r, KnownNat n)
+  :: (Show r, Numeric r, KnownNat n, Num (Vector r))
   => Ast n r -> Ast n r
 simplifyStepNonIndex t = case t of
   AstVar{} -> t
@@ -184,12 +187,16 @@ simplifyStepNonIndex t = case t of
   AstGatherZ sh v0 (_, ZI) -> astKonstN sh v0
   AstGatherZ {} -> t
 
-astIndexZ :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
-          => Ast (m + n) r -> AstIndex m r -> Ast n r
+astIndexZ
+  :: forall m n r.
+     (KnownNat m, KnownNat n, Show r, Numeric r, Num (Vector r))
+  => Ast (m + n) r -> AstIndex m r -> Ast n r
 astIndexZ = astIndexZOrStepOnly False
 
-astIndexStep :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
-             => Ast (m + n) r -> AstIndex m r -> Ast n r
+astIndexStep
+  :: forall m n r.
+     (KnownNat m, KnownNat n, Show r, Numeric r, Num (Vector r))
+  => Ast (m + n) r -> AstIndex m r -> Ast n r
 astIndexStep v ix = astIndexZOrStepOnly True (simplifyStepNonIndex v)
                                              (fmap simplifyAstInt ix)
 
@@ -201,8 +208,10 @@ astIndexStep v ix = astIndexZOrStepOnly True (simplifyStepNonIndex v)
 --
 -- The v0 term is already at least one step simplified,
 -- either from full recursive simplification or from astIndexStep.
-astIndexZOrStepOnly :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
-                    => Bool -> Ast (m + n) r -> AstIndex m r -> Ast n r
+astIndexZOrStepOnly
+  :: forall m n r.
+     (KnownNat m, KnownNat n, Show r, Numeric r, Num (Vector r))
+  => Bool -> Ast (m + n) r -> AstIndex m r -> Ast n r
 astIndexZOrStepOnly stepOnly (AstIndexZ v ix) ZI =
   astIndexZOrStepOnly stepOnly v ix  -- no non-indexing constructor yet revealed
 astIndexZOrStepOnly _ v0 ZI = v0
@@ -225,7 +234,8 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
   AstOp opCode args ->
     AstOp opCode (map (`astIndexRec` ix) args)
   AstConst{} -> AstIndexZ v0 ix
-  AstConstant (AstPrimalPart v) -> AstConstant $ AstPrimalPart $ AstIndexZ v ix
+  AstConstant (AstPrimalPart v) ->
+    AstConstant $ AstPrimalPart $ astIndexRec v ix
   AstConstInt{} ->
     error "astIndexZOrStepOnly: impossible pattern needlessly required"
   AstIndexZ v ix2 ->
@@ -276,22 +286,30 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
   AstGatherZ{} ->
     error "astIndex: AstGatherZ: impossible pattern needlessly required"
 
-astSum :: Ast (1 + n) r -> Ast n r
+astSum :: (KnownNat n, Numeric r, Num (Vector r))
+       => Ast (1 + n) r -> Ast n r
+astSum (AstConst t) = AstConst $ tsumR t
+astSum (AstConstant (AstPrimalPart v)) =
+  AstConstant $ AstPrimalPart $ astSum v
 astSum (AstReverse v) = AstSum v
 astSum v = AstSum v
 
-astFromList :: KnownNat n
+astFromList :: (KnownNat n, Numeric r)
             => [Ast n r] -> Ast (1 + n) r
 astFromList [a] = astKonst 1 a
 astFromList l = AstFromList l
 
-astFromVector :: KnownNat n
+astFromVector :: (KnownNat n, Numeric r)
               => Data.Vector.Vector (Ast n r) -> Ast (1 + n) r
 astFromVector v | V.length v == 1 = astKonst 1 (v V.! 1)
 astFromVector l = AstFromVector l
 
-astKonst :: KnownNat n => Int -> Ast n r -> Ast (1 + n) r
+astKonst :: (KnownNat n, Numeric r)
+         => Int -> Ast n r -> Ast (1 + n) r
 astKonst k = \case
+  AstConst t -> AstConst $ tkonstR k t
+  AstConstant (AstPrimalPart v) ->
+    AstConstant $ AstPrimalPart $ astKonst k v
 {- TODO: these may be counterproductive with many gathers and their fusion
          thout these let transpose cancel out with each other somethings
          (instead we should try to cancel out inside konst and only move
@@ -303,7 +321,7 @@ astKonst k = \case
 -}
   v -> AstKonst k v
 
-astKonstN :: forall n p r. (KnownNat n, KnownNat p)
+astKonstN :: forall n p r. (KnownNat n, KnownNat p, Numeric r)
           => ShapeInt (n + p) -> Ast p r -> Ast (n + p) r
 astKonstN sh =
   let go :: KnownNat n' => ShapeInt n' -> Ast p r -> Ast (n' + p) r
@@ -311,8 +329,11 @@ astKonstN sh =
       go (k :$ sh') v = astKonst k $ go sh' v
   in go (takeShape sh)
 
-astAppend :: KnownNat n
+astAppend :: (KnownNat n, Numeric r)
           => Ast (1 + n) r -> Ast (1 + n) r -> Ast (1 + n) r
+astAppend (AstConst u) (AstConst v) = AstConst $ tappendR u v
+astAppend (AstConstant (AstPrimalPart u)) (AstConstant (AstPrimalPart v)) =
+  AstConstant $ AstPrimalPart $ astAppend u v
 astAppend (AstFromList l1) (AstFromList l2) = AstFromList $ l1 ++ l2
 astAppend (AstFromList l1) (AstFromVector l2) = AstFromList $ l1 ++ V.toList l2
 astAppend (AstFromVector l1) (AstFromList l2) = AstFromList $ V.toList l1 ++ l2
@@ -321,6 +342,9 @@ astAppend u v = AstAppend u v
 
 astSlice :: forall n r. (KnownNat n, Show r, Numeric r)
          => Int -> Int -> Ast (1 + n) r -> Ast (1 + n) r
+astSlice i k (AstConst t) = AstConst $ tsliceR i k t
+astSlice i k (AstConstant (AstPrimalPart v)) =
+  AstConstant $ AstPrimalPart $ astSlice i k v
 astSlice 0 k v | k == lengthAst v = v
 astSlice i k (AstFromList l) = astFromList $ take k (drop i l)
 astSlice i k (AstFromVector l) = astFromVector $ V.take k (V.drop i l)
@@ -341,16 +365,26 @@ astSlice i k v = AstSlice i k v
 
 astReverse :: forall n r. KnownNat n
            => Ast (1 + n) r -> Ast (1 + n) r
+astReverse (AstConst t) = AstConst $ treverseR t
+astReverse (AstConstant (AstPrimalPart v)) =
+  AstConstant $ AstPrimalPart $ astReverse v
 astReverse (AstFromList l) = AstReverse @n $ AstFromList $ reverse l
 astReverse (AstFromVector l) = AstReverse @n $ AstFromVector $ V.reverse l
 astReverse (AstKonst k v) = AstKonst k v
 astReverse (AstReverse v) = AstReverse @n v
 astReverse v = AstReverse v
 
+-- Beware, this does not do full simplification, which often requires
+-- the gather form, so astTransposeAsGather needs to be called in addition
+-- if full simplification is required.
 astTranspose :: forall n r. KnownNat n
              => Permutation -> Ast n r -> Ast n r
 astTranspose perm0 t0 = case (perm0, t0) of
   ([], t) -> t
+  (perm, AstConst t) ->
+    AstConst $ ttransposeR perm t
+  (perm, AstConstant (AstPrimalPart v)) ->
+    AstConstant $ AstPrimalPart $ astTranspose perm v
   (perm1, AstTranspose permT t) -> case simplifyPermutation permT of
     [] -> AstTranspose perm1 t
     perm2 ->
@@ -369,7 +403,7 @@ astReshape :: forall p m r. (KnownNat p, KnownNat m, Show r, Numeric r)
            => ShapeInt m -> Ast p r -> Ast m r
 astReshape shOut (AstConst t) = AstConst $ OR.reshape (shapeToList shOut) t
 astReshape shOut (AstConstant (AstPrimalPart v)) =
-  AstConstant $ AstPrimalPart $ AstReshape shOut v
+  AstConstant $ AstPrimalPart $ astReshape shOut v
 astReshape shOut (AstReshape _ v) = astReshape shOut v
   -- this rule can be disabled to test fusion of gathers.
 astReshape shOut v =
@@ -382,14 +416,14 @@ astReshape shOut v =
 
 astGatherZ
   :: forall m n p r.
-     (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r)
+     (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r, Num (Vector r))
   => ShapeInt (m + n) -> Ast (p + n) r -> (AstVarList m, AstIndex p r)
   -> Ast (m + n) r
 astGatherZ = astGatherZOrStepOnly False
 
 astGatherStep
   :: forall m n p r.
-     (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r)
+     (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r, Num (Vector r))
   => ShapeInt (m + n) -> Ast (p + n) r -> (AstVarList m, AstIndex p r)
   -> Ast (m + n) r
 astGatherStep sh v (vars, ix) =
@@ -401,7 +435,7 @@ astGatherStep sh v (vars, ix) =
 -- either from full recursive simplification or from astGatherStep.
 astGatherZOrStepOnly
   :: forall m n p r.
-     (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r)
+     (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r, Num (Vector r))
   => Bool -> ShapeInt (m + n) -> Ast (p + n) r -> (AstVarList m, AstIndex p r)
   -> Ast (m + n) r
 astGatherZOrStepOnly stepOnly sh0 v00 (vars0, ix0) =
@@ -538,7 +572,7 @@ simplifyAstPrimal (AstPrimalPart t) = AstPrimalPart t
 -- is visited and each combinator applied. The most exhaustive and costly
 -- variants of each combinator are used, e.g., astIndexZ.
 simplifyAst
-  :: (Show r, Numeric r, KnownNat n)
+  :: (Show r, Numeric r, KnownNat n, Num (Vector r))
   => Ast n r -> Ast n r
 simplifyAst t = case t of
   AstVar{} -> t
@@ -573,7 +607,7 @@ simplifyAst t = case t of
 -- Integer terms need to be simplified, because they are sometimes
 -- created by vectorization and can be a deciding factor in whether
 -- dual terms can be simplified in turn.
-simplifyAstInt :: (Show r, Numeric r)
+simplifyAstInt :: (Show r, Numeric r, Num (Vector r))
                => AstInt r -> AstInt r
 simplifyAstInt t = case t of
   AstIntVar{} -> t
@@ -588,20 +622,15 @@ simplifyAstInt t = case t of
   AstMinIndex1 v -> astMinIndex1 $ simplifyAst v
   AstMaxIndex1 v -> astMaxIndex1 $ simplifyAst v
 
-simplifyAstBool :: (Show r, Numeric r)
+simplifyAstBool :: (Show r, Numeric r, Num (Vector r))
                 => AstBool r -> AstBool r
 simplifyAstBool t = case t of
   AstBoolOp opCodeBool args ->
     simplifyAstBoolOp opCodeBool (map simplifyAstBool args)
   AstBoolConst{} -> t
-  AstRel{} -> t
+  AstRel opCodeRel args -> AstRel opCodeRel (map simplifyAst args)
     -- these are primal part expressions, so never vectorized but potentially
-    -- large, so we ignore them, even if rarely they could contribute
-    -- to simplifying the dual expressions affected by vectorization
-    -- in which they are nested; if we ever notice such large expressions
-    -- that are actually *introduced* into AstRel by vectorization,
-    -- we are going to need to start simplifyign them as well
-    -- even just to try to reduce their size
+    -- large, so we simplify and ignore them
   AstRelInt opCodeRel args -> AstRelInt opCodeRel (map simplifyAstInt args)
     -- TODO: evaluate if arguments are constants
 
@@ -705,14 +734,14 @@ simplifyAstBoolOp OrOp [b, AstBoolConst False] = b
 simplifyAstBoolOp opCodeBool arg = AstBoolOp opCodeBool arg
 
 -- We have to simplify after substitution or simplifying is not idempotent.
-substituteAst :: (Show r, Numeric r, KnownNat n)
+substituteAst :: (Show r, Numeric r, KnownNat n, Num (Vector r))
               => AstInt r -> AstVarName Int -> Ast n r -> Ast n r
 substituteAst i var v1 = simplifyAst $ substitute1Ast i var v1
 
-substituteAstInt :: (Show r, Numeric r)
+substituteAstInt :: (Show r, Numeric r, Num (Vector r))
                  => AstInt r -> AstVarName Int -> AstInt r -> AstInt r
 substituteAstInt i var i2 = simplifyAstInt $ substitute1AstInt i var i2
 
-substituteAstBool :: (Show r, Numeric r)
+substituteAstBool :: (Show r, Numeric r, Num (Vector r))
                   => AstInt r -> AstVarName Int -> AstBool r -> AstBool r
 substituteAstBool i var b1 = simplifyAstBool $ substitute1AstBool i var b1

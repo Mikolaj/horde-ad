@@ -107,7 +107,7 @@ rev' f vals =
 
 assertEqualUpToEpsilon'
     :: ( AssertEqualUpToEpsilon z a, AssertEqualUpToEpsilon z b
-       , KnownNat m, Show r, Numeric r )
+       , KnownNat m, Show r, Numeric r, Num (Vector r) )
     => z  -- ^ error margin (i.e., the epsilon)
     -> a  -- ^ expected value
     -> (b, b, b, b, b, b, a, a, a, a, a, Ast m r, Ast m r)
@@ -134,7 +134,7 @@ assertEqualUpToEpsilon'
 
 assertEqualUpToEpsilonShorter
     :: ( AssertEqualUpToEpsilon z a, AssertEqualUpToEpsilon z b
-       , KnownNat m, Show r, Numeric r )
+       , KnownNat m, Show r, Numeric r, Num (Vector r) )
     => z  -- ^ error margin (i.e., the epsilon)
     -> a  -- ^ expected value
     -> (b, b, b, b, b, b, a, a, a, a, a, Ast m r, Ast m r)   -- ^ actual values

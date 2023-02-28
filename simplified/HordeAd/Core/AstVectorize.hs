@@ -17,7 +17,7 @@ import           Control.Monad (when)
 import           Data.IORef
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, type (+), type (-))
-import           Numeric.LinearAlgebra (Numeric)
+import           Numeric.LinearAlgebra (Numeric, Vector)
 import           System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import           System.IO.Unsafe (unsafePerformIO)
 
@@ -36,7 +36,7 @@ import HordeAd.Internal.SizedList
 -- constructor and not increasing (and potentially decreasing)
 -- the total number of @AstBuild1@ occuring in the term.
 build1Vectorize
-  :: (KnownNat n, Show r, Numeric r)
+  :: (KnownNat n, Show r, Numeric r, Num (Vector r))
   => Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
 build1Vectorize k (var, v0) = unsafePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
@@ -69,7 +69,7 @@ astTr = AstTranspose [1, 0]
 -- the term @AstBuild1 k (var, v)@, where it's unknown whether
 -- @var@ occurs in @v@.
 build1VOccurenceUnknown
-  :: (KnownNat n, Show r, Numeric r)
+  :: (KnownNat n, Show r, Numeric r, Num (Vector r))
   => Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
 build1VOccurenceUnknown k (var, v0) =
   let traceRule = mkTraceRule "build1VOcc" (AstBuild1 k (var, v0)) v0 1
@@ -82,7 +82,7 @@ build1VOccurenceUnknown k (var, v0) =
 -- the term @AstBuild1 k (var, v)@, where it's known that
 -- @var@ occurs in @v@.
 build1V
-  :: (KnownNat n, Show r, Numeric r)
+  :: (KnownNat n, Show r, Numeric r, Num (Vector r))
   => Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
 build1V k (var, v00) =
   let v0 = simplifyStepNonIndex v00
@@ -164,7 +164,7 @@ build1V k (var, v00) =
 -- We have to do this in lockstep so that we simplify terms only as much
 -- as needed to vectorize.
 build1VIndex
-  :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r)
+  :: forall m n r. (KnownNat m, KnownNat n, Show r, Numeric r, Num (Vector r))
   => Int -> (AstVarName Int, Ast (m + n) r, AstIndex m r)
   -> Ast (1 + n) r
 build1VIndex k (var, v0, ZI) = build1VOccurenceUnknown k (var, v0)
@@ -185,7 +185,7 @@ build1VIndex k (var, v0, ix@(_ :. _)) =
 -- in the hard case where the build variable appears in v1
 -- (in the easy case they are covered by general rules).
 build1VIndexNormalForm
-  :: forall n r. (KnownNat n, Show r, Numeric r)
+  :: forall n r. (KnownNat n, Show r, Numeric r, Num (Vector r))
   => Int -> (AstVarName Int, Ast n r, AstInt r)  -- n + 1 breaks plugins
   -> Ast n r
 build1VIndexNormalForm k (var, v1, i1) = case v1 of
