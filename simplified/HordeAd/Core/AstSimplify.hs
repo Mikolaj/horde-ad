@@ -297,6 +297,14 @@ astKonst k = \case
     AstReshape (k :$ sh) $ astKonst k v
   v -> AstKonst k v
 
+astKonstN :: forall n p r. (KnownNat n, KnownNat p)
+          => ShapeInt (n + p) -> Ast p r -> Ast (n + p) r
+astKonstN sh =
+  let go :: KnownNat n' => ShapeInt n' -> Ast p r -> Ast (n' + p) r
+      go ZS v = v
+      go (k :$ sh') v = astKonst k $ go sh' v
+  in go (takeShape sh)
+
 astAppend :: KnownNat n
           => Ast (1 + n) r -> Ast (1 + n) r -> Ast (1 + n) r
 astAppend (AstFromList l1) (AstFromList l2) = AstFromList $ l1 ++ l2
@@ -371,7 +379,7 @@ astGather1 k v0 (var, ix) =
   in if intVarInAst var v3
      then case v3 of
        AstIndexZ v2 ix2@(iN :. restN) ->
-         if | intVarInAst var v2 ->  -- can this happen?
+         if | intVarInAst var v2 ->
               AstGather1 k v0 (var, ix)
             | intVarInIndex var restN ->
               AstGather1 k v2 (var, ix2)
@@ -383,26 +391,28 @@ astGather1 k v0 (var, ix) =
                   Nothing -> AstGather1 k v2 (var, ix2)
                     -- we didn't really need it anyway
             | otherwise -> astKonst k (AstIndexZ v2 ix2)
-       _ -> AstGather1 k v0 (var, ix)  -- can this happen?
+       _ -> AstGather1 k v0 (var, ix)  -- e.g., AstSum
      else astKonst k v3
 
+-- Assumption: (var ::: vars) don't not occur in v0.
 astGatherN :: forall m n p r.
               (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r)
            => ShapeInt (m + n) -> Ast (p + n) r -> (AstVarList m, AstIndex p r)
            -> Ast (m + n) r
 astGatherN _sh v0 (Z, ix) = astIndexZ v0 ix
-astGatherN (k :$ sh') v0 (_ ::: vars, ZI) =
-  astKonst k (astGatherN sh' v0 (vars, ZI))  -- a shortcut
+astGatherN sh@(_ :$ _) v0 (_ ::: _, ZI) = astKonstN sh v0
 astGatherN sh@(k :$ sh') v0 (var ::: vars, ix@(_ :. _)) =
   let v3 = astIndexZ @p @n v0 ix
   in if any (flip intVarInAst v3) (var ::: vars)
      then case v3 of
        AstIndexZ v2 ix2 ->
-         if | any (flip intVarInAst v2) (var ::: vars) ->  -- can this happen?
+         if | any (flip intVarInAst v2) (var ::: vars) ->
               AstGatherN sh v0 (var ::: vars, ix)
             | intVarInIndex var ix2 ->
               AstGatherN sh v2 (var ::: vars, ix2)
-            | otherwise -> astKonst k (astGatherN sh' v2 (vars, ix2))
+            | any (flip intVarInIndex ix2) vars ->
+              astKonst k (astGatherN sh' v2 (vars, ix2))
+            | otherwise -> astKonstN sh (AstIndexZ v2 ix2)
               -- a generalization of gatherSimplify needed to simplify more
               -- or we could run astGather1 repeatedly, but even then we can't
               -- get into fromList, which may simplify or complicate a term,
@@ -414,8 +424,8 @@ astGatherN sh@(k :$ sh') v0 (var ::: vars, ix@(_ :. _)) =
             | otherwise ->
               AstGatherN (appendShape (takeShape @m sh) sh2)
                          v2 (appendSized (var ::: vars) vars2, ix2)
-       _ -> AstGatherN sh v0 (var ::: vars, ix)  -- can this happen?
-     else astGatherN sh v3 (var ::: vars, ZI)
+       _ -> AstGatherN sh v0 (var ::: vars, ix)  -- e.g., AstSum
+     else astKonstN sh v3
 astGatherN _ _ _ =
   error "astGatherN: AstGatherN: impossible pattern needlessly required"
 
