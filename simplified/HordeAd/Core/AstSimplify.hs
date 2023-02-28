@@ -378,15 +378,15 @@ astGather1 k v0 (var, ix) =
   let v3 = astIndexZ v0 ix
   in if intVarInAst var v3
      then case v3 of
-       AstIndexZ v2 ix2@(iN :. restN) ->
+       AstIndexZ v2 ix2@(i1 :. rest1) ->
          if | intVarInAst var v2 ->
               AstGather1 k v0 (var, ix)
-            | intVarInIndex var restN ->
+            | intVarInIndex var rest1 ->
               AstGather1 k v2 (var, ix2)
-            | intVarInAstInt var iN ->
+            | intVarInAstInt var i1 ->
                 let w :: Ast (1 + n) r
-                    w = astIndexZ v2 restN
-                in case gatherSimplify k var w iN of
+                    w = astIndexZ v2 rest1
+                in case gatherSimplify k var w i1 of
                   Just u -> u  -- an extremely simple form found
                   Nothing -> AstGather1 k v2 (var, ix2)
                     -- we didn't really need it anyway
@@ -429,19 +429,16 @@ astGatherN sh@(k :$ sh') v0 (var ::: vars, ix@(_ :. _)) =
 astGatherN _ _ _ =
   error "astGatherN: AstGatherN: impossible pattern needlessly required"
 
--- TODO: we probably need to simplify iN to some normal form, but possibly
--- this would be even better to do and take advantage of earlier,
--- perhaps even avoiding pushing all the other indexing down
--- | The application @gatherSimplify k var v iN@ vectorizes and simplifies
--- the term @AstBuild1 k (var, AstIndexZ v [iN])@, where it's known that
--- @var@ does not occur in @v@ but occurs in @iN@. This is done by pattern
--- matching on @iN@ as opposed to on @v@.
+-- | The application @gatherSimplify k var v i1@ vectorizes and simplifies
+-- the term @AstBuild1 k (var, AstIndexZ v [i1])@, where it's known that
+-- @var@ does not occur in @v@ but occurs in @i1@. This is done by pattern
+-- matching on @i1@ as opposed to on @v@.
 gatherSimplify
   :: (KnownNat n, Show r, Numeric r)
   => Int -> AstVarName Int -> Ast (1 + n) r -> AstInt r
   -> Maybe (Ast (1 + n) r)
-gatherSimplify k var v0 iN =
-  case iN of
+gatherSimplify k var v0 i1 =
+  case i1 of
     AstIntVar var2 | var2 == var ->
       Just $ astSliceLax 0 k v0
     AstIntOp PlusIntOp [AstIntVar var2, AstIntConst i2]
