@@ -312,7 +312,9 @@ astFromVector l = AstFromVector l
 astKonst :: (KnownNat n, Numeric r)
          => Int -> Ast n r -> Ast (1 + n) r
 astKonst k = \case
-  AstConst t -> AstConst $ tkonstR k t
+-- This allocates a big tensor too early, while it's still possible
+-- a projection reduces this away. The cost to AD should not be too high.
+--  AstConst t -> AstConst $ tkonstR k t
   AstConstant (AstPrimalPart v) ->
     astConstant $ AstPrimalPart $ astKonst k v
 {- TODO: these may be counterproductive with many gathers and their fusion
