@@ -53,7 +53,7 @@ extra-doc-files:    README.md,
 -- Extra source files to be distributed with the package, such as examples, or a tutorial module.
 -- extra-source-files:
 
-tested-with:        GHC ==9.4.4
+tested-with:        GHC ==9.2.7 || ==9.4.4
 
 bug-reports:        https://github.com/Mikolaj/horde-ad/issues
 
