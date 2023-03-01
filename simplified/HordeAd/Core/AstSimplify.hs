@@ -169,8 +169,7 @@ simplifyStepNonIndex t = case t of
   AstVar{} -> t
   AstOp{} -> t
   AstConst{} -> t
-  AstConstant (AstPrimalPart v) ->
-    AstConstant $ AstPrimalPart $ simplifyStepNonIndex v
+  AstConstant v -> astConstant v
   AstConstInt i -> AstConstInt $ simplifyAstInt i
   AstIndexZ{} -> t
   AstSum v -> astSum v
@@ -235,7 +234,7 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
     AstOp opCode (map (`astIndexRec` ix) args)
   AstConst{} -> AstIndexZ v0 ix
   AstConstant (AstPrimalPart v) ->
-    AstConstant $ AstPrimalPart $ astIndexRec v ix
+    astConstant $ AstPrimalPart $ astIndexRec v ix
   AstConstInt{} ->
     error "astIndexZOrStepOnly: impossible pattern needlessly required"
   AstIndexZ v ix2 ->
@@ -275,7 +274,7 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
     astIndex (astTransposeAsGather perm v) ix
   AstReshape sh v ->
     astIndex (astReshapeAsGather sh v) ix
-  AstBuild1 _n2 (var2, v) ->  -- only possible tests
+  AstBuild1 _n2 (var2, v) ->  -- only possible under AstConstant
     astIndex (substituteAst i1 var2 v) rest1
   AstGatherZ _sh v (Z, ix2) -> astIndex v (appendIndex ix2 ix)
   AstGatherZ (_ :$ sh') v (var2 ::: vars, ix2) ->
@@ -286,11 +285,17 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
   AstGatherZ{} ->
     error "astIndex: AstGatherZ: impossible pattern needlessly required"
 
+astConstant :: AstPrimalPart n r -> Ast n r
+astConstant (AstPrimalPart (AstConst t)) = AstConst t
+astConstant (AstPrimalPart (AstConstant t)) = astConstant t
+astConstant (AstPrimalPart (AstConstInt t)) = AstConstInt t
+astConstant v = AstConstant v
+
 astSum :: (KnownNat n, Numeric r, Num (Vector r))
        => Ast (1 + n) r -> Ast n r
 astSum (AstConst t) = AstConst $ tsumR t
 astSum (AstConstant (AstPrimalPart v)) =
-  AstConstant $ AstPrimalPart $ astSum v
+  astConstant $ AstPrimalPart $ astSum v
 astSum (AstReverse v) = AstSum v
 astSum v = AstSum v
 
@@ -309,9 +314,9 @@ astKonst :: (KnownNat n, Numeric r)
 astKonst k = \case
   AstConst t -> AstConst $ tkonstR k t
   AstConstant (AstPrimalPart v) ->
-    AstConstant $ AstPrimalPart $ astKonst k v
+    astConstant $ AstPrimalPart $ astKonst k v
 {- TODO: these may be counterproductive with many gathers and their fusion
-         thout these let transpose cancel out with each other somethings
+         though these let transpose cancel out with each other sometimes
          (instead we should try to cancel out inside konst and only move
           if they don't)
   AstTranspose perm v ->
@@ -333,18 +338,18 @@ astAppend :: (KnownNat n, Numeric r)
           => Ast (1 + n) r -> Ast (1 + n) r -> Ast (1 + n) r
 astAppend (AstConst u) (AstConst v) = AstConst $ tappendR u v
 astAppend (AstConstant (AstPrimalPart u)) (AstConstant (AstPrimalPart v)) =
-  AstConstant $ AstPrimalPart $ astAppend u v
-astAppend (AstFromList l1) (AstFromList l2) = AstFromList $ l1 ++ l2
-astAppend (AstFromList l1) (AstFromVector l2) = AstFromList $ l1 ++ V.toList l2
-astAppend (AstFromVector l1) (AstFromList l2) = AstFromList $ V.toList l1 ++ l2
-astAppend (AstFromVector l1) (AstFromVector l2) = AstFromVector $ l1 V.++ l2
+  astConstant $ AstPrimalPart $ astAppend u v
+astAppend (AstFromList l1) (AstFromList l2) = astFromList $ l1 ++ l2
+astAppend (AstFromList l1) (AstFromVector l2) = astFromList $ l1 ++ V.toList l2
+astAppend (AstFromVector l1) (AstFromList l2) = astFromList $ V.toList l1 ++ l2
+astAppend (AstFromVector l1) (AstFromVector l2) = astFromVector $ l1 V.++ l2
 astAppend u v = AstAppend u v
 
 astSlice :: forall n r. (KnownNat n, Show r, Numeric r)
          => Int -> Int -> Ast (1 + n) r -> Ast (1 + n) r
 astSlice i k (AstConst t) = AstConst $ tsliceR i k t
 astSlice i k (AstConstant (AstPrimalPart v)) =
-  AstConstant $ AstPrimalPart $ astSlice i k v
+  astConstant $ AstPrimalPart $ astSlice i k v
 astSlice 0 k v | k == lengthAst v = v
 astSlice i k (AstFromList l) = astFromList $ take k (drop i l)
 astSlice i k (AstFromVector l) = astFromVector $ V.take k (V.drop i l)
@@ -367,11 +372,11 @@ astReverse :: forall n r. KnownNat n
            => Ast (1 + n) r -> Ast (1 + n) r
 astReverse (AstConst t) = AstConst $ treverseR t
 astReverse (AstConstant (AstPrimalPart v)) =
-  AstConstant $ AstPrimalPart $ astReverse v
-astReverse (AstFromList l) = AstReverse @n $ AstFromList $ reverse l
-astReverse (AstFromVector l) = AstReverse @n $ AstFromVector $ V.reverse l
+  astConstant $ AstPrimalPart $ astReverse v
+astReverse (AstFromList l) = AstFromList $ reverse l
+astReverse (AstFromVector l) = AstFromVector $ V.reverse l
 astReverse (AstKonst k v) = AstKonst k v
-astReverse (AstReverse v) = AstReverse @n v
+astReverse (AstReverse v) = v
 astReverse v = AstReverse v
 
 -- Beware, this does not do full simplification, which often requires
@@ -384,16 +389,14 @@ astTranspose perm0 t0 = case (perm0, t0) of
   (perm, AstConst t) ->
     AstConst $ ttransposeR perm t
   (perm, AstConstant (AstPrimalPart v)) ->
-    AstConstant $ AstPrimalPart $ astTranspose perm v
-  (perm1, AstTranspose permT t) -> case simplifyPermutation permT of
-    [] -> AstTranspose perm1 t
-    perm2 ->
-      let perm2Matched =
-            perm2
-            ++ take (length perm1 - length perm2) (drop (length perm2) [0 ..])
-          perm = permutePrefixList perm1 perm2Matched
-      in astTranspose perm t
-        -- this rule can be disabled to test fusion of gathers.
+    astConstant $ AstPrimalPart $ astTranspose perm v
+  (perm1, AstTranspose perm2 t) ->
+    let perm2Matched =
+          perm2
+          ++ take (length perm1 - length perm2) (drop (length perm2) [0 ..])
+        perm = simplifyPermutation $ permutePrefixList perm1 perm2Matched
+    in astTranspose perm t
+      -- this rule can be disabled to test fusion of gathers.
   (perm, u) -> AstTranspose perm u
 
 -- Beware, this does not do full simplification, which often requires
@@ -403,7 +406,7 @@ astReshape :: forall p m r. (KnownNat p, KnownNat m, Show r, Numeric r)
            => ShapeInt m -> Ast p r -> Ast m r
 astReshape shOut (AstConst t) = AstConst $ OR.reshape (shapeToList shOut) t
 astReshape shOut (AstConstant (AstPrimalPart v)) =
-  AstConstant $ AstPrimalPart $ astReshape shOut v
+  astConstant $ AstPrimalPart $ astReshape shOut v
 astReshape shOut (AstReshape _ v) = astReshape shOut v
   -- this rule can be disabled to test fusion of gathers.
 astReshape shOut v =
@@ -562,11 +565,10 @@ astMaxIndex1 = AstMaxIndex1
 
 -- * The simplifying bottom-up pass
 
--- The constant, primal-part only terms are not vectorized, never
--- introduced by vectorization (let's keep checking it's true)
--- and so don't need to be simplified.
-simplifyAstPrimal :: AstPrimalPart n r -> AstPrimalPart n r
-simplifyAstPrimal (AstPrimalPart t) = AstPrimalPart t
+simplifyAstPrimal
+  :: (Show r, Numeric r, KnownNat n, Num (Vector r))
+  => AstPrimalPart n r -> AstPrimalPart n r
+simplifyAstPrimal (AstPrimalPart t) = AstPrimalPart $ simplifyAst t
 
 -- This function guarantees full simplification: every redex
 -- is visited and each combinator applied. The most exhaustive and costly
@@ -580,7 +582,7 @@ simplifyAst t = case t of
     -- We do not simplify, e.g., addition or multiplication by zero.
     -- There are too many cases and values are often unknown.
   AstConst{} -> t
-  AstConstant a -> AstConstant $ simplifyAstPrimal a
+  AstConstant v -> astConstant (simplifyAstPrimal v)
   AstConstInt i -> AstConstInt $ simplifyAstInt i
   AstIndexZ v ix -> astIndexZ (simplifyAst v) (fmap (simplifyAstInt) ix)
   AstSum v -> astSum (simplifyAst v)
@@ -594,13 +596,13 @@ simplifyAst t = case t of
     case astTranspose (simplifyPermutation perm) (simplifyAst v) of
       AstTranspose perm2 v2 -> astTransposeAsGather perm2 v2
         -- this is expensive, but the only way to guarantee full simplification
-      u -> u
+      u -> simplifyAst u
   AstReshape sh v -> case astReshape sh (simplifyAst v) of
     AstReshape sh2 v2 -> astReshapeAsGather sh2 v2
       -- this is terribly expensive, but the only way to fully simplify
-    u -> u
+    u -> simplifyAst u
   AstBuild1 k (var, v) -> AstBuild1 k (var, simplifyAst v)
-    -- should never appear outside test runs, but let's test the inside, too
+    -- only possible under AstConstant
   AstGatherZ sh v (vars, ix) ->
     astGatherZ sh (simplifyAst v) (vars, fmap (simplifyAstInt) ix)
 
