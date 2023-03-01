@@ -380,14 +380,14 @@ barRelu10xSlower x = let t = tmap0N (* 0.001) x
 testReluSimp :: Assertion
 testReluSimp = do
   resetVarCOunter
-  let !t1 = simplifyAst @Float @10
-            $ barRelu10xSlower
+  let !t1 = barRelu10xSlower
             $ AstVar [1,2,2,1,2,2,2,2,2,1] (AstVarName 0)
   resetVarCOunter
-  let !t2 = simplifyAst @Float @10
-            $ barRelu
+  let !t2 = barRelu
             $ AstVar [1,2,2,1,2,2,2,2,2,1] (AstVarName 0)
-  (length (show t1) - length (show t2)) @?= 3888
+  (length (show t1) - length (show t2)) @?= 50646
+  (length (show (simplifyAst @Float @10 t1))
+   - length (show (simplifyAst @Float @10 t2))) @?= 3888
 
 _testBarReluADVal320 :: Assertion
 _testBarReluADVal320 =
