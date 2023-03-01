@@ -115,20 +115,20 @@ build1V k (var, v00) =
       -- and then some things simplify a lot, e.g., if constant index,
       -- we may just pick the right element of a AstFromList
     AstSum v -> traceRule $
-      AstSum $ astTr $ build1V k (var, v)
+      astSum $ astTr $ build1V k (var, v)
     AstFromList l -> traceRule $
-      astTr $ AstFromList (map (\v -> build1VOccurenceUnknown k (var, v)) l)
+      astTr $ astFromList (map (\v -> build1VOccurenceUnknown k (var, v)) l)
     AstFromVector l -> traceRule $
-      astTr $ AstFromVector (V.map (\v -> build1VOccurenceUnknown k (var, v)) l)
+      astTr $ astFromVector (V.map (\v -> build1VOccurenceUnknown k (var, v)) l)
     AstKonst s v -> traceRule $
       astTr $ astKonst s $ build1V k (var, v)
     AstAppend v w -> traceRule $
-      astTr $ AstAppend (astTr $ build1VOccurenceUnknown k (var, v))
+      astTr $ astAppend (astTr $ build1VOccurenceUnknown k (var, v))
                         (astTr $ build1VOccurenceUnknown k (var, w))
     AstSlice i s v -> traceRule $
-      astTr $ AstSlice i s $ astTr $ build1V k (var, v)
+      astTr $ astSlice i s $ astTr $ build1V k (var, v)
     AstReverse v -> traceRule $
-      astTr $ AstReverse $ astTr $ build1V k (var, v)
+      astTr $ astReverse $ astTr $ build1V k (var, v)
       -- that's because @build1 k (f . g) == map1 f (build1 k g)@
       -- and @map1 f == transpose . f . transpose@
       -- TODO: though only for some f; check and fail early;
@@ -137,7 +137,7 @@ build1V k (var, v00) =
       astTranspose (simplifyPermutation $ 0 : map succ perm)
                    (build1V k (var, v))
     AstReshape sh v -> traceRule $
-      AstReshape (k :$ sh) $ build1V k (var, v)
+      astReshape (k :$ sh) $ build1V k (var, v)
     AstBuild1{} -> error "build1V: impossible case of AstBuild1"
       -- AstScatter (var2, ix2) v sh -> ...
       -- no idea how to vectorize AstScatter, so let's not add prematurely
