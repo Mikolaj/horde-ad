@@ -14,7 +14,7 @@ module HordeAd.Core.SizedIndex
   , headIndex, tailIndex, takeIndex, dropIndex, splitAt_Index, splitAtInt_Index
   , unsnocIndex1, lastIndex, initIndex, zipIndex, zipWith_Index
   , permutePrefixIndex
-  , listToIndex, indexToList
+  , listToIndex, indexToList, indexToSizedList
     -- * Tensor shapes as fully encapsulated sized lists, with operations
   , Shape, pattern (:$), pattern ZS
   , singletonShape, appendShape, tailShape, takeShape, dropShape
@@ -138,17 +138,11 @@ lastIndex (Index ix) = lastSized ix
 initIndex :: Index (1 + n) i -> Index n i
 initIndex (Index ix) = Index $ initSized ix
 
-zipIndex :: KnownNat n => Index n i -> Index n j -> Index n (i, j)
-zipIndex ZI ZI = ZI
-zipIndex (i :. irest) (j :. jrest) = (i, j) :. zipIndex irest jrest
-zipIndex _ _ = error "zipIndex: impossible pattern needlessly required"
+zipIndex :: Index n i -> Index n j -> Index n (i, j)
+zipIndex (Index l1) (Index l2) = Index $ zipSized l1 l2
 
-zipWith_Index :: KnownNat n
-              => (i -> j -> k) -> Index n i -> Index n j -> Index n k
-zipWith_Index _ ZI ZI = ZI
-zipWith_Index f (i :. irest) (j :. jrest) = f i j :. zipWith_Index f irest jrest
-zipWith_Index _ _ _ =
-  error "zipWith_Index: impossible pattern needlessly required"
+zipWith_Index :: (i -> j -> k) -> Index n i -> Index n j -> Index n k
+zipWith_Index f (Index l1) (Index l2) = Index $ zipWith_Sized f l1 l2
 
 -- Inverse permutation of indexes corresponds to normal permutation
 -- of the shape of the projected tensor.
@@ -162,6 +156,8 @@ listToIndex = Index . listToSized
 indexToList :: Index n i -> [i]
 indexToList (Index l) = sizedListToList l
 
+indexToSizedList :: Index n i -> SizedList n i
+indexToSizedList (Index l) = l
 
 -- * Tensor shapes as fully encapsulated sized lists, with operations
 

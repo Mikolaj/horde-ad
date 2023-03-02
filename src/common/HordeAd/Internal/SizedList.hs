@@ -8,9 +8,9 @@
 module HordeAd.Internal.SizedList
   ( SizedList(..)
   , singletonSized, snocSized, appendSized
-  , headSized, tailSized, takeSized, dropSized
+  , headSized, tailSized, takeSized, dropSized, splitAt_Sized
   , permutePrefixSized, backPermutePrefixSized, permutePrefixList
-  , unsnocSized1, lastSized, initSized, reverseSized
+  , unsnocSized1, lastSized, initSized, zipSized, zipWith_Sized, reverseSized
   , sizedListCompare, listToSized, sizedListToList
   , Permutation
   ) where
@@ -93,6 +93,10 @@ dropSized :: forall len n i. (KnownNat len, KnownNat n)
           => SizedList (len + n) i -> SizedList n i
 dropSized ix = listToSized $ drop (valueOf @len) $ sizedListToList ix
 
+splitAt_Sized :: (KnownNat m, KnownNat n)
+              => SizedList (m + n) i -> (SizedList m i, SizedList n i)
+splitAt_Sized ix = (takeSized ix, dropSized ix)
+
 unsnocSized1 :: SizedList (1 + n) i -> (SizedList n i, i)
 unsnocSized1 Z = error "unsnocSized1: impossible pattern needlessly required"
 unsnocSized1 (i ::: ix) = case ix of
@@ -109,6 +113,19 @@ initSized :: SizedList (1 + n) i -> SizedList n i
 initSized Z = error "initSized: impossible pattern needlessly required"
 initSized (_i ::: Z) = Z
 initSized (i ::: ix@(_ ::: _)) = i ::: initSized ix
+
+zipSized :: SizedList n i -> SizedList n j -> SizedList n (i, j)
+zipSized Z Z = Z
+zipSized (i ::: irest) (j ::: jrest) = (i, j) ::: zipSized irest jrest
+zipSized _ _ = error "zipSized: impossible pattern needlessly required"
+
+zipWith_Sized :: (i -> j -> k) -> SizedList n i -> SizedList n j
+              -> SizedList n k
+zipWith_Sized _ Z Z = Z
+zipWith_Sized f (i ::: irest) (j ::: jrest) =
+  f i j ::: zipWith_Sized f irest jrest
+zipWith_Sized _ _ _ =
+  error "zipWith_Sized: impossible pattern needlessly required"
 
 reverseSized :: KnownNat n => SizedList n i -> SizedList n i
 reverseSized l = go l Z
