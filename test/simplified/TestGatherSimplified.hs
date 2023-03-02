@@ -100,7 +100,8 @@ testGatherSimp1 = do
   let !t1 = gatherNested1 $ AstVar [7, 2] (AstVarName 0)
   resetVarCOunter
   let !t2 = gather1 $ AstVar [7, 2] (AstVarName 0)
-  (length (show t1) - length (show t2)) @?= 45
+  length (show t1) @?= 156
+  length (show t2) @?= 111
   length (show (simplifyAst @Float t1))
     @?= length (show (simplifyAst @Float t2))
 
@@ -164,7 +165,8 @@ testGatherSimp2 = do
   let !t1 = gatherNested2 $ AstVar [7, 2] (AstVarName 0)
   resetVarCOunter
   let !t2 = gather2 $ AstVar [7, 2] (AstVarName 0)
-  (length (show t1) - length (show t2)) @?= 89
+  length (show t1) @?= 279
+  length (show t2) @?= 190
   length (show (simplifyAst @Float t1))
     @?= length (show (simplifyAst @Float t2))
 
@@ -230,7 +232,8 @@ testGatherSimp12 = do
   let !t1 = gatherNested12 $ AstVar [7, 2] (AstVarName 0)
   resetVarCOunter
   let !t2 = gather12 $ AstVar [7, 2] (AstVarName 0)
-  (length (show t1) - length (show t2)) @?= 67
+  length (show t1) @?= 257
+  length (show t2) @?= 190
   length (show (simplifyAst @Float t1))
     @?= length (show (simplifyAst @Float t2))
 
@@ -269,9 +272,10 @@ testGatherSimp22 = do
   resetVarCOunter
   let !t2 = treshape @(Ast 0 Float) @2 @2 [2, 6]
             $ AstVar [6, 2] (AstVarName 0)
-  (length (show t1) - length (show t2)) @?= 93
-  (length (show (simplifyAst @Float t1))
-   - length (show (simplifyAst @Float t2))) @?= 8200
+  length (show t1) @?= 129
+  length (show t2) @?= 36
+  length (show (simplifyAst @Float t1)) @?= 8535
+  length (show (simplifyAst @Float t2)) @?= 335
 
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
@@ -333,6 +337,7 @@ testGatherSimp33 = do
   let !t2 = (\t -> tmatmul2 (treshape [6, 8] (tconst t48))
                             (treshape @(Ast 0 Float) @10 [8, 16] t))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)
-  (length (show t1) - length (show t2)) @?= 4709
-  (length (show (simplifyAst @Float t1))
-   - length (show (simplifyAst @Float t2))) @?= 4709
+  length (show t1) @?= 6357
+  length (show t2) @?= 1640
+  length (show (simplifyAst @Float t1)) @?= 6383
+  length (show (simplifyAst @Float t2)) @?= 1666
