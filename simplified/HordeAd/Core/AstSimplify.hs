@@ -455,6 +455,9 @@ astGatherZOrStepOnly stepOnly sh0 v00 (vars0, ix0) =
        -> Ast (m' + n') r
      astGather = if stepOnly then astGatherStep else astGatherZ
   in case (sh0, v00, (vars0, ix0)) of
+    _ | any (flip intVarInAst v00) vars0 ->
+      error $ "astGatherZOrStepOnly: gather vars in v0: "
+              ++ show (vars0, v00)
     (_sh, v0, (Z, ix)) -> astIndex v0 ix
     (sh@(_ :$ _), v0, (_ ::: _, ZI)) -> astKonstN sh v0
     (sh@(k :$ sh'), v0, (var ::: vars, ix@(_ :. _))) ->

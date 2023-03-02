@@ -416,8 +416,9 @@ intVarInAst var = \case
   AstReverse v -> intVarInAst var v
   AstTranspose _ v -> intVarInAst var v
   AstReshape _ v -> intVarInAst var v
-  AstBuild1 _ (_, v) -> intVarInAst var v
-  AstGatherZ _ v (_, ix) -> intVarInIndex var ix || intVarInAst var v
+  AstBuild1 _ (var2, v) -> var /= var2 && intVarInAst var v
+  AstGatherZ _ v (vars, ix) -> all (var /=) vars && intVarInIndex var ix
+                               || intVarInAst var v
 
 intVarInAstInt :: AstVarName Int -> AstInt r -> Bool
 intVarInAstInt var = \case
@@ -464,10 +465,14 @@ substitute1Ast i var v1 = case v1 of
   AstTranspose perm v -> AstTranspose perm (substitute1Ast i var v)
   AstReshape sh v -> AstReshape sh (substitute1Ast i var v)
   AstBuild1 k (var2, v) ->
-    AstBuild1 k (var2, substitute1Ast i var v)
+    if var == var2
+    then v1
+    else AstBuild1 k (var2, substitute1Ast i var v)
   AstGatherZ sh v (vars, is) ->
-    AstGatherZ sh (substitute1Ast i var v)
-                  (vars, fmap (substitute1AstInt i var) is)
+    if any (== var) vars
+    then v1
+    else AstGatherZ sh (substitute1Ast i var v)
+                       (vars, fmap (substitute1AstInt i var) is)
 
 substitute1AstInt :: (Show r, Numeric r)
                   => AstInt r -> AstVarName Int -> AstInt r -> AstInt r
