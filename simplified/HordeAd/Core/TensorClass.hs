@@ -399,7 +399,7 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
 
   tindex = AstIndexZ
   tsum = AstSum
-  tfromIndex0 = AstConstInt
+  tfromIndex0 = AstConstant . AstPrimalPart . AstConstInt
     -- toInteger is not defined for Ast, hence a special implementation
 
   tfromList = AstFromList
@@ -594,7 +594,7 @@ instance HasPrimal (Ast 0 r) where
   type ScalarOf (Ast 0 r) = r
   type Primal (Ast 0 r) = AstPrimalPart 0 r
   type DualOf n (Ast 0 r) = ()  -- TODO: data AstDualPart: dScale, dAdd, dkonst1
-  tconst = AstConst
+  tconst = AstConstant . AstPrimalPart . AstConst
   tconstant = AstConstant
   tprimalPart = AstPrimalPart
   tdualPart = error "TODO"

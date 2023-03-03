@@ -101,12 +101,26 @@ build1V k (var, v00) =
       error "build1V: AstConst can't have free int variables"
     AstConstant{} -> traceRule $
       AstConstant $ AstPrimalPart bv
-      -- this is very fast when interpreted in a smart way, but constant
-      -- character needs to be exposed for nested cases;
-      -- TODO: similarly propagate AstConstant upwards elsewhere
+      -- This is very fast when interpreted in a smart way, but constant
+      -- character needs to be exposed for nested cases.
+      -- We don't vectorize under AstConstant, because vectorizing AstConstInt
+      -- is laborious. The bad consequence is that the AstBuild1 terms
+      -- prevent fusion of the terms they contain with the terms outside.
+      -- Fortunately this can't gridlock occurences of integer variables,
+      -- because they are all bound by AstBuild1 terms either inside
+      -- AstConstant, in which case the enclosing AstBuild1 prevents
+      -- the variable from being free in the non-constant term,
+      -- or outside, in which case vectorization makes sure to eliminate
+      -- the variable or bind it with AstGatherZ. The latter case is
+      -- why we have to enter AstConstant during vectorization
+      -- and simplify enough to reach the integer variables.
 
     AstConstInt{} -> traceRule $
-      AstConstant $ AstPrimalPart bv
+      bv  -- vectorizing this would require mapping all AstInt operations
+          -- to Ast operations, including RemIntOp, AstIntCond, etc.,
+          -- so this is a big effort for a minor feature and handling recursive
+          -- cases like AstMinIndex1, where integer variables can appear
+          -- inside Ast term, may even be impossible in the current system
 
     AstIndexZ v is -> traceRule $
       build1VIndex k (var, v, is)

@@ -29,7 +29,7 @@ module HordeAd.Core.AstSimplify
 
 import Prelude
 
-import           Control.Monad (replicateM)
+import           Control.Monad (mapM, replicateM)
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed
@@ -297,9 +297,7 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
     error "astIndex: AstGatherZ: impossible pattern needlessly required"
 
 astConstant :: AstPrimalPart n r -> Ast n r
-astConstant (AstPrimalPart (AstConst t)) = AstConst t
 astConstant (AstPrimalPart (AstConstant t)) = astConstant t
-astConstant (AstPrimalPart (AstConstInt t)) = AstConstInt t
 astConstant v = AstConstant v
 
 astSum :: (KnownNat n, Numeric r, Num (Vector r))
@@ -313,12 +311,22 @@ astSum v = AstSum v
 astFromList :: (KnownNat n, Numeric r)
             => [Ast n r] -> Ast (1 + n) r
 astFromList [a] = astKonst 1 a
-astFromList l = AstFromList l
+astFromList l =
+  let unConstant (AstConstant (AstPrimalPart t)) = Just t
+      unConstant _ = Nothing
+  in case mapM unConstant l of
+    Just l2 -> astConstant $ AstPrimalPart $ astFromList l2
+    Nothing -> AstFromList l
 
 astFromVector :: (KnownNat n, Numeric r)
               => Data.Vector.Vector (Ast n r) -> Ast (1 + n) r
 astFromVector v | V.length v == 1 = astKonst 1 (v V.! 1)
-astFromVector l = AstFromVector l
+astFromVector l =
+  let unConstant (AstConstant (AstPrimalPart t)) = Just t
+      unConstant _ = Nothing
+  in case V.mapM unConstant l of
+    Just l2 -> astConstant $ AstPrimalPart $ astFromVector l2
+    Nothing -> AstFromVector l
 
 astKonst :: (KnownNat n, Numeric r)
          => Int -> Ast n r -> Ast (1 + n) r
