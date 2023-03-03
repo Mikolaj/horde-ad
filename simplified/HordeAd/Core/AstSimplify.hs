@@ -72,6 +72,11 @@ permCycle 0 = []
 permCycle 1 = []
 permCycle n = [k `mod` n | k <- [1 .. n]]
 
+permBackCycle :: Int -> Permutation
+permBackCycle 0 = []
+permBackCycle 1 = []
+permBackCycle n = [k `mod` n | k <- [-1, 0 .. n - 2]]
+
 
 -- * Generating variables names
 
@@ -247,11 +252,15 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
     in astSum $ astIndexRec (astTranspose perm3 v) ix
   AstFromList l | AstIntConst i <- i1 ->
     astIndex (l !! i) rest1
+  AstFromList{} | ZI <- rest1 ->  -- normal form
+    AstIndexZ v0 ix
   AstFromList l ->
     AstIndexZ (astFromList $ map (`astIndexRec` rest1) l)
               (singletonIndex i1)
   AstFromVector l | AstIntConst i <- i1 ->
     astIndex (l V.! i) rest1
+  AstFromVector{} | ZI <- rest1 ->  -- normal form
+    AstIndexZ v0 ix
   AstFromVector l ->
     AstIndexZ (astFromVector $ V.map (`astIndexRec` rest1) l)
               (singletonIndex i1)
@@ -264,20 +273,19 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
       AstBoolConst b -> if b then astIndex v ix else astIndex w ix2
       bExpr -> astCond bExpr (astIndexRec v ix) (astIndexRec w ix2)
   AstSlice i _k v ->
-    astIndex v (simplifyAstInt (AstIntOp PlusIntOp [i1, AstIntConst i])
-                 :. rest1)
+    let ii = simplifyAstInt (AstIntOp PlusIntOp [i1, AstIntConst i])
+    in astIndex v (ii :. rest1)
   AstReverse v ->
-    let revIs = simplifyAstInt (AstIntOp MinusIntOp
+    let iRev = simplifyAstInt (AstIntOp MinusIntOp
                                          [AstIntConst (lengthAst v - 1), i1])
-                :. rest1
-    in astIndex v revIs
+    in astIndex v (iRev :. rest1)
   AstTranspose perm v | valueOf @m >= length perm ->
     astIndex v (permutePrefixIndex perm ix)
   AstTranspose perm v ->
     astIndex (astTransposeAsGather perm v) ix
   AstReshape sh v ->
     astIndex (astReshapeAsGather sh v) ix
-  AstBuild1 _n2 (var2, v) ->  -- only possible under AstConstant
+  AstBuild1 _n2 (var2, v) ->
     astIndex (substituteAst i1 var2 v) rest1
   AstGatherZ _sh v (Z, ix2) -> astIndex v (appendIndex ix2 ix)
   AstGatherZ (_ :$ sh') v (var2 ::: vars, ix2) ->
@@ -402,6 +410,9 @@ astTranspose perm0 t0 = case (perm0, t0) of
         perm = simplifyPermutation $ permutePrefixList perm1 perm2Matched
     in astTranspose perm t
       -- this rule can be disabled to test fusion of gathers.
+  (perm1, AstGatherZ @m sh v (vars, ix)) | length perm1 <= valueOf @m ->
+    AstGatherZ (permutePrefixShape perm1 sh) v
+               (permutePrefixSized perm1 vars, ix)
   (perm, u) -> AstTranspose perm u
 
 -- Beware, this does not do full simplification, which often requires
@@ -447,70 +458,105 @@ astGatherZOrStepOnly
   => Bool -> ShapeInt (m + n) -> Ast (p + n) r -> (AstVarList m, AstIndex p r)
   -> Ast (m + n) r
 astGatherZOrStepOnly stepOnly sh0 v00 (vars0, ix0) =
-  let astIndex :: forall m' n'. (KnownNat m', KnownNat n')
-               => Ast (m' + n') r -> AstIndex m' r -> Ast n' r
-      astIndex = if stepOnly then astIndexStep else astIndexZ
-      astGather
-        :: forall m' n' p'.
-           (KnownNat m', KnownNat p', KnownNat n')
-        => ShapeInt (m' + n') -> Ast (p' + n') r
-        -> (AstVarList m', AstIndex p' r)
-        -> Ast (m' + n') r
-      astGather = if stepOnly then astGatherStep else astGatherZ
-  in case (sh0, v00, (vars0, ix0)) of
+  case (sh0, v00, (vars0, ix0)) of
     _ | any (flip intVarInAst v00) vars0 ->
       error $ "astGatherZOrStepOnly: gather vars in v0: "
               ++ show (vars0, v00)
-    (_sh, v0, (Z, ix)) -> astIndex v0 ix
-    (sh@(_ :$ _), v0, (_ ::: _, ZI)) -> astKonstN sh v0
-    (sh@(k :$ sh'), v0, (var ::: vars, ix@(_ :. _))) ->
-{-
-      if | intVarInIndex var ix ->
-           astGatherCase sh v0 (var ::: vars, ix)
-         | any (flip intVarInIndex ix) vars ->
-           astKonst k (astGather sh' v0 (vars, ix))
-         | otherwise -> astKonstN sh (astIndex v0 ix)
--}
-      let v3 = astIndex @p @n v0 ix
-      in if any (flip intVarInAst v3) (var ::: vars)
-         then case v3 of
-           AstIndexZ v2 ix2 ->
-             if | any (flip intVarInAst v2) (var ::: vars) ->
-                  astGatherCase sh v0 (var ::: vars, ix)
-                | intVarInIndex var ix2 ->
-                  astGatherCase sh v2 (var ::: vars, ix2)
-                | any (flip intVarInIndex ix2) vars ->
-                  astKonst k (astGather sh' v2 (vars, ix2))
-                | otherwise -> astKonstN sh (astIndex v2 ix2)
-           AstGatherZ sh2 v2 (vars2, ix2) ->
-             if | any (flip intVarInAst v2) (var ::: vars) ->
-                    -- can this happen?
-                  astGatherCase sh v0 (var ::: vars, ix)
-                | otherwise ->
-                  astGatherCase (appendShape (takeShape @m sh) sh2)
-                                v2 (appendSized (var ::: vars) vars2, ix2)
-           _ -> astGatherCase sh v0 (var ::: vars, ix)  -- e.g., AstSum
-         else astKonstN sh v3
+    (_, v0, (Z, _)) -> astIndex v0 ix0
+    ((k :$ sh'), v0, (var ::: vars, _)) ->
+      if | intVarInIndex var ix0 ->
+           astGatherCase sh0 v0 (vars0, ix0)
+         | any (flip intVarInIndex ix0) vars ->
+           astKonst k (astGatherZOrStepOnly stepOnly sh' v0 (vars, ix0))
+         | otherwise ->
+           astKonstN sh0 (astIndex v0 ix0)
     _ ->
       error "astGatherZOrStepOnly: impossible pattern needlessly required"
  where
+  astIndex :: forall m' n'. (KnownNat m', KnownNat n')
+           => Ast (m' + n') r -> AstIndex m' r -> Ast n' r
+  astIndex = if stepOnly then astIndexStep else astIndexZ
+  astGatherRec, astGather
+    :: forall m' n' p'.
+       (KnownNat m', KnownNat p', KnownNat n')
+    => ShapeInt (m' + n') -> Ast (p' + n') r
+    -> (AstVarList m', AstIndex p' r)
+    -> Ast (m' + n') r
+  astGatherRec = if stepOnly then AstGatherZ else astGatherZ
+  astGather = if stepOnly then astGatherStep else astGatherZ
+  -- Note that v4 is in weak head normal form and so can't one-step reduce
+  -- and so we don't have to reduce it to expose any top redexes.
   astGatherCase
     :: forall m' n' p'. (KnownNat m', KnownNat p', KnownNat n')
     => ShapeInt (m' + n') -> Ast (p' + n') r -> (AstVarList m', AstIndex p' r)
     -> Ast (m' + n') r
-  astGatherCase sh4 v4 (vars4, ix4) = case v4 of
+  astGatherCase sh4 v4 (_, ZI) = astKonstN sh4 v4  -- not really possible
+  astGatherCase sh4 v4 (vars4, ix4@(i4 :. rest4)) = case v4 of
+    AstVar{} -> AstGatherZ sh4 v4 (vars4, ix4)
     AstOp opCode args ->
-      AstOp opCode (map (\v -> astGatherZ sh4 v (vars4, ix4)) args)
+      AstOp opCode (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
+    AstConst{} ->   -- free variables possible, so can't compute the tensor
+      AstGatherZ sh4 v4 (vars4, ix4)
     AstConstant (AstPrimalPart v) ->
-      astConstant $ AstPrimalPart $ astGatherZ sh4 v (vars4, ix4)
-{-
+      astConstant $ AstPrimalPart $ astGatherRec sh4 v (vars4, ix4)
+    AstConstInt{} ->
+      error "astGatherCase: impossible pattern needlessly required"
+    AstIndexZ v2 ix2 -> case (v2, ix2) of
+      (AstFromList{}, i2 :. ZI) -> astGatherCase sh4 v2 (vars4, i2 :. ix4)
+      (AstFromVector{}, i2 :. ZI) -> astGatherCase sh4 v2 (vars4, i2 :. ix4)
+      _ ->  -- AstVar, AstConst
+        AstGatherZ sh4 v4 (vars4, ix4)
     AstSum v ->
-      let perm3 = permCycle $ valueOf @p + 1
-          perm4 = permCycle $ valueOf @() + 1
-          sh5 = takeShape sh4    dropShape sh4
-      in astSum $ astTranspose perm4
-         $ astGatherZ sh5 (astTranspose perm3 v) (vars4, ix4)
--}
+      let perm3 = permCycle $ valueOf @p' + 1
+          perm4 = permBackCycle $ valueOf @m' + 1
+          (sh41, sh42) = splitAt_Shape @m' sh4
+          sh5 = appendShape sh41 (lengthAst v :$ sh42)
+      in astSum $ astTransposeAsGather perm4  -- TODO: inline and simplify less
+         $ astGather sh5 (astTransposeAsGather perm3 v) (vars4, ix4)
+             -- TODO: why is simplification not idempotent without AsGather?
+    AstFromList l | AstIntConst i <- i4 ->
+      astGatherCase sh4 (l !! i) (vars4, rest4)
+    AstFromList{} | gatherFromNF vars4 ix4 -> AstGatherZ sh4 v4 (vars4, ix4)
+    AstFromList l ->
+      let f v = astGatherRec sh4 v (vars4, rest4)
+      in astGather sh4 (astFromList $ map f l)
+                   (vars4, i4 :. sizedListToIndex (fmap AstIntVar vars4))
+    AstFromVector l | AstIntConst i <- i4 ->
+      astGatherCase sh4 (l V.! i) (vars4, rest4)
+    AstFromVector{} | gatherFromNF vars4 ix4 -> AstGatherZ sh4 v4 (vars4, ix4)
+    AstFromVector l ->
+      let f v = astGatherRec sh4 v (vars4, rest4)
+      in astGather sh4 (astFromVector $ V.map f l)
+                   (vars4, i4 :. sizedListToIndex (fmap AstIntVar vars4))
+    AstKonst _k v -> astGather sh4 v (vars4, rest4)
+    AstAppend v w ->
+      -- We can't express append as gather, because AstFromList needs
+      -- arguments of the same shape, so here we need to inline a lot of code.
+      let vlen = AstIntConst $ lengthAst v
+          iw = simplifyAstInt (AstIntOp MinusIntOp [i4, vlen])
+          v2 = astGatherRec sh4 v (vars4, i4 :. rest4)
+          w2 = astGatherRec sh4 w (vars4, iw :. rest4)
+      in case simplifyAstBool $ AstRelInt LsOp [i4, vlen] of
+        AstBoolConst b -> if b
+                          then astGatherRec sh4 v (vars4, i4 :. rest4)
+                          else astGatherRec sh4 w (vars4, iw :. rest4)
+        b -> astGather sh4 (astFromList [v2, w2])
+                       (vars4, AstIntCond b 0 1
+                               :. sizedListToIndex (fmap AstIntVar vars4))
+    AstSlice i _k v ->
+      let ii = simplifyAstInt (AstIntOp PlusIntOp [i4, AstIntConst i])
+      in astGather sh4 v (vars4, ii :. rest4)
+    AstReverse v ->
+      let iRev = simplifyAstInt (AstIntOp MinusIntOp
+                                          [AstIntConst (lengthAst v - 1), i4])
+      in astGather sh4 v (vars4, iRev :. rest4)
+    AstTranspose perm v | valueOf @m' >= length perm ->
+      astGather sh4 v (vars4, permutePrefixIndex perm ix4)
+    AstTranspose perm v ->
+      astGather sh4 (astTransposeAsGather perm v) (vars4, ix4)
+    AstReshape sh v ->
+      astGather sh4 (astReshapeAsGather sh v) (vars4, ix4)
+    AstBuild1{} -> AstGatherZ sh4 v4 (vars4, ix4)
     AstGatherZ @m2 @n2 _sh2 v2 (vars2, ix2) ->
       let subst :: AstIndex m7 r -> AstVarList m7 -> AstInt r -> AstInt r
           subst ix vars i =
@@ -521,18 +567,27 @@ astGatherZOrStepOnly stepOnly sh0 v00 (vars0, ix0) =
             let (vars2p, vars22) = splitAt_Sized @p' @(m2 - p') vars2
                 ix22 = fmap (subst ix4 vars2p) ix2
             in gcastWith (unsafeCoerce Refl :: m2 + n2 - p' :~: n')
-               $ astGatherZ sh4 v2 (appendSized vars4 vars22, ix22)
+               $ astGather sh4 v2 (appendSized vars4 vars22, ix22)
           assimilatedGather :: m2 <= p' => Ast (m' + n') r
           assimilatedGather =
             let (ix42, ix44) = splitAt_Index @m2 @(p' - m2) ix4
                 ix22 = fmap (subst ix42 vars2) ix2
             in gcastWith (unsafeCoerce Refl :: n' + p' - m2 :~: n2)
-               $ astGatherZ sh4 v2 (vars4, appendIndex ix22 ix44)
+               $ astGather sh4 v2 (vars4, appendIndex ix22 ix44)
       in case cmpNat (Proxy @p') (Proxy @m2) of
         LTI -> composedGather
         EQI -> assimilatedGather
         GTI -> gcastWith (flipCompare @p' @m2) $ assimilatedGather
-    _ -> AstGatherZ sh4 v4 (vars4, ix4)
+
+gatherFromNF :: forall m p r. (KnownNat m, KnownNat p)
+             => AstVarList m -> AstIndex (1 + p) r -> Bool
+gatherFromNF _ ZI = error "gatherFromNF: impossible pattern needlessly required"
+gatherFromNF vars (_ :. rest) = case sameNat (Proxy @m) (Proxy @p) of
+  Just Refl ->
+    let cmp (AstIntVar var1, AstIntVar var2) = var1 == var2
+        cmp _ = False
+    in all cmp $ zipIndex rest (sizedListToIndex (fmap AstIntVar vars))
+  _ -> False
 
 flipCompare :: forall (a :: Nat) b. Compare a b ~ GT => Compare b a :~: LT
 flipCompare = unsafeCoerce Refl
@@ -662,7 +717,6 @@ simplifyAst t = case t of
       -- this is terribly expensive, but the only way to fully simplify
     u -> simplifyAst u
   AstBuild1 k (var, v) -> AstBuild1 k (var, simplifyAst v)
-    -- only possible under AstConstant
   AstGatherZ sh v (vars, ix) ->
     astGatherZ sh (simplifyAst v) (vars, fmap (simplifyAstInt) ix)
 

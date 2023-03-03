@@ -14,10 +14,10 @@ module HordeAd.Core.SizedIndex
   , headIndex, tailIndex, takeIndex, dropIndex, splitAt_Index, splitAtInt_Index
   , unsnocIndex1, lastIndex, initIndex, zipIndex, zipWith_Index
   , permutePrefixIndex
-  , listToIndex, indexToList, indexToSizedList
+  , listToIndex, indexToList, indexToSizedList, sizedListToIndex
     -- * Tensor shapes as fully encapsulated sized lists, with operations
   , Shape, pattern (:$), pattern ZS
-  , singletonShape, appendShape, tailShape, takeShape, dropShape
+  , singletonShape, appendShape, tailShape, takeShape, dropShape, splitAt_Shape
   , lengthShape, sizeShape, flattenShape
   , permutePrefixShape
   , listShapeToShape, shapeToList
@@ -159,6 +159,9 @@ indexToList (Index l) = sizedListToList l
 indexToSizedList :: Index n i -> SizedList n i
 indexToSizedList (Index l) = l
 
+sizedListToIndex :: SizedList n i -> Index n i
+sizedListToIndex = Index
+
 -- * Tensor shapes as fully encapsulated sized lists, with operations
 
 -- | The shape of an n-dimensional array represented as a sized list.
@@ -214,6 +217,10 @@ takeShape (Shape ix) = Shape $ takeSized ix
 dropShape :: forall m n i. (KnownNat m, KnownNat n)
           => Shape (m + n) i -> Shape n i
 dropShape (Shape ix) = Shape $ dropSized ix
+
+splitAt_Shape :: (KnownNat m, KnownNat n)
+              => Shape (m + n) i -> (Shape m i, Shape n i)
+splitAt_Shape ix = (takeShape ix, dropShape ix)
 
 lengthShape :: forall n i. KnownNat n => Shape n i -> Int
 lengthShape _ = valueOf @n

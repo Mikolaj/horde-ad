@@ -191,10 +191,11 @@ fooBuild1 :: forall r n.
           => TensorOf (1 + n) r -> TensorOf (1 + n) r
 fooBuild1 v =
   let r = tsum v
-      v' = tkonst0N (tailShape $ tshape v) $ tminimum $ tflatten v
+      tk = tkonst0N (tailShape $ tshape v)
+      v' = tk $ tminimum $ tflatten v
   in tbuild1 3 $ \ix ->
-       r * foo ( 3
-               , 5 * r
+       r * foo ( tk 3
+               , tk 5 * r
                , r * v')
        + bar (r, tindex v [min 1 (ix + 1)])
 
