@@ -339,5 +339,5 @@ testGatherSimp33 = do
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)
   length (show t1) @?= 6357
   length (show t2) @?= 1640
-  length (show (simplifyAst @Float t1)) @?= 6383
-  length (show (simplifyAst @Float t2)) @?= 1666
+  length (show (simplifyAst @Float t1)) @?= 6364
+  length (show (simplifyAst @Float t2)) @?= 1597

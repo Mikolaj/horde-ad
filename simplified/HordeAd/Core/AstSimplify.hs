@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, GADTs #-}
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, GADTs, KindSignatures #-}
 {-# OPTIONS_GHC -freduction-depth=10000 #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
@@ -37,10 +37,12 @@ import           Data.IORef.Unboxed
 import           Data.List (dropWhileEnd)
 import           Data.Proxy (Proxy (Proxy))
 import qualified Data.Strict.Vector as Data.Vector
-import           Data.Type.Equality ((:~:) (Refl))
+import           Data.Type.Equality (gcastWith, (:~:) (Refl))
+import           Data.Type.Ord (Compare)
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits
   ( KnownNat
+  , Nat
   , OrderingI (..)
   , SomeNat (..)
   , cmpNat
@@ -48,6 +50,7 @@ import           GHC.TypeLits
   , someNatVal
   , type (+)
   , type (-)
+  , type (<=)
   )
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           System.IO.Unsafe (unsafePerformIO)
@@ -444,16 +447,16 @@ astGatherZOrStepOnly
   => Bool -> ShapeInt (m + n) -> Ast (p + n) r -> (AstVarList m, AstIndex p r)
   -> Ast (m + n) r
 astGatherZOrStepOnly stepOnly sh0 v00 (vars0, ix0) =
- let astIndex :: forall m' n'. (KnownNat m', KnownNat n')
-              => Ast (m' + n') r -> AstIndex m' r -> Ast n' r
-     astIndex = if stepOnly then astIndexStep else astIndexZ
-     astGather
-       :: forall m' n' p'.
-          (KnownNat m', KnownNat p', KnownNat n')
-       => ShapeInt (m' + n') -> Ast (p' + n') r
-       -> (AstVarList m', AstIndex p' r)
-       -> Ast (m' + n') r
-     astGather = if stepOnly then astGatherStep else astGatherZ
+  let astIndex :: forall m' n'. (KnownNat m', KnownNat n')
+               => Ast (m' + n') r -> AstIndex m' r -> Ast n' r
+      astIndex = if stepOnly then astIndexStep else astIndexZ
+      astGather
+        :: forall m' n' p'.
+           (KnownNat m', KnownNat p', KnownNat n')
+        => ShapeInt (m' + n') -> Ast (p' + n') r
+        -> (AstVarList m', AstIndex p' r)
+        -> Ast (m' + n') r
+      astGather = if stepOnly then astGatherStep else astGatherZ
   in case (sh0, v00, (vars0, ix0)) of
     _ | any (flip intVarInAst v00) vars0 ->
       error $ "astGatherZOrStepOnly: gather vars in v0: "
@@ -461,40 +464,92 @@ astGatherZOrStepOnly stepOnly sh0 v00 (vars0, ix0) =
     (_sh, v0, (Z, ix)) -> astIndex v0 ix
     (sh@(_ :$ _), v0, (_ ::: _, ZI)) -> astKonstN sh v0
     (sh@(k :$ sh'), v0, (var ::: vars, ix@(_ :. _))) ->
+{-
+      if | intVarInIndex var ix ->
+           astGatherCase sh v0 (var ::: vars, ix)
+         | any (flip intVarInIndex ix) vars ->
+           astKonst k (astGather sh' v0 (vars, ix))
+         | otherwise -> astKonstN sh (astIndex v0 ix)
+-}
       let v3 = astIndex @p @n v0 ix
       in if any (flip intVarInAst v3) (var ::: vars)
          then case v3 of
            AstIndexZ v2 ix2 ->
              if | any (flip intVarInAst v2) (var ::: vars) ->
-                  AstGatherZ sh v0 (var ::: vars, ix)
+                  astGatherCase sh v0 (var ::: vars, ix)
                 | intVarInIndex var ix2 ->
-                  AstGatherZ sh v2 (var ::: vars, ix2)
+                  astGatherCase sh v2 (var ::: vars, ix2)
                 | any (flip intVarInIndex ix2) vars ->
                   astKonst k (astGather sh' v2 (vars, ix2))
-                | otherwise -> astKonstN sh (AstIndexZ v2 ix2)
-                  -- a generalization of gatherSimplify needed to simplify more
-                  -- or we could run astGather1 repeatedly,
-                  -- but even then we can't
-                  -- get into fromList, which may simplify or complicate a term,
-                  -- and sometimes is not possible without leaving a small
-                  -- gather outside
+                | otherwise -> astKonstN sh (astIndex v2 ix2)
            AstGatherZ sh2 v2 (vars2, ix2) ->
              if | any (flip intVarInAst v2) (var ::: vars) ->
                     -- can this happen?
-                  AstGatherZ sh v0 (var ::: vars, ix)
+                  astGatherCase sh v0 (var ::: vars, ix)
                 | otherwise ->
-                  AstGatherZ (appendShape (takeShape @m sh) sh2)
-                             v2 (appendSized (var ::: vars) vars2, ix2)
-           _ -> AstGatherZ sh v0 (var ::: vars, ix)  -- e.g., AstSum
+                  astGatherCase (appendShape (takeShape @m sh) sh2)
+                                v2 (appendSized (var ::: vars) vars2, ix2)
+           _ -> astGatherCase sh v0 (var ::: vars, ix)  -- e.g., AstSum
          else astKonstN sh v3
     _ ->
       error "astGatherZOrStepOnly: impossible pattern needlessly required"
+ where
+  astGatherCase
+    :: forall m' n' p'. (KnownNat m', KnownNat p', KnownNat n')
+    => ShapeInt (m' + n') -> Ast (p' + n') r -> (AstVarList m', AstIndex p' r)
+    -> Ast (m' + n') r
+  astGatherCase sh4 v4 (vars4, ix4) = case v4 of
+    AstOp opCode args ->
+      AstOp opCode (map (\v -> astGatherZ sh4 v (vars4, ix4)) args)
+    AstConstant (AstPrimalPart v) ->
+      astConstant $ AstPrimalPart $ astGatherZ sh4 v (vars4, ix4)
+{-
+    AstSum v ->
+      let perm3 = permCycle $ valueOf @p + 1
+          perm4 = permCycle $ valueOf @() + 1
+          sh5 = takeShape sh4    dropShape sh4
+      in astSum $ astTranspose perm4
+         $ astGatherZ sh5 (astTranspose perm3 v) (vars4, ix4)
+-}
+    AstGatherZ @m2 @n2 _sh2 v2 (vars2, ix2) ->
+      let subst :: AstIndex m7 r -> AstVarList m7 -> AstInt r -> AstInt r
+          subst ix vars i =
+            foldr (uncurry substituteAstInt) i
+                  (zipSized (indexToSizedList ix) vars)
+          composedGather :: p' <= m2 => Ast (m' + n') r
+          composedGather =
+            let (vars2p, vars22) = splitAt_Sized @p' @(m2 - p') vars2
+                ix22 = fmap (subst ix4 vars2p) ix2
+            in gcastWith (unsafeCoerce Refl :: m2 + n2 - p' :~: n')
+               $ astGatherZ sh4 v2 (appendSized vars4 vars22, ix22)
+          assimilatedGather :: m2 <= p' => Ast (m' + n') r
+          assimilatedGather =
+            let (ix42, ix44) = splitAt_Index @m2 @(p' - m2) ix4
+                ix22 = fmap (subst ix42 vars2) ix2
+            in gcastWith (unsafeCoerce Refl :: n' + p' - m2 :~: n2)
+               $ astGatherZ sh4 v2 (vars4, appendIndex ix22 ix44)
+      in case cmpNat (Proxy @p') (Proxy @m2) of
+        LTI -> composedGather
+        EQI -> assimilatedGather
+        GTI -> gcastWith (flipCompare @p' @m2) $ assimilatedGather
+    _ -> AstGatherZ sh4 v4 (vars4, ix4)
+
+flipCompare :: forall (a :: Nat) b. Compare a b ~ GT => Compare b a :~: LT
+flipCompare = unsafeCoerce Refl
 
 {-
 -- TODO: To apply this to astGatherZ. we'd need to take the last variable
 -- and the first index element in place of var and i1.
 -- If var does not occur in the remaining index elements,
 -- this simplification is valid.
+--
+-- An old blurb:
+                  -- a generalization of gatherSimplify needed to simplify more
+                  -- or we could run astGather1 repeatedly,
+                  -- but even then we can't
+                  -- get into fromList, which may simplify or complicate a term,
+                  -- and sometimes is not possible without leaving a small
+                  -- gather outside
 {-
             | intVarInAstInt var i1 ->
                 let w :: Ast (1 + n) r
