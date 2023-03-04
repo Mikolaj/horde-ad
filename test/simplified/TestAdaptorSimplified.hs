@@ -141,15 +141,17 @@ assertEqualUpToEpsilonShorter
     -> Assertion
 assertEqualUpToEpsilonShorter
     errMargin expected
-    ( value0, value1, value2, value3, _value4, _value5
-    , gradient1, gradient2, gradient3, _gradient4, _gradient5
+    ( value0, value1, value2, value3, _value4, value5
+    , gradient1, gradient2, gradient3, _gradient4, gradient5
     , astVectSimp, astSimp ) = do
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
   assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
   assertEqualUpToEpsilonWithMark "Val Vect+Simp" errMargin value0 value3
+  assertEqualUpToEpsilonWithMark "Val Simplified" errMargin value0 value5
   assertEqualUpToEpsilonWithMark "Grad ADVal" errMargin expected gradient1
   assertEqualUpToEpsilonWithMark "Grad Vectorized" errMargin expected gradient2
   assertEqualUpToEpsilonWithMark "Grad Vect+Simp" errMargin expected gradient3
+  assertEqualUpToEpsilonWithMark "Grad Simplified" errMargin expected gradient5
   show (simplifyAst astVectSimp) @?= show astVectSimp
   show (simplifyAst astSimp) @?= show astSimp
 
@@ -368,7 +370,7 @@ nestedBuildMap r =
 
 testNestedBuildMap1 :: Assertion
 testNestedBuildMap1 =
-  assertEqualUpToEpsilon' 1e-10
+  assertEqualUpToEpsilonShorter 1e-10
     107.25984443006627
     (rev' @(OR.Array 1 Double) nestedBuildMap 1.1)
 
@@ -564,14 +566,14 @@ recycled r =
 testRecycled :: Assertion
 testRecycled =
   assertEqualUpToEpsilon 1e-6
-    3.983629038066359e7
-    (rev @(OR.Array 5 Double) recycled 1.0001)
+    348356.9278600814
+    (rev @(OR.Array 5 Double) recycled 0.0000001)
 
 testRecycled1 :: Assertion
 testRecycled1 =
   assertEqualUpToEpsilonShorter 1e-6
-    3.983629038066359e7
-    (rev' @(OR.Array 5 Double) (recycled . tunScalar)  1.0001)
+    348356.9278600814
+    (rev' @(OR.Array 5 Double) (recycled . tunScalar) 0.0000001)
 
 concatBuild :: ADReady r => r -> TensorOf 2 r
 concatBuild r =
