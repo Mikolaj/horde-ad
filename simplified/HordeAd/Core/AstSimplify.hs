@@ -747,14 +747,25 @@ simplifyAst t = case t of
   AstSlice i k v -> astSlice i k (simplifyAst v)
   AstReverse v -> astReverse (simplifyAst v)
   AstTranspose perm v ->
-    case astTranspose (simplifyPermutation perm) (simplifyAst v) of
-      AstTranspose perm2 v2 -> astTransposeAsGather perm2 v2
-        -- this is expensive, but the only way to guarantee full simplification
+    -- The first attempt is for the case of v being a transpose, which would
+    -- simplify to a huge gather, but instead we may fuse it at once.
+    case astTranspose (simplifyPermutation perm) v of
+      AstTranspose perm2 v2 ->  -- no luck, let's try simplifying the argument
+        case astTranspose perm2 (simplifyAst v2) of
+          AstTranspose perm3 v3 ->  -- nope, let's express all as gather
+            astTransposeAsGather perm3 v3
+              -- this is expensive, but the only way to guarantee
+              -- full simplification
+          u -> simplifyAst u
       u -> simplifyAst u
-  AstReshape sh v -> case astReshape sh (simplifyAst v) of
-    AstReshape sh2 v2 -> astReshapeAsGather sh2 v2
-      -- this is terribly expensive, but the only way to fully simplify
-    u -> simplifyAst u
+  AstReshape sh v ->
+    case astReshape sh v of  -- see above
+      AstReshape sh2 v2 ->
+        case astReshape sh2 (simplifyAst v2) of
+          AstReshape sh3 v3 -> astReshapeAsGather sh3 v3
+            -- this is terribly expensive, but the only way to fully simplify
+          u -> simplifyAst u
+      u -> simplifyAst u
   AstBuild1 k (var, v) -> AstBuild1 k (var, simplifyAst v)
   AstGatherZ sh v (vars, ix) ->
     astGatherZ sh (simplifyAst v) (vars, fmap (simplifyAstInt) ix)

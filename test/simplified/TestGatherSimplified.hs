@@ -276,8 +276,8 @@ testGatherSimp22 = do
             $ AstVar [6, 2] (AstVarName 0)
   length (show t1) @?= 129
   length (show t2) @?= 36
-  length (show (simplifyAst @Float t1)) @?= 8535
-  length (show (simplifyAst @Float t2)) @?= 335
+  length (show (simplifyAst @Float t1)) @?= 329
+  length (show (simplifyAst @Float t2)) @?= 329
 
 testGatherSimp23 :: Assertion
 testGatherSimp23 = do
@@ -358,7 +358,7 @@ testGatherSimp33 = do
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)
   length (show t1) @?= 1077
   length (show t2) @?= 531
-  length (show (simplifyAst @Float t1)) @?= 6396
+  length (show (simplifyAst @Float t1)) @?= 6362
   length (show (simplifyAst @Float t2)) @?= 1659
 
 testGatherSimp34 :: Assertion
@@ -375,5 +375,5 @@ testGatherSimp34 = do
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)
   length (show t1) @?= 858
   length (show t2) @?= 796
-  length (show (simplifyAst @Float t1)) @?= 34624
+  length (show (simplifyAst @Float t1)) @?= 34387
   length (show (simplifyAst @Float t2)) @?= 7028
