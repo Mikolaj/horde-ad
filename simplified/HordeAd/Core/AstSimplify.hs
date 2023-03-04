@@ -615,12 +615,18 @@ astGatherZOrStepOnly stepOnly sh0 v00 (vars0, ix0) =
 gatherFromNF :: forall m p r. (KnownNat m, KnownNat p)
              => AstVarList m -> AstIndex (1 + p) r -> Bool
 gatherFromNF _ ZI = error "gatherFromNF: impossible pattern needlessly required"
-gatherFromNF vars (_ :. rest) = case sameNat (Proxy @m) (Proxy @p) of
-  Just Refl ->
+gatherFromNF vars (i :. rest) = case cmpNat (Proxy @p) (Proxy @m) of
+  LTI ->
     let cmp (AstIntVar var1, AstIntVar var2) = var1 == var2
         cmp _ = False
-    in all cmp $ zipIndex rest (sizedListToIndex (fmap AstIntVar vars))
-  _ -> False
+        (varsP, varsPM) = splitAt_Sized @p @(m - p) vars
+    in all cmp (zipIndex rest (sizedListToIndex (fmap AstIntVar varsP)))
+       && not (any (`intVarInAstInt` i) varsPM)
+  EQI ->
+    let cmp (AstIntVar var1, AstIntVar var2) = var1 == var2
+        cmp _ = False
+    in all cmp (zipIndex rest (sizedListToIndex (fmap AstIntVar vars)))
+  GTI -> False
 
 flipCompare :: forall (a :: Nat) b. Compare a b ~ GT => Compare b a :~: LT
 flipCompare = unsafeCoerce Refl
