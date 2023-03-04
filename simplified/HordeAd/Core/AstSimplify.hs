@@ -535,8 +535,8 @@ astGatherZOrStepOnly stepOnly sh0 v00 (vars0, ix0) =
     AstConstInt{} ->
       error "astGatherCase: impossible pattern needlessly required"
     AstIndexZ v2 ix2 -> case (v2, ix2) of
-      (AstFromList{}, i2 :. ZI) -> astGatherCase sh4 v2 (vars4, i2 :. ix4)
-      (AstFromVector{}, i2 :. ZI) -> astGatherCase sh4 v2 (vars4, i2 :. ix4)
+      (AstFromList{}, i2 :. ZI) -> astGather sh4 v2 (vars4, i2 :. ix4)
+      (AstFromVector{}, i2 :. ZI) -> astGather sh4 v2 (vars4, i2 :. ix4)
       _ ->  -- AstVar, AstConst
         AstGatherZ sh4 v4 (vars4, ix4)
     AstSum v ->
@@ -548,14 +548,14 @@ astGatherZOrStepOnly stepOnly sh0 v00 (vars0, ix0) =
          $ astGather sh5 (astTransposeAsGather perm3 v) (vars4, ix4)
              -- TODO: why is simplification not idempotent without AsGather?
     AstFromList l | AstIntConst i <- i4 ->
-      astGatherCase sh4 (l !! i) (vars4, rest4)
+      astGather sh4 (l !! i) (vars4, rest4)
     AstFromList{} | gatherFromNF vars4 ix4 -> AstGatherZ sh4 v4 (vars4, ix4)
     AstFromList l ->
       let f v = astGatherRec sh4 v (vars4, rest4)
       in astGather sh4 (astFromList $ map f l)
                    (vars4, i4 :. sizedListToIndex (fmap AstIntVar vars4))
     AstFromVector l | AstIntConst i <- i4 ->
-      astGatherCase sh4 (l V.! i) (vars4, rest4)
+      astGather sh4 (l V.! i) (vars4, rest4)
     AstFromVector{} | gatherFromNF vars4 ix4 -> AstGatherZ sh4 v4 (vars4, ix4)
     AstFromVector l ->
       let f v = astGatherRec sh4 v (vars4, rest4)
