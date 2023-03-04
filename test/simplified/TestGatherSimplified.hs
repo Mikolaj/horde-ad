@@ -35,9 +35,11 @@ testTrees =
   , testCase "gatherReshape22" testGatherReshape22
   , testCase "gatherReshapeBuild22" testGatherReshapeBuild22
   , testCase "gatherSimp22" testGatherSimp22
+  , testCase "gatherSimp23" testGatherSimp23
   , testCase "gatherTranspose33" testGatherTranspose33
   , testCase "gatherTransposeBuild33" testGatherTransposeBuild33
   , testCase "gatherSimp33" testGatherSimp33
+  , testCase "gatherSimp34" testGatherSimp34
   ]
 
 gatherNested1 :: forall r. ADReady r
@@ -277,6 +279,23 @@ testGatherSimp22 = do
   length (show (simplifyAst @Float t1)) @?= 8535
   length (show (simplifyAst @Float t2)) @?= 335
 
+testGatherSimp23 :: Assertion
+testGatherSimp23 = do
+  resetVarCOunter
+  let !t1 = (\t -> tbuild1 4 (\i ->
+              gatherReshape22
+                (t * tkonst0N [6, 2] (tfromIndex0 i))))
+            $ AstVar [6, 2] (AstVarName 0)
+  resetVarCOunter
+  let !t2 = (\t -> tbuild1 4 (\i ->
+              (treshape @(Ast 0 Float) @2 @2 [2, 6])
+                (t * tkonst0N [6, 2] (tfromIndex0 i))))
+            $ AstVar [6, 2] (AstVarName 0)
+  length (show t1) @?= 246
+  length (show t2) @?= 246
+  length (show (simplifyAst @Float t1)) @?= 2339
+  length (show (simplifyAst @Float t2)) @?= 2359
+
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
 gatherTranspose33 :: forall r. ADReady r
@@ -341,3 +360,20 @@ testGatherSimp33 = do
   length (show t2) @?= 531
   length (show (simplifyAst @Float t1)) @?= 6396
   length (show (simplifyAst @Float t2)) @?= 1659
+
+testGatherSimp34 :: Assertion
+testGatherSimp34 = do
+  resetVarCOunter
+  let !t1 = (\t -> tbuild1 4 (\i ->
+             gatherTranspose33 (t * tkonst0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
+            $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)
+  resetVarCOunter
+  let !t2 = (\t -> tbuild1 4 (\i ->
+              (\t' -> tmatmul2 (treshape [6, 8] (tconst t48))
+                               (treshape @(Ast 0 Float) @10 [8, 16] t'))
+                (t * tkonst0N [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (tfromIndex0 i))))
+            $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)
+  length (show t1) @?= 858
+  length (show t2) @?= 796
+  length (show (simplifyAst @Float t1)) @?= 34624
+  length (show (simplifyAst @Float t2)) @?= 7028
