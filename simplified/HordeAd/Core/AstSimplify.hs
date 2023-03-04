@@ -484,12 +484,25 @@ astGatherZOrStepOnly stepOnly sh0 v00 (vars0, ix0) =
       if | not (any (`intVarInAstInt` i1) vars0) ->
            astGatherZOrStepOnly stepOnly sh0 (astIndex v0 (i1 :. ZI))
                                 (vars0, rest1)
+         | case iN of
+             AstIntVar varN' ->
+               varN' == varN
+               && not (any (varN `intVarInAstInt`) restN)
+               && case ( dropShape @(m - 1) sh0
+                       , dropShape @(p - 1) (shapeAst v0) ) of
+                 (kN :$ _, vkN :$ _) -> kN == vkN
+                 _ -> error "impossible pattern needlessly required"
+             _ -> False
+           -> astGatherZOrStepOnly stepOnly sh0 v0 (varsN, restN)
          | intVarInIndex var ix0 ->
            astGatherCase sh0 v0 (vars0, ix0)
          | any (`intVarInIndex` ix0) vars ->
            astKonst k (astGatherZOrStepOnly stepOnly sh' v0 (vars, ix0))
          | otherwise ->
            astKonstN sh0 (astIndex v0 ix0)
+       where
+        (restN, iN) = unsnocIndex1 ix0
+        (varsN, varN) = unsnocSized1 vars0
     _ ->
       error "astGatherZOrStepOnly: impossible pattern needlessly required"
  where

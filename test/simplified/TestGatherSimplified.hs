@@ -337,7 +337,7 @@ testGatherSimp33 = do
   let !t2 = (\t -> tmatmul2 (treshape [6, 8] (tconst t48))
                             (treshape @(Ast 0 Float) @10 [8, 16] t))
             $ AstVar [1, 2, 2, 1, 2, 2, 2, 2, 2, 1] (AstVarName 0)
-  length (show t1) @?= 6419
-  length (show t2) @?= 1702
-  length (show (simplifyAst @Float t1)) @?= 6426
+  length (show t1) @?= 1077
+  length (show t2) @?= 531
+  length (show (simplifyAst @Float t1)) @?= 6396
   length (show (simplifyAst @Float t2)) @?= 1659
