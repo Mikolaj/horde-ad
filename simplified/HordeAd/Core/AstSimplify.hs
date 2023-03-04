@@ -465,7 +465,7 @@ astGatherStep sh v (vars, ix) =
   astGatherZOrStepOnly True sh (simplifyStepNonIndex v)
                             (vars, fmap (simplifyAstInt) ix)
 
--- Assumption: (var ::: vars) don't not occur in v0.
+-- Assumption: vars0 don't not occur in v0.
 -- The v0 term is already at least one step simplified,
 -- either from full recursive simplification or from astGatherStep.
 astGatherZOrStepOnly
@@ -473,14 +473,14 @@ astGatherZOrStepOnly
      (KnownNat m, KnownNat p, KnownNat n, Show r, Numeric r, Num (Vector r))
   => Bool -> ShapeInt (m + n) -> Ast (p + n) r -> (AstVarList m, AstIndex p r)
   -> Ast (m + n) r
-astGatherZOrStepOnly stepOnly sh0 v00 (vars0, ix0) =
-  case (sh0, v00, (vars0, ix0)) of
-    _ | any (`intVarInAst` v00) vars0 ->
+astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
+  case (sh0, (vars0, ix0)) of
+    _ | any (`intVarInAst` v0) vars0 ->
       error $ "astGatherZOrStepOnly: gather vars in v0: "
-              ++ show (vars0, v00)
-    (_, v0, (Z, _)) -> astIndex v0 ix0
-    (sh, v0, (_, ZI)) -> astKonstN sh v0
-    ((k :$ sh'), v0, (var ::: vars, (i1 :. rest1))) ->
+              ++ show (vars0, v0)
+    (_, (Z, _)) -> astIndex v0 ix0
+    (sh, (_, ZI)) -> astKonstN sh v0
+    ((k :$ sh'), (var ::: vars, (i1 :. rest1))) ->
       if | not (any (`intVarInAstInt` i1) vars0) ->
            astGatherZOrStepOnly stepOnly sh0 (astIndex v0 (i1 :. ZI))
                                 (vars0, rest1)
@@ -583,7 +583,7 @@ astGatherZOrStepOnly stepOnly sh0 v00 (vars0, ix0) =
       let iRev = simplifyAstInt (AstIntOp MinusIntOp
                                           [AstIntConst (lengthAst v - 1), i4])
       in astGather sh4 v (vars4, iRev :. rest4)
-    AstTranspose perm v | valueOf @m' >= length perm ->
+    AstTranspose perm v | valueOf @p' >= length perm ->
       astGather sh4 v (vars4, permutePrefixIndex perm ix4)
     AstTranspose perm v ->
       astGather sh4 (astTransposeAsGather perm v) (vars4, ix4)
