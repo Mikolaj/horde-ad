@@ -249,7 +249,7 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
     astIndex v (appendIndex ix2 ix)
   AstSum v ->  -- almost neutral; transposition is likely to fuse away
     let perm3 = permCycle $ valueOf @m + 1
-    in astSum $ astIndexRec (astTranspose perm3 v) ix
+    in astSum $ astIndex (astTranspose perm3 v) ix
   AstFromList l | AstIntConst i <- i1 ->
     astIndex (l !! i) rest1
   AstFromList{} | ZI <- rest1 ->  -- normal form
@@ -571,8 +571,8 @@ astGatherZOrStepOnly stepOnly sh0 v00 (vars0, ix0) =
           w2 = astGatherRec sh4 w (vars4, iw :. rest4)
       in case simplifyAstBool $ AstRelInt LsOp [i4, vlen] of
         AstBoolConst b -> if b
-                          then astGatherRec sh4 v (vars4, i4 :. rest4)
-                          else astGatherRec sh4 w (vars4, iw :. rest4)
+                          then astGather sh4 v (vars4, i4 :. rest4)
+                          else astGather sh4 w (vars4, iw :. rest4)
         b -> astGather sh4 (astFromList [v2, w2])
                        (vars4, AstIntCond b 0 1
                                :. sizedListToIndex (fmap AstIntVar vars4))
