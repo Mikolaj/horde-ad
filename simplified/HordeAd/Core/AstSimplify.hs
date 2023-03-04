@@ -29,7 +29,7 @@ module HordeAd.Core.AstSimplify
 
 import Prelude
 
-import           Control.Monad (mapM, replicateM)
+import           Control.Monad (replicateM)
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed
@@ -467,14 +467,18 @@ astGatherZOrStepOnly
   -> Ast (m + n) r
 astGatherZOrStepOnly stepOnly sh0 v00 (vars0, ix0) =
   case (sh0, v00, (vars0, ix0)) of
-    _ | any (flip intVarInAst v00) vars0 ->
+    _ | any (`intVarInAst` v00) vars0 ->
       error $ "astGatherZOrStepOnly: gather vars in v0: "
               ++ show (vars0, v00)
     (_, v0, (Z, _)) -> astIndex v0 ix0
-    ((k :$ sh'), v0, (var ::: vars, _)) ->
-      if | intVarInIndex var ix0 ->
+    (sh, v0, (_, ZI)) -> astKonstN sh v0
+    ((k :$ sh'), v0, (var ::: vars, (i1 :. rest1))) ->
+      if | not (any (`intVarInAstInt` i1) vars0) ->
+           astGatherZOrStepOnly stepOnly sh0 (astIndex v0 (i1 :. ZI))
+                                (vars0, rest1)
+         | intVarInIndex var ix0 ->
            astGatherCase sh0 v0 (vars0, ix0)
-         | any (flip intVarInIndex ix0) vars ->
+         | any (`intVarInIndex` ix0) vars ->
            astKonst k (astGatherZOrStepOnly stepOnly sh' v0 (vars, ix0))
          | otherwise ->
            astKonstN sh0 (astIndex v0 ix0)
@@ -503,7 +507,7 @@ astGatherZOrStepOnly stepOnly sh0 v00 (vars0, ix0) =
     AstVar{} -> AstGatherZ sh4 v4 (vars4, ix4)
     AstOp opCode args ->
       AstOp opCode (map (\v -> astGatherRec sh4 v (vars4, ix4)) args)
-    AstConst{} ->   -- free variables possible, so can't compute the tensor
+    AstConst{} ->  -- free variables possible, so can't compute the tensor
       AstGatherZ sh4 v4 (vars4, ix4)
     AstConstant (AstPrimalPart v) ->
       astConstant $ AstPrimalPart $ astGatherRec sh4 v (vars4, ix4)
