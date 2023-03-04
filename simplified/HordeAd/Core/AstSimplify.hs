@@ -366,7 +366,7 @@ astAppend (AstFromVector l1) (AstFromList l2) = astFromList $ V.toList l1 ++ l2
 astAppend (AstFromVector l1) (AstFromVector l2) = astFromVector $ l1 V.++ l2
 astAppend u v = AstAppend u v
 
-astSlice :: forall n r. (KnownNat n, Show r, Numeric r)
+astSlice :: forall n r. (KnownNat n, Show r, Numeric r, Num (Vector r))
          => Int -> Int -> Ast (1 + n) r -> Ast (1 + n) r
 astSlice i k (AstConst t) = AstConst $ tsliceR i k t
 astSlice i k (AstConstant (AstPrimalPart v)) =
@@ -387,9 +387,13 @@ astSlice i k w@(AstAppend (u :: Ast (1 + n) r) (v :: Ast (1 + n) r)) =
   in if | i + k <= ulen -> astSlice @n i k u
         | i >= ulen -> astSlice @n (i - ulen) k v
         | otherwise -> AstSlice @n i k w  -- cheap iff fits in one
+astSlice i k (AstGatherZ (_ :$ sh') v (var ::: vars, ix)) =
+  let ivar = AstIntOp PlusIntOp [AstIntVar var, AstIntConst i]
+      ix2 = fmap (substituteAstInt ivar var) ix
+  in astGatherZ (k :$ sh') v (var ::: vars, ix2)
 astSlice i k v = AstSlice i k v
 
-astReverse :: forall n r. KnownNat n
+astReverse :: forall n r. (KnownNat n, Show r, Numeric r, Num (Vector r))
            => Ast (1 + n) r -> Ast (1 + n) r
 astReverse (AstConst t) = AstConst $ treverseR t
 astReverse (AstConstant (AstPrimalPart v)) =
@@ -398,6 +402,10 @@ astReverse (AstFromList l) = AstFromList $ reverse l
 astReverse (AstFromVector l) = AstFromVector $ V.reverse l
 astReverse (AstKonst k v) = AstKonst k v
 astReverse (AstReverse v) = v
+astReverse (AstGatherZ sh@(k :$ _) v (var ::: vars, ix)) =
+  let ivar = AstIntOp MinusIntOp [AstIntConst k, AstIntVar var]
+      ix2 = fmap (substituteAstInt ivar var) ix
+  in astGatherZ sh v (var ::: vars, ix2)
 astReverse v = AstReverse v
 
 -- Beware, this does not do full simplification, which often requires
