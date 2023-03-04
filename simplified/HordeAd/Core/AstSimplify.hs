@@ -240,7 +240,13 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
   AstVar{} -> AstIndexZ v0 ix
   AstOp opCode args ->
     AstOp opCode (map (`astIndexRec` ix) args)
-  AstConst{} -> AstIndexZ v0 ix
+  AstConst t ->
+    let unConst (AstIntConst i) (Just l) = Just $ i : l
+        unConst _ _ = Nothing
+    in case foldr unConst (Just []) ix of
+      Just ixInt -> AstConst $ tindexZR t $ listToIndex ixInt
+        -- TODO: we'd need mapM for Index to keep this rank-typed
+      Nothing -> AstIndexZ v0 ix
   AstConstant (AstPrimalPart v) ->
     astConstant $ AstPrimalPart $ astIndexRec v ix
   AstConstInt{} ->
