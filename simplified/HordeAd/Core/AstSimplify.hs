@@ -321,8 +321,14 @@ astFromList l =
   let unConstant (AstConstant (AstPrimalPart t)) = Just t
       unConstant _ = Nothing
   in case mapM unConstant l of
-    Just l2 -> astConstant $ AstPrimalPart $ astFromList l2
-    Nothing -> AstFromList l
+    Just l2 ->
+      astConstant $ AstPrimalPart $ astFromList l2
+    Nothing ->
+      let unConst (AstConst t) = Just t
+          unConst _ = Nothing
+      in case mapM unConst l of
+        Just l3 -> AstConst $ tfromListR l3
+        Nothing -> AstFromList l
 
 astFromVector :: (KnownNat n, Numeric r)
               => Data.Vector.Vector (Ast n r) -> Ast (1 + n) r
@@ -331,8 +337,14 @@ astFromVector l =
   let unConstant (AstConstant (AstPrimalPart t)) = Just t
       unConstant _ = Nothing
   in case V.mapM unConstant l of
-    Just l2 -> astConstant $ AstPrimalPart $ astFromVector l2
-    Nothing -> AstFromVector l
+    Just l2 ->
+      astConstant $ AstPrimalPart $ astFromVector l2
+    Nothing ->
+      let unConst (AstConst t) = Just t
+          unConst _ = Nothing
+      in case V.mapM unConst l of
+        Just l3 -> AstConst $ tfromVectorR l3
+        Nothing -> AstFromVector l
 
 astKonst :: (KnownNat n, Numeric r)
          => Int -> Ast n r -> Ast (1 + n) r

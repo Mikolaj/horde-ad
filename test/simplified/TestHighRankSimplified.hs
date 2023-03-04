@@ -388,8 +388,8 @@ testReluSimp = do
             $ AstVar [1,2,2,1,2,2,2,2,2,1] (AstVarName 0)
   length (show t1) @?= 23221
   length (show t2) @?= 19541
-  length (show (simplifyAst @Float @10 t1)) @?= 20195
-  length (show (simplifyAst @Float @10 t2)) @?= 20195
+  length (show (simplifyAst @Float @10 t1)) @?= 19625
+  length (show (simplifyAst @Float @10 t2)) @?= 19625
 
 _testBarReluADVal320 :: Assertion
 _testBarReluADVal320 =
