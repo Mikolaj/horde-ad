@@ -194,6 +194,9 @@ instance KnownNat n => IfB (Ast n r) where
 astCond :: KnownNat n
         => AstBool r -> Ast n r -> Ast n r -> Ast n r
 astCond (AstBoolConst b) v w = if b then v else w
+astCond b (AstConstant (AstPrimalPart v)) (AstConstant (AstPrimalPart w)) =
+  AstConstant $ AstPrimalPart $ AstIndexZ (AstFromList [v, w])
+                                          (singletonIndex $ AstIntCond b 0 1)
 astCond b v w = AstIndexZ (AstFromList [v, w])
                           (singletonIndex $ AstIntCond b 0 1)
 
@@ -239,7 +242,7 @@ instance Num (OR.Array n r) => Num (Ast n r) where
   negate u = AstOp NegateOp [u]
   abs v = AstOp AbsOp [v]
   signum v = AstOp SignumOp [v]
-  fromInteger = AstConst . fromInteger
+  fromInteger = AstConstant . AstPrimalPart . AstConst . fromInteger
 
 instance Real (OR.Array n r) => Real (Ast n r) where
   toRational = undefined
@@ -248,10 +251,10 @@ instance Real (OR.Array n r) => Real (Ast n r) where
 instance Fractional (OR.Array n r) => Fractional (Ast n r) where
   u / v = AstOp DivideOp  [u, v]
   recip v = AstOp RecipOp [v]
-  fromRational = AstConst . fromRational
+  fromRational = AstConstant . AstPrimalPart . AstConst . fromRational
 
 instance Floating (OR.Array n r) => Floating (Ast n r) where
-  pi = AstConst pi
+  pi = AstConstant $ AstPrimalPart $ AstConst pi
   exp u = AstOp ExpOp [u]
   log u = AstOp LogOp [u]
   sqrt u = AstOp SqrtOp [u]

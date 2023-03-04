@@ -460,6 +460,8 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   tbuild1 k f = AstPrimalPart $ AstBuild1 k
                 $ funToAstI  -- this introduces new variable names
                 $ unAstPrimalPart . f
+                -- TODO: $ AstConstant . f
+                -- that's the correct one, but unvectorized tests fail with it
   tgather sh t f = AstPrimalPart $ AstGatherZ sh (unAstPrimalPart t)
                    $ funToAstIndex f  -- this introduces new variable names
 
