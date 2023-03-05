@@ -1,6 +1,4 @@
-{-# LANGUAGE FlexibleInstances, FunctionalDependencies,
-             GeneralizedNewtypeDeriving, QuantifiedConstraints,
-             UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Tool.EqEpsilon
   ( EqEpsilon, setEpsilonEq
   , AssertEqualUpToEpsilon(..)

@@ -1,6 +1,4 @@
-{-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances,
-             MultiParamTypeClasses, TypeFamilyDependencies,
-             UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | The class defining dual components of dual numbers and

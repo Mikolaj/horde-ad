@@ -83,10 +83,14 @@ flag use_typelits_plugins
 
 common options
   default-language:   GHC2021
-  default-extensions: StrictData, GADTs, TypeFamilies, RecordWildCards,
-                      MultiWayIf, LambdaCase, DefaultSignatures,
-                      PatternSynonyms, NoStarIsType
-  other-extensions:   FunctionalDependencies, DataKinds, UnboxedTuples, CPP
+  default-extensions: StrictData, GADTs, TypeFamilies,
+                      TypeFamilyDependencies, FunctionalDependencies,
+                      RecordWildCards, MultiWayIf, LambdaCase,
+                      DefaultSignatures, PatternSynonyms, NoStarIsType,
+                      DataKinds
+  other-extensions:   UnboxedTuples, CPP, ViewPatterns, OverloadedLists
+                      DerivingStrategies, DeriveAnyClass
+                      UndecidableInstances, AllowAmbiguousTypes
   ghc-options:        -Wall -Wcompat -Worphans -Wincomplete-uni-patterns -Wincomplete-record-updates -Wimplicit-prelude -Wmissing-home-modules -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages
   if impl(ghc >= 9.4)
     ghc-options:        -Wredundant-strictness-flags

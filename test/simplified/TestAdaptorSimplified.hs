@@ -1,5 +1,4 @@
-{-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances, OverloadedLists,
-             RankNTypes, TypeFamilies #-}
+{-# LANGUAGE OverloadedLists #-}
 module TestAdaptorSimplified
   ( testTrees, rev', assertEqualUpToEpsilon', assertEqualUpToEpsilonShorter
   , t16, t16b, t48, t128, t128b, t128c

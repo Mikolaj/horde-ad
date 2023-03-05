@@ -1,5 +1,3 @@
-{-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances,
-             MultiParamTypeClasses, TypeFamilies #-}
 -- | The implementation of calculating gradient, derivative and value
 -- of an objective function defined on dual numbers, as defined
 -- in "HordeAd.Core.DualNumber". Together with that module, this forms

@@ -1,7 +1,4 @@
-{-# LANGUAGE ConstraintKinds, DataKinds, DerivingStrategies, FlexibleInstances,
-             GADTs, GeneralizedNewtypeDeriving, MultiParamTypeClasses,
-             PolyKinds, QuantifiedConstraints, RankNTypes, StandaloneDeriving,
-             TypeFamilyDependencies, ViewPatterns #-}
+{-# LANGUAGE DerivingStrategies, ViewPatterns #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Sized indexes and shapes for tensors.

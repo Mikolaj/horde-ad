@@ -1,5 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, ConstraintKinds, DataKinds, FlexibleInstances,
-             OverloadedLists, RankNTypes, TypeFamilies #-}
+{-# LANGUAGE AllowAmbiguousTypes, OverloadedLists #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 module TestConvSimplified (testTrees) where
 

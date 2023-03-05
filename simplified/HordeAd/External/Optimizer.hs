@@ -1,4 +1,3 @@
-{-# LANGUAGE DataKinds, TypeFamilies #-}
 -- | A couple of gradient descent scheme implementations.
 module HordeAd.External.Optimizer
   ( gdSimple

@@ -1,6 +1,4 @@
-{-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances,
-             MultiParamTypeClasses, OverloadedLists, TypeFamilyDependencies,
-             UndecidableInstances #-}
+{-# LANGUAGE OverloadedLists, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | Dual numbers and various operations on them, arithmetic and related

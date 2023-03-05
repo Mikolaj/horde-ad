@@ -1,4 +1,3 @@
-{-# LANGUAGE DataKinds, GADTs #-}
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10 #-}
 {-# OPTIONS_GHC -freduction-depth=10000 #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}

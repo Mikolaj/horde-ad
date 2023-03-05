@@ -1,7 +1,4 @@
-{-# LANGUAGE ConstraintKinds, DataKinds, DeriveFunctor, DerivingStrategies,
-             FlexibleInstances, GADTs, MultiParamTypeClasses, PolyKinds,
-             QuantifiedConstraints, RankNTypes, StandaloneDeriving,
-             TypeFamilyDependencies #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | @GHC.Nat@-indexed lists.

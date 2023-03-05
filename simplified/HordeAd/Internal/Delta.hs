@@ -1,6 +1,4 @@
-{-# LANGUAGE CPP, DataKinds, DeriveAnyClass, DeriveGeneric, DerivingStrategies,
-             GADTs, GeneralizedNewtypeDeriving, KindSignatures, RankNTypes,
-             StandaloneDeriving, UnboxedTuples #-}
+{-# LANGUAGE DeriveAnyClass, DerivingStrategies #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | The second component of our rendition of dual numbers:

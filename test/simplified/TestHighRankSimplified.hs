@@ -1,5 +1,4 @@
-{-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances, OverloadedLists,
-             RankNTypes, TypeFamilies #-}
+{-# LANGUAGE OverloadedLists #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 module TestHighRankSimplified (testTrees) where

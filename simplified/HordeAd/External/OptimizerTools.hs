@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeFamilies #-}
 -- | Tools for implementing (and debugging the use of) gradient descent schemes.
 module HordeAd.External.OptimizerTools
   ( updateWithGradient

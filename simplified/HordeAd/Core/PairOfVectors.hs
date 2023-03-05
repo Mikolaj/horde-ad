@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP, TypeFamilies #-}
 -- | The "pair of vectors" implementation of vectors of dual numbers.
 -- This is much faster than "vector of pairs" implementation, but terribly
 -- hard to use in case of rank 0 dual numbers, because they need to be stored
