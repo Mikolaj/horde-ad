@@ -504,7 +504,7 @@ astGatherStep
   -> Ast (m + n) r
 astGatherStep sh v (vars, ix) =
   astGatherZOrStepOnly True sh (simplifyStepNonIndex v)
-                            (vars, fmap (simplifyAstInt) ix)
+                            (vars, fmap simplifyAstInt ix)
 
 -- Assumption: vars0 don't not occur in v0.
 -- The v0 term is already at least one step simplified,
@@ -521,7 +521,7 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
               ++ show (vars0, v0)
     (_, (Z, _)) -> astIndex v0 ix0
     (sh, (_, ZI)) -> astKonstN sh v0
-    ((k :$ sh'), (var ::: vars, (i1 :. rest1))) ->
+    (k :$ sh', (var ::: vars, i1 :. rest1)) ->
       if | not (any (`intVarInAstInt` i1) vars0) ->
            astGatherZOrStepOnly stepOnly sh0 (astIndex v0 (i1 :. ZI))
                                 (vars0, rest1)
@@ -651,7 +651,7 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       in case cmpNat (Proxy @p') (Proxy @m2) of
         LTI -> composedGather
         EQI -> assimilatedGather
-        GTI -> gcastWith (flipCompare @p' @m2) $ assimilatedGather
+        GTI -> gcastWith (flipCompare @p' @m2) assimilatedGather
 
 gatherFromNF :: forall m p r. (KnownNat m, KnownNat p)
              => AstVarList m -> AstIndex (1 + p) r -> Bool
@@ -779,10 +779,10 @@ simplifyAst t = case t of
   AstConst{} -> t
   AstConstant v -> astConstant (simplifyAstPrimal v)
   AstConstInt i -> AstConstInt $ simplifyAstInt i
-  AstIndexZ v ix -> astIndexZ (simplifyAst v) (fmap (simplifyAstInt) ix)
+  AstIndexZ v ix -> astIndexZ (simplifyAst v) (fmap simplifyAstInt ix)
   AstSum v -> astSum (simplifyAst v)
-  AstFromList l -> astFromList (map (simplifyAst) l)
-  AstFromVector l -> astFromVector (V.map (simplifyAst) l)
+  AstFromList l -> astFromList (map simplifyAst l)
+  AstFromVector l -> astFromVector (V.map simplifyAst l)
   AstKonst k v -> astKonst k (simplifyAst v)
   AstAppend x y -> astAppend (simplifyAst x) (simplifyAst y)
   AstSlice i k v -> astSlice i k (simplifyAst v)
@@ -809,7 +809,7 @@ simplifyAst t = case t of
       u -> simplifyAst u
   AstBuild1 k (var, v) -> AstBuild1 k (var, simplifyAst v)
   AstGatherZ sh v (vars, ix) ->
-    astGatherZ sh (simplifyAst v) (vars, fmap (simplifyAstInt) ix)
+    astGatherZ sh (simplifyAst v) (vars, fmap simplifyAstInt ix)
 
 -- Integer terms need to be simplified, because they are sometimes
 -- created by vectorization and can be a deciding factor in whether

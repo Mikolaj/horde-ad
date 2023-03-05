@@ -572,7 +572,7 @@ static_conv2d MkSNat MkSNat MkSNat MkSNat MkSNat MkSNat MkSNat arrK arrA arrB =
       vjpI = revDt (conv2d (constant arrK)) arrA arrB
       dInp = conv2d_dInp arrK arrB  -- manually written
       -- Second, the gradient wrt the kernels taken at point @arrK@.
-      vjpK  = revDt (flip conv2d (constant arrA)) arrK arrB
+      vjpK  = revDt (`conv2d` constant arrA) arrK arrB
       dKrn = conv2d_dKrn arrA arrB  -- manually written
   in abs (vjpI - dInp) <= 1e-7
      && abs (vjpK - dKrn) <= 1e-7

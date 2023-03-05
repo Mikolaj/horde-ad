@@ -115,7 +115,7 @@ build1V k (var, v00) =
       -- why we have to enter AstConstant during vectorization
       -- and simplify enough to reach the integer variables.
 
-    AstConstInt{} -> traceRule $
+    AstConstInt{} -> traceRule
       bv  -- vectorizing this would require mapping all AstInt operations
           -- to Ast operations, including RemIntOp, AstIntCond, etc.,
           -- so this is a big effort for a minor feature and handling recursive

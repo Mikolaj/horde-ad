@@ -288,7 +288,7 @@ testGatherSimp23 = do
             $ AstVar [6, 2] (AstVarName 0)
   resetVarCOunter
   let !t2 = (\t -> tbuild1 4 (\i ->
-              (treshape @(Ast 0 Float) @2 @2 [2, 6])
+              treshape @(Ast 0 Float) @2 @2 [2, 6]
                 (t * tkonst0N [6, 2] (tfromIndex0 i))))
             $ AstVar [6, 2] (AstVarName 0)
   length (show t1) @?= 246
@@ -326,7 +326,7 @@ gatherTranspose33 t =
      $ ttranspose [0, 1]
      $ ttranspose [1, 0]
      $ ttranspose [0, 1, 7, 4, 5, 3, 6, 2, 8]
-     $ t)
+       t)
 
 testGatherTranspose33 :: Assertion
 testGatherTranspose33 =
