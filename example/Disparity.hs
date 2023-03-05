@@ -1,21 +1,16 @@
-{-# LANGUAGE AllowAmbiguousTypes, CPP, DataKinds, FlexibleInstances, GADTs,
-             QuantifiedConstraints, RankNTypes, TypeFamilies #-}
-{-# OPTIONS_GHC -Wno-incomplete-patterns  #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 {-# OPTIONS_GHC -Wno-compat-unqualified-imports #-}
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 module Disparity where
-import Prelude
-import GHC.TypeLits
-import HordeAd.Core.DualNumber
-import HordeAd.Core.DualClass           as DC
-import HordeAd
-import qualified System.Random          as R
-import qualified Data.Array.ShapedS     as OS
-import qualified Foreign.Storable       as F
-import Data.List
+import qualified Data.Array.ShapedS as OS
+import           Data.List
+import qualified Foreign.Storable as F
+import           GHC.TypeLits
+import           HordeAd
+import           Prelude
+import qualified System.Random as R
 
 
 -- | Disparity cost volume.
@@ -40,7 +35,7 @@ costVolume
     , shA ~ '[nImgs, nChas,  nRows, nCols]
     , shO ~ '[nImgs, nCount, nRows, nCols])
  => Int
- -> StaticNat nCount
+ -> SNat nCount
  -> ADVal d (OS.Array shA r)
  -> ADVal d (OS.Array shA r)
  -> ADVal d (OS.Array shO r)
@@ -52,7 +47,7 @@ costVolume iStart _sCount arrL arrR =
         iSrc    = iCol - iStart - iDisp
         arrVecR = buildS @'[nChas] $ \[iCha] ->
                     indexzS0 arrR [iImg, iCha, iRow, iSrc]
-    in  sumElements0
+    in  sumElements10
          $ flattenS1
          $ zipWithOuterS (\xL xR -> abs (xL - xR)) arrVecL arrVecR
 
@@ -63,9 +58,9 @@ testCostVolume
  = let  arrL    = random @'[1, 2, 4, 6] @Double 1
         arrR    = random @'[1, 2, 4, 6] @Double 2
         arrS    = random @'[1, 4, 4, 6] @Double 3
-        arrO    = primal $ costVolume 0 (MkSN :: StaticNat 4) (constant arrL) (constant arrR)
-        arrDL   = revDt (\aL -> costVolume 0 MkSN aL (constant arrR)) arrL arrO
-        arrDR   = revDt (\aR -> costVolume 0 MkSN (constant arrL) aR) arrR arrO
+        arrO    = primal $ costVolume 0 (MkSNat :: SNat 4) (constant arrL) (constant arrR)
+        arrDL   = revDt (\aL -> costVolume 0 MkSNat aL (constant arrR)) arrL arrO
+        arrDR   = revDt (\aR -> costVolume 0 MkSNat (constant arrL) aR) arrR arrO
    in   putStrLn $ unlines
          [ "arrL  = " ++ show arrL
          , "arrR  = " ++ show arrR
@@ -89,5 +84,4 @@ random seed
 
 -- TODO: where is the real version of this defined?
 primal :: ADVal 'ADModeValue a -> a
-primal (DC.D a _) = a
-
+primal (D a _) = a

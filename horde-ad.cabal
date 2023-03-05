@@ -184,7 +184,8 @@ library exampleLibrary
     import:           options
 
     -- Modules exported by the library.
-    exposed-modules:  MnistData
+    exposed-modules:  Disparity
+                      MnistData
                       MnistFcnnMatrix
                       MnistFcnnScalar
                       MnistFcnnVector
