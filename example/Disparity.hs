@@ -31,7 +31,7 @@ import qualified System.Random as R
 costVolume
  :: forall d r nImgs nChas nRows nCols nCount shA shO.
     ( ADModeAndNum d r
-    , KnownNat nImgs, KnownNat nChas, KnownNat nRows, KnownNat nCols, KnownNat nCount
+    , KnownNat nImgs, KnownNat nChas, KnownNat nRows, KnownNat nCols
     , shA ~ '[nImgs, nChas,  nRows, nCols]
     , shO ~ '[nImgs, nCount, nRows, nCols])
  => Int
@@ -40,7 +40,7 @@ costVolume
  -> ADVal d (OS.Array shA r)
  -> ADVal d (OS.Array shO r)
 
-costVolume iStart _sCount arrL arrR =
+costVolume iStart MkSNat arrL arrR =
   buildS @shO $ \[iImg, iDisp, iRow, iCol] ->
     let arrVecL = buildS @'[nChas] $ \[iCha] ->
                     indexzS0 arrL [iImg, iCha, iRow, iCol]
