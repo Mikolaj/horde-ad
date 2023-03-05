@@ -82,20 +82,11 @@ flag use_typelits_plugins
   manual:             False
 
 common options
-  default-language:   Haskell2010
-  default-extensions: MonoLocalBinds, ScopedTypeVariables, OverloadedStrings,
-                      BangPatterns, RecordWildCards, NamedFieldPuns, MultiWayIf,
-                      LambdaCase, DefaultSignatures, InstanceSigs,
-                      PatternSynonyms, StrictData, TypeApplications,
-                      FlexibleContexts, NoStarIsType, TypeOperators
-  other-extensions:   TemplateHaskell, MultiParamTypeClasses, RankNTypes,
-                      TypeFamilies, FlexibleInstances,
-                      DeriveFunctor, FunctionalDependencies,
-                      GeneralizedNewtypeDeriving, TupleSections,
-                      DeriveFoldable, DeriveTraversable,
-                      ExistentialQuantification, GADTs, StandaloneDeriving,
-                      DataKinds, KindSignatures, DeriveGeneric, DeriveLift,
-                      UnboxedTuples, CPP
+  default-language:   GHC2021
+  default-extensions: StrictData, GADTs, TypeFamilies, RecordWildCards,
+                      MultiWayIf, LambdaCase, DefaultSignatures,
+                      PatternSynonyms, NoStarIsType
+  other-extensions:   FunctionalDependencies, DataKinds, UnboxedTuples, CPP
   ghc-options:        -Wall -Wcompat -Worphans -Wincomplete-uni-patterns -Wincomplete-record-updates -Wimplicit-prelude -Wmissing-home-modules -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages
   if impl(ghc >= 9.4)
     ghc-options:        -Wredundant-strictness-flags
