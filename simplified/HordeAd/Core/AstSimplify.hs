@@ -821,13 +821,19 @@ simplifyAstBool t = case t of
 -- TODO: let's aim at SOP (Sum-of-Products) form, just as
 -- ghc-typelits-natnormalise does. Also, let's associate to the right
 -- and let's push negation down.
+-- Not considered are rules that would require comparing non-constant terms
+-- or that would duplicate a non-constant term, as well as most rules
+-- informed by inequalities, expressed via max or min, such as
+-- max n (signum (abs x)) | n <= 0 --> signum (abs x).
 simplifyAstIntOp :: OpCodeInt -> [AstInt r] -> AstInt r
 simplifyAstIntOp PlusIntOp [AstIntConst u, AstIntConst v] = AstIntConst $ u + v
+simplifyAstIntOp PlusIntOp [AstIntConst 0, v] = v
+simplifyAstIntOp PlusIntOp [u, AstIntConst 0] = u
 simplifyAstIntOp PlusIntOp [ AstIntConst u
                            , AstIntOp PlusIntOp [AstIntConst v, w] ] =
   simplifyAstIntOp PlusIntOp [AstIntConst $ u + v, w]
-simplifyAstIntOp PlusIntOp [AstIntConst 0, v] = v
-simplifyAstIntOp PlusIntOp [u, AstIntConst 0] = u
+simplifyAstIntOp PlusIntOp [u, AstIntConst n] =
+  AstIntOp PlusIntOp [AstIntConst n, u]  -- to make the constant available
 simplifyAstIntOp PlusIntOp [AstIntOp PlusIntOp [u, v], w] =
   simplifyAstIntOp PlusIntOp [u, simplifyAstIntOp PlusIntOp [v, w]]
 
@@ -835,13 +841,15 @@ simplifyAstIntOp MinusIntOp [u, v] =
   simplifyAstIntOp PlusIntOp [u, simplifyAstIntOp NegateIntOp [v]]
 
 simplifyAstIntOp TimesIntOp [AstIntConst u, AstIntConst v] = AstIntConst $ u * v
-simplifyAstIntOp TimesIntOp [ AstIntConst u
-                            , AstIntOp TimesIntOp [AstIntConst v, w] ] =
-  simplifyAstIntOp TimesIntOp [AstIntConst $ u * v, w]
 simplifyAstIntOp TimesIntOp [AstIntConst 0, _v] = AstIntConst 0
 simplifyAstIntOp TimesIntOp [_u, AstIntConst 0] = AstIntConst 0
 simplifyAstIntOp TimesIntOp [AstIntConst 1, v] = v
 simplifyAstIntOp TimesIntOp [u, AstIntConst 1] = u
+simplifyAstIntOp TimesIntOp [ AstIntConst u
+                            , AstIntOp TimesIntOp [AstIntConst v, w] ] =
+  simplifyAstIntOp TimesIntOp [AstIntConst $ u * v, w]
+simplifyAstIntOp TimesIntOp [u, AstIntConst n] =
+  AstIntOp TimesIntOp [AstIntConst n, u]
 simplifyAstIntOp TimesIntOp [AstIntOp TimesIntOp [u, v], w] =
   simplifyAstIntOp TimesIntOp [u, simplifyAstIntOp TimesIntOp [v, w]]
 simplifyAstIntOp TimesIntOp [AstIntOp PlusIntOp [u, v], w] =
@@ -851,11 +859,13 @@ simplifyAstIntOp TimesIntOp [u, AstIntOp PlusIntOp [v, w]] =
   simplifyAstIntOp PlusIntOp [ simplifyAstIntOp TimesIntOp [u, v]
                              , simplifyAstIntOp TimesIntOp [u, w] ]
 
--- Almost complete. TODO: given choice, prefer to negate a constant.
 simplifyAstIntOp NegateIntOp [AstIntConst u] = AstIntConst $ negate u
 simplifyAstIntOp NegateIntOp [AstIntOp PlusIntOp [u, v]] =
   simplifyAstIntOp PlusIntOp [ simplifyAstIntOp NegateIntOp [u]
                              , simplifyAstIntOp NegateIntOp [v] ]
+simplifyAstIntOp NegateIntOp [AstIntOp TimesIntOp [AstIntConst u, v]] =
+  simplifyAstIntOp TimesIntOp [AstIntConst $ negate u, v]
+    -- given a choice, prefer to negate a constant
 simplifyAstIntOp NegateIntOp [AstIntOp TimesIntOp [u, v]] =
   simplifyAstIntOp TimesIntOp [u, simplifyAstIntOp NegateIntOp [v]]
 simplifyAstIntOp NegateIntOp [AstIntOp NegateIntOp [u]] = u
@@ -867,8 +877,12 @@ simplifyAstIntOp NegateIntOp [AstIntOp MaxIntOp [u, v]] =
 simplifyAstIntOp NegateIntOp [AstIntOp MinIntOp [u, v]] =
   simplifyAstIntOp MaxIntOp [ simplifyAstIntOp NegateIntOp [u]
                             , simplifyAstIntOp NegateIntOp [v] ]
+simplifyAstIntOp NegateIntOp [AstIntOp QuotIntOp [AstIntConst u, v]] =
+  simplifyAstIntOp QuotIntOp [AstIntConst $ negate u, v]
 simplifyAstIntOp NegateIntOp [AstIntOp QuotIntOp [u, v]] =
   simplifyAstIntOp QuotIntOp [u, simplifyAstIntOp NegateIntOp [v]]
+simplifyAstIntOp NegateIntOp [AstIntOp RemIntOp [AstIntConst u, v]] =
+  simplifyAstIntOp RemIntOp [AstIntConst $ negate u, v]
 simplifyAstIntOp NegateIntOp [AstIntOp RemIntOp [u, v]] =
   simplifyAstIntOp RemIntOp [u, simplifyAstIntOp NegateIntOp [v]]
 
@@ -877,10 +891,28 @@ simplifyAstIntOp AbsIntOp [AstIntOp AbsIntOp [u]] = AstIntOp AbsIntOp [u]
 simplifyAstIntOp AbsIntOp [AstIntOp NegateIntOp [u]] =
   simplifyAstIntOp AbsIntOp [u]
 simplifyAstIntOp SignumIntOp [AstIntConst u] = AstIntConst $ signum u
+simplifyAstIntOp SignumIntOp [AstIntOp SignumIntOp [u]] =
+  AstIntOp SignumIntOp [u]
+simplifyAstIntOp SignumIntOp [AstIntOp AbsIntOp [u]] =
+  simplifyAstIntOp AbsIntOp [AstIntOp SignumIntOp [u]]
 simplifyAstIntOp MaxIntOp [AstIntConst u, AstIntConst v] =
   AstIntConst $ max u v
+simplifyAstIntOp MaxIntOp [ AstIntConst u
+                          , AstIntOp MaxIntOp [AstIntConst v, w] ] =
+  simplifyAstIntOp MaxIntOp [AstIntConst $ max u v, w]
+simplifyAstIntOp MaxIntOp [u, AstIntConst n] =
+  AstIntOp MaxIntOp [AstIntConst n, u]
+simplifyAstIntOp MaxIntOp [AstIntOp MaxIntOp [u, v], w] =
+  simplifyAstIntOp MaxIntOp [u, simplifyAstIntOp MaxIntOp [v, w]]
 simplifyAstIntOp MinIntOp [AstIntConst u, AstIntConst v] =
   AstIntConst $ min u v
+simplifyAstIntOp MinIntOp [ AstIntConst u
+                          , AstIntOp MinIntOp [AstIntConst v, w] ] =
+  simplifyAstIntOp MinIntOp [AstIntConst $ min u v, w]
+simplifyAstIntOp MinIntOp [u, AstIntConst n] =
+  AstIntOp MinIntOp [AstIntConst n, u]
+simplifyAstIntOp MinIntOp [AstIntOp MinIntOp [u, v], w] =
+  simplifyAstIntOp MinIntOp [u, simplifyAstIntOp MinIntOp [v, w]]
 
 simplifyAstIntOp QuotIntOp [AstIntConst u, AstIntConst v] =
   AstIntConst $ quot u v
