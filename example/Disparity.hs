@@ -58,6 +58,7 @@ testCostVolume
  = let  arrL    = random @'[1, 2, 4, 6] @Double 1
         arrR    = random @'[1, 2, 4, 6] @Double 2
         arrS    = random @'[1, 4, 4, 6] @Double 3
+          -- TODO: this is unused
         arrO    = primal $ costVolume 0 (MkSNat :: SNat 4) (constant arrL) (constant arrR)
         arrDL   = revDt (\aL -> costVolume 0 MkSNat aL (constant arrR)) arrL arrO
         arrDR   = revDt (\aR -> costVolume 0 MkSNat (constant arrL) aR) arrR arrO

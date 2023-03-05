@@ -25,6 +25,8 @@ import HordeAd.Internal.TensorOps (tindex0D)
 import Tool.EqEpsilon
 import Tool.Shared
 
+import Disparity (costVolume)
+
 import TestGradientSimple (altSumElementsV, powKonst, sinKonst, sumElementsV)
 
 testTrees :: [TestTree]
@@ -357,6 +359,8 @@ adoptTests = testGroup "Tests of the port of adopt code"
       (quickcheck_conv2dNonDualNumber @Float)
   , testProperty "quickcheck_conv2d Double" (quickcheck_conv2d @Double)
   , testProperty "quickcheck_conv2d Float" (quickcheck_conv2d @Float)
+  , testCase "disparityKonst" test_disparityKonst
+  , testCase "disparitySmall" test_disparitySmall
   ]
 
 -- | Unpadded full convolution
@@ -603,3 +607,37 @@ quickcheck_conv2d =
     withSNat nKh' $ \nKh ->
     withSNat nKw' $ \nKw ->
       property $ static_conv2d @r nImgs nCinp nCout nAh nAw nKh nKw
+
+test_disparityKonst :: Assertion
+test_disparityKonst = do
+  let arrL = (-0.2) :: OS.Array '[1, 2, 4, 6] Double
+      arrR = 0.3 :: OS.Array '[1, 2, 4, 6] Double
+      arrO = value (uncurry $ costVolume 0 (MkSNat :: SNat 4)) (arrL, arrR)
+      arrDL = revDt (\aL -> costVolume 0 MkSNat aL (constant arrR)) arrL arrO
+      arrDR = revDt (\aR -> costVolume 0 MkSNat (constant arrL) aR) arrR arrO
+  assertEqualUpToEpsilon 1e-7
+    (OS.fromList @[1,4,4,6] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0])
+    arrO
+  assertEqualUpToEpsilon 1e-7
+    (OS.fromList @[1,2,4,6] [-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0,-2.2,-2.8,-3.4,-4.0,-4.0,-4.0])
+    arrDL
+  assertEqualUpToEpsilon 1e-7
+    (OS.fromList @[1,2,4,6] [4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0])
+   arrDR
+
+test_disparitySmall :: Assertion
+test_disparitySmall = do
+  let arrL = OS.fromList @'[1, 2, 3, 2] [0.2 :: Double, 0.5, -0.2, 0.0001, 0.44, 0.9, -0.9, 0.00001, -0.22, -0.28, -0.34, -0.40]
+      arrR = OS.fromList @'[1, 2, 3, 2] [-0.40,-0.22,-0.28,-0.34, 0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5, -0.35355339059327373,0.16666666666666666,0.17677669529663687,-0.25]
+      arrO = value (uncurry $ costVolume 0 (MkSNat :: SNat 4)) (arrL, arrR)
+      arrDL = revDt (\aL -> costVolume 0 MkSNat aL (constant arrR)) arrL arrO
+      arrDR = revDt (\aR -> costVolume 0 MkSNat (constant arrL) aR) arrR arrO
+  assertEqualUpToEpsilon 1e-7
+    (OS.fromList @[1,4,3,2] [1.7041241452319316,1.21999,0.21355339059327375,0.7867666666666666,0.7331698975466578,0.6964466094067263,1.1,1.1041141452319316,0.42000000000000004,0.3536533905932737,0.78,1.253169897546658,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3])
+    arrO
+  assertEqualUpToEpsilon 1e-7
+    (OS.fromList @[1,2,3,2] [5.004124145231932,3.3241241452319317,-1.0464466094067264,1.7006200572599404,3.0731698975466575,4.5496165069533845,-5.004124145231932,-1.3240841452319316,-1.0464466094067264,-0.9933132760733929,-3.0731698975466575,-4.5496165069533845])
+    arrDL
+  assertEqualUpToEpsilon 1e-7
+    (OS.fromList @[1,2,3,2] [-2.808238290463863,-1.21999,-0.5672067811865474,-0.7867666666666666,-1.986339795093316,-0.6964466094067263,2.808238290463863,1.21999,-0.5672067811865474,0.7867666666666666,1.986339795093316,0.6964466094067263])
+   arrDR
