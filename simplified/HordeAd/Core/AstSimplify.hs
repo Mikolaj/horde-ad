@@ -118,6 +118,29 @@ funToAstIndex f = unsafePerformIO $ do
 
 -- This generates big terms that don't simplify well,
 -- so we keep the AstReshape form until simplification gets stuck.
+-- In fact, to simplify the terms we'd need advanced solving of equations
+-- in integer arithmetic modulo. Moreover, when solving, we'd need to know
+-- the range of all integer variables (taken from shapes) and the floor
+-- and minimum/maximum terms (obtained by analysing the embedded Ast term),
+-- because many of the emerging terms are not equal to their simplifed
+-- forms without this data. Probably we could just subsitute @var `rem` range@
+-- for each variable.
+--
+-- TODO: To make this less disastrous, we need to add an extra constructor
+-- to AstIndex with the semantics "this index reshaped from shIn to shOut"
+-- that fuses perfectly with itself and absorbs normal indexes
+-- by substitution. Or perhaps make this the only constructor, with normal
+-- indexes represented as "this index reshaped from sh to sh".
+-- Or only extend AstGatherZ and possibly also AstIndexZ with the extra
+-- shIn and shOut arguments. This complicates any code related to
+-- AstGatherZ and AstIndexZ, but often prevents nested reshapes from affecting
+-- term size in any way. But we'd need to be careful to avoid breaking such
+-- an index into components, because that forces index normalization,
+-- e.g., index(gather) can no longer simplify recursively by one index
+-- component at a time (probably possible only if the index is shorter
+-- that the list of variables fo the gather). There are probably bad cases
+-- where term size blowup can't be avoided, because the index has to be
+-- normalized between each reshape.
 astReshapeAsGather
   :: forall p m r. (KnownNat p, KnownNat m, Show r, Numeric r, Num (Vector r))
   => ShapeInt m -> Ast p r -> Ast m r
@@ -833,9 +856,26 @@ simplifyAstIntOp PlusIntOp [ AstIntConst u
                            , AstIntOp PlusIntOp [AstIntConst v, w] ] =
   simplifyAstIntOp PlusIntOp [AstIntConst $ u + v, w]
 simplifyAstIntOp PlusIntOp [u, AstIntConst n] =
-  AstIntOp PlusIntOp [AstIntConst n, u]  -- to make the constant available
+  simplifyAstIntOp PlusIntOp [AstIntConst n, u]  -- make the constant available
 simplifyAstIntOp PlusIntOp [AstIntOp PlusIntOp [u, v], w] =
   simplifyAstIntOp PlusIntOp [u, simplifyAstIntOp PlusIntOp [v, w]]
+simplifyAstIntOp
+  PlusIntOp [ AstIntOp NegateIntOp [AstIntVar var]
+            , AstIntVar var' ] | var == var' = 0
+simplifyAstIntOp
+  PlusIntOp [ AstIntVar var'
+            , AstIntOp NegateIntOp [AstIntVar var] ] | var == var' = 0
+simplifyAstIntOp
+  PlusIntOp [ AstIntOp RemIntOp [ AstIntOp NegateIntOp [AstIntVar var]
+                                , AstIntConst v ]
+            , AstIntOp RemIntOp [ AstIntVar var'
+                                , AstIntConst v' ] ] | var == var'
+                                                       && v == v' = 0
+simplifyAstIntOp
+  PlusIntOp [ AstIntOp RemIntOp [ AstIntVar var'
+                                , AstIntConst v' ]
+            , AstIntOp RemIntOp [ AstIntOp NegateIntOp [AstIntVar var]
+                                , AstIntConst v ] ] | var == var' && v == v' = 0
 
 simplifyAstIntOp MinusIntOp [u, v] =
   simplifyAstIntOp PlusIntOp [u, simplifyAstIntOp NegateIntOp [v]]
@@ -849,7 +889,7 @@ simplifyAstIntOp TimesIntOp [ AstIntConst u
                             , AstIntOp TimesIntOp [AstIntConst v, w] ] =
   simplifyAstIntOp TimesIntOp [AstIntConst $ u * v, w]
 simplifyAstIntOp TimesIntOp [u, AstIntConst n] =
-  AstIntOp TimesIntOp [AstIntConst n, u]
+  simplifyAstIntOp TimesIntOp [AstIntConst n, u]
 simplifyAstIntOp TimesIntOp [AstIntOp TimesIntOp [u, v], w] =
   simplifyAstIntOp TimesIntOp [u, simplifyAstIntOp TimesIntOp [v, w]]
 simplifyAstIntOp TimesIntOp [AstIntOp PlusIntOp [u, v], w] =
@@ -858,6 +898,17 @@ simplifyAstIntOp TimesIntOp [AstIntOp PlusIntOp [u, v], w] =
 simplifyAstIntOp TimesIntOp [u, AstIntOp PlusIntOp [v, w]] =
   simplifyAstIntOp PlusIntOp [ simplifyAstIntOp TimesIntOp [u, v]
                              , simplifyAstIntOp TimesIntOp [u, w] ]
+
+-- With static shapes, the second argument to QuotIntOp and RemIntOp
+-- is always a constant, which makes such rules worth including,
+-- since they are likely to fire. To help them fire, we avoid changing
+-- that constant, if possible, e.g., in rules for NegateIntOp.
+simplifyAstIntOp
+  TimesIntOp [ AstIntConst v
+             , AstIntOp QuotIntOp [AstIntVar var, AstIntConst v'] ] | v == v' =
+    simplifyAstIntOp MinusIntOp
+                     [ AstIntVar var
+                     , AstIntOp RemIntOp [AstIntVar var, AstIntConst v] ]
 
 simplifyAstIntOp NegateIntOp [AstIntConst u] = AstIntConst $ negate u
 simplifyAstIntOp NegateIntOp [AstIntOp PlusIntOp [u, v]] =
@@ -880,11 +931,11 @@ simplifyAstIntOp NegateIntOp [AstIntOp MinIntOp [u, v]] =
 simplifyAstIntOp NegateIntOp [AstIntOp QuotIntOp [AstIntConst u, v]] =
   simplifyAstIntOp QuotIntOp [AstIntConst $ negate u, v]
 simplifyAstIntOp NegateIntOp [AstIntOp QuotIntOp [u, v]] =
-  simplifyAstIntOp QuotIntOp [u, simplifyAstIntOp NegateIntOp [v]]
+  simplifyAstIntOp QuotIntOp [simplifyAstIntOp NegateIntOp [u], v]
 simplifyAstIntOp NegateIntOp [AstIntOp RemIntOp [AstIntConst u, v]] =
   simplifyAstIntOp RemIntOp [AstIntConst $ negate u, v]
 simplifyAstIntOp NegateIntOp [AstIntOp RemIntOp [u, v]] =
-  simplifyAstIntOp RemIntOp [u, simplifyAstIntOp NegateIntOp [v]]
+  simplifyAstIntOp RemIntOp [simplifyAstIntOp NegateIntOp [u], v]
 
 simplifyAstIntOp AbsIntOp [AstIntConst u] = AstIntConst $ abs u
 simplifyAstIntOp AbsIntOp [AstIntOp AbsIntOp [u]] = AstIntOp AbsIntOp [u]
@@ -923,6 +974,9 @@ simplifyAstIntOp QuotIntOp [ AstIntOp RemIntOp [_u, AstIntConst v]
   | v' >= v && v >= 0 = 0
 simplifyAstIntOp QuotIntOp [AstIntOp QuotIntOp [u, v], w] =
   simplifyAstIntOp QuotIntOp [u, simplifyAstIntOp TimesIntOp [v, w]]
+simplifyAstIntOp QuotIntOp [ AstIntOp TimesIntOp [AstIntConst u, v]
+                           , AstIntConst u' ]
+    | u == u' = v
 
 simplifyAstIntOp RemIntOp [AstIntConst u, AstIntConst v] =
   AstIntConst $ rem u v
@@ -932,6 +986,9 @@ simplifyAstIntOp RemIntOp [AstIntOp RemIntOp [u, AstIntConst v], AstIntConst v']
   | v' >= v && v >= 0 = AstIntOp RemIntOp [u, AstIntConst v]
 simplifyAstIntOp RemIntOp [AstIntOp RemIntOp [u, AstIntConst v], AstIntConst v']
   | rem v v' == 0 && v > 0 = simplifyAstIntOp RemIntOp [u, AstIntConst v']
+simplifyAstIntOp RemIntOp [ AstIntOp TimesIntOp [AstIntConst u, _v]
+                          , AstIntConst u' ]
+  | rem u u' == 0 = 0
 
 simplifyAstIntOp opCodeInt arg = AstIntOp opCodeInt arg
 
