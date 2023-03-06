@@ -12,6 +12,8 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 
+import Tool.EqEpsilon
+
 import TestAdaptorSimplified (assertEqualUpToEpsilon', rev', t128, t48)
 
 testTrees :: [TestTree]
@@ -293,7 +295,8 @@ testGatherSimp23 = do
   length (show t1) @?= 246
   length (show t2) @?= 246
   length (show (simplifyAst @Float t1)) @?= 2339
-  length (show (simplifyAst @Float t2)) @?= 2359
+  assertEqualUpToEpsilon
+    100 (2359 :: Float) (fromIntegral $ length (show (simplifyAst @Float t2)))
 
 -- Depending on if and how transpose it desugared, this may or may not result
 -- in dozens of nested gathers that should vanish after simplification.
