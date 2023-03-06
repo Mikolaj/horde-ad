@@ -612,7 +612,7 @@ test_disparityKonst :: Assertion
 test_disparityKonst = do
   let arrL = (-0.2) :: OS.Array '[1, 2, 4, 6] Double
       arrR = 0.3 :: OS.Array '[1, 2, 4, 6] Double
-      arrO = value (uncurry $ costVolume 0 (MkSNat :: SNat 4)) (arrL, arrR)
+      arrO = value (uncurry $ costVolume 0 (MkSNat @4)) (arrL, arrR)
       arrDL = revDt (\aL -> costVolume 0 MkSNat aL (constant arrR)) arrL arrO
       arrDR = revDt (\aR -> costVolume 0 MkSNat (constant arrL) aR) arrR arrO
   assertEqualUpToEpsilon 1e-7
@@ -629,7 +629,7 @@ test_disparitySmall :: Assertion
 test_disparitySmall = do
   let arrL = OS.fromList @'[1, 2, 3, 2] [0.2 :: Double, 0.5, -0.2, 0.0001, 0.44, 0.9, -0.9, 0.00001, -0.22, -0.28, -0.34, -0.40]
       arrR = OS.fromList @'[1, 2, 3, 2] [-0.40,-0.22,-0.28,-0.34, 0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5, -0.35355339059327373,0.16666666666666666,0.17677669529663687,-0.25]
-      arrO = value (uncurry $ costVolume 0 (MkSNat :: SNat 4)) (arrL, arrR)
+      arrO = value (uncurry $ costVolume 0 (MkSNat @4)) (arrL, arrR)
       arrDL = revDt (\aL -> costVolume 0 MkSNat aL (constant arrR)) arrL arrO
       arrDR = revDt (\aR -> costVolume 0 MkSNat (constant arrL) aR) arrR arrO
   assertEqualUpToEpsilon 1e-7
