@@ -568,11 +568,13 @@ costVolume iStart nCount arrL arrR =
 
 test_disparityKonst :: Assertion
 test_disparityKonst = do
-  let arrL = tkonst0N [1, 2, 4, 6] (-0.2)
+  let arrL :: ADReady r => TensorOf 4 r
+      arrL = tkonst0N [1, 2, 4, 6] (-0.2)
+      arrR :: ADReady r => TensorOf 4 r
       arrR = tkonst0N [1, 2, 4, 6] 0.3
       arrO = value @(OR.Array 4 Double) (uncurry $ costVolume 0 4) (arrL, arrR)
-      arrDL = revDt (\aL -> costVolume 0 2 aL (constant arrR)) arrL arrO
-      arrDR = revDt (\aR -> costVolume 0 2 (constant arrL) aR) arrR arrO
+      arrDL = revDt (\aL -> costVolume 0 2 aL (tconstant arrR)) arrL arrO
+      arrDR = revDt (\aR -> costVolume 0 2 (tconstant arrL) aR) arrR arrO
   assertEqualUpToEpsilon 1e-7
     (OR.fromList [1,4,4,6] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0])
     arrO
@@ -582,20 +584,43 @@ test_disparityKonst = do
   assertEqualUpToEpsilon 1e-7
     (OR.fromList [1,2,4,6] [4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0])
    arrDR
+  assertEqualUpToEpsilon' 1e-7
+    (OR.fromList [1,2,4,6] [4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0,4.0,4.0,4.0,3.0,2.0,1.0])
+    (rev' @(OR.Array 4 Double) (costVolume 0 4 arrL) arrR)
+  assertEqualUpToEpsilon' 1e-7
+    (OR.fromList [1,2,4,6] [-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0,-2.0])
+    (rev' @(OR.Array 4 Double) (\aL -> costVolume 0 2 aL arrR) arrL)
+  assertEqualUpToEpsilon' 1e-7
+    (OR.fromList [1,2,4,6] [2.0,2.0,2.0,2.0,2.0,1.0,2.0,2.0,2.0,2.0,2.0,1.0,2.0,2.0,2.0,2.0,2.0,1.0,2.0,2.0,2.0,2.0,2.0,1.0,2.0,2.0,2.0,2.0,2.0,1.0,2.0,2.0,2.0,2.0,2.0,1.0,2.0,2.0,2.0,2.0,2.0,1.0,2.0,2.0,2.0,2.0,2.0,1.0])
+    (rev' @(OR.Array 4 Double) (costVolume 0 2 arrL) arrR)
 
 test_disparitySmall :: Assertion
 test_disparitySmall = do
-  let arrL = OR.fromList [1, 2, 3, 2] [0.2 :: Double, 0.5, -0.2, 0.0001, 0.44, 0.9, -0.9, 0.00001, -0.22, -0.28, -0.34, -0.40]
-      arrR = OR.fromList [1, 2, 3, 2] [-0.40,-0.22,-0.28,-0.34, 0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5, -0.35355339059327373,0.16666666666666666,0.17677669529663687,-0.25]
-      arrO = value (uncurry $ costVolume 0 4) (arrL, arrR)
-      arrDL = revDt (\aL -> costVolume 0 2 aL (constant arrR)) arrL arrO
-      arrDR = revDt (\aR -> costVolume 0 2 (constant arrL) aR) arrR arrO
+  let arrL :: ADReady r => TensorOf 4 r
+      arrL = tfromList0N [1, 2, 3, 2] [0.2, 0.5, -0.2, 0.0001, 0.44, 0.9, -0.9, 0.00001, -0.22, -0.28, -0.34, -0.40]
+      arrR :: ADReady r => TensorOf 4 r
+      arrR = tfromList0N [1, 2, 3, 2] [-0.40,-0.22,-0.28,-0.34, 0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5, -0.35355339059327373,0.16666666666666666,0.17677669529663687,-0.25]
+      arrO = value @(OR.Array 4 Double) (uncurry $ costVolume 0 4) (arrL, arrR)
+      arrDL = revDt (\aL -> costVolume 0 2 aL (tconstant arrR)) arrL arrO
+      arrDR = revDt (\aR -> costVolume 0 2 (tconstant arrL) aR) arrR arrO
   assertEqualUpToEpsilon 1e-7
     (OR.fromList [1,4,3,2] [1.7041241452319316,1.21999,0.21355339059327375,0.7867666666666666,0.7331698975466578,0.6964466094067263,1.1,1.1041141452319316,0.42000000000000004,0.3536533905932737,0.78,1.253169897546658,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3])
     arrO
+  assertEqualUpToEpsilon' 1e-7
+    (OR.fromList [1,2,3,2] [-2.0,-1.0,-2.0,-1.0,-2.0,-1.0,2.0,1.0,-2.0,1.0,2.0,1.0])
+    (rev' @(OR.Array 4 Double) (costVolume 0 4 arrL) arrR)
   assertEqualUpToEpsilon 1e-7
     (OR.fromList [1,2,3,2] [5.004124145231932,3.3241241452319317,-1.0464466094067264,1.7006200572599404,3.0731698975466575,4.5496165069533845,-5.004124145231932,-1.3240841452319316,-1.0464466094067264,-0.9933132760733929,-3.0731698975466575,-4.5496165069533845])
     arrDL
   assertEqualUpToEpsilon 1e-7
     (OR.fromList [1,2,3,2] [-2.808238290463863,-1.21999,-0.5672067811865474,-0.7867666666666666,-1.986339795093316,-0.6964466094067263,2.808238290463863,1.21999,-0.5672067811865474,0.7867666666666666,1.986339795093316,0.6964466094067263])
    arrDR
+  assertEqualUpToEpsilon' 1e-7
+    (OR.fromList [1,2,3,2] [-1.0,0.0,-1.0,0.0,-1.0,0.0,1.0,0.0,-1.0,0.0,1.0,0.0])
+    (rev' @(OR.Array 4 Double) (costVolume 1 4 arrL) arrR)
+  assertEqualUpToEpsilon' 1e-7
+    (OR.fromList [1,2,3,2] [2.0,2.0,-2.0,2.0,2.0,2.0,-2.0,2.0,-2.0,-2.0,-2.0,-2.0])
+    (rev' @(OR.Array 4 Double) (\aL -> costVolume 2 2 aL arrR) arrL)
+  assertEqualUpToEpsilon' 1e-7
+    (OR.fromList [1,2,3,2] [-1.0,0.0,-1.0,0.0,-1.0,0.0,1.0,0.0,-1.0,0.0,1.0,0.0])
+    (rev' @(OR.Array 4 Double) (costVolume 1 2 arrL) arrR)
