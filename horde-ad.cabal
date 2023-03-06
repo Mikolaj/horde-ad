@@ -527,7 +527,6 @@ library horde-ad-simplified
       , mono-traversable
       , orthotope
       , pretty-show
-      , primitive
       , random
       , strict-containers
       , unboxed-ref

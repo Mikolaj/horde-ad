@@ -69,7 +69,6 @@ import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Type)
 import           Data.List (foldl', sort)
 import           Data.List.Index (ifoldl')
-import           Data.Primitive (Prim)
 import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -256,9 +255,7 @@ deriving instance (Show r, Numeric r) => Show (DeltaX r)
 -- * Delta expression identifiers
 
 newtype NodeId = NodeId {fromNodeId :: Int}
-  deriving newtype (Enum, Prim)
-    -- The Prim instance conversions take lots of time when old-time profiling,
-    -- but are completely optimized away in normal builds.
+  deriving newtype Enum
     -- No Eq instance to limit hacks outside this module.
 
 instance Show NodeId where
