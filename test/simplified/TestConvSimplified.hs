@@ -556,7 +556,7 @@ costVolume
   :: ADReady r
   => Int -> Int -> TensorOf 4 r -> TensorOf 4 r -> TensorOf 4 r
 costVolume iStart nCount arrL arrR =
-  let [nImgs, nChas,  nRows, nCols] = tshape arrL
+  let [nImgs, nChas, nRows, nCols] = tshape arrL
       shO = [nImgs, nCount, nRows, nCols]
   in tbuild shO $ \[iImg, iDisp, iRow, iCol] ->
        let arrVecL = tbuild (nChas :$ ZS) $ \[iCha] ->
@@ -573,8 +573,8 @@ test_disparityKonst = do
       arrR :: ADReady r => TensorOf 4 r
       arrR = tkonst0N [1, 2, 4, 6] 0.3
       arrO = value @(OR.Array 4 Double) (uncurry $ costVolume 0 4) (arrL, arrR)
-      arrDL = revDt (\aL -> costVolume 0 2 aL (tconstant arrR)) arrL arrO
-      arrDR = revDt (\aR -> costVolume 0 2 (tconstant arrL) aR) arrR arrO
+      arrDL = revDt (\aL -> costVolume 0 4 aL (tconstant arrR)) arrL arrO
+      arrDR = revDt (\aR -> costVolume 0 4 (tconstant arrL) aR) arrR arrO
   assertEqualUpToEpsilon 1e-7
     (OR.fromList [1,4,4,6] [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,1.0,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,1.0,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0,0.4,0.4,0.4,1.0,1.0,1.0])
     arrO
@@ -601,8 +601,8 @@ test_disparitySmall = do
       arrR :: ADReady r => TensorOf 4 r
       arrR = tfromList0N [1, 2, 3, 2] [-0.40,-0.22,-0.28,-0.34, 0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5, -0.35355339059327373,0.16666666666666666,0.17677669529663687,-0.25]
       arrO = value @(OR.Array 4 Double) (uncurry $ costVolume 0 4) (arrL, arrR)
-      arrDL = revDt (\aL -> costVolume 0 2 aL (tconstant arrR)) arrL arrO
-      arrDR = revDt (\aR -> costVolume 0 2 (tconstant arrL) aR) arrR arrO
+      arrDL = revDt (\aL -> costVolume 0 4 aL (tconstant arrR)) arrL arrO
+      arrDR = revDt (\aR -> costVolume 0 4 (tconstant arrL) aR) arrR arrO
   assertEqualUpToEpsilon 1e-7
     (OR.fromList [1,4,3,2] [1.7041241452319316,1.21999,0.21355339059327375,0.7867666666666666,0.7331698975466578,0.6964466094067263,1.1,1.1041141452319316,0.42000000000000004,0.3536533905932737,0.78,1.253169897546658,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3,1.1,0.50001,0.42000000000000004,0.2801,0.78,1.3])
     arrO

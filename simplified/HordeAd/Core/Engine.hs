@@ -80,7 +80,7 @@ revOnADInputsFun dt f inputs@ADInputs{..} =
       -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started
       !(D v deltaTopLevel) = f inputs
-      deltaDt = packDeltaDt (dt v) deltaTopLevel
+      deltaDt = packDeltaDt (dt v) v deltaTopLevel
   in let gradient = gradientFromDelta dim0 dim1 deltaDt
      in (gradient, v)
 

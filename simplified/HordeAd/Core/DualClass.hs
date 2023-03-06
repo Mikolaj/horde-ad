@@ -38,6 +38,7 @@ module HordeAd.Core.DualClass
 
 import Prelude
 
+import           Control.Exception.Assert.Sugar
 import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.RankedS as OR
@@ -149,7 +150,7 @@ instance (IsPrimalR d r, KnownNat n) => IsPrimal d (OR.Array n r) where
 -- and a dt parameter for computing its gradient.
 class HasInputs a where
   dInput :: InputId a -> Dual 'ADModeGradient a
-  packDeltaDt :: a -> Dual 'ADModeGradient a -> DeltaDt (Element a)
+  packDeltaDt :: a -> a -> Dual 'ADModeGradient a -> DeltaDt (Element a)
   inputConstant :: Element a -> a -> a
 
 -- | The class provides methods required for the second type parameter
@@ -302,17 +303,23 @@ instance IsPrimalR 'ADModeGradient r where
 
 instance HasInputs Double where
   dInput = Input0
-  packDeltaDt = DeltaDt0
+  packDeltaDt t _tsh = DeltaDt0 t
   inputConstant r _tsh = r
 
 instance HasInputs Float where
   dInput = Input0
-  packDeltaDt = DeltaDt0
+  packDeltaDt t _tsh = DeltaDt0 t
   inputConstant r _tsh = r
 
 instance (Numeric r, KnownNat n) => HasInputs (OR.Array n r) where
   dInput = undefined  -- not needed
-  packDeltaDt = DeltaDt1
+  packDeltaDt t tsh =
+    let sh = OR.shapeL t
+        sh' = OR.shapeL tsh
+    in assert (sh == sh'
+               `blame` "packDeltaDt: dt and codomain differ in shape: "
+               `swith` (sh, sh'))
+       $ DeltaDt1 t
   inputConstant r tsh = OR.constant (OR.shapeL tsh) r
 
 instance HasInputs (OT.Array r) where
