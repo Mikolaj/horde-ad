@@ -69,12 +69,12 @@ flag with_expensive_assertions
 flag release
   description:        remember to set before tagging for a release (to expose internal functions and types, disable tests that depend on not packaged data, etc.)
   default:            False
-  manual:             False
+  manual:             True
 
 flag test_seq
   description:        run the test suite in sequential mode
   default:            False
-  manual:             False
+  manual:             True
 
 flag use_typelits_plugins
   description:        use typelits plugins, without which a lot of functionality needs to be disabled
@@ -88,8 +88,8 @@ common options
                       RecordWildCards, MultiWayIf, LambdaCase,
                       DefaultSignatures, PatternSynonyms, NoStarIsType,
                       DataKinds
-  other-extensions:   UnboxedTuples, CPP, ViewPatterns, OverloadedLists
-                      DerivingStrategies, DeriveAnyClass
+  other-extensions:   UnboxedTuples, CPP, ViewPatterns, OverloadedLists,
+                      DerivingStrategies, DeriveAnyClass,
                       UndecidableInstances, AllowAmbiguousTypes
   ghc-options:        -Wall -Wcompat -Worphans -Wincomplete-uni-patterns -Wincomplete-record-updates -Wimplicit-prelude -Wmissing-home-modules -Widentities -Wredundant-constraints -Wmissing-export-lists -Wpartial-fields -Wunused-packages
   if impl(ghc >= 9.4)
