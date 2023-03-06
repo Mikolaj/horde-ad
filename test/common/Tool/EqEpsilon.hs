@@ -45,7 +45,10 @@ setEpsilonEq (EqEpsilon x) = atomicWriteIORef eqEpsilonRef x
 -- Helper functions
 ----------------------------------------------------------------------------
 
-assert_list :: forall a. (a -> a -> Assertion) -- ^ The function used to make an assertion on two elements (expected, actual)
+assert_list :: forall a. HasCallStack
+            => (a -> a -> Assertion)
+                 -- ^ The function used to make an assertion
+                 -- on two elements (expected, actual)
             -> [a]                             -- ^ The expected value
             -> [a]                             -- ^ The actual value
             -> Assertion
@@ -67,7 +70,7 @@ assert_list make_assert expected actual =
     go_assert_list (head_exp:tail_exp) (head_act:tail_act) =
           make_assert head_exp head_act >> go_assert_list tail_exp tail_act
 
-assert_shape :: forall a b. (HasShape a, Linearizable a b)
+assert_shape :: forall a b. (HasShape a, Linearizable a b, HasCallStack)
              => (b -> b -> Assertion) -- ^ The function used to make an assertion on two elements (expected, actual)
              -> a                     -- ^ The expected value
              -> a                     -- ^ The actual value
@@ -125,7 +128,7 @@ class (Fractional z, Show a) => AssertEqualUpToEpsilon z a | a -> z where
     -> Assertion
 
 assertEqualUpToEpsilonWithMark
-  :: AssertEqualUpToEpsilon z a
+  :: (AssertEqualUpToEpsilon z a, HasCallStack)
   => String  -- ^ message suffix's prefix
   -> z  -- ^ error margin (i.e., the epsilon)
   -> a  -- ^ expected value
@@ -140,7 +143,7 @@ assertEqualUpToEpsilonWithMark mark error_margin expected actual =
        expected actual
 
 assertEqualUpToEpsilon
-  :: AssertEqualUpToEpsilon z a
+  :: (AssertEqualUpToEpsilon z a, HasCallStack)
   => z  -- ^ error margin (i.e., the epsilon)
   -> a  -- ^ expected value
   -> a  -- ^ actual value
@@ -329,7 +332,7 @@ assertCloseElem preface expected actual = do
     go_assert eqEps (h:t) =
       if abs (h-actual) <= fromRational eqEps then assert_close_eps msg "" (fromRational eqEps) h actual else go_assert eqEps t
 
-assertClose :: AssertEqualUpToEpsilon z a
+assertClose :: (AssertEqualUpToEpsilon z a, HasCallStack)
       => a -- ^ The expected value
       -> a -- ^ The actual value
       -> Assertion
@@ -338,7 +341,7 @@ assertClose expected actual = do
   assertEqualUpToEpsilon (fromRational eqEpsilon) expected actual
 
 infix 1 @?~
-(@?~) :: AssertEqualUpToEpsilon z a
+(@?~) :: (AssertEqualUpToEpsilon z a, HasCallStack)
       => a -- ^ The actual value
       -> a -- ^ The expected value
       -> Assertion
