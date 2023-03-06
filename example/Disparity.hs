@@ -7,7 +7,7 @@ module Disparity where
 import qualified Data.Array.ShapedS as OS
 import           Data.List
 import qualified Foreign.Storable as F
-import           GHC.TypeLits
+import           GHC.TypeLits (KnownNat)
 import           HordeAd
 import           Prelude
 import qualified System.Random as R
