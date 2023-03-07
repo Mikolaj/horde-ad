@@ -357,7 +357,7 @@ testBarReluADValDt :: Assertion
 testBarReluADValDt =
   assertEqualUpToEpsilon 1e-10
     (OR.fromList [2,2,1,2,2] [1.2916050471365906e-2,1.2469757606504572e-2,1.3064120086501589e-2,1.2320300700062944e-2,0.0,1.217049789428711e-2,1.2185494267265312e-2,0.0,1.4105363649830907e-2,1.3506236503127638e-2,1.3359213691150671e-2,0.0,1.7066665416485535e-2,1.2618022646204737e-2,0.0,1.595161947206668e-2])
-    (revDt @(OR.Array 5 Double) barRelu t16 (OR.constant [1, 1, 1, 1, 1] 42.2))
+    (revDt @(OR.Array 5 Double) barRelu t16 (OR.constant [ 2 , 2 , 1 , 2 , 2 ] 42.2))
 
 testBarReluADVal :: Assertion
 testBarReluADVal =
