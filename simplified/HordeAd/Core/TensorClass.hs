@@ -124,6 +124,7 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tfromList0N sh = treshape sh . tfromList . map tscalar
   tfromVector :: KnownNat n
               => Data.Vector.Vector (TensorOf n r) -> TensorOf (1 + n) r
+  tfromVector v = tfromList (V.toList v)  -- horribly inefficient for large vs
   tfromVector0N :: KnownNat n
                 => ShapeInt n -> Data.Vector.Vector r -> TensorOf n r
   tfromVector0N sh = treshape sh . tfromVector . V.map tscalar
