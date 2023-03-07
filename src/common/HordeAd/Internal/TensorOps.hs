@@ -34,6 +34,8 @@ import qualified Numeric.LinearAlgebra.Devel
 import HordeAd.Core.SizedIndex
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVR, liftVR2)
 
+type IndexInt n = Index n Int
+
 dummyTensor :: Numeric r => OT.Array r
 dummyTensor =  -- an inconsistent tensor array
   Data.Array.Internal.DynamicS.A

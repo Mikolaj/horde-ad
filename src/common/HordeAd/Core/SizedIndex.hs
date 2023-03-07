@@ -4,7 +4,7 @@
 -- | Sized indexes and shapes for tensors.
 module HordeAd.Core.SizedIndex
   ( -- * Concrete type synonyms to be used in many other modules
-    IndexInt, ShapeInt, Permutation
+    ShapeInt, Permutation
     -- * Tensor indexes as fully encapsulated sized lists, with operations
   , Index, pattern (:.), pattern ZI
   , singletonIndex, snocIndex, appendIndex
@@ -34,8 +34,6 @@ import GHC.TypeLits (KnownNat, SomeNat (..), sameNat, someNatVal, type (+))
 import HordeAd.Internal.SizedList
 
 -- * Concrete type synonyms to be used in many other modules
-
-type IndexInt n = Index n Int
 
 -- This type is user facing so we warn similarly as for IndexOf.
 -- | Thanks to the OverloadedLists mechanism, values of this type can be
