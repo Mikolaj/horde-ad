@@ -58,14 +58,14 @@ data Ast :: Nat -> Type -> Type where
   AstConstant :: AstPrimalPart n r -> Ast n r
 
   -- For Tensor class:
-  AstConstInt :: AstInt r -> Ast 0 r
-    -- needed, because toInteger and so fromIntegral is not defined for Ast
   AstIndexZ :: forall m n r. KnownNat m
             => Ast (m + n) r -> AstIndex m r -> Ast n r
     -- first ix is for outermost dimension; empty index means identity,
     -- if index is out of bounds, the result is defined and is 0;
     -- however, vectorization is permitted to change the value
   AstSum :: Ast (1 + n) r -> Ast n r
+  AstConstInt :: AstInt r -> Ast 0 r
+    -- needed, because toInteger and so fromIntegral is not defined for Ast
   AstFromList :: KnownNat n
               => [Ast n r] -> Ast (1 + n) r
   AstFromVector :: KnownNat n
