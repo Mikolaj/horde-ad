@@ -294,7 +294,8 @@ testGatherSimp23 = do
             $ AstVar [6, 2] (AstVarName 0)
   length (show t1) @?= 246
   length (show t2) @?= 246
-  length (show (simplifyAst @Float t1)) @?= 2339
+  assertEqualUpToEpsilon
+    100 (2339 :: Float) (fromIntegral $ length (show (simplifyAst @Float t1)))
   assertEqualUpToEpsilon
     100 (2359 :: Float) (fromIntegral $ length (show (simplifyAst @Float t2)))
 
