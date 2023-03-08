@@ -86,6 +86,9 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tmaxIndex t = fromLinearIdx (fmap fromIntegral $ tshape t)
                               (tmaxIndex0 (tflatten t))
   tfloor :: TensorOf 0 r -> IntOf r
+  default tfloor  -- a more narrow type to rule out Ast
+    :: IntOf r ~ Int => TensorOf 0 r -> IntOf r
+  tfloor = floor . tunScalar
 
   -- Typically scalar codomain, often tensor reduction
   -- (a number suffix in the name indicates the rank of codomain)
