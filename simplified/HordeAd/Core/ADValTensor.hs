@@ -60,11 +60,11 @@ instance ADModeAndNumTensor d r => Tensor (ADVal d r) where
   tdot0 u v = tscalar $ dot0 u v
 
   tfromList = fromList
-  tfromList0N = fromList0N
+--  tfromList0N = fromList0N
   tfromVector = fromVector
-  tfromVector0N = fromVector0N
+--  tfromVector0N = fromVector0N
   tkonst = konst
-  tkonst0N sh = konst0N sh . unScalar
+--  tkonst0N sh = konst0N sh . unScalar
   tappend = append
   tslice = slice
   treverse = reverse'
@@ -153,12 +153,12 @@ fromList lu =
   dD (tfromListR $ map (\(D u _) -> u) lu)
      (dFromList1 $ map (\(D _ u') -> u') lu)
 
-fromList0N :: (ADModeAndNumTensor d r, KnownNat n)
-           => ShapeInt n -> [ADVal d r]
-           -> ADVal d (OR.Array n r)
-fromList0N sh l =
-  dD (tfromList0NR sh $ map (\(D u _) -> u) l)  -- I hope this fuses
-     (dFromList01 sh $ map (\(D _ u') -> u') l)
+--fromList0N :: (ADModeAndNumTensor d r, KnownNat n)
+--           => ShapeInt n -> [ADVal d r]
+--           -> ADVal d (OR.Array n r)
+--fromList0N sh l =
+--  dD (tfromList0NR sh $ map (\(D u _) -> u) l)  -- I hope this fuses
+--     (dFromList01 sh $ map (\(D _ u') -> u') l)
 
 fromVector :: (ADModeAndNumTensor d r, KnownNat n)
            => Data.Vector.Vector (ADVal d (OR.Array n r))
@@ -167,20 +167,20 @@ fromVector lu =
   dD (tfromVectorR $ V.map (\(D u _) -> u) lu)
      (dFromVector1 $ V.map (\(D _ u') -> u') lu)
 
-fromVector0N :: (ADModeAndNumTensor d r, KnownNat n)
-             => ShapeInt n -> Data.Vector.Vector (ADVal d r)
-             -> ADVal d (OR.Array n r)
-fromVector0N sh l =
-  dD (tfromVector0NR sh $ V.convert $ V.map (\(D u _) -> u) l)  -- hope it fuses
-     (dFromVector01 sh $ V.map (\(D _ u') -> u') l)
+--fromVector0N :: (ADModeAndNumTensor d r, KnownNat n)
+--             => ShapeInt n -> Data.Vector.Vector (ADVal d r)
+--             -> ADVal d (OR.Array n r)
+--fromVector0N sh l =
+--  dD (tfromVector0NR sh $ V.convert $ V.map (\(D u _) -> u) l)  -- hope it fuses
+--     (dFromVector01 sh $ V.map (\(D _ u') -> u') l)
 
 konst :: (ADModeAndNumTensor d r, KnownNat n)
       => Int -> ADVal d (OR.Array n r) -> ADVal d (OR.Array (1 + n) r)
 konst k (D u u') = dD (tkonstR k u) (dKonst1 k u')
 
-konst0N :: (ADModeAndNumTensor d r, KnownNat n)
-        => ShapeInt n -> ADVal d r -> ADVal d (OR.Array n r)
-konst0N sh (D u u') = dD (tkonst0NR sh u) (dKonst01 sh u')
+--konst0N :: (ADModeAndNumTensor d r, KnownNat n)
+--        => ShapeInt n -> ADVal d r -> ADVal d (OR.Array n r)
+--konst0N sh (D u u') = dD (tkonst0NR sh u) (dKonst01 sh u')
 
 append :: (ADModeAndNumTensor d r, KnownNat n)
        => ADVal d (OR.Array (1 + n) r) -> ADVal d (OR.Array (1 + n) r)

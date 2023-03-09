@@ -68,7 +68,6 @@ import qualified Data.Array.RankedS as OR
 import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Type)
 import           Data.List (foldl', sort)
-import           Data.List.Index (ifoldl')
 import           Data.Proxy (Proxy (Proxy))
 import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
@@ -185,12 +184,12 @@ data Delta1 :: Nat -> Type -> Type where
               => Data.Vector.Vector (Delta1 n r)
               -> Delta1 (1 + n) r
     -- ^ Create a tensor from a boxed vector treated as the outermost dimension.
-  FromList01 :: ShapeInt n -> [Delta0 r] -> Delta1 n r
-  FromVector01 :: ShapeInt n -> Data.Vector.Vector (Delta0 r) -> Delta1 n r
+--  FromList01 :: ShapeInt n -> [Delta0 r] -> Delta1 n r
+--  FromVector01 :: ShapeInt n -> Data.Vector.Vector (Delta0 r) -> Delta1 n r
   Konst1 :: KnownNat n
          => Int -> Delta1 n r -> Delta1 (1 + n) r
     -- ^ Copy the given tensor along the new, outermost dimension.
-  Konst01 :: ShapeInt n -> Delta0 r -> Delta1 n r
+--  Konst01 :: ShapeInt n -> Delta0 r -> Delta1 n r
   Append1 :: KnownNat n
           => Delta1 n r -> Int -> Delta1 n r -> Delta1 n r
     -- ^ Append two arrays along the outermost dimension.
@@ -561,14 +560,14 @@ buildFinMaps s0 deltaDt =
         FromVector1 ld ->
           let lc = ORB.toList $ OR.unravel c
           in foldl' (\s2 (c2, d2) -> eval1 s2 c2 d2) s $ zip lc (V.toList ld)
-        FromList01 _sh lsd ->  -- lsd is a list of scalar delta expressions
-          let cv = OR.toVector c
-          in ifoldl' (\s2 i d -> eval0 s2 (cv V.! i) d) s lsd
-        FromVector01 _sh lsd ->  -- lsd is a list of scalar delta expressions
-          let cv = OR.toVector c
-          in V.ifoldl' (\s2 i d -> eval0 s2 (cv V.! i) d) s lsd
+--        FromList01 _sh lsd ->  -- lsd is a list of scalar delta expressions
+--          let cv = OR.toVector c
+--          in ifoldl' (\s2 i d -> eval0 s2 (cv V.! i) d) s lsd
+--        FromVector01 _sh lsd ->  -- lsd is a list of scalar delta expressions
+--          let cv = OR.toVector c
+--          in V.ifoldl' (\s2 i d -> eval0 s2 (cv V.! i) d) s lsd
         Konst1 _n d -> eval1 s (tsumR c) d
-        Konst01 _ d -> eval0 s (tsum0R c) d
+--        Konst01 _ d -> eval0 s (tsum0R c) d
         Append1 d k e -> case OR.shapeL c of
           n : _ -> let s2 = eval1 s (tsliceR 0 k c) d
                    in eval1 s2 (tsliceR k (n - k) c) e
@@ -714,16 +713,16 @@ buildDerivative dim0 dim1 deltaTopLevel
         FromVector1 lsd -> do
           l <- V.mapM eval1 lsd
           return $! tfromVectorR l
-        FromList01 sh lsd -> do
-          l <- mapM eval0 lsd
-          return $! tfromList0NR sh l
-        FromVector01 sh lsd -> do
-          l <- V.mapM eval0 lsd
-          return $! tfromVector0NR sh l
+--        FromList01 sh lsd -> do
+--          l <- mapM eval0 lsd
+--          return $! tfromList0NR sh l
+--        FromVector01 sh lsd -> do
+--          l <- V.mapM eval0 lsd
+--          return $! tfromVector0NR sh l
         Konst1 n d -> do
           t <- eval1 d
           return $! tkonstR n t
-        Konst01 sh d -> tkonst0NR sh <$> eval0 d
+--        Konst01 sh d -> tkonst0NR sh <$> eval0 d
         Append1 d _k e -> liftM2 tappendR (eval1 d) (eval1 e)
         Slice1 i n d _len -> tsliceR i n <$> eval1 d
         Reverse1 d -> treverseR <$> eval1 d

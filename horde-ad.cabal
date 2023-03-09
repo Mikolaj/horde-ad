@@ -524,7 +524,6 @@ library horde-ad-simplified
       , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
       , hmatrix
-      , ilist
       , mono-traversable
       , orthotope
       , pretty-show

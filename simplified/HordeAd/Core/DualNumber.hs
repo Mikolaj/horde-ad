@@ -405,20 +405,20 @@ lossSoftMaxCrossEntropyV target (D u u') =
 fromList1 :: ADModeAndNum d r
           => [ADVal d r] -> ADVal d (Vec r)
 fromList1 l =
-  dD (tfromList0NR (singletonShape (length l)) $ map (\(D u _) -> u) l)
-     (dFromList01 (singletonShape (length l)) $ map (\(D _ u') -> u') l)
+  dD (tfromListR $ map (\(D u _) -> tscalarR u) l)
+     (dFromList1 $ map (\(D _ u') -> dScalar1 u') l)
 
 fromVector1 :: ADModeAndNum d r
             => Data.Vector.Vector (ADVal d r) -> ADVal d (Vec r)
 fromVector1 l =
-  dD (tfromVector0NR (singletonShape (V.length l))
-      $ V.convert $ V.map (\(D u _) -> u) l)  -- hope it fuses
-     (dFromVector01 (singletonShape (V.length l))
-      $ V.map (\(D _ u') -> u') l)
+  dD (tfromVectorR
+      $ V.convert $ V.map (\(D u _) -> tscalarR u) l)  -- hope it fuses
+     (dFromVector1
+      $ V.map (\(D _ u') -> dScalar1 u') l)
 
 konst1 :: ADModeAndNum d r => ADVal d r -> Int -> ADVal d (Vec r)
 konst1 (D u u') n =
-  dD (tkonst0NR (singletonShape n) u) (dKonst01 (singletonShape n) u')
+  dD (tkonstR n (tscalarR u)) (dKonst1 n (dScalar1 u'))
 
 append1 :: ADModeAndNum d r
         => ADVal d (Vec r) -> ADVal d (Vec r) -> ADVal d (Vec r)

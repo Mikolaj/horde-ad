@@ -179,15 +179,15 @@ class HasRanks (d :: ADMode) r where
   dFromVector1 :: KnownNat n
                => Data.Vector.Vector (Dual d (OR.Array n r))
                -> Dual d (OR.Array (1 + n) r)
-  dFromList01 :: KnownNat n
-              => ShapeInt n -> [Dual d r] -> Dual d (OR.Array n r)
-  dFromVector01 :: KnownNat n
-                => ShapeInt n -> Data.Vector.Vector (Dual d r)
-                -> Dual d (OR.Array n r)
+--  dFromList01 :: KnownNat n
+--              => ShapeInt n -> [Dual d r] -> Dual d (OR.Array n r)
+--  dFromVector01 :: KnownNat n
+--                => ShapeInt n -> Data.Vector.Vector (Dual d r)
+--                -> Dual d (OR.Array n r)
   dKonst1 :: KnownNat n
           => Int -> Dual d (OR.Array n r) -> Dual d (OR.Array (1 + n) r)
-  dKonst01 :: KnownNat n
-           => ShapeInt n -> Dual d r -> Dual d (OR.Array n r)
+--  dKonst01 :: KnownNat n
+--           => ShapeInt n -> Dual d r -> Dual d (OR.Array n r)
   dAppend1 :: KnownNat n
            => Dual d (OR.Array n r) -> Int -> Dual d (OR.Array n r)
            -> Dual d (OR.Array n r)
@@ -340,10 +340,10 @@ instance Dual 'ADModeGradient r ~ Delta0 r
   dScalar1 = Scalar1
   dFromList1 = FromList1
   dFromVector1 = FromVector1
-  dFromList01 = FromList01
-  dFromVector01 = FromVector01
+--  dFromList01 = FromList01
+--  dFromVector01 = FromVector01
   dKonst1 = Konst1
-  dKonst01 = Konst01
+--  dKonst01 = Konst01
   dAppend1 = Append1
   dSlice1 = Slice1
   dReverse1 = Reverse1
@@ -401,10 +401,10 @@ instance ( Numeric r, Show r, Num (Vector r)
   dScalar1 = OR.scalar
   dFromList1 = tfromListR
   dFromVector1 = tfromVectorR
-  dFromList01 = tfromList0NR
-  dFromVector01 = tfromVector0NR
+--  dFromList01 = tfromList0NR
+--  dFromVector01 = tfromVector0NR
   dKonst1 = tkonstR
-  dKonst01 = tkonst0NR
+--  dKonst01 = tkonst0NR
   dAppend1 d _k = tappendR d
   dSlice1 i n d _len = tsliceR i n d
   dReverse1 = treverseR
@@ -465,10 +465,10 @@ instance HasRanks 'ADModeValue r where
   dScalar1 _ = DummyDual ()
   dFromList1 _ = DummyDual ()
   dFromVector1 _ = DummyDual ()
-  dFromList01 _ _ = DummyDual ()
-  dFromVector01 _ _ = DummyDual ()
+--  dFromList01 _ _ = DummyDual ()
+--  dFromVector01 _ _ = DummyDual ()
   dKonst1 _ _ = DummyDual ()
-  dKonst01 _ _ = DummyDual ()
+--  dKonst01 _ _ = DummyDual ()
   dAppend1 _ _ _ = DummyDual ()
   dSlice1 _ _ _ _ = DummyDual ()
   dReverse1 _ = DummyDual ()
