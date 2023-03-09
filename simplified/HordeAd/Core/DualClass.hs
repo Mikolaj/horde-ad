@@ -203,18 +203,18 @@ class HasRanks (d :: ADMode) r where
   dBuild1 :: KnownNat n
           => Int -> (Int -> Dual d (OR.Array n r))
           -> Dual d (OR.Array (1 + n) r)
-  dGather1 :: (KnownNat p, KnownNat n)
-           => (Int -> IndexInt p)
-           -> ShapeInt (p + n) -> Dual d (OR.Array (p + n) r)
-           -> Int -> Dual d (OR.Array (1 + n) r)
+--  dGather1 :: (KnownNat p, KnownNat n)
+--           => (Int -> IndexInt p)
+--           -> ShapeInt (p + n) -> Dual d (OR.Array (p + n) r)
+--           -> Int -> Dual d (OR.Array (1 + n) r)
   dGatherN :: (KnownNat m, KnownNat p, KnownNat n)
            => (IndexInt m -> IndexInt p)
            -> ShapeInt (p + n) -> Dual d (OR.Array (p + n) r)
            -> ShapeInt (m + n) -> Dual d (OR.Array (m + n) r)
-  dScatter1 :: (KnownNat p, KnownNat n)
-            => (Int -> IndexInt p)
-            -> Int -> Dual d (OR.Array (1 + n) r)
-            -> ShapeInt (p + n) -> Dual d (OR.Array (p + n) r)
+--  dScatter1 :: (KnownNat p, KnownNat n)
+--            => (Int -> IndexInt p)
+--            -> Int -> Dual d (OR.Array (1 + n) r)
+--            -> ShapeInt (p + n) -> Dual d (OR.Array (p + n) r)
   dScatterN :: (KnownNat m, KnownNat p, KnownNat n)
             => (IndexInt m -> IndexInt p)
             -> ShapeInt (m + n) -> Dual d (OR.Array (m + n) r)
@@ -350,9 +350,9 @@ instance Dual 'ADModeGradient r ~ Delta0 r
   dTranspose1 = Transpose1
   dReshape1 = Reshape1
   dBuild1 = Build1
-  dGather1 = Gather1
+--  dGather1 = Gather1
   dGatherN = GatherN
-  dScatter1 = Scatter1
+--  dScatter1 = Scatter1
   dScatterN = ScatterN
 
   dFromX1 = FromX1
@@ -411,9 +411,9 @@ instance ( Numeric r, Show r, Num (Vector r)
   dTranspose1 = ttransposeR
   dReshape1 _sh = treshapeR
   dBuild1 = tbuild1R
-  dGather1 f _sh u k = tgather1R k u f
+--  dGather1 f _sh u k = tgather1R k u f
   dGatherN f _shd u sh = tgatherNR sh u f
-  dScatter1 f _n = tscatter1R f
+--  dScatter1 f _n = tscatter1R f
   dScatterN f _shd = tscatterNR f
 
   dFromX1 = Data.Array.Convert.convert
@@ -475,9 +475,9 @@ instance HasRanks 'ADModeValue r where
   dTranspose1 _ _ = DummyDual ()
   dReshape1 _ _ _ = DummyDual ()
   dBuild1 _ _ = DummyDual ()
-  dGather1 _ _ _ _ = DummyDual ()
+--  dGather1 _ _ _ _ = DummyDual ()
   dGatherN _ _ _ _ = DummyDual ()
-  dScatter1 _ _ _ _ = DummyDual ()
+--  dScatter1 _ _ _ _ = DummyDual ()
   dScatterN _ _ _ _ = DummyDual ()
 
   dFromX1 _ = DummyDual ()
