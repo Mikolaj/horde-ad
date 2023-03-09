@@ -248,7 +248,7 @@ data AstVar a =
   | AstVarI Int
  deriving Show
 
-extendEnvR :: ADModeAndNumTensor d r
+extendEnvR :: (ADModeAndNumTensor d r, KnownNat n)
            => AstVarName (OR.Array n r) -> ADVal d (OR.Array n r)
            -> AstEnv d r -> AstEnv d r
 extendEnvR (AstVarName var) d =

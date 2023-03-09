@@ -225,7 +225,8 @@ class HasRanks (d :: ADMode) r where
   dFromX1 :: KnownNat n
           => Dual d (OT.Array r) -> Dual d (OR.Array n r)
 
-  dFrom1X :: Dual d (OR.Array n r) -> Dual d (OT.Array r)
+  dFrom1X :: KnownNat n
+          => Dual d (OR.Array n r) -> Dual d (OT.Array r)
 
 -- * Backprop gradient method instances
 

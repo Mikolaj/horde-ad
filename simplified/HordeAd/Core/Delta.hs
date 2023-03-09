@@ -69,15 +69,16 @@ import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Type)
 import           Data.List (foldl', sort)
 import           Data.List.Index (ifoldl')
+import           Data.Proxy (Proxy (Proxy))
 import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
+import           Data.Type.Equality ((:~:) (Refl))
 import qualified Data.Vector.Generic as V
 import           GHC.Generics (Generic)
-import           GHC.TypeLits (KnownNat, Nat, type (+))
+import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Text.Show.Functions ()
-import           Unsafe.Coerce (unsafeCoerce)
 
 import HordeAd.Core.SizedIndex
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVR)
@@ -242,13 +243,14 @@ data Delta1 :: Nat -> Type -> Type where
            -> ShapeInt (m + n) -> Delta1 (m + n) r
            -> ShapeInt (p + n) -> Delta1 (p + n) r
 
-  FromX1 :: DeltaX r -> Delta1 n r
+  FromX1 :: forall n r. DeltaX r -> Delta1 n r
 
 deriving instance (Show r, Numeric r) => Show (Delta1 n r)
 
 data DeltaX :: Type -> Type where
   InputX :: InputId (OT.Array r) -> DeltaX r
-  From1X :: Delta1 n r -> DeltaX r
+  From1X :: forall n r. KnownNat n
+         => Delta1 n r -> DeltaX r
 
 deriving instance (Show r, Numeric r) => Show (DeltaX r)
 
@@ -597,8 +599,10 @@ buildFinMaps s0 deltaDt =
 
         FromX1 (InputX inputId) ->
           s {iMap1 = EM.adjust (addToArray c) inputId $ iMap1 s}
-        FromX1 (From1X d) -> eval1 s c (unsafeCoerce d)
-          -- TODO: add a runtime check
+        FromX1 @n2 (From1X @n1 d) ->
+          case sameNat (Proxy @n1) (Proxy @n2) of
+            Just Refl -> eval1 s c d
+            _ -> error "buildFinMaps: different ranks in FromX1(From1X)"
 
       evalFromnMap :: EvalState r -> EvalState r
       evalFromnMap s@EvalState{nMap, dMap0, dMap1} =
@@ -755,7 +759,9 @@ buildDerivative dim0 dim1 deltaTopLevel
           if i < dim1
           then return $! Data.Array.Convert.convert $ domains1 V.! i
           else error "derivativeFromDelta.eval': wrong index for an input"
-        FromX1 (From1X d) -> eval1 (unsafeCoerce d)
-          -- TODO: add a runtime check
+        FromX1 @n2 (From1X @n1 d) ->
+          case sameNat (Proxy @n1) (Proxy @n2) of
+            Just Refl -> eval1 d
+            _ -> error "buildDerivative: different ranks in FromX1(From1X)"
 
   eval0 deltaTopLevel

@@ -120,7 +120,7 @@ fromX1 :: (ADModeAndNum d r, KnownNat n)
        => ADVal d (OT.Array r) -> ADVal d (OR.Array n r)
 fromX1 (D u u') = dDnotShared (Data.Array.Convert.convert u) (dFromX1 u')
 
-from1X :: ADModeAndNum d r
+from1X :: (ADModeAndNum d r, KnownNat n)
        => ADVal d (OR.Array n r) -> ADVal d (OT.Array r)
 from1X (D u u') = dDnotShared (Data.Array.Convert.convert u) (dFrom1X u')
 
