@@ -165,8 +165,8 @@ class HasRanks (d :: ADMode) r where
         => OR.Array n r -> Dual d (OR.Array n r) -> Dual d r
   dUnScalar0 :: Dual d (OR.Array 0 r) -> Dual d r
 
-  dIndex1 :: KnownNat n
-          => Dual d (OR.Array (1 + n) r) -> Int -> Int -> Dual d (OR.Array n r)
+--  dIndex1 :: KnownNat n
+--         => Dual d (OR.Array (1 + n) r) -> Int -> Int -> Dual d (OR.Array n r)
   dIndexN :: (KnownNat n, KnownNat m)
           => Dual d (OR.Array (m + n) r) -> IndexInt m -> ShapeInt (m + n)
           -> Dual d (OR.Array n r)
@@ -336,7 +336,7 @@ instance Dual 'ADModeGradient r ~ Delta0 r
   dDot0 = Dot0
   dUnScalar0 = UnScalar0
 
-  dIndex1 = Index1
+--  dIndex1 = Index1
   dIndexN = IndexN
   dSum1 = Sum1
   dScalar1 = Scalar1
@@ -398,7 +398,7 @@ instance ( Numeric r, Show r, Num (Vector r)
   dDot0 = tdot0R
   dUnScalar0 = OR.unScalar
 
-  dIndex1 d ix _ = tindex1R d ix
+--  dIndex1 d ix _ = tindex1R d ix
   dIndexN d ixs _ = tindexNR d ixs
   dSum1 _ = tsumR
   dScalar1 = OR.scalar
@@ -463,7 +463,7 @@ instance HasRanks 'ADModeValue r where
   dDot0 _ _ = DummyDual ()
   dUnScalar0 _ = DummyDual ()
 
-  dIndex1 _ _ _ = DummyDual ()
+--  dIndex1 _ _ _ = DummyDual ()
   dIndexN _ _ _ = DummyDual ()
   dSum1 _ _ = DummyDual ()
   dScalar1 _ = DummyDual ()

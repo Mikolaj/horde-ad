@@ -165,8 +165,8 @@ data Delta1 :: Nat -> Type -> Type where
   Add1 :: Delta1 n r -> Delta1 n r -> Delta1 n r
   Let1 :: NodeId -> Delta1 n r -> Delta1 n r
 
-  Index1 :: KnownNat n
-         => Delta1 (1 + n) r -> Int -> Int -> Delta1 n r
+--  Index1 :: KnownNat n
+--         => Delta1 (1 + n) r -> Int -> Int -> Delta1 n r
     -- ^ The sub-tensors at the given index of the outermost dimension.
     -- The second integer is the length of the dimension.
   IndexN :: (KnownNat n, KnownNat m)
@@ -546,12 +546,12 @@ buildFinMaps s0 deltaDt =
                      , dMap1 = EM.insert n cs $ dMap1 s }
               _ -> error "buildFinMaps: corrupted nMap"
 
-        Index1 d ix len ->
-          let rest = OR.shapeL c
-          in eval1 s (OR.concatOuter [ OR.constant (ix : rest) 0
-                                     , OR.reshape (1 : rest) c
-                                     , OR.constant (len - ix - 1 : rest) 0 ])
-                     d  -- TODO: optimize for input case
+--        Index1 d ix len ->
+--          let rest = OR.shapeL c
+--          in eval1 s (OR.concatOuter [ OR.constant (ix : rest) 0
+--                                     , OR.reshape (1 : rest) c
+--                                     , OR.constant (len - ix - 1 : rest) 0 ])
+--                     d  -- TODO: optimize for input case
         IndexN d ix sh -> eval1 s (tscatter1R (\_ -> ix) (tfromListR [c]) sh) d
           -- equivalent: eval1 s (updateNR (tkonst0NR sh 0) [(ixs, c)]) d
         Sum1 n d -> eval1 s (tkonstR n c) d
@@ -708,7 +708,7 @@ buildDerivative dim0 dim1 deltaTopLevel
               return c
             _ -> error "buildDerivative: corrupted nMap"
 
-        Index1 d ix _len -> (`tindex1R` ix) <$> eval1 d
+--        Index1 d ix _len -> (`tindex1R` ix) <$> eval1 d
         IndexN d ixs _len -> (`tindexNR` ixs) <$> eval1 d
         Sum1 _ d -> tsumR <$> eval1 d
         Scalar1 d -> tscalarR <$> eval0 d

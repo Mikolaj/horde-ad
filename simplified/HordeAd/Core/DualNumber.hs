@@ -302,17 +302,13 @@ relu v@(D u _) =
 
 -- Operations resulting in a scalar
 
-unScalarADVal :: ADModeAndNum d r => ADVal d (OR.Array 0 r) -> ADVal d r
-unScalarADVal (D u u') = dD (OR.unScalar u) (dUnScalar0 u')
-
 sumElements10 :: ADModeAndNum d r
               => ADVal d (Vec r) -> ADVal d r
 sumElements10 (D u u') = dD (tsum0R u) (dSum0 (tshapeR u) u')
 
 index10 :: ADModeAndNum d r => ADVal d (Vec r) -> Int -> ADVal d r
-index10 (D u u') ix =
-  unScalarADVal $ dD (u `tindex1R` ix)
-                     (dIndex1 u' ix (head $ OR.shapeL u))
+index10 (D u u') ix = dD (u `tindex0R` singletonIndex ix)
+                         (dIndex0 u' (singletonIndex ix) (tshapeR u))
 
 minimum0 :: ADModeAndNum d r => ADVal d (Vec r) -> ADVal d r
 minimum0 (D u u') =
