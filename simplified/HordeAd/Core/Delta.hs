@@ -550,7 +550,8 @@ buildFinMaps s0 deltaDt =
                                      , OR.reshape (1 : rest) c
                                      , OR.constant (len - ix - 1 : rest) 0 ])
                      d  -- TODO: optimize for input case
-        IndexN d ixs sh -> eval1 s (updateNR (tkonst0NR sh 0) [(ixs, c)]) d
+        IndexN d ix sh -> eval1 s (tscatter1R (\_ -> ix) (tfromListR [c]) sh) d
+          -- equivalent: eval1 s (updateNR (tkonst0NR sh 0) [(ixs, c)]) d
         Sum1 n d -> eval1 s (OR.ravel (ORB.constant [n] c)) d
         Scalar1 d -> eval0 s (OR.unScalar c) d
         FromList1 ld ->
