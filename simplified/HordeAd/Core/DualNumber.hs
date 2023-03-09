@@ -470,7 +470,7 @@ build1Closure n f =
   let g i = let D u _ = f i in u
       h i = let D _ u' = f i in u'
   in dD (OR.fromList [n] $ map g [0 .. n - 1])
-        (dBuild01 (singletonShape n) (h . headIndex))
+        (dBuild1 n (dScalar1 . h))
 
 build1
   :: ADModeAndNum d r

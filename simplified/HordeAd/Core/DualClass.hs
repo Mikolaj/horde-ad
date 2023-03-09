@@ -203,8 +203,6 @@ class HasRanks (d :: ADMode) r where
   dBuild1 :: KnownNat n
           => Int -> (Int -> Dual d (OR.Array n r))
           -> Dual d (OR.Array (1 + n) r)
-  dBuild01 :: KnownNat n
-           => ShapeInt n -> (IndexInt n -> Dual d r) -> Dual d (OR.Array n r)
   dGather1 :: (KnownNat p, KnownNat n)
            => (Int -> IndexInt p)
            -> ShapeInt (p + n) -> Dual d (OR.Array (p + n) r)
@@ -352,7 +350,6 @@ instance Dual 'ADModeGradient r ~ Delta0 r
   dTranspose1 = Transpose1
   dReshape1 = Reshape1
   dBuild1 = Build1
-  dBuild01 = Build01
   dGather1 = Gather1
   dGatherN = GatherN
   dScatter1 = Scatter1
@@ -414,7 +411,6 @@ instance ( Numeric r, Show r, Num (Vector r)
   dTranspose1 = ttransposeR
   dReshape1 _sh = treshapeR
   dBuild1 = tbuild1R
-  dBuild01 = tbuild0NR
   dGather1 f _sh u k = tgather1R k u f
   dGatherN f _shd u sh = tgatherNR sh u f
   dScatter1 f _n = tscatter1R f
@@ -479,7 +475,6 @@ instance HasRanks 'ADModeValue r where
   dTranspose1 _ _ = DummyDual ()
   dReshape1 _ _ _ = DummyDual ()
   dBuild1 _ _ = DummyDual ()
-  dBuild01 _ _ = DummyDual ()
   dGather1 _ _ _ _ = DummyDual ()
   dGatherN _ _ _ _ = DummyDual ()
   dScatter1 _ _ _ _ = DummyDual ()

@@ -214,7 +214,6 @@ data Delta1 :: Nat -> Type -> Type where
          => Int -> (Int -> Delta1 n r) -> Delta1 (1 + n) r
     -- ^ Build a tensor with the given size of the outermost dimension
     -- and using the given function to construct the element tensors.
-  Build01 :: ShapeInt n -> (IndexInt n -> Delta0 r) -> Delta1 n r
   Gather1 :: (KnownNat p, KnownNat n)
           => (Int -> IndexInt p)
           -> ShapeInt (p + n) -> Delta1 (p + n) r
@@ -589,9 +588,6 @@ buildFinMaps s0 deltaDt =
         Reshape1 sh _sh' d -> eval1 s (treshapeR sh c) d
         Build1 _n f -> V.ifoldl' (\s2 i ci -> eval1 s2 ci (f i))
                                  s (ORB.toVector $ OR.unravel c)
-        Build01 sh f ->
-          V.ifoldl' (\s2 i ci -> eval0 s2 ci (f $ fromLinearIdx sh i))
-                    s (OR.toVector c)
         Gather1 f sh d _n -> eval1 s (tscatter1R f c sh) d
         GatherN f shd d _sh -> eval1 s (tscatterNR f c shd) d
         Scatter1 f n d _sh -> eval1 s (tgatherZ1R n c f) d
@@ -736,12 +732,6 @@ buildDerivative dim0 dim1 deltaTopLevel
         Build1 n f -> do
           l <- mapM (eval1 . f) [0 .. n - 1]
           return $! tfromListR l
-        Build01 sh' f -> do
-          let sh = shapeToList sh'
-              s = product sh
-          l <- mapM (eval0 . f)
-                    [fromLinearIdx sh' i | i <- [0 .. s - 1]]
-          return $! OR.fromList sh l
         Gather1 f _sh d k -> do
           t <- eval1 d
           return $! tgather1R k t f
