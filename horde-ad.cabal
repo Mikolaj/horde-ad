@@ -497,6 +497,7 @@ library horde-ad-simplified
       buildable: True
 
     exposed-modules:  HordeAd
+                      HordeAd.Core.ADValTensor
                       HordeAd.Core.Ast
                       HordeAd.Core.AstSimplify
                       HordeAd.Core.AstVectorize
