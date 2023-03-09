@@ -116,6 +116,11 @@ tsum0D
 tsum0D (Data.Array.Internal.DynamicS.A (Data.Array.Internal.DynamicG.A sh t)) =
   LA.sumElements $ Data.Array.Internal.toUnorderedVectorT sh t
 
+tkonst0ND
+  :: Numeric r
+  => ShapeInt n -> r -> OT.Array r
+tkonst0ND sh = OT.constant (shapeToList sh)
+
 tshapeR
   :: KnownNat n
   => OR.Array n r -> ShapeInt n
@@ -234,7 +239,7 @@ tfromVector0NR sh l = OR.fromVector (shapeToList sh) $ V.convert l
 
 tkonstR
   :: (KnownNat n, Numeric r)
-  =>  Int -> OR.Array n r -> OR.Array (1 + n) r
+  => Int -> OR.Array n r -> OR.Array (1 + n) r
 tkonstR s u = OR.ravel $ ORB.constant [s] u
 
 tkonst0NR

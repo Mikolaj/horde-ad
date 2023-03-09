@@ -493,7 +493,7 @@ buildFinMaps s0 deltaDt =
         Index0 (FromX1 (InputX i)) ixs' sh ->
           let ixs = indexToList ixs'
               f v = if isTensorDummy v
-                    then OT.constant (shapeToList sh) 0 `OT.update` [(ixs, c)]
+                    then tkonst0ND sh 0 `OT.update` [(ixs, c)]
                     else v `OT.update` [(ixs, v `tindex0D` ixs + c)]
           in s {iMap1 = EM.adjust f i $ iMap1 s}
         Index0 (Let1 n d) ixs' sh ->
@@ -508,7 +508,7 @@ buildFinMaps s0 deltaDt =
                 -- so it's only several times faster (same allocation,
                 -- but not adding to each cell of @v@).
             Nothing ->
-              let v = OT.constant (shapeToList sh) 0 `OT.update` [(ixs, c)]
+              let v = tkonst0ND sh 0 `OT.update` [(ixs, c)]
               in s { nMap = EM.insert n (DeltaBinding1 d) $ nMap s
                    , dMap1 = EM.insert n v $ dMap1 s }
             _ -> error "buildFinMaps: corrupted nMap"
@@ -552,8 +552,8 @@ buildFinMaps s0 deltaDt =
                      d  -- TODO: optimize for input case
         IndexN d ix sh -> eval1 s (tscatter1R (\_ -> ix) (tfromListR [c]) sh) d
           -- equivalent: eval1 s (updateNR (tkonst0NR sh 0) [(ixs, c)]) d
-        Sum1 n d -> eval1 s (OR.ravel (ORB.constant [n] c)) d
-        Scalar1 d -> eval0 s (OR.unScalar c) d
+        Sum1 n d -> eval1 s (tkonstR n c) d
+        Scalar1 d -> eval0 s (tunScalarR c) d
         FromList1 ld ->
           let lc = ORB.toList $ OR.unravel c
           in foldl' (\s2 (c2, d2) -> eval1 s2 c2 d2) s $ zip lc ld
@@ -566,14 +566,11 @@ buildFinMaps s0 deltaDt =
         FromVector01 _sh lsd ->  -- lsd is a list of scalar delta expressions
           let cv = OR.toVector c
           in V.ifoldl' (\s2 i d -> eval0 s2 (cv V.! i) d) s lsd
-        Konst1 _n d ->
-          let c2 = V.sum $ ORB.toVector $ OR.unravel c
-              -- simplified version of: tscatter1R (const []) c (tail $ shapeL c)
-          in eval1 s c2 d
+        Konst1 _n d -> eval1 s (tsumR c) d
         Konst01 _ d -> eval0 s (tsum0R c) d
         Append1 d k e -> case OR.shapeL c of
-          n : _ -> let s2 = eval1 s (OR.slice [(0, k)] c) d
-                   in eval1 s2 (OR.slice [(k, n - k)] c) e
+          n : _ -> let s2 = eval1 s (tsliceR 0 k c) d
+                   in eval1 s2 (tsliceR k (n - k) c) e
           [] -> error "eval1: appending a 0-dimensional tensor"
         Slice1 i n d len -> case OR.shapeL c of
           n' : rest ->
@@ -685,7 +682,7 @@ buildDerivative dim0 dim1 deltaTopLevel
         Index0 d ixs _ -> (`tindex0R` ixs) <$> eval1 d
         Sum0 _ d -> tsum0R <$> eval1 d
         Dot0 v d -> tdot0R v <$> eval1 d
-        UnScalar0 d -> OR.unScalar <$> eval1 d
+        UnScalar0 d -> tunScalarR <$> eval1 d
 
       eval1 :: KnownNat n => Delta1 n r -> ST s (OR.Array n r)
       eval1 = \case
@@ -710,7 +707,7 @@ buildDerivative dim0 dim1 deltaTopLevel
         Index1 d ix _len -> (`tindex1R` ix) <$> eval1 d
         IndexN d ixs _len -> (`tindexNR` ixs) <$> eval1 d
         Sum1 _ d -> tsumR <$> eval1 d
-        Scalar1 d -> OR.scalar <$> eval0 d
+        Scalar1 d -> tscalarR <$> eval0 d
         FromList1 lsd -> do
           l <- mapM eval1 lsd
           return $! tfromListR l
@@ -734,7 +731,7 @@ buildDerivative dim0 dim1 deltaTopLevel
         Reshape1 _sh sh' d -> treshapeR sh' <$> eval1 d
         Build1 n f -> do
           l <- mapM (eval1 . f) [0 .. n - 1]
-          return $! OR.ravel $ ORB.fromList [n] l
+          return $! tfromListR l
         Build01 sh' f -> do
           let sh = shapeToList sh'
               s = product sh
