@@ -7,7 +7,7 @@
 --
 -- This module defines the relevant classes, type families,
 -- constraints and instances for the dual numbers data structure.
--- This is a mid-level API ("HordeAd.Internal.Delta" is low level)
+-- This is a mid-level API ("HordeAd.Core.Delta" is low level)
 -- used to define types and operations in "HordeAd.Core.DualNumber"
 -- that is the foundation of the high-level API.
 --
@@ -49,8 +49,8 @@ import           GHC.TypeLits (KnownNat, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import           System.IO.Unsafe (unsafePerformIO)
 
+import HordeAd.Core.Delta
 import HordeAd.Core.SizedIndex
-import HordeAd.Internal.Delta
 import HordeAd.Internal.TensorOps
 
 -- * Abbreviations to export (not used anywhere below)
@@ -249,7 +249,7 @@ class HasRanks (d :: ADMode) r where
 -- The @StrictData@ extension ensures that the implementation of the instances
 -- are call by value, which is needed for that identifier ordering.
 --
--- As long as "HordeAd.Internal.Delta" is used exclusively through
+-- As long as "HordeAd.Core.Delta" is used exclusively through
 -- smart constructors from this API, the impurity is completely safe.
 -- Even compiler optimizations, e.g., cse and full-laziness,
 -- can't break the required invariants. On the contrary,

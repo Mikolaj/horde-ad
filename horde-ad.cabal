@@ -500,6 +500,7 @@ library horde-ad-simplified
                       HordeAd.Core.Ast
                       HordeAd.Core.AstSimplify
                       HordeAd.Core.AstVectorize
+                      HordeAd.Core.Delta
                       HordeAd.Core.DualClass
                       HordeAd.Core.DualNumber
                       HordeAd.Core.Engine
@@ -509,7 +510,6 @@ library horde-ad-simplified
                       HordeAd.External.Adaptor
                       HordeAd.External.Optimizer
                       HordeAd.External.OptimizerTools
-                      HordeAd.Internal.Delta
                       HordeAd.Internal.OrthotopeOrphanInstances
                       HordeAd.Internal.SizedList
                       HordeAd.Internal.TensorOps

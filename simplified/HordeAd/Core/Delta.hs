@@ -45,7 +45,7 @@
 -- The newer setting is a straightforward generalization of the older one,
 -- so the rewritten comments would be very similar and slightly harder
 -- to understand.
-module HordeAd.Internal.Delta
+module HordeAd.Core.Delta
   ( -- * Abstract syntax trees of the delta expressions
     Delta0 (..), Delta1 (..), DeltaX (..)
   , -- * Delta expression identifiers

@@ -26,12 +26,11 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Text.Show.Pretty (ppShow)
 
+import HordeAd.Core.Delta (derivativeFromDelta, gradientFromDelta, toInputId)
 import HordeAd.Core.DualClass
   (Dual, HasInputs (..), dInput, dummyDual, packDeltaDt)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.PairOfVectors (ADInputs (..), makeADInputs)
-import HordeAd.Internal.Delta
-  (derivativeFromDelta, gradientFromDelta, toInputId)
 
 -- * Evaluation that ignores the dual part of the dual numbers.
 -- It's intended for efficiently calculating the value of the function only.

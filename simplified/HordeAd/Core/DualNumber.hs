@@ -41,10 +41,9 @@ import           GHC.TypeLits (KnownNat, Nat, natVal)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 
+import HordeAd.Core.Delta (Delta0, Domain0, Domain1, Domains (..), nullDomains)
 import HordeAd.Core.DualClass
 import HordeAd.Core.SizedIndex
-import HordeAd.Internal.Delta
-  (Delta0, Domain0, Domain1, Domains (..), nullDomains)
 import HordeAd.Internal.TensorOps
 
 -- * The main dual number type
