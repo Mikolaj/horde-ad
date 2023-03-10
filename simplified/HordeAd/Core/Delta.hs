@@ -159,7 +159,7 @@ deriving instance (Show r, Numeric r) => Show (Delta0 r)
 -- provides a different semantics.
 data Delta1 :: Nat -> Type -> Type where
   Zero1 :: Delta1 n r
-  -- Input1  -- never used
+  Input1 :: InputId (OR.Array n r) -> Delta1 n r
   Scale1 :: OR.Array n r -> Delta1 n r -> Delta1 n r
   Add1 :: Delta1 n r -> Delta1 n r -> Delta1 n r
   Let1 :: NodeId -> Delta1 n r -> Delta1 n r
@@ -246,7 +246,6 @@ data Delta1 :: Nat -> Type -> Type where
 deriving instance (Show r, Numeric r) => Show (Delta1 n r)
 
 data DeltaX :: Type -> Type where
-  InputX :: InputId (OT.Array r) -> DeltaX r
   From1X :: forall n r. KnownNat n
          => Delta1 n r -> DeltaX r
 
@@ -490,12 +489,12 @@ buildFinMaps s0 deltaDt =
         -- BTW, such an optimization doesn't really belong in the simplified
         -- horde-ad and no consistent benefit should be expected here.
         Index0 Zero1 _ _ -> s  -- shortcut
-        Index0 (FromX1 (InputX i)) ixs' sh ->
+        Index0 (Input1 (InputId i)) ixs' sh ->
           let ixs = indexToList ixs'
               f v = if isTensorDummy v
                     then tkonst0ND sh 0 `OT.update` [(ixs, c)]
                     else v `OT.update` [(ixs, v `tindex0D` ixs + c)]
-          in s {iMap1 = EM.adjust f i $ iMap1 s}
+          in s {iMap1 = EM.adjust f (InputId i) $ iMap1 s}
         Index0 (Let1 n d) ixs' sh ->
           let ixs = indexToList ixs'
           in case EM.lookup n $ nMap s of
@@ -528,6 +527,8 @@ buildFinMaps s0 deltaDt =
             => EvalState r -> OR.Array n r -> Delta1 n r -> EvalState r
       eval1 s !c = \case
         Zero1 -> s
+        Input1 (InputId i) ->
+          s {iMap1 = EM.adjust (addToArray c) (InputId i) $ iMap1 s}
         Scale1 k d -> eval1 s (k * c) d
         Add1 d e -> eval1 (eval1 s c d) c e
         Let1 n d ->
@@ -594,8 +595,6 @@ buildFinMaps s0 deltaDt =
 --        Scatter1 f n d _sh -> eval1 s (tgatherZ1R n c f) d
         ScatterN _sh d f shd -> eval1 s (tgatherZR shd c f) d
 
-        FromX1 (InputX inputId) ->
-          s {iMap1 = EM.adjust (addToArray c) inputId $ iMap1 s}
         FromX1 @n2 (From1X @n1 d) ->
           case sameNat (Proxy @n1) (Proxy @n2) of
             Just Refl -> eval1 s c d
@@ -688,6 +687,10 @@ buildDerivative dim0 dim1 deltaTopLevel
       eval1 :: KnownNat n => Delta1 n r -> ST s (OR.Array n r)
       eval1 = \case
         Zero1 -> return 0
+        Input1 (InputId i) ->
+          if i < dim1
+          then return $! Data.Array.Convert.convert $ domains1 V.! i
+          else error "derivativeFromDelta.eval': wrong index for an input"
         Scale1 k d -> (k *) <$> eval1 d
         Add1 d e -> liftM2 (+) (eval1 d) (eval1 e)
         Let1 n d -> do
@@ -746,10 +749,6 @@ buildDerivative dim0 dim1 deltaTopLevel
           t <- eval1 d
           return $! tscatterNR sh t f
 
-        FromX1 (InputX (InputId i)) ->
-          if i < dim1
-          then return $! Data.Array.Convert.convert $ domains1 V.! i
-          else error "derivativeFromDelta.eval': wrong index for an input"
         FromX1 @n2 (From1X @n1 d) ->
           case sameNat (Proxy @n1) (Proxy @n2) of
             Just Refl -> eval1 d

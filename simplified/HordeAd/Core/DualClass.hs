@@ -299,6 +299,7 @@ instance IsPrimalR 'ADModeGradient r where
   dAddR = Add1
   recordSharingR d = case d of
     Zero1 -> d
+    Input1{} -> d
     FromX1{} -> d
     Let1{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta1 d
@@ -314,7 +315,7 @@ instance HasInputs Float where
   inputConstant r _tsh = r
 
 instance (Numeric r, KnownNat n) => HasInputs (OR.Array n r) where
-  dInput = undefined  -- not needed
+  dInput = Input1
   packDeltaDt t tsh =
     let sh = OR.shapeL t
         sh' = OR.shapeL tsh
@@ -323,11 +324,6 @@ instance (Numeric r, KnownNat n) => HasInputs (OR.Array n r) where
                `swith` (sh, sh'))
        $ DeltaDt1 t
   inputConstant r tsh = OR.constant (OR.shapeL tsh) r
-
-instance HasInputs (OT.Array r) where
-  dInput = InputX
-  packDeltaDt = undefined  -- not needed
-  inputConstant = undefined  -- not needed
 
 -- | This is an impure instance. See above.
 instance Dual 'ADModeGradient r ~ Delta0 r

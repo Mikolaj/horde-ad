@@ -20,15 +20,18 @@ module HordeAd.Core.Engine
 import Prelude
 
 import qualified Data.Array.DynamicS as OT
+import qualified Data.Array.RankedS as OR
+import           Data.Proxy (Proxy)
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
+import           GHC.TypeLits (SomeNat (..), someNatVal)
 import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           Text.Show.Pretty (ppShow)
 
 import HordeAd.Core.Delta (derivativeFromDelta, gradientFromDelta, toInputId)
 import HordeAd.Core.DualClass
-  (Dual, HasInputs (..), dInput, dummyDual, packDeltaDt)
+  (Dual, HasInputs (..), dFrom1X, dInput, dummyDual, packDeltaDt)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.PairOfVectors (ADInputs (..), makeADInputs)
 
@@ -197,11 +200,13 @@ generateDeltaInputs
   -> ( Data.Vector.Vector (Dual 'ADModeGradient r)
      , Data.Vector.Vector (Dual 'ADModeGradient (OT.Array r)) )
 generateDeltaInputs Domains{..} =
-  let intToInput :: forall a v. (HasInputs a, V.Vector v a)
-                 => v a -> Data.Vector.Vector (Dual 'ADModeGradient a)
-      intToInput p = V.generate (V.length p) (dInput . toInputId)
-      !v0 = intToInput domains0
-      !v1 = intToInput domains1
+  let arrayToInput :: Int -> OT.Array r -> Dual 'ADModeGradient (OT.Array r)
+      arrayToInput i t = case someNatVal $ toInteger $ length $ OT.shapeL t of
+        Just (SomeNat (_ :: Proxy n)) ->
+          dFrom1X $ dInput @(OR.Array n r) $ toInputId i
+        Nothing -> error "generateDeltaInputs: impossible someNatVal error"
+      !v0 = V.generate (V.length domains0) (dInput . toInputId)
+      !v1 = V.imap arrayToInput domains1
   in (v0, v1)
 {-# SPECIALIZE generateDeltaInputs
   :: Domains Double
