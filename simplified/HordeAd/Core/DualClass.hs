@@ -189,10 +189,11 @@ class HasRanks (d :: ADMode) r where
 --  dKonst01 :: KnownNat n
 --           => ShapeInt n -> Dual d r -> Dual d (OR.Array n r)
   dAppend1 :: KnownNat n
-           => Dual d (OR.Array n r) -> Int -> Dual d (OR.Array n r)
-           -> Dual d (OR.Array n r)
+           => Dual d (OR.Array (1 + n) r) -> Int -> Dual d (OR.Array (1 + n) r)
+           -> Dual d (OR.Array (1 + n) r)
   dSlice1 :: KnownNat n
-          => Int -> Int -> Dual d (OR.Array n r) -> Int -> Dual d (OR.Array n r)
+          => Int -> Int -> Dual d (OR.Array (1 + n) r) -> Int
+          -> Dual d (OR.Array (1 + n) r)
   dReverse1 :: KnownNat n
             => Dual d (OR.Array (1 + n) r) -> Dual d (OR.Array (1 + n) r)
   dTranspose1 :: KnownNat n

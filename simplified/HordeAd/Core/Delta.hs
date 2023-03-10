@@ -191,12 +191,12 @@ data Delta1 :: Nat -> Type -> Type where
     -- ^ Copy the given tensor along the new, outermost dimension.
 --  Konst01 :: ShapeInt n -> Delta0 r -> Delta1 n r
   Append1 :: KnownNat n
-          => Delta1 n r -> Int -> Delta1 n r -> Delta1 n r
+          => Delta1 (1 + n) r -> Int -> Delta1 (1 + n) r -> Delta1 (1 + n) r
     -- ^ Append two arrays along the outermost dimension.
     -- All dimensions, except the outermost, must be the same.
     -- The integer argument is the outermost size of the first array.
   Slice1 :: KnownNat n
-         => Int -> Int -> Delta1 n r -> Int -> Delta1 n r
+         => Int -> Int -> Delta1 (1 + n) r -> Int -> Delta1 (1 + n) r
     -- ^ Extract a slice of an array along the outermost dimension.
     -- The extracted slice must fall within the dimension.
     -- The last argument is the outermost size of the argument array.
