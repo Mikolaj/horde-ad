@@ -217,7 +217,7 @@ gatherNClosure :: (ADModeAndNumTensor d r, KnownNat m, KnownNat p, KnownNat n)
                -> (IndexInt m -> IndexInt p)
                -> ADVal d (OR.Array (m + n) r)
 gatherNClosure sh (D u u') f =
-  dD (tgatherZR sh u f) (dGatherN f (tshapeR u) u' sh)
+  dD (tgatherZR sh u f) (dGatherN sh u' f (tshapeR u))
 
 scalar :: ADModeAndNumTensor d r => ADVal d r -> ADVal d (OR.Array 0 r)
 scalar (D u u') = dD (OR.scalar u) (dScalar1 u')

@@ -223,9 +223,9 @@ data Delta1 :: Nat -> Type -> Type where
     -- to @Konst01 [k] d@. If an index of length @p@ is out of bounds,
     -- tensor 0 is chosen instead or projecting (and similarly in @GatherN@).
   GatherN :: (KnownNat m, KnownNat p, KnownNat n)
-          => (IndexInt m -> IndexInt p)
-          -> ShapeInt (p + n) -> Delta1 (p + n) r
-          -> ShapeInt (m + n) -> Delta1 (m + n) r
+          => ShapeInt (m + n) -> Delta1 (p + n) r -> (IndexInt m -> IndexInt p)
+          -> ShapeInt (p + n)
+          -> Delta1 (m + n) r
 --  Scatter1 :: (KnownNat p, KnownNat n)
 --           => (Int -> IndexInt p)
 --           -> Int -> Delta1 (1 + n) r
@@ -237,9 +237,9 @@ data Delta1 :: Nat -> Type -> Type where
     -- to @5 * d@. If an index of length @p@ is out of bounds, no tensor
     -- is added at such an index (and similarly in @ScatterN@).
   ScatterN :: (KnownNat m, KnownNat p, KnownNat n)
-           => (IndexInt m -> IndexInt p)
-           -> ShapeInt (m + n) -> Delta1 (m + n) r
-           -> ShapeInt (p + n) -> Delta1 (p + n) r
+           => ShapeInt (p + n) -> Delta1 (m + n) r -> (IndexInt m -> IndexInt p)
+           -> ShapeInt (m + n)
+           -> Delta1 (p + n) r
 
   FromX1 :: forall n r. DeltaX r -> Delta1 n r
 
@@ -550,7 +550,7 @@ buildFinMaps s0 deltaDt =
 --                                     , OR.reshape (1 : rest) c
 --                                     , OR.constant (len - ix - 1 : rest) 0 ])
 --                     d  -- TODO: optimize for input case
-        IndexN d ix sh -> eval1 s (tscatter1R (\_ -> ix) (tfromListR [c]) sh) d
+        IndexN d ix sh -> eval1 s (tscatter1R sh (tfromListR [c]) (\_ -> ix)) d
           -- equivalent: eval1 s (updateNR (tkonst0NR sh 0) [(ixs, c)]) d
         Sum1 n d -> eval1 s (tkonstR n c) d
         Scalar1 d -> eval0 s (tunScalarR c) d
@@ -588,9 +588,9 @@ buildFinMaps s0 deltaDt =
         Build1 _n f -> V.ifoldl' (\s2 i ci -> eval1 s2 ci (f i))
                                  s (ORB.toVector $ OR.unravel c)
 --        Gather1 f sh d _n -> eval1 s (tscatter1R f c sh) d
-        GatherN f shd d _sh -> eval1 s (tscatterNR f c shd) d
+        GatherN _sh d f shd -> eval1 s (tscatterNR shd c f) d
 --        Scatter1 f n d _sh -> eval1 s (tgatherZ1R n c f) d
-        ScatterN f shd d _sh -> eval1 s (tgatherZR shd c f) d
+        ScatterN _sh d f shd -> eval1 s (tgatherZR shd c f) d
 
         FromX1 (InputX inputId) ->
           s {iMap1 = EM.adjust (addToArray c) inputId $ iMap1 s}
@@ -734,15 +734,15 @@ buildDerivative dim0 dim1 deltaTopLevel
 --        Gather1 f _sh d k -> do
 --          t <- eval1 d
 --          return $! tgather1R k t f
-        GatherN f _shd d sh -> do
+        GatherN sh d f _shd -> do
           t <- eval1 d
           return $! tgatherNR sh t f
 --        Scatter1 f _k d sh -> do
 --          t <- eval1 d
 --          return $! tscatter1R f t sh
-        ScatterN f _shd d sh ->  do
+        ScatterN sh d f _shd ->  do
           t <- eval1 d
-          return $! tscatterNR f t sh
+          return $! tscatterNR sh t f
 
         FromX1 (InputX (InputId i)) ->
           if i < dim1

@@ -294,11 +294,6 @@ tbuild1R
 tbuild1R k f = OR.ravel $ ORB.fromList [k]
               $ map f [0 .. k - 1]  -- hope this fuses
 
-tbuild0NR
-  :: (KnownNat n, Numeric r)
-  => ShapeInt n -> (IndexInt n -> r) -> OR.Array n r
-tbuild0NR sh f = OR.generate (shapeToList sh) (f . listToIndex)
-
 tmap0NR
   :: (KnownNat n, Numeric r)
   => (r -> r) -> OR.Array n r -> OR.Array n r
@@ -364,10 +359,10 @@ tgatherZ1R k t f =
 tscatterNR :: forall m p n r.
              ( KnownNat m, KnownNat p, KnownNat n, NumAndDebug r
              , Num (Vector r) )
-          => (IndexInt m -> IndexInt p)
-          -> OR.Array (m + n) r
-          -> ShapeInt (p + n) -> OR.Array (p + n) r
-tscatterNR f t sh =
+          => ShapeInt (p + n) -> OR.Array (m + n) r
+          -> (IndexInt m -> IndexInt p)
+          -> OR.Array (p + n) r
+tscatterNR sh t f =
   let (shm', shn) = splitAt (valueOf @m) $ OR.shapeL t
       s = product shm'
       shm = listShapeToShape shm'
@@ -385,9 +380,9 @@ tscatterNR f t sh =
 -- and then freezing it and calling OR.fromVector
 -- or optimize tscatterNR and instantiate it instead
 tscatter1R :: (Numeric r, Num (Vector r), KnownNat p, KnownNat n)
-           => (Int -> IndexInt p)
-           -> OR.Array (1 + n) r -> ShapeInt (p + n) -> OR.Array (p + n) r
-tscatter1R f t sh =
+           => ShapeInt (p + n) -> OR.Array (1 + n) r -> (Int -> IndexInt p)
+           -> OR.Array (p + n) r
+tscatter1R sh t f =
   V.sum $ V.imap (\i ti ->
                    let ix2 = f i
                    in if ixInBounds (indexToList ix2) (shapeToList sh)
