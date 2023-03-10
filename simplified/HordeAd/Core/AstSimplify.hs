@@ -85,7 +85,8 @@ unsafeAstVarCounter :: Counter
 {-# NOINLINE unsafeAstVarCounter #-}
 unsafeAstVarCounter = unsafePerformIO (newCounter 1)
 
--- Only for tests.
+-- Only for tests, e.g., to ensure show applied to terms has stable length.
+-- Tests using this need to be run with -ftest_seq to avoid variable confusion.
 resetVarCOunter :: IO ()
 resetVarCOunter = writeIORefU unsafeAstVarCounter 1
 
@@ -523,7 +524,11 @@ astGatherStep sh v (vars, ix) =
   astGatherZOrStepOnly True sh (simplifyStepNonIndex v)
                             (vars, fmap simplifyAstInt ix)
 
--- Assumption: vars0 don't not occur in v0.
+-- Assumption: vars0 don't not occur in v0. The assumption only holds
+-- when newly generated variables are fresh, which is the case as long
+-- as resetVarCOunter is not used. The assumption makes it easier to spot
+-- bugs or corruption, hence we assert it in the code below.
+--
 -- The v0 term is already at least one step simplified,
 -- either from full recursive simplification or from astGatherStep.
 astGatherZOrStepOnly

@@ -259,14 +259,14 @@ data AstVar a =
 extendEnvR :: (ADModeAndNumTensor d r, KnownNat n)
            => AstVarName (OR.Array n r) -> ADVal d (OR.Array n r)
            -> AstEnv d r -> AstEnv d r
-extendEnvR (AstVarName var) d =
-  IM.insertWithKey (\v _ _ -> error $ "extendEnvR: duplicate " ++ show v)
+extendEnvR v@(AstVarName var) d =
+  IM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show v)
                    var (AstVarR $ from1X d)
 
 extendEnvI :: AstVarName Int -> Int
            -> AstEnv d r -> AstEnv d r
-extendEnvI (AstVarName var) i =
-  IM.insertWithKey (\v _ _ -> error $ "extendEnvI: duplicate " ++ show v)
+extendEnvI v@(AstVarName var) i =
+  IM.insertWithKey (\_ _ _ -> error $ "extendEnvI: duplicate " ++ show v)
                    var (AstVarI i)
 
 interpretLambdaI
