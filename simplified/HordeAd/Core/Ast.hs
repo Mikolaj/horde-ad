@@ -8,7 +8,7 @@
 module HordeAd.Core.Ast
   ( AstIndex, AstVarList
   , AstVarName(..)
-  , Ast(..), AstPrimalPart(..), AstInt(..), AstBool(..)
+  , Ast(..), AstPrimalPart(..), AstDynamic(..), AstInt(..), AstBool(..)
   , OpCode(..), OpCodeInt(..), OpCodeBool(..), OpCodeRel(..)
   , astCond
   , shapeAst, lengthAst
@@ -99,6 +99,7 @@ data Ast :: Nat -> Type -> Type where
     -- variable; out of bounds indexing is permitted
     -- the case with many variables emerges from vectorizing the simpler case;
     -- out of bounds indexing is permitted
+  AstFromDynamic :: AstDynamic r -> Ast n r
 
   -- Spurious, but can be re-enabled at any time:
 --  AstBuildN :: forall m n r.
@@ -110,6 +111,14 @@ deriving instance (Show r, Numeric r) => Show (Ast n r)
 
 newtype AstPrimalPart n r = AstPrimalPart {unAstPrimalPart :: Ast n r}
  deriving Show
+
+data AstDynamic :: Type -> Type where
+  AstDynamicDummy :: AstDynamic r
+  AstDynamicPlus :: AstDynamic r -> AstDynamic r -> AstDynamic r
+  AstDynamicFrom :: KnownNat n
+                 => Ast n r -> AstDynamic r
+
+deriving instance (Show r, Numeric r) => Show (AstDynamic r)
 
 newtype AstVarName t = AstVarName Int
  deriving Eq
@@ -397,6 +406,14 @@ shapeAst v1 = case v1 of
   AstReshape sh _v -> sh
   AstBuild1 k (_var, v) -> k :$ shapeAst v
   AstGatherZ sh _v (_vars, _ix) -> sh
+  AstFromDynamic v -> listShapeToShape $ shapeAstDynamic v
+
+shapeAstDynamic :: (Show r, Numeric r)
+                => AstDynamic r -> [Int]
+shapeAstDynamic v1 = case v1 of
+  AstDynamicDummy -> []
+  AstDynamicPlus v _u -> shapeAstDynamic v
+  AstDynamicFrom w -> shapeToList $ shapeAst w
 
 -- Length of the outermost dimension.
 lengthAst :: (KnownNat n, Show r, Numeric r) => Ast (1 + n) r -> Int
@@ -429,6 +446,13 @@ intVarInAst var = \case
   AstBuild1 _ (var2, v) -> var /= var2 && intVarInAst var v
   AstGatherZ _ v (vars, ix) -> all (var /=) vars && intVarInIndex var ix
                                || intVarInAst var v
+  AstFromDynamic v -> intVarInAstDynamic var v
+
+intVarInAstDynamic :: AstVarName Int -> AstDynamic r -> Bool
+intVarInAstDynamic var = \case
+  AstDynamicDummy -> False
+  AstDynamicPlus v u -> intVarInAstDynamic var v || intVarInAstDynamic var u
+  AstDynamicFrom w -> intVarInAst var w
 
 intVarInAstInt :: AstVarName Int -> AstInt r -> Bool
 intVarInAstInt var = \case
@@ -488,6 +512,16 @@ substitute1Ast i var v1 = case v1 of
     then AstGatherZ sh (substitute1Ast i var v) (vars, ix)
     else AstGatherZ sh (substitute1Ast i var v)
                        (vars, fmap (substitute1AstInt i var) ix)
+  AstFromDynamic v -> AstFromDynamic $ substitute1AstDynamic i var v
+
+substitute1AstDynamic
+  :: (Show r, Numeric r)
+  => AstInt r -> AstVarName Int -> AstDynamic r -> AstDynamic r
+substitute1AstDynamic i var v1 = case v1 of
+  AstDynamicDummy -> v1
+  AstDynamicPlus v u -> AstDynamicPlus (substitute1AstDynamic i var v)
+                                       (substitute1AstDynamic i var u)
+  AstDynamicFrom w -> AstDynamicFrom $ substitute1Ast i var w
 
 substitute1AstInt :: (Show r, Numeric r)
                   => AstInt r -> AstVarName Int -> AstInt r -> AstInt r

@@ -91,6 +91,13 @@ instance ADModeAndNumTensor d r => HasPrimal (ADVal d r) where
   tprimalPart (D u _) = fromArray u
   tdualPart (D _ u') = u'
   tD u = dD (toArray u)
+  -- TODO: if ever used, define, if not, use an Error type
+  type DynamicTensor (ADVal d r) = ADVal d (OT.Array r)
+  tdummyD = undefined
+  tisDummyD = undefined
+  taddD = undefined
+  tfromR = undefined
+  tfromD = undefined
 
 type ADModeAndNumTensor (d :: ADMode) r =
   ( ADModeAndNum d r
@@ -361,6 +368,8 @@ interpretAst env = \case
     -- on tape and translate it to whatever backend sooner or later;
     -- and if yes, fall back to POPL pre-computation that, unfortunately,
     -- leads to a tensor of deltas
+  AstFromDynamic{} ->
+    error "interpretAst: AstFromDynamic is not for library users"
 
 interpretAstInt :: ADModeAndNumTensor d r
                 => AstEnv d r

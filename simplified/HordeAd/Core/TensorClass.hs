@@ -14,6 +14,8 @@ module HordeAd.Core.TensorClass
 
 import Prelude
 
+import qualified Data.Array.Convert
+import qualified Data.Array.DynamicS as OT
 import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
@@ -507,6 +509,15 @@ class HasPrimal r where
   -- TODO: if DualOf is supposed to be user-visible, we needed
   -- a better name for it; TangentOf? CotangentOf? SecondaryOf?
 
+  type DynamicTensor r = result | result -> r
+  tdummyD :: DynamicTensor r
+  tisDummyD :: DynamicTensor r -> Bool
+  taddD :: DynamicTensor r -> DynamicTensor r -> DynamicTensor r
+  tfromR :: KnownNat n
+         => TensorOf n r -> DynamicTensor r
+  tfromD :: KnownNat n
+         => DynamicTensor r -> TensorOf n r
+
 instance HasPrimal Double where
   type ScalarOf Double = Double
   type Primal Double = Double
@@ -516,6 +527,12 @@ instance HasPrimal Double where
   tprimalPart = id
   tdualPart _ = ()
   tD u _ = u
+  type DynamicTensor Double = OT.Array Double
+  tdummyD = dummyTensor
+  tisDummyD = isTensorDummy
+  taddD = (+)
+  tfromR = Data.Array.Convert.convert
+  tfromD = Data.Array.Convert.convert
 
 instance HasPrimal Float where
   type ScalarOf Float = Float
@@ -526,6 +543,12 @@ instance HasPrimal Float where
   tprimalPart = id
   tdualPart _ = ()
   tD u _ = u
+  type DynamicTensor Float = OT.Array Float
+  tdummyD = dummyTensor
+  tisDummyD = isTensorDummy
+  taddD = (+)
+  tfromR = Data.Array.Convert.convert
+  tfromD = Data.Array.Convert.convert
 
 instance HasPrimal (Ast 0 r) where
   type ScalarOf (Ast 0 r) = r
@@ -536,6 +559,14 @@ instance HasPrimal (Ast 0 r) where
   tprimalPart = AstPrimalPart
   tdualPart = error "TODO"
   tD = error "TODO"
+  type DynamicTensor (Ast 0 r) = AstDynamic r
+  tdummyD = AstDynamicDummy
+  tisDummyD t = case t of
+    AstDynamicDummy -> True
+    _ -> False
+  taddD = AstDynamicPlus
+  tfromR = AstDynamicFrom
+  tfromD = AstFromDynamic
 
 instance HasPrimal (AstPrimalPart 0 r) where
   type ScalarOf (AstPrimalPart 0 r) = r
@@ -546,6 +577,13 @@ instance HasPrimal (AstPrimalPart 0 r) where
   tprimalPart = id
   tdualPart = error "TODO"
   tD = error "TODO"
+  -- TODO: if ever used, define, if not, use an Error type
+  type DynamicTensor (AstPrimalPart 0 r) = Maybe r
+  tdummyD = undefined
+  tisDummyD = undefined
+  taddD = undefined
+  tfromR = undefined
+  tfromD = undefined
 
 
 -- * Odds and ends

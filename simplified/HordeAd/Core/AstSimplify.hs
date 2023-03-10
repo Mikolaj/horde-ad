@@ -218,6 +218,7 @@ simplifyStepNonIndex t = case t of
   AstGatherZ _ v0 (Z, ix) -> AstIndexZ v0 ix
   AstGatherZ sh v0 (_, ZI) -> astKonstN sh v0
   AstGatherZ {} -> t
+  AstFromDynamic{} -> t  -- TODO
 
 astIndexZ
   :: forall m n r.
@@ -332,6 +333,7 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
     in astIndex @m1 @n w rest1
   AstGatherZ{} ->
     error "astIndex: AstGatherZ: impossible pattern needlessly required"
+  AstFromDynamic{} -> AstIndexZ v0 ix  -- TODO
 
 astConstant :: AstPrimalPart n r -> Ast n r
 astConstant (AstPrimalPart (AstConstant t)) = astConstant t
@@ -675,6 +677,7 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
         LTI -> composedGather
         EQI -> assimilatedGather
         GTI -> gcastWith (flipCompare @p' @m2) assimilatedGather
+    AstFromDynamic{} -> AstGatherZ sh4 v4 (vars4, ix4)  -- TODO
 
 gatherFromNF :: forall m p r. (KnownNat m, KnownNat p)
              => AstVarList m -> AstIndex (1 + p) r -> Bool
@@ -835,6 +838,7 @@ simplifyAst t = case t of
   AstBuild1 k (var, v) -> AstBuild1 k (var, simplifyAst v)
   AstGatherZ sh v (vars, ix) ->
     astGatherZ sh (simplifyAst v) (vars, fmap simplifyAstInt ix)
+  AstFromDynamic{} -> t  -- TODO
 
 -- Integer terms need to be simplified, because they are sometimes
 -- created by vectorization and can be a deciding factor in whether

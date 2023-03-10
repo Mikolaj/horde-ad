@@ -12,8 +12,6 @@ import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
 
-import Tool.EqEpsilon
-
 import TestAdaptorSimplified (assertEqualUpToEpsilon', rev', t128, t48)
 
 testTrees :: [TestTree]
