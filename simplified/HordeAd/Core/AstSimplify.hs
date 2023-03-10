@@ -19,7 +19,7 @@ module HordeAd.Core.AstSimplify
   , funToAstR, funToAstI, funToAstIndex
   , simplifyStepNonIndex, astIndexStep, astGatherStep
   , astReshape, astTranspose
-  , astSum, astFromList, astFromVector, astKonst
+  , astSum, astScatter, astFromList, astFromVector, astKonst
   , astAppend, astSlice, astReverse
   , astIntCond
   , simplifyAst
@@ -201,9 +201,10 @@ simplifyStepNonIndex t = case t of
   AstOp{} -> t
   AstConst{} -> t
   AstConstant v -> astConstant v
-  AstConstInt i -> AstConstInt $ simplifyAstInt i
   AstIndexZ{} -> t
   AstSum v -> astSum v
+  AstConstInt i -> AstConstInt $ simplifyAstInt i
+  AstScatter sh v (vars2, ix2) -> astScatter sh v (vars2, ix2)
   AstFromList l -> astFromList l
   AstFromVector l -> astFromVector l
   AstKonst k v -> astKonst k v
@@ -272,13 +273,19 @@ astIndexZOrStepOnly stepOnly v0 ix@(i1 :. (rest1 :: AstIndex m1 r)) =
       Nothing -> AstIndexZ v0 ix
   AstConstant (AstPrimalPart v) ->
     astConstant $ AstPrimalPart $ astIndexRec v ix
-  AstConstInt{} ->
-    error "astIndexZOrStepOnly: impossible pattern needlessly required"
   AstIndexZ v ix2 ->
     astIndex v (appendIndex ix2 ix)
   AstSum v ->  -- almost neutral; transposition is likely to fuse away
     let perm3 = permCycle $ valueOf @m + 1
     in astSum $ astIndex (astTranspose perm3 v) ix
+  AstConstInt{} ->
+    error "astIndexZOrStepOnly: impossible pattern needlessly required"
+  -- AstScatter sh v (Z, ix2) -> ifB (ix2 ==* ix) v 0
+  -- AstScatter sh v (vars2, ZI) ->
+  --   AstScatter sh (astIndex (astTranspose perm3 v) ix) (vars2, ZI)
+  AstScatter{} -> error "astIndexZOrStepOnly: AstScatter TODO"
+    -- probably a new normal form is needed, and not even index(scatter)
+    -- but, to express vectorization, gather(scatter)
   AstFromList l | AstIntConst i <- i1 ->
     astIndex (l !! i) rest1
   AstFromList{} | ZI <- rest1 ->  -- normal form
@@ -336,6 +343,16 @@ astSum (AstConstant (AstPrimalPart v)) =
   astConstant $ AstPrimalPart $ astSum v
 astSum (AstReverse v) = AstSum v
 astSum v = AstSum v
+
+astScatter :: forall m n p r. (KnownNat m, KnownNat n, KnownNat p)
+           => ShapeInt (p + n) -> Ast (m + n) r
+           -> (AstVarList m, AstIndex p r)
+           -> Ast (p + n) r
+-- astScatter sh v (Z, ix) = update (tkonst0N sh 0) ix v
+-- astScatter sh v (_, ZI) = astSumN sh v  -- no benefit
+astScatter sh (AstConstant (AstPrimalPart v)) (vars, ix) =
+  astConstant $ AstPrimalPart $ astScatter sh v (vars, ix)
+astScatter sh v (vars, ix) = AstScatter sh v (vars, ix)
 
 astFromList :: (KnownNat n, Numeric r)
             => [Ast n r] -> Ast (1 + n) r
@@ -573,8 +590,6 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       AstGatherZ sh4 v4 (vars4, ix4)
     AstConstant (AstPrimalPart v) ->
       astConstant $ AstPrimalPart $ astGatherRec sh4 v (vars4, ix4)
-    AstConstInt{} ->
-      error "astGatherCase: impossible pattern needlessly required"
     AstIndexZ v2 ix2 -> case (v2, ix2) of
       (AstFromList{}, i2 :. ZI) -> astGather sh4 v2 (vars4, i2 :. ix4)
       (AstFromVector{}, i2 :. ZI) -> astGather sh4 v2 (vars4, i2 :. ix4)
@@ -588,6 +603,9 @@ astGatherZOrStepOnly stepOnly sh0 v0 (vars0, ix0) =
       in astSum $ astTransposeAsGather perm4  -- TODO: inline and simplify less
          $ astGather sh5 (astTransposeAsGather perm3 v) (vars4, ix4)
              -- TODO: why is simplification not idempotent without AsGather?
+    AstConstInt{} ->
+      error "astGatherCase: impossible pattern needlessly required"
+    AstScatter{} -> error "astGatherCase: AstScatter TODO"
     AstFromList l | AstIntConst i <- i4 ->
       astGather sh4 (l !! i) (vars4, rest4)
     AstFromList{} | gatherFromNF vars4 ix4 -> AstGatherZ sh4 v4 (vars4, ix4)
@@ -778,9 +796,11 @@ simplifyAst t = case t of
     -- There are too many cases and values are often unknown.
   AstConst{} -> t
   AstConstant v -> astConstant (simplifyAstPrimal v)
-  AstConstInt i -> AstConstInt $ simplifyAstInt i
   AstIndexZ v ix -> astIndexZ (simplifyAst v) (fmap simplifyAstInt ix)
   AstSum v -> astSum (simplifyAst v)
+  AstConstInt i -> AstConstInt $ simplifyAstInt i
+  AstScatter sh v (var, ix) ->
+    astScatter sh (simplifyAst v) (var, fmap simplifyAstInt ix)
   AstFromList l -> astFromList (map simplifyAst l)
   AstFromVector l -> astFromVector (V.map simplifyAst l)
   AstKonst k v -> astKonst k (simplifyAst v)

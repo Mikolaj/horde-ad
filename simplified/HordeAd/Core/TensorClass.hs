@@ -111,6 +111,17 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tfromIndex0 = tscalar . fromIntegral
   tfromIndex1 :: IndexOf n r -> TensorOf 1 r
   tfromIndex1 = tfromList . map tfromIndex0 . indexToList
+  -- TODO: scatter doesn't yet vectorize, so it's only for internal use
+  tscatter :: (KnownNat m, KnownNat n, KnownNat p)
+           => ShapeInt (p + n) -> TensorOf (m + n) r
+           -> (IndexOf m r -> IndexOf p r)
+           -> TensorOf (p + n) r
+  tscatter1 :: (KnownNat n, KnownNat p)
+            => ShapeInt (p + n) -> TensorOf (1 + n) r
+            -> (IntOf r -> IndexOf p r)
+            -> TensorOf (p + n) r
+  tscatter1 sh v f = tscatter @r @1 sh v
+                                    (\(i :. ZI) -> f i)
 
   -- Tensor codomain, often tensor construction, sometimes transformation
   -- (for these, suffix 1 doesn't mean codomain rank 1, but building up
@@ -281,6 +292,8 @@ instance Tensor Double where
   tsum = tsumR
   tsum0 = tscalar . tsum0R
   tdot0 u v = tscalar $ tdot0R u v
+  tscatter = tscatterNR
+  tscatter1 = tscatter1R
   tfromList = tfromListR
   tfromList0N = tfromList0NR
   tfromVector = tfromVectorR
@@ -310,6 +323,8 @@ instance Tensor Float where
   tsum = tsumR
   tsum0 = tscalar . tsum0R
   tdot0 u v = tscalar $ tdot0R u v
+  tscatter = tscatterNR
+  tscatter1 = tscatter1R
   tfromList = tfromListR
   tfromList0N = tfromList0NR
   tfromVector = tfromVectorR
@@ -348,6 +363,7 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   tsum = AstSum
   tfromIndex0 = AstConstant . AstPrimalPart . AstConstInt
     -- toInteger is not defined for Ast, hence a special implementation
+  tscatter sh t f = AstScatter sh t (funToAstIndex f)  -- introduces new vars
 
   tfromList = AstFromList
   tfromList0N sh = AstReshape sh . AstFromList
@@ -390,6 +406,8 @@ instance ( Numeric r, RealFloat r, RealFloat (Vector r)
   tsum = AstPrimalPart . AstSum . unAstPrimalPart
   tfromIndex0 = AstPrimalPart . AstConstInt
     -- toInteger is not defined for Ast, hence a special implementation
+  tscatter sh t f = AstPrimalPart $ AstScatter sh (unAstPrimalPart t)
+                    $ funToAstIndex f  -- this introduces new variable names
 
   tfromList = AstPrimalPart . AstFromList . map unAstPrimalPart
   tfromList0N sh =

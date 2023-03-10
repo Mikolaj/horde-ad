@@ -114,13 +114,6 @@ build1V k (var, v00) =
       -- why we have to enter AstConstant during vectorization
       -- and simplify enough to reach the integer variables.
 
-    AstConstInt{} -> traceRule
-      bv  -- vectorizing this would require mapping all AstInt operations
-          -- to Ast operations, including RemIntOp, AstIntCond, etc.,
-          -- so this is a big effort for a minor feature and handling recursive
-          -- cases like AstMinIndex1, where integer variables can appear
-          -- inside Ast term, may even be impossible in the current system
-
     AstIndexZ v is -> traceRule $
       build1VIndex k (var, v, is)
       -- @var@ is in @v@ or @is@; TODO: simplify is first or even fully
@@ -129,6 +122,20 @@ build1V k (var, v00) =
       -- we may just pick the right element of a AstFromList
     AstSum v -> traceRule $
       astSum $ astTr $ build1V k (var, v)
+    AstConstInt{} -> traceRule
+      bv  -- vectorizing this would require mapping all AstInt operations
+          -- to Ast operations, including RemIntOp, AstIntCond, etc.,
+          -- so this is a big effort for a minor feature and handling recursive
+          -- cases like AstMinIndex1, where integer variables can appear
+          -- inside Ast term, may even be impossible in the current system
+    AstScatter sh v (vars, ix) -> traceRule $
+      astScatter (k :$ sh)
+                 (build1VOccurenceUnknown k (var, v))
+                 (var ::: vars, AstIntVar var :. ix)
+        -- note that this is only the easier half of vectorization of scatter;
+        -- the harder half requires simplification and probably a new
+        -- normal form
+
     AstFromList l -> traceRule $
       astTr $ astFromList (map (\v -> build1VOccurenceUnknown k (var, v)) l)
     AstFromVector l -> traceRule $
@@ -152,12 +159,10 @@ build1V k (var, v00) =
     AstReshape sh v -> traceRule $
       astReshape (k :$ sh) $ build1V k (var, v)
     AstBuild1{} -> error "build1V: impossible case of AstBuild1"
-      -- AstScatter (var2, ix2) v sh -> ...
-      -- no idea how to vectorize AstScatter, so let's not add prematurely
-    AstGatherZ sh v (vars, ix2) -> traceRule $
+    AstGatherZ sh v (vars, ix) -> traceRule $
       astGatherStep (k :$ sh)
                     (build1VOccurenceUnknown k (var, v))
-                    (var ::: vars, AstIntVar var :. ix2)
+                    (var ::: vars, AstIntVar var :. ix)
 
 -- | The application @build1VIndex k (var, v, ix)@ vectorizes
 -- the term @AstBuild1 k (var, AstIndexZ v ix)@, where it's unknown whether

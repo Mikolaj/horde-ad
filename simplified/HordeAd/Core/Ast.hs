@@ -66,6 +66,11 @@ data Ast :: Nat -> Type -> Type where
   AstSum :: Ast (1 + n) r -> Ast n r
   AstConstInt :: AstInt r -> Ast 0 r
     -- needed, because toInteger and so fromIntegral is not defined for Ast
+  AstScatter :: forall m n p r. (KnownNat m, KnownNat n, KnownNat p)
+             => ShapeInt (p + n) -> Ast (m + n) r
+             -> (AstVarList m, AstIndex p r)
+             -> Ast (p + n) r
+
   AstFromList :: KnownNat n
               => [Ast n r] -> Ast (1 + n) r
   AstFromVector :: KnownNat n
@@ -86,7 +91,7 @@ data Ast :: Nat -> Type -> Type where
   AstBuild1 :: KnownNat n
             => Int -> (AstVarName Int, Ast n r) -> Ast (1 + n) r
     -- indicates a failure in vectorization, but may be recoverable later on
-  AstGatherZ :: forall m n p r. (KnownNat m, KnownNat p, KnownNat n)
+  AstGatherZ :: forall m n p r. (KnownNat m, KnownNat n, KnownNat p)
              => ShapeInt (m + n) -> Ast (p + n) r
              -> (AstVarList m, AstIndex p r)
              -> Ast (m + n) r
@@ -370,9 +375,10 @@ shapeAst v1 = case v1 of
     t : _ -> shapeAst t
   AstConst a -> listShapeToShape $ OR.shapeL a
   AstConstant (AstPrimalPart a) -> shapeAst a
-  AstConstInt _i -> ZS
   AstIndexZ v (_is :: Index m (AstInt r)) -> dropShape @m (shapeAst v)
   AstSum v -> tailShape $ shapeAst v
+  AstConstInt _i -> ZS
+  AstScatter sh _ _ -> sh
   AstFromList l -> case l of
     [] -> error "shapeAst: AstFromList with no arguments"
     t : _ -> length l :$ shapeAst t
@@ -407,10 +413,12 @@ intVarInAst var = \case
   AstOp _ l -> any (intVarInAst var) l
   AstConst{} -> False
   AstConstant (AstPrimalPart v) -> intVarInAst var v
-  AstConstInt k -> intVarInAstInt var k
   AstIndexZ v ix -> intVarInAst var v || intVarInIndex var ix
   AstSum v -> intVarInAst var v
+  AstConstInt k -> intVarInAstInt var k
   AstFromList l -> any (intVarInAst var) l  -- down from rank 1 to 0
+  AstScatter _ v (vars, ix) -> all (var /=) vars && intVarInIndex var ix
+                               || intVarInAst var v
   AstFromVector vl -> any (intVarInAst var) $ V.toList vl
   AstKonst _ v -> intVarInAst var v
   AstAppend v u -> intVarInAst var v || intVarInAst var u
@@ -454,10 +462,15 @@ substitute1Ast i var v1 = case v1 of
   AstConst _a -> v1
   AstConstant (AstPrimalPart a) ->
     AstConstant (AstPrimalPart $ substitute1Ast i var a)
-  AstConstInt i2 -> AstConstInt $ substitute1AstInt i var i2
   AstIndexZ v is ->
     AstIndexZ (substitute1Ast i var v) (fmap (substitute1AstInt i var) is)
   AstSum v -> AstSum (substitute1Ast i var v)
+  AstConstInt i2 -> AstConstInt $ substitute1AstInt i var i2
+  AstScatter sh v (vars, ix) ->
+    if any (== var) vars
+    then AstScatter sh (substitute1Ast i var v) (vars, ix)
+    else AstScatter sh (substitute1Ast i var v)
+                       (vars, fmap (substitute1AstInt i var) ix)
   AstFromList l -> AstFromList $ map (substitute1Ast i var) l
   AstFromVector l -> AstFromVector $ V.map (substitute1Ast i var) l
   AstKonst s v -> AstKonst s (substitute1Ast i var v)
@@ -470,11 +483,11 @@ substitute1Ast i var v1 = case v1 of
     if var == var2
     then v1
     else AstBuild1 k (var2, substitute1Ast i var v)
-  AstGatherZ sh v (vars, is) ->
+  AstGatherZ sh v (vars, ix) ->
     if any (== var) vars
-    then v1
+    then AstGatherZ sh (substitute1Ast i var v) (vars, ix)
     else AstGatherZ sh (substitute1Ast i var v)
-                       (vars, fmap (substitute1AstInt i var) is)
+                       (vars, fmap (substitute1AstInt i var) ix)
 
 substitute1AstInt :: (Show r, Numeric r)
                   => AstInt r -> AstVarName Int -> AstInt r -> AstInt r

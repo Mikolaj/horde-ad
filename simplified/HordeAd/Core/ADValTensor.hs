@@ -58,6 +58,7 @@ instance ADModeAndNumTensor d r => Tensor (ADVal d r) where
   tsum = sum'
   tsum0 = tscalar . sum0
   tdot0 u v = tscalar $ dot0 u v
+  tscatter = scatterNClosure
 
   tfromList = fromList
 --  tfromList0N = fromList0N
@@ -144,6 +145,13 @@ dot0 :: (ADModeAndNumTensor d r, KnownNat n)
      => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r) -> ADVal d r
 dot0 (D u u') (D v v') = dD (tdot0R u v)
                             (dAdd (dDot0 v u') (dDot0 u v'))
+
+scatterNClosure :: (ADModeAndNumTensor d r, KnownNat m, KnownNat p, KnownNat n)
+                => ShapeInt (p + n) -> ADVal d (OR.Array (m + n) r)
+                -> (IndexInt m -> IndexInt p)
+                -> ADVal d (OR.Array (p + n) r)
+scatterNClosure sh (D u u') f =
+  dD (tscatterNR sh u f) (dScatterN sh u' f (tshapeR u))
 
 fromList :: (ADModeAndNumTensor d r, KnownNat n)
          => [ADVal d (OR.Array n r)]
@@ -321,6 +329,9 @@ interpretAst env = \case
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
     -- or should I do that in Delta instead? no, because tsum0R is cheaper, too
     -- TODO: recognize dot0 patterns and speed up their evaluation
+  AstScatter sh v (vars, ix) ->
+    scatterNClosure sh (interpretAst env v)
+                   (interpretLambdaIndexToIndex env (vars, ix))
   AstFromList l -> fromList (map (interpretAst env) l)
   AstFromVector l -> fromVector (V.map (interpretAst env) l)
   AstKonst k v -> konst k (interpretAst env v)
