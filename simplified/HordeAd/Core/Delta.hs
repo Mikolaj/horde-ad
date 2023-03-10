@@ -512,7 +512,9 @@ buildFinMaps s0 deltaDt =
               in s { nMap = EM.insert n (DeltaBinding1 d) $ nMap s
                    , dMap1 = EM.insert n v $ dMap1 s }
             _ -> error "buildFinMaps: corrupted nMap"
-        Index0 d ixs sh -> eval1 s (tkonst0NR sh 0 `updateR` [(ixs, c)]) d
+        Index0 d ix sh ->
+          eval1 s (tscatter1R sh (tfromListR [tscalarR c]) (\_ -> ix)) d
+            -- equivalent: eval1 s (updateR (tkonst0NR sh 0) [(ix, c)]) d
         Sum0 sh d -> eval1 s (tkonst0NR sh c) d
         Dot0 v vd -> eval1 s (liftVR (LA.scale c) v) vd
         UnScalar0 d -> eval1 s (OR.scalar c) d
