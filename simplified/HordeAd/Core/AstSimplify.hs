@@ -351,7 +351,7 @@ astScatter :: forall m n p r. (KnownNat m, KnownNat n, KnownNat p)
            => ShapeInt (p + n) -> Ast (m + n) r
            -> (AstVarList m, AstIndex p r)
            -> Ast (p + n) r
--- astScatter sh v (Z, ix) = update (tkonst0N sh 0) ix v
+-- astScatter sh v (Z, ix) = update (tzero sh 0) ix v
 -- astScatter sh v (_, ZI) = astSumN sh v  -- no benefit
 astScatter sh (AstConstant (AstPrimalPart v)) (vars, ix) =
   astConstant $ AstPrimalPart $ astScatter sh v (vars, ix)

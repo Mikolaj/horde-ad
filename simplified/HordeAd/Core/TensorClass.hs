@@ -200,6 +200,24 @@ class ( RealFloat r, RealFloat (TensorOf 0 r), RealFloat (TensorOf 1 r)
   tscalar :: r -> TensorOf 0 r
   tunScalar :: TensorOf 0 r -> r
 
+  -- Needed to avoid Num (TensorOf n r) constraints all over the place
+  -- and also wrong shape in @0@ with ranked (not shaped) tensors.
+  tzero :: KnownNat n
+        => ShapeInt n -> TensorOf n r
+  tzero sh = tkonst0N sh 0
+  tadd :: KnownNat n
+       => TensorOf n r -> TensorOf n r -> TensorOf n r
+  default tadd
+    :: Num (TensorOf n r)
+    => TensorOf n r -> TensorOf n r -> TensorOf n r
+  tadd = (+)
+  tmult :: KnownNat n
+        => TensorOf n r -> TensorOf n r -> TensorOf n r
+  default tmult
+    :: Num (TensorOf n r)
+    => TensorOf n r -> TensorOf n r -> TensorOf n r
+  tmult = (*)
+
 type ADReady r =
   ( Tensor r, HasPrimal r, Tensor (Primal r), Show r
   , Numeric (ScalarOf r), RealFloat (ScalarOf r)
