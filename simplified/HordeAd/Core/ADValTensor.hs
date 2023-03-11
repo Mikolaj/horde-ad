@@ -9,7 +9,6 @@
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.ADValTensor
   ( interpretAst, AstVar(..), funToAstR, extendEnvR
-  , ADModeAndNumTensor
   , resetVarCOunter
   ) where
 
@@ -38,7 +37,7 @@ import HordeAd.Internal.TensorOps
 -- In principle, this instance is only useful for comparative tests,
 -- though for code without build/map/etc., it should be equivalent
 -- to going via Ast.
-instance ADModeAndNumTensor d r => Tensor (ADVal d r) where
+instance ADModeAndNum d r => Tensor (ADVal d r) where
   type TensorOf n (ADVal d r) = ADVal d (OR.Array n r)
   type IntOf (ADVal d r) = Int
 
@@ -82,7 +81,7 @@ instance ADModeAndNumTensor d r => Tensor (ADVal d r) where
   tscalar = scalar
   tunScalar = unScalar
 
-instance ADModeAndNumTensor d r => HasPrimal (ADVal d r) where
+instance ADModeAndNum d r => HasPrimal (ADVal d r) where
   type ScalarOf (ADVal d r) = r
   type Primal (ADVal d r) = r
   type DualOf n (ADVal d r) = Dual d (OR.Array n r)
@@ -99,27 +98,6 @@ instance ADModeAndNumTensor d r => HasPrimal (ADVal d r) where
   tfromR = undefined
   tfromD = undefined
 
-type ADModeAndNumTensor (d :: ADMode) r =
-  ( ADModeAndNum d r
-  , Tensor r
-  , TensorOf 1 r ~ OR.Array 1 r
-  , IntOf r ~ Int
-  , TensorIsArray r
-  )
-
-class TensorIsArray r where
-  toArray :: TensorOf n r -> OR.Array n r
-  fromArray :: OR.Array n r -> TensorOf n r
-
-instance TensorIsArray Double where
-  toArray = id
-  fromArray = id
-
-instance TensorIsArray Float where
-  toArray = id
-  fromArray = id
-
-
 -- * ADVal combinators generalizing ranked tensor operations
 
 shape :: KnownNat n => ADVal d (OR.Array n r) -> ShapeInt n
@@ -131,7 +109,7 @@ shape (D u _) = tshapeR u
 --
 -- First index is for outermost dimension; empty index means identity,
 -- index ouf of bounds produces zero (but beware of vectorization).
-indexZ :: forall m n d r. (ADModeAndNumTensor d r, KnownNat m, KnownNat n)
+indexZ :: forall m n d r. (ADModeAndNum d r, KnownNat m, KnownNat n)
        => ADVal d (OR.Array (m + n) r) -> IndexInt m
        -> ADVal d (OR.Array n r)
 indexZ (D u u') ix =
@@ -140,27 +118,27 @@ indexZ (D u u') ix =
      then dD (tindexNR u ix) (dIndexN u' ix sh)
      else dD (tkonst0NR (dropShape @m sh) 0) dZero
 
-sum' :: (ADModeAndNumTensor d r, KnownNat n)
+sum' :: (ADModeAndNum d r, KnownNat n)
      => ADVal d (OR.Array (1 + n) r) -> ADVal d (OR.Array n r)
 sum' (D u u') = dD (tsumR u) (dSum1 (tlengthR u) u')
 
-sum0 :: (ADModeAndNumTensor d r, KnownNat n)
+sum0 :: (ADModeAndNum d r, KnownNat n)
      => ADVal d (OR.Array n r) -> ADVal d r
 sum0 (D u u') = dD (tsum0R u) (dSum0 (tshapeR u) u')
 
-dot0 :: (ADModeAndNumTensor d r, KnownNat n)
+dot0 :: (ADModeAndNum d r, KnownNat n)
      => ADVal d (OR.Array n r) -> ADVal d (OR.Array n r) -> ADVal d r
 dot0 (D u u') (D v v') = dD (tdot0R u v)
                             (dAdd (dDot0 v u') (dDot0 u v'))
 
-scatterNClosure :: (ADModeAndNumTensor d r, KnownNat m, KnownNat p, KnownNat n)
+scatterNClosure :: (ADModeAndNum d r, KnownNat m, KnownNat p, KnownNat n)
                 => ShapeInt (p + n) -> ADVal d (OR.Array (m + n) r)
                 -> (IndexInt m -> IndexInt p)
                 -> ADVal d (OR.Array (p + n) r)
 scatterNClosure sh (D u u') f =
   dD (tscatterNR sh u f) (dScatterN sh u' f (tshapeR u))
 
-fromList :: (ADModeAndNumTensor d r, KnownNat n)
+fromList :: (ADModeAndNum d r, KnownNat n)
          => [ADVal d (OR.Array n r)]
          -> ADVal d (OR.Array (1 + n) r)
 fromList lu =
@@ -168,76 +146,76 @@ fromList lu =
   dD (tfromListR $ map (\(D u _) -> u) lu)
      (dFromList1 $ map (\(D _ u') -> u') lu)
 
---fromList0N :: (ADModeAndNumTensor d r, KnownNat n)
+--fromList0N :: (ADModeAndNum d r, KnownNat n)
 --           => ShapeInt n -> [ADVal d r]
 --           -> ADVal d (OR.Array n r)
 --fromList0N sh l =
 --  dD (tfromList0NR sh $ map (\(D u _) -> u) l)  -- I hope this fuses
 --     (dFromList01 sh $ map (\(D _ u') -> u') l)
 
-fromVector :: (ADModeAndNumTensor d r, KnownNat n)
+fromVector :: (ADModeAndNum d r, KnownNat n)
            => Data.Vector.Vector (ADVal d (OR.Array n r))
            -> ADVal d (OR.Array (1 + n) r)
 fromVector lu =
   dD (tfromVectorR $ V.map (\(D u _) -> u) lu)
      (dFromVector1 $ V.map (\(D _ u') -> u') lu)
 
---fromVector0N :: (ADModeAndNumTensor d r, KnownNat n)
+--fromVector0N :: (ADModeAndNum d r, KnownNat n)
 --             => ShapeInt n -> Data.Vector.Vector (ADVal d r)
 --             -> ADVal d (OR.Array n r)
 --fromVector0N sh l =
 --  dD (tfromVector0NR sh $ V.convert $ V.map (\(D u _) -> u) l)  -- hope it fuses
 --     (dFromVector01 sh $ V.map (\(D _ u') -> u') l)
 
-konst :: (ADModeAndNumTensor d r, KnownNat n)
+konst :: (ADModeAndNum d r, KnownNat n)
       => Int -> ADVal d (OR.Array n r) -> ADVal d (OR.Array (1 + n) r)
 konst k (D u u') = dD (tkonstR k u) (dKonst1 k u')
 
---konst0N :: (ADModeAndNumTensor d r, KnownNat n)
+--konst0N :: (ADModeAndNum d r, KnownNat n)
 --        => ShapeInt n -> ADVal d r -> ADVal d (OR.Array n r)
 --konst0N sh (D u u') = dD (tkonst0NR sh u) (dKonst01 sh u')
 
-append :: (ADModeAndNumTensor d r, KnownNat n)
+append :: (ADModeAndNum d r, KnownNat n)
        => ADVal d (OR.Array (1 + n) r) -> ADVal d (OR.Array (1 + n) r)
        -> ADVal d (OR.Array (1 + n) r)
 append (D u u') (D v v') = dD (tappendR u v) (dAppend1 u' (tlengthR u) v')
 
-slice :: (ADModeAndNumTensor d r, KnownNat n)
+slice :: (ADModeAndNum d r, KnownNat n)
       => Int -> Int -> ADVal d (OR.Array (1 + n) r)
       -> ADVal d (OR.Array (1 + n) r)
 slice i k (D u u') = dD (tsliceR i k u) (dSlice1 i k u' (tlengthR u))
 
-reverse' :: (ADModeAndNumTensor d r, KnownNat n)
+reverse' :: (ADModeAndNum d r, KnownNat n)
          => ADVal d (OR.Array (1 + n) r) -> ADVal d (OR.Array (1 + n) r)
 reverse' (D u u') = dD (treverseR u) (dReverse1 u')
 
-transpose :: (ADModeAndNumTensor d r, KnownNat n)
+transpose :: (ADModeAndNum d r, KnownNat n)
           => Permutation -> ADVal d (OR.Array n r) -> ADVal d (OR.Array n r)
 transpose perm (D u u') = dD (ttransposeR perm u) (dTranspose1 perm u')
 
-reshape :: (ADModeAndNumTensor d r, KnownNat m, KnownNat n)
+reshape :: (ADModeAndNum d r, KnownNat m, KnownNat n)
         => ShapeInt m -> ADVal d (OR.Array n r) -> ADVal d (OR.Array m r)
 reshape sh (D u u') = dD (treshapeR sh u) (dReshape1 (tshapeR u) sh u')
 
 -- The element-wise (POPL) version, but only one rank at a time.
-build1 :: (ADModeAndNumTensor d r, KnownNat n)
+build1 :: (ADModeAndNum d r, KnownNat n)
        => Int -> (Int -> ADVal d (OR.Array n r))
        -> ADVal d (OR.Array (1 + n) r)
 build1 k f = fromList $ map f [0 .. k - 1]
 
 -- Note that if any index is out of bounds, the result of that particular
 -- projection is defined and is 0 (but beware of vectorization).
-gatherNClosure :: (ADModeAndNumTensor d r, KnownNat m, KnownNat p, KnownNat n)
+gatherNClosure :: (ADModeAndNum d r, KnownNat m, KnownNat p, KnownNat n)
                => ShapeInt (m + n) -> ADVal d (OR.Array (p + n) r)
                -> (IndexInt m -> IndexInt p)
                -> ADVal d (OR.Array (m + n) r)
 gatherNClosure sh (D u u') f =
   dD (tgatherZR sh u f) (dGatherN sh u' f (tshapeR u))
 
-scalar :: ADModeAndNumTensor d r => ADVal d r -> ADVal d (OR.Array 0 r)
+scalar :: ADModeAndNum d r => ADVal d r -> ADVal d (OR.Array 0 r)
 scalar (D u u') = dD (OR.scalar u) (dScalar1 u')
 
-unScalar :: ADModeAndNumTensor d r => ADVal d (OR.Array 0 r) -> ADVal d r
+unScalar :: ADModeAndNum d r => ADVal d (OR.Array 0 r) -> ADVal d r
 unScalar (D u u') = dD (OR.unScalar u) (dUnScalar0 u')
 
 
@@ -263,7 +241,7 @@ data AstVar a =
   | AstVarI Int
  deriving Show
 
-extendEnvR :: (ADModeAndNumTensor d r, KnownNat n)
+extendEnvR :: (ADModeAndNum d r, KnownNat n)
            => AstVarName (OR.Array n r) -> ADVal d (OR.Array n r)
            -> AstEnv d r -> AstEnv d r
 extendEnvR v@(AstVarName var) d =
@@ -277,7 +255,7 @@ extendEnvI v@(AstVarName var) i =
                    var (AstVarI i)
 
 interpretLambdaI
-  :: (ADModeAndNumTensor d r, KnownNat n)
+  :: (ADModeAndNum d r, KnownNat n)
   => AstEnv d r
   -> (AstVarName Int, Ast n r)
   -> Int -> ADVal d (OR.Array n r)
@@ -285,7 +263,7 @@ interpretLambdaI env (var, ast) =
   \i -> interpretAst (extendEnvI var i env) ast
 
 interpretLambdaIndexToIndex
-  :: ADModeAndNumTensor d r
+  :: ADModeAndNum d r
   => AstEnv d r
   -> (AstVarList m, AstIndex p r)
   -> IndexInt m -> IndexInt p
@@ -306,14 +284,14 @@ interpretLambdaIndexToIndex env (vars, asts) =
 -- e.g., to differentiate directly, and so we'd first interpret it in itself,
 -- simplifying, and its primal part in OR.Array.
 interpretAstPrimal
-  :: (ADModeAndNumTensor d r, KnownNat n)
+  :: (ADModeAndNum d r, KnownNat n)
   => AstEnv d r
   -> AstPrimalPart n r -> OR.Array n r
 interpretAstPrimal env (AstPrimalPart v) =
   toArray $ tprimalPart $ interpretAst env v
 
 interpretAst
-  :: forall n r d. (ADModeAndNumTensor d r, KnownNat n)
+  :: forall n r d. (ADModeAndNum d r, KnownNat n)
   => AstEnv d r
   -> Ast n r -> ADVal d (OR.Array n r)
 interpretAst env = \case
@@ -371,7 +349,7 @@ interpretAst env = \case
   AstFromDynamic{} ->
     error "interpretAst: AstFromDynamic is not for library users"
 
-interpretAstInt :: ADModeAndNumTensor d r
+interpretAstInt :: ADModeAndNum d r
                 => AstEnv d r
                 -> AstInt r -> Int
 interpretAstInt env = \case
@@ -391,7 +369,7 @@ interpretAstInt env = \case
   AstMinIndex1 v -> tminIndex0 $ interpretAst env v
   AstMaxIndex1 v -> tmaxIndex0 $ interpretAst env v
 
-interpretAstBool :: ADModeAndNumTensor d r
+interpretAstBool :: ADModeAndNum d r
                  => AstEnv d r
                  -> AstBool r -> Bool
 interpretAstBool env = \case

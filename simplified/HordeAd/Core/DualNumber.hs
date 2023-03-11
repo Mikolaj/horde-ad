@@ -8,7 +8,7 @@
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.DualNumber
   ( ADVal, dD, pattern D
-  , ADModeAndNum, HasDelta
+  , ADModeAndNum, HasDelta, TensorIsArray(..)
   , fromX1, from1X
   , Vec, vecToV, vToVec
   , SNat(..), staticNatValue, staticNatFromProxy
@@ -44,6 +44,7 @@ import qualified Numeric.LinearAlgebra as LA
 import HordeAd.Core.Delta (Delta0, Domain0, Domain1, Domains (..), nullDomains)
 import HordeAd.Core.DualClass
 import HordeAd.Core.SizedIndex
+import HordeAd.Core.TensorClass
 import HordeAd.Internal.TensorOps
 
 -- * The main dual number type
@@ -109,7 +110,26 @@ type ADModeAndNum (d :: ADMode) r =
   , IsPrimalAndHasFeatures d (OT.Array r) r
   , IsPrimalR d r
   , RealFloat (Vector r)
+  , Tensor r
+  , TensorOf 0 r ~ OR.Array 0 r
+  , TensorOf 1 r ~ OR.Array 1 r
+  , IntOf r ~ Int
+  , TensorIsArray r
+  , DynamicTensor r ~ OT.Array r
+  , HasPrimal r
   )
+
+class TensorIsArray r where
+  toArray :: TensorOf n r -> OR.Array n r
+  fromArray :: OR.Array n r -> TensorOf n r
+
+instance TensorIsArray Double where
+  toArray = id
+  fromArray = id
+
+instance TensorIsArray Float where
+  toArray = id
+  fromArray = id
 
 -- | Is a scalar and will be used to compute gradients via delta-expressions.
 type HasDelta r = ( ADModeAndNum 'ADModeGradient r
