@@ -39,7 +39,6 @@ module HordeAd.Core.DualClass
 import Prelude
 
 import           Control.Exception.Assert.Sugar
-import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.RankedS as OR
 import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
@@ -51,6 +50,7 @@ import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Delta
 import HordeAd.Core.SizedIndex
+import HordeAd.Core.TensorClass
 import HordeAd.Internal.TensorOps
 
 -- * Abbreviations to export (not used anywhere below)
@@ -138,7 +138,8 @@ class IsPrimalR d r where
 
 -- | Part 2/2 of a hack to squeeze the ranked tensors rank,
 -- with its extra @n@ parameter, into the 'IsPrimal' class.
-instance (IsPrimalR d r, KnownNat n) => IsPrimal d (OR.Array n r) where
+instance (IsPrimalR d r, KnownNat n)
+         => IsPrimal d (OR.Array n r) where
   dZero = dZeroR
   dScale = dScaleR
   dAdd = dAddR
@@ -158,77 +159,77 @@ class HasInputs a where
 class HasRanks (d :: ADMode) r where
   dInput0 :: InputId r -> Dual d r
   dIndex0 :: KnownNat n
-          => Dual d (OR.Array n r) -> IndexInt n -> ShapeInt n -> Dual d r
+          => Dual d (TensorOf n r) -> IndexOf n r -> ShapeInt n -> Dual d r
   dSum0 :: KnownNat n
-        => ShapeInt n -> Dual d (OR.Array n r) -> Dual d r
+        => ShapeInt n -> Dual d (TensorOf n r) -> Dual d r
   dDot0 :: KnownNat n
-        => OR.Array n r -> Dual d (OR.Array n r) -> Dual d r
-  dUnScalar0 :: Dual d (OR.Array 0 r) -> Dual d r
+        => TensorOf n r -> Dual d (TensorOf n r) -> Dual d r
+  dUnScalar0 :: Dual d (TensorOf 0 r) -> Dual d r
 
-  dInput1 :: InputId (OR.Array n r) -> Dual d (OR.Array n r)
+  dInput1 :: InputId (OR.Array n r) -> Dual d (TensorOf n r)
 --  dIndex1 :: KnownNat n
---         => Dual d (OR.Array (1 + n) r) -> Int -> Int -> Dual d (OR.Array n r)
+--         => Dual d (TensorOf (1 + n) r) -> Int -> Int -> Dual d (TensorOf n r)
   dIndexN :: (KnownNat n, KnownNat m)
-          => Dual d (OR.Array (m + n) r) -> IndexInt m -> ShapeInt (m + n)
-          -> Dual d (OR.Array n r)
+          => Dual d (TensorOf (m + n) r) -> IndexOf m r -> ShapeInt (m + n)
+          -> Dual d (TensorOf n r)
   dSum1 :: KnownNat n
-        => Int -> Dual d (OR.Array (1 + n) r) -> Dual d (OR.Array n r)
-  dScalar1 :: Dual d r -> Dual d (OR.Array 0 r)
+        => Int -> Dual d (TensorOf (1 + n) r) -> Dual d (TensorOf n r)
+  dScalar1 :: Dual d r -> Dual d (TensorOf 0 r)
   dFromList1 :: KnownNat n
-             => [Dual d (OR.Array n r)]
-             -> Dual d (OR.Array (1 + n) r)
+             => [Dual d (TensorOf n r)]
+             -> Dual d (TensorOf (1 + n) r)
   dFromVector1 :: KnownNat n
-               => Data.Vector.Vector (Dual d (OR.Array n r))
-               -> Dual d (OR.Array (1 + n) r)
+               => Data.Vector.Vector (Dual d (TensorOf n r))
+               -> Dual d (TensorOf (1 + n) r)
 --  dFromList01 :: KnownNat n
---              => ShapeInt n -> [Dual d r] -> Dual d (OR.Array n r)
+--              => ShapeInt n -> [Dual d r] -> Dual d (TensorOf n r)
 --  dFromVector01 :: KnownNat n
 --                => ShapeInt n -> Data.Vector.Vector (Dual d r)
---                -> Dual d (OR.Array n r)
+--                -> Dual d (TensorOf n r)
   dKonst1 :: KnownNat n
-          => Int -> Dual d (OR.Array n r) -> Dual d (OR.Array (1 + n) r)
+          => Int -> Dual d (TensorOf n r) -> Dual d (TensorOf (1 + n) r)
 --  dKonst01 :: KnownNat n
---           => ShapeInt n -> Dual d r -> Dual d (OR.Array n r)
+--           => ShapeInt n -> Dual d r -> Dual d (TensorOf n r)
   dAppend1 :: KnownNat n
-           => Dual d (OR.Array (1 + n) r) -> Int -> Dual d (OR.Array (1 + n) r)
-           -> Dual d (OR.Array (1 + n) r)
+           => Dual d (TensorOf (1 + n) r) -> Int -> Dual d (TensorOf (1 + n) r)
+           -> Dual d (TensorOf (1 + n) r)
   dSlice1 :: KnownNat n
-          => Int -> Int -> Dual d (OR.Array (1 + n) r) -> Int
-          -> Dual d (OR.Array (1 + n) r)
+          => Int -> Int -> Dual d (TensorOf (1 + n) r) -> Int
+          -> Dual d (TensorOf (1 + n) r)
   dReverse1 :: KnownNat n
-            => Dual d (OR.Array (1 + n) r) -> Dual d (OR.Array (1 + n) r)
+            => Dual d (TensorOf (1 + n) r) -> Dual d (TensorOf (1 + n) r)
   dTranspose1 :: KnownNat n
-              => Permutation -> Dual d (OR.Array n r) -> Dual d (OR.Array n r)
+              => Permutation -> Dual d (TensorOf n r) -> Dual d (TensorOf n r)
   dReshape1 :: (KnownNat n, KnownNat m)
-            => ShapeInt n -> ShapeInt m -> Dual d (OR.Array n r)
-            -> Dual d (OR.Array m r)
+            => ShapeInt n -> ShapeInt m -> Dual d (TensorOf n r)
+            -> Dual d (TensorOf m r)
   dBuild1 :: KnownNat n
-          => Int -> (Int -> Dual d (OR.Array n r))
-          -> Dual d (OR.Array (1 + n) r)
+          => Int -> (Int -> Dual d (TensorOf n r))
+          -> Dual d (TensorOf (1 + n) r)
 --  dGather1 :: (KnownNat p, KnownNat n)
---           => (Int -> IndexInt p)
---           -> ShapeInt (p + n) -> Dual d (OR.Array (p + n) r)
---           -> Int -> Dual d (OR.Array (1 + n) r)
+--           => (Int -> IndexOf p r)
+--           -> ShapeInt (p + n) -> Dual d (TensorOf (p + n) r)
+--           -> Int -> Dual d (TensorOf (1 + n) r)
   dGatherN :: (KnownNat m, KnownNat p, KnownNat n)
-           => ShapeInt (m + n) -> Dual d (OR.Array (p + n) r)
-           -> (IndexInt m -> IndexInt p)
+           => ShapeInt (m + n) -> Dual d (TensorOf (p + n) r)
+           -> (IndexOf m r -> IndexOf p r)
            -> ShapeInt (p + n)
-           -> Dual d (OR.Array (m + n) r)
+           -> Dual d (TensorOf (m + n) r)
 --  dScatter1 :: (KnownNat p, KnownNat n)
---            => (Int -> IndexInt p)
---            -> Int -> Dual d (OR.Array (1 + n) r)
---            -> ShapeInt (p + n) -> Dual d (OR.Array (p + n) r)
+--            => (Int -> IndexOf p r)
+--            -> Int -> Dual d (TensorOf (1 + n) r)
+--            -> ShapeInt (p + n) -> Dual d (TensorOf (p + n) r)
   dScatterN :: (KnownNat m, KnownNat p, KnownNat n)
-            => ShapeInt (p + n) -> Dual d (OR.Array (m + n) r)
-            -> (IndexInt m -> IndexInt p)
+            => ShapeInt (p + n) -> Dual d (TensorOf (m + n) r)
+            -> (IndexOf m r -> IndexOf p r)
             -> ShapeInt (m + n)
-            -> Dual d (OR.Array (p + n) r)
+            -> Dual d (TensorOf (p + n) r)
 
   dFromX1 :: KnownNat n
-          => Dual d (OT.Array r) -> Dual d (OR.Array n r)
+          => Dual d (DynamicTensor r) -> Dual d (TensorOf n r)
 
   dFrom1X :: KnownNat n
-          => Dual d (OR.Array n r) -> Dual d (OT.Array r)
+          => Dual d (TensorOf n r) -> Dual d (DynamicTensor r)
 
 -- * Backprop gradient method instances
 
@@ -294,7 +295,18 @@ instance IsPrimal 'ADModeGradient (OT.Array r) where
   recordSharing = id
 
 -- | This is an impure instance. See above.
-instance IsPrimalR 'ADModeGradient r where
+instance IsPrimalR 'ADModeGradient Double where
+  dZeroR = Zero1
+  dScaleR = Scale1
+  dAddR = Add1
+  recordSharingR d = case d of
+    Zero1 -> d
+    Input1{} -> d
+    FromX1{} -> d
+    Let1{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> wrapDelta1 d
+
+instance IsPrimalR 'ADModeGradient Float where
   dZeroR = Zero1
   dScaleR = Scale1
   dAddR = Add1
@@ -313,7 +325,8 @@ instance HasInputs Float where
   packDeltaDt t _tsh = DeltaDt0 t
   inputConstant r _tsh = r
 
-instance (Numeric r, KnownNat n) => HasInputs (OR.Array n r) where
+instance (Numeric r, KnownNat n, ScalarOf r ~ r)
+         => HasInputs (OR.Array n r) where
   packDeltaDt t tsh =
     let sh = OR.shapeL t
         sh' = OR.shapeL tsh
@@ -324,8 +337,40 @@ instance (Numeric r, KnownNat n) => HasInputs (OR.Array n r) where
   inputConstant r tsh = OR.constant (OR.shapeL tsh) r
 
 -- | This is an impure instance. See above.
-instance Dual 'ADModeGradient r ~ Delta0 r
-         => HasRanks 'ADModeGradient r where
+instance HasRanks 'ADModeGradient Double where
+  dInput0 = Input0
+  dIndex0 = Index0
+  dSum0 = Sum0
+  dDot0 = Dot0
+  dUnScalar0 = UnScalar0
+
+  dInput1 = Input1
+--  dIndex1 = Index1
+  dIndexN = IndexN
+  dSum1 = Sum1
+  dScalar1 = Scalar1
+  dFromList1 = FromList1
+  dFromVector1 = FromVector1
+--  dFromList01 = FromList01
+--  dFromVector01 = FromVector01
+  dKonst1 = Konst1
+--  dKonst01 = Konst01
+  dAppend1 = Append1
+  dSlice1 = Slice1
+  dReverse1 = Reverse1
+  dTranspose1 = Transpose1
+  dReshape1 = Reshape1
+  dBuild1 = Build1
+--  dGather1 = Gather1
+  dGatherN = GatherN
+--  dScatter1 = Scatter1
+  dScatterN = ScatterN
+
+  dFromX1 = FromX1
+
+  dFrom1X = From1X
+
+instance HasRanks 'ADModeGradient Float where
   dInput0 = Input0
   dIndex0 = Index0
   dSum0 = Sum0
@@ -379,16 +424,20 @@ instance Num (OT.Array r)
   dAdd d e = d + e
   recordSharing = id
 
-instance (Numeric r, Num (Vector r))
-         => IsPrimalR 'ADModeDerivative r where
+instance IsPrimalR 'ADModeDerivative Double where
   dZeroR = 0
   dScaleR k d = k * d
   dAddR d e = d + e
   recordSharingR = id
 
-instance ( Numeric r, Show r, Num (Vector r)
-         , Dual 'ADModeDerivative r ~ r)
-         => HasRanks 'ADModeDerivative r where
+-- Completely copied from above.
+instance IsPrimalR 'ADModeDerivative Float where
+  dZeroR = 0
+  dScaleR k d = k * d
+  dAddR d e = d + e
+  recordSharingR = id
+
+instance HasRanks 'ADModeDerivative Double where
   dInput0 = undefined
   dIndex0 d ixs _ = tindex0R d ixs
   dSum0 _ = tsum0R
@@ -396,8 +445,8 @@ instance ( Numeric r, Show r, Num (Vector r)
   dUnScalar0 = OR.unScalar
 
   dInput1 = undefined
---  dIndex1 d ix _ = tindex1R d ix
-  dIndexN d ixs _ = tindexNR d ixs
+--  dIndex1 d ix _ = tindexZ1R d ix
+  dIndexN d ixs _ = tindexZR d ixs
   dSum1 _ = tsumR
   dScalar1 = OR.scalar
   dFromList1 = tfromListR
@@ -412,14 +461,47 @@ instance ( Numeric r, Show r, Num (Vector r)
   dTranspose1 = ttransposeR
   dReshape1 _sh = treshapeR
   dBuild1 = tbuild1R
---  dGather1 f _sh u k = tgather1R k u f
-  dGatherN sh d f _shd = tgatherNR sh d f
+--  dGather1 f _sh u k = tgatherZ1R k u f
+  dGatherN sh d f _shd = tgatherZR sh d f
 --  dScatter1 f _n = tscatter1R f
   dScatterN sh d f _shd = tscatterNR sh d f
 
-  dFromX1 = Data.Array.Convert.convert
+  dFromX1 = tfromD
 
-  dFrom1X = Data.Array.Convert.convert
+  dFrom1X = tfromR
+
+instance HasRanks 'ADModeDerivative Float where
+  dInput0 = undefined
+  dIndex0 d ixs _ = tindex0R d ixs
+  dSum0 _ = tsum0R
+  dDot0 = tdot0R
+  dUnScalar0 = OR.unScalar
+
+  dInput1 = undefined
+--  dIndex1 d ix _ = tindex1R d ix
+  dIndexN d ixs _ = tindexZR d ixs
+  dSum1 _ = tsumR
+  dScalar1 = OR.scalar
+  dFromList1 = tfromListR
+  dFromVector1 = tfromVectorR
+--  dFromList01 = tfromList0NR
+--  dFromVector01 = tfromVector0NR
+  dKonst1 = tkonstR
+--  dKonst01 = tkonst0NR
+  dAppend1 d _k = tappendR d
+  dSlice1 i n d _len = tsliceR i n d
+  dReverse1 = treverseR
+  dTranspose1 = ttransposeR
+  dReshape1 _sh = treshapeR
+  dBuild1 = tbuild1R
+--  dGather1 f _sh u k = tgatherZ1R k u f
+  dGatherN sh d f _shd = tgatherZR sh d f
+--  dScatter1 f _n = tscatter1R f
+  dScatterN sh d f _shd = tscatterNR sh d f
+
+  dFromX1 = tfromD
+
+  dFrom1X = tfromR
 
 -- * Another alternative instance: only the objective function's value computed
 

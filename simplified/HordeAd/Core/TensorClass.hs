@@ -309,7 +309,7 @@ instance Tensor Double where
   tminIndex0 = tminIndexR
   tmaxIndex0 = tmaxIndexR
   tfloor = floor . tunScalar
-  tindex = tindexNR
+  tindex = tindexZR
   tsum = tsumR
   tsum0 = tscalar . tsum0R
   tdot0 u v = tscalar $ tdot0R u v
@@ -330,8 +330,8 @@ instance Tensor Double where
   tbuild1 = tbuild1R
   tmap0N = tmap0NR
   tzipWith0N = tzipWith0NR
-  tgather = tgatherNR
-  tgather1 = tgather1R
+  tgather = tgatherZR
+  tgather1 = tgatherZ1R
   tscalar = tscalarR
   tunScalar = tunScalarR
   tscaleByScalar = tscaleByScalarR
@@ -343,7 +343,7 @@ instance Tensor Float where
   tminIndex0 = tminIndexR
   tmaxIndex0 = tmaxIndexR
   tfloor = floor . tunScalar
-  tindex = tindexNR
+  tindex = tindexZR
   tsum = tsumR
   tsum0 = tscalar . tsum0R
   tdot0 u v = tscalar $ tdot0R u v
@@ -364,8 +364,8 @@ instance Tensor Float where
   tbuild1 = tbuild1R
   tmap0N = tmap0NR
   tzipWith0N = tzipWith0NR
-  tgather = tgatherNR
-  tgather1 = tgather1R
+  tgather = tgatherZR
+  tgather1 = tgatherZ1R
   tscalar = tscalarR
   tunScalar = tunScalarR
   tscaleByScalar = tscaleByScalarR

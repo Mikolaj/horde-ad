@@ -33,6 +33,7 @@ import HordeAd.Core.DualClass
   (Dual, HasInputs (..), dFrom1X, dInput0, dInput1, dummyDual, packDeltaDt)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.PairOfVectors (ADInputs (..), makeADInputs)
+import HordeAd.Core.TensorClass
 
 -- * Evaluation that ignores the dual part of the dual numbers.
 -- It's intended for efficiently calculating the value of the function only.
@@ -167,7 +168,8 @@ fwdOnADInputs inputs f =
 -- The type equality constraint is needed, because the `Dual` type family
 -- can't declare it, because it needs to remain injective.
 fwdOnDomains
-  :: (Numeric r, Dual 'ADModeDerivative r ~ r)
+  :: ( Numeric r, Dual 'ADModeDerivative r ~ r
+     , Dual 'ADModeDerivative (DynamicTensor r) ~ DynamicTensor r )
   => Domains r
   -> (ADInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative a)
   -> Domains r  -- ds
@@ -251,11 +253,11 @@ initializerFixed01 seed range (nParams0, lParams1) =
 domainsFrom01 :: Domain0 r -> Domain1 r -> Domains r
 domainsFrom01 = Domains
 
-domainsFrom0V :: Numeric r
+domainsFrom0V :: (Numeric r, DynamicTensor r ~ OT.Array r)
               => Domain0 r -> Data.Vector.Vector (Vector r) -> Domains r
 domainsFrom0V rs vs = Domains rs (V.map (\v -> OT.fromVector [V.length v] v) vs)
 
-listsToParameters :: Numeric r
+listsToParameters :: (Numeric r, DynamicTensor r ~ OT.Array r)
                   => ([r], [r]) -> Domains r
 listsToParameters (a0, a1) =
   domainsFrom0V

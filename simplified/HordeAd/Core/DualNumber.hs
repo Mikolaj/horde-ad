@@ -29,7 +29,6 @@ module HordeAd.Core.DualNumber
 
 import Prelude
 
-import qualified Data.Array.Convert
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
@@ -136,13 +135,13 @@ type HasDelta r = ( ADModeAndNum 'ADModeGradient r
                   , HasInputs r
                   , Dual 'ADModeGradient r ~ Delta0 r )
 
-fromX1 :: (ADModeAndNum d r, KnownNat n)
-       => ADVal d (OT.Array r) -> ADVal d (OR.Array n r)
-fromX1 (D u u') = dDnotShared (Data.Array.Convert.convert u) (dFromX1 u')
+fromX1 :: forall n d r. (ADModeAndNum d r, KnownNat n)
+       => ADVal d (OT.Array r) -> ADVal d (TensorOf n r)
+fromX1 (D u u') = dDnotShared (tfromD u) (dFromX1 u')
 
 from1X :: (ADModeAndNum d r, KnownNat n)
-       => ADVal d (OR.Array n r) -> ADVal d (OT.Array r)
-from1X (D u u') = dDnotShared (Data.Array.Convert.convert u) (dFrom1X u')
+       => ADVal d (TensorOf n r) -> ADVal d (OT.Array r)
+from1X (D u u') = dDnotShared (tfromR u) (dFrom1X u')
 
 -- Shims to reuse the tests for ordinary vectors.
 type Vec r = OR.Array 1 r
@@ -184,14 +183,15 @@ multNotShared :: (Num a, IsPrimal d a) => ADVal d a -> ADVal d a -> ADVal d a
 multNotShared (D u u') (D v v') =
   dDnotShared (u * v) (dAdd (dScale v u') (dScale u v'))
 
-addParameters :: (Numeric r, Num (Vector r))
+addParameters :: (Numeric r, Num (Vector r), DynamicTensor r ~ OT.Array r)
               => Domains r -> Domains r -> Domains r
 addParameters (Domains a0 a1) (Domains b0 b1) =
   Domains (a0 + b0)
           (V.zipWith (+) a1 b1)
 
 -- Dot product and sum respective ranks and then sum it all.
-dotParameters :: Numeric r => Domains r -> Domains r -> r
+dotParameters :: (Numeric r, DynamicTensor r ~ OT.Array r)
+              => Domains r -> Domains r -> r
 dotParameters (Domains a0 a1) (Domains b0 b1) =
   a0 LA.<.> b0
   + V.sum (V.zipWith (\v1 u1 ->
