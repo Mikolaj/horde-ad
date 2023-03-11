@@ -149,7 +149,6 @@ instance (IsPrimalR d r, KnownNat n) => IsPrimal d (OR.Array n r) where
 -- the additional operations of delta-input and of packing a delta expression
 -- and a dt parameter for computing its gradient.
 class HasInputs a where
-  dInput :: InputId a -> Dual 'ADModeGradient a
   packDeltaDt :: a -> a -> Dual 'ADModeGradient a -> DeltaDt (Element a)
   inputConstant :: Element a -> a -> a
 
@@ -157,6 +156,7 @@ class HasInputs a where
 -- to be the underlying scalar of a well behaved collection of dual numbers
 -- of various ranks wrt the differentation mode given in the first parameter.
 class HasRanks (d :: ADMode) r where
+  dInput0 :: InputId r -> Dual d r
   dIndex0 :: KnownNat n
           => Dual d (OR.Array n r) -> IndexInt n -> ShapeInt n -> Dual d r
   dSum0 :: KnownNat n
@@ -165,6 +165,7 @@ class HasRanks (d :: ADMode) r where
         => OR.Array n r -> Dual d (OR.Array n r) -> Dual d r
   dUnScalar0 :: Dual d (OR.Array 0 r) -> Dual d r
 
+  dInput1 :: InputId (OR.Array n r) -> Dual d (OR.Array n r)
 --  dIndex1 :: KnownNat n
 --         => Dual d (OR.Array (1 + n) r) -> Int -> Int -> Dual d (OR.Array n r)
   dIndexN :: (KnownNat n, KnownNat m)
@@ -305,17 +306,14 @@ instance IsPrimalR 'ADModeGradient r where
     _ -> wrapDelta1 d
 
 instance HasInputs Double where
-  dInput = Input0
   packDeltaDt t _tsh = DeltaDt0 t
   inputConstant r _tsh = r
 
 instance HasInputs Float where
-  dInput = Input0
   packDeltaDt t _tsh = DeltaDt0 t
   inputConstant r _tsh = r
 
 instance (Numeric r, KnownNat n) => HasInputs (OR.Array n r) where
-  dInput = Input1
   packDeltaDt t tsh =
     let sh = OR.shapeL t
         sh' = OR.shapeL tsh
@@ -328,11 +326,13 @@ instance (Numeric r, KnownNat n) => HasInputs (OR.Array n r) where
 -- | This is an impure instance. See above.
 instance Dual 'ADModeGradient r ~ Delta0 r
          => HasRanks 'ADModeGradient r where
+  dInput0 = Input0
   dIndex0 = Index0
   dSum0 = Sum0
   dDot0 = Dot0
   dUnScalar0 = UnScalar0
 
+  dInput1 = Input1
 --  dIndex1 = Index1
   dIndexN = IndexN
   dSum1 = Sum1
@@ -389,11 +389,13 @@ instance (Numeric r, Num (Vector r))
 instance ( Numeric r, Show r, Num (Vector r)
          , Dual 'ADModeDerivative r ~ r)
          => HasRanks 'ADModeDerivative r where
+  dInput0 = undefined
   dIndex0 d ixs _ = tindex0R d ixs
   dSum0 _ = tsum0R
   dDot0 = tdot0R
   dUnScalar0 = OR.unScalar
 
+  dInput1 = undefined
 --  dIndex1 d ix _ = tindex1R d ix
   dIndexN d ixs _ = tindexNR d ixs
   dSum1 _ = tsumR
@@ -453,11 +455,13 @@ instance IsPrimalR 'ADModeValue r where
 
 -- This requires UndecidableInstances.
 instance HasRanks 'ADModeValue r where
+  dInput0 = undefined
   dIndex0 _ _ _ = DummyDual ()
   dSum0 _ _ = DummyDual ()
   dDot0 _ _ = DummyDual ()
   dUnScalar0 _ = DummyDual ()
 
+  dInput1 = undefined
 --  dIndex1 _ _ _ = DummyDual ()
   dIndexN _ _ _ = DummyDual ()
   dSum1 _ _ = DummyDual ()
