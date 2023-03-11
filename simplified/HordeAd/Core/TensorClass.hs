@@ -8,7 +8,7 @@
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.TensorClass
   ( IndexOf, ShapeInt, Tensor(..), HasPrimal(..), ADReady
-  , simplifyAst, scale1, relu1, reluLeaky1
+  , scale1, relu1, reluLeaky1
   ) where
 
 
@@ -22,15 +22,12 @@ import           Data.Boolean
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat, Nat, type (+))
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Numeric)
 
-import HordeAd.Core.Ast
-import HordeAd.Core.AstSimplify
-import HordeAd.Core.AstVectorize
 import HordeAd.Core.SizedIndex
 import HordeAd.Internal.TensorOps
 
--- * Tensor class definition and instances for arrays, ADVal and Ast
+-- * Tensor class definition
 
 -- @IntOf r@ as size or shape gives more expressiveness,
 -- but leads to irregular tensors, especially after vectorization,
@@ -298,6 +295,8 @@ type ADReady r =
   )
   -- any of the @BooleanOf r ~ ...@ lines above breaks GHC <= 9.0.2
 
+-- * Tensor class instances for arrays
+
 -- These instances are a faster way to get an objective function value.
 -- However, they don't do vectorization, so won't work on GPU, ArrayFire, etc.
 -- For vectorization, go through Ast and valueOnDomains.
@@ -367,91 +366,6 @@ instance Tensor Float where
   tgather1 = tgather1R
   tscalar = tscalarR
   tunScalar = tunScalarR
-
-instance ( Numeric r, RealFloat r, RealFloat (Vector r)
-         , Show r, Numeric r )  -- needed only to display errors properly
-         => Tensor (Ast 0 r) where
-  type TensorOf n (Ast 0 r) = Ast n r
-  type IntOf (Ast 0 r) = AstInt r
-
-  tshape = shapeAst
-  tminIndex0 = AstMinIndex1
-  tmaxIndex0 = AstMaxIndex1
-  tfloor = AstIntFloor
-
-  tindex = AstIndexZ
-  tsum = AstSum
-  tfromIndex0 = AstConstant . AstPrimalPart . AstConstInt
-    -- toInteger is not defined for Ast, hence a special implementation
-  tscatter sh t f = AstScatter sh t (funToAstIndex f)  -- introduces new vars
-
-  tfromList = AstFromList
-  tfromList0N sh = AstReshape sh . AstFromList
-  tfromVector = AstFromVector
-  tfromVector0N sh = AstReshape sh . AstFromVector
-  tkonst = AstKonst
-  tappend = AstAppend
-  tslice = AstSlice
-  treverse = AstReverse
-  ttranspose = AstTranspose
-  treshape = AstReshape
-  tbuild1 = astBuild1
-  tgather sh t f = AstGatherZ sh t (funToAstIndex f)  -- introduces new vars
-
-  tscalar = id  -- Ast confuses the two ranks
-  tunScalar = id
-
--- This is a vectorizing combinator that also simplifies
--- the terms touched during vectorization, but not any others.
--- Due to how the Ast instance of Tensor is defined above, vectorization
--- works bottom-up, which removes the need to backtrack in the vectorization
--- pass or repeat until a fixed point is reached.
--- This combinator also introduces new variable names.
-astBuild1 :: (KnownNat n, Show r, Numeric r, Num (Vector r))
-          => Int -> (AstInt r -> Ast n r) -> Ast (1 + n) r
-astBuild1 k f = build1Vectorize k $ funToAstI f
-
-instance ( Numeric r, RealFloat r, RealFloat (Vector r)
-         , Show r, Numeric r )
-         => Tensor (AstPrimalPart 0 r) where
-  type TensorOf n (AstPrimalPart 0 r) = AstPrimalPart n r
-  type IntOf (AstPrimalPart 0 r) = AstInt r
-
-  tshape = shapeAst . unAstPrimalPart
-  tminIndex0 = AstMinIndex1 . unAstPrimalPart
-  tmaxIndex0 = AstMaxIndex1 . unAstPrimalPart
-  tfloor = AstIntFloor . unAstPrimalPart
-
-  tindex v ix = AstPrimalPart $ AstIndexZ (unAstPrimalPart v) ix
-  tsum = AstPrimalPart . AstSum . unAstPrimalPart
-  tfromIndex0 = AstPrimalPart . AstConstInt
-    -- toInteger is not defined for Ast, hence a special implementation
-  tscatter sh t f = AstPrimalPart $ AstScatter sh (unAstPrimalPart t)
-                    $ funToAstIndex f  -- this introduces new variable names
-
-  tfromList = AstPrimalPart . AstFromList . map unAstPrimalPart
-  tfromList0N sh =
-    AstPrimalPart . AstReshape sh . AstFromList . map unAstPrimalPart
-  tfromVector = AstPrimalPart . AstFromVector . V.map unAstPrimalPart
-  tfromVector0N sh =
-    AstPrimalPart . AstReshape sh . AstFromVector . V.map unAstPrimalPart
-  tkonst k = AstPrimalPart . AstKonst k . unAstPrimalPart
-  tappend u v =
-    AstPrimalPart $ AstAppend (unAstPrimalPart u) (unAstPrimalPart v)
-  tslice i k = AstPrimalPart . AstSlice i k  . unAstPrimalPart
-  treverse = AstPrimalPart . AstReverse . unAstPrimalPart
-  ttranspose perm = AstPrimalPart . AstTranspose perm . unAstPrimalPart
-  treshape sh = AstPrimalPart . AstReshape sh  . unAstPrimalPart
-  tbuild1 k f = AstPrimalPart $ AstBuild1 k
-                $ funToAstI  -- this introduces new variable names
-                $ unAstPrimalPart . f
-                -- TODO: $ AstConstant . f
-                -- that's the correct one, but unvectorized tests fail with it
-  tgather sh t f = AstPrimalPart $ AstGatherZ sh (unAstPrimalPart t)
-                   $ funToAstIndex f  -- this introduces new variable names
-
-  tscalar = id
-  tunScalar = id
 
 {- These instances are increasingly breaking stuff, so disabled:
 
@@ -567,41 +481,6 @@ instance HasPrimal Float where
   taddD = (+)
   tfromR = Data.Array.Convert.convert
   tfromD = Data.Array.Convert.convert
-
-instance HasPrimal (Ast 0 r) where
-  type ScalarOf (Ast 0 r) = r
-  type Primal (Ast 0 r) = AstPrimalPart 0 r
-  type DualOf n (Ast 0 r) = ()  -- TODO: data AstDualPart: dScale, dAdd, dkonst1
-  tconst = AstConstant . AstPrimalPart . AstConst
-  tconstant = AstConstant
-  tprimalPart = AstPrimalPart
-  tdualPart = error "TODO"
-  tD = error "TODO"
-  type DynamicTensor (Ast 0 r) = AstDynamic r
-  tdummyD = AstDynamicDummy
-  tisDummyD t = case t of
-    AstDynamicDummy -> True
-    _ -> False
-  taddD = AstDynamicPlus
-  tfromR = AstDynamicFrom
-  tfromD = AstFromDynamic
-
-instance HasPrimal (AstPrimalPart 0 r) where
-  type ScalarOf (AstPrimalPart 0 r) = r
-  type Primal (AstPrimalPart 0 r) = AstPrimalPart 0 r
-  type DualOf n (AstPrimalPart 0 r) = ()
-  tconst = AstPrimalPart . AstConst
-  tconstant = AstPrimalPart . AstConstant
-  tprimalPart = id
-  tdualPart = error "TODO"
-  tD = error "TODO"
-  -- TODO: if ever used, define, if not, use an Error type
-  type DynamicTensor (AstPrimalPart 0 r) = Maybe r
-  tdummyD = undefined
-  tisDummyD = undefined
-  taddD = undefined
-  tfromR = undefined
-  tfromD = undefined
 
 
 -- * Odds and ends

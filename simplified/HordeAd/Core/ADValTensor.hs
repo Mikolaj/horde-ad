@@ -8,7 +8,7 @@
 -- (and safely impure) API in "HordeAd.Core.DualClass". The other part
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.ADValTensor
-  ( interpretAst, AstVar(..), funToAstR, extendEnvR
+  ( interpretAst, AstVar(..), funToAstR, simplifyAst, extendEnvR
   , resetVarCOunter
   ) where
 
@@ -25,6 +25,7 @@ import           GHC.TypeLits (KnownNat, type (+))
 
 import HordeAd.Core.Ast
 import HordeAd.Core.AstSimplify
+import HordeAd.Core.AstVectorize ()
 import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber hiding (build1)
 import HordeAd.Core.SizedIndex
