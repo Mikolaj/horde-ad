@@ -13,6 +13,7 @@ import Prelude
 
 import           Control.Exception (assert)
 import qualified Data.Array.Convert
+import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.RankedS as OR
 import           Data.List (foldl')
 import qualified Data.Vector.Generic as V
@@ -25,6 +26,7 @@ import HordeAd.Core.DualClass (Dual, inputConstant)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.PairOfVectors
+import HordeAd.Core.TensorClass
 import HordeAd.Internal.TensorOps
 
 value :: forall a vals r advals d.
@@ -78,7 +80,7 @@ revDtFun f vals dt =
 fwd :: forall a vals r advals d.
        ( r ~ Scalar vals, vals ~ Value advals
        , d ~ Mode advals, d ~ 'ADModeDerivative
-       , Numeric r, Dual d r ~ r
+       , Numeric r, Dual d r ~ r, Dual d (DynamicTensor r) ~ DynamicTensor r
        , Adaptable advals )
     => (advals -> ADVal d a) -> vals -> vals
     -> Dual d a  -- normally equals @a@
@@ -208,7 +210,7 @@ instance {-# OVERLAPS #-} {-# OVERLAPPING #-}
     in (arr, g2)
 -}
 
-instance KnownNat n
+instance (KnownNat n, DynamicTensor r ~ OT.Array r)
          => AdaptableDomains (OR.Array n r) where
   type Scalar (OR.Array n r) = r
   toDomains a =
@@ -229,14 +231,15 @@ instance KnownNat n
         arr = OR.fromVector undefined $ createRandomVector (OR.size undefined) g1  -- TODO
     in (arr, g2)
 
-instance (ADModeAndNum d r, KnownNat n)
+instance ( ADModeAndNum d r, KnownNat n, TensorOf n r ~ OR.Array n r
+         , DynamicTensor r ~ OT.Array r )
          => AdaptableInputs r (ADVal d (OR.Array n r)) where
   type Value (ADVal d (OR.Array n r)) = OR.Array n r
   type Mode (ADVal d (OR.Array n r)) = d
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal1 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual1 of
       Just (aDual, restDual) ->
-        ( fromX1 $ dD aPrimal aDual
+        ( fromX1 @n $ dD aPrimal aDual
         , inputs {inputPrimal1 = restPrimal, inputDual1 = restDual} )
       Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"
     Nothing -> error "fromADInputs in AdaptableInputs (OR.Array n r)"

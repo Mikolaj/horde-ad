@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveAnyClass, DerivingStrategies #-}
+{-# LANGUAGE DeriveAnyClass, DerivingStrategies, UndecidableInstances #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
 -- | The second component of our rendition of dual numbers:
@@ -61,13 +61,12 @@ import           Control.DeepSeq (NFData)
 import           Control.Exception.Assert.Sugar
 import           Control.Monad (liftM2)
 import           Control.Monad.ST.Strict (ST, runST)
-import qualified Data.Array.Convert
-import qualified Data.Array.DynamicS as OT
-import qualified Data.Array.Ranked as ORB
+import           Data.Array.Internal (valueOf)
 import qualified Data.Array.RankedS as OR
 import qualified Data.EnumMap.Strict as EM
 import           Data.Kind (Type)
 import           Data.List (foldl', sort)
+import           Data.List.Index (ifoldl')
 import           Data.Proxy (Proxy (Proxy))
 import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import qualified Data.Strict.Vector as Data.Vector
@@ -76,12 +75,10 @@ import qualified Data.Vector.Generic as V
 import           GHC.Generics (Generic)
 import           GHC.TypeLits (KnownNat, Nat, sameNat, type (+))
 import           Numeric.LinearAlgebra (Numeric, Vector)
-import qualified Numeric.LinearAlgebra as LA
 import           Text.Show.Functions ()
 
 import HordeAd.Core.SizedIndex
-import HordeAd.Internal.OrthotopeOrphanInstances (liftVR)
-import HordeAd.Internal.TensorOps
+import HordeAd.Core.TensorClass
 
 -- * Abstract syntax trees of the delta expressions
 
@@ -143,14 +140,14 @@ data Delta0 :: Type -> Type where
   Let0 :: NodeId -> Delta0 r -> Delta0 r
 
   Index0 :: KnownNat n
-         => Delta1 n r -> IndexInt n -> ShapeInt n -> Delta0 r
+         => Delta1 n r -> IndexOf n r -> ShapeInt n -> Delta0 r
   Sum0 :: KnownNat n
        => ShapeInt n -> Delta1 n r -> Delta0 r
-  Dot0 :: KnownNat n
-       => OR.Array n r -> Delta1 n r -> Delta0 r
+  Dot0 :: (KnownNat n, Show (TensorOf n r))
+       => TensorOf n r -> Delta1 n r -> Delta0 r
   UnScalar0 :: Delta1 0 r -> Delta0 r
 
-deriving instance (Show r, Numeric r) => Show (Delta0 r)
+deriving instance (Show (IntOf r), Show r, Numeric r) => Show (Delta0 r)
 
 -- | This is the grammar of delta-expressions at arbitrary tensor rank.
 -- The comments refer to the ordinary (forward) semantics of the terms,
@@ -160,7 +157,8 @@ deriving instance (Show r, Numeric r) => Show (Delta0 r)
 data Delta1 :: Nat -> Type -> Type where
   Zero1 :: Delta1 n r
   Input1 :: InputId (OR.Array n r) -> Delta1 n r
-  Scale1 :: OR.Array n r -> Delta1 n r -> Delta1 n r
+  Scale1 :: Show (TensorOf n r)
+         => TensorOf n r -> Delta1 n r -> Delta1 n r
   Add1 :: Delta1 n r -> Delta1 n r -> Delta1 n r
   Let1 :: NodeId -> Delta1 n r -> Delta1 n r
 
@@ -169,7 +167,7 @@ data Delta1 :: Nat -> Type -> Type where
     -- ^ The sub-tensors at the given index of the outermost dimension.
     -- The second integer is the length of the dimension.
   IndexN :: (KnownNat n, KnownNat m)
-         => Delta1 (m + n) r -> IndexInt m -> ShapeInt (m + n) -> Delta1 n r
+         => Delta1 (m + n) r -> IndexOf m r -> ShapeInt (m + n) -> Delta1 n r
     -- ^ The sub-tensor at the given index. The given shape is of the
     -- large tensor. The operation fails if index is out of bounds.
   Sum1 :: KnownNat n
@@ -214,7 +212,7 @@ data Delta1 :: Nat -> Type -> Type where
     -- ^ Build a tensor with the given size of the outermost dimension
     -- and using the given function to construct the element tensors.
 --  Gather1 :: (KnownNat p, KnownNat n)
---          => (Int -> IndexInt p)
+--          => (Int -> IndexOf p r)
 --          -> ShapeInt (p + n) -> Delta1 (p + n) r
 --          -> Int -> Delta1 (1 + n) r
     -- ^ Build a tensor by picking tensors of rank @n@ at the given indexes
@@ -223,11 +221,12 @@ data Delta1 :: Nat -> Type -> Type where
     -- to @Konst01 [k] d@. If an index of length @p@ is out of bounds,
     -- tensor 0 is chosen instead or projecting (and similarly in @GatherN@).
   GatherN :: (KnownNat m, KnownNat p, KnownNat n)
-          => ShapeInt (m + n) -> Delta1 (p + n) r -> (IndexInt m -> IndexInt p)
+          => ShapeInt (m + n) -> Delta1 (p + n) r
+          -> (IndexOf m r -> IndexOf p r)
           -> ShapeInt (p + n)
           -> Delta1 (m + n) r
 --  Scatter1 :: (KnownNat p, KnownNat n)
---           => (Int -> IndexInt p)
+--           => (Int -> IndexOf p r)
 --           -> Int -> Delta1 (1 + n) r
 --           -> ShapeInt (p + n) -> Delta1 (p + n) r
     -- ^ Build a tensor by adding up tensors of rank @n@ taken from
@@ -237,19 +236,20 @@ data Delta1 :: Nat -> Type -> Type where
     -- to @5 * d@. If an index of length @p@ is out of bounds, no tensor
     -- is added at such an index (and similarly in @ScatterN@).
   ScatterN :: (KnownNat m, KnownNat p, KnownNat n)
-           => ShapeInt (p + n) -> Delta1 (m + n) r -> (IndexInt m -> IndexInt p)
+           => ShapeInt (p + n) -> Delta1 (m + n) r
+           -> (IndexOf m r -> IndexOf p r)
            -> ShapeInt (m + n)
            -> Delta1 (p + n) r
 
   FromX1 :: forall n r. DeltaX r -> Delta1 n r
 
-deriving instance (Show r, Numeric r) => Show (Delta1 n r)
+deriving instance (Show (IntOf r), Show r, Numeric r) => Show (Delta1 n r)
 
 data DeltaX :: Type -> Type where
   From1X :: forall n r. KnownNat n
          => Delta1 n r -> DeltaX r
 
-deriving instance (Show r, Numeric r) => Show (DeltaX r)
+deriving instance (Show (IntOf r), Show r, Numeric r) => Show (DeltaX r)
 
 -- * Delta expression identifiers
 
@@ -277,13 +277,18 @@ type Domain0 r = Vector r
 
 -- To store shaped tensor we use untyped tensors instead of vectors
 -- to prevent frequent linearization of tensors (e.g., after transpose).
-type Domain1 r = Data.Vector.Vector (OT.Array r)
+type Domain1 r = Data.Vector.Vector (DynamicTensor r)
 
 data Domains r = Domains
   { domains0 :: Domain0 r
   , domains1 :: Domain1 r
   }
-  deriving (Show, Generic, NFData)
+  deriving Generic
+
+deriving instance (Show r, Numeric r, Show (DynamicTensor r))
+                  => Show (Domains r)
+
+deriving instance NFData (DynamicTensor r) => NFData (Domains r)
 
 nullDomains :: Numeric r => Domains r -> Bool
 nullDomains Domains{..} =
@@ -296,7 +301,7 @@ nullDomains Domains{..} =
 data DeltaDt r =
     DeltaDt0 r (Delta0 r)
   | forall n. KnownNat n
-    => DeltaDt1 (OR.Array n r) (Delta1 n r)
+    => DeltaDt1 (OR.Array n (ScalarOf r)) (Delta1 n r)
 
 -- | The state of evaluation. It consists of several maps.
 -- The maps indexed by input identifiers and node identifiers
@@ -315,7 +320,7 @@ data EvalState r = EvalState
       -- (finally copied to the vector representing the rank 0 portion
       -- of the gradient of the objective function);
       -- the identifiers need to be contiguous and start at 0
-  , iMap1 :: EM.EnumMap (InputId (OT.Array r)) (OT.Array r)
+  , iMap1 :: EM.EnumMap (InputId (DynamicTensor r)) (DynamicTensor r)
       -- ^ eventually, cotangents of objective function inputs of rank 1;
       -- (eventually copied to the vector representing the rank 1 portion
       -- of the gradient of the objective function);
@@ -323,7 +328,7 @@ data EvalState r = EvalState
   , dMap0 :: EM.EnumMap NodeId r
       -- ^ eventually, cotangents of non-input subterms of rank 0 indexed
       -- by their node identifiers
-  , dMap1 :: EM.EnumMap NodeId (OT.Array r)
+  , dMap1 :: EM.EnumMap NodeId (DynamicTensor r)
       -- ^ eventually, cotangents of non-input subterms of rank 1 indexed
       -- by their node identifiers
   , nMap  :: EM.EnumMap NodeId (DeltaBinding r)
@@ -394,7 +399,7 @@ data DeltaBinding r =
 -- The delta expression to be evaluated, together with the @dt@ perturbation
 -- value (usually set to @1@) is given in the @DeltaDt r@ parameter.
 gradientFromDelta
-  :: forall r. (Numeric r, Show r, Num (Vector r))
+  :: forall r. (Numeric r, Tensor r, HasPrimal r)
   => Int -> Int -> DeltaDt r
   -> Domains r
 gradientFromDelta dim0 dim1 deltaDt =
@@ -413,7 +418,7 @@ gradientFromDelta dim0 dim1 deltaDt =
                       -- 0 is the correct value; below is a dummy value
             iMap1 = EM.fromDistinctAscList
                     $ zip [toInputId 0 ..]
-                          (replicate dim1 (dummyTensor :: OT.Array r))
+                          (replicate dim1 (tdummyD :: DynamicTensor r))
             dMap0 = EM.empty
             dMap1 = EM.empty
             nMap = EM.empty
@@ -427,7 +432,7 @@ gradientFromDelta dim0 dim1 deltaDt =
 {-# SPECIALIZE gradientFromDelta
   :: Int -> Int -> DeltaDt Double -> Domains Double #-}
 
-buildFinMaps :: forall r. (Numeric r, Show r, Num (Vector r))
+buildFinMaps :: forall r. (Numeric r, Tensor r, HasPrimal r)
              => EvalState r -> DeltaDt r -> EvalState r
 buildFinMaps s0 deltaDt =
   -- The first argument is the evaluation state being modified,
@@ -484,6 +489,7 @@ buildFinMaps s0 deltaDt =
                   , dMap0 = EM.insert n c $ dMap0 s }
               _ -> error "buildFinMaps: corrupted nMap"
 
+{-
         -- The general case is given as the last one below,
         -- but for a few constructors it's faster to inline @eval1@ instead.
         -- BTW, such an optimization doesn't really belong in the simplified
@@ -511,25 +517,27 @@ buildFinMaps s0 deltaDt =
               in s { nMap = EM.insert n (DeltaBinding1 d) $ nMap s
                    , dMap1 = EM.insert n v $ dMap1 s }
             _ -> error "buildFinMaps: corrupted nMap"
+-}
         Index0 d ix sh ->
-          eval1 s (tscatter1R sh (tfromListR [tscalarR c]) (\_ -> ix)) d
+          eval1 s (tscatter1 sh (tfromList [tscalar c]) (\_ -> ix)) d
             -- equivalent: eval1 s (updateR (tkonst0NR sh 0) [(ix, c)]) d
-        Sum0 sh d -> eval1 s (tkonst0NR sh c) d
-        Dot0 v vd -> eval1 s (liftVR (LA.scale c) v) vd
-        UnScalar0 d -> eval1 s (OR.scalar c) d
+        Sum0 sh d -> eval1 s (tkonst0N sh (tscalar c)) d
+        Dot0 v vd -> eval1 s (tmap0N (* (tscalar c)) v) vd
+        UnScalar0 d -> eval1 s (tscalar c) d
 
-      addToArray :: OR.Array n r -> OT.Array r -> OT.Array r
-      addToArray c = \v -> let cs = Data.Array.Convert.convert c
-                           in if isTensorDummy v
+      addToArray :: KnownNat n
+                 => TensorOf n r -> DynamicTensor r -> DynamicTensor r
+      addToArray c = \v -> let cs = tfromR c
+                           in if tisDummyD v
                               then cs
-                              else v + cs
-      eval1 :: KnownNat n
-            => EvalState r -> OR.Array n r -> Delta1 n r -> EvalState r
+                              else taddD v cs
+      eval1 :: forall n. KnownNat n
+            => EvalState r -> TensorOf n r -> Delta1 n r -> EvalState r
       eval1 s !c = \case
         Zero1 -> s
         Input1 (InputId i) ->
           s {iMap1 = EM.adjust (addToArray c) (InputId i) $ iMap1 s}
-        Scale1 k d -> eval1 s (k * c) d
+        Scale1 k d -> eval1 s (k `tmult` c) d
         Add1 d e -> eval1 (eval1 s c d) c e
         Let1 n d ->
           assert (case d of
@@ -539,61 +547,61 @@ buildFinMaps s0 deltaDt =
                     _ -> True)
           $ case EM.lookup n $ nMap s of
               Just (DeltaBinding1 _) ->
-                let cs = Data.Array.Convert.convert c
-                in s {dMap1 = EM.adjust (+ cs) n $ dMap1 s}
+                let cs = tfromR c
+                in s {dMap1 = EM.adjust (taddD cs) n $ dMap1 s}
               Nothing ->
-                let cs = Data.Array.Convert.convert c
+                let cs = tfromR c
                 in s { nMap = EM.insert n (DeltaBinding1 d) $ nMap s
                      , dMap1 = EM.insert n cs $ dMap1 s }
               _ -> error "buildFinMaps: corrupted nMap"
 
 --        Index1 d ix len ->
---          let rest = OR.shapeL c
+--          let rest = tshape c
 --          in eval1 s (OR.concatOuter [ OR.constant (ix : rest) 0
 --                                     , OR.reshape (1 : rest) c
 --                                     , OR.constant (len - ix - 1 : rest) 0 ])
 --                     d  -- TODO: optimize for input case
-        IndexN d ix sh -> eval1 s (tscatter1R sh (tfromListR [c]) (\_ -> ix)) d
+        IndexN d ix sh -> eval1 s (tscatter sh (tfromList [c]) (\_ -> ix)) d
           -- equivalent: eval1 s (updateNR (tkonst0NR sh 0) [(ixs, c)]) d
-        Sum1 n d -> eval1 s (tkonstR n c) d
-        Scalar1 d -> eval0 s (tunScalarR c) d
+        Sum1 n d -> eval1 @(1 + n) s (tkonst @r @n n c) d
+        Scalar1 d -> eval0 s (tunScalar c) d
         FromList1 ld ->
-          let lc = ORB.toList $ OR.unravel c
-          in foldl' (\s2 (c2, d2) -> eval1 s2 c2 d2) s $ zip lc ld
+          ifoldl' (\s2 i d2 ->
+            eval1 s2 (tindex c (fromIntegral i :. ZI)) d2) s ld
         FromVector1 ld ->
-          let lc = ORB.toList $ OR.unravel c
-          in foldl' (\s2 (c2, d2) -> eval1 s2 c2 d2) s $ zip lc (V.toList ld)
+          V.ifoldl' (\s2 i d2 ->
+            eval1 s2 (tindex c (fromIntegral i :. ZI)) d2) s ld
 --        FromList01 _sh lsd ->  -- lsd is a list of scalar delta expressions
 --          let cv = OR.toVector c
 --          in ifoldl' (\s2 i d -> eval0 s2 (cv V.! i) d) s lsd
 --        FromVector01 _sh lsd ->  -- lsd is a list of scalar delta expressions
 --          let cv = OR.toVector c
 --          in V.ifoldl' (\s2 i d -> eval0 s2 (cv V.! i) d) s lsd
-        Konst1 _n d -> eval1 s (tsumR c) d
+        Konst1 _n d -> eval1 s (tsum c) d
 --        Konst01 _ d -> eval0 s (tsum0R c) d
-        Append1 d k e -> case OR.shapeL c of
-          n : _ -> let s2 = eval1 s (tsliceR 0 k c) d
-                   in eval1 s2 (tsliceR k (n - k) c) e
-          [] -> error "eval1: appending a 0-dimensional tensor"
-        Slice1 i n d len -> case OR.shapeL c of
-          n' : rest ->
+        Append1 d k e -> case tshape c of
+          n :$ _ -> let s2 = eval1 s (tslice 0 k c) d
+                    in eval1 s2 (tslice k (n - k) c) e
+          ZS -> error "eval1: appending a 0-dimensional tensor"
+        Slice1 i n d len -> case tshape c of
+          n' :$ rest ->
             assert (n' == n `blame` (n', n)) $
-            eval1 s (OR.concatOuter [ OR.constant (i : rest) 0
-                                    , c
-                                    , OR.constant (len - i - n : rest) 0 ])
+            eval1 s (tappend (tzero (i :$ rest))
+                             (tappend c (tzero (len - i - n :$ rest))))
                     d
-          [] -> error "eval1: slicing a 0-dimensional tensor"
-        Reverse1 d -> eval1 s (treverseR c) d
+          ZS -> error "eval1: slicing a 0-dimensional tensor"
+        Reverse1 d -> eval1 s (treverse c) d
         Transpose1 perm d ->
           let perm_reversed = map snd $ sort $ zip perm [0 .. length perm - 1]
-          in eval1 s (ttransposeR perm_reversed c) d
-        Reshape1 sh _sh' d -> eval1 s (treshapeR sh c) d
-        Build1 _n f -> V.ifoldl' (\s2 i ci -> eval1 s2 ci (f i))
-                                 s (ORB.toVector $ OR.unravel c)
+          in eval1 s (ttranspose perm_reversed c) d
+        Reshape1 sh _sh' d -> eval1 s (treshape sh c) d
+        Build1 n f ->
+          foldl' (\s2 i -> eval1 s2 (tindex c (fromIntegral i :. ZI)) (f i))
+                 s [0 .. n - 1]
 --        Gather1 f sh d _n -> eval1 s (tscatter1R f c sh) d
-        GatherN _sh d f shd -> eval1 s (tscatterNR shd c f) d
+        GatherN _sh d f shd -> eval1 s (tscatter shd c f) d
 --        Scatter1 f n d _sh -> eval1 s (tgatherZ1R n c f) d
-        ScatterN _sh d f shd -> eval1 s (tgatherZR shd c f) d
+        ScatterN _sh d f shd -> eval1 s (tgather shd c f) d
 
         FromX1 @n2 (From1X @n1 d) ->
           case sameNat (Proxy @n1) (Proxy @n2) of
@@ -608,15 +616,14 @@ buildFinMaps s0 deltaDt =
                 s3 = case b of
                   DeltaBinding0 d -> let c = dMap0 EM.! n
                                      in eval0 s2 c d
-                  DeltaBinding1 d -> let c = Data.Array.Convert.convert
-                                             $ dMap1 EM.! n
+                  DeltaBinding1 d -> let c = tfromD $ dMap1 EM.! n
                                      in eval1 s2 c d
             in evalFromnMap s3
           Nothing -> s  -- loop ends
 
       s1 = case deltaDt of
         DeltaDt0 dt deltaTopLevel -> eval0 s0 dt deltaTopLevel
-        DeltaDt1 dt deltaTopLevel -> eval1 s0 dt deltaTopLevel
+        DeltaDt1 dt deltaTopLevel -> eval1 s0 (tconst dt) deltaTopLevel
   in evalFromnMap s1
 
 {-# SPECIALIZE buildFinMaps
@@ -636,7 +643,7 @@ buildFinMaps s0 deltaDt =
 -- to compute it's dual number result) and along the direction vector(s)
 -- given in the last parameter called @ds@.
 derivativeFromDelta
-  :: (Numeric r, Show r, Num (Vector r))
+  :: (Numeric r, Tensor r, HasPrimal r)
   => Int -> Int -> Delta0 r -> Domains r -> r
 derivativeFromDelta dim0 dim1 deltaTopLevel ds =
   runST $ buildDerivative dim0 dim1 deltaTopLevel ds
@@ -645,7 +652,7 @@ derivativeFromDelta dim0 dim1 deltaTopLevel ds =
 -- simplified, but the obvious simplest formulation does not honour sharing
 -- and evaluates shared subexpressions repeatedly.
 buildDerivative
-  :: forall s r. (Numeric r, Show r, Num (Vector r))
+  :: forall s r. (Numeric r, Tensor r, HasPrimal r)
   => Int -> Int -> Delta0 r -> Domains r
   -> ST s r
 buildDerivative dim0 dim1 deltaTopLevel
@@ -679,45 +686,47 @@ buildDerivative dim0 dim1 deltaTopLevel
               return c
             _ -> error "buildDerivative: corrupted nMap"
 
-        Index0 d ixs _ -> (`tindex0R` ixs) <$> eval1 d
-        Sum0 _ d -> tsum0R <$> eval1 d
-        Dot0 v d -> tdot0R v <$> eval1 d
-        UnScalar0 d -> tunScalarR <$> eval1 d
+        Index0 d ixs _ -> tunScalar . flip tindex ixs <$> eval1 d
+        Sum0 _ d -> tunScalar . tsum0 <$> eval1 d
+        Dot0 v d -> tunScalar . tdot0 v <$> eval1 d
+        UnScalar0 d -> tunScalar <$> eval1 d
 
-      eval1 :: KnownNat n => Delta1 n r -> ST s (OR.Array n r)
+      eval1 :: forall n. KnownNat n
+            => Delta1 n r -> ST s (TensorOf n r)
       eval1 = \case
-        Zero1 -> return 0
+        Zero1 -> return $! tzero $ listShapeToShape $ replicate (valueOf @n) 1
+          -- wrong shape, but it often works
         Input1 (InputId i) ->
           if i < dim1
-          then return $! Data.Array.Convert.convert $ domains1 V.! i
+          then return $! tfromD $ domains1 V.! i
           else error "derivativeFromDelta.eval': wrong index for an input"
-        Scale1 k d -> (k *) <$> eval1 d
-        Add1 d e -> liftM2 (+) (eval1 d) (eval1 e)
+        Scale1 k d -> (tmult k) <$> eval1 d
+        Add1 d e -> liftM2 tadd (eval1 d) (eval1 e)
         Let1 n d -> do
           nm <- readSTRef nMap
           case EM.lookup n nm of
             Just (DeltaBinding1 _) -> do
               dm <- readSTRef dMap1
-              return $! Data.Array.Convert.convert (dm EM.! n :: OT.Array r)
+              return $! tfromD (dm EM.! n :: DynamicTensor r)
             Nothing -> do
               c <- eval1 d
               nmNew <- readSTRef nMap
               dm <- readSTRef dMap1
               writeSTRef nMap $! EM.insert n (DeltaBinding1 d) nmNew
-              writeSTRef dMap1 $! EM.insert n (Data.Array.Convert.convert c) dm
+              writeSTRef dMap1 $! EM.insert n (tfromR c) dm
               return c
             _ -> error "buildDerivative: corrupted nMap"
 
 --        Index1 d ix _len -> (`tindex1R` ix) <$> eval1 d
-        IndexN d ixs _len -> (`tindexNR` ixs) <$> eval1 d
-        Sum1 _ d -> tsumR <$> eval1 d
-        Scalar1 d -> tscalarR <$> eval0 d
+        IndexN d ixs _len -> (`tindex` ixs) <$> eval1 d
+        Sum1 _ d -> tsum <$> eval1 d
+        Scalar1 d -> tscalar <$> eval0 d
         FromList1 lsd -> do
           l <- mapM eval1 lsd
-          return $! tfromListR l
+          return $! tfromList l
         FromVector1 lsd -> do
           l <- V.mapM eval1 lsd
-          return $! tfromVectorR l
+          return $! tfromVector l
 --        FromList01 sh lsd -> do
 --          l <- mapM eval0 lsd
 --          return $! tfromList0NR sh l
@@ -726,28 +735,28 @@ buildDerivative dim0 dim1 deltaTopLevel
 --          return $! tfromVector0NR sh l
         Konst1 n d -> do
           t <- eval1 d
-          return $! tkonstR n t
+          return $! tkonst n t
 --        Konst01 sh d -> tkonst0NR sh <$> eval0 d
-        Append1 d _k e -> liftM2 tappendR (eval1 d) (eval1 e)
-        Slice1 i n d _len -> tsliceR i n <$> eval1 d
-        Reverse1 d -> treverseR <$> eval1 d
-        Transpose1 perm d -> ttransposeR perm <$> eval1 d
-        Reshape1 _sh sh' d -> treshapeR sh' <$> eval1 d
+        Append1 d _k e -> liftM2 tappend (eval1 d) (eval1 e)
+        Slice1 i n d _len -> tslice i n <$> eval1 d
+        Reverse1 d -> treverse <$> eval1 d
+        Transpose1 perm d -> ttranspose perm <$> eval1 d
+        Reshape1 _sh sh' d -> treshape sh' <$> eval1 d
         Build1 n f -> do
           l <- mapM (eval1 . f) [0 .. n - 1]
-          return $! tfromListR l
+          return $! tfromList l
 --        Gather1 f _sh d k -> do
 --          t <- eval1 d
 --          return $! tgather1R k t f
         GatherN sh d f _shd -> do
           t <- eval1 d
-          return $! tgatherNR sh t f
+          return $! tgather sh t f
 --        Scatter1 f _k d sh -> do
 --          t <- eval1 d
 --          return $! tscatter1R f t sh
         ScatterN sh d f _shd ->  do
           t <- eval1 d
-          return $! tscatterNR sh t f
+          return $! tscatter sh t f
 
         FromX1 @n2 (From1X @n1 d) ->
           case sameNat (Proxy @n1) (Proxy @n2) of

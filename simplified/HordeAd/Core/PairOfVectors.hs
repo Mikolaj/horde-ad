@@ -18,8 +18,6 @@ module HordeAd.Core.PairOfVectors
 
 import Prelude
 
-import qualified Data.Array.Convert
-import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.RankedS as OR
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -28,6 +26,7 @@ import           Numeric.LinearAlgebra (Numeric)
 
 import HordeAd.Core.DualClass (Dual, dFromX1)
 import HordeAd.Core.DualNumber
+import HordeAd.Core.TensorClass
 
 -- These are optimized as "pair of vectors" representing vectors of @ADVal@
 -- in an efficient way (especially, or only, with gradient descent,
@@ -37,13 +36,13 @@ data ADInputs d r = ADInputs
   { inputPrimal0 :: Domain0 r
   , inputDual0   :: Data.Vector.Vector (Dual d r)
   , inputPrimal1 :: Domain1 r
-  , inputDual1   :: Data.Vector.Vector (Dual d (OT.Array r))
+  , inputDual1   :: Data.Vector.Vector (Dual d (DynamicTensor r))
   }
 
 makeADInputs
   :: Domains r
   -> ( Data.Vector.Vector (Dual d r)
-     , Data.Vector.Vector (Dual d (OT.Array r)) )
+     , Data.Vector.Vector (Dual d (DynamicTensor r)) )
   -> ADInputs d r
 {-# INLINE makeADInputs #-}
 makeADInputs Domains{..} (vs0, vs1)
@@ -60,10 +59,10 @@ at0 :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d r
 {-# INLINE at0 #-}
 at0 ADInputs{..} i = dD (inputPrimal0 V.! i) (inputDual0 V.! i)
 
-at1 :: forall n r d.(KnownNat n, ADModeAndNum d r)
+at1 :: forall n r d. (KnownNat n, ADModeAndNum d r, TensorOf n r ~ OR.Array n r)
     =>  ADInputs d r -> Int -> ADVal d (OR.Array n r)
 {-# INLINE at1 #-}
-at1 ADInputs{..} i = dD (Data.Array.Convert.convert $ inputPrimal1 V.! i)
+at1 ADInputs{..} i = dD (tfromD $ inputPrimal1 V.! i)
                         (dFromX1 $ inputDual1 V.! i)
 
 ifoldlDual' :: forall a d r. ADModeAndNum d r

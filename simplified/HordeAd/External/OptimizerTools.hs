@@ -1,7 +1,7 @@
 -- | Tools for implementing (and debugging the use of) gradient descent schemes.
 module HordeAd.External.OptimizerTools
   ( updateWithGradient
-  , gradientIsNil, minimumGradient, maximumGradient
+--  , gradientIsNil, minimumGradient, maximumGradient
   , ArgsAdam(..), defaultArgsAdam
   , StateAdam(..), initialStateAdam
   , updateWithGradientAdam
@@ -17,11 +17,13 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 
 import HordeAd.Core.Delta (Domains (..))
+import HordeAd.Core.TensorClass
 import HordeAd.Internal.OrthotopeOrphanInstances (liftVT2)
 import HordeAd.Internal.TensorOps (isTensorDummy)
 
-updateWithGradient :: (Numeric r, Floating (Vector r))
-                   => r -> Domains r -> Domains r -> Domains r
+updateWithGradient
+  :: (Numeric r, Floating (Vector r), DynamicTensor r ~ OT.Array r)
+  => r -> Domains r -> Domains r -> Domains r
 updateWithGradient gamma (Domains params0 params1)
                          (Domains gradient0 gradient1) =
   let updateVector i r = i - LA.scale gamma r
@@ -33,6 +35,7 @@ updateWithGradient gamma (Domains params0 params1)
   in Domains params0New params1New
 {-# SPECIALIZE updateWithGradient :: Double -> Domains Double -> Domains Double -> Domains Double #-}
 
+{-
 gradientIsNil :: (Eq r, Numeric r) => Domains r -> Bool
 gradientIsNil (Domains gradient0 gradient1) =
   V.all (== 0) gradient0
@@ -49,6 +52,7 @@ maximumGradient (Domains gradient0 gradient1) =
   max (if V.null gradient0 then 0 else LA.maxElement gradient0)
       (if V.null gradient1 then 0
        else V.maximum (V.map OT.maximumA gradient1))
+-}
 
 data ArgsAdam r = ArgsAdam
   { alpha   :: r
@@ -74,7 +78,7 @@ data StateAdam r = StateAdam
   }
 
 -- The arguments are just sample params0, for dimensions.
-zeroParameters :: Numeric r
+zeroParameters :: (Numeric r, DynamicTensor r ~ OT.Array r)
                => Domains r -> Domains r
 zeroParameters Domains{..} =
   let zeroVector v = runST $ do
@@ -84,7 +88,7 @@ zeroParameters Domains{..} =
   in Domains (zeroVector domains0)
              (V.map (\a -> OT.constant (OT.shapeL a) 0) domains1)
 
-initialStateAdam :: Numeric r
+initialStateAdam :: (Numeric r, DynamicTensor r ~ OT.Array r)
                  => Domains r -> StateAdam r
 initialStateAdam parameters0 =
   let zeroP = zeroParameters parameters0
@@ -118,7 +122,8 @@ liftArray43 f m1 m2 m3 m4 =
             ++ show (OT.shapeL m1, OT.shapeL m2, OT.shapeL m3, OT.shapeL m4)
 
 updateWithGradientAdam
-  :: forall r. (Numeric r, Floating r, Floating (Vector r))
+  :: forall r.
+     (Numeric r, Floating r, Floating (Vector r), DynamicTensor r ~ OT.Array r)
   => ArgsAdam r -> StateAdam r -> Domains r -> Domains r
   -> (Domains r, StateAdam r)
 updateWithGradientAdam ArgsAdam{..}
