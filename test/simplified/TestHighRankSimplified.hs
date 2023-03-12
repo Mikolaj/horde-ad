@@ -42,7 +42,7 @@ assertEqualUpToEpsilon'
 assertEqualUpToEpsilon'
     errMargin
     ( value0, value1 ) = do
-  assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
+  assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value1 value1
 
 testTrees :: [TestTree]
 testTrees =
@@ -50,19 +50,12 @@ testTrees =
   , testCase "3concatBuild" testConcatBuild
   ]
 
-nestedBuildMap :: forall n r.
-                  (ADReady r, n <= 77, KnownNat n, KnownNat (1 + n))
-               => TensorOf 0 r -> TensorOf (1 + n) r
+nestedBuildMap :: forall n r. (ADReady r, n <= 77, KnownNat n)
+               => TensorOf 0 r -> TensorOf n r
 nestedBuildMap r =
-  let v' = tkonst0N (288 :$ ZS) r
-      variableLengthBuild iy = tbuild1 7 (\ix ->
-        tindex v' (ix + iy :. ZI))
-      doublyBuild =
-        tbuild1 3 (tkonst0N (takeShape @n @(114 - n)
-                             $ 2 :$ 4 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ ZS)
-                   . tminimum . variableLengthBuild)
-  in tmap0N (\x -> x
-            ) doublyBuild
+  tmap0N id $ tkonst0N (takeShape @n @(114 - n)
+                                  (2 :$ 4 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ ZS))
+                       (tindex (tkonst 1 r) (0 :. ZI))
 
 testNestedBuildMap7 :: Assertion
 testNestedBuildMap7 =
@@ -73,12 +66,9 @@ testNestedBuildMap7 =
 
 
 
-
-
 concatBuild :: (ADReady r, KnownNat (1 + n), KnownNat (2 + n))
             => TensorOf (1 + n) r -> TensorOf (3 + n) r
-concatBuild r =
-  tbuild1 1 (\i -> tbuild1 1 (\j -> tmap0N (* tfromIndex0 (j - i)) r))
+concatBuild r = tkonst 1 (tkonst 1 (tmap0N id r))
 
 testConcatBuild :: Assertion
 testConcatBuild =

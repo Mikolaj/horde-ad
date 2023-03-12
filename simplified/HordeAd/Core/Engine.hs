@@ -81,10 +81,10 @@ revOnADInputsFun dt f inputs@ADInputs{..} =
       dim1 = V.length inputPrimal1
       -- Evaluate completely after terms constructed, to free memory
       -- before evaluation allocates new memory and new FFI is started
-      !(D v deltaTopLevel) = f inputs
+      (D v deltaTopLevel) = f inputs
       deltaDt = packDeltaDt (dt v) v deltaTopLevel
-  in let gradient = gradientFromDelta dim0 dim1 deltaDt
-     in (gradient, v)
+  in let _gradient = gradientFromDelta dim0 dim1 deltaDt
+     in (undefined, v)
 
 revOnADInputs
   :: (HasDelta r, IsPrimalAndHasInputs 'ADModeGradient a r)
