@@ -8,7 +8,6 @@ import           Test.Tasty
 import           Test.Tasty.Options
 import           Test.Tasty.Runners
 
-import qualified TestAdaptorSimplified
 import qualified TestHighRankSimplified
 import           Tool.EqEpsilon
 
@@ -26,4 +25,3 @@ main = do
 tests :: TestTree
 tests = testGroup "Only special tests for simplified horde-ad" $
   TestHighRankSimplified.testTrees
-  ++ TestAdaptorSimplified.testTrees

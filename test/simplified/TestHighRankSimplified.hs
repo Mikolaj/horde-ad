@@ -9,9 +9,40 @@ import           Test.Tasty
 import           Test.Tasty.HUnit hiding (assert)
 
 import HordeAd
+import HordeAd.Core.DualClass (inputConstant)
 
-import TestAdaptorSimplified (assertEqualUpToEpsilon', rev')
 import Tool.EqEpsilon
+
+rev' :: forall a r n m.
+        ( KnownNat n, KnownNat m, HasDelta r, ADReady r
+        , a ~ OR.Array m r, ScalarOf r ~ r
+        , TensorOf n r ~ OR.Array n r
+        , TensorOf n (ADVal 'ADModeGradient r)
+          ~ ADVal 'ADModeGradient (OR.Array n r)
+        , TensorOf m (ADVal 'ADModeGradient r)
+          ~ ADVal 'ADModeGradient (OR.Array m r)
+        , ADReady (ADVal 'ADModeGradient r) )
+     => (forall x. ADReady x => TensorOf n x -> TensorOf m x)
+     -> OR.Array n r
+     -> ( TensorOf m r, a )
+rev' f vals =
+  let value0 = f vals
+      dt = inputConstant @a 1
+      g inputs = f $ parseADInputs vals inputs
+      (_, value1) = revOnDomainsFun dt g (toDomains vals)
+  in ( value0, value1 )
+
+assertEqualUpToEpsilon'
+    :: ( AssertEqualUpToEpsilon z b
+       , HasCallStack )
+    => z  -- ^ error margin (i.e., the epsilon)
+    -> (b, b)
+         -- ^ actual values
+    -> Assertion
+assertEqualUpToEpsilon'
+    errMargin
+    ( value0, value1 ) = do
+  assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
 
 testTrees :: [TestTree]
 testTrees =
@@ -19,24 +50,18 @@ testTrees =
   , testCase "3concatBuild" testConcatBuild
   ]
 
-fooMap1 :: (ADReady r, KnownNat (1 + n))
-        => ShapeInt (1 + n) -> TensorOf 0 r -> TensorOf (1 + n) r
-fooMap1 sh r =
-  let v = tkonst0N sh (r * r)
-  in tmap0N (\x -> x * r + 5) v
-
 nestedBuildMap :: forall n r.
                   (ADReady r, n <= 77, KnownNat n, KnownNat (1 + n))
                => TensorOf 0 r -> TensorOf (1 + n) r
 nestedBuildMap r =
-  let v' = tkonst0N (177 :$ ZS) r
+  let v' = tkonst0N (288 :$ ZS) r
       variableLengthBuild iy = tbuild1 7 (\ix ->
         tindex v' (ix + iy :. ZI))
       doublyBuild =
         tbuild1 3 (tkonst0N (takeShape @n @(114 - n)
                              $ 2 :$ 4 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ 2 :$ 4 :$ 2 :$ 1 :$ 3 :$ 2 :$ ZS)
                    . tminimum . variableLengthBuild)
-  in tmap0N (\x -> x * tsum0 (fooMap1 (3 :$ ZS) x)
+  in tmap0N (\x -> x
             ) doublyBuild
 
 testNestedBuildMap7 :: Assertion
@@ -50,7 +75,7 @@ testNestedBuildMap7 =
 
 
 
-concatBuild :: (ADReady r, KnownNat (1 + n), KnownNat (1 + 1 + n))
+concatBuild :: (ADReady r, KnownNat (1 + n), KnownNat (2 + n))
             => TensorOf (1 + n) r -> TensorOf (3 + n) r
 concatBuild r =
   tbuild1 1 (\i -> tbuild1 1 (\j -> tmap0N (* tfromIndex0 (j - i)) r))

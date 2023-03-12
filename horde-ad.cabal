@@ -201,19 +201,14 @@ test-suite simplifiedOnlyTest
 
     main-is:          SimplifiedOnlyTest.hs
 
-    other-modules:    TestAdaptorSimplified
-                      TestHighRankSimplified
+    other-modules:    TestHighRankSimplified
 
     build-depends:
       , horde-ad-simplified
       , testCommonLibrarySimplified
 
       , base
-      , Boolean
-      , ghc-typelits-knownnat
       , ghc-typelits-natnormalise
-      , hmatrix
       , orthotope
-      , strict-containers
       , tasty >= 1.0
       , tasty-hunit
