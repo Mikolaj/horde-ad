@@ -178,11 +178,7 @@ library testCommonLibrarySimplified
 
       , base
       , hmatrix
-      , ilist
       , orthotope
-      , random
-      , storable-tuple
-      , strict-containers
       , tasty >= 1.0
       , tasty-hunit
       , tasty-quickcheck
@@ -221,4 +217,3 @@ test-suite simplifiedOnlyTest
       , strict-containers
       , tasty >= 1.0
       , tasty-hunit
-      , vector
