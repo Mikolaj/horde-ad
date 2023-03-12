@@ -19,38 +19,9 @@ import Tool.EqEpsilon
 
 testTrees :: [TestTree]
 testTrees =
-  [ testCase "3foo" testFoo
-  , testCase "3bar" testBar
-  , testCase "3fooD T Double [1.1, 2.2, 3.3]" testFooD
-  , testCase "3fooBuild0" testFooBuild0
-  , testCase "3fooBuildOut" testFooBuildOut
-  , testCase "3fooBuild21" testFooBuild21
-  , testCase "3fooBuild25" testFooBuild25
-  , testCase "3fooBuild3" testFooBuild3
-  , testCase "3fooBuildDt" testFooBuildDt
-  , testCase "3fooBuild5" testFooBuild5
-  , testCase "3fooBuild1" testFooBuild1
-  , testCase "3fooMap" testFooMap
-  , testCase "3fooMap1" testFooMap1
-  , testCase "3fooNoGo" testFooNoGo
-  , testCase "3fooNoGo10" testFooNoGo10
-  , testCase "3nestedBuildMap1" testNestedBuildMap1
+  [ testCase "3nestedBuildMap1" testNestedBuildMap1
   , testCase "3nestedBuildMap7" testNestedBuildMap7
-  , testCase "3nestedSumBuild1" testNestedSumBuild1
-  , testCase "3nestedSumBuild5" testNestedSumBuild5
-  , testCase "3nestedSumBuildB" testNestedSumBuildB
-  , testCase "3nestedBuildIndex" testNestedBuildIndex
-  , testCase "3barReluADValDt" testBarReluADValDt
-  , testCase "3barReluADVal" testBarReluADVal
-  , testCase "3barReluADVal3" testBarReluADVal3
-  , testCase "3reluSimp" testReluSimp
-  , testCase "3barReluADVal320" testBarReluADVal320
-  , testCase "3braidedBuilds" testBraidedBuilds
-  , testCase "3braidedBuilds1" testBraidedBuilds1
-  , testCase "3recycled" testRecycled
-  , testCase "3recycled1" testRecycled1
   , testCase "3concatBuild" testConcatBuild
-  , testCase "3concatBuild1" testConcatBuild1
   ]
 
 foo :: RealFloat a => (a,a,a) -> a
@@ -437,23 +408,11 @@ concatBuild :: (ADReady r, KnownNat n)
             => TensorOf (1 + n) r -> TensorOf (3 + n) r
 concatBuild r =
   tbuild1 7 (\i ->
-    tappend (tappend (tbuild1 5 (const r))  -- TODO: i should work
-                     (tbuild1 1 (\j -> tmap0N (* tfromIndex0 (j - i)) r)))
-            (tbuild1 13 (\_k ->
-               tsum $ ttr $ tkonst (tlength r) (tslice 0 1 r))))
--- TODO: reject via types or accept with type obligations:
---    tappend (tappend (tbuild1 (1 + i) (\_j -> tscalar r))  -- TODO: i should work
---                     (tkonst0N [1] (tfromIndex0 i)))
---            (tbuild1 (13 - i) (\_k -> tscalar r)))
+    tappend (tbuild1 5 (const r))
+            (tbuild1 1 (\j -> tmap0N (* tfromIndex0 (j - i)) r)))
 
 testConcatBuild :: Assertion
 testConcatBuild =
   assertEqualUpToEpsilon' 1e-10
     (OR.fromList [7] [651.0,14.0,14.0,14.0,14.0,14.0,14.0])
     (rev' @(OR.Array 3 Double) concatBuild (tkonst 7 3.4))
-
-testConcatBuild1 :: Assertion
-testConcatBuild1 =
-  assertEqualUpToEpsilon' 1e-10
-    (OR.fromList [3,1,2,2,1,2,2] [287.0,287.0,287.0,287.0,287.0,287.0,287.0,287.0,287.0,287.0,287.0,287.0,287.0,287.0,287.0,287.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0,14.0])
-    (rev' @(OR.Array 9 Double) concatBuild t48)

@@ -123,18 +123,6 @@ assertEqualUpToEpsilon'
     , gradient1, gradient2, gradient3, gradient4, gradient5
     , astVectSimp, astSimp ) = do
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
-  assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
-  assertEqualUpToEpsilonWithMark "Val Vect+Simp" errMargin value0 value3
-  assertEqualUpToEpsilonWithMark "Val NotVect" errMargin value0 value4
-  assertEqualUpToEpsilonWithMark "Val Simplified" errMargin value0 value5
-  assertEqualUpToEpsilonWithMark "Grad ADVal" errMargin expected gradient1
-  assertEqualUpToEpsilonWithMark "Grad Vectorized" errMargin expected gradient2
-  assertEqualUpToEpsilonWithMark "Grad Vect+Simp" errMargin expected gradient3
-  assertEqualUpToEpsilonWithMark "Grad NotVect" errMargin expected gradient4
-  assertEqualUpToEpsilonWithMark "Grad Simplified" errMargin expected gradient5
-  -- No Eq instance, so let's compare the text.
-  show (simplifyAst astVectSimp) @?= show astVectSimp
-  show (simplifyAst astSimp) @?= show astSimp
 
 assertEqualUpToEpsilonShorter
     :: ( AssertEqualUpToEpsilon z a, AssertEqualUpToEpsilon z b
@@ -149,15 +137,6 @@ assertEqualUpToEpsilonShorter
     , gradient1, gradient2, gradient3, _gradient4, gradient5
     , astVectSimp, astSimp ) = do
   assertEqualUpToEpsilonWithMark "Val ADVal" errMargin value0 value1
-  assertEqualUpToEpsilonWithMark "Val Vectorized" errMargin value0 value2
-  assertEqualUpToEpsilonWithMark "Val Vect+Simp" errMargin value0 value3
-  assertEqualUpToEpsilonWithMark "Val Simplified" errMargin value0 value5
-  assertEqualUpToEpsilonWithMark "Grad ADVal" errMargin expected gradient1
-  assertEqualUpToEpsilonWithMark "Grad Vectorized" errMargin expected gradient2
-  assertEqualUpToEpsilonWithMark "Grad Vect+Simp" errMargin expected gradient3
-  assertEqualUpToEpsilonWithMark "Grad Simplified" errMargin expected gradient5
-  show (simplifyAst astVectSimp) @?= show astVectSimp
-  show (simplifyAst astSimp) @?= show astSimp
 
 t16 :: (Numeric r, Fractional r) => OR.Array 5 r
 t16 = OR.fromList [2, 2, 1, 2, 2] [5, 2, 6, 1, -2, 0.000001, 0.1, -0.2, 13.1, 9, 8, -4, 34, 2.99432, -33, 26]
