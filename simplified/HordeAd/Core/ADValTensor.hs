@@ -18,6 +18,7 @@ import Prelude
 import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.Ranked as ORB
 import qualified Data.Array.RankedS as OR
+import           Data.Boolean
 import qualified Data.Strict.IntMap as IM
 import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
@@ -71,12 +72,7 @@ instance ADModeAndNum d r => Tensor (ADVal d r) where
   treverse = reverse'
   ttranspose = transpose
   treshape = reshape
-  tbuild1 k f =
-    let g i = let D u _ = f i in u
-        h i = let D _ u' = f i in u'
-    in dD (tbuild1R k g) (dBuild1 k h)
-      -- uses the implementation that stores closures on tape to test against
-      -- the elementwise implementation used by fallback from vectorizing Ast
+  tbuild1 = build1
   tgather = gatherNClosure  -- for simplicity, out of bounds indexing permitted
 
   tscalar = scalar
@@ -91,13 +87,12 @@ instance ADModeAndNum d r => HasPrimal (ADVal d r) where
   tprimalPart (D u _) = fromArray u
   tdualPart (D _ u') = u'
   tD u = dD (toArray u)
-  -- TODO: if ever used, define, if not, use an Error type
   type DynamicTensor (ADVal d r) = ADVal d (OT.Array r)
-  tdummyD = undefined
-  tisDummyD = undefined
-  taddD = undefined
-  tfromR = undefined
-  tfromD = undefined
+  tdummyD = undefined  -- not used for dual numbers
+  tisDummyD = undefined  -- not used for dual numbers
+  taddD = (+)
+  tfromR = from1X
+  tfromD = fromX1
 
 -- * ADVal combinators generalizing ranked tensor operations
 
@@ -198,11 +193,16 @@ reshape :: (ADModeAndNum d r, KnownNat m, KnownNat n)
         => ShapeInt m -> ADVal d (OR.Array n r) -> ADVal d (OR.Array m r)
 reshape sh (D u u') = dD (treshapeR sh u) (dReshape1 (tshapeR u) sh u')
 
--- The element-wise (POPL) version, but only one rank at a time.
-build1 :: (ADModeAndNum d r, KnownNat n)
-       => Int -> (Int -> ADVal d (OR.Array n r))
-       -> ADVal d (OR.Array (1 + n) r)
-build1 k f = fromList $ map f [0 .. k - 1]
+build1, _build1Closure
+  :: (ADModeAndNum d r, KnownNat n)
+  => Int -> (Int -> ADVal d (OR.Array n r))
+  -> ADVal d (OR.Array (1 + n) r)
+build1 k f = fromList $ map f [0 .. k - 1]  -- element-wise (POPL) version
+
+_build1Closure k f =  -- stores closures on tape
+  let g i = let D u _ = f i in u
+      h i = let D _ u' = f i in u'
+  in dD (tbuild1R k g) (dBuild1 k h)
 
 -- Note that if any index is out of bounds, the result of that particular
 -- projection is defined and is 0 (but beware of vectorization).
@@ -297,7 +297,7 @@ interpretAst
   -> Ast n r -> ADVal d (OR.Array n r)
 interpretAst env = \case
   AstVar _sh (AstVarName var) -> case IM.lookup var env of
-    Just (AstVarR d) -> fromX1 d
+    Just (AstVarR d) -> tfromD d
     Just AstVarI{} ->
       error $ "interpretAst: type mismatch for Var" ++ show var
     Nothing -> error $ "interpretAst: unknown variable Var" ++ show var
@@ -305,38 +305,36 @@ interpretAst env = \case
     interpretAstOp (interpretAst env) opCode args
   AstConst a -> tconst a
   AstConstant a -> tconst $ interpretAstPrimal env a
-  AstConstInt i -> fromIntegral $ interpretAstInt env i
-  AstIndexZ v is -> indexZ (interpretAst env v) (fmap (interpretAstInt env) is)
+  AstConstInt i -> tfromIndex0 $ interpretAstInt env i
+  AstIndexZ v is -> tindex (interpretAst env v) (fmap (interpretAstInt env) is)
     -- if index is out of bounds, the operations returns with an undefined
     -- value of the correct rank and shape; this is needed, because
     -- vectorization can produce out of bound indexing from code where
     -- the indexing is guarded by conditionals
-  AstSum v -> sum' (interpretAst env v)
+  AstSum v -> tsum (interpretAst env v)
     -- TODO: recognize when sum0 may be used instead, which is much cheaper
     -- or should I do that in Delta instead? no, because tsum0R is cheaper, too
     -- TODO: recognize dot0 patterns and speed up their evaluation
   AstScatter sh v (vars, ix) ->
-    scatterNClosure sh (interpretAst env v)
-                   (interpretLambdaIndexToIndex env (vars, ix))
-  AstFromList l -> fromList (map (interpretAst env) l)
-  AstFromVector l -> fromVector (V.map (interpretAst env) l)
-  AstKonst k v -> konst k (interpretAst env v)
-  AstAppend x y -> append (interpretAst env x) (interpretAst env y)
-  AstSlice i k v -> slice i k (interpretAst env v)
-  AstReverse v -> reverse' (interpretAst env v)
-  AstTranspose perm v -> transpose perm $ interpretAst env v
-  AstReshape sh v -> reshape sh (interpretAst env v)
+    tscatter sh (interpretAst env v)
+                (interpretLambdaIndexToIndex env (vars, ix))
+  AstFromList l -> tfromList (map (interpretAst env) l)
+  AstFromVector l -> tfromVector (V.map (interpretAst env) l)
+  AstKonst k v -> tkonst k (interpretAst env v)
+  AstAppend x y -> tappend (interpretAst env x) (interpretAst env y)
+  AstSlice i k v -> tslice i k (interpretAst env v)
+  AstReverse v -> treverse (interpretAst env v)
+  AstTranspose perm v -> ttranspose perm $ interpretAst env v
+  AstReshape sh v -> treshape sh (interpretAst env v)
   AstBuild1 k (var, AstConstant r) ->
     tconstant $ fromArray
     $ OR.ravel . ORB.fromVector [k] . V.generate k
     $ \j -> toArray $ tprimalPart $ interpretLambdaI env (var, AstConstant r) j
-  AstBuild1 k (var, v) -> build1 k (interpretLambdaI env (var, v))
-    -- to be used only in tests; this is the POPL implementation of build
-    -- (memory blowup, but avoids functions on tape), to test against
-    -- the closure version that the direct ADVal Tensor instance uses
+  AstBuild1 k (var, v) -> tbuild1 k (interpretLambdaI env (var, v))
+    -- to be used only in tests
   AstGatherZ sh v (vars, ix) ->
-    gatherNClosure sh (interpretAst env v)
-                   (interpretLambdaIndexToIndex env (vars, ix))
+    tgather sh (interpretAst env v)
+               (interpretLambdaIndexToIndex env (vars, ix))
     -- the operation accept out of bounds indexes,
     -- for the same reason ordinary indexing does, see above
     -- TODO: currently we store the function on tape, because it doesn't
@@ -350,7 +348,7 @@ interpretAst env = \case
   AstFromDynamic{} ->
     error "interpretAst: AstFromDynamic is not for library users"
 
-interpretAstInt :: ADModeAndNum d r
+interpretAstInt :: forall r d. ADModeAndNum d r
                 => AstEnv d r
                 -> AstInt r -> Int
 interpretAstInt env = \case
@@ -362,11 +360,11 @@ interpretAstInt env = \case
   AstIntOp opCodeInt args ->
     interpretAstIntOp (interpretAstInt env) opCodeInt args
   AstIntConst a -> a
-  AstIntFloor v -> let D u _ = interpretAst env v
-                   in floor $ tunScalarR u
-  AstIntCond b a1 a2 -> if interpretAstBool env b
-                        then interpretAstInt env a1
-                        else interpretAstInt env a2
+  AstIntFloor v -> let u = interpretAstPrimal env (AstPrimalPart v)
+                   in tfloor @r u
+  AstIntCond b a1 a2 -> ifB (interpretAstBool env b)
+                            (interpretAstInt env a1)
+                            (interpretAstInt env a2)
   AstMinIndex1 v -> tminIndex0 $ interpretAst env v
   AstMaxIndex1 v -> tmaxIndex0 $ interpretAst env v
 

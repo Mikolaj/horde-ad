@@ -292,7 +292,7 @@ tbuild1R
   :: (KnownNat n, Numeric r)
   => Int -> (Int -> OR.Array n r) -> OR.Array (1 + n) r
 tbuild1R k f = OR.ravel $ ORB.fromList [k]
-              $ map f [0 .. k - 1]  -- hope this fuses
+               $ map f [0 .. k - 1]  -- hope this fuses
 
 tmap0NR
   :: (KnownNat n, Numeric r)
