@@ -30,7 +30,7 @@ import HordeAd.Internal.TensorOps
 
 rev :: forall a vals r advals.
        ( r ~ Scalar vals, vals ~ Value advals
-       , HasDelta r, IsPrimalAndHasInputs a r
+       , ADNum r, IsPrimalAndHasInputs a r
        , Adaptable advals )
     => (advals -> ADVal a) -> vals
     -> vals
@@ -39,7 +39,7 @@ rev f vals = revDtFun f vals (inputConstant 1)
 -- This version additionally takes the sensitivity parameter.
 revDt :: forall a vals r advals.
          ( r ~ Scalar vals, vals ~ Value advals
-         , HasDelta r, IsPrimalAndHasInputs a r
+         , ADNum r, IsPrimalAndHasInputs a r
          , Adaptable advals )
       => (advals -> ADVal a) -> vals -> a
       -> vals
@@ -48,7 +48,7 @@ revDt f vals dt = revDtFun f vals (const dt)
 -- This version additionally takes a function producing sensitivity parameter.
 revDtFun :: forall a vals r advals.
             ( r ~ Scalar vals, vals ~ Value advals
-            , HasDelta r, IsPrimalAndHasInputs a r
+            , ADNum r, IsPrimalAndHasInputs a r
             , Adaptable advals )
          => (advals -> ADVal a) -> vals -> (a -> a)
          -> vals

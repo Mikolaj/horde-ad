@@ -65,7 +65,7 @@ testTrees =
   ]
 
 rev' :: forall a r n m.
-        ( KnownNat n, KnownNat m, HasDelta r, ADReady r, InterpretAst r
+        ( KnownNat n, KnownNat m, ADNum r, ADReady r, InterpretAst r
         , a ~ OR.Array m r, ScalarOf r ~ r
         , TensorOf n r ~ OR.Array n r
         , TensorOf n (ADVal r)

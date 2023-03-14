@@ -3,9 +3,11 @@ module TestSimplified (testTrees) where
 
 import Prelude
 
+import qualified Data.Array.DynamicS as OT
 import qualified Data.Array.RankedS as OR
 import           Data.Boolean
 import qualified Data.Strict.IntMap as IM
+import qualified Data.Strict.Vector as Data.Vector
 import qualified Data.Vector.Generic as V
 import           GHC.TypeLits (KnownNat)
 import           Numeric.LinearAlgebra (Numeric, Vector)
@@ -56,6 +58,14 @@ at1 :: forall n r. (KnownNat n, ADNum r, TensorOf n r ~ OR.Array n r)
 {-# INLINE at1 #-}
 at1 ADInputs{..} i = dD (tfromD $ inputPrimal1 V.! i)
                         (dFromX1 $ inputDual1 V.! i)
+
+domainsFrom01 :: Domain0 r -> Domain1 r -> Domains r
+domainsFrom01 = Domains
+
+domainsFrom0V :: (Numeric r, DynamicTensor r ~ OT.Array r)
+              => Domain0 r -> Data.Vector.Vector (Vector r) -> Domains r
+domainsFrom0V rs vs = Domains rs (V.map (\v -> OT.fromVector [V.length v] v) vs)
+
 
 -- * Tensor tests
 

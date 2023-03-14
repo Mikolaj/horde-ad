@@ -8,7 +8,7 @@
 -- of the high-level API is in "HordeAd.Core.Engine".
 module HordeAd.Core.DualNumber
   ( ADVal, dD, pattern D
-  , ADNum, HasDelta, TensorIsArray(..)
+  , ADNum, TensorIsArray(..)
   , fromX1, from1X
   , Vec, vecToV, vToVec
   , SNat(..), staticNatValue, staticNatFromProxy
@@ -100,7 +100,8 @@ dDnotShared = D
 -- scalar type of a well behaved (wrt the differentiation mode in the first
 -- argument) collection of primal and dual components of dual numbers.
 type ADNum r =
-  ( Numeric r
+  ( Dual r ~ Delta0 r
+  , Numeric r
   , Show r
   , Show (Dual (OT.Array r))
   , HasRanks r
@@ -115,6 +116,7 @@ type ADNum r =
   , TensorIsArray r
   , DynamicTensor r ~ OT.Array r
   , HasPrimal r
+  , HasInputs r
   )
 
 class TensorIsArray r where
@@ -128,11 +130,6 @@ instance TensorIsArray Double where
 instance TensorIsArray Float where
   toArray = id
   fromArray = id
-
--- | Is a scalar and will be used to compute gradients via delta-expressions.
-type HasDelta r = ( ADNum r
-                  , HasInputs r
-                  , Dual r ~ Delta0 r )
 
 fromX1 :: forall n r. (ADNum r, KnownNat n)
        => ADVal (OT.Array r) -> ADVal (TensorOf n r)
