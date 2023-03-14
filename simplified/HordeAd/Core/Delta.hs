@@ -565,7 +565,7 @@ buildFinMaps s0 deltaDt =
 --                     d  -- TODO: optimize for input case
         IndexN d ix sh -> eval1 s (tscatter sh (tfromList [c]) (\_ -> ix)) d
           -- equivalent: eval1 s (updateNR (tkonst0NR sh 0) [(ixs, c)]) d
-        Sum1 n d -> eval1 @(1 + n) s (tkonst @r @n n c) d
+        Sum1 n d -> eval1 s (tkonst n c) d
         Scalar1 d -> eval0 s (tunScalar c) d
         FromList1 ld ->
           ifoldl' (\s2 i d2 ->
