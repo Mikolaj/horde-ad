@@ -34,7 +34,7 @@ import HordeAd.Core.DualClass
 import HordeAd.Core.DualNumber
 import HordeAd.Core.TensorClass
 
-data ADInputs d r = ADInputs
+data ADInputs r = ADInputs
   { inputPrimal0 :: Domain0 r
   , inputDual0   :: Data.Vector.Vector (Dual r)
   , inputPrimal1 :: Domain1 r
@@ -45,16 +45,16 @@ makeADInputs
   :: Domains r
   -> ( Data.Vector.Vector (Dual r)
      , Data.Vector.Vector (Dual (DynamicTensor r)) )
-  -> ADInputs d r
+  -> ADInputs r
 {-# INLINE makeADInputs #-}
 makeADInputs Domains{..} (vs0, vs1)
   = ADInputs domains0 vs0 domains1 vs1
 
-inputsToDomains :: ADInputs d r -> Domains r
+inputsToDomains :: ADInputs r -> Domains r
 inputsToDomains ADInputs{..} =
   Domains inputPrimal0 inputPrimal1
 
-nullADInputs :: Numeric r => ADInputs d r -> Bool
+nullADInputs :: Numeric r => ADInputs r -> Bool
 nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
 
 -- * Evaluation that computes gradients.
@@ -62,8 +62,8 @@ nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
 revOnADInputsFun
   :: (HasDelta r, IsPrimalAndHasInputs a r)
   => (a -> a)
-  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
-  -> ADInputs 'ADModeGradient r
+  -> (ADInputs r -> ADVal a)
+  -> ADInputs r
   -> (Domains r, a)
 -- The functions in which @revOnADInputs@ inlines are not inlined themselves
 -- in client code, so the bloat is limited.
@@ -81,8 +81,8 @@ revOnADInputsFun dt f inputs@ADInputs{..} =
 revOnADInputs
   :: (HasDelta r, IsPrimalAndHasInputs a r)
   => a
-  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
-  -> ADInputs 'ADModeGradient r
+  -> (ADInputs r -> ADVal a)
+  -> ADInputs r
   -> (Domains r, a)
 {-# INLINE revOnADInputs #-}
 revOnADInputs = revOnADInputsFun . const
@@ -94,7 +94,7 @@ revOnADInputs = revOnADInputsFun . const
 revOnDomainsFun
   :: (HasDelta r, IsPrimalAndHasInputs a r)
   => (a -> a)
-  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
+  -> (ADInputs r -> ADVal a)
   -> Domains r
   -> (Domains r, a)
 revOnDomainsFun dt f parameters =
@@ -105,7 +105,7 @@ revOnDomainsFun dt f parameters =
 revOnDomains
   :: (HasDelta r, IsPrimalAndHasInputs a r)
   => a
-  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
+  -> (ADInputs r -> ADVal a)
   -> Domains r
   -> (Domains r, a)
 revOnDomains = revOnDomainsFun . const
@@ -117,8 +117,8 @@ revOnDomains = revOnDomainsFun . const
 
 slowFwdOnADInputs
   :: HasDelta r
-  => ADInputs 'ADModeGradient r
-  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+  => ADInputs r
+  -> (ADInputs r -> ADVal r)
   -> Domains r
   -> (r, r)
 {-# INLINE slowFwdOnADInputs #-}
@@ -133,7 +133,7 @@ slowFwdOnADInputs inputs@ADInputs{..} f ds =
 slowFwdOnDomains
   :: HasDelta r
   => Domains r
-  -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+  -> (ADInputs r -> ADVal r)
   -> Domains r
   -> (r, r)
 slowFwdOnDomains parameters f ds =
@@ -146,7 +146,7 @@ slowFwdOnDomains parameters f ds =
 
 prettyPrintDf
   :: HasDelta r
-  => (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient r)
+  => (ADInputs r -> ADVal r)
   -> Domains r
   -> String
 prettyPrintDf f parameters =

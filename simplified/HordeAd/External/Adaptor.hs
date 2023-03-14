@@ -28,32 +28,29 @@ import HordeAd.Core.Engine
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.TensorOps
 
-rev :: forall a vals r advals d.
+rev :: forall a vals r advals.
        ( r ~ Scalar vals, vals ~ Value advals
-       , d ~ Mode advals, d ~ 'ADModeGradient
        , HasDelta r, IsPrimalAndHasInputs a r
        , Adaptable advals )
-    => (advals -> ADVal d a) -> vals
+    => (advals -> ADVal a) -> vals
     -> vals
 rev f vals = revDtFun f vals (inputConstant 1)
 
 -- This version additionally takes the sensitivity parameter.
-revDt :: forall a vals r advals d.
+revDt :: forall a vals r advals.
          ( r ~ Scalar vals, vals ~ Value advals
-         , d ~ Mode advals, d ~ 'ADModeGradient
          , HasDelta r, IsPrimalAndHasInputs a r
          , Adaptable advals )
-      => (advals -> ADVal d a) -> vals -> a
+      => (advals -> ADVal a) -> vals -> a
       -> vals
 revDt f vals dt = revDtFun f vals (const dt)
 
 -- This version additionally takes a function producing sensitivity parameter.
-revDtFun :: forall a vals r advals d.
+revDtFun :: forall a vals r advals.
             ( r ~ Scalar vals, vals ~ Value advals
-            , d ~ Mode advals, d ~ 'ADModeGradient
             , HasDelta r, IsPrimalAndHasInputs a r
             , Adaptable advals )
-         => (advals -> ADVal d a) -> vals -> (a -> a)
+         => (advals -> ADVal a) -> vals -> (a -> a)
          -> vals
 revDtFun f vals dt =
   let g inputs = f $ parseADInputs vals inputs
@@ -65,8 +62,8 @@ type Adaptable advals =
   , AdaptableInputs (Scalar (Value advals)) advals )
 
 type AdaptableScalar d r =
-  ( Scalar r ~ r, Value (ADVal d r) ~ r, Mode (ADVal d r) ~ d
-  , ADModeAndNum d r, Adaptable (ADVal d r)
+  ( Scalar r ~ r, Value (ADVal r) ~ r
+  , ADModeAndNum d r, Adaptable (ADVal r)
   , Random r )
 
 -- TODO: merge these two classes. Is it even possible?
@@ -92,9 +89,7 @@ class RandomDomains vals where
 
 class AdaptableInputs r advals where
   type Value advals
-  type Mode advals :: ADMode
-  fromADInputs :: Value advals -> ADInputs (Mode advals) r
-               -> (advals, ADInputs (Mode advals) r)
+  fromADInputs :: Value advals -> ADInputs r -> (advals, ADInputs r)
 
 parseDomains :: (AdaptableDomains vals, Numeric (Scalar vals))
              => vals -> Domains (Scalar vals) -> vals
@@ -103,7 +98,7 @@ parseDomains aInit domains =
   in assert (nullDomains rest) vals
 
 parseADInputs :: (AdaptableInputs r advals, Numeric r)
-              => Value advals -> ADInputs (Mode advals) r
+              => Value advals -> ADInputs r
               -> advals
 parseADInputs aInit inputs =
   let (advals, rest) = fromADInputs aInit inputs
@@ -123,9 +118,8 @@ instance RandomDomains Double where
     -- note that unlike in hmatrix the range is closed from the top
 
 instance ADModeAndNum d Double
-         => AdaptableInputs Double (ADVal d Double) where
-  type Value (ADVal d Double) = Double
-  type Mode (ADVal d Double) = d
+         => AdaptableInputs Double (ADVal Double) where
+  type Value (ADVal Double) = Double
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal0 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual0 of
       Just (aDual, restDual) ->
@@ -147,9 +141,8 @@ instance RandomDomains Float where
   randomVals range = randomR (- range, range)
 
 instance ADModeAndNum d Float
-         => AdaptableInputs Float (ADVal d Float) where
-  type Value (ADVal d Float) = Float
-  type Mode (ADVal d Float) = d
+         => AdaptableInputs Float (ADVal Float) where
+  type Value (ADVal Float) = Float
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal0 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual0 of
       Just (aDual, restDual) ->
@@ -204,9 +197,8 @@ instance KnownNat n
 
 instance ( ADModeAndNum d r, KnownNat n, TensorOf n r ~ OR.Array n r
          , DynamicTensor r ~ OT.Array r )
-         => AdaptableInputs r (ADVal d (OR.Array n r)) where
-  type Value (ADVal d (OR.Array n r)) = OR.Array n r
-  type Mode (ADVal d (OR.Array n r)) = d
+         => AdaptableInputs r (ADVal (OR.Array n r)) where
+  type Value (ADVal (OR.Array n r)) = OR.Array n r
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal1 of
     Just (aPrimal, restPrimal) -> case V.uncons inputDual1 of
       Just (aDual, restDual) ->
@@ -240,7 +232,6 @@ domainsToQuadruple Domains{..} = (domains0, domains1)
 instance AdaptableInputs r a
          => AdaptableInputs r [a] where
   type Value [a] = [Value a]
-  type Mode [a] = Mode a
   fromADInputs lInit source =
     let f (lAcc, restAcc) aInit =
           let (a, rest) = fromADInputs aInit restAcc
@@ -335,38 +326,32 @@ instance ( r ~ Scalar a, r ~ Scalar b, r ~ Scalar c, r ~ Scalar d
         (v4, g4) = randomVals range g3
     in ((v1, v2, v3, v4), g4)
 
-instance ( d ~ Mode a, d ~ Mode b
-         , AdaptableInputs r a
+instance ( AdaptableInputs r a
          , AdaptableInputs r b )
          => AdaptableInputs r (a, b) where
   type Value (a, b) = (Value a, Value b)
-  type Mode (a, b) = Mode a
   fromADInputs (aInit, bInit) source =
     let (a, aRest) = fromADInputs aInit source
         (b, rest) = fromADInputs bInit aRest
     in ((a, b), rest)
 
-instance ( d ~ Mode a, d ~ Mode b, d ~ Mode c
-         , AdaptableInputs r a
+instance ( AdaptableInputs r a
          , AdaptableInputs r b
          , AdaptableInputs r c )
          => AdaptableInputs r (a, b, c) where
   type Value (a, b, c) = (Value a, Value b, Value c)
-  type Mode (a, b, c) = Mode a
   fromADInputs (aInit, bInit, cInit) source =
     let (a, aRest) = fromADInputs aInit source
         (b, bRest) = fromADInputs bInit aRest
         (c, rest) = fromADInputs cInit bRest
     in ((a, b, c), rest)
 
-instance ( d ~ Mode a, d ~ Mode b, d ~ Mode c, d ~ Mode dd
-         , AdaptableInputs r a
+instance ( AdaptableInputs r a
          , AdaptableInputs r b
          , AdaptableInputs r c
          , AdaptableInputs r dd )
          => AdaptableInputs r (a, b, c, dd) where
   type Value (a, b, c, dd) = (Value a, Value b, Value c, Value dd)
-  type Mode (a, b, c, dd) = Mode a
   fromADInputs (aInit, bInit, cInit, dInit) source =
     let (a, aRest) = fromADInputs aInit source
         (b, bRest) = fromADInputs bInit aRest
@@ -388,10 +373,9 @@ instance (r ~ Scalar a, r ~ Scalar b, AdaptableDomains a, AdaptableDomains b)
   nParams = either nParams nParams
   nScalars = either nScalars nScalars
 
-instance (d ~ Mode a, d ~ Mode b, AdaptableInputs r a, AdaptableInputs r b)
+instance (AdaptableInputs r a, AdaptableInputs r b)
          => AdaptableInputs r (Either a b) where
   type Value (Either a b) = Either (Value a) (Value b)
-  type Mode (Either a b) = Mode a
   fromADInputs eInit source = case eInit of
     Left a -> let (a2, rest) = fromADInputs a source
               in (Left a2, rest)
@@ -414,7 +398,6 @@ instance AdaptableDomains a
 instance AdaptableInputs r a
          => AdaptableInputs r (Maybe a) where
   type Value (Maybe a) = Maybe (Value a)
-  type Mode (Maybe a) = Mode a
   fromADInputs eInit source = case eInit of
     Nothing -> (Nothing, source)
     Just a -> let (a2, rest) = fromADInputs a source

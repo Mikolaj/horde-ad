@@ -68,11 +68,11 @@ rev' :: forall a r n m.
         ( KnownNat n, KnownNat m, HasDelta r, ADReady r, InterpretAst r
         , a ~ OR.Array m r, ScalarOf r ~ r
         , TensorOf n r ~ OR.Array n r
-        , TensorOf n (ADVal 'ADModeGradient r)
-          ~ ADVal 'ADModeGradient (OR.Array n r)
-        , TensorOf m (ADVal 'ADModeGradient r)
-          ~ ADVal 'ADModeGradient (OR.Array m r)
-        , ADReady (ADVal 'ADModeGradient r) )
+        , TensorOf n (ADVal r)
+          ~ ADVal (OR.Array n r)
+        , TensorOf m (ADVal r)
+          ~ ADVal (OR.Array m r)
+        , ADReady (ADVal r) )
      => (forall x. ADReady x => TensorOf n x -> TensorOf m x)
      -> OR.Array n r
      -> ( TensorOf m r, a, a, a, a, a
@@ -86,8 +86,8 @@ rev' f vals =
       gradient1 = parseDomains vals advalGrad
       h :: ADReady x
         => (TensorOf m x -> Ast m r) -> (Ast n r -> TensorOf n x)
-        -> (Ast m r -> Ast m r) -> ADInputs 'ADModeGradient r
-        -> ADVal 'ADModeGradient (OR.Array m r)
+        -> (Ast m r -> Ast m r) -> ADInputs r
+        -> ADVal (OR.Array m r)
       h fx1 fx2 gx inputs =
         let (var, ast) = funToAstR (tshape vals) (fx1 . f . fx2)
             env = extendEnvR var (parseADInputs vals inputs) IM.empty
@@ -206,10 +206,10 @@ testBar :: Assertion
 testBar =
   assertEqualUpToEpsilon 1e-9
     (3.1435239435581166,-1.1053869545195814)
-    (rev (bar @(ADVal 'ADModeGradient Double)) (1.1, 2.2))
+    (rev (bar @(ADVal Double)) (1.1, 2.2))
 
-barADVal :: forall r d. ADModeAndNum d r => (ADVal d r, ADVal d r) -> ADVal d r
-barADVal = bar @(ADVal d r)
+barADVal :: forall r d. ADModeAndNum d r => (ADVal r, ADVal r) -> ADVal r
+barADVal = bar @(ADVal r)
 
 testBarADVal :: Assertion
 testBarADVal =
@@ -217,7 +217,7 @@ testBarADVal =
     (11.49618087412679,-135.68959896367525)
     (revDt (barADVal @Double @'ADModeGradient) (1.1, 3) 42.2)
 
-barADVal2 :: forall r a. (a ~ ADVal 'ADModeGradient r, r ~ Double)
+barADVal2 :: forall r a. (a ~ ADVal r, r ~ Double)
           => (a, a, a) -> a
 barADVal2 (x,y,z) =
   let w = foo (x,y,z) * sin y
@@ -234,16 +234,16 @@ barADVal2 (x,y,z) =
 -- causing exactly the same danger.
 -- This example also tests unused parameters (x), another common cause
 -- of crashes in naive gradient computing code.
-baz :: ( ADVal 'ADModeGradient Double
-       , ADVal 'ADModeGradient Double
-       , ADVal 'ADModeGradient Double )
-    -> ADVal 'ADModeGradient Double
+baz :: ( ADVal Double
+       , ADVal Double
+       , ADVal Double )
+    -> ADVal Double
 baz (_x,y,z) =
   let w = fooConstant * barADVal2 (y,y,z) * sin y
   in atan2 z w + z * w
 
 -- An "old term", computed once, stored at top level.
-fooConstant :: ADVal 'ADModeGradient Double
+fooConstant :: ADVal Double
 fooConstant = foo (7, 8, 9)
 
 testBaz :: Assertion
@@ -270,7 +270,7 @@ testBazRenumbered =
 
 -- A dual-number and list-based version of a function that goes
 -- from `R^3` to `R`.
-fooD :: forall r d. ADModeAndNum d r => [ADVal d r] -> ADVal d r
+fooD :: forall r d. ADModeAndNum d r => [ADVal r] -> ADVal r
 fooD [x, y, z] =
   let w = x * sin y
   in atan2 z w + z * w
@@ -338,7 +338,7 @@ fooNoGoAst v =
 testFooNoGoAst :: Assertion
 testFooNoGoAst =
   let f :: (ADModeAndNum d r, InterpretAst r)
-        => ADVal d (OR.Array 1 r) -> ADVal d (OR.Array 1 r)
+        => ADVal (OR.Array 1 r) -> ADVal (OR.Array 1 r)
       f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
                          (fooNoGoAst (AstVar [5] (AstVarName 0)))
   in assertEqualUpToEpsilon 1e-6
@@ -455,7 +455,7 @@ barReluAst x = relu1 @n @(Ast 0 r) $ bar (x, relu1 x)
 testBarReluAst0 :: Assertion
 testBarReluAst0 =
   let f :: (ADModeAndNum d r, InterpretAst r)
-        => ADVal d (OR.Array 0 r) -> ADVal d (OR.Array 0 r)
+        => ADVal (OR.Array 0 r) -> ADVal (OR.Array 0 r)
       f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
                          (barReluAst (AstVar [] (AstVarName 0)))
   in assertEqualUpToEpsilon 1e-10
@@ -465,7 +465,7 @@ testBarReluAst0 =
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
   let f :: (ADModeAndNum d r, InterpretAst r)
-        => ADVal d (OR.Array 1 r) -> ADVal d (OR.Array 1 r)
+        => ADVal (OR.Array 1 r) -> ADVal (OR.Array 1 r)
       f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
                          (barReluAst (AstVar [5] (AstVarName 0)))
   in assertEqualUpToEpsilon 1e-10
@@ -480,7 +480,7 @@ konstReluAst x = tsum0 $ relu1 $ tkonst0N (7 :$ ZS) x
 testKonstReluAst :: Assertion
 testKonstReluAst =
   let f :: (ADModeAndNum d r, InterpretAst r)
-        => ADVal d (OR.Array 0 r) -> ADVal d (OR.Array 0 r)
+        => ADVal (OR.Array 0 r) -> ADVal (OR.Array 0 r)
       f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
                          (konstReluAst (AstVar [] (AstVarName 0)))
   in assertEqualUpToEpsilon 1e-10

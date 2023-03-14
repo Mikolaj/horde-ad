@@ -47,12 +47,12 @@ testTrees = [ -- Tensor tests
             ]
 
 
-at0 :: ADModeAndNum d r => ADInputs d r -> Int -> ADVal d r
+at0 :: ADModeAndNum d r => ADInputs r -> Int -> ADVal r
 {-# INLINE at0 #-}
 at0 ADInputs{..} i = dD (inputPrimal0 V.! i) (inputDual0 V.! i)
 
 at1 :: forall n r d. (KnownNat n, ADModeAndNum d r, TensorOf n r ~ OR.Array n r)
-    =>  ADInputs d r -> Int -> ADVal d (OR.Array n r)
+    => ADInputs r -> Int -> ADVal (OR.Array n r)
 {-# INLINE at1 #-}
 at1 ADInputs{..} i = dD (tfromD $ inputPrimal1 V.! i)
                         (dFromX1 $ inputDual1 V.! i)
@@ -75,8 +75,8 @@ barAst (x, y) =
   let w = foo (x, y, x) * sin y
   in atan2 x w + y * w
 
-barADVal :: forall r d. ADModeAndNum d r => (ADVal d r, ADVal d r) -> ADVal d r
-barADVal = bar @(ADVal d r)
+barADVal :: forall r d. ADModeAndNum d r => (ADVal r, ADVal r) -> ADVal r
+barADVal = bar @(ADVal r)
 
 fooBuild1 :: ADReady r => TensorOf 1 r -> TensorOf 1 r
 fooBuild1 v =

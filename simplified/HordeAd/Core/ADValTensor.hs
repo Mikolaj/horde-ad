@@ -39,15 +39,15 @@ import HordeAd.Internal.TensorOps
 -- In principle, this instance is only useful for comparative tests,
 -- though for code without build/map/etc., it should be equivalent
 -- to going via Ast.
-instance ADModeAndNum d Double => Tensor (ADVal d Double) where
-  type TensorOf n (ADVal d Double) = ADVal d (OR.Array n Double)
-  type IntOf (ADVal d Double) = Int
+instance ADModeAndNum d Double => Tensor (ADVal Double) where
+  type TensorOf n (ADVal Double) = ADVal (OR.Array n Double)
+  type IntOf (ADVal Double) = Int
 
   -- Here and elsewhere I can't use methods of the @r@ instance of @Tensor@
   -- (the one implemented as @OR.Array n r@). Therefore, I inline them
   -- manually. There is probably no solution to that (2 parameters to Tensor
   -- would solve this, but we'd need infinitely many instances
-  -- for @ADVal d (OR.Array n r)@ and @OR.Array n r@). As a workaround,
+  -- for @ADVal (OR.Array n r)@ and @OR.Array n r@). As a workaround,
   -- the methods are defined as calls to tensor functions provided elsewhere,
   -- so there is no code duplication.
   tshape = shape
@@ -78,9 +78,9 @@ instance ADModeAndNum d Double => Tensor (ADVal d Double) where
   tscalar = scalar
   tunScalar = unScalar
 
-instance ADModeAndNum d Float => Tensor (ADVal d Float) where
-  type TensorOf n (ADVal d Float) = ADVal d (OR.Array n Float)
-  type IntOf (ADVal d Float) = Int
+instance ADModeAndNum d Float => Tensor (ADVal Float) where
+  type TensorOf n (ADVal Float) = ADVal (OR.Array n Float)
+  type IntOf (ADVal Float) = Int
 
   tshape = shape
   tminIndex0 (D u _) = tminIndexR u
@@ -110,33 +110,33 @@ instance ADModeAndNum d Float => Tensor (ADVal d Float) where
   tscalar = scalar
   tunScalar = unScalar
 
-instance ADModeAndNum d Double => HasPrimal (ADVal d Double) where
-  type ScalarOf (ADVal d Double) = Double
-  type Primal (ADVal d Double) = Double
-  type DualOf n (ADVal d Double) = Dual (OR.Array n Double)
+instance ADModeAndNum d Double => HasPrimal (ADVal Double) where
+  type ScalarOf (ADVal Double) = Double
+  type Primal (ADVal Double) = Double
+  type DualOf n (ADVal Double) = Dual (OR.Array n Double)
   tconst t = dD t dZero
   tconstant t = dD (toArray t) dZero
   tprimalPart (D u _) = fromArray u
   tdualPart (D _ u') = u'
   tD u = dD (toArray u)
-  type DynamicTensor (ADVal d Double) = ADVal d (OT.Array Double)
+  type DynamicTensor (ADVal Double) = ADVal (OT.Array Double)
   tdummyD = undefined  -- not used for dual numbers
   tisDummyD = undefined  -- not used for dual numbers
   taddD = (+)
   tfromR = from1X
   tfromD = fromX1
 
-instance ADModeAndNum d Float => HasPrimal (ADVal d Float) where
-  type ScalarOf (ADVal d Float) = Float
-  type Primal (ADVal d Float) = Float
-  type DualOf n (ADVal d Float) = Dual (OR.Array n Float)
+instance ADModeAndNum d Float => HasPrimal (ADVal Float) where
+  type ScalarOf (ADVal Float) = Float
+  type Primal (ADVal Float) = Float
+  type DualOf n (ADVal Float) = Dual (OR.Array n Float)
   tconst t = dD t dZero
   tconstant t = dD (toArray t) dZero
   tprimalPart (D u _) = fromArray u
   tdualPart (D _ u') = u'
   tD u = dD (toArray u)
   -- TODO: if ever used, define, if not, use an Error type
-  type DynamicTensor (ADVal d Float) = ADVal d (OT.Array Float)
+  type DynamicTensor (ADVal Float) = ADVal (OT.Array Float)
   tdummyD = undefined  -- not used for dual numbers
   tisDummyD = undefined  -- not used for dual numbers
   taddD = (+)
@@ -146,7 +146,7 @@ instance ADModeAndNum d Float => HasPrimal (ADVal d Float) where
 -- * ADVal combinators generalizing ranked tensor operations
 
 shape :: (ADModeAndNum d r, KnownNat n)
-      => ADVal d (TensorOf n r) -> ShapeInt n
+      => ADVal (TensorOf n r) -> ShapeInt n
 shape (D u _) = tshape u
 
 -- TODO: speed up by using tindex0R and dIndex0 if the codomain is 0
@@ -157,8 +157,8 @@ shape (D u _) = tshape u
 -- index ouf of bounds produces zero (but beware of vectorization).
 indexZ :: forall m n d r.
           (ADModeAndNum d r, IsPrimal (TensorOf n r), KnownNat m, KnownNat n)
-       => ADVal d (TensorOf (m + n) r) -> IndexOf m r
-       -> ADVal d (TensorOf n r)
+       => ADVal (TensorOf (m + n) r) -> IndexOf m r
+       -> ADVal (TensorOf n r)
 indexZ (D u u') ix =
   let sh = tshape u
   in if ixInBounds (indexToList ix) (shapeToList sh)
@@ -166,89 +166,89 @@ indexZ (D u u') ix =
      else dD (tkonst0N (dropShape @m sh) 0) dZero
 
 sum' :: (ADModeAndNum d r, IsPrimal (TensorOf n r), KnownNat n)
-     => ADVal d (TensorOf (1 + n) r) -> ADVal d (TensorOf n r)
+     => ADVal (TensorOf (1 + n) r) -> ADVal (TensorOf n r)
 sum' (D u u') = dD (tsum u) (dSum1 (tlength u) u')
 
 sum0 :: (ADModeAndNum d r, KnownNat n)
-     => ADVal d (TensorOf n r) -> ADVal d r
+     => ADVal (TensorOf n r) -> ADVal r
 sum0 (D u u') = dD (tunScalar $ tsum0 u) (dSum0 (tshape u) u')
 
 dot0 :: (ADModeAndNum d r, KnownNat n)
-     => ADVal d (TensorOf n r) -> ADVal d (TensorOf n r) -> ADVal d r
+     => ADVal (TensorOf n r) -> ADVal (TensorOf n r) -> ADVal r
 dot0 (D u u') (D v v') = dD (tunScalar $ tdot0 u v)
                             (dAdd (dDot0 v u') (dDot0 u v'))
 
 scatterNClosure :: ( ADModeAndNum d r, IsPrimal (TensorOf (p + n) r)
                    , KnownNat m, KnownNat p, KnownNat n )
-                => ShapeInt (p + n) -> ADVal d (TensorOf (m + n) r)
+                => ShapeInt (p + n) -> ADVal (TensorOf (m + n) r)
                 -> (IndexOf m r -> IndexOf p r)
-                -> ADVal d (TensorOf (p + n) r)
+                -> ADVal (TensorOf (p + n) r)
 scatterNClosure sh (D u u') f =
   dD (tscatter sh u f) (dScatterN sh u' f (tshape u))
 
 fromList :: (ADModeAndNum d r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
-         => [ADVal d (TensorOf n r)]
-         -> ADVal d (TensorOf (1 + n) r)
+         => [ADVal (TensorOf n r)]
+         -> ADVal (TensorOf (1 + n) r)
 fromList lu =
   -- TODO: if lu is empty, crash if n =\ 0 or use List.NonEmpty.
   dD (tfromList $ map (\(D u _) -> u) lu)
      (dFromList1 $ map (\(D _ u') -> u') lu)
 
 --fromList0N :: (ADModeAndNum d r, KnownNat n)
---           => ShapeInt n -> [ADVal d r]
---           -> ADVal d (TensorOf n r)
+--           => ShapeInt n -> [ADVal r]
+--           -> ADVal (TensorOf n r)
 --fromList0N sh l =
 --  dD (tfromList0N sh $ map (\(D u _) -> u) l)  -- I hope this fuses
 --     (dFromList01 sh $ map (\(D _ u') -> u') l)
 
 fromVector :: (ADModeAndNum d r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
-           => Data.Vector.Vector (ADVal d (TensorOf n r))
-           -> ADVal d (TensorOf (1 + n) r)
+           => Data.Vector.Vector (ADVal (TensorOf n r))
+           -> ADVal (TensorOf (1 + n) r)
 fromVector lu =
   dD (tfromVector $ V.map (\(D u _) -> u) lu)
      (dFromVector1 $ V.map (\(D _ u') -> u') lu)
 
 --fromVector0N :: (ADModeAndNum d r, KnownNat n)
---             => ShapeInt n -> Data.Vector.Vector (ADVal d r)
---             -> ADVal d (TensorOf n r)
+--             => ShapeInt n -> Data.Vector.Vector (ADVal r)
+--             -> ADVal (TensorOf n r)
 --fromVector0N sh l =
 --  dD (tfromVector0N sh $ V.convert $ V.map (\(D u _) -> u) l)  -- hope it fuses
 --     (dFromVector01 sh $ V.map (\(D _ u') -> u') l)
 
 konst :: (ADModeAndNum d r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
-      => Int -> ADVal d (TensorOf n r) -> ADVal d (TensorOf (1 + n) r)
+      => Int -> ADVal (TensorOf n r) -> ADVal (TensorOf (1 + n) r)
 konst k (D u u') = dD (tkonst k u) (dKonst1 k u')
 
 --konst0N :: (ADModeAndNum d r, KnownNat n)
---        => ShapeInt n -> ADVal d r -> ADVal d (TensorOf n r)
+--        => ShapeInt n -> ADVal r -> ADVal (TensorOf n r)
 --konst0N sh (D u u') = dD (tkonst0N sh u) (dKonst01 sh u')
 
 append :: (ADModeAndNum d r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
-       => ADVal d (TensorOf (1 + n) r) -> ADVal d (TensorOf (1 + n) r)
-       -> ADVal d (TensorOf (1 + n) r)
+       => ADVal (TensorOf (1 + n) r) -> ADVal (TensorOf (1 + n) r)
+       -> ADVal (TensorOf (1 + n) r)
 append (D u u') (D v v') = dD (tappend u v) (dAppend1 u' (tlength u) v')
 
 slice :: (ADModeAndNum d r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
-      => Int -> Int -> ADVal d (TensorOf (1 + n) r)
-      -> ADVal d (TensorOf (1 + n) r)
+      => Int -> Int -> ADVal (TensorOf (1 + n) r)
+      -> ADVal (TensorOf (1 + n) r)
 slice i k (D u u') = dD (tslice i k u) (dSlice1 i k u' (tlength u))
 
 reverse' :: (ADModeAndNum d r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
-         => ADVal d (TensorOf (1 + n) r) -> ADVal d (TensorOf (1 + n) r)
+         => ADVal (TensorOf (1 + n) r) -> ADVal (TensorOf (1 + n) r)
 reverse' (D u u') = dD (treverse u) (dReverse1 u')
 
 transpose :: (ADModeAndNum d r, IsPrimal (TensorOf n r), KnownNat n)
-          => Permutation -> ADVal d (TensorOf n r) -> ADVal d (TensorOf n r)
+          => Permutation -> ADVal (TensorOf n r) -> ADVal (TensorOf n r)
 transpose perm (D u u') = dD (ttranspose perm u) (dTranspose1 perm u')
 
 reshape :: (ADModeAndNum d r, IsPrimal (TensorOf m r), KnownNat m, KnownNat n)
-        => ShapeInt m -> ADVal d (TensorOf n r) -> ADVal d (TensorOf m r)
+        => ShapeInt m -> ADVal (TensorOf n r) -> ADVal (TensorOf m r)
 reshape sh (D u u') = dD (treshape sh u) (dReshape1 (tshape u) sh u')
 
 build1, _build1Closure
   :: (ADModeAndNum d r, KnownNat n, IsPrimal (TensorOf (1 + n) r))
-  => Int -> (Int -> ADVal d (TensorOf n r))
-  -> ADVal d (TensorOf (1 + n) r)
+  => Int -> (Int -> ADVal (TensorOf n r))
+  -> ADVal (TensorOf (1 + n) r)
 build1 k f = fromList $ map f [0 .. k - 1]  -- element-wise (POPL) version
 
 -- Strangely, this variant slows down simplifiedOnlyTest 3 times. Perhaps
@@ -262,16 +262,16 @@ _build1Closure k f =  -- stores closures on tape
 -- projection is defined and is 0 (but beware of vectorization).
 gatherNClosure :: ( ADModeAndNum d r, IsPrimal (TensorOf (m + n) r)
                   , KnownNat m, KnownNat p, KnownNat n )
-               => ShapeInt (m + n) -> ADVal d (TensorOf (p + n) r)
+               => ShapeInt (m + n) -> ADVal (TensorOf (p + n) r)
                -> (IndexOf m r -> IndexOf p r)
-               -> ADVal d (TensorOf (m + n) r)
+               -> ADVal (TensorOf (m + n) r)
 gatherNClosure sh (D u u') f =
   dD (tgather sh u f) (dGatherN sh u' f (tshape u))
 
-scalar :: ADModeAndNum d r => ADVal d r -> ADVal d (TensorOf 0 r)
+scalar :: ADModeAndNum d r => ADVal r -> ADVal (TensorOf 0 r)
 scalar (D u u') = dD (tscalar u) (dScalar1 u')
 
-unScalar :: ADModeAndNum d r => ADVal d (TensorOf 0 r) -> ADVal d r
+unScalar :: ADModeAndNum d r => ADVal (TensorOf 0 r) -> ADVal r
 unScalar (D u u') = dD (tunScalar u) (dUnScalar0 u')
 
 
@@ -290,7 +290,7 @@ unScalar (D u u') = dD (tunScalar u) (dUnScalar0 u')
 -- For now, we interpret only in the concrete ADVal instance,
 -- which is the only interpretation needed for anything apart from tests.
 
-type AstEnv (d :: ADMode) r = IM.IntMap (AstVar (ADVal d (OT.Array r)))
+type AstEnv (d :: ADMode) r = IM.IntMap (AstVar (ADVal (OT.Array r)))
 
 data AstVar a =
     AstVarR a
@@ -298,7 +298,7 @@ data AstVar a =
  deriving Show
 
 extendEnvR :: (ADModeAndNum d r, KnownNat n, TensorOf n r ~ OR.Array n r)
-           => AstVarName (OR.Array n r) -> ADVal d (OR.Array n r)
+           => AstVarName (OR.Array n r) -> ADVal (OR.Array n r)
            -> AstEnv d r -> AstEnv d r
 extendEnvR v@(AstVarName var) d =
   IM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show v)
@@ -335,7 +335,7 @@ interpretLambdaIndexToIndex f env (vars, asts) =
 class InterpretAst r where
   interpretAst
     :: forall n d. (ADModeAndNum d r, KnownNat n)
-    => AstEnv d r -> Ast n r -> ADVal d (OR.Array n r)
+    => AstEnv d r -> Ast n r -> ADVal (OR.Array n r)
 
 instance InterpretAst Double where
  interpretAst = interpretAstRec
@@ -361,7 +361,7 @@ instance InterpretAst Double where
    interpretAstRec
      :: forall n r d. (ADModeAndNum d r, KnownNat n, r ~ Double)
      => AstEnv d r
-     -> Ast n r -> ADVal d (OR.Array n r)
+     -> Ast n r -> ADVal (OR.Array n r)
    interpretAstRec env = \case
      AstVar _sh (AstVarName var) -> case IM.lookup var env of
        Just (AstVarR d) -> tfromD d
@@ -473,7 +473,7 @@ instance InterpretAst Float where
    interpretAstRec
      :: forall n r d. (ADModeAndNum d r, KnownNat n, r ~ Float)
      => AstEnv d r
-     -> Ast n r -> ADVal d (OR.Array n r)
+     -> Ast n r -> ADVal (OR.Array n r)
    interpretAstRec env = \case
      AstVar _sh (AstVarName var) -> case IM.lookup var env of
        Just (AstVarR d) -> tfromD d
