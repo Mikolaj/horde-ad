@@ -36,15 +36,15 @@ import HordeAd.Core.TensorClass
 
 data ADInputs d r = ADInputs
   { inputPrimal0 :: Domain0 r
-  , inputDual0   :: Data.Vector.Vector (Dual d r)
+  , inputDual0   :: Data.Vector.Vector (Dual r)
   , inputPrimal1 :: Domain1 r
-  , inputDual1   :: Data.Vector.Vector (Dual d (DynamicTensor r))
+  , inputDual1   :: Data.Vector.Vector (Dual (DynamicTensor r))
   }
 
 makeADInputs
   :: Domains r
-  -> ( Data.Vector.Vector (Dual d r)
-     , Data.Vector.Vector (Dual d (DynamicTensor r)) )
+  -> ( Data.Vector.Vector (Dual r)
+     , Data.Vector.Vector (Dual (DynamicTensor r)) )
   -> ADInputs d r
 {-# INLINE makeADInputs #-}
 makeADInputs Domains{..} (vs0, vs1)
@@ -60,7 +60,7 @@ nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
 -- * Evaluation that computes gradients.
 
 revOnADInputsFun
-  :: (HasDelta r, IsPrimalAndHasInputs 'ADModeGradient a r)
+  :: (HasDelta r, IsPrimalAndHasInputs a r)
   => (a -> a)
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
   -> ADInputs 'ADModeGradient r
@@ -79,7 +79,7 @@ revOnADInputsFun dt f inputs@ADInputs{..} =
      in (gradient, v)
 
 revOnADInputs
-  :: (HasDelta r, IsPrimalAndHasInputs 'ADModeGradient a r)
+  :: (HasDelta r, IsPrimalAndHasInputs a r)
   => a
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
   -> ADInputs 'ADModeGradient r
@@ -92,7 +92,7 @@ revOnADInputs = revOnADInputsFun . const
 -- Also, as of now, @revOnDomains@ is restricted to objective functions with scalar
 -- codomains, while VJP is fully general.
 revOnDomainsFun
-  :: (HasDelta r, IsPrimalAndHasInputs 'ADModeGradient a r)
+  :: (HasDelta r, IsPrimalAndHasInputs a r)
   => (a -> a)
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
   -> Domains r
@@ -103,7 +103,7 @@ revOnDomainsFun dt f parameters =
   in revOnADInputsFun dt f inputs
 
 revOnDomains
-  :: (HasDelta r, IsPrimalAndHasInputs 'ADModeGradient a r)
+  :: (HasDelta r, IsPrimalAndHasInputs a r)
   => a
   -> (ADInputs 'ADModeGradient r -> ADVal 'ADModeGradient a)
   -> Domains r
@@ -158,21 +158,21 @@ prettyPrintDf f parameters =
 generateDeltaInputs
   :: forall r. HasDelta r
   => Domains r
-  -> ( Data.Vector.Vector (Dual 'ADModeGradient r)
-     , Data.Vector.Vector (Dual 'ADModeGradient (OT.Array r)) )
+  -> ( Data.Vector.Vector (Dual r)
+     , Data.Vector.Vector (Dual (OT.Array r)) )
 generateDeltaInputs Domains{..} =
-  let arrayToInput :: Int -> OT.Array r -> Dual 'ADModeGradient (OT.Array r)
+  let arrayToInput :: Int -> OT.Array r -> Dual (OT.Array r)
       arrayToInput i t = case someNatVal $ toInteger $ length $ OT.shapeL t of
         Just (SomeNat (_ :: Proxy n)) ->
-          dFrom1X $ dInput1 @'ADModeGradient @r @n $ toInputId i
+          dFrom1X $ dInput1 @r @n $ toInputId i
         Nothing -> error "generateDeltaInputs: impossible someNatVal error"
       !v0 = V.generate (V.length domains0) (dInput0 . toInputId)
       !v1 = V.imap arrayToInput domains1
   in (v0, v1)
 {-# SPECIALIZE generateDeltaInputs
   :: Domains Double
-  -> ( Data.Vector.Vector (Dual 'ADModeGradient Double)
-     , Data.Vector.Vector (Dual 'ADModeGradient (OT.Array Double)) ) #-}
+  -> ( Data.Vector.Vector (Dual Double)
+     , Data.Vector.Vector (Dual (OT.Array Double)) ) #-}
 
 -- | Initialize parameters using a uniform distribution with a fixed range
 -- taken from an argument.

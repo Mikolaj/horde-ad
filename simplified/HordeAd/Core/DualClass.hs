@@ -58,16 +58,16 @@ import HordeAd.Core.TensorClass
 -- is that the second type is the primal component of a dual number type
 -- at an unknown rank, with the given differentiation mode
 -- and underlying scalar.
-type IsPrimalWithScalar (d :: ADMode) a r =
-  (IsPrimal d a, MonoFunctor a, Element a ~ r)
+type IsPrimalWithScalar a r =
+  (IsPrimal a, MonoFunctor a, Element a ~ r)
 
 -- | A shorthand for a useful set of constraints.
-type IsPrimalAndHasFeatures (d :: ADMode) a r =
-  (IsPrimalWithScalar d a r, RealFloat a)
+type IsPrimalAndHasFeatures a r =
+  (IsPrimalWithScalar a r, RealFloat a)
 
 -- | A shorthand for a useful set of constraints.
-type IsPrimalAndHasInputs (d :: ADMode) a r =
-  (IsPrimalAndHasFeatures d a r, HasInputs a)
+type IsPrimalAndHasInputs a r =
+  (IsPrimalAndHasFeatures a r, HasInputs a)
 
 
 -- * Class definitions
@@ -90,11 +90,11 @@ data ADMode =
 -- Rank S is troublesome because of the extra type parameter @sh@ representing
 -- a shape. This is another obstacle to a dual number representation via
 -- a single-argument type constructor.
-type family Dual (d :: ADMode) a = result | result -> d a where
-  Dual 'ADModeGradient Double = Delta0 Double
-  Dual 'ADModeGradient Float = Delta0 Float
-  Dual 'ADModeGradient (OT.Array r) = DeltaX r
-  Dual 'ADModeGradient (OR.Array n r) = Delta1 n r
+type family Dual a = result | result -> a where
+  Dual Double = Delta0 Double
+  Dual Float = Delta0 Float
+  Dual (OT.Array r) = DeltaX r
+  Dual (OR.Array n r) = Delta1 n r
 
 -- A bit more verbose, but a bit faster than @data@, perhaps by chance.
 newtype DummyDual r = DummyDual ()
@@ -105,11 +105,11 @@ dummyDual = DummyDual ()
 
 -- | Second argument is the primal component of a dual number at some rank
 -- wrt the differentiation mode given in the first argument.
-class IsPrimal d a where
-  dZero :: Dual d a
-  dScale :: a -> Dual d a -> Dual d a
-  dAdd :: Dual d a -> Dual d a -> Dual d a
-  recordSharing :: Dual d a -> Dual d a
+class IsPrimal a where
+  dZero :: Dual a
+  dScale :: a -> Dual a -> Dual a
+  dAdd :: Dual a -> Dual a -> Dual a
+  recordSharing :: Dual a -> Dual a
 
 -- | Part 1/2 of a hack to squeeze the ranked tensors rank,
 -- with its extra @n@ parameter, into the 'IsPrimal' class.
@@ -118,19 +118,19 @@ class IsPrimal d a where
 -- it exhausts all possible forms of @d@ and so constraints expressed with
 -- a variable @d@ are satisfied. A similar hack for instances of @TensorOf@
 -- woudln't work, because instances of type families are illegal.
-class IsPrimalR d r where
-  dZeroR :: KnownNat n => Dual d (OR.Array n r)
+class IsPrimalR r where
+  dZeroR :: KnownNat n => Dual (OR.Array n r)
   dScaleR :: KnownNat n
-          => OR.Array n r -> Dual d (OR.Array n r) -> Dual d (OR.Array n r)
+          => OR.Array n r -> Dual (OR.Array n r) -> Dual (OR.Array n r)
   dAddR :: KnownNat n
-        => Dual d (OR.Array n r) -> Dual d (OR.Array n r)
-        -> Dual d (OR.Array n r)
-  recordSharingR :: Dual d (OR.Array n r) -> Dual d (OR.Array n r)
+        => Dual (OR.Array n r) -> Dual (OR.Array n r)
+        -> Dual (OR.Array n r)
+  recordSharingR :: Dual (OR.Array n r) -> Dual (OR.Array n r)
 
 -- | Part 2/2 of a hack to squeeze the ranked tensors rank,
 -- with its extra @n@ parameter, into the 'IsPrimal' class.
-instance (IsPrimalR d r, KnownNat n)
-         => IsPrimal d (OR.Array n r) where
+instance (IsPrimalR r, KnownNat n)
+         => IsPrimal (OR.Array n r) where
   dZero = dZeroR
   dScale = dScaleR
   dAdd = dAddR
@@ -141,86 +141,86 @@ instance (IsPrimalR d r, KnownNat n)
 -- the additional operations of delta-input and of packing a delta expression
 -- and a dt parameter for computing its gradient.
 class HasInputs a where
-  packDeltaDt :: a -> a -> Dual 'ADModeGradient a -> DeltaDt (Element a)
+  packDeltaDt :: a -> a -> Dual a -> DeltaDt (Element a)
   inputConstant :: Element a -> a -> a
 
 -- | The class provides methods required for the second type parameter
 -- to be the underlying scalar of a well behaved collection of dual numbers
 -- of various ranks wrt the differentation mode given in the first parameter.
-class HasRanks (d :: ADMode) r where
-  dInput0 :: InputId r -> Dual d r
+class HasRanks r where
+  dInput0 :: InputId r -> Dual r
   dIndex0 :: KnownNat n
-          => Dual d (TensorOf n r) -> IndexOf n r -> ShapeInt n -> Dual d r
+          => Dual (TensorOf n r) -> IndexOf n r -> ShapeInt n -> Dual r
   dSum0 :: KnownNat n
-        => ShapeInt n -> Dual d (TensorOf n r) -> Dual d r
+        => ShapeInt n -> Dual (TensorOf n r) -> Dual r
   dDot0 :: KnownNat n
-        => TensorOf n r -> Dual d (TensorOf n r) -> Dual d r
-  dUnScalar0 :: Dual d (TensorOf 0 r) -> Dual d r
+        => TensorOf n r -> Dual (TensorOf n r) -> Dual r
+  dUnScalar0 :: Dual (TensorOf 0 r) -> Dual r
 
-  dInput1 :: InputId (OR.Array n r) -> Dual d (TensorOf n r)
+  dInput1 :: InputId (OR.Array n r) -> Dual (TensorOf n r)
 --  dIndex1 :: KnownNat n
---         => Dual d (TensorOf (1 + n) r) -> Int -> Int -> Dual d (TensorOf n r)
+--         => Dual (TensorOf (1 + n) r) -> Int -> Int -> Dual (TensorOf n r)
   dIndexN :: (KnownNat n, KnownNat m)
-          => Dual d (TensorOf (m + n) r) -> IndexOf m r -> ShapeInt (m + n)
-          -> Dual d (TensorOf n r)
+          => Dual (TensorOf (m + n) r) -> IndexOf m r -> ShapeInt (m + n)
+          -> Dual (TensorOf n r)
   dSum1 :: KnownNat n
-        => Int -> Dual d (TensorOf (1 + n) r) -> Dual d (TensorOf n r)
-  dScalar1 :: Dual d r -> Dual d (TensorOf 0 r)
+        => Int -> Dual (TensorOf (1 + n) r) -> Dual (TensorOf n r)
+  dScalar1 :: Dual r -> Dual (TensorOf 0 r)
   dFromList1 :: KnownNat n
-             => [Dual d (TensorOf n r)]
-             -> Dual d (TensorOf (1 + n) r)
+             => [Dual (TensorOf n r)]
+             -> Dual (TensorOf (1 + n) r)
   dFromVector1 :: KnownNat n
-               => Data.Vector.Vector (Dual d (TensorOf n r))
-               -> Dual d (TensorOf (1 + n) r)
+               => Data.Vector.Vector (Dual (TensorOf n r))
+               -> Dual (TensorOf (1 + n) r)
 --  dFromList01 :: KnownNat n
---              => ShapeInt n -> [Dual d r] -> Dual d (TensorOf n r)
+--              => ShapeInt n -> [Dual r] -> Dual (TensorOf n r)
 --  dFromVector01 :: KnownNat n
---                => ShapeInt n -> Data.Vector.Vector (Dual d r)
---                -> Dual d (TensorOf n r)
+--                => ShapeInt n -> Data.Vector.Vector (Dual r)
+--                -> Dual (TensorOf n r)
   dKonst1 :: KnownNat n
-          => Int -> Dual d (TensorOf n r) -> Dual d (TensorOf (1 + n) r)
+          => Int -> Dual (TensorOf n r) -> Dual (TensorOf (1 + n) r)
 --  dKonst01 :: KnownNat n
---           => ShapeInt n -> Dual d r -> Dual d (TensorOf n r)
+--           => ShapeInt n -> Dual r -> Dual (TensorOf n r)
   dAppend1 :: KnownNat n
-           => Dual d (TensorOf (1 + n) r) -> Int -> Dual d (TensorOf (1 + n) r)
-           -> Dual d (TensorOf (1 + n) r)
+           => Dual (TensorOf (1 + n) r) -> Int -> Dual (TensorOf (1 + n) r)
+           -> Dual (TensorOf (1 + n) r)
   dSlice1 :: KnownNat n
-          => Int -> Int -> Dual d (TensorOf (1 + n) r) -> Int
-          -> Dual d (TensorOf (1 + n) r)
+          => Int -> Int -> Dual (TensorOf (1 + n) r) -> Int
+          -> Dual (TensorOf (1 + n) r)
   dReverse1 :: KnownNat n
-            => Dual d (TensorOf (1 + n) r) -> Dual d (TensorOf (1 + n) r)
+            => Dual (TensorOf (1 + n) r) -> Dual (TensorOf (1 + n) r)
   dTranspose1 :: KnownNat n
-              => Permutation -> Dual d (TensorOf n r) -> Dual d (TensorOf n r)
+              => Permutation -> Dual (TensorOf n r) -> Dual (TensorOf n r)
   dReshape1 :: (KnownNat n, KnownNat m)
-            => ShapeInt n -> ShapeInt m -> Dual d (TensorOf n r)
-            -> Dual d (TensorOf m r)
+            => ShapeInt n -> ShapeInt m -> Dual (TensorOf n r)
+            -> Dual (TensorOf m r)
   dBuild1 :: KnownNat n
-          => Int -> (Int -> Dual d (TensorOf n r))
-          -> Dual d (TensorOf (1 + n) r)
+          => Int -> (Int -> Dual (TensorOf n r))
+          -> Dual (TensorOf (1 + n) r)
 --  dGather1 :: (KnownNat p, KnownNat n)
 --           => (Int -> IndexOf p r)
---           -> ShapeInt (p + n) -> Dual d (TensorOf (p + n) r)
---           -> Int -> Dual d (TensorOf (1 + n) r)
+--           -> ShapeInt (p + n) -> Dual (TensorOf (p + n) r)
+--           -> Int -> Dual (TensorOf (1 + n) r)
   dGatherN :: (KnownNat m, KnownNat p, KnownNat n)
-           => ShapeInt (m + n) -> Dual d (TensorOf (p + n) r)
+           => ShapeInt (m + n) -> Dual (TensorOf (p + n) r)
            -> (IndexOf m r -> IndexOf p r)
            -> ShapeInt (p + n)
-           -> Dual d (TensorOf (m + n) r)
+           -> Dual (TensorOf (m + n) r)
 --  dScatter1 :: (KnownNat p, KnownNat n)
 --            => (Int -> IndexOf p r)
---            -> Int -> Dual d (TensorOf (1 + n) r)
---            -> ShapeInt (p + n) -> Dual d (TensorOf (p + n) r)
+--            -> Int -> Dual (TensorOf (1 + n) r)
+--            -> ShapeInt (p + n) -> Dual (TensorOf (p + n) r)
   dScatterN :: (KnownNat m, KnownNat p, KnownNat n)
-            => ShapeInt (p + n) -> Dual d (TensorOf (m + n) r)
+            => ShapeInt (p + n) -> Dual (TensorOf (m + n) r)
             -> (IndexOf m r -> IndexOf p r)
             -> ShapeInt (m + n)
-            -> Dual d (TensorOf (p + n) r)
+            -> Dual (TensorOf (p + n) r)
 
   dFromX1 :: KnownNat n
-          => Dual d (DynamicTensor r) -> Dual d (TensorOf n r)
+          => Dual (DynamicTensor r) -> Dual (TensorOf n r)
 
   dFrom1X :: KnownNat n
-          => Dual d (TensorOf n r) -> Dual d (DynamicTensor r)
+          => Dual (TensorOf n r) -> Dual (DynamicTensor r)
 
 -- * Backprop gradient method instances
 
@@ -256,7 +256,7 @@ class HasRanks (d :: ADMode) r where
 -- and it could, presumably, be extended to further limit which
 -- terms get an identifier. Alternatively, 'HordeAd.Core.DualNumber.dD'
 -- or library definitions that use it could be made smarter.
-instance IsPrimal 'ADModeGradient Double where
+instance IsPrimal Double where
   dZero = Zero0
   dScale = Scale0
   dAdd = Add0
@@ -267,7 +267,7 @@ instance IsPrimal 'ADModeGradient Double where
     _ -> wrapDelta0 d
 
 -- | This is an impure instance. See above.
-instance IsPrimal 'ADModeGradient Float where
+instance IsPrimal Float where
   -- Identical as above:
   dZero = Zero0
   dScale = Scale0
@@ -279,14 +279,14 @@ instance IsPrimal 'ADModeGradient Float where
     _ -> wrapDelta0 d
 
 -- | This is a trivial and so a pure instance.
-instance IsPrimal 'ADModeGradient (OT.Array r) where
+instance IsPrimal (OT.Array r) where
   dZero = undefined
   dScale = undefined
   dAdd = undefined
   recordSharing = id
 
 -- | This is an impure instance. See above.
-instance IsPrimalR 'ADModeGradient Double where
+instance IsPrimalR Double where
   dZeroR = Zero1
   dScaleR = Scale1
   dAddR = Add1
@@ -297,7 +297,7 @@ instance IsPrimalR 'ADModeGradient Double where
     Let1{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta1 d
 
-instance IsPrimalR 'ADModeGradient Float where
+instance IsPrimalR Float where
   dZeroR = Zero1
   dScaleR = Scale1
   dAddR = Add1
@@ -328,7 +328,7 @@ instance (Numeric r, KnownNat n, ScalarOf r ~ r)
   inputConstant r tsh = OR.constant (OR.shapeL tsh) r
 
 -- | This is an impure instance. See above.
-instance HasRanks 'ADModeGradient Double where
+instance HasRanks Double where
   dInput0 = Input0
   dIndex0 = Index0
   dSum0 = Sum0
@@ -361,7 +361,7 @@ instance HasRanks 'ADModeGradient Double where
 
   dFrom1X = From1X
 
-instance HasRanks 'ADModeGradient Float where
+instance HasRanks Float where
   dInput0 = Input0
   dIndex0 = Index0
   dSum0 = Sum0

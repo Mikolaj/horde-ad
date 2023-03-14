@@ -58,9 +58,9 @@ import HordeAd.Internal.TensorOps
 -- can be any containers of scalars. The primal component has the type
 -- given as the second type argument and the dual component (with the type
 -- determined by the type faimly @Dual@) is defined elsewhere.
-data ADVal (d :: ADMode) a = D a (Dual d a)
+data ADVal (d :: ADMode) a = D a (Dual a)
 
-deriving instance (Show a, Show (Dual d a)) => Show (ADVal d a)
+deriving instance (Show a, Show (Dual a)) => Show (ADVal d a)
 
 type instance BooleanOf (ADVal d a) = Bool
 
@@ -81,7 +81,7 @@ instance Ord a => OrdB (ADVal d a) where
 -- information, if applicable for the differentiation mode in question.
 -- The bare constructor should not be used directly (which is not enforced
 -- by the types yet), except when deconstructing via pattern-matching.
-dD :: IsPrimal d a => a -> Dual d a -> ADVal d a
+dD :: IsPrimal a => a -> Dual a -> ADVal d a
 dD a dual = D a (recordSharing dual)
 
 -- | This a not so smart constructor for 'D' of 'ADVal' that does not record
@@ -90,7 +90,7 @@ dD a dual = D a (recordSharing dual)
 -- in backpropagation phase. In contexts without sharing, it saves
 -- some evaluation time and memory (in term structure, but even more
 -- in the per-node data stored while evaluating).
-dDnotShared :: a -> Dual d a -> ADVal d a
+dDnotShared :: a -> Dual a -> ADVal d a
 dDnotShared = D
 
 
@@ -103,11 +103,11 @@ dDnotShared = D
 type ADModeAndNum (d :: ADMode) r =
   ( Numeric r
   , Show r
-  , Show (Dual d (OT.Array r))
-  , HasRanks d r
-  , IsPrimalAndHasFeatures d r r
-  , IsPrimalAndHasFeatures d (OT.Array r) r
-  , IsPrimalR d r
+  , Show (Dual (OT.Array r))
+  , HasRanks r
+  , IsPrimalAndHasFeatures r r
+  , IsPrimalAndHasFeatures (OT.Array r) r
+  , IsPrimalR r
   , RealFloat (Vector r)
   , Tensor r
   , TensorOf 0 r ~ OR.Array 0 r
@@ -133,7 +133,7 @@ instance TensorIsArray Float where
 -- | Is a scalar and will be used to compute gradients via delta-expressions.
 type HasDelta r = ( ADModeAndNum 'ADModeGradient r
                   , HasInputs r
-                  , Dual 'ADModeGradient r ~ Delta0 r )
+                  , Dual r ~ Delta0 r )
 
 fromX1 :: forall n d r. (ADModeAndNum d r, KnownNat n)
        => ADVal d (OT.Array r) -> ADVal d (TensorOf n r)
@@ -170,16 +170,16 @@ staticNatFromProxy Proxy = MkSNat
 -- constructed using multiple applications of the `dDnotShared` operation.
 -- The resulting term may not have sharing information inside,
 -- but is ready to be shared as a whole.
-ensureToplevelSharing :: IsPrimal d a => ADVal d a -> ADVal d a
+ensureToplevelSharing :: IsPrimal a => ADVal d a -> ADVal d a
 ensureToplevelSharing (D u u') = dD u u'
 
-scaleNotShared :: (Num a, IsPrimal d a) => a -> ADVal d a -> ADVal d a
+scaleNotShared :: (Num a, IsPrimal a) => a -> ADVal d a -> ADVal d a
 scaleNotShared a (D u u') = dDnotShared (a * u) (dScale a u')
 
-addNotShared :: (Num a, IsPrimal d a) => ADVal d a -> ADVal d a -> ADVal d a
+addNotShared :: (Num a, IsPrimal a) => ADVal d a -> ADVal d a -> ADVal d a
 addNotShared (D u u') (D v v') = dDnotShared (u + v) (dAdd u' v')
 
-multNotShared :: (Num a, IsPrimal d a) => ADVal d a -> ADVal d a -> ADVal d a
+multNotShared :: (Num a, IsPrimal a) => ADVal d a -> ADVal d a -> ADVal d a
 multNotShared (D u u') (D v v') =
   dDnotShared (u * v) (dAdd (dScale v u') (dScale u v'))
 
@@ -214,7 +214,7 @@ instance Ord a => Ord (ADVal d a) where
   D u _ > D v _ = u > v
   D u _ >= D v _ = u >= v
 
-instance (Num a, IsPrimal d a) => Num (ADVal d a) where
+instance (Num a, IsPrimal a) => Num (ADVal d a) where
   D u u' + D v v' = dD (u + v) (dAdd u' v')
   D u u' - D v v' = dD (u - v) (dAdd u' (dScale (fromInteger (-1)) v'))
     -- without @fromInteger@, this is interpreted as @negate 1@,
@@ -227,11 +227,11 @@ instance (Num a, IsPrimal d a) => Num (ADVal d a) where
   signum (D v _) = dD (signum v) dZero
   fromInteger = constantADVal . fromInteger
 
-instance (Real a, IsPrimal d a) => Real (ADVal d a) where
+instance (Real a, IsPrimal a) => Real (ADVal d a) where
   toRational = undefined
     -- very low priority, since these are all extremely not continuous
 
-instance (Fractional a, IsPrimal d a) => Fractional (ADVal d a) where
+instance (Fractional a, IsPrimal a) => Fractional (ADVal d a) where
   D u u' / D v v' =
     let recipSq = recip (v * v)  -- ensure sharing; also elsewhere
     in dD (u / v) (dAdd (dScale (v * recipSq) u') (dScale (- u * recipSq) v'))
@@ -240,7 +240,7 @@ instance (Fractional a, IsPrimal d a) => Fractional (ADVal d a) where
     in dD (recip v) (dScale minusRecipSq v')
   fromRational = constantADVal . fromRational
 
-instance (Floating a, IsPrimal d a) => Floating (ADVal d a) where
+instance (Floating a, IsPrimal a) => Floating (ADVal d a) where
   pi = constantADVal pi
   exp (D u u') = let expU = exp u
                  in dD expU (dScale expU u')
@@ -265,12 +265,12 @@ instance (Floating a, IsPrimal d a) => Floating (ADVal d a) where
   acosh (D u u') = dD (acosh u) (dScale (recip (sqrt (u*u - 1))) u')
   atanh (D u u') = dD (atanh u) (dScale (recip (1 - u*u)) u')
 
-instance (RealFrac a, IsPrimal d a) => RealFrac (ADVal d a) where
+instance (RealFrac a, IsPrimal a) => RealFrac (ADVal d a) where
   properFraction = undefined
     -- The integral type doesn't have a Storable constraint,
     -- so we can't implement this (nor RealFracB from Boolean package).
 
-instance (RealFloat a, IsPrimal d a) => RealFloat (ADVal d a) where
+instance (RealFloat a, IsPrimal a) => RealFloat (ADVal d a) where
   atan2 (D u u') (D v v') =
     let t = 1 / (u * u + v * v)
     in dD (atan2 u v) (dAdd (dScale (- u * t) v') (dScale (v * t) u'))
@@ -290,30 +290,30 @@ instance (RealFloat a, IsPrimal d a) => RealFloat (ADVal d a) where
 
 -- General operations, for any tensor rank
 
-constantADVal :: IsPrimal d a => a -> ADVal d a
+constantADVal :: IsPrimal a => a -> ADVal d a
 constantADVal a = dD a dZero
 
-logistic :: (Floating a, IsPrimal d a) => ADVal d a -> ADVal d a
+logistic :: (Floating a, IsPrimal a) => ADVal d a -> ADVal d a
 logistic (D u u') =
   let y = recip (1 + exp (- u))
   in dD y (dScale (y * (1 - y)) u')
 
 -- Optimized and more clearly written @u ** 2@.
-square :: (Num a, IsPrimal d a) => ADVal d a -> ADVal d a
+square :: (Num a, IsPrimal a) => ADVal d a -> ADVal d a
 square (D u u') = dD (u * u) (dScale (2 * u) u')
 
-squaredDifference :: (Num a, IsPrimal d a)
+squaredDifference :: (Num a, IsPrimal a)
                   => a -> ADVal d a -> ADVal d a
 squaredDifference targ res = square $ res - constantADVal targ
 
-scale :: (Num a, IsPrimal d a) => a -> ADVal d a -> ADVal d a
+scale :: (Num a, IsPrimal a) => a -> ADVal d a -> ADVal d a
 scale a (D u u') = dD (a * u) (dScale a u')
 
-constant :: IsPrimal d a => a -> ADVal d a
+constant :: IsPrimal a => a -> ADVal d a
 constant a = dD a dZero
 
 relu
-  :: (ADModeAndNum d r, IsPrimalAndHasFeatures d a r)
+  :: (ADModeAndNum d r, IsPrimalAndHasFeatures a r)
   => ADVal d a -> ADVal d a
 relu v@(D u _) =
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0) u
@@ -389,7 +389,7 @@ lossCrossEntropy targ res =
       f !acc i d = acc + scaleADVal (targ V.! i) (log d)
   in negate $ V.ifoldl' f 0 res
 
-scaleADVal :: (Num a, IsPrimal d a) => a -> ADVal d a -> ADVal d a
+scaleADVal :: (Num a, IsPrimal a) => a -> ADVal d a -> ADVal d a
 scaleADVal a (D u u') = dD (a * u) (dScale a u')
 
 -- In terms of hmatrix: @-(log res <.> targ)@.

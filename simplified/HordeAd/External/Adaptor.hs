@@ -31,7 +31,7 @@ import HordeAd.Internal.TensorOps
 rev :: forall a vals r advals d.
        ( r ~ Scalar vals, vals ~ Value advals
        , d ~ Mode advals, d ~ 'ADModeGradient
-       , HasDelta r, IsPrimalAndHasInputs d a r
+       , HasDelta r, IsPrimalAndHasInputs a r
        , Adaptable advals )
     => (advals -> ADVal d a) -> vals
     -> vals
@@ -41,7 +41,7 @@ rev f vals = revDtFun f vals (inputConstant 1)
 revDt :: forall a vals r advals d.
          ( r ~ Scalar vals, vals ~ Value advals
          , d ~ Mode advals, d ~ 'ADModeGradient
-         , HasDelta r, IsPrimalAndHasInputs d a r
+         , HasDelta r, IsPrimalAndHasInputs a r
          , Adaptable advals )
       => (advals -> ADVal d a) -> vals -> a
       -> vals
@@ -51,7 +51,7 @@ revDt f vals dt = revDtFun f vals (const dt)
 revDtFun :: forall a vals r advals d.
             ( r ~ Scalar vals, vals ~ Value advals
             , d ~ Mode advals, d ~ 'ADModeGradient
-            , HasDelta r, IsPrimalAndHasInputs d a r
+            , HasDelta r, IsPrimalAndHasInputs a r
             , Adaptable advals )
          => (advals -> ADVal d a) -> vals -> (a -> a)
          -> vals
