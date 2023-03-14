@@ -45,13 +45,12 @@ import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.MonoTraversable (Element, MonoFunctor)
 import qualified Data.Strict.Vector as Data.Vector
 import           GHC.TypeLits (KnownNat, type (+))
-import           Numeric.LinearAlgebra (Numeric, Vector)
+import           Numeric.LinearAlgebra (Numeric)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Delta
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
-import HordeAd.Internal.TensorOps
 
 -- * Abbreviations to export (not used anywhere below)
 
@@ -77,8 +76,6 @@ type IsPrimalAndHasInputs (d :: ADMode) a r =
 -- modes.
 data ADMode =
     ADModeGradient
-  | ADModeDerivative
-  | ADModeValue
   deriving Show
 
 -- | The type family that enumerates all possible \"ranks\" for each
@@ -98,12 +95,6 @@ type family Dual (d :: ADMode) a = result | result -> d a where
   Dual 'ADModeGradient Float = Delta0 Float
   Dual 'ADModeGradient (OT.Array r) = DeltaX r
   Dual 'ADModeGradient (OR.Array n r) = Delta1 n r
--- not injective:  Dual 'ADModeDerivative r = r
-  Dual 'ADModeDerivative Double = Double
-  Dual 'ADModeDerivative Float = Float
-  Dual 'ADModeDerivative (OT.Array r) = OT.Array r
-  Dual 'ADModeDerivative (OR.Array n r) = OR.Array n r
-  Dual 'ADModeValue a = DummyDual a
 
 -- A bit more verbose, but a bit faster than @data@, perhaps by chance.
 newtype DummyDual r = DummyDual ()
@@ -402,172 +393,6 @@ instance HasRanks 'ADModeGradient Float where
   dFromX1 = FromX1
 
   dFrom1X = From1X
-
--- * Alternative instance: forward derivatives computed on the spot
-
-instance IsPrimal 'ADModeDerivative Double where
-  dZero = 0
-  dScale k d = k * d
-  dAdd d e = d + e
-  recordSharing = id
-
-instance IsPrimal 'ADModeDerivative Float where
-  dZero = 0
-  dScale k d = k * d
-  dAdd d e = d + e
-  recordSharing = id
-
-instance Num (OT.Array r)
-         => IsPrimal 'ADModeDerivative (OT.Array r) where
-  dZero = 0
-  dScale k d = k * d
-  dAdd d e = d + e
-  recordSharing = id
-
-instance IsPrimalR 'ADModeDerivative Double where
-  dZeroR = 0
-  dScaleR k d = k * d
-  dAddR d e = d + e
-  recordSharingR = id
-
--- Completely copied from above.
-instance IsPrimalR 'ADModeDerivative Float where
-  dZeroR = 0
-  dScaleR k d = k * d
-  dAddR d e = d + e
-  recordSharingR = id
-
-instance HasRanks 'ADModeDerivative Double where
-  dInput0 = undefined
-  dIndex0 d ixs _ = tindex0R d ixs
-  dSum0 _ = tsum0R
-  dDot0 = tdot0R
-  dUnScalar0 = OR.unScalar
-
-  dInput1 = undefined
---  dIndex1 d ix _ = tindexZ1R d ix
-  dIndexN d ixs _ = tindexZR d ixs
-  dSum1 _ = tsumR
-  dScalar1 = OR.scalar
-  dFromList1 = tfromListR
-  dFromVector1 = tfromVectorR
---  dFromList01 = tfromList0NR
---  dFromVector01 = tfromVector0NR
-  dKonst1 = tkonstR
---  dKonst01 = tkonst0NR
-  dAppend1 d _k = tappendR d
-  dSlice1 i n d _len = tsliceR i n d
-  dReverse1 = treverseR
-  dTranspose1 = ttransposeR
-  dReshape1 _sh = treshapeR
-  dBuild1 = tbuild1R
---  dGather1 f _sh u k = tgatherZ1R k u f
-  dGatherN sh d f _shd = tgatherZR sh d f
---  dScatter1 f _n = tscatter1R f
-  dScatterN sh d f _shd = tscatterNR sh d f
-
-  dFromX1 = tfromD
-
-  dFrom1X = tfromR
-
-instance HasRanks 'ADModeDerivative Float where
-  dInput0 = undefined
-  dIndex0 d ixs _ = tindex0R d ixs
-  dSum0 _ = tsum0R
-  dDot0 = tdot0R
-  dUnScalar0 = OR.unScalar
-
-  dInput1 = undefined
---  dIndex1 d ix _ = tindex1R d ix
-  dIndexN d ixs _ = tindexZR d ixs
-  dSum1 _ = tsumR
-  dScalar1 = OR.scalar
-  dFromList1 = tfromListR
-  dFromVector1 = tfromVectorR
---  dFromList01 = tfromList0NR
---  dFromVector01 = tfromVector0NR
-  dKonst1 = tkonstR
---  dKonst01 = tkonst0NR
-  dAppend1 d _k = tappendR d
-  dSlice1 i n d _len = tsliceR i n d
-  dReverse1 = treverseR
-  dTranspose1 = ttransposeR
-  dReshape1 _sh = treshapeR
-  dBuild1 = tbuild1R
---  dGather1 f _sh u k = tgatherZ1R k u f
-  dGatherN sh d f _shd = tgatherZR sh d f
---  dScatter1 f _n = tscatter1R f
-  dScatterN sh d f _shd = tscatterNR sh d f
-
-  dFromX1 = tfromD
-
-  dFrom1X = tfromR
-
--- * Another alternative instance: only the objective function's value computed
-
-instance IsPrimal 'ADModeValue Double where
-  dZero = DummyDual ()
-  dScale _ _ = DummyDual ()
-  dAdd _ _ = DummyDual ()
-  recordSharing = id
-
-instance IsPrimal 'ADModeValue Float where
-  dZero = DummyDual ()
-  dScale _ _ = DummyDual ()
-  dAdd _ _ = DummyDual ()
-  recordSharing = id
-
-instance IsPrimal 'ADModeValue (Vector r) where
-  dZero = DummyDual ()
-  dScale _ _ = DummyDual ()
-  dAdd _ _ = DummyDual ()
-  recordSharing = id
-
-instance IsPrimal 'ADModeValue (OT.Array r) where
-  dZero = DummyDual ()
-  dScale _ _ = DummyDual ()
-  dAdd _ _ = DummyDual ()
-  recordSharing = id
-
-instance IsPrimalR 'ADModeValue r where
-  dZeroR = DummyDual ()
-  dScaleR _ _ = DummyDual ()
-  dAddR _ _ = DummyDual ()
-  recordSharingR = id
-
--- This requires UndecidableInstances.
-instance HasRanks 'ADModeValue r where
-  dInput0 = undefined
-  dIndex0 _ _ _ = DummyDual ()
-  dSum0 _ _ = DummyDual ()
-  dDot0 _ _ = DummyDual ()
-  dUnScalar0 _ = DummyDual ()
-
-  dInput1 = undefined
---  dIndex1 _ _ _ = DummyDual ()
-  dIndexN _ _ _ = DummyDual ()
-  dSum1 _ _ = DummyDual ()
-  dScalar1 _ = DummyDual ()
-  dFromList1 _ = DummyDual ()
-  dFromVector1 _ = DummyDual ()
---  dFromList01 _ _ = DummyDual ()
---  dFromVector01 _ _ = DummyDual ()
-  dKonst1 _ _ = DummyDual ()
---  dKonst01 _ _ = DummyDual ()
-  dAppend1 _ _ _ = DummyDual ()
-  dSlice1 _ _ _ _ = DummyDual ()
-  dReverse1 _ = DummyDual ()
-  dTranspose1 _ _ = DummyDual ()
-  dReshape1 _ _ _ = DummyDual ()
-  dBuild1 _ _ = DummyDual ()
---  dGather1 _ _ _ _ = DummyDual ()
-  dGatherN _ _ _ _ = DummyDual ()
---  dScatter1 _ _ _ _ = DummyDual ()
-  dScatterN _ _ _ _ = DummyDual ()
-
-  dFromX1 _ = DummyDual ()
-
-  dFrom1X _ = DummyDual ()
 
 -- * Counter handling
 

@@ -7,11 +7,9 @@ module HordeAd.Core.Engine
   ( ADInputs(..)
   , makeADInputs, nullADInputs
   , -- * The most often used part of the high-level API
-    revOnDomainsFun, revOnDomains, fwdOnDomains, valueOnDomains
-  , -- * The less often used part of the high-level API
-    valueGeneral
+    revOnDomainsFun, revOnDomains
   , -- * Operations exposed not for the library users but add-on makers
-    revOnADInputsFun, revOnADInputs, fwdOnADInputs
+    revOnADInputsFun, revOnADInputs
   , generateDeltaInputs, initializerFixed, initializerFixed01
   , -- * Internal operations, exposed, e.g., for tests
     slowFwdOnADInputs, slowFwdOnDomains
@@ -32,10 +30,9 @@ import           Text.Show.Pretty (ppShow)
 
 import HordeAd.Core.Delta (derivativeFromDelta, gradientFromDelta, toInputId)
 import HordeAd.Core.DualClass
-  (Dual, HasInputs (..), dFrom1X, dInput0, dInput1, dummyDual, packDeltaDt)
+  (Dual, HasInputs (..), dFrom1X, dInput0, dInput1, packDeltaDt)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.TensorClass
-
 
 data ADInputs d r = ADInputs
   { inputPrimal0 :: Domain0 r
@@ -59,37 +56,6 @@ inputsToDomains ADInputs{..} =
 
 nullADInputs :: Numeric r => ADInputs d r -> Bool
 nullADInputs adinputs = nullDomains (inputsToDomains adinputs)
-
-
--- * Evaluation that ignores the dual part of the dual numbers.
--- It's intended for efficiently calculating the value of the function only.
-
--- The general case, needed for old hacky tests using only scalars.
-valueGeneral
-  :: Numeric r
-  => (ADInputs 'ADModeValue r -> a)
-  -> Domains r
-  -> a
--- Small enough that inline won't hurt.
-{-# INLINE valueGeneral #-}
-valueGeneral f domains@Domains{..} =
-  let replicateDummy p = V.replicate (V.length p) dummyDual
-      inputs = makeADInputs domains
-                            ( replicateDummy domains0  -- dummy
-                            , replicateDummy domains1 )
-  in f inputs
-
-valueOnDomains
-  :: Numeric r
-  => (ADInputs 'ADModeValue r -> ADVal 'ADModeValue a)
-  -> Domains r
-  -> a
--- Small enough that inline won't hurt.
-{-# INLINE valueOnDomains #-}
-valueOnDomains f parameters =
-  let D v _ = valueGeneral f parameters
-  in v
-
 
 -- * Evaluation that computes gradients.
 
@@ -174,38 +140,6 @@ slowFwdOnDomains parameters f ds =
   let deltaInputs = generateDeltaInputs parameters
       inputs = makeADInputs parameters deltaInputs
   in slowFwdOnADInputs inputs f ds
-
-
--- * Evaluation for efficiently computing forward derivatives.
-
-fwdOnADInputs
-  :: ADInputs 'ADModeDerivative r
-  -> (ADInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative a)
-  -> (Dual 'ADModeDerivative a, a)
-{-# INLINE fwdOnADInputs #-}
-fwdOnADInputs inputs f =
-  let D v d = f inputs
-  in (d, v)
-
--- JVP (jacobian-vector product) or Rop (right operation) are alternative
--- names, but newbies may have trouble understanding it.
--- The direction vector ds is taken as an extra argument.
---
--- The type equality constraint is needed, because the `Dual` type family
--- can't declare it, because it needs to remain injective.
-fwdOnDomains
-  :: ( Numeric r, Dual 'ADModeDerivative r ~ r
-     , Dual 'ADModeDerivative (DynamicTensor r) ~ DynamicTensor r )
-  => Domains r
-  -> (ADInputs 'ADModeDerivative r -> ADVal 'ADModeDerivative a)
-  -> Domains r  -- ds
-  -> (Dual 'ADModeDerivative a, a)
-fwdOnDomains parameters f Domains{..} =
-  let inputs =
-        makeADInputs
-          parameters
-          (V.convert domains0, domains1)  -- ds
-  in fwdOnADInputs inputs f
 
 
 -- * Additional mechanisms

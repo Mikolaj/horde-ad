@@ -576,7 +576,7 @@ test_disparityKonst = do
       arrL = tkonst0N [1, 2, 4, 6] (-0.2)
       arrR :: ADReady r => TensorOf 4 r
       arrR = tkonst0N [1, 2, 4, 6] 0.3
-      arrO = value @(OR.Array 4 Double) (uncurry $ costVolume 0 4) (arrL, arrR)
+      arrO = costVolume @Double 0 4 arrL arrR
       arrDL = revDt (\aL -> costVolume 0 4 aL (tconstant arrR)) arrL arrO
       arrDR = revDt (\aR -> costVolume 0 4 (tconstant arrL) aR) arrR arrO
   assertEqualUpToEpsilon 1e-7
@@ -628,7 +628,7 @@ test_disparitySmall = do
       arrL = tfromList0N [1, 2, 3, 2] [0.2, 0.5, -0.2, 0.0001, 0.44, 0.9, -0.9, 0.00001, -0.22, -0.28, -0.34, -0.40]
       arrR :: ADReady r => TensorOf 4 r
       arrR = tfromList0N [1, 2, 3, 2] [-0.40,-0.22,-0.28,-0.34, 0.22360679774997896,0.35355339059327373,0.20412414523193154,0.5, -0.35355339059327373,0.16666666666666666,0.17677669529663687,-0.25]
-      arrO = value @(OR.Array 4 Double) (uncurry $ costVolume 0 4) (arrL, arrR)
+      arrO = costVolume @Double 0 4 arrL arrR
       arrDL = revDt (\aL -> costVolume 0 4 aL (tconstant arrR)) arrL arrO
       arrDR = revDt (\aR -> costVolume 0 4 (tconstant arrL) aR) arrR arrO
   assertEqualUpToEpsilon 1e-7

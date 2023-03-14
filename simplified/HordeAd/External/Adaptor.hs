@@ -6,7 +6,7 @@ module HordeAd.External.Adaptor
   , AdaptableDomains(toDomains, nParams, nScalars)
   , RandomDomains(randomVals)
   , AdaptableInputs(Value), parseDomains, parseADInputs
-  , value, valueAtDomains, rev, revDt, fwd
+  , rev, revDt
   ) where
 
 import Prelude
@@ -22,27 +22,11 @@ import           Numeric.LinearAlgebra (Numeric, Vector)
 import qualified Numeric.LinearAlgebra as LA
 import           System.Random
 
-import HordeAd.Core.DualClass (Dual, inputConstant)
+import HordeAd.Core.DualClass (inputConstant)
 import HordeAd.Core.DualNumber
 import HordeAd.Core.Engine
 import HordeAd.Core.TensorClass
 import HordeAd.Internal.TensorOps
-
-value :: forall a vals r advals d.
-         ( r ~ Scalar vals, vals ~ Value advals
-         , d ~ Mode advals, d ~ 'ADModeValue
-         , Numeric r, Adaptable advals )
-      => (advals -> ADVal d a) -> vals -> a
-value f vals = valueAtDomains vals (toDomains vals) f
-
-valueAtDomains :: forall a vals r advals d.
-                  ( r ~ Scalar vals, vals ~ Value advals
-                  , d ~ Mode advals, d ~ 'ADModeValue
-                  , Numeric r, Adaptable advals )
-               => vals -> Domains r -> (advals -> ADVal d a) -> a
-valueAtDomains vals flattenedParameters f =
-  let g inputs = f $ parseADInputs vals inputs
-  in valueOnDomains g flattenedParameters
 
 rev :: forall a vals r advals d.
        ( r ~ Scalar vals, vals ~ Value advals
@@ -74,18 +58,6 @@ revDtFun :: forall a vals r advals d.
 revDtFun f vals dt =
   let g inputs = f $ parseADInputs vals inputs
   in parseDomains vals $ fst $ revOnDomainsFun dt g (toDomains vals)
-
--- This takes the sensitivity parameter, by convention.
-fwd :: forall a vals r advals d.
-       ( r ~ Scalar vals, vals ~ Value advals
-       , d ~ Mode advals, d ~ 'ADModeDerivative
-       , Numeric r, Dual d r ~ r, Dual d (DynamicTensor r) ~ DynamicTensor r
-       , Adaptable advals )
-    => (advals -> ADVal d a) -> vals -> vals
-    -> Dual d a  -- normally equals @a@
-fwd f x ds =
-  let g inputs = f $ parseADInputs ds inputs
-  in fst $ fwdOnDomains (toDomains x) g (toDomains ds)
 
 -- Inspired by adaptors from @tomjaguarpaw's branch.
 type Adaptable advals =
