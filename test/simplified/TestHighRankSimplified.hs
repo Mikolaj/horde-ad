@@ -83,7 +83,7 @@ testBar =
 
 -- A dual-number and list-based version of a function that goes
 -- from `R^3` to `R`.
-fooD :: forall r n d. (ADModeAndNum d r, KnownNat n)
+fooD :: forall r n. (ADModeAndNum r, KnownNat n)
      => [ADVal (OR.Array n r)] -> ADVal (OR.Array n r)
 fooD [x, y, z] =
   let w = x * sin y

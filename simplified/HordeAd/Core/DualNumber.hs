@@ -22,8 +22,7 @@ module HordeAd.Core.DualNumber
   , softMaxV, build1POPL, build1Elementwise, build1Closure, build1
   , map1POPL, map1Elementwise
   , -- * Re-exports
-    ADMode(..)
-  , IsPrimal (..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs
+    IsPrimal (..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs
   , Domain0, Domain1, Domains(..), nullDomains  -- an important re-export
   ) where
 
@@ -100,7 +99,7 @@ dDnotShared = D
 -- The @Scalar@ in the name means that the second argument is the underlying
 -- scalar type of a well behaved (wrt the differentiation mode in the first
 -- argument) collection of primal and dual components of dual numbers.
-type ADModeAndNum (d :: ADMode) r =
+type ADModeAndNum r =
   ( Numeric r
   , Show r
   , Show (Dual (OT.Array r))
@@ -131,15 +130,15 @@ instance TensorIsArray Float where
   fromArray = id
 
 -- | Is a scalar and will be used to compute gradients via delta-expressions.
-type HasDelta r = ( ADModeAndNum 'ADModeGradient r
+type HasDelta r = ( ADModeAndNum r
                   , HasInputs r
                   , Dual r ~ Delta0 r )
 
-fromX1 :: forall n d r. (ADModeAndNum d r, KnownNat n)
+fromX1 :: forall n r. (ADModeAndNum r, KnownNat n)
        => ADVal (OT.Array r) -> ADVal (TensorOf n r)
 fromX1 (D u u') = dDnotShared (tfromD u) (dFromX1 u')
 
-from1X :: (ADModeAndNum d r, KnownNat n)
+from1X :: (ADModeAndNum r, KnownNat n)
        => ADVal (TensorOf n r) -> ADVal (OT.Array r)
 from1X (D u u') = dDnotShared (tfromR u) (dFrom1X u')
 
@@ -313,7 +312,7 @@ constant :: IsPrimal a => a -> ADVal a
 constant a = dD a dZero
 
 relu
-  :: (ADModeAndNum d r, IsPrimalAndHasFeatures a r)
+  :: (ADModeAndNum r, IsPrimalAndHasFeatures a r)
   => ADVal a -> ADVal a
 relu v@(D u _) =
   let oneIfGtZero = omap (\x -> if x > 0 then 1 else 0) u
@@ -322,27 +321,27 @@ relu v@(D u _) =
 
 -- Operations resulting in a scalar
 
-sumElements10 :: ADModeAndNum d r
+sumElements10 :: ADModeAndNum r
               => ADVal (Vec r) -> ADVal r
 sumElements10 (D u u') = dD (tsum0R u) (dSum0 (tshapeR u) u')
 
-index10 :: ADModeAndNum d r => ADVal (Vec r) -> Int -> ADVal r
+index10 :: ADModeAndNum r => ADVal (Vec r) -> Int -> ADVal r
 index10 (D u u') ix = dD (u `tindex0R` singletonIndex ix)
                          (dIndex0 u' (singletonIndex ix) (tshapeR u))
 
-minimum0 :: ADModeAndNum d r => ADVal (Vec r) -> ADVal r
+minimum0 :: ADModeAndNum r => ADVal (Vec r) -> ADVal r
 minimum0 (D u u') =
   let ix = tminIndexR u
   in dD (OR.unScalar $ tindex1R u ix)
         (dIndex0 u' (singletonIndex ix) (flattenShape (tshapeR u)))
 
-maximum0 :: ADModeAndNum d r => ADVal (Vec r) -> ADVal r
+maximum0 :: ADModeAndNum r => ADVal (Vec r) -> ADVal r
 maximum0 (D u u') =
   let ix = tmaxIndexR u
   in dD (OR.unScalar $ tindex1R u ix)
         (dIndex0 u' (singletonIndex ix) (flattenShape (tshapeR u)))
 
-foldl'0 :: ADModeAndNum d r
+foldl'0 :: ADModeAndNum r
         => (ADVal r -> ADVal r -> ADVal r)
         -> ADVal r -> ADVal (Vec r)
         -> ADVal r
@@ -351,27 +350,27 @@ foldl'0 f uu' (D v v') =
         f (dD p (dIndex0 v' (singletonIndex ix) (flattenShape (tshapeR v)))) acc
   in V.ifoldl' g uu' (OR.toVector v)
 
-altSumElements10 :: ADModeAndNum d r => ADVal (Vec r) -> ADVal r
+altSumElements10 :: ADModeAndNum r => ADVal (Vec r) -> ADVal r
 altSumElements10 = foldl'0 (+) 0
 
 -- | Dot product.
 infixr 8 <.>!
-(<.>!) :: ADModeAndNum d r
+(<.>!) :: ADModeAndNum r
        => ADVal (Vec r) -> ADVal (Vec r) -> ADVal r
 (<.>!) (D u u') (D v v') = dD (tdot0R u v)
                               (dAdd (dDot0 v u') (dDot0 u v'))
 
 -- | Dot product with a constant vector.
 infixr 8 <.>!!
-(<.>!!) :: ADModeAndNum d r
+(<.>!!) :: ADModeAndNum r
         => ADVal (Vec r) -> Vec r -> ADVal r
 (<.>!!) (D u u') v = dD (tdot0R u v) (dDot0 v u')
 
 sumElementsVectorOfDual
-  :: ADModeAndNum d r => Data.Vector.Vector (ADVal r) -> ADVal r
+  :: ADModeAndNum r => Data.Vector.Vector (ADVal r) -> ADVal r
 sumElementsVectorOfDual = V.foldl' (+) 0
 
-softMax :: ADModeAndNum d r
+softMax :: ADModeAndNum r
         => Data.Vector.Vector (ADVal r)
         -> Data.Vector.Vector (ADVal r)
 softMax us =
@@ -380,7 +379,7 @@ softMax us =
   in V.map (\r -> r * recip sumExpUs) expUs
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropy :: forall d r. ADModeAndNum d r
+lossCrossEntropy :: forall r. ADModeAndNum r
                  => Vector r
                  -> Data.Vector.Vector (ADVal r)
                  -> ADVal r
@@ -393,7 +392,7 @@ scaleADVal :: (Num a, IsPrimal a) => a -> ADVal a -> ADVal a
 scaleADVal a (D u u') = dD (a * u) (dScale a u')
 
 -- In terms of hmatrix: @-(log res <.> targ)@.
-lossCrossEntropyV :: ADModeAndNum d r
+lossCrossEntropyV :: ADModeAndNum r
                   => Vec r
                   -> ADVal (Vec r)
                   -> ADVal r
@@ -403,7 +402,7 @@ lossCrossEntropyV targ res = negate $ log res <.>!! targ
 -- only when @target@ is one-hot. Otherwise, results vary wildly. In our
 -- rendering of the MNIST data all labels are one-hot.
 lossSoftMaxCrossEntropyV
-  :: ADModeAndNum d r
+  :: ADModeAndNum r
   => Vec r -> ADVal (Vec r) -> ADVal r
 lossSoftMaxCrossEntropyV target (D u u') =
   -- The following protects from underflows, overflows and exploding gradients
@@ -422,13 +421,13 @@ lossSoftMaxCrossEntropyV target (D u u') =
 -- Operations resulting in a vector (really, a rank 1 OR.Array)
 
 -- @1@ means rank one, so the dual component represents a vector.
-fromList1 :: ADModeAndNum d r
+fromList1 :: ADModeAndNum r
           => [ADVal r] -> ADVal (Vec r)
 fromList1 l =
   dD (tfromListR $ map (\(D u _) -> tscalarR u) l)
      (dFromList1 $ map (\(D _ u') -> dScalar1 u') l)
 
-fromVector1 :: ADModeAndNum d r
+fromVector1 :: ADModeAndNum r
             => Data.Vector.Vector (ADVal r) -> ADVal (Vec r)
 fromVector1 l =
   dD (tfromVectorR
@@ -436,32 +435,32 @@ fromVector1 l =
      (dFromVector1
       $ V.map (\(D _ u') -> dScalar1 u') l)
 
-konst1 :: ADModeAndNum d r => ADVal r -> Int -> ADVal (Vec r)
+konst1 :: ADModeAndNum r => ADVal r -> Int -> ADVal (Vec r)
 konst1 (D u u') n =
   dD (tkonstR n (tscalarR u)) (dKonst1 n (dScalar1 u'))
 
-append1 :: ADModeAndNum d r
+append1 :: ADModeAndNum r
         => ADVal (Vec r) -> ADVal (Vec r) -> ADVal (Vec r)
 append1 (D u u') (D v v') = dD (tappendR u v)
                                (dAppend1 u' (head $ OR.shapeL u) v')
 
-slice1 :: ADModeAndNum d r
+slice1 :: ADModeAndNum r
        => Int -> Int -> ADVal (Vec r) -> ADVal (Vec r)
 slice1 i k (D u u') = dD (tsliceR i k u)
                          (dSlice1 i k u' (head $ OR.shapeL u))
 
-reverse1 :: ADModeAndNum d r => ADVal (Vec r) -> ADVal (Vec r)
+reverse1 :: ADModeAndNum r => ADVal (Vec r) -> ADVal (Vec r)
 reverse1 (D u u') = dD (treverseR u) (dReverse1 u')
 
 -- TODO: define Enum instance of (AstInt r) to enable AST for this.
 -- No padding; remaining areas ignored.
-maxPool1 :: ADModeAndNum d r
+maxPool1 :: ADModeAndNum r
          => Int -> Int -> ADVal (Vec r) -> ADVal (Vec r)
 maxPool1 ksize stride v@(D u _) =
   let slices = [slice1 i ksize v | i <- [0, stride .. tsizeR u - ksize]]
   in fromList1 $ map maximum0 slices
 
-softMaxV :: ADModeAndNum d r
+softMaxV :: ADModeAndNum r
          => ADVal (Vec r) -> ADVal (Vec r)
 softMaxV d@(D u _) =
   let expU = exp d  -- shared in 2 places, though cse may do this for us
@@ -478,13 +477,13 @@ build1POPL n f = V.fromList $ map f [0 .. n - 1]
 -- instead of a single delta expression representing an array.
 -- We gain a little by storing the primal part in an unboxed vector.
 build1Elementwise
-  :: ADModeAndNum d r
+  :: ADModeAndNum r
   => Int -> (Int -> ADVal r) -> ADVal (Vec r)
 build1Elementwise n f = fromList1 $ map f [0 .. n - 1]
   -- equivalent to @fromVector1 $ build1POPL n f@
 
 build1Closure
-  :: ADModeAndNum d r
+  :: ADModeAndNum r
   => Int -> (Int -> ADVal r) -> ADVal (Vec r)
 build1Closure n f =
   let g i = let D u _ = f i in u
@@ -493,7 +492,7 @@ build1Closure n f =
         (dBuild1 n (dScalar1 . h))
 
 build1
-  :: ADModeAndNum d r
+  :: ADModeAndNum r
   => Int -> (Int -> ADVal r) -> ADVal (Vec r)
 build1 = build1Closure
 
@@ -502,7 +501,7 @@ map1POPL :: (ADVal r -> ADVal r) -> Data.Vector.Vector (ADVal r)
 map1POPL = V.map
 
 map1Elementwise
-  :: ADModeAndNum d r
+  :: ADModeAndNum r
   => (ADVal r -> ADVal r) -> ADVal (Vec r) -> ADVal (Vec r)
 map1Elementwise f d@(D u _) =
   build1Elementwise (tsizeR u) $ \i -> f (index10 d i)

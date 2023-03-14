@@ -27,8 +27,6 @@
 -- of the same shared terms is prohibitive expensive.
 module HordeAd.Core.DualClass
   ( -- * The most often used part of the mid-level API that gets re-exported in high-level API
-    ADMode(..)
-  , -- * The less often used part of the mid-level API that gets re-exported in high-level API; it leaks implementation details
     IsPrimal(..), IsPrimalR(..), IsPrimalAndHasFeatures, IsPrimalAndHasInputs
   , -- * The API elements used for implementing high-level API, but not re-exported in high-level API
     Dual, HasRanks(..), HasInputs(..), dummyDual
@@ -71,12 +69,6 @@ type IsPrimalAndHasInputs a r =
 
 
 -- * Class definitions
-
--- | The enumeration of all available automatic differentiation computation
--- modes.
-data ADMode =
-    ADModeGradient
-  deriving Show
 
 -- | The type family that enumerates all possible \"ranks\" for each
 -- automatic differentiation mode. The second type argument is meant
@@ -137,7 +129,7 @@ instance (IsPrimalR r, KnownNat n)
   recordSharing = recordSharingR
 
 -- | Assuming that the type argument is the primal component of dual numbers
--- with differentiation mode `ADModeGradient`, this class makes available
+-- this class makes available
 -- the additional operations of delta-input and of packing a delta expression
 -- and a dt parameter for computing its gradient.
 class HasInputs a where
@@ -224,7 +216,7 @@ class HasRanks r where
 
 -- * Backprop gradient method instances
 
--- | This, just as many other @ADModeGradient@ instances, is an impure
+-- | This is an impure
 -- instance, because 'recordSharing' adorns terms with an @Int@ identifier
 -- from a counter that is afterwards incremented (and never changed
 -- in any other way).

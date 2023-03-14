@@ -39,7 +39,7 @@ import HordeAd.Internal.TensorOps
 -- In principle, this instance is only useful for comparative tests,
 -- though for code without build/map/etc., it should be equivalent
 -- to going via Ast.
-instance ADModeAndNum d Double => Tensor (ADVal Double) where
+instance ADModeAndNum Double => Tensor (ADVal Double) where
   type TensorOf n (ADVal Double) = ADVal (OR.Array n Double)
   type IntOf (ADVal Double) = Int
 
@@ -78,7 +78,7 @@ instance ADModeAndNum d Double => Tensor (ADVal Double) where
   tscalar = scalar
   tunScalar = unScalar
 
-instance ADModeAndNum d Float => Tensor (ADVal Float) where
+instance ADModeAndNum Float => Tensor (ADVal Float) where
   type TensorOf n (ADVal Float) = ADVal (OR.Array n Float)
   type IntOf (ADVal Float) = Int
 
@@ -110,7 +110,7 @@ instance ADModeAndNum d Float => Tensor (ADVal Float) where
   tscalar = scalar
   tunScalar = unScalar
 
-instance ADModeAndNum d Double => HasPrimal (ADVal Double) where
+instance ADModeAndNum Double => HasPrimal (ADVal Double) where
   type ScalarOf (ADVal Double) = Double
   type Primal (ADVal Double) = Double
   type DualOf n (ADVal Double) = Dual (OR.Array n Double)
@@ -126,7 +126,7 @@ instance ADModeAndNum d Double => HasPrimal (ADVal Double) where
   tfromR = from1X
   tfromD = fromX1
 
-instance ADModeAndNum d Float => HasPrimal (ADVal Float) where
+instance ADModeAndNum Float => HasPrimal (ADVal Float) where
   type ScalarOf (ADVal Float) = Float
   type Primal (ADVal Float) = Float
   type DualOf n (ADVal Float) = Dual (OR.Array n Float)
@@ -145,7 +145,7 @@ instance ADModeAndNum d Float => HasPrimal (ADVal Float) where
 
 -- * ADVal combinators generalizing ranked tensor operations
 
-shape :: (ADModeAndNum d r, KnownNat n)
+shape :: (ADModeAndNum r, KnownNat n)
       => ADVal (TensorOf n r) -> ShapeInt n
 shape (D u _) = tshape u
 
@@ -155,8 +155,8 @@ shape (D u _) = tshape u
 --
 -- First index is for outermost dimension; empty index means identity,
 -- index ouf of bounds produces zero (but beware of vectorization).
-indexZ :: forall m n d r.
-          (ADModeAndNum d r, IsPrimal (TensorOf n r), KnownNat m, KnownNat n)
+indexZ :: forall m n r.
+          (ADModeAndNum r, IsPrimal (TensorOf n r), KnownNat m, KnownNat n)
        => ADVal (TensorOf (m + n) r) -> IndexOf m r
        -> ADVal (TensorOf n r)
 indexZ (D u u') ix =
@@ -165,20 +165,20 @@ indexZ (D u u') ix =
      then dD (tindex u ix) (dIndexN u' ix sh)
      else dD (tkonst0N (dropShape @m sh) 0) dZero
 
-sum' :: (ADModeAndNum d r, IsPrimal (TensorOf n r), KnownNat n)
+sum' :: (ADModeAndNum r, IsPrimal (TensorOf n r), KnownNat n)
      => ADVal (TensorOf (1 + n) r) -> ADVal (TensorOf n r)
 sum' (D u u') = dD (tsum u) (dSum1 (tlength u) u')
 
-sum0 :: (ADModeAndNum d r, KnownNat n)
+sum0 :: (ADModeAndNum r, KnownNat n)
      => ADVal (TensorOf n r) -> ADVal r
 sum0 (D u u') = dD (tunScalar $ tsum0 u) (dSum0 (tshape u) u')
 
-dot0 :: (ADModeAndNum d r, KnownNat n)
+dot0 :: (ADModeAndNum r, KnownNat n)
      => ADVal (TensorOf n r) -> ADVal (TensorOf n r) -> ADVal r
 dot0 (D u u') (D v v') = dD (tunScalar $ tdot0 u v)
                             (dAdd (dDot0 v u') (dDot0 u v'))
 
-scatterNClosure :: ( ADModeAndNum d r, IsPrimal (TensorOf (p + n) r)
+scatterNClosure :: ( ADModeAndNum r, IsPrimal (TensorOf (p + n) r)
                    , KnownNat m, KnownNat p, KnownNat n )
                 => ShapeInt (p + n) -> ADVal (TensorOf (m + n) r)
                 -> (IndexOf m r -> IndexOf p r)
@@ -186,7 +186,7 @@ scatterNClosure :: ( ADModeAndNum d r, IsPrimal (TensorOf (p + n) r)
 scatterNClosure sh (D u u') f =
   dD (tscatter sh u f) (dScatterN sh u' f (tshape u))
 
-fromList :: (ADModeAndNum d r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
+fromList :: (ADModeAndNum r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
          => [ADVal (TensorOf n r)]
          -> ADVal (TensorOf (1 + n) r)
 fromList lu =
@@ -194,59 +194,59 @@ fromList lu =
   dD (tfromList $ map (\(D u _) -> u) lu)
      (dFromList1 $ map (\(D _ u') -> u') lu)
 
---fromList0N :: (ADModeAndNum d r, KnownNat n)
+--fromList0N :: (ADModeAndNum r, KnownNat n)
 --           => ShapeInt n -> [ADVal r]
 --           -> ADVal (TensorOf n r)
 --fromList0N sh l =
 --  dD (tfromList0N sh $ map (\(D u _) -> u) l)  -- I hope this fuses
 --     (dFromList01 sh $ map (\(D _ u') -> u') l)
 
-fromVector :: (ADModeAndNum d r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
+fromVector :: (ADModeAndNum r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
            => Data.Vector.Vector (ADVal (TensorOf n r))
            -> ADVal (TensorOf (1 + n) r)
 fromVector lu =
   dD (tfromVector $ V.map (\(D u _) -> u) lu)
      (dFromVector1 $ V.map (\(D _ u') -> u') lu)
 
---fromVector0N :: (ADModeAndNum d r, KnownNat n)
+--fromVector0N :: (ADModeAndNum r, KnownNat n)
 --             => ShapeInt n -> Data.Vector.Vector (ADVal r)
 --             -> ADVal (TensorOf n r)
 --fromVector0N sh l =
 --  dD (tfromVector0N sh $ V.convert $ V.map (\(D u _) -> u) l)  -- hope it fuses
 --     (dFromVector01 sh $ V.map (\(D _ u') -> u') l)
 
-konst :: (ADModeAndNum d r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
+konst :: (ADModeAndNum r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
       => Int -> ADVal (TensorOf n r) -> ADVal (TensorOf (1 + n) r)
 konst k (D u u') = dD (tkonst k u) (dKonst1 k u')
 
---konst0N :: (ADModeAndNum d r, KnownNat n)
+--konst0N :: (ADModeAndNum r, KnownNat n)
 --        => ShapeInt n -> ADVal r -> ADVal (TensorOf n r)
 --konst0N sh (D u u') = dD (tkonst0N sh u) (dKonst01 sh u')
 
-append :: (ADModeAndNum d r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
+append :: (ADModeAndNum r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
        => ADVal (TensorOf (1 + n) r) -> ADVal (TensorOf (1 + n) r)
        -> ADVal (TensorOf (1 + n) r)
 append (D u u') (D v v') = dD (tappend u v) (dAppend1 u' (tlength u) v')
 
-slice :: (ADModeAndNum d r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
+slice :: (ADModeAndNum r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
       => Int -> Int -> ADVal (TensorOf (1 + n) r)
       -> ADVal (TensorOf (1 + n) r)
 slice i k (D u u') = dD (tslice i k u) (dSlice1 i k u' (tlength u))
 
-reverse' :: (ADModeAndNum d r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
+reverse' :: (ADModeAndNum r, IsPrimal (TensorOf (1 + n) r), KnownNat n)
          => ADVal (TensorOf (1 + n) r) -> ADVal (TensorOf (1 + n) r)
 reverse' (D u u') = dD (treverse u) (dReverse1 u')
 
-transpose :: (ADModeAndNum d r, IsPrimal (TensorOf n r), KnownNat n)
+transpose :: (ADModeAndNum r, IsPrimal (TensorOf n r), KnownNat n)
           => Permutation -> ADVal (TensorOf n r) -> ADVal (TensorOf n r)
 transpose perm (D u u') = dD (ttranspose perm u) (dTranspose1 perm u')
 
-reshape :: (ADModeAndNum d r, IsPrimal (TensorOf m r), KnownNat m, KnownNat n)
+reshape :: (ADModeAndNum r, IsPrimal (TensorOf m r), KnownNat m, KnownNat n)
         => ShapeInt m -> ADVal (TensorOf n r) -> ADVal (TensorOf m r)
 reshape sh (D u u') = dD (treshape sh u) (dReshape1 (tshape u) sh u')
 
 build1, _build1Closure
-  :: (ADModeAndNum d r, KnownNat n, IsPrimal (TensorOf (1 + n) r))
+  :: (ADModeAndNum r, KnownNat n, IsPrimal (TensorOf (1 + n) r))
   => Int -> (Int -> ADVal (TensorOf n r))
   -> ADVal (TensorOf (1 + n) r)
 build1 k f = fromList $ map f [0 .. k - 1]  -- element-wise (POPL) version
@@ -260,7 +260,7 @@ _build1Closure k f =  -- stores closures on tape
 
 -- Note that if any index is out of bounds, the result of that particular
 -- projection is defined and is 0 (but beware of vectorization).
-gatherNClosure :: ( ADModeAndNum d r, IsPrimal (TensorOf (m + n) r)
+gatherNClosure :: ( ADModeAndNum r, IsPrimal (TensorOf (m + n) r)
                   , KnownNat m, KnownNat p, KnownNat n )
                => ShapeInt (m + n) -> ADVal (TensorOf (p + n) r)
                -> (IndexOf m r -> IndexOf p r)
@@ -268,10 +268,10 @@ gatherNClosure :: ( ADModeAndNum d r, IsPrimal (TensorOf (m + n) r)
 gatherNClosure sh (D u u') f =
   dD (tgather sh u f) (dGatherN sh u' f (tshape u))
 
-scalar :: ADModeAndNum d r => ADVal r -> ADVal (TensorOf 0 r)
+scalar :: ADModeAndNum r => ADVal r -> ADVal (TensorOf 0 r)
 scalar (D u u') = dD (tscalar u) (dScalar1 u')
 
-unScalar :: ADModeAndNum d r => ADVal (TensorOf 0 r) -> ADVal r
+unScalar :: ADModeAndNum r => ADVal (TensorOf 0 r) -> ADVal r
 unScalar (D u u') = dD (tunScalar u) (dUnScalar0 u')
 
 
@@ -290,43 +290,43 @@ unScalar (D u u') = dD (tunScalar u) (dUnScalar0 u')
 -- For now, we interpret only in the concrete ADVal instance,
 -- which is the only interpretation needed for anything apart from tests.
 
-type AstEnv (d :: ADMode) r = IM.IntMap (AstVar (ADVal (OT.Array r)))
+type AstEnv r = IM.IntMap (AstVar (ADVal (OT.Array r)))
 
 data AstVar a =
     AstVarR a
   | AstVarI Int
  deriving Show
 
-extendEnvR :: (ADModeAndNum d r, KnownNat n, TensorOf n r ~ OR.Array n r)
+extendEnvR :: (ADModeAndNum r, KnownNat n, TensorOf n r ~ OR.Array n r)
            => AstVarName (OR.Array n r) -> ADVal (OR.Array n r)
-           -> AstEnv d r -> AstEnv d r
+           -> AstEnv r -> AstEnv r
 extendEnvR v@(AstVarName var) d =
   IM.insertWithKey (\_ _ _ -> error $ "extendEnvR: duplicate " ++ show v)
                    var (AstVarR $ from1X d)
 
 extendEnvI :: AstVarName Int -> Int
-           -> AstEnv d r -> AstEnv d r
+           -> AstEnv r -> AstEnv r
 extendEnvI v@(AstVarName var) i =
   IM.insertWithKey (\_ _ _ -> error $ "extendEnvI: duplicate " ++ show v)
                    var (AstVarI i)
 
 extendEnvVars :: AstVarList m -> IndexInt m
-              -> AstEnv d r -> AstEnv d r
+              -> AstEnv r -> AstEnv r
 extendEnvVars vars ix env =
   let assocs = zip (sizedListToList vars) (indexToList ix)
   in foldr (uncurry extendEnvI) env assocs
 
 interpretLambdaI
-  :: (AstEnv d r -> Ast n r -> b)
-  -> AstEnv d r -> (AstVarName Int, Ast n r) -> Int
+  :: (AstEnv r -> Ast n r -> b)
+  -> AstEnv r -> (AstVarName Int, Ast n r) -> Int
   -> b
 {-# INLINE interpretLambdaI #-}
 interpretLambdaI f env (var, ast) =
   \i -> f (extendEnvI var i env) ast
 
 interpretLambdaIndexToIndex
-  :: (AstEnv d r -> AstInt r -> Int)
-  -> AstEnv d r -> (AstVarList m, AstIndex p r) -> IndexInt m
+  :: (AstEnv r -> AstInt r -> Int)
+  -> AstEnv r -> (AstVarList m, AstIndex p r) -> IndexInt m
   -> IndexInt p
 {-# INLINE interpretLambdaIndexToIndex #-}
 interpretLambdaIndexToIndex f env (vars, asts) =
@@ -334,8 +334,8 @@ interpretLambdaIndexToIndex f env (vars, asts) =
 
 class InterpretAst r where
   interpretAst
-    :: forall n d. (ADModeAndNum d r, KnownNat n)
-    => AstEnv d r -> Ast n r -> ADVal (OR.Array n r)
+    :: forall n. (ADModeAndNum r, KnownNat n)
+    => AstEnv r -> Ast n r -> ADVal (OR.Array n r)
 
 instance InterpretAst Double where
  interpretAst = interpretAstRec
@@ -352,15 +352,15 @@ instance InterpretAst Double where
 -- e.g., to differentiate directly, and so we'd first interpret it in itself,
 -- simplifying, and its primal part in OR.Array.
    interpretAstPrimal
-     :: (ADModeAndNum d r, KnownNat n, r ~ Double)
-     => AstEnv d r
+     :: (ADModeAndNum r, KnownNat n, r ~ Double)
+     => AstEnv r
      -> AstPrimalPart n r -> OR.Array n r
    interpretAstPrimal env (AstPrimalPart v) =
      toArray $ tprimalPart $ interpretAstRec env v
 
    interpretAstRec
-     :: forall n r d. (ADModeAndNum d r, KnownNat n, r ~ Double)
-     => AstEnv d r
+     :: forall n r. (ADModeAndNum r, KnownNat n, r ~ Double)
+     => AstEnv r
      -> Ast n r -> ADVal (OR.Array n r)
    interpretAstRec env = \case
      AstVar _sh (AstVarName var) -> case IM.lookup var env of
@@ -415,8 +415,8 @@ instance InterpretAst Double where
      AstFromDynamic{} ->
        error "interpretAst: AstFromDynamic is not for library users"
 
-   interpretAstInt :: forall r d. (ADModeAndNum d r, r ~ Double)
-                   => AstEnv d r
+   interpretAstInt :: forall r. (ADModeAndNum r, r ~ Double)
+                   => AstEnv r
                    -> AstInt r -> Int
    interpretAstInt env = \case
      AstIntVar (AstVarName var) -> case IM.lookup var env of
@@ -435,8 +435,8 @@ instance InterpretAst Double where
      AstMinIndex1 v -> tminIndex0 $ interpretAstRec env v
      AstMaxIndex1 v -> tmaxIndex0 $ interpretAstRec env v
 
-   interpretAstBool :: (ADModeAndNum d r, r ~ Double)
-                    => AstEnv d r
+   interpretAstBool :: (ADModeAndNum r, r ~ Double)
+                    => AstEnv r
                     -> AstBool r -> Bool
    interpretAstBool env = \case
      AstBoolOp opCodeBool args ->
@@ -465,14 +465,14 @@ instance InterpretAst Float where
 -- simplifying, and its primal part in OR.Array.
    interpretAstPrimal
      :: (KnownNat n, r ~ Float)
-     => AstEnv d r
+     => AstEnv r
      -> AstPrimalPart n r -> OR.Array n r
    interpretAstPrimal env (AstPrimalPart v) =
      toArray $ tprimalPart $ interpretAstRec env v
 
    interpretAstRec
-     :: forall n r d. (ADModeAndNum d r, KnownNat n, r ~ Float)
-     => AstEnv d r
+     :: forall n r. (ADModeAndNum r, KnownNat n, r ~ Float)
+     => AstEnv r
      -> Ast n r -> ADVal (OR.Array n r)
    interpretAstRec env = \case
      AstVar _sh (AstVarName var) -> case IM.lookup var env of
@@ -527,8 +527,8 @@ instance InterpretAst Float where
      AstFromDynamic{} ->
        error "interpretAst: AstFromDynamic is not for library users"
 
-   interpretAstInt :: forall r d. r ~ Float
-                   => AstEnv d r
+   interpretAstInt :: forall r. r ~ Float
+                   => AstEnv r
                    -> AstInt r -> Int
    interpretAstInt env = \case
      AstIntVar (AstVarName var) -> case IM.lookup var env of
@@ -548,7 +548,7 @@ instance InterpretAst Float where
      AstMaxIndex1 v -> tmaxIndex0 $ interpretAstRec env v
 
    interpretAstBool :: r ~ Float
-                    => AstEnv d r
+                    => AstEnv r
                     -> AstBool r -> Bool
    interpretAstBool env = \case
      AstBoolOp opCodeBool args ->

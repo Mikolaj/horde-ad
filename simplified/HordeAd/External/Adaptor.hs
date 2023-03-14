@@ -63,7 +63,7 @@ type Adaptable advals =
 
 type AdaptableScalar d r =
   ( Scalar r ~ r, Value (ADVal r) ~ r
-  , ADModeAndNum d r, Adaptable (ADVal r)
+  , ADModeAndNum r, Adaptable (ADVal r)
   , Random r )
 
 -- TODO: merge these two classes. Is it even possible?
@@ -117,7 +117,7 @@ instance RandomDomains Double where
   randomVals range = randomR (- range, range)
     -- note that unlike in hmatrix the range is closed from the top
 
-instance ADModeAndNum d Double
+instance ADModeAndNum Double
          => AdaptableInputs Double (ADVal Double) where
   type Value (ADVal Double) = Double
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal0 of
@@ -140,7 +140,7 @@ instance AdaptableDomains Float where
 instance RandomDomains Float where
   randomVals range = randomR (- range, range)
 
-instance ADModeAndNum d Float
+instance ADModeAndNum Float
          => AdaptableInputs Float (ADVal Float) where
   type Value (ADVal Float) = Float
   fromADInputs _aInit inputs@ADInputs{..} = case V.uncons inputPrimal0 of
@@ -195,7 +195,7 @@ instance KnownNat n
         arr = OR.fromVector undefined $ createRandomVector (OR.size undefined) g1  -- TODO
     in (arr, g2)
 
-instance ( ADModeAndNum d r, KnownNat n, TensorOf n r ~ OR.Array n r
+instance ( ADModeAndNum r, KnownNat n, TensorOf n r ~ OR.Array n r
          , DynamicTensor r ~ OT.Array r )
          => AdaptableInputs r (ADVal (OR.Array n r)) where
   type Value (ADVal (OR.Array n r)) = OR.Array n r

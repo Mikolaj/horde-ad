@@ -208,14 +208,14 @@ testBar =
     (3.1435239435581166,-1.1053869545195814)
     (rev (bar @(ADVal Double)) (1.1, 2.2))
 
-barADVal :: forall r d. ADModeAndNum d r => (ADVal r, ADVal r) -> ADVal r
+barADVal :: forall r. ADModeAndNum r => (ADVal r, ADVal r) -> ADVal r
 barADVal = bar @(ADVal r)
 
 testBarADVal :: Assertion
 testBarADVal =
   assertEqualUpToEpsilon 1e-9
     (11.49618087412679,-135.68959896367525)
-    (revDt (barADVal @Double @'ADModeGradient) (1.1, 3) 42.2)
+    (revDt (barADVal @Double) (1.1, 3) 42.2)
 
 barADVal2 :: forall r a. (a ~ ADVal r, r ~ Double)
           => (a, a, a) -> a
@@ -270,7 +270,7 @@ testBazRenumbered =
 
 -- A dual-number and list-based version of a function that goes
 -- from `R^3` to `R`.
-fooD :: forall r d. ADModeAndNum d r => [ADVal r] -> ADVal r
+fooD :: forall r. ADModeAndNum r => [ADVal r] -> ADVal r
 fooD [x, y, z] =
   let w = x * sin y
   in atan2 z w + z * w
@@ -337,7 +337,7 @@ fooNoGoAst v =
 
 testFooNoGoAst :: Assertion
 testFooNoGoAst =
-  let f :: (ADModeAndNum d r, InterpretAst r)
+  let f :: (ADModeAndNum r, InterpretAst r)
         => ADVal (OR.Array 1 r) -> ADVal (OR.Array 1 r)
       f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
                          (fooNoGoAst (AstVar [5] (AstVarName 0)))
@@ -454,7 +454,7 @@ barReluAst x = relu1 @n @(Ast 0 r) $ bar (x, relu1 x)
 
 testBarReluAst0 :: Assertion
 testBarReluAst0 =
-  let f :: (ADModeAndNum d r, InterpretAst r)
+  let f :: (ADModeAndNum r, InterpretAst r)
         => ADVal (OR.Array 0 r) -> ADVal (OR.Array 0 r)
       f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
                          (barReluAst (AstVar [] (AstVarName 0)))
@@ -464,7 +464,7 @@ testBarReluAst0 =
 
 testBarReluAst1 :: Assertion
 testBarReluAst1 =
-  let f :: (ADModeAndNum d r, InterpretAst r)
+  let f :: (ADModeAndNum r, InterpretAst r)
         => ADVal (OR.Array 1 r) -> ADVal (OR.Array 1 r)
       f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
                          (barReluAst (AstVar [5] (AstVarName 0)))
@@ -479,7 +479,7 @@ konstReluAst x = tsum0 $ relu1 $ tkonst0N (7 :$ ZS) x
 
 testKonstReluAst :: Assertion
 testKonstReluAst =
-  let f :: (ADModeAndNum d r, InterpretAst r)
+  let f :: (ADModeAndNum r, InterpretAst r)
         => ADVal (OR.Array 0 r) -> ADVal (OR.Array 0 r)
       f x = interpretAst (IM.singleton 0 (AstVarR $ from1X x))
                          (konstReluAst (AstVar [] (AstVarName 0)))
