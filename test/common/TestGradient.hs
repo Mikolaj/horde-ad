@@ -23,7 +23,7 @@ import HordeAd.Core.DualClass (Dual)
 import HordeAd.Internal.TensorOps (tindex0D)
 
 import Tool.EqEpsilon
-import Tool.Shared
+import Tool.Prop
 
 import Disparity (costVolume)
 

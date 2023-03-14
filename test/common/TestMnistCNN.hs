@@ -29,7 +29,7 @@ import MnistData
 import OldMnistCnnShaped
 
 import Tool.EqEpsilon
-import Tool.Shared
+import Tool.Prop
 
 testTrees :: [TestTree]
 testTrees = [ mnistCNNTestsShort

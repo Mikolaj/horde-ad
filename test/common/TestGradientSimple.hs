@@ -21,7 +21,7 @@ import HordeAd
 import HordeAd.Core.DualClass (unsafeGetFreshId)
 
 import Tool.EqEpsilon
-import Tool.Shared
+import Tool.Prop
 
 testTrees :: [TestTree]
 testTrees = [ testDReverse0

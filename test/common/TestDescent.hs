@@ -13,7 +13,7 @@ import           Test.Tasty.HUnit hiding (assert)
 import HordeAd
 import HordeAd.Internal.TensorOps
 import Tool.EqEpsilon
-import Tool.Shared (quad)
+import Tool.Prop (quad)
 
 testTrees :: [TestTree]
 testTrees = [gdTestsRecord]

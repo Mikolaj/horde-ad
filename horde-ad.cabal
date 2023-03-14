@@ -224,7 +224,8 @@ library testCommonLibrary
     import:           options
 
     -- Modules exported by the library.
-    exposed-modules:  Tool.Shared
+    exposed-modules:  Tool.Prop
+                      Tool.Shared
                       Tool.EqEpsilon
                       TestConditionalSynth
                       TestDescentSimple
@@ -571,7 +572,8 @@ library testCommonLibrarySimplified
     else
       buildable: True
 
-    exposed-modules:  Tool.Shared
+    exposed-modules:  Tool.Prop
+                      Tool.Shared
                       Tool.EqEpsilon
                       TestConditionalSynth
                       TestDescentSimple

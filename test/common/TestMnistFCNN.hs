@@ -32,7 +32,7 @@ import MnistFcnnVector
 import OldMnistFcnnShaped
 
 import Tool.EqEpsilon
-import Tool.Shared
+import Tool.Prop
 
 testTrees :: [TestTree]
 testTrees = [ dumbMnistTests
