@@ -43,9 +43,10 @@ import           Data.IORef.Unboxed (Counter, atomicAddCounter_, newCounter)
 import           Data.MonoTraversable (Element, MonoFunctor)
 import qualified Data.Strict.Vector as Data.Vector
 import           GHC.TypeLits (KnownNat, type (+))
-import           Numeric.LinearAlgebra (Numeric)
 import           System.IO.Unsafe (unsafePerformIO)
 
+import HordeAd.Core.Ast
+import HordeAd.Core.AstVectorize ()
 import HordeAd.Core.Delta
 import HordeAd.Core.SizedIndex
 import HordeAd.Core.TensorClass
@@ -85,8 +86,13 @@ type IsPrimalAndHasInputs a r =
 type family Dual a = result | result -> a where
   Dual Double = Delta0 Double
   Dual Float = Delta0 Float
-  Dual (OT.Array r) = DeltaX r
-  Dual (OR.Array n r) = Delta1 n r
+-- TODO:  Dual (Ast 0 r) = Delta0 (Ast 0 r)  -- newtype?
+  Dual (OT.Array Double) = DeltaX Double
+  Dual (OT.Array Float) = DeltaX Float
+  Dual (OR.Array n Double) = Delta1 n Double
+  Dual (OR.Array n Float) = Delta1 n Float
+  Dual (AstDynamic r) = DeltaX (Ast 0 r)
+  Dual (Ast n r) = Delta1 n (Ast 0 r)
 
 -- A bit more verbose, but a bit faster than @data@, perhaps by chance.
 newtype DummyDual r = DummyDual ()
@@ -124,6 +130,22 @@ instance (IsPrimalR r, KnownNat n)
   dScale = dScaleR
   dAdd = dAddR
   recordSharing = recordSharingR
+
+-- An analogous hack for Ast.
+class IsPrimalA r where
+  dZeroA :: KnownNat n => Dual (Ast n r)
+  dScaleA :: KnownNat n
+          => Ast n r -> Dual (Ast n r) -> Dual (Ast n r)
+  dAddA :: KnownNat n
+        => Dual (Ast n r) -> Dual (Ast n r) -> Dual (Ast n r)
+  recordSharingA :: Dual (Ast n r) -> Dual (Ast n r)
+
+instance (IsPrimalA r, KnownNat n)
+         => IsPrimal (Ast n r) where
+  dZero = dZeroA
+  dScale = dScaleA
+  dAdd = dAddA
+  recordSharing = recordSharingA
 
 -- | Assuming that the type argument is the primal component of dual numbers
 -- this class makes available
@@ -297,6 +319,18 @@ instance IsPrimalR Float where
     Let1{} -> d  -- should not happen, but older/lower id is safer anyway
     _ -> wrapDelta1 d
 
+-- TODO: should this manage sharing of the terms?
+instance IsPrimalA Double where
+  dZeroA = Zero1
+  dScaleA = Scale1
+  dAddA = Add1
+  recordSharingA d = case d of
+    Zero1 -> d
+    Input1{} -> d
+    FromX1{} -> d
+    Let1{} -> d  -- should not happen, but older/lower id is safer anyway
+    _ -> wrapDelta1 d
+
 instance HasInputs Double where
   packDeltaDt t _tsh = DeltaDt0 t
   inputConstant r _tsh = r
@@ -305,8 +339,7 @@ instance HasInputs Float where
   packDeltaDt t _tsh = DeltaDt0 t
   inputConstant r _tsh = r
 
-instance (Numeric r, KnownNat n, ScalarOf r ~ r)
-         => HasInputs (OR.Array n r) where
+instance KnownNat n => HasInputs (OR.Array n Double) where
   packDeltaDt t tsh =
     let sh = OR.shapeL t
         sh' = OR.shapeL tsh
@@ -315,6 +348,20 @@ instance (Numeric r, KnownNat n, ScalarOf r ~ r)
                `swith` (sh, sh'))
        $ DeltaDt1 t
   inputConstant r tsh = OR.constant (OR.shapeL tsh) r
+
+instance KnownNat n => HasInputs (OR.Array n Float) where
+  packDeltaDt t tsh =
+    let sh = OR.shapeL t
+        sh' = OR.shapeL tsh
+    in assert (sh == sh'
+               `blame` "packDeltaDt: dt and codomain differ in shape: "
+               `swith` (sh, sh'))
+       $ DeltaDt1 t
+  inputConstant r tsh = OR.constant (OR.shapeL tsh) r
+
+instance KnownNat n => HasInputs (Ast n r) where
+  packDeltaDt t tsh = undefined  -- TODO: DeltaDt1 t  variable instead?
+  inputConstant r tsh = undefined  -- TODO: tkonst0N (tshape tsh) (tscalar r)
 
 -- | This is an impure instance. See above.
 instance HasRanks Double where
@@ -362,6 +409,39 @@ instance HasRanks Float where
   dIndexN = IndexN
   dSum1 = Sum1
   dScalar1 = Scalar1
+  dFromList1 = FromList1
+  dFromVector1 = FromVector1
+--  dFromList01 = FromList01
+--  dFromVector01 = FromVector01
+  dKonst1 = Konst1
+--  dKonst01 = Konst01
+  dAppend1 = Append1
+  dSlice1 = Slice1
+  dReverse1 = Reverse1
+  dTranspose1 = Transpose1
+  dReshape1 = Reshape1
+  dBuild1 = Build1
+--  dGather1 = Gather1
+  dGatherN = GatherN
+--  dScatter1 = Scatter1
+  dScatterN = ScatterN
+
+  dFromX1 = FromX1
+
+  dFrom1X = From1X
+
+instance HasRanks (Ast 0 r) where
+  dInput0 = undefined  --- no rank 0 terms
+  dIndex0 = undefined
+  dSum0 = undefined
+  dDot0 = undefined
+  dUnScalar0 = undefined
+
+  dInput1 = Input1
+--  dIndex1 = Index1
+  dIndexN = IndexN
+  dSum1 = Sum1
+  dScalar1 = undefined  -- TODO: Scalar1
   dFromList1 = FromList1
   dFromVector1 = FromVector1
 --  dFromList01 = FromList01
